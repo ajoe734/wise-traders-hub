@@ -1,70 +1,67 @@
-# 一勞永逸根治 quotaModal 卡死問題
+# GTM dataLayer 廣告事件埋設計畫
 
-## 老實說：這次是真的一勞永逸嗎？
+GTM 容器（`GTM-PBH8J4VD`）已在 `index.html` 載入，目前只在兩個結帳頁推 `Purchase`。內部分析已有 `src/lib/analytics/events.ts`（走 trafficTracker），但**廣告 / 媒體投放追蹤需要的是 GTM dataLayer**——兩者目的不同，需並行不取代。
 
-**是**——只要範圍涵蓋以下 6 個破口（前一版只列了 5 個，補上第 6 個）。少修任何一處，下次又會冒出來。
+## 一、建立統一推送工具
 
-但要先講清楚邊界：
-- 這個 plan **只修「quotaModal 全螢幕遮罩擋住整頁、上傳 tab 進不去」這條 UX bug 的所有變體**。
-- **不包含** 13 位舊用戶的補償 banner / 道歉 modal（那是另一條 conversion task，用戶上一輪已分開討論）。
-- **不包含** legendflow OA Messaging API channel 建置（缺 token，要等用戶提供）。
+新增 `src/lib/analytics/gtm.ts`：
 
-## 根因
+```ts
+export function gtmPush(event: string, params: Record<string, unknown> = {}) {
+  if (typeof window === 'undefined') return;
+  (window as any).dataLayer = (window as any).dataLayer || [];
+  (window as any).dataLayer.push({ event, ...params });
+}
+```
 
-`quotaModal` 是 `position:fixed; inset:0; zIndex:9999` 的全螢幕遮罩。三個 AI 路徑收到 429 都會觸發它（`L1026 predict` / `L1929 daily` / `L2351 parse`），而 `predict` 還是 **背景 useEffect 自動觸發**（`L1093`）—— 用戶一進 `/holding-checkup`，背景 predict 跑完拿到 429，modal 就蓋上來，連 tab bar 都點不到。配額已耗盡的 line_free 用戶（如 陳奎辰）100% 中招。
+理由：避免每個檔案重寫 `window.dataLayer.push`、方便日後加 `user_id` hash / consent 判斷 / debug。
 
-## 修復清單（6 點，缺一不可）
+## 二、要埋的關鍵節點（漏斗順序）
 
-### 1. 完全移除 `quotaModal` state + JSX
-- 刪 `L96` state、`L105-109` Esc handler
-- 刪 `L3360-3475` 整段 modal JSX
-- grep `quotaModal|setQuotaModal` 必須歸零
+| # | 事件名 | 觸發點（檔案） | 主要參數 |
+|---|---|---|---|
+| 1 | `Login` | `AuthContext.login` 成功後、`LineCallback` 兌換成功後 | `method: 'email' \| 'line'` |
+| 2 | `SignUp` | `AuthContext.register` 成功後 | `method: 'email'` |
+| 3 | `Function`（你提的「使用功能」） | 進入 `/app`、`/checkup`、`/app/research` 等首次互動 | `feature: 'checkup' \| 'app' \| 'research' \| 'log'` |
+| 4 | `ViewExpert` | `ExpertProfile` mount | `expert_slug` |
+| 5 | `ViewPricing` | `Pricing` / `CheckupCheckout` 頁載入 | `plan_id?` |
+| 6 | `BeginCheckout` | `Checkout` / `CheckupCheckout` 點「確認付款」當下 | `plan_id, amount, method` |
+| 7 | `Purchase` ✅ 已有 | 付款回呼成功頁 | 補上 `value, currency:'TWD', plan_id, transaction_id` |
+| 8 | `SubscribeExpertClick` | 專家頁訂閱 CTA | `expert_slug, plan_id?` |
+| 9 | `LineBindStart` / `LineBindSuccess` | LINE 綁定按鈕 / webhook callback 回前端 | `expert_slug?` |
+| 10 | `CheckupAnalysisRun` | 收盤分析 / 個股研究 / 深度研究 / 事件預測 成功回應 | `kind: 'daily' \| 'stock' \| 'deep' \| 'predict'` |
+| 11 | `QuotaBlocked` | 額度耗盡 toast 顯示時 | `kind, reason` |
+| 12 | `UpgradeClick` | 任何「升級 / 解鎖」CTA | `from` |
 
-### 2. 三個 429 觸發點改成「toast + refreshQuota，不阻擋導航」
-| 行號 | 路徑 | 新行為 |
-|---|---|---|
-| L2351 | parse（用戶主動） | `setSaved('LINE 註冊禮已用完，請查看升級方案')` 4 秒 + `refreshQuota()`；TradeTab inline banner 持續顯示 CTA |
-| L1929 | daily（用戶主動） | 同上，文案改 `AI 健檢配額已用完`；DailyTab inline banner 持續顯示 CTA |
-| L1026 | predict（背景自動） | `console.warn` + `refreshQuota()`，**完全不打擾 UI**（用戶沒按任何鍵） |
+> 1、6、7 是廣告（Meta / Google Ads）最常用的轉換事件；其他屬於再行銷與漏斗分析。
 
-### 3. 背景 predict 自動觸發要 early-return（核心遺漏點）
-`L1093 useEffect(() => runPredictEvents(false), ...)` 與 `L892 runPredictEvents` 內部，**在 `quota` 已載入且 `hasReachedDailyLimit === true` 時直接 return**，不發 edge call。
-- 避免每分鐘對伺服器送 429
-- 避免 line_free 用戶一進頁面就觸發配額耗盡 toast
-- `force=true`（手動刷新行事曆）仍走原路，給明確錯誤回饋
+## 三、與內部 analytics 的關係
 
-### 4. `parseShot` 改 await refresh 再判斷（消除 race）
-`L2310 parseShot` 開頭先 `const fresh = await refreshQuota()`，用 `fresh.remaining <= 0` 而不是 stale 的 `hasReachedDailyLimit` 判斷。避免「state 沒更新到、按鈕點下去才發 429」。
+- 內部 `track()`（`src/lib/analytics/events.ts`）→ 寫入自家 `traffic_events` 資料表。
+- GTM `gtmPush()` → 送給 Meta / Google Ads / GA4。
+- **同一個關鍵節點同時呼叫兩者**，由統一 helper 包起來（例如 `trackConversion('login', {...})` 內部一次推兩邊），避免日後遺漏。
 
-### 5. 上傳 tab 在配額耗盡時要有出路（避免「畫面空白沒持倉」感）
-TradeTab 在 `hasReachedDailyLimit === true` 時，inline banner 下方加一顆次要按鈕「← 查看我的持倉」`onClick={() => setTab('holdings')}`，讓用戶知道資料還在、可以切回去看。
+## 四、Consent / 隱私
 
-### 6. parse 按鈕在 quota 未載入前 disabled（前一版漏寫）
-`disabled={parsing || !isReady || hasReachedDailyLimit}`，避免 quota 還沒抓回來就被按。
+- 在 `gtmPush` 內檢查使用者是否已接受 cookie consent（目前專案若無 CMP，預設全部送出；之後加 CMP 只要改一個地方）。
+- 不送 PII：`user_id` 若要附帶，用 SHA-256 hash。
 
-## 驗證清單（窮舉，不准只挑樣本）
+## 五、QA
 
-| # | 動作 | 預期 |
-|---|---|---|
-| V1 | `rg -n "quotaModal\|setQuotaModal" src/` | 0 結果 |
-| V2 | 以 `line_free` 配額=0 帳號（陳奎辰）登入 `/holding-checkup` | 進站不彈窗、上傳 tab 能進、持倉 tab 正常顯示 |
-| V3 | 同帳號點上傳→選圖→解析 | toast 提示 + TradeTab banner CTA，**不出現遮罩** |
-| V4 | 同帳號切到收盤分析點「開始分析」 | toast + DailyTab banner CTA |
-| V5 | 同帳號背景 predict useEffect 觸發 | console.warn，**完全無 UI 變化、無 toast** |
-| V6 | 以 `pro` 配額耗盡帳號重做 V2-V5 | 行為一致（文案差異） |
-| V7 | 以 `william孫`（line_free 配額=1 未用）登入 | 上傳/解析正常成功、配額扣到 0、之後行為同 V2-V5 |
-| V8 | `bunx playwright test e2e/line-checkup-free-gift.spec.ts e2e/freecheckup-card.spec.ts` | 全綠 |
-| V9 | `bunx vitest run src/test/unit/daily-tab-line-free-copy.test.tsx src/test/unit/checkup-quota-display.test.tsx` | 全綠 |
-| V10 | `bunx playwright test --grep mobile` 或 `560/390/380px` 三斷點截圖 | TradeTab/DailyTab banner 不破版 |
+- 用 GTM Preview 模式 + Tag Assistant 一次走完 12 個事件。
+- 加 `src/test/unit/gtm-events.test.ts`：mock `window.dataLayer`，驗證每個 helper 呼叫後 push 的 payload schema。
 
-## 動到的檔案
+## 六、實作順序
 
-- `src/pages/FreeCheckup.jsx`（唯一檔案）
-- 視測試需要新增 1 個 unit test：`src/test/unit/freecheckup-quota-modal-removed.test.tsx`（grep 守護 + 三斷點 banner 渲染）
+1. 建 `gtm.ts` + 單元測試
+2. 補 Login / SignUp / Function（3 個最高優先）
+3. 強化既有 Purchase（補 value / transaction_id）+ 新增 BeginCheckout
+4. 其餘節點（Expert / Checkup / Quota）
+5. 文件：新增 `docs/gtm-events.md` 列出事件字典給行銷團隊在 GTM 設 Trigger
 
-## 不會動到的東西
+---
 
-- `CheckupModeContext.jsx`（state 流不變）
-- Edge functions（429 行為不變）
-- DB / RLS（不需 migration）
-- 13 位舊用戶補償流程（另一條 task）
+請確認：
+- 事件名稱要用你給的 `Login` / `Function` 這種 PascalCase？還是改 GA4 慣例的 `login` / `sign_up` / `begin_checkout` / `purchase`（推薦，GTM 內建範本可直接用）？
+- 第 7 點 Purchase 是否要帶金額與 transaction_id（Meta Conversions API / GA4 ecommerce 需要）？
+- 是否需要同時送 Meta Pixel / GA4 `gtag`，還是全部交給 GTM 在容器內分流？
