@@ -693,7 +693,7 @@ export function AIInsightSection({ insight, error, date, time }) {
           `${date} ${time}`
         )
       ),
-      h(Md, { text: insight, color: C.textSec })
+      h(Md, { text: insight, color: C.text })
     )
   }
 
