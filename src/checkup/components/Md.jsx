@@ -50,7 +50,7 @@ export default function Md({ text, color }) {
     while ((m = rx.exec(rest)) !== null) {
       if (m.index > last) parts.push(h('span', { key: k++ }, rest.slice(last, m.index)))
       if (m[1])
-        parts.push(h('strong', { key: k++, style: { color: C.text, fontWeight: 600 } }, m[1]))
+        parts.push(h('strong', { key: k++, style: { color: C.text, fontWeight: 700 } }, m[1]))
       else if (m[2]) parts.push(h('em', { key: k++, style: { fontStyle: 'italic' } }, m[2]))
       last = m.index + m[0].length
     }
