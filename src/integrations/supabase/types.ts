@@ -2178,6 +2178,27 @@ export type Database = {
           },
         ]
       }
+      processed_webhook_events: {
+        Row: {
+          delivery_id: string
+          id: string
+          processed_at: string
+          source: string
+        }
+        Insert: {
+          delivery_id: string
+          id?: string
+          processed_at?: string
+          source: string
+        }
+        Update: {
+          delivery_id?: string
+          id?: string
+          processed_at?: string
+          source?: string
+        }
+        Relationships: []
+      }
       profiles: {
         Row: {
           avatar_url: string | null
@@ -3109,6 +3130,7 @@ export type Database = {
       cleanup_old_announcements: { Args: never; Returns: undefined }
       cleanup_old_perf_metrics: { Args: never; Returns: undefined }
       cleanup_old_traffic: { Args: never; Returns: undefined }
+      cleanup_processed_webhook_events: { Args: never; Returns: number }
       consume_checkup_quota: {
         Args: { _kind?: string; _user_id: string }
         Returns: Json

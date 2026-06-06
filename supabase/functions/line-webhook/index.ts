@@ -91,6 +91,23 @@ Deno.serve(async (req) => {
       const lineUserId = event.source?.userId
       if (!lineUserId) continue
 
+      // P0 Idempotency: LINE 至少投遞一次，重投會重複綁定/扣量
+      // event.webhookEventId 是 LINE 全域唯一 ID；若無則用 replyToken+timestamp fallback
+      const deliveryId: string | null =
+        event.webhookEventId ||
+        (event.replyToken && event.timestamp ? `${event.replyToken}:${event.timestamp}` : null)
+      if (deliveryId) {
+        const { error: dedupError } = await supabase
+          .from('processed_webhook_events')
+          .insert({ source: 'line', delivery_id: deliveryId })
+        if (dedupError && (dedupError as { code?: string }).code === '23505') {
+          // Duplicate — already processed, skip silently
+          continue
+        }
+      }
+
+
+
       // Handle text message - check for binding code
       if (event.type === 'message' && event.message?.type === 'text' && event.replyToken) {
         const rawText = event.message.text.trim().toUpperCase()

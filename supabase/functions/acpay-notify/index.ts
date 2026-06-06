@@ -12,12 +12,15 @@ const handler = withLogging("acpay-notify", async (req, log) => {
     const params = parseXml(body);
 
     const merchantKey = Deno.env.get("ACPAY_MERCHANT_KEY")!;
-    if (params.sign) {
-      const expectedSign = await generateSign(params, merchantKey);
-      if (expectedSign !== params.sign) {
-        log.error("sign_mismatch");
-        return new Response("FAIL", { status: 200 });
-      }
+    // 簽章驗證強制 — 不接受未簽章請求（P0 防偽造）
+    if (!params.sign) {
+      log.error("sign_missing");
+      return new Response("FAIL", { status: 200 });
+    }
+    const expectedSign = await generateSign(params, merchantKey);
+    if (expectedSign !== params.sign) {
+      log.error("sign_mismatch");
+      return new Response("FAIL", { status: 200 });
     }
 
     const payResult = params.pay_result;
