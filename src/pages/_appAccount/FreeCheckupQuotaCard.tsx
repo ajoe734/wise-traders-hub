@@ -11,6 +11,8 @@ interface QuotaSnapshot {
   tier: string;
   period: string;
   limit: number;
+  base_limit?: number;
+  entitlement_total?: number;
   used: number;
   remaining: number;
   resets_at: string | null;
