@@ -109,12 +109,21 @@ function HoldingsQuotaMeterImpl(props) {
                   : <>使用 <span style={{ color: C.text, fontWeight: 500 }}>{used}</span> / {limit} 次・還剩 <span style={{ color: C.text, fontWeight: 500 }}>{remain}</span> 次・{formatResetCountdown(quota.resets_at)}</>)
           }
         </div>
-        {showUpgrade && (
-          <a href="/pricing#checkup" style={{
-            fontSize: 11, color: C.blue, textDecoration: 'none', letterSpacing: '0.02em',
-            padding: '3px 8px', border: `1px solid ${alpha(C.blue, '40')}`, borderRadius: 4,
-          }}>升級 →</a>
-        )}
+        <div style={{ display: 'flex', gap: 6, flexWrap: 'wrap', alignItems: 'center' }}>
+          {(tier === 'none' || tier === 'free') && (
+            <a href="/app/account#line" style={{
+              fontSize: 11, color: '#fff', background: '#06C755', textDecoration: 'none',
+              letterSpacing: '0.02em', padding: '4px 10px', borderRadius: 4, fontWeight: 500,
+              whiteSpace: 'nowrap',
+            }}>綁定 LINE 領免費 1 次</a>
+          )}
+          {showUpgrade && (
+            <a href="/pricing#checkup" style={{
+              fontSize: 11, color: C.blue, textDecoration: 'none', letterSpacing: '0.02em',
+              padding: '3px 8px', border: `1px solid ${alpha(C.blue, '40')}`, borderRadius: 4,
+            }}>升級 →</a>
+          )}
+        </div>
       </div>
       {!isNone && !isLineFree && remain === 1 && showUpgrade && (
         <div style={{
