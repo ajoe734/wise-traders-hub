@@ -7,7 +7,7 @@ export default function Md({ text, color }) {
   const lines = text.split('\n')
   const els = []
   let listItems = []
-  const textColor = color || C.textSec
+  const textColor = color || C.text
   const flushList = () => {
     if (listItems.length > 0) {
       els.push(
