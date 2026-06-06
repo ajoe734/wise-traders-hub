@@ -37,6 +37,8 @@ function HoldingsQuotaMeterImpl(props) {
 
   const used = Number(quota.used || 0);
   const limit = Math.max(Number(quota.limit || 0), 0);
+  const entitlementTotal = Math.max(Number(quota.entitlement_total || 0), 0);
+  const hasEntitlement = entitlementTotal > 0;
   const remain = Math.max(limit - used, 0);
   const pct = limit > 0 ? Math.min(100, Math.max(0, (used / limit) * 100)) : 100;
   const ratio = limit > 0 ? remain / limit : 0;
@@ -50,7 +52,7 @@ function HoldingsQuotaMeterImpl(props) {
   const upgradeBlurb = isNone
     ? '收盤分析為訂閱功能，訂閱 Basic（每週 1 次）或 Pro（每月 22 次）即可使用'
     : isLineFree
-      ? 'LINE 註冊禮已用完，升級 Basic（每週 1 次）或 Pro（每月 22 次）繼續使用'
+      ? '免費／補償額度已用完，升級 Basic（每週 1 次）或 Pro（每月 22 次）繼續使用'
       : tier === 'free'
         ? '想立即繼續？升級 Basic（每週 1 次）或 Pro（每月 22 次）'
         : '升級 Pro 即可每月使用 22 次';
