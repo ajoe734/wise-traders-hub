@@ -55,6 +55,13 @@ describe('成交上傳/解析 gate 與收盤分析配額嚴格分離', () => {
     expect(src).toMatch(/consumeCheckupQuota\([^,]+,\s*['"]daily-analysis['"]/);
   });
 
+  it('checkup-analyze edge：收盤分析主流程需優先走低延遲模型，避免 iPhone Safari Load failed', () => {
+    const src = read('supabase/functions/checkup-analyze/index.ts');
+    expect(src).toMatch(/const\s+preferFast\s*=\s*body\?\.kind\s*!==\s*['"]brain-update['"]/);
+    expect(src).toMatch(/callAI\(messages,\s*0\.3,\s*8192,\s*preferFast\)/);
+    expect(src).toMatch(/if\s*\(preferFast\)\s*\{[\s\S]*callGateway\(\)[\s\S]*callDirectGemini\(\)[\s\S]*callAnthropic\(\)/);
+  });
+
   it('CheckupModeContext：canUpload 仍是 mode !== "demo"（不可改成綁配額）', () => {
     const src = read('src/checkup/contexts/CheckupModeContext.jsx');
     expect(src).toMatch(/canUpload\s*=\s*mode\s*!==\s*['"]demo['"]/);
