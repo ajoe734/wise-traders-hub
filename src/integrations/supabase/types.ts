@@ -110,6 +110,45 @@ export type Database = {
         }
         Relationships: []
       }
+      checkup_entitlements: {
+        Row: {
+          amount: number
+          created_at: string
+          expires_at: string | null
+          granted_by: string | null
+          id: string
+          is_active: boolean
+          reason: string
+          source: string | null
+          updated_at: string
+          user_id: string
+        }
+        Insert: {
+          amount: number
+          created_at?: string
+          expires_at?: string | null
+          granted_by?: string | null
+          id?: string
+          is_active?: boolean
+          reason: string
+          source?: string | null
+          updated_at?: string
+          user_id: string
+        }
+        Update: {
+          amount?: number
+          created_at?: string
+          expires_at?: string | null
+          granted_by?: string | null
+          id?: string
+          is_active?: boolean
+          reason?: string
+          source?: string | null
+          updated_at?: string
+          user_id?: string
+        }
+        Relationships: []
+      }
       checkup_knowledge_candidates: {
         Row: {
           action: string | null

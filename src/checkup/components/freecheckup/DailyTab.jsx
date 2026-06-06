@@ -133,22 +133,24 @@ function DailyTabImpl({
                  cursor:hasReachedDailyLimit ? "not-allowed" : "pointer",
                  opacity:hasReachedDailyLimit ? 0.5 : 1,
                  letterSpacing:"0.04em"}}>
-                 {hasReachedDailyLimit ? `🔒 ${tier === 'none' ? '需訂閱方案' : tier === 'line_free' ? 'LINE 註冊禮已用完' : (quota?.period === 'week' ? '本週' : '本月') + '配額已用完'}` : "開始今日收盤分析"}
-                </button>
-                <div style={{fontSize:11,color:C.textMute,marginTop:10,opacity:0.75,lineHeight:1.7}}>
-                  {hasReachedDailyLimit
-                    ? <>
-                        {(tier !== 'none' && tier !== 'line_free') && formatResetCountdown(quota?.resets_at)}
-                        {tier === 'line_free' && <>LINE 註冊禮：第一次免費；第二次起需付費（已用完・使用日 {formatTaipeiYMD(quota?.last_used_at) || '尚未紀錄'}）</>}
-                        {tier === 'none' && '訂閱後即可開始使用'}
-                        {(tier === 'free' || tier === 'basic' || tier === 'line_free' || tier === 'none') && (
-                          <>　・　<a href="/pricing#checkup" style={{color:C.blue,textDecoration:"none"}}>查看訂閱方案 →</a></>
-                        )}
-                      </>
-                    : (tier === 'line_free'
-                        ? <>LINE 註冊禮：第一次免費；第二次起需付費・還可使用 <span style={{color:C.text,fontWeight:500}}>{Math.max((quota?.limit || 0) - (quota?.used || 0), 0)}</span> 次</>
-                        : "收盤後按下即可開始分析")}
-                </div>
+                  {hasReachedDailyLimit ? `🔒 ${tier === 'none' ? '需訂閱方案' : tier === 'line_free' ? '免費／補償額度已用完' : (quota?.period === 'week' ? '本週' : '本月') + '配額已用完'}` : "開始今日收盤分析"}
+                 </button>
+                 <div style={{fontSize:11,color:C.textMute,marginTop:10,opacity:0.75,lineHeight:1.7}}>
+                   {hasReachedDailyLimit
+                     ? <>
+                         {(tier !== 'none' && tier !== 'line_free') && formatResetCountdown(quota?.resets_at)}
+                         {tier === 'line_free' && <>免費／補償額度已用完（使用日 {formatTaipeiYMD(quota?.last_used_at) || '尚未紀錄'}）</>}
+                         {tier === 'none' && '訂閱後即可開始使用'}
+                         {(tier === 'free' || tier === 'basic' || tier === 'line_free' || tier === 'none') && (
+                           <>　・　<a href="/pricing#checkup" style={{color:C.blue,textDecoration:"none"}}>查看訂閱方案 →</a></>
+                         )}
+                       </>
+                     : (tier === 'line_free'
+                         ? ((Number(quota?.entitlement_total || 0) > 0)
+                             ? <>🎁 已回送補償額度・還可使用 <span style={{color:C.text,fontWeight:500}}>{Math.max((quota?.limit || 0) - (quota?.used || 0), 0)}</span> 次</>
+                             : <>LINE 註冊禮：第一次免費；第二次起需付費・還可使用 <span style={{color:C.text,fontWeight:500}}>{Math.max((quota?.limit || 0) - (quota?.used || 0), 0)}</span> 次</>)
+                         : "收盤後按下即可開始分析")}
+                 </div>
              </div>
             )}
 

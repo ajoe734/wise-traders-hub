@@ -1,41 +1,77 @@
+# 修復計畫：舊會員補償權益納入收盤分析配額
 
-# 補完成交上傳 / 解析 gate（這次不再漏）
+## 目標
+讓「舊會員／補償會員」在上傳成功後，能依實際補償權益使用收盤分析；不能再被誤顯示成「LINE 註冊禮 1/1 已用完」。
 
-## 為什麼上次沒修好（直接認）
-我上次只清掉 `useTradeCaptureRuntime.js` 的 `hasQuota === false`，但 **FreeCheckup.jsx 的 `parseShot()` 自己又再加了一條前端 quota gate**，把 line_free 用完的人擋在 edge 之前。後端 `checkup-parse` 本來就是 auth-only 不扣 quota，這條前端 gate 就是矛盾來源。截圖裡那行「AI 健檢配額已用完，請查看升級方案」就是它丟出來的 toast。
+## 會做的事
+1. **補上正式的補償權益來源**
+   - 新增一個專門承載健檢補償權益的資料來源，不再把補償會員硬塞進 `line_free` 或靠刪 `checkup_usage` 假裝恢復額度。
+   - 這個來源會能明確表示：
+     - 使用者是誰
+     - 補償類型／原因
+     - 額度數量
+     - 期間（終身 / 指定到期日）
+     - 是否啟用
 
-## 全範圍盤點（這次完整列）
-| 位置 | 動作 | 現況 | 應該 |
-|---|---|---|---|
-| `src/pages/FreeCheckup.jsx` L2319 `parseShot()` L2326-2333 | 截圖解析 | `refreshQuota` → `remaining<=0` → toast 擋 | **拿掉**（截圖解析 auth-only） |
-| `src/pages/FreeCheckup.jsx` L2361-2367 | 截圖解析 429 兜底 | OK（後端不會回 429，但保留無害） | 保留 |
-| `src/pages/FreeCheckup.jsx` L1714-1724 收盤分析按鈕 | 收盤分析 | `hasReachedDailyLimit` 擋 | **保留**（這條才是 quota 功能） |
-| `src/pages/FreeCheckup.jsx` L899 predict 自動觸發 | 預測事件 | 用 quota 擋自動觸發 | **保留** |
-| `src/pages/FreeCheckup.jsx` L1938 daily 429 toast | 收盤分析 | OK | 保留 |
-| `src/checkup/hooks/useTradeCaptureRuntime.js` | 上傳/解析 | 已修（無 hasQuota gate） | 保留 |
-| `src/checkup/components/freecheckup/TradeTab.jsx` L162 banner | 視覺提示 | 有顯示「不影響成交上傳」 | 保留 |
-| `src/checkup/components/trade/TradePanel.jsx`（/holding-checkup 入口） | 上傳/解析 | 無 quota gate | OK |
+2. **改寫 `check_checkup_quota` 的權益優先順序**
+   - 先判斷 tester
+   - 再判斷有效訂閱
+   - 再判斷補償權益
+   - 最後才退回 `line_free` 或 `none`
+   - 這樣 `checkup-analyze` 在扣點時，才會吃到正確權益，不會繼續把補償會員當成只有 LINE 註冊禮 1 次。
 
-## 要改的檔案
-1. **`src/pages/FreeCheckup.jsx`**
-   - `parseShot()` 移除 L2327-2333 的 `refreshQuota` + `remaining<=0` 前置攔截
-   - 截圖解析改為 auth-only，仍保留下方 429 兜底（防後端規則之後改變時不會炸版）
-   - 同時清掉 toast 文案不一致的部分（「AI 健檢配額已用完」放在錯誤情境）
+3. **同步修正前端文案與狀態卡**
+   - `FreeCheckupQuotaCard`、持倉看板上的 quota banner、收盤分析按鈕狀態，改成能顯示「補償額度／舊會員權益」而不是一律寫成 LINE 註冊禮。
+   - 若有補償額度，CTA 必須是可分析，不得再顯示升級阻擋訊息。
 
-2. **`src/test/unit/trade-upload-gate.test.ts`**
-   - 新增測試斷言：`src/pages/FreeCheckup.jsx` 內不可在「截圖解析」路徑上出現 `hasReachedDailyLimit` 或 `remaining\s*<=\s*0` 的前端攔截
-   - 斷言：toast 訊息「AI 健檢配額已用完」**不可** 出現在 `parseShot` 函式範圍內
-   - 維持原有 6 條鎖規則
+4. **保留既有 reset / reconcile，但降級為例外補救工具**
+   - admin reset / reconcile 仍保留，用來處理歷史異常扣點。
+   - 但不再當成舊會員正常 entitlement 模型。
 
-3. **`.lovable/plan.md`**
-   - 更新已修紀錄 + 標註「截圖解析 = auth-only」入正式憲法
+5. **補齊完整回歸測試**
+   - SQL 合約測試：補償權益存在時，`check_checkup_quota` 應回正確 tier/limit/remaining。
+   - Edge function 合約測試：`checkup-analyze` 對補償會員不得回 `QUOTA_EXCEEDED`。
+   - 前端單元測試：quota 卡、收盤分析 gate、文案顯示不能再誤判成 `line_free 已用完`。
+   - 掃描所有相關檔案，避免只修一處又漏另一處。
 
-## 驗證（窮舉，不挑樣本）
-- `rg "hasReachedDailyLimit|remaining\s*<=\s*0" src/pages/FreeCheckup.jsx`：確認只剩在「收盤分析」與「predict 自動觸發」兩處
-- `rg "AI 健檢配額已用完" src/pages/FreeCheckup.jsx`：確認只剩在收盤分析 429 兜底（L1938），不再出現在 parseShot 區塊
-- `bunx vitest run src/test/unit/trade-upload-gate.test.ts`：新規則綠燈
-- `bunx vitest run src/test/unit/checkup-quota-display.test.tsx src/test/unit/daily-tab-line-free-copy.test.tsx`：既有 quota 顯示 / line_free 文案不退步
-- 手動回歸：line_free 已用完帳號 → 上傳截圖 → 按「解析」→ 應正常呼叫 `checkup-parse` 並進入持倉編輯（不再出現「AI 健檢配額已用完」toast）；按「收盤分析」→ 仍正確被擋
+## 會改到的範圍
+- Database migrations
+  - `check_checkup_quota` 所在 migration 的新版本
+  - 新的補償權益表 / function / GRANT / RLS
+- Frontend
+  - `src/pages/_appAccount/FreeCheckupQuotaCard.tsx`
+  - `src/pages/FreeCheckup.jsx`
+  - 可能涉及持倉看板內 quota banner 的元件
+- Tests
+  - `src/test/integration/checkup-quota-rpc-contract.test.ts`
+  - 與 quota / analyze 相關的 integration / unit tests
+  - 需要新增補償會員案例
 
-## 完成標準
-line_free 用完 / tier=none / 補償會員：可上傳 **且可解析** 成交、可建立持倉、可寫日誌；**只有**「收盤分析 / predict-events」會被 quota 擋。
+## 技術細節
+```text
+權益判斷優先序
+1. tester
+2. active subscription
+3. compensated entitlement
+4. line_free gift
+5. none
+```
+
+```text
+目前錯誤點
+舊會員補償 = 沒有正式資料模型
+=> quota RPC 只能回 line_free / none
+=> 前端顯示已用完
+=> checkup-analyze 也真的擋掉
+```
+
+## 驗證清單
+- 補償會員：可上傳、可跑收盤分析
+- 補償會員：quota 卡顯示補償權益，不顯示 LINE 註冊禮已用完
+- 純 `line_free` 已用完者：仍正確被擋
+- basic / pro：仍維持原月 / 週配額
+- tester：仍維持 22 次
+- predict-events / parse / brain-update 不被這次修壞
+
+## 預期結果
+修完後，真正有回送／補償權益的舊會員，會被 quota 系統正確辨識並放行收盤分析；不會再出現你現在截圖這種「上傳成功，但還被當成 LINE 免費 1 次已用完」的錯誤。
