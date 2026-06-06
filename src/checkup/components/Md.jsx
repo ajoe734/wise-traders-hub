@@ -71,11 +71,12 @@ export default function Md({ text, color }) {
           {
             key: `h-${i}`,
             style: {
-              fontSize: sz,
-              fontWeight: 600,
+              fontSize: sz + 1,
+              fontWeight: 700,
               color: C.text,
               marginTop: lvl === 1 ? 12 : 8,
               marginBottom: 4,
+              letterSpacing: '0.02em',
             },
           },
           renderInline(txt)
