@@ -8,9 +8,10 @@ import { withLogging } from "../_shared/edgeLogger.ts";
 
 const GATEWAY_URL = 'https://ai.gateway.lovable.dev/v1/chat/completions';
 const ANTHROPIC_URL = 'https://api.anthropic.com/v1/messages';
-// 用戶要求最高級：Opus 4 為主，Sonnet 4 為次選（皆為 Anthropic 目前最強模型）
-const ANTHROPIC_MODELS = ['claude-opus-4-20250514', 'claude-sonnet-4-20250514'];
-const GATEWAY_MODELS = ['google/gemini-2.5-pro', 'google/gemini-2.5-flash', 'google/gemini-2.0-flash'];
+// iPhone Safari 長連線 fetch 容易在 20-40s 區間丟成「Load failed」，
+// 收盤分析必須優先走較低延遲模型，避免前端明明後端 200 還被 Safari 吃成 NETWORK_ERROR。
+const ANTHROPIC_MODELS = ['claude-sonnet-4-20250514', 'claude-opus-4-20250514'];
+const GATEWAY_MODELS = ['google/gemini-2.5-flash', 'google/gemini-2.5-pro', 'google/gemini-2.0-flash'];
 
 async function callClaude(messages: any[], temperature: number, maxTokens: number, anthropicKey: string): Promise<string> {
   const systemMsg = messages.find((m: any) => m.role === 'system');
@@ -47,20 +48,13 @@ async function callClaude(messages: any[], temperature: number, maxTokens: numbe
   return '';
 }
 
-async function callAI(messages: any[], temperature = 0.3, maxTokens = 8192): Promise<string> {
+async function callAI(messages: any[], temperature = 0.3, maxTokens = 8192, preferFast = false): Promise<string> {
   const anthropicKey = Deno.env.get('ANTHROPIC_API_KEY');
   const lovableKey = Deno.env.get('LOVABLE_API_KEY');
   const geminiKey = Deno.env.get('GOOGLE_GEMINI_API_KEY');
 
-  // Primary: Anthropic Claude (per user request — uses user's own Anthropic credits)
-  if (anthropicKey) {
-    const text = await callClaude(messages, temperature, maxTokens, anthropicKey);
-    if (text) return text;
-    console.warn('Claude failed across all models, falling back to Lovable Gateway / Gemini');
-  }
-
-  // Fallback 1: Lovable AI Gateway
-  if (lovableKey) {
+  const callGateway = async (): Promise<string> => {
+    if (!lovableKey) return '';
     for (const model of GATEWAY_MODELS) {
       try {
         const response = await fetch(GATEWAY_URL, {
@@ -69,16 +63,23 @@ async function callAI(messages: any[], temperature = 0.3, maxTokens = 8192): Pro
           body: JSON.stringify({ model, messages, temperature, max_tokens: maxTokens }),
         });
         if (response.status === 429) { console.log(`Gateway ${model} rate limited`); continue; }
-        if (!response.ok) { console.error(`Gateway ${model} failed (${response.status})`); continue; }
+        if (!response.ok) {
+          const errText = await response.text().catch(() => '');
+          console.error(`Gateway ${model} failed (${response.status}): ${errText.slice(0, 300)}`);
+          continue;
+        }
         const data = await response.json();
         const text = data.choices?.[0]?.message?.content?.trim();
         if (text) return text;
-      } catch (err) { console.error(`Gateway ${model} error:`, err); }
+      } catch (err) {
+        console.error(`Gateway ${model} error:`, err);
+      }
     }
-  }
+    return '';
+  };
 
-  // Fallback 2: Direct Gemini API
-  if (geminiKey) {
+  const callDirectGemini = async (): Promise<string> => {
+    if (!geminiKey) return '';
     const GEMINI_MODELS = ['gemini-2.5-flash', 'gemini-2.0-flash'];
     const systemMsg = messages.find((m: any) => m.role === 'system');
     const nonSystem = messages.filter((m: any) => m.role !== 'system');
@@ -101,7 +102,35 @@ async function callAI(messages: any[], temperature = 0.3, maxTokens = 8192): Pro
         if (text) return text;
       } catch {}
     }
+    return '';
+  };
+
+  const callAnthropic = async (): Promise<string> => {
+    if (!anthropicKey) return '';
+    const text = await callClaude(messages, temperature, maxTokens, anthropicKey);
+    if (!text) console.warn('Claude failed across all models');
+    return text;
+  };
+
+  if (preferFast) {
+    const fastText = await callGateway();
+    if (fastText) return fastText;
+    const geminiText = await callDirectGemini();
+    if (geminiText) return geminiText;
+    const claudeText = await callAnthropic();
+    if (claudeText) return claudeText;
+    return '';
   }
+
+  // Primary: Anthropic Claude（非互動式或不敏感延遲場景保留原優先級）
+  const claudeText = await callAnthropic();
+  if (claudeText) return claudeText;
+
+  const gatewayText = await callGateway();
+  if (gatewayText) return gatewayText;
+
+  const geminiText = await callDirectGemini();
+  if (geminiText) return geminiText;
 
   return '';
 }
@@ -197,7 +226,8 @@ const handler = withLogging('checkup-analyze', async (req, log) => {
     if (systemPrompt) messages.push({ role: 'system', content: systemPrompt });
     messages.push({ role: 'user', content: userPrompt });
 
-    const text = await callAI(messages, 0.3);
+    const preferFast = body?.kind !== 'brain-update';
+    const text = await callAI(messages, 0.3, 8192, preferFast);
 
     if (!text) {
       return new Response(JSON.stringify({ error: 'AI 分析失敗，所有模型均無法使用' }), {
