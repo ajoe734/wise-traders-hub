@@ -117,10 +117,17 @@ function inferReason(q: QuotaSnapshot | null, isTester?: boolean, isLine?: boole
     if (isTester) return '您是內部測試帳號，每月 22 次額度。';
   }
   switch (q.tier) {
-    case 'line_free':
-      return q.remaining > 0
-        ? '您是 LINE 註冊會員，享 1 次終身免費收盤分析。'
+    case 'line_free': {
+      const gifted = Number(q.entitlement_total || 0) > 0;
+      if (q.remaining > 0) {
+        return gifted
+          ? `🎁 我們已回送您 ${q.entitlement_total} 次補償額度，目前還可使用 ${q.remaining} 次免費收盤分析。`
+          : '您是 LINE 註冊會員，享 1 次終身免費收盤分析。';
+      }
+      return gifted
+        ? '您的免費／補償額度已用完，如需更多分析請訂閱付費方案。'
         : '您是 LINE 註冊會員的 1 次終身免費額度已使用完畢，如需更多分析請訂閱付費方案。';
+    }
     case 'basic':
     case 'pro':
       return q.remaining > 0
