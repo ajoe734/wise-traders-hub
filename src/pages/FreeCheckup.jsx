@@ -101,6 +101,10 @@ export default function App() {
     const t = setInterval(() => setQuotaTick(n => n + 1), 60000);
     return () => clearInterval(t);
   }, []);
+  useEffect(() => {
+    if (tab !== 'daily' || isDemo || !supabaseUser?.id) return;
+    refreshQuota?.().catch(() => {});
+  }, [tab, isDemo, supabaseUser?.id, refreshQuota]);
   const [ready, setReady] = useState(false);
 
   // AI 覆蓋的 meta（產業/策略/領頭/部位），優先於 STOCK_META
@@ -1717,8 +1721,18 @@ export default function App() {
       navigate('/auth/login?redirect=/checkup');
       return;
     }
-    if (hasReachedDailyLimit) {
-      setSaved("今日免費 AI 分析次數已用完，明天再來");
+    let liveQuota = quota;
+    if (!isDemo && supabaseUser?.id) {
+      try {
+        const refreshedQuota = await refreshQuota?.();
+        if (refreshedQuota) liveQuota = refreshedQuota;
+      } catch {}
+    }
+    const liveRemaining = Number(liveQuota?.remaining ?? remainingQuota ?? 0);
+    const liveTier = String(liveQuota?.tier || tier || 'guest');
+    const liveReachedDailyLimit = liveTier !== 'guest' && liveRemaining <= 0;
+    if (liveReachedDailyLimit) {
+      setSaved(liveTier === 'none' ? "目前方案無法使用收盤分析" : "目前可用分析額度已用完");
       setTimeout(() => setSaved(""), 4000);
       return;
     }

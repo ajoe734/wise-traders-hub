@@ -182,7 +182,7 @@ function DailyTabImpl({
               <div style={{display:"flex",gap:8,marginTop:12,flexWrap:"wrap"}}>
                 <button
                   onClick={handleDailyRetry}
-                  disabled={analyzing || dailyRetryLocked || hasReachedDailyLimit}
+                  disabled={analyzing || dailyRetryLocked}
                   aria-busy={analyzing || dailyRetryLocked}
                   title={dailyRetryLocked || analyzing ? '重試中，請稍候' : '重新嘗試收盤分析'}
                   style={{
@@ -190,8 +190,8 @@ function DailyTabImpl({
                     border:`1px solid ${alpha(C.teal,'40')}`,
                     background:alpha(C.teal,'08'),
                     color:C.teal,fontSize:12,fontWeight:400,
-                    cursor:(analyzing||dailyRetryLocked||hasReachedDailyLimit)?"not-allowed":"pointer",
-                    opacity:(analyzing||dailyRetryLocked||hasReachedDailyLimit)?0.5:1,
+                    cursor:(analyzing||dailyRetryLocked)?"not-allowed":"pointer",
+                    opacity:(analyzing||dailyRetryLocked)?0.5:1,
                     letterSpacing:"0.04em"}}>
                   {(analyzing || dailyRetryLocked) ? "重試中…" : "重試"}
                 </button>
