@@ -172,6 +172,7 @@ Deno.serve(async (req) => {
       `;
 
       const resendRes = await fetch('https://api.resend.com/emails', {
+        signal: AbortSignal.timeout(10000),
         method: 'POST',
         headers: {
           'Authorization': `Bearer ${resendKey}`,

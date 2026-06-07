@@ -55,6 +55,7 @@ Deno.serve(withLogging('checkup-mops-announcements', async (req) => {
     });
 
     const response = await fetch('https://mops.twse.com.tw/mops/web/ajax_t05st01', {
+      signal: AbortSignal.timeout(10000),
       method: 'POST',
       headers: {
         'User-Agent': 'Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36',

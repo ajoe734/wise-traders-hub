@@ -99,6 +99,7 @@ serve(async (req) => {
     // Exchange code for access token
     const callbackUrl = redirectUri || `${url.origin}/line-login-callback`;
     const tokenRes = await fetch('https://api.line.me/oauth2/v2.1/token', {
+      signal: AbortSignal.timeout(10000),
       method: 'POST',
       headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
       body: new URLSearchParams({
@@ -123,6 +124,7 @@ serve(async (req) => {
 
     // Get LINE profile
     const profileRes = await fetch('https://api.line.me/v2/profile', {
+      signal: AbortSignal.timeout(10000),
       headers: { Authorization: `Bearer ${tokenData.access_token}` },
     });
     const profile = await profileRes.json();
