@@ -125,8 +125,8 @@ const CompanySubscribers = () => {
         id?.line_user_id ? id.line_user_id.slice(-6) : '',
         s.user_id,
         s.plan_name,
-        s.started_at ? new Date(s.started_at).toLocaleDateString('zh-TW') : '-',
-        s.expires_at ? new Date(s.expires_at).toLocaleDateString('zh-TW') : '-',
+        formatTaipeiYMD(s.started_at) || '-',
+        formatTaipeiYMD(s.expires_at) || '-',
         s.status === 'active' ? '活躍' : s.status === 'expired' ? '已到期' : '已取消',
         s.auto_renew ? '自動' : '手動',
       ];
