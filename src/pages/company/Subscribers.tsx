@@ -231,8 +231,8 @@ const CompanySubscribers = () => {
                           </div>
                         </td>
                         <td className="p-4 text-sm">{sub.plan_name}</td>
-                        <td className="p-4 text-sm text-muted-foreground">{sub.started_at ? new Date(sub.started_at).toLocaleDateString('zh-TW') : '-'}</td>
-                        <td className="p-4 text-sm text-muted-foreground">{sub.expires_at ? new Date(sub.expires_at).toLocaleDateString('zh-TW') : '-'}</td>
+                        <td className="p-4 text-sm text-muted-foreground">{formatTaipeiYMD(sub.started_at) || '-'}</td>
+                        <td className="p-4 text-sm text-muted-foreground">{formatTaipeiYMD(sub.expires_at) || '-'}</td>
                         <td className="p-4">
                           {remaining != null ? (
                             <span className={`text-sm font-medium ${remaining <= 7 ? 'text-destructive' : remaining <= 30 ? 'text-yellow-600' : 'text-foreground'}`}>
