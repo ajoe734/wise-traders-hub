@@ -59,9 +59,10 @@ const ACTION_LABEL: Record<string, string> = {
 
 async function resolveSignal(id: string): Promise<OgData> {
   const { data } = await supabase
-    .from("signals")
-    .select("id, instrument, action, created_at, batch_id, experts:expert_id(name, slug, avatar_url)")
+    .from("expert_signals")
+    .select("id, instrument, action, created_at, published_at, experts:expert_id(name, slug, avatar_url)")
     .eq("id", id)
+    .eq("status", "published")
     .maybeSingle();
   if (!data) return defaultData(`/app/signal/${id}`);
   const exp: any = data.experts;
@@ -78,20 +79,22 @@ async function resolveSignal(id: string): Promise<OgData> {
       "@type": "Article",
       headline: title,
       author: exp?.name ? { "@type": "Person", name: exp.name } : undefined,
-      datePublished: data.created_at,
+      datePublished: data.published_at || data.created_at,
     },
   };
 }
 
 async function resolveJournal(id: string): Promise<OgData> {
   const { data } = await supabase
-    .from("signals")
-    .select("id, instrument, created_at, experts:expert_id(name, slug, avatar_url)")
+    .from("expert_signals")
+    .select("id, instrument, created_at, published_at, teaching_topic, experts:expert_id(name, slug, avatar_url)")
     .eq("id", id)
+    .eq("status", "published")
     .maybeSingle();
   if (!data) return defaultData(`/app/journal/${id}`);
   const exp: any = data.experts;
-  const title = `${data.instrument}｜${exp?.name || "導師"}週記 | legendflow`;
+  const topic = data.teaching_topic ? `｜${data.teaching_topic}` : "";
+  const title = `${data.instrument}${topic}｜${exp?.name || "導師"}週記 | legendflow`;
   return {
     title,
     description: `${exp?.name || "實戰導師"}的 ${data.instrument} 週記覆盤、策略思路與市場觀察。`,
@@ -103,7 +106,7 @@ async function resolveJournal(id: string): Promise<OgData> {
       "@type": "Article",
       headline: title,
       author: exp?.name ? { "@type": "Person", name: exp.name } : undefined,
-      datePublished: data.created_at,
+      datePublished: data.published_at || data.created_at,
     },
   };
 }
@@ -111,13 +114,18 @@ async function resolveJournal(id: string): Promise<OgData> {
 async function resolveExpert(slug: string): Promise<OgData> {
   const { data } = await supabase
     .from("experts")
-    .select("name, slug, role, tagline, bio, avatar_url")
+    .select("name, slug, role, description, bio, avatar_url, strategy_name")
     .eq("slug", slug)
+    .in("status", ["approved", "active"])
     .maybeSingle();
   if (!data) return defaultData(`/expert/${slug}`);
   const roleLabel = data.role === "mentor" ? "實戰導師" : "投顧分析師";
   const title = `${data.name}｜${roleLabel} | legendflow`;
-  const desc = data.tagline || data.bio?.slice(0, 120) || `${data.name} 的 legendflow 訂閱方案、績效與專業背景。`;
+  const desc =
+    data.description?.slice(0, 140) ||
+    data.bio?.slice(0, 140) ||
+    (data.strategy_name ? `${data.name}｜${data.strategy_name}` : null) ||
+    `${data.name} 的 legendflow 訂閱方案、績效與專業背景。`;
   return {
     title,
     description: desc,
@@ -144,15 +152,21 @@ async function resolvePlan(slug: string, planId: string): Promise<OgData> {
     .maybeSingle();
   if (!expert) return defaultData(`/plan/${slug}/${planId}`);
   const { data: plan } = await supabase
-    .from("plans")
-    .select("id, name, price, billing_cycle, description")
+    .from("expert_plans")
+    .select("id, name, price_monthly, price_yearly, description")
     .eq("id", planId)
     .eq("expert_id", expert.id)
+    .eq("is_active", true)
     .maybeSingle();
   if (!plan) return defaultData(`/expert/${slug}`);
   const title = `${plan.name}｜${expert.name} | legendflow`;
+  const priceTxt = plan.price_monthly
+    ? `NT$${plan.price_monthly}／月`
+    : plan.price_yearly
+      ? `NT$${plan.price_yearly}／年`
+      : "";
   const desc = plan.description?.slice(0, 140) ||
-    `${expert.name} 的「${plan.name}」訂閱方案，NT$${plan.price}／${plan.billing_cycle === "monthly" ? "月" : "期"}。`;
+    `${expert.name} 的「${plan.name}」訂閱方案${priceTxt ? `，${priceTxt}` : ""}。`;
   return {
     title,
     description: desc,
@@ -168,7 +182,7 @@ async function resolvePlan(slug: string, planId: string): Promise<OgData> {
       offers: {
         "@type": "Offer",
         priceCurrency: "TWD",
-        price: plan.price,
+        price: plan.price_monthly || plan.price_yearly || 0,
         availability: "https://schema.org/InStock",
       },
     },
