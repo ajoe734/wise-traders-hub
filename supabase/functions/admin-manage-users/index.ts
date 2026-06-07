@@ -71,6 +71,18 @@ Deno.serve(withLogging('admin-manage-users', async (req) => {
 
     const admin = serviceClient();
     const body = await req.json().catch(() => ({}));
+    const actionIssues = validateInput({
+      fields: {
+        action: {
+          required: true,
+          type: 'string',
+          oneOf: ['list', 'set_role', 'set_tester', 'set_banned', 'reset_password', 'update_profile', 'delete_user'],
+          label: 'action',
+        },
+      },
+      source: body,
+    });
+    if (actionIssues.length) return validationResponse(actionIssues, corsHeaders);
     const action = body?.action as string;
 
     if (action === 'list') {
