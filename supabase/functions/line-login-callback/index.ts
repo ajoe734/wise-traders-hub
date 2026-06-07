@@ -21,8 +21,8 @@ serve(withLogging('line-login-callback', async (req) => {
     const error = url.searchParams.get('error');
 
     // Resolve state via server-side nonce store (CSRF + replay protection).
-    // Legacy base64 payload accepted as one-release fallback so in-flight logins
-    // started before the cutover still succeed.
+    // S5 hardening: legacy base64 fallback removed — by now the cutover is complete
+    // and accepting attacker-crafted base64 state would bypass CSRF entirely.
     let returnTo = '/holding-checkup';
     let redirectUri = '';
     let appOrigin = '';
@@ -48,16 +48,7 @@ serve(withLogging('line-login-callback', async (req) => {
         if (!consumeErr && (count ?? 0) > 0) stateOk = true;
       }
       if (!stateOk) {
-        try {
-          const stateData = JSON.parse(atob(stateParam));
-          returnTo = stateData.return_to || '/holding-checkup';
-          redirectUri = stateData.redirect_uri || '';
-          appOrigin = stateData.app_origin || '';
-          console.warn('[LINE-CB-FN] state nonce miss; used legacy base64 fallback');
-          stateOk = true;
-        } catch {
-          console.warn('[LINE-CB-FN] state invalid (no nonce row, not base64)');
-        }
+        console.warn('[LINE-CB-FN] state invalid: missing/expired/consumed nonce row');
       }
     }
 
@@ -68,6 +59,7 @@ serve(withLogging('line-login-callback', async (req) => {
         headers: { Location: `${fallbackSite}/holding-checkup?line_error=invalid_state` },
       });
     }
+
 
     const safeReturnTo = returnTo.startsWith('/') ? returnTo : '/holding-checkup';
 
