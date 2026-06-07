@@ -3,6 +3,7 @@
 
 import { corsHeaders } from "https://esm.sh/@supabase/supabase-js@2.95.0/cors";
 import { sanitizeUserContent } from "../_shared/promptInjectionGuard.ts";
+import { validateInput, validationResponse } from '../_shared/inputValidator.ts';
 
 import { withLogging } from '../_shared/edgeLogger.ts';
 const FIELD_HINTS: Record<string, string> = {
