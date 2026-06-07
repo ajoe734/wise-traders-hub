@@ -152,3 +152,21 @@
   - `AddProviderDialog.tsx` 移除 `<SelectItem value="acpay">`。
   - 內部 type/SDK/handler 保留為 dead code（無 UI 入口可觸發）。
 - 20 `定期定額` 文案改寫：`pages/company/Payments.tsx:368` → 「一次性信用卡付款通道（手動續訂）」。
+
+---
+
+## Batch 5 完成（2026-06-07）— 機械式重構部分
+
+### E-BOILER-002（inline corsHeaders）✅ 31/32 完成
+全部 31 支列名 edge 已改用 `import { corsHeaders } from '../_shared/cors.ts'`：
+admin-manage-users, auto-cancel-failed-renewals, backfill-daily-snapshots, create-analyst, daily-performance, daily-snapshot, data-upsert, expire-subscriptions, knowledge-daily-scheduler, knowledge-draft-claude, knowledge-draft-scheduler, knowledge-full-audit, knowledge-promote-candidates, knowledge-validate, line-login-authorize, line-login-callback, line-login-exchange-nonce, line-push-renewal-reminder, line-push-signal, line-webhook, notify-backtest-result, prune-knowledge-base, publish-weekly-journals, setup-storage, stock-name-lookup, stock-price-sync, subscribe-renew-link, tpex-proxy, twse-proxy, update-analyst-credentials, validate-signal-prices。
+驗證：`grep -lE "^const corsHeaders\s*=" supabase/functions/*/index.ts` 已無殘留。
+
+### E-BOILER-001（inline createClient service-role）✅ 19 支完成
+改用 `serviceClient()`：admin-manage-users, backfill-daily-snapshots, knowledge-daily-scheduler, knowledge-draft-claude, knowledge-full-audit, line-login-authorize, line-login-callback, notify-backtest-result, subscribe-renew-link, cleanup-announcements-cron, create-analyst, daily-performance, expire-subscriptions, knowledge-draft-scheduler, knowledge-validate, publish-weekly-journals, refresh-targets-weekly, update-analyst-credentials, validate-signal-prices。
+保留：少數 user-scoped createClient（帶 Authorization header）暫不動，等 `userClient(req)` 全面回歸測試後再批次切。
+
+### 延後（需 handler 重構、獨立 PR）
+- **E-LOG-001（38 支 withLogging）**：每支 fn 須將 `Deno.serve(handler)` 改為 `Deno.serve(withLogging('fn-name', handler))` 並把所有 `new Response` 改成 `jsonResponse`/`errorResponse`，逐支驗證 log 行為。
+- **E-VALID-001（34 支 Zod 入參驗證）**：每支 fn body/query 需自訂 schema。
+建議下一個獨立 PR：批次 5 支×多輪迭代，每輪做完跑 `deno check` + 對應功能煙測。
