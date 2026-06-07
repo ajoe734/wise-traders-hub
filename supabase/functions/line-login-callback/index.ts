@@ -130,7 +130,7 @@ serve(async (req) => {
     const displayName = profile.displayName || 'LINE User';
     const pictureUrl = profile.pictureUrl || null;
 
-    const supabaseAdmin = createClient(SUPABASE_URL, SUPABASE_SERVICE_ROLE_KEY);
+    // supabaseAdmin already created above for state lookup
 
     // Check if there's already a profile with this line_user_id
     const { data: existingProfile } = await supabaseAdmin
