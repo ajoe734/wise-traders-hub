@@ -1,10 +1,13 @@
 // deno-lint-ignore-file
 import "jsr:@supabase/functions-js/edge-runtime.d.ts";
 import { validateInput, validationResponse } from "../_shared/inputValidator.ts";
+import { cacheGet, cacheSet } from '../_shared/memoryCache.ts';
 
 import { corsHeaders } from '../_shared/cors.ts';
 import { codedErrorResponse } from '../_shared/errorCodes.ts';
 import { withLogging } from '../_shared/edgeLogger.ts';
+
+const CACHE_TTL_MS = 5 * 60 * 1000;
 
 Deno.serve(withLogging('checkup-institutional', async (req) => {
   if (req.method === 'OPTIONS') return new Response(null, { headers: corsHeaders });
@@ -24,23 +27,30 @@ Deno.serve(withLogging('checkup-institutional', async (req) => {
     });
     if (issues.length) return validationResponse(issues, corsHeaders);
 
-
-    const twseUrl = `https://www.twse.com.tw/rwd/zh/fund/T86?date=${date}&rt=true`;
-    const response = await fetch(twseUrl, {
-      headers: {
-        'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36',
-        'Accept': 'application/json',
-      },
-    });
-
-    if (!response.ok) throw new Error(`TWSE API 回應錯誤：${response.status}`);
-    const data = await response.json();
+    const cacheKey = `institutional:${date}`;
+    let payload = cacheGet<{ available: boolean; data: unknown[]; fields: unknown[] }>(cacheKey);
+    if (!payload) {
+      const twseUrl = `https://www.twse.com.tw/rwd/zh/fund/T86?date=${date}&rt=true`;
+      const response = await fetch(twseUrl, {
+        signal: AbortSignal.timeout(10000),
+        headers: {
+          'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36',
+          'Accept': 'application/json',
+        },
+      });
+      if (!response.ok) throw new Error(`TWSE API 回應錯誤：${response.status}`);
+      const data = await response.json();
+      payload = {
+        available: !!data?.data,
+        data: data?.data || [],
+        fields: data?.fields || [],
+      };
+      cacheSet(cacheKey, payload, CACHE_TTL_MS);
+    }
 
     return new Response(JSON.stringify({
       date,
-      available: !!data?.data,
-      data: data?.data || [],
-      fields: data?.fields || [],
+      ...payload,
       fetchedAt: new Date().toISOString(),
     }), {
       headers: { ...corsHeaders, 'Content-Type': 'application/json' },
