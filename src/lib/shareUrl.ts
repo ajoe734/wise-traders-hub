@@ -11,10 +11,10 @@
  *   navigator.clipboard.writeText(url);
  */
 
-const SUPABASE_FN_BASE =
-  (import.meta.env.VITE_SUPABASE_URL as string | undefined)?.replace(/\/$/, "")
-    ? `${(import.meta.env.VITE_SUPABASE_URL as string).replace(/\/$/, "")}/functions/v1/share-og`
-    : "https://yqacmrgdjlenbijclngi.supabase.co/functions/v1/share-og";
+const SUPABASE_URL =
+  (import.meta.env.VITE_SUPABASE_URL as string | undefined)?.replace(/\/$/, "") ||
+  "https://yqacmrgdjlenbijclngi.supabase.co";
+const SUPABASE_FN_BASE = `${SUPABASE_URL}/functions/v1/share-og`;
 
 export type ShareTarget =
   | { kind: "signal"; id: string }
