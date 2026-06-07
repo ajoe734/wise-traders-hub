@@ -500,3 +500,46 @@ Warning 從 34 降到 28（剩餘皆為 by design + pg_trgm 維護視窗待排�
 ### 下一輪建議
 - **S7（Frontend error boundaries）**：頁面層 / Suspense 邊界 / 全域 ErrorBoundary 覆蓋率
 - **S1/S9/S10/S11**：清單見 plan.md
+
+---
+
+## S7 Frontend Error Boundaries（2026-06-07）
+
+### 範圍窮舉
+- `src/main.tsx` 根層、`src/App.tsx` Provider/Router 層
+- 既有 boundary：`RouteChunkBoundary`（chunk-only）、`src/checkup/components/ErrorBoundary.jsx`（HoldingsPage、AppShellFrame、AppPanels 內部使用）
+- 入口頁 `Index/Experts/Pricing/Checkout/CheckupCheckout/FreeCheckup/Login/...` 共 60+ lazy routes
+- Suspense fallback、SmartHomeRedirect、AuthProvider、ProtectedRoute
+- 全站 runtime sink：`bootstrapRuntimeDiagnostics`（window.error + unhandledrejection 已接 `captureClientDiagnostic`）
+
+### 發現
+
+**F-S7-01 CRITICAL：portal/auth/app/admin/company 路由無頂層 ErrorBoundary**
+- `RouteChunkBoundary` 是唯一頂層 boundary，但只處理 `isStaleChunkError(error)`；非 chunk error 會 `throw this.state.error` 往外丟。
+- 往外沒有任何 ErrorBoundary 接 → React 18 unhandled error 會直接 **整頁卸載 root**，使用者只看到白屏，且不會送出診斷（`bootstrapRuntimeDiagnostics` 只接 `window.onerror` / `unhandledrejection`，但 React render error 已被 boundary 捕獲一次後 re-throw，瀏覽器 `error` 事件對 React render 失敗的觸發行為不可靠）。
+- 影響：Index 以外所有 lazy 頁，任何 render error（例：`undefined.map`、`useContext` outside provider、API DTO 異常）都會白屏 + 無診斷追溯。
+- checkup `ErrorBoundary` 只覆蓋 `HoldingsPage / AppShellFrame / AppPanels` 三處子樹，portal/app/admin/company 完全裸奔。
+
+修法：新增 `src/components/AppErrorBoundary.tsx`，放在 `<ThemeProvider>` 內、`PersistQueryClientProvider`/`AppShell` 外，作為最終 fallback。
+- 跳過 chunk error（讓 `RouteChunkBoundary` 處理，避免雙重 fallback）
+- 呼叫 `captureClientDiagnostic('app-error-boundary', error, { componentStack, href })`，產生 diagnosticId 寫進 `localStorage` 並 enqueue 給遠端 sink（已串 `/company/function-logs`）
+- 顯示繁中友善頁：診斷編號、回首頁、重新整理兩個 CTA
+- 使用 semantic tokens（`bg-background` / `text-foreground` / `text-muted-foreground`），不寫死色票
+
+### 掃描但維持現狀（記錄）
+- `RouteChunkBoundary` 行為保留：chunk error 自動 reload + 顯示更新中 UI（與 AppErrorBoundary 互補，順序正確：chunk → RouteChunkBoundary 接住、其他 → 冒泡到 AppErrorBoundary）
+- checkup 內部 `ErrorBoundary.jsx` 維持原 scope 化用法（區塊級 fallback，可只 reset 子樹不整頁 reload）
+- Suspense fallback `RouteFallback` 為 loading spinner，與 error 路徑無關，不動
+- `bootstrapRuntimeDiagnostics` window/unhandledrejection 監聽保留，與新 boundary 雙重保險
+
+### 結果
+- 任意 React render error → AppErrorBoundary 接住 → 寫診斷 + 顯示 fallback，不再白屏
+- 診斷編號可在 `/company/function-logs` 反查 component stack 與 href
+- 既有 chunk recovery 路徑不受影響
+
+### Files Edited
+- `src/components/AppErrorBoundary.tsx`（新增）
+- `src/App.tsx`（import + 包裹 AppShell）
+
+### 下一輪建議
+- **S1/S9/S10/S11**：清單見 `.lovable/plan.md`

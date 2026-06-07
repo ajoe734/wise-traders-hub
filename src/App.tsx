@@ -31,6 +31,7 @@ import Index from "./pages/Index";
 import Legal from "./pages/Legal";
 import { ProtectedRoute } from "./components/ProtectedRoute";
 import { RouteChunkBoundary } from "./components/RouteChunkBoundary";
+import { AppErrorBoundary } from "./components/AppErrorBoundary";
 import { SmartHomeRedirect } from "./components/SmartHomeRedirect";
 import { ScrollToTop } from "./components/ScrollToTop";
 import { PerfMetricsTracker } from "./components/PerfMetricsTracker";
@@ -296,15 +297,17 @@ const AppShell = () => (
 
 const App = () => (
   <ThemeProvider attribute="class" defaultTheme="system" enableSystem>
-    {persistOptions ? (
-      <PersistQueryClientProvider client={queryClient} persistOptions={persistOptions}>
-        <AppShell />
-      </PersistQueryClientProvider>
-    ) : (
-      <QueryClientProvider client={queryClient}>
-        <AppShell />
-      </QueryClientProvider>
-    )}
+    <AppErrorBoundary>
+      {persistOptions ? (
+        <PersistQueryClientProvider client={queryClient} persistOptions={persistOptions}>
+          <AppShell />
+        </PersistQueryClientProvider>
+      ) : (
+        <QueryClientProvider client={queryClient}>
+          <AppShell />
+        </QueryClientProvider>
+      )}
+    </AppErrorBoundary>
   </ThemeProvider>
 );
 
