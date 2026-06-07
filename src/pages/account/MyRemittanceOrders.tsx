@@ -1,3 +1,4 @@
+import { SEO } from '@/components/SEO';
 import { useEffect, useMemo, useState } from "react";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { useGoBack } from "@/lib/backNav";
@@ -165,6 +166,7 @@ export default function MyRemittanceOrders() {
 
   return (
     <PortalLayout hideAppEntry hideHeader>
+      <SEO title="我的匯款訂單 | legendflow" description="查詢 legendflow 訂閱匯款訂單狀態與審核進度。" path="/account/remittance" noindex />
       <div className="container max-w-2xl py-8 space-y-6">
         <Button
           variant="ghost"

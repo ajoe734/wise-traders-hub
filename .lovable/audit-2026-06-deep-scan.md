@@ -686,3 +686,53 @@ Warning 從 34 降到 28（剩餘皆為 by design + pg_trgm 維護視窗待排�
 ### 下一輪建議
 - **S11 i18n / a11y / 對比度**
 - **S13 觀測與成本**（traffic_ingest PII / cold-start 儀表板）
+
+---
+
+## S10.1 Sitemap 一致性 + /app /account OG/title — 2026-06-07
+
+### 掃描範圍
+- `src/App.tsx` 全部 `<Route>`（76+ 條）
+- `public/sitemap.xml` 5 條 entries
+- /app/* 9 個受保護頁面：`AppHome` `Signals` `Journals` `SignalDetail` `JournalDetail` `Account` `Explore` `ExpertDetail` `AppCheckout`
+- /account/* 3 個頁面：`Profile` `MyRemittanceOrders` `Notifications`
+- /me 與 /me/*：純 `<Navigate to="/app/account" replace />`，無 render，不需 SEO
+
+### 發現
+- **F-S10.1-01 MEDIUM（已修）**：無自動化檢查防止 sitemap 列出已刪除/redirect 路由（先前 `/free-checkup` 已過時案例）。
+- **F-S10.1-02 MEDIUM（已修）**：12 個受保護頁面（/app/* + /account/*）皆無 `<title>` 與 OG meta，分享 / 收藏 / tab 名稱全部顯示 index.html 預設「legendflow · 投顧分析師與實戰導師訂閱平台」，無法辨識頁面。
+
+### 修補
+- **新增 `scripts/sitemap-consistency-check.ts`**：
+  - 解析 `src/App.tsx` 全部 `<Route path=...>`，分類為 real / redirect (`<Navigate>` 或 `LegacyFreeCheckupRedirect`) / gated (`ProtectedRoute`) / dynamic (`:param`) / 巢狀子路由。
+  - 比對 `public/sitemap.xml` 每筆 `<loc>`：必須對應到 real route，不得是 redirect / gated / 不存在 path。
+  - 反向警告：公開 real route 未列在 sitemap 會 warning（不 fail；/auth/* 自動略過）。
+  - 結果：`✓ sitemap 一致性 OK（5 entries vs 10 routes）`。
+- **`package.json` 新增 `check:sitemap` script**：`bunx tsx scripts/sitemap-consistency-check.ts`，未來可選擇掛 CI / prebuild。
+- **12 個受保護頁面加 `<SEO ... noindex />`**：
+  - 靜態頁：`AppHome` `Signals` `Journals` `Account` `Explore` `Profile` `MyRemittanceOrders` `Notifications` — 寫死 title/description
+  - 動態頁：`SignalDetail`（用 `signal.instrument` + action）、`JournalDetail`（用 `signal.instrument`）、`ExpertDetail`（用 `expert.name` + role + `avatarUrl` 當 og:image）、`AppCheckout`（用 `planData.name` + `expert.name`）
+  - 全數設 `noindex`：受保護頁面進 Google 索引只會是登入頁殼，無意義。
+  - 動態頁 type 設 `article` / `profile`，符合 schema 推薦。
+
+### Files Edited / Added
+- 新增：`scripts/sitemap-consistency-check.ts`
+- 編輯：`package.json`
+- 編輯（加 SEO import + JSX）：
+  - `src/pages/app/AppHome.tsx` / `Signals.tsx` / `Journals.tsx` / `SignalDetail.tsx` / `JournalDetail.tsx` / `Account.tsx` / `Explore.tsx` / `ExpertDetail.tsx` / `AppCheckout.tsx`
+  - `src/pages/account/Profile.tsx` / `MyRemittanceOrders.tsx` / `Notifications.tsx`
+
+### 驗證
+- `bun run check:sitemap` → ✓ pass
+- `bun run build` → ✓ pass（無 TS 錯誤）
+- ExpertDetail TS 修正：`PersonWithPlans` 是 camelCase `avatarUrl`，非 `avatar_url`。
+
+### 後續建議
+- 把 `check:sitemap` 接到 CI（同 `check:freecheckup-rwd`）。
+- /admin/* /company/* 大量受保護後台頁尚未加 SEO；目前 tab 名都顯示 site 預設標題。可後續批次處理但優先級低。
+- 動態 SEO（/app/signal/:id 等）社交分享受限於 SPA：crawler 不執行 JS，看到的仍是 index.html 預設 OG。要修需走 SSR/edge prerender。
+
+### 下一輪建議
+- **S11 i18n / a11y / 對比度**
+- **S13 觀測與成本**（traffic_ingest PII / cold-start 儀表板）
+- /admin/* /company/* 批次補 SEO（低優先）

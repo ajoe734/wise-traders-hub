@@ -1,3 +1,4 @@
+import { SEO } from '@/components/SEO';
 import { useEffect, useMemo, useState } from 'react';
 import { Link } from 'react-router-dom';
 import { UnifiedAppLayout, markAppJournalsAsRead } from '@/components/layouts/UnifiedAppLayout';
@@ -142,6 +143,7 @@ const Journals = () => {
 
   return (
     <UnifiedAppLayout>
+      <SEO title="導師週記 | legendflow" description="檢視已訂閱實戰導師的最新週記教學與覆盤分享。" path="/app/journals" noindex />
       <div className="p-4 space-y-4">
         <div className="flex items-center gap-2 mb-2">
           <BookOpen className="h-5 w-5 text-mentor" />

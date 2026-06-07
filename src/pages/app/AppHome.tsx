@@ -1,3 +1,4 @@
+import { SEO } from '@/components/SEO';
 import { Link } from 'react-router-dom';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
@@ -112,6 +113,7 @@ const AppHome = () => {
 
   return (
     <UnifiedAppLayout>
+      <SEO title="會員首頁 | legendflow" description="legendflow 會員主頁：訂閱專家、即時策略訊號、實戰導師週記與帳號管理。" path="/app" noindex />
       <div className="p-4 space-y-6 max-w-lg mx-auto pb-24">
         {/* Announcement Banner */}
         <AnnouncementBanner />

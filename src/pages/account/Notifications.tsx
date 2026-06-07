@@ -1,3 +1,4 @@
+import { SEO } from '@/components/SEO';
 import { useEffect } from 'react';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { trackRaw } from '@/lib/analytics/events';
@@ -133,6 +134,7 @@ export default function AccountNotifications() {
 
   return (
     <div className="container mx-auto max-w-3xl py-8 px-4">
+      <SEO title="提醒中心 | legendflow" description="檢視 legendflow 訂閱、訊號與系統提醒訊息。" path="/account/notifications" noindex />
       <div className="mb-6 flex items-center gap-3">
         <Bell className="h-6 w-6" />
         <h1 className="text-2xl font-medium">提醒中心</h1>

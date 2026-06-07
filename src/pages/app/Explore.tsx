@@ -1,3 +1,4 @@
+import { SEO } from '@/components/SEO';
 import { useState } from "react";
 import { Link } from "react-router-dom";
 import { UnifiedAppLayout } from "@/components/layouts/UnifiedAppLayout";
@@ -31,6 +32,7 @@ const Explore = () => {
 
   return (
     <UnifiedAppLayout>
+      <SEO title="探索專家 | legendflow" description="瀏覽 legendflow 全部投顧分析師與實戰導師，挑選適合的訂閱方案。" path="/app/explore" noindex />
       <div className="p-4 pb-24 space-y-6">
         <div>
           <h1 className="text-2xl font-bold">探索專家</h1>

@@ -1,3 +1,4 @@
+import { SEO } from '@/components/SEO';
 import { useState, useRef, useEffect } from 'react';
 import { Link } from 'react-router-dom';
 import { PortalLayout } from '@/components/layouts/PortalLayout';
@@ -120,6 +121,7 @@ const AccountProfile = () => {
 
   return (
     <PortalLayout hideHeader>
+      <SEO title="個人資料 | legendflow" description="管理 legendflow 帳號的暱稱、頭像與基本資料。" path="/account/profile" noindex />
       <div className="container py-8 md:py-12 max-w-2xl">
         <div className="mb-8">
           <h1 className="text-2xl md:text-3xl font-bold mb-2">個人資料</h1>

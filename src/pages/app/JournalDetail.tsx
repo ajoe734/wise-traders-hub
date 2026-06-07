@@ -1,3 +1,4 @@
+import { SEO } from '@/components/SEO';
 import { useEffect, useState } from 'react';
 import { useParams, useSearchParams } from 'react-router-dom';
 import { UnifiedAppLayout, markAppJournalsAsRead } from '@/components/layouts/UnifiedAppLayout';
@@ -168,6 +169,13 @@ const JournalDetail = () => {
 
   return (
     <UnifiedAppLayout>
+      <SEO
+        title={`${(signal as any)?.instrument || '導師週記'}｜週記詳情 | legendflow`}
+        description={`${(signal as any)?.instrument || ''} 實戰導師週記覆盤、策略思路與市場觀察。`}
+        path={`/app/journal/${id || ''}`}
+        type="article"
+        noindex
+      />
       {isPreview && (
         <div className="sticky top-0 z-50 bg-amber-500 text-amber-50 px-4 py-2 text-sm flex items-center justify-center gap-2 shadow">
           <Eye className="h-4 w-4" />

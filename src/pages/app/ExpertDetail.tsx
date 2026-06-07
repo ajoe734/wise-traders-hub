@@ -1,3 +1,4 @@
+import { SEO } from '@/components/SEO';
 import { useParams, useNavigate } from "react-router-dom";
 import { useState, useEffect } from "react";
 import { UnifiedAppLayout } from "@/components/layouts/UnifiedAppLayout";
@@ -140,6 +141,14 @@ const AppExpertDetail = () => {
 
   return (
     <UnifiedAppLayout>
+      <SEO
+        title={`${expert?.name || '專家'}｜${isAdvisor ? '投顧分析師' : '實戰導師'} | legendflow`}
+        description={`${expert?.name || ''} 的訂閱方案、績效與專業背景。${isAdvisor ? '即時策略訊號訂閱。' : '實戰週記教學訂閱。'}`}
+        path={`/app/expert/${slug || ''}`}
+        type="profile"
+        image={(expert as any)?.avatarUrl || undefined}
+        noindex
+      />
       <div className="p-4 space-y-6 pb-24">
         <Button variant="ghost" size="sm" onClick={() => navigate("/app/explore")} className="gap-2 -ml-2">
           <ArrowLeft className="h-4 w-4" />返回探索名師
