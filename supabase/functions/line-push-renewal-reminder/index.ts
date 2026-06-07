@@ -183,7 +183,26 @@ Deno.serve(async (req) => {
         t.sub.expires_at!, t.amount, renewUrl,
       )
 
+      // Idempotency: skip if this (sub, days_left) reminder was already sent today (UTC+8).
+      // Defends against double cron runs and manual re-triggers.
+      const tzOffsetMs = 8 * 60 * 60 * 1000;
+      const dayStart = new Date(Math.floor((Date.now() + tzOffsetMs) / 86400000) * 86400000 - tzOffsetMs);
+      const { data: dupe } = await supabaseAdmin
+        .from('audit_logs')
+        .select('id')
+        .eq('action', 'subscription.renewal_reminder_sent')
+        .eq('target_id', t.sub.id)
+        .gte('created_at', dayStart.toISOString())
+        .contains('detail', { days_left: t.daysLeft })
+        .limit(1)
+        .maybeSingle();
+      if (dupe) {
+        results.push({ sub_id: t.sub.id, days_left: t.daysLeft, status: 'skipped_dedupe' });
+        continue;
+      }
+
       const res = await fetch('https://api.line.me/v2/bot/message/push', {
+        signal: AbortSignal.timeout(10000),
         method: 'POST',
         headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${token}` },
         body: JSON.stringify({ to: binding.line_user_id, messages: [message] }),
