@@ -8,13 +8,17 @@ const CheckupModeContext = createContext(null)
  * Mode (legacy, kept for compatibility):
  *   'demo'      → not authenticated
  *   'line_only' → LINE user without friend (kept for the OA-friend nudge)
- *   'full'      → authenticated (any tier ≥ free)
+ *   'full'      → authenticated (any tier ≥ free) with full access
  *
- * Tier (new, for paywall logic):
- *   'guest' | 'free' | 'basic' | 'pro'
+ * Tier (canonical, drives paywall logic — keep in sync with `check_checkup_quota` RPC):
+ *   'guest'     → 未登入訪客（demo）
+ *   'none'      → 已登入但未訂閱（不要假設 free 製造幽靈額度，見 B-29）
+ *   'line_free' → LINE 註冊禮（一次性免費額度）
+ *   'free'      → 顯式 free plan（極少數情境）
+ *   'basic' | 'pro' → 付費方案
  *
  * Quota (from check_checkup_quota RPC):
- *   { tier, period: 'week'|'month', limit, used, remaining, resets_at }
+ *   { tier, period: 'week'|'month'|'lifetime', limit, used, remaining, resets_at }
  */
 export function CheckupModeProvider({ children }) {
   const [mode, setMode] = useState('demo')
