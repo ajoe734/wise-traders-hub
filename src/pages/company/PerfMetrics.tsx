@@ -1,3 +1,4 @@
+import { SEO } from '@/components/SEO';
 import { lazy, Suspense, useState } from 'react';
 import { CompanyLayout } from '@/components/layouts/CompanyLayout';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
@@ -81,6 +82,7 @@ export default function PerfMetricsPage() {
 
   return (
     <CompanyLayout>
+      <SEO title={'前端效能 | legendflow'} description={'前端 FCP/LCP RUM 儀表板。'} path={'/company/perf-metrics'} noindex />
       <div className="flex items-center justify-between mb-6">
         <div className="flex items-center gap-3">
           <Gauge className="h-5 w-5" />

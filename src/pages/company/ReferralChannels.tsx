@@ -1,3 +1,4 @@
+import { SEO } from '@/components/SEO';
 import { CompanyLayout } from '@/components/layouts/CompanyLayout';
 import { Card } from '@/components/ui/card';
 import { Link } from 'react-router-dom';
@@ -9,6 +10,7 @@ import { Link } from 'react-router-dom';
 export default function CompanyReferralChannels() {
   return (
     <CompanyLayout>
+      <SEO title={'推薦通道 | legendflow'} description={'推薦來源通道管理。'} path={'/company/referral-channels'} noindex />
       <div className="p-6 max-w-2xl mx-auto">
         <Card className="p-8 space-y-3">
           <h1 className="text-xl font-semibold">通路分潤功能已停用</h1>

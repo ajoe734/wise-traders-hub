@@ -1,3 +1,4 @@
+import { SEO } from '@/components/SEO';
 import { useState } from 'react';
 import { CompanyLayout } from '@/components/layouts/CompanyLayout';
 import { Card, CardContent } from '@/components/ui/card';
@@ -107,6 +108,7 @@ const CompanyAnnouncements = () => {
 
   return (
     <CompanyLayout>
+      <SEO title={'系統公告 | legendflow'} description={'平台系統公告管理。'} path={'/company/announcements'} noindex />
       <div className="space-y-6">
         <div className="flex items-center justify-between">
           <div>

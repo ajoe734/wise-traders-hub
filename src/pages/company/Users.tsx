@@ -1,3 +1,4 @@
+import { SEO } from '@/components/SEO';
 import { useEffect, useState, useCallback } from 'react';
 import { useQuery, useQueryClient, keepPreviousData } from '@tanstack/react-query';
 import { CompanyLayout } from '@/components/layouts/CompanyLayout';
@@ -180,6 +181,7 @@ export default function CompanyUsers() {
 
   return (
     <CompanyLayout>
+      <SEO title={'使用者管理 | legendflow'} description={'所有平台使用者與角色管理。'} path={'/company/users'} noindex />
       <div className="space-y-6">
         <div className="flex items-center justify-between">
           <div>

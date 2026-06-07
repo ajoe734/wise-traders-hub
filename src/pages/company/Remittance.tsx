@@ -1,3 +1,4 @@
+import { SEO } from '@/components/SEO';
 import { useState } from 'react';
 import { useQuery, useQueryClient } from '@tanstack/react-query';
 import { CompanyLayout } from '@/components/layouts/CompanyLayout';
@@ -141,6 +142,7 @@ export default function CompanyRemittance() {
 
   return (
     <CompanyLayout>
+      <SEO title={'匯款管理 | legendflow'} description={'匯款訂單審核與對帳。'} path={'/company/remittance'} noindex />
       <div className="p-6 max-w-6xl mx-auto space-y-4">
         <div className="flex items-center justify-between">
           <h1 className="text-2xl font-semibold">匯款審核</h1>

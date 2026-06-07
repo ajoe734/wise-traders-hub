@@ -1,3 +1,4 @@
+import { SEO } from '@/components/SEO';
 import React, { useState } from 'react';
 import { useParams } from 'react-router-dom';
 import { useQuery, useQueryClient } from '@tanstack/react-query';
@@ -139,6 +140,7 @@ const ReasonTemplates = () => {
 
   return (
     <AdminLayout>
+      <SEO title={`${expertSlug || ''} 理由範本 | legendflow`} description={'管理訊號發布的常用理由範本。'} path={`/admin/${expertSlug || ''}/reason-templates`} noindex />
       <div className="space-y-6">
         <div className="flex items-center justify-between">
           <div>

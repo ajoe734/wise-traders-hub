@@ -1,3 +1,4 @@
+import { SEO } from '@/components/SEO';
 import { useMemo, useState } from 'react';
 import { CompanyLayout } from '@/components/layouts/CompanyLayout';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
@@ -89,6 +90,7 @@ export default function CheckupUsagePage() {
 
   return (
     <CompanyLayout>
+      <SEO title={'診斷用量 | legendflow'} description={'AI 持倉診斷用量統計。'} path={'/company/checkup-usage'} noindex />
       <div className="space-y-6">
         <div className="flex items-start justify-between gap-4 flex-wrap">
           <div>

@@ -1,3 +1,4 @@
+import { SEO } from '@/components/SEO';
 import { useMemo, useState } from 'react';
 import { useQuery, keepPreviousData } from '@tanstack/react-query';
 import { Link } from 'react-router-dom';
@@ -188,6 +189,7 @@ const AuditLogsPage = () => {
 
   return (
     <CompanyLayout>
+      <SEO title={'稽核日誌 | legendflow'} description={'平台操作稽核紀錄。'} path={'/company/audit-logs'} noindex />
       <div className="space-y-6">
         <div className="flex items-start justify-between flex-wrap gap-4">
           <div>

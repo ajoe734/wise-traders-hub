@@ -1,3 +1,4 @@
+import { SEO } from '@/components/SEO';
 import { lazy, Suspense, useMemo, useState, useEffect } from 'react';
 import { useQuery } from '@tanstack/react-query';
 import { CompanyLayout } from '@/components/layouts/CompanyLayout';
@@ -244,6 +245,7 @@ export default function CompanyTraffic() {
 
   return (
     <CompanyLayout>
+      <SEO title={'流量分析 | legendflow'} description={'平台流量與行為分析。'} path={'/company/traffic'} noindex />
       <div className="p-6 space-y-6 max-w-7xl mx-auto">
         <div className="flex items-center justify-between flex-wrap gap-3">
           <div>

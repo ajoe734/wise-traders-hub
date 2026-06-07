@@ -1,3 +1,4 @@
+import { SEO } from '@/components/SEO';
 import React, { useState } from 'react';
 import { useParams } from 'react-router-dom';
 import { useQuery, useQueryClient } from '@tanstack/react-query';
@@ -155,6 +156,7 @@ const AdminSignalTemplates = () => {
 
   return (
     <AdminLayout>
+      <SEO title={`${expertSlug || ''} 訊號範本 | legendflow`} description={'管理訊號模板（標的、進出場條件）。'} path={`/admin/${expertSlug || ''}/signal-templates`} noindex />
       <div className="space-y-6">
         <div className="flex items-center justify-between">
           <div>

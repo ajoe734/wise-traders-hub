@@ -1,3 +1,4 @@
+import { SEO } from '@/components/SEO';
 import { useMemo, useState } from 'react';
 import { CompanyLayout } from '@/components/layouts/CompanyLayout';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
@@ -122,6 +123,7 @@ export default function MissingPricesPage() {
 
   return (
     <CompanyLayout>
+      <SEO title={'缺價追蹤 | legendflow'} description={'股價缺漏監控與補抓。'} path={'/company/missing-prices'} noindex />
       <div className="space-y-4">
         <div className="flex items-center justify-between">
           <div>

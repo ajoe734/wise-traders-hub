@@ -1,3 +1,4 @@
+import { SEO } from '@/components/SEO';
 import { CompanyLayout } from '@/components/layouts/CompanyLayout';
 import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
@@ -33,6 +34,7 @@ const CompanyRevenue = () => {
 
   return (
     <CompanyLayout>
+      <SEO title={'營收儀表 | legendflow'} description={'平台營收與 MRR 統計。'} path={'/company/revenue'} noindex />
       <div className="space-y-6">
         <div className="flex items-center justify-between flex-wrap gap-3">
           <div>

@@ -1,3 +1,4 @@
+import { SEO } from '@/components/SEO';
 import { CompanyLayout } from '@/components/layouts/CompanyLayout';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
@@ -72,6 +73,7 @@ const CompanyDashboard = () => {
 
   return (
     <CompanyLayout>
+      <SEO title={'公司後台首頁 | legendflow'} description={'平台營運總覽。'} path={'/company'} noindex />
       <div className="space-y-6">
         <div>
           <h1 className="text-2xl font-bold">公司總覽</h1>

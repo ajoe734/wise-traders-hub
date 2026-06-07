@@ -1,3 +1,4 @@
+import { SEO } from '@/components/SEO';
 import { useState } from 'react';
 import { CompanyLayout } from '@/components/layouts/CompanyLayout';
 import { Button } from '@/components/ui/button';
@@ -82,6 +83,7 @@ export default function FunctionLogs() {
 
   return (
     <CompanyLayout>
+      <SEO title={'Function 日誌 | legendflow'} description={'Edge function 執行紀錄與錯誤追蹤。'} path={'/company/function-logs'} noindex />
       <div className="space-y-4">
         <div>
           <h1 className="text-2xl font-semibold">函式執行日誌</h1>

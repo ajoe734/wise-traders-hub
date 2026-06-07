@@ -1,3 +1,4 @@
+import { SEO } from '@/components/SEO';
 import { useEffect, useState } from 'react';
 import { CompanyLayout } from '@/components/layouts/CompanyLayout';
 import { supabase } from '@/integrations/supabase/client';
@@ -85,6 +86,7 @@ export default function CompanyPaymentSettings() {
 
   return (
     <CompanyLayout>
+      <SEO title={'金流設定 | legendflow'} description={'金流通道與分潤設定。'} path={'/company/payment-settings'} noindex />
       <div className="p-6 max-w-3xl mx-auto space-y-6">
         <div>
           <h1 className="text-2xl font-semibold">分潤設定</h1>

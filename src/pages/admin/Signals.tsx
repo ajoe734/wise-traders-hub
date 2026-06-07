@@ -1,3 +1,4 @@
+import { SEO } from '@/components/SEO';
 import { useMemo, useState } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
 import { AdminLayout } from '@/components/layouts/AdminLayout';
@@ -180,6 +181,7 @@ const AdminSignals = () => {
 
   return (
     <AdminLayout>
+      <SEO title={`${expertSlug || ''} 訊號管理 | legendflow`} description={'發布與管理策略訊號。'} path={`/admin/${expertSlug || ''}/signals`} noindex />
       <div className="space-y-6">
         <div className="flex items-center justify-between">
           <div>

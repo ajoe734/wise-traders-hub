@@ -1,3 +1,4 @@
+import { SEO } from '@/components/SEO';
 import { CompanyLayout } from '@/components/layouts/CompanyLayout';
 import { Card, CardContent } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
@@ -35,6 +36,7 @@ export default function BacktestMonitor() {
 
   return (
     <CompanyLayout>
+      <SEO title={'回測監控 | legendflow'} description={'策略回測任務監控。'} path={'/company/backtest-monitor'} noindex />
       <div className="space-y-6">
         <div className="flex items-start justify-between gap-4 flex-wrap">
           <div>

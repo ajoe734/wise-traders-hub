@@ -1,3 +1,4 @@
+import { SEO } from '@/components/SEO';
 import { useState, Fragment } from 'react';
 import { supabase } from '@/integrations/supabase/client';
 import { CompanyLayout } from '@/components/layouts/CompanyLayout';
@@ -103,6 +104,7 @@ export default function MetaOverrides() {
 
   return (
     <CompanyLayout>
+      <SEO title={'股票 Meta 覆寫 | legendflow'} description={'股票名稱與產業覆寫設定。'} path={'/company/meta-overrides'} noindex />
     <div className="container mx-auto py-6 px-4 max-w-6xl">
       <div className="mb-6">
         <h1 className="text-2xl font-medium mb-1">持倉覆蓋管理</h1>

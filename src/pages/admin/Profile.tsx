@@ -1,3 +1,4 @@
+import { SEO } from '@/components/SEO';
 import { useState, useEffect } from 'react';
 import { useParams } from 'react-router-dom';
 import { AdminLayout } from '@/components/layouts/AdminLayout';
@@ -106,6 +107,7 @@ const AdminProfile = () => {
 
   return (
     <AdminLayout>
+      <SEO title={`${expertSlug || ''} 專家檔案 | legendflow`} description={'維護專家個人檔案與簡介。'} path={`/admin/${expertSlug || ''}/profile`} noindex />
       <div className="space-y-6">
         <div className="flex items-center justify-between">
           <div>
