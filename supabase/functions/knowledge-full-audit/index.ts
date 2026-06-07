@@ -203,6 +203,7 @@ Deno.serve(async (req) => {
           const validEmails = emails.filter((e): e is string => !!e && !e.endsWith('@line.local'))
           if (validEmails.length > 0) {
             await fetch('https://api.resend.com/emails', {
+              signal: AbortSignal.timeout(10000),
               method: 'POST',
               headers: {
                 'Authorization': `Bearer ${RESEND_API_KEY}`,

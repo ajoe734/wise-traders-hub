@@ -86,7 +86,9 @@ const handler = withLogging("notify-payment-failure", async (req, log) => {
   const expertId = expert?.id || plan?.expert_id;
 
   const { data: userData } = await supabase.auth.admin.getUserById(userId);
-  const userEmail = userData?.user?.email;
+  // Line virtual emails (`line_{id}@line.local`) are not deliverable — skip to avoid Resend bounces.
+  const rawEmail = userData?.user?.email;
+  const userEmail = rawEmail && !rawEmail.endsWith('@line.local') ? rawEmail : null;
 
   let hasLineBinding = false;
   let lineUserId: string | null = null;

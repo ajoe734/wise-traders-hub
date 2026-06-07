@@ -50,6 +50,15 @@ export async function createSubscriptionAndTransaction(
     expiresAt.setMonth(expiresAt.getMonth() + 1);
   }
 
+  // Defensive: ensure no stale active row exists for same user+plan before insert
+  // (callers should have caught this and gone the renew path; this is belt-and-braces).
+  await supabase
+    .from('member_subscriptions')
+    .update({ status: 'expired' })
+    .eq('user_id', params.userId)
+    .eq('plan_id', params.planId)
+    .eq('status', 'active');
+
   const { data: sub, error: subError } = await supabase
     .from('member_subscriptions')
     .insert({

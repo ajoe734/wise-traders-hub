@@ -136,6 +136,7 @@ Deno.serve(async (req: Request) => {
     for (const oa of validOas) {
       try {
         const r = await fetch('https://api.line.me/v2/bot/message/push', {
+          signal: AbortSignal.timeout(10000),
           method: 'POST',
           headers: {
             'Content-Type': 'application/json',

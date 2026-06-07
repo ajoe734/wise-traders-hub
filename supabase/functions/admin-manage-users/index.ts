@@ -34,6 +34,7 @@ async function sendPasswordResetEmail(email: string, link: string) {
     </div>
   `;
   const r = await fetch('https://api.resend.com/emails', {
+    signal: AbortSignal.timeout(10000),
     method: 'POST',
     headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${RESEND_API_KEY}` },
     body: JSON.stringify({

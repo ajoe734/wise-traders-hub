@@ -69,7 +69,15 @@ export function useAccountData() {
     });
 
     setSubscriptions(enriched);
-    setSubscribedExpertIds(new Set(enriched.filter(s => s.status === 'active').map(s => s.expert.id)));
+    // Manual-renewal-model constitution: a subscription is valid only when
+    // status='active' AND expires_at > now. expire-subscriptions cron is best-effort;
+    // never trust status alone — always cross-check expires_at.
+    const nowMs = Date.now();
+    setSubscribedExpertIds(new Set(
+      enriched
+        .filter(s => s.status === 'active' && s.expert.id && s.expires_at && new Date(s.expires_at).getTime() > nowMs)
+        .map(s => s.expert.id)
+    ));
     setLoadingSubs(false);
   }, [user]);
 
