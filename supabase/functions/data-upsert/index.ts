@@ -39,15 +39,21 @@ Deno.serve(withLogging('data-upsert', async (req) => {
     }
 
     // 2. Parse body
-    const body = await req.json()
+    const body = await req.json().catch(() => ({}))
+    // E-VALID-001: 強制 schema 驗證
+    const issues = validateInput({
+      fields: {
+        action: { required: true, type: 'string', oneOf: ['select', 'upsert', 'insert'], label: 'action' },
+        table: { required: true, type: 'string', label: 'table' },
+        records: { type: 'array', label: 'records' },
+        params: { type: 'object', label: 'params' },
+        on_conflict: { type: 'string', label: 'on_conflict' },
+        ignore_duplicates: { type: 'boolean', label: 'ignore_duplicates' },
+      },
+      source: body,
+    });
+    if (issues.length) return validationResponse(issues, corsHeaders);
     const { action, table, records, params, on_conflict, ignore_duplicates } = body
-
-    if (!table) {
-      return new Response(JSON.stringify({ error: 'Missing table' }), {
-        status: 400,
-        headers: { ...corsHeaders, 'Content-Type': 'application/json' },
-      })
-    }
 
     // 3. Check whitelist
     if (!ALLOWED_TABLES.has(table)) {
