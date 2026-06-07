@@ -1,5 +1,6 @@
 import { corsHeaders } from '../_shared/cors.ts';
 import { withLogging } from '../_shared/edgeLogger.ts';
+import { validateInput, validationResponse } from '../_shared/inputValidator.ts';
 import { createClient } from 'https://esm.sh/@supabase/supabase-js@2.49.1'
 
 // Whitelist of tables that can be operated on
