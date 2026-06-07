@@ -68,9 +68,11 @@ export function CheckupModeProvider({ children }) {
 
       setSupabaseUser(user)
 
+      // B-21：原本 select 了 is_tester 卻沒任何 consumer 使用 → 移除以省 row 寬度。
+      // 測試者識別請走專屬 RPC / has_role()，不要在 client context 散落判斷邏輯。
       const { data: profile } = await supabase
         .from('profiles')
-        .select('line_user_id, display_name, avatar_url, is_line_friend, is_tester')
+        .select('line_user_id, display_name, avatar_url, is_line_friend')
         .eq('user_id', user.id)
         .maybeSingle()
 
