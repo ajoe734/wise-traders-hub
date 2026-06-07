@@ -1,3 +1,5 @@
+import { corsHeaders } from '../_shared/cors.ts';
+import { serviceClient } from '../_shared/supabaseClients.ts';
 // 全庫知識審計 — 一次性掃 482 筆過舊條目並自動處置
 //
 // 兩層審計：
@@ -10,11 +12,6 @@
 // 完成後：寫 audit_logs、寄通知（依 knowledge_sync_settings.notify_user_ids）
 
 import { createClient } from 'https://esm.sh/@supabase/supabase-js@2.45.0'
-
-const corsHeaders = {
-  'Access-Control-Allow-Origin': '*',
-  'Access-Control-Allow-Headers': 'authorization, x-client-info, apikey, content-type',
-}
 
 const SUPABASE_URL = Deno.env.get('SUPABASE_URL')!
 const SERVICE_KEY = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')!
@@ -60,7 +57,7 @@ function isStaleByContent(item: AuditItem, currentYear: number): { stale: boolea
 Deno.serve(async (req) => {
   if (req.method === 'OPTIONS') return new Response(null, { headers: corsHeaders })
 
-  const sb = createClient(SUPABASE_URL, SERVICE_KEY)
+  const sb = serviceClient()
   const startedAt = Date.now()
 
   try {

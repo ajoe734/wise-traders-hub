@@ -1,10 +1,6 @@
+import { corsHeaders } from '../_shared/cors.ts';
 import { createClient } from 'https://esm.sh/@supabase/supabase-js@2.49.1'
 import { lineWebhookVerifySignature as verifySignature } from '../_shared/paymentVerify.ts'
-
-const corsHeaders = {
-  'Access-Control-Allow-Origin': '*',
-  'Access-Control-Allow-Headers': 'authorization, x-client-info, apikey, content-type',
-}
 
 const LINE_REPLY_URL = 'https://api.line.me/v2/bot/message/reply'
 

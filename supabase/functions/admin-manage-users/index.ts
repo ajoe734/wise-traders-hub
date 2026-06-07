@@ -1,10 +1,7 @@
 import { createClient } from 'https://esm.sh/@supabase/supabase-js@2.57.4';
 
-const corsHeaders = {
-  'Access-Control-Allow-Origin': '*',
-  'Access-Control-Allow-Headers': 'authorization, x-client-info, apikey, content-type',
-};
-
+import { corsHeaders } from '../_shared/cors.ts';
+import { serviceClient } from '../_shared/supabaseClients.ts';
 const SUPABASE_URL = Deno.env.get('SUPABASE_URL')!;
 const ANON_KEY = Deno.env.get('SUPABASE_ANON_KEY')!;
 const SERVICE_KEY = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')!;
@@ -70,7 +67,7 @@ Deno.serve(async (req) => {
     });
     if (roleErr || !isAdmin) return json({ error: 'forbidden' }, 403);
 
-    const admin = createClient(SUPABASE_URL, SERVICE_KEY);
+    const admin = serviceClient();
     const body = await req.json().catch(() => ({}));
     const action = body?.action as string;
 

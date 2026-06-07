@@ -1,13 +1,9 @@
+import { corsHeaders } from '../_shared/cors.ts';
 import { createClient } from 'https://esm.sh/@supabase/supabase-js@2.49.1'
 
 // 手動續訂模型：每日 09:00 (UTC+8) 推播到期前 7 / 3 / 1 天的訂閱者，
 // 帶一鍵續訂連結（/{slug}/checkout?plan={plan_id}）。
 // 平台不會自動扣款，過期即斷權，無寬限期。
-
-const corsHeaders = {
-  'Access-Control-Allow-Origin': '*',
-  'Access-Control-Allow-Headers': 'authorization, x-client-info, apikey, content-type',
-}
 
 const REMINDER_DAYS = [7, 3, 1] as const
 

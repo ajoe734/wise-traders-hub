@@ -1,11 +1,8 @@
 import { serve } from "https://deno.land/std@0.168.0/http/server.ts";
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2.49.1";
 
-const corsHeaders = {
-  'Access-Control-Allow-Origin': '*',
-  'Access-Control-Allow-Headers': 'authorization, x-client-info, apikey, content-type',
-};
-
+import { corsHeaders } from '../_shared/cors.ts';
+import { serviceClient } from '../_shared/supabaseClients.ts';
 function randomState(): string {
   const bytes = new Uint8Array(32);
   crypto.getRandomValues(bytes);
@@ -34,7 +31,7 @@ serve(async (req) => {
 
     // CSRF-safe state: random nonce persisted server-side (10min TTL, single-use).
     const state = randomState();
-    const supabaseAdmin = createClient(SUPABASE_URL, SUPABASE_SERVICE_ROLE_KEY);
+    const supabaseAdmin = serviceClient();
     const expiresAt = new Date(Date.now() + 10 * 60 * 1000).toISOString();
     const { error: stateErr } = await supabaseAdmin
       .from('line_oauth_states')
