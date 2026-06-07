@@ -23,29 +23,29 @@ const ResetPassword = () => {
   const { toast } = useToast();
   const navigate = useNavigate();
 
-  // Detect recovery session — Supabase parses the recovery token from the URL hash
+  // S5：只接受 PASSWORD_RECOVERY 事件帶來的 session；若使用者本來就登入著
+  // 直接打開 /auth/reset-password，不能無聲允許改密碼（必須走信件流程）。
   useEffect(() => {
+    let gotRecovery = false;
     const { data: { subscription } } = supabase.auth.onAuthStateChange((event) => {
       if (event === 'PASSWORD_RECOVERY') {
+        gotRecovery = true;
         setIsReady(true);
       }
     });
 
-    // Also check existing session in case event fired before listener attached
-    supabase.auth.getSession().then(({ data: { session } }) => {
-      if (session?.user) {
-        setIsReady(true);
-      } else {
-        // No recovery session and no auth event — link is invalid/expired
-        setTimeout(() => {
-          setLinkInvalid((prev) => prev || !isReady);
-        }, 1500);
-      }
-    });
-
+    // 若 hash 不含 recovery token，1.5s 內收不到事件 → 視為無效連結。
+    const hasRecoveryHash = typeof window !== 'undefined'
+      && /(?:^|[#&])type=recovery(?:&|$)/.test(window.location.hash || '');
+    if (!hasRecoveryHash) {
+      const t = setTimeout(() => {
+        if (!gotRecovery) setLinkInvalid(true);
+      }, 1500);
+      return () => { clearTimeout(t); subscription.unsubscribe(); };
+    }
     return () => subscription.unsubscribe();
-    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
+
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
