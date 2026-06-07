@@ -36,4 +36,4 @@ serve(withLogging('setup-storage', async (req) => {
       headers: { ...corsHeaders, 'Content-Type': 'application/json' },
     });
   }
-});
+}));
