@@ -579,7 +579,7 @@ export default function CheckupQuotaAudit() {
                       </tr>
                     ))}
                   </tbody>
-                </table>
+                </table></div>
               )}
             </div>
           </div>

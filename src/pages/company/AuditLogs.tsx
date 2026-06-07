@@ -353,8 +353,8 @@ const AuditLogsPage = () => {
                 {(detailLog.detail?.before || detailLog.detail?.after) ? (
                   <div>
                     <div className="text-xs font-medium text-muted-foreground mb-2">變更內容</div>
-                    <div className="rounded-lg border overflow-hidden">
-                      <table className="w-full text-sm">
+                    <div className="rounded-lg border overflow-x-auto">
+                      <table className="w-full text-sm min-w-[480px]">
                         <thead>
                           <tr className="bg-muted/50 text-xs">
                             <th className="text-left p-2 w-1/4">欄位</th>
