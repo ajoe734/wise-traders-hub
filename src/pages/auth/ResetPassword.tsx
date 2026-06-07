@@ -75,7 +75,7 @@ const ResetPassword = () => {
   return (
     <PortalLayout>
       <SEO
-        title="重設密碼 | 智富股市實戰學院"
+        title="重設密碼 | legendflow"
         description="設定新的會員登入密碼。"
         path="/auth/reset-password"
         noindex

@@ -38,7 +38,7 @@ const ForgotPassword = () => {
   return (
     <PortalLayout>
       <SEO
-        title="忘記密碼 | 智富股市實戰學院"
+        title="忘記密碼 | legendflow"
         description="輸入註冊電子郵件以接收密碼重設連結。"
         path="/auth/forgot-password"
         noindex

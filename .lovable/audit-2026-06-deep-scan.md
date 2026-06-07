@@ -639,6 +639,50 @@ Warning 從 34 降到 28（剩餘皆為 by design + pg_trgm 維護視窗待排�
 - `src/components/AppErrorBoundary.tsx`（顯示 sessionId）
 
 ### 下一輪建議
-- **S10 SEO / Meta**（legendflow 品牌憲法尚未套到 index.html）
+- **S11 i18n / a11y / 對比度**
+- **S13 觀測與成本**（traffic_ingest PII / cold-start 儀表板）
+
+---
+
+## S10 SEO / Meta — 2026-06-07
+
+### 掃描範圍
+- `index.html`：title / description / og:* / twitter:* / JSON-LD (Organization, WebSite) / favicon / theme-color
+- `public/sitemap.xml`、`public/robots.txt`、`public/og-image.svg`、`public/favicon-*.svg`、`public/apple-touch-icon.svg`
+- 全公開路由 SEO 元件覆蓋：Index/Experts/ExpertProfile/Pricing/PlanDetail/Legal/FreeCheckup/NotFound/Auth*（共 11 個 `<SEO>` 呼叫點）
+- `src/components/SEO.tsx`、`src/components/SEOLite.tsx`
+- `src/components/brand/`（tokens / Wordmark / Logomark）與 `brand/` 規範資產
+
+### 發現
+- **F-S10-01 HIGH（已修）**：legendflow 品牌憲法（小寫字標、橘點 #EC662D、Source Serif 4）尚未套到 `index.html`。title/og:site_name/JSON-LD name 全部是「智富股市實戰學院」，違反 brand-kit v1。
+- **F-S10-02 MEDIUM（已修）**：`public/favicon-16/32/512.svg`、`apple-touch-icon.svg`、`og-image.svg` 並非 brand 目錄出版本，與 `brand/legendflow-favicon-*.svg`、`brand/legendflow-og-1200x630.svg` 不一致 → 社交分享卡與 tab icon 沒展示橘點識別。
+- **F-S10-03 MEDIUM（已修）**：`public/sitemap.xml` 仍列 `/free-checkup`（已是 redirect 路由，正本是 `/holding-checkup`），且全無 `<lastmod>`。
+- **F-S10-04 MEDIUM（已修）**：11 個頁面 `<SEO>` title 全寫死「| 智富股市實戰學院」，與新 index.html 品牌名衝突。
+- **F-S10-05 LOW（已修）**：`twitter:card` 僅有 image，缺 title/description；JSON-LD Organization 缺 `logo` 與 `alternateName`，WebSite 缺 `publisher`；index.html 缺 `theme-color`。
+- **F-S10-06 INFO**：`og:image` 仍是 SVG。Facebook/LinkedIn 對 SVG 支援度差，理想為 PNG/JPG 1200x630。但無 raster 來源、imagegen 此版面風險高，沿用 SVG（已加 `og:image:type=image/svg+xml` 宣告）。
+- **F-S10-07 INFO**：robots.txt 已正確列 Sitemap directive，無 Disallow，可發布。
+- **F-S10-08 INFO**：受保護路由（/portfolio/*, /app/*, /company/*）皆走 ProtectedRoute，預設不需要 indexable SEO，但也未額外加 noindex。考量 ProtectedRoute 會 redirect 到 login，Google 不會建立索引，現狀可接受。
+
+### 修補
+- `index.html` L23–52：
+  - title → `legendflow · 投顧分析師與實戰導師訂閱平台`
+  - og:site_name → `legendflow`；補 `og:image:type`、`og:image:alt`、`twitter:title/description`
+  - JSON-LD Organization 補 `alternateName=智富股市實戰學院` + `logo`；WebSite 補 `publisher`
+  - 補 `meta name="theme-color" content="#EC662D"`（橘點）
+- `public/favicon-16.svg` / `favicon-32.svg` / `favicon-512.svg` / `apple-touch-icon.svg` / `og-image.svg`：覆蓋為 `brand/legendflow-*` 出版本
+- `public/sitemap.xml`：`/free-checkup` → `/holding-checkup`，所有 entry 補 `<lastmod>2026-06-07</lastmod>`
+- 11 個頁面 `<SEO title="… | 智富股市實戰學院">` → `legendflow`（sed 全站取代）
+
+### Files Edited
+- `index.html`
+- `public/sitemap.xml`
+- `public/favicon-16.svg` / `favicon-32.svg` / `favicon-512.svg` / `apple-touch-icon.svg` / `og-image.svg`
+- `src/pages/Index.tsx` / `Experts.tsx` / `ExpertProfile.tsx` / `Pricing.tsx` / `PlanDetail.tsx` / `Legal.tsx` / `FreeCheckup.jsx` / `NotFound.tsx` / `auth/Login.tsx` / `Register.tsx` / `ForgotPassword.tsx` / `ResetPassword.tsx`
+
+### 後續建議
+- 若要更高社交分享品質：請設計師輸出 `og-image-1200x630.png`（raster），把 `og:image` 切過去。
+- 各 ExpertProfile / PlanDetail 動態頁未來可考慮在 sitemap 加 dynamic entries（讀 DB published rows）。
+
+### 下一輪建議
 - **S11 i18n / a11y / 對比度**
 - **S13 觀測與成本**（traffic_ingest PII / cold-start 儀表板）
