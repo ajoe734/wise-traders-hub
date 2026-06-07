@@ -1,6 +1,7 @@
 import { jsonResponse } from "../_shared/cors.ts";
 import { serviceClient } from "../_shared/supabaseClients.ts";
 import { withLogging } from "../_shared/edgeLogger.ts";
+import { validateExpertOrderAmount } from "../_shared/orderAmountValidator.ts";
 
 async function generateSign(params: Record<string, string>, merchantKey: string): Promise<string> {
   const filtered = Object.entries(params)

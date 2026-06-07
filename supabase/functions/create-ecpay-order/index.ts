@@ -2,6 +2,7 @@ import { jsonResponse } from "../_shared/cors.ts";
 import { serviceClient } from "../_shared/supabaseClients.ts";
 import { withLogging } from "../_shared/edgeLogger.ts";
 import { loadEcpayCreds } from "../_shared/ecpayCredentials.ts";
+import { validateExpertOrderAmount } from "../_shared/orderAmountValidator.ts";
 
 async function generateCheckMacValueAsync(
   params: Record<string, string>, hashKey: string, hashIV: string,
@@ -33,6 +34,19 @@ const handler = withLogging("create-ecpay-order", async (req, log) => {
   }
 
   const credsClient = serviceClient();
+  const validation = await validateExpertOrderAmount({
+    supabase: credsClient,
+    userId: userId ?? null,
+    planId,
+    billingCycle,
+    clientAmount: Number(amount),
+    upgradeFromSubscriptionId: upgradeFromSubscriptionId ?? null,
+  });
+  if (!validation.ok) {
+    log.error("amount_validation_failed", { reason: validation.reason, planId, userId });
+    return jsonResponse({ error: validation.reason || "金額不符" }, { status: 400 });
+  }
+
   const creds = await loadEcpayCreds(credsClient);
 
   const tradeNo = `EC${Date.now().toString().slice(-13)}`;
