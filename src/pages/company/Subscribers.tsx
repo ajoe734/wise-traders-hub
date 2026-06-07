@@ -103,8 +103,11 @@ const CompanySubscribers = () => {
     return matchStatus && matchSearch;
   });
 
+  // B-26：手動續訂模型下，auto_renew 已停用；改以「仍有效（active 且未過期未取消）」當分母分子。
+  const nowTs = Date.now();
+  const activeNotExpired = rows.filter(s => s.status === 'active' && (!s.expires_at || new Date(s.expires_at).getTime() > nowTs));
   const renewalRate = totalCount > 0
-    ? Math.round((rows.filter(s => s.auto_renew && s.status !== 'canceled').length / totalCount) * 100)
+    ? Math.round((activeNotExpired.length / totalCount) * 100)
     : 0;
 
   const checkupCount = rows.filter(s => s.kind === 'checkup' && s.status === 'active').length;

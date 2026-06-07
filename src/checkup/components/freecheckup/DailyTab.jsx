@@ -29,6 +29,7 @@ const DAILY_TAB_PROP_SCHEMA = {
   quota: { type: 'object', optional: true },
   formatResetCountdown: 'function',
   tier: 'string',
+  needsAddFriend: { type: 'boolean', optional: true },
   dailyLastError: { type: 'object', optional: true },
   setDailyLastError: 'function',
   dailyErrorRef: 'object',
@@ -65,6 +66,8 @@ function DailyTabImpl({
   runDailyAnalysis,
   // 配額
   hasReachedDailyLimit, quota, formatResetCountdown, tier,
+  // B-25：line_only 用戶（未加好友）需顯示加好友引導
+  needsAddFriend,
   // 錯誤 / 重試
   dailyLastError, setDailyLastError,
   dailyErrorRef,
@@ -85,6 +88,15 @@ function DailyTabImpl({
   validateProps('DailyTab', arguments[0], DAILY_TAB_PROP_SCHEMA);
   return (
     <>
+          {/* B-25：LINE 已登入但未加好友 → 顯示加好友提示，避免錯過推播通知 */}
+          {needsAddFriend && !isDemo && (
+            <div style={{marginBottom:12,padding:"12px 14px",background:alpha(C.blue,'06'),border:`1px solid ${alpha(C.blue,'25')}`,borderRadius:8}}>
+              <div style={{fontSize:12,fontWeight:500,color:C.text,marginBottom:4,letterSpacing:"0.02em"}}>📣 加入官方 LINE 好友，收盤後即時推播分析結果</div>
+              <div style={{fontSize:11,color:C.textMute,lineHeight:1.7,marginBottom:8}}>未加好友時，仍可使用本頁功能，但分析完成後無法主動推播給您。</div>
+              <a href="https://line.me/R/ti/p/@legendflow" target="_blank" rel="noopener noreferrer" style={{display:"inline-block",background:"#06C755",color:"#fff",borderRadius:6,padding:"5px 12px",fontSize:11,fontWeight:500,textDecoration:"none",letterSpacing:"0.02em"}}>加入 LINE 好友</a>
+            </div>
+          )}
+
           {isDemo && (
             <div style={{marginBottom:12,padding:"12px 14px",background:alpha(C.amber,'06'),border:`1px solid ${alpha(C.amber,'25')}`,borderRadius:8}}>
               <div style={{fontSize:12,fontWeight:500,color:C.text,marginBottom:4,letterSpacing:"0.02em"}}>{DEMO_TAB_NOTICE_COPY.daily.title}</div>

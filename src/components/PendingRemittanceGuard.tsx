@@ -35,9 +35,16 @@ export function PendingRemittanceGuard() {
       return;
     }
     if (hasRole("company_admin") || user.expertSlug) return;
+
+    // B-27：在 /account/remittance 頁清掉 dedupe key，使用者離開後若仍有待補單會再次提醒。
+    if (location.pathname.startsWith("/account/remittance")) {
+      sessionStorage.removeItem(SESSION_KEY);
+      checkedRef.current = false;
+      return;
+    }
+    if (SKIP_PREFIXES.some((p) => location.pathname.startsWith(p))) return;
     if (checkedRef.current) return;
     if (sessionStorage.getItem(SESSION_KEY) === user.id) return;
-    if (SKIP_PREFIXES.some((p) => location.pathname.startsWith(p))) return;
 
     checkedRef.current = true;
     (async () => {

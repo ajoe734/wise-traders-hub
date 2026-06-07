@@ -43,9 +43,9 @@ export function DailyAnalysisEmpty({ onAnalyze, onStressTest, analyzing, stressT
           style: {
             padding: '10px 24px',
             borderRadius: 8,
-            border: 'none',
-            background: `linear-gradient(135deg,${alpha(C.blue, '20')},${alpha(C.olive, '20')})`,
-            color: C.onFill,
+            border: `1px solid ${alpha(C.blue, '30')}`,
+            background: alpha(C.blue, '08'),
+            color: C.blue,
             fontSize: 12,
             fontWeight: 600,
             cursor: 'pointer',

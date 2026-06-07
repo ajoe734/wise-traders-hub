@@ -117,6 +117,11 @@ function inferReason(q: QuotaSnapshot | null, isTester?: boolean, isLine?: boole
     if (isTester) return '您是內部測試帳號，每月 22 次額度。';
   }
   switch (q.tier) {
+    case 'free':
+      // free 是 email 註冊但無付費 / 無 LINE 補償的兜底。
+      return q.remaining > 0
+        ? `您有 ${q.remaining} 次免費收盤分析額度可用。`
+        : '免費額度已用完，如需更多分析請訂閱付費方案。';
     case 'line_free': {
       const gifted = Number(q.entitlement_total || 0) > 0;
       if (q.remaining > 0) {
@@ -135,7 +140,8 @@ function inferReason(q: QuotaSnapshot | null, isTester?: boolean, isLine?: boole
         : `您已訂閱 ${q.tier === 'pro' ? '進階' : '基本'} 方案，本月配額已用完，下個週期會自動重置。`;
     case 'none':
     default:
-      if (isLine) return '您的 LINE 帳號目前沒有可用額度，請聯絡客服協助核對。';
+      // 區分「LINE 但帳號異常」與「未訂閱且無 LINE」兩種狀況，避免文案混淆。
+      if (isLine) return '您的 LINE 帳號目前沒有可用額度（可能尚未領取免費禮或核對中），請聯絡客服協助處理。';
       return '您目前未訂閱付費方案，亦無免費額度（免費 1 次額度限 LINE 登入會員）。如需使用收盤分析請訂閱方案，或以 LINE 帳號登入。';
   }
 }

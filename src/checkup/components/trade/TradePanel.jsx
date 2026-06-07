@@ -177,7 +177,7 @@ export function UploadDropzone({
             h('div', { style: { fontSize: 32, marginBottom: 10, opacity: 0.5 } }, '↑'),
             h(
               'div',
-              { style: { fontSize: 13, fontWeight: 500, color: C.textSec } },
+              { style: { fontSize: 13, fontWeight: 500, color: C.text } },
               '上傳已成交截圖'
             ),
             h(

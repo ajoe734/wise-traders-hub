@@ -401,14 +401,14 @@ function PredictionSkeleton() {
         marginTop: 6,
       },
     },
+    // Kore-eda：以單色 alpha + opacity 動畫取代 linear-gradient shimmer。
     h('div', {
       style: {
         width: 40,
         height: 16,
         borderRadius: 4,
-        background: `linear-gradient(90deg, ${alpha(C.textMute, '10')} 25%, ${alpha(C.textMute, '20')} 50%, ${alpha(C.textMute, '10')} 75%)`,
-        backgroundSize: '200% 100%',
-        animation: 'shimmer 1.5s infinite',
+        background: alpha(C.textMute, '15'),
+        animation: 'pulse 1.8s ease-in-out infinite',
       },
     }),
     h('div', {
@@ -416,9 +416,8 @@ function PredictionSkeleton() {
         flex: 1,
         height: 12,
         borderRadius: 3,
-        background: `linear-gradient(90deg, ${alpha(C.textMute, '08')} 25%, ${alpha(C.textMute, '15')} 50%, ${alpha(C.textMute, '08')} 75%)`,
-        backgroundSize: '200% 100%',
-        animation: 'shimmer 1.5s infinite',
+        background: alpha(C.textMute, '12'),
+        animation: 'pulse 1.8s ease-in-out infinite',
       },
     })
   )

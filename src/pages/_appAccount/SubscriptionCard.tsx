@@ -68,8 +68,10 @@ export function SubscriptionCard({ sub, cancelingId, onCancel }: Props) {
               </span>
               {isCanceling ? (
                 <span className="text-amber-600 dark:text-amber-400">下月起不再扣款</span>
+              ) : sub.auto_renew ? (
+                <span className={cn(advisor ? "text-advisor/70" : "text-mentor/70")}>自動續訂</span>
               ) : (
-                <span className={cn(advisor ? "text-advisor/70" : "text-mentor/70")}>手動續訂</span>
+                <span className={cn(advisor ? "text-advisor/70" : "text-mentor/70")}>到期後手動續訂</span>
               )}
             </div>
             {(() => {

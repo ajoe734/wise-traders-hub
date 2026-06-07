@@ -90,7 +90,7 @@ import {
 // #region App() — 主元件（state、effects、JSX 全部 inline；遵守 inline 憲法）
 export default function App() {
   const navigate = useNavigate();
-  const { isDemo, isReady: authReady, canUpload, hasReachedDailyLimit, startLineLogin, incrementUploadCount, lineProfile, demoData, tier, tierLabel, quota, remainingQuota, periodLabel, refreshQuota, applyQuotaFromResponse, supabaseUser } = useCheckupMode();
+  const { isDemo, isReady: authReady, canUpload, hasReachedDailyLimit, startLineLogin, incrementUploadCount, lineProfile, demoData, tier, tierLabel, quota, remainingQuota, periodLabel, refreshQuota, applyQuotaFromResponse, supabaseUser, needsAddFriend } = useCheckupMode();
   const [tab, setTab]     = useState("holdings");
   useEffect(() => { trackRaw('checkup_view', { tab: 'holdings' }); }, []);
   // 配額耗盡採 inline banner（TradeTab L162 / DailyTab）+ toast 提示，
@@ -2799,7 +2799,7 @@ ${JSON.stringify(strategyBrain || { rules: [], lessons: [], commonMistakes: [], 
         {todayEvents.length>0 && (
           <div style={{
             borderRadius:4,padding:"7px 10px",marginBottom:10,
-            fontSize:12,color:C.textSec,lineHeight:1.7,fontWeight:400}}>
+            fontSize:12,color:C.text,lineHeight:1.7,fontWeight:400}}>
             今日 · {todayEvents.map(e=>e.label).join(" · ")}
           </div>
         )}
@@ -2967,6 +2967,7 @@ ${JSON.stringify(strategyBrain || { rules: [], lessons: [], commonMistakes: [], 
               quota={quota}
               formatResetCountdown={formatResetCountdown}
               tier={tier}
+              needsAddFriend={needsAddFriend}
               dailyLastError={dailyLastError}
               setDailyLastError={setDailyLastError}
               dailyErrorRef={dailyErrorRef}
