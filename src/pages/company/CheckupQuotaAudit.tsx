@@ -552,7 +552,7 @@ export default function CheckupQuotaAudit() {
                       </tr>
                     ))}
                   </tbody>
-                </table>
+                </table></div>
               )}
             </div>
 
@@ -563,7 +563,7 @@ export default function CheckupQuotaAudit() {
               {singleData.usage.length === 0 ? (
                 <div className="text-sm text-muted-foreground">尚未使用</div>
               ) : (
-                <table className="w-full text-sm">
+                <div className="overflow-x-auto"><table className="w-full text-sm min-w-[420px]">
                   <thead className="text-xs text-muted-foreground border-b">
                     <tr>
                       <th className="text-left py-2">#</th><th className="text-left">Kind</th>
