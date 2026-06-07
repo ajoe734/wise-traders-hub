@@ -1,15 +1,11 @@
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2.49.1";
 
+import { corsHeaders } from '../_shared/cors.ts';
 // 手動續訂短連結：以 HMAC token 驗證 → 302 重導到正確 checkout 頁。
 // 用於 LINE / Email 提醒，避免直接洩漏 plan_id 與 user_id 組合。
 //
 // Token 結構: base64url(JSON({sub_id, user_id, exp})).base64url(hmac_sha256)
 // 預設 14 天有效；過期或簽章不符回 410。
-
-const corsHeaders = {
-  "Access-Control-Allow-Origin": "*",
-  "Access-Control-Allow-Headers": "authorization, x-client-info, apikey, content-type",
-};
 
 const enc = new TextEncoder();
 

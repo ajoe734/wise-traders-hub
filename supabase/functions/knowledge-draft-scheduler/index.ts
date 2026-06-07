@@ -7,11 +7,7 @@
 import "jsr:@supabase/functions-js/edge-runtime.d.ts";
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2.49.1";
 
-const corsHeaders = {
-  'Access-Control-Allow-Origin': '*',
-  'Access-Control-Allow-Headers': 'authorization, x-client-info, apikey, content-type, x-cron-secret',
-};
-
+import { corsHeaders } from '../_shared/cors.ts';
 const CATS = ['chip_analysis', 'technical_analysis', 'industry_trends', 'strategy_cases', 'news_correlation'] as const;
 const TARGET_PER_CAT = 100;
 const BATCH_SIZE = 20;

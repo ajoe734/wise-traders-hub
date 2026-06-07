@@ -12,11 +12,7 @@
 import "jsr:@supabase/functions-js/edge-runtime.d.ts";
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2.49.1";
 
-const corsHeaders = {
-  'Access-Control-Allow-Origin': '*',
-  'Access-Control-Allow-Headers': 'authorization, x-client-info, apikey, content-type',
-};
-
+import { corsHeaders } from '../_shared/cors.ts';
 const SYSTEM_UID = '00000000-0000-0000-0000-000000000000';
 const LOOKBACK_DAYS = 90; // 取最近 90 天的命中
 const MIN_SAMPLE_FOR_ADJUST = 20;

@@ -1,13 +1,9 @@
+import { corsHeaders } from '../_shared/cors.ts';
 // 回測完成通知（Email 版）：彙整最近 N 小時的 knowledge_backtest_runs，
 // 透過 Resend 寄信給所有 company_admin。
 // Body: { hours?: number = 2, trigger?: 'cron' | 'manual' | 'auto_after_backfill' | 'auto' }
 
 import { createClient } from 'https://esm.sh/@supabase/supabase-js@2.49.1'
-
-const corsHeaders = {
-  'Access-Control-Allow-Origin': '*',
-  'Access-Control-Allow-Headers': 'authorization, x-client-info, apikey, content-type',
-}
 
 const SUPABASE_URL = Deno.env.get('SUPABASE_URL')!
 const SERVICE_KEY = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')!
