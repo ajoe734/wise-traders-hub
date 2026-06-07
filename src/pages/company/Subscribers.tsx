@@ -89,8 +89,8 @@ const CompanySubscribers = () => {
     const email = (id?.email || '').toLowerCase();
     const lineId = (id?.line_user_id || '').toLowerCase();
     const planName = s.plan_name.toLowerCase();
-    const startDate = s.started_at ? new Date(s.started_at).toLocaleDateString('zh-TW') : '';
-    const endDate = s.expires_at ? new Date(s.expires_at).toLocaleDateString('zh-TW') : '';
+    const startDate = formatTaipeiYMD(s.started_at);
+    const endDate = formatTaipeiYMD(s.expires_at);
     const remaining = getRemainingDays(s.expires_at);
     const remainingStr = remaining != null ? (remaining > 0 ? `${remaining} 天` : '已到期') : '';
     const renewStr = s.auto_renew ? '自動' : '手動';
