@@ -12,6 +12,10 @@ export const corsHeaders: Record<string, string> = {
   'Access-Control-Allow-Headers':
     'authorization, x-client-info, apikey, content-type, x-correlation-id, x-supabase-client-platform, x-supabase-client-platform-version, x-supabase-client-runtime, x-supabase-client-runtime-version',
   'Access-Control-Allow-Methods': 'POST, GET, OPTIONS',
+  // Cache preflight 24h — supabase-js sends multiple client-platform headers
+  // that trigger preflight on every cross-origin POST; without this each call
+  // pays a full OPTIONS RTT.
+  'Access-Control-Max-Age': '86400',
 };
 
 export function corsPreflight(): Response {
