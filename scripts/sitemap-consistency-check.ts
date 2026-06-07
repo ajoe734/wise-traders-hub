@@ -24,12 +24,15 @@ while ((m = routeRegex.exec(appTsx)) !== null) {
   const path = m[1];
   const element = m[2];
   if (path.startsWith("*") || path.includes(":")) continue; // skip wildcards + dynamic
-  if (/Navigate/.test(element) || /Redirect/.test(element)) {
+  if (!path.startsWith("/")) continue; // skip nested children
+  if (/<Navigate\b/.test(element)) {
     redirectRoutes.add(path);
     continue;
   }
   // gated routes — not for sitemap
   if (/ProtectedRoute/.test(element)) continue;
+  // layout-only shells (no own indexable content) — explicit excludes
+  if (path === "/overview") continue;
   realRoutes.add(path);
 }
 
