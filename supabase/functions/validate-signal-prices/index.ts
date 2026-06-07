@@ -4,6 +4,7 @@ import { createClient } from "https://esm.sh/@supabase/supabase-js@2.49.1";
 
 import { corsHeaders } from '../_shared/cors.ts';
 import { serviceClient } from '../_shared/supabaseClients.ts';
+import { withLogging } from '../_shared/edgeLogger.ts';
 /**
  * Price Validation Edge Function
  * 
@@ -16,7 +17,7 @@ import { serviceClient } from '../_shared/supabaseClients.ts';
  * Returns: { validated: number, flagged: Signal[], skipped: number }
  */
 
-Deno.serve(async (req) => {
+Deno.serve(withLogging('validate-signal-prices', async (req) => {
   if (req.method === 'OPTIONS') {
     return new Response(null, { headers: corsHeaders });
   }
@@ -155,4 +156,4 @@ Deno.serve(async (req) => {
       headers: { ...corsHeaders, 'Content-Type': 'application/json' },
     });
   }
-});
+}));

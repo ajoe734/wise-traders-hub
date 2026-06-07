@@ -11,6 +11,7 @@ import 'jsr:@supabase/functions-js/edge-runtime.d.ts';
 import { corsHeaders, jsonResponse, corsPreflight } from '../_shared/cors.ts';
 import { serviceClient, getCallerUserId } from '../_shared/supabaseClients.ts';
 
+import { withLogging } from '../_shared/edgeLogger.ts';
 function safeHost(referrer: string | null | undefined): string | null {
   if (!referrer) return null;
   try {
@@ -32,7 +33,7 @@ function isInternalRoute(path: string): boolean {
   return path.startsWith('/company') || path.startsWith('/admin');
 }
 
-Deno.serve(async (req) => {
+Deno.serve(withLogging('traffic-ingest', async (req) => {
   if (req.method === 'OPTIONS') return corsPreflight();
   if (req.method !== 'POST') {
     return jsonResponse({ ok: false }, { status: 405 });
@@ -150,4 +151,4 @@ Deno.serve(async (req) => {
     console.error('[traffic-ingest] error', (e as Error).message);
     return jsonResponse({ ok: false }, { status: 200, headers: corsHeaders });
   }
-});
+}));

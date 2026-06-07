@@ -1,4 +1,5 @@
 import { corsHeaders } from '../_shared/cors.ts';
+import { withLogging } from '../_shared/edgeLogger.ts';
 import { createClient } from 'https://esm.sh/@supabase/supabase-js@2.49.1'
 import { validateInput, validationResponse } from '../_shared/inputValidator.ts'
 import { applyCoercion } from '../_shared/inputCoerce.ts'
@@ -9,7 +10,7 @@ const USER_AGENTS = [
   'Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/121.0.0.0 Safari/121.0.0.0',
 ]
 
-Deno.serve(async (req) => {
+Deno.serve(withLogging('stock-name-lookup', async (req) => {
   if (req.method === 'OPTIONS') {
     return new Response(null, { headers: corsHeaders })
   }
@@ -146,4 +147,4 @@ Deno.serve(async (req) => {
       headers: { ...corsHeaders, 'Content-Type': 'application/json' },
     })
   }
-})
+}))

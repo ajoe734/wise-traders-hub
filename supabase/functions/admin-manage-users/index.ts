@@ -2,6 +2,8 @@ import { createClient } from 'https://esm.sh/@supabase/supabase-js@2.57.4';
 
 import { corsHeaders } from '../_shared/cors.ts';
 import { serviceClient } from '../_shared/supabaseClients.ts';
+import { withLogging } from '../_shared/edgeLogger.ts';
+import { validateInput, validationResponse } from '../_shared/inputValidator.ts';
 const SUPABASE_URL = Deno.env.get('SUPABASE_URL')!;
 const ANON_KEY = Deno.env.get('SUPABASE_ANON_KEY')!;
 const SERVICE_KEY = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')!;
@@ -47,7 +49,7 @@ async function sendPasswordResetEmail(email: string, link: string) {
   }
 }
 
-Deno.serve(async (req) => {
+Deno.serve(withLogging('admin-manage-users', async (req) => {
   if (req.method === 'OPTIONS') return new Response(null, { headers: corsHeaders });
 
   try {
@@ -69,6 +71,18 @@ Deno.serve(async (req) => {
 
     const admin = serviceClient();
     const body = await req.json().catch(() => ({}));
+    const actionIssues = validateInput({
+      fields: {
+        action: {
+          required: true,
+          type: 'string',
+          oneOf: ['list', 'set_role', 'set_tester', 'set_banned', 'send_password_reset', 'update_profile', 'delete_user', 'lookup_identities'],
+          label: 'action',
+        },
+      },
+      source: body,
+    });
+    if (actionIssues.length) return validationResponse(actionIssues, corsHeaders);
     const action = body?.action as string;
 
     if (action === 'list') {
@@ -356,4 +370,4 @@ Deno.serve(async (req) => {
   } catch (e) {
     return json({ error: String((e as Error)?.message || e) }, 500);
   }
-});
+}));

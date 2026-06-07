@@ -3,6 +3,7 @@ import "jsr:@supabase/functions-js/edge-runtime.d.ts";
 import { cacheGet, cacheSet } from '../_shared/memoryCache.ts';
 
 import { corsHeaders } from '../_shared/cors.ts';
+import { withLogging } from '../_shared/edgeLogger.ts';
 const ALLOWED_ENDPOINTS = [
   'STOCK_DAY_ALL',
   'BWIBBU_ALL',
@@ -20,7 +21,7 @@ const endpointPaths: Record<string, string> = {
   'STOCK_DAY_AVG_ALL': '/exchangeReport/STOCK_DAY_AVG_ALL',
 };
 
-Deno.serve(async (req) => {
+Deno.serve(withLogging('twse-proxy', async (req) => {
   if (req.method === 'OPTIONS') {
     return new Response(null, { headers: corsHeaders });
   }
@@ -70,4 +71,4 @@ Deno.serve(async (req) => {
       headers: { ...corsHeaders, 'Content-Type': 'application/json' },
     });
   }
-});
+}));

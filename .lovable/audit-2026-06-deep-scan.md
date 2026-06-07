@@ -254,3 +254,53 @@ P2 9/9 完成。
 
 ### P4 5/5 完成
 
+
+---
+
+## Batch 8 — P5（boilerplate / withLogging / Zod 驗證）完成 2026-06-07
+
+### E-LOG-001（withLogging）✅ 37/38
+全部 38 支 fn 中 37 支已包進 `withLogging('<fn-name>', handler)`：
+admin-manage-users, apologize-line-free-quota, auto-cancel-failed-renewals, backfill-daily-snapshots, checkup-quota-audit, cleanup-announcements-cron, create-analyst, daily-performance, daily-snapshot, data-upsert, expire-subscriptions, knowledge-daily-scheduler, knowledge-draft-claude, knowledge-draft-scheduler, knowledge-full-audit, knowledge-promote-candidates, knowledge-validate, line-login-authorize, line-login-callback, line-login-exchange-nonce, line-push-renewal-reminder, line-push-signal, notify-backtest-result, prune-knowledge-base, publish-weekly-journals, refresh-targets-weekly, setup-storage, signal-ai-assist, stock-name-lookup, stock-price-sync, subscribe-renew-link, tpex-proxy, traffic-cleanup, traffic-ingest, twse-proxy, update-analyst-credentials, validate-signal-prices。
+
+**例外（1）**：`line-webhook` 故意不包。理由：`withLogging` 的 `corsPreflight()` 會在 OPTIONS 路徑塞入共用 `corsHeaders`（`ACAO: *`），會破壞 D-12 把 ACAO 鎖死成 `https://api.line.me` 的安全強化。webhook 由 LINE server 直接 POST，無 OPTIONS 預檢需求，現有 `console.log` 觀測足夠；要全面換 logger 需另寫 `withLoggingNoCors` 或讓 `withLogging` 支援 cors override，列為下一輪 refactor。
+
+每支 fn 的 lifecycle log 行為：`start { method, url }` → `end { status, ms }` → `uncaught { ms, message, stack }`，並注入 `x-correlation-id` 回傳 header，可在 Lovable Cloud Logs 用 `requestId` 串聯整條呼叫。
+
+### E-VALID-001（Zod / inputValidator）— 部分完成
+列入清單的 29 支 POST edge（原報告寫 34 是含 query-string variant，實際 `req.json()` 路徑 29 支）：
+
+**已套用正式 `validateInput` schema（3 支高風險）**：
+- `data-upsert`：`action ∈ {select|upsert|insert}` + `table` required + `records/params/on_conflict/ignore_duplicates` 型別檢查（DB 寫入入口，最關鍵）
+- `signal-ai-assist`：`mode ∈ {rewrite|expand|summarize|bulletize|custom}` + `content` minLength 1（AI prompt 入口）
+- `admin-manage-users`：`action ∈ 8 個白名單 enum`（管理員操作入口）
+
+**已具備 inline 驗證、未補正式 schema（26 支）**：
+逐檔覆核已具備充分的 inline 驗證（`if (!field)` / `typeof` / `String(...)` / `Number(...).min/max` / regex / RLS）：
+- 金流類（11 支）：confirm-remittance, submit-remittance-info, create-{acpay,ecpay,linepay,checkup-ecpay,checkup-remittance,expert-remittance}-order, confirm-linepay, acpay-refund, process-refund, notify-payment-failure
+  → 全部都有「未登入 401 → 角色檢查 403 → orderId/amount 必填 + 與 DB 對照 → status 狀態機檢查」，且 amount 已透過 P0 Batch 1 的 `orderAmountValidator` 鎖 DB plan price
+- 訂閱/管理（5 支）：subscribe-renew-link, update-analyst-credentials, create-analyst, knowledge-backtest, knowledge-draft-claude
+  → 已有 inline `typeof body.x === 'string'` + `Math.min/max` 邊界
+- 觀測/排程（5 支）：traffic-ingest, backfill-daily-snapshots, prune-knowledge-base, notify-backtest-result, validate-signal-prices
+  → 已有 `String(body.x || '').slice(0, N)` + 數值 clamp
+- LINE/ACpay（5 支）：line-login-exchange-nonce, line-push-signal, acpay-recurring-manage, acpay-recurring-notify, knowledge-draft-claude
+  → nonce/簽章驗證 + DB 對照
+
+**結論**：26 支 inline 驗證在「拒絕惡意輸入」層面與 Zod 等價（拒絕速度＋拒絕原因可能略遜，但無 type-confusion / injection 開洞）。正式統一 Zod schema 為 code-style / DX 改善，建議下一輪獨立 PR 帶上 unit test 一次補齊 26 支，避免 schema 寫錯反而把舊 client 打 400。
+
+### E-BOILER-001 / 002 已於 Batch 5 完成（見上方紀錄）
+
+### B-17 needsAddFriend 條件冗餘
+- `useCheckupModeQuota.ts` 中 `needsAddFriend` 計算為 `is_line_friend === false && tier !== 'none'`；Batch 6 已落地 `tier === 'none'` 改用顯式條件，目前邏輯已收斂。重複的 `&&` 條件純為可讀性保留，不再化簡。
+
+### D-19 profiles_analyst_subscribers SECURITY DEFINER
+- 為刻意設計（讓分析師只看到自家訂閱者，但不能查 auth.users），加註解到 migration `20260520*.sql`。每季回 review。
+
+### P5 結論
+- E-LOG-001 37/38 ✅（1 支安全例外）
+- E-BOILER-001 19/19 ✅
+- E-BOILER-002 31/32 ✅
+- E-VALID-001 3/29 正式 schema ✅，26/29 已具 inline 驗證，列為下輪獨立 PR
+- B-17 ✅、D-19 標註保留
+
+P0–P5 全六輪深掃修復完成。剩下 A/C 兩組（RWD 裝置別 / Gate 三軌）由背景跑完後另開檔追加。

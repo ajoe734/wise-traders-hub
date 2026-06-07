@@ -3,7 +3,9 @@
 
 import { corsHeaders } from "https://esm.sh/@supabase/supabase-js@2.95.0/cors";
 import { sanitizeUserContent } from "../_shared/promptInjectionGuard.ts";
+import { validateInput, validationResponse } from '../_shared/inputValidator.ts';
 
+import { withLogging } from '../_shared/edgeLogger.ts';
 const FIELD_HINTS: Record<string, string> = {
   reason_summary: '欄位是「為什麼這樣操作？」，給訂閱者看的決策摘要，2~4 句、口語、避免空話。',
   reason_detail: '欄位是「部位控管想法」，可寫進場/出場/加碼條件、停損停利、心法。',
@@ -41,7 +43,7 @@ function escapeHtml(s: string): string {
   return s.replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;');
 }
 
-Deno.serve(async (req) => {
+Deno.serve(withLogging('signal-ai-assist', async (req) => {
   if (req.method === 'OPTIONS') return new Response('ok', { headers: corsHeaders });
 
   try {
@@ -53,13 +55,19 @@ Deno.serve(async (req) => {
       });
     }
 
-    const { mode, field, content, instruction, context } = await req.json();
-    if (!mode || !content) {
-      return new Response(JSON.stringify({ error: '缺少 mode 或 content' }), {
-        status: 400,
-        headers: { ...corsHeaders, 'Content-Type': 'application/json' },
-      });
-    }
+    const body = await req.json().catch(() => ({}));
+    const issues = validateInput({
+      fields: {
+        mode: { required: true, type: 'string', oneOf: ['rewrite', 'expand', 'summarize', 'bulletize', 'custom'], label: 'mode' },
+        content: { required: true, type: 'string', minLength: 1, label: 'content' },
+        field: { type: 'string', label: 'field' },
+        instruction: { type: 'string', label: 'instruction' },
+        context: { type: 'object', label: 'context' },
+      },
+      source: body,
+    });
+    if (issues.length) return validationResponse(issues, corsHeaders);
+    const { mode, field, content, instruction, context } = body;
 
     const fieldHint = FIELD_HINTS[field] || '欄位是投資週記/訊號的補充說明。';
     const modeHint = MODE_HINTS[mode] || '';
@@ -138,4 +146,4 @@ Deno.serve(async (req) => {
       headers: { ...corsHeaders, 'Content-Type': 'application/json' },
     });
   }
-});
+}));
