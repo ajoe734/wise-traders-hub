@@ -736,3 +736,64 @@ Warning 從 34 降到 28（剩餘皆為 by design + pg_trgm 維護視窗待排�
 - **S11 i18n / a11y / 對比度**
 - **S13 觀測與成本**（traffic_ingest PII / cold-start 儀表板）
 - /admin/* /company/* 批次補 SEO（低優先）
+
+---
+
+## S10.2 SSR/Prerender Workaround + /admin /company 批次 SEO — 2026-06-07
+
+### 掃描範圍
+- /app/* 動態頁社交分享行為（SignalDetail / JournalDetail / ExpertDetail / AppCheckout）
+- /admin/* 11 個受保護後台頁
+- /company/* 22 個受保護後台頁
+- 邊緣函式部署、smoke test 與 schema 真實欄位對齊
+
+### 發現
+- **F-S10.2-01 HIGH（已修）**：純 Vite SPA 無 SSR，社群（FB/LinkedIn/Slack/Line）crawler 不執行 JS → 貼 `/app/signal/:id` 等動態 URL 只能拿到 index.html 預設 OG，永遠無法顯示該 signal/journal/expert 的具體內容。
+- **F-S10.2-02 MEDIUM（已修）**：/admin/* 11 個 + /company/* 22 個受保護後台頁，tab 名稱統一顯示「legendflow · 投顧…」預設標題，操作多分頁時無法辨識。
+- **F-S10.2-03 LOW（已修）**：`shareUrl.ts` 中 SUPABASE_FN_BASE 三元運算式邏輯混亂（用 replace 後的字串再做 truthy 判斷）。
+- **F-S10.2-04 HIGH（已修，原 share-og v1 bug）**：初版 share-og 直接抄通用名 `signals` / `plans` / `experts.tagline`，但實際 schema 是 `expert_signals` / `expert_plans` / `experts.description`，全部動態 OG 都會 fallback 到預設 → 等於沒做。
+
+### 修補
+- **新增 `supabase/functions/share-og/index.ts`**（公開 Edge Function，verify_jwt=false）：
+  - 對 crawler 輸出完整 OG/Twitter/JSON-LD HTML，對人類 0.5s `meta refresh` + `window.location.replace` 跳回實際 in-app 路由。
+  - 路由：`/share-og/signal/:id`、`/journal/:id`、`/expert/:slug`、`/plan/:slug/:planId`、`/holding-checkup`、`/pricing`、`/experts`、`/`（首頁）。
+  - 用 service_role 從 DB 抓**公開可分享**欄位：`expert_signals`（含 instrument/action/published_at/expert join）、`experts`（status in ['approved','active']）、`expert_plans`（is_active，price_monthly/price_yearly）。**完全不輸出** entry/stop/target/週記內文等敏感策略。
+  - 找不到資料 fallback 預設 OG 避免社交預覽 404 崩壞；`X-Robots-Tag: noindex,nofollow` 防 search engine 索引。
+  - `Cache-Control: public, max-age=300, s-maxage=600` 降低 crawler 高頻打 DB 成本。
+- **新增 `src/lib/shareUrl.ts` + `src/components/ShareButton.tsx`**：buildShareUrl(ShareTarget) 統一產出分享 URL，ShareButton 提供「分享連結」一鍵複製。
+- **整合到 3 個動態頁**：`SignalDetail.tsx` / `JournalDetail.tsx` / `ExpertDetail.tsx` 在 header 區加入 ShareButton。
+- **批次 SEO 33 個後台頁**：`scripts/batch-add-seo-admin-company.mjs` 為 /admin/* 11 + /company/* 22 個頁面注入 `<SEO noindex />`。admin 頁用 `expertSlug` 動態 title，company 頁用靜態運維 title。
+- **`supabase/config.toml`** 加入 `[functions.share-og] verify_jwt = false`。
+- **`shareUrl.ts` SUPABASE_FN_BASE` 改寫**為先正規化 SUPABASE_URL 再拼路徑，行為等價但易讀。
+
+### 驗證（重點：share-og deploy + smoke test）
+- `supabase functions deploy share-og` → ✓
+- `bun run build` → ✓
+- `bun run check:sitemap` → ✓
+- `curl` smoke test 8 個端點：
+  - `/share-og/` → `legendflow · 投顧分析師與實戰導師訂閱平台` ✓
+  - `/share-og/holding-checkup` → `免費 AI 持倉診斷 | legendflow` ✓
+  - `/share-og/experts` → `專家列表 | legendflow` ✓
+  - `/share-og/pricing` → `訂閱方案與價格 | legendflow` ✓
+  - `/share-og/signal/{real-id}` → `3028 增你強 買進｜彥愷 | legendflow`，含 expert avatar og:image、Article JSON-LD ✓
+  - `/share-og/journal/{real-id}` → `3028 增你強｜彥愷週記 | legendflow` ✓
+  - `/share-og/expert/sharkgu` (status=active) → `彥愷｜實戰導師 | legendflow`，含 Person JSON-LD ✓
+  - `/share-og/plan/zhao-pengbo/{real-plan-id}` → `跟單派｜趙鵬博 | legendflow`，含 Product JSON-LD + TWD 月費 ✓
+  - 不存在 id → 200 + 預設 OG（無 5xx）✓
+- 第二輪 schema 修補：原本 `experts.status='approved'` 過濾掉所有 `status='active'` 的真實專家 → 改 `status in ['approved','active']` 後驗證通過。
+
+### Files Edited / Added
+- 新增：`supabase/functions/share-og/index.ts`、`src/lib/shareUrl.ts`、`src/components/ShareButton.tsx`、`scripts/batch-add-seo-admin-company.mjs`
+- 編輯：`supabase/config.toml`（share-og verify_jwt=false）
+- 編輯（加 ShareButton）：`src/pages/app/SignalDetail.tsx` / `JournalDetail.tsx` / `ExpertDetail.tsx`
+- 編輯（注入 `<SEO noindex />`）：/admin/* 11 個 + /company/* 22 個（共 33 個檔案）
+
+### 限制與後續
+- crawler 拿到的是 share-og URL 而不是原 in-app URL → 使用者必須**透過 ShareButton 複製**才有效；若直接複製瀏覽器網址列的 `/app/signal/...`，social preview 仍會 fallback 到 index.html 預設 OG。可在更多分享入口（系統通知、line push、profile 頁）逐步替換。
+- 真正的 SSR/prerender（讓 in-app URL 本身就能被 crawler 抓）需要遷移到 SSR 框架或加 prerender 中介層，超出本次範圍。
+- /admin/* /company/* 全為 noindex，僅改善 tab 名稱辨識度，無 SEO 影響。
+
+### 下一輪建議
+- **S11 i18n / a11y / 對比度**
+- **S13 觀測與成本**（traffic_ingest PII / cold-start 儀表板）
+- 把 ShareButton 推廣到 line push 通知文本、系統公告分享按鈕、個人收藏匯出
