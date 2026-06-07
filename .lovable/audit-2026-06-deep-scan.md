@@ -602,3 +602,43 @@ Warning 從 34 降到 28（剩餘皆為 by design + pg_trgm 維護視窗待排�
 - **S9 錯誤監控覆蓋**（S7 已加 AppErrorBoundary，可順手把 correlation_id 串到 edge 端）
 - **S10 SEO / Meta**（legendflow 品牌憲法尚未套到 index.html）
 - **S11 i18n / a11y**
+
+---
+
+## S9 錯誤監控覆蓋 — 2026-06-07
+
+### 掃描範圍
+- `src/checkup/lib/runtimeLogger.js`：bootstrapRuntimeDiagnostics / captureClientDiagnostic / remote sinks (analytics + sentry)
+- `src/main.tsx`：bootstrap 流程
+- `src/components/AppErrorBoundary.tsx`（S7 新增）
+- `src/components/RouteChunkBoundary`（stale chunk 專用）
+- `supabase/functions/_shared/edgeLogger.ts`、`withCheckup.ts`、`cors.ts`：x-correlation-id 處理
+- 全站 `rg correlation` / `unhandledrejection`
+
+### 發現
+- **F-S9-01 HIGH（已修）**：前端 `captureClientDiagnostic` entry 與 edge 端 `x-correlation-id` 是兩條獨立 ID system，無法將 user-side 白屏 / unhandled rejection 與 backend log join。
+- **F-S9-02 INFO（已驗）**：Lazy chunk 載入失敗已由 `RouteChunkBoundary` 處理（`isStaleChunkError` → reload）；其他 render error 由 S7 `AppErrorBoundary` 接住，不再 white screen。
+- **F-S9-03 INFO（已驗）**：`window.error` + `window.unhandledrejection` 已 hook 進 `captureClientDiagnostic` → analytics HTTP sink → `traffic_ingest`（前提：`VITE_RUNTIME_ANALYTICS_ENABLED=true`，目前 disabled）。Sentry sink 同理（`VITE_RUNTIME_SENTRY_ENABLED`）。
+- **F-S9-04 LOW**：FreeCheckup 是目前唯一手動發 `x-correlation-id` 的呼叫點（L1895）；其他 supabase invoke 沒帶 cid。本輪不強推改造，提供 `newCorrelationId()` helper 供後續按需採用。
+
+### 修補（F-S9-01）
+- `runtimeLogger.js`：
+  - 新增 `getClientSessionId()`：per-tab sticky id，存 sessionStorage（`pf-client-session-id-v1`）。
+  - 新增 `newCorrelationId()` export：給未來 supabase invoke / fetch 當 `x-correlation-id` 用。
+  - `captureClientDiagnostic` 每筆 entry 自動帶 `sessionId`（top-level + context.sessionId），同 tab 所有 uncaught 可一鍵串連。
+- `AppErrorBoundary.tsx`：fallback 同時顯示「診斷編號」+「會話編號」，user 貼給 support 後可直接撈 `traffic_ingest` 與 edge logs。
+
+### 串連方式（運維用）
+1. User 提供「會話編號 sid-xxx」。
+2. `select * from traffic_ingest where payload->'context'->>'sessionId' = 'sid-xxx' order by created_at desc;`
+3. 從 entry.context.href / kind 鎖定發生時間，再去 `function_edge_logs` 撈同時段該 user 的 requestId。
+4. （未來）若該 invoke 改帶 `x-correlation-id`，可直接 join。
+
+### Files Edited
+- `src/checkup/lib/runtimeLogger.js`（新增 sessionId / newCorrelationId）
+- `src/components/AppErrorBoundary.tsx`（顯示 sessionId）
+
+### 下一輪建議
+- **S10 SEO / Meta**（legendflow 品牌憲法尚未套到 index.html）
+- **S11 i18n / a11y / 對比度**
+- **S13 觀測與成本**（traffic_ingest PII / cold-start 儀表板）
