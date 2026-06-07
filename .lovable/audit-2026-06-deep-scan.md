@@ -354,3 +354,33 @@ P0–P5 全六輪深掃修復完成。剩下 A/C 兩組（RWD 裝置別 / Gate �
 - S5 Auth 邊界（nonce TTL / refresh failure UX）
 - S8 DB 效能（linter / 索引）
 - S2 Gate 三軌全掃
+
+---
+
+## S2 — Gate 三軌前端用法回歸掃描（2026-06-07）
+
+### 範圍
+全專案 `rg "tier ===|line_free|line_paid|isLine|!session"`：15 檔命中，逐檔人工檢視。
+
+### 結果
+| 檔案 | 結論 |
+|---|---|
+| `CheckupModeContext.jsx` | ⚠️ `applyQuotaFromResponse` 對 tier 缺失沿用前一個 tier，違反 B-29 不變式 → **已修** |
+| `HoldingsQuotaMeter.tsx` | 五軌（none/line_free/free/basic/pro）分支齊全，CTA / 文案對齊 ✓ |
+| `DailyTab.jsx` | 五軌齊全，鎖卡文案與 reset 倒數正確 ✓ |
+| `TradeTab.jsx` | 五軌齊全，CTA 連結 basic→`/app/account`、其他→`/pricing#checkup` ✓ |
+| `HoldingsTab.tsx` | 只透傳 `isLineBound`，無分支 ✓ |
+| `FreeCheckupQuotaCard.tsx` | switch 五軌 + tester + LINE 文案分流，齊全 ✓ |
+| `predictEventsGate.ts` | `FREE_TIERS = {line_free, none, ''}`，與 `checkup-predict-events/index.ts` inline 實作一致 ✓ |
+| `CheckupPlansSection.tsx` | 只做 label 轉換 ✓ |
+| 其他（Account/Subscribers/CheckupUsage/CheckupQuotaAudit/admin/Subscribers/PerformanceOverviewPanel/AuthContext） | 只做顯示或 filter，無 paywall 分支 ✓ |
+| `useCheckoutData.ts` / `useAccountData.ts` / `PendingRemittanceGuard.tsx` / `SubscriptionCard.tsx` | 無 tier 分支，tier-agnostic ✓ |
+
+### 修補
+**F-S2-01 `applyQuotaFromResponse` tier 缺失退回 'none'**
+- 原本 `setTier(payload.quota.tier || tier)` 沿用前一個 tier，若後端漏傳 tier 會殘留 line_free → 顯示幻覺額度。
+- 改為 `setTier(payload.quota.tier || 'none')`，與 `fetchQuota` 行為一致，符合 B-29。
+- 順便從 deps 移除 `tier`，避免每次 tier 變動重建 callback 觸發子元件 re-render。
+
+### 結論
+S2 三軌前端用法已全面驗證，僅 1 處 context 不變式漏洞已修。未發現 B-29/B-31 同款回歸。

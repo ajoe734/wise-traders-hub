@@ -140,12 +140,14 @@ export function CheckupModeProvider({ children }) {
   const applyQuotaFromResponse = useCallback((payload) => {
     if (payload?.quota) {
       setQuota(payload.quota)
-      setTier(payload.quota.tier || tier)
+      // B-29 不變式：tier 缺失時退回 'none'（未訂閱），不要沿用前一個 tier
+      // 製造幻覺額度（例如 line_free→none 切換時殘留 line_free 標籤）。
+      setTier(payload.quota.tier || 'none')
     } else {
       // Best-effort refresh
       refreshQuota()
     }
-  }, [refreshQuota, tier])
+  }, [refreshQuota])
 
   const demoData = useMemo(() => {
     if (!isDemo) return null
