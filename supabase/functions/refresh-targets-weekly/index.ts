@@ -144,9 +144,15 @@ Deno.serve(async (req) => {
         }
 
         if (insertRows.length > 0) {
-          const { error: insErr } = await supabase.from('target_price_history').insert(insertRows);
+          // E-IDEM-002: 改 upsert，搭配唯一索引 uniq_tph_dedupe
+          // (user_id, code, firm, report_date, target)，雙跑不會重複入庫
+          const { error: insErr, data: upserted } = await supabase
+            .from('target_price_history')
+            .upsert(insertRows, { onConflict: 'user_id,code,firm,report_date,target', ignoreDuplicates: true })
+            .select('id');
           if (insErr) throw insErr;
-          stats.inserted += insertRows.length;
+          const actuallyInserted = Array.isArray(upserted) ? upserted.length : insertRows.length;
+          stats.inserted += actuallyInserted;
           stats.changedHoldings += new Set(userChanges.map(c => c.code)).size;
 
           // 4) 發送通知（依使用者偏好）

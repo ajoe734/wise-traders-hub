@@ -189,6 +189,7 @@ function HoldingsTab(props) {
         C={C}
         alpha={alpha}
         formatResetCountdown={formatResetCountdown}
+        isLineBound={!!_mode.lineProfile?.lineUserId}
       />
       {/* 上傳摘要：剛從上傳成交頁回來時顯示新增/更新項目（B1） */}
       <HoldingsUploadSummary

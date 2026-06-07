@@ -1,5 +1,6 @@
 // deno-lint-ignore-file
 import "jsr:@supabase/functions-js/edge-runtime.d.ts";
+import { cacheGet, cacheSet } from '../_shared/memoryCache.ts';
 
 const corsHeaders = {
   'Access-Control-Allow-Origin': '*',
@@ -7,11 +8,12 @@ const corsHeaders = {
 };
 
 const ALLOWED_ENDPOINTS = [
-  'SQUOTE_EW_QUOTAS_ALL',   // 上櫃股票每日收盤行情 (對應 TWSE 的 STOCK_DAY_ALL)
-  'SQUOTE_EW_PEBR_ALL',     // 上櫃股票本益比/殖利率/淨值比 (對應 TWSE 的 BWIBBU_ALL)
+  'SQUOTE_EW_QUOTAS_ALL',
+  'SQUOTE_EW_PEBR_ALL',
 ];
 
 const TPEX_BASE = 'https://www.tpex.org.tw/openapi/v1';
+const CACHE_TTL_MS = 5 * 60 * 1000;
 
 const endpointPaths: Record<string, string> = {
   'SQUOTE_EW_QUOTAS_ALL': '/tpex_mainboard_quotes',
@@ -26,7 +28,7 @@ Deno.serve(async (req) => {
   try {
     const url = new URL(req.url);
     const endpoint = url.searchParams.get('endpoint');
-    const codesParam = url.searchParams.get('codes'); // comma-separated stock codes
+    const codesParam = url.searchParams.get('codes');
 
     if (!endpoint || !ALLOWED_ENDPOINTS.includes(endpoint)) {
       return new Response(
@@ -35,23 +37,23 @@ Deno.serve(async (req) => {
       );
     }
 
-    const tpexUrl = `${TPEX_BASE}${endpointPaths[endpoint]}`;
-    const response = await fetch(tpexUrl, {
-      headers: {
-        'User-Agent': 'Mozilla/5.0',
-        'Accept': 'application/json',
-      },
-    });
-
-    if (!response.ok) {
-      const text = await response.text();
-      throw new Error(`TPEX API error: ${response.status} - ${text}`);
+    const cacheKey = `tpex:${endpoint}`;
+    let upstream = cacheGet<unknown>(cacheKey);
+    if (!upstream) {
+      const tpexUrl = `${TPEX_BASE}${endpointPaths[endpoint]}`;
+      const response = await fetch(tpexUrl, {
+        signal: AbortSignal.timeout(10000),
+        headers: { 'User-Agent': 'Mozilla/5.0', 'Accept': 'application/json' },
+      });
+      if (!response.ok) {
+        const text = await response.text();
+        throw new Error(`TPEX API error: ${response.status} - ${text}`);
+      }
+      upstream = await response.json();
+      cacheSet(cacheKey, upstream, CACHE_TTL_MS);
     }
 
-    let data = await response.json();
-
-    // Filter by stock codes if provided
-    // TPEX uses "SecuritiesCompanyCode" for stock code field
+    let data: unknown = upstream;
     if (codesParam && Array.isArray(data)) {
       const codes = codesParam.split(',').map(c => c.trim());
       data = data.filter((item: any) =>
