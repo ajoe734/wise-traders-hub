@@ -1,6 +1,7 @@
 import { jsonResponse } from "../_shared/cors.ts";
 import { serviceClient } from "../_shared/supabaseClients.ts";
 import { withLogging } from "../_shared/edgeLogger.ts";
+import { validateExpertOrderAmount } from "../_shared/orderAmountValidator.ts";
 
 async function hmacSha256Base64(secret: string, message: string): Promise<string> {
   const encoder = new TextEncoder();
@@ -21,6 +22,23 @@ const handler = withLogging("create-linepay-order", async (req, log) => {
     return jsonResponse({ error: "Missing required fields" }, { status: 400 });
   }
 
+  const sbAdmin = serviceClient();
+  const amt = Number(amount);
+  const validation = await validateExpertOrderAmount({
+    supabase: sbAdmin,
+    userId: userId ?? null,
+    planId,
+    billingCycle,
+    clientAmount: amt,
+    upgradeFromSubscriptionId: upgradeFromSubscriptionId ?? null,
+  });
+  if (!validation.ok) {
+    log.error("amount_validation_failed", { reason: validation.reason, planId, userId });
+    return jsonResponse({ error: validation.reason || "金額不符" }, { status: 400 });
+  }
+
+
+
   const channelId = Deno.env.get("LINEPAY_CHANNEL_ID")!;
   const channelSecret = Deno.env.get("LINEPAY_CHANNEL_SECRET")!;
   const isSimulate = (Deno.env.get("LINEPAY_SIMULATE") || "true") === "true";
@@ -29,8 +47,7 @@ const handler = withLogging("create-linepay-order", async (req, log) => {
   const nonce = crypto.randomUUID();
 
   try {
-    const sb = serviceClient();
-    await sb.from("payment_intents").insert({
+    await sbAdmin.from("payment_intents").insert({
       trade_no: orderId,
       user_id: userId || null,
       product_kind: "expert_plan",
