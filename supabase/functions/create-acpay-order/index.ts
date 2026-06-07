@@ -58,6 +58,21 @@ const handler = withLogging("create-acpay-order", async (req, log) => {
   const nonceStr = crypto.randomUUID().replace(/-/g, "").slice(0, 32);
   const supabase = serviceClient();
 
+  const validation = await validateExpertOrderAmount({
+    supabase,
+    userId: userId ?? null,
+    planId,
+    billingCycle,
+    clientAmount: Number(amount),
+    upgradeFromSubscriptionId: upgradeFromSubscriptionId ?? null,
+  });
+  if (!validation.ok) {
+    log.error("amount_validation_failed", { reason: validation.reason, planId, userId });
+    return jsonResponse({ error: validation.reason || "金額不符" }, { status: 400 });
+  }
+
+
+
   try {
     await supabase.from("payment_intents").insert({
       trade_no: outTradeNo,

@@ -3,6 +3,7 @@ import { codedErrorResponse } from "../_shared/errorCodes.ts";
 import { serviceClient } from "../_shared/supabaseClients.ts";
 import { withLogging } from "../_shared/edgeLogger.ts";
 import { loadEcpayCreds } from "../_shared/ecpayCredentials.ts";
+import { validateCheckupOrderAmount } from "../_shared/orderAmountValidator.ts";
 
 async function generateCheckMacValueAsync(
   params: Record<string, string>, hashKey: string, hashIV: string,
