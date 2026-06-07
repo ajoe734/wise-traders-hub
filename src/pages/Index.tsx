@@ -110,8 +110,8 @@ const Index = () => {
               <Button
                 size="xl"
                 asChild
-                style={{ backgroundColor: '#EC662D', color: '#fff' }}
-                className="hover:brightness-110 border-0 shadow-[0_10px_30px_-12px_rgba(236,102,45,0.65)]"
+                style={{ backgroundColor: 'hsl(var(--cta))', color: 'hsl(var(--primary-foreground))' }}
+                className="hover:brightness-110 border-0 shadow-[0_10px_30px_-12px_hsl(var(--cta)/0.65)]"
               >
                 <Link to="/holding-checkup">
                   開始看懂我的持股

@@ -63,7 +63,6 @@ export function DedupSettingsButton() {
           position: 'fixed', right: 16, bottom: 16, zIndex: 9998,
           width: 36, height: 36, borderRadius: '50%',
           background: '#fff', border: '1px solid rgba(0,0,0,0.12)',
-          boxShadow: '0 1px 3px rgba(0,0,0,0.06)',
           display: 'flex', alignItems: 'center', justifyContent: 'center',
           cursor: 'pointer', fontSize: 16, color: '#555',
         }}

@@ -2799,7 +2799,7 @@ ${JSON.stringify(strategyBrain || { rules: [], lessons: [], commonMistakes: [], 
         {todayEvents.length>0 && (
           <div style={{
             borderRadius:4,padding:"7px 10px",marginBottom:10,
-            fontSize:12,color:C.textSec,lineHeight:1.7,fontWeight:400}}>
+            fontSize:12,color:C.text,lineHeight:1.7,fontWeight:400}}>
             今日 · {todayEvents.map(e=>e.label).join(" · ")}
           </div>
         )}

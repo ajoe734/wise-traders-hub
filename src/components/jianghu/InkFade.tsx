@@ -24,11 +24,15 @@ interface InkFadeProps {
 const NOISE_BG =
   "url(\"data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' width='160' height='160'><filter id='n'><feTurbulence type='fractalNoise' baseFrequency='0.85' numOctaves='2' stitchTiles='stitch'/><feColorMatrix values='0 0 0 0 0.06  0 0 0 0 0.05  0 0 0 0 0.04  0 0 0 0.5 0'/></filter><rect width='100%' height='100%' filter='url(%23n)'/></svg>\")";
 
+// 預設使用 jh-* 設計 token。傳入硬編碼 hex 視為例外。
+const DEFAULT_PAPER = 'hsl(var(--jh-paper))';
+const DEFAULT_INK = 'hsl(var(--jh-ink))';
+
 export function InkFade({
   direction,
   height = 140,
-  paperColor = '#EFE7D6',
-  inkColor = '#0E0C0A',
+  paperColor = DEFAULT_PAPER,
+  inkColor = DEFAULT_INK,
   className,
 }: InkFadeProps) {
   const isPaperToInk = direction === 'paper-to-ink';
