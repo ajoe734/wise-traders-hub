@@ -422,3 +422,23 @@ S2 三軌前端用法已全面驗證，僅 1 處 context 不變式漏洞已修�
 ## 未做（轉下一輪）
 - S8 DB 效能（linter / 索引）
 - S12 依賴掃描
+
+## S8 — DB Linter / Performance（2026-06-07）
+
+掃描範圍：`supabase--linter` 全部 34 條 warning + `pg_proc` 全表（50 個 SECURITY DEFINER 函式）+ `pg_extension`。
+
+### 修復項
+- **F-S8-01** `touch_checkup_entitlements_updated_at` 未設定 `search_path` → 補上 `SET search_path = public`。
+- **F-S8-02** 5 個權限檢查 SECURITY DEFINER 函式（`has_active_subscription` / `has_active_subscription_after` / `has_role` / `is_subscribed_to_plan` / `is_tester`）原先以 `PUBLIC` 持有 EXECUTE，允許匿名呼叫。已 `REVOKE ... FROM PUBLIC, anon`，僅授權 `authenticated, service_role`。
+
+### 確認後保留（非 bug，by design）
+- **pg_trgm in public**：被 `check_knowledge_title_similarity` 與既有索引（`similarity()`、gin_trgm）依賴。搬遷會破壞索引並中斷搜尋，需專屬維護視窗處理。
+- **3 個公開 SECURITY DEFINER**：`get_expert_detail_bundle` / `get_pricing_bundle` / `get_public_experts_list`，為 landing/pricing 頁面 SSR-like 資料聚合用，內部已嚴格控管欄位輸出，刻意對 `PUBLIC` 開放。
+- **24 個 authenticated SECURITY DEFINER**：dashboard / management RPC，內部一律以 `has_role(auth.uid(), 'admin' | 'analyst')` gating；linter 屬資訊性告警。
+
+### 結果
+Warning 從 34 降到 28（剩餘皆為 by design + pg_trgm 維護視窗待排）。
+
+## S12 — Dependency Scan（2026-06-07）
+
+`code--dependency_scan` 結果：**0 個 high / critical**。無動作。
