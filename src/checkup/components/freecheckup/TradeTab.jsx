@@ -183,14 +183,14 @@ function TradeTabImpl({
             {tier === 'line_free' && <>仍可繼續上傳成交、建立持倉。升級訂閱方案後可繼續使用 AI 收盤分析。</>}
           </div>
           {(tier === 'free' || tier === 'basic' || tier === 'line_free' || tier === 'none') && (
-            <a href="/pricing#checkup" style={{
+            <a href={tier === 'basic' ? '/app/account' : '/pricing#checkup'} style={{
               display:"inline-block", marginTop:8,
               background:"transparent", color:C.blue,
               border:`1px solid ${alpha(C.blue,'40')}`,
               borderRadius:8, padding:"6px 14px", fontSize:11, fontWeight:500,
               textDecoration:"none", letterSpacing:"0.02em",
             }}>
-              {tier === 'basic' ? '升級 Pro' : '查看訂閱方案'} →
+              {tier === 'basic' ? '立即續訂 / 升級' : '查看訂閱方案'} →
             </a>
           )}
         </div>
