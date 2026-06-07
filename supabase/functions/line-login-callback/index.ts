@@ -22,18 +22,53 @@ serve(async (req) => {
     const stateParam = url.searchParams.get('state') || '';
     const error = url.searchParams.get('error');
 
-    // Parse state
+    // Resolve state via server-side nonce store (CSRF + replay protection).
+    // Legacy base64 payload accepted as one-release fallback so in-flight logins
+    // started before the cutover still succeed.
     let returnTo = '/holding-checkup';
     let redirectUri = '';
     let appOrigin = '';
-    try {
-      const stateData = JSON.parse(atob(stateParam));
-      returnTo = stateData.return_to || '/holding-checkup';
-      redirectUri = stateData.redirect_uri || '';
-      appOrigin = stateData.app_origin || '';
-      console.log('[LINE-CB-FN] Parsed state:', JSON.stringify({ returnTo, appOrigin, hasCode: !!code, error }));
-    } catch {
-      console.warn('[LINE-CB-FN] Failed to parse state param');
+    const supabaseAdmin = createClient(SUPABASE_URL, SUPABASE_SERVICE_ROLE_KEY);
+
+    let stateOk = false;
+    if (stateParam) {
+      const { data: stateRow } = await supabaseAdmin
+        .from('line_oauth_states')
+        .select('payload, expires_at, consumed_at')
+        .eq('state', stateParam)
+        .maybeSingle();
+      if (stateRow && !stateRow.consumed_at && new Date(stateRow.expires_at) > new Date()) {
+        const payload = (stateRow.payload || {}) as Record<string, string>;
+        returnTo = payload.return_to || '/holding-checkup';
+        redirectUri = payload.redirect_uri || '';
+        appOrigin = payload.app_origin || '';
+        const { error: consumeErr, count } = await supabaseAdmin
+          .from('line_oauth_states')
+          .update({ consumed_at: new Date().toISOString() }, { count: 'exact' })
+          .eq('state', stateParam)
+          .is('consumed_at', null);
+        if (!consumeErr && (count ?? 0) > 0) stateOk = true;
+      }
+      if (!stateOk) {
+        try {
+          const stateData = JSON.parse(atob(stateParam));
+          returnTo = stateData.return_to || '/holding-checkup';
+          redirectUri = stateData.redirect_uri || '';
+          appOrigin = stateData.app_origin || '';
+          console.warn('[LINE-CB-FN] state nonce miss; used legacy base64 fallback');
+          stateOk = true;
+        } catch {
+          console.warn('[LINE-CB-FN] state invalid (no nonce row, not base64)');
+        }
+      }
+    }
+
+    if (!stateOk) {
+      const fallbackSite = Deno.env.get('SITE_URL') || 'https://wise-traders-hub.lovable.app';
+      return new Response(null, {
+        status: 302,
+        headers: { Location: `${fallbackSite}/holding-checkup?line_error=invalid_state` },
+      });
     }
 
     const safeReturnTo = returnTo.startsWith('/') ? returnTo : '/holding-checkup';
