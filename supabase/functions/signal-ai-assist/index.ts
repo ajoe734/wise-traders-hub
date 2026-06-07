@@ -55,13 +55,19 @@ Deno.serve(withLogging('signal-ai-assist', async (req) => {
       });
     }
 
-    const { mode, field, content, instruction, context } = await req.json();
-    if (!mode || !content) {
-      return new Response(JSON.stringify({ error: '缺少 mode 或 content' }), {
-        status: 400,
-        headers: { ...corsHeaders, 'Content-Type': 'application/json' },
-      });
-    }
+    const body = await req.json().catch(() => ({}));
+    const issues = validateInput({
+      fields: {
+        mode: { required: true, type: 'string', oneOf: ['rewrite', 'expand', 'summarize', 'bulletize', 'custom'], label: 'mode' },
+        content: { required: true, type: 'string', minLength: 1, label: 'content' },
+        field: { type: 'string', label: 'field' },
+        instruction: { type: 'string', label: 'instruction' },
+        context: { type: 'object', label: 'context' },
+      },
+      source: body,
+    });
+    if (issues.length) return validationResponse(issues, corsHeaders);
+    const { mode, field, content, instruction, context } = body;
 
     const fieldHint = FIELD_HINTS[field] || '欄位是投資週記/訊號的補充說明。';
     const modeHint = MODE_HINTS[mode] || '';
