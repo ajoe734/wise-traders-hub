@@ -69,6 +69,7 @@ const Signals = () => {
 
   return (
     <UnifiedAppLayout>
+      <SEO title="即時策略訊號 | legendflow" description="檢視已訂閱投顧分析師的最新買賣訊號與操作說明。" path="/app/signals" noindex />
       <div className="p-4 space-y-4">
         <div className="flex items-center gap-2 mb-2">
           <Radio className="h-5 w-5 text-signals-accent" />
