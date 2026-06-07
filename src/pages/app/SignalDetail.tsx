@@ -1,3 +1,4 @@
+import { SEO } from '@/components/SEO';
 import { useEffect } from 'react';
 import { useParams, useSearchParams } from 'react-router-dom';
 import { useGoBack } from '@/lib/backNav';

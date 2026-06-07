@@ -1,3 +1,4 @@
+import { SEO } from '@/components/SEO';
 import { useState } from "react";
 import { Link } from "react-router-dom";
 import { UnifiedAppLayout } from "@/components/layouts/UnifiedAppLayout";

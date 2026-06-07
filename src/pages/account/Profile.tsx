@@ -1,3 +1,4 @@
+import { SEO } from '@/components/SEO';
 import { useState, useRef, useEffect } from 'react';
 import { Link } from 'react-router-dom';
 import { PortalLayout } from '@/components/layouts/PortalLayout';

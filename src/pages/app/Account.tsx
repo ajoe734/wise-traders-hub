@@ -1,3 +1,4 @@
+import { SEO } from '@/components/SEO';
 import { Link, useNavigate } from 'react-router-dom';
 import { UnifiedAppLayout } from '@/components/layouts/UnifiedAppLayout';
 import { Card, CardContent } from '@/components/ui/card';

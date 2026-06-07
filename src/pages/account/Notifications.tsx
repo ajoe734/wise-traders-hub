@@ -1,3 +1,4 @@
+import { SEO } from '@/components/SEO';
 import { useEffect } from 'react';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { trackRaw } from '@/lib/analytics/events';

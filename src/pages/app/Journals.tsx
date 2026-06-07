@@ -1,3 +1,4 @@
+import { SEO } from '@/components/SEO';
 import { useEffect, useMemo, useState } from 'react';
 import { Link } from 'react-router-dom';
 import { UnifiedAppLayout, markAppJournalsAsRead } from '@/components/layouts/UnifiedAppLayout';
