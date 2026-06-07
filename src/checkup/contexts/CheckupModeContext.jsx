@@ -8,13 +8,17 @@ const CheckupModeContext = createContext(null)
  * Mode (legacy, kept for compatibility):
  *   'demo'      → not authenticated
  *   'line_only' → LINE user without friend (kept for the OA-friend nudge)
- *   'full'      → authenticated (any tier ≥ free)
+ *   'full'      → authenticated (any tier ≥ free) with full access
  *
- * Tier (new, for paywall logic):
- *   'guest' | 'free' | 'basic' | 'pro'
+ * Tier (canonical, drives paywall logic — keep in sync with `check_checkup_quota` RPC):
+ *   'guest'     → 未登入訪客（demo）
+ *   'none'      → 已登入但未訂閱（不要假設 free 製造幽靈額度，見 B-29）
+ *   'line_free' → LINE 註冊禮（一次性免費額度）
+ *   'free'      → 顯式 free plan（極少數情境）
+ *   'basic' | 'pro' → 付費方案
  *
  * Quota (from check_checkup_quota RPC):
- *   { tier, period: 'week'|'month', limit, used, remaining, resets_at }
+ *   { tier, period: 'week'|'month'|'lifetime', limit, used, remaining, resets_at }
  */
 export function CheckupModeProvider({ children }) {
   const [mode, setMode] = useState('demo')
@@ -64,9 +68,11 @@ export function CheckupModeProvider({ children }) {
 
       setSupabaseUser(user)
 
+      // B-21：原本 select 了 is_tester 卻沒任何 consumer 使用 → 移除以省 row 寬度。
+      // 測試者識別請走專屬 RPC / has_role()，不要在 client context 散落判斷邏輯。
       const { data: profile } = await supabase
         .from('profiles')
-        .select('line_user_id, display_name, avatar_url, is_line_friend, is_tester')
+        .select('line_user_id, display_name, avatar_url, is_line_friend')
         .eq('user_id', user.id)
         .maybeSingle()
 

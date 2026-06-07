@@ -1,6 +1,15 @@
-import { corsHeaders } from '../_shared/cors.ts';
+// P4 D-12：line-webhook 由 LINE 平台 server 直接 POST，無瀏覽器情境，
+// 不應回 `Access-Control-Allow-Origin: *`。鎖死成 LINE 官方來源即可。
 import { createClient } from 'https://esm.sh/@supabase/supabase-js@2.49.1'
 import { lineWebhookVerifySignature as verifySignature } from '../_shared/paymentVerify.ts'
+
+const webhookHeaders: Record<string, string> = {
+  'Access-Control-Allow-Origin': 'https://api.line.me',
+  'Access-Control-Allow-Headers': 'content-type, x-line-signature',
+  'Access-Control-Allow-Methods': 'POST, GET, OPTIONS',
+  'Vary': 'Origin',
+}
+const corsHeaders = webhookHeaders
 
 const LINE_REPLY_URL = 'https://api.line.me/v2/bot/message/reply'
 

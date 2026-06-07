@@ -19,7 +19,9 @@ const handler = withLogging("ecpay-callback", async (req, log) => {
     const expectedMac = await generateCheckMacValueAsync(paramsWithoutMac, creds.hashKey, creds.hashIV);
 
     if (receivedMac !== expectedMac) {
-      log.error("checkmacvalue_mismatch", { received: receivedMac, expected: expectedMac });
+      // P4 D-20：CheckMacValue 屬於商家驗章，明碼進 log 等於把對齊樣本送給攻擊者；只留長度與末 4 碼指紋。
+      const fp = (v: string | undefined) => v ? `len=${v.length}/tail=${v.slice(-4)}` : 'null';
+      log.error("checkmacvalue_mismatch", { received_fp: fp(receivedMac), expected_fp: fp(expectedMac) });
       return new Response("0|CheckMacValue Error", { status: 200 });
     }
 

@@ -8,6 +8,7 @@ import { Input } from '@/components/ui/input';
 import { supabase } from '@/integrations/supabase/client';
 import { Search, Users, UserCheck, UserX, RefreshCw, Download, Stethoscope } from 'lucide-react';
 import { useUserIdentities, formatIdentitySecondary } from '@/hooks/useUserIdentities';
+import { formatTaipeiYMD } from '@/checkup/utils/formatTaipeiDate';
 
 type Row = {
   id: string;
@@ -88,8 +89,8 @@ const CompanySubscribers = () => {
     const email = (id?.email || '').toLowerCase();
     const lineId = (id?.line_user_id || '').toLowerCase();
     const planName = s.plan_name.toLowerCase();
-    const startDate = s.started_at ? new Date(s.started_at).toLocaleDateString('zh-TW') : '';
-    const endDate = s.expires_at ? new Date(s.expires_at).toLocaleDateString('zh-TW') : '';
+    const startDate = formatTaipeiYMD(s.started_at);
+    const endDate = formatTaipeiYMD(s.expires_at);
     const remaining = getRemainingDays(s.expires_at);
     const remainingStr = remaining != null ? (remaining > 0 ? `${remaining} 天` : '已到期') : '';
     const renewStr = s.auto_renew ? '自動' : '手動';
@@ -124,8 +125,8 @@ const CompanySubscribers = () => {
         id?.line_user_id ? id.line_user_id.slice(-6) : '',
         s.user_id,
         s.plan_name,
-        s.started_at ? new Date(s.started_at).toLocaleDateString('zh-TW') : '-',
-        s.expires_at ? new Date(s.expires_at).toLocaleDateString('zh-TW') : '-',
+        formatTaipeiYMD(s.started_at) || '-',
+        formatTaipeiYMD(s.expires_at) || '-',
         s.status === 'active' ? '活躍' : s.status === 'expired' ? '已到期' : '已取消',
         s.auto_renew ? '自動' : '手動',
       ];
@@ -230,8 +231,8 @@ const CompanySubscribers = () => {
                           </div>
                         </td>
                         <td className="p-4 text-sm">{sub.plan_name}</td>
-                        <td className="p-4 text-sm text-muted-foreground">{sub.started_at ? new Date(sub.started_at).toLocaleDateString('zh-TW') : '-'}</td>
-                        <td className="p-4 text-sm text-muted-foreground">{sub.expires_at ? new Date(sub.expires_at).toLocaleDateString('zh-TW') : '-'}</td>
+                        <td className="p-4 text-sm text-muted-foreground">{formatTaipeiYMD(sub.started_at) || '-'}</td>
+                        <td className="p-4 text-sm text-muted-foreground">{formatTaipeiYMD(sub.expires_at) || '-'}</td>
                         <td className="p-4">
                           {remaining != null ? (
                             <span className={`text-sm font-medium ${remaining <= 7 ? 'text-destructive' : remaining <= 30 ? 'text-yellow-600' : 'text-foreground'}`}>

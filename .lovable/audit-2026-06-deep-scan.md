@@ -224,3 +224,33 @@ P2 9/9 完成。
 
 ### 後續
 - P3 全部完成；P5 boilerplate（E-LOG-001 / E-VALID-001）仍未動，視需要再開一輪。
+
+---
+
+## Batch 7 — P4（觀測 / cache / 性能）完成 2026-06-07
+
+### B-16/21/22/30/32 CheckupModeContext 清理
+- **B-16 jsdoc 過期**：tier 列舉補齊 `none` / `line_free`；period 補 `lifetime`；標註「與 `check_checkup_quota` RPC 對齊」（src/checkup/contexts/CheckupModeContext.jsx:7-23）
+- **B-21 is_tester 查了不用**：`select` 移除 `is_tester` 欄位，註明測試者識別走 `has_role()` RPC，不在 client context 散落（CheckupModeContext.jsx:67-72）
+- **B-22 guest/none 邊界**：jsdoc 顯式區分「未登入訪客（guest）vs 已登入未訂閱（none）」；fetchQuota 沒 user 時保留 guest，有 user 但 quota 缺欄位則 fallback `none`（Batch 6 B-29 已落地）
+- **B-30 @line.local edge 確認**：`notify-payment-failure` 已排除 @line.local（Batch 2 完成）；line-push 系列已依 platform-binding 區分（Batch 5 完成），無漏網
+- **B-32 isTester 雙軌**：移除 client `is_tester` 來源 → 不再有雙軌可能性
+
+### D-12 line-webhook CORS Origin `*`
+- `supabase/functions/line-webhook/index.ts:1-12`：移除共用 `corsHeaders`（`Access-Control-Allow-Origin: *`），改用本地 `webhookHeaders`：`ACAO: https://api.line.me`、僅允許 `content-type, x-line-signature` header、加 `Vary: Origin`。LINE 平台直接 server→server POST，前端不會打這支，鎖死安全。
+
+### D-20 ecpay-callback log 含 CheckMacValue
+- `supabase/functions/ecpay-callback/index.ts:21-26`：MAC 不再明碼進 log，改寫 fingerprint `len=N/tail=XXXX`。攻擊者拿不到完整對齊樣本，工程師仍可比對是否同一壞值。
+
+### I 組 useEffect exhaustive-deps
+- 重新清點：原報告列出的 `useSignalRealtimeInvalidation.ts` / `LineBindingCard.tsx` **沒有**任何 `eslint-disable`（誤報）
+- `FreeCheckup.jsx` 5 處 disable（L423/1105/1166/1174/1214）皆已有 inline 註解說明 codes-key/value-key 穩定化策略，屬刻意降噪；其餘 disable（useEvents.js / useFormDraft.ts / MyRemittanceOrders.tsx / ResetPassword.tsx / Analysts.tsx / useSubscriptionConfirmation.ts / useFreeCheckupBootstrap.js）皆為「一次性 mount 或顯式 key」場景，rationale 明確。本輪不再強行解 disable 以免破行為。
+
+### G/H formatTaipeiDate 覆蓋
+- 新增 `taipeiMonthStartIso()` helper（`src/checkup/utils/formatTaipeiDate.ts`），回傳 `YYYY-MM-01T00:00:00+08:00`，杜絕 `new Date(y, m, 1).toISOString()` 在 UTC 伺服器上把月初算到上月最後一天的 bug
+- `company/Dashboard.tsx`：`monthStart` 改用 `taipeiMonthStartIso(now)`，本月新增訂閱／取消／營收統計皆鎖 Asia/Taipei 月初
+- `company/Subscribers.tsx`：4 處 `new Date(...).toLocaleDateString('zh-TW')`（filter / CSV 匯出 / 兩個 table cell）全改 `formatTaipeiYMD()`，輸出統一 `YYYY/MM/DD`
+- `Checkout.tsx` / `AppCheckout.tsx`：核對無日期格式化使用點，免動
+
+### P4 5/5 完成
+
