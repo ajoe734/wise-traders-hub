@@ -13,11 +13,12 @@ const SCHEMA = {
   C: 'object',
   alpha: 'function',
   formatResetCountdown: 'function',
+  isLineBound: { type: 'boolean', optional: true },
 };
 
 function HoldingsQuotaMeterImpl(props) {
   validateProps('HoldingsQuotaMeter', props, SCHEMA);
-  const { isDemo, quota, tier, tierLabel, C, alpha, formatResetCountdown } = props;
+  const { isDemo, quota, tier, tierLabel, C, alpha, formatResetCountdown, isLineBound = false } = props;
 
   if (isDemo) return null;
 
@@ -110,7 +111,7 @@ function HoldingsQuotaMeterImpl(props) {
           }
         </div>
         <div style={{ display: 'flex', gap: 6, flexWrap: 'wrap', alignItems: 'center' }}>
-          {(tier === 'none' || tier === 'free') && (
+          {(tier === 'none' || tier === 'free') && !isLineBound && (
             <a href="/app/account#line" style={{
               fontSize: 11, color: '#fff', background: '#06C755', textDecoration: 'none',
               letterSpacing: '0.02em', padding: '4px 10px', borderRadius: 4, fontWeight: 500,
