@@ -266,6 +266,12 @@ const AppCheckout = () => {
 
   return (
     <UnifiedAppLayout>
+      <SEO
+        title={`確認訂閱 ${planData?.name || ''}｜${expert?.name || ''} | legendflow`}
+        description={`確認訂閱 ${expert?.name || ''} 的「${planData?.name || ''}」方案並完成付款。`}
+        path={`/app/checkout/${slug || ''}/${planId || ''}`}
+        noindex
+      />
       <div className="p-4 space-y-6 pb-24">
         <Button variant="ghost" size="sm" onClick={() => navigate(`/app/expert/${slug}`)} className="gap-2 -ml-2"><ArrowLeft className="h-4 w-4" />返回方案</Button>
 
