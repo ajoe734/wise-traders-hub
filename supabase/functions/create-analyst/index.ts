@@ -1,4 +1,5 @@
 import { corsHeaders } from '../_shared/cors.ts';
+import { serviceClient } from '../_shared/supabaseClients.ts';
 import { createClient } from 'https://esm.sh/@supabase/supabase-js@2.49.1'
 
 Deno.serve(async (req) => {
@@ -56,7 +57,7 @@ Deno.serve(async (req) => {
     }
 
     // Use service role client for admin operations
-    const adminClient = createClient(supabaseUrl, serviceRoleKey)
+    const adminClient = serviceClient()
 
     // 1. Create auth user
     const { data: newUser, error: createError } = await adminClient.auth.admin.createUser({

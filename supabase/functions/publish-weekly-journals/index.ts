@@ -1,4 +1,5 @@
 import { corsHeaders } from '../_shared/cors.ts';
+import { serviceClient } from '../_shared/supabaseClients.ts';
 import { createClient } from 'https://esm.sh/@supabase/supabase-js@2.49.1'
 
 const LINE_MULTICAST_URL = 'https://api.line.me/v2/bot/message/multicast'
@@ -115,7 +116,7 @@ Deno.serve(async (req) => {
   const supabaseUrl = Deno.env.get('SUPABASE_URL')
   const serviceRoleKey = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')
   const supabaseAdmin = supabaseUrl && serviceRoleKey
-    ? createClient(supabaseUrl, serviceRoleKey)
+    ? serviceClient()
     : null
 
   const logBuffer: any[] = []

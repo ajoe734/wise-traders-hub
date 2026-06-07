@@ -3,6 +3,7 @@ import "jsr:@supabase/functions-js/edge-runtime.d.ts";
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2.49.1";
 
 import { corsHeaders } from '../_shared/cors.ts';
+import { serviceClient } from '../_shared/supabaseClients.ts';
 /**
  * Price Validation Edge Function
  * 
@@ -23,7 +24,7 @@ Deno.serve(async (req) => {
   try {
     const supabaseUrl = Deno.env.get('SUPABASE_URL')!;
     const serviceRoleKey = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')!;
-    const supabase = createClient(supabaseUrl, serviceRoleKey);
+    const supabase = serviceClient();
 
     const body = await req.json().catch(() => ({}));
     const targetDate = body.date || new Date().toISOString().slice(0, 10);

@@ -1,6 +1,7 @@
 import { createClient } from 'https://esm.sh/@supabase/supabase-js@2.49.1';
 
 import { corsHeaders } from '../_shared/cors.ts';
+import { serviceClient } from '../_shared/supabaseClients.ts';
 type Action = 'fetch_email' | 'update_email' | 'reset_password' | 'send_reset_email';
 
 Deno.serve(async (req) => {
@@ -41,7 +42,7 @@ Deno.serve(async (req) => {
       return json({ error: 'Invalid action' }, 400);
     }
 
-    const adminClient = createClient(supabaseUrl, serviceRoleKey);
+    const adminClient = serviceClient();
 
     // Resolve target user from expert_id
     const { data: expert, error: expertErr } = await adminClient

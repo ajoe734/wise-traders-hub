@@ -13,6 +13,7 @@ import "jsr:@supabase/functions-js/edge-runtime.d.ts";
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2.49.1";
 
 import { corsHeaders } from '../_shared/cors.ts';
+import { serviceClient } from '../_shared/supabaseClients.ts';
 const SYSTEM_UID = '00000000-0000-0000-0000-000000000000';
 const LOOKBACK_DAYS = 90; // 取最近 90 天的命中
 const MIN_SAMPLE_FOR_ADJUST = 20;
@@ -57,7 +58,7 @@ Deno.serve(async (req) => {
   try {
     const supabaseUrl = Deno.env.get('SUPABASE_URL')!;
     const serviceRoleKey = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')!;
-    const supabase = createClient(supabaseUrl, serviceRoleKey);
+    const supabase = serviceClient();
 
     const now = new Date();
     const since = new Date(now.getTime() - LOOKBACK_DAYS * 86400000).toISOString();
