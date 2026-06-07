@@ -122,16 +122,19 @@ const SignalDetail = () => {
         </div>
       )}
       <div className="p-4 space-y-4">
-        {/* Back button */}
-        <Button
-          variant="ghost"
-          size="sm"
-          className="gap-2 -ml-2"
-          onClick={goBack}
-        >
-          <ArrowLeft className="h-4 w-4" />
-          返回訊號中心
-        </Button>
+        {/* Back button + share */}
+        <div className="flex items-center justify-between gap-2">
+          <Button
+            variant="ghost"
+            size="sm"
+            className="gap-2 -ml-2"
+            onClick={goBack}
+          >
+            <ArrowLeft className="h-4 w-4" />
+            返回訊號中心
+          </Button>
+          {id && <ShareButton target={{ kind: "signal", id }} />}
+        </div>
         {/* Header: instrument + expert name + stock price */}
         {/* Row 1: Badge + ticker */}
         <div className="flex items-center gap-3">
