@@ -16,25 +16,16 @@ const MIN_HITS_PER_GROUP = 5;  // 至少 5 次命中
 const MIN_WIN_RATE = 0.7;      // 應驗率 ≥ 70%
 
 async function callClaude(systemPrompt: string, userPrompt: string) {
-  const apiKey = Deno.env.get('ANTHROPIC_API_KEY');
-  if (!apiKey) throw new Error('ANTHROPIC_API_KEY missing');
-  const resp = await fetch('https://api.anthropic.com/v1/messages', {
-    method: 'POST',
-    headers: {
-      'Content-Type': 'application/json',
-      'x-api-key': apiKey,
-      'anthropic-version': '2023-06-01',
-    },
-    body: JSON.stringify({
-      model: 'claude-sonnet-4-5',
-      max_tokens: 4000,
-      system: systemPrompt,
-      messages: [{ role: 'user', content: userPrompt }],
-    }),
+  const { callAnthropic, extractText } = await import('../_shared/anthropicFetch.ts');
+  const data = await callAnthropic({
+    model: 'claude-sonnet-4-5',
+    maxTokens: 4000,
+    system: systemPrompt,
+    messages: [{ role: 'user', content: userPrompt }],
+    timeoutMs: 60_000,
+    maxRetries: 2,
   });
-  if (!resp.ok) throw new Error(`Claude ${resp.status}: ${(await resp.text()).slice(0, 300)}`);
-  const data = await resp.json();
-  let text = data?.content?.[0]?.text ?? '';
+  let text = extractText(data);
   text = text.replace(/^```(?:json)?\s*/i, '').replace(/\s*```\s*$/i, '').trim();
   const f = text.indexOf('{');
   const l = text.lastIndexOf('}');

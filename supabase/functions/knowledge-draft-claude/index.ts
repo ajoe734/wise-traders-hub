@@ -57,32 +57,17 @@ ${focus ? `特別焦點：${focus}` : ''}
 }
 
 async function callClaude(systemPrompt: string, count: number) {
-  const apiKey = Deno.env.get('ANTHROPIC_API_KEY');
-  if (!apiKey) throw new Error('ANTHROPIC_API_KEY is not configured');
-
+  const { callAnthropic, extractText } = await import('../_shared/anthropicFetch.ts');
   const userPrompt = `請產出 ${count} 條知識條目，回傳 JSON 陣列。`;
-
-  const resp = await fetch('https://api.anthropic.com/v1/messages', {
-    method: 'POST',
-    headers: {
-      'Content-Type': 'application/json',
-      'x-api-key': apiKey,
-      'anthropic-version': '2023-06-01',
-    },
-    body: JSON.stringify({
-      model: 'claude-sonnet-4-5',
-      max_tokens: 16000,
-      system: systemPrompt,
-      messages: [{ role: 'user', content: userPrompt }],
-    }),
+  const data = await callAnthropic({
+    model: 'claude-sonnet-4-5',
+    maxTokens: 16000,
+    system: systemPrompt,
+    messages: [{ role: 'user', content: userPrompt }],
+    timeoutMs: 90_000,
+    maxRetries: 2,
   });
-
-  if (!resp.ok) {
-    const text = await resp.text();
-    throw new Error(`Claude API ${resp.status}: ${text.slice(0, 500)}`);
-  }
-  const data = await resp.json();
-  const text = data?.content?.[0]?.text ?? '';
+  const text = extractText(data);
   if (!text) throw new Error('Claude returned empty content');
 
   // 嘗試提取 JSON 陣列
