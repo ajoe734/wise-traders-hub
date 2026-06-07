@@ -8,6 +8,7 @@ import { Input } from '@/components/ui/input';
 import { supabase } from '@/integrations/supabase/client';
 import { Search, Users, UserCheck, UserX, RefreshCw, Download, Stethoscope } from 'lucide-react';
 import { useUserIdentities, formatIdentitySecondary } from '@/hooks/useUserIdentities';
+import { formatTaipeiYMD } from '@/checkup/utils/formatTaipeiDate';
 
 type Row = {
   id: string;
