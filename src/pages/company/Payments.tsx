@@ -365,7 +365,7 @@ const CompanyPayments = () => {
           <PaymentGroupSection
             icon={<CreditCard className="h-4 w-4 text-muted-foreground" />}
             title="信用卡"
-            description="一次性付款與定期定額信用卡通道"
+            description="一次性信用卡付款通道（手動續訂）"
             rows={creditChannels}
             providerLabels={providerLabels}
             emptyText="尚未新增任何信用卡通道"

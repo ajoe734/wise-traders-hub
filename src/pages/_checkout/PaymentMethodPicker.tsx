@@ -68,11 +68,13 @@ export function PaymentMethodPicker({
           {isSandbox && <p className="text-xs text-muted-foreground">🧪 目前為沙盒測試模式</p>}
         </CardHeader>
         <CardContent>
-          {providers.length === 0 ? (
+          {(() => {
+            const visibleProviders = providers.filter(p => p.provider_type !== 'acpay');
+            return visibleProviders.length === 0 ? (
             <p className="text-sm text-muted-foreground">尚未設定可用的付款方式</p>
           ) : (
             <div className="space-y-3">
-              {providers.map(provider => (
+              {visibleProviders.map(provider => (
                 <button
                   key={provider.id}
                   onClick={() => setSelectedProvider(provider.id)}
@@ -106,7 +108,8 @@ export function PaymentMethodPicker({
                 </button>
               ))}
             </div>
-          )}
+          );
+          })()}
         </CardContent>
       </Card>
 
