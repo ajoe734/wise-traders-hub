@@ -10,6 +10,39 @@ const RUNTIME_DIAGNOSTIC_REMOTE_SENTRY_WARNED_KEY =
   '__PORTFOLIO_RUNTIME_DIAGNOSTIC_REMOTE_SENTRY_WARNED__'
 const WEB_VITALS_BOOTSTRAP_KEY = '__PORTFOLIO_WEB_VITALS_BOOTSTRAPPED__'
 
+// S9 correlation: per-tab session id persisted in sessionStorage. Every
+// captureClientDiagnostic entry carries this id so front-end uncaught errors
+// can be joined with edge function logs (x-correlation-id) via traffic_ingest.
+const CLIENT_SESSION_ID_KEY = 'pf-client-session-id-v1'
+
+function randomCorrelationId() {
+  const rand = Math.random().toString(36).slice(2, 10)
+  return `cid-${Date.now().toString(36)}-${rand}`
+}
+
+export function getClientSessionId() {
+  if (typeof window === 'undefined') return null
+  try {
+    const existing = window.sessionStorage.getItem(CLIENT_SESSION_ID_KEY)
+    if (existing) return existing
+    const fresh = `sid-${Date.now().toString(36)}-${Math.random().toString(36).slice(2, 10)}`
+    window.sessionStorage.setItem(CLIENT_SESSION_ID_KEY, fresh)
+    return fresh
+  } catch {
+    return null
+  }
+}
+
+/**
+ * Generate a fresh correlation id for a single request. Use it as the
+ * `x-correlation-id` header when invoking edge functions so backend logs
+ * (function_edge_logs.requestId / withLogging echo) can be joined with the
+ * matching client diagnostic via context.correlationId.
+ */
+export function newCorrelationId() {
+  return randomCorrelationId()
+}
+
 const DEFAULT_REMOTE_SAMPLE_RATE = 1
 const DEFAULT_REMOTE_FLUSH_INTERVAL_MS = 3000
 const DEFAULT_REMOTE_BATCH_SIZE = 10
@@ -404,13 +437,15 @@ function bootstrapRuntimeDiagnosticRemoteSinks() {
 
 export function captureClientDiagnostic(kind, error, context = {}, options = {}) {
   const { emitConsole = true, level = 'error' } = options
+  const sessionId = getClientSessionId()
   const entry = {
     id: `${Date.now()}-${Math.random().toString(16).slice(2, 8)}`,
+    sessionId,
     kind: String(kind || 'runtime-error'),
     timestamp: new Date().toISOString(),
     level,
     error: serializeError(error),
-    context: normalizeValue(context),
+    context: normalizeValue({ ...context, sessionId }),
   }
 
   if (typeof window !== 'undefined') {

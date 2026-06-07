@@ -1,6 +1,6 @@
 import { Component, type ErrorInfo, type ReactNode } from "react";
 import { Button } from "@/components/ui/button";
-import { captureClientDiagnostic } from "@/checkup/lib/runtimeLogger.js";
+import { captureClientDiagnostic, getClientSessionId } from "@/checkup/lib/runtimeLogger.js";
 import { isStaleChunkError } from "@/lib/staleChunkRecovery";
 
 type Props = {
@@ -10,6 +10,7 @@ type Props = {
 type State = {
   error: Error | null;
   diagnosticId: string | null;
+  sessionId: string | null;
 };
 
 /**
@@ -18,12 +19,16 @@ type State = {
  * anything that isn't a stale-chunk error). Reports the error through the
  * same diagnostics pipeline used by window.error / unhandledrejection so the
  * incident shows up in /company/function-logs and Sentry (when enabled).
+ *
+ * S9 correlation: shows the per-tab sessionId so support can join the
+ * client-side diagnostic with edge function logs (x-correlation-id ↔
+ * traffic_ingest.context.sessionId).
  */
 export class AppErrorBoundary extends Component<Props, State> {
-  state: State = { error: null, diagnosticId: null };
+  state: State = { error: null, diagnosticId: null, sessionId: null };
 
   static getDerivedStateFromError(error: Error): State {
-    return { error, diagnosticId: null };
+    return { error, diagnosticId: null, sessionId: null };
   }
 
   componentDidCatch(error: Error, errorInfo: ErrorInfo) {
@@ -34,7 +39,10 @@ export class AppErrorBoundary extends Component<Props, State> {
         componentStack: errorInfo?.componentStack || null,
         href: typeof window !== "undefined" ? window.location.href : null,
       });
-      this.setState({ diagnosticId: entry?.id ?? null });
+      this.setState({
+        diagnosticId: entry?.id ?? null,
+        sessionId: entry?.sessionId ?? getClientSessionId(),
+      });
     } catch {
       // diagnostics must never break the fallback render
     }
@@ -61,6 +69,11 @@ export class AppErrorBoundary extends Component<Props, State> {
           {this.state.diagnosticId ? (
             <p className="text-xs text-muted-foreground/80">
               診斷編號：{this.state.diagnosticId}
+            </p>
+          ) : null}
+          {this.state.sessionId ? (
+            <p className="text-xs text-muted-foreground/80">
+              會話編號：{this.state.sessionId}
             </p>
           ) : null}
           <div className="flex items-center justify-center gap-3">
