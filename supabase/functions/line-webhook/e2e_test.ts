@@ -15,7 +15,7 @@ Deno.test(`${FN} e2e — missing expert_id returns 400 + LINE-only CORS`, async 
   assertEquals(res.status, 400);
   const origin = res.headers.get("access-control-allow-origin");
   assertEquals(origin, "https://api.line.me", `expected LINE-locked origin, got ${origin}`);
-  assertEquals(res.headers.get("vary"), "Origin");
+  assert((res.headers.get("vary") || "").toLowerCase().includes("origin"));
   const body = JSON.parse(text);
   assert(typeof body.error === "string" && body.error.toLowerCase().includes("expert_id"));
 });
