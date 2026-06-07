@@ -533,7 +533,7 @@ export default function CheckupQuotaAudit() {
               {singleData.subscriptions.length === 0 ? (
                 <div className="text-sm text-muted-foreground">無訂閱紀錄</div>
               ) : (
-                <table className="w-full text-sm">
+                <div className="overflow-x-auto"><table className="w-full text-sm min-w-[520px]">
                   <thead className="text-xs text-muted-foreground border-b">
                     <tr>
                       <th className="text-left py-2">Plan</th><th className="text-left">狀態</th>
