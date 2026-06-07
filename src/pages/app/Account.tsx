@@ -27,6 +27,7 @@ const Account = () => {
 
   return (
     <UnifiedAppLayout>
+      <SEO title="會員帳號 | legendflow" description="管理 legendflow 訂閱、Line 綁定、免費診斷額度與帳號設定。" path="/app/account" noindex />
       <div className="p-4 space-y-6">
         <h1 className="text-xl font-bold">帳號設定</h1>
 
