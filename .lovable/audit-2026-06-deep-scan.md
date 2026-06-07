@@ -543,3 +543,62 @@ Warning 從 34 降到 28（剩餘皆為 by design + pg_trgm 維護視窗待排�
 
 ### 下一輪建議
 - **S1/S9/S10/S11**：清單見 `.lovable/plan.md`
+
+---
+
+## S1 A 組 RWD（非 FreeCheckup 全站斷點）（2026-06-07）
+
+### 範圍窮舉
+- 斷點：360 / 380 / 390 / 430 / 768 / 1024（依 FreeCheckup 憲法基線）
+- 頁面群：`src/pages/app/*`、`src/pages/company/*`、`src/pages/admin/*`、`src/pages/account/*`
+- 風險面：
+  1. `<table>` 缺 `overflow-x-auto` wrapper → mobile 直接撐破
+  2. `grid-cols-N` 無響應式前綴（裸的 grid-cols-3/4/5）
+  3. 固定 `w-[NNNpx]` / `min-w-[NNNpx]` 在小螢幕擠壞 flex
+- 工具：`rg` 全 hit + 逐檔靜態檢查
+
+### Hit 統計
+- 含 `<table>` 頁：10 支（admin/Subscribers、admin/Dashboard、company/Subscribers、company/SystemJobs、company/PerfMetrics、company/AuditLogs、company/CheckupUsage、company/CheckupQuotaAudit、company/FunctionLogs、company/MissingPrices、company/Users）
+- 裸 `grid-cols-[3-9]`（無 sm/md/lg 前綴）：6 hit
+- `min-w-[≥200px]` / `w-[≥160px]`：18 hit（多為 SelectTrigger/搜尋輸入，flex-1 容器內可接受）
+
+### 發現
+
+**F-S1-01 MEDIUM：3 個 `<table>` 無 overflow-x wrapper**
+- `src/pages/company/CheckupQuotaAudit.tsx` L536（訂閱來源表，6 欄含 plan/狀態/週期/3 個日期）→ 380px 必爆
+- `src/pages/company/CheckupQuotaAudit.tsx` L566（扣次紀錄表，3 欄含長時間戳）→ 380px 必爆
+- `src/pages/company/AuditLogs.tsx` L356（before/after 變更內容表 in Dialog）→ Dialog 在 mobile max-w 約 calc(100%-2rem)，3 欄 + JSON 內容必爆
+
+修法：三處外層改 `overflow-x-auto`，內層 `<table>` 加 `min-w-[420~520px]` 保證不會被 flex/grid 壓垮到欄寬塞字。
+
+**F-S1-02 LOW：裸 grid-cols-N（無響應式前綴）— 經評估皆可接受，不動**
+- `pages/app/SignalsDashboard.tsx` L100 `grid-cols-3`：3 個 StatCard（內容極短「N 筆/N 檔/—」）380px 約 110px/格 OK
+- `pages/app/LearningDashboard.tsx` L109 `grid-cols-4`：4 個 2-字 stage（入門/進階/心法/實戰）+ icon，380px 約 80px/格 剛好
+- `pages/app/AppCheckout.tsx` L374 `grid-cols-3`：實際是 1 + col-span-2 split（國碼 + 手機）功能合理
+- `pages/app/Explore.tsx` L41 `grid w-full grid-cols-3`：Tabs 3 個，shadcn TabsList 設計如此
+- `pages/company/knowledge-base/CleanupCandidatesPanel.tsx` L186 / `KnowledgeItemEditor.tsx` L117：company-only 後台 desktop-first，不在 mobile 流程
+- `pages/company/Dashboard.tsx` L100 已是 `grid-cols-2 sm:grid-cols-5`（mobile 2 欄 OK）
+
+**F-S1-03 INFO：固定寬度 SelectTrigger / search input**
+- `company/Users.tsx` L201 `min-w-[240px]`、`KnowledgeAudit.tsx` L213 `w-[220px]` 等
+- 全部在 `flex flex-wrap gap-N` 或 `flex-1` 容器內 → wrap 後 mobile 會獨佔一行，不破版
+
+### 掃描但 OK（記錄）
+- 7/10 個 `<table>` 已有 `overflow-x-auto` 或父層 `overflow-auto` wrapper
+- KPI grids（admin/Dashboard、company/Dashboard）皆有 sm:/md:/lg: 響應式前綴
+- Subscribers filter bar（admin + company）用 `flex flex-wrap` + `flex-1` 容器，mobile 自動 wrap
+- AppCheckout 卡片區（L370+）所有 grid 為 1+2 split 或 stack，無問題
+- `pages/account/*`、`pages/auth/*`：純單欄表單，皆 max-w-md/lg 居中，無破版風險
+
+### 結果
+- 修補 3 個必爆表格 wrapper
+- 18 個固定寬度 hit、6 個裸 grid-cols 均為設計刻意或內容夠短，標 LOW/INFO 不動
+
+### Files Edited
+- `src/pages/company/CheckupQuotaAudit.tsx`（L534-536, L555, L564-566, L582）
+- `src/pages/company/AuditLogs.tsx`（L356-357）
+
+### 下一輪建議
+- **S9 錯誤監控覆蓋**（S7 已加 AppErrorBoundary，可順手把 correlation_id 串到 edge 端）
+- **S10 SEO / Meta**（legendflow 品牌憲法尚未套到 index.html）
+- **S11 i18n / a11y**
