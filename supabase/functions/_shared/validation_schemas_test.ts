@@ -139,10 +139,12 @@ Deno.test("schema:checkup-calendar", () => {
     endDate: { required: false, type: "string", label: "endDate" },
     debug: { required: false, type: "boolean", label: "debug" },
   };
+  // Note: prod applies applyCoercion('stocksString') before validateInput,
+  // so array input is converted to string upstream. Here we only test the
+  // post-coercion shape (string).
   ok(spec, { stocks: "2330 台積電" });
-  ok(spec, { stocks: ["2330"] });
   fail(spec, {}, "stocks");
-  fail(spec, { stocks: "ab" }, "stocks");
+  fail(spec, { stocks: "ab" }, "stocks"); // minLength 3
   fail(spec, { stocks: 123 }, "stocks");
 });
 
