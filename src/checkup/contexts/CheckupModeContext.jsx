@@ -39,7 +39,8 @@ export function CheckupModeProvider({ children }) {
       }
       if (data) {
         setQuota(data)
-        setTier(data.tier || 'free')
+        // B-29：tier 缺失時退回 'none'（未訂閱），不要假設 'free' 製造幽靈免費額度。
+        setTier(data.tier || 'none')
         return data
       }
     } catch (err) {
@@ -107,9 +108,9 @@ export function CheckupModeProvider({ children }) {
   const isDemo = mode === 'demo'
   // Authenticated users (any tier) can upload — quota only restricts AI calls, not data entry
   const canUpload = mode !== 'demo'
-  // Manual price refresh is a paid-only feature
-  const canRefreshManually = tier === 'basic' || tier === 'pro'
   const needsAddFriend = mode === 'line_only' && !isLineFriend
+  // Manual price refresh is a paid-only feature；B-34：LINE 未加好友時鎖住，避免推播鏈路缺失。
+  const canRefreshManually = (tier === 'basic' || tier === 'pro') && !needsAddFriend
 
   // Convenience: AI quota status
   const remainingQuota = quota?.remaining ?? 0
