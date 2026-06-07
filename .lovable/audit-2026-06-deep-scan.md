@@ -384,3 +384,41 @@ P0–P5 全六輪深掃修復完成。剩下 A/C 兩組（RWD 裝置別 / Gate �
 
 ### 結論
 S2 三軌前端用法已全面驗證，僅 1 處 context 不變式漏洞已修。未發現 B-29/B-31 同款回歸。
+
+---
+
+## S5 — Auth 邊界掃描（2026-06-07）
+
+### 範圍與結論
+| 面向 | 結論 |
+|---|---|
+| `line-login-exchange-nonce` atomic 單次消耗 | ✅ delete-and-return + UUID 校驗 + expires_at 過濾，單次消耗確認 |
+| `line-login-callback` state nonce | ⚠️ **CRITICAL** 殘留 legacy base64 fallback → 攻擊者可繞過 CSRF/replay，**已修** |
+| `line_oauth_states` consume 原子性 | ✅ `update ... is null` + count 確認 winner，重放會被擋 |
+| `/auth/reset-password` recovery session | ⚠️ **MEDIUM** 任何 active session 都會解鎖表單 → **已修**：只接 PASSWORD_RECOVERY 事件或 hash `type=recovery` |
+| `updatePassword` 流程 | ✅ 成功後 `signOut` 強制重登 |
+| `expert_line_channels` FK | ✅ `experts(id) ON DELETE CASCADE`，0 orphan |
+| LINE virtual email 衝突 | ✅ `line_{LINE_ID}@line.local` 決定性映射，不會同 LINE 帳號創出兩個 supabase user |
+| Token refresh / SIGNED_OUT UX | ✅ `AuthContext` SIGNED_OUT → `clearAuth`；Supabase 自動 rotate refresh token |
+| `forgot-password` 對 `@line.local` 阻擋 | ✅ 已擋 |
+
+### 修補
+**F-S5-01 `line-login-callback` 移除 legacy base64 state fallback**
+- 原本 `JSON.parse(atob(stateParam))` 等於只要能 base64 解碼就 `stateOk=true`，攻擊者可任意指定 `return_to` / `redirect_uri` / `app_origin`，繞過 CSRF + replay。
+- 改為只認 `line_oauth_states` nonce row；無 row / 已 consume / 已 expire → 一律 invalid_state。
+
+**F-S5-02 `ResetPassword.tsx` 嚴格 recovery gate**
+- 原本任何 active session 都直接 `setIsReady(true)` → 已登入用戶在另一裝置打開 reset 連結會無聲跳到改密碼表單。
+- 改為：
+  - 只在 `PASSWORD_RECOVERY` 事件後解鎖。
+  - 若 URL hash 不含 `type=recovery`，1.5s 內未收到事件 → 視為 linkInvalid，不再 fallback 到「existing session = ready」。
+
+### 掃描但無問題（記錄）
+- nonce TTL：authorize 10min、callback exchange 60s、`expires_at` 雙端皆有檢查
+- 跨裝置同時 LINE 登入：virtual email 決定性，第二次只是 upsert 同一 user → 無衝突
+- LINE 帳號刪除殘留：FK CASCADE 已建立，DB 已無 orphan
+- Password reset 連結重用：Supabase OTP 單次消耗 + 本端 `signOut` 強制重登，已具備
+
+## 未做（轉下一輪）
+- S8 DB 效能（linter / 索引）
+- S12 依賴掃描
