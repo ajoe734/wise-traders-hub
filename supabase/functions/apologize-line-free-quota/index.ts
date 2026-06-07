@@ -9,7 +9,7 @@
 //   5. 全 OA 都失敗者，寫入 notifications 表做站內公告 fallback
 //   6. 整批結果寫入 audit_logs，回傳統計
 // 支援 ?dry_run=1 — 只列出將要嘗試的 (user, OA) 組合，不實際呼叫 LINE / 不寫 notifications。
-import { corsHeaders } from 'npm:@supabase/supabase-js@2/cors';
+import { corsHeaders } from '../_shared/cors.ts';
 
 import { withLogging } from '../_shared/edgeLogger.ts';
 const SUPABASE_URL = Deno.env.get('SUPABASE_URL') || '';
@@ -35,7 +35,7 @@ const APOLOGY_BODY = [
 ].join('\n');
 
 Deno.serve(withLogging('apologize-line-free-quota', async (req: Request) => {
-  if (req.method === 'OPTIONS') return new Response('ok', { headers: corsHeaders });
+  // OPTIONS preflight handled by withLogging.
   if (req.method !== 'POST' && req.method !== 'GET') {
     return json({ error: 'METHOD_NOT_ALLOWED' }, 405);
   }

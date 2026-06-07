@@ -2,14 +2,14 @@
 // 兩種模式：
 //   1) 單筆 (mode=single 或省略，需 user_id/email)：回傳 quota 快照 + 該用戶 usage + subs。
 //   2) 批次 (mode=list)：依 tier / reason / 日期範圍篩選 checkup_usage，並合併 profile + 最新 sub。
-import { corsHeaders } from 'npm:@supabase/supabase-js@2/cors';
+import { corsHeaders } from '../_shared/cors.ts';
 
 import { withLogging } from '../_shared/edgeLogger.ts';
 const SUPABASE_URL = Deno.env.get('SUPABASE_URL') || '';
 const SERVICE_ROLE_KEY = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY') || '';
 
 Deno.serve(withLogging('checkup-quota-audit', async (req: Request) => {
-  if (req.method === 'OPTIONS') return new Response('ok', { headers: corsHeaders });
+  // OPTIONS preflight handled by withLogging.
   if (req.method !== 'GET' && req.method !== 'POST') {
     return json({ error: 'METHOD_NOT_ALLOWED' }, 405);
   }
