@@ -125,6 +125,7 @@ const CompanyMetaOverrides = lazy(() => import("./pages/company/MetaOverrides"))
 const CompanyUsers = lazy(() => import("./pages/company/Users"));
 const CompanyPerfMetrics = lazy(() => import("./pages/company/PerfMetrics"));
 const CompanyTraffic = lazy(() => import("./pages/company/Traffic"));
+const CompanyOpsHealth = lazy(() => import("./pages/company/OpsHealth"));
 
 const RealtimeBridge = () => {
   useSignalRealtimeInvalidation();
@@ -267,6 +268,7 @@ const AppShell = () => (
             <Route path="/company/meta-overrides" element={<ProtectedRoute requiredRole="company_admin"><CompanyMetaOverrides /></ProtectedRoute>} />
             <Route path="/company/perf-metrics" element={<ProtectedRoute requiredRole="company_admin"><CompanyPerfMetrics /></ProtectedRoute>} />
             <Route path="/company/traffic" element={<ProtectedRoute requiredRole="company_admin"><CompanyTraffic /></ProtectedRoute>} />
+            <Route path="/company/ops-health" element={<ProtectedRoute requiredRole="company_admin"><CompanyOpsHealth /></ProtectedRoute>} />
 
             {/* Admin */}
             <Route path="/admin/:expertSlug" element={<ProtectedRoute><AdminDashboard /></ProtectedRoute>} />

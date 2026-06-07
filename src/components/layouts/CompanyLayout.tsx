@@ -37,6 +37,7 @@ const navItems = [
   { path: '/company/meta-overrides', icon: History, label: '持倉覆蓋' },
   { path: '/company/perf-metrics', icon: Gauge, label: '前台效能' },
   { path: '/company/traffic', icon: Activity, label: '流量監控' },
+  { path: '/company/ops-health', icon: Gauge, label: '後端健康/成本' },
 ];
 
 
