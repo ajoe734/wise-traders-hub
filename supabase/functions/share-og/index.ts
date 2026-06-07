@@ -116,7 +116,7 @@ async function resolveExpert(slug: string): Promise<OgData> {
     .from("experts")
     .select("name, slug, role, description, bio, avatar_url, strategy_name")
     .eq("slug", slug)
-    .eq("status", "approved")
+    .in("status", ["approved", "active"])
     .maybeSingle();
   if (!data) return defaultData(`/expert/${slug}`);
   const roleLabel = data.role === "mentor" ? "實戰導師" : "投顧分析師";
