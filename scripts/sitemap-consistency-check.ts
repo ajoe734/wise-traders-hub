@@ -25,7 +25,9 @@ while ((m = routeRegex.exec(appTsx)) !== null) {
   const element = m[2];
   if (path.startsWith("*") || path.includes(":")) continue; // skip wildcards + dynamic
   if (!path.startsWith("/")) continue; // skip nested children
-  if (/<Navigate\b/.test(element) || /Redirect\s*\/?>/.test(element)) {
+  // 純導向 component：<Navigate /> 或已知的 redirect 包裝（LegacyFreeCheckupRedirect 等）
+  const KNOWN_REDIRECT_WRAPPERS = /(?:^|<)\s*(?:Navigate|LegacyFreeCheckupRedirect)\b/;
+  if (KNOWN_REDIRECT_WRAPPERS.test(element)) {
     redirectRoutes.add(path);
     continue;
   }
