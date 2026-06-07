@@ -1,3 +1,4 @@
+import { SEO } from '@/components/SEO';
 import { useState, useEffect, useMemo } from 'react';
 import { useQuery, useQueryClient } from '@tanstack/react-query';
 import { CompanyLayout } from '@/components/layouts/CompanyLayout';
@@ -279,6 +280,7 @@ const CompanyPayments = () => {
 
   return (
     <CompanyLayout>
+      <SEO title={'金流管理 | legendflow'} description={'所有金流訂單與退款處理。'} path={'/company/payments'} noindex />
       <TooltipProvider delayDuration={150}>
         <div className="space-y-6">
           <div className="flex items-start justify-between gap-4">

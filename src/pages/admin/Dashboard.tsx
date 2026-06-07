@@ -1,3 +1,4 @@
+import { SEO } from '@/components/SEO';
 import { useState, useEffect } from 'react';
 import { useQuery } from '@tanstack/react-query';
 import { useParams, Link } from 'react-router-dom';
@@ -106,6 +107,7 @@ const AdminDashboard = () => {
 
   return (
     <AdminLayout>
+      <SEO title={`${expertSlug || ''} 管理首頁 | legendflow`} description={'專家後台首頁：訊號、訂閱、績效總覽。'} path={`/admin/${expertSlug || ''}`} noindex />
       <div className="space-y-6">
         <div>
           <h1 className="text-2xl font-bold">後台總覽</h1>

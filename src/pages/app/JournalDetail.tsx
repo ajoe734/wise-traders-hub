@@ -1,3 +1,4 @@
+import { ShareButton } from '@/components/ShareButton';
 import { SEO } from '@/components/SEO';
 import { useEffect, useState } from 'react';
 import { useParams, useSearchParams } from 'react-router-dom';
@@ -205,7 +206,10 @@ const JournalDetail = () => {
           <Badge variant="mentor-light" className="text-[10px]">T+7 歷史</Badge>
         </div>
 
-        <h1 className="text-xl font-bold">{weekTitle}</h1>
+        <div className="flex items-center justify-between gap-2">
+          <h1 className="text-xl font-bold">{weekTitle}</h1>
+          {id && <ShareButton target={{ kind: "journal", id }} />}
+        </div>
 
         {/* Summary */}
         {signal.reason_detail && (

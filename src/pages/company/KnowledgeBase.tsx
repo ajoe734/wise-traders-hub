@@ -1,3 +1,4 @@
+import { SEO } from '@/components/SEO';
 import { useState } from 'react';
 import { CompanyLayout } from '@/components/layouts/CompanyLayout';
 import { Button } from '@/components/ui/button';
@@ -56,6 +57,7 @@ export default function KnowledgeBasePage() {
 
   return (
     <CompanyLayout>
+      <SEO title={'知識庫 | legendflow'} description={'平台知識庫管理。'} path={'/company/knowledge-base'} noindex />
       <div className="p-6 space-y-6">
         <div className="flex items-center justify-between flex-wrap gap-3">
           <div>

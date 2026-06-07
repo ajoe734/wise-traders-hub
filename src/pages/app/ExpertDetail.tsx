@@ -1,3 +1,4 @@
+import { ShareButton } from '@/components/ShareButton';
 import { SEO } from '@/components/SEO';
 import { useParams, useNavigate } from "react-router-dom";
 import { useState, useEffect } from "react";
@@ -150,9 +151,12 @@ const AppExpertDetail = () => {
         noindex
       />
       <div className="p-4 space-y-6 pb-24">
-        <Button variant="ghost" size="sm" onClick={() => navigate("/app/explore")} className="gap-2 -ml-2">
-          <ArrowLeft className="h-4 w-4" />返回探索名師
-        </Button>
+        <div className="flex items-center justify-between gap-2">
+          <Button variant="ghost" size="sm" onClick={() => navigate("/app/explore")} className="gap-2 -ml-2">
+            <ArrowLeft className="h-4 w-4" />返回探索名師
+          </Button>
+          {slug && <ShareButton target={{ kind: "expert", slug }} />}
+        </div>
 
         <div className="flex items-start gap-4">
           <Avatar className={`h-20 w-20 border-2 ${isAdvisor ? 'border-advisor/20' : 'border-mentor/20'}`}>

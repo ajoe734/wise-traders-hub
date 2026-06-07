@@ -1,3 +1,4 @@
+import { SEO } from '@/components/SEO';
 import { useEffect, useMemo, useState } from 'react';
 import { CompanyLayout } from '@/components/layouts/CompanyLayout';
 import { Card, CardContent } from '@/components/ui/card';
@@ -205,6 +206,7 @@ export default function KnowledgeScheduler() {
 
   return (
     <CompanyLayout>
+      <SEO title={'知識庫排程 | legendflow'} description={'知識庫排程任務。'} path={'/company/knowledge-scheduler'} noindex />
       <div className="space-y-4">
         <div className="flex items-start justify-between gap-3">
           <div>

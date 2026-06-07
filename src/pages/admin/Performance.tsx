@@ -1,3 +1,4 @@
+import { SEO } from '@/components/SEO';
 import { useParams } from 'react-router-dom';
 import { AdminLayout } from '@/components/layouts/AdminLayout';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
@@ -18,6 +19,7 @@ const AdminPerformance = () => {
 
   return (
     <AdminLayout>
+      <SEO title={`${expertSlug || ''} 績效 | legendflow`} description={'歷史績效與績效報表。'} path={`/admin/${expertSlug || ''}/performance`} noindex />
       <div className="space-y-6">
         <div>
           <h1 className="text-2xl font-bold">績效總覽</h1>

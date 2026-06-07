@@ -1,3 +1,4 @@
+import { SEO } from '@/components/SEO';
 import { useEffect, useMemo, useState } from 'react';
 import { CompanyLayout } from '@/components/layouts/CompanyLayout';
 import { Card, CardContent } from '@/components/ui/card';
@@ -147,6 +148,7 @@ export default function KnowledgeAudit() {
 
   return (
     <CompanyLayout>
+      <SEO title={'知識庫稽核 | legendflow'} description={'知識庫條目稽核。'} path={'/company/knowledge-audit'} noindex />
       <div className="space-y-4">
         <div className="flex items-center justify-between">
           <div>

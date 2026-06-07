@@ -1,3 +1,4 @@
+import { SEO } from '@/components/SEO';
 import { useState } from 'react';
 import { CompanyLayout } from '@/components/layouts/CompanyLayout';
 import { Card, CardContent } from '@/components/ui/card';
@@ -80,6 +81,7 @@ export default function SystemJobsPage() {
 
   return (
     <CompanyLayout>
+      <SEO title={'系統排程 | legendflow'} description={'排程任務狀態。'} path={'/company/system-jobs'} noindex />
       <div className="space-y-6">
         <div>
           <h1 className="text-2xl font-bold flex items-center gap-2">

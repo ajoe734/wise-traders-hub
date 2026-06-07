@@ -1,3 +1,4 @@
+import { SEO } from '@/components/SEO';
 import { useState, useMemo } from 'react';
 import { useQuery } from '@tanstack/react-query';
 import { CompanyLayout } from '@/components/layouts/CompanyLayout';
@@ -143,6 +144,7 @@ const CompanySubscribers = () => {
 
   return (
     <CompanyLayout>
+      <SEO title={'訂閱者管理 | legendflow'} description={'平台訂閱者總覽。'} path={'/company/subscribers'} noindex />
       <div className="space-y-6">
         <div className="flex items-center justify-between">
           <div>

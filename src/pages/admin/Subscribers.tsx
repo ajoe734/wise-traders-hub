@@ -1,3 +1,4 @@
+import { SEO } from '@/components/SEO';
 import { useState } from 'react';
 import { useParams } from 'react-router-dom';
 import { useQuery } from '@tanstack/react-query';
@@ -66,6 +67,7 @@ const AdminSubscribers = () => {
 
   return (
     <AdminLayout>
+      <SEO title={`${expertSlug || ''} 訂閱者 | legendflow`} description={'查看已訂閱會員與到期狀態。'} path={`/admin/${expertSlug || ''}/subscribers`} noindex />
       <div className="space-y-6">
         <div>
           <h1 className="text-2xl font-bold">訂閱者管理</h1>

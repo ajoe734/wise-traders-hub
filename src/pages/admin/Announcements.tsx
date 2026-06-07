@@ -1,3 +1,4 @@
+import { SEO } from '@/components/SEO';
 import { useParams } from 'react-router-dom';
 import { useQuery } from '@tanstack/react-query';
 import { AdminLayout } from '@/components/layouts/AdminLayout';
@@ -40,6 +41,7 @@ const AdminAnnouncements = () => {
 
   return (
     <AdminLayout>
+      <SEO title={`${expertSlug || ''} 公告 | legendflow`} description={'發布專家公告給訂閱者。'} path={`/admin/${expertSlug || ''}/announcements`} noindex />
       <div className="space-y-6">
         <div>
           <h1 className="text-2xl font-bold flex items-center gap-2">

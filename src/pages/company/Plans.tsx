@@ -1,3 +1,4 @@
+import { SEO } from '@/components/SEO';
 import { useEffect, useMemo, useState } from 'react';
 import { Link } from 'react-router-dom';
 import { CompanyLayout } from '@/components/layouts/CompanyLayout';
@@ -111,6 +112,7 @@ export default function CompanyPlans() {
 
   return (
     <CompanyLayout>
+      <SEO title={'方案審核 | legendflow'} description={'分析師訂閱方案審核與分潤設定。'} path={'/company/plans'} noindex />
       <div className="space-y-6">
         <div className="flex items-start justify-between gap-4 flex-wrap">
           <div>
