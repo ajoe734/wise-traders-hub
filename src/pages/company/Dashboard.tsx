@@ -8,6 +8,7 @@ import {
 } from 'lucide-react';
 import { Link } from 'react-router-dom';
 import { useQuery } from '@tanstack/react-query';
+import { taipeiMonthStartIso } from '@/checkup/utils/formatTaipeiDate';
 
 const CompanyDashboard = () => {
   const { data: stats } = useQuery({
@@ -15,7 +16,8 @@ const CompanyDashboard = () => {
     staleTime: 30_000,
     queryFn: async () => {
       const now = new Date();
-      const monthStart = new Date(now.getFullYear(), now.getMonth(), 1).toISOString();
+      // P4 D-G/H：以 Asia/Taipei 月初為基準，避免伺服器時區（UTC）把月初算成上月最後一天。
+      const monthStart = taipeiMonthStartIso(now);
 
       const [ecRes, newSubRes, newCheckupSubRes, sigRes, subsRes, cSubsRes, txRes, churnRes, cChurnRes] = await Promise.all([
         supabase.from('experts').select('*', { count: 'exact', head: true }).eq('status', 'active'),
