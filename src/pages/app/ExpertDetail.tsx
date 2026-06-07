@@ -146,7 +146,7 @@ const AppExpertDetail = () => {
         description={`${expert?.name || ''} 的訂閱方案、績效與專業背景。${isAdvisor ? '即時策略訊號訂閱。' : '實戰週記教學訂閱。'}`}
         path={`/app/expert/${slug || ''}`}
         type="profile"
-        image={expert?.avatar_url || undefined}
+        image={(expert as any)?.avatarUrl || undefined}
         noindex
       />
       <div className="p-4 space-y-6 pb-24">
