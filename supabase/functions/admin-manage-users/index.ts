@@ -76,7 +76,7 @@ Deno.serve(withLogging('admin-manage-users', async (req) => {
         action: {
           required: true,
           type: 'string',
-          oneOf: ['list', 'set_role', 'set_tester', 'set_banned', 'reset_password', 'update_profile', 'delete_user'],
+          oneOf: ['list', 'set_role', 'set_tester', 'set_banned', 'send_password_reset', 'update_profile', 'delete_user', 'lookup_identities'],
           label: 'action',
         },
       },
