@@ -1,4 +1,5 @@
 import { corsHeaders } from '../_shared/cors.ts';
+import { serviceClient } from '../_shared/supabaseClients.ts';
 // 知識庫每日排程：跑回測 → 套門檻分流 → rescue 池網格搶救 → candidate 觀察期升降級
 // 由 pg_cron 每日 03:00 (Asia/Taipei) 觸發
 import { createClient } from 'https://esm.sh/@supabase/supabase-js@2.45.0'
@@ -58,7 +59,7 @@ async function callGridSearch(itemId: string) {
 Deno.serve(async (req) => {
   if (req.method === 'OPTIONS') return new Response(null, { headers: corsHeaders })
 
-  const supa = createClient(SUPABASE_URL, SERVICE_KEY)
+  const supa = serviceClient()
   const summary: Record<string, any> = {
     started_at: new Date().toISOString(),
     backtested: 0, promoted: 0, demoted_rescue: 0, rescue_grid_run: 0,

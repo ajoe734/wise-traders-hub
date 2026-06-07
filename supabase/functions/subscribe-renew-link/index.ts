@@ -1,6 +1,7 @@
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2.49.1";
 
 import { corsHeaders } from '../_shared/cors.ts';
+import { serviceClient } from '../_shared/supabaseClients.ts';
 // 手動續訂短連結：以 HMAC token 驗證 → 302 重導到正確 checkout 頁。
 // 用於 LINE / Email 提醒，避免直接洩漏 plan_id 與 user_id 組合。
 //
@@ -99,7 +100,7 @@ Deno.serve(async (req) => {
   }
 
   // Resolve sub → plan + expert slug (or checkup)
-  const admin = createClient(Deno.env.get("SUPABASE_URL")!, secret);
+  const admin = serviceClient();
 
   const { data: memberSub } = await admin
     .from("member_subscriptions")

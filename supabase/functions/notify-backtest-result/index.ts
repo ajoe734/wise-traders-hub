@@ -1,4 +1,5 @@
 import { corsHeaders } from '../_shared/cors.ts';
+import { serviceClient } from '../_shared/supabaseClients.ts';
 // 回測完成通知（Email 版）：彙整最近 N 小時的 knowledge_backtest_runs，
 // 透過 Resend 寄信給所有 company_admin。
 // Body: { hours?: number = 2, trigger?: 'cron' | 'manual' | 'auto_after_backfill' | 'auto' }
@@ -92,7 +93,7 @@ Deno.serve(async (req) => {
     const hours = Math.max(1, Math.min(72, Number(body.hours ?? 2)))
     const trigger = String(body.trigger ?? 'cron')
 
-    const sb = createClient(SUPABASE_URL, SERVICE_KEY)
+    const sb = serviceClient()
     const since = new Date(Date.now() - hours * 3600 * 1000).toISOString()
 
     const { data: runs } = await sb

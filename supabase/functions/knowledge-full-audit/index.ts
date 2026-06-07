@@ -1,4 +1,5 @@
 import { corsHeaders } from '../_shared/cors.ts';
+import { serviceClient } from '../_shared/supabaseClients.ts';
 // 全庫知識審計 — 一次性掃 482 筆過舊條目並自動處置
 //
 // 兩層審計：
@@ -56,7 +57,7 @@ function isStaleByContent(item: AuditItem, currentYear: number): { stale: boolea
 Deno.serve(async (req) => {
   if (req.method === 'OPTIONS') return new Response(null, { headers: corsHeaders })
 
-  const sb = createClient(SUPABASE_URL, SERVICE_KEY)
+  const sb = serviceClient()
   const startedAt = Date.now()
 
   try {

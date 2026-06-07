@@ -1,4 +1,5 @@
 import { corsHeaders } from '../_shared/cors.ts';
+import { serviceClient } from '../_shared/supabaseClients.ts';
 // 回填 TWSE 日 K 歷史資料到 daily_price_snapshots（含進度追蹤、續跑）
 // 用法：
 //   POST { months?: 36, symbols?: string[], dryRun?: boolean, resume?: true }
@@ -74,7 +75,7 @@ Deno.serve(async (req) => {
     const dryRun: boolean = !!body.dryRun
     const resume: boolean = !!body.resume
 
-    const sb = createClient(SUPABASE_URL, SERVICE_KEY)
+    const sb = serviceClient()
 
     // 1. 計算目標 (symbol, yyyymm) 清單
     let targetSymbols: string[]
