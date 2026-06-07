@@ -83,12 +83,45 @@ Deno.serve(async (req) => {
 
     console.log(`Processed: ${canceledIds.length} canceled, ${expiredIds.length} expired`);
 
+    // ===== checkup_subscriptions =====
+    // 同樣的 expire 邏輯：canceled_at 存在 → canceled，否則 → expired
+    let checkupCanceled = 0;
+    let checkupExpired = 0;
+    const { data: expiredCheckupSubs, error: checkupFetchErr } = await supabase
+      .from("checkup_subscriptions")
+      .select("id, user_id, canceled_at")
+      .eq("status", "active")
+      .not("expires_at", "is", null)
+      .lte("expires_at", now);
+
+    if (checkupFetchErr) {
+      console.error("checkup fetch error:", checkupFetchErr);
+    } else if (expiredCheckupSubs && expiredCheckupSubs.length > 0) {
+      const cIds = expiredCheckupSubs.filter(s => s.canceled_at).map(s => s.id);
+      const eIds = expiredCheckupSubs.filter(s => !s.canceled_at).map(s => s.id);
+      if (cIds.length > 0) {
+        const { error } = await supabase.from("checkup_subscriptions")
+          .update({ status: "canceled" }).in("id", cIds);
+        if (error) console.error("checkup canceled update error:", error);
+        else checkupCanceled = cIds.length;
+      }
+      if (eIds.length > 0) {
+        const { error } = await supabase.from("checkup_subscriptions")
+          .update({ status: "expired" }).in("id", eIds);
+        if (error) console.error("checkup expired update error:", error);
+        else checkupExpired = eIds.length;
+      }
+      console.log(`Checkup processed: ${checkupCanceled} canceled, ${checkupExpired} expired`);
+    }
+
     return new Response(
       JSON.stringify({
         message: "Expired subscriptions processed",
         count: expiredSubs.length,
         canceled: canceledIds.length,
         expired: expiredIds.length,
+        checkup_canceled: checkupCanceled,
+        checkup_expired: checkupExpired,
       }),
       { headers: { ...corsHeaders, "Content-Type": "application/json" } }
     );
