@@ -105,6 +105,13 @@ const SignalDetail = () => {
 
   return (
     <UnifiedAppLayout>
+      <SEO
+        title={`${(signal as any)?.instrument || '策略訊號'} ${(signal as any)?.action === 'buy' ? '買進' : (signal as any)?.action === 'sell' ? '賣出' : ''}｜訊號詳情 | legendflow`}
+        description={`${(signal as any)?.instrument || ''} 策略訊號詳情、操作建議與風險說明。`}
+        path={`/app/signal/${id || ''}`}
+        type="article"
+        noindex
+      />
       {isPreview && (
         <div className="sticky top-0 z-50 bg-amber-500 text-amber-50 px-4 py-2 text-sm flex items-center justify-center gap-2 shadow">
           <Eye className="h-4 w-4" />
