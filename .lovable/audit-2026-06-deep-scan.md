@@ -140,3 +140,15 @@
 - C 組：Gate 三軌分離前端用法（輪 36–45）
 
 完成後 append 至本檔。
+
+---
+
+## Batch 4 完成（2026-06-07）
+
+- 18 PnL 顏色批改紅綠（台股慣例）：`GridSearchDetailDialog.tsx:97-103`、`BacktestRunDetailDialog.tsx:99-100,132-134` 全部 ≥0→紅、<0→綠。
+- 19 ACpay 入口清除：
+  - `AppCheckout.tsx` 移除 ACpay 卡片選項（grid 3→2 cols）。
+  - `PaymentMethodPicker.tsx`（Portal Checkout）在 render 階段過濾 `provider_type !== 'acpay'`。
+  - `AddProviderDialog.tsx` 移除 `<SelectItem value="acpay">`。
+  - 內部 type/SDK/handler 保留為 dead code（無 UI 入口可觸發）。
+- 20 `定期定額` 文案改寫：`pages/company/Payments.tsx:368` → 「一次性信用卡付款通道（手動續訂）」。

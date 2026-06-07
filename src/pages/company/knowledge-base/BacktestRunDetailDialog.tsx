@@ -96,7 +96,7 @@ export function BacktestRunDetailDialog({ runId, onClose }: Props) {
                       <div key={k} className="flex items-center gap-2 text-xs">
                         <span className="w-16 text-right tabular-nums">{k}</span>
                         <div className="flex-1 h-4 bg-muted rounded overflow-hidden">
-                          <div className={`h-full ${isPositive ? 'bg-emerald-500' : 'bg-red-500'}`}
+                          <div className={`h-full ${isPositive ? 'bg-red-500' : 'bg-emerald-500'}`}
                             style={{ width: `${(v / maxBucket) * 100}%` }} />
                         </div>
                         <span className="w-10 tabular-nums text-muted-foreground">{v}</span>
@@ -129,7 +129,7 @@ export function BacktestRunDetailDialog({ runId, onClose }: Props) {
                       <tr key={v.id} className="border-t">
                         <td className="p-2 font-mono">{v.stock_code}</td>
                         <td className="p-2 text-muted-foreground">{v.details?.trigger_date ?? '—'}</td>
-                        <td className={`p-2 text-right tabular-nums ${Number(v.actual_change_pct) >= 0 ? 'text-emerald-600' : 'text-red-600'}`}>
+                        <td className={`p-2 text-right tabular-nums ${Number(v.actual_change_pct) >= 0 ? 'text-red-600' : 'text-emerald-600'}`}>
                           {Number(v.actual_change_pct).toFixed(2)}%
                         </td>
                         <td className="p-2 text-center">

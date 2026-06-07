@@ -38,7 +38,6 @@ export function AddProviderDialog({
                 {addGroup === 'credit' ? (
                   <>
                     <SelectItem value="ecpay">綠界 ECPay</SelectItem>
-                    <SelectItem value="acpay">ACpay</SelectItem>
                   </>
                 ) : (
                   <>

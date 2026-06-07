@@ -94,11 +94,11 @@ export function GridSearchDetailDialog({ runId, onClose }: Props) {
                     <tr><td colSpan={6} className="p-3 text-center text-muted-foreground">無結果</td></tr>
                   )}
                   {sorted.map((r) => (
-                    <tr key={r.id} className={`border-t ${r.is_best ? 'bg-emerald-50 dark:bg-emerald-950/30' : ''}`}>
+                    <tr key={r.id} className={`border-t ${r.is_best ? 'bg-red-50 dark:bg-red-950/30' : ''}`}>
                       <td className="p-2">{r.is_best ? <Badge variant="default" className="text-xs">最佳</Badge> : ''}</td>
                       <td className="p-2 tabular-nums">{Number(r.score ?? 0).toFixed(3)}</td>
                       <td className="p-2 tabular-nums">{r.win_rate != null ? `${(r.win_rate * 100).toFixed(1)}%` : '—'}</td>
-                      <td className={`p-2 tabular-nums ${Number(r.avg_return_pct) >= 0 ? 'text-emerald-600' : 'text-red-600'}`}>
+                      <td className={`p-2 tabular-nums ${Number(r.avg_return_pct) >= 0 ? 'text-red-600' : 'text-emerald-600'}`}>
                         {r.avg_return_pct != null ? `${Number(r.avg_return_pct).toFixed(2)}%` : '—'}
                       </td>
                       <td className="p-2 tabular-nums text-muted-foreground">{r.total_hits ?? 0}</td>

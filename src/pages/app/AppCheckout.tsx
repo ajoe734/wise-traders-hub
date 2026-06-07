@@ -309,15 +309,12 @@ const AppCheckout = () => {
 
         <div>
           <h2 className="text-sm font-medium mb-3">選擇付款方式</h2>
-          <div className="grid grid-cols-3 gap-3">
+          <div className="grid grid-cols-2 gap-3">
             <Card className={`cursor-pointer transition-all ${paymentMethod === "line_pay" ? "border-primary ring-2 ring-primary/20" : "hover:border-muted-foreground/30"}`} onClick={() => setPaymentMethod("line_pay")}>
               <CardContent className="p-4 text-center"><p className="font-semibold text-sm">LINE Pay</p></CardContent>
             </Card>
             <Card className={`cursor-pointer transition-all ${paymentMethod === "ecpay" ? "border-primary ring-2 ring-primary/20" : "hover:border-muted-foreground/30"}`} onClick={() => setPaymentMethod("ecpay")}>
               <CardContent className="p-4 text-center"><p className="font-semibold text-sm">綠界 ECPay</p><p className="text-xs text-muted-foreground">信用卡</p></CardContent>
-            </Card>
-            <Card className={`cursor-pointer transition-all ${paymentMethod === "acpay" ? "border-primary ring-2 ring-primary/20" : "hover:border-muted-foreground/30"}`} onClick={() => setPaymentMethod("acpay")}>
-              <CardContent className="p-4 text-center"><p className="font-semibold text-sm">ACpay</p><p className="text-xs text-muted-foreground">信用卡</p></CardContent>
             </Card>
           </div>
         </div>
