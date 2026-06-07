@@ -170,3 +170,20 @@ admin-manage-users, auto-cancel-failed-renewals, backfill-daily-snapshots, creat
 - **E-LOG-001（38 支 withLogging）**：每支 fn 須將 `Deno.serve(handler)` 改為 `Deno.serve(withLogging('fn-name', handler))` 並把所有 `new Response` 改成 `jsonResponse`/`errorResponse`，逐支驗證 log 行為。
 - **E-VALID-001（34 支 Zod 入參驗證）**：每支 fn body/query 需自訂 schema。
 建議下一個獨立 PR：批次 5 支×多輪迭代，每輪做完跑 `deno check` + 對應功能煙測。
+
+---
+
+## P2 全部完成（2026-06-07）
+
+清單核對：
+- B-23 HoldingsQuotaMeter LINE CTA：Batch 3 ✅
+- B-24 TradeTab basic 續訂文案：Batch 3 ✅
+- B-28 useAccountData status 過濾：Batch 2 ✅
+- E-CSRF-001 line-webhook timestamp window：Batch 3 ✅
+- E-AI-001 Anthropic retry/backoff：Batch 2 `_shared/anthropicFetch.ts` ✅
+- E-CACHE-001 twse/tpex/checkup-institutional cache：Batch 3 ✅
+- E-IDEM-002 refresh-targets-weekly upsert：Batch 3 ✅
+- **D-10** `checkup_knowledge_usage_stats` view security_invoker：核對 migration `20260430045224` 已宣告 `WITH (security_invoker = true)` ✅（誤報，本來就修了）
+- **D-11** perf_metrics rate limit：本輪新增 `perf_metrics_rate_limit()` BEFORE INSERT trigger（migration `20260607022346`）。閾值：session_id 60s/20、user_id 60s/60、純匿名同 route 60s/100。超出靜默丟棄（return null）不噴錯給前端 ✅
+
+P2 9/9 完成。
