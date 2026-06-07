@@ -797,3 +797,30 @@ Warning 從 34 降到 28（剩餘皆為 by design + pg_trgm 維護視窗待排�
 - **S11 i18n / a11y / 對比度**
 - **S13 觀測與成本**（traffic_ingest PII / cold-start 儀表板）
 - 把 ShareButton 推廣到 line push 通知文本、系統公告分享按鈕、個人收藏匯出
+
+---
+
+## Round 4 (S13): 後端健康 / 成本儀表板 — 2026-06-07
+
+### 範圍
+建立 `/company/ops-health` 統一觀測頁，補足 backend observability 與 log cost 控制缺口。
+
+### 實作
+- **新增 Edge Function**：`supabase/functions/ops-health/index.ts`
+  - 驗證 JWT + `company_admin` role
+  - 聚合近 7 天 `function_run_logs`（fn × runs/errors/warns/error_rate/last_seen）
+  - 聚合近 7 天 `system_jobs_log`（job × runs/success/fail/p95_ms/last_status/last_ran_at）
+  - 統計 5 個 log 表（function_run_logs、system_jobs_log、audit_logs、perf_metrics、traffic_events）的 total / >7d / >30d row count
+  - 最後 24h 最多 50 筆 error 級 log
+- **新增頁面**：`src/pages/company/OpsHealth.tsx`
+  - 4 個 KPI 卡片（函式總數、函式錯誤、排程失敗、log 總筆數）
+  - Edge Function 健康表（錯誤率 ≥5% 標紅）
+  - 排程任務健康表（失敗 / p95 / 最後狀態）
+  - Log 表大小 + 清理建議（>30d 超過 1 萬筆 → 建議清理）
+  - 近 24h 錯誤 timeline，含 run_id 可跳轉 `/company/function-logs` 查明細
+- **路由 / nav**：掛 `/company/ops-health` + CompanyLayout sidebar 入口
+
+### 後續可加項目（未做）
+- traffic_ingest PII 清洗（IP 雜湊）
+- Cold-start 量測（需要 edge function 內部 boot timestamp）
+- 自動清理 cron（目前只顯示建議，未動手清；可再加 `cleanup-ops-logs` cron）
