@@ -181,6 +181,12 @@ const handler = withLogging("create-acpay-order", async (req, log) => {
         return jsonResponse({ success: true, subscriptionId: existing[0].id, duplicate: true });
       }
 
+      // S3 race guard: defensive expire-first to coexist with the partial unique index.
+      await supabase
+        .from("member_subscriptions")
+        .update({ status: "expired" })
+        .eq("user_id", userId).eq("plan_id", planId).eq("status", "active");
+
       const { data: sub, error: subError } = await supabase
         .from("member_subscriptions").insert({
           user_id: userId, plan_id: planId, status: "active",
@@ -188,8 +194,20 @@ const handler = withLogging("create-acpay-order", async (req, log) => {
           expires_at: expiresAt.toISOString(),
           provider_id: provider?.id || null,
         }).select("id").single();
-      if (subError) log.error("subscription_insert_error", { message: subError.message });
-      else subscriptionId = sub.id;
+      if (subError) {
+        if (String(subError.message || "").includes("uq_member_sub_active_user_plan")) {
+          // Concurrent winner already created it — return that one.
+          const { data: winner } = await supabase
+            .from("member_subscriptions").select("id")
+            .eq("user_id", userId).eq("plan_id", planId).eq("status", "active").maybeSingle();
+          subscriptionId = winner?.id ?? null;
+          log.info("acpay_subscription_race_winner_other", { userId, planId });
+        } else {
+          log.error("subscription_insert_error", { message: subError.message });
+        }
+      } else {
+        subscriptionId = sub.id;
+      }
     }
 
     await supabase.from("payment_transactions").insert({

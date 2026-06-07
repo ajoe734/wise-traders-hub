@@ -304,3 +304,53 @@ admin-manage-users, apologize-line-free-quota, auto-cancel-failed-renewals, back
 - B-17 ✅、D-19 標註保留
 
 P0–P5 全六輪深掃修復完成。剩下 A/C 兩組（RWD 裝置別 / Gate 三軌）由背景跑完後另開檔追加。
+
+---
+
+# S3 / S6 — 並發 + 資料一致性掃描（2026-06-07）
+
+## 範圍
+所有 `create-*-order` / `*-callback` 邊緣函數、訂閱寫入點、跨表 FK、雙裝置 race window。
+
+## 既有防線（確認 OK）
+- `consume_checkup_quota` RPC 已用 `pg_advisory_xact_lock(hashtext('checkup_quota:'||user))`，配額不會超賣。
+- `AppCheckout.handleCheckout` 用 `processingLockRef`，雙擊立即被攔下。
+- `ecpay-callback` 走 `createSubscriptionAndTransaction`，內部「先 expire active 再 insert」可吸收並發；callback 端再用 `isDuplicatePaymentTx(txId)` 對相同付款重放擋下。
+
+## 已修（本輪）
+
+### F-S3-01 訂閱表 partial unique index（DB 層硬約束）
+- `member_subscriptions (user_id, plan_id) WHERE status='active'` UNIQUE
+- `checkup_subscriptions (user_id, plan_id) WHERE status='active'` UNIQUE
+- 即使應用層 race window 命中、雙裝置同時付款、回 callback 先後到達，DB 也只會放行一筆 active；第二筆會收到 23505。
+
+### F-S3-02 callback 容錯（unique violation → 視為 race winner-other）
+- `checkup-ecpay-callback`：insert 失敗若是 `uq_checkup_sub_active_user_plan` → log info、回 `1|OK`，不讓 ECPay 一直重試。
+- `create-acpay-order`：unique violation → 重撈 active row 回給前端。
+- `ecpay-callback` 走 paymentProcessor「expire-first → insert」模式，本身已不會觸發此衝突。
+
+### F-S3-03 checkup-ecpay-callback / create-acpay-order 加防禦性 expire-first
+- 與 `paymentProcessor.createSubscriptionAndTransaction` 同模式，避免冷啟動快路徑兩個 callback 同時插入。
+
+### F-S3-04 CheckupCheckout 加 `processingLockRef`
+- 對齊 `AppCheckout`，state lag 也擋得住雙擊。
+
+### F-S6-01 補 `member_subscriptions.user_id → auth.users(id) ON DELETE CASCADE`
+### F-S6-02 補 `checkup_subscriptions.user_id → auth.users(id) ON DELETE CASCADE`
+- 兩表原本只靠 app 層維護，刪除 auth.user 不會清訂閱 → 將來 MRR / 報表會浮孤兒。
+
+### F-S6-03 `expert_line_channels.expert_id` 改 `ON DELETE CASCADE`
+- 顧問刪除時，LINE 綁定殘留會卡 webhook routing。改 CASCADE。
+
+## 掃描但目前無問題（記錄留底）
+- `profiles` ↔ `auth.users` orphan：0
+- `member_subscriptions` / `checkup_subscriptions` / `expert_line_channels` orphan：0
+- active duplicate `(user_id, plan_id)`：0（migration 才能安全建 UNIQUE）
+- 「同時持有 member_sub + checkup_sub」1 人 → 跨產品線本就合法，**非 bug**
+- Cron schedule：`expire-subscriptions */15`、`daily-snapshot 06:00 Mon-Fri`、`knowledge-*-scheduler` 不同時段，**無重疊雙寫風險**
+- `cleanup-announcements` 每 2 分鐘跑一次 + 每日 03:00 函式呼叫，**幂等** SQL function，安全
+
+## 未做（轉下一輪）
+- S5 Auth 邊界（nonce TTL / refresh failure UX）
+- S8 DB 效能（linter / 索引）
+- S2 Gate 三軌全掃

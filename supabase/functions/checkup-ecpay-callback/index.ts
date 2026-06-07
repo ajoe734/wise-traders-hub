@@ -71,6 +71,12 @@ const handler = withLogging("checkup-ecpay-callback", async (req, log) => {
         .eq("id", existing.id);
       if (renewErr) log.error("renewal_extend_error", { message: renewErr.message });
     } else {
+      // S3 race guard: defensive expire-first so concurrent callbacks don't trip the partial unique index.
+      await supabase
+        .from("checkup_subscriptions")
+        .update({ status: "expired" })
+        .eq("user_id", userId).eq("plan_id", checkupPlanId).eq("status", "active");
+
       const { data: sub, error } = await supabase
         .from("checkup_subscriptions").insert({
           user_id: userId,
@@ -82,6 +88,11 @@ const handler = withLogging("checkup-ecpay-callback", async (req, log) => {
           provider_id: provider?.id ?? null,
         }).select("id").single();
       if (error) {
+        // If a concurrent callback already inserted the row, treat as success (renewal handled by the winner).
+        if (String(error.message || "").includes("uq_checkup_sub_active_user_plan")) {
+          log.info("checkup_subscriptions_race_winner_other", { userId, checkupPlanId });
+          return new Response("1|OK", { status: 200 });
+        }
         log.error("checkup_subscriptions_insert_error", { message: error.message });
         return new Response("0|Error", { status: 200 });
       }

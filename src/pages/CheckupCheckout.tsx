@@ -1,4 +1,4 @@
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { Link, useNavigate, useParams, useSearchParams } from "react-router-dom";
 import { PortalLayout } from "@/components/layouts/PortalLayout";
 import { Button } from "@/components/ui/button";
@@ -34,6 +34,8 @@ export default function CheckupCheckout() {
   const [method, setMethod] = useState<Method>("ecpay");
   // (removed) inline bank state — now handled by <RemittanceAccountCard />
   const [isProcessing, setIsProcessing] = useState(false);
+  // S3 race guard: ref-based lock matches AppCheckout — prevents double submit even if React state lags.
+  const processingLockRef = useRef(false);
   const [consentChecked, setConsentChecked] = useState(false);
   const [isConfirming, setIsConfirming] = useState(false);
   const [resultDialog, setResultDialog] = useState<{ open: boolean; success: boolean; message?: string; goRemittance?: boolean } | null>(null);
@@ -100,6 +102,8 @@ export default function CheckupCheckout() {
       navigate("/auth/login");
       return;
     }
+    if (processingLockRef.current) return;
+    processingLockRef.current = true;
     setIsProcessing(true);
     gtmPush('BeginCheckout', {
       plan_id: planId,
@@ -163,6 +167,7 @@ export default function CheckupCheckout() {
       });
     } finally {
       setIsProcessing(false);
+      processingLockRef.current = false;
     }
   };
 
