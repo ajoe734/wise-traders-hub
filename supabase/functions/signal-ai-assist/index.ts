@@ -1,7 +1,7 @@
 // 訊號／週記富文字欄位的 AI 助寫
 // 使用 Lovable AI Gateway，回傳一段 HTML 字串供 TipTap 直接 setContent。
 
-import { corsHeaders } from "https://esm.sh/@supabase/supabase-js@2.95.0/cors";
+import { corsHeaders } from "../_shared/cors.ts";
 import { sanitizeUserContent } from "../_shared/promptInjectionGuard.ts";
 import { validateInput, validationResponse } from '../_shared/inputValidator.ts';
 
@@ -44,8 +44,7 @@ function escapeHtml(s: string): string {
 }
 
 Deno.serve(withLogging('signal-ai-assist', async (req) => {
-  if (req.method === 'OPTIONS') return new Response('ok', { headers: corsHeaders });
-
+  // OPTIONS preflight handled by withLogging via _shared/cors corsPreflight().
   try {
     const LOVABLE_API_KEY = Deno.env.get('LOVABLE_API_KEY');
     if (!LOVABLE_API_KEY) {

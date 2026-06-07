@@ -442,3 +442,61 @@ Warning 從 34 降到 28（剩餘皆為 by design + pg_trgm 維護視窗待排�
 ## S12 — Dependency Scan（2026-06-07）
 
 `code--dependency_scan` 結果：**0 個 high / critical**。無動作。
+
+---
+
+## S4 — Edge Function CORS / Rate-limit（2026-06-07）
+
+### 範圍
+76 支 edge functions 全部清點：OPTIONS 覆蓋、`Access-Control-Allow-*` 完整性、Origin reflection、credentialed CORS、preflight cache、rate-limit 政策。
+
+### 既有防線（確認 OK）
+- `withLogging` HOC 在進入內層 handler 前已 `if (req.method === 'OPTIONS') return corsPreflight()`，全部 73 支包進 withLogging 的 fn 自動具備 OPTIONS 處理（即使內層 inline `if OPTIONS` 也是 dead code）。
+- `_shared/cors.ts` `corsHeaders` 涵蓋 supabase-js 現代 client 送的全部 9 個 header（含 `x-correlation-id`, `x-supabase-client-platform*`, `x-supabase-client-runtime*`）。
+- `line-webhook` 已於 Batch 7 D-12 鎖死 `ACAO: https://api.line.me`，僅允許 `content-type, x-line-signature`，加 `Vary: Origin`。
+- ACAO `*` + 不設 `Access-Control-Allow-Credentials` → 攻擊者無法藉跨站 fetch 偷打帶 cookie 的 API（本專案不用 cookie auth，全靠 Authorization header）。
+- payment callbacks（acpay-notify / ecpay-callback / checkup-ecpay-callback / acpay-recurring-notify）為 server→server，瀏覽器永遠不打，ACAO 寬鬆不影響安全；簽章驗證已於 P0 Batch 1 強制。
+
+### 修補項
+**F-S4-01 補 `Access-Control-Max-Age: 86400`**
+- `_shared/cors.ts:18`：preflight 過去無 max-age，每次 cross-origin POST 都要先 OPTIONS RTT（測得多 50–200ms）。改為 24h cache，全站 fn 自動受益。
+
+**F-S4-02 4 支 fn 偏離標準 CORS（drift + dead code）**
+原症狀：
+- `signal-ai-assist` import `https://esm.sh/@supabase/supabase-js@2.95.0/cors`（短 ACAH，只含 `authorization, x-client-info, apikey, content-type, x-retry-count`）
+- `apologize-line-free-quota` / `checkup-quota-audit` import `npm:@supabase/supabase-js@2/cors`（同樣短 ACAH）
+- `cleanup-announcements-cron` inline 寫死 4 個 ACAH header
+- 4 支同時有 dead code `if (req.method === 'OPTIONS') ...` 在內層 handler（withLogging 已先攔截，永不執行）
+
+驗證：實測 `curl -s https://esm.sh/@supabase/supabase-js@2.107.0/es2022/cors.mjs` 確認上游 cors 模組僅輸出 `"authorization, x-client-info, apikey, content-type, x-retry-count"`，缺 `x-correlation-id` 與 `x-supabase-client-platform*` 等 5 個 header。雖然 withLogging 預先處理 preflight 讓功能不破，但 response 仍混雜兩套 ACAH，未來如有人 refactor 拿掉 withLogging 立刻爆炸。
+
+修法：全改 `import { corsHeaders } from '../_shared/cors.ts'`、移除內層 dead OPTIONS 分支；`cleanup-announcements-cron` 直接重寫成 `jsonResponse(...)` 風格。
+
+### 掃描但無問題（記錄）
+- Origin reflection：0 支 fn 把 `req.headers.get('Origin')` 寫回 ACAO（已 grep 確認）。
+- Credentialed CORS：0 支 fn 設 `Access-Control-Allow-Credentials: true`，搭配 ACAO `*` 不會違規。
+- Methods：73 支 fn 統一 `POST, GET, OPTIONS`；無 PUT/PATCH/DELETE 需求。
+- Vary: Origin：ACAO 為固定 `*`（非反射），CDN/proxy 不會錯快取。
+
+### Rate-limit（policy decision，未動）
+依專案 directive `<no-backend-rate-limiting>`：「The backend does not have a standard rate-limiting primitive yet」。本輪 **不** 為任何 fn 加 rate-limit。
+- 已知缺口：D-11 `perf_metrics` anon 可寫無上限、payment callback 無頻率限制、AI fn 無 per-user 配額。
+- 待 backend rate-limit primitive 推出後另開 PR 統一處理；目前僅靠：
+  - `acpay-notify` 簽章 + `processed_payments` 去重（防重投）
+  - `consume_checkup_quota` advisory lock + DB 配額表（防 AI fn 濫用）
+  - `line_oauth_states` nonce TTL（防 login 暴力嘗試）
+
+### 結果
+- CORS：本輪移除 4 支 fn drift / dead code，全站統一走 `_shared/cors.ts` 完整 9-header allow-list + 24h preflight cache。
+- Rate-limit：依政策保持現狀。
+
+### Files Edited
+- `supabase/functions/_shared/cors.ts`
+- `supabase/functions/signal-ai-assist/index.ts`
+- `supabase/functions/apologize-line-free-quota/index.ts`
+- `supabase/functions/checkup-quota-audit/index.ts`
+- `supabase/functions/cleanup-announcements-cron/index.ts`
+
+### 下一輪建議
+- **S7（Frontend error boundaries）**：頁面層 / Suspense 邊界 / 全域 ErrorBoundary 覆蓋率
+- **S1/S9/S10/S11**：清單見 plan.md
