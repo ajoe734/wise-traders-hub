@@ -17,7 +17,7 @@ import { withLogging } from '../_shared/edgeLogger.ts';
  * Returns: { validated: number, flagged: Signal[], skipped: number }
  */
 
-Deno.serve(async (req) => {
+Deno.serve(withLogging('validate-signal-prices', async (req) => {
   if (req.method === 'OPTIONS') {
     return new Response(null, { headers: corsHeaders });
   }
