@@ -87,9 +87,22 @@ Deno.serve(async (req) => {
     const body = JSON.parse(rawBody)
     const events = body.events || []
 
+    // Reject events outside a 5-minute window — defends against replay of
+    // captured webhook bodies (timestamp+signature pair is still valid otherwise).
+    const REPLAY_WINDOW_MS = 5 * 60 * 1000
+    const nowMs = Date.now()
+
     for (const event of events) {
       const lineUserId = event.source?.userId
       if (!lineUserId) continue
+
+      if (typeof event.timestamp === 'number') {
+        const drift = Math.abs(nowMs - event.timestamp)
+        if (drift > REPLAY_WINDOW_MS) {
+          console.warn('line-webhook: event timestamp outside replay window', { drift, eventId: event.webhookEventId })
+          continue
+        }
+      }
 
       // P0 Idempotency: LINE 至少投遞一次，重投會重複綁定/扣量
       // event.webhookEventId 是 LINE 全域唯一 ID；若無則用 replyToken+timestamp fallback
@@ -105,6 +118,7 @@ Deno.serve(async (req) => {
           continue
         }
       }
+
 
 
 
