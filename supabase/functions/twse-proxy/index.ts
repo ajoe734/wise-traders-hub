@@ -1,5 +1,6 @@
 // deno-lint-ignore-file
 import "jsr:@supabase/functions-js/edge-runtime.d.ts";
+import { cacheGet, cacheSet } from '../_shared/memoryCache.ts';
 
 const corsHeaders = {
   'Access-Control-Allow-Origin': '*',
@@ -14,6 +15,7 @@ const ALLOWED_ENDPOINTS = [
 ];
 
 const TWSE_BASE = 'https://openapi.twse.com.tw/v1';
+const CACHE_TTL_MS = 5 * 60 * 1000; // 5 min
 
 const endpointPaths: Record<string, string> = {
   'STOCK_DAY_ALL': '/exchangeReport/STOCK_DAY_ALL',
@@ -39,22 +41,23 @@ Deno.serve(async (req) => {
       );
     }
 
-    const twseUrl = `${TWSE_BASE}${endpointPaths[endpoint]}`;
-    const response = await fetch(twseUrl, {
-      headers: {
-        'User-Agent': 'Mozilla/5.0',
-        'Accept': 'application/json',
-      },
-    });
-
-    if (!response.ok) {
-      const text = await response.text();
-      throw new Error(`TWSE API error: ${response.status} - ${text}`);
+    const cacheKey = `twse:${endpoint}`;
+    let upstream = cacheGet<unknown>(cacheKey);
+    if (!upstream) {
+      const twseUrl = `${TWSE_BASE}${endpointPaths[endpoint]}`;
+      const response = await fetch(twseUrl, {
+        signal: AbortSignal.timeout(10000),
+        headers: { 'User-Agent': 'Mozilla/5.0', 'Accept': 'application/json' },
+      });
+      if (!response.ok) {
+        const text = await response.text();
+        throw new Error(`TWSE API error: ${response.status} - ${text}`);
+      }
+      upstream = await response.json();
+      cacheSet(cacheKey, upstream, CACHE_TTL_MS);
     }
 
-    let data = await response.json();
-
-    // Filter by stock codes if provided
+    let data: unknown = upstream;
     if (codesParam && Array.isArray(data)) {
       const codes = codesParam.split(',').map(c => c.trim());
       data = data.filter((item: any) => codes.includes(item.Code));
