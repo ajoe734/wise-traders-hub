@@ -3,6 +3,7 @@ import "jsr:@supabase/functions-js/edge-runtime.d.ts";
 import { cacheGet, cacheSet } from '../_shared/memoryCache.ts';
 
 import { corsHeaders } from '../_shared/cors.ts';
+import { withLogging } from '../_shared/edgeLogger.ts';
 const ALLOWED_ENDPOINTS = [
   'SQUOTE_EW_QUOTAS_ALL',
   'SQUOTE_EW_PEBR_ALL',
@@ -16,7 +17,7 @@ const endpointPaths: Record<string, string> = {
   'SQUOTE_EW_PEBR_ALL': '/tpex_mainboard_peratio',
 };
 
-Deno.serve(async (req) => {
+Deno.serve(withLogging('tpex-proxy', async (req) => {
   if (req.method === 'OPTIONS') {
     return new Response(null, { headers: corsHeaders });
   }
@@ -68,4 +69,4 @@ Deno.serve(async (req) => {
       headers: { ...corsHeaders, 'Content-Type': 'application/json' },
     });
   }
-});
+}));

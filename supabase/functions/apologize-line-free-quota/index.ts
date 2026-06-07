@@ -11,6 +11,7 @@
 // 支援 ?dry_run=1 — 只列出將要嘗試的 (user, OA) 組合，不實際呼叫 LINE / 不寫 notifications。
 import { corsHeaders } from 'npm:@supabase/supabase-js@2/cors';
 
+import { withLogging } from '../_shared/edgeLogger.ts';
 const SUPABASE_URL = Deno.env.get('SUPABASE_URL') || '';
 const SERVICE_ROLE_KEY = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY') || '';
 
@@ -33,7 +34,7 @@ const APOLOGY_BODY = [
   '— legendflow 團隊',
 ].join('\n');
 
-Deno.serve(async (req: Request) => {
+Deno.serve(withLogging('apologize-line-free-quota', async (req: Request) => {
   if (req.method === 'OPTIONS') return new Response('ok', { headers: corsHeaders });
   if (req.method !== 'POST' && req.method !== 'GET') {
     return json({ error: 'METHOD_NOT_ALLOWED' }, 405);
@@ -231,7 +232,7 @@ Deno.serve(async (req: Request) => {
     fallback: fallbackCount,
     details,
   });
-});
+}));
 
 function json(body: unknown, status = 200) {
   return new Response(JSON.stringify(body), {

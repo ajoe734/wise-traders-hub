@@ -1,5 +1,6 @@
 import { corsHeaders } from '../_shared/cors.ts';
 import { serviceClient } from '../_shared/supabaseClients.ts';
+import { withLogging } from '../_shared/edgeLogger.ts';
 // 回填 TWSE 日 K 歷史資料到 daily_price_snapshots（含進度追蹤、續跑）
 // 用法：
 //   POST { months?: 36, symbols?: string[], dryRun?: boolean, resume?: true }
@@ -65,7 +66,7 @@ function monthsBack(n: number): string[] {
   return out
 }
 
-Deno.serve(async (req) => {
+Deno.serve(withLogging('backfill-daily-snapshots', async (req) => {
   if (req.method === 'OPTIONS') return new Response(null, { headers: corsHeaders })
 
   try {
@@ -228,4 +229,4 @@ Deno.serve(async (req) => {
       status: 500, headers: { ...corsHeaders, 'Content-Type': 'application/json' }
     })
   }
-})
+}))

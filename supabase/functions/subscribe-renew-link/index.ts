@@ -2,6 +2,7 @@ import { createClient } from "https://esm.sh/@supabase/supabase-js@2.49.1";
 
 import { corsHeaders } from '../_shared/cors.ts';
 import { serviceClient } from '../_shared/supabaseClients.ts';
+import { withLogging } from '../_shared/edgeLogger.ts';
 // 手動續訂短連結：以 HMAC token 驗證 → 302 重導到正確 checkout 頁。
 // 用於 LINE / Email 提醒，避免直接洩漏 plan_id 與 user_id 組合。
 //
@@ -57,7 +58,7 @@ async function verifyToken(token: string, secret: string): Promise<any | null> {
   }
 }
 
-Deno.serve(async (req) => {
+Deno.serve(withLogging('subscribe-renew-link', async (req) => {
   if (req.method === "OPTIONS") return new Response(null, { headers: corsHeaders });
 
   const secret = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!; // reuse as HMAC secret
@@ -131,4 +132,4 @@ Deno.serve(async (req) => {
   }
 
   return new Response("Subscription not found", { status: 404, headers: corsHeaders });
-});
+}));

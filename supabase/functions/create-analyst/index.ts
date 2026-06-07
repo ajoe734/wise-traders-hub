@@ -1,8 +1,9 @@
 import { corsHeaders } from '../_shared/cors.ts';
 import { serviceClient } from '../_shared/supabaseClients.ts';
+import { withLogging } from '../_shared/edgeLogger.ts';
 import { createClient } from 'https://esm.sh/@supabase/supabase-js@2.49.1'
 
-Deno.serve(async (req) => {
+Deno.serve(withLogging('create-analyst', async (req) => {
   if (req.method === 'OPTIONS') {
     return new Response(null, { headers: corsHeaders })
   }
@@ -156,4 +157,4 @@ Deno.serve(async (req) => {
       status: 500, headers: { ...corsHeaders, 'Content-Type': 'application/json' }
     })
   }
-})
+}))

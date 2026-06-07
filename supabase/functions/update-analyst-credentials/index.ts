@@ -2,9 +2,10 @@ import { createClient } from 'https://esm.sh/@supabase/supabase-js@2.49.1';
 
 import { corsHeaders } from '../_shared/cors.ts';
 import { serviceClient } from '../_shared/supabaseClients.ts';
+import { withLogging } from '../_shared/edgeLogger.ts';
 type Action = 'fetch_email' | 'update_email' | 'reset_password' | 'send_reset_email';
 
-Deno.serve(async (req) => {
+Deno.serve(withLogging('update-analyst-credentials', async (req) => {
   if (req.method === 'OPTIONS') {
     return new Response(null, { headers: corsHeaders });
   }
@@ -202,7 +203,7 @@ Deno.serve(async (req) => {
   } catch (err) {
     return json({ error: (err as Error).message }, 500);
   }
-});
+}));
 
 function json(payload: unknown, status = 200) {
   return new Response(JSON.stringify(payload), {

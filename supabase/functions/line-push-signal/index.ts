@@ -1,4 +1,5 @@
 import { corsHeaders } from '../_shared/cors.ts';
+import { withLogging } from '../_shared/edgeLogger.ts';
 import { createClient } from 'https://esm.sh/@supabase/supabase-js@2.49.1'
 
 const LINE_MULTICAST_URL = 'https://api.line.me/v2/bot/message/multicast'
@@ -356,7 +357,7 @@ async function sendToLine(channelToken: string, targets: string[], message: any)
   return totalPushed
 }
 
-Deno.serve(async (req) => {
+Deno.serve(withLogging('line-push-signal', async (req) => {
   if (req.method === 'OPTIONS') {
     return new Response(null, { headers: corsHeaders })
   }
@@ -606,4 +607,4 @@ Deno.serve(async (req) => {
       status: 500, headers: { ...corsHeaders, 'Content-Type': 'application/json' },
     })
   }
-})
+}))

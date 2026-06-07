@@ -6,6 +6,7 @@ import "jsr:@supabase/functions-js/edge-runtime.d.ts";
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2.49.1";
 
 import { corsHeaders } from '../_shared/cors.ts';
+import { withLogging } from '../_shared/edgeLogger.ts';
 const LOOKBACK_DAYS = 60;
 const MIN_DISTINCT_STOCKS = 3; // 至少跨 3 檔股票
 const MIN_HITS_PER_GROUP = 5;  // 至少 5 次命中
@@ -29,7 +30,7 @@ async function callClaude(systemPrompt: string, userPrompt: string) {
   return JSON.parse(text);
 }
 
-Deno.serve(async (req) => {
+Deno.serve(withLogging('knowledge-promote-candidates', async (req) => {
   if (req.method === 'OPTIONS') return new Response(null, { headers: corsHeaders });
 
   try {
@@ -189,4 +190,4 @@ Deno.serve(async (req) => {
       status: 500, headers: { ...corsHeaders, 'Content-Type': 'application/json' },
     });
   }
-});
+}));

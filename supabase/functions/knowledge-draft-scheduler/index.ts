@@ -9,6 +9,7 @@ import { createClient } from "https://esm.sh/@supabase/supabase-js@2.49.1";
 
 import { corsHeaders } from '../_shared/cors.ts';
 import { serviceClient } from '../_shared/supabaseClients.ts';
+import { withLogging } from '../_shared/edgeLogger.ts';
 const CATS = ['chip_analysis', 'technical_analysis', 'industry_trends', 'strategy_cases', 'news_correlation'] as const;
 const TARGET_PER_CAT = 100;
 const BATCH_SIZE = 20;
@@ -20,7 +21,7 @@ const PREFIX: Record<string, string> = {
   news_correlation: 'nc',
 };
 
-Deno.serve(async (req) => {
+Deno.serve(withLogging('knowledge-draft-scheduler', async (req) => {
   if (req.method === 'OPTIONS') return new Response(null, { headers: corsHeaders });
 
   try {
@@ -151,4 +152,4 @@ Deno.serve(async (req) => {
       status: 500, headers: { ...corsHeaders, 'Content-Type': 'application/json' },
     });
   }
-});
+}));

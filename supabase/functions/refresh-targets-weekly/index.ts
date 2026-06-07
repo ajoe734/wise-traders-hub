@@ -7,6 +7,7 @@ import { createClient } from "https://esm.sh/@supabase/supabase-js@2.49.1";
 import { corsHeaders } from '../_shared/cors.ts';
 
 import { serviceClient } from '../_shared/supabaseClients.ts';
+import { withLogging } from '../_shared/edgeLogger.ts';
 const FN_NAME = 'refresh-targets-weekly';
 
 interface AnalystItem {
@@ -56,7 +57,7 @@ async function logRun(supabase: any, runId: string, stage: string, msg: string, 
   }
 }
 
-Deno.serve(async (req) => {
+Deno.serve(withLogging('refresh-targets-weekly', async (req) => {
   if (req.method === 'OPTIONS') return new Response(null, { headers: corsHeaders });
 
   const supabaseUrl = Deno.env.get('SUPABASE_URL')!;
@@ -79,7 +80,7 @@ Deno.serve(async (req) => {
   try {
     await logRun(supabase, runId, 'start', `開始每週目標價刷新`, { stats });
 
-    // 1) 找出 30 天內有登入的活躍用戶（auth.users.last_sign_in_at）
+    // 1)) 找出 30 天內有登入的活躍用戶（auth.users.last_sign_in_at）
     const since = new Date(Date.now() - 30 * 24 * 3600 * 1000).toISOString();
     const { data: users, error: usersErr } = await supabase.auth.admin.listUsers({ page: 1, perPage: 1000 });
     if (usersErr) throw usersErr;

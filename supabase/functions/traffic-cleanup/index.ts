@@ -3,7 +3,8 @@ import 'jsr:@supabase/functions-js/edge-runtime.d.ts';
 import { jsonResponse, corsPreflight } from '../_shared/cors.ts';
 import { serviceClient } from '../_shared/supabaseClients.ts';
 
-Deno.serve(async (req) => {
+import { withLogging } from '../_shared/edgeLogger.ts';
+Deno.serve(withLogging('traffic-cleanup', async (req) => {
   if (req.method === 'OPTIONS') return corsPreflight();
   const supabase = serviceClient();
   try {
@@ -13,4 +14,4 @@ Deno.serve(async (req) => {
   } catch (e) {
     return jsonResponse({ ok: false, error: (e as Error).message }, { status: 500 });
   }
-});
+}));

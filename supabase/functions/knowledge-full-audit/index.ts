@@ -1,5 +1,6 @@
 import { corsHeaders } from '../_shared/cors.ts';
 import { serviceClient } from '../_shared/supabaseClients.ts';
+import { withLogging } from '../_shared/edgeLogger.ts';
 // 全庫知識審計 — 一次性掃 482 筆過舊條目並自動處置
 //
 // 兩層審計：
@@ -54,14 +55,14 @@ function isStaleByContent(item: AuditItem, currentYear: number): { stale: boolea
   return { stale: false }
 }
 
-Deno.serve(async (req) => {
+Deno.serve(withLogging('knowledge-full-audit', async (req) => {
   if (req.method === 'OPTIONS') return new Response(null, { headers: corsHeaders })
 
   const sb = serviceClient()
   const startedAt = Date.now()
 
   try {
-    // 1) 載入所有 active 條目
+    // 1)) 載入所有 active 條目
     const { data: items, error: loadErr } = await sb
       .from('checkup_knowledge_items')
       .select('id,category,item_id,title,fact,tags,backtestable,lifecycle_status,last_validated_at,win_rate,sample_size')

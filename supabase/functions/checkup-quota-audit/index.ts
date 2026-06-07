@@ -4,10 +4,11 @@
 //   2) 批次 (mode=list)：依 tier / reason / 日期範圍篩選 checkup_usage，並合併 profile + 最新 sub。
 import { corsHeaders } from 'npm:@supabase/supabase-js@2/cors';
 
+import { withLogging } from '../_shared/edgeLogger.ts';
 const SUPABASE_URL = Deno.env.get('SUPABASE_URL') || '';
 const SERVICE_ROLE_KEY = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY') || '';
 
-Deno.serve(async (req: Request) => {
+Deno.serve(withLogging('checkup-quota-audit', async (req: Request) => {
   if (req.method === 'OPTIONS') return new Response('ok', { headers: corsHeaders });
   if (req.method !== 'GET' && req.method !== 'POST') {
     return json({ error: 'METHOD_NOT_ALLOWED' }, 405);
@@ -51,7 +52,7 @@ Deno.serve(async (req: Request) => {
 
   if (mode === 'list') return handleList(url);
   return handleSingle(url);
-});
+}));
 
 async function writeAuditLog(actorId: string, mode: string, url: URL) {
   const filters: Record<string, string> = {};

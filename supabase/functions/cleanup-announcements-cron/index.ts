@@ -1,7 +1,8 @@
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2.49.1";
 
 import { serviceClient } from '../_shared/supabaseClients.ts';
-Deno.serve(async (req) => {
+import { withLogging } from '../_shared/edgeLogger.ts';
+Deno.serve(withLogging('cleanup-announcements-cron', async (req) => {
   const corsHeaders = {
     "Access-Control-Allow-Origin": "*",
     "Access-Control-Allow-Headers":
@@ -45,4 +46,4 @@ Deno.serve(async (req) => {
       headers: { ...corsHeaders, "Content-Type": "application/json" },
     });
   }
-});
+}));

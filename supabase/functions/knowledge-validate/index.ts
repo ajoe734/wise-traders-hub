@@ -14,6 +14,7 @@ import { createClient } from "https://esm.sh/@supabase/supabase-js@2.49.1";
 
 import { corsHeaders } from '../_shared/cors.ts';
 import { serviceClient } from '../_shared/supabaseClients.ts';
+import { withLogging } from '../_shared/edgeLogger.ts';
 const SYSTEM_UID = '00000000-0000-0000-0000-000000000000';
 const LOOKBACK_DAYS = 90; // 取最近 90 天的命中
 const MIN_SAMPLE_FOR_ADJUST = 20;
@@ -52,7 +53,7 @@ async function getPriceAt(supabase: any, symbol: string, dateISO: string): Promi
   return data?.close_price != null ? Number(data.close_price) : null;
 }
 
-Deno.serve(async (req) => {
+Deno.serve(withLogging('knowledge-validate', async (req) => {
   if (req.method === 'OPTIONS') return new Response(null, { headers: corsHeaders });
 
   try {
@@ -221,4 +222,4 @@ Deno.serve(async (req) => {
       status: 500, headers: { ...corsHeaders, 'Content-Type': 'application/json' },
     });
   }
-});
+}));

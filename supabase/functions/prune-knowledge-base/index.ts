@@ -13,12 +13,13 @@ import "jsr:@supabase/functions-js/edge-runtime.d.ts";
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2.49.1";
 
 import { corsHeaders } from '../_shared/cors.ts';
+import { withLogging } from '../_shared/edgeLogger.ts';
 const STALE_DAYS = 90;
 const MIN_AGE_DAYS = 30;
 const MIN_SAMPLE_SIZE = 20;
 const LOW_WIN_RATE = 0.4;
 
-Deno.serve(async (req) => {
+Deno.serve(withLogging('prune-knowledge-base', async (req) => {
   if (req.method === 'OPTIONS') return new Response(null, { headers: corsHeaders });
 
   try {
@@ -139,4 +140,4 @@ Deno.serve(async (req) => {
       status: 500, headers: { ...corsHeaders, 'Content-Type': 'application/json' },
     });
   }
-});
+}));
