@@ -214,6 +214,7 @@ serve(async (req) => {
     let isFriend = false;
     try {
       const friendRes = await fetch('https://api.line.me/friendship/v1/status', {
+        signal: AbortSignal.timeout(8000),
         headers: { Authorization: `Bearer ${tokenData.access_token}` },
       });
       if (friendRes.ok) {
