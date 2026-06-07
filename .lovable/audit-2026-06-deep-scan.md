@@ -187,3 +187,40 @@ admin-manage-users, auto-cancel-failed-renewals, backfill-daily-snapshots, creat
 - **D-11** perf_metrics rate limit：本輪新增 `perf_metrics_rate_limit()` BEFORE INSERT trigger（migration `20260607022346`）。閾值：session_id 60s/20、user_id 60s/60、純匿名同 route 60s/100。超出靜默丟棄（return null）不噴錯給前端 ✅
 
 P2 9/9 完成。
+
+---
+
+## Batch 6 — P3（UI/邏輯/AI 防禦）完成 2026-06-07
+
+### 視覺/Kore-eda
+- **F-78**：`Index.tsx` CTA hex `#EC662D` → `hsl(var(--cta))` token；`Signals.tsx` Badge inline 黑色 hex → `variant="secondary"`；`MobileCarousels.tsx`（江湖卡片）保留為「品牌敘事色」，不轉 token（design intent）
+- **F-80**：`InkFade.tsx` `paperColor`/`inkColor` 預設改為 `hsl(var(--jh-paper))` / `hsl(var(--jh-ink))`
+- **F-82**：`DedupSettingsButton.tsx` 移除 boxShadow；`EventsPanel.jsx` shimmer linear-gradient → 單色 alpha pulse；`DailyReportPanel.jsx` CTA linear-gradient → 單色 alpha border + bg
+- **F-79**：`FreeCheckup.jsx:2802` 今日 alert / `TradePanel.jsx:180` 「上傳已成交截圖」皆改用 `C.text`
+
+### 邏輯
+- **B-19**：`FreeCheckupQuotaCard.tsx` `inferReason` 加 `case 'free'` 分支
+- **B-20**：`SubscriptionCard.tsx` 「手動續訂」改為 `sub.auto_renew ? '自動續訂' : '到期後手動續訂'`
+- **B-25**：`DailyTab.jsx` 加 `needsAddFriend` prop + 顯示加 LINE 好友 banner；`FreeCheckup.jsx` 傳入
+- **B-26**：`Subscribers.tsx` 自動扣款率公式改為「active + 未過期 / total」，不再用 `auto_renew`
+- **B-27**：`PendingRemittanceGuard.tsx` 進入 `/account/remittance` 時清掉 SESSION_KEY，使用者離開後可再次提醒
+- **B-29**：`CheckupModeContext.jsx` `setTier(data.tier || 'free')` → `'none'`，避免幽靈 free tier
+- **B-31**：`FreeCheckupQuotaCard.tsx` `tier='none'+isLine` 文案區分「異常」vs「未訂閱」
+- **B-34**：`CheckupModeContext.jsx` `canRefreshManually` 加 `&& !needsAddFriend` 互鎖
+
+### AI prompt injection 防禦（E-SEC-009 — 10 支全到位）
+- 新增 `_shared/promptInjectionGuard.ts`（`sanitizeUserContent` / `sanitizeUserContents`）
+- 套用：
+  1. `signal-ai-assist` — 完整 sanitize `instruction` + `content` + system 安全規則
+  2. `checkup-analyst-reports` — 新聞 title/snippet 截長 + role-token strip
+  3. `checkup-calendar` — system preamble
+  4. `checkup-predict-events` — system preamble
+  5. `checkup-research` — `deep-research` + `system-review` 兩處：dossier/brain/holdings 以 `<user_*>` delimiter 包覆 + 截長
+  6. `checkup-parse` — **強制忽略 client 傳入的 systemPrompt**，固定伺服端 OCR prompt
+  7. `checkup-analyze` — system preamble + userPrompt 截長 + 去 role-hijack token
+  8. `checkup-research-extract` — system preamble + dossier/report 以 `<user_*>` delimiter 包覆 + 截長
+  9. `knowledge-draft-claude` — `focus` 截長 + role-token strip + system preamble
+  10. `knowledge-promote-candidates` — system preamble
+
+### 後續
+- P3 全部完成；P5 boilerplate（E-LOG-001 / E-VALID-001）仍未動，視需要再開一輪。
