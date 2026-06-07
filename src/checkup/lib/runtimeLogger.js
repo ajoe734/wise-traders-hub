@@ -437,13 +437,15 @@ function bootstrapRuntimeDiagnosticRemoteSinks() {
 
 export function captureClientDiagnostic(kind, error, context = {}, options = {}) {
   const { emitConsole = true, level = 'error' } = options
+  const sessionId = getClientSessionId()
   const entry = {
     id: `${Date.now()}-${Math.random().toString(16).slice(2, 8)}`,
+    sessionId,
     kind: String(kind || 'runtime-error'),
     timestamp: new Date().toISOString(),
     level,
     error: serializeError(error),
-    context: normalizeValue(context),
+    context: normalizeValue({ ...context, sessionId }),
   }
 
   if (typeof window !== 'undefined') {
