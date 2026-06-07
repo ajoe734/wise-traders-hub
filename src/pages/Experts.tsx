@@ -54,7 +54,7 @@ const Experts = () => {
   return (
     <PortalLayout>
       <SEO
-        title="專家列表 | 投顧分析師與實戰導師 - 智富股市實戰學院"
+        title="專家列表 | 投顧分析師與實戰導師 - legendflow"
         description="瀏覽合法持照投顧分析師與實戰導師。比較風格標籤、專長市場、訂閱方案，找到最適合你的專家。"
         path="/experts"
       />

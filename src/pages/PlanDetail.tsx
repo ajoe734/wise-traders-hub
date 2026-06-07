@@ -66,7 +66,7 @@ const PlanDetail = () => {
   return (
     <PortalLayout>
       <SEO
-        title={`${planData.name} | ${expert.name} - 智富股市實戰學院`}
+        title={`${planData.name} | ${expert.name} - legendflow`}
         description={planData.description || `${expert.name} 的訂閱方案：${planData.name}。查看完整內容與價格。`}
         path={`/plan/${slug}/${planId}`}
       />

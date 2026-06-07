@@ -7,7 +7,7 @@ const Legal = () => {
   return (
     <PortalLayout>
       <SEO
-        title="法律聲明與服務說明 | 智富股市實戰學院"
+        title="法律聲明與服務說明 | legendflow"
         description="本平台投顧分析師服務依相關法令辦理，實戰導師內容僅供教學參考。完整服務性質、法規遵循、隱私與風險揭露說明。"
         path="/legal"
       />

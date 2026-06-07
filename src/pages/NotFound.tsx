@@ -12,7 +12,7 @@ const NotFound = () => {
   return (
     <div className="flex min-h-screen items-center justify-center bg-muted">
       <SEO
-        title="找不到頁面 (404) | 智富股市實戰學院"
+        title="找不到頁面 (404) | legendflow"
         description="您要找的頁面不存在。回到首頁繼續探索專家與訂閱方案。"
         path={location.pathname}
         noindex

@@ -71,7 +71,7 @@ const Register = () => {
   return (
     <PortalLayout>
       <SEO
-        title="註冊新帳號 | 智富股市實戰學院"
+        title="註冊新帳號 | legendflow"
         description="免費註冊會員，開始訂閱專家策略訊號與實戰導師週記，建立屬於自己的投資系統。"
         path="/auth/register"
         noindex

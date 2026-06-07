@@ -2599,7 +2599,7 @@ ${JSON.stringify(strategyBrain || { rules: [], lessons: [], commonMistakes: [], 
       fontFamily:"'Inter','Noto Sans TC',-apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif",paddingBottom:40,
       WebkitFontSmoothing:"antialiased",MozOsxFontSmoothing:"grayscale"}}>
       <SEO
-        title="免費 AI 持倉診斷 | 智富股市實戰學院"
+        title="免費 AI 持倉診斷 | legendflow"
         description="免費試用 AI 持倉診斷：自動分析個股、行事曆事件、收盤焦點與交易日誌，一次掌握你的投資組合風險與機會。"
         path="/holding-checkup"
       />

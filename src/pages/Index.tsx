@@ -53,7 +53,7 @@ const Index = () => {
   return (
     <PortalLayout>
       <SEO
-        title="智富股市實戰學院 | 投顧分析師與實戰導師訂閱平台"
+        title="legendflow | 投顧分析師與實戰導師訂閱平台"
         description="專業投顧分析師即時策略訊號 × 實戰導師 T+7 教學週記。穩健、合規、教育為先，幫助投資人建立屬於自己的投資系統。"
         path="/"
       />

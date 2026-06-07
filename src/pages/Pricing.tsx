@@ -126,7 +126,7 @@ const Pricing = () => {
   return (
     <PortalLayout>
       <SEO
-        title="訂閱方案與價格 | 智富股市實戰學院"
+        title="訂閱方案與價格 | legendflow"
         description="透明價格與多種方案：投顧策略訊號、實戰導師週記、AI 持倉診斷。月繳/年繳彈性選擇，立即比較最適合你的訂閱方案。"
         path="/pricing"
       />

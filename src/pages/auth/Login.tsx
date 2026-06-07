@@ -88,7 +88,7 @@ const Login = () => {
   return (
     <PortalLayout>
       <SEO
-        title="會員登入 | 智富股市實戰學院"
+        title="會員登入 | legendflow"
         description="登入會員帳號以管理訂閱、接收策略訊號與導師週記。支援電子郵件與 LINE 登入。"
         path="/auth/login"
         noindex
