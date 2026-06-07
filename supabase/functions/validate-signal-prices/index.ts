@@ -156,4 +156,4 @@ Deno.serve(withLogging('validate-signal-prices', async (req) => {
       headers: { ...corsHeaders, 'Content-Type': 'application/json' },
     });
   }
-});
+}));
