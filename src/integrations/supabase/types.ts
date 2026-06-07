@@ -1751,6 +1751,30 @@ export type Database = {
         }
         Relationships: []
       }
+      line_oauth_states: {
+        Row: {
+          consumed_at: string | null
+          created_at: string
+          expires_at: string
+          payload: Json
+          state: string
+        }
+        Insert: {
+          consumed_at?: string | null
+          created_at?: string
+          expires_at: string
+          payload?: Json
+          state: string
+        }
+        Update: {
+          consumed_at?: string | null
+          created_at?: string
+          expires_at?: string
+          payload?: Json
+          state?: string
+        }
+        Relationships: []
+      }
       member_line_bindings: {
         Row: {
           bound_at: string
@@ -3127,6 +3151,7 @@ export type Database = {
           title: string
         }[]
       }
+      cleanup_line_oauth_states: { Args: never; Returns: undefined }
       cleanup_old_announcements: { Args: never; Returns: undefined }
       cleanup_old_perf_metrics: { Args: never; Returns: undefined }
       cleanup_old_traffic: { Args: never; Returns: undefined }
