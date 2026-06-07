@@ -3,6 +3,7 @@ import { codedErrorResponse } from "../_shared/errorCodes.ts";
 import { serviceClient } from "../_shared/supabaseClients.ts";
 import { withLogging } from "../_shared/edgeLogger.ts";
 import { loadEcpayCreds } from "../_shared/ecpayCredentials.ts";
+import { validateCheckupOrderAmount } from "../_shared/orderAmountValidator.ts";
 
 async function generateCheckMacValueAsync(
   params: Record<string, string>, hashKey: string, hashIV: string,
@@ -37,11 +38,18 @@ const handler = withLogging("create-checkup-ecpay-order", async (req, log) => {
     .eq("id", checkupPlanId).maybeSingle();
   if (!plan || !plan.is_active) return codedErrorResponse("NOT_FOUND", "方案不存在或已停用");
 
-  const expected = billingCycle === "yearly" ? plan.price_yearly : plan.price_monthly;
-  const expectedFinal = Number(expected) - Number(discountAmount || 0);
-  if (Number(amount) !== expectedFinal) {
-    return codedErrorResponse("INVALID_INPUT", "金額不符");
+  const validation = await validateCheckupOrderAmount({
+    supabase,
+    userId,
+    checkupPlanId,
+    billingCycle,
+    clientAmount: Number(amount),
+  });
+  if (!validation.ok) {
+    log.error("amount_validation_failed", { reason: validation.reason, checkupPlanId, userId });
+    return codedErrorResponse("INVALID_INPUT", validation.reason || "金額不符");
   }
+  const expected = billingCycle === "yearly" ? plan.price_yearly : plan.price_monthly;
 
   const creds = await loadEcpayCreds(supabase);
 

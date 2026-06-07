@@ -1,6 +1,7 @@
 import { jsonResponse } from "../_shared/cors.ts";
 import { serviceClient } from "../_shared/supabaseClients.ts";
 import { withLogging } from "../_shared/edgeLogger.ts";
+import { validateExpertOrderAmount } from "../_shared/orderAmountValidator.ts";
 
 async function generateSign(params: Record<string, string>, merchantKey: string): Promise<string> {
   const filtered = Object.entries(params)
@@ -56,6 +57,21 @@ const handler = withLogging("create-acpay-order", async (req, log) => {
   const outTradeNo = generateOutTradeNo();
   const nonceStr = crypto.randomUUID().replace(/-/g, "").slice(0, 32);
   const supabase = serviceClient();
+
+  const validation = await validateExpertOrderAmount({
+    supabase,
+    userId: userId ?? null,
+    planId,
+    billingCycle,
+    clientAmount: Number(amount),
+    upgradeFromSubscriptionId: upgradeFromSubscriptionId ?? null,
+  });
+  if (!validation.ok) {
+    log.error("amount_validation_failed", { reason: validation.reason, planId, userId });
+    return jsonResponse({ error: validation.reason || "金額不符" }, { status: 400 });
+  }
+
+
 
   try {
     await supabase.from("payment_intents").insert({
