@@ -186,9 +186,15 @@ export default function OpsHealth() {
 
         {/* Log table sizes */}
         <Card className="p-4">
-          <div className="flex items-center justify-between mb-3">
+          <div className="flex items-center justify-between mb-3 gap-2 flex-wrap">
             <h2 className="font-medium">Log 表大小 / 成本控制</h2>
-            <span className="text-xs text-muted-foreground">建議：超過 7d 老資料應透過排程清理</span>
+            <div className="flex items-center gap-2">
+              <span className="text-xs text-muted-foreground hidden sm:inline">保留策略：30/90/365/14/30 天</span>
+              <Button variant="outline" size="sm" onClick={runCleanup} disabled={cleaning}>
+                <Trash2 className={`h-4 w-4 mr-2 ${cleaning ? 'animate-pulse' : ''}`} />
+                {cleaning ? '清理中…' : '立即執行清理'}
+              </Button>
+            </div>
           </div>
           <div className="overflow-x-auto">
             <table className="w-full text-sm">
