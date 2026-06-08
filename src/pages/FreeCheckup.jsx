@@ -838,8 +838,9 @@ export default function App() {
     if (!logs || !getCurrentUserId()) return;
     const uid = getCurrentUserId();
     try {
+      // 不帶客端 id：永遠讓 DB 用 gen_random_uuid() 產 id，
+      // 避免跨帳號（過往 leak 殘留）的 UUID 撞到他人 row 造成 PK unique violation。
       const rows = logs.map(l => ({
-        ...(typeof l.id === "string" && l.id.length === 36 ? { id: l.id } : {}),
         user_id: uid,
         trade_date: l.date || null,
         trade_time: l.time || null,

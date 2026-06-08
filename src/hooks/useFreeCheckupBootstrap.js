@@ -17,7 +17,25 @@ import {
   save,
   stripDemoSeedHoldings,
   getHoldingCodesKey,
+  CLOUD_SYNC_KEYS,
+  LOCAL_STORAGE_OWNER_KEY,
 } from "@/pages/_freeCheckup/constants";
+
+// 跨帳號 LocalStorage sweeper：當登入 uid 與本機 owner 不符時，
+// 主動清掉所有 pf-* 殘留，避免任何 fallback 路徑把上一個帳號的資料當成新帳號的初始值。
+function sweepStaleLocalIfOwnerMismatch(userId) {
+  if (!userId) return;
+  try {
+    const ownerId = localStorage.getItem(LOCAL_STORAGE_OWNER_KEY);
+    if (ownerId && ownerId === userId) return;
+    const keysToWipe = [
+      ...CLOUD_SYNC_KEYS,
+      "pf-log-v2",
+      "pf-calendar-holdings",
+    ];
+    keysToWipe.forEach((k) => { try { localStorage.removeItem(k); } catch {} });
+  } catch {}
+}
 
 /**
  * One-time localStorage migration（pf-holdings-v2 schema bump）
@@ -92,6 +110,10 @@ export function useFreeCheckupBootstrap({
       const userId = currentUser?.id;
       if (userId) setCurrentUserId(userId);
 
+      // 跨帳號 sweeper：登入身分 ≠ 本機 owner → 清掉所有 pf-* 殘留，
+      // 確保任何 fallback 路徑都不會把上一個帳號的資料當成新帳號的初始值。
+      sweepStaleLocalIfOwnerMismatch(userId);
+
       const wasReset = sessionStorage.getItem("pf-reset-flag") || localStorage.getItem("pf-reset-flag");
       if (wasReset) {
         sessionStorage.removeItem("pf-reset-flag");
@@ -139,6 +161,9 @@ export function useFreeCheckupBootstrap({
 
       let l = [];
       try {
+        // RLS 已限制只回自己的 row；但 fallback 必須用 scoped local，
+        // 否則跨帳號 LocalStorage 殘留會被當成新帳號的初始 trade log，
+        // 接著 auto-save 會把它寫進新帳號的 checkup_trade_memos，造成永久污染。
         const { data } = await supabase.from("checkup_trade_memos").select("*").order("created_at", { ascending: false });
         if (data && data.length > 0) {
           l = data.map(row => ({
@@ -153,10 +178,10 @@ export function useFreeCheckupBootstrap({
             qa: Array.isArray(row.qa) ? row.qa : [],
           }));
         } else {
-          l = loadLocal("pf-log-v2", []);
+          l = loadScopedLocal("pf-log-v2", [], userId);
         }
       } catch {
-        l = loadLocal("pf-log-v2", []);
+        l = loadScopedLocal("pf-log-v2", [], userId);
       }
 
       if (cancelled) return;
