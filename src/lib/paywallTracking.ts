@@ -51,12 +51,12 @@ export async function trackPaywall(
     const { data: { user } } = await supabase.auth.getUser();
 
     await supabase.from('paywall_events').insert({
-      user_id: user?.id ?? null,
-      visitor_id,
+      user_id: user?.id ?? undefined,
+      visitor_id: visitor_id ?? undefined,
       event_kind: kind,
       surface,
       variant,
-      context: context ?? null,
+      context: (context ?? null) as never,
     });
   } catch {
     /* swallow — 埋點絕不影響使用者流程 */
