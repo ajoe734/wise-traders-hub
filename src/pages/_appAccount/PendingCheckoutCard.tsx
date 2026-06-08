@@ -43,18 +43,6 @@ export function PendingCheckoutCard() {
 
   useEffect(() => { load(); }, [user?.id]);
 
-  const handleAbandon = async (id: string) => {
-    const { error } = await supabase
-      .from('payment_intents' as any)
-      .update({ status: 'abandoned' })
-      .eq('id', id);
-    if (error) toast.error('放棄失敗：' + error.message);
-    else {
-      toast.success('已標記為放棄');
-      load();
-    }
-  };
-
   const handleResume = (intent: PendingIntent) => {
     let url = '/account';
     const cycle = intent.billing_cycle ? `&cycle=${intent.billing_cycle}` : '';
