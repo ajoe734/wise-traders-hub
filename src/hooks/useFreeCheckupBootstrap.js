@@ -110,6 +110,10 @@ export function useFreeCheckupBootstrap({
       const userId = currentUser?.id;
       if (userId) setCurrentUserId(userId);
 
+      // 跨帳號 sweeper：登入身分 ≠ 本機 owner → 清掉所有 pf-* 殘留，
+      // 確保任何 fallback 路徑都不會把上一個帳號的資料當成新帳號的初始值。
+      sweepStaleLocalIfOwnerMismatch(userId);
+
       const wasReset = sessionStorage.getItem("pf-reset-flag") || localStorage.getItem("pf-reset-flag");
       if (wasReset) {
         sessionStorage.removeItem("pf-reset-flag");
