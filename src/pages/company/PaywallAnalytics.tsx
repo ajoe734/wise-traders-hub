@@ -344,6 +344,83 @@ export default function PaywallAnalytics() {
     hit_limit: [],
   };
 
+  // 訊號 → 行動建議
+  const SIGNAL_PLAYBOOK: Record<string, { causeLabel: string; actions: string[] }> = {
+    webhook_fail: {
+      causeLabel: '金流 Webhook 失敗率上升',
+      actions: [
+        '檢查 function_run_logs 最新 error 訊息（fn 含 webhook/callback/notify-payment）',
+        '驗證 ECPay / LinePay / ACPay 回呼 endpoint 是否可用、簽章/金鑰未過期',
+        '確認最近一次 edge function 部署版本，必要時 rollback',
+      ],
+    },
+    checkout_error: {
+      causeLabel: 'Checkout 錯誤率（payment_intents 失敗）上升',
+      actions: [
+        '看 payment_intents failed/abandoned/expired 分佈，找出問題 provider',
+        '檢查 payment_providers / payment_settings 啟用與金鑰',
+        '回放 /checkout/:slug/:planId 流程，確認方案可用且有支援的付款方式',
+      ],
+    },
+    route_500: {
+      causeLabel: '路由 500 事件增加',
+      actions: [
+        '查最近 release diff，確認新版本是否引入 runtime error',
+        '檢查前端 console / Sentry 對應路由的錯誤訊息',
+        '比對 traffic_events 與 function_edge_logs 看是哪支 API 5xx',
+      ],
+    },
+    route_404: {
+      causeLabel: '路由 404 事件增加',
+      actions: [
+        '檢查近期路由表 / 重新導向是否更動，舊連結是否失效',
+        '排查升級 CTA 連結是否仍指向有效訂閱頁',
+        '看 referrer_host 是否來自舊的內部連結',
+      ],
+    },
+    step_drop: {
+      causeLabel: '漏斗步驟轉換下滑',
+      actions: [
+        '依步驟可能原因清單逐項排查（CTA 文案、埋點、路由、UI 遮蔽）',
+        '比對 A/B 變體：是否 B 變體拉低整體',
+        '檢查同窗 surface × variant 拆分表，找出退步來源',
+      ],
+    },
+  };
+
+  // 計算每個訊號的「惡化幅度分數」用於排序 top 3
+  const correlationScores = useMemo(() => {
+    const scoreRate = (rRecent: number | null, rBase: number | null, recentDen: number, baseDen: number) => {
+      if (rRecent === null || rBase === null) return 0;
+      const delta = rRecent - rBase; // 失敗率上升為正分
+      const sample = Math.min(recentDen, baseDen);
+      const sampleWeight = sample < 10 ? 0.3 : 1;
+      return delta * 100 * sampleWeight; // pp * weight
+    };
+    const scoreCount = (recent: number, base: number) => {
+      if (recent <= base) return 0;
+      const denom = Math.max(base, 1);
+      return ((recent - base) / denom) * 10; // 相對增幅 × 10
+    };
+    return [
+      { key: 'webhook_fail', score: scoreRate(sig.webhookRecent, sig.webhookBaseline, sig.webhookRD, sig.webhookBD), delta: `${fmtRate(sig.webhookBaseline)} → ${fmtRate(sig.webhookRecent)}` },
+      { key: 'checkout_error', score: scoreRate(sig.checkoutRecent, sig.checkoutBaseline, sig.checkoutRD, sig.checkoutBD), delta: `${fmtRate(sig.checkoutBaseline)} → ${fmtRate(sig.checkoutRecent)}` },
+      { key: 'route_500', score: scoreCount(sig.r500Recent, sig.r500Baseline), delta: `${sig.r500Baseline} → ${sig.r500Recent}` },
+      { key: 'route_404', score: scoreCount(sig.r404Recent, sig.r404Baseline), delta: `${sig.r404Baseline} → ${sig.r404Recent}` },
+    ];
+  }, [sig]);
+
+  const executiveSummary = useMemo(() => {
+    const warnAlerts = alerts.filter((a) => a.status === 'warn' && alertFilter.has(a.key as AlertKey));
+    const worstStep = warnAlerts.slice().sort((a, b) => b.relDrop - a.relDrop)[0] ?? null;
+    const ranked = [...correlationScores].sort((a, b) => b.score - a.score).filter((c) => c.score > 0);
+    const top3 = ranked.slice(0, 3);
+    if (worstStep && !top3.find((c) => c.key === 'step_drop')) {
+      top3.push({ key: 'step_drop', score: worstStep.relDrop * 100, delta: `${worstStep.label}：${fmtRate(worstStep.baseRate)} → ${fmtRate(worstStep.recentRate)}` });
+    }
+    return { worstStep, causes: top3.slice(0, 3) };
+  }, [alerts, alertFilter, correlationScores]);
+
   const reportStamp = () => {
     const d = new Date();
     const pad = (n: number) => String(n).padStart(2, '0');
@@ -351,22 +428,26 @@ export default function PaywallAnalytics() {
   };
 
   const buildReportRows = () => {
-    const funnelRows = funnel.map((s, i) => {
-      const stepRate = s.prev && s.prev > 0 ? `${((s.count / s.prev) * 100).toFixed(1)}%` : '';
-      const overall = funnel[0].count > 0 ? `${((s.count / funnel[0].count) * 100).toFixed(2)}%` : '';
-      return { idx: i + 1, label: s.label, count: s.count, prev: s.prev ?? '', stepRate, overall };
-    });
-    const alertRows = alerts.map((a) => ({
-      key: a.key,
-      label: a.label,
-      baseline: fmtRate(a.baseRate),
-      baselineFrac: `${a.baseNum}/${a.baseDen}`,
-      recent: fmtRate(a.recentRate),
-      recentFrac: `${a.recentNum}/${a.recentDen}`,
-      absDropPp: a.recentRate !== null && a.baseRate !== null ? ((a.recentRate - a.baseRate) * 100).toFixed(1) : '',
-      relDropPct: a.status === 'warn' ? (a.relDrop * 100).toFixed(1) : '',
-      status: a.status,
-    }));
+    const funnelRows = funnel
+      .filter((s) => funnelFilter.has(s.key as FunnelKey))
+      .map((s, i) => {
+        const stepRate = s.prev && s.prev > 0 ? `${((s.count / s.prev) * 100).toFixed(1)}%` : '';
+        const overall = funnel[0].count > 0 ? `${((s.count / funnel[0].count) * 100).toFixed(2)}%` : '';
+        return { idx: i + 1, label: s.label, count: s.count, prev: s.prev ?? '', stepRate, overall };
+      });
+    const alertRows = alerts
+      .filter((a) => alertFilter.has(a.key as AlertKey))
+      .map((a) => ({
+        key: a.key,
+        label: a.label,
+        baseline: fmtRate(a.baseRate),
+        baselineFrac: `${a.baseNum}/${a.baseDen}`,
+        recent: fmtRate(a.recentRate),
+        recentFrac: `${a.recentNum}/${a.recentDen}`,
+        absDropPp: a.recentRate !== null && a.baseRate !== null ? ((a.recentRate - a.baseRate) * 100).toFixed(1) : '',
+        relDropPct: a.status === 'warn' ? (a.relDrop * 100).toFixed(1) : '',
+        status: a.status,
+      }));
     const signalRows = [
       { metric: '金流 Webhook 失敗率', baseline: fmtRate(sig.webhookBaseline), baselineFrac: `${sig.webhookBN}/${sig.webhookBD}`, recent: fmtRate(sig.webhookRecent), recentFrac: `${sig.webhookRN}/${sig.webhookRD}` },
       { metric: 'Checkout 錯誤率', baseline: fmtRate(sig.checkoutBaseline), baselineFrac: `${sig.checkoutBN}/${sig.checkoutBD}`, recent: fmtRate(sig.checkoutRecent), recentFrac: `${sig.checkoutRN}/${sig.checkoutRD}` },
@@ -386,6 +467,15 @@ export default function PaywallAnalytics() {
     lines.push(`Paywall 漏斗告警報表`);
     lines.push(`產出時間,${new Date().toISOString()}`);
     lines.push(`觀察區間,最近 ${sinceDays} 天 (近窗 ${recentDays}d vs 基準 ${baselineDays}d)`);
+    lines.push(`漏斗步驟過濾,${[...funnelFilter].join('|')}`);
+    lines.push(`告警類型過濾,${[...alertFilter].join('|')}`);
+    lines.push('');
+    lines.push('# 摘要');
+    lines.push(['#', '原因', '變化', '建議行動'].join(','));
+    executiveSummary.causes.forEach((c, i) => {
+      const pb = SIGNAL_PLAYBOOK[c.key];
+      lines.push([i + 1, pb?.causeLabel ?? c.key, c.delta, (pb?.actions ?? []).join(' / ')].map(esc).join(','));
+    });
     lines.push('');
     lines.push('# 轉換漏斗');
     lines.push(['階段', '名稱', '人數', '前一階段', '上一步轉換', '佔曝光'].join(','));
@@ -418,14 +508,67 @@ export default function PaywallAnalytics() {
     const autoTable = (autoTableMod as any).default ?? (autoTableMod as any);
     const { funnelRows, alertRows, signalRows } = buildReportRows();
     const doc = new jsPDF({ unit: 'pt', format: 'a4' });
-    doc.setFontSize(16);
-    doc.text('Paywall Funnel & Alert Report', 40, 48);
+    const pageW = doc.internal.pageSize.getWidth();
+    const pageH = doc.internal.pageSize.getHeight();
+
+    // ===== Page 1: Executive Summary =====
+    doc.setFontSize(20);
+    doc.text('Paywall Funnel — Executive Summary', 40, 60);
     doc.setFontSize(10);
-    doc.text(`Generated: ${new Date().toISOString()}`, 40, 66);
-    doc.text(`Window: last ${sinceDays}d (recent ${recentDays}d vs baseline ${baselineDays}d)`, 40, 80);
+    doc.setTextColor(110);
+    doc.text(`Generated: ${new Date().toISOString()}`, 40, 80);
+    doc.text(`Window: last ${sinceDays}d  |  recent ${recentDays}d vs baseline ${baselineDays}d`, 40, 94);
+    doc.text(`Funnel filter: ${[...funnelFilter].join(', ') || '(none)'}`, 40, 108);
+    doc.text(`Alert filter: ${[...alertFilter].join(', ') || '(none)'}`, 40, 122);
+    doc.setTextColor(0);
+
+    // Headline
+    doc.setFontSize(13);
+    if (executiveSummary.worstStep) {
+      doc.setTextColor(180, 30, 30);
+      doc.text(
+        `Headline: ${executiveSummary.worstStep.label} 下滑 ${(executiveSummary.worstStep.relDrop * 100).toFixed(1)}% (${(executiveSummary.worstStep.absDrop * 100).toFixed(1)}pp)`,
+        40, 156,
+      );
+      doc.setTextColor(0);
+    } else {
+      doc.setTextColor(20, 130, 80);
+      doc.text('Headline: 所有步驟轉換率穩定，未偵測到顯著下滑。', 40, 156);
+      doc.setTextColor(0);
+    }
+
+    // Top 3 Causes table
+    const summaryBody = executiveSummary.causes.length === 0
+      ? [['—', '尚無顯著惡化訊號（所有指標與基準持平或改善）', '', '']]
+      : executiveSummary.causes.map((c, i) => {
+          const pb = SIGNAL_PLAYBOOK[c.key];
+          return [String(i + 1), pb?.causeLabel ?? c.key, c.delta, (pb?.actions ?? []).map((a, j) => `${j + 1}. ${a}`).join('\n')];
+        });
+    autoTable(doc, {
+      startY: 180,
+      head: [['#', 'Top Correlated Cause', 'Delta (baseline → recent)', 'Recommended Next Actions']],
+      body: summaryBody,
+      styles: { fontSize: 10, cellPadding: 6, valign: 'top' },
+      columnStyles: { 0: { cellWidth: 24 }, 1: { cellWidth: 160 }, 2: { cellWidth: 130 }, 3: { cellWidth: 'auto' } },
+      headStyles: { fillColor: [30, 30, 30] },
+      margin: { left: 40, right: 40 },
+    });
+
+    // Footer
+    doc.setFontSize(8);
+    doc.setTextColor(140);
+    doc.text('Source: paywall_events, payment_intents, member_subscriptions, function_run_logs, traffic_events', 40, pageH - 30);
+    doc.setTextColor(0);
+
+    // ===== Page 2+: Detail tables =====
+    doc.addPage();
+    doc.setFontSize(16);
+    doc.text('Detail — Funnel / Alerts / Signals', 40, 48);
+    doc.setFontSize(10);
+    doc.text(`Window: last ${sinceDays}d (recent ${recentDays}d vs baseline ${baselineDays}d)`, 40, 66);
 
     autoTable(doc, {
-      startY: 100,
+      startY: 90,
       head: [['#', 'Stage', 'Count', 'Prev', 'Step Rate', '% of View']],
       body: funnelRows.map((r) => [r.idx, r.label, r.count, r.prev, r.stepRate, r.overall]),
       styles: { fontSize: 9 },
@@ -451,6 +594,16 @@ export default function PaywallAnalytics() {
       styles: { fontSize: 9 },
       headStyles: { fillColor: [30, 30, 30] },
     });
+
+    // Page numbers
+    const pages = (doc as any).getNumberOfPages();
+    for (let i = 1; i <= pages; i++) {
+      doc.setPage(i);
+      doc.setFontSize(8);
+      doc.setTextColor(140);
+      doc.text(`${i} / ${pages}`, pageW - 60, pageH - 20);
+      doc.setTextColor(0);
+    }
 
     doc.save(`paywall-funnel-${reportStamp()}.pdf`);
   };
