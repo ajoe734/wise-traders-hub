@@ -126,6 +126,7 @@ const CompanyUsers = lazy(() => import("./pages/company/Users"));
 const CompanyPerfMetrics = lazy(() => import("./pages/company/PerfMetrics"));
 const CompanyTraffic = lazy(() => import("./pages/company/Traffic"));
 const CompanyOpsHealth = lazy(() => import("./pages/company/OpsHealth"));
+const CompanyPaywallAnalytics = lazy(() => import("./pages/company/PaywallAnalytics"));
 
 const RealtimeBridge = () => {
   useSignalRealtimeInvalidation();
