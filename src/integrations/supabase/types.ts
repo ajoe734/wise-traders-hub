@@ -1908,6 +1908,7 @@ export type Database = {
       notification_preferences: {
         Row: {
           meta_override_changed: boolean
+          renewal_email: boolean
           target_price_new: boolean
           target_price_updated: boolean
           target_price_weekly: boolean
@@ -1916,6 +1917,7 @@ export type Database = {
         }
         Insert: {
           meta_override_changed?: boolean
+          renewal_email?: boolean
           target_price_new?: boolean
           target_price_updated?: boolean
           target_price_weekly?: boolean
@@ -1924,6 +1926,7 @@ export type Database = {
         }
         Update: {
           meta_override_changed?: boolean
+          renewal_email?: boolean
           target_price_new?: boolean
           target_price_updated?: boolean
           target_price_weekly?: boolean
@@ -1971,6 +1974,7 @@ export type Database = {
           attribution: Json | null
           billing_cycle: string
           checkup_plan_id: string | null
+          completed_at: string | null
           created_at: string
           discount_amount: number
           discount_reason: string | null
@@ -1979,6 +1983,8 @@ export type Database = {
           original_amount: number
           plan_id: string | null
           product_kind: string
+          recovery_notified_at: string | null
+          status: string
           trade_no: string
           upgrade_from_subscription_id: string | null
           user_id: string | null
@@ -1988,6 +1994,7 @@ export type Database = {
           attribution?: Json | null
           billing_cycle: string
           checkup_plan_id?: string | null
+          completed_at?: string | null
           created_at?: string
           discount_amount?: number
           discount_reason?: string | null
@@ -1996,6 +2003,8 @@ export type Database = {
           original_amount: number
           plan_id?: string | null
           product_kind?: string
+          recovery_notified_at?: string | null
+          status?: string
           trade_no: string
           upgrade_from_subscription_id?: string | null
           user_id?: string | null
@@ -2005,6 +2014,7 @@ export type Database = {
           attribution?: Json | null
           billing_cycle?: string
           checkup_plan_id?: string | null
+          completed_at?: string | null
           created_at?: string
           discount_amount?: number
           discount_reason?: string | null
@@ -2013,6 +2023,8 @@ export type Database = {
           original_amount?: number
           plan_id?: string | null
           product_kind?: string
+          recovery_notified_at?: string | null
+          status?: string
           trade_no?: string
           upgrade_from_subscription_id?: string | null
           user_id?: string | null
@@ -2142,6 +2154,39 @@ export type Database = {
             referencedColumns: ["id"]
           },
         ]
+      }
+      paywall_events: {
+        Row: {
+          context: Json | null
+          created_at: string
+          event_kind: string
+          id: string
+          surface: string
+          user_id: string | null
+          variant: string | null
+          visitor_id: string | null
+        }
+        Insert: {
+          context?: Json | null
+          created_at?: string
+          event_kind: string
+          id?: string
+          surface: string
+          user_id?: string | null
+          variant?: string | null
+          visitor_id?: string | null
+        }
+        Update: {
+          context?: Json | null
+          created_at?: string
+          event_kind?: string
+          id?: string
+          surface?: string
+          user_id?: string | null
+          variant?: string | null
+          visitor_id?: string | null
+        }
+        Relationships: []
       }
       perf_metrics: {
         Row: {
