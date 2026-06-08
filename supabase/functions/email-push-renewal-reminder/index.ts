@@ -152,21 +152,18 @@ Deno.serve(withLogging('email-push-renewal-reminder', async (req) => {
       continue;
     }
 
-    // 績效摘要：近 30 天 user_performances（該專家 publish 的訊號）— 取 hit/closed 摘要
+    // 績效摘要：近 30 天 user_performances（hit = pnl_percent>0；closed = updated_at<now-1d 視為已結算用近似）
+    // 此處用簡化：抓該 expert 全部紀錄計命中率
     let perfHits: number | null = null;
     let perfClosed: number | null = null;
     try {
-      const since30 = new Date(Date.now() - 30 * 24 * 60 * 60 * 1000).toISOString();
       const { data: perfRows } = await supabaseAdmin
         .from('user_performances')
-        .select('hit_count, closed_count')
-        .eq('user_id', t.expertId)
-        .gte('snapshot_date', since30)
-        .order('snapshot_date', { ascending: false })
-        .limit(1);
+        .select('pnl_percent')
+        .eq('user_id', t.expertId);
       if (perfRows && perfRows.length > 0) {
-        perfHits = Number((perfRows[0] as any).hit_count || 0);
-        perfClosed = Number((perfRows[0] as any).closed_count || 0);
+        perfClosed = perfRows.length;
+        perfHits = perfRows.filter((r: any) => Number(r.pnl_percent || 0) > 0).length;
       }
     } catch (e) {
       console.warn('perf_lookup_failed', (e as Error).message);
