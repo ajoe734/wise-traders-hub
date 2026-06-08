@@ -235,6 +235,39 @@ export default function OpsHealth() {
           </div>
         </Card>
 
+        {/* Cold starts */}
+        <Card className="p-4">
+          <div className="flex items-center justify-between mb-3">
+            <h2 className="font-medium flex items-center gap-2"><Snowflake className="h-4 w-4 text-sky-600" />冷啟動頻率（近 7 天）</h2>
+            <span className="text-xs text-muted-foreground">每次 process boot 紀錄一筆；高頻率代表常被回收。</span>
+          </div>
+          <div className="overflow-x-auto">
+            <table className="w-full text-sm">
+              <thead className="text-xs text-muted-foreground border-b">
+                <tr>
+                  <th className="text-left py-2 px-2">函式</th>
+                  <th className="text-right py-2 px-2">7 天冷啟次數</th>
+                  <th className="text-right py-2 px-2">24 小時</th>
+                  <th className="text-left py-2 px-2">最後冷啟</th>
+                </tr>
+              </thead>
+              <tbody>
+                {(data?.coldStarts ?? []).map(c => (
+                  <tr key={c.fn} className="border-b last:border-0">
+                    <td className="py-2 px-2 font-mono text-xs">{c.fn}</td>
+                    <td className="py-2 px-2 text-right">{c.boots_7d >= 50 ? <Badge variant="destructive">{fmtNum(c.boots_7d)}</Badge> : c.boots_7d >= 20 ? <Badge variant="secondary">{fmtNum(c.boots_7d)}</Badge> : fmtNum(c.boots_7d)}</td>
+                    <td className="py-2 px-2 text-right">{fmtNum(c.boots_24h)}</td>
+                    <td className="py-2 px-2 text-xs text-muted-foreground">{fmtDT(c.last_boot_at)}</td>
+                  </tr>
+                ))}
+                {(!data?.coldStarts || data.coldStarts.length === 0) && (
+                  <tr><td colSpan={4} className="py-6 text-center text-muted-foreground text-xs">{isFetching ? '載入中…' : '暫無冷啟動紀錄（部署後需累積一段時間）'}</td></tr>
+                )}
+              </tbody>
+            </table>
+          </div>
+        </Card>
+
         {/* Recent errors */}
         <Card className="p-4">
           <h2 className="font-medium mb-3">近 24 小時錯誤（最多 50 筆）</h2>
