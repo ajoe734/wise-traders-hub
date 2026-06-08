@@ -161,6 +161,9 @@ export function useFreeCheckupBootstrap({
 
       let l = [];
       try {
+        // RLS 已限制只回自己的 row；但 fallback 必須用 scoped local，
+        // 否則跨帳號 LocalStorage 殘留會被當成新帳號的初始 trade log，
+        // 接著 auto-save 會把它寫進新帳號的 checkup_trade_memos，造成永久污染。
         const { data } = await supabase.from("checkup_trade_memos").select("*").order("created_at", { ascending: false });
         if (data && data.length > 0) {
           l = data.map(row => ({
@@ -175,10 +178,10 @@ export function useFreeCheckupBootstrap({
             qa: Array.isArray(row.qa) ? row.qa : [],
           }));
         } else {
-          l = loadLocal("pf-log-v2", []);
+          l = loadScopedLocal("pf-log-v2", [], userId);
         }
       } catch {
-        l = loadLocal("pf-log-v2", []);
+        l = loadScopedLocal("pf-log-v2", [], userId);
       }
 
       if (cancelled) return;
