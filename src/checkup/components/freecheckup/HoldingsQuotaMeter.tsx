@@ -1,9 +1,11 @@
 // HoldingsQuotaMeter — 抽自 FreeCheckup.jsx (原 IIFE @ L3329-L3444)。
 // 行為對等：訪客（isDemo）回傳 null；無 quota 顯示 placeholder；其餘顯示 used/limit + 重置倒數 + 升級 CTA。
 // React.memo 於父層每秒 quote tick 時可跳過 re-render（quota 物件 reference 穩定）。
-import { memo } from 'react';
+// W4-4: 加入 paywall_events 埋點（view / hit_limit / click_upgrade）+ A/B 變體文案。
+import { memo, useEffect } from 'react';
 import { validateProps } from './_validateProps.js';
 import { formatTaipeiYMD } from '@/checkup/utils/formatTaipeiDate';
+import { trackPaywall, getPaywallVariant, PAYWALL_COPY } from '@/lib/paywallTracking';
 
 const SCHEMA = {
   isDemo: 'boolean',
