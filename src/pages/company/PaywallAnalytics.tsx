@@ -147,6 +147,60 @@ export default function PaywallAnalytics() {
     staleTime: 60_000,
   });
 
+  // 相關訊號：金流 webhook 失敗率 / Checkout 錯誤率 / 路由 404/500
+  const { data: signals, isFetching: loadingSignals, refetch: refetchSignals } = useQuery({
+    queryKey: ['paywall-correlation', sinceIso, recentSinceIso],
+    queryFn: async () => {
+      const orFn = WEBHOOK_FN_PATTERNS.map((p) => `fn.ilike.%${p}%`).join(',');
+      const [{ data: logs, error: e1 }, { data: intents, error: e2 }, { data: traffic, error: e3 }] = await Promise.all([
+        supabase
+          .from('function_run_logs')
+          .select('fn, level, created_at')
+          .gte('created_at', sinceIso)
+          .or(orFn)
+          .limit(20000),
+        supabase
+          .from('payment_intents')
+          .select('status, created_at')
+          .gte('created_at', sinceIso)
+          .limit(20000),
+        supabase
+          .from('traffic_events')
+          .select('event_name, event_props, occurred_at')
+          .gte('occurred_at', sinceIso)
+          .or('event_name.ilike.%404%,event_name.ilike.%500%,event_name.ilike.%error%')
+          .limit(20000),
+      ]);
+      if (e1) throw e1;
+      if (e2) throw e2;
+      if (e3) throw e3;
+
+      const bucket = () => ({ webhookTotal: 0, webhookError: 0, checkoutTotal: 0, checkoutFail: 0, route404: 0, route500: 0 });
+      const recent = bucket();
+      const baseline = bucket();
+      const pick = (ts: string) => (new Date(ts).getTime() >= recentSinceMs ? recent : baseline);
+
+      for (const r of logs ?? []) {
+        const b = pick(r.created_at as string);
+        b.webhookTotal++;
+        if ((r.level || '').toLowerCase() === 'error') b.webhookError++;
+      }
+      for (const r of intents ?? []) {
+        const b = pick(r.created_at as string);
+        b.checkoutTotal++;
+        if (CHECKOUT_FAIL_STATUSES.has(String(r.status || '').toLowerCase())) b.checkoutFail++;
+      }
+      for (const r of traffic ?? []) {
+        const b = pick((r as any).occurred_at as string);
+        const name = String((r as any).event_name || '').toLowerCase();
+        const propsStatus = String(((r as any).event_props as any)?.status || ((r as any).event_props as any)?.code || '');
+        if (name.includes('404') || propsStatus === '404') b.route404++;
+        else if (name.includes('500') || propsStatus === '500') b.route500++;
+      }
+      return { recent, baseline };
+    },
+    staleTime: 60_000,
+
   // 全期漏斗
   const funnel = useMemo(() => {
     const view = stageActors.all.view.size;
