@@ -65,7 +65,7 @@ export default function PaywallAnalytics() {
   return (
     <>
       <SEO title="Paywall 轉換分析 | legendflow 後台" description="Paywall 曝光、觸限與轉換 A/B 數據" />
-      <CompanyLayout title="Paywall 轉換分析" subtitle="最近 30 天，按 surface × variant 拆分">
+      <CompanyLayout>
         <div className="space-y-4">
           <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
             <Card><CardHeader className="pb-2"><CardTitle className="text-xs text-muted-foreground">View</CardTitle></CardHeader><CardContent className="text-xl font-medium tabular-nums">{totals.view}</CardContent></Card>
