@@ -105,6 +105,9 @@ function buildFlexMessage(rawSignal: any, type: 'publish' | 'takedown' | 'update
   if (signal.reason_detail) copyLines.push(`\n◉ 部位控管想法：\n${signal.reason_detail}`)
   if (signal.risk_notes) copyLines.push(`\n⚠️ 風險提醒：\n${signal.risk_notes}`)
   if (signal.learning_points) copyLines.push(`\n🎯 教學重點：\n${signal.learning_points}`)
+  // R4: 把 share-og 連結附在純文字尾端（複製出去也帶得走 OG 預覽）
+  const shareUrl = signal.id ? buildSignalShareUrl(signal.id) : null
+  if (shareUrl) copyLines.push(`\n🔗 查看詳情：${shareUrl}`)
   const copyText = copyLines.join('\n')
 
   const bodyContents: any[] = []
