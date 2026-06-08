@@ -77,9 +77,6 @@ export function PendingCheckoutCard() {
               </div>
               <div className="flex gap-2 shrink-0">
                 <Button size="sm" onClick={() => handleResume(i)}>繼續付款</Button>
-                <Button size="sm" variant="ghost" onClick={() => handleAbandon(i.id)}>
-                  <X className="h-4 w-4" />
-                </Button>
               </div>
             </div>
           );
