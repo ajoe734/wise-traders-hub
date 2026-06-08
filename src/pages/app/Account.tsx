@@ -10,6 +10,8 @@ import { SubscriptionCard } from '@/pages/_appAccount/SubscriptionCard';
 import { LinePartySection } from '@/pages/_appAccount/LinePartySection';
 import { FreeCheckupQuotaCard } from '@/pages/_appAccount/FreeCheckupQuotaCard';
 import { PredictEventsCard } from '@/pages/_appAccount/PredictEventsCard';
+import { PendingCheckoutCard } from '@/pages/_appAccount/PendingCheckoutCard';
+import { RenewalBanner } from '@/components/account/RenewalBanner';
 
 
 const Account = () => {
@@ -30,6 +32,11 @@ const Account = () => {
       <SEO title="會員帳號 | legendflow" description="管理 legendflow 訂閱、Line 綁定、免費診斷額度與帳號設定。" path="/app/account" noindex />
       <div className="p-4 space-y-6">
         <h1 className="text-xl font-bold">帳號設定</h1>
+
+        <RenewalBanner />
+        <PendingCheckoutCard />
+
+
 
         {pendingRemitCount > 0 && (
           <Card className="border-amber-500/50 bg-amber-50/50 dark:bg-amber-950/20">

@@ -49,8 +49,18 @@ function buildPaymentFailureLineMessage(planName: string, expertName: string, am
   };
 }
 
-function buildPaymentFailureEmail(planName: string, expertName: string, amount: number, isRenewal: boolean) {
+function buildPaymentFailureEmail(
+  planName: string, expertName: string, amount: number, isRenewal: boolean,
+  retryUrls?: { ecpay: string; linepay: string; remittance: string },
+) {
   const subject = isRenewal ? `⚠️ 續訂扣款失敗 — ${planName}` : `⚠️ 訂閱付款失敗 — ${planName}`;
+  const retryBlock = retryUrls ? `
+    <p style="font-size:14px;color:#333;margin:20px 0 10px;font-weight:600;">換個付款方式試試：</p>
+    <div style="display:flex;flex-direction:column;gap:8px;">
+      <a href="${retryUrls.ecpay}" style="display:block;background:#EC662D;color:#fff;padding:11px 18px;border-radius:6px;text-decoration:none;font-weight:600;text-align:center;">使用信用卡（ECPay）</a>
+      <a href="${retryUrls.linepay}" style="display:block;background:#00B900;color:#fff;padding:11px 18px;border-radius:6px;text-decoration:none;font-weight:600;text-align:center;">使用 LINE Pay</a>
+      <a href="${retryUrls.remittance}" style="display:block;background:#444;color:#fff;padding:11px 18px;border-radius:6px;text-decoration:none;font-weight:600;text-align:center;">改用 ATM 匯款</a>
+    </div>` : '';
   const html = `
 <!DOCTYPE html>
 <html><head><meta charset="utf-8"></head>
@@ -63,9 +73,7 @@ function buildPaymentFailureEmail(planName: string, expertName: string, amount: 
     <div style="background: #FFF3F3; border-left: 4px solid #DC3545; padding: 12px 16px; margin: 20px 0; border-radius: 4px;">
       <p style="margin: 0; font-size: 14px; color: #333;">金額：<strong>NT$ ${amount.toLocaleString()}</strong></p>
     </div>
-    <p style="font-size: 14px; color: #555; line-height: 1.6;">
-      請確認您的付款方式是否正常（信用卡額度、帳戶餘額等），並${isRenewal ? "重新訂閱" : "再次嘗試訂閱"}以繼續享受服務。
-    </p>
+    ${retryBlock}
     <hr style="border: none; border-top: 1px solid #eee; margin: 24px 0;">
     <p style="font-size: 12px; color: #999; margin: 0;">如有任何問題，請聯繫客服團隊。<br>此為系統自動發送，請勿直接回覆此信件。</p>
   </div>
@@ -91,11 +99,12 @@ const handler = withLogging("notify-payment-failure", async (req, log) => {
   const supabase = serviceClient();
 
   const { data: plan } = await supabase
-    .from("expert_plans").select("name, expert_id, experts(name, id)").eq("id", planId).single();
+    .from("expert_plans").select("name, expert_id, experts(name, id, slug)").eq("id", planId).single();
   const planName = plan?.name || "未知方案";
   const expert = plan?.experts as any;
   const expertName = expert?.name || "分析師";
   const expertId = expert?.id || plan?.expert_id;
+  const expertSlug = expert?.slug;
 
   const { data: userData } = await supabase.auth.admin.getUserById(userId);
   // Line virtual emails (`line_{id}@line.local`) are not deliverable — skip to avoid Resend bounces.
@@ -134,12 +143,18 @@ const handler = withLogging("notify-payment-failure", async (req, log) => {
   if (userEmail) {
     const resendKey = Deno.env.get("RESEND_API_KEY");
     if (resendKey) {
-      const { subject, html } = buildPaymentFailureEmail(planName, expertName, amount, isRenewal);
+      const siteUrl = (Deno.env.get("SITE_URL") || "https://legendflow.tw").replace(/\/$/, "");
+      const retryUrls = expertSlug ? {
+        ecpay: `${siteUrl}/${expertSlug}/checkout?plan=${planId}&method=ecpay&utm_source=retry`,
+        linepay: `${siteUrl}/${expertSlug}/checkout?plan=${planId}&method=linepay&utm_source=retry`,
+        remittance: `${siteUrl}/${expertSlug}/checkout?plan=${planId}&method=remittance&utm_source=retry`,
+      } : undefined;
+      const { subject, html } = buildPaymentFailureEmail(planName, expertName, amount, isRenewal, retryUrls);
       const emailRes = await fetch(RESEND_API_URL, {
         method: "POST",
         headers: { "Content-Type": "application/json", Authorization: `Bearer ${resendKey}` },
         body: JSON.stringify({
-          from: "WiseTraders <noreply@wisetraders.tw>",
+          from: "legendflow <noreply@legendflow.tw>",
           to: [userEmail], subject, html,
         }),
       });

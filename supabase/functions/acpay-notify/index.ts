@@ -65,6 +65,11 @@ const handler = withLogging("acpay-notify", async (req, log) => {
 
     const now = new Date();
 
+    // W4-2: 標記 payment_intent 為已完成（用於棄單回收判定）
+    await supabase.from("payment_intents")
+      .update({ status: "completed", completed_at: now.toISOString() })
+      .eq("trade_no", outTradeNo);
+
     let subscriptionId: string | null = null;
     if (userId && planId) {
       const { data: existing } = await supabase

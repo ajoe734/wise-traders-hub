@@ -105,6 +105,11 @@ const handler = withLogging("checkup-ecpay-callback", async (req, log) => {
       .select("original_amount, discount_amount, discount_reason, attribution")
       .eq("trade_no", tradeNo).maybeSingle();
 
+    // W4-2: 標記 payment_intent 為已完成（用於棄單回收判定）
+    await supabase.from("payment_intents")
+      .update({ status: "completed", completed_at: now.toISOString() })
+      .eq("trade_no", tradeNo);
+
     const { data: tx } = await supabase.from("payment_transactions").insert({
       amount: tradeAmt,
       original_amount: intent?.original_amount ?? tradeAmt,

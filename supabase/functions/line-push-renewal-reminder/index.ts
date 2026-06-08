@@ -6,7 +6,8 @@ import { createClient } from 'https://esm.sh/@supabase/supabase-js@2.49.1'
 // 帶一鍵續訂連結（/{slug}/checkout?plan={plan_id}）。
 // 平台不會自動扣款，過期即斷權，無寬限期。
 
-const REMINDER_DAYS = [7, 3, 1] as const
+// W4-1: 擴充 T-0（當日到期）與 T+1（已過期 24h 內召回）
+const REMINDER_DAYS = [7, 3, 1, 0, -1] as const
 
 function buildRenewalFlexMessage(
   expertName: string,
@@ -20,11 +21,15 @@ function buildRenewalFlexMessage(
     year: 'numeric', month: 'long', day: 'numeric',
   })
 
-  const headerText = daysLeft <= 1
-    ? '⚠️ 訂閱明日到期'
-    : daysLeft <= 3
-      ? '⏳ 訂閱即將到期'
-      : '⏰ 訂閱到期提醒'
+  const headerText = daysLeft < 0
+    ? '🔔 訂閱已過期 — 24h 內可回購保留資料'
+    : daysLeft === 0
+      ? '⚠️ 訂閱今日到期'
+      : daysLeft <= 1
+        ? '⚠️ 訂閱明日到期'
+        : daysLeft <= 3
+          ? '⏳ 訂閱即將到期'
+          : '⏰ 訂閱到期提醒'
 
   return {
     type: 'flex',
@@ -110,13 +115,17 @@ Deno.serve(withLogging('line-push-renewal-reminder', async (req) => {
       const lower = new Date(now.getTime() + d * 24 * 60 * 60 * 1000)
       const upper = new Date(now.getTime() + (d + 1) * 24 * 60 * 60 * 1000)
 
-      const { data: subs, error } = await supabaseAdmin
+      // W4-1: T+1 召回需查 expired 訂閱（已被 expire-subscriptions cron 設為 expired）
+      const targetStatus = d < 0 ? 'expired' : 'active'
+      const query = supabaseAdmin
         .from('member_subscriptions')
         .select('id, user_id, plan_id, expires_at, canceled_at, expert_plans!inner(id, expert_id, name, price_monthly, experts!inner(id, name, slug))')
-        .eq('status', 'active')
+        .eq('status', targetStatus)
         .is('canceled_at', null)
         .gte('expires_at', lower.toISOString())
         .lt('expires_at', upper.toISOString())
+
+      const { data: subs, error } = await query
 
       if (error) {
         console.error(`Query error for ${d}d window:`, error.message)
