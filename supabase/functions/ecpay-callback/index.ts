@@ -71,6 +71,11 @@ const handler = withLogging("ecpay-callback", async (req, log) => {
       .select("expert_id, original_amount, discount_amount, discount_reason, attribution, upgrade_from_subscription_id")
       .eq("trade_no", tradeNo).maybeSingle();
 
+    // W4-2: 標記 payment_intent 為已完成（用於棄單回收判定）
+    await supabase.from("payment_intents")
+      .update({ status: "completed", completed_at: now.toISOString() })
+      .eq("trade_no", tradeNo);
+
     if (intent?.upgrade_from_subscription_id && billingCycle === "yearly") {
       await supabase.from("member_subscriptions")
         .update({ status: "canceled", canceled_at: now.toISOString(), auto_renew: false })
