@@ -171,7 +171,7 @@ function HoldingsQuotaMeterImpl(props) {
           display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 8, flexWrap: 'wrap',
         }}>
           <span style={{ color: C.textSec }}>{upgradeBlurb}</span>
-          <a href="/pricing#checkup" style={{
+          <a href="/pricing#checkup" onClick={() => onUpgradeClick('primary_cta')} style={{
             fontSize: 11, fontWeight: 500, color: '#fff', background: C.blue,
             padding: '4px 10px', borderRadius: 4, textDecoration: 'none', letterSpacing: '0.02em', whiteSpace: 'nowrap',
           }}>{ctaLabel}</a>
