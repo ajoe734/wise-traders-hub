@@ -200,6 +200,9 @@ export default function PaywallAnalytics() {
       return { recent, baseline };
     },
     staleTime: 60_000,
+  });
+
+
 
   // 全期漏斗
   const funnel = useMemo(() => {
