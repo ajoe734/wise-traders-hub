@@ -69,10 +69,43 @@ export function createLogger(fn: string, requestId?: string, base?: Meta): EdgeL
 /**
  * Higher-order request handler: assigns a requestId, logs start/end + duration,
  * catches uncaught errors and returns a sane 500 with CORS preserved.
+ *
+ * R5 — cold-start observability: on the first invocation after process boot,
+ * fires a fire-and-forget INSERT into `edge_boot_events` so ops-health can
+ * show cold-start frequency per function.
  */
 import { corsHeaders, corsPreflight, errorResponse } from './cors.ts';
 
 export type LoggedHandler = (req: Request, log: EdgeLogger) => Promise<Response>;
+
+// Module-scoped: survive across warm invocations, reset on cold start.
+const BOOT_AT = Date.now();
+let INVOCATION_COUNT = 0;
+let BOOT_EVENT_REPORTED = false;
+
+async function reportBootEvent(fn: string, log: EdgeLogger) {
+  if (BOOT_EVENT_REPORTED) return;
+  BOOT_EVENT_REPORTED = true;
+  try {
+    const url = Deno.env.get('SUPABASE_URL');
+    const key = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY');
+    if (!url || !key) return;
+    const region = Deno.env.get('SB_REGION') || Deno.env.get('DENO_REGION') || null;
+    const deploymentId = Deno.env.get('SB_EXECUTION_ID') || Deno.env.get('DENO_DEPLOYMENT_ID') || null;
+    await fetch(`${url}/rest/v1/edge_boot_events`, {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        apikey: key,
+        Authorization: `Bearer ${key}`,
+        Prefer: 'return=minimal',
+      },
+      body: JSON.stringify({ fn, region, deployment_id: deploymentId }),
+    });
+  } catch (err) {
+    log.warn('boot_event_insert_failed', { message: err instanceof Error ? err.message : String(err) });
+  }
+}
 
 export function withLogging(fn: string, handler: LoggedHandler): (req: Request) => Promise<Response> {
   return async (req) => {
@@ -80,11 +113,19 @@ export function withLogging(fn: string, handler: LoggedHandler): (req: Request) 
     const requestId = req.headers.get('x-correlation-id') || undefined;
     const log = createLogger(fn, requestId);
     const startedAt = performance.now();
-    log.info('start', { method: req.method, url: req.url });
+    INVOCATION_COUNT += 1;
+    const invocation = INVOCATION_COUNT;
+    const cold = invocation === 1;
+    const bootAgeMs = Date.now() - BOOT_AT;
+    log.info('start', { method: req.method, url: req.url, cold, invocation, bootAgeMs });
+    if (cold) {
+      // Don't await — never block the request on telemetry.
+      reportBootEvent(fn, log).catch(() => {});
+    }
     try {
       const res = await handler(req, log);
       const ms = Math.round(performance.now() - startedAt);
-      log.info('end', { status: res.status, ms });
+      log.info('end', { status: res.status, ms, invocation });
       // Make sure correlation id propagates back to client.
       const headers = new Headers(res.headers);
       if (!headers.has('x-correlation-id')) headers.set('x-correlation-id', log.requestId);
@@ -94,7 +135,7 @@ export function withLogging(fn: string, handler: LoggedHandler): (req: Request) 
       const ms = Math.round(performance.now() - startedAt);
       const message = err instanceof Error ? err.message : String(err);
       const stack = err instanceof Error ? err.stack : undefined;
-      log.error('uncaught', { ms, message, stack });
+      log.error('uncaught', { ms, message, stack, invocation });
       return errorResponse(message, 500, { requestId: log.requestId });
     }
   };

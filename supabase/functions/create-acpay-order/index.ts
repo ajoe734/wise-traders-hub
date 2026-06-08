@@ -2,6 +2,7 @@ import { jsonResponse } from "../_shared/cors.ts";
 import { serviceClient } from "../_shared/supabaseClients.ts";
 import { withLogging } from "../_shared/edgeLogger.ts";
 import { validateExpertOrderAmount } from "../_shared/orderAmountValidator.ts";
+import { validateInput, validationJsonResponse } from "../_shared/inputValidator.ts";
 
 async function generateSign(params: Record<string, string>, merchantKey: string): Promise<string> {
   const filtered = Object.entries(params)
@@ -37,16 +38,24 @@ function generateOutTradeNo(): string {
 }
 
 const handler = withLogging("create-acpay-order", async (req, log) => {
+  const body = await req.json();
   const {
     prime, amount, phone, countryCode, cardHolderName, cardHolderEmail,
     planId, billingCycle, userId, origin, slug, planName, expertName,
     originalAmount, discountAmount, discountReason, attribution, expertId,
     upgradeFromSubscriptionId,
-  } = await req.json();
+  } = body;
 
-  if (!prime || !amount || !planId) {
-    return jsonResponse({ error: "Missing required fields: prime, amount, planId" }, { status: 400 });
-  }
+  const issues = validateInput({
+    fields: {
+      prime: { required: true, type: 'string', minLength: 1, label: 'prime' },
+      amount: { required: true, type: 'number', acceptTypes: ['string'], label: 'amount' },
+      planId: { required: true, type: 'string', label: 'planId' },
+      billingCycle: { required: true, type: 'string', oneOf: ['monthly', 'yearly'], label: 'billingCycle' },
+    },
+    source: body,
+  });
+  if (issues.length) return validationJsonResponse(issues);
 
   const merchantNo = Deno.env.get("ACPAY_MERCHANT_NO")!;
   const merchantKey = Deno.env.get("ACPAY_MERCHANT_KEY")!;

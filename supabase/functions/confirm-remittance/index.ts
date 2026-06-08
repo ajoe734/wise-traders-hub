@@ -2,6 +2,7 @@ import { jsonResponse } from "../_shared/cors.ts";
 import { serviceClient, userClient } from "../_shared/supabaseClients.ts";
 import { withLogging } from "../_shared/edgeLogger.ts";
 import { writeRevenueSplit } from "../_shared/paymentProcessor.ts";
+import { validateInput, validationJsonResponse } from "../_shared/inputValidator.ts";
 
 const handler = withLogging("confirm-remittance", async (req, log) => {
   const authHeader = req.headers.get("Authorization");
@@ -15,8 +16,13 @@ const handler = withLogging("confirm-remittance", async (req, log) => {
     .from("user_roles").select("role").eq("user_id", u.user.id).eq("role", "company_admin").maybeSingle();
   if (!roleRow) return jsonResponse({ error: "Forbidden" }, { status: 403 });
 
-  const { orderId } = await req.json();
-  if (!orderId) return jsonResponse({ error: "Missing orderId" }, { status: 400 });
+  const body = await req.json();
+  const issues = validateInput({
+    fields: { orderId: { required: true, type: 'string', label: 'orderId' } },
+    source: body,
+  });
+  if (issues.length) return validationJsonResponse(issues);
+  const { orderId } = body;
 
   const admin = serviceClient();
   const { data: order, error: oerr } = await admin.from("remittance_orders").select("*").eq("id", orderId).maybeSingle();

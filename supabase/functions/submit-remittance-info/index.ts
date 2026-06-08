@@ -1,6 +1,8 @@
 import { jsonResponse } from "../_shared/cors.ts";
 import { serviceClient, userClient } from "../_shared/supabaseClients.ts";
 import { withLogging } from "../_shared/edgeLogger.ts";
+import { validateInput, validationJsonResponse } from "../_shared/inputValidator.ts";
+
 
 const handler = withLogging("submit-remittance-info", async (req) => {
   const authHeader = req.headers.get("Authorization");
@@ -10,9 +12,17 @@ const handler = withLogging("submit-remittance-info", async (req) => {
   const { data: u } = await supabase.auth.getUser();
   if (!u?.user) return jsonResponse({ error: "Unauthorized" }, { status: 401 });
 
-  const { orderId, last5, payerName } = await req.json();
-  if (!orderId || !last5 || !payerName) return jsonResponse({ error: "Missing fields" }, { status: 400 });
-  if (!/^\d{5}$/.test(String(last5))) return jsonResponse({ error: "末五碼格式錯誤" }, { status: 400 });
+  const body = await req.json();
+  const { orderId, last5, payerName } = body;
+  const issues = validateInput({
+    fields: {
+      orderId: { required: true, type: 'string', label: 'orderId' },
+      last5: { required: true, type: 'string', pattern: /^\d{5}$/, label: '末五碼', example: '12345' },
+      payerName: { required: true, type: 'string', minLength: 1, label: '匯款人姓名' },
+    },
+    source: body,
+  });
+  if (issues.length) return validationJsonResponse(issues);
   const name = String(payerName).trim();
   if (!name) return jsonResponse({ error: "請輸入匯款人姓名" }, { status: 400 });
 

@@ -2,6 +2,7 @@ import { jsonResponse } from "../_shared/cors.ts";
 import { codedErrorResponse } from "../_shared/errorCodes.ts";
 import { serviceClient, userClient } from "../_shared/supabaseClients.ts";
 import { withLogging } from "../_shared/edgeLogger.ts";
+import { validateInput, validationJsonResponse } from "../_shared/inputValidator.ts";
 
 const handler = withLogging("create-checkup-remittance", async (req, log) => {
   const authHeader = req.headers.get("Authorization");
@@ -12,8 +13,16 @@ const handler = withLogging("create-checkup-remittance", async (req, log) => {
   if (userErr || !userData?.user) return codedErrorResponse("AUTH_FAILED", "登入狀態無效");
   const userId = userData.user.id;
 
-  const { checkupPlanId, billingCycle, originalAmount, discountAmount, discountReason, attribution } = await req.json();
-  if (!checkupPlanId || !billingCycle) return codedErrorResponse("INVALID_INPUT", "缺少必填欄位：checkupPlanId / billingCycle");
+  const body = await req.json();
+  const { checkupPlanId, billingCycle, originalAmount, discountAmount, discountReason, attribution } = body;
+  const issues = validateInput({
+    fields: {
+      checkupPlanId: { required: true, type: 'string', label: 'checkupPlanId' },
+      billingCycle: { required: true, type: 'string', oneOf: ['monthly', 'yearly'], label: 'billingCycle' },
+    },
+    source: body,
+  });
+  if (issues.length) return validationJsonResponse(issues);
 
   const admin = serviceClient();
   const { data: plan } = await admin.from("checkup_plans")

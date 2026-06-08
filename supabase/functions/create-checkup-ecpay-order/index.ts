@@ -4,6 +4,7 @@ import { serviceClient } from "../_shared/supabaseClients.ts";
 import { withLogging } from "../_shared/edgeLogger.ts";
 import { loadEcpayCreds } from "../_shared/ecpayCredentials.ts";
 import { validateCheckupOrderAmount } from "../_shared/orderAmountValidator.ts";
+import { validateInput, validationJsonResponse } from "../_shared/inputValidator.ts";
 
 async function generateCheckMacValueAsync(
   params: Record<string, string>, hashKey: string, hashIV: string,
@@ -27,9 +28,17 @@ const handler = withLogging("create-checkup-ecpay-order", async (req, log) => {
   const { checkupPlanId, billingCycle, amount, planName, origin, userId,
     originalAmount, discountAmount, discountReason, attribution } = body;
 
-  if (!checkupPlanId || !billingCycle || !amount || !origin || !userId) {
-    return codedErrorResponse("INVALID_INPUT", "缺少必填欄位：checkupPlanId / billingCycle / amount / origin / userId");
-  }
+  const issues = validateInput({
+    fields: {
+      checkupPlanId: { required: true, type: 'string', label: 'checkupPlanId' },
+      billingCycle: { required: true, type: 'string', oneOf: ['monthly', 'yearly'], label: 'billingCycle' },
+      amount: { required: true, type: 'number', acceptTypes: ['string'], label: 'amount' },
+      origin: { required: true, type: 'string', label: 'origin' },
+      userId: { required: true, type: 'string', label: 'userId' },
+    },
+    source: body,
+  });
+  if (issues.length) return validationJsonResponse(issues);
 
   const supabaseUrl = Deno.env.get("SUPABASE_URL")!;
   const supabase = serviceClient();

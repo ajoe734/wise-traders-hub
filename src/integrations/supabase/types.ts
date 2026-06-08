@@ -887,6 +887,30 @@ export type Database = {
         }
         Relationships: []
       }
+      edge_boot_events: {
+        Row: {
+          boot_at: string
+          deployment_id: string | null
+          fn: string
+          id: number
+          region: string | null
+        }
+        Insert: {
+          boot_at?: string
+          deployment_id?: string | null
+          fn: string
+          id?: number
+          region?: string | null
+        }
+        Update: {
+          boot_at?: string
+          deployment_id?: string | null
+          fn?: string
+          id?: number
+          region?: string | null
+        }
+        Relationships: []
+      }
       expert_limit_up_hits: {
         Row: {
           close_price: number | null

@@ -114,3 +114,10 @@ export function validationResponse(fields: FieldIssue[], corsHeaders: Record<str
     { status: 400, headers: { ...corsHeaders, 'Content-Type': 'application/json' } },
   );
 }
+
+// Convenience wrapper: pulls in the project-standard corsHeaders so callers
+// don't need to import them just to return a 400. Use this in new code.
+import { corsHeaders as _cors } from './cors.ts';
+export function validationJsonResponse(fields: FieldIssue[]) {
+  return validationResponse(fields, _cors);
+}

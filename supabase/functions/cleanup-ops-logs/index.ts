@@ -13,6 +13,7 @@ const POLICIES: Array<{ table: string; tsColumn: string; days: number }> = [
   { table: 'audit_logs',        tsColumn: 'created_at',  days: 365 }, // compliance retention
   { table: 'perf_metrics',      tsColumn: 'created_at',  days: 14 },
   { table: 'traffic_events',    tsColumn: 'occurred_at', days: 30 },
+  { table: 'edge_boot_events',  tsColumn: 'boot_at',     days: 7 },
 ];
 
 const BATCH = 5000;

@@ -3,12 +3,20 @@ import { serviceClient } from "../_shared/supabaseClients.ts";
 import { withLogging } from "../_shared/edgeLogger.ts";
 import { linepayHmacSha256Base64 as hmacSha256Base64 } from "../_shared/paymentVerify.ts";
 import { createSubscriptionAndTransaction, recordPaymentForExistingSubscription, renewExistingSubscription } from "../_shared/paymentProcessor.ts";
+import { validateInput, validationJsonResponse } from "../_shared/inputValidator.ts";
 
 const handler = withLogging("confirm-linepay", async (req, log) => {
-  const { transactionId, orderId, amount, planId, billingCycle, userId, simulate } = await req.json();
-  if (!transactionId || !orderId || !amount) {
-    return jsonResponse({ error: "Missing required fields" }, { status: 400 });
-  }
+  const body = await req.json();
+  const { transactionId, orderId, amount, planId, billingCycle, userId, simulate } = body;
+  const issues = validateInput({
+    fields: {
+      transactionId: { required: true, type: 'string', label: 'transactionId' },
+      orderId: { required: true, type: 'string', label: 'orderId' },
+      amount: { required: true, type: 'number', acceptTypes: ['string'], label: 'amount' },
+    },
+    source: body,
+  });
+  if (issues.length) return validationJsonResponse(issues);
 
   const channelId = Deno.env.get("LINEPAY_CHANNEL_ID")!;
   const channelSecret = Deno.env.get("LINEPAY_CHANNEL_SECRET")!;
