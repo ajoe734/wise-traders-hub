@@ -1,5 +1,5 @@
 import { SEO } from '@/components/SEO';
-import { useMemo } from 'react';
+import { useMemo, useState } from 'react';
 import { CompanyLayout } from '@/components/layouts/CompanyLayout';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
