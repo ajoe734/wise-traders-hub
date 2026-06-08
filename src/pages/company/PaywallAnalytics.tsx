@@ -1,12 +1,12 @@
 import { SEO } from '@/components/SEO';
-import { useMemo, useState } from 'react';
+import { useEffect, useMemo, useRef, useState } from 'react';
 import { CompanyLayout } from '@/components/layouts/CompanyLayout';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
 import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert';
 import { supabase } from '@/integrations/supabase/client';
 import { useQuery } from '@tanstack/react-query';
-import { TrendingUp, TrendingDown, ArrowRight, AlertTriangle, CheckCircle2, Activity } from 'lucide-react';
+import { TrendingUp, TrendingDown, ArrowRight, AlertTriangle, CheckCircle2, Activity, RefreshCw } from 'lucide-react';
 
 // 哪些 fn 視為「金流 / webhook」相關
 const WEBHOOK_FN_PATTERNS = ['webhook', 'callback', 'notify-payment', 'verify-payment', 'ecpay', 'linepay', 'acpay', 'remittance'];
@@ -235,7 +235,27 @@ export default function PaywallAnalytics() {
     staleTime: 60_000,
   });
 
+  const [autoRefresh, setAutoRefresh] = useState(true);
+  const [lastUpdated, setLastUpdated] = useState<Date | null>(new Date());
+  const anyLoading = loadingEvents || loadingDown || loadingSignals;
+  const wasLoadingRef = useRef(anyLoading);
 
+  useEffect(() => {
+    if (wasLoadingRef.current && !anyLoading) {
+      setLastUpdated(new Date());
+    }
+    wasLoadingRef.current = anyLoading;
+  }, [anyLoading]);
+
+  useEffect(() => {
+    if (!autoRefresh) return;
+    const id = setInterval(() => {
+      refetchEvents();
+      refetchDown();
+      refetchSignals();
+    }, 60_000);
+    return () => clearInterval(id);
+  }, [autoRefresh, refetchEvents, refetchDown, refetchSignals]);
 
   // 全期漏斗
   const funnel = useMemo(() => {
@@ -620,6 +640,18 @@ export default function PaywallAnalytics() {
               <p className="text-sm text-muted-foreground mt-1">最近 {sinceDays} 天｜以唯一使用者計算｜近窗 {recentDays} 天 vs 基準 {baselineDays} 天</p>
             </div>
             <div className="flex items-center gap-3">
+              <span className="text-xs text-muted-foreground tabular-nums">
+                最後更新 {lastUpdated ? `${String(lastUpdated.getHours()).padStart(2, '0')}:${String(lastUpdated.getMinutes()).padStart(2, '0')}:${String(lastUpdated.getSeconds()).padStart(2, '0')}` : '—'}
+              </span>
+              <label className="flex items-center gap-1.5 text-xs text-muted-foreground cursor-pointer select-none">
+                <input
+                  type="checkbox"
+                  className="accent-primary"
+                  checked={autoRefresh}
+                  onChange={(e) => setAutoRefresh(e.target.checked)}
+                />
+                自動刷新
+              </label>
               <button
                 onClick={() => exportCsv()}
                 className="text-xs text-muted-foreground underline disabled:opacity-40"
@@ -636,9 +668,10 @@ export default function PaywallAnalytics() {
               </button>
               <button
                 onClick={() => { refetchEvents(); refetchDown(); refetchSignals(); }}
-                className="text-xs text-muted-foreground underline"
+                className="flex items-center gap-1 text-xs text-muted-foreground underline disabled:opacity-40"
+                disabled={loading || loadingSignals}
               >
-                重新整理
+                <RefreshCw className="w-3 h-3" /> 重新整理
               </button>
             </div>
           </div>
