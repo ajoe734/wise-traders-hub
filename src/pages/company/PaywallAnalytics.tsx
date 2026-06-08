@@ -275,6 +275,42 @@ export default function PaywallAnalytics() {
   const loading = loadingEvents || loadingDown;
   const warnCount = alerts.filter((a) => a.status === 'warn').length;
 
+  // 相關訊號摘要（recent vs baseline）
+  const sig = useMemo(() => {
+    const r = signals?.recent;
+    const b = signals?.baseline;
+    const rate = (num?: number, den?: number) => (den && den > 0 ? (num! / den) : null);
+    return {
+      webhookRecent: rate(r?.webhookError, r?.webhookTotal),
+      webhookBaseline: rate(b?.webhookError, b?.webhookTotal),
+      webhookRN: r?.webhookError ?? 0, webhookRD: r?.webhookTotal ?? 0,
+      webhookBN: b?.webhookError ?? 0, webhookBD: b?.webhookTotal ?? 0,
+      checkoutRecent: rate(r?.checkoutFail, r?.checkoutTotal),
+      checkoutBaseline: rate(b?.checkoutFail, b?.checkoutTotal),
+      checkoutRN: r?.checkoutFail ?? 0, checkoutRD: r?.checkoutTotal ?? 0,
+      checkoutBN: b?.checkoutFail ?? 0, checkoutBD: b?.checkoutTotal ?? 0,
+      r404Recent: r?.route404 ?? 0, r404Baseline: b?.route404 ?? 0,
+      r500Recent: r?.route500 ?? 0, r500Baseline: b?.route500 ?? 0,
+    };
+  }, [signals]);
+
+  // 依步驟挑出最相關的訊號
+  const stepSignals: Record<string, Array<{ label: string; recent: string; baseline: string; bad: boolean }>> = {
+    click_upgrade: [
+      { label: '路由 404', recent: String(sig.r404Recent), baseline: String(sig.r404Baseline), bad: sig.r404Recent > sig.r404Baseline },
+      { label: '路由 500', recent: String(sig.r500Recent), baseline: String(sig.r500Baseline), bad: sig.r500Recent > sig.r500Baseline },
+    ],
+    checkout: [
+      { label: 'Checkout 錯誤率', recent: `${fmtRate(sig.checkoutRecent)} (${sig.checkoutRN}/${sig.checkoutRD})`, baseline: `${fmtRate(sig.checkoutBaseline)} (${sig.checkoutBN}/${sig.checkoutBD})`, bad: (sig.checkoutRecent ?? 0) > (sig.checkoutBaseline ?? 0) },
+      { label: '路由 500', recent: String(sig.r500Recent), baseline: String(sig.r500Baseline), bad: sig.r500Recent > sig.r500Baseline },
+    ],
+    subscribed: [
+      { label: '金流 Webhook 失敗率', recent: `${fmtRate(sig.webhookRecent)} (${sig.webhookRN}/${sig.webhookRD})`, baseline: `${fmtRate(sig.webhookBaseline)} (${sig.webhookBN}/${sig.webhookBD})`, bad: (sig.webhookRecent ?? 0) > (sig.webhookBaseline ?? 0) },
+      { label: 'Checkout 錯誤率', recent: `${fmtRate(sig.checkoutRecent)} (${sig.checkoutRN}/${sig.checkoutRD})`, baseline: `${fmtRate(sig.checkoutBaseline)} (${sig.checkoutBN}/${sig.checkoutBD})`, bad: (sig.checkoutRecent ?? 0) > (sig.checkoutBaseline ?? 0) },
+    ],
+    hit_limit: [],
+  };
+
   return (
     <>
       <SEO title="Paywall 轉換分析 | legendflow 後台" description="Paywall 漏斗：曝光、觸限、點擊、結帳、訂閱成功，含步驟下滑告警" />
