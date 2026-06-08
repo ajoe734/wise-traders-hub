@@ -1,3 +1,4 @@
+import { useState } from 'react';
 import { SEO } from '@/components/SEO';
 import { CompanyLayout } from '@/components/layouts/CompanyLayout';
 import { Card } from '@/components/ui/card';
@@ -5,8 +6,9 @@ import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { supabase } from '@/integrations/supabase/client';
 import { useQuery } from '@tanstack/react-query';
-import { RefreshCw, Activity, AlertTriangle, Database, Gauge } from 'lucide-react';
+import { RefreshCw, Activity, AlertTriangle, Database, Gauge, Trash2 } from 'lucide-react';
 import { Link } from 'react-router-dom';
+import { toast } from 'sonner';
 
 interface FnRow { fn: string; runs: number; errors: number; warns: number; error_rate: number; last_seen: string | null; }
 interface JobRow { job_name: string; runs: number; success: number; fail: number; p95_ms: number | null; last_status: string | null; last_ran_at: string | null; }
@@ -41,9 +43,26 @@ export default function OpsHealth() {
     },
   });
 
+  const [cleaning, setCleaning] = useState(false);
   const totalLogRows = (data?.logTables ?? []).reduce((s, t) => s + t.total, 0);
   const totalErrors7d = (data?.functions ?? []).reduce((s, f) => s + f.errors, 0);
   const failedJobs7d = (data?.jobs ?? []).reduce((s, j) => s + j.fail, 0);
+
+  const runCleanup = async () => {
+    if (!confirm('立即執行 log 清理？\n• function_run_logs > 30d\n• system_jobs_log > 90d\n• audit_logs > 365d\n• perf_metrics > 14d\n• traffic_events > 30d')) return;
+    setCleaning(true);
+    try {
+      const { data: res, error: err } = await supabase.functions.invoke('cleanup-ops-logs', { method: 'POST' });
+      if (err) throw err;
+      const total = Object.values(res?.summary ?? {}).reduce((s: number, v: any) => s + (v?.deleted ?? 0), 0);
+      toast.success(`清理完成：刪除 ${total.toLocaleString()} 筆，耗時 ${res?.duration_ms}ms`);
+      refetch();
+    } catch (e: any) {
+      toast.error(`清理失敗：${e.message ?? e}`);
+    } finally {
+      setCleaning(false);
+    }
+  };
 
   return (
     <CompanyLayout>
@@ -167,9 +186,15 @@ export default function OpsHealth() {
 
         {/* Log table sizes */}
         <Card className="p-4">
-          <div className="flex items-center justify-between mb-3">
+          <div className="flex items-center justify-between mb-3 gap-2 flex-wrap">
             <h2 className="font-medium">Log 表大小 / 成本控制</h2>
-            <span className="text-xs text-muted-foreground">建議：超過 7d 老資料應透過排程清理</span>
+            <div className="flex items-center gap-2">
+              <span className="text-xs text-muted-foreground hidden sm:inline">保留策略：30/90/365/14/30 天</span>
+              <Button variant="outline" size="sm" onClick={runCleanup} disabled={cleaning}>
+                <Trash2 className={`h-4 w-4 mr-2 ${cleaning ? 'animate-pulse' : ''}`} />
+                {cleaning ? '清理中…' : '立即執行清理'}
+              </Button>
+            </div>
           </div>
           <div className="overflow-x-auto">
             <table className="w-full text-sm">
