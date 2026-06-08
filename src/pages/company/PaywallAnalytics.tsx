@@ -322,7 +322,7 @@ export default function PaywallAnalytics() {
               <p className="text-sm text-muted-foreground mt-1">最近 {SINCE_DAYS} 天｜以唯一使用者計算｜近窗 {RECENT_DAYS} 天 vs 基準 {BASELINE_DAYS} 天</p>
             </div>
             <button
-              onClick={() => { refetchEvents(); refetchDown(); }}
+              onClick={() => { refetchEvents(); refetchDown(); refetchSignals(); }}
               className="text-xs text-muted-foreground underline"
             >
               重新整理
