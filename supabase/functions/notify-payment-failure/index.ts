@@ -99,11 +99,12 @@ const handler = withLogging("notify-payment-failure", async (req, log) => {
   const supabase = serviceClient();
 
   const { data: plan } = await supabase
-    .from("expert_plans").select("name, expert_id, experts(name, id)").eq("id", planId).single();
+    .from("expert_plans").select("name, expert_id, experts(name, id, slug)").eq("id", planId).single();
   const planName = plan?.name || "未知方案";
   const expert = plan?.experts as any;
   const expertName = expert?.name || "分析師";
   const expertId = expert?.id || plan?.expert_id;
+  const expertSlug = expert?.slug;
 
   const { data: userData } = await supabase.auth.admin.getUserById(userId);
   // Line virtual emails (`line_{id}@line.local`) are not deliverable — skip to avoid Resend bounces.
