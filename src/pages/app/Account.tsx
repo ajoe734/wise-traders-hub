@@ -11,6 +11,7 @@ import { LinePartySection } from '@/pages/_appAccount/LinePartySection';
 import { FreeCheckupQuotaCard } from '@/pages/_appAccount/FreeCheckupQuotaCard';
 import { PredictEventsCard } from '@/pages/_appAccount/PredictEventsCard';
 import { PendingCheckoutCard } from '@/pages/_appAccount/PendingCheckoutCard';
+import { RenewalBanner } from '@/components/account/RenewalBanner';
 
 
 const Account = () => {
