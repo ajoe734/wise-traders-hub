@@ -76,7 +76,7 @@ export default function PaywallAnalytics() {
       for (const row of intents ?? []) row.user_id && checkoutUsers.add(row.user_id);
       const subscribedUsers = new Set<string>();
       for (const row of subs ?? []) {
-        if (row.user_id && (row.status === 'active' || row.status === 'paid' || row.status === 'expired')) {
+        if (row.user_id && (row.status === 'active' || row.status === 'expired')) {
           subscribedUsers.add(row.user_id);
         }
       }
