@@ -1979,6 +1979,7 @@ export type Database = {
           discount_amount: number
           discount_reason: string | null
           expert_id: string | null
+          final_recovery_notified_at: string | null
           id: string
           original_amount: number
           plan_id: string | null
@@ -1999,6 +2000,7 @@ export type Database = {
           discount_amount?: number
           discount_reason?: string | null
           expert_id?: string | null
+          final_recovery_notified_at?: string | null
           id?: string
           original_amount: number
           plan_id?: string | null
@@ -2019,6 +2021,7 @@ export type Database = {
           discount_amount?: number
           discount_reason?: string | null
           expert_id?: string | null
+          final_recovery_notified_at?: string | null
           id?: string
           original_amount?: number
           plan_id?: string | null
