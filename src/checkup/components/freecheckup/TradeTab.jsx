@@ -185,7 +185,7 @@ function TradeTabImpl({
             {tier === 'line_free' && <>仍可繼續上傳成交、建立持倉。升級訂閱方案後可繼續使用 AI 收盤分析。</>}
           </div>
           {(tier === 'free' || tier === 'basic' || tier === 'line_free' || tier === 'none') && (
-            <a href={tier === 'basic' ? '/app/account' : '/pricing#checkup'} style={{
+            <a href={tier === 'basic' ? '/app/account' : '/pricing#checkup'} onClick={() => trackPaywall('click_upgrade', 'trade_tab_limit', { tier })} style={{
               display:"inline-block", marginTop:8,
               background:"transparent", color:C.blue,
               border:`1px solid ${alpha(C.blue,'40')}`,
