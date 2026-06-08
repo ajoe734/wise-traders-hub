@@ -1,3 +1,4 @@
+import { useState } from 'react';
 import { SEO } from '@/components/SEO';
 import { CompanyLayout } from '@/components/layouts/CompanyLayout';
 import { Card } from '@/components/ui/card';
@@ -5,8 +6,9 @@ import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { supabase } from '@/integrations/supabase/client';
 import { useQuery } from '@tanstack/react-query';
-import { RefreshCw, Activity, AlertTriangle, Database, Gauge } from 'lucide-react';
+import { RefreshCw, Activity, AlertTriangle, Database, Gauge, Trash2 } from 'lucide-react';
 import { Link } from 'react-router-dom';
+import { toast } from 'sonner';
 
 interface FnRow { fn: string; runs: number; errors: number; warns: number; error_rate: number; last_seen: string | null; }
 interface JobRow { job_name: string; runs: number; success: number; fail: number; p95_ms: number | null; last_status: string | null; last_ran_at: string | null; }
