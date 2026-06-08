@@ -76,13 +76,29 @@ const STEP_REASONS: Record<string, string[]> = {
 };
 
 export default function PaywallAnalytics() {
+  // 視窗 state（preset 控制）
+  const [presetId, setPresetId] = useState<string>('30-7');
+  const preset = WINDOW_PRESETS.find((p) => p.id === presetId) ?? WINDOW_PRESETS[2];
+  const sinceDays = preset.since;
+  const recentDays = Math.min(preset.recent, preset.since);
+  const baselineDays = Math.max(sinceDays - recentDays, 0);
+
+  // 步驟/告警過濾（套用於匯出）
+  const [funnelFilter, setFunnelFilter] = useState<Set<FunnelKey>>(new Set(FUNNEL_KEYS));
+  const [alertFilter, setAlertFilter] = useState<Set<AlertKey>>(new Set(ALERT_KEYS));
+  const toggle = <T extends string>(set: Set<T>, key: T): Set<T> => {
+    const next = new Set(set);
+    if (next.has(key)) next.delete(key); else next.add(key);
+    return next;
+  };
+
   const now = Date.now();
-  const sinceIso = useMemo(() => new Date(now - SINCE_DAYS * 86400_000).toISOString(), [now]);
-  const recentSinceMs = now - RECENT_DAYS * 86400_000;
+  const sinceIso = useMemo(() => new Date(now - sinceDays * 86400_000).toISOString(), [now, sinceDays]);
+  const recentSinceMs = now - recentDays * 86400_000;
   const recentSinceIso = new Date(recentSinceMs).toISOString();
 
   const { data: events, isFetching: loadingEvents, refetch: refetchEvents } = useQuery({
-    queryKey: ['paywall-events', SINCE_DAYS],
+    queryKey: ['paywall-events', sinceDays],
     queryFn: async (): Promise<PaywallRow[]> => {
       const { data, error } = await supabase
         .from('paywall_events')
