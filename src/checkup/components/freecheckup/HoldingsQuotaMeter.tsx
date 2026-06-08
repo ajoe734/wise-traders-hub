@@ -138,7 +138,7 @@ function HoldingsQuotaMeterImpl(props) {
             }}>綁定 LINE 領免費 1 次</a>
           )}
           {showUpgrade && (
-            <a href="/pricing#checkup" style={{
+            <a href="/pricing#checkup" onClick={() => onUpgradeClick('inline_upgrade')} style={{
               fontSize: 11, color: C.blue, textDecoration: 'none', letterSpacing: '0.02em',
               padding: '3px 8px', border: `1px solid ${alpha(C.blue, '40')}`, borderRadius: 4,
             }}>升級 →</a>
