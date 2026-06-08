@@ -25,8 +25,8 @@ interface PaywallRow {
 }
 
 // 預設視窗
-const DEFAULT_SINCE_DAYS = 30;
-const DEFAULT_RECENT_DAYS = 7;
+const DEFAULT_sinceDays = 30;
+const DEFAULT_recentDays = 7;
 const REL_DROP_THRESHOLD = 0.2;   // 相對下滑 ≥ 20%
 const ABS_DROP_THRESHOLD = 0.02;  // 絕對下滑 ≥ 2pp
 const MIN_SAMPLE = 30;            // 近窗該步驟前一階段樣本 ≥ 30 才告警，避免雜訊
@@ -385,7 +385,7 @@ export default function PaywallAnalytics() {
     const lines: string[] = [];
     lines.push(`Paywall 漏斗告警報表`);
     lines.push(`產出時間,${new Date().toISOString()}`);
-    lines.push(`觀察區間,最近 ${SINCE_DAYS} 天 (近窗 ${RECENT_DAYS}d vs 基準 ${BASELINE_DAYS}d)`);
+    lines.push(`觀察區間,最近 ${sinceDays} 天 (近窗 ${recentDays}d vs 基準 ${baselineDays}d)`);
     lines.push('');
     lines.push('# 轉換漏斗');
     lines.push(['階段', '名稱', '人數', '前一階段', '上一步轉換', '佔曝光'].join(','));
@@ -422,7 +422,7 @@ export default function PaywallAnalytics() {
     doc.text('Paywall Funnel & Alert Report', 40, 48);
     doc.setFontSize(10);
     doc.text(`Generated: ${new Date().toISOString()}`, 40, 66);
-    doc.text(`Window: last ${SINCE_DAYS}d (recent ${RECENT_DAYS}d vs baseline ${BASELINE_DAYS}d)`, 40, 80);
+    doc.text(`Window: last ${sinceDays}d (recent ${recentDays}d vs baseline ${baselineDays}d)`, 40, 80);
 
     autoTable(doc, {
       startY: 100,
@@ -464,7 +464,7 @@ export default function PaywallAnalytics() {
           <div className="flex items-end justify-between">
             <div>
               <h1 className="text-2xl font-medium tracking-tight">Paywall 轉換分析</h1>
-              <p className="text-sm text-muted-foreground mt-1">最近 {SINCE_DAYS} 天｜以唯一使用者計算｜近窗 {RECENT_DAYS} 天 vs 基準 {BASELINE_DAYS} 天</p>
+              <p className="text-sm text-muted-foreground mt-1">最近 {sinceDays} 天｜以唯一使用者計算｜近窗 {recentDays} 天 vs 基準 {baselineDays} 天</p>
             </div>
             <div className="flex items-center gap-3">
               <button
@@ -497,7 +497,7 @@ export default function PaywallAnalytics() {
                 {warnCount > 0 ? <AlertTriangle className="w-4 h-4 text-destructive" /> : <CheckCircle2 className="w-4 h-4 text-emerald-600" />}
                 步驟轉換告警
                 <span className="ml-auto text-xs font-normal text-muted-foreground">
-                  條件：近 {RECENT_DAYS} 天相對下滑 ≥ {(REL_DROP_THRESHOLD * 100).toFixed(0)}% 且絕對下滑 ≥ {(ABS_DROP_THRESHOLD * 100).toFixed(0)}pp（前一階段樣本 ≥ {MIN_SAMPLE}）
+                  條件：近 {recentDays} 天相對下滑 ≥ {(REL_DROP_THRESHOLD * 100).toFixed(0)}% 且絕對下滑 ≥ {(ABS_DROP_THRESHOLD * 100).toFixed(0)}pp（前一階段樣本 ≥ {MIN_SAMPLE}）
                 </span>
               </CardTitle>
             </CardHeader>
@@ -531,7 +531,7 @@ export default function PaywallAnalytics() {
                       {(stepSignals[a.key]?.length ?? 0) > 0 && (
                         <div className="rounded border border-destructive/40 bg-destructive/5 p-2">
                           <div className="text-[11px] mb-1 opacity-80 flex items-center gap-1">
-                            <Activity className="w-3 h-3" /> 同時間窗（近 {RECENT_DAYS}d vs 基準 {BASELINE_DAYS}d）相關訊號
+                            <Activity className="w-3 h-3" /> 同時間窗（近 {recentDays}d vs 基準 {baselineDays}d）相關訊號
                             {loadingSignals && <span className="ml-1 opacity-60">載入中…</span>}
                           </div>
                           <div className="grid grid-cols-1 sm:grid-cols-2 gap-1 text-[11px]">
@@ -555,7 +555,7 @@ export default function PaywallAnalytics() {
               {!loading && (
                 <div className="rounded border bg-muted/30 p-3">
                   <div className="text-xs font-medium mb-2 flex items-center gap-1">
-                    <Activity className="w-3.5 h-3.5" /> 相關訊號（近 {RECENT_DAYS}d vs 基準 {BASELINE_DAYS}d）
+                    <Activity className="w-3.5 h-3.5" /> 相關訊號（近 {recentDays}d vs 基準 {baselineDays}d）
                     {loadingSignals && <span className="ml-1 text-muted-foreground font-normal">載入中…</span>}
                   </div>
                   <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-2 text-xs">
@@ -589,8 +589,8 @@ export default function PaywallAnalytics() {
                     <thead>
                       <tr className="text-left border-b text-xs text-muted-foreground">
                         <th className="py-2 pr-4">步驟</th>
-                        <th className="py-2 pr-4 text-right">基準 {BASELINE_DAYS}d</th>
-                        <th className="py-2 pr-4 text-right">近 {RECENT_DAYS}d</th>
+                        <th className="py-2 pr-4 text-right">基準 {baselineDays}d</th>
+                        <th className="py-2 pr-4 text-right">近 {recentDays}d</th>
                         <th className="py-2 pr-4 text-right">變化</th>
                         <th className="py-2 text-right">狀態</th>
                       </tr>
@@ -626,7 +626,7 @@ export default function PaywallAnalytics() {
             <CardHeader>
               <CardTitle className="flex items-center gap-2 text-base">
                 <TrendingUp className="w-4 h-4" />
-                轉換漏斗（全期 {SINCE_DAYS} 天）
+                轉換漏斗（全期 {sinceDays} 天）
                 <span className="ml-auto text-xs font-normal text-muted-foreground">
                   整體轉換率（view → 訂閱）：<span className="text-foreground font-medium tabular-nums">{(overallRate * 100).toFixed(2)}%</span>
                 </span>
@@ -677,7 +677,7 @@ export default function PaywallAnalytics() {
             </CardHeader>
             <CardContent>
               {loadingEvents && <div className="text-sm text-muted-foreground">載入中…</div>}
-              {!loadingEvents && summary.length === 0 && <div className="text-sm text-muted-foreground">最近 {SINCE_DAYS} 天尚無資料</div>}
+              {!loadingEvents && summary.length === 0 && <div className="text-sm text-muted-foreground">最近 {sinceDays} 天尚無資料</div>}
               {!loadingEvents && summary.length > 0 && (
                 <div className="overflow-x-auto">
                   <table className="w-full text-sm">
