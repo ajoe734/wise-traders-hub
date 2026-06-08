@@ -4,6 +4,11 @@ import { createClient } from 'https://esm.sh/@supabase/supabase-js@2.49.1'
 
 const LINE_MULTICAST_URL = 'https://api.line.me/v2/bot/message/multicast'
 
+// R4: share-og 公開預覽 URL（crawler 抓 OG，人類自動跳回 in-app URL）
+const SHARE_OG_BASE = `${Deno.env.get('SUPABASE_URL') || ''}/functions/v1/share-og`
+const buildSignalShareUrl = (id: string) => `${SHARE_OG_BASE}/signal/${encodeURIComponent(id)}`
+const buildJournalShareUrl = (id: string) => `${SHARE_OG_BASE}/journal/${encodeURIComponent(id)}`
+
 // 把 TipTap HTML 轉純文字（LINE Flex text 節點不接受 HTML 標籤）
 function htmlToText(s: any): string {
   if (s == null) return ''
