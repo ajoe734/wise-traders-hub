@@ -6,7 +6,7 @@ import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { supabase } from '@/integrations/supabase/client';
 import { useQuery } from '@tanstack/react-query';
-import { RefreshCw, Activity, AlertTriangle, Database, Gauge, Trash2 } from 'lucide-react';
+import { RefreshCw, Activity, AlertTriangle, Database, Gauge, Trash2, Snowflake } from 'lucide-react';
 import { Link } from 'react-router-dom';
 import { toast } from 'sonner';
 
@@ -14,6 +14,7 @@ interface FnRow { fn: string; runs: number; errors: number; warns: number; error
 interface JobRow { job_name: string; runs: number; success: number; fail: number; p95_ms: number | null; last_status: string | null; last_ran_at: string | null; }
 interface TableRow { table: string; total: number; older_than_7d: number; older_than_30d: number; }
 interface ErrRow { id: string; created_at: string; fn: string; stage: string | null; msg: string | null; run_id: string; }
+interface ColdRow { fn: string; boots_7d: number; boots_24h: number; last_boot_at: string | null; }
 
 interface HealthResp {
   generatedAt: string;
@@ -21,6 +22,7 @@ interface HealthResp {
   functions: FnRow[];
   jobs: JobRow[];
   logTables: TableRow[];
+  coldStarts: ColdRow[];
   recentErrors: ErrRow[];
 }
 
