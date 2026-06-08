@@ -6,7 +6,12 @@ import { Badge } from '@/components/ui/badge';
 import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert';
 import { supabase } from '@/integrations/supabase/client';
 import { useQuery } from '@tanstack/react-query';
-import { TrendingUp, TrendingDown, ArrowRight, AlertTriangle, CheckCircle2 } from 'lucide-react';
+import { TrendingUp, TrendingDown, ArrowRight, AlertTriangle, CheckCircle2, Activity } from 'lucide-react';
+
+// 哪些 fn 視為「金流 / webhook」相關
+const WEBHOOK_FN_PATTERNS = ['webhook', 'callback', 'notify-payment', 'verify-payment', 'ecpay', 'linepay', 'acpay', 'remittance'];
+// 哪些 payment_intents.status 視為失敗
+const CHECKOUT_FAIL_STATUSES = new Set(['failed', 'cancelled', 'canceled', 'abandoned', 'expired', 'error']);
 
 // W4-4 Paywall analytics — 完整漏斗 + 步驟級下滑告警
 
@@ -142,6 +147,63 @@ export default function PaywallAnalytics() {
     staleTime: 60_000,
   });
 
+  // 相關訊號：金流 webhook 失敗率 / Checkout 錯誤率 / 路由 404/500
+  const { data: signals, isFetching: loadingSignals, refetch: refetchSignals } = useQuery({
+    queryKey: ['paywall-correlation', sinceIso, recentSinceIso],
+    queryFn: async () => {
+      const orFn = WEBHOOK_FN_PATTERNS.map((p) => `fn.ilike.%${p}%`).join(',');
+      const [{ data: logs, error: e1 }, { data: intents, error: e2 }, { data: traffic, error: e3 }] = await Promise.all([
+        supabase
+          .from('function_run_logs')
+          .select('fn, level, created_at')
+          .gte('created_at', sinceIso)
+          .or(orFn)
+          .limit(20000),
+        supabase
+          .from('payment_intents')
+          .select('status, created_at')
+          .gte('created_at', sinceIso)
+          .limit(20000),
+        supabase
+          .from('traffic_events')
+          .select('event_name, event_props, occurred_at')
+          .gte('occurred_at', sinceIso)
+          .or('event_name.ilike.%404%,event_name.ilike.%500%,event_name.ilike.%error%')
+          .limit(20000),
+      ]);
+      if (e1) throw e1;
+      if (e2) throw e2;
+      if (e3) throw e3;
+
+      const bucket = () => ({ webhookTotal: 0, webhookError: 0, checkoutTotal: 0, checkoutFail: 0, route404: 0, route500: 0 });
+      const recent = bucket();
+      const baseline = bucket();
+      const pick = (ts: string) => (new Date(ts).getTime() >= recentSinceMs ? recent : baseline);
+
+      for (const r of logs ?? []) {
+        const b = pick(r.created_at as string);
+        b.webhookTotal++;
+        if ((r.level || '').toLowerCase() === 'error') b.webhookError++;
+      }
+      for (const r of intents ?? []) {
+        const b = pick(r.created_at as string);
+        b.checkoutTotal++;
+        if (CHECKOUT_FAIL_STATUSES.has(String(r.status || '').toLowerCase())) b.checkoutFail++;
+      }
+      for (const r of traffic ?? []) {
+        const b = pick((r as any).occurred_at as string);
+        const name = String((r as any).event_name || '').toLowerCase();
+        const propsStatus = String(((r as any).event_props as any)?.status || ((r as any).event_props as any)?.code || '');
+        if (name.includes('404') || propsStatus === '404') b.route404++;
+        else if (name.includes('500') || propsStatus === '500') b.route500++;
+      }
+      return { recent, baseline };
+    },
+    staleTime: 60_000,
+  });
+
+
+
   // 全期漏斗
   const funnel = useMemo(() => {
     const view = stageActors.all.view.size;
@@ -213,6 +275,42 @@ export default function PaywallAnalytics() {
   const loading = loadingEvents || loadingDown;
   const warnCount = alerts.filter((a) => a.status === 'warn').length;
 
+  // 相關訊號摘要（recent vs baseline）
+  const sig = useMemo(() => {
+    const r = signals?.recent;
+    const b = signals?.baseline;
+    const rate = (num?: number, den?: number) => (den && den > 0 ? (num! / den) : null);
+    return {
+      webhookRecent: rate(r?.webhookError, r?.webhookTotal),
+      webhookBaseline: rate(b?.webhookError, b?.webhookTotal),
+      webhookRN: r?.webhookError ?? 0, webhookRD: r?.webhookTotal ?? 0,
+      webhookBN: b?.webhookError ?? 0, webhookBD: b?.webhookTotal ?? 0,
+      checkoutRecent: rate(r?.checkoutFail, r?.checkoutTotal),
+      checkoutBaseline: rate(b?.checkoutFail, b?.checkoutTotal),
+      checkoutRN: r?.checkoutFail ?? 0, checkoutRD: r?.checkoutTotal ?? 0,
+      checkoutBN: b?.checkoutFail ?? 0, checkoutBD: b?.checkoutTotal ?? 0,
+      r404Recent: r?.route404 ?? 0, r404Baseline: b?.route404 ?? 0,
+      r500Recent: r?.route500 ?? 0, r500Baseline: b?.route500 ?? 0,
+    };
+  }, [signals]);
+
+  // 依步驟挑出最相關的訊號
+  const stepSignals: Record<string, Array<{ label: string; recent: string; baseline: string; bad: boolean }>> = {
+    click_upgrade: [
+      { label: '路由 404', recent: String(sig.r404Recent), baseline: String(sig.r404Baseline), bad: sig.r404Recent > sig.r404Baseline },
+      { label: '路由 500', recent: String(sig.r500Recent), baseline: String(sig.r500Baseline), bad: sig.r500Recent > sig.r500Baseline },
+    ],
+    checkout: [
+      { label: 'Checkout 錯誤率', recent: `${fmtRate(sig.checkoutRecent)} (${sig.checkoutRN}/${sig.checkoutRD})`, baseline: `${fmtRate(sig.checkoutBaseline)} (${sig.checkoutBN}/${sig.checkoutBD})`, bad: (sig.checkoutRecent ?? 0) > (sig.checkoutBaseline ?? 0) },
+      { label: '路由 500', recent: String(sig.r500Recent), baseline: String(sig.r500Baseline), bad: sig.r500Recent > sig.r500Baseline },
+    ],
+    subscribed: [
+      { label: '金流 Webhook 失敗率', recent: `${fmtRate(sig.webhookRecent)} (${sig.webhookRN}/${sig.webhookRD})`, baseline: `${fmtRate(sig.webhookBaseline)} (${sig.webhookBN}/${sig.webhookBD})`, bad: (sig.webhookRecent ?? 0) > (sig.webhookBaseline ?? 0) },
+      { label: 'Checkout 錯誤率', recent: `${fmtRate(sig.checkoutRecent)} (${sig.checkoutRN}/${sig.checkoutRD})`, baseline: `${fmtRate(sig.checkoutBaseline)} (${sig.checkoutBN}/${sig.checkoutBD})`, bad: (sig.checkoutRecent ?? 0) > (sig.checkoutBaseline ?? 0) },
+    ],
+    hit_limit: [],
+  };
+
   return (
     <>
       <SEO title="Paywall 轉換分析 | legendflow 後台" description="Paywall 漏斗：曝光、觸限、點擊、結帳、訂閱成功，含步驟下滑告警" />
@@ -224,7 +322,7 @@ export default function PaywallAnalytics() {
               <p className="text-sm text-muted-foreground mt-1">最近 {SINCE_DAYS} 天｜以唯一使用者計算｜近窗 {RECENT_DAYS} 天 vs 基準 {BASELINE_DAYS} 天</p>
             </div>
             <button
-              onClick={() => { refetchEvents(); refetchDown(); }}
+              onClick={() => { refetchEvents(); refetchDown(); refetchSignals(); }}
               className="text-xs text-muted-foreground underline"
             >
               重新整理
@@ -262,15 +360,66 @@ export default function PaywallAnalytics() {
                         相對下滑 {(a.relDrop * 100).toFixed(1)}%（絕對 {(a.absDrop * 100).toFixed(1)}pp）
                       </span>
                     </AlertTitle>
-                    <AlertDescription className="mt-2">
-                      <div className="text-xs mb-1 opacity-80">可能原因（請依序排查）：</div>
-                      <ul className="list-disc pl-5 space-y-0.5 text-xs">
-                        {reasons.map((r) => <li key={r}>{r}</li>)}
-                      </ul>
+                    <AlertDescription className="mt-2 space-y-2">
+                      <div>
+                        <div className="text-xs mb-1 opacity-80">可能原因（請依序排查）：</div>
+                        <ul className="list-disc pl-5 space-y-0.5 text-xs">
+                          {reasons.map((r) => <li key={r}>{r}</li>)}
+                        </ul>
+                      </div>
+                      {(stepSignals[a.key]?.length ?? 0) > 0 && (
+                        <div className="rounded border border-destructive/40 bg-destructive/5 p-2">
+                          <div className="text-[11px] mb-1 opacity-80 flex items-center gap-1">
+                            <Activity className="w-3 h-3" /> 同時間窗（近 {RECENT_DAYS}d vs 基準 {BASELINE_DAYS}d）相關訊號
+                            {loadingSignals && <span className="ml-1 opacity-60">載入中…</span>}
+                          </div>
+                          <div className="grid grid-cols-1 sm:grid-cols-2 gap-1 text-[11px]">
+                            {stepSignals[a.key].map((s) => (
+                              <div key={s.label} className="flex items-center justify-between gap-2 font-mono">
+                                <span className="opacity-80">{s.label}</span>
+                                <span className={s.bad ? 'font-semibold' : ''}>
+                                  {s.baseline} → {s.recent}
+                                </span>
+                              </div>
+                            ))}
+                          </div>
+                        </div>
+                      )}
                     </AlertDescription>
                   </Alert>
                 );
               })}
+
+              {/* 全域相關訊號（時間窗對齊） */}
+              {!loading && (
+                <div className="rounded border bg-muted/30 p-3">
+                  <div className="text-xs font-medium mb-2 flex items-center gap-1">
+                    <Activity className="w-3.5 h-3.5" /> 相關訊號（近 {RECENT_DAYS}d vs 基準 {BASELINE_DAYS}d）
+                    {loadingSignals && <span className="ml-1 text-muted-foreground font-normal">載入中…</span>}
+                  </div>
+                  <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-2 text-xs">
+                    {[
+                      { label: '金流 Webhook 失敗率', recent: `${fmtRate(sig.webhookRecent)}`, baseline: `${fmtRate(sig.webhookBaseline)}`, sub: `${sig.webhookRN}/${sig.webhookRD} vs ${sig.webhookBN}/${sig.webhookBD}`, bad: (sig.webhookRecent ?? 0) > (sig.webhookBaseline ?? 0) && sig.webhookRD >= 10 },
+                      { label: 'Checkout 錯誤率', recent: `${fmtRate(sig.checkoutRecent)}`, baseline: `${fmtRate(sig.checkoutBaseline)}`, sub: `${sig.checkoutRN}/${sig.checkoutRD} vs ${sig.checkoutBN}/${sig.checkoutBD}`, bad: (sig.checkoutRecent ?? 0) > (sig.checkoutBaseline ?? 0) && sig.checkoutRD >= 10 },
+                      { label: '路由 404 事件', recent: String(sig.r404Recent), baseline: String(sig.r404Baseline), sub: '事件數', bad: sig.r404Recent > sig.r404Baseline },
+                      { label: '路由 500 事件', recent: String(sig.r500Recent), baseline: String(sig.r500Baseline), sub: '事件數', bad: sig.r500Recent > sig.r500Baseline },
+                    ].map((m) => (
+                      <div key={m.label} className="border rounded p-2 bg-background">
+                        <div className="text-[11px] text-muted-foreground">{m.label}</div>
+                        <div className="mt-0.5 font-mono">
+                          <span className="opacity-60">{m.baseline}</span>
+                          <span className="mx-1 opacity-40">→</span>
+                          <span className={m.bad ? 'text-destructive font-semibold' : ''}>{m.recent}</span>
+                        </div>
+                        <div className="text-[10px] text-muted-foreground mt-0.5">{m.sub}</div>
+                      </div>
+                    ))}
+                  </div>
+                  <div className="text-[10px] text-muted-foreground mt-2">
+                    來源：function_run_logs（fn 含 webhook/callback/notify-payment/verify-payment/ecpay/linepay/acpay/remittance）、payment_intents.status ∈ {'{failed,cancelled,abandoned,expired,error}'}、traffic_events（event_name 或 event_props.status 含 404/500）
+                  </div>
+                </div>
+              )}
 
               {/* 完整步驟比較表 */}
               {!loading && (
