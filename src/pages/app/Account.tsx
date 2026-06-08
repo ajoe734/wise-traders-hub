@@ -10,6 +10,7 @@ import { SubscriptionCard } from '@/pages/_appAccount/SubscriptionCard';
 import { LinePartySection } from '@/pages/_appAccount/LinePartySection';
 import { FreeCheckupQuotaCard } from '@/pages/_appAccount/FreeCheckupQuotaCard';
 import { PredictEventsCard } from '@/pages/_appAccount/PredictEventsCard';
+import { PendingCheckoutCard } from '@/pages/_appAccount/PendingCheckoutCard';
 
 
 const Account = () => {
