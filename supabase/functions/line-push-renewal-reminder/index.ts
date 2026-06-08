@@ -6,7 +6,8 @@ import { createClient } from 'https://esm.sh/@supabase/supabase-js@2.49.1'
 // 帶一鍵續訂連結（/{slug}/checkout?plan={plan_id}）。
 // 平台不會自動扣款，過期即斷權，無寬限期。
 
-const REMINDER_DAYS = [7, 3, 1] as const
+// W4-1: 擴充 T-0（當日到期）與 T+1（已過期 24h 內召回）
+const REMINDER_DAYS = [7, 3, 1, 0, -1] as const
 
 function buildRenewalFlexMessage(
   expertName: string,
