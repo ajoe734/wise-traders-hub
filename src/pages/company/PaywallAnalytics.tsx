@@ -235,7 +235,27 @@ export default function PaywallAnalytics() {
     staleTime: 60_000,
   });
 
+  const [autoRefresh, setAutoRefresh] = useState(true);
+  const [lastUpdated, setLastUpdated] = useState<Date | null>(new Date());
+  const anyLoading = loadingEvents || loadingDown || loadingSignals;
+  const wasLoadingRef = useRef(anyLoading);
 
+  useEffect(() => {
+    if (wasLoadingRef.current && !anyLoading) {
+      setLastUpdated(new Date());
+    }
+    wasLoadingRef.current = anyLoading;
+  }, [anyLoading]);
+
+  useEffect(() => {
+    if (!autoRefresh) return;
+    const id = setInterval(() => {
+      refetchEvents();
+      refetchDown();
+      refetchSignals();
+    }, 60_000);
+    return () => clearInterval(id);
+  }, [autoRefresh, refetchEvents, refetchDown, refetchSignals]);
 
   // 全期漏斗
   const funnel = useMemo(() => {
