@@ -21,11 +21,15 @@ function buildRenewalFlexMessage(
     year: 'numeric', month: 'long', day: 'numeric',
   })
 
-  const headerText = daysLeft <= 1
-    ? '⚠️ 訂閱明日到期'
-    : daysLeft <= 3
-      ? '⏳ 訂閱即將到期'
-      : '⏰ 訂閱到期提醒'
+  const headerText = daysLeft < 0
+    ? '🔔 訂閱已過期 — 24h 內可回購保留資料'
+    : daysLeft === 0
+      ? '⚠️ 訂閱今日到期'
+      : daysLeft <= 1
+        ? '⚠️ 訂閱明日到期'
+        : daysLeft <= 3
+          ? '⏳ 訂閱即將到期'
+          : '⏰ 訂閱到期提醒'
 
   return {
     type: 'flex',
