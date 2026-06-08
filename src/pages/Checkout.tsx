@@ -42,10 +42,27 @@ const Checkout = () => {
     alreadySubscribed, upgradeCredit, upgradeFromSubId,
   } = useCheckoutData({ planId, slug, userId: user?.id, billingCycle });
 
-  // Initialize selected provider once providers load
+  // Initialize selected provider once providers load; honor ?method= from retry/recovery URLs
   useEffect(() => {
-    if (!selectedProvider && defaultProviderId) setSelectedProvider(defaultProviderId);
-  }, [defaultProviderId, selectedProvider]);
+    if (selectedProvider || providers.length === 0) return;
+    const methodQuery = (searchParams.get('method') || '').toLowerCase();
+    const methodToType: Record<string, string> = {
+      ecpay: 'ecpay',
+      linepay: 'line_pay',
+      line_pay: 'line_pay',
+      acpay: 'acpay',
+      remittance: 'remittance',
+      atm: 'remittance',
+    };
+    const wanted = methodToType[methodQuery];
+    const match = wanted ? providers.find(p => p.provider_type === wanted && p.is_active) : null;
+    if (match) {
+      setSelectedProvider(match.id);
+      trackEvent('checkout_method_prefill', { method: wanted, source: searchParams.get('utm_source') || 'direct' });
+    } else if (defaultProviderId) {
+      setSelectedProvider(defaultProviderId);
+    }
+  }, [defaultProviderId, selectedProvider, providers, searchParams]);
 
   // GTM Purchase event — fires once when success dialog opens
   useEffect(() => {

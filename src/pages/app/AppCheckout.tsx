@@ -37,7 +37,13 @@ const AppCheckout = () => {
   const [billingCycle, setBillingCycle] = useState<"monthly" | "yearly">(
     (searchParams.get("billingCycle") as "monthly" | "yearly") || "monthly"
   );
-  const [paymentMethod, setPaymentMethod] = useState<"line_pay" | "ecpay" | "acpay">("line_pay");
+  const [paymentMethod, setPaymentMethod] = useState<"line_pay" | "ecpay" | "acpay">(() => {
+    const m = (searchParams.get("method") || "").toLowerCase();
+    if (m === "ecpay") return "ecpay";
+    if (m === "acpay") return "acpay";
+    if (m === "linepay" || m === "line_pay") return "line_pay";
+    return "line_pay";
+  });
   const [isProcessing, setIsProcessing] = useState(false);
   const processingLockRef = useRef(false);
   const [isConfirming, setIsConfirming] = useState(false);
