@@ -1,6 +1,7 @@
 import React, { Suspense, lazy } from 'react';
 import { validateProps } from './_validateProps';
 import { formatTaipeiYMD } from '@/checkup/utils/formatTaipeiDate';
+import { trackPaywall } from '@/lib/paywallTracking';
 
 const Md = lazy(() => import('@/checkup/components/Md'));
 
@@ -154,7 +155,7 @@ function DailyTabImpl({
                          {tier === 'line_free' && <>免費／補償額度已用完（使用日 {formatTaipeiYMD(quota?.last_used_at) || '尚未紀錄'}）</>}
                          {tier === 'none' && '訂閱後即可開始使用'}
                          {(tier === 'free' || tier === 'basic' || tier === 'line_free' || tier === 'none') && (
-                           <>　・　<a href="/pricing#checkup" style={{color:C.blue,textDecoration:"none"}}>查看訂閱方案 →</a></>
+                           <>　・　<a href="/pricing#checkup" onClick={() => trackPaywall('click_upgrade', 'daily_tab_limit', { tier })} style={{color:C.blue,textDecoration:"none"}}>查看訂閱方案 →</a></>
                          )}
                        </>
                      : (tier === 'line_free'

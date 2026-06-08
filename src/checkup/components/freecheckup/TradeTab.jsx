@@ -1,5 +1,7 @@
-import React from 'react';
+import React, { useEffect } from 'react';
 import { validateProps } from './_validateProps';
+import { trackPaywall } from '@/lib/paywallTracking';
+
 
 /**
  * Props schema 與 EVENTS_TAB_PROP_SCHEMA 同款 dev-time 守門。
@@ -95,6 +97,13 @@ function TradeTabImpl({
   setTargets, setSaved,
 }) {
   validateProps('TradeTab', arguments[0], TRADE_TAB_PROP_SCHEMA);
+  // W4-4: 配額用盡 banner 出現時送 view + hit_limit
+  useEffect(() => {
+    if (hasReachedDailyLimit && !isDemo) {
+      trackPaywall('view', 'trade_tab_limit', { tier });
+      trackPaywall('hit_limit', 'trade_tab_limit', { tier });
+    }
+  }, [hasReachedDailyLimit, isDemo, tier]);
   return (
     <>
       {/* 全頁覆蓋 loading：解析中時鎖住操作但保留下方持倉資料可見於背景 */}
@@ -183,7 +192,7 @@ function TradeTabImpl({
             {tier === 'line_free' && <>仍可繼續上傳成交、建立持倉。升級訂閱方案後可繼續使用 AI 收盤分析。</>}
           </div>
           {(tier === 'free' || tier === 'basic' || tier === 'line_free' || tier === 'none') && (
-            <a href={tier === 'basic' ? '/app/account' : '/pricing#checkup'} style={{
+            <a href={tier === 'basic' ? '/app/account' : '/pricing#checkup'} onClick={() => trackPaywall('click_upgrade', 'trade_tab_limit', { tier })} style={{
               display:"inline-block", marginTop:8,
               background:"transparent", color:C.blue,
               border:`1px solid ${alpha(C.blue,'40')}`,

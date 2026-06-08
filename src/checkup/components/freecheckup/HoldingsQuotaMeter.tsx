@@ -1,9 +1,11 @@
 // HoldingsQuotaMeter — 抽自 FreeCheckup.jsx (原 IIFE @ L3329-L3444)。
 // 行為對等：訪客（isDemo）回傳 null；無 quota 顯示 placeholder；其餘顯示 used/limit + 重置倒數 + 升級 CTA。
 // React.memo 於父層每秒 quote tick 時可跳過 re-render（quota 物件 reference 穩定）。
-import { memo } from 'react';
+// W4-4: 加入 paywall_events 埋點（view / hit_limit / click_upgrade）+ A/B 變體文案。
+import { memo, useEffect } from 'react';
 import { validateProps } from './_validateProps.js';
 import { formatTaipeiYMD } from '@/checkup/utils/formatTaipeiDate';
+import { trackPaywall, getPaywallVariant, PAYWALL_COPY } from '@/lib/paywallTracking';
 
 const SCHEMA = {
   isDemo: 'boolean',
@@ -50,14 +52,31 @@ function HoldingsQuotaMeterImpl(props) {
   const showUpgrade = tier === 'free' || tier === 'basic' || tier === 'line_free' || tier === 'none';
   const isNone = tier === 'none';
   const isLineFree = tier === 'line_free';
+  const variant = getPaywallVariant();
+  const copy = PAYWALL_COPY[variant];
   const upgradeBlurb = isNone
-    ? '收盤分析為訂閱功能，訂閱 Basic（每週 1 次）或 Pro（每月 22 次）即可使用'
+    ? copy.upgradeBlurbNone
     : isLineFree
       ? '免費／補償額度已用完，升級 Basic（每週 1 次）或 Pro（每月 22 次）繼續使用'
       : tier === 'free'
-        ? '想立即繼續？升級 Basic（每週 1 次）或 Pro（每月 22 次）'
+        ? copy.upgradeBlurbFree
         : '升級 Pro 即可每月使用 22 次';
-  const ctaLabel = (isNone || isLineFree || tier === 'free') ? '查看訂閱方案' : '升級 Pro';
+  const ctaLabel = (isNone || isLineFree || tier === 'free') ? copy.ctaSubscribe : copy.ctaPro;
+
+  // view 埋點：meter 出現即視為 paywall 曝光
+  useEffect(() => {
+    if (showUpgrade) {
+      trackPaywall('view', 'holdings_quota_meter', { tier, remain, limit });
+    }
+    if (remain === 0 && showUpgrade) {
+      trackPaywall('hit_limit', 'holdings_quota_meter', { tier, limit });
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [showUpgrade, remain === 0, tier]);
+
+  const onUpgradeClick = (cta: string) => {
+    trackPaywall('click_upgrade', 'holdings_quota_meter', { tier, remain, cta, variant });
+  };
 
   return (
     <div className="checkup-quota-meter" style={{
@@ -119,7 +138,7 @@ function HoldingsQuotaMeterImpl(props) {
             }}>綁定 LINE 領免費 1 次</a>
           )}
           {showUpgrade && (
-            <a href="/pricing#checkup" style={{
+            <a href="/pricing#checkup" onClick={() => onUpgradeClick('inline_upgrade')} style={{
               fontSize: 11, color: C.blue, textDecoration: 'none', letterSpacing: '0.02em',
               padding: '3px 8px', border: `1px solid ${alpha(C.blue, '40')}`, borderRadius: 4,
             }}>升級 →</a>
@@ -152,7 +171,7 @@ function HoldingsQuotaMeterImpl(props) {
           display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 8, flexWrap: 'wrap',
         }}>
           <span style={{ color: C.textSec }}>{upgradeBlurb}</span>
-          <a href="/pricing#checkup" style={{
+          <a href="/pricing#checkup" onClick={() => onUpgradeClick('primary_cta')} style={{
             fontSize: 11, fontWeight: 500, color: '#fff', background: C.blue,
             padding: '4px 10px', borderRadius: 4, textDecoration: 'none', letterSpacing: '0.02em', whiteSpace: 'nowrap',
           }}>{ctaLabel}</a>
