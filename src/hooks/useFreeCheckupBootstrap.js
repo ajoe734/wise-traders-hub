@@ -17,7 +17,25 @@ import {
   save,
   stripDemoSeedHoldings,
   getHoldingCodesKey,
+  CLOUD_SYNC_KEYS,
+  LOCAL_STORAGE_OWNER_KEY,
 } from "@/pages/_freeCheckup/constants";
+
+// 跨帳號 LocalStorage sweeper：當登入 uid 與本機 owner 不符時，
+// 主動清掉所有 pf-* 殘留，避免任何 fallback 路徑把上一個帳號的資料當成新帳號的初始值。
+function sweepStaleLocalIfOwnerMismatch(userId) {
+  if (!userId) return;
+  try {
+    const ownerId = localStorage.getItem(LOCAL_STORAGE_OWNER_KEY);
+    if (ownerId && ownerId === userId) return;
+    const keysToWipe = [
+      ...CLOUD_SYNC_KEYS,
+      "pf-log-v2",
+      "pf-calendar-holdings",
+    ];
+    keysToWipe.forEach((k) => { try { localStorage.removeItem(k); } catch {} });
+  } catch {}
+}
 
 /**
  * One-time localStorage migration（pf-holdings-v2 schema bump）
