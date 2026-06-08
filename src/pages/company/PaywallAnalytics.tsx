@@ -1,12 +1,12 @@
 import { SEO } from '@/components/SEO';
-import { useMemo, useState } from 'react';
+import { useEffect, useMemo, useRef, useState } from 'react';
 import { CompanyLayout } from '@/components/layouts/CompanyLayout';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
 import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert';
 import { supabase } from '@/integrations/supabase/client';
 import { useQuery } from '@tanstack/react-query';
-import { TrendingUp, TrendingDown, ArrowRight, AlertTriangle, CheckCircle2, Activity } from 'lucide-react';
+import { TrendingUp, TrendingDown, ArrowRight, AlertTriangle, CheckCircle2, Activity, RefreshCw } from 'lucide-react';
 
 // 哪些 fn 視為「金流 / webhook」相關
 const WEBHOOK_FN_PATTERNS = ['webhook', 'callback', 'notify-payment', 'verify-payment', 'ecpay', 'linepay', 'acpay', 'remittance'];
