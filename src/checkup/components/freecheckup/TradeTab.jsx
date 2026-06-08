@@ -97,6 +97,13 @@ function TradeTabImpl({
   setTargets, setSaved,
 }) {
   validateProps('TradeTab', arguments[0], TRADE_TAB_PROP_SCHEMA);
+  // W4-4: 配額用盡 banner 出現時送 view + hit_limit
+  useEffect(() => {
+    if (hasReachedDailyLimit && !isDemo) {
+      trackPaywall('view', 'trade_tab_limit', { tier });
+      trackPaywall('hit_limit', 'trade_tab_limit', { tier });
+    }
+  }, [hasReachedDailyLimit, isDemo, tier]);
   return (
     <>
       {/* 全頁覆蓋 loading：解析中時鎖住操作但保留下方持倉資料可見於背景 */}
