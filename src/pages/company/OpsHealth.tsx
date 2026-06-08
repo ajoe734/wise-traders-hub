@@ -43,9 +43,26 @@ export default function OpsHealth() {
     },
   });
 
+  const [cleaning, setCleaning] = useState(false);
   const totalLogRows = (data?.logTables ?? []).reduce((s, t) => s + t.total, 0);
   const totalErrors7d = (data?.functions ?? []).reduce((s, f) => s + f.errors, 0);
   const failedJobs7d = (data?.jobs ?? []).reduce((s, j) => s + j.fail, 0);
+
+  const runCleanup = async () => {
+    if (!confirm('立即執行 log 清理？\n• function_run_logs > 30d\n• system_jobs_log > 90d\n• audit_logs > 365d\n• perf_metrics > 14d\n• traffic_events > 30d')) return;
+    setCleaning(true);
+    try {
+      const { data: res, error: err } = await supabase.functions.invoke('cleanup-ops-logs', { method: 'POST' });
+      if (err) throw err;
+      const total = Object.values(res?.summary ?? {}).reduce((s: number, v: any) => s + (v?.deleted ?? 0), 0);
+      toast.success(`清理完成：刪除 ${total.toLocaleString()} 筆，耗時 ${res?.duration_ms}ms`);
+      refetch();
+    } catch (e: any) {
+      toast.error(`清理失敗：${e.message ?? e}`);
+    } finally {
+      setCleaning(false);
+    }
+  };
 
   return (
     <CompanyLayout>
