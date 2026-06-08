@@ -47,8 +47,9 @@ async function pruneTable(
 
 Deno.serve(withLogging('cleanup-ops-logs', async (req) => {
   // Cron secret auth (server-to-server only; no public access).
-  const cronSecret = Deno.env.get('CRON_SECRET');
-  const headerSecret = req.headers.get('x-cron-secret');
+  // Reuse DATA_UPSERT_API_KEY as cron secret (already used by knowledge-draft-scheduler).
+  const cronSecret = Deno.env.get('DATA_UPSERT_API_KEY') ?? '';
+  const headerSecret = req.headers.get('x-cron-secret') ?? '';
   if (!cronSecret || headerSecret !== cronSecret) {
     return jsonResponse({ error: 'unauthorized' }, { status: 401 });
   }
