@@ -1,5 +1,5 @@
 import { SEO } from '@/components/SEO';
-import { useMemo } from 'react';
+import { useMemo, useState } from 'react';
 import { CompanyLayout } from '@/components/layouts/CompanyLayout';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
@@ -24,12 +24,29 @@ interface PaywallRow {
   created_at: string;
 }
 
-const SINCE_DAYS = 30;
-const RECENT_DAYS = 7;            // 近窗：最近 7 天
-const BASELINE_DAYS = SINCE_DAYS - RECENT_DAYS; // 基準：前 23 天
+// 預設視窗
+const DEFAULT_sinceDays = 30;
+const DEFAULT_recentDays = 7;
 const REL_DROP_THRESHOLD = 0.2;   // 相對下滑 ≥ 20%
 const ABS_DROP_THRESHOLD = 0.02;  // 絕對下滑 ≥ 2pp
 const MIN_SAMPLE = 30;            // 近窗該步驟前一階段樣本 ≥ 30 才告警，避免雜訊
+
+// 時間窗 preset
+type Preset = { id: string; label: string; since: number; recent: number };
+const WINDOW_PRESETS: Preset[] = [
+  { id: '7-3', label: '7d / recent 3d', since: 7, recent: 3 },
+  { id: '14-7', label: '14d / recent 7d', since: 14, recent: 7 },
+  { id: '30-7', label: '30d / recent 7d', since: 30, recent: 7 },
+  { id: '60-14', label: '60d / recent 14d', since: 60, recent: 14 },
+  { id: '90-30', label: '90d / recent 30d', since: 90, recent: 30 },
+];
+
+// 漏斗階段 key（固定順序，匯出時據此過濾）
+const FUNNEL_KEYS = ['view', 'hit_limit', 'click_upgrade', 'checkout', 'subscribed'] as const;
+type FunnelKey = (typeof FUNNEL_KEYS)[number];
+// 告警步驟 key
+const ALERT_KEYS = ['hit_limit', 'click_upgrade', 'checkout', 'subscribed'] as const;
+type AlertKey = (typeof ALERT_KEYS)[number];
 
 // 各步驟對應的可能原因提示
 const STEP_REASONS: Record<string, string[]> = {
@@ -59,13 +76,29 @@ const STEP_REASONS: Record<string, string[]> = {
 };
 
 export default function PaywallAnalytics() {
+  // 視窗 state（preset 控制）
+  const [presetId, setPresetId] = useState<string>('30-7');
+  const preset = WINDOW_PRESETS.find((p) => p.id === presetId) ?? WINDOW_PRESETS[2];
+  const sinceDays = preset.since;
+  const recentDays = Math.min(preset.recent, preset.since);
+  const baselineDays = Math.max(sinceDays - recentDays, 0);
+
+  // 步驟/告警過濾（套用於匯出）
+  const [funnelFilter, setFunnelFilter] = useState<Set<FunnelKey>>(new Set(FUNNEL_KEYS));
+  const [alertFilter, setAlertFilter] = useState<Set<AlertKey>>(new Set(ALERT_KEYS));
+  const toggle = <T extends string>(set: Set<T>, key: T): Set<T> => {
+    const next = new Set(set);
+    if (next.has(key)) next.delete(key); else next.add(key);
+    return next;
+  };
+
   const now = Date.now();
-  const sinceIso = useMemo(() => new Date(now - SINCE_DAYS * 86400_000).toISOString(), [now]);
-  const recentSinceMs = now - RECENT_DAYS * 86400_000;
+  const sinceIso = useMemo(() => new Date(now - sinceDays * 86400_000).toISOString(), [now, sinceDays]);
+  const recentSinceMs = now - recentDays * 86400_000;
   const recentSinceIso = new Date(recentSinceMs).toISOString();
 
   const { data: events, isFetching: loadingEvents, refetch: refetchEvents } = useQuery({
-    queryKey: ['paywall-events', SINCE_DAYS],
+    queryKey: ['paywall-events', sinceDays],
     queryFn: async (): Promise<PaywallRow[]> => {
       const { data, error } = await supabase
         .from('paywall_events')
@@ -311,6 +344,83 @@ export default function PaywallAnalytics() {
     hit_limit: [],
   };
 
+  // 訊號 → 行動建議
+  const SIGNAL_PLAYBOOK: Record<string, { causeLabel: string; actions: string[] }> = {
+    webhook_fail: {
+      causeLabel: '金流 Webhook 失敗率上升',
+      actions: [
+        '檢查 function_run_logs 最新 error 訊息（fn 含 webhook/callback/notify-payment）',
+        '驗證 ECPay / LinePay / ACPay 回呼 endpoint 是否可用、簽章/金鑰未過期',
+        '確認最近一次 edge function 部署版本，必要時 rollback',
+      ],
+    },
+    checkout_error: {
+      causeLabel: 'Checkout 錯誤率（payment_intents 失敗）上升',
+      actions: [
+        '看 payment_intents failed/abandoned/expired 分佈，找出問題 provider',
+        '檢查 payment_providers / payment_settings 啟用與金鑰',
+        '回放 /checkout/:slug/:planId 流程，確認方案可用且有支援的付款方式',
+      ],
+    },
+    route_500: {
+      causeLabel: '路由 500 事件增加',
+      actions: [
+        '查最近 release diff，確認新版本是否引入 runtime error',
+        '檢查前端 console / Sentry 對應路由的錯誤訊息',
+        '比對 traffic_events 與 function_edge_logs 看是哪支 API 5xx',
+      ],
+    },
+    route_404: {
+      causeLabel: '路由 404 事件增加',
+      actions: [
+        '檢查近期路由表 / 重新導向是否更動，舊連結是否失效',
+        '排查升級 CTA 連結是否仍指向有效訂閱頁',
+        '看 referrer_host 是否來自舊的內部連結',
+      ],
+    },
+    step_drop: {
+      causeLabel: '漏斗步驟轉換下滑',
+      actions: [
+        '依步驟可能原因清單逐項排查（CTA 文案、埋點、路由、UI 遮蔽）',
+        '比對 A/B 變體：是否 B 變體拉低整體',
+        '檢查同窗 surface × variant 拆分表，找出退步來源',
+      ],
+    },
+  };
+
+  // 計算每個訊號的「惡化幅度分數」用於排序 top 3
+  const correlationScores = useMemo(() => {
+    const scoreRate = (rRecent: number | null, rBase: number | null, recentDen: number, baseDen: number) => {
+      if (rRecent === null || rBase === null) return 0;
+      const delta = rRecent - rBase; // 失敗率上升為正分
+      const sample = Math.min(recentDen, baseDen);
+      const sampleWeight = sample < 10 ? 0.3 : 1;
+      return delta * 100 * sampleWeight; // pp * weight
+    };
+    const scoreCount = (recent: number, base: number) => {
+      if (recent <= base) return 0;
+      const denom = Math.max(base, 1);
+      return ((recent - base) / denom) * 10; // 相對增幅 × 10
+    };
+    return [
+      { key: 'webhook_fail', score: scoreRate(sig.webhookRecent, sig.webhookBaseline, sig.webhookRD, sig.webhookBD), delta: `${fmtRate(sig.webhookBaseline)} → ${fmtRate(sig.webhookRecent)}` },
+      { key: 'checkout_error', score: scoreRate(sig.checkoutRecent, sig.checkoutBaseline, sig.checkoutRD, sig.checkoutBD), delta: `${fmtRate(sig.checkoutBaseline)} → ${fmtRate(sig.checkoutRecent)}` },
+      { key: 'route_500', score: scoreCount(sig.r500Recent, sig.r500Baseline), delta: `${sig.r500Baseline} → ${sig.r500Recent}` },
+      { key: 'route_404', score: scoreCount(sig.r404Recent, sig.r404Baseline), delta: `${sig.r404Baseline} → ${sig.r404Recent}` },
+    ];
+  }, [sig]);
+
+  const executiveSummary = useMemo(() => {
+    const warnAlerts = alerts.filter((a) => a.status === 'warn' && alertFilter.has(a.key as AlertKey));
+    const worstStep = warnAlerts.slice().sort((a, b) => b.relDrop - a.relDrop)[0] ?? null;
+    const ranked = [...correlationScores].sort((a, b) => b.score - a.score).filter((c) => c.score > 0);
+    const top3 = ranked.slice(0, 3);
+    if (worstStep && !top3.find((c) => c.key === 'step_drop')) {
+      top3.push({ key: 'step_drop', score: worstStep.relDrop * 100, delta: `${worstStep.label}：${fmtRate(worstStep.baseRate)} → ${fmtRate(worstStep.recentRate)}` });
+    }
+    return { worstStep, causes: top3.slice(0, 3) };
+  }, [alerts, alertFilter, correlationScores]);
+
   const reportStamp = () => {
     const d = new Date();
     const pad = (n: number) => String(n).padStart(2, '0');
@@ -318,22 +428,26 @@ export default function PaywallAnalytics() {
   };
 
   const buildReportRows = () => {
-    const funnelRows = funnel.map((s, i) => {
-      const stepRate = s.prev && s.prev > 0 ? `${((s.count / s.prev) * 100).toFixed(1)}%` : '';
-      const overall = funnel[0].count > 0 ? `${((s.count / funnel[0].count) * 100).toFixed(2)}%` : '';
-      return { idx: i + 1, label: s.label, count: s.count, prev: s.prev ?? '', stepRate, overall };
-    });
-    const alertRows = alerts.map((a) => ({
-      key: a.key,
-      label: a.label,
-      baseline: fmtRate(a.baseRate),
-      baselineFrac: `${a.baseNum}/${a.baseDen}`,
-      recent: fmtRate(a.recentRate),
-      recentFrac: `${a.recentNum}/${a.recentDen}`,
-      absDropPp: a.recentRate !== null && a.baseRate !== null ? ((a.recentRate - a.baseRate) * 100).toFixed(1) : '',
-      relDropPct: a.status === 'warn' ? (a.relDrop * 100).toFixed(1) : '',
-      status: a.status,
-    }));
+    const funnelRows = funnel
+      .filter((s) => funnelFilter.has(s.key as FunnelKey))
+      .map((s, i) => {
+        const stepRate = s.prev && s.prev > 0 ? `${((s.count / s.prev) * 100).toFixed(1)}%` : '';
+        const overall = funnel[0].count > 0 ? `${((s.count / funnel[0].count) * 100).toFixed(2)}%` : '';
+        return { idx: i + 1, label: s.label, count: s.count, prev: s.prev ?? '', stepRate, overall };
+      });
+    const alertRows = alerts
+      .filter((a) => alertFilter.has(a.key as AlertKey))
+      .map((a) => ({
+        key: a.key,
+        label: a.label,
+        baseline: fmtRate(a.baseRate),
+        baselineFrac: `${a.baseNum}/${a.baseDen}`,
+        recent: fmtRate(a.recentRate),
+        recentFrac: `${a.recentNum}/${a.recentDen}`,
+        absDropPp: a.recentRate !== null && a.baseRate !== null ? ((a.recentRate - a.baseRate) * 100).toFixed(1) : '',
+        relDropPct: a.status === 'warn' ? (a.relDrop * 100).toFixed(1) : '',
+        status: a.status,
+      }));
     const signalRows = [
       { metric: '金流 Webhook 失敗率', baseline: fmtRate(sig.webhookBaseline), baselineFrac: `${sig.webhookBN}/${sig.webhookBD}`, recent: fmtRate(sig.webhookRecent), recentFrac: `${sig.webhookRN}/${sig.webhookRD}` },
       { metric: 'Checkout 錯誤率', baseline: fmtRate(sig.checkoutBaseline), baselineFrac: `${sig.checkoutBN}/${sig.checkoutBD}`, recent: fmtRate(sig.checkoutRecent), recentFrac: `${sig.checkoutRN}/${sig.checkoutRD}` },
@@ -352,7 +466,16 @@ export default function PaywallAnalytics() {
     const lines: string[] = [];
     lines.push(`Paywall 漏斗告警報表`);
     lines.push(`產出時間,${new Date().toISOString()}`);
-    lines.push(`觀察區間,最近 ${SINCE_DAYS} 天 (近窗 ${RECENT_DAYS}d vs 基準 ${BASELINE_DAYS}d)`);
+    lines.push(`觀察區間,最近 ${sinceDays} 天 (近窗 ${recentDays}d vs 基準 ${baselineDays}d)`);
+    lines.push(`漏斗步驟過濾,${[...funnelFilter].join('|')}`);
+    lines.push(`告警類型過濾,${[...alertFilter].join('|')}`);
+    lines.push('');
+    lines.push('# 摘要');
+    lines.push(['#', '原因', '變化', '建議行動'].join(','));
+    executiveSummary.causes.forEach((c, i) => {
+      const pb = SIGNAL_PLAYBOOK[c.key];
+      lines.push([i + 1, pb?.causeLabel ?? c.key, c.delta, (pb?.actions ?? []).join(' / ')].map(esc).join(','));
+    });
     lines.push('');
     lines.push('# 轉換漏斗');
     lines.push(['階段', '名稱', '人數', '前一階段', '上一步轉換', '佔曝光'].join(','));
@@ -385,14 +508,67 @@ export default function PaywallAnalytics() {
     const autoTable = (autoTableMod as any).default ?? (autoTableMod as any);
     const { funnelRows, alertRows, signalRows } = buildReportRows();
     const doc = new jsPDF({ unit: 'pt', format: 'a4' });
-    doc.setFontSize(16);
-    doc.text('Paywall Funnel & Alert Report', 40, 48);
+    const pageW = doc.internal.pageSize.getWidth();
+    const pageH = doc.internal.pageSize.getHeight();
+
+    // ===== Page 1: Executive Summary =====
+    doc.setFontSize(20);
+    doc.text('Paywall Funnel — Executive Summary', 40, 60);
     doc.setFontSize(10);
-    doc.text(`Generated: ${new Date().toISOString()}`, 40, 66);
-    doc.text(`Window: last ${SINCE_DAYS}d (recent ${RECENT_DAYS}d vs baseline ${BASELINE_DAYS}d)`, 40, 80);
+    doc.setTextColor(110);
+    doc.text(`Generated: ${new Date().toISOString()}`, 40, 80);
+    doc.text(`Window: last ${sinceDays}d  |  recent ${recentDays}d vs baseline ${baselineDays}d`, 40, 94);
+    doc.text(`Funnel filter: ${[...funnelFilter].join(', ') || '(none)'}`, 40, 108);
+    doc.text(`Alert filter: ${[...alertFilter].join(', ') || '(none)'}`, 40, 122);
+    doc.setTextColor(0);
+
+    // Headline
+    doc.setFontSize(13);
+    if (executiveSummary.worstStep) {
+      doc.setTextColor(180, 30, 30);
+      doc.text(
+        `Headline: ${executiveSummary.worstStep.label} 下滑 ${(executiveSummary.worstStep.relDrop * 100).toFixed(1)}% (${(executiveSummary.worstStep.absDrop * 100).toFixed(1)}pp)`,
+        40, 156,
+      );
+      doc.setTextColor(0);
+    } else {
+      doc.setTextColor(20, 130, 80);
+      doc.text('Headline: 所有步驟轉換率穩定，未偵測到顯著下滑。', 40, 156);
+      doc.setTextColor(0);
+    }
+
+    // Top 3 Causes table
+    const summaryBody = executiveSummary.causes.length === 0
+      ? [['—', '尚無顯著惡化訊號（所有指標與基準持平或改善）', '', '']]
+      : executiveSummary.causes.map((c, i) => {
+          const pb = SIGNAL_PLAYBOOK[c.key];
+          return [String(i + 1), pb?.causeLabel ?? c.key, c.delta, (pb?.actions ?? []).map((a, j) => `${j + 1}. ${a}`).join('\n')];
+        });
+    autoTable(doc, {
+      startY: 180,
+      head: [['#', 'Top Correlated Cause', 'Delta (baseline → recent)', 'Recommended Next Actions']],
+      body: summaryBody,
+      styles: { fontSize: 10, cellPadding: 6, valign: 'top' },
+      columnStyles: { 0: { cellWidth: 24 }, 1: { cellWidth: 160 }, 2: { cellWidth: 130 }, 3: { cellWidth: 'auto' } },
+      headStyles: { fillColor: [30, 30, 30] },
+      margin: { left: 40, right: 40 },
+    });
+
+    // Footer
+    doc.setFontSize(8);
+    doc.setTextColor(140);
+    doc.text('Source: paywall_events, payment_intents, member_subscriptions, function_run_logs, traffic_events', 40, pageH - 30);
+    doc.setTextColor(0);
+
+    // ===== Page 2+: Detail tables =====
+    doc.addPage();
+    doc.setFontSize(16);
+    doc.text('Detail — Funnel / Alerts / Signals', 40, 48);
+    doc.setFontSize(10);
+    doc.text(`Window: last ${sinceDays}d (recent ${recentDays}d vs baseline ${baselineDays}d)`, 40, 66);
 
     autoTable(doc, {
-      startY: 100,
+      startY: 90,
       head: [['#', 'Stage', 'Count', 'Prev', 'Step Rate', '% of View']],
       body: funnelRows.map((r) => [r.idx, r.label, r.count, r.prev, r.stepRate, r.overall]),
       styles: { fontSize: 9 },
@@ -419,6 +595,16 @@ export default function PaywallAnalytics() {
       headStyles: { fillColor: [30, 30, 30] },
     });
 
+    // Page numbers
+    const pages = (doc as any).getNumberOfPages();
+    for (let i = 1; i <= pages; i++) {
+      doc.setPage(i);
+      doc.setFontSize(8);
+      doc.setTextColor(140);
+      doc.text(`${i} / ${pages}`, pageW - 60, pageH - 20);
+      doc.setTextColor(0);
+    }
+
     doc.save(`paywall-funnel-${reportStamp()}.pdf`);
   };
 
@@ -431,7 +617,7 @@ export default function PaywallAnalytics() {
           <div className="flex items-end justify-between">
             <div>
               <h1 className="text-2xl font-medium tracking-tight">Paywall 轉換分析</h1>
-              <p className="text-sm text-muted-foreground mt-1">最近 {SINCE_DAYS} 天｜以唯一使用者計算｜近窗 {RECENT_DAYS} 天 vs 基準 {BASELINE_DAYS} 天</p>
+              <p className="text-sm text-muted-foreground mt-1">最近 {sinceDays} 天｜以唯一使用者計算｜近窗 {recentDays} 天 vs 基準 {baselineDays} 天</p>
             </div>
             <div className="flex items-center gap-3">
               <button
@@ -457,6 +643,68 @@ export default function PaywallAnalytics() {
             </div>
           </div>
 
+          {/* 時間窗 preset + 步驟/告警過濾（套用於畫面與匯出） */}
+          <Card>
+            <CardContent className="py-3">
+              <div className="flex flex-wrap items-start gap-x-6 gap-y-3 text-xs">
+                <div className="flex items-center gap-2">
+                  <span className="text-muted-foreground">時間窗</span>
+                  <select
+                    value={presetId}
+                    onChange={(e) => setPresetId(e.target.value)}
+                    className="border rounded px-2 py-1 bg-background text-xs"
+                  >
+                    {WINDOW_PRESETS.map((p) => (
+                      <option key={p.id} value={p.id}>{p.label}</option>
+                    ))}
+                  </select>
+                </div>
+                <div className="flex items-center gap-2 flex-wrap">
+                  <span className="text-muted-foreground">漏斗步驟</span>
+                  {FUNNEL_KEYS.map((k) => {
+                    const checked = funnelFilter.has(k);
+                    return (
+                      <label key={k} className={`flex items-center gap-1 cursor-pointer px-1.5 py-0.5 rounded border ${checked ? 'border-primary bg-primary/10' : 'border-muted text-muted-foreground'}`}>
+                        <input
+                          type="checkbox"
+                          className="accent-primary"
+                          checked={checked}
+                          onChange={() => setFunnelFilter((s) => toggle(s, k))}
+                        />
+                        {k}
+                      </label>
+                    );
+                  })}
+                  <button onClick={() => setFunnelFilter(new Set(FUNNEL_KEYS))} className="underline text-muted-foreground ml-1">全選</button>
+                  <button onClick={() => setFunnelFilter(new Set())} className="underline text-muted-foreground">清除</button>
+                </div>
+                <div className="flex items-center gap-2 flex-wrap">
+                  <span className="text-muted-foreground">告警類型</span>
+                  {ALERT_KEYS.map((k) => {
+                    const checked = alertFilter.has(k);
+                    return (
+                      <label key={k} className={`flex items-center gap-1 cursor-pointer px-1.5 py-0.5 rounded border ${checked ? 'border-destructive bg-destructive/10' : 'border-muted text-muted-foreground'}`}>
+                        <input
+                          type="checkbox"
+                          className="accent-destructive"
+                          checked={checked}
+                          onChange={() => setAlertFilter((s) => toggle(s, k))}
+                        />
+                        {k}
+                      </label>
+                    );
+                  })}
+                  <button onClick={() => setAlertFilter(new Set(ALERT_KEYS))} className="underline text-muted-foreground ml-1">全選</button>
+                  <button onClick={() => setAlertFilter(new Set())} className="underline text-muted-foreground">清除</button>
+                </div>
+              </div>
+              <div className="text-[10px] text-muted-foreground mt-2">
+                過濾會套用到下方 CSV / PDF 匯出（PDF 第一頁含 Top 3 原因與行動建議）。畫面表格仍顯示全部內容以便比對。
+              </div>
+            </CardContent>
+          </Card>
+
+
           {/* 告警區 */}
           <Card>
             <CardHeader>
@@ -464,7 +712,7 @@ export default function PaywallAnalytics() {
                 {warnCount > 0 ? <AlertTriangle className="w-4 h-4 text-destructive" /> : <CheckCircle2 className="w-4 h-4 text-emerald-600" />}
                 步驟轉換告警
                 <span className="ml-auto text-xs font-normal text-muted-foreground">
-                  條件：近 {RECENT_DAYS} 天相對下滑 ≥ {(REL_DROP_THRESHOLD * 100).toFixed(0)}% 且絕對下滑 ≥ {(ABS_DROP_THRESHOLD * 100).toFixed(0)}pp（前一階段樣本 ≥ {MIN_SAMPLE}）
+                  條件：近 {recentDays} 天相對下滑 ≥ {(REL_DROP_THRESHOLD * 100).toFixed(0)}% 且絕對下滑 ≥ {(ABS_DROP_THRESHOLD * 100).toFixed(0)}pp（前一階段樣本 ≥ {MIN_SAMPLE}）
                 </span>
               </CardTitle>
             </CardHeader>
@@ -498,7 +746,7 @@ export default function PaywallAnalytics() {
                       {(stepSignals[a.key]?.length ?? 0) > 0 && (
                         <div className="rounded border border-destructive/40 bg-destructive/5 p-2">
                           <div className="text-[11px] mb-1 opacity-80 flex items-center gap-1">
-                            <Activity className="w-3 h-3" /> 同時間窗（近 {RECENT_DAYS}d vs 基準 {BASELINE_DAYS}d）相關訊號
+                            <Activity className="w-3 h-3" /> 同時間窗（近 {recentDays}d vs 基準 {baselineDays}d）相關訊號
                             {loadingSignals && <span className="ml-1 opacity-60">載入中…</span>}
                           </div>
                           <div className="grid grid-cols-1 sm:grid-cols-2 gap-1 text-[11px]">
@@ -522,7 +770,7 @@ export default function PaywallAnalytics() {
               {!loading && (
                 <div className="rounded border bg-muted/30 p-3">
                   <div className="text-xs font-medium mb-2 flex items-center gap-1">
-                    <Activity className="w-3.5 h-3.5" /> 相關訊號（近 {RECENT_DAYS}d vs 基準 {BASELINE_DAYS}d）
+                    <Activity className="w-3.5 h-3.5" /> 相關訊號（近 {recentDays}d vs 基準 {baselineDays}d）
                     {loadingSignals && <span className="ml-1 text-muted-foreground font-normal">載入中…</span>}
                   </div>
                   <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-2 text-xs">
@@ -556,8 +804,8 @@ export default function PaywallAnalytics() {
                     <thead>
                       <tr className="text-left border-b text-xs text-muted-foreground">
                         <th className="py-2 pr-4">步驟</th>
-                        <th className="py-2 pr-4 text-right">基準 {BASELINE_DAYS}d</th>
-                        <th className="py-2 pr-4 text-right">近 {RECENT_DAYS}d</th>
+                        <th className="py-2 pr-4 text-right">基準 {baselineDays}d</th>
+                        <th className="py-2 pr-4 text-right">近 {recentDays}d</th>
                         <th className="py-2 pr-4 text-right">變化</th>
                         <th className="py-2 text-right">狀態</th>
                       </tr>
@@ -593,7 +841,7 @@ export default function PaywallAnalytics() {
             <CardHeader>
               <CardTitle className="flex items-center gap-2 text-base">
                 <TrendingUp className="w-4 h-4" />
-                轉換漏斗（全期 {SINCE_DAYS} 天）
+                轉換漏斗（全期 {sinceDays} 天）
                 <span className="ml-auto text-xs font-normal text-muted-foreground">
                   整體轉換率（view → 訂閱）：<span className="text-foreground font-medium tabular-nums">{(overallRate * 100).toFixed(2)}%</span>
                 </span>
@@ -644,7 +892,7 @@ export default function PaywallAnalytics() {
             </CardHeader>
             <CardContent>
               {loadingEvents && <div className="text-sm text-muted-foreground">載入中…</div>}
-              {!loadingEvents && summary.length === 0 && <div className="text-sm text-muted-foreground">最近 {SINCE_DAYS} 天尚無資料</div>}
+              {!loadingEvents && summary.length === 0 && <div className="text-sm text-muted-foreground">最近 {sinceDays} 天尚無資料</div>}
               {!loadingEvents && summary.length > 0 && (
                 <div className="overflow-x-auto">
                   <table className="w-full text-sm">
