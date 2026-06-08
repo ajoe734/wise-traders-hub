@@ -1,5 +1,7 @@
-import React from 'react';
+import React, { useEffect } from 'react';
 import { validateProps } from './_validateProps';
+import { trackPaywall } from '@/lib/paywallTracking';
+
 
 /**
  * Props schema 與 EVENTS_TAB_PROP_SCHEMA 同款 dev-time 守門。
