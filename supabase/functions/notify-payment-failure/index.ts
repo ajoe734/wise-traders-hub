@@ -143,12 +143,18 @@ const handler = withLogging("notify-payment-failure", async (req, log) => {
   if (userEmail) {
     const resendKey = Deno.env.get("RESEND_API_KEY");
     if (resendKey) {
-      const { subject, html } = buildPaymentFailureEmail(planName, expertName, amount, isRenewal);
+      const siteUrl = (Deno.env.get("SITE_URL") || "https://legendflow.tw").replace(/\/$/, "");
+      const retryUrls = expertSlug ? {
+        ecpay: `${siteUrl}/${expertSlug}/checkout?plan=${planId}&method=ecpay&utm_source=retry`,
+        linepay: `${siteUrl}/${expertSlug}/checkout?plan=${planId}&method=linepay&utm_source=retry`,
+        remittance: `${siteUrl}/${expertSlug}/checkout?plan=${planId}&method=remittance&utm_source=retry`,
+      } : undefined;
+      const { subject, html } = buildPaymentFailureEmail(planName, expertName, amount, isRenewal, retryUrls);
       const emailRes = await fetch(RESEND_API_URL, {
         method: "POST",
         headers: { "Content-Type": "application/json", Authorization: `Bearer ${resendKey}` },
         body: JSON.stringify({
-          from: "WiseTraders <noreply@wisetraders.tw>",
+          from: "legendflow <noreply@legendflow.tw>",
           to: [userEmail], subject, html,
         }),
       });
