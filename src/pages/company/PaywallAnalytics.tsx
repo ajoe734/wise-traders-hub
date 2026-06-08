@@ -6,7 +6,12 @@ import { Badge } from '@/components/ui/badge';
 import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert';
 import { supabase } from '@/integrations/supabase/client';
 import { useQuery } from '@tanstack/react-query';
-import { TrendingUp, TrendingDown, ArrowRight, AlertTriangle, CheckCircle2 } from 'lucide-react';
+import { TrendingUp, TrendingDown, ArrowRight, AlertTriangle, CheckCircle2, Activity } from 'lucide-react';
+
+// 哪些 fn 視為「金流 / webhook」相關
+const WEBHOOK_FN_PATTERNS = ['webhook', 'callback', 'notify-payment', 'verify-payment', 'ecpay', 'linepay', 'acpay', 'remittance'];
+// 哪些 payment_intents.status 視為失敗
+const CHECKOUT_FAIL_STATUSES = new Set(['failed', 'cancelled', 'canceled', 'abandoned', 'expired', 'error']);
 
 // W4-4 Paywall analytics — 完整漏斗 + 步驟級下滑告警
 
