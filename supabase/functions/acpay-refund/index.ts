@@ -47,10 +47,16 @@ const handler = withLogging("acpay-refund", async (req, log) => {
   if (userError || !userData?.user) return jsonResponse({ error: "Unauthorized" }, { status: 401 });
   const userId = userData.user.id;
 
-  const { subscription_id, refund_amount, remaining_months, original_amount, monthly_price } = await req.json();
-  if (!subscription_id || refund_amount === undefined) {
-    return jsonResponse({ error: "Missing required fields" }, { status: 400 });
-  }
+  const body = await req.json();
+  const { subscription_id, refund_amount, remaining_months, original_amount, monthly_price } = body;
+  const issues = validateInput({
+    fields: {
+      subscription_id: { required: true, type: 'string', label: 'subscription_id' },
+      refund_amount: { required: true, type: 'number', acceptTypes: ['string'], label: 'refund_amount' },
+    },
+    source: body,
+  });
+  if (issues.length) return validationJsonResponse(issues);
 
   const merchantNo = Deno.env.get("ACPAY_MERCHANT_NO")!;
   const merchantKey = Deno.env.get("ACPAY_MERCHANT_KEY")!;

@@ -2,6 +2,7 @@ import { jsonResponse } from "../_shared/cors.ts";
 import { serviceClient } from "../_shared/supabaseClients.ts";
 import { withLogging } from "../_shared/edgeLogger.ts";
 import { validateExpertOrderAmount } from "../_shared/orderAmountValidator.ts";
+import { validateInput, validationJsonResponse } from "../_shared/inputValidator.ts";
 
 async function hmacSha256Base64(secret: string, message: string): Promise<string> {
   const encoder = new TextEncoder();
@@ -12,15 +13,24 @@ async function hmacSha256Base64(secret: string, message: string): Promise<string
 }
 
 const handler = withLogging("create-linepay-order", async (req, log) => {
+  const body = await req.json();
   const {
     planId, billingCycle, slug, amount, planName, expertName, origin,
     userId, originalAmount, discountAmount, discountReason, attribution, expertId,
     upgradeFromSubscriptionId,
-  } = await req.json();
+  } = body;
 
-  if (!planId || !billingCycle || !slug || !amount || !origin) {
-    return jsonResponse({ error: "Missing required fields" }, { status: 400 });
-  }
+  const issues = validateInput({
+    fields: {
+      planId: { required: true, type: 'string', label: 'planId' },
+      billingCycle: { required: true, type: 'string', oneOf: ['monthly', 'yearly'], label: 'billingCycle' },
+      slug: { required: true, type: 'string', label: 'slug' },
+      amount: { required: true, type: 'number', acceptTypes: ['string'], label: 'amount' },
+      origin: { required: true, type: 'string', label: 'origin' },
+    },
+    source: body,
+  });
+  if (issues.length) return validationJsonResponse(issues);
 
   const sbAdmin = serviceClient();
   const amt = Number(amount);

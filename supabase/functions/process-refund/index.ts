@@ -2,6 +2,7 @@ import { jsonResponse } from "../_shared/cors.ts";
 import { serviceClient, userClient } from "../_shared/supabaseClients.ts";
 import { withLogging } from "../_shared/edgeLogger.ts";
 import { processRefundInDB } from "../_shared/refundProcessor.ts";
+import { validateInput, validationJsonResponse } from "../_shared/inputValidator.ts";
 
 const handler = withLogging("process-refund", async (req, log) => {
   const authHeader = req.headers.get("Authorization");
@@ -12,11 +13,17 @@ const handler = withLogging("process-refund", async (req, log) => {
   if (userError || !userData?.user) return jsonResponse({ error: "Unauthorized" }, { status: 401 });
   const userId = userData.user.id;
 
-  const { subscription_id, refund_amount, remaining_months, original_amount, monthly_price } = await req.json();
-  if (!subscription_id || refund_amount === undefined) {
-    return jsonResponse({ error: "Missing required fields" }, { status: 400 });
-  }
-  if (refund_amount < 0) return jsonResponse({ error: "Invalid refund amount" }, { status: 400 });
+  const body = await req.json();
+  const { subscription_id, refund_amount, remaining_months, original_amount, monthly_price } = body;
+  const issues = validateInput({
+    fields: {
+      subscription_id: { required: true, type: 'string', label: 'subscription_id' },
+      refund_amount: { required: true, type: 'number', acceptTypes: ['string'], label: 'refund_amount' },
+    },
+    source: body,
+  });
+  if (issues.length) return validationJsonResponse(issues);
+  if (Number(refund_amount) < 0) return jsonResponse({ error: "Invalid refund amount" }, { status: 400 });
 
   const adminClient = serviceClient();
   const { data: sub, error: subError } = await adminClient

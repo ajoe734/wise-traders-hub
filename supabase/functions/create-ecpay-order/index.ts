@@ -3,6 +3,7 @@ import { serviceClient } from "../_shared/supabaseClients.ts";
 import { withLogging } from "../_shared/edgeLogger.ts";
 import { loadEcpayCreds } from "../_shared/ecpayCredentials.ts";
 import { validateExpertOrderAmount } from "../_shared/orderAmountValidator.ts";
+import { validateInput, validationJsonResponse } from "../_shared/inputValidator.ts";
 
 async function generateCheckMacValueAsync(
   params: Record<string, string>, hashKey: string, hashIV: string,
@@ -29,9 +30,17 @@ const handler = withLogging("create-ecpay-order", async (req, log) => {
     upgradeFromSubscriptionId,
   } = body;
 
-  if (!planId || !billingCycle || !slug || !amount || !origin) {
-    return jsonResponse({ error: "Missing required fields" }, { status: 400 });
-  }
+  const issues = validateInput({
+    fields: {
+      planId: { required: true, type: 'string', label: 'planId' },
+      billingCycle: { required: true, type: 'string', oneOf: ['monthly', 'yearly'], label: 'billingCycle' },
+      slug: { required: true, type: 'string', label: 'slug' },
+      amount: { required: true, type: 'number', acceptTypes: ['string'], label: 'amount' },
+      origin: { required: true, type: 'string', label: 'origin' },
+    },
+    source: body,
+  });
+  if (issues.length) return validationJsonResponse(issues);
 
   const credsClient = serviceClient();
   const validation = await validateExpertOrderAmount({
