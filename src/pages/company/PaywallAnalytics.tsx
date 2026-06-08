@@ -24,12 +24,29 @@ interface PaywallRow {
   created_at: string;
 }
 
-const SINCE_DAYS = 30;
-const RECENT_DAYS = 7;            // 近窗：最近 7 天
-const BASELINE_DAYS = SINCE_DAYS - RECENT_DAYS; // 基準：前 23 天
+// 預設視窗
+const DEFAULT_SINCE_DAYS = 30;
+const DEFAULT_RECENT_DAYS = 7;
 const REL_DROP_THRESHOLD = 0.2;   // 相對下滑 ≥ 20%
 const ABS_DROP_THRESHOLD = 0.02;  // 絕對下滑 ≥ 2pp
 const MIN_SAMPLE = 30;            // 近窗該步驟前一階段樣本 ≥ 30 才告警，避免雜訊
+
+// 時間窗 preset
+type Preset = { id: string; label: string; since: number; recent: number };
+const WINDOW_PRESETS: Preset[] = [
+  { id: '7-3', label: '7d / recent 3d', since: 7, recent: 3 },
+  { id: '14-7', label: '14d / recent 7d', since: 14, recent: 7 },
+  { id: '30-7', label: '30d / recent 7d', since: 30, recent: 7 },
+  { id: '60-14', label: '60d / recent 14d', since: 60, recent: 14 },
+  { id: '90-30', label: '90d / recent 30d', since: 90, recent: 30 },
+];
+
+// 漏斗階段 key（固定順序，匯出時據此過濾）
+const FUNNEL_KEYS = ['view', 'hit_limit', 'click_upgrade', 'checkout', 'subscribed'] as const;
+type FunnelKey = (typeof FUNNEL_KEYS)[number];
+// 告警步驟 key
+const ALERT_KEYS = ['hit_limit', 'click_upgrade', 'checkout', 'subscribed'] as const;
+type AlertKey = (typeof ALERT_KEYS)[number];
 
 // 各步驟對應的可能原因提示
 const STEP_REASONS: Record<string, string[]> = {
