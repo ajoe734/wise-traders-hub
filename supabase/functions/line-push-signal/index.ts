@@ -184,18 +184,29 @@ function buildFlexMessage(rawSignal: any, type: 'publish' | 'takedown' | 'update
     )
   }
 
+  const footerButtons: any[] = [
+    {
+      type: 'button',
+      action: { type: 'clipboard', label: '📋 一鍵複製', clipboardText: copyText },
+      style: 'secondary',
+      height: 'sm',
+      color: '#F0F0F0',
+    },
+  ]
+  // R4: 加上「查看詳情」URI 按鈕（指向 share-og，crawler 抓 OG／人類跳回 in-app）
+  if (shareUrl) {
+    footerButtons.unshift({
+      type: 'button',
+      action: { type: 'uri', label: '🔗 查看詳情', uri: shareUrl },
+      style: 'primary',
+      height: 'sm',
+      color: color,
+    })
+  }
   const footer = {
     type: 'box',
     layout: 'vertical',
-    contents: [
-      {
-        type: 'button',
-        action: { type: 'clipboard', label: '📋 一鍵複製', clipboardText: copyText },
-        style: 'secondary',
-        height: 'sm',
-        color: '#F0F0F0',
-      },
-    ],
+    contents: footerButtons,
     spacing: 'sm',
     paddingAll: 'lg',
   }
