@@ -115,13 +115,17 @@ Deno.serve(withLogging('line-push-renewal-reminder', async (req) => {
       const lower = new Date(now.getTime() + d * 24 * 60 * 60 * 1000)
       const upper = new Date(now.getTime() + (d + 1) * 24 * 60 * 60 * 1000)
 
-      const { data: subs, error } = await supabaseAdmin
+      // W4-1: T+1 召回需查 expired 訂閱（已被 expire-subscriptions cron 設為 expired）
+      const targetStatus = d < 0 ? 'expired' : 'active'
+      const query = supabaseAdmin
         .from('member_subscriptions')
         .select('id, user_id, plan_id, expires_at, canceled_at, expert_plans!inner(id, expert_id, name, price_monthly, experts!inner(id, name, slug))')
-        .eq('status', 'active')
+        .eq('status', targetStatus)
         .is('canceled_at', null)
         .gte('expires_at', lower.toISOString())
         .lt('expires_at', upper.toISOString())
+
+      const { data: subs, error } = await query
 
       if (error) {
         console.error(`Query error for ${d}d window:`, error.message)
