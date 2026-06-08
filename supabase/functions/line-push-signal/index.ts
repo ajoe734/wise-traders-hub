@@ -4,6 +4,11 @@ import { createClient } from 'https://esm.sh/@supabase/supabase-js@2.49.1'
 
 const LINE_MULTICAST_URL = 'https://api.line.me/v2/bot/message/multicast'
 
+// R4: share-og 公開預覽 URL（crawler 抓 OG，人類自動跳回 in-app URL）
+const SHARE_OG_BASE = `${Deno.env.get('SUPABASE_URL') || ''}/functions/v1/share-og`
+const buildSignalShareUrl = (id: string) => `${SHARE_OG_BASE}/signal/${encodeURIComponent(id)}`
+const buildJournalShareUrl = (id: string) => `${SHARE_OG_BASE}/journal/${encodeURIComponent(id)}`
+
 // 把 TipTap HTML 轉純文字（LINE Flex text 節點不接受 HTML 標籤）
 function htmlToText(s: any): string {
   if (s == null) return ''
@@ -100,6 +105,9 @@ function buildFlexMessage(rawSignal: any, type: 'publish' | 'takedown' | 'update
   if (signal.reason_detail) copyLines.push(`\n◉ 部位控管想法：\n${signal.reason_detail}`)
   if (signal.risk_notes) copyLines.push(`\n⚠️ 風險提醒：\n${signal.risk_notes}`)
   if (signal.learning_points) copyLines.push(`\n🎯 教學重點：\n${signal.learning_points}`)
+  // R4: 把 share-og 連結附在純文字尾端（複製出去也帶得走 OG 預覽）
+  const shareUrl = signal.id ? buildSignalShareUrl(signal.id) : null
+  if (shareUrl) copyLines.push(`\n🔗 查看詳情：${shareUrl}`)
   const copyText = copyLines.join('\n')
 
   const bodyContents: any[] = []
@@ -176,18 +184,29 @@ function buildFlexMessage(rawSignal: any, type: 'publish' | 'takedown' | 'update
     )
   }
 
+  const footerButtons: any[] = [
+    {
+      type: 'button',
+      action: { type: 'clipboard', label: '📋 一鍵複製', clipboardText: copyText },
+      style: 'secondary',
+      height: 'sm',
+      color: '#F0F0F0',
+    },
+  ]
+  // R4: 加上「查看詳情」URI 按鈕（指向 share-og，crawler 抓 OG／人類跳回 in-app）
+  if (shareUrl) {
+    footerButtons.unshift({
+      type: 'button',
+      action: { type: 'uri', label: '🔗 查看詳情', uri: shareUrl },
+      style: 'primary',
+      height: 'sm',
+      color: color,
+    })
+  }
   const footer = {
     type: 'box',
     layout: 'vertical',
-    contents: [
-      {
-        type: 'button',
-        action: { type: 'clipboard', label: '📋 一鍵複製', clipboardText: copyText },
-        style: 'secondary',
-        height: 'sm',
-        color: '#F0F0F0',
-      },
-    ],
+    contents: footerButtons,
     spacing: 'sm',
     paddingAll: 'lg',
   }

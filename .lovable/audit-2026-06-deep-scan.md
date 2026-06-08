@@ -872,3 +872,26 @@ Warning 從 34 降到 28（剩餘皆為 by design + pg_trgm 維護視窗待排�
 - 成本控制：log 表有明確 retention + 一鍵 / cron 可清
 - 透明化：每次清理寫 `system_jobs_log`，下次重整 OpsHealth 即可看到結果
 
+
+---
+
+## 2026-06-08 Wave 2 — R4 ShareButton 推廣到 LINE 推播
+
+### 範圍評估
+- **line-push-signal**：✅ 高價值，已整合
+- **announcements**：純 admin 後台頁，不對外曝光 → 略過
+- **個人收藏匯出**：codebase grep 無此 feature → 不適用
+
+### 變更：line-push-signal Flex 訊息
+- `buildFlexMessage()` 在 signal.id 存在時：
+  - 純文字 `copyText` 尾端追加「🔗 查看詳情：{share-og URL}」
+  - footer 多一個 primary URI 按鈕「🔗 查看詳情」指向 `share-og/signal/{id}`
+- 影響：publish / update / 單 signal mode（preview, standard, 但 takedown 無 footer 故不變）
+- batch carousel 暫不調整（journal share-og 用 single id 而非 batch_id，需另設計）
+
+### Files Edited
+- `supabase/functions/line-push-signal/index.ts`
+
+### 結果
+- LINE 訂閱者收到推播時可直接點按鈕跳轉公開預覽頁 → 自動跳回 in-app
+- 純文字複製出去到其他通訊軟體 / 社群時，URL 會帶 OG 預覽 → 解開 share-og ROI
