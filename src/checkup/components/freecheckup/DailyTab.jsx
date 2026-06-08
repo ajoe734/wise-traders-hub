@@ -1,6 +1,7 @@
 import React, { Suspense, lazy } from 'react';
 import { validateProps } from './_validateProps';
 import { formatTaipeiYMD } from '@/checkup/utils/formatTaipeiDate';
+import { trackPaywall } from '@/lib/paywallTracking';
 
 const Md = lazy(() => import('@/checkup/components/Md'));
 
