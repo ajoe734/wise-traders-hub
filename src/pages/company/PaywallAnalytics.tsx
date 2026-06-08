@@ -311,6 +311,118 @@ export default function PaywallAnalytics() {
     hit_limit: [],
   };
 
+  const reportStamp = () => {
+    const d = new Date();
+    const pad = (n: number) => String(n).padStart(2, '0');
+    return `${d.getFullYear()}${pad(d.getMonth() + 1)}${pad(d.getDate())}-${pad(d.getHours())}${pad(d.getMinutes())}`;
+  };
+
+  const buildReportRows = () => {
+    const funnelRows = funnel.map((s, i) => {
+      const stepRate = s.prev && s.prev > 0 ? `${((s.count / s.prev) * 100).toFixed(1)}%` : '';
+      const overall = funnel[0].count > 0 ? `${((s.count / funnel[0].count) * 100).toFixed(2)}%` : '';
+      return { idx: i + 1, label: s.label, count: s.count, prev: s.prev ?? '', stepRate, overall };
+    });
+    const alertRows = alerts.map((a) => ({
+      key: a.key,
+      label: a.label,
+      baseline: fmtRate(a.baseRate),
+      baselineFrac: `${a.baseNum}/${a.baseDen}`,
+      recent: fmtRate(a.recentRate),
+      recentFrac: `${a.recentNum}/${a.recentDen}`,
+      absDropPp: a.recentRate !== null && a.baseRate !== null ? ((a.recentRate - a.baseRate) * 100).toFixed(1) : '',
+      relDropPct: a.status === 'warn' ? (a.relDrop * 100).toFixed(1) : '',
+      status: a.status,
+    }));
+    const signalRows = [
+      { metric: '金流 Webhook 失敗率', baseline: fmtRate(sig.webhookBaseline), baselineFrac: `${sig.webhookBN}/${sig.webhookBD}`, recent: fmtRate(sig.webhookRecent), recentFrac: `${sig.webhookRN}/${sig.webhookRD}` },
+      { metric: 'Checkout 錯誤率', baseline: fmtRate(sig.checkoutBaseline), baselineFrac: `${sig.checkoutBN}/${sig.checkoutBD}`, recent: fmtRate(sig.checkoutRecent), recentFrac: `${sig.checkoutRN}/${sig.checkoutRD}` },
+      { metric: '路由 404 事件', baseline: String(sig.r404Baseline), baselineFrac: '', recent: String(sig.r404Recent), recentFrac: '' },
+      { metric: '路由 500 事件', baseline: String(sig.r500Baseline), baselineFrac: '', recent: String(sig.r500Recent), recentFrac: '' },
+    ];
+    return { funnelRows, alertRows, signalRows };
+  };
+
+  const exportCsv = () => {
+    const { funnelRows, alertRows, signalRows } = buildReportRows();
+    const esc = (v: unknown) => {
+      const s = v === null || v === undefined ? '' : String(v);
+      return /[",\n]/.test(s) ? `"${s.replace(/"/g, '""')}"` : s;
+    };
+    const lines: string[] = [];
+    lines.push(`Paywall 漏斗告警報表`);
+    lines.push(`產出時間,${new Date().toISOString()}`);
+    lines.push(`觀察區間,最近 ${SINCE_DAYS} 天 (近窗 ${RECENT_DAYS}d vs 基準 ${BASELINE_DAYS}d)`);
+    lines.push('');
+    lines.push('# 轉換漏斗');
+    lines.push(['階段', '名稱', '人數', '前一階段', '上一步轉換', '佔曝光'].join(','));
+    funnelRows.forEach((r) => lines.push([r.idx, r.label, r.count, r.prev, r.stepRate, r.overall].map(esc).join(',')));
+    lines.push('');
+    lines.push('# 步驟告警');
+    lines.push(['步驟', '基準率', '基準分子/分母', '近窗率', '近窗分子/分母', '絕對變化(pp)', '相對下滑(%)', '狀態'].join(','));
+    alertRows.forEach((r) => lines.push([r.label, r.baseline, r.baselineFrac, r.recent, r.recentFrac, r.absDropPp, r.relDropPct, r.status].map(esc).join(',')));
+    lines.push('');
+    lines.push('# 相關訊號（同時間窗）');
+    lines.push(['指標', '基準', '基準分子/分母', '近窗', '近窗分子/分母'].join(','));
+    signalRows.forEach((r) => lines.push([r.metric, r.baseline, r.baselineFrac, r.recent, r.recentFrac].map(esc).join(',')));
+
+    const blob = new Blob(['\uFEFF' + lines.join('\n')], { type: 'text/csv;charset=utf-8;' });
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement('a');
+    a.href = url;
+    a.download = `paywall-funnel-${reportStamp()}.csv`;
+    document.body.appendChild(a);
+    a.click();
+    document.body.removeChild(a);
+    URL.revokeObjectURL(url);
+  };
+
+  const exportPdf = async () => {
+    const [{ default: jsPDF }, autoTableMod] = await Promise.all([
+      import('jspdf'),
+      import('jspdf-autotable'),
+    ]);
+    const autoTable = (autoTableMod as any).default ?? (autoTableMod as any);
+    const { funnelRows, alertRows, signalRows } = buildReportRows();
+    const doc = new jsPDF({ unit: 'pt', format: 'a4' });
+    doc.setFontSize(16);
+    doc.text('Paywall Funnel & Alert Report', 40, 48);
+    doc.setFontSize(10);
+    doc.text(`Generated: ${new Date().toISOString()}`, 40, 66);
+    doc.text(`Window: last ${SINCE_DAYS}d (recent ${RECENT_DAYS}d vs baseline ${BASELINE_DAYS}d)`, 40, 80);
+
+    autoTable(doc, {
+      startY: 100,
+      head: [['#', 'Stage', 'Count', 'Prev', 'Step Rate', '% of View']],
+      body: funnelRows.map((r) => [r.idx, r.label, r.count, r.prev, r.stepRate, r.overall]),
+      styles: { fontSize: 9 },
+      headStyles: { fillColor: [30, 30, 30] },
+    });
+    autoTable(doc, {
+      startY: (doc as any).lastAutoTable.finalY + 20,
+      head: [['Step', 'Baseline', 'B (n/d)', 'Recent', 'R (n/d)', 'Abs Δ (pp)', 'Rel Drop %', 'Status']],
+      body: alertRows.map((r) => [r.label, r.baseline, r.baselineFrac, r.recent, r.recentFrac, r.absDropPp, r.relDropPct, r.status]),
+      styles: { fontSize: 9 },
+      headStyles: { fillColor: [30, 30, 30] },
+      didParseCell: (data: any) => {
+        if (data.section === 'body' && data.column.index === 7 && data.cell.raw === 'warn') {
+          data.cell.styles.textColor = [200, 30, 30];
+          data.cell.styles.fontStyle = 'bold';
+        }
+      },
+    });
+    autoTable(doc, {
+      startY: (doc as any).lastAutoTable.finalY + 20,
+      head: [['Signal', 'Baseline', 'B (n/d)', 'Recent', 'R (n/d)']],
+      body: signalRows.map((r) => [r.metric, r.baseline, r.baselineFrac, r.recent, r.recentFrac]),
+      styles: { fontSize: 9 },
+      headStyles: { fillColor: [30, 30, 30] },
+    });
+
+    doc.save(`paywall-funnel-${reportStamp()}.pdf`);
+  };
+
+
   return (
     <>
       <SEO title="Paywall 轉換分析 | legendflow 後台" description="Paywall 漏斗：曝光、觸限、點擊、結帳、訂閱成功，含步驟下滑告警" />
@@ -321,12 +433,28 @@ export default function PaywallAnalytics() {
               <h1 className="text-2xl font-medium tracking-tight">Paywall 轉換分析</h1>
               <p className="text-sm text-muted-foreground mt-1">最近 {SINCE_DAYS} 天｜以唯一使用者計算｜近窗 {RECENT_DAYS} 天 vs 基準 {BASELINE_DAYS} 天</p>
             </div>
-            <button
-              onClick={() => { refetchEvents(); refetchDown(); refetchSignals(); }}
-              className="text-xs text-muted-foreground underline"
-            >
-              重新整理
-            </button>
+            <div className="flex items-center gap-3">
+              <button
+                onClick={() => exportCsv()}
+                className="text-xs text-muted-foreground underline disabled:opacity-40"
+                disabled={loading || loadingSignals}
+              >
+                匯出 CSV
+              </button>
+              <button
+                onClick={() => exportPdf()}
+                className="text-xs text-muted-foreground underline disabled:opacity-40"
+                disabled={loading || loadingSignals}
+              >
+                匯出 PDF
+              </button>
+              <button
+                onClick={() => { refetchEvents(); refetchDown(); refetchSignals(); }}
+                className="text-xs text-muted-foreground underline"
+              >
+                重新整理
+              </button>
+            </div>
           </div>
 
           {/* 告警區 */}
