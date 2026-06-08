@@ -38,6 +38,7 @@ const navItems = [
   { path: '/company/perf-metrics', icon: Gauge, label: '前台效能' },
   { path: '/company/traffic', icon: Activity, label: '流量監控' },
   { path: '/company/ops-health', icon: Gauge, label: '後端健康/成本' },
+  { path: '/company/paywall-analytics', icon: BarChart3, label: 'Paywall 轉換' },
 ];
 
 
