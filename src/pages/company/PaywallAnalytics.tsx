@@ -321,12 +321,28 @@ export default function PaywallAnalytics() {
               <h1 className="text-2xl font-medium tracking-tight">Paywall 轉換分析</h1>
               <p className="text-sm text-muted-foreground mt-1">最近 {SINCE_DAYS} 天｜以唯一使用者計算｜近窗 {RECENT_DAYS} 天 vs 基準 {BASELINE_DAYS} 天</p>
             </div>
-            <button
-              onClick={() => { refetchEvents(); refetchDown(); refetchSignals(); }}
-              className="text-xs text-muted-foreground underline"
-            >
-              重新整理
-            </button>
+            <div className="flex items-center gap-3">
+              <button
+                onClick={() => exportCsv()}
+                className="text-xs text-muted-foreground underline disabled:opacity-40"
+                disabled={loading || loadingSignals}
+              >
+                匯出 CSV
+              </button>
+              <button
+                onClick={() => exportPdf()}
+                className="text-xs text-muted-foreground underline disabled:opacity-40"
+                disabled={loading || loadingSignals}
+              >
+                匯出 PDF
+              </button>
+              <button
+                onClick={() => { refetchEvents(); refetchDown(); refetchSignals(); }}
+                className="text-xs text-muted-foreground underline"
+              >
+                重新整理
+              </button>
+            </div>
           </div>
 
           {/* 告警區 */}
