@@ -821,6 +821,54 @@ Warning 從 34 降到 28（剩餘皆為 by design + pg_trgm 維護視窗待排�
 - **路由 / nav**：掛 `/company/ops-health` + CompanyLayout sidebar 入口
 
 ### 後續可加項目（未做）
-- traffic_ingest PII 清洗（IP 雜湊）
 - Cold-start 量測（需要 edge function 內部 boot timestamp）
-- 自動清理 cron（目前只顯示建議，未動手清；可再加 `cleanup-ops-logs` cron）
+- 真正 SSR/prerender（in-app URL 直接可被 crawler 抓）
+
+---
+
+## Wave 1 — R1 PII 清洗 + R2 自動清理 — 2026-06-08
+
+### R1 PII 清洗
+掃描結論：實際表中**並無 raw IP 與完整 UA**，唯一 PII 風險是 `traffic_visits.first_referrer` 存完整 referrer URL（可能含 query string 內的 token / session id）。
+
+修補（migration `20260608071112`）：
+- `public.strip_referrer_query(text)`：immutable function，剝除 `?` 之後所有字元
+- `traffic_visits_sanitize_referrer()` BEFORE INSERT/UPDATE trigger：對 `first_referrer` 自動套用
+- 一次性 backfill：歷史含 `?` 的 row 全部清洗
+- `traffic_events` / `perf_metrics`：本來就只存 `referrer_host` / `ua_kind`，**無 PII**，不動
+
+### R2 自動清理 cron
+- **新增** `supabase/functions/cleanup-ops-logs/index.ts`
+  - 保留策略：function_run_logs 30d / system_jobs_log 90d / audit_logs 365d（法遵）/ perf_metrics 14d / traffic_events 30d
+  - 分批 DELETE：每批 5000 筆，每表最多 50 輪（25 萬筆/表/run 上限），避免長 lock + OOM
+  - 雙重 auth：(A) `x-cron-secret` 對應 `DATA_UPSERT_API_KEY`（pg_cron 用）/ (B) `company_admin` JWT（UI 手動觸發用）
+  - 每次跑完寫一筆 `system_jobs_log`（job_name=`cleanup-ops-logs`，detail 帶各表 deleted/cutoff/loops）
+- **OpsHealth UI**：「立即執行清理」按鈕（admin 點按用 JWT 走 mode B），含確認彈窗、清理進度 toast 與自動 refetch
+- **pg_cron 自動排程（待用戶手動排）**：須由用戶在 SQL editor 跑下列指令（含 DATA_UPSERT_API_KEY 值，不適合 commit 進 migration）：
+  ```sql
+  SELECT cron.schedule(
+    'cleanup-ops-logs-daily',
+    '0 20 * * *', -- 04:00 Asia/Taipei = 20:00 UTC（避開交易時段）
+    $$
+    SELECT net.http_post(
+      url := 'https://yqacmrgdjlenbijclngi.supabase.co/functions/v1/cleanup-ops-logs',
+      headers := jsonb_build_object(
+        'Content-Type', 'application/json',
+        'x-cron-secret', '<DATA_UPSERT_API_KEY 實際值>'
+      ),
+      body := '{}'::jsonb
+    );
+    $$
+  );
+  ```
+
+### Files Edited / Added
+- 新增 migration：`20260608071112_*.sql`
+- 新增：`supabase/functions/cleanup-ops-logs/index.ts`
+- 編輯：`src/pages/company/OpsHealth.tsx`（加手動清理按鈕）
+
+### 結果
+- PII 風險：referrer query string 不再進 DB
+- 成本控制：log 表有明確 retention + 一鍵 / cron 可清
+- 透明化：每次清理寫 `system_jobs_log`，下次重整 OpsHealth 即可看到結果
+
