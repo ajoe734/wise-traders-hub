@@ -45,9 +45,18 @@ Deno.serve(withLogging('traffic-ingest', async (req) => {
   const supabase = serviceClient();
   const userId = await getCallerUserId(req);
 
+  // Validate envelope: kind + visitor_id required, the rest validated per-branch
+  const { validateInput, validationJsonResponse } = await import('../_shared/inputValidator.ts');
+  const issues = validateInput({
+    fields: {
+      kind: { required: true, type: 'string', label: 'kind', oneOf: ['visit', 'event'] },
+      visitor_id: { required: true, type: 'string', label: 'visitor_id', minLength: 1 },
+    },
+    source: body,
+  });
+  if (issues.length) return validationJsonResponse(issues);
   const kind = String(body.kind || '');
-  const visitor_id = typeof body.visitor_id === 'string' ? body.visitor_id.slice(0, 128) : '';
-  if (!visitor_id) return jsonResponse({ ok: false, error: 'visitor_id_required' });
+  const visitor_id = (body.visitor_id as string).slice(0, 128);
 
   try {
     if (kind === 'visit') {

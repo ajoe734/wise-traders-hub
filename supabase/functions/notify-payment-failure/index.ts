@@ -2,6 +2,7 @@ import { jsonResponse } from "../_shared/cors.ts";
 import { serviceClient } from "../_shared/supabaseClients.ts";
 import { withLogging } from "../_shared/edgeLogger.ts";
 import { recordPaymentFailureInDB } from "../_shared/subscriptionRenewal.ts";
+import { validateInput, validationJsonResponse } from "../_shared/inputValidator.ts";
 
 const LINE_PUSH_URL = "https://api.line.me/v2/bot/message/push";
 const RESEND_API_URL = "https://api.resend.com/emails";
@@ -73,8 +74,19 @@ function buildPaymentFailureEmail(planName: string, expertName: string, amount: 
 }
 
 const handler = withLogging("notify-payment-failure", async (req, log) => {
-  const { userId, planId, amount, provider, errorDetail } = (await req.json()) as NotifyPayload;
-  if (!userId || !planId) return jsonResponse({ error: "Missing userId or planId" }, { status: 400 });
+  const payload = (await req.json()) as NotifyPayload;
+  const issues = validateInput({
+    fields: {
+      userId: { required: true, type: 'string', label: 'userId' },
+      planId: { required: true, type: 'string', label: 'planId' },
+      amount: { required: true, type: 'number', acceptTypes: ['string'], label: 'amount' },
+      provider: { required: true, type: 'string', label: 'provider', oneOf: ['ecpay', 'linepay', 'acpay', 'remittance'] },
+      errorDetail: { required: false, type: 'string', label: 'errorDetail' },
+    },
+    source: payload,
+  });
+  if (issues.length) return validationJsonResponse(issues);
+  const { userId, planId, amount, provider, errorDetail } = payload;
 
   const supabase = serviceClient();
 

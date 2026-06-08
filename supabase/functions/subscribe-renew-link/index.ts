@@ -3,6 +3,7 @@ import { createClient } from "https://esm.sh/@supabase/supabase-js@2.49.1";
 import { corsHeaders } from '../_shared/cors.ts';
 import { serviceClient } from '../_shared/supabaseClients.ts';
 import { withLogging } from '../_shared/edgeLogger.ts';
+import { validateInput, validationJsonResponse } from '../_shared/inputValidator.ts';
 // 手動續訂短連結：以 HMAC token 驗證 → 302 重導到正確 checkout 頁。
 // 用於 LINE / Email 提醒，避免直接洩漏 plan_id 與 user_id 組合。
 //
@@ -69,13 +70,18 @@ Deno.serve(withLogging('subscribe-renew-link', async (req) => {
   // POST /sign  → return signed token (admin/edge use only; checks JWT)
   if (req.method === "POST") {
     try {
-      const { sub_id, user_id, ttl_days = 14 } = await req.json();
-      if (!sub_id || !user_id) {
-        return new Response(JSON.stringify({ error: "Missing sub_id/user_id" }), {
-          status: 400, headers: { ...corsHeaders, "Content-Type": "application/json" },
-        });
-      }
-      const exp = Date.now() + ttl_days * 24 * 60 * 60 * 1000;
+      const body = await req.json();
+      const issues = validateInput({
+        fields: {
+          sub_id: { required: true, type: 'string', label: 'sub_id' },
+          user_id: { required: true, type: 'string', label: 'user_id' },
+          ttl_days: { required: false, type: 'number', label: 'ttl_days' },
+        },
+        source: body,
+      });
+      if (issues.length) return validationJsonResponse(issues);
+      const { sub_id, user_id, ttl_days = 14 } = body;
+      const exp = Date.now() + Math.max(1, Math.min(90, Number(ttl_days))) * 24 * 60 * 60 * 1000;
       const token = await signToken({ sub_id, user_id, exp }, secret);
       return new Response(JSON.stringify({
         token,

@@ -3,6 +3,7 @@ import { createClient } from 'https://esm.sh/@supabase/supabase-js@2.49.1';
 import { corsHeaders } from '../_shared/cors.ts';
 import { serviceClient } from '../_shared/supabaseClients.ts';
 import { withLogging } from '../_shared/edgeLogger.ts';
+import { validateInput, validationJsonResponse } from '../_shared/inputValidator.ts';
 type Action = 'fetch_email' | 'update_email' | 'reset_password' | 'send_reset_email';
 
 Deno.serve(withLogging('update-analyst-credentials', async (req) => {
@@ -35,13 +36,16 @@ Deno.serve(withLogging('update-analyst-credentials', async (req) => {
     if (!roleCheck) return json({ error: 'Forbidden: company_admin required' }, 403);
 
     const body = await req.json();
-    const expertId: string | undefined = body.expert_id;
-    const action: Action | undefined = body.action;
-
-    if (!expertId || !action) return json({ error: 'expert_id 與 action 為必填' }, 400);
-    if (!['fetch_email', 'update_email', 'reset_password', 'send_reset_email'].includes(action)) {
-      return json({ error: 'Invalid action' }, 400);
-    }
+    const issues = validateInput({
+      fields: {
+        expert_id: { required: true, type: 'string', label: 'expert_id' },
+        action: { required: true, type: 'string', label: 'action', oneOf: ['fetch_email', 'update_email', 'reset_password', 'send_reset_email'] },
+      },
+      source: body,
+    });
+    if (issues.length) return validationJsonResponse(issues);
+    const expertId: string = body.expert_id;
+    const action: Action = body.action;
 
     const adminClient = serviceClient();
 

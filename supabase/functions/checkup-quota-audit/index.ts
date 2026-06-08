@@ -3,6 +3,7 @@
 //   1) 單筆 (mode=single 或省略，需 user_id/email)：回傳 quota 快照 + 該用戶 usage + subs。
 //   2) 批次 (mode=list)：依 tier / reason / 日期範圍篩選 checkup_usage，並合併 profile + 最新 sub。
 import { corsHeaders } from '../_shared/cors.ts';
+import { validateInput, validationJsonResponse } from '../_shared/inputValidator.ts';
 
 import { withLogging } from '../_shared/edgeLogger.ts';
 const SUPABASE_URL = Deno.env.get('SUPABASE_URL') || '';
@@ -44,6 +45,23 @@ Deno.serve(withLogging('checkup-quota-audit', async (req: Request) => {
 
   const url = new URL(req.url);
   const mode = (url.searchParams.get('mode') || 'single').toLowerCase();
+
+  const issues = validateInput({
+    fields: {
+      mode: { required: false, type: 'string', label: 'mode', oneOf: ['single', 'list'] },
+      user_id: { required: false, type: 'string', label: 'user_id', pattern: /^[0-9a-f-]{36}$/i },
+      tier: { required: false, type: 'string', label: 'tier', oneOf: ['line_free', 'none', 'basic', 'pro'] },
+      reason: { required: false, type: 'string', label: 'reason', oneOf: ['line_free_gift', 'subscription', 'tester', 'none'] },
+    },
+    source: {
+      mode: url.searchParams.get('mode') || undefined,
+      user_id: url.searchParams.get('user_id') || undefined,
+      tier: url.searchParams.get('tier') || undefined,
+      reason: url.searchParams.get('reason') || undefined,
+    },
+  });
+  if (issues.length) return validationJsonResponse(issues);
+
 
   // Audit the admin lookup itself (fire-and-forget, never blocks the response)
   void writeAuditLog(callerId, mode, url).catch((e) =>

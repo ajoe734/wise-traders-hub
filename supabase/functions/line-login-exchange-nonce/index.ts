@@ -16,6 +16,7 @@ import { createClient } from 'https://esm.sh/@supabase/supabase-js@2.49.1';
 
 import { corsHeaders } from '../_shared/cors.ts';
 import { withLogging } from '../_shared/edgeLogger.ts';
+import { validateInput, validationJsonResponse } from '../_shared/inputValidator.ts';
 const UUID_RE = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
 
 serve(withLogging('line-login-exchange-nonce', async (req) => {
@@ -28,13 +29,13 @@ serve(withLogging('line-login-exchange-nonce', async (req) => {
 
   let body: { nonce?: string } = {};
   try { body = await req.json(); } catch { body = {}; }
-  const nonce = (body.nonce || '').trim();
-
-  if (!nonce || !UUID_RE.test(nonce)) {
-    return new Response(JSON.stringify({ error: 'invalid_nonce' }), {
-      status: 400, headers: { ...corsHeaders, 'Content-Type': 'application/json' },
-    });
-  }
+  const trimmed = (body.nonce || '').trim();
+  const issues = validateInput({
+    fields: { nonce: { required: true, type: 'string', label: 'nonce', pattern: UUID_RE, hint: 'UUID v4 格式' } },
+    source: { nonce: trimmed },
+  });
+  if (issues.length) return validationJsonResponse(issues);
+  const nonce = trimmed;
 
   const supabaseAdmin = createClient(
     Deno.env.get('SUPABASE_URL')!,
