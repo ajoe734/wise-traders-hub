@@ -3,6 +3,7 @@
 //   1) 單筆 (mode=single 或省略，需 user_id/email)：回傳 quota 快照 + 該用戶 usage + subs。
 //   2) 批次 (mode=list)：依 tier / reason / 日期範圍篩選 checkup_usage，並合併 profile + 最新 sub。
 import { corsHeaders } from '../_shared/cors.ts';
+import { validateInput, validationJsonResponse } from '../_shared/inputValidator.ts';
 
 import { withLogging } from '../_shared/edgeLogger.ts';
 const SUPABASE_URL = Deno.env.get('SUPABASE_URL') || '';
