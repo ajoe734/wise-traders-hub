@@ -643,6 +643,68 @@ export default function PaywallAnalytics() {
             </div>
           </div>
 
+          {/* 時間窗 preset + 步驟/告警過濾（套用於畫面與匯出） */}
+          <Card>
+            <CardContent className="py-3">
+              <div className="flex flex-wrap items-start gap-x-6 gap-y-3 text-xs">
+                <div className="flex items-center gap-2">
+                  <span className="text-muted-foreground">時間窗</span>
+                  <select
+                    value={presetId}
+                    onChange={(e) => setPresetId(e.target.value)}
+                    className="border rounded px-2 py-1 bg-background text-xs"
+                  >
+                    {WINDOW_PRESETS.map((p) => (
+                      <option key={p.id} value={p.id}>{p.label}</option>
+                    ))}
+                  </select>
+                </div>
+                <div className="flex items-center gap-2 flex-wrap">
+                  <span className="text-muted-foreground">漏斗步驟</span>
+                  {FUNNEL_KEYS.map((k) => {
+                    const checked = funnelFilter.has(k);
+                    return (
+                      <label key={k} className={`flex items-center gap-1 cursor-pointer px-1.5 py-0.5 rounded border ${checked ? 'border-primary bg-primary/10' : 'border-muted text-muted-foreground'}`}>
+                        <input
+                          type="checkbox"
+                          className="accent-primary"
+                          checked={checked}
+                          onChange={() => setFunnelFilter((s) => toggle(s, k))}
+                        />
+                        {k}
+                      </label>
+                    );
+                  })}
+                  <button onClick={() => setFunnelFilter(new Set(FUNNEL_KEYS))} className="underline text-muted-foreground ml-1">全選</button>
+                  <button onClick={() => setFunnelFilter(new Set())} className="underline text-muted-foreground">清除</button>
+                </div>
+                <div className="flex items-center gap-2 flex-wrap">
+                  <span className="text-muted-foreground">告警類型</span>
+                  {ALERT_KEYS.map((k) => {
+                    const checked = alertFilter.has(k);
+                    return (
+                      <label key={k} className={`flex items-center gap-1 cursor-pointer px-1.5 py-0.5 rounded border ${checked ? 'border-destructive bg-destructive/10' : 'border-muted text-muted-foreground'}`}>
+                        <input
+                          type="checkbox"
+                          className="accent-destructive"
+                          checked={checked}
+                          onChange={() => setAlertFilter((s) => toggle(s, k))}
+                        />
+                        {k}
+                      </label>
+                    );
+                  })}
+                  <button onClick={() => setAlertFilter(new Set(ALERT_KEYS))} className="underline text-muted-foreground ml-1">全選</button>
+                  <button onClick={() => setAlertFilter(new Set())} className="underline text-muted-foreground">清除</button>
+                </div>
+              </div>
+              <div className="text-[10px] text-muted-foreground mt-2">
+                過濾會套用到下方 CSV / PDF 匯出（PDF 第一頁含 Top 3 原因與行動建議）。畫面表格仍顯示全部內容以便比對。
+              </div>
+            </CardContent>
+          </Card>
+
+
           {/* 告警區 */}
           <Card>
             <CardHeader>
