@@ -104,6 +104,7 @@ Deno.serve(async (req) => {
       { table: 'audit_logs', tsCol: 'created_at' },
       { table: 'perf_metrics', tsCol: 'created_at' },
       { table: 'traffic_events', tsCol: 'created_at' },
+      { table: 'edge_boot_events', tsCol: 'boot_at' },
     ];
     const logTables: TableRow[] = [];
     for (const t of tablesToCheck) {
@@ -122,6 +123,22 @@ Deno.serve(async (req) => {
       }
     }
 
+    // ---- cold starts (R5): per-function boot frequency in last 7d & 24h ----
+    const { data: bootRows } = await admin
+      .from('edge_boot_events')
+      .select('fn, boot_at')
+      .gte('boot_at', since7d)
+      .limit(20000);
+    const bootMap = new Map<string, { fn: string; boots_7d: number; boots_24h: number; last_boot_at: string | null }>();
+    for (const r of bootRows ?? []) {
+      const row = bootMap.get(r.fn) ?? { fn: r.fn, boots_7d: 0, boots_24h: 0, last_boot_at: null };
+      row.boots_7d += 1;
+      if (r.boot_at >= since24h) row.boots_24h += 1;
+      if (!row.last_boot_at || r.boot_at > row.last_boot_at) row.last_boot_at = r.boot_at;
+      bootMap.set(r.fn, row);
+    }
+    const coldStarts = Array.from(bootMap.values()).sort((a, b) => b.boots_24h - a.boots_24h || b.boots_7d - a.boots_7d);
+
     // ---- recent errors (24h, max 50) ----
     const { data: recentErrors } = await admin
       .from('function_run_logs')
@@ -137,6 +154,7 @@ Deno.serve(async (req) => {
       functions,
       jobs,
       logTables,
+      coldStarts,
       recentErrors: recentErrors ?? [],
     }, 200);
   } catch (e) {
