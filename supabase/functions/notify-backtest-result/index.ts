@@ -1,6 +1,7 @@
 import { corsHeaders } from '../_shared/cors.ts';
 import { serviceClient } from '../_shared/supabaseClients.ts';
 import { withLogging } from '../_shared/edgeLogger.ts';
+import { validateInput, validationJsonResponse } from '../_shared/inputValidator.ts';
 // 回測完成通知（Email 版）：彙整最近 N 小時的 knowledge_backtest_runs，
 // 透過 Resend 寄信給所有 company_admin。
 // Body: { hours?: number = 2, trigger?: 'cron' | 'manual' | 'auto_after_backfill' | 'auto' }
@@ -91,6 +92,14 @@ Deno.serve(withLogging('notify-backtest-result', async (req) => {
   if (req.method === 'OPTIONS') return new Response(null, { headers: corsHeaders })
   try {
     const body = await req.json().catch(() => ({}))
+    const issues = validateInput({
+      fields: {
+        hours: { required: false, type: 'number', acceptTypes: ['string'], label: 'hours' },
+        trigger: { required: false, type: 'string', label: 'trigger', oneOf: ['cron', 'manual', 'auto_after_backfill', 'auto'] },
+      },
+      source: body,
+    })
+    if (issues.length) return validationJsonResponse(issues)
     const hours = Math.max(1, Math.min(72, Number(body.hours ?? 2)))
     const trigger = String(body.trigger ?? 'cron')
 

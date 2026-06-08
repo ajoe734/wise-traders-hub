@@ -4,6 +4,7 @@ import { createClient } from "https://esm.sh/@supabase/supabase-js@2.49.1";
 import { corsHeaders } from '../_shared/cors.ts';
 import { serviceClient } from '../_shared/supabaseClients.ts';
 import { withLogging } from '../_shared/edgeLogger.ts';
+import { validateInput, validationJsonResponse } from '../_shared/inputValidator.ts';
 function randomState(): string {
   const bytes = new Uint8Array(32);
   crypto.getRandomValues(bytes);
@@ -29,6 +30,24 @@ serve(withLogging('line-login-authorize', async (req) => {
     const redirectUri = url.searchParams.get('redirect_uri') || '';
     const returnTo = url.searchParams.get('return_to') || '/holding-checkup';
     const appOrigin = url.searchParams.get('app_origin') || '';
+
+    // Validate redirect targets — must be http(s) URLs or relative paths
+    const httpRe = /^https?:\/\//i;
+    const pathRe = /^\/[\w\-./?#&=%:@+]*$/;
+    const queryIssues = validateInput({
+      fields: {
+        redirect_uri: { required: false, type: 'string', label: 'redirect_uri', pattern: httpRe },
+        return_to: { required: false, type: 'string', label: 'return_to', pattern: pathRe },
+        app_origin: { required: false, type: 'string', label: 'app_origin', pattern: httpRe },
+      },
+      source: {
+        redirect_uri: redirectUri || undefined,
+        return_to: returnTo && returnTo !== '/holding-checkup' ? returnTo : undefined,
+        app_origin: appOrigin || undefined,
+      },
+    });
+    if (queryIssues.length) return validationJsonResponse(queryIssues);
+
 
     // CSRF-safe state: random nonce persisted server-side (10min TTL, single-use).
     const state = randomState();

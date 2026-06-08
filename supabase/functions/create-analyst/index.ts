@@ -1,6 +1,7 @@
 import { corsHeaders } from '../_shared/cors.ts';
 import { serviceClient } from '../_shared/supabaseClients.ts';
 import { withLogging } from '../_shared/edgeLogger.ts';
+import { validateInput, validationJsonResponse } from '../_shared/inputValidator.ts';
 import { createClient } from 'https://esm.sh/@supabase/supabase-js@2.49.1'
 
 Deno.serve(withLogging('create-analyst', async (req) => {
@@ -41,21 +42,20 @@ Deno.serve(withLogging('create-analyst', async (req) => {
       })
     }
 
-    const { email, password, name, slug, role, bio } = await req.json()
-
-    if (!email || !password || !name || !slug || !role) {
-      return new Response(JSON.stringify({ error: 'Missing required fields' }), {
-        status: 400, headers: { ...corsHeaders, 'Content-Type': 'application/json' }
-      })
-    }
-
-    // BUG-027: Validate slug format
-    const slugRegex = /^[a-z0-9]+(?:-[a-z0-9]+)*$/
-    if (!slugRegex.test(slug)) {
-      return new Response(JSON.stringify({ error: 'slug 只能包含小寫英文、數字和連字號（-），不可有空格或特殊字元' }), {
-        status: 400, headers: { ...corsHeaders, 'Content-Type': 'application/json' }
-      })
-    }
+    const reqBody = await req.json()
+    const issues = validateInput({
+      fields: {
+        email: { required: true, type: 'string', label: 'email', pattern: /^[^\s@]+@[^\s@]+\.[^\s@]+$/ },
+        password: { required: true, type: 'string', label: 'password', minLength: 8 },
+        name: { required: true, type: 'string', label: 'name', minLength: 1 },
+        slug: { required: true, type: 'string', label: 'slug', pattern: /^[a-z0-9]+(?:-[a-z0-9]+)*$/, hint: '只能包含小寫英文、數字和連字號（-）' },
+        role: { required: true, type: 'string', label: 'role', oneOf: ['mentor', 'analyst', 'advisor'] },
+        bio: { required: false, type: 'string', label: 'bio' },
+      },
+      source: reqBody,
+    })
+    if (issues.length) return validationJsonResponse(issues)
+    const { email, password, name, slug, role, bio } = reqBody
 
     // Use service role client for admin operations
     const adminClient = serviceClient()

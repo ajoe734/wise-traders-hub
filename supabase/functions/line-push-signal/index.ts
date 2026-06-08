@@ -413,16 +413,23 @@ Deno.serve(withLogging('line-push-signal', async (req) => {
     console.log('Caller:', userId)
 
     const body = await req.json()
+    const { validateInput, validationJsonResponse } = await import('../_shared/inputValidator.ts')
+    const issues = validateInput({
+      fields: {
+        expert_id: { required: true, type: 'string', label: 'expert_id' },
+        signal_id: { required: false, type: 'string', label: 'signal_id' },
+        type: { required: false, type: 'string', label: 'type', oneOf: ['publish', 'takedown', 'update'] },
+        mode: { required: false, type: 'string', label: 'mode' },
+        is_update: { required: false, type: 'boolean', label: 'is_update' },
+        batch_id: { required: false, type: 'string', label: 'batch_id' },
+        signal_data: { required: false, type: 'object', label: 'signal_data' },
+      },
+      source: body,
+    })
+    if (issues.length) return validationJsonResponse(issues)
     const { signal_id, expert_id, type, mode, signal_data, is_update, batch_id } = body
     const pushType: 'publish' | 'takedown' | 'update' = type === 'takedown' ? 'takedown' : (is_update ? 'update' : 'publish')
     console.log('Push request:', { signal_id, expert_id, pushType, mode, is_update })
-
-    if (!expert_id) {
-      console.error('Missing expert_id')
-      return new Response(JSON.stringify({ error: 'Missing expert_id' }), {
-        status: 400, headers: { ...corsHeaders, 'Content-Type': 'application/json' },
-      })
-    }
 
     // Verify caller is analyst of this expert OR company_admin
     const { data: expertRow } = await supabaseAdmin
