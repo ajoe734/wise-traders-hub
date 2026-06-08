@@ -3260,6 +3260,7 @@ export type Database = {
       reconcile_line_free_quota: { Args: { _user_id: string }; Returns: Json }
       show_limit: { Args: never; Returns: number }
       show_trgm: { Args: { "": string }; Returns: string[] }
+      strip_referrer_query: { Args: { ref: string }; Returns: string }
     }
     Enums: {
       announcement_status: "draft" | "published"
