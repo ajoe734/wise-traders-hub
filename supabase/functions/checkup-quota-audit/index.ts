@@ -46,6 +46,23 @@ Deno.serve(withLogging('checkup-quota-audit', async (req: Request) => {
   const url = new URL(req.url);
   const mode = (url.searchParams.get('mode') || 'single').toLowerCase();
 
+  const issues = validateInput({
+    fields: {
+      mode: { required: false, type: 'string', label: 'mode', oneOf: ['single', 'list'] },
+      user_id: { required: false, type: 'string', label: 'user_id', pattern: /^[0-9a-f-]{36}$/i },
+      tier: { required: false, type: 'string', label: 'tier', oneOf: ['line_free', 'none', 'basic', 'pro'] },
+      reason: { required: false, type: 'string', label: 'reason', oneOf: ['line_free_gift', 'subscription', 'tester', 'none'] },
+    },
+    source: {
+      mode: url.searchParams.get('mode') || undefined,
+      user_id: url.searchParams.get('user_id') || undefined,
+      tier: url.searchParams.get('tier') || undefined,
+      reason: url.searchParams.get('reason') || undefined,
+    },
+  });
+  if (issues.length) return validationJsonResponse(issues);
+
+
   // Audit the admin lookup itself (fire-and-forget, never blocks the response)
   void writeAuditLog(callerId, mode, url).catch((e) =>
     console.warn('[quota-audit] audit log insert failed', e),
