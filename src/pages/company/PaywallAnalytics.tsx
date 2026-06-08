@@ -360,15 +360,66 @@ export default function PaywallAnalytics() {
                         相對下滑 {(a.relDrop * 100).toFixed(1)}%（絕對 {(a.absDrop * 100).toFixed(1)}pp）
                       </span>
                     </AlertTitle>
-                    <AlertDescription className="mt-2">
-                      <div className="text-xs mb-1 opacity-80">可能原因（請依序排查）：</div>
-                      <ul className="list-disc pl-5 space-y-0.5 text-xs">
-                        {reasons.map((r) => <li key={r}>{r}</li>)}
-                      </ul>
+                    <AlertDescription className="mt-2 space-y-2">
+                      <div>
+                        <div className="text-xs mb-1 opacity-80">可能原因（請依序排查）：</div>
+                        <ul className="list-disc pl-5 space-y-0.5 text-xs">
+                          {reasons.map((r) => <li key={r}>{r}</li>)}
+                        </ul>
+                      </div>
+                      {(stepSignals[a.key]?.length ?? 0) > 0 && (
+                        <div className="rounded border border-destructive/40 bg-destructive/5 p-2">
+                          <div className="text-[11px] mb-1 opacity-80 flex items-center gap-1">
+                            <Activity className="w-3 h-3" /> 同時間窗（近 {RECENT_DAYS}d vs 基準 {BASELINE_DAYS}d）相關訊號
+                            {loadingSignals && <span className="ml-1 opacity-60">載入中…</span>}
+                          </div>
+                          <div className="grid grid-cols-1 sm:grid-cols-2 gap-1 text-[11px]">
+                            {stepSignals[a.key].map((s) => (
+                              <div key={s.label} className="flex items-center justify-between gap-2 font-mono">
+                                <span className="opacity-80">{s.label}</span>
+                                <span className={s.bad ? 'font-semibold' : ''}>
+                                  {s.baseline} → {s.recent}
+                                </span>
+                              </div>
+                            ))}
+                          </div>
+                        </div>
+                      )}
                     </AlertDescription>
                   </Alert>
                 );
               })}
+
+              {/* 全域相關訊號（時間窗對齊） */}
+              {!loading && (
+                <div className="rounded border bg-muted/30 p-3">
+                  <div className="text-xs font-medium mb-2 flex items-center gap-1">
+                    <Activity className="w-3.5 h-3.5" /> 相關訊號（近 {RECENT_DAYS}d vs 基準 {BASELINE_DAYS}d）
+                    {loadingSignals && <span className="ml-1 text-muted-foreground font-normal">載入中…</span>}
+                  </div>
+                  <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-2 text-xs">
+                    {[
+                      { label: '金流 Webhook 失敗率', recent: `${fmtRate(sig.webhookRecent)}`, baseline: `${fmtRate(sig.webhookBaseline)}`, sub: `${sig.webhookRN}/${sig.webhookRD} vs ${sig.webhookBN}/${sig.webhookBD}`, bad: (sig.webhookRecent ?? 0) > (sig.webhookBaseline ?? 0) && sig.webhookRD >= 10 },
+                      { label: 'Checkout 錯誤率', recent: `${fmtRate(sig.checkoutRecent)}`, baseline: `${fmtRate(sig.checkoutBaseline)}`, sub: `${sig.checkoutRN}/${sig.checkoutRD} vs ${sig.checkoutBN}/${sig.checkoutBD}`, bad: (sig.checkoutRecent ?? 0) > (sig.checkoutBaseline ?? 0) && sig.checkoutRD >= 10 },
+                      { label: '路由 404 事件', recent: String(sig.r404Recent), baseline: String(sig.r404Baseline), sub: '事件數', bad: sig.r404Recent > sig.r404Baseline },
+                      { label: '路由 500 事件', recent: String(sig.r500Recent), baseline: String(sig.r500Baseline), sub: '事件數', bad: sig.r500Recent > sig.r500Baseline },
+                    ].map((m) => (
+                      <div key={m.label} className="border rounded p-2 bg-background">
+                        <div className="text-[11px] text-muted-foreground">{m.label}</div>
+                        <div className="mt-0.5 font-mono">
+                          <span className="opacity-60">{m.baseline}</span>
+                          <span className="mx-1 opacity-40">→</span>
+                          <span className={m.bad ? 'text-destructive font-semibold' : ''}>{m.recent}</span>
+                        </div>
+                        <div className="text-[10px] text-muted-foreground mt-0.5">{m.sub}</div>
+                      </div>
+                    ))}
+                  </div>
+                  <div className="text-[10px] text-muted-foreground mt-2">
+                    來源：function_run_logs（fn 含 webhook/callback/notify-payment/verify-payment/ecpay/linepay/acpay/remittance）、payment_intents.status ∈ {'{failed,cancelled,abandoned,expired,error}'}、traffic_events（event_name 或 event_props.status 含 404/500）
+                  </div>
+                </div>
+              )}
 
               {/* 完整步驟比較表 */}
               {!loading && (
