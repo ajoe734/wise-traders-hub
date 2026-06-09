@@ -27,6 +27,36 @@ async function callAnalyze(supabaseUrl: string, serviceKey: string, body: any, t
   }
 }
 
+function safeParseJson(text: string): any {
+  if (!text) return null;
+  const clean = text.replace(/```json|```/g, '').trim();
+  try { return JSON.parse(clean); } catch { /* */ }
+  // try first {...} or [...] block
+  const objMatch = clean.match(/\{[\s\S]*\}/);
+  if (objMatch) { try { return JSON.parse(objMatch[0]); } catch { /* */ } }
+  const arrMatch = clean.match(/\[[\s\S]*\]/);
+  if (arrMatch) { try { return JSON.parse(arrMatch[0]); } catch { /* */ } }
+  return null;
+}
+
+function extractInlineBlocks(mainText: string): { brainRaw: any | null; eventAssessments: any[] | null } {
+  let brainRaw: any = null;
+  let eventAssessments: any[] | null = null;
+  try {
+    const eventMatch = mainText.match(/## 📋 EVENT_ASSESSMENTS([\s\S]*?)(?=## 🧬 BRAIN_UPDATE|$)/);
+    if (eventMatch) {
+      const parsed = safeParseJson(eventMatch[1]);
+      if (Array.isArray(parsed)) eventAssessments = parsed;
+    }
+    const brainMatch = mainText.match(/## 🧬 BRAIN_UPDATE([\s\S]*?)$/);
+    if (brainMatch) {
+      const parsed = safeParseJson(brainMatch[1]);
+      if (parsed && parsed.rules) brainRaw = parsed;
+    }
+  } catch { /* */ }
+  return { brainRaw, eventAssessments };
+}
+
 function computeSummary(holdings: any[], mainText: string) {
   const total_pnl = (holdings || []).reduce((sum, h) => {
     const cost = Number(h?.cost) || 0;
@@ -66,6 +96,7 @@ function computeSummary(holdings: any[], mainText: string) {
     watchlist,
   };
 }
+
 
 const handler = withLogging('checkup-analyze-worker', async (req, log) => {
   if (req.method === 'OPTIONS') return corsPreflight();
