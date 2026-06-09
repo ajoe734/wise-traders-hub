@@ -25,6 +25,44 @@ import { flushKnowledgeHits } from '../lib/knowledgeBase.js'
 import { useHoldingsStore } from '../stores/holdingsStore.js'
 import { useReportsStore } from '../stores/reportsStore.js'
 import { useBrainStore } from '../stores/brainStore.js'
+import { supabase } from '@/integrations/supabase/client'
+
+// ── 背景收盤分析 job：開始時建立 row，結束時更新 + 觸發 notify-complete ──
+async function createAnalysisJob(holdings) {
+  try {
+    const { data: { user } } = await supabase.auth.getUser()
+    if (!user) return null
+    const snapshot = (holdings || []).map((h) => ({
+      code: h.code, name: h.name, qty: h.qty, cost: h.cost, price: h.price,
+    }))
+    const { data, error } = await supabase
+      .from('checkup_analysis_jobs')
+      .insert({ user_id: user.id, status: 'running', holdings_snapshot: snapshot, started_at: new Date().toISOString() })
+      .select('id')
+      .maybeSingle()
+    if (error) { console.warn('[analysis-job] create failed', error); return null }
+    return data?.id || null
+  } catch (e) { console.warn('[analysis-job] create exception', e); return null }
+}
+
+async function finishAnalysisJob(jobId, { status, summary, errorText } = {}) {
+  if (!jobId) return
+  try {
+    await supabase
+      .from('checkup_analysis_jobs')
+      .update({
+        status,
+        result_summary: summary || null,
+        error_text: errorText || null,
+        finished_at: new Date().toISOString(),
+      })
+      .eq('id', jobId)
+    // fire-and-forget notify
+    supabase.functions.invoke('checkup-notify-complete', { body: { job_id: jobId } })
+      .catch((e) => console.warn('[analysis-job] notify failed', e))
+  } catch (e) { console.warn('[analysis-job] finish exception', e) }
+}
+
 
 export function useDailyAnalysisWorkflow({
   analyzing = false,
