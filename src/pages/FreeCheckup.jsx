@@ -1532,6 +1532,31 @@ export default function App() {
     }
   };
 
+  // ── Drawer tab 切換（throttle 防誤觸 + 觸覺回饋） ──
+  const TAB_ORDER = ['summary', 'thesis', 'risk'];
+  const TAB_THROTTLE_MS = 280;
+  const safeSetDrawerTab = useCallback((next) => {
+    const now = Date.now();
+    if (now - lastTabChangeAtRef.current < TAB_THROTTLE_MS) return;
+    lastTabChangeAtRef.current = now;
+    setDrawerTab((prev) => {
+      if (prev === next) return prev;
+      hapticTap(10);
+      return next;
+    });
+  }, []);
+  const safeCloseDrawer = useCallback(() => {
+    hapticTap(15);
+    handleDrawerOpenChange(false);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [drawerSource]);
+  const retryDrawerTab = useCallback(() => {
+    setDrawerSkeleton(true);
+    setDrawerRetryN((n) => n + 1);
+    setTimeout(() => setDrawerSkeleton(false), 180);
+  }, []);
+
+
   const openHoldingDrawer = (code, source = null) => {
     scrollPosRef.current = window.scrollY;
     setActiveCode(code);
