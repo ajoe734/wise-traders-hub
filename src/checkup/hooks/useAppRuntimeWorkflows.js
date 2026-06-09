@@ -216,7 +216,7 @@ export function useAppRuntimeWorkflows({
     allFilterLabel: APP_LABELS.allFilter,
   }).filter((event) => catalystFilter === '全部' || event.catalystType === catalystFilter)
 
-  const { runDailyAnalysis } = useDailyAnalysisWorkflow({
+  const { runDailyAnalysis, runDailyAnalysisInBackground } = useDailyAnalysisWorkflow({
     ...composeDailyAnalysisWorkflowArgs({
       analyzing,
       setAnalyzing,
@@ -470,6 +470,7 @@ export function useAppRuntimeWorkflows({
         handleWatchlistDelete,
         formatEventStockOutcomeLine,
         runDailyAnalysis,
+        runDailyAnalysisInBackground,
         runStressTest,
         refreshAnalystReports,
         runResearch,
