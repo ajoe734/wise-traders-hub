@@ -58,6 +58,23 @@
   .wb-card .wb-tags { row-gap: 6px !important; }
 }
 
+/* 手機觸控回饋：擴大可點擊範圍 + 按壓反饋 */
+@media (hover: none) and (pointer: coarse) {
+  .wb-card {
+    -webkit-tap-highlight-color: transparent;
+    touch-action: manipulation;
+    min-height: 200px;
+    transition: background 120ms ease, transform 120ms ease, border-color 120ms ease !important;
+  }
+  .wb-card:active {
+    transform: scale(0.985);
+    background: #EEEBE3 !important;
+  }
+  .wb-card.wb-card-feature:active {
+    background: #0F0E0C !important;
+  }
+}
+
 @media (max-width: 640px) {
   .holdings-card-grid { grid-template-columns: 1fr !important; gap: 12px !important; }
   .wb-card-feature, .wb-span-feature { grid-column: span 1 !important; }
