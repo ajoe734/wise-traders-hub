@@ -21,6 +21,7 @@ import { avatarUrl } from '@/lib/imageTransform';
 import { intentHandlers } from '@/lib/routePrefetch';
 import { useEffect, useMemo, useState } from 'react';
 import { track } from '@/lib/analytics/events';
+import { track } from '@/lib/analytics/events';
 
 type DbSubscription = MemberSubscriptionRow;
 
