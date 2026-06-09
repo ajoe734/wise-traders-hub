@@ -19,6 +19,7 @@ const navItems = [
   { path: '/company/analysts', icon: Users, label: '分析師管理' },
   { path: '/company/plans', icon: Layers, label: '方案管理' },
   { path: '/company/subscribers', icon: UserCheck, label: '訂閱者管理' },
+  { path: '/company/line-push-history', icon: Megaphone, label: 'Line 推播紀錄' },
   { path: '/company/revenue', icon: BarChart3, label: '對帳中心' },
   { path: '/company/payments', icon: CreditCard, label: '金流工具' },
   { path: '/company/remittance', icon: Receipt, label: '匯款審核' },
