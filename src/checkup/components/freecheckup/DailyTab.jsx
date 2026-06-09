@@ -318,7 +318,7 @@ function DailyTabImpl({
                 <div style={{display:"flex",alignItems:"center",gap:6,marginBottom:10}}>
                   <span style={{fontSize:10,color:C.textMute,letterSpacing:"0.12em",fontWeight:400}}>AI 策 略 分 析</span>
                 </div>
-                <Suspense fallback={null}><Md text={dailyReport.aiInsight} color={C.textSec} /></Suspense>
+                <Suspense fallback={null}><Md text={dailyReport.aiInsight} color={C.text} /></Suspense>
               </div>
             )}
 
@@ -568,7 +568,7 @@ function DailyTabImpl({
                       <div style={{padding:"10px 0",borderBottom:`1px solid ${alpha(C.textMute,'06')}`,marginBottom:4}}>
                         {r.aiInsight && (
                           <div style={{marginBottom:6}}>
-                            <Suspense fallback={null}><Md text={r.aiInsight} color={C.textSec} /></Suspense>
+                            <Suspense fallback={null}><Md text={r.aiInsight} color={C.text} /></Suspense>
                           </div>
                         )}
                         <button onClick={(ev)=>{ev.stopPropagation();setDailyReport(r);
