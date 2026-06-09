@@ -19,6 +19,8 @@ type Pref = {
   target_price_updated: boolean;
   target_price_weekly: boolean;
   meta_override_changed: boolean;
+  checkup_complete_line: boolean;
+  checkup_complete_email: boolean;
 };
 
 const PREF_DEFAULTS: Omit<Pref, 'user_id'> = {
@@ -26,6 +28,8 @@ const PREF_DEFAULTS: Omit<Pref, 'user_id'> = {
   target_price_updated: true,
   target_price_weekly: true,
   meta_override_changed: true,
+  checkup_complete_line: true,
+  checkup_complete_email: true,
 };
 
 const PREF_LABELS: Record<keyof typeof PREF_DEFAULTS, { title: string; desc: string }> = {
@@ -33,6 +37,8 @@ const PREF_LABELS: Record<keyof typeof PREF_DEFAULTS, { title: string; desc: str
   target_price_updated: { title: '修改目標價', desc: '券商上修或下修目標價時通知' },
   target_price_weekly: { title: '每週自動刷新', desc: '系統每週一自動掃描目標價變化的彙總' },
   meta_override_changed: { title: '產業/策略覆蓋變更', desc: 'AI 研究覆蓋持倉的產業、策略、領頭欄位時通知' },
+  checkup_complete_line: { title: '收盤分析完成（LINE）', desc: '背景跑完收盤分析時推播到 LINE（須已綁定 LINE）' },
+  checkup_complete_email: { title: '收盤分析完成（Email）', desc: '背景跑完收盤分析時寄送摘要到信箱' },
 };
 
 export default function AccountNotifications() {
@@ -74,6 +80,8 @@ export default function AccountNotifications() {
         target_price_updated: next.target_price_updated,
         target_price_weekly: next.target_price_weekly,
         meta_override_changed: next.meta_override_changed,
+        checkup_complete_line: next.checkup_complete_line,
+        checkup_complete_email: next.checkup_complete_email,
       }, { onConflict: 'user_id' });
       if (error) throw error;
       return next;
