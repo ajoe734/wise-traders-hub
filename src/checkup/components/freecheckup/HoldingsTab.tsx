@@ -1,5 +1,5 @@
 // @ts-nocheck — 漸進式 .jsx→.tsx 遷移（F-Maint-R4），完整型別化留待後續批次
-import { memo, lazy, Suspense, useState, useCallback, useMemo } from "react";
+import { memo, lazy, Suspense, useState, useCallback, useMemo, useRef } from "react";
 import { useBrainStore } from "@/checkup/stores/brainStore";
 import { useViewportWidth } from "@/hooks/useViewportWidth";
 import { useCheckupMode } from "@/checkup/contexts/CheckupModeContext";
