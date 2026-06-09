@@ -104,6 +104,7 @@ const AdminPlans = lazy(() => import("./pages/admin/Plans"));
 const CompanyDashboard = lazy(() => import("./pages/company/Dashboard"));
 const CompanyAnalysts = lazy(() => import("./pages/company/Analysts"));
 const CompanySubscribers = lazy(() => import("./pages/company/Subscribers"));
+const CompanyLinePushHistory = lazy(() => import("./pages/company/LinePushHistory"));
 const CompanyRevenue = lazy(() => import("./pages/company/Revenue"));
 const CompanyPayments = lazy(() => import("./pages/company/Payments"));
 const CompanyAnnouncements = lazy(() => import("./pages/company/Announcements"));
