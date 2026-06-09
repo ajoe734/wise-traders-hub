@@ -60,7 +60,9 @@ Deno.serve(withLogging('create-analyst', async (req) => {
     // Use service role client for admin operations
     const adminClient = serviceClient()
 
-    // 1. Create auth user
+    // 1. Create auth user — 若 email 已存在，改成「升級既有用戶為分析師」
+    let userId: string
+    let createdNewAuthUser = false
     const { data: newUser, error: createError } = await adminClient.auth.admin.createUser({
       email,
       password,
@@ -68,12 +70,48 @@ Deno.serve(withLogging('create-analyst', async (req) => {
       user_metadata: { name }
     })
     if (createError) {
-      return new Response(JSON.stringify({ error: createError.message }), {
-        status: 400, headers: { ...corsHeaders, 'Content-Type': 'application/json' }
-      })
+      // email 已存在 → 找出既有 user_id 沿用
+      const msg = (createError.message || '').toLowerCase()
+      const alreadyExists = msg.includes('already') || msg.includes('registered') || msg.includes('exists')
+      if (!alreadyExists) {
+        return new Response(JSON.stringify({ error: createError.message }), {
+          status: 400, headers: { ...corsHeaders, 'Content-Type': 'application/json' }
+        })
+      }
+      // 撈既有用戶
+      const { data: existing, error: lookupErr } = await adminClient
+        .from('profiles').select('user_id').eq('user_id',
+          (await adminClient.rpc('noop')).data ?? null).maybeSingle()
+      // 直接用 admin listUsers by email
+      const { data: list } = await adminClient.auth.admin.listUsers({ page: 1, perPage: 1000 })
+      const found = list?.users?.find((u: any) => (u.email || '').toLowerCase() === email.toLowerCase())
+      if (!found) {
+        return new Response(JSON.stringify({ error: '此 Email 已被註冊，但查不到帳號資料，請聯絡技術支援' }), {
+          status: 400, headers: { ...corsHeaders, 'Content-Type': 'application/json' }
+        })
+      }
+      userId = found.id
+
+      // 安全檢查：若該 user 已是 analyst 或已有 expert 紀錄，拒絕重複建立
+      const [{ data: existingRole }, { data: existingExpert }] = await Promise.all([
+        adminClient.from('user_roles').select('role').eq('user_id', userId).in('role', ['analyst']).maybeSingle(),
+        adminClient.from('experts').select('id, slug').eq('user_id', userId).maybeSingle(),
+      ])
+      if (existingExpert) {
+        return new Response(JSON.stringify({ error: `此 Email 已是分析師（slug: ${existingExpert.slug}），請改用「編輯」功能` }), {
+          status: 409, headers: { ...corsHeaders, 'Content-Type': 'application/json' }
+        })
+      }
+      if (existingRole) {
+        return new Response(JSON.stringify({ error: '此 Email 已具備分析師權限，但缺少 expert 資料，請聯絡技術支援' }), {
+          status: 409, headers: { ...corsHeaders, 'Content-Type': 'application/json' }
+        })
+      }
+    } else {
+      userId = newUser!.user.id
+      createdNewAuthUser = true
     }
 
-    const userId = newUser.user.id
 
     // BUG-026: Wrap steps 2-5 in try-catch with rollback
     try {
