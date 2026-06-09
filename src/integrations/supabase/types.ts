@@ -110,6 +110,72 @@ export type Database = {
         }
         Relationships: []
       }
+      checkup_analysis_jobs: {
+        Row: {
+          created_at: string
+          error_text: string | null
+          finished_at: string | null
+          holdings_snapshot: Json | null
+          id: string
+          notified_at: string | null
+          result_summary: Json | null
+          started_at: string | null
+          status: string
+          updated_at: string
+          user_id: string
+        }
+        Insert: {
+          created_at?: string
+          error_text?: string | null
+          finished_at?: string | null
+          holdings_snapshot?: Json | null
+          id?: string
+          notified_at?: string | null
+          result_summary?: Json | null
+          started_at?: string | null
+          status?: string
+          updated_at?: string
+          user_id: string
+        }
+        Update: {
+          created_at?: string
+          error_text?: string | null
+          finished_at?: string | null
+          holdings_snapshot?: Json | null
+          id?: string
+          notified_at?: string | null
+          result_summary?: Json | null
+          started_at?: string | null
+          status?: string
+          updated_at?: string
+          user_id?: string
+        }
+        Relationships: []
+      }
+      checkup_daily_reminders: {
+        Row: {
+          channels: Json
+          created_at: string
+          id: string
+          reminded_on: string
+          user_id: string
+        }
+        Insert: {
+          channels?: Json
+          created_at?: string
+          id?: string
+          reminded_on: string
+          user_id: string
+        }
+        Update: {
+          channels?: Json
+          created_at?: string
+          id?: string
+          reminded_on?: string
+          user_id?: string
+        }
+        Relationships: []
+      }
       checkup_entitlements: {
         Row: {
           amount: number
