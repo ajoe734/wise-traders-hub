@@ -152,6 +152,23 @@ export default function AccountNotifications() {
         <Link to="/account/profile" className="ml-auto text-sm text-muted-foreground hover:underline">返回帳號</Link>
       </div>
 
+      {!loading && data && !data.hasLineBinding && (
+        <Card className="mb-6 border-amber-300 bg-amber-50/40">
+          <CardContent className="py-4 flex items-start gap-3">
+            <div className="flex-1">
+              <div className="text-sm font-medium mb-1">尚未綁定 LINE，將收不到 LINE 推播</div>
+              <div className="text-xs text-muted-foreground">
+                收盤分析完成時，會優先推播到綁定的 LINE。目前你的帳號未綁定，僅會收到 Email + 站內通知。下次用「LINE 登入」即可同時收到推播。
+              </div>
+            </div>
+            <Button asChild size="sm" variant="outline">
+              <Link to="/auth/login?redirect=/account/notifications">使用 LINE 登入</Link>
+            </Button>
+          </CardContent>
+        </Card>
+      )}
+
+
       <Card className="mb-6">
         <CardHeader>
           <CardTitle className="text-base">通知偏好</CardTitle>
