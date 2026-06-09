@@ -477,6 +477,8 @@ export default function App() {
   const [drawerOpen, setDrawerOpen] = useState(false);
   const [activeCode, setActiveCode] = useState(null);
   const [drawerSource, setDrawerSource] = useState(null); // {type:'priority-global'|'category'|'list'|'search', key?, label}
+  const [drawerTab, setDrawerTab] = useState('summary'); // 'summary' | 'thesis' | 'risk'
+  const [drawerSkeleton, setDrawerSkeleton] = useState(false);
   const [draftNote, setDraftNote] = useState("");
   const [draftExitCue, setDraftExitCue] = useState("");
   const scrollPosRef = useRef(0);
@@ -1445,6 +1447,15 @@ export default function App() {
     setDraftExitCue(ov.exitCue || "");
     draftDirtyRef.current = false;
   }, [drawerOpen, activeCode, userOverrides]);
+
+  // 抽屜開啟 / 切換個股：先顯示骨架，下一幀再呈現明細（讓 transition 與 layout 穩定）
+  useEffect(() => {
+    if (!drawerOpen || !activeCode) { setDrawerSkeleton(false); return; }
+    setDrawerSkeleton(true);
+    setDrawerTab('summary');
+    const t = setTimeout(() => setDrawerSkeleton(false), 180);
+    return () => clearTimeout(t);
+  }, [drawerOpen, activeCode]);
 
   const persistDraftIfDirty = useCallback(() => {
     if (!draftDirtyRef.current || !activeCode) return;
@@ -3166,13 +3177,71 @@ ${JSON.stringify(strategyBrain || { rules: [], lessons: [], commonMistakes: [], 
       <Sheet open={drawerOpen} onOpenChange={handleDrawerOpenChange}>
         <SheetContent
           side="right"
-          className="overflow-y-auto"
+          className="overflow-y-auto holding-drawer-content"
           style={{
             background: C.bg, color: C.text, width: "min(480px, 100vw)",
             maxWidth: "100vw", padding: 0, border: "none",
           }}
           onOpenAutoFocus={(e) => e.preventDefault()}
         >
+          {/* 行動裝置抽屜樣式：底部關閉條、tab bar、骨架動畫 */}
+          <style>{`
+            .holding-drawer-mobile-close { display: none; }
+            @media (max-width: 640px) {
+              .holding-drawer-content { padding-bottom: 64px !important; }
+              .holding-drawer-mobile-close {
+                display: flex !important;
+                position: fixed; left: 0; right: 0; bottom: 0;
+                z-index: 60;
+                padding: 10px 14px calc(10px + env(safe-area-inset-bottom));
+                background: ${C.bg};
+                border-top: 1px solid ${alpha(C.textMute, '15')};
+                gap: 8px;
+              }
+              .holding-drawer-mobile-close button {
+                flex: 1; min-height: 44px;
+                background: ${C.text}; color: ${C.bg};
+                border: none; border-radius: 8px;
+                font-size: 14px; font-weight: 500; letter-spacing: 0.04em;
+                cursor: pointer;
+                -webkit-tap-highlight-color: transparent;
+              }
+              .holding-drawer-tab {
+                flex: 1; min-height: 40px;
+                background: transparent; border: none;
+                font-size: 12px; font-weight: 500; letter-spacing: 0.08em;
+                cursor: pointer; padding: 8px 4px;
+                -webkit-tap-highlight-color: transparent;
+              }
+            }
+            .holding-drawer-tabs {
+              display: flex; gap: 4px; margin-bottom: 14px;
+              border-bottom: 1px solid ${alpha(C.textMute, '12')};
+            }
+            .holding-drawer-tab {
+              flex: 1; background: transparent; border: none;
+              padding: 8px 4px; font-size: 12px; font-weight: 500;
+              letter-spacing: 0.06em; cursor: pointer;
+              color: ${C.textMute};
+              border-bottom: 2px solid transparent;
+              transition: color 120ms, border-color 120ms;
+              -webkit-tap-highlight-color: transparent;
+            }
+            .holding-drawer-tab[aria-selected="true"] {
+              color: ${C.text};
+              border-bottom-color: ${C.text};
+            }
+            .holding-drawer-skel {
+              background: ${alpha(C.textMute, '08')};
+              border-radius: 6px;
+              animation: hd-skel 1.1s ease-in-out infinite;
+            }
+            @keyframes hd-skel {
+              0%, 100% { opacity: 0.55; }
+              50% { opacity: 1; }
+            }
+          `}</style>
+
           {activeHolding ? (() => {
             const h = activeHolding;
             const dec = decisionsMap[h.code];
@@ -3197,8 +3266,36 @@ ${JSON.stringify(strategyBrain || { rules: [], lessons: [], commonMistakes: [], 
                 ? `返回${drawerSource.label?.replace(/^[^\s]+\s/, '') || '分類'}`
                 : '返回列表';
 
+            // ── 手機左右滑動切換 tab ──
+            const TAB_ORDER = ['summary', 'thesis', 'risk'];
+            const touchRef = { current: null };
+            let _tStart = null;
+            const onTouchStart = (e) => {
+              const t = e.touches?.[0];
+              if (!t) return;
+              _tStart = { x: t.clientX, y: t.clientY, at: Date.now() };
+            };
+            const onTouchEnd = (e) => {
+              if (!_tStart) return;
+              const t = e.changedTouches?.[0];
+              if (!t) { _tStart = null; return; }
+              const dx = t.clientX - _tStart.x;
+              const dy = t.clientY - _tStart.y;
+              const dt = Date.now() - _tStart.at;
+              _tStart = null;
+              if (dt > 500) return;
+              if (Math.abs(dx) < 60 || Math.abs(dy) > 40) return;
+              const idx = TAB_ORDER.indexOf(drawerTab);
+              if (dx < 0 && idx < TAB_ORDER.length - 1) setDrawerTab(TAB_ORDER[idx + 1]);
+              if (dx > 0 && idx > 0) setDrawerTab(TAB_ORDER[idx - 1]);
+            };
+
             return (
-              <div style={{padding:"18px 20px 32px"}}>
+              <div
+                style={{padding:"18px 20px 32px"}}
+                onTouchStart={onTouchStart}
+                onTouchEnd={onTouchEnd}
+              >
                 {/* Phase 2.5 Drawer Header (3 layers) */}
                 <div style={{marginBottom:14, paddingRight:32}}>
                   {/* 第一行：返回 [來源] */}
@@ -3225,7 +3322,7 @@ ${JSON.stringify(strategyBrain || { rules: [], lessons: [], commonMistakes: [], 
                       aria-label="上一檔"
                       style={{
                         background:"transparent",border:`1px solid ${C.border}`,
-                        borderRadius:6,padding:"4px 10px",fontSize:13,
+                        borderRadius:6,padding:"6px 12px",fontSize:14,minWidth:40,minHeight:36,
                         color: total < 2 ? alpha(C.textMute,'40') : C.textSec,
                         cursor: total < 2 ? "not-allowed" : "pointer",fontWeight:400,
                       }}
@@ -3244,7 +3341,7 @@ ${JSON.stringify(strategyBrain || { rules: [], lessons: [], commonMistakes: [], 
                       aria-label="下一檔"
                       style={{
                         background:"transparent",border:`1px solid ${C.border}`,
-                        borderRadius:6,padding:"4px 10px",fontSize:13,
+                        borderRadius:6,padding:"6px 12px",fontSize:14,minWidth:40,minHeight:36,
                         color: total < 2 ? alpha(C.textMute,'40') : C.textSec,
                         cursor: total < 2 ? "not-allowed" : "pointer",fontWeight:400,
                       }}
@@ -3252,152 +3349,214 @@ ${JSON.stringify(strategyBrain || { rules: [], lessons: [], commonMistakes: [], 
                   </div>
                 </div>
 
-                {/* 數量·成本·市價·市值·損益·% */}
-                <div style={{
-                  background:alpha(C.textMute,'04'),borderRadius:8,padding:"10px 12px",marginBottom:14,
-                  display:"flex",flexDirection:"column",gap:4,
-                }}>
-                  <div style={{fontSize:11,color:C.textMute,fontWeight:400}}>
-                    {h.qty}{h.unit || "股"} · 成本 {h.cost} · 市價 {h.price?.toLocaleString()}
-                  </div>
-                  <div style={{fontSize:10,color:alpha(C.textMute,'80'),fontWeight:400,letterSpacing:'0.04em'}}>
-                    數量與成本請透過「上傳成交」修改
-                  </div>
-                  <div style={{display:"flex",gap:10,alignItems:"baseline"}}>
-                    <span style={{fontSize:11,color:C.textMute}}>市值 {h.value?.toLocaleString()}</span>
-                    <span style={{fontSize:13,fontWeight:500,color:pc(h.pnl)}}>{h.pnl>=0?"+":""}{h.pnl?.toLocaleString()}</span>
-                    <span style={{fontSize:11,color:pc(h.pct)}}>{h.pct>=0?"+":""}{h.pct?.toFixed(2)}%</span>
-                  </div>
-                  {meta && (
-                    <div style={{fontSize:10,color:C.textMute,marginTop:2,display:'flex',alignItems:'center',gap:6}}>
-                      <span>{meta.industry}{meta.strategy && ` · ${meta.strategy}`}{meta.position && ` · ${meta.position}`}{meta.leader && ` · 領頭 ${meta.leader}`}</span>
-                      {metaOverridden && (
-                        <span title="此產業/策略由 AI 研究覆蓋" style={{fontSize:9,padding:'1px 5px',border:`1px solid ${alpha(C.textMute,'30')}`,borderRadius:3,letterSpacing:'0.06em'}}>AI</span>
-                      )}
-                    </div>
-                  )}
+                {/* Tab Bar：摘要 / 教學 / 風險（手機可左右滑動切換） */}
+                <div className="holding-drawer-tabs" role="tablist" aria-label="持倉抽屜分頁">
+                  {[
+                    ['summary', '摘要'],
+                    ['thesis', '教學'],
+                    ['risk', '風險'],
+                  ].map(([k, label]) => (
+                    <button
+                      key={k}
+                      role="tab"
+                      aria-selected={drawerTab === k}
+                      className="holding-drawer-tab"
+                      onClick={() => setDrawerTab(k)}
+                    >{label}</button>
+                  ))}
                 </div>
 
-                {/* Decision Box */}
-                {dec && (
-                  <section style={{marginBottom:16}}>
-                    <div style={{fontSize:10,color:C.textMute,letterSpacing:"0.1em",marginBottom:6}}>DECISION</div>
-                    <div style={{padding:"10px 12px",border:`1px solid ${alpha(C.textMute,'12')}`,borderRadius:8}}>
-                      <div style={{fontSize:13,color:dec.actionType==='exit'?C.down:dec.actionType==='review'?C.amber:C.text,fontWeight:500,marginBottom:6}}>
-                        {dec.actionText || (dec.actionType==='exit'?'建議出場':dec.actionType==='review'?'需要檢查':'維持持有')}
+                {drawerSkeleton ? (
+                  <div style={{display:'flex',flexDirection:'column',gap:12}}>
+                    <div className="holding-drawer-skel" style={{height:62}} />
+                    <div className="holding-drawer-skel" style={{height:90}} />
+                    <div className="holding-drawer-skel" style={{height:140}} />
+                    <div className="holding-drawer-skel" style={{height:60,width:'70%'}} />
+                  </div>
+                ) : (<>
+
+                {/* ━━━━━━━━━━━━━ 摘要 Tab ━━━━━━━━━━━━━ */}
+                {drawerTab === 'summary' && (<>
+                  {/* 數量·成本·市價·市值·損益·% */}
+                  <div style={{
+                    background:alpha(C.textMute,'04'),borderRadius:8,padding:"10px 12px",marginBottom:14,
+                    display:"flex",flexDirection:"column",gap:4,
+                  }}>
+                    <div style={{fontSize:11,color:C.textMute,fontWeight:400}}>
+                      {h.qty}{h.unit || "股"} · 成本 {h.cost} · 市價 {h.price?.toLocaleString()}
+                    </div>
+                    <div style={{fontSize:10,color:alpha(C.textMute,'80'),fontWeight:400,letterSpacing:'0.04em'}}>
+                      數量與成本請透過「上傳成交」修改
+                    </div>
+                    <div style={{display:"flex",gap:10,alignItems:"baseline"}}>
+                      <span style={{fontSize:11,color:C.textMute}}>市值 {h.value?.toLocaleString()}</span>
+                      <span style={{fontSize:13,fontWeight:500,color:pc(h.pnl)}}>{h.pnl>=0?"+":""}{h.pnl?.toLocaleString()}</span>
+                      <span style={{fontSize:11,color:pc(h.pct)}}>{h.pct>=0?"+":""}{h.pct?.toFixed(2)}%</span>
+                    </div>
+                    {meta && (
+                      <div style={{fontSize:10,color:C.textMute,marginTop:2,display:'flex',alignItems:'center',gap:6}}>
+                        <span>{meta.industry}{meta.strategy && ` · ${meta.strategy}`}{meta.position && ` · ${meta.position}`}{meta.leader && ` · 領頭 ${meta.leader}`}</span>
+                        {metaOverridden && (
+                          <span title="此產業/策略由 AI 研究覆蓋" style={{fontSize:9,padding:'1px 5px',border:`1px solid ${alpha(C.textMute,'30')}`,borderRadius:3,letterSpacing:'0.06em'}}>AI</span>
+                        )}
                       </div>
-                      <div style={{display:"flex",flexWrap:"wrap",gap:8,fontSize:11,color:C.textMute}}>
-                        <span>論點：{dec.thesisState==='broken'?'破裂':dec.thesisState==='weakening'?'弱化':'完整'}</span>
-                        <span>可信度：{dec.confidence==='high'?'高':dec.confidence==='medium'?'中':'低'}</span>
-                        <span>緊急：{dec.urgency==='now'?'立即':dec.urgency==='soon'?'近期':'觀察'}</span>
-                        <span>事件：{dec.openEventCount || 0}</span>
-                        {dec.hasConflict && <span style={{color:C.down}}>⚠ 存在衝突</span>}
-                      </div>
-                    </div>
-                  </section>
-                )}
-
-                {/* Thesis */}
-                <section style={{marginBottom:16}}>
-                  <div style={{fontSize:10,color:C.textMute,letterSpacing:"0.1em",marginBottom:6}}>THESIS · 進場理由</div>
-                  <div style={{fontSize:12,color:C.textSec,lineHeight:1.7,padding:"8px 12px",background:alpha(C.textMute,'04'),borderRadius:6}}>
-                    {(userOverrides[h.code]?.note) || (meta?.thesis) || meta?.strategy || "尚未填寫進場理由。"}
+                    )}
                   </div>
-                </section>
 
-                {/* Events Timeline */}
-                <section style={{marginBottom:16}}>
-                  <div style={{fontSize:10,color:C.textMute,letterSpacing:"0.1em",marginBottom:6}}>
-                    EVENTS · 事件時序（{openEvts.length} open / {resolvedEvts.length} 近期已結）
-                  </div>
-                  {timeline.length === 0 ? (
-                    <div style={{fontSize:12,color:C.textMute,padding:"8px 12px"}}>無事件紀錄</div>
-                  ) : (
-                    <div style={{display:"flex",flexDirection:"column",gap:6}}>
-                      {timeline.map((e, idx) => {
-                        const open = isEventOpen(e);
-                        const impact = e.decisionImpact || e.impact;
-                        const impactColor = impact==='break' ? C.down : impact==='weaken' ? C.amber : C.textMute;
-                        return (
-                          <div key={e.id || idx} style={{
-                            padding:"8px 10px",borderLeft:`2px solid ${open?C.amber:alpha(C.textMute,'25')}`,
-                            background: open ? alpha(C.amber,'05') : "transparent",
-                            borderRadius:"0 4px 4px 0",
-                          }}>
-                            <div style={{display:"flex",alignItems:"center",gap:6,marginBottom:2}}>
-                              <span style={{fontSize:9,color:e.source==='user'?C.blue:e.source==='ai'?C.teal:C.textMute,border:`1px solid ${alpha(e.source==='user'?C.blue:e.source==='ai'?C.teal:C.textMute,'25')}`,borderRadius:3,padding:"0 4px"}}>
-                                {e.source==='user'?'手動':e.source==='ai'?'AI':e.source==='calendar'?'日曆':'其他'}
-                              </span>
-                              <span style={{fontSize:9,color:C.textMute}}>{e.occurredAt ? new Date(e.occurredAt).toLocaleDateString("zh-TW") : ''}</span>
-                              {impact && <span style={{fontSize:9,color:impactColor,marginLeft:"auto"}}>{impact}</span>}
-                            </div>
-                            <div style={{fontSize:12,color:C.textSec,lineHeight:1.5}}>
-                              {e.summary || e.title || '(無摘要)'}
-                            </div>
-                          </div>
-                        );
-                      })}
-                    </div>
-                  )}
-                </section>
-
-                {/* 筆記 / Exit Cue */}
-                <section style={{marginBottom:16}}>
-                  <div style={{fontSize:10,color:C.textMute,letterSpacing:"0.1em",marginBottom:6}}>NOTES · 筆記與出場條件</div>
-                  <div style={{display:"flex",flexDirection:"column",gap:8}}>
-                    <div>
-                      <div style={{fontSize:10,color:C.textMute,marginBottom:3}}>筆記</div>
-                      <Textarea
-                        value={draftNote}
-                        onChange={(e)=>{ setDraftNote(e.target.value); draftDirtyRef.current = true; }}
-                        placeholder="進場理由、研究心得、後續觀察重點..."
-                        style={{minHeight:60,fontSize:12,background:C.card,color:C.text,borderColor:C.border}}
-                      />
-                    </div>
-                    <div>
-                      <div style={{fontSize:10,color:C.textMute,marginBottom:3}}>Exit Cue · 出場條件</div>
-                      <Textarea
-                        value={draftExitCue}
-                        onChange={(e)=>{ setDraftExitCue(e.target.value); draftDirtyRef.current = true; }}
-                        placeholder="達標出場、停損觸發、論點破裂訊號..."
-                        style={{minHeight:50,fontSize:12,background:C.card,color:C.text,borderColor:C.border}}
-                      />
-                    </div>
-                    <div style={{display:"flex",gap:8,alignItems:"center"}}>
-                      <button onClick={persistDraftIfDirty} style={{
-                        background:C.text,color:C.bg,border:"none",borderRadius:6,
-                        padding:"6px 14px",fontSize:12,fontWeight:500,cursor:"pointer",
-                      }}>儲存</button>
-                      {userOverrides[h.code]?.actionType && (
-                        <span style={{fontSize:10,color:C.blue}}>已覆寫決策：{userOverrides[h.code].actionType}</span>
-                      )}
-                    </div>
-                  </div>
-                </section>
-
-                {/* 目標價清單 */}
-                {T?.reports?.length > 0 && (
-                  <section style={{marginBottom:8}}>
-                    <div style={{fontSize:10,color:C.textMute,letterSpacing:"0.1em",marginBottom:6}}>
-                      TARGETS · 分析師目標價
-                      {tp && (
-                        <span style={{marginLeft:8,color:upside>=0?C.up:C.down,fontWeight:500}}>
-                          均 {tp.toLocaleString()}（{upside>=0?"+":""}{upside?.toFixed(1)}%）
-                        </span>
-                      )}
-                    </div>
-                    <div style={{display:"flex",flexDirection:"column",gap:4}}>
-                      {T.reports.map((r, idx) => (
-                        <div key={idx} style={{display:"flex",justifyContent:"space-between",fontSize:11,color:C.textSec,padding:"4px 10px",background:alpha(C.textMute,'04'),borderRadius:4}}>
-                          <span>{r.firm}</span>
-                          <span>{r.target?.toLocaleString()} <span style={{color:C.textMute,marginLeft:4}}>{r.date}</span></span>
+                  {/* Decision Box */}
+                  {dec && (
+                    <section style={{marginBottom:16}}>
+                      <div style={{fontSize:10,color:C.textMute,letterSpacing:"0.1em",marginBottom:6}}>DECISION</div>
+                      <div style={{padding:"10px 12px",border:`1px solid ${alpha(C.textMute,'12')}`,borderRadius:8}}>
+                        <div style={{fontSize:13,color:dec.actionType==='exit'?C.down:dec.actionType==='review'?C.amber:C.text,fontWeight:500,marginBottom:6}}>
+                          {dec.actionText || (dec.actionType==='exit'?'建議出場':dec.actionType==='review'?'需要檢查':'維持持有')}
                         </div>
-                      ))}
+                        <div style={{display:"flex",flexWrap:"wrap",gap:8,fontSize:11,color:C.textMute}}>
+                          <span>論點：{dec.thesisState==='broken'?'破裂':dec.thesisState==='weakening'?'弱化':'完整'}</span>
+                          <span>可信度：{dec.confidence==='high'?'高':dec.confidence==='medium'?'中':'低'}</span>
+                          <span>緊急：{dec.urgency==='now'?'立即':dec.urgency==='soon'?'近期':'觀察'}</span>
+                          <span>事件：{dec.openEventCount || 0}</span>
+                          {dec.hasConflict && <span style={{color:C.down}}>⚠ 存在衝突</span>}
+                        </div>
+                      </div>
+                    </section>
+                  )}
+
+                  {/* 目標價清單 */}
+                  {T?.reports?.length > 0 && (
+                    <section style={{marginBottom:8}}>
+                      <div style={{fontSize:10,color:C.textMute,letterSpacing:"0.1em",marginBottom:6}}>
+                        TARGETS · 分析師目標價
+                        {tp && (
+                          <span style={{marginLeft:8,color:upside>=0?C.up:C.down,fontWeight:500}}>
+                            均 {tp.toLocaleString()}（{upside>=0?"+":""}{upside?.toFixed(1)}%）
+                          </span>
+                        )}
+                      </div>
+                      <div style={{display:"flex",flexDirection:"column",gap:4}}>
+                        {T.reports.map((r, idx) => (
+                          <div key={idx} style={{display:"flex",justifyContent:"space-between",fontSize:11,color:C.textSec,padding:"4px 10px",background:alpha(C.textMute,'04'),borderRadius:4}}>
+                            <span>{r.firm}</span>
+                            <span>{r.target?.toLocaleString()} <span style={{color:C.textMute,marginLeft:4}}>{r.date}</span></span>
+                          </div>
+                        ))}
+                      </div>
+                    </section>
+                  )}
+                  <Suspense fallback={null}><TargetPriceHistorySection code={h.code} C={C} alpha={alpha} enabled={!isDemo} /></Suspense>
+                </>)}
+
+                {/* ━━━━━━━━━━━━━ 教學 Tab ━━━━━━━━━━━━━ */}
+                {drawerTab === 'thesis' && (<>
+                  {/* Thesis */}
+                  <section style={{marginBottom:16}}>
+                    <div style={{fontSize:10,color:C.textMute,letterSpacing:"0.1em",marginBottom:6}}>THESIS · 進場理由</div>
+                    <div style={{fontSize:12,color:C.textSec,lineHeight:1.7,padding:"8px 12px",background:alpha(C.textMute,'04'),borderRadius:6}}>
+                      {(userOverrides[h.code]?.note) || (meta?.thesis) || meta?.strategy || "尚未填寫進場理由。"}
                     </div>
                   </section>
-                )}
-                {/* 目標價版本歷史 */}
-                <Suspense fallback={null}><TargetPriceHistorySection code={h.code} C={C} alpha={alpha} enabled={!isDemo} /></Suspense>
+
+                  {/* 筆記 / Exit Cue */}
+                  <section style={{marginBottom:16}}>
+                    <div style={{fontSize:10,color:C.textMute,letterSpacing:"0.1em",marginBottom:6}}>NOTES · 筆記與出場條件</div>
+                    <div style={{display:"flex",flexDirection:"column",gap:8}}>
+                      <div>
+                        <div style={{fontSize:10,color:C.textMute,marginBottom:3}}>筆記</div>
+                        <Textarea
+                          value={draftNote}
+                          onChange={(e)=>{ setDraftNote(e.target.value); draftDirtyRef.current = true; }}
+                          placeholder="進場理由、研究心得、後續觀察重點..."
+                          style={{minHeight:60,fontSize:12,background:C.card,color:C.text,borderColor:C.border}}
+                        />
+                      </div>
+                      <div>
+                        <div style={{fontSize:10,color:C.textMute,marginBottom:3}}>Exit Cue · 出場條件</div>
+                        <Textarea
+                          value={draftExitCue}
+                          onChange={(e)=>{ setDraftExitCue(e.target.value); draftDirtyRef.current = true; }}
+                          placeholder="達標出場、停損觸發、論點破裂訊號..."
+                          style={{minHeight:50,fontSize:12,background:C.card,color:C.text,borderColor:C.border}}
+                        />
+                      </div>
+                      <div style={{display:"flex",gap:8,alignItems:"center"}}>
+                        <button onClick={persistDraftIfDirty} style={{
+                          background:C.text,color:C.bg,border:"none",borderRadius:6,
+                          padding:"8px 16px",fontSize:13,fontWeight:500,cursor:"pointer",minHeight:36,
+                        }}>儲存</button>
+                        {userOverrides[h.code]?.actionType && (
+                          <span style={{fontSize:10,color:C.blue}}>已覆寫決策：{userOverrides[h.code].actionType}</span>
+                        )}
+                      </div>
+                    </div>
+                  </section>
+                </>)}
+
+                {/* ━━━━━━━━━━━━━ 風險 Tab ━━━━━━━━━━━━━ */}
+                {drawerTab === 'risk' && (<>
+                  <section style={{marginBottom:16}}>
+                    <div style={{fontSize:10,color:C.textMute,letterSpacing:"0.1em",marginBottom:6}}>
+                      EVENTS · 事件時序（{openEvts.length} open / {resolvedEvts.length} 近期已結）
+                    </div>
+                    {timeline.length === 0 ? (
+                      <div style={{fontSize:12,color:C.textMute,padding:"8px 12px"}}>無事件紀錄</div>
+                    ) : (
+                      <div style={{display:"flex",flexDirection:"column",gap:6}}>
+                        {timeline.map((e, idx) => {
+                          const open = isEventOpen(e);
+                          const impact = e.decisionImpact || e.impact;
+                          const impactColor = impact==='break' ? C.down : impact==='weaken' ? C.amber : C.textMute;
+                          return (
+                            <div key={e.id || idx} style={{
+                              padding:"8px 10px",borderLeft:`2px solid ${open?C.amber:alpha(C.textMute,'25')}`,
+                              background: open ? alpha(C.amber,'05') : "transparent",
+                              borderRadius:"0 4px 4px 0",
+                            }}>
+                              <div style={{display:"flex",alignItems:"center",gap:6,marginBottom:2}}>
+                                <span style={{fontSize:9,color:e.source==='user'?C.blue:e.source==='ai'?C.teal:C.textMute,border:`1px solid ${alpha(e.source==='user'?C.blue:e.source==='ai'?C.teal:C.textMute,'25')}`,borderRadius:3,padding:"0 4px"}}>
+                                  {e.source==='user'?'手動':e.source==='ai'?'AI':e.source==='calendar'?'日曆':'其他'}
+                                </span>
+                                <span style={{fontSize:9,color:C.textMute}}>{e.occurredAt ? new Date(e.occurredAt).toLocaleDateString("zh-TW") : ''}</span>
+                                {impact && <span style={{fontSize:9,color:impactColor,marginLeft:"auto"}}>{impact}</span>}
+                              </div>
+                              <div style={{fontSize:12,color:C.textSec,lineHeight:1.5}}>
+                                {e.summary || e.title || '(無摘要)'}
+                              </div>
+                            </div>
+                          );
+                        })}
+                      </div>
+                    )}
+                  </section>
+                </>)}
+
+                </>)}
+
+                {/* 手機底部固定關閉條（單手好按） */}
+                <div className="holding-drawer-mobile-close">
+                  <button
+                    onClick={goPrev}
+                    disabled={total < 2}
+                    aria-label="上一檔"
+                    style={{
+                      flex:'0 0 56px', minWidth:56,
+                      background:'transparent',
+                      color: total < 2 ? alpha(C.textMute,'40') : C.text,
+                      border:`1px solid ${C.border}`,
+                    }}
+                  >‹</button>
+                  <button onClick={() => handleDrawerOpenChange(false)}>✕ 關閉</button>
+                  <button
+                    onClick={goNext}
+                    disabled={total < 2}
+                    aria-label="下一檔"
+                    style={{
+                      flex:'0 0 56px', minWidth:56,
+                      background:'transparent',
+                      color: total < 2 ? alpha(C.textMute,'40') : C.text,
+                      border:`1px solid ${C.border}`,
+                    }}
+                  >›</button>
+                </div>
               </div>
             );
           })() : (
@@ -3405,6 +3564,7 @@ ${JSON.stringify(strategyBrain || { rules: [], lessons: [], commonMistakes: [], 
           )}
         </SheetContent>
       </Sheet>
+
 
       {/* 配額不足 modal 已移除（2026-06）— 全螢幕遮罩會擋住 tab 導航，
           現改用 TradeTab/DailyTab inline banner + toast 提示。見 .lovable/plan.md */}
