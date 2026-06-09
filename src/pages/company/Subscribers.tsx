@@ -243,6 +243,9 @@ const CompanySubscribers = () => {
             <table className="w-full">
               <thead>
                 <tr className="border-b text-left text-sm text-muted-foreground">
+                  <th className="p-4 w-10">
+                    <Checkbox checked={allFilteredSelected} onCheckedChange={toggleAllFiltered} />
+                  </th>
                   <th className="p-4">類型</th>
                   <th className="p-4">訂閱者</th>
                   <th className="p-4">方案</th>
@@ -255,16 +258,25 @@ const CompanySubscribers = () => {
               </thead>
               <tbody>
                 {loading ? (
-                  <tr><td colSpan={8} className="p-8 text-center text-muted-foreground text-sm">載入中...</td></tr>
+                  <tr><td colSpan={9} className="p-8 text-center text-muted-foreground text-sm">載入中...</td></tr>
                 ) : filtered.length === 0 ? (
-                  <tr><td colSpan={8} className="p-8 text-center text-muted-foreground text-sm">無訂閱紀錄</td></tr>
+                  <tr><td colSpan={9} className="p-8 text-center text-muted-foreground text-sm">無訂閱紀錄</td></tr>
                 ) : (
                   filtered.map(sub => {
                     const remaining = getRemainingDays(sub.expires_at);
                     const id = identities[sub.user_id];
                     const isLine = id?.login_method === 'line';
+                    const checked = selectedUserIds.has(sub.user_id);
                     return (
                       <tr key={`${sub.kind}-${sub.id}`} className="border-b last:border-0">
+                        <td className="p-4">
+                          <Checkbox
+                            checked={checked}
+                            onCheckedChange={() => toggleOne(sub.user_id)}
+                            disabled={!id?.line_user_id}
+                            title={!id?.line_user_id ? '未綁定 Line，無法推播' : ''}
+                          />
+                        </td>
                         <td className="p-4">
                           <Badge variant={sub.kind === 'checkup' ? 'default' : 'outline'} className="text-xs">
                             {sub.kind === 'checkup' ? '健檢' : '訂閱方案'}
