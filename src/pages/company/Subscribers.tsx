@@ -29,6 +29,8 @@ const CompanySubscribers = () => {
   const [search, setSearch] = useState('');
   const [statusFilter, setStatusFilter] = useState<string>('all');
   const [kindFilter, setKindFilter] = useState<'all' | 'expert' | 'checkup'>('all');
+  const [selectedUserIds, setSelectedUserIds] = useState<Set<string>>(new Set());
+  const [pushOpen, setPushOpen] = useState(false);
 
   const { data, isFetching } = useQuery({
     queryKey: ['company', 'subscribers'],
