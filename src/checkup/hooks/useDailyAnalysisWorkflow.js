@@ -25,6 +25,44 @@ import { flushKnowledgeHits } from '../lib/knowledgeBase.js'
 import { useHoldingsStore } from '../stores/holdingsStore.js'
 import { useReportsStore } from '../stores/reportsStore.js'
 import { useBrainStore } from '../stores/brainStore.js'
+import { supabase } from '@/integrations/supabase/client'
+
+// ── 背景收盤分析 job：開始時建立 row，結束時更新 + 觸發 notify-complete ──
+async function createAnalysisJob(holdings) {
+  try {
+    const { data: { user } } = await supabase.auth.getUser()
+    if (!user) return null
+    const snapshot = (holdings || []).map((h) => ({
+      code: h.code, name: h.name, qty: h.qty, cost: h.cost, price: h.price,
+    }))
+    const { data, error } = await supabase
+      .from('checkup_analysis_jobs')
+      .insert({ user_id: user.id, status: 'running', holdings_snapshot: snapshot, started_at: new Date().toISOString() })
+      .select('id')
+      .maybeSingle()
+    if (error) { console.warn('[analysis-job] create failed', error); return null }
+    return data?.id || null
+  } catch (e) { console.warn('[analysis-job] create exception', e); return null }
+}
+
+async function finishAnalysisJob(jobId, { status, summary, errorText } = {}) {
+  if (!jobId) return
+  try {
+    await supabase
+      .from('checkup_analysis_jobs')
+      .update({
+        status,
+        result_summary: summary || null,
+        error_text: errorText || null,
+        finished_at: new Date().toISOString(),
+      })
+      .eq('id', jobId)
+    // fire-and-forget notify
+    supabase.functions.invoke('checkup-notify-complete', { body: { job_id: jobId } })
+      .catch((e) => console.warn('[analysis-job] notify failed', e))
+  } catch (e) { console.warn('[analysis-job] finish exception', e) }
+}
+
 
 export function useDailyAnalysisWorkflow({
   analyzing = false,
@@ -89,10 +127,15 @@ export function useDailyAnalysisWorkflow({
     setAnalyzing(true)
     setAnalyzeStep(APP_STATUS_MESSAGES.dailyLoadingMarketCache)
 
+    // 背景 job 標記：建立 row，結束時通知（Line / Email / 站內）
+    const __jobId = await createAnalysisJob(holdings)
+    if (__jobId) emitSaved('🔔 分析已開始，可關閉網頁，完成後將通知您', 5000)
+
     // Flush previously buffered analyses (fire-and-forget, doesn't block flow)
     if (canUseCloud) {
       flushPendingAnalyses(API_ENDPOINTS.BRAIN).catch(() => {})
     }
+
 
     try {
       const codes = holdings.map((holding) => holding.code)
@@ -469,10 +512,32 @@ ${losers
             console.error('收盤分析後刷新公開報告失敗:', refreshError)
           })
       }
+
+      // 標記 job 完成 → 觸發 Line / Email / 站內通知
+      try {
+        const watchlist = [...changes]
+          .sort((a, b) => (a.todayPnl || 0) - (b.todayPnl || 0))
+          .slice(0, 3)
+          .map((c) => ({
+            code: c.code,
+            name: c.name || c.code,
+            note: `今日 ${(c.todayPnl >= 0 ? '+' : '')}${Math.round(c.todayPnl || 0).toLocaleString()}`,
+          }))
+        finishAnalysisJob(__jobId, {
+          status: 'done',
+          summary: {
+            total_pnl: totalTodayPnl,
+            total_holdings: holdings.length,
+            watchlist,
+          },
+        })
+      } catch (jobErr) { console.warn('[analysis-job] summary build failed', jobErr) }
     } catch (error) {
       console.error('收盤分析失敗:', error)
       emitSaved('❌ 分析失敗', 3000)
+      finishAnalysisJob(__jobId, { status: 'failed', errorText: error?.message || '分析失敗' })
     }
+
 
     setAnalyzing(false)
     setAnalyzeStep('')
