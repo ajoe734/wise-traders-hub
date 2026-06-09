@@ -477,6 +477,8 @@ export default function App() {
   const [drawerOpen, setDrawerOpen] = useState(false);
   const [activeCode, setActiveCode] = useState(null);
   const [drawerSource, setDrawerSource] = useState(null); // {type:'priority-global'|'category'|'list'|'search', key?, label}
+  const [drawerTab, setDrawerTab] = useState('summary'); // 'summary' | 'thesis' | 'risk'
+  const [drawerSkeleton, setDrawerSkeleton] = useState(false);
   const [draftNote, setDraftNote] = useState("");
   const [draftExitCue, setDraftExitCue] = useState("");
   const scrollPosRef = useRef(0);
