@@ -24,6 +24,12 @@ import { mergeCalendarToNewsEvents } from "@/checkup/lib/calendarSync";
 import { useMetaOverrides, mergeMeta } from "@/checkup/hooks/useMetaOverrides";
 import { NewsEventRow } from "@/checkup/components/freecheckup/NewsEventRow";
 import { trackRaw } from "@/lib/analytics/events";
+import { ErrorBoundary } from "@/checkup/components/ErrorBoundary";
+
+// ── 觸覺回饋（行動裝置）：iOS Safari 不支援會自動 no-op ──
+const hapticTap = (ms = 10) => {
+  try { if (typeof navigator !== 'undefined' && navigator.vibrate) navigator.vibrate(ms); } catch {}
+};
 // P3-perf: HoldingsTab 整段抽出並 lazy-load，首屏不再為持倉牆付出解析成本
 const HoldingsTab = lazy(() => import("@/checkup/components/freecheckup/HoldingsTab"));
 const NewsTab = lazy(() => import("@/checkup/components/freecheckup/NewsTab"));
