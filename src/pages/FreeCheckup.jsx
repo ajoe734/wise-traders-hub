@@ -878,6 +878,68 @@ export default function App() {
       .subscribe();
     return () => { supabase.removeChannel(ch); };
   }, [isDemo]);
+
+  // Deep link: ?job=<id> → 載入完成的背景 job 結果並以最小 dailyReport 呈現
+  useEffect(() => {
+    if (isDemo) return;
+    if (typeof window === 'undefined') return;
+    const url = new URL(window.location.href);
+    const jobId = url.searchParams.get('job');
+    if (!jobId) return;
+    const uid = getCurrentUserId();
+    if (!uid) return;
+    let cancelled = false;
+    (async () => {
+      try {
+        const { data: job } = await supabase
+          .from('checkup_analysis_jobs')
+          .select('id, status, result_summary, raw_responses, holdings_snapshot, finished_at, error_text, user_id')
+          .eq('id', jobId)
+          .maybeSingle();
+        if (cancelled || !job || job.user_id !== uid) return;
+        if (job.status === 'failed') {
+          toast.error(`背景分析失敗：${job.error_text || '請重試'}`, { duration: 8000 });
+          return;
+        }
+        if (job.status !== 'done') {
+          toast.info('該背景分析仍在進行中，完成後將通知您', { duration: 6000 });
+          return;
+        }
+        const aiInsight = job?.raw_responses?.main?.text || '';
+        const snap = Array.isArray(job.holdings_snapshot) ? job.holdings_snapshot : [];
+        const changes = snap.map((h) => ({
+          code: String(h?.code || ''),
+          name: String(h?.name || h?.code || ''),
+          price: Number(h?.price) || 0,
+          cost: Number(h?.cost) || 0,
+          qty: Number(h?.qty) || 0,
+          todayPnl: 0,
+          changePct: 0,
+          returnPct: (Number(h?.price) && Number(h?.cost)) ? ((Number(h.price) - Number(h.cost)) / Number(h.cost)) * 100 : 0,
+        }));
+        setDailyReport({
+          id: Date.now(),
+          date: (job.finished_at || new Date().toISOString()).slice(0, 10).replace(/-/g, '/'),
+          time: new Date(job.finished_at || Date.now()).toLocaleTimeString('zh-TW', { hour: '2-digit', minute: '2-digit' }),
+          totalTodayPnl: Number(job?.result_summary?.total_pnl) || 0,
+          changes,
+          anomalies: [],
+          eventCorrelations: [],
+          needsReview: [],
+          autoVerified: [],
+          aiInsight,
+          fromBackgroundJob: true,
+        });
+        toast.success('已載入背景分析結果', { duration: 4000 });
+        // 清掉 query string 避免重複載入
+        url.searchParams.delete('job');
+        window.history.replaceState({}, '', url.pathname + (url.searchParams.toString() ? `?${url.searchParams}` : '') + url.hash);
+      } catch (e) {
+        console.warn('[deep-link job] failed', e);
+      }
+    })();
+    return () => { cancelled = true; };
+  }, [isDemo]);
   // tradeLog 存到 Supabase — 改用「scoped delete + insert」並加 debounce/錯誤通知
   // 重要：原本 .delete().neq() 沒帶 user_id 篩選，僅靠 RLS 保護；改為明確 .eq('user_id', ...) 雙保險
   const cloudTradeLogTimerRef = useRef(null);
