@@ -289,6 +289,8 @@ export const isSameNumber = (a, b) => {
 };
 
 export const DEMO_HOLDING_LOOKUP = new Map(INIT_HOLDINGS.map((holding) => [holding.code, holding]));
+// Authenticated 模式下永遠不准混入 seed 個股的代碼黑名單（單一憲法來源）
+export const DEMO_SEED_CODES = new Set(INIT_HOLDINGS.map((holding) => String(holding?.code || "").trim()).filter(Boolean));
 
 export const isExactDemoHolding = (holding) => {
   const demoHolding = DEMO_HOLDING_LOOKUP.get(holding?.code);
@@ -304,8 +306,36 @@ export const isExactDemoHolding = (holding) => {
   );
 };
 
+// 是否有「真實使用者來源」標記。只要任一為真，視為使用者真的持有此代號，不剔除。
+export const holdingHasUserOrigin = (holding) => {
+  if (!holding) return false;
+  if (holding.userOrigin === true) return true;
+  if (holding.tradeLogTouched === true) return true;
+  const src = String(holding.priceSource || "").toLowerCase();
+  if (src === "screenshot" || src === "manual") return true;
+  return false;
+};
+
+// authenticated 入口統一打標：使用者真的動到這筆持倉時呼叫。
+export const markUserOwnedHolding = (holding) => {
+  if (!holding || typeof holding !== "object") return holding;
+  if (holding.userOrigin === true) return holding;
+  return { ...holding, userOrigin: true };
+};
+
+/**
+ * 剔除 demo seed 殘留。
+ * - 未登入 demo 模式請勿呼叫（demo 模式應保留 seed）。
+ * - authenticated 模式：只要 code 命中 DEMO_SEED_CODES，且該筆沒有任何使用者來源標記，一律剔除。
+ *   舊「全欄位等值比對」會被 realtime 報價 / backfill 改寫後失效，故已淘汰，僅留 isExactDemoHolding 給 demo 內部使用。
+ */
 export const stripDemoSeedHoldings = (holdingsList = []) =>
-  (Array.isArray(holdingsList) ? holdingsList : []).filter((holding) => !isExactDemoHolding(holding));
+  (Array.isArray(holdingsList) ? holdingsList : []).filter((holding) => {
+    const code = String(holding?.code || "").trim();
+    if (!code) return false;
+    if (!DEMO_SEED_CODES.has(code)) return true;
+    return holdingHasUserOrigin(holding);
+  });
 
 export const getHoldingCodesKey = (holdingsList = []) =>
   (Array.isArray(holdingsList) ? holdingsList : [])
