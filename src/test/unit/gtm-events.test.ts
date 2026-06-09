@@ -44,3 +44,26 @@ describe('gtmPush', () => {
     expect(() => gtmPush('Login')).not.toThrow();
   });
 });
+
+describe('pathToFeature (GTM Function mapping)', () => {
+  const cases: Array<[string, string | null]> = [
+    ['/', 'home'],
+    ['/pricing', 'pricing'],
+    ['/experts', 'experts'],
+    ['/expert/abc', 'experts'],
+    ['/leaderboard', 'leaderboard'],
+    ['/app/account', 'account'],
+    ['/app/subscribed-experts', 'subscribed_experts'],
+    ['/app/research', 'research'],
+    ['/app/holdings', 'holdings'],
+    ['/app/signals', 'signals'],
+    ['/app/journals', 'journals'],
+    ['/app', 'app'],
+    ['/holding-checkup', 'checkup'],
+    ['/learning', 'learning'],
+    ['/unknown', null],
+  ];
+  it.each(cases)('maps %s → %s', (path, feature) => {
+    expect(pathToFeature(path)).toBe(feature);
+  });
+});
