@@ -56,13 +56,15 @@ export default function AccountNotifications() {
     enabled: !!userId,
     staleTime: 30_000,
     queryFn: async () => {
-      const [{ data: pData }, { data: nData }] = await Promise.all([
+      const [{ data: pData }, { data: nData }, { data: profileData }] = await Promise.all([
         supabase.from('notification_preferences').select('*').eq('user_id', userId!).maybeSingle(),
         supabase.from('notifications').select('*').eq('user_id', userId!).order('created_at', { ascending: false }).limit(80),
+        supabase.from('profiles').select('line_user_id').eq('user_id', userId!).maybeSingle(),
       ]);
       return {
         prefs: (pData as Pref) || { user_id: userId!, ...PREF_DEFAULTS },
         items: nData || [] as any[],
+        hasLineBinding: !!profileData?.line_user_id,
       };
     },
   });
