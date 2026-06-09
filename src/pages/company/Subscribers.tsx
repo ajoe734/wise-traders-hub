@@ -147,6 +147,41 @@ const CompanySubscribers = () => {
     URL.revokeObjectURL(url);
   };
 
+  // 唯一收件人清單（按勾選的 user_id，去重）
+  const recipientRecords = useMemo(() => {
+    const seen = new Set<string>();
+    const list: Array<{ user_id: string; display_name?: string; has_line: boolean }> = [];
+    for (const uid of selectedUserIds) {
+      if (seen.has(uid)) continue;
+      seen.add(uid);
+      const id = identities[uid];
+      list.push({
+        user_id: uid,
+        display_name: id?.display_name,
+        has_line: !!id?.line_user_id,
+      });
+    }
+    return list;
+  }, [selectedUserIds, identities]);
+
+  const filteredUserIds = useMemo(() => [...new Set(filtered.map((s) => s.user_id))], [filtered]);
+  const allFilteredSelected = filteredUserIds.length > 0 && filteredUserIds.every((u) => selectedUserIds.has(u));
+  const toggleAllFiltered = () => {
+    setSelectedUserIds((prev) => {
+      const next = new Set(prev);
+      if (allFilteredSelected) filteredUserIds.forEach((u) => next.delete(u));
+      else filteredUserIds.forEach((u) => next.add(u));
+      return next;
+    });
+  };
+  const toggleOne = (uid: string) => {
+    setSelectedUserIds((prev) => {
+      const next = new Set(prev);
+      if (next.has(uid)) next.delete(uid); else next.add(uid);
+      return next;
+    });
+  };
+
   return (
     <CompanyLayout>
       <SEO title={'訂閱者管理 | legendflow'} description={'平台訂閱者總覽。'} path={'/company/subscribers'} noindex />
@@ -156,9 +191,21 @@ const CompanySubscribers = () => {
             <h1 className="text-2xl font-bold">訂閱者管理</h1>
             <p className="text-muted-foreground text-sm mt-1">查看與管理所有平台訂閱者（含分析師訂閱與健檢方案）</p>
           </div>
-          <Button variant="outline" size="sm" onClick={handleExport}>
-            <Download className="h-4 w-4 mr-2" />匯出對帳報表
-          </Button>
+          <div className="flex items-center gap-2">
+            <Button variant="outline" size="sm" asChild>
+              <Link to="/company/line-push-history"><History className="h-4 w-4 mr-2" />推播紀錄</Link>
+            </Button>
+            <Button
+              variant="default" size="sm"
+              disabled={selectedUserIds.size === 0}
+              onClick={() => setPushOpen(true)}
+            >
+              <MessageCircle className="h-4 w-4 mr-2" />Line 推播 ({selectedUserIds.size})
+            </Button>
+            <Button variant="outline" size="sm" onClick={handleExport}>
+              <Download className="h-4 w-4 mr-2" />匯出對帳報表
+            </Button>
+          </div>
         </div>
 
         <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-6 gap-4">
