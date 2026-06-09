@@ -3302,36 +3302,57 @@ ${JSON.stringify(strategyBrain || { rules: [], lessons: [], commonMistakes: [], 
                 ? `返回${drawerSource.label?.replace(/^[^\s]+\s/, '') || '分類'}`
                 : '返回列表';
 
-            // ── 手機左右滑動切換 tab ──
-            const TAB_ORDER = ['summary', 'thesis', 'risk'];
-            const touchRef = { current: null };
-            let _tStart = null;
+            // ── 手機左右滑動切換 tab（多指/快滑/連點防誤觸 + haptic） ──
+            const SWIPE_MIN_DX = 60;
+            const SWIPE_MAX_DY = 40;
+            const SWIPE_MAX_DT = 600;
+            const SWIPE_MIN_DT = 60; // 太快視為意外（彈跳/慣性）
+            const SWIPE_THROTTLE_MS = 320;
             const onTouchStart = (e) => {
-              const t = e.touches?.[0];
-              if (!t) return;
-              _tStart = { x: t.clientX, y: t.clientY, at: Date.now() };
+              // 多指捏放/滾動由瀏覽器處理，不參與 swipe
+              if ((e.touches?.length || 0) !== 1) { swipeStartRef.current = null; return; }
+              // 在 textarea/input/可滾動容器內不攔截
+              const tag = (e.target?.tagName || '').toLowerCase();
+              if (tag === 'textarea' || tag === 'input' || tag === 'select') {
+                swipeStartRef.current = null; return;
+              }
+              const t = e.touches[0];
+              swipeStartRef.current = { x: t.clientX, y: t.clientY, at: Date.now() };
+            };
+            const onTouchMove = (e) => {
+              // 一旦中途出現第二指，取消手勢避免錯跳
+              if ((e.touches?.length || 0) > 1) swipeStartRef.current = null;
             };
             const onTouchEnd = (e) => {
-              if (!_tStart) return;
+              const start = swipeStartRef.current;
+              swipeStartRef.current = null;
+              if (!start) return;
               const t = e.changedTouches?.[0];
-              if (!t) { _tStart = null; return; }
-              const dx = t.clientX - _tStart.x;
-              const dy = t.clientY - _tStart.y;
-              const dt = Date.now() - _tStart.at;
-              _tStart = null;
-              if (dt > 500) return;
-              if (Math.abs(dx) < 60 || Math.abs(dy) > 40) return;
+              if (!t) return;
+              const dx = t.clientX - start.x;
+              const dy = t.clientY - start.y;
+              const dt = Date.now() - start.at;
+              if (dt > SWIPE_MAX_DT || dt < SWIPE_MIN_DT) return;
+              if (Math.abs(dx) < SWIPE_MIN_DX) return;
+              if (Math.abs(dy) > SWIPE_MAX_DY) return;
+              if (Math.abs(dy) > Math.abs(dx) * 0.6) return; // 偏垂直視為滾動
+              const now = Date.now();
+              if (now - lastSwipeAtRef.current < SWIPE_THROTTLE_MS) return;
+              lastSwipeAtRef.current = now;
               const idx = TAB_ORDER.indexOf(drawerTab);
-              if (dx < 0 && idx < TAB_ORDER.length - 1) setDrawerTab(TAB_ORDER[idx + 1]);
-              if (dx > 0 && idx > 0) setDrawerTab(TAB_ORDER[idx - 1]);
+              if (dx < 0 && idx < TAB_ORDER.length - 1) safeSetDrawerTab(TAB_ORDER[idx + 1]);
+              else if (dx > 0 && idx > 0) safeSetDrawerTab(TAB_ORDER[idx - 1]);
             };
 
             return (
               <div
                 style={{padding:"18px 20px 32px"}}
                 onTouchStart={onTouchStart}
+                onTouchMove={onTouchMove}
                 onTouchEnd={onTouchEnd}
+                onTouchCancel={() => { swipeStartRef.current = null; }}
               >
+
                 {/* Phase 2.5 Drawer Header (3 layers) */}
                 <div style={{marginBottom:14, paddingRight:32}}>
                   {/* 第一行：返回 [來源] */}
