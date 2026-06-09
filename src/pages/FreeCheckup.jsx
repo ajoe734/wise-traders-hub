@@ -766,14 +766,16 @@ export default function App() {
   const cloudHoldingsErrorShownRef = useRef(false);
   useEffect(() => {
     if (!(ready && holdings && !isDemo)) return;
-    save("pf-holdings-v2", holdings);
+    // 寫雲端 / 本機前一律 strip demo seed，避免任何 race / realtime 將 seed 個股洗回雲端
+    const cleanHoldings = stripDemoSeedHoldings(holdings);
+    save("pf-holdings-v2", cleanHoldings);
     const uid = getCurrentUserId();
     if (!uid) return;
     if (cloudHoldingsTimerRef.current) clearTimeout(cloudHoldingsTimerRef.current);
     cloudHoldingsTimerRef.current = setTimeout(async () => {
       try {
-        const codes = holdings.map(h => `${h.code} ${h.name}`).join("、");
-        const codesKey = holdings.map(h => h.code).sort().join(",");
+        const codes = cleanHoldings.map(h => `${h.code} ${h.name}`).join("、");
+        const codesKey = cleanHoldings.map(h => h.code).sort().join(",");
         const { error } = await supabase
           .from("checkup_storage")
           .upsert({ user_id: uid, key: "pf-calendar-holdings", data: { stocks: codes, holdingCodes: codesKey } }, { onConflict: "user_id,key" });
