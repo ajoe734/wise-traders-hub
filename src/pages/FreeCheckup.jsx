@@ -485,6 +485,11 @@ export default function App() {
   const [drawerSource, setDrawerSource] = useState(null); // {type:'priority-global'|'category'|'list'|'search', key?, label}
   const [drawerTab, setDrawerTab] = useState('summary'); // 'summary' | 'thesis' | 'risk'
   const [drawerSkeleton, setDrawerSkeleton] = useState(false);
+  const [drawerRetryN, setDrawerRetryN] = useState(0); // 觸發 ErrorBoundary reset 與子元件 remount
+  // 手勢防誤觸 refs（component 層級，跨 render 持久）
+  const swipeStartRef = useRef(null);
+  const lastSwipeAtRef = useRef(0);
+  const lastTabChangeAtRef = useRef(0);
   const [draftNote, setDraftNote] = useState("");
   const [draftExitCue, setDraftExitCue] = useState("");
   const scrollPosRef = useRef(0);
