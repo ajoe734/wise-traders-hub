@@ -323,6 +323,12 @@ const CompanySubscribers = () => {
           </CardContent>
         </Card>
       </div>
+      <LinePushDialog
+        open={pushOpen}
+        onOpenChange={setPushOpen}
+        recipients={recipientRecords}
+        onSent={() => setSelectedUserIds(new Set())}
+      />
     </CompanyLayout>
   );
 };
