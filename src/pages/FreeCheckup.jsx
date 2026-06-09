@@ -24,6 +24,12 @@ import { mergeCalendarToNewsEvents } from "@/checkup/lib/calendarSync";
 import { useMetaOverrides, mergeMeta } from "@/checkup/hooks/useMetaOverrides";
 import { NewsEventRow } from "@/checkup/components/freecheckup/NewsEventRow";
 import { trackRaw } from "@/lib/analytics/events";
+import { ErrorBoundary } from "@/checkup/components/ErrorBoundary";
+
+// ── 觸覺回饋（行動裝置）：iOS Safari 不支援會自動 no-op ──
+const hapticTap = (ms = 10) => {
+  try { if (typeof navigator !== 'undefined' && navigator.vibrate) navigator.vibrate(ms); } catch {}
+};
 // P3-perf: HoldingsTab 整段抽出並 lazy-load，首屏不再為持倉牆付出解析成本
 const HoldingsTab = lazy(() => import("@/checkup/components/freecheckup/HoldingsTab"));
 const NewsTab = lazy(() => import("@/checkup/components/freecheckup/NewsTab"));
@@ -479,6 +485,11 @@ export default function App() {
   const [drawerSource, setDrawerSource] = useState(null); // {type:'priority-global'|'category'|'list'|'search', key?, label}
   const [drawerTab, setDrawerTab] = useState('summary'); // 'summary' | 'thesis' | 'risk'
   const [drawerSkeleton, setDrawerSkeleton] = useState(false);
+  const [drawerRetryN, setDrawerRetryN] = useState(0); // 觸發 ErrorBoundary reset 與子元件 remount
+  // 手勢防誤觸 refs（component 層級，跨 render 持久）
+  const swipeStartRef = useRef(null);
+  const lastSwipeAtRef = useRef(0);
+  const lastTabChangeAtRef = useRef(0);
   const [draftNote, setDraftNote] = useState("");
   const [draftExitCue, setDraftExitCue] = useState("");
   const scrollPosRef = useRef(0);
@@ -1520,6 +1531,31 @@ export default function App() {
       setDrawerOpen(true);
     }
   };
+
+  // ── Drawer tab 切換（throttle 防誤觸 + 觸覺回饋） ──
+  const TAB_ORDER = ['summary', 'thesis', 'risk'];
+  const TAB_THROTTLE_MS = 280;
+  const safeSetDrawerTab = useCallback((next) => {
+    const now = Date.now();
+    if (now - lastTabChangeAtRef.current < TAB_THROTTLE_MS) return;
+    lastTabChangeAtRef.current = now;
+    setDrawerTab((prev) => {
+      if (prev === next) return prev;
+      hapticTap(10);
+      return next;
+    });
+  }, []);
+  const safeCloseDrawer = useCallback(() => {
+    hapticTap(15);
+    handleDrawerOpenChange(false);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [drawerSource]);
+  const retryDrawerTab = useCallback(() => {
+    setDrawerSkeleton(true);
+    setDrawerRetryN((n) => n + 1);
+    setTimeout(() => setDrawerSkeleton(false), 180);
+  }, []);
+
 
   const openHoldingDrawer = (code, source = null) => {
     scrollPosRef.current = window.scrollY;
@@ -3266,36 +3302,57 @@ ${JSON.stringify(strategyBrain || { rules: [], lessons: [], commonMistakes: [], 
                 ? `返回${drawerSource.label?.replace(/^[^\s]+\s/, '') || '分類'}`
                 : '返回列表';
 
-            // ── 手機左右滑動切換 tab ──
-            const TAB_ORDER = ['summary', 'thesis', 'risk'];
-            const touchRef = { current: null };
-            let _tStart = null;
+            // ── 手機左右滑動切換 tab（多指/快滑/連點防誤觸 + haptic） ──
+            const SWIPE_MIN_DX = 60;
+            const SWIPE_MAX_DY = 40;
+            const SWIPE_MAX_DT = 600;
+            const SWIPE_MIN_DT = 60; // 太快視為意外（彈跳/慣性）
+            const SWIPE_THROTTLE_MS = 320;
             const onTouchStart = (e) => {
-              const t = e.touches?.[0];
-              if (!t) return;
-              _tStart = { x: t.clientX, y: t.clientY, at: Date.now() };
+              // 多指捏放/滾動由瀏覽器處理，不參與 swipe
+              if ((e.touches?.length || 0) !== 1) { swipeStartRef.current = null; return; }
+              // 在 textarea/input/可滾動容器內不攔截
+              const tag = (e.target?.tagName || '').toLowerCase();
+              if (tag === 'textarea' || tag === 'input' || tag === 'select') {
+                swipeStartRef.current = null; return;
+              }
+              const t = e.touches[0];
+              swipeStartRef.current = { x: t.clientX, y: t.clientY, at: Date.now() };
+            };
+            const onTouchMove = (e) => {
+              // 一旦中途出現第二指，取消手勢避免錯跳
+              if ((e.touches?.length || 0) > 1) swipeStartRef.current = null;
             };
             const onTouchEnd = (e) => {
-              if (!_tStart) return;
+              const start = swipeStartRef.current;
+              swipeStartRef.current = null;
+              if (!start) return;
               const t = e.changedTouches?.[0];
-              if (!t) { _tStart = null; return; }
-              const dx = t.clientX - _tStart.x;
-              const dy = t.clientY - _tStart.y;
-              const dt = Date.now() - _tStart.at;
-              _tStart = null;
-              if (dt > 500) return;
-              if (Math.abs(dx) < 60 || Math.abs(dy) > 40) return;
+              if (!t) return;
+              const dx = t.clientX - start.x;
+              const dy = t.clientY - start.y;
+              const dt = Date.now() - start.at;
+              if (dt > SWIPE_MAX_DT || dt < SWIPE_MIN_DT) return;
+              if (Math.abs(dx) < SWIPE_MIN_DX) return;
+              if (Math.abs(dy) > SWIPE_MAX_DY) return;
+              if (Math.abs(dy) > Math.abs(dx) * 0.6) return; // 偏垂直視為滾動
+              const now = Date.now();
+              if (now - lastSwipeAtRef.current < SWIPE_THROTTLE_MS) return;
+              lastSwipeAtRef.current = now;
               const idx = TAB_ORDER.indexOf(drawerTab);
-              if (dx < 0 && idx < TAB_ORDER.length - 1) setDrawerTab(TAB_ORDER[idx + 1]);
-              if (dx > 0 && idx > 0) setDrawerTab(TAB_ORDER[idx - 1]);
+              if (dx < 0 && idx < TAB_ORDER.length - 1) safeSetDrawerTab(TAB_ORDER[idx + 1]);
+              else if (dx > 0 && idx > 0) safeSetDrawerTab(TAB_ORDER[idx - 1]);
             };
 
             return (
               <div
                 style={{padding:"18px 20px 32px"}}
                 onTouchStart={onTouchStart}
+                onTouchMove={onTouchMove}
                 onTouchEnd={onTouchEnd}
+                onTouchCancel={() => { swipeStartRef.current = null; }}
               >
+
                 {/* Phase 2.5 Drawer Header (3 layers) */}
                 <div style={{marginBottom:14, paddingRight:32}}>
                   {/* 第一行：返回 [來源] */}
@@ -3361,19 +3418,29 @@ ${JSON.stringify(strategyBrain || { rules: [], lessons: [], commonMistakes: [], 
                       role="tab"
                       aria-selected={drawerTab === k}
                       className="holding-drawer-tab"
-                      onClick={() => setDrawerTab(k)}
+                      onClick={() => safeSetDrawerTab(k)}
                     >{label}</button>
                   ))}
                 </div>
 
                 {drawerSkeleton ? (
-                  <div style={{display:'flex',flexDirection:'column',gap:12}}>
+                  <div style={{display:'flex',flexDirection:'column',gap:12}} aria-busy="true" aria-live="polite">
                     <div className="holding-drawer-skel" style={{height:62}} />
                     <div className="holding-drawer-skel" style={{height:90}} />
                     <div className="holding-drawer-skel" style={{height:140}} />
                     <div className="holding-drawer-skel" style={{height:60,width:'70%'}} />
                   </div>
-                ) : (<>
+                ) : (
+                <ErrorBoundary
+                  key={`drawer-${activeCode}-${drawerTab}-${drawerRetryN}`}
+                  title={`「${drawerTab === 'summary' ? '摘要' : drawerTab === 'thesis' ? '教學' : '風險'}」分頁`}
+                  description="此分頁內容載入失敗，分頁與骨架狀態已保留，可重試。"
+                  actionLabel="重試載入"
+                  onReset={retryDrawerTab}
+                  style={{margin:'4px 0 12px'}}
+                >
+                <>
+
 
                 {/* ━━━━━━━━━━━━━ 摘要 Tab ━━━━━━━━━━━━━ */}
                 {drawerTab === 'summary' && (<>
@@ -3529,12 +3596,14 @@ ${JSON.stringify(strategyBrain || { rules: [], lessons: [], commonMistakes: [], 
                   </section>
                 </>)}
 
-                </>)}
+                </>
+                </ErrorBoundary>
+                )}
 
                 {/* 手機底部固定關閉條（單手好按） */}
                 <div className="holding-drawer-mobile-close">
                   <button
-                    onClick={goPrev}
+                    onClick={() => { hapticTap(8); goPrev(); }}
                     disabled={total < 2}
                     aria-label="上一檔"
                     style={{
@@ -3544,9 +3613,10 @@ ${JSON.stringify(strategyBrain || { rules: [], lessons: [], commonMistakes: [], 
                       border:`1px solid ${C.border}`,
                     }}
                   >‹</button>
-                  <button onClick={() => handleDrawerOpenChange(false)}>✕ 關閉</button>
+                  <button onClick={safeCloseDrawer}>✕ 關閉</button>
+
                   <button
-                    onClick={goNext}
+                    onClick={() => { hapticTap(8); goNext(); }}
                     disabled={total < 2}
                     aria-label="下一檔"
                     style={{
