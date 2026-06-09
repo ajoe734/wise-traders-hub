@@ -163,9 +163,16 @@ function HoldingsTab(props) {
   const toggleExpandedDecision = useBrainStore((s) => s.toggleExpandedDecision);
 
   // 卡片點選 toggle — 透過 store action，handler reference 永遠穩定
+  // 窄螢幕（≤1023px）右側 Detail Panel 被 CSS 隱藏，改開 drawer，否則點擊看似無反應
+  const vwRef = useRef(vw);
+  vwRef.current = vw;
   const handleHoldingCardSelect = useCallback((code) => {
+    if (vwRef.current <= 1023) {
+      handleHoldingCardOpenDrawer?.(code);
+      return;
+    }
     toggleExpandedDecision(code);
-  }, [toggleExpandedDecision]);
+  }, [toggleExpandedDecision, handleHoldingCardOpenDrawer]);
 
   return (
     <>
