@@ -127,6 +127,7 @@ const CompanyPerfMetrics = lazy(() => import("./pages/company/PerfMetrics"));
 const CompanyTraffic = lazy(() => import("./pages/company/Traffic"));
 const CompanyOpsHealth = lazy(() => import("./pages/company/OpsHealth"));
 const CompanyPaywallAnalytics = lazy(() => import("./pages/company/PaywallAnalytics"));
+const CompanyFunnelAnalytics = lazy(() => import("./pages/company/FunnelAnalytics"));
 
 const RealtimeBridge = () => {
   useSignalRealtimeInvalidation();
@@ -271,6 +272,7 @@ const AppShell = () => (
             <Route path="/company/traffic" element={<ProtectedRoute requiredRole="company_admin"><CompanyTraffic /></ProtectedRoute>} />
             <Route path="/company/ops-health" element={<ProtectedRoute requiredRole="company_admin"><CompanyOpsHealth /></ProtectedRoute>} />
             <Route path="/company/paywall-analytics" element={<ProtectedRoute requiredRole="company_admin"><CompanyPaywallAnalytics /></ProtectedRoute>} />
+            <Route path="/company/funnel-analytics" element={<ProtectedRoute requiredRole="company_admin"><CompanyFunnelAnalytics /></ProtectedRoute>} />
 
             {/* Admin */}
             <Route path="/admin/:expertSlug" element={<ProtectedRoute><AdminDashboard /></ProtectedRoute>} />

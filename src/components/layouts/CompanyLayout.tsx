@@ -39,6 +39,7 @@ const navItems = [
   { path: '/company/traffic', icon: Activity, label: '流量監控' },
   { path: '/company/ops-health', icon: Gauge, label: '後端健康/成本' },
   { path: '/company/paywall-analytics', icon: BarChart3, label: 'Paywall 轉換' },
+  { path: '/company/funnel-analytics', icon: BarChart3, label: '漏斗分析' },
 ];
 
 
