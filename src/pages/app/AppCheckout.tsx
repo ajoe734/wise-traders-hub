@@ -25,6 +25,7 @@ import {
   AlertDialogAction,
 } from "@/components/ui/alert-dialog";
 import { avatarUrl } from "@/lib/imageTransform";
+import { gtmPush } from "@/lib/analytics/gtm";
 
 const AppCheckout = () => {
   const { slug, planId } = useParams<{ slug: string; planId: string }>();
