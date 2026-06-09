@@ -27,6 +27,36 @@ async function callAnalyze(supabaseUrl: string, serviceKey: string, body: any, t
   }
 }
 
+function safeParseJson(text: string): any {
+  if (!text) return null;
+  const clean = text.replace(/```json|```/g, '').trim();
+  try { return JSON.parse(clean); } catch { /* */ }
+  // try first {...} or [...] block
+  const objMatch = clean.match(/\{[\s\S]*\}/);
+  if (objMatch) { try { return JSON.parse(objMatch[0]); } catch { /* */ } }
+  const arrMatch = clean.match(/\[[\s\S]*\]/);
+  if (arrMatch) { try { return JSON.parse(arrMatch[0]); } catch { /* */ } }
+  return null;
+}
+
+function extractInlineBlocks(mainText: string): { brainRaw: any | null; eventAssessments: any[] | null } {
+  let brainRaw: any = null;
+  let eventAssessments: any[] | null = null;
+  try {
+    const eventMatch = mainText.match(/## 📋 EVENT_ASSESSMENTS([\s\S]*?)(?=## 🧬 BRAIN_UPDATE|$)/);
+    if (eventMatch) {
+      const parsed = safeParseJson(eventMatch[1]);
+      if (Array.isArray(parsed)) eventAssessments = parsed;
+    }
+    const brainMatch = mainText.match(/## 🧬 BRAIN_UPDATE([\s\S]*?)$/);
+    if (brainMatch) {
+      const parsed = safeParseJson(brainMatch[1]);
+      if (parsed && parsed.rules) brainRaw = parsed;
+    }
+  } catch { /* */ }
+  return { brainRaw, eventAssessments };
+}
+
 function computeSummary(holdings: any[], mainText: string) {
   const total_pnl = (holdings || []).reduce((sum, h) => {
     const cost = Number(h?.cost) || 0;
@@ -66,6 +96,7 @@ function computeSummary(holdings: any[], mainText: string) {
     watchlist,
   };
 }
+
 
 const handler = withLogging('checkup-analyze-worker', async (req, log) => {
   if (req.method === 'OPTIONS') return corsPreflight();
@@ -140,20 +171,35 @@ const handler = withLogging('checkup-analyze-worker', async (req, log) => {
     return jsonResponse({ ok: false, error: main.error });
   }
 
-  // 3) 大腦 fallback 更新（若主回覆已內含 BRAIN_UPDATE 則前端會處理；這裡作為保險）
-  if (prompts.brain && Date.now() - startTs < HARD_TIMEOUT_MS) {
+  // 解析 main.text 內嵌的 BRAIN_UPDATE / EVENT_ASSESSMENTS（前端深層連結會 ingest 並 merge）
+  const inline = extractInlineBlocks(main.text);
+  let brainRaw = inline.brainRaw;
+  const eventAssessments = inline.eventAssessments;
+
+  // 3) 大腦 fallback：若主回覆未夾帶 BRAIN_UPDATE 才另呼叫
+  if (!brainRaw && prompts.brain && Date.now() - startTs < HARD_TIMEOUT_MS) {
     const brainRemain = HARD_TIMEOUT_MS - (Date.now() - startTs);
     const brain = await callAnalyze(SUPABASE_URL, SERVICE_ROLE_KEY, prompts.brain, Math.min(brainRemain, 90_000));
     raw.brain = { ok: brain.ok, text: brain.text, error: brain.error };
+    if (brain.ok && brain.text) {
+      const parsed = safeParseJson(brain.text);
+      if (parsed && parsed.rules) brainRaw = parsed;
+    }
   }
 
-  const summary = computeSummary(job.holdings_snapshot || [], main.text);
+  const summary = {
+    ...computeSummary(job.holdings_snapshot || [], main.text),
+    brain_raw: brainRaw,
+    event_assessments: eventAssessments,
+    ai_insight: main.text,
+  };
   await admin.from('checkup_analysis_jobs').update({
     status: 'done',
     finished_at: new Date().toISOString(),
     raw_responses: raw,
     result_summary: summary,
   }).eq('id', jobId);
+
 
   fetch(`${SUPABASE_URL}/functions/v1/checkup-notify-complete`, {
     method: 'POST',

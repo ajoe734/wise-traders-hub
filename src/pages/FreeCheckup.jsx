@@ -905,7 +905,9 @@ export default function App() {
           toast.info('該背景分析仍在進行中，完成後將通知您', { duration: 6000 });
           return;
         }
-        const aiInsight = job?.raw_responses?.main?.text || '';
+        const aiInsight = job?.result_summary?.ai_insight || job?.raw_responses?.main?.text || '';
+        const brainRaw = job?.result_summary?.brain_raw || null;
+        const eventAssessments = job?.result_summary?.event_assessments || [];
         const snap = Array.isArray(job.holdings_snapshot) ? job.holdings_snapshot : [];
         const changes = snap.map((h) => ({
           code: String(h?.code || ''),
@@ -928,9 +930,22 @@ export default function App() {
           needsReview: [],
           autoVerified: [],
           aiInsight,
+          eventAssessments,
           fromBackgroundJob: true,
         });
+        // 將 worker 解析出的策略大腦 raw 更新到 state 並寫回雲端
+        if (brainRaw && brainRaw.rules) {
+          try {
+            setStrategyBrain(brainRaw);
+            await supabase.functions.invoke('checkup-brain', {
+              body: { action: 'save-brain', data: brainRaw },
+            });
+          } catch (e) {
+            console.warn('[deep-link job] brain persist failed', e);
+          }
+        }
         toast.success('已載入背景分析結果', { duration: 4000 });
+
         // 清掉 query string 避免重複載入
         url.searchParams.delete('job');
         window.history.replaceState({}, '', url.pathname + (url.searchParams.toString() ? `?${url.searchParams}` : '') + url.hash);
