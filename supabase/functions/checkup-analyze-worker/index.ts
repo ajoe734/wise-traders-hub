@@ -143,11 +143,11 @@ const handler = withLogging('checkup-analyze-worker', async (req, log) => {
     await admin.from('checkup_analysis_jobs').update({
       status: 'failed', error_text: 'timeout_before_main', finished_at: new Date().toISOString(), raw_responses: raw,
     }).eq('id', jobId);
-    fetch(`${SUPABASE_URL}/functions/v1/checkup-notify-complete`, {
+    await fetch(`${SUPABASE_URL}/functions/v1/checkup-notify-complete`, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${SERVICE_ROLE_KEY}` },
       body: JSON.stringify({ job_id: jobId }),
-    }).catch(() => {});
+    }).catch((e) => log.warn('notify_invoke_failed', { stage: 'timeout', err: String(e).slice(0, 200) }));
     return jsonResponse({ ok: false, error: 'timeout_before_main' });
   }
   const mainRemain = HARD_TIMEOUT_MS - (Date.now() - startTs);
@@ -163,11 +163,11 @@ const handler = withLogging('checkup-analyze-worker', async (req, log) => {
       raw_responses: raw,
       result_summary: summary,
     }).eq('id', jobId);
-    fetch(`${SUPABASE_URL}/functions/v1/checkup-notify-complete`, {
+    await fetch(`${SUPABASE_URL}/functions/v1/checkup-notify-complete`, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${SERVICE_ROLE_KEY}` },
       body: JSON.stringify({ job_id: jobId }),
-    }).catch(() => {});
+    }).catch((e) => log.warn('notify_invoke_failed', { stage: 'main_failed', err: String(e).slice(0, 200) }));
     return jsonResponse({ ok: false, error: main.error });
   }
 
@@ -201,11 +201,11 @@ const handler = withLogging('checkup-analyze-worker', async (req, log) => {
   }).eq('id', jobId);
 
 
-  fetch(`${SUPABASE_URL}/functions/v1/checkup-notify-complete`, {
+  await fetch(`${SUPABASE_URL}/functions/v1/checkup-notify-complete`, {
     method: 'POST',
     headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${SERVICE_ROLE_KEY}` },
     body: JSON.stringify({ job_id: jobId }),
-  }).catch((e) => log.warn('notify_invoke_failed', { err: String(e).slice(0, 200) }));
+  }).catch((e) => log.warn('notify_invoke_failed', { stage: 'done', err: String(e).slice(0, 200) }));
 
   return jsonResponse({ ok: true, job_id: jobId, summary });
 });
