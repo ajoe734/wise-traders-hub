@@ -328,7 +328,7 @@ function TradeTabImpl({
           setHoldings(prev => trades.reduce(
             (acc, trade) => isSnap ? upsertSnapshotHolding(acc, trade) : mergeTradeIntoHoldings(acc, trade),
             stripDemoSeedHoldings(prev || []),
-          ));
+          ).map(markUserOwnedHolding));
           setTradeLog(prev => {
             const existing = prev || [];
             const newEntries = trades.map(t => ({
