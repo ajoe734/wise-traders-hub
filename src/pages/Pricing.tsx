@@ -50,6 +50,7 @@ const Pricing = () => {
   };
 
   const handlePillClick = (cardType: 'follower' | 'cultivator') => {
+    track('checkup_upgrade_click', { from: `pricing_pill_${cardType}` });
     const targetIndex = cardType === 'follower' ? 0 : 1;
 
     if (isMobile) {
