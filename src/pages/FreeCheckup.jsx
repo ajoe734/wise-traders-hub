@@ -3616,7 +3616,7 @@ ${JSON.stringify(strategyBrain || { rules: [], lessons: [], commonMistakes: [], 
                   <button onClick={safeCloseDrawer}>✕ 關閉</button>
 
                   <button
-                    onClick={goNext}
+                    onClick={() => { hapticTap(8); goNext(); }}
                     disabled={total < 2}
                     aria-label="下一檔"
                     style={{
