@@ -152,6 +152,21 @@ export function useFreeCheckupBootstrap({
 
       const sanitizedHoldings = stripDemoSeedHoldings(Array.isArray(h) ? h : []);
       const removedDemoSeedCount = (Array.isArray(h) ? h.length : 0) - sanitizedHoldings.length;
+      // 雲端污染回寫：authenticated 模式拉到含 demo seed 的舊資料，立即覆寫雲端，避免下次再被拉回來。
+      if (removedDemoSeedCount > 0 && userId) {
+        try {
+          console.warn(`[demo-seed-leak] strip ${removedDemoSeedCount} seed holdings for user ${userId}, writing sanitized list back to cloud`);
+          await supabase
+            .from("checkup_storage")
+            .upsert(
+              { user_id: userId, key: "pf-holdings-v2", data: sanitizedHoldings, updated_at: new Date().toISOString() },
+              { onConflict: "user_id,key" },
+            );
+          try { localStorage.setItem("pf-holdings-v2", JSON.stringify(sanitizedHoldings)); } catch {}
+        } catch (e) {
+          console.error("[demo-seed-leak] failed to upsert sanitized holdings:", e);
+        }
+      }
       const holdingCodesKey = getHoldingCodesKey(sanitizedHoldings);
       const storedCalendarHoldingCodes = Array.isArray(ce) ? (ce._holdingCodes || "") : "";
       const shouldRebuildDerivedEvents =
