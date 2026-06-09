@@ -816,6 +816,9 @@ export default function App() {
         if (!row || !row.symbol || !(Number(row.price) > 0)) return;
         setHoldings(prev => (prev || []).map(h => {
           if (h.code !== row.symbol) return h;
+          // 防 demo seed 洗白：若是 seed code 且該持倉沒有任何使用者來源標記，跳過 realtime 寫入，
+          // 避免價格被更新後 isExactDemoHolding 判 false、永久殘留於正式持倉。
+          if (DEMO_SEED_CODES.has(h.code) && !holdingHasUserOrigin(h)) return h;
           const price = Number(row.price);
           const { value, pnl, pct } = calcPnlWithNet(h, price);
           return {
