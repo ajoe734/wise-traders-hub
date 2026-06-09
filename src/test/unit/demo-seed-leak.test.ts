@@ -84,10 +84,8 @@ describe('stripDemoSeedHoldings — authenticated 模式禁止 demo seed 殘留'
 
   it('空陣列 / 非陣列 → 回空陣列', () => {
     expect(stripDemoSeedHoldings([])).toEqual([]);
-    // @ts-expect-error
-    expect(stripDemoSeedHoldings(null)).toEqual([]);
-    // @ts-expect-error
-    expect(stripDemoSeedHoldings(undefined)).toEqual([]);
+    expect(stripDemoSeedHoldings(null as any)).toEqual([]);
+    expect(stripDemoSeedHoldings(undefined as any)).toEqual([]);
   });
 });
 
