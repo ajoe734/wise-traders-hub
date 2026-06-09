@@ -6,6 +6,7 @@ import { Card, CardContent } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Clock, AlertTriangle } from 'lucide-react';
 import { useAuth } from '@/contexts/AuthContext';
+import { track } from '@/lib/analytics/events';
 
 interface RenewSub {
   id: string;
@@ -71,7 +72,7 @@ export function RenewalBanner() {
                 </p>
               </div>
               <Button size="sm" asChild>
-                <a href={url}>立即續訂</a>
+                <a href={url} onClick={() => track('checkup_upgrade_click', { from: 'renewal_banner' })}>立即續訂</a>
               </Button>
             </CardContent>
           </Card>

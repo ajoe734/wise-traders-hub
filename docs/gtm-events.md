@@ -7,18 +7,18 @@ GTM 容器：`GTM-PBH8J4VD`（已在 `index.html` 載入）
 | 事件 | 觸發點 | 參數 |
 |---|---|---|
 | `Login` | 登入成功（email / LINE） | `method: 'email' \| 'line'` |
-| `SignUp` | 註冊成功 | `method: 'email'` |
-| `Function` | 進入主要功能頁（首次/路由變更） | `feature: app \| checkup \| research \| signals \| journals \| holdings \| learning` |
+| `SignUp` | 註冊成功（email 註冊 / LINE 首次登入） | `method: 'email' \| 'line'` |
+| `Function` | 進入主要功能頁（首次/路由變更，每 session 每 feature 一次） | `feature: app \| checkup \| research \| signals \| journals \| holdings \| learning \| account \| subscribed_experts \| pricing \| experts \| leaderboard \| home` |
 | `ViewExpert` | 進入專家檔案頁 | `expert_slug` |
 | `ViewPricing` | 進入訂閱方案頁 | — |
 | `SubscribeExpertClick` | 點訂閱專家 CTA | `expert_slug, plan_id?` |
-| `BeginCheckout` | 結帳頁按「確認付款」當下 | `plan_id, value, currency, method, billing_cycle` |
-| `Purchase` | 結帳成功 dialog 開啟 | `plan_id, currency:'TWD', billing_cycle, [product]` |
+| `BeginCheckout` | 結帳頁按「確認付款」當下（Checkout / CheckupCheckout / AppCheckout） | `plan_id, value, currency, method, billing_cycle` |
+| `Purchase` | 結帳成功 dialog 開啟（Checkout / CheckupCheckout / AppCheckout，含信用卡 / LINE Pay / 轉帳 confirm 成功） | `plan_id, currency:'TWD', billing_cycle, method?` |
 | `LineBindStart` | 點 LINE 綁定按鈕 | `expert_slug?` |
 | `LineBindSuccess` | LINE 綁定成功回前端 | `expert_slug?` |
 | `CheckupAnalysisRun` | 收盤分析 / 個股 / 深度 / 事件預測成功 | `kind` |
 | `QuotaBlocked` | 額度耗盡提示出現 | `reason` |
-| `UpgradeClick` | 任何升級 / 解鎖 CTA | `from` |
+| `UpgradeClick` | 任何升級 / 解鎖 / 續訂 CTA（pricing_pill_* / renewal_banner / app_home_*_lock / …） | `from` |
 
 ## 與內部 analytics 的關係
 

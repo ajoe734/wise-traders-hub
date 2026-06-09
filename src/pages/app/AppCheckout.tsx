@@ -25,6 +25,7 @@ import {
   AlertDialogAction,
 } from "@/components/ui/alert-dialog";
 import { avatarUrl } from "@/lib/imageTransform";
+import { gtmPush } from "@/lib/analytics/gtm";
 
 const AppCheckout = () => {
   const { slug, planId } = useParams<{ slug: string; planId: string }>();
@@ -114,6 +115,20 @@ const AppCheckout = () => {
     },
   });
 
+  // GTM Purchase event — fires once when success dialog opens
+  useEffect(() => {
+    if (resultDialog?.open && resultDialog?.success) {
+      gtmPush('Purchase', {
+        plan_id: planId,
+        expert_slug: slug,
+        currency: 'TWD',
+        billing_cycle: billingCycle,
+        method: paymentMethod,
+      });
+    }
+  }, [resultDialog?.open, resultDialog?.success, planId, slug, billingCycle, paymentMethod]);
+
+
   // LINE Pay return (confirm flow) — 仍維持原本的 edge function 確認
   useEffect(() => {
     const linepay = searchParams.get("linepay");
@@ -172,6 +187,15 @@ const AppCheckout = () => {
     if (processingLockRef.current) return;
     processingLockRef.current = true;
     setIsProcessing(true);
+    // GTM BeginCheckout — fires once per submit attempt
+    gtmPush('BeginCheckout', {
+      plan_id: planId,
+      expert_slug: slug,
+      value: currentPrice,
+      currency: 'TWD',
+      method: paymentMethod,
+      billing_cycle: billingCycle,
+    });
     try {
       if (paymentMethod === "ecpay") { await handleEcpayCheckout(); }
       else if (paymentMethod === "acpay") { await handleAcpayCheckout(); }

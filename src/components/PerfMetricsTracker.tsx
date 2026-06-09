@@ -6,14 +6,20 @@ import { gtmPush } from '@/lib/analytics/gtm';
 
 // path → feature key for GTM "Function" conversion event.
 // Each feature fires Function at most once per session (in-memory ref).
-function pathToFeature(pathname: string): string | null {
+export function pathToFeature(pathname: string): string | null {
   if (pathname.startsWith('/app/research')) return 'research';
   if (pathname.startsWith('/app/holdings')) return 'holdings';
   if (pathname.startsWith('/app/signals') || pathname.startsWith('/app/signal/')) return 'signals';
   if (pathname.startsWith('/app/journals') || pathname.startsWith('/app/journal/')) return 'journals';
+  if (pathname.startsWith('/app/account')) return 'account';
+  if (pathname.startsWith('/app/subscribed-experts')) return 'subscribed_experts';
   if (pathname.startsWith('/app')) return 'app';
   if (pathname.startsWith('/holding-checkup') || pathname.startsWith('/checkup')) return 'checkup';
   if (pathname.startsWith('/learning')) return 'learning';
+  if (pathname.startsWith('/pricing')) return 'pricing';
+  if (pathname.startsWith('/experts') || pathname.startsWith('/expert/')) return 'experts';
+  if (pathname.startsWith('/leaderboard')) return 'leaderboard';
+  if (pathname === '/') return 'home';
   return null;
 }
 

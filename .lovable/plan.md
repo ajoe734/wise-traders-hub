@@ -1,85 +1,63 @@
 
-## 結論：不是雲端壞掉，是跨帳號 LocalStorage 洩漏
+# 補齊 GTM 事件追蹤完整盤點
 
-### 根因（已用 DB 驗證）
+目標：讓 `docs/gtm-events.md` 字典裡的 13 個事件**全部**在真實流程觸發，不再有「字典有、實際沒推」的缺口。
 
-我直接比對受害帳號的雲端資料：
+## 1. SignUp — 加上 LINE 註冊
 
-- 受害者 `d877ab36-…` 雲端 `pf-holdings-v2` = **0 筆**（正確，他剛登入沒輸入）
-- 但 `checkup_trade_memos` 卻有 **28 筆**，最後寫入 2026-06-08 08:22
-- 另一個帳號 `368462f1-…` 也是 **28 筆**，且兩邊 `(date, action, code, qty, price)` **28/28 完全相同**
+`src/pages/auth/LineCallback.tsx`：目前只有 `gtmPush('Login', { method: 'line' })`。
+- exchange-nonce 回傳會帶 `is_new_user`（若沒有，改用 `created_at === last_sign_in_at` 判斷，或讓 edge function 補回欄位）
+- 新用戶時加推 `gtmPush('SignUp', { method: 'line' })`，再推 Login
 
-→ 100% 是同一支手機上「上一個 LINE/Email 帳號」的交易被當成新帳號的初始資料寫進雲端。
+## 2. Function — 補齊頁面 → feature 對應
 
-#### Bug 位置：`src/hooks/useFreeCheckupBootstrap.js` L156、L159
+`src/components/PerfMetricsTracker.tsx` 的 `pathToFeature` 加：
+- `/app/account` → `account`
+- `/app/subscribed-experts` → `subscribed_experts`
+- `/pricing` → `pricing`
+- `/experts`、`/expert/...` → `experts`
+- `/leaderboard` → `leaderboard`
+- `/`（首頁）→ `home`
 
-```js
-const { data } = await supabase.from("checkup_trade_memos").select("*")...;
-if (data && data.length > 0) {
-  l = data.map(...);
-} else {
-  l = loadLocal("pf-log-v2", []);   // ← 未隔離 owner！
-}
-} catch {
-  l = loadLocal("pf-log-v2", []);   // ← 同上
-}
-```
+每個 feature 仍維持「每 session 只推一次」。同步更新 `docs/gtm-events.md` 的 feature 列表。
 
-其他 pf-* key 都用 `loadScopedLocal`（檢查 `pf-ls-owner` 是否等於當前 uid），唯獨 trade memos fallback 漏掉。新帳號 hydrate 後 800ms auto-save 就把上一個帳號的資料寫進自己的雲端。
+## 3. BeginCheckout / Purchase — 補 `AppCheckout` 與轉帳成功路徑
 
-#### 「交易紀錄雲端同步失敗」toast 是副作用
+- `src/pages/_appCheckout/*` 或 `AppCheckout.tsx`：對齊 `Checkout.tsx`／`CheckupCheckout.tsx`，在「按確認付款」推 `BeginCheckout`、在成功 dialog 開啟時推 `Purchase`（含 `plan_id, value, currency:'TWD', billing_cycle, method`）。
+- 轉帳（remittance）流程：原本只有信用卡 dialog 開啟才推 Purchase；轉帳審核通過 / 訂閱啟用的那段也補 `Purchase`（在 confirm 成功 callback 內），參數同上但 `method='remittance'`。
 
-`FreeCheckup.jsx` L842 在 insert 時保留了客端 `l.id` UUID：
+## 4. UpgradeClick — 補散落的升級 CTA
 
-```js
-...(typeof l.id === "string" && l.id.length === 36 ? { id: l.id } : {}),
-```
+統一用 `track('checkup_upgrade_click', { from })`（已自動鏡像到 GTM `UpgradeClick`），不重複寫 `gtmPush`。加在：
 
-洩漏進來的 `l.id` 已經屬於原帳號的 row，PK 全表唯一，delete `.eq('user_id', uid)` 只清得掉自己的，但 insert 撞到別人的 id → unique violation → throw → toast。
+| 檔案 | from |
+|---|---|
+| `src/pages/Pricing.tsx` 各方案 CTA | `pricing_card` |
+| `src/pages/ExpertProfile.tsx` 訂閱 CTA | `expert_profile` |
+| `src/components/account/RenewalBanner.tsx` 立即續訂 | `renewal_banner` |
+| `src/pages/app/AppHome.tsx` 升級提示 | `app_home` |
+| `src/pages/app/SignalsDashboard.tsx`（或對應檔）升級提示 | `signals_dashboard` |
+| `src/pages/learning/*` 升級提示 | `learning` |
+| `src/pages/account/Account.tsx` 續訂／升級鈕 | `account` |
 
-看板顯示「22 / 50 positions」是 UI 用這 28 筆交易反推出來的持倉。
+註：`expert_subscribe_click` 已經有獨立 `SubscribeExpertClick` 事件，這邊不重複推。
 
----
+## 5. 文件與測試
 
-## 修復計畫
+- `docs/gtm-events.md`：更新 `Function` 的 feature 列表、`SignUp` 的 method 加 `'line'`、`UpgradeClick` 的 from 枚舉。
+- `src/test/unit/gtm-events.test.ts`：原有 13 事件清單測試保留；補一筆 snapshot 測 `pathToFeature` 對 7 條 path 都回傳正確 feature；補 LineCallback SignUp 路徑的單元測試（mock exchange-nonce 回 `is_new_user`）。
 
-### 1. bootstrap fallback 改 scoped（`src/hooks/useFreeCheckupBootstrap.js`）
+## 技術備註
 
-L156、L159 的 `loadLocal("pf-log-v2", [])` 改成 `loadScopedLocal("pf-log-v2", [], userId)`，與 holdings/targets/news 一致。
+- `track('checkup_upgrade_click', { from })` 走 `events.ts` 的 `GTM_MIRROR`，自動推 `UpgradeClick`，**不要**在元件層手寫 `gtmPush('UpgradeClick')`。
+- Function 事件採 session 內去重，避免重複進出同 feature 多次推送拉爆 GTM。
+- AppCheckout 若內部用的是 `_checkout/` 共用 hook，優先改 hook 的 success/submit callback；若是獨立元件，就直接加在 component 內。
+- 不更動 `paywall_events` 表結構與 PaywallAnalytics 邏輯；本次只動 GTM dataLayer。
 
-### 2. trade memos insert 永不帶客端 id（`src/pages/FreeCheckup.jsx` L841-852）
+## 驗收
 
-拿掉 `...(typeof l.id === "string" && l.id.length === 36 ? { id: l.id } : {})`，永遠讓 DB 用 `gen_random_uuid()` 產 id。本機 state 不靠這個 id 對映，移除無副作用，可徹底擋掉任何 cross-user PK 衝突。
-
-### 3. 一次性 LocalStorage sweeper（`useHoldingsMigration` 加 v3 標記）
-
-進 `FreeCheckup` 時若 `pf-ls-owner` 缺失或與當前登入 uid 不符，主動清掉所有 `pf-*` key（保險：即使有其他 fallback 漏網之魚也不會中招）。
-
-### 4. 受害客戶資料清理（migration / insert tool）
-
-對 `d877ab36-8aee-4392-9042-4a7d9b728bae`：
-- `DELETE FROM checkup_trade_memos WHERE user_id = 'd877ab36-…'`（28 筆都是洩漏的）
-- 同時把 `checkup_storage` 內 key in ('pf-log-v2', 'pf-holdings-v2', 'pf-targets-v1', 'pf-news-events-v1', 'pf-analysis-history-v1', 'pf-reversal-v1', 'pf-brain-v1', 'pf-calendar-v1', 'pf-calendar-holdings') 的列一併刪除，確保下次登入 hydrate 出空白狀態
-- 也請客服請客戶在手機按一次「重置」（或仰賴第 3 步的 sweeper 自動清掉）
-
-### 5. 全面巡查（不准偷懶）
-
-`rg -n "loadLocal\\(" src` 把所有「未 scoped 的 loadLocal 呼叫」逐個檢視，只要該 key 名單在 `CLOUD_SYNC_KEYS` 內、又有 fallback 寫雲行為的，一律改 scoped。回報前列出所有命中點與處置決定。
-
----
-
-## 驗證
-
-- 模擬：A 帳號登入 → 加 5 筆交易 → 登出 → B 帳號登入，B 看到 0 holdings、0 trade memos，雲端 `checkup_trade_memos` 不會被寫入 A 的紀錄
-- 連點 saveTradeLogToCloud 10 次：無 PK 衝突、無 toast
-- 對 `d877ab36` 跑清理 SQL 後，請客戶重整 → 看板回到空狀態
-- `bunx playwright test e2e/freecheckup-card.spec.ts` 不可 regression
-
----
-
-## 風險
-
-- 拿掉客端 id 後，舊客端在重整瞬間可能看到 row 順序變動（800ms debounce + 全量 replace，重整即一致），可接受
-- v3 sweeper 會清掉 owner 不符的 pf-* localStorage — 但那本來就不屬於當前帳號，是正確行為
-
-按「實作此計畫」我就動工，第 4 步的 DELETE 會用 migration 流程提出讓你核可。
+1. 開 LINE 註冊一次新帳號 → dataLayer 同時看到 SignUp + Login。
+2. 跑過 7 條 path → 每條第一次進入推一次 Function。
+3. AppCheckout / 轉帳成功 → 各推一次 BeginCheckout + Purchase。
+4. 點 Pricing/Account/RenewalBanner/AppHome 的升級鈕 → 各推一次 UpgradeClick，from 不同。
+5. `bunx vitest run src/test/unit/gtm-events.test.ts` 綠燈。

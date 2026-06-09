@@ -54,12 +54,12 @@ export default function LineCallback() {
             userId: session.user.id,
             email: session.user.email,
           });
-          return true;
+          return session.user;
         }
         await new Promise((resolve) => window.setTimeout(resolve, 150));
       }
       console.warn(DBG, 'Session polling exhausted');
-      return false;
+      return null;
     };
 
     if (lineError) {
@@ -106,12 +106,25 @@ export default function LineCallback() {
           return;
         }
 
-        const ready = await waitForSession();
+        const sessionUser = await waitForSession();
         sessionStorage.removeItem('line_login_return_to');
 
-        if (!ready) {
+        if (!sessionUser) {
           setError('登入狀態同步逾時，請重新登入。');
           return;
+        }
+
+        // Detect new LINE signup: created_at and last_sign_in_at within 60s
+        // means this is the first sign-in (account just provisioned).
+        try {
+          const createdAt = sessionUser.created_at ? new Date(sessionUser.created_at).getTime() : 0;
+          const lastSignIn = (sessionUser as any).last_sign_in_at
+            ? new Date((sessionUser as any).last_sign_in_at).getTime()
+            : createdAt;
+          const isNewUser = createdAt && Math.abs(lastSignIn - createdAt) < 60_000;
+          if (isNewUser) gtmPush('SignUp', { method: 'line' });
+        } catch (e) {
+          console.warn(DBG, 'new-user detection failed', e);
         }
 
         gtmPush('Login', { method: 'line' });
