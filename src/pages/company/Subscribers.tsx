@@ -1,15 +1,18 @@
 import { SEO } from '@/components/SEO';
 import { useState, useMemo } from 'react';
 import { useQuery } from '@tanstack/react-query';
+import { Link } from 'react-router-dom';
 import { CompanyLayout } from '@/components/layouts/CompanyLayout';
 import { Card, CardContent } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
+import { Checkbox } from '@/components/ui/checkbox';
 import { supabase } from '@/integrations/supabase/client';
-import { Search, Users, UserCheck, UserX, RefreshCw, Download, Stethoscope } from 'lucide-react';
+import { Search, Users, UserCheck, UserX, RefreshCw, Download, Stethoscope, MessageCircle, History } from 'lucide-react';
 import { useUserIdentities, formatIdentitySecondary } from '@/hooks/useUserIdentities';
 import { formatTaipeiYMD } from '@/checkup/utils/formatTaipeiDate';
+import { LinePushDialog } from '@/components/company/LinePushDialog';
 
 type Row = {
   id: string;
