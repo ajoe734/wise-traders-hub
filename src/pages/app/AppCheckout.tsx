@@ -173,6 +173,15 @@ const AppCheckout = () => {
     if (processingLockRef.current) return;
     processingLockRef.current = true;
     setIsProcessing(true);
+    // GTM BeginCheckout — fires once per submit attempt
+    gtmPush('BeginCheckout', {
+      plan_id: planId,
+      expert_slug: slug,
+      value: currentPrice,
+      currency: 'TWD',
+      method: paymentMethod,
+      billing_cycle: billingCycle,
+    });
     try {
       if (paymentMethod === "ecpay") { await handleEcpayCheckout(); }
       else if (paymentMethod === "acpay") { await handleAcpayCheckout(); }
