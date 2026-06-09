@@ -1448,6 +1448,15 @@ export default function App() {
     draftDirtyRef.current = false;
   }, [drawerOpen, activeCode, userOverrides]);
 
+  // 抽屜開啟 / 切換個股：先顯示骨架，下一幀再呈現明細（讓 transition 與 layout 穩定）
+  useEffect(() => {
+    if (!drawerOpen || !activeCode) { setDrawerSkeleton(false); return; }
+    setDrawerSkeleton(true);
+    setDrawerTab('summary');
+    const t = setTimeout(() => setDrawerSkeleton(false), 180);
+    return () => clearTimeout(t);
+  }, [drawerOpen, activeCode]);
+
   const persistDraftIfDirty = useCallback(() => {
     if (!draftDirtyRef.current || !activeCode) return;
     setUserOverrides(prev => ({
