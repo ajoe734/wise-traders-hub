@@ -512,10 +512,32 @@ ${losers
             console.error('收盤分析後刷新公開報告失敗:', refreshError)
           })
       }
+
+      // 標記 job 完成 → 觸發 Line / Email / 站內通知
+      try {
+        const watchlist = [...changes]
+          .sort((a, b) => (a.todayPnl || 0) - (b.todayPnl || 0))
+          .slice(0, 3)
+          .map((c) => ({
+            code: c.code,
+            name: c.name || c.code,
+            note: `今日 ${(c.todayPnl >= 0 ? '+' : '')}${Math.round(c.todayPnl || 0).toLocaleString()}`,
+          }))
+        finishAnalysisJob(__jobId, {
+          status: 'done',
+          summary: {
+            total_pnl: totalTodayPnl,
+            total_holdings: holdings.length,
+            watchlist,
+          },
+        })
+      } catch (jobErr) { console.warn('[analysis-job] summary build failed', jobErr) }
     } catch (error) {
       console.error('收盤分析失敗:', error)
       emitSaved('❌ 分析失敗', 3000)
+      finishAnalysisJob(__jobId, { status: 'failed', errorText: error?.message || '分析失敗' })
     }
+
 
     setAnalyzing(false)
     setAnalyzeStep('')
