@@ -73,6 +73,7 @@ export function usePortfolioPanelsContextComposer({
   setCatalystFilter,
   setDailyExpanded,
   runDailyAnalysis,
+  runDailyAnalysisInBackground,
   runStressTest,
   setStressResult,
   setTab,
@@ -261,6 +262,7 @@ export function usePortfolioPanelsContextComposer({
       daily: {
         setDailyExpanded,
         runDailyAnalysis,
+        runDailyAnalysisInBackground,
         runStressTest,
         closeStressResult: () => setStressResult(null),
         setTab,
@@ -317,6 +319,7 @@ export function usePortfolioPanelsContextComposer({
       handleWatchlistUpsert,
       refreshAnalystReports,
       runDailyAnalysis,
+      runDailyAnalysisInBackground,
       runResearch,
       runStressTest,
       setCatalystFilter,
