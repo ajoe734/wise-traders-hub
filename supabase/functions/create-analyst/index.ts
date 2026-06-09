@@ -179,10 +179,15 @@ Deno.serve(withLogging('create-analyst', async (req) => {
         status: 200, headers: { ...corsHeaders, 'Content-Type': 'application/json' }
       })
     } catch (stepError: any) {
-      // Rollback: delete the auth user created in step 1
-      console.error('create-analyst partial failure, rolling back auth user:', stepError)
+      console.error('create-analyst partial failure, rolling back:', stepError)
       try {
-        await adminClient.auth.admin.deleteUser(userId)
+        if (createdNewAuthUser) {
+          await adminClient.auth.admin.deleteUser(userId)
+        } else {
+          // 升級既有用戶失敗 → 不刪 auth user，只清理本次寫入
+          await adminClient.from('experts').delete().eq('user_id', userId)
+          await adminClient.from('user_roles').delete().eq('user_id', userId).eq('role', 'analyst')
+        }
       } catch (rollbackErr) {
         console.error('Rollback failed:', rollbackErr)
       }
@@ -190,6 +195,7 @@ Deno.serve(withLogging('create-analyst', async (req) => {
         status: 400, headers: { ...corsHeaders, 'Content-Type': 'application/json' }
       })
     }
+
   } catch (err: unknown) {
     return new Response(JSON.stringify({ error: (err as Error).message }), {
       status: 500, headers: { ...corsHeaders, 'Content-Type': 'application/json' }
