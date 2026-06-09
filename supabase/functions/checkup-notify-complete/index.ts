@@ -107,18 +107,21 @@ const handler = withLogging('checkup-notify-complete', async (req, log) => {
   const summary: JobSummary = job.result_summary || {};
   const deepLink = `${SITE_URL}/holding-checkup?job=${job.id}`;
 
-  // 撈 profile + email
-  const [{ data: profile }, { data: userInfo }] = await Promise.all([
+  // 撈 profile + email + 通知偏好
+  const [{ data: profile }, { data: userInfo }, { data: prefs }] = await Promise.all([
     admin.from('profiles').select('display_name, line_user_id').eq('user_id', job.user_id).maybeSingle(),
     admin.auth.admin.getUserById(job.user_id),
+    admin.from('notification_preferences').select('checkup_complete_line, checkup_complete_email').eq('user_id', job.user_id).maybeSingle(),
   ]);
   const userEmail = userInfo?.user?.email || '';
   const isLineVirtual = /^line_.+@line\.local$/.test(userEmail);
   const displayName = profile?.display_name || '';
+  const lineEnabled = prefs?.checkup_complete_line !== false;
+  const emailEnabled = prefs?.checkup_complete_email !== false;
 
   const channels: Record<string, any> = {};
 
-  // 1) 站內通知（必發）
+  // 1) 站內通知（必發，不受偏好控制）
   try {
     const pnl = summary.total_pnl ?? 0;
     const pnlStr = (pnl >= 0 ? '+' : '') + Math.round(pnl).toLocaleString();
@@ -138,29 +141,37 @@ const handler = withLogging('checkup-notify-complete', async (req, log) => {
     channels.in_app = { ok: false, error: String(e).slice(0, 200) };
   }
 
-  // 2) Line push（若 profile.line_user_id 存在 → 嘗試任何啟用的 OA）
+  // 2) Line push（優先用平台 OA，fallback 到任一啟用的 expert OA）
   const lineId = profile?.line_user_id || null;
-  if (lineId && job.status === 'done') {
+  const platformLineToken = Deno.env.get('PLATFORM_LINE_CHANNEL_TOKEN') || '';
+  if (!lineEnabled) {
+    channels.line = { ok: false, reason: 'user_opt_out' };
+  } else if (lineId && job.status === 'done') {
     try {
+      const tokens: Array<{ token: string; name: string }> = [];
+      if (platformLineToken) tokens.push({ token: platformLineToken, name: 'platform' });
       const { data: oas } = await admin
         .from('expert_line_channels')
         .select('channel_access_token, channel_name')
         .eq('is_active', true)
         .not('channel_access_token', 'is', null);
+      for (const oa of oas || []) {
+        if (oa.channel_access_token) tokens.push({ token: oa.channel_access_token, name: oa.channel_name });
+      }
       const msg = buildLineMessage(summary, deepLink);
       let pushed = false;
       const errs: any[] = [];
-      for (const oa of oas || []) {
+      for (const t of tokens) {
         try {
           const r = await fetch(LINE_PUSH_URL, {
             method: 'POST',
             signal: AbortSignal.timeout(10000),
-            headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${oa.channel_access_token}` },
+            headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${t.token}` },
             body: JSON.stringify({ to: lineId, messages: [msg] }),
           });
-          if (r.ok) { pushed = true; channels.line = { ok: true, via: oa.channel_name }; break; }
-          errs.push({ oa: oa.channel_name, status: r.status, body: (await r.text()).slice(0, 200) });
-        } catch (e) { errs.push({ oa: oa.channel_name, err: String(e).slice(0, 200) }); }
+          if (r.ok) { pushed = true; channels.line = { ok: true, via: t.name }; break; }
+          errs.push({ via: t.name, status: r.status, body: (await r.text()).slice(0, 200) });
+        } catch (e) { errs.push({ via: t.name, err: String(e).slice(0, 200) }); }
       }
       if (!pushed) channels.line = { ok: false, errs };
     } catch (e) {
@@ -170,8 +181,10 @@ const handler = withLogging('checkup-notify-complete', async (req, log) => {
     channels.line = { ok: false, reason: lineId ? 'job_not_done' : 'no_line_binding' };
   }
 
-  // 3) Email（若有真實 email 且 Resend 已設定）
-  if (RESEND_API_KEY && userEmail && !isLineVirtual && job.status === 'done') {
+  // 3) Email（若有真實 email 且 Resend 已設定且使用者未關閉）
+  if (!emailEnabled) {
+    channels.email = { ok: false, reason: 'user_opt_out' };
+  } else if (RESEND_API_KEY && userEmail && !isLineVirtual && job.status === 'done') {
     try {
       const { subject, html } = buildEmail(summary, deepLink, displayName);
       const r = await fetch(RESEND_API_URL, {

@@ -1110,6 +1110,7 @@ export function composePortfolioPanelsContextInput({
     setCatalystFilter: controls.setCatalystFilter,
     setDailyExpanded: controls.setDailyExpanded,
     runDailyAnalysis: actions.runDailyAnalysis,
+    runDailyAnalysisInBackground: actions.runDailyAnalysisInBackground,
     runStressTest: actions.runStressTest,
     setStressResult: controls.setStressResult,
     setTab: controls.setTab,

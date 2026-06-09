@@ -585,5 +585,104 @@ ${losers
     emitSaved,
   ])
 
-  return { runDailyAnalysis }
+  // 背景模式：建立所有 prompt → 呼叫 enqueue → 立刻回傳，使用者可關頁面
+  // 注意：跳過盲測（worker 不重組 prompt），主分析 + 大腦 fallback 由 worker 跑
+  const runDailyAnalysisInBackground = useCallback(async () => {
+    if (analyzing) return { ok: false, reason: 'already_analyzing' }
+    try {
+      const codes = holdings.map((h) => h.code)
+      const priceMap = await getMarketQuotesForCodes(codes)
+      const changes = buildDailyChanges({
+        holdings, priceMap, resolveHoldingPrice, getHoldingUnrealizedPnl, getHoldingReturnPct,
+      })
+      const totalTodayPnl = changes.reduce((s, c) => s + c.todayPnl, 0)
+
+      let marketContext = ''
+      try {
+        const r = await fetch(`${API_ENDPOINTS.TWSE}?ex_ch=tse_t00.tw|tse_t01.tw`)
+        marketContext = buildMarketContextFromIndexData(await r.json())
+      } catch { /* */ }
+
+      const today = toSlashDate()
+      const { pendingEvents, anomalies } = buildDailyEventCollections({
+        newsEvents, defaultNewsEvents, isClosedEvent, changes, today,
+      })
+
+      const dailyDossiers = buildAnalysisDossiers({ changes, dossierByCode })
+      const holdingSummary = dailyDossiers.length > 0
+        ? dailyDossiers.map((d) => {
+            const ch = changes.find((c) => c.code === d.code)
+            return buildDailyHoldingDossierContext(d, ch)
+          }).join('\n\n')
+        : '目前沒有持股 dossier。'
+
+      const eventSummary = pendingEvents
+        .map((e) => `[eventId:${e.id}] [${e.date}] ${e.title} — 預測:${e.pred === 'up' ? '看漲' : e.pred === 'down' ? '看跌' : '中性'} — 狀態:${e.status}`)
+        .join('\n')
+      const anomalySummary = anomalies.length > 0
+        ? anomalies.map((a) => `${a.name} ${a.changePct >= 0 ? '+' : ''}${a.changePct.toFixed(2)}%`).join(', ')
+        : '無'
+
+      const brain = strategyBrain
+      const notesContext = formatPortfolioNotesContext(portfolioNotes)
+      const userRules = (brain?.rules || []).filter((r) => r?.source === 'user')
+      const aiRules = (brain?.rules || []).filter((r) => r?.source !== 'user')
+      const candidateRules = brain?.candidateRules || []
+      const checklistText = formatBrainChecklistsForPrompt(brain?.checklists)
+      const brainContext = brain
+        ? `══ 策略大腦（累積知識庫）══\n${userRules.length > 0 ? `✅ 已驗證規則：\n${formatBrainRulesForValidationPrompt(userRules, { limit: 8 })}\n\n` : ''}🤖 核心規則：\n${formatBrainRulesForValidationPrompt(aiRules, { limit: 10 })}\n\n🧪 候選規則：\n${formatBrainRulesForValidationPrompt(candidateRules, { limit: 6 })}\n\n📋 檢查表：\n${checklistText}\n\n歷史教訓：\n${(brain.lessons || []).slice(-10).map((l) => `- [${l.date}] ${l.text}`).join('\n')}\n勝率：${brain.stats?.hitRate || '尚無'}\n常犯錯誤：${(brain.commonMistakes || []).join('、') || '尚無'}\n══════════════════════════`
+        : ''
+      const revContext = losers.length > 0
+        ? losers.map((h) => {
+            const rev = (reversalConditions || {})[h.code]
+            return `${h.name}(${h.code}) ${getHoldingReturnPct(h).toFixed(2)}% | 反轉:${rev?.signal || '未設定'} | 停損:${rev?.stopLoss || '未設定'}`
+          }).join('\n')
+        : ''
+
+      const prevReport = (analysisHistory || [])[0]
+      const prevReviewBlock = buildPreviousPredictionReviewBlock(prevReport)
+      const blindPredBlock = '（背景模式：略過盲測）'
+
+      const historicalEvents = (newsEvents || defaultNewsEvents).filter(isClosedEvent)
+      const hits = historicalEvents.filter((e) => e.correct === true).length
+      const total = historicalEvents.filter((e) => e.correct !== null).length
+
+      const mainReq = buildDailyAnalysisRequest({
+        today, prevReviewBlock, blindPredBlock, totalTodayPnl, marketContext,
+        notesContext, brainContext, revContext, holdingSummary, anomalySummary,
+        eventSummary, blindPredictions: [], predictionHitRate: `${hits}/${total}`,
+      })
+      const brainReq = buildFallbackBrainUpdateRequest({
+        aiInsight: '（worker 將以主分析回覆為準）',
+        strategyBrain, hits, total, totalTodayPnl,
+      })
+
+      const snapshot = (holdings || []).map((h) => ({
+        code: h.code, name: h.name, qty: h.qty, cost: h.cost, price: h.price,
+      }))
+
+      const { data, error } = await supabase.functions.invoke('checkup-analyze-enqueue', {
+        body: { prompts: { main: mainReq, brain: brainReq }, holdings_snapshot: snapshot },
+      })
+      if (error || !data?.ok) {
+        emitSaved('❌ 背景分析啟動失敗', 4000)
+        return { ok: false, reason: error?.message || 'enqueue_failed' }
+      }
+      emitSaved('🔔 分析已送背景，可關閉網頁，完成後將通知您', 6000)
+      return { ok: true, job_id: data.job_id, reused: !!data.reused }
+    } catch (e) {
+      console.error('[background-analysis] failed', e)
+      emitSaved('❌ 背景分析啟動失敗', 4000)
+      return { ok: false, reason: e?.message || 'exception' }
+    }
+  }, [
+    analyzing, holdings, losers, newsEvents, defaultNewsEvents, analysisHistory,
+    strategyBrain, portfolioNotes, reversalConditions, dossierByCode,
+    getMarketQuotesForCodes, resolveHoldingPrice, getHoldingUnrealizedPnl,
+    getHoldingReturnPct, buildDailyHoldingDossierContext, formatPortfolioNotesContext,
+    formatBrainChecklistsForPrompt, formatBrainRulesForValidationPrompt,
+    isClosedEvent, toSlashDate, emitSaved,
+  ])
+
+  return { runDailyAnalysis, runDailyAnalysisInBackground }
 }
