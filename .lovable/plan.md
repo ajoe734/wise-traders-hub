@@ -1,83 +1,66 @@
+# 兩個缺口的處理計畫
 
-# 背景收盤分析 + 多通道通知
+## 缺口 A：分析真背景化（可關網頁）
 
-## 目標流程
+### 現況
+`useDailyAnalysisWorkflow.js`（589 行）在前端跑 3 次 `checkup-analyze`：
+1. **盲測預測**（L297）：先不看大腦的預測，用來校準命中率
+2. **主分析**（L338）：帶入大腦 context 跑完整 daily report
+3. **大腦更新**（L440）：把當日結論回寫 brain
 
-```text
-[每日 14:00 cron]
-  └─ 掃描所有「啟用訂閱 + 持倉≥1」的註冊用戶
-     ├─ 綁 Line → Line 推播「今日可跑收盤分析」+ 深連結
-     ├─ 未綁 Line → Email + 站內通知
-     └─ 無持倉 → 跳過
+外加 `persistAnalysisToCloud` / `flushPendingAnalyses` / `flushKnowledgeHits` 等副作用。關頁面 → 全斷。
 
-[使用者點深連結進站]
-  └─ 進入 /holding-checkup?autorun=1
-     ├─ 自動執行雲端同步（強制 pull 最新持倉）
-     ├─ 建立 analysis_job (status=queued)
-     └─ 觸發背景 worker → 使用者可關掉網頁
+### 做法（分兩階段，避免一次搬 589 行）
 
-[背景 worker 完成]
-  ├─ 寫回 checkup_analysis_results
-  ├─ 摘要：總損益、需注意 Top 3
-  └─ 通知：Line（綁定者）+ Email + 站內，全部附深連結回結果頁
-```
+**Phase 1（本輪做）：worker 化主分析**
+- 新增 `checkup-analyze-worker` edge function：
+  - 由 `checkup-analyze-enqueue` 用 service role 觸發（fire-and-forget）
+  - 讀 `checkup_analysis_jobs.holdings_snapshot`（前端 enqueue 時已快照）
+  - 在 function 內依序呼叫 `checkup-analyze` 三次（盲測 → 主分析 → 大腦更新）
+  - 完成後寫 `result_summary` + 觸發 `checkup-notify-complete`
+- 前端 `useDailyAnalysisWorkflow` 新增「背景模式」分支：
+  - 若使用者明確按「背景跑」按鈕 → 呼叫 enqueue 後直接返回，顯示 toast「分析中，可關頁面」
+  - 若仍在頁面，透過 Realtime 訂閱 `checkup_analysis_jobs` status 變化，job done 時拉 `result_summary` 渲染（不再前端跑）
+- 前端原有的 prompt 組裝邏輯（buildDailyHoldingDossierContext 等）抽到 `_shared/daily-prompt.ts`，worker 與前端共用
 
-## 一、資料層（新表）
+**Phase 2（下一輪，非本計畫範圍）**
+- brain 更新、knowledge hits flush、persistAnalysisToCloud 完整搬進 worker
+- 移除前端 fallback 路徑
 
-### `checkup_analysis_jobs`
-- `user_id`, `status` (queued/running/done/failed), `holdings_snapshot jsonb`, `result_summary jsonb`, `error_text`, `started_at`, `finished_at`
-- RLS：使用者只能讀自己的；service_role 可寫
-- GRANT SELECT 給 authenticated；ALL 給 service_role
+### 邊界條件
+- Job 超時：worker 設 5 分鐘 hard timeout，超時寫 `failed` + 通知「分析失敗，請重試」
+- 重複觸發：enqueue 時檢查使用者當日是否已有 `queued`/`running` job，是則回傳既有 job_id（不重複跑）
+- AI 失敗：盲測失敗不阻斷主分析（沿用現有 `blindStatus` 邏輯）；主分析失敗才算 job failed
 
-### `checkup_daily_reminders`（去重用）
-- `user_id`, `reminded_on date`, UNIQUE(user_id, reminded_on)
-- 避免一天重複推播
+---
 
-（不新增 schema 給持倉本身；沿用 `checkup_storage`，「跑分析當下強制同步」由前端 `useCloudSync` 完成）
+## 缺口 B：Line 推播 fallback
 
-## 二、Edge Functions
+### 現況
+`checkup-notify-complete` 借用任一綁定 expert 的 OA token 推播給 `profile.line_user_id`。沒走 Line 登入 / 沒綁 expert 的使用者拿不到 Line，只剩站內 + Email。
 
-### 新增 `checkup-analyze-enqueue`（取代前端直接呼叫 checkup-analyze）
-- Auth required
-- 入參：`holdings`, `reversalConditions`, ...（同現行 contract）
-- 動作：寫一筆 `checkup_analysis_jobs(queued)` → 回傳 `job_id` → 立刻 fire-and-forget 觸發 worker（用 `EdgeRuntime.waitUntil` 或內呼 worker function）
-- 配額：照舊呼叫 `consumeCheckupQuota`
+### 做法
 
-### 新增 `checkup-analyze-worker`
-- service_role only（內部呼叫，verify_jwt=false 但驗 shared secret）
-- 讀 `checkup_analysis_jobs.id` → status=running → 跑現行 `checkup-analyze` 同一份 AI 流程 → 寫結果 → 觸發 `checkup-notify-complete`
-- 失敗：status=failed + error_text，照樣發失敗通知
+**1. 加新 secret `PLATFORM_LINE_CHANNEL_TOKEN`（選用）**
+- 若你有平台級 OA（legendflow 官方帳號），把 channel access token 存進來
+- `checkup-notify-complete` 推播優先序：
+  1. `PLATFORM_LINE_CHANNEL_TOKEN`（若存在）→ 推給 `profile.line_user_id`
+  2. fallback：使用者綁定的任一 expert OA token（現行邏輯）
+  3. 都沒有 → 只送站內 + Email
+- 若你還沒有平台 OA，就直接跳過此步，維持現狀（expert OA fallback）
 
-### 新增 `checkup-notify-complete`
-- 入參：`job_id`
-- 撈使用者：`profiles` + `member_line_bindings`（沿用 line-push-signal 的綁定查法）
-- Line（若綁）：摘要 + 深連結 `https://legendflow.tw/holding-checkup?job={id}`
-- Email：用 Resend，沿用 `email-push-renewal-reminder` 樣板手法
-- 站內：寫 `notifications` 表
+**2. UI 提示綁定 Line**
+- `Notifications` 頁 / Account 頁加 banner：「綁定 Line 即可在分析完成時收到推播」→ 連到既有 Line 登入綁定流程
+- 已有 `member_line_bindings`，沿用既有 binding code 流程，不另開新表
 
-### 新增 `checkup-daily-reminder-cron`
-- 每日 14:00 UTC+8（pg_cron 觸發）
-- 找出符合條件用戶（active subscription + checkup_storage 有持倉）
-- 對每人：upsert `checkup_daily_reminders` (ON CONFLICT DO NOTHING)；INSERT 成功才推播
-- 推播分流：Line / Email / 站內
+**3. 通知偏好開關**
+- `notification_preferences` 已存在，新增 key `checkup_complete_line` / `checkup_complete_email`，預設 ON
+- `checkup-notify-complete` 推播前讀偏好，使用者關閉就跳過該渠道
 
-## 三、前端（FreeCheckup.jsx + useDailyAnalysisWorkflow.js）
+---
 
-1. **改 invoke 路徑**：`checkup-analyze` → `checkup-analyze-enqueue`，拿到 `job_id` 後：
-   - 顯示「分析已排程，可關閉頁面，完成後將透過 Line / Email 通知」橫幅
-   - 開 Realtime subscribe `checkup_analysis_jobs:id=eq.{job_id}` → status=done 自動把結果灌進現有 UI
-2. **autorun 深連結**：`?autorun=1` → 進站後執行「強制雲端同步 → 自動按下跑收盤分析」
-3. **job 結果回讀**：`?job={id}` → 直接從 `checkup_analysis_jobs.result_summary` 還原顯示
-4. **離站保護**：移除「跑分析中不能關頁」的提示（背景化後不再需要）
+## 要你決定
+1. **平台 OA 你有嗎？** 有 → 我建 secret 欄位等你貼 token；沒有 → 只做 fallback banner + 偏好開關
+2. **Phase 1 範圍 OK 嗎？** 還是你想一次搬完（包含 brain 更新、knowledge hits），我直接做大工程？
 
-## 四、通知去重與權限
-
-- Line 推播：沿用 `line-push-signal` 內的「綁 Line 且訂閱有效」邏輯（[Push eligibility](mem://features/notifications/subscriber-push-eligibility)）
-- 每日提醒只推一次（`checkup_daily_reminders` UNIQUE 防重）
-- 分析完成通知無去重（每次 job 完成都通知，因為是使用者主動觸發）
-
-## 五、不動的東西
-
-- AI 模型選擇與 fallback 順序（`checkup-analyze` 原邏輯整段搬進 worker）
-- 配額計算
-- 既
+確認後我切 build mode 開工。
