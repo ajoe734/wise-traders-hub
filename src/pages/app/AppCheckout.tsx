@@ -115,6 +115,20 @@ const AppCheckout = () => {
     },
   });
 
+  // GTM Purchase event — fires once when success dialog opens
+  useEffect(() => {
+    if (resultDialog?.open && resultDialog?.success) {
+      gtmPush('Purchase', {
+        plan_id: planId,
+        expert_slug: slug,
+        currency: 'TWD',
+        billing_cycle: billingCycle,
+        method: paymentMethod,
+      });
+    }
+  }, [resultDialog?.open, resultDialog?.success, planId, slug, billingCycle, paymentMethod]);
+
+
   // LINE Pay return (confirm flow) — 仍維持原本的 edge function 確認
   useEffect(() => {
     const linepay = searchParams.get("linepay");
