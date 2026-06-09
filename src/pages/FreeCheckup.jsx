@@ -3418,19 +3418,29 @@ ${JSON.stringify(strategyBrain || { rules: [], lessons: [], commonMistakes: [], 
                       role="tab"
                       aria-selected={drawerTab === k}
                       className="holding-drawer-tab"
-                      onClick={() => setDrawerTab(k)}
+                      onClick={() => safeSetDrawerTab(k)}
                     >{label}</button>
                   ))}
                 </div>
 
                 {drawerSkeleton ? (
-                  <div style={{display:'flex',flexDirection:'column',gap:12}}>
+                  <div style={{display:'flex',flexDirection:'column',gap:12}} aria-busy="true" aria-live="polite">
                     <div className="holding-drawer-skel" style={{height:62}} />
                     <div className="holding-drawer-skel" style={{height:90}} />
                     <div className="holding-drawer-skel" style={{height:140}} />
                     <div className="holding-drawer-skel" style={{height:60,width:'70%'}} />
                   </div>
-                ) : (<>
+                ) : (
+                <ErrorBoundary
+                  key={`drawer-${activeCode}-${drawerTab}-${drawerRetryN}`}
+                  title={`「${drawerTab === 'summary' ? '摘要' : drawerTab === 'thesis' ? '教學' : '風險'}」分頁`}
+                  description="此分頁內容載入失敗，分頁與骨架狀態已保留，可重試。"
+                  actionLabel="重試載入"
+                  onReset={retryDrawerTab}
+                  style={{margin:'4px 0 12px'}}
+                >
+                <>
+
 
                 {/* ━━━━━━━━━━━━━ 摘要 Tab ━━━━━━━━━━━━━ */}
                 {drawerTab === 'summary' && (<>
