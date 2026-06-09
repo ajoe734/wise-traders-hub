@@ -1,5 +1,5 @@
 // @ts-nocheck — 漸進式 .jsx→.tsx 遷移（F-Maint-R4），完整型別化留待後續批次
-import { memo, lazy, Suspense, useState, useCallback, useMemo } from "react";
+import { memo, lazy, Suspense, useState, useCallback, useMemo, useRef } from "react";
 import { useBrainStore } from "@/checkup/stores/brainStore";
 import { useViewportWidth } from "@/hooks/useViewportWidth";
 import { useCheckupMode } from "@/checkup/contexts/CheckupModeContext";
@@ -163,9 +163,16 @@ function HoldingsTab(props) {
   const toggleExpandedDecision = useBrainStore((s) => s.toggleExpandedDecision);
 
   // 卡片點選 toggle — 透過 store action，handler reference 永遠穩定
+  // 窄螢幕（≤1023px）右側 Detail Panel 被 CSS 隱藏，改開 drawer，否則點擊看似無反應
+  const vwRef = useRef(vw);
+  vwRef.current = vw;
   const handleHoldingCardSelect = useCallback((code) => {
+    if (vwRef.current <= 1023) {
+      handleHoldingCardOpenDrawer?.(code);
+      return;
+    }
     toggleExpandedDecision(code);
-  }, [toggleExpandedDecision]);
+  }, [toggleExpandedDecision, handleHoldingCardOpenDrawer]);
 
   return (
     <>
