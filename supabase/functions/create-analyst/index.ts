@@ -78,12 +78,9 @@ Deno.serve(withLogging('create-analyst', async (req) => {
           status: 400, headers: { ...corsHeaders, 'Content-Type': 'application/json' }
         })
       }
-      // 撈既有用戶
-      const { data: existing, error: lookupErr } = await adminClient
-        .from('profiles').select('user_id').eq('user_id',
-          (await adminClient.rpc('noop')).data ?? null).maybeSingle()
-      // 直接用 admin listUsers by email
+      // 撈既有用戶（用 admin listUsers by email）
       const { data: list } = await adminClient.auth.admin.listUsers({ page: 1, perPage: 1000 })
+
       const found = list?.users?.find((u: any) => (u.email || '').toLowerCase() === email.toLowerCase())
       if (!found) {
         return new Response(JSON.stringify({ error: '此 Email 已被註冊，但查不到帳號資料，請聯絡技術支援' }), {
