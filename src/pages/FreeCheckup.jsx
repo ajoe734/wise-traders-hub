@@ -3596,12 +3596,14 @@ ${JSON.stringify(strategyBrain || { rules: [], lessons: [], commonMistakes: [], 
                   </section>
                 </>)}
 
-                </>)}
+                </>
+                </ErrorBoundary>
+                )}
 
                 {/* 手機底部固定關閉條（單手好按） */}
                 <div className="holding-drawer-mobile-close">
                   <button
-                    onClick={goPrev}
+                    onClick={() => { hapticTap(8); goPrev(); }}
                     disabled={total < 2}
                     aria-label="上一檔"
                     style={{
@@ -3611,7 +3613,8 @@ ${JSON.stringify(strategyBrain || { rules: [], lessons: [], commonMistakes: [], 
                       border:`1px solid ${C.border}`,
                     }}
                   >‹</button>
-                  <button onClick={() => handleDrawerOpenChange(false)}>✕ 關閉</button>
+                  <button onClick={safeCloseDrawer}>✕ 關閉</button>
+
                   <button
                     onClick={goNext}
                     disabled={total < 2}
