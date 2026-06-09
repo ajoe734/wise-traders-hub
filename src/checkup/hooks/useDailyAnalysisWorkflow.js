@@ -127,10 +127,15 @@ export function useDailyAnalysisWorkflow({
     setAnalyzing(true)
     setAnalyzeStep(APP_STATUS_MESSAGES.dailyLoadingMarketCache)
 
+    // 背景 job 標記：建立 row，結束時通知（Line / Email / 站內）
+    const __jobId = await createAnalysisJob(holdings)
+    if (__jobId) emitSaved('🔔 分析已開始，可關閉網頁，完成後將通知您', 5000)
+
     // Flush previously buffered analyses (fire-and-forget, doesn't block flow)
     if (canUseCloud) {
       flushPendingAnalyses(API_ENDPOINTS.BRAIN).catch(() => {})
     }
+
 
     try {
       const codes = holdings.map((holding) => holding.code)
