@@ -1,15 +1,18 @@
 import { SEO } from '@/components/SEO';
 import { useState, useMemo } from 'react';
 import { useQuery } from '@tanstack/react-query';
+import { Link } from 'react-router-dom';
 import { CompanyLayout } from '@/components/layouts/CompanyLayout';
 import { Card, CardContent } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
+import { Checkbox } from '@/components/ui/checkbox';
 import { supabase } from '@/integrations/supabase/client';
-import { Search, Users, UserCheck, UserX, RefreshCw, Download, Stethoscope } from 'lucide-react';
+import { Search, Users, UserCheck, UserX, RefreshCw, Download, Stethoscope, MessageCircle, History } from 'lucide-react';
 import { useUserIdentities, formatIdentitySecondary } from '@/hooks/useUserIdentities';
 import { formatTaipeiYMD } from '@/checkup/utils/formatTaipeiDate';
+import { LinePushDialog } from '@/components/company/LinePushDialog';
 
 type Row = {
   id: string;
@@ -26,6 +29,8 @@ const CompanySubscribers = () => {
   const [search, setSearch] = useState('');
   const [statusFilter, setStatusFilter] = useState<string>('all');
   const [kindFilter, setKindFilter] = useState<'all' | 'expert' | 'checkup'>('all');
+  const [selectedUserIds, setSelectedUserIds] = useState<Set<string>>(new Set());
+  const [pushOpen, setPushOpen] = useState(false);
 
   const { data, isFetching } = useQuery({
     queryKey: ['company', 'subscribers'],
@@ -142,6 +147,41 @@ const CompanySubscribers = () => {
     URL.revokeObjectURL(url);
   };
 
+  // 唯一收件人清單（按勾選的 user_id，去重）
+  const recipientRecords = useMemo(() => {
+    const seen = new Set<string>();
+    const list: Array<{ user_id: string; display_name?: string; has_line: boolean }> = [];
+    for (const uid of selectedUserIds) {
+      if (seen.has(uid)) continue;
+      seen.add(uid);
+      const id = identities[uid];
+      list.push({
+        user_id: uid,
+        display_name: id?.display_name,
+        has_line: !!id?.line_user_id,
+      });
+    }
+    return list;
+  }, [selectedUserIds, identities]);
+
+  const filteredUserIds = useMemo(() => [...new Set(filtered.map((s) => s.user_id))], [filtered]);
+  const allFilteredSelected = filteredUserIds.length > 0 && filteredUserIds.every((u) => selectedUserIds.has(u));
+  const toggleAllFiltered = () => {
+    setSelectedUserIds((prev) => {
+      const next = new Set(prev);
+      if (allFilteredSelected) filteredUserIds.forEach((u) => next.delete(u));
+      else filteredUserIds.forEach((u) => next.add(u));
+      return next;
+    });
+  };
+  const toggleOne = (uid: string) => {
+    setSelectedUserIds((prev) => {
+      const next = new Set(prev);
+      if (next.has(uid)) next.delete(uid); else next.add(uid);
+      return next;
+    });
+  };
+
   return (
     <CompanyLayout>
       <SEO title={'訂閱者管理 | legendflow'} description={'平台訂閱者總覽。'} path={'/company/subscribers'} noindex />
@@ -151,9 +191,21 @@ const CompanySubscribers = () => {
             <h1 className="text-2xl font-bold">訂閱者管理</h1>
             <p className="text-muted-foreground text-sm mt-1">查看與管理所有平台訂閱者（含分析師訂閱與健檢方案）</p>
           </div>
-          <Button variant="outline" size="sm" onClick={handleExport}>
-            <Download className="h-4 w-4 mr-2" />匯出對帳報表
-          </Button>
+          <div className="flex items-center gap-2">
+            <Button variant="outline" size="sm" asChild>
+              <Link to="/company/line-push-history"><History className="h-4 w-4 mr-2" />推播紀錄</Link>
+            </Button>
+            <Button
+              variant="default" size="sm"
+              disabled={selectedUserIds.size === 0}
+              onClick={() => setPushOpen(true)}
+            >
+              <MessageCircle className="h-4 w-4 mr-2" />Line 推播 ({selectedUserIds.size})
+            </Button>
+            <Button variant="outline" size="sm" onClick={handleExport}>
+              <Download className="h-4 w-4 mr-2" />匯出對帳報表
+            </Button>
+          </div>
         </div>
 
         <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-6 gap-4">
@@ -191,6 +243,9 @@ const CompanySubscribers = () => {
             <table className="w-full">
               <thead>
                 <tr className="border-b text-left text-sm text-muted-foreground">
+                  <th className="p-4 w-10">
+                    <Checkbox checked={allFilteredSelected} onCheckedChange={toggleAllFiltered} />
+                  </th>
                   <th className="p-4">類型</th>
                   <th className="p-4">訂閱者</th>
                   <th className="p-4">方案</th>
@@ -203,16 +258,25 @@ const CompanySubscribers = () => {
               </thead>
               <tbody>
                 {loading ? (
-                  <tr><td colSpan={8} className="p-8 text-center text-muted-foreground text-sm">載入中...</td></tr>
+                  <tr><td colSpan={9} className="p-8 text-center text-muted-foreground text-sm">載入中...</td></tr>
                 ) : filtered.length === 0 ? (
-                  <tr><td colSpan={8} className="p-8 text-center text-muted-foreground text-sm">無訂閱紀錄</td></tr>
+                  <tr><td colSpan={9} className="p-8 text-center text-muted-foreground text-sm">無訂閱紀錄</td></tr>
                 ) : (
                   filtered.map(sub => {
                     const remaining = getRemainingDays(sub.expires_at);
                     const id = identities[sub.user_id];
                     const isLine = id?.login_method === 'line';
+                    const checked = selectedUserIds.has(sub.user_id);
                     return (
                       <tr key={`${sub.kind}-${sub.id}`} className="border-b last:border-0">
+                        <td className="p-4">
+                          <Checkbox
+                            checked={checked}
+                            onCheckedChange={() => toggleOne(sub.user_id)}
+                            disabled={!id?.line_user_id}
+                            title={!id?.line_user_id ? '未綁定 Line，無法推播' : ''}
+                          />
+                        </td>
                         <td className="p-4">
                           <Badge variant={sub.kind === 'checkup' ? 'default' : 'outline'} className="text-xs">
                             {sub.kind === 'checkup' ? '健檢' : '訂閱方案'}
@@ -259,6 +323,12 @@ const CompanySubscribers = () => {
           </CardContent>
         </Card>
       </div>
+      <LinePushDialog
+        open={pushOpen}
+        onOpenChange={setPushOpen}
+        recipients={recipientRecords}
+        onSent={() => setSelectedUserIds(new Set())}
+      />
     </CompanyLayout>
   );
 };

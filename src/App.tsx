@@ -104,6 +104,7 @@ const AdminPlans = lazy(() => import("./pages/admin/Plans"));
 const CompanyDashboard = lazy(() => import("./pages/company/Dashboard"));
 const CompanyAnalysts = lazy(() => import("./pages/company/Analysts"));
 const CompanySubscribers = lazy(() => import("./pages/company/Subscribers"));
+const CompanyLinePushHistory = lazy(() => import("./pages/company/LinePushHistory"));
 const CompanyRevenue = lazy(() => import("./pages/company/Revenue"));
 const CompanyPayments = lazy(() => import("./pages/company/Payments"));
 const CompanyAnnouncements = lazy(() => import("./pages/company/Announcements"));
@@ -248,6 +249,7 @@ const AppShell = () => (
             <Route path="/company/users" element={<ProtectedRoute requiredRole="company_admin"><CompanyUsers /></ProtectedRoute>} />
             <Route path="/company/analysts" element={<ProtectedRoute requiredRole="company_admin"><CompanyAnalysts /></ProtectedRoute>} />
             <Route path="/company/subscribers" element={<ProtectedRoute requiredRole="company_admin"><CompanySubscribers /></ProtectedRoute>} />
+            <Route path="/company/line-push-history" element={<ProtectedRoute requiredRole="company_admin"><CompanyLinePushHistory /></ProtectedRoute>} />
             <Route path="/company/revenue" element={<ProtectedRoute requiredRole="company_admin"><CompanyRevenue /></ProtectedRoute>} />
             <Route path="/company/payments" element={<ProtectedRoute requiredRole="company_admin"><CompanyPayments /></ProtectedRoute>} />
             <Route path="/company/announcements" element={<ProtectedRoute requiredRole="company_admin"><CompanyAnnouncements /></ProtectedRoute>} />

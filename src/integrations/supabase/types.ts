@@ -1871,6 +1871,72 @@ export type Database = {
         }
         Relationships: []
       }
+      line_push_jobs: {
+        Row: {
+          action_label: string | null
+          action_url: string | null
+          created_at: string
+          created_by: string
+          error: string | null
+          failed_count: number
+          finished_at: string | null
+          id: string
+          image_url: string | null
+          message_kind: string
+          recipient_user_ids: string[]
+          result: Json | null
+          scheduled_at: string | null
+          sent_count: number
+          skipped_count: number
+          started_at: string | null
+          status: string
+          text: string | null
+          updated_at: string
+        }
+        Insert: {
+          action_label?: string | null
+          action_url?: string | null
+          created_at?: string
+          created_by: string
+          error?: string | null
+          failed_count?: number
+          finished_at?: string | null
+          id?: string
+          image_url?: string | null
+          message_kind: string
+          recipient_user_ids: string[]
+          result?: Json | null
+          scheduled_at?: string | null
+          sent_count?: number
+          skipped_count?: number
+          started_at?: string | null
+          status?: string
+          text?: string | null
+          updated_at?: string
+        }
+        Update: {
+          action_label?: string | null
+          action_url?: string | null
+          created_at?: string
+          created_by?: string
+          error?: string | null
+          failed_count?: number
+          finished_at?: string | null
+          id?: string
+          image_url?: string | null
+          message_kind?: string
+          recipient_user_ids?: string[]
+          result?: Json | null
+          scheduled_at?: string | null
+          sent_count?: number
+          skipped_count?: number
+          started_at?: string | null
+          status?: string
+          text?: string | null
+          updated_at?: string
+        }
+        Relationships: []
+      }
       member_line_bindings: {
         Row: {
           bound_at: string
