@@ -118,6 +118,8 @@ export type Database = {
           holdings_snapshot: Json | null
           id: string
           notified_at: string | null
+          prompts_payload: Json | null
+          raw_responses: Json | null
           result_summary: Json | null
           started_at: string | null
           status: string
@@ -131,6 +133,8 @@ export type Database = {
           holdings_snapshot?: Json | null
           id?: string
           notified_at?: string | null
+          prompts_payload?: Json | null
+          raw_responses?: Json | null
           result_summary?: Json | null
           started_at?: string | null
           status?: string
@@ -144,6 +148,8 @@ export type Database = {
           holdings_snapshot?: Json | null
           id?: string
           notified_at?: string | null
+          prompts_payload?: Json | null
+          raw_responses?: Json | null
           result_summary?: Json | null
           started_at?: string | null
           status?: string
@@ -1973,6 +1979,8 @@ export type Database = {
       }
       notification_preferences: {
         Row: {
+          checkup_complete_email: boolean
+          checkup_complete_line: boolean
           meta_override_changed: boolean
           renewal_email: boolean
           target_price_new: boolean
@@ -1982,6 +1990,8 @@ export type Database = {
           user_id: string
         }
         Insert: {
+          checkup_complete_email?: boolean
+          checkup_complete_line?: boolean
           meta_override_changed?: boolean
           renewal_email?: boolean
           target_price_new?: boolean
@@ -1991,6 +2001,8 @@ export type Database = {
           user_id: string
         }
         Update: {
+          checkup_complete_email?: boolean
+          checkup_complete_line?: boolean
           meta_override_changed?: boolean
           renewal_email?: boolean
           target_price_new?: boolean
