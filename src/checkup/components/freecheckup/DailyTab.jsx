@@ -26,6 +26,7 @@ const DAILY_TAB_PROP_SCHEMA = {
   analyzing: 'boolean',
   analyzeStep: { type: 'string', optional: true },
   runDailyAnalysis: 'function',
+  runDailyAnalysisInBackground: { type: 'function', optional: true },
   hasReachedDailyLimit: 'boolean',
   quota: { type: 'object', optional: true },
   formatResetCountdown: 'function',
@@ -65,6 +66,7 @@ function DailyTabImpl({
   dailyReport, setDailyReport,
   analyzing, analyzeStep,
   runDailyAnalysis,
+  runDailyAnalysisInBackground,
   // 配額
   hasReachedDailyLimit, quota, formatResetCountdown, tier,
   // B-25：line_only 用戶（未加好友）需顯示加好友引導
@@ -148,6 +150,16 @@ function DailyTabImpl({
                  letterSpacing:"0.04em"}}>
                   {hasReachedDailyLimit ? `🔒 ${tier === 'none' ? '需訂閱方案' : tier === 'line_free' ? '免費／補償額度已用完' : (quota?.period === 'week' ? '本週' : '本月') + '配額已用完'}` : "開始今日收盤分析"}
                  </button>
+                 {!hasReachedDailyLimit && typeof runDailyAnalysisInBackground === 'function' && (
+                   <div style={{marginTop:10}}>
+                     <button onClick={runDailyAnalysisInBackground} style={{
+                       padding:"6px 16px",borderRadius:6,
+                       border:`1px solid ${alpha(C.textMute,'25')}`,
+                       background:'transparent',color:C.textMute,
+                       fontSize:11,fontWeight:400,cursor:'pointer',letterSpacing:'0.04em'
+                     }}>背景跑（可關頁面）</button>
+                   </div>
+                 )}
                  <div style={{fontSize:11,color:C.textMute,marginTop:10,opacity:0.75,lineHeight:1.7}}>
                    {hasReachedDailyLimit
                      ? <>
