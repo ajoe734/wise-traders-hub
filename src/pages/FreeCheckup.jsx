@@ -851,6 +851,33 @@ export default function App() {
       });
     return () => { setRtConnected(false); supabase.removeChannel(channel); };
   }, [_holdingsCodesKey, isDemo]);
+
+  // Realtime：訂閱使用者自己的背景分析 job 狀態（完成 / 失敗時提示）
+  useEffect(() => {
+    if (isDemo) return;
+    const uid = getCurrentUserId();
+    if (!uid) return;
+    const ch = supabase
+      .channel(`checkup-jobs-${uid}`)
+      .on('postgres_changes', {
+        event: 'UPDATE',
+        schema: 'public',
+        table: 'checkup_analysis_jobs',
+        filter: `user_id=eq.${uid}`,
+      }, (payload) => {
+        const row = payload?.new;
+        if (!row) return;
+        if (row.status === 'done') {
+          const pnl = Number(row?.result_summary?.total_pnl) || 0;
+          const sign = pnl >= 0 ? '+' : '';
+          toast.success(`📊 背景收盤分析完成（NT$ ${sign}${pnl.toLocaleString()}），可重新整理頁面檢視`, { duration: 8000 });
+        } else if (row.status === 'failed') {
+          toast.error(`背景收盤分析失敗：${row.error_text || '請重試'}`, { duration: 8000 });
+        }
+      })
+      .subscribe();
+    return () => { supabase.removeChannel(ch); };
+  }, [isDemo]);
   // tradeLog 存到 Supabase — 改用「scoped delete + insert」並加 debounce/錯誤通知
   // 重要：原本 .delete().neq() 沒帶 user_id 篩選，僅靠 RLS 保護；改為明確 .eq('user_id', ...) 雙保險
   const cloudTradeLogTimerRef = useRef(null);
