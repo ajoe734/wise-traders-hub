@@ -609,12 +609,15 @@ ${losers
       })
 
       const dailyDossiers = buildAnalysisDossiers({ changes, dossierByCode })
+      // 背景模式同樣 flush 知識命中（dossier 已建立 → buffer 已填）
+      flushKnowledgeHits({ context: 'daily_analysis_background' }).catch(() => {})
       const holdingSummary = dailyDossiers.length > 0
         ? dailyDossiers.map((d) => {
             const ch = changes.find((c) => c.code === d.code)
             return buildDailyHoldingDossierContext(d, ch)
           }).join('\n\n')
         : '目前沒有持股 dossier。'
+
 
       const eventSummary = pendingEvents
         .map((e) => `[eventId:${e.id}] [${e.date}] ${e.title} — 預測:${e.pred === 'up' ? '看漲' : e.pred === 'down' ? '看跌' : '中性'} — 狀態:${e.status}`)
