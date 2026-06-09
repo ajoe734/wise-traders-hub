@@ -163,11 +163,11 @@ const handler = withLogging('checkup-analyze-worker', async (req, log) => {
       raw_responses: raw,
       result_summary: summary,
     }).eq('id', jobId);
-    fetch(`${SUPABASE_URL}/functions/v1/checkup-notify-complete`, {
+    await fetch(`${SUPABASE_URL}/functions/v1/checkup-notify-complete`, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${SERVICE_ROLE_KEY}` },
       body: JSON.stringify({ job_id: jobId }),
-    }).catch(() => {});
+    }).catch((e) => log.warn('notify_invoke_failed', { stage: 'main_failed', err: String(e).slice(0, 200) }));
     return jsonResponse({ ok: false, error: main.error });
   }
 
