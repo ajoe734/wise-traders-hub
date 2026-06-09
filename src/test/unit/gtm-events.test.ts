@@ -1,5 +1,6 @@
 import { describe, it, expect, beforeEach } from 'vitest';
 import { gtmPush } from '@/lib/analytics/gtm';
+import { pathToFeature } from '@/components/PerfMetricsTracker';
 
 declare global {
   // eslint-disable-next-line no-var
