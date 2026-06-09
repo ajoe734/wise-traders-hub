@@ -73,6 +73,9 @@ import {
   isSameNumber,
   isExactDemoHolding,
   stripDemoSeedHoldings,
+  holdingHasUserOrigin,
+  markUserOwnedHolding,
+  DEMO_SEED_CODES,
   getHoldingCodesKey,
   getCurrentUserId,
   save,
@@ -763,14 +766,16 @@ export default function App() {
   const cloudHoldingsErrorShownRef = useRef(false);
   useEffect(() => {
     if (!(ready && holdings && !isDemo)) return;
-    save("pf-holdings-v2", holdings);
+    // 寫雲端 / 本機前一律 strip demo seed，避免任何 race / realtime 將 seed 個股洗回雲端
+    const cleanHoldings = stripDemoSeedHoldings(holdings);
+    save("pf-holdings-v2", cleanHoldings);
     const uid = getCurrentUserId();
     if (!uid) return;
     if (cloudHoldingsTimerRef.current) clearTimeout(cloudHoldingsTimerRef.current);
     cloudHoldingsTimerRef.current = setTimeout(async () => {
       try {
-        const codes = holdings.map(h => `${h.code} ${h.name}`).join("、");
-        const codesKey = holdings.map(h => h.code).sort().join(",");
+        const codes = cleanHoldings.map(h => `${h.code} ${h.name}`).join("、");
+        const codesKey = cleanHoldings.map(h => h.code).sort().join(",");
         const { error } = await supabase
           .from("checkup_storage")
           .upsert({ user_id: uid, key: "pf-calendar-holdings", data: { stocks: codes, holdingCodes: codesKey } }, { onConflict: "user_id,key" });
@@ -811,6 +816,9 @@ export default function App() {
         if (!row || !row.symbol || !(Number(row.price) > 0)) return;
         setHoldings(prev => (prev || []).map(h => {
           if (h.code !== row.symbol) return h;
+          // 防 demo seed 洗白：若是 seed code 且該持倉沒有任何使用者來源標記，跳過 realtime 寫入，
+          // 避免價格被更新後 isExactDemoHolding 判 false、永久殘留於正式持倉。
+          if (DEMO_SEED_CODES.has(h.code) && !holdingHasUserOrigin(h)) return h;
           const price = Number(row.price);
           const { value, pnl, pct } = calcPnlWithNet(h, price);
           return {
@@ -2437,7 +2445,7 @@ ${JSON.stringify(strategyBrain || { rules: [], lessons: [], commonMistakes: [], 
           setHoldings(prev => preparedTrades.reduce(
             (acc, trade) => isSnapshotImport ? upsertSnapshotHolding(acc, trade) : mergeTradeIntoHoldings(acc, trade),
             stripDemoSeedHoldings(prev || []),
-          ));
+          ).map(markUserOwnedHolding));
           setTradeLog(prev => {
             const existing = prev || [];
             const newEntries = preparedTrades.map(t => ({

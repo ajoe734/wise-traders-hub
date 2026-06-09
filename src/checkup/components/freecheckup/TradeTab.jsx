@@ -1,6 +1,9 @@
 import React, { useEffect } from 'react';
 import { validateProps } from './_validateProps';
 import { trackPaywall } from '@/lib/paywallTracking';
+import { markUserOwnedHolding } from '@/pages/_freeCheckup/constants';
+
+
 
 
 /**
@@ -325,7 +328,7 @@ function TradeTabImpl({
           setHoldings(prev => trades.reduce(
             (acc, trade) => isSnap ? upsertSnapshotHolding(acc, trade) : mergeTradeIntoHoldings(acc, trade),
             stripDemoSeedHoldings(prev || []),
-          ));
+          ).map(markUserOwnedHolding));
           setTradeLog(prev => {
             const existing = prev || [];
             const newEntries = trades.map(t => ({
