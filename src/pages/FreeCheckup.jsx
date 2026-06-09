@@ -2445,7 +2445,7 @@ ${JSON.stringify(strategyBrain || { rules: [], lessons: [], commonMistakes: [], 
           setHoldings(prev => preparedTrades.reduce(
             (acc, trade) => isSnapshotImport ? upsertSnapshotHolding(acc, trade) : mergeTradeIntoHoldings(acc, trade),
             stripDemoSeedHoldings(prev || []),
-          ));
+          ).map(markUserOwnedHolding));
           setTradeLog(prev => {
             const existing = prev || [];
             const newEntries = preparedTrades.map(t => ({
