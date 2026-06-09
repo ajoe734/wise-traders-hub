@@ -54,12 +54,12 @@ export default function LineCallback() {
             userId: session.user.id,
             email: session.user.email,
           });
-          return true;
+          return session.user;
         }
         await new Promise((resolve) => window.setTimeout(resolve, 150));
       }
       console.warn(DBG, 'Session polling exhausted');
-      return false;
+      return null;
     };
 
     if (lineError) {
