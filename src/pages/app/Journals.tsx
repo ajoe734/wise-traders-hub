@@ -156,6 +156,8 @@ const Journals = () => {
 
   const signals = data?.signals ?? [];
   const hasSubscription = data?.hasSubscription ?? null;
+  const diag = data?.diag;
+
 
   // Group signals by week
   const weekGroups = useMemo(() => {
