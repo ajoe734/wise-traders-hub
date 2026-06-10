@@ -41,34 +41,79 @@ interface WeekGroup {
   expert: JournalSignal['experts'];
 }
 
+interface SubscribedExpertDiag {
+  expert_id: string;
+  name: string | null;
+  role: string | null;
+  status: string | null;
+  published_count: number;
+  included: boolean;
+  reason: string;
+}
+
+interface JournalsDiagnostics {
+  userId: string | null;
+  isTester: boolean;
+  expectedStatus: 'active' | 'draft';
+  rawSubscriptionCount: number;
+  subscribedExperts: SubscribedExpertDiag[];
+}
+
 const fetchJournalsData = async (userId: string | undefined, isTester: boolean, previewExpertId: string | null) => {
-  if (!userId) return { signals: [] as JournalSignal[], hasSubscription: false };
+  const diag: JournalsDiagnostics = {
+    userId: userId ?? null,
+    isTester,
+    expectedStatus: isTester ? 'draft' : 'active',
+    rawSubscriptionCount: 0,
+    subscribedExperts: [],
+  };
+  if (!userId) return { signals: [] as JournalSignal[], hasSubscription: false, diag };
 
   const { data: subs } = await supabase
     .rpc('has_active_subscription', { _user_id: userId });
 
-  const expertIds = (subs || []).map((s: any) => s.expert_id);
+  const expertIds: string[] = (subs || []).map((s: any) => s.expert_id);
+  diag.rawSubscriptionCount = expertIds.length;
 
-  // 預覽模式：把預覽 expert 加入清單
   if (previewExpertId && !expertIds.includes(previewExpertId)) {
     expertIds.push(previewExpertId);
   }
 
   if (expertIds.length === 0) {
-    return { signals: [] as JournalSignal[], hasSubscription: false };
+    return { signals: [] as JournalSignal[], hasSubscription: false, diag };
   }
 
-  const expectedStatus = isTester ? 'draft' : 'active';
-  const { data: mentorExperts } = await supabase
+  // 拉所有訂閱 expert 完整資訊（不過濾 role/status）以便診斷
+  const { data: allExperts } = await supabase
     .from('experts')
-    .select('id')
-    .in('id', expertIds)
-    .eq('role', 'mentor')
-    .eq('status', expectedStatus);
+    .select('id, name, role, status')
+    .in('id', expertIds);
 
-  const mentorIds = (mentorExperts || []).map(e => e.id);
+  const expectedStatus = diag.expectedStatus;
+  const expertsMap = new Map<string, { id: string; name: string; role: string; status: string }>();
+  (allExperts || []).forEach((e: any) => expertsMap.set(e.id, e));
+
+  const mentorIds: string[] = [];
+  for (const id of expertIds) {
+    const e = expertsMap.get(id);
+    if (!e) {
+      diag.subscribedExperts.push({ expert_id: id, name: null, role: null, status: null, published_count: 0, included: false, reason: '在 experts 找不到（資料可能已刪除）' });
+      continue;
+    }
+    if (e.role !== 'mentor') {
+      diag.subscribedExperts.push({ expert_id: id, name: e.name, role: e.role, status: e.status, published_count: 0, included: false, reason: `角色為 ${e.role}，週記僅顯示 mentor（修煉派）` });
+      continue;
+    }
+    if (e.status !== expectedStatus) {
+      diag.subscribedExperts.push({ expert_id: id, name: e.name, role: e.role, status: e.status, published_count: 0, included: false, reason: `導師狀態為 ${e.status}，目前需要 ${expectedStatus}${isTester ? '（您是測試者）' : ''}` });
+      continue;
+    }
+    mentorIds.push(id);
+    diag.subscribedExperts.push({ expert_id: id, name: e.name, role: e.role, status: e.status, published_count: 0, included: true, reason: '已納入查詢' });
+  }
+
   if (mentorIds.length === 0) {
-    return { signals: [] as JournalSignal[], hasSubscription: false };
+    return { signals: [] as JournalSignal[], hasSubscription: true, diag };
   }
 
   const { data, error } = await supabase
@@ -83,10 +128,12 @@ const fetchJournalsData = async (userId: string | undefined, isTester: boolean, 
     console.error('Error fetching journals:', error);
   }
 
-  return {
-    signals: ((data as any) || []) as JournalSignal[],
-    hasSubscription: true,
-  };
+  const signals = ((data as any) || []) as JournalSignal[];
+  const countMap = new Map<string, number>();
+  signals.forEach(s => countMap.set(s.expert_id, (countMap.get(s.expert_id) || 0) + 1));
+  diag.subscribedExperts.forEach(s => { if (s.included) s.published_count = countMap.get(s.expert_id) || 0; });
+
+  return { signals, hasSubscription: true, diag };
 };
 
 const Journals = () => {
@@ -109,6 +156,8 @@ const Journals = () => {
 
   const signals = data?.signals ?? [];
   const hasSubscription = data?.hasSubscription ?? null;
+  const diag = data?.diag;
+
 
   // Group signals by week
   const weekGroups = useMemo(() => {
@@ -217,6 +266,45 @@ const Journals = () => {
           <Card>
             <CardContent className="p-6 text-center text-muted-foreground">
               目前沒有新的週記
+            </CardContent>
+          </Card>
+        )}
+
+        {/* 診斷面板：當週記為空時顯示，協助釐清為何看不到 */}
+        {!loading && weekGroups.length === 0 && diag && (
+          <Card>
+            <CardContent className="p-4 space-y-3 text-sm">
+              <div className="font-medium">為什麼看不到週記？</div>
+              <ul className="list-disc pl-5 space-y-1 text-muted-foreground">
+                <li>登入身分：{diag.userId ? <code className="text-xs">{diag.userId.slice(0, 8)}…</code> : '未登入'}{diag.isTester ? '（測試者，需 draft 導師）' : ''}</li>
+                <li>有效訂閱數：{diag.rawSubscriptionCount}</li>
+                <li>需要的導師狀態：<code className="text-xs">{diag.expectedStatus}</code></li>
+              </ul>
+              {diag.subscribedExperts.length > 0 ? (
+                <div className="space-y-2">
+                  <div className="font-medium text-foreground">您訂閱的導師清單</div>
+                  <div className="space-y-1.5">
+                    {diag.subscribedExperts.map(e => (
+                      <div key={e.expert_id} className={`rounded-md border p-2 ${e.included ? 'border-green-500/40 bg-green-500/5' : 'border-orange-500/40 bg-orange-500/5'}`}>
+                        <div className="flex items-center justify-between gap-2">
+                          <span className="font-medium">{e.name ?? '（未知）'}</span>
+                          <span className="text-xs text-muted-foreground">role: {e.role ?? '—'} / status: {e.status ?? '—'}</span>
+                        </div>
+                        <div className="text-xs text-muted-foreground mt-1">
+                          {e.included ? `✓ 已納入；查到 ${e.published_count} 篇 published 信號` : `✗ ${e.reason}`}
+                        </div>
+                      </div>
+                    ))}
+                  </div>
+                </div>
+              ) : (
+                <div className="text-muted-foreground">
+                  目前查不到您的有效訂閱（<code className="text-xs">has_active_subscription</code> 回傳空）。可能原因：訂閱已過期、尚未審核通過、或您登入的帳號與訂閱帳號不同。
+                </div>
+              )}
+              <div className="text-xs text-muted-foreground pt-1 border-t">
+                若導師狀態正確（mentor + active）卻仍顯示 0 篇，代表該導師近期尚未發布 published 週記。
+              </div>
             </CardContent>
           </Card>
         )}
