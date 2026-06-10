@@ -269,6 +269,45 @@ const Journals = () => {
             </CardContent>
           </Card>
         )}
+
+        {/* 診斷面板：當週記為空時顯示，協助釐清為何看不到 */}
+        {!loading && weekGroups.length === 0 && diag && (
+          <Card>
+            <CardContent className="p-4 space-y-3 text-sm">
+              <div className="font-medium">為什麼看不到週記？</div>
+              <ul className="list-disc pl-5 space-y-1 text-muted-foreground">
+                <li>登入身分：{diag.userId ? <code className="text-xs">{diag.userId.slice(0, 8)}…</code> : '未登入'}{diag.isTester ? '（測試者，需 draft 導師）' : ''}</li>
+                <li>有效訂閱數：{diag.rawSubscriptionCount}</li>
+                <li>需要的導師狀態：<code className="text-xs">{diag.expectedStatus}</code></li>
+              </ul>
+              {diag.subscribedExperts.length > 0 ? (
+                <div className="space-y-2">
+                  <div className="font-medium text-foreground">您訂閱的導師清單</div>
+                  <div className="space-y-1.5">
+                    {diag.subscribedExperts.map(e => (
+                      <div key={e.expert_id} className={`rounded-md border p-2 ${e.included ? 'border-green-500/40 bg-green-500/5' : 'border-orange-500/40 bg-orange-500/5'}`}>
+                        <div className="flex items-center justify-between gap-2">
+                          <span className="font-medium">{e.name ?? '（未知）'}</span>
+                          <span className="text-xs text-muted-foreground">role: {e.role ?? '—'} / status: {e.status ?? '—'}</span>
+                        </div>
+                        <div className="text-xs text-muted-foreground mt-1">
+                          {e.included ? `✓ 已納入；查到 ${e.published_count} 篇 published 信號` : `✗ ${e.reason}`}
+                        </div>
+                      </div>
+                    ))}
+                  </div>
+                </div>
+              ) : (
+                <div className="text-muted-foreground">
+                  目前查不到您的有效訂閱（<code className="text-xs">has_active_subscription</code> 回傳空）。可能原因：訂閱已過期、尚未審核通過、或您登入的帳號與訂閱帳號不同。
+                </div>
+              )}
+              <div className="text-xs text-muted-foreground pt-1 border-t">
+                若導師狀態正確（mentor + active）卻仍顯示 0 篇，代表該導師近期尚未發布 published 週記。
+              </div>
+            </CardContent>
+          </Card>
+        )}
       </div>
     </UnifiedAppLayout>
   );
