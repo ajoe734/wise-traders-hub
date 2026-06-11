@@ -137,12 +137,13 @@ export function useAdminPerformanceData(expertSlug: string | undefined) {
     if (!expertId || !expertOwnerUserId) return;
 
     const fetchInitial = async () => {
-      // 1. 取得 open 持倉 from trade_records
-      const { data: tradeData } = await supabase
+      // 1. 取得所有 trade_records（任何狀態）→ 用 open 顯示，並用全部 symbol 集合過濾孤兒 ts
+      const { data: allTradeData } = await supabase
         .from('trade_records')
         .select('id, instrument, entry_price, current_price, pnl_percent, quantity, quantity_unit, status')
-        .eq('expert_id', expertId)
-        .eq('status', 'open');
+        .eq('expert_id', expertId);
+
+      const tradeData = (allTradeData || []).filter(r => r.status === 'open');
 
       // 1b. 取得 trade_signals (open) — 用於 pending 週記尚無 trade_records 的持倉
       const { data: tsData } = await supabase
@@ -168,6 +169,8 @@ export function useAdminPerformanceData(expertSlug: string | undefined) {
       });
 
       const tradeSymbols = new Set((tradeData || []).map(r => r.instrument.split(' ')[0]));
+      // 任何狀態（open / closed / stopped）的 symbol 集合 → 排除孤兒 ts fallback
+      const allKnownSymbols = new Set((allTradeData || []).map(r => r.instrument.split(' ')[0]));
 
       // 3. Fallback: current_prices
       const allSymbols = [...tradeSymbols, ...(tsData || []).map(t => t.symbol)];
@@ -224,9 +227,10 @@ export function useAdminPerformanceData(expertSlug: string | undefined) {
         };
       });
 
-      // 4. Merge trade_signals rows not yet in trade_records (pending mentor signals)
+      // 4. Merge trade_signals rows only when expert has NO trade_records at all for that symbol
+      //    (真正未落地的待處理訊號；已 closed 的 trade_records 也算「已知」，避免顯示舊持倉)
       const tsRows: PerfRow[] = (tsData || [])
-        .filter(t => !tradeSymbols.has(t.symbol))
+        .filter(t => !allKnownSymbols.has(t.symbol))
         .map(t => {
           const perf = perfMap.get(t.symbol);
           const entryPrice = t.entry_price ? Number(t.entry_price) : (perf?.entry_price ?? null);
