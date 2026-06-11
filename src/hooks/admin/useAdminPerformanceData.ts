@@ -137,12 +137,13 @@ export function useAdminPerformanceData(expertSlug: string | undefined) {
     if (!expertId || !expertOwnerUserId) return;
 
     const fetchInitial = async () => {
-      // 1. 取得 open 持倉 from trade_records
-      const { data: tradeData } = await supabase
+      // 1. 取得所有 trade_records（任何狀態）→ 用 open 顯示，並用全部 symbol 集合過濾孤兒 ts
+      const { data: allTradeData } = await supabase
         .from('trade_records')
         .select('id, instrument, entry_price, current_price, pnl_percent, quantity, quantity_unit, status')
-        .eq('expert_id', expertId)
-        .eq('status', 'open');
+        .eq('expert_id', expertId);
+
+      const tradeData = (allTradeData || []).filter(r => r.status === 'open');
 
       // 1b. 取得 trade_signals (open) — 用於 pending 週記尚無 trade_records 的持倉
       const { data: tsData } = await supabase
