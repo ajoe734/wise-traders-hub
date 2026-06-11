@@ -169,6 +169,8 @@ export function useAdminPerformanceData(expertSlug: string | undefined) {
       });
 
       const tradeSymbols = new Set((tradeData || []).map(r => r.instrument.split(' ')[0]));
+      // 任何狀態（open / closed / stopped）的 symbol 集合 → 排除孤兒 ts fallback
+      const allKnownSymbols = new Set((allTradeData || []).map(r => r.instrument.split(' ')[0]));
 
       // 3. Fallback: current_prices
       const allSymbols = [...tradeSymbols, ...(tsData || []).map(t => t.symbol)];
