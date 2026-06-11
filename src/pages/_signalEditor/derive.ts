@@ -1,28 +1,90 @@
 import { simulatePositions, type TradeAction } from '@/lib/simulatePositions';
-import { normalizeSignalQuantityToShares } from '@/lib/signalTradeLogic';
+import {
+  normalizeSignalQuantityToShares,
+  calcWeightedAvgPrice,
+} from '@/lib/signalTradeLogic';
 import {
   actionLabels, fmtMoney,
   type CapitalStatus, type OpenPosition, type TradeDraft,
 } from './types';
 import { sanitizeRichHtml } from '@/lib/sanitizeHtml';
 
-/** 將 trades 轉為 `simulateCashAfterTrades` 需要的 row 形狀。 */
-export function buildCashSimTrades(trades: TradeDraft[], capital: CapitalStatus | null) {
-  const posMap = new Map<string, OpenPosition>();
-  (capital?.open_positions || []).forEach((p) => posMap.set(p.symbol, p));
-  return trades.map((t) => {
+interface SimState {
+  /** 模擬剩餘股數 */
+  qty: number;
+  /** 模擬加權平均成本 */
+  avg: number;
+}
+
+/**
+ * 從目前 capital 起始狀態，依序套用 trades，回傳每一筆「執行『前』」的 SimState。
+ * 同檔股票多筆會逐筆累積；cash sim、validator 共用這份。
+ */
+function buildStepStates(
+  trades: TradeDraft[],
+  capital: CapitalStatus | null,
+): { perTrade: SimState[]; finalMap: Map<string, SimState> } {
+  const state = new Map<string, SimState>();
+  (capital?.open_positions || []).forEach((p) => {
+    state.set(p.symbol, { qty: p.quantity_shares || 0, avg: p.entry_price || 0 });
+  });
+  const perTrade: SimState[] = [];
+
+  for (const t of trades) {
+    const code = (t.stockCode || '').trim();
+    const before: SimState = code
+      ? { ...(state.get(code) || { qty: 0, avg: 0 }) }
+      : { qty: 0, avg: 0 };
+    perTrade.push(before);
+
+    if (!code || !t.action) continue;
     const shares = normalizeSignalQuantityToShares(
       parseInt(t.quantity || '0', 10) || 0,
       t.quantityUnit,
     );
-    const code = t.stockCode.trim();
-    const pos = posMap.get(code);
+    const price = parseFloat(t.priceHint || '0') || 0;
+    const cur = state.get(code) || { qty: 0, avg: 0 };
+
+    if (t.action === 'buy') {
+      // 開新倉
+      const newQty = cur.qty + shares;
+      const newAvg = cur.qty > 0
+        ? calcWeightedAvgPrice(cur.qty, cur.avg, shares, price)
+        : price;
+      state.set(code, { qty: newQty, avg: newAvg });
+    } else if (t.action === 'add') {
+      const newQty = cur.qty + shares;
+      const newAvg = cur.qty > 0
+        ? calcWeightedAvgPrice(cur.qty, cur.avg, shares, price)
+        : price; // sim qty=0 時 add 視同重新開倉，採用本次價
+      state.set(code, { qty: newQty, avg: newAvg });
+    } else if (t.action === 'sell' || t.action === 'trim') {
+      const sellQty = Math.min(shares, cur.qty);
+      const remain = cur.qty - sellQty;
+      state.set(code, { qty: remain, avg: remain > 0 ? cur.avg : 0 });
+    } else if (t.action === 'exit') {
+      state.set(code, { qty: 0, avg: 0 });
+    }
+  }
+  return { perTrade, finalMap: state };
+}
+
+/** 將 trades 轉為 `simulateCashAfterTrades` 需要的 row 形狀（同檔多筆會用模擬狀態避免雙扣）。 */
+export function buildCashSimTrades(trades: TradeDraft[], capital: CapitalStatus | null) {
+  const { perTrade } = buildStepStates(trades, capital);
+  return trades.map((t, i) => {
+    const shares = normalizeSignalQuantityToShares(
+      parseInt(t.quantity || '0', 10) || 0,
+      t.quantityUnit,
+    );
+    const before = perTrade[i];
     return {
       action: (t.action || '') as any,
       price: parseFloat(t.priceHint || '0') || 0,
       shares,
-      exitShares: pos?.quantity_shares,
-      exitAvgPrice: pos?.entry_price,
+      // exit 釋放現金以「執行前」的模擬持倉與均價計算
+      exitShares: before.qty,
+      exitAvgPrice: before.avg,
     };
   });
 }
@@ -50,9 +112,8 @@ export function buildSimulatedPositions(
 }
 
 /**
- * 整批 trades 的硬性檢查；任何一條失敗就回傳第一個錯誤訊息（沿用既有 UX）。
- * 注意：剩餘現金、未平倉部位這兩條規則跟 buildCashSimTrades 互相獨立，
- * 為避免「驗證通過但 UI 顯示透支」的不一致，這裡直接用同樣的 simulator。
+ * 整批 trades 的硬性檢查；任何一條失敗就回傳第一個錯誤訊息。
+ * 支援同檔股票多筆混合 add / trim / sell / exit / buy（會逐筆套用模擬狀態）。
  */
 export function validateSignalBatch(args: {
   expert: any;
@@ -60,16 +121,20 @@ export function validateSignalBatch(args: {
   openPositions: { symbol: string; quantity: number }[];
   capital: CapitalStatus | null;
 }): string | null {
-  const { expert, trades, openPositions, capital } = args;
+  const { expert, trades, capital } = args;
   if (!expert) return '找不到分析師資料';
   if (trades.length === 0) return '至少要有一檔股票';
 
-  const initial = openPositions.map((p) => ({ symbol: p.symbol, quantity: p.quantity }));
-  const simulated: { symbol: string; action: TradeAction; quantity: number }[] = [];
+  // 模擬狀態：qty + avg
+  const state = new Map<string, SimState>();
+  (capital?.open_positions || []).forEach((p) => {
+    state.set(p.symbol, { qty: p.quantity_shares || 0, avg: p.entry_price || 0 });
+  });
 
   let remaining = capital?.available_cash || 0;
-  const posMap = new Map<string, OpenPosition>();
-  (capital?.open_positions || []).forEach((p) => posMap.set(p.symbol, p));
+  // 對 unit 一致性檢查 (qty 比較要用「股」)
+  const toShares = (qty: number, unit: string) =>
+    normalizeSignalQuantityToShares(qty, unit);
 
   for (let i = 0; i < trades.length; i++) {
     const t = trades[i];
@@ -83,16 +148,22 @@ export function validateSignalBatch(args: {
     if (!price || price <= 0) return `${tag}：請填參考價格`;
 
     const code = t.stockCode.trim();
-    const shares = normalizeSignalQuantityToShares(qty, t.quantityUnit);
+    const shares = toShares(qty, t.quantityUnit);
+    const cur = state.get(code) || { qty: 0, avg: 0 };
 
-    if (['add', 'trim', 'sell', 'exit'].includes(t.action)) {
-      const sim = simulatePositions(initial, simulated);
-      const cur = sim.get(code) || 0;
-      if (cur <= 0) return `${tag}：尚無 ${code} 的未平倉部位，無法執行${actionLabels[t.action]}`;
-      if ((t.action === 'trim' || t.action === 'sell') && qty > cur) {
-        return `${tag}：減碼數量 (${qty}) 超過模擬持倉 (${cur})`;
+    // 顯示模擬持倉時換回原單位提示
+    const fmtQty = (sh: number) =>
+      t.quantityUnit === '張' ? `${(sh / 1000).toLocaleString()} 張` : `${sh.toLocaleString()} 股`;
+
+    if (t.action === 'trim' || t.action === 'sell' || t.action === 'exit') {
+      if (cur.qty <= 0) {
+        return `${tag}：目前模擬持倉為 0，無法執行${actionLabels[t.action]}（請改用「買進」或調整前面幾筆）`;
+      }
+      if ((t.action === 'trim' || t.action === 'sell') && shares > cur.qty) {
+        return `${tag}：${actionLabels[t.action]}數量 (${fmtQty(shares)}) 超過目前模擬持倉 (${fmtQty(cur.qty)})`;
       }
     }
+    // 注意：'add' 在 sim cur=0 時不再阻擋，視為重新開倉（後端 trigger 找不到 open record 會自動 INSERT 新 record）
 
     if (t.action === 'buy' || t.action === 'add') {
       const required = price * shares;
@@ -100,14 +171,20 @@ export function validateSignalBatch(args: {
         return `${tag}：本筆需 ${fmtMoney(required)}，剩餘可用現金僅 ${fmtMoney(remaining)}，已超過操作金額上限`;
       }
       remaining -= required;
+      const newQty = cur.qty + shares;
+      const newAvg = cur.qty > 0
+        ? calcWeightedAvgPrice(cur.qty, cur.avg, shares, price)
+        : price;
+      state.set(code, { qty: newQty, avg: newAvg });
     } else if (t.action === 'sell' || t.action === 'trim') {
       remaining += price * shares;
+      const remain = cur.qty - shares;
+      state.set(code, { qty: remain, avg: remain > 0 ? cur.avg : 0 });
     } else if (t.action === 'exit') {
-      const pos = posMap.get(code);
-      remaining += (pos?.entry_price || price) * (pos?.quantity_shares || shares);
+      // 平倉以目前模擬均價×剩餘股數釋放現金
+      remaining += (cur.avg || price) * cur.qty;
+      state.set(code, { qty: 0, avg: 0 });
     }
-
-    simulated.push({ symbol: code, action: t.action as TradeAction, quantity: qty });
   }
   return null;
 }
@@ -148,3 +225,6 @@ export function buildPublishRows(args: {
     } as any;
   });
 }
+
+// 保留 OpenPosition 型別引用以避免未使用警告
+export type { OpenPosition };
