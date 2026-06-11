@@ -227,9 +227,10 @@ export function useAdminPerformanceData(expertSlug: string | undefined) {
         };
       });
 
-      // 4. Merge trade_signals rows not yet in trade_records (pending mentor signals)
+      // 4. Merge trade_signals rows only when expert has NO trade_records at all for that symbol
+      //    (真正未落地的待處理訊號；已 closed 的 trade_records 也算「已知」，避免顯示舊持倉)
       const tsRows: PerfRow[] = (tsData || [])
-        .filter(t => !tradeSymbols.has(t.symbol))
+        .filter(t => !allKnownSymbols.has(t.symbol))
         .map(t => {
           const perf = perfMap.get(t.symbol);
           const entryPrice = t.entry_price ? Number(t.entry_price) : (perf?.entry_price ?? null);
