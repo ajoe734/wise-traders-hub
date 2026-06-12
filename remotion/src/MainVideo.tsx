@@ -59,13 +59,13 @@ export const MainVideo: React.FC<{ orientation: Orientation }> = ({ orientation 
       <Crossfade from={75} duration={135}>
         <SceneOcr orientation={orientation} />
       </Crossfade>
-      <Crossfade from={210} duration={150}>
+      <Crossfade from={210} duration={210}>
         <SceneCheckup orientation={orientation} />
       </Crossfade>
-      <Crossfade from={360} duration={135}>
+      <Crossfade from={420} duration={135}>
         <SceneCalendar orientation={orientation} />
       </Crossfade>
-      <Crossfade from={495} duration={105}>
+      <Crossfade from={555} duration={105}>
         <Outro orientation={orientation} />
       </Crossfade>
     </AbsoluteFill>
