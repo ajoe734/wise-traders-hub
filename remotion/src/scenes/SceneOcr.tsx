@@ -1,6 +1,7 @@
 import { AbsoluteFill, useCurrentFrame, interpolate, Sequence } from "remotion";
 import { C } from "../theme";
 import { FF_SERIF } from "../fonts";
+import { padOf } from "../safeArea";
 import type { Orientation } from "../MainVideo";
 
 const ROWS = [
