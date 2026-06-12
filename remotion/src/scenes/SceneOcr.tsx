@@ -202,20 +202,20 @@ export const SceneOcr: React.FC<{ orientation: Orientation }> = ({ orientation }
   const headerOp = interpolate(frame, [10, 30], [0, 1], { extrapolateRight: "clamp" });
 
   return (
-    <AbsoluteFill style={{ padding: isPortrait ? "80px 60px" : "100px 140px" }}>
+    <AbsoluteFill style={{ padding: padOf(isPortrait) }}>
       <div
         style={{
           opacity: headerOp,
-          marginBottom: isPortrait ? 30 : 50,
+          marginBottom: isPortrait ? 24 : 40,
         }}
       >
-        <div style={{ fontSize: 14, color: C.mute, letterSpacing: "0.2em", textTransform: "uppercase", marginBottom: 14 }}>
+        <div style={{ fontSize: 14, color: C.mute, letterSpacing: "0.2em", textTransform: "uppercase", marginBottom: 12 }}>
           01 / AI 截圖辨識
         </div>
         <h2
           style={{
             fontFamily: FF_SERIF,
-            fontSize: isPortrait ? 56 : 78,
+            fontSize: isPortrait ? 50 : 78,
             fontWeight: 600,
             margin: 0,
             letterSpacing: "-0.025em",
@@ -232,12 +232,12 @@ export const SceneOcr: React.FC<{ orientation: Orientation }> = ({ orientation }
           flexDirection: isPortrait ? "column" : "row",
           alignItems: "center",
           justifyContent: "center",
-          gap: isPortrait ? 24 : 60,
+          gap: isPortrait ? 20 : 60,
         }}
       >
-        <Phone frame={frame} scale={isPortrait ? 0.75 : 0.85} />
+        <Phone frame={frame} scale={isPortrait ? 0.62 : 0.85} />
         <Arrow frame={frame} isPortrait={isPortrait} />
-        <Table frame={frame} scale={isPortrait ? 0.75 : 1} />
+        <Table frame={frame} scale={isPortrait ? 0.62 : 1} />
       </div>
     </AbsoluteFill>
   );
