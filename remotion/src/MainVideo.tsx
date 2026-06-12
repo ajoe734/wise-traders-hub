@@ -12,9 +12,9 @@ export type Orientation = "landscape" | "portrait";
 // Scene budget (frames @30fps):
 //   Hook        0   -> 75   (2.5s)
 //   OCR        75   -> 210  (4.5s)  with 12f cross-fade
-//   Checkup   210   -> 360  (5.0s)
-//   Calendar  360   -> 495  (4.5s)
-//   Outro     495   -> 600  (3.5s)
+//   Checkup   210   -> 420  (7.0s)  +2s 讓觀眾看清健檢結果
+//   Calendar  420   -> 555  (4.5s)
+//   Outro     555   -> 660  (3.5s)
 
 const FADE = 12;
 
