@@ -79,7 +79,7 @@ export const SceneCheckup: React.FC<{ orientation: Orientation }> = ({ orientati
           </div>
         </div>
 
-        {/* 健檢結果卡 */}
+        {/* 健檢結果卡：5 檔逐一滑入，停留到結束 */}
         <div
           style={{
             opacity: cardOp,
@@ -87,32 +87,63 @@ export const SceneCheckup: React.FC<{ orientation: Orientation }> = ({ orientati
             background: C.card,
             border: `1px solid ${C.line}`,
             borderRadius: 18,
-            padding: isPortrait ? "26px 28px" : "32px 40px",
-            width: isPortrait ? "92%" : 820,
+            padding: isPortrait ? "22px 24px" : "28px 36px",
+            width: isPortrait ? "92%" : 860,
             position: "absolute",
-            bottom: isPortrait ? 40 : 80,
+            bottom: isPortrait ? 40 : 60,
           }}
         >
-          <div style={{ display: "flex", justifyContent: "space-between", alignItems: "baseline", marginBottom: 16 }}>
+          <div style={{ display: "flex", justifyContent: "space-between", alignItems: "baseline", marginBottom: 14 }}>
             <div style={{ fontSize: 14, color: C.mute, letterSpacing: "0.18em", textTransform: "uppercase" }}>
-              今日健檢結果
+              今日健檢結果 · 6 檔個股
             </div>
             <div style={{ fontSize: 14, color: C.mute }}>2026/06/12 · 收盤後</div>
           </div>
-          <div style={{ display: "flex", gap: 16, marginBottom: 18 }}>
+          <div style={{ display: "flex", gap: 12, marginBottom: 16, flexWrap: "wrap" }}>
             <Tag color={C.up} label="2 檔需注意" />
             <Tag color={C.orange} label="1 檔接近停利" />
             <Tag color={C.down} label="3 檔健康" />
           </div>
-          <div style={{ fontSize: 18, lineHeight: 1.6, color: C.inkSoft }}>
-            <span style={{ fontWeight: 600, color: C.up }}>2603 長榮</span> 已達停利區間 +8.6%，建議分批調節；
-            <span style={{ fontWeight: 600, color: C.up }}>2317 鴻海</span> 跌破均線，留意 205 支撐。
+          <div style={{ display: "flex", flexDirection: "column", gap: 10 }}>
+            {STOCKS.map((s, i) => {
+              const rowSp = spring({ frame: frame - (130 + i * 10), fps, config: { damping: 22, stiffness: 140 } });
+              return (
+                <div
+                  key={s.code}
+                  style={{
+                    opacity: rowSp,
+                    transform: `translateX(${interpolate(rowSp, [0, 1], [24, 0])}px)`,
+                    display: "grid",
+                    gridTemplateColumns: isPortrait ? "92px 1fr 70px" : "120px 1fr 80px",
+                    alignItems: "center",
+                    gap: 14,
+                    padding: "10px 14px",
+                    background: `${s.color}0d`,
+                    borderLeft: `3px solid ${s.color}`,
+                    borderRadius: 8,
+                    fontSize: isPortrait ? 15 : 17,
+                  }}
+                >
+                  <div style={{ fontWeight: 600, color: s.color }}>{s.code} {s.name}</div>
+                  <div style={{ color: C.inkSoft, lineHeight: 1.4 }}>{s.note}</div>
+                  <div style={{ textAlign: "right", fontWeight: 600, color: s.color, fontVariantNumeric: "tabular-nums" }}>{s.pct}</div>
+                </div>
+              );
+            })}
           </div>
         </div>
       </div>
     </AbsoluteFill>
   );
 };
+
+const STOCKS = [
+  { code: "2603", name: "長榮",   color: "#C73E2E", pct: "+8.6%", note: "達停利區間，建議分批調節" },
+  { code: "2330", name: "台積電", color: "#C73E2E", pct: "+5.2%", note: "趨勢延續，續抱觀察季線" },
+  { code: "2454", name: "聯發科", color: "#C73E2E", pct: "+3.1%", note: "法說後動能轉強，健康" },
+  { code: "2317", name: "鴻海",   color: "#3F8F4E", pct: "−2.4%", note: "跌破均線，留意 205 支撐" },
+  { code: "3008", name: "大立光", color: "#3F8F4E", pct: "−1.8%", note: "成交量縮，等待量能回補" },
+];
 
 const Tag: React.FC<{ color: string; label: string }> = ({ color, label }) => (
   <div

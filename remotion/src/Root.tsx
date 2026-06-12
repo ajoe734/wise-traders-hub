@@ -2,7 +2,7 @@ import { Composition } from "remotion";
 import { MainVideo } from "./MainVideo";
 import { FPS } from "./theme";
 
-const DURATION = 600; // 20s @ 30fps
+const DURATION = 660; // 22s @ 30fps (Checkup 加長 2s)
 
 export const RemotionRoot = () => {
   return (
