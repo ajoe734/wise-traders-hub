@@ -1,6 +1,7 @@
 import { AbsoluteFill, useCurrentFrame, interpolate } from "remotion";
 import { C } from "../theme";
 import { FF_SERIF } from "../fonts";
+import { padOf } from "../safeArea";
 import type { Orientation } from "../MainVideo";
 
 // 事件落點：[dayIndex (0-27), label, color]
