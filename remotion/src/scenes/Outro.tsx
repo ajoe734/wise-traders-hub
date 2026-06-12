@@ -2,6 +2,7 @@ import { AbsoluteFill, useCurrentFrame, useVideoConfig, interpolate, spring } fr
 import { C } from "../theme";
 import { FF_SERIF } from "../fonts";
 import { Wordmark } from "../components/Brand";
+import { padOf } from "../safeArea";
 import type { Orientation } from "../MainVideo";
 
 export const Outro: React.FC<{ orientation: Orientation }> = ({ orientation }) => {
