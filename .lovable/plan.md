@@ -1,61 +1,78 @@
-## 問題定位
+## 目標
 
-同一篇週記中對「同一檔股票」同時下加碼＋減碼，前端送出失敗。實測 + 程式碼追蹤後，瓶頸都在**前端驗證**（DB trigger `handle_signal_trade` 其實已逐筆順序處理，能正確合併加權成本）：
+產出一支 20 秒、1920×1080 的 MP4 介紹影片，主打兩大優勢：
+1. **AI 自動辨識成交截圖** → 自動寫入持倉
+2. **每日收盤一鍵 AI 健檢** → 自動分析風險
 
-`src/pages/_signalEditor/derive.ts` `validateSignalBatch` L74-111：
+同時輸出 9:16 直式版本，方便 FB/IG 廣告投放。
 
-1. **L88-94**：對 `add / trim / sell / exit` 一律要求「目前模擬持倉 > 0」。
-   - 場景：先「減碼」全數出清 → 模擬持倉=0 → 接著想「加碼」買回 → 直接被擋（其實這時候應該允許 add，或建議用 buy）。
-2. **L97-108 現金模擬**：trim 收回的現金被視為立即可用 ✅，但同檔加碼的成本上限是套用在「下一筆 add」上 → 若「先 add 再 trim」，雖然驗證會過，但 `buildCashSimTrades` 算「送出後可用現金」時用的是原始持倉而非模擬持倉，會雙扣／低估，UI 可能顯示「已超過上限」誤判。
-3. **TradeCard / SignalEditor 沒有 duplicate symbol 檢查**，但下拉「帶入」按鈕一次只能填入一筆，使用者要手動 + 新增另一檔 再選同檔股票。
+雙用途部署：
+- **入口嵌入**：`/holding-checkup` 第一次進入時，在頂部顯示影片播放卡（用 `<video>` 標籤，可關閉、可重看），關閉狀態寫入 localStorage（沿用 `checkup-coach-seen-v1` 旁的新 key）。
+- **獨立檔案**：MP4 同時放在 `/mnt/documents/` 供下載，也上傳 `lovable-assets` 作為靜態資產，可直接拿去投放 Facebook / Line。
 
-下方面板「目前持倉」的「送出後」欄已正確顯示淨變動（`buildSimulatedPositions` 走完所有 trades），所以 UI 真相沒問題，純粹是 validator 與 cashSim 把同檔多筆當成異常。
+## 影片結構（20 秒，30fps，600 frames）
 
-## 修法
+```text
+0.0–2.5s  Hook：黑底 → legendflow 橘點亮起 → 標題「你的持倉，AI 幫你管」
+2.5–7.0s  場景 1：AI 辨識成交截圖
+            - 左半 phone mockup：券商成交明細截圖滑入
+            - 中間：掃描線由上而下掃過 + OCR 偵測框逐欄高亮
+            - 右半：持倉表格欄位逐格填入（股票/張數/成本）
+            - 字幕：「丟一張截圖，部位自動建立」
+7.0–12.0s 場景 2：每日收盤一鍵健檢
+            - 持倉表格停在畫面 → 點下「AI 健檢」按鈕（光暈脈動）
+            - 進度條 + 三步驟字幕：讀取部位 → 分析風險 → 產出建議
+            - 健檢卡片由下而上滑入，紅色警示標出風險檔
+            - 字幕：「收盤一鍵，整體部位健檢」
+12.0–16.5s 場景 3：行事曆 + 警示（次要賣點，輕帶過）
+            - 行事曆網格淡入，法說/除權息圖示落定
+            - 字幕：「事件提早提醒，不再錯過」
+16.5–20.0s 收尾：產品 logo + slogan +「立即體驗 → legendflow.tw/holding-checkup」
+```
 
-### 1. validateSignalBatch（核心）
+**設計方向**：延續 Kore-eda 極簡風 + legendflow 橘點 (#EC662D)。米色背景 #F5F3EF、深墨字 #1a1a1a、橘色僅作重點。Source Serif 4 標題 + 思源黑體 body。動畫節奏舒緩但有節拍感，避開誇張 spring 彈跳。
 
-讓「同檔股票」可在一篇週記內依任意順序、任意組合 add / trim / sell / exit / buy：
+**台股色彩規範**：表格內漲跌數字遵守台股慣例（紅漲綠跌），影片中要出現的損益範例就符合。
 
-- **取消「sim cur ≤ 0 就擋 add」**：若 simulated qty=0 但本筆是 `add`，自動視同 `buy`（純前端容錯，不改 DB action），或直接放行；
-- `trim` / `sell`：仍要求 `cur > 0`，但若同 batch 後續還有 add，會在 sim 上重新累積，不影響後續驗證；
-- `sell` 數量 > sim cur 時，自動視為「全平倉 + 剩餘部分忽略」反而會藏錯誤 → 維持擋下，錯誤訊息明確指出「目前模擬持倉 cur 股，請拆筆或調整數量」。
+## 技術實作
 
-### 2. buildCashSimTrades / simulateCashAfterTrades
+### A. Remotion 專案
+- 新建 `remotion/` 目錄，獨立 `bun init`，安裝 `remotion`、`@remotion/cli`、`@remotion/transitions`、`@remotion/google-fonts`、compositor 套件。
+- `src/Root.tsx` 註冊兩個 composition：
+  - `holdings-promo-16x9`：1920×1080，600 frames
+  - `holdings-promo-9x16`：1080×1920，600 frames（共用同樣 scene 元件，layout 重排）
+- Scene 元件拆 5 個檔案：`Hook.tsx`、`SceneOcr.tsx`、`SceneCheckup.tsx`、`SceneCalendar.tsx`、`Outro.tsx`，用 `<TransitionSeries>` 串接（fade + slide 各用一次，保持節制）。
+- 持倉表格 / 截圖 mockup 全部用 HTML/CSS 重繪，**不用真實截圖**（避免洩漏個資、好控制動畫）。Mock 股票用「2330 台積電 / 2454 聯發科 / 2317 鴻海」等公開大型股，數字隨意。
+- 字型：`@remotion/google-fonts/SourceSerif4` + `NotoSansTC`，於 module scope `loadFont()`。
+- 渲染走程式化腳本 `scripts/render-remotion.mjs`（chrome-for-testing + muted: true），輸出兩支 MP4 到 `/mnt/documents/holdings-promo-16x9.mp4` 與 `/mnt/documents/holdings-promo-9x16.mp4`。
 
-讓現金模擬與 `simulatePositions` 共用同一份「逐筆套用」狀態：
+### B. 入口嵌入
+- 新建 `src/checkup/components/HoldingsIntroVideo.jsx`：
+  - 第一次進入 `/holding-checkup` 時顯示一張卡片，內含 `<video autoplay muted playsinline controls>` + 「不再顯示」按鈕。
+  - localStorage key：`holdings-intro-video-seen-v1`。
+  - 影片來源走 `lovable-assets` 上傳後的 `.asset.json` URL（兩個尺寸自動依 viewport 切換：mobile 用 9:16，desktop 用 16:9）。
+- 掛載點：`FreeCheckup.jsx` 或 `HoldingsPage.jsx` 入口 render 之前（待我在 build 階段確認實際入口檔，目前候選為 `src/pages/FreeCheckup.jsx`）。
+- 與既有 `CoachMarks` 並存：影片優先顯示，關閉後才走 CoachMarks。避免兩者同時冒出。
 
-- `trim` / `exit` 收回金額：用**模擬持倉**而非 `capital.open_positions` 的原始 quantity_shares，避免同檔多筆把已加碼那部分當原始庫存反算成本；
-- `add` 成本：以「下單時點的可用現金 = 起始可用 + 已實現現金流」逐筆扣抵，不重複扣；
-- exitShares / exitAvgPrice 改成「執行到本筆前的模擬狀態」，weighted-avg 用 ((原成本×剩餘股)+(新成本×加碼股))/(剩餘+加碼) 算出當下平均，再給 `simulateCashAfterTrades`。
+### C. 廣告投放檔
+- `/mnt/documents/holdings-promo-16x9.mp4`：YouTube / FB feed / 官網 hero
+- `/mnt/documents/holdings-promo-9x16.mp4`：FB / IG Reels / Stories、Line VOOM
+- 兩支都附 `<presentation-artifact>` 讓你直接下載。
 
-### 3. 後端 trigger 確認（無需修改）
+## QA 與驗證
 
-`handle_signal_trade` 已逐筆 fire、`add` 會 weighted-avg 合併、`trim` 部分平倉保留剩餘 open record，因此同 batch 多筆 INSERT 會被正確處理。已驗證邏輯路徑：
-- add→trim：第一筆 update qty+price_avg；第二筆對同一 open record 扣 qty
-- trim→add：第一筆扣到 0 → 該 record status=closed；第二筆 FOUND 失敗 → INSERT 新 open record（新均價）
+1. 用 `bunx remotion still` 抽 8 個關鍵 frame（每 2.5 秒一張）視覺檢查：字有沒有切到、橘點位置、表格對齊、9:16 重排是否破版。
+2. 完整渲染後再用 ffprobe 確認時長、解析度、codec。
+3. 入口嵌入用 Playwright 跑一次：首次進入有卡片 → 按關閉 → reload 後不再出現 → localStorage key 寫入正確。
 
-兩種順序都會在 `trade_records` 留下正確最終持倉。**不動 DB**。
+## 不做的事
 
-### 4. UI 微調（可選）
+- 不錄真實 App 操作畫面（時間成本高、UI 一改就要重錄）。整支用 Remotion 重繪 mockup。
+- 不加旁白語音（這版先做無聲 + 字幕，廣告平台多半預設靜音播放）。若之後要旁白，再用 ElevenLabs 加上。
+- 不做場景 4「警示推播」單獨一場，併入場景 2 的健檢卡片帶過，避免 20 秒塞不下。
 
-`CapitalPanel` 的「送出後」欄已正確；額外在 `TradeCard` 同檔股票時，把第二筆以上的卡片左上標一個 tag「同檔第 N 筆」提醒使用者順序很重要。
+## 待你確認
 
-## 技術細節
-
-修改檔案：
-- `src/pages/_signalEditor/derive.ts`
-  - `validateSignalBatch`：放寬 add 驗證、trim/sell 錯誤訊息帶出 sim cur、放行同檔多筆
-  - `buildCashSimTrades`：改為逐筆套用模擬狀態（回傳的 `exitShares` / `exitAvgPrice` 用模擬後的當下值）
-- `src/pages/_signalEditor/TradeCard.tsx`（可選）
-  - 同檔多筆時顯示「同檔第 N 筆」小標
-
-### 驗證
-
-1. 對 sharkgu 試一篇週記：A 股 add 1 張 + 同 A 股 trim 0.5 張 → 應可儲存
-2. A 股 trim 全數出清 + A 股 add 1 張 → 應可儲存（且發布後 trade_records 留下一筆 closed + 一筆新 open）
-3. 起始持倉 1 張、價 100，加碼 1 張價 120、再減碼 1 張價 110 → trade_records 剩 1 張、均價 110、已實現損益 +10
-4. 純加碼 / 純減碼 / 單檔不同股的多筆 → 行為與目前一致，無回歸
-5. cash sim 在多筆下不會誤報「超過上限」
-
-不動 DB、不動週記面板來源、不動 `handle_signal_trade`。
+- 影片 slogan 用「你的持倉，AI 幫你管」OK 嗎？或要換成更直接的「上傳截圖，AI 幫你顧好每一檔」？
+- 收尾 CTA 文字要「立即體驗」還是「免費試用」？
+- 入口卡片預設要不要自動播放？（目前規劃 autoplay + muted，行動裝置才能 autoplay）
