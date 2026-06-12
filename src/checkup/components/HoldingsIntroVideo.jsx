@@ -2,7 +2,7 @@ import { useState, useEffect } from "react";
 import intro16x9 from "@/assets/holdings-promo-16x9.mp4.asset.json";
 import intro9x16 from "@/assets/holdings-promo-9x16.mp4.asset.json";
 
-const STORAGE_KEY = "holdings-intro-video-seen-v1";
+const STORAGE_KEY = "holdings-intro-video-seen-v2";
 
 /**
  * 首次進入 /holding-checkup 時，於頁面頂端顯示一張 20 秒介紹影片卡片。
