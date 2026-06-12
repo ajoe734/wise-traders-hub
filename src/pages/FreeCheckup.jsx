@@ -2811,6 +2811,9 @@ ${JSON.stringify(strategyBrain || { rules: [], lessons: [], commonMistakes: [], 
         }
       `}</style>
 
+      {/* ── 首次進入：20 秒介紹影片（看過後 localStorage 記住，不再顯示） ── */}
+      <HoldingsIntroVideo />
+
       {/* ── DEMO BANNER（僅 demo 模式顯示） ── */}
       {isDemo && (
         <DemoBanner
