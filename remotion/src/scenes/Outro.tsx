@@ -20,9 +20,9 @@ export const Outro: React.FC<{ orientation: Orientation }> = ({ orientation }) =
   return (
     <AbsoluteFill
       style={{
+        padding: padOf(isPortrait),
         alignItems: "center",
         justifyContent: "center",
-        padding: 80,
         textAlign: "center",
       }}
     >
