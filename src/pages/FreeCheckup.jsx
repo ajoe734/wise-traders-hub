@@ -95,6 +95,7 @@ import {
   useFreeCheckupBootstrap,
   useFetchCalendarEventsRef,
 } from "@/hooks/useFreeCheckupBootstrap";
+import HoldingsIntroVideo from "@/checkup/components/HoldingsIntroVideo";
 
 // #region App() — 主元件（state、effects、JSX 全部 inline；遵守 inline 憲法）
 export default function App() {
@@ -2809,6 +2810,9 @@ ${JSON.stringify(strategyBrain || { rules: [], lessons: [], commonMistakes: [], 
           .wb-card-pnl-num{ font-size: 30px !important; }
         }
       `}</style>
+
+      {/* ── 首次進入：20 秒介紹影片（看過後 localStorage 記住，不再顯示） ── */}
+      <HoldingsIntroVideo />
 
       {/* ── DEMO BANNER（僅 demo 模式顯示） ── */}
       {isDemo && (
