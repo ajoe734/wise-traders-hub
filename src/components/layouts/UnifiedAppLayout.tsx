@@ -12,6 +12,7 @@ import {
 } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { PreviewBanner } from '@/components/PreviewBanner';
+import { Logomark } from '@/components/brand/Logomark';
 
 // localStorage keys for unread tracking
 const SIGNALS_LAST_SEEN_KEY = 'app:lastSeen:signals';
@@ -268,7 +269,7 @@ export function UnifiedAppLayout({ children }: UnifiedAppLayoutProps) {
   const headerBg = 'bg-background/95 border-border';
   const navBg = 'bg-background/95 border-border';
   const headerTitle = '會員戰情室';
-  const HeaderIcon = Target;
+  
 
   return (
     <div className="min-h-screen bg-background flex flex-col">
@@ -291,9 +292,8 @@ export function UnifiedAppLayout({ children }: UnifiedAppLayoutProps) {
               </button>
             )}
             <Link to="/app" className="flex items-center gap-2">
-              <div className="flex h-9 w-9 items-center justify-center rounded-xl shadow-lg gradient-hero">
-                <HeaderIcon className="h-4 w-4 text-white" />
-              </div>
+              <Logomark size={36} />
+
               <span className="font-semibold text-foreground text-sm">{headerTitle}</span>
             </Link>
           </div>
