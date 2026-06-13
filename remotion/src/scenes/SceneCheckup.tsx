@@ -60,7 +60,7 @@ export const SceneCheckup: React.FC<{ orientation: Orientation }> = ({ orientati
         <h2
           style={{
             fontFamily: FF_SERIF,
-            fontSize: isPortrait ? 60 : 84,
+            fontSize: isPortrait ? 50 : 72,
             fontWeight: 600,
             margin: 0,
             letterSpacing: "-0.025em",
