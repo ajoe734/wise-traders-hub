@@ -44,7 +44,7 @@ export const Hook: React.FC<{ orientation: Orientation }> = ({ orientation }) =>
         <h1
           style={{
             fontFamily: FF_SERIF,
-            fontSize: isPortrait ? 72 : 132,
+            fontSize: isPortrait ? 84 : 132,
             fontWeight: 600,
             lineHeight: 1.15,
             letterSpacing: "-0.03em",

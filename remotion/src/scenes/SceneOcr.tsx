@@ -215,7 +215,7 @@ export const SceneOcr: React.FC<{ orientation: Orientation }> = ({ orientation }
         <h2
           style={{
             fontFamily: FF_SERIF,
-            fontSize: isPortrait ? 50 : 78,
+            fontSize: isPortrait ? 62 : 78,
             fontWeight: 600,
             margin: 0,
             letterSpacing: "-0.025em",
