@@ -292,9 +292,8 @@ export function UnifiedAppLayout({ children }: UnifiedAppLayoutProps) {
               </button>
             )}
             <Link to="/app" className="flex items-center gap-2">
-              <div className="flex h-9 w-9 items-center justify-center rounded-xl shadow-lg gradient-hero">
-                <HeaderIcon className="h-4 w-4 text-white" />
-              </div>
+              <Logomark size={36} />
+
               <span className="font-semibold text-foreground text-sm">{headerTitle}</span>
             </Link>
           </div>
