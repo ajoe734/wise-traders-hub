@@ -269,7 +269,7 @@ export function UnifiedAppLayout({ children }: UnifiedAppLayoutProps) {
   const headerBg = 'bg-background/95 border-border';
   const navBg = 'bg-background/95 border-border';
   const headerTitle = '會員戰情室';
-  const HeaderIcon = Target;
+  
 
   return (
     <div className="min-h-screen bg-background flex flex-col">
