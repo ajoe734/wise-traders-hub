@@ -100,18 +100,8 @@ export function useSignalEditorData(args: UseSignalEditorDataArgs) {
       )
       .subscribe();
 
-    const priceChannel = supabase
-      .channel(`signal-editor-current-prices-${eid}`)
-      .on(
-        'postgres_changes',
-        { event: '*', schema: 'public', table: 'current_prices' },
-        () => { reloadCapitalRef.current(eid); },
-      )
-      .subscribe();
-
     return () => {
       supabase.removeChannel(tradeChannel);
-      supabase.removeChannel(priceChannel);
     };
   }, [expert?.id]);
 
