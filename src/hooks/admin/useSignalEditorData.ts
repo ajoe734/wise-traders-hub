@@ -1,5 +1,6 @@
 import { useCallback, useEffect, useRef, useState } from 'react';
 import { supabase } from '@/integrations/supabase/client';
+import { useExpertHoldingsBundle } from '@/hooks/useExpertHoldingsBundle';
 import {
   emptyTrade, newUid,
   type CapitalStatus, type TradeDraft,
@@ -15,37 +16,42 @@ interface UseSignalEditorDataArgs {
   expertSlug: string | undefined;
   editBatchId: string | undefined;
   isEditing: boolean;
-  /** 載入到既有 batch 後注入到表單 state */
   onBatchLoaded: (loaded: {
     teachingTopic: string;
     overallSummary: string;
     learningPoints: string;
     trades: TradeDraft[];
   }) => void;
-  /** 找不到 batch 時的轉導 */
   onMissingBatch: () => void;
 }
 
 /**
- * 集中處理 admin/SignalEditor 的非 form 資料：
- * - expert / signalTemplates / openPositions / capital 首載
- * - 編輯模式下 batch 的回填（外部把資料注入 form state）
- * - reloadCapital helper
+ * 集中處理 admin/SignalEditor 的非 form 資料。
+ * Capital / openPositions 統一由 `useExpertHoldingsBundle` 提供 —
+ * 禁止再直接讀 trade_records / RPC。
  */
 export function useSignalEditorData(args: UseSignalEditorDataArgs) {
   const { expertSlug, editBatchId, isEditing, onBatchLoaded, onMissingBatch } = args;
   const [expert, setExpert] = useState<any>(null);
   const [signalTemplates, setSignalTemplates] = useState<any[]>([]);
-  const [openPositions, setOpenPositions] = useState<OpenPos[]>([]);
-  const [capital, setCapital] = useState<CapitalStatus | null>(null);
   const [loading, setLoading] = useState(true);
 
-  const reloadCapital = useCallback(async (eid: string) => {
-    const { data } = await supabase.rpc('get_expert_capital_status' as any, { _expert_id: eid });
-    if (data) setCapital(data as unknown as CapitalStatus);
-  }, []);
+  // 統一資料源
+  const bundle = useExpertHoldingsBundle(expert?.id, {
+    expertOwnerUserId: expert?.user_id ?? null,
+  });
+  const capital = (bundle.capital as unknown as CapitalStatus) ?? null;
+  const openPositions: OpenPos[] = (bundle.rawOpenPositions || []).map((p) => ({
+    instrument: p.instrument,
+    symbol: p.symbol || String(p.instrument || '').split(' ')[0],
+    quantity: Number(p.quantity_shares ?? 0),
+  }));
 
-  // 首載：expert + 模板 + 持倉 + 資金狀態
+  const reloadCapital = useCallback(async () => {
+    await bundle.refetch();
+  }, [bundle]);
+
+  // 首載：expert + 模板
   useEffect(() => {
     let cancelled = false;
     (async () => {
@@ -55,55 +61,18 @@ export function useSignalEditorData(args: UseSignalEditorDataArgs) {
       if (cancelled) return;
       setExpert(exp);
       if (exp) {
-        const [{ data: tpl }, { data: openTrades }, { data: cap }] = await Promise.all([
-          supabase
-            .from('expert_signal_templates' as any)
-            .select('id, title, action, reason, risk_note, strategy_note')
-            .eq('expert_id', exp.id)
-            .order('sort_order', { ascending: true }),
-          supabase
-            .from('trade_records')
-            .select('instrument, quantity')
-            .eq('expert_id', exp.id)
-            .eq('status', 'open'),
-          supabase.rpc('get_expert_capital_status' as any, { _expert_id: exp.id }),
-        ]);
+        const { data: tpl } = await supabase
+          .from('expert_signal_templates' as any)
+          .select('id, title, action, reason, risk_note, strategy_note')
+          .eq('expert_id', exp.id)
+          .order('sort_order', { ascending: true });
         if (cancelled) return;
         setSignalTemplates((tpl as any) || []);
-        setOpenPositions(
-          (openTrades || []).map((t: any) => ({
-            instrument: t.instrument,
-            symbol: String(t.instrument || '').split(' ')[0],
-            quantity: t.quantity || 0,
-          })),
-        );
-        if (cap) setCapital(cap as unknown as CapitalStatus);
       }
       setLoading(false);
     })();
     return () => { cancelled = true; };
   }, [expertSlug]);
-
-  // Realtime：trade_records / current_prices 變動 → reload capital，保持與績效總覽同步
-  const reloadCapitalRef = useRef(reloadCapital);
-  useEffect(() => { reloadCapitalRef.current = reloadCapital; }, [reloadCapital]);
-
-  useEffect(() => {
-    const eid = expert?.id;
-    if (!eid) return;
-    const tradeChannel = supabase
-      .channel(`signal-editor-trade-records-${eid}`)
-      .on(
-        'postgres_changes',
-        { event: '*', schema: 'public', table: 'trade_records', filter: `expert_id=eq.${eid}` },
-        () => { reloadCapitalRef.current(eid); },
-      )
-      .subscribe();
-
-    return () => {
-      supabase.removeChannel(tradeChannel);
-    };
-  }, [expert?.id]);
 
   // 編輯模式：載入既有 batch
   const onBatchLoadedRef = useRef(onBatchLoaded);
@@ -146,7 +115,6 @@ export function useSignalEditorData(args: UseSignalEditorDataArgs) {
           riskNotes: row.risk_notes || '',
         };
       });
-      // 確保至少一筆，避免後續 UI 對空陣列的假設失靈
       onBatchLoadedRef.current({
         teachingTopic: first.teaching_topic || '',
         overallSummary: first.overall_summary || '',
@@ -162,8 +130,8 @@ export function useSignalEditorData(args: UseSignalEditorDataArgs) {
     signalTemplates,
     openPositions,
     capital,
-    loading,
-    setCapital,
+    loading: loading || bundle.loading,
+    setCapital: (_v: any) => { /* deprecated — bundle 為單一來源 */ },
     reloadCapital,
   };
 }

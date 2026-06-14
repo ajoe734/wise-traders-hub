@@ -1,0 +1,138 @@
+import { useEffect, useMemo } from 'react';
+import { useQuery, useQueryClient } from '@tanstack/react-query';
+import { supabase } from '@/integrations/supabase/client';
+import type { CapitalStatus, OpenPosition } from '@/pages/_signalEditor/types';
+import type { PerfRow } from '@/pages/_adminPerformance/types';
+import type { ExpertPerformance } from '@/hooks/usePerformance';
+
+/**
+ * 單一來源（Single Source of Truth）：所有頁面需要 expert 的
+ * capital / open_positions / total_return / avg_pnl 都只能呼叫此 hook。
+ *
+ * 內部：
+ * - 並行 `get_expert_capital_status` + `calculate_expert_performance`
+ * - 單一 realtime channel 訂閱 `trade_records (expert_id=eq.X)` 與
+ *   `user_performances (user_id=eq.ownerUserId)`，事件 → 同時 invalidate
+ *   bundle / expert-performance / period-performance-v3 / admin-signals-bundle
+ *
+ * 嚴禁新增直接 `from('trade_records')` / `rpc('get_expert_capital_status')` /
+ * `rpc('calculate_expert_performance')` 的呼叫。
+ */
+
+export interface ExpertHoldingsBundle {
+  capital: CapitalStatus | null;
+  openPositions: PerfRow[];
+  rawOpenPositions: OpenPosition[];
+  performance: ExpertPerformance | null;
+  totalPnlPercent: number | null;
+  avgPnlPercent: number | null;
+}
+
+const EMPTY: ExpertHoldingsBundle = {
+  capital: null,
+  openPositions: [],
+  rawOpenPositions: [],
+  performance: null,
+  totalPnlPercent: null,
+  avgPnlPercent: null,
+};
+
+export function mapOpenPositionToRow(p: any): PerfRow {
+  const parts = String(p.instrument || p.symbol || '').split(' ');
+  const symbol = p.symbol || parts[0] || '';
+  const name = parts.slice(1).join(' ') || null;
+  const shares = Number(p.quantity_shares ?? 0);
+  const entryPrice = p.entry_price != null ? Number(p.entry_price) : null;
+  const curPrice = p.current_price != null ? Number(p.current_price) : null;
+  const pnl = p.unrealized_pnl != null
+    ? Number(p.unrealized_pnl)
+    : (curPrice != null && entryPrice != null ? Math.round((curPrice - entryPrice) * shares) : null);
+  const pnlPct = p.unrealized_pct != null
+    ? Number(p.unrealized_pct)
+    : (curPrice != null && entryPrice != null && entryPrice > 0
+        ? Math.round(((curPrice - entryPrice) / entryPrice) * 10000) / 100
+        : null);
+  return {
+    id: `pos-${symbol}`,
+    instrument: p.instrument || `${symbol} ${name || ''}`.trim(),
+    symbol,
+    name,
+    entry_price: entryPrice,
+    current_price: curPrice,
+    pnl,
+    pnl_percent: pnlPct,
+    quantity: shares,
+    quantity_unit: '股',
+    status: 'open',
+  };
+}
+
+export function useExpertHoldingsBundle(
+  expertId: string | undefined,
+  options?: { expertOwnerUserId?: string | null },
+) {
+  const queryClient = useQueryClient();
+  const queryKey = useMemo(() => ['expert-holdings-bundle', expertId] as const, [expertId]);
+
+  const query = useQuery<ExpertHoldingsBundle>({
+    queryKey,
+    enabled: !!expertId,
+    staleTime: 30_000,
+    queryFn: async () => {
+      if (!expertId) return EMPTY;
+      const [capRes, perfRes] = await Promise.all([
+        supabase.rpc('get_expert_capital_status' as any, { _expert_id: expertId }),
+        supabase.rpc('calculate_expert_performance', { _expert_id: expertId }),
+      ]);
+      const cap = (capRes.data as unknown as CapitalStatus) || null;
+      const perf = (perfRes.data as unknown as ExpertPerformance) || null;
+      const rawOpen: OpenPosition[] = Array.isArray(cap?.open_positions) ? cap!.open_positions : [];
+      return {
+        capital: cap,
+        rawOpenPositions: rawOpen,
+        openPositions: rawOpen.map(mapOpenPositionToRow),
+        performance: perf,
+        totalPnlPercent: perf?.total_return_pct != null ? Number(perf.total_return_pct) : null,
+        avgPnlPercent: perf?.avg_pnl_pct != null ? Number((perf as any).avg_pnl_pct) : null,
+      };
+    },
+  });
+
+  // 單一 realtime channel：trade_records + user_performances → 全面 invalidate
+  useEffect(() => {
+    if (!expertId) return;
+    const ownerUserId = options?.expertOwnerUserId ?? null;
+    const invalidateAll = () => {
+      queryClient.invalidateQueries({ queryKey: ['expert-holdings-bundle', expertId] });
+      queryClient.invalidateQueries({ queryKey: ['expert-performance', expertId] });
+      queryClient.invalidateQueries({ queryKey: ['period-performance-v3', expertId] });
+      // admin-signals-bundle 以 slug 為 key（不知道 slug），用 predicate 全 match
+      queryClient.invalidateQueries({
+        predicate: (q) => Array.isArray(q.queryKey) && q.queryKey[0] === 'admin-signals-bundle',
+      });
+    };
+
+    let channel = supabase
+      .channel(`expert-bundle-${expertId}`)
+      .on(
+        'postgres_changes',
+        { event: '*', schema: 'public', table: 'trade_records', filter: `expert_id=eq.${expertId}` },
+        invalidateAll,
+      );
+    if (ownerUserId) {
+      channel = channel.on(
+        'postgres_changes',
+        { event: '*', schema: 'public', table: 'user_performances', filter: `user_id=eq.${ownerUserId}` },
+        invalidateAll,
+      );
+    }
+    const sub = channel.subscribe();
+    return () => { supabase.removeChannel(sub); };
+  }, [expertId, options?.expertOwnerUserId, queryClient]);
+
+  return {
+    ...(query.data ?? EMPTY),
+    loading: query.isLoading,
+    refetch: query.refetch,
+  };
+}
