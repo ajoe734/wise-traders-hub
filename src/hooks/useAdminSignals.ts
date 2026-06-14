@@ -2,11 +2,11 @@ import { useCallback, useEffect, useMemo } from 'react';
 import { useQuery, useQueryClient } from '@tanstack/react-query';
 import { supabase } from '@/integrations/supabase/client';
 import { fetchAnalystSignals } from '@/lib/analystDataAccess';
+import { useExpertHoldingsBundle } from '@/hooks/useExpertHoldingsBundle';
 
 export interface AdminSignalsBundle {
   expert: any | null;
   signals: any[];
-  openInstruments: Set<string>;
   plans: { id: string; name: string }[];
   signalTemplates: {
     id: string;
@@ -21,15 +21,13 @@ export interface AdminSignalsBundle {
 const EMPTY: AdminSignalsBundle = {
   expert: null,
   signals: [],
-  openInstruments: new Set(),
   plans: [],
   signalTemplates: [],
 };
 
 /**
- * 將原本 admin/Signals.tsx 內 4 個串行 supabase 查詢
- * （experts → expert_signals → trade_records → expert_plans → expert_signal_templates）
- * 整併為單一 React Query，並提供 setter 與 refetch helper。
+ * admin/Signals 列表頁資料。openInstruments 改由 `useExpertHoldingsBundle`
+ * 提供（單一資料源），不再直接讀 trade_records。
  */
 export function useAdminSignals(expertSlug: string | undefined) {
   const queryClient = useQueryClient();
@@ -47,13 +45,8 @@ export function useAdminSignals(expertSlug: string | undefined) {
         .single();
       if (!exp) return { ...EMPTY };
 
-      const [{ signals }, openTradesRes, plansRes, tplRes] = await Promise.all([
+      const [{ signals }, plansRes, tplRes] = await Promise.all([
         fetchAnalystSignals(supabase, exp.id),
-        supabase
-          .from('trade_records')
-          .select('instrument')
-          .eq('expert_id', exp.id)
-          .eq('status', 'open'),
         supabase
           .from('expert_plans')
           .select('id, name')
@@ -69,32 +62,22 @@ export function useAdminSignals(expertSlug: string | undefined) {
       return {
         expert: exp,
         signals: signals ?? [],
-        openInstruments: new Set((openTradesRes.data || []).map((t: any) => t.instrument)),
         plans: (plansRes.data as any) || [],
         signalTemplates: (tplRes.data as any) || [],
       };
     },
   });
 
-  const expertId = query.data?.expert?.id as string | undefined;
-
-  // Realtime：trade_records 任何事件 → 重抓 bundle，讓「持倉中/已平倉/減碼」標籤
-  // 與績效總覽、CapitalPanel 立即同步（取代 30 秒 staleTime 的被動更新）
-  useEffect(() => {
-    if (!expertId) return;
-    const channel = supabase
-      .channel(`admin-signals-trade-records-${expertId}`)
-      .on(
-        'postgres_changes',
-        { event: '*', schema: 'public', table: 'trade_records', filter: `expert_id=eq.${expertId}` },
-        () => { queryClient.invalidateQueries({ queryKey }); },
-      )
-      .subscribe();
-    return () => { supabase.removeChannel(channel); };
-  }, [expertId, queryClient, queryKey]);
-
-
   const bundle = query.data ?? EMPTY;
+  const expertId = bundle.expert?.id as string | undefined;
+  const ownerUserId = (bundle.expert?.user_id as string | undefined) ?? null;
+
+  // 統一資料源：從 holdings bundle 衍生 openInstruments
+  const holdings = useExpertHoldingsBundle(expertId, { expertOwnerUserId: ownerUserId });
+  const openInstruments = useMemo(
+    () => new Set(holdings.rawOpenPositions.map((p) => p.instrument)),
+    [holdings.rawOpenPositions],
+  );
 
   const setSignals = useCallback(
     (updater: (prev: any[]) => any[]) => {
@@ -111,7 +94,7 @@ export function useAdminSignals(expertSlug: string | undefined) {
   return {
     expert: bundle.expert,
     signals: bundle.signals,
-    openInstruments: bundle.openInstruments,
+    openInstruments,
     plans: bundle.plans,
     signalTemplates: bundle.signalTemplates,
     loading: query.isLoading,
