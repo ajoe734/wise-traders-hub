@@ -69,6 +69,16 @@ export function useExpertPerformanceRealtime(expertId: string | undefined) {
             queryClient.invalidateQueries({ queryKey: ['expert-performance', expertId] });
           }
         )
+        // 補：trade_records 事件 → 同步刷新 calculate_expert_performance + 期間圖表
+        // user_performances 只在 5 分鐘 cron 才動，過去平倉/加碼會等到下一輪才反映在訂閱者頁面。
+        .on(
+          'postgres_changes',
+          { event: '*', schema: 'public', table: 'trade_records', filter: `expert_id=eq.${expertId}` },
+          () => {
+            queryClient.invalidateQueries({ queryKey: ['expert-performance', expertId] });
+            queryClient.invalidateQueries({ queryKey: ['period-performance-v3', expertId] });
+          }
+        )
         .subscribe();
     };
     const handle: number = typeof w.requestIdleCallback === 'function'
