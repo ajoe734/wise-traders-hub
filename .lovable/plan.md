@@ -1,71 +1,62 @@
-## 全面盤點：與「績效總覽 vs 發布新週記」同類的問題
+# 統一 Expert Holdings/Performance 讀取來源
 
-我搜尋了所有讀 `trade_records / trade_signals / user_performances / get_expert_capital_status / calculate_expert_performance` 的檔案，分三類盤點。
+## 目標
+消除目前 4 個 hook 各自讀 `trade_records / user_performances / current_prices / RPC` 的分歧，改為單一 source-of-truth hook，所有頁面共用同一份資料 + 同一條 realtime channel。
 
-### A. 已修（上一輪）
-| 檔案 | 狀態 |
-|---|---|
-| `src/hooks/admin/useAdminPerformanceData.ts` | ✅ 改用 `get_expert_capital_status`，trade_records realtime 全量 re-fetch |
-| `src/hooks/admin/useSignalEditorData.ts` | ✅ 加上 trade_records realtime → reloadCapital |
-| `src/pages/admin/Dashboard.tsx` | ✅ 自己原本就有 trade_records realtime |
+## 新增
 
-### B. 仍有問題（要修）
+**`src/hooks/useExpertHoldingsBundle.ts`**
+- 輸入：`expertId`
+- 內部：用 React Query 同時呼叫
+  - `get_expert_capital_status(_expert_id)` → capital + open_positions
+  - `calculate_expert_performance(_expert_id)` → total_return_pct / avg_pnl_pct / win_rate …
+- 輸出：`{ capital, openPositions: PerfRow[], performance, totalPnlPercent, avgPnlPercent, loading, refetch }`
+- `open_positions` 直接 map 成現有 `PerfRow` 形狀（沿用 useAdminPerformanceData 內既有 mapper，抽成 `mapOpenPositionToRow`）
+- queryKey: `['expert-holdings-bundle', expertId]`，staleTime 30s
+- 內建單一 realtime channel `expert-bundle-${expertId}`：
+  - `trade_records (expert_id=eq.X) *` → invalidate bundle + `['period-performance-v3', expertId]` + `['admin-signals-bundle', slug]`（後者用 predicate match）
+  - `user_performances (user_id=eq.ownerUserId) *` → invalidate bundle（cover 5 分鐘 cron 推現價）
+- 需要 `expertOwnerUserId`，由 hook 內部 fetch experts 一次（或接受 optional 參數避免重抓）
 
-**B1. `src/hooks/useAdminSignals.ts` L52-56**
-```ts
-supabase.from('trade_records').select('instrument').eq('expert_id', exp.id).eq('status','open')
-```
-- 結果 `openInstruments` 給 `admin/Signals.tsx` 顯示每筆訊號的「持倉中／已平倉／減碼」標記（`_adminSignals/derive.ts`、`SignalRow.tsx` L95）
-- `staleTime: 30_000`，**完全沒有 realtime invalidation**
-- 後果：在 SignalEditor 出場一檔後，回到 Signals 列表頁，原本「持倉中」標籤要等 30 秒才更新；和績效總覽顯示狀態不一致
+## 改造（消費者改用 bundle）
 
-**B2. `src/hooks/usePerformance.ts` L62-72 `useExpertPerformanceRealtime`**
-```ts
-.on('postgres_changes', { event:'UPDATE', schema:'public', table:'user_performances' }, …)
-```
-- 只訂閱 `user_performances UPDATE`（每 5 分鐘 cron 才動）
-- **完全沒訂閱 `trade_records`** ⇒ expert 平倉/加碼後，`calculate_expert_performance` 的 total_return、累積報酬會變，但這個 hook 不會 invalidate
-- 影響範圍：
-  - `src/pages/ExpertProfile.tsx`（公開老師頁）
-  - `src/pages/app/ExpertDetail.tsx`（訂閱者老師詳細頁）
-  - `src/pages/app/AppHome.tsx`（訂閱者首頁的老師卡片）
-  - 都透過 `PerformanceOverviewPanel` / `useExpertPerformance` 取績效
-- 後果：訂閱者最在乎的「老師最新總報酬」可能延遲到下一次 cron 才反映
+1. **`src/hooks/admin/useAdminPerformanceData.ts`**
+   - 移除自身的 capital RPC / perf RPC / open positions RPC / 兩條 trade_records channel / user_performances channel
+   - 改用 `useExpertHoldingsBundle(expertId)`，把 `capital / totalPnlPercent / avgPnlPercent / rows` 全部 derive 自 bundle
+   - 保留：expert 基本資料 fetch、realizedRows + realizedPeriod（realized 仍直讀 `trade_records status=closed`），realized 的刷新改成監聽同一 bundle invalidation（用 queryClient.subscribe 或多加一條 invalidation key）
+   - public API（return shape）完全不變
 
-**B3. `src/hooks/usePeriodPerformance.ts` L297-**
-- 直讀 `trade_records` 畫期間圖表，沒任何 realtime / invalidation
-- 跟 B2 同一個 panel 一起使用，B2 invalidate 時順便把它也 invalidate 才會同步
+2. **`src/hooks/admin/useSignalEditorData.ts`**
+   - 把現有 `reloadCapital` + trade_records realtime 改為 `useExpertHoldingsBundle`
+   - `capital` 由 bundle 提供，移除自己的 channel
 
-### C. 確認沒問題（已驗證）
-- `src/hooks/useMyTradeRecordHoldings.ts`：唯一呼叫者 `app/SignalsDashboard.tsx` 已停用（強制空陣列），無實際影響
-- `src/lib/analystDataAccess.ts` `fetchAnalystTradeRecords`：被 `fetchAnalystSignals` 鏈使用，列表用途，已被 B1 fix 覆蓋
-- `src/pages/_adminSignals/SignalCreateDialog.tsx`：純 insert/update 寫入端
-- `src/hooks/admin/useAdminProfile.ts`：用 RPC，正確
+3. **`src/hooks/useAdminSignals.ts`**
+   - 刪除 L52-56 直讀 `trade_records` 取 `openInstruments`
+   - 改從 bundle `openPositions` derive `openInstruments = new Set(openPositions.map(p => p.instrument))`
+   - 移除上一輪加的 trade_records channel（bundle 已處理）
 
----
+4. **`src/hooks/usePerformance.ts`**
+   - `useExpertPerformance` 內部改為「若 bundle 已 cache 則回傳 bundle.performance，否則 fallback 呼叫 RPC」——或更簡單：標記為 deprecated，新增 `useExpertPerformanceFromBundle` 讓 ExpertProfile / ExpertDetail / AppHome 改用
+   - `useExpertPerformanceRealtime` 整個刪除（bundle 已涵蓋）；改在 ExpertProfile / ExpertDetail / AppHome mount `useExpertHoldingsBundle(expertId)` 取代
 
-## 實作計畫
+   **保守做法（採用）**：保留 `useExpertPerformance` 的 API 不動，內部改成 thin wrapper 讀 bundle queryKey；`useExpertPerformanceRealtime` 改為 no-op 並標 deprecated，原呼叫端在後續 PR 移除。本次計畫先把資料源統一，呼叫端不動。
 
-### 1) `src/hooks/useAdminSignals.ts` — 加 trade_records realtime invalidation
-- 新增 `useEffect`：當 `expert?.id` 出現時，訂閱 `trade_records (expert_id=eq.X)`，任何事件 → `queryClient.invalidateQueries({ queryKey: ['admin-signals-bundle', expertSlug] })`
-- 用 ref 持有 expertSlug 以避免重新訂閱
-- 卸載時 `removeChannel`
+## Memory
 
-### 2) `src/hooks/usePerformance.ts` — `useExpertPerformanceRealtime` 補訂閱 `trade_records`
-- 在現有 idle-start 的 channel 內，加第二個 `.on('postgres_changes', { event:'*', schema:'public', table:'trade_records', filter: `expert_id=eq.${expertId}` }, …)`
-- callback 同樣 invalidate `['expert-performance', expertId]`，並順手 invalidate `['period-performance-v3', expertId]`（修掉 B3）
-- 保留現有 user_performances UPDATE 訂閱（cover 5 分鐘 cron 推現價）
+新增 `mem://architecture/expert-holdings-single-source`（core rule）：
+> 任何頁面需要 expert capital / open positions / total_return / avg_pnl，**只准**呼叫 `useExpertHoldingsBundle(expertId)`。禁止新檔案直接 `from('trade_records')` / `from('user_performances')` / `rpc('get_expert_capital_status')` / `rpc('calculate_expert_performance')`。新增 realized 類查詢請走 bundle 的衍生 hook。
 
-### 技術細節
-- 兩處皆採「事件 → invalidate query」模式，跟前一輪 `useSignalRealtimeInvalidation` 一致
-- 不改公開 API、不改任何 UI、不改業務邏輯
-- 不動 `usePeriodPerformance` 本身（保持單純 React Query），改由 B2 hook 順手 invalidate
+並在 index.md Core 加一行引用。
 
-### 影響面
-- admin Signals 列表頁：出場後標籤即時刷新
-- ExpertProfile / app/ExpertDetail / AppHome：老師交易後總報酬即時刷新
-- 不影響：Dashboard（已正確）、CapitalPanel（已正確）、績效總覽（已正確）
+## 不在範圍
+- `usePeriodPerformance` 維持自己讀 trade_records 畫圖；由 bundle realtime 順手 invalidate
+- Checkup / demo 系列不動
+- realized rows 仍各自 fetch（period 條件不同，不適合塞 bundle）
 
-### 不在本次範圍
-- `usePeriodPerformance` 自己加 realtime（會多開 channel；改由 B2 順手 invalidate 已足夠）
-- Demo / checkup 系列（不用 trade_records）
+## 驗證
+- 改完後 build pass
+- 手動：發布新週記頁出場一檔 → admin/Performance、admin/Signals、ExpertProfile 三處數字同步刷新（不必等 30 秒）
+- 既有測試 `expert-cache-continuity.test.tsx` / `1.21-expert-performance-rpc.test.ts` 應仍綠
+
+## 風險
+- `useAdminPerformanceData` 的 user_performances patch（單列現價更新避免閃爍）會被 bundle 的整體 invalidate 取代，可能有短暫 re-render；可接受（資料量小）。若實測閃爍明顯，再回補 patch 邏輯到 bundle 內。
