@@ -84,6 +84,37 @@ export function useSignalEditorData(args: UseSignalEditorDataArgs) {
     return () => { cancelled = true; };
   }, [expertSlug]);
 
+  // Realtime：trade_records / current_prices 變動 → reload capital，保持與績效總覽同步
+  const reloadCapitalRef = useRef(reloadCapital);
+  useEffect(() => { reloadCapitalRef.current = reloadCapital; }, [reloadCapital]);
+
+  useEffect(() => {
+    const eid = expert?.id;
+    if (!eid) return;
+    const tradeChannel = supabase
+      .channel(`signal-editor-trade-records-${eid}`)
+      .on(
+        'postgres_changes',
+        { event: '*', schema: 'public', table: 'trade_records', filter: `expert_id=eq.${eid}` },
+        () => { reloadCapitalRef.current(eid); },
+      )
+      .subscribe();
+
+    const priceChannel = supabase
+      .channel(`signal-editor-current-prices-${eid}`)
+      .on(
+        'postgres_changes',
+        { event: '*', schema: 'public', table: 'current_prices' },
+        () => { reloadCapitalRef.current(eid); },
+      )
+      .subscribe();
+
+    return () => {
+      supabase.removeChannel(tradeChannel);
+      supabase.removeChannel(priceChannel);
+    };
+  }, [expert?.id]);
+
   // 編輯模式：載入既有 batch
   const onBatchLoadedRef = useRef(onBatchLoaded);
   const onMissingBatchRef = useRef(onMissingBatch);
