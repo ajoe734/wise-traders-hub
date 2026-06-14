@@ -76,6 +76,24 @@ export function useAdminSignals(expertSlug: string | undefined) {
     },
   });
 
+  const expertId = query.data?.expert?.id as string | undefined;
+
+  // Realtime：trade_records 任何事件 → 重抓 bundle，讓「持倉中/已平倉/減碼」標籤
+  // 與績效總覽、CapitalPanel 立即同步（取代 30 秒 staleTime 的被動更新）
+  useEffect(() => {
+    if (!expertId) return;
+    const channel = supabase
+      .channel(`admin-signals-trade-records-${expertId}`)
+      .on(
+        'postgres_changes',
+        { event: '*', schema: 'public', table: 'trade_records', filter: `expert_id=eq.${expertId}` },
+        () => { queryClient.invalidateQueries({ queryKey }); },
+      )
+      .subscribe();
+    return () => { supabase.removeChannel(channel); };
+  }, [expertId, queryClient, queryKey]);
+
+
   const bundle = query.data ?? EMPTY;
 
   const setSignals = useCallback(
