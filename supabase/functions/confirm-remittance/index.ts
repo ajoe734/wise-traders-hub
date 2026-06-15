@@ -58,8 +58,8 @@ const handler = withLogging("confirm-remittance", async (req, log) => {
       started_at: now.toISOString(),
       expires_at: expires.toISOString(),
       auto_renew: false,
+      billing_cycle: order.billing_cycle === "yearly" ? "yearly" : "monthly",
     };
-    if (isCheckup) insertPayload.billing_cycle = order.billing_cycle;
     const { data: sub, error: serr } = await admin.from(subTable).insert(insertPayload).select("id").single();
     if (serr) return jsonResponse({ error: serr.message }, { status: 500 });
     subscriptionId = sub.id;

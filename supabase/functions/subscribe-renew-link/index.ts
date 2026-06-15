@@ -111,7 +111,7 @@ Deno.serve(withLogging('subscribe-renew-link', async (req) => {
 
   const { data: memberSub } = await admin
     .from("member_subscriptions")
-    .select("id, user_id, plan_id, expert_plans!inner(id, expert_id, experts!inner(slug))")
+    .select("id, user_id, plan_id, billing_cycle, expert_plans!inner(id, expert_id, experts!inner(slug))")
     .eq("id", payload.sub_id)
     .eq("user_id", payload.user_id)
     .maybeSingle();
@@ -119,21 +119,23 @@ Deno.serve(withLogging('subscribe-renew-link', async (req) => {
   if (memberSub) {
     const slug = (memberSub.expert_plans as any)?.experts?.slug;
     const planId = memberSub.plan_id;
+    const cycle = (memberSub as any).billing_cycle === "yearly" ? "yearly" : "monthly";
     if (slug && planId) {
-      const target = `${siteUrl}/${slug}/checkout?plan=${planId}&utm_source=renewal_link`;
+      const target = `${siteUrl}/${slug}/checkout?plan=${planId}&cycle=${cycle}&utm_source=renewal_link`;
       return new Response(null, { status: 302, headers: { ...corsHeaders, Location: target } });
     }
   }
 
   const { data: checkupSub } = await admin
     .from("checkup_subscriptions")
-    .select("id, user_id, plan_id")
+    .select("id, user_id, plan_id, billing_cycle")
     .eq("id", payload.sub_id)
     .eq("user_id", payload.user_id)
     .maybeSingle();
 
   if (checkupSub) {
-    const target = `${siteUrl}/checkup/checkout?plan=${checkupSub.plan_id}&utm_source=renewal_link`;
+    const cycle = (checkupSub as any).billing_cycle === "yearly" ? "yearly" : "monthly";
+    const target = `${siteUrl}/checkup/checkout?plan=${checkupSub.plan_id}&cycle=${cycle}&utm_source=renewal_link`;
     return new Response(null, { status: 302, headers: { ...corsHeaders, Location: target } });
   }
 

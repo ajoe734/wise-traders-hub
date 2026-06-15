@@ -68,6 +68,7 @@ export async function createSubscriptionAndTransaction(
       started_at: now.toISOString(),
       expires_at: expiresAt.toISOString(),
       provider_id: params.providerId,
+      billing_cycle: params.billingCycle === 'yearly' ? 'yearly' : 'monthly',
     })
     .select('id')
     .single();
