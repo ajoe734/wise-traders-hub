@@ -21,7 +21,7 @@ export function useAccountData() {
 
     const { data: subs } = await supabase
       .from('member_subscriptions')
-      .select('id, plan_id, status, auto_renew, started_at, expires_at, canceled_at')
+      .select('id, plan_id, status, auto_renew, billing_cycle, started_at, expires_at, canceled_at')
       .eq('user_id', user.id)
       .order('created_at', { ascending: false });
 
@@ -54,6 +54,7 @@ export function useAccountData() {
       const expert = plan ? expertMap.get(plan.expert_id) : null;
       return {
         ...sub,
+        billing_cycle: (sub as any).billing_cycle === 'yearly' ? 'yearly' : 'monthly',
         plan: plan
           ? { id: plan.id, name: plan.name, plan_type: plan.plan_type, price_monthly: plan.price_monthly, price_yearly: plan.price_yearly }
           : { id: '', name: '未知方案', plan_type: '', price_monthly: 0, price_yearly: null },
