@@ -92,10 +92,12 @@ export default function PaywallAnalytics() {
     return next;
   };
 
-  const now = Date.now();
+  // ⚠️ 必須把 now 鎖在 5 分鐘的時間桶，否則每次 render 都會產生新的 sinceIso，
+  // 導致 useQuery 的 queryKey 持續變動 → 無限重抓 → isFetching 永遠 true → 畫面卡在「載入中…」。
+  const now = useMemo(() => Math.floor(Date.now() / 300_000) * 300_000, [sinceDays, recentDays]);
   const sinceIso = useMemo(() => new Date(now - sinceDays * 86400_000).toISOString(), [now, sinceDays]);
-  const recentSinceMs = now - recentDays * 86400_000;
-  const recentSinceIso = new Date(recentSinceMs).toISOString();
+  const recentSinceMs = useMemo(() => now - recentDays * 86400_000, [now, recentDays]);
+  const recentSinceIso = useMemo(() => new Date(recentSinceMs).toISOString(), [recentSinceMs]);
 
   const { data: events, isFetching: loadingEvents, refetch: refetchEvents } = useQuery({
     queryKey: ['paywall-events', sinceDays],
