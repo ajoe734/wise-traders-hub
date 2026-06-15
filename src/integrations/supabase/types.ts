@@ -1985,6 +1985,7 @@ export type Database = {
       member_subscriptions: {
         Row: {
           auto_renew: boolean
+          billing_cycle: string
           canceled_at: string | null
           created_at: string
           expires_at: string | null
@@ -1997,6 +1998,7 @@ export type Database = {
         }
         Insert: {
           auto_renew?: boolean
+          billing_cycle?: string
           canceled_at?: string | null
           created_at?: string
           expires_at?: string | null
@@ -2009,6 +2011,7 @@ export type Database = {
         }
         Update: {
           auto_renew?: boolean
+          billing_cycle?: string
           canceled_at?: string | null
           created_at?: string
           expires_at?: string | null
