@@ -25,12 +25,13 @@ type Method = "ecpay" | "remittance";
 
 export default function CheckupCheckout() {
   const { planId } = useParams<{ planId: string }>();
-  const { user } = useAuth();
+  const { user, isLoading: authLoading } = useAuth();
   const navigate = useNavigate();
   const [searchParams] = useSearchParams();
 
   const { data: plan, isLoading } = useCheckupPlan(planId);
-  const [billingCycle, setBillingCycle] = useState<"monthly" | "yearly">("monthly");
+  const initialCycle = searchParams.get("cycle") === "yearly" ? "yearly" : "monthly";
+  const [billingCycle, setBillingCycle] = useState<"monthly" | "yearly">(initialCycle);
   const [method, setMethod] = useState<Method>("ecpay");
   // (removed) inline bank state — now handled by <RemittanceAccountCard />
   const [isProcessing, setIsProcessing] = useState(false);
@@ -39,6 +40,15 @@ export default function CheckupCheckout() {
   const [consentChecked, setConsentChecked] = useState(false);
   const [isConfirming, setIsConfirming] = useState(false);
   const [resultDialog, setResultDialog] = useState<{ open: boolean; success: boolean; message?: string; goRemittance?: boolean } | null>(null);
+
+  // B3: 付費路徑（checkup checkout）為登入限定 — 未登入即把當前 URL 存入 sessionStorage 並跳登入頁
+  useEffect(() => {
+    if (authLoading || user) return;
+    try {
+      sessionStorage.setItem('redirect_after_login', `${window.location.pathname}${window.location.search}`);
+    } catch {}
+    navigate('/auth/login', { replace: true });
+  }, [authLoading, user, navigate]);
 
   // GTM Purchase event — fires once when success dialog opens
   useEffect(() => {

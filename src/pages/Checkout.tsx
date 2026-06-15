@@ -25,17 +25,27 @@ import {
 
 const Checkout = () => {
   const { slug, planId } = useParams<{ slug: string; planId: string }>();
-  const { user } = useAuth();
+  const { user, isLoading: authLoading } = useAuth();
   const navigate = useNavigate();
   const [searchParams] = useSearchParams();
 
   const fromAccount = searchParams.get('from') === 'account';
+  const initialCycle = searchParams.get('cycle') === 'yearly' ? 'yearly' : 'monthly';
 
-  const [billingCycle, setBillingCycle] = useState<'monthly' | 'yearly'>('monthly');
+  const [billingCycle, setBillingCycle] = useState<'monthly' | 'yearly'>(initialCycle);
   const [selectedProvider, setSelectedProvider] = useState<string | null>(null);
   const [isProcessing, setIsProcessing] = useState(false);
   const [isConfirming, setIsConfirming] = useState(false);
   const [resultDialog, setResultDialog] = useState<CheckoutResult | null>(null);
+
+  // B3: 付費路徑（checkout）為登入限定 — 未登入即把當前 URL 存入 sessionStorage 並跳登入頁
+  useEffect(() => {
+    if (authLoading || user) return;
+    try {
+      sessionStorage.setItem('redirect_after_login', `${window.location.pathname}${window.location.search}`);
+    } catch {}
+    navigate('/auth/login', { replace: true });
+  }, [authLoading, user, navigate]);
 
   const {
     loading, plan, expert, providers, defaultProviderId,
