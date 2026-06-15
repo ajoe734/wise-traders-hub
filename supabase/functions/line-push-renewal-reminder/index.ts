@@ -119,7 +119,7 @@ Deno.serve(withLogging('line-push-renewal-reminder', async (req) => {
       const targetStatus = d < 0 ? 'expired' : 'active'
       const query = supabaseAdmin
         .from('member_subscriptions')
-        .select('id, user_id, plan_id, expires_at, canceled_at, expert_plans!inner(id, expert_id, name, price_monthly, experts!inner(id, name, slug))')
+        .select('id, user_id, plan_id, expires_at, canceled_at, billing_cycle, expert_plans!inner(id, expert_id, name, price_monthly, price_yearly, experts!inner(id, name, slug))')
         .eq('status', targetStatus)
         .is('canceled_at', null)
         .gte('expires_at', lower.toISOString())
@@ -134,15 +134,19 @@ Deno.serve(withLogging('line-push-renewal-reminder', async (req) => {
       for (const sub of subs || []) {
         const plan: any = sub.expert_plans
         const expert: any = plan.experts
+        const cycle = (sub as any).billing_cycle === 'yearly' ? 'yearly' : 'monthly'
+        const amount = cycle === 'yearly'
+          ? (plan.price_yearly || (plan.price_monthly || 0) * 12)
+          : (plan.price_monthly || 0)
         allTargets.push({
-          sub,
+          sub: { ...sub, billing_cycle: cycle },
           daysLeft: d,
           expertId: expert.id,
           expertName: expert.name,
           expertSlug: expert.slug,
           planId: plan.id,
           planName: plan.name,
-          amount: plan.price_monthly || 0,
+          amount,
         })
       }
     }
@@ -182,7 +186,8 @@ Deno.serve(withLogging('line-push-renewal-reminder', async (req) => {
       }
       if (!token) continue
 
-      const renewUrl = `${siteUrl}/${t.expertSlug}/checkout?plan=${t.planId}&utm_source=line&utm_medium=renewal&utm_campaign=d${t.daysLeft}`
+      const cycle = (t.sub as any).billing_cycle === 'yearly' ? 'yearly' : 'monthly'
+      const renewUrl = `${siteUrl}/${t.expertSlug}/checkout?plan=${t.planId}&cycle=${cycle}&utm_source=line&utm_medium=renewal&utm_campaign=d${t.daysLeft}`
 
       const message = buildRenewalFlexMessage(
         t.expertName, t.planName, t.daysLeft,

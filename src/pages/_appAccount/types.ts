@@ -3,6 +3,7 @@ export interface DbSubscription {
   plan_id: string;
   status: string;
   auto_renew: boolean;
+  billing_cycle: 'monthly' | 'yearly' | string;
   started_at: string;
   expires_at: string | null;
   canceled_at: string | null;

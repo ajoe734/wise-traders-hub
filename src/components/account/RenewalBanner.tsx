@@ -1,5 +1,9 @@
 // W4-1: 帳號頁續訂橫幅
-// 顯示條件：任一訂閱 expires_at ≤ now+7d，或 status='expired' 且 expires_at > now-24h
+// 顯示條件：
+//   - 月訂閱：expires_at ≤ now+7d
+//   - 年訂閱：expires_at ≤ now+30d
+//   - 任一週期：expired 且 expires_at > now-24h（24h 回購窗）
+// 金額與續訂連結依 billing_cycle 顯示對應月費/年費。
 import { useEffect, useState } from 'react';
 import { supabase } from '@/integrations/supabase/client';
 import { Card, CardContent } from '@/components/ui/card';
@@ -13,9 +17,11 @@ interface RenewSub {
   status: string;
   expires_at: string;
   plan_id: string;
+  billing_cycle: string | null;
   expert_plans?: {
     name: string;
     price_monthly: number;
+    price_yearly: number | null;
     experts?: { name: string; slug: string };
   } | null;
 }
@@ -28,17 +34,28 @@ export function RenewalBanner() {
     if (!user?.id) return;
     (async () => {
       const now = new Date();
-      const in7d = new Date(now.getTime() + 7 * 24 * 60 * 60 * 1000).toISOString();
+      // 抓 30 天內到期 + 24h 內過期，再用 cycle 篩
+      const in30d = new Date(now.getTime() + 30 * 24 * 60 * 60 * 1000).toISOString();
       const ago24h = new Date(now.getTime() - 24 * 60 * 60 * 1000).toISOString();
 
       const { data } = await supabase
         .from('member_subscriptions')
-        .select('id, status, expires_at, plan_id, expert_plans(name, price_monthly, experts(name, slug))')
+        .select('id, status, expires_at, plan_id, billing_cycle, expert_plans(name, price_monthly, price_yearly, experts(name, slug))')
         .eq('user_id', user.id)
-        .or(`and(status.eq.active,expires_at.lte.${in7d}),and(status.eq.expired,expires_at.gte.${ago24h})`)
+        .or(`and(status.eq.active,expires_at.lte.${in30d}),and(status.eq.expired,expires_at.gte.${ago24h})`)
         .is('canceled_at', null)
         .order('expires_at', { ascending: true });
-      setSubs((data as any) || []);
+
+      const nowMs = Date.now();
+      const filtered = ((data as any[]) || []).filter((s) => {
+        const cycle = s.billing_cycle === 'yearly' ? 'yearly' : 'monthly';
+        const msLeft = new Date(s.expires_at).getTime() - nowMs;
+        const days = msLeft / 86400000;
+        if (s.status === 'expired') return msLeft > -24 * 3600 * 1000;
+        const threshold = cycle === 'yearly' ? 30 : 7;
+        return days <= threshold;
+      });
+      setSubs(filtered);
     })();
   }, [user?.id]);
 
@@ -52,9 +69,14 @@ export function RenewalBanner() {
         const days = Math.ceil(ms / (24 * 60 * 60 * 1000));
         const expired = s.status === 'expired' || ms <= 0;
         const expert = s.expert_plans?.experts;
+        const cycle = s.billing_cycle === 'yearly' ? 'yearly' : 'monthly';
+        const amount = cycle === 'yearly'
+          ? (s.expert_plans?.price_yearly ?? ((s.expert_plans?.price_monthly ?? 0) * 12))
+          : (s.expert_plans?.price_monthly ?? 0);
+        const unit = cycle === 'yearly' ? '/年' : '/月';
         const planName = `${expert?.name || ''} — ${s.expert_plans?.name || ''}`;
         const url = expert
-          ? `/${expert.slug}/checkout?plan=${s.plan_id}&utm_source=account_banner&utm_campaign=renewal`
+          ? `/${expert.slug}/checkout?plan=${s.plan_id}&cycle=${cycle}&utm_source=account_banner&utm_campaign=renewal`
           : '/account';
 
         return (
@@ -68,7 +90,7 @@ export function RenewalBanner() {
                 </p>
                 <p className="text-muted-foreground text-xs">
                   到期日 {expiresAt.toLocaleDateString('zh-TW')}
-                  {s.expert_plans?.price_monthly ? ` · 續訂 NT$${s.expert_plans.price_monthly.toLocaleString()}` : ''}
+                  {amount > 0 ? ` · 續訂 NT$${amount.toLocaleString()}${unit}` : ''}
                 </p>
               </div>
               <Button size="sm" asChild>

@@ -87,7 +87,7 @@ Deno.serve(withLogging('email-push-renewal-reminder', async (req) => {
 
     const { data: subs, error } = await supabaseAdmin
       .from('member_subscriptions')
-      .select('id, user_id, plan_id, expires_at, canceled_at, expert_plans!inner(id, expert_id, name, price_monthly, experts!inner(id, name, slug))')
+      .select('id, user_id, plan_id, expires_at, canceled_at, billing_cycle, expert_plans!inner(id, expert_id, name, price_monthly, price_yearly, experts!inner(id, name, slug))')
       .eq('status', targetStatus)
       .is('canceled_at', null)
       .gte('expires_at', lower.toISOString())
@@ -97,10 +97,14 @@ Deno.serve(withLogging('email-push-renewal-reminder', async (req) => {
     for (const sub of subs || []) {
       const plan: any = sub.expert_plans;
       const expert: any = plan.experts;
+      const cycle = (sub as any).billing_cycle === 'yearly' ? 'yearly' : 'monthly';
+      const amount = cycle === 'yearly'
+        ? (plan.price_yearly || (plan.price_monthly || 0) * 12)
+        : (plan.price_monthly || 0);
       allTargets.push({
-        sub, daysLeft: d,
+        sub: { ...sub, billing_cycle: cycle }, daysLeft: d,
         expertId: expert.id, expertName: expert.name, expertSlug: expert.slug,
-        planId: plan.id, planName: plan.name, amount: plan.price_monthly || 0,
+        planId: plan.id, planName: plan.name, amount,
       });
     }
   }
@@ -169,7 +173,8 @@ Deno.serve(withLogging('email-push-renewal-reminder', async (req) => {
       console.warn('perf_lookup_failed', (e as Error).message);
     }
 
-    const renewUrl = `${siteUrl}/${t.expertSlug}/checkout?plan=${t.planId}&utm_source=email&utm_medium=renewal&utm_campaign=d${t.daysLeft}`;
+    const cycle = (t.sub as any).billing_cycle === 'yearly' ? 'yearly' : 'monthly';
+    const renewUrl = `${siteUrl}/${t.expertSlug}/checkout?plan=${t.planId}&cycle=${cycle}&utm_source=email&utm_medium=renewal&utm_campaign=d${t.daysLeft}`;
     const { subject, html } = buildEmail({
       expertName: t.expertName, planName: t.planName,
       daysLeft: t.daysLeft, expiresAt: t.sub.expires_at, amount: t.amount,

@@ -58,9 +58,17 @@ export function SubscriptionCard({ sub, cancelingId, onCancel }: Props) {
               )}
             </div>
             <p className="text-sm text-muted-foreground">{sub.plan.name}</p>
-            <p className="text-xs text-muted-foreground mt-1">
-              {getPlanTypeLabel(sub.plan.plan_type)} · NT$ {sub.plan.price_monthly.toLocaleString()}/月
-            </p>
+            {(() => {
+              const isYearly = sub.billing_cycle === 'yearly';
+              const yearly = sub.plan.price_yearly ?? (sub.plan.price_monthly * 12);
+              const price = isYearly ? yearly : sub.plan.price_monthly;
+              const unit = isYearly ? '年' : '月';
+              return (
+                <p className="text-xs text-muted-foreground mt-1">
+                  {getPlanTypeLabel(sub.plan.plan_type)} · NT$ {price.toLocaleString()}/{unit}
+                </p>
+              );
+            })()}
             <div className="flex items-center gap-3 mt-2 text-xs text-muted-foreground flex-wrap">
               <span>
                 {format(new Date(sub.started_at), 'yyyy/MM/dd')}
@@ -68,8 +76,6 @@ export function SubscriptionCard({ sub, cancelingId, onCancel }: Props) {
               </span>
               {isCanceling ? (
                 <span className="text-amber-600 dark:text-amber-400">下月起不再扣款</span>
-              ) : sub.auto_renew ? (
-                <span className={cn(advisor ? "text-advisor/70" : "text-mentor/70")}>自動續訂</span>
               ) : (
                 <span className={cn(advisor ? "text-advisor/70" : "text-mentor/70")}>到期後手動續訂</span>
               )}
@@ -78,14 +84,16 @@ export function SubscriptionCard({ sub, cancelingId, onCancel }: Props) {
               if (!sub.expires_at || isCanceling) return null;
               const msLeft = new Date(sub.expires_at).getTime() - Date.now();
               const daysLeft = Math.ceil(msLeft / (24 * 60 * 60 * 1000));
-              if (daysLeft > 14 || daysLeft < 0) return null;
+              const isYearly = sub.billing_cycle === 'yearly';
+              const threshold = isYearly ? 30 : 14;
+              if (daysLeft > threshold || daysLeft < 0) return null;
               return (
                 <div className="mt-3 rounded-md border border-amber-300 bg-amber-50 dark:bg-amber-900/20 dark:border-amber-700 px-3 py-2 flex items-center justify-between gap-2">
                   <span className="text-xs text-amber-800 dark:text-amber-300">
                     將於 {format(new Date(sub.expires_at), 'yyyy/MM/dd')} 到期，{daysLeft <= 0 ? '今日內請完成續訂' : `剩 ${daysLeft} 天`}
                   </span>
                   <Button asChild size="sm" variant="outline" className="h-7 text-xs">
-                    <Link to={`/${sub.expert.slug}/checkout?plan=${sub.plan_id}`}>立即續訂</Link>
+                    <Link to={`/${sub.expert.slug}/checkout?plan=${sub.plan_id}&cycle=${isYearly ? 'yearly' : 'monthly'}`}>立即續訂</Link>
                   </Button>
                 </div>
               );
