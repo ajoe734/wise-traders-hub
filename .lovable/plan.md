@@ -1,62 +1,76 @@
-# 統一 Expert Holdings/Performance 讀取來源
-
 ## 目標
-消除目前 4 個 hook 各自讀 `trade_records / user_performances / current_prices / RPC` 的分歧，改為單一 source-of-truth hook，所有頁面共用同一份資料 + 同一條 realtime channel。
 
-## 新增
+1. **年訂閱「上線」**：DB / Checkout 已支援，但多處 edge function 與 UI 仍寫死月繳價，把所有沒讀到 `price_yearly` / `billing_cycle` 的端一次補齊。
+2. **月訂閱續約提醒**：站內補上 banner、LINE / Email 提醒按金額正確、續訂連結（屬付費內容）能登入後回到 checkout。
 
-**`src/hooks/useExpertHoldingsBundle.ts`**
-- 輸入：`expertId`
-- 內部：用 React Query 同時呼叫
-  - `get_expert_capital_status(_expert_id)` → capital + open_positions
-  - `calculate_expert_performance(_expert_id)` → total_return_pct / avg_pnl_pct / win_rate …
-- 輸出：`{ capital, openPositions: PerfRow[], performance, totalPnlPercent, avgPnlPercent, loading, refetch }`
-- `open_positions` 直接 map 成現有 `PerfRow` 形狀（沿用 useAdminPerformanceData 內既有 mapper，抽成 `mapOpenPositionToRow`）
-- queryKey: `['expert-holdings-bundle', expertId]`，staleTime 30s
-- 內建單一 realtime channel `expert-bundle-${expertId}`：
-  - `trade_records (expert_id=eq.X) *` → invalidate bundle + `['period-performance-v3', expertId]` + `['admin-signals-bundle', slug]`（後者用 predicate match）
-  - `user_performances (user_id=eq.ownerUserId) *` → invalidate bundle（cover 5 分鐘 cron 推現價）
-- 需要 `expertOwnerUserId`，由 hook 內部 fetch experts 一次（或接受 optional 參數避免重抓）
+---
 
-## 改造（消費者改用 bundle）
+## A. 年訂閱端到端 audit & 修正
 
-1. **`src/hooks/admin/useAdminPerformanceData.ts`**
-   - 移除自身的 capital RPC / perf RPC / open positions RPC / 兩條 trade_records channel / user_performances channel
-   - 改用 `useExpertHoldingsBundle(expertId)`，把 `capital / totalPnlPercent / avgPnlPercent / rows` 全部 derive 自 bundle
-   - 保留：expert 基本資料 fetch、realizedRows + realizedPeriod（realized 仍直讀 `trade_records status=closed`），realized 的刷新改成監聽同一 bundle invalidation（用 queryClient.subscribe 或多加一條 invalidation key）
-   - public API（return shape）完全不變
+| # | 檔案 | 現況 | 修正 |
+|---|---|---|---|
+| 1 | `supabase/functions/line-push-renewal-reminder/index.ts` L122/145 | 沒選 `price_yearly`、`billing_cycle`；金額永遠用 `plan.price_monthly` | join `member_subscriptions.billing_cycle` 並 select `price_yearly`；`amount = cycle==='yearly' ? price_yearly : price_monthly`；renewUrl 加 `&cycle=${billing_cycle}` |
+| 2 | `supabase/functions/email-push-renewal-reminder/index.ts` L90/103 | 同上 | 同步修正 |
+| 3 | `supabase/functions/subscribe-renew-link/index.ts` L113-138 | 重導 URL 沒帶 cycle | sub 讀 `billing_cycle`，附加到 checkout query |
+| 4 | `src/pages/_appAccount/SubscriptionCard.tsx` L62/L88 + `types.ts` | `DbSubscription` 沒 `billing_cycle`；顯示寫死「NT$ X/月」；續訂 link 沒帶 cycle | 補 `billing_cycle` 欄位；依 cycle 顯示「NT$ X/月」或「NT$ Y/年」；續訂連結 `?plan=…&cycle=…` |
+| 5 | `src/hooks/app/useAccountData.ts` | 確認 select 帶 `billing_cycle`、`price_yearly` | 補欄位 |
+| 6 | `src/pages/Checkout.tsx` / `useCheckoutData` | 是否從 URL `?cycle=` 預選 | 讀 `searchParams.get('cycle')` 初始化 `billingCycle` state |
+| 7 | 後台 `Subscribers.tsx` / `SubscriptionsTab.tsx` | 已顯示週期欄；確認 CSV 也帶 | 補檢查 |
 
-2. **`src/hooks/admin/useSignalEditorData.ts`**
-   - 把現有 `reloadCapital` + trade_records realtime 改為 `useExpertHoldingsBundle`
-   - `capital` 由 bundle 提供，移除自己的 channel
+新增 smoke test：建立年訂閱 → 觸發 reminder edge function → 斷言訊息含 `NT$ {price_yearly}` 與 `cycle=yearly`。
 
-3. **`src/hooks/useAdminSignals.ts`**
-   - 刪除 L52-56 直讀 `trade_records` 取 `openInstruments`
-   - 改從 bundle `openPositions` derive `openInstruments = new Set(openPositions.map(p => p.instrument))`
-   - 移除上一輪加的 trade_records channel（bundle 已處理）
+---
 
-4. **`src/hooks/usePerformance.ts`**
-   - `useExpertPerformance` 內部改為「若 bundle 已 cache 則回傳 bundle.performance，否則 fallback 呼叫 RPC」——或更簡單：標記為 deprecated，新增 `useExpertPerformanceFromBundle` 讓 ExpertProfile / ExpertDetail / AppHome 改用
-   - `useExpertPerformanceRealtime` 整個刪除（bundle 已涵蓋）；改在 ExpertProfile / ExpertDetail / AppHome mount `useExpertHoldingsBundle(expertId)` 取代
+## B. 月訂閱續約提醒
 
-   **保守做法（採用）**：保留 `useExpertPerformance` 的 API 不動，內部改成 thin wrapper 讀 bundle queryKey；`useExpertPerformanceRealtime` 改為 no-op 並標 deprecated，原呼叫端在後續 PR 移除。本次計畫先把資料源統一，呼叫端不動。
+### B1. 站內 banner（登入帳號頁 → 一鍵續訂）
+- 現況：`Account.tsx` 已掛 `<RenewalBanner />`（看起來在前一輪已建立）。確認它：
+  - 來源是 `useMemberSubscriptions` 而非自己查 DB（保持單一資料源）。
+  - 條件：未取消 + `expires_at − now ≤ 7 天`（年訂閱放寬 30 天）。
+  - 按鈕 navigate 到 `/{slug}/checkout?plan=…&cycle=…&utm_source=banner`。
+  - 可關閉（`localStorage`，每個 sub 每天只關一次）。
+- 若 `RenewalBanner` 內仍有舊邏輯（重複查 query / 沒帶 cycle / 寫死天數），一併修。
 
-## Memory
+### B2. Email 提醒
+- `email-push-renewal-reminder` 已存在（Resend 直連），完成 A2 修正後金額正確。
+- **確認 pg_cron 排程**：搜尋現有 cron job，若還沒排，新增每日 09:10 UTC+8（與 LINE 那支錯開 10 分鐘）。
+- `notification_preferences.renewal_email` 偏好保留；帳號頁若還沒有 toggle，補上「續約 Email 提醒」開關。
 
-新增 `mem://architecture/expert-holdings-single-source`（core rule）：
-> 任何頁面需要 expert capital / open positions / total_return / avg_pnl，**只准**呼叫 `useExpertHoldingsBundle(expertId)`。禁止新檔案直接 `from('trade_records')` / `from('user_performances')` / `rpc('get_expert_capital_status')` / `rpc('calculate_expert_performance')`。新增 realized 類查詢請走 bundle 的衍生 hook。
+### B3. 續訂連結 → 登入後回 checkout（**僅付費內容**）
+**範圍限定**：只針對「付款／訂閱相關路由」強制登入並回跳；免費內容（首頁、文章、free checkup、公開老師頁）一律不強制登入。
 
-並在 index.md Core 加一行引用。
+- 範圍清單（白名單，只有這些路徑會啟用 "mount-time 強制登入 + redirect_after_login"）：
+  - `/{slug}/checkout`（`Checkout.tsx`）
+  - `/checkup/checkout`（`CheckupCheckout.tsx`）
+  - `/account/remittance`（補匯款資料）
+- 實作：在這幾個頁面 mount 時 `if (!authLoading && !user) { sessionStorage.setItem('redirect_after_login', pathname+search); navigate('/auth/login', { replace: true }); }`。
+- `Login.tsx` 已會讀 `redirect_after_login` 並回跳，**不需新增**全站登入攔截。
+- 免費路由（首頁、`/free-checkup`、`/{slug}` 老師頁、文章等）**完全不動**，維持訪客可瀏覽。
+- LINE / Email 提醒 + `subscribe-renew-link` 產出的連結，本來就指向 checkout 白名單路徑，所以未登入點擊會自動：到 checkout → 偵測未登入 → 跳登入 → 登入後自動回 checkout。
 
-## 不在範圍
-- `usePeriodPerformance` 維持自己讀 trade_records 畫圖；由 bundle realtime 順手 invalidate
-- Checkup / demo 系列不動
-- realized rows 仍各自 fetch（period 條件不同，不適合塞 bundle）
+---
 
-## 驗證
-- 改完後 build pass
-- 手動：發布新週記頁出場一檔 → admin/Performance、admin/Signals、ExpertProfile 三處數字同步刷新（不必等 30 秒）
-- 既有測試 `expert-cache-continuity.test.tsx` / `1.21-expert-performance-rpc.test.ts` 應仍綠
+## C. 範圍外 / 不動
+- 不改價格、不動 `expert_plans` schema、不動退款邏輯。
+- 不改後台「分析師建立方案」表單（已能填 `price_yearly`）。
+- 不重做 Email 基礎建設（沿用既有 Resend pipeline，符合 [Email notifications](mem://infrastructure/email-notifications-resend)）。
+- 不對免費頁面新增任何登入攔截 / banner。
 
-## 風險
-- `useAdminPerformanceData` 的 user_performances patch（單列現價更新避免閃爍）會被 bundle 的整體 invalidate 取代，可能有短暫 re-render；可接受（資料量小）。若實測閃爍明顯，再回補 patch 邏輯到 bundle 內。
+---
+
+## 驗收
+- 建立 `billing_cycle='yearly'` 的 `member_subscriptions`，到期日 +3 天 → 手動觸發 LINE / Email reminder：訊息顯示年費金額，URL 含 `cycle=yearly`。
+- `/app/account` 年訂閱顯示「NT$ X/年」；點「立即續訂」進 checkout，年繳 tab 預選。
+- 登出狀態：
+  - 貼上 `/{slug}/checkout?plan=…&cycle=yearly` → 自動跳登入 → 登入後回到同 checkout 頁。
+  - 貼上 `/`、`/free-checkup`、公開老師頁 → **不跳登入**，正常瀏覽。
+- 月訂閱使用者登入後若 7 天內到期，帳號頁 banner 出現一鍵續訂。
+- 帳號頁可關閉「續約 Email」。
+
+---
+
+## 更新記憶
+更新 [Manual renewal model](mem://billing/manual-renewal-model)：
+- 年訂閱已上線；提醒金額按 `billing_cycle` 取值
+- 站內 banner 門檻：月 7 天 / 年 30 天
+- 「強制登入＋回跳」只套用於 checkout / remittance 等付費路徑，免費內容不攔截
