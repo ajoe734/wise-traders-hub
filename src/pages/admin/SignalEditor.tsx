@@ -12,7 +12,6 @@ import { isPublishingWindowOpen } from '@/lib/publishingWindow';
 import { useFormDraft } from '@/hooks/useFormDraft';
 import { LazyRichTextEditor as RichTextEditor } from '@/components/admin/LazyRichTextEditor';
 import { sanitizeRichHtml, htmlToPlainText } from '@/lib/sanitizeHtml';
-import { normalizeSignalQuantityToShares, simulateCashAfterTrades } from '@/lib/signalTradeLogic';
 import { cn } from '@/lib/utils';
 import { Plus, Loader2, ArrowLeft } from 'lucide-react';
 import { toast } from 'sonner';
@@ -23,7 +22,7 @@ import {
 import { CapitalPanel } from '@/pages/_signalEditor/CapitalPanel';
 import { TradeCard } from '@/pages/_signalEditor/TradeCard';
 import {
-  buildCashSimTrades, buildPublishRows, buildSimulatedPositions, validateSignalBatch,
+  buildPublishRows, buildSimulatedPositions, computeCashSim, validateSignalBatch,
 } from '@/pages/_signalEditor/derive';
 import { useSignalEditorData } from '@/hooks/admin/useSignalEditorData';
 
@@ -156,8 +155,7 @@ const SignalEditor = () => {
 
   // ── Simulation ───────────────────────────────────────────────────────
   const cashSim = useMemo(() => {
-    const start = capital?.available_cash || 0;
-    return simulateCashAfterTrades(start, buildCashSimTrades(trades, capital));
+    return computeCashSim(trades, capital);
   }, [capital, trades]);
 
   const simulatedPositions = useMemo(
