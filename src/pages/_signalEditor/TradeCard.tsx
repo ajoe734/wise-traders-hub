@@ -98,9 +98,8 @@ export function TradeCard({
                   onClick={() => {
                     const price = parseFloat(t.priceHint || '0');
                     if (!price || price <= 0) { toast.error('請先填參考價位'); return; }
-                    const remainingBefore = idx === 0
-                      ? (capital.available_cash || 0)
-                      : (cashSim.perTrade[idx - 1] ?? capital.available_cash);
+                    const remainingBefore =
+                      cashSim.perTrade[idx] ?? (capital.available_cash || 0);
                     const maxShares = Math.max(0, Math.floor(remainingBefore / price));
                     updateTrade(idx, { quantity: String(maxShares), quantityUnit: '股' });
                   }}
