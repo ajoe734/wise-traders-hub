@@ -1,76 +1,62 @@
 ## 目標
+讓分析師在**單一篇週記**裡同時寫「加碼 + 減碼」、「一買一賣」也能順利送出，不再被迫拆兩篇或人工挪動順序。敘事顯示順序維持分析師輸入的原樣，僅在**驗證／資料庫寫入**時改用「執行語意順序」。
 
-1. **年訂閱「上線」**：DB / Checkout 已支援，但多處 edge function 與 UI 仍寫死月繳價，把所有沒讀到 `price_yearly` / `billing_cycle` 的端一次補齊。
-2. **月訂閱續約提醒**：站內補上 banner、LINE / Email 提醒按金額正確、續訂連結（屬付費內容）能登入後回到 checkout。
+## 設計原則
+- 顯示順序（reader 看週記） = 分析師輸入順序（不動）。
+- 執行順序（trigger 觸發、現金/持倉檢查） = **釋放資金優先**：`exit → trim → sell → add → buy`。
+- 同檔股票若有多筆，依然在各組內保持輸入相對順序。
+- Trigger 不動（風險最低）；改由前端在送資料前把陣列按執行順序排好，逐筆 INSERT 順序＝執行順序，trigger 取到的 `available_cash` 就會正確反映前面已釋放的現金。
 
----
+## 變更項目
 
-## A. 年訂閱端到端 audit & 修正
+### 1. `src/pages/_signalEditor/derive.ts`
+新增 helper：
+```ts
+const EXEC_ORDER = { exit: 0, trim: 1, sell: 2, add: 3, buy: 4 };
+function sortByExecutionSemantics(trades: TradeDraft[]): TradeDraft[] {
+  return trades
+    .map((t, i) => ({ t, i }))
+    .sort((a, b) => {
+      const oa = EXEC_ORDER[a.t.action] ?? 9;
+      const ob = EXEC_ORDER[b.t.action] ?? 9;
+      if (oa !== ob) return oa - ob;
+      return a.i - b.i; // 同類維持原序
+    })
+    .map(({ t }) => t);
+}
+```
+- `validateSignalBatch`、`buildStepStates`、`buildCashSimTrades`、`buildSimulatedPositions`：所有「sequential simulation」改先 `sortByExecutionSemantics(trades)` 再跑。錯誤訊息中的「第 N 檔」改成顯示 `tag = 第 N 檔 (XXXX 加碼)` 之類，但 index 來源以**原陣列**為準（避免分析師找不到是哪一張卡片）。
+- 改法：iteration 用排序後陣列，但 tag 取 `原始 index + 1`。
+- `buildPublishRows`：同樣先排序、再產出 rows，這樣 `expert_signals.insert(rows)` 的 INSERT 順序 = 執行順序 → trigger 看到的 `available_cash` 已包含前一筆 trim/exit 釋放的資金。
 
-| # | 檔案 | 現況 | 修正 |
-|---|---|---|---|
-| 1 | `supabase/functions/line-push-renewal-reminder/index.ts` L122/145 | 沒選 `price_yearly`、`billing_cycle`；金額永遠用 `plan.price_monthly` | join `member_subscriptions.billing_cycle` 並 select `price_yearly`；`amount = cycle==='yearly' ? price_yearly : price_monthly`；renewUrl 加 `&cycle=${billing_cycle}` |
-| 2 | `supabase/functions/email-push-renewal-reminder/index.ts` L90/103 | 同上 | 同步修正 |
-| 3 | `supabase/functions/subscribe-renew-link/index.ts` L113-138 | 重導 URL 沒帶 cycle | sub 讀 `billing_cycle`，附加到 checkout query |
-| 4 | `src/pages/_appAccount/SubscriptionCard.tsx` L62/L88 + `types.ts` | `DbSubscription` 沒 `billing_cycle`；顯示寫死「NT$ X/月」；續訂 link 沒帶 cycle | 補 `billing_cycle` 欄位；依 cycle 顯示「NT$ X/月」或「NT$ Y/年」；續訂連結 `?plan=…&cycle=…` |
-| 5 | `src/hooks/app/useAccountData.ts` | 確認 select 帶 `billing_cycle`、`price_yearly` | 補欄位 |
-| 6 | `src/pages/Checkout.tsx` / `useCheckoutData` | 是否從 URL `?cycle=` 預選 | 讀 `searchParams.get('cycle')` 初始化 `billingCycle` state |
-| 7 | 後台 `Subscribers.tsx` / `SubscriptionsTab.tsx` | 已顯示週期欄；確認 CSV 也帶 | 補檢查 |
+### 2. `src/pages/admin/SignalEditor.tsx`
+- `cashSim` / `simulatedPositions` 透過上述 derive 變更自動取得正確結果，無需改動。
+- 在 `TradeCard` 或 footer 加一個小提示（可選，本次先不加）：「送出時系統會自動先處理減碼／平倉，再處理加碼／買進，現金/持倉以這個順序計算。」
 
-新增 smoke test：建立年訂閱 → 觸發 reminder edge function → 斷言訊息含 `NT$ {price_yearly}` 與 `cycle=yearly`。
+### 3. 顯示順序保證（不變）
+`expert_signals` 在 reader 端是以 `executed_at`／`sort_order` 顯示，不是 row insert 物理順序。`buildPublishRows` 不動 `executed_at`（沿用分析師填的時間），所以重排後讀者看到的順序仍是分析師原意。
 
----
+### 4. 測試
+新增 `src/test/unit/signal-editor-mixed-batch.test.ts`（或加在 `1.27`）：
+- case A：同檔「先 add 後 trim」，現金不夠 add 但 trim 後夠 → 排序後通過。
+- case B：跨檔「buy B 用 A 平倉換來的錢」 → 排序後通過、現金剩餘正確。
+- case C：trim 數量超過模擬持倉 → 仍然 fail，並回報「第 X 檔」對應到**原陣列 index**。
+- case D：純加碼超額 → 仍然 fail。
 
-## B. 月訂閱續約提醒
-
-### B1. 站內 banner（登入帳號頁 → 一鍵續訂）
-- 現況：`Account.tsx` 已掛 `<RenewalBanner />`（看起來在前一輪已建立）。確認它：
-  - 來源是 `useMemberSubscriptions` 而非自己查 DB（保持單一資料源）。
-  - 條件：未取消 + `expires_at − now ≤ 7 天`（年訂閱放寬 30 天）。
-  - 按鈕 navigate 到 `/{slug}/checkout?plan=…&cycle=…&utm_source=banner`。
-  - 可關閉（`localStorage`，每個 sub 每天只關一次）。
-- 若 `RenewalBanner` 內仍有舊邏輯（重複查 query / 沒帶 cycle / 寫死天數），一併修。
-
-### B2. Email 提醒
-- `email-push-renewal-reminder` 已存在（Resend 直連），完成 A2 修正後金額正確。
-- **確認 pg_cron 排程**：搜尋現有 cron job，若還沒排，新增每日 09:10 UTC+8（與 LINE 那支錯開 10 分鐘）。
-- `notification_preferences.renewal_email` 偏好保留；帳號頁若還沒有 toggle，補上「續約 Email 提醒」開關。
-
-### B3. 續訂連結 → 登入後回 checkout（**僅付費內容**）
-**範圍限定**：只針對「付款／訂閱相關路由」強制登入並回跳；免費內容（首頁、文章、free checkup、公開老師頁）一律不強制登入。
-
-- 範圍清單（白名單，只有這些路徑會啟用 "mount-time 強制登入 + redirect_after_login"）：
-  - `/{slug}/checkout`（`Checkout.tsx`）
-  - `/checkup/checkout`（`CheckupCheckout.tsx`）
-  - `/account/remittance`（補匯款資料）
-- 實作：在這幾個頁面 mount 時 `if (!authLoading && !user) { sessionStorage.setItem('redirect_after_login', pathname+search); navigate('/auth/login', { replace: true }); }`。
-- `Login.tsx` 已會讀 `redirect_after_login` 並回跳，**不需新增**全站登入攔截。
-- 免費路由（首頁、`/free-checkup`、`/{slug}` 老師頁、文章等）**完全不動**，維持訪客可瀏覽。
-- LINE / Email 提醒 + `subscribe-renew-link` 產出的連結，本來就指向 checkout 白名單路徑，所以未登入點擊會自動：到 checkout → 偵測未登入 → 跳登入 → 登入後自動回 checkout。
-
----
-
-## C. 範圍外 / 不動
-- 不改價格、不動 `expert_plans` schema、不動退款邏輯。
-- 不改後台「分析師建立方案」表單（已能填 `price_yearly`）。
-- 不重做 Email 基礎建設（沿用既有 Resend pipeline，符合 [Email notifications](mem://infrastructure/email-notifications-resend)）。
-- 不對免費頁面新增任何登入攔截 / banner。
-
----
+### 5. 不在範圍
+- 不改 `enforce_signal_capital_limit` 觸發器。
+- 不改觸發器寫法、不引入 statement-level trigger，避免影響其他寫入路徑（remittance、手動補單、後台修正）。
+- 不動週記顯示組件、不動 `executed_at`。
+- 不動現有 mentor 審核 / mentor cron / LINE push 流程。
 
 ## 驗收
-- 建立 `billing_cycle='yearly'` 的 `member_subscriptions`，到期日 +3 天 → 手動觸發 LINE / Email reminder：訊息顯示年費金額，URL 含 `cycle=yearly`。
-- `/app/account` 年訂閱顯示「NT$ X/年」；點「立即續訂」進 checkout，年繳 tab 預選。
-- 登出狀態：
-  - 貼上 `/{slug}/checkout?plan=…&cycle=yearly` → 自動跳登入 → 登入後回到同 checkout 頁。
-  - 貼上 `/`、`/free-checkup`、公開老師頁 → **不跳登入**，正常瀏覽。
-- 月訂閱使用者登入後若 7 天內到期，帳號頁 banner 出現一鍵續訂。
-- 帳號頁可關閉「續約 Email」。
-
----
-
-## 更新記憶
-更新 [Manual renewal model](mem://billing/manual-renewal-model)：
-- 年訂閱已上線；提醒金額按 `billing_cycle` 取值
-- 站內 banner 門檻：月 7 天 / 年 30 天
-- 「強制登入＋回跳」只套用於 checkout / remittance 等付費路徑，免費內容不攔截
+1. 在 SignalEditor 開一張新週記：
+   - Row1：加碼 A 3 張 @ 100（現金不夠）
+   - Row2：平倉 B（釋放現金）
+   - 送出前不再出現「本筆需…剩餘可用現金僅…」，模擬現金顯示也正確。
+2. 同檔股票：
+   - Row1：加碼 2330 1 張
+   - Row2：減碼 2330 1 張
+   - 兩筆都能通過，trigger 不擋。
+3. 真正超額（純加碼超過所有可用現金）仍會擋並回正確的卡片編號。
+4. 週記讀者頁顯示順序仍為分析師原始輸入順序（依 `executed_at` 排序）。
