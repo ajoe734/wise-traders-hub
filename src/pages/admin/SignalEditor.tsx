@@ -155,8 +155,7 @@ const SignalEditor = () => {
 
   // ── Simulation ───────────────────────────────────────────────────────
   const cashSim = useMemo(() => {
-    const start = capital?.available_cash || 0;
-    return simulateCashAfterTrades(start, buildCashSimTrades(trades, capital));
+    return computeCashSim(trades, capital);
   }, [capital, trades]);
 
   const simulatedPositions = useMemo(
