@@ -48,6 +48,7 @@ const AdminProfile = () => {
   const [markets, setMarkets] = useState<string[]>([]);
   const [newTag, setNewTag] = useState('');
   const [newMarket, setNewMarket] = useState('');
+  const [currency, setCurrency] = useState<'TWD' | 'USD'>('TWD');
   const [startingCapital, setStartingCapital] = useState<string>('');
   const [startingCapitalLocked, setStartingCapitalLocked] = useState(false);
   const [showCapitalConfirm, setShowCapitalConfirm] = useState(false);
