@@ -19,6 +19,7 @@ import {
 import { cn } from "@/lib/utils";
 import { RemittanceAccountCard } from "./_remittance/RemittanceAccountCard";
 import { gtmPush } from "@/lib/analytics/gtm";
+import { toast } from "sonner";
 
 
 type Method = "ecpay" | "remittance";
@@ -50,17 +51,21 @@ export default function CheckupCheckout() {
     navigate('/auth/login', { replace: true });
   }, [authLoading, user, navigate]);
 
-  // GTM Purchase event — fires once when success dialog opens
+  // GTM Purchase event + 自動導回 /app + 成功 toast
   useEffect(() => {
-    if (resultDialog?.open && resultDialog?.success) {
+    if (resultDialog?.open && resultDialog?.success && !resultDialog?.goRemittance) {
       gtmPush('Purchase', {
         plan_id: planId,
         product: 'checkup',
         billing_cycle: billingCycle,
         currency: 'TWD',
       });
+      toast.success('訂閱成功，可在「我的服務」中看到。');
+      navigate('/app', { replace: true });
     }
-  }, [resultDialog?.open, resultDialog?.success, planId, billingCycle]);
+  }, [resultDialog?.open, resultDialog?.success, resultDialog?.goRemittance, planId, billingCycle, navigate]);
+
+
 
   // 收款帳號改由 <RemittanceAccountCard /> 內部 react-query 撈取
 

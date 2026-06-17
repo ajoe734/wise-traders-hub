@@ -26,6 +26,7 @@ import {
 } from "@/components/ui/alert-dialog";
 import { avatarUrl } from "@/lib/imageTransform";
 import { gtmPush } from "@/lib/analytics/gtm";
+import { toast } from "sonner";
 
 const AppCheckout = () => {
   const { slug, planId } = useParams<{ slug: string; planId: string }>();
@@ -115,7 +116,7 @@ const AppCheckout = () => {
     },
   });
 
-  // GTM Purchase event — fires once when success dialog opens
+  // GTM Purchase event + 自動導回 /app + 成功 toast
   useEffect(() => {
     if (resultDialog?.open && resultDialog?.success) {
       gtmPush('Purchase', {
@@ -125,8 +126,12 @@ const AppCheckout = () => {
         billing_cycle: billingCycle,
         method: paymentMethod,
       });
+      toast.success('訂閱成功，可在「我的服務」中看到。');
+      navigate('/app', { replace: true });
     }
-  }, [resultDialog?.open, resultDialog?.success, planId, slug, billingCycle, paymentMethod]);
+  }, [resultDialog?.open, resultDialog?.success, planId, slug, billingCycle, paymentMethod, navigate]);
+
+
 
 
   // LINE Pay return (confirm flow) — 仍維持原本的 edge function 確認
