@@ -75,7 +75,7 @@ const Checkout = () => {
     }
   }, [defaultProviderId, selectedProvider, providers, searchParams]);
 
-  // GTM Purchase event — fires once when success dialog opens
+  // GTM Purchase event + 自動導回 /app（顯示成功 toast，取代彈窗確認）
   useEffect(() => {
     if (resultDialog?.open && resultDialog?.success) {
       gtmPush('Purchase', {
@@ -85,8 +85,11 @@ const Checkout = () => {
         billing_cycle: billingCycle,
       });
       trackEvent('checkout_success', { plan_id: planId, slug });
+      toast.success('訂閱成功，可在「我的服務」中看到。');
+      navigate('/app', { replace: true });
     }
-  }, [resultDialog?.open, resultDialog?.success, planId, slug, billingCycle]);
+  }, [resultDialog?.open, resultDialog?.success, planId, slug, billingCycle, navigate]);
+
 
   useEffect(() => { trackEvent('checkout_open', { plan_id: planId, slug }); }, [planId, slug]);
 
