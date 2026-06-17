@@ -39,6 +39,23 @@ const AdminProfile = () => {
     currentUserId: user?.id,
   });
 
+  // 已發布訊號數（>0 → 幣別鎖定）
+  const { data: publishedSignalCount } = useQuery({
+    queryKey: ['admin', 'profile', 'published-signal-count', expert?.id],
+    enabled: !!expert?.id,
+    staleTime: 60_000,
+    queryFn: async () => {
+      const { count, error } = await supabase
+        .from('expert_signals')
+        .select('id', { count: 'exact', head: true })
+        .eq('expert_id', expert!.id);
+      if (error) throw error;
+      return count ?? 0;
+    },
+  });
+  const currencyLocked = (publishedSignalCount ?? 0) > 0;
+
+
   // Form state（元件層持有，hook 只管 query/mutation）
   const [name, setName] = useState('');
   const [bio, setBio] = useState('');
