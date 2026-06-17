@@ -344,9 +344,7 @@ export function AnomaliesSection({ anomalies }) {
         h('span', { style: { fontSize: 12, color: C.text } }, a.name),
         h(
           'span',
-          {
-            style: { fontSize: 12, fontWeight: 600, color: pc(a.changePct) },
-          },
+          { style: pillStyle(a.changePct, { size: 12 }) },
           `${a.changePct >= 0 ? '+' : ''}${a.changePct.toFixed(2)}%`
         )
       )
