@@ -11,7 +11,32 @@ const lbl = {
   marginBottom: 5,
 }
 
-const pc = (p) => (p == null ? C.textMute : p >= 0 ? C.up : C.down)
+// 收盤分析個股顏色憲法（局部加強對比，2026-06-17）：
+//   - 漲：保持品牌橘 C.up（#EC662D，已最強對比）
+//   - 跌：採深炭灰 #3A352F（取代 C.down 的 #8B8680 — 在 #F5F3EF 背景上對比過低）
+//   - 持平：C.textMute
+// 僅在本檔（DailyReportPanel）覆寫，不動 holdings 單色橘紅憲法。
+const PNL_DOWN_STRONG = '#3A352F'
+const pc = (p) => (p == null ? C.textMute : p >= 0 ? C.up : PNL_DOWN_STRONG)
+
+// 個股漲跌膠囊：把 % 與當日損益用底色膠囊呈現，提升辨識度
+const pillStyle = (p, { size = 12 } = {}) => {
+  const positive = p != null && p >= 0
+  const negative = p != null && p < 0
+  return {
+    fontSize: size,
+    fontWeight: 700,
+    color: positive ? C.up : negative ? PNL_DOWN_STRONG : C.textMute,
+    background: positive ? C.upBg : negative ? 'rgba(58,53,47,0.08)' : 'transparent',
+    padding: '2px 7px',
+    borderRadius: 5,
+    fontVariantNumeric: 'tabular-nums',
+    letterSpacing: '0.01em',
+    display: 'inline-block',
+    minWidth: 56,
+    textAlign: 'right',
+  }
+}
 
 /**
  * Empty state for daily analysis
@@ -274,15 +299,7 @@ export function HoldingsChanges({ changes }) {
           h('span', { style: { fontSize: 11, color: C.textMute } }, c.price?.toLocaleString()),
           h(
             'span',
-            {
-              style: {
-                fontSize: 12,
-                fontWeight: 600,
-                color: pc(c.changePct),
-                minWidth: 55,
-                textAlign: 'right',
-              },
-            },
+            { style: pillStyle(c.changePct, { size: 12 }) },
             `${c.changePct >= 0 ? '+' : ''}${c.changePct.toFixed(2)}%`
           ),
           h(
@@ -290,9 +307,11 @@ export function HoldingsChanges({ changes }) {
             {
               style: {
                 fontSize: 10,
-                color: pc(c.todayPnl),
+                fontWeight: 600,
+                color: c.todayPnl == null ? C.textMute : c.todayPnl >= 0 ? C.up : PNL_DOWN_STRONG,
                 minWidth: 50,
                 textAlign: 'right',
+                fontVariantNumeric: 'tabular-nums',
               },
             },
             `${c.todayPnl >= 0 ? '+' : ''}${c.todayPnl.toLocaleString()}`
@@ -325,9 +344,7 @@ export function AnomaliesSection({ anomalies }) {
         h('span', { style: { fontSize: 12, color: C.text } }, a.name),
         h(
           'span',
-          {
-            style: { fontSize: 12, fontWeight: 600, color: pc(a.changePct) },
-          },
+          { style: pillStyle(a.changePct, { size: 12 }) },
           `${a.changePct >= 0 ? '+' : ''}${a.changePct.toFixed(2)}%`
         )
       )
@@ -370,9 +387,7 @@ export function EventCorrelations({ correlations }) {
             h('span', { style: { fontSize: 10, color: C.textSec } }, s.name),
             h(
               'span',
-              {
-                style: { fontSize: 10, fontWeight: 600, color: pc(s.changePct) },
-              },
+              { style: pillStyle(s.changePct, { size: 10 }) },
               `${s.changePct >= 0 ? '+' : ''}${s.changePct.toFixed(2)}%`
             )
           )
