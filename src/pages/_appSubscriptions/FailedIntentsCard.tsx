@@ -1,16 +1,24 @@
 // 顯示使用者最近 30 天「失敗 / 棄單」的 payment_intents（status = 'abandoned'）。
 // 提供「重試付款」按鈕，導回對應的 checkout 流程。
-// 與 PendingCheckoutCard 區分：那邊處理 status='pending'（還可繼續），這邊處理已被回收標記為 abandoned 的訂單。
-import { useEffect, useState } from 'react';
+//
+// 嚴格規則（避免誤導）：
+//   1. 只取 status === 'abandoned'。query 已加 .eq；前端再次以 `i.status === 'abandoned'`
+//      過濾，防 mock / RLS / quirky cache 把 pending/failed/completed/expired 灌進來。
+//   2. 若同 plan_id（expert）/ checkup_plan_id（checkup）已有 ACTIVE 訂閱（含被重試成功後尚未
+//      被後端標 completed 的 abandoned 殘留），就剔除 — 避免「已成功還顯示失敗」誤導。
+//   3. PendingCheckoutCard 處理 status='pending'（還可繼續），與本卡片完全分工。
+import { useEffect, useState, useMemo } from 'react';
 import { supabase } from '@/integrations/supabase/client';
 import { FeatureCard } from '@/components/ui/feature-card';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { AlertTriangle } from 'lucide-react';
 import { useAuth } from '@/contexts/AuthContext';
+import { useMemberSubscriptions } from '@/hooks/useMemberSubscriptions';
 
 interface FailedIntent {
   id: string;
+  status: string;
   trade_no: string;
   product_kind: string;
   plan_id: string | null;
@@ -26,6 +34,7 @@ export function FailedIntentsCard() {
   const { user } = useAuth();
   const [intents, setIntents] = useState<FailedIntent[]>([]);
   const [loading, setLoading] = useState(true);
+  const { data: activeSubs = [] } = useMemberSubscriptions();
 
   useEffect(() => {
     if (!user?.id) { setLoading(false); return; }
@@ -34,7 +43,7 @@ export function FailedIntentsCard() {
       const since = new Date(Date.now() - 30 * 24 * 60 * 60 * 1000).toISOString();
       const { data } = await supabase
         .from('payment_intents' as any)
-        .select('id, trade_no, product_kind, plan_id, checkup_plan_id, amount, billing_cycle, created_at, expert_plans:plan_id(name, experts(name, slug)), checkup_plans:checkup_plan_id(name)')
+        .select('id, status, trade_no, product_kind, plan_id, checkup_plan_id, amount, billing_cycle, created_at, expert_plans:plan_id(name, experts(name, slug)), checkup_plans:checkup_plan_id(name)')
         .eq('user_id', user.id)
         .eq('status', 'abandoned')
         .gte('created_at', since)
@@ -48,7 +57,23 @@ export function FailedIntentsCard() {
     return () => { cancelled = true; };
   }, [user?.id]);
 
-  if (loading || intents.length === 0) return null;
+  const activePlanIds = useMemo(
+    () => new Set(activeSubs.map((s) => s.plan_id).filter(Boolean)),
+    [activeSubs],
+  );
+
+  // 規則 1: 嚴格再過濾 status（防 mock / RLS quirk）
+  // 規則 2: 已有 active 訂閱同 plan 的 abandoned 一律剔除
+  const visible = useMemo(
+    () => intents.filter((i) => {
+      if (i.status !== 'abandoned') return false;
+      if (i.plan_id && activePlanIds.has(i.plan_id)) return false;
+      return true;
+    }),
+    [intents, activePlanIds],
+  );
+
+  if (loading || visible.length === 0) return null;
 
   const handleRetry = (i: FailedIntent) => {
     const cycle = i.billing_cycle ? `?cycle=${i.billing_cycle}` : '';
@@ -65,10 +90,10 @@ export function FailedIntentsCard() {
       <div className="flex items-center gap-2 font-semibold text-sm mb-3">
         <AlertTriangle className="h-4 w-4 text-destructive" />
         失敗 / 未完成的訂閱
-        <Badge variant="destructive" className="ml-auto text-[10px]">{intents.length}</Badge>
+        <Badge variant="destructive" className="ml-auto text-[10px]">{visible.length}</Badge>
       </div>
       <div className="space-y-3">
-        {intents.map((i) => {
+        {visible.map((i) => {
           const name = i.product_kind === 'expert_plan'
             ? `${i.expert_plans?.experts?.name || ''} — ${i.expert_plans?.name || ''}`
             : `健檢 — ${i.checkup_plans?.name || ''}`;
