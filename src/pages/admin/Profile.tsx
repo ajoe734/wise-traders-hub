@@ -1,11 +1,13 @@
 import { SEO } from '@/components/SEO';
 import { useState, useEffect } from 'react';
 import { useParams } from 'react-router-dom';
+import { useQuery } from '@tanstack/react-query';
 import { AdminLayout } from '@/components/layouts/AdminLayout';
 import { Button } from '@/components/ui/button';
 import { cn } from '@/lib/utils';
 import { Save, AlertTriangle } from 'lucide-react';
 import { useAuth } from '@/contexts/AuthContext';
+import { supabase } from '@/integrations/supabase/client';
 import {
   AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent,
   AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle,
@@ -17,6 +19,7 @@ import BasicInfoCard from '@/pages/_adminProfile/BasicInfoCard';
 import StyleMarketCard from '@/pages/_adminProfile/StyleMarketCard';
 import StrategyKpiCard from '@/pages/_adminProfile/StrategyKpiCard';
 import StartingCapitalCard from '@/pages/_adminProfile/StartingCapitalCard';
+import CurrencyCard from '@/pages/_adminProfile/CurrencyCard';
 import PasswordChangeCard from '@/pages/_adminProfile/PasswordChangeCard';
 
 const AdminProfile = () => {
@@ -36,6 +39,23 @@ const AdminProfile = () => {
     currentUserId: user?.id,
   });
 
+  // 已發布訊號數（>0 → 幣別鎖定）
+  const { data: publishedSignalCount } = useQuery({
+    queryKey: ['admin', 'profile', 'published-signal-count', expert?.id],
+    enabled: !!expert?.id,
+    staleTime: 60_000,
+    queryFn: async () => {
+      const { count, error } = await supabase
+        .from('expert_signals')
+        .select('id', { count: 'exact', head: true })
+        .eq('expert_id', expert!.id);
+      if (error) throw error;
+      return count ?? 0;
+    },
+  });
+  const currencyLocked = (publishedSignalCount ?? 0) > 0;
+
+
   // Form state（元件層持有，hook 只管 query/mutation）
   const [name, setName] = useState('');
   const [bio, setBio] = useState('');
@@ -48,6 +68,7 @@ const AdminProfile = () => {
   const [markets, setMarkets] = useState<string[]>([]);
   const [newTag, setNewTag] = useState('');
   const [newMarket, setNewMarket] = useState('');
+  const [currency, setCurrency] = useState<'TWD' | 'USD'>('TWD');
   const [startingCapital, setStartingCapital] = useState<string>('');
   const [startingCapitalLocked, setStartingCapitalLocked] = useState(false);
   const [showCapitalConfirm, setShowCapitalConfirm] = useState(false);
@@ -65,6 +86,7 @@ const AdminProfile = () => {
     setOperationCycle((expert as any).operation_cycle || '');
     setStyleTags(expert.style_tags || []);
     setMarkets(expert.markets || []);
+    setCurrency(((expert as any).currency === 'USD' ? 'USD' : 'TWD'));
     if (expert.starting_capital != null) {
       setStartingCapital(String(expert.starting_capital));
       setStartingCapitalLocked(true);
@@ -85,6 +107,7 @@ const AdminProfile = () => {
       operation_cycle: operationCycle || null,
       style_tags: styleTags,
       markets,
+      currency,
     });
   };
 
@@ -152,11 +175,19 @@ const AdminProfile = () => {
           setStrategySummary={setStrategySummary}
         />
 
+        <CurrencyCard
+          currency={currency}
+          setCurrency={setCurrency}
+          isReadOnly={isReadOnly}
+          locked={currencyLocked}
+        />
+
         <StartingCapitalCard
           startingCapital={startingCapital}
           startingCapitalLocked={startingCapitalLocked}
           capitalStatus={capitalStatus}
           isReadOnly={isReadOnly}
+          currency={currency}
           setStartingCapital={setStartingCapital}
           onRequestConfirm={(amount) => {
             setPendingCapital(amount);
@@ -172,7 +203,7 @@ const AdminProfile = () => {
                 確認起始資金
               </AlertDialogTitle>
               <AlertDialogDescription>
-                您即將設定起始資金為 <strong>NT$ {pendingCapital.toLocaleString()}</strong>。
+                您即將設定起始資金為 <strong>{currency === 'USD' ? 'US$' : 'NT$'} {pendingCapital.toLocaleString()}</strong>。
                 <br /><br />
                 <span className="text-destructive font-medium">起始資金設定後將無法更改，請確認金額正確。</span>
               </AlertDialogDescription>

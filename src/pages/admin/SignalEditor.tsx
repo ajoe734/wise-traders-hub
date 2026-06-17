@@ -1,5 +1,5 @@
 import { SEO } from '@/components/SEO';
-import { useCallback, useMemo, useRef, useState } from 'react';
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { useNavigate, useParams } from 'react-router-dom';
 import { AdminLayout } from '@/components/layouts/AdminLayout';
 import { Card, CardContent } from '@/components/ui/card';
@@ -46,7 +46,7 @@ const SignalEditor = () => {
 
   // ── Data (expert / templates / open positions / capital) ──────────────
   const {
-    expert, signalTemplates, openPositions, capital, loading, reloadCapital,
+    expert, signalTemplates, openPositions, capital, currency, loading, reloadCapital,
   } = useSignalEditorData({
     expertSlug,
     editBatchId,
@@ -62,6 +62,22 @@ const SignalEditor = () => {
       navigate(`/admin/${expertSlug}/signals`, { replace: true });
     },
   });
+
+  // 當 expert 的 currency 載入後，若 trades 仍處於「全空初始狀態」，
+  // 重新生成預設 trade，確保 USD 預設單位為「股」而非「張」。
+  useEffect(() => {
+    if (!expert) return;
+    setTrades((prev) => {
+      if (prev.length !== 1) return prev;
+      const t = prev[0];
+      const isEmpty = !t.stockCode && !t.quantity && !t.priceHint && !t.reasonSummary && !t.action;
+      if (!isEmpty) return prev;
+      const fresh = emptyTrade(currency);
+      // 若已是相同 unit 就不要 setState 觸發 re-render
+      if (fresh.quantityUnit === t.quantityUnit) return prev;
+      return [{ ...fresh, uid: t.uid }];
+    });
+  }, [expert, currency]);
 
   const isMentor = expert?.role === 'mentor';
   const publishWindow = isPublishingWindowOpen();
@@ -82,7 +98,7 @@ const SignalEditor = () => {
       if (typeof saved.overallSummary === 'string') setOverallSummary(saved.overallSummary);
       if (typeof saved.learningPoints === 'string') setLearningPoints(saved.learningPoints);
       if (Array.isArray(saved.trades) && saved.trades.length > 0) {
-        setTrades(saved.trades.map((t: any) => ({ ...emptyTrade(), ...t, uid: t.uid || newUid() })));
+        setTrades(saved.trades.map((t: any) => ({ ...emptyTrade(currency), ...t, uid: t.uid || newUid() })));
       }
     },
     { enabled: !isEditing },
@@ -97,7 +113,7 @@ const SignalEditor = () => {
   // ── Trade-row mutators ───────────────────────────────────────────────
   const updateTrade = useCallback((idx: number, patch: Partial<TradeDraft>) =>
     setTrades((prev) => prev.map((t, i) => (i === idx ? { ...t, ...patch } : t))), []);
-  const addTrade = useCallback(() => setTrades((prev) => [...prev, emptyTrade()]), []);
+  const addTrade = useCallback(() => setTrades((prev) => [...prev, emptyTrade(currency)]), [currency]);
   const removeTrade = useCallback(
     (idx: number) => setTrades((prev) => (prev.length === 1 ? prev : prev.filter((_, i) => i !== idx))),
     [],
@@ -269,6 +285,7 @@ const SignalEditor = () => {
             setShowHistory={setShowHistory}
             addTrade={addTrade}
             updateTrade={updateTrade}
+            currency={currency}
           />
         )}
 
@@ -305,6 +322,7 @@ const SignalEditor = () => {
             capital={capital}
             cashSim={cashSim}
             expertId={expert?.id}
+            currency={currency}
             updateTrade={updateTrade}
             removeTrade={removeTrade}
             moveTrade={moveTrade}
