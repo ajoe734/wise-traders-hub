@@ -11,7 +11,32 @@ const lbl = {
   marginBottom: 5,
 }
 
-const pc = (p) => (p == null ? C.textMute : p >= 0 ? C.up : C.down)
+// 收盤分析個股顏色憲法（局部加強對比，2026-06-17）：
+//   - 漲：保持品牌橘 C.up（#EC662D，已最強對比）
+//   - 跌：採深炭灰 #3A352F（取代 C.down 的 #8B8680 — 在 #F5F3EF 背景上對比過低）
+//   - 持平：C.textMute
+// 僅在本檔（DailyReportPanel）覆寫，不動 holdings 單色橘紅憲法。
+const PNL_DOWN_STRONG = '#3A352F'
+const pc = (p) => (p == null ? C.textMute : p >= 0 ? C.up : PNL_DOWN_STRONG)
+
+// 個股漲跌膠囊：把 % 與當日損益用底色膠囊呈現，提升辨識度
+const pillStyle = (p, { size = 12 } = {}) => {
+  const positive = p != null && p >= 0
+  const negative = p != null && p < 0
+  return {
+    fontSize: size,
+    fontWeight: 700,
+    color: positive ? C.up : negative ? PNL_DOWN_STRONG : C.textMute,
+    background: positive ? C.upBg : negative ? 'rgba(58,53,47,0.08)' : 'transparent',
+    padding: '2px 7px',
+    borderRadius: 5,
+    fontVariantNumeric: 'tabular-nums',
+    letterSpacing: '0.01em',
+    display: 'inline-block',
+    minWidth: 56,
+    textAlign: 'right',
+  }
+}
 
 /**
  * Empty state for daily analysis
