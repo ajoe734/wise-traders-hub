@@ -87,6 +87,7 @@ const AdminProfile = () => {
       operation_cycle: operationCycle || null,
       style_tags: styleTags,
       markets,
+      currency,
     });
   };
 
