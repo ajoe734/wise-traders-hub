@@ -66,6 +66,9 @@ export default function SubscribedExpertsList() {
           </FeatureCard>
         ))}
 
+        {/* 失敗 / 棄單訂閱 — 與 active 列分開呈現，避免被誤判為 ACTIVE */}
+        <FailedIntentsCard />
+
         {/* Upsell CTA */}
         {hasAnySubscription && (
           <FeatureCard className="p-5 text-center">
