@@ -4,6 +4,7 @@ import { Label } from '@/components/ui/label';
 import { Button } from '@/components/ui/button';
 import { cn } from '@/lib/utils';
 import { PermissionTooltip } from '@/components/admin/PermissionTooltip';
+import { formatMoneyByCurrency, type Currency } from '@/lib/currency';
 import type { CapitalStatus } from '@/hooks/admin/useAdminProfile';
 
 interface Props {
@@ -13,12 +14,15 @@ interface Props {
   isReadOnly: boolean;
   setStartingCapital: (v: string) => void;
   onRequestConfirm: (amount: number) => void;
+  currency?: Currency;
 }
 
 export default function StartingCapitalCard({
   startingCapital, startingCapitalLocked, capitalStatus, isReadOnly,
-  setStartingCapital, onRequestConfirm,
+  setStartingCapital, onRequestConfirm, currency = 'TWD',
 }: Props) {
+  const symbol = currency === 'USD' ? 'US$' : 'NT$';
+  const fmt = (n: number) => formatMoneyByCurrency(n, currency);
   return (
     <Card>
       <CardHeader>
@@ -26,12 +30,12 @@ export default function StartingCapitalCard({
       </CardHeader>
       <CardContent className="space-y-3">
         <div className="space-y-2 max-w-sm">
-          <Label>起始資金（NT$）</Label>
+          <Label>起始資金（{symbol}）</Label>
           <Input
             type="number"
             value={startingCapital}
             onChange={e => setStartingCapital(e.target.value)}
-            placeholder="例：1000000"
+            placeholder={currency === 'USD' ? '例：50000' : '例：1000000'}
             disabled={startingCapitalLocked || isReadOnly}
             className={cn(isReadOnly && !startingCapitalLocked && 'bg-muted/50 cursor-not-allowed')}
           />
@@ -43,19 +47,19 @@ export default function StartingCapitalCard({
               <div className="rounded-md border bg-muted/30 p-2">
                 <div className="text-[10px] text-muted-foreground">目前可用現金</div>
                 <div className={cn('text-sm font-semibold tabular-nums', capitalStatus.available_cash < 0 ? 'text-destructive' : '')}>
-                  ${(capitalStatus.available_cash || 0).toLocaleString()}
+                  {fmt(capitalStatus.available_cash || 0)}
                 </div>
               </div>
               <div className="rounded-md border bg-muted/30 p-2">
                 <div className="text-[10px] text-muted-foreground">未平倉成本</div>
-                <div className="text-sm font-semibold tabular-nums">${(capitalStatus.open_cost_value || 0).toLocaleString()}</div>
+                <div className="text-sm font-semibold tabular-nums">{fmt(capitalStatus.open_cost_value || 0)}</div>
               </div>
               <div className="rounded-md border bg-muted/30 p-2">
                 <div className="text-[10px] text-muted-foreground">已實現損益</div>
                 <div className={cn('text-sm font-semibold tabular-nums',
                   capitalStatus.realized_pnl_amount > 0 ? 'text-red-600 dark:text-red-400' :
                   capitalStatus.realized_pnl_amount < 0 ? 'text-green-600 dark:text-green-400' : '')}>
-                  {capitalStatus.realized_pnl_amount > 0 ? '+' : ''}${(capitalStatus.realized_pnl_amount || 0).toLocaleString()}
+                  {capitalStatus.realized_pnl_amount > 0 ? '+' : ''}{fmt(capitalStatus.realized_pnl_amount || 0)}
                 </div>
               </div>
             </div>
