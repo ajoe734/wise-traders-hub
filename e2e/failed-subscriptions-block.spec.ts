@@ -15,6 +15,7 @@ const USER = { id: 'test-user-uuid', email: 'tester@example.com' };
 
 const ABANDONED_EXPERT_INTENT = {
   id: 'intent-1',
+  status: 'abandoned',
   trade_no: 'TRADE-1',
   product_kind: 'expert_plan',
   plan_id: 'plan-alpha',
@@ -29,6 +30,7 @@ const ABANDONED_EXPERT_INTENT = {
 
 const ABANDONED_CHECKUP_INTENT = {
   id: 'intent-2',
+  status: 'abandoned',
   trade_no: 'TRADE-2',
   product_kind: 'checkup',
   plan_id: null,
