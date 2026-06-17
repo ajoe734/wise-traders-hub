@@ -55,12 +55,13 @@ export function FailedIntentsCard() {
     if (i.product_kind === 'expert_plan' && i.expert_plans?.experts?.slug && i.plan_id) {
       window.location.href = `/checkout/${i.expert_plans.experts.slug}/${i.plan_id}${cycle}`;
     } else if (i.product_kind === 'checkup' && i.checkup_plan_id) {
-      window.location.href = `/checkup/checkout?plan=${i.checkup_plan_id}${cycle ? '&' + cycle.slice(1) : ''}`;
+      window.location.href = `/checkout/checkup/${i.checkup_plan_id}${cycle}`;
     }
   };
 
   return (
-    <FeatureCard className="p-4 border-destructive/40 bg-destructive/5" data-testid="failed-subscriptions-section">
+    <div data-testid="failed-subscriptions-section">
+    <FeatureCard className="p-4 border-destructive/40 bg-destructive/5">
       <div className="flex items-center gap-2 font-semibold text-sm mb-3">
         <AlertTriangle className="h-4 w-4 text-destructive" />
         失敗 / 未完成的訂閱
@@ -90,5 +91,6 @@ export function FailedIntentsCard() {
         })}
       </div>
     </FeatureCard>
+    </div>
   );
 }

@@ -87,6 +87,7 @@ const AppAccount = lazy(() => import("./pages/app/Account"));
 const AppExplore = lazy(() => import("./pages/app/Explore"));
 const AppExpertDetail = lazy(() => import("./pages/app/ExpertDetail"));
 const AppCheckout = lazy(() => import("./pages/app/AppCheckout"));
+const AppSubscriptions = lazy(() => import("./pages/app/SubscribedExpertsList"));
 
 // Admin pages
 const AdminDashboard = lazy(() => import("./pages/admin/Dashboard"));
@@ -242,6 +243,7 @@ const AppShell = () => (
             <Route path="/app/explore" element={<ProtectedRoute subscriberOnly><AppExplore /></ProtectedRoute>} />
             <Route path="/app/expert/:slug" element={<ProtectedRoute subscriberOnly><AppExpertDetail /></ProtectedRoute>} />
             <Route path="/app/checkout/:slug/:planId" element={<ProtectedRoute subscriberOnly><AppCheckout /></ProtectedRoute>} />
+            <Route path="/app/subscriptions" element={<ProtectedRoute subscriberOnly><AppSubscriptions /></ProtectedRoute>} />
             <Route path="/app/system/:id" element={<Navigate to="/app" replace />} />
 
             {/* Company */}

@@ -100,6 +100,18 @@ export default defineConfig({
       testMatch: /checkout-timeout\.spec\.ts/,
       use: { ...devices['Desktop Chrome'], viewport: { width: 1280, height: 900 } },
     },
+    {
+      // Checkout 逾時後重試付款 → 成功 → ACTIVE
+      name: 'desktop-checkout-timeout-retry',
+      testMatch: /checkout-timeout-retry-success\.spec\.ts/,
+      use: { ...devices['Desktop Chrome'], viewport: { width: 1280, height: 900 } },
+    },
+    {
+      // /app/subscriptions「失敗 / 未完成」區塊
+      name: 'desktop-failed-subs-block',
+      testMatch: /failed-subscriptions-block\.spec\.ts/,
+      use: { ...devices['Desktop Chrome'], viewport: { width: 1280, height: 900 } },
+    },
   ],
   webServer: {
     command: 'bun run dev',
