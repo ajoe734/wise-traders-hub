@@ -98,7 +98,7 @@ const SignalEditor = () => {
       if (typeof saved.overallSummary === 'string') setOverallSummary(saved.overallSummary);
       if (typeof saved.learningPoints === 'string') setLearningPoints(saved.learningPoints);
       if (Array.isArray(saved.trades) && saved.trades.length > 0) {
-        setTrades(saved.trades.map((t: any) => ({ ...emptyTrade(), ...t, uid: t.uid || newUid() })));
+        setTrades(saved.trades.map((t: any) => ({ ...emptyTrade(currency), ...t, uid: t.uid || newUid() })));
       }
     },
     { enabled: !isEditing },
