@@ -113,7 +113,7 @@ const SignalEditor = () => {
   // ── Trade-row mutators ───────────────────────────────────────────────
   const updateTrade = useCallback((idx: number, patch: Partial<TradeDraft>) =>
     setTrades((prev) => prev.map((t, i) => (i === idx ? { ...t, ...patch } : t))), []);
-  const addTrade = useCallback(() => setTrades((prev) => [...prev, emptyTrade()]), []);
+  const addTrade = useCallback(() => setTrades((prev) => [...prev, emptyTrade(currency)]), [currency]);
   const removeTrade = useCallback(
     (idx: number) => setTrades((prev) => (prev.length === 1 ? prev : prev.filter((_, i) => i !== idx))),
     [],
