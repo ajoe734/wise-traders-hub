@@ -55,8 +55,8 @@ test.describe('FailedIntentsCard status 過濾', () => {
 
     // 只有 1 筆「重試付款」按鈕（abandoned 那筆）
     await expect(block.getByTestId('failed-intent-retry')).toHaveCount(1);
-    // 標題數量徽章 = 1
-    await expect(block.locator('text=失敗 / 未完成的訂閱').locator('..').getByText('1')).toBeVisible();
+    // 標題數量徽章 = 1（destructive variant 在標題列）
+    await expect(block.locator('.bg-destructive').filter({ hasText: '1' })).toBeVisible();
     // 只有 plan-5 的方案名稱出現；其他四個不出現
     await expect(block.getByText(/訊號方案 5/)).toBeVisible();
     for (const n of ['訊號方案 1', '訊號方案 2', '訊號方案 3', '訊號方案 4']) {
