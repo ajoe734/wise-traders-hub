@@ -103,7 +103,7 @@ export function CheckoutResultDialog({
                 : (!isAdvisor && 'bg-mentor hover:bg-mentor/90'),
             )}
           >
-            {resultDialog?.success ? '前往帳號頁' : showRetry ? '關閉' : '重試'}
+            {resultDialog?.success ? '前往帳號頁' : showRetry ? '關閉' : '重試付款'}
           </AlertDialogAction>
         </AlertDialogFooter>
       </AlertDialogContent>
