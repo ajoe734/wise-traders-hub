@@ -55,7 +55,7 @@ export function FailedIntentsCard() {
     if (i.product_kind === 'expert_plan' && i.expert_plans?.experts?.slug && i.plan_id) {
       window.location.href = `/checkout/${i.expert_plans.experts.slug}/${i.plan_id}${cycle}`;
     } else if (i.product_kind === 'checkup' && i.checkup_plan_id) {
-      window.location.href = `/checkup/checkout?plan=${i.checkup_plan_id}${cycle ? '&' + cycle.slice(1) : ''}`;
+      window.location.href = `/checkout/checkup/${i.checkup_plan_id}${cycle}`;
     }
   };
 
