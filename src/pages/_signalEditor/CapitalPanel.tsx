@@ -4,7 +4,7 @@ import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigge
 import { Wallet, History, ChevronDown } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import type { TradeAction } from '@/lib/simulatePositions';
-import { fmtMoney } from './types';
+import { formatMoneyByCurrency, normalizeCurrency, type Currency } from '@/lib/currency';
 import type { CapitalStatus, TradeDraft } from './types';
 
 interface Props {
@@ -16,38 +16,50 @@ interface Props {
   setShowHistory: (v: boolean | ((v: boolean) => boolean)) => void;
   addTrade: () => void;
   updateTrade: (idx: number, patch: Partial<TradeDraft>) => void;
+  /** 從 expert.currency 帶下來；預設 TWD */
+  currency?: Currency;
 }
 
 export function CapitalPanel({
   capital, cashSim, simulatedPositions, trades,
   showHistory, setShowHistory, addTrade, updateTrade,
+  currency: currencyProp,
 }: Props) {
+  const currency: Currency = normalizeCurrency(currencyProp ?? capital.currency);
+  const fmt = (n: number) => formatMoneyByCurrency(n, currency);
+  const sharesLabel = currency === 'USD' ? 'Shares' : '股數';
+
   return (
     <Card>
       <CardContent className="p-4 space-y-4">
-        <div className="flex items-center gap-2 text-sm font-medium">
-          <Wallet className="h-4 w-4 text-muted-foreground" />
-          資金狀況
+        <div className="flex items-center justify-between">
+          <div className="flex items-center gap-2 text-sm font-medium">
+            <Wallet className="h-4 w-4 text-muted-foreground" />
+            資金狀況
+          </div>
+          <span className="text-xs text-muted-foreground">
+            幣別：{currency === 'USD' ? '美元 (USD)' : '新台幣 (TWD)'}
+          </span>
         </div>
         <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
           <div>
             <div className="text-xs text-muted-foreground">起始資金</div>
-            <div className="text-base font-medium">{fmtMoney(capital.starting_capital)}</div>
+            <div className="text-base font-medium">{fmt(capital.starting_capital)}</div>
           </div>
           <div>
             <div className="text-xs text-muted-foreground">已實現損益</div>
             <div className={cn('text-base font-medium', capital.realized_pnl_amount >= 0 ? 'text-success' : 'text-destructive')}>
-              {capital.realized_pnl_amount >= 0 ? '+' : ''}{fmtMoney(capital.realized_pnl_amount)}
+              {capital.realized_pnl_amount >= 0 ? '+' : ''}{fmt(capital.realized_pnl_amount)}
             </div>
           </div>
           <div>
             <div className="text-xs text-muted-foreground">未平倉成本</div>
-            <div className="text-base font-medium">{fmtMoney(capital.open_cost_value)}</div>
+            <div className="text-base font-medium">{fmt(capital.open_cost_value)}</div>
           </div>
           <div>
             <div className="text-xs text-muted-foreground">可用現金</div>
             <div className={cn('text-lg font-bold', capital.available_cash < 0 ? 'text-destructive' : 'text-foreground')}>
-              {fmtMoney(capital.available_cash)}
+              {fmt(capital.available_cash)}
             </div>
           </div>
         </div>
@@ -55,7 +67,7 @@ export function CapitalPanel({
           'rounded-md border px-3 py-2 text-sm',
           cashSim.remaining < 0 ? 'border-destructive/40 bg-destructive/10 text-destructive' : 'border-muted bg-muted/30 text-muted-foreground',
         )}>
-          送出後預估可用現金：<span className="font-medium">{fmtMoney(cashSim.remaining)}</span>
+          送出後預估可用現金：<span className="font-medium">{fmt(cashSim.remaining)}</span>
           {cashSim.remaining < 0 && <span className="ml-2">⚠ 已超過上限，將被擋下</span>}
         </div>
 
@@ -67,7 +79,7 @@ export function CapitalPanel({
                 <thead>
                   <tr className="border-b text-muted-foreground">
                     <th className="text-left py-1.5 font-normal">股票</th>
-                    <th className="text-right font-normal">股數</th>
+                    <th className="text-right font-normal">{sharesLabel}</th>
                     <th className="text-right font-normal">送出後</th>
                     <th className="text-right font-normal">均價</th>
                     <th className="text-right font-normal">現價</th>
@@ -100,9 +112,9 @@ export function CapitalPanel({
                         </td>
                         <td className="text-right">{Number(p.entry_price || 0).toFixed(2)}</td>
                         <td className="text-right">{p.current_price != null ? Number(p.current_price).toFixed(2) : '—'}</td>
-                        <td className="text-right">{fmtMoney(p.market_value)}</td>
+                        <td className="text-right">{fmt(p.market_value)}</td>
                         <td className={cn('text-right', p.unrealized_pnl >= 0 ? 'text-success' : 'text-destructive')}>
-                          {p.unrealized_pnl >= 0 ? '+' : ''}{fmtMoney(p.unrealized_pnl)}
+                          {p.unrealized_pnl >= 0 ? '+' : ''}{fmt(p.unrealized_pnl)}
                           <span className="ml-1 opacity-70">({p.unrealized_pct >= 0 ? '+' : ''}{p.unrealized_pct.toFixed(2)}%)</span>
                         </td>
                         <td className="text-right">
@@ -167,7 +179,7 @@ export function CapitalPanel({
                     <th className="text-left py-1.5 font-normal">日期</th>
                     <th className="text-left font-normal">股票</th>
                     <th className="text-left font-normal">狀態</th>
-                    <th className="text-right font-normal">股數</th>
+                    <th className="text-right font-normal">{sharesLabel}</th>
                     <th className="text-right font-normal">進價</th>
                     <th className="text-right font-normal">出價</th>
                     <th className="text-right font-normal">損益%</th>

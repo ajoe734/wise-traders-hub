@@ -9,6 +9,10 @@ import { LazyRichTextEditor as RichTextEditor } from '@/components/admin/LazyRic
 import { htmlToPlainText } from '@/lib/sanitizeHtml';
 import type { TradeAction } from '@/lib/simulatePositions';
 import type { TradeDraft, CapitalStatus, AIAssistFn } from './types';
+import {
+  normalizeCurrency, symbolPlaceholder, allowedQuantityUnits,
+  type Currency,
+} from '@/lib/currency';
 
 interface Props {
   idx: number;
@@ -18,6 +22,8 @@ interface Props {
   capital: CapitalStatus | null;
   cashSim: { remaining: number; perTrade: number[] };
   expertId?: string;
+  /** 從 expert.currency 帶下來；預設 TWD */
+  currency?: Currency;
   updateTrade: (idx: number, patch: Partial<TradeDraft>) => void;
   removeTrade: (idx: number) => void;
   moveTrade: (idx: number, dir: -1 | 1) => void;
@@ -27,8 +33,12 @@ interface Props {
 
 export function TradeCard({
   idx, trade: t, totalTrades, signalTemplates, capital, cashSim,
-  expertId, updateTrade, removeTrade, moveTrade, fetchStockInfo, callAIAssist,
+  expertId, currency: currencyProp,
+  updateTrade, removeTrade, moveTrade, fetchStockInfo, callAIAssist,
 }: Props) {
+  const currency: Currency = normalizeCurrency(currencyProp);
+  const units = allowedQuantityUnits(currency);
+  const isUsd = currency === 'USD';
   return (
     <Card>
       <CardContent className="p-4 space-y-4">
