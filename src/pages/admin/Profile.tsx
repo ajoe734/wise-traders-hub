@@ -175,11 +175,19 @@ const AdminProfile = () => {
           setStrategySummary={setStrategySummary}
         />
 
+        <CurrencyCard
+          currency={currency}
+          setCurrency={setCurrency}
+          isReadOnly={isReadOnly}
+          locked={currencyLocked}
+        />
+
         <StartingCapitalCard
           startingCapital={startingCapital}
           startingCapitalLocked={startingCapitalLocked}
           capitalStatus={capitalStatus}
           isReadOnly={isReadOnly}
+          currency={currency}
           setStartingCapital={setStartingCapital}
           onRequestConfirm={(amount) => {
             setPendingCapital(amount);
@@ -195,7 +203,7 @@ const AdminProfile = () => {
                 確認起始資金
               </AlertDialogTitle>
               <AlertDialogDescription>
-                您即將設定起始資金為 <strong>NT$ {pendingCapital.toLocaleString()}</strong>。
+                您即將設定起始資金為 <strong>{currency === 'USD' ? 'US$' : 'NT$'} {pendingCapital.toLocaleString()}</strong>。
                 <br /><br />
                 <span className="text-destructive font-medium">起始資金設定後將無法更改，請確認金額正確。</span>
               </AlertDialogDescription>
