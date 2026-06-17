@@ -117,9 +117,8 @@ test.describe('/app/subscriptions — 失敗 / 未完成訂閱區塊', () => {
 
     // 第二個 = checkup
     await block.getByTestId('failed-intent-retry').nth(1).click();
-    await page.waitForURL((url) => url.pathname === '/checkup/checkout', { timeout: 5_000 });
+    await page.waitForURL((url) => url.pathname === '/checkout/checkup/ckp-pro', { timeout: 5_000 });
     const sp = new URL(page.url()).searchParams;
-    expect(sp.get('plan')).toBe('ckp-pro');
     expect(sp.get('cycle')).toBe('yearly');
   });
 });
