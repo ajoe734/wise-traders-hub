@@ -90,9 +90,10 @@ export function CheckoutResultDialog({
           {showRetry && (
             <AlertDialogAction
               onClick={onRetry}
+              data-testid="checkout-retry-button"
               className={cn(!isAdvisor && "bg-mentor hover:bg-mentor/90")}
             >
-              重試
+              重試付款
             </AlertDialogAction>
           )}
           <AlertDialogAction
