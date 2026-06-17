@@ -87,6 +87,7 @@ const AppAccount = lazy(() => import("./pages/app/Account"));
 const AppExplore = lazy(() => import("./pages/app/Explore"));
 const AppExpertDetail = lazy(() => import("./pages/app/ExpertDetail"));
 const AppCheckout = lazy(() => import("./pages/app/AppCheckout"));
+const AppSubscriptions = lazy(() => import("./pages/app/SubscribedExpertsList"));
 
 // Admin pages
 const AdminDashboard = lazy(() => import("./pages/admin/Dashboard"));
