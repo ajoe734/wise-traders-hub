@@ -13,6 +13,7 @@ export interface ExpertProfilePayload {
   operation_cycle: string | null;
   style_tags: string[];
   markets: string[];
+  currency?: 'TWD' | 'USD';
 }
 
 export interface CapitalStatus {
