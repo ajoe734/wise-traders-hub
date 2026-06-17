@@ -9,6 +9,7 @@ import {
   Users,
 } from 'lucide-react';
 import { useMySubscriptions } from '@/hooks/useSubscriptions';
+import { FailedIntentsCard } from '@/pages/_appSubscriptions/FailedIntentsCard';
 
 export default function SubscribedExpertsList() {
   const { data: subscriptions = [] } = useMySubscriptions();
@@ -64,6 +65,9 @@ export default function SubscribedExpertsList() {
             </div>
           </FeatureCard>
         ))}
+
+        {/* 失敗 / 棄單訂閱 — 與 active 列分開呈現，避免被誤判為 ACTIVE */}
+        <FailedIntentsCard />
 
         {/* Upsell CTA */}
         {hasAnySubscription && (

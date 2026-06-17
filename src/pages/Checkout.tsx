@@ -469,6 +469,16 @@ const Checkout = () => {
         }}
         onRetry={() => {
           setResultDialog(null);
+          // 若是支付服務回跳後失敗（含逾時 / 取消 / confirm 失敗），清掉 URL query 並回到乾淨的結帳頁，
+          // 讓使用者重新選擇付款方式並送出；避免直接呼叫 proceedCheckout 時缺少 selectedProvider / 表單狀態。
+          const hasReturnParams =
+            searchParams.get('ecpay') ||
+            searchParams.get('linepay') ||
+            searchParams.get('acpay');
+          if (hasReturnParams) {
+            navigate(`/checkout/${slug}/${planId}`, { replace: true });
+            return;
+          }
           proceedCheckout();
         }}
       />

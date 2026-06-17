@@ -94,6 +94,12 @@ export default defineConfig({
       testMatch: /checkout-failure-no-redirect\.spec\.ts/,
       use: { ...devices['Desktop Chrome'], viewport: { width: 1280, height: 900 } },
     },
+    {
+      // Checkout 付款逾時 → 不導回 /app、顯示「付款逾時」並提供「重試付款」
+      name: 'desktop-checkout-timeout',
+      testMatch: /checkout-timeout\.spec\.ts/,
+      use: { ...devices['Desktop Chrome'], viewport: { width: 1280, height: 900 } },
+    },
   ],
   webServer: {
     command: 'bun run dev',
