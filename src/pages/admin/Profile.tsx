@@ -1,11 +1,13 @@
 import { SEO } from '@/components/SEO';
 import { useState, useEffect } from 'react';
 import { useParams } from 'react-router-dom';
+import { useQuery } from '@tanstack/react-query';
 import { AdminLayout } from '@/components/layouts/AdminLayout';
 import { Button } from '@/components/ui/button';
 import { cn } from '@/lib/utils';
 import { Save, AlertTriangle } from 'lucide-react';
 import { useAuth } from '@/contexts/AuthContext';
+import { supabase } from '@/integrations/supabase/client';
 import {
   AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent,
   AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle,
@@ -17,6 +19,7 @@ import BasicInfoCard from '@/pages/_adminProfile/BasicInfoCard';
 import StyleMarketCard from '@/pages/_adminProfile/StyleMarketCard';
 import StrategyKpiCard from '@/pages/_adminProfile/StrategyKpiCard';
 import StartingCapitalCard from '@/pages/_adminProfile/StartingCapitalCard';
+import CurrencyCard from '@/pages/_adminProfile/CurrencyCard';
 import PasswordChangeCard from '@/pages/_adminProfile/PasswordChangeCard';
 
 const AdminProfile = () => {
