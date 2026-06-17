@@ -40,7 +40,11 @@ export function useSignalEditorData(args: UseSignalEditorDataArgs) {
   const bundle = useExpertHoldingsBundle(expert?.id, {
     expertOwnerUserId: expert?.user_id ?? null,
   });
-  const capital = (bundle.capital as unknown as CapitalStatus) ?? null;
+  const currency = (expert?.currency === 'USD' ? 'USD' : 'TWD') as 'TWD' | 'USD';
+  // 把 currency 注入 capital，下游 CapitalPanel 即可直接取
+  const capital = bundle.capital
+    ? ({ ...(bundle.capital as any), currency } as unknown as CapitalStatus)
+    : null;
   const openPositions: OpenPos[] = (bundle.rawOpenPositions || []).map((p) => ({
     instrument: p.instrument,
     symbol: p.symbol || String(p.instrument || '').split(' ')[0],
@@ -130,6 +134,7 @@ export function useSignalEditorData(args: UseSignalEditorDataArgs) {
     signalTemplates,
     openPositions,
     capital,
+    currency,
     loading: loading || bundle.loading,
     setCapital: (_v: any) => { /* deprecated — bundle 為單一來源 */ },
     reloadCapital,

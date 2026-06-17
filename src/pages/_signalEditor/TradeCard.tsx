@@ -71,11 +71,12 @@ export function TradeCard({
             <Input
               value={t.stockCode}
               onChange={(e) => {
-                const v = e.target.value;
+                const raw = e.target.value;
+                const v = isUsd ? raw.toUpperCase() : raw;
                 updateTrade(idx, { stockCode: v });
-                if (v.trim().length >= 4) fetchStockInfo(idx, v);
+                if (v.trim().length >= (isUsd ? 1 : 4)) fetchStockInfo(idx, v);
               }}
-              placeholder="例：2330"
+              placeholder={symbolPlaceholder(currency)}
             />
           </div>
           <div className="space-y-1.5">
@@ -124,11 +125,14 @@ export function TradeCard({
                 onChange={(e) => updateTrade(idx, { quantity: e.target.value })}
                 className="flex-1"
               />
-              <Select value={t.quantityUnit} onValueChange={(v) => updateTrade(idx, { quantityUnit: v as '張' | '股' })}>
+              <Select
+                value={units.includes(t.quantityUnit) ? t.quantityUnit : units[0]}
+                onValueChange={(v) => updateTrade(idx, { quantityUnit: v as '張' | '股' })}
+                disabled={units.length === 1}
+              >
                 <SelectTrigger className="w-20"><SelectValue /></SelectTrigger>
                 <SelectContent>
-                  <SelectItem value="張">張</SelectItem>
-                  <SelectItem value="股">股</SelectItem>
+                  {units.map((u) => <SelectItem key={u} value={u}>{u}</SelectItem>)}
                 </SelectContent>
               </Select>
             </div>
