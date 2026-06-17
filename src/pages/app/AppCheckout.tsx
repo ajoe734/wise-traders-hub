@@ -26,6 +26,7 @@ import {
 } from "@/components/ui/alert-dialog";
 import { avatarUrl } from "@/lib/imageTransform";
 import { gtmPush } from "@/lib/analytics/gtm";
+import { toast } from "sonner";
 
 const AppCheckout = () => {
   const { slug, planId } = useParams<{ slug: string; planId: string }>();
