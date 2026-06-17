@@ -387,9 +387,7 @@ export function EventCorrelations({ correlations }) {
             h('span', { style: { fontSize: 10, color: C.textSec } }, s.name),
             h(
               'span',
-              {
-                style: { fontSize: 10, fontWeight: 600, color: pc(s.changePct) },
-              },
+              { style: pillStyle(s.changePct, { size: 10 }) },
               `${s.changePct >= 0 ? '+' : ''}${s.changePct.toFixed(2)}%`
             )
           )
