@@ -88,6 +88,12 @@ export default defineConfig({
       testMatch: /checkout-success-redirect\.spec\.ts/,
       use: { ...devices['Desktop Chrome'], viewport: { width: 1280, height: 900 } },
     },
+    {
+      // Checkout 失敗 / 未完成 → 不導回 /app 且顯示錯誤
+      name: 'desktop-checkout-failure',
+      testMatch: /checkout-failure-no-redirect\.spec\.ts/,
+      use: { ...devices['Desktop Chrome'], viewport: { width: 1280, height: 900 } },
+    },
   ],
   webServer: {
     command: 'bun run dev',
