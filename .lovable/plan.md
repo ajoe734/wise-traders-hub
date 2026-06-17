@@ -1,62 +1,85 @@
-## 目標
-讓分析師在**單一篇週記**裡同時寫「加碼 + 減碼」、「一買一賣」也能順利送出，不再被迫拆兩篇或人工挪動順序。敘事顯示順序維持分析師輸入的原樣，僅在**驗證／資料庫寫入**時改用「執行語意順序」。
+# 週記後台多幣別支援（USD / TWD）
 
-## 設計原則
-- 顯示順序（reader 看週記） = 分析師輸入順序（不動）。
-- 執行順序（trigger 觸發、現金/持倉檢查） = **釋放資金優先**：`exit → trim → sell → add → buy`。
-- 同檔股票若有多筆，依然在各組內保持輸入相對順序。
-- Trigger 不動（風險最低）；改由前端在送資料前把陣列按執行順序排好，逐筆 INSERT 順序＝執行順序，trigger 取到的 `available_cash` 就會正確反映前面已釋放的現金。
+讓部分老師可以操作美股；每位老師綁定一個幣別，資金、PnL、報價都用自己幣別獨立計價（**不做匯率折算**）。前後台同步換貨幣符號與單位。
 
-## 變更項目
+## 一、資料層
 
-### 1. `src/pages/_signalEditor/derive.ts`
-新增 helper：
+### Schema 變更（新 migration）
+- `experts` 新增 `currency text not null default 'TWD' check (currency in ('TWD','USD'))`
+- `current_prices` 新增 `currency text not null default 'TWD'`（同一代碼不會跨幣別衝突，但讓 UI 知道顯示符號）
+- `stock_names` 新增 `currency text default 'TWD'`、`market text`（用來區分美股市場：NASDAQ/NYSE）
+- `expert_signals` / `trade_records` 不新增欄位 — 幣別永遠從關聯的 expert 帶出（單一來源、避免不一致）
+
+### 衍生規則
+- 老師一旦發過任何 signal 後，**禁止改 currency**（trigger 擋）。新老師發第一張前可改。
+- 美股代碼格式：英文字母 1–5 碼（AAPL/TSLA/BRK.B）；台股維持 4–6 位數字。validator 依 expert.currency 切換。
+
+## 二、報價（美股自動抓）
+
+新 Edge Function `us-stock-quote`：
+- 來源：**Finnhub**（免費 60 req/min、台灣可直連、回應穩定）；備援 Yahoo Finance unofficial。
+- 需要 secret `FINNHUB_API_KEY`（會請使用者提供）。
+- 輸入：`symbols: string[]`；輸出：`{ symbol, price, change, change_pct, currency: 'USD', fetched_at }`
+- 寫回 `current_prices`（currency='USD'）供 holdings/績效讀。
+
+新增 client helper `src/lib/usStockPriceFetcher.ts`，被 SignalEditor 的 `fetchStockInfo`、`useExpertHoldingsBundle`、收盤分析共用。
+
+`stock-name-lookup` 擴充：偵測英文代碼時走美股名稱（Finnhub `/stock/profile2`）。
+
+## 三、後台 SignalEditor
+
+`src/pages/_signalEditor/`：
+- `types.ts`：`CapitalStatus` 加 `currency`；`TradeDraft.quantityUnit` 加 `'shares'`（USD 專用，無「張」概念，預設且鎖死）
+- `derive.ts`：`normalizeSignalQuantityToShares` 對 USD 直接回原值；錯誤訊息 `fmtMoney` 改用 `formatMoneyByCurrency(n, currency)`
+- `CapitalPanel.tsx`：金額顯示前綴依 currency 切 `NT$` / `US$`；持倉表頭 `股數`→USD 時改 `Shares`
+- `TradeCard.tsx`：USD 時隱藏單位下拉、強制 `shares`；股票代碼 placeholder 改 `AAPL / TSLA`
+- `SignalEditor.tsx`：傳 `expert.currency` 進子元件；發布時 validate stockCode 格式
+
+`useSignalEditorData.ts` 從 `expert` 帶出 currency 一併回傳。
+
+## 四、前台讀者端
+
+- `src/components/SignalCard.tsx`：所有金額用 `formatMoneyByCurrency`，依 signal 的 expert.currency
+- 績效頁 `src/pages/_adminPerformance/*` + `src/hooks/usePerformance.ts`：起始資金、現金、PnL 金額前綴切換；排行榜不混算（USD/TWD 分流顯示，**不換算**）
+- 持倉面板 `useExpertHoldingsBundle` 回傳 currency；所有消費端（FreeCheckup 持倉看板、SignalCard、CapitalPanel、Holdings 卡）皆讀此
+- LINE / Email 推播 4 個 Edge Functions（`line-push-signal`、`line-push-renewal-reminder`、`email-push-renewal-reminder`、`subscribe-renew-link`）：訊息文字金額前綴依 currency
+
+## 五、共用工具
+
+新檔 `src/lib/currency.ts`：
 ```ts
-const EXEC_ORDER = { exit: 0, trim: 1, sell: 2, add: 3, buy: 4 };
-function sortByExecutionSemantics(trades: TradeDraft[]): TradeDraft[] {
-  return trades
-    .map((t, i) => ({ t, i }))
-    .sort((a, b) => {
-      const oa = EXEC_ORDER[a.t.action] ?? 9;
-      const ob = EXEC_ORDER[b.t.action] ?? 9;
-      if (oa !== ob) return oa - ob;
-      return a.i - b.i; // 同類維持原序
-    })
-    .map(({ t }) => t);
-}
+export type Currency = 'TWD' | 'USD';
+export const CURRENCY_SYMBOL: Record<Currency,string> = { TWD: 'NT$', USD: 'US$' };
+export const formatMoneyByCurrency = (n: number, c: Currency = 'TWD') =>
+  `${CURRENCY_SYMBOL[c]}${(Math.round(n) || 0).toLocaleString()}`;
+export const isValidSymbol = (code: string, c: Currency) =>
+  c === 'USD' ? /^[A-Z]{1,5}(\.[A-Z])?$/.test(code) : /^\d{4,6}$/.test(code);
 ```
-- `validateSignalBatch`、`buildStepStates`、`buildCashSimTrades`、`buildSimulatedPositions`：所有「sequential simulation」改先 `sortByExecutionSemantics(trades)` 再跑。錯誤訊息中的「第 N 檔」改成顯示 `tag = 第 N 檔 (XXXX 加碼)` 之類，但 index 來源以**原陣列**為準（避免分析師找不到是哪一張卡片）。
-- 改法：iteration 用排序後陣列，但 tag 取 `原始 index + 1`。
-- `buildPublishRows`：同樣先排序、再產出 rows，這樣 `expert_signals.insert(rows)` 的 INSERT 順序 = 執行順序 → trigger 看到的 `available_cash` 已包含前一筆 trim/exit 釋放的資金。
 
-### 2. `src/pages/admin/SignalEditor.tsx`
-- `cashSim` / `simulatedPositions` 透過上述 derive 變更自動取得正確結果，無需改動。
-- 在 `TradeCard` 或 footer 加一個小提示（可選，本次先不加）：「送出時系統會自動先處理減碼／平倉，再處理加碼／買進，現金/持倉以這個順序計算。」
+`fmtMoney`（types.ts）改為 `formatMoneyByCurrency` 的 thin wrapper，預設 TWD，向後相容。
 
-### 3. 顯示順序保證（不變）
-`expert_signals` 在 reader 端是以 `executed_at`／`sort_order` 顯示，不是 row insert 物理順序。`buildPublishRows` 不動 `executed_at`（沿用分析師填的時間），所以重排後讀者看到的順序仍是分析師原意。
+## 六、後台 expert 設定 UI
 
-### 4. 測試
-新增 `src/test/unit/signal-editor-mixed-batch.test.ts`（或加在 `1.27`）：
-- case A：同檔「先 add 後 trim」，現金不夠 add 但 trim 後夠 → 排序後通過。
-- case B：跨檔「buy B 用 A 平倉換來的錢」 → 排序後通過、現金剩餘正確。
-- case C：trim 數量超過模擬持倉 → 仍然 fail，並回報「第 X 檔」對應到**原陣列 index**。
-- case D：純加碼超額 → 仍然 fail。
+`src/pages/admin/AdminProfile.tsx`（或對應 expert 編輯頁）加幣別下拉，發過 signal 後鎖死灰階。
 
-### 5. 不在範圍
-- 不改 `enforce_signal_capital_limit` 觸發器。
-- 不改觸發器寫法、不引入 statement-level trigger，避免影響其他寫入路徑（remittance、手動補單、後台修正）。
-- 不動週記顯示組件、不動 `executed_at`。
-- 不動現有 mentor 審核 / mentor cron / LINE push 流程。
+## 七、測試
 
-## 驗收
-1. 在 SignalEditor 開一張新週記：
-   - Row1：加碼 A 3 張 @ 100（現金不夠）
-   - Row2：平倉 B（釋放現金）
-   - 送出前不再出現「本筆需…剩餘可用現金僅…」，模擬現金顯示也正確。
-2. 同檔股票：
-   - Row1：加碼 2330 1 張
-   - Row2：減碼 2330 1 張
-   - 兩筆都能通過，trigger 不擋。
-3. 真正超額（純加碼超過所有可用現金）仍會擋並回正確的卡片編號。
-4. 週記讀者頁顯示順序仍為分析師原始輸入順序（依 `executed_at` 排序）。
+- `src/test/unit/currency.test.ts`：formatter + symbol validator
+- 擴充 `signal-editor-mixed-batch.test.ts`：跑一次 USD 情境（買 AAPL 100 股、賣 50 股）
+- 新 `supabase/functions/us-stock-quote/test.ts`：mock Finnhub 回應
+
+## 八、回滾策略
+
+- 預設 `'TWD'` → 既有資料零影響
+- Edge function 失敗時 priceHint 仍可手填
+- currency lock trigger 不檔現有資料
+
+## 需要使用者提供
+
+- **Finnhub API Key**（finnhub.io 免費註冊即得）— 計畫核准、開始實作前我會用 secret 工具請你貼上
+
+## 不在本次範圍
+
+- 匯率折算 / 跨幣別總績效（已確認不做）
+- 港股 / 加密貨幣（未來再說）
+- ACpay / 金流幣別（金流仍只收 TWD，與訊號幣別無關）
