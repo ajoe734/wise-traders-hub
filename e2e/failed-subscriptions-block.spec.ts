@@ -30,6 +30,7 @@ const ABANDONED_EXPERT_INTENT = {
 
 const ABANDONED_CHECKUP_INTENT = {
   id: 'intent-2',
+  status: 'abandoned',
   trade_no: 'TRADE-2',
   product_kind: 'checkup',
   plan_id: null,
