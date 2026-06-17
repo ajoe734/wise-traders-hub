@@ -82,6 +82,12 @@ export default defineConfig({
       testMatch: /line-checkup-free-gift\.spec\.ts/,
       use: { ...devices['Desktop Chrome'], viewport: { width: 1280, height: 900 } },
     },
+    {
+      // Checkout 成功 → toast + 自動導回 /app
+      name: 'desktop-checkout-success',
+      testMatch: /checkout-success-redirect\.spec\.ts/,
+      use: { ...devices['Desktop Chrome'], viewport: { width: 1280, height: 900 } },
+    },
   ],
   webServer: {
     command: 'bun run dev',
