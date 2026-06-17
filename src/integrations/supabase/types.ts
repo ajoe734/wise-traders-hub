@@ -854,6 +854,7 @@ export type Database = {
           best_bid: number | null
           change_percent: number | null
           change_value: number | null
+          currency: string
           high_price: number | null
           limit_down: number | null
           limit_up: number | null
@@ -873,6 +874,7 @@ export type Database = {
           best_bid?: number | null
           change_percent?: number | null
           change_value?: number | null
+          currency?: string
           high_price?: number | null
           limit_down?: number | null
           limit_up?: number | null
@@ -892,6 +894,7 @@ export type Database = {
           best_bid?: number | null
           change_percent?: number | null
           change_value?: number | null
+          currency?: string
           high_price?: number | null
           limit_down?: number | null
           limit_up?: number | null
@@ -1360,6 +1363,7 @@ export type Database = {
           bio: string | null
           created_at: string
           created_by: string | null
+          currency: string
           description: string | null
           id: string
           markets: string[] | null
@@ -1383,6 +1387,7 @@ export type Database = {
           bio?: string | null
           created_at?: string
           created_by?: string | null
+          currency?: string
           description?: string | null
           id?: string
           markets?: string[] | null
@@ -1406,6 +1411,7 @@ export type Database = {
           bio?: string | null
           created_at?: string
           created_by?: string | null
+          currency?: string
           description?: string | null
           id?: string
           markets?: string[] | null
@@ -2696,16 +2702,22 @@ export type Database = {
       stock_names: {
         Row: {
           created_at: string
+          currency: string
+          market: string | null
           name: string
           symbol: string
         }
         Insert: {
           created_at?: string
+          currency?: string
+          market?: string | null
           name: string
           symbol: string
         }
         Update: {
           created_at?: string
+          currency?: string
+          market?: string | null
           name?: string
           symbol?: string
         }

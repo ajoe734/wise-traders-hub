@@ -1,4 +1,9 @@
 import type { TradeAction } from '@/lib/simulatePositions';
+import {
+  type Currency,
+  formatMoneyByCurrency,
+  normalizeCurrency,
+} from '@/lib/currency';
 
 export interface OpenPosition {
   symbol: string;
@@ -32,6 +37,8 @@ export interface CapitalStatus {
   available_cash: number;
   open_positions: OpenPosition[];
   recent_trades: RecentTrade[];
+  /** 從 expert.currency 帶下來，預設 TWD */
+  currency?: Currency;
 }
 
 export interface TradeDraft {
@@ -56,7 +63,7 @@ export const nowLocalDatetime = () => {
   return `${d.getFullYear()}-${pad(d.getMonth() + 1)}-${pad(d.getDate())}T${pad(d.getHours())}:${pad(d.getMinutes())}`;
 };
 
-export const emptyTrade = (): TradeDraft => ({
+export const emptyTrade = (currency: Currency = 'TWD'): TradeDraft => ({
   uid: newUid(),
   executedAt: nowLocalDatetime(),
   stockCode: '',
@@ -64,13 +71,19 @@ export const emptyTrade = (): TradeDraft => ({
   action: '',
   priceHint: '',
   quantity: '',
-  quantityUnit: '張',
+  quantityUnit: currency === 'USD' ? '股' : '張',
   reasonSummary: '',
   reasonDetail: '',
   riskNotes: '',
 });
 
-export const fmtMoney = (n: number) => `$${(Math.round(n) || 0).toLocaleString()}`;
+/**
+ * 金額格式化。
+ * 舊呼叫不帶 currency → 沿用 TWD（`NT$`），向後相容。
+ * 新呼叫帶 currency → 自動切到對應符號。
+ */
+export const fmtMoney = (n: number, currency?: unknown) =>
+  formatMoneyByCurrency(n, normalizeCurrency(currency));
 
 export const actionLabels: Record<string, string> = {
   buy: '買進', sell: '賣出', add: '加碼', trim: '減碼', exit: '平損',

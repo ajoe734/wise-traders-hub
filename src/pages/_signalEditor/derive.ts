@@ -4,10 +4,14 @@ import {
   calcWeightedAvgPrice,
 } from '@/lib/signalTradeLogic';
 import {
-  actionLabels, fmtMoney,
+  actionLabels,
   type CapitalStatus, type OpenPosition, type TradeDraft,
 } from './types';
 import { sanitizeRichHtml } from '@/lib/sanitizeHtml';
+import {
+  formatMoneyByCurrency, isValidSymbol, normalizeCurrency, symbolPlaceholder,
+  type Currency,
+} from '@/lib/currency';
 
 interface SimState {
   /** 模擬剩餘股數 */
@@ -178,11 +182,20 @@ export function validateSignalBatch(args: {
   if (!expert) return '找不到分析師資料';
   if (trades.length === 0) return '至少要有一檔股票';
 
+  const currency: Currency = normalizeCurrency(expert?.currency);
+  const fmt = (n: number) => formatMoneyByCurrency(n, currency);
+
   // ── 先做欄位完整性檢查（依原始 UI 順序，先填好再排序執行） ──
   for (let i = 0; i < trades.length; i++) {
     const t = trades[i];
     const tag = `第 ${i + 1} 檔`;
     if (!t.stockCode.trim()) return `${tag}：請填股票代碼`;
+    if (!isValidSymbol(t.stockCode.trim().toUpperCase(), currency)) {
+      return `${tag}：股票代碼格式錯誤（${symbolPlaceholder(currency)}）`;
+    }
+    if (currency === 'USD' && t.quantityUnit !== '股') {
+      return `${tag}：美股單位只能用「股」`;
+    }
     if (!t.action) return `${tag}：請選操作方向`;
     if (!t.executedAt) return `${tag}：請填操作時間`;
     const qty = parseInt(t.quantity || '0', 10);
@@ -226,7 +239,7 @@ export function validateSignalBatch(args: {
     if (t.action === 'buy' || t.action === 'add') {
       const required = price * shares;
       if (required > remaining) {
-        return `${tag}：本筆需 ${fmtMoney(required)}，扣除同批減碼／平倉釋放的資金後可用現金僅 ${fmtMoney(remaining)}，已超過操作金額上限`;
+        return `${tag}：本筆需 ${fmt(required)}，扣除同批減碼／平倉釋放的資金後可用現金僅 ${fmt(remaining)}，已超過操作金額上限`;
       }
       remaining -= required;
       const newQty = cur.qty + shares;
