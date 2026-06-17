@@ -5,7 +5,7 @@
  *   1. payment_intents.status='abandoned' 的項目會顯示在區塊裡（expert_plan + checkup 各一）
  *   2. 各項目的「重試付款」按鈕導向正確的 checkout 路由
  *      - expert_plan → /checkout/{slug}/{planId}?cycle={billing_cycle}
- *      - checkup     → /checkup/checkout?plan={checkup_plan_id}&cycle={billing_cycle}
+ *      - checkup     → /checkout/checkup/{checkup_plan_id}?cycle={billing_cycle}
  *   3. abandoned 訂閱不會被當成 ACTIVE（active 列為空）
  */
 import { test, expect } from '@playwright/test';
