@@ -322,6 +322,7 @@ const SignalEditor = () => {
             capital={capital}
             cashSim={cashSim}
             expertId={expert?.id}
+            currency={currency}
             updateTrade={updateTrade}
             removeTrade={removeTrade}
             moveTrade={moveTrade}
