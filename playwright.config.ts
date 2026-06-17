@@ -112,6 +112,18 @@ export default defineConfig({
       testMatch: /failed-subscriptions-block\.spec\.ts/,
       use: { ...devices['Desktop Chrome'], viewport: { width: 1280, height: 900 } },
     },
+    {
+      // 重試成功後 reload → abandoned 不再誤導
+      name: 'desktop-failed-subs-after-success',
+      testMatch: /failed-subscriptions-after-success\.spec\.ts/,
+      use: { ...devices['Desktop Chrome'], viewport: { width: 1280, height: 900 } },
+    },
+    {
+      // status 過濾 + active plan 排除規則
+      name: 'desktop-failed-subs-status-filter',
+      testMatch: /failed-subscriptions-status-filter\.spec\.ts/,
+      use: { ...devices['Desktop Chrome'], viewport: { width: 1280, height: 900 } },
+    },
   ],
   webServer: {
     command: 'bun run dev',
