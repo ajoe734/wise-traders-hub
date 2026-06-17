@@ -60,7 +60,8 @@ export function FailedIntentsCard() {
   };
 
   return (
-    <FeatureCard className="p-4 border-destructive/40 bg-destructive/5" data-testid="failed-subscriptions-section">
+    <div data-testid="failed-subscriptions-section">
+    <FeatureCard className="p-4 border-destructive/40 bg-destructive/5">
       <div className="flex items-center gap-2 font-semibold text-sm mb-3">
         <AlertTriangle className="h-4 w-4 text-destructive" />
         失敗 / 未完成的訂閱
