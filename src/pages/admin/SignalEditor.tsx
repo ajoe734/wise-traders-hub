@@ -285,6 +285,7 @@ const SignalEditor = () => {
             setShowHistory={setShowHistory}
             addTrade={addTrade}
             updateTrade={updateTrade}
+            currency={currency}
           />
         )}
 
