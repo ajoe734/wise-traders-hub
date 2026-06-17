@@ -9,6 +9,7 @@ import {
   Users,
 } from 'lucide-react';
 import { useMySubscriptions } from '@/hooks/useSubscriptions';
+import { FailedIntentsCard } from '@/pages/_appSubscriptions/FailedIntentsCard';
 
 export default function SubscribedExpertsList() {
   const { data: subscriptions = [] } = useMySubscriptions();
