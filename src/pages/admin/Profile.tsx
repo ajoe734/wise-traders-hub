@@ -66,6 +66,7 @@ const AdminProfile = () => {
     setOperationCycle((expert as any).operation_cycle || '');
     setStyleTags(expert.style_tags || []);
     setMarkets(expert.markets || []);
+    setCurrency(((expert as any).currency === 'USD' ? 'USD' : 'TWD'));
     if (expert.starting_capital != null) {
       setStartingCapital(String(expert.starting_capital));
       setStartingCapitalLocked(true);
