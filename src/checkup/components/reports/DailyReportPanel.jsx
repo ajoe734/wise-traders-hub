@@ -299,15 +299,7 @@ export function HoldingsChanges({ changes }) {
           h('span', { style: { fontSize: 11, color: C.textMute } }, c.price?.toLocaleString()),
           h(
             'span',
-            {
-              style: {
-                fontSize: 12,
-                fontWeight: 600,
-                color: pc(c.changePct),
-                minWidth: 55,
-                textAlign: 'right',
-              },
-            },
+            { style: pillStyle(c.changePct, { size: 12 }) },
             `${c.changePct >= 0 ? '+' : ''}${c.changePct.toFixed(2)}%`
           ),
           h(
@@ -315,9 +307,11 @@ export function HoldingsChanges({ changes }) {
             {
               style: {
                 fontSize: 10,
-                color: pc(c.todayPnl),
+                fontWeight: 600,
+                color: c.todayPnl == null ? C.textMute : c.todayPnl >= 0 ? C.up : PNL_DOWN_STRONG,
                 minWidth: 50,
                 textAlign: 'right',
+                fontVariantNumeric: 'tabular-nums',
               },
             },
             `${c.todayPnl >= 0 ? '+' : ''}${c.todayPnl.toLocaleString()}`
