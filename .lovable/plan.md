@@ -1,85 +1,34 @@
-# 週記後台多幣別支援（USD / TWD）
+## 問題
 
-讓部分老師可以操作美股；每位老師綁定一個幣別，資金、PnL、報價都用自己幣別獨立計價（**不做匯率折算**）。前後台同步換貨幣符號與單位。
+點分析師後台的「訂閱者預覽」會開新分頁到 `/app/expert/:slug`，畫面立刻被 AppErrorBoundary 接住顯示「頁面發生錯誤」。
 
-## 一、資料層
+根因在 `src/pages/app/ExpertDetail.tsx`：
+- `useExpert`, `useQuery`, `useState`, `useEffect` 都在最上方。
+- 但 **L131 的 `usePreviewMode()` 寫在三個 early return（`isLoading` / `isError` / `!expert`）之後**。
+- 第一次 render 時 `isLoading=true` → 走 L103 return，這次只跑了前面那批 hooks。
+- 資料載入完成第二次 render，跳過 early return → 才呼叫 `usePreviewMode()`。
+- React 偵測到「render 次數間 hooks 數量不同」拋錯，整頁 unmount，AppErrorBoundary 接手。
 
-### Schema 變更（新 migration）
-- `experts` 新增 `currency text not null default 'TWD' check (currency in ('TWD','USD'))`
-- `current_prices` 新增 `currency text not null default 'TWD'`（同一代碼不會跨幣別衝突，但讓 UI 知道顯示符號）
-- `stock_names` 新增 `currency text default 'TWD'`、`market text`（用來區分美股市場：NASDAQ/NYSE）
-- `expert_signals` / `trade_records` 不新增欄位 — 幣別永遠從關聯的 expert 帶出（單一來源、避免不一致）
+這是純 Rules of Hooks 違規，跟資料、權限、preview 邏輯都無關，是新分頁進來必然觸發。
 
-### 衍生規則
-- 老師一旦發過任何 signal 後，**禁止改 currency**（trigger 擋）。新老師發第一張前可改。
-- 美股代碼格式：英文字母 1–5 碼（AAPL/TSLA/BRK.B）；台股維持 4–6 位數字。validator 依 expert.currency 切換。
+## 修正
 
-## 二、報價（美股自動抓）
+把 `usePreviewMode()` 連同它衍生出來的純計算（`previewMatch` / `isSubscribedToFollower` / `hasHealthCheck` / `isSubscribedToCultivator` / `isSubscribed`）全部上移到所有 early return 之前，跟其他 hooks 放在一起。
 
-新 Edge Function `us-stock-quote`：
-- 來源：**Finnhub**（免費 60 req/min、台灣可直連、回應穩定）；備援 Yahoo Finance unofficial。
-- 需要 secret `FINNHUB_API_KEY`（會請使用者提供）。
-- 輸入：`symbols: string[]`；輸出：`{ symbol, price, change, change_pct, currency: 'USD', fetched_at }`
-- 寫回 `current_prices`（currency='USD'）供 holdings/績效讀。
+- `usePreviewMode()` 在 `useExpert` 下方、第一個 `if (isLoading)` 之前呼叫。
+- `previewMatch` 等 const 維持原來的算法不動，只是位置上移；它們用到的 `slug`、`subscribedPlanTypes` 在 early return 之前都已可用。
+- `isAdvisor`、`mainPlan`、`mainMeta`、`isSubscribed` 因為依賴 `expert` 非 null，仍需放在 `!expert` 那個 return 之後；只有 hook 呼叫本身上移。
 
-新增 client helper `src/lib/usStockPriceFetcher.ts`，被 SignalEditor 的 `fetchStockInfo`、`useExpertHoldingsBundle`、收盤分析共用。
+## 順手檢查（避免漏網）
 
-`stock-name-lookup` 擴充：偵測英文代碼時走美股名稱（Finnhub `/stock/profile2`）。
+同一份檔案的其他 hooks 已經在最上方，沒有別處違規。其他放有「訂閱者預覽模式」橫幅的頁面 `src/pages/PlanDetail.tsx`、`src/pages/ExpertProfile.tsx`、`src/pages/app/JournalDetail.tsx`、`src/pages/app/SignalDetail.tsx` 會一併快速掃一次 `usePreviewMode` / `useAuth` 等 hook 是否也被放在 early return 之後，有就一起修；目前看過 `JournalDetail.tsx` 沒問題，其餘兩個尚未細看，修檔時順帶確認。
 
-## 三、後台 SignalEditor
+## 驗證
 
-`src/pages/_signalEditor/`：
-- `types.ts`：`CapitalStatus` 加 `currency`；`TradeDraft.quantityUnit` 加 `'shares'`（USD 專用，無「張」概念，預設且鎖死）
-- `derive.ts`：`normalizeSignalQuantityToShares` 對 USD 直接回原值；錯誤訊息 `fmtMoney` 改用 `formatMoneyByCurrency(n, currency)`
-- `CapitalPanel.tsx`：金額顯示前綴依 currency 切 `NT$` / `US$`；持倉表頭 `股數`→USD 時改 `Shares`
-- `TradeCard.tsx`：USD 時隱藏單位下拉、強制 `shares`；股票代碼 placeholder 改 `AAPL / TSLA`
-- `SignalEditor.tsx`：傳 `expert.currency` 進子元件；發布時 validate stockCode 格式
+1. 起 Playwright，注入 session 後直接訪問 `/app/expert/master-brcto`、`/app/expert/sharkgu`、`/app/expert/master-zhou` 三條真實 mentor slug，確認都不再出現「頁面發生錯誤」字串，且 console 無 `Rendered more hooks` / `Rendered fewer hooks` 警告。
+2. 模擬從分析師後台流程：先寫入 `sessionStorage.previewExpertSlug`，再開 `/app/expert/<slug>`，畫面要顯示「已訂閱此專家」綠卡（preview 解鎖）且不報錯。
 
-`useSignalEditorData.ts` 從 `expert` 帶出 currency 一併回傳。
+## 不動的範圍
 
-## 四、前台讀者端
-
-- `src/components/SignalCard.tsx`：所有金額用 `formatMoneyByCurrency`，依 signal 的 expert.currency
-- 績效頁 `src/pages/_adminPerformance/*` + `src/hooks/usePerformance.ts`：起始資金、現金、PnL 金額前綴切換；排行榜不混算（USD/TWD 分流顯示，**不換算**）
-- 持倉面板 `useExpertHoldingsBundle` 回傳 currency；所有消費端（FreeCheckup 持倉看板、SignalCard、CapitalPanel、Holdings 卡）皆讀此
-- LINE / Email 推播 4 個 Edge Functions（`line-push-signal`、`line-push-renewal-reminder`、`email-push-renewal-reminder`、`subscribe-renew-link`）：訊息文字金額前綴依 currency
-
-## 五、共用工具
-
-新檔 `src/lib/currency.ts`：
-```ts
-export type Currency = 'TWD' | 'USD';
-export const CURRENCY_SYMBOL: Record<Currency,string> = { TWD: 'NT$', USD: 'US$' };
-export const formatMoneyByCurrency = (n: number, c: Currency = 'TWD') =>
-  `${CURRENCY_SYMBOL[c]}${(Math.round(n) || 0).toLocaleString()}`;
-export const isValidSymbol = (code: string, c: Currency) =>
-  c === 'USD' ? /^[A-Z]{1,5}(\.[A-Z])?$/.test(code) : /^\d{4,6}$/.test(code);
-```
-
-`fmtMoney`（types.ts）改為 `formatMoneyByCurrency` 的 thin wrapper，預設 TWD，向後相容。
-
-## 六、後台 expert 設定 UI
-
-`src/pages/admin/AdminProfile.tsx`（或對應 expert 編輯頁）加幣別下拉，發過 signal 後鎖死灰階。
-
-## 七、測試
-
-- `src/test/unit/currency.test.ts`：formatter + symbol validator
-- 擴充 `signal-editor-mixed-batch.test.ts`：跑一次 USD 情境（買 AAPL 100 股、賣 50 股）
-- 新 `supabase/functions/us-stock-quote/test.ts`：mock Finnhub 回應
-
-## 八、回滾策略
-
-- 預設 `'TWD'` → 既有資料零影響
-- Edge function 失敗時 priceHint 仍可手填
-- currency lock trigger 不檔現有資料
-
-## 需要使用者提供
-
-- **Finnhub API Key**（finnhub.io 免費註冊即得）— 計畫核准、開始實作前我會用 secret 工具請你貼上
-
-## 不在本次範圍
-
-- 匯率折算 / 跨幣別總績效（已確認不做）
-- 港股 / 加密貨幣（未來再說）
-- ACpay / 金流幣別（金流仍只收 TWD，與訊號幣別無關）
+- AppErrorBoundary、runtimeLogger、diagnostics 上傳機制不動。
+- 訂閱者預覽的權限判定邏輯與按鈕本身不動。
