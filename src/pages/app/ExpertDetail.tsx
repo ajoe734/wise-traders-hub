@@ -100,6 +100,16 @@ const AppExpertDetail = () => {
     fetchSubscription();
   }, [slug]);
 
+  // ⚠️ All hooks MUST be called before any early return (Rules of Hooks).
+  // usePreviewMode 之前被放在 early return 後面，導致首次 render(isLoading) 與後續
+  // render(expert ready) 的 hook 數量不一致 → React 拋錯被 AppErrorBoundary 接住，
+  // 表現為「訂閱者預覽」開新分頁立即顯示「頁面發生錯誤」。
+  const { isPreview, previewSlug } = usePreviewMode();
+  const previewMatch = isPreview && previewSlug === slug;
+  const isSubscribedToFollower = previewMatch || subscribedPlanTypes.some(t => t === 'analyst_signal_l1' || t === 'analyst_signal_diag_l2');
+  const hasHealthCheck = previewMatch || subscribedPlanTypes.includes('analyst_signal_diag_l2');
+  const isSubscribedToCultivator = previewMatch || subscribedPlanTypes.includes('mentor_weekly_journal');
+
   if (isLoading) {
     return <UnifiedAppLayout><div className="flex justify-center py-16"><Loader2 className="h-8 w-8 animate-spin text-muted-foreground" /></div></UnifiedAppLayout>;
   }
@@ -128,11 +138,6 @@ const AppExpertDetail = () => {
   const mainPlan = dbPlans[0] || null;
   const mainMeta = mainPlan ? planMeta[mainPlan.plan_type] : (isAdvisor ? planMeta.analyst_signal_l1 : planMeta.mentor_weekly_journal);
 
-  const { isPreview, previewSlug } = usePreviewMode();
-  const previewMatch = isPreview && previewSlug === slug;
-  const isSubscribedToFollower = previewMatch || subscribedPlanTypes.some(t => t === 'analyst_signal_l1' || t === 'analyst_signal_diag_l2');
-  const hasHealthCheck = previewMatch || subscribedPlanTypes.includes('analyst_signal_diag_l2');
-  const isSubscribedToCultivator = previewMatch || subscribedPlanTypes.includes('mentor_weekly_journal');
   const isSubscribed = isAdvisor ? isSubscribedToFollower : isSubscribedToCultivator;
 
   const getRoleLabel = (role: ExpertRole) => role === 'advisor' ? "投顧分析師" : "實戰導師";
