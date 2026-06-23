@@ -77,6 +77,8 @@ export function CheckupModeProvider({ children }) {
 
   useEffect(() => {
     const determineMode = async (user) => {
+      // DEV-only force-demo：?demo=1 一律走訪客分支
+      if (forceDemo) user = null
       if (!user) {
         setMode('demo')
         setTier('guest')
