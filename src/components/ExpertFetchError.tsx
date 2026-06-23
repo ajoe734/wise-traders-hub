@@ -46,6 +46,8 @@ export function ExpertFetchError({
   isRetrying = false,
   variant = 'full',
   message,
+  onBack,
+  backLabel = '返回',
 }: Props) {
   const detail = errMessage(error);
 
