@@ -117,7 +117,13 @@ const AppExpertDetail = () => {
   if (isError && !expert) {
     return (
       <UnifiedAppLayout>
-        <ExpertFetchError error={error} onRetry={() => refetch()} isRetrying={isRefetching} />
+        <ExpertFetchError
+          error={error}
+          onRetry={() => refetch()}
+          isRetrying={isRefetching}
+          onBack={() => navigate('/app')}
+          backLabel="返回戰情室"
+        />
       </UnifiedAppLayout>
     );
   }

@@ -1,4 +1,4 @@
-import { AlertCircle, Loader2, RefreshCw } from 'lucide-react';
+import { AlertCircle, ArrowLeft, Loader2, RefreshCw } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 
 /**
@@ -25,6 +25,10 @@ type Props = {
   variant?: 'full' | 'inline';
   /** 自訂中文訊息（不填用預設） */
   message?: string;
+  /** 可選：顯示「返回」按鈕並執行此 callback。沒傳就不渲染返回按鈕。 */
+  onBack?: () => void;
+  /** 返回按鈕文字，預設「返回」。 */
+  backLabel?: string;
 };
 
 function errMessage(err: unknown): string {
@@ -42,6 +46,8 @@ export function ExpertFetchError({
   isRetrying = false,
   variant = 'full',
   message,
+  onBack,
+  backLabel = '返回',
 }: Props) {
   const detail = errMessage(error);
 
@@ -88,14 +94,22 @@ export function ExpertFetchError({
           )}
         </p>
       </div>
-      <Button onClick={onRetry} disabled={isRetrying} aria-label="重新載入">
-        {isRetrying ? (
-          <Loader2 className="mr-2 h-4 w-4 animate-spin" />
-        ) : (
-          <RefreshCw className="mr-2 h-4 w-4" />
+      <div className="flex flex-wrap items-center justify-center gap-2">
+        <Button onClick={onRetry} disabled={isRetrying} aria-label="重新載入">
+          {isRetrying ? (
+            <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+          ) : (
+            <RefreshCw className="mr-2 h-4 w-4" />
+          )}
+          重新載入
+        </Button>
+        {onBack && (
+          <Button variant="ghost" onClick={onBack} aria-label={backLabel}>
+            <ArrowLeft className="mr-2 h-4 w-4" />
+            {backLabel}
+          </Button>
         )}
-        重新載入
-      </Button>
+      </div>
     </div>
   );
 }
