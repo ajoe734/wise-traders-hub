@@ -136,6 +136,12 @@ export default defineConfig({
       testMatch: /expert-profile-error\.spec\.ts/,
       use: { ...devices['Desktop Chrome'], viewport: { width: 1280, height: 900 } },
     },
+    {
+      // /holding-checkup demo 首屏可見性（desktop 1280×800）
+      name: 'desktop-demo-first-fold',
+      testMatch: /freecheckup-demo-first-fold\.spec\.ts/,
+      use: { ...devices['Desktop Chrome'], viewport: { width: 1280, height: 800 } },
+    },
   ],
   webServer: {
     command: 'bun run dev',
