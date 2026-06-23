@@ -20,6 +20,27 @@ const CheckupModeContext = createContext(null)
  * Quota (from check_checkup_quota RPC):
  *   { tier, period: 'week'|'month'|'lifetime', limit, used, remaining, resets_at }
  */
+/**
+ * DEV-only：?demo=1 強制將任何 session 都視為未登入訪客，方便 Lovable Preview
+ * 穩定看到完整 demo 體驗。production build (`import.meta.env.DEV === false`)
+ * 一律忽略此 query，已登入空倉使用者不會被塞 demo data。
+ *
+ *  - `?demo=1` → 設 sessionStorage.lf_force_demo='1'，本 session 都鎖 demo
+ *  - `?demo=0` → 清除 sessionStorage flag，回到正常 auth 流程
+ *  - 不寫 localStorage、不污染 cloud、不影響 production
+ */
+function readForceDemoFlag() {
+  if (typeof window === 'undefined') return false
+  if (!import.meta.env?.DEV) return false
+  try {
+    const qs = new URLSearchParams(window.location.search)
+    const q = qs.get('demo')
+    if (q === '1') { sessionStorage.setItem('lf_force_demo', '1'); return true }
+    if (q === '0') { sessionStorage.removeItem('lf_force_demo'); return false }
+    return sessionStorage.getItem('lf_force_demo') === '1'
+  } catch { return false }
+}
+
 export function CheckupModeProvider({ children }) {
   const [mode, setMode] = useState('demo')
   const [tier, setTier] = useState('guest')
@@ -28,6 +49,7 @@ export function CheckupModeProvider({ children }) {
   const [supabaseUser, setSupabaseUser] = useState(null)
   const [isLineFriend, setIsLineFriend] = useState(false)
   const [isReady, setIsReady] = useState(false)
+  const forceDemo = readForceDemoFlag()
 
   const fetchQuota = useCallback(async (userId) => {
     if (!userId) {
