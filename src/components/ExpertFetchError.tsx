@@ -94,14 +94,22 @@ export function ExpertFetchError({
           )}
         </p>
       </div>
-      <Button onClick={onRetry} disabled={isRetrying} aria-label="重新載入">
-        {isRetrying ? (
-          <Loader2 className="mr-2 h-4 w-4 animate-spin" />
-        ) : (
-          <RefreshCw className="mr-2 h-4 w-4" />
+      <div className="flex flex-wrap items-center justify-center gap-2">
+        <Button onClick={onRetry} disabled={isRetrying} aria-label="重新載入">
+          {isRetrying ? (
+            <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+          ) : (
+            <RefreshCw className="mr-2 h-4 w-4" />
+          )}
+          重新載入
+        </Button>
+        {onBack && (
+          <Button variant="ghost" onClick={onBack} aria-label={backLabel}>
+            <ArrowLeft className="mr-2 h-4 w-4" />
+            {backLabel}
+          </Button>
         )}
-        重新載入
-      </Button>
+      </div>
     </div>
   );
 }
