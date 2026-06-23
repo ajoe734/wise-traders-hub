@@ -61,12 +61,12 @@ export default function DemoBanner({ onLineLogin, onEmailLogin, C, alpha }) {
     <>
       <style>{`
         @media (max-width: 560px) {
-          .lf-demo-banner { padding: 6px 12px !important; gap: 6px !important; }
+          .lf-demo-banner { padding: 5px 12px !important; gap: 6px !important; }
           .lf-demo-banner-text { flex-basis: 100% !important; }
-          .lf-demo-banner-title { font-size: 11px !important; margin-bottom: 2px !important; }
-          .lf-demo-banner-desc { font-size: 10.5px !important; line-height: 1.45 !important; }
+          .lf-demo-banner-title { font-size: 11px !important; margin-bottom: 1px !important; }
+          .lf-demo-banner-desc { font-size: 10.5px !important; line-height: 1.4 !important; }
           .lf-demo-banner-actions { gap: 6px !important; }
-          .lf-demo-banner-btn { padding: 4px 8px !important; font-size: 11px !important; }
+          .lf-demo-banner-btn { padding: 3px 8px !important; font-size: 11px !important; }
         }
       `}</style>
       <div
@@ -81,7 +81,7 @@ export default function DemoBanner({ onLineLogin, onEmailLogin, C, alpha }) {
           background: C.bg,
           backgroundImage: `linear-gradient(${alpha(C.text, '06')}, ${alpha(C.text, '06')})`,
           borderBottom: `1px solid ${C.border}`,
-          padding: '6px 14px',
+          padding: '4px 14px',
           display: 'flex',
           alignItems: 'center',
           justifyContent: 'space-between',
@@ -93,11 +93,11 @@ export default function DemoBanner({ onLineLogin, onEmailLogin, C, alpha }) {
           <div
             className="lf-demo-banner-title"
             style={{
-              fontSize: 12,
+              fontSize: 11.5,
               color: C.text,
               fontWeight: 500,
               letterSpacing: '0.02em',
-              marginBottom: 2,
+              marginBottom: 1,
             }}
           >
             目前是 DEMO 範例模式
@@ -105,9 +105,9 @@ export default function DemoBanner({ onLineLogin, onEmailLogin, C, alpha }) {
           <div
             className="lf-demo-banner-desc"
             style={{
-              fontSize: 11,
+              fontSize: 10.5,
               color: C.textMute,
-              lineHeight: 1.5,
+              lineHeight: 1.4,
               letterSpacing: '0.02em',
             }}
           >
