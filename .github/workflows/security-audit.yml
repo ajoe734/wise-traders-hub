@@ -1,0 +1,37 @@
+name: Security Audit
+
+on:
+  push:
+    branches: [main, 'feat/**']
+  pull_request:
+    branches: [main]
+  workflow_dispatch:
+
+jobs:
+  rls-audit:
+    name: RLS / RPC permission audit (1.35)
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+          cache: 'npm'
+      - run: npm install
+      - name: Run 1.35 RLS security audit (must be 41/41 green)
+        run: npx vitest run src/test/integration/1.35-rls-security-audit.test.ts
+
+  prod-debug-guard:
+    name: Production bundle DEV-debug guard
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+          cache: 'npm'
+      - run: npm install
+      - name: Build (production)
+        run: npm run build
+      - name: Grep dist/ for forbidden DEV debug strings
+        run: node scripts/check-prod-debug-bundle.mjs --no-build
