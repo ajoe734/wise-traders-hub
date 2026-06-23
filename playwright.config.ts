@@ -130,6 +130,12 @@ export default defineConfig({
       testMatch: /app-expert-detail\.spec\.ts/,
       use: { ...devices['Desktop Chrome'], viewport: { width: 1280, height: 900 } },
     },
+    {
+      // /expert/:slug bundle RPC 5xx 回退（ExpertFetchError，不可炸 ErrorBoundary）
+      name: 'desktop-expert-profile-error',
+      testMatch: /expert-profile-error\.spec\.ts/,
+      use: { ...devices['Desktop Chrome'], viewport: { width: 1280, height: 900 } },
+    },
   ],
   webServer: {
     command: 'bun run dev',
