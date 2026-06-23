@@ -25,6 +25,10 @@ type Props = {
   variant?: 'full' | 'inline';
   /** 自訂中文訊息（不填用預設） */
   message?: string;
+  /** 可選：顯示「返回」按鈕並執行此 callback。沒傳就不渲染返回按鈕。 */
+  onBack?: () => void;
+  /** 返回按鈕文字，預設「返回」。 */
+  backLabel?: string;
 };
 
 function errMessage(err: unknown): string {
