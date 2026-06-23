@@ -93,12 +93,16 @@ const ExpertProfile = () => {
   }
 
   if (bundleError && !expertInfo) {
+    const backTo = user ? '/app/explore' : '/experts';
+    const backLabel = user ? '返回探索專家' : '返回專家列表';
     return (
       <PortalLayout hideAppEntry hideHeader={!!user}>
         <ExpertFetchError
           error={bundleErrObj}
           onRetry={() => refetchBundle()}
           isRetrying={bundleRefetching}
+          onBack={() => navigate(backTo)}
+          backLabel={backLabel}
         />
       </PortalLayout>
     );
