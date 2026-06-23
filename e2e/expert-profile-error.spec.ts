@@ -1,5 +1,5 @@
 import { test, expect } from '@playwright/test';
-import { installRoutes } from './helpers/supabase-mock';
+import { installRoutes, seedSession } from './helpers/supabase-mock';
 
 /**
  * /expert/:slug（公開頁，走 useExpertDetailBundle / get_expert_detail_bundle RPC）
