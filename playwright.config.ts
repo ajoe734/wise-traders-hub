@@ -124,6 +124,12 @@ export default defineConfig({
       testMatch: /failed-subscriptions-status-filter\.spec\.ts/,
       use: { ...devices['Desktop Chrome'], viewport: { width: 1280, height: 900 } },
     },
+    {
+      // /app/expert/:slug 首次 render + 訂閱者預覽開新分頁
+      name: 'desktop-app-expert-detail',
+      testMatch: /app-expert-detail\.spec\.ts/,
+      use: { ...devices['Desktop Chrome'], viewport: { width: 1280, height: 900 } },
+    },
   ],
   webServer: {
     command: 'bun run dev',
