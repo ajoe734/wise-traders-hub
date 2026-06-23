@@ -38,6 +38,9 @@ async function setupCleanDemoOnce(page: Page) {
 async function allowIntroModalToOpen(page: Page) {
   await page.addInitScript(() => {
     try {
+      const ONCE = '__lf_intro_modal_allowed';
+      if (window.sessionStorage.getItem(ONCE)) return; // reload 不再清
+      window.sessionStorage.setItem(ONCE, '1');
       window.localStorage.removeItem('holdings-intro-video-seen-v2');
       window.sessionStorage.removeItem('holdings-intro-video-dismissed-session');
     } catch {}
