@@ -46,6 +46,7 @@ const Pricing = lazy(() => import("./pages/Pricing"));
 const Checkout = lazy(() => import("./pages/Checkout"));
 const CheckupCheckout = lazy(() => import("./pages/CheckupCheckout"));
 const FreeCheckupPage = lazy(() => import("./pages/FreeCheckup"));
+const HoldingCheckupDemoEntry = lazy(() => import("./pages/HoldingCheckupDemoEntry"));
 const NotFound = lazy(() => import("./pages/NotFound"));
 
 const CheckupModeProviderLazy = lazy(() =>
