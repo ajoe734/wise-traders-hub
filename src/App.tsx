@@ -197,6 +197,8 @@ const AppShell = () => (
             <Route path="/checkout/checkup/:planId" element={<CheckupCheckout />} />
             <Route path="/pricing" element={<Pricing />} />
             <Route path="/holding-checkup" element={<CheckupModeProviderLazy><FreeCheckupPage /></CheckupModeProviderLazy>} />
+            {/* Dev/Preview-only demo entry — gated by hostname inside the component. */}
+            <Route path="/holding-checkup-demo" element={<HoldingCheckupDemoEntry />} />
             <Route path="/free-checkup" element={<LegacyFreeCheckupRedirect />} />
             <Route path="/legal" element={<Legal />} />
 
