@@ -131,6 +131,8 @@ export function useFreeCheckupBootstrap({
         sessionStorage.removeItem("pf-reset-flag");
         localStorage.removeItem("pf-reset-flag");
       }
+      DBG("full-branch", { hasUser: !!userId, hasResetFlag: !!wasReset });
+
 
       let cloud = {};
       if (!wasReset && userId) {
