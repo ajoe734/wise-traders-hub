@@ -91,4 +91,64 @@ test.describe('/expert/:slug RPC 錯誤回退', () => {
     await expect(page.getByText('頁面發生錯誤')).toHaveCount(0);
     expect(pageErrors, pageErrors.map((e) => e.message).join('\n')).toHaveLength(0);
   });
+
+  test('錯誤頁未登入 → 點「返回專家列表」導回 /experts，不觸發 ErrorBoundary', async ({ page }) => {
+    await installRoutes(page, {
+      rest: {
+        get_expert_detail_bundle: () => ({ __status: 500, body: { message: 'mock_bundle_failure' } }),
+        // /experts 列表頁需要 experts 表回空陣列即可（避免再次 500）。
+        experts: () => [],
+      },
+    });
+
+    const pageErrors: Error[] = [];
+    page.on('pageerror', (e) => pageErrors.push(e));
+
+    await page.goto('/expert/master-explode');
+    await expect(page.getByText('專家資料載入失敗')).toBeVisible();
+
+    await page.getByRole('button', { name: '返回專家列表' }).click();
+
+    await expect(page).toHaveURL(/\/experts(\?|$)/);
+    await expect(page.getByText('頁面發生錯誤')).toHaveCount(0);
+    await expect(page.getByText('很抱歉，此頁面遇到非預期錯誤')).toHaveCount(0);
+    expect(pageErrors, pageErrors.map((e) => e.message).join('\n')).toHaveLength(0);
+  });
+
+  test('錯誤頁已登入 → 點「返回探索專家」導回 /app/explore，不觸發 ErrorBoundary', async ({ page }) => {
+    await seedSession(page, { id: 'user-admin', email: 'admin@test.com' });
+    await installRoutes(page, {
+      rest: {
+        profiles: () => ({
+          display_name: 'Admin Tester',
+          expert_slug: null,
+          avatar_url: null,
+          line_user_id: null,
+          is_tester: false,
+        }),
+        user_roles: () => [{ role: 'company_admin' }],
+        get_expert_detail_bundle: () => ({ __status: 500, body: { message: 'mock_bundle_failure' } }),
+        // /app/explore 用到的清單 RPC 統一回空，避免次生 5xx。
+        experts: () => [],
+        expert_plans: () => [],
+        member_subscriptions: () => [],
+      },
+    });
+
+    const pageErrors: Error[] = [];
+    page.on('pageerror', (e) => pageErrors.push(e));
+
+    await page.goto('/expert/master-explode');
+    await expect(page.getByText('專家資料載入失敗')).toBeVisible();
+
+    await page.getByRole('button', { name: '返回探索專家' }).click();
+
+    await expect(page).toHaveURL(/\/app\/explore(\?|$)/);
+    await expect(page.getByText('頁面發生錯誤')).toHaveCount(0);
+    await expect(page.getByText('很抱歉，此頁面遇到非預期錯誤')).toHaveCount(0);
+    const hookErr = pageErrors.find((e) =>
+      /Rendered (more|fewer) hooks than|change in the order of Hooks/i.test(e.message),
+    );
+    expect(hookErr, hookErr?.message).toBeUndefined();
+  });
 });
