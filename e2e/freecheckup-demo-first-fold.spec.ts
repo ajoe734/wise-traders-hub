@@ -188,3 +188,87 @@ test.describe('demo first-fold visibility', () => {
     expect(await page.locator('video').count()).toBe(0);
   });
 });
+
+/**
+ * Case B：已登入但空持倉的使用者
+ *
+ * 重點：這類使用者不應該看到 demo（DemoBanner / +11,xxx / 3443 等 demo code 都不可以出現），
+ * 應該看到「還沒有持倉資料」空狀態。
+ *
+ * 為避免依賴 Lovable Preview 環境的瀏覽器 session，這裡用 addInitScript 注入
+ * 假的 Supabase auth token，並用 page.route 攔截所有相關 REST 端點回空陣列。
+ */
+const SUPABASE_REF = 'yqacmrgdjlenbijclngi';
+const SUPABASE_HOST = `${SUPABASE_REF}.supabase.co`;
+const FAKE_USER_ID = '00000000-0000-0000-0000-000000000001';
+
+async function setupAuthenticatedEmptyPortfolio(page: Page) {
+  // 1. 攔截 supabase REST 全部回空 / 假 user
+  await page.route(`https://${SUPABASE_HOST}/**`, async (route) => {
+    const url = route.request().url();
+    if (url.includes('/auth/v1/user')) {
+      return route.fulfill({
+        status: 200,
+        contentType: 'application/json',
+        body: JSON.stringify({ id: FAKE_USER_ID, aud: 'authenticated', role: 'authenticated' }),
+      });
+    }
+    if (url.includes('/rest/v1/checkup_storage') || url.includes('/rest/v1/checkup_trade_memos')) {
+      return route.fulfill({
+        status: 200,
+        contentType: 'application/json',
+        body: '[]',
+      });
+    }
+    return route.continue();
+  });
+
+  // 2. 注入假 session 到 localStorage（Supabase JS client 讀的 key）
+  await page.addInitScript(({ ref, userId }) => {
+    try {
+      const key = `sb-${ref}-auth-token`;
+      const session = {
+        access_token: 'fake-access-token',
+        refresh_token: 'fake-refresh-token',
+        token_type: 'bearer',
+        expires_at: Math.floor(Date.now() / 1000) + 3600,
+        expires_in: 3600,
+        user: { id: userId, aud: 'authenticated', role: 'authenticated' },
+      };
+      window.localStorage.setItem(key, JSON.stringify(session));
+      // 確保不殘留 demo 旗標
+      window.localStorage.removeItem('pf-holdings-v2');
+    } catch {}
+  }, { ref: SUPABASE_REF, userId: FAKE_USER_ID });
+}
+
+test.describe('authenticated empty portfolio', () => {
+  test('已登入空倉：不顯示 demo、看到空持倉狀態（不算 demo failure）', async ({ page }) => {
+    await page.setViewportSize({ width: 1280, height: 800 });
+    await setupAuthenticatedEmptyPortfolio(page);
+    await gotoWithRetry(page, ROUTE, { waitUntil: 'domcontentloaded' });
+
+    // 等到首屏 render 完（用一個一定會出現的元素，例如 page heading 或 tab 列）
+    await page.waitForTimeout(2500);
+
+    // 1. DemoBanner 不可以存在
+    await expect(page.getByTestId('demo-banner')).toHaveCount(0);
+
+    // 2. 不可以出現 demo 的 +11,xxx
+    const pnlMatches = await page.locator('.wb-hero-pnl-num').count();
+    if (pnlMatches > 0) {
+      const text = ((await page.locator('.wb-hero-pnl-num').first().textContent()) ?? '').trim();
+      expect(text, '空倉不應出現 demo P&L 數字').not.toMatch(/\+?\d{1,3}(,\d{3})+/);
+    }
+
+    // 3. 不可以出現 demo 股票代號
+    await expect(page.getByText(/3443|3017|2308|2330|00637L/)).toHaveCount(0);
+
+    // 4. 應該出現「還沒有持倉資料」空狀態
+    await expect(page.getByText(/還沒有持倉資料/).first()).toBeVisible();
+
+    // eslint-disable-next-line no-console
+    console.log('[authenticated empty] DemoBanner 不存在、空狀態顯示、無 demo code — 預期行為');
+  });
+});
+

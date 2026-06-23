@@ -87,7 +87,17 @@ export function useFreeCheckupBootstrap({
   useEffect(() => {
     if (!authReady) return;
     let cancelled = false;
+    // dev-only debug：只在 dev 環境 + /holding-checkup 下啟用；不輸出 uid/email/token
+    const DBG = (() => {
+      try {
+        if (!import.meta.env || !import.meta.env.DEV) return () => {};
+        if (typeof window === "undefined") return () => {};
+        if (!window.location?.pathname?.startsWith("/holding-checkup")) return () => {};
+        return (...args) => console.log("[checkup-bootstrap]", ...args);
+      } catch { return () => {}; }
+    })();
     (async () => {
+      DBG("start", { authReady, isDemo, mode: isDemo ? "demo" : "full" });
       // ── Demo 模式：直接使用假資料 ──
       if (isDemo) {
         const { DEMO_EVENTS, DEMO_BRAIN } = await import("@/checkup/data/demoData");
@@ -102,8 +112,10 @@ export function useFreeCheckupBootstrap({
         setStrategyBrain(DEMO_BRAIN);
         setCalendarEvents([]);
         setReady(true);
+        DBG("demo-seed-applied", { holdingsLen: SEED_HOLDINGS.length });
         return;
       }
+
 
       // ── 雲端優先：批次載入所有 pf-* key ──
       const { data: { user: currentUser } } = await supabase.auth.getUser();
@@ -119,6 +131,8 @@ export function useFreeCheckupBootstrap({
         sessionStorage.removeItem("pf-reset-flag");
         localStorage.removeItem("pf-reset-flag");
       }
+      DBG("full-branch", { hasUser: !!userId, hasResetFlag: !!wasReset });
+
 
       let cloud = {};
       if (!wasReset && userId) {
@@ -201,8 +215,15 @@ export function useFreeCheckupBootstrap({
 
       if (cancelled) return;
 
+      DBG("full-apply", {
+        rawHoldingsLen: Array.isArray(h) ? h.length : 0,
+        sanitizedLen: sanitizedHoldings.length,
+        removedDemoSeedCount,
+        tradeLogLen: l.length,
+      });
       setHoldings(sanitizedHoldings); setTradeLog(l); setTargets(t);
       setStrategyBrain(sb); setCalendarEvents(shouldRebuildDerivedEvents ? [] : ce);
+
 
       const hasHoldings = sanitizedHoldings.length > 0;
       if (!hasHoldings) {
