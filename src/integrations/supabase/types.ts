@@ -599,6 +599,7 @@ export type Database = {
           id: string
           pred: string
           reviewed_at: string
+          user_id: string | null
           was_correct: boolean
         }
         Insert: {
@@ -608,6 +609,7 @@ export type Database = {
           id?: string
           pred: string
           reviewed_at?: string
+          user_id?: string | null
           was_correct?: boolean
         }
         Update: {
@@ -617,6 +619,7 @@ export type Database = {
           id?: string
           pred?: string
           reviewed_at?: string
+          user_id?: string | null
           was_correct?: boolean
         }
         Relationships: []
