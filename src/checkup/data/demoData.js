@@ -307,3 +307,132 @@ export const DEMO_BRAIN_UPDATED = {
   stats: { hitRate: '7/10', totalAnalyses: 42 },
   lastUpdate: _demoToday,
 }
+
+// ── DEMO_TRADE_LOG：交易日誌 tab 用 ──
+// 對應 LogTab 期望結構：{ id, date, time, action, code, name, qty, price, qa: [] }
+// 所有 code 必須在 SEED_HOLDINGS 範圍內，與持倉一致。
+const _d = (offset) => {
+  const d = new Date(); d.setDate(d.getDate() + offset);
+  return d.toLocaleDateString('zh-TW', { year: 'numeric', month: '2-digit', day: '2-digit' }).replace(/-/g, '/')
+}
+export const DEMO_TRADE_LOG = [
+  {
+    id: 'demo-log-1', date: _d(-2), time: '09:32', action: '買進',
+    code: '3017', name: '奇鋐', qty: 1000, price: 1185,
+    qa: [
+      { q: '為什麼買進？', a: 'NVIDIA GB200 液冷模組獨家供應消息確認，題材延續性高。' },
+      { q: '止損與停利？', a: '止損設 1080（-9%），第一目標 1380（+16%）。' },
+    ],
+  },
+  {
+    id: 'demo-log-2', date: _d(-2), time: '13:21', action: '買進',
+    code: '3443', name: '創意', qty: 500, price: 1420,
+    qa: [
+      { q: '為什麼這時候進場？', a: '回測月線止穩，ASIC 設計案能見度提升至 2026。' },
+    ],
+  },
+  {
+    id: 'demo-log-3', date: _d(-5), time: '10:08', action: '賣出',
+    code: '2308', name: '台達電', qty: 2000, price: 412,
+    qa: [
+      { q: '為什麼出場？', a: '已達第一目標價，先減半鎖利，剩餘部位等除息。' },
+      { q: '復盤反思', a: '進場節奏太急，應等量縮回測再加碼。' },
+    ],
+  },
+  {
+    id: 'demo-log-4', date: _d(-7), time: '11:45', action: '買進',
+    code: '2308', name: '台達電', qty: 2000, price: 388,
+    qa: [
+      { q: '進場理由', a: '法說會前 5 個交易日佈局，AI 伺服器電源需求展望強。' },
+    ],
+  },
+  {
+    id: 'demo-log-5', date: _d(-10), time: '14:02', action: '賣出',
+    code: '3443', name: '創意', qty: 300, price: 1295,
+    qa: [
+      { q: '為什麼停損？', a: 'CoWoS 良率雜音放大，跌破前低觸發 -10% 停損紀律。' },
+      { q: '本次教訓', a: '加碼時集中度過高，下次單檔部位應分批進場。' },
+    ],
+  },
+  {
+    id: 'demo-log-6', date: _d(-14), time: '09:15', action: '買進',
+    code: '3491', name: '昇達科', qty: 1000, price: 245,
+    qa: [
+      { q: '進場理由', a: 'CPO 光通訊題材＋低軌衛星訂單能見度，季線支撐強。' },
+    ],
+  },
+]
+
+// ── DEMO_ANALYSIS_HISTORY：收盤分析 tab「歷史紀錄」用 ──
+// 結構對應 setDailyReport(demoReport)：{ id, date, time, totalTodayPnl, changes, anomalies, eventCorrelations, needsReview, autoVerified, aiInsight, isDemo }
+const _todayDemo = new Date().toLocaleDateString('zh-TW').replace(/-/g, '/')
+const _yesterdayDemo = (() => {
+  const d = new Date(); d.setDate(d.getDate() - 1);
+  return d.toLocaleDateString('zh-TW').replace(/-/g, '/')
+})()
+
+export const DEMO_DAILY_REPORT = {
+  id: 'demo-daily-' + Date.now(),
+  date: _todayDemo,
+  time: '15:30',
+  totalTodayPnl: 11624,
+  changes: [
+    { code: '3017', name: '奇鋐', type: '股票', price: 1210, yesterday: 1185, change: 25, changePct: 2.11, cost: 1100, qty: 1000, todayPnl: 25000, totalPnl: 110000, totalPct: 10.00 },
+    { code: '3443', name: '創意', type: '股票', price: 1442, yesterday: 1420, change: 22, changePct: 1.55, cost: 1380, qty: 500, todayPnl: 11000, totalPnl: 31000, totalPct: 4.49 },
+    { code: '2308', name: '台達電', type: '股票', price: 416, yesterday: 411, change: 5, changePct: 1.22, cost: 388, qty: 2000, todayPnl: 10000, totalPnl: 56000, totalPct: 7.22 },
+  ],
+  anomalies: [],
+  eventCorrelations: [],
+  needsReview: [],
+  autoVerified: [
+    { code: '3017', title: '奇鋐液冷大單', verdict: '已驗證', detail: '股價反映符合預期，+2.1% 對應消息面強度。' },
+  ],
+  aiInsight: DEMO_ANALYSIS.aiInsight,
+  isDemo: true,
+}
+
+export const DEMO_ANALYSIS_HISTORY = [
+  DEMO_DAILY_REPORT,
+  {
+    id: 'demo-daily-prev-' + Date.now(),
+    date: _yesterdayDemo,
+    time: '15:28',
+    totalTodayPnl: -4280,
+    changes: [
+      { code: '3443', name: '創意', type: '股票', price: 1420, yesterday: 1450, change: -30, changePct: -2.07, cost: 1380, qty: 500, todayPnl: -15000, totalPnl: 20000, totalPct: 2.90 },
+      { code: '3017', name: '奇鋐', type: '股票', price: 1185, yesterday: 1180, change: 5, changePct: 0.42, cost: 1100, qty: 1000, todayPnl: 5000, totalPnl: 85000, totalPct: 7.73 },
+    ],
+    anomalies: [],
+    eventCorrelations: [],
+    needsReview: [
+      { code: '3443', title: '創意急跌', reason: 'CoWoS 良率雜音，需追蹤後續供應鏈調查。' },
+    ],
+    autoVerified: [],
+    aiInsight: `## 昨日總結\n大盤量縮整理，個股表現分歧。創意因供應鏈雜音回檔，奇鋐維持強勢。\n\n## 觀察\n- 短期 AI 散熱仍是主流\n- CoWoS 良率消息需追蹤 2-3 個交易日\n\n---\n*Demo 範例分析*`,
+    isDemo: true,
+  },
+]
+
+// ── DEMO_RESEARCH_HISTORY：深度研究歷史（保留供未來使用，目前 ResearchTab 不消費） ──
+export const DEMO_RESEARCH_HISTORY = [
+  {
+    id: 'demo-research-1',
+    timestamp: Date.now() - 86400000,
+    code: '3017',
+    name: '奇鋐',
+    title: '奇鋐 — 液冷霸主地位驗證',
+    summary: 'NVIDIA GB200 液冷模組獨家供應已確認，2026 年營收能見度提升至 +35% YoY。',
+    keyPoints: ['液冷模組市佔率 >60%', '產能擴張至 2027', '客戶集中度為主要風險'],
+    isDemo: true,
+  },
+  {
+    id: 'demo-research-2',
+    timestamp: Date.now() - 3 * 86400000,
+    code: '3443',
+    name: '創意',
+    title: '創意 — ASIC 設計案能見度檢視',
+    summary: 'ASIC 設計案接單能見度延伸至 2026 H2，CoWoS 良率為短期觀察重點。',
+    keyPoints: ['設計案數量 YoY +40%', 'CoWoS 良率 80%（vs 業界 85%）', '評價偏高需謹慎'],
+    isDemo: true,
+  },
+]

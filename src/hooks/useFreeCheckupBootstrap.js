@@ -82,6 +82,7 @@ export function useFreeCheckupBootstrap({
     setCalendarEvents,
     setReady,
     setCloudSync,
+    setDailyReport,
   } = setters;
 
   useEffect(() => {
@@ -100,19 +101,33 @@ export function useFreeCheckupBootstrap({
       DBG("start", { authReady, isDemo, mode: isDemo ? "demo" : "full" });
       // ── Demo 模式：直接使用假資料 ──
       if (isDemo) {
-        const { DEMO_EVENTS, DEMO_BRAIN } = await import("@/checkup/data/demoData");
+        const {
+          DEMO_EVENTS,
+          DEMO_BRAIN,
+          DEMO_CALENDAR,
+          DEMO_TRADE_LOG,
+          DEMO_ANALYSIS_HISTORY,
+          DEMO_DAILY_REPORT,
+        } = await import("@/checkup/data/demoData");
         if (cancelled) return;
         setLocalStorageOwner("demo");
         setHoldings(SEED_HOLDINGS);
-        setTradeLog([]);
+        setTradeLog(DEMO_TRADE_LOG);
         setTargets(INIT_TARGETS);
         setNewsEvents(DEMO_EVENTS);
-        setAnalysisHistory([]);
+        setAnalysisHistory(DEMO_ANALYSIS_HISTORY);
         setReversalConditions({});
         setStrategyBrain(DEMO_BRAIN);
-        setCalendarEvents([]);
+        setCalendarEvents(DEMO_CALENDAR);
+        if (typeof setDailyReport === "function") setDailyReport(DEMO_DAILY_REPORT);
         setReady(true);
-        DBG("demo-seed-applied", { holdingsLen: SEED_HOLDINGS.length });
+        DBG("demo-seed-applied", {
+          holdingsLen: SEED_HOLDINGS.length,
+          tradeLogLen: DEMO_TRADE_LOG.length,
+          analysisHistoryLen: DEMO_ANALYSIS_HISTORY.length,
+          calendarLen: DEMO_CALENDAR.length,
+          newsEventsLen: DEMO_EVENTS.length,
+        });
         return;
       }
 

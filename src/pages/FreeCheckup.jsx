@@ -771,6 +771,7 @@ export default function App() {
       setHoldings, setTradeLog, setTargets,
       setNewsEvents, setAnalysisHistory, setReversalConditions,
       setStrategyBrain, setCalendarEvents, setReady, setCloudSync,
+      setDailyReport,
     },
   });
 
