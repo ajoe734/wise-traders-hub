@@ -24,14 +24,14 @@ describe('CoachMarks gating', () => {
 
   it('isReady=false → 完全不渲染（避免閃現）', () => {
     modeMock.mockReturnValue({ isDemo: true, isReady: false });
-    render(<CoachMarks />);
+    render(<CoachMarks onTabChange={() => {}} />);
     act(() => { vi.advanceTimersByTime(2000); });
     expect(screen.queryByTestId('coachmarks-dialog')).toBeNull();
   });
 
   it('非 demo + 首次：mount 後 600ms 自動彈出（行為不變）', () => {
     modeMock.mockReturnValue({ isDemo: false, isReady: true });
-    render(<CoachMarks />);
+    render(<CoachMarks onTabChange={() => {}} />);
     expect(screen.queryByTestId('coachmarks-dialog')).toBeNull();
     act(() => { vi.advanceTimersByTime(700); });
     expect(screen.getByTestId('coachmarks-dialog')).toBeInTheDocument();
@@ -40,14 +40,14 @@ describe('CoachMarks gating', () => {
   it('非 demo + 已看過：永不彈', () => {
     localStorage.setItem(COACH_KEY, '1');
     modeMock.mockReturnValue({ isDemo: false, isReady: true });
-    render(<CoachMarks />);
+    render(<CoachMarks onTabChange={() => {}} />);
     act(() => { vi.advanceTimersByTime(2000); });
     expect(screen.queryByTestId('coachmarks-dialog')).toBeNull();
   });
 
   it('demo + 首次：mount 時不彈；scroll>200 才彈', () => {
     modeMock.mockReturnValue({ isDemo: true, isReady: true });
-    render(<CoachMarks />);
+    render(<CoachMarks onTabChange={() => {}} />);
     act(() => { vi.advanceTimersByTime(2000); });
     expect(screen.queryByTestId('coachmarks-dialog')).toBeNull();
 
@@ -64,7 +64,7 @@ describe('CoachMarks gating', () => {
 
   it('demo：切 tab 也能觸發（checkup:tab-change 事件）', () => {
     modeMock.mockReturnValue({ isDemo: true, isReady: true });
-    render(<CoachMarks />);
+    render(<CoachMarks onTabChange={() => {}} />);
     act(() => { vi.advanceTimersByTime(100); });
     expect(screen.queryByTestId('coachmarks-dialog')).toBeNull();
 
@@ -74,7 +74,7 @@ describe('CoachMarks gating', () => {
 
   it('demo：觸發後 scroll 不重複彈（listener 已移除）', async () => {
     modeMock.mockReturnValue({ isDemo: true, isReady: true });
-    render(<CoachMarks />);
+    render(<CoachMarks onTabChange={() => {}} />);
     act(() => { vi.advanceTimersByTime(100); });
 
     Object.defineProperty(window, 'scrollY', { value: 500, writable: true, configurable: true });
@@ -93,7 +93,7 @@ describe('CoachMarks gating', () => {
 
   it('unmount 後 scroll listener 已 cleanup（不再 setState）', () => {
     modeMock.mockReturnValue({ isDemo: true, isReady: true });
-    const { unmount } = render(<CoachMarks />);
+    const { unmount } = render(<CoachMarks onTabChange={() => {}} />);
     act(() => { vi.advanceTimersByTime(100); });
     unmount();
 
