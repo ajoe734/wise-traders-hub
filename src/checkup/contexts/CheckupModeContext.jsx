@@ -133,7 +133,7 @@ export function CheckupModeProvider({ children }) {
     })
 
     return () => subscription.unsubscribe()
-  }, [fetchQuota])
+  }, [fetchQuota, forceDemo])
 
   const isDemo = mode === 'demo'
   // Authenticated users (any tier) can upload — quota only restricts AI calls, not data entry
