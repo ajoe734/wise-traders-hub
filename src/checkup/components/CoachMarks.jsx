@@ -1,7 +1,9 @@
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { C, alpha } from "../theme.js";
+import { useCheckupMode } from "../contexts/CheckupModeContext.jsx";
 
 const STORAGE_KEY = "checkup-coach-seen-v1";
+const SCROLL_THRESHOLD = 200;
 
 const STEPS = [
   {
@@ -21,19 +23,62 @@ const STEPS = [
   },
 ];
 
+/**
+ * CoachMarks 修訂版（demo 首屏可見性修復）：
+ *  - 非 demo：mount 即彈（行為不變）。
+ *  - demo：首屏不顯示。等 isReady 為 true 後才掛延後監聽，避免「先彈再縮」閃現。
+ *  - demo 觸發條件：scroll > 200px 或使用者切 tab（onTabChange 觸發）。
+ *  - 觸發後立刻移除 scroll listener，避免重複彈出。
+ *  - cleanup 確保 unmount 一定移除 listener。
+ */
 export function CoachMarks({ onTabChange }) {
+  const { isDemo, isReady } = useCheckupMode();
   const [open, setOpen] = useState(false);
   const [step, setStep] = useState(0);
+  const triggeredRef = useRef(false);
 
   useEffect(() => {
-    try {
-      if (!localStorage.getItem(STORAGE_KEY)) {
-        // 延遲一點等版面定位
-        const t = setTimeout(() => setOpen(true), 600);
-        return () => clearTimeout(t);
-      }
-    } catch {/* localStorage 可能被擋 */}
-  }, []);
+    // 等 mode 判斷完成才決策，避免閃現
+    if (!isReady) return;
+
+    let seen = false;
+    try { seen = localStorage.getItem(STORAGE_KEY) === "1"; } catch {/* noop */}
+    if (seen) return;
+    if (triggeredRef.current) return;
+
+    // 非 demo：維持原行為（mount 即彈，延遲 600ms 等版面定位）
+    if (!isDemo) {
+      const t = setTimeout(() => {
+        if (triggeredRef.current) return;
+        triggeredRef.current = true;
+        setOpen(true);
+      }, 600);
+      return () => clearTimeout(t);
+    }
+
+    // demo：延後到 scroll>200 或 tab 切換
+    const trigger = () => {
+      if (triggeredRef.current) return;
+      triggeredRef.current = true;
+      setOpen(true);
+      window.removeEventListener("scroll", onScroll);
+    };
+    const onScroll = () => {
+      if (window.scrollY > SCROLL_THRESHOLD) trigger();
+    };
+    window.addEventListener("scroll", onScroll, { passive: true });
+
+    // 包裝 onTabChange：使用者第一次切 tab 也算觸發
+    // 因為 onTabChange 是 prop callback，無法直接「監聽」，改用 effect 監聽 tab 變更不適用，
+    // 改在外部用 ref 暴露：透過全域事件 'checkup:tab-change'。FreeCheckup 在 tab 點擊後 dispatch。
+    const onTabEvt = () => trigger();
+    window.addEventListener("checkup:tab-change", onTabEvt);
+
+    return () => {
+      window.removeEventListener("scroll", onScroll);
+      window.removeEventListener("checkup:tab-change", onTabEvt);
+    };
+  }, [isDemo, isReady]);
 
   if (!open) return null;
   const current = STEPS[step];
@@ -51,13 +96,12 @@ export function CoachMarks({ onTabChange }) {
     onTabChange?.(STEPS[nextStep].targetTab);
   };
 
-  // 改為「不遮頁面」的底部 toast：原本的全螢幕黑色遮罩會擋住升級 CTA 等互動，
-  // 這裡改用浮動卡片，使用者可同時看到並點擊頁面上其他元素。
   return (
     <div
       role="dialog"
       aria-modal="false"
       aria-label="新手導覽"
+      data-testid="coachmarks-dialog"
       style={{
         position: "fixed",
         left: "50%",

@@ -1,0 +1,190 @@
+import { test, expect, type Page } from '@playwright/test';
+import { gotoWithRetry } from './helpers/navigation';
+
+/**
+ * /holding-checkup demo 首屏可見性回歸
+ *
+ * 修復目標：未登入 demo 訪客打開 /holding-checkup 時，首屏必須看到：
+ *   1. Today's P&L 標題與大數字（+11,xxx）
+ *   2. demo 持倉相關資料（ACTION PRIORITY 區塊內 demo 股票代號）
+ *   3. CoachMarks dialog 不擋住看板
+ *   4. HoldingsIntroVideo 折疊狀態下，DOM 完全沒有 <video>
+ *   5. DemoBanner 高度受控（desktop ≤ 60、mobile ≤ 96）
+ */
+
+const ROUTE = '/holding-checkup';
+const CLEAR_GUARD = '__lf_demo_first_fold_cleared';
+
+async function setupCleanDemoOnce(page: Page) {
+  // 只在第一次 nav 清旗標，reload 不再清，確保「不再顯示」這類測試能跨 reload 保持狀態
+  await page.addInitScript((guardKey: string) => {
+    try {
+      if (window.localStorage.getItem(guardKey)) return;
+      window.localStorage.setItem(guardKey, '1');
+      window.localStorage.removeItem('holdings-intro-video-seen-v2');
+      window.localStorage.removeItem('checkup-coach-seen-v1');
+    } catch {}
+  }, CLEAR_GUARD);
+}
+
+async function gotoDemo(page: Page) {
+  await setupCleanDemoOnce(page);
+  await gotoWithRetry(page, ROUTE, { waitUntil: 'domcontentloaded' });
+  // hero P&L 大數字是 demo 核心；等它出現代表 isReady 已過、demo seed 已注入
+  await page.waitForSelector('.wb-hero-pnl-num', { state: 'visible', timeout: 30_000 });
+  await page.waitForTimeout(600); // 給 CoachMarks / video effect 跑完
+}
+
+test.describe('demo first-fold visibility', () => {
+  test('desktop 1280×800：核心看板可見、無 video、CoachMarks 不擋', async ({ page }) => {
+    await page.setViewportSize({ width: 1280, height: 800 });
+    await gotoDemo(page);
+
+    // 1. Today's P&L 標題
+    const pnlLabel = page.getByText(/Today's P&L/i).first();
+    await expect(pnlLabel).toBeVisible();
+    const labelBox = await pnlLabel.boundingBox();
+    expect(labelBox!.y).toBeGreaterThanOrEqual(0);
+    expect(labelBox!.y + labelBox!.height).toBeLessThanOrEqual(800);
+
+    // 2. P&L 大數字 +11,xxx（demo 固定區間）
+    const pnlNum = page.locator('.wb-hero-pnl-num').first();
+    await expect(pnlNum).toBeVisible();
+    const numText = (await pnlNum.textContent())?.trim() ?? '';
+    expect(numText, `P&L 大數字 "${numText}"`).toMatch(/^\+?\d{1,3}(,\d{3})+$/);
+    const numBox = await pnlNum.boundingBox();
+    expect(numBox!.y).toBeGreaterThanOrEqual(0);
+    expect(numBox!.y + numBox!.height).toBeLessThanOrEqual(800);
+
+    // 3. ACTION PRIORITY 區（demo 持倉資料的直接體現：3443/3017/2308）
+    const actionPriority = page.getByText(/ACTION PRIORITY/i).first();
+    await expect(actionPriority).toBeVisible();
+    const apBox = await actionPriority.boundingBox();
+    expect(apBox!.y).toBeGreaterThanOrEqual(0);
+    expect(apBox!.y + apBox!.height).toBeLessThanOrEqual(800);
+
+    // 至少一個 demo 股票代號在首屏內
+    const demoCode = page.getByText(/3443|3017|2308/).first();
+    await expect(demoCode).toBeVisible();
+    const codeBox = await demoCode.boundingBox();
+    expect(codeBox!.y + codeBox!.height).toBeLessThanOrEqual(800);
+
+    // 4. video 不存在
+    expect(await page.locator('video').count()).toBe(0);
+
+    // 5. CoachMarks 首屏不出現
+    await expect(page.getByTestId('coachmarks-dialog')).toHaveCount(0);
+
+    // 6. DemoBanner 高度受控
+    const banner = page.getByTestId('demo-banner');
+    await expect(banner).toBeVisible();
+    const bbox = await banner.boundingBox();
+    expect(bbox!.height, `desktop DemoBanner 高度 ${bbox!.height}px`).toBeLessThanOrEqual(60);
+
+    // 7. 折疊入口存在於 DOM（雖在頁尾）
+    await expect(page.getByTestId('holdings-intro-collapsed')).toHaveCount(1);
+
+    // eslint-disable-next-line no-console
+    console.log(`[demo desktop] pnl="${numText}" banner=${bbox!.height}px pnl-y=${numBox!.y} ap-y=${apBox!.y}`);
+  });
+
+  test('mobile 390×844：核心看板可見、DemoBanner 高度 ≤ 96、無 video', async ({ page }) => {
+    await page.setViewportSize({ width: 390, height: 844 });
+    await gotoDemo(page);
+
+    const pnlLabel = page.getByText(/Today's P&L/i).first();
+    await expect(pnlLabel).toBeVisible();
+    const labelBox = await pnlLabel.boundingBox();
+    expect(labelBox!.y).toBeGreaterThanOrEqual(0);
+    expect(labelBox!.y).toBeLessThan(844);
+
+    const pnlNum = page.locator('.wb-hero-pnl-num').first();
+    await expect(pnlNum).toBeVisible();
+    const numBox = await pnlNum.boundingBox();
+    expect(numBox!.y + numBox!.height).toBeLessThanOrEqual(844);
+
+    // 手機首屏空間有限，至少要看到 hero P&L；ACTION PRIORITY 允許在 fold 邊緣
+    // 但「持倉資料源」必須出現在 DOM 內（demo seed 注入成功的硬證據）
+    await expect(page.getByText(/3443|3017|2308|2330|00637L/).first()).toBeAttached();
+
+    expect(await page.locator('video').count()).toBe(0);
+    await expect(page.getByTestId('coachmarks-dialog')).toHaveCount(0);
+
+    const banner = page.getByTestId('demo-banner');
+    const bbox = await banner.boundingBox();
+    expect(bbox!.height, `mobile DemoBanner 高度 ${bbox!.height}px`).toBeLessThanOrEqual(96);
+
+    // eslint-disable-next-line no-console
+    console.log(`[demo mobile] banner=${bbox!.height}px pnl-y=${numBox!.y}`);
+  });
+
+  test('點折疊入口後才渲染 <video> 並 autoplay', async ({ page }) => {
+    await page.setViewportSize({ width: 1280, height: 800 });
+    await gotoDemo(page);
+
+    expect(await page.locator('video').count()).toBe(0);
+
+    const entry = page.getByTestId('holdings-intro-collapsed');
+    await entry.scrollIntoViewIfNeeded();
+    await page.getByRole('button', { name: /30 秒看懂持倉看板/ }).click();
+
+    await expect(page.locator('video')).toHaveCount(1);
+    const hasAutoplay = await page.locator('video').first().evaluate((v) =>
+      (v as HTMLVideoElement).autoplay
+    );
+    expect(hasAutoplay).toBe(true);
+  });
+
+  test('demo：scroll>200px 才彈 CoachMarks，且關閉後不重彈', async ({ page }) => {
+    await page.setViewportSize({ width: 1280, height: 800 });
+    await gotoDemo(page);
+
+    await expect(page.getByTestId('coachmarks-dialog')).toHaveCount(0);
+
+    await page.evaluate(() => window.scrollTo(0, 150));
+    await page.waitForTimeout(300);
+    await expect(page.getByTestId('coachmarks-dialog')).toHaveCount(0);
+
+    await page.evaluate(() => window.scrollTo(0, 350));
+    await page.waitForTimeout(400);
+    await expect(page.getByTestId('coachmarks-dialog')).toBeVisible();
+
+    await page.getByRole('button', { name: /略過導覽/ }).click();
+    await expect(page.getByTestId('coachmarks-dialog')).toHaveCount(0);
+
+    await page.evaluate(() => window.scrollTo(0, 0));
+    await page.evaluate(() => window.scrollTo(0, 600));
+    await page.waitForTimeout(300);
+    await expect(page.getByTestId('coachmarks-dialog')).toHaveCount(0);
+  });
+
+  test('demo：切 tab 觸發 CoachMarks（不需要 scroll）', async ({ page }) => {
+    await page.setViewportSize({ width: 1280, height: 800 });
+    await gotoDemo(page);
+
+    await expect(page.getByTestId('coachmarks-dialog')).toHaveCount(0);
+
+    await page.getByRole('button', { name: /^行事曆$/ }).first().click();
+    await page.waitForTimeout(600);
+
+    await expect(page.getByTestId('coachmarks-dialog')).toBeVisible();
+  });
+
+  test('按過「不再顯示」後 reload：折疊入口不再出現，仍無 video', async ({ page }) => {
+    await page.setViewportSize({ width: 1280, height: 800 });
+    await gotoDemo(page);
+
+    const entry = page.getByTestId('holdings-intro-collapsed');
+    await entry.scrollIntoViewIfNeeded();
+    await page.getByRole('button', { name: /不再顯示介紹影片/ }).click();
+    await expect(page.getByTestId('holdings-intro-collapsed')).toHaveCount(0);
+
+    // reload — addInitScript 內的 guard 阻止再次清旗標
+    await page.reload({ waitUntil: 'domcontentloaded' });
+    await page.waitForSelector('.wb-hero-pnl-num', { state: 'visible', timeout: 30_000 });
+    await page.waitForTimeout(500);
+
+    await expect(page.getByTestId('holdings-intro-collapsed')).toHaveCount(0);
+    expect(await page.locator('video').count()).toBe(0);
+  });
+});

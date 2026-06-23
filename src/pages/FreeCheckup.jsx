@@ -2811,8 +2811,7 @@ ${JSON.stringify(strategyBrain || { rules: [], lessons: [], commonMistakes: [], 
         }
       `}</style>
 
-      {/* ── 首次進入：20 秒介紹影片（看過後 localStorage 記住，不再顯示） ── */}
-      <HoldingsIntroVideo />
+      {/* ── 介紹影片折疊入口已下移至看板核心之後（demo 首屏可見性修復），見頁尾 ── */}
 
       {/* ── DEMO BANNER（僅 demo 模式顯示） ── */}
       {isDemo && (
@@ -2971,7 +2970,7 @@ ${JSON.stringify(strategyBrain || { rules: [], lessons: [], commonMistakes: [], 
         <Suspense fallback={null}><CoachMarks onTabChange={setTab} /></Suspense>
         <div style={{display:"flex",gap:0,overflowX:"auto",paddingBottom:0,marginTop:2}}>
           {TABS.map(t=>(
-            <button key={t.k} onClick={()=>{setTab(t.k);trackRaw('checkup_tab_change',{tab:t.k});window.scrollTo({top:0,behavior:"smooth"})}} style={{
+            <button key={t.k} onClick={()=>{setTab(t.k);try{window.dispatchEvent(new CustomEvent('checkup:tab-change',{detail:{tab:t.k}}))}catch{}trackRaw('checkup_tab_change',{tab:t.k});window.scrollTo({top:0,behavior:"smooth"})}} style={{
               background:"transparent",
               color: tab===t.k ? C.text : C.textMute,
               border:"none",
@@ -3746,6 +3745,9 @@ ${JSON.stringify(strategyBrain || { rules: [], lessons: [], commonMistakes: [], 
 
       {/* 配額不足 modal 已移除（2026-06）— 全螢幕遮罩會擋住 tab 導航，
           現改用 TradeTab/DailyTab inline banner + toast 提示。見 .lovable/plan.md */}
+
+      {/* ── 介紹影片折疊入口（從頂部下移，避免擠掉首屏看板核心） ── */}
+      <HoldingsIntroVideo />
     </div>
   );
 }
