@@ -215,8 +215,15 @@ export function useFreeCheckupBootstrap({
 
       if (cancelled) return;
 
+      DBG("full-apply", {
+        rawHoldingsLen: Array.isArray(h) ? h.length : 0,
+        sanitizedLen: sanitizedHoldings.length,
+        removedDemoSeedCount,
+        tradeLogLen: l.length,
+      });
       setHoldings(sanitizedHoldings); setTradeLog(l); setTargets(t);
       setStrategyBrain(sb); setCalendarEvents(shouldRebuildDerivedEvents ? [] : ce);
+
 
       const hasHoldings = sanitizedHoldings.length > 0;
       if (!hasHoldings) {
