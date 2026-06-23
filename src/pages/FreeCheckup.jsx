@@ -774,6 +774,27 @@ export default function App() {
     },
   });
 
+  // dev-only：追蹤 holdings.length 變化（N→0 / 0→N），不包裝 setter、不改資料流
+  const prevHoldingsLenRef = useRef(null);
+  useEffect(() => {
+    try {
+      if (!import.meta.env?.DEV) return;
+      if (typeof window === "undefined") return;
+      if (!window.location?.pathname?.startsWith("/holding-checkup")) return;
+      const cur = Array.isArray(holdings) ? holdings.length : (holdings == null ? null : 0);
+      const prev = prevHoldingsLenRef.current;
+      if (prev !== cur && (prev === 20 || cur === 0 || prev === 0 || cur >= 20)) {
+        let hasResetFlag = false;
+        try {
+          hasResetFlag = !!(sessionStorage.getItem("pf-reset-flag") || localStorage.getItem("pf-reset-flag"));
+        } catch {}
+        console.log("[checkup-holdings]", { from: prev, to: cur, isDemo, ready, authReady, tab, hasResetFlag });
+      }
+      prevHoldingsLenRef.current = cur;
+    } catch {}
+  }, [holdings, isDemo, ready, authReady, tab]);
+
+
   // auto-save
   // 雲端 upsert debounce + 錯誤處理（避免快速操作時觸發過多請求）
   const cloudHoldingsTimerRef = useRef(null);
