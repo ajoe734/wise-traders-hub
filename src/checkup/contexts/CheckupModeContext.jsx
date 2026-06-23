@@ -29,9 +29,27 @@ const CheckupModeContext = createContext(null)
  *  - `?demo=0` → 清除 sessionStorage flag，回到正常 auth 流程
  *  - 不寫 localStorage、不污染 cloud、不影響 production
  */
+// dev/preview 環境判定：
+//  - import.meta.env.DEV（本機 vite dev）
+//  - localhost / 127.0.0.1
+//  - Lovable live preview：*.lovableproject.com
+//  - Lovable static preview：id-preview--*.lovable.app
+// 明確排除 production hosts：wise-traders-hub.lovable.app、legendflow.tw、www.legendflow.tw
+function isPreviewLikeEnv() {
+  if (typeof window === 'undefined') return false
+  if (import.meta.env?.DEV) return true
+  try {
+    const h = window.location.hostname || ''
+    if (h === 'localhost' || h === '127.0.0.1') return true
+    if (h.endsWith('.lovableproject.com')) return true
+    if (h.startsWith('id-preview--') && h.endsWith('.lovable.app')) return true
+    return false
+  } catch { return false }
+}
+
 function readForceDemoFlag() {
   if (typeof window === 'undefined') return false
-  if (!import.meta.env?.DEV) return false
+  if (!isPreviewLikeEnv()) return false
   try {
     const qs = new URLSearchParams(window.location.search)
     const q = qs.get('demo')
