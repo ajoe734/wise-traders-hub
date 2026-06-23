@@ -82,6 +82,7 @@ export function useFreeCheckupBootstrap({
     setCalendarEvents,
     setReady,
     setCloudSync,
+    setDailyReport,
   } = setters;
 
   useEffect(() => {
