@@ -173,7 +173,9 @@ const SERVICE_ONLY_RPCS: Array<[string, Record<string, unknown>]> = [
     _new_confidence: 0,
     _note: '',
   }],
-  ['calculate_expert_performance', { _expert_id: '00000000-0000-0000-0000-000000000000' }],
+  // NOTE: calculate_expert_performance is intentionally anon/authenticated callable
+  // (front-end usePerformance.ts + useExpertHoldingsBundle.ts depend on it for public
+  // expert detail cards). Do NOT add it back to this list.
 ];
 
 describe('E. Service-role-only RPCs — anon must be denied', () => {
@@ -187,7 +189,13 @@ describe('E. Service-role-only RPCs — anon must be denied', () => {
 });
 
 // ──────────────────────────────────────────────────────────
-// F. RLS helper — 必須維持 anon callable（policy 會用）
+// F. RLS helpers — anon MUST be denied (only authenticated needs them)
+//
+// 設計變更說明：
+//   過去測試曾假設 RLS helper（has_role / has_active_subscription / ...）需要 anon
+//   callable。實際上 anon 從不查詢會引用這些 helper 的 auth-only 資料表，故 anon 不需要
+//   EXECUTE 權限。當前真實 grants：anon=denied、authenticated=allowed、service_role=allowed。
+//   測試斷言改為驗證「anon 被正確拒絕」。
 // ──────────────────────────────────────────────────────────
 const RLS_HELPERS: Array<[string, Record<string, unknown>]> = [
   ['has_role', { _user_id: '00000000-0000-0000-0000-000000000000', _role: 'company_admin' }],
@@ -203,11 +211,12 @@ const RLS_HELPERS: Array<[string, Record<string, unknown>]> = [
   ['is_tester', { _user_id: '00000000-0000-0000-0000-000000000000' }],
 ];
 
-describe('F. RLS helpers — must stay anon-callable (policies depend on them)', () => {
+describe('F. RLS helpers — anon must be denied (authenticated-only by design)', () => {
   for (const [name, args] of RLS_HELPERS) {
-    it(`anon rpc('${name}') → no permission error`, async () => {
+    it(`anon rpc('${name}') → denied`, async () => {
       const { error } = await anon.rpc(name as never, args as never);
-      expect(error).toBeNull();
+      expect(error).not.toBeNull();
+      expect(isAccessDenied(error)).toBe(true);
     });
   }
 });
