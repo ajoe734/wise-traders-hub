@@ -887,12 +887,12 @@ export default function App() {
         table: 'checkup_analysis_jobs',
         filter: `user_id=eq.${uid}`,
       }, (payload) => {
+        // Realtime payload 僅含 id/user_id/status/error_text/finished_at
+        // （publication 已縮欄位避免敏感資料外洩；詳細 result_summary 需 fetch）
         const row = payload?.new;
         if (!row) return;
         if (row.status === 'done') {
-          const pnl = Number(row?.result_summary?.total_pnl) || 0;
-          const sign = pnl >= 0 ? '+' : '';
-          toast.success(`📊 背景收盤分析完成（NT$ ${sign}${pnl.toLocaleString()}），可重新整理頁面檢視`, { duration: 8000 });
+          toast.success('📊 背景收盤分析完成，可重新整理頁面檢視', { duration: 8000 });
         } else if (row.status === 'failed') {
           toast.error(`背景收盤分析失敗：${row.error_text || '請重試'}`, { duration: 8000 });
         }
