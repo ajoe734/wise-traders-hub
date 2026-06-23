@@ -111,4 +111,40 @@ test.describe('/app/expert/:slug', () => {
     await expect(page.getByText('頁面發生錯誤')).toHaveCount(0);
     expect(pageErrors, pageErrors.map((e) => e.message).join('\n')).toHaveLength(0);
   });
+
+  test('不存在的 slug：首次 render 應顯示「找不到此專家」而非 AppErrorBoundary', async ({ page }) => {
+    await seedSession(page, { id: 'user-admin', email: 'admin@test.com' });
+
+    const routes = baseRoutes();
+    // 模擬 slug 完全找不到：experts/expert_plans/bundle 全部回空。
+    routes.experts = () => [];
+    routes.expert_plans = () => [];
+    routes.get_expert_detail_bundle = () => ({
+      expert: null,
+      plans: [],
+      subscriber_count: 0,
+      my_subscribed_plan_ids: [],
+    });
+
+    await installRoutes(page, { rest: routes });
+
+    const pageErrors: Error[] = [];
+    page.on('pageerror', (e) => pageErrors.push(e));
+
+    await page.goto('/app/expert/this-slug-does-not-exist');
+
+    // 應渲染 ExpertDetail 自己的 not-found fallback
+    await expect(page.getByText('找不到此專家')).toBeVisible();
+    await expect(page.getByRole('button', { name: '返回戰情室' })).toBeVisible();
+
+    // 絕不可被 AppErrorBoundary 接住
+    await expect(page.getByText('頁面發生錯誤')).toHaveCount(0);
+    await expect(page.getByText('很抱歉，此頁面遇到非預期錯誤')).toHaveCount(0);
+
+    const hookErr = pageErrors.find((e) =>
+      /Rendered (more|fewer) hooks than|change in the order of Hooks/i.test(e.message),
+    );
+    expect(hookErr, hookErr?.message).toBeUndefined();
+    expect(pageErrors, pageErrors.map((e) => e.message).join('\n')).toHaveLength(0);
+  });
 });
