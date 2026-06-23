@@ -211,3 +211,38 @@ describe('F. RLS helpers — must stay anon-callable (policies depend on them)',
     });
   }
 });
+
+// ──────────────────────────────────────────────────────────
+// G. payment_providers — config 不得對 anon/authenticated 外洩
+//   修補 migration：移除 "Anyone can view active providers" public policy
+// ──────────────────────────────────────────────────────────
+describe('G. payment_providers — config not leaked', () => {
+  it('anon SELECT * → 0 rows（public policy 已移除）', async () => {
+    const { data, error } = await anon.from('payment_providers' as never).select('*').limit(5);
+    expect(error).toBeNull();
+    expect(data ?? []).toEqual([]);
+  });
+
+  it('anon SELECT config → 0 rows / 不會回傳 config 內容', async () => {
+    const { data } = await anon.from('payment_providers' as never).select('id, config').limit(5);
+    expect((data ?? []).length).toBe(0);
+  });
+
+  it('payment_providers_safe 視圖仍可 anon 讀取（不含 config）', async () => {
+    const { error } = await anon.from('payment_providers_safe' as never).select('id, display_name, provider_type').limit(1);
+    expect(error).toBeNull();
+  });
+});
+
+// ──────────────────────────────────────────────────────────
+// H. checkup_analysis_jobs Realtime — publication 欄位收斂
+//   修補 migration：DROP TABLE + ADD TABLE (id, user_id, status, error_text, finished_at)
+//   不再廣播 holdings_snapshot / result_summary / raw_responses
+// ──────────────────────────────────────────────────────────
+describe('H. checkup_analysis_jobs realtime publication — column scoping', () => {
+  it('anon SELECT checkup_analysis_jobs → 0 rows（RLS scoped to auth.uid）', async () => {
+    const { data, error } = await anon.from('checkup_analysis_jobs' as never).select('id').limit(1);
+    expect(error).toBeNull();
+    expect(data ?? []).toEqual([]);
+  });
+});
