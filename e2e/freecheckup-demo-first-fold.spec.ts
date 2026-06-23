@@ -248,7 +248,6 @@ test.describe('authenticated empty portfolio', () => {
     await setupAuthenticatedEmptyPortfolio(page);
     await gotoWithRetry(page, ROUTE, { waitUntil: 'domcontentloaded' });
 
-    // 等到首屏 render 完（用一個一定會出現的元素，例如 page heading 或 tab 列）
     await page.waitForTimeout(2500);
 
     // 1. DemoBanner 不可以存在
@@ -261,14 +260,86 @@ test.describe('authenticated empty portfolio', () => {
       expect(text, '空倉不應出現 demo P&L 數字').not.toMatch(/\+?\d{1,3}(,\d{3})+/);
     }
 
-    // 3. 不可以出現 demo 股票代號
+    // 3. 不可以出現 demo 股票代號 / demo 交易日誌訊息 / demo 收盤分析
     await expect(page.getByText(/3443|3017|2308|2330|00637L/)).toHaveCount(0);
 
     // 4. 應該出現「還沒有持倉資料」空狀態
     await expect(page.getByText(/還沒有持倉資料/).first()).toBeVisible();
 
+    // 5. 切到「交易日誌」也不可以看到 demo trade log
+    await page.getByRole('button', { name: /^交易日誌$/ }).first().click().catch(() => {});
+    await page.waitForTimeout(400);
+    await expect(page.getByText(/還沒有交易記錄/).first()).toBeVisible();
+    await expect(page.getByText(/液冷大單|CoWoS|奇鋐|創意/)).toHaveCount(0);
+
     // eslint-disable-next-line no-console
-    console.log('[authenticated empty] DemoBanner 不存在、空狀態顯示、無 demo code — 預期行為');
+    console.log('[authenticated empty] DemoBanner 不存在、空狀態顯示、無 demo code/log — 預期行為');
+  });
+});
+
+/**
+ * Case C：未登入 demo 訪客每個 tab 都有可體驗示範資料
+ * 守住「整個看板都是 demo」這項合約 — 不允許退化成「只有持倉 tab 有資料」。
+ */
+test.describe('demo per-tab content coverage', () => {
+  test('每個 tab 切過去都不是空白', async ({ page }) => {
+    await page.setViewportSize({ width: 1280, height: 900 });
+    await gotoDemo(page);
+
+    // 1. 持倉 — 已在 desktop first-fold 測過，這裡再 quick check
+    await expect(page.locator('.wb-hero-pnl-num').first()).toBeVisible();
+    await expect(page.getByText(/3017|3443|2308/).first()).toBeVisible();
+
+    // 2. 行事曆（events tab）— DEMO_CALENDAR + DEMO_EVENTS 應立即可見
+    await page.getByRole('button', { name: /^行事曆$/ }).first().click();
+    await page.waitForTimeout(500);
+    // 關閉可能彈出的 CoachMarks
+    const skipBtn = page.getByRole('button', { name: /略過導覽/ });
+    if (await skipBtn.count() > 0) { await skipBtn.first().click().catch(() => {}); }
+    await expect(
+      page.getByText(/法說|除息|營收|CPI/).first()
+    ).toBeVisible({ timeout: 5000 });
+
+    // 3. 事件分析（news tab）— DEMO_EVENTS 應出現
+    await page.getByRole('button', { name: /^事件分析$/ }).first().click();
+    await page.waitForTimeout(400);
+    await expect(
+      page.getByText(/CoWoS|液冷|供應鏈|事件分析/).first()
+    ).toBeVisible({ timeout: 5000 });
+
+    // 4. 收盤分析（daily tab）— DEMO_DAILY_REPORT 應渲染（aiInsight 內含「今日總結」）
+    await page.getByRole('button', { name: /^收盤分析$/ }).first().click();
+    await page.waitForTimeout(400);
+    await expect(
+      page.getByText(/今日總結|事件連動|個股操作建議/).first()
+    ).toBeVisible({ timeout: 5000 });
+    // 確認不是空狀態
+    await expect(page.getByText(/還沒有.*分析|尚未產生分析/)).toHaveCount(0);
+
+    // 5. 深度研究（research tab）— notice + 範例輸出 + CTA
+    await page.getByRole('button', { name: /^深度研究$/ }).first().click();
+    await page.waitForTimeout(400);
+    await expect(
+      page.getByText(/個股研究|策略大腦進化|範例輸出/).first()
+    ).toBeVisible({ timeout: 5000 });
+
+    // 6. 上傳成交（trade tab）— 保留上傳入口，不應該有 fake upload 結果
+    await page.getByRole('button', { name: /^上傳成交$/ }).first().click();
+    await page.waitForTimeout(400);
+    // 至少要有某種 demo 提示或上傳入口（不強制具體文案）
+    // 同時禁止出現「已成功上傳 N 筆」這類 fake 結果
+    await expect(page.getByText(/已成功上傳|已解析.*筆/)).toHaveCount(0);
+
+    // 7. 交易日誌（log tab）— DEMO_TRADE_LOG 應渲染
+    await page.getByRole('button', { name: /^交易日誌$/ }).first().click();
+    await page.waitForTimeout(400);
+    await expect(
+      page.getByText(/液冷|CoWoS|為什麼買進|止損|復盤反思|教訓/).first()
+    ).toBeVisible({ timeout: 5000 });
+    await expect(page.getByText(/還沒有交易記錄/)).toHaveCount(0);
+
+    // eslint-disable-next-line no-console
+    console.log('[demo per-tab] 全部 tab 在 demo 模式下都有可體驗示範資料');
   });
 });
 
