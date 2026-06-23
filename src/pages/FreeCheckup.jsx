@@ -3769,7 +3769,7 @@ ${JSON.stringify(strategyBrain || { rules: [], lessons: [], commonMistakes: [], 
           現改用 TradeTab/DailyTab inline banner + toast 提示。見 .lovable/plan.md */}
 
       {/* ── 介紹影片折疊入口（從頂部下移，避免擠掉首屏看板核心） ── */}
-      <HoldingsIntroVideo />
+      <HoldingsIntroVideo isDemo={isDemo} />
     </div>
   );
 }
