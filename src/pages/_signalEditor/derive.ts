@@ -297,15 +297,18 @@ export function buildPublishRows(args: {
     const instrument = t.stockName.trim()
       ? `${t.stockCode.trim()} ${t.stockName.trim()}`
       : t.stockCode.trim();
+    const isHold = t.action === 'hold';
+    const priceHint = t.priceHint && parseFloat(t.priceHint) > 0 ? parseFloat(t.priceHint) : null;
+    const quantity = t.quantity && parseInt(t.quantity, 10) > 0 ? parseInt(t.quantity, 10) : null;
     return {
       expert_id: expertId,
       plan_id: null,
       batch_id: batchId,
       instrument,
       action: t.action as any,
-      price_hint: parseFloat(t.priceHint),
-      quantity: parseInt(t.quantity, 10),
-      quantity_unit: t.quantityUnit,
+      price_hint: isHold ? priceHint : parseFloat(t.priceHint),
+      quantity: isHold ? quantity : parseInt(t.quantity, 10),
+      quantity_unit: isHold && !quantity ? null : t.quantityUnit,
       executed_at: new Date(t.executedAt).toISOString(),
       reason_summary: sanitizeRichHtml(t.reasonSummary),
       reason_detail: sanitizeRichHtml(t.reasonDetail),
@@ -316,6 +319,39 @@ export function buildPublishRows(args: {
       status: status as any,
     } as any;
   });
+}
+
+/**
+ * 純教學週記：不帶任何交易，只送單一一筆 expert_signals（action='teaching'）。
+ * instrument 用空白字串以滿足 NOT NULL，trigger 對 'teaching' 無動作。
+ */
+export function buildTeachingOnlyRow(args: {
+  expertId: string;
+  batchId: string;
+  status: string;
+  teachingTopic: string;
+  overallSummary: string;
+  learningPoints: string;
+}) {
+  const { expertId, batchId, status, teachingTopic, overallSummary, learningPoints } = args;
+  return [{
+    expert_id: expertId,
+    plan_id: null,
+    batch_id: batchId,
+    instrument: '',
+    action: 'teaching' as any,
+    price_hint: null,
+    quantity: null,
+    quantity_unit: null,
+    executed_at: new Date().toISOString(),
+    reason_summary: null,
+    reason_detail: null,
+    risk_notes: null,
+    teaching_topic: teachingTopic || null,
+    overall_summary: sanitizeRichHtml(overallSummary) || null,
+    learning_points: sanitizeRichHtml(learningPoints) || null,
+    status: status as any,
+  } as any];
 }
 
 // 保留 OpenPosition 型別引用以避免未使用警告
