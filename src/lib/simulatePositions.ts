@@ -1,7 +1,7 @@
 // 同一批訊號裡前一筆會影響庫存（例如先賣 5 張再加 3 張），
 // 提交前要在前端模擬，避免 add/trim/sell/exit 驗證誤判。
 
-export type TradeAction = 'buy' | 'sell' | 'add' | 'trim' | 'exit';
+export type TradeAction = 'buy' | 'sell' | 'add' | 'trim' | 'exit' | 'hold' | 'teaching';
 
 export interface PositionSnapshot {
   /** 股票代碼（不含名稱） */
@@ -36,6 +36,7 @@ export function simulatePositions(
     } else if (t.action === 'exit') {
       map.set(t.symbol, 0);
     }
+    // 'hold' / 'teaching'：不影響庫存
   }
   return map;
 }
