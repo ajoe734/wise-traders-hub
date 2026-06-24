@@ -31,6 +31,8 @@ const EXEC_ORDER: Record<string, number> = {
   sell: 2,
   add: 3,
   buy: 4,
+  hold: 5,
+  teaching: 6,
 };
 
 /** 回傳 trades 依執行語意排序的 index 陣列（內含原始 index）。 */
@@ -198,6 +200,8 @@ export function validateSignalBatch(args: {
     }
     if (!t.action) return `${tag}：請選操作方向`;
     if (!t.executedAt) return `${tag}：請填操作時間`;
+    // hold = 本週只觀察既有持倉，不進出場：數量/價格可省略
+    if (t.action === 'hold') continue;
     const qty = parseInt(t.quantity || '0', 10);
     if (!qty || qty <= 0) return `${tag}：請填數量`;
     const price = parseFloat(t.priceHint || '0');
@@ -226,6 +230,14 @@ export function validateSignalBatch(args: {
 
     const fmtQty = (sh: number) =>
       t.quantityUnit === '張' ? `${(sh / 1000).toLocaleString()} 張` : `${sh.toLocaleString()} 股`;
+
+    if (t.action === 'hold') {
+      // 觀察：必須有既有持倉才能寫，避免「觀察根本不存在的部位」
+      if (cur.qty <= 0) {
+        return `${tag}：尚無 ${code} 的未平倉部位，無法寫「觀察」週記（請改用「買進」或選其他既有持倉）`;
+      }
+      continue; // 不動現金、不動模擬庫存
+    }
 
     if (t.action === 'trim' || t.action === 'sell' || t.action === 'exit') {
       if (cur.qty <= 0) {
