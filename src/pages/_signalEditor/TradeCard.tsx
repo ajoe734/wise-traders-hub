@@ -24,6 +24,8 @@ interface Props {
   expertId?: string;
   /** 從 expert.currency 帶下來；預設 TWD */
   currency?: Currency;
+  /** mentor 才會看到「觀察 hold」選項 */
+  allowHold?: boolean;
   updateTrade: (idx: number, patch: Partial<TradeDraft>) => void;
   removeTrade: (idx: number) => void;
   moveTrade: (idx: number, dir: -1 | 1) => void;
@@ -33,12 +35,13 @@ interface Props {
 
 export function TradeCard({
   idx, trade: t, totalTrades, signalTemplates, capital, cashSim,
-  expertId, currency: currencyProp,
+  expertId, currency: currencyProp, allowHold,
   updateTrade, removeTrade, moveTrade, fetchStockInfo, callAIAssist,
 }: Props) {
   const currency: Currency = normalizeCurrency(currencyProp);
   const units = allowedQuantityUnits(currency);
   const isUsd = currency === 'USD';
+  const isHold = t.action === 'hold';
   return (
     <Card>
       <CardContent className="p-4 space-y-4">
@@ -96,12 +99,13 @@ export function TradeCard({
                 <SelectItem value="add">加碼</SelectItem>
                 <SelectItem value="trim">減碼</SelectItem>
                 <SelectItem value="exit">平損</SelectItem>
+                {allowHold && <SelectItem value="hold">觀察（不進出場）</SelectItem>}
               </SelectContent>
             </Select>
           </div>
           <div className="space-y-1.5">
             <Label className="text-xs flex items-center justify-between">
-              <span>數量</span>
+              <span>數量{isHold && <span className="text-muted-foreground ml-1">（選填）</span>}</span>
               {(t.action === 'buy' || t.action === 'add') && capital && (
                 <button
                   type="button"
@@ -124,6 +128,7 @@ export function TradeCard({
                 value={t.quantity}
                 onChange={(e) => updateTrade(idx, { quantity: e.target.value })}
                 className="flex-1"
+                placeholder={isHold ? '可不填' : ''}
               />
               <Select
                 value={units.includes(t.quantityUnit) ? t.quantityUnit : units[0]}
@@ -138,8 +143,8 @@ export function TradeCard({
             </div>
           </div>
           <div className="space-y-1.5">
-            <Label className="text-xs">參考價位</Label>
-            <Input type="number" value={t.priceHint} onChange={(e) => updateTrade(idx, { priceHint: e.target.value })} placeholder="890" />
+            <Label className="text-xs">參考價位{isHold && <span className="text-muted-foreground ml-1">（選填）</span>}</Label>
+            <Input type="number" value={t.priceHint} onChange={(e) => updateTrade(idx, { priceHint: e.target.value })} placeholder={isHold ? '可不填' : '890'} />
           </div>
         </div>
 

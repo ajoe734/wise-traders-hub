@@ -31,6 +31,8 @@ const EXEC_ORDER: Record<string, number> = {
   sell: 2,
   add: 3,
   buy: 4,
+  hold: 5,
+  teaching: 6,
 };
 
 /** 回傳 trades 依執行語意排序的 index 陣列（內含原始 index）。 */
@@ -198,6 +200,8 @@ export function validateSignalBatch(args: {
     }
     if (!t.action) return `${tag}：請選操作方向`;
     if (!t.executedAt) return `${tag}：請填操作時間`;
+    // hold = 本週只觀察既有持倉，不進出場：數量/價格可省略
+    if (t.action === 'hold') continue;
     const qty = parseInt(t.quantity || '0', 10);
     if (!qty || qty <= 0) return `${tag}：請填數量`;
     const price = parseFloat(t.priceHint || '0');
@@ -226,6 +230,14 @@ export function validateSignalBatch(args: {
 
     const fmtQty = (sh: number) =>
       t.quantityUnit === '張' ? `${(sh / 1000).toLocaleString()} 張` : `${sh.toLocaleString()} 股`;
+
+    if (t.action === 'hold') {
+      // 觀察：必須有既有持倉才能寫，避免「觀察根本不存在的部位」
+      if (cur.qty <= 0) {
+        return `${tag}：尚無 ${code} 的未平倉部位，無法寫「觀察」週記（請改用「買進」或選其他既有持倉）`;
+      }
+      continue; // 不動現金、不動模擬庫存
+    }
 
     if (t.action === 'trim' || t.action === 'sell' || t.action === 'exit') {
       if (cur.qty <= 0) {
@@ -285,15 +297,18 @@ export function buildPublishRows(args: {
     const instrument = t.stockName.trim()
       ? `${t.stockCode.trim()} ${t.stockName.trim()}`
       : t.stockCode.trim();
+    const isHold = t.action === 'hold';
+    const priceHint = t.priceHint && parseFloat(t.priceHint) > 0 ? parseFloat(t.priceHint) : null;
+    const quantity = t.quantity && parseInt(t.quantity, 10) > 0 ? parseInt(t.quantity, 10) : null;
     return {
       expert_id: expertId,
       plan_id: null,
       batch_id: batchId,
       instrument,
       action: t.action as any,
-      price_hint: parseFloat(t.priceHint),
-      quantity: parseInt(t.quantity, 10),
-      quantity_unit: t.quantityUnit,
+      price_hint: isHold ? priceHint : parseFloat(t.priceHint),
+      quantity: isHold ? quantity : parseInt(t.quantity, 10),
+      quantity_unit: isHold && !quantity ? null : t.quantityUnit,
       executed_at: new Date(t.executedAt).toISOString(),
       reason_summary: sanitizeRichHtml(t.reasonSummary),
       reason_detail: sanitizeRichHtml(t.reasonDetail),
@@ -304,6 +319,39 @@ export function buildPublishRows(args: {
       status: status as any,
     } as any;
   });
+}
+
+/**
+ * 純教學週記：不帶任何交易，只送單一一筆 expert_signals（action='teaching'）。
+ * instrument 用空白字串以滿足 NOT NULL，trigger 對 'teaching' 無動作。
+ */
+export function buildTeachingOnlyRow(args: {
+  expertId: string;
+  batchId: string;
+  status: string;
+  teachingTopic: string;
+  overallSummary: string;
+  learningPoints: string;
+}) {
+  const { expertId, batchId, status, teachingTopic, overallSummary, learningPoints } = args;
+  return [{
+    expert_id: expertId,
+    plan_id: null,
+    batch_id: batchId,
+    instrument: '',
+    action: 'teaching' as any,
+    price_hint: null,
+    quantity: null,
+    quantity_unit: null,
+    executed_at: new Date().toISOString(),
+    reason_summary: null,
+    reason_detail: null,
+    risk_notes: null,
+    teaching_topic: teachingTopic || null,
+    overall_summary: sanitizeRichHtml(overallSummary) || null,
+    learning_points: sanitizeRichHtml(learningPoints) || null,
+    status: status as any,
+  } as any];
 }
 
 // 保留 OpenPosition 型別引用以避免未使用警告

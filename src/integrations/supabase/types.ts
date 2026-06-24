@@ -3515,7 +3515,14 @@ export type Database = {
         | "line_pay"
         | "acpay"
         | "remittance"
-      signal_action: "buy" | "sell" | "add" | "trim" | "exit"
+      signal_action:
+        | "buy"
+        | "sell"
+        | "add"
+        | "trim"
+        | "exit"
+        | "hold"
+        | "teaching"
       signal_status: "published" | "pending"
       subscription_status: "active" | "canceled" | "expired"
       trade_status: "open" | "closed" | "stopped"
@@ -3666,7 +3673,7 @@ export const Constants = {
         "acpay",
         "remittance",
       ],
-      signal_action: ["buy", "sell", "add", "trim", "exit"],
+      signal_action: ["buy", "sell", "add", "trim", "exit", "hold", "teaching"],
       signal_status: ["published", "pending"],
       subscription_status: ["active", "canceled", "expired"],
       trade_status: ["open", "closed", "stopped"],

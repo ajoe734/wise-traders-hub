@@ -87,6 +87,7 @@ export const fmtMoney = (n: number, currency?: unknown) =>
 
 export const actionLabels: Record<string, string> = {
   buy: '買進', sell: '賣出', add: '加碼', trim: '減碼', exit: '平損',
+  hold: '觀察', teaching: '教學',
 };
 
 export type AIField = 'reason_summary' | 'reason_detail' | 'risk_notes' | 'learning_points' | 'overall_summary';

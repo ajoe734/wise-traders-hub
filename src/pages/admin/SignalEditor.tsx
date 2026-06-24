@@ -22,7 +22,7 @@ import {
 import { CapitalPanel } from '@/pages/_signalEditor/CapitalPanel';
 import { TradeCard } from '@/pages/_signalEditor/TradeCard';
 import {
-  buildPublishRows, buildSimulatedPositions, computeCashSim, validateSignalBatch,
+  buildPublishRows, buildTeachingOnlyRow, buildSimulatedPositions, computeCashSim, validateSignalBatch,
 } from '@/pages/_signalEditor/derive';
 import { useSignalEditorData } from '@/hooks/admin/useSignalEditorData';
 
@@ -43,6 +43,8 @@ const SignalEditor = () => {
   const [trades, setTrades] = useState<TradeDraft[]>([emptyTrade()]);
   const [showHistory, setShowHistory] = useState(false);
   const [submitting, setSubmitting] = useState(false);
+  /** mentor 本週類型：'trades' = 交易週記（預設）； 'teaching' = 純教學週記，無交易 */
+  const [weekType, setWeekType] = useState<'trades' | 'teaching'>('trades');
 
   // ── Data (expert / templates / open positions / capital) ──────────────
   const {
@@ -56,6 +58,10 @@ const SignalEditor = () => {
       setOverallSummary(os);
       setLearningPoints(lp);
       setTrades(ts);
+      // 編輯既有批次：若所有 trade 都是 teaching action，視為純教學週記
+      if (ts.length > 0 && ts.every((t: any) => t.action === 'teaching')) {
+        setWeekType('teaching');
+      }
     },
     onMissingBatch: () => {
       toast.error('找不到要編輯的批次');
@@ -180,24 +186,38 @@ const SignalEditor = () => {
   );
 
   // ── Publish ──────────────────────────────────────────────────────────
+  const isTeachingOnly = isMentor && weekType === 'teaching';
+
   const handlePublish = async () => {
     if (!canEdit) return;
     if (!publishWindow.open) {
       toast.error(publishWindow.reason || '目前不在發布時段');
       return;
     }
-    const err = validateSignalBatch({ expert, trades, openPositions, capital });
-    if (err) { toast.error(err); return; }
+    if (isTeachingOnly) {
+      if (!teachingTopic.trim()) {
+        toast.error('純教學週記至少要填教學主題');
+        return;
+      }
+    } else {
+      const err = validateSignalBatch({ expert, trades, openPositions, capital });
+      if (err) { toast.error(err); return; }
+    }
 
     setSubmitting(true);
     try {
       const batchId = isEditing ? (editBatchId as string) : crypto.randomUUID();
       const status = isMentor ? 'pending' : 'published';
 
-      const rows = buildPublishRows({
-        expertId: expert.id, batchId, status, isMentor,
-        teachingTopic, overallSummary, learningPoints, trades,
-      });
+      const rows = isTeachingOnly
+        ? buildTeachingOnlyRow({
+            expertId: expert.id, batchId, status,
+            teachingTopic, overallSummary, learningPoints,
+          })
+        : buildPublishRows({
+            expertId: expert.id, batchId, status, isMentor,
+            teachingTopic, overallSummary, learningPoints, trades,
+          });
 
       if (isEditing) {
         // 先刪舊 trade_records → 再刪舊 expert_signals（FK 依賴順序）
@@ -275,7 +295,36 @@ const SignalEditor = () => {
           </div>
         </div>
 
-        {capital && (
+        {isMentor && (
+          <Card>
+            <CardContent className="p-4 space-y-3">
+              <Label className="text-sm">本週類型</Label>
+              <div className="flex gap-2 flex-wrap">
+                <Button
+                  type="button"
+                  variant={weekType === 'trades' ? 'default' : 'outline'}
+                  size="sm"
+                  className={cn(weekType === 'trades' && 'bg-mentor hover:bg-mentor/90')}
+                  onClick={() => setWeekType('trades')}
+                >交易週記（含進出場 / 觀察）</Button>
+                <Button
+                  type="button"
+                  variant={weekType === 'teaching' ? 'default' : 'outline'}
+                  size="sm"
+                  className={cn(weekType === 'teaching' && 'bg-mentor hover:bg-mentor/90')}
+                  onClick={() => setWeekType('teaching')}
+                >純教學週記（無交易）</Button>
+              </div>
+              <p className="text-xs text-muted-foreground">
+                {weekType === 'teaching'
+                  ? '本週不會帶任何進出場紀錄，只發布教學主題、整體摘要、教學重點。'
+                  : '本週至少有一檔股票操作；若只是想對既有持倉做觀察，可在操作方向選「觀察」。'}
+              </p>
+            </CardContent>
+          </Card>
+        )}
+
+        {!isTeachingOnly && capital && (
           <CapitalPanel
             capital={capital}
             cashSim={cashSim}
@@ -293,7 +342,7 @@ const SignalEditor = () => {
           <Card>
             <CardContent className="p-4 space-y-4">
               <div className="space-y-2">
-                <Label>教學主題</Label>
+                <Label>教學主題{isTeachingOnly && <span className="text-destructive ml-1">*</span>}</Label>
                 <Input value={teachingTopic} onChange={(e) => setTeachingTopic(e.target.value)} placeholder="例：本週主題 — 強勢股的進場時機" />
               </div>
               <div className="space-y-2">
@@ -312,7 +361,7 @@ const SignalEditor = () => {
           </Card>
         )}
 
-        {trades.map((t, idx) => (
+        {!isTeachingOnly && trades.map((t, idx) => (
           <TradeCard
             key={t.uid}
             idx={idx}
@@ -323,6 +372,7 @@ const SignalEditor = () => {
             cashSim={cashSim}
             expertId={expert?.id}
             currency={currency}
+            allowHold={isMentor}
             updateTrade={updateTrade}
             removeTrade={removeTrade}
             moveTrade={moveTrade}
@@ -331,9 +381,11 @@ const SignalEditor = () => {
           />
         ))}
 
-        <Button type="button" variant="outline" className="w-full border-dashed" onClick={addTrade}>
-          <Plus className="h-4 w-4 mr-2" /> 新增另一檔股票
-        </Button>
+        {!isTeachingOnly && (
+          <Button type="button" variant="outline" className="w-full border-dashed" onClick={addTrade}>
+            <Plus className="h-4 w-4 mr-2" /> 新增另一檔股票
+          </Button>
+        )}
 
         {isMentor && (
           <Card>
