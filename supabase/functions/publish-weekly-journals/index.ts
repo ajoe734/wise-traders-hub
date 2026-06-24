@@ -246,6 +246,12 @@ Deno.serve(withLogging('publish-weekly-journals', async (req) => {
     let syncOk = 0, syncFail = 0
     for (const signal of pendingSignals) {
       try {
+      // 'teaching' (純教學週記) / 'hold' (觀察) 不影響 trade_signals 或 user_performances
+      if (signal.action === 'teaching' || signal.action === 'hold') {
+        syncOk++
+        continue
+      }
+
       const { data: expertRow } = await supabaseAdmin
         .from('experts')
         .select('user_id')
