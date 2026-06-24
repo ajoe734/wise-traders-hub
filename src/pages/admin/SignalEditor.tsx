@@ -186,24 +186,38 @@ const SignalEditor = () => {
   );
 
   // ── Publish ──────────────────────────────────────────────────────────
+  const isTeachingOnly = isMentor && weekType === 'teaching';
+
   const handlePublish = async () => {
     if (!canEdit) return;
     if (!publishWindow.open) {
       toast.error(publishWindow.reason || '目前不在發布時段');
       return;
     }
-    const err = validateSignalBatch({ expert, trades, openPositions, capital });
-    if (err) { toast.error(err); return; }
+    if (isTeachingOnly) {
+      if (!teachingTopic.trim()) {
+        toast.error('純教學週記至少要填教學主題');
+        return;
+      }
+    } else {
+      const err = validateSignalBatch({ expert, trades, openPositions, capital });
+      if (err) { toast.error(err); return; }
+    }
 
     setSubmitting(true);
     try {
       const batchId = isEditing ? (editBatchId as string) : crypto.randomUUID();
       const status = isMentor ? 'pending' : 'published';
 
-      const rows = buildPublishRows({
-        expertId: expert.id, batchId, status, isMentor,
-        teachingTopic, overallSummary, learningPoints, trades,
-      });
+      const rows = isTeachingOnly
+        ? buildTeachingOnlyRow({
+            expertId: expert.id, batchId, status,
+            teachingTopic, overallSummary, learningPoints,
+          })
+        : buildPublishRows({
+            expertId: expert.id, batchId, status, isMentor,
+            teachingTopic, overallSummary, learningPoints, trades,
+          });
 
       if (isEditing) {
         // 先刪舊 trade_records → 再刪舊 expert_signals（FK 依賴順序）
