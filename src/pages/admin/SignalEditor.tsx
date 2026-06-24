@@ -22,7 +22,7 @@ import {
 import { CapitalPanel } from '@/pages/_signalEditor/CapitalPanel';
 import { TradeCard } from '@/pages/_signalEditor/TradeCard';
 import {
-  buildPublishRows, buildSimulatedPositions, computeCashSim, validateSignalBatch,
+  buildPublishRows, buildTeachingOnlyRow, buildSimulatedPositions, computeCashSim, validateSignalBatch,
 } from '@/pages/_signalEditor/derive';
 import { useSignalEditorData } from '@/hooks/admin/useSignalEditorData';
 
@@ -43,6 +43,8 @@ const SignalEditor = () => {
   const [trades, setTrades] = useState<TradeDraft[]>([emptyTrade()]);
   const [showHistory, setShowHistory] = useState(false);
   const [submitting, setSubmitting] = useState(false);
+  /** mentor 本週類型：'trades' = 交易週記（預設）； 'teaching' = 純教學週記，無交易 */
+  const [weekType, setWeekType] = useState<'trades' | 'teaching'>('trades');
 
   // ── Data (expert / templates / open positions / capital) ──────────────
   const {
