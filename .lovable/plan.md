@@ -1,67 +1,79 @@
-## 根因（已驗證）
+# 讓 mentor 週記不再強制綁交易
 
-右側 Lovable Preview 不是乾淨未登入訪客 — 已有 auth session（已從 auth logs 看到 `/user` 200）。所以 `CheckupModeProvider` → `mode='full'` → `isDemo=false` → `useFreeCheckupBootstrap` 走雲端載入分支，讀到空持倉、寫入 `pf-holdings-v2=[]`、顯示「還沒有持倉資料」。
+## 現況確認（為什麼現在發不出來）
 
-e2e 用乾淨 context、無 session → `isDemo=true` → demo seed 注入 20 檔，所以通過。
+週記在資料模型上就是 `expert_signals` 一筆紀錄。`SignalCreateDialog.handlePublish` 目前的硬性檢查（src/pages/_adminSignals/SignalCreateDialog.tsx L135–164）：
 
-兩者都是正確行為，問題是 Preview 與 e2e 覆蓋情境不同，不該強塞 demo 給已登入空倉使用者。
+1. 股票代碼必填
+2. action 必填（buy / add / trim / sell / exit）
+3. quantity > 0 必填
+4. price_hint > 0 必填
+5. `add/trim/sell/exit` 還會查 `trade_records` 是否有未平倉部位
 
-## 變動範圍
+因此本週沒有任何進出場時，mentor 完全送不出週記。
 
-只動 3 處，不改 UI、不改 demo 資料源、不改 `INIT_HOLDINGS`、不改文案、不改正式資料流。
+## 這次要做的兩件事
 
-### 1. `src/hooks/useFreeCheckupBootstrap.js` — dev-only debug log
+### A. 新增「純教學週記」模式（mentor 限定）
 
-新增 `DBG` 內部 helper，只在 `import.meta.env.DEV && location.pathname.startsWith('/holding-checkup')` 啟用，正式 build 為 no-op。輸出欄位（**不含** uid/email/token）：
+在 `SignalCreateDialog` 上方加一個切換：「本週類型 = 交易週記 / 純教學週記」。當選「純教學週記」時：
 
-- `authReady`、`isDemo`、`mode`（透過 isDemo 推導）
-- demo 分支：`demo-seed-applied { holdingsLen }`
-- 正式分支：`hasUser`、`hasProfile`、`pf-reset-flag` 是否存在、`sanitizedHoldings.length`、`removedDemoSeedCount`
+- 隱藏股票代碼 / 操作方向 / 數量 / 價格 / 風險備註欄位
+- 只保留：教學主題（必填）、整體摘要、學習重點
+- `canPublish` 改為只看教學主題有填
+- `handlePublish` 寫入 `expert_signals`：
+  - `instrument = ''`、`action = 'teaching'`（新值，見下）
+  - `price_hint / quantity / quantity_unit = null`
+  - 不觸發任何 `trade_signals` / `user_performances` 副作用
+  - 不觸發 `line-push-signal`（advisor 不會走到這支）
+  - `status = 'pending'`（照舊週五 20:00 統一發）
 
-### 2. `src/pages/FreeCheckup.jsx` — 最小覆蓋追蹤
+### B. 對既有持倉新增「觀察 / hold」非交易動作
 
-只新增一個 dev-only `useEffect`，依 `holdings?.length` 變化 log「N→0」或「0→N」轉換，附 `isDemo / ready / authReady / tab` 與 `pf-reset-flag` 是否存在。**不包裝 setHoldings、不改任何 setter**。
+在 mentor 的「交易週記」模式新增 action `hold`，代表「本週只對既有持倉做評論，不進出場」。
 
-### 3. e2e 補兩種 case
+- 必填：股票代碼、教學主題（mentor）；數量 / 價格改為選填
+- 必須先有對應 `trade_records.status='open'` 部位，否則擋下（與 trim/sell 同樣防呆）
+- `handlePublish` 不動 `trade_signals` 也不動 `user_performances`
+- 走一般 mentor `pending` 流程，週五一起發
 
-更新 `e2e/freecheckup-demo-first-fold.spec.ts`：
+## DB 與型別
 
-**Case A（保留並強化）— 乾淨未登入訪客**：
-- `DemoBanner` 必存在
-- `TODAY'S P&L` 文字 `+11,624`（demo 固定值）
-- `還沒有持倉資料` 不存在
-- 至少 20 檔（透過 `共 20 檔` 字串或多個 demo code 並存斷言）
-- `ACTION PRIORITY` 可見
-- `video` count = 0
-- `coachmarks-dialog` 不可見
+新增一個 migration，把 `expert_signals.action` 的 enum 補上 `'hold'` 與 `'teaching'`。`expert_signals` 既有欄位（instrument, price_hint, quantity）允許 null 或空字串即可，不用結構改動，但若 `instrument` 目前是 NOT NULL，純教學模式要允許空字串（不改 nullable，前端送 `''` 即可）。
 
-**Case B（新增）— authenticated empty portfolio**：
-- 使用 `e2e/helpers/supabase-mock.ts`（已存在）建立假 session + 攔截 `pf-*` 雲端讀取回空，**不依賴** Lovable Preview session
-- 進 `/holding-checkup`
-- 斷言：`DemoBanner` 不存在、`還沒有持倉資料` 可見、`+11,624` 不可見、demo codes（3443/3017/2308）皆不在 DOM
-- 明確標示這不是 demo failure
+對應更新 `src/integrations/supabase/types.ts` 內的 enum 型別。
 
-若 supabase-mock helper 無法注入 session，改用 `addInitScript` 預先寫入 `sb-{ref}-auth-token` localStorage 並 stub `/auth/v1/user` 回 200 假 user + `/rest/v1/checkup_storage` 回空陣列。
+## Edge function：publish-weekly-journals
 
-## 不做的事
+`supabase/functions/publish-weekly-journals/index.ts` 的 `sync_trade_signals` 迴圈目前 switch 在 `action === 'exit' / sell / trim / 其他（視為 buy）`。需要加入兩個分支：
 
-- 不改 `useFreeCheckupBootstrap` demo 判斷條件
-- 不強塞 demo 給已登入空倉使用者
-- 不加 UI debug、不加文案
-- 不依賴 `LOVABLE_BROWSER_SUPABASE_*` env 當 e2e fixture（只用於人工排查，不寫進 spec）
+- `action === 'teaching'`：完全跳過 trade_signals / user_performances 同步，也跳過 stockCode 解析
+- `action === 'hold'`：跳過 trade_signals / user_performances 寫入（既有持倉不動）
 
-## 驗收
+LINE 推播文案（既有 `htmlToText` 與 flex message 組裝）要能處理沒有股票代碼的純教學週記：標題改成「📚 本週教學週記」，內容用 teaching_topic + overall_summary + learning_points。
 
-1. `bunx playwright test e2e/freecheckup-demo-first-fold.spec.ts` 兩個 case 全綠
-2. 確認 dev console 在 `/holding-checkup` 會輸出受控 debug；prod build 無輸出
-3. 回報：
-   - 乾淨未登入訪客結果（demo 20 檔）
-   - 已登入空倉結果（空狀態，無 DemoBanner）
-   - Preview 與 e2e 差異原因說明
-   - 修改檔案清單
-   - debug 是否 dev-only
-   - 測試結果
+## SignalRow / SignalEditor
 
-## 給使用者的 Preview 操作備註
+- `src/pages/_adminSignals/SignalRow.tsx`、`src/pages/admin/Signals.tsx` 的列表顯示需要對 `hold` / `teaching` 顯示對應 badge（例如「觀察」「教學」）
+- `src/pages/admin/SignalEditor.tsx` 編輯舊週記時，能正確還原這兩種模式並沿用對應驗證
 
-要在 Lovable Preview 看 demo：登出或用隱身視窗開 `/holding-checkup`。本輪不為了預覽方便而新增 dev-only demo override。
+## 不會動到的事
+
+- 不改 advisor 即時訊號流程
+- 不改既有 buy/add/trim/sell/exit 的驗證與 trade_records 寫入
+- 不改 demo / 首頁 / 文案以外的東西
+- 不改 RLS / 安全 audit
+
+## 測試
+
+- 補 unit：`canPublish` 在純教學模式只看 teaching_topic
+- 補 integration：`hold` action 寫入後 trade_signals / user_performances 不變
+- 跑既有 1.18-weekly-publish-rls + publish-weekly-journals 相關測試確保不回歸
+
+## 完工後回報
+
+- migration 內容
+- 改了哪些檔案
+- handlePublish 兩個模式的驗證規則
+- edge function 對 teaching / hold 的處理
+- 測試結果
