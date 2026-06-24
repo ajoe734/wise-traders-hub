@@ -58,6 +58,10 @@ const SignalEditor = () => {
       setOverallSummary(os);
       setLearningPoints(lp);
       setTrades(ts);
+      // 編輯既有批次：若所有 trade 都是 teaching action，視為純教學週記
+      if (ts.length > 0 && ts.every((t: any) => t.action === 'teaching')) {
+        setWeekType('teaching');
+      }
     },
     onMissingBatch: () => {
       toast.error('找不到要編輯的批次');
