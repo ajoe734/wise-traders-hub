@@ -93,7 +93,11 @@ export function SignalRow({
           </td>
         )}
         <td className="p-3">
-          {signal.action === 'exit' ? (
+          {signal.action === 'teaching' ? (
+            <Badge className="text-xs border border-mentor/40 bg-mentor/10 text-mentor">教學</Badge>
+          ) : signal.action === 'hold' ? (
+            <Badge className="text-xs border border-border bg-white text-foreground dark:bg-white dark:text-black">觀察</Badge>
+          ) : signal.action === 'exit' ? (
             <Badge className="text-xs border border-muted-foreground/40 bg-muted text-muted-foreground">已平倉</Badge>
           ) : ['sell', 'trim'].includes(signal.action) ? (
             openInstruments.has(signal.instrument) ? (
