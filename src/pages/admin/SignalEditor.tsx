@@ -295,7 +295,36 @@ const SignalEditor = () => {
           </div>
         </div>
 
-        {capital && (
+        {isMentor && (
+          <Card>
+            <CardContent className="p-4 space-y-3">
+              <Label className="text-sm">本週類型</Label>
+              <div className="flex gap-2 flex-wrap">
+                <Button
+                  type="button"
+                  variant={weekType === 'trades' ? 'default' : 'outline'}
+                  size="sm"
+                  className={cn(weekType === 'trades' && 'bg-mentor hover:bg-mentor/90')}
+                  onClick={() => setWeekType('trades')}
+                >交易週記（含進出場 / 觀察）</Button>
+                <Button
+                  type="button"
+                  variant={weekType === 'teaching' ? 'default' : 'outline'}
+                  size="sm"
+                  className={cn(weekType === 'teaching' && 'bg-mentor hover:bg-mentor/90')}
+                  onClick={() => setWeekType('teaching')}
+                >純教學週記（無交易）</Button>
+              </div>
+              <p className="text-xs text-muted-foreground">
+                {weekType === 'teaching'
+                  ? '本週不會帶任何進出場紀錄，只發布教學主題、整體摘要、教學重點。'
+                  : '本週至少有一檔股票操作；若只是想對既有持倉做觀察，可在操作方向選「觀察」。'}
+              </p>
+            </CardContent>
+          </Card>
+        )}
+
+        {!isTeachingOnly && capital && (
           <CapitalPanel
             capital={capital}
             cashSim={cashSim}
@@ -313,7 +342,7 @@ const SignalEditor = () => {
           <Card>
             <CardContent className="p-4 space-y-4">
               <div className="space-y-2">
-                <Label>教學主題</Label>
+                <Label>教學主題{isTeachingOnly && <span className="text-destructive ml-1">*</span>}</Label>
                 <Input value={teachingTopic} onChange={(e) => setTeachingTopic(e.target.value)} placeholder="例：本週主題 — 強勢股的進場時機" />
               </div>
               <div className="space-y-2">
@@ -332,7 +361,7 @@ const SignalEditor = () => {
           </Card>
         )}
 
-        {trades.map((t, idx) => (
+        {!isTeachingOnly && trades.map((t, idx) => (
           <TradeCard
             key={t.uid}
             idx={idx}
@@ -343,6 +372,7 @@ const SignalEditor = () => {
             cashSim={cashSim}
             expertId={expert?.id}
             currency={currency}
+            allowHold={isMentor}
             updateTrade={updateTrade}
             removeTrade={removeTrade}
             moveTrade={moveTrade}
@@ -351,9 +381,11 @@ const SignalEditor = () => {
           />
         ))}
 
-        <Button type="button" variant="outline" className="w-full border-dashed" onClick={addTrade}>
-          <Plus className="h-4 w-4 mr-2" /> 新增另一檔股票
-        </Button>
+        {!isTeachingOnly && (
+          <Button type="button" variant="outline" className="w-full border-dashed" onClick={addTrade}>
+            <Plus className="h-4 w-4 mr-2" /> 新增另一檔股票
+          </Button>
+        )}
 
         {isMentor && (
           <Card>
