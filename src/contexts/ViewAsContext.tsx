@@ -7,6 +7,9 @@ export interface ViewAsSession {
   targetUserId: string;
   targetEmail: string | null;
   targetDisplayName: string | null;
+  targetRoles?: string[];
+  targetActiveExpertSubs?: number;
+  targetActiveCheckupSubs?: number;
   expiresAt: string; // ISO
 }
 
@@ -66,8 +69,18 @@ export function ViewAsProvider({ children }: { children: ReactNode }) {
 
   const exit = useCallback(() => {
     setSession(null);
-    // Try to close popup tab if we were opened as one
-    try { if (window.opener) window.close(); } catch { /* noop */ }
+    // If opened as popup, close the tab — admin's original tab remains intact.
+    // Otherwise navigate back to the company admin home so the admin stops
+    // seeing member-scoped UI.
+    try {
+      if (typeof window !== 'undefined' && window.opener) {
+        window.close();
+        return;
+      }
+    } catch { /* noop */ }
+    if (typeof window !== 'undefined') {
+      window.location.href = '/company';
+    }
   }, [setSession]);
 
   const value = useMemo<ViewAsContextValue>(() => ({

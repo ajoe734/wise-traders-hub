@@ -9,10 +9,11 @@ import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Checkbox } from '@/components/ui/checkbox';
 import { supabase } from '@/integrations/supabase/client';
-import { Search, Users, UserCheck, UserX, RefreshCw, Download, Stethoscope, MessageCircle, History } from 'lucide-react';
+import { Search, Users, UserCheck, UserX, RefreshCw, Download, Stethoscope, MessageCircle, History, Eye } from 'lucide-react';
 import { useUserIdentities, formatIdentitySecondary } from '@/hooks/useUserIdentities';
 import { formatTaipeiYMD } from '@/checkup/utils/formatTaipeiDate';
 import { LinePushDialog } from '@/components/company/LinePushDialog';
+import { launchViewAs } from '@/lib/viewAsLauncher';
 
 type Row = {
   id: string;
@@ -254,13 +255,14 @@ const CompanySubscribers = () => {
                   <th className="p-4">剩餘天數</th>
                   <th className="p-4">續訂</th>
                   <th className="p-4">狀態</th>
+                  <th className="p-4 text-right">操作</th>
                 </tr>
               </thead>
               <tbody>
                 {loading ? (
-                  <tr><td colSpan={9} className="p-8 text-center text-muted-foreground text-sm">載入中...</td></tr>
+                  <tr><td colSpan={10} className="p-8 text-center text-muted-foreground text-sm">載入中...</td></tr>
                 ) : filtered.length === 0 ? (
-                  <tr><td colSpan={9} className="p-8 text-center text-muted-foreground text-sm">無訂閱紀錄</td></tr>
+                  <tr><td colSpan={10} className="p-8 text-center text-muted-foreground text-sm">無訂閱紀錄</td></tr>
                 ) : (
                   filtered.map(sub => {
                     const remaining = getRemainingDays(sub.expires_at);
@@ -313,6 +315,17 @@ const CompanySubscribers = () => {
                           <Badge variant={sub.status === 'active' ? 'default' : sub.status === 'expired' ? 'outline' : 'destructive'} className="text-xs">
                             {sub.status === 'active' ? '活躍' : sub.status === 'expired' ? '已到期' : '已取消'}
                           </Badge>
+                        </td>
+                        <td className="p-4 text-right">
+                          <Button
+                            variant="outline"
+                            size="sm"
+                            className="h-7 text-xs gap-1"
+                            onClick={() => launchViewAs(sub.user_id)}
+                            title="以此會員身分模擬登入（新分頁、唯讀視角）"
+                          >
+                            <Eye className="h-3 w-3" />視角檢視
+                          </Button>
                         </td>
                       </tr>
                     );
