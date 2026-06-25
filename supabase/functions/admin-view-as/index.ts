@@ -99,19 +99,38 @@ Deno.serve(async (req) => {
         .update({ consumed_at: new Date().toISOString() })
         .eq('id', row.id);
 
-      // Fetch target identity (email + display_name)
-      const { data: { user: targetAuth } } = await admin.auth.admin.getUserById(row.target_user_id);
-      const { data: profile } = await admin
-        .from('profiles')
-        .select('display_name')
-        .eq('user_id', row.target_user_id)
-        .maybeSingle();
+      // Fetch target identity (email + display_name + roles + subscriptions)
+      const nowIso = new Date().toISOString();
+      const [
+        { data: { user: targetAuth } },
+        { data: profile },
+        { data: roleRows },
+        { data: expertSubs },
+        { data: checkupSubs },
+      ] = await Promise.all([
+        admin.auth.admin.getUserById(row.target_user_id),
+        admin.from('profiles').select('display_name').eq('user_id', row.target_user_id).maybeSingle(),
+        admin.from('user_roles').select('role').eq('user_id', row.target_user_id),
+        admin.from('member_subscriptions')
+          .select('id, status, expires_at')
+          .eq('user_id', row.target_user_id)
+          .eq('status', 'active')
+          .or(`expires_at.is.null,expires_at.gt.${nowIso}`),
+        admin.from('checkup_subscriptions')
+          .select('id, status, expires_at')
+          .eq('user_id', row.target_user_id)
+          .eq('status', 'active')
+          .or(`expires_at.is.null,expires_at.gt.${nowIso}`),
+      ]);
 
       return json({
         admin_user_id: row.admin_user_id,
         target_user_id: row.target_user_id,
         target_email: targetAuth?.email || null,
         target_display_name: profile?.display_name || null,
+        target_roles: (roleRows || []).map((r: any) => r.role),
+        target_active_expert_subs: (expertSubs || []).length,
+        target_active_checkup_subs: (checkupSubs || []).length,
         expires_at: row.expires_at,
       });
     }
