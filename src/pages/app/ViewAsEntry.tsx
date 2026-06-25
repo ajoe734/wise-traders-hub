@@ -46,6 +46,9 @@ export default function ViewAsEntry() {
         targetUserId: (data as any).target_user_id,
         targetEmail: (data as any).target_email,
         targetDisplayName: (data as any).target_display_name,
+        targetRoles: (data as any).target_roles || [],
+        targetActiveExpertSubs: (data as any).target_active_expert_subs ?? 0,
+        targetActiveCheckupSubs: (data as any).target_active_checkup_subs ?? 0,
         expiresAt: (data as any).expires_at,
       });
       const dest = params.get('to') || '/app';
