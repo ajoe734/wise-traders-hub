@@ -8,6 +8,8 @@ import { ThemeProvider } from "next-themes";
 import { lazy, Suspense, useEffect } from "react";
 import { prefetchHighTrafficRoutes } from "@/lib/routePrefetch";
 import { AuthProvider } from "@/contexts/AuthContext";
+import { ViewAsProvider } from "@/contexts/ViewAsContext";
+import { ViewAsBanner } from "@/components/ViewAsBanner";
 import {
   queryClient,
   queryPersister,
@@ -126,6 +128,8 @@ const CompanyCheckupQuotaAudit = lazy(() => import("./pages/company/CheckupQuota
 const CompanyMissingPrices = lazy(() => import("./pages/company/MissingPrices"));
 const CompanyMetaOverrides = lazy(() => import("./pages/company/MetaOverrides"));
 const CompanyUsers = lazy(() => import("./pages/company/Users"));
+const CompanyMembers = lazy(() => import("./pages/company/Members"));
+const ViewAsEntry = lazy(() => import("./pages/app/ViewAsEntry"));
 const CompanyPerfMetrics = lazy(() => import("./pages/company/PerfMetrics"));
 const CompanyTraffic = lazy(() => import("./pages/company/Traffic"));
 const CompanyOpsHealth = lazy(() => import("./pages/company/OpsHealth"));
@@ -181,6 +185,8 @@ const AppShell = () => (
       <Toaster />
       <Sonner />
       <BrowserRouter>
+        <ViewAsProvider>
+          <ViewAsBanner />
           <RouteChunkBoundary>
           <AttributionTracker />
           <ScrollToTop />
@@ -188,6 +194,7 @@ const AppShell = () => (
           <PendingRemittanceGuard />
           <Suspense fallback={<RouteFallback />}>
           <Routes>
+            <Route path="/app/view-as" element={<ViewAsEntry />} />
             {/* Portal (public) */}
             <Route path="/" element={<SmartHomeRedirect><Index /></SmartHomeRedirect>} />
             <Route path="/experts" element={<Experts />} />
@@ -251,6 +258,7 @@ const AppShell = () => (
 
             {/* Company */}
             <Route path="/company" element={<ProtectedRoute requiredRole="company_admin"><CompanyDashboard /></ProtectedRoute>} />
+            <Route path="/company/members" element={<ProtectedRoute requiredRole="company_admin"><CompanyMembers /></ProtectedRoute>} />
             <Route path="/company/users" element={<ProtectedRoute requiredRole="company_admin"><CompanyUsers /></ProtectedRoute>} />
             <Route path="/company/analysts" element={<ProtectedRoute requiredRole="company_admin"><CompanyAnalysts /></ProtectedRoute>} />
             <Route path="/company/subscribers" element={<ProtectedRoute requiredRole="company_admin"><CompanySubscribers /></ProtectedRoute>} />
@@ -303,6 +311,7 @@ const AppShell = () => (
           </Routes>
           </Suspense>
           </RouteChunkBoundary>
+        </ViewAsProvider>
       </BrowserRouter>
     </TooltipProvider>
   </AuthProvider>

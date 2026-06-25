@@ -50,6 +50,45 @@ export type Database = {
         }
         Relationships: []
       }
+      admin_view_as_sessions: {
+        Row: {
+          admin_user_id: string
+          consumed_at: string | null
+          created_at: string
+          expires_at: string
+          id: string
+          ip: string | null
+          revoked_at: string | null
+          target_user_id: string
+          token: string
+          user_agent: string | null
+        }
+        Insert: {
+          admin_user_id: string
+          consumed_at?: string | null
+          created_at?: string
+          expires_at: string
+          id?: string
+          ip?: string | null
+          revoked_at?: string | null
+          target_user_id: string
+          token: string
+          user_agent?: string | null
+        }
+        Update: {
+          admin_user_id?: string
+          consumed_at?: string | null
+          created_at?: string
+          expires_at?: string
+          id?: string
+          ip?: string | null
+          revoked_at?: string | null
+          target_user_id?: string
+          token?: string
+          user_agent?: string | null
+        }
+        Relationships: []
+      }
       announcements: {
         Row: {
           content: string
