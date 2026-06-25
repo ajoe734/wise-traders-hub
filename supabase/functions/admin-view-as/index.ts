@@ -68,10 +68,11 @@ Deno.serve(async (req) => {
 
       // Best-effort audit log
       await admin.from('audit_logs').insert({
-        actor_user_id: callerId,
-        action: 'view_as_issued',
+        actor_id: callerId,
+        action: 'view_as.issue',
+        target_type: 'user',
         target_id: targetUserId,
-        metadata: { ip, user_agent: ua, expires_at: expiresAt },
+        detail: { ip, user_agent: ua, expires_at: expiresAt },
       }).then(() => undefined, () => undefined);
 
       return json({ token: t, expires_at: expiresAt });
