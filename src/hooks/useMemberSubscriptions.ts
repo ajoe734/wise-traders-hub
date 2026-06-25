@@ -1,6 +1,7 @@
 import { useQuery } from '@tanstack/react-query';
 import { supabase } from '@/integrations/supabase/client';
 import { useAuth } from '@/contexts/AuthContext';
+import { useEffectiveUserId } from '@/hooks/useEffectiveUserId';
 
 export interface MemberSubExpert {
   id: string;
@@ -29,14 +30,15 @@ export interface MemberSubscriptionRow {
  */
 export function useMemberSubscriptions() {
   const { user } = useAuth();
+  const { userId: effectiveUserId, isViewAs } = useEffectiveUserId();
   return useQuery({
-    queryKey: ['member-subscriptions', user?.id],
+    queryKey: ['member-subscriptions', effectiveUserId, isViewAs],
     queryFn: async (): Promise<MemberSubscriptionRow[]> => {
-      if (!user) return [];
+      if (!effectiveUserId) return [];
       const { data, error } = await supabase
         .from('member_subscriptions')
         .select('*, expert_plans(*, experts(id, slug, name, avatar_url, role, status, line_oa_id, line_channel_name, qr_code_url))')
-        .eq('user_id', user.id)
+        .eq('user_id', effectiveUserId)
         .eq('status', 'active');
       if (error) throw error;
       return (data || [])
@@ -64,7 +66,7 @@ export function useMemberSubscriptions() {
         })
         .filter((s): s is MemberSubscriptionRow => !!s && s.expert.status === 'active');
     },
-    enabled: !!user,
+    enabled: !!effectiveUserId && (!!user || isViewAs),
     staleTime: 60_000,
   });
 }
