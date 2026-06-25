@@ -9,10 +9,11 @@ import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Checkbox } from '@/components/ui/checkbox';
 import { supabase } from '@/integrations/supabase/client';
-import { Search, Users, UserCheck, UserX, RefreshCw, Download, Stethoscope, MessageCircle, History } from 'lucide-react';
+import { Search, Users, UserCheck, UserX, RefreshCw, Download, Stethoscope, MessageCircle, History, Eye } from 'lucide-react';
 import { useUserIdentities, formatIdentitySecondary } from '@/hooks/useUserIdentities';
 import { formatTaipeiYMD } from '@/checkup/utils/formatTaipeiDate';
 import { LinePushDialog } from '@/components/company/LinePushDialog';
+import { launchViewAs } from '@/lib/viewAsLauncher';
 
 type Row = {
   id: string;
