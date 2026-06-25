@@ -21,7 +21,9 @@ import type { TradeDraft } from '@/pages/_signalEditor/types';
 
 // ── A. derive.ts 純函數 ─────────────────────────────────────────────
 
+let _uid = 0;
 const baseTrade = (over: Partial<TradeDraft> = {}): TradeDraft => ({
+  uid: `t-${++_uid}`,
   stockCode: '',
   stockName: '',
   action: '' as any,
