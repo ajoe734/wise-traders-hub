@@ -9,7 +9,8 @@ import { Switch } from '@/components/ui/switch';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { toast } from '@/hooks/use-toast';
-import { Loader2, Shield, Search, RefreshCw, MoreHorizontal, Pencil, KeyRound, Ban, Trash2, ShieldOff } from 'lucide-react';
+import { Loader2, Shield, Search, RefreshCw, MoreHorizontal, Pencil, KeyRound, Ban, Trash2, ShieldOff, Eye } from 'lucide-react';
+import { launchViewAs } from '@/lib/viewAsLauncher';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
 import { PermissionTooltip } from '@/components/admin/PermissionTooltip';
 import {
@@ -333,6 +334,10 @@ export default function CompanyUsers() {
                               ) : (
                                 <><Ban className="h-4 w-4 mr-2" /> 停權</>
                               )}
+                            </DropdownMenuItem>
+                            <DropdownMenuSeparator />
+                            <DropdownMenuItem onClick={() => launchViewAs(r.id, { to: '/app' })}>
+                              <Eye className="h-4 w-4 mr-2" /> 視角檢視（會員預覽）
                             </DropdownMenuItem>
                             <DropdownMenuSeparator />
                             <DropdownMenuItem
