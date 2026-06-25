@@ -1,79 +1,66 @@
-# 讓 mentor 週記不再強制綁交易
 
-## 現況確認（為什麼現在發不出來）
+## 目標
 
-週記在資料模型上就是 `expert_signals` 一筆紀錄。`SignalCreateDialog.handlePublish` 目前的硬性檢查（src/pages/_adminSignals/SignalCreateDialog.tsx L135–164）：
+驗證上一輪實作的兩條新路徑，符合既有 Group 1.x 測試的「pure function + drift-detection + Playwright UI」三層風格。
 
-1. 股票代碼必填
-2. action 必填（buy / add / trim / sell / exit）
-3. quantity > 0 必填
-4. price_hint > 0 必填
-5. `add/trim/sell/exit` 還會查 `trade_records` 是否有未平倉部位
+## 範圍
 
-因此本週沒有任何進出場時，mentor 完全送不出週記。
+只新增測試檔，不改任何產品代碼。若測試跑出真實 bug 才回來修。
 
-## 這次要做的兩件事
+---
 
-### A. 新增「純教學週記」模式（mentor 限定）
+## 1. 新增 `src/test/integration/1.36-teaching-hold-journal.test.ts`
 
-在 `SignalCreateDialog` 上方加一個切換：「本週類型 = 交易週記 / 純教學週記」。當選「純教學週記」時：
+**A. derive.ts 純函數驗證（buildTeachingOnlyRow / buildSignalRows）**
 
-- 隱藏股票代碼 / 操作方向 / 數量 / 價格 / 風險備註欄位
-- 只保留：教學主題（必填）、整體摘要、學習重點
-- `canPublish` 改為只看教學主題有填
-- `handlePublish` 寫入 `expert_signals`：
-  - `instrument = ''`、`action = 'teaching'`（新值，見下）
-  - `price_hint / quantity / quantity_unit = null`
-  - 不觸發任何 `trade_signals` / `user_performances` 副作用
-  - 不觸發 `line-push-signal`（advisor 不會走到這支）
-  - `status = 'pending'`（照舊週五 20:00 統一發）
+- 純教學：呼叫 `buildTeachingOnlyRow({ teachingTopic: '本週主題X', ... })` → 回傳剛好 1 筆 row，`action='teaching'`、`instrument=''`、`price_hint/quantity/quantity_unit` 皆為 null、`teaching_topic` 正確帶入、`status='pending'`（mentor）。
+- 純教學：`teachingTopic` 空字串 → `teaching_topic` 為 null（驗證 fallback）。
+- hold 分支：`buildSignalRows` 帶一筆 `action='hold'` 的 trade → row 正確輸出 action='hold'、`teaching_topic` 只掛在第 0 筆、不會被 `derive` 過濾掉。
+- hold action 在「derive 持倉模擬」中被略過（`if (t.action === 'hold') continue;` 第 204 行行為）→ 不會產生新增持倉。
 
-### B. 對既有持倉新增「觀察 / hold」非交易動作
+**B. publish-weekly-journals drift-detection**
 
-在 mentor 的「交易週記」模式新增 action `hold`，代表「本週只對既有持倉做評論，不進出場」。
+讀 `supabase/functions/publish-weekly-journals/index.ts` 字串，斷言：
+- 含 `'teaching'` 與 `'hold'` 分支關鍵字
+- `teaching`/`hold` 分支不會呼叫 `trade_signals` insert / `user_performances` upsert（用 regex 確認兩個 action 的程式碼區塊內沒有對應字串）
+- `expert_signals` 仍由 pending → published（既有行為不被破壞）
 
-- 必填：股票代碼、教學主題（mentor）；數量 / 價格改為選填
-- 必須先有對應 `trade_records.status='open'` 部位，否則擋下（與 trim/sell 同樣防呆）
-- `handlePublish` 不動 `trade_signals` 也不動 `user_performances`
-- 走一般 mentor `pending` 流程，週五一起發
+**C. SignalEditor canPublish 邏輯**
 
-## DB 與型別
+把 `isTeachingOnly && !teachingTopic.trim()` 的擋下邏輯抽成驗證：drift-check `src/pages/admin/SignalEditor.tsx` 含關鍵字 `isTeachingOnly`、`teachingTopic.trim()`、`weekType === 'teaching'` 三段，避免日後 UI 重構誤刪。
 
-新增一個 migration，把 `expert_signals.action` 的 enum 補上 `'hold'` 與 `'teaching'`。`expert_signals` 既有欄位（instrument, price_hint, quantity）允許 null 或空字串即可，不用結構改動，但若 `instrument` 目前是 NOT NULL，純教學模式要允許空字串（不改 nullable，前端送 `''` 即可）。
+---
 
-對應更新 `src/integrations/supabase/types.ts` 內的 enum 型別。
+## 2. 新增 `e2e/mentor-teaching-journal.spec.ts`（Playwright UI 層）
 
-## Edge function：publish-weekly-journals
+採用既有 `e2e/helpers` 登入流程（mentor 帳號）。流程：
 
-`supabase/functions/publish-weekly-journals/index.ts` 的 `sync_trade_signals` 迴圈目前 switch 在 `action === 'exit' / sell / trim / 其他（視為 buy）`。需要加入兩個分支：
+1. 進 `/admin/signals/new`（或既有 SignalEditor 入口）
+2. 點「純教學週記」切換鈕 → 斷言交易欄位區塊消失、`teaching_topic` 輸入框出現
+3. 留空送出 → 斷言出現「請填寫教學主題」類錯誤
+4. 填入 `本週主題 — E2E 測試 ${timestamp}` → 送出
+5. 斷言成功 toast / 跳轉，且後續清單頁可見該筆，狀態為 pending
+6. 切回交易週記模式 → 新增一筆 `hold` action（用既有持倉股票）→ quantity/price 留空可送出
+7. 斷言該筆 hold 出現在清單，badge 顯示「觀察」
 
-- `action === 'teaching'`：完全跳過 trade_signals / user_performances 同步，也跳過 stockCode 解析
-- `action === 'hold'`：跳過 trade_signals / user_performances 寫入（既有持倉不動）
+**清理**：測試尾端用 service role 刪除剛建立的 `expert_signals` 兩筆，避免污染。
 
-LINE 推播文案（既有 `htmlToText` 與 flex message 組裝）要能處理沒有股票代碼的純教學週記：標題改成「📚 本週教學週記」，內容用 teaching_topic + overall_summary + learning_points。
+**前置條件**：需要既有測試 mentor 帳號至少有一檔開倉持倉。若 helpers 沒有，沿用 `e2e/helpers` 的 fixture 模式新增 `ensureMentorHasOpenPosition()`。
 
-## SignalRow / SignalEditor
+---
 
-- `src/pages/_adminSignals/SignalRow.tsx`、`src/pages/admin/Signals.tsx` 的列表顯示需要對 `hold` / `teaching` 顯示對應 badge（例如「觀察」「教學」）
-- `src/pages/admin/SignalEditor.tsx` 編輯舊週記時，能正確還原這兩種模式並沿用對應驗證
+## 3. 不做
 
-## 不會動到的事
+- 不真實打 publish-weekly-journals edge function（pending → published 已由 1.18 cover；teaching/hold 透過 drift 保護即可，避免在測試中觸發週五排程副作用）
+- 不改 derive.ts / SignalEditor / publish-weekly-journals 任何產品邏輯
+- 不動 advisor 路徑（advisor 沒有 teaching/hold）
 
-- 不改 advisor 即時訊號流程
-- 不改既有 buy/add/trim/sell/exit 的驗證與 trade_records 寫入
-- 不改 demo / 首頁 / 文案以外的東西
-- 不改 RLS / 安全 audit
+---
 
-## 測試
+## 驗收
 
-- 補 unit：`canPublish` 在純教學模式只看 teaching_topic
-- 補 integration：`hold` action 寫入後 trade_signals / user_performances 不變
-- 跑既有 1.18-weekly-publish-rls + publish-weekly-journals 相關測試確保不回歸
+1. `bunx vitest run src/test/integration/1.36-teaching-hold-journal.test.ts` 全綠
+2. `bunx playwright test e2e/mentor-teaching-journal.spec.ts` 全綠
+3. 既有 `1.16-signal-trade-trigger` / `1.18-weekly-publish-rls` 不破
 
-## 完工後回報
-
-- migration 內容
-- 改了哪些檔案
-- handlePublish 兩個模式的驗證規則
-- edge function 對 teaching / hold 的處理
-- 測試結果
+跑完後回報每個案子的結果。若 Playwright 因 mentor fixture 缺持倉而需要先 seed，會在 build 階段把 seed helper 一併補上。
