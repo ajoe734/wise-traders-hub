@@ -185,6 +185,8 @@ const AppShell = () => (
       <Toaster />
       <Sonner />
       <BrowserRouter>
+        <ViewAsProvider>
+          <ViewAsBanner />
           <RouteChunkBoundary>
           <AttributionTracker />
           <ScrollToTop />
@@ -192,6 +194,7 @@ const AppShell = () => (
           <PendingRemittanceGuard />
           <Suspense fallback={<RouteFallback />}>
           <Routes>
+            <Route path="/app/view-as" element={<ViewAsEntry />} />
             {/* Portal (public) */}
             <Route path="/" element={<SmartHomeRedirect><Index /></SmartHomeRedirect>} />
             <Route path="/experts" element={<Experts />} />
@@ -255,6 +258,7 @@ const AppShell = () => (
 
             {/* Company */}
             <Route path="/company" element={<ProtectedRoute requiredRole="company_admin"><CompanyDashboard /></ProtectedRoute>} />
+            <Route path="/company/members" element={<ProtectedRoute requiredRole="company_admin"><CompanyMembers /></ProtectedRoute>} />
             <Route path="/company/users" element={<ProtectedRoute requiredRole="company_admin"><CompanyUsers /></ProtectedRoute>} />
             <Route path="/company/analysts" element={<ProtectedRoute requiredRole="company_admin"><CompanyAnalysts /></ProtectedRoute>} />
             <Route path="/company/subscribers" element={<ProtectedRoute requiredRole="company_admin"><CompanySubscribers /></ProtectedRoute>} />
