@@ -7,6 +7,9 @@ export interface ViewAsSession {
   targetUserId: string;
   targetEmail: string | null;
   targetDisplayName: string | null;
+  targetRoles?: string[];
+  targetActiveExpertSubs?: number;
+  targetActiveCheckupSubs?: number;
   expiresAt: string; // ISO
 }
 
