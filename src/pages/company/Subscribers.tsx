@@ -316,6 +316,17 @@ const CompanySubscribers = () => {
                             {sub.status === 'active' ? '活躍' : sub.status === 'expired' ? '已到期' : '已取消'}
                           </Badge>
                         </td>
+                        <td className="p-4 text-right">
+                          <Button
+                            variant="outline"
+                            size="sm"
+                            className="h-7 text-xs gap-1"
+                            onClick={() => launchViewAs(sub.user_id)}
+                            title="以此會員身分模擬登入（新分頁、唯讀視角）"
+                          >
+                            <Eye className="h-3 w-3" />視角檢視
+                          </Button>
+                        </td>
                       </tr>
                     );
                   })
