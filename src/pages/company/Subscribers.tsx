@@ -255,6 +255,7 @@ const CompanySubscribers = () => {
                   <th className="p-4">剩餘天數</th>
                   <th className="p-4">續訂</th>
                   <th className="p-4">狀態</th>
+                  <th className="p-4 text-right">操作</th>
                 </tr>
               </thead>
               <tbody>
