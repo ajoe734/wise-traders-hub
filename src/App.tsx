@@ -8,6 +8,8 @@ import { ThemeProvider } from "next-themes";
 import { lazy, Suspense, useEffect } from "react";
 import { prefetchHighTrafficRoutes } from "@/lib/routePrefetch";
 import { AuthProvider } from "@/contexts/AuthContext";
+import { ViewAsProvider } from "@/contexts/ViewAsContext";
+import { ViewAsBanner } from "@/components/ViewAsBanner";
 import {
   queryClient,
   queryPersister,
@@ -126,6 +128,8 @@ const CompanyCheckupQuotaAudit = lazy(() => import("./pages/company/CheckupQuota
 const CompanyMissingPrices = lazy(() => import("./pages/company/MissingPrices"));
 const CompanyMetaOverrides = lazy(() => import("./pages/company/MetaOverrides"));
 const CompanyUsers = lazy(() => import("./pages/company/Users"));
+const CompanyMembers = lazy(() => import("./pages/company/Members"));
+const ViewAsEntry = lazy(() => import("./pages/app/ViewAsEntry"));
 const CompanyPerfMetrics = lazy(() => import("./pages/company/PerfMetrics"));
 const CompanyTraffic = lazy(() => import("./pages/company/Traffic"));
 const CompanyOpsHealth = lazy(() => import("./pages/company/OpsHealth"));
