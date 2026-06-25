@@ -336,7 +336,7 @@ export default function CompanyUsers() {
                               )}
                             </DropdownMenuItem>
                             <DropdownMenuSeparator />
-                            <DropdownMenuItem onClick={() => launchViewAs(r.id, { to: '/app' })}>
+                            <DropdownMenuItem onClick={() => launchViewAs(r.user_id, { to: '/app' })}>
                               <Eye className="h-4 w-4 mr-2" /> 視角檢視（會員預覽）
                             </DropdownMenuItem>
                             <DropdownMenuSeparator />
