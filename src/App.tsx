@@ -311,6 +311,7 @@ const AppShell = () => (
           </Routes>
           </Suspense>
           </RouteChunkBoundary>
+        </ViewAsProvider>
       </BrowserRouter>
     </TooltipProvider>
   </AuthProvider>
