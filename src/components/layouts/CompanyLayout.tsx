@@ -13,34 +13,58 @@ interface CompanyLayoutProps {
   children: ReactNode;
 }
 
-const navItems = [
-  { path: '/company/users', icon: Shield, label: '帳號權限' },
-  { path: '/company', icon: LayoutDashboard, label: '總覽', exact: true },
-  { path: '/company/analysts', icon: Users, label: '分析師管理' },
-  { path: '/company/plans', icon: Layers, label: '方案管理' },
-  { path: '/company/subscribers', icon: UserCheck, label: '訂閱者管理' },
-  { path: '/company/line-push-history', icon: Megaphone, label: 'Line 推播紀錄' },
-  { path: '/company/revenue', icon: BarChart3, label: '對帳中心' },
-  { path: '/company/payments', icon: CreditCard, label: '金流工具' },
-  { path: '/company/remittance', icon: Receipt, label: '匯款審核' },
-  { path: '/company/payment-settings', icon: Settings, label: '分潤設定' },
-  { path: '/company/audit-logs', icon: FileClock, label: '審計日誌' },
-  { path: '/company/system-jobs', icon: Activity, label: '系統任務' },
-  { path: '/company/function-logs', icon: ScrollText, label: '函式日誌' },
-  { path: '/company/announcements', icon: Megaphone, label: '系統公告' },
-  { path: '/company/knowledge-base', icon: Brain, label: '知識庫' },
-  { path: '/company/knowledge-scheduler', icon: Brain, label: '知識庫排程控制台' },
-  { path: '/company/knowledge-audit', icon: FileClock, label: '知識庫審計' },
-  { path: '/company/backtest-monitor', icon: FlaskConical, label: '回測監控' },
-  { path: '/company/checkup-usage', icon: Gauge, label: '健檢配額' },
-  { path: '/company/checkup-quota-audit', icon: FileClock, label: '配額稽核' },
-  { path: '/company/missing-prices', icon: AlertTriangle, label: '缺價總覽' },
-  { path: '/company/meta-overrides', icon: History, label: '持倉覆蓋' },
-  { path: '/company/perf-metrics', icon: Gauge, label: '前台效能' },
-  { path: '/company/traffic', icon: Activity, label: '流量監控' },
-  { path: '/company/ops-health', icon: Gauge, label: '後端健康/成本' },
-  { path: '/company/paywall-analytics', icon: BarChart3, label: 'Paywall 轉換' },
-  { path: '/company/funnel-analytics', icon: BarChart3, label: '漏斗分析' },
+type NavItem = { path: string; icon: typeof Shield; label: string; exact?: boolean };
+type NavGroup = { label: string; items: NavItem[] };
+
+const navGroups: NavGroup[] = [
+  {
+    label: '會員',
+    items: [
+      { path: '/company/members', icon: Users, label: '會員總覽' },
+      { path: '/company/users', icon: Shield, label: '註冊帳號' },
+      { path: '/company/subscribers', icon: UserCheck, label: '訂閱會員' },
+      { path: '/company/remittance', icon: Receipt, label: '匯款審核' },
+    ],
+  },
+  {
+    label: '營運',
+    items: [
+      { path: '/company', icon: LayoutDashboard, label: '總覽', exact: true },
+      { path: '/company/analysts', icon: Users, label: '分析師管理' },
+      { path: '/company/plans', icon: Layers, label: '方案管理' },
+      { path: '/company/line-push-history', icon: Megaphone, label: 'Line 推播紀錄' },
+      { path: '/company/revenue', icon: BarChart3, label: '對帳中心' },
+      { path: '/company/payments', icon: CreditCard, label: '金流工具' },
+      { path: '/company/payment-settings', icon: Settings, label: '分潤設定' },
+      { path: '/company/announcements', icon: Megaphone, label: '系統公告' },
+    ],
+  },
+  {
+    label: '內容 & 知識庫',
+    items: [
+      { path: '/company/knowledge-base', icon: Brain, label: '知識庫' },
+      { path: '/company/knowledge-scheduler', icon: Brain, label: '排程控制台' },
+      { path: '/company/knowledge-audit', icon: FileClock, label: '知識庫審計' },
+      { path: '/company/backtest-monitor', icon: FlaskConical, label: '回測監控' },
+      { path: '/company/checkup-usage', icon: Gauge, label: '健檢配額' },
+      { path: '/company/checkup-quota-audit', icon: FileClock, label: '配額稽核' },
+      { path: '/company/missing-prices', icon: AlertTriangle, label: '缺價總覽' },
+      { path: '/company/meta-overrides', icon: History, label: '持倉覆蓋' },
+    ],
+  },
+  {
+    label: '系統 & 分析',
+    items: [
+      { path: '/company/audit-logs', icon: FileClock, label: '審計日誌' },
+      { path: '/company/system-jobs', icon: Activity, label: '系統任務' },
+      { path: '/company/function-logs', icon: ScrollText, label: '函式日誌' },
+      { path: '/company/perf-metrics', icon: Gauge, label: '前台效能' },
+      { path: '/company/traffic', icon: Activity, label: '流量監控' },
+      { path: '/company/ops-health', icon: Gauge, label: '後端健康/成本' },
+      { path: '/company/paywall-analytics', icon: BarChart3, label: 'Paywall 轉換' },
+      { path: '/company/funnel-analytics', icon: BarChart3, label: '漏斗分析' },
+    ],
+  },
 ];
 
 
