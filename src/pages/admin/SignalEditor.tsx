@@ -416,8 +416,13 @@ const SignalEditor = () => {
           </Card>
         )}
 
-        <div className="flex justify-end gap-2">
+        <div className="flex justify-end gap-2 flex-wrap">
           <Button variant="outline" onClick={() => navigate(`/admin/${expertSlug}/signals`)}>取消</Button>
+          {isMentor && (
+            <Button type="button" variant="outline" onClick={() => setPreviewOpen(true)}>
+              <Eye className="h-4 w-4 mr-1" /> 預覽
+            </Button>
+          )}
           <Button
             onClick={handlePublish}
             disabled={submitting || !publishWindow.open}
@@ -428,6 +433,17 @@ const SignalEditor = () => {
           </Button>
         </div>
       </div>
+
+      <JournalPreviewDialog
+        open={previewOpen}
+        onOpenChange={setPreviewOpen}
+        expert={expert as any}
+        isTeachingOnly={isTeachingOnly}
+        teachingTopic={teachingTopic}
+        overallSummary={overallSummary}
+        learningPoints={learningPoints}
+        trades={trades}
+      />
     </AdminLayout>
   );
 };
