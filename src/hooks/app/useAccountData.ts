@@ -18,13 +18,13 @@ export function useAccountData() {
   const [allMentors, setAllMentors] = useState<ExpertLineRow[]>([]);
 
   const fetchSubscriptions = useCallback(async () => {
-    if (!user) return;
+    if (!effectiveUserId) return;
     setLoadingSubs(true);
 
     const { data: subs } = await supabase
       .from('member_subscriptions')
       .select('id, plan_id, status, auto_renew, billing_cycle, started_at, expires_at, canceled_at')
-      .eq('user_id', user.id)
+      .eq('user_id', effectiveUserId)
       .order('created_at', { ascending: false });
 
     if (!subs || subs.length === 0) {
@@ -82,11 +82,11 @@ export function useAccountData() {
         .map(s => s.expert.id)
     ));
     setLoadingSubs(false);
-  }, [user]);
+  }, [effectiveUserId]);
 
   const fetchExperts = useCallback(async () => {
     if (!user) return;
-    const expectedStatus = user.isTester ? 'draft' : 'active';
+    const expectedStatus = (!isViewAs && user.isTester) ? 'draft' : 'active';
     const { data: experts } = await supabase
       .from('experts')
       .select('id, slug, name, role, avatar_url, status')
@@ -115,24 +115,24 @@ export function useAccountData() {
   }, [user]);
 
   useEffect(() => {
-    if (!user) return;
+    if (!effectiveUserId) return;
     let cancelled = false;
     (async () => {
       const { count } = await supabase
         .from('remittance_orders')
         .select('id', { count: 'exact', head: true })
-        .eq('user_id', user.id)
+        .eq('user_id', effectiveUserId)
         .eq('status', 'awaiting_info');
       if (!cancelled) setPendingRemitCount(count ?? 0);
     })();
     return () => { cancelled = true; };
-  }, [user?.id]);
+  }, [effectiveUserId]);
 
   useEffect(() => {
-    if (!user) return;
+    if (!effectiveUserId) return;
     fetchSubscriptions();
     fetchExperts();
-  }, [user, fetchSubscriptions, fetchExperts]);
+  }, [effectiveUserId, fetchSubscriptions, fetchExperts]);
 
   const handleCancelSubscription = useCallback(async (subId: string) => {
     setCancelingId(subId);
