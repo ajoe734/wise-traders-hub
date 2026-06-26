@@ -97,13 +97,15 @@ test.describe('Auth funnel', () => {
 
   test('LINE 登入按鈕應送 auth_login_submit{method:line}', async ({ page }) => {
     const events = await installCollector(page);
-    // Block real navigation to LINE authorize endpoint (returns harmless page)
-    await page.route(`${SUPABASE_HOST}/functions/v1/line-login-authorize**`, (route: Route) =>
-      route.fulfill({ status: 200, contentType: 'text/html', body: '<html><body>OK</body></html>' }),
-    );
+    // Prevent actual navigation away — keep page alive so the flush timer fires.
+    await page.addInitScript(() => {
+      try {
+        const proto = Object.getPrototypeOf(window.location);
+        Object.defineProperty(proto, 'href', { set: () => {}, get: () => 'http://localhost:8080/auth/login', configurable: true });
+      } catch { /* ignore */ }
+    });
     await page.goto('/auth/login');
-    // Force flush so navigator.sendBeacon fires before navigation completes
-    await page.getByRole('button', { name: /LINE 快速登入/ }).click().catch(() => {});
+    await page.getByRole('button', { name: /LINE 快速登入/ }).click();
 
     await waitForEvent(events, 'auth_login_submit');
     const login = events.find((e) => e.event_name === 'auth_login_submit');
