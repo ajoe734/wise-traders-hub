@@ -19,6 +19,7 @@
 
 | 動到的檔案 / 區塊 | 必跑 |
 |---|---|
+| `src/contexts/AuthContext.tsx`、`src/pages/auth/Login.tsx`、`Register.tsx` | A（auth-funnel）+ B |
 | `src/pages/Pricing.tsx`、`src/pages/_pricing/**`、`PricingPlanCard` CTA | A + B |
 | `src/pages/Checkout.tsx`、`src/pages/app/AppCheckout.tsx`、`CheckupCheckout.tsx` | A + B |
 | `src/hooks/checkout/useSubscriptionConfirmation.ts`、`useCheckoutData.ts` | A + B |
