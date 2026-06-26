@@ -34,6 +34,12 @@ describe('funnel events → traffic_events.event_name 契約', () => {
     ['checkup_upgrade_click',  { from: 'paywall' }],
     ['subscription_cancel_click', { plan_id: 'p1' }],
     ['subscription_renew_click',  { plan_id: 'p1' }],
+    ['auth_login_submit',         { method: 'email' }],
+    ['auth_login_success',        { method: 'email' }],
+    ['auth_login_failure',        { method: 'email', reason: 'invalid_credentials' }],
+    ['auth_signup_submit',        { method: 'email' }],
+    ['auth_signup_success',       { method: 'email' }],
+    ['auth_signup_failure',       { method: 'email', reason: 'weak_password' }],
   ];
 
   it.each(cases)('track(%s) 應送出同名 traffic event', (name, props) => {
