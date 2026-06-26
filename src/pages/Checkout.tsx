@@ -9,6 +9,8 @@ import { useCrossProductDiscount } from '@/hooks/useCrossProductDiscount';
 import { useAcpaySdk } from '@/hooks/checkout/useAcpaySdk';
 import { useSubscriptionConfirmation } from '@/hooks/checkout/useSubscriptionConfirmation';
 import { useCheckoutData } from '@/hooks/checkout/useCheckoutData';
+import { usePlanExpertStatus } from '@/hooks/checkout/usePlanExpertStatus';
+import { CheckoutUnavailable } from '@/components/checkout/CheckoutUnavailable';
 import { supabase } from '@/integrations/supabase/client';
 import { Loader2, ArrowLeft, Check } from 'lucide-react';
 import { CheckoutConsentDialog } from './_checkout/CheckoutConsentDialog';
