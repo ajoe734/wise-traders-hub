@@ -12,6 +12,7 @@ import { cn } from '@/lib/utils';
 import { avatarUrl } from '@/lib/imageTransform';
 import { calcRefund } from '@/lib/refundCalc';
 import { getPlanTypeLabel, isAdvisorPlan, type DbSubscription } from './types';
+import { track } from '@/lib/analytics/events';
 
 interface Props {
   sub: DbSubscription;
@@ -93,7 +94,10 @@ export function SubscriptionCard({ sub, cancelingId, onCancel }: Props) {
                     將於 {format(new Date(sub.expires_at), 'yyyy/MM/dd')} 到期，{daysLeft <= 0 ? '今日內請完成續訂' : `剩 ${daysLeft} 天`}
                   </span>
                   <Button asChild size="sm" variant="outline" className="h-7 text-xs">
-                    <Link to={`/${sub.expert.slug}/checkout?plan=${sub.plan_id}&cycle=${isYearly ? 'yearly' : 'monthly'}`}>立即續訂</Link>
+                    <Link
+                      to={`/${sub.expert.slug}/checkout?plan=${sub.plan_id}&cycle=${isYearly ? 'yearly' : 'monthly'}`}
+                      onClick={() => track('subscription_renew_click', { plan_id: sub.plan_id })}
+                    >立即續訂</Link>
                   </Button>
                 </div>
               );
@@ -153,7 +157,7 @@ export function SubscriptionCard({ sub, cancelingId, onCancel }: Props) {
                 </AlertDialogHeader>
                 <AlertDialogFooter>
                   <AlertDialogCancel>返回</AlertDialogCancel>
-                  <AlertDialogAction onClick={() => onCancel(sub.id)}
+                  <AlertDialogAction onClick={() => { track('subscription_cancel_click', { plan_id: sub.plan_id }); onCancel(sub.id); }}
                     className="bg-destructive text-destructive-foreground hover:bg-destructive/90">
                     確認取消
                   </AlertDialogAction>
