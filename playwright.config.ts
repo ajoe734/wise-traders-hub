@@ -142,6 +142,30 @@ export default defineConfig({
       testMatch: /freecheckup-demo-first-fold\.spec\.ts/,
       use: { ...devices['Desktop Chrome'], viewport: { width: 1280, height: 800 } },
     },
+    {
+      // F1 — 登入/註冊漏斗（auth_login_*, auth_signup_*）
+      name: 'desktop-auth-funnel',
+      testMatch: /auth-funnel\.spec\.ts/,
+      use: { ...devices['Desktop Chrome'], viewport: { width: 1280, height: 900 } },
+    },
+    {
+      // F2 — 訂閱漏斗（pricing → expert_subscribe_click → checkout_*）
+      name: 'desktop-subscription-funnel',
+      testMatch: /subscription-funnel\.spec\.ts/,
+      use: { ...devices['Desktop Chrome'], viewport: { width: 1280, height: 900 } },
+    },
+    {
+      // F3 — 訂閱取消 / 續訂
+      name: 'desktop-subscription-cancel-renew',
+      testMatch: /subscription-cancel-renew\.spec\.ts/,
+      use: { ...devices['Desktop Chrome'], viewport: { width: 1280, height: 900 } },
+    },
+    {
+      // F4 — view-as 訂閱判斷
+      name: 'desktop-view-as-content-access',
+      testMatch: /view-as-content-access\.spec\.ts/,
+      use: { ...devices['Desktop Chrome'], viewport: { width: 1280, height: 900 } },
+    },
   ],
   webServer: {
     command: 'bun run dev',
