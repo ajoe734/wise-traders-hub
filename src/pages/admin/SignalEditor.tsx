@@ -13,7 +13,8 @@ import { useFormDraft } from '@/hooks/useFormDraft';
 import { LazyRichTextEditor as RichTextEditor } from '@/components/admin/LazyRichTextEditor';
 import { sanitizeRichHtml, htmlToPlainText } from '@/lib/sanitizeHtml';
 import { cn } from '@/lib/utils';
-import { Plus, Loader2, ArrowLeft } from 'lucide-react';
+import { Plus, Loader2, ArrowLeft, Eye } from 'lucide-react';
+import { JournalPreviewDialog } from '@/pages/_signalEditor/JournalPreviewDialog';
 import { toast } from 'sonner';
 import {
   emptyTrade, newUid,
@@ -45,6 +46,7 @@ const SignalEditor = () => {
   const [submitting, setSubmitting] = useState(false);
   /** mentor 本週類型：'trades' = 交易週記（預設）； 'teaching' = 純教學週記，無交易 */
   const [weekType, setWeekType] = useState<'trades' | 'teaching'>('trades');
+  const [previewOpen, setPreviewOpen] = useState(false);
 
   // ── Data (expert / templates / open positions / capital) ──────────────
   const {
@@ -284,6 +286,16 @@ const SignalEditor = () => {
               <span className="text-xs text-destructive">{publishWindow.reason}</span>
             )}
             <Button variant="outline" onClick={() => navigate(`/admin/${expertSlug}/signals`)}>取消</Button>
+            {isMentor && (
+              <Button
+                type="button"
+                variant="outline"
+                onClick={() => setPreviewOpen(true)}
+                title="以前台版型預覽（不會送出）"
+              >
+                <Eye className="h-4 w-4 mr-1" /> 預覽
+              </Button>
+            )}
             <Button
               onClick={handlePublish}
               disabled={submitting || !publishWindow.open}
@@ -404,8 +416,13 @@ const SignalEditor = () => {
           </Card>
         )}
 
-        <div className="flex justify-end gap-2">
+        <div className="flex justify-end gap-2 flex-wrap">
           <Button variant="outline" onClick={() => navigate(`/admin/${expertSlug}/signals`)}>取消</Button>
+          {isMentor && (
+            <Button type="button" variant="outline" onClick={() => setPreviewOpen(true)}>
+              <Eye className="h-4 w-4 mr-1" /> 預覽
+            </Button>
+          )}
           <Button
             onClick={handlePublish}
             disabled={submitting || !publishWindow.open}
@@ -416,6 +433,17 @@ const SignalEditor = () => {
           </Button>
         </div>
       </div>
+
+      <JournalPreviewDialog
+        open={previewOpen}
+        onOpenChange={setPreviewOpen}
+        expert={expert as any}
+        isTeachingOnly={isTeachingOnly}
+        teachingTopic={teachingTopic}
+        overallSummary={overallSummary}
+        learningPoints={learningPoints}
+        trades={trades}
+      />
     </AdminLayout>
   );
 };
