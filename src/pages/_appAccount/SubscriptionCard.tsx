@@ -157,7 +157,7 @@ export function SubscriptionCard({ sub, cancelingId, onCancel }: Props) {
                 </AlertDialogHeader>
                 <AlertDialogFooter>
                   <AlertDialogCancel>返回</AlertDialogCancel>
-                  <AlertDialogAction onClick={() => onCancel(sub.id)}
+                  <AlertDialogAction onClick={() => { track('subscription_cancel_click', { plan_id: sub.plan_id }); onCancel(sub.id); }}
                     className="bg-destructive text-destructive-foreground hover:bg-destructive/90">
                     確認取消
                   </AlertDialogAction>
