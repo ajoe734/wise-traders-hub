@@ -13,7 +13,8 @@ import { useFormDraft } from '@/hooks/useFormDraft';
 import { LazyRichTextEditor as RichTextEditor } from '@/components/admin/LazyRichTextEditor';
 import { sanitizeRichHtml, htmlToPlainText } from '@/lib/sanitizeHtml';
 import { cn } from '@/lib/utils';
-import { Plus, Loader2, ArrowLeft } from 'lucide-react';
+import { Plus, Loader2, ArrowLeft, Eye } from 'lucide-react';
+import { JournalPreviewDialog } from '@/pages/_signalEditor/JournalPreviewDialog';
 import { toast } from 'sonner';
 import {
   emptyTrade, newUid,
