@@ -1,7 +1,8 @@
 import { ShareButton } from '@/components/ShareButton';
 import { SEO } from '@/components/SEO';
 import { useParams, useNavigate } from "react-router-dom";
-import { useState, useEffect } from "react";
+import { useMemo } from "react";
+import { useMemberSubscriptions } from "@/hooks/useMemberSubscriptions";
 import { UnifiedAppLayout } from "@/components/layouts/UnifiedAppLayout";
 import { Card, CardContent } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
