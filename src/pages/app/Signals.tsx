@@ -3,6 +3,7 @@ import { useEffect } from 'react';
 import { Link } from 'react-router-dom';
 import { UnifiedAppLayout, markAppSignalsAsRead } from '@/components/layouts/UnifiedAppLayout';
 import { useAuth } from '@/contexts/AuthContext';
+import { useEffectiveUserId } from '@/hooks/useEffectiveUserId';
 import { supabase } from '@/integrations/supabase/client';
 import { fetchSubscriberSignals } from '@/lib/subscriptionVisibility';
 import { Card, CardContent } from '@/components/ui/card';
@@ -49,11 +50,13 @@ const fetchSignalsData = (userId: string | undefined, isTester: boolean, preview
 
 const Signals = () => {
   const { user } = useAuth();
+  const { userId: effectiveUserId, isViewAs } = useEffectiveUserId();
+  const isTester = isViewAs ? false : (user?.isTester ?? false);
   const { previewExpertId } = usePreviewMode();
 
   const { data, isLoading: loading } = useQuery({
-    queryKey: ['app-signals', user?.id, user?.isTester, previewExpertId],
-    queryFn: () => fetchSignalsData(user?.id, user?.isTester ?? false, previewExpertId),
+    queryKey: ['app-signals', effectiveUserId, isTester, isViewAs, previewExpertId],
+    queryFn: () => fetchSignalsData(effectiveUserId ?? undefined, isTester, previewExpertId),
     staleTime: 5 * 60 * 1000,
     gcTime: 24 * 60 * 60 * 1000,
     refetchOnMount: false,
