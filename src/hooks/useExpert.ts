@@ -278,7 +278,7 @@ export function useExpertDetailBundle(slug: string | undefined) {
 
       // Seed peer caches so useExpert / useExpertSubscriptionStats hit cache.
       if (expert) {
-        queryClient.setQueryData(['expert', slug, effectiveUserId ?? 'guest', visibilityMode], expert);
+        queryClient.setQueryData(['expert', slug, user?.id ?? 'guest', visibilityMode], expert);
         const planKey = expert.plans.map((p) => p.id).sort().join(',');
         queryClient.setQueryData(
           ['expert-subscription-stats', expert.id, effectiveUserId ?? 'guest', isViewAs ? 'view-as' : 'self', planKey],
