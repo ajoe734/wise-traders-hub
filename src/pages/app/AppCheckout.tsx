@@ -170,15 +170,9 @@ const AppCheckout = () => {
   }
 
   if (!planData || !expert) {
-    return (
-      <UnifiedAppLayout>
-        <div className="flex flex-col items-center justify-center py-16">
-          <p className="text-muted-foreground">找不到此方案</p>
-          <Button variant="ghost" onClick={() => navigate("/app/explore")} className="mt-4">返回探索</Button>
-        </div>
-      </UnifiedAppLayout>
-    );
+    return <AppCheckoutUnavailableState planId={planId} hasPlan={!!planData} onBack={() => navigate("/app/explore")} />;
   }
+
 
   const monthlyPrice = planData.price_monthly;
   const yearlyPrice = planData.price_yearly || monthlyPrice * 12;
