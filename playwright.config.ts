@@ -166,6 +166,13 @@ export default defineConfig({
       testMatch: /view-as-content-access\.spec\.ts/,
       use: { ...devices['Desktop Chrome'], viewport: { width: 1280, height: 900 } },
     },
+    {
+      // Route B — live smoke（真實後端 / E2E_LIVE=1 才會跑）
+      name: 'desktop-live-smoke',
+      testMatch: /live\/.*\.spec\.ts/,
+      use: { ...devices['Desktop Chrome'], viewport: { width: 1280, height: 900 } },
+    },
+
   ],
   webServer: {
     command: 'bun run dev',
