@@ -240,11 +240,12 @@ export interface ExpertDetailBundle {
 
 export function useExpertDetailBundle(slug: string | undefined) {
   const { user } = useAuth();
+  const { userId: effectiveUserId, isViewAs } = useEffectiveUserId();
   const visibilityMode = getVisibilityMode(user);
   const queryClient = useQueryClient();
 
   return useQuery<ExpertDetailBundle>({
-    queryKey: ['expert-bundle', slug, user?.id ?? 'guest', visibilityMode],
+    queryKey: ['expert-bundle', slug, effectiveUserId ?? 'guest', isViewAs ? 'view-as' : 'self', visibilityMode],
     queryFn: async () => {
       if (!slug) return { expert: null, subscriberCount: 0, mySubscribedPlanIds: new Set() };
       const { data, error } = await supabase.rpc('get_expert_detail_bundle', { _slug: slug });
@@ -254,15 +255,33 @@ export function useExpertDetailBundle(slug: string | undefined) {
       const bundle = data as any;
       const expertRow = bundle.expert ? { ...bundle.expert, expert_plans: bundle.plans || [] } : null;
       const expert = expertRow ? mapToPersonWithPlans(expertRow) : null;
-      const mine = new Set<string>((bundle.my_subscribed_plan_ids || []) as string[]);
+      let mine = new Set<string>((bundle.my_subscribed_plan_ids || []) as string[]);
       const count = Number(bundle.subscriber_count || 0);
+
+      // View-as override: RPC computes my_subscribed_plan_ids from auth.uid()
+      // (the real admin). When acting as another user, ignore RPC's value and
+      // query member_subscriptions for the effective user id instead.
+      if (isViewAs && effectiveUserId && expert) {
+        const planIds = expert.plans.map((p) => p.id);
+        if (planIds.length > 0) {
+          const { data: rows } = await supabase
+            .from('member_subscriptions')
+            .select('plan_id')
+            .eq('user_id', effectiveUserId)
+            .eq('status', 'active')
+            .in('plan_id', planIds);
+          mine = new Set<string>((rows || []).map((r: any) => r.plan_id));
+        } else {
+          mine = new Set<string>();
+        }
+      }
 
       // Seed peer caches so useExpert / useExpertSubscriptionStats hit cache.
       if (expert) {
-        queryClient.setQueryData(['expert', slug, user?.id ?? 'guest', visibilityMode], expert);
+        queryClient.setQueryData(['expert', slug, effectiveUserId ?? 'guest', visibilityMode], expert);
         const planKey = expert.plans.map((p) => p.id).sort().join(',');
         queryClient.setQueryData(
-          ['expert-subscription-stats', expert.id, user?.id ?? 'guest', planKey],
+          ['expert-subscription-stats', expert.id, effectiveUserId ?? 'guest', isViewAs ? 'view-as' : 'self', planKey],
           { mySubscribedPlanIds: mine, subscriberCount: count },
         );
         // Back-propagate to list caches — keeps /experts and /app/explore
