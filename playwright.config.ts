@@ -173,9 +173,8 @@ export default defineConfig({
       use: { ...devices['Desktop Chrome'], viewport: { width: 1280, height: 900 } },
     },
     {
-      // Route B — live smoke（真實後端 / E2E_LIVE=1 才會跑）
-    {
       // Checkout 完整付款流程 + suspended expert 訊息
+
       name: 'desktop-checkout-full-flow',
       testMatch: /checkout-full-flow\.spec\.ts/,
       use: { ...devices['Desktop Chrome'], viewport: { width: 1280, height: 900 } },
