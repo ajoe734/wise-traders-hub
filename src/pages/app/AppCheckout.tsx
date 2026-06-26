@@ -201,6 +201,7 @@ const AppCheckout = () => {
       method: paymentMethod,
       billing_cycle: billingCycle,
     });
+    track('checkout_submit', { plan_id: planId, method: paymentMethod });
     try {
       if (paymentMethod === "ecpay") { await handleEcpayCheckout(); }
       else if (paymentMethod === "acpay") { await handleAcpayCheckout(); }
