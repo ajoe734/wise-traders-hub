@@ -12,6 +12,8 @@ import { ArrowLeft, Check, Shield, Lock, CheckCircle2, XCircle, CreditCard } fro
 import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/contexts/AuthContext";
 import { usePlan } from "@/hooks/useExpertPlans";
+import { usePlanExpertStatus } from "@/hooks/checkout/usePlanExpertStatus";
+import { CheckoutUnavailable } from "@/components/checkout/CheckoutUnavailable";
 import { useAcpaySdk } from "@/hooks/checkout/useAcpaySdk";
 import { useSubscriptionConfirmation } from "@/hooks/checkout/useSubscriptionConfirmation";
 import { Loader2 } from "lucide-react";
