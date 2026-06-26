@@ -2,6 +2,7 @@ import { useState, useMemo } from 'react';
 import { useQuery, useQueryClient } from '@tanstack/react-query';
 import { supabase } from '@/integrations/supabase/client';
 import { useAuth } from '@/contexts/AuthContext';
+import { useEffectiveUserId } from '@/hooks/useEffectiveUserId';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
 import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover';
@@ -14,31 +15,32 @@ import { trackRaw } from '@/lib/analytics/events';
 
 export function NotificationBell() {
   const { user } = useAuth();
+  const { userId: effectiveUserId, isViewAs } = useEffectiveUserId();
   const navigate = useNavigate();
   const queryClient = useQueryClient();
   const [open, setOpen] = useState(false);
 
   const { data: notifications = [] } = useQuery({
-    queryKey: ['notifications', user?.id],
+    queryKey: ['notifications', effectiveUserId, isViewAs],
     queryFn: async () => {
-      if (!user?.id) return [];
-      const { notifications: items } = await fetchMemberNotifications(supabase, user.id, 20);
+      if (!effectiveUserId) return [];
+      const { notifications: items } = await fetchMemberNotifications(supabase, effectiveUserId, 20);
       return items;
     },
-    enabled: !!user?.id,
+    enabled: !!effectiveUserId,
     staleTime: 60_000,
   });
 
   const unreadCount = useMemo(() => notifications.filter((n: any) => !n.is_read).length, [notifications]);
 
   const setLocal = (mapper: (n: any) => any) => {
-    queryClient.setQueryData(['notifications', user?.id], (prev: any[] | undefined) =>
+    queryClient.setQueryData(['notifications', effectiveUserId, isViewAs], (prev: any[] | undefined) =>
       (prev || []).map(mapper),
     );
   };
 
   const markAllRead = async () => {
-    if (!user?.id) return;
+    if (!user?.id || isViewAs) return;
     setLocal((n) => ({ ...n, is_read: true }));
     await supabase
       .from('notifications')
@@ -49,7 +51,7 @@ export function NotificationBell() {
 
   const handleClick = async (notif: any) => {
     trackRaw('notification_click', { notification_id: notif.id });
-    if (!notif.is_read) {
+    if (!notif.is_read && !isViewAs) {
       setLocal((n) => (n.id === notif.id ? { ...n, is_read: true } : n));
       await supabase.from('notifications').update({ is_read: true }).eq('id', notif.id);
     }
@@ -70,7 +72,7 @@ export function NotificationBell() {
   return (
     <Popover open={open} onOpenChange={(v) => { setOpen(v); if (v) trackRaw('notifications_open'); }}>
       <PopoverTrigger asChild>
-        <Button variant="ghost" size="sm" className="relative">
+        <Button variant="ghost" size="sm" className="relative" aria-label="通知">
           <Bell className="h-4 w-4" />
           {unreadCount > 0 && (
             <span className="absolute -top-0.5 -right-0.5 h-4 w-4 rounded-full bg-destructive text-destructive-foreground text-[10px] flex items-center justify-center">

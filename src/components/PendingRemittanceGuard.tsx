@@ -1,6 +1,7 @@
 import { useEffect, useRef } from "react";
 import { useLocation, useNavigate } from "react-router-dom";
 import { useAuth } from "@/contexts/AuthContext";
+import { useEffectiveUserId } from "@/hooks/useEffectiveUserId";
 import { supabase } from "@/integrations/supabase/client";
 import { toast } from "@/hooks/use-toast";
 
@@ -23,6 +24,7 @@ const SKIP_PREFIXES = [
  */
 export function PendingRemittanceGuard() {
   const { user, isAuthenticated, isLoading, hasRole } = useAuth();
+  const { userId: effectiveUserId, isViewAs } = useEffectiveUserId();
   const navigate = useNavigate();
   const location = useLocation();
   const checkedRef = useRef(false);
@@ -34,7 +36,8 @@ export function PendingRemittanceGuard() {
       checkedRef.current = false;
       return;
     }
-    if (hasRole("company_admin") || user.expertSlug) return;
+    if (hasRole("company_admin") && !isViewAs) return;
+    if (user.expertSlug && !isViewAs) return;
 
     // B-27：在 /account/remittance 頁清掉 dedupe key，使用者離開後若仍有待補單會再次提醒。
     if (location.pathname.startsWith("/account/remittance")) {
@@ -44,18 +47,20 @@ export function PendingRemittanceGuard() {
     }
     if (SKIP_PREFIXES.some((p) => location.pathname.startsWith(p))) return;
     if (checkedRef.current) return;
-    if (sessionStorage.getItem(SESSION_KEY) === user.id) return;
+    const dedupeKey = effectiveUserId ?? user.id;
+    if (sessionStorage.getItem(SESSION_KEY) === dedupeKey) return;
 
     checkedRef.current = true;
     (async () => {
+      if (!effectiveUserId) return;
       const { data, error } = await supabase
         .from("remittance_orders")
         .select("id")
-        .eq("user_id", user.id)
+        .eq("user_id", effectiveUserId)
         .eq("status", "awaiting_info")
         .limit(1);
       if (error) return;
-      sessionStorage.setItem(SESSION_KEY, user.id);
+      sessionStorage.setItem(SESSION_KEY, dedupeKey);
       if (data && data.length > 0) {
         toast({
           title: "您有匯款訂單尚未補齊資料",
@@ -72,7 +77,7 @@ export function PendingRemittanceGuard() {
         });
       }
     })();
-  }, [isAuthenticated, isLoading, user, hasRole, navigate, location.pathname]);
+  }, [isAuthenticated, isLoading, user, hasRole, navigate, location.pathname, effectiveUserId, isViewAs]);
 
   return null;
 }

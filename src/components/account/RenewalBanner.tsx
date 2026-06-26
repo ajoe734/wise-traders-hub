@@ -10,6 +10,7 @@ import { Card, CardContent } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Clock, AlertTriangle } from 'lucide-react';
 import { useAuth } from '@/contexts/AuthContext';
+import { useEffectiveUserId } from '@/hooks/useEffectiveUserId';
 import { track } from '@/lib/analytics/events';
 
 interface RenewSub {
@@ -28,10 +29,11 @@ interface RenewSub {
 
 export function RenewalBanner() {
   const { user } = useAuth();
+  const { userId: effectiveUserId } = useEffectiveUserId();
   const [subs, setSubs] = useState<RenewSub[]>([]);
 
   useEffect(() => {
-    if (!user?.id) return;
+    if (!effectiveUserId) return;
     (async () => {
       const now = new Date();
       // 抓 30 天內到期 + 24h 內過期，再用 cycle 篩
@@ -41,7 +43,7 @@ export function RenewalBanner() {
       const { data } = await supabase
         .from('member_subscriptions')
         .select('id, status, expires_at, plan_id, billing_cycle, expert_plans(name, price_monthly, price_yearly, experts(name, slug))')
-        .eq('user_id', user.id)
+        .eq('user_id', effectiveUserId)
         .or(`and(status.eq.active,expires_at.lte.${in30d}),and(status.eq.expired,expires_at.gte.${ago24h})`)
         .is('canceled_at', null)
         .order('expires_at', { ascending: true });
@@ -57,7 +59,7 @@ export function RenewalBanner() {
       });
       setSubs(filtered);
     })();
-  }, [user?.id]);
+  }, [effectiveUserId]);
 
   if (subs.length === 0) return null;
 

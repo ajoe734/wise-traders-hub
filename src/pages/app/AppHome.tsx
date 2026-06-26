@@ -8,6 +8,7 @@ import { FeatureCard } from '@/components/ui/feature-card';
 
 import { UnifiedAppLayout } from '@/components/layouts/UnifiedAppLayout';
 import { useAuth } from '@/contexts/AuthContext';
+import { useViewAs } from '@/contexts/ViewAsContext';
 import { supabase } from '@/integrations/supabase/client';
 import { useQuery } from '@tanstack/react-query';
 import { useExpertPerformance } from '@/hooks/usePerformance';
@@ -96,6 +97,8 @@ function AnnouncementBanner() {
 
 const AppHome = () => {
   const { user } = useAuth();
+  const { session: viewAsSession } = useViewAs();
+  const greetingName = viewAsSession?.targetDisplayName || viewAsSession?.targetEmail || user?.displayName || '會員';
   const { data: subs = [] } = useMemberSubscriptions();
 
   useEffect(() => { track('app_dashboard_view'); }, []);
@@ -127,7 +130,7 @@ const AppHome = () => {
             </div>
             <div>
               <p className="text-xs text-primary font-semibold tracking-wider uppercase">會員戰情室</p>
-              <h1 className="text-xl font-bold">嗨，{user?.displayName || '會員'}</h1>
+              <h1 className="text-xl font-bold">嗨，{greetingName}</h1>
             </div>
           </div>
         </div>

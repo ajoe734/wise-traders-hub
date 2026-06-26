@@ -4,6 +4,7 @@ import { Link } from 'react-router-dom';
 import { UnifiedAppLayout, markAppJournalsAsRead } from '@/components/layouts/UnifiedAppLayout';
 import { JournalCard } from '@/components/JournalCard';
 import { useAuth } from '@/contexts/AuthContext';
+import { useEffectiveUserId } from '@/hooks/useEffectiveUserId';
 import { supabase } from '@/integrations/supabase/client';
 import { Card, CardContent } from '@/components/ui/card';
 import { BookOpen, CalendarDays, Loader2 } from 'lucide-react';
@@ -138,6 +139,8 @@ const fetchJournalsData = async (userId: string | undefined, isTester: boolean, 
 
 const Journals = () => {
   const { user } = useAuth();
+  const { userId: effectiveUserId, isViewAs } = useEffectiveUserId();
+  const isTester = isViewAs ? false : (user?.isTester ?? false);
   const { previewExpertId } = usePreviewMode();
   const [selectedMonth, setSelectedMonth] = useState<string>('all');
 
@@ -146,8 +149,8 @@ const Journals = () => {
   }, []);
 
   const { data, isLoading: loading } = useQuery({
-    queryKey: ['app-journals', user?.id, user?.isTester, previewExpertId],
-    queryFn: () => fetchJournalsData(user?.id, user?.isTester ?? false, previewExpertId),
+    queryKey: ['app-journals', effectiveUserId, isTester, isViewAs, previewExpertId],
+    queryFn: () => fetchJournalsData(effectiveUserId ?? undefined, isTester, previewExpertId),
     staleTime: 5 * 60 * 1000,
     gcTime: 24 * 60 * 60 * 1000,
     refetchOnMount: false,

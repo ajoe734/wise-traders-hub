@@ -7,6 +7,7 @@ import { StatCard } from '@/components/ui/stat-card';
 import { FeatureCard } from '@/components/ui/feature-card';
 import { GlowProgress } from '@/components/ui/glow-progress';
 import { useAuth } from '@/contexts/AuthContext';
+import { useEffectiveUserId } from '@/hooks/useEffectiveUserId';
 import { supabase } from '@/integrations/supabase/client';
 import { useQuery } from '@tanstack/react-query';
 import { 
@@ -28,10 +29,11 @@ interface SignalsDashboardProps {
 
 export function SignalsDashboard({ subscriptions, userName }: SignalsDashboardProps) {
   const { user } = useAuth();
+  const { userId: effectiveUserId, isViewAs } = useEffectiveUserId();
 
   // Fetch recent signals from DB
   const { data: recentSignals = [] } = useQuery({
-    queryKey: ['dashboard-signals', user?.id],
+    queryKey: ['dashboard-signals', effectiveUserId, isViewAs],
     queryFn: async () => {
       const { data } = await supabase
         .from('expert_signals')
