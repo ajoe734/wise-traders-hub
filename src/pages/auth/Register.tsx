@@ -60,6 +60,7 @@ const Register = () => {
   };
 
   const handleLineLogin = () => {
+    track('auth_signup_submit', { method: 'line' });
     const supabaseUrl = import.meta.env.VITE_SUPABASE_URL;
     const callbackUrl = `${supabaseUrl}/functions/v1/line-login-callback`;
     const returnTo = '/app';
