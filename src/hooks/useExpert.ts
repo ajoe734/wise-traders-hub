@@ -2,6 +2,7 @@ import { useQuery, useQueryClient, keepPreviousData } from '@tanstack/react-quer
 import { supabase } from '@/integrations/supabase/client';
 import { PersonWithPlans, PlanType, Plan } from '@/types';
 import { useAuth } from '@/contexts/AuthContext';
+import { useEffectiveUserId } from '@/hooks/useEffectiveUserId';
 
 /**
  * 重試策略：
