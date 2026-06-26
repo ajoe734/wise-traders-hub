@@ -9,6 +9,7 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/com
 import { useAuth } from '@/contexts/AuthContext';
 import { useToast } from '@/hooks/use-toast';
 import { Loader2, MessageCircle } from 'lucide-react';
+import { track } from '@/lib/analytics/events';
 
 const Login = () => {
   const [email, setEmail] = useState('');
