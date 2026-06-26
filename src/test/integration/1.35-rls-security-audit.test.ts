@@ -237,9 +237,22 @@ describe('G. payment_providers — config not leaked', () => {
     expect((data ?? []).length).toBe(0);
   });
 
-  it('payment_providers_safe 視圖仍可 anon 讀取（不含 config）', async () => {
-    const { error } = await anon.from('payment_providers_safe' as never).select('id, display_name, provider_type').limit(1);
+  it('payment_providers_safe 視圖回傳 ≥1 個 active provider（前台 checkout 必需）', async () => {
+    const { data, error } = await anon
+      .from('payment_providers_safe' as never)
+      .select('id, display_name, provider_type, is_active');
     expect(error).toBeNull();
+    expect((data ?? []).length).toBeGreaterThanOrEqual(1);
+    expect((data ?? []).every((r: any) => r.is_active === true)).toBe(true);
+  });
+
+  it('payment_providers_safe 不暴露 config 欄位', async () => {
+    const { error } = await anon
+      .from('payment_providers_safe' as never)
+      .select('config')
+      .limit(1);
+    // column doesn't exist on view → PostgREST returns error
+    expect(error).not.toBeNull();
   });
 });
 
