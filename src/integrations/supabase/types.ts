@@ -3473,6 +3473,15 @@ export type Database = {
         Returns: Json
       }
       get_perf_metrics_summary: { Args: { _days?: number }; Returns: Json }
+      get_plan_expert_status: {
+        Args: { p_plan_id: string }
+        Returns: {
+          expert_id: string
+          expert_name: string
+          expert_slug: string
+          expert_status: string
+        }[]
+      }
       get_pricing_bundle: { Args: { _user_id?: string }; Returns: Json }
       get_product_breakdown: {
         Args: { _from: string; _to: string }

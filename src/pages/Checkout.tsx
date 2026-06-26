@@ -9,6 +9,8 @@ import { useCrossProductDiscount } from '@/hooks/useCrossProductDiscount';
 import { useAcpaySdk } from '@/hooks/checkout/useAcpaySdk';
 import { useSubscriptionConfirmation } from '@/hooks/checkout/useSubscriptionConfirmation';
 import { useCheckoutData } from '@/hooks/checkout/useCheckoutData';
+import { usePlanExpertStatus } from '@/hooks/checkout/usePlanExpertStatus';
+import { CheckoutUnavailable } from '@/components/checkout/CheckoutUnavailable';
 import { supabase } from '@/integrations/supabase/client';
 import { Loader2, ArrowLeft, Check } from 'lucide-react';
 import { CheckoutConsentDialog } from './_checkout/CheckoutConsentDialog';
@@ -212,17 +214,9 @@ const Checkout = () => {
   }
 
   if (!plan || !expert) {
-    return (
-      <PortalLayout hideAppEntry hideHeader>
-        <div className="container py-12 text-center">
-          <h1 className="text-2xl font-bold mb-4">找不到此方案</h1>
-          <Button asChild>
-            <Link to="/experts">返回專家列表</Link>
-          </Button>
-        </div>
-      </PortalLayout>
-    );
+    return <CheckoutUnavailableState planId={planId} hasPlan={!!plan} />;
   }
+
 
   const isAdvisor = plan.plan_type !== 'mentor_weekly_journal';
   const basePrice = billingCycle === 'monthly' ? plan.price_monthly : (plan.price_yearly || plan.price_monthly * 12);
@@ -486,4 +480,30 @@ const Checkout = () => {
   );
 };
 
+function CheckoutUnavailableState({ planId, hasPlan }: { planId: string | undefined; hasPlan: boolean }) {
+  const { data: status, isLoading } = usePlanExpertStatus(planId, hasPlan);
+  if (isLoading) {
+    return (
+      <PortalLayout hideAppEntry hideHeader>
+        <div className="flex justify-center items-center py-24">
+          <Loader2 className="h-8 w-8 animate-spin text-muted-foreground" />
+        </div>
+      </PortalLayout>
+    );
+  }
+  const reason: 'suspended' | 'missing' | 'draft' | 'other' = !hasPlan
+    ? 'missing'
+    : status?.expert_status === 'suspended'
+      ? 'suspended'
+      : status?.expert_status === 'draft'
+        ? 'draft'
+        : 'missing';
+  return (
+    <PortalLayout hideAppEntry hideHeader>
+      <CheckoutUnavailable reason={reason} expertName={status?.expert_name ?? null} />
+    </PortalLayout>
+  );
+}
+
 export default Checkout;
+

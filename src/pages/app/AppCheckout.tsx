@@ -12,6 +12,8 @@ import { ArrowLeft, Check, Shield, Lock, CheckCircle2, XCircle, CreditCard } fro
 import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/contexts/AuthContext";
 import { usePlan } from "@/hooks/useExpertPlans";
+import { usePlanExpertStatus } from "@/hooks/checkout/usePlanExpertStatus";
+import { CheckoutUnavailable } from "@/components/checkout/CheckoutUnavailable";
 import { useAcpaySdk } from "@/hooks/checkout/useAcpaySdk";
 import { useSubscriptionConfirmation } from "@/hooks/checkout/useSubscriptionConfirmation";
 import { Loader2 } from "lucide-react";
@@ -168,15 +170,9 @@ const AppCheckout = () => {
   }
 
   if (!planData || !expert) {
-    return (
-      <UnifiedAppLayout>
-        <div className="flex flex-col items-center justify-center py-16">
-          <p className="text-muted-foreground">找不到此方案</p>
-          <Button variant="ghost" onClick={() => navigate("/app/explore")} className="mt-4">返回探索</Button>
-        </div>
-      </UnifiedAppLayout>
-    );
+    return <AppCheckoutUnavailableState planId={planId} hasPlan={!!planData} onBack={() => navigate("/app/explore")} />;
   }
+
 
   const monthlyPrice = planData.price_monthly;
   const yearlyPrice = planData.price_yearly || monthlyPrice * 12;
@@ -479,4 +475,36 @@ const AppCheckout = () => {
   );
 };
 
+function AppCheckoutUnavailableState({ planId, hasPlan, onBack }: { planId: string | undefined; hasPlan: boolean; onBack: () => void }) {
+  const { data: status, isLoading } = usePlanExpertStatus(planId, hasPlan);
+  if (isLoading) {
+    return (
+      <UnifiedAppLayout>
+        <div className="flex justify-center py-16"><Loader2 className="h-8 w-8 animate-spin text-muted-foreground" /></div>
+      </UnifiedAppLayout>
+    );
+  }
+  const reason: 'suspended' | 'missing' | 'draft' | 'other' = !hasPlan
+    ? 'missing'
+    : status?.expert_status === 'suspended'
+      ? 'suspended'
+      : status?.expert_status === 'draft'
+        ? 'draft'
+        : 'missing';
+  return (
+    <UnifiedAppLayout>
+      <CheckoutUnavailable
+        reason={reason}
+        expertName={status?.expert_name ?? null}
+        backTo="/app/explore"
+        backLabel="返回探索"
+      />
+      <div className="flex justify-center -mt-4">
+        <Button variant="ghost" onClick={onBack}>返回</Button>
+      </div>
+    </UnifiedAppLayout>
+  );
+}
+
 export default AppCheckout;
+
