@@ -28,6 +28,73 @@ export interface RichTextEditorProps {
 export const RichTextEditor = ({ value, onChange, placeholder, minHeight = 100, onAIAssist, aiField, uploadFolder, className }: RichTextEditorProps) => {
   const fileInputRef = useRef<HTMLInputElement>(null);
   const [uploading, setUploading] = useState(false);
+
+  // 上傳單一 Blob/File，回傳公開 URL；失敗回 null
+  const uploadBlob = async (blob: Blob, filename?: string): Promise<string | null> => {
+    if (!uploadFolder) {
+      toast.error('尚未指定上傳資料夾');
+      return null;
+    }
+    if (!blob.type.startsWith('image/')) {
+      toast.error('只能上傳圖片');
+      return null;
+    }
+    if (blob.size > 5 * 1024 * 1024) {
+      toast.error('圖片不能超過 5MB');
+      return null;
+    }
+    const ext = (filename?.split('.').pop() || blob.type.split('/')[1] || 'png').toLowerCase();
+    const path = `${uploadFolder}/${Date.now()}-${Math.random().toString(36).slice(2, 8)}.${ext}`;
+    const { error } = await supabase.storage.from('signal-media').upload(path, blob, { upsert: false, contentType: blob.type });
+    if (error) {
+      toast.error(`上傳失敗：${error.message}`);
+      return null;
+    }
+    const { data: pub } = supabase.storage.from('signal-media').getPublicUrl(path);
+    return pub?.publicUrl || null;
+  };
+
+  // 從 blob: URL 取回 Blob 並上傳
+  const blobUrlToPublic = async (blobUrl: string): Promise<string | null> => {
+    try {
+      const res = await fetch(blobUrl);
+      const b = await res.blob();
+      return await uploadBlob(b);
+    } catch (e: any) {
+      toast.error(`無法讀取 blob 圖片：${e?.message || e}`);
+      return null;
+    }
+  };
+
+  // 掃描編輯器內所有 image node，把 blob: src 換成已上傳的公開 URL
+  const replaceBlobImagesInDoc = async (ed: any) => {
+    if (!ed) return;
+    const tasks: Array<{ pos: number; src: string }> = [];
+    ed.state.doc.descendants((node: any, pos: number) => {
+      if (node.type.name === 'image' && typeof node.attrs.src === 'string' && node.attrs.src.startsWith('blob:')) {
+        tasks.push({ pos, src: node.attrs.src });
+      }
+    });
+    if (!tasks.length) return;
+    setUploading(true);
+    try {
+      for (const t of tasks) {
+        const publicUrl = await blobUrlToPublic(t.src);
+        if (publicUrl) {
+          const node = ed.state.doc.nodeAt(t.pos);
+          if (node) {
+            ed.chain().setNodeSelection(t.pos).updateAttributes('image', { ...node.attrs, src: publicUrl }).run();
+          }
+        } else {
+          // 上傳失敗就移掉 blob 節點，避免存到 DB 後壞圖
+          ed.chain().setNodeSelection(t.pos).deleteSelection().run();
+        }
+      }
+    } finally {
+      setUploading(false);
+    }
+  };
+
   const editor = useEditor({
     extensions: [
       StarterKit.configure({ heading: { levels: [3] } }),
@@ -44,6 +111,49 @@ export const RichTextEditor = ({ value, onChange, placeholder, minHeight = 100, 
         ),
         style: `min-height:${minHeight}px`,
       },
+      handlePaste: (view, event) => {
+        if (!uploadFolder) return false;
+        const cd = event.clipboardData;
+        if (!cd) return false;
+        // 1) 直接貼圖（截圖、檔案）
+        const files = Array.from(cd.files || []).filter((f) => f.type.startsWith('image/'));
+        if (files.length) {
+          event.preventDefault();
+          (async () => {
+            setUploading(true);
+            try {
+              for (const f of files) {
+                const url = await uploadBlob(f, f.name);
+                if (url) editor?.chain().focus().setImage({ src: url, alt: f.name }).run();
+              }
+            } finally { setUploading(false); }
+          })();
+          return true;
+        }
+        // 2) 貼 HTML 內含 blob:/data: img → 讓 tiptap 先插入，下個 tick 再回收
+        const html = cd.getData('text/html');
+        if (html && /<img[^>]+src=["'](blob:|data:image\/)/i.test(html)) {
+          setTimeout(() => { if (editor) replaceBlobImagesInDoc(editor); }, 0);
+        }
+        return false;
+      },
+      handleDrop: (view, event) => {
+        if (!uploadFolder) return false;
+        const dt = (event as DragEvent).dataTransfer;
+        const files = Array.from(dt?.files || []).filter((f) => f.type.startsWith('image/'));
+        if (!files.length) return false;
+        event.preventDefault();
+        (async () => {
+          setUploading(true);
+          try {
+            for (const f of files) {
+              const url = await uploadBlob(f, f.name);
+              if (url) editor?.chain().focus().setImage({ src: url, alt: f.name }).run();
+            }
+          } finally { setUploading(false); }
+        })();
+        return true;
+      },
     },
     onUpdate: ({ editor }) => onChange(editor.getHTML()),
   });
@@ -54,6 +164,15 @@ export const RichTextEditor = ({ value, onChange, placeholder, minHeight = 100, 
     if (editor.getHTML() !== value) editor.commands.setContent(value || '', { emitUpdate: false });
   }, [value, editor]);
 
+  // 載入既有草稿時，若內含 blob: 圖（例如跨 tab 還原），順手轉成公開 URL
+  useEffect(() => {
+    if (!editor) return;
+    if (/<img[^>]+src=["']blob:/i.test(editor.getHTML())) {
+      replaceBlobImagesInDoc(editor);
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [editor]);
+
   if (!editor) return null;
 
   const handleAI = async (mode: AIAssistMode, instruction?: string) => {
@@ -63,32 +182,15 @@ export const RichTextEditor = ({ value, onChange, placeholder, minHeight = 100, 
   };
 
   const handleImageUpload = async (file: File) => {
-    if (!uploadFolder) {
-      toast.error('尚未指定上傳資料夾');
-      return;
-    }
-    if (!file.type.startsWith('image/')) {
-      toast.error('只能上傳圖片');
-      return;
-    }
-    if (file.size > 5 * 1024 * 1024) {
-      toast.error('圖片不能超過 5MB');
-      return;
-    }
     setUploading(true);
     try {
-      const ext = file.name.split('.').pop() || 'png';
-      const path = `${uploadFolder}/${Date.now()}-${Math.random().toString(36).slice(2, 8)}.${ext}`;
-      const { error } = await supabase.storage.from('signal-media').upload(path, file, { upsert: false, contentType: file.type });
-      if (error) { toast.error(`上傳失敗：${error.message}`); return; }
-      const { data: pub } = supabase.storage.from('signal-media').getPublicUrl(path);
-      if (pub?.publicUrl) {
-        editor.chain().focus().setImage({ src: pub.publicUrl, alt: file.name }).run();
-      }
+      const url = await uploadBlob(file, file.name);
+      if (url) editor.chain().focus().setImage({ src: url, alt: file.name }).run();
     } finally {
       setUploading(false);
     }
   };
+
 
   const ToolbarBtn = ({ active, onClick, children, title }: any) => (
     <button
