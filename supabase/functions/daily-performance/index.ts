@@ -3,31 +3,41 @@ import { serviceClient } from '../_shared/supabaseClients.ts';
 import { withLogging } from '../_shared/edgeLogger.ts';
 import { createClient } from 'https://esm.sh/@supabase/supabase-js@2.49.1'
 
-async function fetchClosingPrice(symbol: string): Promise<number | null> {
+async function tryYahoo(yahooSymbol: string): Promise<number | null> {
   try {
-    const code = symbol.match(/^\d+/)?.[0]
-    if (!code) return null
-
-    // Try .TW (listed) first, then .TWO (OTC) as fallback
-    for (const suffix of ['.TW', '.TWO']) {
-      const yahooSymbol = `${code}${suffix}`
-      const url = `https://query1.finance.yahoo.com/v8/finance/chart/${yahooSymbol}?interval=1d&range=1d`
-
-      const res = await fetch(url, {
-        headers: { 'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36' },
-      })
-
-      if (!res.ok) continue
-
-      const data = await res.json()
-      const price = data.chart?.result?.[0]?.meta?.regularMarketPrice
-      if (price) return price
-    }
-
-    return null
+    const url = `https://query1.finance.yahoo.com/v8/finance/chart/${yahooSymbol}?interval=1d&range=1d`
+    const res = await fetch(url, {
+      headers: { 'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36' },
+    })
+    if (!res.ok) return null
+    const data = await res.json()
+    const price = data.chart?.result?.[0]?.meta?.regularMarketPrice
+    return price || null
   } catch {
     return null
   }
+}
+
+async function fetchClosingPrice(symbol: string): Promise<number | null> {
+  // instrument 形如 "2330 台積電" / "NVDA 輝達" / "GOOGL"
+  const first = symbol.trim().split(/\s+/)[0] || ''
+  if (!first) return null
+
+  // 台股：純數字 → .TW → .TWO
+  if (/^\d+$/.test(first)) {
+    for (const suffix of ['.TW', '.TWO']) {
+      const price = await tryYahoo(`${first}${suffix}`)
+      if (price) return price
+    }
+    return null
+  }
+
+  // 美股：字母開頭（允許 BRK.B 這種點號）→ 直接查 Yahoo
+  if (/^[A-Za-z][A-Za-z0-9.\-]*$/.test(first)) {
+    return await tryYahoo(first.toUpperCase())
+  }
+
+  return null
 }
 
 Deno.serve(withLogging('daily-performance', async (req) => {
