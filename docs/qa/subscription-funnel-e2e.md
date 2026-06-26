@@ -1,0 +1,66 @@
+# 訂閱漏斗 e2e / 後台儀表板防護網
+
+對應後台兩張儀表板：
+- `/company/ops-health`（edge function + 排程 7d 統計）
+- `/company/funnel`（ViewPricing → UpgradeClick → BeginCheckout → Purchase）
+
+它們的數字來源是**前台用戶實際走過的流程**寫入 `traffic_events` / `paywall_events` /
+`function_run_logs`。所以要保證儀表板「會動」，必須保證前台流程＋埋點不壞。
+
+## 三層測試
+
+| 層 | 目的 | 檔案 | 何時跑 |
+|---|---|---|---|
+| **A 前台流程 mock e2e** | 驗證用戶 click path + 該送的事件真的有送 | `e2e/subscription-funnel.spec.ts` | PR / 每次推 |
+| **B 埋點契約 unit test** | 鎖住 `event_name` 字串與 GTM mirror，避免 silent rename | `src/test/unit/funnel-events.test.ts`、`src/test/unit/gtm-events.test.ts` | PR / 每次推 |
+| **C live smoke（未實作）** | 真的打 sandbox 後端，跑完查 DB 確認後台儀表板 >0 | TODO `e2e/live/subscription-end-to-end.spec.ts` | daily cron |
+
+## 改到什麼 → 必跑哪些
+
+| 動到的檔案 / 區塊 | 必跑 |
+|---|---|
+| `src/pages/Pricing.tsx`、`src/pages/_pricing/**`、`PricingPlanCard` CTA | A + B |
+| `src/pages/Checkout.tsx`、`src/pages/app/AppCheckout.tsx`、`CheckupCheckout.tsx` | A + B |
+| `src/hooks/checkout/useSubscriptionConfirmation.ts`、`useCheckoutData.ts` | A + B |
+| `src/lib/analytics/events.ts`、`src/lib/analytics/gtm.ts`（GTM_MIRROR） | B 全跑 |
+| `src/lib/trafficTracker.ts`、`src/lib/paywallTracking.ts` | B + A（觀察 sendBeacon payload） |
+| `member_subscriptions` schema / RLS / `useMemberSubscriptions` | A + 既有 `src/test/integration/1.17-subscription-lifecycle.test.ts`、`1.24-route-guard-rls.test.tsx` |
+| 後台 `OpsHealth.tsx` / `FunnelAnalytics.tsx` SQL 查詢 | C（live smoke，未實作前手動於 preview 驗證） |
+
+## 命令
+
+```bash
+# A: e2e
+bunx playwright test e2e/subscription-funnel.spec.ts
+
+# B: 埋點契約
+bun vitest run src/test/unit/funnel-events.test.ts src/test/unit/gtm-events.test.ts
+```
+
+## 三條 plan_type 覆蓋
+
+`subscription-funnel.spec.ts` 對下列 plan_type 各跑一次：
+- `analyst_signal_l1`（跟單派）
+- `analyst_signal_diag_l2`（跟單 + 健檢）
+- `mentor_weekly_journal`（修煉派）
+
+任何 plan 路徑斷掉就會擋住 PR。
+
+## 為何儀表板顯示 0？
+
+兩種可能，跑完上述測試可以分離：
+1. **流程壞了** → A 測試 fail（事件沒送出 / 沒導回 /app / supabase REST 報錯）
+2. **流程沒人走** → A 全綠，但 production `traffic_events` 仍空：純粹「沒人下單」，
+   等同 0 訂閱、是商業面而非技術面問題。
+
+OpsHealth 顯示 `Failed to send a request to the Edge Function` 屬於另一種：
+edge function 部署狀態 / CORS。修這條走「reproduce → deploy → recheck」，不在
+本 doc 範圍，後續會於 `docs/qa/admin-internal-pages.md`（live smoke 一起做）補上。
+
+## TODO（live smoke 路線）
+
+- 新增 `e2e/live/subscription-end-to-end.spec.ts`：使用固定測試帳號 + sandbox 付款，
+  跑完查 `member_subscriptions` / `traffic_events` / `function_run_logs`，
+  再回打 `ops-health` 與 funnel API 斷言數字 > 0。
+- 新增 `.github/workflows/live-smoke.yml`：每日 03:00 UTC 跑，失敗發通知。
+- 撰寫 `e2e/live/cleanup.ts`：清除測試 subscription / 標記 events 為 test。
