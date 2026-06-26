@@ -1,118 +1,40 @@
-# 前台用戶流程 e2e（讓後台儀表板的數字真的會動）
+## 問題確認
 
-## 重新對齊問題
+你看到的是 `/expert/sharkgu`（公開頁，`ExpertProfile.tsx`），不是上次修的 `/app/expert/:slug`。視角橫幅顯示「無有效訂閱」但訂閱方案卻顯示「已訂閱」，原因是這條路徑的訂閱判定**完全沒走 view-as**：
 
-兩張截圖的真正意義不是「後台壞了」，而是：
+- `useExpertDetailBundle` 呼叫 RPC `get_expert_detail_bundle(_slug)`，server 端用 `auth.uid()` 算 `my_subscribed_plan_ids` → 永遠是真實 admin 的訂閱
+- `useExpertSubscriptionStats` 直接 `eq('user_id', user.id)`，沒接 `useEffectiveUserId`
+- `usePricingBundle` 也是傳 `user.id`，view-as 在 `/pricing` 同樣失準
 
-- **OpsHealth = 0**：edge functions 過去 7 天沒有被前台/排程實際呼叫，或呼叫沒寫進 `function_run_logs`
-- **Funnel = 0%**：訂閱漏斗每一步（pricing_view → upgrade_click → checkout_open → checkout_success）沒有事件落地到 `traffic_events` / `paywall_events`
+上次只修了 `/app/expert/:slug`（`ExpertDetail.tsx` 改用 `useMemberSubscriptions`），公開頁 + pricing 都漏掉。我之前回報「修好了」是不完整的，向你道歉。
 
-所以我們真正缺的是**「前台用戶會走的關鍵流程」的端到端測試**，跑完之後後台儀表板的數字應該要從 0 變成 >0。這樣每次改動後，跑一次測試套件就能保證：
-1. 前台流程沒壞
-2. 流程過程中該寫的事件 / log 真的有寫
-3. 後台儀表板讀得到資料
+## 修法（純前端覆寫，不動 RPC）
 
-## 一、要覆蓋的前台關鍵流程（共 5 條）
+1. `src/hooks/useExpert.ts`
+   - `useExpertDetailBundle`：加 `useEffectiveUserId`，queryKey 加入 effective uid + isViewAs。view-as 啟用時，**忽略 RPC 回傳的 `my_subscribed_plan_ids`**，改用 `member_subscriptions` 以 effective user id 查當前 expert 的 plan_ids 覆寫，然後再 seed peer cache（用 effective uid 當 key，避免污染真實 admin 的快取）。
+   - `useExpertSubscriptionStats`：同樣換 effective uid，`mineP` 用 effective id 查；queryKey 也換。
 
-### F1. 註冊 / 登入流程
-- 訪客 → `/auth/register` → 註冊 → email 確認 → 登入 → 落地 `/app`
-- 期待事件：`auth_signup`, `auth_login`，`profiles` 寫入一筆
-- 期待 edge function：`send-welcome-email`（如有）有呼叫紀錄
+2. `src/hooks/usePricingBundle.ts`
+   - 改用 effective user id 傳給 RPC，queryKey 帶 isViewAs，確保 view-as 時 `/pricing` 不會誤判已訂閱。
 
-### F2. 訂閱漏斗（最重要，就是截圖二的漏斗）
-- 訪客 → `/`（首頁）→ `/pricing` → 點某個方案的「立即訂閱」→ `/checkout/:slug/:planId`（mock 付款 provider）→ 收到 active 訂閱 → 自動導回 `/app`
-- 每一步 assert：
-  - `/pricing` 載入時 `traffic_events.event_name=pricing_view` insert 一筆（GTM 對應 `ViewPricing`）
-  - 點 CTA 時 `paywall_events.event_kind=click_upgrade` insert（對應 `UpgradeClick`）
-  - 進入 checkout 時 `traffic_events.event_name=checkout_open`（對應 `BeginCheckout`）
-  - 付款成功 callback 後 `traffic_events.event_name=checkout_success`（對應 `Purchase`）
-  - `member_subscriptions` 有一筆 `status=active`
-  - 對應 edge functions（create-ecpay-order / ecpay-callback / 或 acpay 等價物）寫進 `function_run_logs`
-- 涵蓋 advisor 訊號方案、advisor 訊號+健檢、mentor 週記方案三種 plan_type
+3. 確認 `ExpertProfile.tsx` 不需改動（它讀 bundle 結果即可）。
 
-### F3. 訂閱續訂 / 取消
-- 已訂閱用戶 → `/app/account` → 取消訂閱 → `member_subscriptions.status=cancelled`、`auto_renew=false`
-- 反向：點「續訂」→ 走付款流程 → 新的 active 訂閱
-- assert `cancel-subscription` edge function 有被呼叫
+4. Cache 隔離：所有 queryKey 都帶 `(effectiveUserId, isViewAs)`，退出視角後立刻回到 admin 自己的快取，不互相污染。
 
-### F4. 訂閱者瀏覽付費內容
-- F2 完成後的 session → `/app/expert/:slug` 顯示「已訂閱」橫幅（不再出現「訂閱方案」CTA）
-- `/app/signals/:slug` 能看到訊號內容（非預覽水印）
-- 點訊號 → `expert_signals` view count / `paywall_events.event_kind=view_content` 寫入
-- 同時驗證**「視角檢視」** 功能：admin 模擬該 user → 看到一模一樣的畫面（修上一輪那個 bug 的回歸測試）
+## 驗證（窮舉，不再偷懶）
 
-### F5. 持股健檢核心流程（freecheckup 已有部分覆蓋，補齊）
-- 未登入訪客 `/holding-checkup-demo` → 看到 demo 資料 → 點付費 CTA → 進入訂閱流程（接 F2）
-- 已訂閱用戶 → 上傳/新增持股 → 觸發分析 → `checkup_analysis_jobs` 有紀錄 → `checkup-analyze` edge function 有 log
+部署後我會跑完整檢查清單：
 
-## 二、實作策略
+- `rg` 全域搜尋確認**所有**訂閱判定點都走 effective user：
+  - `auth.uid()` / `getUser()` / `user.id` 在 `member_subscriptions` 查詢的位置
+  - 列出每個檔案 + 行號回報，逐一確認 view-as 安全
+- Playwright 真實流程（admin 登入 → view-as 一個無訂閱會員）：
+  1. `/expert/sharkgu` — 上方橫幅顯示「無有效訂閱」、下方方案必須顯示「立即訂閱」而非「已訂閱」
+  2. `/app/expert/sharkgu` — 同上
+  3. `/pricing` — 不出現「已訂閱」徽章
+  4. 退出視角後，admin 自己看 `/expert/sharkgu` 仍正確顯示原本訂閱狀態（快取沒被污染）
+- 新增 `e2e/view-as-content-access.spec.ts` 對應 case，固化回歸
 
-### 路線 A：mock 後端的快速 e2e（CI 每次跑）
-沿用 `e2e/helpers/supabase-mock.ts` 模式：
-- REST / functions / realtime 全 stub
-- 驗證**前台行為 + 應送出的事件 payload**（攔 `fetch` / `sendBeacon` 看送了什麼）
-- 不驗證 DB 真的寫進去，但保證「前端有送對的東西」
-- 跑得快、放每個 PR
+## 技術備註
 
-新增檔案：
-- `e2e/subscription-funnel.spec.ts`（F2 主線 × 3 plan_type）
-- `e2e/subscription-cancel-renew.spec.ts`（F3）
-- `e2e/subscribed-content-access.spec.ts`（F4，含 view-as 對照）
-- `e2e/auth-flow.spec.ts`（F1）
-
-### 路線 B：打真實後端的 smoke e2e（每日 + pre-publish 跑）
-新增 `e2e/live/`（與既有 mock spec 隔離）：
-- 用一組固定的測試帳號 + sandbox 付款 provider
-- 跑完整 F2 一次，跑完 query DB 驗證：
-  - `member_subscriptions` 有新 row
-  - `traffic_events` 有完整 4 個事件
-  - `function_run_logs` 有對應 edge function
-  - **回頭打 `ops-health` 與 funnel analytics API**，斷言數字 > 0
-- 跑完做 cleanup：刪測試訂閱、events 標記為 test
-- GitHub Actions `daily-live-smoke.yml`，每天 03:00 UTC 跑
-
-這條才是真正「保證後台儀表板會動」的測試。
-
-### 路線 C：事件管線契約測試（Deno test，超快）
-針對「埋點」這層的單元測試：
-- `src/lib/analytics/events.ts` + `paywallTracking.ts` 的 unit test，斷言觸發 `trackPricingView()` 時 fetch payload 等於 `{ event_name: 'pricing_view', ... }`
-- 已有 `src/test/unit/gtm-events.test.ts`，擴充覆蓋全部 4 個漏斗事件
-
-## 三、每次改動的驗證 SOP
-
-寫入 `docs/qa/subscription-funnel-e2e.md`：
-
-| 改到什麼 | 必跑 |
-|---|---|
-| `/pricing`、`PricingPage`、`ExpertDetail` CTA | A 的 F2 + C |
-| `/checkout/*`、`useCheckoutData`、`useSubscriptionConfirmation`、付款 edge function | A 的 F2 + F3 + B（live smoke） |
-| `member_subscriptions` schema / RLS / hooks | A 的 F2 + F4 + 既有 1.17 / 1.24 integration test |
-| GTM `events.ts` / `paywallTracking.ts` / `trafficTracker.ts` | C 全跑 |
-| `useMemberSubscriptions` / view-as | A 的 F4 |
-
-CI workflow：
-- `.github/workflows/test.yml` 既有 → 加跑 A 全部 + C
-- 新增 `.github/workflows/live-smoke.yml` → cron 跑 B，失敗發 Slack
-
-## 四、交付清單
-
-1. `e2e/subscription-funnel.spec.ts`（含 3 個 plan_type）
-2. `e2e/subscription-cancel-renew.spec.ts`
-3. `e2e/subscribed-content-access.spec.ts`
-4. `e2e/auth-flow.spec.ts`
-5. `e2e/live/subscription-end-to-end.spec.ts` + `e2e/live/cleanup.ts`
-6. 擴充 `src/test/unit/gtm-events.test.ts` 覆蓋全 4 個漏斗事件 payload
-7. `e2e/helpers/funnel-events.ts`（共用：攔 `fetch`/`sendBeacon`、解析 event payload）
-8. `e2e/helpers/auth.ts`（共用：seed admin / 一般 user / view-as session）
-9. `.github/workflows/live-smoke.yml`
-10. `docs/qa/subscription-funnel-e2e.md`（上面的 SOP 表）
-
-## 五、不做
-
-- 不改現有 OpsHealth / FunnelAnalytics UI（除非 B 路線跑完發現查詢 SQL 本身錯）
-- 不重寫埋點程式碼（先用測試蓋住，發現 bug 再分別修）
-- 不接真實付款（live smoke 只用 sandbox provider）
-
-## 確認
-
-要先做哪幾條？建議順序：**F2 mock e2e（最痛）→ C 埋點 unit test → B live smoke → F3/F4/F1**。
+不改 RPC 是為了避免動 SQL migration 與權限面；client 覆寫已足夠，且 view-as 本身就是讀取行為。寫入流程仍由現有 `isViewAs` guard 擋住（不在這次改動範圍）。
