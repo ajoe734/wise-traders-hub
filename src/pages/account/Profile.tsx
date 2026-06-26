@@ -3,6 +3,7 @@ import { useState, useRef, useEffect } from 'react';
 import { Link } from 'react-router-dom';
 import { PortalLayout } from '@/components/layouts/PortalLayout';
 import { useAuth } from '@/contexts/AuthContext';
+import { useEffectiveUserId } from '@/hooks/useEffectiveUserId';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -16,6 +17,7 @@ import { useMemberSubscriptions } from '@/hooks/useMemberSubscriptions';
 
 const AccountProfile = () => {
   const { user, isAuthenticated, logout, refreshProfile } = useAuth();
+  const { userId: effectiveUserId, isViewAs } = useEffectiveUserId();
   const [displayName, setDisplayName] = useState(user?.displayName || '');
   const [isSaving, setIsSaving] = useState(false);
   const [isUploading, setIsUploading] = useState(false);
@@ -24,18 +26,18 @@ const AccountProfile = () => {
   const fileInputRef = useRef<HTMLInputElement>(null);
 
   useEffect(() => {
-    if (!user) return;
+    if (!effectiveUserId) return;
     let cancelled = false;
     (async () => {
       const { count } = await supabase
         .from('remittance_orders')
         .select('id', { count: 'exact', head: true })
-        .eq('user_id', user.id)
+        .eq('user_id', effectiveUserId)
         .eq('status', 'awaiting_info');
       if (!cancelled) setPendingRemitCount(count ?? 0);
     })();
     return () => { cancelled = true; };
-  }, [user?.id]);
+  }, [effectiveUserId]);
 
   const handleAvatarUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];

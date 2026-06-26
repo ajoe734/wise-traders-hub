@@ -2,11 +2,13 @@ import { useCallback, useEffect, useState } from 'react';
 import { toast } from 'sonner';
 import { supabase } from '@/integrations/supabase/client';
 import { useAuth } from '@/contexts/AuthContext';
+import { useEffectiveUserId } from '@/hooks/useEffectiveUserId';
 import { cancelSubscriptionInDB } from '@/lib/cancelSubscription';
 import type { DbSubscription, ExpertLineRow } from '@/pages/_appAccount/types';
 
 export function useAccountData() {
   const { user } = useAuth();
+  const { userId: effectiveUserId, isViewAs } = useEffectiveUserId();
   const [subscriptions, setSubscriptions] = useState<DbSubscription[]>([]);
   const [loadingSubs, setLoadingSubs] = useState(true);
   const [cancelingId, setCancelingId] = useState<string | null>(null);
