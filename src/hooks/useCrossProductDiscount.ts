@@ -1,6 +1,7 @@
 import { useEffect, useState } from 'react';
 import { supabase } from '@/integrations/supabase/client';
 import { useAuth } from '@/contexts/AuthContext';
+import { useEffectiveUserId } from '@/hooks/useEffectiveUserId';
 import { calcCrossDiscount } from '@/lib/revenueSplit';
 
 const DEFAULT_RULES = {
@@ -24,22 +25,23 @@ export function useCrossProductDiscount(args: {
   checkupTier?: 'basic' | 'pro' | null;
 }): CrossDiscountResult {
   const { user } = useAuth();
+  const { userId: effectiveUserId } = useEffectiveUserId();
   const [state, setState] = useState<CrossDiscountResult>({ amount: 0, reason: null, loading: true });
 
   useEffect(() => {
     let cancelled = false;
     (async () => {
-      if (!user?.id) {
+      if (!effectiveUserId) {
         setState({ amount: 0, reason: null, loading: false });
         return;
       }
       const [{ data: settings }, { data: expertSubs }, { data: ckSubs }] = await Promise.all([
         (supabase.from as any)('payment_settings_safe').select('value').eq('key', 'cross_discounts').maybeSingle(),
-        supabase.from('member_subscriptions').select('id').eq('user_id', user.id).eq('status', 'active'),
+        supabase.from('member_subscriptions').select('id').eq('user_id', effectiveUserId).eq('status', 'active'),
         supabase
           .from('checkup_subscriptions')
           .select('id, plan_id, checkup_plans(tier)')
-          .eq('user_id', user.id)
+          .eq('user_id', effectiveUserId)
           .eq('status', 'active'),
       ]);
 
@@ -62,7 +64,7 @@ export function useCrossProductDiscount(args: {
       if (!cancelled) setState({ ...result, loading: false });
     })();
     return () => { cancelled = true; };
-  }, [user?.id, args.productKind, args.checkupTier]);
+  }, [effectiveUserId, args.productKind, args.checkupTier]);
 
   return state;
 }

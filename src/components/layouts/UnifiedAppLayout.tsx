@@ -1,6 +1,7 @@
 import { ReactNode, useMemo, useState, useEffect } from 'react';
 import { Link, useLocation, useNavigate } from 'react-router-dom';
 import { useAuth } from '@/contexts/AuthContext';
+import { useEffectiveUserId } from '@/hooks/useEffectiveUserId';
 import { useTheme } from 'next-themes';
 import { supabase } from '@/integrations/supabase/client';
 import { useQuery, useQueryClient } from '@tanstack/react-query';
@@ -145,6 +146,7 @@ function ThemeToggleButton() {
 
 export function UnifiedAppLayout({ children }: UnifiedAppLayoutProps) {
   const { user, supabaseUser, isLoading, logout } = useAuth();
+  const { userId: effectiveUserId, isViewAs } = useEffectiveUserId();
   const location = useLocation();
   const navigate = useNavigate();
 
@@ -189,9 +191,9 @@ export function UnifiedAppLayout({ children }: UnifiedAppLayoutProps) {
 
   // Unread counts as cached react-query queries (no refetch on navigation)
   const { data: unreadSignals = 0 } = useQuery({
-    queryKey: ['unread-signals', user?.id, advisorExpertIds],
+    queryKey: ['unread-signals', effectiveUserId, isViewAs, advisorExpertIds],
     queryFn: async () => {
-      if (!user || advisorExpertIds.length === 0) return 0;
+      if (!effectiveUserId || advisorExpertIds.length === 0) return 0;
       const lastSeenStr = localStorage.getItem(SIGNALS_LAST_SEEN_KEY);
       const lastSeen = lastSeenStr ? parseInt(lastSeenStr, 10) : 0;
       const sinceIso = lastSeen > 0 ? new Date(lastSeen).toISOString() : '1970-01-01T00:00:00.000Z';
@@ -203,14 +205,14 @@ export function UnifiedAppLayout({ children }: UnifiedAppLayoutProps) {
         .gt('published_at', sinceIso);
       return count ?? 0;
     },
-    enabled: !!user && advisorExpertIds.length > 0,
+    enabled: !!effectiveUserId && advisorExpertIds.length > 0,
     staleTime: 60_000,
   });
 
   const { data: unreadJournals = 0 } = useQuery({
-    queryKey: ['unread-journals', user?.id, mentorExpertIds],
+    queryKey: ['unread-journals', effectiveUserId, isViewAs, mentorExpertIds],
     queryFn: async () => {
-      if (!user || mentorExpertIds.length === 0) return 0;
+      if (!effectiveUserId || mentorExpertIds.length === 0) return 0;
       const lastSeenStr = localStorage.getItem(JOURNALS_LAST_SEEN_KEY);
       const lastSeen = lastSeenStr ? parseInt(lastSeenStr, 10) : 0;
       const sinceIso = lastSeen > 0 ? new Date(lastSeen).toISOString() : '1970-01-01T00:00:00.000Z';
@@ -222,7 +224,7 @@ export function UnifiedAppLayout({ children }: UnifiedAppLayoutProps) {
         .gt('published_at', sinceIso);
       return count ?? 0;
     },
-    enabled: !!user && mentorExpertIds.length > 0,
+    enabled: !!effectiveUserId && mentorExpertIds.length > 0,
     staleTime: 60_000,
   });
 
