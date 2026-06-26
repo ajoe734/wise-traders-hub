@@ -135,6 +135,7 @@ export default function CheckupCheckout() {
       value: price,
       currency: 'TWD',
     });
+    track('checkout_submit', { plan_id: planId, method });
     try {
       const attribution = readAttribution();
       if (method === "ecpay") {
