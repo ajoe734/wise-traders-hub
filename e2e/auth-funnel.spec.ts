@@ -68,7 +68,7 @@ test.describe('Auth funnel', () => {
     await page.goto('/auth/login');
     await page.getByLabel('電子郵件').fill('nope@test.io');
     await page.getByLabel('密碼').fill('wrongpass');
-    await page.getByRole('button', { name: '登入' }).click();
+    await page.getByRole('button', { name: '登入', exact: true }).click();
 
     await waitForEvent(events, 'auth_login_submit');
     await waitForEvent(events, 'auth_login_failure');
