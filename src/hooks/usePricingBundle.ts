@@ -30,14 +30,14 @@ export interface PricingBundle {
  * + auth.getSession + check_checkup_quota）。
  */
 export function usePricingBundle() {
-  const { user, isLoading: isAuthLoading } = useAuth();
-  const userId = user?.id ?? null;
+  const { isLoading: isAuthLoading } = useAuth();
+  const { userId: effectiveUserId, isViewAs } = useEffectiveUserId();
 
   return useQuery<PricingBundle>({
-    queryKey: ['pricing-bundle', userId ?? 'guest'],
+    queryKey: ['pricing-bundle', effectiveUserId ?? 'guest', isViewAs ? 'view-as' : 'self'],
     queryFn: async () => {
       const { data, error } = await supabase.rpc('get_pricing_bundle', {
-        _user_id: userId,
+        _user_id: effectiveUserId,
       });
       if (error) throw error;
       const b = (data ?? {}) as any;
@@ -52,7 +52,7 @@ export function usePricingBundle() {
       };
     },
     // 不等 auth：訪客也能立刻取得 plans / 最低價，登入者後續會自動 re-fetch。
-    enabled: !isAuthLoading || userId === null,
+    enabled: !isAuthLoading || effectiveUserId === null,
     staleTime: 60_000,
   });
 }
