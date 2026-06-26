@@ -54,6 +54,45 @@ async function gotoDemo(page: Page) {
   await page.waitForTimeout(600);
 }
 
+function relativeLuminance(hex: string) {
+  const [r, g, b] = hex
+    .replace('#', '')
+    .match(/.{2}/g)!
+    .map((v) => parseInt(v, 16) / 255)
+    .map((v) => (v <= 0.03928 ? v / 12.92 : Math.pow((v + 0.055) / 1.055, 2.4)));
+  return 0.2126 * r + 0.7152 * g + 0.0722 * b;
+}
+
+function contrastRatio(fgHex: string, bgHex: string) {
+  const fg = relativeLuminance(fgHex);
+  const bg = relativeLuminance(bgHex);
+  return (Math.max(fg, bg) + 0.05) / (Math.min(fg, bg) + 0.05);
+}
+
+function rgbToHex(rgb: string) {
+  const match = rgb.match(/rgba?\((\d+),\s*(\d+),\s*(\d+)/);
+  if (!match) return rgb;
+  return `#${match
+    .slice(1, 4)
+    .map((n) => Number(n).toString(16).padStart(2, '0'))
+    .join('')}`;
+}
+
+async function expectReadableText(page: Page, text: string, minContrast = 7) {
+  const node = page.getByText(text, { exact: true }).first();
+  await expect(node).toBeVisible();
+  const style = await node.evaluate((el) => {
+    const cs = window.getComputedStyle(el as HTMLElement);
+    return { color: cs.color, fontWeight: cs.fontWeight };
+  });
+  const hex = rgbToHex(style.color);
+  expect(
+    contrastRatio(hex, '#F5F3EF'),
+    `${text} color=${style.color} weight=${style.fontWeight}`,
+  ).toBeGreaterThanOrEqual(minContrast);
+  expect(Number(style.fontWeight), `${text} fontWeight`).toBeGreaterThanOrEqual(700);
+}
+
 test.describe('demo first-fold visibility', () => {
   test('desktop 1280×800：核心看板可見、CoachMarks 不擋', async ({ page }) => {
     await page.setViewportSize({ width: 1280, height: 800 });
@@ -162,6 +201,23 @@ test.describe('demo first-fold visibility', () => {
 
     await expect(page.getByTestId('holdings-intro-modal')).toHaveCount(0);
     expect(await page.locator('video').count()).toBe(0);
+  });
+
+  test('demo 收盤分析：標題與個股文字不可使用低對比淺灰', async ({ page }) => {
+    await page.setViewportSize({ width: 1280, height: 900 });
+    await gotoDemo(page);
+
+    await page.getByRole('button', { name: /^收盤分析$/ }).first().click();
+    await expect(page.getByText('AI 策 略 分 析')).toBeVisible();
+
+    await expectReadableText(page, 'TODAY P&L');
+    await expectReadableText(page, 'AI 策 略 分 析');
+    await expectReadableText(page, '今日總結');
+    await expectReadableText(page, '奇鋐液冷大單');
+    await expectReadableText(page, '創意 CoWoS 良率');
+    await expectReadableText(page, '3017 奇鋐');
+    await expectReadableText(page, '3443 創意');
+    await expectReadableText(page, '2308 台達電');
   });
 
   test('demo：scroll>200px 才彈 CoachMarks，且關閉後不重彈', async ({ page }) => {
