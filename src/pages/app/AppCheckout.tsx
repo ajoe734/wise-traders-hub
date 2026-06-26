@@ -28,6 +28,7 @@ import {
 } from "@/components/ui/alert-dialog";
 import { avatarUrl } from "@/lib/imageTransform";
 import { gtmPush } from "@/lib/analytics/gtm";
+import { track } from "@/lib/analytics/events";
 import { toast } from "sonner";
 
 const AppCheckout = () => {
