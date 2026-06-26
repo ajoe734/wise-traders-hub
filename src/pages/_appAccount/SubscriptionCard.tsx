@@ -12,6 +12,7 @@ import { cn } from '@/lib/utils';
 import { avatarUrl } from '@/lib/imageTransform';
 import { calcRefund } from '@/lib/refundCalc';
 import { getPlanTypeLabel, isAdvisorPlan, type DbSubscription } from './types';
+import { track } from '@/lib/analytics/events';
 
 interface Props {
   sub: DbSubscription;
