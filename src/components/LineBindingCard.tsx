@@ -6,6 +6,7 @@ import { Badge } from '@/components/ui/badge';
 import { MessageCircle, Copy, Check, RefreshCw, Unlink, ExternalLink, QrCode } from 'lucide-react';
 import { supabase } from '@/integrations/supabase/client';
 import { useAuth } from '@/contexts/AuthContext';
+import { useEffectiveUserId } from '@/hooks/useEffectiveUserId';
 import { toast } from '@/hooks/use-toast';
 import { avatarUrl } from '@/lib/imageTransform';
 import { trackRaw } from '@/lib/analytics/events';
@@ -25,6 +26,7 @@ interface LineBindingCardProps {
 
 export const LineBindingCard = ({ expertId, expertSlug, expertName, expertAvatarUrl, lineOaId, lineChannelName, qrCodeUrl, isAdvisor = false, compact = false, isSubscribed = true }: LineBindingCardProps) => {
   const { user } = useAuth();
+  const { userId: effectiveUserId, isViewAs } = useEffectiveUserId();
   const [binding, setBinding] = useState<any>(null);
   const [bindingCode, setBindingCode] = useState<string | null>(null);
   const [codeExpiresAt, setCodeExpiresAt] = useState<string | null>(null);
@@ -35,14 +37,14 @@ export const LineBindingCard = ({ expertId, expertSlug, expertName, expertAvatar
 
   // Fetch existing binding
   useEffect(() => {
-    if (!user?.id || !expertId) return;
+    if (!effectiveUserId || !expertId) return;
 
     const fetchBinding = async () => {
       setLoading(true);
       const { data } = await supabase
         .from('member_line_bindings')
         .select('*')
-        .eq('user_id', user.id)
+        .eq('user_id', effectiveUserId)
         .eq('expert_id', expertId)
         .eq('is_active', true)
         .maybeSingle();
@@ -60,17 +62,18 @@ export const LineBindingCard = ({ expertId, expertSlug, expertName, expertAvatar
         event: '*',
         schema: 'public',
         table: 'member_line_bindings',
-        filter: `user_id=eq.${user.id}`,
+        filter: `user_id=eq.${effectiveUserId}`,
       }, () => {
         fetchBinding();
       })
       .subscribe();
 
     return () => { supabase.removeChannel(channel); };
-  }, [user?.id, expertId]);
+  }, [effectiveUserId, expertId]);
 
   const generateCode = async () => {
     if (!user?.id || !expertId) return;
+    if (isViewAs) { toast({ title: '視角檢視模式不可寫入', description: '禁止建立 LINE 綁定碼' }); return; }
     setGenerating(true);
 
     try {
