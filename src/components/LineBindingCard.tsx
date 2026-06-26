@@ -129,6 +129,7 @@ export const LineBindingCard = ({ expertId, expertSlug, expertName, expertAvatar
 
   const handleUnbind = async () => {
     if (!binding) return;
+    if (isViewAs) { toast({ title: '視角檢視模式不可寫入', description: '禁止解除 LINE 綁定' }); return; }
     setUnbinding(true);
     try {
       await supabase
