@@ -49,9 +49,16 @@ const TradeItem = ({ signal }: { signal: SignalDetail }) => {
       >
         <ActionBadge action={signal.action as any} size="sm" />
         <div className="flex-1 min-w-0">
-          <div className="flex items-center gap-2">
+          <div className="flex items-center gap-2 flex-wrap">
             <span className="font-medium text-sm">{signal.instrument}</span>
             <span className="text-xs text-muted-foreground">{format(new Date(signal.published_at), 'MM/dd')}</span>
+            {(signal.price_hint != null || signal.quantity != null) && (
+              <span className="text-xs text-foreground/80 font-medium">
+                {signal.price_hint != null && <>價 {signal.price_hint}</>}
+                {signal.price_hint != null && signal.quantity != null && <span className="mx-1 text-muted-foreground">·</span>}
+                {signal.quantity != null && <>{signal.quantity} {signal.quantity_unit || '張'}</>}
+              </span>
+            )}
           </div>
         </div>
         {hasDetails && (
