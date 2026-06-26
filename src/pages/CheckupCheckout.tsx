@@ -61,10 +61,16 @@ export default function CheckupCheckout() {
         billing_cycle: billingCycle,
         currency: 'TWD',
       });
+      track('checkout_success', { plan_id: planId });
       toast.success('訂閱成功，可在「我的服務」中看到。');
       navigate('/app', { replace: true });
+    } else if (resultDialog?.open && !resultDialog?.success) {
+      track('checkout_failure', { reason: resultDialog?.message || 'payment_failed', plan_id: planId });
     }
-  }, [resultDialog?.open, resultDialog?.success, resultDialog?.goRemittance, planId, billingCycle, navigate]);
+  }, [resultDialog?.open, resultDialog?.success, resultDialog?.goRemittance, resultDialog?.message, planId, billingCycle, navigate]);
+
+  // 進頁追蹤：對齊 /checkout 的內部漏斗
+  useEffect(() => { track('checkout_open', { plan_id: planId }); }, [planId]);
 
 
 
