@@ -60,8 +60,12 @@ interface DbPlan {
 const AppExpertDetail = () => {
   const { slug } = useParams<{ slug: string }>();
   const navigate = useNavigate();
-  const [subscribedPlanTypes, setSubscribedPlanTypes] = useState<string[]>([]);
-  
+  const { data: subRows = [] } = useMemberSubscriptions();
+  const subscribedPlanTypes = useMemo(
+    () => subRows.filter(r => r.expert?.slug === slug).map(r => r.plan_type),
+    [subRows, slug],
+  );
+
   const { data: expert, isLoading, isError, error, refetch, isRefetching } = useExpert(slug);
   
 
@@ -84,32 +88,13 @@ const AppExpertDetail = () => {
     staleTime: 60_000,
   });
 
-  useEffect(() => {
-    const fetchSubscription = async () => {
-      const { data: { user } } = await supabase.auth.getUser();
-      if (!user || !slug) return;
-
-      const { data: subs } = await supabase
-        .from("member_subscriptions")
-        .select("plan_id, expert_plans(plan_type)")
-        .eq("user_id", user.id)
-        .eq("status", "active");
-
-      const types = (subs || []).filter((s: any) => s.expert_plans).map((s: any) => s.expert_plans.plan_type as string);
-      setSubscribedPlanTypes(types);
-    };
-    fetchSubscription();
-  }, [slug]);
-
   // ⚠️ All hooks MUST be called before any early return (Rules of Hooks).
-  // usePreviewMode 之前被放在 early return 後面，導致首次 render(isLoading) 與後續
-  // render(expert ready) 的 hook 數量不一致 → React 拋錯被 AppErrorBoundary 接住，
-  // 表現為「訂閱者預覽」開新分頁立即顯示「頁面發生錯誤」。
   const { isPreview, previewSlug } = usePreviewMode();
   const previewMatch = isPreview && previewSlug === slug;
   const isSubscribedToFollower = previewMatch || subscribedPlanTypes.some(t => t === 'analyst_signal_l1' || t === 'analyst_signal_diag_l2');
   const hasHealthCheck = previewMatch || subscribedPlanTypes.includes('analyst_signal_diag_l2');
   const isSubscribedToCultivator = previewMatch || subscribedPlanTypes.includes('mentor_weekly_journal');
+
 
   if (isLoading) {
     return <UnifiedAppLayout><div className="flex justify-center py-16"><Loader2 className="h-8 w-8 animate-spin text-muted-foreground" /></div></UnifiedAppLayout>;
