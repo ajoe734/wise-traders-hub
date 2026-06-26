@@ -75,6 +75,9 @@ const AppCheckout = () => {
   const { data: planData, isLoading } = usePlan(planId);
   const expert = planData?.experts as any;
 
+  // 進頁追蹤：對齊 /checkout 的內部漏斗
+  useEffect(() => { track('checkout_open', { plan_id: planId, expert_slug: slug }); }, [planId, slug]);
+
   // ISSUE-006: Check for existing active subscription
   useEffect(() => {
     const checkExisting = async () => {
