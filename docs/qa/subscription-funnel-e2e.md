@@ -11,7 +11,7 @@
 
 | 層 | 目的 | 檔案 | 何時跑 |
 |---|---|---|---|
-| **A 前台流程 mock e2e** | 驗證用戶 click path + 該送的事件真的有送 | `e2e/subscription-funnel.spec.ts`（F2 購買漏斗）<br>`e2e/subscription-cancel-renew.spec.ts`（F3 取消 / 續訂）<br>`e2e/view-as-content-access.spec.ts`（F4 view-as 訂閱判斷） | PR / 每次推 |
+| **A 前台流程 mock e2e** | 驗證用戶 click path + 該送的事件真的有送 | `e2e/auth-funnel.spec.ts`（F1 登入/註冊）<br>`e2e/subscription-funnel.spec.ts`（F2 購買漏斗）<br>`e2e/subscription-cancel-renew.spec.ts`（F3 取消 / 續訂）<br>`e2e/view-as-content-access.spec.ts`（F4 view-as 訂閱判斷） | PR / 每次推 |
 | **B 埋點契約 unit test** | 鎖住 `event_name` 字串與 GTM mirror，避免 silent rename | `src/test/unit/funnel-events.test.ts`、`src/test/unit/gtm-events.test.ts` | PR / 每次推 |
 | **C live smoke（未實作）** | 真的打 sandbox 後端，跑完查 DB 確認後台儀表板 >0 | TODO `e2e/live/subscription-end-to-end.spec.ts` | daily cron |
 
