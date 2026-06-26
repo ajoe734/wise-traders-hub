@@ -37,27 +37,6 @@ test.describe('F4b view-as write-guard', () => {
     let notifSelectFilter: string | null = null;
     let notifPatchCount = 0;
 
-    // Intercept PATCH separately (installRoutes doesn't surface method-specific handlers)
-    await page.route('https://yqacmrgdjlenbijclngi.supabase.co/rest/v1/notifications**', async (route) => {
-      const req = route.request();
-      const url = new URL(req.url());
-      if (req.method() === 'PATCH') {
-        notifPatchCount += 1;
-        return route.fulfill({ status: 200, contentType: 'application/json', body: '[]' });
-      }
-      if (req.method() === 'GET') {
-        notifSelectFilter = url.searchParams.get('user_id');
-        return route.fulfill({
-          status: 200,
-          contentType: 'application/json',
-          body: JSON.stringify([
-            { id: 'n1', user_id: TARGET.id, title: 'test', body: 'b', link: null, is_read: false, created_at: new Date().toISOString() },
-          ]),
-        });
-      }
-      return route.fulfill({ status: 200, contentType: 'application/json', body: '[]' });
-    });
-
     await installRoutes(page, {
       rest: {
         experts: () => [{
@@ -78,6 +57,27 @@ test.describe('F4b view-as write-guard', () => {
         user_roles: () => [],
       },
       functions: { 'admin-view-as': () => ({ ok: true }) },
+    });
+
+    // Add specific notifications interceptor AFTER installRoutes so it takes priority.
+    await page.route('https://yqacmrgdjlenbijclngi.supabase.co/rest/v1/notifications**', async (route) => {
+      const req = route.request();
+      const url = new URL(req.url());
+      if (req.method() === 'PATCH') {
+        notifPatchCount += 1;
+        return route.fulfill({ status: 200, contentType: 'application/json', body: '[]' });
+      }
+      if (req.method() === 'GET') {
+        notifSelectFilter = url.searchParams.get('user_id');
+        return route.fulfill({
+          status: 200,
+          contentType: 'application/json',
+          body: JSON.stringify([
+            { id: 'n1', user_id: TARGET.id, title: 'test', body: 'b', link: null, is_read: false, created_at: new Date().toISOString() },
+          ]),
+        });
+      }
+      return route.fulfill({ status: 200, contentType: 'application/json', body: '[]' });
     });
 
     await page.goto(`/app/expert/${EXPERT_SLUG}`);
