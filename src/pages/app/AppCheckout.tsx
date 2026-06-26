@@ -129,8 +129,11 @@ const AppCheckout = () => {
         billing_cycle: billingCycle,
         method: paymentMethod,
       });
+      track('checkout_success', { plan_id: planId });
       toast.success('訂閱成功，可在「我的服務」中看到。');
       navigate('/app', { replace: true });
+    } else if (resultDialog?.open && !resultDialog?.success) {
+      track('checkout_failure', { reason: 'payment_failed', plan_id: planId });
     }
   }, [resultDialog?.open, resultDialog?.success, planId, slug, billingCycle, paymentMethod, navigate]);
 
