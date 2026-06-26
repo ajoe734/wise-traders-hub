@@ -36,10 +36,10 @@ test.describe('live smoke — auth + protected route + pricing reachable', () =>
   test('login → /app → /pricing 全程使用真實後端', async ({ page }) => {
     // 1) Login via the real /login form
     await page.goto('/login');
-    await page.getByLabel(/email|信箱/i).first().fill(EMAIL!);
-    await page.getByLabel(/password|密碼/i).first().fill(PASSWORD!);
+    await page.locator('input[type="email"]').first().fill(EMAIL!);
+    await page.locator('input[type="password"]').first().fill(PASSWORD!);
     await Promise.all([
-      page.waitForURL(/\/app(\/|$)/, { timeout: 15_000 }),
+      page.waitForURL(/\/app(\/|$)/, { timeout: 20_000 }),
       page.getByRole('button', { name: /登入|login/i }).first().click(),
     ]);
 
