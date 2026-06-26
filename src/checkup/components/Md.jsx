@@ -23,14 +23,15 @@ export default function Md({ text, color }) {
               {
                 key: j,
                 style: {
-                  fontSize: 11,
+                  fontSize: 12,
                   color: textColor,
                   lineHeight: 1.8,
                   paddingLeft: 12,
                   position: 'relative',
+                  fontWeight: 600,
                 },
               },
-              h('span', { style: { position: 'absolute', left: 0, color: C.textMute } }, '·'),
+              h('span', { style: { position: 'absolute', left: 0, color: textColor, fontWeight: 800 } }, '·'),
               renderInline(li)
             )
           )
@@ -50,7 +51,7 @@ export default function Md({ text, color }) {
     while ((m = rx.exec(rest)) !== null) {
       if (m.index > last) parts.push(h('span', { key: k++ }, rest.slice(last, m.index)))
       if (m[1])
-        parts.push(h('strong', { key: k++, style: { color: C.text, fontWeight: 700 } }, m[1]))
+        parts.push(h('strong', { key: k++, style: { color: textColor, fontWeight: 800 } }, m[1]))
       else if (m[2]) parts.push(h('em', { key: k++, style: { fontStyle: 'italic' } }, m[2]))
       last = m.index + m[0].length
     }
@@ -73,7 +74,7 @@ export default function Md({ text, color }) {
             style: {
               fontSize: sz + 1,
               fontWeight: 700,
-              color: C.text,
+              color: textColor,
               marginTop: lvl === 1 ? 12 : 8,
               marginBottom: 4,
               letterSpacing: '0.02em',
@@ -95,17 +96,18 @@ export default function Md({ text, color }) {
           {
             key: `ol-${i}`,
             style: {
-              fontSize: 11,
+              fontSize: 12,
               color: textColor,
               lineHeight: 1.8,
               paddingLeft: 12,
               position: 'relative',
               marginBottom: 2,
+              fontWeight: 600,
             },
           },
           h(
             'span',
-            { style: { position: 'absolute', left: 0, color: C.textMute, fontSize: 10 } },
+            { style: { position: 'absolute', left: 0, color: textColor, fontSize: 10, fontWeight: 800 } },
             `${num}.`
           ),
           renderInline(txt)
@@ -121,7 +123,7 @@ export default function Md({ text, color }) {
           'div',
           {
             key: `p-${i}`,
-            style: { fontSize: 11, color: textColor, lineHeight: 1.8, marginBottom: 2 },
+            style: { fontSize: 12, color: textColor, lineHeight: 1.8, marginBottom: 2, fontWeight: 600 },
           },
           renderInline(line)
         )
