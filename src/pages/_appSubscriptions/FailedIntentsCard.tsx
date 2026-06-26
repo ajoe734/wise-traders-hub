@@ -33,19 +33,20 @@ interface FailedIntent {
 
 export function FailedIntentsCard() {
   const { user } = useAuth();
+  const { userId: effectiveUserId } = useEffectiveUserId();
   const [intents, setIntents] = useState<FailedIntent[]>([]);
   const [loading, setLoading] = useState(true);
   const { data: activeSubs = [] } = useMemberSubscriptions();
 
   useEffect(() => {
-    if (!user?.id) { setLoading(false); return; }
+    if (!effectiveUserId) { setLoading(false); return; }
     let cancelled = false;
     (async () => {
       const since = new Date(Date.now() - 30 * 24 * 60 * 60 * 1000).toISOString();
       const { data } = await supabase
         .from('payment_intents' as any)
         .select('id, status, trade_no, product_kind, plan_id, checkup_plan_id, amount, billing_cycle, created_at, expert_plans:plan_id(name, experts(name, slug)), checkup_plans:checkup_plan_id(name)')
-        .eq('user_id', user.id)
+        .eq('user_id', effectiveUserId)
         .eq('status', 'abandoned')
         .gte('created_at', since)
         .order('created_at', { ascending: false })
@@ -56,7 +57,7 @@ export function FailedIntentsCard() {
       }
     })();
     return () => { cancelled = true; };
-  }, [user?.id]);
+  }, [effectiveUserId]);
 
   const activePlanIds = useMemo(
     () => new Set(activeSubs.map((s) => s.plan_id).filter(Boolean)),
