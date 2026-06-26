@@ -475,4 +475,36 @@ const AppCheckout = () => {
   );
 };
 
+function AppCheckoutUnavailableState({ planId, hasPlan, onBack }: { planId: string | undefined; hasPlan: boolean; onBack: () => void }) {
+  const { data: status, isLoading } = usePlanExpertStatus(planId, hasPlan);
+  if (isLoading) {
+    return (
+      <UnifiedAppLayout>
+        <div className="flex justify-center py-16"><Loader2 className="h-8 w-8 animate-spin text-muted-foreground" /></div>
+      </UnifiedAppLayout>
+    );
+  }
+  const reason: 'suspended' | 'missing' | 'draft' | 'other' = !hasPlan
+    ? 'missing'
+    : status?.expert_status === 'suspended'
+      ? 'suspended'
+      : status?.expert_status === 'draft'
+        ? 'draft'
+        : 'missing';
+  return (
+    <UnifiedAppLayout>
+      <CheckoutUnavailable
+        reason={reason}
+        expertName={status?.expert_name ?? null}
+        backTo="/app/explore"
+        backLabel="返回探索"
+      />
+      <div className="flex justify-center -mt-4">
+        <Button variant="ghost" onClick={onBack}>返回</Button>
+      </div>
+    </UnifiedAppLayout>
+  );
+}
+
 export default AppCheckout;
+
