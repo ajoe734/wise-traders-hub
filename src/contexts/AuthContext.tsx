@@ -3,6 +3,7 @@ import { supabase } from '@/integrations/supabase/client';
 import { queryClient } from '@/lib/queryClient';
 import type { AuthError, User as SupabaseUser } from '@supabase/supabase-js';
 import { gtmPush } from '@/lib/analytics/gtm';
+import { track } from '@/lib/analytics/events';
 
 type AppRole = 'company_admin' | 'analyst';
 
@@ -262,16 +263,21 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   const login = useCallback(async (email: string, password: string): Promise<{ success: boolean; error?: string }> => {
     clearAuth();
     setIsLoading(true);
+    track('auth_login_submit', { method: 'email' });
     const { error } = await supabase.auth.signInWithPassword({ email, password });
     if (error) {
       setIsLoading(false);
+      const reason = (error as { code?: string }).code || error.message || 'unknown';
+      track('auth_login_failure', { method: 'email', reason });
       return { success: false, error: mapAuthError(error, 'login') };
     }
     gtmPush('Login', { method: 'email' });
+    track('auth_login_success', { method: 'email' });
     return { success: true };
   }, [clearAuth]);
 
   const register = useCallback(async (email: string, password: string, name: string): Promise<{ success: boolean; error?: string }> => {
+    track('auth_signup_submit', { method: 'email' });
     const { error } = await supabase.auth.signUp({
       email,
       password,
@@ -281,9 +287,12 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       },
     });
     if (error) {
+      const reason = (error as { code?: string }).code || error.message || 'unknown';
+      track('auth_signup_failure', { method: 'email', reason });
       return { success: false, error: mapAuthError(error, 'register') };
     }
     gtmPush('SignUp', { method: 'email' });
+    track('auth_signup_success', { method: 'email' });
     return { success: true };
   }, []);
 

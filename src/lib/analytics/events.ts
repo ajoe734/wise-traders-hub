@@ -65,6 +65,13 @@ export type AnalyticsEvent =
   | { name: 'profile_view'; props?: Record<string, unknown> }
   | { name: 'line_binding_start'; props?: { expert_slug?: string } }
   | { name: 'line_binding_success'; props?: { expert_slug?: string } }
+  // Auth funnel
+  | { name: 'auth_login_submit';   props?: { method?: 'email' | 'line' } }
+  | { name: 'auth_login_success';  props?: { method?: 'email' | 'line' } }
+  | { name: 'auth_login_failure';  props: { method?: 'email' | 'line'; reason: string } }
+  | { name: 'auth_signup_submit';  props?: { method?: 'email' | 'line' } }
+  | { name: 'auth_signup_success'; props?: { method?: 'email' | 'line' } }
+  | { name: 'auth_signup_failure'; props: { method?: 'email' | 'line'; reason: string } }
   // Internal (is_internal=true auto-set by route)
   | { name: 'admin_page_view'; props?: { page?: string } }
   | { name: 'signal_publish'; props?: { instrument?: string } }

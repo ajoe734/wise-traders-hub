@@ -9,6 +9,7 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/com
 import { useAuth } from '@/contexts/AuthContext';
 import { useToast } from '@/hooks/use-toast';
 import { Loader2, MessageCircle } from 'lucide-react';
+import { track } from '@/lib/analytics/events';
 
 const Login = () => {
   const [email, setEmail] = useState('');
@@ -70,6 +71,7 @@ const Login = () => {
   };
 
   const handleLineLogin = () => {
+    track('auth_login_submit', { method: 'line' });
     const supabaseUrl = import.meta.env.VITE_SUPABASE_URL;
     const callbackUrl = `${supabaseUrl}/functions/v1/line-login-callback`;
     // LINE login from /auth/login → redirect to /app after success
