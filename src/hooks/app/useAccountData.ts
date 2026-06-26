@@ -135,6 +135,10 @@ export function useAccountData() {
   }, [effectiveUserId, fetchSubscriptions, fetchExperts]);
 
   const handleCancelSubscription = useCallback(async (subId: string) => {
+    if (isViewAs) {
+      toast.error('視角檢視模式：禁止寫入操作（取消訂閱）');
+      return;
+    }
     setCancelingId(subId);
     try {
       const sub = subscriptions.find(s => s.id === subId);
