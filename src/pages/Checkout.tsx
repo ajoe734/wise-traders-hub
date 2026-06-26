@@ -480,4 +480,30 @@ const Checkout = () => {
   );
 };
 
+function CheckoutUnavailableState({ planId, hasPlan }: { planId: string | undefined; hasPlan: boolean }) {
+  const { data: status, isLoading } = usePlanExpertStatus(planId, hasPlan);
+  if (isLoading) {
+    return (
+      <PortalLayout hideAppEntry hideHeader>
+        <div className="flex justify-center items-center py-24">
+          <Loader2 className="h-8 w-8 animate-spin text-muted-foreground" />
+        </div>
+      </PortalLayout>
+    );
+  }
+  const reason: 'suspended' | 'missing' | 'draft' | 'other' = !hasPlan
+    ? 'missing'
+    : status?.expert_status === 'suspended'
+      ? 'suspended'
+      : status?.expert_status === 'draft'
+        ? 'draft'
+        : 'missing';
+  return (
+    <PortalLayout hideAppEntry hideHeader>
+      <CheckoutUnavailable reason={reason} expertName={status?.expert_name ?? null} />
+    </PortalLayout>
+  );
+}
+
 export default Checkout;
+
