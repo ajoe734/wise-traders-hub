@@ -286,6 +286,16 @@ const SignalEditor = () => {
               <span className="text-xs text-destructive">{publishWindow.reason}</span>
             )}
             <Button variant="outline" onClick={() => navigate(`/admin/${expertSlug}/signals`)}>取消</Button>
+            {isMentor && (
+              <Button
+                type="button"
+                variant="outline"
+                onClick={() => setPreviewOpen(true)}
+                title="以前台版型預覽（不會送出）"
+              >
+                <Eye className="h-4 w-4 mr-1" /> 預覽
+              </Button>
+            )}
             <Button
               onClick={handlePublish}
               disabled={submitting || !publishWindow.open}
