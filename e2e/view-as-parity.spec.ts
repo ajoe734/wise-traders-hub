@@ -80,10 +80,6 @@ test.describe('F4b view-as write-guard', () => {
       return route.fulfill({ status: 200, contentType: 'application/json', body: '[]' });
     });
 
-    page.on('request', (r) => {
-      if (r.url().includes('/notifications')) console.log('NOTIF REQ', r.method(), r.url());
-    });
-
     await page.goto(`/app/expert/${EXPERT_SLUG}`);
     await page.waitForLoadState('domcontentloaded');
 
