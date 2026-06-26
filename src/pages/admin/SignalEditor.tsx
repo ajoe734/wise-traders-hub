@@ -46,6 +46,7 @@ const SignalEditor = () => {
   const [submitting, setSubmitting] = useState(false);
   /** mentor 本週類型：'trades' = 交易週記（預設）； 'teaching' = 純教學週記，無交易 */
   const [weekType, setWeekType] = useState<'trades' | 'teaching'>('trades');
+  const [previewOpen, setPreviewOpen] = useState(false);
 
   // ── Data (expert / templates / open positions / capital) ──────────────
   const {
