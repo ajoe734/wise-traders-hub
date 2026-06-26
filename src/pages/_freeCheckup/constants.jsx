@@ -250,11 +250,11 @@ targetPriceUpdates：如果截圖中有提到分析師目標價或研究報告�
 // calcPnlWithNet / calcNetSettlement / calcWeightedAvgCost / calcRemainingCostAfterPartialSell
 // 已提取至 src/checkup/lib/holdingMath.ts（可測試純函數）
 // 台股慣例：紅=漲/獲利，綠=跌/虧損
-export const pc    = (p) => p==null ? C.textMute : p>=0 ? C.up : C.down;
+export const pc    = (p) => p==null ? C.textSec : p>=0 ? C.up : C.down;
 export const pcBg  = (p) => p==null ? "transparent" : p>=0 ? C.upBg : C.downBg;
 export const fmtN  = (n) => n==null?"—":Math.abs(n)>=10000?(n/10000).toFixed(1)+"萬":n.toLocaleString();
 export const card  = { background:C.card, border:`1px solid ${C.border}`, borderRadius:10, padding:"14px 16px" };
-export const lbl   = { fontSize:11, color:C.textMute, letterSpacing:"0.1em", textTransform:"uppercase", fontWeight:400, marginBottom:6 };
+export const lbl   = { fontSize:11, color:C.textSec, letterSpacing:"0.1em", textTransform:"uppercase", fontWeight:600, marginBottom:6 };
 
 // 所有 pf-* key 的雲端同步 key 清單
 export const CLOUD_SYNC_KEYS = [

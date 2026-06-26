@@ -5,19 +5,35 @@ import Md from '../Md.jsx'
 
 const lbl = {
   fontSize: 10,
-  color: C.textMute,
+  color: C.textSec,
   letterSpacing: '0.06em',
   fontWeight: 600,
   marginBottom: 5,
 }
 
+const titleLbl = {
+  ...lbl,
+  color: C.text,
+  fontWeight: 700,
+  letterSpacing: '0.03em',
+}
+
+const sectionTitle = (color = C.text) => ({
+  ...titleLbl,
+  color,
+})
+
+const stockNameStyle = { fontSize: 12, fontWeight: 700, color: C.text }
+const stockCodeStyle = { fontSize: 10, color: C.textSec, fontWeight: 600, marginLeft: 6 }
+const secondaryValueStyle = { color: C.textSec, fontWeight: 600 }
+
 // 收盤分析個股顏色憲法（局部加強對比，2026-06-17）：
 //   - 漲：保持品牌橘 C.up（#EC662D，已最強對比）
 //   - 跌：採深炭灰 #3A352F（取代 C.down 的 #8B8680 — 在 #F5F3EF 背景上對比過低）
-//   - 持平：C.textMute
+//   - 持平：C.textSec
 // 僅在本檔（DailyReportPanel）覆寫，不動 holdings 單色橘紅憲法。
 const PNL_DOWN_STRONG = '#3A352F'
-const pc = (p) => (p == null ? C.textMute : p >= 0 ? C.up : PNL_DOWN_STRONG)
+const pc = (p) => (p == null ? C.textSec : p >= 0 ? C.up : PNL_DOWN_STRONG)
 
 // 個股漲跌膠囊：把 % 與當日損益用底色膠囊呈現，提升辨識度
 const pillStyle = (p, { size = 12 } = {}) => {
@@ -26,7 +42,7 @@ const pillStyle = (p, { size = 12 } = {}) => {
   return {
     fontSize: size,
     fontWeight: 700,
-    color: positive ? C.up : negative ? PNL_DOWN_STRONG : C.textMute,
+    color: positive ? C.up : negative ? PNL_DOWN_STRONG : C.textSec,
     background: positive ? C.upBg : negative ? 'rgba(58,53,47,0.08)' : 'transparent',
     padding: '2px 7px',
     borderRadius: 5,
@@ -50,12 +66,12 @@ export function DailyAnalysisEmpty({ onAnalyze, onStressTest, analyzing, stressT
     h('div', { style: { fontSize: 24, marginBottom: 6, opacity: 0.4 } }, '◎'),
     h(
       'div',
-      { style: { fontSize: 12, color: C.textSec, fontWeight: 500, marginBottom: 4 } },
+      { style: { fontSize: 13, color: C.text, fontWeight: 700, marginBottom: 4 } },
       '每日收盤分析'
     ),
     h(
       'div',
-      { style: { fontSize: 10, color: C.textMute, marginBottom: 12, lineHeight: 1.6 } },
+      { style: { fontSize: 11, color: C.textSec, fontWeight: 600, marginBottom: 12, lineHeight: 1.6 } },
       '分析今日股價變動與事件連動性 · 自動比對持倉漲跌、異常波動、策略建議'
     ),
     h(
@@ -126,7 +142,7 @@ export function AnalyzingState({ step }) {
     ),
     h(
       'div',
-      { style: { fontSize: 11, color: C.textMute, marginTop: 8 } },
+      { style: { fontSize: 11, color: C.textSec, fontWeight: 600, marginTop: 8 } },
       '取得股價 → 比對事件 → AI 策略分析 → 大腦進化'
     ),
     h(
@@ -185,7 +201,7 @@ export function StressResult({ result, onClose }) {
         { style: { fontSize: 13, fontWeight: 600, color: C.down } },
         `⚠️ 風險壓力測試 · ${result.date}`
       ),
-      h('span', { style: { fontSize: 11, color: C.textMute } }, '點擊關閉')
+      h('span', { style: { fontSize: 11, color: C.textSec, fontWeight: 600 } }, '點擊關閉')
     ),
     h(
       'div',
@@ -219,8 +235,8 @@ export function DailyReportSummary({ report, expanded, onToggle }) {
       h(
         'div',
         { style: { display: 'flex', alignItems: 'center', gap: 6 } },
-        h('div', { style: { ...lbl, marginBottom: 0 } }, `${report.date} 收盤分析`),
-        h('span', { style: { fontSize: 9, color: C.textMute } }, report.time),
+        h('div', { style: { ...titleLbl, marginBottom: 0 } }, `${report.date} 收盤分析`),
+        h('span', { style: { fontSize: 10, color: C.textSec, fontWeight: 600 } }, report.time),
         !expanded &&
           report.anomalies?.length > 0 &&
           h(Badge, { color: 'amber' }, `異常 ${report.anomalies.length}`),
@@ -256,7 +272,7 @@ export function HoldingsChanges({ changes }) {
   return h(
     Card,
     { style: { marginBottom: 8 } },
-    h('div', { style: lbl }, '持倉今日漲跌'),
+    h('div', { style: titleLbl }, '持倉今日漲跌'),
     changes.map((c, i) =>
       h(
         'div',
@@ -273,8 +289,8 @@ export function HoldingsChanges({ changes }) {
         h(
           'div',
           null,
-          h('span', { style: { fontSize: 12, fontWeight: 500, color: C.text } }, c.name),
-          h('span', { style: { fontSize: 9, color: C.textMute, marginLeft: 5 } }, c.code),
+          h('span', { style: stockNameStyle }, c.name),
+          h('span', { style: stockCodeStyle }, c.code),
           c.type !== '股票' &&
             h(
               'span',
@@ -296,7 +312,7 @@ export function HoldingsChanges({ changes }) {
           {
             style: { textAlign: 'right', display: 'flex', gap: 12, alignItems: 'center' },
           },
-          h('span', { style: { fontSize: 11, color: C.textMute } }, c.price?.toLocaleString()),
+          h('span', { style: { fontSize: 11, ...secondaryValueStyle } }, c.price?.toLocaleString()),
           h(
             'span',
             { style: pillStyle(c.changePct, { size: 12 }) },
@@ -333,7 +349,7 @@ export function AnomaliesSection({ anomalies }) {
     {
       style: { marginBottom: 8, borderLeft: `3px solid ${alpha(C.amber, '40')}` },
     },
-    h('div', { style: { ...lbl, color: C.amber } }, `異常波動 (>3%)`),
+    h('div', { style: sectionTitle(C.amber) }, `異常波動 (>3%)`),
     anomalies.map((a) =>
       h(
         'div',
@@ -341,7 +357,7 @@ export function AnomaliesSection({ anomalies }) {
           key: a.code,
           style: { display: 'flex', justifyContent: 'space-between', padding: '6px 0' },
         },
-        h('span', { style: { fontSize: 12, color: C.text } }, a.name),
+        h('span', { style: stockNameStyle }, a.name),
         h(
           'span',
           { style: pillStyle(a.changePct, { size: 12 }) },
@@ -363,7 +379,7 @@ export function EventCorrelations({ correlations }) {
     {
       style: { marginBottom: 8, borderLeft: `3px solid ${alpha(C.teal, '40')}` },
     },
-    h('div', { style: { ...lbl, color: C.teal } }, '事件連動分析'),
+    h('div', { style: sectionTitle(C.teal) }, '事件連動分析'),
     correlations.map((ec) =>
       h(
         'div',
@@ -373,7 +389,7 @@ export function EventCorrelations({ correlations }) {
         },
         h(
           'div',
-          { style: { fontSize: 11, fontWeight: 500, color: C.text, marginBottom: 4 } },
+          { style: { fontSize: 11, fontWeight: 700, color: C.text, marginBottom: 4 } },
           ec.title
         ),
         h('div', { style: { fontSize: 10, color: C.textMute, marginBottom: 6 } }, ec.date),
@@ -384,7 +400,7 @@ export function EventCorrelations({ correlations }) {
               key: s.code,
               style: { display: 'flex', justifyContent: 'space-between', padding: '3px 0' },
             },
-            h('span', { style: { fontSize: 10, color: C.textSec } }, s.name),
+            h('span', { style: { fontSize: 11, color: C.text, fontWeight: 700 } }, s.name),
             h(
               'span',
               { style: pillStyle(s.changePct, { size: 10 }) },
@@ -413,7 +429,7 @@ export function EventAssessments({
     {
       style: { marginBottom: 8, borderLeft: `3px solid ${alpha(C.blue, '40')}` },
     },
-    h('div', { style: { ...lbl, color: C.blue } }, `AI 事件評估 · ${assessments.length}件`),
+    h('div', { style: sectionTitle(C.blue) }, `AI 事件評估 · ${assessments.length}件`),
     assessments.map((ea, i) => {
       const impactColor =
         ea.todayImpact === 'positive' ? C.up : ea.todayImpact === 'negative' ? C.down : C.textMute
@@ -442,7 +458,7 @@ export function EventAssessments({
               marginBottom: 4,
             },
           },
-          h('span', { style: { fontSize: 11, fontWeight: 500, color: C.text } }, ea.title),
+          h('span', { style: { fontSize: 11, fontWeight: 700, color: C.text } }, ea.title),
           h(
             'div',
             { style: { display: 'flex', gap: 6, alignItems: 'center' } },
@@ -477,13 +493,13 @@ export function EventAssessments({
               )
           )
         ),
-        h('div', { style: { fontSize: 10, color: C.textSec, marginBottom: 2 } }, ea.note),
+        h('div', { style: { fontSize: 10, color: C.text, marginBottom: 2, lineHeight: 1.6 } }, ea.note),
         h(
           'div',
           { style: { display: 'flex', gap: 8, alignItems: 'center' } },
           h(
             'span',
-            { style: { fontSize: 9, color: C.textMute } },
+              { style: { fontSize: 9, color: C.textSec, fontWeight: 600 } },
             `信心度 ${Math.round((ea.confidence || 0) * 100)}%`
           ),
           ea.suggestClose &&
@@ -545,7 +561,7 @@ export function BrainAuditSection({ brainAudit }) {
     {
       style: { marginBottom: 8, borderLeft: `3px solid ${alpha(C.lavender, '40')}` },
     },
-    h('div', { style: lbl }, 'AI 規則驗證'),
+    h('div', { style: titleLbl }, 'AI 規則驗證'),
     sections.map((section) => {
       const rows = brainAudit?.[section.key] || []
       if (rows.length === 0) return null
@@ -575,33 +591,33 @@ export function BrainAuditSection({ brainAudit }) {
             h(
               'div',
               {
-                style: { fontSize: 10, fontWeight: 600, color: C.textSec, marginBottom: 3 },
+                style: { fontSize: 10, fontWeight: 700, color: C.text, marginBottom: 3 },
               },
               item.text || item.id || '未命名規則'
             ),
             item.reason &&
-              h('div', { style: { fontSize: 10, color: C.textSec, marginBottom: 2 } }, item.reason),
+              h('div', { style: { fontSize: 10, color: C.textSec, fontWeight: 600, marginBottom: 2 } }, item.reason),
             h(
               'div',
               { style: { display: 'flex', flexWrap: 'wrap', gap: 8 } },
               item.confidence != null &&
                 h(
                   'span',
-                  { style: { fontSize: 9, color: C.textMute } },
+                  { style: { fontSize: 9, color: C.textSec, fontWeight: 600 } },
                   `信心度 ${item.confidence}%`
                 ),
               item.lastValidatedAt &&
                 h(
                   'span',
-                  { style: { fontSize: 9, color: C.textMute } },
+                  { style: { fontSize: 9, color: C.textSec, fontWeight: 600 } },
                   `最近驗證 ${item.lastValidatedAt}`
                 ),
               item.staleness &&
-                h('span', { style: { fontSize: 9, color: C.textMute } }, `狀態 ${item.staleness}`),
+                h('span', { style: { fontSize: 9, color: C.textSec, fontWeight: 600 } }, `狀態 ${item.staleness}`),
               item.nextStatus &&
                 h(
                   'span',
-                  { style: { fontSize: 9, color: C.textMute } },
+                  { style: { fontSize: 9, color: C.textSec, fontWeight: 600 } },
                   `建議轉為 ${item.nextStatus}`
                 )
             ),
@@ -634,15 +650,15 @@ export function NeedsReviewSection({ needsReview, onNavigate, onExpand }) {
     {
       style: { marginBottom: 8, borderLeft: `3px solid ${alpha(C.up, '40')}` },
     },
-    h('div', { style: { ...lbl, color: C.up } }, `需要復盤 · ${needsReview.length}件`),
+    h('div', { style: sectionTitle(C.up) }, `需要復盤 · ${needsReview.length}件`),
     needsReview.map((e) =>
       h(
         'div',
         { key: e.id, style: { marginBottom: 8 } },
-        h('div', { style: { fontSize: 11, fontWeight: 500, color: C.text } }, e.title),
+        h('div', { style: { fontSize: 11, fontWeight: 700, color: C.text } }, e.title),
         h(
           'div',
-          { style: { fontSize: 10, color: C.textMute } },
+          { style: { fontSize: 10, color: C.textSec, fontWeight: 600 } },
           `${e.date} — 預測${e.pred === 'up' ? '看漲' : '看跌'}`
         ),
         h(
@@ -693,7 +709,7 @@ export function AIInsightSection({ insight, error, date, time }) {
             marginBottom: 4,
           },
         },
-        h('div', { style: { ...lbl, color: C.lavender, marginBottom: 0 } }, 'AI 策略分析'),
+        h('div', { style: { ...sectionTitle(C.lavender), marginBottom: 0 } }, 'AI 策略分析'),
         h(
           'span',
           {
