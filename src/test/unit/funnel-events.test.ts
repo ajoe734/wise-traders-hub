@@ -32,6 +32,8 @@ describe('funnel events → traffic_events.event_name 契約', () => {
     ['checkout_success',       { plan_id: 'p1', amount: 599 }],
     ['checkout_failure',       { reason: 'declined', plan_id: 'p1' }],
     ['checkup_upgrade_click',  { from: 'paywall' }],
+    ['subscription_cancel_click', { plan_id: 'p1' }],
+    ['subscription_renew_click',  { plan_id: 'p1' }],
   ];
 
   it.each(cases)('track(%s) 應送出同名 traffic event', (name, props) => {
