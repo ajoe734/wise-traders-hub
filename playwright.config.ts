@@ -167,6 +167,12 @@ export default defineConfig({
       use: { ...devices['Desktop Chrome'], viewport: { width: 1280, height: 900 } },
     },
     {
+      // F4b — view-as 寫入守門 / 讀取改用 effectiveUserId
+      name: 'desktop-view-as-parity',
+      testMatch: /view-as-parity\.spec\.ts/,
+      use: { ...devices['Desktop Chrome'], viewport: { width: 1280, height: 900 } },
+    },
+    {
       // Route B — live smoke（真實後端 / E2E_LIVE=1 才會跑）
       name: 'desktop-live-smoke',
       testMatch: /live\/.*\.spec\.ts/,
