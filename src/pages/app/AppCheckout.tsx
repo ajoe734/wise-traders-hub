@@ -28,6 +28,7 @@ import {
 } from "@/components/ui/alert-dialog";
 import { avatarUrl } from "@/lib/imageTransform";
 import { gtmPush } from "@/lib/analytics/gtm";
+import { track } from "@/lib/analytics/events";
 import { toast } from "sonner";
 
 const AppCheckout = () => {
@@ -73,6 +74,9 @@ const AppCheckout = () => {
 
   const { data: planData, isLoading } = usePlan(planId);
   const expert = planData?.experts as any;
+
+  // 進頁追蹤：對齊 /checkout 的內部漏斗
+  useEffect(() => { track('checkout_open', { plan_id: planId, expert_slug: slug }); }, [planId, slug]);
 
   // ISSUE-006: Check for existing active subscription
   useEffect(() => {
@@ -128,8 +132,11 @@ const AppCheckout = () => {
         billing_cycle: billingCycle,
         method: paymentMethod,
       });
+      track('checkout_success', { plan_id: planId });
       toast.success('訂閱成功，可在「我的服務」中看到。');
       navigate('/app', { replace: true });
+    } else if (resultDialog?.open && !resultDialog?.success) {
+      track('checkout_failure', { reason: 'payment_failed', plan_id: planId });
     }
   }, [resultDialog?.open, resultDialog?.success, planId, slug, billingCycle, paymentMethod, navigate]);
 
@@ -197,6 +204,7 @@ const AppCheckout = () => {
       method: paymentMethod,
       billing_cycle: billingCycle,
     });
+    track('checkout_submit', { plan_id: planId, method: paymentMethod });
     try {
       if (paymentMethod === "ecpay") { await handleEcpayCheckout(); }
       else if (paymentMethod === "acpay") { await handleAcpayCheckout(); }
