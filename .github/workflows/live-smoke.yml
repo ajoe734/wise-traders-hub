@@ -1,0 +1,41 @@
+name: Live Smoke (Route B)
+
+# 真實打 production-shape 後端的最小煙霧測試，避免 mock 通過但實際壞掉。
+# 預設 cron 每天跑一次 + 手動觸發；不在 PR 跑（避免污染 DB / 浪費配額）。
+
+on:
+  schedule:
+    - cron: '0 19 * * *' # 03:00 UTC+8
+  workflow_dispatch: {}
+
+jobs:
+  live-smoke:
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    env:
+      E2E_LIVE: '1'
+      E2E_TEST_EMAIL: ${{ secrets.E2E_TEST_EMAIL }}
+      E2E_TEST_PASSWORD: ${{ secrets.E2E_TEST_PASSWORD }}
+      VITE_SUPABASE_URL: ${{ secrets.VITE_SUPABASE_URL }}
+      VITE_SUPABASE_PUBLISHABLE_KEY: ${{ secrets.VITE_SUPABASE_PUBLISHABLE_KEY }}
+      VITE_SUPABASE_PROJECT_ID: ${{ secrets.VITE_SUPABASE_PROJECT_ID }}
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: oven-sh/setup-bun@v2
+        with:
+          bun-version: latest
+
+      - run: bun install
+
+      - run: bunx playwright install --with-deps chromium
+
+      - name: Run live smoke
+        run: bunx playwright test --project=desktop-live-smoke
+
+      - uses: actions/upload-artifact@v4
+        if: failure()
+        with:
+          name: playwright-report
+          path: playwright-report/
+          retention-days: 7
