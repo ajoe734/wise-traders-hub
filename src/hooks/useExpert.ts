@@ -313,22 +313,22 @@ export function useExpertSubscriptionStats(
   expertId: string | undefined,
   planIds: string[] | undefined,
 ) {
-  const { user } = useAuth();
+  const { userId: effectiveUserId, isViewAs } = useEffectiveUserId();
   const planKey = (planIds || []).slice().sort().join(',');
 
   return useQuery<ExpertSubscriptionStats>({
-    queryKey: ['expert-subscription-stats', expertId, user?.id ?? 'guest', planKey],
+    queryKey: ['expert-subscription-stats', expertId, effectiveUserId ?? 'guest', isViewAs ? 'view-as' : 'self', planKey],
     queryFn: async () => {
       const ids = planIds || [];
       if (ids.length === 0) {
         return { mySubscribedPlanIds: new Set<string>(), subscriberCount: 0 };
       }
 
-      const mineP = user
+      const mineP = effectiveUserId
         ? supabase
             .from('member_subscriptions')
             .select('plan_id')
-            .eq('user_id', user.id)
+            .eq('user_id', effectiveUserId)
             .eq('status', 'active')
             .in('plan_id', ids)
         : Promise.resolve({ data: [] as { plan_id: string }[] });
