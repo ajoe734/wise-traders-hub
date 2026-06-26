@@ -214,17 +214,9 @@ const Checkout = () => {
   }
 
   if (!plan || !expert) {
-    return (
-      <PortalLayout hideAppEntry hideHeader>
-        <div className="container py-12 text-center">
-          <h1 className="text-2xl font-bold mb-4">找不到此方案</h1>
-          <Button asChild>
-            <Link to="/experts">返回專家列表</Link>
-          </Button>
-        </div>
-      </PortalLayout>
-    );
+    return <CheckoutUnavailableState planId={planId} hasPlan={!!plan} />;
   }
+
 
   const isAdvisor = plan.plan_type !== 'mentor_weekly_journal';
   const basePrice = billingCycle === 'monthly' ? plan.price_monthly : (plan.price_yearly || plan.price_monthly * 12);
