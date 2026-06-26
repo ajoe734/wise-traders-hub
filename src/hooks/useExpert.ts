@@ -313,6 +313,7 @@ export function useExpertSubscriptionStats(
   expertId: string | undefined,
   planIds: string[] | undefined,
 ) {
+  // useAuth removed: this query is read-only and view-as aware via useEffectiveUserId.
   const { userId: effectiveUserId, isViewAs } = useEffectiveUserId();
   const planKey = (planIds || []).slice().sort().join(',');
 
