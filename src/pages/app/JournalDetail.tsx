@@ -21,6 +21,8 @@ interface SignalDetail {
   instrument: string;
   action: string;
   price_hint: number | null;
+  quantity: number | null;
+  quantity_unit: string | null;
   reason_summary: string | null;
   reason_detail: string | null;
   risk_notes: string | null;
@@ -47,9 +49,16 @@ const TradeItem = ({ signal }: { signal: SignalDetail }) => {
       >
         <ActionBadge action={signal.action as any} size="sm" />
         <div className="flex-1 min-w-0">
-          <div className="flex items-center gap-2">
+          <div className="flex items-center gap-2 flex-wrap">
             <span className="font-medium text-sm">{signal.instrument}</span>
             <span className="text-xs text-muted-foreground">{format(new Date(signal.published_at), 'MM/dd')}</span>
+            {(signal.price_hint != null || signal.quantity != null) && (
+              <span className="text-xs text-foreground/80 font-medium">
+                {signal.price_hint != null && <>價 {signal.price_hint}</>}
+                {signal.price_hint != null && signal.quantity != null && <span className="mx-1 text-muted-foreground">·</span>}
+                {signal.quantity != null && <>{signal.quantity} {signal.quantity_unit || '張'}</>}
+              </span>
+            )}
           </div>
         </div>
         {hasDetails && (
@@ -94,7 +103,7 @@ const TradeItem = ({ signal }: { signal: SignalDetail }) => {
 const fetchJournalBundle = async (signalId: string) => {
   const { data, error } = await supabase
     .from('expert_signals')
-    .select('id, instrument, action, price_hint, reason_summary, reason_detail, risk_notes, learning_points, published_at, expert_id, experts(name, slug, role, avatar_url)')
+    .select('id, instrument, action, price_hint, quantity, quantity_unit, reason_summary, reason_detail, risk_notes, learning_points, published_at, expert_id, experts(name, slug, role, avatar_url)')
     .eq('id', signalId)
     .single();
 
@@ -107,7 +116,7 @@ const fetchJournalBundle = async (signalId: string) => {
 
   const { data: weekData } = await supabase
     .from('expert_signals')
-    .select('id, instrument, action, price_hint, reason_summary, reason_detail, risk_notes, learning_points, published_at, expert_id, experts(name, slug, role, avatar_url)')
+    .select('id, instrument, action, price_hint, quantity, quantity_unit, reason_summary, reason_detail, risk_notes, learning_points, published_at, expert_id, experts(name, slug, role, avatar_url)')
     .eq('expert_id', s.expert_id)
     .eq('status', 'published')
     .gte('published_at', ws.toISOString())
