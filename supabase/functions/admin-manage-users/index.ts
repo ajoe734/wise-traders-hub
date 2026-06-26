@@ -76,7 +76,7 @@ Deno.serve(withLogging('admin-manage-users', async (req) => {
         action: {
           required: true,
           type: 'string',
-          oneOf: ['list', 'set_role', 'set_tester', 'set_banned', 'send_password_reset', 'update_profile', 'delete_user', 'lookup_identities'],
+          oneOf: ['list', 'set_role', 'set_tester', 'set_banned', 'send_password_reset', 'update_profile', 'delete_user', 'lookup_identities', 'create_user'],
           label: 'action',
         },
       },
@@ -232,6 +232,37 @@ Deno.serve(withLogging('admin-manage-users', async (req) => {
         detail: { banned },
       });
       return json({ ok: true });
+    }
+
+    if (action === 'create_user') {
+      const email = (body?.email || '').toString().trim().toLowerCase();
+      const password = (body?.password || '').toString();
+      const displayName = (body?.display_name || '').toString().trim() || null;
+      if (!email || !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)) return json({ error: 'invalid_email' }, 400);
+      if (!password || password.length < 8) return json({ error: 'password_too_short' }, 400);
+
+      const { data: created, error: createErr } = await admin.auth.admin.createUser({
+        email,
+        password,
+        email_confirm: true,
+        user_metadata: displayName ? { name: displayName } : {},
+      });
+      if (createErr) return json({ error: createErr.message }, 400);
+      const newId = created.user?.id;
+      if (!newId) return json({ error: 'create_failed' }, 500);
+
+      if (displayName) {
+        await admin.from('profiles').update({ display_name: displayName }).eq('user_id', newId);
+      }
+
+      await admin.from('audit_logs').insert({
+        actor_id: callerId,
+        action: 'account.create',
+        target_id: newId,
+        target_type: 'user',
+        detail: { email, display_name: displayName },
+      });
+      return json({ ok: true, user_id: newId, email });
     }
 
     if (action === 'send_password_reset') {
