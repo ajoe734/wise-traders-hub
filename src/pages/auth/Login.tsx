@@ -71,6 +71,7 @@ const Login = () => {
   };
 
   const handleLineLogin = () => {
+    track('auth_login_submit', { method: 'line' });
     const supabaseUrl = import.meta.env.VITE_SUPABASE_URL;
     const callbackUrl = `${supabaseUrl}/functions/v1/line-login-callback`;
     // LINE login from /auth/login → redirect to /app after success
