@@ -13,7 +13,7 @@
 |---|---|---|---|
 | **A 前台流程 mock e2e** | 驗證用戶 click path + 該送的事件真的有送 | `e2e/auth-funnel.spec.ts`（F1 登入/註冊）<br>`e2e/subscription-funnel.spec.ts`（F2 購買漏斗）<br>`e2e/subscription-cancel-renew.spec.ts`（F3 取消 / 續訂）<br>`e2e/view-as-content-access.spec.ts`（F4 view-as 訂閱判斷） | PR / 每次推 |
 | **B 埋點契約 unit test** | 鎖住 `event_name` 字串與 GTM mirror，避免 silent rename | `src/test/unit/funnel-events.test.ts`、`src/test/unit/gtm-events.test.ts` | PR / 每次推 |
-| **C live smoke（未實作）** | 真的打 sandbox 後端，跑完查 DB 確認後台儀表板 >0 | TODO `e2e/live/subscription-end-to-end.spec.ts` | daily cron |
+| **C live smoke** | 真的打 sandbox 後端，跑完查 DB 確認後台儀表板 >0 | `e2e/live/subscription-end-to-end.spec.ts`<br>`.github/workflows/live-smoke.yml`（cron 03:00 UTC+8 / 手動） | daily cron |
 
 ## 改到什麼 → 必跑哪些
 
@@ -58,10 +58,10 @@ OpsHealth 顯示 `Failed to send a request to the Edge Function` 屬於另一種
 edge function 部署狀態 / CORS。修這條走「reproduce → deploy → recheck」，不在
 本 doc 範圍，後續會於 `docs/qa/admin-internal-pages.md`（live smoke 一起做）補上。
 
-## TODO（live smoke 路線）
+## TODO（live smoke 後續強化）
 
-- 新增 `e2e/live/subscription-end-to-end.spec.ts`：使用固定測試帳號 + sandbox 付款，
-  跑完查 `member_subscriptions` / `traffic_events` / `function_run_logs`，
-  再回打 `ops-health` 與 funnel API 斷言數字 > 0。
-- 新增 `.github/workflows/live-smoke.yml`：每日 03:00 UTC 跑，失敗發通知。
-- 撰寫 `e2e/live/cleanup.ts`：清除測試 subscription / 標記 events 為 test。
+- 加入 sandbox 付款 → 真的觸發 `purchase` 事件並回打 funnel API 斷言數字 > 0。
+- 寫 `e2e/live/cleanup.ts`：清除測試 subscription / 標記 events 為 test。
+- workflow secrets：`E2E_TEST_EMAIL`、`E2E_TEST_PASSWORD` 已存；
+  另需 GitHub Actions 端設 `VITE_SUPABASE_URL` / `VITE_SUPABASE_PUBLISHABLE_KEY` /
+  `VITE_SUPABASE_PROJECT_ID` 三個 repo secret 才會在 cron 跑得起來。
