@@ -35,7 +35,7 @@ test.skip(
 test.describe('live smoke — auth + protected route + pricing reachable', () => {
   test('login → /app → /pricing 全程使用真實後端', async ({ page }) => {
     // 1) Login via the real /login form
-    await page.goto('/login');
+    await page.goto('/auth/login');
     await page.locator('input[type="email"]').first().fill(EMAIL!);
     await page.locator('input[type="password"]').first().fill(PASSWORD!);
     await Promise.all([
