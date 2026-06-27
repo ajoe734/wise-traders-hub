@@ -342,6 +342,10 @@ function HoldingsTab(props) {
               openHoldingDrawer={openHoldingDrawer}
               totalPortfolioValue={totalVal || 0}
               sparkData30D={selected ? (sparklines?.[selected.code] || []) : []}
+              sortBy={sortBy}
+              sortDir={sortDir}
+              setSortBy={setSortBy}
+              setSortDir={setSortDir}
             />
           </Suspense>
         );
