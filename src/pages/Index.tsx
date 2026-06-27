@@ -172,7 +172,7 @@ const Index = () => {
               {/* Desktop CTA - Only visible on lg: */}
               <div className="hidden lg:block mt-8">
                 <Button asChild size="lg" className="group">
-                  <Link to="/pricing">
+                  <Link to="/pricing" data-cta="mid_pricing" data-cta-section="mid">
                     查看方案說明
                     <ArrowRight className="w-4 h-4 ml-2 transition-transform group-hover:translate-x-1" />
                   </Link>
