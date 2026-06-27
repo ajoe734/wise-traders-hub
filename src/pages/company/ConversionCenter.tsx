@@ -57,7 +57,7 @@ export default function ConversionCenter() {
       const { data, error } = await supabase
         .from('traffic_events')
         .select('event_name,visitor_id,user_id,occurred_at')
-        .in('event_name', allEvents)
+        .in('event_name', allEvents as string[])
         .gte('occurred_at', sinceIso)
         .order('occurred_at', { ascending: true })
         .limit(20000);

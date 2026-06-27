@@ -25,8 +25,8 @@ export default function UserJourney() {
     queryKey: ['uj-profile', userId],
     enabled: !!userId,
     queryFn: async () => {
-      const { data } = await supabase.from('profiles').select('email,display_name,created_at').eq('id', userId).maybeSingle();
-      return data;
+      const { data } = await supabase.from('profiles').select('display_name,created_at').eq('user_id', userId).maybeSingle();
+      return data as { display_name: string | null; created_at: string } | null;
     },
   });
 
@@ -92,30 +92,42 @@ export default function UserJourney() {
 
   const items = useMemo<Item[]>(() => {
     const list: Item[] = [];
-    for (const r of traffic) list.push({
-      ts: r.occurred_at as string,
-      kind: 'traffic',
-      label: r.event_name ?? 'event',
-      meta: { route: r.route, ...(r.event_props as object || {}) },
-    });
-    for (const r of conversions) list.push({
-      ts: r.occurred_at as string,
-      kind: 'conversion',
-      label: `轉換 ${r.order_kind ?? ''} $${r.gross_amount ?? 0}`,
-      meta: { utm_source: r.utm_source, campaign: r.utm_campaign, channel: r.channel },
-    });
-    for (const r of subs) list.push({
-      ts: r.created_at as string,
-      kind: 'subscription',
-      label: `訂閱 ${r.status} (${r.billing_cycle ?? '-'})`,
-      meta: { plan_id: r.plan_id, started_at: r.started_at, expires_at: r.expires_at, canceled_at: r.canceled_at },
-    });
-    for (const r of payments) list.push({
-      ts: r.created_at as string,
-      kind: 'payment',
-      label: `付款 ${r.status} $${r.amount ?? 0}`,
-      meta: { provider_id: r.provider_id },
-    });
+    for (const raw of traffic) {
+      const r = raw as { event_name: string | null; occurred_at: string; event_props: unknown; route: string | null };
+      list.push({
+        ts: r.occurred_at,
+        kind: 'traffic',
+        label: r.event_name ?? 'event',
+        meta: { route: r.route, ...((r.event_props as Record<string, unknown>) || {}) },
+      });
+    }
+    for (const raw of conversions) {
+      const r = raw as { occurred_at: string; utm_source: string | null; utm_campaign: string | null; channel: string | null; gross_amount: number | null; order_kind: string | null };
+      list.push({
+        ts: r.occurred_at,
+        kind: 'conversion',
+        label: `轉換 ${r.order_kind ?? ''} $${r.gross_amount ?? 0}`,
+        meta: { utm_source: r.utm_source, campaign: r.utm_campaign, channel: r.channel },
+      });
+    }
+    for (const raw of subs) {
+      const r = raw as { plan_id: string | null; created_at: string; started_at: string | null; expires_at: string | null; canceled_at: string | null; status: string | null; billing_cycle: string | null };
+      list.push({
+        ts: r.created_at,
+        kind: 'subscription',
+        label: `訂閱 ${r.status} (${r.billing_cycle ?? '-'})`,
+        meta: { plan_id: r.plan_id, started_at: r.started_at, expires_at: r.expires_at, canceled_at: r.canceled_at },
+      });
+    }
+    for (const raw of payments) {
+      const r = raw as { created_at: string; amount: number | null; status: string | null; provider_id: string | null };
+      list.push({
+        ts: r.created_at,
+        kind: 'payment',
+        label: `付款 ${r.status} $${r.amount ?? 0}`,
+        meta: { provider_id: r.provider_id },
+      });
+    }
     return list.sort((a, b) => (a.ts < b.ts ? 1 : -1));
   }, [traffic, conversions, subs, payments]);
 
@@ -134,7 +146,7 @@ export default function UserJourney() {
 
   return (
     <CompanyLayout>
-      <SEO title="使用者路徑｜後台分析" />
+      <SEO title="使用者路徑｜後台分析" description="單一使用者事件時間軸，含流量、轉換、訂閱、付款。" />
       <div className="space-y-6">
         <header className="flex items-center justify-between gap-4 flex-wrap">
           <div>
@@ -144,10 +156,7 @@ export default function UserJourney() {
             <h1 className="text-2xl font-semibold tracking-tight">使用者路徑</h1>
             <p className="text-xs text-foreground/60 mt-1 font-mono">{userId}</p>
             {profile && (
-              <p className="text-sm mt-1">
-                {profile.display_name || profile.email || '—'}
-                {profile.email && profile.display_name && <span className="text-foreground/50"> · {profile.email}</span>}
-              </p>
+              <p className="text-sm mt-1">{profile.display_name || '—'}</p>
             )}
           </div>
           <Button variant="outline" size="sm" onClick={() => navigator.clipboard.writeText(userId)}>
