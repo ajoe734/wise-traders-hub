@@ -1,11 +1,13 @@
 // @ts-nocheck
-import React, { useEffect, useMemo, useRef, useState } from 'react';
+import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import ReactDOM from 'react-dom';
-import { Camera, Download, Copy, X as XIcon, Settings, ChevronDown, RotateCcw, FileText, Image as ImageIcon } from 'lucide-react';
+import { Camera, Download, Copy, X as XIcon, Settings, ChevronDown, RotateCcw, FileText, Image as ImageIcon, Undo2, Redo2 } from 'lucide-react';
 import { useHoldingShareExport } from '@/checkup/hooks/useHoldingShareExport';
+import { useSimHistory } from '@/checkup/hooks/useSimHistory';
 import { Sparkline } from '@/pages/_freeCheckup/constants.jsx';
 import { computeScenario, isDirty } from './holdingScenario';
 import HoldingExportCard from './HoldingExportCard';
+import '@/checkup/styles/holdingsDetailPanel.css';
 
 /**
  * HoldingsDetailPanel — 持倉抽屜（One-Page Decision Sheet v2）
