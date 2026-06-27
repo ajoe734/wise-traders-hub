@@ -113,7 +113,7 @@ const Index = () => {
                 style={{ backgroundColor: 'hsl(var(--cta))', color: 'hsl(var(--primary-foreground))' }}
                 className="hover:brightness-110 border-0 shadow-[0_10px_30px_-12px_hsl(var(--cta)/0.65)]"
               >
-                <Link to="/holding-checkup">
+                <Link to="/holding-checkup" data-cta="hero_checkup" data-cta-section="hero">
                   開始看懂我的持股
                   <ArrowRight className="h-4 w-4 ml-2" />
                 </Link>
@@ -124,7 +124,7 @@ const Index = () => {
                 asChild
                 className="bg-transparent border-white/40 text-white hover:bg-white/10 hover:text-white"
               >
-                <Link to="/experts">
+                <Link to="/experts" data-cta="hero_experts" data-cta-section="hero">
                   探索專家
                   <ArrowRight className="h-4 w-4 ml-2" />
                 </Link>
@@ -136,6 +136,8 @@ const Index = () => {
             <div className="mt-2">
               <Link
                 to="/pricing"
+                data-cta="hero_pricing_link"
+                data-cta-section="hero"
                 className="text-xs text-primary-foreground/55 hover:text-primary-foreground/90 underline underline-offset-4"
               >
                 查看方案比較 →
