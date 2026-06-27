@@ -1,3 +1,4 @@
+import { useEffect } from 'react';
 import { Link } from 'react-router-dom';
 import { UnifiedAppLayout } from '@/components/layouts/UnifiedAppLayout';
 import { Badge } from '@/components/ui/badge';
@@ -10,10 +11,13 @@ import {
 } from 'lucide-react';
 import { useMySubscriptions } from '@/hooks/useSubscriptions';
 import { FailedIntentsCard } from '@/pages/_appSubscriptions/FailedIntentsCard';
+import { track } from '@/lib/analytics/events';
 
 export default function SubscribedExpertsList() {
   const { data: subscriptions = [] } = useMySubscriptions();
   const hasAnySubscription = subscriptions.length > 0;
+  useEffect(() => { track('subscribed_experts_view', { count: subscriptions.length }); }, [subscriptions.length]);
+
 
   return (
     <UnifiedAppLayout>

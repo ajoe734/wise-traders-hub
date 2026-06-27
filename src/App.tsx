@@ -163,6 +163,9 @@ const AttributionTracker = () => {
   useAutoPageView();
   useEffect(() => {
     prefetchHighTrafficRoutes();
+    // Delegated CTA click tracking — fires `home_cta_click` (or data-cta-event)
+    // for any element bearing `data-cta` across the app.
+    import('@/lib/analytics/ctaClickListener').then(m => m.installCtaClickListener()).catch(() => {});
   }, []);
   return null;
 };

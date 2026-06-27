@@ -127,7 +127,10 @@ export function WeeklyLimitUpLeaderboard({
                   </p>
                 </div>
                 <Button variant="ghost" size="icon" className="flex-shrink-0" asChild>
-                  <Link to={`/expert/${entry.expertSlug}`}>
+                  <Link
+                    to={`/expert/${entry.expertSlug}`}
+                    onClick={() => trackEvent('leaderboard_card_click', { expert_slug: entry.expertSlug, rank: entry.rank })}
+                  >
                     <ArrowRight className="h-4 w-4" />
                   </Link>
                 </Button>

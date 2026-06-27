@@ -113,7 +113,7 @@ const Index = () => {
                 style={{ backgroundColor: 'hsl(var(--cta))', color: 'hsl(var(--primary-foreground))' }}
                 className="hover:brightness-110 border-0 shadow-[0_10px_30px_-12px_hsl(var(--cta)/0.65)]"
               >
-                <Link to="/holding-checkup">
+                <Link to="/holding-checkup" data-cta="hero_checkup" data-cta-section="hero">
                   開始看懂我的持股
                   <ArrowRight className="h-4 w-4 ml-2" />
                 </Link>
@@ -124,7 +124,7 @@ const Index = () => {
                 asChild
                 className="bg-transparent border-white/40 text-white hover:bg-white/10 hover:text-white"
               >
-                <Link to="/experts">
+                <Link to="/experts" data-cta="hero_experts" data-cta-section="hero">
                   探索專家
                   <ArrowRight className="h-4 w-4 ml-2" />
                 </Link>
@@ -136,6 +136,8 @@ const Index = () => {
             <div className="mt-2">
               <Link
                 to="/pricing"
+                data-cta="hero_pricing_link"
+                data-cta-section="hero"
                 className="text-xs text-primary-foreground/55 hover:text-primary-foreground/90 underline underline-offset-4"
               >
                 查看方案比較 →
@@ -170,7 +172,7 @@ const Index = () => {
               {/* Desktop CTA - Only visible on lg: */}
               <div className="hidden lg:block mt-8">
                 <Button asChild size="lg" className="group">
-                  <Link to="/pricing">
+                  <Link to="/pricing" data-cta="mid_pricing" data-cta-section="mid">
                     查看方案說明
                     <ArrowRight className="w-4 h-4 ml-2 transition-transform group-hover:translate-x-1" />
                   </Link>
@@ -273,7 +275,7 @@ const Index = () => {
               {/* Mobile CTA */}
               <div className="lg:hidden flex justify-center mt-4">
                 <Button asChild size="lg" className="group">
-                  <Link to="/pricing">
+                  <Link to="/pricing" data-cta="mobile_mid_pricing" data-cta-section="mid">
                     查看方案說明
                     <ArrowRight className="w-4 h-4 ml-2 transition-transform group-hover:translate-x-1" />
                   </Link>
@@ -1472,7 +1474,7 @@ const Index = () => {
                     style={{ background: 'hsl(var(--jh-candle))' }}
                     asChild
                   >
-                    <Link to="/holding-checkup">
+                    <Link to="/holding-checkup" data-cta="jianghu_free_trial" data-cta-section="jianghu">
                       免費試用持股卷宗
                       <ArrowRight className="h-4 w-4 ml-2" />
                     </Link>
@@ -1756,7 +1758,7 @@ const Index = () => {
                 }}
                 asChild
               >
-                <Link to="/holding-checkup">
+                <Link to="/holding-checkup" data-cta="warroom_checkup" data-cta-section="warroom">
                   開始持股健檢
                   <ArrowRight className="h-4 w-4 ml-2 warroom-arrow transition-transform" />
                 </Link>
@@ -1844,7 +1846,7 @@ const Index = () => {
                 style={{ background: 'hsl(var(--jh-candle))' }}
                 asChild
               >
-                <Link to="/experts">
+                <Link to="/experts" data-cta="footer_experts" data-cta-section="footer">
                   探索專家
                   <ArrowRight className="h-4 w-4 ml-2" />
                 </Link>
@@ -1860,7 +1862,7 @@ const Index = () => {
                 }}
                 asChild
               >
-                <Link to="/holding-checkup">
+                <Link to="/holding-checkup" data-cta="footer_checkup" data-cta-section="footer">
                   免費健檢
                   <ArrowRight className="h-4 w-4 ml-2" />
                 </Link>
@@ -1869,6 +1871,8 @@ const Index = () => {
             <div className="mt-md">
               <Link
                 to="/auth/register"
+                data-cta="footer_register"
+                data-cta-section="footer"
                 className="text-sm underline underline-offset-4"
                 style={{ color: 'hsl(var(--jh-earth))' }}
               >

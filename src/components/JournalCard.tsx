@@ -6,6 +6,7 @@ import { format, startOfWeek, addDays } from 'date-fns';
 import { zhTW } from 'date-fns/locale';
 import { richHtmlPreview } from '@/components/SafeRichHtml';
 import { avatarUrl } from '@/lib/imageTransform';
+import { track } from '@/lib/analytics/events';
 
 interface JournalSignal {
   id: string;
@@ -48,7 +49,13 @@ export function JournalCard({ weekStart, weekEnd, signals, expert, to }: Journal
     .flatMap(lp => lp!.split('\n').filter(l => l.trim()));
 
   return (
-    <Link to={to}>
+    <Link
+      to={to}
+      onClick={() => track('journal_card_click', {
+        journal_id: signals[0]?.id ?? 'unknown',
+        expert_slug: expert.slug,
+      })}
+    >
       <Card variant="interactive" className="overflow-hidden hover:border-mentor/30">
         <CardContent className="p-4">
           {/* Expert Info */}
