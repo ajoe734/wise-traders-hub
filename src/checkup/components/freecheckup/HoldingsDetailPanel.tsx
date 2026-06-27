@@ -99,11 +99,17 @@ function HoldingsDetailPanelImpl({
   const nextEvent = relatedEvents[0];
 
   // ── 情境模擬 state（每次切換股票重置）──
-  const [sim, setSim] = useState({ target: '', deltaQty: 0, buyMorePrice: '', stopPrice: '' });
+  const simHistory = useSimHistory({ target: '', deltaQty: 0, buyMorePrice: '', stopPrice: '' });
+  const sim = simHistory.state;
+  const setSim = simHistory.set;
   useEffect(() => {
-    setSim({ target: baseTarget ?? '', deltaQty: 0, buyMorePrice: '', stopPrice: '' });
+    simHistory.clear({ target: baseTarget ?? '', deltaQty: 0, buyMorePrice: '', stopPrice: '' });
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [h.code, baseTarget]);
   const simInput = useMemo(() => ({
+    cost: Number(h.cost) || 0,
+    qty: Number(h.qty) || 0,
+    price: Number(h.price) || 0,
     cost: Number(h.cost) || 0,
     qty: Number(h.qty) || 0,
     price: Number(h.price) || 0,
