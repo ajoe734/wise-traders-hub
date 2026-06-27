@@ -161,7 +161,8 @@ function HoldingsDetailPanelImpl({
     const node = exportHostRef.current?.firstElementChild;
     const safeName = (h.name || h.code || 'holding').replace(/[\\/:*?"<>|]/g, '');
     const ymd = new Date().toISOString().slice(0, 10).replace(/-/g, '');
-    const base = `${h.code}-${safeName}-${variant}-${ymd}`;
+    const ratioTag = variant === 'square' ? '1x1' : '16x9';
+    const base = `${h.code}-${safeName}-${ratioTag}-${ymd}`;
     try {
       if (kind === 'png') await downloadPng(node, `${base}.png`);
       else if (kind === 'pdf') await downloadPdf(node, `${base}.pdf`, variant);
@@ -170,6 +171,23 @@ function HoldingsDetailPanelImpl({
       setExportNode(null);
     }
   };
+
+  // 鍵盤快捷鍵：Cmd/Ctrl+Z undo、Cmd/Ctrl+Shift+Z redo。
+  // INPUT/TEXTAREA focus 時讓瀏覽器原生 undo 走，避免干擾輸入。
+  useEffect(() => {
+    if (!selected) return;
+    const onKey = (e: KeyboardEvent) => {
+      const tag = (e.target as HTMLElement)?.tagName;
+      if (tag === 'INPUT' || tag === 'TEXTAREA' || (e.target as HTMLElement)?.isContentEditable) return;
+      const mod = e.metaKey || e.ctrlKey;
+      if (!mod || e.key.toLowerCase() !== 'z') return;
+      e.preventDefault();
+      if (e.shiftKey) simHistory.redo();
+      else simHistory.undo();
+    };
+    window.addEventListener('keydown', onKey);
+    return () => window.removeEventListener('keydown', onKey);
+  }, [selected, simHistory.undo, simHistory.redo]);
 
   // 早期 return 必須在所有 hooks 之後
   if (!selected) return null;
