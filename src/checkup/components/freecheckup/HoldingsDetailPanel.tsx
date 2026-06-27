@@ -274,7 +274,7 @@ function HoldingsDetailPanelImpl({
               )}
             </div>
           </div>
-          <div style={{
+          <div className="holdings-detail-decision" style={{
             background: WB.ink, color: '#F4F1EC', padding: '12px 14px', borderRadius: 3,
             minWidth: 130, display: 'flex', flexDirection: 'column', justifyContent: 'space-between', position: 'relative',
           }}>
