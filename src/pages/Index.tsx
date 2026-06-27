@@ -1758,7 +1758,7 @@ const Index = () => {
                 }}
                 asChild
               >
-                <Link to="/holding-checkup">
+                <Link to="/holding-checkup" data-cta="warroom_checkup" data-cta-section="warroom">
                   開始持股健檢
                   <ArrowRight className="h-4 w-4 ml-2 warroom-arrow transition-transform" />
                 </Link>
