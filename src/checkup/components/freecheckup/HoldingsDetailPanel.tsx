@@ -615,7 +615,7 @@ function menuHeader(WB) {
 
 // ──────────────────── Scenario Sandbox ────────────────────
 
-function ScenarioSandbox({ WB, prefs, setPrefs, sim, setSim, baseTarget, h, scenario, dirty, onReset }) {
+function ScenarioSandbox({ WB, prefs, setPrefs, sim, setSim, baseTarget, h, scenario, dirty, onReset, canUndo, canRedo, onUndo, onRedo }) {
   const open = !!prefs.showSandbox;
   return (
     <div style={{
@@ -637,26 +637,26 @@ function ScenarioSandbox({ WB, prefs, setPrefs, sim, setSim, baseTarget, h, scen
       </button>
       {open && (
         <div style={{ padding: '0 14px 14px' }}>
-          <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 10 }}>
+          <div className="hp-sandbox-fields" style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 10 }}>
             <Field WB={WB} label="TARGET 價" type="number" step="0.01"
-              value={sim.target} onChange={(v) => setSim((s) => ({ ...s, target: v }))}
+              value={sim.target} onChange={(v) => setSim((s) => ({ ...s, target: v }), 'target')}
               placeholder={baseTarget != null ? String(baseTarget) : '—'} />
             <Field WB={WB} label={`Δ 股數（${sim.deltaQty >= 0 ? '加碼' : '減碼'} ${Math.abs(Number(sim.deltaQty) || 0)}）`}>
               <input
                 type="range" min={-Math.max(1, h.qty || 1)} max={Math.max(1, h.qty || 1)} step={Math.max(1, Math.floor((h.qty || 20) / 20))}
                 value={Number(sim.deltaQty) || 0}
-                onChange={(e) => setSim((s) => ({ ...s, deltaQty: Number(e.target.value) }))}
+                onChange={(e) => setSim((s) => ({ ...s, deltaQty: Number(e.target.value) }), 'deltaQty')}
                 style={{ width: '100%' }}
               />
             </Field>
             <Field WB={WB} label="加碼價（選填）" type="number" step="0.01"
-              value={sim.buyMorePrice} onChange={(v) => setSim((s) => ({ ...s, buyMorePrice: v }))} placeholder="—" />
+              value={sim.buyMorePrice} onChange={(v) => setSim((s) => ({ ...s, buyMorePrice: v }), 'buyMorePrice')} placeholder="—" />
             <Field WB={WB} label="停損價（選填）" type="number" step="0.01"
-              value={sim.stopPrice} onChange={(v) => setSim((s) => ({ ...s, stopPrice: v }))} placeholder="—" />
+              value={sim.stopPrice} onChange={(v) => setSim((s) => ({ ...s, stopPrice: v }), 'stopPrice')} placeholder="—" />
           </div>
 
           {/* 即時推算結果 */}
-          <div style={{
+          <div className="hp-sandbox-stats" style={{
             marginTop: 12, padding: '10px 12px', background: WB.surface, borderRadius: 2,
             display: 'grid', gridTemplateColumns: 'repeat(4, 1fr)', gap: 8,
             border: `1px solid ${WB.hair}`,
@@ -669,24 +669,38 @@ function ScenarioSandbox({ WB, prefs, setPrefs, sim, setSim, baseTarget, h, scen
             <Stat WB={WB} label="R : R" value={scenario.riskReward != null ? `1 : ${scenario.riskReward.toFixed(2)}` : '—'} />
           </div>
 
-          <div style={{ marginTop: 10, display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+          <div style={{ marginTop: 10, display: 'flex', justifyContent: 'space-between', alignItems: 'center', flexWrap: 'wrap', gap: 8 }}>
             <span style={{ fontSize: 10, color: WB.inkMute, letterSpacing: '0.04em' }}>
               模擬僅供決策參考，不會寫回資料庫。
             </span>
-            <button onClick={onReset} disabled={!dirty}
-              style={{
-                display: 'inline-flex', alignItems: 'center', gap: 4, padding: '5px 10px',
-                background: 'transparent', border: `1px solid ${WB.hair}`, borderRadius: 2,
-                color: dirty ? WB.ink : WB.inkLight, fontSize: 10, cursor: dirty ? 'pointer' : 'not-allowed',
-                fontFamily: 'inherit', letterSpacing: '0.06em',
-              }}>
-              <RotateCcw size={10} /> 重設
-            </button>
+            <div style={{ display: 'inline-flex', gap: 4 }}>
+              <button onClick={onUndo} disabled={!canUndo} aria-label="Undo (Cmd/Ctrl+Z)" title="Undo (Cmd/Ctrl+Z)"
+                style={historyBtn(WB, canUndo)}>
+                <Undo2 size={11} /> 上一步
+              </button>
+              <button onClick={onRedo} disabled={!canRedo} aria-label="Redo (Cmd/Ctrl+Shift+Z)" title="Redo (Cmd/Ctrl+Shift+Z)"
+                style={historyBtn(WB, canRedo)}>
+                <Redo2 size={11} /> 下一步
+              </button>
+              <button onClick={onReset} disabled={!dirty}
+                style={historyBtn(WB, dirty)}>
+                <RotateCcw size={11} /> 重設
+              </button>
+            </div>
           </div>
         </div>
       )}
     </div>
   );
+}
+
+function historyBtn(WB, enabled) {
+  return {
+    display: 'inline-flex', alignItems: 'center', gap: 4, padding: '5px 10px',
+    background: 'transparent', border: `1px solid ${WB.hair}`, borderRadius: 2,
+    color: enabled ? WB.ink : WB.inkLight, fontSize: 10, cursor: enabled ? 'pointer' : 'not-allowed',
+    fontFamily: 'inherit', letterSpacing: '0.06em',
+  };
 }
 
 function Field({ WB, label, value, onChange, type, step, placeholder, children }) {
