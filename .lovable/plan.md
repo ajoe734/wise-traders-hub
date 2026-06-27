@@ -1,106 +1,114 @@
-## 目標
 
-針對 `HoldingsDetailPanel` 三項升級：手機版型、Sandbox Undo/Redo、匯出選單自動測試。只動前台展示 + 純函式 + 測試，不碰交易/RLS/edge function。
+# 後台分析報表審計（流量 / 點擊 / 轉換）
 
----
-
-## 1. 手機版型優化（≤640px）
-
-問題：MiniChartsRow（3 個 SVG）與 Sandbox 控制（Δqty / 加碼價 / 停損價 / TARGET）在 390px 寬會擠壓 DECISION 卡並超出抽屜可視範圍。
-
-修法（純 CSS + 結構）：
-- 新增 `src/checkup/styles/holdingsDetailPanel.css`（首檔），由 `HoldingsDetailPanel` import。
-- **DECISION 卡 sticky**：在抽屜內容容器加 `holdings-detail-scroll`；DECISION 卡掛 `holdings-detail-decision`，`@media (max-width: 640px)` 設 `position: sticky; top: 0; z-index: 5;`，背景補上 `WB.surface` 避免穿透。
-- **MiniChartsRow 水平 scroll**：≤640px 時改為 `display: flex; overflow-x: auto; scroll-snap-type: x mandatory; -webkit-overflow-scrolling: touch;`，每張圖固定 `min-width: 78vw; scroll-snap-align: start;`。底部加 dot indicator（純 CSS `:target` 不夠用，用既有 React state 即可，三個 dot 監聽 scroll）。
-- **Sandbox 控制橫向滑動**：將 Δqty / 加碼價 / 停損價 / TARGET 4 個 Field 在 ≤640px 改為 `grid-auto-flow: column; grid-auto-columns: 70%; overflow-x: auto; scroll-snap`，桌機維持目前 2×2 grid。
-- 既有 `Stat` 列（均價/PnL%/Upside/R:R）在 ≤640px 改為 2×2 grid（目前為 1×4），避免被滑動帶吃高度。
-- 對 `padding: 12px 14px` 的 DECISION 卡在 sticky 時加 `box-shadow: 0 4px 0 ${WB.surface}` 替代 hard divider，符合 Kore-eda 無陰影憲法（這裡用 surface 同色 mask 不算 shadow）。
-
-驗證：Playwright 跑 `[360, 390, 414]` 三個寬度，斷言：
-- DECISION 卡 `getBoundingClientRect().top` 在抽屜滾動 200px 後仍 ≤ 抽屜 top + 8px（sticky 生效）
-- MiniChartsRow 容器 `scrollWidth > clientWidth`
-- 沒有 horizontal page overflow（`document.documentElement.scrollWidth <= window.innerWidth`）
+我審視了 `/company` 下 5 個分析頁與底層事件埋點，整體骨架完整（traffic / paywall / funnel / revenue 四套都有），但仍有 6 類缺口讓「看數據→做決策」斷裂。下面分「現況」「缺口」「優化方案」三段，最後列出可分階段執行的工單。
 
 ---
 
-## 2. Sandbox Undo/Redo
+## 1. 現況盤點
 
-修法（純前台 state，不持久化）：
-- 在 `HoldingsDetailPanel` 內把 `useState(sim)` 換成 `useSimHistory(initialSim)` 自訂 hook，放在 `src/checkup/hooks/useSimHistory.ts`。
-- API：`{ state, set, reset, undo, redo, canUndo, canRedo, clear }`。內部維護 `past[]` / `future[]`，`set` 寫入時把舊值 push 到 past 並清空 future。
-- **去抖合併**：連續 300ms 內對同一個欄位的輸入合併為一個 history entry（避免拖 slider 產生 50 步歷史）。用 `useRef<{ lastField, lastTs }>`。
-- 上限 50 步，超過丟最舊。
-- 切換持倉時呼叫 `clear()` 並 seed 新 baseTarget（沿用既有 useEffect）。
-- ScenarioSandbox UI：在 reset 按鈕旁加兩顆 ghost button「↶ Undo」「↷ Redo」，`disabled` 對應 `!canUndo / !canRedo`；鍵盤快捷鍵：抽屜聚焦時 `Cmd/Ctrl+Z` undo、`Cmd/Ctrl+Shift+Z` redo（用 `useEffect` 綁 keydown，抽屜關閉時解綁）。
-- 重置按鈕本身也走 history（reset 推進一筆，使用者可 undo 回到調整中狀態）。
+| 頁面 | 角色 | 資料來源 |
+|---|---|---|
+| `/company`（Dashboard） | 全平台 KPI 卡 | 直接 `count(*)`，無趨勢 |
+| `/company/traffic` | 流量總覽 + 自訂漏斗 + 廣告 ROAS | `get_traffic_overview` / `get_funnel_overview` RPC |
+| `/company/funnel-analytics` | 廣告事件漏斗（ViewPricing→Purchase） | `traffic_events` + `paywall_events` |
+| `/company/paywall-analytics` | Paywall 觸發→升級→付款 | `paywall_events` |
+| `/company/revenue` | MRR / 分潤 / 退款 | `payment_transactions` + `revenue_splits` |
 
-測試：`src/test/useSimHistory.test.ts` 涵蓋
-- set/undo/redo 基本流程
-- 300ms debounce 合併同欄位
-- 不同欄位切換立即斷點
-- clear() 清空 past/future
-- 50 步上限滾動丟棄
-- redo 在 set 後被清空
+事件層 (`src/lib/analytics/events.ts`) 已定 80+ 命名事件、GTM 鏡像、auto `page_view`、`PerfMetricsTracker`、`TrackOnVisible`。
 
 ---
 
-## 3. 匯出選單自動測試
+## 2. 缺口（嚴重→次要）
 
-目的：守護「PNG/PDF × 1:1/16:9 × 浮水印 × 時間戳」不會在重構時靜默壞掉（截白、比例錯、缺浮水印）。
+### A. Dashboard 是「靜態快照」，看不到動能
+- 只有當下 count，沒有 WoW / MoM / 趨勢線；
+- MRR、新增/取消、營收都缺「上週同期」對照；
+- 沒有「最近 24 小時 active users / signups / orders」即時欄；
+- 「快捷操作」只是 5 個 link，沒有顯示各模組未處理事項（退款、待匯款、訊號待審）。
 
-分兩層測試：
+### B. 點擊事件覆蓋有破洞
+- `signal_card_click`、`journal_card_click`、`expert_card_click`、`leaderboard_card_click` 都有定義，**但只有部分有實際呼叫**（grep 顯示 leaderboard / journal 多處用 `<Link>` 直接導，沒 wrap track）。
+- `home_cta_click` 只埋了 1-2 個 hero CTA，footer / 中段 CTA、定價頁滑入 CTA 沒事件。
+- App 內部關鍵互動沒事件：`subscribed_experts` 切換、`/app/holdings` 排序變更、`signal_publish` 在後台但「點開 detail 看訊號」沒事件。
+- 結果：funnel 中段（profile→subscribe→checkout）斷層無法歸因。
 
-### 3a. Unit（Vitest，jsdom + mock `html-to-image` / `jspdf`）
-新檔 `src/test/holdingExport.test.tsx`：
-- 渲染 `HoldingExportCard` 兩種 variant，斷言：
-  - DOM 寬高 inline style 為 `1080×1080`（square）/ `1920×1080`（wide）
-  - 含 `legendflow.tw` 字串、含 `stamp` prop 字串、`DECISION` / `RETURN` 標籤存在
-  - `showSimulated` 時顯示 `SIMULATED` 徽章
-- `useHoldingShareExport` 行為（mock `toPng` 回固定 dataURL、mock `jsPDF`）：
-  - `downloadPng` 觸發 `<a download>` click，filename 結尾 `.png`
-  - `downloadPdf('square')` 呼叫 `jsPDF({ format: [210,210] })` 並 addImage 寬高 210×210
-  - `downloadPdf('wide')` 呼叫 `jsPDF({ format: 'a4', orientation: 'landscape' })`，addImage 寬 297、置中（top ≈ 21.47mm）
-  - `copy` 在無 `ClipboardItem` 環境 fallback 到 download
-  - `toPng` 拋錯時 `toast.error` 被呼叫，busy 回到 false
+### C. 轉換報表三套各算各的，沒有「會員→ARPU→Cohort」視角
+- FunnelAnalytics 只看 ViewPricing→Purchase 單一通道；
+- PaywallAnalytics 只看修煉派；
+- 兩者都用 unique actor，**沒 cohort（按註冊週／首次來源分群的留存與付費）**；
+- Revenue 沒「LTV / churn rate / ARPU by source」；
+- 無「廣告活動 → 付費」端到端歸因（Traffic.tsx 有 RoasScatter 但需 `ad_spend` 手動匯入，且沒接 funnel）。
 
-### 3b. E2E（Playwright）
-新檔 `e2e/holdings-export-menu.spec.ts`：
-- 走 `/holding-checkup-demo`，開第一檔持倉抽屜，攔截 `a[download]` click。
-- 測 PNG 路徑：mock `toPng` 為 small valid PNG dataURL（透過 `page.addInitScript` 注入 module spy 不可行，改用 `page.exposeBinding` 觀察 `<a>` 的 href dataURL 開頭 `data:image/png;base64,` 且 base64 解碼後長度 > 0），斷言不是 1×1 空白（檢查 dataURL 長度 > 5KB）。
-- 測 1:1 / 16:9 兩個選項各跑一次，確認 filename 含 `1x1` / `16x9` 標記（順便調整 `HoldingsDetailPanel` 匯出 filename 命名規則明確帶比例）。
-- 斷言抽屜離屏 portal `[data-export-host]` 在點擊後存在 → 截圖完成後移除（避免 leak）。
-- 浮水印：直接讀 `[data-export-host] >>text=legendflow.tw` 在截圖瞬間 visible（用 `page.locator` 在點擊與 toast 間取樣）。
+### D. 無單一用戶 Journey 視圖
+- `useAutoPageView` + `traffic_events` 已存 visitor / user 級時序資料；
+- 但後台沒有「輸入 user_id → 看他完整 session 軌跡」的 drill-down；
+- 客訴與付款失敗排查只能跨表 SQL，反應慢。
 
-為了讓 E2E 可觀察，補上 `data-export-host` / `data-export-variant` data 屬性到 portal 容器與 `HoldingExportCard` 根節點（僅新增屬性，不改視覺）。
+### E. 異常告警只在 Funnel 頁靜態渲染
+- FunnelAnalytics 有「埋點失效告警」、PaywallAnalytics 有 WoW drop 告警，**但沒寫進 `system_alerts` / Email / LINE 推播**；
+- 沒人打開頁面就不會發現；
+- 沒「checkout_submit → checkout_success 同期失敗率 > X%」這類即時護欄。
+
+### F. 效能 / 健康指標沒進主管視圖
+- `PerfMetrics` 頁有 FCP/LCP，但 Dashboard 不顯示；
+- `OpsHealth` / `SystemJobs` / `FunctionLogs` 散在多頁，無「紅黃綠」匯總燈號。
 
 ---
 
-## 技術細節
+## 3. 優化方案（依價值排序）
 
-### 檔案異動
-- 新增
-  - `src/checkup/styles/holdingsDetailPanel.css`
-  - `src/checkup/hooks/useSimHistory.ts`
-  - `src/test/useSimHistory.test.ts`
-  - `src/test/holdingExport.test.tsx`
-  - `e2e/holdings-export-menu.spec.ts`
-- 修改
-  - `src/checkup/components/freecheckup/HoldingsDetailPanel.tsx`：import CSS、換 hook、加 Undo/Redo UI、加快捷鍵、加 `data-export-*` 屬性、加 sticky/scroll className、調整 filename 含比例 tag
-  - `src/checkup/components/freecheckup/HoldingExportCard.tsx`：根節點加 `data-export-card` / `data-variant`
-  - `src/checkup/hooks/useHoldingShareExport.ts`：不動行為，僅 `downloadPng`/`downloadPdf` 預設 filename 帶 variant tag（呼叫端已自管 filename，不影響既有用法）
+### P0 — 一週可上線
+1. **Dashboard v2：加 WoW/MoM + Sparkline + 待辦徽章**
+   - 每張 KPI 卡加「vs 上週 ±X%」與 7 天小折線；
+   - 「快捷操作」改成顯示徽章（`待退款 3｜待匯款 12｜待審訊號 2`）；
+   - 加「24h 即時」一列：新訪客 / 新註冊 / 新訂單 / 失敗付款。
+2. **點擊埋點補完（單一 PR）**
+   - 跑 grep audit，把 `events.ts` 列出但無 call site 的事件全部回填；
+   - 補 `home_cta_click`（hero / mid / footer）、`leaderboard_card_click`、`subscribed_experts_view`、`holdings_sort_change`；
+   - 加 ESLint 規則：`<Link to="/pricing">` 等關鍵 CTA 必須包 `track()` 或 `TrackOnVisible`。
 
-### 不會動
-- `holdingScenario.ts`（純函式已通過 12 測，不重寫）
-- `HoldingsTab.tsx` 對外 props 介面
-- Edge functions、DB、RLS、權限
+### P1 — 兩週
+3. **新增「Conversion Center」聚合頁** `/company/conversions`
+   - 三套漏斗統一（訂閱 / 修煉派 / 學習）並排，可切日期；
+   - 顯示 `traffic_events` → `member_subscriptions` 的 attribution（首次來源、最終來源）；
+   - 加 Cohort 表：按註冊週 × 7/14/30 天付費轉換率。
+4. **User Journey Drill-down**
+   - `/company/users/:userId/journey`：時序列 page_view + 命名事件 + 訂閱/付款/退款事件；
+   - 從 `/company/subscribers` 與 `Members` 加「查 Journey」按鈕。
 
-### 風險與守門
-- Sticky DECISION 在抽屜內若祖先有 `overflow: hidden` 會失效 → 已確認抽屜 scroll container 為 `overflow-y: auto`，加 `holdings-detail-scroll` 即可。
-- horizontal scroll 在 iOS Safari 需 `-webkit-overflow-scrolling: touch` 已含。
-- Undo/Redo 鍵盤事件不能干擾 input 輸入（在 input focus 時略過 `Cmd+Z` 讓瀏覽器原生 undo 走）→ 用 `e.target.tagName` 過濾 INPUT/TEXTAREA。
-- 既有 `e2e/freecheckup-card.spec.ts` 360/380/414 RWD 守門必須持續綠燈。
+### P2 — 一個月
+5. **即時護欄與告警**
+   - `supabase/functions/alerts-watchdog`：每 5 分鐘掃 checkout 失敗率、webhook 失敗率、paywall drop；
+   - 寫入 `system_alerts` + LINE 推播給營運群；
+   - Dashboard 顯示紅黃綠燈號彙整。
+6. **ROAS / LTV 整合**
+   - `ad_spend` × attribution → 計算 CAC、payback、12 週 LTV；
+   - 給每個 utm_campaign 一張卡：花費、訂單、ROAS、首付 ARPU、續訂率。
 
-### 驗證順序
-1. `bunx vitest run src/test/useSimHistory.test.ts src/test/holdingExport.test.ts`
-2. `bunx playwright test e2e/holdings-export-menu.spec.ts e2e/freecheckup-card.spec.ts`
-3. Playwright 手動截圖 360/390/414 三斷點抽屜頂部，目視 DECISION 卡未被遮 + MiniCharts 可滑。
+### P3 — 視需要
+7. **A/B 與 Variant 報表**：已有 `paywall_events.variant` 欄但沒看板；做 surface×variant 升級轉換對照。
+8. **行為熱圖**：補 `get_event_heatmap` 的 GA 風格 daypart × dayofweek 熱圖到 Traffic 頁。
+
+---
+
+## 4. 技術細節（給工程）
+
+- 新增 RPC：
+  - `get_dashboard_overview(_from, _to, _compare_from, _compare_to)` 回傳 KPI 與對照；
+  - `get_cohort_conversion(_cohort_grain, _from, _to)`；
+  - `get_user_journey(_user_id, _from, _to, _limit)`。
+- 新增 edge function：`alerts-watchdog`（cron 5min）。
+- 新增頁面：`src/pages/company/Conversions.tsx`、`UserJourney.tsx`，沿用 `CompanyLayout` 與 lazy `Charts`。
+- 事件補埋只動 frontend；新規則：所有「導向付費路徑」的 `<Link>` / `<Button>` 必須呼叫 `track('xxx_click')`。
+- 不動 `src/integrations/supabase/client.ts` / `types.ts`，新表/RPC 走 migration。
+
+---
+
+## 5. 我建議先做什麼
+
+若只挑兩件：
+1. **Dashboard v2（WoW + Sparkline + 待辦徽章）** — 立即提升每日打開的價值；
+2. **點擊埋點補完 + ESLint 守門** — 讓現有三套 funnel 數字可信，否則後面做 cohort / LTV 都是錯的。
+
+確認後我會先做這兩塊，其餘按 P1→P3 排程推進。
