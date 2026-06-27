@@ -1,116 +1,106 @@
 ## 目標
 
-在現有「One-Page Decision Sheet」上加入：(1) 情境模擬即時更新 upside / 進度條；(2) 三組視覺化（成本 vs 現價、區間位置、佔比貢獻）；(3) 兩種固定比例 PNG/PDF 匯出；(4) 顯示欄位開關與排序（同步左側主清單）。
+針對 `HoldingsDetailPanel` 三項升級：手機版型、Sandbox Undo/Redo、匯出選單自動測試。只動前台展示 + 純函式 + 測試，不碰交易/RLS/edge function。
 
 ---
 
-## 1. 情境模擬區塊（Scenario Sandbox）
+## 1. 手機版型優化（≤640px）
 
-放在 TARGET 進度條與 THESIS 之間，可摺疊（預設收合，避免截圖噪音）。
+問題：MiniChartsRow（3 個 SVG）與 Sandbox 控制（Δqty / 加碼價 / 停損價 / TARGET）在 390px 寬會擠壓 DECISION 卡並超出抽屜可視範圍。
 
-**可調欄位**：
-- `TARGET 價`（number，預設 = avgTarget(code)）
-- `Δ 股數`（slider，-qty ~ +qty，step = max(1, qty/20)）
-- `加碼價`（number，預設空白；填了才參與計算）
-- `停損價`（number，預設空白；填了才畫風險線）
+修法（純 CSS + 結構）：
+- 新增 `src/checkup/styles/holdingsDetailPanel.css`（首檔），由 `HoldingsDetailPanel` import。
+- **DECISION 卡 sticky**：在抽屜內容容器加 `holdings-detail-scroll`；DECISION 卡掛 `holdings-detail-decision`，`@media (max-width: 640px)` 設 `position: sticky; top: 0; z-index: 5;`，背景補上 `WB.surface` 避免穿透。
+- **MiniChartsRow 水平 scroll**：≤640px 時改為 `display: flex; overflow-x: auto; scroll-snap-type: x mandatory; -webkit-overflow-scrolling: touch;`，每張圖固定 `min-width: 78vw; scroll-snap-align: start;`。底部加 dot indicator（純 CSS `:target` 不夠用，用既有 React state 即可，三個 dot 監聽 scroll）。
+- **Sandbox 控制橫向滑動**：將 Δqty / 加碼價 / 停損價 / TARGET 4 個 Field 在 ≤640px 改為 `grid-auto-flow: column; grid-auto-columns: 70%; overflow-x: auto; scroll-snap`，桌機維持目前 2×2 grid。
+- 既有 `Stat` 列（均價/PnL%/Upside/R:R）在 ≤640px 改為 2×2 grid（目前為 1×4），避免被滑動帶吃高度。
+- 對 `padding: 12px 14px` 的 DECISION 卡在 sticky 時加 `box-shadow: 0 4px 0 ${WB.surface}` 替代 hard divider，符合 Kore-eda 無陰影憲法（這裡用 surface 同色 mask 不算 shadow）。
 
-**即時推算**（純前端 useMemo）：
-- 模擬均價 = (cost·qty + 加碼價·max(0,Δqty)) / (qty+max(0,Δqty))；減碼則 cost 不變
-- 模擬數量 = qty + Δqty
-- 模擬市值 = price × 模擬數量
-- 模擬 upside% = (TARGET − price)/price × 100
-- 模擬 PnL% = (price − 模擬均價)/模擬均價 × 100
-- 模擬 risk:reward = (TARGET − price) / max(price − 停損價, ε)
-
-**反映到 UI**：
-- DECISION 卡右上加 `SIMULATED` 細徽章（橘色），action label 不變
-- TARGET 進度條切換為「現價 vs 模擬 TARGET」並標記原 TARGET 為灰色刻度
-- 數字欄位（PnL%、市值、TARGET·upside）切換為「模擬值 → 原值」雙行顯示
-- 一鍵「重設」回原始假設
-
-不寫回任何後端，狀態僅活在抽屜實例內，關閉清空。
+驗證：Playwright 跑 `[360, 390, 414]` 三個寬度，斷言：
+- DECISION 卡 `getBoundingClientRect().top` 在抽屜滾動 200px 後仍 ≤ 抽屜 top + 8px（sticky 生效）
+- MiniChartsRow 容器 `scrollWidth > clientWidth`
+- 沒有 horizontal page overflow（`document.documentElement.scrollWidth <= window.innerWidth`）
 
 ---
 
-## 2. 視覺化比較圖表
+## 2. Sandbox Undo/Redo
 
-在脈絡層下方新增 `MiniChartsRow`，3 個窄圖橫排（≤560px 改直排）：
+修法（純前台 state，不持久化）：
+- 在 `HoldingsDetailPanel` 內把 `useState(sim)` 換成 `useSimHistory(initialSim)` 自訂 hook，放在 `src/checkup/hooks/useSimHistory.ts`。
+- API：`{ state, set, reset, undo, redo, canUndo, canRedo, clear }`。內部維護 `past[]` / `future[]`，`set` 寫入時把舊值 push 到 past 並清空 future。
+- **去抖合併**：連續 300ms 內對同一個欄位的輸入合併為一個 history entry（避免拖 slider 產生 50 步歷史）。用 `useRef<{ lastField, lastTs }>`。
+- 上限 50 步，超過丟最舊。
+- 切換持倉時呼叫 `clear()` 並 seed 新 baseTarget（沿用既有 useEffect）。
+- ScenarioSandbox UI：在 reset 按鈕旁加兩顆 ghost button「↶ Undo」「↷ Redo」，`disabled` 對應 `!canUndo / !canRedo`；鍵盤快捷鍵：抽屜聚焦時 `Cmd/Ctrl+Z` undo、`Cmd/Ctrl+Shift+Z` redo（用 `useEffect` 綁 keydown，抽屜關閉時解綁）。
+- 重置按鈕本身也走 history（reset 推進一筆，使用者可 undo 回到調整中狀態）。
 
-**A. 成本 vs 現價軸**：水平刻度，0 = cost，標記 price、TARGET、停損（若有）、加碼價（若有），用色點 + 細線；下方標 `+x.xx% / −x.xx%`。
-**B. 區間位置條**：30D 區間 low–high 為灰色帶，price 為橘色刻度，cost 為灰色刻度，下方標 `近 30D 位置 xx%`（(price-low)/(high-low)）。
-**C. 佔比甜甜圈**：donut 顯示「此標的占總市值 weightPct%」，外圈剩餘為灰；中心數字 `xx.x%`。模擬模式時內外圈分別顯示「原 / 模擬」雙環。
-
-實作：純 SVG 內嵌，不引第三方圖表庫，沿用 WB tokens。
-
----
-
-## 3. PNG / PDF 匯出
-
-不再依賴 SHARE MODE 開關才能匯出。頂部操作列「分享」按鈕改為下拉選單：
-
-- `1:1 IG（1080×1080 PNG @3x）`
-- `16:9 簡報（1920×1080 PNG @3x）`
-- `1:1 IG PDF`
-- `16:9 簡報 PDF`
-- `複製圖片到剪貼簿`（沿用目前剪貼簿邏輯，使用 1:1）
-
-**渲染方式**：
-- 為匯出建立一個離屏 `<div ref={exportRef}>`（`position:fixed; left:-9999px; pointer-events:none`），照目標比例 fixed width/height 渲染同一份內容（`<HoldingExportCard variant="square|wide" />`），確保截圖時不受瀏覽器寬度影響。
-- `html-to-image` 用 `pixelRatio: 3` 取出 PNG；PDF 用 `jspdf` 把 PNG 以單頁鋪滿頁面（square = 210×210mm 自訂、wide = A4 橫向 297×167mm 置中）。
-- 兩個版面共用同一個 `HoldingExportCard` 元件，差別只在 grid layout（square：兩欄；wide：三欄 + 左側大數）。
-- 兩個版面固定顯示 `legendflow.tw` 浮水印 + 時間戳，不靠 SHARE MODE。
-- 螢幕上的 SHARE MODE 仍保留作為「螢幕內預覽」，但匯出走離屏 canvas，使用者不必先進 SHARE MODE。
-
-依賴：`bun add jspdf`（html-to-image 已安裝）。
+測試：`src/test/useSimHistory.test.ts` 涵蓋
+- set/undo/redo 基本流程
+- 300ms debounce 合併同欄位
+- 不同欄位切換立即斷點
+- clear() 清空 past/future
+- 50 步上限滾動丟棄
+- redo 在 set 後被清空
 
 ---
 
-## 4. 顯示欄位開關 + 排序
+## 3. 匯出選單自動測試
 
-**抽屜頂部新增齒輪選單**（Popover）：
-- Toggle：`THESIS`、`NEXT EVENT`、`區間 / 30D`、`成本 / 數量`、`TARGET 進度條`
-- 偏好寫入 `localStorage('holdingPanel.prefs.v1')`，跨開關記憶
-- 截圖匯出時忠實反映目前開關狀態
+目的：守護「PNG/PDF × 1:1/16:9 × 浮水印 × 時間戳」不會在重構時靜默壞掉（截白、比例錯、缺浮水印）。
 
-**排序**：抽屜頂部加 `排序：佔比 ▾ / 報酬 ▾`，點擊**同步寫回 HoldingsTab 的 `sortBy/sortDir`**（透過 `setSortBy`/`setSortDir` props，這兩個已在 props 中），所以左側主清單與抽屜 prev/next 都改變。
+分兩層測試：
 
-排序鍵：
-- `weight`（依市值 / 總市值；無 totalVal 時 fallback 為 value）
-- `return`（依 `pct`）
-- 沿用既有的方向切換邏輯
+### 3a. Unit（Vitest，jsdom + mock `html-to-image` / `jspdf`）
+新檔 `src/test/holdingExport.test.tsx`：
+- 渲染 `HoldingExportCard` 兩種 variant，斷言：
+  - DOM 寬高 inline style 為 `1080×1080`（square）/ `1920×1080`（wide）
+  - 含 `legendflow.tw` 字串、含 `stamp` prop 字串、`DECISION` / `RETURN` 標籤存在
+  - `showSimulated` 時顯示 `SIMULATED` 徽章
+- `useHoldingShareExport` 行為（mock `toPng` 回固定 dataURL、mock `jsPDF`）：
+  - `downloadPng` 觸發 `<a download>` click，filename 結尾 `.png`
+  - `downloadPdf('square')` 呼叫 `jsPDF({ format: [210,210] })` 並 addImage 寬高 210×210
+  - `downloadPdf('wide')` 呼叫 `jsPDF({ format: 'a4', orientation: 'landscape' })`，addImage 寬 297、置中（top ≈ 21.47mm）
+  - `copy` 在無 `ClipboardItem` 環境 fallback 到 download
+  - `toPng` 拋錯時 `toast.error` 被呼叫，busy 回到 false
 
----
+### 3b. E2E（Playwright）
+新檔 `e2e/holdings-export-menu.spec.ts`：
+- 走 `/holding-checkup-demo`，開第一檔持倉抽屜，攔截 `a[download]` click。
+- 測 PNG 路徑：mock `toPng` 為 small valid PNG dataURL（透過 `page.addInitScript` 注入 module spy 不可行，改用 `page.exposeBinding` 觀察 `<a>` 的 href dataURL 開頭 `data:image/png;base64,` 且 base64 解碼後長度 > 0），斷言不是 1×1 空白（檢查 dataURL 長度 > 5KB）。
+- 測 1:1 / 16:9 兩個選項各跑一次，確認 filename 含 `1x1` / `16x9` 標記（順便調整 `HoldingsDetailPanel` 匯出 filename 命名規則明確帶比例）。
+- 斷言抽屜離屏 portal `[data-export-host]` 在點擊後存在 → 截圖完成後移除（避免 leak）。
+- 浮水印：直接讀 `[data-export-host] >>text=legendflow.tw` 在截圖瞬間 visible（用 `page.locator` 在點擊與 toast 間取樣）。
 
-## 5. 影響檔案（技術細節）
-
-- `src/checkup/components/freecheckup/HoldingsDetailPanel.tsx`
-  - 拆出子元件：`ScenarioSandbox`、`MiniChartsRow`、`HoldingExportCard`、`ExportMenu`、`PrefsMenu`
-  - 新增 state：`sim`（target/Δqty/buyMore/stop）、`prefs`（5 個 toggle）、`exporting`
-- `src/checkup/hooks/useHoldingShareExport.ts`
-  - 新增 `exportPng(node, {ratio, scale})` 與 `exportPdf(node, {ratio})`
-  - 內部處理離屏 mount（接受 `renderInto: (host) => ReactNode` 或直接收已 mount 的 ref）
-- `src/checkup/components/freecheckup/HoldingsTab.tsx`
-  - 把 `sortBy/sortDir/setSortBy/setSortDir` 傳進 `HoldingsDetailPanel`（已有 hook，沿用）
-  - 不改主清單渲染邏輯，僅確保排序 state 共用
-- 新增 dep：`jspdf`
-
----
-
-## 6. QA
-
-- Vitest：`ScenarioSandbox` 公式單測（均價、PnL、upside、r:r）
-- Playwright `e2e/holding-panel-export.spec.ts`：
-  1. 開啟某檔抽屜 → 切換 prefs（隱藏 THESIS） → 截圖驗證消失
-  2. 調整 Δqty 為 +qty → DECISION 卡出現 SIMULATED 徽章、TARGET 進度條變化
-  3. 排序切到「報酬」→ 主清單第一筆與抽屜當前一致
-  4. 匯出 1:1 PNG → 下載觸發（mock `a.click`）、檔名含 code/日期
-  5. 匯出 16:9 PDF → blob 內容 mime = application/pdf
-- 手機回歸：跑既有 `e2e/freecheckup-card.spec.ts`，確保抽屜在 380/390/560px 仍可滾動、不溢出
+為了讓 E2E 可觀察，補上 `data-export-host` / `data-export-variant` data 屬性到 portal 容器與 `HoldingExportCard` 根節點（僅新增屬性，不改視覺）。
 
 ---
 
-## 7. 不在此範圍
+## 技術細節
 
-- 不引入歷史價序列（A 圖只用現有點，不畫 K 線）
-- 不寫回後端假設（不持久化 sim 給其他人看）
-- 不做多檔比較 PDF（單檔單頁）
+### 檔案異動
+- 新增
+  - `src/checkup/styles/holdingsDetailPanel.css`
+  - `src/checkup/hooks/useSimHistory.ts`
+  - `src/test/useSimHistory.test.ts`
+  - `src/test/holdingExport.test.tsx`
+  - `e2e/holdings-export-menu.spec.ts`
+- 修改
+  - `src/checkup/components/freecheckup/HoldingsDetailPanel.tsx`：import CSS、換 hook、加 Undo/Redo UI、加快捷鍵、加 `data-export-*` 屬性、加 sticky/scroll className、調整 filename 含比例 tag
+  - `src/checkup/components/freecheckup/HoldingExportCard.tsx`：根節點加 `data-export-card` / `data-variant`
+  - `src/checkup/hooks/useHoldingShareExport.ts`：不動行為，僅 `downloadPng`/`downloadPdf` 預設 filename 帶 variant tag（呼叫端已自管 filename，不影響既有用法）
+
+### 不會動
+- `holdingScenario.ts`（純函式已通過 12 測，不重寫）
+- `HoldingsTab.tsx` 對外 props 介面
+- Edge functions、DB、RLS、權限
+
+### 風險與守門
+- Sticky DECISION 在抽屜內若祖先有 `overflow: hidden` 會失效 → 已確認抽屜 scroll container 為 `overflow-y: auto`，加 `holdings-detail-scroll` 即可。
+- horizontal scroll 在 iOS Safari 需 `-webkit-overflow-scrolling: touch` 已含。
+- Undo/Redo 鍵盤事件不能干擾 input 輸入（在 input focus 時略過 `Cmd+Z` 讓瀏覽器原生 undo 走）→ 用 `e.target.tagName` 過濾 INPUT/TEXTAREA。
+- 既有 `e2e/freecheckup-card.spec.ts` 360/380/414 RWD 守門必須持續綠燈。
+
+### 驗證順序
+1. `bunx vitest run src/test/useSimHistory.test.ts src/test/holdingExport.test.ts`
+2. `bunx playwright test e2e/holdings-export-menu.spec.ts e2e/freecheckup-card.spec.ts`
+3. Playwright 手動截圖 360/390/414 三斷點抽屜頂部，目視 DECISION 卡未被遮 + MiniCharts 可滑。

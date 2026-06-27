@@ -1,11 +1,13 @@
 // @ts-nocheck
-import React, { useEffect, useMemo, useRef, useState } from 'react';
+import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import ReactDOM from 'react-dom';
-import { Camera, Download, Copy, X as XIcon, Settings, ChevronDown, RotateCcw, FileText, Image as ImageIcon } from 'lucide-react';
+import { Camera, Download, Copy, X as XIcon, Settings, ChevronDown, RotateCcw, FileText, Image as ImageIcon, Undo2, Redo2 } from 'lucide-react';
 import { useHoldingShareExport } from '@/checkup/hooks/useHoldingShareExport';
+import { useSimHistory } from '@/checkup/hooks/useSimHistory';
 import { Sparkline } from '@/pages/_freeCheckup/constants.jsx';
 import { computeScenario, isDirty } from './holdingScenario';
 import HoldingExportCard from './HoldingExportCard';
+import '@/checkup/styles/holdingsDetailPanel.css';
 
 /**
  * HoldingsDetailPanel — 持倉抽屜（One-Page Decision Sheet v2）
@@ -97,9 +99,12 @@ function HoldingsDetailPanelImpl({
   const nextEvent = relatedEvents[0];
 
   // ── 情境模擬 state（每次切換股票重置）──
-  const [sim, setSim] = useState({ target: '', deltaQty: 0, buyMorePrice: '', stopPrice: '' });
+  const simHistory = useSimHistory({ target: '', deltaQty: 0, buyMorePrice: '', stopPrice: '' });
+  const sim = simHistory.state;
+  const setSim = simHistory.set;
   useEffect(() => {
-    setSim({ target: baseTarget ?? '', deltaQty: 0, buyMorePrice: '', stopPrice: '' });
+    simHistory.clear({ target: baseTarget ?? '', deltaQty: 0, buyMorePrice: '', stopPrice: '' });
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [h.code, baseTarget]);
   const simInput = useMemo(() => ({
     cost: Number(h.cost) || 0,
@@ -156,7 +161,8 @@ function HoldingsDetailPanelImpl({
     const node = exportHostRef.current?.firstElementChild;
     const safeName = (h.name || h.code || 'holding').replace(/[\\/:*?"<>|]/g, '');
     const ymd = new Date().toISOString().slice(0, 10).replace(/-/g, '');
-    const base = `${h.code}-${safeName}-${variant}-${ymd}`;
+    const ratioTag = variant === 'square' ? '1x1' : '16x9';
+    const base = `${h.code}-${safeName}-${ratioTag}-${ymd}`;
     try {
       if (kind === 'png') await downloadPng(node, `${base}.png`);
       else if (kind === 'pdf') await downloadPdf(node, `${base}.pdf`, variant);
@@ -165,6 +171,23 @@ function HoldingsDetailPanelImpl({
       setExportNode(null);
     }
   };
+
+  // 鍵盤快捷鍵：Cmd/Ctrl+Z undo、Cmd/Ctrl+Shift+Z redo。
+  // INPUT/TEXTAREA focus 時讓瀏覽器原生 undo 走，避免干擾輸入。
+  useEffect(() => {
+    if (!selected) return;
+    const onKey = (e: KeyboardEvent) => {
+      const tag = (e.target as HTMLElement)?.tagName;
+      if (tag === 'INPUT' || tag === 'TEXTAREA' || (e.target as HTMLElement)?.isContentEditable) return;
+      const mod = e.metaKey || e.ctrlKey;
+      if (!mod || e.key.toLowerCase() !== 'z') return;
+      e.preventDefault();
+      if (e.shiftKey) simHistory.redo();
+      else simHistory.undo();
+    };
+    window.addEventListener('keydown', onKey);
+    return () => window.removeEventListener('keydown', onKey);
+  }, [selected, simHistory.undo, simHistory.redo]);
 
   // 早期 return 必須在所有 hooks 之後
   if (!selected) return null;
@@ -251,7 +274,7 @@ function HoldingsDetailPanelImpl({
               )}
             </div>
           </div>
-          <div style={{
+          <div className="holdings-detail-decision" style={{
             background: WB.ink, color: '#F4F1EC', padding: '12px 14px', borderRadius: 3,
             minWidth: 130, display: 'flex', flexDirection: 'column', justifyContent: 'space-between', position: 'relative',
           }}>
@@ -351,7 +374,9 @@ function HoldingsDetailPanelImpl({
         <ScenarioSandbox
           WB={WB} prefs={prefs} setPrefs={setPrefs}
           sim={sim} setSim={setSim} baseTarget={baseTarget} h={h} scenario={scenario} dirty={dirty}
-          onReset={() => setSim({ target: baseTarget ?? '', deltaQty: 0, buyMorePrice: '', stopPrice: '' })}
+          canUndo={simHistory.canUndo} canRedo={simHistory.canRedo}
+          onUndo={simHistory.undo} onRedo={simHistory.redo}
+          onReset={() => simHistory.reset({ target: baseTarget ?? '', deltaQty: 0, buyMorePrice: '', stopPrice: '' })}
         />
 
         {/* THESIS */}
@@ -423,6 +448,8 @@ function HoldingsDetailPanelImpl({
         <div
           ref={exportHostRef}
           aria-hidden="true"
+          data-export-host
+          data-export-variant={exportNode.variant}
           style={{ position: 'fixed', left: -99999, top: 0, pointerEvents: 'none', zIndex: -1 }}
         >
           <HoldingExportCard variant={exportNode.variant} {...exportCardProps} />
@@ -590,7 +617,7 @@ function menuHeader(WB) {
 
 // ──────────────────── Scenario Sandbox ────────────────────
 
-function ScenarioSandbox({ WB, prefs, setPrefs, sim, setSim, baseTarget, h, scenario, dirty, onReset }) {
+function ScenarioSandbox({ WB, prefs, setPrefs, sim, setSim, baseTarget, h, scenario, dirty, onReset, canUndo, canRedo, onUndo, onRedo }) {
   const open = !!prefs.showSandbox;
   return (
     <div style={{
@@ -612,26 +639,26 @@ function ScenarioSandbox({ WB, prefs, setPrefs, sim, setSim, baseTarget, h, scen
       </button>
       {open && (
         <div style={{ padding: '0 14px 14px' }}>
-          <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 10 }}>
+          <div className="hp-sandbox-fields" style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 10 }}>
             <Field WB={WB} label="TARGET 價" type="number" step="0.01"
-              value={sim.target} onChange={(v) => setSim((s) => ({ ...s, target: v }))}
+              value={sim.target} onChange={(v) => setSim((s) => ({ ...s, target: v }), 'target')}
               placeholder={baseTarget != null ? String(baseTarget) : '—'} />
             <Field WB={WB} label={`Δ 股數（${sim.deltaQty >= 0 ? '加碼' : '減碼'} ${Math.abs(Number(sim.deltaQty) || 0)}）`}>
               <input
                 type="range" min={-Math.max(1, h.qty || 1)} max={Math.max(1, h.qty || 1)} step={Math.max(1, Math.floor((h.qty || 20) / 20))}
                 value={Number(sim.deltaQty) || 0}
-                onChange={(e) => setSim((s) => ({ ...s, deltaQty: Number(e.target.value) }))}
+                onChange={(e) => setSim((s) => ({ ...s, deltaQty: Number(e.target.value) }), 'deltaQty')}
                 style={{ width: '100%' }}
               />
             </Field>
             <Field WB={WB} label="加碼價（選填）" type="number" step="0.01"
-              value={sim.buyMorePrice} onChange={(v) => setSim((s) => ({ ...s, buyMorePrice: v }))} placeholder="—" />
+              value={sim.buyMorePrice} onChange={(v) => setSim((s) => ({ ...s, buyMorePrice: v }), 'buyMorePrice')} placeholder="—" />
             <Field WB={WB} label="停損價（選填）" type="number" step="0.01"
-              value={sim.stopPrice} onChange={(v) => setSim((s) => ({ ...s, stopPrice: v }))} placeholder="—" />
+              value={sim.stopPrice} onChange={(v) => setSim((s) => ({ ...s, stopPrice: v }), 'stopPrice')} placeholder="—" />
           </div>
 
           {/* 即時推算結果 */}
-          <div style={{
+          <div className="hp-sandbox-stats" style={{
             marginTop: 12, padding: '10px 12px', background: WB.surface, borderRadius: 2,
             display: 'grid', gridTemplateColumns: 'repeat(4, 1fr)', gap: 8,
             border: `1px solid ${WB.hair}`,
@@ -644,24 +671,38 @@ function ScenarioSandbox({ WB, prefs, setPrefs, sim, setSim, baseTarget, h, scen
             <Stat WB={WB} label="R : R" value={scenario.riskReward != null ? `1 : ${scenario.riskReward.toFixed(2)}` : '—'} />
           </div>
 
-          <div style={{ marginTop: 10, display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+          <div style={{ marginTop: 10, display: 'flex', justifyContent: 'space-between', alignItems: 'center', flexWrap: 'wrap', gap: 8 }}>
             <span style={{ fontSize: 10, color: WB.inkMute, letterSpacing: '0.04em' }}>
               模擬僅供決策參考，不會寫回資料庫。
             </span>
-            <button onClick={onReset} disabled={!dirty}
-              style={{
-                display: 'inline-flex', alignItems: 'center', gap: 4, padding: '5px 10px',
-                background: 'transparent', border: `1px solid ${WB.hair}`, borderRadius: 2,
-                color: dirty ? WB.ink : WB.inkLight, fontSize: 10, cursor: dirty ? 'pointer' : 'not-allowed',
-                fontFamily: 'inherit', letterSpacing: '0.06em',
-              }}>
-              <RotateCcw size={10} /> 重設
-            </button>
+            <div style={{ display: 'inline-flex', gap: 4 }}>
+              <button onClick={onUndo} disabled={!canUndo} aria-label="Undo (Cmd/Ctrl+Z)" title="Undo (Cmd/Ctrl+Z)"
+                style={historyBtn(WB, canUndo)}>
+                <Undo2 size={11} /> 上一步
+              </button>
+              <button onClick={onRedo} disabled={!canRedo} aria-label="Redo (Cmd/Ctrl+Shift+Z)" title="Redo (Cmd/Ctrl+Shift+Z)"
+                style={historyBtn(WB, canRedo)}>
+                <Redo2 size={11} /> 下一步
+              </button>
+              <button onClick={onReset} disabled={!dirty}
+                style={historyBtn(WB, dirty)}>
+                <RotateCcw size={11} /> 重設
+              </button>
+            </div>
           </div>
         </div>
       )}
     </div>
   );
+}
+
+function historyBtn(WB, enabled) {
+  return {
+    display: 'inline-flex', alignItems: 'center', gap: 4, padding: '5px 10px',
+    background: 'transparent', border: `1px solid ${WB.hair}`, borderRadius: 2,
+    color: enabled ? WB.ink : WB.inkLight, fontSize: 10, cursor: enabled ? 'pointer' : 'not-allowed',
+    fontFamily: 'inherit', letterSpacing: '0.06em',
+  };
 }
 
 function Field({ WB, label, value, onChange, type, step, placeholder, children }) {

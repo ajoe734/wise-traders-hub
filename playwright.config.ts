@@ -185,6 +185,12 @@ export default defineConfig({
       testMatch: /live\/.*\.spec\.ts/,
       use: { ...devices['Desktop Chrome'], viewport: { width: 1280, height: 900 } },
     },
+    {
+      // 持倉抽屜匯出選單（PNG/PDF × 1:1 / 16:9）
+      name: 'desktop-holdings-export-menu',
+      testMatch: /holdings-export-menu\.spec\.ts/,
+      use: { ...devices['Desktop Chrome'], viewport: { width: 1440, height: 900 } },
+    },
 
   ],
   webServer: {
