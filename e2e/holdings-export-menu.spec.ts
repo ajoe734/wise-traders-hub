@@ -45,25 +45,20 @@ test.describe('Holdings export menu', () => {
     await setupDemo(page);
     await installDownloadInterceptor(page);
     await gotoWithRetry(page, ROUTE, { waitUntil: 'domcontentloaded' });
-    // 切到 Holdings tab（demo 預設應已在 holdings，但保險再點一次）
-    const holdingsTab = page.getByRole('button', { name: /持倉|HOLDINGS/i }).first();
-    if (await holdingsTab.isVisible().catch(() => false)) await holdingsTab.click().catch(() => {});
-    // 點第一張持倉卡開抽屜
+    // 等持倉卡 render
     await page.locator('.wb-card').first().waitFor({ state: 'visible', timeout: 15_000 });
     await page.locator('.wb-card').first().click();
-    // 等抽屜內的匯出 summary 出現
-    await page.getByRole('button', { name: /匯出|Export/i }).first().waitFor({ state: 'visible', timeout: 10_000 });
+    // 抽屜內匯出 summary（aria-label="匯出"）
+    await page.locator('summary[aria-label="匯出"]').first().waitFor({ state: 'visible', timeout: 10_000 });
   });
 
   async function runExport(page: Page, optionLabel: RegExp) {
     const beforeCount = await page.evaluate(() => (window as any).__lf_export_downloads.length);
-    // 打開匯出選單
-    await page.getByRole('button', { name: /匯出|Export/i }).first().click();
-    await page.getByRole('button', { name: optionLabel }).click();
-    // 在截圖期間 [data-export-host] 應 mount + 有浮水印（不一定能抓到 transient mount，所以放寬：等 download 出現即可）
+    await page.locator('summary[aria-label="匯出"]').first().click();
+    await page.getByRole('button', { name: optionLabel }).first().click();
     await expect.poll(
       async () => page.evaluate(() => (window as any).__lf_export_downloads.length),
-      { timeout: 8_000 }
+      { timeout: 10_000 }
     ).toBeGreaterThan(beforeCount);
     const last = await page.evaluate(() => {
       const arr = (window as any).__lf_export_downloads;
