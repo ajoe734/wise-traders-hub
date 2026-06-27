@@ -49,7 +49,13 @@ export function JournalCard({ weekStart, weekEnd, signals, expert, to }: Journal
     .flatMap(lp => lp!.split('\n').filter(l => l.trim()));
 
   return (
-    <Link to={to}>
+    <Link
+      to={to}
+      onClick={() => track('journal_card_click', {
+        journal_id: signals[0]?.id ?? 'unknown',
+        expert_slug: expert.slug,
+      })}
+    >
       <Card variant="interactive" className="overflow-hidden hover:border-mentor/30">
         <CardContent className="p-4">
           {/* Expert Info */}
