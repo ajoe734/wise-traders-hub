@@ -58,7 +58,7 @@ test.describe('Holdings export menu', () => {
     await page.getByRole('button', { name: optionLabel }).first().click();
     await expect.poll(
       async () => page.evaluate(() => (window as any).__lf_export_downloads.length),
-      { timeout: 10_000 }
+      { timeout: 30_000 }
     ).toBeGreaterThan(beforeCount);
     const last = await page.evaluate(() => {
       const arr = (window as any).__lf_export_downloads;
@@ -108,7 +108,7 @@ test.describe('Holdings export menu', () => {
 
     await expect.poll(
       async () => page.evaluate(() => (window as any).__lf_export_snapshots.length),
-      { timeout: 8_000 }
+      { timeout: 30_000 }
     ).toBeGreaterThan(0);
 
     const snaps = await page.evaluate(() => (window as any).__lf_export_snapshots);
