@@ -4,7 +4,7 @@ import Placeholder from '@tiptap/extension-placeholder';
 import Link from '@tiptap/extension-link';
 import Image from '@tiptap/extension-image';
 import { cn } from '@/lib/utils';
-import { Bold, Italic, List, ListOrdered, Quote, Heading3, Link as LinkIcon, Undo2, Redo2, Image as ImageIcon, Loader2, CheckCircle2, XCircle, X } from 'lucide-react';
+import { Bold, Italic, List, ListOrdered, Quote, Heading3, Link as LinkIcon, Undo2, Redo2, Image as ImageIcon, Loader2, CheckCircle2, XCircle, X, RotateCcw, Ban } from 'lucide-react';
 import { useCallback, useEffect, useRef, useState } from 'react';
 import { AIAssistMenu, AIAssistMode } from './AIAssistMenu';
 import { supabase } from '@/integrations/supabase/client';
@@ -21,130 +21,157 @@ export interface RichTextEditorProps {
   className?: string;
 }
 
+type UploadStatus = 'uploading' | 'done' | 'failed' | 'cancelled';
 type UploadItem = {
   id: string;
   name: string;
-  status: 'uploading' | 'done' | 'failed';
+  status: UploadStatus;
   error?: string;
+  blob?: Blob;
+  insert?: (publicUrl: string) => void;
+  controller?: AbortController;
 };
 
 export const RichTextEditor = ({ value, onChange, placeholder, minHeight = 100, onAIAssist, aiField, uploadFolder, className }: RichTextEditorProps) => {
   const fileInputRef = useRef<HTMLInputElement>(null);
   const [uploading, setUploading] = useState(false);
   const [uploads, setUploads] = useState<UploadItem[]>([]);
+  // 用 ref 持有最新狀態，避免異步流程拿到舊的 closure
+  const uploadsRef = useRef<UploadItem[]>([]);
+  uploadsRef.current = uploads;
 
   const newId = () => `${Date.now()}-${Math.random().toString(36).slice(2, 7)}`;
-  const pushUpload = (name: string): string => {
-    const id = newId();
-    setUploads((u) => [...u, { id, name, status: 'uploading' }]);
-    return id;
-  };
-  const updateUpload = (id: string, patch: Partial<UploadItem>) => {
+  const setItem = (id: string, patch: Partial<UploadItem>) => {
     setUploads((u) => u.map((x) => (x.id === id ? { ...x, ...patch } : x)));
-    if (patch.status === 'done') {
-      setTimeout(() => setUploads((u) => u.filter((x) => x.id !== id)), 1500);
-    }
   };
-  const dismissUpload = (id: string) => setUploads((u) => u.filter((x) => x.id !== id));
+  const dismissUpload = (id: string) => {
+    const item = uploadsRef.current.find((x) => x.id === id);
+    if (item?.status === 'uploading') item.controller?.abort();
+    setUploads((u) => u.filter((x) => x.id !== id));
+  };
+  const cancelUpload = (id: string) => {
+    const item = uploadsRef.current.find((x) => x.id === id);
+    if (!item || item.status !== 'uploading') return;
+    item.controller?.abort();
+    setItem(id, { status: 'cancelled', error: '已取消' });
+  };
 
-  // 上傳單一 Blob/File，回傳公開 URL；失敗回 null。會自動寫進度面板。
-  const uploadBlob = async (blob: Blob, filename?: string): Promise<string | null> => {
-    const displayName = filename || `image-${Date.now()}.${(blob.type.split('/')[1] || 'png')}`;
-    const id = pushUpload(displayName);
+  // 執行單一上傳；不會插入失敗的圖片到編輯器，由 insert callback 決定如何安放成功的 URL
+  const performUpload = useCallback(async (id: string) => {
+    const current = uploadsRef.current.find((x) => x.id === id);
+    if (!current || !current.blob) return;
+    const blob = current.blob;
+    const name = current.name;
+
     if (!uploadFolder) {
-      updateUpload(id, { status: 'failed', error: '尚未指定上傳資料夾' });
-      toast.error('尚未指定上傳資料夾');
-      return null;
+      setItem(id, { status: 'failed', error: '尚未指定上傳資料夾' });
+      return;
     }
     if (!blob.type.startsWith('image/')) {
-      updateUpload(id, { status: 'failed', error: '只能上傳圖片' });
-      toast.error('只能上傳圖片');
-      return null;
+      setItem(id, { status: 'failed', error: '只能上傳圖片' });
+      return;
     }
     if (blob.size > 5 * 1024 * 1024) {
-      updateUpload(id, { status: 'failed', error: '超過 5MB' });
-      toast.error('圖片不能超過 5MB');
-      return null;
+      setItem(id, { status: 'failed', error: '超過 5MB' });
+      return;
     }
-    const ext = (filename?.split('.').pop() || blob.type.split('/')[1] || 'png').toLowerCase();
+
+    const ext = (name.split('.').pop() || blob.type.split('/')[1] || 'png').toLowerCase();
     const path = `${uploadFolder}/${Date.now()}-${Math.random().toString(36).slice(2, 8)}.${ext}`;
-    const { error } = await supabase.storage.from('signal-media').upload(path, blob, { upsert: false, contentType: blob.type });
-    if (error) {
-      updateUpload(id, { status: 'failed', error: error.message });
-      toast.error(`上傳失敗：${error.message}`);
-      return null;
-    }
-    const { data: pub } = supabase.storage.from('signal-media').getPublicUrl(path);
-    updateUpload(id, { status: 'done' });
-    return pub?.publicUrl || null;
-  };
-
-  const blobUrlToPublic = async (blobUrl: string): Promise<string | null> => {
-    try {
-      const res = await fetch(blobUrl);
-      const b = await res.blob();
-      return await uploadBlob(b);
-    } catch (e: any) {
-      toast.error(`無法讀取 blob 圖片：${e?.message || e}`);
-      return null;
-    }
-  };
-
-  // 把編輯器內所有 blob: image 換成公開 URL；用 transaction 直接改 attrs 以保留游標位置
-  const replaceBlobImagesInDoc = useCallback(async (ed: any) => {
-    if (!ed) return;
-    // 收集 (由後往前處理，刪節點時前面位置不會位移)
-    const collect = () => {
-      const arr: Array<{ pos: number; src: string; size: number }> = [];
-      ed.state.doc.descendants((node: any, pos: number) => {
-        if (node.type.name === 'image' && typeof node.attrs.src === 'string' && node.attrs.src.startsWith('blob:')) {
-          arr.push({ pos, src: node.attrs.src, size: node.nodeSize });
-        }
-      });
-      return arr.reverse();
-    };
-    const tasks = collect();
-    if (!tasks.length) return;
     setUploading(true);
     try {
-      for (const t of tasks) {
-        const publicUrl = await blobUrlToPublic(t.src);
-        // 重新定位該節點：blob src 唯一
-        let currentPos = -1;
-        let currentSize = 0;
-        let currentAttrs: any = null;
-        ed.state.doc.descendants((node: any, pos: number) => {
-          if (currentPos !== -1) return false;
-          if (node.type.name === 'image' && node.attrs.src === t.src) {
-            currentPos = pos;
-            currentSize = node.nodeSize;
-            currentAttrs = node.attrs;
-            return false;
-          }
-        });
-        if (currentPos === -1) continue;
-        const tr = ed.state.tr;
-        const sel = ed.state.selection;
-        if (publicUrl) {
-          tr.setNodeMarkup(currentPos, undefined, { ...currentAttrs, src: publicUrl });
-        } else {
-          tr.delete(currentPos, currentPos + currentSize);
-        }
-        tr.setMeta('addToHistory', false);
-        ed.view.dispatch(tr);
-        // 還原 selection（如果還合法）
-        try {
-          const { from, to } = sel;
-          const docSize = ed.state.doc.content.size;
-          if (from <= docSize && to <= docSize) {
-            ed.commands.setTextSelection({ from: Math.min(from, docSize), to: Math.min(to, docSize) });
-          }
-        } catch {}
+      const { error } = await supabase.storage.from('signal-media').upload(path, blob, { upsert: false, contentType: blob.type });
+      // 上傳途中若已被取消，忽略結果
+      const after = uploadsRef.current.find((x) => x.id === id);
+      if (!after || after.status === 'cancelled') return;
+      if (error) {
+        setItem(id, { status: 'failed', error: error.message });
+        return;
       }
+      const { data: pub } = supabase.storage.from('signal-media').getPublicUrl(path);
+      const publicUrl = pub?.publicUrl;
+      if (!publicUrl) {
+        setItem(id, { status: 'failed', error: '取得公開網址失敗' });
+        return;
+      }
+      try { current.insert?.(publicUrl); } catch (e: any) {
+        setItem(id, { status: 'failed', error: e?.message || '插入失敗' });
+        return;
+      }
+      setItem(id, { status: 'done' });
+      setTimeout(() => setUploads((u) => u.filter((x) => x.id !== id)), 1500);
+    } catch (e: any) {
+      const after = uploadsRef.current.find((x) => x.id === id);
+      if (after?.status === 'cancelled') return;
+      setItem(id, { status: 'failed', error: e?.message || String(e) });
     } finally {
       setUploading(false);
     }
   }, [uploadFolder]);
+
+  const retryUpload = useCallback((id: string) => {
+    setUploads((u) => u.map((x) => (x.id === id ? { ...x, status: 'uploading', error: undefined, controller: new AbortController() } : x)));
+    // 等下一個 tick，讓 ref 同步後再跑
+    setTimeout(() => performUpload(id), 0);
+  }, [performUpload]);
+
+  // 排入新上傳並立刻執行
+  const enqueueUpload = useCallback((blob: Blob, filename: string | undefined, insert: (url: string) => void) => {
+    const displayName = filename || `image-${Date.now()}.${(blob.type.split('/')[1] || 'png')}`;
+    const id = newId();
+    const item: UploadItem = {
+      id, name: displayName, status: 'uploading', blob, insert,
+      controller: new AbortController(),
+    };
+    setUploads((u) => [...u, item]);
+    setTimeout(() => performUpload(id), 0);
+    return id;
+  }, [performUpload]);
+
+  // 把編輯器內所有 blob: image 換成公開 URL（保留游標位置；失敗或取消時保留 blob 圖以便重試）
+  const replaceBlobImagesInDoc = useCallback((ed: any) => {
+    if (!ed) return;
+    const arr: Array<{ src: string }> = [];
+    ed.state.doc.descendants((node: any) => {
+      if (node.type.name === 'image' && typeof node.attrs.src === 'string' && node.attrs.src.startsWith('blob:')) {
+        arr.push({ src: node.attrs.src });
+      }
+    });
+    if (!arr.length) return;
+
+    const makeInsert = (blobSrc: string) => (publicUrl: string) => {
+      if (!ed) return;
+      let foundPos = -1;
+      let foundAttrs: any = null;
+      ed.state.doc.descendants((node: any, pos: number) => {
+        if (foundPos !== -1) return false;
+        if (node.type.name === 'image' && node.attrs.src === blobSrc) {
+          foundPos = pos; foundAttrs = node.attrs; return false;
+        }
+      });
+      if (foundPos === -1) return;
+      const sel = ed.state.selection;
+      const tr = ed.state.tr.setNodeMarkup(foundPos, undefined, { ...foundAttrs, src: publicUrl });
+      tr.setMeta('addToHistory', false);
+      ed.view.dispatch(tr);
+      try {
+        const docSize = ed.state.doc.content.size;
+        ed.commands.setTextSelection({ from: Math.min(sel.from, docSize), to: Math.min(sel.to, docSize) });
+      } catch {}
+    };
+
+    (async () => {
+      for (const t of arr) {
+        try {
+          const res = await fetch(t.src);
+          const b = await res.blob();
+          enqueueUpload(b, undefined, makeInsert(t.src));
+        } catch (e: any) {
+          toast.error(`無法讀取 blob 圖片：${e?.message || e}`);
+        }
+      }
+    })();
+  }, [enqueueUpload]);
 
   const editor = useEditor({
     extensions: [
@@ -170,21 +197,15 @@ export const RichTextEditor = ({ value, onChange, placeholder, minHeight = 100, 
         if (files.length) {
           event.preventDefault();
           const insertPos = view.state.selection.from;
-          (async () => {
-            setUploading(true);
-            try {
-              let cursor = insertPos;
-              for (const f of files) {
-                const url = await uploadBlob(f, f.name);
-                if (url && editor) {
-                  const docSize = editor.state.doc.content.size;
-                  const at = Math.min(cursor, docSize);
-                  editor.chain().insertContentAt(at, { type: 'image', attrs: { src: url, alt: f.name } }).run();
-                  cursor = editor.state.selection.from;
-                }
-              }
-            } finally { setUploading(false); }
-          })();
+          for (const f of files) {
+            const pos = insertPos;
+            enqueueUpload(f, f.name, (url) => {
+              if (!editor) return;
+              const docSize = editor.state.doc.content.size;
+              const at = Math.min(pos, docSize);
+              editor.chain().insertContentAt(at, { type: 'image', attrs: { src: url, alt: f.name } }).run();
+            });
+          }
           return true;
         }
         const html = cd.getData('text/html');
@@ -199,24 +220,17 @@ export const RichTextEditor = ({ value, onChange, placeholder, minHeight = 100, 
         const files = Array.from(dt?.files || []).filter((f) => f.type.startsWith('image/'));
         if (!files.length) return false;
         event.preventDefault();
-        // 拖放點對應的編輯器位置
         const coords = { left: (event as DragEvent).clientX, top: (event as DragEvent).clientY };
         const dropPos = view.posAtCoords(coords)?.pos ?? view.state.selection.from;
-        (async () => {
-          setUploading(true);
-          try {
-            let cursor = dropPos;
-            for (const f of files) {
-              const url = await uploadBlob(f, f.name);
-              if (url && editor) {
-                const docSize = editor.state.doc.content.size;
-                const at = Math.min(cursor, docSize);
-                editor.chain().insertContentAt(at, { type: 'image', attrs: { src: url, alt: f.name } }).run();
-                cursor = editor.state.selection.from;
-              }
-            }
-          } finally { setUploading(false); }
-        })();
+        for (const f of files) {
+          const pos = dropPos;
+          enqueueUpload(f, f.name, (url) => {
+            if (!editor) return;
+            const docSize = editor.state.doc.content.size;
+            const at = Math.min(pos, docSize);
+            editor.chain().insertContentAt(at, { type: 'image', attrs: { src: url, alt: f.name } }).run();
+          });
+        }
         return true;
       },
     },
@@ -244,19 +258,14 @@ export const RichTextEditor = ({ value, onChange, placeholder, minHeight = 100, 
     if (html) editor.commands.setContent(html);
   };
 
-  const handleImageUpload = async (file: File) => {
-    setUploading(true);
-    try {
-      const insertPos = editor.state.selection.from;
-      const url = await uploadBlob(file, file.name);
-      if (url) {
-        const docSize = editor.state.doc.content.size;
-        const at = Math.min(insertPos, docSize);
-        editor.chain().focus().insertContentAt(at, { type: 'image', attrs: { src: url, alt: file.name } }).run();
-      }
-    } finally {
-      setUploading(false);
-    }
+  const handleImageUpload = (file: File) => {
+    const insertPos = editor.state.selection.from;
+    enqueueUpload(file, file.name, (url) => {
+      if (!editor) return;
+      const docSize = editor.state.doc.content.size;
+      const at = Math.min(insertPos, docSize);
+      editor.chain().insertContentAt(at, { type: 'image', attrs: { src: url, alt: file.name } }).run();
+    });
   };
 
   const ToolbarBtn = ({ active, onClick, children, title }: any) => (
@@ -349,17 +358,44 @@ export const RichTextEditor = ({ value, onChange, placeholder, minHeight = 100, 
               {u.status === 'uploading' && <Loader2 className="h-3.5 w-3.5 animate-spin text-muted-foreground shrink-0" />}
               {u.status === 'done' && <CheckCircle2 className="h-3.5 w-3.5 text-emerald-600 shrink-0" />}
               {u.status === 'failed' && <XCircle className="h-3.5 w-3.5 text-destructive shrink-0" />}
+              {u.status === 'cancelled' && <Ban className="h-3.5 w-3.5 text-muted-foreground shrink-0" />}
               <span className="truncate flex-1" title={u.name}>{u.name}</span>
               <span className={cn(
                 'shrink-0',
                 u.status === 'uploading' && 'text-muted-foreground',
                 u.status === 'done' && 'text-emerald-600',
                 u.status === 'failed' && 'text-destructive',
+                u.status === 'cancelled' && 'text-muted-foreground',
               )}>
                 {u.status === 'uploading' && '上傳中…'}
                 {u.status === 'done' && '完成'}
                 {u.status === 'failed' && (u.error || '失敗')}
+                {u.status === 'cancelled' && '已取消'}
               </span>
+              {u.status === 'uploading' && (
+                <button
+                  type="button"
+                  onClick={() => cancelUpload(u.id)}
+                  className="text-muted-foreground hover:text-foreground inline-flex items-center gap-0.5 px-1 py-0.5 rounded hover:bg-muted"
+                  aria-label="取消上傳"
+                  title="取消上傳"
+                >
+                  <Ban className="h-3 w-3" />
+                  <span>取消</span>
+                </button>
+              )}
+              {(u.status === 'failed' || u.status === 'cancelled') && u.blob && (
+                <button
+                  type="button"
+                  onClick={() => retryUpload(u.id)}
+                  className="text-foreground inline-flex items-center gap-0.5 px-1 py-0.5 rounded hover:bg-muted"
+                  aria-label="重試上傳"
+                  title="重試上傳"
+                >
+                  <RotateCcw className="h-3 w-3" />
+                  <span>重試</span>
+                </button>
+              )}
               {u.status !== 'uploading' && (
                 <button
                   type="button"
