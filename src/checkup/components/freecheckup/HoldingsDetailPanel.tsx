@@ -374,7 +374,9 @@ function HoldingsDetailPanelImpl({
         <ScenarioSandbox
           WB={WB} prefs={prefs} setPrefs={setPrefs}
           sim={sim} setSim={setSim} baseTarget={baseTarget} h={h} scenario={scenario} dirty={dirty}
-          onReset={() => setSim({ target: baseTarget ?? '', deltaQty: 0, buyMorePrice: '', stopPrice: '' })}
+          canUndo={simHistory.canUndo} canRedo={simHistory.canRedo}
+          onUndo={simHistory.undo} onRedo={simHistory.redo}
+          onReset={() => simHistory.reset({ target: baseTarget ?? '', deltaQty: 0, buyMorePrice: '', stopPrice: '' })}
         />
 
         {/* THESIS */}
