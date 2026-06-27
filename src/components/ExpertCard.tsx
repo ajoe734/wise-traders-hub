@@ -69,10 +69,18 @@ export function ExpertCard({ person }: ExpertCardProps) {
         </div>
         <div className="border-t dark:border-white/10 bg-muted/30 dark:bg-white/[0.03] p-4 flex gap-2">
           <Button variant="outline" size="sm" className="flex-1" asChild>
-            <Link to={`/expert/${person.slug}`} {...intentHandlers('expert-profile')}>查看介紹</Link>
+            <Link
+              to={`/expert/${person.slug}`}
+              {...intentHandlers('expert-profile')}
+              onClick={() => track('expert_card_click', { expert_slug: person.slug })}
+            >查看介紹</Link>
           </Button>
           <Button variant={isAdv ? 'advisor' : 'mentor'} size="sm" className="flex-1" asChild>
-            <Link to={`/expert/${person.slug}#plans`} {...intentHandlers('expert-profile')}>查看方案</Link>
+            <Link
+              to={`/expert/${person.slug}#plans`}
+              {...intentHandlers('expert-profile')}
+              onClick={() => track('expert_card_click', { expert_slug: person.slug })}
+            >查看方案</Link>
           </Button>
         </div>
       </CardContent>
