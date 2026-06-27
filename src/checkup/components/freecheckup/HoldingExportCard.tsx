@@ -44,7 +44,10 @@ export default function HoldingExportCard({
   );
 
   return (
-    <div style={{
+    <div
+      data-export-card
+      data-variant={variant}
+      style={{
       width: W, height: H, background: WB.surface, color: WB.ink,
       fontFamily: FONT_STACK, padding: `${padY}px ${padX}px`,
       boxSizing: 'border-box', display: 'flex', flexDirection: 'column',
