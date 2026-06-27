@@ -448,6 +448,8 @@ function HoldingsDetailPanelImpl({
         <div
           ref={exportHostRef}
           aria-hidden="true"
+          data-export-host
+          data-export-variant={exportNode.variant}
           style={{ position: 'fixed', left: -99999, top: 0, pointerEvents: 'none', zIndex: -1 }}
         >
           <HoldingExportCard variant={exportNode.variant} {...exportCardProps} />
