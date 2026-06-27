@@ -103,8 +103,8 @@ test.describe('Holdings export menu', () => {
       (window as any).__lf_export_obs = obs;
     });
 
-    await page.getByRole('button', { name: /匯出|Export/i }).first().click();
-    await page.getByRole('button', { name: /1:1\s*IG/ }).click();
+    await page.locator('summary[aria-label="匯出"]').first().click();
+    await page.getByRole('button', { name: /1:1\s*IG/ }).first().click();
 
     await expect.poll(
       async () => page.evaluate(() => (window as any).__lf_export_snapshots.length),
