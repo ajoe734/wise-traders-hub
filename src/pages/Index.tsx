@@ -1846,7 +1846,7 @@ const Index = () => {
                 style={{ background: 'hsl(var(--jh-candle))' }}
                 asChild
               >
-                <Link to="/experts">
+                <Link to="/experts" data-cta="footer_experts" data-cta-section="footer">
                   探索專家
                   <ArrowRight className="h-4 w-4 ml-2" />
                 </Link>
@@ -1862,7 +1862,7 @@ const Index = () => {
                 }}
                 asChild
               >
-                <Link to="/holding-checkup">
+                <Link to="/holding-checkup" data-cta="footer_checkup" data-cta-section="footer">
                   免費健檢
                   <ArrowRight className="h-4 w-4 ml-2" />
                 </Link>
@@ -1871,6 +1871,8 @@ const Index = () => {
             <div className="mt-md">
               <Link
                 to="/auth/register"
+                data-cta="footer_register"
+                data-cta-section="footer"
                 className="text-sm underline underline-offset-4"
                 style={{ color: 'hsl(var(--jh-earth))' }}
               >
