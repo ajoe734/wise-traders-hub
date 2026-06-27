@@ -84,8 +84,8 @@ function num(v: any): number {
 export function isDirty(input: ScenarioInput, originalTarget: number | null): boolean {
   const delta = Number(input.deltaQty) || 0;
   if (delta !== 0) return true;
-  if (input.buyMorePrice != null && input.buyMorePrice !== '') return true;
-  if (input.stopPrice != null && input.stopPrice !== '') return true;
+  if (input.buyMorePrice != null && (input.buyMorePrice as any) !== '') return true;
+  if (input.stopPrice != null && (input.stopPrice as any) !== '') return true;
   if (input.target != null && originalTarget != null && Number(input.target) !== Number(originalTarget)) return true;
   return false;
 }
