@@ -340,6 +340,8 @@ function HoldingsTab(props) {
               WB={WB}
               setExpandedDecision={setExpandedDecision}
               openHoldingDrawer={openHoldingDrawer}
+              totalPortfolioValue={props.totalVal || 0}
+              sparkData30D={selected ? (sparklines?.[selected.code] || []) : []}
             />
           </Suspense>
         );
