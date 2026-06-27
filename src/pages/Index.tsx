@@ -1474,7 +1474,7 @@ const Index = () => {
                     style={{ background: 'hsl(var(--jh-candle))' }}
                     asChild
                   >
-                    <Link to="/holding-checkup">
+                    <Link to="/holding-checkup" data-cta="jianghu_free_trial" data-cta-section="jianghu">
                       免費試用持股卷宗
                       <ArrowRight className="h-4 w-4 ml-2" />
                     </Link>
