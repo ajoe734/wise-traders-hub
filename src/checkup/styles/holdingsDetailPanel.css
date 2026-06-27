@@ -1,0 +1,63 @@
+/* HoldingsDetailPanel — 持倉抽屜手機優化。
+ * 設計憲法：Kore-eda 極簡、無陰影、surface 同色 mask 替代 hard divider。
+ * 守門：對應 e2e/holdings-export-menu.spec.ts 及目視 360/390/414 斷點。
+ */
+
+/* ====== 手機（≤640px）：DECISION sticky + Sandbox/Chart 橫滑 ====== */
+@media (max-width: 640px) {
+  .holdings-detail-decision {
+    position: sticky;
+    top: 0;
+    z-index: 5;
+    /* 用 surface 同色 mask 替代 box-shadow，符合無陰影憲法 */
+    margin-left: -22px;
+    margin-right: -22px;
+    padding-left: 22px !important;
+    padding-right: 22px !important;
+    border-radius: 0 !important;
+  }
+  /* MiniChartsRow 水平 scroll */
+  .hp-charts-row {
+    display: flex !important;
+    grid-template-columns: none !important;
+    overflow-x: auto;
+    scroll-snap-type: x mandatory;
+    -webkit-overflow-scrolling: touch;
+    gap: 8px !important;
+    margin-left: -22px;
+    margin-right: -22px;
+    padding: 0 22px 4px;
+    scrollbar-width: none;
+  }
+  .hp-charts-row::-webkit-scrollbar { display: none; }
+  .hp-charts-row > * {
+    flex: 0 0 auto;
+    min-width: 82vw;
+    max-width: 82vw;
+    scroll-snap-align: start;
+  }
+
+  /* Sandbox：4 個 Field 橫向滑動 */
+  .hp-sandbox-fields {
+    display: grid !important;
+    grid-template-columns: none !important;
+    grid-auto-flow: column;
+    grid-auto-columns: 72%;
+    overflow-x: auto;
+    scroll-snap-type: x mandatory;
+    -webkit-overflow-scrolling: touch;
+    gap: 10px !important;
+    margin-left: -14px;
+    margin-right: -14px;
+    padding: 0 14px 4px;
+    scrollbar-width: none;
+  }
+  .hp-sandbox-fields::-webkit-scrollbar { display: none; }
+  .hp-sandbox-fields > * { scroll-snap-align: start; }
+
+  /* Stat 4 欄變 2×2 */
+  .hp-sandbox-stats {
+    grid-template-columns: repeat(2, 1fr) !important;
+    row-gap: 10px !important;
+  }
+}
