@@ -1,56 +1,114 @@
-## 真正的根因（重新查證後）
 
-剛剛說「忘了 grant」是錯的。重新查 DB：
+# 個股抽屜優化：從「資訊面板」升級為「可分享的一頁紙」
 
-1. `payment_providers` base table 只有一條 RLS policy：
-   ```
-   Company admins full access providers — USING (has_role(auth.uid(), 'company_admin'))
-   ```
-   完全沒有給一般 authenticated / anon 的 SELECT policy。
-2. `payment_providers_safe` 是 view，建立時用 `security_invoker = true`（依專案 `safeViewAccess.ts` 註解），所以讀取時會帶上呼叫者身份去套 base table RLS → 一般使用者讀到 0 列。
-3. 同時 view 對 `authenticated` / `anon` 也沒有 GRANT。
+## 現況問題（我看到的）
 
-→ 結果：
-- `edwillam1007@gmail.com`（普通會員）登入 `/checkout` → `providers = []` → 顯示「尚未設定可用的付款方式」。
-- 「另一個可以付款的帳號」一定是 **company_admin 角色**（你或內部測試帳號），因為唯一 SELECT policy 只放 admin 過關。
+目前 `HoldingsDetailPanel.tsx` 內容只有 7 塊：頂部 nav、code/name、PnL 大數、DECISION 黑盒、急迫度五點、TARGET 進度條、事件時程、研究筆記按鈕。問題：
 
-這也跟現有測試 `1.35-rls-security-audit.test.ts` 的 G 段「`payment_providers_safe` 視圖仍可 anon 讀取」對不上 — 那個測試其實只驗證「不會 error」，並沒有 assert 拿到列數，所以漏掉這個 regression。
+1. **沒有截圖的「畫面焦點」**：頂部 nav `< > ×` 和「持倉細節」灰字會跟著被截進去，破壞美感。
+2. **資訊密度被壓在中段**：成本/現價/數量、買進日、持有天數、波段最高/最低、目前佔比、產業 thesis 全都散落在卡片或根本沒出現。
+3. **缺少「故事性」**：沒有買進理由 vs 現況對照、沒有 thesis 句、沒有迷你價格走勢圖。讀者截圖貼到 LINE / 社群時看不出「為什麼這檔有戲」。
+4. **品牌缺席**：截圖完全沒有 legendflow 浮水印與日期戳，分享出去無法回流。
 
-## 修正計畫
+## 優化方向
 
-### 1. Migration：讓 `payment_providers_safe` 真的對前台可讀
+### 一、資訊架構重整（一頁紙九宮格）
 
-view 已經把敏感欄位 `config` 去掉，是設計給前台讀的。改成 security definer 走 owner 權限，並補 GRANT：
+抽屜寬度維持現狀，但內容重排為三層：
 
-```sql
--- 重建 view 為 security_invoker=false（以 owner postgres bypass base table RLS）
-CREATE OR REPLACE VIEW public.payment_providers_safe
-WITH (security_invoker = false) AS
-SELECT id, provider_type, display_name, is_active, is_default,
-       COALESCE(NULLIF(config->>'env',''), NULLIF(config->>'mode',''), 'production') AS env,
-       created_at
-  FROM public.payment_providers
- WHERE is_active = true;   -- 只暴露 active，避免列舉非啟用 provider
-
-GRANT SELECT ON public.payment_providers_safe TO anon, authenticated;
+```text
+┌─────────────────────────────────────────┐
+│ [Share Mode 切換]              [‹ ›][×] │  ← 操作層（截圖時自動隱藏）
+├─────────────────────────────────────────┤
+│ 2330 台積電  ·  半導體 / 護國神山      │  ← 識別層
+│ ████████████████  Sparkline 30D ████   │
+│                                         │
+│  +18.42%          DECISION              │  ← 焦點層
+│  +92,100          ─────────             │
+│  VALUE 591,200    HOLD                  │
+│  ────────────     論點完整 · 信心高     │
+│  成本 535 → 633   急迫度 ●●○○○         │
+├─────────────────────────────────────────┤
+│ 持有 42 天  ·  佔比 18%  ·  買進 9/15  │  ← 脈絡層
+│ 區間 512 ─ 658   目標 720 (+13.7%)     │
+│                                         │
+│ THESIS                                  │
+│ "AI 伺服器拉貨延續到 Q2，先進製程       │
+│  漲價已落地。"                          │
+│                                         │
+│ NEXT EVENT  · 4/18                      │
+│ Q1 法說會，看 HPC 營收與 CoWoS 產能     │
+├─────────────────────────────────────────┤
+│ legendflow.tw  ·  2026/06/27 14:32     │  ← 浮水印（截圖時顯示）
+└─────────────────────────────────────────┘
 ```
 
-保留 base table 的 admin-only policy 不動 → `config` 仍然只有 admin / service_role 看得到，安全姿態不變。
+新增欄位（資料皆已存在 holdings / decisions / events，不用改 schema）：
+- 持有天數（從 `h.openDate` 算）
+- 部位佔比（`h.value / totalValue`）
+- 區間高低（從 `sparkData` 取 min/max）
+- THESIS 句（取 `dec.thesisText` 或 `dec.actionText` 第一句）
+- NEXT EVENT 卡（從 `relatedEvents[0]` 升級為獨立區塊，含日期 chip）
+- 迷你 30D Sparkline（卡片上的 60×20 放大為 280×60，疊買進點與成本線）
 
-### 2. 補強回歸測試
+### 二、截圖分享模式（核心新功能）
 
-更新 `src/test/integration/1.35-rls-security-audit.test.ts` G 段：
-- 將「`payment_providers_safe` 可 anon 讀取」改成 assert `data!.length >= 1`（至少一筆 active provider）。
-- 新增 case：anon SELECT 不會帶出 `config` 欄位（schema 層級保證）。
+抽屜右上新增 **「分享」按鈕**（Camera icon），點下後：
 
-### 3. 驗證
+1. **進入 Share Mode**：頂部 nav、× 按鈕、研究筆記按鈕全部 fade out。
+2. **顯示浮水印**：底部出現 `legendflow.tw · 日期時間` 細字。
+3. **背景升級**：抽屜背景由 `WB.surface` 換成有微紋理的卡紙色（已有 `--jh-*` token 可用）。
+4. 三個選項：
+   - **下載 PNG**：用 `html-to-image` 把抽屜 DOM 轉 PNG，命名 `2330-台積電-20260627.png`。
+   - **複製到剪貼簿**：同上但寫進 `navigator.clipboard.write`。
+   - **退出 Share Mode**：恢復操作 UI。
 
-- `supabase--read_query` 以 anon JWT 模擬：`select count(*) from payment_providers_safe` → ≥ 2。
-- 用 `edwillam1007@gmail.com` 視角進 `/checkout/.../...`：可看到「綠界」「匯款／ATM 轉帳」兩個方式。
-- 跑 `bunx vitest run src/test/integration/1.35-rls-security-audit.test.ts`。
+寬度固定 420×600（IG/LINE 友善比例），不再隨側欄變動。
 
-## 範圍
+### 三、視覺收斂
 
-- 1 個 migration（重建 view + grant）
-- 1 個測試檔修改
-- 前端與 base table policy 都不動
+- **PnL 數字**：維持 48px，但加上日內變化小字（`+1.24% today`）。
+- **DECISION 黑盒**：縮成 inline 卡，與 PnL 並排，避免吃掉太多直向空間。
+- **THESIS / NEXT EVENT** 用 Kore-eda 風格的細邊框 + serif 引號，提升「值得截圖」的質感。
+- 全程套 `WB.*` token，無 hardcoded 色。
+
+## 技術細節（給工程確認）
+
+**檔案異動範圍**
+- `src/checkup/components/freecheckup/HoldingsDetailPanel.tsx`：重寫版面與分區
+- 新增 `src/checkup/components/freecheckup/HoldingShareCard.tsx`：截圖模式專用容器（包浮水印 + 固定寬高）
+- 新增 `src/checkup/hooks/useHoldingShareExport.ts`：封裝 `html-to-image` 的下載 / 複製邏輯
+- `package.json`：新增 `html-to-image`（~10KB gz，無其他依賴）
+- `src/pages/_freeCheckup/constants.jsx`：補 WB.thesis / WB.eventChip 兩個 token（如需）
+
+**資料來源（全部已在 props，不打新 RPC）**
+- `selected.openDate`、`selected.value`、`selected.qty`、`selected.cost`、`selected.price`
+- `decisionsMap[code]`：thesisState、confidence、actionText、urgency
+- `targets[code]` + `avgTarget()`：目標價與 upside
+- `normalizedEvents`：取最近一筆 relatedEvents
+- 新增 prop：`totalPortfolioValue`（算佔比用，從 `HoldingsTab` 父層傳入）
+- 新增 prop：`sparkData30D`（已有 spark 資料就重用，否則 fallback 7D）
+
+**截圖實作要點**
+- 用 `html-to-image` 的 `toPng({ pixelRatio: 2, backgroundColor: WB.surface })` 確保 retina 解析度。
+- Share Mode 用 React state 切，不破壞原本互動。
+- iOS Safari 的剪貼簿限制：fallback 為下載。
+
+**RWD**
+- 桌面側欄：維持現有 380px 寬，內容重排。
+- 手機：抽屜為全螢幕 modal，Share Mode 仍輸出 420×600 PNG（用離螢幕 render，不受手機螢幕寬度影響）。
+
+**測試**
+- 補 `e2e/freecheckup-holding-share.spec.ts`：點分享 → 截圖模式 → 下載 PNG → 檔名與尺寸驗證。
+- Vitest：`HoldingsDetailPanel` 的新欄位 render 快照（含 thesis、持有天數、佔比）。
+
+## 不做的事
+
+- 不改抽屜開啟/關閉行為與 keyboard shortcut。
+- 不動 HoldingCard（卡片本身已經夠資訊密度）。
+- 不接 AI 生成 thesis（直接用 `dec.thesisText`，留待後續批次）。
+- 不做動畫進場（Kore-eda 風格保持安靜）。
+
+---
+
+實作前我會再開一輪 design directions（用實際截圖當 reference）讓你挑三種版面配置 — 例如「九宮格密集」「上下兩段大留白」「卡紙質感雜誌風」，再進 build。
