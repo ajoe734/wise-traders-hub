@@ -8,6 +8,7 @@ import { cn } from '@/lib/utils';
 import { Flame } from 'lucide-react';
 import { avatarUrl } from '@/lib/imageTransform';
 import { intentHandlers } from '@/lib/routePrefetch';
+import { track } from '@/lib/analytics/events';
 interface ExpertCardProps {
   person: PersonWithPlans;
 }
