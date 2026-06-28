@@ -108,17 +108,17 @@ async function checkFunctionFailures(admin: any) {
   const since = new Date(Date.now() - WINDOW_MIN * 60_000).toISOString();
   const { data } = await admin
     .from('function_run_logs')
-    .select('function_name,status')
-    .eq('status', 'failed')
+    .select('fn,level')
+    .eq('level', 'error')
     .gte('created_at', since);
-  const rows = (data ?? []) as Array<{ function_name: string }>;
+  const rows = (data ?? []) as Array<{ fn: string }>;
   if (rows.length < 5) return { ok: true, count: rows.length };
   const byFn: Record<string, number> = {};
-  for (const r of rows) byFn[r.function_name] = (byFn[r.function_name] ?? 0) + 1;
+  for (const r of rows) byFn[r.fn] = (byFn[r.fn] ?? 0) + 1;
   return await fire(admin, {
     kind: 'function_failure_spike',
     level: rows.length >= 20 ? 'critical' : 'warning',
-    title: `邊緣函式失敗激增 ${rows.length} 次/${WINDOW_MIN} 分鐘`,
+    title: `邊緣函式錯誤激增 ${rows.length} 次/${WINDOW_MIN} 分鐘`,
     message: Object.entries(byFn).map(([k, v]) => `${k}: ${v}`).join('、'),
     metric_value: rows.length,
     threshold: 5,
