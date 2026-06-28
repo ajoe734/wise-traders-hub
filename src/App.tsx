@@ -137,6 +137,8 @@ const CompanyPaywallAnalytics = lazy(() => import("./pages/company/PaywallAnalyt
 const CompanyFunnelAnalytics = lazy(() => import("./pages/company/FunnelAnalytics"));
 const CompanyConversionCenter = lazy(() => import("./pages/company/ConversionCenter"));
 const CompanyUserJourney = lazy(() => import("./pages/company/UserJourney"));
+const CompanyAlerts = lazy(() => import("./pages/company/Alerts"));
+const CompanyRoasLtv = lazy(() => import("./pages/company/RoasLtv"));
 
 const RealtimeBridge = () => {
   useSignalRealtimeInvalidation();
