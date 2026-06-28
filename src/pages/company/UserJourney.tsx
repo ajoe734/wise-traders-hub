@@ -220,3 +220,84 @@ export default function UserJourney() {
     </CompanyLayout>
   );
 }
+
+function FunnelDropPanel({ userId }: { userId: string }) {
+  const { data, isLoading } = useQuery({
+    queryKey: ['uj-funnel-drop', userId],
+    enabled: !!userId,
+    queryFn: async () => {
+      const from = new Date(Date.now() - 30 * 86400_000).toISOString();
+      const to = new Date().toISOString();
+      const { data, error } = await supabase.rpc('get_user_funnel_drop', { _user_id: userId, _from: from, _to: to });
+      if (error) throw error;
+      return data as { steps: Array<{ step: string; reached: boolean }>; last_reached: string | null; dropped_at: string | null };
+    },
+  });
+
+  const LABEL: Record<string, string> = {
+    page_view: '訪站',
+    expert_view: '看專家',
+    plan_view: '看方案',
+    checkout_view: '進入結帳',
+    checkout_submit: '送出付款',
+    checkout_success: '付款成功',
+  };
+
+  const ACTION: Record<string, { hint: string; href: string }> = {
+    page_view: { hint: '尚未進站 — 確認對應渠道是否帶人到 /', href: '/company/traffic' },
+    expert_view: { hint: '進站但沒看專家 — 檢查首頁 CTA / 推薦排序', href: '/' },
+    plan_view: { hint: '看了專家但沒進方案頁 — 強化 ExpertCard CTA', href: '/company/conversions' },
+    checkout_view: { hint: '看了方案但沒按結帳 — 檢查 pricing 與信任區塊', href: '/company/paywall-analytics' },
+    checkout_submit: { hint: '進結帳但沒送單 — 檢查付款方式呈現', href: '/company/payments' },
+    checkout_success: { hint: '送單失敗 — 看金流錯誤與審核', href: '/company/remittance' },
+  };
+
+  return (
+    <Card>
+      <CardHeader>
+        <CardTitle className="text-base">漏斗反推（近 30 天）</CardTitle>
+      </CardHeader>
+      <CardContent>
+        {isLoading || !data ? (
+          <p className="text-sm text-foreground/50">分析中…</p>
+        ) : (
+          <>
+            <ol className="flex flex-wrap items-center gap-2 mb-3">
+              {data.steps.map((s, idx) => (
+                <li key={s.step} className="flex items-center gap-2">
+                  <span
+                    className={
+                      'inline-flex items-center gap-1 rounded-full px-2.5 py-1 text-xs ' +
+                      (s.reached
+                        ? 'bg-emerald-100 text-emerald-800'
+                        : 'bg-rose-50 text-rose-700 border border-rose-200')
+                    }
+                  >
+                    {s.reached ? '✓' : '×'} {LABEL[s.step] ?? s.step}
+                  </span>
+                  {idx < data.steps.length - 1 && <span className="text-foreground/30">→</span>}
+                </li>
+              ))}
+            </ol>
+            {data.dropped_at ? (
+              <div className="rounded-md border bg-amber-50/60 p-3 text-sm">
+                <div className="font-medium">卡關步驟：{LABEL[data.dropped_at] ?? data.dropped_at}</div>
+                <div className="text-foreground/70 text-xs mt-1">{ACTION[data.dropped_at]?.hint}</div>
+                {ACTION[data.dropped_at]?.href && (
+                  <Link to={ACTION[data.dropped_at].href} className="text-xs text-primary hover:underline mt-1 inline-block">
+                    前往對應頁面 →
+                  </Link>
+                )}
+              </div>
+            ) : data.last_reached === 'checkout_success' ? (
+              <div className="rounded-md border bg-emerald-50/60 p-3 text-sm">✅ 已完成全部漏斗。</div>
+            ) : (
+              <div className="rounded-md border bg-muted/50 p-3 text-sm text-foreground/60">未偵測到明顯卡關（資料不足）。</div>
+            )}
+          </>
+        )}
+      </CardContent>
+    </Card>
+  );
+}
+
