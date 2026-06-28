@@ -170,6 +170,9 @@ export default function UserJourney() {
           </Button>
         </header>
 
+        <FunnelDropPanel userId={userId} />
+
+
         <Card>
           <CardHeader>
             <CardTitle className="text-base">事件時間軸（最近 {items.length} 筆）</CardTitle>
