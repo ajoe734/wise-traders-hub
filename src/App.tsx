@@ -139,6 +139,8 @@ const CompanyConversionCenter = lazy(() => import("./pages/company/ConversionCen
 const CompanyUserJourney = lazy(() => import("./pages/company/UserJourney"));
 const CompanyAlerts = lazy(() => import("./pages/company/Alerts"));
 const CompanyRoasLtv = lazy(() => import("./pages/company/RoasLtv"));
+const CompanyAdSpend = lazy(() => import("./pages/company/AdSpend"));
+const CompanyExpertRevenue = lazy(() => import("./pages/company/ExpertRevenue"));
 
 const RealtimeBridge = () => {
   useSignalRealtimeInvalidation();
