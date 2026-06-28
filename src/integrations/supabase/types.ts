@@ -2765,6 +2765,48 @@ export type Database = {
         }
         Relationships: []
       }
+      system_alerts: {
+        Row: {
+          detail: Json
+          fired_at: string
+          id: string
+          kind: string
+          level: string
+          message: string | null
+          metric_value: number | null
+          notified_at: string | null
+          resolved_at: string | null
+          threshold: number | null
+          title: string
+        }
+        Insert: {
+          detail?: Json
+          fired_at?: string
+          id?: string
+          kind: string
+          level?: string
+          message?: string | null
+          metric_value?: number | null
+          notified_at?: string | null
+          resolved_at?: string | null
+          threshold?: number | null
+          title: string
+        }
+        Update: {
+          detail?: Json
+          fired_at?: string
+          id?: string
+          kind?: string
+          level?: string
+          message?: string | null
+          metric_value?: number | null
+          notified_at?: string | null
+          resolved_at?: string | null
+          threshold?: number | null
+          title?: string
+        }
+        Relationships: []
+      }
       system_jobs_log: {
         Row: {
           detail: Json | null
@@ -3488,6 +3530,24 @@ export type Database = {
         Returns: Json
       }
       get_public_experts_list: { Args: never; Returns: Json }
+      get_roas_ltv_by_campaign: {
+        Args: { _from: string; _to: string }
+        Returns: {
+          cac: number
+          conversions_count: number
+          first_arpu: number
+          gross_revenue: number
+          ltv_30d: number
+          ltv_90d: number
+          payback_ratio: number
+          roas: number
+          spend: number
+          unique_buyers: number
+          utm_campaign: string
+          utm_medium: string
+          utm_source: string
+        }[]
+      }
       get_top_instruments: {
         Args: { _from: string; _limit?: number; _to: string }
         Returns: Json
