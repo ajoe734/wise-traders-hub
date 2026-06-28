@@ -79,14 +79,20 @@ export default function UserJourney() {
     queryKey: ['uj-pay', userId],
     enabled: !!userId,
     queryFn: async () => {
+      const { data: subRows } = await supabase
+        .from('member_subscriptions')
+        .select('id')
+        .eq('user_id', userId!);
+      const subIds = (subRows ?? []).map((r) => r.id);
+      if (!subIds.length) return [] as Array<{ id: string; created_at: string; amount: number | null; status: string | null; provider_id: string | null }>;
       const { data, error } = await supabase
         .from('payment_transactions')
         .select('id,created_at,amount,status,provider_id')
-        .eq('user_id', userId)
+        .in('subscription_id', subIds)
         .order('created_at', { ascending: false })
         .limit(50);
       if (error) throw error;
-      return data ?? [];
+      return (data ?? []) as Array<{ id: string; created_at: string; amount: number | null; status: string | null; provider_id: string | null }>;
     },
   });
 
