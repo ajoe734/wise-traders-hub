@@ -65,6 +65,8 @@ const navGroups: NavGroup[] = [
       { path: '/company/paywall-analytics', icon: BarChart3, label: 'Paywall 轉換' },
       { path: '/company/funnel-analytics', icon: BarChart3, label: '漏斗分析' },
       { path: '/company/roas-ltv', icon: TrendingUp, label: 'ROAS / LTV' },
+      { path: '/company/ad-spend', icon: Receipt, label: '廣告花費' },
+      { path: '/company/expert-revenue', icon: BarChart3, label: '專家分潤' },
       { path: '/company/alerts', icon: Bell, label: '即時告警' },
     ],
   },

@@ -126,6 +126,61 @@ async function checkFunctionFailures(admin: any) {
   });
 }
 
+// Push pending system_alerts to admin LINE bindings (dedup via notified_at).
+// deno-lint-ignore no-explicit-any
+async function pushPendingAlertsToLine(admin: any) {
+  const { data: pending } = await admin
+    .from('system_alerts')
+    .select('id,level,title,message,fired_at')
+    .is('notified_at', null)
+    .is('resolved_at', null)
+    .gte('fired_at', new Date(Date.now() - 6 * 3600_000).toISOString())
+    .limit(20);
+  const rows = (pending ?? []) as Array<{ id: string; level: string; title: string; message: string | null }>;
+  if (!rows.length) return { pushed: 0 };
+
+  const { data: adminRoles } = await admin
+    .from('user_roles')
+    .select('user_id')
+    .eq('role', 'company_admin');
+  const adminIds = Array.from(new Set((adminRoles ?? []).map((r: { user_id: string }) => r.user_id))).filter(Boolean) as string[];
+  if (!adminIds.length) return { pushed: 0, reason: 'no_admins' };
+
+  // Find admin user — used as created_by for the push job
+  const creator = adminIds[0];
+
+  let pushed = 0;
+  for (const a of rows) {
+    const icon = a.level === 'critical' ? '🚨' : a.level === 'warning' ? '⚠️' : 'ℹ️';
+    const text = `${icon} ${a.title}\n${a.message ?? ''}`.slice(0, 1500);
+    let err: string | null = null;
+    const { data: job, error: jobErr } = await admin
+      .from('line_push_jobs')
+      .insert({
+        message_kind: 'text_with_action',
+        text,
+        action_label: '打開告警中心',
+        action_url: 'https://legendflow.tw/company/alerts',
+        recipient_user_ids: adminIds,
+        status: 'pending',
+        created_by: creator,
+      })
+      .select('id')
+      .maybeSingle();
+    if (jobErr) {
+      err = jobErr.message;
+    } else if (job?.id) {
+      admin.functions.invoke('admin-line-push', { body: { job_id: job.id } }).catch(() => {});
+    }
+    await admin
+      .from('system_alerts')
+      .update({ notified_at: new Date().toISOString(), notify_error: err })
+      .eq('id', a.id);
+    pushed++;
+  }
+  return { pushed, admins: adminIds.length };
+}
+
 Deno.serve(async (req) => {
   if (req.method === 'OPTIONS') return corsPreflight();
   try {
@@ -135,10 +190,12 @@ Deno.serve(async (req) => {
       checkPaywallDrop(admin),
       checkFunctionFailures(admin),
     ]);
+    const notify = await pushPendingAlertsToLine(admin).catch((e) => ({ error: e instanceof Error ? e.message : String(e) }));
     return jsonResponse({
       ok: true,
       ran_at: new Date().toISOString(),
       results: { checkout: a, paywall: b, functions: c },
+      notify,
     });
   } catch (e) {
     return errorResponse(e instanceof Error ? e.message : String(e), 500);
