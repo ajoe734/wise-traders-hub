@@ -2775,6 +2775,7 @@ export type Database = {
           message: string | null
           metric_value: number | null
           notified_at: string | null
+          notify_error: string | null
           resolved_at: string | null
           threshold: number | null
           title: string
@@ -2788,6 +2789,7 @@ export type Database = {
           message?: string | null
           metric_value?: number | null
           notified_at?: string | null
+          notify_error?: string | null
           resolved_at?: string | null
           threshold?: number | null
           title: string
@@ -2801,6 +2803,7 @@ export type Database = {
           message?: string | null
           metric_value?: number | null
           notified_at?: string | null
+          notify_error?: string | null
           resolved_at?: string | null
           threshold?: number | null
           title?: string
@@ -3505,6 +3508,21 @@ export type Database = {
       }
       get_expert_capital_status: { Args: { _expert_id: string }; Returns: Json }
       get_expert_detail_bundle: { Args: { _slug: string }; Returns: Json }
+      get_expert_revenue_breakdown: {
+        Args: { _from: string; _to: string }
+        Returns: {
+          channel_reserve: number
+          expert_amount: number
+          expert_id: string
+          expert_name: string
+          expert_slug: string
+          gross: number
+          net: number
+          orders: number
+          platform_amount: number
+          unique_buyers: number
+        }[]
+      }
       get_funnel_overview: {
         Args: { _from: string; _steps: string[]; _to: string }
         Returns: Json
@@ -3555,6 +3573,10 @@ export type Database = {
       get_traffic_health: { Args: never; Returns: Json }
       get_traffic_overview: {
         Args: { _from: string; _to: string }
+        Returns: Json
+      }
+      get_user_funnel_drop: {
+        Args: { _from: string; _to: string; _user_id: string }
         Returns: Json
       }
       get_user_journey: {
