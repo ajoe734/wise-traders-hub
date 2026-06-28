@@ -68,7 +68,7 @@ export default function ConversionCenter() {
 
   const funnelStats = useMemo(() => {
     return FUNNEL_STEPS.map((step) => {
-      const matched = traffic.filter((r) => r.event_name && step.events.includes(r.event_name));
+      const matched = traffic.filter((r) => r.event_name && (step.events as readonly string[]).includes(r.event_name));
       const visitors = new Set(matched.map((r) => r.visitor_id)).size;
       const events = matched.length;
       return { key: step.key, label: step.label, visitors, events };
