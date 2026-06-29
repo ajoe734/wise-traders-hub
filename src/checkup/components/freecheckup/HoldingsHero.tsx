@@ -69,7 +69,7 @@ function HoldingsHeroImpl(props) {
             display: 'flex', alignItems: 'baseline', gap: 12, flexWrap: 'wrap',
           }}>
             <span className="wb-hero-pnl-num" style={{
-              fontSize: 88, fontWeight: 500, color: WB.ink,
+              fontSize: 'clamp(40px, 10vw, 88px)', fontWeight: 500, color: WB.ink,
               letterSpacing: '-0.045em', lineHeight: 0.92,
               fontVariantNumeric: 'tabular-nums',
             }}>
