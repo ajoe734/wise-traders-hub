@@ -316,7 +316,7 @@ function DailyTabImpl({
                 </div>
                 <div style={{textAlign:"right"}}>
                   <div style={{fontSize:10,color:C.text,letterSpacing:"0.12em",marginBottom:4,fontWeight:700}}>TODAY P&L</div>
-                  <div style={{fontSize:28,fontWeight:800,color:pc(dailyReport.totalTodayPnl),lineHeight:1}}>
+                  <div style={{fontSize:"clamp(22px, 6vw, 28px)",fontWeight:800,color:pc(dailyReport.totalTodayPnl),lineHeight:1,fontVariantNumeric:"tabular-nums"}}>
                     {dailyReport.totalTodayPnl>=0?"+":""}{dailyReport.totalTodayPnl.toLocaleString()}
                   </div>
                 </div>
