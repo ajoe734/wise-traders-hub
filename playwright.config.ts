@@ -20,15 +20,18 @@ const RESOLVED_CHROMIUM =
 export default defineConfig({
   testDir: './e2e',
   testMatch: /.*\.spec\.ts/,
-  fullyParallel: false,
+  fullyParallel: true,
   forbidOnly: !!process.env.CI,
-  retries: process.env.CI ? 1 : 0,
-  workers: 1,
+  // CI 適度重試以吸收偶發 flake；本地不重試以便快速看到真實錯誤
+  retries: process.env.CI ? 2 : 0,
+  // CI 開啟並行 workers（每個 project 內 / 跨檔案）；本地維持序列避免互相干擾
+  workers: process.env.CI ? 4 : 1,
   reporter: process.env.CI
     ? [
         ['line'],
         ['html', { open: 'never', outputFolder: 'playwright-report' }],
         ['json', { outputFile: 'playwright-report/results.json' }],
+        ['blob', { outputDir: 'blob-report' }],
       ]
     : [['list']],
   timeout: 60_000,
@@ -43,13 +46,16 @@ export default defineConfig({
   },
   use: {
     baseURL: 'http://localhost:8080',
+    // 失敗時自動收集 trace.zip / 截圖 / 影片，並在第一次重試也收集
     trace: 'retain-on-failure',
     screenshot: 'only-on-failure',
+    video: 'retain-on-failure',
     deviceScaleFactor: 2,
     launchOptions: RESOLVED_CHROMIUM
       ? { executablePath: RESOLVED_CHROMIUM }
       : undefined,
   },
+
   projects: [
     {
       name: 'iphone-se-320',

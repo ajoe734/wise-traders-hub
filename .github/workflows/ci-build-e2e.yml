@@ -1,6 +1,7 @@
-name: CI — Build & E2E
+name: CI — Typecheck / Build / E2E
 
-# 每次推送 / PR 自動跑 TypeScript build + 關鍵 e2e，避免 TS build error 上 main。
+# 每次推送 / PR 自動跑 TypeScript typecheck → build → 關鍵 e2e。
+# typecheck 先於 build 失敗，能更快回饋 TS 錯誤；e2e 失敗會上傳 trace/截圖/影片 artifact。
 on:
   push:
     branches: [main, 'feat/**', 'fix/**']
@@ -12,9 +13,24 @@ concurrency:
   cancel-in-progress: true
 
 jobs:
+  typecheck:
+    name: TypeScript typecheck
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@v4
+      - uses: oven-sh/setup-bun@v2
+        with:
+          bun-version: latest
+      - name: Install deps
+        run: bun install --frozen-lockfile
+      - name: tsc --noEmit
+        run: bun run typecheck
+
   build:
     name: Build (vite)
     runs-on: ubuntu-latest
+    needs: typecheck
     timeout-minutes: 15
     steps:
       - uses: actions/checkout@v4
@@ -26,7 +42,6 @@ jobs:
       - name: Type-aware production build
         run: bun run build
         env:
-          # Build 需要 publishable 環境變數；用 placeholder 即可（不會打網）
           VITE_SUPABASE_URL: https://yqacmrgdjlenbijclngi.supabase.co
           VITE_SUPABASE_PUBLISHABLE_KEY: ${{ secrets.VITE_SUPABASE_PUBLISHABLE_KEY || 'placeholder' }}
           VITE_SUPABASE_PROJECT_ID: yqacmrgdjlenbijclngi
@@ -39,7 +54,7 @@ jobs:
     strategy:
       fail-fast: false
       matrix:
-        # 推送即跑的關鍵專案；其餘 visual / RWD / live 由各自 workflow 管理。
+        # 矩陣本身天然平行；config 內 workers=4 提供 project 內並行
         project:
           - desktop-share-short-link
           - desktop-share-og-card
@@ -63,12 +78,20 @@ jobs:
           VITE_SUPABASE_URL: https://yqacmrgdjlenbijclngi.supabase.co
           VITE_SUPABASE_PUBLISHABLE_KEY: ${{ secrets.VITE_SUPABASE_PUBLISHABLE_KEY || 'placeholder' }}
           VITE_SUPABASE_PROJECT_ID: yqacmrgdjlenbijclngi
-      - name: Upload report
+      # 失敗時：上傳 HTML report（內含 trace.zip / 截圖 / 影片）+ 原始 test-results
+      - name: Upload Playwright report (on failure)
         if: failure()
         uses: actions/upload-artifact@v4
         with:
           name: playwright-report-${{ matrix.project }}
-          path: |
-            playwright-report
-            test-results
-          retention-days: 7
+          path: playwright-report
+          retention-days: 14
+          if-no-files-found: ignore
+      - name: Upload traces / screenshots / videos (on failure)
+        if: failure()
+        uses: actions/upload-artifact@v4
+        with:
+          name: playwright-traces-${{ matrix.project }}
+          path: test-results
+          retention-days: 14
+          if-no-files-found: ignore
