@@ -1,0 +1,41 @@
+/**
+ * RWD 共用 grid / 大字級 utility classes
+ * 避免散落的 inline `gridTemplateColumns: 'repeat(N, 1fr)'` 無 media query 在窄螢幕擠壓。
+ */
+
+.rwd-3col {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 8px;
+}
+
+.rwd-4col {
+  display: grid;
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+  gap: 8px;
+}
+
+@media (max-width: 560px) {
+  .rwd-3col,
+  .rwd-4col {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+}
+
+@media (max-width: 360px) {
+  .rwd-3col,
+  .rwd-4col {
+    grid-template-columns: minmax(0, 1fr);
+  }
+}
+
+/* 大字級：clamp 取代散落的 inline fontSize + 另開 <style> media query */
+.rwd-num-big {
+  font-size: clamp(28px, 6vw, 46px);
+  line-height: 1.05;
+}
+
+.rwd-num-hero {
+  font-size: clamp(40px, 10vw, 88px);
+  line-height: 1.02;
+}
