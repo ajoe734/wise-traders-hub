@@ -80,9 +80,7 @@ function NewsTabImpl({
       )}
 
       {/* 準確率摘要 */}
-      <div style={{
-        display:"grid", gridTemplateColumns:"1fr 1fr 1fr", gap:8, marginBottom:14,
-      }}>
+      <div className="rwd-3col" style={{ marginBottom:14 }}>
         {[
           ["已驗證", `${hits+misses}`, C.textSec, C.card],
           ["預測正確", `${hits}`, C.up, C.cardRose],
