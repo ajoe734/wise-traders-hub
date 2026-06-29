@@ -1,46 +1,25 @@
-## 目標
-1. 防回歸：用 Playwright 鎖住「窄螢幕點卡片 → 展開新 HoldingsDetailPanel」這條路徑，避免又被分流回 legacy overlay。
-2. 視覺回饋：窄螢幕展開 panel 時，明確告訴使用者「已展開完整圖表面板」，避免誤判 preview 沒更新。
+## Goal
+新增寬螢幕（1280px）Playwright E2E，驗證 `/holding-checkup-demo` 點卡片後：
+- 新版 `HoldingsDetailPanel` 顯示（包含 `ComparisonCharts` 與 `ExportMenu`）
+- legacy overlay 文案（「返回列表」/「來自：」）**不出現**
+- 窄螢幕專用提示帶（`holdings-panel-narrow-hint`）在寬螢幕**不顯示**
 
-## 變更內容
+## Files
+- **新增** `e2e/holdings-detail-panel-wide.spec.ts`
+  - 對應現有 `e2e/holdings-detail-panel-narrow.spec.ts`，重用相同 testid：`holdings-detail-panel`、`holdings-comparison-charts`、`holdings-export-menu`
+  - 三個案例：
+    1. 點第一張持倉卡 → panel + ComparisonCharts + ExportMenu 都可見
+    2. legacy overlay 文案（`返回列表`、`來自：`）斷言不可見
+    3. `holdings-panel-narrow-hint` 在 1280px 應為 hidden（CSS media query 控制）
+- **修改** `playwright.config.ts`：新增 project `desktop-holdings-detail-panel`
+  - `testMatch: /holdings-detail-panel-wide\.spec\.ts/`
+  - `viewport: { width: 1280, height: 900 }`
 
-### A. Playwright 測試：`e2e/holdings-detail-panel-narrow.spec.ts`
-- viewport：`{ width: 863, height: 900 }`（複現使用者情境）。
-- 流程：
-  1. `goto('/holding-checkup-demo')` → 自動寫入 `lf_force_demo='1'` 並導向 `/holding-checkup`。
-  2. 等待持倉卡片牆出現（`[data-holding-code]` 或卡片第一張可見）。
-  3. 點擊第一張持倉卡。
-  4. 斷言：
-     - `.holdings-detail-panel` 可見（不是 `display:none`）。
-     - `ComparisonCharts` 區塊存在（用既有 `data-testid` 或新增 `data-testid="holdings-comparison-charts"`）。
-     - `ExportMenu` 三組 segmented control（Format / Ratio / Resolution）皆可見。
-     - 看不到 legacy overlay drawer（`text=返回列表` 或 `來自：` 文案應 **不可見**）。
-     - 新增的窄螢幕提示文案可見（見 B）。
-  5. 切換 Ratio = `16:9`、Format = `PDF`、Resolution = `High`，斷言 `localStorage.exportPrefs` 寫入正確。
-- 不打真 download，只驗 UI / state；下載已由 `e2e/holdings-export-menu.spec.ts` 覆蓋。
-
-### B. 窄螢幕視覺提示
-在 `src/checkup/components/freecheckup/HoldingsTab.tsx` 渲染 `<aside class="holdings-detail-panel">` 時，於 panel 最上方插入一條僅 `≤1023px` 顯示的提示帶：
-
-```
-✓ 已展開完整圖表面板（成本/區間/佔比 + PNG·PDF 匯出）
-```
-
-- 用 className `holdings-detail-panel__narrow-hint`，在 `holdingsTab.css` 加：
-  - 預設 `display:none`。
-  - `@media (max-width: 1023px) { display:flex; }`。
-- 樣式：細邊框、`WB.inkMute` 文字、`fontSize:11`、`letterSpacing:0.12em`、左側一個 ✓ 圖示，符合既有極簡風格（不引入新色）。
-- 加 `data-testid="holdings-panel-narrow-hint"` 給 Playwright 斷言。
-
-### C.（可選）卡片狀態文字
-`HoldingCard.tsx` active 狀態下，窄螢幕在卡片底部追加一行極小字 `↓ 已展開於下方`（class 同樣只在 ≤1023px 顯示），讓使用者知道往下捲就看得到。若會動到 card 既有 layout 風險，可先省略只保留 B。
+## 技術備註
+- 沿用 `gotoWithRetry` helper（與 narrow spec 相同）
+- 寬螢幕走 `.holdings-workbench` 兩欄 grid，detail panel 為 sticky 右欄；確認 `position: sticky` 由 CSS 預設提供，無需額外斷言
+- narrow-hint 在 ≥1024px 由 `display: none` 隱藏，用 `toBeHidden()` 驗證
+- 不動 component 程式碼，純測試新增
 
 ## 驗收
-- `bunx playwright test e2e/holdings-detail-panel-narrow.spec.ts` 通過。
-- 既有 `e2e/holdings-export-menu.spec.ts`、`e2e/freecheckup-demo-first-fold.spec.ts`、`e2e/freecheckup-card.spec.ts` 不退化。
-- 手動 863px 重整 → 點卡片 → 看到提示帶 + ComparisonCharts + ExportMenu，不再出現「摘要／教學／風險」覆蓋層。
-
-## 技術細節
-- 既有 `HoldingsDetailPanel.tsx` 內 `ComparisonCharts` / `ExportMenu` 已是 named components；若 DOM 上沒有可靠 selector，會在 panel root、ComparisonCharts root、ExportMenu 三組 segmented control 上補 `data-testid`（純測試 hook，不改 layout）。
-- 提示帶純 presentational，不影響 export 截圖內容（`exportRef` 指向的離屏 DOM 不包含此 hint）。
-- 不改 `useHoldingShareExport`、不動 `holdingsDetailPanel.css` 現有規則，只新增提示帶相關 class。
+`bunx playwright test --project=desktop-holdings-detail-panel` 全綠。
