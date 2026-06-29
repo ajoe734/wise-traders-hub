@@ -1,0 +1,1 @@
+GRANT EXECUTE ON FUNCTION public.is_tester(uuid) TO anon;
