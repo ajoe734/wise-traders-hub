@@ -17,6 +17,7 @@ import { StockTradeDetailSheet, StockTradeDetail } from "./StockTradeDetailSheet
 import { cn } from "@/lib/utils";
 import { useExpertPerformance, useExpertPerformanceRealtime } from "@/hooks/usePerformance";
 import { usePeriodPerformance, PeriodBucket } from "@/hooks/usePeriodPerformance";
+import { useIsMobile } from "@/hooks/use-mobile";
 
 type ViewPeriod = "yearly" | "monthly" | "weekly";
 
@@ -34,6 +35,25 @@ export function PerformanceOverviewPanel({ expertId, startingCapital: startingCa
   const [isExpanded, setIsExpanded] = useState(false);
   const [selectedStock, setSelectedStock] = useState<StockTradeDetail | null>(null);
   const [isSheetOpen, setIsSheetOpen] = useState(false);
+  const isMobile = useIsMobile();
+
+  const xTickFormatter = (v: string) => {
+    if (!isMobile || !v) return v;
+    const parts = String(v).split('/');
+    if (parts.length === 3) return `${+parts[1]}/${+parts[2]}`;
+    if (parts.length === 2) return parts[1];
+    return v;
+  };
+  const xInterval: number | 'preserveStartEnd' = !isMobile
+    ? 0
+    : period === 'yearly'
+      ? 1
+      : period === 'monthly'
+        ? 'preserveStartEnd'
+        : 0;
+  const xMinTickGap = isMobile ? 24 : 5;
+  const xAngle = period === 'monthly' ? -45 : (isMobile && period === 'yearly' ? -30 : 0);
+  const xAnchor = xAngle !== 0 ? 'end' : 'middle';
 
   // Fetch overall performance KPIs (with realtime invalidation, scoped to detail page)
   const { data: perfData } = useExpertPerformance(expertId);
@@ -197,7 +217,7 @@ export function PerformanceOverviewPanel({ expertId, startingCapital: startingCa
                       <stop offset="95%" stopColor={chartColors.gradientEnd} stopOpacity={0} />
                     </linearGradient>
                   </defs>
-                  <XAxis dataKey="label" tick={{ fontSize: 10, fill: "hsl(var(--muted-foreground))" }} axisLine={{ stroke: "hsl(var(--border))" }} tickLine={false} angle={period === 'monthly' ? -45 : 0} textAnchor={period === 'monthly' ? 'end' : 'middle'} interval={0} />
+                  <XAxis dataKey="label" tick={{ fontSize: 10, fill: "hsl(var(--muted-foreground))" }} axisLine={{ stroke: "hsl(var(--border))" }} tickLine={false} angle={xAngle} textAnchor={xAnchor} interval={xInterval as any} minTickGap={xMinTickGap} tickFormatter={xTickFormatter} />
                   <YAxis tick={{ fontSize: 10, fill: "hsl(var(--muted-foreground))" }} axisLine={false} tickLine={false} tickFormatter={(v) => `${v}%`} />
                   <Tooltip content={<CustomTooltip />} />
                   {returnCurve.length > 0 && (
