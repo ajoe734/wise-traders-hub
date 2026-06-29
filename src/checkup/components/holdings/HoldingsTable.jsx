@@ -223,9 +223,8 @@ function HoldingRowImpl({
       h(
         'div',
         {
+          className: 'rwd-4col',
           style: {
-            display: 'grid',
-            gridTemplateColumns: 'repeat(4, 1fr)',
             gap: 10,
             paddingTop: 12,
             borderTop: `1px solid ${alpha(C.textMute, '08')}`,
