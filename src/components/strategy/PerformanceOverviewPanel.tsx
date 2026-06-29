@@ -217,7 +217,7 @@ export function PerformanceOverviewPanel({ expertId, startingCapital: startingCa
                       <stop offset="95%" stopColor={chartColors.gradientEnd} stopOpacity={0} />
                     </linearGradient>
                   </defs>
-                  <XAxis dataKey="label" tick={{ fontSize: 10, fill: "hsl(var(--muted-foreground))" }} axisLine={{ stroke: "hsl(var(--border))" }} tickLine={false} angle={period === 'monthly' ? -45 : 0} textAnchor={period === 'monthly' ? 'end' : 'middle'} interval={0} />
+                  <XAxis dataKey="label" tick={{ fontSize: 10, fill: "hsl(var(--muted-foreground))" }} axisLine={{ stroke: "hsl(var(--border))" }} tickLine={false} angle={xAngle} textAnchor={xAnchor} interval={xInterval as any} minTickGap={xMinTickGap} tickFormatter={xTickFormatter} />
                   <YAxis tick={{ fontSize: 10, fill: "hsl(var(--muted-foreground))" }} axisLine={false} tickLine={false} tickFormatter={(v) => `${v}%`} />
                   <Tooltip content={<CustomTooltip />} />
                   {returnCurve.length > 0 && (
