@@ -1,5 +1,7 @@
 import { useParams, Link, useNavigate, useSearchParams } from 'react-router-dom';
 import { SEO } from '@/components/SEO';
+import { ShareButton } from '@/components/ShareButton';
+import { buildOgCardUrl } from '@/lib/shareUrl';
 import { lazy, Suspense } from 'react';
 import { PortalLayout } from '@/components/layouts/PortalLayout';
 import { Button } from '@/components/ui/button';
@@ -155,6 +157,16 @@ const ExpertProfile = () => {
         description={(expertInfo?.bio || `${expertInfo?.name ?? '專家'} 的檔案、操作風格與訂閱方案。`).slice(0, 155)}
         path={`/expert/${slug}`}
         type="profile"
+        image={slug ? buildOgCardUrl({ kind: 'expert', slug }) : undefined}
+        jsonLd={expertInfo ? {
+          '@context': 'https://schema.org',
+          '@type': 'Person',
+          name: expertInfo.name,
+          jobTitle: expertInfo.role === 'mentor' ? '實戰導師' : '投顧分析師',
+          description: expertInfo.bio || expertInfo.description,
+          image: expertInfo.avatarUrl,
+          url: `https://legendflow.tw/expert/${slug}`,
+        } : undefined}
       />
       {isPreview && (
         <div className="sticky top-0 z-50 bg-amber-500 text-amber-50 px-4 py-2 text-sm flex items-center justify-center gap-3 shadow">
