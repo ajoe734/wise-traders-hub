@@ -208,6 +208,17 @@ const ExpertProfile = () => {
                 <div className="flex items-center gap-3 flex-wrap">
                   <h1 className="text-h2 md:text-h1">{expertInfo.name}</h1>
                   <RoleBadge role={expertInfo.role} size="lg" />
+                  {slug && (
+                    <ShareButton
+                      target={{ kind: 'expert', slug }}
+                      size="sm"
+                      variant="outline"
+                      label="分享"
+                      shareTitle={`${expertInfo.name}｜legendflow`}
+                      shareText={expertInfo.bio || ''}
+                      className="ml-auto"
+                    />
+                  )}
                 </div>
                 <p className="text-lg md:text-xl text-muted-foreground leading-relaxed max-w-2xl">
                   {expertInfo.bio}
