@@ -78,7 +78,7 @@ export function GridSearchDetailDialog({ runId, onClose }: Props) {
             )}
 
             <div className="border rounded overflow-hidden">
-              <table className="w-full text-xs">
+              <div className="overflow-x-auto"><table className="w-full text-xs">
                 <thead className="bg-muted">
                   <tr>
                     <th className="text-left p-2">最佳</th>
@@ -108,7 +108,7 @@ export function GridSearchDetailDialog({ runId, onClose }: Props) {
                     </tr>
                   ))}
                 </tbody>
-              </table>
+              </table></div>
             </div>
           </div>
         )}

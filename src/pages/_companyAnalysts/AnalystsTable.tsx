@@ -17,7 +17,7 @@ export function AnalystsTable({ loading, experts, onOpenLine, onOpenAccount, onT
   return (
     <Card>
       <CardContent className="p-0">
-        <table className="w-full">
+        <div className="overflow-x-auto"><table className="w-full">
           <thead>
             <tr className="border-b text-left text-sm text-muted-foreground">
               <th className="p-4">分析師</th>
@@ -74,7 +74,7 @@ export function AnalystsTable({ loading, experts, onOpenLine, onOpenAccount, onT
               ))
             )}
           </tbody>
-        </table>
+        </table></div>
       </CardContent>
     </Card>
   );

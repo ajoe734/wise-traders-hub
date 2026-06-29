@@ -265,7 +265,7 @@ export default function FunnelAnalytics() {
             <CardTitle className="text-sm">事件對應</CardTitle>
           </CardHeader>
           <CardContent>
-            <table className="w-full text-sm">
+            <div className="overflow-x-auto"><table className="w-full text-sm">
               <thead className="text-xs text-muted-foreground">
                 <tr><th className="text-left py-1">GTM 事件</th><th className="text-left py-1">內部對應</th><th className="text-right py-1">unique actor</th><th className="text-right py-1">事件次數</th></tr>
               </thead>
@@ -279,7 +279,7 @@ export default function FunnelAnalytics() {
                   </tr>
                 ))}
               </tbody>
-            </table>
+            </table></div>
           </CardContent>
         </Card>
       </div>

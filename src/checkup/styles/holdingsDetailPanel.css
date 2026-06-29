@@ -61,3 +61,14 @@
     row-gap: 10px !important;
   }
 }
+
+/* RWD：focus 區（RETURN 大數字 + DECISION 卡）在 ≤480px 折成單欄，避免擠壓 */
+@media (max-width: 480px) {
+  .holdings-detail-focus {
+    grid-template-columns: minmax(0, 1fr) !important;
+    row-gap: 12px;
+  }
+  .holdings-detail-decision {
+    min-width: 0 !important;
+  }
+}

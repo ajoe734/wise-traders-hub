@@ -117,7 +117,7 @@ export default function FunctionLogs() {
 
         <Card className="p-0 overflow-hidden">
           <div className="max-h-[70vh] overflow-auto">
-            <table className="w-full text-xs">
+            <div className="overflow-x-auto"><table className="w-full text-xs">
               <thead className="bg-muted sticky top-0">
                 <tr className="text-left">
                   <th className="p-2">時間</th>
@@ -156,7 +156,7 @@ export default function FunctionLogs() {
                   <tr><td colSpan={7} className="p-8 text-center text-muted-foreground">尚無資料</td></tr>
                 )}
               </tbody>
-            </table>
+            </table></div>
           </div>
         </Card>
       </div>

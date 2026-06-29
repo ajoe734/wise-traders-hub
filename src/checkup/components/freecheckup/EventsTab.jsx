@@ -474,7 +474,7 @@ function EventsTabImpl({
                               key={entry.id}
                               style={{
                                 display:"grid",
-                                gridTemplateColumns:"60px 56px 56px 1fr",
+                                gridTemplateColumns:"minmax(48px,60px) minmax(44px,56px) minmax(44px,56px) minmax(0,1fr)",
                                 gap:6,padding:"3px 10px",
                                 fontFamily:"ui-monospace,SFMono-Regular,Menlo,monospace",
                                 fontSize:10,lineHeight:1.5,

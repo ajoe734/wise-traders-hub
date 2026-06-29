@@ -72,7 +72,7 @@ export function PeriodPerformanceTable({ data, isDelayed, className }: PeriodPer
 
       {/* Desktop: Table */}
       <div className="hidden md:block">
-        <table className="w-full text-sm">
+        <div className="overflow-x-auto"><table className="w-full text-sm">
           <thead>
             <tr className="border-b">
               <th className="text-left py-2 px-2 font-medium text-muted-foreground">期間</th>
@@ -104,7 +104,7 @@ export function PeriodPerformanceTable({ data, isDelayed, className }: PeriodPer
               </tr>
             ))}
           </tbody>
-        </table>
+        </table></div>
       </div>
     </div>
   );

@@ -32,7 +32,7 @@ export function FailedBackfillsCard({ reasons, failedBackfills }: Props) {
               展開最近 20 筆失敗批次
             </summary>
             <div className="mt-2 max-h-64 overflow-y-auto border rounded">
-              <table className="w-full text-xs">
+              <div className="overflow-x-auto"><table className="w-full text-xs">
                 <thead className="bg-muted/50">
                   <tr>
                     <th className="text-left p-2">時間</th>
@@ -49,7 +49,7 @@ export function FailedBackfillsCard({ reasons, failedBackfills }: Props) {
                     </tr>
                   ))}
                 </tbody>
-              </table>
+              </table></div>
             </div>
           </details>
         )}

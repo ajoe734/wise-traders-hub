@@ -111,7 +111,7 @@ export function BacktestRunDetailDialog({ runId, onClose }: Props) {
             <div>
               <div className="text-xs text-muted-foreground mb-2">每筆命中（前 500 筆，依報酬排序）</div>
               <div className="border rounded overflow-hidden">
-                <table className="w-full text-xs">
+                <div className="overflow-x-auto"><table className="w-full text-xs">
                   <thead className="bg-muted">
                     <tr>
                       <th className="text-left p-2">股票</th>
@@ -141,7 +141,7 @@ export function BacktestRunDetailDialog({ runId, onClose }: Props) {
                       </tr>
                     ))}
                   </tbody>
-                </table>
+                </table></div>
               </div>
             </div>
           </div>

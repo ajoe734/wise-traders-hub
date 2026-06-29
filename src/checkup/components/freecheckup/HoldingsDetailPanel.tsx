@@ -314,7 +314,7 @@ function HoldingsDetailPanelImpl({
         </div>
 
         {/* 焦點層 */}
-        <div style={{
+        <div className="holdings-detail-focus" style={{
           display: 'grid', gridTemplateColumns: '1fr auto', columnGap: 14, alignItems: 'stretch',
           marginBottom: 18, paddingBottom: 16, borderBottom: `1px solid ${WB.hair}`,
         }}>
@@ -323,7 +323,7 @@ function HoldingsDetailPanelImpl({
               RETURN {dirty && <SimBadge WB={WB} />}
             </div>
             <div style={{
-              marginTop: 6, fontSize: 46, fontWeight: 600, color: pnlColor,
+              marginTop: 6, fontSize: 'clamp(30px, 8vw, 46px)', fontWeight: 600, color: pnlColor,
               letterSpacing: '-0.035em', lineHeight: 1, fontVariantNumeric: 'tabular-nums',
             }}>
               {displayPnlPct >= 0 ? '+' : ''}{Number(displayPnlPct).toFixed(2)}
@@ -788,7 +788,7 @@ function ScenarioSandbox({ WB, prefs, setPrefs, sim, setSim, baseTarget, h, scen
           {/* 即時推算結果 */}
           <div className="hp-sandbox-stats" style={{
             marginTop: 12, padding: '10px 12px', background: WB.surface, borderRadius: 2,
-            display: 'grid', gridTemplateColumns: 'repeat(4, 1fr)', gap: 8,
+            display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(72px, 1fr))', gap: 8,
             border: `1px solid ${WB.hair}`,
           }}>
             <Stat WB={WB} label="均價" value={fmt(scenario.simAvgCost)} />

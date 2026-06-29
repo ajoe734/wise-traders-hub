@@ -77,7 +77,8 @@ export function OverviewHeader({ portfolioCount, totalValue, totalPnl, onExit })
     h(
       'div',
       {
-        style: { display: 'grid', gridTemplateColumns: '1fr 1fr 1fr', gap: 6, marginTop: 10 },
+        className: 'rwd-3col',
+        style: { gap: 6, marginTop: 10 },
       },
       h(MetricCard, {
         label: '組合數',
