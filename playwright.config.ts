@@ -203,6 +203,37 @@ export default defineConfig({
       testMatch: /holdings-detail-panel-wide\.spec\.ts/,
       use: { ...devices['Desktop Chrome'], viewport: { width: 1280, height: 900 } },
     },
+    // RWD 防回歸：6 個斷點 × 公開頁面 → 不能有橫向 scroll
+    {
+      name: 'rwd-320',
+      testMatch: /rwd-no-horizontal-scroll\.spec\.ts/,
+      use: { ...devices['Desktop Chrome'], viewport: { width: 320, height: 700 } },
+    },
+    {
+      name: 'rwd-375',
+      testMatch: /rwd-no-horizontal-scroll\.spec\.ts/,
+      use: { ...devices['Desktop Chrome'], viewport: { width: 375, height: 812 } },
+    },
+    {
+      name: 'rwd-414',
+      testMatch: /rwd-no-horizontal-scroll\.spec\.ts/,
+      use: { ...devices['Desktop Chrome'], viewport: { width: 414, height: 896 } },
+    },
+    {
+      name: 'rwd-560',
+      testMatch: /rwd-no-horizontal-scroll\.spec\.ts/,
+      use: { ...devices['Desktop Chrome'], viewport: { width: 560, height: 900 } },
+    },
+    {
+      name: 'rwd-768',
+      testMatch: /rwd-no-horizontal-scroll\.spec\.ts/,
+      use: { ...devices['Desktop Chrome'], viewport: { width: 768, height: 1024 } },
+    },
+    {
+      name: 'rwd-1023',
+      testMatch: /rwd-no-horizontal-scroll\.spec\.ts/,
+      use: { ...devices['Desktop Chrome'], viewport: { width: 1023, height: 900 } },
+    },
 
   ],
   webServer: {
