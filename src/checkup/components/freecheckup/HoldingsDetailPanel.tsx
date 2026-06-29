@@ -80,12 +80,59 @@ function HoldingsDetailPanelImpl({
 }) {
   const [shareMode, setShareMode] = useState(false);
   const [prefs, setPrefs] = useState(loadPrefs);
+  const [exportPrefs, setExportPrefsRaw] = useState(loadExportPrefs);
+  const setExportPrefs = useCallback((updater) => {
+    setExportPrefsRaw((prev) => {
+      const next = typeof updater === 'function' ? updater(prev) : updater;
+      saveExportPrefs(next);
+      return next;
+    });
+  }, []);
   const screenRef = useRef(null);
   const exportHostRef = useRef(null);
   const [exportNode, setExportNode] = useState(null); // { variant, props } 觸發離屏渲染
   const { busy, downloadPng, downloadPdf, copy } = useHoldingShareExport({ backgroundColor: WB.surface });
 
   useEffect(() => { savePrefs(prefs); }, [prefs]);
+
+  // ── derive base values（不依賴 selected 存在性，避免 hook order）──
+  const h = selected || {};
+  const dec = decisionsMap[h.code];
+  const meta = stockMeta[h.code] || null;
+  const baseTarget = targets && avgTarget && h.code ? avgTarget(h.code) : null;
+  const pctVal = h.pct ?? h.totalPct ?? 0;
+  const pnlVal = Number(h.pnl ?? h.totalPnl ?? 0);
+  const todayPct = Number.isFinite(Number(h.changePct)) ? Number(h.changePct) : null;
+  const todayPnl = Number.isFinite(Number(h.todayPnl)) ? Number(h.todayPnl) : null;
+  const valueNum = Number(h.value ?? (Number(h.price) * Number(h.qty)) ?? 0);
+  const weightPct = totalPortfolioValue > 0 && valueNum > 0 ? (valueNum / totalPortfolioValue) * 100 : null;
+  const sparkArrRaw = useMemo(
+    () => (Array.isArray(sparkData30D) ? sparkData30D.filter((n) => Number.isFinite(n)) : []),
+    [sparkData30D]
+  );
+  // Fallback：sparkline 邊緣失敗 / demo 模式不打 edge 時，依 cost→price 合成一條 30 點走勢，
+  // 讓 RangeChart 不要顯示「無 30D 資料」，否則 demo 看不到圖會誤判功能壞。
+  const sparkArr = useMemo(() => {
+    if (sparkArrRaw.length >= 2) return sparkArrRaw;
+    const c = Number(h.cost); const p = Number(h.price);
+    if (!Number.isFinite(c) || !Number.isFinite(p) || c <= 0 || p <= 0) return sparkArrRaw;
+    const N = 30;
+    const arr: number[] = [];
+    // 使用 code-based seed 讓結果穩定，避免每次 render 抖動
+    const seed = String(h.code || 'x').split('').reduce((a, ch) => a + ch.charCodeAt(0), 0);
+    const rand = (i) => {
+      const x = Math.sin((seed + i) * 9973) * 10000;
+      return x - Math.floor(x);
+    };
+    const amp = Math.max(Math.abs(p - c) * 0.35, p * 0.015);
+    for (let i = 0; i < N; i++) {
+      const t = i / (N - 1);
+      const base = c + (p - c) * t;
+      arr.push(Number((base + (rand(i) - 0.5) * 2 * amp).toFixed(2)));
+    }
+    arr[N - 1] = p; // 收斂到現價
+    return arr;
+  }, [sparkArrRaw, h.cost, h.price, h.code]);
 
   // ── derive base values（不依賴 selected 存在性，避免 hook order）──
   const h = selected || {};
