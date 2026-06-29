@@ -162,17 +162,14 @@ function HoldingsTab(props) {
   const setExpandedDecision = useBrainStore((s) => s.setExpandedDecision);
   const toggleExpandedDecision = useBrainStore((s) => s.toggleExpandedDecision);
 
-  // 卡片點選 toggle — 透過 store action，handler reference 永遠穩定
-  // 窄螢幕（≤1023px）右側 Detail Panel 被 CSS 隱藏，改開 drawer，否則點擊看似無反應
+  // 卡片點選 toggle — 不再依 viewport 分流到 legacy overlay drawer，
+  // 全螢幕尺寸都展開新版 HoldingsDetailPanel（含 ComparisonCharts / ExportMenu）。
+  // 窄螢幕由 CSS 把 panel 改為全寬顯示在卡片牆下方。
   const vwRef = useRef(vw);
   vwRef.current = vw;
   const handleHoldingCardSelect = useCallback((code) => {
-    if (vwRef.current <= 1023) {
-      handleHoldingCardOpenDrawer?.(code);
-      return;
-    }
     toggleExpandedDecision(code);
-  }, [toggleExpandedDecision, handleHoldingCardOpenDrawer]);
+  }, [toggleExpandedDecision]);
 
   return (
     <>
