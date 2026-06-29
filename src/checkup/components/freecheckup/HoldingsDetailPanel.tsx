@@ -30,6 +30,15 @@ const DEFAULT_PREFS = {
   showSandbox: false,
 };
 
+const EXPORT_PREFS_KEY = 'holdingPanel.export.v1';
+const DEFAULT_EXPORT_PREFS = {
+  format: 'png',        // 'png' | 'pdf'
+  ratio: 'square',      // 'square' | 'wide'
+  resolution: 'high',   // 'std' | 'high' | 'print'  → pixelRatio 2 / 3 / 4
+};
+const RES_TO_PR = { std: 2, high: 3, print: 4 };
+const RES_LABEL = { std: '標準 2x', high: '高 3x', print: '印刷 4x' };
+
 function loadPrefs() {
   try {
     const raw = typeof window !== 'undefined' && window.localStorage.getItem(PREFS_KEY);
@@ -39,6 +48,16 @@ function loadPrefs() {
 }
 function savePrefs(p) {
   try { window.localStorage.setItem(PREFS_KEY, JSON.stringify(p)); } catch {}
+}
+function loadExportPrefs() {
+  try {
+    const raw = typeof window !== 'undefined' && window.localStorage.getItem(EXPORT_PREFS_KEY);
+    if (!raw) return DEFAULT_EXPORT_PREFS;
+    return { ...DEFAULT_EXPORT_PREFS, ...JSON.parse(raw) };
+  } catch { return DEFAULT_EXPORT_PREFS; }
+}
+function saveExportPrefs(p) {
+  try { window.localStorage.setItem(EXPORT_PREFS_KEY, JSON.stringify(p)); } catch {}
 }
 
 function HoldingsDetailPanelImpl({
