@@ -17,6 +17,7 @@ import { StockTradeDetailSheet, StockTradeDetail } from "./StockTradeDetailSheet
 import { cn } from "@/lib/utils";
 import { useExpertPerformance, useExpertPerformanceRealtime } from "@/hooks/usePerformance";
 import { usePeriodPerformance, PeriodBucket } from "@/hooks/usePeriodPerformance";
+import { useIsMobile } from "@/hooks/use-mobile";
 
 type ViewPeriod = "yearly" | "monthly" | "weekly";
 
