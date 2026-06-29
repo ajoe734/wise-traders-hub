@@ -128,3 +128,7 @@ verify_jwt = false
 
 [functions.share-og]
 verify_jwt = false
+
+[functions.og-card]
+verify_jwt = false
+

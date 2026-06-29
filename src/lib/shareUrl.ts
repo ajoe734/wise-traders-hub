@@ -1,20 +1,19 @@
 /**
  * Share URL helper — 把 in-app 路徑轉成可公開分享的「OG 友善」URL。
  *
- * 為什麼需要：legendflow 是純 SPA + ProtectedRoute，社群 crawler 貼 /app/signal/xxx
- * 只會看到 index.html 預設 OG（拿不到該 signal 的具體標題/作者/圖）。
- * `share-og` edge function 提供公開預覽，crawler 看 OG / 人類自動跳轉回 in-app URL。
- *
- * 用法：
- *   import { buildShareUrl } from "@/lib/shareUrl";
- *   const url = buildShareUrl({ kind: "signal", id });
- *   navigator.clipboard.writeText(url);
+ * 設計：
+ * - 公開頁面（/expert/:slug、/experts、/pricing、/holding-checkup、首頁）
+ *   直接回 `https://legendflow.tw/...` canonical URL。IG/FB/Line 對自有網域信任度高，
+ *   不會像 supabase.co 端點被標記為可疑外連結。
+ * - ProtectedRoute 內的頁面（signal/journal/plan）仍走 share-og edge function，
+ *   讓 crawler 拿到 OG 卡，人類自動跳轉到 /app/* 受保護頁。
  */
 
 const SUPABASE_URL =
   (import.meta.env.VITE_SUPABASE_URL as string | undefined)?.replace(/\/$/, "") ||
   "https://yqacmrgdjlenbijclngi.supabase.co";
 const SUPABASE_FN_BASE = `${SUPABASE_URL}/functions/v1/share-og`;
+const SITE = "https://legendflow.tw";
 
 export type ShareTarget =
   | { kind: "signal"; id: string }
@@ -28,24 +27,41 @@ export type ShareTarget =
 
 export function buildShareUrl(t: ShareTarget): string {
   switch (t.kind) {
+    // ── 公開頁面：直接用 legendflow.tw canonical（IG 友善、品牌一致） ──
+    case "expert":
+      return `${SITE}/expert/${encodeURIComponent(t.slug)}`;
+    case "experts":
+      return `${SITE}/experts`;
+    case "pricing":
+      return `${SITE}/pricing`;
+    case "holding-checkup":
+      return `${SITE}/holding-checkup`;
+    case "home":
+      return `${SITE}/`;
+    // ── ProtectedRoute：走 share-og crawler 跳板 ──
     case "signal":
       return `${SUPABASE_FN_BASE}/signal/${encodeURIComponent(t.id)}`;
     case "journal":
       return `${SUPABASE_FN_BASE}/journal/${encodeURIComponent(t.id)}`;
-    case "expert":
-      return `${SUPABASE_FN_BASE}/expert/${encodeURIComponent(t.slug)}`;
     case "plan":
       return `${SUPABASE_FN_BASE}/plan/${encodeURIComponent(t.slug)}/${encodeURIComponent(t.planId)}`;
-    case "experts":
-      return `${SUPABASE_FN_BASE}/experts`;
-    case "pricing":
-      return `${SUPABASE_FN_BASE}/pricing`;
-    case "holding-checkup":
-      return `${SUPABASE_FN_BASE}/holding-checkup`;
-    case "home":
     default:
-      return `${SUPABASE_FN_BASE}/`;
+      return `${SITE}/`;
   }
+}
+
+/** 取得「短連結」版（適合 IG bio）。目前僅 expert 有短碼 /s/:slug。 */
+export function buildShortShareUrl(t: ShareTarget): string {
+  if (t.kind === "expert") return `${SITE}/s/${encodeURIComponent(t.slug)}`;
+  return buildShareUrl(t);
+}
+
+/** 取得 og-card 預覽圖 URL（PNG/SVG，可放 og:image）。 */
+export function buildOgCardUrl(t: ShareTarget): string {
+  if (t.kind === "expert") {
+    return `${SUPABASE_URL}/functions/v1/og-card/expert/${encodeURIComponent(t.slug)}`;
+  }
+  return `${SITE}/og-image.svg`;
 }
 
 /** 一鍵複製到剪貼簿；回傳是否成功。 */
