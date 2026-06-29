@@ -242,6 +242,29 @@ export default defineConfig({
       use: { ...devices['Desktop Chrome'], viewport: { width: w, height: 900 } },
     })),
 
+    // 分享流程：短連結 redirect / og-card / ShareButton dropdown
+    {
+      name: 'desktop-share-short-link',
+      testMatch: /share-short-link-redirect\.spec\.ts/,
+      use: { ...devices['Desktop Chrome'], viewport: { width: 1280, height: 900 } },
+    },
+    {
+      name: 'desktop-share-og-card',
+      testMatch: /share-og-card\.spec\.ts/,
+      use: { ...devices['Desktop Chrome'], viewport: { width: 1280, height: 900 } },
+    },
+    {
+      name: 'desktop-share-dropdown',
+      testMatch: /share-dropdown\.spec\.ts/,
+      use: { ...devices['Desktop Chrome'], viewport: { width: 1280, height: 900 } },
+    },
+
+    // 手機 390px：效能概覽 X 軸 tick 不過密
+    {
+      name: 'mobile-perf-overview-xaxis',
+      testMatch: /performance-overview-mobile-xaxis\.spec\.ts/,
+      use: { ...devices['Desktop Chrome'], viewport: { width: 390, height: 844 } },
+    },
   ],
   webServer: {
     command: 'bun run dev',
