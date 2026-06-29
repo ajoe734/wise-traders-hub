@@ -67,7 +67,8 @@ export function useHoldingShareExport(opts: UseHoldingShareExportOptions = {}) {
     if (!node) return;
     setBusy(true);
     try {
-      const dataUrl = await render(node, { pixelRatio: o?.pixelRatio ?? 3, ...o });
+      // 解析度由呼叫端決定（std=2 / high=3 / print=4），PDF 不再強制覆寫
+      const dataUrl = await render(node, o);
       if (!dataUrl) return;
 
       let pdf: jsPDF;
