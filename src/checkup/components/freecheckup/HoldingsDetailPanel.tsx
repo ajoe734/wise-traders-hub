@@ -272,7 +272,15 @@ function HoldingsDetailPanelImpl({
           <div style={{ display: 'flex', gap: 4 }}>
             <SortMenu WB={WB} sortBy={sortBy} sortDir={sortDir} setSortBy={setSortBy} setSortDir={setSortDir} />
             <PrefsMenu WB={WB} prefs={prefs} setPrefs={setPrefs} />
-            <ExportMenu WB={WB} onExport={runExport} onShareMode={() => setShareMode(true)} busy={busy} />
+            <ExportMenu
+              WB={WB}
+              prefs={exportPrefs}
+              setPrefs={setExportPrefs}
+              onExport={triggerCurrentExport}
+              onCopy={() => runExport('square', 'copy', { pixelRatio: RES_TO_PR[exportPrefs.resolution] ?? 3 })}
+              onShareMode={() => setShareMode(true)}
+              busy={busy}
+            />
             <NavBtn onClick={() => setExpandedDecision(null)} WB={WB} label="關閉">×</NavBtn>
           </div>
         </div>
