@@ -132,7 +132,7 @@ async function resolveExpert(slug: string): Promise<OgData> {
     title,
     description: desc,
     canonical: `/expert/${data.slug}`,
-    image: data.avatar_url || DEFAULT_OG_IMAGE,
+    image: `${OG_CARD_BASE}/expert/${encodeURIComponent(data.slug)}`,
     type: "profile",
     jsonLd: {
       "@context": "https://schema.org",
@@ -173,7 +173,7 @@ async function resolvePlan(slug: string, planId: string): Promise<OgData> {
     title,
     description: desc,
     canonical: `/plan/${slug}/${planId}`,
-    image: expert.avatar_url || DEFAULT_OG_IMAGE,
+    image: `${OG_CARD_BASE}/expert/${encodeURIComponent(slug)}`,
     type: "website",
     jsonLd: {
       "@context": "https://schema.org",
