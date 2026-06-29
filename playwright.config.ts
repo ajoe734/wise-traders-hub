@@ -191,6 +191,12 @@ export default defineConfig({
       testMatch: /holdings-export-menu\.spec\.ts/,
       use: { ...devices['Desktop Chrome'], viewport: { width: 1440, height: 900 } },
     },
+    {
+      // 窄螢幕 863px：點卡片必須展開新版 HoldingsDetailPanel（不是 legacy overlay）
+      name: 'narrow-holdings-detail-panel',
+      testMatch: /holdings-detail-panel-narrow\.spec\.ts/,
+      use: { ...devices['Desktop Chrome'], viewport: { width: 863, height: 900 } },
+    },
 
   ],
   webServer: {

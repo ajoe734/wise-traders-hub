@@ -672,21 +672,27 @@ function ExportMenu({ WB, prefs, setPrefs, onExport, onCopy, onShareMode, busy }
   const ratioWord = prefs.ratio === 'wide' ? '16:9' : '1:1';
   const summary = `${ratioWord} · ${prefs.format.toUpperCase()} · ${RES_LABEL[prefs.resolution] || prefs.resolution}`;
   return (
-    <details style={{ position: 'relative' }}>
+    <details style={{ position: 'relative' }} data-testid="holdings-export-menu">
       <summary style={{ ...iconBtn(WB), listStyle: 'none', gap: 4, padding: '0 8px', width: 'auto' }} aria-label="匯出">
         <Camera size={12} /> <span style={{ fontSize: 10, letterSpacing: '0.06em' }}>匯出</span>
       </summary>
       <div style={{ ...menuPanel(WB), minWidth: 250, padding: 0, gap: 0 }}>
-        <Seg label="比例" value={prefs.ratio} onChange={(v) => setPrefs((p) => ({ ...p, ratio: v }))}
-          options={[{ value: 'square', label: '1:1 IG' }, { value: 'wide', label: '16:9 簡報' }]} />
-        <Seg label="格式" value={prefs.format} onChange={(v) => setPrefs((p) => ({ ...p, format: v }))}
-          options={[{ value: 'png', label: 'PNG' }, { value: 'pdf', label: 'PDF' }]} />
-        <Seg label="解析度" value={prefs.resolution} onChange={(v) => setPrefs((p) => ({ ...p, resolution: v }))}
-          options={[
-            { value: 'std', label: '標準 2x' },
-            { value: 'high', label: '高 3x' },
-            { value: 'print', label: '印刷 4x' },
-          ]} />
+        <div data-testid="export-seg-ratio">
+          <Seg label="比例" value={prefs.ratio} onChange={(v) => setPrefs((p) => ({ ...p, ratio: v }))}
+            options={[{ value: 'square', label: '1:1 IG' }, { value: 'wide', label: '16:9 簡報' }]} />
+        </div>
+        <div data-testid="export-seg-format">
+          <Seg label="格式" value={prefs.format} onChange={(v) => setPrefs((p) => ({ ...p, format: v }))}
+            options={[{ value: 'png', label: 'PNG' }, { value: 'pdf', label: 'PDF' }]} />
+        </div>
+        <div data-testid="export-seg-resolution">
+          <Seg label="解析度" value={prefs.resolution} onChange={(v) => setPrefs((p) => ({ ...p, resolution: v }))}
+            options={[
+              { value: 'std', label: '標準 2x' },
+              { value: 'high', label: '高 3x' },
+              { value: 'print', label: '印刷 4x' },
+            ]} />
+        </div>
         <div style={{ padding: '10px 10px 8px', marginTop: 4, borderTop: `1px solid ${WB.hair}` }}>
           <button
             data-testid="holding-export-trigger"
@@ -875,7 +881,7 @@ function MiniChartsRow({ WB, price, cost, avgCostSim, target, stop, buyMore, ran
 // 4-up grid（desktop）→ 2x2（tablet）→ 1col（mobile）。chart 高度提升到 140。
 function ComparisonCharts({ WB, h, price, cost, avgCostSim, target, stop, buyMore, rangeLow, rangeHigh, spark, weight, weightSim, totalPortfolioValue, orderedDisplayed }) {
   return (
-    <div className="hp-cmp-row" style={{ display: 'grid', gridTemplateColumns: 'repeat(4, minmax(0, 1fr))', gap: 10, marginBottom: 16 }}>
+    <div className="hp-cmp-row" data-testid="holdings-comparison-charts" style={{ display: 'grid', gridTemplateColumns: 'repeat(4, minmax(0, 1fr))', gap: 10, marginBottom: 16 }}>
       <PriceAxisChart WB={WB} price={price} cost={cost} avgCostSim={avgCostSim} target={target} stop={stop} buyMore={buyMore} tall />
       <RangeChart WB={WB} price={price} cost={cost} low={rangeLow} high={rangeHigh} spark={spark} tall />
       <WeightDonut WB={WB} weight={weight} weightSim={weightSim} tall />
