@@ -64,7 +64,7 @@ export function ViewAsBanner() {
             {copied ? <Check className="h-3.5 w-3.5" /> : <Copy className="h-3.5 w-3.5" />}
             <span className="hidden sm:inline">{copied ? '已複製' : '複製 ID'}</span>
           </button>
-          <span className="opacity-75 hidden sm:inline tabular-nums">
+          <span className="opacity-75 tabular-nums text-[11px] sm:text-sm">
             剩 {mins}:{String(secs).padStart(2, '0')}
           </span>
           <button
