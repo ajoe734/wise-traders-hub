@@ -432,6 +432,7 @@ function HoldingsTab(props) {
             {showPanel && (
               <aside
                 className="holdings-detail-panel"
+                data-testid="holdings-detail-panel"
                 style={{
                   position:'sticky', top:12,
                   background: WB.surface,
@@ -441,6 +442,21 @@ function HoldingsTab(props) {
                   overflowY:'auto',
                 }}
               >
+                <div
+                  className="holdings-detail-panel__narrow-hint"
+                  data-testid="holdings-panel-narrow-hint"
+                  style={{
+                    alignItems:'center', gap:8,
+                    padding:'8px 12px',
+                    borderBottom:`1px solid ${WB.hair}`,
+                    background: WB.surfaceSoft,
+                    color: WB.inkMute,
+                    fontSize:11, letterSpacing:'0.12em', fontWeight:500,
+                  }}
+                >
+                  <span aria-hidden style={{ fontSize:12, color: WB.ink }}>✓</span>
+                  <span>已展開完整圖表面板（成本／區間／佔比 + PNG·PDF 匯出）</span>
+                </div>
                 {renderDetailPanel()}
               </aside>
             )}
