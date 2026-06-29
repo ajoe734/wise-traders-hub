@@ -205,7 +205,9 @@ function HoldingsDetailPanelImpl({
     stamp, WB, showSimulated: dirty,
   }), [h, dec, meta, dirty, displayTarget, displayUpside, baseTarget, displayPnlPct, displayPnlAbs, displayWeight, rangeLow, rangeHigh, prefs.showThesis, prefs.showNextEvent, thesisSentence, nextEvent, stamp, WB]);
 
-  const runExport = async (variant, kind) => {
+  // runExport(variant, kind, options?) — variant: 'square'|'wide'、kind: 'png'|'pdf'|'copy'。
+  // options.pixelRatio 由匯出選單依 resolution 決定（std 2 / high 3 / print 4）。
+  const runExport = async (variant, kind, opts: { pixelRatio?: number } = {}) => {
     setExportNode({ variant });
     // 等下一個 frame 讓離屏 DOM mount
     await new Promise((r) => requestAnimationFrame(() => r()));
@@ -214,15 +216,23 @@ function HoldingsDetailPanelImpl({
     const safeName = (h.name || h.code || 'holding').replace(/[\\/:*?"<>|]/g, '');
     const ymd = new Date().toISOString().slice(0, 10).replace(/-/g, '');
     const ratioTag = variant === 'square' ? '1x1' : '16x9';
-    const base = `${h.code}-${safeName}-${ratioTag}-${ymd}`;
+    const prTag = opts.pixelRatio ? `-${opts.pixelRatio}x` : '';
+    const base = `${h.code}-${safeName}-${ratioTag}${prTag}-${ymd}`;
     try {
-      if (kind === 'png') await downloadPng(node, `${base}.png`);
-      else if (kind === 'pdf') await downloadPdf(node, `${base}.pdf`, variant);
-      else if (kind === 'copy') await copy(node);
+      if (kind === 'png') await downloadPng(node, `${base}.png`, { pixelRatio: opts.pixelRatio });
+      else if (kind === 'pdf') await downloadPdf(node, `${base}.pdf`, variant, { pixelRatio: opts.pixelRatio });
+      else if (kind === 'copy') await copy(node, { pixelRatio: opts.pixelRatio });
     } finally {
       setExportNode(null);
     }
   };
+
+  // 從 exportPrefs 計算「立即匯出」的具體參數。
+  const triggerCurrentExport = () => runExport(
+    exportPrefs.ratio,
+    exportPrefs.format,
+    { pixelRatio: RES_TO_PR[exportPrefs.resolution] ?? 3 }
+  );
 
   // 鍵盤快捷鍵：Cmd/Ctrl+Z undo、Cmd/Ctrl+Shift+Z redo。
   // INPUT/TEXTAREA focus 時讓瀏覽器原生 undo 走，避免干擾輸入。
