@@ -875,7 +875,7 @@ function MiniChartsRow({ WB, price, cost, avgCostSim, target, stop, buyMore, ran
 // 4-up grid（desktop）→ 2x2（tablet）→ 1col（mobile）。chart 高度提升到 140。
 function ComparisonCharts({ WB, h, price, cost, avgCostSim, target, stop, buyMore, rangeLow, rangeHigh, spark, weight, weightSim, totalPortfolioValue, orderedDisplayed }) {
   return (
-    <div className="hp-cmp-row" style={{ display: 'grid', gridTemplateColumns: 'repeat(4, minmax(0, 1fr))', gap: 10, marginBottom: 16 }}>
+    <div className="hp-cmp-row" data-testid="holdings-comparison-charts" style={{ display: 'grid', gridTemplateColumns: 'repeat(4, minmax(0, 1fr))', gap: 10, marginBottom: 16 }}>
       <PriceAxisChart WB={WB} price={price} cost={cost} avgCostSim={avgCostSim} target={target} stop={stop} buyMore={buyMore} tall />
       <RangeChart WB={WB} price={price} cost={cost} low={rangeLow} high={rangeHigh} spark={spark} tall />
       <WeightDonut WB={WB} weight={weight} weightSim={weightSim} tall />
