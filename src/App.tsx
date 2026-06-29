@@ -3,7 +3,13 @@ import { Toaster as Sonner } from "@/components/ui/sonner";
 import { TooltipProvider } from "@/components/ui/tooltip";
 import { QueryClientProvider } from "@tanstack/react-query";
 import { PersistQueryClientProvider } from "@tanstack/react-query-persist-client";
-import { BrowserRouter, Routes, Route, Navigate, useLocation } from "react-router-dom";
+import { BrowserRouter, Routes, Route, Navigate, useLocation, useParams } from "react-router-dom";
+
+// 短連結重導（/s/:slug → /expert/:slug），方便寫在 IG bio。
+const ShortExpertRedirect = () => {
+  const { slug } = useParams<{ slug: string }>();
+  return <Navigate to={`/expert/${slug || ''}`} replace />;
+};
 import { ThemeProvider } from "next-themes";
 import { lazy, Suspense, useEffect } from "react";
 import { prefetchHighTrafficRoutes } from "@/lib/routePrefetch";
