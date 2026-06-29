@@ -29,6 +29,8 @@
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2.39.0";
 
 const SITE = "https://legendflow.tw";
+const SUPABASE_URL = Deno.env.get("SUPABASE_URL")!;
+const OG_CARD_BASE = `${SUPABASE_URL}/functions/v1/og-card`;
 const DEFAULT_OG_IMAGE = `${SITE}/og-image.svg`;
 const DEFAULT_TITLE = "legendflow · 投顧分析師與實戰導師訂閱平台";
 const DEFAULT_DESC = "legendflow（智富股市實戰學院）— 專業投顧分析師即時策略訂閱與實戰導師週記教學。";
