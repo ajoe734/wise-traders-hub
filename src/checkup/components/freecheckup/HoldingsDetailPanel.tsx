@@ -134,21 +134,7 @@ function HoldingsDetailPanelImpl({
     return arr;
   }, [sparkArrRaw, h.cost, h.price, h.code]);
 
-  // ── derive base values（不依賴 selected 存在性，避免 hook order）──
-  const h = selected || {};
-  const dec = decisionsMap[h.code];
-  const meta = stockMeta[h.code] || null;
-  const baseTarget = targets && avgTarget && h.code ? avgTarget(h.code) : null;
-  const pctVal = h.pct ?? h.totalPct ?? 0;
-  const pnlVal = Number(h.pnl ?? h.totalPnl ?? 0);
-  const todayPct = Number.isFinite(Number(h.changePct)) ? Number(h.changePct) : null;
-  const todayPnl = Number.isFinite(Number(h.todayPnl)) ? Number(h.todayPnl) : null;
-  const valueNum = Number(h.value ?? (Number(h.price) * Number(h.qty)) ?? 0);
-  const weightPct = totalPortfolioValue > 0 && valueNum > 0 ? (valueNum / totalPortfolioValue) * 100 : null;
-  const sparkArr = useMemo(
-    () => (Array.isArray(sparkData30D) ? sparkData30D.filter((n) => Number.isFinite(n)) : []),
-    [sparkData30D]
-  );
+
   const rangeLow = sparkArr.length ? Math.min(...sparkArr) : null;
   const rangeHigh = sparkArr.length ? Math.max(...sparkArr) : null;
   const rangePos = rangeLow != null && rangeHigh != null && rangeHigh > rangeLow
