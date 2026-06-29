@@ -208,6 +208,8 @@ const AppShell = () => (
             <Route path="/" element={<SmartHomeRedirect><Index /></SmartHomeRedirect>} />
             <Route path="/experts" element={<Experts />} />
             <Route path="/expert/:slug" element={<ExpertProfile />} />
+            {/* 短連結（IG bio 友善）：/s/:slug → /expert/:slug */}
+            <Route path="/s/:slug" element={<ShortExpertRedirect />} />
             <Route path="/plan/:slug/:planId" element={<PlanDetail />} />
             <Route path="/checkout/:slug/:planId" element={<Checkout />} />
             <Route path="/checkout/checkup/:planId" element={<CheckupCheckout />} />
