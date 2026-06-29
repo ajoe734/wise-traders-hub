@@ -788,7 +788,7 @@ function ScenarioSandbox({ WB, prefs, setPrefs, sim, setSim, baseTarget, h, scen
           {/* 即時推算結果 */}
           <div className="hp-sandbox-stats" style={{
             marginTop: 12, padding: '10px 12px', background: WB.surface, borderRadius: 2,
-            display: 'grid', gridTemplateColumns: 'repeat(4, 1fr)', gap: 8,
+            display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(72px, 1fr))', gap: 8,
             border: `1px solid ${WB.hair}`,
           }}>
             <Stat WB={WB} label="均價" value={fmt(scenario.simAvgCost)} />
