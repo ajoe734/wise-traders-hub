@@ -953,34 +953,38 @@ function ChartFrame({ title, footer, WB, children, height = 90 }) {
   );
 }
 
-function PriceAxisChart({ WB, price, cost, avgCostSim, target, stop, buyMore }) {
-  // 統一刻度：包含 cost、price、target、stop、buyMore（有值）
+function PriceAxisChart({ WB, price, cost, avgCostSim, target, stop, buyMore, tall = false }) {
   const points = [cost, price, target, stop, buyMore, avgCostSim].filter((v) => Number.isFinite(Number(v)) && Number(v) > 0).map(Number);
   if (points.length < 2) {
-    return <ChartFrame title="價格座標" WB={WB}><span style={{ fontSize: 11, color: WB.inkLight }}>資料不足</span></ChartFrame>;
+    return <ChartFrame title="價格座標" WB={WB} height={tall ? 140 : 70}><span style={{ fontSize: 11, color: WB.inkLight }}>資料不足</span></ChartFrame>;
   }
   const lo = Math.min(...points) * 0.97;
   const hi = Math.max(...points) * 1.03;
   const pos = (v) => Number.isFinite(Number(v)) ? ((Number(v) - lo) / (hi - lo)) * 100 : null;
-  const W = '100%', H = 70;
+  const H = tall ? 110 : 70;
+  const yAxis = H * 0.55;
   const Dot = ({ v, color, label, top }) => {
     const x = pos(v);
     if (x == null) return null;
     return (
       <g>
-        <line x1={`${x}%`} y1="40" x2={`${x}%`} y2="50" stroke={color} strokeWidth="1.5" />
-        <circle cx={`${x}%`} cy="45" r="3.5" fill={color} />
-        <text x={`${x}%`} y={top ? 18 : 64} fontSize="9" fill={WB.inkSub} textAnchor="middle" style={{ letterSpacing: '0.04em' }}>
+        <line x1={`${x}%`} y1={yAxis - 5} x2={`${x}%`} y2={yAxis + 5} stroke={color} strokeWidth="1.5" />
+        <circle cx={`${x}%`} cy={yAxis} r={tall ? 4 : 3.5} fill={color} />
+        <text x={`${x}%`} y={top ? yAxis - 14 : yAxis + 16} fontSize={tall ? 10 : 9} fill={WB.inkSub} textAnchor="middle" style={{ letterSpacing: '0.04em' }}>
           {label} {Number(v).toFixed(2)}
         </text>
       </g>
     );
   };
   const change = cost > 0 && price > 0 ? ((price - cost) / cost) * 100 : null;
+  const changeAbs = cost > 0 && price > 0 ? price - cost : null;
+  const footer = change != null
+    ? `vs 成本 ${change >= 0 ? '+' : ''}${change.toFixed(2)}% (${changeAbs >= 0 ? '+' : ''}${changeAbs.toFixed(2)})`
+    : '';
   return (
-    <ChartFrame title="成本 ↔ 現價 軸" WB={WB} footer={change != null ? `vs 成本 ${change >= 0 ? '+' : ''}${change.toFixed(2)}%` : ''}>
-      <svg width={W} height={H} viewBox="0 0 100 70" preserveAspectRatio="none" style={{ width: '100%', height: H, overflow: 'visible' }}>
-        <line x1="0" y1="45" x2="100" y2="45" stroke={WB.hair} strokeWidth="1" vectorEffect="non-scaling-stroke" />
+    <ChartFrame title="成本 ↔ 現價 軸" WB={WB} footer={footer} height={H}>
+      <svg width="100%" height={H} viewBox={`0 0 100 ${H}`} preserveAspectRatio="none" style={{ width: '100%', height: H, overflow: 'visible' }}>
+        <line x1="0" y1={yAxis} x2="100" y2={yAxis} stroke={WB.hair} strokeWidth="1" vectorEffect="non-scaling-stroke" />
         <Dot v={cost} color={WB.inkLight} label="成本" top />
         <Dot v={avgCostSim} color="#8A857F" label="模擬均價" top={false} />
         <Dot v={price} color={WB.ink} label="現價" top={false} />
@@ -992,24 +996,37 @@ function PriceAxisChart({ WB, price, cost, avgCostSim, target, stop, buyMore }) 
   );
 }
 
-function RangeChart({ WB, price, cost, low, high }) {
+function RangeChart({ WB, price, cost, low, high, spark, tall = false }) {
   if (low == null || high == null || high <= low) {
-    return <ChartFrame title="30D 區間位置" WB={WB}><span style={{ fontSize: 11, color: WB.inkLight }}>無 30D 資料</span></ChartFrame>;
+    return <ChartFrame title="30D 區間位置" WB={WB} height={tall ? 140 : 70}><span style={{ fontSize: 11, color: WB.inkLight }}>無 30D 資料</span></ChartFrame>;
   }
   const posPrice = ((price - low) / (high - low)) * 100;
   const posCost = cost != null ? ((cost - low) / (high - low)) * 100 : null;
+  const hasSpark = Array.isArray(spark) && spark.length >= 2;
   return (
-    <ChartFrame title="30D 區間位置" WB={WB} footer={`位置 ${posPrice.toFixed(0)}% · ${low.toFixed(2)}–${high.toFixed(2)}`}>
+    <ChartFrame title="30D 區間位置" WB={WB} footer={`位置 ${posPrice.toFixed(0)}% · ${low.toFixed(2)}–${high.toFixed(2)}`} height={tall ? 110 : 70}>
       <div style={{ width: '100%', position: 'relative' }}>
-        <div style={{ height: 8, background: WB.hair, borderRadius: 4, position: 'relative' }}>
+        {tall && hasSpark && (
+          <svg viewBox="0 0 100 30" preserveAspectRatio="none" style={{ width: '100%', height: 36, display: 'block', marginBottom: 6 }}>
+            <polyline
+              fill="none" stroke={WB.inkSub} strokeWidth="1.2" vectorEffect="non-scaling-stroke"
+              points={spark.map((v, i) => {
+                const x = (i / (spark.length - 1)) * 100;
+                const y = 30 - ((v - low) / (high - low)) * 30;
+                return `${x.toFixed(2)},${y.toFixed(2)}`;
+              }).join(' ')}
+            />
+          </svg>
+        )}
+        <div style={{ height: tall ? 10 : 8, background: WB.hair, borderRadius: 4, position: 'relative' }}>
           {posCost != null && posCost >= 0 && posCost <= 100 && (
             <div style={{
-              position: 'absolute', left: `${posCost}%`, top: -3, width: 2, height: 14,
+              position: 'absolute', left: `${posCost}%`, top: -3, width: 2, height: tall ? 16 : 14,
               background: WB.inkLight, transform: 'translateX(-1px)',
             }} title="成本" />
           )}
           <div style={{
-            position: 'absolute', left: `${Math.min(Math.max(posPrice, 0), 100)}%`, top: -5, width: 4, height: 18,
+            position: 'absolute', left: `${Math.min(Math.max(posPrice, 0), 100)}%`, top: -5, width: 4, height: tall ? 20 : 18,
             background: WB.accent, transform: 'translateX(-2px)', borderRadius: 1,
           }} title="現價" />
         </div>
@@ -1022,20 +1039,19 @@ function RangeChart({ WB, price, cost, low, high }) {
   );
 }
 
-function WeightDonut({ WB, weight, weightSim }) {
-  if (weight == null) return <ChartFrame title="部位佔比" WB={WB}><span style={{ fontSize: 11, color: WB.inkLight }}>—</span></ChartFrame>;
+function WeightDonut({ WB, weight, weightSim, tall = false }) {
+  if (weight == null) return <ChartFrame title="部位佔比" WB={WB} height={tall ? 140 : 70}><span style={{ fontSize: 11, color: WB.inkLight }}>—</span></ChartFrame>;
   const R = 30, r = 22, C = 2 * Math.PI * R, c = 2 * Math.PI * r;
   const w = Math.max(0, Math.min(100, weight));
   const ws = weightSim != null ? Math.max(0, Math.min(100, weightSim)) : null;
   const shown = ws != null ? ws : w;
+  const size = tall ? 110 : 80;
   return (
-    <ChartFrame title="部位佔比" WB={WB} footer={ws != null ? `原 ${w.toFixed(1)}% → 模擬 ${ws.toFixed(1)}%` : `${w.toFixed(1)}% of 總市值`}>
-      <svg viewBox="0 0 80 80" width="80" height="80" style={{ margin: '0 auto', display: 'block' }}>
-        {/* 外圈：原始 */}
+    <ChartFrame title="部位佔比" WB={WB} footer={ws != null ? `原 ${w.toFixed(1)}% → 模擬 ${ws.toFixed(1)}%` : `${w.toFixed(1)}% of 總市值`} height={tall ? 110 : 70}>
+      <svg viewBox="0 0 80 80" width={size} height={size} style={{ margin: '0 auto', display: 'block' }}>
         <circle cx="40" cy="40" r={R} fill="none" stroke={WB.hair} strokeWidth="6" />
         <circle cx="40" cy="40" r={R} fill="none" stroke={WB.accent} strokeWidth="6"
           strokeDasharray={`${(C * w) / 100} ${C}`} strokeDashoffset="0" transform="rotate(-90 40 40)" opacity={ws != null ? 0.35 : 0.9} />
-        {/* 內圈：模擬 */}
         {ws != null && (
           <circle cx="40" cy="40" r={r} fill="none" stroke={WB.accent} strokeWidth="4"
             strokeDasharray={`${(c * ws) / 100} ${c}`} strokeDashoffset="0" transform="rotate(-90 40 40)" />
@@ -1049,6 +1065,7 @@ function WeightDonut({ WB, weight, weightSim }) {
 }
 
 function fmt(v) { return Number.isFinite(Number(v)) ? Number(v).toFixed(2) : '—'; }
+
 
 const HoldingsDetailPanel = React.memo(HoldingsDetailPanelImpl);
 export default HoldingsDetailPanel;
