@@ -37,21 +37,61 @@ async function prime(page: Page) {
 }
 
 async function stabilize(page: Page) {
+  // 1) 注入禁用動畫/transition/caret 的樣式，並隱藏會抖動元素
   await page.addStyleTag({
     content: `
       *, *::before, *::after {
+        animation: none !important;
         animation-duration: 0s !important;
         animation-delay: 0s !important;
+        animation-iteration-count: 1 !important;
+        transition: none !important;
         transition-duration: 0s !important;
         transition-delay: 0s !important;
         caret-color: transparent !important;
+        scroll-behavior: auto !important;
       }
-      /* 隱藏會抖動的元素：sparkline、video、即時報價 */
-      .wb-spark, video, [data-testid="live-quote"], [data-realtime] {
+      html { scroll-behavior: auto !important; }
+      /* 隱藏會抖動的元素：sparkline、video、即時報價、骨架、toast */
+      .wb-spark, video, canvas[data-animated],
+      [data-testid="live-quote"], [data-realtime],
+      [data-skeleton], .animate-pulse, .animate-spin,
+      [role="status"], [data-sonner-toaster], [data-radix-toast-root] {
         visibility: hidden !important;
       }
     `,
   });
+
+  // 2) 等待字體載入完成
+  await page.evaluate(async () => {
+    if (document.fonts && document.fonts.ready) {
+      await document.fonts.ready;
+    }
+  });
+
+  // 3) 等待所有 <img> 完成載入（含 lazy）
+  await page.evaluate(async () => {
+    const imgs = Array.from(document.images);
+    await Promise.all(
+      imgs.map((img) =>
+        img.complete && img.naturalWidth > 0
+          ? Promise.resolve()
+          : new Promise<void>((resolve) => {
+              img.addEventListener('load', () => resolve(), { once: true });
+              img.addEventListener('error', () => resolve(), { once: true });
+            }),
+      ),
+    );
+  });
+
+  // 4) 滾到頂並等兩個 frame 讓 layout flush
+  await page.evaluate(
+    () =>
+      new Promise<void>((resolve) => {
+        window.scrollTo(0, 0);
+        requestAnimationFrame(() => requestAnimationFrame(() => resolve()));
+      }),
+  );
 }
 
 test.describe('Visual regression — Portal & /app across breakpoints', () => {
@@ -61,7 +101,8 @@ test.describe('Visual regression — Portal & /app across breakpoints', () => {
       await gotoWithRetry(page, path, { waitUntil: 'domcontentloaded' });
       await page.waitForLoadState('networkidle', { timeout: 8_000 }).catch(() => {});
       await stabilize(page);
-      await page.waitForTimeout(400);
+      // 短暫延遲讓 stabilize 後的 re-paint 完成
+      await page.waitForTimeout(200);
 
       await expect(page).toHaveScreenshot(
         `${name}-${testInfo.project.name}.png`,
@@ -70,6 +111,7 @@ test.describe('Visual regression — Portal & /app across breakpoints', () => {
           maxDiffPixelRatio: 0.02,
           animations: 'disabled',
           caret: 'hide',
+          scale: 'css',
         },
       );
     });
