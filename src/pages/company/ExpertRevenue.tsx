@@ -139,7 +139,7 @@ export default function ExpertRevenue() {
             ) : sorted.length === 0 ? (
               <p className="text-sm text-foreground/50">區間內無分潤資料。</p>
             ) : (
-              <table className="w-full text-sm">
+              <div className="overflow-x-auto"><table className="w-full text-sm">
                 <thead className="text-left text-xs text-foreground/55 border-b">
                   <tr>
                     <th className="py-2 pr-3">專家</th>
@@ -172,7 +172,7 @@ export default function ExpertRevenue() {
                     </tr>
                   ))}
                 </tbody>
-              </table>
+              </table></div>
             )}
           </CardContent>
         </Card>

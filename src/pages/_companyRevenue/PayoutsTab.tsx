@@ -36,7 +36,7 @@ export function PayoutsTab({ expertPayouts, splitsByExpert, planMap }: Props) {
 
       <Card>
         <CardContent className="p-0 overflow-x-auto">
-          <table className="w-full text-sm">
+          <div className="overflow-x-auto"><table className="w-full text-sm">
             <thead>
               <tr className="border-b text-left text-xs text-muted-foreground">
                 <th className="p-3 w-8"></th>
@@ -77,7 +77,7 @@ export function PayoutsTab({ expertPayouts, splitsByExpert, planMap }: Props) {
                       <tr key={`${p.expert_id}-detail`} className="bg-muted/20">
                         <td colSpan={8} className="p-3">
                           <ScrollArea className="max-h-[320px]">
-                            <table className="w-full text-xs">
+                            <div className="overflow-x-auto"><table className="w-full text-xs">
                               <thead>
                                 <tr className="text-left text-muted-foreground">
                                   <th className="p-2">日期</th>
@@ -104,7 +104,7 @@ export function PayoutsTab({ expertPayouts, splitsByExpert, planMap }: Props) {
                                   </tr>
                                 ))}
                               </tbody>
-                            </table>
+                            </table></div>
                           </ScrollArea>
                         </td>
                       </tr>
@@ -113,7 +113,7 @@ export function PayoutsTab({ expertPayouts, splitsByExpert, planMap }: Props) {
                 );
               })}
             </tbody>
-          </table>
+          </table></div>
         </CardContent>
       </Card>
     </TabsContent>

@@ -203,7 +203,7 @@ export default function AdSpend() {
             ) : rows.length === 0 ? (
               <p className="text-sm text-foreground/50">尚無紀錄。</p>
             ) : (
-              <table className="w-full text-sm">
+              <div className="overflow-x-auto"><table className="w-full text-sm">
                 <thead className="text-left text-xs text-foreground/55 border-b">
                   <tr>
                     <th className="py-2 pr-3">月份</th>
@@ -232,7 +232,7 @@ export default function AdSpend() {
                     </tr>
                   ))}
                 </tbody>
-              </table>
+              </table></div>
             )}
           </CardContent>
         </Card>
