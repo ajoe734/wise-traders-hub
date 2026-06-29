@@ -2,6 +2,7 @@ import { createRoot } from "react-dom/client";
 import { HelmetProvider } from "react-helmet-async";
 import App from "./App.tsx";
 import "./index.css";
+import "./styles/rwd-grid.css";
 import { DedupSettingsButton } from "./checkup/components/DedupSettingsButton";
 import { installEdgeFetchInterceptor } from "./checkup/lib/edgeFetchInterceptor.js";
 import { runWhenIdle } from "./lib/idleSchedule";
