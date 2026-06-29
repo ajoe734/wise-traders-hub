@@ -429,14 +429,17 @@ function HoldingsDetailPanelImpl({
           </div>
         )}
 
-        {/* MiniChartsRow */}
+        {/* ComparisonCharts：成本 vs 現價 / 30D 區間 / 佔比貢獻 */}
         {prefs.showCharts && (
-          <MiniChartsRow
-            WB={WB} price={h.price} cost={h.cost}
+          <ComparisonCharts
+            WB={WB} h={h}
+            price={h.price} cost={h.cost}
             avgCostSim={dirty ? scenario.simAvgCost : null}
             target={displayTarget} stop={simInput.stopPrice} buyMore={simInput.buyMorePrice}
-            rangeLow={rangeLow} rangeHigh={rangeHigh}
+            rangeLow={rangeLow} rangeHigh={rangeHigh} spark={sparkArr}
             weight={weightPct} weightSim={dirty ? displayWeight : null}
+            totalPortfolioValue={totalPortfolioValue}
+            orderedDisplayed={orderedDisplayed}
           />
         )}
 
