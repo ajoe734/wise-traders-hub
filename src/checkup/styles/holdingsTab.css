@@ -35,6 +35,12 @@
   .holdings-card-grid { grid-template-columns: repeat(2, minmax(0, 1fr)) !important; }
 }
 
+/* 窄螢幕提示帶：≤1023px 才顯示，告訴使用者 panel 已展開於下方 */
+.holdings-detail-panel__narrow-hint { display: none; }
+@media (max-width: 1023px) {
+  .holdings-detail-panel__narrow-hint { display: flex !important; }
+}
+
 /* 卡片內元素 baseline 對齊強化（所有尺寸通用） */
 .wb-card .wb-roi {
   font-feature-settings: "tnum" 1;
