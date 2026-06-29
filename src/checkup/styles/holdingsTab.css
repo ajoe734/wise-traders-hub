@@ -25,8 +25,13 @@
 }
 
 @media (max-width: 1023px) {
+  /* 窄螢幕：detail panel 改為全寬顯示在卡片牆下方，不再隱藏 */
   .holdings-workbench { grid-template-columns: 1fr !important; }
-  .holdings-detail-panel { display: none !important; }
+  .holdings-detail-panel {
+    position: static !important;
+    max-height: none !important;
+    margin-top: 16px;
+  }
   .holdings-card-grid { grid-template-columns: repeat(2, minmax(0, 1fr)) !important; }
 }
 
