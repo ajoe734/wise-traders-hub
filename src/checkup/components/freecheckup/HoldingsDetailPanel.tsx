@@ -641,28 +641,77 @@ function PrefsMenu({ WB, prefs, setPrefs }) {
   );
 }
 
-function ExportMenu({ WB, onExport, onShareMode, busy }) {
-  const MItem = ({ icon, label, onClick }) => (
-    <button onClick={(e) => { e.preventDefault(); (e.currentTarget.closest('details') as any)?.removeAttribute('open'); onClick(); }}
-      style={{ ...menuItem(WB, false), display: 'flex', alignItems: 'center', gap: 8 }} disabled={busy}>
-      {icon} {label}
-    </button>
+function ExportMenu({ WB, prefs, setPrefs, onExport, onCopy, onShareMode, busy }) {
+  // 三段 segmented：比例 / 格式 / 解析度。任何切換即時 saveExportPrefs。
+  const Seg = ({ label, value, options, onChange }) => (
+    <div style={{ display: 'flex', flexDirection: 'column', gap: 6, padding: '8px 10px 0' }}>
+      <span style={{ fontSize: 9, color: WB.inkLight, letterSpacing: '0.18em', fontWeight: 600 }}>{label}</span>
+      <div style={{ display: 'inline-flex', border: `1px solid ${WB.hair}`, borderRadius: 2, overflow: 'hidden' }}>
+        {options.map((o, i) => {
+          const active = value === o.value;
+          return (
+            <button
+              key={o.value}
+              onClick={(e) => { e.preventDefault(); onChange(o.value); }}
+              style={{
+                flex: 1, padding: '6px 10px', fontSize: 11, fontFamily: 'inherit',
+                background: active ? WB.ink : 'transparent', color: active ? WB.surface : WB.inkSub,
+                border: 'none', borderLeft: i === 0 ? 'none' : `1px solid ${WB.hair}`,
+                cursor: 'pointer', letterSpacing: '0.06em', fontWeight: active ? 600 : 500,
+                whiteSpace: 'nowrap',
+              }}>
+              {o.label}
+            </button>
+          );
+        })}
+      </div>
+    </div>
   );
+  const pxBase = prefs.ratio === 'wide' ? 1920 : 1080;
+  const px = pxBase * ((RES_TO_PR[prefs.resolution] ?? 3) / 3);
+  const ratioWord = prefs.ratio === 'wide' ? '16:9' : '1:1';
+  const summary = `${ratioWord} · ${prefs.format.toUpperCase()} · ${RES_LABEL[prefs.resolution] || prefs.resolution}`;
   return (
     <details style={{ position: 'relative' }}>
       <summary style={{ ...iconBtn(WB), listStyle: 'none', gap: 4, padding: '0 8px', width: 'auto' }} aria-label="匯出">
         <Camera size={12} /> <span style={{ fontSize: 10, letterSpacing: '0.06em' }}>匯出</span>
       </summary>
-      <div style={{ ...menuPanel(WB), minWidth: 200 }}>
-        <div style={menuHeader(WB)}>PNG（@3x）</div>
-        <MItem icon={<ImageIcon size={12} />} label="1:1 IG（1080）" onClick={() => onExport('square', 'png')} />
-        <MItem icon={<ImageIcon size={12} />} label="16:9 簡報（1920）" onClick={() => onExport('wide', 'png')} />
-        <div style={{ ...menuHeader(WB), marginTop: 6 }}>PDF</div>
-        <MItem icon={<FileText size={12} />} label="1:1 正方 PDF" onClick={() => onExport('square', 'pdf')} />
-        <MItem icon={<FileText size={12} />} label="16:9 A4 橫向 PDF" onClick={() => onExport('wide', 'pdf')} />
-        <div style={{ borderTop: `1px solid ${WB.hair}`, margin: '4px 0' }} />
-        <MItem icon={<Copy size={12} />} label="複製到剪貼簿（1:1）" onClick={() => onExport('square', 'copy')} />
-        <MItem icon={<Camera size={12} />} label="螢幕預覽 SHARE MODE" onClick={onShareMode} />
+      <div style={{ ...menuPanel(WB), minWidth: 250, padding: 0, gap: 0 }}>
+        <Seg label="比例" value={prefs.ratio} onChange={(v) => setPrefs((p) => ({ ...p, ratio: v }))}
+          options={[{ value: 'square', label: '1:1 IG' }, { value: 'wide', label: '16:9 簡報' }]} />
+        <Seg label="格式" value={prefs.format} onChange={(v) => setPrefs((p) => ({ ...p, format: v }))}
+          options={[{ value: 'png', label: 'PNG' }, { value: 'pdf', label: 'PDF' }]} />
+        <Seg label="解析度" value={prefs.resolution} onChange={(v) => setPrefs((p) => ({ ...p, resolution: v }))}
+          options={[
+            { value: 'std', label: '標準 2x' },
+            { value: 'high', label: '高 3x' },
+            { value: 'print', label: '印刷 4x' },
+          ]} />
+        <div style={{ padding: '10px 10px 8px', marginTop: 4, borderTop: `1px solid ${WB.hair}` }}>
+          <button
+            data-testid="holding-export-trigger"
+            onClick={(e) => { e.preventDefault(); (e.currentTarget.closest('details') as any)?.removeAttribute('open'); onExport(); }}
+            disabled={busy}
+            style={{
+              width: '100%', padding: '9px 12px', background: WB.ink, color: WB.surface,
+              border: 'none', borderRadius: 2, cursor: busy ? 'wait' : 'pointer', fontFamily: 'inherit',
+              fontSize: 11, letterSpacing: '0.16em', fontWeight: 600,
+              display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 6,
+            }}>
+            {prefs.format === 'pdf' ? <FileText size={12} /> : <ImageIcon size={12} />}
+            立即匯出（{Math.round(px)}px · {summary}）
+          </button>
+        </div>
+        <div style={{ display: 'flex', flexDirection: 'column', gap: 2, padding: '0 4px 4px' }}>
+          <button onClick={(e) => { e.preventDefault(); (e.currentTarget.closest('details') as any)?.removeAttribute('open'); onCopy(); }}
+            disabled={busy} style={{ ...menuItem(WB, false), display: 'flex', alignItems: 'center', gap: 8 }}>
+            <Copy size={12} /> 複製 1:1 PNG 到剪貼簿
+          </button>
+          <button onClick={(e) => { e.preventDefault(); (e.currentTarget.closest('details') as any)?.removeAttribute('open'); onShareMode(); }}
+            style={{ ...menuItem(WB, false), display: 'flex', alignItems: 'center', gap: 8 }}>
+            <Camera size={12} /> 螢幕預覽 SHARE MODE
+          </button>
+        </div>
       </div>
     </details>
   );
