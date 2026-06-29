@@ -235,6 +235,13 @@ export default defineConfig({
       use: { ...devices['Desktop Chrome'], viewport: { width: 1023, height: 900 } },
     },
 
+    // 視覺回歸：Portal 與 /app 關鍵頁面 × 7 斷點（320/375/414/560/768/1023/1280）
+    ...([320, 375, 414, 560, 768, 1023, 1280] as const).map((w) => ({
+      name: `visual-${w}`,
+      testMatch: /visual-regression\.spec\.ts/,
+      use: { ...devices['Desktop Chrome'], viewport: { width: w, height: 900 } },
+    })),
+
   ],
   webServer: {
     command: 'bun run dev',
