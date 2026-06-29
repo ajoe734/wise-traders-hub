@@ -312,7 +312,7 @@ export function PortfolioHealthCheck({ holdings }) {
       )}
 
       {/* Three column distributions */}
-      <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr 1fr', gap: 8 }}>
+      <div className="rwd-3col">
         <div>
           <div style={{ fontSize: 9, color: C.textMute, marginBottom: 6, letterSpacing: '0.08em', fontWeight: 400 }}>策略</div>
           {Object.entries(stratMap)
