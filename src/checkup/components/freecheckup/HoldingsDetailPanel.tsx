@@ -30,6 +30,15 @@ const DEFAULT_PREFS = {
   showSandbox: false,
 };
 
+const EXPORT_PREFS_KEY = 'holdingPanel.export.v1';
+const DEFAULT_EXPORT_PREFS = {
+  format: 'png',        // 'png' | 'pdf'
+  ratio: 'square',      // 'square' | 'wide'
+  resolution: 'high',   // 'std' | 'high' | 'print'  → pixelRatio 2 / 3 / 4
+};
+const RES_TO_PR = { std: 2, high: 3, print: 4 };
+const RES_LABEL = { std: '標準 2x', high: '高 3x', print: '印刷 4x' };
+
 function loadPrefs() {
   try {
     const raw = typeof window !== 'undefined' && window.localStorage.getItem(PREFS_KEY);
@@ -39,6 +48,16 @@ function loadPrefs() {
 }
 function savePrefs(p) {
   try { window.localStorage.setItem(PREFS_KEY, JSON.stringify(p)); } catch {}
+}
+function loadExportPrefs() {
+  try {
+    const raw = typeof window !== 'undefined' && window.localStorage.getItem(EXPORT_PREFS_KEY);
+    if (!raw) return DEFAULT_EXPORT_PREFS;
+    return { ...DEFAULT_EXPORT_PREFS, ...JSON.parse(raw) };
+  } catch { return DEFAULT_EXPORT_PREFS; }
+}
+function saveExportPrefs(p) {
+  try { window.localStorage.setItem(EXPORT_PREFS_KEY, JSON.stringify(p)); } catch {}
 }
 
 function HoldingsDetailPanelImpl({
@@ -61,6 +80,14 @@ function HoldingsDetailPanelImpl({
 }) {
   const [shareMode, setShareMode] = useState(false);
   const [prefs, setPrefs] = useState(loadPrefs);
+  const [exportPrefs, setExportPrefsRaw] = useState(loadExportPrefs);
+  const setExportPrefs = useCallback((updater) => {
+    setExportPrefsRaw((prev) => {
+      const next = typeof updater === 'function' ? updater(prev) : updater;
+      saveExportPrefs(next);
+      return next;
+    });
+  }, []);
   const screenRef = useRef(null);
   const exportHostRef = useRef(null);
   const [exportNode, setExportNode] = useState(null); // { variant, props } 觸發離屏渲染
@@ -79,10 +106,35 @@ function HoldingsDetailPanelImpl({
   const todayPnl = Number.isFinite(Number(h.todayPnl)) ? Number(h.todayPnl) : null;
   const valueNum = Number(h.value ?? (Number(h.price) * Number(h.qty)) ?? 0);
   const weightPct = totalPortfolioValue > 0 && valueNum > 0 ? (valueNum / totalPortfolioValue) * 100 : null;
-  const sparkArr = useMemo(
+  const sparkArrRaw = useMemo(
     () => (Array.isArray(sparkData30D) ? sparkData30D.filter((n) => Number.isFinite(n)) : []),
     [sparkData30D]
   );
+  // Fallback：sparkline 邊緣失敗 / demo 模式不打 edge 時，依 cost→price 合成一條 30 點走勢，
+  // 讓 RangeChart 不要顯示「無 30D 資料」，否則 demo 看不到圖會誤判功能壞。
+  const sparkArr = useMemo(() => {
+    if (sparkArrRaw.length >= 2) return sparkArrRaw;
+    const c = Number(h.cost); const p = Number(h.price);
+    if (!Number.isFinite(c) || !Number.isFinite(p) || c <= 0 || p <= 0) return sparkArrRaw;
+    const N = 30;
+    const arr: number[] = [];
+    // 使用 code-based seed 讓結果穩定，避免每次 render 抖動
+    const seed = String(h.code || 'x').split('').reduce((a, ch) => a + ch.charCodeAt(0), 0);
+    const rand = (i) => {
+      const x = Math.sin((seed + i) * 9973) * 10000;
+      return x - Math.floor(x);
+    };
+    const amp = Math.max(Math.abs(p - c) * 0.35, p * 0.015);
+    for (let i = 0; i < N; i++) {
+      const t = i / (N - 1);
+      const base = c + (p - c) * t;
+      arr.push(Number((base + (rand(i) - 0.5) * 2 * amp).toFixed(2)));
+    }
+    arr[N - 1] = p; // 收斂到現價
+    return arr;
+  }, [sparkArrRaw, h.cost, h.price, h.code]);
+
+
   const rangeLow = sparkArr.length ? Math.min(...sparkArr) : null;
   const rangeHigh = sparkArr.length ? Math.max(...sparkArr) : null;
   const rangePos = rangeLow != null && rangeHigh != null && rangeHigh > rangeLow
@@ -153,7 +205,9 @@ function HoldingsDetailPanelImpl({
     stamp, WB, showSimulated: dirty,
   }), [h, dec, meta, dirty, displayTarget, displayUpside, baseTarget, displayPnlPct, displayPnlAbs, displayWeight, rangeLow, rangeHigh, prefs.showThesis, prefs.showNextEvent, thesisSentence, nextEvent, stamp, WB]);
 
-  const runExport = async (variant, kind) => {
+  // runExport(variant, kind, options?) — variant: 'square'|'wide'、kind: 'png'|'pdf'|'copy'。
+  // options.pixelRatio 由匯出選單依 resolution 決定（std 2 / high 3 / print 4）。
+  const runExport = async (variant, kind, opts: { pixelRatio?: number } = {}) => {
     setExportNode({ variant });
     // 等下一個 frame 讓離屏 DOM mount
     await new Promise((r) => requestAnimationFrame(() => r()));
@@ -162,15 +216,23 @@ function HoldingsDetailPanelImpl({
     const safeName = (h.name || h.code || 'holding').replace(/[\\/:*?"<>|]/g, '');
     const ymd = new Date().toISOString().slice(0, 10).replace(/-/g, '');
     const ratioTag = variant === 'square' ? '1x1' : '16x9';
-    const base = `${h.code}-${safeName}-${ratioTag}-${ymd}`;
+    const prTag = opts.pixelRatio ? `-${opts.pixelRatio}x` : '';
+    const base = `${h.code}-${safeName}-${ratioTag}${prTag}-${ymd}`;
     try {
-      if (kind === 'png') await downloadPng(node, `${base}.png`);
-      else if (kind === 'pdf') await downloadPdf(node, `${base}.pdf`, variant);
-      else if (kind === 'copy') await copy(node);
+      if (kind === 'png') await downloadPng(node, `${base}.png`, { pixelRatio: opts.pixelRatio });
+      else if (kind === 'pdf') await downloadPdf(node, `${base}.pdf`, variant, { pixelRatio: opts.pixelRatio });
+      else if (kind === 'copy') await copy(node, { pixelRatio: opts.pixelRatio });
     } finally {
       setExportNode(null);
     }
   };
+
+  // 從 exportPrefs 計算「立即匯出」的具體參數。
+  const triggerCurrentExport = () => runExport(
+    exportPrefs.ratio,
+    exportPrefs.format,
+    { pixelRatio: RES_TO_PR[exportPrefs.resolution] ?? 3 }
+  );
 
   // 鍵盤快捷鍵：Cmd/Ctrl+Z undo、Cmd/Ctrl+Shift+Z redo。
   // INPUT/TEXTAREA focus 時讓瀏覽器原生 undo 走，避免干擾輸入。
@@ -210,7 +272,15 @@ function HoldingsDetailPanelImpl({
           <div style={{ display: 'flex', gap: 4 }}>
             <SortMenu WB={WB} sortBy={sortBy} sortDir={sortDir} setSortBy={setSortBy} setSortDir={setSortDir} />
             <PrefsMenu WB={WB} prefs={prefs} setPrefs={setPrefs} />
-            <ExportMenu WB={WB} onExport={runExport} onShareMode={() => setShareMode(true)} busy={busy} />
+            <ExportMenu
+              WB={WB}
+              prefs={exportPrefs}
+              setPrefs={setExportPrefs}
+              onExport={triggerCurrentExport}
+              onCopy={() => runExport('square', 'copy', { pixelRatio: RES_TO_PR[exportPrefs.resolution] ?? 3 })}
+              onShareMode={() => setShareMode(true)}
+              busy={busy}
+            />
             <NavBtn onClick={() => setExpandedDecision(null)} WB={WB} label="關閉">×</NavBtn>
           </div>
         </div>
@@ -359,14 +429,17 @@ function HoldingsDetailPanelImpl({
           </div>
         )}
 
-        {/* MiniChartsRow */}
+        {/* ComparisonCharts：成本 vs 現價 / 30D 區間 / 佔比貢獻 */}
         {prefs.showCharts && (
-          <MiniChartsRow
-            WB={WB} price={h.price} cost={h.cost}
+          <ComparisonCharts
+            WB={WB} h={h}
+            price={h.price} cost={h.cost}
             avgCostSim={dirty ? scenario.simAvgCost : null}
             target={displayTarget} stop={simInput.stopPrice} buyMore={simInput.buyMorePrice}
-            rangeLow={rangeLow} rangeHigh={rangeHigh}
+            rangeLow={rangeLow} rangeHigh={rangeHigh} spark={sparkArr}
             weight={weightPct} weightSim={dirty ? displayWeight : null}
+            totalPortfolioValue={totalPortfolioValue}
+            orderedDisplayed={orderedDisplayed}
           />
         )}
 
@@ -568,28 +641,77 @@ function PrefsMenu({ WB, prefs, setPrefs }) {
   );
 }
 
-function ExportMenu({ WB, onExport, onShareMode, busy }) {
-  const MItem = ({ icon, label, onClick }) => (
-    <button onClick={(e) => { e.preventDefault(); (e.currentTarget.closest('details') as any)?.removeAttribute('open'); onClick(); }}
-      style={{ ...menuItem(WB, false), display: 'flex', alignItems: 'center', gap: 8 }} disabled={busy}>
-      {icon} {label}
-    </button>
+function ExportMenu({ WB, prefs, setPrefs, onExport, onCopy, onShareMode, busy }) {
+  // 三段 segmented：比例 / 格式 / 解析度。任何切換即時 saveExportPrefs。
+  const Seg = ({ label, value, options, onChange }) => (
+    <div style={{ display: 'flex', flexDirection: 'column', gap: 6, padding: '8px 10px 0' }}>
+      <span style={{ fontSize: 9, color: WB.inkLight, letterSpacing: '0.18em', fontWeight: 600 }}>{label}</span>
+      <div style={{ display: 'inline-flex', border: `1px solid ${WB.hair}`, borderRadius: 2, overflow: 'hidden' }}>
+        {options.map((o, i) => {
+          const active = value === o.value;
+          return (
+            <button
+              key={o.value}
+              onClick={(e) => { e.preventDefault(); onChange(o.value); }}
+              style={{
+                flex: 1, padding: '6px 10px', fontSize: 11, fontFamily: 'inherit',
+                background: active ? WB.ink : 'transparent', color: active ? WB.surface : WB.inkSub,
+                border: 'none', borderLeft: i === 0 ? 'none' : `1px solid ${WB.hair}`,
+                cursor: 'pointer', letterSpacing: '0.06em', fontWeight: active ? 600 : 500,
+                whiteSpace: 'nowrap',
+              }}>
+              {o.label}
+            </button>
+          );
+        })}
+      </div>
+    </div>
   );
+  const pxBase = prefs.ratio === 'wide' ? 1920 : 1080;
+  const px = pxBase * ((RES_TO_PR[prefs.resolution] ?? 3) / 3);
+  const ratioWord = prefs.ratio === 'wide' ? '16:9' : '1:1';
+  const summary = `${ratioWord} · ${prefs.format.toUpperCase()} · ${RES_LABEL[prefs.resolution] || prefs.resolution}`;
   return (
     <details style={{ position: 'relative' }}>
       <summary style={{ ...iconBtn(WB), listStyle: 'none', gap: 4, padding: '0 8px', width: 'auto' }} aria-label="匯出">
         <Camera size={12} /> <span style={{ fontSize: 10, letterSpacing: '0.06em' }}>匯出</span>
       </summary>
-      <div style={{ ...menuPanel(WB), minWidth: 200 }}>
-        <div style={menuHeader(WB)}>PNG（@3x）</div>
-        <MItem icon={<ImageIcon size={12} />} label="1:1 IG（1080）" onClick={() => onExport('square', 'png')} />
-        <MItem icon={<ImageIcon size={12} />} label="16:9 簡報（1920）" onClick={() => onExport('wide', 'png')} />
-        <div style={{ ...menuHeader(WB), marginTop: 6 }}>PDF</div>
-        <MItem icon={<FileText size={12} />} label="1:1 正方 PDF" onClick={() => onExport('square', 'pdf')} />
-        <MItem icon={<FileText size={12} />} label="16:9 A4 橫向 PDF" onClick={() => onExport('wide', 'pdf')} />
-        <div style={{ borderTop: `1px solid ${WB.hair}`, margin: '4px 0' }} />
-        <MItem icon={<Copy size={12} />} label="複製到剪貼簿（1:1）" onClick={() => onExport('square', 'copy')} />
-        <MItem icon={<Camera size={12} />} label="螢幕預覽 SHARE MODE" onClick={onShareMode} />
+      <div style={{ ...menuPanel(WB), minWidth: 250, padding: 0, gap: 0 }}>
+        <Seg label="比例" value={prefs.ratio} onChange={(v) => setPrefs((p) => ({ ...p, ratio: v }))}
+          options={[{ value: 'square', label: '1:1 IG' }, { value: 'wide', label: '16:9 簡報' }]} />
+        <Seg label="格式" value={prefs.format} onChange={(v) => setPrefs((p) => ({ ...p, format: v }))}
+          options={[{ value: 'png', label: 'PNG' }, { value: 'pdf', label: 'PDF' }]} />
+        <Seg label="解析度" value={prefs.resolution} onChange={(v) => setPrefs((p) => ({ ...p, resolution: v }))}
+          options={[
+            { value: 'std', label: '標準 2x' },
+            { value: 'high', label: '高 3x' },
+            { value: 'print', label: '印刷 4x' },
+          ]} />
+        <div style={{ padding: '10px 10px 8px', marginTop: 4, borderTop: `1px solid ${WB.hair}` }}>
+          <button
+            data-testid="holding-export-trigger"
+            onClick={(e) => { e.preventDefault(); (e.currentTarget.closest('details') as any)?.removeAttribute('open'); onExport(); }}
+            disabled={busy}
+            style={{
+              width: '100%', padding: '9px 12px', background: WB.ink, color: WB.surface,
+              border: 'none', borderRadius: 2, cursor: busy ? 'wait' : 'pointer', fontFamily: 'inherit',
+              fontSize: 11, letterSpacing: '0.16em', fontWeight: 600,
+              display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 6,
+            }}>
+            {prefs.format === 'pdf' ? <FileText size={12} /> : <ImageIcon size={12} />}
+            立即匯出（{Math.round(px)}px · {summary}）
+          </button>
+        </div>
+        <div style={{ display: 'flex', flexDirection: 'column', gap: 2, padding: '0 4px 4px' }}>
+          <button onClick={(e) => { e.preventDefault(); (e.currentTarget.closest('details') as any)?.removeAttribute('open'); onCopy(); }}
+            disabled={busy} style={{ ...menuItem(WB, false), display: 'flex', alignItems: 'center', gap: 8 }}>
+            <Copy size={12} /> 複製 1:1 PNG 到剪貼簿
+          </button>
+          <button onClick={(e) => { e.preventDefault(); (e.currentTarget.closest('details') as any)?.removeAttribute('open'); onShareMode(); }}
+            style={{ ...menuItem(WB, false), display: 'flex', alignItems: 'center', gap: 8 }}>
+            <Camera size={12} /> 螢幕預覽 SHARE MODE
+          </button>
+        </div>
       </div>
     </details>
   );
@@ -749,6 +871,76 @@ function MiniChartsRow({ WB, price, cost, avgCostSim, target, stop, buyMore, ran
   );
 }
 
+// ComparisonCharts：放大版的三圖 + 佔比排名條，提供截圖時資訊密度。
+// 4-up grid（desktop）→ 2x2（tablet）→ 1col（mobile）。chart 高度提升到 140。
+function ComparisonCharts({ WB, h, price, cost, avgCostSim, target, stop, buyMore, rangeLow, rangeHigh, spark, weight, weightSim, totalPortfolioValue, orderedDisplayed }) {
+  return (
+    <div className="hp-cmp-row" style={{ display: 'grid', gridTemplateColumns: 'repeat(4, minmax(0, 1fr))', gap: 10, marginBottom: 16 }}>
+      <PriceAxisChart WB={WB} price={price} cost={cost} avgCostSim={avgCostSim} target={target} stop={stop} buyMore={buyMore} tall />
+      <RangeChart WB={WB} price={price} cost={cost} low={rangeLow} high={rangeHigh} spark={spark} tall />
+      <WeightDonut WB={WB} weight={weight} weightSim={weightSim} tall />
+      <WeightRankBar WB={WB} h={h} orderedDisplayed={orderedDisplayed} totalPortfolioValue={totalPortfolioValue} />
+      <style>{`
+        @media (max-width: 900px) {
+          .hp-cmp-row { grid-template-columns: repeat(2, minmax(0, 1fr)) !important; }
+        }
+        @media (max-width: 520px) {
+          .hp-cmp-row { grid-template-columns: 1fr !important; }
+        }
+      `}</style>
+    </div>
+  );
+}
+
+// 佔比排名：列出 top 5 + 「目前持股」位置，用以視覺化「這檔在投組中的相對重量」。
+function WeightRankBar({ WB, h, orderedDisplayed, totalPortfolioValue }) {
+  const list = Array.isArray(orderedDisplayed) ? orderedDisplayed : [];
+  if (!list.length || !(totalPortfolioValue > 0)) {
+    return <ChartFrame title="佔比貢獻排名" WB={WB} height={140}><span style={{ fontSize: 11, color: WB.inkLight }}>—</span></ChartFrame>;
+  }
+  const items = list.map((x) => {
+    const v = Number(x.value ?? (Number(x.price) * Number(x.qty)) ?? 0);
+    return { code: x.code, name: x.name, value: v, pct: totalPortfolioValue > 0 ? (v / totalPortfolioValue) * 100 : 0 };
+  }).sort((a, b) => b.pct - a.pct);
+  const top = items.slice(0, 5);
+  const curIdx = items.findIndex((x) => x.code === h.code);
+  const showCurrent = curIdx >= 5;
+  const rows = showCurrent ? [...top, items[curIdx]] : top;
+  const maxPct = Math.max(...rows.map((r) => r.pct), 1);
+  return (
+    <ChartFrame title="佔比貢獻排名" WB={WB} footer={`排名 #${curIdx + 1} / ${items.length}`} height={140}>
+      <div style={{ width: '100%', display: 'flex', flexDirection: 'column', gap: 4 }}>
+        {rows.map((r, i) => {
+          const isMe = r.code === h.code;
+          const w = (r.pct / maxPct) * 100;
+          return (
+            <div key={`${r.code}-${i}`} style={{ display: 'grid', gridTemplateColumns: '14px 1fr 44px', gap: 6, alignItems: 'center' }}>
+              <span style={{ fontSize: 9, color: WB.inkMute, fontVariantNumeric: 'tabular-nums', textAlign: 'right' }}>
+                {showCurrent && i === rows.length - 1 ? `#${curIdx + 1}` : i + 1}
+              </span>
+              <div style={{ height: 10, background: WB.hair, borderRadius: 1, position: 'relative', overflow: 'hidden' }}>
+                <div style={{
+                  position: 'absolute', left: 0, top: 0, bottom: 0, width: `${Math.max(2, w)}%`,
+                  background: isMe ? WB.accent : WB.inkSub, opacity: isMe ? 1 : 0.55,
+                }} />
+                <span style={{
+                  position: 'absolute', left: 6, top: '50%', transform: 'translateY(-50%)',
+                  fontSize: 9, color: isMe ? WB.surface : WB.surface, fontWeight: isMe ? 700 : 500,
+                  letterSpacing: '0.04em', mixBlendMode: 'normal', pointerEvents: 'none',
+                }}>{r.code}</span>
+              </div>
+              <span style={{ fontSize: 10, color: isMe ? WB.ink : WB.inkSub, fontVariantNumeric: 'tabular-nums', textAlign: 'right', fontWeight: isMe ? 700 : 500 }}>
+                {r.pct.toFixed(1)}%
+              </span>
+            </div>
+          );
+        })}
+      </div>
+    </ChartFrame>
+  );
+}
+
+
 function ChartFrame({ title, footer, WB, children, height = 90 }) {
   return (
     <div style={{ border: `1px solid ${WB.hair}`, borderRadius: 2, padding: 10, background: WB.surface }}>
@@ -761,34 +953,38 @@ function ChartFrame({ title, footer, WB, children, height = 90 }) {
   );
 }
 
-function PriceAxisChart({ WB, price, cost, avgCostSim, target, stop, buyMore }) {
-  // 統一刻度：包含 cost、price、target、stop、buyMore（有值）
+function PriceAxisChart({ WB, price, cost, avgCostSim, target, stop, buyMore, tall = false }) {
   const points = [cost, price, target, stop, buyMore, avgCostSim].filter((v) => Number.isFinite(Number(v)) && Number(v) > 0).map(Number);
   if (points.length < 2) {
-    return <ChartFrame title="價格座標" WB={WB}><span style={{ fontSize: 11, color: WB.inkLight }}>資料不足</span></ChartFrame>;
+    return <ChartFrame title="價格座標" WB={WB} height={tall ? 140 : 70}><span style={{ fontSize: 11, color: WB.inkLight }}>資料不足</span></ChartFrame>;
   }
   const lo = Math.min(...points) * 0.97;
   const hi = Math.max(...points) * 1.03;
   const pos = (v) => Number.isFinite(Number(v)) ? ((Number(v) - lo) / (hi - lo)) * 100 : null;
-  const W = '100%', H = 70;
+  const H = tall ? 110 : 70;
+  const yAxis = H * 0.55;
   const Dot = ({ v, color, label, top }) => {
     const x = pos(v);
     if (x == null) return null;
     return (
       <g>
-        <line x1={`${x}%`} y1="40" x2={`${x}%`} y2="50" stroke={color} strokeWidth="1.5" />
-        <circle cx={`${x}%`} cy="45" r="3.5" fill={color} />
-        <text x={`${x}%`} y={top ? 18 : 64} fontSize="9" fill={WB.inkSub} textAnchor="middle" style={{ letterSpacing: '0.04em' }}>
+        <line x1={`${x}%`} y1={yAxis - 5} x2={`${x}%`} y2={yAxis + 5} stroke={color} strokeWidth="1.5" />
+        <circle cx={`${x}%`} cy={yAxis} r={tall ? 4 : 3.5} fill={color} />
+        <text x={`${x}%`} y={top ? yAxis - 14 : yAxis + 16} fontSize={tall ? 10 : 9} fill={WB.inkSub} textAnchor="middle" style={{ letterSpacing: '0.04em' }}>
           {label} {Number(v).toFixed(2)}
         </text>
       </g>
     );
   };
   const change = cost > 0 && price > 0 ? ((price - cost) / cost) * 100 : null;
+  const changeAbs = cost > 0 && price > 0 ? price - cost : null;
+  const footer = change != null
+    ? `vs 成本 ${change >= 0 ? '+' : ''}${change.toFixed(2)}% (${changeAbs >= 0 ? '+' : ''}${changeAbs.toFixed(2)})`
+    : '';
   return (
-    <ChartFrame title="成本 ↔ 現價 軸" WB={WB} footer={change != null ? `vs 成本 ${change >= 0 ? '+' : ''}${change.toFixed(2)}%` : ''}>
-      <svg width={W} height={H} viewBox="0 0 100 70" preserveAspectRatio="none" style={{ width: '100%', height: H, overflow: 'visible' }}>
-        <line x1="0" y1="45" x2="100" y2="45" stroke={WB.hair} strokeWidth="1" vectorEffect="non-scaling-stroke" />
+    <ChartFrame title="成本 ↔ 現價 軸" WB={WB} footer={footer} height={H}>
+      <svg width="100%" height={H} viewBox={`0 0 100 ${H}`} preserveAspectRatio="none" style={{ width: '100%', height: H, overflow: 'visible' }}>
+        <line x1="0" y1={yAxis} x2="100" y2={yAxis} stroke={WB.hair} strokeWidth="1" vectorEffect="non-scaling-stroke" />
         <Dot v={cost} color={WB.inkLight} label="成本" top />
         <Dot v={avgCostSim} color="#8A857F" label="模擬均價" top={false} />
         <Dot v={price} color={WB.ink} label="現價" top={false} />
@@ -800,24 +996,37 @@ function PriceAxisChart({ WB, price, cost, avgCostSim, target, stop, buyMore }) 
   );
 }
 
-function RangeChart({ WB, price, cost, low, high }) {
+function RangeChart({ WB, price, cost, low, high, spark, tall = false }) {
   if (low == null || high == null || high <= low) {
-    return <ChartFrame title="30D 區間位置" WB={WB}><span style={{ fontSize: 11, color: WB.inkLight }}>無 30D 資料</span></ChartFrame>;
+    return <ChartFrame title="30D 區間位置" WB={WB} height={tall ? 140 : 70}><span style={{ fontSize: 11, color: WB.inkLight }}>無 30D 資料</span></ChartFrame>;
   }
   const posPrice = ((price - low) / (high - low)) * 100;
   const posCost = cost != null ? ((cost - low) / (high - low)) * 100 : null;
+  const hasSpark = Array.isArray(spark) && spark.length >= 2;
   return (
-    <ChartFrame title="30D 區間位置" WB={WB} footer={`位置 ${posPrice.toFixed(0)}% · ${low.toFixed(2)}–${high.toFixed(2)}`}>
+    <ChartFrame title="30D 區間位置" WB={WB} footer={`位置 ${posPrice.toFixed(0)}% · ${low.toFixed(2)}–${high.toFixed(2)}`} height={tall ? 110 : 70}>
       <div style={{ width: '100%', position: 'relative' }}>
-        <div style={{ height: 8, background: WB.hair, borderRadius: 4, position: 'relative' }}>
+        {tall && hasSpark && (
+          <svg viewBox="0 0 100 30" preserveAspectRatio="none" style={{ width: '100%', height: 36, display: 'block', marginBottom: 6 }}>
+            <polyline
+              fill="none" stroke={WB.inkSub} strokeWidth="1.2" vectorEffect="non-scaling-stroke"
+              points={spark.map((v, i) => {
+                const x = (i / (spark.length - 1)) * 100;
+                const y = 30 - ((v - low) / (high - low)) * 30;
+                return `${x.toFixed(2)},${y.toFixed(2)}`;
+              }).join(' ')}
+            />
+          </svg>
+        )}
+        <div style={{ height: tall ? 10 : 8, background: WB.hair, borderRadius: 4, position: 'relative' }}>
           {posCost != null && posCost >= 0 && posCost <= 100 && (
             <div style={{
-              position: 'absolute', left: `${posCost}%`, top: -3, width: 2, height: 14,
+              position: 'absolute', left: `${posCost}%`, top: -3, width: 2, height: tall ? 16 : 14,
               background: WB.inkLight, transform: 'translateX(-1px)',
             }} title="成本" />
           )}
           <div style={{
-            position: 'absolute', left: `${Math.min(Math.max(posPrice, 0), 100)}%`, top: -5, width: 4, height: 18,
+            position: 'absolute', left: `${Math.min(Math.max(posPrice, 0), 100)}%`, top: -5, width: 4, height: tall ? 20 : 18,
             background: WB.accent, transform: 'translateX(-2px)', borderRadius: 1,
           }} title="現價" />
         </div>
@@ -830,20 +1039,19 @@ function RangeChart({ WB, price, cost, low, high }) {
   );
 }
 
-function WeightDonut({ WB, weight, weightSim }) {
-  if (weight == null) return <ChartFrame title="部位佔比" WB={WB}><span style={{ fontSize: 11, color: WB.inkLight }}>—</span></ChartFrame>;
+function WeightDonut({ WB, weight, weightSim, tall = false }) {
+  if (weight == null) return <ChartFrame title="部位佔比" WB={WB} height={tall ? 140 : 70}><span style={{ fontSize: 11, color: WB.inkLight }}>—</span></ChartFrame>;
   const R = 30, r = 22, C = 2 * Math.PI * R, c = 2 * Math.PI * r;
   const w = Math.max(0, Math.min(100, weight));
   const ws = weightSim != null ? Math.max(0, Math.min(100, weightSim)) : null;
   const shown = ws != null ? ws : w;
+  const size = tall ? 110 : 80;
   return (
-    <ChartFrame title="部位佔比" WB={WB} footer={ws != null ? `原 ${w.toFixed(1)}% → 模擬 ${ws.toFixed(1)}%` : `${w.toFixed(1)}% of 總市值`}>
-      <svg viewBox="0 0 80 80" width="80" height="80" style={{ margin: '0 auto', display: 'block' }}>
-        {/* 外圈：原始 */}
+    <ChartFrame title="部位佔比" WB={WB} footer={ws != null ? `原 ${w.toFixed(1)}% → 模擬 ${ws.toFixed(1)}%` : `${w.toFixed(1)}% of 總市值`} height={tall ? 110 : 70}>
+      <svg viewBox="0 0 80 80" width={size} height={size} style={{ margin: '0 auto', display: 'block' }}>
         <circle cx="40" cy="40" r={R} fill="none" stroke={WB.hair} strokeWidth="6" />
         <circle cx="40" cy="40" r={R} fill="none" stroke={WB.accent} strokeWidth="6"
           strokeDasharray={`${(C * w) / 100} ${C}`} strokeDashoffset="0" transform="rotate(-90 40 40)" opacity={ws != null ? 0.35 : 0.9} />
-        {/* 內圈：模擬 */}
         {ws != null && (
           <circle cx="40" cy="40" r={r} fill="none" stroke={WB.accent} strokeWidth="4"
             strokeDasharray={`${(c * ws) / 100} ${c}`} strokeDashoffset="0" transform="rotate(-90 40 40)" />
@@ -857,6 +1065,7 @@ function WeightDonut({ WB, weight, weightSim }) {
 }
 
 function fmt(v) { return Number.isFinite(Number(v)) ? Number(v).toFixed(2) : '—'; }
+
 
 const HoldingsDetailPanel = React.memo(HoldingsDetailPanelImpl);
 export default HoldingsDetailPanel;
