@@ -871,6 +871,76 @@ function MiniChartsRow({ WB, price, cost, avgCostSim, target, stop, buyMore, ran
   );
 }
 
+// ComparisonCharts：放大版的三圖 + 佔比排名條，提供截圖時資訊密度。
+// 4-up grid（desktop）→ 2x2（tablet）→ 1col（mobile）。chart 高度提升到 140。
+function ComparisonCharts({ WB, h, price, cost, avgCostSim, target, stop, buyMore, rangeLow, rangeHigh, spark, weight, weightSim, totalPortfolioValue, orderedDisplayed }) {
+  return (
+    <div className="hp-cmp-row" style={{ display: 'grid', gridTemplateColumns: 'repeat(4, minmax(0, 1fr))', gap: 10, marginBottom: 16 }}>
+      <PriceAxisChart WB={WB} price={price} cost={cost} avgCostSim={avgCostSim} target={target} stop={stop} buyMore={buyMore} tall />
+      <RangeChart WB={WB} price={price} cost={cost} low={rangeLow} high={rangeHigh} spark={spark} tall />
+      <WeightDonut WB={WB} weight={weight} weightSim={weightSim} tall />
+      <WeightRankBar WB={WB} h={h} orderedDisplayed={orderedDisplayed} totalPortfolioValue={totalPortfolioValue} />
+      <style>{`
+        @media (max-width: 900px) {
+          .hp-cmp-row { grid-template-columns: repeat(2, minmax(0, 1fr)) !important; }
+        }
+        @media (max-width: 520px) {
+          .hp-cmp-row { grid-template-columns: 1fr !important; }
+        }
+      `}</style>
+    </div>
+  );
+}
+
+// 佔比排名：列出 top 5 + 「目前持股」位置，用以視覺化「這檔在投組中的相對重量」。
+function WeightRankBar({ WB, h, orderedDisplayed, totalPortfolioValue }) {
+  const list = Array.isArray(orderedDisplayed) ? orderedDisplayed : [];
+  if (!list.length || !(totalPortfolioValue > 0)) {
+    return <ChartFrame title="佔比貢獻排名" WB={WB} height={140}><span style={{ fontSize: 11, color: WB.inkLight }}>—</span></ChartFrame>;
+  }
+  const items = list.map((x) => {
+    const v = Number(x.value ?? (Number(x.price) * Number(x.qty)) ?? 0);
+    return { code: x.code, name: x.name, value: v, pct: totalPortfolioValue > 0 ? (v / totalPortfolioValue) * 100 : 0 };
+  }).sort((a, b) => b.pct - a.pct);
+  const top = items.slice(0, 5);
+  const curIdx = items.findIndex((x) => x.code === h.code);
+  const showCurrent = curIdx >= 5;
+  const rows = showCurrent ? [...top, items[curIdx]] : top;
+  const maxPct = Math.max(...rows.map((r) => r.pct), 1);
+  return (
+    <ChartFrame title="佔比貢獻排名" WB={WB} footer={`排名 #${curIdx + 1} / ${items.length}`} height={140}>
+      <div style={{ width: '100%', display: 'flex', flexDirection: 'column', gap: 4 }}>
+        {rows.map((r, i) => {
+          const isMe = r.code === h.code;
+          const w = (r.pct / maxPct) * 100;
+          return (
+            <div key={`${r.code}-${i}`} style={{ display: 'grid', gridTemplateColumns: '14px 1fr 44px', gap: 6, alignItems: 'center' }}>
+              <span style={{ fontSize: 9, color: WB.inkMute, fontVariantNumeric: 'tabular-nums', textAlign: 'right' }}>
+                {showCurrent && i === rows.length - 1 ? `#${curIdx + 1}` : i + 1}
+              </span>
+              <div style={{ height: 10, background: WB.hair, borderRadius: 1, position: 'relative', overflow: 'hidden' }}>
+                <div style={{
+                  position: 'absolute', left: 0, top: 0, bottom: 0, width: `${Math.max(2, w)}%`,
+                  background: isMe ? WB.accent : WB.inkSub, opacity: isMe ? 1 : 0.55,
+                }} />
+                <span style={{
+                  position: 'absolute', left: 6, top: '50%', transform: 'translateY(-50%)',
+                  fontSize: 9, color: isMe ? WB.surface : WB.surface, fontWeight: isMe ? 700 : 500,
+                  letterSpacing: '0.04em', mixBlendMode: 'normal', pointerEvents: 'none',
+                }}>{r.code}</span>
+              </div>
+              <span style={{ fontSize: 10, color: isMe ? WB.ink : WB.inkSub, fontVariantNumeric: 'tabular-nums', textAlign: 'right', fontWeight: isMe ? 700 : 500 }}>
+                {r.pct.toFixed(1)}%
+              </span>
+            </div>
+          );
+        })}
+      </div>
+    </ChartFrame>
+  );
+}
+
+
 function ChartFrame({ title, footer, WB, children, height = 90 }) {
   return (
     <div style={{ border: `1px solid ${WB.hair}`, borderRadius: 2, padding: 10, background: WB.surface }}>
