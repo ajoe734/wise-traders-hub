@@ -2928,7 +2928,12 @@ ${JSON.stringify(strategyBrain || { rules: [], lessons: [], commonMistakes: [], 
     appendLog({ task: 'parse-screenshot', status: 'error', detail: `所有重試失敗：${finalErr}` });
     setTimeout(() => setParseStep(null), 6000);
     setParsing(false);
-    return { ok: false, error: finalErr };
+    return { ok: false, error: finalErr, errorDetail: {
+      type: 'parse_failed',
+      attempts: MAX_RETRIES,
+      lastMessage: finalErr,
+      hint: '已重試 3 次仍失敗，可重試或更換更清晰的截圖',
+    }};
   };
 
   const submitMemo = () => {
