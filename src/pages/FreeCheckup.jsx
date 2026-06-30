@@ -2520,9 +2520,15 @@ ${JSON.stringify(strategyBrain || { rules: [], lessons: [], commonMistakes: [], 
         });
         const ok = result === true || result?.ok === true;
         const err = result?.error || null;
+        const errorDetail = result?.errorDetail || null;
         setBatchState(s => s ? ({
           ...s,
-          items: s.items.map(it => it.id === item.id ? { ...it, status: ok ? 'success' : 'failed', error: ok ? null : (err || it.error || '解析失敗') } : it),
+          items: s.items.map(it => it.id === item.id ? {
+            ...it,
+            status: ok ? 'success' : 'failed',
+            error: ok ? null : (err || it.error || '解析失敗'),
+            errorDetail: ok ? null : (errorDetail || it.errorDetail || null),
+          } : it),
         }) : s);
         if (ok) okCount++; else failCount++;
       } catch (e) {
@@ -2530,7 +2536,12 @@ ${JSON.stringify(strategyBrain || { rules: [], lessons: [], commonMistakes: [], 
         const msg = e?.message || '網路錯誤';
         setBatchState(s => s ? ({
           ...s,
-          items: s.items.map(it => it.id === item.id ? { ...it, status: 'failed', error: msg } : it),
+          items: s.items.map(it => it.id === item.id ? {
+            ...it,
+            status: 'failed',
+            error: msg,
+            errorDetail: { type: 'exception', message: msg, stack: (e?.stack || '').slice(0, 600) || null },
+          } : it),
         }) : s);
         console.warn('batch parse file failed:', e);
       }
