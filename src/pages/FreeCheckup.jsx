@@ -2646,7 +2646,7 @@ ${JSON.stringify(strategyBrain || { rules: [], lessons: [], commonMistakes: [], 
             );
             setParseStep({ stage: 'error', label: '持倉超出上限', progress: 70, detail: `合計 ${merged.size} / 上限 ${MAX_HOLDINGS}` });
             setParsing(false);
-            return;
+            return false;
           }
           holdingsChangedByUserRef.current = true; // 標記為使用者主動變動持倉
           // 計算「新增 / 更新」摘要：以解析前的持倉代碼判斷
