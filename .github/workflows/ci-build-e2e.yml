@@ -62,6 +62,10 @@ jobs:
           - mobile-perf-overview-xaxis
           - desktop-app-expert-detail
           - desktop-expert-profile-error
+          - desktop-freecheckup-batch-parse
+          - desktop-freecheckup-batch-parse-quota
+          - desktop-freecheckup-batch-parse-limit
+          - desktop-freecheckup-single-parse
     steps:
       - uses: actions/checkout@v4
       - uses: oven-sh/setup-bun@v2
