@@ -2757,11 +2757,11 @@ ${JSON.stringify(strategyBrain || { rules: [], lessons: [], commonMistakes: [], 
   const parseShot = async (opts = {}) => {
     const { b64Override, suppressTabSwitch = false, batchInfo = null } = opts;
     const b64Used = b64Override || b64;
-    if (!b64Used) return { ok: false, error: '無影像資料' };
+    if (!b64Used) return { ok: false, error: '無影像資料', errorDetail: { type: 'no_image', message: '檔案資料遺失，請重新上傳該截圖' } };
     // Demo 模式 → 要求先 LINE 登入
     if (isDemo) {
       startLineLogin();
-      return { ok: false, error: '請先 LINE 登入' };
+      return { ok: false, error: '請先 LINE 登入', errorDetail: { type: 'demo_locked', message: 'Demo 模式無法解析，請先 LINE 登入' } };
     }
     // 截圖解析 = auth-only（checkup-parse edge 不扣 quota）
     // 不在前端做 quota 攔截，避免 line_free 用完的使用者被擋在上傳/建立持倉之外
