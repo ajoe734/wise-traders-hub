@@ -2599,7 +2599,7 @@ ${JSON.stringify(strategyBrain || { rules: [], lessons: [], commonMistakes: [], 
             toast.error('LINE 註冊禮已用完，請查看升級方案');
             setParseStep({ stage: 'error', label: '配額已用完', progress: 0, detail: '請見下方升級方案' });
             setParsing(false);
-            return;
+            return false;
           }
           // 其他錯誤丟給下方 retry 邏輯處理
           lastErr = String(e?.body?.error || e?.message || `HTTP ${e?.status || 0}`);
