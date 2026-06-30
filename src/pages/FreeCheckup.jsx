@@ -3212,7 +3212,6 @@ ${JSON.stringify(strategyBrain || { rules: [], lessons: [], commonMistakes: [], 
               cancelBatch={cancelBatch}
               retryBatchFailures={retryBatchFailures}
               restoreBatchItemPreview={restoreBatchItemPreview}
-              setTab={setTab}
               losers={losers}
               reversalConditions={reversalConditions}
               reviewingEvent={reviewingEvent}
