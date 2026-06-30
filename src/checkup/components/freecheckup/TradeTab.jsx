@@ -116,6 +116,15 @@ function TradeTabImpl({
   }, [hasReachedDailyLimit, isDemo, tier]);
   return (
     <>
+      {/* 批次解析狀態（必須在 overlay/!parsed 之外，否則批次中按鈕被遮罩擋住無法點） */}
+      <BatchParsePanel
+        C={C}
+        batchState={batchState}
+        cancelBatch={cancelBatch}
+        retryBatchFailures={retryBatchFailures}
+        restoreBatchItemPreview={restoreBatchItemPreview}
+        variant="trade"
+      />
       {/* 全頁覆蓋 loading：解析中時鎖住操作但保留下方持倉資料可見於背景 */}
       {parsing && (
         <div
