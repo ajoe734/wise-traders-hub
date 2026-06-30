@@ -214,22 +214,33 @@ function TradeTabImpl({
           <div
             onDragOver={e=>{e.preventDefault();setDragOver(true)}}
             onDragLeave={()=>setDragOver(false)}
-            onDrop={e=>{e.preventDefault();setDragOver(false);processFile(e.dataTransfer.files[0])}}
+            onDrop={e=>{
+              e.preventDefault();setDragOver(false);
+              const files = Array.from(e.dataTransfer.files || []);
+              if (files.length > 1 && processFiles) processFiles(files);
+              else if (files[0]) processFile(files[0]);
+            }}
             onClick={()=>document.getElementById("fi").click()}
             style={{border:`1px dashed ${dragOver?C.blue:C.border}`,
               borderRadius:12,padding:"28px 16px",textAlign:"center",cursor:"pointer",
               background:dragOver?C.subtle:C.card,marginBottom:12,transition:"all 0.2s"}}>
-            <input id="fi" type="file" accept="image/*"
-              onChange={e=>processFile(e.target.files[0])} style={{display:"none"}}/>
+            <input id="fi" type="file" accept="image/*" multiple
+              onChange={e=>{
+                const files = Array.from(e.target.files || []);
+                if (files.length > 1 && processFiles) processFiles(files);
+                else if (files[0]) processFile(files[0]);
+                // reset 讓使用者可重複選同一批檔案
+                e.target.value = '';
+              }} style={{display:"none"}}/>
             {img ? (
               <><img src={img} alt="" style={{maxHeight:200,maxWidth:"100%",
                 borderRadius:8,objectFit:"contain",marginBottom:8}}/>
-              <div style={{fontSize:13,color:C.textMute}}>點擊更換截圖</div></>
+              <div style={{fontSize:13,color:C.textMute}}>點擊更換截圖（可一次選多張批次解析）</div></>
             ) : (
               <><div style={{fontSize:32,marginBottom:10,opacity:0.5}}>↑</div> {/* rwd-allow:純裝飾箭頭非數字 */}
-              <div style={{fontSize:15,fontWeight:500,color:C.textSec}}>上傳已成交截圖</div>
+              <div style={{fontSize:15,fontWeight:500,color:C.textSec}}>上傳已成交截圖（支援多張批次解析）</div>
               <div style={{fontSize:13,color:C.textMute,marginTop:4}}>截圖需要包含代碼、名稱、股數、市價、成本、成本價、手續費</div>
-              <div style={{fontSize:11,color:C.textMute,marginTop:6,letterSpacing:'0.04em'}}>持倉上限 {MAX_HOLDINGS} 檔（目前 {(holdings || []).length} 檔）</div></>
+              <div style={{fontSize:11,color:C.textMute,marginTop:6,letterSpacing:'0.04em'}}>持倉上限 {MAX_HOLDINGS} 檔（目前 {(holdings || []).length} 檔）・一次最多選 10 張</div></>
             )}
           </div>
           {img && (
