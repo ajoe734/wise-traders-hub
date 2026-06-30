@@ -24,6 +24,7 @@ const TRADE_TAB_PROP_SCHEMA = {
   dragOver: 'boolean',
   setDragOver: 'function',
   processFile: 'function',
+  processFiles: { type: 'function', optional: true },
   parseShot: 'function',
   setImg: 'function',
   setB64: 'function',
