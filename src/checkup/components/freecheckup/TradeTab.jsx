@@ -82,7 +82,7 @@ function TradeTabImpl({
   // 解析狀態
   parsing, parseStep, parseErr, parsed, setParsed,
   img, dragOver, setDragOver,
-  processFile, parseShot,
+  processFile, processFiles, parseShot,
   setImg, setB64, setParseErr,
   // demo / 配額
   isDemo, startLineLogin,
