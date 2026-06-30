@@ -33,12 +33,14 @@ export default function BatchParsePanel({
       : (failed > 0 ? `批次完成：成功 ${ok}、失敗 ${failed}` : `批次解析完成 ${ok}/${total}`);
 
   return (
-    <div style={{
+    <div data-testid="batch-parse-panel" style={{
       border: `1px solid ${C?.border || '#E5E0D8'}`,
       borderRadius: 12,
       background: C?.card || '#FFFFFF',
       padding: '14px 16px',
       marginBottom: 14,
+      position: 'relative',
+      zIndex: 10001, // 高於 TradeTab parsing overlay (9999) 與抽屜，讓「停止/重試」始終可點
     }}>
       <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 12, flexWrap: 'wrap' }}>
         <div style={{ fontSize: 14, fontWeight: 700, color: C?.text || '#292520' }}>
