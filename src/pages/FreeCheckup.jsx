@@ -2854,7 +2854,15 @@ ${JSON.stringify(strategyBrain || { rules: [], lessons: [], commonMistakes: [], 
             );
             setParseStep({ stage: 'error', label: '持倉超出上限', progress: 70, detail: `合計 ${merged.size} / 上限 ${MAX_HOLDINGS}` });
             setParsing(false);
-            return { ok: false, error: `持倉超出上限（合計 ${merged.size} / 上限 ${MAX_HOLDINGS}）` };
+            return { ok: false, error: `持倉超出上限（合計 ${merged.size} / 上限 ${MAX_HOLDINGS}）`, errorDetail: {
+              type: 'limit_exceeded',
+              message: `持倉超出上限（合計 ${merged.size} / 上限 ${MAX_HOLDINGS}）`,
+              current: currentCodes.size,
+              incoming: incomingCodes.size,
+              merged: merged.size,
+              limit: MAX_HOLDINGS,
+              hint: '請先整理或減少匯入筆數',
+            }};
           }
           holdingsChangedByUserRef.current = true; // 標記為使用者主動變動持倉
           // 計算「新增 / 更新」摘要：以解析前的持倉代碼判斷
