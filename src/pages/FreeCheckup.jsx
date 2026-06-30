@@ -2388,44 +2388,166 @@ ${JSON.stringify(strategyBrain || { rules: [], lessons: [], commonMistakes: [], 
     r.readAsDataURL(file);
   };
 
+  // 讀檔為 base64（共用於批次與單張）
+  const readFileAsBase64 = (file) => new Promise((res, rej) => {
+    const fr = new FileReader();
+    fr.onload = e => res(e.target.result.split(",")[1]);
+    fr.onerror = rej;
+    fr.readAsDataURL(file);
+  });
+
+  // 把批次的某一張回復到主預覽區（讓使用者看圖或看錯誤訊息）
+  const restoreBatchItemPreview = (item) => {
+    if (!item) return;
+    setTab("trade");
+    setImg(item.previewUrl || null);
+    setB64(item.b64 || null);
+    setParsed(null);
+    setParseErr(item.status === 'failed' ? (item.error || '解析失敗') : null);
+  };
+
+  // 取消整批：標記後續未處理為 cancelled，當前那張會跑完再停
+  const cancelBatch = () => {
+    batchCancelRef.current = true;
+    setBatchState(s => s ? ({
+      ...s,
+      cancelled: true,
+      items: s.items.map(it => it.status === 'pending' ? { ...it, status: 'cancelled' } : it),
+    }) : s);
+    toast.info('已要求停止後續解析，已完成的結果會保留');
+  };
+
+  // 內部：實際跑批次。可傳入 itemIds 子集（重試用）
+  const runBatch = async (targetIds = null) => {
+    batchCancelRef.current = false;
+    setBatchState(s => s ? ({ ...s, running: true, cancelled: false }) : s);
+    // 用 ref 讀目前 items（避免 stale closure）
+    const snapshot = batchStateRef.current;
+    if (!snapshot) return;
+    const queue = snapshot.items.filter(it =>
+      (targetIds ? targetIds.includes(it.id) : true) &&
+      (it.status === 'pending' || it.status === 'failed' || it.status === 'cancelled')
+    );
+    if (!queue.length) {
+      setBatchState(s => s ? ({ ...s, running: false }) : s);
+      return;
+    }
+    let okCount = 0, failCount = 0, cancelCount = 0;
+    for (let i = 0; i < queue.length; i++) {
+      const item = queue[i];
+      if (batchCancelRef.current) {
+        cancelCount += (queue.length - i);
+        // 剩餘標 cancelled
+        setBatchState(s => s ? ({
+          ...s,
+          items: s.items.map(it => queue.slice(i).some(q => q.id === it.id) && it.status !== 'success' ? { ...it, status: 'cancelled' } : it),
+        }) : s);
+        break;
+      }
+      // 標 parsing
+      setBatchState(s => s ? ({
+        ...s,
+        currentIndex: i + 1,
+        items: s.items.map(it => it.id === item.id ? { ...it, status: 'parsing', error: null } : it),
+      }) : s);
+      try {
+        setTab('trade');
+        setImg(item.previewUrl);
+        setB64(item.b64);
+        setParsed(null); setParseErr(null);
+        await new Promise(r => setTimeout(r, 30));
+        const isLast = i === queue.length - 1;
+        const result = await parseShot({
+          b64Override: item.b64,
+          suppressTabSwitch: !isLast,
+          batchInfo: { index: i + 1, total: queue.length, name: item.name },
+        });
+        const ok = result === true || result?.ok === true;
+        const err = result?.error || null;
+        setBatchState(s => s ? ({
+          ...s,
+          items: s.items.map(it => it.id === item.id ? { ...it, status: ok ? 'success' : 'failed', error: ok ? null : (err || it.error || '解析失敗') } : it),
+        }) : s);
+        if (ok) okCount++; else failCount++;
+      } catch (e) {
+        failCount++;
+        const msg = e?.message || '網路錯誤';
+        setBatchState(s => s ? ({
+          ...s,
+          items: s.items.map(it => it.id === item.id ? { ...it, status: 'failed', error: msg } : it),
+        }) : s);
+        console.warn('batch parse file failed:', e);
+      }
+    }
+    setBatchState(s => s ? ({ ...s, running: false }) : s);
+    if (cancelCount > 0) {
+      toast.warning(`已停止批次：成功 ${okCount}、失敗 ${failCount}、取消 ${cancelCount}`);
+    } else if (failCount === 0) {
+      toast.success(`批次解析完成 ${okCount}/${queue.length} 張`);
+    } else {
+      toast.warning(`批次完成：成功 ${okCount}、失敗 ${failCount}（可點「重試解析」）`);
+    }
+  };
+
+  // 重試失敗的：保留成功結果，只重跑 failed/cancelled
+  const retryBatchFailures = async () => {
+    const snap = batchStateRef.current;
+    if (!snap) return;
+    const targets = snap.items.filter(it => it.status === 'failed' || it.status === 'cancelled').map(it => it.id);
+    if (!targets.length) { toast.info('沒有需要重試的項目'); return; }
+    // 將目標重設為 pending
+    setBatchState(s => s ? ({
+      ...s,
+      items: s.items.map(it => targets.includes(it.id) ? { ...it, status: 'pending', error: null } : it),
+    }) : s);
+    // 等 state flush
+    await new Promise(r => setTimeout(r, 30));
+    await runBatch(targets);
+  };
+
   // 多圖批次上傳：依序自動解析每張截圖
   // - 單張 → 沿用原本「預覽 + 手動點解析」UX
-  // - 多張 → 自動排隊逐張解析，僅最後一張完成後切到持倉頁
+  // - 多張 → 自動排隊逐張解析 + 進度條 + 取消 + 重試
   const processFiles = async (filesLike) => {
     const list = Array.from(filesLike || []).filter(f => f && f.type?.startsWith("image/"));
     if (!list.length) return;
     if (list.length === 1) { processFile(list[0]); return; }
     if (isDemo) { startLineLogin(); return; }
-    if (parsing) {
+    if (parsing || batchStateRef.current?.running) {
       toast.warning("目前仍有截圖在解析中，請稍候再上傳");
       return;
     }
-    toast.info(`開始批次解析 ${list.length} 張截圖`, { description: "將依序自動解析，請保持頁面開啟" });
-    let okCount = 0, failCount = 0;
+    // 預先讀完所有檔案為 base64 + objectURL（讓 list 能立即顯示縮圖／重試）
+    const items = [];
     for (let i = 0; i < list.length; i++) {
       const file = list[i];
-      const isLast = i === list.length - 1;
       try {
-        setTab("trade");
-        const b64v = await new Promise((res, rej) => {
-          const fr = new FileReader();
-          fr.onload = e => res(e.target.result.split(",")[1]);
-          fr.onerror = rej;
-          fr.readAsDataURL(file);
+        const b64v = await readFileAsBase64(file);
+        items.push({
+          id: `${Date.now()}-${i}-${file.name}`,
+          name: file.name || `截圖 ${i + 1}`,
+          size: file.size || 0,
+          previewUrl: URL.createObjectURL(file),
+          b64: b64v,
+          status: 'pending',
+          error: null,
         });
-        setImg(URL.createObjectURL(file));
-        setB64(b64v);
-        setParsed(null); setParseErr(null);
-        await new Promise(r => setTimeout(r, 30));
-        const ok = await parseShot({ b64Override: b64v, suppressTabSwitch: !isLast, batchInfo: { index: i + 1, total: list.length } });
-        if (ok) okCount++; else failCount++;
       } catch (e) {
-        failCount++;
-        console.warn('batch parse file failed:', e);
+        items.push({
+          id: `${Date.now()}-${i}-${file.name}`,
+          name: file.name || `截圖 ${i + 1}`,
+          size: file.size || 0,
+          previewUrl: null,
+          b64: null,
+          status: 'failed',
+          error: '讀檔失敗',
+        });
       }
     }
-    if (failCount === 0) toast.success(`批次解析完成 ${okCount}/${list.length} 張`);
-    else toast.warning(`批次完成：成功 ${okCount}、失敗 ${failCount}`);
+    setBatchState({ items, currentIndex: 0, total: items.length, running: false, cancelled: false });
+    await new Promise(r => setTimeout(r, 30));
+    toast.info(`開始批次解析 ${items.length} 張截圖`, { description: "可隨時按「停止批次」中斷後續張數" });
+    await runBatch();
   };
 
   const mergeTradeIntoHoldings = (holdingsList, trade) => {
