@@ -140,6 +140,8 @@ export default function App() {
   // status: 'pending' | 'parsing' | 'success' | 'failed' | 'cancelled'
   const [batchState, setBatchState] = useState(null);
   const batchCancelRef = useRef(false);
+  const batchStateRef = useRef(null);
+  useEffect(() => { batchStateRef.current = batchState; }, [batchState]);
   // 報價刷新狀態：{ phase, total, ok, fail, missingNames }
   const [refreshStatus, setRefreshStatus] = useState(null);
   const [dragOver,setDragOver]  = useState(false);
