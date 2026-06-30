@@ -136,12 +136,66 @@ export default function App() {
   // 解析/同步進度追蹤：{ stage, label, progress(0-100), detail }
   // stage: 'upload' | 'ai' | 'retry' | 'persist' | 'refresh' | 'done' | 'error'
   const [parseStep, setParseStep] = useState(null);
-  // 批次解析狀態：{ items: [{id,name,size,previewUrl,b64,status,error}], currentIndex, total, running, cancelled }
+  // 批次解析狀態：{ items: [{id,name,size,previewUrl,b64,status,error,errorDetail}], currentIndex, total, running, cancelled }
   // status: 'pending' | 'parsing' | 'success' | 'failed' | 'cancelled'
-  const [batchState, setBatchState] = useState(null);
+  // 持久化：sessionStorage（refresh 後仍能看到 i/N 進度與已完成結果）
+  const BATCH_STORAGE_KEY = 'freecheckup-batch-state-v1';
+  const [batchState, setBatchState] = useState(() => {
+    if (typeof window === 'undefined') return null;
+    try {
+      const raw = window.sessionStorage.getItem(BATCH_STORAGE_KEY);
+      if (!raw) return null;
+      const parsed = JSON.parse(raw);
+      if (!parsed?.items?.length) return null;
+      const items = parsed.items.map((it) => ({
+        ...it,
+        // blob: URL 無法跨 refresh 存活；用 b64 重建 data URI
+        previewUrl: it.b64 ? `data:image/jpeg;base64,${it.b64}` : null,
+        // 重新整理時若有「parsing 中」的項目→視為已取消，提示使用者重試
+        status: it.status === 'parsing' ? 'cancelled' : it.status,
+        error: it.status === 'parsing' ? '頁面重新整理而中斷，可按「重試失敗」' : (it.error || null),
+        errorDetail: it.status === 'parsing'
+          ? { type: 'interrupted', message: '頁面重新整理而中斷，可按「重試失敗」' }
+          : (it.errorDetail || null),
+      }));
+      return {
+        items,
+        currentIndex: parsed.currentIndex || 0,
+        total: parsed.total || items.length,
+        running: false,
+        cancelled: items.some((it) => it.status === 'cancelled' || it.status === 'failed'),
+        restored: true,
+      };
+    } catch { return null; }
+  });
   const batchCancelRef = useRef(false);
   const batchStateRef = useRef(null);
   useEffect(() => { batchStateRef.current = batchState; }, [batchState]);
+  // 自動寫回 sessionStorage（best-effort，超過 quota 時退而保存無 b64 的精簡版）
+  useEffect(() => {
+    if (typeof window === 'undefined') return;
+    try {
+      if (!batchState || !batchState.items?.length) {
+        window.sessionStorage.removeItem(BATCH_STORAGE_KEY);
+        return;
+      }
+      const payload = {
+        items: batchState.items.map(({ previewUrl: _pv, ...rest }) => rest),
+        currentIndex: batchState.currentIndex,
+        total: batchState.total,
+      };
+      try {
+        window.sessionStorage.setItem(BATCH_STORAGE_KEY, JSON.stringify(payload));
+      } catch {
+        // quota exceeded → 移除 b64，至少保留 status/name/error 讓進度可見
+        const lite = {
+          ...payload,
+          items: payload.items.map(({ b64: _b, ...rest }) => rest),
+        };
+        try { window.sessionStorage.setItem(BATCH_STORAGE_KEY, JSON.stringify(lite)); } catch {}
+      }
+    } catch {}
+  }, [batchState]);
   // 報價刷新狀態：{ phase, total, ok, fail, missingNames }
   const [refreshStatus, setRefreshStatus] = useState(null);
   const [dragOver,setDragOver]  = useState(false);
@@ -2466,9 +2520,15 @@ ${JSON.stringify(strategyBrain || { rules: [], lessons: [], commonMistakes: [], 
         });
         const ok = result === true || result?.ok === true;
         const err = result?.error || null;
+        const errorDetail = result?.errorDetail || null;
         setBatchState(s => s ? ({
           ...s,
-          items: s.items.map(it => it.id === item.id ? { ...it, status: ok ? 'success' : 'failed', error: ok ? null : (err || it.error || '解析失敗') } : it),
+          items: s.items.map(it => it.id === item.id ? {
+            ...it,
+            status: ok ? 'success' : 'failed',
+            error: ok ? null : (err || it.error || '解析失敗'),
+            errorDetail: ok ? null : (errorDetail || it.errorDetail || null),
+          } : it),
         }) : s);
         if (ok) okCount++; else failCount++;
       } catch (e) {
@@ -2476,7 +2536,12 @@ ${JSON.stringify(strategyBrain || { rules: [], lessons: [], commonMistakes: [], 
         const msg = e?.message || '網路錯誤';
         setBatchState(s => s ? ({
           ...s,
-          items: s.items.map(it => it.id === item.id ? { ...it, status: 'failed', error: msg } : it),
+          items: s.items.map(it => it.id === item.id ? {
+            ...it,
+            status: 'failed',
+            error: msg,
+            errorDetail: { type: 'exception', message: msg, stack: (e?.stack || '').slice(0, 600) || null },
+          } : it),
         }) : s);
         console.warn('batch parse file failed:', e);
       }
@@ -2692,11 +2757,11 @@ ${JSON.stringify(strategyBrain || { rules: [], lessons: [], commonMistakes: [], 
   const parseShot = async (opts = {}) => {
     const { b64Override, suppressTabSwitch = false, batchInfo = null } = opts;
     const b64Used = b64Override || b64;
-    if (!b64Used) return { ok: false, error: '無影像資料' };
+    if (!b64Used) return { ok: false, error: '無影像資料', errorDetail: { type: 'no_image', message: '檔案資料遺失，請重新上傳該截圖' } };
     // Demo 模式 → 要求先 LINE 登入
     if (isDemo) {
       startLineLogin();
-      return { ok: false, error: '請先 LINE 登入' };
+      return { ok: false, error: '請先 LINE 登入', errorDetail: { type: 'demo_locked', message: 'Demo 模式無法解析，請先 LINE 登入' } };
     }
     // 截圖解析 = auth-only（checkup-parse edge 不扣 quota）
     // 不在前端做 quota 攔截，避免 line_free 用完的使用者被擋在上傳/建立持倉之外
@@ -2735,7 +2800,14 @@ ${JSON.stringify(strategyBrain || { rules: [], lessons: [], commonMistakes: [], 
             toast.error('LINE 註冊禮已用完，請查看升級方案');
             setParseStep({ stage: 'error', label: '配額已用完', progress: 0, detail: '請見下方升級方案' });
             setParsing(false);
-            return { ok: false, error: 'QUOTA_EXCEEDED' };
+            return { ok: false, error: 'QUOTA_EXCEEDED', errorDetail: {
+              type: 'quota',
+              status: e?.status || 429,
+              code: 'QUOTA_EXCEEDED',
+              message: e?.body?.message || e?.body?.error || 'LINE 註冊禮已用完，請查看升級方案',
+              body: e?.body || null,
+              hint: '免費額度已用完，可升級方案或等待下次配額更新',
+            }};
           }
           // 其他錯誤丟給下方 retry 邏輯處理
           lastErr = String(e?.body?.error || e?.message || `HTTP ${e?.status || 0}`);
@@ -2782,7 +2854,15 @@ ${JSON.stringify(strategyBrain || { rules: [], lessons: [], commonMistakes: [], 
             );
             setParseStep({ stage: 'error', label: '持倉超出上限', progress: 70, detail: `合計 ${merged.size} / 上限 ${MAX_HOLDINGS}` });
             setParsing(false);
-            return { ok: false, error: `持倉超出上限（合計 ${merged.size} / 上限 ${MAX_HOLDINGS}）` };
+            return { ok: false, error: `持倉超出上限（合計 ${merged.size} / 上限 ${MAX_HOLDINGS}）`, errorDetail: {
+              type: 'limit_exceeded',
+              message: `持倉超出上限（合計 ${merged.size} / 上限 ${MAX_HOLDINGS}）`,
+              current: currentCodes.size,
+              incoming: incomingCodes.size,
+              merged: merged.size,
+              limit: MAX_HOLDINGS,
+              hint: '請先整理或減少匯入筆數',
+            }};
           }
           holdingsChangedByUserRef.current = true; // 標記為使用者主動變動持倉
           // 計算「新增 / 更新」摘要：以解析前的持倉代碼判斷
@@ -2848,7 +2928,12 @@ ${JSON.stringify(strategyBrain || { rules: [], lessons: [], commonMistakes: [], 
     appendLog({ task: 'parse-screenshot', status: 'error', detail: `所有重試失敗：${finalErr}` });
     setTimeout(() => setParseStep(null), 6000);
     setParsing(false);
-    return { ok: false, error: finalErr };
+    return { ok: false, error: finalErr, errorDetail: {
+      type: 'parse_failed',
+      attempts: MAX_RETRIES,
+      lastMessage: finalErr,
+      hint: '已重試 3 次仍失敗，可重試或更換更清晰的截圖',
+    }};
   };
 
   const submitMemo = () => {
