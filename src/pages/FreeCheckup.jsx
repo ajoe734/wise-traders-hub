@@ -2587,7 +2587,7 @@ ${JSON.stringify(strategyBrain || { rules: [], lessons: [], commonMistakes: [], 
             silent: true,
             body: {
               systemPrompt: PARSE_PROMPT,
-              base64: b64,
+              base64: b64Used,
               mediaType: "image/jpeg",
             }
           });
