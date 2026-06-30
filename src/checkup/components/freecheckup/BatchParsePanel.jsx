@@ -91,6 +91,9 @@ export default function BatchParsePanel({
           return (
             <div
               key={it.id}
+              data-testid="batch-item"
+              data-batch-status={it.status}
+              data-batch-name={it.name}
               onClick={clickable ? () => restoreBatchItemPreview(it) : undefined}
               title={clickable ? '點擊回到此截圖預覽或檢視錯誤' : undefined}
               style={{
@@ -117,7 +120,7 @@ export default function BatchParsePanel({
                   overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap',
                 }}>{it.name}</div>
                 {it.error && (
-                  <div style={{ fontSize: 11, color: '#B33A3A', marginTop: 2, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
+                  <div data-testid="batch-item-error" style={{ fontSize: 11, color: '#B33A3A', marginTop: 2, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
                     {it.error}
                   </div>
                 )}
