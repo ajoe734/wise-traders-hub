@@ -3230,7 +3230,7 @@ ${JSON.stringify(strategyBrain || { rules: [], lessons: [], commonMistakes: [], 
               parsing={parsing} parseStep={parseStep} parseErr={parseErr}
               parsed={parsed} setParsed={setParsed}
               img={img} dragOver={dragOver} setDragOver={setDragOver}
-              processFile={processFile} parseShot={parseShot}
+              processFile={processFile} processFiles={processFiles} parseShot={parseShot}
               setImg={setImg} setB64={setB64} setParseErr={setParseErr}
               isDemo={isDemo} startLineLogin={startLineLogin}
               hasReachedDailyLimit={hasReachedDailyLimit} tier={tier} quota={quota}
