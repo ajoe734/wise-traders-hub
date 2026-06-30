@@ -88,6 +88,7 @@ function TradeTabImpl({
   parsing, parseStep, parseErr, parsed, setParsed,
   img, dragOver, setDragOver,
   processFile, processFiles, parseShot,
+  batchState, cancelBatch, retryBatchFailures, restoreBatchItemPreview,
   setImg, setB64, setParseErr,
   // demo / 配額
   isDemo, startLineLogin,
