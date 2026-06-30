@@ -2513,6 +2513,14 @@ ${JSON.stringify(strategyBrain || { rules: [], lessons: [], commonMistakes: [], 
   const processFiles = async (filesLike) => {
     const list = Array.from(filesLike || []).filter(f => f && f.type?.startsWith("image/"));
     if (!list.length) return;
+    // 一次最多 10 張（UI 文案承諾）— 超過直接擋下整批，不啟動任何批次
+    const MAX_BATCH_FILES = 10;
+    if (list.length > MAX_BATCH_FILES) {
+      toast.error(`一次最多上傳 ${MAX_BATCH_FILES} 張截圖（本次選了 ${list.length} 張）`, {
+        description: '請拆成多批上傳，或減少選取張數後再試一次',
+      });
+      return;
+    }
     if (list.length === 1) { processFile(list[0]); return; }
     if (isDemo) { startLineLogin(); return; }
     if (parsing || batchStateRef.current?.running) {
