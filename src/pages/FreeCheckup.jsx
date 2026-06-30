@@ -2375,13 +2375,53 @@ ${JSON.stringify(strategyBrain || { rules: [], lessons: [], commonMistakes: [], 
 
   // file
   const processFile = (file) => {
-    if (!file?.type.startsWith("image/")) return;
+    if (!file?.type?.startsWith("image/")) return;
     setImg(URL.createObjectURL(file));
     setParsed(null); setParseErr(null);
     setMemoStep(0); setMemoAns([]); setMemoIn("");
     const r = new FileReader();
     r.onload = e => setB64(e.target.result.split(",")[1]);
     r.readAsDataURL(file);
+  };
+
+  // 多圖批次上傳：依序自動解析每張截圖
+  // - 單張 → 沿用原本「預覽 + 手動點解析」UX
+  // - 多張 → 自動排隊逐張解析，僅最後一張完成後切到持倉頁
+  const processFiles = async (filesLike) => {
+    const list = Array.from(filesLike || []).filter(f => f && f.type?.startsWith("image/"));
+    if (!list.length) return;
+    if (list.length === 1) { processFile(list[0]); return; }
+    if (isDemo) { startLineLogin(); return; }
+    if (parsing) {
+      toast.warning("目前仍有截圖在解析中，請稍候再上傳");
+      return;
+    }
+    toast.info(`開始批次解析 ${list.length} 張截圖`, { description: "將依序自動解析，請保持頁面開啟" });
+    let okCount = 0, failCount = 0;
+    for (let i = 0; i < list.length; i++) {
+      const file = list[i];
+      const isLast = i === list.length - 1;
+      try {
+        setTab("trade");
+        const b64v = await new Promise((res, rej) => {
+          const fr = new FileReader();
+          fr.onload = e => res(e.target.result.split(",")[1]);
+          fr.onerror = rej;
+          fr.readAsDataURL(file);
+        });
+        setImg(URL.createObjectURL(file));
+        setB64(b64v);
+        setParsed(null); setParseErr(null);
+        await new Promise(r => setTimeout(r, 30));
+        const ok = await parseShot({ b64Override: b64v, suppressTabSwitch: !isLast, batchInfo: { index: i + 1, total: list.length } });
+        if (ok) okCount++; else failCount++;
+      } catch (e) {
+        failCount++;
+        console.warn('batch parse file failed:', e);
+      }
+    }
+    if (failCount === 0) toast.success(`批次解析完成 ${okCount}/${list.length} 張`);
+    else toast.warning(`批次完成：成功 ${okCount}、失敗 ${failCount}`);
   };
 
   const mergeTradeIntoHoldings = (holdingsList, trade) => {
@@ -2513,18 +2553,22 @@ ${JSON.stringify(strategyBrain || { rules: [], lessons: [], commonMistakes: [], 
     return arr;
   };
 
-  const parseShot = async () => {
-    if (!b64) return;
+  const parseShot = async (opts = {}) => {
+    const { b64Override, suppressTabSwitch = false, batchInfo = null } = opts;
+    const b64Used = b64Override || b64;
+    if (!b64Used) return false;
     // Demo 模式 → 要求先 LINE 登入
     if (isDemo) {
       startLineLogin();
-      return;
+      return false;
     }
     // 截圖解析 = auth-only（checkup-parse edge 不扣 quota）
     // 不在前端做 quota 攔截，避免 line_free 用完的使用者被擋在上傳/建立持倉之外
     // 若後端規則改變回 429，下方 catch 區塊仍有兜底處理
     setParsing(true); setParseErr(null);
-    setParseStep({ stage: 'upload', label: '上傳截圖至 AI Vision', progress: 10, detail: `影像大小約 ${Math.round((b64?.length || 0) * 0.75 / 1024)} KB` });
+    const batchPrefix = batchInfo ? `（${batchInfo.index}/${batchInfo.total}）` : '';
+    setParseStep({ stage: 'upload', label: `${batchPrefix}上傳截圖至 AI Vision`, progress: 10, detail: `影像大小約 ${Math.round((b64Used?.length || 0) * 0.75 / 1024)} KB` });
+
 
     const MAX_RETRIES = 3;
     let lastErr = "";
@@ -2543,7 +2587,7 @@ ${JSON.stringify(strategyBrain || { rules: [], lessons: [], commonMistakes: [], 
             silent: true,
             body: {
               systemPrompt: PARSE_PROMPT,
-              base64: b64,
+              base64: b64Used,
               mediaType: "image/jpeg",
             }
           });
@@ -2555,7 +2599,7 @@ ${JSON.stringify(strategyBrain || { rules: [], lessons: [], commonMistakes: [], 
             toast.error('LINE 註冊禮已用完，請查看升級方案');
             setParseStep({ stage: 'error', label: '配額已用完', progress: 0, detail: '請見下方升級方案' });
             setParsing(false);
-            return;
+            return false;
           }
           // 其他錯誤丟給下方 retry 邏輯處理
           lastErr = String(e?.body?.error || e?.message || `HTTP ${e?.status || 0}`);
@@ -2602,7 +2646,7 @@ ${JSON.stringify(strategyBrain || { rules: [], lessons: [], commonMistakes: [], 
             );
             setParseStep({ stage: 'error', label: '持倉超出上限', progress: 70, detail: `合計 ${merged.size} / 上限 ${MAX_HOLDINGS}` });
             setParsing(false);
-            return;
+            return false;
           }
           holdingsChangedByUserRef.current = true; // 標記為使用者主動變動持倉
           // 計算「新增 / 更新」摘要：以解析前的持倉代碼判斷
@@ -2635,9 +2679,9 @@ ${JSON.stringify(strategyBrain || { rules: [], lessons: [], commonMistakes: [], 
           setSaved("✅ 成交已更新到持倉與記錄");
           toast.success(`已寫入 ${preparedTrades.length} 筆成交`, { description: "持倉與交易紀錄已即時更新" });
           setTimeout(() => setSaved(""), 2500);
-          // 設定上傳摘要並自動切換至持倉頁
+          // 設定上傳摘要（批次模式下，僅最後一張切換至持倉頁，避免反覆跳頁）
           setUploadSummary({ added: summaryAdded, updated: summaryUpdated, at: Date.now() });
-          setTab("holdings");
+          if (!suppressTabSwitch) setTab("holdings");
           // 12 秒後自動隱藏摘要
           setTimeout(() => setUploadSummary(s => (s && Date.now() - s.at >= 11000) ? null : s), 12000);
           // ✨ 解析成功後自動拉一次 TWSE 即時報價，避免依賴截圖內 market_price
@@ -2651,7 +2695,7 @@ ${JSON.stringify(strategyBrain || { rules: [], lessons: [], commonMistakes: [], 
         appendLog({ task: 'parse-screenshot', status: 'ok', attempt, detail: `${preparedTrades.length} 筆部位` });
         setTimeout(() => setParseStep(null), 4000);
         setParsing(false);
-        return; // 成功，直接返回
+        return true; // 成功，直接返回
       } catch (e) {
         lastErr = e?.message || "網路錯誤";
         console.warn(`Parse attempt ${attempt}/${MAX_RETRIES} exception:`, e);
@@ -2668,6 +2712,7 @@ ${JSON.stringify(strategyBrain || { rules: [], lessons: [], commonMistakes: [], 
     appendLog({ task: 'parse-screenshot', status: 'error', detail: `所有重試失敗：${finalErr}` });
     setTimeout(() => setParseStep(null), 6000);
     setParsing(false);
+    return false;
   };
 
   const submitMemo = () => {
@@ -3185,7 +3230,7 @@ ${JSON.stringify(strategyBrain || { rules: [], lessons: [], commonMistakes: [], 
               parsing={parsing} parseStep={parseStep} parseErr={parseErr}
               parsed={parsed} setParsed={setParsed}
               img={img} dragOver={dragOver} setDragOver={setDragOver}
-              processFile={processFile} parseShot={parseShot}
+              processFile={processFile} processFiles={processFiles} parseShot={parseShot}
               setImg={setImg} setB64={setB64} setParseErr={setParseErr}
               isDemo={isDemo} startLineLogin={startLineLogin}
               hasReachedDailyLimit={hasReachedDailyLimit} tier={tier} quota={quota}
