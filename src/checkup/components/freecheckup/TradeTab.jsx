@@ -2,6 +2,7 @@ import React, { useEffect } from 'react';
 import { validateProps } from './_validateProps';
 import { trackPaywall } from '@/lib/paywallTracking';
 import { markUserOwnedHolding } from '@/pages/_freeCheckup/constants';
+import BatchParsePanel from './BatchParsePanel';
 
 
 
@@ -26,6 +27,10 @@ const TRADE_TAB_PROP_SCHEMA = {
   processFile: 'function',
   processFiles: { type: 'function', optional: true },
   parseShot: 'function',
+  batchState: { type: 'object', optional: true },
+  cancelBatch: { type: 'function', optional: true },
+  retryBatchFailures: { type: 'function', optional: true },
+  restoreBatchItemPreview: { type: 'function', optional: true },
   setImg: 'function',
   setB64: 'function',
   setParseErr: 'function',
@@ -83,6 +88,7 @@ function TradeTabImpl({
   parsing, parseStep, parseErr, parsed, setParsed,
   img, dragOver, setDragOver,
   processFile, processFiles, parseShot,
+  batchState, cancelBatch, retryBatchFailures, restoreBatchItemPreview,
   setImg, setB64, setParseErr,
   // demo / 配額
   isDemo, startLineLogin,
@@ -211,6 +217,14 @@ function TradeTabImpl({
       {!parsed && !isDemo && (
 
         <>
+          <BatchParsePanel
+            C={C}
+            batchState={batchState}
+            cancelBatch={cancelBatch}
+            retryBatchFailures={retryBatchFailures}
+            restoreBatchItemPreview={restoreBatchItemPreview}
+            variant="trade"
+          />
           <div
             onDragOver={e=>{e.preventDefault();setDragOver(true)}}
             onDragLeave={()=>setDragOver(false)}

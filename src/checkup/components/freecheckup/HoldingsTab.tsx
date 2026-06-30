@@ -14,6 +14,7 @@ import HoldingsQuotaMeter from "@/checkup/components/freecheckup/HoldingsQuotaMe
 import HoldingsFilterBar from "@/checkup/components/freecheckup/HoldingsFilterBar";
 import HoldingsReversalSection from "@/checkup/components/freecheckup/HoldingsReversalSection";
 import HoldingsUploadSummary from "@/checkup/components/freecheckup/HoldingsUploadSummary";
+import BatchParsePanel from "@/checkup/components/freecheckup/BatchParsePanel";
 import HoldingsEmptyState from "@/checkup/components/freecheckup/HoldingsEmptyState";
 import HoldingsNoMatchState from "@/checkup/components/freecheckup/HoldingsNoMatchState";
 import HoldingsFooterBar from "@/checkup/components/freecheckup/HoldingsFooterBar";
@@ -47,6 +48,9 @@ const HOLDINGS_TAB_PROP_SCHEMA = {
   winnersCount: _opt('any'), exitListCount: _opt('any'), reviewListCount: _opt('any'),
   MAX_HOLDINGS: _opt('any'), rtConnected: _opt('any'), lastUpdate: _opt('any'),
   uploadSummary: _opt('any'), setUploadSummary: _opt('any'),
+  batchState: _opt('any'), cancelBatch: _opt('any'),
+  retryBatchFailures: _opt('any'), restoreBatchItemPreview: _opt('any'),
+  setTab: _opt('any'),
   losers: _opt('any'), reversalConditions: _opt('any'),
   reviewingEvent: _opt('any'), setReviewingEvent: _opt('any'), updateReversal: _opt('any'),
   globalPriorityList: _opt('any'),
@@ -92,6 +96,7 @@ function HoldingsTab(props) {
     MAX_HOLDINGS, rtConnected, lastUpdate,
     // upload summary
     uploadSummary, setUploadSummary,
+    batchState, cancelBatch, retryBatchFailures, restoreBatchItemPreview,
     // reversal
     losers, reversalConditions, reviewingEvent, setReviewingEvent, updateReversal,
     // action priority + decisions
@@ -195,6 +200,15 @@ function HoldingsTab(props) {
         formatResetCountdown={formatResetCountdown}
         isLineBound={!!_mode.lineProfile?.lineUserId}
       />
+      {/* 批次解析狀態：成功/失敗清單、進度、取消、重試 */}
+      <BatchParsePanel
+        C={C}
+        batchState={batchState}
+        cancelBatch={cancelBatch}
+        retryBatchFailures={retryBatchFailures}
+        restoreBatchItemPreview={restoreBatchItemPreview}
+        variant="holdings"
+      />
       {/* 上傳摘要：剛從上傳成交頁回來時顯示新增/更新項目（B1） */}
       <HoldingsUploadSummary
         uploadSummary={uploadSummary}
@@ -202,7 +216,6 @@ function HoldingsTab(props) {
         C={C}
         alpha={alpha}
       />
-      {/* ── Hero：橫向 2 欄構圖（左大數字 + 右市場狀態），底部 4 欄 KPI ── */}
       <HoldingsHero
         totalVal={totalVal}
         totalCost={totalCost}
