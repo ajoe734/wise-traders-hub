@@ -2679,9 +2679,9 @@ ${JSON.stringify(strategyBrain || { rules: [], lessons: [], commonMistakes: [], 
           setSaved("✅ 成交已更新到持倉與記錄");
           toast.success(`已寫入 ${preparedTrades.length} 筆成交`, { description: "持倉與交易紀錄已即時更新" });
           setTimeout(() => setSaved(""), 2500);
-          // 設定上傳摘要並自動切換至持倉頁
+          // 設定上傳摘要（批次模式下，僅最後一張切換至持倉頁，避免反覆跳頁）
           setUploadSummary({ added: summaryAdded, updated: summaryUpdated, at: Date.now() });
-          setTab("holdings");
+          if (!suppressTabSwitch) setTab("holdings");
           // 12 秒後自動隱藏摘要
           setTimeout(() => setUploadSummary(s => (s && Date.now() - s.at >= 11000) ? null : s), 12000);
           // ✨ 解析成功後自動拉一次 TWSE 即時報價，避免依賴截圖內 market_price
