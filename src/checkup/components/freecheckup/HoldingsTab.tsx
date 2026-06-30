@@ -200,6 +200,15 @@ function HoldingsTab(props) {
         formatResetCountdown={formatResetCountdown}
         isLineBound={!!_mode.lineProfile?.lineUserId}
       />
+      {/* 批次解析狀態：成功/失敗清單、進度、取消、重試 */}
+      <BatchParsePanel
+        C={C}
+        batchState={batchState}
+        cancelBatch={cancelBatch}
+        retryBatchFailures={retryBatchFailures}
+        restoreBatchItemPreview={restoreBatchItemPreview}
+        variant="holdings"
+      />
       {/* 上傳摘要：剛從上傳成交頁回來時顯示新增/更新項目（B1） */}
       <HoldingsUploadSummary
         uploadSummary={uploadSummary}
@@ -207,7 +216,6 @@ function HoldingsTab(props) {
         C={C}
         alpha={alpha}
       />
-      {/* ── Hero：橫向 2 欄構圖（左大數字 + 右市場狀態），底部 4 欄 KPI ── */}
       <HoldingsHero
         totalVal={totalVal}
         totalCost={totalCost}
