@@ -226,14 +226,6 @@ function TradeTabImpl({
       {!parsed && !isDemo && (
 
         <>
-          <BatchParsePanel
-            C={C}
-            batchState={batchState}
-            cancelBatch={cancelBatch}
-            retryBatchFailures={retryBatchFailures}
-            restoreBatchItemPreview={restoreBatchItemPreview}
-            variant="trade"
-          />
           <div
             onDragOver={e=>{e.preventDefault();setDragOver(true)}}
             onDragLeave={()=>setDragOver(false)}
