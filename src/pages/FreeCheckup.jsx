@@ -136,6 +136,10 @@ export default function App() {
   // 解析/同步進度追蹤：{ stage, label, progress(0-100), detail }
   // stage: 'upload' | 'ai' | 'retry' | 'persist' | 'refresh' | 'done' | 'error'
   const [parseStep, setParseStep] = useState(null);
+  // 批次解析狀態：{ items: [{id,name,size,previewUrl,b64,status,error}], currentIndex, total, running, cancelled }
+  // status: 'pending' | 'parsing' | 'success' | 'failed' | 'cancelled'
+  const [batchState, setBatchState] = useState(null);
+  const batchCancelRef = useRef(false);
   // 報價刷新狀態：{ phase, total, ok, fail, missingNames }
   const [refreshStatus, setRefreshStatus] = useState(null);
   const [dragOver,setDragOver]  = useState(false);
