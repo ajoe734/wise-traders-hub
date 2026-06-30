@@ -53,7 +53,7 @@ test('上傳 > 10 張：顯示上限提示，不啟動批次解析', async ({ pa
   await gotoWithRetry(page, '/holding-checkup', { waitUntil: 'domcontentloaded' });
   await page.waitForTimeout(800);
   const tradeBtn = page.getByRole('button', { name: /^上傳成交$/ }).first();
-  if (await tradeBtn.count()) await tradeBtn.click().catch(() => {});
+  await expect(tradeBtn).toBeVisible({ timeout: 10_000 }); await tradeBtn.click();
   await page.waitForSelector('#fi', { state: 'attached', timeout: 15_000 });
 
   // 生 11 張檔案

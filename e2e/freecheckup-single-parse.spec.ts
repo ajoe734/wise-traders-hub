@@ -60,7 +60,7 @@ test('單張上傳：手動點解析，BatchParsePanel 不出現', async ({ page
   await gotoWithRetry(page, '/holding-checkup', { waitUntil: 'domcontentloaded' });
   await page.waitForTimeout(800);
   const tradeBtn = page.getByRole('button', { name: /^上傳成交$/ }).first();
-  if (await tradeBtn.count()) await tradeBtn.click().catch(() => {});
+  await expect(tradeBtn).toBeVisible({ timeout: 10_000 }); await tradeBtn.click();
   await page.waitForSelector('#fi', { state: 'attached', timeout: 15_000 });
 
   // 上傳「單一」檔案

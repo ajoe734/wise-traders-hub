@@ -74,7 +74,7 @@ test('429 QUOTA_EXCEEDED：對應檔案顯示錯誤、其他檔案仍成功', as
   await gotoWithRetry(page, '/holding-checkup', { waitUntil: 'domcontentloaded' });
   await page.waitForTimeout(800);
   const tradeBtn = page.getByRole('button', { name: /^上傳成交$/ }).first();
-  if (await tradeBtn.count()) await tradeBtn.click().catch(() => {});
+  await expect(tradeBtn).toBeVisible({ timeout: 10_000 }); await tradeBtn.click();
   await page.waitForSelector('#fi', { state: 'attached', timeout: 15_000 });
 
   await page.locator('#fi').setInputFiles([makeFile('ok-a.png'), makeFile('quota.png'), makeFile('ok-b.png')]);
