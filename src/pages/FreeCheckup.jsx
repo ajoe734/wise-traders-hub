@@ -136,12 +136,66 @@ export default function App() {
   // 解析/同步進度追蹤：{ stage, label, progress(0-100), detail }
   // stage: 'upload' | 'ai' | 'retry' | 'persist' | 'refresh' | 'done' | 'error'
   const [parseStep, setParseStep] = useState(null);
-  // 批次解析狀態：{ items: [{id,name,size,previewUrl,b64,status,error}], currentIndex, total, running, cancelled }
+  // 批次解析狀態：{ items: [{id,name,size,previewUrl,b64,status,error,errorDetail}], currentIndex, total, running, cancelled }
   // status: 'pending' | 'parsing' | 'success' | 'failed' | 'cancelled'
-  const [batchState, setBatchState] = useState(null);
+  // 持久化：sessionStorage（refresh 後仍能看到 i/N 進度與已完成結果）
+  const BATCH_STORAGE_KEY = 'freecheckup-batch-state-v1';
+  const [batchState, setBatchState] = useState(() => {
+    if (typeof window === 'undefined') return null;
+    try {
+      const raw = window.sessionStorage.getItem(BATCH_STORAGE_KEY);
+      if (!raw) return null;
+      const parsed = JSON.parse(raw);
+      if (!parsed?.items?.length) return null;
+      const items = parsed.items.map((it) => ({
+        ...it,
+        // blob: URL 無法跨 refresh 存活；用 b64 重建 data URI
+        previewUrl: it.b64 ? `data:image/jpeg;base64,${it.b64}` : null,
+        // 重新整理時若有「parsing 中」的項目→視為已取消，提示使用者重試
+        status: it.status === 'parsing' ? 'cancelled' : it.status,
+        error: it.status === 'parsing' ? '頁面重新整理而中斷，可按「重試失敗」' : (it.error || null),
+        errorDetail: it.status === 'parsing'
+          ? { type: 'interrupted', message: '頁面重新整理而中斷，可按「重試失敗」' }
+          : (it.errorDetail || null),
+      }));
+      return {
+        items,
+        currentIndex: parsed.currentIndex || 0,
+        total: parsed.total || items.length,
+        running: false,
+        cancelled: items.some((it) => it.status === 'cancelled' || it.status === 'failed'),
+        restored: true,
+      };
+    } catch { return null; }
+  });
   const batchCancelRef = useRef(false);
   const batchStateRef = useRef(null);
   useEffect(() => { batchStateRef.current = batchState; }, [batchState]);
+  // 自動寫回 sessionStorage（best-effort，超過 quota 時退而保存無 b64 的精簡版）
+  useEffect(() => {
+    if (typeof window === 'undefined') return;
+    try {
+      if (!batchState || !batchState.items?.length) {
+        window.sessionStorage.removeItem(BATCH_STORAGE_KEY);
+        return;
+      }
+      const payload = {
+        items: batchState.items.map(({ previewUrl: _pv, ...rest }) => rest),
+        currentIndex: batchState.currentIndex,
+        total: batchState.total,
+      };
+      try {
+        window.sessionStorage.setItem(BATCH_STORAGE_KEY, JSON.stringify(payload));
+      } catch {
+        // quota exceeded → 移除 b64，至少保留 status/name/error 讓進度可見
+        const lite = {
+          ...payload,
+          items: payload.items.map(({ b64: _b, ...rest }) => rest),
+        };
+        try { window.sessionStorage.setItem(BATCH_STORAGE_KEY, JSON.stringify(lite)); } catch {}
+      }
+    } catch {}
+  }, [batchState]);
   // 報價刷新狀態：{ phase, total, ok, fail, missingNames }
   const [refreshStatus, setRefreshStatus] = useState(null);
   const [dragOver,setDragOver]  = useState(false);
