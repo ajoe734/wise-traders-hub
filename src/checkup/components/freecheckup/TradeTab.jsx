@@ -2,6 +2,7 @@ import React, { useEffect } from 'react';
 import { validateProps } from './_validateProps';
 import { trackPaywall } from '@/lib/paywallTracking';
 import { markUserOwnedHolding } from '@/pages/_freeCheckup/constants';
+import BatchParsePanel from './BatchParsePanel';
 
 
 
