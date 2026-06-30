@@ -3359,6 +3359,8 @@ ${JSON.stringify(strategyBrain || { rules: [], lessons: [], commonMistakes: [], 
               parsed={parsed} setParsed={setParsed}
               img={img} dragOver={dragOver} setDragOver={setDragOver}
               processFile={processFile} processFiles={processFiles} parseShot={parseShot}
+              batchState={batchState} cancelBatch={cancelBatch}
+              retryBatchFailures={retryBatchFailures} restoreBatchItemPreview={restoreBatchItemPreview}
               setImg={setImg} setB64={setB64} setParseErr={setParseErr}
               isDemo={isDemo} startLineLogin={startLineLogin}
               hasReachedDailyLimit={hasReachedDailyLimit} tier={tier} quota={quota}
