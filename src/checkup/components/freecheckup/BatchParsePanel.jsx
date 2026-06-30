@@ -43,18 +43,18 @@ export default function BatchParsePanel({
       zIndex: 10001, // 高於 TradeTab parsing overlay (9999) 與抽屜，讓「停止/重試」始終可點
     }}>
       <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 12, flexWrap: 'wrap' }}>
-        <div style={{ fontSize: 14, fontWeight: 700, color: C?.text || '#292520' }}>
+        <div data-testid="batch-parse-header" style={{ fontSize: 14, fontWeight: 700, color: C?.text || '#292520' }}>
           {headerLabel}
         </div>
         <div style={{ display: 'flex', gap: 8 }}>
           {running && (
-            <button onClick={cancelBatch} style={{
+            <button data-testid="batch-cancel-btn" onClick={cancelBatch} style={{
               padding: '6px 12px', borderRadius: 8, border: `1px solid ${C?.border || '#E5E0D8'}`,
               background: '#FFF', color: '#B33A3A', fontSize: 13, fontWeight: 600, cursor: 'pointer',
             }}>停止批次</button>
           )}
           {!running && (failed > 0 || cancelledCount > 0) && (
-            <button onClick={retryBatchFailures} style={{
+            <button data-testid="batch-retry-btn" onClick={retryBatchFailures} style={{
               padding: '6px 12px', borderRadius: 8, border: '1px solid #C97B3A',
               background: '#C97B3A', color: '#FFF', fontSize: 13, fontWeight: 600, cursor: 'pointer',
             }}>重試失敗 {failed + cancelledCount} 張</button>
