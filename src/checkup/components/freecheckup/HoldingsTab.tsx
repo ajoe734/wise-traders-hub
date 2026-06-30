@@ -96,6 +96,7 @@ function HoldingsTab(props) {
     MAX_HOLDINGS, rtConnected, lastUpdate,
     // upload summary
     uploadSummary, setUploadSummary,
+    batchState, cancelBatch, retryBatchFailures, restoreBatchItemPreview,
     // reversal
     losers, reversalConditions, reviewingEvent, setReviewingEvent, updateReversal,
     // action priority + decisions
