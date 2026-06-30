@@ -278,6 +278,24 @@ export default defineConfig({
       testMatch: /freecheckup-batch-parse\.spec\.ts/,
       use: { ...devices['Desktop Chrome'], viewport: { width: 1280, height: 900 } },
     },
+    {
+      // 批次解析 429 / QUOTA_EXCEEDED 錯誤呈現
+      name: 'desktop-freecheckup-batch-parse-quota',
+      testMatch: /freecheckup-batch-parse-quota\.spec\.ts/,
+      use: { ...devices['Desktop Chrome'], viewport: { width: 1280, height: 900 } },
+    },
+    {
+      // 批次上限 — 一次最多 10 張
+      name: 'desktop-freecheckup-batch-parse-limit',
+      testMatch: /freecheckup-batch-parse-limit\.spec\.ts/,
+      use: { ...devices['Desktop Chrome'], viewport: { width: 1280, height: 900 } },
+    },
+    {
+      // 單張預覽 → 手動解析（不觸發 BatchParsePanel）
+      name: 'desktop-freecheckup-single-parse',
+      testMatch: /freecheckup-single-parse\.spec\.ts/,
+      use: { ...devices['Desktop Chrome'], viewport: { width: 1280, height: 900 } },
+    },
   ],
   webServer: {
     command: 'bun run dev',
