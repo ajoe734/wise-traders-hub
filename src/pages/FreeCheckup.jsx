@@ -2712,6 +2712,7 @@ ${JSON.stringify(strategyBrain || { rules: [], lessons: [], commonMistakes: [], 
     appendLog({ task: 'parse-screenshot', status: 'error', detail: `所有重試失敗：${finalErr}` });
     setTimeout(() => setParseStep(null), 6000);
     setParsing(false);
+    return false;
   };
 
   const submitMemo = () => {
