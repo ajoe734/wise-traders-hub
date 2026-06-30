@@ -2695,7 +2695,7 @@ ${JSON.stringify(strategyBrain || { rules: [], lessons: [], commonMistakes: [], 
         appendLog({ task: 'parse-screenshot', status: 'ok', attempt, detail: `${preparedTrades.length} 筆部位` });
         setTimeout(() => setParseStep(null), 4000);
         setParsing(false);
-        return; // 成功，直接返回
+        return true; // 成功，直接返回
       } catch (e) {
         lastErr = e?.message || "網路錯誤";
         console.warn(`Parse attempt ${attempt}/${MAX_RETRIES} exception:`, e);
