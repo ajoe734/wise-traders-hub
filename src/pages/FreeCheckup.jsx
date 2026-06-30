@@ -2553,18 +2553,22 @@ ${JSON.stringify(strategyBrain || { rules: [], lessons: [], commonMistakes: [], 
     return arr;
   };
 
-  const parseShot = async () => {
-    if (!b64) return;
+  const parseShot = async (opts = {}) => {
+    const { b64Override, suppressTabSwitch = false, batchInfo = null } = opts;
+    const b64Used = b64Override || b64;
+    if (!b64Used) return false;
     // Demo 模式 → 要求先 LINE 登入
     if (isDemo) {
       startLineLogin();
-      return;
+      return false;
     }
     // 截圖解析 = auth-only（checkup-parse edge 不扣 quota）
     // 不在前端做 quota 攔截，避免 line_free 用完的使用者被擋在上傳/建立持倉之外
     // 若後端規則改變回 429，下方 catch 區塊仍有兜底處理
     setParsing(true); setParseErr(null);
-    setParseStep({ stage: 'upload', label: '上傳截圖至 AI Vision', progress: 10, detail: `影像大小約 ${Math.round((b64?.length || 0) * 0.75 / 1024)} KB` });
+    const batchPrefix = batchInfo ? `（${batchInfo.index}/${batchInfo.total}）` : '';
+    setParseStep({ stage: 'upload', label: `${batchPrefix}上傳截圖至 AI Vision`, progress: 10, detail: `影像大小約 ${Math.round((b64Used?.length || 0) * 0.75 / 1024)} KB` });
+
 
     const MAX_RETRIES = 3;
     let lastErr = "";
