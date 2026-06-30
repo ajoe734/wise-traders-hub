@@ -2375,13 +2375,53 @@ ${JSON.stringify(strategyBrain || { rules: [], lessons: [], commonMistakes: [], 
 
   // file
   const processFile = (file) => {
-    if (!file?.type.startsWith("image/")) return;
+    if (!file?.type?.startsWith("image/")) return;
     setImg(URL.createObjectURL(file));
     setParsed(null); setParseErr(null);
     setMemoStep(0); setMemoAns([]); setMemoIn("");
     const r = new FileReader();
     r.onload = e => setB64(e.target.result.split(",")[1]);
     r.readAsDataURL(file);
+  };
+
+  // 多圖批次上傳：依序自動解析每張截圖
+  // - 單張 → 沿用原本「預覽 + 手動點解析」UX
+  // - 多張 → 自動排隊逐張解析，僅最後一張完成後切到持倉頁
+  const processFiles = async (filesLike) => {
+    const list = Array.from(filesLike || []).filter(f => f && f.type?.startsWith("image/"));
+    if (!list.length) return;
+    if (list.length === 1) { processFile(list[0]); return; }
+    if (isDemo) { startLineLogin(); return; }
+    if (parsing) {
+      toast.warning("目前仍有截圖在解析中，請稍候再上傳");
+      return;
+    }
+    toast.info(`開始批次解析 ${list.length} 張截圖`, { description: "將依序自動解析，請保持頁面開啟" });
+    let okCount = 0, failCount = 0;
+    for (let i = 0; i < list.length; i++) {
+      const file = list[i];
+      const isLast = i === list.length - 1;
+      try {
+        setTab("trade");
+        const b64v = await new Promise((res, rej) => {
+          const fr = new FileReader();
+          fr.onload = e => res(e.target.result.split(",")[1]);
+          fr.onerror = rej;
+          fr.readAsDataURL(file);
+        });
+        setImg(URL.createObjectURL(file));
+        setB64(b64v);
+        setParsed(null); setParseErr(null);
+        await new Promise(r => setTimeout(r, 30));
+        const ok = await parseShot({ b64Override: b64v, suppressTabSwitch: !isLast, batchInfo: { index: i + 1, total: list.length } });
+        if (ok) okCount++; else failCount++;
+      } catch (e) {
+        failCount++;
+        console.warn('batch parse file failed:', e);
+      }
+    }
+    if (failCount === 0) toast.success(`批次解析完成 ${okCount}/${list.length} 張`);
+    else toast.warning(`批次完成：成功 ${okCount}、失敗 ${failCount}`);
   };
 
   const mergeTradeIntoHoldings = (holdingsList, trade) => {
