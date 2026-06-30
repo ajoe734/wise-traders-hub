@@ -33,26 +33,28 @@ export default function BatchParsePanel({
       : (failed > 0 ? `批次完成：成功 ${ok}、失敗 ${failed}` : `批次解析完成 ${ok}/${total}`);
 
   return (
-    <div style={{
+    <div data-testid="batch-parse-panel" style={{
       border: `1px solid ${C?.border || '#E5E0D8'}`,
       borderRadius: 12,
       background: C?.card || '#FFFFFF',
       padding: '14px 16px',
       marginBottom: 14,
+      position: 'relative',
+      zIndex: 10001, // 高於 TradeTab parsing overlay (9999) 與抽屜，讓「停止/重試」始終可點
     }}>
       <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 12, flexWrap: 'wrap' }}>
-        <div style={{ fontSize: 14, fontWeight: 700, color: C?.text || '#292520' }}>
+        <div data-testid="batch-parse-header" style={{ fontSize: 14, fontWeight: 700, color: C?.text || '#292520' }}>
           {headerLabel}
         </div>
         <div style={{ display: 'flex', gap: 8 }}>
           {running && (
-            <button onClick={cancelBatch} style={{
+            <button data-testid="batch-cancel-btn" onClick={cancelBatch} style={{
               padding: '6px 12px', borderRadius: 8, border: `1px solid ${C?.border || '#E5E0D8'}`,
               background: '#FFF', color: '#B33A3A', fontSize: 13, fontWeight: 600, cursor: 'pointer',
             }}>停止批次</button>
           )}
           {!running && (failed > 0 || cancelledCount > 0) && (
-            <button onClick={retryBatchFailures} style={{
+            <button data-testid="batch-retry-btn" onClick={retryBatchFailures} style={{
               padding: '6px 12px', borderRadius: 8, border: '1px solid #C97B3A',
               background: '#C97B3A', color: '#FFF', fontSize: 13, fontWeight: 600, cursor: 'pointer',
             }}>重試失敗 {failed + cancelledCount} 張</button>
@@ -89,6 +91,9 @@ export default function BatchParsePanel({
           return (
             <div
               key={it.id}
+              data-testid="batch-item"
+              data-batch-status={it.status}
+              data-batch-name={it.name}
               onClick={clickable ? () => restoreBatchItemPreview(it) : undefined}
               title={clickable ? '點擊回到此截圖預覽或檢視錯誤' : undefined}
               style={{
@@ -115,7 +120,7 @@ export default function BatchParsePanel({
                   overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap',
                 }}>{it.name}</div>
                 {it.error && (
-                  <div style={{ fontSize: 11, color: '#B33A3A', marginTop: 2, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
+                  <div data-testid="batch-item-error" style={{ fontSize: 11, color: '#B33A3A', marginTop: 2, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
                     {it.error}
                   </div>
                 )}

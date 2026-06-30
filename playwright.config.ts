@@ -271,6 +271,13 @@ export default defineConfig({
       testMatch: /performance-overview-mobile-xaxis\.spec\.ts/,
       use: { ...devices['Desktop Chrome'], viewport: { width: 390, height: 844 } },
     },
+
+    // FreeCheckup 多圖批次解析（BatchParsePanel：progress / cancel / retry）
+    {
+      name: 'desktop-freecheckup-batch-parse',
+      testMatch: /freecheckup-batch-parse\.spec\.ts/,
+      use: { ...devices['Desktop Chrome'], viewport: { width: 1280, height: 900 } },
+    },
   ],
   webServer: {
     command: 'bun run dev',
