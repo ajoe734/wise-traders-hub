@@ -14,6 +14,84 @@ export type Database = {
   }
   public: {
     Tables: {
+      account_link_codes: {
+        Row: {
+          code: string
+          consumed_at: string | null
+          consumed_by_user_id: string | null
+          created_at: string
+          expires_at: string
+          id: string
+          initiator_email: string | null
+          initiator_identity: string
+          initiator_line_user_id: string | null
+          initiator_user_id: string
+        }
+        Insert: {
+          code: string
+          consumed_at?: string | null
+          consumed_by_user_id?: string | null
+          created_at?: string
+          expires_at: string
+          id?: string
+          initiator_email?: string | null
+          initiator_identity: string
+          initiator_line_user_id?: string | null
+          initiator_user_id: string
+        }
+        Update: {
+          code?: string
+          consumed_at?: string | null
+          consumed_by_user_id?: string | null
+          created_at?: string
+          expires_at?: string
+          id?: string
+          initiator_email?: string | null
+          initiator_identity?: string
+          initiator_line_user_id?: string | null
+          initiator_user_id?: string
+        }
+        Relationships: []
+      }
+      account_merges: {
+        Row: {
+          created_at: string
+          id: string
+          moved_counts: Json
+          performed_by: string | null
+          primary_email: string | null
+          primary_identity: string | null
+          primary_user_id: string
+          secondary_email: string | null
+          secondary_identity: string | null
+          secondary_user_id: string
+        }
+        Insert: {
+          created_at?: string
+          id?: string
+          moved_counts?: Json
+          performed_by?: string | null
+          primary_email?: string | null
+          primary_identity?: string | null
+          primary_user_id: string
+          secondary_email?: string | null
+          secondary_identity?: string | null
+          secondary_user_id: string
+        }
+        Update: {
+          created_at?: string
+          id?: string
+          moved_counts?: Json
+          performed_by?: string | null
+          primary_email?: string | null
+          primary_identity?: string | null
+          primary_user_id?: string
+          secondary_email?: string | null
+          secondary_identity?: string | null
+          secondary_user_id?: string
+        }
+        Relationships: []
+      }
       ad_spend: {
         Row: {
           created_at: string
@@ -2500,6 +2578,7 @@ export type Database = {
           is_line_friend: boolean | null
           is_tester: boolean
           line_user_id: string | null
+          merged_into_user_id: string | null
           updated_at: string
           user_id: string
         }
@@ -2512,6 +2591,7 @@ export type Database = {
           is_line_friend?: boolean | null
           is_tester?: boolean
           line_user_id?: string | null
+          merged_into_user_id?: string | null
           updated_at?: string
           user_id: string
         }
@@ -2524,6 +2604,7 @@ export type Database = {
           is_line_friend?: boolean | null
           is_tester?: boolean
           line_user_id?: string | null
+          merged_into_user_id?: string | null
           updated_at?: string
           user_id?: string
         }
@@ -3469,6 +3550,7 @@ export type Database = {
           title: string
         }[]
       }
+      cleanup_account_link_codes: { Args: never; Returns: undefined }
       cleanup_line_oauth_states: { Args: never; Returns: undefined }
       cleanup_old_announcements: { Args: never; Returns: undefined }
       cleanup_old_perf_metrics: { Args: never; Returns: undefined }

@@ -12,6 +12,7 @@ import { FreeCheckupQuotaCard } from '@/pages/_appAccount/FreeCheckupQuotaCard';
 import { PredictEventsCard } from '@/pages/_appAccount/PredictEventsCard';
 import { PendingCheckoutCard } from '@/pages/_appAccount/PendingCheckoutCard';
 import { RenewalBanner } from '@/components/account/RenewalBanner';
+import { AccountLinkCard } from '@/pages/_appAccount/AccountLinkCard';
 
 
 const Account = () => {
@@ -70,6 +71,9 @@ const Account = () => {
 
         <FreeCheckupQuotaCard />
         <PredictEventsCard />
+
+        <AccountLinkCard />
+
 
         <div className="space-y-3">
           <h2 className="text-lg font-semibold flex items-center gap-2">

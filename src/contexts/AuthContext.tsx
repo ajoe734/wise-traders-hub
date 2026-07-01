@@ -126,9 +126,9 @@ const AuthActionsContext = createContext<AuthActionsValue | undefined>(undefined
 AuthStateContext.displayName = 'AuthStateContext';
 AuthActionsContext.displayName = 'AuthActionsContext';
 
-async function fetchUserProfile(userId: string, email: string): Promise<AuthUser> {
+async function fetchUserProfile(userId: string, email: string): Promise<AuthUser & { mergedInto?: string | null }> {
   const [profileRes, rolesRes] = await Promise.all([
-    supabase.from('profiles').select('display_name, expert_slug, avatar_url, line_user_id, is_tester').eq('user_id', userId).single(),
+    supabase.from('profiles').select('display_name, expert_slug, avatar_url, line_user_id, is_tester, merged_into_user_id').eq('user_id', userId).single(),
     supabase.from('user_roles').select('role').eq('user_id', userId),
   ]);
 
@@ -144,6 +144,7 @@ async function fetchUserProfile(userId: string, email: string): Promise<AuthUser
     expertSlug: profileRes.data?.expert_slug || null,
     isLineUser: !!lineUserId,
     lineUserId,
+    mergedInto: (profileRes.data as any)?.merged_into_user_id || null,
   };
 }
 
@@ -191,6 +192,17 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     const promise = (async () => {
       try {
         const profile = await fetchUserProfile(userId, sbUser.email || '');
+        if ((profile as any).mergedInto) {
+          // This account has been merged as a secondary. Force sign-out with a clear message.
+          console.warn('[Auth] merged secondary account detected → forcing sign-out', { userId, mergedInto: (profile as any).mergedInto });
+          try {
+            const { toast } = await import('sonner');
+            toast.error('此帳號已合併至主帳號，請改用主帳號登入', { duration: 8000 });
+          } catch { /* noop */ }
+          await supabase.auth.signOut();
+          clearAuth();
+          return;
+        }
         if (loadingUserRef.current === userId) {
           setUser(profile);
         }
