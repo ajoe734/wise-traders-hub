@@ -192,6 +192,17 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     const promise = (async () => {
       try {
         const profile = await fetchUserProfile(userId, sbUser.email || '');
+        if ((profile as any).mergedInto) {
+          // This account has been merged as a secondary. Force sign-out with a clear message.
+          console.warn('[Auth] merged secondary account detected → forcing sign-out', { userId, mergedInto: (profile as any).mergedInto });
+          try {
+            const { toast } = await import('sonner');
+            toast.error('此帳號已合併至主帳號，請改用主帳號登入', { duration: 8000 });
+          } catch { /* noop */ }
+          await supabase.auth.signOut();
+          clearAuth();
+          return;
+        }
         if (loadingUserRef.current === userId) {
           setUser(profile);
         }
