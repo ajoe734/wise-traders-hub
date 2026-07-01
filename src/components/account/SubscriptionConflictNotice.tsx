@@ -64,7 +64,7 @@ export function SubscriptionConflictNotice() {
   if (!groups.length) return null;
 
   return (
-    <Card className="border-amber-400/60 bg-amber-50/60 dark:bg-amber-950/20">
+    <Card className="border-amber-400/60 bg-amber-50/60 dark:bg-amber-950/20" data-testid="subscription-conflict-notice">
       <CardContent className="p-4 space-y-3">
         <div className="flex items-start gap-2">
           <AlertCircle className="h-5 w-5 text-amber-600 dark:text-amber-400 shrink-0 mt-0.5" />
@@ -78,15 +78,31 @@ export function SubscriptionConflictNotice() {
         </div>
         <ul className="space-y-2 text-sm">
           {groups.map((g) => (
-            <li key={g.plan_id} className="rounded-md border border-amber-200/70 dark:border-amber-800/60 bg-background/60 p-3">
+            <li
+              key={g.plan_id}
+              data-testid="subscription-conflict-group"
+              data-plan-id={g.plan_id}
+              className="rounded-md border border-amber-200/70 dark:border-amber-800/60 bg-background/60 p-3"
+            >
               <p className="font-medium">
                 {g.expert_name ?? '（未知專家）'} · {g.plan_name ?? `方案 #${g.plan_id.slice(0, 8)}`}
               </p>
-              <p className="text-xs text-emerald-700 dark:text-emerald-400 mt-1">
+              <p
+                className="text-xs text-emerald-700 dark:text-emerald-400 mt-1"
+                data-testid="conflict-kept"
+                data-plan-id={g.plan_id}
+                data-expires-at={g.kept.expires_at ?? ''}
+              >
                 保留：到期日 {g.kept.expires_at ? format(new Date(g.kept.expires_at), 'yyyy/MM/dd') : '未設定'}
               </p>
               {g.canceled.map((c) => (
-                <p key={c.id} className="text-xs text-muted-foreground mt-0.5">
+                <p
+                  key={c.id}
+                  className="text-xs text-muted-foreground mt-0.5"
+                  data-testid="conflict-canceled"
+                  data-plan-id={g.plan_id}
+                  data-expires-at={c.expires_at ?? ''}
+                >
                   已取消：到期日 {c.expires_at ? format(new Date(c.expires_at), 'yyyy/MM/dd') : '未設定'}
                 </p>
               ))}
