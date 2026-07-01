@@ -320,17 +320,29 @@ const CompanySubscribers = () => {
                           </Badge>
                         </td>
                         <td className="p-4 text-right">
-                          <Button
-                            variant="outline"
-                            size="sm"
-                            className="h-7 text-xs gap-1"
-                            onClick={() => launchViewAs(sub.user_id)}
-                            title="以此會員身分模擬登入（新分頁、唯讀視角）"
-                          >
-                            <Eye className="h-3 w-3" />視角檢視
-                          </Button>
+                          <div className="inline-flex flex-col items-end gap-1">
+                            <Button
+                              variant="outline"
+                              size="sm"
+                              className="h-7 text-xs gap-1"
+                              onClick={() => launchViewAs(sub.user_id)}
+                              title="以此會員身分模擬登入（新分頁、唯讀視角）"
+                            >
+                              <Eye className="h-3 w-3" />視角檢視
+                            </Button>
+                            <Button
+                              variant="ghost"
+                              size="sm"
+                              className="h-7 text-xs gap-1 text-muted-foreground hover:text-foreground"
+                              onClick={() => setMergeTarget({ userId: sub.user_id, label: `${id?.display_name ?? ''} ${id?.email ?? ''}`.trim() })}
+                              title="把另一個帳號合併到這個會員（代客綁定）"
+                            >
+                              <Link2 className="h-3 w-3" />代客綁定
+                            </Button>
+                          </div>
                         </td>
                       </tr>
+
                     );
                   })
                 )}
