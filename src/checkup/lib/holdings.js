@@ -148,6 +148,8 @@ export function normalizeHoldingMetrics(item, overrideQuote = null) {
     pct: Math.round(pct * 100) / 100,
     todayPnl,
     todayPct,
+    // BC：舊 UI（如 HoldingsDetailPanel）讀 changePct，這裡同步輸出
+    changePct: todayPct,
     change,
     yesterday,
     priceSource: q?.source ?? item?.priceSource ?? null,
