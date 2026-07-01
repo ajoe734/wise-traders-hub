@@ -73,6 +73,29 @@ type SortCol = 'created_at' | 'primary_user_id' | 'secondary_user_id';
 type SortDir = 'asc' | 'desc';
 const SORTABLE: SortCol[] = ['created_at', 'primary_user_id', 'secondary_user_id'];
 
+const SortableTh = ({ label, col, active, dir, onClick }: {
+  label: string; col: SortCol; active: SortCol; dir: SortDir; onClick: (c: SortCol) => void;
+}) => {
+  const isActive = active === col;
+  const Icon = !isActive ? ArrowUpDown : dir === 'asc' ? ArrowUp : ArrowDown;
+  return (
+    <th className="px-3 py-2 select-none">
+      <button
+        type="button"
+        onClick={() => onClick(col)}
+        className="inline-flex items-center gap-1 hover:text-foreground text-left"
+        data-testid={`merge-sort-${col}`}
+        data-sort-active={isActive ? 'true' : 'false'}
+        data-sort-dir={isActive ? dir : ''}
+        aria-sort={isActive ? (dir === 'asc' ? 'ascending' : 'descending') : 'none'}
+      >
+        {label} <Icon className="h-3 w-3 opacity-70" />
+      </button>
+    </th>
+  );
+};
+
+
 const AccountMergesPage = () => {
   const [searchParams, setSearchParams] = useSearchParams();
   const [page, setPage] = useState(() => Math.max(0, parseInt(searchParams.get('page') || '0', 10) || 0));
