@@ -119,6 +119,7 @@ const CompanyRevenue = lazy(() => import("./pages/company/Revenue"));
 const CompanyPayments = lazy(() => import("./pages/company/Payments"));
 const CompanyAnnouncements = lazy(() => import("./pages/company/Announcements"));
 const CompanyAuditLogs = lazy(() => import("./pages/company/AuditLogs"));
+const CompanyAccountMerges = lazy(() => import("./pages/company/AccountMerges"));
 const CompanySystemJobs = lazy(() => import("./pages/company/SystemJobs"));
 const CompanyFunctionLogs = lazy(() => import("./pages/company/FunctionLogs"));
 const CompanyKnowledgeBase = lazy(() => import("./pages/company/KnowledgeBase"));
