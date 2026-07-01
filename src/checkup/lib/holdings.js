@@ -11,13 +11,36 @@
 import {
   calculateHoldingCostBasis,
   calculateHoldingMarketValue,
-  calculateHoldingReturnPct,
-  calculateHoldingUnrealizedPnl,
   calcPnlWithNet,
   calcRemainingCostAfterPartialSell,
   calcWeightedAvgCost,
   toSafeNumber,
 } from './holdingMath.ts'
+
+// ── Quote helpers ────────────────────────────────────────────────────────
+// overrideQuote 可為：null | number(僅價) | object{price,change,changePct,yesterday,source,updatedAt,error}
+function normalizeOverrideQuote(overrideQuote) {
+  if (overrideQuote == null) return null
+  if (typeof overrideQuote === 'number') {
+    return Number.isFinite(overrideQuote) && overrideQuote > 0 ? { price: overrideQuote } : null
+  }
+  if (typeof overrideQuote !== 'object') return null
+  const price = Number(overrideQuote.price)
+  if (!Number.isFinite(price) || price <= 0) return null
+  const yesterday = Number(overrideQuote.yesterday)
+  const change = Number(overrideQuote.change)
+  const changePct = Number(overrideQuote.changePct)
+  const ycVal = Number.isFinite(yesterday) && yesterday > 0 ? yesterday : null
+  return {
+    price,
+    yesterday: ycVal,
+    change: Number.isFinite(change) ? change : (ycVal != null ? price - ycVal : null),
+    changePct: Number.isFinite(changePct) ? changePct : (ycVal != null ? (price / ycVal - 1) * 100 : null),
+    source: overrideQuote.source ?? null,
+    updatedAt: overrideQuote.updatedAt ?? overrideQuote.priceUpdatedAt ?? null,
+    error: overrideQuote.error ?? null,
+  }
+}
 
 // ── Price resolution ─────────────────────────────────────────────────────
 
