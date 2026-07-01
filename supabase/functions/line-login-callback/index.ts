@@ -200,6 +200,24 @@ serve(withLogging('line-login-callback', async (req) => {
       }
     }
 
+    // Account-merge interception: if this LINE user is a merged secondary,
+    // silently redirect the login to its primary account so訂閱/持倉 all show up.
+    try {
+      const { data: mergedProf } = await supabaseAdmin
+        .from('profiles')
+        .select('merged_into_user_id')
+        .eq('user_id', userId)
+        .maybeSingle();
+      if (mergedProf?.merged_into_user_id) {
+        console.log('[LINE-CB-FN] user is merged secondary, switching to primary:', mergedProf.merged_into_user_id);
+        userId = mergedProf.merged_into_user_id as string;
+      }
+    } catch (e) {
+      console.warn('[LINE-CB-FN] merged lookup failed:', (e as Error).message);
+    }
+
+
+
     // Check if user is friends with the OA via LINE friendship API
     let isFriend = false;
     try {
