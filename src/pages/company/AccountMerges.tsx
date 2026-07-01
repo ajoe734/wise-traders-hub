@@ -291,11 +291,37 @@ const AccountMergesPage = () => {
               查看 <code>account_merges</code> 全部紀錄，支援 primary / secondary、動作類型、時間篩選；點擊詳細可看 audit_logs 完整內容（含 moved_counts 與 sub_conflicts）。
             </p>
           </div>
-          <Button variant="outline" size="sm" onClick={exportCsv} data-testid="merge-export-csv">
-            <Download className="h-4 w-4 mr-2" />匯出 CSV
-          </Button>
-
+          <div className="flex flex-col items-end gap-1" data-testid="merge-export-panel">
+            {exportState === 'idle' && (
+              <Button variant="outline" size="sm" onClick={runExport} data-testid="merge-export-csv">
+                <Download className="h-4 w-4 mr-2" />匯出 CSV
+              </Button>
+            )}
+            {exportState === 'loading' && (
+              <div className="flex items-center gap-2">
+                <Button variant="outline" size="sm" disabled data-testid="merge-export-loading">
+                  <Download className="h-4 w-4 mr-2 animate-pulse" />匯出中…
+                </Button>
+                <Button variant="ghost" size="sm" onClick={cancelExport} data-testid="merge-export-cancel">
+                  <X className="h-4 w-4 mr-1" />中止
+                </Button>
+              </div>
+            )}
+            {exportState === 'error' && (
+              <div className="flex items-center gap-2">
+                <Button variant="outline" size="sm" onClick={runExport} data-testid="merge-export-retry">
+                  <RotateCw className="h-4 w-4 mr-2" />重試匯出
+                </Button>
+              </div>
+            )}
+            {exportError && (
+              <p className="text-xs text-destructive" data-testid="merge-export-error" role="alert">
+                匯出失敗：{exportError}
+              </p>
+            )}
+          </div>
         </div>
+
 
         <Card>
           <CardContent className="p-4 grid gap-3 md:grid-cols-5">
