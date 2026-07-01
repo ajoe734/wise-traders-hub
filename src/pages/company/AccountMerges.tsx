@@ -204,9 +204,10 @@ const AccountMergesPage = () => {
               查看 <code>account_merges</code> 全部紀錄，支援 primary / secondary、動作類型、時間篩選；點擊詳細可看 audit_logs 完整內容（含 moved_counts 與 sub_conflicts）。
             </p>
           </div>
-          <Button variant="outline" size="sm" onClick={exportCsv}>
+          <Button variant="outline" size="sm" onClick={exportCsv} data-testid="merge-export-csv">
             <Download className="h-4 w-4 mr-2" />匯出 CSV
           </Button>
+
         </div>
 
         <Card>
