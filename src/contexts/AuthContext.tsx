@@ -126,9 +126,9 @@ const AuthActionsContext = createContext<AuthActionsValue | undefined>(undefined
 AuthStateContext.displayName = 'AuthStateContext';
 AuthActionsContext.displayName = 'AuthActionsContext';
 
-async function fetchUserProfile(userId: string, email: string): Promise<AuthUser> {
+async function fetchUserProfile(userId: string, email: string): Promise<AuthUser & { mergedInto?: string | null }> {
   const [profileRes, rolesRes] = await Promise.all([
-    supabase.from('profiles').select('display_name, expert_slug, avatar_url, line_user_id, is_tester').eq('user_id', userId).single(),
+    supabase.from('profiles').select('display_name, expert_slug, avatar_url, line_user_id, is_tester, merged_into_user_id').eq('user_id', userId).single(),
     supabase.from('user_roles').select('role').eq('user_id', userId),
   ]);
 
@@ -144,6 +144,7 @@ async function fetchUserProfile(userId: string, email: string): Promise<AuthUser
     expertSlug: profileRes.data?.expert_slug || null,
     isLineUser: !!lineUserId,
     lineUserId,
+    mergedInto: (profileRes.data as any)?.merged_into_user_id || null,
   };
 }
 
