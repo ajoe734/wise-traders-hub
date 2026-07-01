@@ -1,5 +1,6 @@
 import { SEO } from '@/components/SEO';
-import { useMemo, useState } from 'react';
+import { useEffect, useMemo, useState } from 'react';
+import { useSearchParams } from 'react-router-dom';
 import { useQuery, keepPreviousData } from '@tanstack/react-query';
 import { CompanyLayout } from '@/components/layouts/CompanyLayout';
 import { Card, CardContent } from '@/components/ui/card';
@@ -11,6 +12,7 @@ import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/u
 import { supabase } from '@/integrations/supabase/client';
 import { GitMerge, Eye, Copy, Download } from 'lucide-react';
 import { toast } from 'sonner';
+
 
 /**
  * 帳號合併管理頁。列出 account_merges，並可依 primary/secondary user id、
