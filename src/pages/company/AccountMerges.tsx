@@ -69,14 +69,34 @@ const copy = async (v: string) => {
 };
 
 const AccountMergesPage = () => {
-  const [page, setPage] = useState(0);
-  const [action, setAction] = useState<string>('all');
-  const [primary, setPrimary] = useState('');
-  const [secondary, setSecondary] = useState('');
-  const [range, setRange] = useState<'7d' | '30d' | '90d' | 'all' | 'custom'>('30d');
-  const [startDate, setStartDate] = useState('');
-  const [endDate, setEndDate] = useState('');
+  const [searchParams, setSearchParams] = useSearchParams();
+  const [page, setPage] = useState(() => Math.max(0, parseInt(searchParams.get('page') || '0', 10) || 0));
+  const [action, setAction] = useState<string>(() => searchParams.get('action') || 'all');
+  const [primary, setPrimary] = useState(() => searchParams.get('primary') || '');
+  const [secondary, setSecondary] = useState(() => searchParams.get('secondary') || '');
+  const [range, setRange] = useState<'7d' | '30d' | '90d' | 'all' | 'custom'>(
+    () => ((searchParams.get('range') as any) || '30d'),
+  );
+  const [startDate, setStartDate] = useState(() => searchParams.get('start') || '');
+  const [endDate, setEndDate] = useState(() => searchParams.get('end') || '');
   const [detail, setDetail] = useState<MergeRow | null>(null);
+
+  // Sync filters → URL query params so we can share / bookmark / restore state.
+  useEffect(() => {
+    const next = new URLSearchParams();
+    if (action !== 'all') next.set('action', action);
+    if (primary.trim()) next.set('primary', primary.trim());
+    if (secondary.trim()) next.set('secondary', secondary.trim());
+    if (range !== '30d') next.set('range', range);
+    if (range === 'custom') {
+      if (startDate) next.set('start', startDate);
+      if (endDate) next.set('end', endDate);
+    }
+    if (page > 0) next.set('page', String(page));
+    setSearchParams(next, { replace: true });
+  }, [action, primary, secondary, range, startDate, endDate, page, setSearchParams]);
+
+
 
   const { data, isFetching } = useQuery({
     queryKey: ['company', 'account-merges', { page, action, primary, secondary, range, startDate, endDate }],
