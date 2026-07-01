@@ -260,6 +260,21 @@ test.describe.serial('account merge — full 20-table data movement', () => {
         expect(new Date(winner!.expires_at!).getTime()).toBeGreaterThan(Date.now() + 20 * 86400_000);
       }
 
+      // Enriched audit — moved_counts has _sub_conflicts groups; audit_logs row exists
+      if (plan?.id) {
+        const { data: aud } = await a.from('account_merges')
+          .select('moved_counts').eq('secondary_user_id', secondary.userId).maybeSingle();
+        const groups = ((aud?.moved_counts as any)?._sub_conflicts ?? []) as any[];
+        const hit = groups.find((g) => g.plan_id === plan.id);
+        expect(hit, 'missing _sub_conflicts group for the seeded plan').toBeTruthy();
+        expect(hit.kept?.expires_at).toBeTruthy();
+        expect(Array.isArray(hit.canceled) && hit.canceled.length).toBeGreaterThan(0);
+      }
+      const { data: adminAudit } = await a.from('audit_logs')
+        .select('action, detail').eq('action', 'admin_account_force_merge')
+        .eq('target_id', secondary.userId).maybeSingle();
+      expect(adminAudit?.action).toBe('admin_account_force_merge');
+
       const { data: prof } = await a.from('profiles').select('merged_into_user_id').eq('user_id', secondary.userId).maybeSingle();
       expect(prof?.merged_into_user_id).toBe(primary.userId);
     } finally {
@@ -268,3 +283,4 @@ test.describe.serial('account merge — full 20-table data movement', () => {
     }
   });
 });
+
