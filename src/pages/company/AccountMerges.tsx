@@ -131,8 +131,9 @@ const AccountMergesPage = () => {
       if (endDate) next.set('end', endDate);
     }
     if (page > 0) next.set('page', String(page));
-    if (sortCol !== 'created_at') next.set('sort', sortCol);
-    if (sortDir !== 'desc') next.set('dir', sortDir);
+    if (sortCol !== 'created_at') { next.set('sort', sortCol); next.set('dir', sortDir); }
+    else if (sortDir !== 'desc') next.set('dir', sortDir);
+
     setSearchParams(next, { replace: true });
   }, [action, primary, secondary, range, startDate, endDate, page, sortCol, sortDir, setSearchParams]);
 
