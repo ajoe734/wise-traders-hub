@@ -277,6 +277,57 @@ test.describe.serial('account merge — full 20-table data movement', () => {
 
       const { data: prof } = await a.from('profiles').select('merged_into_user_id').eq('user_id', secondary.userId).maybeSingle();
       expect(prof?.merged_into_user_id).toBe(primary.userId);
+
+      // ---- UI 斷言：登入 primary，於 /app/account 與 /app/subscribed 看到 SubscriptionConflictNotice ----
+      if (plan?.id) {
+        // 取得 kept / canceled 期望值（來自剛剛的 conflict 群組）
+        const { data: aud } = await a.from('account_merges')
+          .select('moved_counts').eq('secondary_user_id', secondary.userId).maybeSingle();
+        const groups = ((aud?.moved_counts as any)?._sub_conflicts ?? []) as any[];
+        const group = groups.find((g) => g.plan_id === plan.id);
+        expect(group).toBeTruthy();
+
+        // 用 anon key 拿 primary 的 session，把 tokens 灌進 localStorage 讓前端登入
+        const { data: sess, error: sErr } = await anon().auth.signInWithPassword({
+          email: primary.email, password: primary.password,
+        });
+        expect(sErr).toBeFalsy();
+        const projectRef = new URL(SUPABASE_URL).host.split('.')[0];
+        const storageKey = `sb-${projectRef}-auth-token`;
+        const sessionJson = JSON.stringify({
+          access_token: sess!.session!.access_token,
+          refresh_token: sess!.session!.refresh_token,
+          expires_at: sess!.session!.expires_at,
+          expires_in: sess!.session!.expires_in,
+          token_type: 'bearer',
+          user: sess!.user,
+        });
+
+        for (const route of ['/app/account', '/app/subscribed']) {
+          await test.step(`UI notice on ${route}`, async () => {
+            const context = await (await import('@playwright/test')).request; // no-op, keep import order
+            const browser = await (await import('@playwright/test')).chromium.launch();
+            const ctx = await browser.newContext();
+            const p = await ctx.newPage();
+            await p.goto('/');
+            await p.evaluate(([k, v]) => localStorage.setItem(k as string, v as string), [storageKey, sessionJson]);
+            await p.goto(route);
+            const notice = p.locator('[data-testid="subscription-conflict-notice"]');
+            await notice.waitFor({ state: 'visible', timeout: 15_000 });
+
+            const keptEl = notice.locator(`[data-testid="conflict-kept"][data-plan-id="${plan.id}"]`);
+            await expect(keptEl).toBeVisible();
+            expect(await keptEl.getAttribute('data-expires-at')).toBe(group.kept.expires_at);
+
+            const canceledEls = notice.locator(`[data-testid="conflict-canceled"][data-plan-id="${plan.id}"]`);
+            const expectedCanceled = new Set(group.canceled.map((c: any) => c.expires_at));
+            const gotCanceled = await canceledEls.evaluateAll((els) => els.map((e) => (e as HTMLElement).getAttribute('data-expires-at')));
+            expect(new Set(gotCanceled)).toEqual(expectedCanceled);
+            expect(gotCanceled.length).toBe(group.canceled.length);
+            await browser.close();
+          });
+        }
+      }
     } finally {
       await a.auth.admin.deleteUser(secondary.userId).catch(() => undefined);
       await a.auth.admin.deleteUser(primary.userId).catch(() => undefined);
