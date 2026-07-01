@@ -34,6 +34,39 @@ const USER_ID_TABLES = [
   'paywall_events',
 ];
 
+
+// Cancel overlapping active subscriptions before we move user_id, keeping the row
+// with the latest expires_at as the surviving active row on the primary.
+async function resolveActiveSubConflicts(admin: any, primaryUid: string, secondaryUid: string) {
+  const { data: rows } = await admin
+    .from('member_subscriptions')
+    .select('id, user_id, plan_id, expires_at')
+    .in('user_id', [primaryUid, secondaryUid])
+    .eq('status', 'active');
+  const byPlan = new Map<string, any[]>();
+  for (const r of rows ?? []) {
+    if (!byPlan.has(r.plan_id)) byPlan.set(r.plan_id, []);
+    byPlan.get(r.plan_id)!.push(r);
+  }
+  const losers: string[] = [];
+  for (const [, list] of byPlan) {
+    if (list.length < 2) continue;
+    list.sort((a, b) => {
+      const ax = a.expires_at ? new Date(a.expires_at).getTime() : 0;
+      const bx = b.expires_at ? new Date(b.expires_at).getTime() : 0;
+      return bx - ax; // winner (max) first
+    });
+    for (let i = 1; i < list.length; i++) losers.push(list[i].id);
+  }
+  if (!losers.length) return { _sub_conflicts_canceled: 0 };
+  const { error } = await admin
+    .from('member_subscriptions')
+    .update({ status: 'canceled', canceled_at: new Date().toISOString() })
+    .in('id', losers);
+  if (error) console.error('[merge] cancel sub conflicts failed', error);
+  return { _sub_conflicts_canceled: losers.length };
+}
+
 Deno.serve(async (req) => {
   if (req.method === 'OPTIONS') return new Response('ok', { headers: corsHeaders });
 
@@ -96,8 +129,14 @@ Deno.serve(async (req) => {
       return new Response(JSON.stringify({ error: 'SECONDARY_ALREADY_MERGED' }), { status: 400, headers: { ...corsHeaders, 'Content-Type': 'application/json' } });
     }
 
+    // Resolve overlapping active member_subscriptions BEFORE moving.
+    // uq_member_sub_active_user_plan is a partial unique on (user_id, plan_id) WHERE status='active';
+    // re-pointing user_id would otherwise raise 23505. Keep the row with the latest expires_at,
+    // cancel the loser (canceled_at=now, status=canceled) so the winner survives on primary.
+    const subConflicts = await resolveActiveSubConflicts(admin, primaryUid, secondaryUid);
+
     // Move data from secondary -> primary
-    const movedCounts: Record<string, number> = {};
+    const movedCounts: Record<string, number> = { ...subConflicts };
     for (const tbl of USER_ID_TABLES) {
       const { data, error } = await admin
         .from(tbl)

@@ -39,6 +39,33 @@ function json(body: unknown, status = 200) {
   });
 }
 
+// Cancel overlapping active member_subscriptions before moving. See account-link-consume.
+async function resolveActiveSubConflicts(admin: any, primaryUid: string, secondaryUid: string) {
+  const { data: rows } = await admin
+    .from('member_subscriptions')
+    .select('id, user_id, plan_id, expires_at')
+    .in('user_id', [primaryUid, secondaryUid])
+    .eq('status', 'active');
+  const byPlan = new Map<string, any[]>();
+  for (const r of rows ?? []) {
+    if (!byPlan.has(r.plan_id)) byPlan.set(r.plan_id, []);
+    byPlan.get(r.plan_id)!.push(r);
+  }
+  const losers: string[] = [];
+  for (const [, list] of byPlan) {
+    if (list.length < 2) continue;
+    list.sort((a, b) => (b.expires_at ? new Date(b.expires_at).getTime() : 0) - (a.expires_at ? new Date(a.expires_at).getTime() : 0));
+    for (let i = 1; i < list.length; i++) losers.push(list[i].id);
+  }
+  if (!losers.length) return 0;
+  const { error } = await admin
+    .from('member_subscriptions')
+    .update({ status: 'canceled', canceled_at: new Date().toISOString() })
+    .in('id', losers);
+  if (error) console.error('[admin-force-merge] cancel sub conflicts failed', error);
+  return losers.length;
+}
+
 Deno.serve(async (req) => {
   if (req.method === 'OPTIONS') return new Response('ok', { headers: corsHeaders });
 
@@ -85,7 +112,8 @@ Deno.serve(async (req) => {
     const primaryIsLine = primaryEmail?.endsWith('@line.local') ?? false;
     const secondaryIsLine = secondaryEmail.endsWith('@line.local');
 
-    const movedCounts: Record<string, number> = {};
+    const subConflictsCanceled = await resolveActiveSubConflicts(admin, primaryUid, secondaryUid);
+    const movedCounts: Record<string, number> = { _sub_conflicts_canceled: subConflictsCanceled };
     for (const tbl of USER_ID_TABLES) {
       const { data, error } = await admin
         .from(tbl)

@@ -41,7 +41,7 @@ export function useMemberSubscriptions() {
         .eq('user_id', effectiveUserId)
         .eq('status', 'active');
       if (error) throw error;
-      return (data || [])
+      const rows = (data || [])
         .map((s: any) => {
           const ep = s.expert_plans;
           const e = ep?.experts;
@@ -65,6 +65,19 @@ export function useMemberSubscriptions() {
           } as MemberSubscriptionRow;
         })
         .filter((s): s is MemberSubscriptionRow => !!s && s.expert.status === 'active');
+
+      // Dedupe by expert.id: after account-merge the same user can end up with multiple
+      // active subs pointing at the same expert (different plan_id). UI shows the row
+      // with the latest expires_at as the single effective subscription.
+      const byExpert = new Map<string, MemberSubscriptionRow>();
+      for (const r of rows) {
+        const prev = byExpert.get(r.expert.id);
+        if (!prev) { byExpert.set(r.expert.id, r); continue; }
+        const prevX = prev.raw?.expires_at ? new Date(prev.raw.expires_at).getTime() : 0;
+        const curX = r.raw?.expires_at ? new Date(r.raw.expires_at).getTime() : 0;
+        if (curX > prevX) byExpert.set(r.expert.id, r);
+      }
+      return Array.from(byExpert.values());
     },
     enabled: !!effectiveUserId && (!!user || isViewAs),
     staleTime: 60_000,
