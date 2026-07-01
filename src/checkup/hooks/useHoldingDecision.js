@@ -49,6 +49,16 @@ const urgencyFor = (decision, pct) => {
 }
 
 const todayChangeFor = (holding) => {
+  // 對齊 normalizeHoldingMetrics 產出的欄位：todayPct / todayPnl
+  // 舊欄位（changePercent/changeValue/change_percent/change_value）留作 fallback。
+  const tp = Number(holding?.todayPct ?? holding?.changePct)
+  const tPnl = Number(holding?.todayPnl)
+  if (Number.isFinite(tPnl) || Number.isFinite(tp)) {
+    return {
+      pct: Number.isFinite(tp) ? tp : null,
+      pnl: Number.isFinite(tPnl) ? tPnl : null,
+    }
+  }
   const cp = Number(holding?.changePercent ?? holding?.change_percent)
   const cv = Number(holding?.changeValue ?? holding?.change_value)
   const qty = Number(holding?.qty) || 0

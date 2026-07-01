@@ -124,12 +124,25 @@ export function getPriceStatus(code, quotes) {
   return 'flat'
 }
 
+/**
+ * 取價瀑布：z > h(v>0) > a(委賣一) > y
+ * 與後端 supabase/functions/_shared/stockPriceWaterfall.ts 及 src/lib/stockPriceWaterfall.ts 邏輯一致。
+ * ⚠️ 不再使用 open price 作 fallback；h 需有量才採用（避免漲停未成交誤採）。
+ */
 export function extractBestPrice(item) {
   const tryParse = (value) => {
     const parsed = parseFloat(value)
     return Number.isFinite(parsed) && parsed > 0 ? parsed : null
   }
-  return tryParse(item?.z) || tryParse(item?.h) || tryParse(item?.o) || tryParse(item?.y) || null
+  const z = tryParse(item?.z)
+  if (z) return z
+  const h = tryParse(item?.h)
+  const v = parseInt(item?.v || '0', 10)
+  if (h && v > 0) return h
+  const aFirst = typeof item?.a === 'string' ? item.a.split('_')[0] : null
+  const a = tryParse(aFirst)
+  if (a) return a
+  return tryParse(item?.y) || null
 }
 
 export function extractYesterday(item) {

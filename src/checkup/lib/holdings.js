@@ -11,34 +11,53 @@
 import {
   calculateHoldingCostBasis,
   calculateHoldingMarketValue,
-  calculateHoldingReturnPct,
-  calculateHoldingUnrealizedPnl,
   calcPnlWithNet,
   calcRemainingCostAfterPartialSell,
   calcWeightedAvgCost,
   toSafeNumber,
 } from './holdingMath.ts'
 
+// ── Quote helpers ────────────────────────────────────────────────────────
+// overrideQuote 可為：null | number(僅價) | object{price,change,changePct,yesterday,source,updatedAt,error}
+function normalizeOverrideQuote(overrideQuote) {
+  if (overrideQuote == null) return null
+  if (typeof overrideQuote === 'number') {
+    return Number.isFinite(overrideQuote) && overrideQuote > 0 ? { price: overrideQuote } : null
+  }
+  if (typeof overrideQuote !== 'object') return null
+  const price = Number(overrideQuote.price)
+  if (!Number.isFinite(price) || price <= 0) return null
+  const yesterday = Number(overrideQuote.yesterday)
+  const change = Number(overrideQuote.change)
+  const changePct = Number(overrideQuote.changePct)
+  const ycVal = Number.isFinite(yesterday) && yesterday > 0 ? yesterday : null
+  return {
+    price,
+    yesterday: ycVal,
+    change: Number.isFinite(change) ? change : (ycVal != null ? price - ycVal : null),
+    changePct: Number.isFinite(changePct) ? changePct : (ycVal != null ? (price / ycVal - 1) * 100 : null),
+    source: overrideQuote.source ?? null,
+    updatedAt: overrideQuote.updatedAt ?? overrideQuote.priceUpdatedAt ?? null,
+    error: overrideQuote.error ?? null,
+  }
+}
+
 // ── Price resolution ─────────────────────────────────────────────────────
 
 /**
  * Resolve the current price for a holding.
- * Priority: overridePrice > stored price > derived from value/qty
+ * Priority: overrideQuote.price > stored price > derived from value/qty
+ * 為維持 BC，overrideQuote 也接受純數字（僅價）。
  */
-export function resolveHoldingPrice(item, overridePrice = null) {
+export function resolveHoldingPrice(item, overrideQuote = null) {
   if (!item || typeof item !== 'object') return 0
 
-  // Priority 1: Override price (from API quotes)
-  if (overridePrice != null) {
-    const candidate = Number(overridePrice)
-    if (Number.isFinite(candidate) && candidate > 0) return candidate
-  }
+  const q = normalizeOverrideQuote(overrideQuote)
+  if (q) return q.price
 
-  // Priority 2: Stored price
   const storedPrice = Number(item?.price)
   if (Number.isFinite(storedPrice) && storedPrice > 0) return storedPrice
 
-  // Priority 3: Derive from value / qty
   const qty = Number(item?.qty) || 0
   const storedValue = Number(item?.value)
   if (qty > 0 && Number.isFinite(storedValue) && storedValue > 0) {
@@ -50,34 +69,24 @@ export function resolveHoldingPrice(item, overridePrice = null) {
 
 // ── Metrics calculation ──────────────────────────────────────────────────
 
-/**
- * Get cost basis for a holding
- */
 export function getHoldingCostBasis(item) {
   if (!item || typeof item !== 'object') return 0
   return calculateHoldingCostBasis(item?.cost, item?.qty)
 }
 
-/**
- * Get market value for a holding
- */
-export function getHoldingMarketValue(item, overridePrice = null) {
+export function getHoldingMarketValue(item, overrideQuote = null) {
   if (!item || typeof item !== 'object') return 0
-  const price = resolveHoldingPrice(item, overridePrice)
+  const price = resolveHoldingPrice(item, overrideQuote)
   return calculateHoldingMarketValue(price, item?.qty)
 }
 
 /**
- * Get unrealized P&L for a holding.
- * H6: 優先用 calcPnlWithNet（精確模式 / 統一公式入口），徹底消滅散落的 (price-cost)*qty。
+ * Get unrealized P&L for a holding — 一律走 calcPnlWithNet（精確模式）。
+ * 不使用 pre-calculated pnl（會繞過精確模式），改為每次即算。
  */
-export function getHoldingUnrealizedPnl(item, overridePrice = null) {
+export function getHoldingUnrealizedPnl(item, overrideQuote = null) {
   if (!item || typeof item !== 'object') return 0
-
-  // Use pre-calculated pnl if available
-  if (typeof item.pnl === 'number' && Number.isFinite(item.pnl)) return item.pnl
-
-  const price = resolveHoldingPrice(item, overridePrice)
+  const price = resolveHoldingPrice(item, overrideQuote)
   const { pnl } = calcPnlWithNet(
     { qty: item.qty, cost: item.cost, totalCost: item.totalCost, fee: item.fee, code: item.code },
     price
@@ -85,17 +94,9 @@ export function getHoldingUnrealizedPnl(item, overridePrice = null) {
   return pnl
 }
 
-/**
- * Get return percentage for a holding
- * H7: 透過 calcPnlWithNet 統一處理 cost=0 / Infinity 防護。
- */
-export function getHoldingReturnPct(item, overridePrice = null) {
+export function getHoldingReturnPct(item, overrideQuote = null) {
   if (!item || typeof item !== 'object') return 0
-
-  // Use pre-calculated pct if available
-  if (typeof item.pct === 'number' && Number.isFinite(item.pct)) return item.pct
-
-  const price = resolveHoldingPrice(item, overridePrice)
+  const price = resolveHoldingPrice(item, overrideQuote)
   const { pct } = calcPnlWithNet(
     { qty: item.qty, cost: item.cost, totalCost: item.totalCost, fee: item.fee, code: item.code },
     price
@@ -104,18 +105,40 @@ export function getHoldingReturnPct(item, overridePrice = null) {
 }
 
 /**
- * Normalize holding metrics (price, value, pnl, pct)
+ * Normalize holding metrics (price, value, pnl, pct, todayPnl, todayPct, yesterday, priceSource)
+ * 修正 H2/H3：
+ *   - pnl/pct 走 calcPnlWithNet（totalCost+fee 精確模式優先）
+ *   - todayPnl = (price - yesterday) * qty；yesterday 缺 → null（不 fallback 到總損益）
+ *   - todayPct = quote.changePct；缺 → null
  */
-export function normalizeHoldingMetrics(item, overridePrice = null) {
+export function normalizeHoldingMetrics(item, overrideQuote = null) {
   if (!item || typeof item !== 'object') return item
 
-  const price = resolveHoldingPrice(item, overridePrice)
-  const qty = Number(item?.qty) || 0
-  const cost = Number(item?.cost) || 0
+  const q = normalizeOverrideQuote(overrideQuote)
+  const price = resolveHoldingPrice(item, q)
+  const qty = toSafeNumber(item?.qty)
 
-  const value = calculateHoldingMarketValue(price, qty)
-  const pnl = calculateHoldingUnrealizedPnl(price, qty, cost)
-  const pct = calculateHoldingReturnPct(price, qty, cost)
+  const { value, pnl, pct } = calcPnlWithNet(
+    { qty, cost: item.cost, totalCost: item.totalCost, fee: item.fee, code: item.code },
+    price
+  )
+
+  // 昨收：優先用 quote，其次沿用 item 上原有的 yesterday
+  const yesterdayRaw = q?.yesterday != null ? q.yesterday : Number(item?.yesterday)
+  const yesterday = Number.isFinite(yesterdayRaw) && yesterdayRaw > 0 ? yesterdayRaw : null
+
+  const todayPnl = yesterday != null && qty > 0 && price > 0
+    ? Math.round((price - yesterday) * qty)
+    : (Number.isFinite(Number(item?.todayPnl)) ? Number(item.todayPnl) : null)
+
+  const todayPct = yesterday != null && price > 0
+    ? Math.round(((price / yesterday - 1) * 100) * 100) / 100
+    : (q?.changePct != null ? q.changePct
+      : (Number.isFinite(Number(item?.changePct)) ? Number(item.changePct) : null))
+
+  const change = yesterday != null && price > 0
+    ? Math.round((price - yesterday) * 100) / 100
+    : (q?.change != null ? q.change : null)
 
   return {
     ...item,
@@ -123,13 +146,22 @@ export function normalizeHoldingMetrics(item, overridePrice = null) {
     value: Math.round(value),
     pnl: Math.round(pnl),
     pct: Math.round(pct * 100) / 100,
+    todayPnl,
+    todayPct,
+    // BC：舊 UI（如 HoldingsDetailPanel）讀 changePct，這裡同步輸出
+    changePct: todayPct,
+    change,
+    yesterday,
+    priceSource: q?.source ?? item?.priceSource ?? null,
+    priceUpdatedAt: q?.updatedAt ?? item?.priceUpdatedAt ?? null,
+    priceError: q?.error ?? item?.priceError ?? null,
   }
 }
 
 /**
  * Normalize a single holding row with integrity checks
  */
-export function normalizeHoldingRow(item, overridePrice = null) {
+export function normalizeHoldingRow(item, overrideQuote = null) {
   if (!item || typeof item !== 'object') return null
 
   const code = String(item.code || '').trim()
@@ -150,7 +182,7 @@ export function normalizeHoldingRow(item, overridePrice = null) {
       alert: item.alert || '',
       expire: item.expire || null,
     },
-    overridePrice
+    overrideQuote
   )
 
   return {
@@ -161,28 +193,31 @@ export function normalizeHoldingRow(item, overridePrice = null) {
 }
 
 /**
- * Normalize multiple holdings with optional quotes and price hints
+ * Normalize multiple holdings with optional quotes and price hints.
+ * quotes: { [code]: { price, change, changePct, yesterday, source, updatedAt } }
+ * priceHints: { [code]: number }  ← 僅用來救缺價（無 change/yesterday 資訊）
  */
 export function normalizeHoldings(rows, quotes = null, priceHints = null) {
   const priceQuotes = quotes && typeof quotes === 'object' ? quotes : null
   const hintMap = priceHints && typeof priceHints === 'object' ? priceHints : null
 
   return (Array.isArray(rows) ? rows : [])
-    .map((item) =>
-      normalizeHoldingRow(
-        item,
-        priceQuotes?.[item?.code]?.price || hintMap?.[String(item?.code || '').trim()] || null
-      )
-    )
+    .map((item) => {
+      const code = String(item?.code || '').trim()
+      const quoteObj = code && priceQuotes ? priceQuotes[code] : null
+      const overrideQuote = quoteObj || (code && hintMap && hintMap[code] ? { price: hintMap[code] } : null)
+      return normalizeHoldingRow(item, overrideQuote)
+    })
     .filter(Boolean)
 }
 
 /**
- * Apply market quotes to holdings
+ * Apply market quotes to holdings — 直接傳完整 quote 物件（含 change/yesterday）
  */
 export function applyMarketQuotesToHoldings(rows, quotes) {
   return normalizeHoldings(rows, quotes)
 }
+
 
 /**
  * Apply a trade entry to holdings (buy/sell)

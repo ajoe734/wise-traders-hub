@@ -3,20 +3,55 @@ import { serviceClient } from '../_shared/supabaseClients.ts';
 import { withLogging } from '../_shared/edgeLogger.ts';
 import { createClient } from 'https://esm.sh/@supabase/supabase-js@2.49.1'
 
+/**
+ * 取「確認收盤價」：
+ *   - marketState === 'CLOSED' / 'POSTPOST' / 'PRE'（隔日盤前）→ 用 regularMarketPrice（即當日收盤）
+ *   - 盤中（REGULAR）→ 改用 chartCloseSeries[-1]（上一根已收 K），避開跳動的即時價
+ *   - 取不到已收 K 時，退回 chartMeta.previousClose（昨收）而不是即時價，避免污染「收盤損益」
+ */
 async function tryYahoo(yahooSymbol: string): Promise<number | null> {
   try {
-    const url = `https://query1.finance.yahoo.com/v8/finance/chart/${yahooSymbol}?interval=1d&range=1d`
+    const url = `https://query1.finance.yahoo.com/v8/finance/chart/${yahooSymbol}?interval=1d&range=5d`
     const res = await fetch(url, {
       headers: { 'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36' },
     })
     if (!res.ok) return null
     const data = await res.json()
-    const price = data.chart?.result?.[0]?.meta?.regularMarketPrice
-    return price || null
+    const result = data.chart?.result?.[0]
+    const meta = result?.meta
+    if (!meta) return null
+
+    const state: string = meta.marketState || 'UNKNOWN'
+    const regular = Number(meta.regularMarketPrice)
+    const prevClose = Number(meta.chartPreviousClose ?? meta.previousClose)
+
+    // 已收盤：regularMarketPrice 即為當日收盤
+    if (state && state !== 'REGULAR' && Number.isFinite(regular) && regular > 0) {
+      return regular
+    }
+
+    // 盤中：找最新一根「已收」的日 K 收盤
+    const timestamps: number[] = result?.timestamp || []
+    const closes: (number | null)[] = result?.indicators?.quote?.[0]?.close || []
+    if (timestamps.length && closes.length) {
+      // 由後往前找第一根非今日、且 close 有效的
+      const todayYMD = new Date().toISOString().slice(0, 10)
+      for (let i = closes.length - 1; i >= 0; i--) {
+        const c = Number(closes[i])
+        const t = timestamps[i]
+        if (!Number.isFinite(c) || c <= 0 || !t) continue
+        const ymd = new Date(t * 1000).toISOString().slice(0, 10)
+        if (ymd !== todayYMD) return c
+      }
+    }
+
+    if (Number.isFinite(prevClose) && prevClose > 0) return prevClose
+    return null
   } catch {
     return null
   }
 }
+
 
 async function fetchClosingPrice(symbol: string): Promise<number | null> {
   // instrument 形如 "2330 台積電" / "NVDA 輝達" / "GOOGL"
