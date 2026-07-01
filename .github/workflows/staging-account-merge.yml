@@ -1,0 +1,63 @@
+name: Staging — Account Merge E2E
+
+# 針對 staging 環境的帳號合併 E2E（20 表資料搬移 + 訂閱衝突處理）。
+# - PR：若 repo 設定了 STAGING_* 系列 secrets，會自動跑；沒設就 skip（不擋 PR）。
+# - 手動：workflow_dispatch 隨時可跑。
+# - live 版本仍由 live-smoke.yml 每日對 production-shape 環境跑。
+on:
+  pull_request:
+    paths:
+      - 'supabase/functions/account-link-**/**'
+      - 'supabase/functions/admin-account-force-merge/**'
+      - 'e2e/live/account-merge-20tables.spec.ts'
+      - '.github/workflows/staging-account-merge.yml'
+  workflow_dispatch: {}
+
+jobs:
+  merge-e2e:
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    env:
+      E2E_LIVE: '1'
+      SUPABASE_URL: ${{ secrets.STAGING_SUPABASE_URL }}
+      SUPABASE_ANON_KEY: ${{ secrets.STAGING_SUPABASE_ANON_KEY }}
+      E2E_SUPABASE_SERVICE_ROLE_KEY: ${{ secrets.STAGING_SUPABASE_SERVICE_ROLE_KEY }}
+      E2E_ADMIN_EMAIL: ${{ secrets.STAGING_ADMIN_EMAIL }}
+      E2E_ADMIN_PASSWORD: ${{ secrets.STAGING_ADMIN_PASSWORD }}
+      VITE_SUPABASE_URL: ${{ secrets.STAGING_SUPABASE_URL }}
+      VITE_SUPABASE_PUBLISHABLE_KEY: ${{ secrets.STAGING_SUPABASE_ANON_KEY }}
+    steps:
+      - name: Guard — required secrets present
+        id: guard
+        run: |
+          if [ -z "${SUPABASE_URL}" ] || [ -z "${SUPABASE_ANON_KEY}" ] || [ -z "${E2E_SUPABASE_SERVICE_ROLE_KEY}" ] || [ -z "${E2E_ADMIN_EMAIL}" ] || [ -z "${E2E_ADMIN_PASSWORD}" ]; then
+            echo "STAGING_* secrets missing — skipping merge E2E."
+            echo "skip=1" >> $GITHUB_OUTPUT
+          else
+            echo "skip=0" >> $GITHUB_OUTPUT
+          fi
+
+      - uses: actions/checkout@v4
+        if: steps.guard.outputs.skip == '0'
+
+      - uses: oven-sh/setup-bun@v2
+        if: steps.guard.outputs.skip == '0'
+        with:
+          bun-version: latest
+
+      - run: bun install
+        if: steps.guard.outputs.skip == '0'
+
+      - run: bunx playwright install --with-deps chromium
+        if: steps.guard.outputs.skip == '0'
+
+      - name: Run account-merge spec against staging
+        if: steps.guard.outputs.skip == '0'
+        run: bunx playwright test e2e/live/account-merge-20tables.spec.ts --project=desktop-live-smoke
+
+      - uses: actions/upload-artifact@v4
+        if: failure() && steps.guard.outputs.skip == '0'
+        with:
+          name: playwright-report-merge
+          path: playwright-report/
+          retention-days: 7
