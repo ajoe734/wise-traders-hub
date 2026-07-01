@@ -19,7 +19,7 @@
  * 執行：
  *   E2E_LIVE=1 bunx playwright test e2e/live/account-merge-20tables.spec.ts
  */
-import { test, expect } from '@playwright/test';
+import { test, expect, chromium } from '@playwright/test';
 import { createClient, type SupabaseClient } from '@supabase/supabase-js';
 
 const SUPABASE_URL = process.env.SUPABASE_URL || process.env.VITE_SUPABASE_URL || '';
