@@ -132,7 +132,7 @@ serve(withLogging('line-login-callback', async (req) => {
       .maybeSingle();
 
     let userId: string;
-    const email = `line_${lineUserId}@line.local`;
+    let email = `line_${lineUserId}@line.local`;
 
     if (existingProfile) {
       userId = existingProfile.user_id;
