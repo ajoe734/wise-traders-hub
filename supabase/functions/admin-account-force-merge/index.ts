@@ -112,7 +112,8 @@ Deno.serve(async (req) => {
     const primaryIsLine = primaryEmail?.endsWith('@line.local') ?? false;
     const secondaryIsLine = secondaryEmail.endsWith('@line.local');
 
-    const movedCounts: Record<string, number> = {};
+    const subConflictsCanceled = await resolveActiveSubConflicts(admin, primaryUid, secondaryUid);
+    const movedCounts: Record<string, number> = { _sub_conflicts_canceled: subConflictsCanceled };
     for (const tbl of USER_ID_TABLES) {
       const { data, error } = await admin
         .from(tbl)
