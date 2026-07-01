@@ -9,8 +9,6 @@ const corsHeaders = {
   'Access-Control-Allow-Methods': 'POST, OPTIONS',
 };
 
-// Tables whose rows must be re-pointed from secondary -> primary via user_id column.
-// (Grouped so we can count moved rows in the audit log.)
 const USER_ID_TABLES = [
   'member_subscriptions',
   'checkup_subscriptions',
@@ -35,36 +33,61 @@ const USER_ID_TABLES = [
 ];
 
 
-// Cancel overlapping active subscriptions before we move user_id, keeping the row
-// with the latest expires_at as the surviving active row on the primary.
-async function resolveActiveSubConflicts(admin: any, primaryUid: string, secondaryUid: string) {
+type SubRow = { id: string; user_id: string; plan_id: string; expires_at: string | null };
+type ConflictReport = {
+  canceled_count: number;
+  groups: Array<{
+    plan_id: string;
+    kept: { id: string; user_id: string; expires_at: string | null };
+    canceled: Array<{ id: string; user_id: string; expires_at: string | null }>;
+  }>;
+};
+
+/**
+ * Cancel overlapping active subscriptions BEFORE the user_id re-point.
+ * Winner = latest expires_at; losers get canceled (status=canceled, canceled_at=now).
+ * Returns a structured report used for audit_logs / account_merges.moved_counts.
+ */
+async function resolveActiveSubConflicts(
+  admin: any,
+  primaryUid: string,
+  secondaryUid: string,
+): Promise<ConflictReport> {
   const { data: rows } = await admin
     .from('member_subscriptions')
     .select('id, user_id, plan_id, expires_at')
     .in('user_id', [primaryUid, secondaryUid])
     .eq('status', 'active');
-  const byPlan = new Map<string, any[]>();
-  for (const r of rows ?? []) {
+  const byPlan = new Map<string, SubRow[]>();
+  for (const r of (rows ?? []) as SubRow[]) {
     if (!byPlan.has(r.plan_id)) byPlan.set(r.plan_id, []);
     byPlan.get(r.plan_id)!.push(r);
   }
   const losers: string[] = [];
-  for (const [, list] of byPlan) {
+  const groups: ConflictReport['groups'] = [];
+  for (const [plan_id, list] of byPlan) {
     if (list.length < 2) continue;
     list.sort((a, b) => {
       const ax = a.expires_at ? new Date(a.expires_at).getTime() : 0;
       const bx = b.expires_at ? new Date(b.expires_at).getTime() : 0;
-      return bx - ax; // winner (max) first
+      return bx - ax;
     });
-    for (let i = 1; i < list.length; i++) losers.push(list[i].id);
+    const [kept, ...rest] = list;
+    groups.push({
+      plan_id,
+      kept: { id: kept.id, user_id: kept.user_id, expires_at: kept.expires_at },
+      canceled: rest.map((r) => ({ id: r.id, user_id: r.user_id, expires_at: r.expires_at })),
+    });
+    for (const r of rest) losers.push(r.id);
   }
-  if (!losers.length) return { _sub_conflicts_canceled: 0 };
-  const { error } = await admin
-    .from('member_subscriptions')
-    .update({ status: 'canceled', canceled_at: new Date().toISOString() })
-    .in('id', losers);
-  if (error) console.error('[merge] cancel sub conflicts failed', error);
-  return { _sub_conflicts_canceled: losers.length };
+  if (losers.length) {
+    const { error } = await admin
+      .from('member_subscriptions')
+      .update({ status: 'canceled', canceled_at: new Date().toISOString() })
+      .in('id', losers);
+    if (error) console.error('[merge] cancel sub conflicts failed', error);
+  }
+  return { canceled_count: losers.length, groups };
 }
 
 Deno.serve(async (req) => {
@@ -94,7 +117,6 @@ Deno.serve(async (req) => {
       return new Response(JSON.stringify({ error: 'INVALID_CODE' }), { status: 400, headers: { ...corsHeaders, 'Content-Type': 'application/json' } });
     }
 
-    // Look up code
     const { data: rec, error: recErr } = await admin
       .from('account_link_codes')
       .select('*')
@@ -115,7 +137,6 @@ Deno.serve(async (req) => {
       return new Response(JSON.stringify({ error: 'SAME_ACCOUNT' }), { status: 400, headers: { ...corsHeaders, 'Content-Type': 'application/json' } });
     }
 
-    // Guard: neither side may already be a merged secondary
     const { data: profs } = await admin
       .from('profiles')
       .select('user_id, merged_into_user_id, line_user_id, display_name, avatar_url')
@@ -129,14 +150,12 @@ Deno.serve(async (req) => {
       return new Response(JSON.stringify({ error: 'SECONDARY_ALREADY_MERGED' }), { status: 400, headers: { ...corsHeaders, 'Content-Type': 'application/json' } });
     }
 
-    // Resolve overlapping active member_subscriptions BEFORE moving.
-    // uq_member_sub_active_user_plan is a partial unique on (user_id, plan_id) WHERE status='active';
-    // re-pointing user_id would otherwise raise 23505. Keep the row with the latest expires_at,
-    // cancel the loser (canceled_at=now, status=canceled) so the winner survives on primary.
     const subConflicts = await resolveActiveSubConflicts(admin, primaryUid, secondaryUid);
 
-    // Move data from secondary -> primary
-    const movedCounts: Record<string, number> = { ...subConflicts };
+    const movedCounts: Record<string, unknown> = {
+      _sub_conflicts_canceled: subConflicts.canceled_count,
+      _sub_conflicts: subConflicts.groups,
+    };
     for (const tbl of USER_ID_TABLES) {
       const { data, error } = await admin
         .from(tbl)
@@ -145,14 +164,12 @@ Deno.serve(async (req) => {
         .select('user_id');
       if (error) {
         console.error(`[account-link-consume] move ${tbl} failed`, error);
-        // Continue — we prefer partial move over total failure; report counts back.
         movedCounts[tbl] = -1;
       } else {
         movedCounts[tbl] = data?.length ?? 0;
       }
     }
 
-    // Merge profile fields: pull LINE identity onto primary if secondary is LINE and primary has none
     if (secondaryIsLine && secondaryProf?.line_user_id && !primaryProf?.line_user_id) {
       await admin.from('profiles').update({ line_user_id: secondaryProf.line_user_id }).eq('user_id', primaryUid);
     }
@@ -160,31 +177,27 @@ Deno.serve(async (req) => {
       await admin.from('profiles').update({ avatar_url: secondaryProf.avatar_url }).eq('user_id', primaryUid);
     }
 
-    // Mark secondary profile as merged & clear its LINE binding to avoid dup
     await admin
       .from('profiles')
       .update({ merged_into_user_id: primaryUid, line_user_id: null })
       .eq('user_id', secondaryUid);
 
-    // Disable secondary auth user (rename email so it cannot conflict later; ban)
     try {
       const stashEmail = `merged_${secondaryUid}@merged.local`;
       await admin.auth.admin.updateUserById(secondaryUid, {
         email: stashEmail,
         user_metadata: { merged_into: primaryUid, merged_at: new Date().toISOString(), original_email: secondaryEmail },
-        ban_duration: '876000h', // ~100y
+        ban_duration: '876000h',
       } as any);
     } catch (e) {
       console.error('[account-link-consume] disable secondary failed', e);
     }
 
-    // Mark code consumed
     await admin
       .from('account_link_codes')
       .update({ consumed_at: new Date().toISOString(), consumed_by_user_id: secondaryUid })
       .eq('id', rec.id);
 
-    // Audit
     await admin.from('account_merges').insert({
       primary_user_id: primaryUid,
       secondary_user_id: secondaryUid,
@@ -196,7 +209,25 @@ Deno.serve(async (req) => {
       performed_by: secondaryUid,
     });
 
-    return new Response(JSON.stringify({ ok: true, primary_user_id: primaryUid, moved_counts: movedCounts }), {
+    try {
+      await admin.from('audit_logs').insert({
+        actor_id: secondaryUid,
+        action: 'account_link_consume',
+        target_type: 'user',
+        target_id: secondaryUid,
+        detail: {
+          primary_user_id: primaryUid,
+          secondary_user_id: secondaryUid,
+          moved_counts: movedCounts,
+          sub_conflicts: subConflicts,
+          at: new Date().toISOString(),
+        },
+      });
+    } catch (e) {
+      console.warn('[account-link-consume] audit insert failed', e);
+    }
+
+    return new Response(JSON.stringify({ ok: true, primary_user_id: primaryUid, moved_counts: movedCounts, sub_conflicts: subConflicts }), {
       headers: { ...corsHeaders, 'Content-Type': 'application/json' },
     });
   } catch (e) {
