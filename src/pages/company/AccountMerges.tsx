@@ -1,5 +1,6 @@
 import { SEO } from '@/components/SEO';
-import { useMemo, useState } from 'react';
+import { useEffect, useMemo, useState } from 'react';
+import { useSearchParams } from 'react-router-dom';
 import { useQuery, keepPreviousData } from '@tanstack/react-query';
 import { CompanyLayout } from '@/components/layouts/CompanyLayout';
 import { Card, CardContent } from '@/components/ui/card';
@@ -11,6 +12,7 @@ import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/u
 import { supabase } from '@/integrations/supabase/client';
 import { GitMerge, Eye, Copy, Download } from 'lucide-react';
 import { toast } from 'sonner';
+
 
 /**
  * 帳號合併管理頁。列出 account_merges，並可依 primary/secondary user id、
@@ -67,14 +69,34 @@ const copy = async (v: string) => {
 };
 
 const AccountMergesPage = () => {
-  const [page, setPage] = useState(0);
-  const [action, setAction] = useState<string>('all');
-  const [primary, setPrimary] = useState('');
-  const [secondary, setSecondary] = useState('');
-  const [range, setRange] = useState<'7d' | '30d' | '90d' | 'all' | 'custom'>('30d');
-  const [startDate, setStartDate] = useState('');
-  const [endDate, setEndDate] = useState('');
+  const [searchParams, setSearchParams] = useSearchParams();
+  const [page, setPage] = useState(() => Math.max(0, parseInt(searchParams.get('page') || '0', 10) || 0));
+  const [action, setAction] = useState<string>(() => searchParams.get('action') || 'all');
+  const [primary, setPrimary] = useState(() => searchParams.get('primary') || '');
+  const [secondary, setSecondary] = useState(() => searchParams.get('secondary') || '');
+  const [range, setRange] = useState<'7d' | '30d' | '90d' | 'all' | 'custom'>(
+    () => ((searchParams.get('range') as any) || '30d'),
+  );
+  const [startDate, setStartDate] = useState(() => searchParams.get('start') || '');
+  const [endDate, setEndDate] = useState(() => searchParams.get('end') || '');
   const [detail, setDetail] = useState<MergeRow | null>(null);
+
+  // Sync filters → URL query params so we can share / bookmark / restore state.
+  useEffect(() => {
+    const next = new URLSearchParams();
+    if (action !== 'all') next.set('action', action);
+    if (primary.trim()) next.set('primary', primary.trim());
+    if (secondary.trim()) next.set('secondary', secondary.trim());
+    if (range !== '30d') next.set('range', range);
+    if (range === 'custom') {
+      if (startDate) next.set('start', startDate);
+      if (endDate) next.set('end', endDate);
+    }
+    if (page > 0) next.set('page', String(page));
+    setSearchParams(next, { replace: true });
+  }, [action, primary, secondary, range, startDate, endDate, page, setSearchParams]);
+
+
 
   const { data, isFetching } = useQuery({
     queryKey: ['company', 'account-merges', { page, action, primary, secondary, range, startDate, endDate }],
@@ -131,12 +153,29 @@ const AccountMergesPage = () => {
   const detailAudit = detail ? auditMap[detail.secondary_user_id] : null;
 
   const exportCsv = () => {
-    const header = ['時間', '動作', '主帳號', '主 email', '副帳號', '副 email', '執行者', 'sub_conflicts 數', 'moved_counts 表數'];
+    const header = [
+      '時間', '動作', '主帳號', '主 email', '副帳號', '副 email', '執行者',
+      'sub_conflicts 數', 'moved_counts 表數',
+      'kept_plan_ids', 'kept_expires_at', 'canceled_plan_ids', 'canceled_expires_at',
+      'sub_conflicts_json', 'moved_counts_json', 'audit_action', 'audit_detail_json',
+    ];
     const csvRows = rows.map((r) => {
       const a = auditMap[r.secondary_user_id];
-      const conflicts = ((r.moved_counts as any)?._sub_conflicts ?? []).length;
+      const groups = ((r.moved_counts as any)?._sub_conflicts ?? []) as any[];
       const tableCount = Object.keys(r.moved_counts || {}).filter((k) => !k.startsWith('_')).length;
-      return [fmt(r.created_at), a?.action || '—', r.primary_user_id, r.primary_email || '', r.secondary_user_id, r.secondary_email || '', r.performed_by || '', conflicts, tableCount];
+      const keptPlanIds = groups.map((g) => g.plan_id).join('|');
+      const keptExpires = groups.map((g) => g.kept?.expires_at ?? '').join('|');
+      const cancelPlanIds = groups.flatMap((g) => (g.canceled || []).map(() => g.plan_id)).join('|');
+      const cancelExpires = groups.flatMap((g) => (g.canceled || []).map((c: any) => c.expires_at ?? '')).join('|');
+      return [
+        fmt(r.created_at), a?.action || '—',
+        r.primary_user_id, r.primary_email || '',
+        r.secondary_user_id, r.secondary_email || '',
+        r.performed_by || '', groups.length, tableCount,
+        keptPlanIds, keptExpires, cancelPlanIds, cancelExpires,
+        JSON.stringify(groups), JSON.stringify(r.moved_counts || {}),
+        a?.action || '', JSON.stringify(a?.detail ?? {}),
+      ];
     });
     const csv = [header, ...csvRows].map((r) => r.map((c) => `"${String(c).replace(/"/g, '""')}"`).join(',')).join('\n');
     const blob = new Blob([`\uFEFF${csv}`], { type: 'text/csv;charset=utf-8;' });
@@ -145,6 +184,7 @@ const AccountMergesPage = () => {
     a.href = url; a.download = `account_merges_${Date.now()}.csv`; a.click();
     URL.revokeObjectURL(url);
   };
+
 
   const conflicts = useMemo(() => {
     if (!detail) return [] as any[];
@@ -164,9 +204,10 @@ const AccountMergesPage = () => {
               查看 <code>account_merges</code> 全部紀錄，支援 primary / secondary、動作類型、時間篩選；點擊詳細可看 audit_logs 完整內容（含 moved_counts 與 sub_conflicts）。
             </p>
           </div>
-          <Button variant="outline" size="sm" onClick={exportCsv}>
+          <Button variant="outline" size="sm" onClick={exportCsv} data-testid="merge-export-csv">
             <Download className="h-4 w-4 mr-2" />匯出 CSV
           </Button>
+
         </div>
 
         <Card>
