@@ -96,8 +96,14 @@ Deno.serve(async (req) => {
       return new Response(JSON.stringify({ error: 'SECONDARY_ALREADY_MERGED' }), { status: 400, headers: { ...corsHeaders, 'Content-Type': 'application/json' } });
     }
 
+    // Resolve overlapping active member_subscriptions BEFORE moving.
+    // uq_member_sub_active_user_plan is a partial unique on (user_id, plan_id) WHERE status='active';
+    // re-pointing user_id would otherwise raise 23505. Keep the row with the latest expires_at,
+    // cancel the loser (canceled_at=now, status=canceled) so the winner survives on primary.
+    const subConflicts = await resolveActiveSubConflicts(admin, primaryUid, secondaryUid);
+
     // Move data from secondary -> primary
-    const movedCounts: Record<string, number> = {};
+    const movedCounts: Record<string, number> = { ...subConflicts };
     for (const tbl of USER_ID_TABLES) {
       const { data, error } = await admin
         .from(tbl)
