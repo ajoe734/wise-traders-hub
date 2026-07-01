@@ -305,8 +305,7 @@ test.describe.serial('account merge — full 20-table data movement', () => {
 
         for (const route of ['/app/account', '/app/subscribed']) {
           await test.step(`UI notice on ${route}`, async () => {
-            const context = await (await import('@playwright/test')).request; // no-op, keep import order
-            const browser = await (await import('@playwright/test')).chromium.launch();
+            const browser = await chromium.launch();
             const ctx = await browser.newContext();
             const p = await ctx.newPage();
             await p.goto('/');
