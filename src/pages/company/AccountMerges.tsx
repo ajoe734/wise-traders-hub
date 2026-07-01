@@ -183,15 +183,15 @@ const AccountMergesPage = () => {
 
   const detailAudit = detail ? auditMap[detail.secondary_user_id] : null;
 
-  const exportCsv = () => {
+  const buildCsv = (mergeRows: MergeRow[], amap: Record<string, AuditRow>) => {
     const header = [
       '時間', '動作', '主帳號', '主 email', '副帳號', '副 email', '執行者',
       'sub_conflicts 數', 'moved_counts 表數',
       'kept_plan_ids', 'kept_expires_at', 'canceled_plan_ids', 'canceled_expires_at',
       'sub_conflicts_json', 'moved_counts_json', 'audit_action', 'audit_detail_json',
     ];
-    const csvRows = rows.map((r) => {
-      const a = auditMap[r.secondary_user_id];
+    const csvRows = mergeRows.map((r) => {
+      const a = amap[r.secondary_user_id];
       const groups = ((r.moved_counts as any)?._sub_conflicts ?? []) as any[];
       const tableCount = Object.keys(r.moved_counts || {}).filter((k) => !k.startsWith('_')).length;
       const keptPlanIds = groups.map((g) => g.plan_id).join('|');
@@ -208,13 +208,69 @@ const AccountMergesPage = () => {
         a?.action || '', JSON.stringify(a?.detail ?? {}),
       ];
     });
-    const csv = [header, ...csvRows].map((r) => r.map((c) => `"${String(c).replace(/"/g, '""')}"`).join(',')).join('\n');
-    const blob = new Blob([`\uFEFF${csv}`], { type: 'text/csv;charset=utf-8;' });
-    const url = URL.createObjectURL(blob);
-    const a = document.createElement('a');
-    a.href = url; a.download = `account_merges_${Date.now()}.csv`; a.click();
-    URL.revokeObjectURL(url);
+    return [header, ...csvRows].map((r) => r.map((c) => `"${String(c).replace(/"/g, '""')}"`).join(',')).join('\n');
   };
+
+  const runExport = async () => {
+    // 重新抓完整（跨頁）資料，並在過程中可以顯示 loading 與允許中止 / 重試。
+    exportAbortRef.current?.abort();
+    const ctrl = new AbortController();
+    exportAbortRef.current = ctrl;
+    setExportState('loading');
+    setExportError(null);
+    try {
+      const { data: allRows, error } = await buildQuery({ forExport: true }).abortSignal(ctrl.signal);
+      if (ctrl.signal.aborted) return;
+      if (error) throw new Error(error.message);
+      let list = ((allRows as MergeRow[]) || []);
+      const secIds = list.map((r) => r.secondary_user_id);
+      let amap: Record<string, AuditRow> = {};
+      if (secIds.length) {
+        const { data: audits, error: aErr } = await supabase
+          .from('audit_logs')
+          .select('id, actor_id, action, target_type, target_id, detail, created_at')
+          .in('action', ['account_link_consume', 'admin_account_force_merge'])
+          .in('target_id', secIds)
+          .abortSignal(ctrl.signal);
+        if (ctrl.signal.aborted) return;
+        if (aErr) throw new Error(aErr.message);
+        (audits || []).forEach((a: any) => { amap[a.target_id] = a; });
+      }
+      if (action !== 'all') {
+        list = list.filter((r) => amap[r.secondary_user_id]?.action === action);
+      }
+      const csv = buildCsv(list, amap);
+      const blob = new Blob([`\uFEFF${csv}`], { type: 'text/csv;charset=utf-8;' });
+      const url = URL.createObjectURL(blob);
+      const link = document.createElement('a');
+      link.href = url;
+      link.download = `account_merges_${Date.now()}.csv`;
+      link.click();
+      URL.revokeObjectURL(url);
+      setExportState('idle');
+      toast.success(`已匯出 ${list.length} 筆 CSV`);
+    } catch (e: any) {
+      if (ctrl.signal.aborted) {
+        setExportState('idle');
+        return;
+      }
+      const msg = e?.message || '未知錯誤';
+      setExportError(msg);
+      setExportState('error');
+      toast.error(`CSV 匯出失敗：${msg}`);
+    } finally {
+      if (exportAbortRef.current === ctrl) exportAbortRef.current = null;
+    }
+  };
+
+  const cancelExport = () => {
+    exportAbortRef.current?.abort();
+    exportAbortRef.current = null;
+    setExportState('idle');
+    setExportError(null);
+    toast.message('已中止 CSV 匯出');
+  };
+
 
 
   const conflicts = useMemo(() => {
