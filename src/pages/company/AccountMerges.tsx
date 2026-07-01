@@ -370,15 +370,16 @@ const AccountMergesPage = () => {
               <table className="w-full text-sm" data-testid="merge-table">
                 <thead className="bg-muted/40 text-left">
                   <tr>
-                    <th className="px-3 py-2">時間</th>
+                    <SortableTh label="時間" col="created_at" active={sortCol} dir={sortDir} onClick={toggleSort} />
                     <th className="px-3 py-2">動作</th>
-                    <th className="px-3 py-2">Primary</th>
-                    <th className="px-3 py-2">Secondary</th>
+                    <SortableTh label="Primary" col="primary_user_id" active={sortCol} dir={sortDir} onClick={toggleSort} />
+                    <SortableTh label="Secondary" col="secondary_user_id" active={sortCol} dir={sortDir} onClick={toggleSort} />
                     <th className="px-3 py-2">衝突</th>
                     <th className="px-3 py-2">搬移表</th>
                     <th className="px-3 py-2"></th>
                   </tr>
                 </thead>
+
                 <tbody>
                   {rows.map((r) => {
                     const a = auditMap[r.secondary_user_id];
