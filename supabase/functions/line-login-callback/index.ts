@@ -218,10 +218,9 @@ serve(withLogging('line-login-callback', async (req) => {
         if (primaryEmail) {
           console.log('[LINE-CB-FN] merged secondary → primary', { from: userId, to: primaryUid });
           userId = primaryUid;
-          // Reassign the local `email` variable used by generateLink below.
-          // eslint-disable-next-line @typescript-eslint/no-explicit-any
-          (email as any) = primaryEmail;
+          email = primaryEmail;
           isMergedRedirect = true;
+
         } else {
           console.warn('[LINE-CB-FN] merged primary has no email, staying on secondary');
         }
