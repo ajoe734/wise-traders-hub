@@ -132,7 +132,7 @@ serve(withLogging('line-login-callback', async (req) => {
       .maybeSingle();
 
     let userId: string;
-    const email = `line_${lineUserId}@line.local`;
+    let email = `line_${lineUserId}@line.local`;
 
     if (existingProfile) {
       userId = existingProfile.user_id;
@@ -200,6 +200,38 @@ serve(withLogging('line-login-callback', async (req) => {
       }
     }
 
+    // Account-merge interception: if this LINE user is a merged secondary,
+    // silently redirect the login to its primary account so訂閱/持倉 all show up.
+    // We need to (a) switch userId, (b) fetch primary email for the magic link,
+    // (c) skip re-writing line_user_id onto the (now retired) secondary profile.
+    let isMergedRedirect = false;
+    try {
+      const { data: mergedProf } = await supabaseAdmin
+        .from('profiles')
+        .select('merged_into_user_id')
+        .eq('user_id', userId)
+        .maybeSingle();
+      if (mergedProf?.merged_into_user_id) {
+        const primaryUid = mergedProf.merged_into_user_id as string;
+        const { data: primaryAuth } = await supabaseAdmin.auth.admin.getUserById(primaryUid);
+        const primaryEmail = primaryAuth?.user?.email;
+        if (primaryEmail) {
+          console.log('[LINE-CB-FN] merged secondary → primary', { from: userId, to: primaryUid });
+          userId = primaryUid;
+          email = primaryEmail;
+          isMergedRedirect = true;
+
+        } else {
+          console.warn('[LINE-CB-FN] merged primary has no email, staying on secondary');
+        }
+      }
+    } catch (e) {
+      console.warn('[LINE-CB-FN] merged lookup failed:', (e as Error).message);
+    }
+
+
+
+
     // Check if user is friends with the OA via LINE friendship API
     let isFriend = false;
     try {
@@ -215,49 +247,60 @@ serve(withLogging('line-login-callback', async (req) => {
       console.error('Failed to check friendship:', e);
     }
 
-    const profilePayload = {
-      user_id: userId,
-      line_user_id: lineUserId,
-      display_name: displayName,
-      avatar_url: pictureUrl,
-      is_line_friend: isFriend,
-      updated_at: new Date().toISOString(),
-    };
-
-    const { data: existingUserProfile, error: profileLookupError } = await supabaseAdmin
-      .from('profiles')
-      .select('id')
-      .eq('user_id', userId)
-      .maybeSingle();
-
-    if (profileLookupError) {
-      console.error('Failed to lookup profile:', profileLookupError);
-    }
-
-    if (existingUserProfile?.id) {
-      const { error: profileUpdateError } = await supabaseAdmin
+    if (isMergedRedirect) {
+      // Merged secondary → primary: only refresh friendship flag on primary,
+      // never overwrite line_user_id (merge already moved it) or display_name.
+      const { error: friendUpdErr } = await supabaseAdmin
         .from('profiles')
-        .update({
-          line_user_id: lineUserId,
-          display_name: displayName,
-          avatar_url: pictureUrl,
-          is_line_friend: isFriend,
-          updated_at: new Date().toISOString(),
-        })
-        .eq('id', existingUserProfile.id);
-
-      if (profileUpdateError) {
-        console.error('Failed to update profile:', profileUpdateError);
-      }
+        .update({ is_line_friend: isFriend, updated_at: new Date().toISOString() })
+        .eq('user_id', userId);
+      if (friendUpdErr) console.error('[LINE-CB-FN] merged friend update failed:', friendUpdErr);
     } else {
-      const { error: profileInsertError } = await supabaseAdmin
-        .from('profiles')
-        .insert(profilePayload);
+      const profilePayload = {
+        user_id: userId,
+        line_user_id: lineUserId,
+        display_name: displayName,
+        avatar_url: pictureUrl,
+        is_line_friend: isFriend,
+        updated_at: new Date().toISOString(),
+      };
 
-      if (profileInsertError) {
-        console.error('Failed to create profile:', profileInsertError);
+      const { data: existingUserProfile, error: profileLookupError } = await supabaseAdmin
+        .from('profiles')
+        .select('id')
+        .eq('user_id', userId)
+        .maybeSingle();
+
+      if (profileLookupError) {
+        console.error('Failed to lookup profile:', profileLookupError);
+      }
+
+      if (existingUserProfile?.id) {
+        const { error: profileUpdateError } = await supabaseAdmin
+          .from('profiles')
+          .update({
+            line_user_id: lineUserId,
+            display_name: displayName,
+            avatar_url: pictureUrl,
+            is_line_friend: isFriend,
+            updated_at: new Date().toISOString(),
+          })
+          .eq('id', existingUserProfile.id);
+
+        if (profileUpdateError) {
+          console.error('Failed to update profile:', profileUpdateError);
+        }
+      } else {
+        const { error: profileInsertError } = await supabaseAdmin
+          .from('profiles')
+          .insert(profilePayload);
+
+        if (profileInsertError) {
+          console.error('Failed to create profile:', profileInsertError);
+        }
       }
     }
+
 
     // Auto-reconcile free-tier checkup quota for this LINE user. If the user
     // was charged a usage row but no analysis result was ever stored

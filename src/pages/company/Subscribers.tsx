@@ -9,10 +9,11 @@ import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Checkbox } from '@/components/ui/checkbox';
 import { supabase } from '@/integrations/supabase/client';
-import { Search, Users, UserCheck, UserX, RefreshCw, Download, Stethoscope, MessageCircle, History, Eye } from 'lucide-react';
+import { Search, Users, UserCheck, UserX, RefreshCw, Download, Stethoscope, MessageCircle, History, Eye, Link2 } from 'lucide-react';
 import { useUserIdentities, formatIdentitySecondary } from '@/hooks/useUserIdentities';
 import { formatTaipeiYMD } from '@/checkup/utils/formatTaipeiDate';
 import { LinePushDialog } from '@/components/company/LinePushDialog';
+import { AdminForceMergeDialog } from '@/components/company/AdminForceMergeDialog';
 import { launchViewAs } from '@/lib/viewAsLauncher';
 
 type Row = {
@@ -32,6 +33,8 @@ const CompanySubscribers = () => {
   const [kindFilter, setKindFilter] = useState<'all' | 'expert' | 'checkup'>('all');
   const [selectedUserIds, setSelectedUserIds] = useState<Set<string>>(new Set());
   const [pushOpen, setPushOpen] = useState(false);
+  const [mergeTarget, setMergeTarget] = useState<{ userId: string; label: string } | null>(null);
+
 
   const { data, isFetching } = useQuery({
     queryKey: ['company', 'subscribers'],
@@ -317,17 +320,29 @@ const CompanySubscribers = () => {
                           </Badge>
                         </td>
                         <td className="p-4 text-right">
-                          <Button
-                            variant="outline"
-                            size="sm"
-                            className="h-7 text-xs gap-1"
-                            onClick={() => launchViewAs(sub.user_id)}
-                            title="以此會員身分模擬登入（新分頁、唯讀視角）"
-                          >
-                            <Eye className="h-3 w-3" />視角檢視
-                          </Button>
+                          <div className="inline-flex flex-col items-end gap-1">
+                            <Button
+                              variant="outline"
+                              size="sm"
+                              className="h-7 text-xs gap-1"
+                              onClick={() => launchViewAs(sub.user_id)}
+                              title="以此會員身分模擬登入（新分頁、唯讀視角）"
+                            >
+                              <Eye className="h-3 w-3" />視角檢視
+                            </Button>
+                            <Button
+                              variant="ghost"
+                              size="sm"
+                              className="h-7 text-xs gap-1 text-muted-foreground hover:text-foreground"
+                              onClick={() => setMergeTarget({ userId: sub.user_id, label: `${id?.display_name ?? ''} ${id?.email ?? ''}`.trim() })}
+                              title="把另一個帳號合併到這個會員（代客綁定）"
+                            >
+                              <Link2 className="h-3 w-3" />代客綁定
+                            </Button>
+                          </div>
                         </td>
                       </tr>
+
                     );
                   })
                 )}
@@ -342,7 +357,16 @@ const CompanySubscribers = () => {
         recipients={recipientRecords}
         onSent={() => setSelectedUserIds(new Set())}
       />
+      {mergeTarget && (
+        <AdminForceMergeDialog
+          open={!!mergeTarget}
+          onOpenChange={(v) => { if (!v) setMergeTarget(null); }}
+          primaryUserId={mergeTarget.userId}
+          primaryLabel={mergeTarget.label}
+        />
+      )}
     </CompanyLayout>
+
   );
 };
 
