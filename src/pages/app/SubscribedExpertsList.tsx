@@ -11,6 +11,7 @@ import {
 } from 'lucide-react';
 import { useMySubscriptions } from '@/hooks/useSubscriptions';
 import { FailedIntentsCard } from '@/pages/_appSubscriptions/FailedIntentsCard';
+import { SubscriptionConflictNotice } from '@/components/account/SubscriptionConflictNotice';
 import { track } from '@/lib/analytics/events';
 
 export default function SubscribedExpertsList() {
@@ -36,6 +37,8 @@ export default function SubscribedExpertsList() {
             </div>
           </div>
         </div>
+
+        <SubscriptionConflictNotice />
 
         {/* Empty State */}
         {!hasAnySubscription && (

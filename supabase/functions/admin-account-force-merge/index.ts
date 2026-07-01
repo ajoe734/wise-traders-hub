@@ -39,31 +39,52 @@ function json(body: unknown, status = 200) {
   });
 }
 
-// Cancel overlapping active member_subscriptions before moving. See account-link-consume.
-async function resolveActiveSubConflicts(admin: any, primaryUid: string, secondaryUid: string) {
+type SubRow = { id: string; user_id: string; plan_id: string; expires_at: string | null };
+type ConflictReport = {
+  canceled_count: number;
+  groups: Array<{
+    plan_id: string;
+    kept: { id: string; user_id: string; expires_at: string | null };
+    canceled: Array<{ id: string; user_id: string; expires_at: string | null }>;
+  }>;
+};
+
+async function resolveActiveSubConflicts(
+  admin: any,
+  primaryUid: string,
+  secondaryUid: string,
+): Promise<ConflictReport> {
   const { data: rows } = await admin
     .from('member_subscriptions')
     .select('id, user_id, plan_id, expires_at')
     .in('user_id', [primaryUid, secondaryUid])
     .eq('status', 'active');
-  const byPlan = new Map<string, any[]>();
-  for (const r of rows ?? []) {
+  const byPlan = new Map<string, SubRow[]>();
+  for (const r of (rows ?? []) as SubRow[]) {
     if (!byPlan.has(r.plan_id)) byPlan.set(r.plan_id, []);
     byPlan.get(r.plan_id)!.push(r);
   }
   const losers: string[] = [];
-  for (const [, list] of byPlan) {
+  const groups: ConflictReport['groups'] = [];
+  for (const [plan_id, list] of byPlan) {
     if (list.length < 2) continue;
     list.sort((a, b) => (b.expires_at ? new Date(b.expires_at).getTime() : 0) - (a.expires_at ? new Date(a.expires_at).getTime() : 0));
-    for (let i = 1; i < list.length; i++) losers.push(list[i].id);
+    const [kept, ...rest] = list;
+    groups.push({
+      plan_id,
+      kept: { id: kept.id, user_id: kept.user_id, expires_at: kept.expires_at },
+      canceled: rest.map((r) => ({ id: r.id, user_id: r.user_id, expires_at: r.expires_at })),
+    });
+    for (const r of rest) losers.push(r.id);
   }
-  if (!losers.length) return 0;
-  const { error } = await admin
-    .from('member_subscriptions')
-    .update({ status: 'canceled', canceled_at: new Date().toISOString() })
-    .in('id', losers);
-  if (error) console.error('[admin-force-merge] cancel sub conflicts failed', error);
-  return losers.length;
+  if (losers.length) {
+    const { error } = await admin
+      .from('member_subscriptions')
+      .update({ status: 'canceled', canceled_at: new Date().toISOString() })
+      .in('id', losers);
+    if (error) console.error('[admin-force-merge] cancel sub conflicts failed', error);
+  }
+  return { canceled_count: losers.length, groups };
 }
 
 Deno.serve(async (req) => {
@@ -92,7 +113,6 @@ Deno.serve(async (req) => {
     if (!primaryUid || !secondaryUid) return json({ error: 'MISSING_IDS' }, 400);
     if (primaryUid === secondaryUid) return json({ error: 'SAME_ACCOUNT' }, 400);
 
-    // Guardrails
     const { data: profs } = await admin
       .from('profiles')
       .select('user_id, merged_into_user_id, line_user_id, avatar_url')
@@ -102,7 +122,6 @@ Deno.serve(async (req) => {
     if (primaryProf?.merged_into_user_id) return json({ error: 'PRIMARY_ALREADY_MERGED' }, 400);
     if (secondaryProf?.merged_into_user_id) return json({ error: 'SECONDARY_ALREADY_MERGED' }, 400);
 
-    // Look up both auth users for audit + email stash
     const [{ data: primaryAuth }, { data: secondaryAuth }] = await Promise.all([
       admin.auth.admin.getUserById(primaryUid),
       admin.auth.admin.getUserById(secondaryUid),
@@ -112,8 +131,11 @@ Deno.serve(async (req) => {
     const primaryIsLine = primaryEmail?.endsWith('@line.local') ?? false;
     const secondaryIsLine = secondaryEmail.endsWith('@line.local');
 
-    const subConflictsCanceled = await resolveActiveSubConflicts(admin, primaryUid, secondaryUid);
-    const movedCounts: Record<string, number> = { _sub_conflicts_canceled: subConflictsCanceled };
+    const subConflicts = await resolveActiveSubConflicts(admin, primaryUid, secondaryUid);
+    const movedCounts: Record<string, unknown> = {
+      _sub_conflicts_canceled: subConflicts.canceled_count,
+      _sub_conflicts: subConflicts.groups,
+    };
     for (const tbl of USER_ID_TABLES) {
       const { data, error } = await admin
         .from(tbl)
@@ -164,17 +186,23 @@ Deno.serve(async (req) => {
 
     try {
       await admin.from('audit_logs').insert({
-        actor_user_id: callerId,
+        actor_id: callerId,
         action: 'admin_account_force_merge',
         target_type: 'user',
         target_id: secondaryUid,
-        payload: { primary_user_id: primaryUid, moved_counts: movedCounts },
+        detail: {
+          primary_user_id: primaryUid,
+          secondary_user_id: secondaryUid,
+          moved_counts: movedCounts,
+          sub_conflicts: subConflicts,
+          at: new Date().toISOString(),
+        },
       });
     } catch (e) {
       console.warn('[admin-force-merge] audit insert failed', e);
     }
 
-    return json({ ok: true, moved_counts: movedCounts });
+    return json({ ok: true, moved_counts: movedCounts, sub_conflicts: subConflicts });
   } catch (e) {
     console.error('[admin-force-merge] error', e);
     return json({ error: 'INTERNAL', message: String((e as Error)?.message ?? e) }, 500);

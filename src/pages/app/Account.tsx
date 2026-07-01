@@ -13,6 +13,7 @@ import { PredictEventsCard } from '@/pages/_appAccount/PredictEventsCard';
 import { PendingCheckoutCard } from '@/pages/_appAccount/PendingCheckoutCard';
 import { RenewalBanner } from '@/components/account/RenewalBanner';
 import { AccountLinkCard } from '@/pages/_appAccount/AccountLinkCard';
+import { SubscriptionConflictNotice } from '@/components/account/SubscriptionConflictNotice';
 
 
 const Account = () => {
@@ -35,7 +36,9 @@ const Account = () => {
         <h1 className="text-xl font-bold">帳號設定</h1>
 
         <RenewalBanner />
+        <SubscriptionConflictNotice />
         <PendingCheckoutCard />
+
 
 
 
