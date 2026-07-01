@@ -202,6 +202,9 @@ serve(withLogging('line-login-callback', async (req) => {
 
     // Account-merge interception: if this LINE user is a merged secondary,
     // silently redirect the login to its primary account so訂閱/持倉 all show up.
+    // We need to (a) switch userId, (b) fetch primary email for the magic link,
+    // (c) skip re-writing line_user_id onto the (now retired) secondary profile.
+    let isMergedRedirect = false;
     try {
       const { data: mergedProf } = await supabaseAdmin
         .from('profiles')
@@ -209,12 +212,24 @@ serve(withLogging('line-login-callback', async (req) => {
         .eq('user_id', userId)
         .maybeSingle();
       if (mergedProf?.merged_into_user_id) {
-        console.log('[LINE-CB-FN] user is merged secondary, switching to primary:', mergedProf.merged_into_user_id);
-        userId = mergedProf.merged_into_user_id as string;
+        const primaryUid = mergedProf.merged_into_user_id as string;
+        const { data: primaryAuth } = await supabaseAdmin.auth.admin.getUserById(primaryUid);
+        const primaryEmail = primaryAuth?.user?.email;
+        if (primaryEmail) {
+          console.log('[LINE-CB-FN] merged secondary → primary', { from: userId, to: primaryUid });
+          userId = primaryUid;
+          // Reassign the local `email` variable used by generateLink below.
+          // eslint-disable-next-line @typescript-eslint/no-explicit-any
+          (email as any) = primaryEmail;
+          isMergedRedirect = true;
+        } else {
+          console.warn('[LINE-CB-FN] merged primary has no email, staying on secondary');
+        }
       }
     } catch (e) {
       console.warn('[LINE-CB-FN] merged lookup failed:', (e as Error).message);
     }
+
 
 
 
