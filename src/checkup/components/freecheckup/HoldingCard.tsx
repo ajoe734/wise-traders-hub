@@ -237,8 +237,16 @@ function HoldingCardImpl(props) {
           </span>
           <div style={{ gridColumn: '2', gridRow: '1 / span 2', background: hairColor, width: 1, height: '100%' }} />
           <span className="wb-bottom-val" style={{ gridColumn: '1', gridRow: '2', fontSize: 'clamp(10.5px, 0.9vw + 8px, 12px)', color: subColor, fontVariantNumeric: 'tabular-nums', lineHeight: 1.2 }}>
-            {pnlVal >= 0 ? '+' : ''}{pnlVal.toLocaleString()}
-            <span style={{ marginLeft: 6, color: muteColor }}>{pctVal >= 0 ? '+' : ''}{pctVal.toFixed(2)}%</span>
+            {hasToday ? (
+              <>
+                {todayPnlNum != null ? `${todayPnlNum >= 0 ? '+' : ''}${todayPnlNum.toLocaleString()}` : '—'}
+                {todayPctNum != null && (
+                  <span style={{ marginLeft: 6, color: muteColor }}>{todayPctNum >= 0 ? '+' : ''}{todayPctNum.toFixed(2)}%</span>
+                )}
+              </>
+            ) : (
+              <span style={{ color: muteColor }}>—</span>
+            )}
           </span>
           <span className="wb-bottom-val" style={{ gridColumn: '3', gridRow: '2', fontSize: 'clamp(10.5px, 0.9vw + 8px, 12px)', color: subColor, fontVariantNumeric: 'tabular-nums', lineHeight: 1.2 }}>
             {h.value?.toLocaleString() || '—'}
