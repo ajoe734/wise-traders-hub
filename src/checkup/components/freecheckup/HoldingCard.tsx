@@ -19,7 +19,23 @@ import { alpha } from '@/checkup/theme.js';
 import { trackRaw } from '@/lib/analytics/events';
 
 // ── 模組層常數（搬離 renderCard 內部，避免每次重建） ──
-const SRC_LABEL = { screenshot: '截圖', live: '即時', high: '最高', ask: '賣一', yclose: '昨收' };
+// 價格來源標籤 — 對齊後端 supabase/functions/daily-performance/index.ts 與
+// _shared/stockPriceWaterfall.ts 的取價順序：
+//   regularMarketPrice(收盤) → previousClose(昨收) → chartClose(已收K) → 前端 z>h(v>0)>a>y
+// key 為 normalizeHoldingMetrics 存下的 `priceSource`。
+const SRC_LABEL: Record<string, string> = {
+  screenshot: '截圖',
+  live: '即時',
+  high: '最高',
+  ask: '賣一',
+  yclose: '昨收',
+  demo: 'DEMO',
+  regularMarketPrice: '收盤',
+  previousClose: '昨收',
+  chartClose: '已收K',
+  twse: 'TWSE',
+  yahoo: 'Yahoo',
+};
 
 // 智慧斷句：在限制長度內找最後一個標點
 const truncateAction = (txt, limit) => {
@@ -98,12 +114,16 @@ function HoldingCardImpl(props) {
   const pnlWeight = pctVal > 0 ? 500 : 400;
   const pnlArrow = pctVal > 0 ? '↑' : pctVal < 0 ? '↓' : '';
 
-  const srcLabel = h.priceSource ? SRC_LABEL[h.priceSource] : null;
+  const srcLabel = h.priceSource ? (SRC_LABEL[h.priceSource] || h.priceSource) : null;
+  const _debugPrice = typeof window !== 'undefined' && /[?&]debugPrice=1\b/.test(window.location.search);
   const srcTitle = h.priceError
     ? `報價問題：${h.priceError}`
-    : h.priceUpdatedAt
-      ? `來源：${srcLabel || '—'}　更新於 ${new Date(h.priceUpdatedAt).toLocaleTimeString('zh-TW', { hour: '2-digit', minute: '2-digit' })}`
-      : '尚未同步即時報價';
+    : [
+        srcLabel ? `來源：${srcLabel}（${h.priceSource}）` : '尚未同步即時報價',
+        h.priceUpdatedAt ? `更新於 ${new Date(h.priceUpdatedAt).toLocaleTimeString('zh-TW', { hour: '2-digit', minute: '2-digit' })}` : null,
+        h.yesterday != null ? `昨收 ${Number(h.yesterday).toFixed(2)}` : null,
+        Number.isFinite(Number(h.price)) ? `現價 ${Number(h.price).toFixed(2)}` : null,
+      ].filter(Boolean).join('　');
 
   const ariaLabel = `${h.name || ''} ${h.code}，決策 ${actionLabel === 'EXIT' ? '建議出場' : actionLabel === 'REVIEW' ? '需要檢查' : '維持持有'}，報酬率 ${pctVal >= 0 ? '+' : ''}${pctVal.toFixed(2)}%，損益 ${pnlVal >= 0 ? '+' : ''}${pnlVal.toLocaleString()}`;
 
