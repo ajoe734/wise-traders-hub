@@ -69,6 +69,10 @@ const copy = async (v: string) => {
   }
 };
 
+type SortCol = 'created_at' | 'primary_user_id' | 'secondary_user_id';
+type SortDir = 'asc' | 'desc';
+const SORTABLE: SortCol[] = ['created_at', 'primary_user_id', 'secondary_user_id'];
+
 const AccountMergesPage = () => {
   const [searchParams, setSearchParams] = useSearchParams();
   const [page, setPage] = useState(() => Math.max(0, parseInt(searchParams.get('page') || '0', 10) || 0));
@@ -80,9 +84,19 @@ const AccountMergesPage = () => {
   );
   const [startDate, setStartDate] = useState(() => searchParams.get('start') || '');
   const [endDate, setEndDate] = useState(() => searchParams.get('end') || '');
+  const [sortCol, setSortCol] = useState<SortCol>(() => {
+    const s = searchParams.get('sort') as SortCol | null;
+    return s && SORTABLE.includes(s) ? s : 'created_at';
+  });
+  const [sortDir, setSortDir] = useState<SortDir>(() => (searchParams.get('dir') === 'asc' ? 'asc' : 'desc'));
   const [detail, setDetail] = useState<MergeRow | null>(null);
 
-  // Sync filters → URL query params so we can share / bookmark / restore state.
+  // CSV export status（loading / error / retry / abort）
+  const [exportState, setExportState] = useState<'idle' | 'loading' | 'error'>('idle');
+  const [exportError, setExportError] = useState<string | null>(null);
+  const exportAbortRef = useRef<AbortController | null>(null);
+
+  // Sync filters + sort → URL query params so state is shareable / restorable.
   useEffect(() => {
     const next = new URLSearchParams();
     if (action !== 'all') next.set('action', action);
@@ -94,35 +108,50 @@ const AccountMergesPage = () => {
       if (endDate) next.set('end', endDate);
     }
     if (page > 0) next.set('page', String(page));
+    if (sortCol !== 'created_at') next.set('sort', sortCol);
+    if (sortDir !== 'desc') next.set('dir', sortDir);
     setSearchParams(next, { replace: true });
-  }, [action, primary, secondary, range, startDate, endDate, page, setSearchParams]);
+  }, [action, primary, secondary, range, startDate, endDate, page, sortCol, sortDir, setSearchParams]);
 
+  const toggleSort = (col: SortCol) => {
+    setPage(0);
+    if (sortCol === col) {
+      setSortDir((d) => (d === 'asc' ? 'desc' : 'asc'));
+    } else {
+      setSortCol(col);
+      setSortDir(col === 'created_at' ? 'desc' : 'asc');
+    }
+  };
 
+  const buildQuery = (opts: { forExport?: boolean } = {}) => {
+    let q = supabase
+      .from('account_merges')
+      .select('*', { count: 'exact' })
+      .order(sortCol, { ascending: sortDir === 'asc' });
+
+    if (!opts.forExport) {
+      q = q.range(page * PAGE_SIZE, page * PAGE_SIZE + PAGE_SIZE - 1);
+    }
+    if (primary.trim()) q = q.eq('primary_user_id', primary.trim());
+    if (secondary.trim()) q = q.eq('secondary_user_id', secondary.trim());
+
+    if (range === 'custom') {
+      if (startDate) q = q.gte('created_at', new Date(startDate).toISOString());
+      if (endDate) {
+        const ed = new Date(endDate); ed.setHours(23, 59, 59, 999);
+        q = q.lte('created_at', ed.toISOString());
+      }
+    } else if (range !== 'all') {
+      const days = range === '7d' ? 7 : range === '30d' ? 30 : 90;
+      q = q.gte('created_at', new Date(Date.now() - days * 86400_000).toISOString());
+    }
+    return q;
+  };
 
   const { data, isFetching } = useQuery({
-    queryKey: ['company', 'account-merges', { page, action, primary, secondary, range, startDate, endDate }],
+    queryKey: ['company', 'account-merges', { page, action, primary, secondary, range, startDate, endDate, sortCol, sortDir }],
     queryFn: async () => {
-      let q = supabase
-        .from('account_merges')
-        .select('*', { count: 'exact' })
-        .order('created_at', { ascending: false })
-        .range(page * PAGE_SIZE, page * PAGE_SIZE + PAGE_SIZE - 1);
-
-      if (primary.trim()) q = q.eq('primary_user_id', primary.trim());
-      if (secondary.trim()) q = q.eq('secondary_user_id', secondary.trim());
-
-      if (range === 'custom') {
-        if (startDate) q = q.gte('created_at', new Date(startDate).toISOString());
-        if (endDate) {
-          const ed = new Date(endDate); ed.setHours(23, 59, 59, 999);
-          q = q.lte('created_at', ed.toISOString());
-        }
-      } else if (range !== 'all') {
-        const days = range === '7d' ? 7 : range === '30d' ? 30 : 90;
-        q = q.gte('created_at', new Date(Date.now() - days * 86400_000).toISOString());
-      }
-
-      const { data: rows, count } = await q;
+      const { data: rows, count } = await buildQuery();
       let list = (rows as MergeRow[]) || [];
 
       // account_merges 沒有 action 欄位，改用 audit_logs 對齊：以 secondary_user_id 找對應 audit row
@@ -146,6 +175,7 @@ const AccountMergesPage = () => {
     staleTime: 30_000,
     placeholderData: keepPreviousData,
   });
+
 
   const rows = data?.rows ?? [];
   const auditMap = data?.auditMap ?? {};
