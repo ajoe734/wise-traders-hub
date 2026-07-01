@@ -327,10 +327,75 @@ test.describe.serial('account merge — full 20-table data movement', () => {
           });
         }
       }
+
+      // ---- Admin UI：/company/account-merges CSV 匯出斷言 ----
+      if (plan?.id) {
+        await test.step('CSV export contains kept/canceled plan detail + audit_logs.detail', async () => {
+          const { data: aud } = await a.from('account_merges')
+            .select('moved_counts').eq('secondary_user_id', secondary.userId).maybeSingle();
+          const groups = ((aud?.moved_counts as any)?._sub_conflicts ?? []) as any[];
+          const group = groups.find((g) => g.plan_id === plan.id);
+          expect(group).toBeTruthy();
+
+          const { data: sess } = await anon().auth.signInWithPassword({
+            email: ADMIN_EMAIL, password: ADMIN_PASSWORD,
+          });
+          const projectRef = new URL(SUPABASE_URL).host.split('.')[0];
+          const storageKey = `sb-${projectRef}-auth-token`;
+          const sessionJson = JSON.stringify({
+            access_token: sess!.session!.access_token,
+            refresh_token: sess!.session!.refresh_token,
+            expires_at: sess!.session!.expires_at,
+            expires_in: sess!.session!.expires_in,
+            token_type: 'bearer', user: sess!.user,
+          });
+
+          const browser = await chromium.launch();
+          const ctx = await browser.newContext();
+          const p = await ctx.newPage();
+          await p.goto('/');
+          await p.evaluate(([k, v]) => localStorage.setItem(k as string, v as string), [storageKey, sessionJson]);
+
+          // URL query 同步：直接以 secondary + action 進頁面，篩選器應反映 query。
+          await p.goto(`/company/account-merges?secondary=${secondary.userId}&action=admin_account_force_merge&range=90d`);
+          await p.locator('[data-testid="merge-table"]').waitFor({ state: 'visible', timeout: 15_000 });
+          expect(await p.locator('[data-testid="merge-secondary-filter"]').inputValue()).toBe(secondary.userId);
+
+          const [download] = await Promise.all([
+            p.waitForEvent('download'),
+            p.locator('[data-testid="merge-export-csv"]').click(),
+          ]);
+          const path = await download.path();
+          const fs = await import('node:fs/promises');
+          const raw = await fs.readFile(path!, 'utf8');
+
+          // 移除 BOM 便於斷言
+          const body = raw.replace(/^\ufeff/, '');
+          const [headerLine, ...dataLines] = body.split('\n');
+          expect(headerLine).toContain('kept_plan_ids');
+          expect(headerLine).toContain('kept_expires_at');
+          expect(headerLine).toContain('canceled_plan_ids');
+          expect(headerLine).toContain('canceled_expires_at');
+          expect(headerLine).toContain('sub_conflicts_json');
+          expect(headerLine).toContain('audit_detail_json');
+
+          // 找到 secondary 對應 row
+          const row = dataLines.find((l) => l.includes(secondary.userId));
+          expect(row, 'CSV missing row for secondary user').toBeTruthy();
+          expect(row).toContain(plan.id); // kept_plan_ids
+          expect(row).toContain(group.kept.expires_at);
+          for (const c of group.canceled) {
+            expect(row).toContain(c.expires_at);
+          }
+          // audit_logs.detail 內容（JSON 內含 primary_user_id）
+          expect(row).toContain(primary.userId);
+          expect(row).toContain('admin_account_force_merge');
+
+          await browser.close();
+        });
+      }
     } finally {
-      await a.auth.admin.deleteUser(secondary.userId).catch(() => undefined);
-      await a.auth.admin.deleteUser(primary.userId).catch(() => undefined);
-    }
+
   });
 });
 
