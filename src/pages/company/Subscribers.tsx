@@ -33,6 +33,8 @@ const CompanySubscribers = () => {
   const [kindFilter, setKindFilter] = useState<'all' | 'expert' | 'checkup'>('all');
   const [selectedUserIds, setSelectedUserIds] = useState<Set<string>>(new Set());
   const [pushOpen, setPushOpen] = useState(false);
+  const [mergeTarget, setMergeTarget] = useState<{ userId: string; label: string } | null>(null);
+
 
   const { data, isFetching } = useQuery({
     queryKey: ['company', 'subscribers'],
