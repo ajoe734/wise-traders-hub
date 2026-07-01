@@ -16,7 +16,30 @@ import { INIT_HOLDINGS } from '../seedData.js'
  */
 export { DEMO_DATA_VERSION } from './demoDataVersion.js'
 
-export const DEMO_HOLDINGS = INIT_HOLDINGS
+// Deterministic pseudo-daily change per code — every demo holding MUST carry
+// `yesterday` / `todayPnl` / `todayPct` so `normalizeHoldingMetrics` renders
+// the TODAY cell instead of falling back to "—" or the stale `changePercent`.
+// Range: -2.5% .. +2.5%, seed = sum of char codes → stable across reloads.
+function _deriveDemoIntraday(h) {
+  const price = Number(h.price)
+  const qty = Number(h.qty)
+  if (!Number.isFinite(price) || price <= 0 || !Number.isFinite(qty) || qty <= 0) return h
+  const seed = String(h.code).split('').reduce((a, c) => a + c.charCodeAt(0), 0)
+  const pct = ((seed % 501) / 100) - 2.5 // -2.5%..+2.5%, 0.01 step
+  const yesterday = Math.round((price / (1 + pct / 100)) * 100) / 100
+  const todayPnl = Math.round((price - yesterday) * qty)
+  const todayPct = Math.round((price / yesterday - 1) * 10000) / 100
+  return {
+    ...h,
+    yesterday,
+    todayPnl,
+    todayPct,
+    changePct: todayPct, // BC alias for legacy consumers
+    priceSource: h.priceSource || 'demo',
+  }
+}
+
+export const DEMO_HOLDINGS = INIT_HOLDINGS.map(_deriveDemoIntraday)
 
 const _demoToday = new Date().toLocaleDateString('zh-TW').replace(/-/g, '/')
 
