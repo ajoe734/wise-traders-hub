@@ -153,12 +153,29 @@ const AccountMergesPage = () => {
   const detailAudit = detail ? auditMap[detail.secondary_user_id] : null;
 
   const exportCsv = () => {
-    const header = ['時間', '動作', '主帳號', '主 email', '副帳號', '副 email', '執行者', 'sub_conflicts 數', 'moved_counts 表數'];
+    const header = [
+      '時間', '動作', '主帳號', '主 email', '副帳號', '副 email', '執行者',
+      'sub_conflicts 數', 'moved_counts 表數',
+      'kept_plan_ids', 'kept_expires_at', 'canceled_plan_ids', 'canceled_expires_at',
+      'sub_conflicts_json', 'moved_counts_json', 'audit_action', 'audit_detail_json',
+    ];
     const csvRows = rows.map((r) => {
       const a = auditMap[r.secondary_user_id];
-      const conflicts = ((r.moved_counts as any)?._sub_conflicts ?? []).length;
+      const groups = ((r.moved_counts as any)?._sub_conflicts ?? []) as any[];
       const tableCount = Object.keys(r.moved_counts || {}).filter((k) => !k.startsWith('_')).length;
-      return [fmt(r.created_at), a?.action || '—', r.primary_user_id, r.primary_email || '', r.secondary_user_id, r.secondary_email || '', r.performed_by || '', conflicts, tableCount];
+      const keptPlanIds = groups.map((g) => g.plan_id).join('|');
+      const keptExpires = groups.map((g) => g.kept?.expires_at ?? '').join('|');
+      const cancelPlanIds = groups.flatMap((g) => (g.canceled || []).map(() => g.plan_id)).join('|');
+      const cancelExpires = groups.flatMap((g) => (g.canceled || []).map((c: any) => c.expires_at ?? '')).join('|');
+      return [
+        fmt(r.created_at), a?.action || '—',
+        r.primary_user_id, r.primary_email || '',
+        r.secondary_user_id, r.secondary_email || '',
+        r.performed_by || '', groups.length, tableCount,
+        keptPlanIds, keptExpires, cancelPlanIds, cancelExpires,
+        JSON.stringify(groups), JSON.stringify(r.moved_counts || {}),
+        a?.action || '', JSON.stringify(a?.detail ?? {}),
+      ];
     });
     const csv = [header, ...csvRows].map((r) => r.map((c) => `"${String(c).replace(/"/g, '""')}"`).join(',')).join('\n');
     const blob = new Blob([`\uFEFF${csv}`], { type: 'text/csv;charset=utf-8;' });
@@ -167,6 +184,7 @@ const AccountMergesPage = () => {
     a.href = url; a.download = `account_merges_${Date.now()}.csv`; a.click();
     URL.revokeObjectURL(url);
   };
+
 
   const conflicts = useMemo(() => {
     if (!detail) return [] as any[];
