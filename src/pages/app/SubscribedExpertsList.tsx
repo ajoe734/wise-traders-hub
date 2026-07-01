@@ -38,6 +38,8 @@ export default function SubscribedExpertsList() {
           </div>
         </div>
 
+        <SubscriptionConflictNotice />
+
         {/* Empty State */}
         {!hasAnySubscription && (
           <FeatureCard className="p-8 text-center">
