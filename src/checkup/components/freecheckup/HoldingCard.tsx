@@ -67,15 +67,20 @@ function HoldingCardImpl(props) {
 
   const actionLabel = dec?.actionType === 'exit' ? 'EXIT' : dec?.actionType === 'review' ? 'REVIEW' : 'HOLD';
 
-  // 漲跌幅：成本與現價都存在時，用「現價/成本-1」現場重算
+  // 大字：總報酬率（現價 vs 成本） — TOTAL RETURN
   const _costNum = Number(h.cost);
   const _priceNum = Number(h.price);
+  const _qtyNum = Number(h.qty);
   const pctVal = (_costNum > 0 && Number.isFinite(_priceNum))
     ? ((_priceNum / _costNum) - 1) * 100
     : (h.pct ?? 0);
-  const pnlVal = (_costNum > 0 && Number.isFinite(_priceNum) && Number.isFinite(Number(h.qty)))
-    ? Math.round((_priceNum - _costNum) * Number(h.qty))
+  const pnlVal = (_costNum > 0 && Number.isFinite(_priceNum) && Number.isFinite(_qtyNum))
+    ? Math.round((_priceNum - _costNum) * _qtyNum)
     : Math.round(h.pnl || 0);
+  // 底部 TODAY 欄：今日收盤損益（現價 vs 昨收） — 由 normalizeHoldingMetrics 產出
+  const todayPnlNum: number | null = Number.isFinite(Number(h.todayPnl)) ? Number(h.todayPnl) : null;
+  const todayPctNum: number | null = Number.isFinite(Number(h.todayPct)) ? Number(h.todayPct) : null;
+  const hasToday = todayPnlNum != null || todayPctNum != null;
 
   const upside = (tp && h.price) ? ((tp - h.price) / h.price * 100) : null;
 
