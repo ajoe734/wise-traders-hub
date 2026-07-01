@@ -357,7 +357,16 @@ const CompanySubscribers = () => {
         recipients={recipientRecords}
         onSent={() => setSelectedUserIds(new Set())}
       />
+      {mergeTarget && (
+        <AdminForceMergeDialog
+          open={!!mergeTarget}
+          onOpenChange={(v) => { if (!v) setMergeTarget(null); }}
+          primaryUserId={mergeTarget.userId}
+          primaryLabel={mergeTarget.label}
+        />
+      )}
     </CompanyLayout>
+
   );
 };
 
