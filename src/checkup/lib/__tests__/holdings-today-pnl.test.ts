@@ -57,10 +57,12 @@ describe('normalizeHoldingMetrics — todayPnl / todayPct', () => {
     expect(second.todayPnl).toBe(-3000)
     expect(second.todayPct).toBeCloseTo(-2.91, 1)
 
-    // 換成盤中 quote（無 yesterday）→ today 必須被清空，不能保留 2000
+    // 換成盤中 quote（無 yesterday）→ 沿用先前收盤 1030 作為昨收，但 today 必須用新價重算，
+    // 絕不能沿用 second.todayPnl (-3000) 這種 stale 值。
     const third = normalizeHoldingMetrics(second, { price: 1010, source: 'live' })
-    expect(third.todayPnl).toBeNull()
-    expect(third.todayPct).toBeNull()
+    expect(third.yesterday).toBe(1030)
+    expect(third.todayPnl).toBe(-2000) // (1010-1030)*100，非 -3000（stale）
+    expect(third.todayPct).toBeCloseTo(-1.94, 1)
   })
 
   it('quote 帶 changePct 但無 yesterday → todayPct 取自 quote.changePct，todayPnl 仍為 null', () => {
