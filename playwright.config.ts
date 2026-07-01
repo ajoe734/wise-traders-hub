@@ -143,6 +143,13 @@ export default defineConfig({
       use: { ...devices['Desktop Chrome'], viewport: { width: 1280, height: 900 } },
     },
     {
+      // /company/account-merges 排序 URL 同步 + CSV 匯出 loading/中止/重試/錯誤
+      name: 'desktop-account-merges-sort-export',
+      testMatch: /account-merges-sort-export\.spec\.ts/,
+      use: { ...devices['Desktop Chrome'], viewport: { width: 1280, height: 900 } },
+    },
+
+    {
       // /holding-checkup demo 首屏可見性（desktop 1280×800）
       name: 'desktop-demo-first-fold',
       testMatch: /freecheckup-demo-first-fold\.spec\.ts/,
