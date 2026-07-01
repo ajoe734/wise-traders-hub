@@ -36,7 +36,9 @@ const Account = () => {
         <h1 className="text-xl font-bold">帳號設定</h1>
 
         <RenewalBanner />
+        <SubscriptionConflictNotice />
         <PendingCheckoutCard />
+
 
 
 
