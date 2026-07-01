@@ -56,6 +56,7 @@ const navGroups: NavGroup[] = [
     label: '系統 & 分析',
     items: [
       { path: '/company/audit-logs', icon: FileClock, label: '審計日誌' },
+      { path: '/company/account-merges', icon: FileClock, label: '帳號合併' },
       { path: '/company/system-jobs', icon: Activity, label: '系統任務' },
       { path: '/company/function-logs', icon: ScrollText, label: '函式日誌' },
       { path: '/company/perf-metrics', icon: Gauge, label: '前台效能' },
