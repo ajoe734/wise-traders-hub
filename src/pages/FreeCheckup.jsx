@@ -266,6 +266,8 @@ export default function App() {
   // debounce：連續快速觸發時只執行最後一次
   const debounceTimerRef = useRef(null);
   const inflightRef = useRef(false);
+  // 每張卡片的獨立 sync 狀態：{ [code]: { syncing?: bool, error?: string } }
+  const [holdingSyncStates, setHoldingSyncStates] = useState({});
 
   const appendLog = (entry) => {
     setSyncLog(prev => {
