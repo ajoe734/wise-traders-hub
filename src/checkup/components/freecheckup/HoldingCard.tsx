@@ -311,6 +311,8 @@ function HoldingCardImpl(props) {
           </span>
         </div>
         </>)}
+        {SyncOverlay}
+        {SyncErrorStrip}
       </button>
     );
   }
