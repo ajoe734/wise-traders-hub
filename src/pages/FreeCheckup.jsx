@@ -425,7 +425,7 @@ export default function App() {
         setTimeout(() => setSaved(''), 4000);
         setLastUpdate(null);
         setTimeout(() => { refreshPrices().catch(() => {}); }, 800);
-        clearCardSync();
+        clearAllCardSync();
         consecutiveFailRef.current = 0;
         setServerSyncing(false);
         inflightRef.current = false;
@@ -450,7 +450,7 @@ export default function App() {
     });
     setSaved(`✕ 排程失敗：${lastErr}`);
     setTimeout(() => setSaved(''), 5000);
-    clearCardSync();
+    clearAllCardSync();
     setServerSyncing(false);
     inflightRef.current = false;
   };
