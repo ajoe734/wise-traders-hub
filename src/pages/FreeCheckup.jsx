@@ -3531,6 +3531,7 @@ ${JSON.stringify(strategyBrain || { rules: [], lessons: [], commonMistakes: [], 
               handleHoldingCardOpenDrawer={handleHoldingCardOpenDrawer}
               showAll={showAll}
               setShowAll={setShowAll}
+              holdingSyncStates={holdingSyncStates}
               setTab={setTab}
             />
 
