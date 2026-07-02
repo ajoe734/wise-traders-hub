@@ -360,17 +360,17 @@ export default function App() {
         return;
       }
       const failedCodes = [];
-      let _idx = -1;
-      setHoldings(prev => (prev || []).map(h => {
-        _idx += 1;
+      // 先根據當前 holdings 決定每張卡片的成功/失敗，再一次 setState（避免 async updater 內
+      // push 到 closure array 但外層同步讀取為空的競態）
+      const currentHoldings = holdings || [];
+      const failedCodes = [];
+      const results = currentHoldings.map((h, idx) => {
         const base = Number(h.price ?? h.cost) || 0;
-        if (!base) { setCardSyncResult(h.code, {}); return h; }
-        // ?demoPartialFail=1：每 3 張的第 1 張（idx % 3 === 1）強制 recompute 失敗
-        const shouldFailCard = demoPartialFail && (_idx % 3 === 1);
+        if (!base) return { code: h.code, next: h, fail: false };
+        const shouldFailCard = demoPartialFail && (idx % 3 === 1);
         if (shouldFailCard) {
           failedCodes.push(h.code);
-          setCardSyncResult(h.code, { error: '個股報價 recompute 失敗（DEMO 模擬）' });
-          return h;
+          return { code: h.code, next: h, fail: true };
         }
         const delta = (Math.random() * 0.03 - 0.015);
         const newPrice = Math.max(0.01, +(base * (1 + delta)).toFixed(2));
@@ -379,14 +379,23 @@ export default function App() {
         const quote = demoMarketOpen
           ? { price: newPrice, source: 'live', updatedAt: new Date().toISOString() }
           : { price: newPrice, yesterday, source: 'live', updatedAt: new Date().toISOString() };
-        setCardSyncResult(h.code, {});
-        return normalizeHoldingMetrics(h, quote);
-      }));
+        return { code: h.code, next: normalizeHoldingMetrics(h, quote), fail: false };
+      });
+      setHoldings(results.map(r => r.next));
+      setHoldingSyncStates(prev => {
+        const next = { ...prev };
+        results.forEach(r => {
+          next[r.code] = r.fail
+            ? { syncing: false, error: '個股報價 recompute 失敗（DEMO 模擬）' }
+            : { syncing: false, error: null };
+        });
+        return next;
+      });
       setLastUpdate(new Date());
       if (failedCodes.length) {
         setSyncError({
           message: `部分個股 recompute 失敗（${failedCodes.length} 檔）：${failedCodes.slice(0,5).join('、')}`,
-          httpStatus: 207, // Multi-Status 語意
+          httpStatus: 207,
           rawMessage: `partial-fail codes=${failedCodes.join(',')}`,
           attempts: 1,
           partial: true,
