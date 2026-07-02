@@ -481,6 +481,7 @@ function HoldingCardImpl(props) {
       </>)}
       {SyncOverlay}
       {SyncErrorStrip}
+      {SyncSrStatus}
     </button>
   );
 }
