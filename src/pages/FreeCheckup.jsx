@@ -294,60 +294,116 @@ export default function App() {
   const triggerServerSync = async () => {
     if (serverSyncing) return;
     setSyncError('');
-    // DEMO 守門：訪客模式不打 edge function，改用模擬延遲 + 隨機微幅報價波動
+  // 標記所有卡片為 syncing / 清除 syncing 或 error
+  const markCardsSyncing = (codes) => {
+    setHoldings(prev => (prev || []).map(h =>
+      (!codes || codes.includes(h.code))
+        ? { ...h, _syncing: true, _syncError: null }
+        : h
+    ));
+  };
+  const clearCardSync = (updater) => {
+    setHoldings(prev => (prev || []).map(h => {
+      const next = updater ? updater(h) : h;
+      return { ...next, _syncing: false };
+    }));
+  };
+
+  // 立即觸發後端排程：stock-price-sync（實際執行邏輯）
+  const triggerServerSyncNow = async () => {
+    if (inflightRef.current) return;
+    inflightRef.current = true;
+    setSyncError(null);
+    setSyncCopyState('');
+    // demo path
     if (isDemo) {
       setServerSyncing(true);
+      markCardsSyncing();
+      try { window.__demoSyncCount = (window.__demoSyncCount || 0) + 1; } catch {}
       await demoDelay(1500, 2800);
-      // E2E 用旗標：?demoSyncError=1 → 模擬 API 失敗一次，驗證錯誤 UI + 重試路徑
       let demoShouldFail = false;
       let demoMarketOpen = false;
+      let demoPartialFail = false;
       try {
         const sp = new URLSearchParams(window.location.search);
         if (sp.get('demoSyncError') === '1') {
           demoShouldFail = true;
-          // 消耗一次後移除，讓「重試」能成功 → 驗證恢復路徑
           sp.delete('demoSyncError');
           const qs = sp.toString();
           window.history.replaceState({}, '', window.location.pathname + (qs ? `?${qs}` : '') + window.location.hash);
         }
         if (sp.get('demoMarketOpen') === '1') demoMarketOpen = true;
+        if (sp.get('demoPartialFail') === '1') demoPartialFail = true;
       } catch {}
       if (demoShouldFail) {
+        clearCardSync();
+        consecutiveFailRef.current += 1;
         setServerSyncing(false);
-        setSyncError('報價同步失敗：模擬網路錯誤，請按「重試」再試一次');
+        setSyncError({
+          message: '報價同步失敗：模擬網路錯誤，請按「重試」再試一次',
+          httpStatus: 0,
+          rawMessage: 'demoSyncError=1 flag triggered simulated failure',
+          attempts: 1,
+          exhausted: consecutiveFailRef.current >= 3,
+        });
+        inflightRef.current = false;
         return;
       }
+      const failedCodes = [];
       setHoldings(prev => (prev || []).map(h => {
         const base = Number(h.price ?? h.cost) || 0;
-        if (!base) return h;
-        const delta = (Math.random() * 0.03 - 0.015); // ±1.5%
+        if (!base) return { ...h, _syncing: false };
+        // ?demoPartialFail=1：字元和 % 3 === 0 的 code 個股 recompute 失敗
+        const codeSum = String(h.code || '').split('').reduce((a,c)=>a+c.charCodeAt(0),0);
+        const shouldFailCard = demoPartialFail && (codeSum % 3 === 0);
+        if (shouldFailCard) {
+          failedCodes.push(h.code);
+          return { ...h, _syncing: false, _syncError: '個股報價 recompute 失敗（DEMO 模擬）' };
+        }
+        const delta = (Math.random() * 0.03 - 0.015);
         const newPrice = Math.max(0.01, +(base * (1 + delta)).toFixed(2));
-        // H4/H5 safeguard：一律走 normalizeHoldingMetrics 重算 todayPnl / todayPct / yesterday，
-        // 絕不能只更新 price 而讓 today* 保留 stale 值。
         const yesterday = Number.isFinite(Number(h.yesterday)) && Number(h.yesterday) > 0
           ? Number(h.yesterday) : null;
-        // demoMarketOpen：模擬盤中 quote（無 yesterday）→ normalize 會沿用先前收盤作為 yesterday
         const quote = demoMarketOpen
           ? { price: newPrice, source: 'live', updatedAt: new Date().toISOString() }
           : { price: newPrice, yesterday, source: 'live', updatedAt: new Date().toISOString() };
-        return normalizeHoldingMetrics(h, quote);
+        return { ...normalizeHoldingMetrics(h, quote), _syncing: false, _syncError: null };
       }));
       setLastUpdate(new Date());
-      setSaved('✅ DEMO 模擬報價已更新');
-      setTimeout(() => setSaved(''), 3000);
+      if (failedCodes.length) {
+        setSyncError({
+          message: `部分個股 recompute 失敗（${failedCodes.length} 檔）：${failedCodes.slice(0,5).join('、')}`,
+          httpStatus: 207, // Multi-Status 語意
+          rawMessage: `partial-fail codes=${failedCodes.join(',')}`,
+          attempts: 1,
+          partial: true,
+          failedCodes,
+        });
+      } else {
+        setSaved('✅ DEMO 模擬報價已更新');
+        setTimeout(() => setSaved(''), 3000);
+        consecutiveFailRef.current = 0;
+      }
       setServerSyncing(false);
+      inflightRef.current = false;
       return;
     }
+    // real path
     setServerSyncing(true);
+    markCardsSyncing();
     appendLog({ task: 'server-sync', status: 'start', detail: '呼叫 stock-price-sync edge function' });
     const MAX = 3;
+    // 退避重試：1s / 3s / 5s
+    const BACKOFF_MS = [1000, 3000, 5000];
     let lastErr = '';
+    let lastStatus = 0;
     for (let attempt = 1; attempt <= MAX; attempt++) {
       try {
         const res = await fetch(`${SUPABASE_FN_BASE}/stock-price-sync`, {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
         });
+        lastStatus = res.status;
         const data = await res.json().catch(() => ({}));
         if (!res.ok) throw new Error(data?.error || `HTTP ${res.status}`);
         appendLog({
@@ -356,22 +412,45 @@ export default function App() {
         });
         setSaved(`✅ 排程已執行：拉取 ${data.prices_fetched ?? 0} 檔報價`);
         setTimeout(() => setSaved(''), 4000);
-        // 後端 sync 完，前台再拉一次最新價
         setLastUpdate(null);
         setTimeout(() => { refreshPrices().catch(() => {}); }, 800);
+        clearCardSync();
+        consecutiveFailRef.current = 0;
         setServerSyncing(false);
+        inflightRef.current = false;
         return;
       } catch (e) {
         lastErr = e?.message || '網路錯誤';
         appendLog({ task: 'server-sync', status: 'retry', attempt, detail: lastErr });
-        if (attempt < MAX) await new Promise(r => setTimeout(r, 1500 * attempt));
+        if (attempt < MAX) await new Promise(r => setTimeout(r, BACKOFF_MS[attempt - 1] || 5000));
       }
     }
     appendLog({ task: 'server-sync', status: 'error', detail: `所有重試失敗：${lastErr}` });
-    setSyncError(`報價同步失敗：${lastErr}（已重試 ${MAX} 次）`);
+    consecutiveFailRef.current += 1;
+    const exhausted = consecutiveFailRef.current >= 3;
+    setSyncError({
+      message: exhausted
+        ? `報價同步已連續失敗 ${consecutiveFailRef.current} 次，請重新整理頁面或稍後再試`
+        : `報價同步失敗：${lastErr}（已重試 ${MAX} 次）`,
+      httpStatus: lastStatus,
+      rawMessage: lastErr,
+      attempts: MAX,
+      exhausted,
+    });
     setSaved(`✕ 排程失敗：${lastErr}`);
     setTimeout(() => setSaved(''), 5000);
+    clearCardSync();
     setServerSyncing(false);
+    inflightRef.current = false;
+  };
+
+  // 對外入口：debounced 250ms，連續快速點擊只執行最後一次
+  const triggerServerSync = () => {
+    if (debounceTimerRef.current) clearTimeout(debounceTimerRef.current);
+    debounceTimerRef.current = setTimeout(() => {
+      debounceTimerRef.current = null;
+      triggerServerSyncNow().catch(() => {});
+    }, 250);
   };
 
   // 補齊報價：對缺價持倉一次性補抓，完成後僅在仍有失敗時開報告彈窗
