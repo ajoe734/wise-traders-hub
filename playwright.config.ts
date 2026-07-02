@@ -234,6 +234,12 @@ export default defineConfig({
       testMatch: /holdings-override-price-debounce\.spec\.ts/,
       use: { ...devices['Desktop Chrome'], viewport: { width: 1280, height: 900 } },
     },
+    {
+      // HoldingCard aria-live 螢幕閱讀器狀態（同步中 / 完成 / 錯誤三態）
+      name: 'desktop-holdings-aria-live-sync',
+      testMatch: /holdings-aria-live-sync-status\.spec\.ts/,
+      use: { ...devices['Desktop Chrome'], viewport: { width: 1280, height: 900 } },
+    },
     // RWD 防回歸：6 個斷點 × 公開頁面 → 不能有橫向 scroll
     {
       name: 'rwd-320',
