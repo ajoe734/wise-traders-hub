@@ -360,11 +360,13 @@ export default function App() {
         return;
       }
       const failedCodes = [];
+      let _idx = -1;
       setHoldings(prev => (prev || []).map(h => {
+        _idx += 1;
         const base = Number(h.price ?? h.cost) || 0;
         if (!base) { setCardSyncResult(h.code, {}); return h; }
-        const codeSum = String(h.code || '').split('').reduce((a,c)=>a+c.charCodeAt(0),0);
-        const shouldFailCard = demoPartialFail && (codeSum % 3 === 0);
+        // ?demoPartialFail=1：每 3 張的第 1 張（idx % 3 === 1）強制 recompute 失敗
+        const shouldFailCard = demoPartialFail && (_idx % 3 === 1);
         if (shouldFailCard) {
           failedCodes.push(h.code);
           setCardSyncResult(h.code, { error: '個股報價 recompute 失敗（DEMO 模擬）' });
