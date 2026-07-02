@@ -138,7 +138,7 @@ function HoldingCardImpl(props) {
         position: 'absolute', inset: 0, pointerEvents: 'none',
         background: 'linear-gradient(90deg, rgba(255,255,255,0) 0%, rgba(255,255,255,0.25) 50%, rgba(255,255,255,0) 100%)',
         backgroundSize: '200% 100%',
-        animation: 'wb-card-shimmer 1.1s linear infinite',
+        animation: 'shimmer 1.1s linear infinite',
         zIndex: 3,
       }}
     />
