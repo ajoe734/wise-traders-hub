@@ -3369,11 +3369,23 @@ ${JSON.stringify(strategyBrain || { rules: [], lessons: [], commonMistakes: [], 
               borderRadius:6,
               border:`1px solid ${alpha(C.down,'66')}`,
               background: alpha(C.down,'11'),
-              display:'flex', alignItems:'center', gap:10, flexWrap:'wrap',
+              display:'flex', alignItems:'flex-start', gap:10, flexWrap:'wrap',
             }}>
-            <span style={{fontSize:11,fontWeight:600,color:C.down,letterSpacing:'0.04em'}}>
-              ✕ {syncError}
-            </span>
+            <div style={{display:'flex',flexDirection:'column',gap:2,flex:'1 1 240px',minWidth:0}}>
+              <span
+                data-testid="sync-error-message"
+                style={{fontSize:11,fontWeight:600,color:C.down,letterSpacing:'0.04em',wordBreak:'break-word'}}>
+                ✕ {syncError.message}
+              </span>
+              <span
+                data-testid="sync-error-detail"
+                style={{fontSize:10,color:C.textSec,fontWeight:500,letterSpacing:'0.02em'}}>
+                {syncError.httpStatus != null && syncError.httpStatus !== 0 ? `HTTP ${syncError.httpStatus}` : (syncError.httpStatus === 0 ? '網路/無回應' : '')}
+                {syncError.rawMessage ? `　${syncError.rawMessage}` : ''}
+                {syncError.attempts ? `　嘗試 ${syncError.attempts} 次` : ''}
+                {syncError.exhausted ? '　⚠︎ 建議重新整理或稍後再試' : ''}
+              </span>
+            </div>
             <button
               onClick={triggerServerSync}
               disabled={serverSyncing}
@@ -3386,7 +3398,33 @@ ${JSON.stringify(strategyBrain || { rules: [], lessons: [], commonMistakes: [], 
                 letterSpacing:'0.04em',
               }}>{serverSyncing ? '重試中…' : '重試'}</button>
             <button
-              onClick={() => setSyncError('')}
+              data-testid="sync-error-copy"
+              onClick={async () => {
+                const text = [
+                  `[${new Date().toISOString()}] freecheckup sync error`,
+                  `message: ${syncError.message}`,
+                  syncError.httpStatus != null ? `httpStatus: ${syncError.httpStatus}` : null,
+                  syncError.rawMessage ? `raw: ${syncError.rawMessage}` : null,
+                  syncError.attempts ? `attempts: ${syncError.attempts}` : null,
+                  syncError.failedCodes?.length ? `failedCodes: ${syncError.failedCodes.join(',')}` : null,
+                  `consecutiveFail: ${consecutiveFailRef.current}`,
+                ].filter(Boolean).join('\n');
+                try {
+                  if (navigator.clipboard?.writeText) await navigator.clipboard.writeText(text);
+                  else {
+                    const ta = document.createElement('textarea'); ta.value = text;
+                    document.body.appendChild(ta); ta.select(); document.execCommand('copy'); ta.remove();
+                  }
+                  setSyncCopyState('copied');
+                  setTimeout(() => setSyncCopyState(''), 2000);
+                } catch {}
+              }}
+              style={{
+                background:'transparent', color:C.text, border:`1px solid ${C.border}`,
+                borderRadius:6, padding:'3px 8px', fontSize:11, cursor:'pointer',
+              }}>{syncCopyState === 'copied' ? '✓ 已複製' : '複製錯誤內容'}</button>
+            <button
+              onClick={() => setSyncError(null)}
               aria-label="關閉錯誤提示"
               style={{
                 background:'transparent', color:C.textSec, border:`1px solid ${C.border}`,
