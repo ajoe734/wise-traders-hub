@@ -102,6 +102,7 @@ export function useFreeCheckupBootstrap({
       // ── Demo 模式：直接使用假資料 ──
       if (isDemo) {
         const {
+          DEMO_HOLDINGS,
           DEMO_EVENTS,
           DEMO_BRAIN,
           DEMO_CALENDAR,
@@ -111,7 +112,9 @@ export function useFreeCheckupBootstrap({
         } = await import("@/checkup/data/demoData");
         if (cancelled) return;
         setLocalStorageOwner("demo");
-        setHoldings(SEED_HOLDINGS);
+        // DEMO_HOLDINGS 已經在 demoData.js 補上 yesterday / todayPnl / todayPct / priceSource='demo'，
+        // 使用它而不是 SEED_HOLDINGS，才能確保 HoldingCard 一開始就能顯示 TODAY 欄位與 chip title 的「昨收 X」。
+        setHoldings(DEMO_HOLDINGS);
         setTradeLog(DEMO_TRADE_LOG);
         setTargets(INIT_TARGETS);
         setNewsEvents(DEMO_EVENTS);
