@@ -362,13 +362,13 @@ export default function App() {
       const failedCodes = [];
       setHoldings(prev => (prev || []).map(h => {
         const base = Number(h.price ?? h.cost) || 0;
-        if (!base) return { ...h, _syncing: false };
-        // ?demoPartialFail=1：字元和 % 3 === 0 的 code 個股 recompute 失敗
+        if (!base) { setCardSyncResult(h.code, {}); return h; }
         const codeSum = String(h.code || '').split('').reduce((a,c)=>a+c.charCodeAt(0),0);
         const shouldFailCard = demoPartialFail && (codeSum % 3 === 0);
         if (shouldFailCard) {
           failedCodes.push(h.code);
-          return { ...h, _syncing: false, _syncError: '個股報價 recompute 失敗（DEMO 模擬）' };
+          setCardSyncResult(h.code, { error: '個股報價 recompute 失敗（DEMO 模擬）' });
+          return h;
         }
         const delta = (Math.random() * 0.03 - 0.015);
         const newPrice = Math.max(0.01, +(base * (1 + delta)).toFixed(2));
@@ -377,7 +377,8 @@ export default function App() {
         const quote = demoMarketOpen
           ? { price: newPrice, source: 'live', updatedAt: new Date().toISOString() }
           : { price: newPrice, yesterday, source: 'live', updatedAt: new Date().toISOString() };
-        return { ...normalizeHoldingMetrics(h, quote), _syncing: false, _syncError: null };
+        setCardSyncResult(h.code, {});
+        return normalizeHoldingMetrics(h, quote);
       }));
       setLastUpdate(new Date());
       if (failedCodes.length) {
