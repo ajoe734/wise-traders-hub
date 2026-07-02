@@ -62,6 +62,16 @@ test.describe('overridePrice → HoldingCard recompute safeguard', () => {
     await expect(page.locator('.wb-card span[title*="現價"]').first())
       .toBeVisible({ timeout: 20000 })
 
+    // DEBUG: dump every chip title we can find
+    const dbg = await page.evaluate(() => {
+      const out: any[] = []
+      document.querySelectorAll('.wb-card').forEach((el, i) => {
+        const spans = Array.from(el.querySelectorAll('span[title]')).map(s => (s as HTMLElement).title)
+        out.push({ i, spans })
+      })
+      return out.slice(0, 5)
+    })
+    console.log('CHIP_DEBUG', JSON.stringify(dbg, null, 2))
     const cardsWithChip = page.locator('.wb-card').filter({
       has: page.locator('span[title*="現價"]'),
     })
