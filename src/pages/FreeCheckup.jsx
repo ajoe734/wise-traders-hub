@@ -16,6 +16,7 @@ import { calcWeightedAvgCost, calcNetSettlement, calcPnlWithNet, calcRemainingCo
 import { buildDecision, sortByDecisionPriority, isEventOpen, getEffectiveStatus } from "@/checkup/lib/holdingEventUtils";
 import { normalizeEventRecord } from "@/checkup/lib/eventUtils";
 import { URGENCY_RANK, CONF_RANK, makeCompareByPriority, holdingsValueKeyShort } from "@/checkup/lib/holdingsSort";
+import { normalizeHoldingMetrics } from "@/checkup/lib/holdings.js";
 // E-Maint-R1: assignCardVariants 已下沉至 useHoldingsDerivations，父層不再需要
 // coerceStocksString moved into NewsTab (lazy chunk) — keep out of main bundle
 import { callEdge } from "@/checkup/lib/edgeInvoke";
