@@ -290,10 +290,6 @@ export default function App() {
     setTimeout(() => URL.revokeObjectURL(url), 1000);
   };
 
-  // 立即觸發後端排程：stock-price-sync
-  const triggerServerSync = async () => {
-    if (serverSyncing) return;
-    setSyncError('');
   // 標記所有卡片為 syncing / 清除 syncing 或 error
   const markCardsSyncing = (codes) => {
     setHoldings(prev => (prev || []).map(h =>
