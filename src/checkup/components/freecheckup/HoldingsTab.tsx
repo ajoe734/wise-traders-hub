@@ -67,6 +67,7 @@ const HOLDINGS_TAB_PROP_SCHEMA = {
   sparklines: _opt('any'), sparklineErrors: _opt('any'), EMPTY_SPARK: _opt('any'),
   normalizedEvents: _opt('any'), openHoldingDrawer: _opt('any'),
   showAll: _opt('any'), setShowAll: _opt('any'),
+  holdingSyncStates: _opt('any'), // { [code]: { syncing?: bool, error?: string } }
 };
 
 const HoldingsDetailPanel = lazy(() => import("@/checkup/components/freecheckup/HoldingsDetailPanel"));
