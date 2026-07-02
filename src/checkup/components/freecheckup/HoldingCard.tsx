@@ -132,6 +132,7 @@ function HoldingCardImpl(props) {
   // H4/H5 局部 loading / error 狀態（由 FreeCheckup triggerServerSync 標註）
   const isCardSyncing = !!(syncState?.syncing || h._syncing);
   const cardSyncError = syncState?.error || h._syncError || null;
+  const cardLabel = `${h.name || ''} ${h.code}`.trim();
   const SyncOverlay = isCardSyncing ? (
     <div
       data-testid="holding-card-loading"
@@ -148,7 +149,9 @@ function HoldingCardImpl(props) {
   const SyncErrorStrip = cardSyncError ? (
     <div
       data-testid="holding-card-error"
-      role="status"
+      role="alert"
+      aria-live="assertive"
+      aria-atomic="true"
       style={{
         position: 'absolute', left: 0, right: 0, bottom: 0,
         padding: '4px 10px',
@@ -159,9 +162,29 @@ function HoldingCardImpl(props) {
       }}
     >
       <span aria-hidden>✕</span>
-      <span style={{ overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{cardSyncError}</span>
+      <span style={{ overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
+        <span className="sr-only">{cardLabel} 更新失敗：</span>{cardSyncError}
+      </span>
     </div>
   ) : null;
+  // 螢幕閱讀器可讀的同步狀態播報（polite，不打斷用戶）
+  const SyncSrStatus = (
+    <span
+      role="status"
+      aria-live="polite"
+      aria-atomic="true"
+      style={{
+        position: 'absolute', width: 1, height: 1, padding: 0, margin: -1,
+        overflow: 'hidden', clip: 'rect(0 0 0 0)', whiteSpace: 'nowrap', border: 0,
+      }}
+    >
+      {isCardSyncing
+        ? `正在更新 ${cardLabel} 現價…`
+        : cardSyncError
+          ? ''
+          : (h.priceUpdatedAt ? `${cardLabel} 現價已更新` : '')}
+    </span>
+  );
 
 
   const handleClick = () => { trackRaw('checkup_holding_expand', { code: h.code }); onSelect(h.code); };
