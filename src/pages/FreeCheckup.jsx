@@ -258,7 +258,14 @@ export default function App() {
   // 立即同步排程（呼叫 stock-price-sync edge function）
   const [serverSyncing, setServerSyncing] = useState(false);
   // H4/H5 recompute UI：換價 / 排程失敗時的持久錯誤訊息（附「重試」按鈕）
-  const [syncError, setSyncError] = useState('');
+  // 結構化物件：{ message, httpStatus?, rawMessage?, attempts?, exhausted?, partial?, failedCodes? }
+  const [syncError, setSyncError] = useState(null);
+  const [syncCopyState, setSyncCopyState] = useState(''); // '' | 'copied'
+  // 連續多次失敗計數（跨 triggerServerSync 呼叫），到達門檻時提示手動重新整理
+  const consecutiveFailRef = useRef(0);
+  // debounce：連續快速觸發時只執行最後一次
+  const debounceTimerRef = useRef(null);
+  const inflightRef = useRef(false);
 
   const appendLog = (entry) => {
     setSyncLog(prev => {
