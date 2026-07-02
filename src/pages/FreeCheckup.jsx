@@ -3384,10 +3384,21 @@ ${JSON.stringify(strategyBrain || { rules: [], lessons: [], commonMistakes: [], 
           </div>
         )}
 
+        {/* 螢幕閱讀器可讀的全域同步狀態播報（polite） */}
+        <span
+          role="status"
+          aria-live="polite"
+          aria-atomic="true"
+          style={{position:'absolute',width:1,height:1,padding:0,margin:-1,overflow:'hidden',clip:'rect(0 0 0 0)',whiteSpace:'nowrap',border:0}}>
+          {serverSyncing ? '正在同步持倉現價，請稍候…' : (syncError ? '' : (lastSyncAt ? '持倉現價已更新完成' : ''))}
+        </span>
+
         {/* H4/H5 recompute UI：換價 / 排程失敗的持久錯誤 + 重試 */}
         {syncError && (
           <div
             role="alert"
+            aria-live="assertive"
+            aria-atomic="true"
             data-testid="sync-error-banner"
             style={{
               margin:'8px 0 4px', padding:'8px 12px',
@@ -3396,6 +3407,7 @@ ${JSON.stringify(strategyBrain || { rules: [], lessons: [], commonMistakes: [], 
               background: alpha(C.down,'11'),
               display:'flex', alignItems:'flex-start', gap:10, flexWrap:'wrap',
             }}>
+
             <div style={{display:'flex',flexDirection:'column',gap:2,flex:'1 1 240px',minWidth:0}}>
               <span
                 data-testid="sync-error-message"
