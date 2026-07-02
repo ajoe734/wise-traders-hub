@@ -216,6 +216,12 @@ export default defineConfig({
       testMatch: /holdings-detail-panel-wide\.spec\.ts/,
       use: { ...devices['Desktop Chrome'], viewport: { width: 1280, height: 900 } },
     },
+    {
+      // overridePrice 換價後 HoldingCard 必須重算 todayPnl / todayPct / 保留 yesterday
+      name: 'desktop-holdings-override-price',
+      testMatch: /holdings-override-price-recompute\.spec\.ts/,
+      use: { ...devices['Desktop Chrome'], viewport: { width: 1280, height: 900 } },
+    },
     // RWD 防回歸：6 個斷點 × 公開頁面 → 不能有橫向 scroll
     {
       name: 'rwd-320',

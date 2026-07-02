@@ -16,6 +16,7 @@ import { calcWeightedAvgCost, calcNetSettlement, calcPnlWithNet, calcRemainingCo
 import { buildDecision, sortByDecisionPriority, isEventOpen, getEffectiveStatus } from "@/checkup/lib/holdingEventUtils";
 import { normalizeEventRecord } from "@/checkup/lib/eventUtils";
 import { URGENCY_RANK, CONF_RANK, makeCompareByPriority, holdingsValueKeyShort } from "@/checkup/lib/holdingsSort";
+import { normalizeHoldingMetrics } from "@/checkup/lib/holdings.js";
 // E-Maint-R1: assignCardVariants 已下沉至 useHoldingsDerivations，父層不再需要
 // coerceStocksString moved into NewsTab (lazy chunk) — keep out of main bundle
 import { callEdge } from "@/checkup/lib/edgeInvoke";
@@ -292,8 +293,16 @@ export default function App() {
         if (!base) return h;
         const delta = (Math.random() * 0.03 - 0.015); // ±1.5%
         const newPrice = Math.max(0.01, +(base * (1 + delta)).toFixed(2));
-        const { value, pnl, pct } = calcPnlWithNet(h, newPrice);
-        return { ...h, price: newPrice, value, pnl, pct, priceSource: 'live', priceError: null, priceUpdatedAt: new Date().toISOString() };
+        // H4/H5 safeguard：一律走 normalizeHoldingMetrics 重算 todayPnl / todayPct / yesterday，
+        // 絕不能只更新 price 而讓 today* 保留 stale 值。
+        const yesterday = Number.isFinite(Number(h.yesterday)) && Number(h.yesterday) > 0
+          ? Number(h.yesterday) : null;
+        return normalizeHoldingMetrics(h, {
+          price: newPrice,
+          yesterday,
+          source: 'live',
+          updatedAt: new Date().toISOString(),
+        });
       }));
       setLastUpdate(new Date());
       setSaved('✅ DEMO 模擬報價已更新');
