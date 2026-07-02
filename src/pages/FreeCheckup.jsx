@@ -3277,6 +3277,42 @@ ${JSON.stringify(strategyBrain || { rules: [], lessons: [], commonMistakes: [], 
           </div>
         )}
 
+        {/* H4/H5 recompute UI：換價 / 排程失敗的持久錯誤 + 重試 */}
+        {syncError && (
+          <div
+            role="alert"
+            data-testid="sync-error-banner"
+            style={{
+              margin:'8px 0 4px', padding:'8px 12px',
+              borderRadius:6,
+              border:`1px solid ${alpha(C.down,'66')}`,
+              background: alpha(C.down,'11'),
+              display:'flex', alignItems:'center', gap:10, flexWrap:'wrap',
+            }}>
+            <span style={{fontSize:11,fontWeight:600,color:C.down,letterSpacing:'0.04em'}}>
+              ✕ {syncError}
+            </span>
+            <button
+              onClick={triggerServerSync}
+              disabled={serverSyncing}
+              data-testid="sync-error-retry"
+              style={{
+                background: serverSyncing ? alpha(C.subtle,'aa') : C.down,
+                color: serverSyncing ? C.textMute : '#fff',
+                border:'none', borderRadius:6, padding:'3px 10px',
+                fontSize:11, fontWeight:600, cursor: serverSyncing ? 'wait' : 'pointer',
+                letterSpacing:'0.04em',
+              }}>{serverSyncing ? '重試中…' : '重試'}</button>
+            <button
+              onClick={() => setSyncError('')}
+              aria-label="關閉錯誤提示"
+              style={{
+                background:'transparent', color:C.textSec, border:`1px solid ${C.border}`,
+                borderRadius:6, padding:'3px 8px', fontSize:11, cursor:'pointer',
+              }}>關閉</button>
+          </div>
+        )}
+
         {/* today alert - match calendar events by today's date */}
         {todayEvents.length>0 && (
           <div style={{
