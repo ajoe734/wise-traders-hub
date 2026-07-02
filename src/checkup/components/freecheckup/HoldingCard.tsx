@@ -78,6 +78,7 @@ function HoldingCardImpl(props) {
     variant,
     isFeatureSlot,
     isActive,
+    syncState,
     onSelect,
     onOpenDrawer,
   } = props;
