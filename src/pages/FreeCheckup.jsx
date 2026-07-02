@@ -257,6 +257,8 @@ export default function App() {
   const [backfilling, setBackfilling] = useState(false);
   // 立即同步排程（呼叫 stock-price-sync edge function）
   const [serverSyncing, setServerSyncing] = useState(false);
+  // H4/H5 recompute UI：換價 / 排程失敗時的持久錯誤訊息（附「重試」按鈕）
+  const [syncError, setSyncError] = useState('');
 
   const appendLog = (entry) => {
     setSyncLog(prev => {
