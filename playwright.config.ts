@@ -222,6 +222,12 @@ export default defineConfig({
       testMatch: /holdings-override-price-recompute\.spec\.ts/,
       use: { ...devices['Desktop Chrome'], viewport: { width: 1280, height: 900 } },
     },
+    {
+      // overridePrice 換價：market-open / market-closed 兩情境 + 多卡片同步 + 錯誤/重試 UI
+      name: 'desktop-holdings-override-price-scenarios',
+      testMatch: /holdings-override-price-scenarios\.spec\.ts/,
+      use: { ...devices['Desktop Chrome'], viewport: { width: 1280, height: 900 } },
+    },
     // RWD 防回歸：6 個斷點 × 公開頁面 → 不能有橫向 scroll
     {
       name: 'rwd-320',

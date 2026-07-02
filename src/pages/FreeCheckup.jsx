@@ -257,6 +257,8 @@ export default function App() {
   const [backfilling, setBackfilling] = useState(false);
   // 立即同步排程（呼叫 stock-price-sync edge function）
   const [serverSyncing, setServerSyncing] = useState(false);
+  // H4/H5 recompute UI：換價 / 排程失敗時的持久錯誤訊息（附「重試」按鈕）
+  const [syncError, setSyncError] = useState('');
 
   const appendLog = (entry) => {
     setSyncLog(prev => {
@@ -284,10 +286,30 @@ export default function App() {
   // 立即觸發後端排程：stock-price-sync
   const triggerServerSync = async () => {
     if (serverSyncing) return;
+    setSyncError('');
     // DEMO 守門：訪客模式不打 edge function，改用模擬延遲 + 隨機微幅報價波動
     if (isDemo) {
       setServerSyncing(true);
       await demoDelay(1500, 2800);
+      // E2E 用旗標：?demoSyncError=1 → 模擬 API 失敗一次，驗證錯誤 UI + 重試路徑
+      let demoShouldFail = false;
+      let demoMarketOpen = false;
+      try {
+        const sp = new URLSearchParams(window.location.search);
+        if (sp.get('demoSyncError') === '1') {
+          demoShouldFail = true;
+          // 消耗一次後移除，讓「重試」能成功 → 驗證恢復路徑
+          sp.delete('demoSyncError');
+          const qs = sp.toString();
+          window.history.replaceState({}, '', window.location.pathname + (qs ? `?${qs}` : '') + window.location.hash);
+        }
+        if (sp.get('demoMarketOpen') === '1') demoMarketOpen = true;
+      } catch {}
+      if (demoShouldFail) {
+        setServerSyncing(false);
+        setSyncError('報價同步失敗：模擬網路錯誤，請按「重試」再試一次');
+        return;
+      }
       setHoldings(prev => (prev || []).map(h => {
         const base = Number(h.price ?? h.cost) || 0;
         if (!base) return h;
@@ -297,12 +319,11 @@ export default function App() {
         // 絕不能只更新 price 而讓 today* 保留 stale 值。
         const yesterday = Number.isFinite(Number(h.yesterday)) && Number(h.yesterday) > 0
           ? Number(h.yesterday) : null;
-        return normalizeHoldingMetrics(h, {
-          price: newPrice,
-          yesterday,
-          source: 'live',
-          updatedAt: new Date().toISOString(),
-        });
+        // demoMarketOpen：模擬盤中 quote（無 yesterday）→ normalize 會沿用先前收盤作為 yesterday
+        const quote = demoMarketOpen
+          ? { price: newPrice, source: 'live', updatedAt: new Date().toISOString() }
+          : { price: newPrice, yesterday, source: 'live', updatedAt: new Date().toISOString() };
+        return normalizeHoldingMetrics(h, quote);
       }));
       setLastUpdate(new Date());
       setSaved('✅ DEMO 模擬報價已更新');
@@ -340,6 +361,7 @@ export default function App() {
       }
     }
     appendLog({ task: 'server-sync', status: 'error', detail: `所有重試失敗：${lastErr}` });
+    setSyncError(`報價同步失敗：${lastErr}（已重試 ${MAX} 次）`);
     setSaved(`✕ 排程失敗：${lastErr}`);
     setTimeout(() => setSaved(''), 5000);
     setServerSyncing(false);
@@ -3252,6 +3274,42 @@ ${JSON.stringify(strategyBrain || { rules: [], lessons: [], commonMistakes: [], 
             {refreshStatus.error && (
               <span style={{fontSize:11,color:C.down}}>{refreshStatus.error}</span>
             )}
+          </div>
+        )}
+
+        {/* H4/H5 recompute UI：換價 / 排程失敗的持久錯誤 + 重試 */}
+        {syncError && (
+          <div
+            role="alert"
+            data-testid="sync-error-banner"
+            style={{
+              margin:'8px 0 4px', padding:'8px 12px',
+              borderRadius:6,
+              border:`1px solid ${alpha(C.down,'66')}`,
+              background: alpha(C.down,'11'),
+              display:'flex', alignItems:'center', gap:10, flexWrap:'wrap',
+            }}>
+            <span style={{fontSize:11,fontWeight:600,color:C.down,letterSpacing:'0.04em'}}>
+              ✕ {syncError}
+            </span>
+            <button
+              onClick={triggerServerSync}
+              disabled={serverSyncing}
+              data-testid="sync-error-retry"
+              style={{
+                background: serverSyncing ? alpha(C.subtle,'aa') : C.down,
+                color: serverSyncing ? C.textMute : '#fff',
+                border:'none', borderRadius:6, padding:'3px 10px',
+                fontSize:11, fontWeight:600, cursor: serverSyncing ? 'wait' : 'pointer',
+                letterSpacing:'0.04em',
+              }}>{serverSyncing ? '重試中…' : '重試'}</button>
+            <button
+              onClick={() => setSyncError('')}
+              aria-label="關閉錯誤提示"
+              style={{
+                background:'transparent', color:C.textSec, border:`1px solid ${C.border}`,
+                borderRadius:6, padding:'3px 8px', fontSize:11, cursor:'pointer',
+              }}>關閉</button>
           </div>
         )}
 
