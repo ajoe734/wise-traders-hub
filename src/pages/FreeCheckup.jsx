@@ -292,19 +292,31 @@ export default function App() {
     setTimeout(() => URL.revokeObjectURL(url), 1000);
   };
 
-  // 標記所有卡片為 syncing / 清除 syncing 或 error
+  // 標記所有卡片為 syncing / 清除 sync 狀態（走 holdingSyncStates，不動 holdings 以保持 memo）
   const markCardsSyncing = (codes) => {
-    setHoldings(prev => (prev || []).map(h =>
-      (!codes || codes.includes(h.code))
-        ? { ...h, _syncing: true, _syncError: null }
-        : h
-    ));
+    setHoldingSyncStates(prev => {
+      const next = { ...prev };
+      const list = Array.isArray(codes) && codes.length
+        ? codes
+        : (holdings || []).map(h => h.code);
+      list.forEach(code => {
+        next[code] = { syncing: true, error: null };
+      });
+      return next;
+    });
   };
-  const clearCardSync = (updater) => {
-    setHoldings(prev => (prev || []).map(h => {
-      const next = updater ? updater(h) : h;
-      return { ...next, _syncing: false };
-    }));
+  const setCardSyncResult = (code, patch) => {
+    setHoldingSyncStates(prev => ({ ...prev, [code]: { syncing: false, error: null, ...patch } }));
+  };
+  const clearAllCardSync = (opts = {}) => {
+    const { keepErrors = false } = opts;
+    setHoldingSyncStates(prev => {
+      const next = {};
+      Object.keys(prev).forEach(code => {
+        if (keepErrors && prev[code]?.error) next[code] = { syncing: false, error: prev[code].error };
+      });
+      return next;
+    });
   };
 
   // 立即觸發後端排程：stock-price-sync（實際執行邏輯）
