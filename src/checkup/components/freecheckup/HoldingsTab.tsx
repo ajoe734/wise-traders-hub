@@ -333,6 +333,7 @@ function HoldingsTab(props) {
             variant={variantsMap.get(h.code) || 'plain'}
             isFeatureSlot={h.code === firstFeatureCode}
             isActive={selectedCode === h.code}
+            syncState={holdingSyncStates?.[h.code]}
             onSelect={handleHoldingCardSelect}
             onOpenDrawer={handleHoldingCardOpenDrawer}
           />
