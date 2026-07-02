@@ -359,7 +359,6 @@ export default function App() {
         inflightRef.current = false;
         return;
       }
-      const failedCodes = [];
       // 先根據當前 holdings 決定每張卡片的成功/失敗，再一次 setState（避免 async updater 內
       // push 到 closure array 但外層同步讀取為空的競態）
       const currentHoldings = holdings || [];
