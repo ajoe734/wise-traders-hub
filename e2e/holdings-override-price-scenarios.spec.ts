@@ -159,9 +159,9 @@ test.describe('overridePrice 情境覆蓋', () => {
     const retry = page.getByTestId('sync-error-retry')
     await expect(retry).toBeVisible()
 
-    // Loading 狀態：點「重試」後按鈕變成「重試中…」
+    // Loading 狀態：按鈕在 idle 時就存在（disabled=false）→ 驗證後點擊即開始重試
+    await expect(retry).toBeEnabled()
     await retry.click()
-    await expect(retry).toHaveText(/重試中…|重試/, { timeout: 5000 })
 
     // ?demoSyncError=1 消耗後應恢復 → banner 消失、卡片開始有現價 chip
     await expect(banner).toBeHidden({ timeout: 15000 })
