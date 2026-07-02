@@ -57,6 +57,7 @@ const HOLDING_CARD_PROP_SCHEMA = {
   variant: 'string',
   isFeatureSlot: 'boolean',
   isActive: 'boolean',
+  syncState: { type: 'object', optional: true },
   onSelect: 'function',
   onOpenDrawer: 'function',
 };
