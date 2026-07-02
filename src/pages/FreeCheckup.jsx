@@ -258,7 +258,16 @@ export default function App() {
   // 立即同步排程（呼叫 stock-price-sync edge function）
   const [serverSyncing, setServerSyncing] = useState(false);
   // H4/H5 recompute UI：換價 / 排程失敗時的持久錯誤訊息（附「重試」按鈕）
-  const [syncError, setSyncError] = useState('');
+  // 結構化物件：{ message, httpStatus?, rawMessage?, attempts?, exhausted?, partial?, failedCodes? }
+  const [syncError, setSyncError] = useState(null);
+  const [syncCopyState, setSyncCopyState] = useState(''); // '' | 'copied'
+  // 連續多次失敗計數（跨 triggerServerSync 呼叫），到達門檻時提示手動重新整理
+  const consecutiveFailRef = useRef(0);
+  // debounce：連續快速觸發時只執行最後一次
+  const debounceTimerRef = useRef(null);
+  const inflightRef = useRef(false);
+  // 每張卡片的獨立 sync 狀態：{ [code]: { syncing?: bool, error?: string } }
+  const [holdingSyncStates, setHoldingSyncStates] = useState({});
 
   const appendLog = (entry) => {
     setSyncLog(prev => {
@@ -283,64 +292,139 @@ export default function App() {
     setTimeout(() => URL.revokeObjectURL(url), 1000);
   };
 
-  // 立即觸發後端排程：stock-price-sync
-  const triggerServerSync = async () => {
-    if (serverSyncing) return;
-    setSyncError('');
-    // DEMO 守門：訪客模式不打 edge function，改用模擬延遲 + 隨機微幅報價波動
+  // 標記所有卡片為 syncing / 清除 sync 狀態（走 holdingSyncStates，不動 holdings 以保持 memo）
+  const markCardsSyncing = (codes) => {
+    setHoldingSyncStates(prev => {
+      const next = { ...prev };
+      const list = Array.isArray(codes) && codes.length
+        ? codes
+        : (holdings || []).map(h => h.code);
+      list.forEach(code => {
+        next[code] = { syncing: true, error: null };
+      });
+      return next;
+    });
+  };
+  const setCardSyncResult = (code, patch) => {
+    setHoldingSyncStates(prev => ({ ...prev, [code]: { syncing: false, error: null, ...patch } }));
+  };
+  const clearAllCardSync = (opts = {}) => {
+    const { keepErrors = false } = opts;
+    setHoldingSyncStates(prev => {
+      const next = {};
+      Object.keys(prev).forEach(code => {
+        if (keepErrors && prev[code]?.error) next[code] = { syncing: false, error: prev[code].error };
+      });
+      return next;
+    });
+  };
+
+  // 立即觸發後端排程：stock-price-sync（實際執行邏輯）
+  const triggerServerSyncNow = async () => {
+    if (inflightRef.current) return;
+    inflightRef.current = true;
+    setSyncError(null);
+    setSyncCopyState('');
+    // demo path
     if (isDemo) {
       setServerSyncing(true);
+      markCardsSyncing();
+      try { window.__demoSyncCount = (window.__demoSyncCount || 0) + 1; } catch {}
       await demoDelay(1500, 2800);
-      // E2E 用旗標：?demoSyncError=1 → 模擬 API 失敗一次，驗證錯誤 UI + 重試路徑
       let demoShouldFail = false;
       let demoMarketOpen = false;
+      let demoPartialFail = false;
       try {
         const sp = new URLSearchParams(window.location.search);
         if (sp.get('demoSyncError') === '1') {
           demoShouldFail = true;
-          // 消耗一次後移除，讓「重試」能成功 → 驗證恢復路徑
           sp.delete('demoSyncError');
           const qs = sp.toString();
           window.history.replaceState({}, '', window.location.pathname + (qs ? `?${qs}` : '') + window.location.hash);
         }
         if (sp.get('demoMarketOpen') === '1') demoMarketOpen = true;
+        if (sp.get('demoPartialFail') === '1') demoPartialFail = true;
       } catch {}
       if (demoShouldFail) {
+        clearAllCardSync();
+        consecutiveFailRef.current += 1;
         setServerSyncing(false);
-        setSyncError('報價同步失敗：模擬網路錯誤，請按「重試」再試一次');
+        setSyncError({
+          message: '報價同步失敗：模擬網路錯誤，請按「重試」再試一次',
+          httpStatus: 0,
+          rawMessage: 'demoSyncError=1 flag triggered simulated failure',
+          attempts: 1,
+          exhausted: consecutiveFailRef.current >= 3,
+        });
+        inflightRef.current = false;
         return;
       }
-      setHoldings(prev => (prev || []).map(h => {
+      // 先根據當前 holdings 決定每張卡片的成功/失敗，再一次 setState（避免 async updater 內
+      // push 到 closure array 但外層同步讀取為空的競態）
+      const currentHoldings = holdings || [];
+      const failedCodes = [];
+      const results = currentHoldings.map((h, idx) => {
         const base = Number(h.price ?? h.cost) || 0;
-        if (!base) return h;
-        const delta = (Math.random() * 0.03 - 0.015); // ±1.5%
+        if (!base) return { code: h.code, next: h, fail: false };
+        const shouldFailCard = demoPartialFail && (idx % 3 === 1);
+        if (shouldFailCard) {
+          failedCodes.push(h.code);
+          return { code: h.code, next: h, fail: true };
+        }
+        const delta = (Math.random() * 0.03 - 0.015);
         const newPrice = Math.max(0.01, +(base * (1 + delta)).toFixed(2));
-        // H4/H5 safeguard：一律走 normalizeHoldingMetrics 重算 todayPnl / todayPct / yesterday，
-        // 絕不能只更新 price 而讓 today* 保留 stale 值。
         const yesterday = Number.isFinite(Number(h.yesterday)) && Number(h.yesterday) > 0
           ? Number(h.yesterday) : null;
-        // demoMarketOpen：模擬盤中 quote（無 yesterday）→ normalize 會沿用先前收盤作為 yesterday
         const quote = demoMarketOpen
           ? { price: newPrice, source: 'live', updatedAt: new Date().toISOString() }
           : { price: newPrice, yesterday, source: 'live', updatedAt: new Date().toISOString() };
-        return normalizeHoldingMetrics(h, quote);
-      }));
+        return { code: h.code, next: normalizeHoldingMetrics(h, quote), fail: false };
+      });
+      setHoldings(results.map(r => r.next));
+      setHoldingSyncStates(prev => {
+        const next = { ...prev };
+        results.forEach(r => {
+          next[r.code] = r.fail
+            ? { syncing: false, error: '個股報價 recompute 失敗（DEMO 模擬）' }
+            : { syncing: false, error: null };
+        });
+        return next;
+      });
       setLastUpdate(new Date());
-      setSaved('✅ DEMO 模擬報價已更新');
-      setTimeout(() => setSaved(''), 3000);
+      if (failedCodes.length) {
+        setSyncError({
+          message: `部分個股 recompute 失敗（${failedCodes.length} 檔）：${failedCodes.slice(0,5).join('、')}`,
+          httpStatus: 207,
+          rawMessage: `partial-fail codes=${failedCodes.join(',')}`,
+          attempts: 1,
+          partial: true,
+          failedCodes,
+        });
+      } else {
+        setSaved('✅ DEMO 模擬報價已更新');
+        setTimeout(() => setSaved(''), 3000);
+        consecutiveFailRef.current = 0;
+      }
       setServerSyncing(false);
+      inflightRef.current = false;
       return;
     }
+    // real path
     setServerSyncing(true);
+    markCardsSyncing();
     appendLog({ task: 'server-sync', status: 'start', detail: '呼叫 stock-price-sync edge function' });
     const MAX = 3;
+    // 退避重試：1s / 3s / 5s
+    const BACKOFF_MS = [1000, 3000, 5000];
     let lastErr = '';
+    let lastStatus = 0;
     for (let attempt = 1; attempt <= MAX; attempt++) {
       try {
         const res = await fetch(`${SUPABASE_FN_BASE}/stock-price-sync`, {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
         });
+        lastStatus = res.status;
         const data = await res.json().catch(() => ({}));
         if (!res.ok) throw new Error(data?.error || `HTTP ${res.status}`);
         appendLog({
@@ -349,22 +433,45 @@ export default function App() {
         });
         setSaved(`✅ 排程已執行：拉取 ${data.prices_fetched ?? 0} 檔報價`);
         setTimeout(() => setSaved(''), 4000);
-        // 後端 sync 完，前台再拉一次最新價
         setLastUpdate(null);
         setTimeout(() => { refreshPrices().catch(() => {}); }, 800);
+        clearAllCardSync();
+        consecutiveFailRef.current = 0;
         setServerSyncing(false);
+        inflightRef.current = false;
         return;
       } catch (e) {
         lastErr = e?.message || '網路錯誤';
         appendLog({ task: 'server-sync', status: 'retry', attempt, detail: lastErr });
-        if (attempt < MAX) await new Promise(r => setTimeout(r, 1500 * attempt));
+        if (attempt < MAX) await new Promise(r => setTimeout(r, BACKOFF_MS[attempt - 1] || 5000));
       }
     }
     appendLog({ task: 'server-sync', status: 'error', detail: `所有重試失敗：${lastErr}` });
-    setSyncError(`報價同步失敗：${lastErr}（已重試 ${MAX} 次）`);
+    consecutiveFailRef.current += 1;
+    const exhausted = consecutiveFailRef.current >= 3;
+    setSyncError({
+      message: exhausted
+        ? `報價同步已連續失敗 ${consecutiveFailRef.current} 次，請重新整理頁面或稍後再試`
+        : `報價同步失敗：${lastErr}（已重試 ${MAX} 次）`,
+      httpStatus: lastStatus,
+      rawMessage: lastErr,
+      attempts: MAX,
+      exhausted,
+    });
     setSaved(`✕ 排程失敗：${lastErr}`);
     setTimeout(() => setSaved(''), 5000);
+    clearAllCardSync();
     setServerSyncing(false);
+    inflightRef.current = false;
+  };
+
+  // 對外入口：debounced 250ms，連續快速點擊只執行最後一次
+  const triggerServerSync = () => {
+    if (debounceTimerRef.current) clearTimeout(debounceTimerRef.current);
+    debounceTimerRef.current = setTimeout(() => {
+      debounceTimerRef.current = null;
+      triggerServerSyncNow().catch(() => {});
+    }, 250);
   };
 
   // 補齊報價：對缺價持倉一次性補抓，完成後僅在仍有失敗時開報告彈窗
@@ -3287,11 +3394,23 @@ ${JSON.stringify(strategyBrain || { rules: [], lessons: [], commonMistakes: [], 
               borderRadius:6,
               border:`1px solid ${alpha(C.down,'66')}`,
               background: alpha(C.down,'11'),
-              display:'flex', alignItems:'center', gap:10, flexWrap:'wrap',
+              display:'flex', alignItems:'flex-start', gap:10, flexWrap:'wrap',
             }}>
-            <span style={{fontSize:11,fontWeight:600,color:C.down,letterSpacing:'0.04em'}}>
-              ✕ {syncError}
-            </span>
+            <div style={{display:'flex',flexDirection:'column',gap:2,flex:'1 1 240px',minWidth:0}}>
+              <span
+                data-testid="sync-error-message"
+                style={{fontSize:11,fontWeight:600,color:C.down,letterSpacing:'0.04em',wordBreak:'break-word'}}>
+                ✕ {syncError.message}
+              </span>
+              <span
+                data-testid="sync-error-detail"
+                style={{fontSize:10,color:C.textSec,fontWeight:500,letterSpacing:'0.02em'}}>
+                {syncError.httpStatus != null && syncError.httpStatus !== 0 ? `HTTP ${syncError.httpStatus}` : (syncError.httpStatus === 0 ? '網路/無回應' : '')}
+                {syncError.rawMessage ? `　${syncError.rawMessage}` : ''}
+                {syncError.attempts ? `　嘗試 ${syncError.attempts} 次` : ''}
+                {syncError.exhausted ? '　⚠︎ 建議重新整理或稍後再試' : ''}
+              </span>
+            </div>
             <button
               onClick={triggerServerSync}
               disabled={serverSyncing}
@@ -3304,7 +3423,33 @@ ${JSON.stringify(strategyBrain || { rules: [], lessons: [], commonMistakes: [], 
                 letterSpacing:'0.04em',
               }}>{serverSyncing ? '重試中…' : '重試'}</button>
             <button
-              onClick={() => setSyncError('')}
+              data-testid="sync-error-copy"
+              onClick={async () => {
+                const text = [
+                  `[${new Date().toISOString()}] freecheckup sync error`,
+                  `message: ${syncError.message}`,
+                  syncError.httpStatus != null ? `httpStatus: ${syncError.httpStatus}` : null,
+                  syncError.rawMessage ? `raw: ${syncError.rawMessage}` : null,
+                  syncError.attempts ? `attempts: ${syncError.attempts}` : null,
+                  syncError.failedCodes?.length ? `failedCodes: ${syncError.failedCodes.join(',')}` : null,
+                  `consecutiveFail: ${consecutiveFailRef.current}`,
+                ].filter(Boolean).join('\n');
+                try {
+                  if (navigator.clipboard?.writeText) await navigator.clipboard.writeText(text);
+                  else {
+                    const ta = document.createElement('textarea'); ta.value = text;
+                    document.body.appendChild(ta); ta.select(); document.execCommand('copy'); ta.remove();
+                  }
+                  setSyncCopyState('copied');
+                  setTimeout(() => setSyncCopyState(''), 2000);
+                } catch {}
+              }}
+              style={{
+                background:'transparent', color:C.text, border:`1px solid ${C.border}`,
+                borderRadius:6, padding:'3px 8px', fontSize:11, cursor:'pointer',
+              }}>{syncCopyState === 'copied' ? '✓ 已複製' : '複製錯誤內容'}</button>
+            <button
+              onClick={() => setSyncError(null)}
               aria-label="關閉錯誤提示"
               style={{
                 background:'transparent', color:C.textSec, border:`1px solid ${C.border}`,
@@ -3411,6 +3556,7 @@ ${JSON.stringify(strategyBrain || { rules: [], lessons: [], commonMistakes: [], 
               handleHoldingCardOpenDrawer={handleHoldingCardOpenDrawer}
               showAll={showAll}
               setShowAll={setShowAll}
+              holdingSyncStates={holdingSyncStates}
               setTab={setTab}
             />
 

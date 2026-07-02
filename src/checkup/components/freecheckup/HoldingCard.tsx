@@ -57,6 +57,7 @@ const HOLDING_CARD_PROP_SCHEMA = {
   variant: 'string',
   isFeatureSlot: 'boolean',
   isActive: 'boolean',
+  syncState: { type: 'object', optional: true },
   onSelect: 'function',
   onOpenDrawer: 'function',
 };
@@ -77,6 +78,7 @@ function HoldingCardImpl(props) {
     variant,
     isFeatureSlot,
     isActive,
+    syncState,
     onSelect,
     onOpenDrawer,
   } = props;
@@ -126,6 +128,41 @@ function HoldingCardImpl(props) {
       ].filter(Boolean).join('　');
 
   const ariaLabel = `${h.name || ''} ${h.code}，決策 ${actionLabel === 'EXIT' ? '建議出場' : actionLabel === 'REVIEW' ? '需要檢查' : '維持持有'}，報酬率 ${pctVal >= 0 ? '+' : ''}${pctVal.toFixed(2)}%，損益 ${pnlVal >= 0 ? '+' : ''}${pnlVal.toLocaleString()}`;
+
+  // H4/H5 局部 loading / error 狀態（由 FreeCheckup triggerServerSync 標註）
+  const isCardSyncing = !!(syncState?.syncing || h._syncing);
+  const cardSyncError = syncState?.error || h._syncError || null;
+  const SyncOverlay = isCardSyncing ? (
+    <div
+      data-testid="holding-card-loading"
+      aria-hidden
+      style={{
+        position: 'absolute', inset: 0, pointerEvents: 'none',
+        background: 'linear-gradient(90deg, rgba(255,255,255,0) 0%, rgba(255,255,255,0.25) 50%, rgba(255,255,255,0) 100%)',
+        backgroundSize: '200% 100%',
+        animation: 'shimmer 1.1s linear infinite',
+        zIndex: 3,
+      }}
+    />
+  ) : null;
+  const SyncErrorStrip = cardSyncError ? (
+    <div
+      data-testid="holding-card-error"
+      role="status"
+      style={{
+        position: 'absolute', left: 0, right: 0, bottom: 0,
+        padding: '4px 10px',
+        fontSize: 10, fontWeight: 600, letterSpacing: '0.04em',
+        color: '#fff', background: '#c8362c',
+        display: 'flex', alignItems: 'center', gap: 6,
+        zIndex: 4,
+      }}
+    >
+      <span aria-hidden>✕</span>
+      <span style={{ overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{cardSyncError}</span>
+    </div>
+  ) : null;
+
 
   const handleClick = () => { trackRaw('checkup_holding_expand', { code: h.code }); onSelect(h.code); };
   const handleDoubleClick = () => onOpenDrawer(h.code);
@@ -276,6 +313,8 @@ function HoldingCardImpl(props) {
           </span>
         </div>
         </>)}
+        {SyncOverlay}
+        {SyncErrorStrip}
       </button>
     );
   }
@@ -416,6 +455,8 @@ function HoldingCardImpl(props) {
         </span>
       </div>
       </>)}
+      {SyncOverlay}
+      {SyncErrorStrip}
     </button>
   );
 }

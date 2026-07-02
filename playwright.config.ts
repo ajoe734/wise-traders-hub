@@ -228,6 +228,12 @@ export default defineConfig({
       testMatch: /holdings-override-price-scenarios\.spec\.ts/,
       use: { ...devices['Desktop Chrome'], viewport: { width: 1280, height: 900 } },
     },
+    {
+      // overridePrice 換價：debounce 快速觸發 + 部分卡片失敗 + 局部 loading
+      name: 'desktop-holdings-override-price-debounce',
+      testMatch: /holdings-override-price-debounce\.spec\.ts/,
+      use: { ...devices['Desktop Chrome'], viewport: { width: 1280, height: 900 } },
+    },
     // RWD 防回歸：6 個斷點 × 公開頁面 → 不能有橫向 scroll
     {
       name: 'rwd-320',
