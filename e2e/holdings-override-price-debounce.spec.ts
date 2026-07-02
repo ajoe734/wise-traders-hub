@@ -67,14 +67,16 @@ test.describe('overridePrice debounce / partial-fail / per-card loading', () => 
     await expect(page.getByText('持倉看板').first()).toBeVisible({ timeout: 20000 })
     await scrollThroughCards(page)
 
+    await page.evaluate(() => { (window as any).__demoSyncCount = 0 })
     await page.getByRole('button', { name: /立即更新/ }).first().click()
 
-    // 完成後（button 回到「立即更新」）
-    const btn = page.getByRole('button', { name: /立即更新|同步中/ }).first()
-    await expect(async () => {
-      const t = (await btn.textContent()) || ''
-      expect(/立即更新/.test(t)).toBeTruthy()
-    }).toPass({ timeout: 20000 })
+    // 等 demo sync 執行完成（counter +1）
+    await expect
+      .poll(async () => await page.evaluate(() => (window as any).__demoSyncCount || 0), {
+        timeout: 20000,
+        intervals: [200, 500, 1000],
+      })
+      .toBe(1)
 
     // 至少一張卡片顯示 per-card 錯誤 strip
     const errCards = page.locator('[data-testid="holding-card-error"]')
