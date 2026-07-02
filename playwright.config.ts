@@ -218,6 +218,11 @@ export default defineConfig({
     },
     // RWD 防回歸：6 個斷點 × 公開頁面 → 不能有橫向 scroll
     {
+      // overridePrice 換價後 HoldingCard 必須重算 todayPnl / todayPct / 保留 yesterday
+      name: 'desktop-holdings-override-price',
+      testMatch: /holdings-override-price-recompute\.spec\.ts/,
+      use: { ...devices['Desktop Chrome'], viewport: { width: 1280, height: 900 } },
+    },
       name: 'rwd-320',
       testMatch: /rwd-no-horizontal-scroll\.spec\.ts/,
       use: { ...devices['Desktop Chrome'], viewport: { width: 320, height: 700 } },
