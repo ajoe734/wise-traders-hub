@@ -35,6 +35,7 @@ test.describe('overridePrice debounce / partial-fail / per-card loading', () => 
     await scrollThroughCards(page)
 
     const btn = page.getByRole('button', { name: /立即更新|同步中|重試/ }).first()
+    await expect(btn).toBeVisible({ timeout: 15000 })
     await btn.scrollIntoViewIfNeeded()
 
     // 快速點 5 次（間隔 30ms，遠短於 250ms debounce）
@@ -43,14 +44,18 @@ test.describe('overridePrice debounce / partial-fail / per-card loading', () => 
       await page.waitForTimeout(30)
     }
 
-    // 等 debounce 觸發 + demo delay（最大 3s）完成
-    await expect(async () => {
-      const t = (await btn.textContent()) || ''
-      expect(/立即更新|重試/.test(t)).toBeTruthy()
-    }).toPass({ timeout: 15000 })
+    // 等 debounce 觸發 (250ms) + demo delay 完成，counter 需 = 1
+    await expect
+      .poll(async () => await page.evaluate(() => (window as any).__demoSyncCount || 0), {
+        timeout: 20000,
+        intervals: [200, 500, 1000],
+      })
+      .toBe(1)
 
-    const count = await page.evaluate(() => (window as any).__demoSyncCount || 0)
-    expect(count, '5 次快速點擊只能觸發 1 次 recompute').toBe(1)
+    // 再多等 1s 確保沒有第二次觸發
+    await page.waitForTimeout(1000)
+    const finalCount = await page.evaluate(() => (window as any).__demoSyncCount || 0)
+    expect(finalCount, '5 次快速點擊只能觸發 1 次 recompute').toBe(1)
   })
 
   test('?demoPartialFail=1 → 部分卡片錯誤，其他成功；banner 顯示 partial + copy 按鈕', async ({
