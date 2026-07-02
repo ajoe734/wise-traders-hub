@@ -3390,7 +3390,7 @@ ${JSON.stringify(strategyBrain || { rules: [], lessons: [], commonMistakes: [], 
           aria-live="polite"
           aria-atomic="true"
           style={{position:'absolute',width:1,height:1,padding:0,margin:-1,overflow:'hidden',clip:'rect(0 0 0 0)',whiteSpace:'nowrap',border:0}}>
-          {serverSyncing ? '正在同步持倉現價，請稍候…' : (syncError ? '' : (lastSyncAt ? '持倉現價已更新完成' : ''))}
+          {serverSyncing ? '正在同步持倉現價，請稍候…' : (syncError ? '' : (refreshStatus?.phase === 'done' ? (refreshStatus.fail > 0 ? `同步部分完成，成功 ${refreshStatus.ok} 檔，失敗 ${refreshStatus.fail} 檔` : '持倉現價已同步完成') : ''))}
         </span>
 
         {/* H4/H5 recompute UI：換價 / 排程失敗的持久錯誤 + 重試 */}
