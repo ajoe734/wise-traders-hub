@@ -119,6 +119,7 @@ function HoldingsTab(props) {
     normalizedEvents, openHoldingDrawer,
     handleHoldingCardOpenDrawer,
     showAll, setShowAll,
+    holdingSyncStates,
     // navigation
     setTab,
   } = props;
