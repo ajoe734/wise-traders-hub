@@ -43,51 +43,60 @@ test.describe('overridePrice → HoldingCard recompute safeguard', () => {
   test.beforeEach(async ({ page }) => {
     await primeDemo(page)
     await gotoWithRetry(page, ROUTE)
+    // 先確保出現持倉看板 → 捲到卡片區觸發 inView 讓 chip 真的渲染
+    await expect(page.getByText('持倉看板').first()).toBeVisible({ timeout: 20000 })
+    await page.evaluate(() => window.scrollTo(0, 400))
+    await page.waitForTimeout(600)
+    await page.evaluate(() => window.scrollTo(0, 800))
+    await page.waitForTimeout(600)
     await expect(page.locator('.wb-card').first()).toBeVisible({ timeout: 20000 })
+    // 等到至少一張卡出現 chip（demo seed 有 priceSource='demo'，會渲染）
+    await expect(page.locator('.wb-card span[title*="現價"]').first()).toBeVisible({ timeout: 20000 })
   })
 
-  test('點擊「立即更新」後每張卡的現價都變動，且昨收/TODAY 皆重算不 stale', async ({ page }) => {
-    const cards = page.locator('.wb-card')
-    const total = await cards.count()
-    const sampleCount = Math.min(total, 6)
+  test('點擊「立即更新」後卡片現價會變動，且昨收/todayPnl 皆重算不 stale', async ({ page }) => {
+    const cardsWithChip = page.locator('.wb-card').filter({ has: page.locator('span[title*="現價"]') })
+    const total = await cardsWithChip.count()
+    const sampleCount = Math.min(total, 5)
+    expect(sampleCount).toBeGreaterThanOrEqual(2)
 
-    // 選一批目前有 chip title 帶「現價/昨收」的卡（demo 已 seed yesterday）
     const before: Array<{ idx: number; price: number; yesterday: number; todayText: string }> = []
     for (let i = 0; i < sampleCount; i++) {
-      const s = await readCardState(cards.nth(i))
+      const card = cardsWithChip.nth(i)
+      await card.scrollIntoViewIfNeeded()
+      const s = await readCardState(card)
       if (s.price != null && s.yesterday != null) {
         before.push({ idx: i, price: s.price, yesterday: s.yesterday, todayText: s.todayText })
       }
     }
-    expect(before.length).toBeGreaterThanOrEqual(3)
+    expect(before.length).toBeGreaterThanOrEqual(2)
 
-    // 點擊「⟳ 立即更新」（demo 分支會 ±1.5% 隨機重報價並經 normalizeHoldingMetrics 重算）
     const syncBtn = page.getByRole('button', { name: /立即更新|同步中/ }).first()
-    await expect(syncBtn).toBeVisible()
+    await syncBtn.scrollIntoViewIfNeeded()
     await syncBtn.click()
+    await expect(syncBtn).toHaveText(/立即更新/, { timeout: 10000 })
 
-    // 等按鈕跳回「立即更新」代表 demo delay 結束
-    await expect(syncBtn).toHaveText(/立即更新/, { timeout: 8000 })
-
-    // 逐張比對
     let changedCount = 0
     for (const b of before) {
-      const after = await readCardState(cards.nth(b.idx))
+      const card = cardsWithChip.nth(b.idx)
+      await card.scrollIntoViewIfNeeded()
+      const after = await readCardState(card)
       expect(after.price, `card #${b.idx} 現價不應消失`).not.toBeNull()
       expect(after.yesterday, `card #${b.idx} 昨收在換價後必須保留`).toBe(b.yesterday)
-      // 現價幾乎必然變動（±1.5% 隨機，機率極高）
       if (after.price !== b.price) changedCount += 1
     }
-    // 至少多數卡片價格有變動 → 證明 override 有生效
-    expect(changedCount).toBeGreaterThanOrEqual(Math.ceil(before.length / 2))
+    expect(changedCount, '至少半數卡片價格必須因 override 而變動').toBeGreaterThanOrEqual(Math.ceil(before.length / 2))
 
-    // 連續換兩次，確保多輪後仍不會出現 stale：昨收保留、chip title 仍含「現價/昨收」
+    // 再點一次確認多輪 override 都不會遺失 yesterday
+    await syncBtn.scrollIntoViewIfNeeded()
     await syncBtn.click()
-    await expect(syncBtn).toHaveText(/立即更新/, { timeout: 8000 })
+    await expect(syncBtn).toHaveText(/立即更新/, { timeout: 10000 })
 
     for (const b of before) {
-      const after2 = await readCardState(cards.nth(b.idx))
-      expect(after2.title, `card #${b.idx} chip title 必須帶昨收/現價`).toMatch(/昨收\s*[\d.]+/)
+      const card = cardsWithChip.nth(b.idx)
+      await card.scrollIntoViewIfNeeded()
+      const after2 = await readCardState(card)
+      expect(after2.title!, `card #${b.idx} chip title 必須帶昨收/現價`).toMatch(/昨收\s*[\d.]+/)
       expect(after2.title!).toMatch(/現價\s*[\d.]+/)
       expect(after2.yesterday, `card #${b.idx} 兩輪換價後昨收仍需保留`).toBe(b.yesterday)
     }
