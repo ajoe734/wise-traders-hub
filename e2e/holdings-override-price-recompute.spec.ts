@@ -32,7 +32,7 @@ function extractPriceFromTitle(title: string | null) {
 }
 
 async function readCardState(card: Locator) {
-  const chip = card.locator('span[title*="來源"]').first()
+  const chip = card.locator('span[title*="現價"]').first()
   const title = await chip.getAttribute('title')
   const { price, yesterday } = extractPriceFromTitle(title)
   const todayText = (await card.locator('.wb-bottom-val').first().textContent())?.trim() || ''
