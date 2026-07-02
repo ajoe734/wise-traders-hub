@@ -346,7 +346,7 @@ export default function App() {
         if (sp.get('demoPartialFail') === '1') demoPartialFail = true;
       } catch {}
       if (demoShouldFail) {
-        clearCardSync();
+        clearAllCardSync();
         consecutiveFailRef.current += 1;
         setServerSyncing(false);
         setSyncError({
