@@ -89,6 +89,21 @@ test.describe('F3 訂閱取消 / 續訂事件', () => {
     expect(ev?.event_props).toMatchObject({ plan_id: PLAN_ID });
   });
 
+  test('過期但 status 仍為 active 時，「立即續訂」導向 App checkout 且帳號頁不顯示有效訂閱卡', async ({ page }) => {
+    await seedSession(page, USER);
+    await installFunnelCollector(page);
+    await installRoutes(page, baseRoutes({ billing: 'monthly', expiresInDays: -2 }));
+
+    await page.goto('/app/account');
+    await expect(page.getByRole('link', { name: /立即續訂/ })).toBeVisible({ timeout: 8_000 });
+    await expect(page.getByText('尚無訂閱')).toBeVisible();
+    await expect(page.getByText('有效')).toHaveCount(0);
+
+    const renewLink = page.getByRole('link', { name: /立即續訂/ });
+    const href = await renewLink.getAttribute('href');
+    expect(href).toBe(`/app/checkout/${EXPERT_SLUG}/${PLAN_ID}?cycle=monthly&utm_source=account_banner&utm_campaign=renewal`);
+  });
+
   test('legacy 續訂網址 /:slug/checkout?plan=... 會導到 /app/checkout/:slug/:planId', async ({ page }) => {
     await seedSession(page, USER);
     await installRoutes(page, baseRoutes({ billing: 'monthly', expiresInDays: 10 }));

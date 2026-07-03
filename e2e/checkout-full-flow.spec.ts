@@ -87,6 +87,94 @@ test.describe('Checkout — 一般使用者完整付款流程', () => {
     await expect(payBtn).toBeVisible();
   });
 
+  test('C: status=active 但 expires_at 已過期時，App checkout 不應擋續訂付款', async ({ page }) => {
+    await seedSession(page, USER);
+    const expiredAt = new Date(Date.now() - 2 * 86400_000).toISOString();
+
+    await installRoutes(page, {
+      rest: {
+        expert_plans: () => ({
+          id: PLAN_ID,
+          name: '訊號月方案',
+          plan_type: 'analyst_signal_l1',
+          price_monthly: 599,
+          price_yearly: 5990,
+          description: '',
+          features: [],
+          expert_id: EXPERT_ID,
+          experts: {
+            id: EXPERT_ID,
+            name: 'Alice',
+            slug: EXPERT_SLUG,
+            avatar_url: '',
+            role: 'advisor',
+            status: 'active',
+          },
+        }),
+        member_subscriptions: ({ url }) => {
+          const isExistingCheck = url.searchParams.get('plan_id') === `eq.${PLAN_ID}`;
+          if (!isExistingCheck) return [];
+          const expiryFilter = url.searchParams.get('or') || '';
+          expect(expiryFilter).toContain('expires_at.gt.');
+          return [];
+        },
+        profiles: () => null,
+        user_roles: () => [],
+      },
+      functions: {},
+    });
+
+    await page.goto(`/app/checkout/${EXPERT_SLUG}/${PLAN_ID}?cycle=monthly&utm_source=account_banner&utm_campaign=renewal`);
+
+    await expect(page.getByText('您已訂閱此方案')).toHaveCount(0);
+    const payButton = page.getByRole('button', { name: /LINE Pay 付款|綠界付款|ACpay 付款/ });
+    await expect(payButton).toBeVisible({ timeout: 8_000 });
+    await expect(payButton).toBeEnabled();
+  });
+
+  test('D: status=active 且 expires_at 尚未過期時，App checkout 仍應擋重複訂閱', async ({ page }) => {
+    await seedSession(page, USER);
+    const futureAt = new Date(Date.now() + 10 * 86400_000).toISOString();
+
+    await installRoutes(page, {
+      rest: {
+        expert_plans: () => ({
+          id: PLAN_ID,
+          name: '訊號月方案',
+          plan_type: 'analyst_signal_l1',
+          price_monthly: 599,
+          price_yearly: 5990,
+          description: '',
+          features: [],
+          expert_id: EXPERT_ID,
+          experts: {
+            id: EXPERT_ID,
+            name: 'Alice',
+            slug: EXPERT_SLUG,
+            avatar_url: '',
+            role: 'advisor',
+            status: 'active',
+          },
+        }),
+        member_subscriptions: ({ url }) => {
+          const isExistingCheck = url.searchParams.get('plan_id') === `eq.${PLAN_ID}`;
+          if (!isExistingCheck) return [];
+          const expiryFilter = url.searchParams.get('or') || '';
+          expect(expiryFilter).toContain('expires_at.gt.');
+          return [{ id: 'sub-live', plan_id: PLAN_ID, status: 'active', expires_at: futureAt }];
+        },
+        profiles: () => null,
+        user_roles: () => [],
+      },
+      functions: {},
+    });
+
+    await page.goto(`/app/checkout/${EXPERT_SLUG}/${PLAN_ID}`);
+
+    await expect(page.getByText('您已訂閱此方案')).toBeVisible({ timeout: 8_000 });
+    await expect(page.getByRole('button', { name: /LINE Pay 付款|綠界付款|ACpay 付款/ })).toBeDisabled();
+  });
+
 
   test('B: suspended 專家連結 → 顯示「此專家暫停服務」且不可付款', async ({ page }) => {
     await seedSession(page, USER);
