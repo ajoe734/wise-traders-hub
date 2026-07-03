@@ -188,6 +188,26 @@ const LegacyFreeCheckupRedirect = () => {
   return <Navigate to={`/holding-checkup${location.search}${location.hash}`} replace />;
 };
 
+const LegacyCheckoutRedirect = () => {
+  const { slug } = useParams<{ slug: string }>();
+  const location = useLocation();
+  const params = new URLSearchParams(location.search);
+  const planId = params.get('plan');
+
+  if (!slug || !planId) {
+    return <Navigate to="/app/account" replace />;
+  }
+
+  params.delete('plan');
+  const nextSearch = params.toString();
+  return (
+    <Navigate
+      to={`/app/checkout/${slug}/${planId}${nextSearch ? `?${nextSearch}` : ''}${location.hash}`}
+      replace
+    />
+  );
+};
+
 const RouteFallback = () => (
   <div style={{ minHeight: "60vh", display: "flex", alignItems: "center", justifyContent: "center" }}>
     <div className="h-8 w-8 rounded-full border-2 border-muted-foreground/30 border-t-muted-foreground animate-spin" />
@@ -219,6 +239,7 @@ const AppShell = () => (
             <Route path="/s/:slug" element={<ShortExpertRedirect />} />
             <Route path="/plan/:slug/:planId" element={<PlanDetail />} />
             <Route path="/checkout/:slug/:planId" element={<Checkout />} />
+            <Route path="/:slug/checkout" element={<LegacyCheckoutRedirect />} />
             <Route path="/checkout/checkup/:planId" element={<CheckupCheckout />} />
             <Route path="/pricing" element={<Pricing />} />
             <Route path="/holding-checkup" element={<CheckupModeProviderLazy><FreeCheckupPage /></CheckupModeProviderLazy>} />

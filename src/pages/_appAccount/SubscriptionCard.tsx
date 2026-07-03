@@ -88,6 +88,10 @@ export function SubscriptionCard({ sub, cancelingId, onCancel }: Props) {
               const isYearly = sub.billing_cycle === 'yearly';
               const threshold = isYearly ? 30 : 14;
               if (daysLeft > threshold || daysLeft < 0) return null;
+              const cycle = isYearly ? 'yearly' : 'monthly';
+              const renewTo = sub.expert.slug
+                ? `/app/checkout/${sub.expert.slug}/${sub.plan_id}?cycle=${cycle}&utm_source=account_card&utm_campaign=renewal`
+                : '/app/account';
               return (
                 <div className="mt-3 rounded-md border border-amber-300 bg-amber-50 dark:bg-amber-900/20 dark:border-amber-700 px-3 py-2 flex items-center justify-between gap-2">
                   <span className="text-xs text-amber-800 dark:text-amber-300">
@@ -95,7 +99,7 @@ export function SubscriptionCard({ sub, cancelingId, onCancel }: Props) {
                   </span>
                   <Button asChild size="sm" variant="outline" className="h-7 text-xs">
                     <Link
-                      to={`/${sub.expert.slug}/checkout?plan=${sub.plan_id}&cycle=${isYearly ? 'yearly' : 'monthly'}`}
+                      to={renewTo}
                       onClick={() => track('subscription_renew_click', { plan_id: sub.plan_id })}
                     >立即續訂</Link>
                   </Button>

@@ -44,12 +44,18 @@ export function PendingCheckoutCard() {
   useEffect(() => { load(); }, [user?.id]);
 
   const handleResume = (intent: PendingIntent) => {
-    let url = '/account';
-    const cycle = intent.billing_cycle ? `&cycle=${intent.billing_cycle}` : '';
-    if (intent.product_kind === 'expert_plan' && intent.expert_plans?.experts) {
-      url = `/${intent.expert_plans.experts.slug}/checkout?plan=${intent.plan_id}${cycle}&utm_source=account&utm_campaign=resume`;
-    } else if (intent.product_kind === 'checkup') {
-      url = `/checkup/checkout?plan=${intent.checkup_plan_id}${cycle}&utm_source=account&utm_campaign=resume`;
+    let url = '/app/account';
+    const params = new URLSearchParams();
+    if (intent.billing_cycle) params.set('cycle', intent.billing_cycle);
+    params.set('utm_source', 'account');
+    params.set('utm_campaign', 'resume');
+    const query = params.toString();
+    const suffix = query ? `?${query}` : '';
+
+    if (intent.product_kind === 'expert_plan' && intent.expert_plans?.experts?.slug && intent.plan_id) {
+      url = `/app/checkout/${intent.expert_plans.experts.slug}/${intent.plan_id}${suffix}`;
+    } else if (intent.product_kind === 'checkup' && intent.checkup_plan_id) {
+      url = `/checkout/checkup/${intent.checkup_plan_id}${suffix}`;
     }
     window.location.href = url;
   };
