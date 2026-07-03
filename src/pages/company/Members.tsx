@@ -22,10 +22,11 @@ export default function CompanyMembers() {
   const { data, isLoading } = useQuery<MemberStats>({
     queryKey: ['company', 'members-overview'],
     queryFn: async () => {
+      const nowIso = new Date().toISOString();
       const [usersRes, subsRes, checkupRes] = await Promise.all([
         supabase.functions.invoke('admin-manage-users', { body: { action: 'list', limit: 500 } }),
-        supabase.from('member_subscriptions').select('user_id, status, expires_at, expert_plans(name)').eq('status', 'active'),
-        supabase.from('checkup_subscriptions').select('user_id, status, expires_at, checkup_plans(name)').eq('status', 'active'),
+        supabase.from('member_subscriptions').select('user_id, status, expires_at, expert_plans(name)').eq('status', 'active').or(`expires_at.is.null,expires_at.gt.${nowIso}`),
+        supabase.from('checkup_subscriptions').select('user_id, status, expires_at, checkup_plans(name)').eq('status', 'active').or(`expires_at.is.null,expires_at.gt.${nowIso}`),
       ]);
       const users: any[] = usersRes.data?.users || [];
       const todayStart = new Date();

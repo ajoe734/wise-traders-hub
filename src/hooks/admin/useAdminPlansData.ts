@@ -55,12 +55,14 @@ export function useAdminPlansData(expertSlug: string | undefined) {
       const list = (ps || []) as AdminPlan[];
       const counts: Record<string, number> = {};
       if (list.length > 0) {
+        const nowIso = new Date().toISOString();
         const ids = list.map((p) => p.id);
         const { data: subs } = await supabase
           .from('member_subscriptions')
           .select('plan_id')
           .in('plan_id', ids)
-          .eq('status', 'active');
+          .eq('status', 'active')
+          .or(`expires_at.is.null,expires_at.gt.${nowIso}`);
         ids.forEach((id) => (counts[id] = 0));
         (subs || []).forEach((s) => {
           counts[s.plan_id] = (counts[s.plan_id] || 0) + 1;

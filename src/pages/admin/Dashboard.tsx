@@ -29,13 +29,14 @@ const AdminDashboard = () => {
       const { data: exp } = await supabase.from('experts').select('*').eq('slug', expertSlug!).single();
       if (!exp) return null;
       const now = new Date();
+      const nowIso = now.toISOString();
       const monthStart = new Date(now.getFullYear(), now.getMonth(), 1).toISOString();
       const yearStart = new Date(now.getFullYear(), 0, 1).toISOString();
 
       const planIds = (await supabase.from('expert_plans').select('id').eq('expert_id', exp.id)).data?.map(p => p.id) || [];
 
       const [subsRes, signalsRes, monthSignalsRes, perfRes, recentRes, txMonthRes, txYearRes] = await Promise.all([
-        supabase.from('member_subscriptions').select('id', { count: 'exact', head: true }).eq('status', 'active').in('plan_id', planIds.length ? planIds : ['00000000-0000-0000-0000-000000000000']),
+        supabase.from('member_subscriptions').select('id', { count: 'exact', head: true }).eq('status', 'active').or(`expires_at.is.null,expires_at.gt.${nowIso}`).in('plan_id', planIds.length ? planIds : ['00000000-0000-0000-0000-000000000000']),
         supabase.from('expert_signals').select('id', { count: 'exact', head: true }).eq('expert_id', exp.id).in('status', ['published', 'pending']),
         supabase.from('expert_signals').select('id', { count: 'exact', head: true }).eq('expert_id', exp.id).in('status', ['published', 'pending']).gte('created_at', monthStart),
         supabase.rpc('calculate_expert_performance', { _expert_id: exp.id }),
