@@ -221,6 +221,8 @@ function HoldingCardImpl(props) {
         onKeyDown={handleKeyDown}
         aria-label={ariaLabel}
         aria-pressed={isActive}
+        aria-busy={isCardSyncing || undefined}
+        aria-describedby={describedByIds}
         style={{
           position: 'relative',
           minHeight: MIN_H,
@@ -367,6 +369,8 @@ function HoldingCardImpl(props) {
       onKeyDown={handleKeyDown}
       aria-label={ariaLabel}
       aria-pressed={isActive}
+      aria-busy={isCardSyncing || undefined}
+      aria-describedby={describedByIds}
       style={{
         position: 'relative',
         minHeight: MIN_H,
