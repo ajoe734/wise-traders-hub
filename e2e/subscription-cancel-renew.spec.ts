@@ -76,8 +76,11 @@ test.describe('F3 訂閱取消 / 續訂事件', () => {
     const href = await renewLink.getAttribute('href');
     expect(href).toMatch(/^\/app\/checkout\//);
     expect(href).not.toContain('/checkout?plan=');
-    // Intercept the navigation so we stay on the page to read events
-    await renewLink.click({ button: 'left', modifiers: ['Meta'] }).catch(() => renewLink.click());
+    // Keep the current document alive so the in-page funnel collector can read the click event.
+    await renewLink.evaluate((node) => {
+      node.addEventListener('click', (event) => event.preventDefault(), { once: true });
+      (node as HTMLElement).click();
+    });
 
     const events = await readFunnelEvents(page);
     expect(eventNames(events)).toContain('subscription_renew_click');
