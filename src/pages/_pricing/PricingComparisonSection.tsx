@@ -69,19 +69,27 @@ export function PricingComparisonSection() {
 
       {/* Desktop table */}
       <div className="hidden md:block rounded-xl border border-border overflow-hidden bg-card">
-        <table className="w-full text-sm" data-testid="pricing-comparison-table">
+        <table
+          className="w-full text-sm"
+          data-testid="pricing-comparison-table"
+          aria-describedby="pricing-comparison-title"
+        >
+          <caption className="sr-only">
+            跟單派（分析師即時訂閱）與修煉派（實戰導師 T+7 週記）方案差異比較
+          </caption>
           <thead>
             <tr className="bg-muted/40">
-              <th className="text-left px-4 py-3 font-medium text-muted-foreground w-[22%]">
+              <th scope="col" className="text-left px-4 py-3 font-medium text-muted-foreground w-[22%]">
                 比較面向
               </th>
-              <th className="text-left px-4 py-3 font-semibold">
+              <th scope="col" className="text-left px-4 py-3 font-semibold">
                 <div className="flex items-center gap-2 text-advisor">
                   <Radio className="h-4 w-4" />
                   跟單派 · 分析師即時訂閱
                 </div>
               </th>
-              <th className="text-left px-4 py-3 font-semibold">
+              <th scope="col" className="text-left px-4 py-3 font-semibold">
+
                 <div className="flex items-center gap-2 text-mentor">
                   <BookOpen className="h-4 w-4" />
                   修煉派 · 實戰導師 T+7 週記
@@ -128,9 +136,13 @@ export function PricingComparisonSection() {
       </div>
 
       {/* Mobile stacked */}
-      <div className="md:hidden space-y-4">
+      <ul
+        className="md:hidden space-y-4 list-none p-0"
+        aria-label="方案差異比較（手機版逐列呈現）"
+        data-testid="pricing-comparison-stack"
+      >
         {ROWS.map((row) => (
-          <div
+          <li
             key={row.label}
             className="rounded-xl border border-border bg-card p-4"
           >
@@ -139,26 +151,27 @@ export function PricingComparisonSection() {
             </div>
             <div className="space-y-3">
               <div className="flex items-start gap-2">
-                <Radio className="h-4 w-4 text-advisor flex-shrink-0 mt-0.5" />
+                <Radio className="h-4 w-4 text-advisor flex-shrink-0 mt-0.5" aria-hidden="true" />
                 <div>
                   <div className="text-xs text-advisor font-semibold mb-0.5">跟單派</div>
                   <div className="text-sm text-foreground leading-relaxed">{row.follower}</div>
                 </div>
               </div>
               <div className="flex items-start gap-2 pt-3 border-t border-border/60">
-                <BookOpen className="h-4 w-4 text-mentor flex-shrink-0 mt-0.5" />
+                <BookOpen className="h-4 w-4 text-mentor flex-shrink-0 mt-0.5" aria-hidden="true" />
                 <div>
                   <div className="text-xs text-mentor font-semibold mb-0.5">修煉派</div>
                   <div className="text-sm text-foreground leading-relaxed">{row.cultivator}</div>
                 </div>
               </div>
             </div>
-          </div>
+          </li>
         ))}
-      </div>
+      </ul>
     </section>
   );
 }
+
 
 function ColMark({ on, tone }: { on: boolean; tone: 'advisor' | 'mentor' }) {
   if (!on) {

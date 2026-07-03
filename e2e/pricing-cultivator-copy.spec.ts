@@ -26,19 +26,31 @@ test.describe('Pricing 修煉派文案與比較區塊', () => {
     });
     expect(clipped.truncated).toBe(false);
 
-    // 展開修煉派卡片的「看完整內容」
+    // 展開修煉派卡片的「看完整內容」——同時驗證 Radix Accordion
+    // 有正確的 aria-expanded / aria-controls，並在展開後指向可見的 region。
     const cultivatorCard = page.locator('#cultivator-card');
     await expect(cultivatorCard).toBeVisible();
-    await cultivatorCard.getByRole('button', { name: '看完整內容' }).click();
+    const trigger = cultivatorCard.getByRole('button', { name: '看完整內容' });
+    await expect(trigger).toHaveAttribute('aria-expanded', 'false');
+    const controlsId = await trigger.getAttribute('aria-controls');
+    expect(controlsId, 'accordion trigger 必須有 aria-controls 指向內容 region').toBeTruthy();
+
+    await trigger.click();
+    await expect(trigger).toHaveAttribute('aria-expanded', 'true');
+    // aria-controls 指向的 region 展開後必須實際渲染於 DOM 且可見
+    // （Radix 產生的 id 帶 ":"，需用屬性選擇器避開 CSS pseudo）
+    const region = page.locator(`[id="${controlsId}"]`);
+    await expect(region).toBeVisible();
+
 
     const mindset = page.getByTestId('cultivator-mindset-points');
     await expect(mindset).toBeVisible();
     await expect(mindset).toContainText('心法決定下週出手');
-    // 4 條學習重點
     await expect(mindset.locator('li')).toHaveCount(4);
     await expect(mindset).toContainText('復盤');
     await expect(mindset).toContainText('框架');
   });
+
 
   test('desktop：方案差異比較區塊有完整 6 列且雙欄描述皆非空', async ({ page }) => {
     await page.setViewportSize({ width: 1280, height: 900 });
@@ -48,6 +60,17 @@ test.describe('Pricing 修煉派文案與比較區塊', () => {
     await expect(table).toBeVisible();
     await expect(table).toContainText('分析師即時訂閱');
     await expect(table).toContainText('實戰導師 T+7 週記');
+
+    // 表格具備可存取結構：aria-describedby → section title，thead 每個 th 有 scope
+    await expect(table).toHaveAttribute('aria-describedby', 'pricing-comparison-title');
+    const scopes = await table.locator('thead th').evaluateAll((els) =>
+      els.map((el) => el.getAttribute('scope')),
+    );
+    expect(scopes.every((s) => s === 'col')).toBe(true);
+
+    // section 有可識別的 landmark（aria-labelledby 指向標題）
+    const section = page.getByTestId('pricing-comparison-section');
+    await expect(section).toHaveAttribute('aria-labelledby', 'pricing-comparison-title');
 
     const rows = table.locator('tbody tr');
     await expect(rows).toHaveCount(6);
@@ -62,6 +85,7 @@ test.describe('Pricing 修煉派文案與比較區塊', () => {
       expect(cultivator.length).toBeGreaterThan(4);
     }
   });
+
 
   test('mobile 390：修煉派 painPoint 不會被截斷、比較區塊以 stacked 卡片呈現', async ({ page }) => {
     await page.setViewportSize({ width: 390, height: 844 });
@@ -82,11 +106,17 @@ test.describe('Pricing 修煉派文案與比較區塊', () => {
     }));
     expect(clipped.truncated).toBe(false);
 
-    // 桌面版 table 隱藏、手機版比較卡片可見
+    // 桌面版 table 隱藏、手機版比較卡片（<ul>）可見且掛 aria-label
     await expect(page.getByTestId('pricing-comparison-table')).toBeHidden();
+    const stack = page.getByTestId('pricing-comparison-stack');
+    await expect(stack).toBeVisible();
+    await expect(stack).toHaveAttribute('aria-label', /方案差異比較/);
+    // 6 個比較面向以 <li> 呈現
+    await expect(stack.locator('> li')).toHaveCount(6);
+
     const section = page.getByTestId('pricing-comparison-section');
-    await expect(section).toBeVisible();
     await expect(section).toContainText('T+7 週記');
     await expect(section).toContainText('心法');
   });
+
 });

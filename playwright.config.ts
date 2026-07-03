@@ -339,6 +339,13 @@ export default defineConfig({
       testMatch: /pricing-cultivator-copy\.spec\.ts/,
       use: { ...devices['Desktop Chrome'], viewport: { width: 1280, height: 900 } },
     },
+    {
+      // Pricing → Checkout：CTA 導向、ACTIVE 訂閱、成功 toast 走 aria-live
+      name: 'desktop-pricing-checkout-active-aria',
+      testMatch: /pricing-checkout-active-aria\.spec\.ts/,
+      use: { ...devices['Desktop Chrome'], viewport: { width: 1280, height: 900 } },
+    },
+
   ],
   webServer: {
     command: 'bun run dev',
