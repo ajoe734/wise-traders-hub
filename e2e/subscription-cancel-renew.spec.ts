@@ -33,6 +33,12 @@ function baseRoutes(extra: { subStatus?: 'active'; expiresInDays?: number; autoR
           started_at: new Date(Date.now() - 30 * 86400_000).toISOString(),
           expires_at: expires,
           canceled_at: null,
+          expert_plans: {
+            name: '訊號方案',
+            price_monthly: 599,
+            price_yearly: 5990,
+            experts: { name: 'Alice', slug: EXPERT_SLUG },
+          },
         }];
       },
       expert_plans: () => [{
@@ -87,6 +93,21 @@ test.describe('F3 訂閱取消 / 續訂事件', () => {
     expect(eventNames(events)).toContain('subscription_renew_click');
     const ev = events.find((e) => e.event_name === 'subscription_renew_click');
     expect(ev?.event_props).toMatchObject({ plan_id: PLAN_ID });
+  });
+
+  test('過期但 status 仍為 active 時，「立即續訂」導向 App checkout 且帳號頁不顯示有效訂閱卡', async ({ page }) => {
+    await seedSession(page, USER);
+    await installFunnelCollector(page);
+    await installRoutes(page, baseRoutes({ billing: 'monthly', expiresInDays: -2 }));
+
+    await page.goto('/app/account');
+    await expect(page.getByRole('link', { name: /立即續訂/ })).toBeVisible({ timeout: 8_000 });
+    await expect(page.getByText('尚無訂閱')).toBeVisible();
+    await expect(page.getByText('到期後手動續訂')).toHaveCount(0);
+
+    const renewLink = page.getByRole('link', { name: /立即續訂/ });
+    const href = await renewLink.getAttribute('href');
+    expect(href).toBe(`/app/checkout/${EXPERT_SLUG}/${PLAN_ID}?cycle=monthly&utm_source=account_banner&utm_campaign=renewal`);
   });
 
   test('legacy 續訂網址 /:slug/checkout?plan=... 會導到 /app/checkout/:slug/:planId', async ({ page }) => {

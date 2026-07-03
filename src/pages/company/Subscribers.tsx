@@ -79,7 +79,9 @@ const CompanySubscribers = () => {
   const { identities } = useUserIdentities(userIds);
   const loading = isFetching && !data;
 
-  const activeCount = rows.filter(s => s.status === 'active').length;
+  const nowMs = Date.now();
+  const isLive = (s: Row) => s.status === 'active' && (!s.expires_at || new Date(s.expires_at).getTime() > nowMs);
+  const activeCount = rows.filter(isLive).length;
   const totalCount = rows.filter(s => s.status !== 'canceled').length;
   const expiredCount = rows.filter(s => s.status === 'expired').length;
   const canceledCount = rows.filter(s => s.status === 'canceled').length;

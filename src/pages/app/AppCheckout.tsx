@@ -40,7 +40,9 @@ const AppCheckout = () => {
   const { user } = useAuth();
   
   const [billingCycle, setBillingCycle] = useState<"monthly" | "yearly">(
-    (searchParams.get("billingCycle") as "monthly" | "yearly") || "monthly"
+    searchParams.get("billingCycle") === "yearly" || searchParams.get("cycle") === "yearly"
+      ? "yearly"
+      : "monthly"
   );
   const [paymentMethod, setPaymentMethod] = useState<"line_pay" | "ecpay" | "acpay">(() => {
     const m = (searchParams.get("method") || "").toLowerCase();
@@ -82,12 +84,14 @@ const AppCheckout = () => {
   useEffect(() => {
     const checkExisting = async () => {
       if (!user || !planId) return;
+      const nowIso = new Date().toISOString();
       const { data } = await supabase
         .from('member_subscriptions')
-        .select('id')
+        .select('id, expires_at')
         .eq('user_id', user.id)
         .eq('plan_id', planId)
         .eq('status', 'active')
+        .or(`expires_at.is.null,expires_at.gt.${nowIso}`)
         .maybeSingle();
       setExistingSubscription(!!data);
     };

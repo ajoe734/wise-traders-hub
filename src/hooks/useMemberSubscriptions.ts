@@ -35,11 +35,13 @@ export function useMemberSubscriptions() {
     queryKey: ['member-subscriptions', effectiveUserId, isViewAs],
     queryFn: async (): Promise<MemberSubscriptionRow[]> => {
       if (!effectiveUserId) return [];
+      const nowIso = new Date().toISOString();
       const { data, error } = await supabase
         .from('member_subscriptions')
         .select('*, expert_plans(*, experts(id, slug, name, avatar_url, role, status, line_oa_id, line_channel_name, qr_code_url))')
         .eq('user_id', effectiveUserId)
-        .eq('status', 'active');
+        .eq('status', 'active')
+        .or(`expires_at.is.null,expires_at.gt.${nowIso}`);
       if (error) throw error;
       const rows = (data || [])
         .map((s: any) => {

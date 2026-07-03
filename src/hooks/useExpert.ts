@@ -264,11 +264,13 @@ export function useExpertDetailBundle(slug: string | undefined) {
       if (isViewAs && effectiveUserId && expert) {
         const planIds = expert.plans.map((p) => p.id);
         if (planIds.length > 0) {
+          const nowIso = new Date().toISOString();
           const { data: rows } = await supabase
             .from('member_subscriptions')
             .select('plan_id')
             .eq('user_id', effectiveUserId)
             .eq('status', 'active')
+            .or(`expires_at.is.null,expires_at.gt.${nowIso}`)
             .in('plan_id', planIds);
           mine = new Set<string>((rows || []).map((r: any) => r.plan_id));
         } else {
@@ -324,6 +326,7 @@ export function useExpertSubscriptionStats(
       if (ids.length === 0) {
         return { mySubscribedPlanIds: new Set<string>(), subscriberCount: 0 };
       }
+      const nowIso = new Date().toISOString();
 
       const mineP = effectiveUserId
         ? supabase
@@ -331,6 +334,7 @@ export function useExpertSubscriptionStats(
             .select('plan_id')
             .eq('user_id', effectiveUserId)
             .eq('status', 'active')
+            .or(`expires_at.is.null,expires_at.gt.${nowIso}`)
             .in('plan_id', ids)
         : Promise.resolve({ data: [] as { plan_id: string }[] });
 
@@ -338,7 +342,8 @@ export function useExpertSubscriptionStats(
         .from('member_subscriptions')
         .select('id', { count: 'exact', head: true })
         .in('plan_id', ids)
-        .eq('status', 'active');
+        .eq('status', 'active')
+        .or(`expires_at.is.null,expires_at.gt.${nowIso}`);
 
       const [{ data: mine }, { count }] = await Promise.all([mineP, countP]);
       return {

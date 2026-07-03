@@ -50,12 +50,14 @@ export async function fetchSubscriberSignals(
   previewExpertId: string | null = null,
 ): Promise<FetchSubscriberSignalsResult> {
   if (!userId) return { signals: [], hasSubscription: false };
+  const nowIso = new Date().toISOString();
 
   const { data: activeSubs, error: subsError } = await supabase
     .from('member_subscriptions')
     .select('plan_id, expert_plans(expert_id)')
     .eq('user_id', userId)
-    .eq('status', 'active');
+    .eq('status', 'active')
+    .or(`expires_at.is.null,expires_at.gt.${nowIso}`);
 
   if (subsError) return { signals: [], hasSubscription: false };
 

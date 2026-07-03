@@ -35,14 +35,16 @@ export function useCrossProductDiscount(args: {
         setState({ amount: 0, reason: null, loading: false });
         return;
       }
+      const nowIso = new Date().toISOString();
       const [{ data: settings }, { data: expertSubs }, { data: ckSubs }] = await Promise.all([
         (supabase.from as any)('payment_settings_safe').select('value').eq('key', 'cross_discounts').maybeSingle(),
-        supabase.from('member_subscriptions').select('id').eq('user_id', effectiveUserId).eq('status', 'active'),
+        supabase.from('member_subscriptions').select('id').eq('user_id', effectiveUserId).eq('status', 'active').or(`expires_at.is.null,expires_at.gt.${nowIso}`),
         supabase
           .from('checkup_subscriptions')
           .select('id, plan_id, checkup_plans(tier)')
           .eq('user_id', effectiveUserId)
-          .eq('status', 'active'),
+          .eq('status', 'active')
+          .or(`expires_at.is.null,expires_at.gt.${nowIso}`),
       ]);
 
       const rules = (settings?.value as any) || DEFAULT_RULES;

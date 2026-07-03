@@ -59,6 +59,7 @@ export function useCheckoutData(params: {
   useEffect(() => {
     const fetchData = async () => {
       if (!planId || !slug) return;
+      const nowIso = new Date().toISOString();
       const [planRes, providerRes, subsRes] = await Promise.all([
         supabase
           .from('expert_plans')
@@ -73,10 +74,11 @@ export function useCheckoutData(params: {
         userId
           ? supabase
               .from('member_subscriptions')
-              .select('id')
+              .select('id, expires_at')
               .eq('user_id', userId)
               .eq('plan_id', planId)
               .eq('status', 'active')
+              .or(`expires_at.is.null,expires_at.gt.${nowIso}`)
           : Promise.resolve({ data: null as { id: string }[] | null }),
       ]);
 
@@ -114,12 +116,14 @@ export function useCheckoutData(params: {
       if (!userId || billingCycle !== 'yearly' || !plan?.price_yearly) {
         setUpgradeCredit(0); setUpgradeFromSubId(null); return;
       }
+      const nowIso = new Date().toISOString();
       const { data: existing } = await supabase
         .from('member_subscriptions')
         .select('id, started_at, expires_at')
         .eq('user_id', userId)
         .eq('plan_id', plan.id)
         .eq('status', 'active')
+        .or(`expires_at.is.null,expires_at.gt.${nowIso}`)
         .maybeSingle();
       if (!existing) { setUpgradeCredit(0); setUpgradeFromSubId(null); return; }
       const startedAt = new Date(existing.started_at);

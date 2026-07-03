@@ -57,12 +57,14 @@ export function useSubscriptionConfirmation(opts: Options) {
     };
 
     const checkExisting = async () => {
+      const nowIso = new Date().toISOString();
       const { data } = await supabase
         .from(opts.table)
         .select('id')
         .eq('user_id', opts.userId!)
         .eq('plan_id', opts.planId!)
-        .eq('status', 'active');
+        .eq('status', 'active')
+        .or(`expires_at.is.null,expires_at.gt.${nowIso}`);
       if (data && data.length > 0) finish({ success: true });
     };
 
@@ -78,7 +80,8 @@ export function useSubscriptionConfirmation(opts: Options) {
         },
         (payload) => {
           const row = payload.new as any;
-          if (row.plan_id === opts.planId && row.status === 'active') {
+          const expiresAt = row.expires_at ? new Date(row.expires_at).getTime() : Number.POSITIVE_INFINITY;
+          if (row.plan_id === opts.planId && row.status === 'active' && expiresAt > Date.now()) {
             finish({ success: true });
           }
         }
@@ -89,12 +92,14 @@ export function useSubscriptionConfirmation(opts: Options) {
     const pollTimer = pollInterval > 0
       ? setInterval(async () => {
           if (resolved) return;
+          const nowIso = new Date().toISOString();
           const { data } = await supabase
             .from(opts.table)
             .select('id')
             .eq('user_id', opts.userId!)
             .eq('plan_id', opts.planId!)
-            .eq('status', 'active');
+            .eq('status', 'active')
+            .or(`expires_at.is.null,expires_at.gt.${nowIso}`);
           if (data && data.length > 0) finish({ success: true });
         }, pollInterval)
       : (undefined as unknown as ReturnType<typeof setInterval>);
