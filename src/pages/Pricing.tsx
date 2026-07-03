@@ -9,6 +9,7 @@ import { PricingPlanCard, type PricingPlan } from './_pricing/PricingPlanCard';
 import { PricingExampleModal } from './_pricing/PricingExampleModal';
 import { PricingFaq } from './_pricing/PricingFaq';
 import { CheckupPlansSection } from './_pricing/CheckupPlansSection';
+import { PricingComparisonSection } from './_pricing/PricingComparisonSection';
 import { trackEvent } from '@/lib/trafficTracker';
 import { track } from '@/lib/analytics/events';
 
