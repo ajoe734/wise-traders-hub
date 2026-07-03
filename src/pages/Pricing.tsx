@@ -289,6 +289,8 @@ const Pricing = () => {
           activeExample={activeExample}
         />
 
+        <PricingComparisonSection />
+
         <CheckupPlansSection />
 
         <PricingFaq />
