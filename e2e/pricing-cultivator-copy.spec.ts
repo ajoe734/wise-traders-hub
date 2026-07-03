@@ -104,11 +104,17 @@ test.describe('Pricing 修煉派文案與比較區塊', () => {
     }));
     expect(clipped.truncated).toBe(false);
 
-    // 桌面版 table 隱藏、手機版比較卡片可見
+    // 桌面版 table 隱藏、手機版比較卡片（<ul>）可見且掛 aria-label
     await expect(page.getByTestId('pricing-comparison-table')).toBeHidden();
+    const stack = page.getByTestId('pricing-comparison-stack');
+    await expect(stack).toBeVisible();
+    await expect(stack).toHaveAttribute('aria-label', /方案差異比較/);
+    // 6 個比較面向以 <li> 呈現
+    await expect(stack.locator('> li')).toHaveCount(6);
+
     const section = page.getByTestId('pricing-comparison-section');
-    await expect(section).toBeVisible();
     await expect(section).toContainText('T+7 週記');
     await expect(section).toContainText('心法');
   });
+
 });
