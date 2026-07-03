@@ -115,7 +115,7 @@ const Pricing = () => {
       title: '每週交易紀錄與心法公開',
       icon: BookOpen,
       price: bundle?.minMentorPrice ? bundle.minMentorPrice.toLocaleString() : '請洽詢',
-      painPoint: '給我全部，練出自己的投資秘笈',
+      painPoint: '週末才有空，利用老師的心法決定下週出手',
       quickChips: ['每週復盤', '決策依據', '框架整理'],
       features: ['上週決策復盤', '出手依據拆解', '避雷交易紀律', '框架筆記整理'],
       cta: '/experts?role=mentor',
