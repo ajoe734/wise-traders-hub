@@ -115,14 +115,19 @@ test.describe('HoldingCard aria-busy + Error banner a11y', () => {
     await page.getByRole('button', { name: /立即更新|同步中|重試/ }).first().click()
     await expect(page.locator('[data-testid="sync-error-banner"]')).toBeVisible({ timeout: 15000 })
 
-    // 第 2、3 次：點 banner 的「重試」按鈕
+    // 第 2、3 次：點 banner 的「重試」按鈕；輪詢直到 exhausted 為止
     const retry = page.locator('[data-testid="sync-error-retry"]')
-    for (let i = 0; i < 2; i++) {
+    const title = page.locator('[data-testid="sync-error-banner-title"]')
+    for (let i = 0; i < 6; i++) {
+      const t = ((await title.textContent()) || '').trim()
+      if (/連續失敗/.test(t)) break
       await expect(retry).toBeEnabled({ timeout: 15000 })
       await retry.click()
-      // 等這一輪 syncing 結束（按鈕文字從「重試中…」變回「重試」）
+      // 等這一輪 debounce+syncing 結束（按鈕文字回到「重試」）
       await expect(retry).toHaveText(/^重試$/, { timeout: 15000 })
+      await page.waitForTimeout(200)
     }
+
 
     // exhausted 提示區出現
     const hint = page.locator('[data-testid="sync-error-exhausted-hint"]')
