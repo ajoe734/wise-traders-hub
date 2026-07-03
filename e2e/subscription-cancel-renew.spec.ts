@@ -81,6 +81,7 @@ test.describe('F3 訂閱取消 / 續訂事件', () => {
       node.addEventListener('click', (event) => event.preventDefault(), { once: true });
       (node as HTMLElement).click();
     });
+    await page.waitForTimeout(1_600);
 
     const events = await readFunnelEvents(page);
     expect(eventNames(events)).toContain('subscription_renew_click');
