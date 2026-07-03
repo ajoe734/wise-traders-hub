@@ -133,6 +133,8 @@ function HoldingCardImpl(props) {
   const isCardSyncing = !!(syncState?.syncing || h._syncing);
   const cardSyncError = syncState?.error || h._syncError || null;
   const cardLabel = `${h.name || ''} ${h.code}`.trim();
+  const errStripId = `holding-card-error-${h.code}`;
+  const statusRegionId = `holding-card-status-${h.code}`;
   const SyncOverlay = isCardSyncing ? (
     <div
       data-testid="holding-card-loading"
@@ -148,6 +150,7 @@ function HoldingCardImpl(props) {
   ) : null;
   const SyncErrorStrip = cardSyncError ? (
     <div
+      id={errStripId}
       data-testid="holding-card-error"
       role="alert"
       aria-live="assertive"
@@ -167,9 +170,11 @@ function HoldingCardImpl(props) {
       </span>
     </div>
   ) : null;
+
   // 螢幕閱讀器可讀的同步狀態播報（polite，不打斷用戶）
   const SyncSrStatus = (
     <span
+      id={statusRegionId}
       role="status"
       aria-live="polite"
       aria-atomic="true"
@@ -185,6 +190,14 @@ function HoldingCardImpl(props) {
           : (h.priceUpdatedAt ? `${cardLabel} 現價已更新` : '')}
     </span>
   );
+
+  // 讓 SR / 自動化測試能夠從 button 追到當前狀態或錯誤訊息
+  const describedByIds = [
+    cardSyncError ? errStripId : null,
+    isCardSyncing ? statusRegionId : null,
+  ].filter(Boolean).join(' ') || undefined;
+
+
 
 
   const handleClick = () => { trackRaw('checkup_holding_expand', { code: h.code }); onSelect(h.code); };
