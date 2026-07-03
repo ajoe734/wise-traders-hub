@@ -69,19 +69,27 @@ export function PricingComparisonSection() {
 
       {/* Desktop table */}
       <div className="hidden md:block rounded-xl border border-border overflow-hidden bg-card">
-        <table className="w-full text-sm" data-testid="pricing-comparison-table">
+        <table
+          className="w-full text-sm"
+          data-testid="pricing-comparison-table"
+          aria-describedby="pricing-comparison-title"
+        >
+          <caption className="sr-only">
+            跟單派（分析師即時訂閱）與修煉派（實戰導師 T+7 週記）方案差異比較
+          </caption>
           <thead>
             <tr className="bg-muted/40">
-              <th className="text-left px-4 py-3 font-medium text-muted-foreground w-[22%]">
+              <th scope="col" className="text-left px-4 py-3 font-medium text-muted-foreground w-[22%]">
                 比較面向
               </th>
-              <th className="text-left px-4 py-3 font-semibold">
+              <th scope="col" className="text-left px-4 py-3 font-semibold">
                 <div className="flex items-center gap-2 text-advisor">
                   <Radio className="h-4 w-4" />
                   跟單派 · 分析師即時訂閱
                 </div>
               </th>
-              <th className="text-left px-4 py-3 font-semibold">
+              <th scope="col" className="text-left px-4 py-3 font-semibold">
+
                 <div className="flex items-center gap-2 text-mentor">
                   <BookOpen className="h-4 w-4" />
                   修煉派 · 實戰導師 T+7 週記
