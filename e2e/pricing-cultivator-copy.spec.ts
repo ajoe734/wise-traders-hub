@@ -38,8 +38,10 @@ test.describe('Pricing 修煉派文案與比較區塊', () => {
     await trigger.click();
     await expect(trigger).toHaveAttribute('aria-expanded', 'true');
     // aria-controls 指向的 region 展開後必須實際渲染於 DOM 且可見
-    const region = page.locator(`#${controlsId}`);
+    // （Radix 產生的 id 帶 ":"，需用屬性選擇器避開 CSS pseudo）
+    const region = page.locator(`[id="${controlsId}"]`);
     await expect(region).toBeVisible();
+
 
     const mindset = page.getByTestId('cultivator-mindset-points');
     await expect(mindset).toBeVisible();
