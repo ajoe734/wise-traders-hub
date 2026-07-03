@@ -136,9 +136,13 @@ export function PricingComparisonSection() {
       </div>
 
       {/* Mobile stacked */}
-      <div className="md:hidden space-y-4">
+      <ul
+        className="md:hidden space-y-4 list-none p-0"
+        aria-label="方案差異比較（手機版逐列呈現）"
+        data-testid="pricing-comparison-stack"
+      >
         {ROWS.map((row) => (
-          <div
+          <li
             key={row.label}
             className="rounded-xl border border-border bg-card p-4"
           >
@@ -147,26 +151,27 @@ export function PricingComparisonSection() {
             </div>
             <div className="space-y-3">
               <div className="flex items-start gap-2">
-                <Radio className="h-4 w-4 text-advisor flex-shrink-0 mt-0.5" />
+                <Radio className="h-4 w-4 text-advisor flex-shrink-0 mt-0.5" aria-hidden="true" />
                 <div>
                   <div className="text-xs text-advisor font-semibold mb-0.5">跟單派</div>
                   <div className="text-sm text-foreground leading-relaxed">{row.follower}</div>
                 </div>
               </div>
               <div className="flex items-start gap-2 pt-3 border-t border-border/60">
-                <BookOpen className="h-4 w-4 text-mentor flex-shrink-0 mt-0.5" />
+                <BookOpen className="h-4 w-4 text-mentor flex-shrink-0 mt-0.5" aria-hidden="true" />
                 <div>
                   <div className="text-xs text-mentor font-semibold mb-0.5">修煉派</div>
                   <div className="text-sm text-foreground leading-relaxed">{row.cultivator}</div>
                 </div>
               </div>
             </div>
-          </div>
+          </li>
         ))}
-      </div>
+      </ul>
     </section>
   );
 }
+
 
 function ColMark({ on, tone }: { on: boolean; tone: 'advisor' | 'mentor' }) {
   if (!on) {
