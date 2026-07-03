@@ -336,11 +336,15 @@ export default function App() {
       let demoPartialFail = false;
       try {
         const sp = new URLSearchParams(window.location.search);
-        if (sp.get('demoSyncError') === '1') {
+        const errFlag = sp.get('demoSyncError');
+        if (errFlag === '1' || errFlag === 'sticky') {
           demoShouldFail = true;
-          sp.delete('demoSyncError');
-          const qs = sp.toString();
-          window.history.replaceState({}, '', window.location.pathname + (qs ? `?${qs}` : '') + window.location.hash);
+          // sticky: 保留 flag，讓連續重試都會失敗（用來測試 exhausted / 退避提示）
+          if (errFlag !== 'sticky') {
+            sp.delete('demoSyncError');
+            const qs = sp.toString();
+            window.history.replaceState({}, '', window.location.pathname + (qs ? `?${qs}` : '') + window.location.hash);
+          }
         }
         if (sp.get('demoMarketOpen') === '1') demoMarketOpen = true;
         if (sp.get('demoPartialFail') === '1') demoPartialFail = true;
@@ -3396,9 +3400,11 @@ ${JSON.stringify(strategyBrain || { rules: [], lessons: [], commonMistakes: [], 
         {/* H4/H5 recompute UI：換價 / 排程失敗的持久錯誤 + 重試 */}
         {syncError && (
           <div
-            role="alert"
+            role="alertdialog"
             aria-live="assertive"
             aria-atomic="true"
+            aria-labelledby="sync-error-banner-title"
+            aria-describedby="sync-error-banner-message sync-error-banner-detail"
             data-testid="sync-error-banner"
             style={{
               margin:'8px 0 4px', padding:'8px 12px',
@@ -3409,12 +3415,24 @@ ${JSON.stringify(strategyBrain || { rules: [], lessons: [], commonMistakes: [], 
             }}>
 
             <div style={{display:'flex',flexDirection:'column',gap:2,flex:'1 1 240px',minWidth:0}}>
+              {/* 可辨識標題（h4）—— 提供螢幕閱讀器導覽用的區段名稱 */}
+              <h4
+                id="sync-error-banner-title"
+                data-testid="sync-error-banner-title"
+                style={{
+                  margin:0, fontSize:11, fontWeight:700,
+                  color:C.down, letterSpacing:'0.08em', textTransform:'uppercase',
+                }}>
+                {syncError.exhausted ? '報價同步連續失敗' : (syncError.partial ? '部分報價同步失敗' : '報價同步失敗')}
+              </h4>
               <span
+                id="sync-error-banner-message"
                 data-testid="sync-error-message"
                 style={{fontSize:11,fontWeight:600,color:C.down,letterSpacing:'0.04em',wordBreak:'break-word'}}>
                 ✕ {syncError.message}
               </span>
               <span
+                id="sync-error-banner-detail"
                 data-testid="sync-error-detail"
                 style={{fontSize:10,color:C.textSec,fontWeight:500,letterSpacing:'0.02em'}}>
                 {syncError.httpStatus != null && syncError.httpStatus !== 0 ? `HTTP ${syncError.httpStatus}` : (syncError.httpStatus === 0 ? '網路/無回應' : '')}
@@ -3422,8 +3440,26 @@ ${JSON.stringify(strategyBrain || { rules: [], lessons: [], commonMistakes: [], 
                 {syncError.attempts ? `　嘗試 ${syncError.attempts} 次` : ''}
                 {syncError.exhausted ? '　⚠︎ 建議重新整理或稍後再試' : ''}
               </span>
+              {syncError.exhausted && (
+                <div
+                  data-testid="sync-error-exhausted-hint"
+                  role="group"
+                  aria-label="連續失敗後的建議動作"
+                  style={{display:'flex',gap:8,alignItems:'center',marginTop:4,flexWrap:'wrap'}}>
+                  <button
+                    type="button"
+                    data-testid="sync-error-refresh"
+                    onClick={() => { try { window.location.reload(); } catch {} }}
+                    style={{
+                      background:'transparent', color:C.down, border:`1px solid ${alpha(C.down,'66')}`,
+                      borderRadius:6, padding:'3px 8px', fontSize:11, fontWeight:600, cursor:'pointer',
+                    }}>手動重新整理頁面</button>
+                  <span style={{fontSize:10,color:C.textSec}}>或稍後再試</span>
+                </div>
+              )}
             </div>
             <button
+              type="button"
               onClick={triggerServerSync}
               disabled={serverSyncing}
               data-testid="sync-error-retry"
@@ -3435,6 +3471,7 @@ ${JSON.stringify(strategyBrain || { rules: [], lessons: [], commonMistakes: [], 
                 letterSpacing:'0.04em',
               }}>{serverSyncing ? '重試中…' : '重試'}</button>
             <button
+              type="button"
               data-testid="sync-error-copy"
               onClick={async () => {
                 const text = [
@@ -3460,7 +3497,17 @@ ${JSON.stringify(strategyBrain || { rules: [], lessons: [], commonMistakes: [], 
                 background:'transparent', color:C.text, border:`1px solid ${C.border}`,
                 borderRadius:6, padding:'3px 8px', fontSize:11, cursor:'pointer',
               }}>{syncCopyState === 'copied' ? '✓ 已複製' : '複製錯誤內容'}</button>
+            {/* 複製成功的 aria-live 播報：politie 不打斷、但螢幕閱讀器會即時讀出 */}
+            <span
+              role="status"
+              aria-live="polite"
+              aria-atomic="true"
+              data-testid="sync-copy-status"
+              style={{position:'absolute',width:1,height:1,padding:0,margin:-1,overflow:'hidden',clip:'rect(0 0 0 0)',whiteSpace:'nowrap',border:0}}>
+              {syncCopyState === 'copied' ? '錯誤內容已複製到剪貼簿' : ''}
+            </span>
             <button
+              type="button"
               onClick={() => setSyncError(null)}
               aria-label="關閉錯誤提示"
               style={{
