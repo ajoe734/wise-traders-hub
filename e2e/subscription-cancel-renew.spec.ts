@@ -75,12 +75,35 @@ test.describe('F3 訂閱取消 / 續訂事件', () => {
     await expect(renewLink).toBeVisible();
     const href = await renewLink.getAttribute('href');
     expect(href).toMatch(/^\/app\/checkout\//);
-    // Intercept the navigation so we stay on the page to read events
-    await renewLink.click({ button: 'left', modifiers: ['Meta'] }).catch(() => renewLink.click());
+    expect(href).not.toContain('/checkout?plan=');
+    // Keep the current document alive so the in-page funnel collector can read the click event.
+    await renewLink.evaluate((node) => {
+      node.addEventListener('click', (event) => event.preventDefault(), { once: true });
+      (node as HTMLElement).click();
+    });
+    await page.waitForTimeout(1_600);
 
     const events = await readFunnelEvents(page);
     expect(eventNames(events)).toContain('subscription_renew_click');
     const ev = events.find((e) => e.event_name === 'subscription_renew_click');
     expect(ev?.event_props).toMatchObject({ plan_id: PLAN_ID });
+  });
+
+  test('legacy 續訂網址 /:slug/checkout?plan=... 會導到 /app/checkout/:slug/:planId', async ({ page }) => {
+    await seedSession(page, USER);
+    await installRoutes(page, baseRoutes({ billing: 'monthly', expiresInDays: 10 }));
+
+    await page.goto(
+      `/${EXPERT_SLUG}/checkout?plan=${PLAN_ID}&cycle=monthly&utm_source=account_banner&utm_campaign=renewal`,
+    );
+
+    await expect(page).toHaveURL((url) => {
+      expect(url.pathname).toBe(`/app/checkout/${EXPERT_SLUG}/${PLAN_ID}`);
+      expect(url.searchParams.get('plan')).toBeNull();
+      expect(url.searchParams.get('cycle')).toBe('monthly');
+      expect(url.searchParams.get('utm_source')).toBe('account_banner');
+      expect(url.searchParams.get('utm_campaign')).toBe('renewal');
+      return true;
+    });
   });
 });
