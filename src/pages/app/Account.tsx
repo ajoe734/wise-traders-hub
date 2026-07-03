@@ -27,7 +27,10 @@ const Account = () => {
     handleCancelSubscription,
   } = useAccountData();
 
-  const activeSubs = subscriptions.filter(s => s.status === 'active');
+  const nowMs = Date.now();
+  const activeSubs = subscriptions.filter(s =>
+    s.status === 'active' && (!s.expires_at || new Date(s.expires_at).getTime() > nowMs)
+  );
 
   return (
     <UnifiedAppLayout>
@@ -88,7 +91,7 @@ const Account = () => {
             <div className="flex justify-center py-8">
               <Loader2 className="h-6 w-6 animate-spin text-muted-foreground" />
             </div>
-          ) : subscriptions.length > 0 ? (
+          ) : activeSubs.length > 0 ? (
             <div className="space-y-3">
               {activeSubs.map((sub) => (
                 <SubscriptionCard key={sub.id} sub={sub} cancelingId={cancelingId} onCancel={handleCancelSubscription} />

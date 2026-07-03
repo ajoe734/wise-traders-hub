@@ -43,6 +43,7 @@ export async function createSubscriptionAndTransaction(
   params: CreateSubAndTxParams,
 ): Promise<CreateSubAndTxResult> {
   const now = params.now ?? new Date();
+  const nowIso = now.toISOString();
   const expiresAt = new Date(now);
   if (params.billingCycle === 'yearly') {
     expiresAt.setFullYear(expiresAt.getFullYear() + 1);
@@ -50,14 +51,16 @@ export async function createSubscriptionAndTransaction(
     expiresAt.setMonth(expiresAt.getMonth() + 1);
   }
 
-  // Defensive: ensure no stale active row exists for same user+plan before insert
-  // (callers should have caught this and gone the renew path; this is belt-and-braces).
+  // Defensive: expire only stale active rows before insert. Do not touch a still-valid
+  // active row; callers should have caught those and gone the renew path.
   await supabase
     .from('member_subscriptions')
     .update({ status: 'expired' })
     .eq('user_id', params.userId)
     .eq('plan_id', params.planId)
-    .eq('status', 'active');
+    .eq('status', 'active')
+    .not('expires_at', 'is', null)
+    .lte('expires_at', nowIso);
 
   const { data: sub, error: subError } = await supabase
     .from('member_subscriptions')

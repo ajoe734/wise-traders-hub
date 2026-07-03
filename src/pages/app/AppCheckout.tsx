@@ -82,12 +82,14 @@ const AppCheckout = () => {
   useEffect(() => {
     const checkExisting = async () => {
       if (!user || !planId) return;
+      const nowIso = new Date().toISOString();
       const { data } = await supabase
         .from('member_subscriptions')
-        .select('id')
+        .select('id, expires_at')
         .eq('user_id', user.id)
         .eq('plan_id', planId)
         .eq('status', 'active')
+        .or(`expires_at.is.null,expires_at.gt.${nowIso}`)
         .maybeSingle();
       setExistingSubscription(!!data);
     };

@@ -3,6 +3,7 @@ import { serviceClient } from "../_shared/supabaseClients.ts";
 import { withLogging } from "../_shared/edgeLogger.ts";
 import { validateExpertOrderAmount } from "../_shared/orderAmountValidator.ts";
 import { validateInput, validationJsonResponse } from "../_shared/inputValidator.ts";
+import { createSubscriptionAndTransaction, recordPaymentForExistingSubscription, renewExistingSubscription } from "../_shared/paymentProcessor.ts";
 
 async function generateSign(params: Record<string, string>, merchantKey: string): Promise<string> {
   const filtered = Object.entries(params)
@@ -176,56 +177,50 @@ const handler = withLogging("create-acpay-order", async (req, log) => {
       .eq("provider_type", "acpay").eq("is_active", true).single();
 
     const now = new Date();
-    const expiresAt = new Date(now);
-    if (billingCycle === "yearly") expiresAt.setFullYear(expiresAt.getFullYear() + 1);
-    else expiresAt.setMonth(expiresAt.getMonth() + 1);
 
     let subscriptionId: string | null = null;
     if (userId && planId) {
       const { data: existing } = await supabase
-        .from("member_subscriptions").select("id")
+        .from("member_subscriptions").select("id, expires_at")
         .eq("user_id", userId).eq("plan_id", planId).eq("status", "active");
 
       if (existing && existing.length > 0) {
-        return jsonResponse({ success: true, subscriptionId: existing[0].id, duplicate: true });
-      }
-
-      // S3 race guard: defensive expire-first to coexist with the partial unique index.
-      await supabase
-        .from("member_subscriptions")
-        .update({ status: "expired" })
-        .eq("user_id", userId).eq("plan_id", planId).eq("status", "active");
-
-      const { data: sub, error: subError } = await supabase
-        .from("member_subscriptions").insert({
-          user_id: userId, plan_id: planId, status: "active",
-          started_at: now.toISOString(),
-          expires_at: expiresAt.toISOString(),
-          provider_id: provider?.id || null,
-        }).select("id").single();
-      if (subError) {
-        if (String(subError.message || "").includes("uq_member_sub_active_user_plan")) {
-          // Concurrent winner already created it — return that one.
-          const { data: winner } = await supabase
-            .from("member_subscriptions").select("id")
-            .eq("user_id", userId).eq("plan_id", planId).eq("status", "active").maybeSingle();
-          subscriptionId = winner?.id ?? null;
-          log.info("acpay_subscription_race_winner_other", { userId, planId });
-        } else {
-          log.error("subscription_insert_error", { message: subError.message });
-        }
+        subscriptionId = existing[0].id;
+        const renewResult = await renewExistingSubscription(supabase, {
+          subscriptionId, billingCycle, now,
+        });
+        if (renewResult.error) log.error("renewal_extend_error", { error: String(renewResult.error) });
+        const { error: txError } = await recordPaymentForExistingSubscription(supabase, {
+          subscriptionId, amount, currency: "TWD",
+          providerTxId: result.transaction_id || outTradeNo,
+          providerId: provider?.id || null,
+          now,
+          originalAmount: originalAmount ?? amount,
+          discountAmount: discountAmount ?? 0,
+          discountReason: discountReason ?? null,
+          attribution: attribution ?? null,
+          productKind: "expert_plan",
+          planId,
+          expertId: validation.expertId ?? expertId ?? null,
+        });
+        if (txError) log.error("tx_insert_error", { message: String(txError) });
       } else {
-        subscriptionId = sub.id;
+        const createResult = await createSubscriptionAndTransaction(supabase, {
+          userId, planId, billingCycle, amount, currency: "TWD",
+          providerTxId: result.transaction_id || outTradeNo,
+          providerId: provider?.id || null,
+          now,
+          originalAmount: originalAmount ?? amount,
+          discountAmount: discountAmount ?? 0,
+          discountReason: discountReason ?? null,
+          attribution: attribution ?? null,
+          productKind: "expert_plan",
+          expertId: validation.expertId ?? expertId ?? null,
+        });
+        if (createResult.error) log.error("create_sub_tx_failed", { error: String(createResult.error) });
+        subscriptionId = createResult.subscriptionId;
       }
     }
-
-    await supabase.from("payment_transactions").insert({
-      amount, currency: "TWD", status: "paid",
-      paid_at: now.toISOString(),
-      provider_id: provider?.id || null,
-      provider_tx_id: result.transaction_id || outTradeNo,
-      subscription_id: subscriptionId,
-    });
 
     return jsonResponse({ success: true, subscriptionId });
   }
