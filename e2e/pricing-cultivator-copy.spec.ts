@@ -67,14 +67,20 @@ test.describe('Pricing 修煉派文案與比較區塊', () => {
     await page.setViewportSize({ width: 390, height: 844 });
     await page.goto('/pricing', { waitUntil: 'domcontentloaded' });
 
-    // 手機版：painPoint 一樣完整可見
+    // 切到修煉派 pill → carousel 滑到 index 1（cultivator）
+    await page.getByRole('button', { name: /我要練方法/ }).click();
+    // 等 transform 動畫完成
+    await page.waitForTimeout(700);
+
     const painEl = page.getByText(`「${CULTIVATOR_PAIN}」`, { exact: true });
     await expect(painEl).toBeVisible();
 
-    const box = await painEl.boundingBox();
-    expect(box).not.toBeNull();
-    // 不能超出視窗寬度
-    expect(box!.x + box!.width).toBeLessThanOrEqual(390 + 1);
+    // 文字節點自身不應被 overflow/ellipsis 截斷
+    const clipped = await painEl.evaluate((el) => ({
+      truncated: el.scrollWidth > el.clientWidth + 1,
+      textOverflow: getComputedStyle(el).textOverflow,
+    }));
+    expect(clipped.truncated).toBe(false);
 
     // 桌面版 table 隱藏、手機版比較卡片可見
     await expect(page.getByTestId('pricing-comparison-table')).toBeHidden();
