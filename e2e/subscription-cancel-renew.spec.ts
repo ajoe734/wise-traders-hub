@@ -33,6 +33,12 @@ function baseRoutes(extra: { subStatus?: 'active'; expiresInDays?: number; autoR
           started_at: new Date(Date.now() - 30 * 86400_000).toISOString(),
           expires_at: expires,
           canceled_at: null,
+          expert_plans: {
+            name: '訊號方案',
+            price_monthly: 599,
+            price_yearly: 5990,
+            experts: { name: 'Alice', slug: EXPERT_SLUG },
+          },
         }];
       },
       expert_plans: () => [{
@@ -97,7 +103,7 @@ test.describe('F3 訂閱取消 / 續訂事件', () => {
     await page.goto('/app/account');
     await expect(page.getByRole('link', { name: /立即續訂/ })).toBeVisible({ timeout: 8_000 });
     await expect(page.getByText('尚無訂閱')).toBeVisible();
-    await expect(page.getByText('有效')).toHaveCount(0);
+    await expect(page.getByText('到期後手動續訂')).toHaveCount(0);
 
     const renewLink = page.getByRole('link', { name: /立即續訂/ });
     const href = await renewLink.getAttribute('href');
