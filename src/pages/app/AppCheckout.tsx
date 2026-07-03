@@ -40,7 +40,9 @@ const AppCheckout = () => {
   const { user } = useAuth();
   
   const [billingCycle, setBillingCycle] = useState<"monthly" | "yearly">(
-    (searchParams.get("billingCycle") as "monthly" | "yearly") || "monthly"
+    searchParams.get("billingCycle") === "yearly" || searchParams.get("cycle") === "yearly"
+      ? "yearly"
+      : "monthly"
   );
   const [paymentMethod, setPaymentMethod] = useState<"line_pay" | "ecpay" | "acpay">(() => {
     const m = (searchParams.get("method") || "").toLowerCase();

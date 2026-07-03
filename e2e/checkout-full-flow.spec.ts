@@ -89,7 +89,6 @@ test.describe('Checkout — 一般使用者完整付款流程', () => {
 
   test('C: status=active 但 expires_at 已過期時，App checkout 不應擋續訂付款', async ({ page }) => {
     await seedSession(page, USER);
-    const expiredAt = new Date(Date.now() - 2 * 86400_000).toISOString();
 
     await installRoutes(page, {
       rest: {
