@@ -18,6 +18,8 @@ export interface PricingPlan {
   painPoint: string;
   quickChips: string[];
   features: string[];
+  /** 額外的學習重點條列（例如修煉派「心法決定下週出手」拆解） */
+  mindsetPoints?: { title: string; points: string[] };
   cta: string;
   ctaText: string;
   color: string;
@@ -163,6 +165,30 @@ export function PricingPlanCard({
                   </li>
                 ))}
               </ul>
+
+              {plan.mindsetPoints && (
+                <div
+                  className="mt-4 pt-4 border-t border-white/10"
+                  data-testid={`${plan.id}-mindset-points`}
+                >
+                  <div className="text-sm font-semibold text-white mb-2">
+                    {plan.mindsetPoints.title}
+                  </div>
+                  <ul className="space-y-2">
+                    {plan.mindsetPoints.points.map((pt, idx) => (
+                      <li key={idx} className="flex items-start gap-2.5">
+                        <span
+                          className={cn(
+                            'mt-1.5 h-1.5 w-1.5 rounded-full flex-shrink-0',
+                            isAdvisor ? 'bg-advisor' : 'bg-mentor'
+                          )}
+                        />
+                        <span className="text-white/85 text-sm leading-relaxed">{pt}</span>
+                      </li>
+                    ))}
+                  </ul>
+                </div>
+              )}
             </AccordionContent>
           </AccordionItem>
         </Accordion>

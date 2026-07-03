@@ -9,6 +9,7 @@ import { PricingPlanCard, type PricingPlan } from './_pricing/PricingPlanCard';
 import { PricingExampleModal } from './_pricing/PricingExampleModal';
 import { PricingFaq } from './_pricing/PricingFaq';
 import { CheckupPlansSection } from './_pricing/CheckupPlansSection';
+import { PricingComparisonSection } from './_pricing/PricingComparisonSection';
 import { trackEvent } from '@/lib/trafficTracker';
 import { track } from '@/lib/analytics/events';
 
@@ -118,6 +119,15 @@ const Pricing = () => {
       painPoint: '週末才有空，利用老師的心法決定下週出手',
       quickChips: ['每週復盤', '決策依據', '框架整理'],
       features: ['上週決策復盤', '出手依據拆解', '避雷交易紀律', '框架筆記整理'],
+      mindsetPoints: {
+        title: '「心法決定下週出手」你會學到：',
+        points: [
+          '週末看老師公開的上週交易紀錄與復盤，理解每一筆為什麼進、為什麼出',
+          '拆解老師本週的多空判斷與資金配置心法，作為自己下週出手的依據',
+          '對照自己的持倉，練習用同一套框架決定加碼、減碼或觀望',
+          '每週累積筆記，逐步養成不靠訊號也能獨立判斷的交易紀律',
+        ],
+      },
       cta: '/experts?role=mentor',
       ctaText: '選修煉派',
       color: 'mentor',
@@ -278,6 +288,8 @@ const Pricing = () => {
           onOpenChange={setExampleModalOpen}
           activeExample={activeExample}
         />
+
+        <PricingComparisonSection />
 
         <CheckupPlansSection />
 

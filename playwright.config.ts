@@ -333,6 +333,12 @@ export default defineConfig({
       testMatch: /freecheckup-single-parse\.spec\.ts/,
       use: { ...devices['Desktop Chrome'], viewport: { width: 1280, height: 900 } },
     },
+    {
+      // /pricing — 修煉派 painPoint 文案 / 心法展開 / 方案差異比較區塊（含 mobile 390 截斷檢查）
+      name: 'desktop-pricing-cultivator-copy',
+      testMatch: /pricing-cultivator-copy\.spec\.ts/,
+      use: { ...devices['Desktop Chrome'], viewport: { width: 1280, height: 900 } },
+    },
   ],
   webServer: {
     command: 'bun run dev',
