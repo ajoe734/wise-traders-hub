@@ -1,31 +1,19 @@
-## 問題
-`src/components/account/RenewalBanner.tsx` 目前把「立即續訂」連到：
+修正計畫：
 
-```
-/${expert.slug}/checkout?plan=${plan_id}&cycle=${cycle}&utm_...
-```
+1. **補相容舊網址**
+   - 在路由新增 legacy handler，支援使用者現在開到的：
+     - `/:slug/checkout?plan=<planId>&cycle=<cycle>&utm_source=account_banner...`
+   - 若 query 有 `plan`，自動導到正確 checkout：
+     - `/app/checkout/:slug/:planId?cycle=<cycle>&utm_source=...&utm_campaign=...`
+   - 若缺少 `plan`，導回 `/app/account`，避免再進 404。
 
-但 `src/App.tsx` 只註冊了這些 checkout 路由：
-- `/checkout/:slug/:planId`（訪客／未訂閱者結帳）
-- `/checkout/checkup/:planId`
-- `/app/checkout/:slug/:planId`（已訂閱者在戰情室內續訂）
+2. **修掉帳戶頁剩餘舊入口**
+   - `src/pages/_appAccount/SubscriptionCard.tsx` 的「立即續訂」目前仍是舊格式 `/:slug/checkout?plan=...`，改成 `/app/checkout/:slug/:planId?...`。
+   - 檢查同類 account renewal / resume payment 入口，避免還有舊格式產生 404。
 
-因此 `legendflow.tw/sharkgu/checkout?plan=...` 匹配不到任何路由 → 404。
+3. **補 E2E 回歸**
+   - 加測：直接開你貼的 legacy URL 會被導到 `/app/checkout/sharkgu/ab1d8e55-290b-43a8-8cbb-b94dcc937200?...`，不會 404。
+   - 加測：帳戶頁「立即續訂」連結 href 不再使用 `/:slug/checkout?plan=`，而是 `/app/checkout/`。
 
-## 修正方式
-改用正確的 App checkout 路徑（使用者已登入且在 `/app/account`，走 `/app/checkout/:slug/:planId`），把 `cycle` 與 UTM 保留為 query string：
-
-```
-/app/checkout/${expert.slug}/${plan_id}?cycle=${cycle}&utm_source=account_banner&utm_campaign=renewal
-```
-
-備援：若 `expert?.slug` 缺值，導回 `/app/account` 而不是 `/account`（後者也不存在／不是主要帳號路徑）。
-
-## 驗證
-1. 在 `/app/account` 檢視續訂 banner，按「立即續訂」→ 應進入 `/app/checkout/sharkgu/<planId>?cycle=monthly&...` 並顯示 checkout 頁，不再 404。
-2. 過期 24h 內的紅色 banner 同樣走這條連結。
-3. 新增／或延伸 `e2e/subscription-cancel-renew.spec.ts`（該檔已 mock 續訂情境）加一條斷言：`getByRole('link', { name: /立即續訂/ }).getAttribute('href')` 以 `/app/checkout/` 開頭，避免以後又回退到壞路徑。
-
-## 檔案異動
-- 編輯 `src/components/account/RenewalBanner.tsx`：修正 `url` 組法與 fallback。
-- 編輯 `e2e/subscription-cancel-renew.spec.ts`：新增 href 前綴斷言（可選但建議，防止回歸）。
+4. **驗證**
+   - 跑相關 checkout / renewal E2E，確認新舊網址都能到正確結帳頁。
