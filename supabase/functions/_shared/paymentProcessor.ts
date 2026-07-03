@@ -165,7 +165,12 @@ export async function renewExistingSubscription(
   const newExpiry = calcRenewedExpiry(sub?.expires_at ?? null, params.billingCycle, now);
   const { error: updErr } = await supabase
     .from('member_subscriptions')
-    .update({ expires_at: newExpiry.toISOString(), status: 'active', canceled_at: null })
+    .update({
+      expires_at: newExpiry.toISOString(),
+      status: 'active',
+      canceled_at: null,
+      billing_cycle: params.billingCycle === 'yearly' ? 'yearly' : 'monthly',
+    })
     .eq('id', params.subscriptionId);
   if (updErr) return { newExpiresAt: null, error: updErr.message };
   return { newExpiresAt: newExpiry.toISOString(), error: null };
