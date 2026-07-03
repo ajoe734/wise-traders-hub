@@ -26,19 +26,29 @@ test.describe('Pricing 修煉派文案與比較區塊', () => {
     });
     expect(clipped.truncated).toBe(false);
 
-    // 展開修煉派卡片的「看完整內容」
+    // 展開修煉派卡片的「看完整內容」——同時驗證 Radix Accordion
+    // 有正確的 aria-expanded / aria-controls，並在展開後指向可見的 region。
     const cultivatorCard = page.locator('#cultivator-card');
     await expect(cultivatorCard).toBeVisible();
-    await cultivatorCard.getByRole('button', { name: '看完整內容' }).click();
+    const trigger = cultivatorCard.getByRole('button', { name: '看完整內容' });
+    await expect(trigger).toHaveAttribute('aria-expanded', 'false');
+    const controlsId = await trigger.getAttribute('aria-controls');
+    expect(controlsId, 'accordion trigger 必須有 aria-controls 指向內容 region').toBeTruthy();
+
+    await trigger.click();
+    await expect(trigger).toHaveAttribute('aria-expanded', 'true');
+    // aria-controls 指向的 region 展開後必須實際渲染於 DOM 且可見
+    const region = page.locator(`#${controlsId}`);
+    await expect(region).toBeVisible();
 
     const mindset = page.getByTestId('cultivator-mindset-points');
     await expect(mindset).toBeVisible();
     await expect(mindset).toContainText('心法決定下週出手');
-    // 4 條學習重點
     await expect(mindset.locator('li')).toHaveCount(4);
     await expect(mindset).toContainText('復盤');
     await expect(mindset).toContainText('框架');
   });
+
 
   test('desktop：方案差異比較區塊有完整 6 列且雙欄描述皆非空', async ({ page }) => {
     await page.setViewportSize({ width: 1280, height: 900 });
