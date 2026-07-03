@@ -336,11 +336,15 @@ export default function App() {
       let demoPartialFail = false;
       try {
         const sp = new URLSearchParams(window.location.search);
-        if (sp.get('demoSyncError') === '1') {
+        const errFlag = sp.get('demoSyncError');
+        if (errFlag === '1' || errFlag === 'sticky') {
           demoShouldFail = true;
-          sp.delete('demoSyncError');
-          const qs = sp.toString();
-          window.history.replaceState({}, '', window.location.pathname + (qs ? `?${qs}` : '') + window.location.hash);
+          // sticky: 保留 flag，讓連續重試都會失敗（用來測試 exhausted / 退避提示）
+          if (errFlag !== 'sticky') {
+            sp.delete('demoSyncError');
+            const qs = sp.toString();
+            window.history.replaceState({}, '', window.location.pathname + (qs ? `?${qs}` : '') + window.location.hash);
+          }
         }
         if (sp.get('demoMarketOpen') === '1') demoMarketOpen = true;
         if (sp.get('demoPartialFail') === '1') demoPartialFail = true;
