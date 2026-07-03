@@ -78,8 +78,8 @@ export function RenewalBanner() {
         const unit = cycle === 'yearly' ? '/年' : '/月';
         const planName = `${expert?.name || ''} — ${s.expert_plans?.name || ''}`;
         const url = expert
-          ? `/${expert.slug}/checkout?plan=${s.plan_id}&cycle=${cycle}&utm_source=account_banner&utm_campaign=renewal`
-          : '/account';
+          ? `/app/checkout/${expert.slug}/${s.plan_id}?cycle=${cycle}&utm_source=account_banner&utm_campaign=renewal`
+          : '/app/account';
 
         return (
           <Card key={s.id} className={expired ? 'border-red-500/60 bg-red-50/40 dark:bg-red-950/20' : 'border-amber-500/50 bg-amber-50/50 dark:bg-amber-950/20'}>

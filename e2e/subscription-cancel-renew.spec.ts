@@ -73,6 +73,8 @@ test.describe('F3 訂閱取消 / 續訂事件', () => {
     await page.goto('/app/account');
     const renewLink = page.getByRole('link', { name: /立即續訂/ });
     await expect(renewLink).toBeVisible();
+    const href = await renewLink.getAttribute('href');
+    expect(href).toMatch(/^\/app\/checkout\//);
     // Intercept the navigation so we stay on the page to read events
     await renewLink.click({ button: 'left', modifiers: ['Meta'] }).catch(() => renewLink.click());
 
