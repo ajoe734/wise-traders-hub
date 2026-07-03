@@ -59,6 +59,17 @@ test.describe('Pricing 修煉派文案與比較區塊', () => {
     await expect(table).toContainText('分析師即時訂閱');
     await expect(table).toContainText('實戰導師 T+7 週記');
 
+    // 表格具備可存取結構：aria-describedby → section title，thead 每個 th 有 scope
+    await expect(table).toHaveAttribute('aria-describedby', 'pricing-comparison-title');
+    const scopes = await table.locator('thead th').evaluateAll((els) =>
+      els.map((el) => el.getAttribute('scope')),
+    );
+    expect(scopes.every((s) => s === 'col')).toBe(true);
+
+    // section 有可識別的 landmark（aria-labelledby 指向標題）
+    const section = page.getByTestId('pricing-comparison-section');
+    await expect(section).toHaveAttribute('aria-labelledby', 'pricing-comparison-title');
+
     const rows = table.locator('tbody tr');
     await expect(rows).toHaveCount(6);
 
@@ -72,6 +83,7 @@ test.describe('Pricing 修煉派文案與比較區塊', () => {
       expect(cultivator.length).toBeGreaterThan(4);
     }
   });
+
 
   test('mobile 390：修煉派 painPoint 不會被截斷、比較區塊以 stacked 卡片呈現', async ({ page }) => {
     await page.setViewportSize({ width: 390, height: 844 });
