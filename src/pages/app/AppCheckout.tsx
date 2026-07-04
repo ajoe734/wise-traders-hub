@@ -418,12 +418,18 @@ const AppCheckout = () => {
                 remittance: { key: "remittance", label: "銀行匯款", desc: "轉帳後補填末五碼" },
                 acpay: { key: "acpay", label: "ACpay", desc: "信用卡" },
               };
-              const list = providers.length
-                ? providers
-                    .map(p => meta[p.provider_type])
-                    .filter(Boolean)
-                : [meta.line_pay, meta.ecpay];
+              const list = providers
+                .map(p => meta[p.provider_type])
+                .filter(Boolean);
+              if (list.length === 0) {
+                return (
+                  <div className="col-span-2 text-sm text-muted-foreground border rounded-md p-4 text-center">
+                    目前沒有可用的付款方式，請聯繫客服。
+                  </div>
+                );
+              }
               return list.map(m => (
+
                 <Card
                   key={m.key}
                   className={`cursor-pointer transition-all ${paymentMethod === m.key ? "border-primary ring-2 ring-primary/20" : "hover:border-muted-foreground/30"}`}
