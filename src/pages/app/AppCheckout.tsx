@@ -535,7 +535,7 @@ const AppCheckout = () => {
         )}
 
         <Button className="w-full h-12 text-base" onClick={handleCheckout} disabled={isProcessing || existingSubscription === true}>
-          {isProcessing ? <span className="flex items-center gap-2"><span className="animate-spin">⏳</span>處理中...</span> : <span className="flex items-center gap-2"><Lock className="h-4 w-4" />{paymentMethod === "line_pay" ? "LINE Pay 付款" : paymentMethod === "ecpay" ? "綠界付款" : "ACpay 付款"}</span>}
+          {isProcessing ? <span className="flex items-center gap-2"><span className="animate-spin">⏳</span>處理中...</span> : <span className="flex items-center gap-2"><Lock className="h-4 w-4" />{paymentMethod === "line_pay" ? "LINE Pay 付款" : paymentMethod === "ecpay" ? "綠界付款" : paymentMethod === "remittance" ? "建立匯款訂單" : "ACpay 付款"}</span>}
         </Button>
 
         <div className="flex items-center justify-center gap-2 text-xs text-muted-foreground"><Shield className="h-3 w-3" /><span>SSL 加密安全付款</span></div>
