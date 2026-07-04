@@ -5,7 +5,9 @@ import { useEffectiveUserId } from "@/hooks/useEffectiveUserId";
 import { supabase } from "@/integrations/supabase/client";
 import { toast } from "@/hooks/use-toast";
 
-const SESSION_KEY = "pending_remittance_notified";
+const STORAGE_KEY = "pending_remittance_last_shown";
+// 每 30 分鐘再提醒一次（原本是「一個 session 只提醒一次」，改用 localStorage 跨 tab/reload 共享）
+const REMIND_INTERVAL_MS = 30 * 60 * 1000;
 
 // Paths where we should NOT remind (avoid noise during these flows)
 const SKIP_PREFIXES = [
@@ -32,7 +34,7 @@ export function PendingRemittanceGuard() {
   useEffect(() => {
     if (isLoading) return;
     if (!isAuthenticated || !user) {
-      sessionStorage.removeItem(SESSION_KEY);
+      localStorage.removeItem(STORAGE_KEY);
       checkedRef.current = false;
       return;
     }
@@ -41,14 +43,24 @@ export function PendingRemittanceGuard() {
 
     // B-27：在 /account/remittance 頁清掉 dedupe key，使用者離開後若仍有待補單會再次提醒。
     if (location.pathname.startsWith("/account/remittance")) {
-      sessionStorage.removeItem(SESSION_KEY);
+      localStorage.removeItem(STORAGE_KEY);
       checkedRef.current = false;
       return;
     }
     if (SKIP_PREFIXES.some((p) => location.pathname.startsWith(p))) return;
     if (checkedRef.current) return;
     const dedupeKey = effectiveUserId ?? user.id;
-    if (sessionStorage.getItem(SESSION_KEY) === dedupeKey) return;
+    // 每 30 分鐘一次：讀 localStorage.{userId, lastShownAt}，未過期則跳過
+    try {
+      const raw = localStorage.getItem(STORAGE_KEY);
+      if (raw) {
+        const parsed = JSON.parse(raw) as { userId?: string; lastShownAt?: number };
+        if (parsed?.userId === dedupeKey && typeof parsed.lastShownAt === "number"
+            && Date.now() - parsed.lastShownAt < REMIND_INTERVAL_MS) {
+          return;
+        }
+      }
+    } catch { /* ignore malformed */ }
 
     checkedRef.current = true;
     (async () => {
@@ -60,7 +72,8 @@ export function PendingRemittanceGuard() {
         .eq("status", "awaiting_info")
         .limit(1);
       if (error) return;
-      sessionStorage.setItem(SESSION_KEY, dedupeKey);
+      // 不論有無資料都寫入時間戳，避免每次路由變動都重打 DB；30 分鐘後才會再檢查
+      localStorage.setItem(STORAGE_KEY, JSON.stringify({ userId: dedupeKey, lastShownAt: Date.now() }));
       if (data && data.length > 0) {
         toast({
           title: "您有匯款訂單尚未補齊資料",

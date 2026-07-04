@@ -54,21 +54,24 @@ const AppCheckout = () => {
     if (m === "acpay") return "acpay";
     if (m === "remittance" || m === "atm") return "remittance";
     if (m === "linepay" || m === "line_pay") return "line_pay";
-    return "line_pay";
+    return "remittance";
   });
-  const [providers, setProviders] = useState<Array<{ id: string; provider_type: string; is_active: boolean; sort_order?: number | null }>>([]);
+  const [providers, setProviders] = useState<Array<{ id: string; provider_type: string; is_active: boolean; is_default?: boolean; sort_order?: number | null }>>([]);
   useEffect(() => {
     (async () => {
+      // Use the safe view (accessible to authenticated users; base table is admin-only via RLS)
       const { data } = await supabase
-        .from("payment_providers")
-        .select("id, provider_type, is_active")
+        .from("payment_providers_safe")
+        .select("id, provider_type, is_active, is_default")
         .eq("is_active", true)
+        .order("is_default", { ascending: false })
         .order("display_name", { ascending: true });
-      const list = ((data as any) || []) as Array<{ id: string; provider_type: string; is_active: boolean }>;
+      const list = ((data as any) || []) as Array<{ id: string; provider_type: string; is_active: boolean; is_default?: boolean }>;
       setProviders(list);
-      // 若目前選中的方式已停用，切到第一個 active 的
+      // 若目前選中的方式已停用，優先切到 is_default，否則第一個 active 的
       if (list.length && !list.find(p => p.provider_type === paymentMethod)) {
-        setPaymentMethod(list[0].provider_type as PaymentMethod);
+        const preferred = list.find(p => p.is_default) ?? list[0];
+        setPaymentMethod(preferred.provider_type as PaymentMethod);
       }
     })();
     // eslint-disable-next-line react-hooks/exhaustive-deps
