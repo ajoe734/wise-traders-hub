@@ -48,13 +48,26 @@ const AppCheckout = () => {
       ? "yearly"
       : "monthly"
   );
-  const [paymentMethod, setPaymentMethod] = useState<"line_pay" | "ecpay" | "acpay">(() => {
+  const [paymentMethod, setPaymentMethod] = useState<PaymentMethod>(() => {
     const m = (searchParams.get("method") || "").toLowerCase();
     if (m === "ecpay") return "ecpay";
     if (m === "acpay") return "acpay";
+    if (m === "remittance" || m === "atm") return "remittance";
     if (m === "linepay" || m === "line_pay") return "line_pay";
     return "line_pay";
   });
+  const [providers, setProviders] = useState<Array<{ id: string; provider_type: string; is_active: boolean; sort_order?: number | null }>>([]);
+  useEffect(() => {
+    (async () => {
+      const { data } = await supabase
+        .from("payment_providers")
+        .select("id, provider_type, is_active, sort_order")
+        .eq("is_active", true)
+        .order("sort_order", { ascending: true });
+      setProviders((data as any) || []);
+    })();
+  }, []);
+
   const [isProcessing, setIsProcessing] = useState(false);
   const processingLockRef = useRef(false);
   const [isConfirming, setIsConfirming] = useState(false);
