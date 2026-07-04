@@ -404,14 +404,45 @@ const AppCheckout = () => {
         <div>
           <h2 className="text-sm font-medium mb-3">選擇付款方式</h2>
           <div className="grid grid-cols-2 gap-3">
-            <Card className={`cursor-pointer transition-all ${paymentMethod === "line_pay" ? "border-primary ring-2 ring-primary/20" : "hover:border-muted-foreground/30"}`} onClick={() => setPaymentMethod("line_pay")}>
-              <CardContent className="p-4 text-center"><p className="font-semibold text-sm">LINE Pay</p></CardContent>
-            </Card>
-            <Card className={`cursor-pointer transition-all ${paymentMethod === "ecpay" ? "border-primary ring-2 ring-primary/20" : "hover:border-muted-foreground/30"}`} onClick={() => setPaymentMethod("ecpay")}>
-              <CardContent className="p-4 text-center"><p className="font-semibold text-sm">綠界 ECPay</p><p className="text-xs text-muted-foreground">信用卡</p></CardContent>
-            </Card>
+            {(() => {
+              const meta: Record<string, { key: PaymentMethod; label: string; desc?: string }> = {
+                line_pay: { key: "line_pay", label: "LINE Pay" },
+                ecpay: { key: "ecpay", label: "綠界 ECPay", desc: "信用卡" },
+                remittance: { key: "remittance", label: "銀行匯款", desc: "轉帳後補填末五碼" },
+                acpay: { key: "acpay", label: "ACpay", desc: "信用卡" },
+              };
+              const list = providers.length
+                ? providers
+                    .map(p => meta[p.provider_type])
+                    .filter(Boolean)
+                : [meta.line_pay, meta.ecpay];
+              return list.map(m => (
+                <Card
+                  key={m.key}
+                  className={`cursor-pointer transition-all ${paymentMethod === m.key ? "border-primary ring-2 ring-primary/20" : "hover:border-muted-foreground/30"}`}
+                  onClick={() => setPaymentMethod(m.key)}
+                >
+                  <CardContent className="p-4 text-center">
+                    <p className="font-semibold text-sm">{m.label}</p>
+                    {m.desc && <p className="text-xs text-muted-foreground">{m.desc}</p>}
+                  </CardContent>
+                </Card>
+              ));
+            })()}
           </div>
         </div>
+
+        {paymentMethod === "remittance" && (
+          <div className="space-y-2">
+            <RemittanceAccountCard amount={currentPrice} />
+            <div className="text-xs text-muted-foreground leading-relaxed border rounded-md p-3 bg-muted/30 space-y-1">
+              <p>1. 按下「建立匯款訂單」後，我們會為您產生一筆訂單。</p>
+              <p>2. 於 3 日內完成銀行轉帳（金額請務必與訂單一致）。</p>
+              <p>3. 至「帳號 → 我的匯款訂單」補填匯款人姓名與轉出帳號末五碼，後台對帳後即開通。</p>
+            </div>
+          </div>
+        )}
+
 
         {/* ACpay cardholder info + card fields */}
         {paymentMethod === "acpay" && (
