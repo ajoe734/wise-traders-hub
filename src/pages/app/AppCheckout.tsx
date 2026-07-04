@@ -30,6 +30,10 @@ import { avatarUrl } from "@/lib/imageTransform";
 import { gtmPush } from "@/lib/analytics/gtm";
 import { track } from "@/lib/analytics/events";
 import { toast } from "sonner";
+import { RemittanceAccountCard } from "@/pages/_remittance/RemittanceAccountCard";
+
+type PaymentMethod = "line_pay" | "ecpay" | "acpay" | "remittance";
+
 
 const AppCheckout = () => {
   const { slug, planId } = useParams<{ slug: string; planId: string }>();
@@ -44,13 +48,26 @@ const AppCheckout = () => {
       ? "yearly"
       : "monthly"
   );
-  const [paymentMethod, setPaymentMethod] = useState<"line_pay" | "ecpay" | "acpay">(() => {
+  const [paymentMethod, setPaymentMethod] = useState<PaymentMethod>(() => {
     const m = (searchParams.get("method") || "").toLowerCase();
     if (m === "ecpay") return "ecpay";
     if (m === "acpay") return "acpay";
+    if (m === "remittance" || m === "atm") return "remittance";
     if (m === "linepay" || m === "line_pay") return "line_pay";
     return "line_pay";
   });
+  const [providers, setProviders] = useState<Array<{ id: string; provider_type: string; is_active: boolean; sort_order?: number | null }>>([]);
+  useEffect(() => {
+    (async () => {
+      const { data } = await supabase
+        .from("payment_providers")
+        .select("id, provider_type, is_active, sort_order")
+        .eq("is_active", true)
+        .order("sort_order", { ascending: true });
+      setProviders((data as any) || []);
+    })();
+  }, []);
+
   const [isProcessing, setIsProcessing] = useState(false);
   const processingLockRef = useRef(false);
   const [isConfirming, setIsConfirming] = useState(false);
@@ -212,12 +229,39 @@ const AppCheckout = () => {
     try {
       if (paymentMethod === "ecpay") { await handleEcpayCheckout(); }
       else if (paymentMethod === "acpay") { await handleAcpayCheckout(); }
+      else if (paymentMethod === "remittance") { await handleRemittanceCheckout(); }
       else { await handleLinePayCheckout(); }
     } catch { setResultDialog({ open: true, success: false }); } finally {
       setIsProcessing(false);
       processingLockRef.current = false;
     }
   };
+
+  const handleRemittanceCheckout = async () => {
+    const clientRequestId =
+      typeof crypto !== "undefined" && crypto.randomUUID
+        ? crypto.randomUUID()
+        : `${Date.now()}-${Math.random()}`;
+    const { data, error } = await supabase.functions.invoke("create-expert-remittance", {
+      body: {
+        planId,
+        billingCycle,
+        originalAmount: currentPrice,
+        discountAmount: 0,
+        clientRequestId,
+      },
+    });
+    if (error || !data?.orderId) {
+      toast.error("建立匯款訂單失敗，請稍後再試");
+      setResultDialog({ open: true, success: false });
+      return;
+    }
+    toast.success("已建立匯款訂單，請完成轉帳後補填末五碼");
+    navigate("/account/remittance", {
+      state: { from: { pathname: `/app/checkout/${slug}/${planId}`, search: window.location.search } },
+    });
+  };
+
 
   const handleLinePayCheckout = async () => {
     const { data, error } = await supabase.functions.invoke("create-linepay-order", {
@@ -360,14 +404,45 @@ const AppCheckout = () => {
         <div>
           <h2 className="text-sm font-medium mb-3">選擇付款方式</h2>
           <div className="grid grid-cols-2 gap-3">
-            <Card className={`cursor-pointer transition-all ${paymentMethod === "line_pay" ? "border-primary ring-2 ring-primary/20" : "hover:border-muted-foreground/30"}`} onClick={() => setPaymentMethod("line_pay")}>
-              <CardContent className="p-4 text-center"><p className="font-semibold text-sm">LINE Pay</p></CardContent>
-            </Card>
-            <Card className={`cursor-pointer transition-all ${paymentMethod === "ecpay" ? "border-primary ring-2 ring-primary/20" : "hover:border-muted-foreground/30"}`} onClick={() => setPaymentMethod("ecpay")}>
-              <CardContent className="p-4 text-center"><p className="font-semibold text-sm">綠界 ECPay</p><p className="text-xs text-muted-foreground">信用卡</p></CardContent>
-            </Card>
+            {(() => {
+              const meta: Record<string, { key: PaymentMethod; label: string; desc?: string }> = {
+                line_pay: { key: "line_pay", label: "LINE Pay" },
+                ecpay: { key: "ecpay", label: "綠界 ECPay", desc: "信用卡" },
+                remittance: { key: "remittance", label: "銀行匯款", desc: "轉帳後補填末五碼" },
+                acpay: { key: "acpay", label: "ACpay", desc: "信用卡" },
+              };
+              const list = providers.length
+                ? providers
+                    .map(p => meta[p.provider_type])
+                    .filter(Boolean)
+                : [meta.line_pay, meta.ecpay];
+              return list.map(m => (
+                <Card
+                  key={m.key}
+                  className={`cursor-pointer transition-all ${paymentMethod === m.key ? "border-primary ring-2 ring-primary/20" : "hover:border-muted-foreground/30"}`}
+                  onClick={() => setPaymentMethod(m.key)}
+                >
+                  <CardContent className="p-4 text-center">
+                    <p className="font-semibold text-sm">{m.label}</p>
+                    {m.desc && <p className="text-xs text-muted-foreground">{m.desc}</p>}
+                  </CardContent>
+                </Card>
+              ));
+            })()}
           </div>
         </div>
+
+        {paymentMethod === "remittance" && (
+          <div className="space-y-2">
+            <RemittanceAccountCard amount={currentPrice} />
+            <div className="text-xs text-muted-foreground leading-relaxed border rounded-md p-3 bg-muted/30 space-y-1">
+              <p>1. 按下「建立匯款訂單」後，我們會為您產生一筆訂單。</p>
+              <p>2. 於 3 日內完成銀行轉帳（金額請務必與訂單一致）。</p>
+              <p>3. 至「帳號 → 我的匯款訂單」補填匯款人姓名與轉出帳號末五碼，後台對帳後即開通。</p>
+            </div>
+          </div>
+        )}
+
 
         {/* ACpay cardholder info + card fields */}
         {paymentMethod === "acpay" && (
@@ -460,7 +535,7 @@ const AppCheckout = () => {
         )}
 
         <Button className="w-full h-12 text-base" onClick={handleCheckout} disabled={isProcessing || existingSubscription === true}>
-          {isProcessing ? <span className="flex items-center gap-2"><span className="animate-spin">⏳</span>處理中...</span> : <span className="flex items-center gap-2"><Lock className="h-4 w-4" />{paymentMethod === "line_pay" ? "LINE Pay 付款" : paymentMethod === "ecpay" ? "綠界付款" : "ACpay 付款"}</span>}
+          {isProcessing ? <span className="flex items-center gap-2"><span className="animate-spin">⏳</span>處理中...</span> : <span className="flex items-center gap-2"><Lock className="h-4 w-4" />{paymentMethod === "line_pay" ? "LINE Pay 付款" : paymentMethod === "ecpay" ? "綠界付款" : paymentMethod === "remittance" ? "建立匯款訂單" : "ACpay 付款"}</span>}
         </Button>
 
         <div className="flex items-center justify-center gap-2 text-xs text-muted-foreground"><Shield className="h-3 w-3" /><span>SSL 加密安全付款</span></div>
