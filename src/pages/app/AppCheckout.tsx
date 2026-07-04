@@ -61,12 +61,19 @@ const AppCheckout = () => {
     (async () => {
       const { data } = await supabase
         .from("payment_providers")
-        .select("id, provider_type, is_active, sort_order")
+        .select("id, provider_type, is_active")
         .eq("is_active", true)
-        .order("sort_order", { ascending: true });
-      setProviders((data as any) || []);
+        .order("display_name", { ascending: true });
+      const list = ((data as any) || []) as Array<{ id: string; provider_type: string; is_active: boolean }>;
+      setProviders(list);
+      // 若目前選中的方式已停用，切到第一個 active 的
+      if (list.length && !list.find(p => p.provider_type === paymentMethod)) {
+        setPaymentMethod(list[0].provider_type as PaymentMethod);
+      }
     })();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
+
 
   const [isProcessing, setIsProcessing] = useState(false);
   const processingLockRef = useRef(false);
