@@ -52,8 +52,10 @@ export function RenewalBanner() {
       const filtered = ((data as any[]) || []).filter((s) => {
         const cycle = s.billing_cycle === 'yearly' ? 'yearly' : 'monthly';
         const msLeft = new Date(s.expires_at).getTime() - nowMs;
+        // 硬規則：真的超過 24h 回購窗，就不再顯示此橫幅（避免誤寫「24H 內」文案）
+        if (msLeft < -24 * 3600 * 1000) return false;
         const days = msLeft / 86400000;
-        if (s.status === 'expired') return msLeft > -24 * 3600 * 1000;
+        if (s.status === 'expired' || msLeft <= 0) return true;
         const threshold = cycle === 'yearly' ? 30 : 7;
         return days <= threshold;
       });
