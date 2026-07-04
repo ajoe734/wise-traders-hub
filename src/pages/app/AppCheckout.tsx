@@ -30,6 +30,10 @@ import { avatarUrl } from "@/lib/imageTransform";
 import { gtmPush } from "@/lib/analytics/gtm";
 import { track } from "@/lib/analytics/events";
 import { toast } from "sonner";
+import { RemittanceAccountCard } from "@/pages/_remittance/RemittanceAccountCard";
+
+type PaymentMethod = "line_pay" | "ecpay" | "acpay" | "remittance";
+
 
 const AppCheckout = () => {
   const { slug, planId } = useParams<{ slug: string; planId: string }>();
