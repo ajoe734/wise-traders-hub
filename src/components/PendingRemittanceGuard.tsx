@@ -5,7 +5,9 @@ import { useEffectiveUserId } from "@/hooks/useEffectiveUserId";
 import { supabase } from "@/integrations/supabase/client";
 import { toast } from "@/hooks/use-toast";
 
-const SESSION_KEY = "pending_remittance_notified";
+const STORAGE_KEY = "pending_remittance_last_shown";
+// 每 30 分鐘再提醒一次（原本是「一個 session 只提醒一次」，改用 localStorage 跨 tab/reload 共享）
+const REMIND_INTERVAL_MS = 30 * 60 * 1000;
 
 // Paths where we should NOT remind (avoid noise during these flows)
 const SKIP_PREFIXES = [
