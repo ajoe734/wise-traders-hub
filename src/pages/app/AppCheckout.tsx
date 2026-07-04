@@ -229,12 +229,39 @@ const AppCheckout = () => {
     try {
       if (paymentMethod === "ecpay") { await handleEcpayCheckout(); }
       else if (paymentMethod === "acpay") { await handleAcpayCheckout(); }
+      else if (paymentMethod === "remittance") { await handleRemittanceCheckout(); }
       else { await handleLinePayCheckout(); }
     } catch { setResultDialog({ open: true, success: false }); } finally {
       setIsProcessing(false);
       processingLockRef.current = false;
     }
   };
+
+  const handleRemittanceCheckout = async () => {
+    const clientRequestId =
+      typeof crypto !== "undefined" && crypto.randomUUID
+        ? crypto.randomUUID()
+        : `${Date.now()}-${Math.random()}`;
+    const { data, error } = await supabase.functions.invoke("create-expert-remittance", {
+      body: {
+        planId,
+        billingCycle,
+        originalAmount: currentPrice,
+        discountAmount: 0,
+        clientRequestId,
+      },
+    });
+    if (error || !data?.orderId) {
+      toast.error("建立匯款訂單失敗，請稍後再試");
+      setResultDialog({ open: true, success: false });
+      return;
+    }
+    toast.success("已建立匯款訂單，請完成轉帳後補填末五碼");
+    navigate("/account/remittance", {
+      state: { from: { pathname: `/app/checkout/${slug}/${planId}`, search: window.location.search } },
+    });
+  };
+
 
   const handleLinePayCheckout = async () => {
     const { data, error } = await supabase.functions.invoke("create-linepay-order", {
