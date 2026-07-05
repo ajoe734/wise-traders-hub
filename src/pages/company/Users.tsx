@@ -129,12 +129,20 @@ export default function CompanyUsers() {
 
   const isBanned = (r: UserRow) => !!r.banned_until && new Date(r.banned_until) > new Date();
 
-  const visible = rows.filter((r) => {
-    if (filter === 'admin') return r.roles.includes('company_admin');
-    if (filter === 'analyst') return r.roles.includes('analyst');
-    if (filter === 'banned') return isBanned(r);
-    return true;
-  });
+  const visible = rows
+    .filter((r) => {
+      if (filter === 'admin') return r.roles.includes('company_admin');
+      if (filter === 'analyst') return r.roles.includes('analyst');
+      if (filter === 'banned') return isBanned(r);
+      return true;
+    })
+    .slice()
+    .sort((a, b) => {
+      const key = sortBy === 'last_sign_in' ? 'last_sign_in_at' : 'created_at';
+      const av = a[key] ? new Date(a[key] as string).getTime() : 0;
+      const bv = b[key] ? new Date(b[key] as string).getTime() : 0;
+      return bv - av;
+    });
 
   const callAction = async (key: string, payload: any, successMsg: string) => {
     setBusy(key);
