@@ -296,6 +296,8 @@ export default function CompanyUsers() {
                   <TableHead className="text-center">分析師</TableHead>
                   <TableHead className="text-center">Tester</TableHead>
                   <TableHead>狀態</TableHead>
+                  <TableHead>註冊</TableHead>
+                  <TableHead>最近登入</TableHead>
                   <TableHead className="w-12"></TableHead>
                 </TableRow>
               </TableHeader>
