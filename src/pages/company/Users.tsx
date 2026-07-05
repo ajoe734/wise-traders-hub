@@ -42,6 +42,7 @@ interface UserRow {
   banned_until: string | null;
   roles: string[];
   created_at: string;
+  last_sign_in_at: string | null;
 }
 
 const errorMap: Record<string, string> = {
@@ -56,6 +57,38 @@ const errorMap: Record<string, string> = {
   no_changes: '沒有變更內容',
 };
 
+function pad(n: number) { return n < 10 ? `0${n}` : `${n}`; }
+function formatDateTw(iso: string | null | undefined): string {
+  if (!iso) return '—';
+  const d = new Date(iso);
+  if (Number.isNaN(d.getTime())) return '—';
+  return `${d.getFullYear()}/${pad(d.getMonth() + 1)}/${pad(d.getDate())}`;
+}
+function formatRelativeTw(iso: string | null | undefined): string {
+  if (!iso) return '從未';
+  const d = new Date(iso).getTime();
+  if (Number.isNaN(d)) return '—';
+  const diff = Date.now() - d;
+  if (diff < 0) return '剛剛';
+  const m = Math.floor(diff / 60000);
+  if (m < 1) return '剛剛';
+  if (m < 60) return `${m} 分鐘前`;
+  const h = Math.floor(m / 60);
+  if (h < 24) return `${h} 小時前`;
+  const day = Math.floor(h / 24);
+  if (day < 30) return `${day} 天前`;
+  const mo = Math.floor(day / 30);
+  if (mo < 12) return `${mo} 個月前`;
+  return `${Math.floor(mo / 12)} 年前`;
+}
+function activityToneClass(iso: string | null | undefined): string {
+  if (!iso) return 'text-muted-foreground/60';
+  const days = (Date.now() - new Date(iso).getTime()) / 86400000;
+  if (days <= 7) return 'text-foreground';
+  if (days <= 30) return 'text-muted-foreground';
+  return 'text-muted-foreground/60';
+}
+
 export default function CompanyUsers() {
   const { user } = useAuth();
   const queryClient = useQueryClient();
@@ -66,6 +99,7 @@ export default function CompanyUsers() {
     return () => clearTimeout(t);
   }, [search]);
   const [filter, setFilter] = useState<'all' | 'admin' | 'analyst' | 'banned'>('all');
+  const [sortBy, setSortBy] = useState<'last_sign_in' | 'created_at'>('last_sign_in');
   const [busy, setBusy] = useState<string | null>(null);
 
   const [editTarget, setEditTarget] = useState<UserRow | null>(null);
@@ -95,12 +129,20 @@ export default function CompanyUsers() {
 
   const isBanned = (r: UserRow) => !!r.banned_until && new Date(r.banned_until) > new Date();
 
-  const visible = rows.filter((r) => {
-    if (filter === 'admin') return r.roles.includes('company_admin');
-    if (filter === 'analyst') return r.roles.includes('analyst');
-    if (filter === 'banned') return isBanned(r);
-    return true;
-  });
+  const visible = rows
+    .filter((r) => {
+      if (filter === 'admin') return r.roles.includes('company_admin');
+      if (filter === 'analyst') return r.roles.includes('analyst');
+      if (filter === 'banned') return isBanned(r);
+      return true;
+    })
+    .slice()
+    .sort((a, b) => {
+      const key = sortBy === 'last_sign_in' ? 'last_sign_in_at' : 'created_at';
+      const av = a[key] ? new Date(a[key] as string).getTime() : 0;
+      const bv = b[key] ? new Date(b[key] as string).getTime() : 0;
+      return bv - av;
+    });
 
   const callAction = async (key: string, payload: any, successMsg: string) => {
     setBusy(key);
@@ -223,6 +265,19 @@ export default function CompanyUsers() {
                 </button>
               ))}
             </div>
+            <div className="flex gap-1 text-xs">
+              {(['last_sign_in', 'created_at'] as const).map((s) => (
+                <button
+                  key={s}
+                  onClick={() => setSortBy(s)}
+                  className={`px-3 py-1.5 rounded-full transition-colors ${
+                    sortBy === s ? 'bg-foreground text-background' : 'bg-muted text-muted-foreground hover:bg-muted/70'
+                  }`}
+                >
+                  {s === 'last_sign_in' ? '最近登入' : '註冊時間'}
+                </button>
+              ))}
+            </div>
             <span className="text-xs text-muted-foreground ml-auto">共 {visible.length} 位</span>
           </div>
 
@@ -241,6 +296,8 @@ export default function CompanyUsers() {
                   <TableHead className="text-center">分析師</TableHead>
                   <TableHead className="text-center">Tester</TableHead>
                   <TableHead>狀態</TableHead>
+                  <TableHead>註冊</TableHead>
+                  <TableHead>最近登入</TableHead>
                   <TableHead className="w-12"></TableHead>
                 </TableRow>
               </TableHeader>
@@ -308,6 +365,16 @@ export default function CompanyUsers() {
                           {r.expert_slug && <Badge variant="outline">{r.expert_slug}</Badge>}
                         </div>
                       </TableCell>
+                      <TableCell className="text-xs whitespace-nowrap">
+                        <div className={activityToneClass(r.created_at)}>{formatRelativeTw(r.created_at)}</div>
+                        <div className="text-[10px] text-muted-foreground/70 font-mono">{formatDateTw(r.created_at)}</div>
+                      </TableCell>
+                      <TableCell className="text-xs whitespace-nowrap">
+                        <div className={activityToneClass(r.last_sign_in_at)}>
+                          {r.last_sign_in_at ? formatRelativeTw(r.last_sign_in_at) : '從未登入'}
+                        </div>
+                        <div className="text-[10px] text-muted-foreground/70 font-mono">{formatDateTw(r.last_sign_in_at)}</div>
+                      </TableCell>
                       <TableCell>
                         <DropdownMenu>
                           <DropdownMenuTrigger asChild>
@@ -355,7 +422,7 @@ export default function CompanyUsers() {
                 })}
                 {visible.length === 0 && (
                   <TableRow>
-                    <TableCell colSpan={8} className="text-center text-sm text-muted-foreground py-12">
+                    <TableCell colSpan={10} className="text-center text-sm text-muted-foreground py-12">
                       沒有符合條件的帳號
                     </TableCell>
                   </TableRow>

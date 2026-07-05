@@ -109,9 +109,13 @@ Deno.serve(withLogging('admin-manage-users', async (req) => {
       });
 
       const { data: usersList } = await admin.auth.admin.listUsers({ page: 1, perPage: 1000 });
-      const authById = new Map<string, { email: string; banned_until: string | null }>();
+      const authById = new Map<string, { email: string; banned_until: string | null; last_sign_in_at: string | null }>();
       (usersList?.users || []).forEach((u: any) =>
-        authById.set(u.id, { email: u.email || '', banned_until: u.banned_until || null }),
+        authById.set(u.id, {
+          email: u.email || '',
+          banned_until: u.banned_until || null,
+          last_sign_in_at: u.last_sign_in_at || null,
+        }),
       );
 
       let rows = (profiles || []).map((p) => {
@@ -127,6 +131,7 @@ Deno.serve(withLogging('admin-manage-users', async (req) => {
           banned_until: a?.banned_until || null,
           roles: rolesByUser.get(p.user_id) || [],
           created_at: p.created_at,
+          last_sign_in_at: a?.last_sign_in_at || null,
         };
       });
 
