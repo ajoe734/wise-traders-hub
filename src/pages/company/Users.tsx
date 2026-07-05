@@ -422,7 +422,7 @@ export default function CompanyUsers() {
                 })}
                 {visible.length === 0 && (
                   <TableRow>
-                    <TableCell colSpan={8} className="text-center text-sm text-muted-foreground py-12">
+                    <TableCell colSpan={10} className="text-center text-sm text-muted-foreground py-12">
                       沒有符合條件的帳號
                     </TableCell>
                   </TableRow>
