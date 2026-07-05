@@ -8,7 +8,7 @@ import { Card, CardContent } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Badge } from "@/components/ui/badge";
-import { Loader2, ArrowLeft, Info } from "lucide-react";
+import { Loader2, ArrowLeft, Info, ChevronDown, ChevronRight } from "lucide-react";
 import { toast } from "@/hooks/use-toast";
 import { useAuth } from "@/contexts/AuthContext";
 import { supabase } from "@/integrations/supabase/client";
@@ -98,6 +98,25 @@ export default function MyRemittanceOrders() {
 
   const [drafts, setDrafts] = useState<Record<string, Draft>>({});
   const [submittedOnce, setSubmittedOnce] = useState<Set<string>>(new Set());
+  const [showHistory, setShowHistory] = useState(false);
+
+  // 已開通但訂閱期已過的訂單摺疊到「歷史訂單」（依 billing_cycle 由 created_at 推算）
+  const { activeOrders, historicalOrders } = useMemo(() => {
+    const list = orders ?? [];
+    const now = Date.now();
+    const active: Order[] = [];
+    const history: Order[] = [];
+    for (const o of list) {
+      if (o.status === 'confirmed') {
+        const created = new Date(o.created_at).getTime();
+        const days = o.billing_cycle === 'yearly' ? 365 : 30;
+        const endMs = created + days * 86400000;
+        if (endMs < now) { history.push(o); continue; }
+      }
+      active.push(o);
+    }
+    return { activeOrders: active, historicalOrders: history };
+  }, [orders]);
 
   const updateDraft = (id: string, patch: Partial<Draft>) => {
     setDrafts((prev) => {
@@ -200,96 +219,124 @@ export default function MyRemittanceOrders() {
         ) : orders.length === 0 ? (
           <Card><CardContent className="p-8 text-center text-muted-foreground text-sm">目前沒有匯款訂單。</CardContent></Card>
         ) : (
-          <div className="space-y-3">
-            {orders.map((o) => {
-              const meta = STATUS_META[o.status] ?? { label: o.status, tone: "secondary" as const };
-              const isAwaiting = o.status === "awaiting_info";
-              const d = drafts[o.id] ?? EMPTY_DRAFT;
-              const { last5Err, nameErr } = errorsFor(d);
-              const isLocked = d.submitting || submittedOnce.has(o.id);
-              const disabled = isLocked || !!last5Err || !!nameErr;
+          <>
+            {(() => {
+              const renderCard = (o: Order) => {
+                const meta = STATUS_META[o.status] ?? { label: o.status, tone: "secondary" as const };
+                const isAwaiting = o.status === "awaiting_info";
+                const d = drafts[o.id] ?? EMPTY_DRAFT;
+                const { last5Err, nameErr } = errorsFor(d);
+                const isLocked = d.submitting || submittedOnce.has(o.id);
+                const disabled = isLocked || !!last5Err || !!nameErr;
+
+                return (
+                  <Card key={o.id}>
+                    <CardContent className="p-5 space-y-4">
+                      <div className="flex items-start justify-between gap-3">
+                        <div className="space-y-0.5">
+                          <p className="font-medium text-sm">
+                            {o.product_kind === "checkup_plan" ? "持股健檢" : "專家方案"}
+                            <span className="text-muted-foreground"> · {o.billing_cycle === "yearly" ? "年繳" : "月繳"}</span>
+                          </p>
+                          <p className="text-xs text-muted-foreground">建立於 {formatDate(o.created_at)} · 訂單 {o.id.slice(0, 8)}</p>
+                        </div>
+                        <div className="text-right">
+                          <Badge variant={meta.tone}>{meta.label}</Badge>
+                          <p className="text-lg font-bold mt-1">NT$ {o.amount.toLocaleString()}</p>
+                        </div>
+                      </div>
+
+                      <div className="pt-1">
+                        <RemittanceStatusStepper status={o.status} />
+                      </div>
+
+                      {o.reject_reason && (
+                        <p className="text-xs text-destructive">拒絕原因：{o.reject_reason}</p>
+                      )}
+
+                      {isAwaiting && (
+                        <div className="border-t pt-3 space-y-3">
+                          <RemittanceAccountCard amount={o.amount} orderId={o.id.slice(0, 8)} />
+
+                          <div className="space-y-1.5">
+                            <Label htmlFor={`payer-${o.id}`}>匯款人姓名</Label>
+                            <Input
+                              id={`payer-${o.id}`}
+                              value={d.payerName}
+                              maxLength={PAYER_MAX}
+                              disabled={isLocked}
+                              onBlur={() => updateDraft(o.id, { touched: { ...d.touched, payerName: true } })}
+                              onChange={(e) => updateDraft(o.id, { payerName: e.target.value })}
+                              placeholder="您的姓名"
+                              aria-invalid={!!(d.touched.payerName && nameErr)}
+                            />
+                            {d.touched.payerName && nameErr && (
+                              <p className="text-xs text-destructive">{nameErr}</p>
+                            )}
+                          </div>
+                          <div className="space-y-1.5">
+                            <Label htmlFor={`last5-${o.id}`}>轉出帳號末五碼</Label>
+                            <Input
+                              id={`last5-${o.id}`}
+                              inputMode="numeric"
+                              maxLength={5}
+                              value={d.last5}
+                              disabled={isLocked}
+                              onBlur={() => updateDraft(o.id, { touched: { ...d.touched, last5: true } })}
+                              onChange={(e) => updateDraft(o.id, { last5: e.target.value.replace(/\D/g, "") })}
+                              placeholder="例如 12345"
+                              aria-invalid={!!(d.touched.last5 && last5Err)}
+                            />
+                            {d.touched.last5 && last5Err && (
+                              <p className="text-xs text-destructive">{last5Err}</p>
+                            )}
+                          </div>
+                          <Button className="w-full" onClick={() => submit(o.id)} disabled={disabled}>
+                            {d.submitting
+                              ? <><Loader2 className="h-4 w-4 mr-2 animate-spin" />送出中…</>
+                              : submittedOnce.has(o.id) ? '已送出，等待對帳' : '送出對帳資料'}
+                          </Button>
+                        </div>
+                      )}
+
+                      {!isAwaiting && (o.last5 || o.payer_name) && (
+                        <p className="text-xs text-muted-foreground">
+                          匯款人 {o.payer_name ?? "—"} · 末五碼 {o.last5 ?? "—"}
+                        </p>
+                      )}
+                    </CardContent>
+                  </Card>
+                );
+              };
 
               return (
-                <Card key={o.id}>
-                  <CardContent className="p-5 space-y-4">
-                    <div className="flex items-start justify-between gap-3">
-                      <div className="space-y-0.5">
-                        <p className="font-medium text-sm">
-                          {o.product_kind === "checkup_plan" ? "持股健檢" : "專家方案"}
-                          <span className="text-muted-foreground"> · {o.billing_cycle === "yearly" ? "年繳" : "月繳"}</span>
-                        </p>
-                        <p className="text-xs text-muted-foreground">建立於 {formatDate(o.created_at)} · 訂單 {o.id.slice(0, 8)}</p>
-                      </div>
-                      <div className="text-right">
-                        <Badge variant={meta.tone}>{meta.label}</Badge>
-                        <p className="text-lg font-bold mt-1">NT$ {o.amount.toLocaleString()}</p>
-                      </div>
+                <>
+                  {activeOrders.length > 0 ? (
+                    <div className="space-y-3">{activeOrders.map(renderCard)}</div>
+                  ) : (
+                    <Card><CardContent className="p-8 text-center text-muted-foreground text-sm">目前沒有進行中的匯款訂單。</CardContent></Card>
+                  )}
+
+                  {historicalOrders.length > 0 && (
+                    <div className="space-y-3 pt-2">
+                      <button
+                        type="button"
+                        onClick={() => setShowHistory((v) => !v)}
+                        className="flex items-center gap-1.5 text-sm text-muted-foreground hover:text-foreground transition-colors"
+                        aria-expanded={showHistory}
+                      >
+                        {showHistory ? <ChevronDown className="h-4 w-4" /> : <ChevronRight className="h-4 w-4" />}
+                        歷史訂單（{historicalOrders.length}）
+                      </button>
+                      {showHistory && (
+                        <div className="space-y-3 opacity-80">{historicalOrders.map(renderCard)}</div>
+                      )}
                     </div>
-
-                    {/* Status tracker */}
-                    <div className="pt-1">
-                      <RemittanceStatusStepper status={o.status} />
-                    </div>
-
-                    {o.reject_reason && (
-                      <p className="text-xs text-destructive">拒絕原因：{o.reject_reason}</p>
-                    )}
-
-                    {isAwaiting && (
-                      <div className="border-t pt-3 space-y-3">
-                        <RemittanceAccountCard amount={o.amount} orderId={o.id.slice(0, 8)} />
-
-                        <div className="space-y-1.5">
-                          <Label htmlFor={`payer-${o.id}`}>匯款人姓名</Label>
-                          <Input
-                            id={`payer-${o.id}`}
-                            value={d.payerName}
-                            maxLength={PAYER_MAX}
-                            disabled={isLocked}
-                            onBlur={() => updateDraft(o.id, { touched: { ...d.touched, payerName: true } })}
-                            onChange={(e) => updateDraft(o.id, { payerName: e.target.value })}
-                            placeholder="您的姓名"
-                            aria-invalid={!!(d.touched.payerName && nameErr)}
-                          />
-                          {d.touched.payerName && nameErr && (
-                            <p className="text-xs text-destructive">{nameErr}</p>
-                          )}
-                        </div>
-                        <div className="space-y-1.5">
-                          <Label htmlFor={`last5-${o.id}`}>轉出帳號末五碼</Label>
-                          <Input
-                            id={`last5-${o.id}`}
-                            inputMode="numeric"
-                            maxLength={5}
-                            value={d.last5}
-                            disabled={isLocked}
-                            onBlur={() => updateDraft(o.id, { touched: { ...d.touched, last5: true } })}
-                            onChange={(e) => updateDraft(o.id, { last5: e.target.value.replace(/\D/g, "") })}
-                            placeholder="例如 12345"
-                            aria-invalid={!!(d.touched.last5 && last5Err)}
-                          />
-                          {d.touched.last5 && last5Err && (
-                            <p className="text-xs text-destructive">{last5Err}</p>
-                          )}
-                        </div>
-                        <Button className="w-full" onClick={() => submit(o.id)} disabled={disabled}>
-                          {d.submitting
-                            ? <><Loader2 className="h-4 w-4 mr-2 animate-spin" />送出中…</>
-                            : submittedOnce.has(o.id) ? '已送出，等待對帳' : '送出對帳資料'}
-                        </Button>
-                      </div>
-                    )}
-
-                    {!isAwaiting && (o.last5 || o.payer_name) && (
-                      <p className="text-xs text-muted-foreground">
-                        匯款人 {o.payer_name ?? "—"} · 末五碼 {o.last5 ?? "—"}
-                      </p>
-                    )}
-                  </CardContent>
-                </Card>
+                  )}
+                </>
               );
-            })}
-          </div>
+            })()}
+          </>
         )}
       </div>
     </PortalLayout>
