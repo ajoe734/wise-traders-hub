@@ -265,6 +265,19 @@ export default function CompanyUsers() {
                 </button>
               ))}
             </div>
+            <div className="flex gap-1 text-xs">
+              {(['last_sign_in', 'created_at'] as const).map((s) => (
+                <button
+                  key={s}
+                  onClick={() => setSortBy(s)}
+                  className={`px-3 py-1.5 rounded-full transition-colors ${
+                    sortBy === s ? 'bg-foreground text-background' : 'bg-muted text-muted-foreground hover:bg-muted/70'
+                  }`}
+                >
+                  {s === 'last_sign_in' ? '最近登入' : '註冊時間'}
+                </button>
+              ))}
+            </div>
             <span className="text-xs text-muted-foreground ml-auto">共 {visible.length} 位</span>
           </div>
 
