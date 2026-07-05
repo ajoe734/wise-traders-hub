@@ -99,6 +99,7 @@ export default function CompanyUsers() {
     return () => clearTimeout(t);
   }, [search]);
   const [filter, setFilter] = useState<'all' | 'admin' | 'analyst' | 'banned'>('all');
+  const [sortBy, setSortBy] = useState<'last_sign_in' | 'created_at'>('last_sign_in');
   const [busy, setBusy] = useState<string | null>(null);
 
   const [editTarget, setEditTarget] = useState<UserRow | null>(null);
