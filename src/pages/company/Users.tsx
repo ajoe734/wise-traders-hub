@@ -365,6 +365,16 @@ export default function CompanyUsers() {
                           {r.expert_slug && <Badge variant="outline">{r.expert_slug}</Badge>}
                         </div>
                       </TableCell>
+                      <TableCell className="text-xs whitespace-nowrap">
+                        <div className={activityToneClass(r.created_at)}>{formatRelativeTw(r.created_at)}</div>
+                        <div className="text-[10px] text-muted-foreground/70 font-mono">{formatDateTw(r.created_at)}</div>
+                      </TableCell>
+                      <TableCell className="text-xs whitespace-nowrap">
+                        <div className={activityToneClass(r.last_sign_in_at)}>
+                          {r.last_sign_in_at ? formatRelativeTw(r.last_sign_in_at) : '從未登入'}
+                        </div>
+                        <div className="text-[10px] text-muted-foreground/70 font-mono">{formatDateTw(r.last_sign_in_at)}</div>
+                      </TableCell>
                       <TableCell>
                         <DropdownMenu>
                           <DropdownMenuTrigger asChild>
