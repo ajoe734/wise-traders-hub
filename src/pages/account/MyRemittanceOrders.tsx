@@ -98,6 +98,25 @@ export default function MyRemittanceOrders() {
 
   const [drafts, setDrafts] = useState<Record<string, Draft>>({});
   const [submittedOnce, setSubmittedOnce] = useState<Set<string>>(new Set());
+  const [showHistory, setShowHistory] = useState(false);
+
+  // 已開通但訂閱期已過的訂單摺疊到「歷史訂單」（依 billing_cycle 由 created_at 推算）
+  const { activeOrders, historicalOrders } = useMemo(() => {
+    const list = orders ?? [];
+    const now = Date.now();
+    const active: Order[] = [];
+    const history: Order[] = [];
+    for (const o of list) {
+      if (o.status === 'confirmed') {
+        const created = new Date(o.created_at).getTime();
+        const days = o.billing_cycle === 'yearly' ? 365 : 30;
+        const endMs = created + days * 86400000;
+        if (endMs < now) { history.push(o); continue; }
+      }
+      active.push(o);
+    }
+    return { activeOrders: active, historicalOrders: history };
+  }, [orders]);
 
   const updateDraft = (id: string, patch: Partial<Draft>) => {
     setDrafts((prev) => {
