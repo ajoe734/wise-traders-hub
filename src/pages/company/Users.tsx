@@ -42,6 +42,7 @@ interface UserRow {
   banned_until: string | null;
   roles: string[];
   created_at: string;
+  last_sign_in_at: string | null;
 }
 
 const errorMap: Record<string, string> = {
@@ -55,6 +56,38 @@ const errorMap: Record<string, string> = {
   email_not_configured: '寄信服務未設定',
   no_changes: '沒有變更內容',
 };
+
+function pad(n: number) { return n < 10 ? `0${n}` : `${n}`; }
+function formatDateTw(iso: string | null | undefined): string {
+  if (!iso) return '—';
+  const d = new Date(iso);
+  if (Number.isNaN(d.getTime())) return '—';
+  return `${d.getFullYear()}/${pad(d.getMonth() + 1)}/${pad(d.getDate())}`;
+}
+function formatRelativeTw(iso: string | null | undefined): string {
+  if (!iso) return '從未';
+  const d = new Date(iso).getTime();
+  if (Number.isNaN(d)) return '—';
+  const diff = Date.now() - d;
+  if (diff < 0) return '剛剛';
+  const m = Math.floor(diff / 60000);
+  if (m < 1) return '剛剛';
+  if (m < 60) return `${m} 分鐘前`;
+  const h = Math.floor(m / 60);
+  if (h < 24) return `${h} 小時前`;
+  const day = Math.floor(h / 24);
+  if (day < 30) return `${day} 天前`;
+  const mo = Math.floor(day / 30);
+  if (mo < 12) return `${mo} 個月前`;
+  return `${Math.floor(mo / 12)} 年前`;
+}
+function activityToneClass(iso: string | null | undefined): string {
+  if (!iso) return 'text-muted-foreground/60';
+  const days = (Date.now() - new Date(iso).getTime()) / 86400000;
+  if (days <= 7) return 'text-foreground';
+  if (days <= 30) return 'text-muted-foreground';
+  return 'text-muted-foreground/60';
+}
 
 export default function CompanyUsers() {
   const { user } = useAuth();
