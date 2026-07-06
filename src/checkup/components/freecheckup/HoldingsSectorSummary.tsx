@@ -157,6 +157,7 @@ function HoldingsSectorSummaryImpl({
       return v === 'name-asc' || v === 'created-asc' || v === 'created-desc' ? v : 'created-desc'
     } catch { return 'created-desc' }
   })
+  const [presetSearch, setPresetSearch] = useState('')
   const presetRefs = useRef(new Map())
   const highlightTimer = useRef(null)
 
@@ -511,11 +512,54 @@ function HoldingsSectorSummaryImpl({
               )
             })}
           </span>
-          {[...presets].sort((a, b) => {
-            if (sortMode === 'name-asc') return String(a.name).localeCompare(String(b.name), 'zh-Hant')
-            if (sortMode === 'created-asc') return (a.createdAt || 0) - (b.createdAt || 0)
-            return (b.createdAt || 0) - (a.createdAt || 0)
-          }).map((p) => {
+          <input
+            value={presetSearch}
+            onChange={(e) => setPresetSearch(e.target.value)}
+            placeholder="搜尋預設…"
+            aria-label="搜尋預設名稱"
+            style={{
+              fontSize: 10,
+              padding: '2px 6px',
+              borderRadius: 3,
+              border: `1px solid ${alpha(C.textMute, '20')}`,
+              background: alpha(C.textMute, '04'),
+              color: C.text,
+              fontFamily: 'inherit',
+              width: 110,
+              outline: 'none',
+              letterSpacing: '0.02em',
+            }}
+          />
+          {presetSearch.trim() && (
+            <button
+              type="button"
+              onClick={() => setPresetSearch('')}
+              title="清除搜尋"
+              style={{
+                fontSize: 9,
+                padding: '2px 5px',
+                borderRadius: 3,
+                border: `1px solid ${alpha(C.textMute, '18')}`,
+                background: 'transparent',
+                color: C.textMute,
+                cursor: 'pointer',
+                fontFamily: 'inherit',
+                marginLeft: -2,
+              }}
+            >
+              ✕
+            </button>
+          )}
+          {(() => {
+            const term = presetSearch.trim().toLowerCase()
+            const filteredPresets = term
+              ? presets.filter((p) => String(p.name).toLowerCase().includes(term))
+              : presets
+            return [...filteredPresets].sort((a, b) => {
+              if (sortMode === 'name-asc') return String(a.name).localeCompare(String(b.name), 'zh-Hant')
+              if (sortMode === 'created-asc') return (a.createdAt || 0) - (b.createdAt || 0)
+              return (b.createdAt || 0) - (a.createdAt || 0)
+            }).map((p) => {
 
             const isHighlighted = highlightId === p.id
             return (
@@ -694,7 +738,7 @@ function HoldingsSectorSummaryImpl({
                 </>
               )}
             </span>
-          )})}
+          )})})()}
 
 
         </div>
