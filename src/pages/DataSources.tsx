@@ -221,32 +221,60 @@ const DataSources = () => {
   const isAdmin = hasRole('company_admin');
   const [refreshState, setRefreshState] = useState<Record<string, RefreshState>>({});
   const [logs, setLogs] = useState<Record<string, RefreshState>>({});
+  const [failures, setFailures] = useState<Record<string, FailureSummary>>({});
 
-  // 讀最近一次成功/失敗紀錄
+  const loadLogs = async () => {
+    const keys = SOURCES.map((s) => s.refreshKey).filter(Boolean) as string[];
+    const { data } = await supabase
+      .from('data_source_refresh_logs')
+      .select('source_key,status,row_count,duration_ms,started_at,finished_at,error_message')
+      .in('source_key', keys)
+      .order('started_at', { ascending: false })
+      .limit(300);
+    if (!data) return;
+    const latest: Record<string, RefreshState> = {};
+    const grouped: Record<string, typeof data> = {};
+    for (const row of data) {
+      (grouped[row.source_key] ||= []).push(row);
+      if (latest[row.source_key]) continue;
+      latest[row.source_key] = {
+        status: (row.status as RefreshState['status']) || 'idle',
+        rowCount: row.row_count ?? undefined,
+        durationMs: row.duration_ms ?? undefined,
+        finishedAt: row.finished_at ?? undefined,
+        message: row.error_message ?? undefined,
+      };
+    }
+    const fail: Record<string, FailureSummary> = {};
+    for (const [key, rows] of Object.entries(grouped)) {
+      const errors = rows.filter((r) => r.status === 'error');
+      if (!errors.length) continue;
+      // 連續失敗：從最新往回數，遇到 success 就停
+      let consecutive = 0;
+      for (const r of rows) {
+        if (r.status === 'running') continue;
+        if (r.status === 'error') consecutive += 1;
+        else break;
+      }
+      const lastSuccess = rows.find((r) => r.status === 'success');
+      const lastErr = errors[0];
+      fail[key] = {
+        lastError: lastErr.error_message || '未知錯誤',
+        lastErrorAt: lastErr.finished_at || lastErr.started_at,
+        consecutiveFailures: consecutive,
+        totalAttempts: rows.filter((r) => r.status !== 'running').length,
+        totalErrors: errors.length,
+        lastSuccessAt: lastSuccess?.finished_at ?? null,
+      };
+    }
+    setLogs(latest);
+    setFailures(fail);
+  };
+
   useEffect(() => {
     if (!user) return;
-    (async () => {
-      const keys = SOURCES.map((s) => s.refreshKey).filter(Boolean) as string[];
-      const { data } = await supabase
-        .from('data_source_refresh_logs')
-        .select('source_key,status,row_count,duration_ms,finished_at,error_message')
-        .in('source_key', keys)
-        .order('started_at', { ascending: false })
-        .limit(50);
-      if (!data) return;
-      const latest: Record<string, RefreshState> = {};
-      for (const row of data) {
-        if (latest[row.source_key]) continue;
-        latest[row.source_key] = {
-          status: (row.status as RefreshState['status']) || 'idle',
-          rowCount: row.row_count ?? undefined,
-          durationMs: row.duration_ms ?? undefined,
-          finishedAt: row.finished_at ?? undefined,
-          message: row.error_message ?? undefined,
-        };
-      }
-      setLogs(latest);
-    })();
+    loadLogs();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [user]);
 
   const trigger = async (key: string) => {
