@@ -11,7 +11,7 @@
  *   selected  { items: {kind,key}[], mode: 'union'|'intersection' }
  *   onSelect  (next) => void   // next 是同結構
  */
-import { memo, useState } from 'react'
+import { memo, useEffect, useRef, useState } from 'react'
 import { IND_COLOR } from '@/checkup/seedData'
 import {
   aggregateBySector,
@@ -143,25 +143,48 @@ function HoldingsSectorSummaryImpl({
   const [saving, setSaving] = useState(false)
   const [nameDraft, setNameDraft] = useState('')
   const [saveError, setSaveError] = useState(null)
+  const [saveConflictId, setSaveConflictId] = useState(null)
   const [editingId, setEditingId] = useState(null)
   const [editDraft, setEditDraft] = useState('')
   const [editError, setEditError] = useState(null)
+  const [editConflictId, setEditConflictId] = useState(null)
+  const [highlightId, setHighlightId] = useState(null)
+  const presetRefs = useRef(new Map())
+  const highlightTimer = useRef(null)
+
+  useEffect(() => () => {
+    if (highlightTimer.current) clearTimeout(highlightTimer.current)
+  }, [])
+
+  const focusPreset = (id) => {
+    if (!id) return
+    const el = presetRefs.current.get(id)
+    if (el && typeof el.scrollIntoView === 'function') {
+      el.scrollIntoView({ behavior: 'smooth', block: 'nearest', inline: 'nearest' })
+    }
+    setHighlightId(id)
+    if (highlightTimer.current) clearTimeout(highlightTimer.current)
+    highlightTimer.current = setTimeout(() => setHighlightId(null), 1800)
+  }
 
   const openSave = () => {
     setNameDraft(presetSummary(items, mode) || '')
     setSaveError(null)
+    setSaveConflictId(null)
     setSaving(true)
   }
   const commitSave = () => {
     const result = savePreset(nameDraft, items, mode)
     if (result && result.error === 'DUPLICATE_NAME') {
-      setSaveError('已存在同名預設，請改用其他名稱。')
+      setSaveError(`已存在同名預設「${result.conflict?.name ?? ''}」，請改用其他名稱。`)
+      setSaveConflictId(result.conflict?.id ?? null)
       return
     }
     if (result && result.preset) {
       setSaving(false)
       setNameDraft('')
       setSaveError(null)
+      setSaveConflictId(null)
     }
   }
   const applyPreset = (p) => {
@@ -175,22 +198,28 @@ function HoldingsSectorSummaryImpl({
     setEditingId(p.id)
     setEditDraft(p.name)
     setEditError(null)
+    setEditConflictId(null)
   }
   const commitRename = () => {
     if (!editingId) return
     const result = renamePreset(editingId, editDraft)
     if (result && result.error === 'DUPLICATE_NAME') {
-      setEditError('已存在同名預設，請改用其他名稱。')
+      setEditError(`已存在同名預設「${result.conflict?.name ?? ''}」，請改用其他名稱。`)
+      setEditConflictId(result.conflict?.id ?? null)
       return
     }
     setEditingId(null)
     setEditDraft('')
     setEditError(null)
+    setEditConflictId(null)
   }
   const cancelRename = () => {
     setEditingId(null)
     setEditDraft('')
+    setEditError(null)
+    setEditConflictId(null)
   }
+
 
   return (
     <section
@@ -357,10 +386,30 @@ function HoldingsSectorSummaryImpl({
               }}
             />
             {saveError && (
-              <div style={{ fontSize: 10, color: C.up, marginTop: 4, lineHeight: 1.4 }}>
-                {saveError}
+              <div style={{ fontSize: 10, color: C.up, marginTop: 4, lineHeight: 1.4, display: 'flex', alignItems: 'center', gap: 6, flexWrap: 'wrap' }}>
+                <span>{saveError}</span>
+                {saveConflictId && (
+                  <button
+                    type="button"
+                    onClick={() => { setSaving(false); focusPreset(saveConflictId) }}
+                    style={{
+                      fontSize: 10,
+                      padding: '1px 6px',
+                      borderRadius: 3,
+                      border: `1px solid ${alpha(C.up, '35')}`,
+                      background: alpha(C.up, '08'),
+                      color: C.up,
+                      cursor: 'pointer',
+                      fontFamily: 'inherit',
+                      letterSpacing: '0.02em',
+                    }}
+                  >
+                    跳至該預設 →
+                  </button>
+                )}
               </div>
             )}
+
           </div>
           <button
             type="button"
@@ -412,18 +461,37 @@ function HoldingsSectorSummaryImpl({
           <span style={{ fontSize: 9, color: C.textMute, letterSpacing: '0.14em', marginRight: 2 }}>
             預 設
           </span>
-          {presets.map((p) => (
+          {presets.map((p) => {
+            const isHighlighted = highlightId === p.id
+            return (
             <span
               key={p.id}
+              ref={(el) => {
+                if (el) presetRefs.current.set(p.id, el)
+                else presetRefs.current.delete(p.id)
+              }}
               style={{
                 display: 'inline-flex',
                 alignItems: 'center',
                 gap: 2,
                 borderRadius: 4,
-                border: `1px solid ${editingId === p.id ? alpha(C.teal, '35') : alpha(C.textMute, '18')}`,
-                background: editingId === p.id ? alpha(C.teal, '06') : alpha(C.textMute, '04'),
+                border: `1px solid ${
+                  isHighlighted
+                    ? alpha(C.up, '55')
+                    : editingId === p.id
+                      ? alpha(C.teal, '35')
+                      : alpha(C.textMute, '18')
+                }`,
+                background: isHighlighted
+                  ? alpha(C.up, '10')
+                  : editingId === p.id
+                    ? alpha(C.teal, '06')
+                    : alpha(C.textMute, '04'),
+                boxShadow: isHighlighted ? `0 0 0 2px ${alpha(C.up, '18')}` : 'none',
+                transition: 'background 0.2s ease, border-color 0.2s ease, box-shadow 0.2s ease',
               }}
             >
+
               {editingId === p.id ? (
                 <>
                   <div style={{ display: 'flex', flexDirection: 'column' }}>
@@ -450,10 +518,29 @@ function HoldingsSectorSummaryImpl({
                       }}
                     />
                     {editError && (
-                      <div style={{ fontSize: 9, color: C.up, marginTop: 3, whiteSpace: 'nowrap' }}>
-                        {editError}
+                      <div style={{ fontSize: 9, color: C.up, marginTop: 3, lineHeight: 1.4, display: 'flex', alignItems: 'center', gap: 4, flexWrap: 'wrap' }}>
+                        <span>{editError}</span>
+                        {editConflictId && (
+                          <button
+                            type="button"
+                            onClick={() => { cancelRename(); focusPreset(editConflictId) }}
+                            style={{
+                              fontSize: 9,
+                              padding: '1px 5px',
+                              borderRadius: 3,
+                              border: `1px solid ${alpha(C.up, '35')}`,
+                              background: alpha(C.up, '08'),
+                              color: C.up,
+                              cursor: 'pointer',
+                              fontFamily: 'inherit',
+                            }}
+                          >
+                            跳至 →
+                          </button>
+                        )}
                       </div>
                     )}
+
                   </div>
                   <button
                     type="button"
@@ -552,7 +639,9 @@ function HoldingsSectorSummaryImpl({
                 </>
               )}
             </span>
-          ))}
+          )})}
+
+
         </div>
       )}
 

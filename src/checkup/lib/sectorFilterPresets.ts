@@ -50,8 +50,9 @@ export function useSectorFilterPresets() {
     const trimmed = String(name || '').trim()
     if (!trimmed || !Array.isArray(items) || items.length === 0) return { error: 'INVALID' }
     const existing = read()
-    if (existing.some((p) => normalizeName(p.name) === normalizeName(trimmed))) {
-      return { error: 'DUPLICATE_NAME' }
+    const conflict = existing.find((p) => normalizeName(p.name) === normalizeName(trimmed))
+    if (conflict) {
+      return { error: 'DUPLICATE_NAME', conflict: { id: conflict.id, name: conflict.name } }
     }
     const preset = {
       id: uid(),
@@ -80,8 +81,11 @@ export function useSectorFilterPresets() {
     const trimmed = String(name || '').trim()
     if (!trimmed) return { error: 'INVALID' }
     const existing = read()
-    if (existing.some((p) => normalizeName(p.name) === normalizeName(trimmed) && p.id !== id)) {
-      return { error: 'DUPLICATE_NAME' }
+    const conflict = existing.find(
+      (p) => normalizeName(p.name) === normalizeName(trimmed) && p.id !== id,
+    )
+    if (conflict) {
+      return { error: 'DUPLICATE_NAME', conflict: { id: conflict.id, name: conflict.name } }
     }
     setPresets((prev) => {
       const next = prev.map((p) =>
@@ -92,6 +96,7 @@ export function useSectorFilterPresets() {
     })
     return { ok: true }
   }, [])
+
 
   return { presets, save, remove, rename }
 }
