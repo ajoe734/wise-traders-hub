@@ -1593,39 +1593,48 @@ export type Database = {
           action: string
           code: string
           id: string
+          industries: string[] | null
           industry: string | null
           leader: string | null
           position: string | null
           recorded_at: string
           recorded_by: string | null
+          revenue_mix: Json | null
           source: string | null
           strategy: string | null
+          themes: string[] | null
           user_id: string
         }
         Insert: {
           action?: string
           code: string
           id?: string
+          industries?: string[] | null
           industry?: string | null
           leader?: string | null
           position?: string | null
           recorded_at?: string
           recorded_by?: string | null
+          revenue_mix?: Json | null
           source?: string | null
           strategy?: string | null
+          themes?: string[] | null
           user_id: string
         }
         Update: {
           action?: string
           code?: string
           id?: string
+          industries?: string[] | null
           industry?: string | null
           leader?: string | null
           position?: string | null
           recorded_at?: string
           recorded_by?: string | null
+          revenue_mix?: Json | null
           source?: string | null
           strategy?: string | null
+          themes?: string[] | null
           user_id?: string
         }
         Relationships: []
@@ -1635,11 +1644,14 @@ export type Database = {
           code: string
           created_at: string
           id: string
+          industries: string[] | null
           industry: string | null
           leader: string | null
           position: string | null
+          revenue_mix: Json | null
           source: string
           strategy: string | null
+          themes: string[] | null
           updated_at: string
           user_id: string
         }
@@ -1647,11 +1659,14 @@ export type Database = {
           code: string
           created_at?: string
           id?: string
+          industries?: string[] | null
           industry?: string | null
           leader?: string | null
           position?: string | null
+          revenue_mix?: Json | null
           source?: string
           strategy?: string | null
+          themes?: string[] | null
           updated_at?: string
           user_id: string
         }
@@ -1659,11 +1674,14 @@ export type Database = {
           code?: string
           created_at?: string
           id?: string
+          industries?: string[] | null
           industry?: string | null
           leader?: string | null
           position?: string | null
+          revenue_mix?: Json | null
           source?: string
           strategy?: string | null
+          themes?: string[] | null
           updated_at?: string
           user_id?: string
         }
