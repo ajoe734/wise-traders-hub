@@ -474,7 +474,49 @@ function HoldingsSectorSummaryImpl({
           <span style={{ fontSize: 9, color: C.textMute, letterSpacing: '0.14em', marginRight: 2 }}>
             預 設
           </span>
-          {presets.map((p) => {
+          <span
+            role="group"
+            aria-label="預設排序方式"
+            style={{ display: 'inline-flex', alignItems: 'center', gap: 2, marginRight: 4 }}
+          >
+            {[
+              { v: 'created-desc', label: '新→舊', title: '建立時間：新到舊' },
+              { v: 'created-asc', label: '舊→新', title: '建立時間：舊到新' },
+              { v: 'name-asc', label: 'A→Z', title: '名稱：A→Z' },
+            ].map((o) => {
+              const active = sortMode === o.v
+              return (
+                <button
+                  key={o.v}
+                  type="button"
+                  aria-pressed={active}
+                  onClick={() => setSortMode(o.v)}
+                  title={o.title}
+                  style={{
+                    fontSize: 9,
+                    padding: '2px 6px',
+                    borderRadius: 3,
+                    border: `1px solid ${alpha(C.textMute, active ? '30' : '15')}`,
+                    background: active ? alpha(C.text, '08') : 'transparent',
+                    color: active ? C.text : C.textMute,
+                    cursor: 'pointer',
+                    fontFamily: 'inherit',
+                    fontWeight: active ? 500 : 400,
+                    letterSpacing: '0.04em',
+                    lineHeight: 1.4,
+                  }}
+                >
+                  {o.label}
+                </button>
+              )
+            })}
+          </span>
+          {[...presets].sort((a, b) => {
+            if (sortMode === 'name-asc') return String(a.name).localeCompare(String(b.name), 'zh-Hant')
+            if (sortMode === 'created-asc') return (a.createdAt || 0) - (b.createdAt || 0)
+            return (b.createdAt || 0) - (a.createdAt || 0)
+          }).map((p) => {
+
             const isHighlighted = highlightId === p.id
             return (
             <span
