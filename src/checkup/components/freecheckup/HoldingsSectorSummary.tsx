@@ -163,6 +163,21 @@ function HoldingsSectorSummaryImpl({
     })
   }
 
+  const startEdit = (p) => {
+    setEditingId(p.id)
+    setEditDraft(p.name)
+  }
+  const commitRename = () => {
+    if (!editingId) return
+    renamePreset(editingId, editDraft)
+    setEditingId(null)
+    setEditDraft('')
+  }
+  const cancelRename = () => {
+    setEditingId(null)
+    setEditDraft('')
+  }
+
   return (
     <section
       aria-label="持倉族群分佈"
