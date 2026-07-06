@@ -225,3 +225,31 @@ export function holdingsInSector(holdings, stockMeta, overrides, sel) {
   rows.sort((a, b) => b.contribValue - a.contribValue)
   return rows
 }
+
+/**
+ * 多選族群條件 → 命中的 code Set（供卡片牆篩選）。
+ *
+ * @param {Array} holdings
+ * @param {Object} stockMeta
+ * @param {Object} overrides
+ * @param {Array<{kind:'industry'|'theme'|'strategy', key:string}>} items
+ * @param {'union'|'intersection'} mode
+ * @returns {Set<string>|null} null = 無任何條件（不篩）
+ */
+export function matchSectorCodes(holdings, stockMeta, overrides, items, mode = 'union') {
+  const list = Array.isArray(holdings) ? holdings : []
+  if (!Array.isArray(items) || items.length === 0) return null
+  const sets = items.map(
+    (sel) => new Set(holdingsInSector(list, stockMeta, overrides, sel).map((r) => r.code)),
+  )
+  if (mode === 'intersection') {
+    if (sets.length === 0) return new Set()
+    const [first, ...rest] = sets
+    const result = new Set()
+    for (const c of first) if (rest.every((s) => s.has(c))) result.add(c)
+    return result
+  }
+  const u = new Set()
+  for (const s of sets) for (const c of s) u.add(c)
+  return u
+}

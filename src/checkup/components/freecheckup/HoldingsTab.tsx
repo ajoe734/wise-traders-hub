@@ -17,7 +17,7 @@ import HoldingsSectorSummary from "@/checkup/components/freecheckup/HoldingsSect
 import HoldingMetaReportModal from "@/checkup/components/freecheckup/HoldingMetaReportModal";
 import { useMetaOverrides, mergeMeta } from "@/checkup/hooks/useMetaOverrides";
 import { getMultiMeta } from "@/checkup/lib/stockMetaMulti.js";
-import { holdingsInSector } from "@/checkup/lib/holdingUtils";
+import { holdingsInSector, matchSectorCodes } from "@/checkup/lib/holdingUtils";
 import HoldingsUploadSummary from "@/checkup/components/freecheckup/HoldingsUploadSummary";
 import BatchParsePanel from "@/checkup/components/freecheckup/BatchParsePanel";
 import HoldingsEmptyState from "@/checkup/components/freecheckup/HoldingsEmptyState";
@@ -145,12 +145,14 @@ function HoldingsTab(props) {
   const { overrides, upsert: upsertOverride } = useMetaOverrides();
   const handleReportMeta = useCallback((h) => setReportingHolding(h), []);
 
-  // 族群 chip 點擊後的就地篩選（產業／題材／策略）
-  const [sectorFilter, setSectorFilter] = useState(null); // { kind, key } | null
+  // 族群 chip 點擊後的就地篩選（產業／題材／策略，多選 + 聯集/交集）
+  const [sectorFilter, setSectorFilter] = useState({ items: [], mode: 'union' });
   const sectorMatchedCodes = useMemo(() => {
-    if (!sectorFilter) return null;
-    const rows = holdingsInSector(H, STOCK_META, overrides, sectorFilter);
-    return new Set(rows.map((r) => String(r.code)));
+    const set = matchSectorCodes(H, STOCK_META, overrides, sectorFilter.items, sectorFilter.mode);
+    if (!set) return null;
+    const s = new Set();
+    for (const c of set) s.add(String(c));
+    return s;
   }, [sectorFilter, H, STOCK_META, overrides]);
 
   // E-Maint-R1: 6 個 derived useMemo 下沉
