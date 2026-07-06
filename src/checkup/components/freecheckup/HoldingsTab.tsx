@@ -156,6 +156,11 @@ function HoldingsTab(props) {
   // A2-lite: 純子元件 local UI state（避免污染 FreeCheckup parent）
   const [viewMode, setViewMode] = useState("grid"); // 'grid' | 'list'
   const [sortMenuOpen, setSortMenuOpen] = useState(false);
+  const [reportingHolding, setReportingHolding] = useState(null);
+
+  // 使用者 meta override（族群/題材/策略/營收比重）
+  const { overrides, upsert: upsertOverride } = useMetaOverrides();
+  const handleReportMeta = useCallback((h) => setReportingHolding(h), []);
 
   // D-Perf-R2 (2026-05 第二輪)：viewport 訂閱下沉到本元件
   const vw = useViewportWidth(1280);
