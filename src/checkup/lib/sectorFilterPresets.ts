@@ -44,7 +44,11 @@ export function useSectorFilterPresets() {
 
   const save = useCallback((name, items, mode) => {
     const trimmed = String(name || '').trim()
-    if (!trimmed || !Array.isArray(items) || items.length === 0) return null
+    if (!trimmed || !Array.isArray(items) || items.length === 0) return { error: 'INVALID' }
+    const existing = read()
+    if (existing.some((p) => p.name === trimmed)) {
+      return { error: 'DUPLICATE_NAME' }
+    }
     const preset = {
       id: uid(),
       name: trimmed.slice(0, 40),
@@ -57,7 +61,7 @@ export function useSectorFilterPresets() {
       write(next)
       return next
     })
-    return preset
+    return { preset }
   }, [])
 
   const remove = useCallback((id) => {
@@ -70,7 +74,11 @@ export function useSectorFilterPresets() {
 
   const rename = useCallback((id, name) => {
     const trimmed = String(name || '').trim()
-    if (!trimmed) return
+    if (!trimmed) return { error: 'INVALID' }
+    const existing = read()
+    if (existing.some((p) => p.name === trimmed && p.id !== id)) {
+      return { error: 'DUPLICATE_NAME' }
+    }
     setPresets((prev) => {
       const next = prev.map((p) =>
         p.id === id ? { ...p, name: trimmed.slice(0, 40) } : p,
@@ -78,6 +86,7 @@ export function useSectorFilterPresets() {
       write(next)
       return next
     })
+    return { ok: true }
   }, [])
 
   return { presets, save, remove, rename }
