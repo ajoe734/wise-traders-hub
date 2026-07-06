@@ -313,6 +313,40 @@ const DataSources = () => {
     }
   };
 
+  const UNHEALTHY_CONSEC = 2;
+  const UNHEALTHY_RATIO = 0.5;
+  const UNHEALTHY_MIN_ATTEMPTS = 3;
+  const isUnhealthy = (f?: FailureSummary) => {
+    if (!f) return false;
+    if (f.consecutiveFailures >= UNHEALTHY_CONSEC) return true;
+    if (f.totalAttempts >= UNHEALTHY_MIN_ATTEMPTS && f.totalErrors / f.totalAttempts > UNHEALTHY_RATIO) return true;
+    return false;
+  };
+  const unhealthyKeys = SOURCES
+    .map((s) => s.refreshKey)
+    .filter((k): k is string => Boolean(k) && isUnhealthy(failures[k!]));
+
+  const [batchRunning, setBatchRunning] = useState(false);
+  const [batchSummary, setBatchSummary] = useState<{ ok: number; fail: number; total: number } | null>(null);
+  const retryUnhealthy = async () => {
+    if (!unhealthyKeys.length || batchRunning) return;
+    setBatchRunning(true);
+    setBatchSummary({ ok: 0, fail: 0, total: unhealthyKeys.length });
+    let ok = 0;
+    let fail = 0;
+    for (const key of unhealthyKeys) {
+      await trigger(key);
+      const st = (refreshState as any)[key] as RefreshState | undefined;
+      // 用 setter 讀不到最新，改讀 DOM state 前後差不重要，直接看 trigger 結果由 loadLogs 覆蓋
+      if (st?.status === 'success') ok += 1;
+      else fail += 1;
+      setBatchSummary({ ok, fail, total: unhealthyKeys.length });
+    }
+    setBatchRunning(false);
+    await loadLogs();
+  };
+
+
   return (
     <PortalLayout>
       <SEO
