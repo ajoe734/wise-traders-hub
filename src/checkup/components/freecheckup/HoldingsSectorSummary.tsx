@@ -11,15 +11,24 @@
  *   selected  { items: {kind,key}[], mode: 'union'|'intersection' }
  *   onSelect  (next) => void   // next 是同結構
  */
-import { memo } from 'react'
+import { memo, useState } from 'react'
 import { IND_COLOR } from '@/checkup/seedData'
 import {
   aggregateBySector,
   HOLDING_UNCLASSIFIED_LABEL,
 } from '@/checkup/lib/holdingUtils'
+import { useSectorFilterPresets } from '@/checkup/lib/sectorFilterPresets'
 
 const KIND_LABEL = { industry: '產業', theme: '題材', strategy: '策略' }
 const EMPTY_SEL = { items: [], mode: 'union' }
+
+function presetSummary(items, mode) {
+  const label = items
+    .slice(0, 3)
+    .map((it) => `${KIND_LABEL[it.kind] || it.kind}·${it.key}`)
+    .join(mode === 'intersection' ? ' ∩ ' : ' ∪ ')
+  return items.length > 3 ? `${label} +${items.length - 3}` : label
+}
 
 function HoldingsSectorSummaryImpl({
   holdings,
