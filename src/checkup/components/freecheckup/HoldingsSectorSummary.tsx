@@ -139,9 +139,11 @@ function HoldingsSectorSummaryImpl({
     letterSpacing: '0.04em',
   })
 
-  const { presets, save: savePreset, remove: removePreset } = useSectorFilterPresets()
+  const { presets, save: savePreset, remove: removePreset, rename: renamePreset } = useSectorFilterPresets()
   const [saving, setSaving] = useState(false)
   const [nameDraft, setNameDraft] = useState('')
+  const [editingId, setEditingId] = useState(null)
+  const [editDraft, setEditDraft] = useState('')
 
   const openSave = () => {
     setNameDraft(presetSummary(items, mode) || '')
