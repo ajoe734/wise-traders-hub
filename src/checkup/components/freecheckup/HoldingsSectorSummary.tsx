@@ -183,12 +183,58 @@ function HoldingsSectorSummaryImpl({ holdings, stockMeta, overrides, C, alpha })
         </div>
       )}
 
-      {/* ── 題材 / 策略 ── */}
+      {multiIndustryCount > 0 && (
+        <div
+          style={{
+            fontSize: 9,
+            color: C.textMute,
+            marginBottom: 10,
+            fontWeight: 400,
+            lineHeight: 1.6,
+            letterSpacing: '0.04em',
+          }}
+        >
+          {`${multiIndustryCount} 檔跨多族群，市值按營收比重加權拆分。`}
+        </div>
+      )}
+
+      {/* ── 題材 ── */}
+      {themeByCount.length > 0 && (
+        <>
+          <div style={{ ...sectionTitle, marginTop: 6 }}>題 材 曝 險（依檔數）</div>
+          <div
+            style={{
+              display: 'flex',
+              gap: 6,
+              flexWrap: 'wrap',
+              marginBottom: 10,
+            }}
+          >
+            {themeByCount.map((t) => (
+              <span
+                key={t.key}
+                style={{
+                  fontSize: 10,
+                  padding: '3px 8px',
+                  borderRadius: 4,
+                  color: C.textSec,
+                  background: alpha(C.teal, '08'),
+                  fontWeight: 400,
+                  letterSpacing: '0.02em',
+                  lineHeight: 1.6,
+                }}
+              >
+                {`${t.key} ${t.count}`}
+              </span>
+            ))}
+          </div>
+        </>
+      )}
+
+      {/* ── 策略 ── */}
       {strategyByCount.length > 0 && (
         <>
-          <div style={{ ...sectionTitle, marginTop: 6 }}>
-            題 材 / 策 略（依檔數）
-          </div>
+          <div style={{ ...sectionTitle, marginTop: 6 }}>策 略（依檔數）</div>
           <div style={{ display: 'flex', gap: 6, flexWrap: 'wrap' }}>
             {strategyByCount.map((s) => {
               const isUncat = s.key === HOLDING_UNCLASSIFIED_LABEL
