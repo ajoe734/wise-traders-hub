@@ -136,19 +136,29 @@ function HoldingsTab(props) {
   const isDemo = props.isDemo !== undefined ? props.isDemo : _mode.isDemo;
   const startLineLogin = props.startLineLogin !== undefined ? props.startLineLogin : _mode.startLineLogin;
 
+  // A2-lite: 純子元件 local UI state（避免污染 FreeCheckup parent）
+  const [viewMode, setViewMode] = useState("grid"); // 'grid' | 'list'
+  const [sortMenuOpen, setSortMenuOpen] = useState(false);
+  const [reportingHolding, setReportingHolding] = useState(null);
+
+  // 使用者 meta override（族群/題材/策略/營收比重）
+  const { overrides, upsert: upsertOverride } = useMetaOverrides();
+  const handleReportMeta = useCallback((h) => setReportingHolding(h), []);
+
   // 族群 chip 點擊後的就地篩選（產業／題材／策略）
   const [sectorFilter, setSectorFilter] = useState(null); // { kind, key } | null
-  const overridesForSector = props.overrides || {};
   const sectorMatchedCodes = useMemo(() => {
     if (!sectorFilter) return null;
-    const rows = holdingsInSector(H, STOCK_META, overridesForSector, sectorFilter);
-    return new Set(rows.map((r) => r.code));
-  }, [sectorFilter, H, STOCK_META, overridesForSector]);
+    const rows = holdingsInSector(H, STOCK_META, overrides, sectorFilter);
+    return new Set(rows.map((r) => String(r.code)));
+  }, [sectorFilter, H, STOCK_META, overrides]);
 
   // E-Maint-R1: 6 個 derived useMemo 下沉
   const rawSorted = filteredSortedList; // 命名相容性
   const sorted = useMemo(
-    () => (sectorMatchedCodes ? (rawSorted || []).filter((x) => sectorMatchedCodes.has(String(x.code))) : rawSorted),
+    () => (sectorMatchedCodes
+      ? (rawSorted || []).filter((x) => sectorMatchedCodes.has(String(x.code)))
+      : rawSorted),
     [rawSorted, sectorMatchedCodes],
   );
   const {
@@ -166,15 +176,6 @@ function HoldingsTab(props) {
     showAll,
     globalPriorityList,
   });
-
-  // A2-lite: 純子元件 local UI state（避免污染 FreeCheckup parent）
-  const [viewMode, setViewMode] = useState("grid"); // 'grid' | 'list'
-  const [sortMenuOpen, setSortMenuOpen] = useState(false);
-  const [reportingHolding, setReportingHolding] = useState(null);
-
-  // 使用者 meta override（族群/題材/策略/營收比重）
-  const { overrides, upsert: upsertOverride } = useMetaOverrides();
-  const handleReportMeta = useCallback((h) => setReportingHolding(h), []);
 
   // D-Perf-R2 (2026-05 第二輪)：viewport 訂閱下沉到本元件
   const vw = useViewportWidth(1280);
