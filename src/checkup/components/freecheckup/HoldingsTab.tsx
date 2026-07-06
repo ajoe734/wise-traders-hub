@@ -235,6 +235,14 @@ function HoldingsTab(props) {
       />
 
 
+      {/* 族群分佈總覽（產業＋題材）— 讓使用者一眼看出集中/分散 */}
+      <HoldingsSectorSummary
+        holdings={H}
+        stockMeta={STOCK_META}
+        C={C}
+        alpha={alpha}
+      />
+
       {/* 反轉追蹤（虧損持股）— 預設折疊，避免擠壓卡片牆 */}
       <HoldingsReversalSection
         losers={losers}
