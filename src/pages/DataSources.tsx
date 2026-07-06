@@ -340,10 +340,8 @@ const DataSources = () => {
     let ok = 0;
     let fail = 0;
     for (const key of unhealthyKeys) {
-      await trigger(key);
-      const st = (refreshState as any)[key] as RefreshState | undefined;
-      // 用 setter 讀不到最新，改讀 DOM state 前後差不重要，直接看 trigger 結果由 loadLogs 覆蓋
-      if (st?.status === 'success') ok += 1;
+      const result = await runOnce(key);
+      if (result === 'success') ok += 1;
       else fail += 1;
       setBatchSummary({ ok, fail, total: unhealthyKeys.length });
     }
