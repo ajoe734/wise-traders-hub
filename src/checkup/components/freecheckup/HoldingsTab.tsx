@@ -247,6 +247,7 @@ function HoldingsTab(props) {
       <HoldingsSectorSummary
         holdings={H}
         stockMeta={STOCK_META}
+        overrides={overrides}
         C={C}
         alpha={alpha}
       />
