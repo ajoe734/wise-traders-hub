@@ -6,7 +6,7 @@ import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import {
   Database, ExternalLink, ShieldCheck, AlertTriangle, Clock, GitBranch,
-  CalendarClock, RefreshCw, CheckCircle2, XCircle, Loader2,
+  CalendarClock, RefreshCw, CheckCircle2, XCircle, Loader2, AlertOctagon, History,
 } from 'lucide-react';
 import twsePrimary from '@/checkup/data/twsePrimaryIndustry.json';
 import twseSecondary from '@/checkup/data/twseSecondaryIndustry.json';
