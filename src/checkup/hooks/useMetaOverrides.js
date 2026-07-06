@@ -25,7 +25,7 @@ async function fetchOverrides(userId, force = false) {
   const inflight = (async () => {
     const { data, error } = await supabase
       .from('holding_meta_overrides')
-      .select('code, industry, strategy, leader, position, source, updated_at')
+      .select('code, industry, industries, themes, revenue_mix, strategy, leader, position, source, updated_at')
       .eq('user_id', userId)
     if (error) throw error
     const map = {}
