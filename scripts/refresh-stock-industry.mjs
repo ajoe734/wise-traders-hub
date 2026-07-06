@@ -25,6 +25,7 @@ import iconv from 'iconv-lite'
 
 const HERE = dirname(fileURLToPath(import.meta.url))
 const OUT = resolve(HERE, '..', 'data', 'twse-industry-map.json')
+const COMPACT = resolve(HERE, '..', 'src', 'checkup', 'data', 'twsePrimaryIndustry.json')
 
 const SOURCES = [
   { mode: 2, label: '上市' },
