@@ -76,7 +76,25 @@ export function useMetaOverrides() {
     return () => { SUBSCRIBERS.delete(onChange) }
   }, [reload])
 
-  return { overrides, loading, reload: () => reload(true) }
+  const upsert = useCallback(async (code, patch) => {
+    const { data: { user } } = await supabase.auth.getUser()
+    if (!user) throw new Error('must sign in')
+    const row = {
+      user_id: user.id,
+      code: String(code),
+      source: 'user_report',
+      updated_at: new Date().toISOString(),
+      ...patch,
+    }
+    const { error } = await supabase
+      .from('holding_meta_overrides')
+      .upsert(row, { onConflict: 'user_id,code' })
+    if (error) throw error
+    invalidateMetaOverridesCache()
+    await reload(true)
+  }, [reload])
+
+  return { overrides, loading, reload: () => reload(true), upsert }
 }
 
 /** Merge override over base STOCK_META entry. Override fields win when non-empty. */
@@ -86,5 +104,8 @@ export function mergeMeta(base, override) {
   for (const k of ['industry', 'strategy', 'leader', 'position']) {
     if (override[k]) out[k] = override[k]
   }
+  if (Array.isArray(override.industries) && override.industries.length) out.industries = override.industries
+  if (Array.isArray(override.themes) && override.themes.length) out.themes = override.themes
+  if (override.revenue_mix) out.revenueMix = override.revenue_mix
   return out
 }
