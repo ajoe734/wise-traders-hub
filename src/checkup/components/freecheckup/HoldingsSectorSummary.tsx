@@ -139,9 +139,11 @@ function HoldingsSectorSummaryImpl({
     letterSpacing: '0.04em',
   })
 
-  const { presets, save: savePreset, remove: removePreset } = useSectorFilterPresets()
+  const { presets, save: savePreset, remove: removePreset, rename: renamePreset } = useSectorFilterPresets()
   const [saving, setSaving] = useState(false)
   const [nameDraft, setNameDraft] = useState('')
+  const [editingId, setEditingId] = useState(null)
+  const [editDraft, setEditDraft] = useState('')
 
   const openSave = () => {
     setNameDraft(presetSummary(items, mode) || '')
@@ -159,6 +161,21 @@ function HoldingsSectorSummaryImpl({
       items: (p.items || []).map((it) => ({ kind: it.kind, key: it.key })),
       mode: p.mode === 'intersection' ? 'intersection' : 'union',
     })
+  }
+
+  const startEdit = (p) => {
+    setEditingId(p.id)
+    setEditDraft(p.name)
+  }
+  const commitRename = () => {
+    if (!editingId) return
+    renamePreset(editingId, editDraft)
+    setEditingId(null)
+    setEditDraft('')
+  }
+  const cancelRename = () => {
+    setEditingId(null)
+    setEditDraft('')
   }
 
   return (
@@ -382,52 +399,130 @@ function HoldingsSectorSummaryImpl({
                 alignItems: 'center',
                 gap: 2,
                 borderRadius: 4,
-                border: `1px solid ${alpha(C.textMute, '18')}`,
-                background: alpha(C.textMute, '04'),
+                border: `1px solid ${editingId === p.id ? alpha(C.teal, '35') : alpha(C.textMute, '18')}`,
+                background: editingId === p.id ? alpha(C.teal, '06') : alpha(C.textMute, '04'),
               }}
             >
-              <button
-                type="button"
-                onClick={() => applyPreset(p)}
-                title={presetSummary(p.items, p.mode)}
-                style={{
-                  fontSize: 10,
-                  padding: '3px 4px 3px 8px',
-                  background: 'transparent',
-                  border: 'none',
-                  color: C.text,
-                  cursor: 'pointer',
-                  fontFamily: 'inherit',
-                  letterSpacing: '0.02em',
-                  maxWidth: 200,
-                  whiteSpace: 'nowrap',
-                  overflow: 'hidden',
-                  textOverflow: 'ellipsis',
-                }}
-              >
-                {p.name}
-                <span style={{ color: C.textMute, marginLeft: 6, fontSize: 9 }}>
-                  {p.items.length}｜{p.mode === 'intersection' ? '∩' : '∪'}
-                </span>
-              </button>
-              <button
-                type="button"
-                aria-label={`刪除預設 ${p.name}`}
-                onClick={() => {
-                  if (window.confirm(`刪除預設「${p.name}」？`)) removePreset(p.id)
-                }}
-                style={{
-                  fontSize: 11,
-                  padding: '2px 6px 2px 2px',
-                  background: 'transparent',
-                  border: 'none',
-                  color: C.textMute,
-                  cursor: 'pointer',
-                  lineHeight: 1,
-                }}
-              >
-                ✕
-              </button>
+              {editingId === p.id ? (
+                <>
+                  <input
+                    autoFocus
+                    value={editDraft}
+                    onChange={(e) => setEditDraft(e.target.value)}
+                    onKeyDown={(e) => {
+                      if (e.key === 'Enter') commitRename()
+                      if (e.key === 'Escape') cancelRename()
+                    }}
+                    maxLength={40}
+                    style={{
+                      fontSize: 10,
+                      padding: '3px 6px',
+                      border: `1px solid ${alpha(C.teal, '30')}`,
+                      borderRadius: 3,
+                      background: C.paper || '#fff',
+                      color: C.text,
+                      fontFamily: 'inherit',
+                      outline: 'none',
+                      width: 120,
+                      letterSpacing: '0.02em',
+                    }}
+                  />
+                  <button
+                    type="button"
+                    aria-label="確認重新命名"
+                    onClick={commitRename}
+                    disabled={!editDraft.trim()}
+                    style={{
+                      fontSize: 11,
+                      padding: '2px 4px',
+                      background: 'transparent',
+                      border: 'none',
+                      color: editDraft.trim() ? C.teal : C.textMute,
+                      cursor: editDraft.trim() ? 'pointer' : 'not-allowed',
+                      lineHeight: 1,
+                    }}
+                  >
+                    ✓
+                  </button>
+                  <button
+                    type="button"
+                    aria-label="取消重新命名"
+                    onClick={cancelRename}
+                    style={{
+                      fontSize: 11,
+                      padding: '2px 6px 2px 2px',
+                      background: 'transparent',
+                      border: 'none',
+                      color: C.textMute,
+                      cursor: 'pointer',
+                      lineHeight: 1,
+                    }}
+                  >
+                    ✕
+                  </button>
+                </>
+              ) : (
+                <>
+                  <button
+                    type="button"
+                    onClick={() => applyPreset(p)}
+                    title={presetSummary(p.items, p.mode)}
+                    style={{
+                      fontSize: 10,
+                      padding: '3px 4px 3px 8px',
+                      background: 'transparent',
+                      border: 'none',
+                      color: C.text,
+                      cursor: 'pointer',
+                      fontFamily: 'inherit',
+                      letterSpacing: '0.02em',
+                      maxWidth: 200,
+                      whiteSpace: 'nowrap',
+                      overflow: 'hidden',
+                      textOverflow: 'ellipsis',
+                    }}
+                  >
+                    {p.name}
+                    <span style={{ color: C.textMute, marginLeft: 6, fontSize: 9 }}>
+                      {p.items.length}｜{p.mode === 'intersection' ? '∩' : '∪'}
+                    </span>
+                  </button>
+                  <button
+                    type="button"
+                    aria-label={`重新命名預設 ${p.name}`}
+                    onClick={() => startEdit(p)}
+                    style={{
+                      fontSize: 10,
+                      padding: '2px 2px 2px 4px',
+                      background: 'transparent',
+                      border: 'none',
+                      color: C.textMute,
+                      cursor: 'pointer',
+                      lineHeight: 1,
+                    }}
+                  >
+                    ✎
+                  </button>
+                  <button
+                    type="button"
+                    aria-label={`刪除預設 ${p.name}`}
+                    onClick={() => {
+                      if (window.confirm(`刪除預設「${p.name}」？`)) removePreset(p.id)
+                    }}
+                    style={{
+                      fontSize: 11,
+                      padding: '2px 6px 2px 2px',
+                      background: 'transparent',
+                      border: 'none',
+                      color: C.textMute,
+                      cursor: 'pointer',
+                      lineHeight: 1,
+                    }}
+                  >
+                    ✕
+                  </button>
+                </>
+              )}
             </span>
           ))}
         </div>
