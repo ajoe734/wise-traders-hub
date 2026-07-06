@@ -1,22 +1,137 @@
 // @ts-nocheck
 /**
- * HoldingsSectorSummary — 持倉族群分佈總覽
+ * HoldingsSectorSummary — 持倉族群分佈總覽（可點 chip 展開對應個股）
  *
  * 位置：`/holding-checkup` 持倉分頁 KPI Hero 下方。
- * 目標：一眼看出「哪些產業／題材壓太多、哪些沒有」，補足卡片標籤缺乏總覽的問題。
- *
- * 視覺遵守 mem://style/checkup/japanese-minimalist-aesthetic：
- *   - off-white 底、無陰影、字重 ≤500、字級 10-12
- *   - 產業條 6px 高、最大產業原色、其他灰階
+ * 交互：點任一 chip（產業／題材／策略）→ 就地在該區塊下方展開屬於該族群的個股清單。
+ *      再點同 chip = 收合；點別的 chip = 切換。
  */
-import { memo } from 'react'
+import { memo, useState, useMemo } from 'react'
 import { IND_COLOR } from '@/checkup/seedData'
 import {
   aggregateBySector,
+  holdingsInSector,
   HOLDING_UNCLASSIFIED_LABEL,
 } from '@/checkup/lib/holdingUtils'
 
+const MAX_ROWS = 12
+
+function SectorDrilldown({ selected, holdings, stockMeta, overrides, C, alpha, onClear }) {
+  const rows = useMemo(
+    () => holdingsInSector(holdings, stockMeta, overrides, selected),
+    [holdings, stockMeta, overrides, selected],
+  )
+  if (!selected) return null
+
+  const kindLabel = selected.kind === 'industry' ? '產業' : selected.kind === 'theme' ? '題材' : '策略'
+  const shown = rows.slice(0, MAX_ROWS)
+  const more = rows.length - shown.length
+
+  return (
+    <div
+      role="region"
+      aria-label={`${selected.key} 相關持股`}
+      style={{
+        marginTop: 4,
+        marginBottom: 10,
+        padding: '10px 12px',
+        background: C.paper || '#fff',
+        border: `1px solid ${alpha(C.textMute, '15')}`,
+        borderRadius: 4,
+      }}
+    >
+      <div
+        style={{
+          display: 'flex',
+          alignItems: 'center',
+          justifyContent: 'space-between',
+          gap: 8,
+          marginBottom: 8,
+        }}
+      >
+        <div style={{ fontSize: 11, color: C.text, fontWeight: 500, letterSpacing: '0.04em' }}>
+          <span style={{ color: C.textMute, fontWeight: 400, marginRight: 6 }}>{kindLabel}</span>
+          {selected.key}
+          <span style={{ color: C.textMute, fontWeight: 400, marginLeft: 6 }}>
+            {rows.length} 檔
+          </span>
+        </div>
+        <button
+          type="button"
+          onClick={onClear}
+          style={{
+            fontSize: 10,
+            color: C.textMute,
+            background: 'transparent',
+            border: 'none',
+            cursor: 'pointer',
+            padding: '2px 6px',
+            letterSpacing: '0.04em',
+          }}
+        >
+          清除 ✕
+        </button>
+      </div>
+
+      {rows.length === 0 && (
+        <div style={{ fontSize: 10, color: C.textMute, padding: '4px 0' }}>
+          此族群目前無個股。
+        </div>
+      )}
+
+      {shown.map((r) => {
+        const up = r.pnlPct != null && r.pnlPct > 0
+        const down = r.pnlPct != null && r.pnlPct < 0
+        const pnlColor = up ? C.red || '#c0392b' : down ? C.green || '#27ae60' : C.textMute
+        return (
+          <div
+            key={r.code}
+            style={{
+              display: 'flex',
+              alignItems: 'center',
+              gap: 10,
+              padding: '5px 0',
+              borderTop: `1px dashed ${alpha(C.textMute, '10')}`,
+              fontSize: 11,
+              lineHeight: 1.5,
+            }}
+          >
+            <span style={{ color: C.textMute, fontFamily: 'monospace', minWidth: 40 }}>
+              {r.code}
+            </span>
+            <span style={{ color: C.text, fontWeight: 500, flex: 1, minWidth: 0 }}>
+              {r.name || '—'}
+            </span>
+            <span style={{ color: C.textSec, minWidth: 60, textAlign: 'right' }}>
+              市值 {r.pctOfPortfolio.toFixed(1)}%
+            </span>
+            {r.pnlPct != null && (
+              <span style={{ color: pnlColor, minWidth: 56, textAlign: 'right', fontVariantNumeric: 'tabular-nums' }}>
+                {r.pnlPct > 0 ? '+' : ''}
+                {r.pnlPct.toFixed(1)}%
+              </span>
+            )}
+            {r.isMulti && (
+              <span style={{ color: C.textMute, fontSize: 9, minWidth: 52, textAlign: 'right' }}>
+                拆 {(r.weight * 100).toFixed(0)}%
+              </span>
+            )}
+          </div>
+        )
+      })}
+
+      {more > 0 && (
+        <div style={{ fontSize: 10, color: C.textMute, marginTop: 6 }}>
+          ⋯ 還有 {more} 檔
+        </div>
+      )}
+    </div>
+  )
+}
+
 function HoldingsSectorSummaryImpl({ holdings, stockMeta, overrides, C, alpha }) {
+  const [selected, setSelected] = useState(null)
+
   if (!Array.isArray(holdings) || holdings.length === 0) return null
 
   const {
@@ -40,16 +155,52 @@ function HoldingsSectorSummaryImpl({ holdings, stockMeta, overrides, C, alpha })
     letterSpacing: '0.16em',
     fontWeight: 400,
   }
-  const chip = (active, tone) => ({
-    fontSize: 10,
-    padding: '3px 8px',
-    borderRadius: 4,
-    color: active ? C.text : C.textMute,
-    background: active ? alpha(tone || C.teal, '10') : 'transparent',
-    fontWeight: active ? 500 : 400,
-    letterSpacing: '0.02em',
-    lineHeight: 1.6,
-  })
+
+  const isSelected = (kind, key) => selected?.kind === kind && selected?.key === key
+  const toggle = (kind, key) =>
+    setSelected((prev) => (prev?.kind === kind && prev?.key === key ? null : { kind, key }))
+
+  const chipBtn = (kind, key, label, tone, active) => (
+    <button
+      key={`${kind}:${key}`}
+      type="button"
+      onClick={() => toggle(kind, key)}
+      aria-pressed={isSelected(kind, key)}
+      style={{
+        fontSize: 10,
+        padding: '3px 8px',
+        borderRadius: 4,
+        color: isSelected(kind, key) ? C.text : active ? C.text : C.textSec,
+        background: isSelected(kind, key)
+          ? alpha(tone || C.teal, '22')
+          : active
+            ? alpha(tone || C.teal, '10')
+            : alpha(C.textMute, '06'),
+        fontWeight: isSelected(kind, key) ? 500 : active ? 500 : 400,
+        letterSpacing: '0.02em',
+        lineHeight: 1.6,
+        border: isSelected(kind, key) ? `1px solid ${alpha(tone || C.teal, '40')}` : '1px solid transparent',
+        cursor: 'pointer',
+        fontFamily: 'inherit',
+      }}
+    >
+      {isSelected(kind, key) && <span style={{ marginRight: 4 }}>●</span>}
+      {label}
+    </button>
+  )
+
+  const drilldown = (kind) =>
+    selected?.kind === kind ? (
+      <SectorDrilldown
+        selected={selected}
+        holdings={holdings}
+        stockMeta={stockMeta}
+        overrides={overrides}
+        C={C}
+        alpha={alpha}
+        onClear={() => setSelected(null)}
+      />
+    ) : null
 
   return (
     <section
@@ -81,50 +232,37 @@ function HoldingsSectorSummaryImpl({ holdings, stockMeta, overrides, C, alpha })
           {industryByValue.map((x, i) => (
             <div
               key={x.key}
-              title={`${x.key} ${x.count}檔 ${x.pct.toFixed(0)}%`}
+              title={`${x.key} ${x.count}檔 ${x.pct.toFixed(0)}%（點擊展開）`}
+              onClick={() => toggle('industry', x.key)}
               style={{
                 width: `${x.pct}%`,
                 height: '100%',
                 background:
-                  i === 0
+                  isSelected('industry', x.key)
                     ? IND_COLOR[x.key] || C.teal
-                    : alpha(C.textMute, '25'),
+                    : i === 0
+                      ? IND_COLOR[x.key] || C.teal
+                      : alpha(C.textMute, '25'),
                 transition: 'width 0.4s ease',
+                cursor: 'pointer',
               }}
             />
           ))}
         </div>
       )}
 
-      <div
-        style={{
-          display: 'flex',
-          gap: 6,
-          flexWrap: 'wrap',
-          marginBottom: 10,
-        }}
-      >
+      <div style={{ display: 'flex', gap: 6, flexWrap: 'wrap', marginBottom: 10 }}>
         {industryByValue.map((x, i) => {
           const isTop = i === 0 && !singleHolding
-          return (
-            <span key={x.key} style={chip(isTop, IND_COLOR[x.key])}>
-              {`${x.key} ${x.count}檔${
-                totalValue > 0 ? ` ${x.pct.toFixed(0)}%` : ''
-              }`}
-            </span>
-          )
+          const label = `${x.key} ${x.count}檔${totalValue > 0 ? ` ${x.pct.toFixed(0)}%` : ''}`
+          return chipBtn('industry', x.key, label, IND_COLOR[x.key], isTop)
         })}
       </div>
 
+      {drilldown('industry')}
+
       {singleHolding && (
-        <div
-          style={{
-            fontSize: 10,
-            color: C.textMute,
-            marginBottom: 10,
-            fontWeight: 400,
-          }}
-        >
+        <div style={{ fontSize: 10, color: C.textMute, marginBottom: 10, fontWeight: 400 }}>
           僅 1 檔，暫無族群比較意義。
         </div>
       )}
@@ -145,40 +283,19 @@ function HoldingsSectorSummaryImpl({ holdings, stockMeta, overrides, C, alpha })
           }}
         >
           {'集中：'}
-          {warnings
-            .map(
-              (w) =>
-                `${w.key}(${w.count}檔 ${w.pct.toFixed(0)}%)`
-            )
-            .join('、')}
+          {warnings.map((w) => `${w.key}(${w.count}檔 ${w.pct.toFixed(0)}%)`).join('、')}
           {warnings.some((w) => w.pct > 30) && ' — 建議分散風險'}
         </div>
       )}
 
       {overDiversified && (
-        <div
-          style={{
-            fontSize: 10,
-            color: C.textMute,
-            marginBottom: 10,
-            fontWeight: 400,
-            lineHeight: 1.6,
-          }}
-        >
+        <div style={{ fontSize: 10, color: C.textMute, marginBottom: 10, fontWeight: 400, lineHeight: 1.6 }}>
           產業數多且無明顯核心倉，追蹤成本較高，可考慮精簡。
         </div>
       )}
 
       {unclassifiedCount > 0 && (
-        <div
-          style={{
-            fontSize: 10,
-            color: C.textMute,
-            marginBottom: 10,
-            fontWeight: 400,
-            lineHeight: 1.6,
-          }}
-        >
+        <div style={{ fontSize: 10, color: C.textMute, marginBottom: 10, fontWeight: 400, lineHeight: 1.6 }}>
           {`${unclassifiedCount} 檔尚未歸入產業，建議手動補上產業標籤以獲得更準確的族群分佈。`}
         </div>
       )}
@@ -202,32 +319,12 @@ function HoldingsSectorSummaryImpl({ holdings, stockMeta, overrides, C, alpha })
       {themeByCount.length > 0 && (
         <>
           <div style={{ ...sectionTitle, marginTop: 6 }}>題 材 曝 險（依檔數）</div>
-          <div
-            style={{
-              display: 'flex',
-              gap: 6,
-              flexWrap: 'wrap',
-              marginBottom: 10,
-            }}
-          >
-            {themeByCount.map((t) => (
-              <span
-                key={t.key}
-                style={{
-                  fontSize: 10,
-                  padding: '3px 8px',
-                  borderRadius: 4,
-                  color: C.textSec,
-                  background: alpha(C.teal, '08'),
-                  fontWeight: 400,
-                  letterSpacing: '0.02em',
-                  lineHeight: 1.6,
-                }}
-              >
-                {`${t.key} ${t.count}`}
-              </span>
-            ))}
+          <div style={{ display: 'flex', gap: 6, flexWrap: 'wrap', marginBottom: 10 }}>
+            {themeByCount.map((t) =>
+              chipBtn('theme', t.key, `${t.key} ${t.count}`, C.teal, false),
+            )}
           </div>
+          {drilldown('theme')}
         </>
       )}
 
@@ -238,27 +335,16 @@ function HoldingsSectorSummaryImpl({ holdings, stockMeta, overrides, C, alpha })
           <div style={{ display: 'flex', gap: 6, flexWrap: 'wrap' }}>
             {strategyByCount.map((s) => {
               const isUncat = s.key === HOLDING_UNCLASSIFIED_LABEL
-              return (
-                <span
-                  key={s.key}
-                  style={{
-                    fontSize: 10,
-                    padding: '3px 8px',
-                    borderRadius: 4,
-                    color: isUncat ? C.textMute : C.textSec,
-                    background: isUncat
-                      ? 'transparent'
-                      : alpha(C.textMute, '08'),
-                    fontWeight: 400,
-                    letterSpacing: '0.02em',
-                    lineHeight: 1.6,
-                  }}
-                >
-                  {`${s.key} ${s.count}`}
-                </span>
+              return chipBtn(
+                'strategy',
+                s.key,
+                `${s.key} ${s.count}`,
+                isUncat ? C.textMute : C.textSec,
+                false,
               )
             })}
           </div>
+          {drilldown('strategy')}
         </>
       )}
     </section>
