@@ -157,6 +157,7 @@ function HoldingsSectorSummaryImpl({
       return v === 'name-asc' || v === 'created-asc' || v === 'created-desc' ? v : 'created-desc'
     } catch { return 'created-desc' }
   })
+  const [presetSearch, setPresetSearch] = useState('')
   const presetRefs = useRef(new Map())
   const highlightTimer = useRef(null)
 
