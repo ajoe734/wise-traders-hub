@@ -252,9 +252,26 @@ function HoldingsSectorSummaryImpl({
           )}
           <button
             type="button"
-            onClick={clearAll}
+            onClick={openSave}
+            title="把目前多選條件（含聯集/交集）存成篩選預設"
             style={{
               marginLeft: 'auto',
+              fontSize: 10,
+              color: C.text,
+              background: alpha(C.text, '06'),
+              border: `1px solid ${alpha(C.textMute, '20')}`,
+              borderRadius: 3,
+              cursor: 'pointer',
+              padding: '2px 8px',
+              fontFamily: 'inherit',
+            }}
+          >
+            ＋ 存為預設
+          </button>
+          <button
+            type="button"
+            onClick={clearAll}
+            style={{
               fontSize: 10,
               color: C.textMute,
               background: 'transparent',
@@ -266,6 +283,153 @@ function HoldingsSectorSummaryImpl({
           >
             清除全部
           </button>
+        </div>
+      )}
+
+      {saving && (
+        <div
+          role="dialog"
+          aria-label="命名並儲存預設"
+          style={{
+            display: 'flex',
+            alignItems: 'center',
+            gap: 6,
+            marginBottom: 10,
+            padding: '6px 10px',
+            background: C.paper || '#fff',
+            border: `1px dashed ${alpha(C.textMute, '30')}`,
+            borderRadius: 4,
+          }}
+        >
+          <span style={{ fontSize: 10, color: C.textMute }}>預設名稱</span>
+          <input
+            autoFocus
+            value={nameDraft}
+            onChange={(e) => setNameDraft(e.target.value)}
+            onKeyDown={(e) => {
+              if (e.key === 'Enter') commitSave()
+              if (e.key === 'Escape') { setSaving(false); setNameDraft('') }
+            }}
+            placeholder="例如：AI 半導體核心"
+            maxLength={40}
+            style={{
+              flex: 1,
+              fontSize: 11,
+              padding: '4px 8px',
+              border: `1px solid ${alpha(C.textMute, '25')}`,
+              borderRadius: 3,
+              background: '#fff',
+              color: C.text,
+              fontFamily: 'inherit',
+              outline: 'none',
+            }}
+          />
+          <button
+            type="button"
+            onClick={commitSave}
+            disabled={!nameDraft.trim() || items.length === 0}
+            style={{
+              fontSize: 10,
+              padding: '3px 10px',
+              borderRadius: 3,
+              border: `1px solid ${alpha(C.text, '25')}`,
+              background: C.text,
+              color: C.paper || '#fff',
+              cursor: nameDraft.trim() && items.length > 0 ? 'pointer' : 'not-allowed',
+              opacity: nameDraft.trim() && items.length > 0 ? 1 : 0.4,
+              fontFamily: 'inherit',
+            }}
+          >
+            儲存
+          </button>
+          <button
+            type="button"
+            onClick={() => { setSaving(false); setNameDraft('') }}
+            style={{
+              fontSize: 10,
+              padding: '3px 8px',
+              borderRadius: 3,
+              border: 'none',
+              background: 'transparent',
+              color: C.textMute,
+              cursor: 'pointer',
+              fontFamily: 'inherit',
+            }}
+          >
+            取消
+          </button>
+        </div>
+      )}
+
+      {presets.length > 0 && (
+        <div
+          style={{
+            display: 'flex',
+            alignItems: 'center',
+            gap: 6,
+            flexWrap: 'wrap',
+            marginBottom: 10,
+          }}
+        >
+          <span style={{ fontSize: 9, color: C.textMute, letterSpacing: '0.14em', marginRight: 2 }}>
+            預 設
+          </span>
+          {presets.map((p) => (
+            <span
+              key={p.id}
+              style={{
+                display: 'inline-flex',
+                alignItems: 'center',
+                gap: 2,
+                borderRadius: 4,
+                border: `1px solid ${alpha(C.textMute, '18')}`,
+                background: alpha(C.textMute, '04'),
+              }}
+            >
+              <button
+                type="button"
+                onClick={() => applyPreset(p)}
+                title={presetSummary(p.items, p.mode)}
+                style={{
+                  fontSize: 10,
+                  padding: '3px 4px 3px 8px',
+                  background: 'transparent',
+                  border: 'none',
+                  color: C.text,
+                  cursor: 'pointer',
+                  fontFamily: 'inherit',
+                  letterSpacing: '0.02em',
+                  maxWidth: 200,
+                  whiteSpace: 'nowrap',
+                  overflow: 'hidden',
+                  textOverflow: 'ellipsis',
+                }}
+              >
+                {p.name}
+                <span style={{ color: C.textMute, marginLeft: 6, fontSize: 9 }}>
+                  {p.items.length}｜{p.mode === 'intersection' ? '∩' : '∪'}
+                </span>
+              </button>
+              <button
+                type="button"
+                aria-label={`刪除預設 ${p.name}`}
+                onClick={() => {
+                  if (window.confirm(`刪除預設「${p.name}」？`)) removePreset(p.id)
+                }}
+                style={{
+                  fontSize: 11,
+                  padding: '2px 6px 2px 2px',
+                  background: 'transparent',
+                  border: 'none',
+                  color: C.textMute,
+                  cursor: 'pointer',
+                  lineHeight: 1,
+                }}
+              >
+                ✕
+              </button>
+            </span>
+          ))}
         </div>
       )}
 
