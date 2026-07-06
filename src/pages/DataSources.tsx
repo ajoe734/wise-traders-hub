@@ -1,11 +1,18 @@
+import { useEffect, useState } from 'react';
 import { PortalLayout } from '@/components/layouts/PortalLayout';
 import { SEOLite as SEO } from '@/components/SEOLite';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
-import { Database, ExternalLink, ShieldCheck, AlertTriangle, Clock, GitBranch, CalendarClock } from 'lucide-react';
+import { Button } from '@/components/ui/button';
+import {
+  Database, ExternalLink, ShieldCheck, AlertTriangle, Clock, GitBranch,
+  CalendarClock, RefreshCw, CheckCircle2, XCircle, Loader2,
+} from 'lucide-react';
 import twsePrimary from '@/checkup/data/twsePrimaryIndustry.json';
 import twseSecondary from '@/checkup/data/twseSecondaryIndustry.json';
 import stockIndustry from '@/checkup/data/stockIndustry.json';
+import { supabase } from '@/integrations/supabase/client';
+import { useAuth } from '@/contexts/AuthContext';
 
 type Cadence = 'daily' | 'weekly' | 'monthly' | 'quarterly' | 'on-demand';
 
@@ -18,12 +25,19 @@ type Source = {
   fields: string[];
   usage: string;
   limits: string;
-  /** ISO 時間；null 代表無本地快照（即時查詢） */
   lastFetchedAt: string | null;
-  /** 版本號或筆數描述 */
   version: string;
-  /** 排程節奏，用來算下次更新時間 */
   cadence: Cadence;
+  /** 對應 edge function 的 source_key；undefined 代表不支援重抓 */
+  refreshKey?: string;
+};
+
+type RefreshState = {
+  status: 'idle' | 'running' | 'success' | 'error';
+  message?: string;
+  rowCount?: number;
+  durationMs?: number;
+  finishedAt?: string;
 };
 
 const primaryMeta = (twsePrimary as any)._meta || {};
@@ -47,6 +61,7 @@ const SOURCES: Source[] = [
     lastFetchedAt: primaryMeta.generatedAt || null,
     version: `v${(primaryMeta.generatedAt || '').slice(0, 10)} · ${primaryCount.toLocaleString()} 檔`,
     cadence: 'monthly',
+    refreshKey: 'twse-isin',
   },
   {
     name: 'TWSE OpenAPI',
@@ -60,6 +75,7 @@ const SOURCES: Source[] = [
     lastFetchedAt: null,
     version: '即時查詢（無本地快照）',
     cadence: 'daily',
+    refreshKey: 'twse-openapi',
   },
   {
     name: 'TPEx OpenAPI',
@@ -73,6 +89,7 @@ const SOURCES: Source[] = [
     lastFetchedAt: null,
     version: '即時查詢（無本地快照）',
     cadence: 'daily',
+    refreshKey: 'tpex-openapi',
   },
   {
     name: 'data.gov.tw 上市/上櫃公司',
@@ -86,6 +103,7 @@ const SOURCES: Source[] = [
     lastFetchedAt: null,
     version: '即時查詢（無本地快照）',
     cadence: 'monthly',
+    refreshKey: 'data-gov-tw',
   },
   {
     name: 'FinMind TaiwanStockInfo',
@@ -99,6 +117,7 @@ const SOURCES: Source[] = [
     lastFetchedAt: secondaryMeta.generatedAt || null,
     version: `v${(secondaryMeta.generatedAt || '').slice(0, 10)} · ${secondaryCount.toLocaleString()} 檔`,
     cadence: 'monthly',
+    refreshKey: 'finmind',
   },
   {
     name: '人工校訂覆蓋層 stockIndustry.json',
@@ -156,20 +175,21 @@ const LICENSE_STYLE: Record<Source['licenseTone'], string> = {
   restricted: 'bg-rose-500/10 text-rose-700 dark:text-rose-300 border-rose-500/20',
 };
 
-function fmtDate(iso: string | null): string {
+function fmtDate(iso: string | null | undefined): string {
   if (!iso) return '—';
   const d = new Date(iso);
   if (Number.isNaN(d.getTime())) return '—';
   const y = d.getFullYear();
   const m = String(d.getMonth() + 1).padStart(2, '0');
   const day = String(d.getDate()).padStart(2, '0');
-  return `${y}/${m}/${day}`;
+  const hh = String(d.getHours()).padStart(2, '0');
+  const mm = String(d.getMinutes()).padStart(2, '0');
+  return `${y}/${m}/${day} ${hh}:${mm}`;
 }
 
 function nextUpdate(iso: string | null, cadence: Cadence): string {
   if (cadence === 'on-demand') return '手動觸發';
   if (!iso) {
-    // 沒本地快照 → 用「每次載入」代表即時
     if (cadence === 'daily') return '每交易日更新';
     if (cadence === 'monthly') return '每月月初';
     if (cadence === 'quarterly') return '每季公告後';
@@ -178,27 +198,82 @@ function nextUpdate(iso: string | null, cadence: Cadence): string {
   const base = new Date(iso!);
   const next = new Date(base);
   switch (cadence) {
-    case 'daily':
-      next.setDate(next.getDate() + 1);
-      break;
-    case 'weekly':
-      next.setDate(next.getDate() + 14);
-      break;
-    case 'monthly':
-      next.setMonth(next.getMonth() + 1);
-      break;
-    case 'quarterly':
-      next.setMonth(next.getMonth() + 3);
-      break;
-    default:
-      break;
+    case 'daily': next.setDate(next.getDate() + 1); break;
+    case 'weekly': next.setDate(next.getDate() + 14); break;
+    case 'monthly': next.setMonth(next.getMonth() + 1); break;
+    case 'quarterly': next.setMonth(next.getMonth() + 3); break;
   }
-  const now = Date.now();
-  const overdue = next.getTime() < now;
-  return `${fmtDate(next.toISOString())}${overdue ? '（已逾期）' : ''}`;
+  const overdue = next.getTime() < Date.now();
+  return `${fmtDate(next.toISOString()).slice(0, 10)}${overdue ? '（已逾期）' : ''}`;
 }
 
 const DataSources = () => {
+  const { hasRole, user } = useAuth();
+  const isAdmin = hasRole('company_admin');
+  const [refreshState, setRefreshState] = useState<Record<string, RefreshState>>({});
+  const [logs, setLogs] = useState<Record<string, RefreshState>>({});
+
+  // 讀最近一次成功/失敗紀錄
+  useEffect(() => {
+    if (!user) return;
+    (async () => {
+      const keys = SOURCES.map((s) => s.refreshKey).filter(Boolean) as string[];
+      const { data } = await supabase
+        .from('data_source_refresh_logs')
+        .select('source_key,status,row_count,duration_ms,finished_at,error_message')
+        .in('source_key', keys)
+        .order('started_at', { ascending: false })
+        .limit(50);
+      if (!data) return;
+      const latest: Record<string, RefreshState> = {};
+      for (const row of data) {
+        if (latest[row.source_key]) continue;
+        latest[row.source_key] = {
+          status: (row.status as RefreshState['status']) || 'idle',
+          rowCount: row.row_count ?? undefined,
+          durationMs: row.duration_ms ?? undefined,
+          finishedAt: row.finished_at ?? undefined,
+          message: row.error_message ?? undefined,
+        };
+      }
+      setLogs(latest);
+    })();
+  }, [user]);
+
+  const trigger = async (key: string) => {
+    setRefreshState((s) => ({ ...s, [key]: { status: 'running' } }));
+    try {
+      const { data, error } = await supabase.functions.invoke('refresh-data-source', {
+        body: { source_key: key },
+      });
+      if (error) throw new Error(error.message || '呼叫失敗');
+      const state: RefreshState = data?.ok
+        ? {
+            status: 'success',
+            rowCount: data.row_count,
+            durationMs: data.duration_ms,
+            finishedAt: new Date().toISOString(),
+          }
+        : {
+            status: 'error',
+            message: data?.error || '未知錯誤',
+            durationMs: data?.duration_ms,
+            finishedAt: new Date().toISOString(),
+          };
+      setRefreshState((s) => ({ ...s, [key]: state }));
+      setLogs((s) => ({ ...s, [key]: state }));
+    } catch (e) {
+      setRefreshState((s) => ({
+        ...s,
+        [key]: {
+          status: 'error',
+          message: e instanceof Error ? e.message : String(e),
+          finishedAt: new Date().toISOString(),
+        },
+      }));
+    }
+  };
+
   return (
     <PortalLayout>
       <SEO
@@ -210,12 +285,17 @@ const DataSources = () => {
         <div className="mb-10">
           <h1 className="text-2xl md:text-3xl font-bold mb-3">免費外部資料源</h1>
           <p className="text-muted-foreground max-w-3xl">
-            持倉族群分類（產業、次產業、營收比重）採用以下公開資料源。每個來源標示最後抓取時間、版本與預計下一次更新，方便你判斷資料新鮮度與稽核追溯。
+            持倉族群分類（產業、次產業、營收比重）採用以下公開資料源。每個來源標示最後抓取時間、版本與預計下一次更新。
+            {isAdmin && '  管理員可按「立即重新抓取」測試連通性並更新最新筆數紀錄（不會覆蓋 bundle 內快照，仍需 CLI 產出後 commit）。'}
           </p>
         </div>
 
         <div className="max-w-5xl space-y-4">
           {SOURCES.map((s) => {
+            const active = s.refreshKey ? refreshState[s.refreshKey] : undefined;
+            const lastLog = s.refreshKey ? logs[s.refreshKey] : undefined;
+            const display: RefreshState | undefined = active || lastLog;
+
             const overdue = (() => {
               if (!s.lastFetchedAt || s.cadence === 'on-demand') return false;
               const nxt = new Date(s.lastFetchedAt);
@@ -227,6 +307,7 @@ const DataSources = () => {
               }
               return nxt.getTime() < Date.now();
             })();
+
             return (
               <Card key={s.name} className="dark:border-white/10">
                 <CardHeader>
@@ -256,16 +337,31 @@ const DataSources = () => {
                         <ExternalLink className="h-3 w-3 shrink-0" />
                       </a>
                     </div>
+                    {isAdmin && s.refreshKey && (
+                      <Button
+                        variant="outline"
+                        size="sm"
+                        onClick={() => trigger(s.refreshKey!)}
+                        disabled={active?.status === 'running'}
+                      >
+                        {active?.status === 'running' ? (
+                          <Loader2 className="h-4 w-4 animate-spin" />
+                        ) : (
+                          <RefreshCw className="h-4 w-4" />
+                        )}
+                        <span className="ml-1.5">立即重新抓取</span>
+                      </Button>
+                    )}
                   </div>
                 </CardHeader>
                 <CardContent className="space-y-3 text-sm">
-                  {/* 新鮮度區塊 */}
+                  {/* 新鮮度 */}
                   <div className="grid gap-2 md:grid-cols-3 rounded-lg bg-muted/40 p-3">
                     <div className="flex items-start gap-2">
                       <Clock className="h-4 w-4 text-muted-foreground mt-0.5 shrink-0" />
                       <div>
-                        <div className="text-[11px] text-muted-foreground">最後抓取</div>
-                        <div className="font-medium">{fmtDate(s.lastFetchedAt)}</div>
+                        <div className="text-[11px] text-muted-foreground">最後抓取（bundle）</div>
+                        <div className="font-medium">{fmtDate(s.lastFetchedAt).slice(0, 10)}</div>
                       </div>
                     </div>
                     <div className="flex items-start gap-2">
@@ -283,6 +379,44 @@ const DataSources = () => {
                       </div>
                     </div>
                   </div>
+
+                  {/* 執行結果面板 */}
+                  {display && (
+                    <div
+                      className={`rounded-lg border p-3 text-xs ${
+                        display.status === 'running'
+                          ? 'border-primary/30 bg-primary/5'
+                          : display.status === 'success'
+                            ? 'border-emerald-500/30 bg-emerald-500/5'
+                            : display.status === 'error'
+                              ? 'border-rose-500/30 bg-rose-500/5'
+                              : 'border-muted bg-muted/30'
+                      }`}
+                    >
+                      <div className="flex items-center gap-2 font-medium">
+                        {display.status === 'running' && <Loader2 className="h-4 w-4 animate-spin text-primary" />}
+                        {display.status === 'success' && <CheckCircle2 className="h-4 w-4 text-emerald-600" />}
+                        {display.status === 'error' && <XCircle className="h-4 w-4 text-rose-600" />}
+                        <span>
+                          {display.status === 'running' && '抓取中…'}
+                          {display.status === 'success' && '最近一次抓取成功'}
+                          {display.status === 'error' && '最近一次抓取失敗'}
+                        </span>
+                        {display.finishedAt && display.status !== 'running' && (
+                          <span className="text-muted-foreground font-normal">· {fmtDate(display.finishedAt)}</span>
+                        )}
+                      </div>
+                      {display.status === 'success' && (
+                        <div className="mt-1 text-muted-foreground">
+                          回傳 {display.rowCount?.toLocaleString() ?? '?'} 筆
+                          {typeof display.durationMs === 'number' && ` · 耗時 ${(display.durationMs / 1000).toFixed(1)}s`}
+                        </div>
+                      )}
+                      {display.status === 'error' && display.message && (
+                        <div className="mt-1 text-rose-700 dark:text-rose-300 break-all">{display.message}</div>
+                      )}
+                    </div>
+                  )}
 
                   <div>
                     <div className="text-xs font-medium text-muted-foreground mb-1">提供欄位</div>

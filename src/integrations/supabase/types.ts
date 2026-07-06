@@ -1082,6 +1082,48 @@ export type Database = {
         }
         Relationships: []
       }
+      data_source_refresh_logs: {
+        Row: {
+          created_at: string
+          duration_ms: number | null
+          error_message: string | null
+          finished_at: string | null
+          id: string
+          metadata: Json | null
+          row_count: number | null
+          source_key: string
+          started_at: string
+          status: string
+          triggered_by: string | null
+        }
+        Insert: {
+          created_at?: string
+          duration_ms?: number | null
+          error_message?: string | null
+          finished_at?: string | null
+          id?: string
+          metadata?: Json | null
+          row_count?: number | null
+          source_key: string
+          started_at?: string
+          status: string
+          triggered_by?: string | null
+        }
+        Update: {
+          created_at?: string
+          duration_ms?: number | null
+          error_message?: string | null
+          finished_at?: string | null
+          id?: string
+          metadata?: Json | null
+          row_count?: number | null
+          source_key?: string
+          started_at?: string
+          status?: string
+          triggered_by?: string | null
+        }
+        Relationships: []
+      }
       edge_boot_events: {
         Row: {
           boot_at: string
