@@ -139,6 +139,28 @@ function HoldingsSectorSummaryImpl({
     letterSpacing: '0.04em',
   })
 
+  const { presets, save: savePreset, remove: removePreset } = useSectorFilterPresets()
+  const [saving, setSaving] = useState(false)
+  const [nameDraft, setNameDraft] = useState('')
+
+  const openSave = () => {
+    setNameDraft(presetSummary(items, mode) || '')
+    setSaving(true)
+  }
+  const commitSave = () => {
+    const rec = savePreset(nameDraft, items, mode)
+    if (rec) {
+      setSaving(false)
+      setNameDraft('')
+    }
+  }
+  const applyPreset = (p) => {
+    emit({
+      items: (p.items || []).map((it) => ({ kind: it.kind, key: it.key })),
+      mode: p.mode === 'intersection' ? 'intersection' : 'union',
+    })
+  }
+
   return (
     <section
       aria-label="持倉族群分佈"
