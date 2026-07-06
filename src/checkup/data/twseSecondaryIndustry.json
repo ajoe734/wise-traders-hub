@@ -1,0 +1,1 @@
+{"_meta":{"generatedAt":"pending","source":"FinMind TaiwanStockInfo","schema":"code -> industry_category (次產業 fallback)","note":"Run: node scripts/refresh-finmind-industry.mjs"}}
