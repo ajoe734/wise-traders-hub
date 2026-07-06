@@ -461,18 +461,37 @@ function HoldingsSectorSummaryImpl({
           <span style={{ fontSize: 9, color: C.textMute, letterSpacing: '0.14em', marginRight: 2 }}>
             預 設
           </span>
-          {presets.map((p) => (
+          {presets.map((p) => {
+            const isHighlighted = highlightId === p.id
+            return (
             <span
               key={p.id}
+              ref={(el) => {
+                if (el) presetRefs.current.set(p.id, el)
+                else presetRefs.current.delete(p.id)
+              }}
               style={{
                 display: 'inline-flex',
                 alignItems: 'center',
                 gap: 2,
                 borderRadius: 4,
-                border: `1px solid ${editingId === p.id ? alpha(C.teal, '35') : alpha(C.textMute, '18')}`,
-                background: editingId === p.id ? alpha(C.teal, '06') : alpha(C.textMute, '04'),
+                border: `1px solid ${
+                  isHighlighted
+                    ? alpha(C.up, '55')
+                    : editingId === p.id
+                      ? alpha(C.teal, '35')
+                      : alpha(C.textMute, '18')
+                }`,
+                background: isHighlighted
+                  ? alpha(C.up, '10')
+                  : editingId === p.id
+                    ? alpha(C.teal, '06')
+                    : alpha(C.textMute, '04'),
+                boxShadow: isHighlighted ? `0 0 0 2px ${alpha(C.up, '18')}` : 'none',
+                transition: 'background 0.2s ease, border-color 0.2s ease, box-shadow 0.2s ease',
               }}
             >
+
               {editingId === p.id ? (
                 <>
                   <div style={{ display: 'flex', flexDirection: 'column' }}>
