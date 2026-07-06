@@ -277,7 +277,7 @@ const DataSources = () => {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [user]);
 
-  const trigger = async (key: string) => {
+  const runOnce = async (key: string): Promise<'success' | 'error'> => {
     setRefreshState((s) => ({ ...s, [key]: { status: 'running' } }));
     try {
       const { data, error } = await supabase.functions.invoke('refresh-data-source', {
@@ -299,7 +299,7 @@ const DataSources = () => {
           };
       setRefreshState((s) => ({ ...s, [key]: state }));
       setLogs((s) => ({ ...s, [key]: state }));
-      loadLogs();
+      return state.status === 'success' ? 'success' : 'error';
     } catch (e) {
       setRefreshState((s) => ({
         ...s,
@@ -309,8 +309,13 @@ const DataSources = () => {
           finishedAt: new Date().toISOString(),
         },
       }));
-      loadLogs();
+      return 'error';
     }
+  };
+
+  const trigger = async (key: string) => {
+    await runOnce(key);
+    loadLogs();
   };
 
   const UNHEALTHY_CONSEC = 2;
