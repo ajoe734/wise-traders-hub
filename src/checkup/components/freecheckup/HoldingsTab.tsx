@@ -14,6 +14,9 @@ import HoldingsQuotaMeter from "@/checkup/components/freecheckup/HoldingsQuotaMe
 import HoldingsFilterBar from "@/checkup/components/freecheckup/HoldingsFilterBar";
 import HoldingsReversalSection from "@/checkup/components/freecheckup/HoldingsReversalSection";
 import HoldingsSectorSummary from "@/checkup/components/freecheckup/HoldingsSectorSummary";
+import HoldingMetaReportModal from "@/checkup/components/freecheckup/HoldingMetaReportModal";
+import { useMetaOverrides, mergeMeta } from "@/checkup/hooks/useMetaOverrides";
+import { getMultiMeta } from "@/checkup/lib/stockMetaMulti.js";
 import HoldingsUploadSummary from "@/checkup/components/freecheckup/HoldingsUploadSummary";
 import BatchParsePanel from "@/checkup/components/freecheckup/BatchParsePanel";
 import HoldingsEmptyState from "@/checkup/components/freecheckup/HoldingsEmptyState";
@@ -153,6 +156,11 @@ function HoldingsTab(props) {
   // A2-lite: 純子元件 local UI state（避免污染 FreeCheckup parent）
   const [viewMode, setViewMode] = useState("grid"); // 'grid' | 'list'
   const [sortMenuOpen, setSortMenuOpen] = useState(false);
+  const [reportingHolding, setReportingHolding] = useState(null);
+
+  // 使用者 meta override（族群/題材/策略/營收比重）
+  const { overrides, upsert: upsertOverride } = useMetaOverrides();
+  const handleReportMeta = useCallback((h) => setReportingHolding(h), []);
 
   // D-Perf-R2 (2026-05 第二輪)：viewport 訂閱下沉到本元件
   const vw = useViewportWidth(1280);
@@ -239,6 +247,7 @@ function HoldingsTab(props) {
       <HoldingsSectorSummary
         holdings={H}
         stockMeta={STOCK_META}
+        overrides={overrides}
         C={C}
         alpha={alpha}
       />
@@ -336,7 +345,7 @@ function HoldingsTab(props) {
             decision={decisionsMap[h.code]}
             target={targets?.[h.code]}
             avgTargetPrice={targets?.[h.code] ? avgTarget(h.code) : null}
-            meta={STOCK_META[h.code] || null}
+            meta={mergeMeta(STOCK_META[h.code], overrides?.[h.code])}
             sparkData={sparklines[h.code] || EMPTY_SPARK}
             sparkFailed={!!sparklineErrors[h.code]}
             variant={variantsMap.get(h.code) || 'plain'}
@@ -345,6 +354,7 @@ function HoldingsTab(props) {
             syncState={holdingSyncStates?.[h.code]}
             onSelect={handleHoldingCardSelect}
             onOpenDrawer={handleHoldingCardOpenDrawer}
+            onReportMeta={handleReportMeta}
           />
         );
 
@@ -502,6 +512,20 @@ function HoldingsTab(props) {
         setViewMode={setViewMode}
         WB={WB}
       />
+
+      {/* 分類回報 modal */}
+      {reportingHolding && (
+        <HoldingMetaReportModal
+          holding={reportingHolding}
+          currentMeta={getMultiMeta(
+            reportingHolding.code,
+            STOCK_META,
+            overrides?.[reportingHolding.code],
+          )}
+          onClose={() => setReportingHolding(null)}
+          upsert={upsertOverride}
+        />
+      )}
 
       {/* D1：RWD 樣式已搬至 src/checkup/styles/holdingsTab.css，
           由 PostCSS 壓縮、且不再每次 render 產生新的 string text node。 */}

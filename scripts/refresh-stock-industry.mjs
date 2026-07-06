@@ -24,7 +24,8 @@ import { dirname, resolve } from 'node:path'
 import iconv from 'iconv-lite'
 
 const HERE = dirname(fileURLToPath(import.meta.url))
-const OUT = resolve(HERE, '..', 'src', 'checkup', 'data', 'twse-industry-map.json')
+const OUT = resolve(HERE, '..', 'data', 'twse-industry-map.json')
+const COMPACT = resolve(HERE, '..', 'src', 'checkup', 'data', 'twsePrimaryIndustry.json')
 
 const SOURCES = [
   { mode: 2, label: '上市' },
@@ -79,6 +80,26 @@ async function main() {
   const output = { _meta: { generatedAt: new Date().toISOString(), count: Object.keys(all).length }, ...all }
   writeFileSync(OUT, JSON.stringify(output, null, 2), 'utf8')
   console.log(`Wrote ${Object.keys(all).length} entries → ${OUT}`)
+
+  // 產出 compact map（只留 4-digit 股票、單值主產業），供前端 bundle 用
+  const compact = {
+    _meta: {
+      generatedAt: new Date().toISOString(),
+      source: 'TWSE/TPEx ISIN',
+      schema: 'code -> primary industry (單值)',
+      note: 'Auto-generated. Do NOT hand-edit. Multi-industry curation goes to stockIndustry.json.',
+    },
+  }
+  let nc = 0
+  for (const [k, v] of Object.entries(all)) {
+    if (!/^\d{4}$/.test(k)) continue
+    const ind = v?.industries?.[0]
+    if (!ind) continue
+    compact[k] = ind
+    nc++
+  }
+  writeFileSync(COMPACT, JSON.stringify(compact), 'utf8')
+  console.log(`Wrote ${nc} compact entries → ${COMPACT}`)
 }
 
 main().catch((e) => {

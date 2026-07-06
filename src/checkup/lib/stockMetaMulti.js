@@ -2,9 +2,10 @@
  * stockMetaMulti — 統一多族群 metadata 取值層
  *
  * 合併優先順序（高 → 低）：
- *   1. `holding_meta_overrides` DB override（單值 industry；本輪尚未支援多族群）
- *   2. `stockIndustry.json` 覆蓋層（多族群 + revenueMix + themes 修正）
+ *   1. `holding_meta_overrides` DB override（支援 industries[] / themes[] / revenue_mix / 舊 industry 單值）
+ *   2. `stockIndustry.json` 人工校訂覆蓋層（多族群 + revenueMix + themes）
  *   3. `STOCK_META` (seedData) — 手 key 的單值 industry / strategy / themes
+ *   4. `twsePrimaryIndustry.json` — TWSE / TPEx ISIN 官方主產業（單值兜底）
  *
  * 呼叫端拿到的規範化物件：
  *   {
@@ -19,6 +20,7 @@
  */
 
 import overlayJson from '@/checkup/data/stockIndustry.json'
+import twseCompact from '@/checkup/data/twsePrimaryIndustry.json'
 
 export const UNCLASSIFIED = '未分類'
 
@@ -32,6 +34,16 @@ const OVERLAY = (() => {
   return out
 })()
 
+// TWSE 主產業 map（compact），拿掉 _meta
+const TWSE = (() => {
+  const out = {}
+  for (const [k, v] of Object.entries(twseCompact || {})) {
+    if (k.startsWith('_')) continue
+    if (typeof v === 'string') out[k] = v
+  }
+  return out
+})()
+
 function normalizeMix(mix) {
   if (!Array.isArray(mix) || mix.length === 0) return null
   const cleaned = mix
@@ -40,7 +52,6 @@ function normalizeMix(mix) {
   if (cleaned.length === 0) return null
   const total = cleaned.reduce((s, m) => s + m.pct, 0)
   if (total <= 0) return null
-  // 正規化到 100
   return cleaned.map((m) => ({ industry: m.industry, pct: (m.pct / total) * 100 }))
 }
 
@@ -48,23 +59,34 @@ function normalizeMix(mix) {
  * @param {string|number} code
  * @param {Object} stockMeta   STOCK_META (seedData)
  * @param {Object} [override]  單筆 holding_meta_overrides row（可選）
- * @returns {{industries: string[], primaryIndustry: string, revenueMix: Array<{industry:string,pct:number}>|null, themes: string[], strategy: string|null}}
  */
 export function getMultiMeta(code, stockMeta, override) {
   const key = String(code || '').trim()
   const base = (stockMeta && stockMeta[key]) || null
   const over = OVERLAY[key] || null
+  const twseInd = TWSE[key] || null
 
-  // 1. industries[]：override > overlay > base.industry > 未分類
+  // 1. industries[]：DB override > overlay > base.industries > DB.industry > base.industry > TWSE > 未分類
   let industries = null
-  if (over?.industries?.length) industries = over.industries.slice()
-  else if (base?.industries?.length) industries = base.industries.slice()
-  else if (override?.industry) industries = [override.industry]
-  else if (base?.industry) industries = [base.industry]
-  else industries = [UNCLASSIFIED]
+  if (Array.isArray(override?.industries) && override.industries.length) {
+    industries = override.industries.slice()
+  } else if (over?.industries?.length) {
+    industries = over.industries.slice()
+  } else if (base?.industries?.length) {
+    industries = base.industries.slice()
+  } else if (override?.industry) {
+    industries = [override.industry]
+  } else if (base?.industry) {
+    industries = [base.industry]
+  } else if (twseInd) {
+    industries = [twseInd]
+  } else {
+    industries = [UNCLASSIFIED]
+  }
 
-  // 2. revenueMix：overlay > base（沒有則 null，走平均拆）
+  // 2. revenueMix：DB override > overlay > base
   const revenueMix =
+    normalizeMix(override?.revenue_mix) ||
     normalizeMix(over?.revenueMix) ||
     normalizeMix(base?.revenueMix) ||
     null
@@ -74,10 +96,11 @@ export function getMultiMeta(code, stockMeta, override) {
     ? revenueMix.map((m) => m.industry)
     : industries
 
-  // 3. themes：合併 base + overlay，去重
+  // 3. themes：合併 DB override + overlay + base，去重
   const themeSet = new Set()
   for (const t of base?.themes || []) if (t) themeSet.add(t)
   for (const t of over?.themes || []) if (t) themeSet.add(t)
+  for (const t of override?.themes || []) if (t) themeSet.add(t)
   const themes = Array.from(themeSet)
 
   // 4. strategy：override > overlay > base
@@ -91,3 +114,4 @@ export function getMultiMeta(code, stockMeta, override) {
     strategy,
   }
 }
+

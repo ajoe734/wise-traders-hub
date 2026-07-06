@@ -16,7 +16,6 @@
     "test:e2e": "playwright test",
     "typecheck": "tsc --noEmit",
     "test:e2e:line-checkup": "playwright test --project=desktop-line-checkup",
-
     "test:e2e:update": "playwright test --update-snapshots",
     "check:freecheckup-rwd": "node scripts/check-freecheckup-rwd.mjs",
     "check:freecheckup-i18n": "node scripts/check-freecheckup-i18n.mjs",
@@ -111,6 +110,7 @@
     "eslint-plugin-react-hooks": "^5.2.0",
     "eslint-plugin-react-refresh": "^0.4.20",
     "globals": "^15.15.0",
+    "iconv-lite": "^0.7.3",
     "jsdom": "^29.0.2",
     "lovable-tagger": "^1.1.11",
     "msw": "^2.13.2",
