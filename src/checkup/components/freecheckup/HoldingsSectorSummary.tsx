@@ -1,15 +1,15 @@
 // @ts-nocheck
 /**
- * HoldingsSectorSummary — 持倉族群分佈總覽（可點 chip 就地篩選下方卡片牆）
+ * HoldingsSectorSummary — 持倉族群分佈總覽（可多選 chip 就地篩選下方卡片牆）
  *
- * 位置：`/holding-checkup` 持倉分頁 KPI Hero 下方。
- * 交互：點任一 chip（產業／題材／策略）→ 通知 parent 設定 sectorFilter，
- *      下方持倉資料庫（卡片牆）即時只顯示屬於該族群的個股；
- *      再點同一 chip = 清除；點別的 chip = 切換。
+ * 交互：
+ *   - 點任一 chip（產業／題材／策略）→ 加入條件；再點同一 chip = 移除
+ *   - 已選 ≥2 條件時可切「聯集 ∪ / 交集 ∩」
+ *   - 「清除全部」一次清空
  *
  * Props:
- *   selected  { kind, key } | null  — 由 parent（HoldingsTab）持有
- *   onSelect  (next|null) => void
+ *   selected  { items: {kind,key}[], mode: 'union'|'intersection' }
+ *   onSelect  (next) => void   // next 是同結構
  */
 import { memo } from 'react'
 import { IND_COLOR } from '@/checkup/seedData'
@@ -17,6 +17,9 @@ import {
   aggregateBySector,
   HOLDING_UNCLASSIFIED_LABEL,
 } from '@/checkup/lib/holdingUtils'
+
+const KIND_LABEL = { industry: '產業', theme: '題材', strategy: '策略' }
+const EMPTY_SEL = { items: [], mode: 'union' }
 
 function HoldingsSectorSummaryImpl({
   holdings,
@@ -51,11 +54,34 @@ function HoldingsSectorSummaryImpl({
     fontWeight: 400,
   }
 
-  const isSelected = (kind, key) => selected?.kind === kind && selected?.key === key
-  const toggle = (kind, key) => {
+  const sel = selected && Array.isArray(selected.items) ? selected : EMPTY_SEL
+  const items = sel.items
+  const mode = sel.mode === 'intersection' ? 'intersection' : 'union'
+
+  const findIndex = (kind, key) =>
+    items.findIndex((it) => it.kind === kind && it.key === key)
+  const isSelected = (kind, key) => findIndex(kind, key) >= 0
+
+  const emit = (next) => {
     if (typeof onSelect !== 'function') return
-    onSelect(isSelected(kind, key) ? null : { kind, key })
+    onSelect(next)
   }
+  const toggle = (kind, key) => {
+    const idx = findIndex(kind, key)
+    if (idx >= 0) {
+      const nextItems = items.slice()
+      nextItems.splice(idx, 1)
+      emit({ items: nextItems, mode: nextItems.length < 2 ? 'union' : mode })
+    } else {
+      emit({ items: [...items, { kind, key }], mode })
+    }
+  }
+  const removeAt = (kind, key) => {
+    const nextItems = items.filter((it) => !(it.kind === kind && it.key === key))
+    emit({ items: nextItems, mode: nextItems.length < 2 ? 'union' : mode })
+  }
+  const setMode = (nextMode) => emit({ items, mode: nextMode })
+  const clearAll = () => emit({ items: [], mode: 'union' })
 
   const chipBtn = (kind, key, label, tone, active) => {
     const on = isSelected(kind, key)
@@ -65,7 +91,7 @@ function HoldingsSectorSummaryImpl({
         type="button"
         onClick={() => toggle(kind, key)}
         aria-pressed={on}
-        title={on ? '再次點擊清除篩選' : '點擊只顯示此族群個股'}
+        title={on ? '再次點擊移除此條件' : '點擊加入此條件'}
         style={{
           fontSize: 10,
           padding: '3px 8px',
@@ -90,9 +116,19 @@ function HoldingsSectorSummaryImpl({
     )
   }
 
-  const activeLabel = selected
-    ? `${selected.kind === 'industry' ? '產業' : selected.kind === 'theme' ? '題材' : '策略'}：${selected.key}`
-    : null
+  const hasActive = items.length > 0
+  const modeBtnStyle = (active) => ({
+    fontSize: 10,
+    padding: '2px 8px',
+    borderRadius: 3,
+    border: `1px solid ${alpha(C.textMute, active ? '35' : '18')}`,
+    background: active ? alpha(C.text, '10') : 'transparent',
+    color: active ? C.text : C.textMute,
+    cursor: 'pointer',
+    fontFamily: 'inherit',
+    fontWeight: active ? 500 : 400,
+    letterSpacing: '0.04em',
+  })
 
   return (
     <section
@@ -105,13 +141,14 @@ function HoldingsSectorSummaryImpl({
         borderRadius: 4,
       }}
     >
-      {activeLabel && (
+      {hasActive && (
         <div
           role="status"
           style={{
             display: 'flex',
             alignItems: 'center',
             gap: 8,
+            flexWrap: 'wrap',
             marginBottom: 10,
             padding: '6px 10px',
             background: C.paper || '#fff',
@@ -123,10 +160,68 @@ function HoldingsSectorSummaryImpl({
           }}
         >
           <span style={{ color: C.textMute }}>下方僅顯示</span>
-          <span style={{ fontWeight: 500 }}>{activeLabel}</span>
+          {items.map((it, i) => (
+            <span
+              key={`${it.kind}:${it.key}:${i}`}
+              style={{
+                display: 'inline-flex',
+                alignItems: 'center',
+                gap: 4,
+                padding: '2px 4px 2px 8px',
+                background: alpha(C.text, '08'),
+                borderRadius: 3,
+                fontWeight: 500,
+              }}
+            >
+              {KIND_LABEL[it.kind] || it.kind}：{it.key}
+              <button
+                type="button"
+                aria-label={`移除 ${it.key}`}
+                onClick={() => removeAt(it.kind, it.key)}
+                style={{
+                  background: 'transparent',
+                  border: 'none',
+                  color: C.textMute,
+                  cursor: 'pointer',
+                  padding: '0 3px',
+                  fontSize: 11,
+                  lineHeight: 1,
+                }}
+              >
+                ✕
+              </button>
+            </span>
+          ))}
+          {items.length >= 2 && (
+            <span
+              role="group"
+              aria-label="條件組合方式"
+              style={{ display: 'inline-flex', alignItems: 'center', gap: 4, marginLeft: 4 }}
+            >
+              <span style={{ color: C.textMute }}>組合</span>
+              <button
+                type="button"
+                aria-pressed={mode === 'union'}
+                onClick={() => setMode('union')}
+                style={modeBtnStyle(mode === 'union')}
+                title="任一條件命中即顯示"
+              >
+                聯集 ∪
+              </button>
+              <button
+                type="button"
+                aria-pressed={mode === 'intersection'}
+                onClick={() => setMode('intersection')}
+                style={modeBtnStyle(mode === 'intersection')}
+                title="必須同時命中所有條件"
+              >
+                交集 ∩
+              </button>
+            </span>
+          )}
           <button
             type="button"
-            onClick={() => onSelect?.(null)}
+            onClick={clearAll}
             style={{
               marginLeft: 'auto',
               fontSize: 10,
@@ -135,9 +230,10 @@ function HoldingsSectorSummaryImpl({
               border: 'none',
               cursor: 'pointer',
               padding: '2px 4px',
+              textDecoration: 'underline',
             }}
           >
-            清除 ✕
+            清除全部
           </button>
         </div>
       )}
@@ -161,7 +257,7 @@ function HoldingsSectorSummaryImpl({
           {industryByValue.map((x, i) => (
             <div
               key={x.key}
-              title={`${x.key} ${x.count}檔 ${x.pct.toFixed(0)}%（點擊只顯示此族群）`}
+              title={`${x.key} ${x.count}檔 ${x.pct.toFixed(0)}%（點擊加入/移除條件）`}
               onClick={() => toggle('industry', x.key)}
               style={{
                 width: `${x.pct}%`,
