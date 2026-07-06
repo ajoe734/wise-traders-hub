@@ -11,7 +11,7 @@
  *   selected  { items: {kind,key}[], mode: 'union'|'intersection' }
  *   onSelect  (next) => void   // next 是同結構
  */
-import { memo, useState } from 'react'
+import { memo, useEffect, useRef, useState } from 'react'
 import { IND_COLOR } from '@/checkup/seedData'
 import {
   aggregateBySector,
