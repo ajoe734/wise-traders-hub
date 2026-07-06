@@ -142,18 +142,26 @@ function HoldingsSectorSummaryImpl({
   const { presets, save: savePreset, remove: removePreset, rename: renamePreset } = useSectorFilterPresets()
   const [saving, setSaving] = useState(false)
   const [nameDraft, setNameDraft] = useState('')
+  const [saveError, setSaveError] = useState(null)
   const [editingId, setEditingId] = useState(null)
   const [editDraft, setEditDraft] = useState('')
+  const [editError, setEditError] = useState(null)
 
   const openSave = () => {
     setNameDraft(presetSummary(items, mode) || '')
+    setSaveError(null)
     setSaving(true)
   }
   const commitSave = () => {
-    const rec = savePreset(nameDraft, items, mode)
-    if (rec) {
+    const result = savePreset(nameDraft, items, mode)
+    if (result && result.error === 'DUPLICATE_NAME') {
+      setSaveError('已存在同名預設，請改用其他名稱。')
+      return
+    }
+    if (result && result.preset) {
       setSaving(false)
       setNameDraft('')
+      setSaveError(null)
     }
   }
   const applyPreset = (p) => {
@@ -166,12 +174,18 @@ function HoldingsSectorSummaryImpl({
   const startEdit = (p) => {
     setEditingId(p.id)
     setEditDraft(p.name)
+    setEditError(null)
   }
   const commitRename = () => {
     if (!editingId) return
-    renamePreset(editingId, editDraft)
+    const result = renamePreset(editingId, editDraft)
+    if (result && result.error === 'DUPLICATE_NAME') {
+      setEditError('已存在同名預設，請改用其他名稱。')
+      return
+    }
     setEditingId(null)
     setEditDraft('')
+    setEditError(null)
   }
   const cancelRename = () => {
     setEditingId(null)
