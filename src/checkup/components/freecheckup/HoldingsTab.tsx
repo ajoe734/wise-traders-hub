@@ -293,7 +293,7 @@ function HoldingsTab(props) {
       {/* ── 持倉資料庫 Filter Bar ── */}
       <HoldingsFilterBar
         totalCount={H.length}
-        filteredCount={filteredSortedList.length}
+        filteredCount={sorted.length}
         searchQ={searchQ}
         setSearchQ={setSearchQ}
         filterDecision={filterDecision}
