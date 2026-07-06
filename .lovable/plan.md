@@ -1,86 +1,90 @@
-## 目標
+## 現況（誠實說明）
 
-在 `/holding-checkup` 持倉分頁的最上方（KPI Hero 下方、反轉追蹤上方）加一段「持倉族群分佈」總覽，讓使用者一眼看出：
+族群/題材分類目前的資料鏈：
 
-- 哪些**產業**吃掉最多市值（集中風險）
-- 哪些**題材／策略**壓最多檔（重疊押注）
-- 是否過度集中（單一產業 >25% 或 ≥3 檔）或過度分散（>6 個產業、每檔都 <10%）
+1. **`src/checkup/seedData.js` 裡的 `STOCK_META`**：手 key 的 43 檔對照表，每檔**只有一個 `industry` + 一個 `strategy`**。這是 demo 唯一資料源，也是登入用戶「未 override」時的 fallback。
+2. **`holding_meta_overrides` 資料庫表**：使用者可以在 `/company/meta-overrides` 手動蓋掉單檔的 industry/strategy，一樣**單值**。
+3. **`themes.json` / `companyProfiles.json` / `supplyChain.json`**：檔案存在但**內容是空 `{}`**，從來沒被填。
 
-同時保留每張持股卡片上既有的產業/題材標籤，不動卡片。
+所以你看到的問題不是 bug、是**根本缺乏維護機制**：
+- 分類是我（前一輪）憑印象手 key 的，沒對過任何權威來源
+- Schema 只支援單一族群，像鴻海（AI 伺服器 + 電子代工 + 車用）這種本來就多族群的個股必然錯
+- 沒有更新排程，公司轉型（例如生技轉 AI）不會反映
 
-## 放位置
+要真正解決，需要三件事一起做：**資料模型改多對多、灌入權威來源、建立更新流程**。
 
-檔案：`src/checkup/components/freecheckup/HoldingsTab.tsx`
-位置：`<HoldingsHero />`（L221-234）下方，`<HoldingsReversalSection />`（L238）上方。
+---
 
-## 新元件
+## 計畫
 
-新增 `src/checkup/components/freecheckup/HoldingsSectorSummary.tsx`：
+### Step 1 — 資料模型改為多族群（schema 變更）
 
-Props：
-- `holdings`（來自 `H`）
-- `stockMeta`（`STOCK_META`）
-- `WB` / `C` / `alpha`（沿用 Kore-eda 色系與現行 hero token）
+現況 `STOCK_META[code] = { industry: 'AI/伺服器', strategy: '成長股' }` 改成：
 
-### 兩個維度並列
-
-```text
-┌─ 產業分佈（依市值佔比） ─────────────────────────┐
-│ ▓▓▓▓▓▓▓▓░░░░░░░░░░░░░░░░  (stacked bar 6px)      │
-│ [半導體 5檔 42%] [金融 2檔 18%] [電子零組件 …]    │
-│ ⚠ 集中：半導體(5檔 42%) — 建議分散                │
-└──────────────────────────────────────────────────┘
-┌─ 題材／策略（依檔數） ───────────────────────────┐
-│ [AI 4] [高股息 3] [重電 2] [未分類 1]             │
-└──────────────────────────────────────────────────┘
+```
+STOCK_META[code] = {
+  industries: ['AI/伺服器', 'PCB/材料'],   // 排序 = 營收佔比降冪
+  primaryIndustry: 'AI/伺服器',            // 快取，= industries[0]
+  themes: ['AI', 'CoWoS', '護國群山'],     // 題材（可 0-N 個）
+  strategy: '成長股',                       // 策略仍單值
+  revenueMix: [                             // 供聚合加權用（選填）
+    { industry: 'AI/伺服器', pct: 55 },
+    { industry: 'PCB/材料', pct: 30 },
+  ],
+  source: 'twse-2026-06',                   // 資料來源標記
+  updatedAt: '2026-06-15',
+}
 ```
 
-### 集中/分散規則
+`holding_meta_overrides` 表加欄位 `industries text[]`、`themes text[]`、`revenue_mix jsonb`，舊 `industry` 欄保留供回溯。
 
-- **集中警示**（琥珀色 `C.amber`，沿用 `PortfolioHealthCheck` 慣例）
-  - 單一產業市值 >25%，或該產業持股 ≥3 檔
-- **分散提示**（灰色 hint，不用警示色）
-  - 產業數 >6 且最大產業 <20% → 「配置分散，追蹤成本較高」
-- **未分類**（`STOCK_META` 沒收錄的個股）
-  - 產業/題材皆歸「未分類」，數量若 >0 顯示 hint「N 檔未歸類，建議手動補產業標籤」
+### Step 2 — `HoldingsSectorSummary` 聚合改用加權
 
-## 邏輯來源
+- **有 `revenueMix`** → 每檔的市值按 pct 拆到多個產業桶
+- **沒 revenueMix、只有 industries[]** → 平均拆分（例：兩產業各 50%）
+- **只有 primaryIndustry** → 全額計入單一產業（舊行為）
+- 題材另做一區「題材曝險（依檔數）」，同一檔可命中多個題材
 
-複用 `HoldingsPanel.tsx` L198-234 的 `PortfolioHealthCheck` 聚合邏輯（industry × market value、strategy × count、warnings 條件），但：
+集中警示改用「單一產業 > 25%」而不是舊的檔數判斷。
 
-- 不再共用該元件本身（該元件屬於舊 `HoldingsPanel`、非本路由使用）
-- 抽出純聚合 helper 放 `src/checkup/lib/holdingUtils.js`：
-  - `aggregateBySector(holdings, stockMeta)` → `{ industryByValue, strategyByCount, warnings, unclassifiedCount }`
-- 新元件只負責渲染
+### Step 3 — 資料來源與更新流程
 
-這樣單元測試可以直接 cover helper，不用 mount 元件。
+分類要「最新且正確」只有兩條路，選一條：
 
-## Demo / 空狀態
+**A. 半自動：TWSE / TPEx 產業別 + 人工題材**
+- 產業別走公開資料：TWSE 上市個股「產業類別」欄位、TPEx 上櫃相同欄位（每月抓一次夠用）
+- 建 `scripts/refresh-stock-industry.mjs`：抓官方 CSV → 產生 `src/checkup/data/stockIndustry.json`
+- 題材（AI、CoWoS、CPO…）走**人工白名單**放 `src/checkup/data/themes.json`：`{ "AI/伺服器": [2317, 2382, 2454, ...] }`，每月人工 review
+- 更新頻率：產業別每月 1 號、題材每兩週或事件驅動（例：新台幣升值題材、颱風災後重建）
+- 納入 `docs/demo-data-maintenance.md` SOP，跟 demo 每月更新一起做
 
-- 持倉 = 0：整塊不渲染（早退）
-- 只有 1 檔：不顯示 stacked bar，只顯示單一標籤 + 「僅 1 檔，暫無族群比較意義」
+**B. 全自動：接第三方 API（如 FinMind、Goodinfo 爬蟲、CMoney）**
+- 好處：題材、營收比重都能自動抓
+- 壞處：要處理 rate limit、費用、資料授權；題材定義各家不同、還是要人工映射
+- 我建議先做 A，等量大再考慮 B
 
-## 視覺規範
+### Step 4 — 使用者手動修正入口
 
-- 遵守 `mem://style/checkup/japanese-minimalist-aesthetic`：off-white 底、無陰影、字重 ≤500、字級 10-12
-- 產業條 6px 高、圓角 3、最大產業用 `IND_COLOR[ind]`，其餘 `alpha(C.textMute,'25')`
-- 題材/策略用 chip 樣式，與 `HoldingsFilterBar` 對齊
+在持倉卡片新增「回報分類錯誤」小按鈕 → 開 modal → 直接寫 `holding_meta_overrides`（多族群 + 題材）。這樣你不用等我改 seed，看到錯的當場改。
 
-## RWD
+### Step 5 — Demo 資料同步修正
 
-必跑 `mem://qa/checkup/freecheckup-mobile-regression-checklist`：560/390/380px 三斷點靜態檢查 + 截圖。橫向 chip 用 `flexWrap: wrap`，不會撐爆。
+Step 1-4 完成後，用同一份資料把 `DEMO_HOLDINGS` 用到的 20+ 檔全部 review 一次，錯的補正、多族群補齊。
 
-## 驗證
+### Step 6 — 驗收
 
-1. 用內建 demo 資料進 `/holding-checkup?demo=1`，確認：
-   - 產業條總和 = 100%
-   - 集中警示對「半導體」正確觸發
-   - 未分類個股（如新上傳未收錄）落入「未分類」桶
-2. `bunx playwright test e2e/freecheckup-card.spec.ts`
-3. `bunx tsgo` typecheck
+- [ ] Schema migration 過 typecheck
+- [ ] 抓一次 TWSE 產業別資料，diff 顯示哪幾檔跟舊 STOCK_META 不一致
+- [ ] 你 spot-check 5 檔多族群個股（鴻海 2317、台積 2330、廣達 2382、聯發科 2454、國巨 2327）分類正確
+- [ ] `HoldingsSectorSummary` 在 demo 資料下顯示：鴻海市值有拆到多桶、AI 集中警示仍會觸發
+- [ ] `/company/meta-overrides` 能編輯多族群 + 題材
 
-## 檔案清單
+---
 
-- 新增 `src/checkup/components/freecheckup/HoldingsSectorSummary.tsx`
-- 新增 helper `aggregateBySector` in `src/checkup/lib/holdingUtils.js`
-- 編輯 `src/checkup/components/freecheckup/HoldingsTab.tsx`（import + 插入一行）
+## 需要你先決定的三件事
+
+1. **資料源選 A（TWSE + 人工題材）還是 B（第三方 API）？** 我推 A。
+2. **多族群拆分要不要有 `revenueMix`？** 沒有的話就平均拆，簡單但不精準；有的話要人工維護每檔營收比重。我推「先平均拆、只對 top 20 檔重要持倉維護 revenueMix」。
+3. **使用者回報分類錯誤的按鈕現在做還是之後做？** 我建議這一輪就做，否則你只能等我下一輪。
+
+決定之後我會照你的選擇進 build mode 施工。
