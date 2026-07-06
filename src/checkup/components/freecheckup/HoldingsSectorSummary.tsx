@@ -143,25 +143,48 @@ function HoldingsSectorSummaryImpl({
   const [saving, setSaving] = useState(false)
   const [nameDraft, setNameDraft] = useState('')
   const [saveError, setSaveError] = useState(null)
+  const [saveConflictId, setSaveConflictId] = useState(null)
   const [editingId, setEditingId] = useState(null)
   const [editDraft, setEditDraft] = useState('')
   const [editError, setEditError] = useState(null)
+  const [editConflictId, setEditConflictId] = useState(null)
+  const [highlightId, setHighlightId] = useState(null)
+  const presetRefs = useRef(new Map())
+  const highlightTimer = useRef(null)
+
+  useEffect(() => () => {
+    if (highlightTimer.current) clearTimeout(highlightTimer.current)
+  }, [])
+
+  const focusPreset = (id) => {
+    if (!id) return
+    const el = presetRefs.current.get(id)
+    if (el && typeof el.scrollIntoView === 'function') {
+      el.scrollIntoView({ behavior: 'smooth', block: 'nearest', inline: 'nearest' })
+    }
+    setHighlightId(id)
+    if (highlightTimer.current) clearTimeout(highlightTimer.current)
+    highlightTimer.current = setTimeout(() => setHighlightId(null), 1800)
+  }
 
   const openSave = () => {
     setNameDraft(presetSummary(items, mode) || '')
     setSaveError(null)
+    setSaveConflictId(null)
     setSaving(true)
   }
   const commitSave = () => {
     const result = savePreset(nameDraft, items, mode)
     if (result && result.error === 'DUPLICATE_NAME') {
-      setSaveError('已存在同名預設，請改用其他名稱。')
+      setSaveError(`已存在同名預設「${result.conflict?.name ?? ''}」，請改用其他名稱。`)
+      setSaveConflictId(result.conflict?.id ?? null)
       return
     }
     if (result && result.preset) {
       setSaving(false)
       setNameDraft('')
       setSaveError(null)
+      setSaveConflictId(null)
     }
   }
   const applyPreset = (p) => {
@@ -175,22 +198,28 @@ function HoldingsSectorSummaryImpl({
     setEditingId(p.id)
     setEditDraft(p.name)
     setEditError(null)
+    setEditConflictId(null)
   }
   const commitRename = () => {
     if (!editingId) return
     const result = renamePreset(editingId, editDraft)
     if (result && result.error === 'DUPLICATE_NAME') {
-      setEditError('已存在同名預設，請改用其他名稱。')
+      setEditError(`已存在同名預設「${result.conflict?.name ?? ''}」，請改用其他名稱。`)
+      setEditConflictId(result.conflict?.id ?? null)
       return
     }
     setEditingId(null)
     setEditDraft('')
     setEditError(null)
+    setEditConflictId(null)
   }
   const cancelRename = () => {
     setEditingId(null)
     setEditDraft('')
+    setEditError(null)
+    setEditConflictId(null)
   }
+
 
   return (
     <section
