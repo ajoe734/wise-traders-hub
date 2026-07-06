@@ -144,3 +144,84 @@ export function aggregateBySector(holdings, stockMeta, overrides) {
 }
 
 export const HOLDING_UNCLASSIFIED_LABEL = UNCLASSIFIED
+
+/**
+ * 找出屬於某個「產業／題材／策略」的持股，含拆分權重與貢獻百分比。
+ *
+ * @param {Array} holdings
+ * @param {Object} stockMeta
+ * @param {Object} overrides
+ * @param {{kind:'industry'|'theme'|'strategy', key:string}} sel
+ * @returns {Array<{
+ *   code:string, name:string, marketValue:number,
+ *   weight:number,         // 該檔在此族群的權重（0-1）
+ *   contribValue:number,   // marketValue * weight
+ *   pctOfSector:number,    // 該檔在此族群的貢獻%
+ *   pctOfPortfolio:number, // 該檔占總持倉市值%
+ *   pnlPct:number|null,
+ *   isMulti:boolean,       // 是否為多族群拆分
+ * }>}
+ */
+export function holdingsInSector(holdings, stockMeta, overrides, sel) {
+  const list = Array.isArray(holdings) ? holdings : []
+  if (!sel?.kind || !sel?.key) return []
+  const meta = stockMeta || {}
+  const ov = overrides || {}
+
+  const totalPortfolio = list.reduce((s, it) => s + marketValue(it), 0) || 0
+
+  const rows = []
+  for (const item of list) {
+    if (!item?.code) continue
+    const m = getMultiMeta(item.code, meta, ov[item.code])
+    let weight = 0
+    let isMulti = false
+
+    if (sel.kind === 'industry') {
+      if (m.revenueMix) {
+        const hit = m.revenueMix.find((x) => x.industry === sel.key)
+        if (hit) {
+          weight = hit.pct / 100
+          isMulti = m.revenueMix.length > 1
+        }
+      } else if (m.industries.includes(sel.key)) {
+        weight = 1 / m.industries.length
+        isMulti = m.industries.length > 1
+      }
+    } else if (sel.kind === 'theme') {
+      if (m.themes.includes(sel.key)) weight = 1
+    } else if (sel.kind === 'strategy') {
+      const strat = m.strategy || UNCLASSIFIED
+      if (strat === sel.key) weight = 1
+    }
+
+    if (weight <= 0) continue
+
+    const v = marketValue(item)
+    const contribValue = v * weight
+    const name = meta[item.code]?.name || item.name || ''
+    const pnlPct = Number.isFinite(item?.pnlPct)
+      ? Number(item.pnlPct)
+      : Number.isFinite(item?.pctChange)
+        ? Number(item.pctChange)
+        : null
+
+    rows.push({
+      code: String(item.code),
+      name,
+      marketValue: v,
+      weight,
+      contribValue,
+      pctOfPortfolio: totalPortfolio > 0 ? (v / totalPortfolio) * 100 : 0,
+      pnlPct,
+      isMulti,
+    })
+  }
+
+  const sectorTotal = rows.reduce((s, r) => s + r.contribValue, 0) || 0
+  for (const r of rows) {
+    r.pctOfSector = sectorTotal > 0 ? (r.contribValue / sectorTotal) * 100 : 0
+  }
+  rows.sort((a, b) => b.contribValue - a.contribValue)
+  return rows
+}
