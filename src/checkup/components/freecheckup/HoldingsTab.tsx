@@ -513,6 +513,20 @@ function HoldingsTab(props) {
         WB={WB}
       />
 
+      {/* 分類回報 modal */}
+      {reportingHolding && (
+        <HoldingMetaReportModal
+          holding={reportingHolding}
+          currentMeta={getMultiMeta(
+            reportingHolding.code,
+            STOCK_META,
+            overrides?.[reportingHolding.code],
+          )}
+          onClose={() => setReportingHolding(null)}
+          upsert={upsertOverride}
+        />
+      )}
+
       {/* D1：RWD 樣式已搬至 src/checkup/styles/holdingsTab.css，
           由 PostCSS 壓縮、且不再每次 render 產生新的 string text node。 */}
     </>
