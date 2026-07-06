@@ -366,6 +366,46 @@ const DataSources = () => {
           </p>
         </div>
 
+        {isAdmin && (
+          <div className="max-w-5xl mb-4 rounded-lg border border-amber-500/30 bg-amber-500/5 p-3 flex flex-wrap items-center gap-3">
+            <AlertOctagon className="h-4 w-4 text-amber-600 dark:text-amber-400 shrink-0" />
+            <div className="text-sm flex-1 min-w-0">
+              <div className="font-medium">
+                批次重試不健康的資料源
+                <span className="ml-2 text-muted-foreground font-normal">
+                  （連續失敗 ≥ {UNHEALTHY_CONSEC} 次，或近 300 筆內 ≥ {UNHEALTHY_MIN_ATTEMPTS} 次嘗試且失敗率 &gt; {Math.round(UNHEALTHY_RATIO * 100)}%）
+                </span>
+              </div>
+              <div className="text-xs text-muted-foreground mt-0.5">
+                目前符合條件：{unhealthyKeys.length ? unhealthyKeys.join('、') : '（無，全部健康）'}
+                {batchSummary && (
+                  <span className="ml-2">
+                    · 進度 {batchSummary.ok + batchSummary.fail}/{batchSummary.total}
+                    · 成功 <span className="text-emerald-600">{batchSummary.ok}</span>
+                    · 失敗 <span className="text-rose-600">{batchSummary.fail}</span>
+                  </span>
+                )}
+              </div>
+            </div>
+            <Button
+              size="sm"
+              variant="outline"
+              onClick={retryUnhealthy}
+              disabled={batchRunning || unhealthyKeys.length === 0}
+            >
+              {batchRunning ? (
+                <Loader2 className="h-4 w-4 animate-spin" />
+              ) : (
+                <RefreshCw className="h-4 w-4" />
+              )}
+              <span className="ml-1.5">
+                {batchRunning ? '重試中…' : `批次重試（${unhealthyKeys.length}）`}
+              </span>
+            </Button>
+          </div>
+        )}
+
+
         <div className="max-w-5xl space-y-4">
           {SOURCES.map((s) => {
             const active = s.refreshKey ? refreshState[s.refreshKey] : undefined;
