@@ -30,6 +30,10 @@ function uid() {
   return `p_${Date.now().toString(36)}_${Math.random().toString(36).slice(2, 7)}`
 }
 
+function normalizeName(name) {
+  return String(name || '').trim().toLowerCase()
+}
+
 export function useSectorFilterPresets() {
   const [presets, setPresets] = useState(() => read())
 
@@ -46,7 +50,7 @@ export function useSectorFilterPresets() {
     const trimmed = String(name || '').trim()
     if (!trimmed || !Array.isArray(items) || items.length === 0) return { error: 'INVALID' }
     const existing = read()
-    if (existing.some((p) => p.name === trimmed)) {
+    if (existing.some((p) => normalizeName(p.name) === normalizeName(trimmed))) {
       return { error: 'DUPLICATE_NAME' }
     }
     const preset = {
@@ -76,7 +80,7 @@ export function useSectorFilterPresets() {
     const trimmed = String(name || '').trim()
     if (!trimmed) return { error: 'INVALID' }
     const existing = read()
-    if (existing.some((p) => p.name === trimmed && p.id !== id)) {
+    if (existing.some((p) => normalizeName(p.name) === normalizeName(trimmed) && p.id !== id)) {
       return { error: 'DUPLICATE_NAME' }
     }
     setPresets((prev) => {
