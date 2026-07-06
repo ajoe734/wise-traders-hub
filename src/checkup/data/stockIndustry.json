@@ -1,0 +1,65 @@
+{
+  "_meta": {
+    "description": "多族群覆蓋層。合併規則：此檔 > holding_meta_overrides > STOCK_META (seedData)。",
+    "source": "TWSE 產業別 + 公司年報營收比重（人工校訂）",
+    "lastReview": "2026-07-06",
+    "schema": {
+      "industries": "string[] — 依營收比重降冪排列，第一個為主產業",
+      "revenueMix": "Array<{ industry, pct }> — 選填；有此欄位時聚合按 pct 加權，否則平均拆分",
+      "source": "string — 資料來源標記（twse / 公司財報 / manual 等）",
+      "updatedAt": "YYYY-MM-DD"
+    }
+  },
+  "2308": {
+    "industries": ["電源管理", "AI/伺服器", "車用電子", "工業自動化"],
+    "revenueMix": [
+      { "industry": "電源管理", "pct": 40 },
+      { "industry": "AI/伺服器", "pct": 25 },
+      { "industry": "車用電子", "pct": 20 },
+      { "industry": "工業自動化", "pct": 15 }
+    ],
+    "strategy": "成長股",
+    "source": "台達電 2025 Q4 法說會",
+    "updatedAt": "2026-03-01"
+  },
+  "3017": {
+    "industries": ["散熱模組", "AI/伺服器"],
+    "revenueMix": [
+      { "industry": "散熱模組", "pct": 65 },
+      { "industry": "AI/伺服器", "pct": 35 }
+    ],
+    "strategy": "成長股",
+    "source": "奇鋐 2025 年報",
+    "updatedAt": "2026-04-01"
+  },
+  "3443": {
+    "industries": ["IC設計", "AI/伺服器"],
+    "revenueMix": [
+      { "industry": "IC設計", "pct": 55 },
+      { "industry": "AI/伺服器", "pct": 45 }
+    ],
+    "strategy": "成長股",
+    "source": "創意 2025 年報（ASIC 業務）",
+    "updatedAt": "2026-04-01"
+  },
+  "6274": {
+    "industries": ["PCB/材料", "AI/伺服器"],
+    "revenueMix": [
+      { "industry": "PCB/材料", "pct": 70 },
+      { "industry": "AI/伺服器", "pct": 30 }
+    ],
+    "strategy": "景氣循環",
+    "source": "台燿 2025 年報（CCL for switches）",
+    "updatedAt": "2026-04-01"
+  },
+  "3491": {
+    "industries": ["光通訊", "衛星通訊"],
+    "revenueMix": [
+      { "industry": "光通訊", "pct": 60 },
+      { "industry": "衛星通訊", "pct": 40 }
+    ],
+    "strategy": "成長股",
+    "source": "昇達科 2025 年報",
+    "updatedAt": "2026-04-01"
+  }
+}
