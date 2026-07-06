@@ -16,17 +16,19 @@ import {
   HOLDING_UNCLASSIFIED_LABEL,
 } from '@/checkup/lib/holdingUtils'
 
-function HoldingsSectorSummaryImpl({ holdings, stockMeta, C, alpha }) {
+function HoldingsSectorSummaryImpl({ holdings, stockMeta, overrides, C, alpha }) {
   if (!Array.isArray(holdings) || holdings.length === 0) return null
 
   const {
     industryByValue,
+    themeByCount,
     strategyByCount,
     totalValue,
     unclassifiedCount,
+    multiIndustryCount,
     warnings,
     overDiversified,
-  } = aggregateBySector(holdings, stockMeta)
+  } = aggregateBySector(holdings, stockMeta, overrides)
 
   if (industryByValue.length === 0) return null
 
