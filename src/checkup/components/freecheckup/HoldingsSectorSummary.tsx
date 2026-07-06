@@ -149,8 +149,21 @@ function HoldingsSectorSummaryImpl({
   const [editError, setEditError] = useState(null)
   const [editConflictId, setEditConflictId] = useState(null)
   const [highlightId, setHighlightId] = useState(null)
+  const [sortMode, setSortMode] = useState(() => {
+    try {
+      const v = typeof localStorage !== 'undefined'
+        ? localStorage.getItem('checkup:sectorFilterPresets:sort:v1')
+        : null
+      return v === 'name-asc' || v === 'created-asc' || v === 'created-desc' ? v : 'created-desc'
+    } catch { return 'created-desc' }
+  })
   const presetRefs = useRef(new Map())
   const highlightTimer = useRef(null)
+
+  useEffect(() => {
+    try { localStorage.setItem('checkup:sectorFilterPresets:sort:v1', sortMode) } catch {}
+  }, [sortMode])
+
 
   useEffect(() => () => {
     if (highlightTimer.current) clearTimeout(highlightTimer.current)
