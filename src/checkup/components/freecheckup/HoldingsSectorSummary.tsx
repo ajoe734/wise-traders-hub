@@ -386,10 +386,30 @@ function HoldingsSectorSummaryImpl({
               }}
             />
             {saveError && (
-              <div style={{ fontSize: 10, color: C.up, marginTop: 4, lineHeight: 1.4 }}>
-                {saveError}
+              <div style={{ fontSize: 10, color: C.up, marginTop: 4, lineHeight: 1.4, display: 'flex', alignItems: 'center', gap: 6, flexWrap: 'wrap' }}>
+                <span>{saveError}</span>
+                {saveConflictId && (
+                  <button
+                    type="button"
+                    onClick={() => { setSaving(false); focusPreset(saveConflictId) }}
+                    style={{
+                      fontSize: 10,
+                      padding: '1px 6px',
+                      borderRadius: 3,
+                      border: `1px solid ${alpha(C.up, '35')}`,
+                      background: alpha(C.up, '08'),
+                      color: C.up,
+                      cursor: 'pointer',
+                      fontFamily: 'inherit',
+                      letterSpacing: '0.02em',
+                    }}
+                  >
+                    跳至該預設 →
+                  </button>
+                )}
               </div>
             )}
+
           </div>
           <button
             type="button"
