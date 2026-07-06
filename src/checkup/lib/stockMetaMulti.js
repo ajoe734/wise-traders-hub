@@ -21,6 +21,7 @@
 
 import overlayJson from '@/checkup/data/stockIndustry.json'
 import twseCompact from '@/checkup/data/twsePrimaryIndustry.json'
+import finmindCompact from '@/checkup/data/twseSecondaryIndustry.json'
 
 export const UNCLASSIFIED = '未分類'
 
@@ -40,6 +41,16 @@ const TWSE = (() => {
   for (const [k, v] of Object.entries(twseCompact || {})) {
     if (k.startsWith('_')) continue
     if (typeof v === 'string') out[k] = v
+  }
+  return out
+})()
+
+// FinMind 次產業 map（compact），拿掉 _meta
+const FINMIND = (() => {
+  const out = {}
+  for (const [k, v] of Object.entries(finmindCompact || {})) {
+    if (k.startsWith('_')) continue
+    if (typeof v === 'string' && v) out[k] = v
   }
   return out
 })()
