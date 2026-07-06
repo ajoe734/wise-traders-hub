@@ -6,7 +6,7 @@ import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import {
   Database, ExternalLink, ShieldCheck, AlertTriangle, Clock, GitBranch,
-  CalendarClock, RefreshCw, CheckCircle2, XCircle, Loader2,
+  CalendarClock, RefreshCw, CheckCircle2, XCircle, Loader2, AlertOctagon, History,
 } from 'lucide-react';
 import twsePrimary from '@/checkup/data/twsePrimaryIndustry.json';
 import twseSecondary from '@/checkup/data/twseSecondaryIndustry.json';
@@ -38,6 +38,15 @@ type RefreshState = {
   rowCount?: number;
   durationMs?: number;
   finishedAt?: string;
+};
+
+type FailureSummary = {
+  lastError: string;
+  lastErrorAt: string;
+  consecutiveFailures: number;
+  totalAttempts: number;
+  totalErrors: number;
+  lastSuccessAt: string | null;
 };
 
 const primaryMeta = (twsePrimary as any)._meta || {};
@@ -212,32 +221,60 @@ const DataSources = () => {
   const isAdmin = hasRole('company_admin');
   const [refreshState, setRefreshState] = useState<Record<string, RefreshState>>({});
   const [logs, setLogs] = useState<Record<string, RefreshState>>({});
+  const [failures, setFailures] = useState<Record<string, FailureSummary>>({});
 
-  // 讀最近一次成功/失敗紀錄
+  const loadLogs = async () => {
+    const keys = SOURCES.map((s) => s.refreshKey).filter(Boolean) as string[];
+    const { data } = await supabase
+      .from('data_source_refresh_logs')
+      .select('source_key,status,row_count,duration_ms,started_at,finished_at,error_message')
+      .in('source_key', keys)
+      .order('started_at', { ascending: false })
+      .limit(300);
+    if (!data) return;
+    const latest: Record<string, RefreshState> = {};
+    const grouped: Record<string, typeof data> = {};
+    for (const row of data) {
+      (grouped[row.source_key] ||= []).push(row);
+      if (latest[row.source_key]) continue;
+      latest[row.source_key] = {
+        status: (row.status as RefreshState['status']) || 'idle',
+        rowCount: row.row_count ?? undefined,
+        durationMs: row.duration_ms ?? undefined,
+        finishedAt: row.finished_at ?? undefined,
+        message: row.error_message ?? undefined,
+      };
+    }
+    const fail: Record<string, FailureSummary> = {};
+    for (const [key, rows] of Object.entries(grouped)) {
+      const errors = rows.filter((r) => r.status === 'error');
+      if (!errors.length) continue;
+      // 連續失敗：從最新往回數，遇到 success 就停
+      let consecutive = 0;
+      for (const r of rows) {
+        if (r.status === 'running') continue;
+        if (r.status === 'error') consecutive += 1;
+        else break;
+      }
+      const lastSuccess = rows.find((r) => r.status === 'success');
+      const lastErr = errors[0];
+      fail[key] = {
+        lastError: lastErr.error_message || '未知錯誤',
+        lastErrorAt: lastErr.finished_at || lastErr.started_at,
+        consecutiveFailures: consecutive,
+        totalAttempts: rows.filter((r) => r.status !== 'running').length,
+        totalErrors: errors.length,
+        lastSuccessAt: lastSuccess?.finished_at ?? null,
+      };
+    }
+    setLogs(latest);
+    setFailures(fail);
+  };
+
   useEffect(() => {
     if (!user) return;
-    (async () => {
-      const keys = SOURCES.map((s) => s.refreshKey).filter(Boolean) as string[];
-      const { data } = await supabase
-        .from('data_source_refresh_logs')
-        .select('source_key,status,row_count,duration_ms,finished_at,error_message')
-        .in('source_key', keys)
-        .order('started_at', { ascending: false })
-        .limit(50);
-      if (!data) return;
-      const latest: Record<string, RefreshState> = {};
-      for (const row of data) {
-        if (latest[row.source_key]) continue;
-        latest[row.source_key] = {
-          status: (row.status as RefreshState['status']) || 'idle',
-          rowCount: row.row_count ?? undefined,
-          durationMs: row.duration_ms ?? undefined,
-          finishedAt: row.finished_at ?? undefined,
-          message: row.error_message ?? undefined,
-        };
-      }
-      setLogs(latest);
-    })();
+    loadLogs();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [user]);
 
   const trigger = async (key: string) => {
@@ -262,6 +299,7 @@ const DataSources = () => {
           };
       setRefreshState((s) => ({ ...s, [key]: state }));
       setLogs((s) => ({ ...s, [key]: state }));
+      loadLogs();
     } catch (e) {
       setRefreshState((s) => ({
         ...s,
@@ -271,6 +309,7 @@ const DataSources = () => {
           finishedAt: new Date().toISOString(),
         },
       }));
+      loadLogs();
     }
   };
 
@@ -295,6 +334,7 @@ const DataSources = () => {
             const active = s.refreshKey ? refreshState[s.refreshKey] : undefined;
             const lastLog = s.refreshKey ? logs[s.refreshKey] : undefined;
             const display: RefreshState | undefined = active || lastLog;
+            const failure = s.refreshKey ? failures[s.refreshKey] : undefined;
 
             const overdue = (() => {
               if (!s.lastFetchedAt || s.cadence === 'on-demand') return false;
@@ -417,6 +457,38 @@ const DataSources = () => {
                       )}
                     </div>
                   )}
+
+                  {/* 失敗歷史摘要：只要近期有錯誤就顯示 */}
+                  {failure && (
+                    <div className="rounded-lg border border-amber-500/30 bg-amber-500/5 p-3 text-xs space-y-2">
+                      <div className="flex items-center gap-2 font-medium text-amber-800 dark:text-amber-300">
+                        <AlertOctagon className="h-4 w-4" />
+                        <span>失敗摘要</span>
+                        {failure.consecutiveFailures > 0 && (
+                          <Badge variant="outline" className="bg-rose-500/10 text-rose-700 dark:text-rose-300 border-rose-500/30">
+                            連續失敗 {failure.consecutiveFailures} 次
+                          </Badge>
+                        )}
+                        <Badge variant="outline" className="border-amber-500/30 text-amber-700 dark:text-amber-300">
+                          最近 {failure.totalAttempts} 次嘗試中 {failure.totalErrors} 次失敗
+                        </Badge>
+                      </div>
+                      <div className="text-foreground/90">
+                        <span className="text-muted-foreground">最近一次失敗原因（{fmtDate(failure.lastErrorAt)}）：</span>
+                        <div className="mt-1 rounded bg-background/60 px-2 py-1.5 font-mono text-[11px] break-all text-rose-700 dark:text-rose-300">
+                          {failure.lastError}
+                        </div>
+                      </div>
+                      <div className="flex items-center gap-1.5 text-muted-foreground">
+                        <History className="h-3.5 w-3.5" />
+                        <span>
+                          上次成功：
+                          {failure.lastSuccessAt ? fmtDate(failure.lastSuccessAt) : '（近 300 筆內無成功紀錄）'}
+                        </span>
+                      </div>
+                    </div>
+                  )}
+
 
                   <div>
                     <div className="text-xs font-medium text-muted-foreground mb-1">提供欄位</div>
