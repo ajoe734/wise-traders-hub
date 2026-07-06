@@ -16,7 +16,6 @@ Object.defineProperty(globalThis, 'localStorage', {
 
 // 動態 import 以確保模組讀到 mock 後的 localStorage
 async function loadModule() {
-  // 先清除模組快取，讓重新 import 生效
   vi.resetModules()
   // @ts-ignore
   return await import('@/checkup/lib/sectorFilterPresets')
@@ -29,52 +28,61 @@ describe('sectorFilterPresets duplicate name checks (case & whitespace insensiti
 
   it('save blocks same name with different casing', async () => {
     const { useSectorFilterPresets } = await loadModule()
-    const hook = useSectorFilterPresets()
-    hook.save('TestName', [{ kind: 'industry', key: 'A' }], 'union')
-    const result = hook.save('testname', [{ kind: 'industry', key: 'B' }], 'union')
-    expect(result.error).toBe('DUPLICATE_NAME')
+    const { result } = renderHook(() => useSectorFilterPresets())
+    act(() => { result.current.save('TestName', [{ kind: 'industry', key: 'A' }], 'union') })
+    let r2
+    act(() => { r2 = result.current.save('testname', [{ kind: 'industry', key: 'B' }], 'union') })
+    expect(r2.error).toBe('DUPLICATE_NAME')
   })
 
   it('save blocks same name with surrounding whitespace', async () => {
     const { useSectorFilterPresets } = await loadModule()
-    const hook = useSectorFilterPresets()
-    hook.save('TestName', [{ kind: 'industry', key: 'A' }], 'union')
-    const result = hook.save('  TestName  ', [{ kind: 'industry', key: 'B' }], 'union')
-    expect(result.error).toBe('DUPLICATE_NAME')
+    const { result } = renderHook(() => useSectorFilterPresets())
+    act(() => { result.current.save('TestName', [{ kind: 'industry', key: 'A' }], 'union') })
+    let r2
+    act(() => { r2 = result.current.save('  TestName  ', [{ kind: 'industry', key: 'B' }], 'union') })
+    expect(r2.error).toBe('DUPLICATE_NAME')
   })
 
   it('rename blocks name differing only by case', async () => {
     const { useSectorFilterPresets } = await loadModule()
-    const hook = useSectorFilterPresets()
-    hook.save('Alpha', [{ kind: 'industry', key: 'A' }], 'union')
-    const presetB = hook.save('Beta', [{ kind: 'industry', key: 'B' }], 'union').preset
-    const result = hook.rename(presetB.id, 'ALPHA')
-    expect(result.error).toBe('DUPLICATE_NAME')
+    const { result } = renderHook(() => useSectorFilterPresets())
+    let presetA, presetB
+    act(() => { presetA = result.current.save('Alpha', [{ kind: 'industry', key: 'A' }], 'union') })
+    act(() => { presetB = result.current.save('Beta', [{ kind: 'industry', key: 'B' }], 'union') })
+    let renameResult
+    act(() => { renameResult = result.current.rename(presetB.preset.id, 'ALPHA') })
+    expect(renameResult.error).toBe('DUPLICATE_NAME')
   })
 
   it('rename blocks name differing only by whitespace', async () => {
     const { useSectorFilterPresets } = await loadModule()
-    const hook = useSectorFilterPresets()
-    hook.save('Alpha', [{ kind: 'industry', key: 'A' }], 'union')
-    const presetB = hook.save('Beta', [{ kind: 'industry', key: 'B' }], 'union').preset
-    const result = hook.rename(presetB.id, '  Alpha  ')
-    expect(result.error).toBe('DUPLICATE_NAME')
+    const { result } = renderHook(() => useSectorFilterPresets())
+    let presetA, presetB
+    act(() => { presetA = result.current.save('Alpha', [{ kind: 'industry', key: 'A' }], 'union') })
+    act(() => { presetB = result.current.save('Beta', [{ kind: 'industry', key: 'B' }], 'union') })
+    let renameResult
+    act(() => { renameResult = result.current.rename(presetB.preset.id, '  Alpha  ') })
+    expect(renameResult.error).toBe('DUPLICATE_NAME')
   })
 
   it('rename allows same name on same preset (case change)', async () => {
     const { useSectorFilterPresets } = await loadModule()
-    const hook = useSectorFilterPresets()
-    const preset = hook.save('Alpha', [{ kind: 'industry', key: 'A' }], 'union').preset
-    const result = hook.rename(preset.id, 'alpha')
-    expect(result.ok).toBe(true)
+    const { result } = renderHook(() => useSectorFilterPresets())
+    let preset
+    act(() => { preset = result.current.save('Alpha', [{ kind: 'industry', key: 'A' }], 'union') })
+    let renameResult
+    act(() => { renameResult = result.current.rename(preset.preset.id, 'alpha') })
+    expect(renameResult.ok).toBe(true)
   })
 
   it('save allows truly distinct names', async () => {
     const { useSectorFilterPresets } = await loadModule()
-    const hook = useSectorFilterPresets()
-    const r1 = hook.save('AAA', [{ kind: 'industry', key: 'A' }], 'union')
+    const { result } = renderHook(() => useSectorFilterPresets())
+    let r1, r2
+    act(() => { r1 = result.current.save('AAA', [{ kind: 'industry', key: 'A' }], 'union') })
+    act(() => { r2 = result.current.save('BBB', [{ kind: 'industry', key: 'B' }], 'union') })
     expect(r1.error).toBeUndefined()
-    const r2 = hook.save('BBB', [{ kind: 'industry', key: 'B' }], 'union')
     expect(r2.error).toBeUndefined()
     expect(r2.preset).toBeDefined()
   })
