@@ -334,6 +334,7 @@ const DataSources = () => {
             const active = s.refreshKey ? refreshState[s.refreshKey] : undefined;
             const lastLog = s.refreshKey ? logs[s.refreshKey] : undefined;
             const display: RefreshState | undefined = active || lastLog;
+            const failure = s.refreshKey ? failures[s.refreshKey] : undefined;
 
             const overdue = (() => {
               if (!s.lastFetchedAt || s.cadence === 'on-demand') return false;
