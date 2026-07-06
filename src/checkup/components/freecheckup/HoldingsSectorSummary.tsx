@@ -333,28 +333,35 @@ function HoldingsSectorSummaryImpl({
           }}
         >
           <span style={{ fontSize: 10, color: C.textMute }}>預設名稱</span>
-          <input
-            autoFocus
-            value={nameDraft}
-            onChange={(e) => setNameDraft(e.target.value)}
-            onKeyDown={(e) => {
-              if (e.key === 'Enter') commitSave()
-              if (e.key === 'Escape') { setSaving(false); setNameDraft('') }
-            }}
-            placeholder="例如：AI 半導體核心"
-            maxLength={40}
-            style={{
-              flex: 1,
-              fontSize: 11,
-              padding: '4px 8px',
-              border: `1px solid ${alpha(C.textMute, '25')}`,
-              borderRadius: 3,
-              background: '#fff',
-              color: C.text,
-              fontFamily: 'inherit',
-              outline: 'none',
-            }}
-          />
+          <div style={{ flex: 1, display: 'flex', flexDirection: 'column' }}>
+            <input
+              autoFocus
+              value={nameDraft}
+              onChange={(e) => { setNameDraft(e.target.value); setSaveError(null) }}
+              onKeyDown={(e) => {
+                if (e.key === 'Enter') commitSave()
+                if (e.key === 'Escape') { setSaving(false); setNameDraft(''); setSaveError(null) }
+              }}
+              placeholder="例如：AI 半導體核心"
+              maxLength={40}
+              style={{
+                width: '100%',
+                fontSize: 11,
+                padding: '4px 8px',
+                border: `1px solid ${saveError ? alpha(C.up, '50') : alpha(C.textMute, '25')}`,
+                borderRadius: 3,
+                background: saveError ? alpha(C.up, '04') : '#fff',
+                color: C.text,
+                fontFamily: 'inherit',
+                outline: 'none',
+              }}
+            />
+            {saveError && (
+              <div style={{ fontSize: 10, color: C.up, marginTop: 4, lineHeight: 1.4 }}>
+                {saveError}
+              </div>
+            )}
+          </div>
           <button
             type="button"
             onClick={commitSave}
@@ -419,28 +426,35 @@ function HoldingsSectorSummaryImpl({
             >
               {editingId === p.id ? (
                 <>
-                  <input
-                    autoFocus
-                    value={editDraft}
-                    onChange={(e) => setEditDraft(e.target.value)}
-                    onKeyDown={(e) => {
-                      if (e.key === 'Enter') commitRename()
-                      if (e.key === 'Escape') cancelRename()
-                    }}
-                    maxLength={40}
-                    style={{
-                      fontSize: 10,
-                      padding: '3px 6px',
-                      border: `1px solid ${alpha(C.teal, '30')}`,
-                      borderRadius: 3,
-                      background: C.paper || '#fff',
-                      color: C.text,
-                      fontFamily: 'inherit',
-                      outline: 'none',
-                      width: 120,
-                      letterSpacing: '0.02em',
-                    }}
-                  />
+                  <div style={{ display: 'flex', flexDirection: 'column' }}>
+                    <input
+                      autoFocus
+                      value={editDraft}
+                      onChange={(e) => { setEditDraft(e.target.value); setEditError(null) }}
+                      onKeyDown={(e) => {
+                        if (e.key === 'Enter') commitRename()
+                        if (e.key === 'Escape') cancelRename()
+                      }}
+                      maxLength={40}
+                      style={{
+                        fontSize: 10,
+                        padding: '3px 6px',
+                        border: `1px solid ${editError ? alpha(C.up, '50') : alpha(C.teal, '30')}`,
+                        borderRadius: 3,
+                        background: editError ? alpha(C.up, '04') : (C.paper || '#fff'),
+                        color: C.text,
+                        fontFamily: 'inherit',
+                        outline: 'none',
+                        width: 120,
+                        letterSpacing: '0.02em',
+                      }}
+                    />
+                    {editError && (
+                      <div style={{ fontSize: 9, color: C.up, marginTop: 3, whiteSpace: 'nowrap' }}>
+                        {editError}
+                      </div>
+                    )}
+                  </div>
                   <button
                     type="button"
                     aria-label="確認重新命名"
