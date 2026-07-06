@@ -82,7 +82,13 @@ function HoldingCardImpl(props) {
     syncState,
     onSelect,
     onOpenDrawer,
+    onReportMeta,
   } = props;
+
+  const openReportMeta = (e) => {
+    e.stopPropagation();
+    if (typeof onReportMeta === 'function') onReportMeta(h);
+  };
 
   const actionLabel = dec?.actionType === 'exit' ? 'EXIT' : dec?.actionType === 'review' ? 'REVIEW' : 'HOLD';
 
