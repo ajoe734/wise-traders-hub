@@ -21,6 +21,7 @@
 
 import overlayJson from '@/checkup/data/stockIndustry.json'
 import twseCompact from '@/checkup/data/twsePrimaryIndustry.json'
+import finmindCompact from '@/checkup/data/twseSecondaryIndustry.json'
 
 export const UNCLASSIFIED = '未分類'
 
@@ -40,6 +41,16 @@ const TWSE = (() => {
   for (const [k, v] of Object.entries(twseCompact || {})) {
     if (k.startsWith('_')) continue
     if (typeof v === 'string') out[k] = v
+  }
+  return out
+})()
+
+// FinMind 次產業 map（compact），拿掉 _meta
+const FINMIND = (() => {
+  const out = {}
+  for (const [k, v] of Object.entries(finmindCompact || {})) {
+    if (k.startsWith('_')) continue
+    if (typeof v === 'string' && v) out[k] = v
   }
   return out
 })()
@@ -65,8 +76,9 @@ export function getMultiMeta(code, stockMeta, override) {
   const base = (stockMeta && stockMeta[key]) || null
   const over = OVERLAY[key] || null
   const twseInd = TWSE[key] || null
+  const finmindInd = FINMIND[key] || null
 
-  // 1. industries[]：DB override > overlay > base.industries > DB.industry > base.industry > TWSE > 未分類
+  // 1. industries[]：DB override > overlay > base.industries > DB.industry > base.industry > TWSE > FinMind > 未分類
   let industries = null
   if (Array.isArray(override?.industries) && override.industries.length) {
     industries = override.industries.slice()
@@ -80,6 +92,8 @@ export function getMultiMeta(code, stockMeta, override) {
     industries = [base.industry]
   } else if (twseInd) {
     industries = [twseInd]
+  } else if (finmindInd) {
+    industries = [finmindInd]
   } else {
     industries = [UNCLASSIFIED]
   }

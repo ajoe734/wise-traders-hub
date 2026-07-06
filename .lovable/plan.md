@@ -1,90 +1,53 @@
-## 現況（誠實說明）
+# 免費外部資料源補強計畫
 
-族群/題材分類目前的資料鏈：
+現在骨架已有 TWSE 4 位股票代號 → 主產業（`twsePrimaryIndustry.json`）+ 手動 `stockIndustry.json` overlay。缺的是：**次產業、概念/題材族群、業務營收比重**。以下用完全免費、可程式化、且商用風險可控的來源補齊。
 
-1. **`src/checkup/seedData.js` 裡的 `STOCK_META`**：手 key 的 43 檔對照表，每檔**只有一個 `industry` + 一個 `strategy`**。這是 demo 唯一資料源，也是登入用戶「未 override」時的 fallback。
-2. **`holding_meta_overrides` 資料庫表**：使用者可以在 `/company/meta-overrides` 手動蓋掉單檔的 industry/strategy，一樣**單值**。
-3. **`themes.json` / `companyProfiles.json` / `supplyChain.json`**：檔案存在但**內容是空 `{}`**，從來沒被填。
+## 一、選定資料源（僅取商用風險低者）
 
-所以你看到的問題不是 bug、是**根本缺乏維護機制**：
-- 分類是我（前一輪）憑印象手 key 的，沒對過任何權威來源
-- Schema 只支援單一族群，像鴻海（AI 伺服器 + 電子代工 + 車用）這種本來就多族群的個股必然錯
-- 沒有更新排程，公司轉型（例如生技轉 AI）不會反映
+| 用途 | 來源 | 為什麼選 |
+| --- | --- | --- |
+| 主產業別（骨架） | **TWSE OpenAPI + TPEx OpenAPI + data.gov.tw** | 官方 JSON、免費、可商用（OGDL） |
+| 次產業 / 補完欄位 | **FinMind `TaiwanStockInfo`** | REST JSON、免費 600次/天、Apache 2.0 |
+| 業務營收比重 | **MOPS `t05st08`（透過 `twmops`）** | 官方申報最權威、月更 |
+| 概念題材族群 | **手動維護 CSV / `stockIndustry.json`**（首波），未來可補 g0v 資料集 | 避開 MoneyDJ / 財報狗 / Wantgoo 的商用禁令 |
 
-要真正解決，需要三件事一起做：**資料模型改多對多、灌入權威來源、建立更新流程**。
+刻意排除：MoneyDJ、Goodinfo、財報狗、玩股網、CMoney — 全部 TOS 禁止商業爬取。
 
----
+## 二、實作範圍（本輪）
 
-## 計畫
+### Step 1 — 加入 `FinMind` 補完次產業與英文分類
+- 新增 `scripts/refresh-finmind-industry.mjs`：
+  - `GET https://api.finmindtrade.com/api/v4/data?dataset=TaiwanStockInfo`（免 token 也可 low-rate 呼叫；有 token 走 600/day）
+  - 輸出 `data/finmind-industry-map.json`（stock_id → { industry_category, type, date }）
+  - 合併寫入 `src/checkup/data/twsePrimaryIndustry.json` 的兄弟檔 `twseSecondaryIndustry.json`
+- `stockMetaMulti.js` fallback 追加第 5 層：`FinMind secondary`
 
-### Step 1 — 資料模型改為多族群（schema 變更）
+### Step 2 — 加入 MOPS 月營收比重抓取（Top 20 用）
+- 新增 `scripts/refresh-mops-revenue-mix.mjs`：
+  - 對 `topWatchList`（讀 `stockIndustry.json` 已有 `revenueMix` 的清單 + 使用者持倉高頻檔）依序 POST `mops.twse.com.tw/mops/web/t05st08`
+  - 解析產品/業務比重 → 產出 `data/mops-revenue-mix.json`
+  - 手動 review 後合併進 `stockIndustry.json` 的 `revenueMix` 欄位
+  - 內建 3 秒 delay、每次最多 20 檔，避免被 MOPS 封 IP
 
-現況 `STOCK_META[code] = { industry: 'AI/伺服器', strategy: '成長股' }` 改成：
+### Step 3 — Secret + 使用說明
+- `FINMIND_API_TOKEN` 走 `secrets--add_secret`（optional，未填則走匿名 low-rate）
+- 更新 `docs/holdings-classification-maintenance.md`：
+  - 每月流程：`bun run refresh:twse` → `refresh:finmind` → `refresh:mops` → 手動 diff → commit
+  - 商用風險備註：僅這三個來源可安心用於產品
 
-```
-STOCK_META[code] = {
-  industries: ['AI/伺服器', 'PCB/材料'],   // 排序 = 營收佔比降冪
-  primaryIndustry: 'AI/伺服器',            // 快取，= industries[0]
-  themes: ['AI', 'CoWoS', '護國群山'],     // 題材（可 0-N 個）
-  strategy: '成長股',                       // 策略仍單值
-  revenueMix: [                             // 供聚合加權用（選填）
-    { industry: 'AI/伺服器', pct: 55 },
-    { industry: 'PCB/材料', pct: 30 },
-  ],
-  source: 'twse-2026-06',                   // 資料來源標記
-  updatedAt: '2026-06-15',
-}
-```
+## 三、明確不做（本輪）
 
-`holding_meta_overrides` 表加欄位 `industries text[]`、`themes text[]`、`revenue_mix jsonb`，舊 `industry` 欄保留供回溯。
+- 不爬 MoneyDJ / 財報狗 / Wantgoo：商用風險
+- 不接 Yahoo Finance TW（`yfinance` 非官方 API，風險高）
+- 概念題材（AI / CoWoS / HBM）先靠使用者回報 + 手動維護，不自動抓（下一輪再評估 g0v 或自建標籤）
 
-### Step 2 — `HoldingsSectorSummary` 聚合改用加權
+## 四、驗收
 
-- **有 `revenueMix`** → 每檔的市值按 pct 拆到多個產業桶
-- **沒 revenueMix、只有 industries[]** → 平均拆分（例：兩產業各 50%）
-- **只有 primaryIndustry** → 全額計入單一產業（舊行為）
-- 題材另做一區「題材曝險（依檔數）」，同一檔可命中多個題材
-
-集中警示改用「單一產業 > 25%」而不是舊的檔數判斷。
-
-### Step 3 — 資料來源與更新流程
-
-分類要「最新且正確」只有兩條路，選一條：
-
-**A. 半自動：TWSE / TPEx 產業別 + 人工題材**
-- 產業別走公開資料：TWSE 上市個股「產業類別」欄位、TPEx 上櫃相同欄位（每月抓一次夠用）
-- 建 `scripts/refresh-stock-industry.mjs`：抓官方 CSV → 產生 `src/checkup/data/stockIndustry.json`
-- 題材（AI、CoWoS、CPO…）走**人工白名單**放 `src/checkup/data/themes.json`：`{ "AI/伺服器": [2317, 2382, 2454, ...] }`，每月人工 review
-- 更新頻率：產業別每月 1 號、題材每兩週或事件驅動（例：新台幣升值題材、颱風災後重建）
-- 納入 `docs/demo-data-maintenance.md` SOP，跟 demo 每月更新一起做
-
-**B. 全自動：接第三方 API（如 FinMind、Goodinfo 爬蟲、CMoney）**
-- 好處：題材、營收比重都能自動抓
-- 壞處：要處理 rate limit、費用、資料授權；題材定義各家不同、還是要人工映射
-- 我建議先做 A，等量大再考慮 B
-
-### Step 4 — 使用者手動修正入口
-
-在持倉卡片新增「回報分類錯誤」小按鈕 → 開 modal → 直接寫 `holding_meta_overrides`（多族群 + 題材）。這樣你不用等我改 seed，看到錯的當場改。
-
-### Step 5 — Demo 資料同步修正
-
-Step 1-4 完成後，用同一份資料把 `DEMO_HOLDINGS` 用到的 20+ 檔全部 review 一次，錯的補正、多族群補齊。
-
-### Step 6 — 驗收
-
-- [ ] Schema migration 過 typecheck
-- [ ] 抓一次 TWSE 產業別資料，diff 顯示哪幾檔跟舊 STOCK_META 不一致
-- [ ] 你 spot-check 5 檔多族群個股（鴻海 2317、台積 2330、廣達 2382、聯發科 2454、國巨 2327）分類正確
-- [ ] `HoldingsSectorSummary` 在 demo 資料下顯示：鴻海市值有拆到多桶、AI 集中警示仍會觸發
-- [ ] `/company/meta-overrides` 能編輯多族群 + 題材
+1. `bun run scripts/refresh-finmind-industry.mjs` 產生 ≥ 1800 檔次產業對照
+2. `bun run scripts/refresh-mops-revenue-mix.mjs 2330 2317 2454` 可拿到三檔業務比重 JSON
+3. `stockMetaMulti.getMultiMeta('2330')` 回傳含 FinMind 次產業
+4. `docs/holdings-classification-maintenance.md` 有完整月更 SOP
 
 ---
 
-## 需要你先決定的三件事
-
-1. **資料源選 A（TWSE + 人工題材）還是 B（第三方 API）？** 我推 A。
-2. **多族群拆分要不要有 `revenueMix`？** 沒有的話就平均拆，簡單但不精準；有的話要人工維護每檔營收比重。我推「先平均拆、只對 top 20 檔重要持倉維護 revenueMix」。
-3. **使用者回報分類錯誤的按鈕現在做還是之後做？** 我建議這一輪就做，否則你只能等我下一輪。
-
-決定之後我會照你的選擇進 build mode 施工。
+要我按這個 plan 開工嗎？（如果你想把「概念題材自動化」也放進本輪，我就再加一個 g0v/GitHub 開源資料集的整合步驟，但那份資料只到 2021 需要人工補新題材，請告訴我要不要）

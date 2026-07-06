@@ -22,7 +22,10 @@
     "check:sitemap": "bunx tsx scripts/sitemap-consistency-check.ts",
     "check:rls-audit": "vitest run src/test/integration/1.35-rls-security-audit.test.ts",
     "check:prod-debug": "node scripts/check-prod-debug-bundle.mjs",
-    "check:security:all": "npm run check:rls-audit && npm run check:prod-debug"
+    "check:security:all": "npm run check:rls-audit && npm run check:prod-debug",
+    "refresh:twse-industry": "node scripts/refresh-stock-industry.mjs",
+    "refresh:finmind-industry": "node scripts/refresh-finmind-industry.mjs",
+    "refresh:mops-revenue": "node scripts/refresh-mops-revenue-mix.mjs"
   },
   "dependencies": {
     "@hookform/resolvers": "^3.10.0",
