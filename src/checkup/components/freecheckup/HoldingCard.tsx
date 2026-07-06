@@ -443,13 +443,16 @@ function HoldingCardImpl(props) {
         <span>{h.price != null ? Number(h.price).toFixed(2) : '—'}</span>
       </div>
 
-      {(meta?.industry || meta?.strategy) && (
-        <div className="wb-tags" style={{ display: 'flex', gap: 6, marginBottom: 8, flexWrap: 'wrap' }}>
-          {meta?.industry && (
-            <span style={{ fontSize: 10, color: isInk ? 'rgba(244,241,236,0.78)' : WB.inkSub, letterSpacing: '0.08em', padding: '4px 8px', background: isInk ? 'rgba(255,255,255,0.08)' : '#F4F2EE', border: 'none', borderRadius: 0 }}>{meta.industry}</span>
-          )}
+      {(meta?.industry || meta?.industries?.length || meta?.strategy || onReportMeta) && (
+        <div className="wb-tags" style={{ display: 'flex', gap: 6, marginBottom: 8, flexWrap: 'wrap', alignItems: 'center' }}>
+          {(meta?.industries?.length ? meta.industries : (meta?.industry ? [meta.industry] : [])).map((ind, i) => (
+            <span key={`ind-${i}`} style={{ fontSize: 10, color: isInk ? 'rgba(244,241,236,0.78)' : WB.inkSub, letterSpacing: '0.08em', padding: '4px 8px', background: isInk ? 'rgba(255,255,255,0.08)' : '#F4F2EE', border: 'none', borderRadius: 0, opacity: i === 0 ? 1 : 0.75 }}>{ind}</span>
+          ))}
           {meta?.strategy && (
             <span style={{ fontSize: 10, color: isInk ? 'rgba(244,241,236,0.78)' : WB.inkSub, letterSpacing: '0.08em', padding: '4px 8px', background: isInk ? 'rgba(255,255,255,0.08)' : '#F4F2EE', border: 'none', borderRadius: 0 }}>{meta.strategy}</span>
+          )}
+          {onReportMeta && (
+            <button type="button" onClick={openReportMeta} title="回報分類錯誤" aria-label={`回報 ${h.code} 分類錯誤`} style={{ fontSize: 10, color: isInk ? 'rgba(244,241,236,0.55)' : '#B0A99C', letterSpacing: '0.08em', padding: '4px 6px', background: 'transparent', border: `1px dashed ${isInk ? 'rgba(244,241,236,0.25)' : 'rgba(0,0,0,0.15)'}`, borderRadius: 0, cursor: 'pointer', marginLeft: 'auto' }}>回報</button>
           )}
         </div>
       )}
