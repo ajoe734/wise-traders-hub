@@ -1,4 +1,5 @@
 import { describe, it, expect, beforeEach, vi } from 'vitest'
+import { renderHook, act } from '@testing-library/react'
 
 // SectorFilterPresets 模組在 import 時會讀取 localStorage，
 // 因此必須先 mock。
