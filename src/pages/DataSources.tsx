@@ -458,6 +458,38 @@ const DataSources = () => {
                     </div>
                   )}
 
+                  {/* 失敗歷史摘要：只要近期有錯誤就顯示 */}
+                  {failure && (
+                    <div className="rounded-lg border border-amber-500/30 bg-amber-500/5 p-3 text-xs space-y-2">
+                      <div className="flex items-center gap-2 font-medium text-amber-800 dark:text-amber-300">
+                        <AlertOctagon className="h-4 w-4" />
+                        <span>失敗摘要</span>
+                        {failure.consecutiveFailures > 0 && (
+                          <Badge variant="outline" className="bg-rose-500/10 text-rose-700 dark:text-rose-300 border-rose-500/30">
+                            連續失敗 {failure.consecutiveFailures} 次
+                          </Badge>
+                        )}
+                        <Badge variant="outline" className="border-amber-500/30 text-amber-700 dark:text-amber-300">
+                          最近 {failure.totalAttempts} 次嘗試中 {failure.totalErrors} 次失敗
+                        </Badge>
+                      </div>
+                      <div className="text-foreground/90">
+                        <span className="text-muted-foreground">最近一次失敗原因（{fmtDate(failure.lastErrorAt)}）：</span>
+                        <div className="mt-1 rounded bg-background/60 px-2 py-1.5 font-mono text-[11px] break-all text-rose-700 dark:text-rose-300">
+                          {failure.lastError}
+                        </div>
+                      </div>
+                      <div className="flex items-center gap-1.5 text-muted-foreground">
+                        <History className="h-3.5 w-3.5" />
+                        <span>
+                          上次成功：
+                          {failure.lastSuccessAt ? fmtDate(failure.lastSuccessAt) : '（近 300 筆內無成功紀錄）'}
+                        </span>
+                      </div>
+                    </div>
+                  )}
+
+
                   <div>
                     <div className="text-xs font-medium text-muted-foreground mb-1">提供欄位</div>
                     <div className="flex flex-wrap gap-1.5">
