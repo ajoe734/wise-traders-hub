@@ -1,53 +1,82 @@
-# 免費外部資料源補強計畫
+# 族群分佈 chip → 展開對應個股
 
-現在骨架已有 TWSE 4 位股票代號 → 主產業（`twsePrimaryIndustry.json`）+ 手動 `stockIndustry.json` overlay。缺的是：**次產業、概念/題材族群、業務營收比重**。以下用完全免費、可程式化、且商用風險可控的來源補齊。
+## 需求
+`HoldingsSectorSummary`（`/holding-checkup` 持倉分頁 Hero 下方那塊 off-white 區塊）目前三排 chip：
+- 產業分佈（依市值）
+- 題材曝險（依檔數）
+- 策略（依檔數）
 
-## 一、選定資料源（僅取商用風險低者）
+目前是純顯示。使用者要**點任一 chip → 就地在該區塊下方展開屬於這個族群的個股清單**（不用滾到下面的卡片牆）。
 
-| 用途 | 來源 | 為什麼選 |
-| --- | --- | --- |
-| 主產業別（骨架） | **TWSE OpenAPI + TPEx OpenAPI + data.gov.tw** | 官方 JSON、免費、可商用（OGDL） |
-| 次產業 / 補完欄位 | **FinMind `TaiwanStockInfo`** | REST JSON、免費 600次/天、Apache 2.0 |
-| 業務營收比重 | **MOPS `t05st08`（透過 `twmops`）** | 官方申報最權威、月更 |
-| 概念題材族群 | **手動維護 CSV / `stockIndustry.json`**（首波），未來可補 g0v 資料集 | 避開 MoneyDJ / 財報狗 / Wantgoo 的商用禁令 |
+## 互動規格
+- 每個 chip 改成 `<button>`，`aria-pressed` 標記選中狀態。
+- 同一時間只選一個 chip；再點一次同 chip = 取消（收合列表）。
+- 點另一個 chip = 切換選取（列表跟著換）。
+- 選中的 chip 加深底色 + 加左側 dot（保留日式 minimal 樣式）。
+- chip 上加細字 caret「▾」提示可點。
 
-刻意排除：MoneyDJ、Goodinfo、財報狗、玩股網、CMoney — 全部 TOS 禁止商業爬取。
+## 展開列表（selected 存在時渲染）
+inline 卡片式清單，貼在對應區段下方：
 
-## 二、實作範圍（本輪）
+```text
+選中：光通訊 (產業)                                     [清除]
+─────────────────────────────────────────
+2454 聯發科   市值 8.2%   +12.3%   ← 多族群 30%
+3037 欣興     市值 6.1%   -3.4%
+6446 藥華藥   市值 5.7%   +21.0%
+```
 
-### Step 1 — 加入 `FinMind` 補完次產業與英文分類
-- 新增 `scripts/refresh-finmind-industry.mjs`：
-  - `GET https://api.finmindtrade.com/api/v4/data?dataset=TaiwanStockInfo`（免 token 也可 low-rate 呼叫；有 token 走 600/day）
-  - 輸出 `data/finmind-industry-map.json`（stock_id → { industry_category, type, date }）
-  - 合併寫入 `src/checkup/data/twsePrimaryIndustry.json` 的兄弟檔 `twseSecondaryIndustry.json`
-- `stockMetaMulti.js` fallback 追加第 5 層：`FinMind secondary`
+每列顯示：
+- 代號 + 名稱（`stockMeta[code]?.name`）
+- 該檔對本族群的貢獻百分比：
+  - 產業：`marketValue * weight / totalIndustryValue`（用 revenueMix 拆分後的權重）
+  - 題材／策略：顯示該檔占總持倉市值%
+- 損益% + 台股慣例配色（紅漲綠跌）
+- 若為多族群持股：右側灰字標「拆 xx%」
 
-### Step 2 — 加入 MOPS 月營收比重抓取（Top 20 用）
-- 新增 `scripts/refresh-mops-revenue-mix.mjs`：
-  - 對 `topWatchList`（讀 `stockIndustry.json` 已有 `revenueMix` 的清單 + 使用者持倉高頻檔）依序 POST `mops.twse.com.tw/mops/web/t05st08`
-  - 解析產品/業務比重 → 產出 `data/mops-revenue-mix.json`
-  - 手動 review 後合併進 `stockIndustry.json` 的 `revenueMix` 欄位
-  - 內建 3 秒 delay、每次最多 20 檔，避免被 MOPS 封 IP
+列表本身：
+- 依貢獻%由大到小排序
+- 最多 12 檔，超過折疊成「⋯ 還有 n 檔」
+- 空清單：顯示「此族群目前無個股」
+- 手機（<560px）密度更緊，字級 11px
 
-### Step 3 — Secret + 使用說明
-- `FINMIND_API_TOKEN` 走 `secrets--add_secret`（optional，未填則走匿名 low-rate）
-- 更新 `docs/holdings-classification-maintenance.md`：
-  - 每月流程：`bun run refresh:twse` → `refresh:finmind` → `refresh:mops` → 手動 diff → commit
-  - 商用風險備註：僅這三個來源可安心用於產品
+## 實作範圍
+### `src/checkup/lib/holdingUtils.js`
+新增純函式：
+```
+holdingsInSector(holdings, stockMeta, overrides, { kind, key })
+  → Array<{ code, name, marketValue, pctOfSector, weight, pnlPct, isMulti }>
+```
+- `kind: 'industry' | 'theme' | 'strategy'`
+- 產業用 revenueMix/industries 拆分權重；題材/策略直接命中即納入權重 = 1。
+- 排序：`pctOfSector desc`。
 
-## 三、明確不做（本輪）
+配套 unit test（新增 `src/test/holdingsInSector.test.ts`）：
+- 單族群命中
+- 多族群依 revenueMix 拆分（權重 30% 只算 30%）
+- 題材命中 = 全額
+- 未命中 = 空陣列
+- 未分類邊界
 
-- 不爬 MoneyDJ / 財報狗 / Wantgoo：商用風險
-- 不接 Yahoo Finance TW（`yfinance` 非官方 API，風險高）
-- 概念題材（AI / CoWoS / HBM）先靠使用者回報 + 手動維護，不自動抓（下一輪再評估 g0v 或自建標籤）
+### `src/checkup/components/freecheckup/HoldingsSectorSummary.tsx`
+- 加入 `useState` 選中 `{ kind, key } | null`
+- 三個區塊的 chip render 抽成小函式，統一改成 button + `aria-pressed`
+- 新增 `SectorDrilldown` 子元件（同檔內），接收 `selected`、`holdings`、`stockMeta`、`overrides`、`C`、`alpha`，呼叫 `holdingsInSector` 渲染
+- 產業條那 6px 長條也可點：hover cursor pointer、click = 選該產業（bonus，實作簡單）
 
-## 四、驗收
+### `src/checkup/components/freecheckup/HoldingsTab.tsx`
+現有 props 已足夠，不需改動。
 
-1. `bun run scripts/refresh-finmind-industry.mjs` 產生 ≥ 1800 檔次產業對照
-2. `bun run scripts/refresh-mops-revenue-mix.mjs 2330 2317 2454` 可拿到三檔業務比重 JSON
-3. `stockMetaMulti.getMultiMeta('2330')` 回傳含 FinMind 次產業
-4. `docs/holdings-classification-maintenance.md` 有完整月更 SOP
+## 不做的事
+- 不改下方 `HoldingsFilterBar` 或卡片牆 filter，兩者獨立（本地 inline 展開就好，不動全域 filter，避免使用者一鍵就把卡片牆過濾掉造成困惑）。
+- 不動 aggregate 邏輯與警示訊息。
+- 不改配色 / 版面骨架。
 
----
-
-要我按這個 plan 開工嗎？（如果你想把「概念題材自動化」也放進本輪，我就再加一個 g0v/GitHub 開源資料集的整合步驟，但那份資料只到 2021 需要人工補新題材，請告訴我要不要）
+## 驗證
+1. `bun run test src/test/holdingsInSector.test.ts` 全綠。
+2. `/holding-checkup` 手動：
+   - 點「光通訊 3檔」→ 下方跳出 3 檔並含拆分%
+   - 點「AI伺服器 7」（題材）→ 跳出 7 檔
+   - 點「成長股 8」（策略）→ 跳出 8 檔
+   - 再點同 chip → 收合
+3. 手機 390/560 斷點視覺無溢出（跑既有 `e2e/freecheckup-card.spec.ts`）。
