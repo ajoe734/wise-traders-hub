@@ -277,7 +277,7 @@ const DataSources = () => {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [user]);
 
-  const trigger = async (key: string) => {
+  const runOnce = async (key: string): Promise<'success' | 'error'> => {
     setRefreshState((s) => ({ ...s, [key]: { status: 'running' } }));
     try {
       const { data, error } = await supabase.functions.invoke('refresh-data-source', {
@@ -299,7 +299,7 @@ const DataSources = () => {
           };
       setRefreshState((s) => ({ ...s, [key]: state }));
       setLogs((s) => ({ ...s, [key]: state }));
-      loadLogs();
+      return state.status === 'success' ? 'success' : 'error';
     } catch (e) {
       setRefreshState((s) => ({
         ...s,
@@ -309,9 +309,46 @@ const DataSources = () => {
           finishedAt: new Date().toISOString(),
         },
       }));
-      loadLogs();
+      return 'error';
     }
   };
+
+  const trigger = async (key: string) => {
+    await runOnce(key);
+    loadLogs();
+  };
+
+  const UNHEALTHY_CONSEC = 2;
+  const UNHEALTHY_RATIO = 0.5;
+  const UNHEALTHY_MIN_ATTEMPTS = 3;
+  const isUnhealthy = (f?: FailureSummary) => {
+    if (!f) return false;
+    if (f.consecutiveFailures >= UNHEALTHY_CONSEC) return true;
+    if (f.totalAttempts >= UNHEALTHY_MIN_ATTEMPTS && f.totalErrors / f.totalAttempts > UNHEALTHY_RATIO) return true;
+    return false;
+  };
+  const unhealthyKeys = SOURCES
+    .map((s) => s.refreshKey)
+    .filter((k): k is string => Boolean(k) && isUnhealthy(failures[k!]));
+
+  const [batchRunning, setBatchRunning] = useState(false);
+  const [batchSummary, setBatchSummary] = useState<{ ok: number; fail: number; total: number } | null>(null);
+  const retryUnhealthy = async () => {
+    if (!unhealthyKeys.length || batchRunning) return;
+    setBatchRunning(true);
+    setBatchSummary({ ok: 0, fail: 0, total: unhealthyKeys.length });
+    let ok = 0;
+    let fail = 0;
+    for (const key of unhealthyKeys) {
+      const result = await runOnce(key);
+      if (result === 'success') ok += 1;
+      else fail += 1;
+      setBatchSummary({ ok, fail, total: unhealthyKeys.length });
+    }
+    setBatchRunning(false);
+    await loadLogs();
+  };
+
 
   return (
     <PortalLayout>
@@ -328,6 +365,46 @@ const DataSources = () => {
             {isAdmin && '  管理員可按「立即重新抓取」測試連通性並更新最新筆數紀錄（不會覆蓋 bundle 內快照，仍需 CLI 產出後 commit）。'}
           </p>
         </div>
+
+        {isAdmin && (
+          <div className="max-w-5xl mb-4 rounded-lg border border-amber-500/30 bg-amber-500/5 p-3 flex flex-wrap items-center gap-3">
+            <AlertOctagon className="h-4 w-4 text-amber-600 dark:text-amber-400 shrink-0" />
+            <div className="text-sm flex-1 min-w-0">
+              <div className="font-medium">
+                批次重試不健康的資料源
+                <span className="ml-2 text-muted-foreground font-normal">
+                  （連續失敗 ≥ {UNHEALTHY_CONSEC} 次，或近 300 筆內 ≥ {UNHEALTHY_MIN_ATTEMPTS} 次嘗試且失敗率 &gt; {Math.round(UNHEALTHY_RATIO * 100)}%）
+                </span>
+              </div>
+              <div className="text-xs text-muted-foreground mt-0.5">
+                目前符合條件：{unhealthyKeys.length ? unhealthyKeys.join('、') : '（無，全部健康）'}
+                {batchSummary && (
+                  <span className="ml-2">
+                    · 進度 {batchSummary.ok + batchSummary.fail}/{batchSummary.total}
+                    · 成功 <span className="text-emerald-600">{batchSummary.ok}</span>
+                    · 失敗 <span className="text-rose-600">{batchSummary.fail}</span>
+                  </span>
+                )}
+              </div>
+            </div>
+            <Button
+              size="sm"
+              variant="outline"
+              onClick={retryUnhealthy}
+              disabled={batchRunning || unhealthyKeys.length === 0}
+            >
+              {batchRunning ? (
+                <Loader2 className="h-4 w-4 animate-spin" />
+              ) : (
+                <RefreshCw className="h-4 w-4" />
+              )}
+              <span className="ml-1.5">
+                {batchRunning ? '重試中…' : `批次重試（${unhealthyKeys.length}）`}
+              </span>
+            </Button>
+          </div>
+        )}
+
 
         <div className="max-w-5xl space-y-4">
           {SOURCES.map((s) => {
