@@ -620,8 +620,8 @@ function HoldingsSectorSummaryImpl({
                 </>
               )}
             </span>
-            </span>
           )})}
+
 
         </div>
       )}
