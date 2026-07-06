@@ -1,0 +1,227 @@
+// @ts-nocheck
+/**
+ * HoldingMetaReportModal — 個股分類回報 / 修正
+ *
+ * 讓使用者當場修正產業族群、題材、策略、營收比重，寫入 holding_meta_overrides。
+ * 存檔後 useMetaOverrides 自動 invalidate cache，聚合面板即時更新。
+ */
+import { useEffect, useMemo, useState } from 'react'
+
+const CHIP_STYLE = {
+  fontSize: 12,
+  padding: '4px 8px',
+  borderRadius: 4,
+  background: 'rgba(0,0,0,0.05)',
+  cursor: 'pointer',
+  userSelect: 'none',
+  border: '1px solid transparent',
+}
+
+function parseCsvList(s) {
+  if (!s) return []
+  return s
+    .split(/[,，、\s]+/)
+    .map((x) => x.trim())
+    .filter(Boolean)
+}
+
+function parseMix(text) {
+  // 每行「產業:數字」或「產業 數字」→ [{industry, pct}]
+  if (!text?.trim()) return null
+  const out = []
+  for (const raw of text.split(/\n+/)) {
+    const line = raw.trim()
+    if (!line) continue
+    const m = line.match(/^(.+?)[\s:：]+(\d+(?:\.\d+)?)$/)
+    if (!m) continue
+    const pct = Number(m[2])
+    if (!Number.isFinite(pct) || pct <= 0) continue
+    out.push({ industry: m[1].trim(), pct })
+  }
+  if (out.length === 0) return null
+  const total = out.reduce((s, x) => s + x.pct, 0)
+  if (total <= 0) return null
+  return out
+}
+
+export default function HoldingMetaReportModal({ holding, currentMeta, onClose, upsert }) {
+  const [industries, setIndustries] = useState('')
+  const [themes, setThemes] = useState('')
+  const [strategy, setStrategy] = useState('')
+  const [mixText, setMixText] = useState('')
+  const [saving, setSaving] = useState(false)
+  const [error, setError] = useState(null)
+
+  useEffect(() => {
+    if (!holding) return
+    const inds = currentMeta?.industries?.length
+      ? currentMeta.industries
+      : currentMeta?.industry
+      ? [currentMeta.industry]
+      : []
+    setIndustries(inds.join('、'))
+    setThemes((currentMeta?.themes || []).join('、'))
+    setStrategy(currentMeta?.strategy || '')
+    if (Array.isArray(currentMeta?.revenueMix) && currentMeta.revenueMix.length) {
+      setMixText(currentMeta.revenueMix.map((m) => `${m.industry}:${Math.round(m.pct)}`).join('\n'))
+    } else {
+      setMixText('')
+    }
+    setError(null)
+  }, [holding, currentMeta])
+
+  const mixParsed = useMemo(() => parseMix(mixText), [mixText])
+  const mixTotal = mixParsed ? mixParsed.reduce((s, x) => s + x.pct, 0) : 0
+
+  if (!holding) return null
+
+  const save = async () => {
+    setSaving(true)
+    setError(null)
+    try {
+      const indArr = parseCsvList(industries)
+      const themArr = parseCsvList(themes)
+      await upsert(holding.code, {
+        industry: indArr[0] || null, // 舊欄位仍寫入（向後相容）
+        industries: indArr.length ? indArr : null,
+        themes: themArr.length ? themArr : null,
+        strategy: strategy?.trim() || null,
+        revenue_mix: mixParsed || null,
+      })
+      onClose()
+    } catch (e) {
+      setError(e?.message || '儲存失敗')
+    } finally {
+      setSaving(false)
+    }
+  }
+
+  return (
+    <div
+      role="dialog"
+      aria-modal="true"
+      aria-label="回報分類錯誤"
+      onClick={onClose}
+      style={{
+        position: 'fixed',
+        inset: 0,
+        background: 'rgba(0,0,0,0.35)',
+        zIndex: 1000,
+        display: 'flex',
+        alignItems: 'center',
+        justifyContent: 'center',
+        padding: 16,
+      }}
+    >
+      <div
+        onClick={(e) => e.stopPropagation()}
+        style={{
+          background: '#FAF7F2',
+          maxWidth: 520,
+          width: '100%',
+          maxHeight: '90vh',
+          overflowY: 'auto',
+          padding: '20px 22px',
+          borderRadius: 6,
+          border: '1px solid rgba(0,0,0,0.08)',
+        }}
+      >
+        <div style={{ fontSize: 14, fontWeight: 700, color: '#292520', marginBottom: 4 }}>
+          回報分類 — {holding.name || holding.code}（{holding.code}）
+        </div>
+        <div style={{ fontSize: 11, color: '#8B857A', marginBottom: 16, lineHeight: 1.6 }}>
+          你回報的分類只影響你自己的帳號，其他人不會看到。
+        </div>
+
+        <Field label="產業（多個以「、」或「,」分隔，依營收比重降冪）">
+          <input
+            type="text"
+            value={industries}
+            onChange={(e) => setIndustries(e.target.value)}
+            placeholder="例：AI/伺服器、電源管理、車用電子"
+            style={inputStyle}
+          />
+        </Field>
+
+        <Field label="營收比重（每行一筆「產業:數字」，可留空）">
+          <textarea
+            value={mixText}
+            onChange={(e) => setMixText(e.target.value)}
+            placeholder={'AI/伺服器:40\n電源管理:35\n車用電子:25'}
+            rows={4}
+            style={{ ...inputStyle, fontFamily: 'ui-monospace, monospace', resize: 'vertical' }}
+          />
+          {mixParsed && (
+            <div style={{ fontSize: 11, color: mixTotal === 100 ? '#5A7A5F' : '#B57935', marginTop: 4 }}>
+              解析 {mixParsed.length} 筆，合計 {mixTotal.toFixed(0)}%（將自動正規化到 100%）
+            </div>
+          )}
+        </Field>
+
+        <Field label="題材（AI、CoWoS、高股息…以「、」分隔）">
+          <input
+            type="text"
+            value={themes}
+            onChange={(e) => setThemes(e.target.value)}
+            placeholder="例：AI、CoWoS、資料中心"
+            style={inputStyle}
+          />
+        </Field>
+
+        <Field label="策略">
+          <input
+            type="text"
+            value={strategy}
+            onChange={(e) => setStrategy(e.target.value)}
+            placeholder="例：成長股、景氣循環、ETF/指數"
+            style={inputStyle}
+          />
+        </Field>
+
+        {error && (
+          <div style={{ fontSize: 12, color: '#B23A3A', marginTop: 8 }}>{error}</div>
+        )}
+
+        <div style={{ display: 'flex', gap: 8, justifyContent: 'flex-end', marginTop: 18 }}>
+          <button type="button" onClick={onClose} style={{ ...btnStyle, background: 'transparent', color: '#8B857A' }}>
+            取消
+          </button>
+          <button type="button" onClick={save} disabled={saving} style={{ ...btnStyle, background: '#292520', color: '#F5F3EF' }}>
+            {saving ? '儲存中…' : '儲存'}
+          </button>
+        </div>
+      </div>
+    </div>
+  )
+}
+
+function Field({ label, children }) {
+  return (
+    <label style={{ display: 'block', marginBottom: 12 }}>
+      <div style={{ fontSize: 11, color: '#8B857A', letterSpacing: '0.08em', marginBottom: 4 }}>
+        {label}
+      </div>
+      {children}
+    </label>
+  )
+}
+
+const inputStyle = {
+  width: '100%',
+  padding: '8px 10px',
+  fontSize: 13,
+  border: '1px solid rgba(0,0,0,0.12)',
+  borderRadius: 4,
+  background: '#FFF',
+  color: '#292520',
+  boxSizing: 'border-box',
+}
+
+const btnStyle = {
+  padding: '8px 16px',
+  fontSize: 13,
+  borderRadius: 4,
+  border: 'none',
+  cursor: 'pointer',
+  fontWeight: 500,
+}
