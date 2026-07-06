@@ -344,7 +344,7 @@ function HoldingsTab(props) {
             decision={decisionsMap[h.code]}
             target={targets?.[h.code]}
             avgTargetPrice={targets?.[h.code] ? avgTarget(h.code) : null}
-            meta={STOCK_META[h.code] || null}
+            meta={mergeMeta(STOCK_META[h.code], overrides?.[h.code])}
             sparkData={sparklines[h.code] || EMPTY_SPARK}
             sparkFailed={!!sparklineErrors[h.code]}
             variant={variantsMap.get(h.code) || 'plain'}
@@ -353,6 +353,7 @@ function HoldingsTab(props) {
             syncState={holdingSyncStates?.[h.code]}
             onSelect={handleHoldingCardSelect}
             onOpenDrawer={handleHoldingCardOpenDrawer}
+            onReportMeta={handleReportMeta}
           />
         );
 
