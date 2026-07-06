@@ -60,6 +60,7 @@ const HOLDING_CARD_PROP_SCHEMA = {
   syncState: { type: 'object', optional: true },
   onSelect: 'function',
   onOpenDrawer: 'function',
+  onReportMeta: { type: 'function', optional: true },
 };
 
 function HoldingCardImpl(props) {
