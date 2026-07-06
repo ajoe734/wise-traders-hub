@@ -11,7 +11,7 @@
  * 純函式，方便單元測試；元件只負責渲染。
  */
 
-import { getMultiMeta, UNCLASSIFIED } from './stockMetaMulti'
+import { getMultiMeta, UNCLASSIFIED } from './stockMetaMulti.js'
 
 function marketValue(item) {
   if (!item) return 0
