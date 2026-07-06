@@ -17,6 +17,7 @@ import HoldingsSectorSummary from "@/checkup/components/freecheckup/HoldingsSect
 import HoldingMetaReportModal from "@/checkup/components/freecheckup/HoldingMetaReportModal";
 import { useMetaOverrides, mergeMeta } from "@/checkup/hooks/useMetaOverrides";
 import { getMultiMeta } from "@/checkup/lib/stockMetaMulti.js";
+import { holdingsInSector } from "@/checkup/lib/holdingUtils";
 import HoldingsUploadSummary from "@/checkup/components/freecheckup/HoldingsUploadSummary";
 import BatchParsePanel from "@/checkup/components/freecheckup/BatchParsePanel";
 import HoldingsEmptyState from "@/checkup/components/freecheckup/HoldingsEmptyState";
@@ -135,8 +136,31 @@ function HoldingsTab(props) {
   const isDemo = props.isDemo !== undefined ? props.isDemo : _mode.isDemo;
   const startLineLogin = props.startLineLogin !== undefined ? props.startLineLogin : _mode.startLineLogin;
 
+  // A2-lite: 純子元件 local UI state（避免污染 FreeCheckup parent）
+  const [viewMode, setViewMode] = useState("grid"); // 'grid' | 'list'
+  const [sortMenuOpen, setSortMenuOpen] = useState(false);
+  const [reportingHolding, setReportingHolding] = useState(null);
+
+  // 使用者 meta override（族群/題材/策略/營收比重）
+  const { overrides, upsert: upsertOverride } = useMetaOverrides();
+  const handleReportMeta = useCallback((h) => setReportingHolding(h), []);
+
+  // 族群 chip 點擊後的就地篩選（產業／題材／策略）
+  const [sectorFilter, setSectorFilter] = useState(null); // { kind, key } | null
+  const sectorMatchedCodes = useMemo(() => {
+    if (!sectorFilter) return null;
+    const rows = holdingsInSector(H, STOCK_META, overrides, sectorFilter);
+    return new Set(rows.map((r) => String(r.code)));
+  }, [sectorFilter, H, STOCK_META, overrides]);
+
   // E-Maint-R1: 6 個 derived useMemo 下沉
-  const sorted = filteredSortedList; // 命名相容性
+  const rawSorted = filteredSortedList; // 命名相容性
+  const sorted = useMemo(
+    () => (sectorMatchedCodes
+      ? (rawSorted || []).filter((x) => sectorMatchedCodes.has(String(x.code)))
+      : rawSorted),
+    [rawSorted, sectorMatchedCodes],
+  );
   const {
     displayed,
     variantsMap,
@@ -152,15 +176,6 @@ function HoldingsTab(props) {
     showAll,
     globalPriorityList,
   });
-
-  // A2-lite: 純子元件 local UI state（避免污染 FreeCheckup parent）
-  const [viewMode, setViewMode] = useState("grid"); // 'grid' | 'list'
-  const [sortMenuOpen, setSortMenuOpen] = useState(false);
-  const [reportingHolding, setReportingHolding] = useState(null);
-
-  // 使用者 meta override（族群/題材/策略/營收比重）
-  const { overrides, upsert: upsertOverride } = useMetaOverrides();
-  const handleReportMeta = useCallback((h) => setReportingHolding(h), []);
 
   // D-Perf-R2 (2026-05 第二輪)：viewport 訂閱下沉到本元件
   const vw = useViewportWidth(1280);
@@ -243,14 +258,17 @@ function HoldingsTab(props) {
       />
 
 
-      {/* 族群分佈總覽（產業＋題材）— 讓使用者一眼看出集中/分散 */}
+      {/* 族群分佈總覽（產業＋題材）— 讓使用者一眼看出集中/分散；點 chip 直接篩選下方卡片 */}
       <HoldingsSectorSummary
         holdings={H}
         stockMeta={STOCK_META}
         overrides={overrides}
         C={C}
         alpha={alpha}
+        selected={sectorFilter}
+        onSelect={setSectorFilter}
       />
+
 
       {/* 反轉追蹤（虧損持股）— 預設折疊，避免擠壓卡片牆 */}
       <HoldingsReversalSection
@@ -275,7 +293,7 @@ function HoldingsTab(props) {
       {/* ── 持倉資料庫 Filter Bar ── */}
       <HoldingsFilterBar
         totalCount={H.length}
-        filteredCount={filteredSortedList.length}
+        filteredCount={sorted.length}
         searchQ={searchQ}
         setSearchQ={setSearchQ}
         filterDecision={filterDecision}
