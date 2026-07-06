@@ -136,8 +136,21 @@ function HoldingsTab(props) {
   const isDemo = props.isDemo !== undefined ? props.isDemo : _mode.isDemo;
   const startLineLogin = props.startLineLogin !== undefined ? props.startLineLogin : _mode.startLineLogin;
 
+  // 族群 chip 點擊後的就地篩選（產業／題材／策略）
+  const [sectorFilter, setSectorFilter] = useState(null); // { kind, key } | null
+  const overridesForSector = props.overrides || {};
+  const sectorMatchedCodes = useMemo(() => {
+    if (!sectorFilter) return null;
+    const rows = holdingsInSector(H, STOCK_META, overridesForSector, sectorFilter);
+    return new Set(rows.map((r) => r.code));
+  }, [sectorFilter, H, STOCK_META, overridesForSector]);
+
   // E-Maint-R1: 6 個 derived useMemo 下沉
-  const sorted = filteredSortedList; // 命名相容性
+  const rawSorted = filteredSortedList; // 命名相容性
+  const sorted = useMemo(
+    () => (sectorMatchedCodes ? (rawSorted || []).filter((x) => sectorMatchedCodes.has(String(x.code))) : rawSorted),
+    [rawSorted, sectorMatchedCodes],
+  );
   const {
     displayed,
     variantsMap,
