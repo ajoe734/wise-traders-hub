@@ -299,6 +299,7 @@ const DataSources = () => {
           };
       setRefreshState((s) => ({ ...s, [key]: state }));
       setLogs((s) => ({ ...s, [key]: state }));
+      loadLogs();
     } catch (e) {
       setRefreshState((s) => ({
         ...s,
@@ -308,6 +309,7 @@ const DataSources = () => {
           finishedAt: new Date().toISOString(),
         },
       }));
+      loadLogs();
     }
   };
 
