@@ -37,6 +37,7 @@ import { useAutoPageView } from "@/hooks/useAutoPageView";
 // the Suspense fallback round-trip to remove the initial loading spinner.
 import Index from "./pages/Index";
 import Legal from "./pages/Legal";
+import DataSources from "./pages/DataSources";
 import { ProtectedRoute } from "./components/ProtectedRoute";
 import { RouteChunkBoundary } from "./components/RouteChunkBoundary";
 import { AppErrorBoundary } from "./components/AppErrorBoundary";
@@ -247,6 +248,8 @@ const AppShell = () => (
             <Route path="/holding-checkup-demo" element={<HoldingCheckupDemoEntry />} />
             <Route path="/free-checkup" element={<LegacyFreeCheckupRedirect />} />
             <Route path="/legal" element={<Legal />} />
+            <Route path="/data-sources" element={<DataSources />} />
+
 
             {/* Checkup portfolio routes */}
             <Route path="/portfolio/:portfolioId" element={<PortfolioLayout />}>
