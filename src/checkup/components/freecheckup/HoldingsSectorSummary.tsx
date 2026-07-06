@@ -518,10 +518,29 @@ function HoldingsSectorSummaryImpl({
                       }}
                     />
                     {editError && (
-                      <div style={{ fontSize: 9, color: C.up, marginTop: 3, whiteSpace: 'nowrap' }}>
-                        {editError}
+                      <div style={{ fontSize: 9, color: C.up, marginTop: 3, lineHeight: 1.4, display: 'flex', alignItems: 'center', gap: 4, flexWrap: 'wrap' }}>
+                        <span>{editError}</span>
+                        {editConflictId && (
+                          <button
+                            type="button"
+                            onClick={() => { cancelRename(); focusPreset(editConflictId) }}
+                            style={{
+                              fontSize: 9,
+                              padding: '1px 5px',
+                              borderRadius: 3,
+                              border: `1px solid ${alpha(C.up, '35')}`,
+                              background: alpha(C.up, '08'),
+                              color: C.up,
+                              cursor: 'pointer',
+                              fontFamily: 'inherit',
+                            }}
+                          >
+                            跳至 →
+                          </button>
+                        )}
                       </div>
                     )}
+
                   </div>
                   <button
                     type="button"
