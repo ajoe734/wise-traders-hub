@@ -40,6 +40,15 @@ type RefreshState = {
   finishedAt?: string;
 };
 
+type FailureSummary = {
+  lastError: string;
+  lastErrorAt: string;
+  consecutiveFailures: number;
+  totalAttempts: number;
+  totalErrors: number;
+  lastSuccessAt: string | null;
+};
+
 const primaryMeta = (twsePrimary as any)._meta || {};
 const secondaryMeta = (twseSecondary as any)._meta || {};
 const overlayMeta = (stockIndustry as any)._meta || {};
