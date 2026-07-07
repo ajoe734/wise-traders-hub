@@ -390,6 +390,11 @@ export default defineConfig({
         viewport: { width: 1280, height: 900 },
         launchOptions: process.env.PLAYWRIGHT_WEBKIT_PATH
           ? { executablePath: process.env.PLAYWRIGHT_WEBKIT_PATH }
+          : existsSync('/nix/store/cz60x810qfaj6fgam615832byrd7d67q-playwright-webkit/pw_run.sh')
+          ? {
+              executablePath:
+                '/nix/store/cz60x810qfaj6fgam615832byrd7d67q-playwright-webkit/pw_run.sh',
+            }
           : {},
       },
     },
