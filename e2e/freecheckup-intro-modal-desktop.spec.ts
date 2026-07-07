@@ -76,4 +76,34 @@ test.describe('FreeCheckup desktop — intro modal suppression', () => {
     expect(flags.seen, 'localStorage flag holdings-intro-video-seen-v2 應為 "1"').toBe('1');
     expect(flags.dismissed, 'sessionStorage flag holdings-intro-video-dismissed-session 應為 "1"').toBe('1');
   });
+
+  test('清除 flag 後，demo intro modal 會重新自動彈出（auto-open regression guard）', async ({ page }, testInfo) => {
+    await gotoFreeCheckup(page, testInfo, { suppressIntro: false });
+
+    // 1) modal 應自動 mount 並可見
+    const modal = page.locator('[data-testid="holdings-intro-modal"]');
+    await expect(
+      modal,
+      `[${testInfo.project.name}] 清除抑制 flag 後 demo intro modal 應自動彈出`,
+    ).toHaveCount(1);
+    await expect(modal).toBeVisible();
+
+    // 2) modal 具備正確的 a11y 屬性（role=dialog + aria-modal）
+    await expect(modal).toHaveAttribute('role', 'dialog');
+    await expect(modal).toHaveAttribute('aria-modal', 'true');
+
+    // 3) 內部應掛出 <video> 開始播放（demo 影片）
+    await expect(
+      page.locator('[data-testid="holdings-intro-modal"] video'),
+      `[${testInfo.project.name}] modal 內應掛出 <video>`,
+    ).toHaveCount(1);
+
+    // 4) 守門：init 階段確實已清除 flag（未來若預設值改變會直接 fail）
+    const flags = await page.evaluate(() => ({
+      seen: window.localStorage.getItem('holdings-intro-video-seen-v2'),
+      dismissed: window.sessionStorage.getItem('holdings-intro-video-dismissed-session'),
+    }));
+    expect(flags.seen, '初始應無 localStorage suppress flag').toBeNull();
+    expect(flags.dismissed, '初始應無 sessionStorage suppress flag').toBeNull();
+  });
 });
