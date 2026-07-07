@@ -286,7 +286,7 @@ function HoldingsTab(props) {
         C={C}
         alpha={alpha}
         selected={sectorFilter}
-        onSelect={setSectorFilter}
+        onSelect={setSectorFilterPersisted}
       />
 
 
