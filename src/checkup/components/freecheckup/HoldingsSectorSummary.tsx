@@ -377,16 +377,16 @@ function HoldingsSectorSummaryImpl({
                 width: '100%',
                 fontSize: 11,
                 padding: '4px 8px',
-                border: `1px solid ${saveError ? alpha(C.up, '50') : alpha(C.textMute, '25')}`,
+                border: `1px solid ${saveError ? alpha(C.text, '50') : alpha(C.textMute, '25')}`,
                 borderRadius: 3,
-                background: saveError ? alpha(C.up, '04') : '#fff',
+                background: saveError ? alpha(C.text, '04') : '#fff',
                 color: C.text,
                 fontFamily: 'inherit',
                 outline: 'none',
               }}
             />
             {saveError && (
-              <div style={{ fontSize: 10, color: C.up, marginTop: 4, lineHeight: 1.4, display: 'flex', alignItems: 'center', gap: 6, flexWrap: 'wrap' }}>
+              <div style={{ fontSize: 10, color: C.text, marginTop: 4, lineHeight: 1.4, display: 'flex', alignItems: 'center', gap: 6, flexWrap: 'wrap' }}>
                 <span>{saveError}</span>
                 {saveConflictId && (
                   <button
@@ -396,9 +396,9 @@ function HoldingsSectorSummaryImpl({
                       fontSize: 10,
                       padding: '1px 6px',
                       borderRadius: 3,
-                      border: `1px solid ${alpha(C.up, '35')}`,
-                      background: alpha(C.up, '08'),
-                      color: C.up,
+                      border: `1px solid ${alpha(C.text, '35')}`,
+                      background: alpha(C.text, '08'),
+                      color: C.text,
                       cursor: 'pointer',
                       fontFamily: 'inherit',
                       letterSpacing: '0.02em',
@@ -562,15 +562,15 @@ function HoldingsSectorSummaryImpl({
                 borderRadius: 4,
                 border: `1px solid ${
                   isHighlighted
-                    ? alpha(C.up, '55')
+                    ? alpha(C.text, '55')
                     : editingId === p.id
-                      ? alpha(C.teal, '35')
+                      ? alpha(C.text, '35')
                       : alpha(C.textMute, '18')
                 }`,
                 background: isHighlighted
-                  ? alpha(C.up, '10')
+                  ? alpha(C.text, '10')
                   : editingId === p.id
-                    ? alpha(C.teal, '06')
+                    ? alpha(C.text, '06')
                     : alpha(C.textMute, '04'),
                 transition: 'background 0.2s ease, border-color 0.2s ease',
               }}
@@ -592,9 +592,9 @@ function HoldingsSectorSummaryImpl({
                       style={{
                         fontSize: 10,
                         padding: '3px 6px',
-                        border: `1px solid ${editError ? alpha(C.up, '50') : alpha(C.teal, '30')}`,
+                        border: `1px solid ${editError ? alpha(C.text, '50') : alpha(C.text, '30')}`,
                         borderRadius: 3,
-                        background: editError ? alpha(C.up, '04') : (C.paper || '#fff'),
+                        background: editError ? alpha(C.text, '04') : (C.paper || '#fff'),
                         color: C.text,
                         fontFamily: 'inherit',
                         outline: 'none',
@@ -603,7 +603,7 @@ function HoldingsSectorSummaryImpl({
                       }}
                     />
                     {editError && (
-                      <div style={{ fontSize: 9, color: C.up, marginTop: 3, lineHeight: 1.4, display: 'flex', alignItems: 'center', gap: 4, flexWrap: 'wrap' }}>
+                      <div style={{ fontSize: 9, color: C.text, marginTop: 3, lineHeight: 1.4, display: 'flex', alignItems: 'center', gap: 4, flexWrap: 'wrap' }}>
                         <span>{editError}</span>
                         {editConflictId && (
                           <button
@@ -613,9 +613,9 @@ function HoldingsSectorSummaryImpl({
                               fontSize: 9,
                               padding: '1px 5px',
                               borderRadius: 3,
-                              border: `1px solid ${alpha(C.up, '35')}`,
-                              background: alpha(C.up, '08'),
-                              color: C.up,
+                              border: `1px solid ${alpha(C.text, '35')}`,
+                              background: alpha(C.text, '08'),
+                              color: C.text,
                               cursor: 'pointer',
                               fontFamily: 'inherit',
                             }}
@@ -637,7 +637,7 @@ function HoldingsSectorSummaryImpl({
                       padding: '2px 4px',
                       background: 'transparent',
                       border: 'none',
-                      color: editDraft.trim() ? C.teal : C.textMute,
+                      color: editDraft.trim() ? C.text : C.textMute,
                       cursor: editDraft.trim() ? 'pointer' : 'not-allowed',
                       lineHeight: 1,
                     }}
@@ -770,7 +770,7 @@ function HoldingsSectorSummaryImpl({
                 gap: 2,
                 padding: '10px 12px',
                 borderRadius: 4,
-                border: `1px solid ${on ? alpha(C.teal, '40') : alpha(C.textMute, '10')}`,
+                border: `1px solid ${on ? alpha(C.text, '40') : alpha(C.textMute, '10')}`,
                 background: alpha(C.textMute, '02'),
                 cursor: 'pointer',
                 fontFamily: 'inherit',
@@ -785,7 +785,7 @@ function HoldingsSectorSummaryImpl({
                 <span style={{ fontSize: 10, color: C.textMute, marginLeft: 'auto' }}>{x.count}檔</span>
               </div>
               <div style={{ fontSize: 13, color: C.textSec, marginTop: 4, lineHeight: 1.4 }}>{x.key}</div>
-              {on && <div style={{ fontSize: 9, color: C.teal, marginTop: 2 }}>●</div>}
+              {on && <div style={{ fontSize: 9, color: C.text, marginTop: 2 }}>●</div>}
             </button>
           )
         })}
@@ -863,7 +863,7 @@ function HoldingsSectorSummaryImpl({
                     fontSize: 13,
                     padding: '6px 10px',
                     borderRadius: 4,
-                    border: `1px solid ${on ? alpha(C.teal, '40') : alpha(C.textMute, '18')}`,
+                    border: `1px solid ${on ? alpha(C.text, '40') : alpha(C.textMute, '18')}`,
                     background: alpha(C.textMute, '02'),
                     color: C.text,
                     cursor: 'pointer',
@@ -874,7 +874,7 @@ function HoldingsSectorSummaryImpl({
                     transition: 'border-color 0.15s ease',
                   }}
                 >
-                  {on && <span style={{ marginRight: 4, color: C.teal }}>●</span>}
+                  {on && <span style={{ marginRight: 4, color: C.text }}>●</span>}
                   {t.key} <span style={{ color: C.textSec, marginLeft: 4, fontSize: 12 }}>{t.count}</span>
                 </button>
               )
@@ -910,7 +910,7 @@ function HoldingsSectorSummaryImpl({
                     padding: 0,
                   }}
                 >
-                  <span style={{ width: 4, height: 4, borderRadius: '50%', background: on ? C.teal : C.textMute }} />
+                  <span style={{ width: 4, height: 4, borderRadius: '50%', background: on ? C.text : C.textMute }} />
                   {s.key} <span style={{ color: C.textSec, fontSize: 12 }}>{s.count}</span>
                 </button>
               )
