@@ -276,4 +276,70 @@ test.describe('FreeCheckup desktop — intro modal suppression', () => {
     expect(flags.dismissed).toBe('1');
     expect(flags.seen).toBeNull();
   });
+
+  // -- Focus 管理（桌面 + 跨瀏覽器）------------------------------------------------
+  // webkit skip：<video autoplay> crash 既有限制
+  const closePaths = [
+    { name: '✕ 按鈕', close: async (page: Page) => { await page.getByRole('button', { name: '關閉介紹影片' }).click(); } },
+    { name: '不再顯示 按鈕', close: async (page: Page) => { await page.getByRole('button', { name: '不再顯示介紹影片' }).click(); } },
+    {
+      name: 'backdrop 點擊',
+      close: async (page: Page) => {
+        const modal = page.locator('[data-testid="holdings-intro-modal"]');
+        const box = await modal.boundingBox();
+        await page.mouse.click(box!.x + 5, box!.y + 5);
+      },
+    },
+    { name: 'ESC 鍵', close: async (page: Page) => { await page.keyboard.press('Escape'); } },
+  ] as const;
+
+  for (const path of closePaths) {
+    test(`focus 管理：open 時焦點進 close button，${path.name} 關閉後焦點離開 modal`, async ({ page, browserName }, testInfo) => {
+      test.skip(browserName === 'webkit', 'WebKit headless crashes on autoplay <video>');
+      await page.route(/\.mp4(\?|$)/, (route) => route.fulfill({ status: 204, body: '' }));
+      await page.addInitScript(() => {
+        try {
+          window.localStorage.setItem('checkup-demo-mode', '1');
+          Object.defineProperty(HTMLMediaElement.prototype, 'play', {
+            configurable: true, value: function () { return Promise.resolve(); },
+          });
+        } catch {}
+      });
+
+      await page.goto(ROUTE, { waitUntil: 'domcontentloaded' });
+      const modal = page.locator('[data-testid="holdings-intro-modal"]');
+      await expect(modal).toBeVisible({ timeout: 15_000 });
+
+      await page.waitForFunction(
+        () => document.activeElement?.getAttribute('aria-label') === '關閉介紹影片',
+        null,
+        { timeout: 3_000 },
+      );
+
+      const focusedOnOpen = await page.evaluate(() => {
+        const el = document.activeElement as HTMLElement | null;
+        return {
+          ariaLabel: el?.getAttribute('aria-label') ?? null,
+          insideModal: !!el?.closest('[data-testid="holdings-intro-modal"]'),
+        };
+      });
+      expect(focusedOnOpen.ariaLabel).toBe('關閉介紹影片');
+      expect(focusedOnOpen.insideModal).toBe(true);
+
+      await path.close(page);
+      await expect(modal).toHaveCount(0);
+
+      const focusedOnClose = await page.evaluate(() => {
+        const el = document.activeElement as HTMLElement | null;
+        return {
+          insideModal: !!el?.closest('[data-testid="holdings-intro-modal"]'),
+          isConnected: !!el?.isConnected,
+          isBody: el === document.body,
+        };
+      });
+      expect(focusedOnClose.insideModal).toBe(false);
+      expect(focusedOnClose.isConnected).toBe(true);
+      expect(focusedOnClose.isBody).toBe(true);
+    });
+  }
 });
