@@ -346,6 +346,13 @@ export default defineConfig({
       use: { ...devices['Desktop Chrome'], viewport: { width: 1280, height: 900 } },
     },
 
+    // Desktop viewport 的 demo intro modal 抑制回歸（1280 / 1440 / 1920）
+    ...([1280, 1440, 1920] as const).map((w) => ({
+      name: `desktop-intro-modal-${w}`,
+      testMatch: /freecheckup-intro-modal-desktop\.spec\.ts/,
+      use: { ...devices['Desktop Chrome'], viewport: { width: w, height: 900 } },
+    })),
+
   ],
   webServer: {
     command: 'bun run dev',
