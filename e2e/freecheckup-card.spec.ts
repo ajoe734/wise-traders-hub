@@ -193,8 +193,8 @@ test.describe('FreeCheckup mobile card', () => {
       try {
         window.localStorage.setItem('checkup-demo-mode', '1');
         // 明確清除抑制 flag，模擬「首次進入 demo」的使用者
-        window.localStorage.removeItem('holdings-intro-video-seen-v2');
-        window.sessionStorage.removeItem('holdings-intro-video-dismissed-session');
+
+
         // 避免 <video autoplay> 觸發 media pipeline crash
         Object.defineProperty(HTMLMediaElement.prototype, 'play', {
           configurable: true,
@@ -250,8 +250,8 @@ test.describe('FreeCheckup mobile card', () => {
     await page.addInitScript(() => {
       try {
         window.localStorage.setItem('checkup-demo-mode', '1');
-        window.localStorage.removeItem('holdings-intro-video-seen-v2');
-        window.sessionStorage.removeItem('holdings-intro-video-dismissed-session');
+
+
         Object.defineProperty(HTMLMediaElement.prototype, 'play', {
           configurable: true, value: function () { return Promise.resolve(); },
         });
@@ -297,8 +297,8 @@ test.describe('FreeCheckup mobile card', () => {
     await page.addInitScript(() => {
       try {
         window.localStorage.setItem('checkup-demo-mode', '1');
-        window.localStorage.removeItem('holdings-intro-video-seen-v2');
-        window.sessionStorage.removeItem('holdings-intro-video-dismissed-session');
+
+
         Object.defineProperty(HTMLMediaElement.prototype, 'play', {
           configurable: true, value: function () { return Promise.resolve(); },
         });
@@ -339,8 +339,8 @@ test.describe('FreeCheckup mobile card', () => {
     await page.addInitScript(() => {
       try {
         window.localStorage.setItem('checkup-demo-mode', '1');
-        window.localStorage.removeItem('holdings-intro-video-seen-v2');
-        window.sessionStorage.removeItem('holdings-intro-video-dismissed-session');
+
+
         Object.defineProperty(HTMLMediaElement.prototype, 'play', {
           configurable: true, value: function () { return Promise.resolve(); },
         });
