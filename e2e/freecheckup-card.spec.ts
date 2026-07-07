@@ -504,6 +504,90 @@ test.describe('FreeCheckup mobile card', () => {
     });
   }
 
+  test('focus trap：Tab / Shift+Tab 只在 dialog 內循環，不會卡出 modal', async ({ page }, testInfo) => {
+    await page.route(/\.mp4(\?|$)/, (route) => route.fulfill({ status: 204, body: '' }));
+    await page.addInitScript(() => {
+      try {
+        window.localStorage.setItem('checkup-demo-mode', '1');
+        Object.defineProperty(HTMLMediaElement.prototype, 'play', {
+          configurable: true, value: function () { return Promise.resolve(); },
+        });
+      } catch {}
+    });
+
+    await page.goto(ROUTE, { waitUntil: 'domcontentloaded' });
+    const modal = page.locator('[data-testid="holdings-intro-modal"]');
+    await expect(modal).toBeVisible({ timeout: 15_000 });
+
+    // 等 close button 拿到焦點
+    await page.waitForFunction(
+      () => document.activeElement?.getAttribute('aria-label') === '關閉介紹影片',
+      null,
+      { timeout: 3_000 },
+    );
+
+    // 收集 modal 內可 focus 元素數量，稍後用來驗證循環
+    const focusableCount = await page.evaluate(() => {
+      const modal = document.querySelector('[data-testid="holdings-intro-modal"]')!;
+      return modal.querySelectorAll(
+        'button, [href], input, select, textarea, video[controls], audio[controls], [tabindex]:not([tabindex="-1"])'
+      ).length;
+    });
+    expect(focusableCount, 'modal 內應至少有 close + 不再顯示 兩顆按鈕').toBeGreaterThanOrEqual(2);
+
+    // 連按 Tab N+3 次（超過 focusable 數）— 每一步 activeElement 都必須在 modal 內
+    const steps = focusableCount + 3;
+    const trail: { step: number; insideModal: boolean; ariaLabel: string | null; tagName: string | null }[] = [];
+    for (let i = 1; i <= steps; i++) {
+      await page.keyboard.press('Tab');
+      const snap = await page.evaluate(() => {
+        const el = document.activeElement as HTMLElement | null;
+        return {
+          insideModal: !!el?.closest('[data-testid="holdings-intro-modal"]'),
+          ariaLabel: el?.getAttribute('aria-label') ?? null,
+          tagName: el?.tagName ?? null,
+        };
+      });
+      trail.push({ step: i, ...snap });
+    }
+    const escaped = trail.filter((t) => !t.insideModal);
+    expect(
+      escaped,
+      `[${testInfo.project.name}] Tab 應始終停在 modal 內，實際 trail=${JSON.stringify(trail)}`,
+    ).toEqual([]);
+
+    // Shift+Tab 從 close button（第一顆）反向 → 應 wrap 到最後一個 focusable
+    // 先把焦點重設到第一顆
+    await page.evaluate(() => {
+      (document.querySelector('[data-testid="holdings-intro-modal"] [aria-label="不再顯示介紹影片"]') as HTMLElement)?.focus();
+    });
+    // 「不再顯示」是 DOM 中第一顆 button → Shift+Tab 應 wrap 到最後一個 focusable
+    await page.keyboard.press('Shift+Tab');
+    const afterShiftTab = await page.evaluate(() => {
+      const el = document.activeElement as HTMLElement | null;
+      const modal = document.querySelector('[data-testid="holdings-intro-modal"]')!;
+      const list = Array.from(
+        modal.querySelectorAll(
+          'button, [href], input, select, textarea, video[controls], audio[controls], [tabindex]:not([tabindex="-1"])'
+        )
+      );
+      return {
+        insideModal: !!el && modal.contains(el),
+        isLast: el === list[list.length - 1],
+      };
+    });
+    expect(
+      afterShiftTab.insideModal,
+      `[${testInfo.project.name}] Shift+Tab 從第一顆應停在 modal 內`,
+    ).toBe(true);
+    expect(
+      afterShiftTab.isLast,
+      `[${testInfo.project.name}] Shift+Tab 從第一顆應 wrap 到最後一顆 focusable`,
+    ).toBe(true);
+  });
+
+
+
 
 
 

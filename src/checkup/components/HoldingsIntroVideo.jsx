@@ -22,6 +22,7 @@ export function HoldingsIntroVideo({ isDemo = false }) {
   const [open, setOpen] = useState(false);
   const [isMobile, setIsMobile] = useState(false);
   const closeBtnRef = useRef(null);
+  const modalRef = useRef(null);
   // 開啟前的 activeElement — 關閉時還原焦點。SSR 安全：初始為 null。
   const previousFocusRef = useRef(null);
 
@@ -44,19 +45,15 @@ export function HoldingsIntroVideo({ isDemo = false }) {
   useEffect(() => {
     if (!isDemo || !open) return;
 
-    // 記住開啟前的焦點（可能是 <body> — 那就 fallback，反正不會 focus 到已 unmount 的元素）
     previousFocusRef.current =
       typeof document !== "undefined" ? document.activeElement : null;
 
-    // 把焦點移入 modal（close 按鈕）→ 鍵盤/screen reader 進入 dialog 上下文
-    // 用 rAF 確保 DOM commit + button ref 已附上
     const raf = requestAnimationFrame(() => {
       closeBtnRef.current?.focus?.();
     });
 
     return () => {
       cancelAnimationFrame(raf);
-      // Modal 關閉時還原焦點
       const prev = previousFocusRef.current;
       const body = typeof document !== "undefined" ? document.body : null;
       const canRestore =
@@ -84,15 +81,57 @@ export function HoldingsIntroVideo({ isDemo = false }) {
     setOpen(false);
   }, []);
 
-  // ESC 關閉（等同 closeSession：只寫 session flag，不寫永久 flag）
+  // 鍵盤 handler：ESC 關閉 + Tab / Shift+Tab 焦點陷阱（focus trap）
   useEffect(() => {
     if (!isDemo || !open) return;
     const onKey = (e) => {
-      if (e.key === "Escape") closeSession();
+      if (e.key === "Escape") {
+        closeSession();
+        return;
+      }
+      if (e.key !== "Tab") return;
+      const modal = modalRef.current;
+      if (!modal) return;
+      // 收集 dialog 內所有可 focus 元素（排除隱藏/disabled/tabindex=-1）
+      const nodes = Array.from(
+        modal.querySelectorAll(
+          'button, [href], input, select, textarea, video[controls], audio[controls], [tabindex]:not([tabindex="-1"])'
+        )
+      ).filter(
+        (el) =>
+          !el.hasAttribute("disabled") &&
+          el.getAttribute("aria-hidden") !== "true" &&
+          // offsetParent 是判斷「實際 render 且可視」的可靠代理（<video> 也適用）
+          (el.offsetParent !== null || el === document.activeElement)
+      );
+      if (nodes.length === 0) {
+        // 沒有可 focus 元素 → 直接吃掉 Tab，避免焦點跑出 modal
+        e.preventDefault();
+        return;
+      }
+      const first = nodes[0];
+      const last = nodes[nodes.length - 1];
+      const active = document.activeElement;
+      const inside = modal.contains(active);
+
+      if (!inside) {
+        // 焦點已跑出 modal（例如 browser chrome / body）→ 拉回第一個
+        e.preventDefault();
+        first.focus();
+        return;
+      }
+      if (e.shiftKey && active === first) {
+        e.preventDefault();
+        last.focus();
+      } else if (!e.shiftKey && active === last) {
+        e.preventDefault();
+        first.focus();
+      }
     };
     window.addEventListener("keydown", onKey);
     return () => window.removeEventListener("keydown", onKey);
   }, [isDemo, open, closeSession]);
+
 
   if (!isDemo) return null;
   if (!open) return null;
@@ -101,6 +140,7 @@ export function HoldingsIntroVideo({ isDemo = false }) {
 
   return (
     <div
+      ref={modalRef}
       data-testid="holdings-intro-modal"
       role="dialog"
       aria-modal="true"
