@@ -12,7 +12,7 @@
  *   onSelect  (next) => void   // next 是同結構
  */
 import { memo, useEffect, useRef, useState } from 'react'
-import { IND_COLOR } from '@/checkup/seedData'
+
 import {
   aggregateBySector,
   HOLDING_UNCLASSIFIED_LABEL,
@@ -55,13 +55,26 @@ function HoldingsSectorSummaryImpl({
   if (industryByValue.length === 0) return null
 
   const singleHolding = holdings.length === 1
-  const sectionTitle = {
-    fontSize: 9,
-    color: C.textMute,
-    marginBottom: 8,
-    letterSpacing: '0.16em',
-    fontWeight: 400,
+  const headerBase = {
+    fontWeight: 500,
+    color: C.text,
+    letterSpacing: '-0.01em',
+    lineHeight: 1,
   }
+  const industryHeaderStyle = {
+    ...headerBase,
+    fontSize: 20,
+    marginBottom: 12,
+  }
+  const sectionHeaderStyle = {
+    ...headerBase,
+    fontSize: 16,
+    marginTop: 14,
+    marginBottom: 10,
+    paddingTop: 12,
+    borderTop: `1px solid ${C.border}`,
+  }
+
 
   const sel = selected && Array.isArray(selected.items) ? selected : EMPTY_SEL
   const items = sel.items
@@ -92,38 +105,6 @@ function HoldingsSectorSummaryImpl({
   const setMode = (nextMode) => emit({ items, mode: nextMode })
   const clearAll = () => emit({ items: [], mode: 'union' })
 
-  const chipBtn = (kind, key, label, tone, active) => {
-    const on = isSelected(kind, key)
-    return (
-      <button
-        key={`${kind}:${key}`}
-        type="button"
-        onClick={() => toggle(kind, key)}
-        aria-pressed={on}
-        title={on ? '再次點擊移除此條件' : '點擊加入此條件'}
-        style={{
-          fontSize: 10,
-          padding: '3px 8px',
-          borderRadius: 4,
-          color: on ? C.text : active ? C.text : C.textSec,
-          background: on
-            ? alpha(tone || C.teal, '22')
-            : active
-              ? alpha(tone || C.teal, '10')
-              : alpha(C.textMute, '06'),
-          fontWeight: on ? 500 : active ? 500 : 400,
-          letterSpacing: '0.02em',
-          lineHeight: 1.6,
-          border: on ? `1px solid ${alpha(tone || C.teal, '40')}` : '1px solid transparent',
-          cursor: 'pointer',
-          fontFamily: 'inherit',
-        }}
-      >
-        {on && <span style={{ marginRight: 4 }}>●</span>}
-        {label}
-      </button>
-    )
-  }
 
   const hasActive = items.length > 0
   const modeBtnStyle = (active) => ({
@@ -241,11 +222,9 @@ function HoldingsSectorSummaryImpl({
       style={{
         margin: '4px 0 18px',
         padding: '14px 16px',
-        background: alpha(C.textMute, '04'),
-        borderLeft: `2px solid ${alpha(C.textMute, '20')}`,
-        borderRadius: 4,
       }}
     >
+
       {hasActive && (
         <div
           role="status"
@@ -586,9 +565,9 @@ function HoldingsSectorSummaryImpl({
                   : editingId === p.id
                     ? alpha(C.teal, '06')
                     : alpha(C.textMute, '04'),
-                boxShadow: isHighlighted ? `0 0 0 2px ${alpha(C.up, '18')}` : 'none',
-                transition: 'background 0.2s ease, border-color 0.2s ease, box-shadow 0.2s ease',
+                transition: 'background 0.2s ease, border-color 0.2s ease',
               }}
+
             >
 
               {editingId === p.id ? (
@@ -745,48 +724,63 @@ function HoldingsSectorSummaryImpl({
       )}
 
       {/* ── 產業 ── */}
-      <div style={sectionTitle}>產 業 分 佈（依市值）</div>
-
-      {!singleHolding && totalValue > 0 && (
-        <div
-          role="img"
-          aria-label="產業市值分佈長條"
-          style={{
-            display: 'flex',
-            borderRadius: 3,
-            overflow: 'hidden',
-            height: 6,
-            marginBottom: 10,
-            background: alpha(C.textMute, '10'),
-          }}
-        >
-          {industryByValue.map((x, i) => (
-            <div
-              key={x.key}
-              title={`${x.key} ${x.count}檔 ${x.pct.toFixed(0)}%（點擊加入/移除條件）`}
-              onClick={() => toggle('industry', x.key)}
-              style={{
-                width: `${x.pct}%`,
-                height: '100%',
-                background:
-                  isSelected('industry', x.key)
-                    ? IND_COLOR[x.key] || C.teal
-                    : i === 0
-                      ? IND_COLOR[x.key] || C.teal
-                      : alpha(C.textMute, '25'),
-                transition: 'width 0.4s ease',
-                cursor: 'pointer',
-              }}
-            />
-          ))}
+      <div style={{ display: 'flex', alignItems: 'flex-end', justifyContent: 'space-between', marginBottom: 12 }}>
+        <div style={{ display: 'flex', alignItems: 'baseline' }}>
+          <span style={industryHeaderStyle}>產業分佈</span>
+          <span style={{ fontSize: 13, color: C.textSec, marginLeft: 6, fontWeight: 400 }}>(依市值)</span>
         </div>
-      )}
+        {warnings.length > 0 && (
+          <div
+            style={{
+              padding: '2px 8px',
+              borderRadius: 4,
+              border: `1px solid ${C.text}`,
+              color: C.text,
+              fontSize: 10,
+              letterSpacing: '0.04em',
+              fontWeight: 500,
+            }}
+          >
+            集中警示
+          </div>
+        )}
+      </div>
 
-      <div style={{ display: 'flex', gap: 6, flexWrap: 'wrap', marginBottom: 10 }}>
-        {industryByValue.map((x, i) => {
-          const isTop = i === 0 && !singleHolding
-          const label = `${x.key} ${x.count}檔${totalValue > 0 ? ` ${x.pct.toFixed(0)}%` : ''}`
-          return chipBtn('industry', x.key, label, IND_COLOR[x.key], isTop)
+      <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3, minmax(0, 1fr))', gap: 8, marginBottom: 10 }}>
+        {industryByValue.map((x) => {
+          const on = isSelected('industry', x.key)
+          return (
+            <button
+              key={x.key}
+              type="button"
+              onClick={() => toggle('industry', x.key)}
+              aria-pressed={on}
+              title={on ? '再次點擊移除此條件' : '點擊加入此條件'}
+              style={{
+                display: 'flex',
+                flexDirection: 'column',
+                alignItems: 'flex-start',
+                gap: 2,
+                padding: '10px 12px',
+                borderRadius: 4,
+                border: `1px solid ${on ? alpha(C.teal, '40') : alpha(C.textMute, '10')}`,
+                background: alpha(C.textMute, '02'),
+                cursor: 'pointer',
+                fontFamily: 'inherit',
+                textAlign: 'left',
+                transition: 'border-color 0.15s ease',
+              }}
+            >
+              <div style={{ display: 'flex', alignItems: 'baseline', gap: 4, width: '100%' }}>
+                <span style={{ fontSize: 22, color: C.text, fontWeight: 500, lineHeight: 1, letterSpacing: '-0.02em' }}>
+                  {x.pct.toFixed(0)}%
+                </span>
+                <span style={{ fontSize: 10, color: C.textMute, marginLeft: 'auto' }}>{x.count}檔</span>
+              </div>
+              <div style={{ fontSize: 13, color: C.textSec, marginTop: 4, lineHeight: 1.4 }}>{x.key}</div>
+              {on && <div style={{ fontSize: 9, color: C.teal, marginTop: 2 }}>●</div>}
+            </button>
+          )
         })}
       </div>
 
@@ -800,13 +794,13 @@ function HoldingsSectorSummaryImpl({
         <div
           role="status"
           style={{
-            borderLeft: `2px solid ${alpha(C.amber, '30')}`,
-            background: alpha(C.amber, '04'),
-            borderRadius: 4,
-            padding: '8px 12px',
+            borderTop: `1px solid ${C.border}`,
+            borderBottom: `1px solid ${C.border}`,
+            background: alpha(C.textMute, '02'),
+            padding: '8px 0',
             marginBottom: 10,
             fontSize: 10,
-            color: C.amber,
+            color: C.text,
             lineHeight: 1.6,
             fontWeight: 400,
           }}
@@ -847,11 +841,37 @@ function HoldingsSectorSummaryImpl({
       {/* ── 題材 ── */}
       {themeByCount.length > 0 && (
         <>
-          <div style={{ ...sectionTitle, marginTop: 6 }}>題 材 曝 險（依檔數）</div>
-          <div style={{ display: 'flex', gap: 6, flexWrap: 'wrap', marginBottom: 10 }}>
-            {themeByCount.map((t) =>
-              chipBtn('theme', t.key, `${t.key} ${t.count}`, C.teal, false),
-            )}
+          <div style={sectionHeaderStyle}>題材曝險</div>
+          <div style={{ display: 'flex', flexWrap: 'wrap', gap: 8, marginBottom: 10 }}>
+            {themeByCount.map((t) => {
+              const on = isSelected('theme', t.key)
+              return (
+                <button
+                  key={t.key}
+                  type="button"
+                  onClick={() => toggle('theme', t.key)}
+                  aria-pressed={on}
+                  title={on ? '再次點擊移除此條件' : '點擊加入此條件'}
+                  style={{
+                    fontSize: 13,
+                    padding: '6px 10px',
+                    borderRadius: 4,
+                    border: `1px solid ${on ? alpha(C.teal, '40') : alpha(C.textMute, '18')}`,
+                    background: alpha(C.textMute, '02'),
+                    color: C.text,
+                    cursor: 'pointer',
+                    fontFamily: 'inherit',
+                    letterSpacing: '0.02em',
+                    display: 'inline-flex',
+                    alignItems: 'center',
+                    transition: 'border-color 0.15s ease',
+                  }}
+                >
+                  {on && <span style={{ marginRight: 4, color: C.teal }}>●</span>}
+                  {t.key} <span style={{ color: C.textSec, marginLeft: 4, fontSize: 12 }}>{t.count}</span>
+                </button>
+              )
+            })}
           </div>
         </>
       )}
@@ -859,21 +879,39 @@ function HoldingsSectorSummaryImpl({
       {/* ── 策略 ── */}
       {strategyByCount.length > 0 && (
         <>
-          <div style={{ ...sectionTitle, marginTop: 6 }}>策 略（依檔數）</div>
-          <div style={{ display: 'flex', gap: 6, flexWrap: 'wrap' }}>
+          <div style={sectionHeaderStyle}>策略</div>
+          <div style={{ display: 'flex', flexWrap: 'wrap', gap: '8px 16px', marginBottom: 10 }}>
             {strategyByCount.map((s) => {
-              const isUncat = s.key === HOLDING_UNCLASSIFIED_LABEL
-              return chipBtn(
-                'strategy',
-                s.key,
-                `${s.key} ${s.count}`,
-                isUncat ? C.textMute : C.textSec,
-                false,
+              const on = isSelected('strategy', s.key)
+              return (
+                <button
+                  key={s.key}
+                  type="button"
+                  onClick={() => toggle('strategy', s.key)}
+                  aria-pressed={on}
+                  title={on ? '再次點擊移除此條件' : '點擊加入此條件'}
+                  style={{
+                    display: 'inline-flex',
+                    alignItems: 'center',
+                    gap: 6,
+                    fontSize: 14,
+                    color: C.text,
+                    background: 'transparent',
+                    border: 'none',
+                    cursor: 'pointer',
+                    fontFamily: 'inherit',
+                    padding: 0,
+                  }}
+                >
+                  <span style={{ width: 4, height: 4, borderRadius: '50%', background: on ? C.teal : C.textMute }} />
+                  {s.key} <span style={{ color: C.textSec, fontSize: 12 }}>{s.count}</span>
+                </button>
               )
             })}
           </div>
         </>
       )}
+
     </section>
   )
 }
