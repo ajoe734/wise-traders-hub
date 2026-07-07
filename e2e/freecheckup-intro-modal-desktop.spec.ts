@@ -13,14 +13,24 @@ import { navigateAndWaitForCardReady } from './helpers/navigation';
 const ROUTE = '/holding-checkup';
 const CARD_SELECTOR = '.holdings-card-grid .wb-card';
 
-async function gotoFreeCheckup(page: Page, testInfo?: TestInfo) {
-  await page.addInitScript(() => {
+async function gotoFreeCheckup(
+  page: Page,
+  testInfo?: TestInfo,
+  { suppressIntro = true }: { suppressIntro?: boolean } = {},
+) {
+  await page.addInitScript((suppress) => {
     try {
       window.localStorage.setItem('checkup-demo-mode', '1');
-      window.localStorage.setItem('holdings-intro-video-seen-v2', '1');
-      window.sessionStorage.setItem('holdings-intro-video-dismissed-session', '1');
+      if (suppress) {
+        window.localStorage.setItem('holdings-intro-video-seen-v2', '1');
+        window.sessionStorage.setItem('holdings-intro-video-dismissed-session', '1');
+      } else {
+        // 明確清除，避免瀏覽器殘留 flag 影響 auto-open 驗證
+        window.localStorage.removeItem('holdings-intro-video-seen-v2');
+        window.sessionStorage.removeItem('holdings-intro-video-dismissed-session');
+      }
     } catch {}
-  });
+  }, suppressIntro);
 
   await navigateAndWaitForCardReady(page, ROUTE, {
     cardSelector: CARD_SELECTOR,
