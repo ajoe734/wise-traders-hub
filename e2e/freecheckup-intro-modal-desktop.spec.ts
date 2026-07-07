@@ -121,4 +121,118 @@ test.describe('FreeCheckup desktop — intro modal suppression', () => {
     expect(flags.seen, '初始應無 localStorage suppress flag').toBeNull();
     expect(flags.dismissed, '初始應無 sessionStorage suppress flag').toBeNull();
   });
+
+  // ---- close/persist 行為（桌面）------------------------------------------------
+  // 這三個 test 都需要 mount <video>，WebKit headless 缺 H.264 codec 會 crash，統一 skip。
+
+  test('點 ✕ 關閉 → 只寫入 sessionStorage flag，reload 不會再自動開啟', async ({ page, browserName }, testInfo) => {
+    test.skip(browserName === 'webkit', 'WebKit headless crashes on autoplay <video>');
+    await page.route(/\.mp4(\?|$)/, (route) => route.fulfill({ status: 204, body: '' }));
+    await page.addInitScript(() => {
+      try {
+        window.localStorage.setItem('checkup-demo-mode', '1');
+        Object.defineProperty(HTMLMediaElement.prototype, 'play', {
+          configurable: true, value: function () { return Promise.resolve(); },
+        });
+      } catch {}
+    });
+
+    await page.goto(ROUTE, { waitUntil: 'domcontentloaded' });
+    const modal = page.locator('[data-testid="holdings-intro-modal"]');
+    await expect(modal).toBeVisible({ timeout: 15_000 });
+
+    await page.getByRole('button', { name: '關閉介紹影片' }).click();
+    await expect(modal, `[${testInfo.project.name}] modal 應立即關閉`).toHaveCount(0);
+
+    let flags = await page.evaluate(() => ({
+      seen: window.localStorage.getItem('holdings-intro-video-seen-v2'),
+      dismissed: window.sessionStorage.getItem('holdings-intro-video-dismissed-session'),
+    }));
+    expect(flags.dismissed, '關閉後應寫入 sessionStorage flag').toBe('1');
+    expect(flags.seen, '單次關閉不應寫入 localStorage 永久 flag').toBeNull();
+
+    await page.reload({ waitUntil: 'domcontentloaded' });
+    await page.waitForTimeout(500);
+    await expect(
+      modal,
+      `[${testInfo.project.name}] reload 後 modal 不應再自動開啟（sessionStorage 抑制）`,
+    ).toHaveCount(0);
+
+    flags = await page.evaluate(() => ({
+      seen: window.localStorage.getItem('holdings-intro-video-seen-v2'),
+      dismissed: window.sessionStorage.getItem('holdings-intro-video-dismissed-session'),
+    }));
+    expect(flags.dismissed).toBe('1');
+    expect(flags.seen).toBeNull();
+  });
+
+  test('點「不再顯示」→ localStorage + sessionStorage 皆寫入，reload 不會自動開啟', async ({ page, browserName }, testInfo) => {
+    test.skip(browserName === 'webkit', 'WebKit headless crashes on autoplay <video>');
+    await page.route(/\.mp4(\?|$)/, (route) => route.fulfill({ status: 204, body: '' }));
+    await page.addInitScript(() => {
+      try {
+        window.localStorage.setItem('checkup-demo-mode', '1');
+        Object.defineProperty(HTMLMediaElement.prototype, 'play', {
+          configurable: true, value: function () { return Promise.resolve(); },
+        });
+      } catch {}
+    });
+
+    await page.goto(ROUTE, { waitUntil: 'domcontentloaded' });
+    const modal = page.locator('[data-testid="holdings-intro-modal"]');
+    await expect(modal).toBeVisible({ timeout: 15_000 });
+
+    await page.getByRole('button', { name: '不再顯示介紹影片' }).click();
+    await expect(modal).toHaveCount(0);
+
+    let flags = await page.evaluate(() => ({
+      seen: window.localStorage.getItem('holdings-intro-video-seen-v2'),
+      dismissed: window.sessionStorage.getItem('holdings-intro-video-dismissed-session'),
+    }));
+    expect(flags.seen, '「不再顯示」應寫入 localStorage 永久 flag').toBe('1');
+    expect(flags.dismissed, '「不再顯示」也應寫入 sessionStorage flag').toBe('1');
+
+    await page.reload({ waitUntil: 'domcontentloaded' });
+    await page.waitForTimeout(500);
+    await expect(
+      modal,
+      `[${testInfo.project.name}] reload 後 modal 不應再自動開啟（localStorage 永久抑制）`,
+    ).toHaveCount(0);
+
+    flags = await page.evaluate(() => ({
+      seen: window.localStorage.getItem('holdings-intro-video-seen-v2'),
+      dismissed: window.sessionStorage.getItem('holdings-intro-video-dismissed-session'),
+    }));
+    expect(flags.seen).toBe('1');
+    expect(flags.dismissed).toBe('1');
+  });
+
+  test('點 backdrop 關閉 → 寫入 sessionStorage flag（closeSession 行為）', async ({ page, browserName }, testInfo) => {
+    test.skip(browserName === 'webkit', 'WebKit headless crashes on autoplay <video>');
+    await page.route(/\.mp4(\?|$)/, (route) => route.fulfill({ status: 204, body: '' }));
+    await page.addInitScript(() => {
+      try {
+        window.localStorage.setItem('checkup-demo-mode', '1');
+        Object.defineProperty(HTMLMediaElement.prototype, 'play', {
+          configurable: true, value: function () { return Promise.resolve(); },
+        });
+      } catch {}
+    });
+
+    await page.goto(ROUTE, { waitUntil: 'domcontentloaded' });
+    const modal = page.locator('[data-testid="holdings-intro-modal"]');
+    await expect(modal).toBeVisible({ timeout: 15_000 });
+
+    const box = await modal.boundingBox();
+    expect(box).not.toBeNull();
+    await page.mouse.click(box!.x + 5, box!.y + 5);
+    await expect(modal).toHaveCount(0);
+
+    const flags = await page.evaluate(() => ({
+      seen: window.localStorage.getItem('holdings-intro-video-seen-v2'),
+      dismissed: window.sessionStorage.getItem('holdings-intro-video-dismissed-session'),
+    }));
+    expect(flags.dismissed, 'backdrop click 應寫入 sessionStorage flag').toBe('1');
+    expect(flags.seen, 'backdrop click 不應寫入 localStorage flag').toBeNull();
+  });
 });
