@@ -736,21 +736,25 @@ function HoldingsSectorSummaryImpl({
           <span style={industryHeaderStyle}>產業分佈</span>
           <span style={{ fontSize: 13, color: C.textSec, marginLeft: 6, fontWeight: 400 }}>(依市值)</span>
         </div>
-        {warnings.length > 0 && (
-          <div
-            style={{
-              padding: '2px 8px',
-              borderRadius: 4,
-              border: `1px solid ${C.text}`,
-              color: C.text,
-              fontSize: 10,
-              letterSpacing: '0.04em',
-              fontWeight: 500,
-            }}
-          >
-            集中警示
-          </div>
-        )}
+        {warnings.length > 0 && (() => {
+          // R5：badge 與下方文字統一以 30% 為「建議分散」門檻；20%–30% 之間顯示為「留意」
+          const severe = warnings.some((w) => w.pct > 30)
+          return (
+            <div
+              style={{
+                padding: '2px 8px',
+                borderRadius: 4,
+                border: `1px solid ${severe ? C.text : alpha(C.textMute, '35')}`,
+                color: severe ? C.text : C.textMute,
+                fontSize: 10,
+                letterSpacing: '0.04em',
+                fontWeight: severe ? 500 : 400,
+              }}
+            >
+              {severe ? '集中警示' : '留意集中度'}
+            </div>
+          )
+        })()}
       </div>
 
       <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3, minmax(0, 1fr))', gap: 8, marginBottom: 10 }}>
