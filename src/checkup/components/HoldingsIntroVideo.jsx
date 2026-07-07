@@ -140,6 +140,7 @@ export function HoldingsIntroVideo({ isDemo = false }) {
 
   return (
     <div
+      ref={modalRef}
       data-testid="holdings-intro-modal"
       role="dialog"
       aria-modal="true"
