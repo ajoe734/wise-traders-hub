@@ -35,6 +35,19 @@ export function HoldingsIntroVideo({ isDemo = false }) {
     return () => mq.removeEventListener?.("change", fn);
   }, [isDemo]);
 
+  // ESC 關閉（等同 closeSession：只寫 session flag，不寫永久 flag）
+  useEffect(() => {
+    if (!isDemo || !open) return;
+    const onKey = (e) => {
+      if (e.key === "Escape") {
+        try { sessionStorage.setItem(SESSION_KEY, "1"); } catch {/* noop */}
+        setOpen(false);
+      }
+    };
+    window.addEventListener("keydown", onKey);
+    return () => window.removeEventListener("keydown", onKey);
+  }, [isDemo, open]);
+
   if (!isDemo) return null;
   if (!open) return null;
 
