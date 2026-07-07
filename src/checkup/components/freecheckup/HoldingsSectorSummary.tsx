@@ -39,8 +39,41 @@ function HoldingsSectorSummaryImpl({
   selected,
   onSelect,
 }) {
-  if (!Array.isArray(holdings) || holdings.length === 0) return null
+  // R1（本輪 bug 清掃 P0）：所有 hook 必須無條件呼叫，early return 一律挪到 hook 之後，
+  // 否則使用者從 0 檔上傳第一檔時 hook 數量會由 0 → 15，React 拋
+  // "Rendered more hooks than during the previous render" 讓整頁白屏。
+  const { presets, save: savePreset, remove: removePreset, rename: renamePreset } = useSectorFilterPresets()
+  const [saving, setSaving] = useState(false)
+  const [nameDraft, setNameDraft] = useState('')
+  const [saveError, setSaveError] = useState(null)
+  const [saveConflictId, setSaveConflictId] = useState(null)
+  const [editingId, setEditingId] = useState(null)
+  const [editDraft, setEditDraft] = useState('')
+  const [editError, setEditError] = useState(null)
+  const [editConflictId, setEditConflictId] = useState(null)
+  const [highlightId, setHighlightId] = useState(null)
+  const [sortMode, setSortMode] = useState(() => {
+    try {
+      const v = typeof localStorage !== 'undefined'
+        ? localStorage.getItem('checkup:sectorFilterPresets:sort:v1')
+        : null
+      return v === 'name-asc' || v === 'created-asc' || v === 'created-desc' ? v : 'created-desc'
+    } catch { return 'created-desc' }
+  })
+  const [presetSearch, setPresetSearch] = useState('')
+  const presetRefs = useRef(new Map())
+  const highlightTimer = useRef(null)
 
+  useEffect(() => {
+    try { localStorage.setItem('checkup:sectorFilterPresets:sort:v1', sortMode) } catch {}
+  }, [sortMode])
+
+  useEffect(() => () => {
+    if (highlightTimer.current) clearTimeout(highlightTimer.current)
+  }, [])
+
+  // hook 呼叫完畢，開始 derived 計算 + 條件性 return
+  const hasHoldings = Array.isArray(holdings) && holdings.length > 0
   const {
     industryByValue,
     themeByCount,
@@ -50,9 +83,11 @@ function HoldingsSectorSummaryImpl({
     multiIndustryCount,
     warnings,
     overDiversified,
-  } = aggregateBySector(holdings, stockMeta, overrides)
+  } = hasHoldings
+    ? aggregateBySector(holdings, stockMeta, overrides)
+    : { industryByValue: [], themeByCount: [], strategyByCount: [], totalValue: 0, unclassifiedCount: 0, multiIndustryCount: 0, warnings: [], overDiversified: false }
 
-  if (industryByValue.length === 0) return null
+  if (!hasHoldings || industryByValue.length === 0) return null
 
   const singleHolding = holdings.length === 1
   const headerBase = {
