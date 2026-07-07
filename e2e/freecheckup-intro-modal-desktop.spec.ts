@@ -66,4 +66,59 @@ test.describe('FreeCheckup desktop — intro modal suppression', () => {
     expect(flags.seen, 'localStorage flag holdings-intro-video-seen-v2 應為 "1"').toBe('1');
     expect(flags.dismissed, 'sessionStorage flag holdings-intro-video-dismissed-session 應為 "1"').toBe('1');
   });
+
+  test('清除 flag 後，demo intro modal 會重新自動彈出（auto-open regression guard）', async ({ page, browserName }, testInfo) => {
+    // WebKit headless 缺 H.264 codec，<video autoplay muted> 掛載時整個 page 會 crash，
+    // 這與 modal 邏輯無關；chromium/firefox 覆蓋此案例已足夠回歸守門。
+    test.skip(browserName === 'webkit', 'WebKit headless crashes on autoplay <video>; covered by chromium/firefox');
+
+    // 攔截 mp4 請求：WebKit headless 缺 H.264 codec，會在 decode 時 crash page。
+    // 這裡我們只驗 modal 是否 mount，不需要真的播放影片。
+    await page.route(/\.mp4(\?|$)/, (route) => route.fulfill({ status: 204, body: '' }));
+
+    await page.addInitScript(() => {
+      try {
+        window.localStorage.setItem('checkup-demo-mode', '1');
+        window.localStorage.removeItem('holdings-intro-video-seen-v2');
+        window.sessionStorage.removeItem('holdings-intro-video-dismissed-session');
+        // 避免 <video autoplay> 觸發 media pipeline
+        Object.defineProperty(HTMLMediaElement.prototype, 'play', {
+          configurable: true,
+          value: function () { return Promise.resolve(); },
+        });
+      } catch {}
+    });
+
+    await page.goto(ROUTE, { waitUntil: 'domcontentloaded' });
+
+    // 1) modal 應自動 mount 並可見
+    const modal = page.locator('[data-testid="holdings-intro-modal"]');
+    await expect(
+      modal,
+      `[${testInfo.project.name}] 清除抑制 flag 後 demo intro modal 應自動彈出`,
+    ).toHaveCount(1, { timeout: 15_000 });
+    await expect(modal).toBeVisible();
+
+    // 2) a11y 屬性（webkit headless 對 attribute polling 偶有延遲，改用 evaluate 直接讀）
+    const a11y = await modal.evaluate((el) => ({
+      role: el.getAttribute('role'),
+      ariaModal: el.getAttribute('aria-modal'),
+    }));
+    expect(a11y.role, 'modal 應為 role=dialog').toBe('dialog');
+    expect(a11y.ariaModal, 'modal 應為 aria-modal=true').toBe('true');
+
+    // 3) 內部應掛出 <video>
+    await expect(
+      page.locator('[data-testid="holdings-intro-modal"] video'),
+      `[${testInfo.project.name}] modal 內應掛出 <video>`,
+    ).toHaveCount(1);
+
+    // 4) 守門：init 階段確實已清除 flag
+    const flags = await page.evaluate(() => ({
+      seen: window.localStorage.getItem('holdings-intro-video-seen-v2'),
+      dismissed: window.sessionStorage.getItem('holdings-intro-video-dismissed-session'),
+    }));
+    expect(flags.seen, '初始應無 localStorage suppress flag').toBeNull();
+    expect(flags.dismissed, '初始應無 sessionStorage suppress flag').toBeNull();
+  });
 });
