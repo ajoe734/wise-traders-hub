@@ -107,7 +107,8 @@ test.describe('Holdings export menu', () => {
     });
 
     await page.locator('summary[aria-label="匯出"]').first().click();
-    await page.getByRole('button', { name: /1:1\s*IG/ }).first().click();
+    await page.locator('[data-testid="export-seg-ratio"]').getByRole('button', { name: /1:1\s*IG/ }).first().click();
+    await page.locator('[data-testid="holding-export-trigger"]').click();
 
     await expect.poll(
       async () => page.evaluate(() => (window as any).__lf_export_snapshots.length),
