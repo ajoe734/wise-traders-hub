@@ -1,0 +1,1 @@
+ALTER TABLE public.expert_signals ALTER COLUMN quantity_unit DROP NOT NULL;

@@ -1435,7 +1435,7 @@ export type Database = {
           price_hint: number | null
           published_at: string | null
           quantity: number | null
-          quantity_unit: string
+          quantity_unit: string | null
           reason_detail: string | null
           reason_summary: string | null
           risk_notes: string | null
@@ -1459,7 +1459,7 @@ export type Database = {
           price_hint?: number | null
           published_at?: string | null
           quantity?: number | null
-          quantity_unit?: string
+          quantity_unit?: string | null
           reason_detail?: string | null
           reason_summary?: string | null
           risk_notes?: string | null
@@ -1483,7 +1483,7 @@ export type Database = {
           price_hint?: number | null
           published_at?: string | null
           quantity?: number | null
-          quantity_unit?: string
+          quantity_unit?: string | null
           reason_detail?: string | null
           reason_summary?: string | null
           risk_notes?: string | null
