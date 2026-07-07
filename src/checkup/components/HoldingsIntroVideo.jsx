@@ -1,4 +1,4 @@
-import { useState, useEffect } from "react";
+import { useState, useEffect, useRef, useCallback } from "react";
 import intro16x9 from "@/assets/holdings-promo-16x9.mp4.asset.json";
 import intro9x16 from "@/assets/holdings-promo-9x16.mp4.asset.json";
 
@@ -15,10 +15,15 @@ const SESSION_KEY = "holdings-intro-video-dismissed-session";
  *  - 「不再顯示」→ localStorage 永久 flag，跨 session 都不再彈
  *  - **modal 關閉時 <video> 完全 unmount**（自動停止播放），切 tab 不會重複出現
  *  - 不佔首屏高度（fixed overlay，非 inline 區塊）
+ *  - **Focus 管理**：open 時 focus 進 modal（close button）；close 時還原到 open 前
+ *    的 activeElement，若已 detach 則 fallback 到 `<body>`
  */
 export function HoldingsIntroVideo({ isDemo = false }) {
   const [open, setOpen] = useState(false);
   const [isMobile, setIsMobile] = useState(false);
+  const closeBtnRef = useRef(null);
+  // 開啟前的 activeElement — 關閉時還原焦點。SSR 安全：初始為 null。
+  const previousFocusRef = useRef(null);
 
   // 只在 demo mode 才掛 listener / 觸發 auto-open
   useEffect(() => {
@@ -35,31 +40,62 @@ export function HoldingsIntroVideo({ isDemo = false }) {
     return () => mq.removeEventListener?.("change", fn);
   }, [isDemo]);
 
+  // Focus 進入 modal / 離開時還原
+  useEffect(() => {
+    if (!isDemo || !open) return;
+
+    // 記住開啟前的焦點（可能是 <body> — 那就 fallback，反正不會 focus 到已 unmount 的元素）
+    previousFocusRef.current =
+      typeof document !== "undefined" ? document.activeElement : null;
+
+    // 把焦點移入 modal（close 按鈕）→ 鍵盤/screen reader 進入 dialog 上下文
+    // 用 rAF 確保 DOM commit + button ref 已附上
+    const raf = requestAnimationFrame(() => {
+      closeBtnRef.current?.focus?.();
+    });
+
+    return () => {
+      cancelAnimationFrame(raf);
+      // Modal 關閉時還原焦點
+      const prev = previousFocusRef.current;
+      const body = typeof document !== "undefined" ? document.body : null;
+      const canRestore =
+        prev &&
+        typeof prev.focus === "function" &&
+        prev.isConnected &&
+        prev !== document.body;
+      if (canRestore) {
+        try { prev.focus(); } catch {/* noop */}
+      } else if (body && typeof body.focus === "function") {
+        try { body.focus(); } catch {/* noop */}
+      }
+      previousFocusRef.current = null;
+    };
+  }, [isDemo, open]);
+
+  const closeSession = useCallback(() => {
+    try { sessionStorage.setItem(SESSION_KEY, "1"); } catch {/* noop */}
+    setOpen(false);
+  }, []);
+
+  const dismissForever = useCallback(() => {
+    try { localStorage.setItem(STORAGE_KEY, "1"); } catch {/* noop */}
+    try { sessionStorage.setItem(SESSION_KEY, "1"); } catch {/* noop */}
+    setOpen(false);
+  }, []);
+
   // ESC 關閉（等同 closeSession：只寫 session flag，不寫永久 flag）
   useEffect(() => {
     if (!isDemo || !open) return;
     const onKey = (e) => {
-      if (e.key === "Escape") {
-        try { sessionStorage.setItem(SESSION_KEY, "1"); } catch {/* noop */}
-        setOpen(false);
-      }
+      if (e.key === "Escape") closeSession();
     };
     window.addEventListener("keydown", onKey);
     return () => window.removeEventListener("keydown", onKey);
-  }, [isDemo, open]);
+  }, [isDemo, open, closeSession]);
 
   if (!isDemo) return null;
   if (!open) return null;
-
-  const closeSession = () => {
-    try { sessionStorage.setItem(SESSION_KEY, "1"); } catch {/* noop */}
-    setOpen(false);
-  };
-  const dismissForever = () => {
-    try { localStorage.setItem(STORAGE_KEY, "1"); } catch {/* noop */}
-    try { sessionStorage.setItem(SESSION_KEY, "1"); } catch {/* noop */}
-    setOpen(false);
-  };
 
   const src = isMobile ? intro9x16.url : intro16x9.url;
 
@@ -105,6 +141,7 @@ export function HoldingsIntroVideo({ isDemo = false }) {
             }}
           >不再顯示</button>
           <button
+            ref={closeBtnRef}
             type="button"
             onClick={closeSession}
             aria-label="關閉介紹影片"
