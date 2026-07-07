@@ -185,6 +185,67 @@ test.describe('FreeCheckup mobile card', () => {
     expect(flags.dismissed, 'sessionStorage flag holdings-intro-video-dismissed-session 應為 "1"').toBe('1');
   });
 
+  test('清除 flag 後，demo intro modal 會自動彈出（mobile auto-open regression guard）', async ({ page }, testInfo) => {
+    // 攔截 mp4：headless 缺 H.264 codec 時避免 page crash
+    await page.route(/\.mp4(\?|$)/, (route) => route.fulfill({ status: 204, body: '' }));
+
+    await page.addInitScript(() => {
+      try {
+        window.localStorage.setItem('checkup-demo-mode', '1');
+        // 明確清除抑制 flag，模擬「首次進入 demo」的使用者
+        window.localStorage.removeItem('holdings-intro-video-seen-v2');
+        window.sessionStorage.removeItem('holdings-intro-video-dismissed-session');
+        // 避免 <video autoplay> 觸發 media pipeline crash
+        Object.defineProperty(HTMLMediaElement.prototype, 'play', {
+          configurable: true,
+          value: function () { return Promise.resolve(); },
+        });
+      } catch {}
+    });
+
+    await page.goto(ROUTE, { waitUntil: 'domcontentloaded' });
+
+    // 1) modal 應自動 mount 並可見
+    const modal = page.locator('[data-testid="holdings-intro-modal"]');
+    await expect(
+      modal,
+      `[${testInfo.project.name}] mobile 清除抑制 flag 後 demo intro modal 應自動彈出`,
+    ).toHaveCount(1, { timeout: 15_000 });
+    await expect(modal).toBeVisible();
+
+    // 2) a11y 屬性
+    const a11y = await modal.evaluate((el) => ({
+      role: el.getAttribute('role'),
+      ariaModal: el.getAttribute('aria-modal'),
+    }));
+    expect(a11y.role, 'modal 應為 role=dialog').toBe('dialog');
+    expect(a11y.ariaModal, 'modal 應為 aria-modal=true').toBe('true');
+
+    // 3) 內部應掛出 <video>
+    await expect(
+      page.locator('[data-testid="holdings-intro-modal"] video'),
+      `[${testInfo.project.name}] modal 內應掛出 <video>`,
+    ).toHaveCount(1);
+
+    // 4) 手機專屬：影片應套用 9/16 直式比例（isMobile 分支，@media max-width:640px）
+    const aspect = await page
+      .locator('[data-testid="holdings-intro-modal"] video')
+      .evaluate((el) => (el as HTMLElement).style.aspectRatio);
+    expect(
+      aspect.replace(/\s+/g, ''),
+      `[${testInfo.project.name}] mobile viewport 應套 9/16 直式影片`,
+    ).toBe('9/16');
+
+    // 5) 守門：init 階段確實已清除 flag
+    const flags = await page.evaluate(() => ({
+      seen: window.localStorage.getItem('holdings-intro-video-seen-v2'),
+      dismissed: window.sessionStorage.getItem('holdings-intro-video-dismissed-session'),
+    }));
+    expect(flags.seen, '初始應無 localStorage suppress flag').toBeNull();
+    expect(flags.dismissed, '初始應無 sessionStorage suppress flag').toBeNull();
+  });
+
+
   test('cards never overflow ROI / TODAY / VALUE', async ({ page }, testInfo) => {
     await gotoFreeCheckup(page, testInfo);
     await assertNoOverflow(page, CARD_SELECTOR);
