@@ -586,6 +586,92 @@ test.describe('FreeCheckup mobile card', () => {
     ).toBe(true);
   });
 
+  test('reopen 後 focus trap 仍正確初始化：關閉 → 清 flag → 重載 → Tab 循環仍不逃離', async ({ page }, testInfo) => {
+    await page.route(/\.mp4(\?|$)/, (route) => route.fulfill({ status: 204, body: '' }));
+    await page.addInitScript(() => {
+      try {
+        window.localStorage.setItem('checkup-demo-mode', '1');
+        Object.defineProperty(HTMLMediaElement.prototype, 'play', {
+          configurable: true, value: function () { return Promise.resolve(); },
+        });
+      } catch {}
+    });
+
+    await page.goto(ROUTE, { waitUntil: 'domcontentloaded' });
+    const modal = page.locator('[data-testid="holdings-intro-modal"]');
+    await expect(modal).toBeVisible({ timeout: 15_000 });
+    await page.waitForFunction(
+      () => document.activeElement?.getAttribute('aria-label') === '關閉介紹影片',
+      null, { timeout: 3_000 },
+    );
+
+    // 第一次關閉（ESC）
+    await page.keyboard.press('Escape');
+    await expect(modal).toHaveCount(0);
+
+    // 清除兩個 flag，讓下一次 load 會重新 auto-open
+    await page.evaluate(() => {
+      try { localStorage.removeItem('holdings-intro-video-seen-v2'); } catch {}
+      try { sessionStorage.removeItem('holdings-intro-video-dismissed-session'); } catch {}
+    });
+
+    // 重載頁面觸發 re-mount，確認 modal 重新 auto-open
+    await page.reload({ waitUntil: 'domcontentloaded' });
+    await expect(modal).toBeVisible({ timeout: 15_000 });
+    await page.waitForFunction(
+      () => document.activeElement?.getAttribute('aria-label') === '關閉介紹影片',
+      null, { timeout: 3_000 },
+    );
+
+    // Reopen 後：focus trap 一樣運作 — Tab 超過 focusable 次數仍留在 modal
+    const focusableCount = await page.evaluate(() => {
+      const m = document.querySelector('[data-testid="holdings-intro-modal"]')!;
+      return m.querySelectorAll(
+        'button, [href], input, select, textarea, video[controls], audio[controls], [tabindex]:not([tabindex="-1"])'
+      ).length;
+    });
+    expect(focusableCount).toBeGreaterThanOrEqual(2);
+
+    const steps = focusableCount + 3;
+    const trail: { step: number; insideModal: boolean; ariaLabel: string | null }[] = [];
+    for (let i = 1; i <= steps; i++) {
+      await page.keyboard.press('Tab');
+      const snap = await page.evaluate(() => {
+        const el = document.activeElement as HTMLElement | null;
+        return {
+          insideModal: !!el?.closest('[data-testid="holdings-intro-modal"]'),
+          ariaLabel: el?.getAttribute('aria-label') ?? null,
+        };
+      });
+      trail.push({ step: i, ...snap });
+    }
+    expect(
+      trail.filter((t) => !t.insideModal),
+      `[${testInfo.project.name}] reopen 後 Tab 仍應停在 modal 內，實際 trail=${JSON.stringify(trail)}`,
+    ).toEqual([]);
+
+    // Shift+Tab wrap 檢查
+    await page.evaluate(() => {
+      (document.querySelector('[data-testid="holdings-intro-modal"] [aria-label="不再顯示介紹影片"]') as HTMLElement)?.focus();
+    });
+    await page.keyboard.press('Shift+Tab');
+    const afterShiftTab = await page.evaluate(() => {
+      const el = document.activeElement as HTMLElement | null;
+      const m = document.querySelector('[data-testid="holdings-intro-modal"]')!;
+      const list = Array.from(
+        m.querySelectorAll(
+          'button, [href], input, select, textarea, video[controls], audio[controls], [tabindex]:not([tabindex="-1"])'
+        )
+      );
+      return { insideModal: !!el && m.contains(el), isLast: el === list[list.length - 1] };
+    });
+    expect(afterShiftTab.insideModal, `[${testInfo.project.name}] reopen 後 Shift+Tab 應留在 modal`).toBe(true);
+    expect(afterShiftTab.isLast, `[${testInfo.project.name}] reopen 後 Shift+Tab 應 wrap 到最後一顆`).toBe(true);
+  });
+
+
+
+
 
 
 
