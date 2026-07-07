@@ -418,7 +418,7 @@ function HoldingsTab(props) {
               columnGap: 16,
               rowGap: 20,
             }} className={`holdings-card-grid${viewMode === 'list' ? ' holdings-card-grid--list' : ''}`}>
-              {orderedDisplayed.map((h, idx) => renderCard(h, idx))}
+              {orderedDisplayed.map(renderCard)}
               {/* 持倉為 0 時顯示強化空狀態（橫跨整列）；有持倉時顯示「+ 上傳成交」虛線卡 */}
               {orderedDisplayed.length === 0 && H.length === 0 ? (
                 <HoldingsEmptyState
