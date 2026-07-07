@@ -155,36 +155,8 @@ function HoldingsSectorSummaryImpl({
     letterSpacing: '0.04em',
   })
 
-  const { presets, save: savePreset, remove: removePreset, rename: renamePreset } = useSectorFilterPresets()
-  const [saving, setSaving] = useState(false)
-  const [nameDraft, setNameDraft] = useState('')
-  const [saveError, setSaveError] = useState(null)
-  const [saveConflictId, setSaveConflictId] = useState(null)
-  const [editingId, setEditingId] = useState(null)
-  const [editDraft, setEditDraft] = useState('')
-  const [editError, setEditError] = useState(null)
-  const [editConflictId, setEditConflictId] = useState(null)
-  const [highlightId, setHighlightId] = useState(null)
-  const [sortMode, setSortMode] = useState(() => {
-    try {
-      const v = typeof localStorage !== 'undefined'
-        ? localStorage.getItem('checkup:sectorFilterPresets:sort:v1')
-        : null
-      return v === 'name-asc' || v === 'created-asc' || v === 'created-desc' ? v : 'created-desc'
-    } catch { return 'created-desc' }
-  })
-  const [presetSearch, setPresetSearch] = useState('')
-  const presetRefs = useRef(new Map())
-  const highlightTimer = useRef(null)
+  // 舊 hooks 區塊已上移至函式頂端（R1）
 
-  useEffect(() => {
-    try { localStorage.setItem('checkup:sectorFilterPresets:sort:v1', sortMode) } catch {}
-  }, [sortMode])
-
-
-  useEffect(() => () => {
-    if (highlightTimer.current) clearTimeout(highlightTimer.current)
-  }, [])
 
   const focusPreset = (id) => {
     if (!id) return
