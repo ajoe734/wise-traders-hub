@@ -363,28 +363,45 @@ function HoldingsSectorSummaryImpl({
         >
           <span style={{ fontSize: 10, color: C.textMute }}>預設名稱</span>
           <div style={{ flex: 1, display: 'flex', flexDirection: 'column' }}>
-            <input
-              autoFocus
-              value={nameDraft}
-              onChange={(e) => { setNameDraft(e.target.value); setSaveError(null) }}
-              onKeyDown={(e) => {
-                if (e.key === 'Enter') commitSave()
-                if (e.key === 'Escape') { setSaving(false); setNameDraft(''); setSaveError(null) }
-              }}
-              placeholder="例如：AI 半導體核心"
-              maxLength={40}
-              style={{
-                width: '100%',
-                fontSize: 11,
-                padding: '4px 8px',
-                border: `1px solid ${saveError ? alpha(C.text, '50') : alpha(C.textMute, '25')}`,
-                borderRadius: 3,
-                background: saveError ? alpha(C.text, '04') : '#fff',
-                color: C.text,
-                fontFamily: 'inherit',
-                outline: 'none',
-              }}
-            />
+            {(() => {
+              // R9：輸入時即時檢測重名，不擋輸入但顯示灰字提示
+              const trimmed = nameDraft.trim()
+              const dupPreset = trimmed
+                ? presets.find((p) => String(p.name).trim() === trimmed)
+                : null
+              const hasDupHint = !!dupPreset && !saveError
+              return (
+                <>
+                  <input
+                    autoFocus
+                    value={nameDraft}
+                    onChange={(e) => { setNameDraft(e.target.value); setSaveError(null) }}
+                    onKeyDown={(e) => {
+                      if (e.key === 'Enter') commitSave()
+                      if (e.key === 'Escape') { setSaving(false); setNameDraft(''); setSaveError(null) }
+                    }}
+                    placeholder="例如：AI 半導體核心"
+                    maxLength={40}
+                    style={{
+                      width: '100%',
+                      fontSize: 11,
+                      padding: '4px 8px',
+                      border: `1px solid ${saveError ? alpha(C.text, '50') : hasDupHint ? alpha(C.textMute, '45') : alpha(C.textMute, '25')}`,
+                      borderRadius: 3,
+                      background: saveError ? alpha(C.text, '04') : '#fff',
+                      color: C.text,
+                      fontFamily: 'inherit',
+                      outline: 'none',
+                    }}
+                  />
+                  {hasDupHint && (
+                    <div style={{ fontSize: 10, color: C.textMute, marginTop: 4, lineHeight: 1.4 }}>
+                      已存在同名預設「{dupPreset.name}」，按下儲存會被拒絕。
+                    </div>
+                  )}
+                </>
+              )
+            })()}
             {saveError && (
               <div style={{ fontSize: 10, color: C.text, marginTop: 4, lineHeight: 1.4, display: 'flex', alignItems: 'center', gap: 6, flexWrap: 'wrap' }}>
                 <span>{saveError}</span>
