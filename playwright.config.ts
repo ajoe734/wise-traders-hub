@@ -353,6 +353,47 @@ export default defineConfig({
       use: { ...devices['Desktop Chrome'], viewport: { width: w, height: 900 } },
     })),
 
+    // 跨瀏覽器 demo intro modal 抑制回歸（Chromium / Firefox / WebKit @ 1280）
+    // 確認 localStorage/sessionStorage flag 抑制在三個引擎行為一致
+    {
+      name: 'desktop-intro-modal-chromium',
+      testMatch: /freecheckup-intro-modal-desktop\.spec\.ts/,
+      use: {
+        ...devices['Desktop Chrome'],
+        viewport: { width: 1280, height: 900 },
+      },
+    },
+    {
+      name: 'desktop-intro-modal-firefox',
+      testMatch: /freecheckup-intro-modal-desktop\.spec\.ts/,
+      use: {
+        ...devices['Desktop Firefox'],
+        viewport: { width: 1280, height: 900 },
+        // top-level launchOptions 指向 chromium headless_shell，Firefox 需覆寫
+        launchOptions: process.env.PLAYWRIGHT_FIREFOX_PATH
+          ? { executablePath: process.env.PLAYWRIGHT_FIREFOX_PATH }
+          : existsSync(
+              '/nix/store/26hkgsdnfbd3d0ynabwxnxwr3ynrm61y-playwright-firefox/firefox/firefox',
+            )
+          ? {
+              executablePath:
+                '/nix/store/26hkgsdnfbd3d0ynabwxnxwr3ynrm61y-playwright-firefox/firefox/firefox',
+            }
+          : {},
+      },
+    },
+    {
+      name: 'desktop-intro-modal-webkit',
+      testMatch: /freecheckup-intro-modal-desktop\.spec\.ts/,
+      use: {
+        ...devices['Desktop Safari'],
+        viewport: { width: 1280, height: 900 },
+        launchOptions: process.env.PLAYWRIGHT_WEBKIT_PATH
+          ? { executablePath: process.env.PLAYWRIGHT_WEBKIT_PATH }
+          : {},
+      },
+    },
+
   ],
   webServer: {
     command: 'bun run dev',
