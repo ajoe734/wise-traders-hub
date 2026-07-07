@@ -68,19 +68,20 @@ test.describe('FreeCheckup desktop — intro modal suppression', () => {
   });
 
   test('清除 flag 後，demo intro modal 會重新自動彈出（auto-open regression guard）', async ({ page }, testInfo) => {
-    // 不走 navigateAndWaitForCardReady：那個 helper 要求 .wb-card 穩定可見，
-    // 但 WebKit headless 對 autoplay <video> 有時會 crash（Page crashed 於等待 selector 期間）。
-    // 我們只關心 modal 是否自動 mount，直接 goto + 等 modal 即可。
+    // 攔截 mp4 請求：WebKit headless 缺 H.264 codec，會在 decode 時 crash page。
+    // 這裡我們只驗 modal 是否 mount，不需要真的播放影片。
+    await page.route(/\.mp4(\?|$)/, (route) => route.fulfill({ status: 204, body: '' }));
+
     await page.addInitScript(() => {
       try {
         window.localStorage.setItem('checkup-demo-mode', '1');
         window.localStorage.removeItem('holdings-intro-video-seen-v2');
         window.sessionStorage.removeItem('holdings-intro-video-dismissed-session');
-        // 攔截 <video>.play() 以避免 WebKit headless 對 mp4 autoplay 崩潰
-        const origPlay = HTMLMediaElement.prototype.play;
-        HTMLMediaElement.prototype.play = function () {
-          try { return Promise.resolve(); } catch { return origPlay.apply(this, arguments as any); }
-        };
+        // 避免 <video autoplay> 觸發 media pipeline
+        Object.defineProperty(HTMLMediaElement.prototype, 'play', {
+          configurable: true,
+          value: function () { return Promise.resolve(); },
+        });
       } catch {}
     });
 
