@@ -39,8 +39,41 @@ function HoldingsSectorSummaryImpl({
   selected,
   onSelect,
 }) {
-  if (!Array.isArray(holdings) || holdings.length === 0) return null
+  // R1（本輪 bug 清掃 P0）：所有 hook 必須無條件呼叫，early return 一律挪到 hook 之後，
+  // 否則使用者從 0 檔上傳第一檔時 hook 數量會由 0 → 15，React 拋
+  // "Rendered more hooks than during the previous render" 讓整頁白屏。
+  const { presets, save: savePreset, remove: removePreset, rename: renamePreset } = useSectorFilterPresets()
+  const [saving, setSaving] = useState(false)
+  const [nameDraft, setNameDraft] = useState('')
+  const [saveError, setSaveError] = useState(null)
+  const [saveConflictId, setSaveConflictId] = useState(null)
+  const [editingId, setEditingId] = useState(null)
+  const [editDraft, setEditDraft] = useState('')
+  const [editError, setEditError] = useState(null)
+  const [editConflictId, setEditConflictId] = useState(null)
+  const [highlightId, setHighlightId] = useState(null)
+  const [sortMode, setSortMode] = useState(() => {
+    try {
+      const v = typeof localStorage !== 'undefined'
+        ? localStorage.getItem('checkup:sectorFilterPresets:sort:v1')
+        : null
+      return v === 'name-asc' || v === 'created-asc' || v === 'created-desc' ? v : 'created-desc'
+    } catch { return 'created-desc' }
+  })
+  const [presetSearch, setPresetSearch] = useState('')
+  const presetRefs = useRef(new Map())
+  const highlightTimer = useRef(null)
 
+  useEffect(() => {
+    try { localStorage.setItem('checkup:sectorFilterPresets:sort:v1', sortMode) } catch {}
+  }, [sortMode])
+
+  useEffect(() => () => {
+    if (highlightTimer.current) clearTimeout(highlightTimer.current)
+  }, [])
+
+  // hook 呼叫完畢，開始 derived 計算 + 條件性 return
+  const hasHoldings = Array.isArray(holdings) && holdings.length > 0
   const {
     industryByValue,
     themeByCount,
@@ -50,9 +83,11 @@ function HoldingsSectorSummaryImpl({
     multiIndustryCount,
     warnings,
     overDiversified,
-  } = aggregateBySector(holdings, stockMeta, overrides)
+  } = hasHoldings
+    ? aggregateBySector(holdings, stockMeta, overrides)
+    : { industryByValue: [], themeByCount: [], strategyByCount: [], totalValue: 0, unclassifiedCount: 0, multiIndustryCount: 0, warnings: [], overDiversified: false }
 
-  if (industryByValue.length === 0) return null
+  if (!hasHoldings || industryByValue.length === 0) return null
 
   const singleHolding = holdings.length === 1
   const headerBase = {
@@ -120,36 +155,8 @@ function HoldingsSectorSummaryImpl({
     letterSpacing: '0.04em',
   })
 
-  const { presets, save: savePreset, remove: removePreset, rename: renamePreset } = useSectorFilterPresets()
-  const [saving, setSaving] = useState(false)
-  const [nameDraft, setNameDraft] = useState('')
-  const [saveError, setSaveError] = useState(null)
-  const [saveConflictId, setSaveConflictId] = useState(null)
-  const [editingId, setEditingId] = useState(null)
-  const [editDraft, setEditDraft] = useState('')
-  const [editError, setEditError] = useState(null)
-  const [editConflictId, setEditConflictId] = useState(null)
-  const [highlightId, setHighlightId] = useState(null)
-  const [sortMode, setSortMode] = useState(() => {
-    try {
-      const v = typeof localStorage !== 'undefined'
-        ? localStorage.getItem('checkup:sectorFilterPresets:sort:v1')
-        : null
-      return v === 'name-asc' || v === 'created-asc' || v === 'created-desc' ? v : 'created-desc'
-    } catch { return 'created-desc' }
-  })
-  const [presetSearch, setPresetSearch] = useState('')
-  const presetRefs = useRef(new Map())
-  const highlightTimer = useRef(null)
+  // 舊 hooks 區塊已上移至函式頂端（R1）
 
-  useEffect(() => {
-    try { localStorage.setItem('checkup:sectorFilterPresets:sort:v1', sortMode) } catch {}
-  }, [sortMode])
-
-
-  useEffect(() => () => {
-    if (highlightTimer.current) clearTimeout(highlightTimer.current)
-  }, [])
 
   const focusPreset = (id) => {
     if (!id) return
@@ -356,30 +363,47 @@ function HoldingsSectorSummaryImpl({
         >
           <span style={{ fontSize: 10, color: C.textMute }}>預設名稱</span>
           <div style={{ flex: 1, display: 'flex', flexDirection: 'column' }}>
-            <input
-              autoFocus
-              value={nameDraft}
-              onChange={(e) => { setNameDraft(e.target.value); setSaveError(null) }}
-              onKeyDown={(e) => {
-                if (e.key === 'Enter') commitSave()
-                if (e.key === 'Escape') { setSaving(false); setNameDraft(''); setSaveError(null) }
-              }}
-              placeholder="例如：AI 半導體核心"
-              maxLength={40}
-              style={{
-                width: '100%',
-                fontSize: 11,
-                padding: '4px 8px',
-                border: `1px solid ${saveError ? alpha(C.up, '50') : alpha(C.textMute, '25')}`,
-                borderRadius: 3,
-                background: saveError ? alpha(C.up, '04') : '#fff',
-                color: C.text,
-                fontFamily: 'inherit',
-                outline: 'none',
-              }}
-            />
+            {(() => {
+              // R9：輸入時即時檢測重名，不擋輸入但顯示灰字提示
+              const trimmed = nameDraft.trim()
+              const dupPreset = trimmed
+                ? presets.find((p) => String(p.name).trim() === trimmed)
+                : null
+              const hasDupHint = !!dupPreset && !saveError
+              return (
+                <>
+                  <input
+                    autoFocus
+                    value={nameDraft}
+                    onChange={(e) => { setNameDraft(e.target.value); setSaveError(null) }}
+                    onKeyDown={(e) => {
+                      if (e.key === 'Enter') commitSave()
+                      if (e.key === 'Escape') { setSaving(false); setNameDraft(''); setSaveError(null) }
+                    }}
+                    placeholder="例如：AI 半導體核心"
+                    maxLength={40}
+                    style={{
+                      width: '100%',
+                      fontSize: 11,
+                      padding: '4px 8px',
+                      border: `1px solid ${saveError ? alpha(C.text, '50') : hasDupHint ? alpha(C.textMute, '45') : alpha(C.textMute, '25')}`,
+                      borderRadius: 3,
+                      background: saveError ? alpha(C.text, '04') : '#fff',
+                      color: C.text,
+                      fontFamily: 'inherit',
+                      outline: 'none',
+                    }}
+                  />
+                  {hasDupHint && (
+                    <div style={{ fontSize: 10, color: C.textMute, marginTop: 4, lineHeight: 1.4 }}>
+                      已存在同名預設「{dupPreset.name}」，按下儲存會被拒絕。
+                    </div>
+                  )}
+                </>
+              )
+            })()}
             {saveError && (
-              <div style={{ fontSize: 10, color: C.up, marginTop: 4, lineHeight: 1.4, display: 'flex', alignItems: 'center', gap: 6, flexWrap: 'wrap' }}>
+              <div style={{ fontSize: 10, color: C.text, marginTop: 4, lineHeight: 1.4, display: 'flex', alignItems: 'center', gap: 6, flexWrap: 'wrap' }}>
                 <span>{saveError}</span>
                 {saveConflictId && (
                   <button
@@ -389,9 +413,9 @@ function HoldingsSectorSummaryImpl({
                       fontSize: 10,
                       padding: '1px 6px',
                       borderRadius: 3,
-                      border: `1px solid ${alpha(C.up, '35')}`,
-                      background: alpha(C.up, '08'),
-                      color: C.up,
+                      border: `1px solid ${alpha(C.text, '35')}`,
+                      background: alpha(C.text, '08'),
+                      color: C.text,
                       cursor: 'pointer',
                       fontFamily: 'inherit',
                       letterSpacing: '0.02em',
@@ -555,15 +579,15 @@ function HoldingsSectorSummaryImpl({
                 borderRadius: 4,
                 border: `1px solid ${
                   isHighlighted
-                    ? alpha(C.up, '55')
+                    ? alpha(C.text, '55')
                     : editingId === p.id
-                      ? alpha(C.teal, '35')
+                      ? alpha(C.text, '35')
                       : alpha(C.textMute, '18')
                 }`,
                 background: isHighlighted
-                  ? alpha(C.up, '10')
+                  ? alpha(C.text, '10')
                   : editingId === p.id
-                    ? alpha(C.teal, '06')
+                    ? alpha(C.text, '06')
                     : alpha(C.textMute, '04'),
                 transition: 'background 0.2s ease, border-color 0.2s ease',
               }}
@@ -585,9 +609,9 @@ function HoldingsSectorSummaryImpl({
                       style={{
                         fontSize: 10,
                         padding: '3px 6px',
-                        border: `1px solid ${editError ? alpha(C.up, '50') : alpha(C.teal, '30')}`,
+                        border: `1px solid ${editError ? alpha(C.text, '50') : alpha(C.text, '30')}`,
                         borderRadius: 3,
-                        background: editError ? alpha(C.up, '04') : (C.paper || '#fff'),
+                        background: editError ? alpha(C.text, '04') : (C.paper || '#fff'),
                         color: C.text,
                         fontFamily: 'inherit',
                         outline: 'none',
@@ -596,7 +620,7 @@ function HoldingsSectorSummaryImpl({
                       }}
                     />
                     {editError && (
-                      <div style={{ fontSize: 9, color: C.up, marginTop: 3, lineHeight: 1.4, display: 'flex', alignItems: 'center', gap: 4, flexWrap: 'wrap' }}>
+                      <div style={{ fontSize: 9, color: C.text, marginTop: 3, lineHeight: 1.4, display: 'flex', alignItems: 'center', gap: 4, flexWrap: 'wrap' }}>
                         <span>{editError}</span>
                         {editConflictId && (
                           <button
@@ -606,9 +630,9 @@ function HoldingsSectorSummaryImpl({
                               fontSize: 9,
                               padding: '1px 5px',
                               borderRadius: 3,
-                              border: `1px solid ${alpha(C.up, '35')}`,
-                              background: alpha(C.up, '08'),
-                              color: C.up,
+                              border: `1px solid ${alpha(C.text, '35')}`,
+                              background: alpha(C.text, '08'),
+                              color: C.text,
                               cursor: 'pointer',
                               fontFamily: 'inherit',
                             }}
@@ -630,7 +654,7 @@ function HoldingsSectorSummaryImpl({
                       padding: '2px 4px',
                       background: 'transparent',
                       border: 'none',
-                      color: editDraft.trim() ? C.teal : C.textMute,
+                      color: editDraft.trim() ? C.text : C.textMute,
                       cursor: editDraft.trim() ? 'pointer' : 'not-allowed',
                       lineHeight: 1,
                     }}
@@ -729,21 +753,25 @@ function HoldingsSectorSummaryImpl({
           <span style={industryHeaderStyle}>產業分佈</span>
           <span style={{ fontSize: 13, color: C.textSec, marginLeft: 6, fontWeight: 400 }}>(依市值)</span>
         </div>
-        {warnings.length > 0 && (
-          <div
-            style={{
-              padding: '2px 8px',
-              borderRadius: 4,
-              border: `1px solid ${C.text}`,
-              color: C.text,
-              fontSize: 10,
-              letterSpacing: '0.04em',
-              fontWeight: 500,
-            }}
-          >
-            集中警示
-          </div>
-        )}
+        {warnings.length > 0 && (() => {
+          // R5：badge 與下方文字統一以 30% 為「建議分散」門檻；20%–30% 之間顯示為「留意」
+          const severe = warnings.some((w) => w.pct > 30)
+          return (
+            <div
+              style={{
+                padding: '2px 8px',
+                borderRadius: 4,
+                border: `1px solid ${severe ? C.text : alpha(C.textMute, '35')}`,
+                color: severe ? C.text : C.textMute,
+                fontSize: 10,
+                letterSpacing: '0.04em',
+                fontWeight: severe ? 500 : 400,
+              }}
+            >
+              {severe ? '集中警示' : '留意集中度'}
+            </div>
+          )
+        })()}
       </div>
 
       <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3, minmax(0, 1fr))', gap: 8, marginBottom: 10 }}>
@@ -763,7 +791,7 @@ function HoldingsSectorSummaryImpl({
                 gap: 2,
                 padding: '10px 12px',
                 borderRadius: 4,
-                border: `1px solid ${on ? alpha(C.teal, '40') : alpha(C.textMute, '10')}`,
+                border: `1px solid ${on ? alpha(C.text, '40') : alpha(C.textMute, '10')}`,
                 background: alpha(C.textMute, '02'),
                 cursor: 'pointer',
                 fontFamily: 'inherit',
@@ -778,7 +806,7 @@ function HoldingsSectorSummaryImpl({
                 <span style={{ fontSize: 10, color: C.textMute, marginLeft: 'auto' }}>{x.count}檔</span>
               </div>
               <div style={{ fontSize: 13, color: C.textSec, marginTop: 4, lineHeight: 1.4 }}>{x.key}</div>
-              {on && <div style={{ fontSize: 9, color: C.teal, marginTop: 2 }}>●</div>}
+              {on && <div style={{ fontSize: 9, color: C.text, marginTop: 2 }}>●</div>}
             </button>
           )
         })}
@@ -856,7 +884,7 @@ function HoldingsSectorSummaryImpl({
                     fontSize: 13,
                     padding: '6px 10px',
                     borderRadius: 4,
-                    border: `1px solid ${on ? alpha(C.teal, '40') : alpha(C.textMute, '18')}`,
+                    border: `1px solid ${on ? alpha(C.text, '40') : alpha(C.textMute, '18')}`,
                     background: alpha(C.textMute, '02'),
                     color: C.text,
                     cursor: 'pointer',
@@ -867,7 +895,7 @@ function HoldingsSectorSummaryImpl({
                     transition: 'border-color 0.15s ease',
                   }}
                 >
-                  {on && <span style={{ marginRight: 4, color: C.teal }}>●</span>}
+                  {on && <span style={{ marginRight: 4, color: C.text }}>●</span>}
                   {t.key} <span style={{ color: C.textSec, marginLeft: 4, fontSize: 12 }}>{t.count}</span>
                 </button>
               )
@@ -903,7 +931,7 @@ function HoldingsSectorSummaryImpl({
                     padding: 0,
                   }}
                 >
-                  <span style={{ width: 4, height: 4, borderRadius: '50%', background: on ? C.teal : C.textMute }} />
+                  <span style={{ width: 4, height: 4, borderRadius: '50%', background: on ? C.text : C.textMute }} />
                   {s.key} <span style={{ color: C.textSec, fontSize: 12 }}>{s.count}</span>
                 </button>
               )

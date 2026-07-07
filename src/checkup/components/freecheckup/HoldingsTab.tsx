@@ -55,7 +55,7 @@ const HOLDINGS_TAB_PROP_SCHEMA = {
   uploadSummary: _opt('any'), setUploadSummary: _opt('any'),
   batchState: _opt('any'), cancelBatch: _opt('any'),
   retryBatchFailures: _opt('any'), restoreBatchItemPreview: _opt('any'),
-  setTab: _opt('any'),
+  // R6：setTab 已於 L37 宣告為 required 'function'，此處不再重覆宣告以免 schema 覆蓋
   losers: _opt('any'), reversalConditions: _opt('any'),
   reviewingEvent: _opt('any'), setReviewingEvent: _opt('any'), updateReversal: _opt('any'),
   globalPriorityList: _opt('any'),
@@ -146,7 +146,25 @@ function HoldingsTab(props) {
   const handleReportMeta = useCallback((h) => setReportingHolding(h), []);
 
   // 族群 chip 點擊後的就地篩選（產業／題材／策略，多選 + 聯集/交集）
-  const [sectorFilter, setSectorFilter] = useState({ items: [], mode: 'union' });
+  // R8：以 sessionStorage 持久化，避免切換 tab 後選擇消失
+  const SECTOR_FILTER_KEY = 'checkup:holdings:sectorFilter:v1';
+  const [sectorFilter, setSectorFilter] = useState(() => {
+    try {
+      if (typeof sessionStorage === 'undefined') return { items: [], mode: 'union' };
+      const raw = sessionStorage.getItem(SECTOR_FILTER_KEY);
+      if (!raw) return { items: [], mode: 'union' };
+      const parsed = JSON.parse(raw);
+      if (!parsed || !Array.isArray(parsed.items)) return { items: [], mode: 'union' };
+      return {
+        items: parsed.items.filter((it) => it && typeof it.kind === 'string' && typeof it.key === 'string'),
+        mode: parsed.mode === 'intersection' ? 'intersection' : 'union',
+      };
+    } catch { return { items: [], mode: 'union' }; }
+  });
+  const setSectorFilterPersisted = useCallback((next) => {
+    setSectorFilter(next);
+    try { sessionStorage.setItem(SECTOR_FILTER_KEY, JSON.stringify(next)); } catch {}
+  }, []);
   const sectorMatchedCodes = useMemo(() => {
     const set = matchSectorCodes(H, STOCK_META, overrides, sectorFilter.items, sectorFilter.mode);
     if (!set) return null;
@@ -268,7 +286,7 @@ function HoldingsTab(props) {
         C={C}
         alpha={alpha}
         selected={sectorFilter}
-        onSelect={setSectorFilter}
+        onSelect={setSectorFilterPersisted}
       />
 
 
@@ -418,7 +436,7 @@ function HoldingsTab(props) {
               columnGap: 16,
               rowGap: 20,
             }} className={`holdings-card-grid${viewMode === 'list' ? ' holdings-card-grid--list' : ''}`}>
-              {orderedDisplayed.map((h, idx) => renderCard(h, idx))}
+              {orderedDisplayed.map(renderCard)}
               {/* 持倉為 0 時顯示強化空狀態（橫跨整列）；有持倉時顯示「+ 上傳成交」虛線卡 */}
               {orderedDisplayed.length === 0 && H.length === 0 ? (
                 <HoldingsEmptyState
