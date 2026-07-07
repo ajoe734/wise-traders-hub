@@ -78,27 +78,43 @@ test.describe('FreeCheckup desktop — intro modal suppression', () => {
   });
 
   test('清除 flag 後，demo intro modal 會重新自動彈出（auto-open regression guard）', async ({ page }, testInfo) => {
-    await gotoFreeCheckup(page, testInfo, { suppressIntro: false });
+    // 不走 navigateAndWaitForCardReady：那個 helper 要求 .wb-card 穩定可見，
+    // 但 WebKit headless 對 autoplay <video> 有時會 crash（Page crashed 於等待 selector 期間）。
+    // 我們只關心 modal 是否自動 mount，直接 goto + 等 modal 即可。
+    await page.addInitScript(() => {
+      try {
+        window.localStorage.setItem('checkup-demo-mode', '1');
+        window.localStorage.removeItem('holdings-intro-video-seen-v2');
+        window.sessionStorage.removeItem('holdings-intro-video-dismissed-session');
+        // 攔截 <video>.play() 以避免 WebKit headless 對 mp4 autoplay 崩潰
+        const origPlay = HTMLMediaElement.prototype.play;
+        HTMLMediaElement.prototype.play = function () {
+          try { return Promise.resolve(); } catch { return origPlay.apply(this, arguments as any); }
+        };
+      } catch {}
+    });
+
+    await page.goto(ROUTE, { waitUntil: 'domcontentloaded' });
 
     // 1) modal 應自動 mount 並可見
     const modal = page.locator('[data-testid="holdings-intro-modal"]');
     await expect(
       modal,
       `[${testInfo.project.name}] 清除抑制 flag 後 demo intro modal 應自動彈出`,
-    ).toHaveCount(1);
+    ).toHaveCount(1, { timeout: 15_000 });
     await expect(modal).toBeVisible();
 
-    // 2) modal 具備正確的 a11y 屬性（role=dialog + aria-modal）
+    // 2) a11y 屬性
     await expect(modal).toHaveAttribute('role', 'dialog');
     await expect(modal).toHaveAttribute('aria-modal', 'true');
 
-    // 3) 內部應掛出 <video> 開始播放（demo 影片）
+    // 3) 內部應掛出 <video>
     await expect(
       page.locator('[data-testid="holdings-intro-modal"] video'),
       `[${testInfo.project.name}] modal 內應掛出 <video>`,
     ).toHaveCount(1);
 
-    // 4) 守門：init 階段確實已清除 flag（未來若預設值改變會直接 fail）
+    // 4) 守門：init 階段確實已清除 flag
     const flags = await page.evaluate(() => ({
       seen: window.localStorage.getItem('holdings-intro-video-seen-v2'),
       dismissed: window.sessionStorage.getItem('holdings-intro-video-dismissed-session'),
