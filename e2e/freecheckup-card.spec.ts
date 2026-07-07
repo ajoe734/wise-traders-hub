@@ -193,8 +193,8 @@ test.describe('FreeCheckup mobile card', () => {
       try {
         window.localStorage.setItem('checkup-demo-mode', '1');
         // 明確清除抑制 flag，模擬「首次進入 demo」的使用者
-        window.localStorage.removeItem('holdings-intro-video-seen-v2');
-        window.sessionStorage.removeItem('holdings-intro-video-dismissed-session');
+
+
         // 避免 <video autoplay> 觸發 media pipeline crash
         Object.defineProperty(HTMLMediaElement.prototype, 'play', {
           configurable: true,
@@ -244,6 +244,128 @@ test.describe('FreeCheckup mobile card', () => {
     expect(flags.seen, '初始應無 localStorage suppress flag').toBeNull();
     expect(flags.dismissed, '初始應無 sessionStorage suppress flag').toBeNull();
   });
+
+  test('點 ✕ 關閉 → 只寫入 sessionStorage flag，同 session 內 reload 不會再自動開啟', async ({ page }, testInfo) => {
+    await page.route(/\.mp4(\?|$)/, (route) => route.fulfill({ status: 204, body: '' }));
+    await page.addInitScript(() => {
+      try {
+        window.localStorage.setItem('checkup-demo-mode', '1');
+
+
+        Object.defineProperty(HTMLMediaElement.prototype, 'play', {
+          configurable: true, value: function () { return Promise.resolve(); },
+        });
+      } catch {}
+    });
+
+    await page.goto(ROUTE, { waitUntil: 'domcontentloaded' });
+
+    const modal = page.locator('[data-testid="holdings-intro-modal"]');
+    await expect(modal, `[${testInfo.project.name}] modal 應自動彈出`).toBeVisible({ timeout: 15_000 });
+
+    // 點 ✕ 關閉（closeSession）
+    await page.getByRole('button', { name: '關閉介紹影片' }).click();
+    await expect(modal, `[${testInfo.project.name}] modal 應立即關閉`).toHaveCount(0);
+
+    // sessionStorage 應寫入 "1"、localStorage 保持 null（僅本 session 不再彈）
+    let flags = await page.evaluate(() => ({
+      seen: window.localStorage.getItem('holdings-intro-video-seen-v2'),
+      dismissed: window.sessionStorage.getItem('holdings-intro-video-dismissed-session'),
+    }));
+    expect(flags.dismissed, '關閉後應寫入 sessionStorage flag').toBe('1');
+    expect(flags.seen, '單次關閉不應寫入 localStorage 永久 flag').toBeNull();
+
+    // Reload 同 page（sessionStorage 保留）→ 不應再自動彈
+    await page.reload({ waitUntil: 'domcontentloaded' });
+    await page.waitForTimeout(500);
+    await expect(
+      modal,
+      `[${testInfo.project.name}] reload 後 modal 不應再自動開啟（sessionStorage 抑制）`,
+    ).toHaveCount(0);
+
+    // Reload 後 flag 保持
+    flags = await page.evaluate(() => ({
+      seen: window.localStorage.getItem('holdings-intro-video-seen-v2'),
+      dismissed: window.sessionStorage.getItem('holdings-intro-video-dismissed-session'),
+    }));
+    expect(flags.dismissed, 'reload 後 sessionStorage flag 應保持 "1"').toBe('1');
+    expect(flags.seen, 'reload 後 localStorage flag 仍應為 null').toBeNull();
+  });
+
+  test('點「不再顯示」→ localStorage + sessionStorage 皆寫入，reload 後不會自動開啟', async ({ page }, testInfo) => {
+    await page.route(/\.mp4(\?|$)/, (route) => route.fulfill({ status: 204, body: '' }));
+    await page.addInitScript(() => {
+      try {
+        window.localStorage.setItem('checkup-demo-mode', '1');
+
+
+        Object.defineProperty(HTMLMediaElement.prototype, 'play', {
+          configurable: true, value: function () { return Promise.resolve(); },
+        });
+      } catch {}
+    });
+
+    await page.goto(ROUTE, { waitUntil: 'domcontentloaded' });
+    const modal = page.locator('[data-testid="holdings-intro-modal"]');
+    await expect(modal).toBeVisible({ timeout: 15_000 });
+
+    await page.getByRole('button', { name: '不再顯示介紹影片' }).click();
+    await expect(modal, `[${testInfo.project.name}] modal 應立即關閉`).toHaveCount(0);
+
+    let flags = await page.evaluate(() => ({
+      seen: window.localStorage.getItem('holdings-intro-video-seen-v2'),
+      dismissed: window.sessionStorage.getItem('holdings-intro-video-dismissed-session'),
+    }));
+    expect(flags.seen, '「不再顯示」應寫入 localStorage 永久 flag').toBe('1');
+    expect(flags.dismissed, '「不再顯示」也應寫入 sessionStorage flag').toBe('1');
+
+    await page.reload({ waitUntil: 'domcontentloaded' });
+    await page.waitForTimeout(500);
+    await expect(
+      modal,
+      `[${testInfo.project.name}] reload 後 modal 不應再自動開啟（localStorage 永久抑制）`,
+    ).toHaveCount(0);
+
+    flags = await page.evaluate(() => ({
+      seen: window.localStorage.getItem('holdings-intro-video-seen-v2'),
+      dismissed: window.sessionStorage.getItem('holdings-intro-video-dismissed-session'),
+    }));
+    expect(flags.seen).toBe('1');
+    expect(flags.dismissed).toBe('1');
+  });
+
+  test('點 backdrop 關閉 → 也應寫入 sessionStorage flag（同 closeSession 行為）', async ({ page }, testInfo) => {
+    await page.route(/\.mp4(\?|$)/, (route) => route.fulfill({ status: 204, body: '' }));
+    await page.addInitScript(() => {
+      try {
+        window.localStorage.setItem('checkup-demo-mode', '1');
+
+
+        Object.defineProperty(HTMLMediaElement.prototype, 'play', {
+          configurable: true, value: function () { return Promise.resolve(); },
+        });
+      } catch {}
+    });
+
+    await page.goto(ROUTE, { waitUntil: 'domcontentloaded' });
+    const modal = page.locator('[data-testid="holdings-intro-modal"]');
+    await expect(modal).toBeVisible({ timeout: 15_000 });
+
+    // 點 modal 左上角（backdrop 區域，非 inner card）→ onClick=closeSession
+    const box = await modal.boundingBox();
+    expect(box).not.toBeNull();
+    await page.mouse.click(box!.x + 5, box!.y + 5);
+    await expect(modal).toHaveCount(0);
+
+    const flags = await page.evaluate(() => ({
+      seen: window.localStorage.getItem('holdings-intro-video-seen-v2'),
+      dismissed: window.sessionStorage.getItem('holdings-intro-video-dismissed-session'),
+    }));
+    expect(flags.dismissed, 'backdrop click 應寫入 sessionStorage flag').toBe('1');
+    expect(flags.seen, 'backdrop click 不應寫入 localStorage flag').toBeNull();
+  });
+
+
 
 
   test('cards never overflow ROI / TODAY / VALUE', async ({ page }, testInfo) => {
