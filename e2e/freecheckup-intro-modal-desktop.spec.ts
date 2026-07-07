@@ -94,9 +94,13 @@ test.describe('FreeCheckup desktop — intro modal suppression', () => {
     ).toHaveCount(1, { timeout: 15_000 });
     await expect(modal).toBeVisible();
 
-    // 2) a11y 屬性
-    await expect(modal).toHaveAttribute('role', 'dialog');
-    await expect(modal).toHaveAttribute('aria-modal', 'true');
+    // 2) a11y 屬性（webkit headless 對 attribute polling 偶有延遲，改用 evaluate 直接讀）
+    const a11y = await modal.evaluate((el) => ({
+      role: el.getAttribute('role'),
+      ariaModal: el.getAttribute('aria-modal'),
+    }));
+    expect(a11y.role, 'modal 應為 role=dialog').toBe('dialog');
+    expect(a11y.ariaModal, 'modal 應為 aria-modal=true').toBe('true');
 
     // 3) 內部應掛出 <video>
     await expect(
