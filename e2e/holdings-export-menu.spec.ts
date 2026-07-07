@@ -52,10 +52,13 @@ test.describe('Holdings export menu', () => {
     await page.locator('summary[aria-label="匯出"]').first().waitFor({ state: 'visible', timeout: 10_000 });
   });
 
-  async function runExport(page: Page, optionLabel: RegExp) {
+  async function runExport(page: Page, ratioLabel: RegExp) {
     const beforeCount = await page.evaluate(() => (window as any).__lf_export_downloads.length);
+    // 兩步驟：1) 開匯出選單 2) 選比例 3) 點「立即匯出」
     await page.locator('summary[aria-label="匯出"]').first().click();
-    await page.getByRole('button', { name: optionLabel }).first().click();
+    // 比例 segment 內只有兩顆按鈕；用 role=button + label 取
+    await page.locator('[data-testid="export-seg-ratio"]').getByRole('button', { name: ratioLabel }).first().click();
+    await page.locator('[data-testid="holding-export-trigger"]').click();
     await expect.poll(
       async () => page.evaluate(() => (window as any).__lf_export_downloads.length),
       { timeout: 30_000 }
@@ -104,7 +107,8 @@ test.describe('Holdings export menu', () => {
     });
 
     await page.locator('summary[aria-label="匯出"]').first().click();
-    await page.getByRole('button', { name: /1:1\s*IG/ }).first().click();
+    await page.locator('[data-testid="export-seg-ratio"]').getByRole('button', { name: /1:1\s*IG/ }).first().click();
+    await page.locator('[data-testid="holding-export-trigger"]').click();
 
     await expect.poll(
       async () => page.evaluate(() => (window as any).__lf_export_snapshots.length),
