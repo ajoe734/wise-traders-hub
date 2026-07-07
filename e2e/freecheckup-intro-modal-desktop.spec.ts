@@ -235,4 +235,45 @@ test.describe('FreeCheckup desktop — intro modal suppression', () => {
     expect(flags.dismissed, 'backdrop click 應寫入 sessionStorage flag').toBe('1');
     expect(flags.seen, 'backdrop click 不應寫入 localStorage flag').toBeNull();
   });
+
+  test('按 ESC 關閉 → 寫入 sessionStorage flag、reload 後不再自動開啟', async ({ page, browserName }, testInfo) => {
+    test.skip(browserName === 'webkit', 'WebKit headless crashes on autoplay <video>');
+    await page.route(/\.mp4(\?|$)/, (route) => route.fulfill({ status: 204, body: '' }));
+    await page.addInitScript(() => {
+      try {
+        window.localStorage.setItem('checkup-demo-mode', '1');
+        Object.defineProperty(HTMLMediaElement.prototype, 'play', {
+          configurable: true, value: function () { return Promise.resolve(); },
+        });
+      } catch {}
+    });
+
+    await page.goto(ROUTE, { waitUntil: 'domcontentloaded' });
+    const modal = page.locator('[data-testid="holdings-intro-modal"]');
+    await expect(modal).toBeVisible({ timeout: 15_000 });
+
+    await page.keyboard.press('Escape');
+    await expect(modal, `[${testInfo.project.name}] ESC 應立即關閉 modal`).toHaveCount(0);
+
+    let flags = await page.evaluate(() => ({
+      seen: window.localStorage.getItem('holdings-intro-video-seen-v2'),
+      dismissed: window.sessionStorage.getItem('holdings-intro-video-dismissed-session'),
+    }));
+    expect(flags.dismissed, 'ESC 應寫入 sessionStorage flag').toBe('1');
+    expect(flags.seen, 'ESC 不應寫入 localStorage 永久 flag').toBeNull();
+
+    await page.reload({ waitUntil: 'domcontentloaded' });
+    await page.waitForTimeout(500);
+    await expect(
+      modal,
+      `[${testInfo.project.name}] reload 後 modal 不應再自動開啟（ESC 已寫入 session flag）`,
+    ).toHaveCount(0);
+
+    flags = await page.evaluate(() => ({
+      seen: window.localStorage.getItem('holdings-intro-video-seen-v2'),
+      dismissed: window.sessionStorage.getItem('holdings-intro-video-dismissed-session'),
+    }));
+    expect(flags.dismissed).toBe('1');
+    expect(flags.seen).toBeNull();
+  });
 });
