@@ -149,10 +149,44 @@ async function countGridColumns(
 }
 
 test.describe('FreeCheckup mobile card', () => {
+  test('demo intro modal 不會自動彈出（localStorage/sessionStorage 已抑制）', async ({ page }, testInfo) => {
+    await gotoFreeCheckup(page, testInfo);
+
+    // 1) modal 完全不 mount（HoldingsIntroVideo 讀 flag 後 return null）
+    const modal = page.locator('[data-testid="holdings-intro-modal"]');
+    await expect(
+      modal,
+      `[${testInfo.project.name}] demo intro modal 應被 localStorage/sessionStorage flag 抑制`,
+    ).toHaveCount(0);
+
+    // 2) 沒有 <video> element 佔用首屏（避免 element screenshot 擷取到影片）
+    await expect(
+      page.locator('video'),
+      `[${testInfo.project.name}] demo 首屏不應有 <video> element`,
+    ).toHaveCount(0);
+
+    // 3) 首張卡片位於首屏，且不被任何 role=dialog 覆蓋
+    const firstCard = page.locator(CARD_SELECTOR).first();
+    await expect(firstCard).toBeVisible();
+    await expect(
+      page.locator('[role="dialog"][aria-modal="true"]'),
+      `[${testInfo.project.name}] 首屏不應有 modal dialog`,
+    ).toHaveCount(0);
+
+    // 4) flag 確實已寫入（守門：確保 addInitScript 生效，未來若 flag 名稱變更會直接 fail）
+    const flags = await page.evaluate(() => ({
+      seen: window.localStorage.getItem('holdings-intro-video-seen-v2'),
+      dismissed: window.sessionStorage.getItem('holdings-intro-video-dismissed-session'),
+    }));
+    expect(flags.seen, 'localStorage flag holdings-intro-video-seen-v2 應為 "1"').toBe('1');
+    expect(flags.dismissed, 'sessionStorage flag holdings-intro-video-dismissed-session 應為 "1"').toBe('1');
+  });
+
   test('cards never overflow ROI / TODAY / VALUE', async ({ page }, testInfo) => {
     await gotoFreeCheckup(page, testInfo);
     await assertNoOverflow(page, CARD_SELECTOR);
   });
+
 
   test('grid collapses to a single column at mobile widths', async ({ page }, testInfo) => {
     await gotoFreeCheckup(page, testInfo);
