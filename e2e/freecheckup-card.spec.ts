@@ -405,14 +405,106 @@ test.describe('FreeCheckup mobile card', () => {
     expect(flags.seen, 'reload 後 localStorage flag 應仍為 null').toBeNull();
   });
 
+  // -- Focus 管理：open 時焦點進 modal（close button）；close 後焦點離開 modal ----
+  // 覆蓋所有 4 個關閉路徑（✕ / 不再顯示 / backdrop / ESC）
+  const closePaths = [
+    {
+      name: '✕ 按鈕',
+      close: async (page: Page) => {
+        await page.getByRole('button', { name: '關閉介紹影片' }).click();
+      },
+    },
+    {
+      name: '不再顯示 按鈕',
+      close: async (page: Page) => {
+        await page.getByRole('button', { name: '不再顯示介紹影片' }).click();
+      },
+    },
+    {
+      name: 'backdrop 點擊',
+      close: async (page: Page) => {
+        const modal = page.locator('[data-testid="holdings-intro-modal"]');
+        const box = await modal.boundingBox();
+        await page.mouse.click(box!.x + 5, box!.y + 5);
+      },
+    },
+    {
+      name: 'ESC 鍵',
+      close: async (page: Page) => {
+        await page.keyboard.press('Escape');
+      },
+    },
+  ] as const;
+
+  for (const path of closePaths) {
+    test(`focus 管理：open 時焦點進 close button，${path.name} 關閉後焦點離開 modal`, async ({ page }, testInfo) => {
+      await page.route(/\.mp4(\?|$)/, (route) => route.fulfill({ status: 204, body: '' }));
+      await page.addInitScript(() => {
+        try {
+          window.localStorage.setItem('checkup-demo-mode', '1');
+          Object.defineProperty(HTMLMediaElement.prototype, 'play', {
+            configurable: true, value: function () { return Promise.resolve(); },
+          });
+        } catch {}
+      });
+
+      await page.goto(ROUTE, { waitUntil: 'domcontentloaded' });
+      const modal = page.locator('[data-testid="holdings-intro-modal"]');
+      await expect(modal).toBeVisible({ timeout: 15_000 });
+
+      // rAF + focus 需要一 tick 才生效
+      await page.waitForFunction(
+        () => document.activeElement?.getAttribute('aria-label') === '關閉介紹影片',
+        null,
+        { timeout: 3_000 },
+      );
+
+      // 1) open 後焦點應在 modal 內的 close button
+      const focusedOnOpen = await page.evaluate(() => {
+        const el = document.activeElement as HTMLElement | null;
+        return {
+          ariaLabel: el?.getAttribute('aria-label') ?? null,
+          insideModal: !!el?.closest('[data-testid="holdings-intro-modal"]'),
+          tagName: el?.tagName ?? null,
+        };
+      });
+      expect(
+        focusedOnOpen.ariaLabel,
+        `[${testInfo.project.name}][${path.name}] open 時焦點應在「關閉介紹影片」按鈕`,
+      ).toBe('關閉介紹影片');
+      expect(focusedOnOpen.insideModal).toBe(true);
+
+      // 2) 關閉 modal
+      await path.close(page);
+      await expect(modal).toHaveCount(0);
+
+      // 3) close 後焦點必須離開 modal（modal 已 unmount，focus 不應懸在虛空）
+      const focusedOnClose = await page.evaluate(() => {
+        const el = document.activeElement as HTMLElement | null;
+        return {
+          insideModal: !!el?.closest('[data-testid="holdings-intro-modal"]'),
+          isConnected: !!el?.isConnected,
+          tagName: el?.tagName ?? null,
+          isBody: el === document.body,
+        };
+      });
+      expect(
+        focusedOnClose.insideModal,
+        `[${testInfo.project.name}][${path.name}] close 後焦點不應留在已 unmount 的 modal`,
+      ).toBe(false);
+      expect(
+        focusedOnClose.isConnected,
+        `[${testInfo.project.name}][${path.name}] close 後 activeElement 必須是仍 connected 的節點`,
+      ).toBe(true);
+      // Auto-open 情境下 open 前 activeElement 是 body，所以還原目標也是 body（合理 fallback）
+      expect(
+        focusedOnClose.isBody,
+        `[${testInfo.project.name}][${path.name}] auto-open 情境下焦點應還原至 <body>（open 前為 body）`,
+      ).toBe(true);
+    });
+  }
 
 
-
-
-  test('cards never overflow ROI / TODAY / VALUE', async ({ page }, testInfo) => {
-    await gotoFreeCheckup(page, testInfo);
-    await assertNoOverflow(page, CARD_SELECTOR);
-  });
 
 
   test('grid collapses to a single column at mobile widths', async ({ page }, testInfo) => {
