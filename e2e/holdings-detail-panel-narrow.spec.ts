@@ -50,13 +50,14 @@ test.describe('Holdings detail panel @ 863px (narrow viewport)', () => {
     await expect(panel.locator('[data-testid="holdings-comparison-charts"]')).toBeVisible();
 
     // ExportMenu 存在；展開後三段 segmented + 立即匯出按鈕可見
+    // Radix DropdownMenu 會 portal Content 到 body，所以 seg / trigger 在 page 層級查
     const exportMenu = panel.locator('[data-testid="holdings-export-menu"]');
     await expect(exportMenu).toBeVisible();
-    await exportMenu.locator('summary[aria-label="匯出"]').click();
-    await expect(exportMenu.locator('[data-testid="export-seg-ratio"]')).toBeVisible();
-    await expect(exportMenu.locator('[data-testid="export-seg-format"]')).toBeVisible();
-    await expect(exportMenu.locator('[data-testid="export-seg-resolution"]')).toBeVisible();
-    await expect(exportMenu.locator('[data-testid="holding-export-trigger"]')).toBeVisible();
+    await exportMenu.click();
+    await expect(page.locator('[data-testid="export-seg-ratio"]')).toBeVisible();
+    await expect(page.locator('[data-testid="export-seg-format"]')).toBeVisible();
+    await expect(page.locator('[data-testid="export-seg-resolution"]')).toBeVisible();
+    await expect(page.locator('[data-testid="holding-export-trigger"]')).toBeVisible();
   });
 
   test('切換 Ratio/Format/Resolution 會即時持久化到 localStorage', async ({ page }) => {
@@ -65,13 +66,13 @@ test.describe('Holdings detail panel @ 863px (narrow viewport)', () => {
     await expect(panel).toBeVisible({ timeout: 10_000 });
 
     const exportMenu = panel.locator('[data-testid="holdings-export-menu"]');
-    await exportMenu.locator('summary[aria-label="匯出"]').click();
+    await exportMenu.click();
 
-    await exportMenu.locator('[data-testid="export-seg-ratio"]')
+    await page.locator('[data-testid="export-seg-ratio"]')
       .getByRole('button', { name: /16:9/ }).click();
-    await exportMenu.locator('[data-testid="export-seg-format"]')
+    await page.locator('[data-testid="export-seg-format"]')
       .getByRole('button', { name: /^PDF$/ }).click();
-    await exportMenu.locator('[data-testid="export-seg-resolution"]')
+    await page.locator('[data-testid="export-seg-resolution"]')
       .getByRole('button', { name: /高\s*3x/ }).click();
 
     await expect.poll(async () => {
@@ -82,7 +83,7 @@ test.describe('Holdings detail panel @ 863px (narrow viewport)', () => {
     }, { timeout: 5_000 }).toMatchObject({ ratio: 'wide', format: 'pdf', resolution: 'high' });
 
     // 立即匯出按鈕文案應反映新組合（16:9 · PDF · 高 3x）
-    const triggerText = await exportMenu.locator('[data-testid="holding-export-trigger"]').innerText();
+    const triggerText = await page.locator('[data-testid="holding-export-trigger"]').innerText();
     expect(triggerText).toMatch(/16:9/);
     expect(triggerText).toMatch(/PDF/);
     expect(triggerText).toMatch(/高 3x/);

@@ -1,7 +1,8 @@
 // @ts-nocheck
 import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import ReactDOM from 'react-dom';
-import { Camera, Download, Copy, X as XIcon, Settings, ChevronDown, RotateCcw, FileText, Image as ImageIcon, Undo2, Redo2 } from 'lucide-react';
+import * as DropdownMenu from '@radix-ui/react-dropdown-menu';
+import { Camera, Download, Copy, X as XIcon, Settings, ChevronDown, RotateCcw, FileText, Image as ImageIcon, Undo2, Redo2, Check } from 'lucide-react';
 import { useHoldingShareExport } from '@/checkup/hooks/useHoldingShareExport';
 import { useSimHistory } from '@/checkup/hooks/useSimHistory';
 import { Sparkline } from '@/pages/_freeCheckup/constants.jsx';
@@ -603,6 +604,47 @@ function Block({ label, value, WB }) {
   );
 }
 
+// ──────────────────── Dropdown menus (Radix, C6 audit 2026-07)
+// 全部改用 @radix-ui/react-dropdown-menu：
+//   - 修掉 `<details>` 無法點外面關閉、無焦點陷阱、Esc 不觸發 close 的問題
+//   - Trigger 保留 aria-label + 舊 data-testid，維持 e2e 相容
+//   - Content 用 portal + WB token 保持 Kore-eda 極簡（無 shadow、hair 邊）
+// ────────────────────────────────────────────────────────────
+
+function menuContentStyle(WB) {
+  return {
+    minWidth: 160,
+    background: WB.surface,
+    border: `1px solid ${WB.hair}`,
+    borderRadius: 2,
+    padding: 4,
+    display: 'flex',
+    flexDirection: 'column',
+    gap: 2,
+    zIndex: 60,
+  } as React.CSSProperties;
+}
+
+function menuItemStyle(WB, active) {
+  return {
+    background: active ? WB.surfaceSoft : 'transparent',
+    border: 'none',
+    color: WB.ink,
+    fontSize: 11,
+    padding: '7px 10px',
+    textAlign: 'left' as const,
+    cursor: 'pointer',
+    fontFamily: 'inherit',
+    borderRadius: 2,
+    letterSpacing: '0.04em',
+    outline: 'none',
+    display: 'flex',
+    alignItems: 'center',
+    gap: 8,
+    width: '100%',
+  } as React.CSSProperties;
+}
+
 function SortMenu({ WB, sortBy, sortDir, setSortBy, setSortDir }) {
   const OPTIONS = [
     { key: 'decision', label: '決策優先' },
@@ -613,31 +655,43 @@ function SortMenu({ WB, sortBy, sortDir, setSortBy, setSortDir }) {
   ];
   const current = OPTIONS.find((o) => o.key === sortBy) || OPTIONS[0];
   return (
-    <details style={{ position: 'relative' }} onToggle={(e) => e.stopPropagation()}>
-      <summary style={{
-        ...iconBtn(WB), width: 'auto', padding: '0 8px', listStyle: 'none', gap: 4,
-      }} aria-label="排序">
-        <span style={{ fontSize: 10, letterSpacing: '0.06em' }}>{current.label}</span>
-        <ChevronDown size={11} />
-      </summary>
-      <div style={menuPanel(WB)}>
-        {OPTIONS.map((o) => (
-          <button key={o.key} onClick={(e) => { e.preventDefault(); setSortBy?.(o.key); (e.currentTarget.closest('details') as any)?.removeAttribute('open'); }}
-            style={menuItem(WB, sortBy === o.key)}>
-            {o.label}
-          </button>
-        ))}
-        <div style={{ borderTop: `1px solid ${WB.hair}`, margin: '4px 0' }} />
-        <button onClick={(e) => { e.preventDefault(); setSortDir?.(sortDir === 'asc' ? 'desc' : 'asc'); }} style={menuItem(WB, false)}>
-          方向：{sortDir === 'asc' ? '由小到大 ↑' : '由大到小 ↓'}
+    <DropdownMenu.Root>
+      <DropdownMenu.Trigger asChild>
+        <button
+          type="button"
+          aria-label="排序"
+          style={{ ...iconBtn(WB), width: 'auto', padding: '0 8px', gap: 4 }}
+        >
+          <span style={{ fontSize: 10, letterSpacing: '0.06em' }}>{current.label}</span>
+          <ChevronDown size={11} />
         </button>
-      </div>
-    </details>
+      </DropdownMenu.Trigger>
+      <DropdownMenu.Portal>
+        <DropdownMenu.Content align="end" sideOffset={4} style={menuContentStyle(WB)}>
+          {OPTIONS.map((o) => (
+            <DropdownMenu.Item
+              key={o.key}
+              onSelect={() => setSortBy?.(o.key)}
+              style={menuItemStyle(WB, sortBy === o.key)}
+            >
+              {o.label}
+            </DropdownMenu.Item>
+          ))}
+          <DropdownMenu.Separator style={{ height: 1, background: WB.hair, margin: '4px 0' }} />
+          <DropdownMenu.Item
+            onSelect={(e) => { e.preventDefault(); setSortDir?.(sortDir === 'asc' ? 'desc' : 'asc'); }}
+            style={menuItemStyle(WB, false)}
+          >
+            方向：{sortDir === 'asc' ? '由小到大 ↑' : '由大到小 ↓'}
+          </DropdownMenu.Item>
+        </DropdownMenu.Content>
+      </DropdownMenu.Portal>
+    </DropdownMenu.Root>
   );
 }
 
 function PrefsMenu({ WB, prefs, setPrefs }) {
-  const TOGGLES = [
+  const TOGGLES: [string, string][] = [
     ['showThesis', 'THESIS'],
     ['showNextEvent', 'NEXT EVENT'],
     ['showRange', '區間 / 30D'],
@@ -647,25 +701,44 @@ function PrefsMenu({ WB, prefs, setPrefs }) {
     ['showSandbox', '情境模擬'],
   ];
   return (
-    <details style={{ position: 'relative' }}>
-      <summary style={{ ...iconBtn(WB), listStyle: 'none' }} aria-label="顯示偏好"><Settings size={12} /></summary>
-      <div style={menuPanel(WB)}>
-        {TOGGLES.map(([k, label]) => (
-          <label key={k} style={{ ...menuItem(WB, false), cursor: 'pointer' }}>
-            <input
-              type="checkbox" checked={!!prefs[k]} onChange={(e) => setPrefs((p) => ({ ...p, [k]: e.target.checked }))}
-              style={{ marginRight: 8 }}
-            />
-            {label}
-          </label>
-        ))}
-      </div>
-    </details>
+    <DropdownMenu.Root>
+      <DropdownMenu.Trigger asChild>
+        <button type="button" aria-label="顯示偏好" style={iconBtn(WB)}>
+          <Settings size={12} />
+        </button>
+      </DropdownMenu.Trigger>
+      <DropdownMenu.Portal>
+        <DropdownMenu.Content align="end" sideOffset={4} style={menuContentStyle(WB)}>
+          {TOGGLES.map(([k, label]) => {
+            const checked = !!prefs[k];
+            return (
+              <DropdownMenu.CheckboxItem
+                key={k}
+                checked={checked}
+                onCheckedChange={(v) => setPrefs((p) => ({ ...p, [k]: !!v }))}
+                onSelect={(e) => e.preventDefault()}
+                style={menuItemStyle(WB, checked)}
+              >
+                <span style={{
+                  width: 12, height: 12, border: `1px solid ${WB.hair}`, borderRadius: 2,
+                  display: 'inline-flex', alignItems: 'center', justifyContent: 'center',
+                  background: checked ? WB.ink : 'transparent',
+                }}>
+                  {checked && <Check size={9} color={WB.surface} />}
+                </span>
+                {label}
+              </DropdownMenu.CheckboxItem>
+            );
+          })}
+        </DropdownMenu.Content>
+      </DropdownMenu.Portal>
+    </DropdownMenu.Root>
   );
 }
 
 function ExportMenu({ WB, prefs, setPrefs, onExport, onCopy, onShareMode, busy }) {
   // 三段 segmented：比例 / 格式 / 解析度。任何切換即時 saveExportPrefs。
+  // Radix Item 預設 select 就會關閉 menu；segmented 用一般 <button> 不觸發 select。
   const Seg = ({ label, value, options, onChange }) => (
     <div style={{ display: 'flex', flexDirection: 'column', gap: 6, padding: '8px 10px 0' }}>
       <span style={{ fontSize: 9, color: WB.inkLight, letterSpacing: '0.18em', fontWeight: 600 }}>{label}</span>
@@ -675,6 +748,7 @@ function ExportMenu({ WB, prefs, setPrefs, onExport, onCopy, onShareMode, busy }
           return (
             <button
               key={o.value}
+              type="button"
               onClick={(e) => { e.preventDefault(); onChange(o.value); }}
               style={{
                 flex: 1, padding: '6px 10px', fontSize: 11, fontFamily: 'inherit',
@@ -695,76 +769,76 @@ function ExportMenu({ WB, prefs, setPrefs, onExport, onCopy, onShareMode, busy }
   const ratioWord = prefs.ratio === 'wide' ? '16:9' : '1:1';
   const summary = `${ratioWord} · ${prefs.format.toUpperCase()} · ${RES_LABEL[prefs.resolution] || prefs.resolution}`;
   return (
-    <details style={{ position: 'relative' }} data-testid="holdings-export-menu">
-      <summary style={{ ...iconBtn(WB), listStyle: 'none', gap: 4, padding: '0 8px', width: 'auto' }} aria-label="匯出">
-        <Camera size={12} /> <span style={{ fontSize: 10, letterSpacing: '0.06em' }}>匯出</span>
-      </summary>
-      <div style={{ ...menuPanel(WB), minWidth: 250, padding: 0, gap: 0 }}>
-        <div data-testid="export-seg-ratio">
-          <Seg label="比例" value={prefs.ratio} onChange={(v) => setPrefs((p) => ({ ...p, ratio: v }))}
-            options={[{ value: 'square', label: '1:1 IG' }, { value: 'wide', label: '16:9 簡報' }]} />
-        </div>
-        <div data-testid="export-seg-format">
-          <Seg label="格式" value={prefs.format} onChange={(v) => setPrefs((p) => ({ ...p, format: v }))}
-            options={[{ value: 'png', label: 'PNG' }, { value: 'pdf', label: 'PDF' }]} />
-        </div>
-        <div data-testid="export-seg-resolution">
-          <Seg label="解析度" value={prefs.resolution} onChange={(v) => setPrefs((p) => ({ ...p, resolution: v }))}
-            options={[
-              { value: 'std', label: '標準 2x' },
-              { value: 'high', label: '高 3x' },
-              { value: 'print', label: '印刷 4x' },
-            ]} />
-        </div>
-        <div style={{ padding: '10px 10px 8px', marginTop: 4, borderTop: `1px solid ${WB.hair}` }}>
-          <button
-            data-testid="holding-export-trigger"
-            onClick={(e) => { e.preventDefault(); (e.currentTarget.closest('details') as any)?.removeAttribute('open'); onExport(); }}
-            disabled={busy}
-            style={{
-              width: '100%', padding: '9px 12px', background: WB.ink, color: WB.surface,
-              border: 'none', borderRadius: 2, cursor: busy ? 'wait' : 'pointer', fontFamily: 'inherit',
-              fontSize: 11, letterSpacing: '0.16em', fontWeight: 600,
-              display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 6,
-            }}>
-            {prefs.format === 'pdf' ? <FileText size={12} /> : <ImageIcon size={12} />}
-            立即匯出（{Math.round(px)}px · {summary}）
-          </button>
-        </div>
-        <div style={{ display: 'flex', flexDirection: 'column', gap: 2, padding: '0 4px 4px' }}>
-          <button onClick={(e) => { e.preventDefault(); (e.currentTarget.closest('details') as any)?.removeAttribute('open'); onCopy(); }}
-            disabled={busy} style={{ ...menuItem(WB, false), display: 'flex', alignItems: 'center', gap: 8 }}>
-            <Copy size={12} /> 複製 1:1 PNG 到剪貼簿
-          </button>
-          <button onClick={(e) => { e.preventDefault(); (e.currentTarget.closest('details') as any)?.removeAttribute('open'); onShareMode(); }}
-            style={{ ...menuItem(WB, false), display: 'flex', alignItems: 'center', gap: 8 }}>
-            <Camera size={12} /> 螢幕預覽 SHARE MODE
-          </button>
-        </div>
-      </div>
-    </details>
+    <DropdownMenu.Root>
+      <DropdownMenu.Trigger asChild>
+        <button
+          type="button"
+          aria-label="匯出"
+          data-testid="holdings-export-menu"
+          style={{ ...iconBtn(WB), gap: 4, padding: '0 8px', width: 'auto' }}
+        >
+          <Camera size={12} /> <span style={{ fontSize: 10, letterSpacing: '0.06em' }}>匯出</span>
+        </button>
+      </DropdownMenu.Trigger>
+      <DropdownMenu.Portal>
+        <DropdownMenu.Content align="end" sideOffset={4} style={{ ...menuContentStyle(WB), minWidth: 250, padding: 0, gap: 0 }}>
+          <div data-testid="export-seg-ratio">
+            <Seg label="比例" value={prefs.ratio} onChange={(v) => setPrefs((p) => ({ ...p, ratio: v }))}
+              options={[{ value: 'square', label: '1:1 IG' }, { value: 'wide', label: '16:9 簡報' }]} />
+          </div>
+          <div data-testid="export-seg-format">
+            <Seg label="格式" value={prefs.format} onChange={(v) => setPrefs((p) => ({ ...p, format: v }))}
+              options={[{ value: 'png', label: 'PNG' }, { value: 'pdf', label: 'PDF' }]} />
+          </div>
+          <div data-testid="export-seg-resolution">
+            <Seg label="解析度" value={prefs.resolution} onChange={(v) => setPrefs((p) => ({ ...p, resolution: v }))}
+              options={[
+                { value: 'std', label: '標準 2x' },
+                { value: 'high', label: '高 3x' },
+                { value: 'print', label: '印刷 4x' },
+              ]} />
+          </div>
+          <div style={{ padding: '10px 10px 8px', marginTop: 4, borderTop: `1px solid ${WB.hair}` }}>
+            <DropdownMenu.Item
+              asChild
+              onSelect={(e) => { if (busy) e.preventDefault(); else onExport(); }}
+            >
+              <button
+                type="button"
+                data-testid="holding-export-trigger"
+                disabled={busy}
+                style={{
+                  width: '100%', padding: '9px 12px', background: WB.ink, color: WB.surface,
+                  border: 'none', borderRadius: 2, cursor: busy ? 'wait' : 'pointer', fontFamily: 'inherit',
+                  fontSize: 11, letterSpacing: '0.16em', fontWeight: 600,
+                  display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 6,
+                  outline: 'none',
+                }}>
+                {prefs.format === 'pdf' ? <FileText size={12} /> : <ImageIcon size={12} />}
+                立即匯出（{Math.round(px)}px · {summary}）
+              </button>
+            </DropdownMenu.Item>
+          </div>
+          <div style={{ display: 'flex', flexDirection: 'column', gap: 2, padding: '0 4px 4px' }}>
+            <DropdownMenu.Item
+              onSelect={(e) => { if (busy) e.preventDefault(); else onCopy(); }}
+              style={menuItemStyle(WB, false)}
+            >
+              <Copy size={12} /> 複製 1:1 PNG 到剪貼簿
+            </DropdownMenu.Item>
+            <DropdownMenu.Item
+              onSelect={() => onShareMode()}
+              style={menuItemStyle(WB, false)}
+            >
+              <Camera size={12} /> 螢幕預覽 SHARE MODE
+            </DropdownMenu.Item>
+          </div>
+        </DropdownMenu.Content>
+      </DropdownMenu.Portal>
+    </DropdownMenu.Root>
   );
 }
 
-function menuPanel(WB) {
-  return {
-    position: 'absolute', right: 0, top: 'calc(100% + 4px)', zIndex: 50,
-    minWidth: 160, background: WB.surface, border: `1px solid ${WB.hair}`,
-    borderRadius: 2, padding: 4, boxShadow: '0 8px 24px rgba(41,37,32,0.08)',
-    display: 'flex', flexDirection: 'column', gap: 2,
-  };
-}
-function menuItem(WB, active) {
-  return {
-    background: active ? WB.surfaceSoft : 'transparent', border: 'none',
-    color: WB.ink, fontSize: 11, padding: '7px 10px', textAlign: 'left',
-    cursor: 'pointer', fontFamily: 'inherit', borderRadius: 2,
-    letterSpacing: '0.04em',
-  };
-}
-function menuHeader(WB) {
-  return { fontSize: 9, color: WB.inkLight, letterSpacing: '0.18em', fontWeight: 600, padding: '4px 10px' };
-}
 
 // ──────────────────── Scenario Sandbox ────────────────────
 
