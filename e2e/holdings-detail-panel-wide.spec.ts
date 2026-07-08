@@ -47,12 +47,13 @@ test.describe('Holdings detail panel @ 1280px (wide viewport)', () => {
     await expect(panel.locator('[data-testid="holdings-comparison-charts"]')).toBeVisible();
 
     // ExportMenu 與三段 segmented + 立即匯出按鈕
+    // Radix DropdownMenu 會 portal Content 到 body，所以 seg / trigger 在 page 層級查
     const exportMenu = panel.locator('[data-testid="holdings-export-menu"]');
     await expect(exportMenu).toBeVisible();
-    await exportMenu.locator('button[aria-label="匯出"]').click();
-    await expect(exportMenu.locator('[data-testid="export-seg-ratio"]')).toBeVisible();
-    await expect(exportMenu.locator('[data-testid="export-seg-format"]')).toBeVisible();
-    await expect(exportMenu.locator('[data-testid="export-seg-resolution"]')).toBeVisible();
-    await expect(exportMenu.locator('[data-testid="holding-export-trigger"]')).toBeVisible();
+    await exportMenu.click();
+    await expect(page.locator('[data-testid="export-seg-ratio"]')).toBeVisible();
+    await expect(page.locator('[data-testid="export-seg-format"]')).toBeVisible();
+    await expect(page.locator('[data-testid="export-seg-resolution"]')).toBeVisible();
+    await expect(page.locator('[data-testid="holding-export-trigger"]')).toBeVisible();
   });
 });
