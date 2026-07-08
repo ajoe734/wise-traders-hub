@@ -729,21 +729,42 @@ function HoldingsSectorSummaryImpl({
                   </button>
                   <button
                     type="button"
-                    aria-label={`刪除預設 ${p.name}`}
+                    aria-label={pendingDeleteId === p.id ? `確認刪除預設 ${p.name}` : `刪除預設 ${p.name}`}
+                    title={pendingDeleteId === p.id ? '再點一次確認刪除，或稍待自動取消' : `刪除預設「${p.name}」`}
                     onClick={() => {
-                      if (window.confirm(`刪除預設「${p.name}」？`)) removePreset(p.id)
+                      if (pendingDeleteId === p.id) {
+                        if (pendingDeleteTimer.current) { clearTimeout(pendingDeleteTimer.current); pendingDeleteTimer.current = null }
+                        setPendingDeleteId(null)
+                        removePreset(p.id)
+                      } else {
+                        setPendingDeleteId(p.id)
+                        if (pendingDeleteTimer.current) clearTimeout(pendingDeleteTimer.current)
+                        pendingDeleteTimer.current = setTimeout(() => {
+                          setPendingDeleteId(null)
+                          pendingDeleteTimer.current = null
+                        }, 3000)
+                      }
+                    }}
+                    onBlur={() => {
+                      if (pendingDeleteId === p.id) {
+                        if (pendingDeleteTimer.current) { clearTimeout(pendingDeleteTimer.current); pendingDeleteTimer.current = null }
+                        setPendingDeleteId(null)
+                      }
                     }}
                     style={{
-                      fontSize: 11,
-                      padding: '2px 6px 2px 2px',
-                      background: 'transparent',
-                      border: 'none',
-                      color: C.textMute,
+                      fontSize: pendingDeleteId === p.id ? 10 : 11,
+                      padding: pendingDeleteId === p.id ? '2px 6px' : '2px 6px 2px 2px',
+                      background: pendingDeleteId === p.id ? C.text : 'transparent',
+                      border: pendingDeleteId === p.id ? `1px solid ${C.text}` : 'none',
+                      borderRadius: 2,
+                      color: pendingDeleteId === p.id ? '#fff' : C.textMute,
                       cursor: 'pointer',
                       lineHeight: 1,
+                      letterSpacing: pendingDeleteId === p.id ? '0.08em' : 0,
+                      fontWeight: pendingDeleteId === p.id ? 500 : 400,
                     }}
                   >
-                    ✕
+                    {pendingDeleteId === p.id ? '確認刪除' : '✕'}
                   </button>
                 </>
               )}
