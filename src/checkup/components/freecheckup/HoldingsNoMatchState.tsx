@@ -1,4 +1,5 @@
 import { memo } from "react";
+import "../../styles/holdingsStates.css";
 
 /**
  * HoldingsNoMatchState — 有持倉但被篩選/搜尋過濾掉時的空狀態 + 清除全部篩選 CTA
@@ -25,8 +26,11 @@ function HoldingsNoMatchState({ totalCount, WB, onClearAll }) {
         目前 {totalCount} 檔持倉中沒有符合搜尋與篩選條件的標的，試著放寬條件。
       </span>
       <button
+        type="button"
         onClick={onClearAll}
+        className="holdings-nomatch-cta"
         style={{
+          ['--wb-ink' as any]: WB.ink,
           background:'transparent',
           color:WB.ink,
           border:`1px solid ${WB.hairStrong}`,
@@ -37,10 +41,7 @@ function HoldingsNoMatchState({ totalCount, WB, onClearAll }) {
           fontWeight:500,
           letterSpacing:'0.16em',
           cursor:'pointer',
-          transition:'background 160ms ease, color 160ms ease',
         }}
-        onMouseEnter={(e)=>{e.currentTarget.style.background=WB.ink;e.currentTarget.style.color='#fff';}}
-        onMouseLeave={(e)=>{e.currentTarget.style.background='transparent';e.currentTarget.style.color=WB.ink;}}
       >
         清除所有篩選
       </button>

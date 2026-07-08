@@ -1,0 +1,24 @@
+/* HoldingsEmptyState / HoldingsNoMatchState — hover / focus 樣式
+ * 從元件 inline `onMouseEnter/Leave` 搬遷至 CSS，讓 :hover / :focus-visible
+ * 由瀏覽器維護，避免 React re-render 期間 mouse handler race 造成狀態殘留。
+ * C2（audit 2026-07）。
+ */
+
+/* 空狀態 CTA：現在上傳成交 */
+.holdings-empty-cta {
+  transition: opacity 160ms ease;
+}
+.holdings-empty-cta:hover,
+.holdings-empty-cta:focus-visible {
+  opacity: 0.85;
+}
+
+/* 無符合條件 CTA：清除所有篩選（透明底 → ink 反白） */
+.holdings-nomatch-cta {
+  transition: background 160ms ease, color 160ms ease;
+}
+.holdings-nomatch-cta:hover,
+.holdings-nomatch-cta:focus-visible {
+  background: var(--wb-ink, #1E1E1D) !important;
+  color: #fff !important;
+}

@@ -1,4 +1,5 @@
 import { memo } from "react";
+import "../../styles/holdingsStates.css";
 
 /**
  * HoldingsEmptyState — 零持倉時的 3 步教學 + 上傳成交 CTA
@@ -96,7 +97,9 @@ function HoldingsEmptyState({ WB, onUpload }) {
       </div>
 
       <button
+        type="button"
         onClick={onUpload}
+        className="holdings-empty-cta"
         style={{
           marginTop:4,
           background:WB.ink,
@@ -109,10 +112,7 @@ function HoldingsEmptyState({ WB, onUpload }) {
           fontWeight:500,
           letterSpacing:'0.18em',
           cursor:'pointer',
-          transition:'opacity 160ms ease',
         }}
-        onMouseEnter={(e)=>{e.currentTarget.style.opacity='0.85';}}
-        onMouseLeave={(e)=>{e.currentTarget.style.opacity='1';}}
       >
         現在上傳成交
       </button>
