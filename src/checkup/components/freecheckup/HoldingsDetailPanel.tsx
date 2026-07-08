@@ -251,6 +251,14 @@ function HoldingsDetailPanelImpl({
 
   // 鍵盤快捷鍵：Cmd/Ctrl+Z undo、Cmd/Ctrl+Shift+Z redo。
   // INPUT/TEXTAREA focus 時讓瀏覽器原生 undo 走，避免干擾輸入。
+  // Bug B6 fix：simHistory.undo/redo 可能每 render 是新 reference，會導致 effect 反覆綁定。
+  // 用 ref 存最新版，effect 只在 selected 變化時重綁一次。
+  const undoRef = useRef(simHistory.undo);
+  const redoRef = useRef(simHistory.redo);
+  useEffect(() => {
+    undoRef.current = simHistory.undo;
+    redoRef.current = simHistory.redo;
+  });
   useEffect(() => {
     if (!selected) return;
     const onKey = (e: KeyboardEvent) => {
@@ -259,12 +267,12 @@ function HoldingsDetailPanelImpl({
       const mod = e.metaKey || e.ctrlKey;
       if (!mod || e.key.toLowerCase() !== 'z') return;
       e.preventDefault();
-      if (e.shiftKey) simHistory.redo();
-      else simHistory.undo();
+      if (e.shiftKey) redoRef.current();
+      else undoRef.current();
     };
     window.addEventListener('keydown', onKey);
     return () => window.removeEventListener('keydown', onKey);
-  }, [selected, simHistory.undo, simHistory.redo]);
+  }, [selected]);
 
   // 早期 return 必須在所有 hooks 之後
   if (!selected) return null;
