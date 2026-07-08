@@ -38,6 +38,9 @@ function HoldingsFooterBar({
           <button
             type="button"
             onClick={() => setSortMenuOpen(v => !v)}
+            aria-haspopup="listbox"
+            aria-expanded={sortMenuOpen}
+            aria-label={`依 ${currentSortLabel} 排序，目前為${sortDir === 'desc' ? '降冪' : '升冪'}`}
             style={{
               background:'transparent', border:'none', padding:0, margin:0,
               fontSize:10, color:WB.inkMute, letterSpacing:'0.16em', fontWeight:500,
