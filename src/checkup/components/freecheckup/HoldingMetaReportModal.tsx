@@ -5,7 +5,7 @@
  * 讓使用者當場修正產業族群、題材、策略、營收比重，寫入 holding_meta_overrides。
  * 存檔後 useMetaOverrides 自動 invalidate cache，聚合面板即時更新。
  */
-import { useEffect, useMemo, useState } from 'react'
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 
 const CHIP_STYLE = {
   fontSize: 12,
