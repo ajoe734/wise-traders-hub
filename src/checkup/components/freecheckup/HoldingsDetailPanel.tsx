@@ -91,6 +91,12 @@ function HoldingsDetailPanelImpl({
   const screenRef = useRef(null);
   const exportHostRef = useRef(null);
   const [exportNode, setExportNode] = useState(null); // { variant, props } 觸發離屏渲染
+  // Bug B1 fix：runExport async 期間可能被 unmount，避免 setState on unmounted
+  const isMountedRef = useRef(true);
+  useEffect(() => {
+    isMountedRef.current = true;
+    return () => { isMountedRef.current = false; };
+  }, []);
   const { busy, downloadPng, downloadPdf, copy } = useHoldingShareExport({ backgroundColor: WB.surface });
 
   useEffect(() => { savePrefs(prefs); }, [prefs]);
