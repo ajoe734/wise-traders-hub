@@ -34,7 +34,12 @@ export default function HoldingExportCard({
   const pnlColor = pctVal > 0 ? WB.accent : pctVal < 0 ? '#8A857F' : WB.inkMute;
   const actionLabel = decision?.actionType === 'exit' ? 'EXIT' : decision?.actionType === 'review' ? 'REVIEW' : 'HOLD';
   const tp = scenario?.simTarget ?? baseTarget;
-  const upside = scenario?.upsidePct ?? (tp && holding?.price ? ((tp - holding.price) / holding.price * 100) : null);
+  // Bug B8 fix：對 price=0 或 NaN 需明確判斷，否則 upside 會出現 Infinity/NaN
+  const _priceForUpside = Number(holding?.price);
+  const upside = scenario?.upsidePct
+    ?? (tp != null && Number.isFinite(_priceForUpside) && _priceForUpside > 0
+          ? ((tp - _priceForUpside) / _priceForUpside) * 100
+          : null);
 
   const Big = ({ children, color = WB.ink, size = 220 }) => (
     <div style={{
