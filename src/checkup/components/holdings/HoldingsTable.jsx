@@ -393,34 +393,38 @@ export function HoldingsTable({
     )
   }
 
-  const sorted = [...holdings].sort((a, b) => {
-    let aVal, bVal
-    switch (sortBy) {
-      case 'code':
-        aVal = a.code
-        bVal = b.code
-        break
-      case 'value':
-        aVal = getHoldingMarketValue(a)
-        bVal = getHoldingMarketValue(b)
-        break
-      case 'pnl':
-        aVal = getHoldingUnrealizedPnl(a)
-        bVal = getHoldingUnrealizedPnl(b)
-        break
-      case 'pct':
-        aVal = getHoldingReturnPct(a)
-        bVal = getHoldingReturnPct(b)
-        break
-      default:
-        aVal = a.code
-        bVal = b.code
-    }
-    if (sortDir === 'asc') {
-      return aVal < bVal ? -1 : aVal > bVal ? 1 : 0
-    }
-    return aVal > bVal ? -1 : aVal < bVal ? 1 : 0
-  })
+  // Bug B4 fix：sort 是 O(n log n)，quote tick 高頻 re-render 下每秒跑數十次會拖慢低階裝置。
+  // useMemo 讓 sort 只在 holdings / sortBy / sortDir 變動時執行。
+  const sorted = useMemo(() => {
+    return [...holdings].sort((a, b) => {
+      let aVal, bVal
+      switch (sortBy) {
+        case 'code':
+          aVal = a.code
+          bVal = b.code
+          break
+        case 'value':
+          aVal = getHoldingMarketValue(a)
+          bVal = getHoldingMarketValue(b)
+          break
+        case 'pnl':
+          aVal = getHoldingUnrealizedPnl(a)
+          bVal = getHoldingUnrealizedPnl(b)
+          break
+        case 'pct':
+          aVal = getHoldingReturnPct(a)
+          bVal = getHoldingReturnPct(b)
+          break
+        default:
+          aVal = a.code
+          bVal = b.code
+      }
+      if (sortDir === 'asc') {
+        return aVal < bVal ? -1 : aVal > bVal ? 1 : 0
+      }
+      return aVal > bVal ? -1 : aVal < bVal ? 1 : 0
+    })
+  }, [holdings, sortBy, sortDir])
 
   // stable toggle callback so memo'd HoldingRow doesn't re-render on every parent render
   const expandedStockRef = useRef(expandedStock)
