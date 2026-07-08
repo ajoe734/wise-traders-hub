@@ -63,10 +63,12 @@ function FilterGroup({ label, dimension, options, set, setter, toggleSetItem, C,
       <span style={{ fontSize: 10, color: C.textMute, letterSpacing: '0.08em', fontWeight: 400, minWidth: 36 }}>{label}</span>
       {options.map(([val, l]) =>
         chipBtn(set.has(val), () => {
+          // Bug B7 fix：先算 action 再 toggle，避免 setter 執行後 set 的 snapshot 與 action 不一致
+          const action = set.has(val) ? 'remove' : 'add';
           toggleSetItem(setter)(val);
           try {
             track('checkup_holdings_filter_change', {
-              dimension, value: String(val), action: set.has(val) ? 'remove' : 'add',
+              dimension, value: String(val), action,
             });
           } catch {}
         }, l, val, C, alpha)
