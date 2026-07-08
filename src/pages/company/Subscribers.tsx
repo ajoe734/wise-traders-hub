@@ -9,10 +9,11 @@ import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Checkbox } from '@/components/ui/checkbox';
 import { supabase } from '@/integrations/supabase/client';
-import { Search, Users, UserCheck, UserX, RefreshCw, Download, Stethoscope, MessageCircle, History, Eye, Link2 } from 'lucide-react';
+import { Search, Users, UserCheck, UserX, RefreshCw, Download, Stethoscope, MessageCircle, History, Eye, Link2, Bell } from 'lucide-react';
 import { useUserIdentities, formatIdentitySecondary } from '@/hooks/useUserIdentities';
 import { formatTaipeiYMD } from '@/checkup/utils/formatTaipeiDate';
 import { LinePushDialog } from '@/components/company/LinePushDialog';
+import { PlatformNotifyDialog } from '@/components/company/PlatformNotifyDialog';
 import { AdminForceMergeDialog } from '@/components/company/AdminForceMergeDialog';
 import { launchViewAs } from '@/lib/viewAsLauncher';
 
@@ -33,6 +34,8 @@ const CompanySubscribers = () => {
   const [kindFilter, setKindFilter] = useState<'all' | 'expert' | 'checkup'>('all');
   const [selectedUserIds, setSelectedUserIds] = useState<Set<string>>(new Set());
   const [pushOpen, setPushOpen] = useState(false);
+  const [notifyOpen, setNotifyOpen] = useState(false);
+  const [notifyTarget, setNotifyTarget] = useState<{ user_id: string; display_name?: string } | null>(null);
   const [mergeTarget, setMergeTarget] = useState<{ userId: string; label: string } | null>(null);
 
 
@@ -202,6 +205,13 @@ const CompanySubscribers = () => {
               <Link to="/company/line-push-history"><History className="h-4 w-4 mr-2" />推播紀錄</Link>
             </Button>
             <Button
+              variant="secondary" size="sm"
+              disabled={selectedUserIds.size === 0}
+              onClick={() => setNotifyOpen(true)}
+            >
+              <Bell className="h-4 w-4 mr-2" />站內通知 ({selectedUserIds.size})
+            </Button>
+            <Button
               variant="default" size="sm"
               disabled={selectedUserIds.size === 0}
               onClick={() => setPushOpen(true)}
@@ -335,6 +345,15 @@ const CompanySubscribers = () => {
                             <Button
                               variant="ghost"
                               size="sm"
+                              className="h-7 text-xs gap-1"
+                              onClick={() => setNotifyTarget({ user_id: sub.user_id, display_name: id?.display_name })}
+                              title="對此會員發送站內通知（鈴鐺提醒）"
+                            >
+                              <Bell className="h-3 w-3" />站內通知
+                            </Button>
+                            <Button
+                              variant="ghost"
+                              size="sm"
                               className="h-7 text-xs gap-1 text-muted-foreground hover:text-foreground"
                               onClick={() => setMergeTarget({ userId: sub.user_id, label: `${id?.display_name ?? ''} ${id?.email ?? ''}`.trim() })}
                               title="把另一個帳號合併到這個會員（代客綁定）"
@@ -358,6 +377,18 @@ const CompanySubscribers = () => {
         onOpenChange={setPushOpen}
         recipients={recipientRecords}
         onSent={() => setSelectedUserIds(new Set())}
+      />
+      <PlatformNotifyDialog
+        open={notifyOpen}
+        onOpenChange={setNotifyOpen}
+        recipients={recipientRecords.map((r) => ({ user_id: r.user_id, display_name: r.display_name }))}
+        onSent={() => setSelectedUserIds(new Set())}
+      />
+      <PlatformNotifyDialog
+        open={!!notifyTarget}
+        onOpenChange={(v) => { if (!v) setNotifyTarget(null); }}
+        recipients={notifyTarget ? [notifyTarget] : []}
+        onSent={() => setNotifyTarget(null)}
       />
       {mergeTarget && (
         <AdminForceMergeDialog
