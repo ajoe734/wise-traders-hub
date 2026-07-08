@@ -237,7 +237,8 @@ function HoldingsDetailPanelImpl({
       else if (kind === 'pdf') await downloadPdf(node, `${base}.pdf`, variant, { pixelRatio: opts.pixelRatio });
       else if (kind === 'copy') await copy(node, { pixelRatio: opts.pixelRatio });
     } finally {
-      setExportNode(null);
+      // Bug B1 fix：async 匯出中若切換卡片會 unmount，避免 setState on unmounted
+      if (isMountedRef.current) setExportNode(null);
     }
   };
 
