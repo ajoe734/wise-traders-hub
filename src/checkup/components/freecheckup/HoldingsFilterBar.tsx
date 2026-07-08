@@ -6,17 +6,8 @@ import { memo } from 'react';
 import { validateProps } from './_validateProps.js';
 import { track } from '@/lib/analytics/events';
 
-const trackFilter = (dimension, setter) => (value) => {
-  let action = 'add';
-  try {
-    setter((prev) => {
-      const next = new Set(prev);
-      if (next.has(value)) { next.delete(value); action = 'remove'; } else { next.add(value); action = 'add'; }
-      return next;
-    });
-    track('checkup_holdings_filter_change', { dimension, value: String(value), action });
-  } catch {}
-};
+// Bug B7 fix：原本的 `trackFilter` helper 未被任何呼叫者使用，且與下方 inline 版本邏輯重複。
+// 已移除，避免維護誤用；analytics 一律走 FilterGroup 內的 inline 版（見下方修正）。
 
 const SCHEMA = {
   totalCount: 'number',
@@ -72,10 +63,12 @@ function FilterGroup({ label, dimension, options, set, setter, toggleSetItem, C,
       <span style={{ fontSize: 10, color: C.textMute, letterSpacing: '0.08em', fontWeight: 400, minWidth: 36 }}>{label}</span>
       {options.map(([val, l]) =>
         chipBtn(set.has(val), () => {
+          // Bug B7 fix：先算 action 再 toggle，避免 setter 執行後 set 的 snapshot 與 action 不一致
+          const action = set.has(val) ? 'remove' : 'add';
           toggleSetItem(setter)(val);
           try {
             track('checkup_holdings_filter_change', {
-              dimension, value: String(val), action: set.has(val) ? 'remove' : 'add',
+              dimension, value: String(val), action,
             });
           } catch {}
         }, l, val, C, alpha)

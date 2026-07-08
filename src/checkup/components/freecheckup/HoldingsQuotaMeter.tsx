@@ -64,6 +64,8 @@ function HoldingsQuotaMeterImpl(props) {
   const ctaLabel = (isNone || isLineFree || tier === 'free') ? copy.ctaSubscribe : copy.ctaPro;
 
   // view 埋點：meter 出現即視為 paywall 曝光
+  // Bug C3 fix：補齊 deps（remain / limit），舊寫法用 `remain === 0` 表達式遮蓋真實依賴，
+  // 導致 remain 從 10→8 不會重新發 view 事件、參數也不新鮮。
   useEffect(() => {
     if (showUpgrade) {
       trackPaywall('view', 'holdings_quota_meter', { tier, remain, limit });
@@ -71,8 +73,7 @@ function HoldingsQuotaMeterImpl(props) {
     if (remain === 0 && showUpgrade) {
       trackPaywall('hit_limit', 'holdings_quota_meter', { tier, limit });
     }
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [showUpgrade, remain === 0, tier]);
+  }, [showUpgrade, tier, remain, limit]);
 
   const onUpgradeClick = (cta: string) => {
     trackPaywall('click_upgrade', 'holdings_quota_meter', { tier, remain, cta, variant });

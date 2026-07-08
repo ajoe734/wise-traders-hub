@@ -107,7 +107,11 @@ function HoldingCardImpl(props) {
   const todayPctNum: number | null = Number.isFinite(Number(h.todayPct)) ? Number(h.todayPct) : null;
   const hasToday = todayPnlNum != null || todayPctNum != null;
 
-  const upside = (tp && h.price) ? ((tp - h.price) / h.price * 100) : null;
+  // Bug B8 fix：`(tp && h.price)` 對 price=0 誤判為 falsy → upside=null；且未擋 NaN/負價。
+  const _priceForUpside = Number(h.price);
+  const upside = (tp != null && Number.isFinite(_priceForUpside) && _priceForUpside > 0)
+    ? ((tp - _priceForUpside) / _priceForUpside) * 100
+    : null;
 
   const isInk = variant === 'ink';
   const cardBg = isInk ? WB.ink : WB.surface;

@@ -37,7 +37,7 @@ function HoldingsUploadSummary({ uploadSummary, setUploadSummary, C, alpha }) {
         <div style={{fontSize:12,color:C.textSec,marginBottom:4,lineHeight:1.7}}>
           <span style={{color:C.textMute,marginRight:6}}>新增</span>
           {uploadSummary.added.map((it, i) => (
-            <span key={`a-${i}`} style={{marginRight:10}}>
+            <span key={it.code || `a-${i}`} style={{marginRight:10}}>
               {it.name || it.code} <span style={{color:C.textMute}}>·{it.code}</span> {it.qty}股
             </span>
           ))}
@@ -47,7 +47,7 @@ function HoldingsUploadSummary({ uploadSummary, setUploadSummary, C, alpha }) {
         <div style={{fontSize:12,color:C.textSec,lineHeight:1.7}}>
           <span style={{color:C.textMute,marginRight:6}}>更新</span>
           {uploadSummary.updated.map((it, i) => (
-            <span key={`u-${i}`} style={{marginRight:10}}>
+            <span key={it.code || `u-${i}`} style={{marginRight:10}}>
               {it.name || it.code} <span style={{color:C.textMute}}>·{it.code}</span> {it.action} {it.qty}股
             </span>
           ))}

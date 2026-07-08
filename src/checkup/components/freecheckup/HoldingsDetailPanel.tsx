@@ -91,6 +91,12 @@ function HoldingsDetailPanelImpl({
   const screenRef = useRef(null);
   const exportHostRef = useRef(null);
   const [exportNode, setExportNode] = useState(null); // { variant, props } 觸發離屏渲染
+  // Bug B1 fix：runExport async 期間可能被 unmount，避免 setState on unmounted
+  const isMountedRef = useRef(true);
+  useEffect(() => {
+    isMountedRef.current = true;
+    return () => { isMountedRef.current = false; };
+  }, []);
   const { busy, downloadPng, downloadPdf, copy } = useHoldingShareExport({ backgroundColor: WB.surface });
 
   useEffect(() => { savePrefs(prefs); }, [prefs]);
@@ -104,7 +110,13 @@ function HoldingsDetailPanelImpl({
   const pnlVal = Number(h.pnl ?? h.totalPnl ?? 0);
   const todayPct = Number.isFinite(Number(h.changePct)) ? Number(h.changePct) : null;
   const todayPnl = Number.isFinite(Number(h.todayPnl)) ? Number(h.todayPnl) : null;
-  const valueNum = Number(h.value ?? (Number(h.price) * Number(h.qty)) ?? 0);
+  // Bug B2 fix：`Number(undefined) ?? 0 = NaN`；用 isFinite 明確 fallback，避免 NaN 傳染下游 weight%
+  const _valueRaw = Number(h.value);
+  const _priceN = Number(h.price);
+  const _qtyN = Number(h.qty);
+  const valueNum = Number.isFinite(_valueRaw)
+    ? _valueRaw
+    : (Number.isFinite(_priceN) && Number.isFinite(_qtyN) ? _priceN * _qtyN : 0);
   const weightPct = totalPortfolioValue > 0 && valueNum > 0 ? (valueNum / totalPortfolioValue) * 100 : null;
   const sparkArrRaw = useMemo(
     () => (Array.isArray(sparkData30D) ? sparkData30D.filter((n) => Number.isFinite(n)) : []),
@@ -188,11 +200,13 @@ function HoldingsDetailPanelImpl({
   const urgencyLevel = dec?.urgency === 'now' ? 4 : dec?.urgency === 'soon' ? 3 : dec?.urgency === 'monitor' ? 2 : 1;
   const urgencyLabel = dec?.urgency === 'now' ? 'NOW' : dec?.urgency === 'soon' ? 'SOON' : dec?.urgency === 'monitor' ? 'MONITOR' : 'LOW';
   const pnlColor = displayPnlPct > 0 ? WB.accent : displayPnlPct < 0 ? '#8A857F' : WB.inkMute;
-  const stamp = useMemo(() => {
+  // Bug B5 fix：不使用 useMemo，避免 shareMode 開啟後 stamp 定格。
+  // 每次 render 都取最新時間；只有 exportNode 為 truthy 時才會實際被 render 到離屏卡片。
+  const stamp = (() => {
     const d = new Date();
     const pad = (n) => String(n).padStart(2, '0');
     return `${d.getFullYear()}/${pad(d.getMonth() + 1)}/${pad(d.getDate())} ${pad(d.getHours())}:${pad(d.getMinutes())}`;
-  }, [exportNode, shareMode]);
+  })();
 
   // ── 匯出流程 ──
   const exportCardProps = useMemo(() => ({
@@ -223,7 +237,8 @@ function HoldingsDetailPanelImpl({
       else if (kind === 'pdf') await downloadPdf(node, `${base}.pdf`, variant, { pixelRatio: opts.pixelRatio });
       else if (kind === 'copy') await copy(node, { pixelRatio: opts.pixelRatio });
     } finally {
-      setExportNode(null);
+      // Bug B1 fix：async 匯出中若切換卡片會 unmount，避免 setState on unmounted
+      if (isMountedRef.current) setExportNode(null);
     }
   };
 
@@ -236,6 +251,14 @@ function HoldingsDetailPanelImpl({
 
   // 鍵盤快捷鍵：Cmd/Ctrl+Z undo、Cmd/Ctrl+Shift+Z redo。
   // INPUT/TEXTAREA focus 時讓瀏覽器原生 undo 走，避免干擾輸入。
+  // Bug B6 fix：simHistory.undo/redo 可能每 render 是新 reference，會導致 effect 反覆綁定。
+  // 用 ref 存最新版，effect 只在 selected 變化時重綁一次。
+  const undoRef = useRef(simHistory.undo);
+  const redoRef = useRef(simHistory.redo);
+  useEffect(() => {
+    undoRef.current = simHistory.undo;
+    redoRef.current = simHistory.redo;
+  });
   useEffect(() => {
     if (!selected) return;
     const onKey = (e: KeyboardEvent) => {
@@ -244,12 +267,12 @@ function HoldingsDetailPanelImpl({
       const mod = e.metaKey || e.ctrlKey;
       if (!mod || e.key.toLowerCase() !== 'z') return;
       e.preventDefault();
-      if (e.shiftKey) simHistory.redo();
-      else simHistory.undo();
+      if (e.shiftKey) redoRef.current();
+      else undoRef.current();
     };
     window.addEventListener('keydown', onKey);
     return () => window.removeEventListener('keydown', onKey);
-  }, [selected, simHistory.undo, simHistory.redo]);
+  }, [selected]);
 
   // 早期 return 必須在所有 hooks 之後
   if (!selected) return null;

@@ -33,8 +33,7 @@ function HoldingsHeroImpl(props) {
   const totalPnl = totalVal - totalCost;
   const totalPct = totalCost > 0 ? ((totalPnl / totalCost) * 100) : 0;
   const isUp = totalPnl >= 0;
-  // wbTone 為 module-level pure fn，呼叫保留以維持與既有行為一致
-  void wbTone(totalPnl);
+  // Bug B3 fix：wbTone 為 pure fn，回傳值未被使用；render 期呼叫是死碼，移除以避免 Concurrent 疑慮
   const winRate = holdingsCount > 0 ? Math.round((winnersCount / holdingsCount) * 100) : 0;
   const today = new Date();
   const dateStr = `${today.getFullYear()}/${String(today.getMonth() + 1).padStart(2, '0')}/${String(today.getDate()).padStart(2, '0')}`;

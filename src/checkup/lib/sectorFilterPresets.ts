@@ -46,6 +46,9 @@ export function useSectorFilterPresets() {
     return () => window.removeEventListener('storage', onStorage)
   }, [])
 
+  // Bug A3 fix：write() 是副作用，不能塞在 setState updater 內。
+  // React 18 Strict Mode 會執行 updater 兩次，會造成 localStorage 與 state 不一致。
+  // 統一改為：read → 計算 next → write → setPresets(next)（一般 setter）。
   const save = useCallback((name, items, mode) => {
     const trimmed = String(name || '').trim()
     if (!trimmed || !Array.isArray(items) || items.length === 0) return { error: 'INVALID' }
@@ -61,20 +64,17 @@ export function useSectorFilterPresets() {
       mode: mode === 'intersection' ? 'intersection' : 'union',
       createdAt: Date.now(),
     }
-    setPresets((prev) => {
-      const next = [preset, ...prev].slice(0, 20)
-      write(next)
-      return next
-    })
+    const next = [preset, ...existing].slice(0, 20)
+    write(next)
+    setPresets(next)
     return { preset }
   }, [])
 
   const remove = useCallback((id) => {
-    setPresets((prev) => {
-      const next = prev.filter((p) => p.id !== id)
-      write(next)
-      return next
-    })
+    const existing = read()
+    const next = existing.filter((p) => p.id !== id)
+    write(next)
+    setPresets(next)
   }, [])
 
   const rename = useCallback((id, name) => {
@@ -87,13 +87,11 @@ export function useSectorFilterPresets() {
     if (conflict) {
       return { error: 'DUPLICATE_NAME', conflict: { id: conflict.id, name: conflict.name } }
     }
-    setPresets((prev) => {
-      const next = prev.map((p) =>
-        p.id === id ? { ...p, name: trimmed.slice(0, 40) } : p,
-      )
-      write(next)
-      return next
-    })
+    const next = existing.map((p) =>
+      p.id === id ? { ...p, name: trimmed.slice(0, 40) } : p,
+    )
+    write(next)
+    setPresets(next)
     return { ok: true }
   }, [])
 

@@ -5,7 +5,7 @@
  * 讓使用者當場修正產業族群、題材、策略、營收比重，寫入 holding_meta_overrides。
  * 存檔後 useMetaOverrides 自動 invalidate cache，聚合面板即時更新。
  */
-import { useEffect, useMemo, useState } from 'react'
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 
 const CHIP_STYLE = {
   fontSize: 12,
@@ -52,6 +52,11 @@ export default function HoldingMetaReportModal({ holding, currentMeta, onClose, 
   const [saving, setSaving] = useState(false)
   const [error, setError] = useState(null)
 
+  // Bug A2 fix：Modal a11y — ESC/body scroll lock/focus trap/focus restore
+  const dialogRef = useRef(null)
+  const previousFocusRef = useRef(null)
+  const stableOnClose = useCallback(() => onClose && onClose(), [onClose])
+
   useEffect(() => {
     if (!holding) return
     const inds = currentMeta?.industries?.length
@@ -69,6 +74,81 @@ export default function HoldingMetaReportModal({ holding, currentMeta, onClose, 
     }
     setError(null)
   }, [holding, currentMeta])
+
+  // body scroll lock + focus restore + keyboard trap
+  useEffect(() => {
+    if (!holding) return
+    const prevOverflow = document.body.style.overflow
+    document.body.style.overflow = 'hidden'
+    const prevActive = document.activeElement
+    previousFocusRef.current =
+      prevActive && prevActive !== document.body ? prevActive : null
+
+    // 初始 focus 落在 dialog 內第一個可聚焦元素
+    requestAnimationFrame(() => {
+      const root = dialogRef.current
+      if (!root) return
+      const first = root.querySelector(
+        'input, textarea, select, button, [tabindex]:not([tabindex="-1"])',
+      )
+      if (first && typeof first.focus === 'function') first.focus()
+    })
+
+    const onKey = (e) => {
+      if (e.key === 'Escape') {
+        e.preventDefault()
+        stableOnClose()
+        return
+      }
+      if (e.key !== 'Tab') return
+      const root = dialogRef.current
+      if (!root) return
+      const focusables = Array.from(
+        root.querySelectorAll(
+          'input, textarea, select, button, [href], [tabindex]:not([tabindex="-1"])',
+        ),
+      ).filter(
+        (el) =>
+          !el.hasAttribute('disabled') &&
+          el.getAttribute('aria-hidden') !== 'true' &&
+          (el.offsetParent !== null || el === document.activeElement),
+      )
+      if (focusables.length === 0) {
+        e.preventDefault()
+        return
+      }
+      const first = focusables[0]
+      const last = focusables[focusables.length - 1]
+      const active = document.activeElement
+      if (e.shiftKey) {
+        if (active === first || !root.contains(active)) {
+          e.preventDefault()
+          last.focus()
+        }
+      } else {
+        if (active === last) {
+          e.preventDefault()
+          first.focus()
+        } else if (!root.contains(active)) {
+          e.preventDefault()
+          first.focus()
+        }
+      }
+    }
+    window.addEventListener('keydown', onKey)
+    return () => {
+      window.removeEventListener('keydown', onKey)
+      document.body.style.overflow = prevOverflow
+      const restore = previousFocusRef.current
+      if (restore && restore.isConnected && typeof restore.focus === 'function') {
+        try {
+          restore.focus()
+        } catch {
+          /* noop */
+        }
+      }
+    }
+  }, [holding, stableOnClose])
 
   const mixParsed = useMemo(() => parseMix(mixText), [mixText])
   const mixTotal = mixParsed ? mixParsed.reduce((s, x) => s + x.pct, 0) : 0
@@ -114,6 +194,7 @@ export default function HoldingMetaReportModal({ holding, currentMeta, onClose, 
       }}
     >
       <div
+        ref={dialogRef}
         onClick={(e) => e.stopPropagation()}
         style={{
           background: '#FAF7F2',
