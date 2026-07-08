@@ -110,7 +110,13 @@ function HoldingsDetailPanelImpl({
   const pnlVal = Number(h.pnl ?? h.totalPnl ?? 0);
   const todayPct = Number.isFinite(Number(h.changePct)) ? Number(h.changePct) : null;
   const todayPnl = Number.isFinite(Number(h.todayPnl)) ? Number(h.todayPnl) : null;
-  const valueNum = Number(h.value ?? (Number(h.price) * Number(h.qty)) ?? 0);
+  // Bug B2 fix：`Number(undefined) ?? 0 = NaN`；用 isFinite 明確 fallback，避免 NaN 傳染下游 weight%
+  const _valueRaw = Number(h.value);
+  const _priceN = Number(h.price);
+  const _qtyN = Number(h.qty);
+  const valueNum = Number.isFinite(_valueRaw)
+    ? _valueRaw
+    : (Number.isFinite(_priceN) && Number.isFinite(_qtyN) ? _priceN * _qtyN : 0);
   const weightPct = totalPortfolioValue > 0 && valueNum > 0 ? (valueNum / totalPortfolioValue) * 100 : null;
   const sparkArrRaw = useMemo(
     () => (Array.isArray(sparkData30D) ? sparkData30D.filter((n) => Number.isFinite(n)) : []),
