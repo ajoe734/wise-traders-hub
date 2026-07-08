@@ -350,6 +350,7 @@ const CompanySubscribers = () => {
                               title="對此會員發送站內通知（鈴鐺提醒）"
                             >
                               <Bell className="h-3 w-3" />站內通知
+                            </Button>
                             <Button
                               variant="ghost"
                               size="sm"
