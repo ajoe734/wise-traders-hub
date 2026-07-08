@@ -194,6 +194,7 @@ export default function HoldingMetaReportModal({ holding, currentMeta, onClose, 
       }}
     >
       <div
+        ref={dialogRef}
         onClick={(e) => e.stopPropagation()}
         style={{
           background: '#FAF7F2',
