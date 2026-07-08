@@ -52,7 +52,7 @@ test.describe('Holdings detail panel @ 863px (narrow viewport)', () => {
     // ExportMenu 存在；展開後三段 segmented + 立即匯出按鈕可見
     const exportMenu = panel.locator('[data-testid="holdings-export-menu"]');
     await expect(exportMenu).toBeVisible();
-    await exportMenu.locator('summary[aria-label="匯出"]').click();
+    await exportMenu.locator('button[aria-label="匯出"]').click();
     await expect(exportMenu.locator('[data-testid="export-seg-ratio"]')).toBeVisible();
     await expect(exportMenu.locator('[data-testid="export-seg-format"]')).toBeVisible();
     await expect(exportMenu.locator('[data-testid="export-seg-resolution"]')).toBeVisible();
@@ -65,7 +65,7 @@ test.describe('Holdings detail panel @ 863px (narrow viewport)', () => {
     await expect(panel).toBeVisible({ timeout: 10_000 });
 
     const exportMenu = panel.locator('[data-testid="holdings-export-menu"]');
-    await exportMenu.locator('summary[aria-label="匯出"]').click();
+    await exportMenu.locator('button[aria-label="匯出"]').click();
 
     await exportMenu.locator('[data-testid="export-seg-ratio"]')
       .getByRole('button', { name: /16:9/ }).click();

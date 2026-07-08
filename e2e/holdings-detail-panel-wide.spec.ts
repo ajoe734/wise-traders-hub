@@ -49,7 +49,7 @@ test.describe('Holdings detail panel @ 1280px (wide viewport)', () => {
     // ExportMenu 與三段 segmented + 立即匯出按鈕
     const exportMenu = panel.locator('[data-testid="holdings-export-menu"]');
     await expect(exportMenu).toBeVisible();
-    await exportMenu.locator('summary[aria-label="匯出"]').click();
+    await exportMenu.locator('button[aria-label="匯出"]').click();
     await expect(exportMenu.locator('[data-testid="export-seg-ratio"]')).toBeVisible();
     await expect(exportMenu.locator('[data-testid="export-seg-format"]')).toBeVisible();
     await expect(exportMenu.locator('[data-testid="export-seg-resolution"]')).toBeVisible();
