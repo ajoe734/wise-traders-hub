@@ -50,13 +50,14 @@ test.describe('Holdings detail panel @ 863px (narrow viewport)', () => {
     await expect(panel.locator('[data-testid="holdings-comparison-charts"]')).toBeVisible();
 
     // ExportMenu 存在；展開後三段 segmented + 立即匯出按鈕可見
+    // Radix DropdownMenu 會 portal Content 到 body，所以 seg / trigger 在 page 層級查
     const exportMenu = panel.locator('[data-testid="holdings-export-menu"]');
     await expect(exportMenu).toBeVisible();
-    await exportMenu.locator('button[aria-label="匯出"]').click();
-    await expect(exportMenu.locator('[data-testid="export-seg-ratio"]')).toBeVisible();
-    await expect(exportMenu.locator('[data-testid="export-seg-format"]')).toBeVisible();
-    await expect(exportMenu.locator('[data-testid="export-seg-resolution"]')).toBeVisible();
-    await expect(exportMenu.locator('[data-testid="holding-export-trigger"]')).toBeVisible();
+    await exportMenu.click();
+    await expect(page.locator('[data-testid="export-seg-ratio"]')).toBeVisible();
+    await expect(page.locator('[data-testid="export-seg-format"]')).toBeVisible();
+    await expect(page.locator('[data-testid="export-seg-resolution"]')).toBeVisible();
+    await expect(page.locator('[data-testid="holding-export-trigger"]')).toBeVisible();
   });
 
   test('切換 Ratio/Format/Resolution 會即時持久化到 localStorage', async ({ page }) => {
