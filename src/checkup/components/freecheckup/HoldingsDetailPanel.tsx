@@ -905,14 +905,7 @@ function ComparisonCharts({ WB, h, price, cost, avgCostSim, target, stop, buyMor
       <RangeChart WB={WB} price={price} cost={cost} low={rangeLow} high={rangeHigh} spark={spark} tall />
       <WeightDonut WB={WB} weight={weight} weightSim={weightSim} tall />
       <WeightRankBar WB={WB} h={h} orderedDisplayed={orderedDisplayed} totalPortfolioValue={totalPortfolioValue} />
-      <style>{`
-        @media (max-width: 900px) {
-          .hp-cmp-row { grid-template-columns: repeat(2, minmax(0, 1fr)) !important; }
-        }
-        @media (max-width: 520px) {
-          .hp-cmp-row { grid-template-columns: 1fr !important; }
-        }
-      `}</style>
+      {/* C4 (audit 2026-07): RWD 規則搬至 src/checkup/styles/holdingsDetailPanel.css */}
     </div>
   );
 }
