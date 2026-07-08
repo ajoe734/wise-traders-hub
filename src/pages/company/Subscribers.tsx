@@ -9,10 +9,11 @@ import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Checkbox } from '@/components/ui/checkbox';
 import { supabase } from '@/integrations/supabase/client';
-import { Search, Users, UserCheck, UserX, RefreshCw, Download, Stethoscope, MessageCircle, History, Eye, Link2 } from 'lucide-react';
+import { Search, Users, UserCheck, UserX, RefreshCw, Download, Stethoscope, MessageCircle, History, Eye, Link2, Bell } from 'lucide-react';
 import { useUserIdentities, formatIdentitySecondary } from '@/hooks/useUserIdentities';
 import { formatTaipeiYMD } from '@/checkup/utils/formatTaipeiDate';
 import { LinePushDialog } from '@/components/company/LinePushDialog';
+import { PlatformNotifyDialog } from '@/components/company/PlatformNotifyDialog';
 import { AdminForceMergeDialog } from '@/components/company/AdminForceMergeDialog';
 import { launchViewAs } from '@/lib/viewAsLauncher';
 
@@ -33,6 +34,8 @@ const CompanySubscribers = () => {
   const [kindFilter, setKindFilter] = useState<'all' | 'expert' | 'checkup'>('all');
   const [selectedUserIds, setSelectedUserIds] = useState<Set<string>>(new Set());
   const [pushOpen, setPushOpen] = useState(false);
+  const [notifyOpen, setNotifyOpen] = useState(false);
+  const [notifyTarget, setNotifyTarget] = useState<{ user_id: string; display_name?: string } | null>(null);
   const [mergeTarget, setMergeTarget] = useState<{ userId: string; label: string } | null>(null);
 
 
@@ -200,6 +203,13 @@ const CompanySubscribers = () => {
           <div className="flex items-center gap-2">
             <Button variant="outline" size="sm" asChild>
               <Link to="/company/line-push-history"><History className="h-4 w-4 mr-2" />推播紀錄</Link>
+            </Button>
+            <Button
+              variant="secondary" size="sm"
+              disabled={selectedUserIds.size === 0}
+              onClick={() => setNotifyOpen(true)}
+            >
+              <Bell className="h-4 w-4 mr-2" />站內通知 ({selectedUserIds.size})
             </Button>
             <Button
               variant="default" size="sm"
