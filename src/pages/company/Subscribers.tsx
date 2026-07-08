@@ -345,6 +345,14 @@ const CompanySubscribers = () => {
                             <Button
                               variant="ghost"
                               size="sm"
+                              className="h-7 text-xs gap-1"
+                              onClick={() => setNotifyTarget({ user_id: sub.user_id, display_name: id?.display_name })}
+                              title="對此會員發送站內通知（鈴鐺提醒）"
+                            >
+                              <Bell className="h-3 w-3" />站內通知
+                            <Button
+                              variant="ghost"
+                              size="sm"
                               className="h-7 text-xs gap-1 text-muted-foreground hover:text-foreground"
                               onClick={() => setMergeTarget({ userId: sub.user_id, label: `${id?.display_name ?? ''} ${id?.email ?? ''}`.trim() })}
                               title="把另一個帳號合併到這個會員（代客綁定）"
@@ -368,6 +376,18 @@ const CompanySubscribers = () => {
         onOpenChange={setPushOpen}
         recipients={recipientRecords}
         onSent={() => setSelectedUserIds(new Set())}
+      />
+      <PlatformNotifyDialog
+        open={notifyOpen}
+        onOpenChange={setNotifyOpen}
+        recipients={recipientRecords.map((r) => ({ user_id: r.user_id, display_name: r.display_name }))}
+        onSent={() => setSelectedUserIds(new Set())}
+      />
+      <PlatformNotifyDialog
+        open={!!notifyTarget}
+        onOpenChange={(v) => { if (!v) setNotifyTarget(null); }}
+        recipients={notifyTarget ? [notifyTarget] : []}
+        onSent={() => setNotifyTarget(null)}
       />
       {mergeTarget && (
         <AdminForceMergeDialog
