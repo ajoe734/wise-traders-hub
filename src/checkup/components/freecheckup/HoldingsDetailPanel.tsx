@@ -1,7 +1,8 @@
 // @ts-nocheck
 import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import ReactDOM from 'react-dom';
-import { Camera, Download, Copy, X as XIcon, Settings, ChevronDown, RotateCcw, FileText, Image as ImageIcon, Undo2, Redo2 } from 'lucide-react';
+import * as DropdownMenu from '@radix-ui/react-dropdown-menu';
+import { Camera, Download, Copy, X as XIcon, Settings, ChevronDown, RotateCcw, FileText, Image as ImageIcon, Undo2, Redo2, Check } from 'lucide-react';
 import { useHoldingShareExport } from '@/checkup/hooks/useHoldingShareExport';
 import { useSimHistory } from '@/checkup/hooks/useSimHistory';
 import { Sparkline } from '@/pages/_freeCheckup/constants.jsx';
