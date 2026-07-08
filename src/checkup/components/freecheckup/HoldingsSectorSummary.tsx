@@ -61,8 +61,15 @@ function HoldingsSectorSummaryImpl({
     } catch { return 'created-desc' }
   })
   const [presetSearch, setPresetSearch] = useState('')
+  // C1（audit 2026-07）：以 inline 2-step 取代 window.confirm，避免瀏覽器彈窗阻塞 & a11y 差
+  const [pendingDeleteId, setPendingDeleteId] = useState(null)
+  const pendingDeleteTimer = useRef(null)
   const presetRefs = useRef(new Map())
   const highlightTimer = useRef(null)
+
+  useEffect(() => () => {
+    if (pendingDeleteTimer.current) clearTimeout(pendingDeleteTimer.current)
+  }, [])
 
   useEffect(() => {
     try { localStorage.setItem('checkup:sectorFilterPresets:sort:v1', sortMode) } catch {}
