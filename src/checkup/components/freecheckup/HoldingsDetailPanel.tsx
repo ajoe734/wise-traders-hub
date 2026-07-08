@@ -200,11 +200,13 @@ function HoldingsDetailPanelImpl({
   const urgencyLevel = dec?.urgency === 'now' ? 4 : dec?.urgency === 'soon' ? 3 : dec?.urgency === 'monitor' ? 2 : 1;
   const urgencyLabel = dec?.urgency === 'now' ? 'NOW' : dec?.urgency === 'soon' ? 'SOON' : dec?.urgency === 'monitor' ? 'MONITOR' : 'LOW';
   const pnlColor = displayPnlPct > 0 ? WB.accent : displayPnlPct < 0 ? '#8A857F' : WB.inkMute;
-  const stamp = useMemo(() => {
+  // Bug B5 fix：不使用 useMemo，避免 shareMode 開啟後 stamp 定格。
+  // 每次 render 都取最新時間；只有 exportNode 為 truthy 時才會實際被 render 到離屏卡片。
+  const stamp = (() => {
     const d = new Date();
     const pad = (n) => String(n).padStart(2, '0');
     return `${d.getFullYear()}/${pad(d.getMonth() + 1)}/${pad(d.getDate())} ${pad(d.getHours())}:${pad(d.getMinutes())}`;
-  }, [exportNode, shareMode]);
+  })();
 
   // ── 匯出流程 ──
   const exportCardProps = useMemo(() => ({
