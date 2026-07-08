@@ -456,6 +456,8 @@ function HoldingsTab(props) {
                     setFilterConflict(new Set());
                     setFilterPnl(new Set());
                     setFilterStrategy(new Set());
+                    // Bug A1 fix：族群 chip 也一併清除，避免使用者卡在空狀態
+                    setSectorFilterPersisted({ items: [], mode: 'union' });
                   }}
                 />
               ) : (
