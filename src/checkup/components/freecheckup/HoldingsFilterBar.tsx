@@ -6,17 +6,8 @@ import { memo } from 'react';
 import { validateProps } from './_validateProps.js';
 import { track } from '@/lib/analytics/events';
 
-const trackFilter = (dimension, setter) => (value) => {
-  let action = 'add';
-  try {
-    setter((prev) => {
-      const next = new Set(prev);
-      if (next.has(value)) { next.delete(value); action = 'remove'; } else { next.add(value); action = 'add'; }
-      return next;
-    });
-    track('checkup_holdings_filter_change', { dimension, value: String(value), action });
-  } catch {}
-};
+// Bug B7 fix：原本的 `trackFilter` helper 未被任何呼叫者使用，且與下方 inline 版本邏輯重複。
+// 已移除，避免維護誤用；analytics 一律走 FilterGroup 內的 inline 版（見下方修正）。
 
 const SCHEMA = {
   totalCount: 'number',
