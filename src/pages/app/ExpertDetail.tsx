@@ -191,52 +191,72 @@ const AppExpertDetail = () => {
         )}
 
 
-        <div className="pt-2">
-          <h2 className="text-base font-semibold mb-3 flex items-center gap-2 text-muted-foreground">
-            <Target className="h-4 w-4" />績效總覽
-          </h2>
-          <PerformanceOverviewPanel expertId={expert.id} startingCapital={(expert as any).startingCapital ?? null} variant={isAdvisor ? 'advisor' : 'mentor'} />
-        </div>
+        <Tabs value={activeTab} onValueChange={(v) => setSearchParams({ tab: v }, { replace: true })}>
+          <TabsList className="grid w-full grid-cols-2">
+            <TabsTrigger value="overview">績效與方案</TabsTrigger>
+            <TabsTrigger value="ai-chat" className="gap-1.5">
+              <MessageCircle className="h-3.5 w-3.5" />
+              問老師 AI
+            </TabsTrigger>
+          </TabsList>
 
-        {!isSubscribed && mainPlan && mainMeta && (
-          <div>
-            <h2 className="text-lg font-semibold mb-3 flex items-center gap-2">
-              <Target className={`h-5 w-5 ${isAdvisor ? 'text-advisor' : 'text-mentor'}`} />訂閱方案
-            </h2>
-            <Card className={`overflow-hidden border-2 ${isAdvisor ? 'border-advisor/30' : 'border-mentor/30'}`}>
-              <CardContent className="p-4">
-                <div className="flex items-start gap-3 mb-3">
-                  <div className={`flex h-10 w-10 items-center justify-center rounded-lg ${isAdvisor ? 'bg-advisor/10 text-advisor' : 'bg-mentor/10 text-mentor'}`}>
-                    <PlanIcon className="h-5 w-5" />
-                  </div>
-                  <div className="flex-1">
-                    <div className="flex items-center gap-2">
-                      <h3 className="font-semibold text-lg">{mainMeta.title}</h3>
-                      <Badge variant="outline" className="text-xs">{mainMeta.subtitle}</Badge>
+          <TabsContent value="overview" className="space-y-6 mt-4">
+            <div>
+              <h2 className="text-base font-semibold mb-3 flex items-center gap-2 text-muted-foreground">
+                <Target className="h-4 w-4" />績效總覽
+              </h2>
+              <PerformanceOverviewPanel expertId={expert.id} startingCapital={(expert as any).startingCapital ?? null} variant={isAdvisor ? 'advisor' : 'mentor'} />
+            </div>
+
+            {!isSubscribed && mainPlan && mainMeta && (
+              <div>
+                <h2 className="text-lg font-semibold mb-3 flex items-center gap-2">
+                  <Target className={`h-5 w-5 ${isAdvisor ? 'text-advisor' : 'text-mentor'}`} />訂閱方案
+                </h2>
+                <Card className={`overflow-hidden border-2 ${isAdvisor ? 'border-advisor/30' : 'border-mentor/30'}`}>
+                  <CardContent className="p-4">
+                    <div className="flex items-start gap-3 mb-3">
+                      <div className={`flex h-10 w-10 items-center justify-center rounded-lg ${isAdvisor ? 'bg-advisor/10 text-advisor' : 'bg-mentor/10 text-mentor'}`}>
+                        <PlanIcon className="h-5 w-5" />
+                      </div>
+                      <div className="flex-1">
+                        <div className="flex items-center gap-2">
+                          <h3 className="font-semibold text-lg">{mainMeta.title}</h3>
+                          <Badge variant="outline" className="text-xs">{mainMeta.subtitle}</Badge>
+                        </div>
+                        <p className="text-sm text-muted-foreground mt-1">{mainPlan.description || mainMeta.description}</p>
+                      </div>
                     </div>
-                    <p className="text-sm text-muted-foreground mt-1">{mainPlan.description || mainMeta.description}</p>
-                  </div>
-                </div>
-                <div className="flex items-baseline gap-1 mb-4">
-                  <span className="text-3xl font-bold">NT$ {mainPlan.price_monthly.toLocaleString()}</span>
-                  <span className="text-sm text-muted-foreground">/月</span>
-                </div>
-                <ul className="space-y-2 mb-4">
-                  {mainMeta.features.map((feature, idx) => (
-                    <li key={idx} className="flex items-center gap-2 text-sm">
-                      <Check className={`h-4 w-4 shrink-0 ${isAdvisor ? 'text-advisor' : 'text-mentor'}`} /><span>{feature}</span>
-                    </li>
-                  ))}
-                </ul>
-                <Button className={`w-full ${isAdvisor ? 'bg-advisor hover:bg-advisor/90' : 'bg-mentor hover:bg-mentor/90'} text-white`} onClick={() => navigate(`/expert/${slug}`)}>
-                  立即訂閱
-                </Button>
-              </CardContent>
-            </Card>
-          </div>
-        )}
+                    <div className="flex items-baseline gap-1 mb-4">
+                      <span className="text-3xl font-bold">NT$ {mainPlan.price_monthly.toLocaleString()}</span>
+                      <span className="text-sm text-muted-foreground">/月</span>
+                    </div>
+                    <ul className="space-y-2 mb-4">
+                      {mainMeta.features.map((feature, idx) => (
+                        <li key={idx} className="flex items-center gap-2 text-sm">
+                          <Check className={`h-4 w-4 shrink-0 ${isAdvisor ? 'text-advisor' : 'text-mentor'}`} /><span>{feature}</span>
+                        </li>
+                      ))}
+                    </ul>
+                    <Button className={`w-full ${isAdvisor ? 'bg-advisor hover:bg-advisor/90' : 'bg-mentor hover:bg-mentor/90'} text-white`} onClick={() => navigate(`/expert/${slug}`)}>
+                      立即訂閱
+                    </Button>
+                  </CardContent>
+                </Card>
+              </div>
+            )}
+          </TabsContent>
 
-        {/* Health check add-on removed — use full checkout page instead */}
+          <TabsContent value="ai-chat" className="mt-4">
+            <ExpertAiChatTab
+              expertId={expert.id}
+              expertName={expert.name}
+              isSubscribed={isSubscribed}
+              onSubscribeClick={() => navigate(`/expert/${slug}`)}
+            />
+          </TabsContent>
+        </Tabs>
+
       </div>
     </UnifiedAppLayout>
   );
