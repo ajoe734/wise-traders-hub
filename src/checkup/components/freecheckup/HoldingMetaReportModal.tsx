@@ -6,12 +6,19 @@
  * 存檔後 useMetaOverrides 自動 invalidate cache，聚合面板即時更新。
  */
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
+import { L as C, alpha } from '@/checkup/theme'
+
+// C10 (audit 2026-07)：色彩改走 theme token（L 常數），避免散落 hex。
+// 保留的字面色為語意狀態色（error / warn / success），theme 內沒有對應 token。
+const STATUS_ERROR = '#B23A3A'
+const STATUS_WARN = '#B57935'
+const STATUS_OK = '#5A7A5F'
 
 const CHIP_STYLE = {
   fontSize: 12,
   padding: '4px 8px',
   borderRadius: 4,
-  background: 'rgba(0,0,0,0.05)',
+  background: alpha(C.textMute, '14'),
   cursor: 'pointer',
   userSelect: 'none',
   border: '1px solid transparent',
@@ -197,20 +204,20 @@ export default function HoldingMetaReportModal({ holding, currentMeta, onClose, 
         ref={dialogRef}
         onClick={(e) => e.stopPropagation()}
         style={{
-          background: '#FAF7F2',
+          background: C.bg,
           maxWidth: 520,
           width: '100%',
           maxHeight: '90vh',
           overflowY: 'auto',
           padding: '20px 22px',
           borderRadius: 6,
-          border: '1px solid rgba(0,0,0,0.08)',
+          border: `1px solid ${C.border}`,
         }}
       >
-        <div style={{ fontSize: 14, fontWeight: 700, color: '#292520', marginBottom: 4 }}>
+        <div style={{ fontSize: 14, fontWeight: 700, color: C.text, marginBottom: 4 }}>
           回報分類 — {holding.name || holding.code}（{holding.code}）
         </div>
-        <div style={{ fontSize: 11, color: '#8B857A', marginBottom: 16, lineHeight: 1.6 }}>
+        <div style={{ fontSize: 11, color: C.textMute, marginBottom: 16, lineHeight: 1.6 }}>
           你回報的分類只影響你自己的帳號，其他人不會看到。
         </div>
 
@@ -233,7 +240,7 @@ export default function HoldingMetaReportModal({ holding, currentMeta, onClose, 
             style={{ ...inputStyle, fontFamily: 'ui-monospace, monospace', resize: 'vertical' }}
           />
           {mixParsed && (
-            <div style={{ fontSize: 11, color: mixTotal === 100 ? '#5A7A5F' : '#B57935', marginTop: 4 }}>
+            <div style={{ fontSize: 11, color: mixTotal === 100 ? STATUS_OK : STATUS_WARN, marginTop: 4 }}>
               解析 {mixParsed.length} 筆，合計 {mixTotal.toFixed(0)}%（將自動正規化到 100%）
             </div>
           )}
@@ -260,14 +267,14 @@ export default function HoldingMetaReportModal({ holding, currentMeta, onClose, 
         </Field>
 
         {error && (
-          <div style={{ fontSize: 12, color: '#B23A3A', marginTop: 8 }}>{error}</div>
+          <div style={{ fontSize: 12, color: STATUS_ERROR, marginTop: 8 }}>{error}</div>
         )}
 
         <div style={{ display: 'flex', gap: 8, justifyContent: 'flex-end', marginTop: 18 }}>
-          <button type="button" onClick={onClose} style={{ ...btnStyle, background: 'transparent', color: '#8B857A' }}>
+          <button type="button" onClick={onClose} style={{ ...btnStyle, background: 'transparent', color: C.textMute }}>
             取消
           </button>
-          <button type="button" onClick={save} disabled={saving} style={{ ...btnStyle, background: '#292520', color: '#F5F3EF' }}>
+          <button type="button" onClick={save} disabled={saving} style={{ ...btnStyle, background: C.text, color: C.bg }}>
             {saving ? '儲存中…' : '儲存'}
           </button>
         </div>
@@ -279,7 +286,7 @@ export default function HoldingMetaReportModal({ holding, currentMeta, onClose, 
 function Field({ label, children }) {
   return (
     <label style={{ display: 'block', marginBottom: 12 }}>
-      <div style={{ fontSize: 11, color: '#8B857A', letterSpacing: '0.08em', marginBottom: 4 }}>
+      <div style={{ fontSize: 11, color: C.textMute, letterSpacing: '0.08em', marginBottom: 4 }}>
         {label}
       </div>
       {children}
@@ -291,10 +298,10 @@ const inputStyle = {
   width: '100%',
   padding: '8px 10px',
   fontSize: 13,
-  border: '1px solid rgba(0,0,0,0.12)',
+  border: `1px solid ${alpha(C.textMute, '30')}`,
   borderRadius: 4,
-  background: '#FFF',
-  color: '#292520',
+  background: C.card,
+  color: C.text,
   boxSizing: 'border-box',
 }
 

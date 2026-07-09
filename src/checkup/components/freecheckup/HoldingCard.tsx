@@ -224,7 +224,7 @@ function HoldingCardImpl(props) {
   if (isInk && isFeatureSlot) {
     return (
       <button
-        key={h.code}
+        /* C9 (audit 2026-07)：移除元件根節點無效的 key 屬性；key 應由呼叫端在 .map() 提供 */
         ref={cardRef}
         className="wb-card wb-card-feature wb-span-feature"
         onClick={handleClick}
@@ -375,7 +375,7 @@ function HoldingCardImpl(props) {
   // ─── Normal card ───
   return (
     <button
-      key={h.code}
+      /* C9 (audit 2026-07)：移除元件根節點無效的 key 屬性；key 應由呼叫端在 .map() 提供 */
       ref={cardRef}
       className="wb-card wb-span-1"
       onClick={handleClick}
