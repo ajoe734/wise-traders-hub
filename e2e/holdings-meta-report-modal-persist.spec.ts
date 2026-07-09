@@ -173,12 +173,10 @@ test.describe('HoldingMetaReportModal — 儲存 → 關閉 → reopen 欄位保
 
 
 
-
-
-
-
-    // === Assert：欄位應顯示剛剛儲存的獨特值（不是原始值、不是空）===
+    // === Assert：儲存後 reopen，欄位必須是剛剛儲存的獨特值（非原始 base、非空）===
+    // 這是本測試的核心：override → useMetaOverrides state → getMultiMeta → currentMeta → 灌回 input。
     await expect(industriesInput2).toHaveValue(uniqueIndustry);
     expect(uniqueIndustry).not.toBe(initialIndustries);
   });
 });
+
