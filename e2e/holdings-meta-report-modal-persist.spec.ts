@@ -137,17 +137,11 @@ test.describe('HoldingMetaReportModal — 儲存 → 關閉 → reopen 欄位保
     await expect(dialog1).toHaveCount(0, { timeout: 5_000 });
 
     // === Act 2：reopen 同張卡片的 modal ===
-    // 為了穩定驗證「儲存後 override 會被 currentMeta 帶回」，做一次冷啟動 reload：
-    // 這條路徑同時涵蓋 in-memory reload（初次 GET 命中我們的 mock store）
-    // → 若 override 沒被灌回 currentMeta，reopen 仍會顯示 base 值，測試就會炸。
-    await page.reload({ waitUntil: 'domcontentloaded' });
-    await page.locator('.wb-card').first().waitFor({ state: 'visible', timeout: 15_000 });
-    // 等 useMetaOverrides 的第二次 GET（reload 後的初始化）完成
-    await page.waitForRequest(
-      (req) => req.url().includes('/rest/v1/holding_meta_overrides') && req.method() === 'GET',
-      { timeout: 10_000 },
-    );
-
+    // upsert 內部會 invalidateMetaOverridesCache + reload(true) → 觸發第 3 次 GET，
+    // 拿到剛剛寫入的 row → setOverrides(map) → 重繪 HoldingsTab → 下次 mount modal 時
+    // getMultiMeta 會拿到 override.industries 並灌回 industries state。
+    // 這條路徑是 useMetaOverrides 的核心 SWR 對比：如果 override 沒有正確 propagate，
+    // reopen 顯示的仍會是 STOCK_META base（"IC設計、AI/伺服器"），測試就會炸。
     const dialog2 = await openModal(page);
     const titleText2 = (await dialog2.locator(':scope > div').first()
       .locator('div').first().textContent()) ?? '';
@@ -155,6 +149,7 @@ test.describe('HoldingMetaReportModal — 儲存 → 關閉 → reopen 欄位保
     expect(codeMatch2?.[1], `reopen 應該打開同一張 code=${code} 的 modal`).toBe(code);
     const industriesInput2 = dialog2.locator('input[placeholder^="例："]').first();
     await expect(industriesInput2).toBeVisible();
+
 
 
     // === Assert：欄位應顯示剛剛儲存的獨特值（不是原始值、不是空）===
