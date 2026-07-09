@@ -249,8 +249,20 @@ export default defineConfig({
     {
       // HoldingMetaReportModal 從 HoldingCard 開啟：aria + Field label + C10 theme token + 3 條關閉路徑
       name: 'desktop-holdings-meta-report-modal',
-      testMatch: /holdings-meta-report-modal\.spec\.ts/,
+      testMatch: /holdings-meta-report-modal\.spec\.ts$/,
       use: { ...devices['Desktop Chrome'], viewport: { width: 1280, height: 900 } },
+    },
+    {
+      // 窄螢幕 863px（tablet）：HoldingMetaReportModal 仍能開/關 + theme token 一致
+      name: 'narrow-holdings-meta-report-modal',
+      testMatch: /holdings-meta-report-modal-narrow\.spec\.ts$/,
+      use: { ...devices['Desktop Chrome'], viewport: { width: 863, height: 900 } },
+    },
+    {
+      // 手機 375px：HoldingMetaReportModal 仍能開/關 + theme token 一致 + reopen 狀態清除
+      name: 'mobile-holdings-meta-report-modal',
+      testMatch: /holdings-meta-report-modal-narrow\.spec\.ts$/,
+      use: { ...devices['iPhone 12 Mini'], viewport: { width: 375, height: 812 } },
     },
     // RWD 防回歸：6 個斷點 × 公開頁面 → 不能有橫向 scroll
     {
