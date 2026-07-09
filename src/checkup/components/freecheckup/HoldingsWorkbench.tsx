@@ -8,7 +8,10 @@ import { Suspense, lazy, memo, useMemo } from 'react';
 import HoldingCard from '@/checkup/components/freecheckup/HoldingCard';
 import HoldingsEmptyState from '@/checkup/components/freecheckup/HoldingsEmptyState';
 import HoldingsNoMatchState from '@/checkup/components/freecheckup/HoldingsNoMatchState';
-import { mergeMeta } from '@/checkup/hooks/useMetaOverrides';
+// C12 (audit 2026-07)：改用 getMultiMeta 走 5 層權威（DB override → overlay JSON →
+// STOCK_META → TWSE → FinMind → UNCLASSIFIED），與族群聚合面板同源，
+// 避免 HoldingCard 上顯示「未分類」而聚合卡卻有產業的不一致。
+import { getMultiMeta } from '@/checkup/lib/stockMetaMulti.js';
 
 const HoldingsDetailPanel = lazy(
   () => import('@/checkup/components/freecheckup/HoldingsDetailPanel'),
@@ -106,7 +109,7 @@ function HoldingsWorkbench(props) {
             decision={decisionsMap[h.code]}
             target={targets?.[h.code]}
             avgTargetPrice={targets?.[h.code] ? avgTarget(h.code) : null}
-            meta={mergeMeta(STOCK_META[h.code], overrides?.[h.code])}
+            meta={getMultiMeta(h.code, STOCK_META, overrides?.[h.code])}
             sparkData={sparklines[h.code] || EMPTY_SPARK}
             sparkFailed={!!sparklineErrors[h.code]}
             variant={variantsMap.get(h.code) || 'plain'}

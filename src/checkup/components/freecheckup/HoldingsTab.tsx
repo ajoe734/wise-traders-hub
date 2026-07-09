@@ -434,15 +434,12 @@ function HoldingsTab(props) {
 
       {/* 分類回報 modal */}
       {reportingHolding && (
-        <HoldingMetaReportModal
-          holding={reportingHolding}
-          currentMeta={getMultiMeta(
-            reportingHolding.code,
-            STOCK_META,
-            overrides?.[reportingHolding.code],
-          )}
+        <ReportingModalHost
+          reportingHolding={reportingHolding}
+          STOCK_META={STOCK_META}
+          overrides={overrides}
+          upsertOverride={upsertOverride}
           onClose={() => setReportingHolding(null)}
-          upsert={upsertOverride}
         />
       )}
 
@@ -453,3 +450,24 @@ function HoldingsTab(props) {
 }
 
 export default memo(HoldingsTab);
+
+// C13 (audit 2026-07)：把 modal wrapper 抽成子元件，
+// 讓 currentMeta 用 useMemo 穩定 reference。
+// 否則 getMultiMeta(...) 每次 HoldingsTab render 都回傳新 object，
+// 觸發 modal 內 useEffect([holding, currentMeta]) 反覆 fire，
+// 把使用者剛輸入的欄位覆蓋回 base 值（e2e persist test 抓到此回歸）。
+function ReportingModalHost({ reportingHolding, STOCK_META, overrides, upsertOverride, onClose }) {
+  const overrideRow = overrides?.[reportingHolding.code];
+  const currentMeta = useMemo(
+    () => getMultiMeta(reportingHolding.code, STOCK_META, overrideRow),
+    [reportingHolding.code, STOCK_META, overrideRow],
+  );
+  return (
+    <HoldingMetaReportModal
+      holding={reportingHolding}
+      currentMeta={currentMeta}
+      onClose={onClose}
+      upsert={upsertOverride}
+    />
+  );
+}
