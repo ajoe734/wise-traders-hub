@@ -25,7 +25,8 @@ export function AdminLayout({ children }: AdminLayoutProps) {
   const navigate = useNavigate();
   const { user, logout, hasRole } = useAuth();
   const { resolvedTheme, setTheme } = useTheme();
-  const { data: expert, isLoading } = useExpert(expertSlug);
+  // 後台需要能看到 draft / suspended 的專家（否則新建或停用中的分析師無法進後台啟用）
+  const { data: expert, isLoading } = useExpert(expertSlug, { includeAllStatuses: true });
 
   // Ownership check: user must be company_admin OR the expert's owner (matching expert_slug)
   const isCompanyAdmin = hasRole('company_admin');
