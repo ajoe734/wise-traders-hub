@@ -150,14 +150,17 @@ const CompanyAnalysts = () => {
         <AnalystsTable
           loading={loading}
           experts={experts}
+          subscriberCounts={subscriberCounts}
           onOpenLine={lineEditor.openLineSettings}
           onOpenAccount={account.openAccountDialog}
           onToggleStatus={toggleStatus}
+          onOpenSubscribers={(exp) => setSubscribersExpert({ id: exp.id, name: exp.name })}
         />
       </div>
 
       <LineChannelDialog editor={lineEditor} />
       <AccountCredentialsDialog account={account} />
+      <SubscribersDialog expert={subscribersExpert} onClose={() => setSubscribersExpert(null)} />
     </CompanyLayout>
   );
 };
