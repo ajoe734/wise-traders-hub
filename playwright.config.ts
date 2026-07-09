@@ -262,7 +262,7 @@ export default defineConfig({
       // 手機 375px：HoldingMetaReportModal 仍能開/關 + theme token 一致 + reopen 狀態清除
       name: 'mobile-holdings-meta-report-modal',
       testMatch: /holdings-meta-report-modal-narrow\.spec\.ts$/,
-      use: { ...devices['iPhone 12 Mini'], viewport: { width: 375, height: 812 } },
+      use: { ...devices['Desktop Chrome'], viewport: { width: 375, height: 812 } },
     },
     // RWD 防回歸：6 個斷點 × 公開頁面 → 不能有橫向 scroll
     {
