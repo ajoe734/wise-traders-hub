@@ -226,7 +226,7 @@ export default function HoldingMetaReportModal({ holding, currentMeta, onClose, 
             type="text"
             value={industries}
             onChange={(e) => setIndustries(e.target.value)}
-            placeholder="例:AI/伺服器、電源管理、車用電子"
+            placeholder="例：AI/伺服器、電源管理、車用電子"
             style={inputStyle}
           />
         </Field>
@@ -251,7 +251,7 @@ export default function HoldingMetaReportModal({ holding, currentMeta, onClose, 
             type="text"
             value={themes}
             onChange={(e) => setThemes(e.target.value)}
-            placeholder="例:AI、CoWoS、資料中心"
+            placeholder="例：AI、CoWoS、資料中心"
             style={inputStyle}
           />
         </Field>
@@ -261,7 +261,7 @@ export default function HoldingMetaReportModal({ holding, currentMeta, onClose, 
             type="text"
             value={strategy}
             onChange={(e) => setStrategy(e.target.value)}
-            placeholder="例:成長股、景氣循環、ETF/指數"
+            placeholder="例：成長股、景氣循環、ETF/指數"
             style={inputStyle}
           />
         </Field>
