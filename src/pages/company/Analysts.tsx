@@ -12,6 +12,7 @@ import { AnalystsTable } from '@/pages/_companyAnalysts/AnalystsTable';
 import { CreateAnalystDialog } from '@/pages/_companyAnalysts/CreateAnalystDialog';
 import { LineChannelDialog } from '@/pages/_companyAnalysts/LineChannelDialog';
 import { AccountCredentialsDialog } from '@/pages/_companyAnalysts/AccountCredentialsDialog';
+import { SubscribersDialog } from '@/pages/_companyAnalysts/SubscribersDialog';
 
 const CompanyAnalysts = () => {
   const queryClient = useQueryClient();
@@ -26,6 +27,29 @@ const CompanyAnalysts = () => {
   const refetchExperts = () => queryClient.invalidateQueries({ queryKey: ['company-experts'] });
   const setExperts = (updater: (prev: any[]) => any[]) =>
     queryClient.setQueryData<any[]>(['company-experts'], (prev) => updater(prev || []));
+
+  // Active subscriber counts per expert (single query for whole page)
+  const { data: subscriberCounts = {} } = useQuery<Record<string, number>>({
+    queryKey: ['company-experts-subscriber-counts'],
+    queryFn: async () => {
+      const nowIso = new Date().toISOString();
+      const { data } = await supabase
+        .from('member_subscriptions')
+        .select('plan_id, expert_plans!inner(expert_id)')
+        .eq('status', 'active')
+        .or(`expires_at.is.null,expires_at.gt.${nowIso}`);
+      const map: Record<string, number> = {};
+      (data || []).forEach((row: any) => {
+        const eid = row.expert_plans?.expert_id;
+        if (!eid) return;
+        map[eid] = (map[eid] || 0) + 1;
+      });
+      return map;
+    },
+    staleTime: 30_000,
+  });
+
+  const [subscribersExpert, setSubscribersExpert] = useState<{ id: string; name: string } | null>(null);
 
   const [isCreateOpen, setIsCreateOpen] = useSessionBool('company_analyst_create_open', false);
 
@@ -126,14 +150,17 @@ const CompanyAnalysts = () => {
         <AnalystsTable
           loading={loading}
           experts={experts}
+          subscriberCounts={subscriberCounts}
           onOpenLine={lineEditor.openLineSettings}
           onOpenAccount={account.openAccountDialog}
           onToggleStatus={toggleStatus}
+          onOpenSubscribers={(exp) => setSubscribersExpert({ id: exp.id, name: exp.name })}
         />
       </div>
 
       <LineChannelDialog editor={lineEditor} />
       <AccountCredentialsDialog account={account} />
+      <SubscribersDialog expert={subscribersExpert} onClose={() => setSubscribersExpert(null)} />
     </CompanyLayout>
   );
 };

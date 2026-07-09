@@ -1,19 +1,21 @@
 import { Card, CardContent } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
-import { Eye, MessageCircle, Key } from 'lucide-react';
+import { Eye, MessageCircle, Key, Users } from 'lucide-react';
 import { Link } from 'react-router-dom';
 import { avatarUrl } from '@/lib/imageTransform';
 
 interface Props {
   loading: boolean;
   experts: any[];
+  subscriberCounts?: Record<string, number>;
   onOpenLine: (exp: any) => void;
   onOpenAccount: (exp: any) => void;
   onToggleStatus: (id: string, currentStatus: string) => void;
+  onOpenSubscribers?: (exp: any) => void;
 }
 
-export function AnalystsTable({ loading, experts, onOpenLine, onOpenAccount, onToggleStatus }: Props) {
+export function AnalystsTable({ loading, experts, subscriberCounts = {}, onOpenLine, onOpenAccount, onToggleStatus, onOpenSubscribers }: Props) {
   return (
     <Card>
       <CardContent className="p-0">
@@ -24,14 +26,15 @@ export function AnalystsTable({ loading, experts, onOpenLine, onOpenAccount, onT
               <th className="p-4">角色</th>
               <th className="p-4">Slug</th>
               <th className="p-4">狀態</th>
+              <th className="p-4">訂閱人數</th>
               <th className="p-4">操作</th>
             </tr>
           </thead>
           <tbody>
             {loading ? (
-              <tr><td colSpan={5} className="p-8 text-center text-muted-foreground text-sm">載入中...</td></tr>
+              <tr><td colSpan={6} className="p-8 text-center text-muted-foreground text-sm">載入中...</td></tr>
             ) : experts.length === 0 ? (
-              <tr><td colSpan={5} className="p-8 text-center text-muted-foreground text-sm">尚無分析師</td></tr>
+              <tr><td colSpan={6} className="p-8 text-center text-muted-foreground text-sm">尚無分析師</td></tr>
             ) : (
               experts.map(exp => (
                 <tr key={exp.id} className="border-b last:border-0 hover:bg-muted/50 transition-colors">
@@ -53,6 +56,18 @@ export function AnalystsTable({ loading, experts, onOpenLine, onOpenAccount, onT
                     >
                       {exp.status === 'suspended' ? '已停用' : '啟用中'}
                     </Badge>
+                  </td>
+                  <td className="p-4">
+                    <Button
+                      variant="ghost"
+                      size="sm"
+                      className="h-7 text-xs"
+                      onClick={() => onOpenSubscribers?.(exp)}
+                      disabled={!onOpenSubscribers}
+                    >
+                      <Users className="h-3 w-3 mr-1" />
+                      {subscriberCounts[exp.id] ?? 0} 人
+                    </Button>
                   </td>
                   <td className="p-4">
                     <div className="flex items-center gap-1 flex-wrap">
