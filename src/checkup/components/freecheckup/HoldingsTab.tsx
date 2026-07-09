@@ -74,7 +74,7 @@ const HOLDINGS_TAB_PROP_SCHEMA = {
   holdingSyncStates: _opt('any'), // { [code]: { syncing?: bool, error?: string } }
 };
 
-const HoldingsDetailPanel = lazy(() => import("@/checkup/components/freecheckup/HoldingsDetailPanel"));
+// C8 (audit 2026-07)：HoldingsDetailPanel 的 lazy import 已下沉到 HoldingsWorkbench
 
 /**
  * HoldingsTab — 從 FreeCheckup.jsx 抽出的「持倉」分頁完整內容（lazy-loaded）
