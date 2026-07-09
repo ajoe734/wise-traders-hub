@@ -63,6 +63,8 @@ interface DbPlan {
 const AppExpertDetail = () => {
   const { slug } = useParams<{ slug: string }>();
   const navigate = useNavigate();
+  const [searchParams, setSearchParams] = useSearchParams();
+  const activeTab = searchParams.get('tab') === 'ai-chat' ? 'ai-chat' : 'overview';
   const { data: subRows = [] } = useMemberSubscriptions();
   const subscribedPlanTypes = useMemo(
     () => subRows.filter(r => r.expert?.slug === slug).map(r => r.plan_type),
