@@ -304,11 +304,14 @@ describe('drift-detection: process-refund/index.ts 安全守衛邏輯', () => {
   });
 
   it('必填欄位驗證：subscription_id 或 refund_amount 缺少 → 400', () => {
-    expect(src).toContain('!subscription_id || refund_amount === undefined');
+    // 現行實作改走 validateInput helper：宣告兩個必填欄位 + 若有 issue 就回 400。
+    expect(src).toMatch(/subscription_id:\s*\{\s*required:\s*true/);
+    expect(src).toMatch(/refund_amount:\s*\{\s*required:\s*true/);
+    expect(src).toContain('validationJsonResponse(issues)');
   });
 
   it('負數退款金額守衛：refund_amount < 0 → 400（ISSUE-008 server-side validation）', () => {
-    expect(src).toContain('refund_amount < 0');
+    expect(src).toMatch(/Number\(refund_amount\)\s*<\s*0/);
   });
 
   it('訂閱 ownership 驗證：sub.user_id !== userId → 403，防止跨用戶退款', () => {

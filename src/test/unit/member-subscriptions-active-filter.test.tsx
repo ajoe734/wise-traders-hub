@@ -15,40 +15,41 @@ const eqSpy = vi.fn();
 const fromSpy = vi.fn();
 
 vi.mock('@/integrations/supabase/client', () => {
+  const resultPayload = {
+    data: [
+      {
+        plan_id: 'p1',
+        status: 'active',
+        user_id: 'u1',
+        expires_at: null,
+        expert_plans: {
+          plan_type: 'analyst_signal_l1',
+          expert_id: 'e1',
+          experts: {
+            id: 'e1',
+            slug: 'alice',
+            name: 'Alice',
+            avatar_url: null,
+            role: 'advisor',
+            status: 'active',
+            line_oa_id: null,
+            line_channel_name: null,
+            qr_code_url: null,
+          },
+        },
+      },
+    ],
+    error: null,
+  };
   const builder: any = {
     select: vi.fn(() => builder),
     eq: vi.fn((col: string, val: string) => {
       eqSpy(col, val);
-      // After two .eq() calls (user_id + status), resolve as thenable
-      if (col === 'status') {
-        return Promise.resolve({
-          data: [
-            {
-              plan_id: 'p1',
-              status: 'active',
-              user_id: 'u1',
-              expert_plans: {
-                plan_type: 'analyst_signal_l1',
-                expert_id: 'e1',
-                experts: {
-                  id: 'e1',
-                  slug: 'alice',
-                  name: 'Alice',
-                  avatar_url: null,
-                  role: 'advisor',
-                  status: 'active',
-                  line_oa_id: null,
-                  line_channel_name: null,
-                  qr_code_url: null,
-                },
-              },
-            },
-          ],
-          error: null,
-        });
-      }
       return builder;
     }),
+    // 現行 hook 在 .eq('status','active') 之後還會鏈一個 .or(...)，
+    // 讓 .or 才回傳 thenable，避免中間吞掉。
+    or: vi.fn(() => Promise.resolve(resultPayload)),
   };
   return {
     supabase: {
@@ -62,6 +63,12 @@ vi.mock('@/integrations/supabase/client', () => {
 
 vi.mock('@/contexts/AuthContext', () => ({
   useAuth: () => ({ user: { id: 'u1' } }),
+}));
+
+// useMemberSubscriptions → useEffectiveUserId → useViewAs（需要 ViewAsProvider）。
+// 單元測試不掛 provider，直接把 hook 打樁掉。
+vi.mock('@/hooks/useEffectiveUserId', () => ({
+  useEffectiveUserId: () => ({ userId: 'u1', isViewAs: false }),
 }));
 
 import { useMemberSubscriptions } from '@/hooks/useMemberSubscriptions';

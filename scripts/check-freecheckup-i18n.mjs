@@ -258,6 +258,15 @@ lines.forEach((line, idx) => {
       if (!/[A-Za-z]/.test(text)) continue;
       // aria-describedby / aria-labelledby 正確值是 ID（kebab/camel），由 looksLikeStyleOrAttr 放行
       if (looksLikeStyleOrAttr(text)) continue;
+      // 這兩個屬性允許「以空白分隔的多個 ID token」，每個 token 個別判斷。
+      // 判定為 ID：字元集合限縮 + 含有 `-`/`_`/digit（避免把純英文散文如
+      // "Open the holdings drawer" 誤放行）。單純 A-Z 詞代表散文，不放行。
+      if (attr === 'aria-describedby' || attr === 'aria-labelledby') {
+        const tokens = text.split(/\s+/).filter(Boolean);
+        const ID_TOKEN_RE = /^[A-Za-z][\w-]*$/;
+        const looksLikeId = (tok) => ID_TOKEN_RE.test(tok) && /[-_0-9]/.test(tok);
+        if (tokens.length > 0 && tokens.every(looksLikeId)) continue;
+      }
       if (isAllWhitelisted(text)) continue;
       // 多字英文且含空白才視為「散文」→ 強烈代表是被誤當文案
       const isProse = /\s/.test(text) && /[A-Za-z]{3,}/.test(text);
