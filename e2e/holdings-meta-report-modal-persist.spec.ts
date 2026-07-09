@@ -137,10 +137,22 @@ test.describe('HoldingMetaReportModal — 儲存 → 關閉 → reopen 欄位保
     await expect(dialog1).toHaveCount(0, { timeout: 5_000 });
 
     // 儲存後：wb-card 內的產業 chip 應該立刻反映新值（override → filteredSortedList → HoldingCard）
-    // 這步用 UI 直接驗證「overrides 已 propagate 到 HoldingsTab render」
     await expect(page.locator('.wb-card').getByText(uniqueIndustry).first()).toBeVisible({
       timeout: 10_000,
     });
+
+    // 直接對 client 打一次 GET，確認 mock/DB 端已寫入
+    const dbRow = await page.evaluate(async ({ host, code }) => {
+      const key = 'sb-yqacmrgdjlenbijclngi-auth-token';
+      const raw = localStorage.getItem(key);
+      const token = raw ? JSON.parse(raw).access_token : '';
+      const res = await fetch(`${host}/rest/v1/holding_meta_overrides?code=eq.${code}&select=*`, {
+        headers: { apikey: 'anon', authorization: `Bearer ${token}` },
+      });
+      return res.json();
+    }, { host: SUPABASE_HOST, code });
+    expect(Array.isArray(dbRow) && dbRow.length, `mock DB 應含 override row`).toBeTruthy();
+    expect(dbRow[0]?.industries).toEqual([uniqueIndustry]);
 
     // === Act 2：reopen 同張卡片的 modal ===
     const dialog2 = await openModal(page);
@@ -150,6 +162,7 @@ test.describe('HoldingMetaReportModal — 儲存 → 關閉 → reopen 欄位保
     expect(codeMatch2?.[1], `reopen 應該打開同一張 code=${code} 的 modal`).toBe(code);
     const industriesInput2 = dialog2.locator('input[placeholder^="例："]').first();
     await expect(industriesInput2).toBeVisible();
+
 
 
 
