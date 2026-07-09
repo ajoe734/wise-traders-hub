@@ -141,7 +141,7 @@ test.describe('HoldingMetaReportModal — 儲存 → 關閉 → reopen 欄位保
       timeout: 10_000,
     });
 
-    // 直接對 client 打一次 GET，確認 mock/DB 端已寫入
+    // 直接對 client 打一次 GET，確認 mock/DB 端已寫入（外部 persistence 契約）
     const dbRow = await page.evaluate(async ({ host, code }) => {
       const key = 'sb-yqacmrgdjlenbijclngi-auth-token';
       const raw = localStorage.getItem(key);
@@ -154,7 +154,16 @@ test.describe('HoldingMetaReportModal — 儲存 → 關閉 → reopen 欄位保
     expect(Array.isArray(dbRow) && dbRow.length, `mock DB 應含 override row`).toBeTruthy();
     expect(dbRow[0]?.industries).toEqual([uniqueIndustry]);
 
-    // === Act 2：reopen 同張卡片的 modal ===
+    // === Act 2：cold reload 頁面 → useMetaOverrides 從 mock DB 讀回 override
+    // → 再 reopen 同張卡片的 modal，industries 欄位必須是剛剛儲存的值。
+    // 用 full reload 讓「儲存 → 關閉 → reopen」跨越頁面生命週期，也才是使用者實際會遇到的路徑。
+    await page.reload({ waitUntil: 'domcontentloaded' });
+    await page.locator('.wb-card').first().waitFor({ state: 'visible', timeout: 15_000 });
+    // 等 useMetaOverrides 初始化的 GET 有機會 propagate 到 render
+    await expect(page.locator('.wb-card').getByText(uniqueIndustry).first()).toBeVisible({
+      timeout: 15_000,
+    });
+
     const dialog2 = await openModal(page);
     const titleText2 = (await dialog2.locator(':scope > div').first()
       .locator('div').first().textContent()) ?? '';
@@ -162,6 +171,7 @@ test.describe('HoldingMetaReportModal — 儲存 → 關閉 → reopen 欄位保
     expect(codeMatch2?.[1], `reopen 應該打開同一張 code=${code} 的 modal`).toBe(code);
     const industriesInput2 = dialog2.locator('input[placeholder^="例："]').first();
     await expect(industriesInput2).toBeVisible();
+
 
 
 
