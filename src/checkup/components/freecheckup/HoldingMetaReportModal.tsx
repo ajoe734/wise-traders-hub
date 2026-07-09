@@ -298,10 +298,10 @@ const inputStyle = {
   width: '100%',
   padding: '8px 10px',
   fontSize: 13,
-  border: '1px solid rgba(0,0,0,0.12)',
+  border: `1px solid ${alpha(C.textMute, '30')}`,
   borderRadius: 4,
-  background: '#FFF',
-  color: '#292520',
+  background: C.card,
+  color: C.text,
   boxSizing: 'border-box',
 }
 
