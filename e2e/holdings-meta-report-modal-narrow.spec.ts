@@ -85,12 +85,13 @@ test.describe('HoldingMetaReportModal @ narrow/mobile — 開/關 + C10 theme to
     await expect(dialog).toHaveCount(0, { timeout: 3_000 });
   });
 
-  test('關閉後再次開啟：aria + Field label 齊備、輸入狀態未殘留', async ({ page }) => {
+  test('關閉後再次開啟：aria + Field label 齊備、輸入未存檔即拋棄', async ({ page }) => {
     const dialog1 = await openModal(page);
-    // 填一段內容再關閉，驗證 reopen 後 input 是空的（unmount 應清除 state）
-    const industryInput = dialog1.locator('input[placeholder^="例："]').first();
-    await industryInput.fill('AI/伺服器、電源管理');
-    await expect(industryInput).toHaveValue('AI/伺服器、電源管理');
+    const input1 = dialog1.locator('input[placeholder^="例："]').first();
+    const initialValue = (await input1.inputValue()) ?? '';
+    // 亂改一段，但不按儲存 → 直接 ESC 關閉
+    await input1.fill(`${initialValue}__dirty_should_not_persist`);
+    await expect(input1).toHaveValue(`${initialValue}__dirty_should_not_persist`);
     await page.keyboard.press('Escape');
     await expect(dialog1).toHaveCount(0, { timeout: 3_000 });
 
@@ -100,8 +101,8 @@ test.describe('HoldingMetaReportModal @ narrow/mobile — 開/關 + C10 theme to
     for (const label of ['產業', '營收比重', '題材', '策略']) {
       await expect(dialog2.getByText(new RegExp(`^${label}`))).toBeVisible();
     }
-    // 首個「產業」input 應為空 — 不應殘留上次輸入
-    const industryInput2 = dialog2.locator('input[placeholder^="例："]').first();
-    await expect(industryInput2).toHaveValue('');
+    // 未儲存的輸入應該被拋棄 → 值回到 initialValue（來自 currentMeta 初始化）
+    const input2 = dialog2.locator('input[placeholder^="例："]').first();
+    await expect(input2).toHaveValue(initialValue);
   });
 });
