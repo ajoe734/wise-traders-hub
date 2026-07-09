@@ -12,6 +12,7 @@ import { AnalystsTable } from '@/pages/_companyAnalysts/AnalystsTable';
 import { CreateAnalystDialog } from '@/pages/_companyAnalysts/CreateAnalystDialog';
 import { LineChannelDialog } from '@/pages/_companyAnalysts/LineChannelDialog';
 import { AccountCredentialsDialog } from '@/pages/_companyAnalysts/AccountCredentialsDialog';
+import { SubscribersDialog } from '@/pages/_companyAnalysts/SubscribersDialog';
 
 const CompanyAnalysts = () => {
   const queryClient = useQueryClient();
