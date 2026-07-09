@@ -73,9 +73,8 @@ test.describe('HoldingMetaReportModal — 儲存 → 關閉 → reopen 欄位保
       // check_checkup_quota 之類的 RPC 沒 mock 就回 [] 即可
     });
 
-    page.on('console', (msg) => {
-      if (msg.type() === 'error') console.log('[browser err]', msg.text());
-    });
+
+
 
     // installRoutes 已裝一個廣義 /auth/v1/** → 回 {}；
     // 但 supabase.auth.getUser() 會打 /auth/v1/user 期望拿到 user 物件，
