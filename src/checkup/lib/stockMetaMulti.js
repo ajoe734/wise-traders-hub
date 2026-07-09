@@ -105,8 +105,14 @@ export function getMultiMeta(code, stockMeta, override) {
     normalizeMix(base?.revenueMix) ||
     null
 
-  // 若有 revenueMix，industries 順序改由 mix 決定
-  const finalIndustries = revenueMix
+  // 若有 revenueMix，industries 順序改由 mix 決定；
+  // 但 override 明確給了 industries 時必須完全尊重使用者輸入，
+  // 即使 revenueMix 也來自 override（modal 會把 base revenueMix 一併回傳）也不能覆蓋。
+  const hasIndustriesOverride =
+    Array.isArray(override?.industries) && override.industries.length > 0
+  const finalIndustries = hasIndustriesOverride
+    ? industries
+    : revenueMix
     ? revenueMix.map((m) => m.industry)
     : industries
 
