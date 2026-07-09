@@ -136,12 +136,13 @@ test.describe('HoldingMetaReportModal — 儲存 → 關閉 → reopen 欄位保
 
     await expect(dialog1).toHaveCount(0, { timeout: 5_000 });
 
+    // 儲存後：wb-card 內的產業 chip 應該立刻反映新值（override → filteredSortedList → HoldingCard）
+    // 這步用 UI 直接驗證「overrides 已 propagate 到 HoldingsTab render」
+    await expect(page.locator('.wb-card').getByText(uniqueIndustry).first()).toBeVisible({
+      timeout: 10_000,
+    });
+
     // === Act 2：reopen 同張卡片的 modal ===
-    // upsert 內部會 invalidateMetaOverridesCache + reload(true) → 觸發第 3 次 GET，
-    // 拿到剛剛寫入的 row → setOverrides(map) → 重繪 HoldingsTab → 下次 mount modal 時
-    // getMultiMeta 會拿到 override.industries 並灌回 industries state。
-    // 這條路徑是 useMetaOverrides 的核心 SWR 對比：如果 override 沒有正確 propagate，
-    // reopen 顯示的仍會是 STOCK_META base（"IC設計、AI/伺服器"），測試就會炸。
     const dialog2 = await openModal(page);
     const titleText2 = (await dialog2.locator(':scope > div').first()
       .locator('div').first().textContent()) ?? '';
@@ -149,6 +150,7 @@ test.describe('HoldingMetaReportModal — 儲存 → 關閉 → reopen 欄位保
     expect(codeMatch2?.[1], `reopen 應該打開同一張 code=${code} 的 modal`).toBe(code);
     const industriesInput2 = dialog2.locator('input[placeholder^="例："]').first();
     await expect(industriesInput2).toBeVisible();
+
 
 
 
