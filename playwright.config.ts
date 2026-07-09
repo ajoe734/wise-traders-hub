@@ -264,6 +264,12 @@ export default defineConfig({
       testMatch: /holdings-meta-report-modal-narrow\.spec\.ts$/,
       use: { ...devices['Desktop Chrome'], viewport: { width: 375, height: 812 } },
     },
+    {
+      // 儲存 → 關閉 → reopen：欄位必須從 override → currentMeta 帶回
+      name: 'desktop-holdings-meta-report-modal-persist',
+      testMatch: /holdings-meta-report-modal-persist\.spec\.ts$/,
+      use: { ...devices['Desktop Chrome'], viewport: { width: 1280, height: 900 } },
+    },
     // RWD 防回歸：6 個斷點 × 公開頁面 → 不能有橫向 scroll
     {
       name: 'rwd-320',
