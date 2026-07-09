@@ -434,15 +434,12 @@ function HoldingsTab(props) {
 
       {/* 分類回報 modal */}
       {reportingHolding && (
-        <HoldingMetaReportModal
-          holding={reportingHolding}
-          currentMeta={getMultiMeta(
-            reportingHolding.code,
-            STOCK_META,
-            overrides?.[reportingHolding.code],
-          )}
+        <ReportingModalHost
+          reportingHolding={reportingHolding}
+          STOCK_META={STOCK_META}
+          overrides={overrides}
+          upsertOverride={upsertOverride}
           onClose={() => setReportingHolding(null)}
-          upsert={upsertOverride}
         />
       )}
 
