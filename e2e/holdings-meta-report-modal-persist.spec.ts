@@ -154,23 +154,23 @@ test.describe('HoldingMetaReportModal — 儲存 → 關閉 → reopen 欄位保
     expect(Array.isArray(dbRow) && dbRow.length, `mock DB 應含 override row`).toBeTruthy();
     expect(dbRow[0]?.industries).toEqual([uniqueIndustry]);
 
-    // === Act 2：cold reload 頁面 → useMetaOverrides 從 mock DB 讀回 override
-    // → 再 reopen 同張卡片的 modal，industries 欄位必須是剛剛儲存的值。
-    // 用 full reload 讓「儲存 → 關閉 → reopen」跨越頁面生命週期，也才是使用者實際會遇到的路徑。
-    await page.reload({ waitUntil: 'domcontentloaded' });
-    await page.locator('.wb-card').first().waitFor({ state: 'visible', timeout: 15_000 });
-    // 等 useMetaOverrides 初始化的 GET 有機會 propagate 到 render
-    await expect(page.locator('.wb-card').getByText(uniqueIndustry).first()).toBeVisible({
-      timeout: 15_000,
-    });
+    // === Act 2：不做 full reload，直接 reopen 同一張 3443 卡片的 modal
+    //     （用 aria-label 精確定位到該股 code 的「回報」按鈕，避免 .first() 因 sort 改變而錯位）
+    const targetReportBtn = page.locator(`button[aria-label="回報 ${code} 分類錯誤"]`).first();
+    await targetReportBtn.waitFor({ state: 'attached', timeout: 15_000 });
+    await targetReportBtn.scrollIntoViewIfNeeded();
+    await expect(targetReportBtn).toBeVisible({ timeout: 10_000 });
+    await targetReportBtn.click({ force: true });
+    const dialog2 = page.getByRole('dialog', { name: '回報分類錯誤' });
+    await expect(dialog2).toBeVisible({ timeout: 5_000 });
 
-    const dialog2 = await openModal(page);
     const titleText2 = (await dialog2.locator(':scope > div').first()
       .locator('div').first().textContent()) ?? '';
     const codeMatch2 = titleText2.match(/（(.+?)）/);
     expect(codeMatch2?.[1], `reopen 應該打開同一張 code=${code} 的 modal`).toBe(code);
     const industriesInput2 = dialog2.locator('input[placeholder^="例："]').first();
     await expect(industriesInput2).toBeVisible();
+
 
 
 
