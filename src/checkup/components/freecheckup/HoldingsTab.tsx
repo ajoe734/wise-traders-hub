@@ -21,8 +21,6 @@ import { getMultiMeta } from "@/checkup/lib/stockMetaMulti.js";
 import { matchSectorCodes } from "@/checkup/lib/holdingUtils";
 import HoldingsUploadSummary from "@/checkup/components/freecheckup/HoldingsUploadSummary";
 import BatchParsePanel from "@/checkup/components/freecheckup/BatchParsePanel";
-import HoldingsEmptyState from "@/checkup/components/freecheckup/HoldingsEmptyState";
-import HoldingsNoMatchState from "@/checkup/components/freecheckup/HoldingsNoMatchState";
 import HoldingsFooterBar from "@/checkup/components/freecheckup/HoldingsFooterBar";
 import "@/checkup/styles/holdingsTab.css";
 
