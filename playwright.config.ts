@@ -246,6 +246,12 @@ export default defineConfig({
       testMatch: /holdings-error-banner-a11y\.spec\.ts/,
       use: { ...devices['Desktop Chrome'], viewport: { width: 1280, height: 900 } },
     },
+    {
+      // HoldingMetaReportModal 從 HoldingCard 開啟：aria + Field label + C10 theme token + 3 條關閉路徑
+      name: 'desktop-holdings-meta-report-modal',
+      testMatch: /holdings-meta-report-modal\.spec\.ts/,
+      use: { ...devices['Desktop Chrome'], viewport: { width: 1280, height: 900 } },
+    },
     // RWD 防回歸：6 個斷點 × 公開頁面 → 不能有橫向 scroll
     {
       name: 'rwd-320',
