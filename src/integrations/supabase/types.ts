@@ -1148,6 +1148,128 @@ export type Database = {
         }
         Relationships: []
       }
+      expert_ai_conversations: {
+        Row: {
+          created_at: string
+          expert_id: string
+          id: string
+          last_message_at: string
+          title: string | null
+          user_id: string
+        }
+        Insert: {
+          created_at?: string
+          expert_id: string
+          id?: string
+          last_message_at?: string
+          title?: string | null
+          user_id: string
+        }
+        Update: {
+          created_at?: string
+          expert_id?: string
+          id?: string
+          last_message_at?: string
+          title?: string | null
+          user_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "expert_ai_conversations_expert_id_fkey"
+            columns: ["expert_id"]
+            isOneToOne: false
+            referencedRelation: "experts"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "expert_ai_conversations_expert_id_fkey"
+            columns: ["expert_id"]
+            isOneToOne: false
+            referencedRelation: "experts_public"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      expert_ai_messages: {
+        Row: {
+          content: string
+          conversation_id: string
+          created_at: string
+          id: string
+          role: string
+        }
+        Insert: {
+          content: string
+          conversation_id: string
+          created_at?: string
+          id?: string
+          role: string
+        }
+        Update: {
+          content?: string
+          conversation_id?: string
+          created_at?: string
+          id?: string
+          role?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "expert_ai_messages_conversation_id_fkey"
+            columns: ["conversation_id"]
+            isOneToOne: false
+            referencedRelation: "expert_ai_conversations"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      expert_knowledge_chunks: {
+        Row: {
+          content: string
+          created_at: string
+          embedding: string
+          expert_id: string
+          id: string
+          metadata: Json
+          source_id: string | null
+          source_type: string
+        }
+        Insert: {
+          content: string
+          created_at?: string
+          embedding: string
+          expert_id: string
+          id?: string
+          metadata?: Json
+          source_id?: string | null
+          source_type: string
+        }
+        Update: {
+          content?: string
+          created_at?: string
+          embedding?: string
+          expert_id?: string
+          id?: string
+          metadata?: Json
+          source_id?: string | null
+          source_type?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "expert_knowledge_chunks_expert_id_fkey"
+            columns: ["expert_id"]
+            isOneToOne: false
+            referencedRelation: "experts"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "expert_knowledge_chunks_expert_id_fkey"
+            columns: ["expert_id"]
+            isOneToOne: false
+            referencedRelation: "experts_public"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       expert_limit_up_hits: {
         Row: {
           close_price: number | null
@@ -3763,6 +3885,21 @@ export type Database = {
         Returns: boolean
       }
       is_tester: { Args: { _user_id: string }; Returns: boolean }
+      match_expert_knowledge: {
+        Args: {
+          p_expert_id: string
+          p_match_count?: number
+          p_query_embedding: string
+        }
+        Returns: {
+          content: string
+          id: string
+          metadata: Json
+          similarity: number
+          source_id: string
+          source_type: string
+        }[]
+      }
       reconcile_line_free_quota: { Args: { _user_id: string }; Returns: Json }
       show_limit: { Args: never; Returns: number }
       show_trgm: { Args: { "": string }; Returns: string[] }

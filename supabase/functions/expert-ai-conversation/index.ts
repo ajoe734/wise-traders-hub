@@ -1,0 +1,74 @@
+// GET  ?expert_id=... → 取或建 conversation, 回歷史訊息
+// DELETE ?expert_id=... → 清空該 conversation 的所有 messages
+import { createClient } from 'npm:@supabase/supabase-js@2';
+import { jsonResponse, errorResponse } from '../_shared/cors.ts';
+import { withLogging } from '../_shared/edgeLogger.ts';
+
+Deno.serve(withLogging('expert-ai-conversation', async (req, _log) => {
+  const SUPABASE_URL = Deno.env.get('SUPABASE_URL')!;
+  const SERVICE_KEY = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')!;
+  const ANON_KEY = Deno.env.get('SUPABASE_ANON_KEY')!;
+
+  const authHeader = req.headers.get('Authorization');
+  if (!authHeader) return errorResponse('unauthorized', 401);
+
+  const url = new URL(req.url);
+  const expertId = url.searchParams.get('expert_id');
+  if (!expertId) return errorResponse('expert_id required', 400);
+
+  const userClient = createClient(SUPABASE_URL, ANON_KEY, {
+    global: { headers: { Authorization: authHeader } },
+  });
+  const { data: userData } = await userClient.auth.getUser();
+  const uid = userData?.user?.id;
+  if (!uid) return errorResponse('unauthorized', 401);
+
+  const admin = createClient(SUPABASE_URL, SERVICE_KEY);
+
+  if (req.method === 'GET') {
+    let { data: conv } = await admin
+      .from('expert_ai_conversations')
+      .select('id, title, created_at, last_message_at')
+      .eq('user_id', uid)
+      .eq('expert_id', expertId)
+      .maybeSingle();
+
+    if (!conv) {
+      const { data: exp } = await admin.from('experts').select('name').eq('id', expertId).maybeSingle();
+      const { data: newConv, error: cErr } = await admin
+        .from('expert_ai_conversations')
+        .insert({ user_id: uid, expert_id: expertId, title: `與 ${exp?.name || '導師'} 對話` })
+        .select('id, title, created_at, last_message_at')
+        .single();
+      if (cErr) return errorResponse('create conv failed: ' + cErr.message, 500);
+      conv = newConv;
+    }
+
+    const { data: messages } = await admin
+      .from('expert_ai_messages')
+      .select('id, role, content, created_at')
+      .eq('conversation_id', conv.id)
+      .order('created_at', { ascending: true });
+
+    return jsonResponse({ conversation: conv, messages: messages || [] });
+  }
+
+  if (req.method === 'DELETE') {
+    const { data: conv } = await admin
+      .from('expert_ai_conversations')
+      .select('id')
+      .eq('user_id', uid)
+      .eq('expert_id', expertId)
+      .maybeSingle();
+    if (conv) {
+      await admin.from('expert_ai_messages').delete().eq('conversation_id', conv.id);
+      await admin
+        .from('expert_ai_conversations')
+        .update({ last_message_at: new Date().toISOString() })
+        .eq('id', conv.id);
+    }
+    return jsonResponse({ ok: true });
+  }
+
+  return errorResponse('method not allowed', 405);
+}));
