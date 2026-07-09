@@ -1,5 +1,5 @@
 // @ts-nocheck — 漸進式 .jsx→.tsx 遷移（F-Maint-R4），完整型別化留待後續批次
-import { memo, lazy, Suspense, useState, useCallback, useMemo, useRef } from "react";
+import { memo, useState, useCallback, useMemo, useRef } from "react";
 import { useBrainStore } from "@/checkup/stores/brainStore";
 import { useViewportWidth } from "@/hooks/useViewportWidth";
 import { useCheckupMode } from "@/checkup/contexts/CheckupModeContext";
@@ -8,20 +8,19 @@ import { validateProps } from "@/checkup/components/freecheckup/_validateProps.j
 // @analytics-required: checkup_holdings_sort_change
 import { track } from "@/lib/analytics/events";
 import HoldingsActionPriority from "@/checkup/components/freecheckup/HoldingsActionPriority";
-import HoldingCard from "@/checkup/components/freecheckup/HoldingCard";
+import HoldingsWorkbench from "@/checkup/components/freecheckup/HoldingsWorkbench";
+
 import HoldingsHero from "@/checkup/components/freecheckup/HoldingsHero";
 import HoldingsQuotaMeter from "@/checkup/components/freecheckup/HoldingsQuotaMeter";
 import HoldingsFilterBar from "@/checkup/components/freecheckup/HoldingsFilterBar";
 import HoldingsReversalSection from "@/checkup/components/freecheckup/HoldingsReversalSection";
 import HoldingsSectorSummary from "@/checkup/components/freecheckup/HoldingsSectorSummary";
 import HoldingMetaReportModal from "@/checkup/components/freecheckup/HoldingMetaReportModal";
-import { useMetaOverrides, mergeMeta } from "@/checkup/hooks/useMetaOverrides";
+import { useMetaOverrides } from "@/checkup/hooks/useMetaOverrides";
 import { getMultiMeta } from "@/checkup/lib/stockMetaMulti.js";
 import { matchSectorCodes } from "@/checkup/lib/holdingUtils";
 import HoldingsUploadSummary from "@/checkup/components/freecheckup/HoldingsUploadSummary";
 import BatchParsePanel from "@/checkup/components/freecheckup/BatchParsePanel";
-import HoldingsEmptyState from "@/checkup/components/freecheckup/HoldingsEmptyState";
-import HoldingsNoMatchState from "@/checkup/components/freecheckup/HoldingsNoMatchState";
 import HoldingsFooterBar from "@/checkup/components/freecheckup/HoldingsFooterBar";
 import "@/checkup/styles/holdingsTab.css";
 
@@ -75,7 +74,7 @@ const HOLDINGS_TAB_PROP_SCHEMA = {
   holdingSyncStates: _opt('any'), // { [code]: { syncing?: bool, error?: string } }
 };
 
-const HoldingsDetailPanel = lazy(() => import("@/checkup/components/freecheckup/HoldingsDetailPanel"));
+// C8 (audit 2026-07)：HoldingsDetailPanel 的 lazy import 已下沉到 HoldingsWorkbench
 
 /**
  * HoldingsTab — 從 FreeCheckup.jsx 抽出的「持倉」分頁完整內容（lazy-loaded）
@@ -371,173 +370,53 @@ function HoldingsTab(props) {
         })}
       </div>
 
-      {/* ══════════ 持倉決策工作台：左卡片牆 + 右 Detail Panel ══════════ */}
-      {(() => {
-        const selectedCode = expandedDecision;
-        const selected = selectedCode ? displayed.find(x => x.code === selectedCode) || sorted.find(x => x.code === selectedCode) : null;
+      {/* ══════════ 持倉決策工作台：左卡片牆 + 右 Detail Panel ══════════
+        C8 (audit 2026-07)：原 IIFE 已抽為 HoldingsWorkbench，且 CTA hover 樣式
+        搬遷至 src/checkup/styles/holdingsTab.css .holdings-upload-cta / .holdings-view-all-cta */}
+      <HoldingsWorkbench
+        WB={WB}
+        expandedDecision={expandedDecision}
+        setExpandedDecision={setExpandedDecision}
+        displayed={displayed}
+        sorted={sorted}
+        orderedDisplayed={orderedDisplayed}
+        variantsMap={variantsMap}
+        firstFeatureCode={firstFeatureCode}
+        decisionsMap={decisionsMap}
+        targets={targets}
+        avgTarget={avgTarget}
+        STOCK_META={STOCK_META}
+        overrides={overrides}
+        sparklines={sparklines}
+        sparklineErrors={sparklineErrors}
+        EMPTY_SPARK={EMPTY_SPARK}
+        holdingSyncStates={holdingSyncStates}
+        handleHoldingCardSelect={handleHoldingCardSelect}
+        handleHoldingCardOpenDrawer={handleHoldingCardOpenDrawer}
+        handleReportMeta={handleReportMeta}
+        normalizedEvents={normalizedEvents}
+        openHoldingDrawer={openHoldingDrawer}
+        totalVal={totalVal}
+        sortBy={sortBy}
+        sortDir={sortDir}
+        setSortBy={setSortBy}
+        setSortDir={setSortDir}
+        cardGridCols={cardGridCols}
+        viewMode={viewMode}
+        H={H}
+        setTab={setTab}
+        setSearchQ={setSearchQ}
+        setFilterDecision={setFilterDecision}
+        setFilterThesis={setFilterThesis}
+        setFilterUrgency={setFilterUrgency}
+        setFilterConflict={setFilterConflict}
+        setFilterPnl={setFilterPnl}
+        setFilterStrategy={setFilterStrategy}
+        setSectorFilterPersisted={setSectorFilterPersisted}
+        showAll={showAll}
+        setShowAll={setShowAll}
+      />
 
-        const renderCard = (h) => (
-          <HoldingCard
-            key={h.code}
-            holding={h}
-            decision={decisionsMap[h.code]}
-            target={targets?.[h.code]}
-            avgTargetPrice={targets?.[h.code] ? avgTarget(h.code) : null}
-            meta={mergeMeta(STOCK_META[h.code], overrides?.[h.code])}
-            sparkData={sparklines[h.code] || EMPTY_SPARK}
-            sparkFailed={!!sparklineErrors[h.code]}
-            variant={variantsMap.get(h.code) || 'plain'}
-            isFeatureSlot={h.code === firstFeatureCode}
-            isActive={selectedCode === h.code}
-            syncState={holdingSyncStates?.[h.code]}
-            onSelect={handleHoldingCardSelect}
-            onOpenDrawer={handleHoldingCardOpenDrawer}
-            onReportMeta={handleReportMeta}
-          />
-        );
-
-
-        const renderDetailPanel = () => (
-          <Suspense fallback={null}>
-            <HoldingsDetailPanel
-              selected={selected}
-              decisionsMap={decisionsMap}
-              stockMeta={STOCK_META}
-              targets={targets}
-              avgTarget={avgTarget}
-              normalizedEvents={normalizedEvents}
-              orderedDisplayed={orderedDisplayed}
-              WB={WB}
-              setExpandedDecision={setExpandedDecision}
-              openHoldingDrawer={openHoldingDrawer}
-              totalPortfolioValue={totalVal || 0}
-              sparkData30D={selected ? (sparklines?.[selected.code] || []) : []}
-              sortBy={sortBy}
-              sortDir={sortDir}
-              setSortBy={setSortBy}
-              setSortDir={setSortDir}
-            />
-          </Suspense>
-        );
-
-        // ── grid layout：selected 時才顯示 detail panel；否則卡片牆滿版 ──
-        const showPanel = !!selected;
-        return (
-          <div style={{
-            display:'grid',
-            gridTemplateColumns: showPanel ? 'minmax(0, 1fr) minmax(0, 420px)' : 'minmax(0, 1fr)',
-            gap: showPanel ? 20 : 0,
-            alignItems:'flex-start',
-          }} className="holdings-workbench">
-            {/* 左：卡片牆 */}
-            <div style={{
-              display:'grid',
-              gridTemplateColumns: cardGridCols,
-              columnGap: 16,
-              rowGap: 20,
-            }} className={`holdings-card-grid${viewMode === 'list' ? ' holdings-card-grid--list' : ''}`}>
-              {orderedDisplayed.map(renderCard)}
-              {/* 持倉為 0 時顯示強化空狀態（橫跨整列）；有持倉時顯示「+ 上傳成交」虛線卡 */}
-              {orderedDisplayed.length === 0 && H.length === 0 ? (
-                <HoldingsEmptyState
-                  WB={WB}
-                  onUpload={() => setTab && setTab('trade')}
-                />
-              ) : orderedDisplayed.length === 0 ? (
-                /* P9: 有持倉但被篩選/搜尋過濾掉 — 「沒有符合條件的持倉」+ 清除全部篩選 CTA */
-                <HoldingsNoMatchState
-                  totalCount={H.length}
-                  WB={WB}
-                  onClearAll={() => {
-                    setSearchQ('');
-                    setFilterDecision(new Set());
-                    setFilterThesis(new Set());
-                    setFilterUrgency(new Set());
-                    setFilterConflict(new Set());
-                    setFilterPnl(new Set());
-                    setFilterStrategy(new Set());
-                    // Bug A1 fix：族群 chip 也一併清除，避免使用者卡在空狀態
-                    setSectorFilterPersisted({ items: [], mode: 'union' });
-                  }}
-                />
-              ) : (
-                <button
-                  onClick={() => setTab && setTab('trade')}
-                  className="wb-span-1"
-                  style={{
-                    minHeight: 320,
-                    background:'transparent',
-                    border:`1px dashed ${WB.hairStrong}`,
-                    borderRadius:4,
-                    color:WB.inkLight,
-                    cursor:'pointer',
-                    fontFamily:'inherit',
-                    display:'flex',flexDirection:'column',alignItems:'center',justifyContent:'center',
-                    gap:10,
-                    letterSpacing:'0.18em',
-                    transition:'border-color 160ms ease, color 160ms ease',
-                  }}
-                  onMouseEnter={(e)=>{e.currentTarget.style.borderColor=WB.ink;e.currentTarget.style.color=WB.ink;}}
-                  onMouseLeave={(e)=>{e.currentTarget.style.borderColor=WB.hairStrong;e.currentTarget.style.color=WB.inkLight;}}
-                >
-                  <span style={{fontSize:24,fontWeight:300,lineHeight:1}}>+</span>
-                  <span style={{fontSize:10,fontWeight:500}}>上傳成交</span>
-                </button>
-              )}
-              {!showAll && sorted.length > 12 && (
-                <button
-                  onClick={() => setShowAll(true)}
-                  className="wb-span-full"
-                  style={{
-                    padding:'12px',
-                    background:'transparent',
-                    border:`1px dashed ${WB.hair}`,
-                    borderRadius:4,
-                    color:WB.inkMute, fontSize:11, cursor:'pointer', fontWeight:500,
-                    letterSpacing:'0.16em',
-                    fontFamily:'inherit',
-                  }}
-                >
-                  VIEW ALL {sorted.length}
-                </button>
-              )}
-            </div>
-
-            {/* 右：Detail Panel — 只在 selected 時顯示 */}
-            {showPanel && (
-              <aside
-                className="holdings-detail-panel"
-                data-testid="holdings-detail-panel"
-                style={{
-                  position:'sticky', top:12,
-                  background: WB.surface,
-                  border:`1px solid ${WB.hairStrong}`,
-                  borderRadius:4,
-                  maxHeight:'calc(100vh - 24px)',
-                  overflowY:'auto',
-                }}
-              >
-                <div
-                  className="holdings-detail-panel__narrow-hint"
-                  data-testid="holdings-panel-narrow-hint"
-                  style={{
-                    alignItems:'center', gap:8,
-                    padding:'8px 12px',
-                    borderBottom:`1px solid ${WB.hair}`,
-                    background: WB.surfaceSoft,
-                    color: WB.inkMute,
-                    fontSize:11, letterSpacing:'0.12em', fontWeight:500,
-                  }}
-                >
-                  <span aria-hidden style={{ fontSize:12, color: WB.ink }}>✓</span>
-                  <span>已展開完整圖表面板（成本／區間／佔比 + PNG·PDF 匯出）</span>
-                </div>
-                {renderDetailPanel()}
-              </aside>
-            )}
-          </div>
-        );
-      })()}
 
       {/* Step 7：底部狀態列（B4） */}
       <HoldingsFooterBar
