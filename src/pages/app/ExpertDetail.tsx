@@ -8,7 +8,10 @@ import { Card, CardContent } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Avatar, AvatarImage, AvatarFallback } from "@/components/ui/avatar";
-import { ArrowLeft, Check, Target, Zap, BookOpen, Lock } from "lucide-react";
+import { ArrowLeft, Check, Target, Zap, BookOpen, Lock, MessageCircle } from "lucide-react";
+import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
+import { ExpertAiChatTab } from "@/pages/_expertAiChat/ExpertAiChatTab";
+import { useSearchParams } from "react-router-dom";
 
 import { ExpertRole } from "@/types";
 import { Link } from "react-router-dom";
