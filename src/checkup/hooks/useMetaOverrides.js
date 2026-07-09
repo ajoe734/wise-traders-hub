@@ -52,7 +52,11 @@ export function useMetaOverrides() {
     setLoading(true)
     try {
       const { data: { user } } = await supabase.auth.getUser()
-      if (!user) { setOverrides({}); return }
+      if (!user) {
+        userIdRef.current = null
+        setOverrides({})
+        return
+      }
       userIdRef.current = user.id
       const map = await fetchOverrides(user.id, force)
       setOverrides(map)
@@ -73,7 +77,58 @@ export function useMetaOverrides() {
       if (c?.data) setOverrides(c.data)
     }
     SUBSCRIBERS.add(onChange)
-    return () => { SUBSCRIBERS.delete(onChange) }
+
+    // C14 (audit 2026-07)：跨帳號隔離。
+    const { data: authSub } = supabase.auth.onAuthStateChange((event, session) => {
+      const newUid = session?.user?.id || null
+      if (event === 'SIGNED_OUT' || !newUid) {
+        CACHE.clear()
+        userIdRef.current = null
+        setOverrides({})
+        notifySubscribers()
+        return
+      }
+      if (newUid !== userIdRef.current) {
+        CACHE.clear()
+        userIdRef.current = newUid
+        reload(true)
+      }
+    })
+
+    // C15 (audit 2026-07)：跨裝置 realtime。
+    //   同一使用者在另一裝置 / edge function（AI 分類）寫入 holding_meta_overrides
+    //   時，主動 invalidate cache + reload，不必等 60s TTL 過期。
+    //   channel filter 已鎖 user_id，RLS 也只放行本 user，雙保險。
+    //   channel 名稱含 uid 避免 hot-reload / 多 hook 實例重複訂閱衝突。
+    let realtimeChannel = null
+    let cancelled = false
+    ;(async () => {
+      const { data: { user } } = await supabase.auth.getUser()
+      if (cancelled || !user) return
+      realtimeChannel = supabase
+        .channel(`hmo-${user.id}`)
+        .on(
+          'postgres_changes',
+          {
+            event: '*',
+            schema: 'public',
+            table: 'holding_meta_overrides',
+            filter: `user_id=eq.${user.id}`,
+          },
+          () => {
+            CACHE.delete(user.id)
+            reload(true)
+          },
+        )
+        .subscribe()
+    })()
+
+    return () => {
+      cancelled = true
+      SUBSCRIBERS.delete(onChange)
+      authSub?.subscription?.unsubscribe()
+      if (realtimeChannel) supabase.removeChannel(realtimeChannel)
+    }
   }, [reload])
 
   const upsert = useCallback(async (code, patch) => {
