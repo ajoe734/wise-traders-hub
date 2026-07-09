@@ -21,6 +21,7 @@ import StrategyKpiCard from '@/pages/_adminProfile/StrategyKpiCard';
 import StartingCapitalCard from '@/pages/_adminProfile/StartingCapitalCard';
 import CurrencyCard from '@/pages/_adminProfile/CurrencyCard';
 import PasswordChangeCard from '@/pages/_adminProfile/PasswordChangeCard';
+import AiIndexCard from '@/pages/_adminProfile/AiIndexCard';
 
 const AdminProfile = () => {
   const { expertSlug } = useParams<{ expertSlug: string }>();
