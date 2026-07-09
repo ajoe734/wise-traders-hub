@@ -26,14 +26,15 @@ export function AnalystsTable({ loading, experts, subscriberCounts = {}, onOpenL
               <th className="p-4">角色</th>
               <th className="p-4">Slug</th>
               <th className="p-4">狀態</th>
+              <th className="p-4">訂閱人數</th>
               <th className="p-4">操作</th>
             </tr>
           </thead>
           <tbody>
             {loading ? (
-              <tr><td colSpan={5} className="p-8 text-center text-muted-foreground text-sm">載入中...</td></tr>
+              <tr><td colSpan={6} className="p-8 text-center text-muted-foreground text-sm">載入中...</td></tr>
             ) : experts.length === 0 ? (
-              <tr><td colSpan={5} className="p-8 text-center text-muted-foreground text-sm">尚無分析師</td></tr>
+              <tr><td colSpan={6} className="p-8 text-center text-muted-foreground text-sm">尚無分析師</td></tr>
             ) : (
               experts.map(exp => (
                 <tr key={exp.id} className="border-b last:border-0 hover:bg-muted/50 transition-colors">
