@@ -1,19 +1,21 @@
 import { Card, CardContent } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
-import { Eye, MessageCircle, Key } from 'lucide-react';
+import { Eye, MessageCircle, Key, Users } from 'lucide-react';
 import { Link } from 'react-router-dom';
 import { avatarUrl } from '@/lib/imageTransform';
 
 interface Props {
   loading: boolean;
   experts: any[];
+  subscriberCounts?: Record<string, number>;
   onOpenLine: (exp: any) => void;
   onOpenAccount: (exp: any) => void;
   onToggleStatus: (id: string, currentStatus: string) => void;
+  onOpenSubscribers?: (exp: any) => void;
 }
 
-export function AnalystsTable({ loading, experts, onOpenLine, onOpenAccount, onToggleStatus }: Props) {
+export function AnalystsTable({ loading, experts, subscriberCounts = {}, onOpenLine, onOpenAccount, onToggleStatus, onOpenSubscribers }: Props) {
   return (
     <Card>
       <CardContent className="p-0">
