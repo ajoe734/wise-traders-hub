@@ -6,12 +6,19 @@
  * 存檔後 useMetaOverrides 自動 invalidate cache，聚合面板即時更新。
  */
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
+import { L as C, alpha } from '@/checkup/theme'
+
+// C10 (audit 2026-07)：色彩改走 theme token（L 常數），避免散落 hex。
+// 保留的字面色為語意狀態色（error / warn / success），theme 內沒有對應 token。
+const STATUS_ERROR = '#B23A3A'
+const STATUS_WARN = '#B57935'
+const STATUS_OK = '#5A7A5F'
 
 const CHIP_STYLE = {
   fontSize: 12,
   padding: '4px 8px',
   borderRadius: 4,
-  background: 'rgba(0,0,0,0.05)',
+  background: alpha(C.textMute, '14'),
   cursor: 'pointer',
   userSelect: 'none',
   border: '1px solid transparent',
