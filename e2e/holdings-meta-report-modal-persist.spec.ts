@@ -137,7 +137,17 @@ test.describe('HoldingMetaReportModal — 儲存 → 關閉 → reopen 欄位保
     await expect(dialog1).toHaveCount(0, { timeout: 5_000 });
 
     // === Act 2：reopen 同張卡片的 modal ===
-    // upsert 後 useMetaOverrides.reload(true) 會重打 GET → store 回傳含新 row
+    // 為了穩定驗證「儲存後 override 會被 currentMeta 帶回」，做一次冷啟動 reload：
+    // 這條路徑同時涵蓋 in-memory reload（初次 GET 命中我們的 mock store）
+    // → 若 override 沒被灌回 currentMeta，reopen 仍會顯示 base 值，測試就會炸。
+    await page.reload({ waitUntil: 'domcontentloaded' });
+    await page.locator('.wb-card').first().waitFor({ state: 'visible', timeout: 15_000 });
+    // 等 useMetaOverrides 的第二次 GET（reload 後的初始化）完成
+    await page.waitForRequest(
+      (req) => req.url().includes('/rest/v1/holding_meta_overrides') && req.method() === 'GET',
+      { timeout: 10_000 },
+    );
+
     const dialog2 = await openModal(page);
     const titleText2 = (await dialog2.locator(':scope > div').first()
       .locator('div').first().textContent()) ?? '';
@@ -146,8 +156,7 @@ test.describe('HoldingMetaReportModal — 儲存 → 關閉 → reopen 欄位保
     const industriesInput2 = dialog2.locator('input[placeholder^="例："]').first();
     await expect(industriesInput2).toBeVisible();
 
-    console.log('[restLog]', JSON.stringify(restLog, null, 2));
-    console.log('[store]', JSON.stringify(Array.from(store.entries()), null, 2));
+
     // === Assert：欄位應顯示剛剛儲存的獨特值（不是原始值、不是空）===
     await expect(industriesInput2).toHaveValue(uniqueIndustry);
     expect(uniqueIndustry).not.toBe(initialIndustries);
