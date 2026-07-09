@@ -16,7 +16,7 @@ import HoldingsFilterBar from "@/checkup/components/freecheckup/HoldingsFilterBa
 import HoldingsReversalSection from "@/checkup/components/freecheckup/HoldingsReversalSection";
 import HoldingsSectorSummary from "@/checkup/components/freecheckup/HoldingsSectorSummary";
 import HoldingMetaReportModal from "@/checkup/components/freecheckup/HoldingMetaReportModal";
-import { useMetaOverrides, mergeMeta } from "@/checkup/hooks/useMetaOverrides";
+import { useMetaOverrides } from "@/checkup/hooks/useMetaOverrides";
 import { getMultiMeta } from "@/checkup/lib/stockMetaMulti.js";
 import { matchSectorCodes } from "@/checkup/lib/holdingUtils";
 import HoldingsUploadSummary from "@/checkup/components/freecheckup/HoldingsUploadSummary";
