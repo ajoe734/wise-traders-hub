@@ -204,20 +204,20 @@ export default function HoldingMetaReportModal({ holding, currentMeta, onClose, 
         ref={dialogRef}
         onClick={(e) => e.stopPropagation()}
         style={{
-          background: '#FAF7F2',
+          background: C.bg,
           maxWidth: 520,
           width: '100%',
           maxHeight: '90vh',
           overflowY: 'auto',
           padding: '20px 22px',
           borderRadius: 6,
-          border: '1px solid rgba(0,0,0,0.08)',
+          border: `1px solid ${C.border}`,
         }}
       >
-        <div style={{ fontSize: 14, fontWeight: 700, color: '#292520', marginBottom: 4 }}>
+        <div style={{ fontSize: 14, fontWeight: 700, color: C.text, marginBottom: 4 }}>
           回報分類 — {holding.name || holding.code}（{holding.code}）
         </div>
-        <div style={{ fontSize: 11, color: '#8B857A', marginBottom: 16, lineHeight: 1.6 }}>
+        <div style={{ fontSize: 11, color: C.textMute, marginBottom: 16, lineHeight: 1.6 }}>
           你回報的分類只影響你自己的帳號，其他人不會看到。
         </div>
 
@@ -226,7 +226,7 @@ export default function HoldingMetaReportModal({ holding, currentMeta, onClose, 
             type="text"
             value={industries}
             onChange={(e) => setIndustries(e.target.value)}
-            placeholder="例：AI/伺服器、電源管理、車用電子"
+            placeholder="例:AI/伺服器、電源管理、車用電子"
             style={inputStyle}
           />
         </Field>
@@ -240,7 +240,7 @@ export default function HoldingMetaReportModal({ holding, currentMeta, onClose, 
             style={{ ...inputStyle, fontFamily: 'ui-monospace, monospace', resize: 'vertical' }}
           />
           {mixParsed && (
-            <div style={{ fontSize: 11, color: mixTotal === 100 ? '#5A7A5F' : '#B57935', marginTop: 4 }}>
+            <div style={{ fontSize: 11, color: mixTotal === 100 ? STATUS_OK : STATUS_WARN, marginTop: 4 }}>
               解析 {mixParsed.length} 筆，合計 {mixTotal.toFixed(0)}%（將自動正規化到 100%）
             </div>
           )}
@@ -251,7 +251,7 @@ export default function HoldingMetaReportModal({ holding, currentMeta, onClose, 
             type="text"
             value={themes}
             onChange={(e) => setThemes(e.target.value)}
-            placeholder="例：AI、CoWoS、資料中心"
+            placeholder="例:AI、CoWoS、資料中心"
             style={inputStyle}
           />
         </Field>
@@ -261,20 +261,20 @@ export default function HoldingMetaReportModal({ holding, currentMeta, onClose, 
             type="text"
             value={strategy}
             onChange={(e) => setStrategy(e.target.value)}
-            placeholder="例：成長股、景氣循環、ETF/指數"
+            placeholder="例:成長股、景氣循環、ETF/指數"
             style={inputStyle}
           />
         </Field>
 
         {error && (
-          <div style={{ fontSize: 12, color: '#B23A3A', marginTop: 8 }}>{error}</div>
+          <div style={{ fontSize: 12, color: STATUS_ERROR, marginTop: 8 }}>{error}</div>
         )}
 
         <div style={{ display: 'flex', gap: 8, justifyContent: 'flex-end', marginTop: 18 }}>
-          <button type="button" onClick={onClose} style={{ ...btnStyle, background: 'transparent', color: '#8B857A' }}>
+          <button type="button" onClick={onClose} style={{ ...btnStyle, background: 'transparent', color: C.textMute }}>
             取消
           </button>
-          <button type="button" onClick={save} disabled={saving} style={{ ...btnStyle, background: '#292520', color: '#F5F3EF' }}>
+          <button type="button" onClick={save} disabled={saving} style={{ ...btnStyle, background: C.text, color: C.bg }}>
             {saving ? '儲存中…' : '儲存'}
           </button>
         </div>
@@ -286,7 +286,7 @@ export default function HoldingMetaReportModal({ holding, currentMeta, onClose, 
 function Field({ label, children }) {
   return (
     <label style={{ display: 'block', marginBottom: 12 }}>
-      <div style={{ fontSize: 11, color: '#8B857A', letterSpacing: '0.08em', marginBottom: 4 }}>
+      <div style={{ fontSize: 11, color: C.textMute, letterSpacing: '0.08em', marginBottom: 4 }}>
         {label}
       </div>
       {children}
