@@ -8,7 +8,8 @@ import { validateProps } from "@/checkup/components/freecheckup/_validateProps.j
 // @analytics-required: checkup_holdings_sort_change
 import { track } from "@/lib/analytics/events";
 import HoldingsActionPriority from "@/checkup/components/freecheckup/HoldingsActionPriority";
-import HoldingCard from "@/checkup/components/freecheckup/HoldingCard";
+import HoldingsWorkbench from "@/checkup/components/freecheckup/HoldingsWorkbench";
+
 import HoldingsHero from "@/checkup/components/freecheckup/HoldingsHero";
 import HoldingsQuotaMeter from "@/checkup/components/freecheckup/HoldingsQuotaMeter";
 import HoldingsFilterBar from "@/checkup/components/freecheckup/HoldingsFilterBar";
