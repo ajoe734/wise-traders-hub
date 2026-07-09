@@ -109,7 +109,7 @@ function HoldingsWorkbench(props) {
             decision={decisionsMap[h.code]}
             target={targets?.[h.code]}
             avgTargetPrice={targets?.[h.code] ? avgTarget(h.code) : null}
-            meta={mergeMeta(STOCK_META[h.code], overrides?.[h.code])}
+            meta={getMultiMeta(h.code, STOCK_META, overrides?.[h.code])}
             sparkData={sparklines[h.code] || EMPTY_SPARK}
             sparkFailed={!!sparklineErrors[h.code]}
             variant={variantsMap.get(h.code) || 'plain'}
