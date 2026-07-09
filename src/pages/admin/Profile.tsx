@@ -223,6 +223,8 @@ const AdminProfile = () => {
           </AlertDialogContent>
         </AlertDialog>
 
+        <AiIndexCard expertId={expert.id} expertName={expert.name} isReadOnly={isReadOnly} />
+
         {!isReadOnly && <PasswordChangeCard />}
       </div>
     </AdminLayout>
