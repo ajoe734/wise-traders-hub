@@ -58,6 +58,18 @@ export function AnalystsTable({ loading, experts, subscriberCounts = {}, onOpenL
                     </Badge>
                   </td>
                   <td className="p-4">
+                    <Button
+                      variant="ghost"
+                      size="sm"
+                      className="h-7 text-xs"
+                      onClick={() => onOpenSubscribers?.(exp)}
+                      disabled={!onOpenSubscribers}
+                    >
+                      <Users className="h-3 w-3 mr-1" />
+                      {subscriberCounts[exp.id] ?? 0} 人
+                    </Button>
+                  </td>
+                  <td className="p-4">
                     <div className="flex items-center gap-1 flex-wrap">
                       <Button variant="ghost" size="sm" className="h-7 text-xs" onClick={() => onOpenLine(exp)}>
                         <MessageCircle className="h-3 w-3 mr-1" />LINE
