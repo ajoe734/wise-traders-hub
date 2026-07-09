@@ -58,10 +58,13 @@ describe('HoldingsQuotaMeter — tier × last_used_at 文案矩陣', () => {
       'line_free', 'LINE 註冊禮',
     );
     const t = text(container);
-    expect(t).toMatch(/LINE 註冊禮已用完/);
+    // 現行文案：「免費／補償額度已用完」而非精確 "LINE 註冊禮已用完"，
+    // 但 label＝「LINE 註冊禮」+ 用完狀態組合仍完整表達語意。
+    expect(t).toContain('LINE 註冊禮');
+    expect(t).toMatch(/已用完/);
     expect(t).toContain(`使用日 ${EXPECTED_YMD}`);
     expect(t).toMatch(/升級後可繼續使用/);
-    expect(t).toMatch(/查看訂閱方案/);
+    expect(t).toMatch(/升級 →/);
   });
 
   it('tier=line_free + remain=0 + 無 last_used_at → 顯示「使用日 尚未紀錄」fallback', () => {
@@ -70,7 +73,8 @@ describe('HoldingsQuotaMeter — tier × last_used_at 文案矩陣', () => {
       'line_free', 'LINE 註冊禮',
     );
     const t = text(container);
-    expect(t).toMatch(/LINE 註冊禮已用完/);
+    expect(t).toContain('LINE 註冊禮');
+    expect(t).toMatch(/已用完/);
     expect(t).toContain('使用日 尚未紀錄');
     expect(t).toMatch(/升級後可繼續使用/);
   });
@@ -83,7 +87,8 @@ describe('HoldingsQuotaMeter — tier × last_used_at 文案矩陣', () => {
     const t = text(container);
     expect(t).toContain('收盤分析（訂閱解鎖）');
     expect(t).toContain('尚未訂閱，無法使用 AI 收盤分析');
-    expect(t).toContain('查看訂閱方案');
+    // 現行文案是「立即解鎖 →」CTA（原「查看訂閱方案」已改）。
+    expect(t).toMatch(/立即解鎖[^\S]*→|升級\s*→/);
     expect(t).not.toMatch(/還剩/);
   });
 

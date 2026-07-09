@@ -105,9 +105,11 @@ describe('MyRemittanceOrders', () => {
   });
 
   it('renders orders and shows input form only for awaiting_info', async () => {
+    // 用「未來」的 created_at 確保訂閱期未過，訂單留在 activeOrders 而不被摺進歷史。
+    const soon = new Date(Date.now() + 24 * 3600_000).toISOString();
     orderQuery.data = [
-      orderRow({ id: 'a', status: 'awaiting_info' }),
-      orderRow({ id: 'b', status: 'confirmed', last5: '12345', payer_name: '王' }),
+      orderRow({ id: 'a', status: 'awaiting_info', created_at: soon }),
+      orderRow({ id: 'b', status: 'confirmed', last5: '12345', payer_name: '王', created_at: soon }),
     ];
     renderPage();
     await waitFor(() => {
@@ -115,7 +117,9 @@ describe('MyRemittanceOrders', () => {
       expect(screen.getAllByText('已開通').length).toBeGreaterThan(0);
     });
     expect(screen.getByLabelText('匯款人姓名')).toBeInTheDocument();
-    expect(screen.getByText(/匯款人 王/)).toBeInTheDocument();
+    // React 把 "匯款人 {name} · 末五碼 {last5}" 拆成多個 text node，
+    // 用 document.body.textContent 直接檢查連貫字串。
+    expect(document.body.textContent || '').toContain('匯款人 王');
   });
 
   it('treats null data as empty list (graceful error)', async () => {

@@ -28,17 +28,22 @@ function extractJsxProps(source: string, tagName: string): Set<string> {
   return props;
 }
 
-/** 從元件檔抽出 schema 物件 keys */
-function extractSchemaKeys(source: string, schemaName: string): Set<string> {
+/** 從元件檔抽出 schema — 回傳 { required, optional } 兩組 keys */
+function extractSchema(source: string, schemaName: string): { required: Set<string>; optional: Set<string> } {
   const re = new RegExp(`const ${schemaName}\\s*=\\s*\\{([\\s\\S]*?)\\n\\};`);
   const m = source.match(re);
   if (!m) throw new Error(`${schemaName} not found`);
   const body = m[1];
-  const keyRe = /^\s{2}([A-Za-z_][A-Za-z0-9_]*)\s*:/gm;
-  const keys = new Set<string>();
+  const keyRe = /^\s{2}([A-Za-z_][A-Za-z0-9_]*)\s*:\s*(.*?)\s*,?\s*$/gm;
+  const required = new Set<string>();
+  const optional = new Set<string>();
   let mm: RegExpExecArray | null;
-  while ((mm = keyRe.exec(body)) != null) keys.add(mm[1]);
-  return keys;
+  while ((mm = keyRe.exec(body)) != null) {
+    const [, name, valuePart] = mm;
+    if (/^\{.*\boptional\s*:\s*true\b/.test(valuePart)) optional.add(name);
+    else required.add(name);
+  }
+  return { required, optional };
 }
 
 describe('FreeCheckup tab prop schemas', () => {
@@ -50,14 +55,18 @@ describe('FreeCheckup tab prop schemas', () => {
 
   function expectMatch(tag: string, schemaName: string, src: string) {
     const callSite = extractJsxProps(fc, tag);
-    const schema = extractSchemaKeys(src, schemaName);
-    const missingInSchema = [...callSite].filter((p) => !schema.has(p));
-    const missingInCallSite = [...schema].filter((p) => !callSite.has(p));
+    const { required, optional } = extractSchema(src, schemaName);
+    const all = new Set([...required, ...optional]);
+    // callsite 傳的每個 prop 都必須存在於 schema（避免拼錯 / 未宣告 prop）
+    const missingInSchema = [...callSite].filter((p) => !all.has(p));
+    // schema 宣告的 required prop 都必須在 callsite 出現；optional 可省略
+    const missingInCallSite = [...required].filter((p) => !callSite.has(p));
     expect({ missingInSchema, missingInCallSite }).toEqual({
       missingInSchema: [],
       missingInCallSite: [],
     });
   }
+
 
   it('EventsTab schema matches FreeCheckup call site', () => {
     expectMatch('EventsTab', 'EVENTS_TAB_PROP_SCHEMA', eventsSrc);

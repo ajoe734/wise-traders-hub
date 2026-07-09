@@ -1,6 +1,7 @@
 import { describe, it, expect, vi, beforeEach } from 'vitest';
 import { render, screen, fireEvent, waitFor } from '@testing-library/react';
 import { MemoryRouter, Routes, Route } from 'react-router-dom';
+import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 
 // Mock layout
 vi.mock('@/components/layouts/UnifiedAppLayout', () => ({
@@ -38,27 +39,41 @@ vi.mock('@/hooks/useExpertPlans', () => ({
   }),
 }));
 
+// AppCheckout 呼叫 usePlanExpertStatus 決定是否顯示「已訂閱」等狀態，
+// 底層是 react-query；測試不掛 QueryClientProvider，直接把 hook mock 掉。
+vi.mock('@/hooks/checkout/usePlanExpertStatus', () => ({
+  usePlanExpertStatus: () => ({ data: null, isLoading: false }),
+}));
+
 // Mock supabase to short-circuit any side calls
 const { invokeMock } = vi.hoisted(() => ({ invokeMock: vi.fn() }));
-vi.mock('@/integrations/supabase/client', () => ({
-  supabase: {
-    auth: {
-      getUser: vi.fn().mockResolvedValue({ data: { user: { id: 'u1' } } }),
+vi.mock('@/integrations/supabase/client', () => {
+  const providersRow = [{ id: 'prov-acpay', provider_type: 'acpay', is_active: true, is_default: true }];
+  const makeChain = (payload: any) => {
+    const p = Promise.resolve(payload);
+    const chain: any = {};
+    const methods = ['select','insert','update','delete','upsert','eq','neq','gt','gte','lt','lte','in','is','not','or','match','order','limit'];
+    for (const m of methods) chain[m] = vi.fn(() => chain);
+    chain.single = vi.fn().mockResolvedValue(payload);
+    chain.maybeSingle = vi.fn().mockResolvedValue(payload);
+    chain.then = p.then.bind(p);
+    chain.catch = p.catch.bind(p);
+    chain.finally = p.finally.bind(p);
+    return chain;
+  };
+  return {
+    supabase: {
+      auth: { getUser: vi.fn().mockResolvedValue({ data: { user: { id: 'u1' } } }) },
+      from: (table: string) => {
+        if (table === 'payment_providers_safe') return makeChain({ data: providersRow, error: null });
+        return makeChain({ data: null, error: null });
+      },
+      functions: { invoke: invokeMock },
+      channel: () => ({ on: () => ({ subscribe: () => ({}) }) }),
+      removeChannel: () => {},
     },
-    from: () => ({
-      select: () => ({
-        eq: () => ({
-          eq: () => ({
-            eq: () => ({ maybeSingle: () => Promise.resolve({ data: null }) }),
-          }),
-        }),
-      }),
-    }),
-    functions: { invoke: invokeMock },
-    channel: () => ({ on: () => ({ subscribe: () => ({}) }) }),
-    removeChannel: () => {},
-  },
-}));
+  };
+});
 
 // Spy on alert to verify it is NOT called
 const alertSpy = vi.spyOn(window, 'alert').mockImplementation(() => {});
@@ -66,14 +81,17 @@ const alertSpy = vi.spyOn(window, 'alert').mockImplementation(() => {});
 import AppCheckout from '@/pages/app/AppCheckout';
 
 function renderAt(path: string) {
+  const qc = new QueryClient({ defaultOptions: { queries: { retry: false } } });
   return render(
-    <MemoryRouter initialEntries={[path]}>
-      <Routes>
-        <Route path="/app/checkout/:slug/:planId" element={<AppCheckout />} />
-        <Route path="/app/expert/:slug" element={<div>Expert Page</div>} />
-        <Route path="/app" element={<div>App Home</div>} />
-      </Routes>
-    </MemoryRouter>,
+    <QueryClientProvider client={qc}>
+      <MemoryRouter initialEntries={[path]}>
+        <Routes>
+          <Route path="/app/checkout/:slug/:planId" element={<AppCheckout />} />
+          <Route path="/app/expert/:slug" element={<div>Expert Page</div>} />
+          <Route path="/app" element={<div>App Home</div>} />
+        </Routes>
+      </MemoryRouter>
+    </QueryClientProvider>,
   );
 }
 
