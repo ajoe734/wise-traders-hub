@@ -52,7 +52,11 @@ export function useMetaOverrides() {
     setLoading(true)
     try {
       const { data: { user } } = await supabase.auth.getUser()
-      if (!user) { setOverrides({}); return }
+      if (!user) {
+        userIdRef.current = null
+        setOverrides({})
+        return
+      }
       userIdRef.current = user.id
       const map = await fetchOverrides(user.id, force)
       setOverrides(map)
@@ -73,7 +77,33 @@ export function useMetaOverrides() {
       if (c?.data) setOverrides(c.data)
     }
     SUBSCRIBERS.add(onChange)
-    return () => { SUBSCRIBERS.delete(onChange) }
+
+    // C14 (audit 2026-07)：跨帳號隔離。
+    //   同一 tab logout→login 為另一個 email/line 帳號時，若不清 CACHE
+    //   會殘留前一個 user 的 overrides map（雖然 key 不同，SUBSCRIBERS 觸發時
+    //   仍會 setOverrides 舊 map，直到下次 upsert）。
+    //   SIGNED_OUT → 清 CACHE 與本地 state；
+    //   SIGNED_IN / TOKEN_REFRESHED 且 user.id 變動 → 強制 reload(true)。
+    const { data: authSub } = supabase.auth.onAuthStateChange((event, session) => {
+      const newUid = session?.user?.id || null
+      if (event === 'SIGNED_OUT' || !newUid) {
+        CACHE.clear()
+        userIdRef.current = null
+        setOverrides({})
+        notifySubscribers()
+        return
+      }
+      if (newUid !== userIdRef.current) {
+        CACHE.clear()
+        userIdRef.current = newUid
+        reload(true)
+      }
+    })
+
+    return () => {
+      SUBSCRIBERS.delete(onChange)
+      authSub?.subscription?.unsubscribe()
+    }
   }, [reload])
 
   const upsert = useCallback(async (code, patch) => {
