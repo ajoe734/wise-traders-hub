@@ -11,10 +11,12 @@ import { useAuth } from '@/contexts/AuthContext';
 import { Button } from '@/components/ui/button';
 import { format, startOfWeek, addDays } from 'date-fns';
 import { zhTW } from 'date-fns/locale';
-import { Calendar, BookOpen, Shield, Loader2, ChevronDown, ChevronUp, Lightbulb, Target, AlertTriangle, Eye } from 'lucide-react';
+import { Calendar, BookOpen, Shield, Loader2, ChevronDown, ChevronUp, Lightbulb, Target, AlertTriangle, Eye, Download } from 'lucide-react';
 import { useQuery } from '@tanstack/react-query';
 import { SafeRichHtml, richHtmlToPlain } from '@/components/SafeRichHtml';
 import { avatarUrl } from '@/lib/imageTransform';
+import { toast } from 'sonner';
+import { exportJournalPdf } from '@/lib/exportJournalPdf';
 
 interface SignalDetail {
   id: string;
