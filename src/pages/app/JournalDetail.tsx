@@ -11,10 +11,12 @@ import { useAuth } from '@/contexts/AuthContext';
 import { Button } from '@/components/ui/button';
 import { format, startOfWeek, addDays } from 'date-fns';
 import { zhTW } from 'date-fns/locale';
-import { Calendar, BookOpen, Shield, Loader2, ChevronDown, ChevronUp, Lightbulb, Target, AlertTriangle, Eye } from 'lucide-react';
+import { Calendar, BookOpen, Shield, Loader2, ChevronDown, ChevronUp, Lightbulb, Target, AlertTriangle, Eye, Download } from 'lucide-react';
 import { useQuery } from '@tanstack/react-query';
 import { SafeRichHtml, richHtmlToPlain } from '@/components/SafeRichHtml';
 import { avatarUrl } from '@/lib/imageTransform';
+import { toast } from 'sonner';
+import { exportJournalPdf } from '@/lib/exportJournalPdf';
 
 interface SignalDetail {
   id: string;
@@ -131,6 +133,7 @@ const JournalDetail = () => {
   const [searchParams] = useSearchParams();
   const { user, hasRole } = useAuth();
   const [titleExpanded, setTitleExpanded] = useState(false);
+  const [isExporting, setIsExporting] = useState(false);
 
   const { data, isLoading: loading } = useQuery({
     queryKey: ['app-journal-detail', id],
@@ -179,6 +182,30 @@ const JournalDetail = () => {
     .map(s => richHtmlToPlain(s.learning_points))
     .filter(Boolean)
     .flatMap(lp => lp.split(/\\n|\n/).filter(l => l.trim()));
+
+  const handleExportPdf = async () => {
+    if (isExporting) return;
+    setIsExporting(true);
+    const toastId = toast.loading('產生 PDF 中…');
+    try {
+      await exportJournalPdf({
+        headSignal: signal as any,
+        weekSignals: weekSignals as any,
+        weekStart: ws,
+        weekEnd: we,
+        weekTitle,
+        learningPoints: allLearningPoints,
+        avatarSrc: avatarUrl(signal.experts.avatar_url, 240),
+      });
+      toast.success('已匯出週記 PDF', { id: toastId });
+    } catch (e) {
+      console.error('[exportJournalPdf]', e);
+      toast.error('匯出失敗，請重試', { id: toastId });
+    } finally {
+      setIsExporting(false);
+    }
+  };
+
 
   return (
     <UnifiedAppLayout>
@@ -256,7 +283,25 @@ const JournalDetail = () => {
               </Button>
             )}
           </div>
-          {id && <ShareButton target={{ kind: "journal", id }} />}
+          <div className="flex items-center gap-1 shrink-0">
+            <Button
+              type="button"
+              variant="outline"
+              size="sm"
+              onClick={handleExportPdf}
+              disabled={isExporting}
+              className="h-8 gap-1.5"
+              aria-label="匯出週記 PDF"
+            >
+              {isExporting ? (
+                <Loader2 className="h-3.5 w-3.5 animate-spin" aria-hidden="true" />
+              ) : (
+                <Download className="h-3.5 w-3.5" aria-hidden="true" />
+              )}
+              <span className="text-xs">{isExporting ? '產生中…' : '匯出 PDF'}</span>
+            </Button>
+            {id && <ShareButton target={{ kind: "journal", id }} />}
+          </div>
         </div>
 
 
