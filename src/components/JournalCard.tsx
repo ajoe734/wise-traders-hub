@@ -4,7 +4,7 @@ import { Badge } from '@/components/ui/badge';
 import { ChevronRight, Calendar, BookOpen } from 'lucide-react';
 import { format, startOfWeek, addDays } from 'date-fns';
 import { zhTW } from 'date-fns/locale';
-import { richHtmlPreview } from '@/components/SafeRichHtml';
+import { richHtmlPreview, PREVIEW_LIMITS } from '@/components/SafeRichHtml';
 import { avatarUrl } from '@/lib/imageTransform';
 import { track } from '@/lib/analytics/events';
 
