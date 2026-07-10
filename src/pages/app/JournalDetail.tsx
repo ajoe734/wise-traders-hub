@@ -184,7 +184,13 @@ const JournalDetail = () => {
     .filter(Boolean)
     .flatMap(lp => lp.split(/\\n|\n/).filter(l => l.trim()));
 
+  const canExportPdf = hasRole('company_admin') || hasRole('super_admin');
+
   const handleExportPdf = async () => {
+    if (!canExportPdf) {
+      toast.error('僅後台管理員可匯出 PDF');
+      return;
+    }
     if (isExporting) return;
     setIsExporting(true);
     setExportError(null);
