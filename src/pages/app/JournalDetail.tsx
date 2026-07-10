@@ -130,6 +130,7 @@ const JournalDetail = () => {
   const { id } = useParams<{ id: string }>();
   const [searchParams] = useSearchParams();
   const { user, hasRole } = useAuth();
+  const [titleExpanded, setTitleExpanded] = useState(false);
 
   const { data, isLoading: loading } = useQuery({
     queryKey: ['app-journal-detail', id],
