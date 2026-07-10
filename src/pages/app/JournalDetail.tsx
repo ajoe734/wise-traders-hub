@@ -184,7 +184,7 @@ const JournalDetail = () => {
     .filter(Boolean)
     .flatMap(lp => lp.split(/\\n|\n/).filter(l => l.trim()));
 
-  const canExportPdf = hasRole('company_admin') || hasRole('super_admin');
+  const canExportPdf = hasRole('company_admin');
 
   const handleExportPdf = async () => {
     if (!canExportPdf) {
