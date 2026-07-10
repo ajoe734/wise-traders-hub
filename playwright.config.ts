@@ -137,6 +137,12 @@ export default defineConfig({
       use: { ...devices['Desktop Chrome'], viewport: { width: 1280, height: 900 } },
     },
     {
+      // /app/journal/:id 標題完整顯示 + 顯示全部/收合折疊行為
+      name: 'desktop-journal-detail-title-collapse',
+      testMatch: /journal-detail-title-collapse\.spec\.ts/,
+      use: { ...devices['Desktop Chrome'], viewport: { width: 1280, height: 900 } },
+    },
+    {
       // /expert/:slug bundle RPC 5xx 回退（ExpertFetchError，不可炸 ErrorBoundary）
       name: 'desktop-expert-profile-error',
       testMatch: /expert-profile-error\.spec\.ts/,
