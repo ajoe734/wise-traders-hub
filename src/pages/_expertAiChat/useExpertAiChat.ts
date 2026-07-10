@@ -1,6 +1,7 @@
 import { useEffect, useRef, useState, useCallback } from 'react';
 import { useChat } from '@ai-sdk/react';
 import { DefaultChatTransport, type UIMessage } from 'ai';
+import { toast } from 'sonner';
 import { supabase } from '@/integrations/supabase/client';
 
 interface HistoryMsg {
