@@ -170,12 +170,14 @@ const JournalDetail = () => {
   const ws = startOfWeek(pubDate, { weekStartsOn: 1 });
   const we = addDays(ws, 4);
 
-  const weekTitle = richHtmlPreview(signal.reason_summary, 10000) || '本週操作回顧';
+  const weekTitle = richHtmlToPlain(signal.reason_summary) || '本週操作回顧';
+  const TITLE_COLLAPSE_THRESHOLD = 80;
+  const isTitleLong = weekTitle.length > TITLE_COLLAPSE_THRESHOLD;
 
   const allLearningPoints = weekSignals
-    .map(s => richHtmlPreview(s.learning_points, 500))
+    .map(s => richHtmlToPlain(s.learning_points))
     .filter(Boolean)
-    .flatMap(lp => lp!.split(/\\n|\n/).filter(l => l.trim()));
+    .flatMap(lp => lp.split(/\\n|\n/).filter(l => l.trim()));
 
   return (
     <UnifiedAppLayout>
