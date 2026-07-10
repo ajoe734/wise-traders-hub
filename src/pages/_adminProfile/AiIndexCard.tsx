@@ -40,6 +40,8 @@ export default function AiIndexCard({ expertId, expertName, isReadOnly }: Props)
       setLastResult({ ok: false, error: msg });
       toast.error(msg);
     } finally {
+      clearInterval(poll);
+      setRefreshKey((k) => k + 1);
       setBuilding(false);
     }
   };
@@ -82,6 +84,9 @@ export default function AiIndexCard({ expertId, expertName, isReadOnly }: Props)
             {lastResult.error}
           </div>
         )}
+      </CardContent>
+      <CardContent className="pt-0">
+        <AiIndexStatusPanel expertId={expertId} refreshKey={refreshKey} />
       </CardContent>
     </Card>
   );
