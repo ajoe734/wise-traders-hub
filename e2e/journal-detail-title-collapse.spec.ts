@@ -45,9 +45,9 @@ interface Case {
   shouldCollapse: boolean;
 }
 
-// 匹配 richHtmlToPlain：htmlToPlainText + collapse whitespace + trim
+// 匹配 richHtmlToPlain：htmlToPlainText 直接去掉所有 tag（包含 <br>），再 collapse whitespace + trim
 function toPlain(html: string): string {
-  const noTag = html.replace(/<br\s*\/?>/gi, '\n').replace(/<[^>]+>/g, '');
+  const noTag = html.replace(/<[^>]+>/g, '');
   return noTag.replace(/\s+/g, ' ').replace(/^[•·]\s*/g, '').trim();
 }
 
