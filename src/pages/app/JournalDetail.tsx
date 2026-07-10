@@ -183,6 +183,30 @@ const JournalDetail = () => {
     .filter(Boolean)
     .flatMap(lp => lp.split(/\\n|\n/).filter(l => l.trim()));
 
+  const handleExportPdf = async () => {
+    if (isExporting) return;
+    setIsExporting(true);
+    const toastId = toast.loading('產生 PDF 中…');
+    try {
+      await exportJournalPdf({
+        headSignal: signal as any,
+        weekSignals: weekSignals as any,
+        weekStart: ws,
+        weekEnd: we,
+        weekTitle,
+        learningPoints: allLearningPoints,
+        avatarSrc: avatarUrl(signal.experts.avatar_url, 240),
+      });
+      toast.success('已匯出週記 PDF', { id: toastId });
+    } catch (e) {
+      console.error('[exportJournalPdf]', e);
+      toast.error('匯出失敗，請重試', { id: toastId });
+    } finally {
+      setIsExporting(false);
+    }
+  };
+
+
   return (
     <UnifiedAppLayout>
       <SEO
