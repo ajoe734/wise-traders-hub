@@ -230,9 +230,12 @@ const signalBlockHtml = (s: Signal) => {
 
 const buildPage = (headerTitle: string, weekNum: number, bodyHtml: string) => `
   <div style="${pageShellCss}">
-    ${pageHeader(headerTitle, weekNum)}
-    <div style="padding-top: 26px; height: calc(100% - 100px); overflow: hidden;">
-      ${bodyHtml}
+    ${watermarkHtml}
+    <div style="position:relative; z-index:1;">
+      ${pageHeader(headerTitle, weekNum)}
+      <div style="padding-top: 26px; height: calc(100% - 100px); overflow: hidden;">
+        ${bodyHtml}
+      </div>
     </div>
   </div>
 `;
