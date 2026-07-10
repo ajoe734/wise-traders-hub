@@ -20,6 +20,12 @@ export interface PeriodBucket {
   stocks: StockTrade[];
   /** 區間級各股報酬（僅最後一個 bucket 會帶；提供 best/worst 使用） */
   rangeStocks?: StockTrade[];
+  /** 本 bucket（日/月結算點）實際計入的交易筆數 */
+  sampleCount: number;
+  /** 其中已平倉（exit_date ≤ D）的筆數 */
+  closedCount: number;
+  /** 其中尚未平倉、以標記價計算 PnL 的筆數 */
+  openCount: number;
 }
 
 type ViewPeriod = 'yearly' | 'monthly' | 'weekly';
@@ -356,6 +362,22 @@ export function usePeriodPerformance(
         const periodReturn = cum - prevCum;
         prevCum = cum;
 
+        // 樣本統計：以本 bucket 日期 D 為結算點
+        const Dts = d.getTime();
+        let closedCount = 0;
+        let openCount = 0;
+        for (const t of trades) {
+          if (!t.entry_date) continue;
+          const entryTs = new Date(t.entry_date).getTime();
+          if (entryTs > Dts) continue;
+          const qty = Number(t.quantity || 0);
+          const entryPrice = Number(t.entry_price || 0);
+          if (!qty || !entryPrice) continue;
+          const exitTs = t.exit_date ? new Date(t.exit_date).getTime() : null;
+          if (exitTs !== null && exitTs <= Dts) closedCount += 1;
+          else openCount += 1;
+        }
+
         const stocks = perStockSnapshot(trades, d, todayKey, snapMap);
         const sorted = [...stocks].sort((a, b) => b.returnPct - a.returnPct);
         const topStock = sorted[0]
@@ -375,6 +397,9 @@ export function usePeriodPerformance(
           topStock,
           bottomStock,
           stocks,
+          sampleCount: closedCount + openCount,
+          closedCount,
+          openCount,
         } as PeriodBucket;
       });
 

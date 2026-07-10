@@ -132,14 +132,22 @@ export function PerformanceOverviewPanel({ expertId, startingCapital: startingCa
   const CustomTooltip = ({ active, payload }: { active?: boolean; payload?: Array<{ payload: any }> }) => {
     if (!active || !payload?.[0]) return null;
     const data = payload[0].payload;
+    const sampleCount = data.sampleCount ?? 0;
+    const closedCount = data.closedCount ?? 0;
+    const openCount = data.openCount ?? 0;
     return (
-      <div className="bg-background/95 dark:bg-white/10 backdrop-blur-sm border dark:border-white/10 rounded-lg p-2 shadow-lg text-xs">
+      <div className="bg-background/95 dark:bg-white/10 backdrop-blur-sm border dark:border-white/10 rounded-lg p-2 shadow-lg text-xs space-y-0.5 min-w-[200px]">
         <div className="font-medium text-foreground">{data.label}</div>
         <div className={data.cumReturnPct >= 0 ? "text-success" : "text-destructive"}>
-          累積報酬: {data.cumReturnPct >= 0 ? "+" : ""}{data.cumReturnPct.toFixed(2)}%
+          累積報酬率: {data.cumReturnPct >= 0 ? "+" : ""}{data.cumReturnPct.toFixed(2)}%
         </div>
         <div className={data.returnPct >= 0 ? "text-success/80" : "text-destructive/80"}>
-          本期: {data.returnPct >= 0 ? "+" : ""}{data.returnPct.toFixed(2)}%
+          本期變動: {data.returnPct >= 0 ? "+" : ""}{data.returnPct.toFixed(2)}%
+        </div>
+        <div className="pt-1 mt-1 border-t border-border/60 text-[10px] text-muted-foreground leading-snug space-y-0.5">
+          <div>取樣桶數：{sampleCount} 筆（已平倉 {closedCount}／未平倉 {openCount}）</div>
+          <div>基準值：累積報酬率＝累積 PnL ÷ 起始資金</div>
+          <div>{openCount > 0 ? '含未平倉部位（以標記價計算）' : '僅含已平倉交易'}</div>
         </div>
       </div>
     );
