@@ -122,11 +122,12 @@ export function ExpertAiChatTab({ expertId, expertName, isSubscribed, onSubscrib
           {quota && !quota.unlimited && (
             <span
               className={`text-[11px] ${quotaExhausted ? 'text-destructive font-medium' : 'text-muted-foreground'}`}
-              title={`今日 00:00 (台北) 重置`}
+              title={countdown ? `距離重置 ${countdown}` : `今日 00:00 (台北) 重置`}
             >
               今日剩餘 {quota.remaining}/{quota.limit}
             </span>
           )}
+
           {messages.length > 0 && (
             <Button variant="ghost" size="sm" onClick={clearConversation} className="text-muted-foreground">
               <Trash2 className="h-3.5 w-3.5 mr-1" /> 清空
