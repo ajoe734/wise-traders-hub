@@ -6,6 +6,7 @@ import { streamText, convertToModelMessages, type UIMessage } from 'npm:ai';
 import { corsHeaders, errorResponse } from '../_shared/cors.ts';
 import { withLogging } from '../_shared/edgeLogger.ts';
 import { createLovableAiGatewayProvider, embedText } from '../_shared/ai-gateway.ts';
+import { getExpertAiQuota } from '../_shared/expert-ai-quota.ts';
 
 const MODEL = 'google/gemini-2.5-flash';
 
