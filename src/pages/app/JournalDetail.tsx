@@ -221,19 +221,39 @@ const JournalDetail = () => {
         <div className="flex items-start justify-between gap-2">
           <div className="flex-1 min-w-0">
             <h1
-              className={`text-xl font-bold break-words ${!titleExpanded && isTitleLong ? 'line-clamp-2' : ''}`}
+              id="journal-week-title"
+              className={`text-xl font-bold break-words transition-[max-height] duration-300 ease-out overflow-hidden ${
+                isTitleLong
+                  ? titleExpanded
+                    ? 'max-h-[60rem]'
+                    : 'max-h-[3.75rem] line-clamp-2'
+                  : ''
+              }`}
             >
               {weekTitle}
             </h1>
             {isTitleLong && (
-              <button
+              <Button
                 type="button"
+                variant="ghost"
+                size="sm"
                 onClick={() => setTitleExpanded(v => !v)}
-                className="mt-1 text-xs text-mentor hover:underline"
                 aria-expanded={titleExpanded}
+                aria-controls="journal-week-title"
+                className="mt-1 h-8 px-2 -ml-2 gap-1 text-xs text-mentor hover:text-mentor"
               >
-                {titleExpanded ? '收合' : '顯示全部'}
-              </button>
+                {titleExpanded ? (
+                  <>
+                    <ChevronUp className="h-3.5 w-3.5" aria-hidden="true" />
+                    收合
+                  </>
+                ) : (
+                  <>
+                    <ChevronDown className="h-3.5 w-3.5" aria-hidden="true" />
+                    顯示全部
+                  </>
+                )}
+              </Button>
             )}
           </div>
           {id && <ShareButton target={{ kind: "journal", id }} />}
