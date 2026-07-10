@@ -70,6 +70,20 @@ Deno.serve(withLogging('expert-ai-chat', async (req, log) => {
   }
   if (!allowed) return errorResponse('需訂閱該導師才能使用 AI 對話', 403, { code: 'SUBSCRIPTION_REQUIRED' });
 
+  // 2.5) 每日配額檢查（跨所有導師合計；company_admin 與導師本人豁免）
+  const quota = await getExpertAiQuota(admin, uid, {
+    exemptExpertOwner: true,
+    expertOwnerId: expert.user_id,
+  });
+  if (!quota.unlimited && quota.remaining <= 0) {
+    return errorResponse(
+      `今日 AI 對話已達上限（${quota.limit} 則／日），明日 00:00 重置或升級方案以取得更高額度。`,
+      429,
+      { code: 'AI_CHAT_QUOTA_EXCEEDED', quota },
+    );
+  }
+
+
   // 3) 取或建 conversation
   let convId: string;
   const { data: existConv } = await admin
