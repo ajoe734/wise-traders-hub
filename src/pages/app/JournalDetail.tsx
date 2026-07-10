@@ -218,10 +218,27 @@ const JournalDetail = () => {
           <Badge variant="mentor-light" className="text-[10px]">T+7 歷史</Badge>
         </div>
 
-        <div className="flex items-center justify-between gap-2">
-          <h1 className="text-xl font-bold">{weekTitle}</h1>
+        <div className="flex items-start justify-between gap-2">
+          <div className="flex-1 min-w-0">
+            <h1
+              className={`text-xl font-bold break-words ${!titleExpanded && isTitleLong ? 'line-clamp-2' : ''}`}
+            >
+              {weekTitle}
+            </h1>
+            {isTitleLong && (
+              <button
+                type="button"
+                onClick={() => setTitleExpanded(v => !v)}
+                className="mt-1 text-xs text-mentor hover:underline"
+                aria-expanded={titleExpanded}
+              >
+                {titleExpanded ? '收合' : '顯示全部'}
+              </button>
+            )}
+          </div>
           {id && <ShareButton target={{ kind: "journal", id }} />}
         </div>
+
 
         {/* Summary */}
         {signal.reason_detail && (
