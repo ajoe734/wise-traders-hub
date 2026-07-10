@@ -20,6 +20,12 @@ export interface PeriodBucket {
   stocks: StockTrade[];
   /** 區間級各股報酬（僅最後一個 bucket 會帶；提供 best/worst 使用） */
   rangeStocks?: StockTrade[];
+  /** 本 bucket（日/月結算點）實際計入的交易筆數 */
+  sampleCount: number;
+  /** 其中已平倉（exit_date ≤ D）的筆數 */
+  closedCount: number;
+  /** 其中尚未平倉、以標記價計算 PnL 的筆數 */
+  openCount: number;
 }
 
 type ViewPeriod = 'yearly' | 'monthly' | 'weekly';
