@@ -170,7 +170,7 @@ const JournalDetail = () => {
   const ws = startOfWeek(pubDate, { weekStartsOn: 1 });
   const we = addDays(ws, 4);
 
-  const weekTitle = richHtmlPreview(signal.reason_summary, 80) || '本週操作回顧';
+  const weekTitle = richHtmlPreview(signal.reason_summary, 10000) || '本週操作回顧';
 
   const allLearningPoints = weekSignals
     .map(s => richHtmlPreview(s.learning_points, 500))
