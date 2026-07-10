@@ -217,14 +217,26 @@ export function ExpertAiChatTab({ expertId, expertName, isSubscribed, onSubscrib
           </div>
         )}
 
-        {error && (
-          <div className="flex flex-col items-center gap-2 text-xs text-destructive text-center">
-            <div>{error.message || '對話發生錯誤，請稍後再試'}</div>
-            {canRetry && !isBusy && (
-              <Button size="sm" variant="outline" onClick={() => retry()} className="h-7">
-                重試
-              </Button>
-            )}
+        {error && !quotaExhausted && (
+          <div className="rounded-lg border border-destructive/40 bg-destructive/5 p-3 flex items-start gap-2">
+            <AlertTriangle className="h-4 w-4 text-destructive mt-0.5 shrink-0" />
+            <div className="flex-1 text-sm min-w-0">
+              <div className="font-medium text-destructive">AI 對話發生錯誤</div>
+              <div className="text-xs text-muted-foreground mt-0.5 break-words">
+                {error.message || '無法取得回覆，請稍後再試'}
+                {canRetry && '（已自動重試一次仍失敗，請手動重試）'}
+              </div>
+            </div>
+            <Button
+              size="sm"
+              variant="outline"
+              onClick={() => retry()}
+              disabled={isBusy}
+              className="shrink-0 h-8 gap-1"
+            >
+              <RefreshCw className={`h-3.5 w-3.5 ${isBusy ? 'animate-spin' : ''}`} />
+              重試
+            </Button>
           </div>
         )}
       </div>
