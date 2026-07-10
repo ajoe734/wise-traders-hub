@@ -36,15 +36,46 @@ export function ExpertAiChatTab({ expertId, expertName, isSubscribed, onSubscrib
     error,
     quota,
     quotaError,
+    refreshQuota,
   } = useExpertAiChat(isSubscribed ? expertId : null);
 
   const isBusy = status === 'submitted' || status === 'streaming';
   const quotaExhausted = !!quota && !quota.unlimited && quota.remaining <= 0;
   const disableSend = isBusy || quotaExhausted;
 
+  // 倒數：距離配額重置剩餘時間；歸零自動 refreshQuota 解鎖
+  const [nowMs, setNowMs] = useState(() => Date.now());
+  useEffect(() => {
+    if (!quotaExhausted || !quota?.resets_at) return;
+    const timer = setInterval(() => setNowMs(Date.now()), 1000);
+    return () => clearInterval(timer);
+  }, [quotaExhausted, quota?.resets_at]);
+
+  const resetMs = quota?.resets_at ? new Date(quota.resets_at).getTime() : 0;
+  const remainMs = Math.max(0, resetMs - nowMs);
+  const countdown = (() => {
+    if (!remainMs) return '';
+    const s = Math.floor(remainMs / 1000);
+    const h = Math.floor(s / 3600);
+    const m = Math.floor((s % 3600) / 60);
+    const sec = s % 60;
+    return `${String(h).padStart(2, '0')}:${String(m).padStart(2, '0')}:${String(sec).padStart(2, '0')}`;
+  })();
+
+  // 倒數歸零 → 主動刷新配額；後端會在新的一天回傳 remaining > 0，disableSend 自動解除
+  const refreshedForResetRef = useRef<string | null>(null);
+  useEffect(() => {
+    if (!quotaExhausted || !quota?.resets_at) return;
+    if (remainMs > 0) return;
+    if (refreshedForResetRef.current === quota.resets_at) return;
+    refreshedForResetRef.current = quota.resets_at;
+    refreshQuota();
+  }, [quotaExhausted, quota?.resets_at, remainMs, refreshQuota]);
+
   useEffect(() => {
     if (!isBusy) textareaRef.current?.focus();
   }, [isBusy, messages.length]);
+
 
   useEffect(() => {
     scrollRef.current?.scrollTo({ top: scrollRef.current.scrollHeight, behavior: 'smooth' });
@@ -91,11 +122,12 @@ export function ExpertAiChatTab({ expertId, expertName, isSubscribed, onSubscrib
           {quota && !quota.unlimited && (
             <span
               className={`text-[11px] ${quotaExhausted ? 'text-destructive font-medium' : 'text-muted-foreground'}`}
-              title={`今日 00:00 (台北) 重置`}
+              title={countdown ? `距離重置 ${countdown}` : `今日 00:00 (台北) 重置`}
             >
               今日剩餘 {quota.remaining}/{quota.limit}
             </span>
           )}
+
           {messages.length > 0 && (
             <Button variant="ghost" size="sm" onClick={clearConversation} className="text-muted-foreground">
               <Trash2 className="h-3.5 w-3.5 mr-1" /> 清空
@@ -110,7 +142,9 @@ export function ExpertAiChatTab({ expertId, expertName, isSubscribed, onSubscrib
           <div className="flex-1 text-sm">
             <div className="font-medium text-destructive">今日 AI 對話已達上限（{quota?.limit} 則／日）</div>
             <div className="text-xs text-muted-foreground mt-0.5">
-              {quotaError || '明日 00:00（台北）自動重置。若需更高額度，請升級方案。'}
+              {countdown
+                ? <>距離重置還有 <span className="font-mono tabular-nums text-foreground">{countdown}</span>（台北 00:00）。若需更高額度，請升級方案。</>
+                : (quotaError || '即將自動重置…')}
             </div>
           </div>
           <Button asChild size="sm" variant="outline" className="shrink-0">
@@ -118,6 +152,7 @@ export function ExpertAiChatTab({ expertId, expertName, isSubscribed, onSubscrib
           </Button>
         </div>
       )}
+
 
       {/* Messages */}
       <div ref={scrollRef} className="flex-1 overflow-y-auto py-4 space-y-4">
