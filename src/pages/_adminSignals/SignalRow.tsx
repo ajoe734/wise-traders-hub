@@ -3,7 +3,7 @@ import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { ChevronDown, ChevronUp, Loader2, Send, Undo2 } from 'lucide-react';
 import { PermissionTooltip } from '@/components/admin/PermissionTooltip';
-import { SafeRichHtml, richHtmlPreview } from '@/components/SafeRichHtml';
+import { SafeRichHtml, richHtmlPreview, PREVIEW_LIMITS } from '@/components/SafeRichHtml';
 import { canRecallSignal } from '@/lib/publishingWindow';
 import { actionLabels } from './actionLabels';
 
@@ -81,7 +81,7 @@ export function SignalRow({
           ) : '-'}
         </td>
         <td className="p-3 text-sm" style={{ maxWidth: '200px' }}>
-          <p className="text-muted-foreground truncate overflow-hidden text-ellipsis whitespace-nowrap">{richHtmlPreview(signal.reason_summary, 80) || '-'}</p>
+          <p className="text-muted-foreground truncate overflow-hidden text-ellipsis whitespace-nowrap">{richHtmlPreview(signal.reason_summary, PREVIEW_LIMITS.cardTitle) || '-'}</p>
         </td>
         {isMentor && (
           <td className="p-3">

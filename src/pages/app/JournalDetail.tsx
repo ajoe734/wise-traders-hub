@@ -13,7 +13,7 @@ import { format, startOfWeek, addDays } from 'date-fns';
 import { zhTW } from 'date-fns/locale';
 import { Calendar, BookOpen, Shield, Loader2, ChevronDown, ChevronUp, Lightbulb, Target, AlertTriangle, Eye } from 'lucide-react';
 import { useQuery } from '@tanstack/react-query';
-import { SafeRichHtml, richHtmlPreview } from '@/components/SafeRichHtml';
+import { SafeRichHtml, richHtmlToPlain } from '@/components/SafeRichHtml';
 import { avatarUrl } from '@/lib/imageTransform';
 
 interface SignalDetail {
@@ -130,6 +130,7 @@ const JournalDetail = () => {
   const { id } = useParams<{ id: string }>();
   const [searchParams] = useSearchParams();
   const { user, hasRole } = useAuth();
+  const [titleExpanded, setTitleExpanded] = useState(false);
 
   const { data, isLoading: loading } = useQuery({
     queryKey: ['app-journal-detail', id],
@@ -170,12 +171,14 @@ const JournalDetail = () => {
   const ws = startOfWeek(pubDate, { weekStartsOn: 1 });
   const we = addDays(ws, 4);
 
-  const weekTitle = richHtmlPreview(signal.reason_summary, 10000) || '本週操作回顧';
+  const weekTitle = richHtmlToPlain(signal.reason_summary) || '本週操作回顧';
+  const TITLE_COLLAPSE_THRESHOLD = 80;
+  const isTitleLong = weekTitle.length > TITLE_COLLAPSE_THRESHOLD;
 
   const allLearningPoints = weekSignals
-    .map(s => richHtmlPreview(s.learning_points, 500))
+    .map(s => richHtmlToPlain(s.learning_points))
     .filter(Boolean)
-    .flatMap(lp => lp!.split(/\\n|\n/).filter(l => l.trim()));
+    .flatMap(lp => lp.split(/\\n|\n/).filter(l => l.trim()));
 
   return (
     <UnifiedAppLayout>
@@ -215,10 +218,27 @@ const JournalDetail = () => {
           <Badge variant="mentor-light" className="text-[10px]">T+7 歷史</Badge>
         </div>
 
-        <div className="flex items-center justify-between gap-2">
-          <h1 className="text-xl font-bold">{weekTitle}</h1>
+        <div className="flex items-start justify-between gap-2">
+          <div className="flex-1 min-w-0">
+            <h1
+              className={`text-xl font-bold break-words ${!titleExpanded && isTitleLong ? 'line-clamp-2' : ''}`}
+            >
+              {weekTitle}
+            </h1>
+            {isTitleLong && (
+              <button
+                type="button"
+                onClick={() => setTitleExpanded(v => !v)}
+                className="mt-1 text-xs text-mentor hover:underline"
+                aria-expanded={titleExpanded}
+              >
+                {titleExpanded ? '收合' : '顯示全部'}
+              </button>
+            )}
+          </div>
           {id && <ShareButton target={{ kind: "journal", id }} />}
         </div>
+
 
         {/* Summary */}
         {signal.reason_detail && (

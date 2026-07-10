@@ -2,7 +2,7 @@ import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription } f
 import { Card, CardContent } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
 import { ActionBadge } from '@/components/ActionBadge';
-import { SafeRichHtml, richHtmlPreview } from '@/components/SafeRichHtml';
+import { SafeRichHtml, richHtmlToPlain } from '@/components/SafeRichHtml';
 import { avatarUrl } from '@/lib/imageTransform';
 import { Calendar, BookOpen, Shield, Lightbulb, Target, AlertTriangle, Eye } from 'lucide-react';
 import { format, startOfWeek, addDays } from 'date-fns';
@@ -37,11 +37,11 @@ export function JournalPreviewDialog({
 
   const weekTitle =
     teachingTopic.trim() ||
-    richHtmlPreview(sanitizeRichHtml(overallSummary), 80) ||
+    richHtmlToPlain(sanitizeRichHtml(overallSummary)) ||
     '本週操作回顧';
 
   const learningPointsList = !isHtmlEmpty(learningPoints)
-    ? (richHtmlPreview(sanitizeRichHtml(learningPoints), 1000) || '')
+    ? richHtmlToPlain(sanitizeRichHtml(learningPoints))
         .split(/\n|\\n/).map(s => s.trim()).filter(Boolean)
     : [];
 
