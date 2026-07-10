@@ -81,7 +81,7 @@ export function SignalRow({
           ) : '-'}
         </td>
         <td className="p-3 text-sm" style={{ maxWidth: '200px' }}>
-          <p className="text-muted-foreground truncate overflow-hidden text-ellipsis whitespace-nowrap">{richHtmlPreview(signal.reason_summary, 80) || '-'}</p>
+          <p className="text-muted-foreground truncate overflow-hidden text-ellipsis whitespace-nowrap">{richHtmlPreview(signal.reason_summary, PREVIEW_LIMITS.cardTitle) || '-'}</p>
         </td>
         {isMentor && (
           <td className="p-3">
