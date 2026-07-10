@@ -3,6 +3,7 @@
 import { createClient } from 'npm:@supabase/supabase-js@2';
 import { jsonResponse, errorResponse } from '../_shared/cors.ts';
 import { withLogging } from '../_shared/edgeLogger.ts';
+import { getExpertAiQuota } from '../_shared/expert-ai-quota.ts';
 
 Deno.serve(withLogging('expert-ai-conversation', async (req, _log) => {
   const SUPABASE_URL = Deno.env.get('SUPABASE_URL')!;
