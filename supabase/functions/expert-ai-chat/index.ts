@@ -3,7 +3,7 @@
 // 權限: 必須為該導師的 active 訂閱者 (或該導師本人 / company_admin 預覽)
 import { createClient } from 'npm:@supabase/supabase-js@2';
 import { streamText, convertToModelMessages, type UIMessage } from 'npm:ai@^5.0.0';
-import { corsHeaders, errorResponse } from '../_shared/cors.ts';
+import { corsHeaders, errorResponse, generateErrorId } from '../_shared/cors.ts';
 import { withLogging } from '../_shared/edgeLogger.ts';
 import { createLovableAiGatewayProvider, embedText } from '../_shared/ai-gateway.ts';
 import { getExpertAiQuota } from '../_shared/expert-ai-quota.ts';
