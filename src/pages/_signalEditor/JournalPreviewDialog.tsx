@@ -2,7 +2,7 @@ import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription } f
 import { Card, CardContent } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
 import { ActionBadge } from '@/components/ActionBadge';
-import { SafeRichHtml, richHtmlPreview } from '@/components/SafeRichHtml';
+import { SafeRichHtml, richHtmlToPlain } from '@/components/SafeRichHtml';
 import { avatarUrl } from '@/lib/imageTransform';
 import { Calendar, BookOpen, Shield, Lightbulb, Target, AlertTriangle, Eye } from 'lucide-react';
 import { format, startOfWeek, addDays } from 'date-fns';
