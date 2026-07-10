@@ -17,7 +17,7 @@ import {
 import { cn } from '@/lib/utils';
 import { format, isToday, differenceInMinutes } from 'date-fns';
 // C1 (audit 2026-06): useMyHoldings removed — see note below.
-import { richHtmlPreview } from '@/components/SafeRichHtml';
+import { richHtmlPreview, PREVIEW_LIMITS } from '@/components/SafeRichHtml';
 import { avatarUrl } from '@/lib/imageTransform';
 import { useEffect } from 'react';
 import { track } from '@/lib/analytics/events';
