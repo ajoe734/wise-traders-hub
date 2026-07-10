@@ -13,7 +13,7 @@ import { format, isToday, differenceInHours } from 'date-fns';
 import { zhTW } from 'date-fns/locale';
 import { cn } from '@/lib/utils';
 import { useQuery } from '@tanstack/react-query';
-import { richHtmlPreview } from '@/components/SafeRichHtml';
+import { richHtmlPreview, PREVIEW_LIMITS } from '@/components/SafeRichHtml';
 import { avatarUrl } from '@/lib/imageTransform';
 import { intentHandlers } from '@/lib/routePrefetch';
 import { usePreviewMode } from '@/hooks/usePreviewMode';
