@@ -134,6 +134,7 @@ const JournalDetail = () => {
   const { user, hasRole } = useAuth();
   const [titleExpanded, setTitleExpanded] = useState(false);
   const [isExporting, setIsExporting] = useState(false);
+  const [exportError, setExportError] = useState<string | null>(null);
 
   const { data, isLoading: loading } = useQuery({
     queryKey: ['app-journal-detail', id],
