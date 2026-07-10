@@ -223,5 +223,6 @@ export function useExpertAiChat(expertId: string | null | undefined) {
     refreshQuota,
     canRetry,
     retry,
+    errorId,
   };
 }
