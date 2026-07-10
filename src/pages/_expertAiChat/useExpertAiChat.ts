@@ -179,6 +179,8 @@ export function useExpertAiChat(expertId: string | null | undefined) {
   const retry = useCallback(() => {
     if (lastErrorQuotaRef.current) return;
     setCanRetry(false);
+    setErrorId(null);
+    lastErrorIdRef.current = null;
     autoRetriedRef.current = true;
     try { chat.regenerate(); } catch { setCanRetry(true); }
   }, [chat]);
@@ -186,6 +188,8 @@ export function useExpertAiChat(expertId: string | null | undefined) {
   const sendMessageWrapped: typeof chat.sendMessage = (...args) => {
     autoRetriedRef.current = false;
     setCanRetry(false);
+    setErrorId(null);
+    lastErrorIdRef.current = null;
     return chat.sendMessage(...args);
   };
 
