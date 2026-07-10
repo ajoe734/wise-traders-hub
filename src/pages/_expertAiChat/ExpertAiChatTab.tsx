@@ -141,7 +141,9 @@ export function ExpertAiChatTab({ expertId, expertName, isSubscribed, onSubscrib
           <div className="flex-1 text-sm">
             <div className="font-medium text-destructive">今日 AI 對話已達上限（{quota?.limit} 則／日）</div>
             <div className="text-xs text-muted-foreground mt-0.5">
-              {quotaError || '明日 00:00（台北）自動重置。若需更高額度，請升級方案。'}
+              {countdown
+                ? <>距離重置還有 <span className="font-mono tabular-nums text-foreground">{countdown}</span>（台北 00:00）。若需更高額度，請升級方案。</>
+                : (quotaError || '即將自動重置…')}
             </div>
           </div>
           <Button asChild size="sm" variant="outline" className="shrink-0">
@@ -149,6 +151,7 @@ export function ExpertAiChatTab({ expertId, expertName, isSubscribed, onSubscrib
           </Button>
         </div>
       )}
+
 
       {/* Messages */}
       <div ref={scrollRef} className="flex-1 overflow-y-auto py-4 space-y-4">
