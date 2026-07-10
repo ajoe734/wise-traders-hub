@@ -38,13 +38,13 @@ export function JournalCard({ weekStart, weekEnd, signals, expert, to }: Journal
   const formatDate = (date: Date) => format(date, 'MM/dd', { locale: zhTW });
 
   // Use first signal's reason_summary as the weekly title
-  const weekTitle = richHtmlPreview(signals[0]?.reason_summary, 80) || null;
+  const weekTitle = richHtmlPreview(signals[0]?.reason_summary, PREVIEW_LIMITS.cardTitle) || null;
   // Use first signal's reason_detail as the summary paragraph
-  const weekSummary = richHtmlPreview(signals[0]?.reason_detail, 220) || null;
+  const weekSummary = richHtmlPreview(signals[0]?.reason_detail, PREVIEW_LIMITS.cardSummary) || null;
 
   // Collect unique learning points from all signals
   const allPoints = signals
-    .map(s => richHtmlPreview(s.learning_points, 500))
+    .map(s => richHtmlPreview(s.learning_points, PREVIEW_LIMITS.learningPointsCard))
     .filter(Boolean)
     .flatMap(lp => lp!.split('\n').filter(l => l.trim()));
 
