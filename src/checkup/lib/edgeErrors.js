@@ -15,6 +15,7 @@ export const EDGE_ERROR_DICT = {
   AUTH_REQUIRED: '請先登入再使用 AI 功能',
   AUTH_INVALID: '登入狀態已失效，請重新登入',
   QUOTA_EXCEEDED: '本期 AI 解析額度已用完，請升級方案後再試',
+  AI_CHAT_QUOTA_EXCEEDED: '今日 AI 對話次數已達上限，明日 00:00 重置或升級方案取得更高額度',
   QUOTA_CHECK_FAILED: '配額檢查發生錯誤，請稍後再試',
   RATE_LIMITED: '操作太頻繁，請稍後再試',
   PAYMENT_REQUIRED: '此功能需付費方案，升級後即可使用',
