@@ -129,6 +129,8 @@ const buildCoverHtml = (a: ExportArgs, avatarDataUrl: string | null) => {
   const roleLabel = a.headSignal.experts.role === 'mentor' ? '實戰導師' : '分析師';
   return `
     <div style="${pageShellCss}">
+      ${watermarkHtml}
+      <div style="position:relative; z-index:1;">
       <div style="font-family:${serif}; font-size: 15px; font-weight: 700; letter-spacing: 0.02em;">
         legendflow<span style="color:${COLORS.brand}">·</span>
       </div>
