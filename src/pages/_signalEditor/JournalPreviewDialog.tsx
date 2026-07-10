@@ -37,11 +37,11 @@ export function JournalPreviewDialog({
 
   const weekTitle =
     teachingTopic.trim() ||
-    richHtmlPreview(sanitizeRichHtml(overallSummary), 80) ||
+    richHtmlToPlain(sanitizeRichHtml(overallSummary)) ||
     '本週操作回顧';
 
   const learningPointsList = !isHtmlEmpty(learningPoints)
-    ? (richHtmlPreview(sanitizeRichHtml(learningPoints), 1000) || '')
+    ? richHtmlToPlain(sanitizeRichHtml(learningPoints))
         .split(/\n|\\n/).map(s => s.trim()).filter(Boolean)
     : [];
 
