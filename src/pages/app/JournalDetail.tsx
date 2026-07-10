@@ -194,8 +194,19 @@ const JournalDetail = () => {
     if (isExporting) return;
     setIsExporting(true);
     setExportError(null);
-    const toastId = toast.loading('產生 PDF 中…');
+    const toastId = toast.loading('驗證權限並產生 PDF 中…');
     try {
+      // Backend authorization gate — refuses non-admin callers even if the
+      // frontend check was bypassed.
+      const { data: authz, error: authzErr } = await supabase.functions.invoke(
+        'authorize-pdf-export',
+        { body: {} },
+      );
+      if (authzErr || !authz?.allowed) {
+        const msg = authz?.message || authzErr?.message || '後端拒絕匯出授權';
+        throw new Error(msg);
+      }
+
       await exportJournalPdf({
         headSignal: signal as any,
         weekSignals: weekSignals as any,
