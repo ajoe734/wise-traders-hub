@@ -218,8 +218,13 @@ export function ExpertAiChatTab({ expertId, expertName, isSubscribed, onSubscrib
         )}
 
         {error && (
-          <div className="text-xs text-destructive text-center">
-            {error.message || '對話發生錯誤，請稍後再試'}
+          <div className="flex flex-col items-center gap-2 text-xs text-destructive text-center">
+            <div>{error.message || '對話發生錯誤，請稍後再試'}</div>
+            {canRetry && !isBusy && (
+              <Button size="sm" variant="outline" onClick={() => retry()} className="h-7">
+                重試
+              </Button>
+            )}
           </div>
         )}
       </div>
