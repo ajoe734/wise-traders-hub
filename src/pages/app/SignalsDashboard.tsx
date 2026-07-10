@@ -130,7 +130,7 @@ export function SignalsDashboard({ subscriptions, userName }: SignalsDashboardPr
                         )}
                       </div>
                       <p className="font-semibold truncate">{signal.instrument}</p>
-                      <p className="text-sm text-muted-foreground line-clamp-1 mt-0.5">{richHtmlPreview(signal.reason_summary, 100)}</p>
+                      <p className="text-sm text-muted-foreground line-clamp-1 mt-0.5">{richHtmlPreview(signal.reason_summary, PREVIEW_LIMITS.dashboardRow)}</p>
                       {signal.experts && (
                         <div className="flex items-center gap-1.5 mt-2">
                           <img src={avatarUrl(signal.experts.avatar_url, 40)} alt={signal.experts.name} loading="lazy" decoding="async" className="shrink-0 h-5 w-5 rounded-full object-cover object-[center_15%] border border-signals-accent/30" />
