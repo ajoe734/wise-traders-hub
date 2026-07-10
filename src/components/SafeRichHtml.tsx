@@ -63,9 +63,37 @@ export function SafeRichHtml({ html, className, clamp, preserveLineBreaks = true
   );
 }
 
+/**
+ * 週記/訊號欄位在「列表/卡片/預覽」情境的截斷長度（詳情頁請直接完整顯示，勿使用）。
+ * 集中維護以確保各處 UI 一致。
+ */
+export const PREVIEW_LIMITS = {
+  /** 卡片 / 後台列表：週記標題（reason_summary） */
+  cardTitle: 80,
+  /** 卡片：週記摘要（reason_detail） */
+  cardSummary: 220,
+  /** 訊號列表 row：reason_summary */
+  listRow: 140,
+  /** 儀表板單行預覽 */
+  dashboardRow: 100,
+  /** risk_notes 極短摘要 */
+  riskNoteShort: 60,
+  /** learning_points 卡片預覽 */
+  learningPointsCard: 500,
+  /** learning_points 編輯器預覽 dialog */
+  learningPointsPreview: 1000,
+} as const;
+
 /** 用來做列表預覽（line-clamp）：把 HTML 拍平成純文字。 */
 export function richHtmlPreview(html: string | null | undefined, maxLen = 200): string {
   if (!html) return '';
   const txt = htmlToPlainText(html).replace(/\s+/g, ' ').replace(/^[•·]\s*/g, '').trim();
   return txt.length > maxLen ? txt.slice(0, maxLen) + '…' : txt;
 }
+
+/** 純文字轉換：不做截斷，供詳情頁使用。 */
+export function richHtmlToPlain(html: string | null | undefined): string {
+  if (!html) return '';
+  return htmlToPlainText(html).replace(/\s+/g, ' ').replace(/^[•·]\s*/g, '').trim();
+}
+
