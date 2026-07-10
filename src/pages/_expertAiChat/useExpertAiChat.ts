@@ -94,6 +94,10 @@ export function useExpertAiChat(expertId: string | null | undefined) {
     });
   }, []);
 
+  const [canRetry, setCanRetry] = useState(false);
+  const autoRetriedRef = useRef(false);
+  const lastErrorQuotaRef = useRef(false);
+
   const transport = new DefaultChatTransport({
     api: `${SUPABASE_URL}/functions/v1/expert-ai-chat`,
     headers: () => ({
@@ -104,11 +108,13 @@ export function useExpertAiChat(expertId: string | null | undefined) {
     // 攔截非 2xx 回應 → 解析錯誤 body、更新配額狀態
     fetch: async (input, init) => {
       const resp = await fetch(input as any, init);
+      lastErrorQuotaRef.current = false;
       if (!resp.ok) {
         try {
           const cloned = resp.clone();
           const body = await cloned.json();
           if (body?.code === 'AI_CHAT_QUOTA_EXCEEDED') {
+            lastErrorQuotaRef.current = true;
             if (body.quota) setQuota(body.quota);
             setQuotaError(body.message || '今日 AI 對話次數已達上限');
           }
@@ -124,9 +130,39 @@ export function useExpertAiChat(expertId: string | null | undefined) {
     transport,
     onFinish: () => {
       setQuotaError(null);
+      autoRetriedRef.current = false;
+      setCanRetry(false);
       refreshQuota();
     },
+    onError: () => {
+      // 配額用完不自動重試；否則自動重試一次，第二次仍失敗才顯示手動重試按鈕
+      if (lastErrorQuotaRef.current) {
+        setCanRetry(false);
+        return;
+      }
+      if (!autoRetriedRef.current) {
+        autoRetriedRef.current = true;
+        setTimeout(() => {
+          try { chat.regenerate(); } catch { setCanRetry(true); }
+        }, 600);
+      } else {
+        setCanRetry(true);
+      }
+    },
   });
+
+  const retry = useCallback(() => {
+    if (lastErrorQuotaRef.current) return;
+    setCanRetry(false);
+    autoRetriedRef.current = true;
+    try { chat.regenerate(); } catch { setCanRetry(true); }
+  }, [chat]);
+
+  const sendMessageWrapped: typeof chat.sendMessage = (...args) => {
+    autoRetriedRef.current = false;
+    setCanRetry(false);
+    return chat.sendMessage(...args);
+  };
 
   const clearConversation = async () => {
     if (!expertId) return;
@@ -142,16 +178,21 @@ export function useExpertAiChat(expertId: string | null | undefined) {
     setHistory([]);
     chat.setMessages([]);
     setQuotaError(null);
+    autoRetriedRef.current = false;
+    setCanRetry(false);
     refreshQuota();
   };
 
   return {
     ...chat,
+    sendMessage: sendMessageWrapped,
     loadingHistory,
     loadError,
     clearConversation,
     quota,
     quotaError,
     refreshQuota,
+    canRetry,
+    retry,
   };
 }
