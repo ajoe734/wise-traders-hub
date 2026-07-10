@@ -227,6 +227,11 @@ export function ExpertAiChatTab({ expertId, expertName, isSubscribed, onSubscrib
                 {error.message || '無法取得回覆，請稍後再試'}
                 {canRetry && '（已自動重試一次仍失敗，請手動重試）'}
               </div>
+              {errorId && (
+                <div className="mt-1 text-[11px] font-mono text-muted-foreground/80 select-all">
+                  errorId: {errorId}
+                </div>
+              )}
             </div>
             <Button
               size="sm"
