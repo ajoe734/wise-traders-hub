@@ -200,14 +200,18 @@ export function ExpertAiChatTab({ expertId, expertName, isSubscribed, onSubscrib
                 handleSend();
               }
             }}
-            placeholder={`向 ${expertName} 提問…（Shift+Enter 換行）`}
+            placeholder={
+              quotaExhausted
+                ? '今日對話已達上限，請明日再試或升級方案'
+                : `向 ${expertName} 提問…（Shift+Enter 換行）`
+            }
             className="resize-none min-h-[44px] max-h-32"
             rows={1}
-            disabled={isBusy}
+            disabled={disableSend}
           />
           <Button
             onClick={() => handleSend()}
-            disabled={!input.trim() || isBusy}
+            disabled={!input.trim() || disableSend}
             size="icon"
             className="shrink-0 bg-mentor hover:bg-mentor/90 text-white"
           >
