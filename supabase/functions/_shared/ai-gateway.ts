@@ -1,6 +1,6 @@
 // Lovable AI Gateway helper for the AI SDK (OpenAI-compatible provider).
 // Used by expert-ai-chat / expert-ai-index for chat streaming and embeddings.
-import { createOpenAICompatible } from 'npm:@ai-sdk/openai-compatible';
+import { createOpenAICompatible } from 'npm:@ai-sdk/openai-compatible@^1.0.0';
 
 const LOVABLE_AIG_RUN_ID_HEADER = 'X-Lovable-AIG-Run-ID';
 
