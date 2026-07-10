@@ -3,7 +3,7 @@
 // 權限: 必須為該導師的 active 訂閱者 (或該導師本人 / company_admin 預覽)
 import { createClient } from 'npm:@supabase/supabase-js@2';
 import { streamText, convertToModelMessages, type UIMessage } from 'npm:ai@^5.0.0';
-import { corsHeaders, errorResponse } from '../_shared/cors.ts';
+import { corsHeaders, errorResponse, generateErrorId } from '../_shared/cors.ts';
 import { withLogging } from '../_shared/edgeLogger.ts';
 import { createLovableAiGatewayProvider, embedText } from '../_shared/ai-gateway.ts';
 import { getExpertAiQuota } from '../_shared/expert-ai-quota.ts';
@@ -174,6 +174,11 @@ Deno.serve(withLogging('expert-ai-chat', async (req, log) => {
     model,
     system: systemPrompt,
     messages: convertToModelMessages(uiMessages),
+    onError: ({ error }) => {
+      const errorId = generateErrorId();
+      const msg = error instanceof Error ? error.message : String(error);
+      log.error('stream_error', { errorId, err: msg });
+    },
     onFinish: async ({ text }) => {
       if (text) {
         await admin.from('expert_ai_messages').insert({
@@ -192,5 +197,12 @@ Deno.serve(withLogging('expert-ai-chat', async (req, log) => {
   return result.toUIMessageStreamResponse({
     headers: corsHeaders,
     originalMessages: uiMessages,
+    onError: (error) => {
+      const errorId = generateErrorId();
+      const msg = error instanceof Error ? error.message : String(error);
+      log.error('ui_stream_error', { errorId, err: msg });
+      // 這段字串會成為前端 useChat 的 error.message，把 errorId 帶出去
+      return `AI 對話串流失敗（errorId: ${errorId}）：${msg}`;
+    },
   });
 }));
