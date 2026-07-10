@@ -1190,6 +1190,66 @@ export type Database = {
           },
         ]
       }
+      expert_ai_index_runs: {
+        Row: {
+          created_at: string
+          duration_ms: number | null
+          embed_failures: number
+          error_message: string | null
+          expert_id: string
+          finished_at: string | null
+          id: string
+          indexed_chunks: number
+          started_at: string
+          status: string
+          total_chunks: number | null
+          trigger_source: string
+        }
+        Insert: {
+          created_at?: string
+          duration_ms?: number | null
+          embed_failures?: number
+          error_message?: string | null
+          expert_id: string
+          finished_at?: string | null
+          id?: string
+          indexed_chunks?: number
+          started_at?: string
+          status?: string
+          total_chunks?: number | null
+          trigger_source?: string
+        }
+        Update: {
+          created_at?: string
+          duration_ms?: number | null
+          embed_failures?: number
+          error_message?: string | null
+          expert_id?: string
+          finished_at?: string | null
+          id?: string
+          indexed_chunks?: number
+          started_at?: string
+          status?: string
+          total_chunks?: number | null
+          trigger_source?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "expert_ai_index_runs_expert_id_fkey"
+            columns: ["expert_id"]
+            isOneToOne: false
+            referencedRelation: "experts"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "expert_ai_index_runs_expert_id_fkey"
+            columns: ["expert_id"]
+            isOneToOne: false
+            referencedRelation: "experts_public"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       expert_ai_messages: {
         Row: {
           content: string
