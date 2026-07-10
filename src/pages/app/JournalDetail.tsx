@@ -309,7 +309,36 @@ const JournalDetail = () => {
               <span className="text-xs">{isExporting ? '產生中…' : '匯出 PDF'}</span>
             </Button>
             {id && <ShareButton target={{ kind: "journal", id }} />}
+        </div>
+
+        {exportError && (
+          <div
+            role="alert"
+            aria-live="assertive"
+            className="flex items-start gap-2 rounded-md border border-destructive/40 bg-destructive/5 p-3 text-sm"
+          >
+            <AlertTriangle className="h-4 w-4 text-destructive mt-0.5 shrink-0" aria-hidden="true" />
+            <div className="flex-1 min-w-0">
+              <p className="font-medium text-destructive">PDF 匯出失敗</p>
+              <p className="text-xs text-muted-foreground break-words mt-0.5">{exportError}</p>
+            </div>
+            <Button
+              type="button"
+              size="sm"
+              variant="outline"
+              onClick={handleExportPdf}
+              disabled={isExporting}
+              className="h-8 gap-1.5 shrink-0"
+            >
+              {isExporting ? (
+                <Loader2 className="h-3.5 w-3.5 animate-spin" aria-hidden="true" />
+              ) : (
+                <Download className="h-3.5 w-3.5" aria-hidden="true" />
+              )}
+              <span className="text-xs">重試匯出</span>
+            </Button>
           </div>
+        )}
         </div>
 
 
