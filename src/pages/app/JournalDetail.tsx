@@ -292,22 +292,25 @@ const JournalDetail = () => {
             )}
           </div>
           <div className="flex items-center gap-1 shrink-0">
-            <Button
-              type="button"
-              variant="outline"
-              size="sm"
-              onClick={handleExportPdf}
-              disabled={isExporting}
-              className="h-8 gap-1.5"
-              aria-label="匯出週記 PDF"
-            >
-              {isExporting ? (
-                <Loader2 className="h-3.5 w-3.5 animate-spin" aria-hidden="true" />
-              ) : (
-                <Download className="h-3.5 w-3.5" aria-hidden="true" />
-              )}
-              <span className="text-xs">{isExporting ? '產生中…' : '匯出 PDF'}</span>
-            </Button>
+            {canExportPdf && (
+              <Button
+                type="button"
+                variant="outline"
+                size="sm"
+                onClick={handleExportPdf}
+                disabled={isExporting}
+                className="h-8 gap-1.5"
+                aria-label="匯出週記 PDF（後台專用）"
+                title="後台專用：匯出週記 PDF"
+              >
+                {isExporting ? (
+                  <Loader2 className="h-3.5 w-3.5 animate-spin" aria-hidden="true" />
+                ) : (
+                  <Download className="h-3.5 w-3.5" aria-hidden="true" />
+                )}
+                <span className="text-xs">{isExporting ? '產生中…' : '匯出 PDF'}</span>
+              </Button>
+            )}
             {id && <ShareButton target={{ kind: "journal", id }} />}
         </div>
 
