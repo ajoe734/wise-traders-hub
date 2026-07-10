@@ -36,15 +36,46 @@ export function ExpertAiChatTab({ expertId, expertName, isSubscribed, onSubscrib
     error,
     quota,
     quotaError,
+    refreshQuota,
   } = useExpertAiChat(isSubscribed ? expertId : null);
 
   const isBusy = status === 'submitted' || status === 'streaming';
   const quotaExhausted = !!quota && !quota.unlimited && quota.remaining <= 0;
   const disableSend = isBusy || quotaExhausted;
 
+  // 倒數：距離配額重置剩餘時間；歸零自動 refreshQuota 解鎖
+  const [nowMs, setNowMs] = useState(() => Date.now());
+  useEffect(() => {
+    if (!quotaExhausted || !quota?.resets_at) return;
+    const timer = setInterval(() => setNowMs(Date.now()), 1000);
+    return () => clearInterval(timer);
+  }, [quotaExhausted, quota?.resets_at]);
+
+  const resetMs = quota?.resets_at ? new Date(quota.resets_at).getTime() : 0;
+  const remainMs = Math.max(0, resetMs - nowMs);
+  const countdown = (() => {
+    if (!remainMs) return '';
+    const s = Math.floor(remainMs / 1000);
+    const h = Math.floor(s / 3600);
+    const m = Math.floor((s % 3600) / 60);
+    const sec = s % 60;
+    return `${String(h).padStart(2, '0')}:${String(m).padStart(2, '0')}:${String(sec).padStart(2, '0')}`;
+  })();
+
+  // 倒數歸零 → 主動刷新配額；後端會在新的一天回傳 remaining > 0，disableSend 自動解除
+  const refreshedForResetRef = useRef<string | null>(null);
+  useEffect(() => {
+    if (!quotaExhausted || !quota?.resets_at) return;
+    if (remainMs > 0) return;
+    if (refreshedForResetRef.current === quota.resets_at) return;
+    refreshedForResetRef.current = quota.resets_at;
+    refreshQuota();
+  }, [quotaExhausted, quota?.resets_at, remainMs, refreshQuota]);
+
   useEffect(() => {
     if (!isBusy) textareaRef.current?.focus();
   }, [isBusy, messages.length]);
+
 
   useEffect(() => {
     scrollRef.current?.scrollTo({ top: scrollRef.current.scrollHeight, behavior: 'smooth' });
