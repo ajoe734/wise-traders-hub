@@ -24,6 +24,8 @@ jobs:
           bun-version: latest
       - name: Install deps
         run: bun install --frozen-lockfile
+      - name: Check ai / @ai-sdk/* version compatibility
+        run: bun run check:ai-sdk-versions
       - name: tsc --noEmit
         run: bun run typecheck
 
