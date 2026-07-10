@@ -20,6 +20,7 @@
     "check:freecheckup-rwd": "node scripts/check-freecheckup-rwd.mjs",
     "check:freecheckup-i18n": "node scripts/check-freecheckup-i18n.mjs",
     "check:sitemap": "bunx tsx scripts/sitemap-consistency-check.ts",
+    "check:ai-sdk-versions": "node scripts/check-ai-sdk-versions.mjs",
     "check:rls-audit": "vitest run src/test/integration/1.35-rls-security-audit.test.ts",
     "check:prod-debug": "node scripts/check-prod-debug-bundle.mjs",
     "check:security:all": "npm run check:rls-audit && npm run check:prod-debug",
