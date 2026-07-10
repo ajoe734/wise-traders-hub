@@ -130,8 +130,7 @@ const buildCoverHtml = (a: ExportArgs, avatarDataUrl: string | null) => {
   return `
     <div style="${pageShellCss}">
       ${watermarkHtml}
-      <div style="position:relative; z-index:1;">
-      <div style="font-family:${serif}; font-size: 15px; font-weight: 700; letter-spacing: 0.02em;">
+      <div style="font-family:${serif}; font-size: 15px; font-weight: 700; letter-spacing: 0.02em; position:relative; z-index:1;">
         legendflow<span style="color:${COLORS.brand}">·</span>
       </div>
 
