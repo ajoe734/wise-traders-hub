@@ -96,8 +96,16 @@ export function useExpertAiChat(expertId: string | null | undefined) {
   }, []);
 
   const [canRetry, setCanRetry] = useState(false);
+  const [errorId, setErrorId] = useState<string | null>(null);
   const autoRetriedRef = useRef(false);
   const lastErrorQuotaRef = useRef(false);
+  const lastErrorIdRef = useRef<string | null>(null);
+
+  const extractErrorIdFromMessage = (msg?: string): string | null => {
+    if (!msg) return null;
+    const m = msg.match(/errorId[:：]\s*(err_[a-z0-9_]+)/i);
+    return m ? m[1] : null;
+  };
 
   const transport = new DefaultChatTransport({
     api: `${SUPABASE_URL}/functions/v1/expert-ai-chat`,
@@ -106,20 +114,26 @@ export function useExpertAiChat(expertId: string | null | undefined) {
       apikey: SUPABASE_PUBLISHABLE_KEY,
     }),
     body: () => ({ expert_id: expertId }),
-    // 攔截非 2xx 回應 → 解析錯誤 body、更新配額狀態
+    // 攔截非 2xx 回應 → 解析錯誤 body、更新配額 / errorId
     fetch: async (input, init) => {
       const resp = await fetch(input as any, init);
       lastErrorQuotaRef.current = false;
       if (!resp.ok) {
+        // 優先讀 header（stream 情境仍可拿到）
+        const headerErrId = resp.headers.get('x-error-id');
+        if (headerErrId) lastErrorIdRef.current = headerErrId;
         try {
           const cloned = resp.clone();
           const body = await cloned.json();
+          if (body?.errorId) lastErrorIdRef.current = body.errorId;
           if (body?.code === 'AI_CHAT_QUOTA_EXCEEDED') {
             lastErrorQuotaRef.current = true;
             if (body.quota) setQuota(body.quota);
             setQuotaError(body.message || '今日 AI 對話次數已達上限');
           }
         } catch { /* ignore */ }
+      } else {
+        lastErrorIdRef.current = null;
       }
       return resp;
     },
@@ -133,9 +147,19 @@ export function useExpertAiChat(expertId: string | null | undefined) {
       setQuotaError(null);
       autoRetriedRef.current = false;
       setCanRetry(false);
+      setErrorId(null);
+      lastErrorIdRef.current = null;
       refreshQuota();
     },
-    onError: () => {
+    onError: (err) => {
+      // 從 header/body 或 error.message 中撈 errorId（stream 錯誤走 message）
+      const eid = lastErrorIdRef.current || extractErrorIdFromMessage(err?.message);
+      setErrorId(eid);
+      if (eid && !lastErrorQuotaRef.current) {
+        toast.error(`AI 對話發生錯誤 (errorId: ${eid})`, {
+          description: '請點擊「重試」或把 errorId 回報給客服追查。',
+        });
+      }
       // 配額用完不自動重試；否則自動重試一次，第二次仍失敗才顯示手動重試按鈕
       if (lastErrorQuotaRef.current) {
         setCanRetry(false);
