@@ -33,9 +33,13 @@ export function ExpertAiChatTab({ expertId, expertName, isSubscribed, onSubscrib
     loadError,
     clearConversation,
     error,
+    quota,
+    quotaError,
   } = useExpertAiChat(isSubscribed ? expertId : null);
 
   const isBusy = status === 'submitted' || status === 'streaming';
+  const quotaExhausted = !!quota && !quota.unlimited && quota.remaining <= 0;
+  const disableSend = isBusy || quotaExhausted;
 
   useEffect(() => {
     if (!isBusy) textareaRef.current?.focus();
