@@ -4,6 +4,7 @@ import { Button } from '@/components/ui/button';
 import { Sparkles, Loader2, CheckCircle2, AlertCircle } from 'lucide-react';
 import { supabase } from '@/integrations/supabase/client';
 import { toast } from 'sonner';
+import AiIndexStatusPanel from './AiIndexStatusPanel';
 
 interface Props {
   expertId: string;
@@ -14,14 +15,18 @@ interface Props {
 export default function AiIndexCard({ expertId, expertName, isReadOnly }: Props) {
   const [building, setBuilding] = useState(false);
   const [lastResult, setLastResult] = useState<{ ok: boolean; indexed?: number; error?: string } | null>(null);
+  const [refreshKey, setRefreshKey] = useState(0);
 
   const handleRebuild = async () => {
     if (building) return;
     setBuilding(true);
     setLastResult(null);
+    // 立即刷新一次，讓面板顯示 running 狀態
+    setRefreshKey((k) => k + 1);
+    const poll = setInterval(() => setRefreshKey((k) => k + 1), 4000);
     try {
       const { data, error } = await supabase.functions.invoke('expert-ai-index', {
-        body: { expert_id: expertId },
+        body: { expert_id: expertId, trigger_source: 'manual' },
       });
       if (error) throw error;
       if (data?.ok) {
