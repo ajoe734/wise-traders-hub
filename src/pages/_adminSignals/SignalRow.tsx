@@ -3,7 +3,7 @@ import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { ChevronDown, ChevronUp, Loader2, Send, Undo2 } from 'lucide-react';
 import { PermissionTooltip } from '@/components/admin/PermissionTooltip';
-import { SafeRichHtml, richHtmlPreview } from '@/components/SafeRichHtml';
+import { SafeRichHtml, richHtmlPreview, PREVIEW_LIMITS } from '@/components/SafeRichHtml';
 import { canRecallSignal } from '@/lib/publishingWindow';
 import { actionLabels } from './actionLabels';
 
