@@ -33,9 +33,26 @@ export function jsonResponse(data: unknown, init: ResponseInit = {}): Response {
   });
 }
 
+export function generateErrorId(): string {
+  // 短碼：時間戳(base36) + 6 位隨機，方便使用者在 toast 中回報
+  const rand = Math.random().toString(36).slice(2, 8);
+  return `err_${Date.now().toString(36)}_${rand}`;
+}
+
 export function errorResponse(message: string, status = 500, extra?: Record<string, unknown>): Response {
   // Default to INTERNAL_ERROR; callers wanting a specific code should pass
   // `code` in `extra` or use `codedErrorResponse` from `_shared/errorCodes.ts`.
   const code = (extra && typeof extra.code === 'string') ? extra.code : 'INTERNAL_ERROR';
-  return jsonResponse({ code, error: code, message, ...(extra || {}) }, { status });
+  const errorId = (extra && typeof extra.errorId === 'string')
+    ? extra.errorId as string
+    : generateErrorId();
+  // stderr 帶上 errorId，方便從 edge function logs 反查
+  try { console.error(`[${errorId}] ${code} ${status}: ${message}`); } catch { /* noop */ }
+  return jsonResponse(
+    { code, error: code, message, errorId, ...(extra || {}) },
+    {
+      status,
+      headers: { 'x-error-id': errorId },
+    },
+  );
 }
