@@ -51,7 +51,13 @@ Deno.serve(withLogging('expert-ai-conversation', async (req, _log) => {
       .eq('conversation_id', conv.id)
       .order('created_at', { ascending: true });
 
-    return jsonResponse({ conversation: conv, messages: messages || [] });
+    const { data: exp } = await admin.from('experts').select('user_id').eq('id', expertId).maybeSingle();
+    const quota = await getExpertAiQuota(admin, uid, {
+      exemptExpertOwner: true,
+      expertOwnerId: exp?.user_id ?? null,
+    });
+
+    return jsonResponse({ conversation: conv, messages: messages || [], quota });
   }
 
   if (req.method === 'DELETE') {
