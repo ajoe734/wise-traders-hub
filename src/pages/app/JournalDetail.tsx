@@ -187,6 +187,7 @@ const JournalDetail = () => {
   const handleExportPdf = async () => {
     if (isExporting) return;
     setIsExporting(true);
+    setExportError(null);
     const toastId = toast.loading('產生 PDF 中…');
     try {
       await exportJournalPdf({
@@ -199,9 +200,15 @@ const JournalDetail = () => {
         avatarSrc: avatarUrl(signal.experts.avatar_url, 240),
       });
       toast.success('已匯出週記 PDF', { id: toastId });
-    } catch (e) {
+    } catch (e: any) {
       console.error('[exportJournalPdf]', e);
-      toast.error('匯出失敗，請重試', { id: toastId });
+      const reason = e?.message ? String(e.message) : '未知錯誤';
+      setExportError(reason);
+      toast.error(`匯出 PDF 失敗：${reason}`, {
+        id: toastId,
+        duration: 8000,
+        action: { label: '重試匯出', onClick: () => handleExportPdf() },
+      });
     } finally {
       setIsExporting(false);
     }
