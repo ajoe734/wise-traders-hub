@@ -362,6 +362,22 @@ export function usePeriodPerformance(
         const periodReturn = cum - prevCum;
         prevCum = cum;
 
+        // 樣本統計：以本 bucket 日期 D 為結算點
+        const Dts = d.getTime();
+        let closedCount = 0;
+        let openCount = 0;
+        for (const t of trades) {
+          if (!t.entry_date) continue;
+          const entryTs = new Date(t.entry_date).getTime();
+          if (entryTs > Dts) continue;
+          const qty = Number(t.quantity || 0);
+          const entryPrice = Number(t.entry_price || 0);
+          if (!qty || !entryPrice) continue;
+          const exitTs = t.exit_date ? new Date(t.exit_date).getTime() : null;
+          if (exitTs !== null && exitTs <= Dts) closedCount += 1;
+          else openCount += 1;
+        }
+
         const stocks = perStockSnapshot(trades, d, todayKey, snapMap);
         const sorted = [...stocks].sort((a, b) => b.returnPct - a.returnPct);
         const topStock = sorted[0]
@@ -381,6 +397,9 @@ export function usePeriodPerformance(
           topStock,
           bottomStock,
           stocks,
+          sampleCount: closedCount + openCount,
+          closedCount,
+          openCount,
         } as PeriodBucket;
       });
 
