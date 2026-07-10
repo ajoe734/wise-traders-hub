@@ -362,7 +362,12 @@ export const exportJournalPdf = async (args: ExportArgs) => {
       root.removeChild(pageEl);
     }
 
-    const filename = `週記_${args.headSignal.experts.slug}_${format(args.weekStart, 'yyyy-MM-dd')}.pdf`;
+    const safeTitle = (args.weekTitle || '本週操作回顧')
+      .replace(/[\\/:*?"<>|\r\n\t]+/g, ' ')
+      .replace(/\s+/g, ' ')
+      .trim()
+      .slice(0, 40) || '本週操作回顧';
+    const filename = `週記-${format(args.weekStart, 'yyyy-MM-dd')}-${safeTitle}.pdf`;
     doc.save(filename);
   } finally {
     document.body.removeChild(root);
