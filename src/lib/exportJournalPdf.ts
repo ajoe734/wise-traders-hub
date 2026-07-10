@@ -105,6 +105,20 @@ const pageShellCss = `
 
 const serif = `'Source Serif 4', Georgia, 'Songti TC', serif`;
 
+const watermarkHtml = `
+  <div aria-hidden="true" style="position:absolute; inset:0; pointer-events:none; overflow:hidden; z-index:0;">
+    <div style="position:absolute; top:50%; left:50%; transform:translate(-50%, -50%) rotate(-28deg); font-family:${serif}; font-size:120px; font-weight:700; letter-spacing:0.04em; color:${COLORS.ink}; opacity:0.055; white-space:nowrap;">
+      legendflow<span style="color:${COLORS.brand}">·</span>
+    </div>
+    <div style="position:absolute; top:18%; left:-6%; transform:rotate(-28deg); font-family:${serif}; font-size:60px; font-weight:600; color:${COLORS.ink}; opacity:0.04; white-space:nowrap;">
+      legendflow<span style="color:${COLORS.brand}">·</span> &nbsp; legendflow<span style="color:${COLORS.brand}">·</span>
+    </div>
+    <div style="position:absolute; bottom:14%; right:-8%; transform:rotate(-28deg); font-family:${serif}; font-size:60px; font-weight:600; color:${COLORS.ink}; opacity:0.04; white-space:nowrap;">
+      legendflow<span style="color:${COLORS.brand}">·</span> &nbsp; legendflow<span style="color:${COLORS.brand}">·</span>
+    </div>
+  </div>
+`;
+
 const buildCoverHtml = (a: ExportArgs, avatarDataUrl: string | null) => {
   const weekNum = (() => {
     const d = new Date(a.weekStart);
