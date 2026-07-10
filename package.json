@@ -28,8 +28,8 @@
     "refresh:mops-revenue": "node scripts/refresh-mops-revenue-mix.mjs"
   },
   "dependencies": {
-    "@ai-sdk/openai-compatible": "^3.0.7",
-    "@ai-sdk/react": "^4.0.20",
+    "@ai-sdk/openai-compatible": "^1.0.0",
+    "@ai-sdk/react": "^2.0.0",
     "@hookform/resolvers": "^3.10.0",
     "@radix-ui/react-accordion": "^1.2.11",
     "@radix-ui/react-alert-dialog": "^1.1.14",
@@ -69,7 +69,7 @@
     "@tiptap/react": "^3.22.5",
     "@tiptap/starter-kit": "^3.22.5",
     "@types/dompurify": "^3.2.0",
-    "ai": "^7.0.19",
+    "ai": "^5.0.0",
     "class-variance-authority": "^0.7.1",
     "clsx": "^2.1.1",
     "cmdk": "^1.1.1",
