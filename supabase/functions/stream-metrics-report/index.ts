@@ -57,10 +57,30 @@ Deno.serve(withLogging('stream-metrics-report', async (req, log) => {
   const terminatedBy = ALLOWED_TERMINATED.has(rawTerminated) ? rawTerminated : 'invalid';
   const eventCount = Number.isFinite(body.eventCount) ? Math.max(0, Math.floor(body.eventCount)) : -1;
   const elapsedMs = Number.isFinite(body.elapsedMs) ? Math.max(0, Math.floor(body.elapsedMs)) : -1;
-  const correlationId = typeof body.correlationId === 'string' ? body.correlationId.slice(0, 100) : null;
-  const errorId = typeof body.errorId === 'string' ? body.errorId.slice(0, 100) : null;
+
+  const shortStr = (v: unknown, len = 100) =>
+    typeof v === 'string' && v.length ? v.slice(0, len) : null;
+
+  // 追蹤鏈：correlationId 為主鍵；requestId（client 端 fetch 建立時就決定的 uuid）
+  // 為次鍵，用來把「同一次 UI action → transport fetch → edge 收到 request」串在一起。
+  // 若 caller 沒帶 correlationId，直接把 requestId 升級成 correlationId，讓後續
+  // alerts-watchdog / stream-health 的 run_id 一律可以撿到值。
+  // 同時 header 若有 x-correlation-id / x-request-id 也一併接進來（withLogging 已把
+  // x-correlation-id 對應到 log.requestId，這裡再撈一次 x-request-id 當 client requestId）。
+  const headerCorrelationId = req.headers.get('x-correlation-id');
+  const headerRequestId = req.headers.get('x-request-id');
+  const requestId = shortStr(body.requestId) ?? shortStr(headerRequestId) ?? log.requestId;
+  const correlationId =
+    shortStr(body.correlationId) ?? shortStr(headerCorrelationId) ?? requestId;
+
+  const errorId = shortStr(body.errorId);
+  const sessionId = shortStr(body.sessionId, 120);
+  const userId = shortStr(body.userId, 64);
+  const expertId = shortStr(body.expertId, 64);
+  const clientVersion = shortStr(body.clientVersion, 60);
+  const userAgent = shortStr(body.userAgent, 200);
   const testName = typeof body.testName === 'string' ? body.testName.slice(0, MAX_TESTNAME_LEN) : null;
-  const contentType = typeof body.contentType === 'string' ? body.contentType.slice(0, 120) : null;
+  const contentType = shortStr(body.contentType, 120);
   const extra = sanitizeExtra(body.extra);
 
   const meta = {
@@ -69,8 +89,15 @@ Deno.serve(withLogging('stream-metrics-report', async (req, log) => {
     rawTerminated: terminatedBy === 'invalid' ? rawTerminated.slice(0, 40) : undefined,
     eventCount,
     elapsedMs,
+    // 追蹤鏈：這 5 個欄位是 join key。log 面板可用任一個交叉查。
     correlationId,
+    requestId,
+    sessionId,
+    userId,
+    expertId,
     errorId,
+    clientVersion,
+    userAgent,
     testName,
     contentType,
     extra,
@@ -87,23 +114,33 @@ Deno.serve(withLogging('stream-metrics-report', async (req, log) => {
 
   // 針對 abort/timeout/error，寫入 function_run_logs 讓 alerts-watchdog 可以
   // 30 分鐘視窗聚合並在超過閾值時開告警。fire-and-forget，不阻塞 caller。
+  // run_id 一律用 correlationId（後備為 requestId），確保同一條追蹤鏈的所有記錄
+  // 都能在 `SELECT ... WHERE run_id = ?` 撈到。
   if (PERSIST_TERMINATED.has(terminatedBy)) {
     try {
       const admin = serviceClient();
       admin.from('function_run_logs').insert({
         fn: 'stream-metrics-report',
-        run_id: correlationId || log.requestId,
+        run_id: correlationId,
         level: 'warn',
         stage: `stream_${terminatedBy}`,
         msg: `stream terminated by ${terminatedBy}`,
+        expert_id: expertId,
         payload: {
           source,
           terminatedBy,
           eventCount,
           elapsedMs,
+          correlationId,
+          requestId,
+          sessionId,
+          userId,
+          expertId,
+          errorId,
+          clientVersion,
+          userAgent,
           contentType,
           testName,
-          errorId,
           extra,
         },
       }).then(({ error }) => {
@@ -114,9 +151,24 @@ Deno.serve(withLogging('stream-metrics-report', async (req, log) => {
     }
   }
 
-
   return new Response(
-    JSON.stringify({ ok: true, terminatedBy, eventCount, elapsedMs }),
-    { status: 200, headers: { ...corsHeaders, 'Content-Type': 'application/json' } },
+    JSON.stringify({
+      ok: true,
+      terminatedBy,
+      eventCount,
+      elapsedMs,
+      correlationId,
+      requestId,
+    }),
+    {
+      status: 200,
+      headers: {
+        ...corsHeaders,
+        'Content-Type': 'application/json',
+        // 回一個 x-correlation-id，讓 client 若沒帶自己的 id，也能拿回 endpoint 選定的那把 key。
+        'x-correlation-id': correlationId,
+      },
+    },
   );
 }));
+
