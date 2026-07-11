@@ -99,9 +99,17 @@ const KNOWN_UI_STREAM_TYPES = new Set([
 async function parseAndValidateUiStream(res: Response, opts: {
   maxChunks?: number;
   timeoutMs?: number;
+  /** true → 出現 finish/abort 之後若還有非 [DONE] chunk 直接視為違約 */
+  strictTerminal?: boolean;
+  /** false → 允許串流不含任何 text 類 chunk（例如立刻 abort 的情境） */
+  requireTextish?: boolean;
+  /** 觀察用：可拿到終止事件的實際發生時間，方便斷言 timeout 可重現 */
+  onDone?: (info: { elapsedMs: number; terminatedBy: "finish" | "abort" | "timeout" | "eof"; eventCount: number }) => void;
 } = {}): Promise<Array<any>> {
   const maxChunks = opts.maxChunks ?? 20;
   const timeoutMs = opts.timeoutMs ?? 10_000;
+  const requireTextish = opts.requireTextish ?? true;
+  const strictTerminal = opts.strictTerminal ?? false;
 
   // ---- content-type ----
   const ctRaw = res.headers.get("content-type") || "";
@@ -132,7 +140,7 @@ async function parseAndValidateUiStream(res: Response, opts: {
   let received = "";
   const events: Array<{ raw: string; payload: string }> = [];
   const started = Date.now();
-  let sawFinish = false;
+  let terminatedBy: "finish" | "abort" | "timeout" | "eof" | null = null;
 
   const flushBuffer = () => {
     const sep = isSse ? "\n\n" : "\n";
@@ -152,24 +160,40 @@ async function parseAndValidateUiStream(res: Response, opts: {
       }
       if (!payload) continue;
       events.push({ raw, payload });
-      if (payload === "[DONE]") sawFinish = true;
-      else {
+      if (payload === "[DONE]") {
+        if (!terminatedBy) terminatedBy = "finish";
+      } else {
         try {
           const obj = JSON.parse(payload);
-          if (obj?.type === "finish") sawFinish = true;
+          if (obj?.type === "finish" && !terminatedBy) terminatedBy = "finish";
+          if (obj?.type === "abort" && !terminatedBy) terminatedBy = "abort";
         } catch { /* 下面統一驗證 */ }
       }
     }
   };
 
-  while (Date.now() - started < timeoutMs) {
-    const { done, value } = await reader.read();
-    if (done) break;
-    const chunk = decoder.decode(value, { stream: true });
+  // 用 Promise.race 讓 timeoutMs 成為硬上限，即使上游 stream 永遠不 close
+  // 也不會卡住整個測試 —— 這條契約是可重現超時的關鍵。
+  while (true) {
+    const elapsed = Date.now() - started;
+    if (elapsed >= timeoutMs) { terminatedBy = terminatedBy ?? "timeout"; break; }
+    const remaining = timeoutMs - elapsed;
+    let step: { done: boolean; value?: Uint8Array } | "timeout";
+    try {
+      step = await Promise.race([
+        reader.read().then((r) => r as { done: boolean; value?: Uint8Array }),
+        new Promise<"timeout">((resolve) => setTimeout(() => resolve("timeout"), remaining)),
+      ]);
+    } catch (e) {
+      throw new Error(`stream read 失敗：${(e as Error).message}`);
+    }
+    if (step === "timeout") { terminatedBy = terminatedBy ?? "timeout"; break; }
+    if (step.done) { terminatedBy = terminatedBy ?? "eof"; break; }
+    const chunk = decoder.decode(step.value!, { stream: true });
     received += chunk;
     buffer += chunk;
     flushBuffer();
-    if (sawFinish && events.length >= 3) break;
+    if (terminatedBy && events.length >= 3) break;
     if (events.length >= maxChunks) break;
   }
   try { await reader.cancel(); } catch { /* ignore */ }
@@ -178,17 +202,24 @@ async function parseAndValidateUiStream(res: Response, opts: {
     flushBuffer();
   }
 
+  opts.onDone?.({
+    elapsedMs: Date.now() - started,
+    terminatedBy: terminatedBy ?? "eof",
+    eventCount: events.length,
+  });
+
   // ---- 結構驗證 ----
   if (events.length === 0) {
     throw new Error(`串流為空 (ct=${ctRaw})。raw=${JSON.stringify(received).slice(0, 500)}`);
   }
-  if (events.length < 2) {
+  if (requireTextish && events.length < 2) {
     throw new Error(
       `串流事件過少 (${events.length}, ct=${ctRaw})，預期至少 start + 一筆 text/finish。raw=${received.slice(0, 500)}`,
     );
   }
 
   const parsed: Array<any> = [];
+  let terminalIdx = -1;
   for (const ev of events) {
     if (ev.payload === "[DONE]") continue;
     let obj: any;
@@ -210,6 +241,15 @@ async function parseAndValidateUiStream(res: Response, opts: {
         `未知 UIMessageStream chunk type=${obj.type}；若 SDK 升版請更新 KNOWN_UI_STREAM_TYPES。payload=${ev.payload.slice(0, 200)}`,
       );
     }
+    if (strictTerminal && terminalIdx >= 0) {
+      throw new Error(
+        `終止事件 (${parsed[terminalIdx].type}) 之後仍出現 chunk type=${obj.type}；` +
+        `UIMessageStream 契約要求 finish/abort 為最後一筆。payload=${ev.payload.slice(0, 200)}`,
+      );
+    }
+    if (obj.type === "finish" || obj.type === "abort") {
+      terminalIdx = parsed.length;
+    }
     parsed.push(obj);
   }
 
@@ -219,13 +259,15 @@ async function parseAndValidateUiStream(res: Response, opts: {
     );
   }
 
-  const hasTextish = parsed.some((p) =>
-    p.type === "text-delta" || p.type === "text" || p.type === "text-start"
-  );
-  if (!hasTextish) {
-    throw new Error(
-      `串流未包含任何 text 類 chunk (ct=${ctRaw})。events=${JSON.stringify(parsed.slice(0, 10))}`,
+  if (requireTextish) {
+    const hasTextish = parsed.some((p) =>
+      p.type === "text-delta" || p.type === "text" || p.type === "text-start"
     );
+    if (!hasTextish) {
+      throw new Error(
+        `串流未包含任何 text 類 chunk (ct=${ctRaw})。events=${JSON.stringify(parsed.slice(0, 10))}`,
+      );
+    }
   }
 
   for (const p of parsed) {
@@ -241,6 +283,9 @@ async function parseAndValidateUiStream(res: Response, opts: {
 
   return parsed;
 }
+
+
+
 
 
 Deno.test({
