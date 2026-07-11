@@ -344,15 +344,33 @@ function SummaryCard({ label, value, sub }: { label: string; value: string; sub?
   );
 }
 
-function TraceCell({ value, width = 160 }: { value?: string | null; width?: number }) {
+function TraceCell({
+  value,
+  width = 160,
+  linkable = false,
+}: {
+  value?: string | null;
+  width?: number;
+  linkable?: boolean;
+}) {
   const v = value ?? '';
+  const inner = v || '—';
   return (
     <td
       className="py-2 pr-3 font-mono text-[11px] text-foreground/60 truncate"
       style={{ maxWidth: `${width}px` }}
       title={v}
     >
-      {v || '—'}
+      {v && linkable ? (
+        <Link
+          to={`/company/stream-health/trace?id=${encodeURIComponent(v)}`}
+          className="underline hover:text-foreground"
+        >
+          {inner}
+        </Link>
+      ) : (
+        inner
+      )}
     </td>
   );
 }
