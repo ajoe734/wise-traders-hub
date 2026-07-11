@@ -18,6 +18,48 @@ import { fnUrl, drain, assertCorsAndCorrelation, authHeaders } from "../_shared/
 
 const FN = "expert-ai-chat";
 
+// ---------- 串流可觀察性上報 ----------
+// 環境變數：
+//   STREAM_METRICS_REPORT_URL — 目標 endpoint（一般指向部署後的 stream-metrics-report edge function）
+//   STREAM_METRICS_REPORT_TOKEN — 可選，帶入 Authorization: Bearer
+// 未設定 URL 時整條路徑靜默 skip，本地與 CI 都不受影響。
+type StreamMetricsPayload = {
+  source: string;
+  terminatedBy: "finish" | "abort" | "timeout" | "eof";
+  eventCount: number;
+  elapsedMs: number;
+  correlationId?: string | null;
+  errorId?: string | null;
+  contentType?: string | null;
+  extra?: Record<string, string | number | boolean>;
+};
+const pendingReports = new Set<Promise<unknown>>();
+function reportStreamMetrics(payload: StreamMetricsPayload) {
+  const url = Deno.env.get("STREAM_METRICS_REPORT_URL");
+  if (!url) return;
+  const token = Deno.env.get("STREAM_METRICS_REPORT_TOKEN");
+  const headers: Record<string, string> = { "Content-Type": "application/json" };
+  if (token) headers["Authorization"] = `Bearer ${token}`;
+  const p = fetch(url, {
+    method: "POST",
+    headers,
+    body: JSON.stringify({
+      ...payload,
+      testName: Deno.env.get("STREAM_METRICS_TEST_NAME") || undefined,
+    }),
+  })
+    .then(async (r) => { try { await r.body?.cancel(); } catch { /* noop */ } })
+    .catch((e) => { console.warn(`[stream-metrics-report] 上報失敗：${(e as Error).message}`); })
+    .finally(() => { pendingReports.delete(p); });
+  pendingReports.add(p);
+}
+// 讓測試結束前把 fire-and-forget 的上報 drain 掉，避免 Deno.test 抱怨 leaked async ops。
+export async function flushStreamMetricsReports() {
+  if (!pendingReports.size) return;
+  await Promise.allSettled(Array.from(pendingReports));
+}
+
+
 // ---------- A. convertToModelMessages 形狀契約 ----------
 Deno.test(`${FN} — convertToModelMessages 接受本專案 UIMessage 形狀`, () => {
   const uiMessages: UIMessage[] = [
