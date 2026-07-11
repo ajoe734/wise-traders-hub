@@ -179,14 +179,20 @@ async function parseAndValidateUiStream(res: Response, opts: {
     if (elapsed >= timeoutMs) { terminatedBy = terminatedBy ?? "timeout"; break; }
     const remaining = timeoutMs - elapsed;
     let step: { done: boolean; value?: Uint8Array } | "timeout";
+    let timeoutHandle: number | undefined;
     try {
       step = await Promise.race([
         reader.read().then((r) => r as { done: boolean; value?: Uint8Array }),
-        new Promise<"timeout">((resolve) => setTimeout(() => resolve("timeout"), remaining)),
+        new Promise<"timeout">((resolve) => {
+          timeoutHandle = setTimeout(() => resolve("timeout"), remaining);
+        }),
       ]);
     } catch (e) {
+      if (timeoutHandle !== undefined) clearTimeout(timeoutHandle);
       throw new Error(`stream read 失敗：${(e as Error).message}`);
     }
+    if (timeoutHandle !== undefined) clearTimeout(timeoutHandle);
+
     if (step === "timeout") { terminatedBy = terminatedBy ?? "timeout"; break; }
     if (step.done) { terminatedBy = terminatedBy ?? "eof"; break; }
     const chunk = decoder.decode(step.value!, { stream: true });
