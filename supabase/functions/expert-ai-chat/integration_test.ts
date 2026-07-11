@@ -54,6 +54,10 @@ function reportStreamMetrics(payload: StreamMetricsPayload) {
   const token = Deno.env.get("STREAM_METRICS_REPORT_TOKEN");
   const headers: Record<string, string> = { "Content-Type": "application/json" };
   if (token) headers["Authorization"] = `Bearer ${token}`;
+  // 把追蹤鏈鍵值同步塞進 header，讓 withLogging 的 requestId 也對齊，
+  // edge log 的 requestId 欄位就能和 payload.correlationId 直接對得起來。
+  if (payload.correlationId) headers["x-correlation-id"] = String(payload.correlationId);
+  if (payload.requestId) headers["x-request-id"] = String(payload.requestId);
   const body = JSON.stringify({
     ...payload,
     testName: Deno.env.get("STREAM_METRICS_TEST_NAME") || undefined,
