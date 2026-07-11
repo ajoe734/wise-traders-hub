@@ -1,7 +1,7 @@
 import { ShareButton } from '@/components/ShareButton';
 import { SEO } from '@/components/SEO';
 import { useEffect, useState } from 'react';
-import { useParams, useSearchParams } from 'react-router-dom';
+import { useParams, useSearchParams, Link } from 'react-router-dom';
 import { UnifiedAppLayout, markAppJournalsAsRead } from '@/components/layouts/UnifiedAppLayout';
 import { Card, CardContent } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
@@ -11,7 +11,7 @@ import { useAuth } from '@/contexts/AuthContext';
 import { Button } from '@/components/ui/button';
 import { format, startOfWeek, addDays } from 'date-fns';
 import { zhTW } from 'date-fns/locale';
-import { Calendar, BookOpen, Shield, Loader2, ChevronDown, ChevronUp, Lightbulb, Target, AlertTriangle, Eye, Download } from 'lucide-react';
+import { Calendar, BookOpen, Shield, Loader2, ChevronDown, ChevronUp, Lightbulb, Target, AlertTriangle, Eye, Download, MessageCircle } from 'lucide-react';
 import { useQuery } from '@tanstack/react-query';
 import { SafeRichHtml, richHtmlToPlain } from '@/components/SafeRichHtml';
 import { avatarUrl } from '@/lib/imageTransform';
@@ -254,7 +254,7 @@ const JournalDetail = () => {
         {/* Header */}
         <div className="flex items-center gap-3">
           <img src={avatarUrl(signal.experts.avatar_url, 80)} alt={signal.experts.name} loading="lazy" decoding="async" className="shrink-0 h-10 w-10 rounded-full object-cover object-[center_15%]" />
-          <div>
+          <div className="flex-1 min-w-0">
             <div className="flex items-center gap-2">
               <span className="font-semibold">{signal.experts.name}</span>
               <Badge variant="secondary" className="text-[10px]">
@@ -262,6 +262,14 @@ const JournalDetail = () => {
               </Badge>
             </div>
           </div>
+          {signal.experts.slug && (
+            <Button asChild size="sm" variant="outline" className="gap-1.5 shrink-0">
+              <Link to={`/app/expert/${signal.experts.slug}?tab=ai-chat`} data-testid="journal-ask-ai-btn">
+                <MessageCircle className="h-4 w-4" aria-hidden="true" />
+                問這位老師 AI
+              </Link>
+            </Button>
+          )}
         </div>
 
         <div className="flex items-center gap-2">
