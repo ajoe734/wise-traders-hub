@@ -43,6 +43,8 @@ export function ExpertAiChatTab({ expertId, expertName, isSubscribed, onSubscrib
     terminatedBy,
     elapsedMs,
     cancelStream,
+    correlationId,
+    requestId,
   } = useExpertAiChat(isSubscribed ? expertId : null);
 
   const isBusy = status === 'submitted' || status === 'streaming';
