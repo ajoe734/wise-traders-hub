@@ -5,6 +5,7 @@
 // / correlationId / requestId / sessionId / userId / expertId / clientVersion / userAgent 篩選。
 // RLS：company_admin 可 SELECT function_run_logs。
 import { useMemo, useState } from 'react';
+import { Link } from 'react-router-dom';
 import { useQuery } from '@tanstack/react-query';
 import { SEO } from '@/components/SEO';
 import { CompanyLayout } from '@/components/layouts/CompanyLayout';
