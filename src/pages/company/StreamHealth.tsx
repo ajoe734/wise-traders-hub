@@ -1,7 +1,8 @@
 // 串流健康度面板
 //
 // 讀 function_run_logs (fn='stream-metrics-report')，把 stream-metrics-report 落下的
-// abort / timeout / error 事件列出來，可依 terminatedBy / eventCount / elapsedMs / source 篩選。
+// abort / timeout / error 事件列出來，可依 terminatedBy / eventCount / elapsedMs / source
+// / correlationId / requestId / sessionId / userId / expertId / clientVersion / userAgent 篩選。
 // RLS：company_admin 可 SELECT function_run_logs。
 import { useMemo, useState } from 'react';
 import { useQuery } from '@tanstack/react-query';
@@ -30,11 +31,38 @@ interface Row {
     contentType?: string;
     testName?: string;
     errorId?: string | null;
+    correlationId?: string | null;
+    requestId?: string | null;
+    sessionId?: string | null;
+    userId?: string | null;
+    expertId?: string | null;
+    clientVersion?: string | null;
+    userAgent?: string | null;
     extra?: Record<string, unknown> | null;
   };
 }
 
 const HOURS_OPTIONS = [1, 6, 24, 72];
+
+// 追蹤鏈欄位：可篩選也會顯示在明細
+type TraceKey =
+  | 'correlationId'
+  | 'requestId'
+  | 'sessionId'
+  | 'userId'
+  | 'expertId'
+  | 'clientVersion'
+  | 'userAgent';
+
+const TRACE_KEYS: { key: TraceKey; label: string; placeholder: string }[] = [
+  { key: 'correlationId', label: 'correlationId', placeholder: '例如 8f3c…' },
+  { key: 'requestId', label: 'requestId', placeholder: '例如 req_…' },
+  { key: 'sessionId', label: 'sessionId', placeholder: '例如 sess_…' },
+  { key: 'userId', label: 'userId', placeholder: 'uuid 片段' },
+  { key: 'expertId', label: 'expertId', placeholder: 'uuid 片段' },
+  { key: 'clientVersion', label: 'clientVersion', placeholder: '例如 2026.07.11' },
+  { key: 'userAgent', label: 'userAgent', placeholder: '例如 Chrome / iPhone' },
+];
 
 export default function StreamHealth() {
   const [hours, setHours] = useState(24);
@@ -42,6 +70,15 @@ export default function StreamHealth() {
   const [minEventCount, setMinEventCount] = useState<string>('');
   const [minElapsedMs, setMinElapsedMs] = useState<string>('');
   const [sourceQ, setSourceQ] = useState('');
+  const [traceQ, setTraceQ] = useState<Record<TraceKey, string>>({
+    correlationId: '',
+    requestId: '',
+    sessionId: '',
+    userId: '',
+    expertId: '',
+    clientVersion: '',
+    userAgent: '',
+  });
 
   const since = useMemo(
     () => new Date(Date.now() - hours * 3600_000).toISOString(),
@@ -69,16 +106,22 @@ export default function StreamHealth() {
   const filtered = useMemo(() => {
     const minE = Number(minEventCount);
     const minMs = Number(minElapsedMs);
-    const q = sourceQ.trim().toLowerCase();
+    const srcQ = sourceQ.trim().toLowerCase();
+    const traceLower = TRACE_KEYS.map((t) => ({ key: t.key, q: traceQ[t.key].trim().toLowerCase() }))
+      .filter((t) => t.q.length > 0);
     return rows.filter((r) => {
       const p = r.payload || {};
       if (terminated !== 'all' && p.terminatedBy !== terminated) return false;
       if (minEventCount !== '' && Number.isFinite(minE) && (p.eventCount ?? 0) < minE) return false;
       if (minElapsedMs !== '' && Number.isFinite(minMs) && (p.elapsedMs ?? 0) < minMs) return false;
-      if (q && !(p.source ?? '').toLowerCase().includes(q)) return false;
+      if (srcQ && !(p.source ?? '').toLowerCase().includes(srcQ)) return false;
+      for (const t of traceLower) {
+        const v = (p[t.key] ?? '') as string;
+        if (!String(v).toLowerCase().includes(t.q)) return false;
+      }
       return true;
     });
-  }, [rows, terminated, minEventCount, minElapsedMs, sourceQ]);
+  }, [rows, terminated, minEventCount, minElapsedMs, sourceQ, traceQ]);
 
   // 統計
   const stats = useMemo(() => {
@@ -205,6 +248,17 @@ export default function StreamHealth() {
               placeholder="例如 expert-ai-chat / integration_test"
             />
           </div>
+          {TRACE_KEYS.map((t) => (
+            <div key={t.key}>
+              <Label className="text-[11px]">{t.label} 包含</Label>
+              <Input
+                className="mt-1 h-8"
+                value={traceQ[t.key]}
+                onChange={(e) => setTraceQ((s) => ({ ...s, [t.key]: e.target.value }))}
+                placeholder={t.placeholder}
+              />
+            </div>
+          ))}
         </CardContent>
       </Card>
 
@@ -223,12 +277,20 @@ export default function StreamHealth() {
                   <th className="py-2 pr-3 text-right">elapsedMs</th>
                   <th className="py-2 pr-3">source</th>
                   <th className="py-2 pr-3">correlationId</th>
+                  <th className="py-2 pr-3">requestId</th>
+                  <th className="py-2 pr-3">sessionId</th>
+                  <th className="py-2 pr-3">userId</th>
+                  <th className="py-2 pr-3">expertId</th>
+                  <th className="py-2 pr-3">clientVersion</th>
+                  <th className="py-2 pr-3">userAgent</th>
                   <th className="py-2 pr-3">errorId</th>
                 </tr>
               </thead>
               <tbody>
                 {filtered.map((r) => {
                   const p = r.payload || {};
+                  // correlationId 若 payload 沒帶，就 fallback 到 run_id（endpoint 保證會寫）
+                  const correlationId = p.correlationId ?? r.run_id;
                   return (
                     <tr key={r.id} className="border-b border-foreground/5 align-top">
                       <td className="py-2 pr-3 whitespace-nowrap tabular-nums text-foreground/70">
@@ -239,21 +301,23 @@ export default function StreamHealth() {
                       </td>
                       <td className="py-2 pr-3 text-right tabular-nums">{p.eventCount ?? '—'}</td>
                       <td className="py-2 pr-3 text-right tabular-nums">{p.elapsedMs ?? '—'}</td>
-                      <td className="py-2 pr-3 font-mono truncate max-w-[220px]" title={p.source}>
+                      <td className="py-2 pr-3 font-mono truncate max-w-[180px]" title={p.source}>
                         {p.source ?? '—'}
                       </td>
-                      <td className="py-2 pr-3 font-mono text-[11px] text-foreground/60 truncate max-w-[180px]" title={r.run_id}>
-                        {r.run_id}
-                      </td>
-                      <td className="py-2 pr-3 font-mono text-[11px] text-foreground/60 truncate max-w-[160px]" title={p.errorId ?? ''}>
-                        {p.errorId ?? '—'}
-                      </td>
+                      <TraceCell value={correlationId} />
+                      <TraceCell value={p.requestId} />
+                      <TraceCell value={p.sessionId} />
+                      <TraceCell value={p.userId} />
+                      <TraceCell value={p.expertId} />
+                      <TraceCell value={p.clientVersion} width={120} />
+                      <TraceCell value={p.userAgent} width={200} />
+                      <TraceCell value={p.errorId} />
                     </tr>
                   );
                 })}
                 {filtered.length === 0 && (
                   <tr>
-                    <td colSpan={7} className="py-8 text-center text-foreground/50">
+                    <td colSpan={13} className="py-8 text-center text-foreground/50">
                       {isFetching ? '載入中…' : '無符合條件的紀錄'}
                     </td>
                   </tr>
@@ -276,5 +340,18 @@ function SummaryCard({ label, value, sub }: { label: string; value: string; sub?
         {sub && <div className="text-[11px] text-foreground/45 mt-0.5">{sub}</div>}
       </CardContent>
     </Card>
+  );
+}
+
+function TraceCell({ value, width = 160 }: { value?: string | null; width?: number }) {
+  const v = value ?? '';
+  return (
+    <td
+      className="py-2 pr-3 font-mono text-[11px] text-foreground/60 truncate"
+      style={{ maxWidth: `${width}px` }}
+      title={v}
+    >
+      {v || '—'}
+    </td>
   );
 }
