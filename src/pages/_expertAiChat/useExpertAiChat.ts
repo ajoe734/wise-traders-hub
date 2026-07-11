@@ -238,6 +238,7 @@ export function useExpertAiChat(expertId: string | null | undefined) {
     setErrorId(null);
     lastErrorIdRef.current = null;
     autoRetriedRef.current = true;
+    abortedRef.current = false;
     setTerminatedBy(null);
     setElapsedMs(null);
     startedAtRef.current = Date.now();
