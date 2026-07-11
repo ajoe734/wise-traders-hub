@@ -66,6 +66,9 @@ const AppExpertDetail = () => {
   const [searchParams, setSearchParams] = useSearchParams();
   const activeTab = searchParams.get('tab') === 'ai-chat' ? 'ai-chat' : 'overview';
   const { data: subRows = [] } = useMemberSubscriptions();
+  const { hasRole, user } = useAuth();
+  const isCompanyAdmin = hasRole('company_admin');
+  const isOwnExpert = !!user?.expertSlug && user.expertSlug === slug;
   const subscribedPlanTypes = useMemo(
     () => subRows.filter(r => r.expert?.slug === slug).map(r => r.plan_type),
     [subRows, slug],
