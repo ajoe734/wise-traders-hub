@@ -45,5 +45,7 @@ jobs:
           deno-version: v2.x
       - name: Run contract_test.ts
         run: deno test --allow-net --allow-env --no-check supabase/functions/expert-ai-chat/contract_test.ts
+      - name: Run stream_error_test.ts
+        run: deno test --allow-net --allow-env --no-check supabase/functions/expert-ai-chat/stream_error_test.ts
       - name: Run integration_test.ts
         run: deno test --allow-net --allow-env --no-check supabase/functions/expert-ai-chat/integration_test.ts
