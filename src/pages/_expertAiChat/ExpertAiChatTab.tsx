@@ -247,9 +247,9 @@ export function ExpertAiChatTab({ expertId, expertName, isSubscribed, onSubscrib
           </div>
         )}
 
-        {/* 串流終止資訊 pill */}
+        {/* 串流終止資訊 pill（含 abort/timeout 重試入口） */}
         {!isBusy && terminatedBy && elapsedMs != null && (
-          <div className="flex justify-start" data-testid="stream-terminated-pill">
+          <div className="flex justify-start items-center gap-2 flex-wrap" data-testid="stream-terminated-pill">
             <div
               className={`inline-flex items-center gap-1.5 rounded-full border px-2.5 py-1 text-[11px] ${
                 terminatedBy === 'finish'
@@ -275,6 +275,20 @@ export function ExpertAiChatTab({ expertId, expertName, isSubscribed, onSubscrib
               <span className="font-mono tabular-nums">{(elapsedMs / 1000).toFixed(2)}s</span>
               <span className="opacity-50 ml-0.5">({terminatedBy})</span>
             </div>
+            {(terminatedBy === 'abort' || terminatedBy === 'timeout') && !quotaExhausted && (
+              <Button
+                type="button"
+                size="sm"
+                variant="outline"
+                onClick={() => retry()}
+                disabled={isBusy}
+                data-testid="terminated-retry-btn"
+                className="h-7 px-2 text-[11px] gap-1"
+              >
+                <RefreshCw className="h-3 w-3" />
+                {terminatedBy === 'timeout' ? '逾時重試' : '重新產生'}
+              </Button>
+            )}
           </div>
         )}
 
