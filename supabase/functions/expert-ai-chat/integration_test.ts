@@ -89,6 +89,160 @@ const KNOWN_UI_STREAM_TYPES = new Set([
   "abort",
 ]);
 
+/**
+ * 解析 UIMessageStream Response，同時驗證 content-type、chunk 結構、type 白名單。
+ * SSE 與 text/plain 兩種 pipeline 都走這條，確保：
+ *   - live SSE 部署一升版就會被抓到
+ *   - text/plain fallback（例如 SDK 降級或 proxy 剝掉 event-stream）解析也不掉
+ * 回傳 parsed chunks，方便呼叫端做更多斷言（如 x-error-id 對比）。
+ */
+async function parseAndValidateUiStream(res: Response, opts: {
+  maxChunks?: number;
+  timeoutMs?: number;
+} = {}): Promise<Array<any>> {
+  const maxChunks = opts.maxChunks ?? 20;
+  const timeoutMs = opts.timeoutMs ?? 10_000;
+
+  // ---- content-type ----
+  const ctRaw = res.headers.get("content-type") || "";
+  const ct = ctRaw.toLowerCase();
+  const isSse = ct.includes("text/event-stream");
+  const isPlain = ct.includes("text/plain");
+  if (!isSse && !isPlain) {
+    await drain(res);
+    throw new Error(`content-type 非串流格式：${ctRaw}`);
+  }
+  if (!ct.includes("charset=utf-8")) {
+    await drain(res);
+    throw new Error(`content-type 缺 charset=utf-8：${ctRaw}`);
+  }
+  if (isSse) {
+    const streamHeader = res.headers.get("x-vercel-ai-ui-message-stream");
+    if (streamHeader && streamHeader !== "v1") {
+      await drain(res);
+      throw new Error(`未預期的 UIMessageStream 版本：${streamHeader}`);
+    }
+  }
+
+  // ---- 讀 + 切事件 ----
+  if (!res.body) throw new Error("missing response body");
+  const reader = res.body.getReader();
+  const decoder = new TextDecoder();
+  let buffer = "";
+  let received = "";
+  const events: Array<{ raw: string; payload: string }> = [];
+  const started = Date.now();
+  let sawFinish = false;
+
+  const flushBuffer = () => {
+    const sep = isSse ? "\n\n" : "\n";
+    let idx: number;
+    while ((idx = buffer.indexOf(sep)) !== -1) {
+      const raw = buffer.slice(0, idx);
+      buffer = buffer.slice(idx + sep.length);
+      if (!raw.trim()) continue;
+      let payload: string;
+      if (isSse) {
+        const dataLines = raw.split("\n")
+          .map((l) => l.trim())
+          .filter((l) => l.startsWith("data:"));
+        payload = dataLines.map((l) => l.slice(5).trim()).join("\n");
+      } else {
+        payload = raw.trim();
+      }
+      if (!payload) continue;
+      events.push({ raw, payload });
+      if (payload === "[DONE]") sawFinish = true;
+      else {
+        try {
+          const obj = JSON.parse(payload);
+          if (obj?.type === "finish") sawFinish = true;
+        } catch { /* 下面統一驗證 */ }
+      }
+    }
+  };
+
+  while (Date.now() - started < timeoutMs) {
+    const { done, value } = await reader.read();
+    if (done) break;
+    const chunk = decoder.decode(value, { stream: true });
+    received += chunk;
+    buffer += chunk;
+    flushBuffer();
+    if (sawFinish && events.length >= 3) break;
+    if (events.length >= maxChunks) break;
+  }
+  try { await reader.cancel(); } catch { /* ignore */ }
+  if (buffer.trim().length > 0) {
+    buffer += isSse ? "\n\n" : "\n";
+    flushBuffer();
+  }
+
+  // ---- 結構驗證 ----
+  if (events.length === 0) {
+    throw new Error(`串流為空 (ct=${ctRaw})。raw=${JSON.stringify(received).slice(0, 500)}`);
+  }
+  if (events.length < 2) {
+    throw new Error(
+      `串流事件過少 (${events.length}, ct=${ctRaw})，預期至少 start + 一筆 text/finish。raw=${received.slice(0, 500)}`,
+    );
+  }
+
+  const parsed: Array<any> = [];
+  for (const ev of events) {
+    if (ev.payload === "[DONE]") continue;
+    let obj: any;
+    try {
+      obj = JSON.parse(ev.payload);
+    } catch (e) {
+      throw new Error(
+        `chunk 不是合法 JSON (ct=${ctRaw})：${ev.payload.slice(0, 200)} (${(e as Error).message})`,
+      );
+    }
+    if (!obj || typeof obj !== "object") {
+      throw new Error(`chunk 非 object：${ev.payload.slice(0, 200)}`);
+    }
+    if (typeof obj.type !== "string") {
+      throw new Error(`chunk 缺 type 欄位：${ev.payload.slice(0, 200)}`);
+    }
+    if (!KNOWN_UI_STREAM_TYPES.has(obj.type)) {
+      throw new Error(
+        `未知 UIMessageStream chunk type=${obj.type}；若 SDK 升版請更新 KNOWN_UI_STREAM_TYPES。payload=${ev.payload.slice(0, 200)}`,
+      );
+    }
+    parsed.push(obj);
+  }
+
+  if (parsed[0]?.type !== "start") {
+    throw new Error(
+      `第一個 chunk 應為 type=start，實際=${parsed[0]?.type} (ct=${ctRaw})。events=${JSON.stringify(parsed.slice(0, 5))}`,
+    );
+  }
+
+  const hasTextish = parsed.some((p) =>
+    p.type === "text-delta" || p.type === "text" || p.type === "text-start"
+  );
+  if (!hasTextish) {
+    throw new Error(
+      `串流未包含任何 text 類 chunk (ct=${ctRaw})。events=${JSON.stringify(parsed.slice(0, 10))}`,
+    );
+  }
+
+  for (const p of parsed) {
+    if (p.type === "text-delta") {
+      if (typeof p.id !== "string" || typeof p.delta !== "string") {
+        throw new Error(`text-delta 結構錯誤 (ct=${ctRaw})：${JSON.stringify(p)}`);
+      }
+    }
+    if (p.type === "text" && typeof p.text !== "string") {
+      throw new Error(`text 結構錯誤 (ct=${ctRaw})：${JSON.stringify(p)}`);
+    }
+  }
+
+  return parsed;
+}
+
+
 Deno.test({
   name: `${FN} — [live] streamText SSE chunk 結構 / content-type / 錯誤傳遞`,
   ignore: !USER_JWT || !EXPERT_ID,
