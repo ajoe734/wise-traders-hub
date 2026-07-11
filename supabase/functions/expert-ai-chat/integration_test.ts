@@ -29,6 +29,15 @@ type StreamMetricsPayload = {
   eventCount: number;
   elapsedMs: number;
   correlationId?: string | null;
+  // 追蹤鏈欄位：requestId（client 端 fetch 建立時的 uuid）、sessionId、userId、
+  // expertId、clientVersion、userAgent；endpoint 會把 correlationId ↔ requestId
+  // 互補（缺哪個補哪個），再把整組寫進 log 面板供 join。
+  requestId?: string | null;
+  sessionId?: string | null;
+  userId?: string | null;
+  expertId?: string | null;
+  clientVersion?: string | null;
+  userAgent?: string | null;
   errorId?: string | null;
   contentType?: string | null;
   extra?: Record<string, string | number | boolean>;
