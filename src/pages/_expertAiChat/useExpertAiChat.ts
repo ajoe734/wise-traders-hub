@@ -224,6 +224,14 @@ export function useExpertAiChat(expertId: string | null | undefined) {
     setCanRetry(false);
   }, [chat, dropTrailingAssistant]);
 
+  // Abort 之後若還有殘留 chunk 觸發 setMessages（同步微批次），持續把尾端 assistant 清掉，
+  // 直到 send/retry 重置 abortedRef 為止。
+  useEffect(() => {
+    if (!abortedRef.current) return;
+    const last = chat.messages[chat.messages.length - 1];
+    if (last?.role === 'assistant') dropTrailingAssistant();
+  }, [chat.messages, dropTrailingAssistant]);
+
   const retry = useCallback(() => {
     if (lastErrorQuotaRef.current) return;
     setCanRetry(false);
