@@ -43,9 +43,10 @@ jobs:
       - uses: denoland/setup-deno@v2
         with:
           deno-version: v2.x
+      # --allow-read 是必需的：_shared/test_utils.ts 走 dotenv/load.ts 讀 .env
       - name: Run contract_test.ts
-        run: deno test --allow-net --allow-env --no-check supabase/functions/expert-ai-chat/contract_test.ts
+        run: deno test --allow-net --allow-env --allow-read --no-check supabase/functions/expert-ai-chat/contract_test.ts
       - name: Run stream_error_test.ts
-        run: deno test --allow-net --allow-env --no-check supabase/functions/expert-ai-chat/stream_error_test.ts
+        run: deno test --allow-net --allow-env --allow-read --no-check supabase/functions/expert-ai-chat/stream_error_test.ts
       - name: Run integration_test.ts
-        run: deno test --allow-net --allow-env --no-check supabase/functions/expert-ai-chat/integration_test.ts
+        run: deno test --allow-net --allow-env --allow-read --no-check supabase/functions/expert-ai-chat/integration_test.ts
