@@ -428,6 +428,98 @@ Deno.test(`${FN} — 合成非串流 content-type (application/json) → 拒收`
   if (!threw) throw new Error("非串流 content-type 應該被擋");
 });
 
+// ---------- B''. 中文內容解碼（非 gated，永遠會跑） ----------
+// 目的：確認在宣告 charset=utf-8 前提下，前幾個 chunk 解碼後仍保留完整中文，
+// 且即使 ReadableStream 在 UTF-8 多位元組字元的中間切斷，TextDecoder(stream:true)
+// 仍能正確拼回，避免中文亂碼導致偶發失敗。
+const CJK_CHUNKS = [
+  { type: "start" },
+  { type: "start-step" },
+  { type: "text-start", id: "t1" },
+  { type: "text-delta", id: "t1", delta: "你好，我是「老師」的 AI 分身。" },
+  { type: "text-delta", id: "t1", delta: "今天想聊點什麼？📈 台股、AI 族群都可以。" },
+  { type: "text-delta", id: "t1", delta: "請自行判斷風險，我不會給你買賣訊號。" },
+  { type: "text-end", id: "t1" },
+  { type: "finish" },
+];
+
+function assertCjkDeltasIntact(parsed: any[]) {
+  const deltas = parsed.filter((p) => p.type === "text-delta").map((p) => p.delta);
+  const joined = deltas.join("");
+  for (const kw of ["你好", "老師", "AI 分身", "台股", "買賣訊號", "📈"]) {
+    if (!joined.includes(kw)) {
+      throw new Error(`中文/emoji 解碼遺失關鍵字「${kw}」，實際=${JSON.stringify(joined)}`);
+    }
+  }
+  // 亂碼常見 sentinel：� (U+FFFD replacement char) 出現即代表 decoder 掉字
+  if (joined.includes("\uFFFD")) {
+    throw new Error(`偵測到 U+FFFD replacement char，代表 UTF-8 解碼失敗：${JSON.stringify(joined)}`);
+  }
+}
+
+Deno.test(`${FN} — 合成 SSE：中文內容在 charset=utf-8 下前幾 chunk 完整可讀`, async () => {
+  const res = makeStreamResponse(
+    toSseBody(CJK_CHUNKS),
+    "text/event-stream; charset=utf-8",
+    { "x-vercel-ai-ui-message-stream": "v1" },
+  );
+  const parsed = await parseAndValidateUiStream(res);
+  assertCjkDeltasIntact(parsed);
+});
+
+Deno.test(`${FN} — 合成 text/plain：中文內容在 charset=utf-8 下前幾 chunk 完整可讀`, async () => {
+  const res = makeStreamResponse(
+    toPlainBody(CJK_CHUNKS),
+    "text/plain; charset=utf-8",
+  );
+  const parsed = await parseAndValidateUiStream(res);
+  assertCjkDeltasIntact(parsed);
+});
+
+// 把 body 編碼為 UTF-8 bytes 後，在「隨機」位元組邊界切斷（含多位元組字元中間），
+// 用 ReadableStream 分段吐出。若 parseAndValidateUiStream 內部 TextDecoder 沒開
+// stream:true，或有人改成一次性 decode，就會出現 U+FFFD 或 JSON.parse 失敗。
+function makeChunkedStreamResponse(body: string, contentType: string, chunkSize: number, extraHeaders: Record<string, string> = {}): Response {
+  const bytes = new TextEncoder().encode(body);
+  const stream = new ReadableStream<Uint8Array>({
+    async start(controller) {
+      for (let i = 0; i < bytes.length; i += chunkSize) {
+        controller.enqueue(bytes.slice(i, i + chunkSize));
+        // 讓出一次 microtask，模擬真實網路分段
+        await Promise.resolve();
+      }
+      controller.close();
+    },
+  });
+  return new Response(stream, {
+    status: 200,
+    headers: { "content-type": contentType, ...extraHeaders },
+  });
+}
+
+Deno.test(`${FN} — 合成 SSE：中文位元組被切在多位元組邊界仍能正確解碼`, async () => {
+  const body = toSseBody(CJK_CHUNKS);
+  // chunkSize=7 蓄意會落在中文/emoji 的 UTF-8 中間位元組
+  const res = makeChunkedStreamResponse(
+    body,
+    "text/event-stream; charset=utf-8",
+    7,
+    { "x-vercel-ai-ui-message-stream": "v1" },
+  );
+  const parsed = await parseAndValidateUiStream(res);
+  assertCjkDeltasIntact(parsed);
+});
+
+Deno.test(`${FN} — 合成 text/plain：中文位元組被切在多位元組邊界仍能正確解碼`, async () => {
+  const body = toPlainBody(CJK_CHUNKS);
+  const res = makeChunkedStreamResponse(body, "text/plain; charset=utf-8", 5);
+  const parsed = await parseAndValidateUiStream(res);
+  assertCjkDeltasIntact(parsed);
+});
+
+
+
+
 
 // ---------- C. 400 錯誤路徑的 id 對齊（非 gated，永遠會跑） ----------
 // 打帶有 cid 的無效 body → 應該回：
