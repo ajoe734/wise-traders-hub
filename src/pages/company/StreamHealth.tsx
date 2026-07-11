@@ -5,6 +5,7 @@
 // / correlationId / requestId / sessionId / userId / expertId / clientVersion / userAgent 篩選。
 // RLS：company_admin 可 SELECT function_run_logs。
 import { useMemo, useState } from 'react';
+import { Link } from 'react-router-dom';
 import { useQuery } from '@tanstack/react-query';
 import { SEO } from '@/components/SEO';
 import { CompanyLayout } from '@/components/layouts/CompanyLayout';
@@ -304,8 +305,8 @@ export default function StreamHealth() {
                       <td className="py-2 pr-3 font-mono truncate max-w-[180px]" title={p.source}>
                         {p.source ?? '—'}
                       </td>
-                      <TraceCell value={correlationId} />
-                      <TraceCell value={p.requestId} />
+                      <TraceCell value={correlationId} linkable />
+                      <TraceCell value={p.requestId} linkable />
                       <TraceCell value={p.sessionId} />
                       <TraceCell value={p.userId} />
                       <TraceCell value={p.expertId} />
@@ -343,15 +344,33 @@ function SummaryCard({ label, value, sub }: { label: string; value: string; sub?
   );
 }
 
-function TraceCell({ value, width = 160 }: { value?: string | null; width?: number }) {
+function TraceCell({
+  value,
+  width = 160,
+  linkable = false,
+}: {
+  value?: string | null;
+  width?: number;
+  linkable?: boolean;
+}) {
   const v = value ?? '';
+  const inner = v || '—';
   return (
     <td
       className="py-2 pr-3 font-mono text-[11px] text-foreground/60 truncate"
       style={{ maxWidth: `${width}px` }}
       title={v}
     >
-      {v || '—'}
+      {v && linkable ? (
+        <Link
+          to={`/company/stream-health/trace?id=${encodeURIComponent(v)}`}
+          className="underline hover:text-foreground"
+        >
+          {inner}
+        </Link>
+      ) : (
+        inner
+      )}
     </td>
   );
 }
