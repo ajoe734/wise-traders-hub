@@ -251,6 +251,25 @@ const JournalDetail = () => {
         </div>
       )}
       <div className="p-4 space-y-4">
+        {/* AI guide banner */}
+        {signal.experts.slug && (
+          <div className="rounded-lg border border-mentor/20 bg-mentor/5 p-3 flex items-start gap-3">
+            <div className="shrink-0 rounded-full bg-mentor/10 p-1.5 text-mentor">
+              <MessageCircle className="h-4 w-4" aria-hidden="true" />
+            </div>
+            <div className="flex-1 min-w-0">
+              <p className="text-sm font-medium text-foreground">有問題想問 {signal.experts.name} 老師？</p>
+              <p className="text-xs text-muted-foreground mt-0.5">點擊「問這位老師 AI」即可針對本週策略與操作進行一對一詢問。</p>
+            </div>
+            <Button asChild size="sm" className="shrink-0 gap-1.5 bg-mentor hover:bg-mentor/90 text-white">
+              <Link to={`/app/expert/${signal.experts.slug}?tab=ai-chat`} data-testid="journal-ai-guide-btn">
+                <MessageCircle className="h-3.5 w-3.5" aria-hidden="true" />
+                問 AI
+              </Link>
+            </Button>
+          </div>
+        )}
+
         {/* Header */}
         <div className="flex items-center gap-3">
           <img src={avatarUrl(signal.experts.avatar_url, 80)} alt={signal.experts.name} loading="lazy" decoding="async" className="shrink-0 h-10 w-10 rounded-full object-cover object-[center_15%]" />
