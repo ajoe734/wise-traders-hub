@@ -14,7 +14,7 @@
 //   supabase functions test expert-ai-chat  (或 deno test --allow-net --allow-env)
 
 import { convertToModelMessages, type UIMessage } from "npm:ai@^5.0.0";
-import { fnUrl, drain, assertCorsAndCorrelation } from "../_shared/test_utils.ts";
+import { fnUrl, drain, assertCorsAndCorrelation, authHeaders } from "../_shared/test_utils.ts";
 
 const FN = "expert-ai-chat";
 
@@ -109,11 +109,23 @@ Deno.test({
       }),
     });
 
-    assertCorsAndCorrelation(res, cid);
+    // 1) 回傳的 x-correlation-id 必須等於送出的 cid
+    const echoedCid = assertCorsAndCorrelation(res, cid);
+    if (echoedCid !== cid) {
+      await drain(res);
+      throw new Error(`x-correlation-id 未回傳 (expected=${cid}, got=${echoedCid})`);
+    }
 
     if (res.status !== 200) {
       const text = await drain(res);
       throw new Error(`expected 200 streaming response, got ${res.status}: ${text}`);
+    }
+
+    // 2) 200 串流時通常不會帶 x-error-id；若有代表 pipeline 誤放
+    const headerErrIdOn200 = res.headers.get("x-error-id");
+    if (headerErrIdOn200) {
+      await drain(res);
+      throw new Error(`200 串流不應帶 x-error-id，實際=${headerErrIdOn200}`);
     }
 
     // ---------- content-type 嚴格檢查 ----------
@@ -260,11 +272,72 @@ Deno.test({
       if (p.type === "error") {
         // 若真的收到 error，訊息必須含 errorId（本專案 onError 合約）
         const msg = typeof p.errorText === "string" ? p.errorText : JSON.stringify(p);
-        if (!/errorId[:：]\s*err_/.test(msg)) {
+        const m = msg.match(/errorId[:：]\s*(err_[a-z0-9_]+)/i);
+        if (!m) {
           throw new Error(`error chunk 未帶 errorId，違反前端解析合約：${msg}`);
+        }
+        // x-error-id header 若存在，必須與 payload 內 errorId 一致
+        const headerErrId = res.headers.get("x-error-id");
+        if (headerErrId && headerErrId !== m[1]) {
+          throw new Error(
+            `x-error-id (${headerErrId}) 與 error chunk 內 errorId (${m[1]}) 不一致`,
+          );
         }
       }
     }
   },
+});
+
+// ---------- C. 400 錯誤路徑的 id 對齊（非 gated，永遠會跑） ----------
+// 打帶有 cid 的無效 body → 應該回：
+//   - status 400
+//   - x-correlation-id === 送出的 cid
+//   - x-error-id 存在
+//   - JSON body.errorId === x-error-id
+//   - JSON body.code 有值
+// 這條測試確保「前端 toast 顯示的 errorId」==「後端 log 印出的 errorId」，
+// 是回報追查唯一穩定的關聯鍵。
+Deno.test(`${FN} — 400 錯誤路徑：x-correlation-id / x-error-id / body.errorId 三者一致`, async () => {
+  const cid = `test-${crypto.randomUUID()}`;
+  const res = await fetch(fnUrl(FN), {
+    method: "POST",
+    headers: authHeaders({ "content-type": "application/json", "x-correlation-id": cid }),
+    // 缺 expert_id / messages → index.ts 走 errorResponse('expert_id and messages required', 400)
+    body: JSON.stringify({}),
+  });
+  const text = await drain(res);
+
+  // cid 回傳一致
+  const echoedCid = assertCorsAndCorrelation(res, cid);
+  if (echoedCid !== cid) {
+    throw new Error(`x-correlation-id mismatch: expected=${cid} got=${echoedCid}`);
+  }
+
+  // 未帶 Authorization → 401 也 OK；只驗 4xx 且合約一致
+  if (res.status < 400 || res.status >= 500) {
+    throw new Error(`expected 4xx, got ${res.status}: ${text}`);
+  }
+
+  const headerErrId = res.headers.get("x-error-id");
+  if (!headerErrId) throw new Error(`錯誤回應缺 x-error-id header: ${text}`);
+  if (!/^err_[a-z0-9]+_[a-z0-9]{6}$/.test(headerErrId)) {
+    throw new Error(`x-error-id 格式錯誤：${headerErrId}`);
+  }
+
+  let body: any;
+  try { body = JSON.parse(text); } catch {
+    throw new Error(`錯誤回應不是 JSON：${text.slice(0, 200)}`);
+  }
+  if (body.errorId !== headerErrId) {
+    throw new Error(
+      `body.errorId (${body.errorId}) !== x-error-id header (${headerErrId})`,
+    );
+  }
+  if (typeof body.code !== "string" || !body.code) {
+    throw new Error(`錯誤 body 缺 code：${JSON.stringify(body)}`);
+  }
+  if (typeof body.message !== "string" || !body.message) {
+    throw new Error(`錯誤 body 缺 message：${JSON.stringify(body)}`);
+  }
 });
 
