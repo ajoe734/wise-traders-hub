@@ -1,0 +1,49 @@
+name: Edge Functions — Deno Tests
+
+# 每次 push / PR 執行 Supabase Edge Functions 的 Deno 測試。
+# 目前聚焦 expert-ai-chat 的 contract + integration 測試，確保串流整合契約
+# （UIMessage → convertToModelMessages、errorId、CORS）不因部署或依賴升級悄悄壞掉。
+#
+# 端到端串流測試由環境變數 gate：
+#   EXPERT_AI_TEST_USER_JWT / EXPERT_AI_TEST_EXPERT_ID
+# 沒設就自動 skip，不會擋 CI。
+
+on:
+  push:
+    branches: [main, 'feat/**', 'fix/**']
+    paths:
+      - 'supabase/functions/expert-ai-chat/**'
+      - 'supabase/functions/_shared/**'
+      - '.github/workflows/edge-functions-deno-tests.yml'
+  pull_request:
+    branches: [main]
+    paths:
+      - 'supabase/functions/expert-ai-chat/**'
+      - 'supabase/functions/_shared/**'
+      - '.github/workflows/edge-functions-deno-tests.yml'
+  workflow_dispatch:
+
+concurrency:
+  group: edge-deno-${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  expert-ai-chat:
+    name: expert-ai-chat contract + integration
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    env:
+      VITE_SUPABASE_URL: https://yqacmrgdjlenbijclngi.supabase.co
+      VITE_SUPABASE_PUBLISHABLE_KEY: ${{ secrets.VITE_SUPABASE_PUBLISHABLE_KEY || 'placeholder' }}
+      # 若設定則會跑 live 串流測試；未設定會自動 skip
+      EXPERT_AI_TEST_USER_JWT: ${{ secrets.EXPERT_AI_TEST_USER_JWT }}
+      EXPERT_AI_TEST_EXPERT_ID: ${{ secrets.EXPERT_AI_TEST_EXPERT_ID }}
+    steps:
+      - uses: actions/checkout@v4
+      - uses: denoland/setup-deno@v2
+        with:
+          deno-version: v2.x
+      - name: Run contract_test.ts
+        run: deno test --allow-net --allow-env --no-check supabase/functions/expert-ai-chat/contract_test.ts
+      - name: Run integration_test.ts
+        run: deno test --allow-net --allow-env --no-check supabase/functions/expert-ai-chat/integration_test.ts
