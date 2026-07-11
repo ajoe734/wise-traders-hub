@@ -105,6 +105,10 @@ async function parseAndValidateUiStream(res: Response, opts: {
   requireTextish?: boolean;
   /** 觀察用：可拿到終止事件的實際發生時間，方便斷言 timeout 可重現 */
   onDone?: (info: { elapsedMs: number; terminatedBy: "finish" | "abort" | "timeout" | "eof"; eventCount: number }) => void;
+  /** 上報用：識別本次解析的來源（測試名稱 / synthetic case）；會落到 stream-metrics-report log。 */
+  source?: string;
+  /** 額外欄位一起上報（純觀察，值只接受 string/number/boolean）。 */
+  reportExtra?: Record<string, string | number | boolean>;
 } = {}): Promise<Array<any>> {
   const maxChunks = opts.maxChunks ?? 20;
   const timeoutMs = opts.timeoutMs ?? 10_000;
