@@ -253,6 +253,7 @@ export function useExpertAiChat(expertId: string | null | undefined) {
 
   const sendMessageWrapped: typeof chat.sendMessage = (...args) => {
     autoRetriedRef.current = false;
+    abortedRef.current = false;
     setCanRetry(false);
     setErrorId(null);
     lastErrorIdRef.current = null;
