@@ -34,25 +34,72 @@ type StreamMetricsPayload = {
   extra?: Record<string, string | number | boolean>;
 };
 const pendingReports = new Set<Promise<unknown>>();
+// 最多重試 3 次（含首發共 4 次），指數退避 200ms/400ms/800ms + jitter；
+// 全部失敗才在最終落 console.error（含 attempts / lastStatus / lastError / payload 摘要），
+// 便於 CI log 上快速定位是網路暫時抖動、還是 endpoint 真的掛掉。
+const MAX_REPORT_ATTEMPTS = 4;
+const BASE_BACKOFF_MS = 200;
 function reportStreamMetrics(payload: StreamMetricsPayload) {
   const url = Deno.env.get("STREAM_METRICS_REPORT_URL");
   if (!url) return;
   const token = Deno.env.get("STREAM_METRICS_REPORT_TOKEN");
   const headers: Record<string, string> = { "Content-Type": "application/json" };
   if (token) headers["Authorization"] = `Bearer ${token}`;
-  const p = fetch(url, {
-    method: "POST",
-    headers,
-    body: JSON.stringify({
-      ...payload,
-      testName: Deno.env.get("STREAM_METRICS_TEST_NAME") || undefined,
-    }),
-  })
-    .then(async (r) => { try { await r.body?.cancel(); } catch { /* noop */ } })
-    .catch((e) => { console.warn(`[stream-metrics-report] 上報失敗：${(e as Error).message}`); })
-    .finally(() => { pendingReports.delete(p); });
+  const body = JSON.stringify({
+    ...payload,
+    testName: Deno.env.get("STREAM_METRICS_TEST_NAME") || undefined,
+  });
+
+  const attemptOnce = async (): Promise<{ ok: true } | { ok: false; status?: number; error?: string }> => {
+    try {
+      const r = await fetch(url, { method: "POST", headers, body });
+      try { await r.body?.cancel(); } catch { /* noop */ }
+      if (r.ok) return { ok: true };
+      // 4xx（除了 408/429）當永久失敗、不重試；5xx / 408 / 429 才重試。
+      const retriable = r.status >= 500 || r.status === 408 || r.status === 429;
+      return { ok: false, status: r.status, error: retriable ? `http_${r.status}` : `http_${r.status}_final` };
+    } catch (e) {
+      return { ok: false, error: (e as Error).message || String(e) };
+    }
+  };
+
+  const run = async () => {
+    let last: { ok: false; status?: number; error?: string } = { ok: false };
+    for (let attempt = 1; attempt <= MAX_REPORT_ATTEMPTS; attempt++) {
+      const res = await attemptOnce();
+      if (res.ok) return;
+      last = res;
+      // 非重試型錯誤（4xx 非 408/429）：立即中止。
+      if (typeof res.status === "number" && res.status < 500 && res.status !== 408 && res.status !== 429) break;
+      if (attempt < MAX_REPORT_ATTEMPTS) {
+        const backoff = BASE_BACKOFF_MS * Math.pow(2, attempt - 1);
+        const jitter = Math.floor(Math.random() * BASE_BACKOFF_MS);
+        await new Promise((resolve) => setTimeout(resolve, backoff + jitter));
+      }
+    }
+    // 最終失敗：console.error 帶完整診斷資訊，方便 CI 直接搜。
+    console.error(
+      `[stream-metrics-report] 上報最終失敗（重試 ${MAX_REPORT_ATTEMPTS} 次仍失敗）：` +
+        JSON.stringify({
+          url,
+          attempts: MAX_REPORT_ATTEMPTS,
+          lastStatus: last.status ?? null,
+          lastError: last.error ?? null,
+          payloadSummary: {
+            source: payload.source,
+            terminatedBy: payload.terminatedBy,
+            eventCount: payload.eventCount,
+            elapsedMs: payload.elapsedMs,
+            correlationId: payload.correlationId ?? null,
+          },
+        }),
+    );
+  };
+
+  const p = run().finally(() => { pendingReports.delete(p); });
   pendingReports.add(p);
 }
+
 // 讓測試結束前把 fire-and-forget 的上報 drain 掉，避免 Deno.test 抱怨 leaked async ops。
 export async function flushStreamMetricsReports() {
   if (!pendingReports.size) return;
