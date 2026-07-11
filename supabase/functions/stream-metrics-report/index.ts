@@ -25,6 +25,11 @@ const MAX_TESTNAME_LEN = 200;
 const MAX_EXTRA_KEYS = 12;
 const MAX_EXTRA_VALUE_LEN = 200;
 
+const UUID_RE = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
+function asUuidOrNull(v: unknown): string | null {
+  return typeof v === 'string' && UUID_RE.test(v) ? v : null;
+}
+
 function sanitizeExtra(extra: unknown): Record<string, string | number | boolean> | undefined {
   if (!extra || typeof extra !== 'object') return undefined;
   const out: Record<string, string | number | boolean> = {};
