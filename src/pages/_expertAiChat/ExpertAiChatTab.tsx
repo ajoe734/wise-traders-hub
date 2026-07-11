@@ -1,7 +1,7 @@
 import { useEffect, useRef, useState } from 'react';
 import { Link } from 'react-router-dom';
 import ReactMarkdown from 'react-markdown';
-import { Loader2, Send, Trash2, Lock, Shield, MessageCircle, AlertTriangle, RefreshCw } from 'lucide-react';
+import { Loader2, Send, Trash2, Lock, Shield, MessageCircle, AlertTriangle, RefreshCw, Square, CheckCircle2, XCircle, Clock } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent } from '@/components/ui/card';
 import { Textarea } from '@/components/ui/textarea';
