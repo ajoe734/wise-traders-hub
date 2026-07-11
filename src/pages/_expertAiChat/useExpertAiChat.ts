@@ -327,5 +327,7 @@ export function useExpertAiChat(expertId: string | null | undefined) {
     terminatedBy,
     elapsedMs,
     cancelStream,
+    correlationId,
+    requestId,
   };
 }
