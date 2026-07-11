@@ -102,6 +102,13 @@ export function useExpertAiChat(expertId: string | null | undefined) {
   const lastErrorQuotaRef = useRef(false);
   const lastErrorIdRef = useRef<string | null>(null);
 
+  // 追蹤鏈：每次 fetch 前端生一個 requestId 送 x-request-id；
+  // 回應時 endpoint 會 echo x-request-id 並蓋章 x-correlation-id。
+  // 顯示在 UI 診斷區塊、供回報排查。
+  const [correlationId, setCorrelationId] = useState<string | null>(null);
+  const [requestId, setRequestId] = useState<string | null>(null);
+  const pendingRequestIdRef = useRef<string | null>(null);
+
   // 串流終止資訊
   const [terminatedBy, setTerminatedBy] = useState<'finish' | 'abort' | 'timeout' | 'error' | null>(null);
   const [elapsedMs, setElapsedMs] = useState<number | null>(null);
@@ -117,17 +124,34 @@ export function useExpertAiChat(expertId: string | null | undefined) {
     }
   };
 
+  const genRequestId = () => {
+    try { return crypto.randomUUID(); } catch {
+      return `req_${Date.now().toString(36)}_${Math.random().toString(36).slice(2, 10)}`;
+    }
+  };
+
   const transport = new DefaultChatTransport({
     api: `${SUPABASE_URL}/functions/v1/expert-ai-chat`,
-    headers: () => ({
-      Authorization: `Bearer ${authToken || SUPABASE_PUBLISHABLE_KEY}`,
-      apikey: SUPABASE_PUBLISHABLE_KEY,
-    }),
+    headers: () => {
+      const rid = pendingRequestIdRef.current ?? genRequestId();
+      pendingRequestIdRef.current = rid;
+      return {
+        Authorization: `Bearer ${authToken || SUPABASE_PUBLISHABLE_KEY}`,
+        apikey: SUPABASE_PUBLISHABLE_KEY,
+        'x-request-id': rid,
+      };
+    },
     body: () => ({ expert_id: expertId }),
     // 攔截非 2xx 回應 → 解析錯誤 body、更新配額 / errorId
     fetch: async (input, init) => {
       const resp = await fetch(input as any, init);
       lastErrorQuotaRef.current = false;
+      // 追蹤鏈 header：不論成功或失敗都讀（CORS Expose-Headers 已放行）
+      const cid = resp.headers.get('x-correlation-id');
+      const rid = resp.headers.get('x-request-id') ?? pendingRequestIdRef.current;
+      if (cid) setCorrelationId(cid);
+      if (rid) setRequestId(rid);
+      pendingRequestIdRef.current = null;
       if (!resp.ok) {
         // 優先讀 header（stream 情境仍可拿到）
         const headerErrId = resp.headers.get('x-error-id');
