@@ -282,155 +282,15 @@ Deno.test({
       throw new Error(`200 串流不應帶 x-error-id，實際=${headerErrIdOn200}`);
     }
 
-    // ---------- content-type 嚴格檢查 ----------
-    const ctRaw = res.headers.get("content-type") || "";
-    const ct = ctRaw.toLowerCase();
-    const isSse = ct.includes("text/event-stream");
-    const isPlain = ct.includes("text/plain");
-    if (!isSse && !isPlain) {
-      await drain(res);
-      throw new Error(`content-type 非串流格式：${ctRaw}`);
-    }
-    if (!ct.includes("charset=utf-8")) {
-      // charset 缺失可能導致中文亂碼；SDK 預設會加，這裡當回歸警戒
-      await drain(res);
-      throw new Error(`content-type 缺 charset=utf-8：${ctRaw}`);
-    }
+    // 走共用 helper，SSE / text-plain 兩條路徑用同一份斷言
+    const parsed = await parseAndValidateUiStream(res);
 
-    // AI SDK v5 會加這顆 header 表明是 UIMessageStream；缺了代表 pipeline 被改過
-    if (isSse) {
-      const streamHeader = res.headers.get("x-vercel-ai-ui-message-stream");
-      if (streamHeader && streamHeader !== "v1") {
-        await drain(res);
-        throw new Error(`未預期的 UIMessageStream 版本：${streamHeader}`);
-      }
-    }
-
-    // ---------- 讀取足夠多的 chunk：最少 3 個或直到 finish / 10 秒 ----------
-    if (!res.body) throw new Error("missing response body");
-    const reader = res.body.getReader();
-    const decoder = new TextDecoder();
-    let buffer = "";
-    let received = "";
-    const events: Array<{ raw: string; payload: string }> = [];
-    const started = Date.now();
-    let sawFinish = false;
-
-    const flushBuffer = () => {
-      // SSE 以 \n\n 分隔一筆事件；非 SSE 走 line-by-line
-      const sep = isSse ? "\n\n" : "\n";
-      let idx: number;
-      while ((idx = buffer.indexOf(sep)) !== -1) {
-        const raw = buffer.slice(0, idx);
-        buffer = buffer.slice(idx + sep.length);
-        if (!raw.trim()) continue;
-        // SSE 允許多行；取所有 `data:` 行
-        const dataLines = raw.split("\n")
-          .map((l) => l.trim())
-          .filter((l) => l.startsWith("data:"));
-        const payload = isSse
-          ? dataLines.map((l) => l.slice(5).trim()).join("\n")
-          : raw.trim();
-        if (!payload) continue;
-        events.push({ raw, payload });
-        if (payload === "[DONE]") sawFinish = true;
-        else {
-          try {
-            const obj = JSON.parse(payload);
-            if (obj?.type === "finish") sawFinish = true;
-          } catch { /* 下面統一驗證 */ }
-        }
-      }
-    };
-
-    while (Date.now() - started < 10_000) {
-      const { done, value } = await reader.read();
-      if (done) break;
-      const chunk = decoder.decode(value, { stream: true });
-      received += chunk;
-      buffer += chunk;
-      flushBuffer();
-      if (sawFinish && events.length >= 3) break;
-      if (events.length >= 20) break; // 已經夠驗證了，別無限吃 token
-    }
-    try { await reader.cancel(); } catch { /* ignore */ }
-    // 處理最後殘留（可能沒有 trailing separator）
-    if (buffer.trim().length > 0) {
-      buffer += isSse ? "\n\n" : "\n";
-      flushBuffer();
-    }
-
-    // ---------- 結構驗證 ----------
-    if (events.length === 0) {
-      throw new Error(`串流為空。raw=${JSON.stringify(received).slice(0, 500)}`);
-    }
-    if (events.length < 2) {
-      throw new Error(
-        `串流事件過少 (${events.length})，預期至少 start + 一筆 text/finish。raw=${received.slice(0, 500)}`,
-      );
-    }
-
-    // 逐筆解析、驗證 type 在白名單內
-    const parsed: Array<any> = [];
-    for (const ev of events) {
-      if (ev.payload === "[DONE]") continue;
-      let obj: any;
-      try {
-        obj = JSON.parse(ev.payload);
-      } catch (e) {
-        throw new Error(
-          `chunk 不是合法 JSON：${ev.payload.slice(0, 200)} (${(e as Error).message})`,
-        );
-      }
-      if (!obj || typeof obj !== "object") {
-        throw new Error(`chunk 非 object：${ev.payload.slice(0, 200)}`);
-      }
-      if (typeof obj.type !== "string") {
-        throw new Error(`chunk 缺 type 欄位：${ev.payload.slice(0, 200)}`);
-      }
-      if (!KNOWN_UI_STREAM_TYPES.has(obj.type)) {
-        throw new Error(
-          `未知 UIMessageStream chunk type=${obj.type}；若 SDK 升版請更新 KNOWN_UI_STREAM_TYPES。payload=${ev.payload.slice(0, 200)}`,
-        );
-      }
-      parsed.push(obj);
-    }
-
-    // 第一個事件必須是 start（AI SDK v5 契約）
-    if (parsed[0]?.type !== "start") {
-      throw new Error(
-        `第一個 chunk 應為 type=start，實際=${parsed[0]?.type}。events=${JSON.stringify(parsed.slice(0, 5))}`,
-      );
-    }
-
-    // 必須至少出現一個文字類 chunk（text-delta / text / text-start）——這是使用者實際看到的內容
-    const hasTextish = parsed.some((p) =>
-      p.type === "text-delta" || p.type === "text" || p.type === "text-start"
-    );
-    if (!hasTextish) {
-      throw new Error(
-        `串流未包含任何 text 類 chunk，模型可能回空。events=${JSON.stringify(parsed.slice(0, 10))}`,
-      );
-    }
-
-    // text-delta 必須有 id + delta:string；text 必須有 text:string
+    // 若真的收到 error chunk，額外驗 x-error-id header 對齊
     for (const p of parsed) {
-      if (p.type === "text-delta") {
-        if (typeof p.id !== "string" || typeof p.delta !== "string") {
-          throw new Error(`text-delta 結構錯誤：${JSON.stringify(p)}`);
-        }
-      }
-      if (p.type === "text" && typeof p.text !== "string") {
-        throw new Error(`text 結構錯誤：${JSON.stringify(p)}`);
-      }
       if (p.type === "error") {
-        // 若真的收到 error，訊息必須含 errorId（本專案 onError 合約）
         const msg = typeof p.errorText === "string" ? p.errorText : JSON.stringify(p);
         const m = msg.match(/errorId[:：]\s*(err_[a-z0-9_]+)/i);
-        if (!m) {
-          throw new Error(`error chunk 未帶 errorId，違反前端解析合約：${msg}`);
-        }
-        // x-error-id header 若存在，必須與 payload 內 errorId 一致
+        if (!m) throw new Error(`error chunk 未帶 errorId：${msg}`);
         const headerErrId = res.headers.get("x-error-id");
         if (headerErrId && headerErrId !== m[1]) {
           throw new Error(
@@ -441,6 +301,133 @@ Deno.test({
     }
   },
 });
+
+// ---------- B'. 合成串流測試（非 gated，永遠會跑） ----------
+// 目的：即使沒有 live 訂閱環境，也要保證 parseAndValidateUiStream 在
+//   (a) text/event-stream          — SDK 預設輸出
+//   (b) text/plain; charset=utf-8  — SDK 降級 / proxy 剝掉 event-stream 時的 fallback
+// 兩條 pipeline 上都能正確切事件、對齊白名單、抓出結構缺失。
+//
+// 這也守護了 useExpertAiChat.ts 前端解析行為 — 前端目前只依賴
+// `data:` 前綴 + JSON 每行的合約，兩條分支只要有一條壞了，這裡會先炸。
+
+function makeStreamResponse(body: string, contentType: string, extraHeaders: Record<string, string> = {}): Response {
+  return new Response(body, {
+    status: 200,
+    headers: { "content-type": contentType, ...extraHeaders },
+  });
+}
+
+// 6 個標準 chunk：start / start-step / text-start / text-delta / text-end / finish
+const GOLDEN_CHUNKS = [
+  { type: "start" },
+  { type: "start-step" },
+  { type: "text-start", id: "t1" },
+  { type: "text-delta", id: "t1", delta: "嗨，我是老師 AI 分身。" },
+  { type: "text-end", id: "t1" },
+  { type: "finish" },
+];
+
+function toSseBody(chunks: any[]): string {
+  return chunks.map((c) => `data: ${JSON.stringify(c)}\n\n`).join("") + "data: [DONE]\n\n";
+}
+
+function toPlainBody(chunks: any[]): string {
+  return chunks.map((c) => JSON.stringify(c)).join("\n") + "\n";
+}
+
+Deno.test(`${FN} — 合成 SSE 串流：content-type/chunk 結構通過`, async () => {
+  const res = makeStreamResponse(
+    toSseBody(GOLDEN_CHUNKS),
+    "text/event-stream; charset=utf-8",
+    { "x-vercel-ai-ui-message-stream": "v1" },
+  );
+  const parsed = await parseAndValidateUiStream(res);
+  if (parsed[0].type !== "start") throw new Error(`first != start: ${parsed[0].type}`);
+  if (!parsed.some((p) => p.type === "text-delta" && p.delta.includes("嗨"))) {
+    throw new Error("text-delta 內容遺失");
+  }
+  if (parsed[parsed.length - 1].type !== "finish") {
+    throw new Error(`last != finish: ${parsed[parsed.length - 1].type}`);
+  }
+});
+
+Deno.test(`${FN} — 合成 text/plain 串流：content-type/chunk 結構通過（SSE fallback）`, async () => {
+  const res = makeStreamResponse(
+    toPlainBody(GOLDEN_CHUNKS),
+    "text/plain; charset=utf-8",
+  );
+  const parsed = await parseAndValidateUiStream(res);
+  if (parsed[0].type !== "start") throw new Error(`first != start: ${parsed[0].type}`);
+  if (!parsed.some((p) => p.type === "text-delta")) throw new Error("缺 text-delta");
+  if (parsed[parsed.length - 1].type !== "finish") throw new Error("缺 finish");
+});
+
+Deno.test(`${FN} — 合成 text/plain：缺 charset=utf-8 → 拒收`, async () => {
+  const res = makeStreamResponse(toPlainBody(GOLDEN_CHUNKS), "text/plain");
+  let threw = false;
+  try { await parseAndValidateUiStream(res); } catch (e) {
+    if (!/charset=utf-8/.test((e as Error).message)) throw e;
+    threw = true;
+  }
+  if (!threw) throw new Error("缺 charset=utf-8 應該被拒");
+});
+
+Deno.test(`${FN} — 合成 SSE：未知 chunk type → 立即失敗，防 SDK 靜默升版`, async () => {
+  const bad = [...GOLDEN_CHUNKS.slice(0, 3), { type: "quantum-teleport", foo: 1 }, ...GOLDEN_CHUNKS.slice(3)];
+  const res = makeStreamResponse(
+    toSseBody(bad),
+    "text/event-stream; charset=utf-8",
+    { "x-vercel-ai-ui-message-stream": "v1" },
+  );
+  let threw = false;
+  try { await parseAndValidateUiStream(res); } catch (e) {
+    if (!/未知 UIMessageStream chunk type=quantum-teleport/.test((e as Error).message)) throw e;
+    threw = true;
+  }
+  if (!threw) throw new Error("未知 chunk type 應該被擋");
+});
+
+Deno.test(`${FN} — 合成 SSE：非 start 開頭 → 拒收`, async () => {
+  const res = makeStreamResponse(
+    toSseBody(GOLDEN_CHUNKS.slice(1)), // 少了 start
+    "text/event-stream; charset=utf-8",
+    { "x-vercel-ai-ui-message-stream": "v1" },
+  );
+  let threw = false;
+  try { await parseAndValidateUiStream(res); } catch (e) {
+    if (!/第一個 chunk 應為 type=start/.test((e as Error).message)) throw e;
+    threw = true;
+  }
+  if (!threw) throw new Error("非 start 開頭應該被擋");
+});
+
+Deno.test(`${FN} — 合成 text/plain：text-delta 缺 id/delta → 拒收`, async () => {
+  const bad = [
+    { type: "start" },
+    { type: "text-start", id: "t1" },
+    { type: "text-delta", id: "t1" }, // 缺 delta
+    { type: "finish" },
+  ];
+  const res = makeStreamResponse(toPlainBody(bad), "text/plain; charset=utf-8");
+  let threw = false;
+  try { await parseAndValidateUiStream(res); } catch (e) {
+    if (!/text-delta 結構錯誤/.test((e as Error).message)) throw e;
+    threw = true;
+  }
+  if (!threw) throw new Error("text-delta 缺欄位應該被擋");
+});
+
+Deno.test(`${FN} — 合成非串流 content-type (application/json) → 拒收`, async () => {
+  const res = makeStreamResponse(toPlainBody(GOLDEN_CHUNKS), "application/json; charset=utf-8");
+  let threw = false;
+  try { await parseAndValidateUiStream(res); } catch (e) {
+    if (!/非串流格式/.test((e as Error).message)) throw e;
+    threw = true;
+  }
+  if (!threw) throw new Error("非串流 content-type 應該被擋");
+});
+
 
 // ---------- C. 400 錯誤路徑的 id 對齊（非 gated，永遠會跑） ----------
 // 打帶有 cid 的無效 body → 應該回：
