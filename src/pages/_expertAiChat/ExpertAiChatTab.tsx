@@ -221,6 +221,37 @@ export function ExpertAiChatTab({ expertId, expertName, isSubscribed, onSubscrib
           </div>
         )}
 
+        {/* 串流終止資訊 pill */}
+        {!isBusy && terminatedBy && elapsedMs != null && (
+          <div className="flex justify-start" data-testid="stream-terminated-pill">
+            <div
+              className={`inline-flex items-center gap-1.5 rounded-full border px-2.5 py-1 text-[11px] ${
+                terminatedBy === 'finish'
+                  ? 'border-emerald-500/30 bg-emerald-500/5 text-emerald-700 dark:text-emerald-400'
+                  : terminatedBy === 'abort'
+                  ? 'border-muted-foreground/30 bg-muted/40 text-muted-foreground'
+                  : terminatedBy === 'timeout'
+                  ? 'border-amber-500/30 bg-amber-500/5 text-amber-700 dark:text-amber-400'
+                  : 'border-destructive/30 bg-destructive/5 text-destructive'
+              }`}
+            >
+              {terminatedBy === 'finish' && <CheckCircle2 className="h-3 w-3" />}
+              {terminatedBy === 'abort' && <XCircle className="h-3 w-3" />}
+              {terminatedBy === 'timeout' && <Clock className="h-3 w-3" />}
+              {terminatedBy === 'error' && <AlertTriangle className="h-3 w-3" />}
+              <span className="font-medium">
+                {terminatedBy === 'finish' && '已完成'}
+                {terminatedBy === 'abort' && '已取消'}
+                {terminatedBy === 'timeout' && '已逾時'}
+                {terminatedBy === 'error' && '發生錯誤'}
+              </span>
+              <span className="opacity-70">·</span>
+              <span className="font-mono tabular-nums">{(elapsedMs / 1000).toFixed(2)}s</span>
+              <span className="opacity-50 ml-0.5">({terminatedBy})</span>
+            </div>
+          </div>
+        )}
+
         {error && !quotaExhausted && (
           <div className="rounded-lg border border-destructive/40 bg-destructive/5 p-3 flex items-start gap-2">
             <AlertTriangle className="h-4 w-4 text-destructive mt-0.5 shrink-0" />
