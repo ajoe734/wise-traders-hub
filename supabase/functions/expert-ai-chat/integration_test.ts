@@ -104,6 +104,12 @@ function reportStreamMetrics(payload: StreamMetricsPayload) {
             eventCount: payload.eventCount,
             elapsedMs: payload.elapsedMs,
             correlationId: payload.correlationId ?? null,
+            requestId: payload.requestId ?? null,
+            sessionId: payload.sessionId ?? null,
+            userId: payload.userId ?? null,
+            expertId: payload.expertId ?? null,
+            clientVersion: payload.clientVersion ?? null,
+            errorId: payload.errorId ?? null,
           },
         }),
     );
