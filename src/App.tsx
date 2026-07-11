@@ -139,6 +139,7 @@ const CompanyUsers = lazy(() => import("./pages/company/Users"));
 const CompanyMembers = lazy(() => import("./pages/company/Members"));
 const ViewAsEntry = lazy(() => import("./pages/app/ViewAsEntry"));
 const CompanyPerfMetrics = lazy(() => import("./pages/company/PerfMetrics"));
+const CompanyStreamHealth = lazy(() => import("./pages/company/StreamHealth"));
 const CompanyTraffic = lazy(() => import("./pages/company/Traffic"));
 const CompanyOpsHealth = lazy(() => import("./pages/company/OpsHealth"));
 const CompanyPaywallAnalytics = lazy(() => import("./pages/company/PaywallAnalytics"));
