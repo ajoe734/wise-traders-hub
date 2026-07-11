@@ -212,10 +212,22 @@ async function parseAndValidateUiStream(res: Response, opts: {
     flushBuffer();
   }
 
-  opts.onDone?.({
+  const finalInfo = {
     elapsedMs: Date.now() - started,
-    terminatedBy: terminatedBy ?? "eof",
+    terminatedBy: (terminatedBy ?? "eof") as "finish" | "abort" | "timeout" | "eof",
     eventCount: events.length,
+  };
+  opts.onDone?.(finalInfo);
+  // 非同步上報到 stream-metrics-report（設定 STREAM_METRICS_REPORT_URL 才啟用），
+  // 讓 chunk 洩漏 / 協議漂移 / eventCount 突增 / elapsedMs 尾巴變長之類的問題
+  // 在 Edge Function Logs 就能直接查，不用等下次 CI。
+  reportStreamMetrics({
+    ...finalInfo,
+    source: opts.source ?? "parseAndValidateUiStream",
+    correlationId: res.headers.get("x-correlation-id"),
+    errorId: res.headers.get("x-error-id"),
+    contentType: ctRaw,
+    extra: opts.reportExtra,
   });
 
   // ---- 結構驗證 ----
