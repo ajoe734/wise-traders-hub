@@ -283,5 +283,8 @@ export function useExpertAiChat(expertId: string | null | undefined) {
     canRetry,
     retry,
     errorId,
+    terminatedBy,
+    elapsedMs,
+    cancelStream,
   };
 }
