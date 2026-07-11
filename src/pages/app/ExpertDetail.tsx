@@ -190,6 +190,25 @@ const AppExpertDetail = () => {
           </Card>
         )}
 
+        {/* AI guide banner */}
+        <div className={`rounded-lg border p-3 flex items-start gap-3 ${isAdvisor ? 'border-advisor/20 bg-advisor/5' : 'border-mentor/20 bg-mentor/5'}`}>
+          <div className={`shrink-0 rounded-full p-1.5 ${isAdvisor ? 'bg-advisor/10 text-advisor' : 'bg-mentor/10 text-mentor'}`}>
+            <MessageCircle className="h-4 w-4" aria-hidden="true" />
+          </div>
+          <div className="flex-1 min-w-0">
+            <p className="text-sm font-medium text-foreground">有問題想問 {expert.name} 老師？</p>
+            <p className="text-xs text-muted-foreground mt-0.5">點擊下方「問老師 AI」分頁，即可開始一對一對話。</p>
+          </div>
+          <Button
+            size="sm"
+            className={`shrink-0 gap-1.5 text-white ${isAdvisor ? 'bg-advisor hover:bg-advisor/90' : 'bg-mentor hover:bg-mentor/90'}`}
+            onClick={() => setSearchParams({ tab: 'ai-chat' }, { replace: true })}
+            data-testid="expert-ai-guide-btn"
+          >
+            <MessageCircle className="h-3.5 w-3.5" aria-hidden="true" />
+            前往問 AI
+          </Button>
+        </div>
 
         <Tabs value={activeTab} onValueChange={(v) => setSearchParams({ tab: v }, { replace: true })}>
           <TabsList className="grid w-full grid-cols-2">
