@@ -207,14 +207,20 @@ export function useExpertAiChat(expertId: string | null | undefined) {
   }, [chat]);
 
   const cancelStream = useCallback(() => {
+    if (abortedRef.current) return;
+    abortedRef.current = true;
     clearWatchdog();
     if (startedAtRef.current != null) {
       setElapsedMs(Date.now() - startedAtRef.current);
     }
     setTerminatedBy('abort');
+    // 1) 中止底層 fetch/stream
     try { chat.stop?.(); } catch { /* noop */ }
+    // 2) 立刻丟掉尾端 assistant 訊息，之後 useChat 的 setMessages guard 會擋住殘留 chunk
     dropTrailingAssistant();
-    autoRetriedRef.current = true; // 使用者主動取消 → 不自動重試
+    // 3) 再排一次 microtask，確保 abort 當下已在 in-flight 的 chunk flush 完也會被清掉
+    queueMicrotask(() => dropTrailingAssistant());
+    autoRetriedRef.current = true;
     setCanRetry(false);
   }, [chat, dropTrailingAssistant]);
 
