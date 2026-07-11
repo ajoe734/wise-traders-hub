@@ -130,7 +130,7 @@ Deno.serve(withLogging('stream-metrics-report', async (req, log) => {
         level: 'warn',
         stage: `stream_${terminatedBy}`,
         msg: `stream terminated by ${terminatedBy}`,
-        expert_id: expertId,
+        expert_id: asUuidOrNull(expertId),
         payload: {
           source,
           terminatedBy,
