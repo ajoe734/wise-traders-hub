@@ -110,14 +110,27 @@ async function reportBootEvent(fn: string, log: EdgeLogger) {
 export function withLogging(fn: string, handler: LoggedHandler): (req: Request) => Promise<Response> {
   return async (req) => {
     if (req.method === 'OPTIONS') return corsPreflight();
-    const requestId = req.headers.get('x-correlation-id') || undefined;
-    const log = createLogger(fn, requestId);
+    // 追蹤鏈：
+    //   - correlationId（== logger.requestId）：跨 function 貫穿的 join key，
+    //     優先取 client x-correlation-id，缺就自動生一個。
+    //   - clientRequestId：client fetch 每次呼叫獨立產生的 uuid，
+    //     用來把「同一次前端 send」對應到某條 edge log；echo 回去讓前端顯示。
+    const incomingCorrelationId = req.headers.get('x-correlation-id') || undefined;
+    const clientRequestId = req.headers.get('x-request-id') || undefined;
+    const log = createLogger(fn, incomingCorrelationId);
     const startedAt = performance.now();
     INVOCATION_COUNT += 1;
     const invocation = INVOCATION_COUNT;
     const cold = invocation === 1;
     const bootAgeMs = Date.now() - BOOT_AT;
-    log.info('start', { method: req.method, url: req.url, cold, invocation, bootAgeMs });
+    log.info('start', {
+      method: req.method,
+      url: req.url,
+      cold,
+      invocation,
+      bootAgeMs,
+      clientRequestId,
+    });
     if (cold) {
       // Don't await — never block the request on telemetry.
       reportBootEvent(fn, log).catch(() => {});
@@ -126,9 +139,10 @@ export function withLogging(fn: string, handler: LoggedHandler): (req: Request) 
       const res = await handler(req, log);
       const ms = Math.round(performance.now() - startedAt);
       log.info('end', { status: res.status, ms, invocation });
-      // Make sure correlation id propagates back to client.
+      // 把追蹤鏈欄位一律 echo 回 client。
       const headers = new Headers(res.headers);
       if (!headers.has('x-correlation-id')) headers.set('x-correlation-id', log.requestId);
+      if (clientRequestId && !headers.has('x-request-id')) headers.set('x-request-id', clientRequestId);
       for (const [k, v] of Object.entries(corsHeaders)) if (!headers.has(k)) headers.set(k, v);
       return new Response(res.body, { status: res.status, headers });
     } catch (err) {
@@ -136,7 +150,12 @@ export function withLogging(fn: string, handler: LoggedHandler): (req: Request) 
       const message = err instanceof Error ? err.message : String(err);
       const stack = err instanceof Error ? err.stack : undefined;
       log.error('uncaught', { ms, message, stack, invocation });
-      return errorResponse(message, 500, { requestId: log.requestId });
+      const res = errorResponse(message, 500, { requestId: log.requestId });
+      // 錯誤路徑也要帶追蹤鏈欄位。
+      const headers = new Headers(res.headers);
+      headers.set('x-correlation-id', log.requestId);
+      if (clientRequestId) headers.set('x-request-id', clientRequestId);
+      return new Response(res.body, { status: res.status, headers });
     }
   };
 }

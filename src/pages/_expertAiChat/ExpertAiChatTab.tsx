@@ -43,6 +43,8 @@ export function ExpertAiChatTab({ expertId, expertName, isSubscribed, onSubscrib
     terminatedBy,
     elapsedMs,
     cancelStream,
+    correlationId,
+    requestId,
   } = useExpertAiChat(isSubscribed ? expertId : null);
 
   const isBusy = status === 'submitted' || status === 'streaming';
@@ -301,9 +303,11 @@ export function ExpertAiChatTab({ expertId, expertName, isSubscribed, onSubscrib
                 {error.message || '無法取得回覆，請稍後再試'}
                 {canRetry && '（已自動重試一次仍失敗，請手動重試）'}
               </div>
-              {errorId && (
-                <div className="mt-1 text-[11px] font-mono text-muted-foreground/80 select-all">
-                  errorId: {errorId}
+              {(errorId || correlationId || requestId) && (
+                <div className="mt-1 space-y-0.5 text-[11px] font-mono text-muted-foreground/80 select-all break-all">
+                  {errorId && <div>errorId: {errorId}</div>}
+                  {correlationId && <div>correlationId: {correlationId}</div>}
+                  {requestId && <div>requestId: {requestId}</div>}
                 </div>
               )}
             </div>
@@ -317,6 +321,26 @@ export function ExpertAiChatTab({ expertId, expertName, isSubscribed, onSubscrib
               <RefreshCw className={`h-3.5 w-3.5 ${isBusy ? 'animate-spin' : ''}`} />
               重試
             </Button>
+          </div>
+        )}
+
+        {/* 診斷資訊：非串流狀態常駐顯示追蹤鏈，方便回報排查 */}
+        {!isBusy && (correlationId || requestId) && (
+          <div
+            className="flex flex-wrap items-center gap-x-3 gap-y-1 text-[11px] font-mono text-muted-foreground/70 select-all"
+            data-testid="ai-chat-trace-info"
+          >
+            <span className="text-muted-foreground/50 font-sans">追蹤鏈</span>
+            {correlationId && (
+              <span>
+                <span className="opacity-60">correlationId:</span> {correlationId}
+              </span>
+            )}
+            {requestId && (
+              <span>
+                <span className="opacity-60">requestId:</span> {requestId}
+              </span>
+            )}
           </div>
         )}
       </div>
