@@ -29,6 +29,15 @@ type StreamMetricsPayload = {
   eventCount: number;
   elapsedMs: number;
   correlationId?: string | null;
+  // 追蹤鏈欄位：requestId（client 端 fetch 建立時的 uuid）、sessionId、userId、
+  // expertId、clientVersion、userAgent；endpoint 會把 correlationId ↔ requestId
+  // 互補（缺哪個補哪個），再把整組寫進 log 面板供 join。
+  requestId?: string | null;
+  sessionId?: string | null;
+  userId?: string | null;
+  expertId?: string | null;
+  clientVersion?: string | null;
+  userAgent?: string | null;
   errorId?: string | null;
   contentType?: string | null;
   extra?: Record<string, string | number | boolean>;
@@ -45,6 +54,10 @@ function reportStreamMetrics(payload: StreamMetricsPayload) {
   const token = Deno.env.get("STREAM_METRICS_REPORT_TOKEN");
   const headers: Record<string, string> = { "Content-Type": "application/json" };
   if (token) headers["Authorization"] = `Bearer ${token}`;
+  // 把追蹤鏈鍵值同步塞進 header，讓 withLogging 的 requestId 也對齊，
+  // edge log 的 requestId 欄位就能和 payload.correlationId 直接對得起來。
+  if (payload.correlationId) headers["x-correlation-id"] = String(payload.correlationId);
+  if (payload.requestId) headers["x-request-id"] = String(payload.requestId);
   const body = JSON.stringify({
     ...payload,
     testName: Deno.env.get("STREAM_METRICS_TEST_NAME") || undefined,
@@ -91,6 +104,12 @@ function reportStreamMetrics(payload: StreamMetricsPayload) {
             eventCount: payload.eventCount,
             elapsedMs: payload.elapsedMs,
             correlationId: payload.correlationId ?? null,
+            requestId: payload.requestId ?? null,
+            sessionId: payload.sessionId ?? null,
+            userId: payload.userId ?? null,
+            expertId: payload.expertId ?? null,
+            clientVersion: payload.clientVersion ?? null,
+            errorId: payload.errorId ?? null,
           },
         }),
     );
