@@ -139,6 +139,7 @@ const CompanyUsers = lazy(() => import("./pages/company/Users"));
 const CompanyMembers = lazy(() => import("./pages/company/Members"));
 const ViewAsEntry = lazy(() => import("./pages/app/ViewAsEntry"));
 const CompanyPerfMetrics = lazy(() => import("./pages/company/PerfMetrics"));
+const CompanyStreamHealth = lazy(() => import("./pages/company/StreamHealth"));
 const CompanyTraffic = lazy(() => import("./pages/company/Traffic"));
 const CompanyOpsHealth = lazy(() => import("./pages/company/OpsHealth"));
 const CompanyPaywallAnalytics = lazy(() => import("./pages/company/PaywallAnalytics"));
@@ -327,6 +328,7 @@ const AppShell = () => (
             <Route path="/company/missing-prices" element={<ProtectedRoute requiredRole="company_admin"><CompanyMissingPrices /></ProtectedRoute>} />
             <Route path="/company/meta-overrides" element={<ProtectedRoute requiredRole="company_admin"><CompanyMetaOverrides /></ProtectedRoute>} />
             <Route path="/company/perf-metrics" element={<ProtectedRoute requiredRole="company_admin"><CompanyPerfMetrics /></ProtectedRoute>} />
+            <Route path="/company/stream-health" element={<ProtectedRoute requiredRole="company_admin"><CompanyStreamHealth /></ProtectedRoute>} />
             <Route path="/company/traffic" element={<ProtectedRoute requiredRole="company_admin"><CompanyTraffic /></ProtectedRoute>} />
             <Route path="/company/ops-health" element={<ProtectedRoute requiredRole="company_admin"><CompanyOpsHealth /></ProtectedRoute>} />
             <Route path="/company/paywall-analytics" element={<ProtectedRoute requiredRole="company_admin"><CompanyPaywallAnalytics /></ProtectedRoute>} />
