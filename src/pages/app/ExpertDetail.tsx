@@ -3,6 +3,7 @@ import { SEO } from '@/components/SEO';
 import { useParams, useNavigate } from "react-router-dom";
 import { useMemo } from "react";
 import { useMemberSubscriptions } from "@/hooks/useMemberSubscriptions";
+import { useAuth } from "@/contexts/AuthContext";
 import { UnifiedAppLayout } from "@/components/layouts/UnifiedAppLayout";
 import { Card, CardContent } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
@@ -66,6 +67,9 @@ const AppExpertDetail = () => {
   const [searchParams, setSearchParams] = useSearchParams();
   const activeTab = searchParams.get('tab') === 'ai-chat' ? 'ai-chat' : 'overview';
   const { data: subRows = [] } = useMemberSubscriptions();
+  const { hasRole, user } = useAuth();
+  const isCompanyAdmin = hasRole('company_admin');
+  const isOwnExpert = !!user?.expertSlug && user.expertSlug === slug;
   const subscribedPlanTypes = useMemo(
     () => subRows.filter(r => r.expert?.slug === slug).map(r => r.plan_type),
     [subRows, slug],
@@ -270,7 +274,7 @@ const AppExpertDetail = () => {
             <ExpertAiChatTab
               expertId={expert.id}
               expertName={expert.name}
-              isSubscribed={isSubscribed}
+              isSubscribed={isSubscribed || isCompanyAdmin || isOwnExpert}
               onSubscribeClick={() => navigate(`/expert/${slug}`)}
             />
           </TabsContent>
