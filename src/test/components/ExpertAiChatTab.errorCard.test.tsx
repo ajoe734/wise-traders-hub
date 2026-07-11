@@ -2,6 +2,12 @@ import { describe, it, expect, vi, beforeEach } from 'vitest';
 import { render, screen, fireEvent } from '@testing-library/react';
 import { MemoryRouter } from 'react-router-dom';
 
+// jsdom 沒有 Element.scrollTo；ExpertAiChatTab 內會呼叫 scrollRef.current.scrollTo
+if (!(Element.prototype as any).scrollTo) {
+  (Element.prototype as any).scrollTo = () => {};
+}
+
+
 // Mock hook 前必須在 import 元件之前
 const retry = vi.fn();
 const sendMessage = vi.fn();
