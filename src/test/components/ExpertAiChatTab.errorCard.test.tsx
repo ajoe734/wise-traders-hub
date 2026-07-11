@@ -56,24 +56,28 @@ describe('ExpertAiChatTab — 串流錯誤卡片', () => {
   });
 
   it('顯示錯誤卡片、errorId 與已自動重試提示', () => {
-    renderTab();
+    const { container } = renderTab();
     expect(screen.getByText('AI 對話發生錯誤')).toBeInTheDocument();
-    expect(screen.getByText(/upstream rate limit/)).toBeInTheDocument();
-    expect(screen.getByText(/已自動重試一次仍失敗/)).toBeInTheDocument();
-    expect(screen.getByText(/errorId:\s*err_lz9x_abc123/)).toBeInTheDocument();
+    expect(container.textContent).toMatch(/upstream rate limit/);
+    expect(container.textContent).toMatch(/已自動重試一次仍失敗/);
+    expect(container.textContent).toMatch(/errorId:\s*err_lz9x_abc123/);
   });
 
   it('點擊「重試」呼叫 retry()', () => {
     renderTab();
-    const btn = screen.getByRole('button', { name: /重試/ });
+    const btn = screen.getByRole('button', { name: /^\s*重試\s*$/ });
     fireEvent.click(btn);
     expect(retry).toHaveBeenCalledTimes(1);
   });
 
-  it('errorId 節點使用 select-all 讓使用者直接複製回報', () => {
-    renderTab();
-    const node = screen.getByText(/errorId:\s*err_lz9x_abc123/);
-    expect(node.className).toMatch(/select-all/);
-    expect(node.className).toMatch(/font-mono/);
+  it('errorId 節點使用 select-all + font-mono 讓使用者直接複製回報', () => {
+    const { container } = renderTab();
+    const node = Array.from(container.querySelectorAll('*')).find(
+      (el) => el.textContent?.trim() === 'errorId: err_lz9x_abc123',
+    ) as HTMLElement | undefined;
+    expect(node, 'errorId 顯示節點').toBeTruthy();
+    expect(node!.className).toMatch(/select-all/);
+    expect(node!.className).toMatch(/font-mono/);
   });
 });
+
