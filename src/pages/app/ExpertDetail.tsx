@@ -3,6 +3,7 @@ import { SEO } from '@/components/SEO';
 import { useParams, useNavigate } from "react-router-dom";
 import { useMemo } from "react";
 import { useMemberSubscriptions } from "@/hooks/useMemberSubscriptions";
+import { useAuth } from "@/contexts/AuthContext";
 import { UnifiedAppLayout } from "@/components/layouts/UnifiedAppLayout";
 import { Card, CardContent } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
