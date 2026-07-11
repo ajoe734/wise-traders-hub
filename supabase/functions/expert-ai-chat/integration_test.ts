@@ -837,3 +837,101 @@ Deno.test(`${FN} — 400 錯誤路徑：x-correlation-id / x-error-id / body.err
   }
 });
 
+// ---------- stream-metrics-report 上報路徑合成測試 ----------
+// 起一個本地 Deno.serve 收 POST，模擬部署後的 stream-metrics-report edge function，
+// 驗證 parseAndValidateUiStream 會把 eventCount / terminatedBy / elapsedMs
+// / correlationId / errorId / contentType 一路帶到 endpoint，欄位不漏。
+Deno.test(`${FN} — 合成：parseAndValidateUiStream 會把 metrics 上報到 STREAM_METRICS_REPORT_URL`, async () => {
+  const received: any[] = [];
+  const ac = new AbortController();
+  const server = Deno.serve({ port: 0, signal: ac.signal, onListen: () => {} }, async (req) => {
+    if (req.method !== "POST") return new Response("nope", { status: 405 });
+    if (req.headers.get("authorization") !== "Bearer testtoken") {
+      return new Response("no auth", { status: 401 });
+    }
+    received.push(await req.json());
+    return new Response(JSON.stringify({ ok: true }), {
+      status: 200,
+      headers: { "Content-Type": "application/json" },
+    });
+  });
+  const { port } = server.addr as Deno.NetAddr;
+  const url = `http://127.0.0.1:${port}/`;
+
+  const prevUrl = Deno.env.get("STREAM_METRICS_REPORT_URL");
+  const prevTok = Deno.env.get("STREAM_METRICS_REPORT_TOKEN");
+  Deno.env.set("STREAM_METRICS_REPORT_URL", url);
+  Deno.env.set("STREAM_METRICS_REPORT_TOKEN", "testtoken");
+
+  try {
+    // 用一個乾淨的 SSE finish 串流跑一次
+    const body =
+      `data: {"type":"start"}\n\n` +
+      `data: {"type":"start-step"}\n\n` +
+      `data: {"type":"text-delta","id":"t1","delta":"哈囉"}\n\n` +
+      `data: {"type":"finish"}\n\n` +
+      `data: [DONE]\n\n`;
+    const res = new Response(body, {
+      status: 200,
+      headers: {
+        "Content-Type": "text/event-stream; charset=utf-8",
+        "x-vercel-ai-ui-message-stream": "v1",
+        "x-correlation-id": "corr-abc-123",
+      },
+    });
+    await parseAndValidateUiStream(res, {
+      source: "unit:metrics-report",
+      reportExtra: { case: "synthetic-sse-finish", chunked: false },
+    });
+    await flushStreamMetricsReports();
+  } finally {
+    ac.abort();
+    try { await server.finished; } catch { /* noop */ }
+    if (prevUrl === undefined) Deno.env.delete("STREAM_METRICS_REPORT_URL");
+    else Deno.env.set("STREAM_METRICS_REPORT_URL", prevUrl);
+    if (prevTok === undefined) Deno.env.delete("STREAM_METRICS_REPORT_TOKEN");
+    else Deno.env.set("STREAM_METRICS_REPORT_TOKEN", prevTok);
+  }
+
+  if (received.length !== 1) throw new Error(`預期 1 筆上報，實際=${received.length}`);
+  const r = received[0];
+  if (r.source !== "unit:metrics-report") throw new Error(`source 錯：${r.source}`);
+  if (r.terminatedBy !== "finish") throw new Error(`terminatedBy 錯：${r.terminatedBy}`);
+  if (typeof r.eventCount !== "number" || r.eventCount < 3) {
+    throw new Error(`eventCount 異常：${r.eventCount}`);
+  }
+  if (typeof r.elapsedMs !== "number" || r.elapsedMs < 0) {
+    throw new Error(`elapsedMs 異常：${r.elapsedMs}`);
+  }
+  if (r.correlationId !== "corr-abc-123") throw new Error(`correlationId 錯：${r.correlationId}`);
+  if (!r.contentType || !String(r.contentType).includes("text/event-stream")) {
+    throw new Error(`contentType 沒帶：${r.contentType}`);
+  }
+  if (!r.extra || r.extra.case !== "synthetic-sse-finish" || r.extra.chunked !== false) {
+    throw new Error(`extra 不正確：${JSON.stringify(r.extra)}`);
+  }
+});
+
+// 未設定 STREAM_METRICS_REPORT_URL 時，reporter 必須完全 no-op（不打任何 fetch）。
+Deno.test(`${FN} — 合成：STREAM_METRICS_REPORT_URL 未設時 reporter 為 no-op`, async () => {
+  const prev = Deno.env.get("STREAM_METRICS_REPORT_URL");
+  Deno.env.delete("STREAM_METRICS_REPORT_URL");
+  const origFetch = globalThis.fetch;
+  let fetched = 0;
+  globalThis.fetch = ((..._a: any[]) => { fetched++; return Promise.reject(new Error("should not fetch")); }) as any;
+  try {
+    const body = `data: {"type":"start"}\n\ndata: {"type":"text-delta","id":"t1","delta":"x"}\n\ndata: {"type":"finish"}\n\ndata: [DONE]\n\n`;
+    const res = new Response(body, {
+      status: 200,
+      headers: { "Content-Type": "text/event-stream; charset=utf-8" },
+    });
+    await parseAndValidateUiStream(res, { source: "unit:noop" });
+    await flushStreamMetricsReports();
+  } finally {
+    globalThis.fetch = origFetch;
+    if (prev !== undefined) Deno.env.set("STREAM_METRICS_REPORT_URL", prev);
+  }
+  if (fetched !== 0) throw new Error(`未設 URL 卻打了 fetch ${fetched} 次`);
+});
+
+
