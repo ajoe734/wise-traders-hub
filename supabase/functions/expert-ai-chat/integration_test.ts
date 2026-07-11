@@ -99,9 +99,17 @@ const KNOWN_UI_STREAM_TYPES = new Set([
 async function parseAndValidateUiStream(res: Response, opts: {
   maxChunks?: number;
   timeoutMs?: number;
+  /** true → 出現 finish/abort 之後若還有非 [DONE] chunk 直接視為違約 */
+  strictTerminal?: boolean;
+  /** false → 允許串流不含任何 text 類 chunk（例如立刻 abort 的情境） */
+  requireTextish?: boolean;
+  /** 觀察用：可拿到終止事件的實際發生時間，方便斷言 timeout 可重現 */
+  onDone?: (info: { elapsedMs: number; terminatedBy: "finish" | "abort" | "timeout" | "eof"; eventCount: number }) => void;
 } = {}): Promise<Array<any>> {
   const maxChunks = opts.maxChunks ?? 20;
   const timeoutMs = opts.timeoutMs ?? 10_000;
+  const requireTextish = opts.requireTextish ?? true;
+  const strictTerminal = opts.strictTerminal ?? false;
 
   // ---- content-type ----
   const ctRaw = res.headers.get("content-type") || "";
@@ -132,7 +140,7 @@ async function parseAndValidateUiStream(res: Response, opts: {
   let received = "";
   const events: Array<{ raw: string; payload: string }> = [];
   const started = Date.now();
-  let sawFinish = false;
+  let terminatedBy: "finish" | "abort" | "timeout" | "eof" | null = null;
 
   const flushBuffer = () => {
     const sep = isSse ? "\n\n" : "\n";
@@ -152,24 +160,46 @@ async function parseAndValidateUiStream(res: Response, opts: {
       }
       if (!payload) continue;
       events.push({ raw, payload });
-      if (payload === "[DONE]") sawFinish = true;
-      else {
+      if (payload === "[DONE]") {
+        if (!terminatedBy) terminatedBy = "finish";
+      } else {
         try {
           const obj = JSON.parse(payload);
-          if (obj?.type === "finish") sawFinish = true;
+          if (obj?.type === "finish" && !terminatedBy) terminatedBy = "finish";
+          if (obj?.type === "abort" && !terminatedBy) terminatedBy = "abort";
         } catch { /* 下面統一驗證 */ }
       }
     }
   };
 
-  while (Date.now() - started < timeoutMs) {
-    const { done, value } = await reader.read();
-    if (done) break;
-    const chunk = decoder.decode(value, { stream: true });
+  // 用 Promise.race 讓 timeoutMs 成為硬上限，即使上游 stream 永遠不 close
+  // 也不會卡住整個測試 —— 這條契約是可重現超時的關鍵。
+  while (true) {
+    const elapsed = Date.now() - started;
+    if (elapsed >= timeoutMs) { terminatedBy = terminatedBy ?? "timeout"; break; }
+    const remaining = timeoutMs - elapsed;
+    let step: { done: boolean; value?: Uint8Array } | "timeout";
+    let timeoutHandle: number | undefined;
+    try {
+      step = await Promise.race([
+        reader.read().then((r) => r as { done: boolean; value?: Uint8Array }),
+        new Promise<"timeout">((resolve) => {
+          timeoutHandle = setTimeout(() => resolve("timeout"), remaining);
+        }),
+      ]);
+    } catch (e) {
+      if (timeoutHandle !== undefined) clearTimeout(timeoutHandle);
+      throw new Error(`stream read 失敗：${(e as Error).message}`);
+    }
+    if (timeoutHandle !== undefined) clearTimeout(timeoutHandle);
+
+    if (step === "timeout") { terminatedBy = terminatedBy ?? "timeout"; break; }
+    if (step.done) { terminatedBy = terminatedBy ?? "eof"; break; }
+    const chunk = decoder.decode(step.value!, { stream: true });
     received += chunk;
     buffer += chunk;
     flushBuffer();
-    if (sawFinish && events.length >= 3) break;
+    if (terminatedBy && events.length >= 3) break;
     if (events.length >= maxChunks) break;
   }
   try { await reader.cancel(); } catch { /* ignore */ }
@@ -178,17 +208,24 @@ async function parseAndValidateUiStream(res: Response, opts: {
     flushBuffer();
   }
 
+  opts.onDone?.({
+    elapsedMs: Date.now() - started,
+    terminatedBy: terminatedBy ?? "eof",
+    eventCount: events.length,
+  });
+
   // ---- 結構驗證 ----
   if (events.length === 0) {
     throw new Error(`串流為空 (ct=${ctRaw})。raw=${JSON.stringify(received).slice(0, 500)}`);
   }
-  if (events.length < 2) {
+  if (requireTextish && events.length < 2) {
     throw new Error(
       `串流事件過少 (${events.length}, ct=${ctRaw})，預期至少 start + 一筆 text/finish。raw=${received.slice(0, 500)}`,
     );
   }
 
   const parsed: Array<any> = [];
+  let terminalIdx = -1;
   for (const ev of events) {
     if (ev.payload === "[DONE]") continue;
     let obj: any;
@@ -210,6 +247,15 @@ async function parseAndValidateUiStream(res: Response, opts: {
         `未知 UIMessageStream chunk type=${obj.type}；若 SDK 升版請更新 KNOWN_UI_STREAM_TYPES。payload=${ev.payload.slice(0, 200)}`,
       );
     }
+    if (strictTerminal && terminalIdx >= 0) {
+      throw new Error(
+        `終止事件 (${parsed[terminalIdx].type}) 之後仍出現 chunk type=${obj.type}；` +
+        `UIMessageStream 契約要求 finish/abort 為最後一筆。payload=${ev.payload.slice(0, 200)}`,
+      );
+    }
+    if (obj.type === "finish" || obj.type === "abort") {
+      terminalIdx = parsed.length;
+    }
     parsed.push(obj);
   }
 
@@ -219,13 +265,15 @@ async function parseAndValidateUiStream(res: Response, opts: {
     );
   }
 
-  const hasTextish = parsed.some((p) =>
-    p.type === "text-delta" || p.type === "text" || p.type === "text-start"
-  );
-  if (!hasTextish) {
-    throw new Error(
-      `串流未包含任何 text 類 chunk (ct=${ctRaw})。events=${JSON.stringify(parsed.slice(0, 10))}`,
+  if (requireTextish) {
+    const hasTextish = parsed.some((p) =>
+      p.type === "text-delta" || p.type === "text" || p.type === "text-start"
     );
+    if (!hasTextish) {
+      throw new Error(
+        `串流未包含任何 text 類 chunk (ct=${ctRaw})。events=${JSON.stringify(parsed.slice(0, 10))}`,
+      );
+    }
   }
 
   for (const p of parsed) {
@@ -241,6 +289,9 @@ async function parseAndValidateUiStream(res: Response, opts: {
 
   return parsed;
 }
+
+
+
 
 
 Deno.test({
@@ -518,7 +569,161 @@ Deno.test(`${FN} — 合成 text/plain：中文位元組被切在多位元組邊
 });
 
 
+// ---------- B'''. finish / abort 終止契約 + 可重現的 timeout（非 gated） ----------
+// UIMessageStream v5 契約：finish（或 abort）必須是 stream 的最後一筆事件。
+// 前端 useChat 在看到 finish 之後會 flush 訊息並關閉 reader，若上游 SDK 因升版
+// 或 pipeline bug 在終止事件後仍多吐 chunk，會導致：
+//   - 前端已 flush，多出來的 chunk 被吞掉但埋在 log 裡追不到
+//   - onFinish 統計錯亂（例如 token count / message.parts）
+// 這條測試把它變成硬合約，SDK 一改就先炸。
+//
+// 同時驗證：即使 upstream 永遠不 close（模擬 gateway 掛掉），parseAndValidateUiStream
+// 也必須在 timeoutMs 內硬中止並回報 terminatedBy=timeout，讓 CI 不會卡住整場。
 
+Deno.test(`${FN} — 合成 SSE：finish 為最後一筆，strictTerminal 通過`, async () => {
+  let observed: { terminatedBy: string; eventCount: number } | null = null;
+  const res = makeStreamResponse(
+    toSseBody(GOLDEN_CHUNKS),
+    "text/event-stream; charset=utf-8",
+    { "x-vercel-ai-ui-message-stream": "v1" },
+  );
+  const parsed = await parseAndValidateUiStream(res, {
+    strictTerminal: true,
+    onDone: (info) => { observed = info; },
+  });
+  if (parsed[parsed.length - 1].type !== "finish") {
+    throw new Error(`最後一筆應為 finish：${parsed[parsed.length - 1].type}`);
+  }
+  if (!observed || observed!.terminatedBy !== "finish") {
+    throw new Error(`terminatedBy 應為 finish，實際=${JSON.stringify(observed)}`);
+  }
+});
+
+Deno.test(`${FN} — 合成 SSE：finish 之後再吐 chunk → strictTerminal 拒收`, async () => {
+  const bad = [
+    ...GOLDEN_CHUNKS, // 含 finish
+    { type: "text-delta", id: "t1", delta: "多嘴的一段" },
+  ];
+  const res = makeStreamResponse(
+    toSseBody(bad),
+    "text/event-stream; charset=utf-8",
+    { "x-vercel-ai-ui-message-stream": "v1" },
+  );
+  let threw = false;
+  try {
+    await parseAndValidateUiStream(res, { strictTerminal: true });
+  } catch (e) {
+    if (!/終止事件.*之後仍出現 chunk/.test((e as Error).message)) throw e;
+    threw = true;
+  }
+  if (!threw) throw new Error("finish 之後多出 chunk 應被 strictTerminal 擋下");
+});
+
+Deno.test(`${FN} — 合成 SSE：abort 為終止事件，允許無 text 內容`, async () => {
+  const chunks = [
+    { type: "start" },
+    { type: "start-step" },
+    { type: "abort" },
+  ];
+  let observed: { terminatedBy: string } | null = null;
+  const res = makeStreamResponse(
+    toSseBody(chunks),
+    "text/event-stream; charset=utf-8",
+    { "x-vercel-ai-ui-message-stream": "v1" },
+  );
+  const parsed = await parseAndValidateUiStream(res, {
+    strictTerminal: true,
+    requireTextish: false,
+    onDone: (info) => { observed = info; },
+  });
+  if (parsed[parsed.length - 1].type !== "abort") {
+    throw new Error(`最後一筆應為 abort：${parsed[parsed.length - 1].type}`);
+  }
+  if (!observed || observed!.terminatedBy !== "abort") {
+    throw new Error(`terminatedBy 應為 abort，實際=${JSON.stringify(observed)}`);
+  }
+});
+
+Deno.test(`${FN} — 合成 SSE：abort 之後再吐 chunk → strictTerminal 拒收`, async () => {
+  const bad = [
+    { type: "start" },
+    { type: "start-step" },
+    { type: "text-start", id: "t1" },
+    { type: "text-delta", id: "t1", delta: "被中斷前" },
+    { type: "abort" },
+    { type: "text-delta", id: "t1", delta: "abort 後不該再有" },
+  ];
+  const res = makeStreamResponse(
+    toSseBody(bad),
+    "text/event-stream; charset=utf-8",
+    { "x-vercel-ai-ui-message-stream": "v1" },
+  );
+  let threw = false;
+  try {
+    await parseAndValidateUiStream(res, { strictTerminal: true });
+  } catch (e) {
+    if (!/終止事件.*abort.*之後仍出現 chunk/.test((e as Error).message)) throw e;
+    threw = true;
+  }
+  if (!threw) throw new Error("abort 之後多出 chunk 應被 strictTerminal 擋下");
+});
+
+// upstream 永遠不 close：驗證 timeoutMs 是硬上限，可重現。
+function makeStuckStreamResponse(head: string, contentType: string, extraHeaders: Record<string, string> = {}): Response {
+  const bytes = new TextEncoder().encode(head);
+  const stream = new ReadableStream<Uint8Array>({
+    start(controller) {
+      controller.enqueue(bytes);
+      // 之後永遠不 enqueue、也不 close —— 直到 reader.cancel() 才會結束
+    },
+    cancel() { /* noop */ },
+  });
+  return new Response(stream, {
+    status: 200,
+    headers: { "content-type": contentType, ...extraHeaders },
+  });
+}
+
+Deno.test(`${FN} — 合成 SSE：upstream 永不 close 時 timeoutMs 為硬上限（terminatedBy=timeout）`, async () => {
+  // 只塞 start + start-step + 一筆 text-delta，然後就掛住不再送
+  const head = [
+    { type: "start" },
+    { type: "start-step" },
+    { type: "text-start", id: "t1" },
+    { type: "text-delta", id: "t1", delta: "只有這段就卡住" },
+  ].map((c) => `data: ${JSON.stringify(c)}\n\n`).join("");
+
+  const res = makeStuckStreamResponse(
+    head,
+    "text/event-stream; charset=utf-8",
+    { "x-vercel-ai-ui-message-stream": "v1" },
+  );
+
+  let observed: { terminatedBy: string; elapsedMs: number; eventCount: number } | null = null;
+  const t0 = Date.now();
+  const parsed = await parseAndValidateUiStream(res, {
+    timeoutMs: 400,
+    onDone: (info) => { observed = info; },
+  });
+  const wall = Date.now() - t0;
+
+  if (!observed) throw new Error("onDone 未被呼叫");
+  if (observed!.terminatedBy !== "timeout") {
+    throw new Error(`預期 terminatedBy=timeout，實際=${observed!.terminatedBy}`);
+  }
+  // 硬上限：實際耗時應該接近 timeoutMs，且絕不能無限拖（留 3s 上限緩衝給 CI 抖動）
+  if (wall > 3000) {
+    throw new Error(`timeoutMs 未生效，wall=${wall}ms`);
+  }
+  if (observed!.elapsedMs > 3000) {
+    throw new Error(`parser 內部 elapsedMs 過長=${observed!.elapsedMs}ms`);
+  }
+  // 已收到的事件仍要能被結構驗證通過
+  if (parsed[0].type !== "start") throw new Error("timeout 前收到的事件仍需通過結構驗證");
+  if (!parsed.some((p) => p.type === "text-delta")) {
+    throw new Error("timeout 前的 text-delta 遺失");
+  }
+});
 
 
 // ---------- C. 400 錯誤路徑的 id 對齊（非 gated，永遠會跑） ----------
