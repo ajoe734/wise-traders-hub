@@ -303,14 +303,29 @@ export function ExpertAiChatTab({ expertId, expertName, isSubscribed, onSubscrib
             rows={1}
             disabled={disableSend}
           />
-          <Button
-            onClick={() => handleSend()}
-            disabled={!input.trim() || disableSend}
-            size="icon"
-            className="shrink-0 bg-mentor hover:bg-mentor/90 text-white"
-          >
-            {isBusy ? <Loader2 className="h-4 w-4 animate-spin" /> : <Send className="h-4 w-4" />}
-          </Button>
+          {isBusy ? (
+            <Button
+              type="button"
+              onClick={() => cancelStream()}
+              size="icon"
+              variant="outline"
+              aria-label="停止產生"
+              title="停止產生"
+              data-testid="stream-stop-btn"
+              className="shrink-0 border-destructive/40 text-destructive hover:bg-destructive/10"
+            >
+              <Square className="h-4 w-4 fill-current" />
+            </Button>
+          ) : (
+            <Button
+              onClick={() => handleSend()}
+              disabled={!input.trim() || disableSend}
+              size="icon"
+              className="shrink-0 bg-mentor hover:bg-mentor/90 text-white"
+            >
+              <Send className="h-4 w-4" />
+            </Button>
+          )}
         </div>
         <div className="flex items-start gap-1.5 text-[11px] text-muted-foreground">
           <Shield className="h-3 w-3 mt-0.5 shrink-0" />
