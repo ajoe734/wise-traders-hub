@@ -254,7 +254,7 @@ const JournalDetail = () => {
         {/* Header */}
         <div className="flex items-center gap-3">
           <img src={avatarUrl(signal.experts.avatar_url, 80)} alt={signal.experts.name} loading="lazy" decoding="async" className="shrink-0 h-10 w-10 rounded-full object-cover object-[center_15%]" />
-          <div>
+          <div className="flex-1 min-w-0">
             <div className="flex items-center gap-2">
               <span className="font-semibold">{signal.experts.name}</span>
               <Badge variant="secondary" className="text-[10px]">
@@ -262,6 +262,14 @@ const JournalDetail = () => {
               </Badge>
             </div>
           </div>
+          {signal.experts.slug && (
+            <Button asChild size="sm" variant="outline" className="gap-1.5 shrink-0">
+              <Link to={`/app/expert/${signal.experts.slug}?tab=ai-chat`} data-testid="journal-ask-ai-btn">
+                <MessageCircle className="h-4 w-4" aria-hidden="true" />
+                問這位老師 AI
+              </Link>
+            </Button>
+          )}
         </div>
 
         <div className="flex items-center gap-2">
