@@ -187,11 +187,13 @@ export function ExpertAiChatTab({ expertId, expertName, isSubscribed, onSubscrib
           </div>
         )}
 
-        {messages.map((m) => {
+        {messages.map((m, idx) => {
           const text = (m.parts || [])
             .map((p: any) => (p.type === 'text' ? p.text : ''))
             .join('');
           const isUser = m.role === 'user';
+          const isLast = idx === messages.length - 1;
+          const isStreamingThis = !isUser && isLast && status === 'streaming';
           return (
             <div key={m.id} className={`flex ${isUser ? 'justify-end' : 'justify-start'}`}>
               <div
@@ -208,6 +210,20 @@ export function ExpertAiChatTab({ expertId, expertName, isSubscribed, onSubscrib
                     <ReactMarkdown>{text || '...'}</ReactMarkdown>
                   </div>
                 )}
+                {isStreamingThis && (
+                  <div className="mt-2 pt-2 border-t border-border/40 flex justify-end">
+                    <Button
+                      type="button"
+                      size="sm"
+                      variant="ghost"
+                      onClick={() => cancelStream()}
+                      data-testid="inline-stop-btn"
+                      className="h-7 px-2 text-[11px] text-destructive hover:bg-destructive/10 gap-1"
+                    >
+                      <Square className="h-3 w-3 fill-current" /> 停止產生
+                    </Button>
+                  </div>
+                )}
               </div>
             </div>
           );
@@ -217,6 +233,16 @@ export function ExpertAiChatTab({ expertId, expertName, isSubscribed, onSubscrib
           <div className="flex justify-start">
             <div className="bg-muted/50 rounded-lg px-3 py-2 text-sm text-muted-foreground flex items-center gap-2">
               <Loader2 className="h-3.5 w-3.5 animate-spin" /> 思考中…
+              <Button
+                type="button"
+                size="sm"
+                variant="ghost"
+                onClick={() => cancelStream()}
+                data-testid="thinking-stop-btn"
+                className="h-6 px-2 ml-1 text-[11px] text-destructive hover:bg-destructive/10 gap-1"
+              >
+                <Square className="h-3 w-3 fill-current" /> 中止
+              </Button>
             </div>
           </div>
         )}
