@@ -305,8 +305,8 @@ export default function StreamHealth() {
                       <td className="py-2 pr-3 font-mono truncate max-w-[180px]" title={p.source}>
                         {p.source ?? '—'}
                       </td>
-                      <TraceCell value={correlationId} />
-                      <TraceCell value={p.requestId} />
+                      <TraceCell value={correlationId} linkable />
+                      <TraceCell value={p.requestId} linkable />
                       <TraceCell value={p.sessionId} />
                       <TraceCell value={p.userId} />
                       <TraceCell value={p.expertId} />
