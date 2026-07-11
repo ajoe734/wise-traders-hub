@@ -107,6 +107,7 @@ export function useExpertAiChat(expertId: string | null | undefined) {
   const [elapsedMs, setElapsedMs] = useState<number | null>(null);
   const startedAtRef = useRef<number | null>(null);
   const timeoutHandleRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const abortedRef = useRef(false);
   const STREAM_TIMEOUT_MS = 60_000;
 
   const clearWatchdog = () => {
@@ -206,16 +207,30 @@ export function useExpertAiChat(expertId: string | null | undefined) {
   }, [chat]);
 
   const cancelStream = useCallback(() => {
+    if (abortedRef.current) return;
+    abortedRef.current = true;
     clearWatchdog();
     if (startedAtRef.current != null) {
       setElapsedMs(Date.now() - startedAtRef.current);
     }
     setTerminatedBy('abort');
+    // 1) 中止底層 fetch/stream
     try { chat.stop?.(); } catch { /* noop */ }
+    // 2) 立刻丟掉尾端 assistant 訊息，之後 useChat 的 setMessages guard 會擋住殘留 chunk
     dropTrailingAssistant();
-    autoRetriedRef.current = true; // 使用者主動取消 → 不自動重試
+    // 3) 再排一次 microtask，確保 abort 當下已在 in-flight 的 chunk flush 完也會被清掉
+    queueMicrotask(() => dropTrailingAssistant());
+    autoRetriedRef.current = true;
     setCanRetry(false);
   }, [chat, dropTrailingAssistant]);
+
+  // Abort 之後若還有殘留 chunk 觸發 setMessages（同步微批次），持續把尾端 assistant 清掉，
+  // 直到 send/retry 重置 abortedRef 為止。
+  useEffect(() => {
+    if (!abortedRef.current) return;
+    const last = chat.messages[chat.messages.length - 1];
+    if (last?.role === 'assistant') dropTrailingAssistant();
+  }, [chat.messages, dropTrailingAssistant]);
 
   const retry = useCallback(() => {
     if (lastErrorQuotaRef.current) return;
@@ -223,6 +238,7 @@ export function useExpertAiChat(expertId: string | null | undefined) {
     setErrorId(null);
     lastErrorIdRef.current = null;
     autoRetriedRef.current = true;
+    abortedRef.current = false;
     setTerminatedBy(null);
     setElapsedMs(null);
     startedAtRef.current = Date.now();
@@ -237,6 +253,7 @@ export function useExpertAiChat(expertId: string | null | undefined) {
 
   const sendMessageWrapped: typeof chat.sendMessage = (...args) => {
     autoRetriedRef.current = false;
+    abortedRef.current = false;
     setCanRetry(false);
     setErrorId(null);
     lastErrorIdRef.current = null;
