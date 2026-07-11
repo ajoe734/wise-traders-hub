@@ -258,15 +258,23 @@ const JournalDetail = () => {
               <MessageCircle className="h-4 w-4" aria-hidden="true" />
             </div>
             <div className="flex-1 min-w-0">
-              <p className="text-sm font-medium text-foreground">有問題想問 {signal.experts.name} 老師？</p>
-              <p className="text-xs text-muted-foreground mt-0.5">點擊「問這位老師 AI」即可針對本週策略與操作進行一對一詢問。</p>
+              <p className="text-sm font-medium text-foreground">想進一步了解 {signal.experts.name} 老師？</p>
+              <p className="text-xs text-muted-foreground mt-0.5">返回導師主頁查看策略與方案，或使用 AI 一對一詢問本週操作。</p>
             </div>
-            <Button asChild size="sm" className="shrink-0 gap-1.5 bg-mentor hover:bg-mentor/90 text-white">
-              <Link to={`/app/expert/${signal.experts.slug}?tab=ai-chat`} data-testid="journal-ai-guide-btn">
-                <MessageCircle className="h-3.5 w-3.5" aria-hidden="true" />
-                問 AI
-              </Link>
-            </Button>
+            <div className="flex items-center gap-2 shrink-0 flex-wrap justify-end">
+              <Button asChild size="sm" variant="outline" className="gap-1.5">
+                <Link to={`/app/expert/${signal.experts.slug}`} data-testid="journal-back-to-expert-btn">
+                  <ArrowLeft className="h-3.5 w-3.5" aria-hidden="true" />
+                  返回導師
+                </Link>
+              </Button>
+              <Button asChild size="sm" className="gap-1.5 bg-mentor hover:bg-mentor/90 text-white">
+                <Link to={`/app/expert/${signal.experts.slug}?tab=ai-chat`} data-testid="journal-ai-guide-btn">
+                  <MessageCircle className="h-3.5 w-3.5" aria-hidden="true" />
+                  問 AI
+                </Link>
+              </Button>
+            </div>
           </div>
         )}
 
