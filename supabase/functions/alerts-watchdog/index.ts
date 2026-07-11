@@ -126,6 +126,58 @@ async function checkFunctionFailures(admin: any) {
   });
 }
 
+// 監控 AI 串流是否異常中止（abort / timeout）。資料來源：
+// stream-metrics-report 會把每筆 abort/timeout/error 落到 function_run_logs
+// (fn='stream-metrics-report', level='warn', payload.terminatedBy)。
+// 30 分鐘視窗內 abort+timeout 累積達門檻即發告警，並把 eventCount / elapsedMs
+// 的分布統計一起帶進 message / detail，方便直接判斷是「使用者狂按停止」還是
+// 「後端真的一直沒回」。
+// deno-lint-ignore no-explicit-any
+async function checkStreamAborts(admin: any) {
+  const since = new Date(Date.now() - WINDOW_MIN * 60_000).toISOString();
+  const { data } = await admin
+    .from('function_run_logs')
+    .select('payload,created_at')
+    .eq('fn', 'stream-metrics-report')
+    .eq('level', 'warn')
+    .gte('created_at', since);
+  const rows = (data ?? []) as Array<{ payload: Record<string, unknown> }>;
+  const byKind: Record<string, number> = { abort: 0, timeout: 0, error: 0 };
+  const eventCounts: number[] = [];
+  const elapsedList: number[] = [];
+  const bySource: Record<string, number> = {};
+  for (const r of rows) {
+    const p = r.payload || {};
+    const t = String(p.terminatedBy || '');
+    if (t in byKind) byKind[t]++;
+    if (typeof p.eventCount === 'number' && p.eventCount >= 0) eventCounts.push(p.eventCount);
+    if (typeof p.elapsedMs === 'number' && p.elapsedMs >= 0) elapsedList.push(p.elapsedMs);
+    const src = typeof p.source === 'string' ? p.source : 'unknown';
+    bySource[src] = (bySource[src] ?? 0) + 1;
+  }
+  const alerting = byKind.abort + byKind.timeout;
+  // 門檻：30 分鐘內 abort+timeout ≥ 10 觸發 warning，≥ 25 升 critical。
+  if (alerting < 10) return { ok: true, alerting, byKind };
+  const avg = (arr: number[]) => arr.length ? Math.round(arr.reduce((a, b) => a + b, 0) / arr.length) : 0;
+  const max = (arr: number[]) => arr.length ? Math.max(...arr) : 0;
+  const stats = {
+    eventCount: { avg: avg(eventCounts), max: max(eventCounts), n: eventCounts.length },
+    elapsedMs: { avg: avg(elapsedList), max: max(elapsedList), n: elapsedList.length },
+  };
+  return await fire(admin, {
+    kind: 'stream_abort_spike',
+    level: alerting >= 25 ? 'critical' : 'warning',
+    title: `AI 串流異常中止 ${alerting} 次/${WINDOW_MIN} 分鐘（abort ${byKind.abort} / timeout ${byKind.timeout}）`,
+    message:
+      `近 ${WINDOW_MIN} 分鐘：abort=${byKind.abort} timeout=${byKind.timeout} error=${byKind.error}；` +
+      `eventCount 平均 ${stats.eventCount.avg}（max ${stats.eventCount.max}）、` +
+      `elapsedMs 平均 ${stats.elapsedMs.avg}（max ${stats.elapsedMs.max}）。`,
+    metric_value: alerting,
+    threshold: 10,
+    detail: { byKind, bySource, stats },
+  });
+}
+
 // Push pending system_alerts to admin LINE bindings (dedup via notified_at).
 // deno-lint-ignore no-explicit-any
 async function pushPendingAlertsToLine(admin: any) {
@@ -185,16 +237,17 @@ Deno.serve(async (req) => {
   if (req.method === 'OPTIONS') return corsPreflight();
   try {
     const admin = serviceClient();
-    const [a, b, c] = await Promise.allSettled([
+    const [a, b, c, d] = await Promise.allSettled([
       checkCheckoutFailureRate(admin),
       checkPaywallDrop(admin),
       checkFunctionFailures(admin),
+      checkStreamAborts(admin),
     ]);
     const notify = await pushPendingAlertsToLine(admin).catch((e) => ({ error: e instanceof Error ? e.message : String(e) }));
     return jsonResponse({
       ok: true,
       ran_at: new Date().toISOString(),
-      results: { checkout: a, paywall: b, functions: c },
+      results: { checkout: a, paywall: b, functions: c, stream_aborts: d },
       notify,
     });
   } catch (e) {

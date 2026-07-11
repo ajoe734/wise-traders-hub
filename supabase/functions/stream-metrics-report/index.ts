@@ -13,6 +13,11 @@
 
 import { corsHeaders, corsPreflight, errorResponse } from '../_shared/cors.ts';
 import { withLogging } from '../_shared/edgeLogger.ts';
+import { serviceClient } from '../_shared/supabaseClients.ts';
+
+// 需要被 alerts-watchdog 統計的終止類型（timeout/abort/error）：
+// 一併寫入 function_run_logs（level=warn），供 30 分鐘視窗聚合。
+const PERSIST_TERMINATED = new Set(['abort', 'timeout', 'error']);
 
 const ALLOWED_TERMINATED = new Set(['finish', 'abort', 'timeout', 'eof', 'error']);
 const MAX_SOURCE_LEN = 120;
@@ -79,6 +84,36 @@ Deno.serve(withLogging('stream-metrics-report', async (req, log) => {
   } else {
     log.info('stream_metrics', meta);
   }
+
+  // 針對 abort/timeout/error，寫入 function_run_logs 讓 alerts-watchdog 可以
+  // 30 分鐘視窗聚合並在超過閾值時開告警。fire-and-forget，不阻塞 caller。
+  if (PERSIST_TERMINATED.has(terminatedBy)) {
+    try {
+      const admin = serviceClient();
+      admin.from('function_run_logs').insert({
+        fn: 'stream-metrics-report',
+        run_id: correlationId || log.requestId,
+        level: 'warn',
+        stage: `stream_${terminatedBy}`,
+        msg: `stream terminated by ${terminatedBy}`,
+        payload: {
+          source,
+          terminatedBy,
+          eventCount,
+          elapsedMs,
+          contentType,
+          testName,
+          errorId,
+          extra,
+        },
+      }).then(({ error }) => {
+        if (error) log.warn('persist_failed', { message: error.message });
+      });
+    } catch (err) {
+      log.warn('persist_skipped', { message: err instanceof Error ? err.message : String(err) });
+    }
+  }
+
 
   return new Response(
     JSON.stringify({ ok: true, terminatedBy, eventCount, elapsedMs }),
