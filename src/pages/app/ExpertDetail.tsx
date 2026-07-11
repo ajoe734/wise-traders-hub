@@ -274,7 +274,7 @@ const AppExpertDetail = () => {
             <ExpertAiChatTab
               expertId={expert.id}
               expertName={expert.name}
-              isSubscribed={isSubscribed}
+              isSubscribed={isSubscribed || isCompanyAdmin || isOwnExpert}
               onSubscribeClick={() => navigate(`/expert/${slug}`)}
             />
           </TabsContent>
