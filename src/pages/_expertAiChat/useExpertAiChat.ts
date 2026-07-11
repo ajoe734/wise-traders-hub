@@ -102,6 +102,19 @@ export function useExpertAiChat(expertId: string | null | undefined) {
   const lastErrorQuotaRef = useRef(false);
   const lastErrorIdRef = useRef<string | null>(null);
 
+  // 串流終止資訊
+  const [terminatedBy, setTerminatedBy] = useState<'finish' | 'abort' | 'timeout' | 'error' | null>(null);
+  const [elapsedMs, setElapsedMs] = useState<number | null>(null);
+  const startedAtRef = useRef<number | null>(null);
+  const timeoutHandleRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const STREAM_TIMEOUT_MS = 60_000;
+
+  const clearWatchdog = () => {
+    if (timeoutHandleRef.current) {
+      clearTimeout(timeoutHandleRef.current);
+      timeoutHandleRef.current = null;
+    }
+  };
 
   const transport = new DefaultChatTransport({
     api: `${SUPABASE_URL}/functions/v1/expert-ai-chat`,
@@ -140,6 +153,11 @@ export function useExpertAiChat(expertId: string | null | undefined) {
     messages: history,
     transport,
     onFinish: () => {
+      clearWatchdog();
+      if (startedAtRef.current != null) {
+        setElapsedMs(Date.now() - startedAtRef.current);
+      }
+      setTerminatedBy((prev) => prev ?? 'finish');
       setQuotaError(null);
       autoRetriedRef.current = false;
       setCanRetry(false);
@@ -148,6 +166,11 @@ export function useExpertAiChat(expertId: string | null | undefined) {
       refreshQuota();
     },
     onError: (err) => {
+      clearWatchdog();
+      if (startedAtRef.current != null) {
+        setElapsedMs(Date.now() - startedAtRef.current);
+      }
+      setTerminatedBy('error');
       // 從 header/body 或 error.message 中撈 errorId（stream 錯誤走 message）
       const eid = lastErrorIdRef.current || extractErrorIdFromMessage(err?.message);
       setErrorId(eid);
@@ -172,20 +195,60 @@ export function useExpertAiChat(expertId: string | null | undefined) {
     },
   });
 
+  // 丟掉最後一則（可能仍在串流的）assistant 訊息，避免殘留半句話
+  const dropTrailingAssistant = useCallback(() => {
+    chat.setMessages((prev) => {
+      if (!prev.length) return prev;
+      const last = prev[prev.length - 1];
+      if (last?.role === 'assistant') return prev.slice(0, -1);
+      return prev;
+    });
+  }, [chat]);
+
+  const cancelStream = useCallback(() => {
+    clearWatchdog();
+    if (startedAtRef.current != null) {
+      setElapsedMs(Date.now() - startedAtRef.current);
+    }
+    setTerminatedBy('abort');
+    try { chat.stop?.(); } catch { /* noop */ }
+    dropTrailingAssistant();
+    autoRetriedRef.current = true; // 使用者主動取消 → 不自動重試
+    setCanRetry(false);
+  }, [chat, dropTrailingAssistant]);
+
   const retry = useCallback(() => {
     if (lastErrorQuotaRef.current) return;
     setCanRetry(false);
     setErrorId(null);
     lastErrorIdRef.current = null;
     autoRetriedRef.current = true;
+    setTerminatedBy(null);
+    setElapsedMs(null);
+    startedAtRef.current = Date.now();
+    clearWatchdog();
+    timeoutHandleRef.current = setTimeout(() => {
+      setTerminatedBy('timeout');
+      try { chat.stop?.(); } catch { /* noop */ }
+      dropTrailingAssistant();
+    }, STREAM_TIMEOUT_MS);
     try { chat.regenerate(); } catch { setCanRetry(true); }
-  }, [chat]);
+  }, [chat, dropTrailingAssistant]);
 
   const sendMessageWrapped: typeof chat.sendMessage = (...args) => {
     autoRetriedRef.current = false;
     setCanRetry(false);
     setErrorId(null);
     lastErrorIdRef.current = null;
+    setTerminatedBy(null);
+    setElapsedMs(null);
+    startedAtRef.current = Date.now();
+    clearWatchdog();
+    timeoutHandleRef.current = setTimeout(() => {
+      setTerminatedBy('timeout');
+      try { chat.stop?.(); } catch { /* noop */ }
+      dropTrailingAssistant();
+    }, STREAM_TIMEOUT_MS);
     return chat.sendMessage(...args);
   };
 
@@ -220,5 +283,8 @@ export function useExpertAiChat(expertId: string | null | undefined) {
     canRetry,
     retry,
     errorId,
+    terminatedBy,
+    elapsedMs,
+    cancelStream,
   };
 }

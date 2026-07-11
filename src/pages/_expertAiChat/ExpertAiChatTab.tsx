@@ -1,7 +1,7 @@
 import { useEffect, useRef, useState } from 'react';
 import { Link } from 'react-router-dom';
 import ReactMarkdown from 'react-markdown';
-import { Loader2, Send, Trash2, Lock, Shield, MessageCircle, AlertTriangle, RefreshCw } from 'lucide-react';
+import { Loader2, Send, Trash2, Lock, Shield, MessageCircle, AlertTriangle, RefreshCw, Square, CheckCircle2, XCircle, Clock } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent } from '@/components/ui/card';
 import { Textarea } from '@/components/ui/textarea';
@@ -40,6 +40,9 @@ export function ExpertAiChatTab({ expertId, expertName, isSubscribed, onSubscrib
     canRetry,
     retry,
     errorId,
+    terminatedBy,
+    elapsedMs,
+    cancelStream,
   } = useExpertAiChat(isSubscribed ? expertId : null);
 
   const isBusy = status === 'submitted' || status === 'streaming';
@@ -218,6 +221,37 @@ export function ExpertAiChatTab({ expertId, expertName, isSubscribed, onSubscrib
           </div>
         )}
 
+        {/* 串流終止資訊 pill */}
+        {!isBusy && terminatedBy && elapsedMs != null && (
+          <div className="flex justify-start" data-testid="stream-terminated-pill">
+            <div
+              className={`inline-flex items-center gap-1.5 rounded-full border px-2.5 py-1 text-[11px] ${
+                terminatedBy === 'finish'
+                  ? 'border-emerald-500/30 bg-emerald-500/5 text-emerald-700 dark:text-emerald-400'
+                  : terminatedBy === 'abort'
+                  ? 'border-muted-foreground/30 bg-muted/40 text-muted-foreground'
+                  : terminatedBy === 'timeout'
+                  ? 'border-amber-500/30 bg-amber-500/5 text-amber-700 dark:text-amber-400'
+                  : 'border-destructive/30 bg-destructive/5 text-destructive'
+              }`}
+            >
+              {terminatedBy === 'finish' && <CheckCircle2 className="h-3 w-3" />}
+              {terminatedBy === 'abort' && <XCircle className="h-3 w-3" />}
+              {terminatedBy === 'timeout' && <Clock className="h-3 w-3" />}
+              {terminatedBy === 'error' && <AlertTriangle className="h-3 w-3" />}
+              <span className="font-medium">
+                {terminatedBy === 'finish' && '已完成'}
+                {terminatedBy === 'abort' && '已取消'}
+                {terminatedBy === 'timeout' && '已逾時'}
+                {terminatedBy === 'error' && '發生錯誤'}
+              </span>
+              <span className="opacity-70">·</span>
+              <span className="font-mono tabular-nums">{(elapsedMs / 1000).toFixed(2)}s</span>
+              <span className="opacity-50 ml-0.5">({terminatedBy})</span>
+            </div>
+          </div>
+        )}
+
         {error && !quotaExhausted && (
           <div className="rounded-lg border border-destructive/40 bg-destructive/5 p-3 flex items-start gap-2">
             <AlertTriangle className="h-4 w-4 text-destructive mt-0.5 shrink-0" />
@@ -269,14 +303,29 @@ export function ExpertAiChatTab({ expertId, expertName, isSubscribed, onSubscrib
             rows={1}
             disabled={disableSend}
           />
-          <Button
-            onClick={() => handleSend()}
-            disabled={!input.trim() || disableSend}
-            size="icon"
-            className="shrink-0 bg-mentor hover:bg-mentor/90 text-white"
-          >
-            {isBusy ? <Loader2 className="h-4 w-4 animate-spin" /> : <Send className="h-4 w-4" />}
-          </Button>
+          {isBusy ? (
+            <Button
+              type="button"
+              onClick={() => cancelStream()}
+              size="icon"
+              variant="outline"
+              aria-label="停止產生"
+              title="停止產生"
+              data-testid="stream-stop-btn"
+              className="shrink-0 border-destructive/40 text-destructive hover:bg-destructive/10"
+            >
+              <Square className="h-4 w-4 fill-current" />
+            </Button>
+          ) : (
+            <Button
+              onClick={() => handleSend()}
+              disabled={!input.trim() || disableSend}
+              size="icon"
+              className="shrink-0 bg-mentor hover:bg-mentor/90 text-white"
+            >
+              <Send className="h-4 w-4" />
+            </Button>
+          )}
         </div>
         <div className="flex items-start gap-1.5 text-[11px] text-muted-foreground">
           <Shield className="h-3 w-3 mt-0.5 shrink-0" />
