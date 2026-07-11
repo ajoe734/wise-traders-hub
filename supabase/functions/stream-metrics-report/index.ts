@@ -36,8 +36,7 @@ function sanitizeExtra(extra: unknown): Record<string, string | number | boolean
 }
 
 Deno.serve(withLogging('stream-metrics-report', async (req, log) => {
-  const preflight = corsPreflight(req);
-  if (preflight) return preflight;
+  if (req.method === 'OPTIONS') return corsPreflight();
   if (req.method !== 'POST') return errorResponse('method not allowed', 405);
 
   let body: any;
