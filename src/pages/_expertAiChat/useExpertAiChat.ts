@@ -107,6 +107,7 @@ export function useExpertAiChat(expertId: string | null | undefined) {
   const [elapsedMs, setElapsedMs] = useState<number | null>(null);
   const startedAtRef = useRef<number | null>(null);
   const timeoutHandleRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const abortedRef = useRef(false);
   const STREAM_TIMEOUT_MS = 60_000;
 
   const clearWatchdog = () => {
