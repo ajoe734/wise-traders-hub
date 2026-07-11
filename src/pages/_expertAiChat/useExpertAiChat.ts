@@ -3,6 +3,7 @@ import { useChat } from '@ai-sdk/react';
 import { DefaultChatTransport, type UIMessage } from 'ai';
 import { toast } from 'sonner';
 import { supabase } from '@/integrations/supabase/client';
+import { extractErrorIdFromMessage } from './errorIdParser';
 
 interface HistoryMsg {
   id: string;
@@ -101,11 +102,6 @@ export function useExpertAiChat(expertId: string | null | undefined) {
   const lastErrorQuotaRef = useRef(false);
   const lastErrorIdRef = useRef<string | null>(null);
 
-  const extractErrorIdFromMessage = (msg?: string): string | null => {
-    if (!msg) return null;
-    const m = msg.match(/errorId[:：]\s*(err_[a-z0-9_]+)/i);
-    return m ? m[1] : null;
-  };
 
   const transport = new DefaultChatTransport({
     api: `${SUPABASE_URL}/functions/v1/expert-ai-chat`,
