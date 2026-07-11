@@ -13,6 +13,11 @@
 
 import { corsHeaders, corsPreflight, errorResponse } from '../_shared/cors.ts';
 import { withLogging } from '../_shared/edgeLogger.ts';
+import { serviceClient } from '../_shared/supabaseClients.ts';
+
+// 需要被 alerts-watchdog 統計的終止類型（timeout/abort/error）：
+// 一併寫入 function_run_logs（level=warn），供 30 分鐘視窗聚合。
+const PERSIST_TERMINATED = new Set(['abort', 'timeout', 'error']);
 
 const ALLOWED_TERMINATED = new Set(['finish', 'abort', 'timeout', 'eof', 'error']);
 const MAX_SOURCE_LEN = 120;
