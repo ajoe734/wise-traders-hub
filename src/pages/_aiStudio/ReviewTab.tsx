@@ -8,19 +8,13 @@ import { Textarea } from '@/components/ui/textarea';
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from '@/components/ui/dialog';
 import { Loader2, CheckCircle2, XCircle, ShieldAlert, Sparkles, Pencil } from 'lucide-react';
 import { toast } from 'sonner';
-import { supabase } from '@/integrations/supabase/client';
 import { useQuery } from '@tanstack/react-query';
+import { edgeCall, formatEdgeError } from '@/lib/aiStudioInvoke';
 
 interface Props { expertId: string; canEdit: boolean; }
 
-async function call(action: string, expertId: string, extra: Record<string, unknown> = {}) {
-  const { data, error } = await supabase.functions.invoke('expert-ai-studio', {
-    body: { action, expert_id: expertId, ...extra },
-  });
-  if (error) throw error;
-  if (!data?.ok) throw new Error(data?.message || 'failed');
-  return data;
-}
+const call = (action: string, expertId: string, extra: Record<string, unknown> = {}) =>
+  edgeCall('expert-ai-studio', action, expertId, extra);
 
 interface PendingItem {
   id: string;
@@ -71,7 +65,10 @@ export default function ReviewTab({ expertId, canEdit }: Props) {
       if (thenApprove) {
         const res = await call('bulk_review_chunks', expertId, { ids: [editing.id], decision: 'approve' });
         if (res.failed?.length) {
-          toast.error(res.failed[0].error || '核可失敗，dialog 保留供你重試');
+          const f = res.failed[0];
+          toast.error(
+            `核可失敗（${f.stage || '?'}）：${f.error || '未知'}\n[cand ${String(f.id).slice(0, 8)} · req ${String(res.requestId || '').slice(0, 8)}]`,
+          );
           // 不關 dialog、不 refetch，讓使用者能重試
           return;
         }
@@ -81,8 +78,8 @@ export default function ReviewTab({ expertId, canEdit }: Props) {
       }
       setEditing(null);
       refetch();
-    } catch (e: any) {
-      toast.error(e.message || '儲存失敗');
+    } catch (e) {
+      toast.error(formatEdgeError(e, '儲存失敗'));
     } finally { setSavingEdit(false); }
   };
 
@@ -102,11 +99,19 @@ export default function ReviewTab({ expertId, canEdit }: Props) {
       const msg = decision === 'approve'
         ? `已核可 ${res.approved} 條${res.embedded ? `（其中 ${res.embedded} 條補跑 embedding）` : ''}${res.failed?.length ? `，失敗 ${res.failed.length}` : ''}`
         : `已退回 ${res.rejected} 條`;
-      if (res.failed?.length) toast.error(msg); else toast.success(msg);
+      if (res.failed?.length) {
+        const f = res.failed[0];
+        const req = String(res.requestId || '').slice(0, 8);
+        toast.error(
+          `${msg}\n首筆失敗：${f.error || '未知'}\n[${f.stage || '?'} · cand ${String(f.id).slice(0, 8)} · req ${req}]`,
+        );
+      } else {
+        toast.success(msg);
+      }
       setPicked({});
       refetch();
-    } catch (e: any) {
-      toast.error(e.message || '審核失敗');
+    } catch (e) {
+      toast.error(formatEdgeError(e, '審核失敗'));
     } finally { setApproving(false); setRejecting(false); }
   };
 

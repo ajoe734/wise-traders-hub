@@ -7,19 +7,13 @@ import { Badge } from '@/components/ui/badge';
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from '@/components/ui/dialog';
 import { Plus, Loader2, Trash2, Pencil, CheckCircle2, XCircle, Clock } from 'lucide-react';
 import { toast } from 'sonner';
-import { supabase } from '@/integrations/supabase/client';
 import { useQuery } from '@tanstack/react-query';
+import { edgeCall, formatEdgeError } from '@/lib/aiStudioInvoke';
 
 interface Props { expertId: string; canEdit: boolean; isCompanyAdmin: boolean; }
 
-async function call(action: string, expertId: string, extra: Record<string, unknown> = {}) {
-  const { data, error } = await supabase.functions.invoke('expert-ai-studio', {
-    body: { action, expert_id: expertId, ...extra },
-  });
-  if (error) throw error;
-  if (!data?.ok) throw new Error(data?.message || 'failed');
-  return data;
-}
+const call = (action: string, expertId: string, extra: Record<string, unknown> = {}) =>
+  edgeCall('expert-ai-studio', action, expertId, extra);
 
 interface Chunk {
   id: string;
@@ -62,8 +56,8 @@ export default function KnowledgeTab({ expertId, canEdit, isCompanyAdmin }: Prop
       }
       setDialog(null);
       refetch();
-    } catch (e: any) {
-      toast.error(e.message || '儲存失敗');
+    } catch (e) {
+      toast.error(formatEdgeError(e, '儲存失敗'));
     } finally { setSaving(false); }
   };
 
@@ -73,7 +67,7 @@ export default function KnowledgeTab({ expertId, canEdit, isCompanyAdmin }: Prop
       await call('delete_chunk', expertId, { id });
       toast.success('已刪除');
       refetch();
-    } catch (e: any) { toast.error(e.message); }
+    } catch (e) { toast.error(formatEdgeError(e, '刪除失敗')); }
   };
 
   const review = async (id: string, status: 'approved' | 'rejected') => {
@@ -81,7 +75,7 @@ export default function KnowledgeTab({ expertId, canEdit, isCompanyAdmin }: Prop
       await call('update_chunk', expertId, { id, status });
       toast.success(status === 'approved' ? '已核可' : '已退回');
       refetch();
-    } catch (e: any) { toast.error(e.message); }
+    } catch (e) { toast.error(formatEdgeError(e, '審核失敗')); }
   };
 
   return (

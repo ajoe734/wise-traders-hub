@@ -155,8 +155,9 @@ Deno.serve(withLogging('expert-ai-studio', async (req, log) => {
           if (error) throw error;
           return jsonResponse({ ok: true, item: data });
         } catch (e) {
-          log.error('embed_add_failed', { err: (e as Error).message });
-          return errorResponse('embed failed: ' + (e as Error).message, 500);
+          const msg = (e as Error).message;
+          log.error('embed_add_failed', { err: msg });
+          return errorResponse('embed failed: ' + msg, 500, { requestId: log.requestId, stage: 'embed', action: 'add_chunk' });
         }
       }
       case 'update_chunk': {
@@ -179,7 +180,7 @@ Deno.serve(withLogging('expert-ai-studio', async (req, log) => {
               const vec = await embedText(LOVABLE_API_KEY, c);
               patch.embedding = `[${vec.join(',')}]`;
             } catch (e) {
-              return errorResponse('re-embed failed: ' + (e as Error).message, 500);
+              return errorResponse('re-embed failed: ' + (e as Error).message, 500, { requestId: log.requestId, stage: 're_embed', action: 'update_chunk', candidateId: id });
             }
           }
         }
@@ -251,10 +252,11 @@ Deno.serve(withLogging('expert-ai-studio', async (req, log) => {
         if (fetchErr) throw fetchErr;
 
         let approved = 0, embedded = 0;
-        const failed: Array<{ id: string; error: string }> = [];
+        const failed: Array<{ id: string; stage: 'embed' | 'update'; error: string }> = [];
         const nowIso = new Date().toISOString();
 
         for (const r of rows || []) {
+          let stage: 'embed' | 'update' = 'embed';
           try {
             const patch: Record<string, unknown> = {
               status: 'approved', reviewed_by: uid, reviewed_at: nowIso,
@@ -264,16 +266,18 @@ Deno.serve(withLogging('expert-ai-studio', async (req, log) => {
               patch.embedding = `[${vec.join(',')}]`;
               embedded += 1;
             }
+            stage = 'update';
             const { error: updErr } = await admin.from('expert_knowledge_chunks')
               .update(patch).eq('id', r.id).eq('expert_id', expertId);
             if (updErr) throw updErr;
             approved += 1;
           } catch (e) {
-            failed.push({ id: r.id, error: (e as Error).message });
-            log.error('review_approve_failed', { id: r.id, err: (e as Error).message });
+            const msg = (e as Error).message;
+            failed.push({ id: r.id, stage, error: msg });
+            log.error('review_approve_failed', { candidateId: r.id, stage, err: msg });
           }
         }
-        return jsonResponse({ ok: true, approved, rejected: 0, embedded, failed });
+        return jsonResponse({ ok: true, approved, rejected: 0, embedded, failed, requestId: log.requestId });
       }
 
       case 'delete_chunk': {
@@ -308,6 +312,6 @@ Deno.serve(withLogging('expert-ai-studio', async (req, log) => {
   } catch (e) {
     const msg = (e as Error).message || 'unknown error';
     log.error('studio_failed', { action, err: msg });
-    return errorResponse(msg, 500);
+    return errorResponse(msg, 500, { requestId: log.requestId, action });
   }
 }));

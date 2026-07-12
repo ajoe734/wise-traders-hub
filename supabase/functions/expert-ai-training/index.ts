@@ -234,8 +234,9 @@ Deno.serve(withLogging('expert-ai-training', async (req, log) => {
           const arr = (res.output?.questions || []).slice(0, 6);
           questions = arr.map((q, i) => ({ id: `q${i + 1}`, question: q.question, rationale: q.rationale }));
         } catch (e) {
-          log.error('gen_questions_failed', { err: (e as Error).message });
-          return errorResponse('AI 生成補完題失敗：' + (e as Error).message, 500);
+          const msg = (e as Error).message;
+          log.error('gen_questions_failed', { err: msg });
+          return errorResponse('AI 生成補完題失敗：' + msg, 500, { requestId: log.requestId, stage: 'gen_questions', action: 'start_session' });
         }
 
         const patch = {
@@ -317,8 +318,9 @@ Deno.serve(withLogging('expert-ai-training', async (req, log) => {
           const arr = (res.output?.questions || []).slice(0, 6);
           questions = arr.map((q, i) => ({ id: `q${i + 1}`, question: q.question, rationale: q.rationale }));
         } catch (e) {
-          log.error('regen_questions_failed', { err: (e as Error).message });
-          return errorResponse('AI 重新產題失敗：' + (e as Error).message, 500);
+          const msg = (e as Error).message;
+          log.error('regen_questions_failed', { err: msg });
+          return errorResponse('AI 重新產題失敗：' + msg, 500, { requestId: log.requestId, stage: 'regen_questions', action: 'regenerate_questions' });
         }
 
         const nextRev = [
@@ -400,8 +402,9 @@ Deno.serve(withLogging('expert-ai-training', async (req, log) => {
           suggestedKnowledge = (res.output?.knowledge || []).map((k, i) => ({ id: `k${i + 1}`, ...k }));
           suggestedJournalEdits = (res.output?.journal_edits || []).map((j, i) => ({ id: `e${i + 1}`, ...j }));
         } catch (e) {
-          log.error('gen_suggestions_failed', { err: (e as Error).message });
-          return errorResponse('AI 產出候選條目失敗：' + (e as Error).message, 500);
+          const msg = (e as Error).message;
+          log.error('gen_suggestions_failed', { err: msg, isRegen });
+          return errorResponse('AI 產出候選條目失敗：' + msg, 500, { requestId: log.requestId, stage: isRegen ? 'regen_suggestions' : 'gen_suggestions', action });
         }
 
         const patch: Record<string, unknown> = {
@@ -439,12 +442,15 @@ Deno.serve(withLogging('expert-ai-training', async (req, log) => {
         if (session.status === 'completed') return errorResponse('session 已完成，無法再加入條目', 400);
 
         const inserted: any[] = [];
-        const failed: Array<{ title: string; error: string }> = [];
+        const failed: Array<{ candidate_id: string | null; title: string; stage: 'validate' | 'embed' | 'insert'; error: string }> = [];
         for (const it of items) {
+          const candId = it.id || null;
           const content = String(it.content || '').trim();
-          if (!content) { failed.push({ title: it.title || '(空)', error: 'content empty' }); continue; }
+          if (!content) { failed.push({ candidate_id: candId, title: it.title || '(空)', stage: 'validate', error: 'content empty' }); continue; }
+          let stage: 'embed' | 'insert' = 'embed';
           try {
             const vec = await embedText(LOVABLE_API_KEY, content);
+            stage = 'insert';
             const { data, error: insErr } = await admin.from('expert_knowledge_chunks').insert({
               expert_id: expertId,
               source_type: 'training',
@@ -452,7 +458,7 @@ Deno.serve(withLogging('expert-ai-training', async (req, log) => {
               content,
               title: it.title?.slice(0, 200) || null,
               embedding: `[${vec.join(',')}]`,
-              metadata: { source: it.source || null, week_start: session.week_start, candidate_id: it.id || null },
+              metadata: { source: it.source || null, week_start: session.week_start, candidate_id: candId },
               is_manual: true,
               // 一律走 pending，讓所有訓練產物都經過「待審核」流程再進 RAG
               status: 'pending',
@@ -465,11 +471,11 @@ Deno.serve(withLogging('expert-ai-training', async (req, log) => {
             if (data) inserted.push(data);
           } catch (e) {
             const msg = (e as Error).message;
-            failed.push({ title: it.title || '(空)', error: msg });
-            log.error('accept_embed_failed', { err: msg });
+            failed.push({ candidate_id: candId, title: it.title || '(空)', stage, error: msg });
+            log.error('accept_embed_failed', { candidateId: candId, stage, err: msg });
           }
         }
-        return jsonResponse({ ok: true, inserted_count: inserted.length, failed });
+        return jsonResponse({ ok: true, inserted_count: inserted.length, failed, requestId: log.requestId });
       }
 
       case 'complete_session': {
@@ -496,6 +502,6 @@ Deno.serve(withLogging('expert-ai-training', async (req, log) => {
   } catch (e) {
     const msg = (e as Error).message || 'unknown error';
     log.error('training_failed', { action, err: msg });
-    return errorResponse(msg, 500);
+    return errorResponse(msg, 500, { requestId: log.requestId, action });
   }
 }));

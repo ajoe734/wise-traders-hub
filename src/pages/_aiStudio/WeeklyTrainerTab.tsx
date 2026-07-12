@@ -7,19 +7,13 @@ import { Checkbox } from '@/components/ui/checkbox';
 import { Separator } from '@/components/ui/separator';
 import { Loader2, Sparkles, ArrowLeft, CheckCircle2, Trash2, MessageCircleQuestion, Lightbulb, RefreshCw, History } from 'lucide-react';
 import { toast } from 'sonner';
-import { supabase } from '@/integrations/supabase/client';
 import { useQuery } from '@tanstack/react-query';
+import { edgeCall, formatEdgeError } from '@/lib/aiStudioInvoke';
 
 interface Props { expertId: string; canEdit: boolean; }
 
-async function call(action: string, expertId: string, extra: Record<string, unknown> = {}) {
-  const { data, error } = await supabase.functions.invoke('expert-ai-training', {
-    body: { action, expert_id: expertId, ...extra },
-  });
-  if (error) throw error;
-  if (!data?.ok) throw new Error(data?.message || 'failed');
-  return data;
-}
+const call = (action: string, expertId: string, extra: Record<string, unknown> = {}) =>
+  edgeCall('expert-ai-training', action, expertId, extra);
 
 interface Question { id: string; question: string; rationale: string }
 interface Answer { id: string; answer: string }
@@ -92,8 +86,8 @@ function WeekList({ expertId, canEdit, onOpen }: { expertId: string; canEdit: bo
       toast.success('已產出補完題');
       refetch();
       onOpen(res.session.id);
-    } catch (e: any) {
-      toast.error(e.message || '啟動失敗');
+    } catch (e) {
+      toast.error(formatEdgeError(e, '啟動失敗'));
     } finally { setStarting(null); }
   };
 
@@ -177,7 +171,7 @@ function SessionView({ expertId, sessionId, canEdit, onBack }: { expertId: strin
       await call('save_answers', expertId, { id: sessionId, answers: arr });
       toast.success('已儲存');
       refetch();
-    } catch (e: any) { toast.error(e.message); } finally { setSaving(false); }
+    } catch (e) { toast.error(formatEdgeError(e, '儲存失敗')); } finally { setSaving(false); }
   };
 
   const generate = async () => {
@@ -190,7 +184,7 @@ function SessionView({ expertId, sessionId, canEdit, onBack }: { expertId: strin
       await call('generate_suggestions', expertId, { id: sessionId });
       toast.success('AI 已產出候選條目');
       refetch();
-    } catch (e: any) { toast.error(e.message); } finally { setGenerating(false); }
+    } catch (e) { toast.error(formatEdgeError(e, '產出候選失敗')); } finally { setGenerating(false); }
   };
 
   const acceptPicked = async () => {
@@ -199,10 +193,17 @@ function SessionView({ expertId, sessionId, canEdit, onBack }: { expertId: strin
     setAccepting(true);
     try {
       const res = await call('accept_knowledge', expertId, { id: sessionId, items });
-      toast.success(`已加入 ${res.inserted_count} 條到知識庫`);
+      if (res.failed?.length) {
+        const f = res.failed[0];
+        toast.error(
+          `已加入 ${res.inserted_count} 條，失敗 ${res.failed.length}\n首筆：${f.error}\n[${f.stage || '?'} · cand ${String(f.candidate_id || '').slice(0, 8)} · req ${String(res.requestId || '').slice(0, 8)}]`,
+        );
+      } else {
+        toast.success(`已加入 ${res.inserted_count} 條到知識庫`);
+      }
       setPicked({});
       refetch();
-    } catch (e: any) { toast.error(e.message); } finally { setAccepting(false); }
+    } catch (e) { toast.error(formatEdgeError(e, '採納失敗')); } finally { setAccepting(false); }
   };
 
   const regenerateQuestions = async () => {
@@ -216,7 +217,7 @@ function SessionView({ expertId, sessionId, canEdit, onBack }: { expertId: strin
       toast.success(`已重新產題（v${res.revision}）`);
       setPicked({});
       refetch();
-    } catch (e: any) { toast.error(e.message); } finally { setRegenQ(false); }
+    } catch (e) { toast.error(formatEdgeError(e, '重新產題失敗')); } finally { setRegenQ(false); }
   };
   const regenerateSuggestions = async () => {
     if (!confirm('重新產出候選條目會覆蓋現在的候選列表，並把現在的內容存成一個歷史版本，確定嗎？')) return;
@@ -228,17 +229,17 @@ function SessionView({ expertId, sessionId, canEdit, onBack }: { expertId: strin
       toast.success(`已重新產出候選（v${res.revision}）`);
       setPicked({});
       refetch();
-    } catch (e: any) { toast.error(e.message); } finally { setRegenS(false); }
+    } catch (e) { toast.error(formatEdgeError(e, '重新產候選失敗')); } finally { setRegenS(false); }
   };
 
   const complete = async () => {
     try { await call('complete_session', expertId, { id: sessionId }); toast.success('已標記完成'); refetch(); }
-    catch (e: any) { toast.error(e.message); }
+    catch (e) { toast.error(formatEdgeError(e, '標記完成失敗')); }
   };
   const discard = async () => {
     if (!confirm('確定捨棄這次訓練？')) return;
     try { await call('discard_session', expertId, { id: sessionId }); toast.success('已捨棄'); onBack(); }
-    catch (e: any) { toast.error(e.message); }
+    catch (e) { toast.error(formatEdgeError(e, '捨棄失敗')); }
   };
 
   if (isLoading || !session) return <div className="p-6 text-center text-muted-foreground">載入中…</div>;
