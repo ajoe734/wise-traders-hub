@@ -128,19 +128,19 @@ export default function ReviewTab({ expertId, canEdit }: Props) {
           <div className="p-8 text-center text-sm text-muted-foreground">目前沒有待審核條目。</div>
         ) : (
           <>
-            <div className="flex items-center justify-between gap-2">
+            <div className="flex items-center justify-between gap-2 flex-wrap">
               <label className="flex items-center gap-2 text-sm cursor-pointer">
                 <Checkbox checked={allChecked} onCheckedChange={toggleAll} disabled={!canEdit} />
                 <span>全選（{pickedIds.length}/{items.length}）</span>
               </label>
               {canEdit && (
-                <div className="flex gap-2">
+                <div className="flex gap-2 flex-wrap sm:flex-nowrap w-full sm:w-auto">
                   <Button
                     size="sm"
                     variant="outline"
                     onClick={() => doReview('reject')}
                     disabled={rejecting || approving || pickedIds.length === 0}
-                    className="gap-1.5 text-destructive hover:text-destructive"
+                    className="gap-1.5 text-destructive hover:text-destructive flex-1 sm:flex-none"
                   >
                     {rejecting && <Loader2 className="h-3.5 w-3.5 animate-spin" />}
                     <XCircle className="h-3.5 w-3.5" />退回
@@ -149,7 +149,7 @@ export default function ReviewTab({ expertId, canEdit }: Props) {
                     size="sm"
                     onClick={() => doReview('approve')}
                     disabled={approving || rejecting || pickedIds.length === 0}
-                    className="gap-1.5"
+                    className="gap-1.5 flex-1 sm:flex-none"
                   >
                     {approving && <Loader2 className="h-3.5 w-3.5 animate-spin" />}
                     <CheckCircle2 className="h-3.5 w-3.5" />核可並啟用
@@ -189,8 +189,8 @@ export default function ReviewTab({ expertId, canEdit }: Props) {
                     </div>
                     {canEdit && (
                       <div className="shrink-0">
-                        <Button size="sm" variant="ghost" onClick={() => openEdit(i)} className="gap-1 h-8 text-xs">
-                          <Pencil className="h-3.5 w-3.5" />編輯
+                        <Button size="sm" variant="ghost" onClick={() => openEdit(i)} className="gap-1 h-8 text-xs px-2">
+                          <Pencil className="h-3.5 w-3.5" /><span className="hidden sm:inline">編輯</span>
                         </Button>
                       </div>
                     )}
@@ -204,7 +204,7 @@ export default function ReviewTab({ expertId, canEdit }: Props) {
       </CardContent>
 
       <Dialog open={!!editing} onOpenChange={(o) => !o && setEditing(null)}>
-        <DialogContent className="max-w-2xl">
+        <DialogContent className="max-w-2xl w-[calc(100vw-2rem)] max-h-[90vh] overflow-y-auto">
           <DialogHeader>
             <DialogTitle>編輯候選條目</DialogTitle>
           </DialogHeader>
@@ -220,19 +220,19 @@ export default function ReviewTab({ expertId, canEdit }: Props) {
               <Textarea
                 value={editContent}
                 onChange={(e) => setEditContent(e.target.value)}
-                className="min-h-[260px]"
+                className="min-h-[200px] sm:min-h-[260px]"
                 maxLength={6000}
               />
               <p className="text-xs text-right text-muted-foreground mt-1">{editContent.length} / 6000</p>
             </div>
           </div>
-          <DialogFooter className="gap-2">
-            <Button variant="outline" onClick={() => setEditing(null)} disabled={savingEdit}>取消</Button>
-            <Button variant="secondary" onClick={() => saveEdit(false)} disabled={savingEdit} className="gap-1.5">
+          <DialogFooter className="gap-2 flex-col sm:flex-row">
+            <Button variant="outline" onClick={() => setEditing(null)} disabled={savingEdit} className="w-full sm:w-auto">取消</Button>
+            <Button variant="secondary" onClick={() => saveEdit(false)} disabled={savingEdit} className="gap-1.5 w-full sm:w-auto">
               {savingEdit && <Loader2 className="h-4 w-4 animate-spin" />}
               僅儲存
             </Button>
-            <Button onClick={() => saveEdit(true)} disabled={savingEdit} className="gap-1.5">
+            <Button onClick={() => saveEdit(true)} disabled={savingEdit} className="gap-1.5 w-full sm:w-auto">
               {savingEdit && <Loader2 className="h-4 w-4 animate-spin" />}
               <CheckCircle2 className="h-4 w-4" />儲存並核可
             </Button>

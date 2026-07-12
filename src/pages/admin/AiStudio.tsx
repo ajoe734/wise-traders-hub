@@ -53,14 +53,14 @@ export default function AdminAiStudio() {
           <div className="p-8 text-center text-muted-foreground">載入中…</div>
         ) : (
           <Tabs value={tab} onValueChange={setTab} className="w-full">
-            <TabsList className="grid grid-cols-7 w-full max-w-4xl">
-              <TabsTrigger value="persona"><Sparkles className="h-4 w-4 mr-1.5" />人設</TabsTrigger>
-              <TabsTrigger value="knowledge"><BookOpen className="h-4 w-4 mr-1.5" />知識庫</TabsTrigger>
-              <TabsTrigger value="fewshot"><MessagesSquare className="h-4 w-4 mr-1.5" />示範問答</TabsTrigger>
-              <TabsTrigger value="weekly"><CalendarCheck className="h-4 w-4 mr-1.5" />週五訓練</TabsTrigger>
-              <TabsTrigger value="history"><History className="h-4 w-4 mr-1.5" />訓練歷史</TabsTrigger>
-              <TabsTrigger value="review"><ShieldAlert className="h-4 w-4 mr-1.5" />待審核</TabsTrigger>
-              <TabsTrigger value="index"><Database className="h-4 w-4 mr-1.5" />週記索引</TabsTrigger>
+            <TabsList className="grid grid-cols-4 lg:grid-cols-7 w-full max-w-4xl h-auto gap-1 p-1">
+              <TabsTrigger value="persona" className="text-xs sm:text-sm px-2 py-1.5"><Sparkles className="h-4 w-4 mr-1 shrink-0" />人設</TabsTrigger>
+              <TabsTrigger value="knowledge" className="text-xs sm:text-sm px-2 py-1.5"><BookOpen className="h-4 w-4 mr-1 shrink-0" />知識庫</TabsTrigger>
+              <TabsTrigger value="fewshot" className="text-xs sm:text-sm px-2 py-1.5"><MessagesSquare className="h-4 w-4 mr-1 shrink-0" />示範</TabsTrigger>
+              <TabsTrigger value="weekly" className="text-xs sm:text-sm px-2 py-1.5"><CalendarCheck className="h-4 w-4 mr-1 shrink-0" />週五訓練</TabsTrigger>
+              <TabsTrigger value="history" className="text-xs sm:text-sm px-2 py-1.5"><History className="h-4 w-4 mr-1 shrink-0" />歷史</TabsTrigger>
+              <TabsTrigger value="review" className="text-xs sm:text-sm px-2 py-1.5"><ShieldAlert className="h-4 w-4 mr-1 shrink-0" />待審</TabsTrigger>
+              <TabsTrigger value="index" className="text-xs sm:text-sm px-2 py-1.5"><Database className="h-4 w-4 mr-1 shrink-0" />索引</TabsTrigger>
             </TabsList>
 
             <TabsContent value="persona" className="mt-4">
