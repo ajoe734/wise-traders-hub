@@ -3,7 +3,7 @@ import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/com
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
 import { Separator } from '@/components/ui/separator';
-import { ArrowLeft, Clock, CheckCircle2, XCircle, FileText, Sparkles, Lightbulb, BookOpen } from 'lucide-react';
+import { ArrowLeft, Clock, CheckCircle2, XCircle, FileText, Sparkles, Lightbulb, BookOpen, History } from 'lucide-react';
 import { toast } from 'sonner';
 import { supabase } from '@/integrations/supabase/client';
 import { useQuery } from '@tanstack/react-query';
@@ -32,12 +32,23 @@ interface SessionRow {
   accepted_count: number;
   rejected_count: number;
   accepted_pending_count: number;
+  revision_count: number;
 }
 
 interface Question { id: string; question: string; rationale: string }
 interface Answer { id: string; answer: string }
 interface KnowledgeCand { id: string; title: string; content: string; source: string }
 interface JournalEdit { id: string; area: string; suggestion: string }
+interface Revision {
+  revision: number;
+  action: 'regenerate_questions' | 'regenerate_suggestions';
+  snapshotted_at: string;
+  triggered_by: string | null;
+  ai_questions: Question[] | null;
+  answers: Answer[] | null;
+  suggested_knowledge: KnowledgeCand[] | null;
+  suggested_journal_edits: JournalEdit[] | null;
+}
 interface SessionDetail {
   id: string;
   week_start: string;
@@ -46,6 +57,7 @@ interface SessionDetail {
   answers: Answer[] | null;
   suggested_knowledge: KnowledgeCand[] | null;
   suggested_journal_edits: JournalEdit[] | null;
+  revisions: Revision[] | null;
   started_at: string | null;
   completed_at: string | null;
 }
@@ -130,6 +142,7 @@ function ListView({ expertId, onOpen }: { expertId: string; onOpen: (id: string)
                     <span className="text-emerald-700">已納入 <b>{s.accepted_count}</b></span>
                     {s.accepted_pending_count > 0 && <span className="text-amber-700">待審 <b>{s.accepted_pending_count}</b></span>}
                     {s.rejected_count > 0 && <span className="text-destructive">退回 <b>{s.rejected_count}</b></span>}
+                    {s.revision_count > 0 && <span className="text-muted-foreground">v{s.revision_count + 1}</span>}
                   </div>
                 </div>
               </button>
@@ -164,6 +177,7 @@ function DetailView({ expertId, sessionId, onBack }: { expertId: string; session
   const answers = session.answers || [];
   const suggested = session.suggested_knowledge || [];
   const journalEdits = session.suggested_journal_edits || [];
+  const revisions: Revision[] = session.revisions || [];
 
   const answerFor = (qid: string) => answers.find((a) => a?.id === qid)?.answer || '';
 
@@ -325,6 +339,49 @@ function DetailView({ expertId, sessionId, onBack }: { expertId: string; session
               <div key={e.id} className="border-l-2 border-amber-400 pl-3 py-1 text-sm">
                 <p className="font-medium">{e.area}</p>
                 <p className="text-muted-foreground">{e.suggestion}</p>
+              </div>
+            ))}
+          </CardContent>
+        </Card>
+      )}
+
+      {/* 歷史版本 */}
+      {revisions.length > 0 && (
+        <Card>
+          <CardHeader>
+            <CardTitle className="text-sm flex items-center gap-2"><History className="h-4 w-4" />5. 歷史版本快照（{revisions.length}）</CardTitle>
+            <CardDescription>每次「重新產題」或「重新產候選」都會在這裡保留當時的完整輸出，現在畫面顯示的是 v{revisions.length + 1}（最新）。</CardDescription>
+          </CardHeader>
+          <CardContent className="space-y-3">
+            {revisions.slice().reverse().map((r) => (
+              <div key={r.revision} className="border rounded-lg p-3 space-y-2 text-sm">
+                <div className="flex items-center justify-between flex-wrap gap-2">
+                  <div className="flex items-center gap-2">
+                    <Badge variant="outline" className="text-[10px]">v{r.revision}</Badge>
+                    <span className="text-xs text-muted-foreground">
+                      {r.action === 'regenerate_questions' ? '重新產題前' : '重新產候選前'} · {fmtDate(r.snapshotted_at)}
+                    </span>
+                  </div>
+                  <span className="text-xs text-muted-foreground">
+                    題 {r.ai_questions?.length ?? 0} · 候選 {r.suggested_knowledge?.length ?? 0}
+                  </span>
+                </div>
+                {(r.ai_questions || []).length > 0 && (
+                  <details className="text-xs">
+                    <summary className="cursor-pointer text-muted-foreground">展開題目</summary>
+                    <ol className="list-decimal pl-5 mt-1 space-y-0.5">
+                      {(r.ai_questions || []).map((q) => <li key={q.id}>{q.question}</li>)}
+                    </ol>
+                  </details>
+                )}
+                {(r.suggested_knowledge || []).length > 0 && (
+                  <details className="text-xs">
+                    <summary className="cursor-pointer text-muted-foreground">展開候選條目</summary>
+                    <ul className="list-disc pl-5 mt-1 space-y-0.5">
+                      {(r.suggested_knowledge || []).map((k) => <li key={k.id}><b>{k.title}</b>：{k.content?.slice(0, 60)}{(k.content?.length || 0) > 60 ? '…' : ''}</li>)}
+                    </ul>
+                  </details>
+                )}
               </div>
             ))}
           </CardContent>

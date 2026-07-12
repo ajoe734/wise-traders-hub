@@ -5,7 +5,7 @@ import { Textarea } from '@/components/ui/textarea';
 import { Badge } from '@/components/ui/badge';
 import { Checkbox } from '@/components/ui/checkbox';
 import { Separator } from '@/components/ui/separator';
-import { Loader2, Sparkles, ArrowLeft, CheckCircle2, Trash2, MessageCircleQuestion, Lightbulb } from 'lucide-react';
+import { Loader2, Sparkles, ArrowLeft, CheckCircle2, Trash2, MessageCircleQuestion, Lightbulb, RefreshCw, History } from 'lucide-react';
 import { toast } from 'sonner';
 import { supabase } from '@/integrations/supabase/client';
 import { useQuery } from '@tanstack/react-query';
@@ -25,6 +25,16 @@ interface Question { id: string; question: string; rationale: string }
 interface Answer { id: string; answer: string }
 interface KnowledgeCand { id: string; title: string; content: string; source: string }
 interface JournalEdit { id: string; area: string; suggestion: string }
+interface Revision {
+  revision: number;
+  action: 'regenerate_questions' | 'regenerate_suggestions';
+  snapshotted_at: string;
+  triggered_by: string | null;
+  ai_questions: Question[];
+  answers: Answer[];
+  suggested_knowledge: KnowledgeCand[];
+  suggested_journal_edits: JournalEdit[];
+}
 interface Session {
   id: string;
   expert_id: string;
@@ -34,6 +44,7 @@ interface Session {
   answers: Answer[] | null;
   suggested_knowledge: KnowledgeCand[] | null;
   suggested_journal_edits: JournalEdit[] | null;
+  revisions: Revision[] | null;
 }
 
 interface WeekRow {
@@ -143,6 +154,9 @@ function SessionView({ expertId, sessionId, canEdit, onBack }: { expertId: strin
   const [generating, setGenerating] = useState(false);
   const [accepting, setAccepting] = useState(false);
   const [picked, setPicked] = useState<Record<string, boolean>>({});
+  const [regenQ, setRegenQ] = useState(false);
+  const [regenS, setRegenS] = useState(false);
+  const [showHistory, setShowHistory] = useState(false);
 
   useEffect(() => {
     if (session && Array.isArray(session.answers) && session.answers.length > 0) {
@@ -191,6 +205,32 @@ function SessionView({ expertId, sessionId, canEdit, onBack }: { expertId: strin
     } catch (e: any) { toast.error(e.message); } finally { setAccepting(false); }
   };
 
+  const regenerateQuestions = async () => {
+    if (!confirm('重新產題會清空目前候選條目、保留你的回覆，並把現在的內容存成一個歷史版本，確定嗎？')) return;
+    setRegenQ(true);
+    try {
+      // 先把當前輸入中的答覆存回去，避免快照到舊值
+      const arr = questions.map((q) => ({ id: q.id, answer: answers[q.id] || '' }));
+      if (questions.length > 0) await call('save_answers', expertId, { id: sessionId, answers: arr });
+      const res = await call('regenerate_questions', expertId, { id: sessionId });
+      toast.success(`已重新產題（v${res.revision}）`);
+      setPicked({});
+      refetch();
+    } catch (e: any) { toast.error(e.message); } finally { setRegenQ(false); }
+  };
+  const regenerateSuggestions = async () => {
+    if (!confirm('重新產出候選條目會覆蓋現在的候選列表，並把現在的內容存成一個歷史版本，確定嗎？')) return;
+    setRegenS(true);
+    try {
+      const arr = questions.map((q) => ({ id: q.id, answer: answers[q.id] || '' }));
+      if (questions.length > 0) await call('save_answers', expertId, { id: sessionId, answers: arr });
+      const res = await call('regenerate_suggestions', expertId, { id: sessionId });
+      toast.success(`已重新產出候選（v${res.revision}）`);
+      setPicked({});
+      refetch();
+    } catch (e: any) { toast.error(e.message); } finally { setRegenS(false); }
+  };
+
   const complete = async () => {
     try { await call('complete_session', expertId, { id: sessionId }); toast.success('已標記完成'); refetch(); }
     catch (e: any) { toast.error(e.message); }
@@ -202,26 +242,84 @@ function SessionView({ expertId, sessionId, canEdit, onBack }: { expertId: strin
   };
 
   if (isLoading || !session) return <div className="p-6 text-center text-muted-foreground">載入中…</div>;
+  const revisions: Revision[] = session.revisions || [];
 
   return (
     <div className="space-y-4">
-      <div className="flex items-center justify-between">
+      <div className="flex items-center justify-between flex-wrap gap-2">
         <Button variant="ghost" size="sm" onClick={onBack} className="gap-1"><ArrowLeft className="h-4 w-4" />返回週次列表</Button>
-        <div className="flex gap-2 items-center">
+        <div className="flex gap-2 items-center flex-wrap">
           {statusBadge(session.status)}
+          {revisions.length > 0 && (
+            <Button variant="outline" size="sm" onClick={() => setShowHistory((v) => !v)} className="gap-1 h-8">
+              <History className="h-3.5 w-3.5" />v{revisions.length + 1}（歷史 {revisions.length}）
+            </Button>
+          )}
           {session.status !== 'discarded' && canEdit && (
             <Button variant="ghost" size="sm" onClick={discard} className="text-destructive gap-1"><Trash2 className="h-3.5 w-3.5" />捨棄</Button>
           )}
         </div>
       </div>
 
+      {showHistory && revisions.length > 0 && (
+        <Card>
+          <CardHeader className="pb-2">
+            <CardTitle className="text-sm flex items-center gap-2"><History className="h-4 w-4" />歷史版本（{revisions.length}）</CardTitle>
+            <CardDescription>每次「重新產題」或「重新產候選」都會在這裡留下當時的完整快照。</CardDescription>
+          </CardHeader>
+          <CardContent className="space-y-3">
+            {revisions.slice().reverse().map((r) => (
+              <div key={r.revision} className="border rounded-lg p-3 space-y-1.5 text-sm">
+                <div className="flex items-center justify-between flex-wrap gap-2">
+                  <div className="flex items-center gap-2">
+                    <Badge variant="outline" className="text-[10px]">v{r.revision}</Badge>
+                    <span className="text-xs text-muted-foreground">
+                      {r.action === 'regenerate_questions' ? '重新產題前' : '重新產候選前'} · {new Date(r.snapshotted_at).toLocaleString('zh-TW', { hour12: false })}
+                    </span>
+                  </div>
+                  <span className="text-xs text-muted-foreground">
+                    題 {r.ai_questions?.length ?? 0} · 候選 {r.suggested_knowledge?.length ?? 0}
+                  </span>
+                </div>
+                {(r.ai_questions || []).length > 0 && (
+                  <details className="text-xs">
+                    <summary className="cursor-pointer text-muted-foreground">展開題目</summary>
+                    <ol className="list-decimal pl-5 mt-1 space-y-0.5">
+                      {(r.ai_questions || []).map((q) => <li key={q.id}>{q.question}</li>)}
+                    </ol>
+                  </details>
+                )}
+                {(r.suggested_knowledge || []).length > 0 && (
+                  <details className="text-xs">
+                    <summary className="cursor-pointer text-muted-foreground">展開候選條目</summary>
+                    <ul className="list-disc pl-5 mt-1 space-y-0.5">
+                      {(r.suggested_knowledge || []).map((k) => <li key={k.id}><b>{k.title}</b></li>)}
+                    </ul>
+                  </details>
+                )}
+              </div>
+            ))}
+          </CardContent>
+        </Card>
+      )}
+
       <Card>
         <CardHeader>
-          <CardTitle className="text-base flex items-center gap-2">
-            <MessageCircleQuestion className="h-4 w-4 text-mentor" />
-            AI 對本週週記的補完題（{session.week_start.replace(/-/g, '/')}）
-          </CardTitle>
-          <CardDescription>逐題用你自己的話回答，AI 會根據你的回覆整理成可讓 AI 分身引用的知識條目。</CardDescription>
+          <div className="flex items-start justify-between gap-2 flex-wrap">
+            <div>
+              <CardTitle className="text-base flex items-center gap-2">
+                <MessageCircleQuestion className="h-4 w-4 text-mentor" />
+                AI 對本週週記的補完題（{session.week_start.replace(/-/g, '/')}）
+              </CardTitle>
+              <CardDescription>逐題用你自己的話回答，AI 會根據你的回覆整理成可讓 AI 分身引用的知識條目。</CardDescription>
+            </div>
+            {questions.length > 0 && canEdit && session.status !== 'completed' && (
+              <Button variant="outline" size="sm" onClick={regenerateQuestions} disabled={regenQ || regenS || generating} className="gap-1.5 shrink-0">
+                {regenQ && <Loader2 className="h-3.5 w-3.5 animate-spin" />}
+                <RefreshCw className="h-3.5 w-3.5" />重新產題
+              </Button>
+            )}
+          </div>
         </CardHeader>
         <CardContent className="space-y-4">
           {questions.length === 0 ? (
@@ -259,8 +357,18 @@ function SessionView({ expertId, sessionId, canEdit, onBack }: { expertId: strin
       {(suggested.length > 0 || journalEdits.length > 0) && (
         <Card>
           <CardHeader>
-            <CardTitle className="text-base flex items-center gap-2"><Lightbulb className="h-4 w-4 text-amber-600" />AI 產出的候選條目</CardTitle>
-            <CardDescription>勾選要加入知識庫的條目，其餘會忽略。已加入條目可日後在「知識庫」分頁編輯或刪除。</CardDescription>
+            <div className="flex items-start justify-between gap-2 flex-wrap">
+              <div>
+                <CardTitle className="text-base flex items-center gap-2"><Lightbulb className="h-4 w-4 text-amber-600" />AI 產出的候選條目</CardTitle>
+                <CardDescription>勾選要加入知識庫的條目，其餘會忽略。已加入條目可日後在「知識庫」分頁編輯或刪除。</CardDescription>
+              </div>
+              {canEdit && session.status !== 'completed' && (
+                <Button variant="outline" size="sm" onClick={regenerateSuggestions} disabled={regenS || regenQ || generating} className="gap-1.5 shrink-0">
+                  {regenS && <Loader2 className="h-3.5 w-3.5 animate-spin" />}
+                  <RefreshCw className="h-3.5 w-3.5" />重新產候選
+                </Button>
+              )}
+            </div>
           </CardHeader>
           <CardContent className="space-y-4">
             {suggested.length > 0 && (
