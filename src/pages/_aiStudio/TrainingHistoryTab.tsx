@@ -167,11 +167,20 @@ function DetailView({ expertId, sessionId, onBack }: { expertId: string; session
 
   const answerFor = (qid: string) => answers.find((a) => a?.id === qid)?.answer || '';
 
-  // 建 title→chunk 對照，判定原候選條目後來被納入 / 退回 / 尚未處理
+  // 建 candidate_id→chunk 對照（優先），fallback to title
+  const chunkByCandidate = new Map<string, AcceptedChunk>();
   const chunkByTitle = new Map<string, AcceptedChunk>();
-  for (const c of accepted) if (c.title) chunkByTitle.set(c.title, c);
-  const acceptedTitles = new Set(accepted.map((c) => c.title).filter(Boolean) as string[]);
-  const remainingAccepted = accepted.filter((c) => !c.title || !suggested.some((s) => s.title === c.title));
+  for (const c of accepted) {
+    const cid = (c.metadata as any)?.candidate_id;
+    if (cid) chunkByCandidate.set(String(cid), c);
+    if (c.title) chunkByTitle.set(c.title, c);
+  }
+  const remainingAccepted = accepted.filter((c) => {
+    const cid = (c.metadata as any)?.candidate_id;
+    if (cid && suggested.some((s) => s.id === cid)) return false;
+    if (c.title && suggested.some((s) => s.title === c.title)) return false;
+    return true;
+  });
 
   const copy = (text: string) => {
     navigator.clipboard.writeText(text).then(() => toast.success('已複製'));
