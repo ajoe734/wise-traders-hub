@@ -301,6 +301,9 @@ const AppExpertDetail = () => {
               expertName={expert.name}
               isSubscribed={isSubscribed || isCompanyAdmin || isOwnExpert}
               onSubscribeClick={() => navigate(`/expert/${slug}`)}
+              lockReason={expertSubHistory.length > 0 ? 'expired' : 'none'}
+              planLabel={mainMeta?.title}
+              rolePalette={isAdvisor ? 'advisor' : 'mentor'}
             />
           </TabsContent>
         </Tabs>
