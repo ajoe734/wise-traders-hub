@@ -4,17 +4,11 @@ import { createClient } from 'npm:@supabase/supabase-js@2';
 import { corsHeaders, jsonResponse, errorResponse } from '../_shared/cors.ts';
 import { withLogging } from '../_shared/edgeLogger.ts';
 import { embedText, createLovableAiGatewayProvider } from '../_shared/ai-gateway.ts';
+import { taipeiMondayOf, taipeiWeekRangeUtc } from '../_shared/weekBoundary.ts';
 import { generateText, Output } from 'npm:ai';
 import { z } from 'npm:zod';
 
 const DEFAULT_MODEL = 'openai/gpt-5';
-
-function isoMonday(d: Date): string {
-  const day = d.getUTCDay(); // 0..6
-  const diff = (day + 6) % 7; // Monday=0
-  const monday = new Date(Date.UTC(d.getUTCFullYear(), d.getUTCMonth(), d.getUTCDate() - diff));
-  return monday.toISOString().slice(0, 10);
-}
 
 function fmtSignalBlock(s: any): string {
   const parts = [
