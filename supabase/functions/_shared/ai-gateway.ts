@@ -30,11 +30,12 @@ export function createLovableAiGatewayRunIdFetch(initialRunId?: string) {
   };
 }
 
-export function createLovableAiGatewayProvider(apiKey: string, initialRunId?: string) {
+export function createLovableAiGatewayProvider(apiKey: string, initialRunId?: string, options?: { structuredOutputs?: boolean }) {
   const runIdFetch = createLovableAiGatewayRunIdFetch(initialRunId);
   const provider = createOpenAICompatible({
     name: 'lovable',
     baseURL: 'https://ai.gateway.lovable.dev/v1',
+    supportsStructuredOutputs: options?.structuredOutputs ?? false,
     headers: {
       'Lovable-API-Key': apiKey,
       'X-Lovable-AIG-SDK': 'vercel-ai-sdk',

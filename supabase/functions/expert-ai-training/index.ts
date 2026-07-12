@@ -1,0 +1,318 @@
+// 週五訓練對話台：讀該週已發佈週記→AI 提補完題→老師回覆→AI 產出候選知識條目與週記建議
+// Actions: list_weeks | get_session | start_session | save_answers | generate_suggestions | accept_knowledge | discard_session | complete_session
+import { createClient } from 'npm:@supabase/supabase-js@2';
+import { corsHeaders, jsonResponse, errorResponse } from '../_shared/cors.ts';
+import { withLogging } from '../_shared/edgeLogger.ts';
+import { embedText, createLovableAiGatewayProvider } from '../_shared/ai-gateway.ts';
+import { generateText, Output } from 'npm:ai';
+import { z } from 'npm:zod';
+
+const DEFAULT_MODEL = 'openai/gpt-5';
+
+function isoMonday(d: Date): string {
+  const day = d.getUTCDay(); // 0..6
+  const diff = (day + 6) % 7; // Monday=0
+  const monday = new Date(Date.UTC(d.getUTCFullYear(), d.getUTCMonth(), d.getUTCDate() - diff));
+  return monday.toISOString().slice(0, 10);
+}
+
+function fmtSignalBlock(s: any): string {
+  const parts = [
+    `【${s.published_at?.slice(0, 10) || ''}】${s.instrument || ''} ${s.action || ''}`,
+    s.reason_summary && `摘要：${s.reason_summary}`,
+    s.reason_detail && `細節：${s.reason_detail}`,
+    s.risk_notes && `風險：${s.risk_notes}`,
+    s.learning_points && `教學：${s.learning_points}`,
+    s.overall_summary && `整體：${s.overall_summary}`,
+  ].filter(Boolean);
+  return parts.join('\n');
+}
+
+Deno.serve(withLogging('expert-ai-training', async (req, log) => {
+  if (req.method === 'OPTIONS') return new Response('ok', { headers: corsHeaders });
+
+  const LOVABLE_API_KEY = Deno.env.get('LOVABLE_API_KEY');
+  const SUPABASE_URL = Deno.env.get('SUPABASE_URL');
+  const SERVICE_KEY = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY');
+  const ANON_KEY = Deno.env.get('SUPABASE_ANON_KEY');
+  if (!LOVABLE_API_KEY || !SUPABASE_URL || !SERVICE_KEY || !ANON_KEY) return errorResponse('missing env', 500);
+
+  const authHeader = req.headers.get('Authorization');
+  if (!authHeader) return errorResponse('unauthorized', 401);
+  const userClient = createClient(SUPABASE_URL, ANON_KEY, { global: { headers: { Authorization: authHeader } } });
+  const { data: userData } = await userClient.auth.getUser();
+  const uid = userData?.user?.id;
+  if (!uid) return errorResponse('unauthorized', 401);
+
+  const body = await req.json().catch(() => ({}));
+  const action = body.action as string | undefined;
+  const expertId = body.expert_id as string | undefined;
+  if (!action || !expertId) return errorResponse('action and expert_id required', 400);
+
+  const admin = createClient(SUPABASE_URL, SERVICE_KEY);
+  const { data: expert } = await admin.from('experts').select('id, user_id, name').eq('id', expertId).maybeSingle();
+  if (!expert) return errorResponse('expert not found', 404);
+  const { data: role } = await admin.from('user_roles').select('role').eq('user_id', uid).eq('role', 'company_admin').maybeSingle();
+  const isOwner = expert.user_id === uid;
+  const isAdmin = !!role;
+  if (!isOwner && !isAdmin) return errorResponse('forbidden', 403);
+
+  const getModel = async () => {
+    const { data: persona } = await admin.from('expert_ai_personas').select('model, system_prompt, tone, forbidden_topics, disclaimer').eq('expert_id', expertId).maybeSingle();
+    return { model: persona?.model || DEFAULT_MODEL, persona };
+  };
+
+  try {
+    switch (action) {
+      case 'list_weeks': {
+        // 抓最近 12 週有發佈週記的 week_start
+        const since = new Date(Date.now() - 12 * 7 * 86400000).toISOString();
+        const { data: signals } = await admin
+          .from('expert_signals')
+          .select('id, published_at')
+          .eq('expert_id', expertId)
+          .eq('status', 'published')
+          .gte('published_at', since)
+          .order('published_at', { ascending: false })
+          .limit(500);
+
+        const bucket = new Map<string, { week_start: string; signal_count: number; latest_published_at: string }>();
+        for (const s of signals || []) {
+          if (!s.published_at) continue;
+          const wk = isoMonday(new Date(s.published_at));
+          const cur = bucket.get(wk);
+          if (!cur) bucket.set(wk, { week_start: wk, signal_count: 1, latest_published_at: s.published_at });
+          else { cur.signal_count += 1; if (s.published_at > cur.latest_published_at) cur.latest_published_at = s.published_at; }
+        }
+        const weeks = Array.from(bucket.values()).sort((a, b) => b.week_start.localeCompare(a.week_start));
+
+        const { data: sessions } = await admin
+          .from('expert_ai_training_sessions')
+          .select('id, week_start, status, updated_at')
+          .eq('expert_id', expertId)
+          .in('week_start', weeks.map((w) => w.week_start));
+
+        const byWeek = new Map<string, any>();
+        for (const s of sessions || []) byWeek.set(s.week_start, s);
+
+        return jsonResponse({
+          ok: true,
+          weeks: weeks.map((w) => ({ ...w, session: byWeek.get(w.week_start) || null })),
+        });
+      }
+
+      case 'get_session': {
+        const id = body.id as string;
+        if (!id) return errorResponse('id required', 400);
+        const { data } = await admin.from('expert_ai_training_sessions').select('*').eq('id', id).eq('expert_id', expertId).maybeSingle();
+        return jsonResponse({ ok: true, session: data });
+      }
+
+      case 'start_session': {
+        const weekStart = body.week_start as string;
+        if (!weekStart) return errorResponse('week_start required', 400);
+
+        // 已有 session？回傳；若是 discarded 允許重跑
+        const { data: existing } = await admin.from('expert_ai_training_sessions').select('*').eq('expert_id', expertId).eq('week_start', weekStart).maybeSingle();
+        if (existing && existing.status !== 'discarded' && Array.isArray(existing.ai_questions) && existing.ai_questions.length > 0) {
+          return jsonResponse({ ok: true, session: existing, reused: true });
+        }
+
+        // 抓該週已發佈 signals
+        const start = new Date(weekStart + 'T00:00:00Z');
+        const end = new Date(start.getTime() + 7 * 86400000);
+        const { data: signals } = await admin
+          .from('expert_signals')
+          .select('id, instrument, action, published_at, reason_summary, reason_detail, risk_notes, learning_points, overall_summary')
+          .eq('expert_id', expertId)
+          .eq('status', 'published')
+          .gte('published_at', start.toISOString())
+          .lt('published_at', end.toISOString())
+          .order('published_at', { ascending: true });
+
+        if (!signals || signals.length === 0) return errorResponse('本週沒有已發佈的週記可訓練', 400);
+
+        const journalText = signals.map(fmtSignalBlock).join('\n\n---\n\n');
+        const { model, persona } = await getModel();
+
+        const gateway = createLovableAiGatewayProvider(LOVABLE_API_KEY, undefined, { structuredOutputs: true });
+        const systemLines = [
+          '你是一個協助投資導師「精煉觀點」的訓練助理。',
+          '任務：讀完該導師本週的週記後，提出 3–5 個「補完題」，逼老師講清楚未寫透的觀點、風險假設、標的邏輯或情境依賴。',
+          '問題要具體、可回答、避免空泛（不要「你怎麼看市場」這種）。',
+          '每題請附上「為什麼要問」的一句話理由，讓老師知道這題會補上哪塊空白。',
+          persona?.system_prompt ? `導師人設：${persona.system_prompt}` : '',
+        ].filter(Boolean).join('\n');
+
+        let questions: Array<{ id: string; question: string; rationale: string }> = [];
+        try {
+          const res = await generateText({
+            model: gateway(model),
+            system: systemLines,
+            prompt: `本週已發佈週記：\n\n${journalText}\n\n請產出 3–5 個補完題。`,
+            output: Output.object({
+              schema: z.object({
+                questions: z.array(z.object({ question: z.string(), rationale: z.string() })),
+              }),
+            }),
+          });
+          const arr = (res.output?.questions || []).slice(0, 6);
+          questions = arr.map((q, i) => ({ id: `q${i + 1}`, question: q.question, rationale: q.rationale }));
+        } catch (e) {
+          log.error('gen_questions_failed', { err: (e as Error).message });
+          return errorResponse('AI 生成補完題失敗：' + (e as Error).message, 500);
+        }
+
+        const patch = {
+          expert_id: expertId,
+          week_start: weekStart,
+          signal_id: signals[0]?.id ?? null,
+          status: 'open',
+          ai_questions: questions,
+          answers: existing?.answers ?? [],
+          suggested_knowledge: [],
+          suggested_journal_edits: [],
+          started_at: new Date().toISOString(),
+        };
+
+        let session;
+        if (existing) {
+          const { data } = await admin.from('expert_ai_training_sessions').update(patch).eq('id', existing.id).select().maybeSingle();
+          session = data;
+        } else {
+          const { data } = await admin.from('expert_ai_training_sessions').insert(patch).select().maybeSingle();
+          session = data;
+        }
+        return jsonResponse({ ok: true, session });
+      }
+
+      case 'save_answers': {
+        const id = body.id as string;
+        const answers = body.answers;
+        if (!id || !Array.isArray(answers)) return errorResponse('id and answers required', 400);
+        const { data } = await admin.from('expert_ai_training_sessions').update({ answers }).eq('id', id).eq('expert_id', expertId).select().maybeSingle();
+        return jsonResponse({ ok: true, session: data });
+      }
+
+      case 'generate_suggestions': {
+        const id = body.id as string;
+        if (!id) return errorResponse('id required', 400);
+        const { data: session } = await admin.from('expert_ai_training_sessions').select('*').eq('id', id).eq('expert_id', expertId).maybeSingle();
+        if (!session) return errorResponse('session not found', 404);
+
+        const weekStart = session.week_start;
+        const start = new Date(weekStart + 'T00:00:00Z');
+        const end = new Date(start.getTime() + 7 * 86400000);
+        const { data: signals } = await admin
+          .from('expert_signals')
+          .select('id, instrument, action, published_at, reason_summary, reason_detail, risk_notes, learning_points, overall_summary')
+          .eq('expert_id', expertId)
+          .eq('status', 'published')
+          .gte('published_at', start.toISOString())
+          .lt('published_at', end.toISOString());
+
+        const journalText = (signals || []).map(fmtSignalBlock).join('\n\n---\n\n');
+        const qas = (session.ai_questions as any[]).map((q, i) => {
+          const a = (session.answers as any[])?.[i]?.answer || (session.answers as any[])?.find?.((x: any) => x?.id === q.id)?.answer || '';
+          return `Q: ${q.question}\nA: ${a}`;
+        }).join('\n\n');
+
+        const { model, persona } = await getModel();
+        const gateway = createLovableAiGatewayProvider(LOVABLE_API_KEY, undefined, { structuredOutputs: true });
+
+        let suggestedKnowledge: Array<{ id: string; title: string; content: string; source: string }> = [];
+        let suggestedJournalEdits: Array<{ id: string; area: string; suggestion: string }> = [];
+        try {
+          const res = await generateText({
+            model: gateway(model),
+            system: [
+              '你是投資導師的觀點整理助理。根據導師本週週記＋補完題答覆，做兩件事：',
+              '1) 產出「候選知識條目」：每條 60–300 字，第一人稱、可獨立閱讀，日後 AI 分身回答訂閱者時能引用。',
+              '2) 產出「週記完善建議」：具體指出週記哪段可補、要補什麼、為什麼。',
+              '避免重複週記已寫過的內容。用導師本人語氣。',
+              persona?.system_prompt ? `導師人設：${persona.system_prompt}` : '',
+            ].filter(Boolean).join('\n'),
+            prompt: `本週週記：\n${journalText}\n\n補完題與回覆：\n${qas}\n\n請產出候選知識條目（3–8 條）與週記完善建議（0–5 條）。`,
+            output: Output.object({
+              schema: z.object({
+                knowledge: z.array(z.object({ title: z.string(), content: z.string(), source: z.string() })),
+                journal_edits: z.array(z.object({ area: z.string(), suggestion: z.string() })),
+              }),
+            }),
+          });
+          suggestedKnowledge = (res.output?.knowledge || []).map((k, i) => ({ id: `k${i + 1}`, ...k }));
+          suggestedJournalEdits = (res.output?.journal_edits || []).map((j, i) => ({ id: `e${i + 1}`, ...j }));
+        } catch (e) {
+          log.error('gen_suggestions_failed', { err: (e as Error).message });
+          return errorResponse('AI 產出候選條目失敗：' + (e as Error).message, 500);
+        }
+
+        const { data } = await admin.from('expert_ai_training_sessions').update({
+          suggested_knowledge: suggestedKnowledge,
+          suggested_journal_edits: suggestedJournalEdits,
+          status: 'reviewing',
+        }).eq('id', id).select().maybeSingle();
+        return jsonResponse({ ok: true, session: data });
+      }
+
+      case 'accept_knowledge': {
+        const id = body.id as string;
+        const items = body.items as Array<{ title: string; content: string; source?: string }>;
+        if (!id || !Array.isArray(items) || items.length === 0) return errorResponse('id and items required', 400);
+        const { data: session } = await admin.from('expert_ai_training_sessions').select('id, expert_id, week_start').eq('id', id).eq('expert_id', expertId).maybeSingle();
+        if (!session) return errorResponse('session not found', 404);
+
+        const inserted: any[] = [];
+        for (const it of items) {
+          const content = String(it.content || '').trim();
+          if (!content) continue;
+          try {
+            const vec = await embedText(LOVABLE_API_KEY, content);
+            const { data } = await admin.from('expert_knowledge_chunks').insert({
+              expert_id: expertId,
+              source_type: 'training',
+              source_id: null,
+              content,
+              title: it.title?.slice(0, 200) || null,
+              embedding: `[${vec.join(',')}]`,
+              metadata: { source: it.source || null, week_start: session.week_start },
+              is_manual: true,
+              status: isAdmin || isOwner ? 'approved' : 'pending',
+              created_by: uid,
+              reviewed_by: (isAdmin || isOwner) ? uid : null,
+              reviewed_at: (isAdmin || isOwner) ? new Date().toISOString() : null,
+              training_session_id: session.id,
+            }).select().maybeSingle();
+            inserted.push(data);
+          } catch (e) {
+            log.error('accept_embed_failed', { err: (e as Error).message });
+          }
+        }
+        return jsonResponse({ ok: true, inserted_count: inserted.length });
+      }
+
+      case 'complete_session': {
+        const id = body.id as string;
+        if (!id) return errorResponse('id required', 400);
+        const { data } = await admin.from('expert_ai_training_sessions').update({
+          status: 'completed', completed_at: new Date().toISOString(),
+        }).eq('id', id).eq('expert_id', expertId).select().maybeSingle();
+        return jsonResponse({ ok: true, session: data });
+      }
+
+      case 'discard_session': {
+        const id = body.id as string;
+        if (!id) return errorResponse('id required', 400);
+        const { data } = await admin.from('expert_ai_training_sessions').update({ status: 'discarded' }).eq('id', id).eq('expert_id', expertId).select().maybeSingle();
+        return jsonResponse({ ok: true, session: data });
+      }
+
+      default:
+        return errorResponse('unknown action: ' + action, 400);
+    }
+  } catch (e) {
+    const msg = (e as Error).message || 'unknown error';
+    log.error('training_failed', { action, err: msg });
+    return errorResponse(msg, 500);
+  }
+}));
