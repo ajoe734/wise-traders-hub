@@ -344,6 +344,49 @@ function DetailView({ expertId, sessionId, onBack }: { expertId: string; session
           </CardContent>
         </Card>
       )}
+
+      {/* 歷史版本 */}
+      {revisions.length > 0 && (
+        <Card>
+          <CardHeader>
+            <CardTitle className="text-sm flex items-center gap-2"><History className="h-4 w-4" />5. 歷史版本快照（{revisions.length}）</CardTitle>
+            <CardDescription>每次「重新產題」或「重新產候選」都會在這裡保留當時的完整輸出，現在畫面顯示的是 v{revisions.length + 1}（最新）。</CardDescription>
+          </CardHeader>
+          <CardContent className="space-y-3">
+            {revisions.slice().reverse().map((r) => (
+              <div key={r.revision} className="border rounded-lg p-3 space-y-2 text-sm">
+                <div className="flex items-center justify-between flex-wrap gap-2">
+                  <div className="flex items-center gap-2">
+                    <Badge variant="outline" className="text-[10px]">v{r.revision}</Badge>
+                    <span className="text-xs text-muted-foreground">
+                      {r.action === 'regenerate_questions' ? '重新產題前' : '重新產候選前'} · {fmtDate(r.snapshotted_at)}
+                    </span>
+                  </div>
+                  <span className="text-xs text-muted-foreground">
+                    題 {r.ai_questions?.length ?? 0} · 候選 {r.suggested_knowledge?.length ?? 0}
+                  </span>
+                </div>
+                {(r.ai_questions || []).length > 0 && (
+                  <details className="text-xs">
+                    <summary className="cursor-pointer text-muted-foreground">展開題目</summary>
+                    <ol className="list-decimal pl-5 mt-1 space-y-0.5">
+                      {(r.ai_questions || []).map((q) => <li key={q.id}>{q.question}</li>)}
+                    </ol>
+                  </details>
+                )}
+                {(r.suggested_knowledge || []).length > 0 && (
+                  <details className="text-xs">
+                    <summary className="cursor-pointer text-muted-foreground">展開候選條目</summary>
+                    <ul className="list-disc pl-5 mt-1 space-y-0.5">
+                      {(r.suggested_knowledge || []).map((k) => <li key={k.id}><b>{k.title}</b>：{k.content?.slice(0, 60)}{(k.content?.length || 0) > 60 ? '…' : ''}</li>)}
+                    </ul>
+                  </details>
+                )}
+              </div>
+            ))}
+          </CardContent>
+        </Card>
+      )}
     </div>
   );
 }
