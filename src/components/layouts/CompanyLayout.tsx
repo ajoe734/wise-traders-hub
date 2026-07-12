@@ -71,6 +71,7 @@ const navGroups: NavGroup[] = [
       { path: '/company/expert-revenue', icon: BarChart3, label: '專家分潤' },
       { path: '/company/alerts', icon: Bell, label: '即時告警' },
       { path: '/company/expert-ai-access-logs', icon: Shield, label: 'AI 對話存取日誌' },
+      { path: '/company/ai-gateway-usage', icon: TrendingUp, label: 'AI Gateway 費用' },
     ],
   },
 ];

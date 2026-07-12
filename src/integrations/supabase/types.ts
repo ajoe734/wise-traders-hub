@@ -167,6 +167,66 @@ export type Database = {
         }
         Relationships: []
       }
+      ai_gateway_usage_logs: {
+        Row: {
+          completion_tokens: number | null
+          correlation_id: string | null
+          cost_usd: number | null
+          created_at: string
+          duration_ms: number | null
+          endpoint: string
+          expert_id: string | null
+          expert_slug: string | null
+          finish_reason: string | null
+          id: string
+          log_id: string | null
+          meta: Json | null
+          model: string
+          prompt_tokens: number | null
+          run_id: string | null
+          total_tokens: number | null
+          user_id: string | null
+        }
+        Insert: {
+          completion_tokens?: number | null
+          correlation_id?: string | null
+          cost_usd?: number | null
+          created_at?: string
+          duration_ms?: number | null
+          endpoint: string
+          expert_id?: string | null
+          expert_slug?: string | null
+          finish_reason?: string | null
+          id?: string
+          log_id?: string | null
+          meta?: Json | null
+          model: string
+          prompt_tokens?: number | null
+          run_id?: string | null
+          total_tokens?: number | null
+          user_id?: string | null
+        }
+        Update: {
+          completion_tokens?: number | null
+          correlation_id?: string | null
+          cost_usd?: number | null
+          created_at?: string
+          duration_ms?: number | null
+          endpoint?: string
+          expert_id?: string | null
+          expert_slug?: string | null
+          finish_reason?: string | null
+          id?: string
+          log_id?: string | null
+          meta?: Json | null
+          model?: string
+          prompt_tokens?: number | null
+          run_id?: string | null
+          total_tokens?: number | null
+          user_id?: string | null
+        }
+        Relationships: []
+      }
       announcements: {
         Row: {
           content: string

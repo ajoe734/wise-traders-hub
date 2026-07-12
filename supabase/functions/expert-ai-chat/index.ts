@@ -7,6 +7,7 @@ import { corsHeaders, errorResponse, generateErrorId } from '../_shared/cors.ts'
 import { formatStreamErrorMessage } from '../_shared/stream-error.ts';
 import { withLogging } from '../_shared/edgeLogger.ts';
 import { createLovableAiGatewayProvider, embedText } from '../_shared/ai-gateway.ts';
+import { estimateCostUsd } from '../_shared/ai-gateway-pricing.ts';
 import { getExpertAiQuota } from '../_shared/expert-ai-quota.ts';
 
 const MODEL = 'openai/gpt-5';
@@ -302,6 +303,7 @@ Deno.serve(withLogging('expert-ai-chat', async (req, log) => {
 
   const gateway = createLovableAiGatewayProvider(LOVABLE_API_KEY);
   const model = gateway(MODEL);
+  const startedAt = Date.now();
 
   const result = streamText({
     model,
@@ -312,7 +314,7 @@ Deno.serve(withLogging('expert-ai-chat', async (req, log) => {
       const msg = error instanceof Error ? error.message : String(error);
       log.error('stream_error', { errorId, err: msg });
     },
-    onFinish: async ({ text }) => {
+    onFinish: async ({ text, usage, finishReason }) => {
       if (text) {
         await admin.from('expert_ai_messages').insert({
           conversation_id: convId,
@@ -323,6 +325,31 @@ Deno.serve(withLogging('expert-ai-chat', async (req, log) => {
           .from('expert_ai_conversations')
           .update({ last_message_at: new Date().toISOString() })
           .eq('id', convId);
+      }
+      try {
+        const runId = gateway.getRunId() ?? null;
+        const promptTokens = (usage as any)?.inputTokens ?? (usage as any)?.promptTokens ?? null;
+        const completionTokens = (usage as any)?.outputTokens ?? (usage as any)?.completionTokens ?? null;
+        const totalTokens = ((usage as any)?.totalTokens
+          ?? ((promptTokens ?? 0) + (completionTokens ?? 0))) || null;
+        await admin.from('ai_gateway_usage_logs').insert({
+          user_id: uid,
+          expert_id: expertId,
+          expert_slug: expert.slug ?? null,
+          endpoint: 'expert-ai-chat',
+          model: MODEL,
+          run_id: runId,
+          log_id: null,
+          prompt_tokens: promptTokens,
+          completion_tokens: completionTokens,
+          total_tokens: totalTokens,
+          duration_ms: Date.now() - startedAt,
+          finish_reason: finishReason ?? null,
+          cost_usd: estimateCostUsd(MODEL, promptTokens, completionTokens),
+          meta: null,
+        });
+      } catch (err) {
+        log.warn('usage_log_insert_failed', { err: err instanceof Error ? err.message : String(err) });
       }
     },
   });
