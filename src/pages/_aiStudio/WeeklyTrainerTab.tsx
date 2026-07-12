@@ -305,11 +305,21 @@ function SessionView({ expertId, sessionId, canEdit, onBack }: { expertId: strin
 
       <Card>
         <CardHeader>
-          <CardTitle className="text-base flex items-center gap-2">
-            <MessageCircleQuestion className="h-4 w-4 text-mentor" />
-            AI 對本週週記的補完題（{session.week_start.replace(/-/g, '/')}）
-          </CardTitle>
-          <CardDescription>逐題用你自己的話回答，AI 會根據你的回覆整理成可讓 AI 分身引用的知識條目。</CardDescription>
+          <div className="flex items-start justify-between gap-2 flex-wrap">
+            <div>
+              <CardTitle className="text-base flex items-center gap-2">
+                <MessageCircleQuestion className="h-4 w-4 text-mentor" />
+                AI 對本週週記的補完題（{session.week_start.replace(/-/g, '/')}）
+              </CardTitle>
+              <CardDescription>逐題用你自己的話回答，AI 會根據你的回覆整理成可讓 AI 分身引用的知識條目。</CardDescription>
+            </div>
+            {questions.length > 0 && canEdit && session.status !== 'completed' && (
+              <Button variant="outline" size="sm" onClick={regenerateQuestions} disabled={regenQ || regenS || generating} className="gap-1.5 shrink-0">
+                {regenQ && <Loader2 className="h-3.5 w-3.5 animate-spin" />}
+                <RefreshCw className="h-3.5 w-3.5" />重新產題
+              </Button>
+            )}
+          </div>
         </CardHeader>
         <CardContent className="space-y-4">
           {questions.length === 0 ? (
