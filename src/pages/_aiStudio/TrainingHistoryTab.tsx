@@ -32,6 +32,7 @@ interface SessionRow {
   accepted_count: number;
   rejected_count: number;
   accepted_pending_count: number;
+  revision_count: number;
 }
 
 interface Question { id: string; question: string; rationale: string }
