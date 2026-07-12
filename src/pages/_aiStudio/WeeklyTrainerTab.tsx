@@ -7,19 +7,13 @@ import { Checkbox } from '@/components/ui/checkbox';
 import { Separator } from '@/components/ui/separator';
 import { Loader2, Sparkles, ArrowLeft, CheckCircle2, Trash2, MessageCircleQuestion, Lightbulb, RefreshCw, History } from 'lucide-react';
 import { toast } from 'sonner';
-import { supabase } from '@/integrations/supabase/client';
 import { useQuery } from '@tanstack/react-query';
+import { edgeCall, formatEdgeError } from '@/lib/aiStudioInvoke';
 
 interface Props { expertId: string; canEdit: boolean; }
 
-async function call(action: string, expertId: string, extra: Record<string, unknown> = {}) {
-  const { data, error } = await supabase.functions.invoke('expert-ai-training', {
-    body: { action, expert_id: expertId, ...extra },
-  });
-  if (error) throw error;
-  if (!data?.ok) throw new Error(data?.message || 'failed');
-  return data;
-}
+const call = (action: string, expertId: string, extra: Record<string, unknown> = {}) =>
+  edgeCall('expert-ai-training', action, expertId, extra);
 
 interface Question { id: string; question: string; rationale: string }
 interface Answer { id: string; answer: string }
