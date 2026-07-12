@@ -194,15 +194,14 @@ Deno.serve(withLogging('expert-ai-training', async (req, log) => {
         }
 
         // 抓該週已發佈 signals
-        const start = new Date(weekStart + 'T00:00:00Z');
-        const end = new Date(start.getTime() + 7 * 86400000);
+        const { startIso, endIso } = taipeiWeekRangeUtc(weekStart);
         const { data: signals } = await admin
           .from('expert_signals')
           .select('id, instrument, action, published_at, reason_summary, reason_detail, risk_notes, learning_points, overall_summary')
           .eq('expert_id', expertId)
           .eq('status', 'published')
-          .gte('published_at', start.toISOString())
-          .lt('published_at', end.toISOString())
+          .gte('published_at', startIso)
+          .lt('published_at', endIso)
           .order('published_at', { ascending: true });
 
         if (!signals || signals.length === 0) return errorResponse('本週沒有已發佈的週記可訓練', 400);
