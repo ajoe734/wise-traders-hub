@@ -204,7 +204,7 @@ export default function ReviewTab({ expertId, canEdit }: Props) {
       </CardContent>
 
       <Dialog open={!!editing} onOpenChange={(o) => !o && setEditing(null)}>
-        <DialogContent className="max-w-2xl">
+        <DialogContent className="max-w-2xl w-[calc(100vw-2rem)] max-h-[90vh] overflow-y-auto">
           <DialogHeader>
             <DialogTitle>編輯候選條目</DialogTitle>
           </DialogHeader>
