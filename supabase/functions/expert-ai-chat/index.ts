@@ -39,16 +39,57 @@ Deno.serve(withLogging('expert-ai-chat', async (req, log) => {
 
   const admin = createClient(SUPABASE_URL, SERVICE_KEY);
 
+  // access log helper — 記錄每次決策（不阻塞主流程；失敗只 warn）
+  const logAccess = (row: {
+    expertId?: string | null;
+    expertSlug?: string | null;
+    decision: 'allowed' | 'denied';
+    rule: string;
+    subscriptionStatus?: string | null;
+    planId?: string | null;
+    planType?: string | null;
+    quotaUsed?: number | null;
+    quotaLimit?: number | null;
+    meta?: Record<string, unknown> | null;
+  }) => {
+    admin
+      .from('expert_ai_access_logs')
+      .insert({
+        user_id: uid,
+        expert_id: row.expertId ?? null,
+        expert_slug: row.expertSlug ?? null,
+        decision: row.decision,
+        rule: row.rule,
+        subscription_status: row.subscriptionStatus ?? null,
+        plan_id: row.planId ?? null,
+        plan_type: row.planType ?? null,
+        quota_used: row.quotaUsed ?? null,
+        quota_limit: row.quotaLimit ?? null,
+        meta: row.meta ?? null,
+      })
+      .then(({ error }) => {
+        if (error) log.warn('access_log_insert_failed', { err: error.message });
+      });
+  };
+
   // 1) 取 expert 基本資料
   const { data: expert } = await admin
     .from('experts')
-    .select('id, name, user_id, bio, strategy_summary, style_tags, risk_preference, operation_cycle')
+    .select('id, slug, name, user_id, bio, strategy_summary, style_tags, risk_preference, operation_cycle')
     .eq('id', expertId)
     .maybeSingle();
-  if (!expert) return errorResponse('expert not found', 404);
+  if (!expert) {
+    logAccess({ expertId, decision: 'denied', rule: 'expert_not_found' });
+    return errorResponse('expert not found', 404);
+  }
 
   // 2) 權限: 本人 / company_admin / 有效訂閱
   let allowed = expert.user_id === uid;
+  let hitRule: string = allowed ? 'own_expert' : '';
+  let hitPlanId: string | null = null;
+  let hitPlanType: string | null = null;
+  let subscriptionStatus: string | null = allowed ? 'exempt_owner' : null;
+
   if (!allowed) {
     const { data: role } = await admin
       .from('user_roles')
@@ -56,20 +97,49 @@ Deno.serve(withLogging('expert-ai-chat', async (req, log) => {
       .eq('user_id', uid)
       .eq('role', 'company_admin')
       .maybeSingle();
-    if (role) allowed = true;
+    if (role) {
+      allowed = true;
+      hitRule = 'company_admin';
+      subscriptionStatus = 'exempt_admin';
+    }
   }
   if (!allowed) {
     const { data: sub } = await admin
       .from('member_subscriptions')
-      .select('id, expert_plans!inner(expert_id)')
+      .select('id, status, plan_id, expert_plans!inner(expert_id, plan_type)')
       .eq('user_id', uid)
       .eq('status', 'active')
       .eq('expert_plans.expert_id', expertId)
       .limit(1)
       .maybeSingle();
-    if (sub) allowed = true;
+    if (sub) {
+      allowed = true;
+      hitRule = 'active_subscription';
+      subscriptionStatus = (sub as any).status ?? 'active';
+      hitPlanId = (sub as any).plan_id ?? null;
+      hitPlanType = ((sub as any).expert_plans?.plan_type) ?? null;
+    } else {
+      // 查歷史訂閱以區分「從未訂閱」vs「已過期」
+      const { data: any_sub } = await admin
+        .from('member_subscriptions')
+        .select('status, expert_plans!inner(expert_id)')
+        .eq('user_id', uid)
+        .eq('expert_plans.expert_id', expertId)
+        .limit(1)
+        .maybeSingle();
+      subscriptionStatus = any_sub ? ((any_sub as any).status ?? 'expired') : 'none';
+    }
   }
-  if (!allowed) return errorResponse('需訂閱該導師才能使用 AI 對話', 403, { code: 'SUBSCRIPTION_REQUIRED' });
+  if (!allowed) {
+    logAccess({
+      expertId,
+      expertSlug: expert.slug,
+      decision: 'denied',
+      rule: 'no_active_subscription',
+      subscriptionStatus,
+    });
+    return errorResponse('需訂閱該導師才能使用 AI 對話', 403, { code: 'SUBSCRIPTION_REQUIRED' });
+  }
 
   // 2.5) 每日配額檢查（跨所有導師合計；company_admin 與導師本人豁免）
   const quota = await getExpertAiQuota(admin, uid, {
@@ -77,12 +147,38 @@ Deno.serve(withLogging('expert-ai-chat', async (req, log) => {
     expertOwnerId: expert.user_id,
   });
   if (!quota.unlimited && quota.remaining <= 0) {
+    logAccess({
+      expertId,
+      expertSlug: expert.slug,
+      decision: 'denied',
+      rule: 'quota_exceeded',
+      subscriptionStatus,
+      planId: hitPlanId,
+      planType: hitPlanType,
+      quotaUsed: quota.used ?? null,
+      quotaLimit: quota.limit ?? null,
+    });
     return errorResponse(
       `今日 AI 對話已達上限（${quota.limit} 則／日），明日 00:00 重置或升級方案以取得更高額度。`,
       429,
       { code: 'AI_CHAT_QUOTA_EXCEEDED', quota },
     );
   }
+
+  // 存取通過 — 記錄命中規則
+  logAccess({
+    expertId,
+    expertSlug: expert.slug,
+    decision: 'allowed',
+    rule: hitRule,
+    subscriptionStatus,
+    planId: hitPlanId,
+    planType: hitPlanType,
+    quotaUsed: quota.used ?? null,
+    quotaLimit: quota.unlimited ? null : (quota.limit ?? null),
+  });
+
+
 
 
   // 3) 取或建 conversation

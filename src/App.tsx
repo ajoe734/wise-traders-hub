@@ -151,6 +151,7 @@ const CompanyAlerts = lazy(() => import("./pages/company/Alerts"));
 const CompanyRoasLtv = lazy(() => import("./pages/company/RoasLtv"));
 const CompanyAdSpend = lazy(() => import("./pages/company/AdSpend"));
 const CompanyExpertRevenue = lazy(() => import("./pages/company/ExpertRevenue"));
+const CompanyExpertAiAccessLogs = lazy(() => import("./pages/company/ExpertAiAccessLogs"));
 
 const RealtimeBridge = () => {
   useSignalRealtimeInvalidation();
@@ -341,6 +342,7 @@ const AppShell = () => (
             <Route path="/company/roas-ltv" element={<ProtectedRoute requiredRole="company_admin"><CompanyRoasLtv /></ProtectedRoute>} />
             <Route path="/company/ad-spend" element={<ProtectedRoute requiredRole="company_admin"><CompanyAdSpend /></ProtectedRoute>} />
             <Route path="/company/expert-revenue" element={<ProtectedRoute requiredRole="company_admin"><CompanyExpertRevenue /></ProtectedRoute>} />
+            <Route path="/company/expert-ai-access-logs" element={<ProtectedRoute requiredRole="company_admin"><CompanyExpertAiAccessLogs /></ProtectedRoute>} />
 
             {/* Admin */}
             <Route path="/admin/:expertSlug" element={<ProtectedRoute><AdminDashboard /></ProtectedRoute>} />

@@ -1148,6 +1148,54 @@ export type Database = {
         }
         Relationships: []
       }
+      expert_ai_access_logs: {
+        Row: {
+          created_at: string
+          decision: string
+          expert_id: string | null
+          expert_slug: string | null
+          id: string
+          meta: Json | null
+          plan_id: string | null
+          plan_type: string | null
+          quota_limit: number | null
+          quota_used: number | null
+          rule: string
+          subscription_status: string | null
+          user_id: string | null
+        }
+        Insert: {
+          created_at?: string
+          decision: string
+          expert_id?: string | null
+          expert_slug?: string | null
+          id?: string
+          meta?: Json | null
+          plan_id?: string | null
+          plan_type?: string | null
+          quota_limit?: number | null
+          quota_used?: number | null
+          rule: string
+          subscription_status?: string | null
+          user_id?: string | null
+        }
+        Update: {
+          created_at?: string
+          decision?: string
+          expert_id?: string | null
+          expert_slug?: string | null
+          id?: string
+          meta?: Json | null
+          plan_id?: string | null
+          plan_type?: string | null
+          quota_limit?: number | null
+          quota_used?: number | null
+          rule?: string
+          subscription_status?: string | null
+          user_id?: string | null
+        }
+        Relationships: []
+      }
       expert_ai_conversations: {
         Row: {
           created_at: string
@@ -3795,6 +3843,7 @@ export type Database = {
       cleanup_account_link_codes: { Args: never; Returns: undefined }
       cleanup_line_oauth_states: { Args: never; Returns: undefined }
       cleanup_old_announcements: { Args: never; Returns: undefined }
+      cleanup_old_expert_ai_access_logs: { Args: never; Returns: undefined }
       cleanup_old_perf_metrics: { Args: never; Returns: undefined }
       cleanup_old_traffic: { Args: never; Returns: undefined }
       cleanup_processed_webhook_events: { Args: never; Returns: number }
