@@ -50,6 +50,7 @@ export default function ReviewTab({ expertId, canEdit }: Props) {
   const [editTitle, setEditTitle] = useState('');
   const [editContent, setEditContent] = useState('');
   const [savingEdit, setSavingEdit] = useState(false);
+  const [lastError, setLastError] = useState<LastEdgeError | null>(null);
 
   const openEdit = (i: PendingItem) => {
     setEditing(i);
