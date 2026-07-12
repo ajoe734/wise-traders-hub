@@ -347,11 +347,15 @@ Deno.serve(withLogging('expert-ai-training', async (req, log) => {
         return jsonResponse({ ok: true, session: data, revision: nextRev.length });
       }
 
-      case 'generate_suggestions': {
+      case 'generate_suggestions':
+      case 'regenerate_suggestions': {
+        // regenerate_suggestions：先把當前 suggested_* 快照進 revisions[]，再重跑一次
         const id = body.id as string;
         if (!id) return errorResponse('id required', 400);
         const { data: session } = await admin.from('expert_ai_training_sessions').select('*').eq('id', id).eq('expert_id', expertId).maybeSingle();
         if (!session) return errorResponse('session not found', 404);
+        if (session.status === 'completed') return errorResponse('session 已完成，無法重跑', 400);
+        const isRegen = action === 'regenerate_suggestions';
 
         const weekStart = session.week_start;
         const { startIso, endIso } = taipeiWeekRangeUtc(weekStart);
