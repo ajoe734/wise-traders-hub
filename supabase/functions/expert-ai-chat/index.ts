@@ -372,7 +372,7 @@ Deno.serve(withLogging('expert-ai-chat', async (req, log) => {
           total_tokens: totalTokens,
           duration_ms: Date.now() - startedAt,
           finish_reason: finishReason ?? null,
-          cost_usd: estimateCostUsd(MODEL, promptTokens, completionTokens),
+          cost_usd: estimateCostUsd(activeModel, promptTokens, completionTokens),
           meta: null,
         });
       } catch (err) {
