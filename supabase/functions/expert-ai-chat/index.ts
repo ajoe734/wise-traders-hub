@@ -31,7 +31,10 @@ Deno.serve(withLogging('expert-ai-chat', async (req, log) => {
   }
 
   const authHeader = req.headers.get('Authorization');
-  if (!authHeader) return errorResponse('unauthorized', 401);
+  if (!authHeader) {
+    log.warn('auth_missing');
+    return errorResponse('unauthorized', 401, { code: 'AUTH_REQUIRED' });
+  }
 
   const body = await req.json().catch(() => ({}));
   const expertId = body.expert_id as string | undefined;
@@ -43,9 +46,18 @@ Deno.serve(withLogging('expert-ai-chat', async (req, log) => {
   const userClient = createClient(SUPABASE_URL, ANON_KEY, {
     global: { headers: { Authorization: authHeader } },
   });
-  const { data: userData } = await userClient.auth.getUser();
+  const { data: userData, error: authErr } = await userClient.auth.getUser();
+  if (authErr) {
+    log.warn('auth_get_user_failed', { message: authErr.message });
+  }
   const uid = userData?.user?.id;
-  if (!uid) return errorResponse('unauthorized', 401);
+  if (!uid) {
+    log.warn('auth_no_user', {
+      hasBearer: authHeader.toLowerCase().startsWith('bearer '),
+      tokenLikelyPublishableKey: authHeader.includes('.') && authHeader.length < 260,
+    });
+    return errorResponse('unauthorized', 401, { code: 'AUTH_REQUIRED' });
+  }
 
   const admin = createClient(SUPABASE_URL, SERVICE_KEY);
 
