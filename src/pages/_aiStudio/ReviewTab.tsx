@@ -158,13 +158,13 @@ export default function ReviewTab({ expertId, canEdit }: Props) {
               {items.map((i) => {
                 const s = sourceLabel[i.source_type] || { label: i.source_type, cls: 'bg-muted text-muted-foreground' };
                 return (
-                  <label
+                  <div
                     key={i.id}
-                    className={`flex gap-3 border rounded-lg p-3 cursor-pointer transition-colors ${picked[i.id] ? 'border-primary/60 bg-primary/5' : 'hover:bg-muted/40'}`}
+                    className={`flex gap-3 border rounded-lg p-3 transition-colors ${picked[i.id] ? 'border-primary/60 bg-primary/5' : 'hover:bg-muted/40'}`}
                   >
                     <Checkbox
                       checked={!!picked[i.id]}
-                      onCheckedChange={(v) => setPicked((s) => ({ ...s, [i.id]: !!v }))}
+                      onCheckedChange={(v) => setPicked((prev) => ({ ...prev, [i.id]: !!v }))}
                       disabled={!canEdit}
                       className="mt-0.5"
                     />
@@ -183,7 +183,14 @@ export default function ReviewTab({ expertId, canEdit }: Props) {
                       {i.title && <p className="font-medium text-sm">{i.title}</p>}
                       <p className="text-sm text-muted-foreground whitespace-pre-wrap line-clamp-6">{i.content}</p>
                     </div>
-                  </label>
+                    {canEdit && (
+                      <div className="shrink-0">
+                        <Button size="sm" variant="ghost" onClick={() => openEdit(i)} className="gap-1 h-8 text-xs">
+                          <Pencil className="h-3.5 w-3.5" />編輯
+                        </Button>
+                      </div>
+                    )}
+                  </div>
                 );
               })}
             </div>
@@ -191,6 +198,43 @@ export default function ReviewTab({ expertId, canEdit }: Props) {
         )}
         {isRefetching && <p className="text-xs text-muted-foreground text-center">更新中…</p>}
       </CardContent>
+
+      <Dialog open={!!editing} onOpenChange={(o) => !o && setEditing(null)}>
+        <DialogContent className="max-w-2xl">
+          <DialogHeader>
+            <DialogTitle>編輯候選條目</DialogTitle>
+          </DialogHeader>
+          <div className="space-y-3">
+            <div>
+              <label className="text-xs text-muted-foreground">標題（選填）</label>
+              <Input value={editTitle} onChange={(e) => setEditTitle(e.target.value)} />
+            </div>
+            <div>
+              <label className="text-xs text-muted-foreground">
+                內容 <span className="text-destructive">*</span>（儲存時會重新計算 embedding）
+              </label>
+              <Textarea
+                value={editContent}
+                onChange={(e) => setEditContent(e.target.value)}
+                className="min-h-[260px]"
+                maxLength={6000}
+              />
+              <p className="text-xs text-right text-muted-foreground mt-1">{editContent.length} / 6000</p>
+            </div>
+          </div>
+          <DialogFooter className="gap-2">
+            <Button variant="outline" onClick={() => setEditing(null)} disabled={savingEdit}>取消</Button>
+            <Button variant="secondary" onClick={() => saveEdit(false)} disabled={savingEdit} className="gap-1.5">
+              {savingEdit && <Loader2 className="h-4 w-4 animate-spin" />}
+              僅儲存
+            </Button>
+            <Button onClick={() => saveEdit(true)} disabled={savingEdit} className="gap-1.5">
+              {savingEdit && <Loader2 className="h-4 w-4 animate-spin" />}
+              <CheckCircle2 className="h-4 w-4" />儲存並核可
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
     </Card>
   );
 }
