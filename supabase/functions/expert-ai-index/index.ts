@@ -174,7 +174,8 @@ Deno.serve(withLogging('expert-ai-index', async (req, log) => {
       }).eq('id', runId!);
     }
 
-    const { error: delErr } = await admin.from('expert_knowledge_chunks').delete().eq('expert_id', expertId);
+    const { error: delErr } = await admin.from('expert_knowledge_chunks')
+      .delete().eq('expert_id', expertId).eq('is_manual', false);
     if (delErr) {
       await finish({ status: 'failed', error_message: 'delete failed: ' + delErr.message, indexed_chunks: 0, embed_failures: embedFailures });
       return errorResponse('delete failed: ' + delErr.message, 500);
