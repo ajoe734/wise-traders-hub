@@ -11,6 +11,16 @@ import { getExpertAiQuota } from '../_shared/expert-ai-quota.ts';
 
 const MODEL = 'google/gemini-2.5-flash';
 
+// 保險：任何漏接的 promise rejection 都不要讓 isolate 被 Deno kill。
+// 沒這行時 fire-and-forget insert 若失敗，會讓 in-flight 的 SSE stream 被截斷 → 前端「Failed to fetch」。
+try {
+  addEventListener('unhandledrejection', (e) => {
+    try { console.error('[expert-ai-chat] unhandledrejection', (e as any)?.reason); } catch { /* noop */ }
+    try { (e as any).preventDefault?.(); } catch { /* noop */ }
+  });
+} catch { /* noop */ }
+
+
 Deno.serve(withLogging('expert-ai-chat', async (req, log) => {
   const LOVABLE_API_KEY = Deno.env.get('LOVABLE_API_KEY');
   const SUPABASE_URL = Deno.env.get('SUPABASE_URL');
