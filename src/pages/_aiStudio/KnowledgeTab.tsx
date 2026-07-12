@@ -9,6 +9,7 @@ import { Plus, Loader2, Trash2, Pencil, CheckCircle2, XCircle, Clock } from 'luc
 import { toast } from 'sonner';
 import { useQuery } from '@tanstack/react-query';
 import { edgeCall, formatEdgeError } from '@/lib/aiStudioInvoke';
+import ErrorDetailsPanel, { fromEdgeError, type LastEdgeError } from './ErrorDetailsPanel';
 
 interface Props { expertId: string; canEdit: boolean; isCompanyAdmin: boolean; }
 
@@ -39,6 +40,7 @@ export default function KnowledgeTab({ expertId, canEdit, isCompanyAdmin }: Prop
   const [title, setTitle] = useState('');
   const [content, setContent] = useState('');
   const [saving, setSaving] = useState(false);
+  const [lastError, setLastError] = useState<LastEdgeError | null>(null);
 
   const openAdd = () => { setTitle(''); setContent(''); setDialog({ mode: 'add' }); };
   const openEdit = (c: Chunk) => { setTitle(c.title || ''); setContent(c.content); setDialog({ mode: 'edit', chunk: c }); };
@@ -54,10 +56,12 @@ export default function KnowledgeTab({ expertId, canEdit, isCompanyAdmin }: Prop
         await call('update_chunk', expertId, { id: dialog.chunk.id, title, content });
         toast.success('知識條目已更新');
       }
+      setLastError(null);
       setDialog(null);
       refetch();
     } catch (e) {
       toast.error(formatEdgeError(e, '儲存失敗'));
+      setLastError(fromEdgeError('儲存知識條目失敗', e, { action: dialog?.mode === 'add' ? 'add_chunk' : 'update_chunk' }));
     } finally { setSaving(false); }
   };
 
@@ -67,7 +71,10 @@ export default function KnowledgeTab({ expertId, canEdit, isCompanyAdmin }: Prop
       await call('delete_chunk', expertId, { id });
       toast.success('已刪除');
       refetch();
-    } catch (e) { toast.error(formatEdgeError(e, '刪除失敗')); }
+    } catch (e) {
+      toast.error(formatEdgeError(e, '刪除失敗'));
+      setLastError(fromEdgeError('刪除知識條目失敗', e, { action: 'delete_chunk', candidateId: id }));
+    }
   };
 
   const review = async (id: string, status: 'approved' | 'rejected') => {
@@ -75,11 +82,15 @@ export default function KnowledgeTab({ expertId, canEdit, isCompanyAdmin }: Prop
       await call('update_chunk', expertId, { id, status });
       toast.success(status === 'approved' ? '已核可' : '已退回');
       refetch();
-    } catch (e) { toast.error(formatEdgeError(e, '審核失敗')); }
+    } catch (e) {
+      toast.error(formatEdgeError(e, '審核失敗'));
+      setLastError(fromEdgeError(status === 'approved' ? '核可失敗' : '退回失敗', e, { action: 'update_chunk', candidateId: id }));
+    }
   };
 
   return (
     <div className="space-y-4">
+      <ErrorDetailsPanel error={lastError} onDismiss={() => setLastError(null)} />
       <Card>
         <CardHeader>
           <CardTitle className="text-base">知識庫條目</CardTitle>
