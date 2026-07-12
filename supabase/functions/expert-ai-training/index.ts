@@ -402,8 +402,9 @@ Deno.serve(withLogging('expert-ai-training', async (req, log) => {
           suggestedKnowledge = (res.output?.knowledge || []).map((k, i) => ({ id: `k${i + 1}`, ...k }));
           suggestedJournalEdits = (res.output?.journal_edits || []).map((j, i) => ({ id: `e${i + 1}`, ...j }));
         } catch (e) {
-          log.error('gen_suggestions_failed', { err: (e as Error).message });
-          return errorResponse('AI 產出候選條目失敗：' + (e as Error).message, 500);
+          const msg = (e as Error).message;
+          log.error('gen_suggestions_failed', { err: msg, isRegen });
+          return errorResponse('AI 產出候選條目失敗：' + msg, 500, { requestId: log.requestId, stage: isRegen ? 'regen_suggestions' : 'gen_suggestions', action });
         }
 
         const patch: Record<string, unknown> = {
