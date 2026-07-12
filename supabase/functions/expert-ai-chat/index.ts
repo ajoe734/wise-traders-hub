@@ -7,6 +7,7 @@ import { corsHeaders, errorResponse, generateErrorId } from '../_shared/cors.ts'
 import { formatStreamErrorMessage } from '../_shared/stream-error.ts';
 import { withLogging } from '../_shared/edgeLogger.ts';
 import { createLovableAiGatewayProvider, embedText } from '../_shared/ai-gateway.ts';
+import { estimateCostUsd } from '../_shared/ai-gateway-pricing.ts';
 import { getExpertAiQuota } from '../_shared/expert-ai-quota.ts';
 
 const MODEL = 'openai/gpt-5';
