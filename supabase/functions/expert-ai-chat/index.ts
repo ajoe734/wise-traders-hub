@@ -328,7 +328,8 @@ Deno.serve(withLogging('expert-ai-chat', async (req, log) => {
   ].filter(Boolean).join('\n');
 
   const gateway = createLovableAiGatewayProvider(LOVABLE_API_KEY);
-  const model = gateway(MODEL);
+  const activeModel = (persona?.model && String(persona.model).startsWith('openai/')) ? persona.model : MODEL;
+  const model = gateway(activeModel);
   const startedAt = Date.now();
 
   const result = streamText({
