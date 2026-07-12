@@ -11,6 +11,16 @@ import { getExpertAiQuota } from '../_shared/expert-ai-quota.ts';
 
 const MODEL = 'google/gemini-2.5-flash';
 
+// 保險：任何漏接的 promise rejection 都不要讓 isolate 被 Deno kill。
+// 沒這行時 fire-and-forget insert 若失敗，會讓 in-flight 的 SSE stream 被截斷 → 前端「Failed to fetch」。
+try {
+  addEventListener('unhandledrejection', (e) => {
+    try { console.error('[expert-ai-chat] unhandledrejection', (e as any)?.reason); } catch { /* noop */ }
+    try { (e as any).preventDefault?.(); } catch { /* noop */ }
+  });
+} catch { /* noop */ }
+
+
 Deno.serve(withLogging('expert-ai-chat', async (req, log) => {
   const LOVABLE_API_KEY = Deno.env.get('LOVABLE_API_KEY');
   const SUPABASE_URL = Deno.env.get('SUPABASE_URL');
@@ -40,6 +50,8 @@ Deno.serve(withLogging('expert-ai-chat', async (req, log) => {
   const admin = createClient(SUPABASE_URL, SERVICE_KEY);
 
   // access log helper — 記錄每次決策（不阻塞主流程；失敗只 warn）
+  // 關鍵：必須 catch，否則 unhandled rejection 會讓 Deno isolate 被 kill，
+  // 前端就會收到「Failed to fetch」（stream 被截斷）。
   const logAccess = (row: {
     expertId?: string | null;
     expertSlug?: string | null;
@@ -52,24 +64,36 @@ Deno.serve(withLogging('expert-ai-chat', async (req, log) => {
     quotaLimit?: number | null;
     meta?: Record<string, unknown> | null;
   }) => {
-    admin
-      .from('expert_ai_access_logs')
-      .insert({
-        user_id: uid,
-        expert_id: row.expertId ?? null,
-        expert_slug: row.expertSlug ?? null,
-        decision: row.decision,
-        rule: row.rule,
-        subscription_status: row.subscriptionStatus ?? null,
-        plan_id: row.planId ?? null,
-        plan_type: row.planType ?? null,
-        quota_used: row.quotaUsed ?? null,
-        quota_limit: row.quotaLimit ?? null,
-        meta: row.meta ?? null,
-      })
-      .then(({ error }) => {
-        if (error) log.warn('access_log_insert_failed', { err: error.message });
-      });
+    try {
+      const p = admin
+        .from('expert_ai_access_logs')
+        .insert({
+          user_id: uid,
+          expert_id: row.expertId ?? null,
+          expert_slug: row.expertSlug ?? null,
+          decision: row.decision,
+          rule: row.rule,
+          subscription_status: row.subscriptionStatus ?? null,
+          plan_id: row.planId ?? null,
+          plan_type: row.planType ?? null,
+          quota_used: row.quotaUsed ?? null,
+          quota_limit: row.quotaLimit ?? null,
+          meta: row.meta ?? null,
+        })
+        .then(({ error }) => {
+          if (error) log.warn('access_log_insert_failed', { err: error.message });
+        }, (err) => {
+          log.warn('access_log_insert_threw', { err: err instanceof Error ? err.message : String(err) });
+        });
+      // 額外保險：即使 then 的 rejection handler 也 throw，也要 swallow
+      if (p && typeof (p as any).catch === 'function') {
+        (p as any).catch((err: unknown) => {
+          log.warn('access_log_unhandled', { err: err instanceof Error ? err.message : String(err) });
+        });
+      }
+    } catch (err) {
+      log.warn('access_log_sync_throw', { err: err instanceof Error ? err.message : String(err) });
+    }
   };
 
   // 1) 取 expert 基本資料

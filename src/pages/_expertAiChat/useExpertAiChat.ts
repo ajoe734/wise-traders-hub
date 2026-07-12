@@ -205,18 +205,13 @@ export function useExpertAiChat(expertId: string | null | undefined) {
         });
       }
       // 配額用完不自動重試；否則自動重試一次，第二次仍失敗才顯示手動重試按鈕
+      // 配額用完不自動重試；其他錯誤也不自動重試（避免連續 fetch 失敗造成「無限錯誤」感），
+      // 一律顯示手動重試按鈕由使用者決定。
       if (lastErrorQuotaRef.current) {
         setCanRetry(false);
         return;
       }
-      if (!autoRetriedRef.current) {
-        autoRetriedRef.current = true;
-        setTimeout(() => {
-          try { chat.regenerate(); } catch { setCanRetry(true); }
-        }, 600);
-      } else {
-        setCanRetry(true);
-      }
+      setCanRetry(true);
     },
   });
 
