@@ -279,17 +279,43 @@ Deno.serve(withLogging('expert-ai-chat', async (req, log) => {
       .eq('id', convId);
   }
 
-  // 6) 組 system prompt
+  // 6) 讀 persona / few-shots 覆寫
+  const [{ data: persona }, { data: fewshots }] = await Promise.all([
+    admin.from('expert_ai_personas').select('*').eq('expert_id', expertId).maybeSingle(),
+    admin.from('expert_ai_fewshots').select('question, answer').eq('expert_id', expertId).eq('status', 'approved').order('sort_order').limit(20),
+  ]);
+
+  const personaSection = persona?.system_prompt?.trim()
+    ? persona.system_prompt.trim()
+    : [
+        `你是「${expert.name}」的 AI 分身。以第一人稱、口語、貼近該導師的實戰語氣回答用戶。`,
+        expert.bio ? `個人簡介：${expert.bio.replace(/<[^>]+>/g, ' ').slice(0, 500)}` : '',
+        expert.strategy_summary ? `策略摘要：${expert.strategy_summary.replace(/<[^>]+>/g, ' ').slice(0, 500)}` : '',
+        expert.risk_preference ? `風險偏好：${expert.risk_preference}` : '',
+        expert.operation_cycle ? `操作週期：${expert.operation_cycle}` : '',
+        expert.style_tags?.length ? `風格標籤：${expert.style_tags.join('、')}` : '',
+      ].filter(Boolean).join('\n');
+
+  const toneLine = persona?.tone?.length ? `語氣關鍵字：${persona.tone.join('、')}` : '';
+  const forbiddenLine = persona?.forbidden_topics?.length
+    ? `不可談論主題：${persona.forbidden_topics.join('、')}`
+    : '';
+  const disclaimerLine = persona?.disclaimer?.trim() ? `免責聲明：${persona.disclaimer.trim()}` : '';
+
+  const fewshotSection = (fewshots?.length ? fewshots : []).map((f, i) =>
+    `【示範 ${i + 1}】\n訂閱者問：${f.question}\n老師答：${f.answer}`
+  ).join('\n\n');
+
   const systemPrompt = [
-    `你是「${expert.name}」的 AI 分身。以第一人稱、口語、貼近該導師的實戰語氣回答用戶。`,
-    expert.bio ? `個人簡介：${expert.bio.replace(/<[^>]+>/g, ' ').slice(0, 500)}` : '',
-    expert.strategy_summary ? `策略摘要：${expert.strategy_summary.replace(/<[^>]+>/g, ' ').slice(0, 500)}` : '',
-    expert.risk_preference ? `風險偏好：${expert.risk_preference}` : '',
-    expert.operation_cycle ? `操作週期：${expert.operation_cycle}` : '',
-    expert.style_tags?.length ? `風格標籤：${expert.style_tags.join('、')}` : '',
+    personaSection,
+    toneLine,
+    forbiddenLine,
+    disclaimerLine,
     '',
     '以下是老師過往週記／交易原文（作為知識依據，不要逐字複讀，用你自己的話講）：',
     ragContext || '（尚無檢索結果）',
+    '',
+    fewshotSection ? `以下是老師預先示範過的問答風格，請對照語氣與立場：\n\n${fewshotSection}` : '',
     '',
     '嚴格規則（不可違反）：',
     '- 不得使用「必漲、穩賺、保證、包賺」等字眼，不得承諾任何收益。',
