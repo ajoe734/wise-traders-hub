@@ -67,7 +67,7 @@ Deno.serve(withLogging('expert-ai-training', async (req, log) => {
       case 'list_weeks': {
         // 抓最近 12 週有發佈週記的 week_start
         const since = new Date(Date.now() - 12 * 7 * 86400000).toISOString();
-        const { data: signals } = await admin
+        const { data: signals, error: sigErr } = await admin
           .from('expert_signals')
           .select('id, published_at')
           .eq('expert_id', expertId)
@@ -75,6 +75,7 @@ Deno.serve(withLogging('expert-ai-training', async (req, log) => {
           .gte('published_at', since)
           .order('published_at', { ascending: false })
           .limit(500);
+        if (sigErr) throw sigErr;
 
         const bucket = new Map<string, { week_start: string; signal_count: number; latest_published_at: string }>();
         for (const s of signals || []) {
@@ -86,11 +87,12 @@ Deno.serve(withLogging('expert-ai-training', async (req, log) => {
         }
         const weeks = Array.from(bucket.values()).sort((a, b) => b.week_start.localeCompare(a.week_start));
 
-        const { data: sessions } = await admin
+        const { data: sessions, error: seErr } = await admin
           .from('expert_ai_training_sessions')
           .select('id, week_start, status, updated_at')
           .eq('expert_id', expertId)
           .in('week_start', weeks.map((w) => w.week_start));
+        if (seErr) throw seErr;
 
         const byWeek = new Map<string, any>();
         for (const s of sessions || []) byWeek.set(s.week_start, s);
