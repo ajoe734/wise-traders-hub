@@ -144,13 +144,13 @@ function SessionView({ expertId, sessionId, canEdit, onBack }: { expertId: strin
   const [accepting, setAccepting] = useState(false);
   const [picked, setPicked] = useState<Record<string, boolean>>({});
 
-  // hydrate answers on load
-  if (session && Object.keys(answers).length === 0 && Array.isArray(session.answers) && session.answers.length > 0) {
-    const map: Record<string, string> = {};
-    for (const a of session.answers) map[a.id] = a.answer || '';
-    // only set once
-    setTimeout(() => setAnswers(map), 0);
-  }
+  useEffect(() => {
+    if (session && Array.isArray(session.answers) && session.answers.length > 0) {
+      const map: Record<string, string> = {};
+      for (const a of session.answers) map[a.id] = a.answer || '';
+      setAnswers((prev) => (Object.keys(prev).length === 0 ? map : prev));
+    }
+  }, [session]);
 
   const questions: Question[] = session?.ai_questions || [];
   const suggested: KnowledgeCand[] = session?.suggested_knowledge || [];
