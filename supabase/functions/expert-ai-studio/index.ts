@@ -180,7 +180,7 @@ Deno.serve(withLogging('expert-ai-studio', async (req, log) => {
               const vec = await embedText(LOVABLE_API_KEY, c);
               patch.embedding = `[${vec.join(',')}]`;
             } catch (e) {
-              return errorResponse('re-embed failed: ' + (e as Error).message, 500);
+              return errorResponse('re-embed failed: ' + (e as Error).message, 500, { requestId: log.requestId, stage: 're_embed', action: 'update_chunk', candidateId: id });
             }
           }
         }
