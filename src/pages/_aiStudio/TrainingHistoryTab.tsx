@@ -142,6 +142,7 @@ function ListView({ expertId, onOpen }: { expertId: string; onOpen: (id: string)
                     <span className="text-emerald-700">已納入 <b>{s.accepted_count}</b></span>
                     {s.accepted_pending_count > 0 && <span className="text-amber-700">待審 <b>{s.accepted_pending_count}</b></span>}
                     {s.rejected_count > 0 && <span className="text-destructive">退回 <b>{s.rejected_count}</b></span>}
+                    {s.revision_count > 0 && <span className="text-muted-foreground">v{s.revision_count + 1}</span>}
                   </div>
                 </div>
               </button>
