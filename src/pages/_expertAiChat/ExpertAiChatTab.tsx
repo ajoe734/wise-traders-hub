@@ -13,6 +13,12 @@ interface Props {
   expertName: string;
   isSubscribed: boolean;
   onSubscribeClick?: () => void;
+  /** 未訂閱時的鎖定原因：'expired' 為曾訂閱但已過期/取消；'none' 為從未訂閱 */
+  lockReason?: 'expired' | 'none';
+  /** 主要方案名稱（顯示於 CTA 說明） */
+  planLabel?: string;
+  /** 專家角色配色 */
+  rolePalette?: 'advisor' | 'mentor';
 }
 
 const SUGGESTIONS = [
