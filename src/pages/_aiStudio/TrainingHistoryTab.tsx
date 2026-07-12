@@ -177,6 +177,7 @@ function DetailView({ expertId, sessionId, onBack }: { expertId: string; session
   const answers = session.answers || [];
   const suggested = session.suggested_knowledge || [];
   const journalEdits = session.suggested_journal_edits || [];
+  const revisions: Revision[] = session.revisions || [];
 
   const answerFor = (qid: string) => answers.find((a) => a?.id === qid)?.answer || '';
 
