@@ -502,6 +502,6 @@ Deno.serve(withLogging('expert-ai-training', async (req, log) => {
   } catch (e) {
     const msg = (e as Error).message || 'unknown error';
     log.error('training_failed', { action, err: msg });
-    return errorResponse(msg, 500);
+    return errorResponse(msg, 500, { requestId: log.requestId, action });
   }
 }));
