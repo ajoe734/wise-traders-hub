@@ -40,6 +40,7 @@ export default function KnowledgeTab({ expertId, canEdit, isCompanyAdmin }: Prop
   const [title, setTitle] = useState('');
   const [content, setContent] = useState('');
   const [saving, setSaving] = useState(false);
+  const [lastError, setLastError] = useState<LastEdgeError | null>(null);
 
   const openAdd = () => { setTitle(''); setContent(''); setDialog({ mode: 'add' }); };
   const openEdit = (c: Chunk) => { setTitle(c.title || ''); setContent(c.content); setDialog({ mode: 'edit', chunk: c }); };
