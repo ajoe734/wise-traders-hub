@@ -58,6 +58,7 @@ interface AcceptedChunk {
   id: string; title: string | null; content: string;
   status: 'pending' | 'approved' | 'rejected';
   source_type: string; created_at: string; reviewed_at: string | null;
+  metadata: Record<string, unknown> | null;
 }
 
 const statusMap: Record<string, { label: string; cls: string }> = {
