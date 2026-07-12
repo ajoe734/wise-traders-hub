@@ -74,7 +74,7 @@ Deno.serve(withLogging('expert-ai-training', async (req, log) => {
         const bucket = new Map<string, { week_start: string; signal_count: number; latest_published_at: string }>();
         for (const s of signals || []) {
           if (!s.published_at) continue;
-          const wk = isoMonday(new Date(s.published_at));
+          const wk = taipeiMondayOf(new Date(s.published_at));
           const cur = bucket.get(wk);
           if (!cur) bucket.set(wk, { week_start: wk, signal_count: 1, latest_published_at: s.published_at });
           else { cur.signal_count += 1; if (s.published_at > cur.latest_published_at) cur.latest_published_at = s.published_at; }
