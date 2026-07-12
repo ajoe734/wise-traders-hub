@@ -9,7 +9,7 @@ import { withLogging } from '../_shared/edgeLogger.ts';
 import { createLovableAiGatewayProvider, embedText } from '../_shared/ai-gateway.ts';
 import { getExpertAiQuota } from '../_shared/expert-ai-quota.ts';
 
-const MODEL = 'google/gemini-2.5-flash';
+const MODEL = 'openai/gpt-5';
 
 // 保險：任何漏接的 promise rejection 都不要讓 isolate 被 Deno kill。
 // 沒這行時 fire-and-forget insert 若失敗，會讓 in-flight 的 SSE stream 被截斷 → 前端「Failed to fetch」。
