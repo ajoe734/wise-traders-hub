@@ -312,6 +312,6 @@ Deno.serve(withLogging('expert-ai-studio', async (req, log) => {
   } catch (e) {
     const msg = (e as Error).message || 'unknown error';
     log.error('studio_failed', { action, err: msg });
-    return errorResponse(msg, 500);
+    return errorResponse(msg, 500, { requestId: log.requestId, action });
   }
 }));
