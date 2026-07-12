@@ -70,8 +70,12 @@ export default function ReviewTab({ expertId, canEdit }: Props) {
       await call('update_chunk', expertId, { id: editing.id, title: editTitle, content: editContent });
       if (thenApprove) {
         const res = await call('bulk_review_chunks', expertId, { ids: [editing.id], decision: 'approve' });
-        if (res.failed?.length) toast.error(res.failed[0].error || '核可失敗');
-        else toast.success('已更新並核可');
+        if (res.failed?.length) {
+          toast.error(res.failed[0].error || '核可失敗，dialog 保留供你重試');
+          // 不關 dialog、不 refetch，讓使用者能重試
+          return;
+        }
+        toast.success('已更新並核可');
       } else {
         toast.success('已更新並重新索引');
       }
