@@ -113,10 +113,9 @@ export function ExpertAiChatTab({ expertId, expertName, isSubscribed, subscribed
     await sendMessage({ text: msg });
   };
 
-  const accessGranted = isSubscribed || isCompanyAdmin || isOwnExpert;
-
   if (!accessGranted) {
     const isExpired = lockReason === 'expired';
+
     const paletteBorder = rolePalette === 'advisor' ? 'border-advisor/30' : 'border-mentor/30';
     const paletteBg = rolePalette === 'advisor' ? 'bg-advisor/5' : 'bg-mentor/5';
     const paletteChip = rolePalette === 'advisor' ? 'bg-advisor/10 text-advisor' : 'bg-mentor/10 text-mentor';
