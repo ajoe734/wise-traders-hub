@@ -295,6 +295,8 @@ function SessionView({ expertId, sessionId, canEdit, onBack }: { expertId: strin
         </div>
       </div>
 
+      <ErrorDetailsPanel error={lastError} onDismiss={() => setLastError(null)} />
+
       {showHistory && revisions.length > 0 && (
         <Card>
           <CardHeader className="pb-2">
