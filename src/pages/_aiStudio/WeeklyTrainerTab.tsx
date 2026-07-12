@@ -205,6 +205,32 @@ function SessionView({ expertId, sessionId, canEdit, onBack }: { expertId: strin
     } catch (e: any) { toast.error(e.message); } finally { setAccepting(false); }
   };
 
+  const regenerateQuestions = async () => {
+    if (!confirm('重新產題會清空目前候選條目、保留你的回覆，並把現在的內容存成一個歷史版本，確定嗎？')) return;
+    setRegenQ(true);
+    try {
+      // 先把當前輸入中的答覆存回去，避免快照到舊值
+      const arr = questions.map((q) => ({ id: q.id, answer: answers[q.id] || '' }));
+      if (questions.length > 0) await call('save_answers', expertId, { id: sessionId, answers: arr });
+      const res = await call('regenerate_questions', expertId, { id: sessionId });
+      toast.success(`已重新產題（v${res.revision}）`);
+      setPicked({});
+      refetch();
+    } catch (e: any) { toast.error(e.message); } finally { setRegenQ(false); }
+  };
+  const regenerateSuggestions = async () => {
+    if (!confirm('重新產出候選條目會覆蓋現在的候選列表，並把現在的內容存成一個歷史版本，確定嗎？')) return;
+    setRegenS(true);
+    try {
+      const arr = questions.map((q) => ({ id: q.id, answer: answers[q.id] || '' }));
+      if (questions.length > 0) await call('save_answers', expertId, { id: sessionId, answers: arr });
+      const res = await call('regenerate_suggestions', expertId, { id: sessionId });
+      toast.success(`已重新產出候選（v${res.revision}）`);
+      setPicked({});
+      refetch();
+    } catch (e: any) { toast.error(e.message); } finally { setRegenS(false); }
+  };
+
   const complete = async () => {
     try { await call('complete_session', expertId, { id: sessionId }); toast.success('已標記完成'); refetch(); }
     catch (e: any) { toast.error(e.message); }
@@ -216,6 +242,7 @@ function SessionView({ expertId, sessionId, canEdit, onBack }: { expertId: strin
   };
 
   if (isLoading || !session) return <div className="p-6 text-center text-muted-foreground">載入中…</div>;
+  const revisions: Revision[] = session.revisions || [];
 
   return (
     <div className="space-y-4">
