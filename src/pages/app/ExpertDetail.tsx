@@ -97,6 +97,31 @@ const AppExpertDetail = () => {
     staleTime: 60_000,
   });
 
+  // Historical subs for this expert (any status/expiry) — used to distinguish
+  // "expired/canceled" vs "never subscribed" in the AI chat locked card.
+  const { data: expertSubHistory = [] } = useQuery({
+    queryKey: ['expert-sub-history', slug, user?.id],
+    queryFn: async () => {
+      if (!slug || !user?.id) return [] as Array<{ status: string; expires_at: string | null }>;
+      const { data: dbExpert } = await supabase.from('experts').select('id').eq('slug', slug).single();
+      if (!dbExpert) return [];
+      const { data: plans } = await supabase
+        .from('expert_plans')
+        .select('id')
+        .eq('expert_id', dbExpert.id);
+      const planIds = (plans || []).map((p: any) => p.id);
+      if (!planIds.length) return [];
+      const { data: subs } = await supabase
+        .from('member_subscriptions')
+        .select('status, expires_at')
+        .eq('user_id', user.id)
+        .in('plan_id', planIds);
+      return (subs || []) as Array<{ status: string; expires_at: string | null }>;
+    },
+    enabled: !!slug && !!user?.id,
+    staleTime: 60_000,
+  });
+
   // ⚠️ All hooks MUST be called before any early return (Rules of Hooks).
   const { isPreview, previewSlug } = usePreviewMode();
   const previewMatch = isPreview && previewSlug === slug;
