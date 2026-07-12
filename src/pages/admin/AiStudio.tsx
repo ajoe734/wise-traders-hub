@@ -3,12 +3,13 @@ import { useState } from 'react';
 import { useParams } from 'react-router-dom';
 import { AdminLayout } from '@/components/layouts/AdminLayout';
 import { Tabs, TabsList, TabsTrigger, TabsContent } from '@/components/ui/tabs';
-import { Sparkles, BookOpen, MessagesSquare, Database } from 'lucide-react';
+import { Sparkles, BookOpen, MessagesSquare, Database, CalendarCheck } from 'lucide-react';
 import { useAuth } from '@/contexts/AuthContext';
 import { useQuery } from '@tanstack/react-query';
 import { supabase } from '@/integrations/supabase/client';
 import PersonaTab from '@/pages/_aiStudio/PersonaTab';
 import KnowledgeTab from '@/pages/_aiStudio/KnowledgeTab';
+import WeeklyTrainerTab from '@/pages/_aiStudio/WeeklyTrainerTab';
 import FewshotTab from '@/pages/_aiStudio/FewshotTab';
 import IndexPanelTab from '@/pages/_aiStudio/IndexPanelTab';
 
