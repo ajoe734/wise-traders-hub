@@ -9,6 +9,7 @@ import { Plus, Loader2, Trash2, Pencil, CheckCircle2, XCircle, Clock } from 'luc
 import { toast } from 'sonner';
 import { useQuery } from '@tanstack/react-query';
 import { edgeCall, formatEdgeError } from '@/lib/aiStudioInvoke';
+import ErrorDetailsPanel, { fromEdgeError, type LastEdgeError } from './ErrorDetailsPanel';
 
 interface Props { expertId: string; canEdit: boolean; isCompanyAdmin: boolean; }
 
