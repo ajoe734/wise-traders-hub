@@ -27,7 +27,7 @@ const SUGGESTIONS = [
   '風險控管上你有什麼原則？',
 ];
 
-export function ExpertAiChatTab({ expertId, expertName, isSubscribed, onSubscribeClick }: Props) {
+export function ExpertAiChatTab({ expertId, expertName, isSubscribed, onSubscribeClick, lockReason = 'none', planLabel, rolePalette = 'mentor' }: Props) {
   const [input, setInput] = useState('');
   const textareaRef = useRef<HTMLTextAreaElement>(null);
   const scrollRef = useRef<HTMLDivElement>(null);
