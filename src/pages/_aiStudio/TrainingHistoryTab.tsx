@@ -272,7 +272,7 @@ function DetailView({ expertId, sessionId, onBack }: { expertId: string; session
           {suggested.length === 0 ? (
             <p className="text-sm text-muted-foreground">此 session 未產出候選條目。</p>
           ) : suggested.map((k) => {
-            const linked = k.title ? chunkByTitle.get(k.title) : undefined;
+            const linked = chunkByCandidate.get(k.id) ?? (k.title ? chunkByTitle.get(k.title) : undefined);
             const disposition = linked
               ? linked.status === 'approved' ? { label: '已納入', cls: 'text-emerald-700 border-emerald-400', icon: <CheckCircle2 className="h-3 w-3 mr-0.5" /> }
               : linked.status === 'rejected' ? { label: '已退回', cls: 'text-destructive border-destructive/60', icon: <XCircle className="h-3 w-3 mr-0.5" /> }
