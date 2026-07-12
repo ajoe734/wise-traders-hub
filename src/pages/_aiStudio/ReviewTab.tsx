@@ -226,13 +226,13 @@ export default function ReviewTab({ expertId, canEdit }: Props) {
               <p className="text-xs text-right text-muted-foreground mt-1">{editContent.length} / 6000</p>
             </div>
           </div>
-          <DialogFooter className="gap-2">
-            <Button variant="outline" onClick={() => setEditing(null)} disabled={savingEdit}>取消</Button>
-            <Button variant="secondary" onClick={() => saveEdit(false)} disabled={savingEdit} className="gap-1.5">
+          <DialogFooter className="gap-2 flex-col sm:flex-row">
+            <Button variant="outline" onClick={() => setEditing(null)} disabled={savingEdit} className="w-full sm:w-auto">取消</Button>
+            <Button variant="secondary" onClick={() => saveEdit(false)} disabled={savingEdit} className="gap-1.5 w-full sm:w-auto">
               {savingEdit && <Loader2 className="h-4 w-4 animate-spin" />}
               僅儲存
             </Button>
-            <Button onClick={() => saveEdit(true)} disabled={savingEdit} className="gap-1.5">
+            <Button onClick={() => saveEdit(true)} disabled={savingEdit} className="gap-1.5 w-full sm:w-auto">
               {savingEdit && <Loader2 className="h-4 w-4 animate-spin" />}
               <CheckCircle2 className="h-4 w-4" />儲存並核可
             </Button>
