@@ -34,9 +34,10 @@ interface Chunk {
 
 export default function KnowledgeTab({ expertId, canEdit, isCompanyAdmin }: Props) {
   const [scope, setScope] = useState<'manual' | 'all'>('manual');
+  const [statusFilter, setStatusFilter] = useState<'all' | 'pending' | 'approved' | 'rejected'>('all');
   const { data, isLoading, refetch } = useQuery({
-    queryKey: ['chunks', expertId, scope],
-    queryFn: () => call('list_chunks', expertId, { scope }),
+    queryKey: ['chunks', expertId, scope, statusFilter],
+    queryFn: () => call('list_chunks', expertId, { scope, status: statusFilter === 'all' ? undefined : statusFilter }),
   });
   const items: Chunk[] = data?.items || [];
 
