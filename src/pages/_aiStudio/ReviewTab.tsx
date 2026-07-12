@@ -65,7 +65,10 @@ export default function ReviewTab({ expertId, canEdit }: Props) {
       if (thenApprove) {
         const res = await call('bulk_review_chunks', expertId, { ids: [editing.id], decision: 'approve' });
         if (res.failed?.length) {
-          toast.error(res.failed[0].error || '核可失敗，dialog 保留供你重試');
+          const f = res.failed[0];
+          toast.error(
+            `核可失敗（${f.stage || '?'}）：${f.error || '未知'}\n[cand ${String(f.id).slice(0, 8)} · req ${String(res.requestId || '').slice(0, 8)}]`,
+          );
           // 不關 dialog、不 refetch，讓使用者能重試
           return;
         }
@@ -75,8 +78,8 @@ export default function ReviewTab({ expertId, canEdit }: Props) {
       }
       setEditing(null);
       refetch();
-    } catch (e: any) {
-      toast.error(e.message || '儲存失敗');
+    } catch (e) {
+      toast.error(formatEdgeError(e, '儲存失敗'));
     } finally { setSavingEdit(false); }
   };
 
