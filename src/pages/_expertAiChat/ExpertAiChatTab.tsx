@@ -58,7 +58,8 @@ export function ExpertAiChatTab({ expertId, expertName, isSubscribed, subscribed
     cancelStream,
     correlationId,
     requestId,
-  } = useExpertAiChat(isSubscribed ? expertId : null);
+  } = useExpertAiChat(accessGranted ? expertId : null);
+
 
   const isBusy = status === 'submitted' || status === 'streaming';
   const quotaExhausted = !!quota && !quota.unlimited && quota.remaining <= 0;
