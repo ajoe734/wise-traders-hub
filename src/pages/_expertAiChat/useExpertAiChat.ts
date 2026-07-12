@@ -89,11 +89,20 @@ export function useExpertAiChat(expertId: string | null | undefined) {
     })();
   }, [expertId]);
 
-  const [authToken, setAuthToken] = useState<string | null>(null);
+  const authTokenRef = useRef<string | null>(null);
   useEffect(() => {
+    let mounted = true;
     supabase.auth.getSession().then(({ data }) => {
-      setAuthToken(data.session?.access_token || null);
+      if (!mounted) return;
+      authTokenRef.current = data.session?.access_token || null;
     });
+    const { data: { subscription } } = supabase.auth.onAuthStateChange((_event, session) => {
+      authTokenRef.current = session?.access_token || null;
+    });
+    return () => {
+      mounted = false;
+      subscription.unsubscribe();
+    };
   }, []);
 
   const [canRetry, setCanRetry] = useState(false);
@@ -136,7 +145,7 @@ export function useExpertAiChat(expertId: string | null | undefined) {
       const rid = pendingRequestIdRef.current ?? genRequestId();
       pendingRequestIdRef.current = rid;
       return {
-        Authorization: `Bearer ${authToken || SUPABASE_PUBLISHABLE_KEY}`,
+        Authorization: `Bearer ${authTokenRef.current || SUPABASE_PUBLISHABLE_KEY}`,
         apikey: SUPABASE_PUBLISHABLE_KEY,
         'x-request-id': rid,
       };
@@ -144,7 +153,16 @@ export function useExpertAiChat(expertId: string | null | undefined) {
     body: () => ({ expert_id: expertId }),
     // 攔截非 2xx 回應 → 解析錯誤 body、更新配額 / errorId
     fetch: async (input, init) => {
-      const resp = await fetch(input as any, init);
+      // useChat/DefaultChatTransport 可能保留初次 render 的 transport；若當時 session 尚未
+      // hydrate，headers 會把公開 key 當 Authorization 送出，後端就會判定 unauthorized。
+      // 因此每次真正 fetch 前重新讀一次目前 session，並覆寫 Authorization。
+      const { data: { session } } = await supabase.auth.getSession();
+      const token = session?.access_token || authTokenRef.current;
+      if (token) authTokenRef.current = token;
+      const headers = new Headers(init?.headers);
+      headers.set('Authorization', `Bearer ${token || SUPABASE_PUBLISHABLE_KEY}`);
+      headers.set('apikey', SUPABASE_PUBLISHABLE_KEY);
+      const resp = await fetch(input as any, { ...init, headers });
       lastErrorQuotaRef.current = false;
       // 追蹤鏈 header：不論成功或失敗都讀（CORS Expose-Headers 已放行）
       const cid = resp.headers.get('x-correlation-id');
