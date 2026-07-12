@@ -269,7 +269,11 @@ Deno.serve(withLogging('expert-ai-training', async (req, log) => {
         const id = body.id as string;
         const answers = body.answers;
         if (!id || !Array.isArray(answers)) return errorResponse('id and answers required', 400);
-        const { data } = await admin.from('expert_ai_training_sessions').update({ answers }).eq('id', id).eq('expert_id', expertId).select().maybeSingle();
+        const { data: cur } = await admin.from('expert_ai_training_sessions').select('status').eq('id', id).eq('expert_id', expertId).maybeSingle();
+        if (!cur) return errorResponse('session not found', 404);
+        if (cur.status === 'completed') return errorResponse('session 已完成，無法再修改答覆', 400);
+        const { data, error } = await admin.from('expert_ai_training_sessions').update({ answers }).eq('id', id).eq('expert_id', expertId).select().maybeSingle();
+        if (error) throw error;
         return jsonResponse({ ok: true, session: data });
       }
 
