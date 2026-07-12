@@ -220,7 +220,7 @@ export default function ReviewTab({ expertId, canEdit }: Props) {
               <Textarea
                 value={editContent}
                 onChange={(e) => setEditContent(e.target.value)}
-                className="min-h-[260px]"
+                className="min-h-[200px] sm:min-h-[260px]"
                 maxLength={6000}
               />
               <p className="text-xs text-right text-muted-foreground mt-1">{editContent.length} / 6000</p>
