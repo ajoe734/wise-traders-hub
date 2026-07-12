@@ -12,6 +12,12 @@ interface Props {
   expertId: string;
   expertName: string;
   isSubscribed: boolean;
+  /** 用於顯示訂閱方案清單，輔助判定診斷 */
+  subscribedPlanTypes?: string[];
+  /** 是否因管理員權限取得存取 */
+  isCompanyAdmin?: boolean;
+  /** 是否為本人專家帳號 */
+  isOwnExpert?: boolean;
   onSubscribeClick?: () => void;
   /** 未訂閱時的鎖定原因：'expired' 為曾訂閱但已過期/取消；'none' 為從未訂閱 */
   lockReason?: 'expired' | 'none';
@@ -20,6 +26,7 @@ interface Props {
   /** 專家角色配色 */
   rolePalette?: 'advisor' | 'mentor';
 }
+
 
 const SUGGESTIONS = [
   '你最近怎麼看 AI 相關族群？',
