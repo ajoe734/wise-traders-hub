@@ -140,7 +140,8 @@ Deno.serve(withLogging('expert-ai-index', async (req, log) => {
     await admin.from('expert_ai_index_runs').update({ total_chunks: totalChunks }).eq('id', runId!);
 
     if (totalChunks === 0) {
-      await admin.from('expert_knowledge_chunks').delete().eq('expert_id', expertId);
+      // 只清 auto-sync 條目，不動老師手動輸入的 (is_manual=true)
+      await admin.from('expert_knowledge_chunks').delete().eq('expert_id', expertId).eq('is_manual', false);
       await finish({ status: 'success', indexed_chunks: 0, embed_failures: 0 });
       return jsonResponse({ ok: true, indexed: 0 });
     }
