@@ -200,6 +200,28 @@ export function ExpertAiChatTab({ expertId, expertName, isSubscribed, subscribed
         </div>
       </div>
 
+      {/* Access status card */}
+      <div className="mt-3 rounded-lg border border-border/60 bg-muted/30 p-3">
+        <div className="flex items-center justify-between">
+          <p className="text-xs font-medium text-muted-foreground">目前存取權限</p>
+          <span className="text-[11px] text-muted-foreground">綜合判定：已開放 AI 對話</span>
+        </div>
+        <div className="flex flex-wrap gap-2 mt-2">
+          <Badge variant={isSubscribed ? 'default' : 'outline'} className="text-[11px] gap-1">
+            {isSubscribed ? <Check className="h-3 w-3" /> : <X className="h-3 w-3" />}有效訂閱
+          </Badge>
+          {subscribedPlanTypes.length > 0 && (
+            <span className="text-[11px] text-muted-foreground self-center">{subscribedPlanTypes.join('、')}</span>
+          )}
+          <Badge variant={isCompanyAdmin ? 'default' : 'outline'} className="text-[11px] gap-1">
+            {isCompanyAdmin ? <Check className="h-3 w-3" /> : <X className="h-3 w-3" />}公司管理員
+          </Badge>
+          <Badge variant={isOwnExpert ? 'default' : 'outline'} className="text-[11px] gap-1">
+            {isOwnExpert ? <Check className="h-3 w-3" /> : <X className="h-3 w-3" />}本人專家
+          </Badge>
+        </div>
+      </div>
+
       {quotaExhausted && (
         <div className="mt-3 rounded-lg border border-destructive/30 bg-destructive/5 p-3 flex items-start gap-2">
           <AlertTriangle className="h-4 w-4 text-destructive mt-0.5 shrink-0" />
