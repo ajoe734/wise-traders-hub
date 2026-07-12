@@ -3,7 +3,7 @@ import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/com
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
 import { Separator } from '@/components/ui/separator';
-import { ArrowLeft, Clock, CheckCircle2, XCircle, FileText, Sparkles, Lightbulb, BookOpen } from 'lucide-react';
+import { ArrowLeft, Clock, CheckCircle2, XCircle, FileText, Sparkles, Lightbulb, BookOpen, History } from 'lucide-react';
 import { toast } from 'sonner';
 import { supabase } from '@/integrations/supabase/client';
 import { useQuery } from '@tanstack/react-query';
