@@ -5,7 +5,7 @@ import { Textarea } from '@/components/ui/textarea';
 import { Badge } from '@/components/ui/badge';
 import { Checkbox } from '@/components/ui/checkbox';
 import { Separator } from '@/components/ui/separator';
-import { Loader2, Sparkles, ArrowLeft, CheckCircle2, Trash2, MessageCircleQuestion, Lightbulb } from 'lucide-react';
+import { Loader2, Sparkles, ArrowLeft, CheckCircle2, Trash2, MessageCircleQuestion, Lightbulb, RefreshCw, History } from 'lucide-react';
 import { toast } from 'sonner';
 import { supabase } from '@/integrations/supabase/client';
 import { useQuery } from '@tanstack/react-query';
