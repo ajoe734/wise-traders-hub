@@ -359,6 +359,7 @@ const AppShell = () => (
             <Route path="/admin/:expertSlug/reason-templates" element={<ProtectedRoute><AdminReasonTemplates /></ProtectedRoute>} />
             <Route path="/admin/:expertSlug/signal-templates" element={<ProtectedRoute><AdminSignalTemplates /></ProtectedRoute>} />
             <Route path="/admin/:expertSlug/announcements" element={<ProtectedRoute><AdminAnnouncements /></ProtectedRoute>} />
+            <Route path="/admin/:expertSlug/ai-studio" element={<ProtectedRoute><AdminAiStudio /></ProtectedRoute>} />
 
             {/* Legacy /me routes */}
             <Route path="/me" element={<Navigate to="/app/account" replace />} />
