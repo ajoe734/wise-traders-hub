@@ -1,7 +1,7 @@
 import { useEffect, useRef, useState } from 'react';
 import { Link } from 'react-router-dom';
 import ReactMarkdown from 'react-markdown';
-import { Loader2, Send, Trash2, Lock, Shield, MessageCircle, AlertTriangle, RefreshCw, Square, CheckCircle2, XCircle, Clock } from 'lucide-react';
+import { Loader2, Send, Trash2, Lock, Shield, MessageCircle, AlertTriangle, RefreshCw, Square, CheckCircle2, XCircle, Clock, Check, X } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent } from '@/components/ui/card';
 import { Textarea } from '@/components/ui/textarea';
@@ -12,6 +12,12 @@ interface Props {
   expertId: string;
   expertName: string;
   isSubscribed: boolean;
+  /** 用於顯示訂閱方案清單，輔助判定診斷 */
+  subscribedPlanTypes?: string[];
+  /** 是否因管理員權限取得存取 */
+  isCompanyAdmin?: boolean;
+  /** 是否為本人專家帳號 */
+  isOwnExpert?: boolean;
   onSubscribeClick?: () => void;
   /** 未訂閱時的鎖定原因：'expired' 為曾訂閱但已過期/取消；'none' 為從未訂閱 */
   lockReason?: 'expired' | 'none';
@@ -21,18 +27,22 @@ interface Props {
   rolePalette?: 'advisor' | 'mentor';
 }
 
+
 const SUGGESTIONS = [
   '你最近怎麼看 AI 相關族群？',
   '選股時你最看重什麼指標？',
   '風險控管上你有什麼原則？',
 ];
 
-export function ExpertAiChatTab({ expertId, expertName, isSubscribed, onSubscribeClick, lockReason = 'none', planLabel, rolePalette = 'mentor' }: Props) {
+export function ExpertAiChatTab({ expertId, expertName, isSubscribed, subscribedPlanTypes = [], isCompanyAdmin = false, isOwnExpert = false, onSubscribeClick, lockReason = 'none', planLabel, rolePalette = 'mentor' }: Props) {
+  const accessGranted = isSubscribed || isCompanyAdmin || isOwnExpert;
+
   const [input, setInput] = useState('');
   const textareaRef = useRef<HTMLTextAreaElement>(null);
   const scrollRef = useRef<HTMLDivElement>(null);
 
   const {
+
     messages,
     sendMessage,
     status,
@@ -51,7 +61,8 @@ export function ExpertAiChatTab({ expertId, expertName, isSubscribed, onSubscrib
     cancelStream,
     correlationId,
     requestId,
-  } = useExpertAiChat(isSubscribed ? expertId : null);
+  } = useExpertAiChat(accessGranted ? expertId : null);
+
 
   const isBusy = status === 'submitted' || status === 'streaming';
   const quotaExhausted = !!quota && !quota.unlimited && quota.remaining <= 0;
@@ -102,15 +113,39 @@ export function ExpertAiChatTab({ expertId, expertName, isSubscribed, onSubscrib
     await sendMessage({ text: msg });
   };
 
-  if (!isSubscribed) {
+  if (!accessGranted) {
     const isExpired = lockReason === 'expired';
+
     const paletteBorder = rolePalette === 'advisor' ? 'border-advisor/30' : 'border-mentor/30';
     const paletteBg = rolePalette === 'advisor' ? 'bg-advisor/5' : 'bg-mentor/5';
     const paletteChip = rolePalette === 'advisor' ? 'bg-advisor/10 text-advisor' : 'bg-mentor/10 text-mentor';
     const paletteBtn = rolePalette === 'advisor' ? 'bg-advisor hover:bg-advisor/90' : 'bg-mentor hover:bg-mentor/90';
+
+
     return (
       <Card className={`${paletteBorder} ${paletteBg}`}>
         <CardContent className="p-8 text-center space-y-4" data-testid="ai-chat-locked-card">
+          <div className="rounded-lg border border-border/60 bg-background/60 p-3 text-left">
+            <p className="text-xs font-medium text-muted-foreground mb-2">目前存取權限</p>
+            <div className="flex flex-wrap gap-2">
+              <Badge variant={isSubscribed ? 'default' : 'outline'} className="text-[11px] gap-1">
+                {isSubscribed ? <Check className="h-3 w-3" /> : <X className="h-3 w-3" />}有效訂閱
+              </Badge>
+              {subscribedPlanTypes.length > 0 && (
+                <span className="text-[11px] text-muted-foreground self-center">{subscribedPlanTypes.join('、')}</span>
+              )}
+              <Badge variant={isCompanyAdmin ? 'default' : 'outline'} className="text-[11px] gap-1">
+                {isCompanyAdmin ? <Check className="h-3 w-3" /> : <X className="h-3 w-3" />}公司管理員
+              </Badge>
+              <Badge variant={isOwnExpert ? 'default' : 'outline'} className="text-[11px] gap-1">
+                {isOwnExpert ? <Check className="h-3 w-3" /> : <X className="h-3 w-3" />}本人專家
+              </Badge>
+            </div>
+            <p className="text-[11px] text-muted-foreground mt-2">
+              綜合判定：{accessGranted ? '已開放 AI 對話' : '未開放 AI 對話'}
+            </p>
+          </div>
+
           <div className={`mx-auto h-12 w-12 rounded-full flex items-center justify-center ${paletteChip}`}>
             <Lock className="h-6 w-6" />
           </div>
@@ -121,6 +156,7 @@ export function ExpertAiChatTab({ expertId, expertName, isSubscribed, onSubscrib
             <h3 className="text-lg font-semibold">
               {isExpired ? '訂閱已到期，AI 對話已鎖定' : '訂閱後可與 AI 分身對話'}
             </h3>
+
             <p className="text-sm text-muted-foreground max-w-md mx-auto">
               {isExpired ? (
                 <>你過去曾訂閱 {expertName} 老師{planLabel ? `的「${planLabel}」方案` : ''}，但目前已過期或已取消。續訂後即可繼續使用「問老師 AI」。</>
@@ -166,6 +202,28 @@ export function ExpertAiChatTab({ expertId, expertName, isSubscribed, onSubscrib
               <Trash2 className="h-3.5 w-3.5 mr-1" /> 清空
             </Button>
           )}
+        </div>
+      </div>
+
+      {/* Access status card */}
+      <div className="mt-3 rounded-lg border border-border/60 bg-muted/30 p-3">
+        <div className="flex items-center justify-between">
+          <p className="text-xs font-medium text-muted-foreground">目前存取權限</p>
+          <span className="text-[11px] text-muted-foreground">綜合判定：已開放 AI 對話</span>
+        </div>
+        <div className="flex flex-wrap gap-2 mt-2">
+          <Badge variant={isSubscribed ? 'default' : 'outline'} className="text-[11px] gap-1">
+            {isSubscribed ? <Check className="h-3 w-3" /> : <X className="h-3 w-3" />}有效訂閱
+          </Badge>
+          {subscribedPlanTypes.length > 0 && (
+            <span className="text-[11px] text-muted-foreground self-center">{subscribedPlanTypes.join('、')}</span>
+          )}
+          <Badge variant={isCompanyAdmin ? 'default' : 'outline'} className="text-[11px] gap-1">
+            {isCompanyAdmin ? <Check className="h-3 w-3" /> : <X className="h-3 w-3" />}公司管理員
+          </Badge>
+          <Badge variant={isOwnExpert ? 'default' : 'outline'} className="text-[11px] gap-1">
+            {isOwnExpert ? <Check className="h-3 w-3" /> : <X className="h-3 w-3" />}本人專家
+          </Badge>
         </div>
       </div>
 
