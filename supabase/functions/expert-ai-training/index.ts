@@ -403,13 +403,30 @@ Deno.serve(withLogging('expert-ai-training', async (req, log) => {
           return errorResponse('AI 產出候選條目失敗：' + (e as Error).message, 500);
         }
 
-        const { data, error: upErr } = await admin.from('expert_ai_training_sessions').update({
+        const patch: Record<string, unknown> = {
           suggested_knowledge: suggestedKnowledge,
           suggested_journal_edits: suggestedJournalEdits,
           status: 'reviewing',
-        }).eq('id', id).eq('expert_id', expertId).select().maybeSingle();
+        };
+        if (isRegen) {
+          const revs = Array.isArray(session.revisions) ? session.revisions : [];
+          patch.revisions = [
+            ...revs,
+            {
+              revision: revs.length + 1,
+              action: 'regenerate_suggestions',
+              snapshotted_at: new Date().toISOString(),
+              triggered_by: uid,
+              ai_questions: session.ai_questions ?? [],
+              answers: session.answers ?? [],
+              suggested_knowledge: session.suggested_knowledge ?? [],
+              suggested_journal_edits: session.suggested_journal_edits ?? [],
+            },
+          ];
+        }
+        const { data, error: upErr } = await admin.from('expert_ai_training_sessions').update(patch).eq('id', id).eq('expert_id', expertId).select().maybeSingle();
         if (upErr) throw upErr;
-        return jsonResponse({ ok: true, session: data });
+        return jsonResponse({ ok: true, session: data, revision: Array.isArray(patch.revisions) ? (patch.revisions as unknown[]).length : (Array.isArray(session.revisions) ? session.revisions.length : 0) });
       }
 
       case 'accept_knowledge': {
