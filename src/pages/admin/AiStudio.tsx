@@ -3,7 +3,7 @@ import { useState } from 'react';
 import { useParams } from 'react-router-dom';
 import { AdminLayout } from '@/components/layouts/AdminLayout';
 import { Tabs, TabsList, TabsTrigger, TabsContent } from '@/components/ui/tabs';
-import { Sparkles, BookOpen, MessagesSquare, Database, CalendarCheck, ShieldAlert } from 'lucide-react';
+import { Sparkles, BookOpen, MessagesSquare, Database, CalendarCheck, ShieldAlert, History } from 'lucide-react';
 import { useAuth } from '@/contexts/AuthContext';
 import { useQuery } from '@tanstack/react-query';
 import { supabase } from '@/integrations/supabase/client';
@@ -12,6 +12,7 @@ import KnowledgeTab from '@/pages/_aiStudio/KnowledgeTab';
 import WeeklyTrainerTab from '@/pages/_aiStudio/WeeklyTrainerTab';
 import FewshotTab from '@/pages/_aiStudio/FewshotTab';
 import ReviewTab from '@/pages/_aiStudio/ReviewTab';
+import TrainingHistoryTab from '@/pages/_aiStudio/TrainingHistoryTab';
 import IndexPanelTab from '@/pages/_aiStudio/IndexPanelTab';
 
 export default function AdminAiStudio() {
@@ -52,11 +53,12 @@ export default function AdminAiStudio() {
           <div className="p-8 text-center text-muted-foreground">載入中…</div>
         ) : (
           <Tabs value={tab} onValueChange={setTab} className="w-full">
-            <TabsList className="grid grid-cols-6 w-full max-w-3xl">
+            <TabsList className="grid grid-cols-7 w-full max-w-4xl">
               <TabsTrigger value="persona"><Sparkles className="h-4 w-4 mr-1.5" />人設</TabsTrigger>
               <TabsTrigger value="knowledge"><BookOpen className="h-4 w-4 mr-1.5" />知識庫</TabsTrigger>
               <TabsTrigger value="fewshot"><MessagesSquare className="h-4 w-4 mr-1.5" />示範問答</TabsTrigger>
               <TabsTrigger value="weekly"><CalendarCheck className="h-4 w-4 mr-1.5" />週五訓練</TabsTrigger>
+              <TabsTrigger value="history"><History className="h-4 w-4 mr-1.5" />訓練歷史</TabsTrigger>
               <TabsTrigger value="review"><ShieldAlert className="h-4 w-4 mr-1.5" />待審核</TabsTrigger>
               <TabsTrigger value="index"><Database className="h-4 w-4 mr-1.5" />週記索引</TabsTrigger>
             </TabsList>
@@ -72,6 +74,9 @@ export default function AdminAiStudio() {
             </TabsContent>
             <TabsContent value="weekly" className="mt-4">
               <WeeklyTrainerTab expertId={expert.id} canEdit={canEdit} />
+            </TabsContent>
+            <TabsContent value="history" className="mt-4">
+              <TrainingHistoryTab expertId={expert.id} />
             </TabsContent>
             <TabsContent value="review" className="mt-4">
               <ReviewTab expertId={expert.id} canEdit={canEdit} />

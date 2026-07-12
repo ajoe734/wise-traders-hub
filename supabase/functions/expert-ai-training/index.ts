@@ -101,12 +101,91 @@ Deno.serve(withLogging('expert-ai-training', async (req, log) => {
         });
       }
 
-      case 'get_session': {
+      case 'list_sessions': {
+        const { data: sessions } = await admin
+          .from('expert_ai_training_sessions')
+          .select('id, week_start, status, ai_questions, answers, suggested_knowledge, suggested_journal_edits, started_at, completed_at, created_at, updated_at')
+          .eq('expert_id', expertId)
+          .order('week_start', { ascending: false })
+          .order('created_at', { ascending: false })
+          .limit(200);
+        const ids = (sessions || []).map((s) => s.id);
+        // 每 session 已核可 / 已退回 / pending 條目數
+        const counts = new Map<string, { approved: number; pending: number; rejected: number }>();
+        if (ids.length > 0) {
+          const { data: chunks } = await admin
+            .from('expert_knowledge_chunks')
+            .select('training_session_id, status')
+            .eq('expert_id', expertId)
+            .in('training_session_id', ids);
+          for (const c of chunks || []) {
+            const tid = c.training_session_id as string;
+            if (!tid) continue;
+            const cur = counts.get(tid) || { approved: 0, pending: 0, rejected: 0 };
+            if (c.status === 'approved') cur.approved += 1;
+            else if (c.status === 'rejected') cur.rejected += 1;
+            else cur.pending += 1;
+            counts.set(tid, cur);
+          }
+        }
+        return jsonResponse({
+          ok: true,
+          sessions: (sessions || []).map((s) => {
+            const questions = Array.isArray(s.ai_questions) ? s.ai_questions.length : 0;
+            const answers = Array.isArray(s.answers) ? (s.answers as any[]).filter((a) => (a?.answer || '').trim()).length : 0;
+            const suggested = Array.isArray(s.suggested_knowledge) ? s.suggested_knowledge.length : 0;
+            const c = counts.get(s.id) || { approved: 0, pending: 0, rejected: 0 };
+            return {
+              id: s.id,
+              week_start: s.week_start,
+              status: s.status,
+              started_at: s.started_at,
+              completed_at: s.completed_at,
+              updated_at: s.updated_at,
+              question_count: questions,
+              answered_count: answers,
+              suggested_count: suggested,
+              accepted_count: c.approved,
+              rejected_count: c.rejected,
+              accepted_pending_count: c.pending,
+            };
+          }),
+        });
+      }
+
+      case 'get_session':
+      case 'get_session_detail': {
         const id = body.id as string;
         if (!id) return errorResponse('id required', 400);
-        const { data } = await admin.from('expert_ai_training_sessions').select('*').eq('id', id).eq('expert_id', expertId).maybeSingle();
-        return jsonResponse({ ok: true, session: data });
+        const { data: session } = await admin.from('expert_ai_training_sessions').select('*').eq('id', id).eq('expert_id', expertId).maybeSingle();
+        if (!session) return jsonResponse({ ok: true, session: null });
+        if (action === 'get_session') return jsonResponse({ ok: true, session });
+
+        // detail：帶入該週已發佈週記 + 由此 session 產生的 chunks
+        const start = new Date(session.week_start + 'T00:00:00Z');
+        const end = new Date(start.getTime() + 7 * 86400000);
+        const [{ data: signals }, { data: acceptedChunks }] = await Promise.all([
+          admin.from('expert_signals')
+            .select('id, instrument, action, published_at, reason_summary, reason_detail, risk_notes, learning_points, overall_summary')
+            .eq('expert_id', expertId)
+            .eq('status', 'published')
+            .gte('published_at', start.toISOString())
+            .lt('published_at', end.toISOString())
+            .order('published_at', { ascending: true }),
+          admin.from('expert_knowledge_chunks')
+            .select('id, title, content, status, source_type, metadata, created_at, reviewed_at')
+            .eq('expert_id', expertId)
+            .eq('training_session_id', id)
+            .order('created_at', { ascending: false }),
+        ]);
+        return jsonResponse({
+          ok: true,
+          session,
+          signals: signals || [],
+          accepted_chunks: acceptedChunks || [],
+        });
       }
+
 
       case 'start_session': {
         const weekStart = body.week_start as string;
