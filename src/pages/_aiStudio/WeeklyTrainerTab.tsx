@@ -9,6 +9,7 @@ import { Loader2, Sparkles, ArrowLeft, CheckCircle2, Trash2, MessageCircleQuesti
 import { toast } from 'sonner';
 import { useQuery } from '@tanstack/react-query';
 import { edgeCall, formatEdgeError } from '@/lib/aiStudioInvoke';
+import ErrorDetailsPanel, { fromEdgeError, fromPartialFailure, type LastEdgeError } from './ErrorDetailsPanel';
 
 interface Props { expertId: string; canEdit: boolean; }
 
