@@ -272,6 +272,81 @@ Deno.serve(withLogging('expert-ai-training', async (req, log) => {
         return jsonResponse({ ok: true, session: data });
       }
 
+      case 'regenerate_questions': {
+        // 快照當前題目/答覆/候選 → 重新生成補完題（保留 answers 供老師接續填）
+        const id = body.id as string;
+        if (!id) return errorResponse('id required', 400);
+        const { data: cur } = await admin.from('expert_ai_training_sessions').select('*').eq('id', id).eq('expert_id', expertId).maybeSingle();
+        if (!cur) return errorResponse('session not found', 404);
+        if (cur.status === 'completed') return errorResponse('session 已完成，無法重新產題', 400);
+
+        const { startIso, endIso } = taipeiWeekRangeUtc(cur.week_start);
+        const { data: signals } = await admin
+          .from('expert_signals')
+          .select('id, instrument, action, published_at, reason_summary, reason_detail, risk_notes, learning_points, overall_summary')
+          .eq('expert_id', expertId)
+          .eq('status', 'published')
+          .gte('published_at', startIso)
+          .lt('published_at', endIso)
+          .order('published_at', { ascending: true });
+        if (!signals || signals.length === 0) return errorResponse('本週已無可訓練的週記', 400);
+
+        const journalText = signals.map(fmtSignalBlock).join('\n\n---\n\n');
+        const { model, persona } = await getModel();
+        const gateway = createLovableAiGatewayProvider(LOVABLE_API_KEY, undefined, { structuredOutputs: true });
+
+        let questions: Array<{ id: string; question: string; rationale: string }> = [];
+        try {
+          const res = await generateText({
+            model: gateway(model),
+            system: [
+              '你是一個協助投資導師「精煉觀點」的訓練助理。',
+              '任務：讀完該導師本週的週記後，提出 3–5 個「補完題」，逼老師講清楚未寫透的觀點、風險假設、標的邏輯或情境依賴。',
+              '請避免與上一輪重複的角度，嘗試切入不同面向（例如：情境依賴、時間軸、風險假設、退場條件）。',
+              '每題請附上「為什麼要問」的一句話理由。',
+              persona?.system_prompt ? `導師人設：${persona.system_prompt}` : '',
+            ].filter(Boolean).join('\n'),
+            prompt: `本週已發佈週記：\n\n${journalText}\n\n上一輪提出的題目（請不要重複，換角度）：\n${(cur.ai_questions as any[] || []).map((q: any, i: number) => `${i + 1}. ${q.question}`).join('\n')}\n\n請產出 3–5 個新的補完題。`,
+            output: Output.object({
+              schema: z.object({
+                questions: z.array(z.object({ question: z.string(), rationale: z.string() })),
+              }),
+            }),
+          });
+          const arr = (res.output?.questions || []).slice(0, 6);
+          questions = arr.map((q, i) => ({ id: `q${i + 1}`, question: q.question, rationale: q.rationale }));
+        } catch (e) {
+          log.error('regen_questions_failed', { err: (e as Error).message });
+          return errorResponse('AI 重新產題失敗：' + (e as Error).message, 500);
+        }
+
+        const nextRev = [
+          ...(Array.isArray(cur.revisions) ? cur.revisions : []),
+          {
+            revision: (Array.isArray(cur.revisions) ? cur.revisions.length : 0) + 1,
+            action: 'regenerate_questions',
+            snapshotted_at: new Date().toISOString(),
+            triggered_by: uid,
+            ai_questions: cur.ai_questions ?? [],
+            answers: cur.answers ?? [],
+            suggested_knowledge: cur.suggested_knowledge ?? [],
+            suggested_journal_edits: cur.suggested_journal_edits ?? [],
+          },
+        ];
+        const { data, error: upErr } = await admin.from('expert_ai_training_sessions').update({
+          ai_questions: questions,
+          // 保留 answers；老師可能想沿用回覆再補題
+          answers: cur.answers ?? [],
+          // 題目變了，先清空舊候選，避免與新題不一致
+          suggested_knowledge: [],
+          suggested_journal_edits: [],
+          status: 'open',
+          revisions: nextRev,
+        }).eq('id', id).eq('expert_id', expertId).select().maybeSingle();
+        if (upErr) throw upErr;
+        return jsonResponse({ ok: true, session: data, revision: nextRev.length });
+      }
+
       case 'generate_suggestions': {
         const id = body.id as string;
         if (!id) return errorResponse('id required', 400);
