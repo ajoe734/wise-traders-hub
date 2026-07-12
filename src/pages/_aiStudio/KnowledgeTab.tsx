@@ -34,9 +34,10 @@ interface Chunk {
 
 export default function KnowledgeTab({ expertId, canEdit, isCompanyAdmin }: Props) {
   const [scope, setScope] = useState<'manual' | 'all'>('manual');
+  const [statusFilter, setStatusFilter] = useState<'all' | 'pending' | 'approved' | 'rejected'>('all');
   const { data, isLoading, refetch } = useQuery({
-    queryKey: ['chunks', expertId, scope],
-    queryFn: () => call('list_chunks', expertId, { scope }),
+    queryKey: ['chunks', expertId, scope, statusFilter],
+    queryFn: () => call('list_chunks', expertId, { scope, status: statusFilter === 'all' ? undefined : statusFilter }),
   });
   const items: Chunk[] = data?.items || [];
 
@@ -93,8 +94,8 @@ export default function KnowledgeTab({ expertId, canEdit, isCompanyAdmin }: Prop
           </CardDescription>
         </CardHeader>
         <CardContent className="space-y-3">
-          <div className="flex items-center justify-between gap-2">
-            <div className="flex gap-1">
+          <div className="flex items-center justify-between gap-2 flex-wrap">
+            <div className="flex gap-1 flex-wrap">
               <Button size="sm" variant={scope === 'manual' ? 'default' : 'outline'} onClick={() => setScope('manual')}>
                 手動條目
               </Button>
@@ -109,15 +110,39 @@ export default function KnowledgeTab({ expertId, canEdit, isCompanyAdmin }: Prop
             )}
           </div>
 
+          <div className="flex gap-1 flex-wrap border-t pt-3">
+            <span className="text-xs text-muted-foreground self-center mr-1">狀態：</span>
+            {([
+              { k: 'all', label: '全部' },
+              { k: 'pending', label: '待審', icon: <Clock className="h-3 w-3" /> },
+              { k: 'approved', label: '已核可', icon: <CheckCircle2 className="h-3 w-3" /> },
+              { k: 'rejected', label: '已退回', icon: <XCircle className="h-3 w-3" /> },
+            ] as const).map((s) => (
+              <Button
+                key={s.k}
+                size="sm"
+                variant={statusFilter === s.k ? 'secondary' : 'ghost'}
+                onClick={() => setStatusFilter(s.k)}
+                className="gap-1 h-7 text-xs"
+              >
+                {'icon' in s && s.icon}
+                {s.label}
+              </Button>
+            ))}
+          </div>
+
           {isLoading ? (
             <div className="p-6 text-center text-muted-foreground">載入中…</div>
           ) : items.length === 0 ? (
             <div className="p-8 text-center text-muted-foreground text-sm">
-              尚無{scope === 'manual' ? '手動' : ''}條目。{canEdit && scope === 'manual' ? '點右上「新增條目」開始建立。' : ''}
+              沒有符合條件的條目。{canEdit && scope === 'manual' && statusFilter === 'all' ? '點右上「新增條目」開始建立。' : ''}
             </div>
           ) : (
             <div className="space-y-2">
-              {items.map((c) => (
+              {items.map((c) => {
+                const canReview = canEdit || isCompanyAdmin;
+                const canModify = canEdit && (c.is_manual || c.status === 'pending');
+                return (
                 <div key={c.id} className="border rounded-lg p-3 hover:bg-muted/30 transition-colors">
                   <div className="flex items-start justify-between gap-2 mb-1.5">
                     <div className="flex items-center gap-2 flex-wrap min-w-0">
@@ -128,30 +153,32 @@ export default function KnowledgeTab({ expertId, canEdit, isCompanyAdmin }: Prop
                       {c.status === 'pending' && <Badge className="text-[10px] bg-amber-500/10 text-amber-700 hover:bg-amber-500/10"><Clock className="h-3 w-3 mr-0.5" />待審</Badge>}
                       {c.status === 'rejected' && <Badge variant="destructive" className="text-[10px]"><XCircle className="h-3 w-3 mr-0.5" />退回</Badge>}
                     </div>
-                    {canEdit && c.is_manual && (
-                      <div className="flex gap-1 shrink-0">
-                        {isCompanyAdmin && c.status !== 'approved' && (
-                          <Button size="sm" variant="ghost" onClick={() => review(c.id, 'approved')} title="核可">
-                            <CheckCircle2 className="h-4 w-4 text-emerald-600" />
-                          </Button>
-                        )}
-                        {isCompanyAdmin && c.status !== 'rejected' && (
-                          <Button size="sm" variant="ghost" onClick={() => review(c.id, 'rejected')} title="退回">
-                            <XCircle className="h-4 w-4 text-destructive" />
-                          </Button>
-                        )}
-                        <Button size="sm" variant="ghost" onClick={() => openEdit(c)}>
-                          <Pencil className="h-4 w-4" />
+                    <div className="flex gap-1 shrink-0">
+                      {canReview && c.status !== 'approved' && (
+                        <Button size="sm" variant="ghost" onClick={() => review(c.id, 'approved')} title="核可">
+                          <CheckCircle2 className="h-4 w-4 text-emerald-600" />
                         </Button>
-                        <Button size="sm" variant="ghost" onClick={() => remove(c.id)}>
-                          <Trash2 className="h-4 w-4 text-destructive" />
+                      )}
+                      {canReview && c.status !== 'rejected' && (
+                        <Button size="sm" variant="ghost" onClick={() => review(c.id, 'rejected')} title="退回">
+                          <XCircle className="h-4 w-4 text-destructive" />
                         </Button>
-                      </div>
-                    )}
+                      )}
+                      {canModify && (
+                        <>
+                          <Button size="sm" variant="ghost" onClick={() => openEdit(c)} title="編輯">
+                            <Pencil className="h-4 w-4" />
+                          </Button>
+                          <Button size="sm" variant="ghost" onClick={() => remove(c.id)} title="刪除">
+                            <Trash2 className="h-4 w-4 text-destructive" />
+                          </Button>
+                        </>
+                      )}
+                    </div>
                   </div>
                   <p className="text-sm text-muted-foreground whitespace-pre-wrap line-clamp-3">{c.content}</p>
                 </div>
-              ))}
+              );})}
             </div>
           )}
         </CardContent>
