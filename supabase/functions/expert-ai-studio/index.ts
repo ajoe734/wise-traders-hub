@@ -118,12 +118,14 @@ Deno.serve(withLogging('expert-ai-studio', async (req, log) => {
       // -------- Manual knowledge chunks --------
       case 'list_chunks': {
         const scope = (body.scope as string) || 'manual'; // manual | all
+        const status = body.status as string | undefined; // pending | approved | rejected | undefined(all)
         let q = admin.from('expert_knowledge_chunks')
-          .select('id, source_type, title, content, is_manual, status, metadata, created_at, updated_at')
+          .select('id, source_type, title, content, is_manual, status, metadata, created_at, updated_at, training_session_id')
           .eq('expert_id', expertId)
           .order('updated_at', { ascending: false })
           .limit(500);
         if (scope === 'manual') q = q.eq('is_manual', true);
+        if (status && ['pending', 'approved', 'rejected'].includes(status)) q = q.eq('status', status);
         const { data, error } = await q;
         if (error) throw error;
         return jsonResponse({ ok: true, items: data || [] });
