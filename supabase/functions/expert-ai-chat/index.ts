@@ -330,8 +330,8 @@ Deno.serve(withLogging('expert-ai-chat', async (req, log) => {
         const runId = gateway.getRunId() ?? null;
         const promptTokens = (usage as any)?.inputTokens ?? (usage as any)?.promptTokens ?? null;
         const completionTokens = (usage as any)?.outputTokens ?? (usage as any)?.completionTokens ?? null;
-        const totalTokens = (usage as any)?.totalTokens
-          ?? ((promptTokens ?? 0) + (completionTokens ?? 0)) || null;
+        const totalTokens = ((usage as any)?.totalTokens
+          ?? ((promptTokens ?? 0) + (completionTokens ?? 0))) || null;
         await admin.from('ai_gateway_usage_logs').insert({
           user_id: uid,
           expert_id: expertId,
