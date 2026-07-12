@@ -246,15 +246,62 @@ function SessionView({ expertId, sessionId, canEdit, onBack }: { expertId: strin
 
   return (
     <div className="space-y-4">
-      <div className="flex items-center justify-between">
+      <div className="flex items-center justify-between flex-wrap gap-2">
         <Button variant="ghost" size="sm" onClick={onBack} className="gap-1"><ArrowLeft className="h-4 w-4" />返回週次列表</Button>
-        <div className="flex gap-2 items-center">
+        <div className="flex gap-2 items-center flex-wrap">
           {statusBadge(session.status)}
+          {revisions.length > 0 && (
+            <Button variant="outline" size="sm" onClick={() => setShowHistory((v) => !v)} className="gap-1 h-8">
+              <History className="h-3.5 w-3.5" />v{revisions.length + 1}（歷史 {revisions.length}）
+            </Button>
+          )}
           {session.status !== 'discarded' && canEdit && (
             <Button variant="ghost" size="sm" onClick={discard} className="text-destructive gap-1"><Trash2 className="h-3.5 w-3.5" />捨棄</Button>
           )}
         </div>
       </div>
+
+      {showHistory && revisions.length > 0 && (
+        <Card>
+          <CardHeader className="pb-2">
+            <CardTitle className="text-sm flex items-center gap-2"><History className="h-4 w-4" />歷史版本（{revisions.length}）</CardTitle>
+            <CardDescription>每次「重新產題」或「重新產候選」都會在這裡留下當時的完整快照。</CardDescription>
+          </CardHeader>
+          <CardContent className="space-y-3">
+            {revisions.slice().reverse().map((r) => (
+              <div key={r.revision} className="border rounded-lg p-3 space-y-1.5 text-sm">
+                <div className="flex items-center justify-between flex-wrap gap-2">
+                  <div className="flex items-center gap-2">
+                    <Badge variant="outline" className="text-[10px]">v{r.revision}</Badge>
+                    <span className="text-xs text-muted-foreground">
+                      {r.action === 'regenerate_questions' ? '重新產題前' : '重新產候選前'} · {new Date(r.snapshotted_at).toLocaleString('zh-TW', { hour12: false })}
+                    </span>
+                  </div>
+                  <span className="text-xs text-muted-foreground">
+                    題 {r.ai_questions?.length ?? 0} · 候選 {r.suggested_knowledge?.length ?? 0}
+                  </span>
+                </div>
+                {(r.ai_questions || []).length > 0 && (
+                  <details className="text-xs">
+                    <summary className="cursor-pointer text-muted-foreground">展開題目</summary>
+                    <ol className="list-decimal pl-5 mt-1 space-y-0.5">
+                      {(r.ai_questions || []).map((q) => <li key={q.id}>{q.question}</li>)}
+                    </ol>
+                  </details>
+                )}
+                {(r.suggested_knowledge || []).length > 0 && (
+                  <details className="text-xs">
+                    <summary className="cursor-pointer text-muted-foreground">展開候選條目</summary>
+                    <ul className="list-disc pl-5 mt-1 space-y-0.5">
+                      {(r.suggested_knowledge || []).map((k) => <li key={k.id}><b>{k.title}</b></li>)}
+                    </ul>
+                  </details>
+                )}
+              </div>
+            ))}
+          </CardContent>
+        </Card>
+      )}
 
       <Card>
         <CardHeader>
