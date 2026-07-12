@@ -279,15 +279,14 @@ Deno.serve(withLogging('expert-ai-training', async (req, log) => {
         if (!session) return errorResponse('session not found', 404);
 
         const weekStart = session.week_start;
-        const start = new Date(weekStart + 'T00:00:00Z');
-        const end = new Date(start.getTime() + 7 * 86400000);
+        const { startIso, endIso } = taipeiWeekRangeUtc(weekStart);
         const { data: signals } = await admin
           .from('expert_signals')
           .select('id, instrument, action, published_at, reason_summary, reason_detail, risk_notes, learning_points, overall_summary')
           .eq('expert_id', expertId)
           .eq('status', 'published')
-          .gte('published_at', start.toISOString())
-          .lt('published_at', end.toISOString());
+          .gte('published_at', startIso)
+          .lt('published_at', endIso);
 
         const journalText = (signals || []).map(fmtSignalBlock).join('\n\n---\n\n');
         const qas = (session.ai_questions as any[]).map((q, i) => {
