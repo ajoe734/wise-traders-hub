@@ -4,17 +4,11 @@ import { createClient } from 'npm:@supabase/supabase-js@2';
 import { corsHeaders, jsonResponse, errorResponse } from '../_shared/cors.ts';
 import { withLogging } from '../_shared/edgeLogger.ts';
 import { embedText, createLovableAiGatewayProvider } from '../_shared/ai-gateway.ts';
+import { taipeiMondayOf, taipeiWeekRangeUtc } from '../_shared/weekBoundary.ts';
 import { generateText, Output } from 'npm:ai';
 import { z } from 'npm:zod';
 
 const DEFAULT_MODEL = 'openai/gpt-5';
-
-function isoMonday(d: Date): string {
-  const day = d.getUTCDay(); // 0..6
-  const diff = (day + 6) % 7; // Monday=0
-  const monday = new Date(Date.UTC(d.getUTCFullYear(), d.getUTCMonth(), d.getUTCDate() - diff));
-  return monday.toISOString().slice(0, 10);
-}
 
 function fmtSignalBlock(s: any): string {
   const parts = [
@@ -80,7 +74,7 @@ Deno.serve(withLogging('expert-ai-training', async (req, log) => {
         const bucket = new Map<string, { week_start: string; signal_count: number; latest_published_at: string }>();
         for (const s of signals || []) {
           if (!s.published_at) continue;
-          const wk = isoMonday(new Date(s.published_at));
+          const wk = taipeiMondayOf(new Date(s.published_at));
           const cur = bucket.get(wk);
           if (!cur) bucket.set(wk, { week_start: wk, signal_count: 1, latest_published_at: s.published_at });
           else { cur.signal_count += 1; if (s.published_at > cur.latest_published_at) cur.latest_published_at = s.published_at; }
@@ -165,15 +159,14 @@ Deno.serve(withLogging('expert-ai-training', async (req, log) => {
         if (action === 'get_session') return jsonResponse({ ok: true, session });
 
         // detail：帶入該週已發佈週記 + 由此 session 產生的 chunks
-        const start = new Date(session.week_start + 'T00:00:00Z');
-        const end = new Date(start.getTime() + 7 * 86400000);
+        const { startIso, endIso } = taipeiWeekRangeUtc(session.week_start);
         const [{ data: signals }, { data: acceptedChunks }] = await Promise.all([
           admin.from('expert_signals')
             .select('id, instrument, action, published_at, reason_summary, reason_detail, risk_notes, learning_points, overall_summary')
             .eq('expert_id', expertId)
             .eq('status', 'published')
-            .gte('published_at', start.toISOString())
-            .lt('published_at', end.toISOString())
+            .gte('published_at', startIso)
+            .lt('published_at', endIso)
             .order('published_at', { ascending: true }),
           admin.from('expert_knowledge_chunks')
             .select('id, title, content, status, source_type, metadata, created_at, reviewed_at')
@@ -201,15 +194,14 @@ Deno.serve(withLogging('expert-ai-training', async (req, log) => {
         }
 
         // 抓該週已發佈 signals
-        const start = new Date(weekStart + 'T00:00:00Z');
-        const end = new Date(start.getTime() + 7 * 86400000);
+        const { startIso, endIso } = taipeiWeekRangeUtc(weekStart);
         const { data: signals } = await admin
           .from('expert_signals')
           .select('id, instrument, action, published_at, reason_summary, reason_detail, risk_notes, learning_points, overall_summary')
           .eq('expert_id', expertId)
           .eq('status', 'published')
-          .gte('published_at', start.toISOString())
-          .lt('published_at', end.toISOString())
+          .gte('published_at', startIso)
+          .lt('published_at', endIso)
           .order('published_at', { ascending: true });
 
         if (!signals || signals.length === 0) return errorResponse('本週沒有已發佈的週記可訓練', 400);
@@ -287,15 +279,14 @@ Deno.serve(withLogging('expert-ai-training', async (req, log) => {
         if (!session) return errorResponse('session not found', 404);
 
         const weekStart = session.week_start;
-        const start = new Date(weekStart + 'T00:00:00Z');
-        const end = new Date(start.getTime() + 7 * 86400000);
+        const { startIso, endIso } = taipeiWeekRangeUtc(weekStart);
         const { data: signals } = await admin
           .from('expert_signals')
           .select('id, instrument, action, published_at, reason_summary, reason_detail, risk_notes, learning_points, overall_summary')
           .eq('expert_id', expertId)
           .eq('status', 'published')
-          .gte('published_at', start.toISOString())
-          .lt('published_at', end.toISOString());
+          .gte('published_at', startIso)
+          .lt('published_at', endIso);
 
         const journalText = (signals || []).map(fmtSignalBlock).join('\n\n---\n\n');
         const qas = (session.ai_questions as any[]).map((q, i) => {
