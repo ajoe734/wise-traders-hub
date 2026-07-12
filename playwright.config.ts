@@ -137,6 +137,12 @@ export default defineConfig({
       use: { ...devices['Desktop Chrome'], viewport: { width: 1280, height: 900 } },
     },
     {
+      // /app/expert/:slug 「問老師 AI」分頁存取權限（admin / 未訂閱 / 已訂閱）
+      name: 'desktop-expert-ai-chat-access',
+      testMatch: /expert-ai-chat-access\.spec\.ts/,
+      use: { ...devices['Desktop Chrome'], viewport: { width: 1280, height: 900 } },
+    },
+    {
       // /app/journal/:id 標題完整顯示 + 顯示全部/收合折疊行為
       name: 'desktop-journal-detail-title-collapse',
       testMatch: /journal-detail-title-collapse\.spec\.ts/,
