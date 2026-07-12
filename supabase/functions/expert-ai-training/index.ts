@@ -330,20 +330,22 @@ Deno.serve(withLogging('expert-ai-training', async (req, log) => {
           return errorResponse('AI 產出候選條目失敗：' + (e as Error).message, 500);
         }
 
-        const { data } = await admin.from('expert_ai_training_sessions').update({
+        const { data, error: upErr } = await admin.from('expert_ai_training_sessions').update({
           suggested_knowledge: suggestedKnowledge,
           suggested_journal_edits: suggestedJournalEdits,
           status: 'reviewing',
-        }).eq('id', id).select().maybeSingle();
+        }).eq('id', id).eq('expert_id', expertId).select().maybeSingle();
+        if (upErr) throw upErr;
         return jsonResponse({ ok: true, session: data });
       }
 
       case 'accept_knowledge': {
         const id = body.id as string;
-        const items = body.items as Array<{ title: string; content: string; source?: string }>;
+        const items = body.items as Array<{ id?: string; title: string; content: string; source?: string }>;
         if (!id || !Array.isArray(items) || items.length === 0) return errorResponse('id and items required', 400);
-        const { data: session } = await admin.from('expert_ai_training_sessions').select('id, expert_id, week_start').eq('id', id).eq('expert_id', expertId).maybeSingle();
+        const { data: session } = await admin.from('expert_ai_training_sessions').select('id, expert_id, week_start, status').eq('id', id).eq('expert_id', expertId).maybeSingle();
         if (!session) return errorResponse('session not found', 404);
+        if (session.status === 'completed') return errorResponse('session 已完成，無法再加入條目', 400);
 
         const inserted: any[] = [];
         for (const it of items) {
