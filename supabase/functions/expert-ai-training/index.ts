@@ -145,6 +145,7 @@ Deno.serve(withLogging('expert-ai-training', async (req, log) => {
               accepted_count: c.approved,
               rejected_count: c.rejected,
               accepted_pending_count: c.pending,
+              revision_count: Array.isArray(s.revisions) ? s.revisions.length : 0,
             };
           }),
         });
