@@ -348,47 +348,54 @@ Deno.serve(withLogging('expert-ai-training', async (req, log) => {
         if (session.status === 'completed') return errorResponse('session 已完成，無法再加入條目', 400);
 
         const inserted: any[] = [];
+        const failed: Array<{ title: string; error: string }> = [];
         for (const it of items) {
           const content = String(it.content || '').trim();
-          if (!content) continue;
+          if (!content) { failed.push({ title: it.title || '(空)', error: 'content empty' }); continue; }
           try {
             const vec = await embedText(LOVABLE_API_KEY, content);
-            const { data } = await admin.from('expert_knowledge_chunks').insert({
+            const { data, error: insErr } = await admin.from('expert_knowledge_chunks').insert({
               expert_id: expertId,
               source_type: 'training',
               source_id: null,
               content,
               title: it.title?.slice(0, 200) || null,
               embedding: `[${vec.join(',')}]`,
-              metadata: { source: it.source || null, week_start: session.week_start },
+              metadata: { source: it.source || null, week_start: session.week_start, candidate_id: it.id || null },
               is_manual: true,
-              status: isAdmin || isOwner ? 'approved' : 'pending',
+              // 一律走 pending，讓所有訓練產物都經過「待審核」流程再進 RAG
+              status: 'pending',
               created_by: uid,
-              reviewed_by: (isAdmin || isOwner) ? uid : null,
-              reviewed_at: (isAdmin || isOwner) ? new Date().toISOString() : null,
+              reviewed_by: null,
+              reviewed_at: null,
               training_session_id: session.id,
             }).select().maybeSingle();
-            inserted.push(data);
+            if (insErr) throw insErr;
+            if (data) inserted.push(data);
           } catch (e) {
-            log.error('accept_embed_failed', { err: (e as Error).message });
+            const msg = (e as Error).message;
+            failed.push({ title: it.title || '(空)', error: msg });
+            log.error('accept_embed_failed', { err: msg });
           }
         }
-        return jsonResponse({ ok: true, inserted_count: inserted.length });
+        return jsonResponse({ ok: true, inserted_count: inserted.length, failed });
       }
 
       case 'complete_session': {
         const id = body.id as string;
         if (!id) return errorResponse('id required', 400);
-        const { data } = await admin.from('expert_ai_training_sessions').update({
+        const { data, error } = await admin.from('expert_ai_training_sessions').update({
           status: 'completed', completed_at: new Date().toISOString(),
         }).eq('id', id).eq('expert_id', expertId).select().maybeSingle();
+        if (error) throw error;
         return jsonResponse({ ok: true, session: data });
       }
 
       case 'discard_session': {
         const id = body.id as string;
         if (!id) return errorResponse('id required', 400);
-        const { data } = await admin.from('expert_ai_training_sessions').update({ status: 'discarded' }).eq('id', id).eq('expert_id', expertId).select().maybeSingle();
+        const { data, error } = await admin.from('expert_ai_training_sessions').update({ status: 'discarded' }).eq('id', id).eq('expert_id', expertId).select().maybeSingle();
+        if (error) throw error;
         return jsonResponse({ ok: true, session: data });
       }
 
