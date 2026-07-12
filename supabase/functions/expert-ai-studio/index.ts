@@ -162,18 +162,25 @@ Deno.serve(withLogging('expert-ai-studio', async (req, log) => {
       case 'update_chunk': {
         const id = body.id as string;
         if (!id) return errorResponse('id required', 400);
+        const { data: existing } = await admin.from('expert_knowledge_chunks')
+          .select('status, content').eq('id', id).eq('expert_id', expertId).maybeSingle();
+        if (!existing) return errorResponse('chunk not found', 404);
         const patch: Record<string, unknown> = {};
         if (typeof body.title === 'string') patch.title = body.title.trim() || null;
+        let contentChanged = false;
         if (typeof body.content === 'string') {
           const c = body.content.trim();
           if (!c) return errorResponse('content required', 400);
           if (c.length > 6000) return errorResponse('content too long', 400);
-          patch.content = c;
-          try {
-            const vec = await embedText(LOVABLE_API_KEY, c);
-            patch.embedding = `[${vec.join(',')}]`;
-          } catch (e) {
-            return errorResponse('re-embed failed: ' + (e as Error).message, 500);
+          if (c !== existing.content) {
+            contentChanged = true;
+            patch.content = c;
+            try {
+              const vec = await embedText(LOVABLE_API_KEY, c);
+              patch.embedding = `[${vec.join(',')}]`;
+            } catch (e) {
+              return errorResponse('re-embed failed: ' + (e as Error).message, 500);
+            }
           }
         }
         if (body.status && (isAdmin || isOwner)) {
@@ -183,11 +190,16 @@ Deno.serve(withLogging('expert-ai-studio', async (req, log) => {
           patch.status = body.status;
           patch.reviewed_by = uid;
           patch.reviewed_at = new Date().toISOString();
+        } else if (contentChanged && existing.status === 'approved') {
+          // 內容變了卻沒帶新狀態 → 強制降回 pending，避免未經審核的新內容直接進 RAG
+          patch.status = 'pending';
+          patch.reviewed_by = null;
+          patch.reviewed_at = null;
         }
         const { data, error } = await admin.from('expert_knowledge_chunks')
           .update(patch).eq('id', id).eq('expert_id', expertId).select().maybeSingle();
         if (error) throw error;
-        return jsonResponse({ ok: true, item: data });
+        return jsonResponse({ ok: true, item: data, downgraded_to_pending: contentChanged && existing.status === 'approved' && !body.status });
       }
 
       // -------- Pending review queue --------

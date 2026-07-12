@@ -58,6 +58,7 @@ interface AcceptedChunk {
   id: string; title: string | null; content: string;
   status: 'pending' | 'approved' | 'rejected';
   source_type: string; created_at: string; reviewed_at: string | null;
+  metadata: Record<string, unknown> | null;
 }
 
 const statusMap: Record<string, { label: string; cls: string }> = {
@@ -166,11 +167,20 @@ function DetailView({ expertId, sessionId, onBack }: { expertId: string; session
 
   const answerFor = (qid: string) => answers.find((a) => a?.id === qid)?.answer || '';
 
-  // 建 title→chunk 對照，判定原候選條目後來被納入 / 退回 / 尚未處理
+  // 建 candidate_id→chunk 對照（優先），fallback to title
+  const chunkByCandidate = new Map<string, AcceptedChunk>();
   const chunkByTitle = new Map<string, AcceptedChunk>();
-  for (const c of accepted) if (c.title) chunkByTitle.set(c.title, c);
-  const acceptedTitles = new Set(accepted.map((c) => c.title).filter(Boolean) as string[]);
-  const remainingAccepted = accepted.filter((c) => !c.title || !suggested.some((s) => s.title === c.title));
+  for (const c of accepted) {
+    const cid = (c.metadata as any)?.candidate_id;
+    if (cid) chunkByCandidate.set(String(cid), c);
+    if (c.title) chunkByTitle.set(c.title, c);
+  }
+  const remainingAccepted = accepted.filter((c) => {
+    const cid = (c.metadata as any)?.candidate_id;
+    if (cid && suggested.some((s) => s.id === cid)) return false;
+    if (c.title && suggested.some((s) => s.title === c.title)) return false;
+    return true;
+  });
 
   const copy = (text: string) => {
     navigator.clipboard.writeText(text).then(() => toast.success('已複製'));
@@ -262,7 +272,7 @@ function DetailView({ expertId, sessionId, onBack }: { expertId: string; session
           {suggested.length === 0 ? (
             <p className="text-sm text-muted-foreground">此 session 未產出候選條目。</p>
           ) : suggested.map((k) => {
-            const linked = k.title ? chunkByTitle.get(k.title) : undefined;
+            const linked = chunkByCandidate.get(k.id) ?? (k.title ? chunkByTitle.get(k.title) : undefined);
             const disposition = linked
               ? linked.status === 'approved' ? { label: '已納入', cls: 'text-emerald-700 border-emerald-400', icon: <CheckCircle2 className="h-3 w-3 mr-0.5" /> }
               : linked.status === 'rejected' ? { label: '已退回', cls: 'text-destructive border-destructive/60', icon: <XCircle className="h-3 w-3 mr-0.5" /> }

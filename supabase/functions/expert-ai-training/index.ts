@@ -67,7 +67,7 @@ Deno.serve(withLogging('expert-ai-training', async (req, log) => {
       case 'list_weeks': {
         // 抓最近 12 週有發佈週記的 week_start
         const since = new Date(Date.now() - 12 * 7 * 86400000).toISOString();
-        const { data: signals } = await admin
+        const { data: signals, error: sigErr } = await admin
           .from('expert_signals')
           .select('id, published_at')
           .eq('expert_id', expertId)
@@ -75,6 +75,7 @@ Deno.serve(withLogging('expert-ai-training', async (req, log) => {
           .gte('published_at', since)
           .order('published_at', { ascending: false })
           .limit(500);
+        if (sigErr) throw sigErr;
 
         const bucket = new Map<string, { week_start: string; signal_count: number; latest_published_at: string }>();
         for (const s of signals || []) {
@@ -86,11 +87,12 @@ Deno.serve(withLogging('expert-ai-training', async (req, log) => {
         }
         const weeks = Array.from(bucket.values()).sort((a, b) => b.week_start.localeCompare(a.week_start));
 
-        const { data: sessions } = await admin
+        const { data: sessions, error: seErr } = await admin
           .from('expert_ai_training_sessions')
           .select('id, week_start, status, updated_at')
           .eq('expert_id', expertId)
           .in('week_start', weeks.map((w) => w.week_start));
+        if (seErr) throw seErr;
 
         const byWeek = new Map<string, any>();
         for (const s of sessions || []) byWeek.set(s.week_start, s);
@@ -102,13 +104,14 @@ Deno.serve(withLogging('expert-ai-training', async (req, log) => {
       }
 
       case 'list_sessions': {
-        const { data: sessions } = await admin
+        const { data: sessions, error: sErr } = await admin
           .from('expert_ai_training_sessions')
           .select('id, week_start, status, ai_questions, answers, suggested_knowledge, suggested_journal_edits, started_at, completed_at, created_at, updated_at')
           .eq('expert_id', expertId)
           .order('week_start', { ascending: false })
           .order('created_at', { ascending: false })
           .limit(200);
+        if (sErr) throw sErr;
         const ids = (sessions || []).map((s) => s.id);
         // 每 session 已核可 / 已退回 / pending 條目數
         const counts = new Map<string, { approved: number; pending: number; rejected: number }>();
@@ -269,7 +272,11 @@ Deno.serve(withLogging('expert-ai-training', async (req, log) => {
         const id = body.id as string;
         const answers = body.answers;
         if (!id || !Array.isArray(answers)) return errorResponse('id and answers required', 400);
-        const { data } = await admin.from('expert_ai_training_sessions').update({ answers }).eq('id', id).eq('expert_id', expertId).select().maybeSingle();
+        const { data: cur } = await admin.from('expert_ai_training_sessions').select('status').eq('id', id).eq('expert_id', expertId).maybeSingle();
+        if (!cur) return errorResponse('session not found', 404);
+        if (cur.status === 'completed') return errorResponse('session 已完成，無法再修改答覆', 400);
+        const { data, error } = await admin.from('expert_ai_training_sessions').update({ answers }).eq('id', id).eq('expert_id', expertId).select().maybeSingle();
+        if (error) throw error;
         return jsonResponse({ ok: true, session: data });
       }
 
@@ -326,63 +333,72 @@ Deno.serve(withLogging('expert-ai-training', async (req, log) => {
           return errorResponse('AI 產出候選條目失敗：' + (e as Error).message, 500);
         }
 
-        const { data } = await admin.from('expert_ai_training_sessions').update({
+        const { data, error: upErr } = await admin.from('expert_ai_training_sessions').update({
           suggested_knowledge: suggestedKnowledge,
           suggested_journal_edits: suggestedJournalEdits,
           status: 'reviewing',
-        }).eq('id', id).select().maybeSingle();
+        }).eq('id', id).eq('expert_id', expertId).select().maybeSingle();
+        if (upErr) throw upErr;
         return jsonResponse({ ok: true, session: data });
       }
 
       case 'accept_knowledge': {
         const id = body.id as string;
-        const items = body.items as Array<{ title: string; content: string; source?: string }>;
+        const items = body.items as Array<{ id?: string; title: string; content: string; source?: string }>;
         if (!id || !Array.isArray(items) || items.length === 0) return errorResponse('id and items required', 400);
-        const { data: session } = await admin.from('expert_ai_training_sessions').select('id, expert_id, week_start').eq('id', id).eq('expert_id', expertId).maybeSingle();
+        const { data: session } = await admin.from('expert_ai_training_sessions').select('id, expert_id, week_start, status').eq('id', id).eq('expert_id', expertId).maybeSingle();
         if (!session) return errorResponse('session not found', 404);
+        if (session.status === 'completed') return errorResponse('session 已完成，無法再加入條目', 400);
 
         const inserted: any[] = [];
+        const failed: Array<{ title: string; error: string }> = [];
         for (const it of items) {
           const content = String(it.content || '').trim();
-          if (!content) continue;
+          if (!content) { failed.push({ title: it.title || '(空)', error: 'content empty' }); continue; }
           try {
             const vec = await embedText(LOVABLE_API_KEY, content);
-            const { data } = await admin.from('expert_knowledge_chunks').insert({
+            const { data, error: insErr } = await admin.from('expert_knowledge_chunks').insert({
               expert_id: expertId,
               source_type: 'training',
               source_id: null,
               content,
               title: it.title?.slice(0, 200) || null,
               embedding: `[${vec.join(',')}]`,
-              metadata: { source: it.source || null, week_start: session.week_start },
+              metadata: { source: it.source || null, week_start: session.week_start, candidate_id: it.id || null },
               is_manual: true,
-              status: isAdmin || isOwner ? 'approved' : 'pending',
+              // 一律走 pending，讓所有訓練產物都經過「待審核」流程再進 RAG
+              status: 'pending',
               created_by: uid,
-              reviewed_by: (isAdmin || isOwner) ? uid : null,
-              reviewed_at: (isAdmin || isOwner) ? new Date().toISOString() : null,
+              reviewed_by: null,
+              reviewed_at: null,
               training_session_id: session.id,
             }).select().maybeSingle();
-            inserted.push(data);
+            if (insErr) throw insErr;
+            if (data) inserted.push(data);
           } catch (e) {
-            log.error('accept_embed_failed', { err: (e as Error).message });
+            const msg = (e as Error).message;
+            failed.push({ title: it.title || '(空)', error: msg });
+            log.error('accept_embed_failed', { err: msg });
           }
         }
-        return jsonResponse({ ok: true, inserted_count: inserted.length });
+        return jsonResponse({ ok: true, inserted_count: inserted.length, failed });
       }
 
       case 'complete_session': {
         const id = body.id as string;
         if (!id) return errorResponse('id required', 400);
-        const { data } = await admin.from('expert_ai_training_sessions').update({
+        const { data, error } = await admin.from('expert_ai_training_sessions').update({
           status: 'completed', completed_at: new Date().toISOString(),
         }).eq('id', id).eq('expert_id', expertId).select().maybeSingle();
+        if (error) throw error;
         return jsonResponse({ ok: true, session: data });
       }
 
       case 'discard_session': {
         const id = body.id as string;
         if (!id) return errorResponse('id required', 400);
-        const { data } = await admin.from('expert_ai_training_sessions').update({ status: 'discarded' }).eq('id', id).eq('expert_id', expertId).select().maybeSingle();
+        const { data, error } = await admin.from('expert_ai_training_sessions').update({ status: 'discarded' }).eq('id', id).eq('expert_id', expertId).select().maybeSingle();
+        if (error) throw error;
         return jsonResponse({ ok: true, session: data });
       }
 
