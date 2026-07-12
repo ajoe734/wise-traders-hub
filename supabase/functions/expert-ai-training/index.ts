@@ -100,7 +100,7 @@ Deno.serve(withLogging('expert-ai-training', async (req, log) => {
       case 'list_sessions': {
         const { data: sessions, error: sErr } = await admin
           .from('expert_ai_training_sessions')
-          .select('id, week_start, status, ai_questions, answers, suggested_knowledge, suggested_journal_edits, started_at, completed_at, created_at, updated_at')
+          .select('id, week_start, status, ai_questions, answers, suggested_knowledge, suggested_journal_edits, revisions, started_at, completed_at, created_at, updated_at')
           .eq('expert_id', expertId)
           .order('week_start', { ascending: false })
           .order('created_at', { ascending: false })
