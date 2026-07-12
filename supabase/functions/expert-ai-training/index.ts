@@ -442,12 +442,15 @@ Deno.serve(withLogging('expert-ai-training', async (req, log) => {
         if (session.status === 'completed') return errorResponse('session 已完成，無法再加入條目', 400);
 
         const inserted: any[] = [];
-        const failed: Array<{ title: string; error: string }> = [];
+        const failed: Array<{ candidate_id: string | null; title: string; stage: 'validate' | 'embed' | 'insert'; error: string }> = [];
         for (const it of items) {
+          const candId = it.id || null;
           const content = String(it.content || '').trim();
-          if (!content) { failed.push({ title: it.title || '(空)', error: 'content empty' }); continue; }
+          if (!content) { failed.push({ candidate_id: candId, title: it.title || '(空)', stage: 'validate', error: 'content empty' }); continue; }
+          let stage: 'embed' | 'insert' = 'embed';
           try {
             const vec = await embedText(LOVABLE_API_KEY, content);
+            stage = 'insert';
             const { data, error: insErr } = await admin.from('expert_knowledge_chunks').insert({
               expert_id: expertId,
               source_type: 'training',
@@ -455,7 +458,7 @@ Deno.serve(withLogging('expert-ai-training', async (req, log) => {
               content,
               title: it.title?.slice(0, 200) || null,
               embedding: `[${vec.join(',')}]`,
-              metadata: { source: it.source || null, week_start: session.week_start, candidate_id: it.id || null },
+              metadata: { source: it.source || null, week_start: session.week_start, candidate_id: candId },
               is_manual: true,
               // 一律走 pending，讓所有訓練產物都經過「待審核」流程再進 RAG
               status: 'pending',
@@ -468,11 +471,11 @@ Deno.serve(withLogging('expert-ai-training', async (req, log) => {
             if (data) inserted.push(data);
           } catch (e) {
             const msg = (e as Error).message;
-            failed.push({ title: it.title || '(空)', error: msg });
-            log.error('accept_embed_failed', { err: msg });
+            failed.push({ candidate_id: candId, title: it.title || '(空)', stage, error: msg });
+            log.error('accept_embed_failed', { candidateId: candId, stage, err: msg });
           }
         }
-        return jsonResponse({ ok: true, inserted_count: inserted.length, failed });
+        return jsonResponse({ ok: true, inserted_count: inserted.length, failed, requestId: log.requestId });
       }
 
       case 'complete_session': {
