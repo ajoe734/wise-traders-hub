@@ -184,6 +184,81 @@ Deno.serve(withLogging('expert-ai-studio', async (req, log) => {
         if (error) throw error;
         return jsonResponse({ ok: true, item: data });
       }
+
+      // -------- Pending review queue --------
+      case 'list_pending_chunks': {
+        const { data, error } = await admin
+          .from('expert_knowledge_chunks')
+          .select('id, source_type, title, content, is_manual, status, metadata, created_by, created_at, embedding, training_session_id')
+          .eq('expert_id', expertId)
+          .eq('status', 'pending')
+          .order('created_at', { ascending: false })
+          .limit(500);
+        if (error) throw error;
+        // 只回傳「有沒有 embedding」的旗標，不要把 3072 維向量丟給前端
+        const items = (data || []).map((r: any) => ({
+          id: r.id,
+          source_type: r.source_type,
+          title: r.title,
+          content: r.content,
+          is_manual: r.is_manual,
+          status: r.status,
+          metadata: r.metadata,
+          created_by: r.created_by,
+          created_at: r.created_at,
+          training_session_id: r.training_session_id,
+          has_embedding: !!r.embedding,
+        }));
+        return jsonResponse({ ok: true, items });
+      }
+
+      case 'bulk_review_chunks': {
+        const ids = Array.isArray(body.ids) ? (body.ids as string[]).filter(Boolean) : [];
+        const decision = body.decision as 'approve' | 'reject';
+        if (ids.length === 0 || !['approve', 'reject'].includes(decision)) {
+          return errorResponse('ids and decision required', 400);
+        }
+        if (!isAdmin && !isOwner) return errorResponse('forbidden', 403);
+
+        if (decision === 'reject') {
+          const { error } = await admin.from('expert_knowledge_chunks')
+            .update({ status: 'rejected', reviewed_by: uid, reviewed_at: new Date().toISOString() })
+            .in('id', ids).eq('expert_id', expertId).eq('status', 'pending');
+          if (error) throw error;
+          return jsonResponse({ ok: true, approved: 0, rejected: ids.length, embedded: 0, failed: [] });
+        }
+
+        // approve：若沒 embedding 就補跑，否則只改狀態
+        const { data: rows, error: fetchErr } = await admin.from('expert_knowledge_chunks')
+          .select('id, content, embedding').in('id', ids).eq('expert_id', expertId).eq('status', 'pending');
+        if (fetchErr) throw fetchErr;
+
+        let approved = 0, embedded = 0;
+        const failed: Array<{ id: string; error: string }> = [];
+        const nowIso = new Date().toISOString();
+
+        for (const r of rows || []) {
+          try {
+            const patch: Record<string, unknown> = {
+              status: 'approved', reviewed_by: uid, reviewed_at: nowIso,
+            };
+            if (!r.embedding) {
+              const vec = await embedText(LOVABLE_API_KEY, r.content || '');
+              patch.embedding = `[${vec.join(',')}]`;
+              embedded += 1;
+            }
+            const { error: updErr } = await admin.from('expert_knowledge_chunks')
+              .update(patch).eq('id', r.id).eq('expert_id', expertId);
+            if (updErr) throw updErr;
+            approved += 1;
+          } catch (e) {
+            failed.push({ id: r.id, error: (e as Error).message });
+            log.error('review_approve_failed', { id: r.id, err: (e as Error).message });
+          }
+        }
+        return jsonResponse({ ok: true, approved, rejected: 0, embedded, failed });
+      }
+
       case 'delete_chunk': {
         const id = body.id as string;
         if (!id) return errorResponse('id required', 400);
