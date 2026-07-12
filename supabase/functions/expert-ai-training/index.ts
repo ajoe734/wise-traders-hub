@@ -234,8 +234,9 @@ Deno.serve(withLogging('expert-ai-training', async (req, log) => {
           const arr = (res.output?.questions || []).slice(0, 6);
           questions = arr.map((q, i) => ({ id: `q${i + 1}`, question: q.question, rationale: q.rationale }));
         } catch (e) {
-          log.error('gen_questions_failed', { err: (e as Error).message });
-          return errorResponse('AI 生成補完題失敗：' + (e as Error).message, 500);
+          const msg = (e as Error).message;
+          log.error('gen_questions_failed', { err: msg });
+          return errorResponse('AI 生成補完題失敗：' + msg, 500, { requestId: log.requestId, stage: 'gen_questions', action: 'start_session' });
         }
 
         const patch = {
