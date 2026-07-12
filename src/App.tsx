@@ -110,6 +110,7 @@ const AdminReasonTemplates = lazy(() => import("./pages/admin/ReasonTemplates"))
 const AdminSignalTemplates = lazy(() => import("./pages/admin/SignalTemplates"));
 const AdminAnnouncements = lazy(() => import("./pages/admin/Announcements"));
 const AdminPlans = lazy(() => import("./pages/admin/Plans"));
+const AdminAiStudio = lazy(() => import("./pages/admin/AiStudio"));
 
 // Company pages
 const CompanyDashboard = lazy(() => import("./pages/company/Dashboard"));
