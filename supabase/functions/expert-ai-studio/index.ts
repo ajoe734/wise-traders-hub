@@ -176,7 +176,10 @@ Deno.serve(withLogging('expert-ai-studio', async (req, log) => {
             return errorResponse('re-embed failed: ' + (e as Error).message, 500);
           }
         }
-        if (body.status && isAdmin) {
+        if (body.status && (isAdmin || isOwner)) {
+          if (!['pending', 'approved', 'rejected'].includes(body.status)) {
+            return errorResponse('bad status', 400);
+          }
           patch.status = body.status;
           patch.reviewed_by = uid;
           patch.reviewed_at = new Date().toISOString();
