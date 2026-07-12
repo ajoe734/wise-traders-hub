@@ -71,6 +71,11 @@ export default function ReviewTab({ expertId, canEdit }: Props) {
           toast.error(
             `核可失敗（${f.stage || '?'}）：${f.error || '未知'}\n[cand ${String(f.id).slice(0, 8)} · req ${String(res.requestId || '').slice(0, 8)}]`,
           );
+          setLastError(fromPartialFailure('編輯後核可失敗', res, {
+            total: 1,
+            ok: 0,
+            failed: res.failed,
+          }));
           // 不關 dialog、不 refetch，讓使用者能重試
           return;
         }
@@ -78,10 +83,15 @@ export default function ReviewTab({ expertId, canEdit }: Props) {
       } else {
         toast.success('已更新並重新索引');
       }
+      setLastError(null);
       setEditing(null);
       refetch();
     } catch (e) {
       toast.error(formatEdgeError(e, '儲存失敗'));
+      setLastError(fromEdgeError(thenApprove ? '編輯後核可失敗' : '儲存編輯失敗', e, {
+        action: thenApprove ? 'bulk_review_chunks' : 'update_chunk',
+        candidateId: editing.id,
+      }));
     } finally { setSavingEdit(false); }
   };
 
@@ -107,13 +117,20 @@ export default function ReviewTab({ expertId, canEdit }: Props) {
         toast.error(
           `${msg}\n首筆失敗：${f.error || '未知'}\n[${f.stage || '?'} · cand ${String(f.id).slice(0, 8)} · req ${req}]`,
         );
+        setLastError(fromPartialFailure(decision === 'approve' ? '批次核可部分失敗' : '批次退回部分失敗', res, {
+          total: pickedIds.length,
+          ok: decision === 'approve' ? res.approved : res.rejected,
+          failed: res.failed,
+        }));
       } else {
         toast.success(msg);
+        setLastError(null);
       }
       setPicked({});
       refetch();
     } catch (e) {
       toast.error(formatEdgeError(e, '審核失敗'));
+      setLastError(fromEdgeError(decision === 'approve' ? '批次核可失敗' : '批次退回失敗', e, { action: 'bulk_review_chunks' }));
     } finally { setApproving(false); setRejecting(false); }
   };
 
