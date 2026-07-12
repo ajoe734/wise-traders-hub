@@ -6,7 +6,7 @@ import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { 
   LayoutDashboard, Radio, Users, UserCog, BarChart3,
-  LogOut, Moon, Sun, Building2, FileText, Loader2, Megaphone, Wallet, Eye
+  LogOut, Moon, Sun, Building2, FileText, Loader2, Megaphone, Wallet, Eye, Sparkles
 } from 'lucide-react';
 import { NotificationBell } from '@/components/NotificationBell';
 import { cn } from '@/lib/utils';
