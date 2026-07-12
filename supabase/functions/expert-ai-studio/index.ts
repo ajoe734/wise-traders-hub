@@ -155,8 +155,9 @@ Deno.serve(withLogging('expert-ai-studio', async (req, log) => {
           if (error) throw error;
           return jsonResponse({ ok: true, item: data });
         } catch (e) {
-          log.error('embed_add_failed', { err: (e as Error).message });
-          return errorResponse('embed failed: ' + (e as Error).message, 500);
+          const msg = (e as Error).message;
+          log.error('embed_add_failed', { err: msg });
+          return errorResponse('embed failed: ' + msg, 500, { requestId: log.requestId, stage: 'embed', action: 'add_chunk' });
         }
       }
       case 'update_chunk': {
