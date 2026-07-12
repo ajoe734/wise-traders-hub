@@ -56,10 +56,12 @@ export default function KnowledgeTab({ expertId, canEdit, isCompanyAdmin }: Prop
         await call('update_chunk', expertId, { id: dialog.chunk.id, title, content });
         toast.success('知識條目已更新');
       }
+      setLastError(null);
       setDialog(null);
       refetch();
     } catch (e) {
       toast.error(formatEdgeError(e, '儲存失敗'));
+      setLastError(fromEdgeError('儲存知識條目失敗', e, { action: dialog?.mode === 'add' ? 'add_chunk' : 'update_chunk' }));
     } finally { setSaving(false); }
   };
 
@@ -69,7 +71,10 @@ export default function KnowledgeTab({ expertId, canEdit, isCompanyAdmin }: Prop
       await call('delete_chunk', expertId, { id });
       toast.success('已刪除');
       refetch();
-    } catch (e) { toast.error(formatEdgeError(e, '刪除失敗')); }
+    } catch (e) {
+      toast.error(formatEdgeError(e, '刪除失敗'));
+      setLastError(fromEdgeError('刪除知識條目失敗', e, { action: 'delete_chunk', candidateId: id }));
+    }
   };
 
   const review = async (id: string, status: 'approved' | 'rejected') => {
@@ -77,7 +82,10 @@ export default function KnowledgeTab({ expertId, canEdit, isCompanyAdmin }: Prop
       await call('update_chunk', expertId, { id, status });
       toast.success(status === 'approved' ? '已核可' : '已退回');
       refetch();
-    } catch (e) { toast.error(formatEdgeError(e, '審核失敗')); }
+    } catch (e) {
+      toast.error(formatEdgeError(e, '審核失敗'));
+      setLastError(fromEdgeError(status === 'approved' ? '核可失敗' : '退回失敗', e, { action: 'update_chunk', candidateId: id }));
+    }
   };
 
   return (
