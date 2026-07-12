@@ -124,7 +124,7 @@ function ListView({ expertId, onOpen }: { expertId: string; onOpen: (id: string)
                       {s.completed_at && ` · 完成 ${fmtDate(s.completed_at)}`}
                     </p>
                   </div>
-                  <div className="flex items-center gap-3 text-xs shrink-0">
+                  <div className="flex items-center gap-x-3 gap-y-1 text-xs shrink-0 flex-wrap">
                     <span>題目 <b>{s.answered_count}/{s.question_count}</b></span>
                     <span>候選 <b>{s.suggested_count}</b></span>
                     <span className="text-emerald-700">已納入 <b>{s.accepted_count}</b></span>
