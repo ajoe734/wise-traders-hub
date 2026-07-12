@@ -159,15 +159,14 @@ Deno.serve(withLogging('expert-ai-training', async (req, log) => {
         if (action === 'get_session') return jsonResponse({ ok: true, session });
 
         // detail：帶入該週已發佈週記 + 由此 session 產生的 chunks
-        const start = new Date(session.week_start + 'T00:00:00Z');
-        const end = new Date(start.getTime() + 7 * 86400000);
+        const { startIso, endIso } = taipeiWeekRangeUtc(session.week_start);
         const [{ data: signals }, { data: acceptedChunks }] = await Promise.all([
           admin.from('expert_signals')
             .select('id, instrument, action, published_at, reason_summary, reason_detail, risk_notes, learning_points, overall_summary')
             .eq('expert_id', expertId)
             .eq('status', 'published')
-            .gte('published_at', start.toISOString())
-            .lt('published_at', end.toISOString())
+            .gte('published_at', startIso)
+            .lt('published_at', endIso)
             .order('published_at', { ascending: true }),
           admin.from('expert_knowledge_chunks')
             .select('id, title, content, status, source_type, metadata, created_at, reviewed_at')
