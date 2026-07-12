@@ -364,7 +364,7 @@ Deno.serve(withLogging('expert-ai-chat', async (req, log) => {
           expert_id: expertId,
           expert_slug: expert.slug ?? null,
           endpoint: 'expert-ai-chat',
-          model: MODEL,
+          model: activeModel,
           run_id: runId,
           log_id: null,
           prompt_tokens: promptTokens,
