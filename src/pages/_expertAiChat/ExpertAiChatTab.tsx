@@ -103,21 +103,40 @@ export function ExpertAiChatTab({ expertId, expertName, isSubscribed, onSubscrib
   };
 
   if (!isSubscribed) {
+    const isExpired = lockReason === 'expired';
+    const paletteBorder = rolePalette === 'advisor' ? 'border-advisor/30' : 'border-mentor/30';
+    const paletteBg = rolePalette === 'advisor' ? 'bg-advisor/5' : 'bg-mentor/5';
+    const paletteChip = rolePalette === 'advisor' ? 'bg-advisor/10 text-advisor' : 'bg-mentor/10 text-mentor';
+    const paletteBtn = rolePalette === 'advisor' ? 'bg-advisor hover:bg-advisor/90' : 'bg-mentor hover:bg-mentor/90';
     return (
-      <Card className="border-mentor/30 bg-mentor/5">
-        <CardContent className="p-8 text-center space-y-4">
-          <div className="mx-auto h-12 w-12 rounded-full bg-mentor/10 flex items-center justify-center">
-            <Lock className="h-6 w-6 text-mentor" />
+      <Card className={`${paletteBorder} ${paletteBg}`}>
+        <CardContent className="p-8 text-center space-y-4" data-testid="ai-chat-locked-card">
+          <div className={`mx-auto h-12 w-12 rounded-full flex items-center justify-center ${paletteChip}`}>
+            <Lock className="h-6 w-6" />
           </div>
-          <div>
-            <h3 className="text-lg font-semibold">訂閱後可與 AI 分身對話</h3>
-            <p className="text-sm text-muted-foreground mt-1">
-              基於 {expertName} 老師的公開週記與策略，模擬其想法與口吻回答你的問題。
+          <div className="space-y-2">
+            <Badge variant="outline" className="text-[11px]">
+              {isExpired ? '訂閱已過期' : '尚未訂閱'}
+            </Badge>
+            <h3 className="text-lg font-semibold">
+              {isExpired ? '訂閱已到期，AI 對話已鎖定' : '訂閱後可與 AI 分身對話'}
+            </h3>
+            <p className="text-sm text-muted-foreground max-w-md mx-auto">
+              {isExpired ? (
+                <>你過去曾訂閱 {expertName} 老師{planLabel ? `的「${planLabel}」方案` : ''}，但目前已過期或已取消。續訂後即可繼續使用「問老師 AI」。</>
+              ) : (
+                <>「問老師 AI」需要有效的 {expertName} 老師{planLabel ? `「${planLabel}」` : ''}訂閱。基於老師的公開週記與策略，模擬其想法與口吻回答你的問題。</>
+              )}
             </p>
           </div>
-          <Button onClick={onSubscribeClick} className="bg-mentor hover:bg-mentor/90 text-white">
-            立即訂閱
-          </Button>
+          <div className="flex flex-wrap justify-center gap-2 pt-1">
+            <Button onClick={onSubscribeClick} className={`${paletteBtn} text-white`} data-testid="ai-chat-locked-primary-cta">
+              {isExpired ? '前往續訂' : '查看方案並訂閱'}
+            </Button>
+            <Button asChild variant="outline" size="default">
+              <Link to="/app/account?tab=subscriptions">查看我的訂閱</Link>
+            </Button>
+          </div>
         </CardContent>
       </Card>
     );
