@@ -357,8 +357,18 @@ function SessionView({ expertId, sessionId, canEdit, onBack }: { expertId: strin
       {(suggested.length > 0 || journalEdits.length > 0) && (
         <Card>
           <CardHeader>
-            <CardTitle className="text-base flex items-center gap-2"><Lightbulb className="h-4 w-4 text-amber-600" />AI 產出的候選條目</CardTitle>
-            <CardDescription>勾選要加入知識庫的條目，其餘會忽略。已加入條目可日後在「知識庫」分頁編輯或刪除。</CardDescription>
+            <div className="flex items-start justify-between gap-2 flex-wrap">
+              <div>
+                <CardTitle className="text-base flex items-center gap-2"><Lightbulb className="h-4 w-4 text-amber-600" />AI 產出的候選條目</CardTitle>
+                <CardDescription>勾選要加入知識庫的條目，其餘會忽略。已加入條目可日後在「知識庫」分頁編輯或刪除。</CardDescription>
+              </div>
+              {canEdit && session.status !== 'completed' && (
+                <Button variant="outline" size="sm" onClick={regenerateSuggestions} disabled={regenS || regenQ || generating} className="gap-1.5 shrink-0">
+                  {regenS && <Loader2 className="h-3.5 w-3.5 animate-spin" />}
+                  <RefreshCw className="h-3.5 w-3.5" />重新產候選
+                </Button>
+              )}
+            </div>
           </CardHeader>
           <CardContent className="space-y-4">
             {suggested.length > 0 && (
