@@ -40,6 +40,8 @@ Deno.serve(withLogging('expert-ai-chat', async (req, log) => {
   const admin = createClient(SUPABASE_URL, SERVICE_KEY);
 
   // access log helper — 記錄每次決策（不阻塞主流程；失敗只 warn）
+  // 關鍵：必須 catch，否則 unhandled rejection 會讓 Deno isolate 被 kill，
+  // 前端就會收到「Failed to fetch」（stream 被截斷）。
   const logAccess = (row: {
     expertId?: string | null;
     expertSlug?: string | null;
@@ -52,24 +54,36 @@ Deno.serve(withLogging('expert-ai-chat', async (req, log) => {
     quotaLimit?: number | null;
     meta?: Record<string, unknown> | null;
   }) => {
-    admin
-      .from('expert_ai_access_logs')
-      .insert({
-        user_id: uid,
-        expert_id: row.expertId ?? null,
-        expert_slug: row.expertSlug ?? null,
-        decision: row.decision,
-        rule: row.rule,
-        subscription_status: row.subscriptionStatus ?? null,
-        plan_id: row.planId ?? null,
-        plan_type: row.planType ?? null,
-        quota_used: row.quotaUsed ?? null,
-        quota_limit: row.quotaLimit ?? null,
-        meta: row.meta ?? null,
-      })
-      .then(({ error }) => {
-        if (error) log.warn('access_log_insert_failed', { err: error.message });
-      });
+    try {
+      const p = admin
+        .from('expert_ai_access_logs')
+        .insert({
+          user_id: uid,
+          expert_id: row.expertId ?? null,
+          expert_slug: row.expertSlug ?? null,
+          decision: row.decision,
+          rule: row.rule,
+          subscription_status: row.subscriptionStatus ?? null,
+          plan_id: row.planId ?? null,
+          plan_type: row.planType ?? null,
+          quota_used: row.quotaUsed ?? null,
+          quota_limit: row.quotaLimit ?? null,
+          meta: row.meta ?? null,
+        })
+        .then(({ error }) => {
+          if (error) log.warn('access_log_insert_failed', { err: error.message });
+        }, (err) => {
+          log.warn('access_log_insert_threw', { err: err instanceof Error ? err.message : String(err) });
+        });
+      // 額外保險：即使 then 的 rejection handler 也 throw，也要 swallow
+      if (p && typeof (p as any).catch === 'function') {
+        (p as any).catch((err: unknown) => {
+          log.warn('access_log_unhandled', { err: err instanceof Error ? err.message : String(err) });
+        });
+      }
+    } catch (err) {
+      log.warn('access_log_sync_throw', { err: err instanceof Error ? err.message : String(err) });
+    }
   };
 
   // 1) 取 expert 基本資料
