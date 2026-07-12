@@ -10,6 +10,7 @@ import { Loader2, CheckCircle2, XCircle, ShieldAlert, Sparkles, Pencil } from 'l
 import { toast } from 'sonner';
 import { useQuery } from '@tanstack/react-query';
 import { edgeCall, formatEdgeError } from '@/lib/aiStudioInvoke';
+import ErrorDetailsPanel, { fromEdgeError, fromPartialFailure, type LastEdgeError } from './ErrorDetailsPanel';
 
 interface Props { expertId: string; canEdit: boolean; }
 
