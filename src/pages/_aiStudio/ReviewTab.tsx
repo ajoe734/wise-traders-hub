@@ -266,5 +266,6 @@ export default function ReviewTab({ expertId, canEdit }: Props) {
         </DialogContent>
       </Dialog>
     </Card>
+    </div>
   );
 }
