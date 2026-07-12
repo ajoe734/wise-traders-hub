@@ -135,7 +135,7 @@ Deno.serve(withLogging('expert-ai-training', async (req, log) => {
         const journalText = signals.map(fmtSignalBlock).join('\n\n---\n\n');
         const { model, persona } = await getModel();
 
-        const gateway = createLovableAiGatewayProvider(LOVABLE_API_KEY);
+        const gateway = createLovableAiGatewayProvider(LOVABLE_API_KEY, undefined, { structuredOutputs: true });
         const systemLines = [
           '你是一個協助投資導師「精煉觀點」的訓練助理。',
           '任務：讀完該導師本週的週記後，提出 3–5 個「補完題」，逼老師講清楚未寫透的觀點、風險假設、標的邏輯或情境依賴。',
@@ -218,7 +218,7 @@ Deno.serve(withLogging('expert-ai-training', async (req, log) => {
         }).join('\n\n');
 
         const { model, persona } = await getModel();
-        const gateway = createLovableAiGatewayProvider(LOVABLE_API_KEY);
+        const gateway = createLovableAiGatewayProvider(LOVABLE_API_KEY, undefined, { structuredOutputs: true });
 
         let suggestedKnowledge: Array<{ id: string; title: string; content: string; source: string }> = [];
         let suggestedJournalEdits: Array<{ id: string; area: string; suggestion: string }> = [];
