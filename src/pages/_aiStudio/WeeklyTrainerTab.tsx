@@ -86,8 +86,8 @@ function WeekList({ expertId, canEdit, onOpen }: { expertId: string; canEdit: bo
       toast.success('已產出補完題');
       refetch();
       onOpen(res.session.id);
-    } catch (e: any) {
-      toast.error(e.message || '啟動失敗');
+    } catch (e) {
+      toast.error(formatEdgeError(e, '啟動失敗'));
     } finally { setStarting(null); }
   };
 
