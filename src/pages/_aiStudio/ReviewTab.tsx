@@ -135,7 +135,9 @@ export default function ReviewTab({ expertId, canEdit }: Props) {
   };
 
   return (
-    <Card>
+    <div className="space-y-4">
+      <ErrorDetailsPanel error={lastError} onDismiss={() => setLastError(null)} />
+      <Card>
       <CardHeader>
         <CardTitle className="text-base flex items-center gap-2">
           <ShieldAlert className="h-4 w-4 text-amber-600" />
