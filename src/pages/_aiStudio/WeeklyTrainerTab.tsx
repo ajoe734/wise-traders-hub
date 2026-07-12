@@ -152,6 +152,7 @@ function SessionView({ expertId, sessionId, canEdit, onBack }: { expertId: strin
   const [regenQ, setRegenQ] = useState(false);
   const [regenS, setRegenS] = useState(false);
   const [showHistory, setShowHistory] = useState(false);
+  const [lastError, setLastError] = useState<LastEdgeError | null>(null);
 
   useEffect(() => {
     if (session && Array.isArray(session.answers) && session.answers.length > 0) {
