@@ -51,6 +51,36 @@ export default function ReviewTab({ expertId, canEdit }: Props) {
   const [picked, setPicked] = useState<Record<string, boolean>>({});
   const [approving, setApproving] = useState(false);
   const [rejecting, setRejecting] = useState(false);
+  const [editing, setEditing] = useState<PendingItem | null>(null);
+  const [editTitle, setEditTitle] = useState('');
+  const [editContent, setEditContent] = useState('');
+  const [savingEdit, setSavingEdit] = useState(false);
+
+  const openEdit = (i: PendingItem) => {
+    setEditing(i);
+    setEditTitle(i.title || '');
+    setEditContent(i.content);
+  };
+  const saveEdit = async (thenApprove = false) => {
+    if (!editing) return;
+    if (!editContent.trim()) { toast.error('請填寫內容'); return; }
+    if (editContent.length > 6000) { toast.error('內容超過 6000 字'); return; }
+    setSavingEdit(true);
+    try {
+      await call('update_chunk', expertId, { id: editing.id, title: editTitle, content: editContent });
+      if (thenApprove) {
+        const res = await call('bulk_review_chunks', expertId, { ids: [editing.id], decision: 'approve' });
+        if (res.failed?.length) toast.error(res.failed[0].error || '核可失敗');
+        else toast.success('已更新並核可');
+      } else {
+        toast.success('已更新並重新索引');
+      }
+      setEditing(null);
+      refetch();
+    } catch (e: any) {
+      toast.error(e.message || '儲存失敗');
+    } finally { setSavingEdit(false); }
+  };
 
   const pickedIds = Object.keys(picked).filter((k) => picked[k] && items.some((i) => i.id === k));
   const allChecked = items.length > 0 && pickedIds.length === items.length;
