@@ -39,6 +39,16 @@ interface Question { id: string; question: string; rationale: string }
 interface Answer { id: string; answer: string }
 interface KnowledgeCand { id: string; title: string; content: string; source: string }
 interface JournalEdit { id: string; area: string; suggestion: string }
+interface Revision {
+  revision: number;
+  action: 'regenerate_questions' | 'regenerate_suggestions';
+  snapshotted_at: string;
+  triggered_by: string | null;
+  ai_questions: Question[] | null;
+  answers: Answer[] | null;
+  suggested_knowledge: KnowledgeCand[] | null;
+  suggested_journal_edits: JournalEdit[] | null;
+}
 interface SessionDetail {
   id: string;
   week_start: string;
@@ -47,6 +57,7 @@ interface SessionDetail {
   answers: Answer[] | null;
   suggested_knowledge: KnowledgeCand[] | null;
   suggested_journal_edits: JournalEdit[] | null;
+  revisions: Revision[] | null;
   started_at: string | null;
   completed_at: string | null;
 }
