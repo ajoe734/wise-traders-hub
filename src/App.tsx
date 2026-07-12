@@ -110,6 +110,7 @@ const AdminReasonTemplates = lazy(() => import("./pages/admin/ReasonTemplates"))
 const AdminSignalTemplates = lazy(() => import("./pages/admin/SignalTemplates"));
 const AdminAnnouncements = lazy(() => import("./pages/admin/Announcements"));
 const AdminPlans = lazy(() => import("./pages/admin/Plans"));
+const AdminAiStudio = lazy(() => import("./pages/admin/AiStudio"));
 
 // Company pages
 const CompanyDashboard = lazy(() => import("./pages/company/Dashboard"));
@@ -358,6 +359,7 @@ const AppShell = () => (
             <Route path="/admin/:expertSlug/reason-templates" element={<ProtectedRoute><AdminReasonTemplates /></ProtectedRoute>} />
             <Route path="/admin/:expertSlug/signal-templates" element={<ProtectedRoute><AdminSignalTemplates /></ProtectedRoute>} />
             <Route path="/admin/:expertSlug/announcements" element={<ProtectedRoute><AdminAnnouncements /></ProtectedRoute>} />
+            <Route path="/admin/:expertSlug/ai-studio" element={<ProtectedRoute><AdminAiStudio /></ProtectedRoute>} />
 
             {/* Legacy /me routes */}
             <Route path="/me" element={<Navigate to="/app/account" replace />} />

@@ -6,7 +6,7 @@ import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { 
   LayoutDashboard, Radio, Users, UserCog, BarChart3,
-  LogOut, Moon, Sun, Building2, FileText, Loader2, Megaphone, Wallet, Eye
+  LogOut, Moon, Sun, Building2, FileText, Loader2, Megaphone, Wallet, Eye, Sparkles
 } from 'lucide-react';
 import { NotificationBell } from '@/components/NotificationBell';
 import { cn } from '@/lib/utils';
@@ -77,6 +77,8 @@ export function AdminLayout({ children }: AdminLayoutProps) {
     { path: `${basePath}/signal-templates`, icon: FileText, label: '訊號模板' },
     { path: `${basePath}/performance`, icon: BarChart3, label: '績效總覽' },
     { path: `${basePath}/announcements`, icon: Megaphone, label: '系統公告' },
+    { path: `${basePath}/ai-studio`, icon: Sparkles, label: 'AI 訓練台',
+      hint: !isAdvisor ? '設定 AI 分身口吻、示範問答、補充知識' : undefined },
     { path: `${basePath}/profile`, icon: UserCog, label: '個人檔案' },
   ];
 

@@ -1298,6 +1298,63 @@ export type Database = {
           },
         ]
       }
+      expert_ai_fewshots: {
+        Row: {
+          answer: string
+          created_at: string
+          created_by: string | null
+          expert_id: string
+          id: string
+          question: string
+          reviewed_at: string | null
+          reviewed_by: string | null
+          sort_order: number
+          status: string
+          updated_at: string
+        }
+        Insert: {
+          answer: string
+          created_at?: string
+          created_by?: string | null
+          expert_id: string
+          id?: string
+          question: string
+          reviewed_at?: string | null
+          reviewed_by?: string | null
+          sort_order?: number
+          status?: string
+          updated_at?: string
+        }
+        Update: {
+          answer?: string
+          created_at?: string
+          created_by?: string | null
+          expert_id?: string
+          id?: string
+          question?: string
+          reviewed_at?: string | null
+          reviewed_by?: string | null
+          sort_order?: number
+          status?: string
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "expert_ai_fewshots_expert_id_fkey"
+            columns: ["expert_id"]
+            isOneToOne: false
+            referencedRelation: "experts"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "expert_ai_fewshots_expert_id_fkey"
+            columns: ["expert_id"]
+            isOneToOne: false
+            referencedRelation: "experts_public"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       expert_ai_index_runs: {
         Row: {
           created_at: string
@@ -1390,36 +1447,181 @@ export type Database = {
           },
         ]
       }
+      expert_ai_personas: {
+        Row: {
+          created_at: string
+          disclaimer: string | null
+          expert_id: string
+          forbidden_topics: string[] | null
+          model: string
+          system_prompt: string | null
+          tone: string[] | null
+          updated_at: string
+          updated_by: string | null
+        }
+        Insert: {
+          created_at?: string
+          disclaimer?: string | null
+          expert_id: string
+          forbidden_topics?: string[] | null
+          model?: string
+          system_prompt?: string | null
+          tone?: string[] | null
+          updated_at?: string
+          updated_by?: string | null
+        }
+        Update: {
+          created_at?: string
+          disclaimer?: string | null
+          expert_id?: string
+          forbidden_topics?: string[] | null
+          model?: string
+          system_prompt?: string | null
+          tone?: string[] | null
+          updated_at?: string
+          updated_by?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "expert_ai_personas_expert_id_fkey"
+            columns: ["expert_id"]
+            isOneToOne: true
+            referencedRelation: "experts"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "expert_ai_personas_expert_id_fkey"
+            columns: ["expert_id"]
+            isOneToOne: true
+            referencedRelation: "experts_public"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      expert_ai_training_sessions: {
+        Row: {
+          ai_questions: Json
+          answers: Json
+          completed_at: string | null
+          created_at: string
+          expert_id: string
+          id: string
+          signal_id: string | null
+          started_at: string
+          status: string
+          suggested_journal_edits: Json
+          suggested_knowledge: Json
+          updated_at: string
+          week_start: string | null
+        }
+        Insert: {
+          ai_questions?: Json
+          answers?: Json
+          completed_at?: string | null
+          created_at?: string
+          expert_id: string
+          id?: string
+          signal_id?: string | null
+          started_at?: string
+          status?: string
+          suggested_journal_edits?: Json
+          suggested_knowledge?: Json
+          updated_at?: string
+          week_start?: string | null
+        }
+        Update: {
+          ai_questions?: Json
+          answers?: Json
+          completed_at?: string | null
+          created_at?: string
+          expert_id?: string
+          id?: string
+          signal_id?: string | null
+          started_at?: string
+          status?: string
+          suggested_journal_edits?: Json
+          suggested_knowledge?: Json
+          updated_at?: string
+          week_start?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "expert_ai_training_sessions_expert_id_fkey"
+            columns: ["expert_id"]
+            isOneToOne: false
+            referencedRelation: "experts"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "expert_ai_training_sessions_expert_id_fkey"
+            columns: ["expert_id"]
+            isOneToOne: false
+            referencedRelation: "experts_public"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "expert_ai_training_sessions_signal_id_fkey"
+            columns: ["signal_id"]
+            isOneToOne: false
+            referencedRelation: "expert_signals"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       expert_knowledge_chunks: {
         Row: {
           content: string
           created_at: string
+          created_by: string | null
           embedding: string
           expert_id: string
           id: string
+          is_manual: boolean
           metadata: Json
+          reviewed_at: string | null
+          reviewed_by: string | null
           source_id: string | null
           source_type: string
+          status: string
+          title: string | null
+          training_session_id: string | null
+          updated_at: string
         }
         Insert: {
           content: string
           created_at?: string
+          created_by?: string | null
           embedding: string
           expert_id: string
           id?: string
+          is_manual?: boolean
           metadata?: Json
+          reviewed_at?: string | null
+          reviewed_by?: string | null
           source_id?: string | null
           source_type: string
+          status?: string
+          title?: string | null
+          training_session_id?: string | null
+          updated_at?: string
         }
         Update: {
           content?: string
           created_at?: string
+          created_by?: string | null
           embedding?: string
           expert_id?: string
           id?: string
+          is_manual?: boolean
           metadata?: Json
+          reviewed_at?: string | null
+          reviewed_by?: string | null
           source_id?: string | null
           source_type?: string
+          status?: string
+          title?: string | null
+          training_session_id?: string | null
+          updated_at?: string
         }
         Relationships: [
           {
@@ -1434,6 +1636,13 @@ export type Database = {
             columns: ["expert_id"]
             isOneToOne: false
             referencedRelation: "experts_public"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "expert_knowledge_chunks_training_session_id_fkey"
+            columns: ["training_session_id"]
+            isOneToOne: false
+            referencedRelation: "expert_ai_training_sessions"
             referencedColumns: ["id"]
           },
         ]
@@ -4054,21 +4263,38 @@ export type Database = {
         Returns: boolean
       }
       is_tester: { Args: { _user_id: string }; Returns: boolean }
-      match_expert_knowledge: {
-        Args: {
-          p_expert_id: string
-          p_match_count?: number
-          p_query_embedding: string
-        }
-        Returns: {
-          content: string
-          id: string
-          metadata: Json
-          similarity: number
-          source_id: string
-          source_type: string
-        }[]
-      }
+      match_expert_knowledge:
+        | {
+            Args: {
+              p_expert_id: string
+              p_match_count?: number
+              p_query_embedding: string
+            }
+            Returns: {
+              content: string
+              id: string
+              is_manual: boolean
+              metadata: Json
+              similarity: number
+              source_id: string
+              source_type: string
+            }[]
+          }
+        | {
+            Args: {
+              p_expert_id: string
+              p_match_count?: number
+              p_query_embedding: string
+            }
+            Returns: {
+              content: string
+              id: string
+              metadata: Json
+              similarity: number
+              source_id: string
+              source_type: string
+            }[]
+          }
       reconcile_line_free_quota: { Args: { _user_id: string }; Returns: Json }
       show_limit: { Args: never; Returns: number }
       show_trgm: { Args: { "": string }; Returns: string[] }
