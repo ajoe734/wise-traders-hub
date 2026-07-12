@@ -189,8 +189,8 @@ export default function ReviewTab({ expertId, canEdit }: Props) {
                     </div>
                     {canEdit && (
                       <div className="shrink-0">
-                        <Button size="sm" variant="ghost" onClick={() => openEdit(i)} className="gap-1 h-8 text-xs">
-                          <Pencil className="h-3.5 w-3.5" />編輯
+                        <Button size="sm" variant="ghost" onClick={() => openEdit(i)} className="gap-1 h-8 text-xs px-2">
+                          <Pencil className="h-3.5 w-3.5" /><span className="hidden sm:inline">編輯</span>
                         </Button>
                       </div>
                     )}
