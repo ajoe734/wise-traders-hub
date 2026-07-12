@@ -99,11 +99,19 @@ export default function ReviewTab({ expertId, canEdit }: Props) {
       const msg = decision === 'approve'
         ? `已核可 ${res.approved} 條${res.embedded ? `（其中 ${res.embedded} 條補跑 embedding）` : ''}${res.failed?.length ? `，失敗 ${res.failed.length}` : ''}`
         : `已退回 ${res.rejected} 條`;
-      if (res.failed?.length) toast.error(msg); else toast.success(msg);
+      if (res.failed?.length) {
+        const f = res.failed[0];
+        const req = String(res.requestId || '').slice(0, 8);
+        toast.error(
+          `${msg}\n首筆失敗：${f.error || '未知'}\n[${f.stage || '?'} · cand ${String(f.id).slice(0, 8)} · req ${req}]`,
+        );
+      } else {
+        toast.success(msg);
+      }
       setPicked({});
       refetch();
-    } catch (e: any) {
-      toast.error(e.message || '審核失敗');
+    } catch (e) {
+      toast.error(formatEdgeError(e, '審核失敗'));
     } finally { setApproving(false); setRejecting(false); }
   };
 
