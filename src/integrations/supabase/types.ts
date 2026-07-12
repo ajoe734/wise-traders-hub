@@ -1506,6 +1506,7 @@ export type Database = {
           created_at: string
           expert_id: string
           id: string
+          revisions: Json
           signal_id: string | null
           started_at: string
           status: string
@@ -1521,6 +1522,7 @@ export type Database = {
           created_at?: string
           expert_id: string
           id?: string
+          revisions?: Json
           signal_id?: string | null
           started_at?: string
           status?: string
@@ -1536,6 +1538,7 @@ export type Database = {
           created_at?: string
           expert_id?: string
           id?: string
+          revisions?: Json
           signal_id?: string | null
           started_at?: string
           status?: string
