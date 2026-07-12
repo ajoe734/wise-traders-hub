@@ -115,9 +115,32 @@ export function ExpertAiChatTab({ expertId, expertName, isSubscribed, subscribed
     const paletteBg = rolePalette === 'advisor' ? 'bg-advisor/5' : 'bg-mentor/5';
     const paletteChip = rolePalette === 'advisor' ? 'bg-advisor/10 text-advisor' : 'bg-mentor/10 text-mentor';
     const paletteBtn = rolePalette === 'advisor' ? 'bg-advisor hover:bg-advisor/90' : 'bg-mentor hover:bg-mentor/90';
+    const accessGranted = isSubscribed || isCompanyAdmin || isOwnExpert;
+
     return (
       <Card className={`${paletteBorder} ${paletteBg}`}>
         <CardContent className="p-8 text-center space-y-4" data-testid="ai-chat-locked-card">
+          <div className="rounded-lg border border-border/60 bg-background/60 p-3 text-left">
+            <p className="text-xs font-medium text-muted-foreground mb-2">目前存取權限</p>
+            <div className="flex flex-wrap gap-2">
+              <Badge variant={isSubscribed ? 'default' : 'outline'} className="text-[11px] gap-1">
+                {isSubscribed ? <Check className="h-3 w-3" /> : <X className="h-3 w-3" />}有效訂閱
+              </Badge>
+              {subscribedPlanTypes.length > 0 && (
+                <span className="text-[11px] text-muted-foreground self-center">{subscribedPlanTypes.join('、')}</span>
+              )}
+              <Badge variant={isCompanyAdmin ? 'default' : 'outline'} className="text-[11px] gap-1">
+                {isCompanyAdmin ? <Check className="h-3 w-3" /> : <X className="h-3 w-3" />}公司管理員
+              </Badge>
+              <Badge variant={isOwnExpert ? 'default' : 'outline'} className="text-[11px] gap-1">
+                {isOwnExpert ? <Check className="h-3 w-3" /> : <X className="h-3 w-3" />}本人專家
+              </Badge>
+            </div>
+            <p className="text-[11px] text-muted-foreground mt-2">
+              綜合判定：{accessGranted ? '已開放 AI 對話' : '未開放 AI 對話'}
+            </p>
+          </div>
+
           <div className={`mx-auto h-12 w-12 rounded-full flex items-center justify-center ${paletteChip}`}>
             <Lock className="h-6 w-6" />
           </div>
@@ -128,6 +151,7 @@ export function ExpertAiChatTab({ expertId, expertName, isSubscribed, subscribed
             <h3 className="text-lg font-semibold">
               {isExpired ? '訂閱已到期，AI 對話已鎖定' : '訂閱後可與 AI 分身對話'}
             </h3>
+
             <p className="text-sm text-muted-foreground max-w-md mx-auto">
               {isExpired ? (
                 <>你過去曾訂閱 {expertName} 老師{planLabel ? `的「${planLabel}」方案` : ''}，但目前已過期或已取消。續訂後即可繼續使用「問老師 AI」。</>
