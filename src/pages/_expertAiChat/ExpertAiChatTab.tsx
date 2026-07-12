@@ -35,11 +35,14 @@ const SUGGESTIONS = [
 ];
 
 export function ExpertAiChatTab({ expertId, expertName, isSubscribed, subscribedPlanTypes = [], isCompanyAdmin = false, isOwnExpert = false, onSubscribeClick, lockReason = 'none', planLabel, rolePalette = 'mentor' }: Props) {
+  const accessGranted = isSubscribed || isCompanyAdmin || isOwnExpert;
+
   const [input, setInput] = useState('');
   const textareaRef = useRef<HTMLTextAreaElement>(null);
   const scrollRef = useRef<HTMLDivElement>(null);
 
   const {
+
     messages,
     sendMessage,
     status,
