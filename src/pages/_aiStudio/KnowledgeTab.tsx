@@ -90,6 +90,7 @@ export default function KnowledgeTab({ expertId, canEdit, isCompanyAdmin }: Prop
 
   return (
     <div className="space-y-4">
+      <ErrorDetailsPanel error={lastError} onDismiss={() => setLastError(null)} />
       <Card>
         <CardHeader>
           <CardTitle className="text-base">知識庫條目</CardTitle>
