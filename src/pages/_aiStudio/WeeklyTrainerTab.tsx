@@ -154,6 +154,9 @@ function SessionView({ expertId, sessionId, canEdit, onBack }: { expertId: strin
   const [generating, setGenerating] = useState(false);
   const [accepting, setAccepting] = useState(false);
   const [picked, setPicked] = useState<Record<string, boolean>>({});
+  const [regenQ, setRegenQ] = useState(false);
+  const [regenS, setRegenS] = useState(false);
+  const [showHistory, setShowHistory] = useState(false);
 
   useEffect(() => {
     if (session && Array.isArray(session.answers) && session.answers.length > 0) {
