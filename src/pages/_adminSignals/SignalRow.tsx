@@ -26,17 +26,22 @@ interface Props {
   onRepush: (id: string) => void;
   onRecall: (id: string) => void;
   onEdit: (batchId: string) => void;
+  /** 該分析師的預設幣別，個別 signal.currency 優先 */
+  defaultCurrency?: Currency;
 }
 
 export function SignalRow({
   signal, isMentor, isAdvisor, isReadOnly, isExpanded, setExpandedId,
   openInstruments, addBuySignalIds, batchInfo, collapsedBatches, setCollapsedBatches,
-  recalling, repushingId, onRepush, onRecall, onEdit,
+  recalling, repushingId, onRepush, onRecall, onEdit, defaultCurrency = 'TWD',
 }: Props) {
   const ai = actionLabels[signal.action] || actionLabels.buy;
   const hasDetail = signal.reason_detail || signal.risk_notes || signal.reason_summary || signal.learning_points;
   const isBatchCollapsed = signal.batch_id && collapsedBatches.has(signal.batch_id) && (batchInfo.get(signal.batch_id)?.count || 0) > 1;
   const recall = canRecallSignal((signal as any).published_at);
+  const currency: Currency = normalizeCurrency(signal.currency) || defaultCurrency;
+  const priceSymbol = CURRENCY_SYMBOL[currency];
+  const qtyUnit = signal.quantity_unit || defaultQuantityUnit(currency);
 
   return (
     <React.Fragment>
