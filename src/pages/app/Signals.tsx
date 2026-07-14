@@ -133,9 +133,10 @@ const Signals = () => {
                         ) : null}
                       </div>
 
-                      <div className="flex items-center gap-3 mb-3">
+                      <div className="flex items-center gap-2 mb-3 flex-wrap">
                         <Badge className={cn(ac.className, 'text-xs px-2 py-0.5')}>{ac.label}</Badge>
                         <span className="font-semibold text-lg">{signal.instrument}</span>
+                        <AssetBadge source={signal.experts} />
                       </div>
 
                       {signal.experts && (
