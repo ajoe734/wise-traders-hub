@@ -83,6 +83,7 @@ function HoldingsWorkbench(props) {
 
   const sheetRef = useRef<HTMLDivElement | null>(null);
   const onScrollRef = useRef<(() => void) | null>(null);
+  const cardRefs = useRef<Map<string, HTMLDivElement>>(new Map());
   const [showTopBtn, setShowTopBtn] = useState(false);
 
   // 抽屜內部滾動時顯示「回到頂部」按鈕；透過 callback ref 掛載，避免 Sheet 動畫/portal 導致時序問題
@@ -92,15 +93,50 @@ function HoldingsWorkbench(props) {
     }
     sheetRef.current = node;
     if (node) {
+      // 抽屜開啟時，先把內部捲軸歸零（不動畫，避免與 Sheet 進場動畫互撞）
+      node.scrollTop = 0;
+      setShowTopBtn(false);
       const onScroll = () => setShowTopBtn(node.scrollTop > 160);
       onScrollRef.current = onScroll;
       node.addEventListener('scroll', onScroll, { passive: true });
-      onScroll();
     } else {
       onScrollRef.current = null;
       setShowTopBtn(false);
     }
   }, []);
+
+  const registerCardRef = useCallback((code: string) => (node: HTMLDivElement | null) => {
+    if (node) cardRefs.current.set(code, node);
+    else cardRefs.current.delete(code);
+  }, []);
+
+  // 抽屜開啟時，把對應的持倉卡平滑捲入視野。
+  // 使用雙 rAF 等待 Sheet 進場動畫佈局穩定，避免 layout thrash 造成 jank；
+  // 用 block: 'nearest' 讓已在畫面內的卡片不做多餘位移。
+  useEffect(() => {
+    if (!expandedDecision) return;
+    let raf1 = 0;
+    let raf2 = 0;
+    const t = window.setTimeout(() => {
+      raf1 = requestAnimationFrame(() => {
+        raf2 = requestAnimationFrame(() => {
+          const el = cardRefs.current.get(expandedDecision);
+          if (!el) return;
+          const prefersReduced = window.matchMedia?.('(prefers-reduced-motion: reduce)').matches;
+          el.scrollIntoView({
+            behavior: prefersReduced ? 'auto' : 'smooth',
+            block: 'nearest',
+            inline: 'nearest',
+          });
+        });
+      });
+    }, 60);
+    return () => {
+      window.clearTimeout(t);
+      if (raf1) cancelAnimationFrame(raf1);
+      if (raf2) cancelAnimationFrame(raf2);
+    };
+  }, [expandedDecision]);
 
 
 
