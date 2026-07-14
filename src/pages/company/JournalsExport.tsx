@@ -84,6 +84,7 @@ interface JournalRow {
 
 const JournalsExport = () => {
   const [weekStart, setWeekStart] = useState<string>(() => taipeiMondayOf(new Date()));
+  const [confirmOpen, setConfirmOpen] = useState(false);
   const range = useMemo(() => weekRangeUtc(weekStart), [weekStart]);
 
   const { data, isLoading, refetch, isFetching } = useQuery({
