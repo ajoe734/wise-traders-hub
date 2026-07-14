@@ -1,13 +1,19 @@
 // @ts-nocheck
 // C8 (audit 2026-07)：從 HoldingsTab.tsx L375-540 的 IIFE 抽出。
-// 目標：讓左卡片牆 + 右 Detail Panel 的版型有穩定 component identity，
-// 避免每次 HoldingsTab render 都重建整段 JSX；同時把 `selected` 與 grid 樣式
-// 交給 useMemo。原本的 `+ 上傳成交` 虛線卡 hover 也從 inline onMouseEnter/Leave
-// 搬到 .holdings-upload-cta CSS class（見 src/checkup/styles/holdingsTab.css）。
-import { Suspense, lazy, memo, useEffect, useMemo, useRef } from 'react';
+// 2026-07 update：右側 Detail Panel 改用可存取的 Sheet（Radix Dialog）
+// —— 遮罩點擊關閉、Esc 關閉、焦點陷阱、aria-modal 皆由 Radix 提供。
+import { Suspense, lazy, memo, useMemo } from 'react';
 import HoldingCard from '@/checkup/components/freecheckup/HoldingCard';
 import HoldingsEmptyState from '@/checkup/components/freecheckup/HoldingsEmptyState';
 import HoldingsNoMatchState from '@/checkup/components/freecheckup/HoldingsNoMatchState';
+import {
+  Sheet,
+  SheetContent,
+  SheetHeader,
+  SheetTitle,
+  SheetDescription,
+} from '@/components/ui/sheet';
+import { VisuallyHidden } from '@radix-ui/react-visually-hidden';
 // C12 (audit 2026-07)：改用 getMultiMeta 走 5 層權威（DB override → overlay JSON →
 // STOCK_META → TWSE → FinMind → UNCLASSIFIED），與族群聚合面板同源，
 // 避免 HoldingCard 上顯示「未分類」而聚合卡卻有產業的不一致。
@@ -73,18 +79,6 @@ function HoldingsWorkbench(props) {
 
   const showPanel = !!selected;
 
-  const gridStyle = useMemo(
-    () => ({
-      display: 'grid',
-      gridTemplateColumns: showPanel
-        ? 'minmax(0, 1fr) minmax(0, 420px)'
-        : 'minmax(0, 1fr)',
-      gap: showPanel ? 20 : 0,
-      alignItems: 'flex-start',
-    }),
-    [showPanel],
-  );
-
   const cardWallStyle = useMemo(
     () => ({
       display: 'grid',
@@ -95,19 +89,13 @@ function HoldingsWorkbench(props) {
     [cardGridCols],
   );
 
-  const panelRef = useRef<HTMLElement | null>(null);
-  useEffect(() => {
-    if (!showPanel || !panelRef.current) return;
-    // 開啟時捲動到 panel（尤其手機／窄螢幕 panel 在下方使用者看不到）
-    const id = window.setTimeout(() => {
-      panelRef.current?.scrollIntoView({ behavior: 'smooth', block: 'start' });
-    }, 60);
-    return () => window.clearTimeout(id);
-  }, [showPanel, expandedDecision]);
+  const handleOpenChange = (open: boolean) => {
+    if (!open) setExpandedDecision?.(null);
+  };
 
   return (
-    <div style={gridStyle} className="holdings-workbench">
-      {/* 左：卡片牆 */}
+    <div className="holdings-workbench">
+
       <div
         style={cardWallStyle}
         className={`holdings-card-grid${viewMode === 'list' ? ' holdings-card-grid--list' : ''}`}
@@ -180,67 +168,52 @@ function HoldingsWorkbench(props) {
         )}
       </div>
 
-      {/* 右：Detail Panel — 只在 selected 時顯示 */}
-      {showPanel && (
-        <aside
-          ref={panelRef}
-          className="holdings-detail-panel"
+      {/* Detail Panel — Sheet（Radix Dialog）：遮罩點擊關閉、Esc 關閉、焦點陷阱、aria-modal */}
+      <Sheet open={showPanel} onOpenChange={handleOpenChange}>
+        <SheetContent
+          side="right"
           data-testid="holdings-detail-panel"
+          className="w-full sm:max-w-md md:max-w-lg lg:max-w-xl xl:max-w-2xl overflow-y-auto p-0"
           style={{
-            position: 'sticky',
-            top: 12,
             background: WB.surface,
-            border: `1px solid ${WB.hairStrong}`,
-            borderRadius: 4,
-            maxHeight: 'calc(100vh - 24px)',
-            overflowY: 'auto',
+            borderColor: WB.hairStrong,
             overscrollBehavior: 'contain',
-            paddingBottom: 32,
-            scrollMarginTop: 12,
           }}
         >
-          <div
-            className="holdings-detail-panel__narrow-hint"
-            data-testid="holdings-panel-narrow-hint"
-            style={{
-              alignItems: 'center',
-              gap: 8,
-              padding: '8px 12px',
-              borderBottom: `1px solid ${WB.hair}`,
-              background: WB.surfaceSoft,
-              color: WB.inkMute,
-              fontSize: 11,
-              letterSpacing: '0.12em',
-              fontWeight: 500,
-            }}
-          >
-            <span aria-hidden style={{ fontSize: 12, color: WB.ink }}>
-              ✓
-            </span>
-            <span>已展開完整圖表面板（成本／區間／佔比 + PNG·PDF 匯出）</span>
-          </div>
-          <Suspense fallback={null}>
-            <HoldingsDetailPanel
-              selected={selected}
-              decisionsMap={decisionsMap}
-              stockMeta={STOCK_META}
-              targets={targets}
-              avgTarget={avgTarget}
-              normalizedEvents={normalizedEvents}
-              orderedDisplayed={orderedDisplayed}
-              WB={WB}
-              setExpandedDecision={setExpandedDecision}
-              openHoldingDrawer={openHoldingDrawer}
-              totalPortfolioValue={totalVal || 0}
-              sparkData30D={selected ? sparklines?.[selected.code] || [] : []}
-              sortBy={sortBy}
-              sortDir={sortDir}
-              setSortBy={setSortBy}
-              setSortDir={setSortDir}
-            />
-          </Suspense>
-        </aside>
-      )}
+          <VisuallyHidden asChild>
+            <SheetHeader>
+              <SheetTitle>
+                {selected ? `持倉細節 ${selected.code}` : '持倉細節'}
+              </SheetTitle>
+              <SheetDescription>
+                成本／區間／佔比 + PNG·PDF 匯出。按 Esc 或點擊遮罩可關閉。
+              </SheetDescription>
+            </SheetHeader>
+          </VisuallyHidden>
+          {selected && (
+            <Suspense fallback={null}>
+              <HoldingsDetailPanel
+                selected={selected}
+                decisionsMap={decisionsMap}
+                stockMeta={STOCK_META}
+                targets={targets}
+                avgTarget={avgTarget}
+                normalizedEvents={normalizedEvents}
+                orderedDisplayed={orderedDisplayed}
+                WB={WB}
+                setExpandedDecision={setExpandedDecision}
+                openHoldingDrawer={openHoldingDrawer}
+                totalPortfolioValue={totalVal || 0}
+                sparkData30D={sparklines?.[selected.code] || []}
+                sortBy={sortBy}
+                sortDir={sortDir}
+                setSortBy={setSortBy}
+                setSortDir={setSortDir}
+              />
+            </Suspense>
+          )}
+        </SheetContent>
+      </Sheet>
     </div>
   );
 }
