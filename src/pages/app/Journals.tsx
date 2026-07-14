@@ -168,6 +168,10 @@ const Journals = () => {
   const hasSubscription = data?.hasSubscription ?? null;
   const diag = data?.diag;
 
+  const { data: timelines = [] } = useSubscriptionTimeline(effectiveUserId ?? undefined);
+
+
+
 
   // Group signals by week
   const weekGroups = useMemo(() => {
