@@ -2,7 +2,7 @@
 // C8 (audit 2026-07)：從 HoldingsTab.tsx L375-540 的 IIFE 抽出。
 // 2026-07 update：右側 Detail Panel 改用可存取的 Sheet（Radix Dialog）
 // —— 遮罩點擊關閉、Esc 關閉、焦點陷阱、aria-modal 皆由 Radix 提供。
-import { Suspense, lazy, memo, useCallback, useMemo, useRef, useState } from 'react';
+import { Suspense, lazy, memo, useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { ArrowUp } from 'lucide-react';
 import HoldingCard from '@/checkup/components/freecheckup/HoldingCard';
 import HoldingsEmptyState from '@/checkup/components/freecheckup/HoldingsEmptyState';
@@ -83,6 +83,7 @@ function HoldingsWorkbench(props) {
 
   const sheetRef = useRef<HTMLDivElement | null>(null);
   const onScrollRef = useRef<(() => void) | null>(null);
+  const gridRef = useRef<HTMLDivElement | null>(null);
   const [showTopBtn, setShowTopBtn] = useState(false);
 
   // 抽屜內部滾動時顯示「回到頂部」按鈕；透過 callback ref 掛載，避免 Sheet 動畫/portal 導致時序問題
@@ -92,15 +93,55 @@ function HoldingsWorkbench(props) {
     }
     sheetRef.current = node;
     if (node) {
+      // 抽屜開啟時，先把內部捲軸歸零（不動畫，避免與 Sheet 進場動畫互撞）
+      node.scrollTop = 0;
+      setShowTopBtn(false);
       const onScroll = () => setShowTopBtn(node.scrollTop > 160);
       onScrollRef.current = onScroll;
       node.addEventListener('scroll', onScroll, { passive: true });
-      onScroll();
     } else {
       onScrollRef.current = null;
       setShowTopBtn(false);
     }
   }, []);
+
+  // 抽屜開啟時，把對應的持倉卡平滑捲入視野。
+  // - 用雙 rAF 等 Sheet 進場動畫佈局穩定，避免 layout thrash 造成 jank
+  // - block: 'nearest' 讓已在畫面內的卡片不做多餘位移
+  // - 尊重 prefers-reduced-motion
+  useEffect(() => {
+    if (!expandedDecision) return;
+    let raf1 = 0;
+    let raf2 = 0;
+    const t = window.setTimeout(() => {
+      raf1 = requestAnimationFrame(() => {
+        raf2 = requestAnimationFrame(() => {
+          const root = gridRef.current;
+          if (!root) return;
+          const safeCode = String(expandedDecision).replace(/"/g, '\\"');
+          const el = root.querySelector<HTMLElement>(
+            `[data-holding-code="${safeCode}"]`,
+          );
+          if (!el) return;
+          const rect = el.getBoundingClientRect();
+          const vh = window.innerHeight || document.documentElement.clientHeight;
+          // 已完整在畫面內就不動，避免無意義位移
+          if (rect.top >= 72 && rect.bottom <= vh - 24) return;
+          const prefersReduced = window.matchMedia?.('(prefers-reduced-motion: reduce)').matches;
+          el.scrollIntoView({
+            behavior: prefersReduced ? 'auto' : 'smooth',
+            block: 'nearest',
+            inline: 'nearest',
+          });
+        });
+      });
+    }, 60);
+    return () => {
+      window.clearTimeout(t);
+      if (raf1) cancelAnimationFrame(raf1);
+      if (raf2) cancelAnimationFrame(raf2);
+    };
+  }, [expandedDecision]);
 
 
 
@@ -124,6 +165,7 @@ function HoldingsWorkbench(props) {
     <div className="holdings-workbench">
 
       <div
+        ref={gridRef}
         style={cardWallStyle}
         className={`holdings-card-grid${viewMode === 'list' ? ' holdings-card-grid--list' : ''}`}
       >
