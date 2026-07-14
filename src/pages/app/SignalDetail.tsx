@@ -17,6 +17,7 @@ import { useQuery } from '@tanstack/react-query';
 import { SafeRichHtml } from '@/components/SafeRichHtml';
 import { FxHint } from '@/components/FxHint';
 import { CURRENCY_SYMBOL, defaultQuantityUnit, normalizeCurrency, type Currency } from '@/lib/currency';
+import { UnavailableContent } from '@/components/UnavailableContent';
 
 const actionConfig: Record<string, { label: string; className: string }> = {
   buy: { label: '買進', className: 'bg-success text-white border-success' },
@@ -99,7 +100,7 @@ const SignalDetail = () => {
   }
 
   if (!signal) {
-    return <UnifiedAppLayout><div className="p-4 text-center text-muted-foreground">找不到此訊號</div></UnifiedAppLayout>;
+    return <UnifiedAppLayout><UnavailableContent kind="signal" /></UnifiedAppLayout>;
   }
 
   const ac = actionConfig[signal.action] || actionConfig.buy;
