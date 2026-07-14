@@ -14,6 +14,7 @@ import {
 import { cn } from '@/lib/utils';
 import { PreviewBanner } from '@/components/PreviewBanner';
 import { Logomark } from '@/components/brand/Logomark';
+import { DisplayCurrencyToggle } from '@/components/DisplayCurrencyToggle';
 
 // localStorage keys for unread tracking
 const SIGNALS_LAST_SEEN_KEY = 'app:lastSeen:signals';
