@@ -37,6 +37,7 @@ const navGroups: NavGroup[] = [
       { path: '/company/payments', icon: CreditCard, label: '金流工具' },
       { path: '/company/payment-settings', icon: Settings, label: '分潤設定' },
       { path: '/company/announcements', icon: Megaphone, label: '系統公告' },
+      { path: '/company/journals-export', icon: FileText, label: '週記匯出' },
     ],
   },
   {
