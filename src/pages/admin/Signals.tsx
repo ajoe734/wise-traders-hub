@@ -250,6 +250,7 @@ const AdminSignals = () => {
           onEdit={(batchId) => navigate(`/admin/${expertSlug}/signals/edit/${batchId}`)}
           contentLabel={contentLabel}
           holdingSummary={holdingSummary}
+          defaultCurrency={(expert as any)?.currency === 'USD' ? 'USD' : 'TWD'}
         />
       </div>
     </AdminLayout>
