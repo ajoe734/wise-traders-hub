@@ -569,7 +569,7 @@ export function SignalCreateDialog({
               <div className="flex items-center gap-2">
                 <Badge variant="secondary" className="text-xs">{actionLabels[action]?.label || action}</Badge>
                 <span className="font-medium text-sm">{stockCode} {stockName}</span>
-                {priceHint && <span className="text-sm text-muted-foreground">@ {priceHint}</span>}
+                {priceHint && <span className="text-sm text-muted-foreground">@ {currencySymbol}{priceHint}</span>}
                 {quantity && <span className="text-sm text-muted-foreground">{quantity} {quantityUnit}</span>}
               </div>
               {reasonSummary && <p className="text-sm">{reasonSummary}</p>}
