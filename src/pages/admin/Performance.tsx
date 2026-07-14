@@ -7,6 +7,7 @@ import { useAdminPerformanceData } from '@/hooks/admin/useAdminPerformanceData';
 import CapitalSummaryCard from '@/pages/_adminPerformance/CapitalSummaryCard';
 import UnrealizedTab from '@/pages/_adminPerformance/UnrealizedTab';
 import RealizedTab from '@/pages/_adminPerformance/RealizedTab';
+import { FxRateFootnote } from '@/components/FxHint';
 
 const AdminPerformance = () => {
   const { expertSlug } = useParams<{ expertSlug: string }>();
