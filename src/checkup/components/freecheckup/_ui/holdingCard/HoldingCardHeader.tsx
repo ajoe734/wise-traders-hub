@@ -38,6 +38,15 @@ function HoldingCardHeaderImpl({
     e.stopPropagation();
     if (typeof onReportMeta === 'function') onReportMeta(h);
   };
+  const onReportKeyDown = (e) => {
+    // 攔截 Enter/Space，避免同時觸發外層 button 的 onSelect，
+    // 並防止 Shift+Enter 冒泡開啟決策抽屜。
+    if (e.key === 'Enter' || e.key === ' ' || e.key === 'Spacebar') {
+      e.preventDefault();
+      e.stopPropagation();
+      if (typeof onReportMeta === 'function') onReportMeta(h);
+    }
+  };
 
   return (
     <>
