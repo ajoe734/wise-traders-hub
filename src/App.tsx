@@ -223,6 +223,7 @@ const RouteFallback = () => (
 
 const AppShell = () => (
   <AuthProvider>
+    <DisplayCurrencyProvider>
     <RealtimeBridge />
     <TooltipProvider>
       <Toaster />
