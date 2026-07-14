@@ -63,13 +63,13 @@ function HoldingCardHeaderImpl({
           )}
         </div>
         {sparkData.length >= 2 ? (
-          <span className="wb-spark" style={{ display: 'inline-flex', flexShrink: 0 }}>
+          <span className="wb-spark" aria-hidden="true" style={{ display: 'inline-flex', flexShrink: 0 }}>
             <Sparkline data={sparkData} width={60} height={20} color={sparkColor} opacity={sparkOpacity} />
           </span>
         ) : (
           <span
             className="wb-spark"
-            aria-hidden
+            aria-hidden="true"
             title={sparkFailed ? '歷史價尚未同步，稍後重試' : undefined}
             style={{
               display: 'inline-flex', alignItems: 'center', justifyContent: 'center',
@@ -78,7 +78,7 @@ function HoldingCardHeaderImpl({
             }}
           >{sparkFailed ? '~' : '———'}</span>
         )}
-        <span style={{
+        <span aria-hidden="true" style={{
           fontSize: 9, fontWeight: 500, letterSpacing: '0.20em',
           color: WB.accent, textTransform: 'uppercase', flexShrink: 0,
         }}>{actionLabel}</span>
