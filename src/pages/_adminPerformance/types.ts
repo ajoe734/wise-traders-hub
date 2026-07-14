@@ -65,14 +65,32 @@ export const fmtPnl = (v: number, c: Currency = 'TWD') => {
   const sign = v > 0 ? '+' : '';
   return `${sign}${formatMoneyByCurrency(v, c)}`;
 };
-export const fmtPrice = (v: number | null, c: Currency = 'TWD') =>
-  v == null ? '-' : formatPriceByCurrency(v, c);
+export const fmtPrice = (v: number | null, c: Currency = 'TWD', assetClass?: AssetClass) => {
+  if (v == null) return '-';
+  if (assetClass) {
+    const spec = getAssetSpec(assetClass);
+    return formatPriceByCurrency(v, spec.currency, spec.priceDigits);
+  }
+  return formatPriceByCurrency(v, c);
+};
 export const fmtMoney = (v: number, c: Currency = 'TWD') => formatMoneyByCurrency(v, c);
 export const fmtPct = (v: number) => `${v > 0 ? '+' : ''}${v.toFixed(2)}%`;
 export const fmtDate = (d: string | null) => {
   if (!d) return '-';
   return new Date(d).toLocaleDateString('zh-TW', { month: '2-digit', day: '2-digit' });
 };
+
+/** 資產類別 → 徽章顯示樣式 */
+export const assetBadge = (a?: AssetClass) => {
+  if (!a) return null;
+  const spec = getAssetSpec(a);
+  const cls =
+    a === 'us_stock' ? 'border-blue-400/40 bg-blue-50 text-blue-600 dark:bg-blue-900/30 dark:text-blue-400'
+    : a === 'crypto' ? 'border-amber-400/40 bg-amber-50 text-amber-600 dark:bg-amber-900/30 dark:text-amber-400'
+    : 'border-border bg-muted text-muted-foreground';
+  return { label: spec.shortLabel, className: cls };
+};
+
 
 // instrument 格式: "2330 台積電"
 export const parseInstrument = (inst: string) => {
