@@ -38,6 +38,15 @@ function HoldingCardHeaderImpl({
     e.stopPropagation();
     if (typeof onReportMeta === 'function') onReportMeta(h);
   };
+  const onReportKeyDown = (e) => {
+    // 攔截 Enter/Space，避免同時觸發外層 button 的 onSelect，
+    // 並防止 Shift+Enter 冒泡開啟決策抽屜。
+    if (e.key === 'Enter' || e.key === ' ' || e.key === 'Spacebar') {
+      e.preventDefault();
+      e.stopPropagation();
+      if (typeof onReportMeta === 'function') onReportMeta(h);
+    }
+  };
 
   return (
     <>
@@ -63,13 +72,13 @@ function HoldingCardHeaderImpl({
           )}
         </div>
         {sparkData.length >= 2 ? (
-          <span className="wb-spark" style={{ display: 'inline-flex', flexShrink: 0 }}>
+          <span className="wb-spark" aria-hidden="true" style={{ display: 'inline-flex', flexShrink: 0 }}>
             <Sparkline data={sparkData} width={60} height={20} color={sparkColor} opacity={sparkOpacity} />
           </span>
         ) : (
           <span
             className="wb-spark"
-            aria-hidden
+            aria-hidden="true"
             title={sparkFailed ? '歷史價尚未同步，稍後重試' : undefined}
             style={{
               display: 'inline-flex', alignItems: 'center', justifyContent: 'center',
@@ -78,7 +87,7 @@ function HoldingCardHeaderImpl({
             }}
           >{sparkFailed ? '~' : '———'}</span>
         )}
-        <span style={{
+        <span aria-hidden="true" style={{
           fontSize: 9, fontWeight: 500, letterSpacing: '0.20em',
           color: WB.accent, textTransform: 'uppercase', flexShrink: 0,
         }}>{actionLabel}</span>
@@ -111,9 +120,12 @@ function HoldingCardHeaderImpl({
             }}>{meta.strategy}</span>
           )}
           {onReportMeta && (
-            <button
-              type="button"
+            // 為避免 <button> 巢狀（HTML 規範禁止），使用 role=button 的 span
+            <span
+              role="button"
+              tabIndex={0}
               onClick={openReportMeta}
+              onKeyDown={onReportKeyDown}
               title="回報分類錯誤"
               aria-label={`回報 ${h.code} 分類錯誤`}
               style={{
@@ -121,8 +133,9 @@ function HoldingCardHeaderImpl({
                 padding: '4px 6px', background: 'transparent',
                 border: `1px dashed ${reportBorder}`, borderRadius: 0,
                 cursor: 'pointer', marginLeft: 'auto',
+                userSelect: 'none', display: 'inline-block',
               }}
-            >回報</button>
+            >回報</span>
           )}
         </div>
       )}

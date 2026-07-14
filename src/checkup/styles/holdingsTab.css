@@ -126,6 +126,26 @@
   .wb-card .wb-tags { row-gap: 6px !important; }
 }
 
+/* A11y：鍵盤 focus-visible 焦點環（滑鼠點擊不顯示，Tab 才顯示） */
+.wb-card { outline: none; }
+.wb-card:focus-visible {
+  outline: 2px solid #FF4D1F;
+  outline-offset: 2px;
+  box-shadow: 0 0 0 4px rgba(255, 77, 31, 0.18);
+  z-index: 2;
+  position: relative;
+}
+.wb-card.wb-card-feature:focus-visible {
+  outline-color: #F4F1EC;
+  box-shadow: 0 0 0 4px rgba(244, 241, 236, 0.22);
+}
+/* 卡內 report 巢狀按鈕的焦點也要看得見 */
+.wb-card .wb-tags button:focus-visible {
+  outline: 2px solid #FF4D1F;
+  outline-offset: 2px;
+}
+
+
 /* 手機觸控回饋：擴大可點擊範圍 + 按壓反饋 */
 @media (hover: none) and (pointer: coarse) {
   .wb-card {

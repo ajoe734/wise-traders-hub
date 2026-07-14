@@ -25,7 +25,7 @@ function HoldingCardReturnImpl({
   const marginBottom = isFeature ? 10 : 8;
 
   return (
-    <div style={{
+    <div aria-hidden="true" style={{
       display: 'flex', alignItems: 'baseline', gap: rowGap,
       marginTop, marginBottom,
     }}>
