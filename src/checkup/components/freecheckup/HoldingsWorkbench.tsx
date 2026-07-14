@@ -200,7 +200,7 @@ function HoldingsWorkbench(props) {
       {/* Detail Panel — Sheet（Radix Dialog）：遮罩點擊關閉、Esc 關閉、焦點陷阱、aria-modal */}
       <Sheet open={showPanel} onOpenChange={handleOpenChange}>
         <SheetContent
-          ref={sheetRef}
+          ref={(node) => { console.log('[backtop] ref callback', node); sheetRef.current = node; }}
           side="right"
           data-testid="holdings-detail-panel"
           className="w-full sm:max-w-md md:max-w-lg lg:max-w-xl xl:max-w-2xl overflow-y-auto p-0"
