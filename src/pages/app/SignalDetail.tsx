@@ -64,7 +64,7 @@ const TextBlock = ({ text, dotColor }: { text: string; dotColor?: string }) => {
 const fetchSignalDetail = async (signalId: string): Promise<DbSignal | null> => {
   const { data } = await supabase
     .from('expert_signals')
-    .select('id, instrument, action, price_hint, quantity, quantity_unit, reason_summary, reason_detail, risk_notes, learning_points, published_at, experts(name, slug, role, avatar_url)')
+    .select('id, instrument, action, price_hint, quantity, quantity_unit, currency, reason_summary, reason_detail, risk_notes, learning_points, published_at, experts(name, slug, role, avatar_url)')
     .eq('id', signalId)
     .single();
   return (data as unknown as DbSignal | null) ?? null;
