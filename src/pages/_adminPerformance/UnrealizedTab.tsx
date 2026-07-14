@@ -93,6 +93,9 @@ export default function UnrealizedTab({ rows, loading, totalPnlPercent, avgPnlPe
                       </td>
                       <td className={cn('text-right p-3 text-sm tabular-nums transition-colors duration-300', pnlColor(row.pnl))}>
                         {row.pnl != null ? fmtPnl(row.pnl, row.currency) : '-'}
+                        {row.pnl != null && row.currency === 'USD' && (
+                          <FxHint amount={row.pnl} currency="USD" showMeta={false} className="block" />
+                        )}
                       </td>
                       <td className={cn('text-right p-3 text-sm tabular-nums transition-colors duration-300', pnlColor(row.pnl_percent))}>
                         {row.pnl_percent != null ? fmtPct(row.pnl_percent) : '-'}
