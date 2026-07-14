@@ -15,6 +15,8 @@ import { cn } from '@/lib/utils';
 import { Button } from '@/components/ui/button';
 import { useQuery } from '@tanstack/react-query';
 import { SafeRichHtml } from '@/components/SafeRichHtml';
+import { FxHint } from '@/components/FxHint';
+import { CURRENCY_SYMBOL, defaultQuantityUnit, normalizeCurrency, type Currency } from '@/lib/currency';
 
 const actionConfig: Record<string, { label: string; className: string }> = {
   buy: { label: '買進', className: 'bg-success text-white border-success' },
@@ -31,6 +33,7 @@ interface DbSignal {
   price_hint: number | null;
   quantity: number | null;
   quantity_unit: string;
+  currency?: string | null;
   reason_summary: string | null;
   reason_detail: string | null;
   risk_notes: string | null;
@@ -61,7 +64,7 @@ const TextBlock = ({ text, dotColor }: { text: string; dotColor?: string }) => {
 const fetchSignalDetail = async (signalId: string): Promise<DbSignal | null> => {
   const { data } = await supabase
     .from('expert_signals')
-    .select('id, instrument, action, price_hint, quantity, quantity_unit, reason_summary, reason_detail, risk_notes, learning_points, published_at, experts(name, slug, role, avatar_url)')
+    .select('id, instrument, action, price_hint, quantity, quantity_unit, currency, reason_summary, reason_detail, risk_notes, learning_points, published_at, experts(name, slug, role, avatar_url)')
     .eq('id', signalId)
     .single();
   return (data as unknown as DbSignal | null) ?? null;
@@ -157,11 +160,22 @@ const SignalDetail = () => {
         </div>
 
         {/* Price hint */}
-        {signal.price_hint != null && (
-          <div className="text-sm text-muted-foreground">
-            參考價位：<span className="font-medium text-foreground">{signal.price_hint}{signal.quantity != null ? `(${signal.quantity}${signal.quantity_unit || '張'})` : ''}</span>
-          </div>
-        )}
+        {signal.price_hint != null && (() => {
+          const cur: Currency = normalizeCurrency(signal.currency);
+          const sym = CURRENCY_SYMBOL[cur];
+          const unit = signal.quantity_unit || defaultQuantityUnit(cur);
+          const total = signal.quantity != null ? Number(signal.price_hint) * Number(signal.quantity) : null;
+          return (
+            <div className="text-sm text-muted-foreground">
+              參考價位：
+              <span className="font-medium text-foreground">
+                {sym}{Number(signal.price_hint).toLocaleString(undefined, { minimumFractionDigits: cur === 'USD' ? 2 : 0, maximumFractionDigits: 2 })}
+                {signal.quantity != null ? `（${signal.quantity}${unit}）` : ''}
+              </span>
+              {total != null && <FxHint amount={total} currency={cur} className="ml-2" showMeta={false} />}
+            </div>
+          );
+        })()}
 
         {/* 1. 為什麼這樣操作？ */}
         {signal.reason_detail && (

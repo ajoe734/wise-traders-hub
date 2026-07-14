@@ -89,6 +89,7 @@ export function SignalRow({
                   amount={Number(signal.price_hint) * Number(signal.quantity)}
                   currency="USD"
                   showMeta={false}
+                  forceAuto
                   className="block"
                 />
               )}

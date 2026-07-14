@@ -14,6 +14,7 @@ import {
 import { cn } from '@/lib/utils';
 import { PreviewBanner } from '@/components/PreviewBanner';
 import { Logomark } from '@/components/brand/Logomark';
+import { DisplayCurrencyToggle } from '@/components/DisplayCurrencyToggle';
 
 // localStorage keys for unread tracking
 const SIGNALS_LAST_SEEN_KEY = 'app:lastSeen:signals';
@@ -300,6 +301,8 @@ export function UnifiedAppLayout({ children }: UnifiedAppLayoutProps) {
             </Link>
           </div>
           <div className="flex items-center gap-1">
+            {/* Display currency toggle */}
+            <DisplayCurrencyToggle className="mr-1" />
             {/* Notification Bell */}
             <NotificationBell />
             

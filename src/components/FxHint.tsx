@@ -1,30 +1,59 @@
 import { useFxRate } from '@/hooks/useFxRate';
 import { formatMoneyByCurrency, type Currency } from '@/lib/currency';
 import { cn } from '@/lib/utils';
+import { useDisplayCurrency } from '@/contexts/DisplayCurrencyContext';
 
 interface Props {
   /** 原始金額 */
   amount: number | null | undefined;
   /** 原始金額幣別 */
   currency: Currency | undefined;
-  /** 換算目標，預設 TWD（僅 USD → TWD 有效） */
+  /** 手動指定換算目標；未指定則吃 DisplayCurrencyContext。 */
   target?: Currency;
-  /** 是否顯示匯率來源 tooltip 內容（預設 true）。false 只顯示金額。 */
+  /** 若未指定 target，是否忽略 context、強制以 auto 行為顯示（僅 USD→TWD）。 */
+  forceAuto?: boolean;
+  /** 是否附上「（匯率 X.XX）」小字。 */
   showMeta?: boolean;
   className?: string;
 }
 
 /**
- * 在 USD 金額旁顯示「≈ NT$xxx（匯率 31.52，Yahoo Finance · MM/DD HH:mm）」。
- * TWD 金額或匯率未載入時不渲染。
+ * 在金額旁顯示 FX 換算。行為：
+ * - 有 `target`：直接以該幣別換算（若跟 currency 相同則不顯示）。
+ * - 無 `target` 且 `forceAuto=true`：僅 USD 原生時顯示 TWD hint（歷史行為）。
+ * - 無 `target`：吃 `useDisplayCurrency()` 偏好，`auto` 等同 forceAuto。
  */
-export function FxHint({ amount, currency, target = 'TWD', showMeta = true, className }: Props) {
+export function FxHint({ amount, currency, target, forceAuto, showMeta = true, className }: Props) {
   const { data: fx } = useFxRate('USDTWD');
-  if (currency !== 'USD' || target !== 'TWD') return null;
-  if (amount == null || !Number.isFinite(Number(amount))) return null;
-  if (!fx) return null;
+  const { shouldShowHint } = useDisplayCurrency();
 
-  const twd = Number(amount) * fx.rate;
+  if (amount == null || !Number.isFinite(Number(amount))) return null;
+  if (!fx || !currency) return null;
+
+  let targetCurrency: Currency;
+  if (target) {
+    if (target === currency) return null;
+    targetCurrency = target;
+  } else if (forceAuto) {
+    if (currency !== 'USD') return null;
+    targetCurrency = 'TWD';
+  } else {
+    const { show, target: t } = shouldShowHint(currency);
+    if (!show) return null;
+    targetCurrency = t;
+  }
+
+  const rate = Number(fx.rate);
+  if (!Number.isFinite(rate) || rate <= 0) return null;
+
+  const converted =
+    currency === 'USD' && targetCurrency === 'TWD'
+      ? Number(amount) * rate
+      : currency === 'TWD' && targetCurrency === 'USD'
+        ? Number(amount) / rate
+        : null;
+  if (converted == null) return null;
+
   const timeStr = new Date(fx.fetchedAt).toLocaleString('zh-TW', {
     month: '2-digit', day: '2-digit', hour: '2-digit', minute: '2-digit',
   });
@@ -32,19 +61,19 @@ export function FxHint({ amount, currency, target = 'TWD', showMeta = true, clas
   return (
     <span
       className={cn('text-xs text-muted-foreground ml-1 tabular-nums', className)}
-      title={showMeta ? `匯率 ${fx.rate.toFixed(4)}｜${fx.source}｜更新 ${timeStr}` : undefined}
+      title={`匯率 USD/TWD ${rate.toFixed(4)}｜${fx.source}｜更新 ${timeStr}`}
     >
-      ≈ {formatMoneyByCurrency(twd, 'TWD')}
+      ≈ {formatMoneyByCurrency(converted, targetCurrency)}
       {showMeta && (
         <span className="ml-1 opacity-70">
-          （匯率 {fx.rate.toFixed(2)}）
+          （匯率 {rate.toFixed(2)}）
         </span>
       )}
     </span>
   );
 }
 
-/** 匯率狀態列（放在頁面 header 下方或 Capital 卡片內）。 */
+/** 匯率狀態列（頁面級註腳）。 */
 export function FxRateFootnote({ className }: { className?: string }) {
   const { data: fx } = useFxRate('USDTWD');
   if (!fx) return null;
@@ -53,7 +82,7 @@ export function FxRateFootnote({ className }: { className?: string }) {
   });
   return (
     <p className={cn('text-xs text-muted-foreground', className)}>
-      USD/TWD 匯率 <span className="font-medium tabular-nums">{fx.rate.toFixed(4)}</span>
+      USD/TWD 匯率 <span className="font-medium tabular-nums">{Number(fx.rate).toFixed(4)}</span>
       　來源：{fx.source}　更新：{timeStr}
     </p>
   );
