@@ -91,14 +91,25 @@ export function SignalCreateDialog({
   );
 
   const clearForm = useCallback(() => {
-    setStockCode(''); setStockName(''); setAction(''); setPriceHint(''); setQuantity(''); setQuantityUnit('張');
+    setStockCode(''); setStockName(''); setAction(''); setPriceHint(''); setQuantity(''); setQuantityUnit(spec.defaultUnit);
     setReasonSummary(''); setReasonDetail(''); setRiskNotes(''); setLearningPoints('');
     setTeachingTopic(''); setOverallSummary('');
     setLinePushed(false); setLinePushing(false); setLastPublishedId(null);
     setShowPreview(false);
     sessionStorage.removeItem(FORM_KEY);
     discardDraft();
-  }, [FORM_KEY, discardDraft]);
+  }, [FORM_KEY, discardDraft, spec.defaultUnit]);
+
+  // 若 asset_class 切換（例如從草稿回填 / 分析師切換），把不合法的 quantityUnit 校正回預設
+  useEffect(() => {
+    if (!spec.units.includes(quantityUnit as any)) {
+      setQuantityUnit(spec.defaultUnit);
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [spec.assetClass]);
+
+  const currencySymbol = spec.currency === 'USD' ? 'US$' : 'NT$';
+  const pricePlaceholder = spec.currency === 'USD' ? '185.50' : '890';
 
   const fetchStockInfo = useCallback(async (code: string) => {
     const c = code.trim();
@@ -271,7 +282,12 @@ export function SignalCreateDialog({
   return (
     <Dialog open={isCreateOpen} onOpenChange={setIsCreateOpen}>
       <DialogContent className="max-w-lg max-h-[90vh] flex flex-col">
-        <DialogHeader><DialogTitle>發布新{isMentor ? '週記' : '訊號'}</DialogTitle></DialogHeader>
+        <DialogHeader>
+          <DialogTitle className="flex items-center gap-2">
+            發布新{isMentor ? '週記' : '訊號'}
+            <Badge variant="outline" className="text-[10px]">{spec.label} · {spec.currency}</Badge>
+          </DialogTitle>
+        </DialogHeader>
         <div className="space-y-4 mt-4 overflow-y-auto flex-1 px-1 -mx-1">
           {isMentor && (
             <div className="space-y-2">
@@ -340,8 +356,18 @@ export function SignalCreateDialog({
               </Select>
             </div>
             <div className="space-y-2">
-              <Label>參考價位</Label>
-              <Input value={priceHint} onChange={(e) => setPriceHint(e.target.value)} type="number" placeholder="890" />
+              <Label>參考價位（{currencySymbol}）</Label>
+              <div className="relative">
+                <span className="pointer-events-none absolute left-3 top-1/2 -translate-y-1/2 text-xs text-muted-foreground">{currencySymbol}</span>
+                <Input
+                  value={priceHint}
+                  onChange={(e) => setPriceHint(e.target.value)}
+                  type="number"
+                  step={spec.priceDigits >= 4 ? '0.0001' : '0.01'}
+                  placeholder={pricePlaceholder}
+                  className="pl-11"
+                />
+              </div>
             </div>
           </div>
           {action && (
@@ -543,7 +569,7 @@ export function SignalCreateDialog({
               <div className="flex items-center gap-2">
                 <Badge variant="secondary" className="text-xs">{actionLabels[action]?.label || action}</Badge>
                 <span className="font-medium text-sm">{stockCode} {stockName}</span>
-                {priceHint && <span className="text-sm text-muted-foreground">@ {priceHint}</span>}
+                {priceHint && <span className="text-sm text-muted-foreground">@ {currencySymbol}{priceHint}</span>}
                 {quantity && <span className="text-sm text-muted-foreground">{quantity} {quantityUnit}</span>}
               </div>
               {reasonSummary && <p className="text-sm">{reasonSummary}</p>}
