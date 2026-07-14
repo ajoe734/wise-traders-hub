@@ -37,7 +37,7 @@ const EMPTY: ExpertHoldingsBundle = {
   assetClass: 'tw_stock',
 };
 
-export function mapOpenPositionToRow(p: any, currency: Currency = 'TWD'): PerfRow {
+export function mapOpenPositionToRow(p: any, currency: Currency = 'TWD', assetClass: AssetClass = 'tw_stock'): PerfRow {
   const parts = String(p.instrument || p.symbol || '').split(' ');
   const symbol = p.symbol || parts[0] || '';
   const name = parts.slice(1).join(' ') || null;
@@ -52,6 +52,7 @@ export function mapOpenPositionToRow(p: any, currency: Currency = 'TWD'): PerfRo
     : (curPrice != null && entryPrice != null && entryPrice > 0
         ? Math.round(((curPrice - entryPrice) / entryPrice) * 10000) / 100
         : null);
+  const rowAsset: AssetClass = p.asset_class ? normalizeAssetClass(p.asset_class) : assetClass;
   return {
     id: `pos-${symbol}`,
     instrument: p.instrument || `${symbol} ${name || ''}`.trim(),
@@ -65,16 +66,18 @@ export function mapOpenPositionToRow(p: any, currency: Currency = 'TWD'): PerfRo
     quantity_unit: '股',
     status: 'open',
     currency: normalizeCurrency(p.currency) || currency,
+    asset_class: rowAsset,
   };
 }
 
 export function useExpertHoldingsBundle(
   expertId: string | undefined,
-  options?: { expertOwnerUserId?: string | null; currency?: Currency | string | null },
+  options?: { expertOwnerUserId?: string | null; currency?: Currency | string | null; assetClass?: AssetClass | string | null },
 ) {
   const queryClient = useQueryClient();
   const queryKey = useMemo(() => ['expert-holdings-bundle', expertId] as const, [expertId]);
   const currency: Currency = normalizeCurrency(options?.currency);
+  const assetClass: AssetClass = normalizeAssetClass(options?.assetClass);
 
   const query = useQuery<ExpertHoldingsBundle>({
     queryKey,
