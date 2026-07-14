@@ -14,6 +14,7 @@ import { ThemeProvider } from "next-themes";
 import { lazy, Suspense, useEffect } from "react";
 import { prefetchHighTrafficRoutes } from "@/lib/routePrefetch";
 import { AuthProvider } from "@/contexts/AuthContext";
+import { DisplayCurrencyProvider } from "@/contexts/DisplayCurrencyContext";
 import { ViewAsProvider } from "@/contexts/ViewAsContext";
 import { ViewAsBanner } from "@/components/ViewAsBanner";
 import {
