@@ -508,7 +508,10 @@ const JournalsExport = () => {
             )}
           </CardContent>
         </Card>
+
+        <AutoExportSection />
       </div>
+
 
       <AlertDialog open={confirmOpen} onOpenChange={setConfirmOpen}>
         <AlertDialogContent>
