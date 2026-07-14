@@ -33,12 +33,13 @@ export function formatMoneyByCurrency(n: number | null | undefined, c: Currency 
   return `${sym}${v.toLocaleString()}`;
 }
 
-/** 純小數顯示（不帶幣別符號），例如報價、單價。USD 預設 2 位、TWD 預設 2 位。 */
-export function formatPriceByCurrency(n: number | null | undefined, c: Currency = 'TWD'): string {
+/** 純小數顯示（不帶幣別符號），例如報價、單價。預設 2 位；可覆寫 digits（如 crypto 4 位）。 */
+export function formatPriceByCurrency(n: number | null | undefined, c: Currency = 'TWD', digits?: number): string {
   if (n == null || !Number.isFinite(Number(n))) return '—';
-  const digits = c === 'USD' ? 2 : 2;
-  return Number(n).toFixed(digits);
+  const d = digits != null ? digits : (c === 'USD' ? 2 : 2);
+  return Number(n).toFixed(d);
 }
+
 
 const US_SYMBOL_RE = /^[A-Z]{1,5}(\.[A-Z])?$/;
 const TW_SYMBOL_RE = /^\d{4,6}$/;
