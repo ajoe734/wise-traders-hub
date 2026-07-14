@@ -4,6 +4,7 @@ import { Loader2 } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { AnimatedNumber } from '@/components/AnimatedNumber';
 import { pnlColor, fmtPnl, fmtPct, fmtPrice, type PerfRow } from '@/pages/_adminPerformance/types';
+import { FxHint } from '@/components/FxHint';
 
 interface Props {
   rows: PerfRow[];
