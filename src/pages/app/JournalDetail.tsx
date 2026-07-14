@@ -191,7 +191,7 @@ const JournalDetail = () => {
   }
 
   if (!signal) {
-    return <UnifiedAppLayout><div className="p-4 text-center">找不到此週記</div></UnifiedAppLayout>;
+    return <UnifiedAppLayout><UnavailableContent kind="journal" /></UnifiedAppLayout>;
   }
 
   const pubDate = new Date(signal.published_at);
