@@ -311,6 +311,7 @@ const AppShell = () => (
             <Route path="/company/members" element={<ProtectedRoute requiredRole="company_admin"><CompanyMembers /></ProtectedRoute>} />
             <Route path="/company/users" element={<ProtectedRoute requiredRole="company_admin"><CompanyUsers /></ProtectedRoute>} />
             <Route path="/company/analysts" element={<ProtectedRoute requiredRole="company_admin"><CompanyAnalysts /></ProtectedRoute>} />
+            <Route path="/company/journals-export" element={<ProtectedRoute requiredRole="company_admin"><CompanyJournalsExport /></ProtectedRoute>} />
             <Route path="/company/subscribers" element={<ProtectedRoute requiredRole="company_admin"><CompanySubscribers /></ProtectedRoute>} />
             <Route path="/company/line-push-history" element={<ProtectedRoute requiredRole="company_admin"><CompanyLinePushHistory /></ProtectedRoute>} />
             <Route path="/company/revenue" element={<ProtectedRoute requiredRole="company_admin"><CompanyRevenue /></ProtectedRoute>} />
