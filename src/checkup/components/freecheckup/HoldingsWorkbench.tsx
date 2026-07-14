@@ -91,12 +91,20 @@ function HoldingsWorkbench(props) {
       return;
     }
     const el = sheetRef.current;
+    console.log('[backtop] effect', { showPanel, hasEl: !!el, scrollTop: el?.scrollTop, scrollHeight: el?.scrollHeight, clientHeight: el?.clientHeight });
     if (!el) return;
-    const onScroll = () => setShowTopBtn(el.scrollTop > 160);
+    const onScroll = () => {
+      console.log('[backtop] scroll', el.scrollTop);
+      setShowTopBtn(el.scrollTop > 160);
+    };
     el.addEventListener('scroll', onScroll, { passive: true });
     onScroll();
-    return () => el.removeEventListener('scroll', onScroll);
+    return () => {
+      console.log('[backtop] cleanup');
+      el.removeEventListener('scroll', onScroll);
+    };
   }, [showPanel]);
+
 
   const cardWallStyle = useMemo(
     () => ({
