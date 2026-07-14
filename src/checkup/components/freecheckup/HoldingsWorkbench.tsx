@@ -2,7 +2,8 @@
 // C8 (audit 2026-07)：從 HoldingsTab.tsx L375-540 的 IIFE 抽出。
 // 2026-07 update：右側 Detail Panel 改用可存取的 Sheet（Radix Dialog）
 // —— 遮罩點擊關閉、Esc 關閉、焦點陷阱、aria-modal 皆由 Radix 提供。
-import { Suspense, lazy, memo, useMemo } from 'react';
+import { Suspense, lazy, memo, useCallback, useMemo, useRef, useState } from 'react';
+import { ArrowUp } from 'lucide-react';
 import HoldingCard from '@/checkup/components/freecheckup/HoldingCard';
 import HoldingsEmptyState from '@/checkup/components/freecheckup/HoldingsEmptyState';
 import HoldingsNoMatchState from '@/checkup/components/freecheckup/HoldingsNoMatchState';
@@ -18,6 +19,7 @@ import { VisuallyHidden } from '@radix-ui/react-visually-hidden';
 // STOCK_META → TWSE → FinMind → UNCLASSIFIED），與族群聚合面板同源，
 // 避免 HoldingCard 上顯示「未分類」而聚合卡卻有產業的不一致。
 import { getMultiMeta } from '@/checkup/lib/stockMetaMulti.js';
+
 
 const HoldingsDetailPanel = lazy(
   () => import('@/checkup/components/freecheckup/HoldingsDetailPanel'),
@@ -79,6 +81,30 @@ function HoldingsWorkbench(props) {
 
   const showPanel = !!selected;
 
+  const sheetRef = useRef<HTMLDivElement | null>(null);
+  const onScrollRef = useRef<(() => void) | null>(null);
+  const [showTopBtn, setShowTopBtn] = useState(false);
+
+  // 抽屜內部滾動時顯示「回到頂部」按鈕；透過 callback ref 掛載，避免 Sheet 動畫/portal 導致時序問題
+  const setSheetRef = useCallback((node: HTMLDivElement | null) => {
+    if (onScrollRef.current && sheetRef.current) {
+      sheetRef.current.removeEventListener('scroll', onScrollRef.current);
+    }
+    sheetRef.current = node;
+    if (node) {
+      const onScroll = () => setShowTopBtn(node.scrollTop > 160);
+      onScrollRef.current = onScroll;
+      node.addEventListener('scroll', onScroll, { passive: true });
+      onScroll();
+    } else {
+      onScrollRef.current = null;
+      setShowTopBtn(false);
+    }
+  }, []);
+
+
+
+
   const cardWallStyle = useMemo(
     () => ({
       display: 'grid',
@@ -88,6 +114,7 @@ function HoldingsWorkbench(props) {
     }),
     [cardGridCols],
   );
+
 
   const handleOpenChange = (open: boolean) => {
     if (!open) setExpandedDecision?.(null);
@@ -171,6 +198,7 @@ function HoldingsWorkbench(props) {
       {/* Detail Panel — Sheet（Radix Dialog）：遮罩點擊關閉、Esc 關閉、焦點陷阱、aria-modal */}
       <Sheet open={showPanel} onOpenChange={handleOpenChange}>
         <SheetContent
+          ref={setSheetRef}
           side="right"
           data-testid="holdings-detail-panel"
           className="w-full sm:max-w-md md:max-w-lg lg:max-w-xl xl:max-w-2xl overflow-y-auto p-0"
@@ -212,8 +240,27 @@ function HoldingsWorkbench(props) {
               />
             </Suspense>
           )}
+          {showTopBtn && (
+            <button
+              type="button"
+              aria-label="回到頂部"
+              onClick={() =>
+                sheetRef.current?.scrollTo({ top: 0, behavior: 'smooth' })
+              }
+              className="absolute bottom-4 right-4 z-50 flex h-11 w-11 items-center justify-center rounded-full border focus:outline-none focus:ring-2 focus:ring-ring focus:ring-offset-2 transition-opacity"
+              style={{
+                background: WB.surface,
+                borderColor: WB.hairStrong,
+                color: WB.ink,
+              }}
+            >
+              <ArrowUp className="h-5 w-5" />
+              <span className="sr-only">回到頂部</span>
+            </button>
+          )}
         </SheetContent>
       </Sheet>
+
     </div>
   );
 }
