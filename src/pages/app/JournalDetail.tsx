@@ -17,6 +17,8 @@ import { SafeRichHtml, richHtmlToPlain } from '@/components/SafeRichHtml';
 import { avatarUrl } from '@/lib/imageTransform';
 import { toast } from 'sonner';
 import { exportJournalPdf } from '@/lib/exportJournalPdf';
+import { FxHint } from '@/components/FxHint';
+import { CURRENCY_SYMBOL, defaultQuantityUnit, normalizeCurrency, type Currency } from '@/lib/currency';
 
 interface SignalDetail {
   id: string;
@@ -25,6 +27,7 @@ interface SignalDetail {
   price_hint: number | null;
   quantity: number | null;
   quantity_unit: string | null;
+  currency?: string | null;
   reason_summary: string | null;
   reason_detail: string | null;
   risk_notes: string | null;
