@@ -79,18 +79,6 @@ function HoldingsWorkbench(props) {
 
   const showPanel = !!selected;
 
-  const gridStyle = useMemo(
-    () => ({
-      display: 'grid',
-      gridTemplateColumns: showPanel
-        ? 'minmax(0, 1fr) minmax(0, 420px)'
-        : 'minmax(0, 1fr)',
-      gap: showPanel ? 20 : 0,
-      alignItems: 'flex-start',
-    }),
-    [showPanel],
-  );
-
   const cardWallStyle = useMemo(
     () => ({
       display: 'grid',
@@ -101,19 +89,13 @@ function HoldingsWorkbench(props) {
     [cardGridCols],
   );
 
-  const panelRef = useRef<HTMLElement | null>(null);
-  useEffect(() => {
-    if (!showPanel || !panelRef.current) return;
-    // 開啟時捲動到 panel（尤其手機／窄螢幕 panel 在下方使用者看不到）
-    const id = window.setTimeout(() => {
-      panelRef.current?.scrollIntoView({ behavior: 'smooth', block: 'start' });
-    }, 60);
-    return () => window.clearTimeout(id);
-  }, [showPanel, expandedDecision]);
+  const handleOpenChange = (open: boolean) => {
+    if (!open) setExpandedDecision?.(null);
+  };
 
   return (
-    <div style={gridStyle} className="holdings-workbench">
-      {/* 左：卡片牆 */}
+    <div className="holdings-workbench">
+
       <div
         style={cardWallStyle}
         className={`holdings-card-grid${viewMode === 'list' ? ' holdings-card-grid--list' : ''}`}
