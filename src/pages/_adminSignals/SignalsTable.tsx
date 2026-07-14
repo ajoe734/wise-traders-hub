@@ -77,6 +77,7 @@ export function SignalsTable(p: Props) {
                     onRecall={p.onRecall}
                     onEdit={p.onEdit}
                     defaultCurrency={p.defaultCurrency}
+                    defaultAssetClass={assetClass}
                   />
                 ))
               )}
