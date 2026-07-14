@@ -15,6 +15,8 @@ import { cn } from '@/lib/utils';
 import { Button } from '@/components/ui/button';
 import { useQuery } from '@tanstack/react-query';
 import { SafeRichHtml } from '@/components/SafeRichHtml';
+import { FxHint } from '@/components/FxHint';
+import { CURRENCY_SYMBOL, defaultQuantityUnit, normalizeCurrency, type Currency } from '@/lib/currency';
 
 const actionConfig: Record<string, { label: string; className: string }> = {
   buy: { label: '買進', className: 'bg-success text-white border-success' },
