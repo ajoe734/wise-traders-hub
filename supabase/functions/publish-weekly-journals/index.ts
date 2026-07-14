@@ -226,10 +226,17 @@ Deno.serve(withLogging('publish-weekly-journals', async (req) => {
 
     stage = 'mark_published'
     const signalIds = pendingSignals.map(s => s.id)
-    const { error: updateErr } = await supabaseAdmin
-      .from('expert_signals')
-      .update({ status: 'published' })
-      .in('id', signalIds)
+    // 依 instrument 判別市場，回填 expert_signals.market；同 batch 逐一 update 以帶入正確 market
+    const { detectMarket, currencyOf } = await import('../_shared/marketDetect.ts')
+    let updateErr: any = null
+    for (const s of pendingSignals) {
+      const market = detectMarket((s as any).instrument)
+      const { error } = await supabaseAdmin
+        .from('expert_signals')
+        .update({ status: 'published', market })
+        .eq('id', s.id)
+      if (error) { updateErr = error; break }
+    }
 
     if (updateErr) {
       logErr(stage, updateErr, { signalIds })
