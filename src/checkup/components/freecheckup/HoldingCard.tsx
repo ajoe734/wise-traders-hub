@@ -233,7 +233,9 @@ function HoldingCardImpl(props) {
       aria-describedby={describedByIds}
       style={buttonStyle}
     >
-      {inView && (
+      {(!inView || h?._loading) ? (
+        <HoldingCardSkeleton variant={variantForChildren} />
+      ) : (
         <>
           {/* Layer 1 · 標頭 */}
           <HoldingCardHeader
