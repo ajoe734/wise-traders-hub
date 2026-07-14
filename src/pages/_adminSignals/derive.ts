@@ -1,19 +1,18 @@
 // Pure helpers extracted from admin/Signals.tsx
+import { isMarketClosedFor, type MarketHours } from '@/lib/asset';
 
 export const actionLabelMap: Record<string, string> = { '買進': 'buy', '賣出': 'sell', '平損': 'exit' };
 export const statusOnlyKeywords = ['持有中', '已平倉', '待發布'];
 
-/** 台灣休市時段（週五 13:30 ~ 週一 09:00, UTC+8） */
-export function isMarketClosed(now: Date = new Date()): boolean {
-  const twOffset = 8 * 60;
-  const utcMs = now.getTime() + now.getTimezoneOffset() * 60000;
-  const tw = new Date(utcMs + twOffset * 60000);
-  const day = tw.getDay();
-  const hhmm = tw.getHours() * 100 + tw.getMinutes();
-  if (day === 0 || day === 6) return true;
-  if (day === 5 && hhmm >= 1330) return true;
-  if (day === 1 && hhmm < 900) return true;
-  return false;
+/**
+ * 是否已收盤（供訊號／週記發布判斷）
+ *
+ * @param mode  'tw' (default) | 'us' | '24x7'；未傳 = 台股，向下相容
+ * @param now   當前時間
+ */
+export function isMarketClosed(mode: MarketHours | Date = 'tw', now: Date = new Date()): boolean {
+  if (mode instanceof Date) return isMarketClosedFor('tw', mode);
+  return isMarketClosedFor(mode, now);
 }
 
 /** 判斷 buy signal 實際是否為「加碼」（同標的後續買進） */

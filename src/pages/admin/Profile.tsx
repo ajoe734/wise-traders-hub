@@ -20,6 +20,7 @@ import StyleMarketCard from '@/pages/_adminProfile/StyleMarketCard';
 import StrategyKpiCard from '@/pages/_adminProfile/StrategyKpiCard';
 import StartingCapitalCard from '@/pages/_adminProfile/StartingCapitalCard';
 import CurrencyCard from '@/pages/_adminProfile/CurrencyCard';
+import { resolveAssetClass, getAssetSpec, type AssetClass } from '@/lib/asset';
 import PasswordChangeCard from '@/pages/_adminProfile/PasswordChangeCard';
 import AiIndexCard from '@/pages/_adminProfile/AiIndexCard';
 
@@ -69,7 +70,8 @@ const AdminProfile = () => {
   const [markets, setMarkets] = useState<string[]>([]);
   const [newTag, setNewTag] = useState('');
   const [newMarket, setNewMarket] = useState('');
-  const [currency, setCurrency] = useState<'TWD' | 'USD'>('TWD');
+  const [assetClass, setAssetClass] = useState<AssetClass>('tw_stock');
+  const currency = getAssetSpec(assetClass).currency;
   const [startingCapital, setStartingCapital] = useState<string>('');
   const [startingCapitalLocked, setStartingCapitalLocked] = useState(false);
   const [showCapitalConfirm, setShowCapitalConfirm] = useState(false);
@@ -87,7 +89,7 @@ const AdminProfile = () => {
     setOperationCycle((expert as any).operation_cycle || '');
     setStyleTags(expert.style_tags || []);
     setMarkets(expert.markets || []);
-    setCurrency(((expert as any).currency === 'USD' ? 'USD' : 'TWD'));
+    setAssetClass(resolveAssetClass(expert as any));
     if (expert.starting_capital != null) {
       setStartingCapital(String(expert.starting_capital));
       setStartingCapitalLocked(true);
@@ -109,6 +111,7 @@ const AdminProfile = () => {
       style_tags: styleTags,
       markets,
       currency,
+      asset_class: assetClass,
     });
   };
 
@@ -177,8 +180,8 @@ const AdminProfile = () => {
         />
 
         <CurrencyCard
-          currency={currency}
-          setCurrency={setCurrency}
+          assetClass={assetClass}
+          setAssetClass={setAssetClass}
           isReadOnly={isReadOnly}
           locked={currencyLocked}
         />
