@@ -3,6 +3,8 @@ import {
   formatMoneyByCurrency,
   formatPriceByCurrency,
 } from '@/lib/currency';
+import type { AssetClass } from '@/lib/asset';
+import { getAssetSpec } from '@/lib/asset';
 
 export interface PerfRow {
   id: string;
@@ -18,6 +20,8 @@ export interface PerfRow {
   status: string;
   /** 該持倉的計價幣別（TWD / USD），由 expert.currency 帶入 */
   currency?: Currency;
+  /** 資產類別（tw_stock / us_stock / crypto） */
+  asset_class?: AssetClass;
 }
 
 export interface RealizedRow {
@@ -30,7 +34,9 @@ export interface RealizedRow {
   pnl_percent: number | null;
   status: string;
   currency?: Currency;
+  asset_class?: AssetClass;
 }
+
 
 export interface CapitalStatus {
   starting_capital: number;
