@@ -227,17 +227,17 @@ const JournalsExport = () => {
         <Card>
           <CardHeader className="flex flex-row items-center justify-between space-y-0">
             <div>
-              <CardTitle className="text-base">本次結果</CardTitle>
+              <CardTitle className="text-base">預覽 & 匯出</CardTitle>
               <p className="text-xs text-muted-foreground mt-1">
-                共 {rows.length} 則週記 / {groups.length} 位實戰導師
+                共 <span className="font-semibold text-foreground">{rows.length}</span> 則週記 / <span className="font-semibold text-foreground">{groups.length}</span> 位實戰導師
               </p>
             </div>
-            <Button onClick={handleExportCsv} disabled={isLoading || rows.length === 0} className="gap-2">
+            <Button onClick={() => setConfirmOpen(true)} disabled={isLoading || rows.length === 0} className="gap-2">
               <Download className="h-4 w-4" />
               匯出 CSV
             </Button>
           </CardHeader>
-          <CardContent>
+          <CardContent className="space-y-4">
             {isLoading ? (
               <div className="py-8 text-center text-sm text-muted-foreground">載入中…</div>
             ) : groups.length === 0 ? (
@@ -245,18 +245,80 @@ const JournalsExport = () => {
                 此週別沒有任何實戰導師發布週記。
               </div>
             ) : (
-              <div className="border rounded-md divide-y">
-                {groups.map((g) => (
-                  <div key={g.id} className="flex items-center justify-between px-4 py-2 text-sm">
-                    <span className="font-medium">{g.name}</span>
-                    <span className="text-muted-foreground">{g.count} 則</span>
+              <>
+                {/* 老師發文數統計 */}
+                <div>
+                  <div className="text-xs font-medium text-muted-foreground mb-2">各老師發文則數</div>
+                  <div className="border rounded-md divide-y">
+                    {groups.map((g) => (
+                      <div key={g.id} className="flex items-center justify-between px-4 py-2 text-sm">
+                        <span className="font-medium">{g.name}</span>
+                        <span className="text-muted-foreground">{g.count} 則</span>
+                      </div>
+                    ))}
                   </div>
-                ))}
-              </div>
+                </div>
+
+                {/* 週記預覽表格 */}
+                <div>
+                  <div className="text-xs font-medium text-muted-foreground mb-2">週記內容預覽（將全部匯出）</div>
+                  <div className="border rounded-md overflow-x-auto max-h-[520px] overflow-y-auto">
+                    <Table>
+                      <TableHeader className="sticky top-0 bg-background z-10">
+                        <TableRow>
+                          <TableHead className="w-[70px]">#</TableHead>
+                          <TableHead>老師</TableHead>
+                          <TableHead className="whitespace-nowrap">發布時間</TableHead>
+                          <TableHead>標的</TableHead>
+                          <TableHead>動作</TableHead>
+                          <TableHead className="text-right">參考價</TableHead>
+                          <TableHead>重點摘要</TableHead>
+                        </TableRow>
+                      </TableHeader>
+                      <TableBody>
+                        {rows.map((r, i) => (
+                          <TableRow key={r.id}>
+                            <TableCell className="text-muted-foreground">{i + 1}</TableCell>
+                            <TableCell className="font-medium whitespace-nowrap">{r.experts?.name ?? '-'}</TableCell>
+                            <TableCell className="whitespace-nowrap text-xs">{fmtTaipei(r.published_at)}</TableCell>
+                            <TableCell className="whitespace-nowrap">{r.instrument ?? '-'}</TableCell>
+                            <TableCell>{r.action ?? '-'}</TableCell>
+                            <TableCell className="text-right">{r.price_hint ?? '-'}</TableCell>
+                            <TableCell className="max-w-[360px] truncate" title={r.reason_summary ?? ''}>
+                              {r.reason_summary ?? '-'}
+                            </TableCell>
+                          </TableRow>
+                        ))}
+                      </TableBody>
+                    </Table>
+                  </div>
+                </div>
+              </>
             )}
           </CardContent>
         </Card>
       </div>
+
+      <AlertDialog open={confirmOpen} onOpenChange={setConfirmOpen}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>確認匯出週記 CSV？</AlertDialogTitle>
+            <AlertDialogDescription>
+              週別：<span className="font-medium text-foreground">{range.startLabel} ~ {range.endLabel}</span>
+              <br />
+              將匯出 <span className="font-semibold text-foreground">{rows.length}</span> 則週記，涵蓋 <span className="font-semibold text-foreground">{groups.length}</span> 位實戰導師。
+              <br />
+              檔名：<code className="text-xs">legendflow-journals-{range.startLabel}_to_{range.endLabel}.csv</code>
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel>取消</AlertDialogCancel>
+            <AlertDialogAction onClick={() => { setConfirmOpen(false); doExportCsv(); }}>
+              確認下載
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
     </CompanyLayout>
   );
 };
