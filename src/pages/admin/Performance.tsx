@@ -7,6 +7,7 @@ import { useAdminPerformanceData } from '@/hooks/admin/useAdminPerformanceData';
 import CapitalSummaryCard from '@/pages/_adminPerformance/CapitalSummaryCard';
 import UnrealizedTab from '@/pages/_adminPerformance/UnrealizedTab';
 import RealizedTab from '@/pages/_adminPerformance/RealizedTab';
+import { FxRateFootnote } from '@/components/FxHint';
 
 const AdminPerformance = () => {
   const { expertSlug } = useParams<{ expertSlug: string }>();
@@ -29,6 +30,7 @@ const AdminPerformance = () => {
         </div>
 
         {capital && <CapitalSummaryCard capital={capital} currency={expertCurrency} />}
+        {expertCurrency === 'USD' && <FxRateFootnote />}
 
         <Tabs defaultValue="unrealized" className="space-y-4">
           <TabsList className="grid w-full grid-cols-2 max-w-sm">

@@ -7,6 +7,7 @@ import { SafeRichHtml, richHtmlPreview, PREVIEW_LIMITS } from '@/components/Safe
 import { canRecallSignal } from '@/lib/publishingWindow';
 import { actionLabels } from './actionLabels';
 import { CURRENCY_SYMBOL, defaultQuantityUnit, normalizeCurrency, type Currency } from '@/lib/currency';
+import { FxHint } from '@/components/FxHint';
 
 interface Props {
   signal: any;
@@ -82,6 +83,14 @@ export function SignalRow({
               {priceSymbol}{Number(signal.price_hint).toLocaleString(undefined, { minimumFractionDigits: currency === 'USD' ? 2 : 0, maximumFractionDigits: 2 })}
               {signal.quantity && (
                 <span className="text-muted-foreground">（{signal.quantity}{qtyUnit}）</span>
+              )}
+              {currency === 'USD' && signal.price_hint && signal.quantity && (
+                <FxHint
+                  amount={Number(signal.price_hint) * Number(signal.quantity)}
+                  currency="USD"
+                  showMeta={false}
+                  className="block"
+                />
               )}
             </>
           ) : '-'}

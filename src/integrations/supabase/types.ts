@@ -2141,6 +2141,30 @@ export type Database = {
         }
         Relationships: []
       }
+      fx_rates: {
+        Row: {
+          currency_pair: string
+          fetched_at: string
+          rate: number
+          source: string
+          updated_at: string
+        }
+        Insert: {
+          currency_pair: string
+          fetched_at?: string
+          rate: number
+          source: string
+          updated_at?: string
+        }
+        Update: {
+          currency_pair?: string
+          fetched_at?: string
+          rate?: number
+          source?: string
+          updated_at?: string
+        }
+        Relationships: []
+      }
       holding_meta_override_history: {
         Row: {
           action: string
