@@ -82,28 +82,26 @@ function HoldingsWorkbench(props) {
   const showPanel = !!selected;
 
   const sheetRef = useRef<HTMLDivElement | null>(null);
+  const onScrollRef = useRef<(() => void) | null>(null);
   const [showTopBtn, setShowTopBtn] = useState(false);
 
-  // 抽屜內部滾動時顯示「回到頂部」按鈕
-  useLayoutEffect(() => {
-    if (!showPanel) {
-      setShowTopBtn(false);
-      return;
+  // 抽屜內部滾動時顯示「回到頂部」按鈕；透過 callback ref 掛載，避免 Sheet 動畫/portal 導致時序問題
+  const setSheetRef = useCallback((node: HTMLDivElement | null) => {
+    if (onScrollRef.current && sheetRef.current) {
+      sheetRef.current.removeEventListener('scroll', onScrollRef.current);
     }
-    const el = sheetRef.current;
-    console.log('[backtop] layout effect', { showPanel, hasEl: !!el, scrollTop: el?.scrollTop, scrollHeight: el?.scrollHeight, clientHeight: el?.clientHeight });
-    if (!el) return;
-    const onScroll = () => {
-      console.log('[backtop] scroll', el.scrollTop);
-      setShowTopBtn(el.scrollTop > 160);
-    };
-    el.addEventListener('scroll', onScroll, { passive: true });
-    onScroll();
-    return () => {
-      console.log('[backtop] cleanup');
-      el.removeEventListener('scroll', onScroll);
-    };
-  }, [showPanel]);
+    sheetRef.current = node;
+    if (node) {
+      const onScroll = () => setShowTopBtn(node.scrollTop > 160);
+      onScrollRef.current = onScroll;
+      node.addEventListener('scroll', onScroll, { passive: true });
+      onScroll();
+    } else {
+      onScrollRef.current = null;
+      setShowTopBtn(false);
+    }
+  }, []);
+
 
 
 
