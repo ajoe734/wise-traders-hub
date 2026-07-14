@@ -6,6 +6,7 @@ import { PermissionTooltip } from '@/components/admin/PermissionTooltip';
 import { SafeRichHtml, richHtmlPreview, PREVIEW_LIMITS } from '@/components/SafeRichHtml';
 import { canRecallSignal } from '@/lib/publishingWindow';
 import { actionLabels } from './actionLabels';
+import { CURRENCY_SYMBOL, defaultQuantityUnit, normalizeCurrency, type Currency } from '@/lib/currency';
 
 interface Props {
   signal: any;
