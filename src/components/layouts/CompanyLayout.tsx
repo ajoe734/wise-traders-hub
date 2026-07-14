@@ -2,7 +2,7 @@ import { ReactNode, useState } from 'react';
 import { Link, useLocation, useNavigate } from 'react-router-dom';
 import {
   LayoutDashboard, Users, UserCheck, BarChart3, CreditCard,
-  LogOut, Moon, Sun, Building2, Megaphone, FileClock, Receipt, Settings, Layers, Activity, Brain, Gauge, AlertTriangle, ScrollText, History, Shield, Menu, FlaskConical, Bell, TrendingUp
+  LogOut, Moon, Sun, Building2, Megaphone, FileClock, Receipt, Settings, Layers, Activity, Brain, Gauge, AlertTriangle, ScrollText, History, Shield, Menu, FlaskConical, Bell, TrendingUp, FileText
 } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { useAuth } from '@/contexts/AuthContext';
@@ -37,6 +37,7 @@ const navGroups: NavGroup[] = [
       { path: '/company/payments', icon: CreditCard, label: '金流工具' },
       { path: '/company/payment-settings', icon: Settings, label: '分潤設定' },
       { path: '/company/announcements', icon: Megaphone, label: '系統公告' },
+      { path: '/company/journals-export', icon: FileText, label: '週記匯出' },
     ],
   },
   {
