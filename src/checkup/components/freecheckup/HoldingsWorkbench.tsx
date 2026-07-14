@@ -85,13 +85,13 @@ function HoldingsWorkbench(props) {
   const [showTopBtn, setShowTopBtn] = useState(false);
 
   // 抽屜內部滾動時顯示「回到頂部」按鈕
-  useEffect(() => {
+  useLayoutEffect(() => {
     if (!showPanel) {
       setShowTopBtn(false);
       return;
     }
     const el = sheetRef.current;
-    console.log('[backtop] effect', { showPanel, hasEl: !!el, scrollTop: el?.scrollTop, scrollHeight: el?.scrollHeight, clientHeight: el?.clientHeight });
+    console.log('[backtop] layout effect', { showPanel, hasEl: !!el, scrollTop: el?.scrollTop, scrollHeight: el?.scrollHeight, clientHeight: el?.clientHeight });
     if (!el) return;
     const onScroll = () => {
       console.log('[backtop] scroll', el.scrollTop);
@@ -104,6 +104,7 @@ function HoldingsWorkbench(props) {
       el.removeEventListener('scroll', onScroll);
     };
   }, [showPanel]);
+
 
 
   const cardWallStyle = useMemo(
