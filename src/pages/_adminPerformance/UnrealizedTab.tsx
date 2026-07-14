@@ -86,13 +86,13 @@ export default function UnrealizedTab({ rows, loading, totalPnlPercent, avgPnlPe
                         {row.quantity} {row.quantity_unit}
                       </td>
                       <td className="text-right p-3 text-sm tabular-nums">
-                        {row.entry_price != null ? row.entry_price.toLocaleString() : '-'}
+                        {fmtPrice(row.entry_price, row.currency)}
                       </td>
                       <td className={cn('text-right p-3 text-sm tabular-nums transition-colors duration-300')}>
-                        {row.current_price != null ? row.current_price.toLocaleString() : '-'}
+                        {fmtPrice(row.current_price, row.currency)}
                       </td>
                       <td className={cn('text-right p-3 text-sm tabular-nums transition-colors duration-300', pnlColor(row.pnl))}>
-                        {row.pnl != null ? fmtPnl(row.pnl) : '-'}
+                        {row.pnl != null ? fmtPnl(row.pnl, row.currency) : '-'}
                       </td>
                       <td className={cn('text-right p-3 text-sm tabular-nums transition-colors duration-300', pnlColor(row.pnl_percent))}>
                         {row.pnl_percent != null ? fmtPct(row.pnl_percent) : '-'}
