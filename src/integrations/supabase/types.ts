@@ -4381,8 +4381,25 @@ export type Database = {
             }[]
           }
       reconcile_line_free_quota: { Args: { _user_id: string }; Returns: Json }
+      run_rls_subscription_tests: {
+        Args: never
+        Returns: {
+          detail: string
+          passed: boolean
+          test_name: string
+        }[]
+      }
       show_limit: { Args: never; Returns: number }
       show_trgm: { Args: { "": string }; Returns: string[] }
+      signal_in_subscription_window: {
+        Args: {
+          _expires_at: string
+          _published_at: string
+          _role: Database["public"]["Enums"]["expert_role"]
+          _started_at: string
+        }
+        Returns: boolean
+      }
       strip_referrer_query: { Args: { ref: string }; Returns: string }
     }
     Enums: {
