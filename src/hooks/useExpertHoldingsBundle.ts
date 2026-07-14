@@ -7,9 +7,10 @@ import type { ExpertPerformance } from '@/hooks/usePerformance';
 import { normalizeCurrency, type Currency } from '@/lib/currency';
 
 /**
-...
- * `rpc('calculate_expert_performance')` 的呼叫。
+ * 單一資料源：所有 expert 的 capital / holdings / performance / currency
+ * 都經此 hook。callers 需傳入 expert.currency 才能顯示正確幣別。
  */
+
 
 export interface ExpertHoldingsBundle {
   capital: CapitalStatus | null;
