@@ -164,28 +164,23 @@ function HoldingsWorkbench(props) {
         className={`holdings-card-grid${viewMode === 'list' ? ' holdings-card-grid--list' : ''}`}
       >
         {orderedDisplayed.map((h) => (
-          <div
+          <HoldingCard
             key={h.code}
-            ref={registerCardRef(h.code)}
-            style={{ scrollMarginTop: 96, scrollMarginBottom: 32 }}
-          >
-            <HoldingCard
-              holding={h}
-              decision={decisionsMap[h.code]}
-              target={targets?.[h.code]}
-              avgTargetPrice={targets?.[h.code] ? avgTarget(h.code) : null}
-              meta={getMultiMeta(h.code, STOCK_META, overrides?.[h.code])}
-              sparkData={sparklines[h.code] || EMPTY_SPARK}
-              sparkFailed={!!sparklineErrors[h.code]}
-              variant={variantsMap.get(h.code) || 'plain'}
-              isFeatureSlot={h.code === firstFeatureCode}
-              isActive={expandedDecision === h.code}
-              syncState={holdingSyncStates?.[h.code]}
-              onSelect={handleHoldingCardSelect}
-              onOpenDrawer={handleHoldingCardOpenDrawer}
-              onReportMeta={handleReportMeta}
-            />
-          </div>
+            holding={h}
+            decision={decisionsMap[h.code]}
+            target={targets?.[h.code]}
+            avgTargetPrice={targets?.[h.code] ? avgTarget(h.code) : null}
+            meta={getMultiMeta(h.code, STOCK_META, overrides?.[h.code])}
+            sparkData={sparklines[h.code] || EMPTY_SPARK}
+            sparkFailed={!!sparklineErrors[h.code]}
+            variant={variantsMap.get(h.code) || 'plain'}
+            isFeatureSlot={h.code === firstFeatureCode}
+            isActive={expandedDecision === h.code}
+            syncState={holdingSyncStates?.[h.code]}
+            onSelect={handleHoldingCardSelect}
+            onOpenDrawer={handleHoldingCardOpenDrawer}
+            onReportMeta={handleReportMeta}
+          />
         ))}
 
         {orderedDisplayed.length === 0 && H.length === 0 ? (
