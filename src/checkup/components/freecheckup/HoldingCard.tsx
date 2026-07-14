@@ -227,6 +227,7 @@ function HoldingCardImpl(props) {
         /* C9 (audit 2026-07)：移除元件根節點無效的 key 屬性；key 應由呼叫端在 .map() 提供 */
         ref={cardRef}
         className="wb-card wb-card-feature wb-span-feature"
+        data-holding-code={h.code}
         onClick={handleClick}
         onDoubleClick={handleDoubleClick}
         onKeyDown={handleKeyDown}
