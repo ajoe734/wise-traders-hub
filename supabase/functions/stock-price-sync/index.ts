@@ -125,6 +125,8 @@ Deno.serve(withLogging('stock-price-sync', async (req) => {
     // ── Parse body（symbols mode for manual backfill）──
     let force = new URL(req.url).searchParams.get('force') === '1'
     let requestedSymbols: string[] | null = null
+    // market gate: 'TW' | 'US' | 'BOTH'（預設 BOTH，向下相容）
+    let marketGate: 'TW' | 'US' | 'BOTH' = 'BOTH'
     if (req.method === 'POST') {
       try {
         const body = await req.clone().json()
@@ -133,6 +135,8 @@ Deno.serve(withLogging('stock-price-sync', async (req) => {
           requestedSymbols = body.symbols.map((s: unknown) => String(s || '').trim()).filter(Boolean)
           force = true // symbols mode 一律繞過交易時段
         }
+        const m = String(body?.market || '').toUpperCase()
+        if (m === 'TW' || m === 'US') marketGate = m as 'TW' | 'US'
       } catch { /* body 不是 JSON 就忽略 */ }
     }
 
@@ -140,9 +144,15 @@ Deno.serve(withLogging('stock-price-sync', async (req) => {
     const dow = tw.getUTCDay()
     const minutes = tw.getUTCHours() * 60 + tw.getUTCMinutes()
     const isWeekday = dow >= 1 && dow <= 5
-    const inWindow = minutes >= 9 * 60 && minutes <= 13 * 60 + 33
-    if (!force && !(isWeekday && inWindow)) {
-      return new Response(JSON.stringify({ skipped: true, reason: 'outside_trading_hours' }), {
+    // TW: 09:00-13:33 Taipei；US: 21:30-04:00 Taipei（美東 09:30-16:00 標準 / 08:30-15:00 DST 期間放寬）
+    const twInWindow = minutes >= 9 * 60 && minutes <= 13 * 60 + 33
+    const usInWindow = (minutes >= 21 * 60) || (minutes <= 4 * 60 + 30)
+    const anyWindow =
+      (marketGate === 'TW' && twInWindow) ||
+      (marketGate === 'US' && usInWindow) ||
+      (marketGate === 'BOTH' && (twInWindow || usInWindow))
+    if (!force && !(isWeekday && anyWindow)) {
+      return new Response(JSON.stringify({ skipped: true, reason: 'outside_trading_hours', market: marketGate }), {
         headers: { ...corsHeaders, 'Content-Type': 'application/json' },
       })
     }
