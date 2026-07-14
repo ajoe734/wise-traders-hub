@@ -120,9 +120,12 @@ function HoldingCardHeaderImpl({
             }}>{meta.strategy}</span>
           )}
           {onReportMeta && (
-            <button
-              type="button"
+            // 為避免 <button> 巢狀（HTML 規範禁止），使用 role=button 的 span
+            <span
+              role="button"
+              tabIndex={0}
               onClick={openReportMeta}
+              onKeyDown={onReportKeyDown}
               title="回報分類錯誤"
               aria-label={`回報 ${h.code} 分類錯誤`}
               style={{
@@ -130,8 +133,9 @@ function HoldingCardHeaderImpl({
                 padding: '4px 6px', background: 'transparent',
                 border: `1px dashed ${reportBorder}`, borderRadius: 0,
                 cursor: 'pointer', marginLeft: 'auto',
+                userSelect: 'none', display: 'inline-block',
               }}
-            >回報</button>
+            >回報</span>
           )}
         </div>
       )}
