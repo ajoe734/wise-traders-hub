@@ -116,7 +116,7 @@ function HoldingCardImpl(props) {
   const ariaLabel = `${h.name || ''} ${h.code}，決策 ${
     actionLabel === 'EXIT' ? '建議出場' : actionLabel === 'REVIEW' ? '需要檢查' : '維持持有'
   }，報酬率 ${pctVal >= 0 ? '+' : ''}${pctVal.toFixed(2)}%，損益 ${
-    pnlVal >= 0 ? '+' : ''}${pnlVal.toLocaleString()}`;
+    pnlVal >= 0 ? '+' : ''}${pnlVal.toLocaleString()}。按 Enter 展開資料，Shift + Enter 開啟決策抽屜。`;
 
   // H4/H5 局部 loading / error 狀態（由 FreeCheckup triggerServerSync 標註）
   const isCardSyncing = !!(syncState?.syncing || h._syncing);
