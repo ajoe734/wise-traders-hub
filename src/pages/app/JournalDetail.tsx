@@ -117,7 +117,7 @@ const TradeItem = ({ signal }: { signal: SignalDetail }) => {
 const fetchJournalBundle = async (signalId: string) => {
   const { data, error } = await supabase
     .from('expert_signals')
-    .select('id, instrument, action, price_hint, quantity, quantity_unit, reason_summary, reason_detail, risk_notes, learning_points, published_at, expert_id, experts(name, slug, role, avatar_url)')
+    .select('id, instrument, action, price_hint, quantity, quantity_unit, currency, reason_summary, reason_detail, risk_notes, learning_points, published_at, expert_id, experts(name, slug, role, avatar_url)')
     .eq('id', signalId)
     .single();
 
@@ -130,7 +130,7 @@ const fetchJournalBundle = async (signalId: string) => {
 
   const { data: weekData } = await supabase
     .from('expert_signals')
-    .select('id, instrument, action, price_hint, quantity, quantity_unit, reason_summary, reason_detail, risk_notes, learning_points, published_at, expert_id, experts(name, slug, role, avatar_url)')
+    .select('id, instrument, action, price_hint, quantity, quantity_unit, currency, reason_summary, reason_detail, risk_notes, learning_points, published_at, expert_id, experts(name, slug, role, avatar_url)')
     .eq('expert_id', s.expert_id)
     .eq('status', 'published')
     .gte('published_at', ws.toISOString())
