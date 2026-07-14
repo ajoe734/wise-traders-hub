@@ -31,6 +31,7 @@ import HoldingCardHeader from './_ui/holdingCard/HoldingCardHeader';
 import HoldingCardReturn from './_ui/holdingCard/HoldingCardReturn';
 import HoldingCardPriceTrack from './_ui/holdingCard/HoldingCardPriceTrack';
 import HoldingCardFooter from './_ui/holdingCard/HoldingCardFooter';
+import HoldingCardSkeleton from './_ui/holdingCard/HoldingCardSkeleton';
 
 const HOLDING_CARD_PROP_SCHEMA = {
   holding: 'object',
