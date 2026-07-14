@@ -192,11 +192,23 @@ const Journals = () => {
     return Array.from(monthSet).sort().reverse();
   }, [weekGroups]);
 
-  // Filter by month
+  // Filter by month + asset class
   const filteredGroups = useMemo(() => {
-    if (selectedMonth === 'all') return weekGroups;
-    return weekGroups.filter(g => format(g.weekStart, 'yyyy-MM') === selectedMonth);
-  }, [weekGroups, selectedMonth]);
+    let list = weekGroups;
+    if (selectedMonth !== 'all') {
+      list = list.filter(g => format(g.weekStart, 'yyyy-MM') === selectedMonth);
+    }
+    if (assetFilter) {
+      list = list.filter(g => resolveAssetClass(g.expert as any) === assetFilter);
+    }
+    return list;
+  }, [weekGroups, selectedMonth, assetFilter]);
+
+  const availableAssets = useMemo(() => {
+    const set = new Set<AssetClass>();
+    weekGroups.forEach(g => set.add(resolveAssetClass(g.expert as any)));
+    return Array.from(set);
+  }, [weekGroups]);
 
   return (
     <UnifiedAppLayout>
