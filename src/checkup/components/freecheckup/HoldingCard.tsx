@@ -222,6 +222,7 @@ function HoldingCardImpl(props) {
   return (
     <button
       ref={cardRef}
+      type="button"
       className={buttonClass}
       data-holding-code={h.code}
       onClick={handleClick}
@@ -231,6 +232,8 @@ function HoldingCardImpl(props) {
       aria-pressed={isActive}
       aria-busy={isCardSyncing || undefined}
       aria-describedby={describedByIds}
+      aria-keyshortcuts="Shift+Enter"
+      title="Enter 展開；Shift + Enter 開啟決策抽屜"
       style={buttonStyle}
     >
       {(!inView || h?._loading) ? (
