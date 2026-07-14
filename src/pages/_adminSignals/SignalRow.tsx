@@ -79,9 +79,9 @@ export function SignalRow({
         <td className="p-3 text-sm">
           {signal.price_hint ? (
             <>
-              {signal.price_hint}
+              {priceSymbol}{Number(signal.price_hint).toLocaleString(undefined, { minimumFractionDigits: currency === 'USD' ? 2 : 0, maximumFractionDigits: 2 })}
               {signal.quantity && (
-                <span className="text-muted-foreground">({signal.quantity}{signal.quantity_unit || '張'})</span>
+                <span className="text-muted-foreground">（{signal.quantity}{qtyUnit}）</span>
               )}
             </>
           ) : '-'}
