@@ -1039,6 +1039,7 @@ export type Database = {
           limit_down: number | null
           limit_up: number | null
           low_price: number | null
+          market: string
           name: string | null
           open_price: number | null
           price: number | null
@@ -1059,6 +1060,7 @@ export type Database = {
           limit_down?: number | null
           limit_up?: number | null
           low_price?: number | null
+          market?: string
           name?: string | null
           open_price?: number | null
           price?: number | null
@@ -1079,6 +1081,7 @@ export type Database = {
           limit_down?: number | null
           limit_up?: number | null
           low_price?: number | null
+          market?: string
           name?: string | null
           open_price?: number | null
           price?: number | null
@@ -1101,6 +1104,7 @@ export type Database = {
           is_limit_up: boolean
           limit_up_price: number | null
           low_price: number | null
+          market: string
           open_price: number | null
           symbol: string
           trade_date: string
@@ -1117,6 +1121,7 @@ export type Database = {
           is_limit_up?: boolean
           limit_up_price?: number | null
           low_price?: number | null
+          market?: string
           open_price?: number | null
           symbol: string
           trade_date: string
@@ -1133,6 +1138,7 @@ export type Database = {
           is_limit_up?: boolean
           limit_up_price?: number | null
           low_price?: number | null
+          market?: string
           open_price?: number | null
           symbol?: string
           trade_date?: string
@@ -1932,6 +1938,7 @@ export type Database = {
           instrument: string
           learning_points: string | null
           line_pushed_at: string | null
+          market: string | null
           overall_summary: string | null
           plan_id: string | null
           price_hint: number | null
@@ -1956,6 +1963,7 @@ export type Database = {
           instrument: string
           learning_points?: string | null
           line_pushed_at?: string | null
+          market?: string | null
           overall_summary?: string | null
           plan_id?: string | null
           price_hint?: number | null
@@ -1980,6 +1988,7 @@ export type Database = {
           instrument?: string
           learning_points?: string | null
           line_pushed_at?: string | null
+          market?: string | null
           overall_summary?: string | null
           plan_id?: string | null
           price_hint?: number | null
@@ -3528,6 +3537,7 @@ export type Database = {
       trade_records: {
         Row: {
           created_at: string
+          currency: string | null
           current_price: number | null
           entry_date: string | null
           entry_price: number | null
@@ -3536,6 +3546,7 @@ export type Database = {
           expert_id: string
           id: string
           instrument: string
+          market: string | null
           pnl_percent: number | null
           price_updated_at: string | null
           quantity: number
@@ -3545,6 +3556,7 @@ export type Database = {
         }
         Insert: {
           created_at?: string
+          currency?: string | null
           current_price?: number | null
           entry_date?: string | null
           entry_price?: number | null
@@ -3553,6 +3565,7 @@ export type Database = {
           expert_id: string
           id?: string
           instrument: string
+          market?: string | null
           pnl_percent?: number | null
           price_updated_at?: string | null
           quantity?: number
@@ -3562,6 +3575,7 @@ export type Database = {
         }
         Update: {
           created_at?: string
+          currency?: string | null
           current_price?: number | null
           entry_date?: string | null
           entry_price?: number | null
@@ -3570,6 +3584,7 @@ export type Database = {
           expert_id?: string
           id?: string
           instrument?: string
+          market?: string | null
           pnl_percent?: number | null
           price_updated_at?: string | null
           quantity?: number

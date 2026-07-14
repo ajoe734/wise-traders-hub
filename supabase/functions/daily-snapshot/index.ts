@@ -1,6 +1,7 @@
 import { corsHeaders } from '../_shared/cors.ts';
 import { withLogging } from '../_shared/edgeLogger.ts';
 import { createClient } from 'https://esm.sh/@supabase/supabase-js@2.49.1'
+import { nyTradeDate, extractSymbol } from '../_shared/marketDetect.ts'
 
 Deno.serve(withLogging('daily-snapshot', async (req) => {
   if (req.method === 'OPTIONS') {
@@ -13,37 +14,42 @@ Deno.serve(withLogging('daily-snapshot', async (req) => {
       Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')!
     )
 
-    // Use Taipei timezone for trade_date
+    // TW trade_date：Asia/Taipei 曆日
     const now = new Date()
     const taipeiDate = new Date(now.toLocaleString('en-US', { timeZone: 'Asia/Taipei' }))
-    const tradeDate = taipeiDate.toISOString().split('T')[0] // YYYY-MM-DD
+    const twTradeDate = taipeiDate.toISOString().split('T')[0]
+    // US trade_date：紐約時區（含 DST），週末回推到週五
+    const usTradeDate = nyTradeDate(now)
 
-    // Step 1: Read all current_prices and snapshot them
+    // Step 1: Read all current_prices（含 market）
     const { data: prices, error: pricesErr } = await supabase
       .from('current_prices')
-      .select('symbol, price, yesterday_close, change_percent, limit_up, volume')
+      .select('symbol, price, yesterday_close, change_percent, limit_up, volume, market')
 
     if (pricesErr) throw pricesErr
     if (!prices || prices.length === 0) {
-      return new Response(JSON.stringify({ message: 'No prices to snapshot', date: tradeDate }), {
+      return new Response(JSON.stringify({ message: 'No prices to snapshot', tw_date: twTradeDate, us_date: usTradeDate }), {
         headers: { ...corsHeaders, 'Content-Type': 'application/json' },
       })
     }
 
-    // Build snapshot rows; determine is_limit_up by comparing close >= limit_up
+    // Build snapshot rows；美股 is_limit_up 恆 false（無 10% 漲跌停），trade_date 用 NY 曆日
     const snapshotRows = prices
-      .filter(p => p.price && p.price > 0)
-      .map(p => {
-        const isLimitUp = p.limit_up != null && p.price != null && p.price >= p.limit_up
+      .filter((p: any) => p.price && p.price > 0)
+      .map((p: any) => {
+        const market = p.market === 'US' ? 'US' : 'TW'
+        const isLimitUp =
+          market === 'TW' && p.limit_up != null && p.price != null && p.price >= p.limit_up
         return {
           symbol: p.symbol,
-          trade_date: tradeDate,
+          trade_date: market === 'US' ? usTradeDate : twTradeDate,
           close_price: p.price,
           yesterday_close: p.yesterday_close,
           change_percent: p.change_percent,
           is_limit_up: isLimitUp,
-          limit_up_price: p.limit_up,
+          limit_up_price: market === 'TW' ? p.limit_up : null,
           volume: p.volume,
+          market,
         }
       })
 
@@ -54,41 +60,41 @@ Deno.serve(withLogging('daily-snapshot', async (req) => {
       if (snapErr) console.error('snapshot upsert error:', snapErr)
     }
 
-    // Step 2: Find limit-up symbols today
-    const limitUpSymbols = snapshotRows.filter(r => r.is_limit_up).map(r => r.symbol)
+    // Step 2: 漲停命中僅計算台股（美股無漲停）
+    const limitUpSymbols = snapshotRows.filter((r) => r.market === 'TW' && r.is_limit_up).map((r) => r.symbol)
 
     let hitsInserted = 0
 
     if (limitUpSymbols.length > 0) {
       // Step 3: Find open trade_records whose instrument starts with a limit-up symbol
-      // instrument format: "2330 台積電" — symbol is the first part
       const { data: openTrades, error: tradeErr } = await supabase
         .from('trade_records')
-        .select('id, expert_id, instrument, entry_price, entry_date')
+        .select('id, expert_id, instrument, entry_price, entry_date, market')
         .eq('status', 'open')
 
       if (tradeErr) console.error('trade query error:', tradeErr)
 
       const limitUpSet = new Set(limitUpSymbols)
-      const matchedTrades = (openTrades || []).filter(t => {
+      const matchedTrades = (openTrades || []).filter((t: any) => {
+        if (t.market === 'US') return false // 美股不計漲停命中
         const sym = t.instrument?.split(' ')?.[0]
         return sym && limitUpSet.has(sym)
       })
 
       // Also check: entry_date <= today (the position was already open)
       const hitRows = matchedTrades
-        .filter(t => {
+        .filter((t: any) => {
           if (!t.entry_date) return true
-          return t.entry_date.split('T')[0] <= tradeDate
+          return t.entry_date.split('T')[0] <= twTradeDate
         })
-        .map(t => {
-          const sym = t.instrument.split(' ')[0]
-          const snap = snapshotRows.find(s => s.symbol === sym)
+        .map((t: any) => {
+          const sym = extractSymbol(t.instrument)
+          const snap = snapshotRows.find((s) => s.symbol === sym)
           return {
             expert_id: t.expert_id,
             symbol: sym,
             instrument: t.instrument,
-            trade_date: tradeDate,
+            trade_date: twTradeDate,
             close_price: snap?.close_price ?? null,
             entry_price: t.entry_price,
             trade_record_id: t.id,
@@ -104,13 +110,18 @@ Deno.serve(withLogging('daily-snapshot', async (req) => {
       }
     }
 
+    const twCount = snapshotRows.filter((r) => r.market === 'TW').length
+    const usCount = snapshotRows.filter((r) => r.market === 'US').length
+
     // System job log
     await supabase.from('system_jobs_log').insert({
       job_name: 'daily_snapshot',
       status: 'success',
       detail: {
-        trade_date: tradeDate,
-        snapshots: snapshotRows.length,
+        tw_trade_date: twTradeDate,
+        us_trade_date: usTradeDate,
+        snapshots_tw: twCount,
+        snapshots_us: usCount,
         limit_up_symbols: limitUpSymbols.length,
         hits_inserted: hitsInserted,
       },
@@ -118,8 +129,10 @@ Deno.serve(withLogging('daily-snapshot', async (req) => {
 
     return new Response(JSON.stringify({
       success: true,
-      trade_date: tradeDate,
-      snapshots: snapshotRows.length,
+      tw_trade_date: twTradeDate,
+      us_trade_date: usTradeDate,
+      snapshots_tw: twCount,
+      snapshots_us: usCount,
       limit_up_count: limitUpSymbols.length,
       hits: hitsInserted,
     }), {

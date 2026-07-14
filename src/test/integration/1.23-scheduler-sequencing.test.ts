@@ -171,9 +171,9 @@ describe('drift-detection: daily-snapshot Edge Function 每日快照與漲停命
   });
 
   it("entry_date <= tradeDate guard 確保只計入已持倉的交易，當日建倉不誤報（5.7-3）", () => {
-    // t.entry_date.split('T')[0] <= tradeDate 使用 <=（含當日）
-    // 若改為 < 則當日建倉永遠不會被計為漲停命中
-    expect(snapshotSrc).toContain("t.entry_date.split('T')[0] <= tradeDate");
+    // t.entry_date.split('T')[0] <= <台北 trade_date 變數> 使用 <=（含當日）
+    // 變數名可能是 tradeDate 或 twTradeDate（美股分流後改名），皆合法；若改為 < 則當日建倉永遠不會被計為漲停命中
+    expect(snapshotSrc).toMatch(/t\.entry_date\.split\('T'\)\[0\]\s*<=\s*(tw)?[Tt]radeDate/);
   });
 
   it("upsert expert_limit_up_hits 以 'expert_id,symbol,trade_date' 保冪等（5.7-3）", () => {
