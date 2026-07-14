@@ -32,6 +32,8 @@ interface JournalSignal {
     slug: string;
     role: string;
     avatar_url: string | null;
+    asset_class: string | null;
+    currency: string | null;
   };
 }
 
