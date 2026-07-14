@@ -7,6 +7,7 @@ import { SafeRichHtml, richHtmlPreview, PREVIEW_LIMITS } from '@/components/Safe
 import { canRecallSignal } from '@/lib/publishingWindow';
 import { actionLabels } from './actionLabels';
 import { CURRENCY_SYMBOL, defaultQuantityUnit, normalizeCurrency, type Currency } from '@/lib/currency';
+import { FxHint } from '@/components/FxHint';
 
 interface Props {
   signal: any;
