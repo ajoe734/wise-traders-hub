@@ -356,8 +356,18 @@ export function SignalCreateDialog({
               </Select>
             </div>
             <div className="space-y-2">
-              <Label>參考價位</Label>
-              <Input value={priceHint} onChange={(e) => setPriceHint(e.target.value)} type="number" placeholder="890" />
+              <Label>參考價位（{currencySymbol}）</Label>
+              <div className="relative">
+                <span className="pointer-events-none absolute left-3 top-1/2 -translate-y-1/2 text-xs text-muted-foreground">{currencySymbol}</span>
+                <Input
+                  value={priceHint}
+                  onChange={(e) => setPriceHint(e.target.value)}
+                  type="number"
+                  step={spec.priceDigits >= 4 ? '0.0001' : '0.01'}
+                  placeholder={pricePlaceholder}
+                  className="pl-11"
+                />
+              </div>
             </div>
           </div>
           {action && (
