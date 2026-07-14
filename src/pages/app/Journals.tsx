@@ -254,6 +254,22 @@ const Journals = () => {
             available={availableAssets}
           />
         )}
+
+        {timelines.length > 0 && (
+          <div className="space-y-2">
+            {timelines.map(t => (
+              <SubscriptionTimeline
+                key={t.expert_id}
+                segments={t.segments ?? []}
+                expertName={t.expert_name}
+                expertAvatarUrl={t.expert_avatar_url}
+                showMentorLookback
+              />
+            ))}
+          </div>
+        )}
+
+
         
         
         {loading ? (
