@@ -37,10 +37,11 @@ export function useSignalEditorData(args: UseSignalEditorDataArgs) {
   const [loading, setLoading] = useState(true);
 
   // 統一資料源
+  const currency = (expert?.currency === 'USD' ? 'USD' : 'TWD') as 'TWD' | 'USD';
   const bundle = useExpertHoldingsBundle(expert?.id, {
     expertOwnerUserId: expert?.user_id ?? null,
+    currency,
   });
-  const currency = (expert?.currency === 'USD' ? 'USD' : 'TWD') as 'TWD' | 'USD';
   // 把 currency 注入 capital，下游 CapitalPanel 即可直接取
   const capital = bundle.capital
     ? ({ ...(bundle.capital as any), currency } as unknown as CapitalStatus)
