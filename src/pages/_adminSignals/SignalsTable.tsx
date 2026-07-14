@@ -29,6 +29,8 @@ interface Props {
 }
 
 export function SignalsTable(p: Props) {
+  const assetClass: AssetClass = normalizeAssetClass(p.defaultAssetClass);
+  const spec = getAssetSpec(assetClass);
   return (
     <Card>
       <CardContent className="p-0">
