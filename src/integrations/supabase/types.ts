@@ -4306,6 +4306,10 @@ export type Database = {
         Args: { _from: string; _to: string; _visitor_id: string }
         Returns: Json
       }
+      get_user_subscription_timeline: {
+        Args: { _expert_id?: string; _user_id: string }
+        Returns: Json
+      }
       get_weekly_limit_up_leaderboard: {
         Args: { _end_date?: string; _start_date?: string }
         Returns: {
