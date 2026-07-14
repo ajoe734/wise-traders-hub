@@ -2,6 +2,7 @@ import { Card, CardContent } from '@/components/ui/card';
 import { SignalRow } from './SignalRow';
 import type { HoldingSummaryRow } from './derive';
 import { formatMoneyByCurrency, type Currency } from '@/lib/currency';
+import { getAssetSpec, normalizeAssetClass, type AssetClass } from '@/lib/asset';
 
 interface Props {
   visibleSignals: any[];
@@ -24,6 +25,7 @@ interface Props {
   contentLabel: string;
   holdingSummary: HoldingSummaryRow[] | null;
   defaultCurrency?: Currency;
+  defaultAssetClass?: AssetClass | string | null;
 }
 
 export function SignalsTable(p: Props) {
