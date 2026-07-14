@@ -1,50 +1,36 @@
 // @ts-nocheck — 漸進式 .jsx→.tsx 遷移（F-Maint-R4），完整型別化留待後續批次
-// HoldingCard — 抽自 FreeCheckup.jsx renderCard()。
-// React.memo 包裝，跑 shallow compare：
-//   - holding / decision / target / meta / sparkData：父層 useMemo 後 reference 穩定
-//   - WB / alpha / Sparkline：module-level 常數，永遠 ===（E-Maint-R6 改為直接 import，停止 prop 透傳）
-//   - onSelect / onOpenDrawer：父層用 useCallback + ref pattern 提供穩定 reference
-// 結果：每秒 quote tick 不會重渲染未變動的卡片。
-//
-// 設計憲法（不可違反）：
-//   - 配色直接 import _freeCheckup/constants.jsx 的 WB（free-checkup 單色橘紅憲法 #FF4D1F，
-//     刻意與 holdings/holdingsTokens.js 的 #EC662D 分開，不污染他頁）
-//   - fontSize 動態 clamp 已含媒體查詢，需保持 className="wb-roi" / "wb-card" 等
-//   - 行為對等：onClick toggle expandedDecision、onDoubleClick + Shift+Enter 開 drawer
+/**
+ * HoldingCard — 抽自 FreeCheckup.jsx renderCard()。
+ *
+ * ══ 四層架構（Monocle 版重構 2026-07）══
+ *   1) HoldingCardHeader     — 代號 · 名稱 · 股數 · Sparkline · Action · 產業/策略 tag
+ *   2) HoldingCardReturn     — 大字 ROI（%） ＋ 附屬損益（feature card only）
+ *   3) HoldingCardPriceTrack — 成本→現價文字 ＋ 決策摘要
+ *   4) HoldingCardFooter     — TODAY | VALUE 底部帶 ＋ 價格來源徽章
+ *
+ * 這裡（HoldingCard.tsx）負責：
+ *   - React.memo 外殼、button 語意、a11y aria-*、prop validation
+ *   - inView lazy render（useInView）
+ *   - Sync overlay / error strip / SR-only status
+ *   - 派生計算：pctVal, pnlVal, pnlColor, upside, hasToday...
+ *   - 事件：onClick(select) / onDoubleClick(drawer) / Shift+Enter
+ *
+ * 憲法：
+ *   - class name 保留 `wb-card` / `wb-card-feature` / `wb-span-feature` / `wb-span-1`
+ *     以及子層的 `wb-spark` / `wb-tags` / `wb-roi` / `wb-bottom` / `wb-bottom-val`
+ *     （既有 CSS media-query 與 e2e 截圖回歸依賴這些鈎子）
+ *   - 配色統一走 WB（free-checkup 單色橘紅 #FF4D1F），不引入其他 accent
+ *   - 行為對等：不新增、不刪除任何互動與 aria hook
+ */
 import { memo } from 'react';
 import { validateProps } from './_validateProps.js';
 import { useInView } from '@/checkup/hooks/useInView.js';
-import { WB, Sparkline } from '@/pages/_freeCheckup/constants.jsx';
-import { alpha } from '@/checkup/theme.js';
+import { WB } from '@/pages/_freeCheckup/constants.jsx';
 import { trackRaw } from '@/lib/analytics/events';
-
-// ── 模組層常數（搬離 renderCard 內部，避免每次重建） ──
-// 價格來源標籤 — 對齊後端 supabase/functions/daily-performance/index.ts 與
-// _shared/stockPriceWaterfall.ts 的取價順序：
-//   regularMarketPrice(收盤) → previousClose(昨收) → chartClose(已收K) → 前端 z>h(v>0)>a>y
-// key 為 normalizeHoldingMetrics 存下的 `priceSource`。
-const SRC_LABEL: Record<string, string> = {
-  screenshot: '截圖',
-  live: '即時',
-  high: '最高',
-  ask: '賣一',
-  yclose: '昨收',
-  demo: 'DEMO',
-  regularMarketPrice: '收盤',
-  previousClose: '昨收',
-  chartClose: '已收K',
-  twse: 'TWSE',
-  yahoo: 'Yahoo',
-};
-
-// 智慧斷句：在限制長度內找最後一個標點
-const truncateAction = (txt, limit) => {
-  if (!txt || txt.length <= limit) return txt;
-  const head = txt.slice(0, limit);
-  const m = head.match(/^(.*[。、，；！？,.;!?])[^。、，；！？,.;!?]*$/);
-  const cut = m ? m[1] : head.slice(0, limit - 2);
-  return cut + '…';
-};
+import HoldingCardHeader from './_ui/holdingCard/HoldingCardHeader';
+import HoldingCardReturn from './_ui/holdingCard/HoldingCardReturn';
+import HoldingCardPriceTrack from './_ui/holdingCard/HoldingCardPriceTrack';
+import HoldingCardFooter from './_ui/holdingCard/HoldingCardFooter';
 
 const HOLDING_CARD_PROP_SCHEMA = {
   holding: 'object',
@@ -65,7 +51,7 @@ const HOLDING_CARD_PROP_SCHEMA = {
 
 function HoldingCardImpl(props) {
   validateProps('HoldingCard', props, HOLDING_CARD_PROP_SCHEMA);
-  // C2/C3: 卡片離視窗時延後渲染內容 — 減少初始 DOM/Sparkline SVG 成本
+  // 卡片離視窗時延後渲染內容 — 減少初始 DOM/Sparkline SVG 成本
   const [cardRef, inView] = useInView({ rootMargin: '400px 0px' });
 
   const {
@@ -85,14 +71,11 @@ function HoldingCardImpl(props) {
     onReportMeta,
   } = props;
 
-  const openReportMeta = (e) => {
-    e.stopPropagation();
-    if (typeof onReportMeta === 'function') onReportMeta(h);
-  };
+  const actionLabel = dec?.actionType === 'exit'
+    ? 'EXIT'
+    : dec?.actionType === 'review' ? 'REVIEW' : 'HOLD';
 
-  const actionLabel = dec?.actionType === 'exit' ? 'EXIT' : dec?.actionType === 'review' ? 'REVIEW' : 'HOLD';
-
-  // 大字：總報酬率（現價 vs 成本） — TOTAL RETURN
+  // 大字 ROI：現價 vs 成本
   const _costNum = Number(h.cost);
   const _priceNum = Number(h.price);
   const _qtyNum = Number(h.qty);
@@ -102,9 +85,10 @@ function HoldingCardImpl(props) {
   const pnlVal = (_costNum > 0 && Number.isFinite(_priceNum) && Number.isFinite(_qtyNum))
     ? Math.round((_priceNum - _costNum) * _qtyNum)
     : Math.round(h.pnl || 0);
-  // 底部 TODAY 欄：今日收盤損益（現價 vs 昨收） — 由 normalizeHoldingMetrics 產出
-  const todayPnlNum: number | null = Number.isFinite(Number(h.todayPnl)) ? Number(h.todayPnl) : null;
-  const todayPctNum: number | null = Number.isFinite(Number(h.todayPct)) ? Number(h.todayPct) : null;
+
+  // TODAY：現價 vs 昨收
+  const todayPnlNum = Number.isFinite(Number(h.todayPnl)) ? Number(h.todayPnl) : null;
+  const todayPctNum = Number.isFinite(Number(h.todayPct)) ? Number(h.todayPct) : null;
   const hasToday = todayPnlNum != null || todayPctNum != null;
 
   // Bug B8 fix：`(tp && h.price)` 對 price=0 誤判為 falsy → upside=null；且未擋 NaN/負價。
@@ -114,6 +98,7 @@ function HoldingCardImpl(props) {
     : null;
 
   const isInk = variant === 'ink';
+  const isFeature = isInk && isFeatureSlot;
   const cardBg = isInk ? WB.ink : WB.surface;
   const cardColor = isInk ? '#F4F1EC' : WB.ink;
   const cardBorder = isInk ? 'none' : `1px solid ${isActive ? WB.hairStrong : WB.hair}`;
@@ -127,18 +112,10 @@ function HoldingCardImpl(props) {
   const pnlWeight = pctVal > 0 ? 500 : 400;
   const pnlArrow = pctVal > 0 ? '↑' : pctVal < 0 ? '↓' : '';
 
-  const srcLabel = h.priceSource ? (SRC_LABEL[h.priceSource] || h.priceSource) : null;
-  const _debugPrice = typeof window !== 'undefined' && /[?&]debugPrice=1\b/.test(window.location.search);
-  const srcTitle = h.priceError
-    ? `報價問題：${h.priceError}`
-    : [
-        srcLabel ? `來源：${srcLabel}（${h.priceSource}）` : '尚未同步即時報價',
-        h.priceUpdatedAt ? `更新於 ${new Date(h.priceUpdatedAt).toLocaleTimeString('zh-TW', { hour: '2-digit', minute: '2-digit' })}` : null,
-        h.yesterday != null ? `昨收 ${Number(h.yesterday).toFixed(2)}` : null,
-        Number.isFinite(Number(h.price)) ? `現價 ${Number(h.price).toFixed(2)}` : null,
-      ].filter(Boolean).join('　');
-
-  const ariaLabel = `${h.name || ''} ${h.code}，決策 ${actionLabel === 'EXIT' ? '建議出場' : actionLabel === 'REVIEW' ? '需要檢查' : '維持持有'}，報酬率 ${pctVal >= 0 ? '+' : ''}${pctVal.toFixed(2)}%，損益 ${pnlVal >= 0 ? '+' : ''}${pnlVal.toLocaleString()}`;
+  const ariaLabel = `${h.name || ''} ${h.code}，決策 ${
+    actionLabel === 'EXIT' ? '建議出場' : actionLabel === 'REVIEW' ? '需要檢查' : '維持持有'
+  }，報酬率 ${pctVal >= 0 ? '+' : ''}${pctVal.toFixed(2)}%，損益 ${
+    pnlVal >= 0 ? '+' : ''}${pnlVal.toLocaleString()}`;
 
   // H4/H5 局部 loading / error 狀態（由 FreeCheckup triggerServerSync 標註）
   const isCardSyncing = !!(syncState?.syncing || h._syncing);
@@ -146,6 +123,7 @@ function HoldingCardImpl(props) {
   const cardLabel = `${h.name || ''} ${h.code}`.trim();
   const errStripId = `holding-card-error-${h.code}`;
   const statusRegionId = `holding-card-status-${h.code}`;
+
   const SyncOverlay = isCardSyncing ? (
     <div
       data-testid="holding-card-loading"
@@ -159,6 +137,7 @@ function HoldingCardImpl(props) {
       }}
     />
   ) : null;
+
   const SyncErrorStrip = cardSyncError ? (
     <div
       id={errStripId}
@@ -182,7 +161,6 @@ function HoldingCardImpl(props) {
     </div>
   ) : null;
 
-  // 螢幕閱讀器可讀的同步狀態播報（polite，不打斷用戶）
   const SyncSrStatus = (
     <span
       id={statusRegionId}
@@ -202,14 +180,10 @@ function HoldingCardImpl(props) {
     </span>
   );
 
-  // 讓 SR / 自動化測試能夠從 button 追到當前狀態或錯誤訊息
   const describedByIds = [
     cardSyncError ? errStripId : null,
     isCardSyncing ? statusRegionId : null,
   ].filter(Boolean).join(' ') || undefined;
-
-
-
 
   const handleClick = () => { trackRaw('checkup_holding_expand', { code: h.code }); onSelect(h.code); };
   const handleDoubleClick = () => onOpenDrawer(h.code);
@@ -220,165 +194,34 @@ function HoldingCardImpl(props) {
     }
   };
 
-  // ─── Feature card (ink + span 2) ───
-  if (isInk && isFeatureSlot) {
-    return (
-      <button
-        /* C9 (audit 2026-07)：移除元件根節點無效的 key 屬性；key 應由呼叫端在 .map() 提供 */
-        ref={cardRef}
-        className="wb-card wb-card-feature wb-span-feature"
-        data-holding-code={h.code}
-        onClick={handleClick}
-        onDoubleClick={handleDoubleClick}
-        onKeyDown={handleKeyDown}
-        aria-label={ariaLabel}
-        aria-pressed={isActive}
-        aria-busy={isCardSyncing || undefined}
-        aria-describedby={describedByIds}
-        style={{
-          position: 'relative',
-          minHeight: MIN_H,
-          textAlign: 'left',
-          background: cardBg,
-          border: 'none',
-          borderRadius: 0,
-          padding: '24px 28px 20px',
-          cursor: 'pointer',
-          display: 'flex', flexDirection: 'column',
-          transition: 'background 160ms ease',
-          fontFamily: 'inherit',
-          color: cardColor,
-          overflow: 'hidden',
-        }}
-      >
-        {inView && (<>
-        <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 10, marginBottom: 6 }}>
-          <div style={{ display: 'flex', alignItems: 'baseline', gap: 8, minWidth: 0, flex: 1 }}>
-            <span style={{ fontSize: 11, color: muteColor, fontVariantNumeric: 'tabular-nums', letterSpacing: '0.04em' }}>{h.code}</span>
-            <span style={{ fontSize: 15, fontWeight: 400, color: cardColor, letterSpacing: '-0.005em', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>{h.name}</span>
-            {h.qty != null && (
-              <span style={{ fontSize: 10, color: muteColor, fontVariantNumeric: 'tabular-nums', letterSpacing: '0.04em', flexShrink: 0 }}>× {Number(h.qty).toLocaleString()}{h.unit ? ` ${h.unit}` : ' 股'}</span>
-            )}
-          </div>
-          {sparkData.length >= 2 ? (
-            <span className="wb-spark" style={{ display: 'inline-flex', flexShrink: 0 }}>
-              <Sparkline data={sparkData} width={60} height={20} color={isInk ? '#F4F1EC' : (pctVal >= 0 ? WB.accent : '#9B968D')} opacity={pctVal >= 0 ? 0.85 : 0.6} />
-            </span>
-          ) : (
-            <span className="wb-spark" aria-hidden title={sparkFailed ? '歷史價尚未同步，稍後重試' : undefined} style={{ display: 'inline-flex', alignItems: 'center', justifyContent: 'center', width: 60, height: 20, fontSize: 11, color: muteColor, opacity: 0.4, flexShrink: 0, letterSpacing: '0.3em' }}>{sparkFailed ? '~' : '———'}</span>
-          )}
-          <span style={{
-            fontSize: 9, fontWeight: 500, letterSpacing: '0.20em',
-            color: WB.accent, textTransform: 'uppercase', flexShrink: 0,
-          }}>{actionLabel}</span>
-        </div>
+  // ── 兩種 variant 共用 button 外殼 ──
+  const buttonClass = isFeature
+    ? 'wb-card wb-card-feature wb-span-feature'
+    : 'wb-card wb-span-1';
+  const buttonStyle = isFeature
+    ? {
+        position: 'relative', minHeight: MIN_H, textAlign: 'left',
+        background: cardBg, border: 'none', borderRadius: 0,
+        padding: '24px 28px 20px', cursor: 'pointer',
+        display: 'flex', flexDirection: 'column',
+        transition: 'background 160ms ease',
+        fontFamily: 'inherit', color: cardColor, overflow: 'hidden',
+      }
+    : {
+        position: 'relative', minHeight: MIN_H, textAlign: 'left',
+        background: cardBg, border: cardBorder, borderRadius: 0,
+        padding: '22px 22px 18px', cursor: 'pointer',
+        display: 'flex', flexDirection: 'column',
+        transition: 'background 160ms ease, border-color 160ms ease',
+        fontFamily: 'inherit', color: cardColor, overflow: 'hidden',
+      };
 
-        <div style={{ display: 'flex', alignItems: 'baseline', gap: 14, marginTop: 8, marginBottom: 10 }}>
-          <span className="wb-roi" style={{
-            fontSize: 'clamp(40px, 6vw + 12px, 64px)', fontWeight: pnlWeight, color: pnlColor,
-            letterSpacing: '-0.04em', lineHeight: 1,
-            fontVariantNumeric: 'tabular-nums',
-            display: 'inline-flex', alignItems: 'baseline', gap: 6,
-          }}>
-            {pnlArrow && <span style={{ fontSize: '0.40em', opacity: 0.7, fontWeight: 400 }}>{pnlArrow}</span>}
-            <span>{pctVal >= 0 ? '+' : ''}{pctVal.toFixed(2)}<span style={{ fontSize: '0.55em', marginLeft: 3, opacity: 0.6, fontWeight: 500, verticalAlign: 'baseline' }}>%</span></span>
-          </span>
-          <span style={{ fontSize: 13, color: subColor, fontVariantNumeric: 'tabular-nums', letterSpacing: '0.02em' }}>
-            {pnlVal >= 0 ? '+' : ''}{pnlVal.toLocaleString()}
-          </span>
-        </div>
+  const variantForChildren = isInk ? 'ink' : 'normal';
 
-        <div style={{
-          display: 'flex', alignItems: 'baseline', gap: 8, marginBottom: 10,
-          fontSize: 11, color: subColor, fontVariantNumeric: 'tabular-nums', letterSpacing: '0.04em',
-        }}>
-          <span style={{ color: muteColor, letterSpacing: '0.12em', fontSize: 9, opacity: 0.8 }}>成本</span>
-          <span>{h.cost != null ? Number(h.cost).toFixed(2) : '—'}</span>
-          <span style={{ color: muteColor, opacity: 0.6 }}>→</span>
-          <span style={{ color: muteColor, letterSpacing: '0.12em', fontSize: 9, opacity: 0.8 }}>現價</span>
-          <span>{h.price != null ? Number(h.price).toFixed(2) : '—'}</span>
-        </div>
-
-        {(meta?.industry || meta?.industries?.length || meta?.strategy || onReportMeta) && (
-          <div className="wb-tags" style={{ display: 'flex', gap: 6, marginBottom: 10, flexWrap: 'wrap', alignItems: 'center' }}>
-            {(meta?.industries?.length ? meta.industries : (meta?.industry ? [meta.industry] : [])).map((ind, i) => (
-              <span key={`ind-${i}`} style={{ fontSize: 10, color: 'rgba(244,241,236,0.78)', letterSpacing: '0.08em', padding: '4px 8px', background: 'rgba(255,255,255,0.08)', border: 'none', borderRadius: 0, opacity: i === 0 ? 1 : 0.75 }}>{ind}</span>
-            ))}
-            {meta?.strategy && (
-              <span style={{ fontSize: 10, color: 'rgba(244,241,236,0.78)', letterSpacing: '0.08em', padding: '4px 8px', background: 'rgba(255,255,255,0.08)', border: 'none', borderRadius: 0 }}>{meta.strategy}</span>
-            )}
-            {onReportMeta && (
-              <button type="button" onClick={openReportMeta} title="回報分類錯誤" aria-label={`回報 ${h.code} 分類錯誤`} style={{ fontSize: 10, color: 'rgba(244,241,236,0.55)', letterSpacing: '0.08em', padding: '4px 6px', background: 'transparent', border: '1px dashed rgba(244,241,236,0.25)', borderRadius: 0, cursor: 'pointer', marginLeft: 'auto' }}>回報</button>
-            )}
-          </div>
-        )}
-
-        <div style={{ flex: 1, display: 'flex', alignItems: 'center', gap: 18, minHeight: 48 }}>
-          <div style={{ flex: 1, fontSize: 11, color: subColor, lineHeight: 1.7, letterSpacing: '0.01em' }}>
-            {dec?.actionText
-              ? truncateAction(dec.actionText, 90)
-              : (meta?.strategy || '持續監控基本面與籌碼變動。')}
-          </div>
-        </div>
-
-        <div className="wb-bottom" style={{
-          paddingTop: 12, marginTop: 8,
-          borderTop: `1px solid ${hairColor}`,
-          display: 'grid',
-          gridTemplateColumns: 'minmax(0,1fr) 1px minmax(0,1fr)',
-          gridTemplateRows: 'auto auto',
-          columnGap: 16, rowGap: 2,
-          alignItems: 'baseline',
-        }}>
-          <span style={{ gridColumn: '1', gridRow: '1', fontSize: 9, color: muteColor, letterSpacing: '0.16em', opacity: 0.7, lineHeight: 1 }}>TODAY</span>
-          <span style={{ gridColumn: '3', gridRow: '1', display: 'flex', alignItems: 'center', gap: 6, fontSize: 9, color: muteColor, letterSpacing: '0.16em', opacity: 0.7, lineHeight: 1 }}>
-            <span>VALUE</span>
-            {srcLabel && (
-              <span title={srcTitle} style={{
-                fontSize: 8, letterSpacing: '0.06em', padding: '1px 5px', borderRadius: 2,
-                background: h.priceSource === 'live' ? alpha(WB.accent, '30') : 'rgba(244,241,236,0.10)',
-                color: h.priceSource === 'live' ? WB.accent : 'rgba(244,241,236,0.85)',
-                opacity: 0.9, fontWeight: 500,
-              }}>{srcLabel}</span>
-            )}
-            {h.priceError && !srcLabel && (
-              <span title={h.priceError} style={{ fontSize: 8, padding: '1px 5px', borderRadius: 2, background: 'rgba(244,241,236,0.12)', color: 'rgba(244,241,236,0.65)' }}>失敗</span>
-            )}
-          </span>
-          <div style={{ gridColumn: '2', gridRow: '1 / span 2', background: hairColor, width: 1, height: '100%' }} />
-          <span className="wb-bottom-val" style={{ gridColumn: '1', gridRow: '2', fontSize: 'clamp(10.5px, 0.9vw + 8px, 12px)', color: subColor, fontVariantNumeric: 'tabular-nums', lineHeight: 1.2 }}>
-            {hasToday ? (
-              <>
-                {todayPnlNum != null ? `${todayPnlNum >= 0 ? '+' : ''}${todayPnlNum.toLocaleString()}` : '—'}
-                {todayPctNum != null && (
-                  <span style={{ marginLeft: 6, color: muteColor }}>{todayPctNum >= 0 ? '+' : ''}{todayPctNum.toFixed(2)}%</span>
-                )}
-              </>
-            ) : (
-              <span style={{ color: muteColor }}>—</span>
-            )}
-          </span>
-          <span className="wb-bottom-val" style={{ gridColumn: '3', gridRow: '2', fontSize: 'clamp(10.5px, 0.9vw + 8px, 12px)', color: subColor, fontVariantNumeric: 'tabular-nums', lineHeight: 1.2 }}>
-            {h.value?.toLocaleString() || '—'}
-            {tp && upside != null && (
-              <span style={{ marginLeft: 6, color: muteColor }}>TGT {upside >= 0 ? '+' : ''}{upside.toFixed(1)}%</span>
-            )}
-          </span>
-        </div>
-        </>)}
-        {SyncOverlay}
-        {SyncErrorStrip}
-        {SyncSrStatus}
-      </button>
-    );
-  }
-
-  // ─── Normal card ───
   return (
     <button
-      /* C9 (audit 2026-07)：移除元件根節點無效的 key 屬性；key 應由呼叫端在 .map() 提供 */
       ref={cardRef}
-      className="wb-card wb-span-1"
+      className={buttonClass}
       data-holding-code={h.code}
       onClick={handleClick}
       onDoubleClick={handleDoubleClick}
@@ -387,134 +230,61 @@ function HoldingCardImpl(props) {
       aria-pressed={isActive}
       aria-busy={isCardSyncing || undefined}
       aria-describedby={describedByIds}
-      style={{
-        position: 'relative',
-        minHeight: MIN_H,
-        textAlign: 'left',
-        background: cardBg,
-        border: cardBorder,
-        borderRadius: 0,
-        padding: '22px 22px 18px',
-        cursor: 'pointer',
-        display: 'flex',
-        flexDirection: 'column',
-        transition: 'background 160ms ease, border-color 160ms ease',
-        fontFamily: 'inherit',
-        color: cardColor,
-        overflow: 'hidden',
-      }}
+      style={buttonStyle}
     >
-      {inView && (<>
-      <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 10, marginBottom: 4 }}>
-        <div style={{ display: 'flex', alignItems: 'baseline', gap: 8, minWidth: 0, flex: 1 }}>
-          <span style={{ fontSize: 11, color: muteColor, fontVariantNumeric: 'tabular-nums', letterSpacing: '0.04em', flexShrink: 0 }}>{h.code}</span>
-          <span style={{ fontSize: 13, fontWeight: 400, color: cardColor, whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>{h.name}</span>
-          {h.qty != null && (
-            <span style={{ fontSize: 10, color: muteColor, fontVariantNumeric: 'tabular-nums', letterSpacing: '0.04em', flexShrink: 0 }}>× {Number(h.qty).toLocaleString()}{h.unit ? ` ${h.unit}` : ' 股'}</span>
-          )}
-        </div>
-        {sparkData.length >= 2 ? (
-          <span className="wb-spark" style={{ display: 'inline-flex', flexShrink: 0 }}>
-            <Sparkline data={sparkData} width={60} height={20} color={pctVal >= 0 ? WB.accent : '#9B968D'} opacity={pctVal >= 0 ? 0.85 : 0.55} />
-          </span>
-        ) : (
-          <span className="wb-spark" aria-hidden title={sparkFailed ? '歷史價尚未同步，稍後重試' : undefined} style={{ display: 'inline-flex', alignItems: 'center', justifyContent: 'center', width: 60, height: 20, fontSize: 11, color: muteColor, opacity: 0.4, flexShrink: 0, letterSpacing: '0.3em' }}>{sparkFailed ? '~' : '———'}</span>
-        )}
-        <span style={{
-          fontSize: 9, fontWeight: 500, letterSpacing: '0.20em',
-          color: WB.accent, flexShrink: 0,
-        }}>{actionLabel}</span>
-      </div>
+      {inView && (
+        <>
+          {/* Layer 1 · 標頭 */}
+          <HoldingCardHeader
+            h={h}
+            meta={meta}
+            onReportMeta={onReportMeta}
+            variant={variantForChildren}
+            cardColor={cardColor}
+            muteColor={muteColor}
+            sparkData={sparkData}
+            sparkFailed={sparkFailed}
+            actionLabel={actionLabel}
+            pctVal={pctVal}
+          />
 
-      <div style={{ display: 'flex', alignItems: 'baseline', gap: 10, marginTop: 8, marginBottom: 8 }}>
-        <span className="wb-roi" style={{
-          fontSize: 'clamp(36px, 4.5vw + 10px, 52px)', fontWeight: pnlWeight, color: pnlColor,
-          letterSpacing: '-0.035em', lineHeight: 1,
-          fontVariantNumeric: 'tabular-nums',
-          display: 'inline-flex', alignItems: 'baseline', gap: 5,
-        }}>
-          {pnlArrow && <span style={{ fontSize: '0.40em', opacity: 0.7, fontWeight: 400 }}>{pnlArrow}</span>}
-          <span>{pctVal >= 0 ? '+' : ''}{pctVal.toFixed(2)}<span style={{ fontSize: '0.55em', marginLeft: 3, opacity: 0.6, fontWeight: 500, verticalAlign: 'baseline' }}>%</span></span>
-        </span>
-      </div>
+          {/* Layer 2 · 報酬條 */}
+          <HoldingCardReturn
+            pctVal={pctVal}
+            pnlVal={pnlVal}
+            pnlColor={pnlColor}
+            pnlWeight={pnlWeight}
+            pnlArrow={pnlArrow}
+            subColor={subColor}
+            variant={variantForChildren}
+          />
 
-      <div style={{
-        display: 'flex', alignItems: 'baseline', gap: 8, marginBottom: 8,
-        fontSize: 11, color: subColor, fontVariantNumeric: 'tabular-nums', letterSpacing: '0.04em',
-      }}>
-        <span style={{ color: muteColor, letterSpacing: '0.12em', fontSize: 9, opacity: 0.8 }}>成本</span>
-        <span>{h.cost != null ? Number(h.cost).toFixed(2) : '—'}</span>
-        <span style={{ color: muteColor, opacity: 0.6 }}>→</span>
-        <span style={{ color: muteColor, letterSpacing: '0.12em', fontSize: 9, opacity: 0.8 }}>現價</span>
-        <span>{h.price != null ? Number(h.price).toFixed(2) : '—'}</span>
-      </div>
+          {/* Layer 3 · 價格軌 */}
+          <HoldingCardPriceTrack
+            h={h}
+            meta={meta}
+            dec={dec}
+            subColor={subColor}
+            muteColor={muteColor}
+            variant={variantForChildren}
+          />
 
-      {(meta?.industry || meta?.industries?.length || meta?.strategy || onReportMeta) && (
-        <div className="wb-tags" style={{ display: 'flex', gap: 6, marginBottom: 8, flexWrap: 'wrap', alignItems: 'center' }}>
-          {(meta?.industries?.length ? meta.industries : (meta?.industry ? [meta.industry] : [])).map((ind, i) => (
-            <span key={`ind-${i}`} style={{ fontSize: 10, color: isInk ? 'rgba(244,241,236,0.78)' : WB.inkSub, letterSpacing: '0.08em', padding: '4px 8px', background: isInk ? 'rgba(255,255,255,0.08)' : '#F4F2EE', border: 'none', borderRadius: 0, opacity: i === 0 ? 1 : 0.75 }}>{ind}</span>
-          ))}
-          {meta?.strategy && (
-            <span style={{ fontSize: 10, color: isInk ? 'rgba(244,241,236,0.78)' : WB.inkSub, letterSpacing: '0.08em', padding: '4px 8px', background: isInk ? 'rgba(255,255,255,0.08)' : '#F4F2EE', border: 'none', borderRadius: 0 }}>{meta.strategy}</span>
-          )}
-          {onReportMeta && (
-            <button type="button" onClick={openReportMeta} title="回報分類錯誤" aria-label={`回報 ${h.code} 分類錯誤`} style={{ fontSize: 10, color: isInk ? 'rgba(244,241,236,0.55)' : '#B0A99C', letterSpacing: '0.08em', padding: '4px 6px', background: 'transparent', border: `1px dashed ${isInk ? 'rgba(244,241,236,0.25)' : 'rgba(0,0,0,0.15)'}`, borderRadius: 0, cursor: 'pointer', marginLeft: 'auto' }}>回報</button>
-          )}
-        </div>
+          {/* Layer 4 · 頁腳 */}
+          <HoldingCardFooter
+            h={h}
+            tp={tp}
+            upside={upside}
+            hasToday={hasToday}
+            todayPnlNum={todayPnlNum}
+            todayPctNum={todayPctNum}
+            variant={variantForChildren}
+            subColor={subColor}
+            muteColor={muteColor}
+            hairColor={hairColor}
+            lossColor={lossColor}
+          />
+        </>
       )}
-
-      <div style={{ flex: 1, display: 'flex', alignItems: 'flex-end', gap: 14, minHeight: 40, paddingTop: 4 }}>
-        <div style={{ flex: 1, fontSize: 11, color: subColor, lineHeight: 1.65 }}>
-          {dec?.actionText
-            ? truncateAction(dec.actionText, 60)
-            : (meta?.strategy ? meta.strategy.slice(0, 40) : '')}
-        </div>
-      </div>
-
-      <div className="wb-bottom" style={{
-        paddingTop: 10, marginTop: 8,
-        borderTop: `1px solid ${hairColor}`,
-        display: 'grid',
-        gridTemplateColumns: 'minmax(0,1fr) 1px minmax(0,1fr)',
-        gridTemplateRows: 'auto auto',
-        columnGap: 12, rowGap: 2,
-        alignItems: 'baseline',
-        fontSize: 10, color: muteColor, fontWeight: 400,
-        fontVariantNumeric: 'tabular-nums', letterSpacing: '0.06em',
-      }}>
-        <span style={{ gridColumn: '1', gridRow: '1', fontSize: 9, color: muteColor, letterSpacing: '0.16em', opacity: 0.7, lineHeight: 1 }}>TODAY</span>
-        <span style={{ gridColumn: '3', gridRow: '1', display: 'flex', alignItems: 'center', gap: 6, fontSize: 9, color: muteColor, letterSpacing: '0.16em', opacity: 0.7, lineHeight: 1 }}>
-          <span>VALUE</span>
-          {srcLabel && (
-            <span title={srcTitle} style={{
-              fontSize: 8, letterSpacing: '0.06em', padding: '1px 5px', borderRadius: 2,
-              background: h.priceSource === 'live' ? alpha(WB.accent, '22') : h.priceSource === 'screenshot' ? alpha(muteColor, '18') : alpha(lossColor, '22'),
-              color: h.priceSource === 'live' ? WB.accent : subColor,
-              opacity: 0.85, fontWeight: 500,
-            }}>{srcLabel}</span>
-          )}
-          {h.priceError && !srcLabel && (
-            <span title={h.priceError} style={{ fontSize: 8, padding: '1px 5px', borderRadius: 2, background: alpha(lossColor, '22'), color: lossColor }}>失敗</span>
-          )}
-        </span>
-        <div style={{ gridColumn: '2', gridRow: '1 / span 2', background: hairColor, width: 1, height: '100%' }} />
-        <span className="wb-bottom-val" style={{ gridColumn: '1', gridRow: '2', fontSize: 'clamp(10.5px, 0.9vw + 8px, 12px)', color: subColor, fontVariantNumeric: 'tabular-nums', lineHeight: 1.2 }}>
-          {hasToday ? (
-            <>
-              {todayPnlNum != null ? `${todayPnlNum >= 0 ? '+' : ''}${todayPnlNum.toLocaleString()}` : '—'}
-              {todayPctNum != null && (
-                <span style={{ marginLeft: 6, color: muteColor }}>{todayPctNum >= 0 ? '+' : ''}{todayPctNum.toFixed(2)}%</span>
-              )}
-            </>
-          ) : (
-            <span style={{ color: muteColor }}>—</span>
-          )}
-        </span>
-        <span className="wb-bottom-val" style={{ gridColumn: '3', gridRow: '2', fontSize: 'clamp(10.5px, 0.9vw + 8px, 12px)', color: subColor, fontVariantNumeric: 'tabular-nums', lineHeight: 1.2 }}>
-          {h.value?.toLocaleString() || '—'}
-        </span>
-      </div>
-      </>)}
       {SyncOverlay}
       {SyncErrorStrip}
       {SyncSrStatus}
