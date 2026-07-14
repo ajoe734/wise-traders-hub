@@ -168,67 +168,52 @@ function HoldingsWorkbench(props) {
         )}
       </div>
 
-      {/* 右：Detail Panel — 只在 selected 時顯示 */}
-      {showPanel && (
-        <aside
-          ref={panelRef}
-          className="holdings-detail-panel"
+      {/* Detail Panel — Sheet（Radix Dialog）：遮罩點擊關閉、Esc 關閉、焦點陷阱、aria-modal */}
+      <Sheet open={showPanel} onOpenChange={handleOpenChange}>
+        <SheetContent
+          side="right"
           data-testid="holdings-detail-panel"
+          className="w-full sm:max-w-md md:max-w-lg lg:max-w-xl xl:max-w-2xl overflow-y-auto p-0"
           style={{
-            position: 'sticky',
-            top: 12,
             background: WB.surface,
-            border: `1px solid ${WB.hairStrong}`,
-            borderRadius: 4,
-            maxHeight: 'calc(100vh - 24px)',
-            overflowY: 'auto',
+            borderColor: WB.hairStrong,
             overscrollBehavior: 'contain',
-            paddingBottom: 32,
-            scrollMarginTop: 12,
           }}
         >
-          <div
-            className="holdings-detail-panel__narrow-hint"
-            data-testid="holdings-panel-narrow-hint"
-            style={{
-              alignItems: 'center',
-              gap: 8,
-              padding: '8px 12px',
-              borderBottom: `1px solid ${WB.hair}`,
-              background: WB.surfaceSoft,
-              color: WB.inkMute,
-              fontSize: 11,
-              letterSpacing: '0.12em',
-              fontWeight: 500,
-            }}
-          >
-            <span aria-hidden style={{ fontSize: 12, color: WB.ink }}>
-              ✓
-            </span>
-            <span>已展開完整圖表面板（成本／區間／佔比 + PNG·PDF 匯出）</span>
-          </div>
-          <Suspense fallback={null}>
-            <HoldingsDetailPanel
-              selected={selected}
-              decisionsMap={decisionsMap}
-              stockMeta={STOCK_META}
-              targets={targets}
-              avgTarget={avgTarget}
-              normalizedEvents={normalizedEvents}
-              orderedDisplayed={orderedDisplayed}
-              WB={WB}
-              setExpandedDecision={setExpandedDecision}
-              openHoldingDrawer={openHoldingDrawer}
-              totalPortfolioValue={totalVal || 0}
-              sparkData30D={selected ? sparklines?.[selected.code] || [] : []}
-              sortBy={sortBy}
-              sortDir={sortDir}
-              setSortBy={setSortBy}
-              setSortDir={setSortDir}
-            />
-          </Suspense>
-        </aside>
-      )}
+          <VisuallyHidden asChild>
+            <SheetHeader>
+              <SheetTitle>
+                {selected ? `持倉細節 ${selected.code}` : '持倉細節'}
+              </SheetTitle>
+              <SheetDescription>
+                成本／區間／佔比 + PNG·PDF 匯出。按 Esc 或點擊遮罩可關閉。
+              </SheetDescription>
+            </SheetHeader>
+          </VisuallyHidden>
+          {selected && (
+            <Suspense fallback={null}>
+              <HoldingsDetailPanel
+                selected={selected}
+                decisionsMap={decisionsMap}
+                stockMeta={STOCK_META}
+                targets={targets}
+                avgTarget={avgTarget}
+                normalizedEvents={normalizedEvents}
+                orderedDisplayed={orderedDisplayed}
+                WB={WB}
+                setExpandedDecision={setExpandedDecision}
+                openHoldingDrawer={openHoldingDrawer}
+                totalPortfolioValue={totalVal || 0}
+                sparkData30D={sparklines?.[selected.code] || []}
+                sortBy={sortBy}
+                sortDir={sortDir}
+                setSortBy={setSortBy}
+                setSortDir={setSortDir}
+              />
+            </Suspense>
+          )}
+        </SheetContent>
+      </Sheet>
     </div>
   );
 }
