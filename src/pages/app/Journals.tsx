@@ -15,6 +15,8 @@ import { Button } from '@/components/ui/button';
 import { useQuery } from '@tanstack/react-query';
 import { usePreviewMode } from '@/hooks/usePreviewMode';
 import { intentHandlers } from '@/lib/routePrefetch';
+import { AssetFilterChips } from '@/components/AssetFilterChips';
+import { resolveAssetClass, type AssetClass } from '@/lib/asset';
 
 interface JournalSignal {
   id: string;
@@ -32,6 +34,8 @@ interface JournalSignal {
     slug: string;
     role: string;
     avatar_url: string | null;
+    asset_class: string | null;
+    currency: string | null;
   };
 }
 
@@ -119,7 +123,7 @@ const fetchJournalsData = async (userId: string | undefined, isTester: boolean, 
 
   const { data, error } = await supabase
     .from('expert_signals')
-    .select('id, instrument, action, price_hint, reason_summary, reason_detail, risk_notes, learning_points, published_at, expert_id, experts(name, slug, role, avatar_url)')
+    .select('id, instrument, action, price_hint, reason_summary, reason_detail, risk_notes, learning_points, published_at, expert_id, experts(name, slug, role, avatar_url, asset_class, currency)')
     .eq('status', 'published')
     .in('expert_id', mentorIds)
     .order('published_at', { ascending: false })
@@ -143,6 +147,7 @@ const Journals = () => {
   const isTester = isViewAs ? false : (user?.isTester ?? false);
   const { previewExpertId } = usePreviewMode();
   const [selectedMonth, setSelectedMonth] = useState<string>('all');
+  const [assetFilter, setAssetFilter] = useState<AssetClass | null>(null);
 
   useEffect(() => {
     markAppJournalsAsRead();
@@ -187,11 +192,23 @@ const Journals = () => {
     return Array.from(monthSet).sort().reverse();
   }, [weekGroups]);
 
-  // Filter by month
+  // Filter by month + asset class
   const filteredGroups = useMemo(() => {
-    if (selectedMonth === 'all') return weekGroups;
-    return weekGroups.filter(g => format(g.weekStart, 'yyyy-MM') === selectedMonth);
-  }, [weekGroups, selectedMonth]);
+    let list = weekGroups;
+    if (selectedMonth !== 'all') {
+      list = list.filter(g => format(g.weekStart, 'yyyy-MM') === selectedMonth);
+    }
+    if (assetFilter) {
+      list = list.filter(g => resolveAssetClass(g.expert as any) === assetFilter);
+    }
+    return list;
+  }, [weekGroups, selectedMonth, assetFilter]);
+
+  const availableAssets = useMemo(() => {
+    const set = new Set<AssetClass>();
+    weekGroups.forEach(g => set.add(resolveAssetClass(g.expert as any)));
+    return Array.from(set);
+  }, [weekGroups]);
 
   return (
     <UnifiedAppLayout>
@@ -223,6 +240,15 @@ const Journals = () => {
             </Select>
           )}
         </div>
+
+        {availableAssets.length > 1 && (
+          <AssetFilterChips
+            value={assetFilter}
+            onChange={setAssetFilter}
+            available={availableAssets}
+          />
+        )}
+        
         
         {loading ? (
           <div className="flex items-center justify-center py-12">

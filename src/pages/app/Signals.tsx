@@ -1,5 +1,5 @@
 import { SEO } from '@/components/SEO';
-import { useEffect } from 'react';
+import { useEffect, useMemo, useState } from 'react';
 import { Link } from 'react-router-dom';
 import { UnifiedAppLayout, markAppSignalsAsRead } from '@/components/layouts/UnifiedAppLayout';
 import { useAuth } from '@/contexts/AuthContext';
@@ -17,6 +17,8 @@ import { richHtmlPreview, PREVIEW_LIMITS } from '@/components/SafeRichHtml';
 import { avatarUrl } from '@/lib/imageTransform';
 import { intentHandlers } from '@/lib/routePrefetch';
 import { usePreviewMode } from '@/hooks/usePreviewMode';
+import { AssetBadge, AssetFilterChips } from '@/components/AssetFilterChips';
+import { resolveAssetClass, type AssetClass } from '@/lib/asset';
 
 const actionConfig: Record<string, { label: string; className: string }> = {
   buy: { label: '買進', className: 'bg-success text-white border-success' },
@@ -42,6 +44,8 @@ interface DbSignal {
     slug: string;
     role: string;
     avatar_url: string | null;
+    asset_class: string | null;
+    currency: string | null;
   } | null;
 }
 
@@ -66,6 +70,17 @@ const Signals = () => {
   const signals = data?.signals ?? [];
   const hasSubscription = data?.hasSubscription ?? null;
 
+  const [assetFilter, setAssetFilter] = useState<AssetClass | null>(null);
+  const availableAssets = useMemo(() => {
+    const set = new Set<AssetClass>();
+    signals.forEach((s: any) => set.add(resolveAssetClass(s.experts)));
+    return Array.from(set);
+  }, [signals]);
+  const filteredSignals = useMemo(() => {
+    if (!assetFilter) return signals;
+    return signals.filter((s: any) => resolveAssetClass(s.experts) === assetFilter);
+  }, [signals, assetFilter]);
+
   useEffect(() => {
     markAppSignalsAsRead();
   }, []);
@@ -82,13 +97,22 @@ const Signals = () => {
           來自您訂閱的投顧分析師的即時策略訊號
         </p>
 
+        {availableAssets.length > 1 && (
+          <AssetFilterChips
+            value={assetFilter}
+            onChange={setAssetFilter}
+            available={availableAssets}
+            className="mb-2"
+          />
+        )}
+
         {loading ? (
           <Card>
             <CardContent className="p-6 text-center text-muted-foreground">載入中...</CardContent>
           </Card>
-        ) : signals.length > 0 ? (
+        ) : filteredSignals.length > 0 ? (
           <div className="space-y-3">
-            {signals.map(signal => {
+            {filteredSignals.map(signal => {
               const ac = actionConfig[signal.action] || actionConfig.buy;
               const publishedAt = signal.published_at ? new Date(signal.published_at) : new Date();
               const isRecent = differenceInHours(new Date(), publishedAt) < 24;
@@ -109,9 +133,10 @@ const Signals = () => {
                         ) : null}
                       </div>
 
-                      <div className="flex items-center gap-3 mb-3">
+                      <div className="flex items-center gap-2 mb-3 flex-wrap">
                         <Badge className={cn(ac.className, 'text-xs px-2 py-0.5')}>{ac.label}</Badge>
                         <span className="font-semibold text-lg">{signal.instrument}</span>
+                        <AssetBadge source={signal.experts} />
                       </div>
 
                       {signal.experts && (
@@ -168,7 +193,7 @@ const Signals = () => {
         ) : (
           <Card>
             <CardContent className="p-6 text-center text-muted-foreground">
-              目前沒有新的訊號
+              {assetFilter ? '目前該資產類別沒有訊號' : '目前沒有新的訊號'}
             </CardContent>
           </Card>
         )}

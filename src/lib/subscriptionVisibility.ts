@@ -87,7 +87,7 @@ export async function fetchSubscriberSignals(
 
   const { data, error } = await supabase
     .from('expert_signals')
-    .select('id, instrument, action, price_hint, reason_summary, risk_notes, published_at, status, expert_id, plan_id, experts(name, slug, role, avatar_url)')
+    .select('id, instrument, action, price_hint, reason_summary, risk_notes, published_at, status, expert_id, plan_id, experts(name, slug, role, avatar_url, asset_class, currency)')
     .eq('status', 'published')
     .in('expert_id', advisorExpertIds)
     .order('published_at', { ascending: false })
