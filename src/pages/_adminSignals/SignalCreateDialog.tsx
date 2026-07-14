@@ -155,6 +155,10 @@ export function SignalCreateDialog({
 
   const handlePublish = async () => {
     if (!expert) { toast.error('找不到分析師資料，請重新整理後再試'); return; }
+    if (!expert.asset_class) {
+      toast.error('請先到「分析師設定」選擇主打資產類別（台股 / 美股 / 加密），才能發布訊號或週記');
+      return;
+    }
     if (!stockCode.trim() || !action) { toast.error('請先填寫「代碼」與「操作方向」'); return; }
     if (!isValidAssetSymbol(stockCode, assetClass)) {
       toast.error(`代碼格式錯誤（${spec.symbolPlaceholder}）`); return;

@@ -197,6 +197,10 @@ const SignalEditor = () => {
       toast.error(publishWindow.reason || '目前不在發布時段');
       return;
     }
+    if (!expert?.asset_class) {
+      toast.error('請先到「分析師設定」選擇主打資產類別（台股 / 美股 / 加密），才能發布訊號或週記');
+      return;
+    }
     if (isTeachingOnly) {
       if (!teachingTopic.trim()) {
         toast.error('純教學週記至少要填教學主題');
