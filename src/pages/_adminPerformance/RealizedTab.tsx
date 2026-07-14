@@ -2,7 +2,7 @@ import { Card, CardContent } from '@/components/ui/card';
 import { Loader2 } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import {
-  pnlColor, fmtPct, fmtDate, parseInstrument, periodLabel,
+  pnlColor, fmtPct, fmtDate, fmtPrice, parseInstrument, periodLabel,
   type RealizedRow, type RealizedPeriod,
 } from '@/pages/_adminPerformance/types';
 
@@ -107,10 +107,10 @@ export default function RealizedTab({
                           </div>
                         </td>
                         <td className="text-right p-3 text-sm tabular-nums">
-                          {row.entry_price != null ? row.entry_price.toLocaleString() : '-'}
+                          {fmtPrice(row.entry_price, row.currency)}
                         </td>
                         <td className="text-right p-3 text-sm tabular-nums">
-                          {row.exit_price != null ? row.exit_price.toLocaleString() : '-'}
+                          {fmtPrice(row.exit_price, row.currency)}
                         </td>
                         <td className={cn('text-right p-3 text-sm font-medium tabular-nums', pnlColor(row.pnl_percent))}>
                           {row.pnl_percent != null ? fmtPct(row.pnl_percent) : '-'}

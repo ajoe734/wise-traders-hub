@@ -11,7 +11,7 @@ import RealizedTab from '@/pages/_adminPerformance/RealizedTab';
 const AdminPerformance = () => {
   const { expertSlug } = useParams<{ expertSlug: string }>();
   const {
-    expertRole, capital, totalPnlPercent, avgPnlPercent,
+    expertRole, expertCurrency, capital, totalPnlPercent, avgPnlPercent,
     rows, realizedRows, loading, realizedLoading,
     realizedPeriod, setRealizedPeriod,
     unrealizedSummary, realizedSummary,
@@ -28,7 +28,7 @@ const AdminPerformance = () => {
           </p>
         </div>
 
-        {capital && <CapitalSummaryCard capital={capital} />}
+        {capital && <CapitalSummaryCard capital={capital} currency={expertCurrency} />}
 
         <Tabs defaultValue="unrealized" className="space-y-4">
           <TabsList className="grid w-full grid-cols-2 max-w-sm">

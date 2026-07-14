@@ -4,20 +4,13 @@ import { supabase } from '@/integrations/supabase/client';
 import type { CapitalStatus, OpenPosition } from '@/pages/_signalEditor/types';
 import type { PerfRow } from '@/pages/_adminPerformance/types';
 import type { ExpertPerformance } from '@/hooks/usePerformance';
+import { normalizeCurrency, type Currency } from '@/lib/currency';
 
 /**
- * 單一來源（Single Source of Truth）：所有頁面需要 expert 的
- * capital / open_positions / total_return / avg_pnl 都只能呼叫此 hook。
- *
- * 內部：
- * - 並行 `get_expert_capital_status` + `calculate_expert_performance`
- * - 單一 realtime channel 訂閱 `trade_records (expert_id=eq.X)` 與
- *   `user_performances (user_id=eq.ownerUserId)`，事件 → 同時 invalidate
- *   bundle / expert-performance / period-performance-v3 / admin-signals-bundle
- *
- * 嚴禁新增直接 `from('trade_records')` / `rpc('get_expert_capital_status')` /
- * `rpc('calculate_expert_performance')` 的呼叫。
+ * 單一資料源：所有 expert 的 capital / holdings / performance / currency
+ * 都經此 hook。callers 需傳入 expert.currency 才能顯示正確幣別。
  */
+
 
 export interface ExpertHoldingsBundle {
   capital: CapitalStatus | null;
@@ -26,6 +19,8 @@ export interface ExpertHoldingsBundle {
   performance: ExpertPerformance | null;
   totalPnlPercent: number | null;
   avgPnlPercent: number | null;
+  /** expert.currency (TWD | USD) — 未載入時預設 TWD */
+  currency: Currency;
 }
 
 const EMPTY: ExpertHoldingsBundle = {
@@ -35,9 +30,10 @@ const EMPTY: ExpertHoldingsBundle = {
   performance: null,
   totalPnlPercent: null,
   avgPnlPercent: null,
+  currency: 'TWD',
 };
 
-export function mapOpenPositionToRow(p: any): PerfRow {
+export function mapOpenPositionToRow(p: any, currency: Currency = 'TWD'): PerfRow {
   const parts = String(p.instrument || p.symbol || '').split(' ');
   const symbol = p.symbol || parts[0] || '';
   const name = parts.slice(1).join(' ') || null;
@@ -64,15 +60,17 @@ export function mapOpenPositionToRow(p: any): PerfRow {
     quantity: shares,
     quantity_unit: '股',
     status: 'open',
+    currency: normalizeCurrency(p.currency) || currency,
   };
 }
 
 export function useExpertHoldingsBundle(
   expertId: string | undefined,
-  options?: { expertOwnerUserId?: string | null },
+  options?: { expertOwnerUserId?: string | null; currency?: Currency | string | null },
 ) {
   const queryClient = useQueryClient();
   const queryKey = useMemo(() => ['expert-holdings-bundle', expertId] as const, [expertId]);
+  const currency: Currency = normalizeCurrency(options?.currency);
 
   const query = useQuery<ExpertHoldingsBundle>({
     queryKey,
@@ -90,10 +88,11 @@ export function useExpertHoldingsBundle(
       return {
         capital: cap,
         rawOpenPositions: rawOpen,
-        openPositions: rawOpen.map(mapOpenPositionToRow),
+        openPositions: rawOpen.map((p) => mapOpenPositionToRow(p, currency)),
         performance: perf,
         totalPnlPercent: perf?.total_return_pct != null ? Number(perf.total_return_pct) : null,
         avgPnlPercent: perf?.avg_pnl_pct != null ? Number((perf as any).avg_pnl_pct) : null,
+        currency,
       };
     },
   });

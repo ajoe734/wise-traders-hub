@@ -1,6 +1,7 @@
 import { Card, CardContent } from '@/components/ui/card';
 import { SignalRow } from './SignalRow';
 import type { HoldingSummaryRow } from './derive';
+import { formatMoneyByCurrency, type Currency } from '@/lib/currency';
 
 interface Props {
   visibleSignals: any[];
@@ -22,6 +23,7 @@ interface Props {
   onEdit: (batchId: string) => void;
   contentLabel: string;
   holdingSummary: HoldingSummaryRow[] | null;
+  defaultCurrency?: Currency;
 }
 
 export function SignalsTable(p: Props) {
@@ -70,6 +72,7 @@ export function SignalsTable(p: Props) {
                     onRepush={p.onRepush}
                     onRecall={p.onRecall}
                     onEdit={p.onEdit}
+                    defaultCurrency={p.defaultCurrency}
                   />
                 ))
               )}
@@ -82,9 +85,11 @@ export function SignalsTable(p: Props) {
                       {instrument} 目前持有
                     </td>
                     <td colSpan={2} className="p-3 text-sm font-bold text-foreground">
-                      {zhangQty} 張　{guQty} 股　
+                      {p.defaultCurrency === 'USD'
+                        ? <>{guQty} 股　</>
+                        : <>{zhangQty} 張　{guQty} 股　</>}
                       <span className="text-muted-foreground font-medium">
-                        成本 {cost.toLocaleString('zh-TW')} 元
+                        成本 {formatMoneyByCurrency(cost, p.defaultCurrency ?? 'TWD')}
                       </span>
                     </td>
                     <td colSpan={2}></td>

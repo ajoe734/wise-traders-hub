@@ -1,3 +1,9 @@
+import {
+  type Currency,
+  formatMoneyByCurrency,
+  formatPriceByCurrency,
+} from '@/lib/currency';
+
 export interface PerfRow {
   id: string;
   instrument: string;
@@ -10,6 +16,8 @@ export interface PerfRow {
   quantity: number;
   quantity_unit: string;
   status: string;
+  /** 該持倉的計價幣別（TWD / USD），由 expert.currency 帶入 */
+  currency?: Currency;
 }
 
 export interface RealizedRow {
@@ -21,6 +29,7 @@ export interface RealizedRow {
   exit_date: string | null;
   pnl_percent: number | null;
   status: string;
+  currency?: Currency;
 }
 
 export interface CapitalStatus {
@@ -45,7 +54,14 @@ export const pnlColor = (val: number | null) =>
       ? 'text-green-600 dark:text-green-400'
       : 'text-foreground';
 
-export const fmtPnl = (v: number) => `${v > 0 ? '+' : ''}${v.toLocaleString()}`;
+/** 帶幣別的金額顯示：如 "+NT$1,234" / "-US$56"。 */
+export const fmtPnl = (v: number, c: Currency = 'TWD') => {
+  const sign = v > 0 ? '+' : '';
+  return `${sign}${formatMoneyByCurrency(v, c)}`;
+};
+export const fmtPrice = (v: number | null, c: Currency = 'TWD') =>
+  v == null ? '-' : formatPriceByCurrency(v, c);
+export const fmtMoney = (v: number, c: Currency = 'TWD') => formatMoneyByCurrency(v, c);
 export const fmtPct = (v: number) => `${v > 0 ? '+' : ''}${v.toFixed(2)}%`;
 export const fmtDate = (d: string | null) => {
   if (!d) return '-';

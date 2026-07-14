@@ -6,6 +6,7 @@ import { PermissionTooltip } from '@/components/admin/PermissionTooltip';
 import { SafeRichHtml, richHtmlPreview, PREVIEW_LIMITS } from '@/components/SafeRichHtml';
 import { canRecallSignal } from '@/lib/publishingWindow';
 import { actionLabels } from './actionLabels';
+import { CURRENCY_SYMBOL, defaultQuantityUnit, normalizeCurrency, type Currency } from '@/lib/currency';
 
 interface Props {
   signal: any;
@@ -25,17 +26,22 @@ interface Props {
   onRepush: (id: string) => void;
   onRecall: (id: string) => void;
   onEdit: (batchId: string) => void;
+  /** 該分析師的預設幣別，個別 signal.currency 優先 */
+  defaultCurrency?: Currency;
 }
 
 export function SignalRow({
   signal, isMentor, isAdvisor, isReadOnly, isExpanded, setExpandedId,
   openInstruments, addBuySignalIds, batchInfo, collapsedBatches, setCollapsedBatches,
-  recalling, repushingId, onRepush, onRecall, onEdit,
+  recalling, repushingId, onRepush, onRecall, onEdit, defaultCurrency = 'TWD',
 }: Props) {
   const ai = actionLabels[signal.action] || actionLabels.buy;
   const hasDetail = signal.reason_detail || signal.risk_notes || signal.reason_summary || signal.learning_points;
   const isBatchCollapsed = signal.batch_id && collapsedBatches.has(signal.batch_id) && (batchInfo.get(signal.batch_id)?.count || 0) > 1;
   const recall = canRecallSignal((signal as any).published_at);
+  const currency: Currency = normalizeCurrency(signal.currency) || defaultCurrency;
+  const priceSymbol = CURRENCY_SYMBOL[currency];
+  const qtyUnit = signal.quantity_unit || defaultQuantityUnit(currency);
 
   return (
     <React.Fragment>
@@ -73,9 +79,9 @@ export function SignalRow({
         <td className="p-3 text-sm">
           {signal.price_hint ? (
             <>
-              {signal.price_hint}
+              {priceSymbol}{Number(signal.price_hint).toLocaleString(undefined, { minimumFractionDigits: currency === 'USD' ? 2 : 0, maximumFractionDigits: 2 })}
               {signal.quantity && (
-                <span className="text-muted-foreground">({signal.quantity}{signal.quantity_unit || '張'})</span>
+                <span className="text-muted-foreground">（{signal.quantity}{qtyUnit}）</span>
               )}
             </>
           ) : '-'}

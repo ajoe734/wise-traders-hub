@@ -16,6 +16,7 @@ export function useAdminPerformanceData(expertSlug: string | undefined) {
   const [expertId, setExpertId] = useState<string | null>(null);
   const [expertOwnerUserId, setExpertOwnerUserId] = useState<string | null>(null);
   const [expertRole, setExpertRole] = useState<string | null>(null);
+  const [expertCurrency, setExpertCurrency] = useState<'TWD' | 'USD'>('TWD');
   const [realizedRows, setRealizedRows] = useState<RealizedRow[]>([]);
   const [realizedLoading, setRealizedLoading] = useState(true);
   const [realizedPeriod, setRealizedPeriod] = useState<RealizedPeriod>('month');
@@ -28,7 +29,7 @@ export function useAdminPerformanceData(expertSlug: string | undefined) {
     }
     supabase
       .from('experts')
-      .select('id, role, user_id')
+      .select('id, role, user_id, currency')
       .eq('slug', expertSlug)
       .maybeSingle()
       .then(({ data }) => {
@@ -36,6 +37,7 @@ export function useAdminPerformanceData(expertSlug: string | undefined) {
           setExpertId(data.id);
           setExpertRole(data.role);
           setExpertOwnerUserId(data.user_id);
+          setExpertCurrency((data as any).currency === 'USD' ? 'USD' : 'TWD');
         } else {
           setRealizedLoading(false);
         }
@@ -45,8 +47,9 @@ export function useAdminPerformanceData(expertSlug: string | undefined) {
   // ─── 2. 統一資料源：capital / openPositions / total / avg pnl ───
   const bundle = useExpertHoldingsBundle(expertId || undefined, {
     expertOwnerUserId,
+    currency: expertCurrency,
   });
-  const { capital, openPositions: rows, totalPnlPercent, avgPnlPercent, loading } = bundle;
+  const { capital, openPositions: rows, totalPnlPercent, avgPnlPercent, loading, currency } = bundle;
 
   // ─── 3. 已實現（period 篩選） ───
   const fetchRealized = useCallback(async () => {
@@ -68,15 +71,21 @@ export function useAdminPerformanceData(expertSlug: string | undefined) {
 
     const { data, error } = await supabase
       .from('trade_records')
-      .select('id, instrument, entry_price, exit_price, entry_date, exit_date, pnl_percent, status')
+      .select('id, instrument, entry_price, exit_price, entry_date, exit_date, pnl_percent, status, currency')
       .eq('expert_id', expertId)
       .eq('status', 'closed')
       .gte('exit_date', fromDate.toISOString())
       .order('exit_date', { ascending: false });
 
-    if (!error) setRealizedRows(data || []);
+    if (!error) {
+      const mapped: RealizedRow[] = (data || []).map((r: any) => ({
+        ...r,
+        currency: r.currency === 'USD' ? 'USD' : expertCurrency,
+      }));
+      setRealizedRows(mapped);
+    }
     setRealizedLoading(false);
-  }, [expertId, realizedPeriod]);
+  }, [expertId, realizedPeriod, expertCurrency]);
 
   const fetchRealizedRef = useRef(fetchRealized);
   useEffect(() => { fetchRealizedRef.current = fetchRealized; }, [fetchRealized]);
@@ -84,7 +93,6 @@ export function useAdminPerformanceData(expertSlug: string | undefined) {
   useEffect(() => { fetchRealized(); }, [fetchRealized]);
 
   // bundle 數值變動（trade_records 事件後）→ 同步刷新 realized
-  // 用 capital.realized_pnl_amount 當訊號，避免額外開 channel
   const realizedSignal = capital?.realized_pnl_amount ?? null;
   useEffect(() => {
     if (!expertId) return;
@@ -115,6 +123,7 @@ export function useAdminPerformanceData(expertSlug: string | undefined) {
 
   return {
     expertRole,
+    expertCurrency: currency,
     capital,
     totalPnlPercent,
     avgPnlPercent,
@@ -128,3 +137,4 @@ export function useAdminPerformanceData(expertSlug: string | undefined) {
     realizedSummary,
   };
 }
+
