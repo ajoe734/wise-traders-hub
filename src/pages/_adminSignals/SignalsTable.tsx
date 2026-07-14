@@ -72,6 +72,7 @@ export function SignalsTable(p: Props) {
                     onRepush={p.onRepush}
                     onRecall={p.onRecall}
                     onEdit={p.onEdit}
+                    defaultCurrency={p.defaultCurrency}
                   />
                 ))
               )}
