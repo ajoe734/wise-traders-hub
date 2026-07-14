@@ -130,6 +130,7 @@ export function useAdminPerformanceData(expertSlug: string | undefined) {
   return {
     expertRole,
     expertCurrency: currency,
+    expertAssetClass: assetClass,
     capital,
     totalPnlPercent,
     avgPnlPercent,
