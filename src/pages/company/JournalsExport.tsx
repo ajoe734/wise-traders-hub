@@ -116,6 +116,122 @@ interface JournalRow {
   } | null;
 }
 
+// ── 自動排程與歷史匯出檔區塊 ─────────────────────────────
+interface StoredExport {
+  path: string;
+  name: string;
+  week: string;
+  size: number | null;
+  updatedAt: string | null;
+}
+
+function AutoExportSection() {
+  const [running, setRunning] = useState(false);
+
+  const { data: files = [], isLoading, refetch } = useQuery({
+    queryKey: ['company-journals-export', 'storage-history'],
+    queryFn: async (): Promise<StoredExport[]> => {
+      // 列出所有週資料夾（bucket 根目錄）
+      const { data: folders, error } = await supabase.storage
+        .from('journal-exports')
+        .list('', { limit: 200, sortBy: { column: 'name', order: 'desc' } });
+      if (error) throw error;
+
+      const out: StoredExport[] = [];
+      for (const f of folders ?? []) {
+        if (!f.name || !/^\d{4}-\d{2}-\d{2}$/.test(f.name)) continue;
+        const { data: inner } = await supabase.storage
+          .from('journal-exports')
+          .list(f.name, { limit: 20, sortBy: { column: 'updated_at', order: 'desc' } });
+        for (const file of inner ?? []) {
+          out.push({
+            path: `${f.name}/${file.name}`,
+            name: file.name,
+            week: f.name,
+            size: (file.metadata as any)?.size ?? null,
+            updatedAt: file.updated_at ?? file.created_at ?? null,
+          });
+        }
+      }
+      return out.sort((a, b) => b.week.localeCompare(a.week));
+    },
+    staleTime: 60_000,
+  });
+
+  const openDownload = async (path: string) => {
+    const { data, error } = await supabase.storage
+      .from('journal-exports')
+      .createSignedUrl(path, 60 * 10); // 10 分鐘臨時連結
+    if (error || !data?.signedUrl) {
+      toast.error(`取得下載連結失敗：${error?.message ?? '未知錯誤'}`);
+      return;
+    }
+    window.open(data.signedUrl, '_blank');
+  };
+
+  const triggerNow = async () => {
+    setRunning(true);
+    try {
+      const { data, error } = await supabase.functions.invoke('weekly-journal-export', { body: {} });
+      if (error) throw error;
+      toast.success(`已手動觸發：${data?.journals ?? 0} 則 / ${data?.mentors ?? 0} 位老師`);
+      refetch();
+    } catch (e: any) {
+      toast.error(`觸發失敗：${e?.message ?? e}`);
+    } finally {
+      setRunning(false);
+    }
+  };
+
+  return (
+    <Card>
+      <CardHeader className="flex flex-row items-center justify-between space-y-0">
+        <div>
+          <CardTitle className="text-base">4. 自動排程 & 歷史匯出</CardTitle>
+          <p className="text-xs text-muted-foreground mt-1">
+            系統於<span className="font-medium text-foreground"> 每週五 23:30 (Asia/Taipei)</span> 自動匯出當週所有 mentor 已發布週記為 CSV，
+            上傳至受保護的 Storage，並以站內通知附上 30 天有效的下載連結。舊檔於 30 天後自動清理。
+          </p>
+        </div>
+        <div className="flex gap-2">
+          <Button variant="outline" size="sm" onClick={() => refetch()}>重新整理</Button>
+          <Button size="sm" onClick={triggerNow} disabled={running}>
+            {running ? '執行中…' : '立即手動觸發'}
+          </Button>
+        </div>
+      </CardHeader>
+      <CardContent>
+        {isLoading ? (
+          <div className="py-6 text-center text-sm text-muted-foreground">載入中…</div>
+        ) : files.length === 0 ? (
+          <div className="py-6 text-center text-sm text-muted-foreground">
+            尚無自動匯出紀錄。首次執行為下個週五 23:30，或點「立即手動觸發」測試。
+          </div>
+        ) : (
+          <div className="border rounded-md divide-y">
+            {files.map((f) => (
+              <div key={f.path} className="flex items-center justify-between px-4 py-2 text-sm gap-3">
+                <div className="min-w-0">
+                  <div className="font-medium truncate">{f.name}</div>
+                  <div className="text-xs text-muted-foreground">
+                    週別 {f.week}
+                    {f.updatedAt ? ` · 產生於 ${fmtTaipei(f.updatedAt)}` : ''}
+                    {f.size ? ` · ${(f.size / 1024).toFixed(1)} KB` : ''}
+                  </div>
+                </div>
+                <Button variant="outline" size="sm" onClick={() => openDownload(f.path)} className="gap-1 shrink-0">
+                  <Download className="h-3 w-3" /> 下載
+                </Button>
+              </div>
+            ))}
+          </div>
+        )}
+      </CardContent>
+    </Card>
+  );
+}
+
+
 const JournalsExport = () => {
   const [weekStart, setWeekStart] = useState<string>(() => taipeiMondayOf(new Date()));
   const [confirmOpen, setConfirmOpen] = useState(false);
