@@ -230,4 +230,14 @@ describe('drift-detection: Journals.tsx / JournalDetail.tsx 週記瀏覽路徑',
   it('JournalDetail.tsx 查詢 expert_signals 取得週記詳情（4.5-3/4.5-4）', () => {
     expect(detailSrc).toContain('expert_signals');
   });
+
+  it('Journals.tsx 與 JournalDetail.tsx 均掛上 SubscriptionTimeline（訂閱有效期間視覺化）', () => {
+    expect(journalsSrc).toContain('SubscriptionTimeline');
+    expect(journalsSrc).toContain('useSubscriptionTimeline');
+    expect(detailSrc).toContain('SubscriptionTimeline');
+    expect(detailSrc).toContain('useSubscriptionTimeline');
+    // 詳情頁需傳 highlightAt 以標示本篇位置
+    expect(detailSrc).toContain('highlightAt');
+  });
 });
+

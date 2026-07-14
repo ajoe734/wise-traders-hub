@@ -19,6 +19,9 @@ import { toast } from 'sonner';
 import { exportJournalPdf } from '@/lib/exportJournalPdf';
 import { FxHint } from '@/components/FxHint';
 import { CURRENCY_SYMBOL, defaultQuantityUnit, normalizeCurrency, type Currency } from '@/lib/currency';
+import { SubscriptionTimeline } from '@/components/SubscriptionTimeline';
+import { useSubscriptionTimeline } from '@/hooks/useSubscriptionTimeline';
+import { useEffectiveUserId } from '@/hooks/useEffectiveUserId';
 
 interface SignalDetail {
   id: string;
@@ -160,6 +163,14 @@ const JournalDetail = () => {
 
   const signal = data?.signal ?? null;
   const weekSignals = data?.weekSignals ?? [];
+
+  const { userId: effectiveUserId } = useEffectiveUserId();
+  const { data: timelines = [] } = useSubscriptionTimeline(
+    effectiveUserId ?? undefined,
+    signal?.expert_id ?? null,
+  );
+  const timeline = timelines[0] ?? null;
+
 
   const isPreview = searchParams.get('preview') === '1' && (
     (signal?.experts?.slug && user?.expertSlug === signal.experts.slug) || hasRole('company_admin')
@@ -316,6 +327,18 @@ const JournalDetail = () => {
           <span className="text-sm">{format(ws, 'MM/dd', { locale: zhTW })} ~ {format(we, 'MM/dd', { locale: zhTW })}</span>
           <Badge variant="mentor-light" className="text-[10px]">T+7 歷史</Badge>
         </div>
+
+        {timeline && timeline.segments && timeline.segments.length > 0 && (
+          <SubscriptionTimeline
+            segments={timeline.segments}
+            expertName={signal.experts?.name}
+            expertAvatarUrl={signal.experts?.avatar_url ?? null}
+            showMentorLookback
+            highlightAt={new Date(signal.published_at)}
+          />
+        )}
+
+
 
         <div className="flex items-start justify-between gap-2">
           <div className="flex-1 min-w-0">

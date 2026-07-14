@@ -17,6 +17,8 @@ import { usePreviewMode } from '@/hooks/usePreviewMode';
 import { intentHandlers } from '@/lib/routePrefetch';
 import { AssetFilterChips } from '@/components/AssetFilterChips';
 import { resolveAssetClass, type AssetClass } from '@/lib/asset';
+import { SubscriptionTimeline } from '@/components/SubscriptionTimeline';
+import { useSubscriptionTimeline } from '@/hooks/useSubscriptionTimeline';
 
 interface JournalSignal {
   id: string;
@@ -166,6 +168,10 @@ const Journals = () => {
   const hasSubscription = data?.hasSubscription ?? null;
   const diag = data?.diag;
 
+  const { data: timelines = [] } = useSubscriptionTimeline(effectiveUserId ?? undefined);
+
+
+
 
   // Group signals by week
   const weekGroups = useMemo(() => {
@@ -248,6 +254,22 @@ const Journals = () => {
             available={availableAssets}
           />
         )}
+
+        {timelines.length > 0 && (
+          <div className="space-y-2">
+            {timelines.map(t => (
+              <SubscriptionTimeline
+                key={t.expert_id}
+                segments={t.segments ?? []}
+                expertName={t.expert_name}
+                expertAvatarUrl={t.expert_avatar_url}
+                showMentorLookback
+              />
+            ))}
+          </div>
+        )}
+
+
         
         
         {loading ? (

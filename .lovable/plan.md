@@ -1,139 +1,76 @@
+
+# 訂閱有效期間時間軸
+
 ## 目標
 
-把「分析師交易資產類別」從目前的 TWD/USD 雙軌，升級為 **台股 / 美股 / 加密貨幣** 三種可選；分析師在後台設定一次，之後代碼輸入、單位、報價、匯率折算、週記／訊號、持倉、績效、前台顯示，全部依所選類別自動套對。
+在修煉派週記頁面加入視覺化時間軸，讓使用者一眼看清自己在每位老師的訂閱歷史（含空窗期與續訂），並與剛修好的 RLS 規則（續訂即解鎖歷史）對齊。
 
-## 資料模型
+## 顯示範圍
 
-新增 `asset_class` 概念（比目前只用 `currency` 更明確），保留 `currency` 為顯示／結算幣別。
+- **`/app/journals`（列表頁）**：頁首下方新增一段，列出使用者曾/現訂閱的每位 mentor，各自一條時間軸（多老師直向堆疊）。
+- **`/app/journal/:id`（詳情頁）**：老師 header 下方新增單一時間軸（只顯示當前老師），並用一個小標記標出「本篇週記發布時間」落在哪一段訂閱期內。
 
-- `experts.asset_class` `TEXT NOT NULL DEFAULT 'tw_stock'`
-  - 允許值：`tw_stock` / `us_stock` / `crypto`
-  - 新增 CHECK；沿用既有 `enforce_expert_currency_lock` 邏輯，同表新增 `enforce_expert_asset_class_lock`（首次寫入後鎖，避免歷史績效污染）。
-- `experts.currency` 允許值擴增為 `TWD` / `USD`（加密統一以 USD 計價，不新增第三種顯示幣）。
-  - 對應關係（後端 trigger 自動同步）：
-    - `tw_stock` → `TWD`
-    - `us_stock` → `USD`
-    - `crypto`   → `USD`
-- `current_prices.asset_class`、`stock_names.asset_class`：同樣加欄位＋CHECK，`stock_names` 主鍵改成 `(symbol, asset_class)`（避免 `BTC` 與台股代碼衝突；migration 內做去重）。
-- `fx_rates`：沿用 `USDTWD`，加密走 USD → 前台若使用者切 TWD 顯示，透過 FX 折算，不新增新 pair。
-- 交易紀錄／訊號側 (`trade_records`, `expert_signals`, `trade_signals`) 不改欄位；透過 `expert.asset_class` 對照即可（symbol 唯一性已被 expert 隔離）。
+## 時間軸視覺（橫向條）
 
-## 前端：一次收斂於 `@/lib/asset.ts`
-
-新增 `src/lib/asset.ts` 作為單一來源，取代散落的 currency 判斷：
-
-```ts
-export type AssetClass = 'tw_stock' | 'us_stock' | 'crypto';
-
-// 每個 class 的 UI/驗證合約
-interface AssetSpec {
-  label: string;                 // 「台股」「美股」「加密貨幣」
-  currency: 'TWD' | 'USD';       // 結算幣
-  symbolRegex: RegExp;           // 代碼合法性
-  symbolPlaceholder: string;     // 例：2330 / AAPL / BTC
-  minSymbolLen: number;          // 觸發自動查名的門檻
-  units: Array<'張'|'股'|'顆'>;  // 下拉選項
-  defaultUnit: '張'|'股'|'顆';
-  priceDigits: number;           // 顯示小數位（TW 2 / US 2 / crypto 4）
-  quantityDigits: number;        // crypto 允許小數，其他整數
-  marketHours: 'tw' | 'us' | '24x7'; // 決定 isMarketOpen
-  priceSource: 'twse' | 'us' | 'crypto'; // 對應報價管線
-}
+```text
+2026/06/10                              2026/08/14
+├──[■■■■ 已過期 ──]──[空窗4天]──[■■■ 進行中 ═══>]─
+   6/10        7/10  7/10   7/14  7/14        8/14
+   ░░ +7d 回溯                     ░░ +7d 回溯
+                                          ▲ 本篇 7/16（詳情頁才顯示）
 ```
 
-同時保留現有 `@/lib/currency.ts`：改成 thin wrapper（`normalizeCurrency`、`formatMoneyByCurrency` 依 `asset` 決定），避免破壞既有 import。
+- 條的總跨度：`min(所有 started_at)` 到 `max(所有 expires_at, now())`，含 mentor 尾端 +7d 淺色延伸。
+- 每段訂閱：實心色塊。
+  - `status=active` 且未過期：主色（mentor 藍）+ 「進行中」標籤。
+  - `status=expired` 或已過 `expires_at`：灰色 + 「已過期」標籤。
+  - `canceled_at != null`：加對角線紋 + 「已取消」標籤（仍算涵蓋期）。
+- 兩段之間如有空窗：灰色斷開 + 「空窗 N 天」小字。
+- **mentor 7 天回溯**：每段起點左側 & 終點右側各畫一段條紋淺色延伸（虛線邊框），tooltip 顯示「導師週記可視期延伸 7 天」。分析師不畫延伸。
+- 起訖日期以 `YYYY/MM/DD` 顯示（符合專案 Kore-eda 規範）。
+- 詳情頁另加一支 ▲ 指標指向本篇 `published_at` 的位置。
 
-## 後台：分析師自選
+## 資料來源
 
-### 1. `admin/Profile.tsx`（或現有 currency 設定頁）
-- 「資產類別」下拉：台股／美股／加密貨幣（首次儲存後鎖，UI 顯示鎖定 tooltip，與 currency 相同體驗）。
-- 儲存時同步寫 `asset_class` 與對應 `currency`。
+新 RPC `get_user_subscription_timeline(_user_id uuid, _expert_id uuid DEFAULT NULL)`（`SECURITY DEFINER`, `SET search_path=public`）：
 
-### 2. `admin/SignalEditor.tsx`（顧問多筆交易頁）
-- 從 `useSignalEditorData` 取 `expert.asset_class`，透過 `emptyTrade(assetClass)` 決定初始 `quantityUnit`。
-- `fetchStockInfo` 門檻：`code.length < spec.minSymbolLen` 才 return（美股 1、加密 2）。
-- 加密允許小數數量。
+- 讀 `member_subscriptions` join `expert_plans` join `experts`，回傳每位有訂閱紀錄的 mentor（`role='mentor'`）：
+  - `expert_id, expert_name, expert_slug, expert_avatar_url`
+  - `segments[]`: `{ id, plan_name, started_at, expires_at, status, canceled_at, is_currently_active }`
+  - `has_active_now`: 目前是否對此 mentor 仍有 active 訂閱（決定 RLS 是否解鎖歷史）
+- `_expert_id` 提供時只回傳該老師（詳情頁用）。
+- 權限：`GRANT EXECUTE ... TO authenticated`；內部以 `_user_id = auth.uid()` 或 `has_role(auth.uid(),'company_admin')` 保護，防止跨查。
 
-### 3. `_adminSignals/SignalCreateDialog.tsx`（mentor 週記主入口 — 目前完全寫死台股，主戰場）
-- 讀 `expert.asset_class` → `spec`：
-  - Placeholder：`spec.symbolPlaceholder`（`BTC` / `AAPL` / `2330`）。
-  - `handleStockCodeChange` 觸發門檻改用 `spec.minSymbolLen`；US／crypto 自動 `toUpperCase()`。
-  - 數量單位下拉：`spec.units`，預設 `spec.defaultUnit`。
-  - crypto 數量允許小數（type=number, step=0.0001）。
-  - 發布前 `isValidSymbol(code, spec)`；錯誤訊息用 `spec.symbolPlaceholder`。
-  - `isMarketClosed()` 改為 `isMarketClosed(spec.marketHours)`，crypto 永遠 open。
+## 元件
 
-### 4. `_adminSignals/derive.ts`
-- `isMarketClosed(mode: 'tw'|'us'|'24x7', now?: Date)`：
-  - `tw`：既有邏輯。
-  - `us`：美東 09:30–16:00（`Intl.DateTimeFormat` 取 America/New_York）；週末關閉。
-  - `24x7`：永遠 `false`。
-- 對呼叫端相容：預設值維持 `'tw'`。
+新元件 `src/components/SubscriptionTimeline.tsx`：
 
-### 5. `_adminPerformance/*`、`SignalRow`、`SignalsTable`
-- 已幣別化，改為讀 `spec` 而非直接 `currency`；標籤「張」在 crypto 隱藏、加密顯示「顆」。
-- CapitalSummaryCard 沿用 `formatMoneyByCurrency(spec.currency)`。
+- Props: `segments`, `expertName?`, `expertAvatarUrl?`, `highlightAt?: Date`（詳情頁用）、`showMentorLookback?: boolean`（預設 true）。
+- 純展示、不查資料。
+- 響應式：桌機一條完整橫向；手機（<640px）改為每段訂閱獨立一小條疊排（避免過細擠壓）。
+- a11y：`role="img"` + `aria-label` 說明「訂閱 X：2026/06/10–2026/07/10 已過期；2026/07/14–2026/08/14 進行中」。
 
-## 報價與 FX 管線
+## 檔案異動
 
-### A. 台股
-- 現況不動（`stock-price-sync`）。
+- 新增 `src/components/SubscriptionTimeline.tsx`。
+- 新增 hook `src/hooks/useSubscriptionTimeline.ts`（React Query 包 RPC，`staleTime: 5min`）。
+- 修改 `src/pages/app/Journals.tsx`：於 `weekGroups.length > 0` 分支的最上方，把 timeline 排在月份/asset 篩選之下、卡片列表之上。若使用者有多位 mentor，用 `Accordion` 或直接直向堆疊（每位 mentor 一條，附頭像+名字）。
+- 修改 `src/pages/app/JournalDetail.tsx`：在 header（頭像+日期區塊）與 `weekTitle` 之間插入 timeline，傳入當前 `signal.expert_id` 與 `highlightAt={new Date(signal.published_at)}`。
+- 新增 migration：`get_user_subscription_timeline` RPC。
+- 新增測試：
+  - `src/test/components/SubscriptionTimeline.test.tsx`：驗證 active/expired/canceled 分色、空窗顯示、mentor 7 天延伸、highlight 標記位置、a11y label。
+  - drift-detection 補在 `src/test/integration/1.18-weekly-publish-rls.test.ts`（同檔案），驗證 Journals.tsx / JournalDetail.tsx 都掛上 SubscriptionTimeline。
 
-### B. 美股
-- 現況不動（`stock-price-sync` + `us_stock_price_waterfall` + `fx-rate-sync`）。
+## 邊界處理
 
-### C. 加密貨幣（新）
-- 新 edge function `supabase/functions/crypto-price-sync/index.ts`
-  - 資料源 L1：Coingecko simple/price（`ids=bitcoin,ethereum,...` via symbol → id 表）
-  - 資料源 L2：Binance `api/v3/ticker/price`（USDT pair fallback）
-  - Sanity check（>0、與上一筆差異 < 30%）。
-  - 寫入 `current_prices`（`asset_class='crypto', currency='USD'`）。
-- Symbol 對照表：`crypto_symbol_map`（migration 種一批：BTC/ETH/SOL/BNB/XRP/ADA/DOGE/TON/LINK/AVAX/DOT/MATIC/LTC/BCH/UNI），欄位 `symbol PK, coingecko_id, binance_pair`。
-- Cron：`crypto-price-sync-every-5min`（`*/5 * * * *`，24x7）。
-- `daily-performance` / `daily-snapshot`：`marketDetect` 擴充回傳 `'crypto'`，crypto 標的每日 UTC 00:00 收盤（snapshot 用當下價）；`publish-weekly-journals` 對 crypto expert 不做「週五 20:00 台股時間」限制，改用世界時間週五。
-- 若 FX 折算：crypto 已是 USD，前端 `FxHint` 一樣走 USDTWD。
+- 沒有任何訂閱：不 render timeline（列表頁本來就會顯示「尚未訂閱」CTA）。
+- 只有一段訂閱：仍畫一條，不顯示空窗。
+- 詳情頁如果 `highlightAt` 落在所有訂閱期外（理論上不會發生，因為 RLS 已擋）：不顯示 ▲ 指標，避免視覺誤導。
+- 未來時間（`expires_at > now()`）：進行中段的右端用漸層淡出，並用「至 8/14」文字標示到期日。
+- 分析師（`role != 'mentor'`）：本次不畫時間軸（週記僅 mentor）；RPC 也只回傳 mentor。
 
-## 前台 `/app`
+## 不做的事
 
-- `SignalDetail`／`JournalDetail`／`ExpertDetail` 讀 `expert.asset_class`，透過 `spec` 決定：
-  - 顯示幣別符號、單位（顆／股／張）、代碼樣式。
-  - `DisplayCurrencyToggle` 沿用（TWD/USD/auto），crypto expert 預設 USD、可切 TWD 折算。
-- 專家列表卡片新增小 badge：`台股`／`美股`／`加密`（顏色 tokens：TW=primary、US=blue、CRYPTO=amber）。
-
-## 週記排程
-
-- `publish-weekly-journals` 依 `expert.asset_class` 選時區與交易日：
-  - tw_stock：現況（台北時間週五 20:00）
-  - us_stock：美東週五 20:00
-  - crypto：UTC 週五 20:00
-
-## 測試（vitest）
-
-- `src/test/unit/assetSpec.test.ts`：三種 asset 的 spec 快照、單位／驗證邊界。
-- `src/test/unit/marketOpen.test.ts`：tw/us/24x7 三時區判斷。
-- `src/test/unit/signalCreateDialog.assetClass.test.tsx`：
-  - crypto expert：placeholder `BTC`、預設單位「顆」、允許小數、`isValidSymbol('BTC')` true、`2330` false。
-  - us expert：AAPL 1 字就觸發查名、單位鎖「股」。
-  - tw expert：既有行為不變（回歸保護）。
-- `src/test/integration/1.31-crypto-scheduler.test.ts`：crypto edge function 排程與寫入。
-
-## 遷移策略
-
-1. Migration A（schema）：加 `asset_class` 欄位／CHECK／trigger、`stock_names` 主鍵擴充、`crypto_symbol_map` 表 + GRANT + RLS（讀公開、寫 service_role）。
-2. Migration B（回填）：既有 experts 依 currency 回填 `asset_class`（`USD` → `us_stock`、其他 → `tw_stock`），寫入後鎖定。
-3. 前端 shim：`normalizeCurrency` 之外新增 `resolveAssetClass(expert)`，未擴充的舊呼叫 fallback = `tw_stock`。
-4. 上線後才放開 crypto edge function 排程（避免舊資料被 mis-tag）。
-
-## 不動的東西
-
-- `expert_signals` / `trade_records` / `trade_signals` 主要欄位、LINE 推播、mentor 訂閱、AI Studio、Checkout、Referral。
-- Realtime 事件與 `useEffectiveUserId` 視角檢視。
-- 既有 TW analyst / advisor 的每個行為（本次做回歸測試守住）。
-
-## 交付順序（每步都能獨立驗證）
-
-1. Schema + spec lib + Profile 下拉。
-2. `SignalCreateDialog`／`SignalEditor` 動態化（此步就解掉美股週記選不到標的的當下 bug）。
-3. 前台顯示層 spec 化。
-4. Crypto 報價管線 + 排程 + `publish-weekly-journals` 時區。
-5. 全套整合測試。
+- 不加續訂 CTA 按鈕（另有 `RenewalBanner` 處理）。
+- 不改 RLS 或訂閱資料模型。
+- 不做管理員視角（view-as）額外處理；`useEffectiveUserId` 已覆蓋。
