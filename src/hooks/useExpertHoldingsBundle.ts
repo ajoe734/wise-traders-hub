@@ -95,11 +95,12 @@ export function useExpertHoldingsBundle(
       return {
         capital: cap,
         rawOpenPositions: rawOpen,
-        openPositions: rawOpen.map((p) => mapOpenPositionToRow(p, currency)),
+        openPositions: rawOpen.map((p) => mapOpenPositionToRow(p, currency, assetClass)),
         performance: perf,
         totalPnlPercent: perf?.total_return_pct != null ? Number(perf.total_return_pct) : null,
         avgPnlPercent: perf?.avg_pnl_pct != null ? Number((perf as any).avg_pnl_pct) : null,
         currency,
+        assetClass,
       };
     },
   });
