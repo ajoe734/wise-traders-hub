@@ -27,10 +27,10 @@ describe('SubscriptionTimeline', () => {
       />,
     );
     expect(screen.getByText(/彥愷｜訂閱有效期間/)).toBeInTheDocument();
-    // active + expired 圖例
-    expect(screen.getByText('進行中')).toBeInTheDocument();
-    expect(screen.getByText('已過期')).toBeInTheDocument();
-    expect(screen.getByText('已取消')).toBeInTheDocument();
+    // active + expired 圖例（可能同時出現在手機 badge 與圖例）
+    expect(screen.getAllByText('進行中').length).toBeGreaterThan(0);
+    expect(screen.getAllByText('已過期').length).toBeGreaterThan(0);
+    expect(screen.getAllByText('已取消').length).toBeGreaterThan(0);
     // 週記回溯圖例
     expect(screen.getByText(/週記 ±7 天/)).toBeInTheDocument();
   });
