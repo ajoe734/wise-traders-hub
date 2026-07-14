@@ -28,7 +28,7 @@ const AdminPerformance = () => {
           </p>
         </div>
 
-        {capital && <CapitalSummaryCard capital={capital} />}
+        {capital && <CapitalSummaryCard capital={capital} currency={expertCurrency} />}
 
         <Tabs defaultValue="unrealized" className="space-y-4">
           <TabsList className="grid w-full grid-cols-2 max-w-sm">
