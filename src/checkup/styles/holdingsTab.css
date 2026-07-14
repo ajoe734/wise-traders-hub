@@ -25,14 +25,24 @@
 }
 
 @media (max-width: 1023px) {
-  /* 窄螢幕：detail panel 改為全寬顯示在卡片牆下方，不再隱藏 */
+  /* 窄螢幕：detail panel 改為全寬顯示在卡片牆下方 */
   .holdings-workbench { grid-template-columns: 1fr !important; }
   .holdings-detail-panel {
     position: static !important;
-    max-height: none !important;
+    /* 內部可捲動，避免整個 panel 過長導致使用者滾不到底或誤以為沒開 */
+    max-height: calc(100vh - 80px) !important;
+    overflow-y: auto !important;
     margin-top: 16px;
+    scroll-margin-top: 12px;
   }
   .holdings-card-grid { grid-template-columns: repeat(2, minmax(0, 1fr)) !important; }
+}
+
+@media (max-width: 640px) {
+  .holdings-detail-panel {
+    max-height: calc(100vh - 60px) !important;
+    padding-bottom: 40px;
+  }
 }
 
 /* 窄螢幕提示帶：≤1023px 才顯示，告訴使用者 panel 已展開於下方 */
