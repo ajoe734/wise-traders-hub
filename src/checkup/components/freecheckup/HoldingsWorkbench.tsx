@@ -183,6 +183,7 @@ function HoldingsWorkbench(props) {
       {/* 右：Detail Panel — 只在 selected 時顯示 */}
       {showPanel && (
         <aside
+          ref={panelRef}
           className="holdings-detail-panel"
           data-testid="holdings-detail-panel"
           style={{
@@ -193,6 +194,9 @@ function HoldingsWorkbench(props) {
             borderRadius: 4,
             maxHeight: 'calc(100vh - 24px)',
             overflowY: 'auto',
+            overscrollBehavior: 'contain',
+            paddingBottom: 32,
+            scrollMarginTop: 12,
           }}
         >
           <div
