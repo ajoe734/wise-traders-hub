@@ -4,7 +4,7 @@
 // 避免每次 HoldingsTab render 都重建整段 JSX；同時把 `selected` 與 grid 樣式
 // 交給 useMemo。原本的 `+ 上傳成交` 虛線卡 hover 也從 inline onMouseEnter/Leave
 // 搬到 .holdings-upload-cta CSS class（見 src/checkup/styles/holdingsTab.css）。
-import { Suspense, lazy, memo, useMemo } from 'react';
+import { Suspense, lazy, memo, useEffect, useMemo, useRef } from 'react';
 import HoldingCard from '@/checkup/components/freecheckup/HoldingCard';
 import HoldingsEmptyState from '@/checkup/components/freecheckup/HoldingsEmptyState';
 import HoldingsNoMatchState from '@/checkup/components/freecheckup/HoldingsNoMatchState';
