@@ -301,6 +301,7 @@ Deno.serve(withLogging('stock-price-sync', async (req) => {
     // ──────────── 以下為原本的全量同步邏輯（TW + US 分流）────────────
 
     // ── Step A: Collect symbols from trade_signals AND checkup_storage (Free Checkup holdings) ──
+    // 亦匯入 trade_records（含 expert US 持倉）的美股代碼，以便美股 cron 也能刷新現價。
     const { data: openSignals, error: sigError } = await supabase
       .from('trade_signals')
       .select('symbol, user_id, id, entry_price, name')
@@ -308,7 +309,7 @@ Deno.serve(withLogging('stock-price-sync', async (req) => {
 
     if (sigError) throw sigError
 
-    // Free Checkup holdings (key='pf-holdings-v2')
+    // Free Checkup holdings (key='pf-holdings-v2') — 目前只放台股代碼
     const { data: checkupRows, error: chkError } = await supabase
       .from('checkup_storage')
       .select('data')
@@ -325,45 +326,81 @@ Deno.serve(withLogging('stock-price-sync', async (req) => {
       }
     }
 
-    const signalSymbols = (openSignals || []).map(s => s.symbol).filter(Boolean)
-    const allSymbols = [...new Set([...signalSymbols, ...checkupSymbols])]
+    // trade_records instrument → symbol（供美股代碼進入 US 分流）
+    const { data: openTradeRecords } = await supabase
+      .from('trade_records')
+      .select('instrument, market')
+      .eq('status', 'open')
+    const recordSymbols = new Set<string>()
+    for (const t of (openTradeRecords || [])) {
+      const sym = String((t as any).instrument || '').trim().split(/\s+/)[0]
+      if (sym) recordSymbols.add(sym)
+    }
 
-    if (allSymbols.length === 0) {
+    const signalSymbols = (openSignals || []).map(s => s.symbol).filter(Boolean)
+    const allSymbolsRaw = [...new Set([...signalSymbols, ...checkupSymbols, ...recordSymbols])]
+
+    // 依 market 分兩批；再依 marketGate 過濾（TW-only cron 就跳過美股）
+    const twSymbols = allSymbolsRaw.filter(s => detectMarket(s) === 'TW')
+    const usSymbols = allSymbolsRaw.filter(s => detectMarket(s) === 'US').map(s => s.toUpperCase())
+    const runTw = marketGate === 'TW' || marketGate === 'BOTH'
+    const runUs = marketGate === 'US' || marketGate === 'BOTH'
+
+    if (twSymbols.length === 0 && usSymbols.length === 0) {
       return new Response(JSON.stringify({ message: 'No open positions', updated: 0 }), {
         headers: { ...corsHeaders, 'Content-Type': 'application/json' },
       })
     }
 
-    console.log(`Sync: ${signalSymbols.length} signal symbols + ${checkupSymbols.size} checkup symbols = ${allSymbols.length} unique`)
+    console.log(`Sync market=${marketGate}: TW=${twSymbols.length} US=${usSymbols.length} (runTw=${runTw} runUs=${runUs})`)
 
-    // ── Step B: Batch fetch prices from TWSE ──
-    const priceMap = await fetchStockBatch(allSymbols)
+    // ── Step B: Batch fetch prices ──
+    const twMap = runTw && twSymbols.length > 0
+      ? await fetchStockBatch(twSymbols)
+      : new Map<string, { price: number; name: string; raw: MsgItem }>()
+    const usMap = runUs && usSymbols.length > 0
+      ? await fetchUsQuotes(usSymbols)
+      : new Map<string, any>()
 
-    // ── Step C: Upsert to current_prices ──
+    // 統一介面：symbol → { price, name, market, currency, ...meta }
+    type UnifiedRow = {
+      symbol: string; name: string | null; price: number; market: Market; currency: 'TWD' | 'USD';
+      open_price: number | null; high_price: number | null; low_price: number | null;
+      yesterday_close: number | null; change_value: number | null; change_percent: number | null;
+      volume: number | null; best_ask: number | null; best_bid: number | null;
+      limit_up: number | null; limit_down: number | null; pushed_at: string;
+    }
     const now = new Date().toISOString()
-    const priceRows = Array.from(priceMap.entries()).map(([symbol, { price, name, raw }]) => {
+    const priceRows: UnifiedRow[] = []
+
+    for (const [symbol, { price, name, raw }] of twMap) {
       const yClose = parsePrice(raw.y)
       const changeValue = yClose ? Math.round((price - yClose) * 100) / 100 : null
       const changePct = yClose && yClose > 0 ? Math.round(((price - yClose) / yClose) * 10000) / 100 : null
-      
-      return {
-        symbol,
-        name: name || null,
-        price,
-        open_price: parsePrice(raw.o),
-        high_price: parsePrice(raw.h),
-        low_price: parsePrice(raw.l),
-        yesterday_close: yClose,
-        change_value: changeValue,
-        change_percent: changePct,
+      priceRows.push({
+        symbol, name: name || null, price, market: 'TW', currency: 'TWD',
+        open_price: parsePrice(raw.o), high_price: parsePrice(raw.h), low_price: parsePrice(raw.l),
+        yesterday_close: yClose, change_value: changeValue, change_percent: changePct,
         volume: parseInt(raw.v || '0', 10) || null,
         best_ask: parsePrice(raw.a?.split('_')?.[0]),
         best_bid: parsePrice(raw.b?.split('_')?.[0]),
-        limit_up: parsePrice(raw.u),
-        limit_down: parsePrice(raw.w),
+        limit_up: parsePrice(raw.u), limit_down: parsePrice(raw.w),
         pushed_at: now,
-      }
-    })
+      })
+    }
+    for (const q of usMap.values()) {
+      priceRows.push({
+        symbol: (q as any).symbol, name: (q as any).name, price: (q as any).price,
+        market: 'US', currency: 'USD',
+        open_price: (q as any).open_price, high_price: (q as any).high_price, low_price: (q as any).low_price,
+        yesterday_close: (q as any).yesterday_close,
+        change_value: (q as any).change_value, change_percent: (q as any).change_percent,
+        volume: (q as any).volume,
+        best_ask: null, best_bid: null,
+        limit_up: null, limit_down: null,
+        pushed_at: now,
+      })
+    }
 
     if (priceRows.length > 0) {
       const { error: upsertErr } = await supabase
@@ -371,6 +408,10 @@ Deno.serve(withLogging('stock-price-sync', async (req) => {
         .upsert(priceRows, { onConflict: 'symbol' })
       if (upsertErr) console.error('current_prices upsert error:', upsertErr)
     }
+
+    // 兼容原 priceMap 名稱：後續 user_performances 只走 trade_signals（TW-centric）
+    const priceMap = new Map<string, { price: number; name: string }>()
+    for (const r of priceRows) priceMap.set(r.symbol, { price: r.price, name: r.name || '' })
 
     // ── Step D: Calculate PnL and update user_performances ──
     const perfRows: any[] = []
