@@ -2,6 +2,8 @@ import { corsHeaders } from '../_shared/cors.ts';
 import { withLogging } from '../_shared/edgeLogger.ts';
 import { createClient } from 'https://esm.sh/@supabase/supabase-js@2.49.1'
 import { parsePrice, extractPrice, shouldWritePrice, type MsgItem } from '../_shared/stockPriceWaterfall.ts'
+import { detectMarket, currencyOf, type Market } from '../_shared/marketDetect.ts'
+import { fetchUsQuotes } from '../_shared/usStockPriceWaterfall.ts'
 
 const USER_AGENTS = [
   'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36',
