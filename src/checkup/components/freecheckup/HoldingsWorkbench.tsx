@@ -4,7 +4,7 @@
 // 避免每次 HoldingsTab render 都重建整段 JSX；同時把 `selected` 與 grid 樣式
 // 交給 useMemo。原本的 `+ 上傳成交` 虛線卡 hover 也從 inline onMouseEnter/Leave
 // 搬到 .holdings-upload-cta CSS class（見 src/checkup/styles/holdingsTab.css）。
-import { Suspense, lazy, memo, useMemo } from 'react';
+import { Suspense, lazy, memo, useEffect, useMemo, useRef } from 'react';
 import HoldingCard from '@/checkup/components/freecheckup/HoldingCard';
 import HoldingsEmptyState from '@/checkup/components/freecheckup/HoldingsEmptyState';
 import HoldingsNoMatchState from '@/checkup/components/freecheckup/HoldingsNoMatchState';
@@ -95,6 +95,16 @@ function HoldingsWorkbench(props) {
     [cardGridCols],
   );
 
+  const panelRef = useRef<HTMLElement | null>(null);
+  useEffect(() => {
+    if (!showPanel || !panelRef.current) return;
+    // 開啟時捲動到 panel（尤其手機／窄螢幕 panel 在下方使用者看不到）
+    const id = window.setTimeout(() => {
+      panelRef.current?.scrollIntoView({ behavior: 'smooth', block: 'start' });
+    }, 60);
+    return () => window.clearTimeout(id);
+  }, [showPanel, expandedDecision]);
+
   return (
     <div style={gridStyle} className="holdings-workbench">
       {/* 左：卡片牆 */}
@@ -173,6 +183,7 @@ function HoldingsWorkbench(props) {
       {/* 右：Detail Panel — 只在 selected 時顯示 */}
       {showPanel && (
         <aside
+          ref={panelRef}
           className="holdings-detail-panel"
           data-testid="holdings-detail-panel"
           style={{
@@ -183,6 +194,9 @@ function HoldingsWorkbench(props) {
             borderRadius: 4,
             maxHeight: 'calc(100vh - 24px)',
             overflowY: 'auto',
+            overscrollBehavior: 'contain',
+            paddingBottom: 32,
+            scrollMarginTop: 12,
           }}
         >
           <div
