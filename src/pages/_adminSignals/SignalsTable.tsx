@@ -23,6 +23,7 @@ interface Props {
   onEdit: (batchId: string) => void;
   contentLabel: string;
   holdingSummary: HoldingSummaryRow[] | null;
+  defaultCurrency?: Currency;
 }
 
 export function SignalsTable(p: Props) {
