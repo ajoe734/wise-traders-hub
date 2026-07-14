@@ -17,6 +17,8 @@ import { usePreviewMode } from '@/hooks/usePreviewMode';
 import { intentHandlers } from '@/lib/routePrefetch';
 import { AssetFilterChips } from '@/components/AssetFilterChips';
 import { resolveAssetClass, type AssetClass } from '@/lib/asset';
+import { SubscriptionTimeline } from '@/components/SubscriptionTimeline';
+import { useSubscriptionTimeline } from '@/hooks/useSubscriptionTimeline';
 
 interface JournalSignal {
   id: string;
