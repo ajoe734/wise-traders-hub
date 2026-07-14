@@ -15,6 +15,8 @@ import { Button } from '@/components/ui/button';
 import { useQuery } from '@tanstack/react-query';
 import { usePreviewMode } from '@/hooks/usePreviewMode';
 import { intentHandlers } from '@/lib/routePrefetch';
+import { AssetFilterChips } from '@/components/AssetFilterChips';
+import { resolveAssetClass, type AssetClass } from '@/lib/asset';
 
 interface JournalSignal {
   id: string;
