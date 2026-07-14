@@ -1,13 +1,19 @@
 // @ts-nocheck
 // C8 (audit 2026-07)：從 HoldingsTab.tsx L375-540 的 IIFE 抽出。
-// 目標：讓左卡片牆 + 右 Detail Panel 的版型有穩定 component identity，
-// 避免每次 HoldingsTab render 都重建整段 JSX；同時把 `selected` 與 grid 樣式
-// 交給 useMemo。原本的 `+ 上傳成交` 虛線卡 hover 也從 inline onMouseEnter/Leave
-// 搬到 .holdings-upload-cta CSS class（見 src/checkup/styles/holdingsTab.css）。
-import { Suspense, lazy, memo, useEffect, useMemo, useRef } from 'react';
+// 2026-07 update：右側 Detail Panel 改用可存取的 Sheet（Radix Dialog）
+// —— 遮罩點擊關閉、Esc 關閉、焦點陷阱、aria-modal 皆由 Radix 提供。
+import { Suspense, lazy, memo, useMemo } from 'react';
 import HoldingCard from '@/checkup/components/freecheckup/HoldingCard';
 import HoldingsEmptyState from '@/checkup/components/freecheckup/HoldingsEmptyState';
 import HoldingsNoMatchState from '@/checkup/components/freecheckup/HoldingsNoMatchState';
+import {
+  Sheet,
+  SheetContent,
+  SheetHeader,
+  SheetTitle,
+  SheetDescription,
+} from '@/components/ui/sheet';
+import { VisuallyHidden } from '@radix-ui/react-visually-hidden';
 // C12 (audit 2026-07)：改用 getMultiMeta 走 5 層權威（DB override → overlay JSON →
 // STOCK_META → TWSE → FinMind → UNCLASSIFIED），與族群聚合面板同源，
 // 避免 HoldingCard 上顯示「未分類」而聚合卡卻有產業的不一致。
