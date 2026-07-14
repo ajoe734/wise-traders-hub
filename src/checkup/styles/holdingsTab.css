@@ -19,6 +19,12 @@
 .wb-span-feature { grid-column: span 2; }
 .wb-span-full { grid-column: 1 / -1; }
 
+/* scrollIntoView 平滑捲動時，為 sticky header 保留頂部空間，避免卡片被遮住 */
+.wb-card { scroll-margin-top: 96px; scroll-margin-bottom: 32px; }
+@media (max-width: 640px) {
+  .wb-card { scroll-margin-top: 72px; scroll-margin-bottom: 24px; }
+}
+
 @media (max-width: 1279px) {
   .holdings-workbench { grid-template-columns: minmax(0, 1fr) minmax(0, 320px) !important; }
   .holdings-card-grid { grid-template-columns: repeat(2, minmax(0, 1fr)) !important; }
