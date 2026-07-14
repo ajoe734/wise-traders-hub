@@ -20,12 +20,12 @@ const canRun = !!process.env.PGHOST;
 describe.skipIf(!canRun)('RLS: subscription visibility (mentor 7d / renew / gap)', () => {
   it('all scenarios pass', () => {
     const out = execSync(
-      `psql -At -F '|' -c "SELECT test_name || '|' || passed || '|' || COALESCE(detail,'') FROM public.run_rls_subscription_tests();"`,
+      `psql -At -F '|' -c "SELECT test_name, passed, COALESCE(detail,'') FROM public.run_rls_subscription_tests();"`,
       { encoding: 'utf8' },
     );
     const rows = out.trim().split('\n').filter(Boolean).map((line) => {
       const [name, passed, detail] = line.split('|');
-      return { name, passed: passed === 't', detail };
+      return { name, passed: passed === 't' || passed === 'true', detail };
     });
 
     expect(rows.length).toBeGreaterThanOrEqual(15);
