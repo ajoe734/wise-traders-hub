@@ -328,6 +328,18 @@ const JournalDetail = () => {
           <Badge variant="mentor-light" className="text-[10px]">T+7 歷史</Badge>
         </div>
 
+        {timeline && timeline.segments && timeline.segments.length > 0 && (
+          <SubscriptionTimeline
+            segments={timeline.segments}
+            expertName={signal.experts?.name}
+            expertAvatarUrl={signal.experts?.avatar_url ?? null}
+            showMentorLookback
+            highlightAt={new Date(signal.published_at)}
+          />
+        )}
+
+
+
         <div className="flex items-start justify-between gap-2">
           <div className="flex-1 min-w-0">
             <h1
