@@ -240,6 +240,15 @@ const Journals = () => {
             </Select>
           )}
         </div>
+
+        {availableAssets.length > 1 && (
+          <AssetFilterChips
+            value={assetFilter}
+            onChange={setAssetFilter}
+            available={availableAssets}
+          />
+        )}
+        
         
         {loading ? (
           <div className="flex items-center justify-center py-12">
