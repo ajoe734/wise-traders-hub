@@ -1,0 +1,285 @@
+/**
+ * /holding-checkup Monocle 風 tokens
+ * 使用方式：在 FreeCheckup.jsx 頂層 import；只影響 .checkup-mono scope。
+ * 憲法：零陰影、零圓角、零 emoji；髮絲線與底色分層。
+ * 負號一律 U+2212 (−)；數字 font-variant-numeric: tabular-nums。
+ */
+@import url('https://fonts.googleapis.com/css2?family=Noto+Sans+TC:wght@400;500;700&family=Noto+Serif+TC:wght@400;600;700&display=swap');
+
+:root {
+  /* 淺色（/holding-checkup 主題） */
+  --cm-bg: #FFFFFF;
+  --cm-fill: #F4F2EE;
+  --cm-fill-soft: #FAFAF8;
+  --cm-ink: #0A0A0A;
+  --cm-ink-sub: #3A3A3A;
+  --cm-ink-sec: #6B6862;
+  --cm-ink-mute: #9B968D;
+  --cm-ink-faint: #C7C2BA;
+  --cm-hair: #ECEAE5;
+  --cm-hair-strong: #D4D1C9;
+  --cm-accent: #FF4D1F;
+  --cm-loss: #8A857F;
+  --cm-loss-bar: #B8B3AB;
+
+  --cm-font-sans: 'Noto Sans TC', -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
+  --cm-font-serif: 'Noto Serif TC', 'Songti TC', 'PingFang TC', Georgia, serif;
+}
+
+/* 深色（會員版 /checkup 同語彙，透過 body.dark 或 .cm-dark 切換） */
+.cm-dark {
+  --cm-bg: #0B0E14;
+  --cm-fill: #13161F;
+  --cm-fill-soft: #10131B;
+  --cm-ink: #D8DBE3;
+  --cm-ink-sub: #B5BAC6;
+  --cm-ink-sec: #8B90A0;
+  --cm-ink-mute: #6E7383;
+  --cm-ink-faint: #4A4E5C;
+  --cm-hair: rgba(148, 163, 184, 0.10);
+  --cm-hair-strong: rgba(148, 163, 184, 0.25);
+  --cm-accent: #FF6240;
+  --cm-loss: #9095A2;
+  --cm-loss-bar: #4A4E5C;
+}
+
+/* Scope root — 只在 <div class="checkup-mono"> 內生效，不污染其他頁 */
+.checkup-mono {
+  font-family: var(--cm-font-sans);
+  background: var(--cm-bg);
+  color: var(--cm-ink);
+}
+.checkup-mono * {
+  box-sizing: border-box;
+}
+.checkup-mono .cm-serif {
+  font-family: var(--cm-font-serif);
+  font-weight: 600;
+  letter-spacing: -0.005em;
+}
+.checkup-mono .cm-num {
+  font-variant-numeric: tabular-nums;
+}
+.checkup-mono .cm-label {
+  /* 10px 純標籤（欄名、字距小標）唯一允許 */
+  font-size: 10px;
+  letter-spacing: 0.18em;
+  color: var(--cm-ink-mute);
+  font-weight: 500;
+  text-transform: none;
+}
+.checkup-mono .cm-hairline {
+  border: 0;
+  border-top: 1px solid var(--cm-hair);
+  margin: 0;
+}
+.checkup-mono .cm-rule {
+  border: 0;
+  border-top: 1px solid var(--cm-ink);
+  margin: 0;
+}
+
+/* 印章行 —— serif 建議 + 上下 1px ink */
+.checkup-mono .cm-stamp {
+  border-top: 1px solid var(--cm-ink);
+  border-bottom: 1px solid var(--cm-ink);
+  padding: 14px 0;
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: 12px;
+  font-family: var(--cm-font-serif);
+  font-size: 17px;
+  color: var(--cm-ink);
+}
+
+/* 44px 動作徽章 —— 出場 / 檢視 */
+.checkup-mono .cm-badge-exit,
+.checkup-mono .cm-badge-review {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  min-width: 44px;
+  height: 22px;
+  padding: 0 8px;
+  font-size: 11px;
+  letter-spacing: 0.14em;
+  font-weight: 500;
+  border-radius: 0;
+}
+.checkup-mono .cm-badge-exit {
+  background: var(--cm-accent);
+  color: #FFFFFF;
+  border: 1px solid var(--cm-accent);
+}
+.checkup-mono .cm-badge-review {
+  background: transparent;
+  color: var(--cm-accent);
+  border: 1px solid var(--cm-accent);
+}
+
+/* 產業 tag —— 10px fill 底 */
+.checkup-mono .cm-tag {
+  display: inline-flex;
+  align-items: center;
+  height: 18px;
+  padding: 0 6px;
+  font-size: 10px;
+  letter-spacing: 0.12em;
+  color: var(--cm-ink-sub);
+  background: var(--cm-fill);
+  border-radius: 0;
+}
+.checkup-mono .cm-tag--warrant {
+  background: transparent;
+  border: 1px dashed var(--cm-hair-strong);
+  color: var(--cm-ink-sec);
+}
+.checkup-mono .cm-tag--warrant-urgent {
+  border-color: var(--cm-accent);
+  color: var(--cm-accent);
+}
+
+/* 報酬條 —— ±40 共用尺 */
+.checkup-mono .cm-returnbar {
+  position: relative;
+  height: 8px;
+  background: var(--cm-fill);
+  overflow: visible;
+}
+.checkup-mono .cm-returnbar__fill--pos {
+  position: absolute;
+  left: 50%;
+  top: 0;
+  bottom: 0;
+  background: var(--cm-accent);
+}
+.checkup-mono .cm-returnbar__fill--neg {
+  position: absolute;
+  right: 50%;
+  top: 0;
+  bottom: 0;
+  background: var(--cm-loss-bar);
+}
+.checkup-mono .cm-returnbar__mid {
+  position: absolute;
+  left: 50%;
+  top: -2px;
+  bottom: -2px;
+  width: 1px;
+  background: var(--cm-hair-strong);
+}
+.checkup-mono .cm-returnbar__over {
+  position: absolute;
+  top: -6px;
+  font-size: 11px;
+  color: var(--cm-accent);
+  line-height: 1;
+}
+
+/* 價格軌 */
+.checkup-mono .cm-pricetrack {
+  position: relative;
+  height: 1px;
+  background: var(--cm-hair);
+  margin: 20px 0 8px;
+}
+.checkup-mono .cm-pricetrack__cost {
+  position: absolute;
+  top: -4px;
+  bottom: -4px;
+  width: 1px;
+  background: var(--cm-ink-mute);
+}
+.checkup-mono .cm-pricetrack__now {
+  position: absolute;
+  top: -3.5px;
+  width: 8px;
+  height: 8px;
+  border-radius: 50%;
+  transform: translateX(-4px);
+}
+.checkup-mono .cm-pricetrack__now--pos { background: var(--cm-accent); }
+.checkup-mono .cm-pricetrack__now--neg { background: var(--cm-loss); }
+
+/* 卡片外框 */
+.checkup-mono .cm-card {
+  background: var(--cm-bg);
+  border: 1px solid var(--cm-hair);
+  border-radius: 0;
+  box-shadow: none;
+  transition: border-color 0.15s;
+}
+.checkup-mono .cm-card:hover { border-color: var(--cm-ink); }
+.checkup-mono .cm-card--selected {
+  border-color: var(--cm-ink);
+  background: var(--cm-fill-soft);
+}
+
+/* 底部 tab bar (mobile) */
+.checkup-mono .cm-mobile-tabbar {
+  position: fixed;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  z-index: 60;
+  background: var(--cm-bg);
+  border-top: 1px solid var(--cm-ink);
+  display: grid;
+  grid-template-columns: repeat(5, 1fr);
+  align-items: center;
+  padding: 6px 0 max(6px, env(safe-area-inset-bottom));
+}
+.checkup-mono .cm-mobile-tabbar__btn {
+  background: transparent;
+  border: none;
+  padding: 6px 0;
+  font-family: var(--cm-font-sans);
+  font-size: 11px;
+  color: var(--cm-ink-sec);
+  letter-spacing: 0.08em;
+  cursor: pointer;
+}
+.checkup-mono .cm-mobile-tabbar__btn[aria-current="page"] {
+  color: var(--cm-ink);
+  font-weight: 700;
+}
+.checkup-mono .cm-mobile-tabbar__upload {
+  justify-self: center;
+  width: 46px;
+  height: 46px;
+  border-radius: 50%;
+  background: var(--cm-accent);
+  color: #FFFFFF;
+  border: none;
+  font-size: 22px;
+  cursor: pointer;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  line-height: 1;
+}
+
+/* 上傳橘鈕（桌機頂欄） */
+.checkup-mono .cm-upload-cta {
+  background: var(--cm-accent);
+  color: #FFFFFF;
+  border: 1px solid var(--cm-accent);
+  padding: 8px 14px;
+  font-family: var(--cm-font-sans);
+  font-size: 12px;
+  letter-spacing: 0.06em;
+  font-weight: 500;
+  cursor: pointer;
+  border-radius: 0;
+}
+.checkup-mono .cm-upload-cta:hover { filter: brightness(0.95); }
+
+/* 手機隱藏桌機頂欄 tabs、桌機隱藏底欄 */
+@media (max-width: 640px) {
+  .checkup-mono .cm-desktop-tabs { display: none; }
+  .checkup-mono .cm-page-content { padding-bottom: 84px; }
+}
+@media (min-width: 641px) {
+  .checkup-mono .cm-mobile-tabbar { display: none; }
+}

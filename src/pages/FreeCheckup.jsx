@@ -1,5 +1,7 @@
 import { useState, useEffect, useRef, useMemo, useCallback, useDeferredValue, lazy, Suspense } from "react";
 import { SEOLite as SEO } from "@/components/SEOLite";
+import "@/checkup/styles/checkupTokens.css";
+
 import { useNavigate } from "react-router-dom";
 import { supabase } from "@/integrations/supabase/client";
 import { Sheet, SheetContent } from "@/components/ui/sheet";
@@ -3175,20 +3177,22 @@ ${JSON.stringify(strategyBrain || { rules: [], lessons: [], commonMistakes: [], 
       fontFamily:"sans-serif",fontSize:15}}>載入中...</div>
   );
 
+  // Monocle 改版：頂欄 4 tab（持倉／收盤／事件／記錄）；上傳成交改為右上「＋ 上傳」橘鈕開頁；
+  // 事件頁內含 news 已驗證態（tab 內兩態切換，見批次 3）。tab 值 'news'/'trade'/'research' 保留供內部
+  // setTab 呼叫（例如上傳成功後 setTab('holdings')），只是不顯示在頂欄。
   const TABS = [
     {k:"holdings", label:"持倉"},
-    {k:"events",   label:`行事曆${urgentCount>0?" ·":""}`},
-    {k:"news",     label:"事件分析"},
-    {k:"daily",    label:analyzing?"分析中...":"收盤分析"},
-    {k:"research", label:"深度研究"},
-    {k:"trade",    label:"上傳成交"},
-    {k:"log",      label:"交易日誌"},
+    {k:"daily",    label:analyzing?"分析中…":"收盤分析"},
+    {k:"events",   label:`事件${urgentCount>0?" ·":""}`},
+    {k:"log",      label:"記錄"},
   ];
 
+
   return (
-    <div style={{background:C.bg,minHeight:"100vh",color:C.text,
-      fontFamily:"'Inter','Noto Sans TC',-apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif",paddingBottom:40,
+    <div className="checkup-mono" style={{background:C.bg,minHeight:"100vh",color:C.text,
+      fontFamily:"'Noto Sans TC','Inter',-apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif",paddingBottom:40,
       WebkitFontSmoothing:"antialiased",MozOsxFontSmoothing:"grayscale"}}>
+
       <SEO
         title="免費 AI 持倉診斷 | legendflow"
         description="免費試用 AI 持倉診斷：自動分析個股、行事曆事件、收盤焦點與交易日誌，一次掌握你的投資組合風險與機會。"
@@ -3527,24 +3531,64 @@ ${JSON.stringify(strategyBrain || { rules: [], lessons: [], commonMistakes: [], 
         )}
 
         <Suspense fallback={null}><CoachMarks onTabChange={setTab} /></Suspense>
-        <div style={{display:"flex",gap:0,overflowX:"auto",paddingBottom:0,marginTop:2}}>
-          {TABS.map(t=>(
-            <button key={t.k} onClick={()=>{setTab(t.k);try{window.dispatchEvent(new CustomEvent('checkup:tab-change',{detail:{tab:t.k}}))}catch{}trackRaw('checkup_tab_change',{tab:t.k});window.scrollTo({top:0,behavior:"smooth"})}} style={{
-              background:"transparent",
-              color: tab===t.k ? C.text : C.textSec,
-              border:"none",
-              borderBottom: tab===t.k ? `2px solid ${C.text}` : "2px solid transparent",
-              padding:"7px 11px",
-              fontSize:12, fontWeight:tab===t.k ? 700 : 600,
-              cursor:"pointer", whiteSpace:"nowrap",
-              transition:"all 0.15s",
-              letterSpacing:"0.01em",
-            }}>{t.label}</button>
-          ))}
+        {/* Monocle 頂欄：4 tab + 右側「＋ 上傳」橘鈕（開上傳成交頁，內部仍走 tab='trade'） */}
+        <div className="cm-desktop-tabs" style={{display:"flex",alignItems:"center",gap:0,marginTop:2,borderBottom:"1px solid var(--cm-hair)"}}>
+          <div style={{display:"flex",gap:0,overflowX:"auto",paddingBottom:0,flex:1}}>
+            {TABS.map(t=>(
+              <button key={t.k} onClick={()=>{setTab(t.k);try{window.dispatchEvent(new CustomEvent('checkup:tab-change',{detail:{tab:t.k}}))}catch{}trackRaw('checkup_tab_change',{tab:t.k});window.scrollTo({top:0,behavior:"smooth"})}} style={{
+                background:"transparent",
+                color: tab===t.k ? "var(--cm-ink)" : "var(--cm-ink-sec)",
+                border:"none",
+                borderBottom: tab===t.k ? "2px solid var(--cm-ink)" : "2px solid transparent",
+                padding:"10px 14px",
+                fontSize:13, fontWeight:tab===t.k ? 700 : 500,
+                cursor:"pointer", whiteSpace:"nowrap",
+                letterSpacing:"0.04em",
+                borderRadius:0,
+              }}>{t.label}</button>
+            ))}
+          </div>
+          <button
+            type="button"
+            className="cm-upload-cta"
+            data-testid="checkup-upload-cta"
+            onClick={()=>{setTab('trade');trackRaw('checkup_tab_change',{tab:'trade',via:'upload_cta'});window.scrollTo({top:0,behavior:"smooth"})}}
+            aria-label="上傳成交"
+            style={{marginLeft:8}}
+          >＋ 上傳</button>
         </div>
+        {/* 手機底欄 tab bar — 五格：持倉／收盤／[＋ 圓鈕]／事件／記錄 */}
+        <nav className="cm-mobile-tabbar" aria-label="持倉診斷分頁">
+          {[
+            {k:'holdings',l:'持倉'},
+            {k:'daily',l:'收盤'},
+          ].map(t=>(
+            <button key={t.k} type="button" className="cm-mobile-tabbar__btn"
+              aria-current={tab===t.k?'page':undefined}
+              onClick={()=>{setTab(t.k);trackRaw('checkup_tab_change',{tab:t.k,via:'mobile_tabbar'});window.scrollTo({top:0,behavior:"smooth"})}}
+            >{t.l}</button>
+          ))}
+          <button
+            type="button"
+            className="cm-mobile-tabbar__upload"
+            data-testid="checkup-upload-cta-mobile"
+            aria-label="上傳成交"
+            onClick={()=>{setTab('trade');trackRaw('checkup_tab_change',{tab:'trade',via:'mobile_upload_cta'});window.scrollTo({top:0,behavior:"smooth"})}}
+          >＋</button>
+          {[
+            {k:'events',l:'事件'},
+            {k:'log',l:'記錄'},
+          ].map(t=>(
+            <button key={t.k} type="button" className="cm-mobile-tabbar__btn"
+              aria-current={tab===t.k?'page':undefined}
+              onClick={()=>{setTab(t.k);trackRaw('checkup_tab_change',{tab:t.k,via:'mobile_tabbar'});window.scrollTo({top:0,behavior:"smooth"})}}
+            >{t.l}</button>
+          ))}
+        </nav>
       </div>
 
-      <div style={{padding:"14px 14px"}}>
+      <div className="cm-page-content" style={{padding:"14px 14px"}}>
+
 
         {/* ══════════ HOLDINGS ══════════ */}
         {/* #region Tab: Holdings — 持倉看板（Hero + .wb-card 牆 + Detail Panel） */}

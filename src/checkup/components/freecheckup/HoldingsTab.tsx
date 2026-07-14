@@ -304,9 +304,11 @@ function HoldingsTab(props) {
           B-P5: items 在 parent 已預先含 tag/desc，元件不再吃 decisionsMap/stockMeta */}
       <HoldingsActionPriority
         items={actionPriorityItems || globalPriorityList}
+        holdCount={Math.max(0, (H?.length || 0) - ((exitListCount || 0) + (reviewListCount || 0)))}
         WB={WB}
         onPick={setExpandedDecision}
       />
+
 
 
       {/* ── 持倉資料庫 Filter Bar ── */}

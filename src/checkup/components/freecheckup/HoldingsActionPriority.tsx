@@ -1,106 +1,155 @@
+// HoldingsActionPriority — Monocle 改版（2026-07-15）：從單行 inline 文字流 → 「今日待辦」節區。
+// 版面：serif 節標「今日待辦」+ 件數；每列 44px 徽章 + 名稱 + 一句原因 + 報酬率 + 「決策書 →」。
+// 列出全部 exit/review（不截斷）；尾行「其餘 N 檔維持持有——今天不需要動作。」（N 從 props 帶入）。
+// 點列 → onPick(code)（保留原 setExpandedDecision 進入點）。
+// 沿用既有 items schema：[{ code, name, tag, desc, pct }]（tag=EXIT|REVIEW|WATCH）；WB prop 保留但不使用。
 import React from 'react';
+import SectionRule from './_ui/SectionRule';
+import ActionBadge from './_ui/ActionBadge';
+import { fmtSigned } from '@/checkup/lib/checkupFormat';
 
-/**
- * HoldingsActionPriority — Holdings tab 頂部 Action Priority 單行文字流
- * 抽自 FreeCheckup.jsx L3684-L3768，純展示元件，無內部 state。
- *
- * B-P5 (holdings audit 2026-05)：
- *   parent 預先組裝 items（含 tag/desc），元件不再接 decisionsMap/STOCK_META 全表。
- *   舊呼叫（傳 holdings + decisionsMap + stockMeta）仍 fallback 支援。
- */
 function HoldingsActionPriorityImpl({
   items = [],
   decisionsMap,
   stockMeta,
-  WB,
+  holdCount = 0,
+  WB, // eslint-disable-line no-unused-vars
   onPick,
 }) {
-  if (!items || items.length === 0) {
+  // 資料補丁：fallback 對舊呼叫（HoldingsTab 已預先組好 items，本區塊多用第一路徑）
+  const rows = (items || []).map((it) => {
+    let tag = it.tag;
+    let desc = it.desc;
+    if (!tag || !desc) {
+      const dec = decisionsMap ? decisionsMap[it.code] : null;
+      tag = tag || (dec?.actionType === 'exit' ? 'EXIT'
+        : dec?.actionType === 'review' ? 'REVIEW' : 'WATCH');
+      desc = desc || (dec?.actionText
+        ? (dec.actionText.length > 32 ? dec.actionText.slice(0, 30) + '…' : dec.actionText)
+        : (stockMeta?.[it.code]?.strategy || '持續監控'));
+    }
+    return { ...it, tag, desc };
+  });
+
+  const actionable = rows.filter((r) => r.tag === 'EXIT' || r.tag === 'REVIEW');
+
+  if (actionable.length === 0) {
     return (
-      <div style={{
-        marginBottom: 18, padding: '6px 2px',
-        fontSize: 11, color: WB.inkLight, fontWeight: 400, letterSpacing: '0.04em',
-      }}>
-        No pending actions · Portfolio in good standing
-      </div>
+      <section aria-label="今日待辦" style={{ marginBottom: 22 }}>
+        <SectionRule title="今日待辦" meta="0 件" />
+        <p style={{
+          margin: '4px 0 0',
+          fontSize: 13,
+          color: 'var(--cm-ink-sec)',
+          lineHeight: 1.7,
+          letterSpacing: '0.01em',
+        }}>
+          {holdCount > 0
+            ? `全部 ${holdCount} 檔維持持有——今天不需要動作。`
+            : '尚無持倉。上傳成交後這裡會列出當日待辦。'}
+        </p>
+      </section>
     );
   }
+
   return (
-    <div style={{
-      marginBottom: 18, padding: '8px 0 12px',
-      borderBottom: `1px solid ${WB.hair}`,
-      display: 'flex', alignItems: 'baseline', gap: 16, flexWrap: 'wrap',
-    }}>
-      <span style={{
-        fontSize: 9.5, color: WB.inkMute, letterSpacing: '0.22em',
-        textTransform: 'uppercase', fontWeight: 500,
-        display: 'inline-flex', alignItems: 'baseline', gap: 8, flexShrink: 0,
-      }}>
-        Action Priority
-        <span style={{
-          display: 'inline-block', width: 4, height: 4, borderRadius: '50%',
-          background: WB.accent, transform: 'translateY(-1px)',
-        }} />
-      </span>
-      <span style={{
-        display: 'flex', flexWrap: 'wrap',
-        gap: '14px 28px', flex: 1,
-      }}>
-        {items.map((it) => {
-          // B-P5: items 已含 tag/desc/pct；舊呼叫 fallback 至 decisionsMap/stockMeta
-          let tag = it.tag;
-          let desc = it.desc;
-          if (!tag || !desc) {
-            const dec = decisionsMap ? decisionsMap[it.code] : null;
-            tag = tag || (dec?.actionType === 'exit' ? 'EXIT'
-              : dec?.actionType === 'review' ? 'REVIEW' : 'WATCH');
-            desc = desc || (dec?.actionText
-              ? (dec.actionText.length > 32 ? dec.actionText.slice(0, 30) + '…' : dec.actionText)
-              : (stockMeta?.[it.code]?.strategy || '持續監控'));
-          }
+    <section aria-label="今日待辦" style={{ marginBottom: 22 }}>
+      <SectionRule title="今日待辦" meta={`${actionable.length} 件`} />
+      <ul
+        style={{
+          listStyle: 'none',
+          margin: 0,
+          padding: 0,
+          borderTop: '1px solid var(--cm-hair)',
+        }}
+      >
+        {actionable.map((it) => {
+          const kind = it.tag === 'EXIT' ? 'exit' : 'review';
           const pct = it.pct ?? 0;
           return (
-            <button
-              key={it.code}
-              onClick={() => onPick && onPick(it.code)}
-              style={{
-                background: 'transparent', border: 'none', padding: 0,
-                fontFamily: 'inherit', cursor: 'pointer',
-                display: 'flex', flexDirection: 'column', alignItems: 'flex-start',
-                gap: 3, textAlign: 'left',
-              }}
-            >
-              <span style={{
-                display: 'inline-flex', alignItems: 'baseline', gap: 6,
-                fontSize: 12, color: WB.ink, fontWeight: 500, letterSpacing: '0.01em',
-              }}>
-                <span style={{
-                  fontSize: 9, color: WB.accent, letterSpacing: '0.16em',
-                  fontWeight: 500,
-                }}>{tag}</span>
-                <span>{it.code}</span>
-                <span style={{ color: WB.inkSub, fontWeight: 400 }}>{it.name}</span>
-                <span style={{
-                  color: WB.inkLight, fontSize: 11, fontVariantNumeric: 'tabular-nums', fontWeight: 400,
-                }}>
-                  {pct >= 0 ? '+' : ''}{pct.toFixed(1)}%
+            <li key={it.code} style={{ borderBottom: '1px solid var(--cm-hair)' }}>
+              <button
+                type="button"
+                data-testid={`checkup-today-todo-${it.code}`}
+                onClick={() => onPick && onPick(it.code)}
+                style={{
+                  width: '100%',
+                  background: 'transparent',
+                  border: 'none',
+                  padding: '14px 4px',
+                  cursor: 'pointer',
+                  display: 'grid',
+                  gridTemplateColumns: 'auto 1fr auto auto',
+                  alignItems: 'baseline',
+                  gap: 14,
+                  textAlign: 'left',
+                  fontFamily: 'inherit',
+                }}
+              >
+                <ActionBadge kind={kind} />
+                <span style={{ minWidth: 0 }}>
+                  <span style={{
+                    display: 'block',
+                    fontSize: 14,
+                    color: 'var(--cm-ink)',
+                    fontWeight: 500,
+                    letterSpacing: '0.01em',
+                  }}>
+                    <span className="cm-num" style={{ color: 'var(--cm-ink-sub)', marginRight: 8 }}>
+                      {it.code}
+                    </span>
+                    {it.name}
+                  </span>
+                  <span style={{
+                    display: 'block',
+                    marginTop: 3,
+                    fontSize: 12,
+                    color: 'var(--cm-ink-sec)',
+                    letterSpacing: '0.01em',
+                    lineHeight: 1.55,
+                  }}>
+                    {it.desc}
+                  </span>
                 </span>
-              </span>
-              <span style={{
-                fontSize: 11, color: WB.inkMute, letterSpacing: '0.01em',
-                lineHeight: 1.5,
-              }}>{desc}</span>
-            </button>
+                <span
+                  className="cm-num"
+                  style={{
+                    fontSize: 14,
+                    fontWeight: 500,
+                    color: pct >= 0 ? 'var(--cm-accent)' : 'var(--cm-loss)',
+                    letterSpacing: '-0.005em',
+                    whiteSpace: 'nowrap',
+                  }}
+                >
+                  {fmtSigned(pct, 1)}%
+                </span>
+                <span
+                  style={{
+                    fontSize: 11,
+                    color: 'var(--cm-ink-mute)',
+                    letterSpacing: '0.08em',
+                    whiteSpace: 'nowrap',
+                  }}
+                >
+                  決策書 →
+                </span>
+              </button>
+            </li>
           );
         })}
-      </span>
-      <span style={{
-        display: 'inline-flex', alignItems: 'center', justifyContent: 'center',
-        width: 28, height: 28, borderRadius: '50%',
-        border: `1px solid ${WB.hair}`, color: WB.inkMute, fontSize: 12,
-        flexShrink: 0,
-      }}>→</span>
-    </div>
+      </ul>
+      {holdCount > 0 && (
+        <p style={{
+          margin: '10px 0 0',
+          fontSize: 12,
+          color: 'var(--cm-ink-mute)',
+          lineHeight: 1.7,
+          letterSpacing: '0.02em',
+        }}>
+          其餘 {holdCount} 檔維持持有——今天不需要動作。
+        </p>
+      )}
+    </section>
   );
 }
 
