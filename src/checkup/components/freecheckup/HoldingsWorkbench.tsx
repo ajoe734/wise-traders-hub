@@ -2,7 +2,7 @@
 // C8 (audit 2026-07)：從 HoldingsTab.tsx L375-540 的 IIFE 抽出。
 // 2026-07 update：右側 Detail Panel 改用可存取的 Sheet（Radix Dialog）
 // —— 遮罩點擊關閉、Esc 關閉、焦點陷阱、aria-modal 皆由 Radix 提供。
-import { Suspense, lazy, memo, useCallback, useEffect, useMemo, useRef, useState } from 'react';
+import { Suspense, lazy, memo, useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState } from 'react';
 import { ArrowUp } from 'lucide-react';
 import HoldingCard from '@/checkup/components/freecheckup/HoldingCard';
 import HoldingsEmptyState from '@/checkup/components/freecheckup/HoldingsEmptyState';
