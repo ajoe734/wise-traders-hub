@@ -84,6 +84,14 @@ export function SignalRow({
               {signal.quantity && (
                 <span className="text-muted-foreground">（{signal.quantity}{qtyUnit}）</span>
               )}
+              {currency === 'USD' && signal.price_hint && signal.quantity && (
+                <FxHint
+                  amount={Number(signal.price_hint) * Number(signal.quantity)}
+                  currency="USD"
+                  showMeta={false}
+                  className="block"
+                />
+              )}
             </>
           ) : '-'}
         </td>
