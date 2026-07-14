@@ -288,6 +288,7 @@ export function SignalCreateDialog({
             <Badge variant="outline" className="text-[10px]">{spec.label} · {spec.currency}</Badge>
           </DialogTitle>
         </DialogHeader>
+        <div className="space-y-4 mt-4 overflow-y-auto flex-1 px-1 -mx-1">
           {isMentor && (
             <div className="space-y-2">
               <Label>教學主題</Label>
