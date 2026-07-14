@@ -51,6 +51,47 @@
   }
 }
 
+/* ─── Sheet 抽屜（Radix Dialog）iOS/Android 滾動修正 ───
+ * 問題：
+ *   1) iOS Safari 的 100vh 包含 URL bar，捲到底時最後一段被遮
+ *   2) iPhone home indicator / Android gesture bar 會蓋住底部按鈕
+ *   3) 內部 sticky/absolute 元素在動態視口變化時位置飄移
+ * 解法：
+ *   - height 用 100dvh（動態視口高度），fallback 100vh
+ *   - padding-bottom 吃 env(safe-area-inset-bottom) + 額外 spacer 讓最後一張卡完整可見
+ *   - 「回到頂部」按鈕 position: fixed，用 bottom + safe-area 定位
+ */
+.holdings-sheet-content {
+  height: 100vh; /* fallback */
+  height: 100dvh;
+  max-height: 100vh;
+  max-height: 100dvh;
+  padding-bottom: calc(env(safe-area-inset-bottom, 0px) + 24px);
+}
+.holdings-sheet-bottom-spacer {
+  height: calc(env(safe-area-inset-bottom, 0px) + 48px);
+  width: 100%;
+  flex-shrink: 0;
+}
+.holdings-sheet-top-btn {
+  /* 用 fixed + right/bottom 定位到視口右下角，並避開 home indicator */
+  right: calc(env(safe-area-inset-right, 0px) + 16px);
+  bottom: calc(env(safe-area-inset-bottom, 0px) + 16px);
+}
+@media (max-width: 1023px) {
+  .holdings-sheet-bottom-spacer {
+    height: calc(env(safe-area-inset-bottom, 0px) + 72px);
+  }
+}
+@media (max-width: 768px) {
+  .holdings-sheet-content {
+    padding-bottom: calc(env(safe-area-inset-bottom, 0px) + 40px);
+  }
+  .holdings-sheet-bottom-spacer {
+    height: calc(env(safe-area-inset-bottom, 0px) + 96px);
+  }
+}
+
 /* 窄螢幕提示帶：≤1023px 才顯示，告訴使用者 panel 已展開於下方 */
 .holdings-detail-panel__narrow-hint { display: none; }
 @media (max-width: 1023px) {
