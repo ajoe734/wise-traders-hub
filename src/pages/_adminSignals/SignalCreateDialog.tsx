@@ -16,6 +16,7 @@ import { avatarUrl } from '@/lib/imageTransform';
 import { actionLabels } from './actionLabels';
 import { PreviewTradeItem } from './PreviewTradeItem';
 import { isMarketClosed } from './derive';
+import { getAssetSpec, resolveAssetClass, isValidAssetSymbol } from '@/lib/asset';
 
 interface Props {
   expert: any;
@@ -35,6 +36,9 @@ export function SignalCreateDialog({
   const FORM_KEY = `signal-form-${expertSlug}`;
   const DRAFT_KEY = `signal-draft-${expertSlug}`;
 
+  const assetClass = resolveAssetClass(expert);
+  const spec = getAssetSpec(assetClass);
+
   const [stockCode, setStockCode] = useState('');
   const [stockName, setStockName] = useState('');
   const [action, setAction] = useState('');
@@ -44,7 +48,7 @@ export function SignalCreateDialog({
   const [riskNotes, setRiskNotes] = useState('');
   const [learningPoints, setLearningPoints] = useState('');
   const [quantity, setQuantity] = useState('');
-  const [quantityUnit, setQuantityUnit] = useState('張');
+  const [quantityUnit, setQuantityUnit] = useState<'張' | '股' | '顆'>(spec.defaultUnit);
   const [teachingTopic, setTeachingTopic] = useState('');
   const [overallSummary, setOverallSummary] = useState('');
   const [showPreview, setShowPreview] = useState(false);
@@ -97,15 +101,16 @@ export function SignalCreateDialog({
   }, [FORM_KEY, discardDraft]);
 
   const fetchStockInfo = useCallback(async (code: string) => {
-    if (!code.trim() || code.trim().length < 4) return;
+    const c = code.trim();
+    if (!c || c.length < spec.minSymbolLen) return;
     setFetchingQuote(true);
     try {
-      if (isMarketClosed() && expert?.user_id) {
+      if (isMarketClosed(spec.marketHours) && expert?.user_id) {
         const { data: perf } = await supabase
           .from('user_performances')
           .select('name, current_price')
           .eq('user_id', expert.user_id)
-          .eq('symbol', code.trim())
+          .eq('symbol', c)
           .limit(1)
           .maybeSingle();
         if (perf) {
@@ -116,19 +121,20 @@ export function SignalCreateDialog({
         }
       }
       const { resolveStockName } = await import('@/lib/stockNameResolver');
-      const name = await resolveStockName(code.trim());
+      const name = await resolveStockName(c);
       if (name) setStockName(name);
     } catch (e) {
       console.error('stock_info fetch error:', e);
     }
     setFetchingQuote(false);
-  }, [expert?.user_id]);
+  }, [expert?.user_id, spec.minSymbolLen, spec.marketHours]);
 
   const handleStockCodeChange = (value: string) => {
-    setStockCode(value);
+    const normalized = spec.uppercaseSymbol ? value.toUpperCase() : value;
+    setStockCode(normalized);
     if (fetchTimer.current) clearTimeout(fetchTimer.current);
-    if (value.trim().length >= 4) {
-      fetchTimer.current = setTimeout(() => fetchStockInfo(value), 500);
+    if (normalized.trim().length >= spec.minSymbolLen) {
+      fetchTimer.current = setTimeout(() => fetchStockInfo(normalized), 500);
     }
   };
 
@@ -139,8 +145,12 @@ export function SignalCreateDialog({
   const handlePublish = async () => {
     if (!expert) { toast.error('找不到分析師資料，請重新整理後再試'); return; }
     if (!stockCode.trim() || !action) { toast.error('請先填寫「代碼」與「操作方向」'); return; }
-    if (!quantity || parseInt(quantity) <= 0) { toast.error('請輸入數量'); return; }
+    if (!isValidAssetSymbol(stockCode, assetClass)) {
+      toast.error(`代碼格式錯誤（${spec.symbolPlaceholder}）`); return;
+    }
+    if (!quantity || parseFloat(quantity) <= 0) { toast.error('請輸入數量'); return; }
     if (!priceHint || parseFloat(priceHint) <= 0) { toast.error('請輸入參考價格'); return; }
+
 
     const latestName = stockName.trim();
 
@@ -157,12 +167,13 @@ export function SignalCreateDialog({
         toast.error(`尚無 ${stockCode.trim()} 的未平倉部位，無法執行${action === 'add' ? '加碼' : action === 'exit' ? '平損' : '減碼'}操作`);
         return;
       }
-      if (['trim', 'sell'].includes(action) && parseInt(quantity) > openPos.quantity) {
+      if (['trim', 'sell'].includes(action) && parseFloat(quantity) > openPos.quantity) {
         toast.error(`減碼數量 (${quantity}) 超過持倉量 (${openPos.quantity})`);
         return;
       }
     }
     const latestPrice = priceHint;
+    const parsedQty = spec.quantityAllowsDecimal ? parseFloat(quantity) : parseInt(quantity);
     const instrument = latestName ? `${stockCode.trim()} ${latestName}` : stockCode.trim();
     const { data: inserted, error } = await supabase.from('expert_signals').insert({
       expert_id: expert.id,
@@ -170,7 +181,7 @@ export function SignalCreateDialog({
       instrument,
       action: action as any,
       price_hint: latestPrice ? parseFloat(latestPrice) : null,
-      quantity: quantity ? parseInt(quantity) : null,
+      quantity: quantity ? parsedQty : null,
       quantity_unit: quantityUnit,
       reason_summary: reasonSummary,
       reason_detail: reasonDetail,
@@ -277,7 +288,7 @@ export function SignalCreateDialog({
           <div className="grid grid-cols-2 gap-4">
             <div className="space-y-2">
               <Label>股票代碼</Label>
-              <Input value={stockCode} onChange={(e) => handleStockCodeChange(e.target.value)} placeholder="例:2330" />
+              <Input value={stockCode} onChange={(e) => handleStockCodeChange(e.target.value)} placeholder={spec.symbolPlaceholder} />
             </div>
             <div className="space-y-2">
               <Label>股票名稱 {fetchingQuote && <Loader2 className="inline h-3 w-3 animate-spin text-muted-foreground" />}</Label>
@@ -337,17 +348,32 @@ export function SignalCreateDialog({
             <div className="space-y-2">
               <Label>數量</Label>
               <div className="flex items-center gap-2">
-                <Input value={quantity} onChange={(e) => { const v = e.target.value; if (v === '' || Number(v) >= 0) setQuantity(v); }} type="number" min="0" placeholder="1" className="w-32" />
-                <Select value={quantityUnit} onValueChange={setQuantityUnit}>
+                <Input
+                  value={quantity}
+                  onChange={(e) => {
+                    const v = e.target.value;
+                    if (v === '' || Number(v) >= 0) setQuantity(v);
+                  }}
+                  type="number"
+                  min="0"
+                  step={spec.quantityAllowsDecimal ? '0.0001' : '1'}
+                  placeholder={spec.quantityAllowsDecimal ? '0.5' : '1'}
+                  className="w-32"
+                />
+                <Select
+                  value={quantityUnit}
+                  onValueChange={(v) => setQuantityUnit(v as '張' | '股' | '顆')}
+                  disabled={spec.units.length === 1}
+                >
                   <SelectTrigger className="w-20"><SelectValue /></SelectTrigger>
                   <SelectContent>
-                    <SelectItem value="張">張</SelectItem>
-                    <SelectItem value="股">股</SelectItem>
+                    {spec.units.map((u) => <SelectItem key={u} value={u}>{u}</SelectItem>)}
                   </SelectContent>
                 </Select>
               </div>
             </div>
           )}
+
           <div className="space-y-2">
             <Label>為什麼這樣操作？</Label>
             <Textarea value={reasonSummary} onChange={(e) => setReasonSummary(e.target.value)} rows={2} />
@@ -360,7 +386,7 @@ export function SignalCreateDialog({
                   disabled={linePushing || linePushed || !reasonSummary.trim()}
                   onClick={async () => {
                     if (!expert) return;
-                    if (!quantity || parseInt(quantity) <= 0) { toast.error('請輸入數量'); return; }
+                    if (!quantity || parseFloat(quantity) <= 0) { toast.error('請輸入數量'); return; }
                     if (!priceHint || parseFloat(priceHint) <= 0) { toast.error('請輸入參考價格'); return; }
                     setLinePushing(true);
                     try {
@@ -371,7 +397,7 @@ export function SignalCreateDialog({
                           signal_data: {
                             action, instrument,
                             price_hint: priceHint ? parseFloat(priceHint) : null,
-                            quantity: quantity ? parseInt(quantity) : null,
+                            quantity: quantity ? (spec.quantityAllowsDecimal ? parseFloat(quantity) : parseInt(quantity)) : null,
                             quantity_unit: quantityUnit, reason_summary: reasonSummary,
                           },
                         },

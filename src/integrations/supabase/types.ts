@@ -1028,8 +1028,39 @@ export type Database = {
         }
         Relationships: []
       }
+      crypto_symbol_map: {
+        Row: {
+          binance_pair: string | null
+          coingecko_id: string
+          created_at: string
+          display_name: string
+          is_active: boolean
+          symbol: string
+          updated_at: string
+        }
+        Insert: {
+          binance_pair?: string | null
+          coingecko_id: string
+          created_at?: string
+          display_name: string
+          is_active?: boolean
+          symbol: string
+          updated_at?: string
+        }
+        Update: {
+          binance_pair?: string | null
+          coingecko_id?: string
+          created_at?: string
+          display_name?: string
+          is_active?: boolean
+          symbol?: string
+          updated_at?: string
+        }
+        Relationships: []
+      }
       current_prices: {
         Row: {
+          asset_class: string
           best_ask: number | null
           best_bid: number | null
           change_percent: number | null
@@ -1051,6 +1082,7 @@ export type Database = {
           yesterday_close: number | null
         }
         Insert: {
+          asset_class?: string
           best_ask?: number | null
           best_bid?: number | null
           change_percent?: number | null
@@ -1072,6 +1104,7 @@ export type Database = {
           yesterday_close?: number | null
         }
         Update: {
+          asset_class?: string
           best_ask?: number | null
           best_bid?: number | null
           change_percent?: number | null
@@ -2029,6 +2062,7 @@ export type Database = {
       }
       experts: {
         Row: {
+          asset_class: string
           avatar_url: string | null
           backtest_1y_return: number | null
           backtest_annual_return: number | null
@@ -2053,6 +2087,7 @@ export type Database = {
           user_id: string
         }
         Insert: {
+          asset_class?: string
           avatar_url?: string | null
           backtest_1y_return?: number | null
           backtest_annual_return?: number | null
@@ -2077,6 +2112,7 @@ export type Database = {
           user_id: string
         }
         Update: {
+          asset_class?: string
           avatar_url?: string | null
           backtest_1y_return?: number | null
           backtest_annual_return?: number | null
@@ -3419,6 +3455,7 @@ export type Database = {
       }
       stock_names: {
         Row: {
+          asset_class: string
           created_at: string
           currency: string
           market: string | null
@@ -3426,6 +3463,7 @@ export type Database = {
           symbol: string
         }
         Insert: {
+          asset_class?: string
           created_at?: string
           currency?: string
           market?: string | null
@@ -3433,6 +3471,7 @@ export type Database = {
           symbol: string
         }
         Update: {
+          asset_class?: string
           created_at?: string
           currency?: string
           market?: string | null

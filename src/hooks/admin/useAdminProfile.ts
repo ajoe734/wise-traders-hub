@@ -14,6 +14,7 @@ export interface ExpertProfilePayload {
   style_tags: string[];
   markets: string[];
   currency?: 'TWD' | 'USD';
+  asset_class?: 'tw_stock' | 'us_stock' | 'crypto';
 }
 
 export interface CapitalStatus {

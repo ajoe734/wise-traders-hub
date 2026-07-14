@@ -139,7 +139,8 @@ const SignalEditor = () => {
   // ── Stock-name lookup ────────────────────────────────────────────────
   const fetchStockInfo = useCallback(async (idx: number, code: string) => {
     const c = code.trim();
-    if (!c || c.length < 4) return;
+    const minLen = currency === 'USD' ? 1 : 4;
+    if (!c || c.length < minLen) return;
     if (stockCacheRef.current.has(c)) {
       const name = stockCacheRef.current.get(c)!;
       setTrades((prev) => prev.map((t, i) => (i === idx && !t.stockName ? { ...t, stockName: name } : t)));
@@ -153,7 +154,7 @@ const SignalEditor = () => {
         setTrades((prev) => prev.map((t, i) => (i === idx && !t.stockName ? { ...t, stockName: name } : t)));
       }
     } catch { /* ignore */ }
-  }, []);
+  }, [currency]);
 
   // ── AI assist passthrough ────────────────────────────────────────────
   const callAIAssist = useCallback<AIAssistFn>(async (field, mode, currentHtml, instruction, context) => {
