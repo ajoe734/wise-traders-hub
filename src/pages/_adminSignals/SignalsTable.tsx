@@ -90,11 +90,13 @@ export function SignalsTable(p: Props) {
                       {instrument} 目前持有
                     </td>
                     <td colSpan={2} className="p-3 text-sm font-bold text-foreground">
-                      {p.defaultCurrency === 'USD'
-                        ? <>{guQty} 股　</>
-                        : <>{zhangQty} 張　{guQty} 股　</>}
+                      {assetClass === 'crypto'
+                        ? <>{guQty} 顆　</>
+                        : assetClass === 'us_stock'
+                          ? <>{guQty} 股　</>
+                          : <>{zhangQty} 張　{guQty} 股　</>}
                       <span className="text-muted-foreground font-medium">
-                        成本 {formatMoneyByCurrency(cost, p.defaultCurrency ?? 'TWD')}
+                        成本 {formatMoneyByCurrency(cost, spec.currency)}
                       </span>
                     </td>
                     <td colSpan={2}></td>
