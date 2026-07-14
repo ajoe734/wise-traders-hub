@@ -32,7 +32,7 @@ export function useSubscriptionTimeline(userId: string | null | undefined, exper
         _expert_id: expertId ?? undefined,
       });
       if (error) throw error;
-      return (Array.isArray(data) ? data : []) as ExpertTimelineRow[];
+      return (Array.isArray(data) ? data : []) as unknown as ExpertTimelineRow[];
     },
   });
 }
