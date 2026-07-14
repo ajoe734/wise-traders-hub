@@ -17,6 +17,8 @@ import { richHtmlPreview, PREVIEW_LIMITS } from '@/components/SafeRichHtml';
 import { avatarUrl } from '@/lib/imageTransform';
 import { intentHandlers } from '@/lib/routePrefetch';
 import { usePreviewMode } from '@/hooks/usePreviewMode';
+import { AssetBadge, AssetFilterChips } from '@/components/AssetFilterChips';
+import { resolveAssetClass, type AssetClass } from '@/lib/asset';
 
 const actionConfig: Record<string, { label: string; className: string }> = {
   buy: { label: '買進', className: 'bg-success text-white border-success' },
