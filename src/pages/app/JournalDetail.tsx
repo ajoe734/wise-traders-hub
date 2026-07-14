@@ -22,6 +22,7 @@ import { CURRENCY_SYMBOL, defaultQuantityUnit, normalizeCurrency, type Currency 
 import { SubscriptionTimeline } from '@/components/SubscriptionTimeline';
 import { useSubscriptionTimeline } from '@/hooks/useSubscriptionTimeline';
 import { useEffectiveUserId } from '@/hooks/useEffectiveUserId';
+import { UnavailableContent } from '@/components/UnavailableContent';
 
 interface SignalDetail {
   id: string;
