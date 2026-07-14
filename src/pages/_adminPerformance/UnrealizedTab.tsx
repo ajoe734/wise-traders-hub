@@ -3,7 +3,8 @@ import { Badge } from '@/components/ui/badge';
 import { Loader2 } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { AnimatedNumber } from '@/components/AnimatedNumber';
-import { pnlColor, fmtPnl, fmtPct, fmtPrice, type PerfRow } from '@/pages/_adminPerformance/types';
+import { pnlColor, fmtPnl, fmtPct, fmtPrice, assetBadge, type PerfRow } from '@/pages/_adminPerformance/types';
+import { getAssetSpec } from '@/lib/asset';
 import { FxHint } from '@/components/FxHint';
 
 interface Props {
@@ -74,22 +75,33 @@ export default function UnrealizedTab({ rows, loading, totalPnlPercent, avgPnlPe
                     </td>
                   </tr>
                 ) : (
-                  rows.map(row => (
+                  rows.map(row => {
+                    const spec = row.asset_class ? getAssetSpec(row.asset_class) : null;
+                    const badge = assetBadge(row.asset_class);
+                    const unit = row.quantity_unit || spec?.defaultUnit || '股';
+                    return (
                     <tr key={row.id} className="border-b last:border-0">
                       <td className="p-3">
                         <div className="flex flex-col">
-                          <span className="text-sm font-medium">{row.name || '-'}</span>
+                          <div className="flex items-center gap-1.5">
+                            <span className="text-sm font-medium">{row.name || '-'}</span>
+                            {badge && (
+                              <Badge variant="outline" className={cn('text-[10px] px-1.5 py-0 h-4', badge.className)}>
+                                {badge.label}
+                              </Badge>
+                            )}
+                          </div>
                           <span className="text-xs text-muted-foreground">{row.symbol}</span>
                         </div>
                       </td>
                       <td className="text-right p-3 text-sm tabular-nums">
-                        {row.quantity} {row.quantity_unit}
+                        {row.quantity} {unit}
                       </td>
                       <td className="text-right p-3 text-sm tabular-nums">
-                        {fmtPrice(row.entry_price, row.currency)}
+                        {fmtPrice(row.entry_price, row.currency, row.asset_class)}
                       </td>
                       <td className={cn('text-right p-3 text-sm tabular-nums transition-colors duration-300')}>
-                        {fmtPrice(row.current_price, row.currency)}
+                        {fmtPrice(row.current_price, row.currency, row.asset_class)}
                       </td>
                       <td className={cn('text-right p-3 text-sm tabular-nums transition-colors duration-300', pnlColor(row.pnl))}>
                         {row.pnl != null ? fmtPnl(row.pnl, row.currency) : '-'}
@@ -104,7 +116,8 @@ export default function UnrealizedTab({ rows, loading, totalPnlPercent, avgPnlPe
                         <Badge variant="default" className="text-xs">持有中</Badge>
                       </td>
                     </tr>
-                  ))
+                    );
+                  })
                 )}
               </tbody>
             </table>

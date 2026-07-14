@@ -76,9 +76,10 @@ export function useAdminSignals(expertSlug: string | undefined) {
   const holdings = useExpertHoldingsBundle(expertId, {
     expertOwnerUserId: ownerUserId,
     currency: (bundle.expert as any)?.currency ?? 'TWD',
+    assetClass: (bundle.expert as any)?.asset_class ?? null,
   });
-  const openInstruments = useMemo(
-    () => new Set(holdings.rawOpenPositions.map((p) => p.instrument)),
+  const openInstruments = useMemo<Set<string>>(
+    () => new Set(holdings.rawOpenPositions.map((p) => String(p.instrument))),
     [holdings.rawOpenPositions],
   );
 

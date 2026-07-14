@@ -5,6 +5,7 @@ import type { CapitalStatus, OpenPosition } from '@/pages/_signalEditor/types';
 import type { PerfRow } from '@/pages/_adminPerformance/types';
 import type { ExpertPerformance } from '@/hooks/usePerformance';
 import { normalizeCurrency, type Currency } from '@/lib/currency';
+import { normalizeAssetClass, type AssetClass } from '@/lib/asset';
 
 /**
  * 單一資料源：所有 expert 的 capital / holdings / performance / currency
@@ -21,6 +22,8 @@ export interface ExpertHoldingsBundle {
   avgPnlPercent: number | null;
   /** expert.currency (TWD | USD) — 未載入時預設 TWD */
   currency: Currency;
+  /** expert.asset_class — 未載入時 fallback tw_stock */
+  assetClass: AssetClass;
 }
 
 const EMPTY: ExpertHoldingsBundle = {
@@ -31,9 +34,10 @@ const EMPTY: ExpertHoldingsBundle = {
   totalPnlPercent: null,
   avgPnlPercent: null,
   currency: 'TWD',
+  assetClass: 'tw_stock',
 };
 
-export function mapOpenPositionToRow(p: any, currency: Currency = 'TWD'): PerfRow {
+export function mapOpenPositionToRow(p: any, currency: Currency = 'TWD', assetClass: AssetClass = 'tw_stock'): PerfRow {
   const parts = String(p.instrument || p.symbol || '').split(' ');
   const symbol = p.symbol || parts[0] || '';
   const name = parts.slice(1).join(' ') || null;
@@ -48,6 +52,7 @@ export function mapOpenPositionToRow(p: any, currency: Currency = 'TWD'): PerfRo
     : (curPrice != null && entryPrice != null && entryPrice > 0
         ? Math.round(((curPrice - entryPrice) / entryPrice) * 10000) / 100
         : null);
+  const rowAsset: AssetClass = p.asset_class ? normalizeAssetClass(p.asset_class) : assetClass;
   return {
     id: `pos-${symbol}`,
     instrument: p.instrument || `${symbol} ${name || ''}`.trim(),
@@ -61,16 +66,18 @@ export function mapOpenPositionToRow(p: any, currency: Currency = 'TWD'): PerfRo
     quantity_unit: '股',
     status: 'open',
     currency: normalizeCurrency(p.currency) || currency,
+    asset_class: rowAsset,
   };
 }
 
 export function useExpertHoldingsBundle(
   expertId: string | undefined,
-  options?: { expertOwnerUserId?: string | null; currency?: Currency | string | null },
+  options?: { expertOwnerUserId?: string | null; currency?: Currency | string | null; assetClass?: AssetClass | string | null },
 ) {
   const queryClient = useQueryClient();
   const queryKey = useMemo(() => ['expert-holdings-bundle', expertId] as const, [expertId]);
   const currency: Currency = normalizeCurrency(options?.currency);
+  const assetClass: AssetClass = normalizeAssetClass(options?.assetClass);
 
   const query = useQuery<ExpertHoldingsBundle>({
     queryKey,
@@ -88,11 +95,12 @@ export function useExpertHoldingsBundle(
       return {
         capital: cap,
         rawOpenPositions: rawOpen,
-        openPositions: rawOpen.map((p) => mapOpenPositionToRow(p, currency)),
+        openPositions: rawOpen.map((p) => mapOpenPositionToRow(p, currency, assetClass)),
         performance: perf,
         totalPnlPercent: perf?.total_return_pct != null ? Number(perf.total_return_pct) : null,
         avgPnlPercent: perf?.avg_pnl_pct != null ? Number((perf as any).avg_pnl_pct) : null,
         currency,
+        assetClass,
       };
     },
   });

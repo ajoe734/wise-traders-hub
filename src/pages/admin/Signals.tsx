@@ -251,6 +251,7 @@ const AdminSignals = () => {
           contentLabel={contentLabel}
           holdingSummary={holdingSummary}
           defaultCurrency={(expert as any)?.currency === 'USD' ? 'USD' : 'TWD'}
+          defaultAssetClass={(expert as any)?.asset_class ?? null}
         />
       </div>
     </AdminLayout>

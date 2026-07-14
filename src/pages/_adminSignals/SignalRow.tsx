@@ -2,11 +2,14 @@ import React from 'react';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { ChevronDown, ChevronUp, Loader2, Send, Undo2 } from 'lucide-react';
+import { cn } from '@/lib/utils';
 import { PermissionTooltip } from '@/components/admin/PermissionTooltip';
 import { SafeRichHtml, richHtmlPreview, PREVIEW_LIMITS } from '@/components/SafeRichHtml';
 import { canRecallSignal } from '@/lib/publishingWindow';
 import { actionLabels } from './actionLabels';
-import { CURRENCY_SYMBOL, defaultQuantityUnit, normalizeCurrency, type Currency } from '@/lib/currency';
+import { CURRENCY_SYMBOL, normalizeCurrency, type Currency } from '@/lib/currency';
+import { getAssetSpec, normalizeAssetClass, type AssetClass } from '@/lib/asset';
+import { assetBadge } from '@/pages/_adminPerformance/types';
 import { FxHint } from '@/components/FxHint';
 
 interface Props {
@@ -29,20 +32,26 @@ interface Props {
   onEdit: (batchId: string) => void;
   /** 該分析師的預設幣別，個別 signal.currency 優先 */
   defaultCurrency?: Currency;
+  /** 該分析師的資產類別，signal.asset_class 優先 */
+  defaultAssetClass?: AssetClass | string | null;
 }
 
 export function SignalRow({
   signal, isMentor, isAdvisor, isReadOnly, isExpanded, setExpandedId,
   openInstruments, addBuySignalIds, batchInfo, collapsedBatches, setCollapsedBatches,
-  recalling, repushingId, onRepush, onRecall, onEdit, defaultCurrency = 'TWD',
+  recalling, repushingId, onRepush, onRecall, onEdit,
+  defaultCurrency = 'TWD', defaultAssetClass,
 }: Props) {
   const ai = actionLabels[signal.action] || actionLabels.buy;
   const hasDetail = signal.reason_detail || signal.risk_notes || signal.reason_summary || signal.learning_points;
   const isBatchCollapsed = signal.batch_id && collapsedBatches.has(signal.batch_id) && (batchInfo.get(signal.batch_id)?.count || 0) > 1;
   const recall = canRecallSignal((signal as any).published_at);
-  const currency: Currency = normalizeCurrency(signal.currency) || defaultCurrency;
+  const assetClass: AssetClass = normalizeAssetClass(signal.asset_class ?? defaultAssetClass);
+  const spec = getAssetSpec(assetClass);
+  const currency: Currency = normalizeCurrency(signal.currency) || spec.currency || defaultCurrency;
   const priceSymbol = CURRENCY_SYMBOL[currency];
-  const qtyUnit = signal.quantity_unit || defaultQuantityUnit(currency);
+  const qtyUnit = signal.quantity_unit || spec.defaultUnit;
+  const badge = assetBadge(assetClass);
 
   return (
     <React.Fragment>
@@ -51,12 +60,17 @@ export function SignalRow({
           {signal.published_at ? new Date(signal.published_at).toLocaleString('zh-TW', { year: 'numeric', month: '2-digit', day: '2-digit', hour: '2-digit', minute: '2-digit' }) : '-'}
         </td>
         <td className="p-3 text-sm font-medium">
-          <div className="flex items-center gap-1.5">
+          <div className="flex items-center gap-1.5 flex-wrap">
             <span>
               {signal.action === 'teaching'
                 ? '純教學週記'
                 : `${signal.instrument}${isBatchCollapsed ? ` 等 ${batchInfo.get(signal.batch_id)!.count} 檔` : ''}`}
             </span>
+            {badge && signal.action !== 'teaching' && (
+              <Badge variant="outline" className={cn('text-[10px] px-1.5 py-0 h-4', badge.className)}>
+                {badge.label}
+              </Badge>
+            )}
             {signal.batch_id && batchInfo.get(signal.batch_id) && batchInfo.get(signal.batch_id)!.count > 1 && (
               <Badge
                 variant="secondary"
@@ -80,7 +94,7 @@ export function SignalRow({
         <td className="p-3 text-sm">
           {signal.price_hint ? (
             <>
-              {priceSymbol}{Number(signal.price_hint).toLocaleString(undefined, { minimumFractionDigits: currency === 'USD' ? 2 : 0, maximumFractionDigits: 2 })}
+              {priceSymbol}{Number(signal.price_hint).toLocaleString(undefined, { minimumFractionDigits: spec.priceDigits >= 4 ? 2 : (currency === 'USD' ? 2 : 0), maximumFractionDigits: spec.priceDigits })}
               {signal.quantity && (
                 <span className="text-muted-foreground">（{signal.quantity}{qtyUnit}）</span>
               )}
