@@ -73,7 +73,10 @@ export function useAdminSignals(expertSlug: string | undefined) {
   const ownerUserId = (bundle.expert?.user_id as string | undefined) ?? null;
 
   // 統一資料源：從 holdings bundle 衍生 openInstruments
-  const holdings = useExpertHoldingsBundle(expertId, { expertOwnerUserId: ownerUserId });
+  const holdings = useExpertHoldingsBundle(expertId, {
+    expertOwnerUserId: ownerUserId,
+    currency: (bundle.expert as any)?.currency ?? 'TWD',
+  });
   const openInstruments = useMemo(
     () => new Set(holdings.rawOpenPositions.map((p) => p.instrument)),
     [holdings.rawOpenPositions],
