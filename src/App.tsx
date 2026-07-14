@@ -375,6 +375,7 @@ const AppShell = () => (
         </ViewAsProvider>
       </BrowserRouter>
     </TooltipProvider>
+    </DisplayCurrencyProvider>
   </AuthProvider>
 );
 
