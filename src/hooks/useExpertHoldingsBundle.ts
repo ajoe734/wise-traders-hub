@@ -22,6 +22,8 @@ export interface ExpertHoldingsBundle {
   avgPnlPercent: number | null;
   /** expert.currency (TWD | USD) — 未載入時預設 TWD */
   currency: Currency;
+  /** expert.asset_class — 未載入時 fallback tw_stock */
+  assetClass: AssetClass;
 }
 
 const EMPTY: ExpertHoldingsBundle = {
@@ -32,6 +34,7 @@ const EMPTY: ExpertHoldingsBundle = {
   totalPnlPercent: null,
   avgPnlPercent: null,
   currency: 'TWD',
+  assetClass: 'tw_stock',
 };
 
 export function mapOpenPositionToRow(p: any, currency: Currency = 'TWD'): PerfRow {
