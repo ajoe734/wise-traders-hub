@@ -164,6 +164,14 @@ const JournalDetail = () => {
   const signal = data?.signal ?? null;
   const weekSignals = data?.weekSignals ?? [];
 
+  const { userId: effectiveUserId } = useEffectiveUserId();
+  const { data: timelines = [] } = useSubscriptionTimeline(
+    effectiveUserId ?? undefined,
+    signal?.expert_id ?? null,
+  );
+  const timeline = timelines[0] ?? null;
+
+
   const isPreview = searchParams.get('preview') === '1' && (
     (signal?.experts?.slug && user?.expertSlug === signal.experts.slug) || hasRole('company_admin')
   );
