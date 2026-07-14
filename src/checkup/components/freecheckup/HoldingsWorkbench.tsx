@@ -165,6 +165,7 @@ function HoldingsWorkbench(props) {
     <div className="holdings-workbench">
 
       <div
+        ref={gridRef}
         style={cardWallStyle}
         className={`holdings-card-grid${viewMode === 'list' ? ' holdings-card-grid--list' : ''}`}
       >
