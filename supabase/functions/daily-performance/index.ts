@@ -85,10 +85,10 @@ Deno.serve(withLogging('daily-performance', async (req) => {
     const serviceRoleKey = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')!
     const adminClient = serviceClient()
 
-    // 1. Get all open positions
+    // 1. Get all open positions（含 market 以便後續統計 / 觀察）
     const { data: openTrades, error } = await adminClient
       .from('trade_records')
-      .select('id, instrument, entry_price')
+      .select('id, instrument, entry_price, market')
       .eq('status', 'open')
 
     if (error) throw error
@@ -98,8 +98,8 @@ Deno.serve(withLogging('daily-performance', async (req) => {
       })
     }
 
-    // 2. Deduplicate instruments and fetch prices
-    const instruments = [...new Set(openTrades.map(t => t.instrument))]
+    // 2. Deduplicate instruments and fetch prices（fetchClosingPrice 內部依 symbol 分派 TW/US）
+    const instruments = [...new Set(openTrades.map((t: any) => t.instrument))]
     const priceMap = new Map<string, number>()
 
     // Fetch prices sequentially to avoid rate limiting
@@ -110,9 +110,11 @@ Deno.serve(withLogging('daily-performance', async (req) => {
 
     // 3. Update each open trade with current price and unrealized P&L
     let updated = 0
+    let updatedTw = 0
+    let updatedUs = 0
     const now = new Date().toISOString()
 
-    for (const trade of openTrades) {
+    for (const trade of openTrades as any[]) {
       const currentPrice = priceMap.get(trade.instrument)
       if (!currentPrice) continue
 
@@ -129,14 +131,18 @@ Deno.serve(withLogging('daily-performance', async (req) => {
         })
         .eq('id', trade.id)
 
-      if (!updateError) updated++
+      if (!updateError) {
+        updated++
+        if (trade.market === 'US') updatedUs++
+        else updatedTw++
+      }
     }
 
     // 4. Log the run
     await adminClient.from('system_jobs_log').insert({
       job_name: 'daily_performance_update',
       status: 'success',
-      detail: { updated, total_open: openTrades.length, prices_fetched: priceMap.size },
+      detail: { updated, updated_tw: updatedTw, updated_us: updatedUs, total_open: openTrades.length, prices_fetched: priceMap.size },
     })
 
     return new Response(JSON.stringify({ success: true, updated, total_open: openTrades.length }), {
