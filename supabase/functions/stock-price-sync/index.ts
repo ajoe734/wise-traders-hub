@@ -478,7 +478,9 @@ Deno.serve(withLogging('stock-price-sync', async (req) => {
       job_name: 'stock_price_sync',
       status: 'success',
       detail: {
-        symbols_total: allSymbols.length,
+        market: marketGate,
+        symbols_tw: twSymbols.length,
+        symbols_us: usSymbols.length,
         prices_fetched: priceMap.size,
         performances_updated: perfRows.length,
         users_updated: userIds.length,
@@ -487,7 +489,9 @@ Deno.serve(withLogging('stock-price-sync', async (req) => {
 
     return new Response(JSON.stringify({
       success: true,
-      symbols: allSymbols.length,
+      market: marketGate,
+      symbols_tw: twSymbols.length,
+      symbols_us: usSymbols.length,
       prices_fetched: priceMap.size,
       performances: perfRows.length,
       users: userIds.length,
