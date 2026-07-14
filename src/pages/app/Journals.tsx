@@ -147,6 +147,7 @@ const Journals = () => {
   const isTester = isViewAs ? false : (user?.isTester ?? false);
   const { previewExpertId } = usePreviewMode();
   const [selectedMonth, setSelectedMonth] = useState<string>('all');
+  const [assetFilter, setAssetFilter] = useState<AssetClass | null>(null);
 
   useEffect(() => {
     markAppJournalsAsRead();
