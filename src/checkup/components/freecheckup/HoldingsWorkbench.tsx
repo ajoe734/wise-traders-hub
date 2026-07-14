@@ -83,7 +83,7 @@ function HoldingsWorkbench(props) {
 
   const sheetRef = useRef<HTMLDivElement | null>(null);
   const onScrollRef = useRef<(() => void) | null>(null);
-  const cardRefs = useRef<Map<string, HTMLDivElement>>(new Map());
+  const gridRef = useRef<HTMLDivElement | null>(null);
   const [showTopBtn, setShowTopBtn] = useState(false);
 
   // 抽屜內部滾動時顯示「回到頂部」按鈕；透過 callback ref 掛載，避免 Sheet 動畫/portal 導致時序問題
@@ -105,14 +105,10 @@ function HoldingsWorkbench(props) {
     }
   }, []);
 
-  const registerCardRef = useCallback((code: string) => (node: HTMLDivElement | null) => {
-    if (node) cardRefs.current.set(code, node);
-    else cardRefs.current.delete(code);
-  }, []);
-
   // 抽屜開啟時，把對應的持倉卡平滑捲入視野。
-  // 使用雙 rAF 等待 Sheet 進場動畫佈局穩定，避免 layout thrash 造成 jank；
-  // 用 block: 'nearest' 讓已在畫面內的卡片不做多餘位移。
+  // - 用雙 rAF 等 Sheet 進場動畫佈局穩定，避免 layout thrash 造成 jank
+  // - block: 'nearest' 讓已在畫面內的卡片不做多餘位移
+  // - 尊重 prefers-reduced-motion
   useEffect(() => {
     if (!expandedDecision) return;
     let raf1 = 0;
@@ -120,8 +116,17 @@ function HoldingsWorkbench(props) {
     const t = window.setTimeout(() => {
       raf1 = requestAnimationFrame(() => {
         raf2 = requestAnimationFrame(() => {
-          const el = cardRefs.current.get(expandedDecision);
+          const root = gridRef.current;
+          if (!root) return;
+          const safeCode = String(expandedDecision).replace(/"/g, '\\"');
+          const el = root.querySelector<HTMLElement>(
+            `[data-holding-code="${safeCode}"]`,
+          );
           if (!el) return;
+          const rect = el.getBoundingClientRect();
+          const vh = window.innerHeight || document.documentElement.clientHeight;
+          // 已完整在畫面內就不動，避免無意義位移
+          if (rect.top >= 72 && rect.bottom <= vh - 24) return;
           const prefersReduced = window.matchMedia?.('(prefers-reduced-motion: reduce)').matches;
           el.scrollIntoView({
             behavior: prefersReduced ? 'auto' : 'smooth',
