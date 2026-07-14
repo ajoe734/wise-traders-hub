@@ -7,6 +7,7 @@ import { zhTW } from 'date-fns/locale';
 import { richHtmlPreview, PREVIEW_LIMITS } from '@/components/SafeRichHtml';
 import { avatarUrl } from '@/lib/imageTransform';
 import { track } from '@/lib/analytics/events';
+import { AssetBadge } from '@/components/AssetFilterChips';
 
 interface JournalSignal {
   id: string;
