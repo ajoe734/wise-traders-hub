@@ -193,7 +193,7 @@ const Signals = () => {
         ) : (
           <Card>
             <CardContent className="p-6 text-center text-muted-foreground">
-              目前沒有新的訊號
+              {assetFilter ? '目前該資產類別沒有訊號' : '目前沒有新的訊號'}
             </CardContent>
           </Card>
         )}
