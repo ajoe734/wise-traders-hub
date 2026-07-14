@@ -104,8 +104,6 @@ function HoldingsWorkbench(props) {
     }, 60);
     return () => window.clearTimeout(id);
   }, [showPanel, expandedDecision]);
-    [cardGridCols],
-  );
 
   return (
     <div style={gridStyle} className="holdings-workbench">
