@@ -119,7 +119,7 @@ const JournalsExport = () => {
     return Array.from(m.entries()).map(([id, v]) => ({ id, ...v })).sort((a, b) => a.name.localeCompare(b.name, 'zh-Hant'));
   }, [rows]);
 
-  const handleExportCsv = () => {
+  const doExportCsv = () => {
     if (rows.length === 0) {
       toast.warning('本週尚無週記可匯出');
       return;
