@@ -45,6 +45,12 @@ interface SignalDetail {
 const TradeItem = ({ signal }: { signal: SignalDetail }) => {
   const [expanded, setExpanded] = useState(false);
   const hasDetails = signal.reason_summary || signal.reason_detail || signal.risk_notes;
+  const cur: Currency = normalizeCurrency(signal.currency);
+  const sym = CURRENCY_SYMBOL[cur];
+  const unit = signal.quantity_unit || defaultQuantityUnit(cur);
+  const total = signal.price_hint != null && signal.quantity != null
+    ? Number(signal.price_hint) * Number(signal.quantity)
+    : null;
 
   return (
     <div className="px-4 py-3">
@@ -59,11 +65,14 @@ const TradeItem = ({ signal }: { signal: SignalDetail }) => {
             <span className="text-xs text-muted-foreground">{format(new Date(signal.published_at), 'MM/dd')}</span>
             {(signal.price_hint != null || signal.quantity != null) && (
               <span className="text-xs text-foreground/80 font-medium">
-                {signal.price_hint != null && <>價 {signal.price_hint}</>}
+                {signal.price_hint != null && (
+                  <>價 {sym}{Number(signal.price_hint).toLocaleString(undefined, { minimumFractionDigits: cur === 'USD' ? 2 : 0, maximumFractionDigits: 2 })}</>
+                )}
                 {signal.price_hint != null && signal.quantity != null && <span className="mx-1 text-muted-foreground">·</span>}
-                {signal.quantity != null && <>{signal.quantity} {signal.quantity_unit || '張'}</>}
+                {signal.quantity != null && <>{signal.quantity} {unit}</>}
               </span>
             )}
+            {total != null && <FxHint amount={total} currency={cur} showMeta={false} />}
           </div>
         </div>
         {hasDetails && (
