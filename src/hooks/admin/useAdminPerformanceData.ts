@@ -5,6 +5,7 @@ import type {
   RealizedRow,
   RealizedPeriod,
 } from '@/pages/_adminPerformance/types';
+import { normalizeAssetClass, type AssetClass } from '@/lib/asset';
 
 /**
  * 集中管理 admin/Performance 頁所需資料。
@@ -17,6 +18,7 @@ export function useAdminPerformanceData(expertSlug: string | undefined) {
   const [expertOwnerUserId, setExpertOwnerUserId] = useState<string | null>(null);
   const [expertRole, setExpertRole] = useState<string | null>(null);
   const [expertCurrency, setExpertCurrency] = useState<'TWD' | 'USD'>('TWD');
+  const [expertAssetClass, setExpertAssetClass] = useState<AssetClass>('tw_stock');
   const [realizedRows, setRealizedRows] = useState<RealizedRow[]>([]);
   const [realizedLoading, setRealizedLoading] = useState(true);
   const [realizedPeriod, setRealizedPeriod] = useState<RealizedPeriod>('month');
@@ -29,7 +31,7 @@ export function useAdminPerformanceData(expertSlug: string | undefined) {
     }
     supabase
       .from('experts')
-      .select('id, role, user_id, currency')
+      .select('id, role, user_id, currency, asset_class')
       .eq('slug', expertSlug)
       .maybeSingle()
       .then(({ data }) => {
@@ -38,6 +40,7 @@ export function useAdminPerformanceData(expertSlug: string | undefined) {
           setExpertRole(data.role);
           setExpertOwnerUserId(data.user_id);
           setExpertCurrency((data as any).currency === 'USD' ? 'USD' : 'TWD');
+          setExpertAssetClass(normalizeAssetClass((data as any).asset_class ?? (data as any).currency));
         } else {
           setRealizedLoading(false);
         }
@@ -48,8 +51,9 @@ export function useAdminPerformanceData(expertSlug: string | undefined) {
   const bundle = useExpertHoldingsBundle(expertId || undefined, {
     expertOwnerUserId,
     currency: expertCurrency,
+    assetClass: expertAssetClass,
   });
-  const { capital, openPositions: rows, totalPnlPercent, avgPnlPercent, loading, currency } = bundle;
+  const { capital, openPositions: rows, totalPnlPercent, avgPnlPercent, loading, currency, assetClass } = bundle;
 
   // ─── 3. 已實現（period 篩選） ───
   const fetchRealized = useCallback(async () => {
@@ -71,7 +75,7 @@ export function useAdminPerformanceData(expertSlug: string | undefined) {
 
     const { data, error } = await supabase
       .from('trade_records')
-      .select('id, instrument, entry_price, exit_price, entry_date, exit_date, pnl_percent, status, currency')
+      .select('id, instrument, entry_price, exit_price, entry_date, exit_date, pnl_percent, status, currency, asset_class')
       .eq('expert_id', expertId)
       .eq('status', 'closed')
       .gte('exit_date', fromDate.toISOString())
@@ -81,11 +85,13 @@ export function useAdminPerformanceData(expertSlug: string | undefined) {
       const mapped: RealizedRow[] = (data || []).map((r: any) => ({
         ...r,
         currency: r.currency === 'USD' ? 'USD' : expertCurrency,
+        asset_class: normalizeAssetClass(r.asset_class ?? expertAssetClass),
       }));
       setRealizedRows(mapped);
     }
     setRealizedLoading(false);
-  }, [expertId, realizedPeriod, expertCurrency]);
+  }, [expertId, realizedPeriod, expertCurrency, expertAssetClass]);
+
 
   const fetchRealizedRef = useRef(fetchRealized);
   useEffect(() => { fetchRealizedRef.current = fetchRealized; }, [fetchRealized]);
