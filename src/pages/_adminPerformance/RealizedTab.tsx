@@ -2,7 +2,7 @@ import { Card, CardContent } from '@/components/ui/card';
 import { Loader2 } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import {
-  pnlColor, fmtPct, fmtDate, parseInstrument, periodLabel,
+  pnlColor, fmtPct, fmtDate, fmtPrice, parseInstrument, periodLabel,
   type RealizedRow, type RealizedPeriod,
 } from '@/pages/_adminPerformance/types';
 
