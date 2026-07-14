@@ -301,6 +301,8 @@ export function UnifiedAppLayout({ children }: UnifiedAppLayoutProps) {
             </Link>
           </div>
           <div className="flex items-center gap-1">
+            {/* Display currency toggle */}
+            <DisplayCurrencyToggle className="mr-1 hidden sm:inline-flex" />
             {/* Notification Bell */}
             <NotificationBell />
             
