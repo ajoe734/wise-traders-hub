@@ -1,5 +1,5 @@
 import { SEO } from '@/components/SEO';
-import { useEffect } from 'react';
+import { useEffect, useMemo, useState } from 'react';
 import { Link } from 'react-router-dom';
 import { UnifiedAppLayout, markAppSignalsAsRead } from '@/components/layouts/UnifiedAppLayout';
 import { useAuth } from '@/contexts/AuthContext';
