@@ -119,7 +119,7 @@ const fetchJournalsData = async (userId: string | undefined, isTester: boolean, 
 
   const { data, error } = await supabase
     .from('expert_signals')
-    .select('id, instrument, action, price_hint, reason_summary, reason_detail, risk_notes, learning_points, published_at, expert_id, experts(name, slug, role, avatar_url)')
+    .select('id, instrument, action, price_hint, reason_summary, reason_detail, risk_notes, learning_points, published_at, expert_id, experts(name, slug, role, avatar_url, asset_class, currency)')
     .eq('status', 'published')
     .in('expert_id', mentorIds)
     .order('published_at', { ascending: false })
