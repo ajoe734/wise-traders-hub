@@ -95,6 +95,18 @@ function HoldingsWorkbench(props) {
     [cardGridCols],
   );
 
+  const panelRef = useRef<HTMLElement | null>(null);
+  useEffect(() => {
+    if (!showPanel || !panelRef.current) return;
+    // 開啟時捲動到 panel（尤其手機／窄螢幕 panel 在下方使用者看不到）
+    const id = window.setTimeout(() => {
+      panelRef.current?.scrollIntoView({ behavior: 'smooth', block: 'start' });
+    }, 60);
+    return () => window.clearTimeout(id);
+  }, [showPanel, expandedDecision]);
+    [cardGridCols],
+  );
+
   return (
     <div style={gridStyle} className="holdings-workbench">
       {/* 左：卡片牆 */}
