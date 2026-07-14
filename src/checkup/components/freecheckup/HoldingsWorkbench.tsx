@@ -243,11 +243,14 @@ function HoldingsWorkbench(props) {
           ref={setSheetRef}
           side="right"
           data-testid="holdings-detail-panel"
-          className="w-full sm:max-w-md md:max-w-lg lg:max-w-xl xl:max-w-2xl overflow-y-auto p-0"
+          className="holdings-sheet-content w-full sm:max-w-md md:max-w-lg lg:max-w-xl xl:max-w-2xl overflow-y-auto p-0"
           style={{
             background: WB.surface,
             borderColor: WB.hairStrong,
             overscrollBehavior: 'contain',
+            // iOS Safari: 100vh 會被 URL bar 遮住 → 用 100dvh；舊瀏覽器 fallback -webkit-fill-available
+            // paddingBottom 保留 safe-area（home indicator）並額外墊 48px 讓最後一張卡不被遮
+            WebkitOverflowScrolling: 'touch',
           }}
         >
           <VisuallyHidden asChild>
@@ -282,14 +285,17 @@ function HoldingsWorkbench(props) {
               />
             </Suspense>
           )}
+          {/* 底部保留區：讓最後一張卡完整可見，並吃 iOS safe-area */}
+          <div aria-hidden className="holdings-sheet-bottom-spacer" />
           {showTopBtn && (
             <button
               type="button"
               aria-label="回到頂部"
+              data-testid="holdings-sheet-back-to-top"
               onClick={() =>
                 sheetRef.current?.scrollTo({ top: 0, behavior: 'smooth' })
               }
-              className="absolute bottom-4 right-4 z-50 flex h-11 w-11 items-center justify-center rounded-full border focus:outline-none focus:ring-2 focus:ring-ring focus:ring-offset-2 transition-opacity"
+              className="holdings-sheet-top-btn fixed z-50 flex h-11 w-11 items-center justify-center rounded-full border focus:outline-none focus:ring-2 focus:ring-ring focus:ring-offset-2 transition-opacity"
               style={{
                 background: WB.surface,
                 borderColor: WB.hairStrong,
