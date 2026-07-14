@@ -3,7 +3,8 @@ import { Badge } from '@/components/ui/badge';
 import { Loader2 } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { AnimatedNumber } from '@/components/AnimatedNumber';
-import { pnlColor, fmtPnl, fmtPct, type PerfRow } from '@/pages/_adminPerformance/types';
+import { pnlColor, fmtPnl, fmtPct, fmtPrice, type PerfRow } from '@/pages/_adminPerformance/types';
+import type { Currency } from '@/lib/currency';
 
 interface Props {
   rows: PerfRow[];
