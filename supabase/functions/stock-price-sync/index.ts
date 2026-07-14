@@ -215,29 +215,35 @@ Deno.serve(withLogging('stock-price-sync', async (req) => {
         .is('resolved_at', null)
     }
 
-    // ──────────── SYMBOLS MODE: 手動補抓特定代碼 ────────────
+    // ──────────── SYMBOLS MODE: 手動補抓特定代碼（TW + US 分流）────────────
     if (requestedSymbols) {
       const reasons: Record<string, string> = {}
-      const validSyms: string[] = []
+      const twSyms: string[] = []
+      const usSyms: string[] = []
       for (const sym of requestedSymbols) {
-        if (!/^\d{4,6}$/.test(sym)) {
-          reasons[sym] = 'invalid_format'
+        const m = detectMarket(sym)
+        if (m === 'TW') {
+          if (/^\d{4,6}$/.test(sym)) twSyms.push(sym)
+          else reasons[sym] = 'invalid_format'
         } else {
-          validSyms.push(sym)
+          usSyms.push(sym.toUpperCase())
         }
       }
 
-      const priceMap = validSyms.length > 0
-        ? await fetchStockBatch(validSyms)
+      const twMap = twSyms.length > 0
+        ? await fetchStockBatch(twSyms)
         : new Map<string, { price: number; name: string; raw: MsgItem }>()
+      const usMap = usSyms.length > 0
+        ? await fetchUsQuotes(usSyms)
+        : new Map<string, any>()
 
       const now = new Date().toISOString()
-      const priceRows = Array.from(priceMap.entries()).map(([symbol, { price, name, raw }]) => {
+      const twRows = Array.from(twMap.entries()).map(([symbol, { price, name, raw }]) => {
         const yClose = parsePrice(raw.y)
         const changeValue = yClose ? Math.round((price - yClose) * 100) / 100 : null
         const changePct = yClose && yClose > 0 ? Math.round(((price - yClose) / yClose) * 10000) / 100 : null
         return {
-          symbol, name: name || null, price,
+          symbol, name: name || null, price, market: 'TW', currency: 'TWD',
           open_price: parsePrice(raw.o), high_price: parsePrice(raw.h), low_price: parsePrice(raw.l),
           yesterday_close: yClose, change_value: changeValue, change_percent: changePct,
           volume: parseInt(raw.v || '0', 10) || null,
@@ -247,20 +253,37 @@ Deno.serve(withLogging('stock-price-sync', async (req) => {
           pushed_at: now,
         }
       })
+      const usRows = Array.from(usMap.values()).map((q: any) => ({
+        symbol: q.symbol, name: q.name, price: q.price, market: 'US', currency: 'USD',
+        open_price: q.open_price, high_price: q.high_price, low_price: q.low_price,
+        yesterday_close: q.yesterday_close, change_value: q.change_value, change_percent: q.change_percent,
+        volume: q.volume,
+        best_ask: null, best_bid: null,
+        limit_up: null, limit_down: null,
+        pushed_at: now,
+      }))
+      const priceRows = [...twRows, ...usRows]
       if (priceRows.length > 0) {
         await supabase.from('current_prices').upsert(priceRows, { onConflict: 'symbol' })
       }
 
-      for (const sym of validSyms) {
-        if (!priceMap.has(sym)) reasons[sym] = 'not_found'
+      for (const sym of twSyms) {
+        if (!twMap.has(sym)) reasons[sym] = 'not_found'
+      }
+      for (const sym of usSyms) {
+        if (!usMap.has(sym)) reasons[sym] = 'not_found'
       }
 
       const missing = Object.keys(reasons)
-      // Log / resolve misses
+      const foundSet = new Set<string>([
+        ...Array.from(twMap.keys()),
+        ...Array.from(usMap.keys()),
+      ])
       for (const sym of requestedSymbols) {
+        const key = /^\d/.test(sym) ? sym : sym.toUpperCase()
         if (reasons[sym]) {
           await logMiss(sym, reasons[sym], null)
-        } else if (priceMap.has(sym)) {
+        } else if (foundSet.has(key)) {
           await resolveMiss(sym)
         }
       }
@@ -269,12 +292,13 @@ Deno.serve(withLogging('stock-price-sync', async (req) => {
         success: true,
         mode: 'symbols',
         requested: requestedSymbols,
-        fetched: priceMap.size,
+        fetched_tw: twMap.size,
+        fetched_us: usMap.size,
         missing,
         reasons,
       }), { headers: { ...corsHeaders, 'Content-Type': 'application/json' } })
     }
-    // ──────────── 以下為原本的全量同步邏輯 ────────────
+    // ──────────── 以下為原本的全量同步邏輯（TW + US 分流）────────────
 
     // ── Step A: Collect symbols from trade_signals AND checkup_storage (Free Checkup holdings) ──
     const { data: openSignals, error: sigError } = await supabase
