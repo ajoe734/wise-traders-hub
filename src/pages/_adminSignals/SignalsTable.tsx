@@ -1,6 +1,7 @@
 import { Card, CardContent } from '@/components/ui/card';
 import { SignalRow } from './SignalRow';
 import type { HoldingSummaryRow } from './derive';
+import { formatMoneyByCurrency, type Currency } from '@/lib/currency';
 
 interface Props {
   visibleSignals: any[];
