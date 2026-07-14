@@ -70,6 +70,17 @@ const Signals = () => {
   const signals = data?.signals ?? [];
   const hasSubscription = data?.hasSubscription ?? null;
 
+  const [assetFilter, setAssetFilter] = useState<AssetClass | null>(null);
+  const availableAssets = useMemo(() => {
+    const set = new Set<AssetClass>();
+    signals.forEach((s: any) => set.add(resolveAssetClass(s.experts)));
+    return Array.from(set);
+  }, [signals]);
+  const filteredSignals = useMemo(() => {
+    if (!assetFilter) return signals;
+    return signals.filter((s: any) => resolveAssetClass(s.experts) === assetFilter);
+  }, [signals, assetFilter]);
+
   useEffect(() => {
     markAppSignalsAsRead();
   }, []);
@@ -86,13 +97,22 @@ const Signals = () => {
           來自您訂閱的投顧分析師的即時策略訊號
         </p>
 
+        {availableAssets.length > 1 && (
+          <AssetFilterChips
+            value={assetFilter}
+            onChange={setAssetFilter}
+            available={availableAssets}
+            className="mb-2"
+          />
+        )}
+
         {loading ? (
           <Card>
             <CardContent className="p-6 text-center text-muted-foreground">載入中...</CardContent>
           </Card>
-        ) : signals.length > 0 ? (
+        ) : filteredSignals.length > 0 ? (
           <div className="space-y-3">
-            {signals.map(signal => {
+            {filteredSignals.map(signal => {
               const ac = actionConfig[signal.action] || actionConfig.buy;
               const publishedAt = signal.published_at ? new Date(signal.published_at) : new Date();
               const isRecent = differenceInHours(new Date(), publishedAt) < 24;
