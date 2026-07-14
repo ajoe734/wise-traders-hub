@@ -3,7 +3,7 @@
  * HoldingCardHeader — 第 1 層：代號 · 名稱 · 股數 · Sparkline · Action badge + 產業/策略 tags
  * 對外憲法：保留 `.wb-spark` / `.wb-tags` class name（既有 CSS 與截圖回歸依賴）。
  */
-import { memo } from 'react';
+import { memo, useMemo, useCallback } from 'react';
 import { WB, Sparkline } from '@/pages/_freeCheckup/constants.jsx';
 
 function HoldingCardHeaderImpl({
@@ -19,34 +19,52 @@ function HoldingCardHeaderImpl({
   pctVal,
 }) {
   const isInk = variant === 'ink';
-  const isFeature = variant === 'ink';
+  const isFeature = isInk; // 語意等價保留（原本重複判定 variant === 'ink'）
   const nameFont = isFeature ? 15 : 13;
   const rowMb = isFeature ? 6 : 4;
-  const tagBg = isInk ? 'rgba(255,255,255,0.08)' : '#F4F2EE';
-  const tagColor = isInk ? 'rgba(244,241,236,0.78)' : WB.inkSub;
-  const reportColor = isInk ? 'rgba(244,241,236,0.55)' : '#B0A99C';
-  const reportBorder = isInk ? 'rgba(244,241,236,0.25)' : 'rgba(0,0,0,0.15)';
-  const sparkColor = isInk ? '#F4F1EC' : (pctVal >= 0 ? WB.accent : '#9B968D');
-  const sparkOpacity = pctVal >= 0 ? 0.85 : (isInk ? 0.6 : 0.55);
 
-  const industries = meta?.industries?.length
-    ? meta.industries
-    : (meta?.industry ? [meta.industry] : []);
-  const hasTags = industries.length > 0 || meta?.strategy || onReportMeta;
+  // ── Palette：只依賴 isInk，缓存以避免每次 render 建立新字串引用 ──
+  const palette = useMemo(() => ({
+    tagBg: isInk ? 'rgba(255,255,255,0.08)' : '#F4F2EE',
+    tagColor: isInk ? 'rgba(244,241,236,0.78)' : WB.inkSub,
+    reportColor: isInk ? 'rgba(244,241,236,0.55)' : '#B0A99C',
+    reportBorder: isInk ? 'rgba(244,241,236,0.25)' : 'rgba(0,0,0,0.15)',
+  }), [isInk]);
+  const { tagBg, tagColor, reportColor, reportBorder } = palette;
 
-  const openReportMeta = (e) => {
+  // ── Sparkline 派生：依 pctVal 正負 + isInk 決定顏色/透明度 ──
+  // 用 sign 而非 raw pctVal，避免每次 tick 都改變 memo key
+  const pctSign = pctVal >= 0 ? 1 : -1;
+  const sparkColor = useMemo(
+    () => (isInk ? '#F4F1EC' : (pctSign >= 0 ? WB.accent : '#9B968D')),
+    [isInk, pctSign],
+  );
+  const sparkOpacity = useMemo(
+    () => (pctSign >= 0 ? 0.85 : (isInk ? 0.6 : 0.55)),
+    [isInk, pctSign],
+  );
+
+  // industries 陣列穩定引用：只在 meta.industries / meta.industry 改變時重算
+  const industries = useMemo(() => {
+    if (meta?.industries?.length) return meta.industries;
+    if (meta?.industry) return [meta.industry];
+    return [];
+  }, [meta?.industries, meta?.industry]);
+  const hasTags = industries.length > 0 || !!meta?.strategy || !!onReportMeta;
+
+  // 事件 handler 缓存：Sparkline 為 memo 元件，穩定引用避免子樹重渲染
+  const openReportMeta = useCallback((e) => {
     e.stopPropagation();
     if (typeof onReportMeta === 'function') onReportMeta(h);
-  };
-  const onReportKeyDown = (e) => {
-    // 攔截 Enter/Space，避免同時觸發外層 button 的 onSelect，
-    // 並防止 Shift+Enter 冒泡開啟決策抽屜。
+  }, [onReportMeta, h]);
+  const onReportKeyDown = useCallback((e) => {
     if (e.key === 'Enter' || e.key === ' ' || e.key === 'Spacebar') {
       e.preventDefault();
       e.stopPropagation();
       if (typeof onReportMeta === 'function') onReportMeta(h);
     }
-  };
+  }, [onReportMeta, h]);
+
 
   return (
     <>
