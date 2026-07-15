@@ -60,11 +60,32 @@ const CompanyAnalysts = () => {
   const [slug, setSlug] = useSessionString('ca_slug');
   const [role, setRole] = useSessionString('ca_role');
   const [creating, setCreating] = useState(false);
+  const [dialogMode, setDialogMode] = useState<'create' | 'adopt'>('create');
 
   const clearForm = () => {
     setEmail(''); setPassword(''); setName(''); setSlug(''); setRole('');
+    setDialogMode('create');
     ['ca_email','ca_password','ca_name','ca_slug','ca_role'].forEach(k => sessionStorage.removeItem(k));
   };
+
+  const handleAdopt = async (exp: any) => {
+    // 抓 email 需要走 edge function
+    const { data, error } = await supabase.functions.invoke('update-analyst-credentials', {
+      body: { expert_id: exp.id, action: 'fetch_email' },
+    });
+    if (error || data?.error) {
+      toast.error(data?.error || error?.message || '無法讀取 Email');
+      return;
+    }
+    setEmail(data.email || '');
+    setPassword('');
+    setName(exp.name || '');
+    setSlug(exp.slug?.startsWith('pending-') ? '' : (exp.slug || ''));
+    setRole(exp.role || 'mentor');
+    setDialogMode('adopt');
+    setIsCreateOpen(true);
+  };
+
 
   const lineEditor = useLineChannelEditor();
   const account = useAnalystAccount();
