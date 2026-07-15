@@ -587,7 +587,7 @@ function TradeTabImpl({
               }
             };
           });
-          setSaved("✅ 目標價已更新");
+          setSaved("目標價已更新");
           setTimeout(()=>setSaved(""),2000);
           setTpCode(""); setTpFirm(""); setTpVal("");
         };
