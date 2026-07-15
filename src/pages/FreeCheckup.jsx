@@ -1,5 +1,12 @@
 import { useState, useEffect, useRef, useMemo, useCallback, useDeferredValue, lazy, Suspense } from "react";
 import { SEOLite as SEO } from "@/components/SEOLite";
+// Self-hosted Noto Sans/Serif TC (chinese-traditional 子集 + latin)
+import "@fontsource/noto-sans-tc/chinese-traditional-400.css";
+import "@fontsource/noto-sans-tc/chinese-traditional-500.css";
+import "@fontsource/noto-sans-tc/chinese-traditional-700.css";
+import "@fontsource/noto-serif-tc/chinese-traditional-400.css";
+import "@fontsource/noto-serif-tc/chinese-traditional-600.css";
+import "@fontsource/noto-serif-tc/chinese-traditional-700.css";
 import "@/checkup/styles/checkupTokens.css";
 
 import { useNavigate } from "react-router-dom";
@@ -3685,7 +3692,7 @@ ${JSON.stringify(strategyBrain || { rules: [], lessons: [], commonMistakes: [], 
         </nav>
       </div>
 
-      <div className="cm-page-content" style={{padding:"14px 14px"}}>
+      <div className="cm-page-content">{/* padding 由 --cm-page-px 提供，Batch E §3 */}
 
 
         {/* ══════════ HOLDINGS ══════════ */}
