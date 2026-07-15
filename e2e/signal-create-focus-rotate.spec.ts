@@ -1,5 +1,8 @@
 import { test, expect, type Page } from '@playwright/test';
 
+// 手機為觸控裝置：讓 `@media (pointer: coarse)` 命中，Input/Textarea 才會維持 text-base(16px)
+test.use({ hasTouch: true, isMobile: true });
+
 /**
  * SignalCreateDialog — 按鍵焦點 / 字級 / 直橫切換合約
  *
