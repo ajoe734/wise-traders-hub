@@ -28,7 +28,7 @@ const stockCodeStyle = { fontSize: 10, color: C.textSec, fontWeight: 600, margin
 const secondaryValueStyle = { color: C.textSec, fontWeight: 600 }
 
 // 收盤分析個股顏色憲法（局部加強對比，2026-06-17）：
-//   - 漲：保持品牌橘 C.up（#EC662D，已最強對比）
+//   - 漲：保持品牌橘 C.up（#FF4D1F，已最強對比）
 //   - 跌：採深炭灰 #3A352F（取代 C.down 的 #8B8680 — 在 #F5F3EF 背景上對比過低）
 //   - 持平：C.textSec
 // 僅在本檔（DailyReportPanel）覆寫，不動 holdings 單色橘紅憲法。

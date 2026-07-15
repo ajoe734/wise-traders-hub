@@ -26,7 +26,7 @@ export const C = {
   textMute:  "#4D5264",
 
   // ── 損益方向：單色橘紅憲法（正=橘、負=灰），不採紅綠對撞 ──
-  up:        "#EC662D",
+  up:        "#FF4D1F",
   upBg:      "rgba(236,102,45,0.07)",
   down:      "#8B8680",
   downBg:    "rgba(139,134,128,0.06)",
@@ -53,13 +53,13 @@ export const C = {
   choco:     "#C49040",
   chocoBg:   "rgba(196,144,64,0.06)",
   stone:     "#646A7E",
-  urgent:    "#EC662D",
+  urgent:    "#FF4D1F",
   onFill:    "#F0F0F0",
   focusRing: "0 0 0 2px rgba(77,191,160,0.20)",
 
   // ── 實色填充 ──
   fillTeal:    "#2E8F72",
-  fillTomato:  "#EC662D",
+  fillTomato:  "#FF4D1F",
   fillChoco:   "#7A5520",
 };
 
@@ -99,7 +99,7 @@ export const L = {
   text:      "#292520",
   textSec:   "#403A34",
   textMute:  "#4F4942",
-  up:        "#EC662D",
+  up:        "#FF4D1F",
   upBg:      "rgba(236,102,45,0.06)",
   down:      "#403A34",
   downBg:    "rgba(138,133,127,0.05)",
@@ -124,11 +124,11 @@ export const L = {
   choco:     "#7A5828",
   chocoBg:   "rgba(122,88,40,0.05)",
   stone:     "#787068",
-  urgent:    "#EC662D",
+  urgent:    "#FF4D1F",
   onFill:    "#FFFFFF",
   focusRing: "none",
   fillTeal:   "#3A7060",
-  fillTomato: "#EC662D",
+  fillTomato: "#FF4D1F",
   fillChoco:  "#7A5828",
 };
 

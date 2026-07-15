@@ -4,7 +4,7 @@
  *
  * 配色憲法（嚴格三色 + 兩階背景，不混入第四色）
  * ─────────────────────────────────────────────
- *  - accent 橘   #EC662D  唯一強調色：正報酬、urgency dot、accent 卡側條
+ *  - accent 橘   #FF4D1F  唯一強調色：正報酬、urgency dot、accent 卡側條
  *  - ink 黑      #1E1E1D  主數字、卡片標題、強調反白底
  *  - inkMute 灰  #6B6862  次文字、負報酬、metadata
  *  - inkLight    #9B968D  placeholder、單位、disabled、零值
@@ -27,11 +27,11 @@ export const HOLDINGS_TOKENS = {
   inkLight: '#9B968D',
   hair: 'rgba(30,30,29,0.08)',
   hairStrong: 'rgba(30,30,29,0.16)',
-  accent: '#EC662D',
+  accent: '#FF4D1F',
   accentSoft: 'rgba(236,102,45,0.06)',
 
   // 損益語意色（取代過去的紅綠 up/down）
-  gain: '#EC662D', // 正報酬 = accent 橘
+  gain: '#FF4D1F', // 正報酬 = accent 橘
   loss: '#6B6862', // 負報酬 = inkMute 灰
   flat: '#9B968D', // 零值 = inkLight
 
