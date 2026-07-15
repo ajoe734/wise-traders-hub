@@ -54,13 +54,13 @@
 ### 批次 A2 · 抽屜資料源通線
 
 
-### 批次 B · 產業分佈 §3.3（`HoldingsSectorSummary.tsx`，853 行）
-- 一條 100% 帶（高 34px、段間 2px 白縫）
-- 前 5 名色階 `#0A0A0A → #3A3A3A → #6B6862 → #9B968D` + 其他合併 `--hair`
-- 帶下標籤列（前 3–4 名 + 「其他 N%」，手機少列一項）
-- 「索引 ↓」展開三欄純文字（第 1 名數字 accent）
-- 集中度：badge 改為索引上方一句編輯註記
-- **保留**：既有篩選（chip toggle、聯集/交集、presets）邏輯
+### 批次 B · 產業分佈 §3.3（`HoldingsSectorSummary.tsx`）✅
+- ✅ 一條 100% 帶（高 34px、段間 2px 白縫）
+- ✅ 前 5 名色階 accent → ink → ink-sub → ink-sec → ink-mute + 其他合併 hair-strong
+- ✅ 帶下標籤列（前 4 名 + 「其他 N%」）
+- ✅ 「索引 ↓」展開三欄純文字（第 1 名數字 accent）
+- ✅ 集中度：badge 移除，改為節標下方 serif 編輯註記（前三大合計 X%）
+- ✅ **保留**：既有篩選（chip toggle、聯集/交集、presets、搜尋、排序、重名檢查）邏輯
 
 ### 批次 C · 其他分頁 §6
 | 檔案 | 改動 |

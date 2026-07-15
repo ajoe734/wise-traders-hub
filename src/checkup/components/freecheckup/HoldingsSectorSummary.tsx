@@ -16,7 +16,7 @@
  * 憲法：零圓角、零陰影、hairline、負號 U+2212、cm-* tokens。
  * 所有 preset 邏輯（存/命/刪 2-step/排序/搜尋/重名檢查/高亮）保留。
  */
-import { memo, useEffect, useRef, useState } from 'react'
+import { memo, useEffect, useMemo, useRef, useState } from 'react'
 
 import {
   aggregateBySector,
@@ -81,6 +81,7 @@ function HoldingsSectorSummaryImpl({
   })
   const [presetSearch, setPresetSearch] = useState('')
   const [pendingDeleteId, setPendingDeleteId] = useState<string | null>(null)
+  const [indexOpen, setIndexOpen] = useState(false)
   const pendingDeleteTimer = useRef<any>(null)
   const highlightTimer = useRef<any>(null)
   const presetRefs = useRef(new Map<string, HTMLElement>())
@@ -209,6 +210,20 @@ function HoldingsSectorSummaryImpl({
     return (b.createdAt || 0) - (a.createdAt || 0)
   })
 
+  // ── 集中度編輯註記（前 3 大合計）
+  const top3Pct = industryByValue.slice(0, 3).reduce((s: number, x: any) => s + x.pct, 0)
+  const concentrationNote = useMemo(() => {
+    if (industryByValue.length === 0) return ''
+    if (industryByValue.length <= 2) return ''
+    const p = Math.round(top3Pct)
+    if (top3Pct >= 70) return `前三大合計 ${p}%——集中度偏高。`
+    if (top3Pct >= 50) return `前三大合計 ${p}%——集中度略高。`
+    if (industryByValue.length > 6 && (industryByValue[0]?.pct ?? 0) < 20) {
+      return `共 ${industryByValue.length} 個產業且無明顯核心倉，追蹤成本較高。`
+    }
+    return `前三大合計 ${p}%——分佈尚均衡。`
+  }, [industryByValue, top3Pct])
+
   return (
     <section
       aria-label="持倉族群分佈"
@@ -220,36 +235,33 @@ function HoldingsSectorSummaryImpl({
         color: 'var(--cm-ink)',
       }}
     >
-      {/* ═══ 頂部欄：標籤 + 序 + 集中警示 ═══ */}
-      <div style={{ display: 'flex', alignItems: 'baseline', gap: 12, paddingBottom: 8 }}>
-        <span className="cm-label">SECTOR / 01</span>
-        <span
-          className="cm-serif"
-          style={{ fontSize: 18, lineHeight: 1, color: 'var(--cm-ink)' }}
-        >
-          產業分佈
-        </span>
-        <span style={{ fontSize: 11, color: 'var(--cm-ink-sec)', letterSpacing: '0.04em' }}>
-          依市值 · {industryByValue.length} 產業 / {holdings.length} 檔
-        </span>
-        {warnings.length > 0 && (
-          <span
+      {/* ═══ 節標：serif 標題 + 編輯註記 ═══ */}
+      <div style={{ borderTop: '1px solid var(--cm-ink)', padding: '14px 0 10px' }}>
+        <div style={{ display: 'flex', alignItems: 'baseline', justifyContent: 'space-between', gap: 12 }}>
+          <h3
+            className="cm-serif"
+            style={{ margin: 0, fontSize: 16, letterSpacing: 0, color: 'var(--cm-ink)' }}
+          >
+            產業分佈
+          </h3>
+          <span className="cm-label" style={{ color: 'var(--cm-ink-sec)', letterSpacing: '0.10em', fontSize: 10 }}>
+            {industryByValue.length} 產業 / {holdings.length} 檔 · 依市值
+          </span>
+        </div>
+        {concentrationNote && (
+          <div
+            className="cm-serif"
             style={{
-              marginLeft: 'auto',
-              fontSize: 10,
-              padding: '2px 8px',
-              letterSpacing: '0.14em',
-              fontWeight: 500,
-              border: `1px solid ${severe ? 'var(--cm-accent)' : 'var(--cm-hair-strong)'}`,
-              color: severe ? 'var(--cm-accent)' : 'var(--cm-ink-sec)',
-              background: 'transparent',
+              marginTop: 6, fontSize: 13, lineHeight: 1.55,
+              color: severe ? 'var(--cm-accent)' : 'var(--cm-ink-sub)',
+              letterSpacing: '0.01em',
             }}
           >
-            {severe ? '集中警示' : '留意集中度'}
-          </span>
+            {concentrationNote}
+          </div>
         )}
       </div>
-      <hr className="cm-rule" />
+
 
       {/* ═══ 已選條件 & 操作列 ═══ */}
       {hasActive && (
@@ -643,14 +655,14 @@ function HoldingsSectorSummaryImpl({
         </div>
       )}
 
-      {/* ═══ 100% 產業帶 ═══ */}
-      <div style={{ padding: '16px 0 6px' }}>
+      {/* ═══ 100% 產業帶（高 34px + 2px 白縫） ═══ */}
+      <div style={{ padding: '8px 0 6px' }}>
         <div
           role="img"
           aria-label={`產業市值分佈：${bandSegs.map((s) => `${s.key} ${s.pct.toFixed(0)}%`).join('、')}`}
           style={{
-            display: 'flex', width: '100%', height: 22,
-            border: '1px solid var(--cm-ink)', background: 'var(--cm-fill)',
+            display: 'flex', width: '100%', height: 34,
+            background: 'var(--cm-bg)',
           }}
         >
           {bandSegs.map((seg, i) => {
@@ -667,7 +679,7 @@ function HoldingsSectorSummaryImpl({
                 style={{
                   width: `${seg.pct}%`, height: '100%',
                   background: seg.color, border: 'none', padding: 0,
-                  borderRight: i < bandSegs.length - 1 ? '1px solid var(--cm-bg)' : 'none',
+                  marginRight: i < bandSegs.length - 1 ? 2 : 0,
                   cursor: isOthers ? 'default' : 'pointer',
                   outline: on ? '2px solid var(--cm-ink)' : 'none',
                   outlineOffset: -2, transition: 'filter 0.15s ease',
@@ -676,62 +688,99 @@ function HoldingsSectorSummaryImpl({
             )
           })}
         </div>
-        {/* 刻度 */}
+        {/* 帶下標籤列：前 3–4 名 + 其他 */}
         <div
-          aria-hidden
           style={{
-            display: 'flex', justifyContent: 'space-between',
-            fontSize: 9, color: 'var(--cm-ink-mute)',
-            marginTop: 3, letterSpacing: '0.14em',
+            display: 'flex', flexWrap: 'wrap', gap: '4px 14px',
+            marginTop: 8, fontSize: 11, color: 'var(--cm-ink-sub)',
+            letterSpacing: '0.02em',
           }}
         >
-          <span>0</span><span>25</span><span>50</span><span>75</span><span>100%</span>
+          {bandSegs.slice(0, 4).map((seg, i) => (
+            <span key={`lbl-${seg.key}-${i}`} style={{ display: 'inline-flex', alignItems: 'baseline', gap: 6 }}>
+              <span
+                aria-hidden
+                style={{ width: 8, height: 8, background: seg.color, display: 'inline-block' }}
+              />
+              <span>{seg.key}</span>
+              <span className="cm-num" style={{ color: 'var(--cm-ink)', fontWeight: 500 }}>
+                {seg.pct.toFixed(0)}%
+              </span>
+            </span>
+          ))}
+          {bandSegs.length > 4 && (
+            <span style={{ color: 'var(--cm-ink-sec)' }}>
+              其他 {bandSegs.slice(4).reduce((s, x) => s + x.pct, 0).toFixed(0)}%
+            </span>
+          )}
         </div>
       </div>
 
-      {/* ═══ 三欄索引 ═══ */}
-      <div
-        style={{
-          display: 'grid',
-          gridTemplateColumns: 'repeat(3, minmax(0, 1fr))',
-          gap: 0, marginTop: 16,
-          borderTop: '1px solid var(--cm-ink)',
-          borderBottom: '1px solid var(--cm-ink)',
-        }}
-      >
-        <ColumnIndex
-          title="產業"
-          rows={industryByValue.map((x: any) => ({
-            key: x.key,
-            primary: `${x.pct.toFixed(0)}%`,
-            secondary: `${x.count}檔`,
-          }))}
-          kind="industry"
-          isSelected={isSelected}
-          toggle={toggle}
-          colorFn={(i) => bandColor(i)}
-          isRight={false}
-        />
-        <ColumnIndex
-          title="題材"
-          rows={themeByCount.map((t: any) => ({ key: t.key, primary: `${t.count}`, secondary: '檔' }))}
-          kind="theme"
-          isSelected={isSelected}
-          toggle={toggle}
-          emptyText="無題材標籤"
-        />
-        <ColumnIndex
-          title="策略"
-          rows={strategyByCount.map((s: any) => ({ key: s.key, primary: `${s.count}`, secondary: '檔' }))}
-          kind="strategy"
-          isSelected={isSelected}
-          toggle={toggle}
-          isRight
-        />
+      {/* ═══ 索引 ↓（收合三欄清單 + 篩選預設） ═══ */}
+      <div style={{ marginTop: 10, borderTop: '1px solid var(--cm-hair)' }}>
+        <button
+          type="button"
+          onClick={() => setIndexOpen((v) => !v)}
+          aria-expanded={indexOpen}
+          className="cm-label"
+          style={{
+            display: 'flex', alignItems: 'center', gap: 6,
+            padding: '8px 0', background: 'transparent', border: 'none',
+            color: 'var(--cm-ink)', cursor: 'pointer', fontFamily: 'inherit',
+            letterSpacing: '0.14em', fontSize: 10,
+          }}
+        >
+          索引 {indexOpen ? '↑' : '↓'}
+          <span style={{ color: 'var(--cm-ink-mute)', marginLeft: 4 }}>
+            產業 {industryByValue.length} · 題材 {themeByCount.length} · 策略 {strategyByCount.length}
+          </span>
+        </button>
+        {indexOpen && (
+          <div
+            style={{
+              display: 'grid',
+              gridTemplateColumns: 'repeat(3, minmax(0, 1fr))',
+              gap: 0,
+              borderTop: '1px solid var(--cm-hair)',
+              borderBottom: '1px solid var(--cm-ink)',
+            }}
+          >
+            <ColumnIndex
+              title="產業"
+              rows={industryByValue.map((x: any) => ({
+                key: x.key,
+                primary: `${x.pct.toFixed(0)}%`,
+                secondary: `${x.count}檔`,
+              }))}
+              kind="industry"
+              isSelected={isSelected}
+              toggle={toggle}
+              accentFirst
+              isRight={false}
+            />
+            <ColumnIndex
+              title="題材"
+              rows={themeByCount.map((t: any) => ({ key: t.key, primary: `${t.count}`, secondary: '檔' }))}
+              kind="theme"
+              isSelected={isSelected}
+              toggle={toggle}
+              emptyText="無題材標籤"
+            />
+            <ColumnIndex
+              title="策略"
+              rows={strategyByCount.map((s: any) => ({ key: s.key, primary: `${s.count}`, secondary: '檔' }))}
+              kind="strategy"
+              isSelected={isSelected}
+              toggle={toggle}
+              isRight
+            />
+          </div>
+        )}
       </div>
 
+
       {/* ═══ 附註區 ═══ */}
-      {(singleHolding || warnings.length > 0 || overDiversified || unclassifiedCount > 0 || multiIndustryCount > 0) && (
+      {(singleHolding || overDiversified || unclassifiedCount > 0 || multiIndustryCount > 0) && (
         <div
           style={{
             marginTop: 12, paddingTop: 8,
@@ -742,13 +791,7 @@ function HoldingsSectorSummaryImpl({
           {singleHolding && (
             <div>— 僅 1 檔，暫無族群比較意義。</div>
           )}
-          {warnings.length > 0 && (
-            <div style={{ color: severe ? 'var(--cm-accent)' : 'var(--cm-ink-sec)' }}>
-              — 集中：{warnings.map((w: any) => `${w.key} ${w.count}檔 ${w.pct.toFixed(0)}%`).join('、')}
-              {severe && ' — 建議分散風險。'}
-            </div>
-          )}
-          {overDiversified && (
+          {overDiversified && !concentrationNote && (
             <div>— 產業數多且無明顯核心倉，追蹤成本較高，可考慮精簡。</div>
           )}
           {unclassifiedCount > 0 && (
@@ -765,7 +808,7 @@ function HoldingsSectorSummaryImpl({
 
 function ColumnIndex({
   title, rows, kind, isSelected, toggle,
-  colorFn, isRight, emptyText,
+  colorFn, isRight, emptyText, accentFirst,
 }: any) {
   return (
     <div
@@ -835,7 +878,9 @@ function ColumnIndex({
             <span
               className="cm-num"
               style={{
-                fontSize: 12, color: 'var(--cm-ink)', fontWeight: 500,
+                fontSize: 12,
+                color: accentFirst && i === 0 ? 'var(--cm-accent)' : 'var(--cm-ink)',
+                fontWeight: 500,
                 letterSpacing: '0.02em',
               }}
             >{r.primary}</span>
