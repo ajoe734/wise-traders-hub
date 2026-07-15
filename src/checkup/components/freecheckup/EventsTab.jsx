@@ -232,13 +232,14 @@ function UpcomingEventsBody({
           {/* 手動更新 + 自動更新狀態徽章（行事曆 + 預測） */}
           {(() => {
             const STATUS_LABEL = {
-              fetching: { txt: '⟳ 擷取中…', color: C.amber },
-              throttled: { txt: '⏱ 已節流（30 秒內已更新）', color: C.textMute },
-              'skipped-idempotent': { txt: '⊘ 已跳過（同批次進行中）', color: C.textMute },
-              aborted: { txt: '✕ 已中斷舊請求', color: C.textMute },
-              success: { txt: '✓ 完成', color: C.up },
-              error: { txt: '⚠ 失敗', color: C.amber },
+              fetching: { txt: '擷取中…', color: C.amber },
+              throttled: { txt: '已節流（30 秒內已更新）', color: C.textMute },
+              'skipped-idempotent': { txt: '已跳過（同批次進行中）', color: C.textMute },
+              aborted: { txt: '已中斷舊請求', color: C.textMute },
+              success: { txt: '完成', color: C.up },
+              error: { txt: '失敗', color: C.amber },
             };
+
             const cal = STATUS_LABEL[calendarAutoStatus.status];
             const pre = STATUS_LABEL[predictAutoStatus.status];
             const calBusy = calendarAutoStatus.status === 'fetching' || calendarLoading;
@@ -277,7 +278,7 @@ function UpcomingEventsBody({
                       cursor:calBusy||!holdings?.length||calCool>0?"not-allowed":"pointer",
                       opacity:calBusy||!holdings?.length||calCool>0?0.5:1,
                     }}
-                  >{calBusy ? '⟳ 更新中…' : (calCool>0 ? `↻ 冷卻中 ${calCoolSec}s` : '↻ 立刻更新行事曆')}</button>
+                  >{calBusy ? '更新中…' : (calCool>0 ? `冷卻中 ${calCoolSec}s` : '立刻更新行事曆')}</button>
                   <button
                     onClick={() => {
                       // demo 模式也允許測試事件預測
@@ -291,7 +292,7 @@ function UpcomingEventsBody({
                       cursor:preBusy||!newsEvents?.length||preCool>0?"not-allowed":"pointer",
                       opacity:preBusy||!newsEvents?.length||preCool>0?0.5:1,
                     }}
-                  >{preBusy ? '⟳ 預測中…' : (preCool>0 ? `↻ 冷卻中 ${preCoolSec}s` : '↻ 立刻預測事件')}</button>
+                  >{preBusy ? '預測中…' : (preCool>0 ? `冷卻中 ${preCoolSec}s` : '立刻預測事件')}</button>
 
                 </div>
                 {/* 狀態徽章 */}
@@ -311,7 +312,7 @@ function UpcomingEventsBody({
                             disabled={calRetryDisabled}
                             title={calBusy ? '正在更新中，請稍候' : (calCool>0 ? `冷卻中，${calCoolSec} 秒後可重試` : '重新嘗試擷取行事曆')}
                             style={retryBtnStyle(calRetryDisabled)}
-                          >{calBusy ? '⟳ 正在更新…' : (calCool>0 ? `↻ ${calCoolSec}s` : `↻ 重試 (${calendarRetry.count}/${RETRY_MAX})`)}</button>
+                          >{calBusy ? '正在更新…' : (calCool>0 ? `${calCoolSec}s` : `重試 (${calendarRetry.count}/${RETRY_MAX})`)}</button>
                         )}
                       </span>
                     )}
@@ -326,7 +327,7 @@ function UpcomingEventsBody({
                             disabled={preRetryDisabled}
                             title={preBusy ? '正在更新中，請稍候' : (preCool>0 ? `冷卻中，${preCoolSec} 秒後可重試` : '重新嘗試預測事件')}
                             style={retryBtnStyle(preRetryDisabled)}
-                          >{preBusy ? '⟳ 正在更新…' : (preCool>0 ? `↻ ${preCoolSec}s` : `↻ 重試 (${predictRetry.count}/${RETRY_MAX})`)}</button>
+                          >{preBusy ? '正在更新…' : (preCool>0 ? `${preCoolSec}s` : `重試 (${predictRetry.count}/${RETRY_MAX})`)}</button>
                         )}
                       </span>
                     )}
