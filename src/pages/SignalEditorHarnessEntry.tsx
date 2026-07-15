@@ -50,15 +50,18 @@ export default function SignalEditorHarnessEntry() {
     setName('');
     if (timer.current) clearTimeout(timer.current);
     if (normalized.trim().length >= spec.minSymbolLen) {
+      // Mark pending *immediately* so tests can wait for the true settled state.
+      setResolving(true);
       timer.current = setTimeout(async () => {
-        setResolving(true);
         try {
           const n = await resolveStockName(normalized.trim());
           if (n) setName(n);
         } finally {
           setResolving(false);
         }
-      }, 200); // shorter debounce than production to keep tests fast
+      }, 200);
+    } else {
+      setResolving(false);
     }
   };
 
