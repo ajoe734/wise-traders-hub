@@ -389,6 +389,14 @@ export default defineConfig({
       use: { ...devices['Desktop Chrome'], viewport: { width: w, height: 900 } },
     })),
 
+    // Batch F — Checkup token / accent / 字型 漂移守門 × 4 常見斷點
+    ...([390, 768, 1024, 1280] as const).map((w) => ({
+      name: `checkup-tokens-${w}`,
+      testMatch: /checkup-tokens-visual\.spec\.ts/,
+      use: { ...devices['Desktop Chrome'], viewport: { width: w, height: 900 } },
+    })),
+
+
     // 分享流程：短連結 redirect / og-card / ShareButton dropdown
     {
       name: 'desktop-share-short-link',
