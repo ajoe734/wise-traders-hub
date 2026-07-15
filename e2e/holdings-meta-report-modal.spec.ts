@@ -16,6 +16,7 @@ async function setupDemo(page: Page) {
     try {
       window.localStorage.setItem('checkup-coach-seen-v1', '1');
       window.localStorage.setItem('holdings-intro-video-seen-v2', '1');
+      window.localStorage.setItem('lf.checkup.onboarded', '1');
       window.sessionStorage.setItem('holdings-intro-video-dismissed-session', '1');
       window.localStorage.setItem('checkup-onboarding-tour-v1', 'done');
     } catch {}

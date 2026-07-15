@@ -29,6 +29,7 @@ async function gotoFreeCheckup(page: Page, testInfo?: TestInfo) {
       // 抑制 /holding-checkup 介紹影片 modal（demo 首次進入會 auto-open，
       // 覆蓋 .wb-card 導致 element screenshot 擷取到黑色 <video>，非卡片）。
       window.localStorage.setItem('holdings-intro-video-seen-v2', '1');
+      window.localStorage.setItem('lf.checkup.onboarded', '1');
       window.sessionStorage.setItem('holdings-intro-video-dismissed-session', '1');
     } catch {}
   });

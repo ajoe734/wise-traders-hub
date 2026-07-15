@@ -29,6 +29,7 @@ async function setupAuthenticated(page: Page) {
       window.localStorage.setItem(`sb-${ref}-auth-token`, JSON.stringify(session));
       window.localStorage.setItem('checkup-coach-seen-v1', '1');
       window.localStorage.setItem('holdings-intro-video-seen-v2', '1');
+      window.localStorage.setItem('lf.checkup.onboarded', '1');
       window.sessionStorage.setItem('holdings-intro-video-dismissed-session', '1');
       window.localStorage.removeItem('pf-holdings-v2');
     } catch {}

@@ -17,6 +17,7 @@ async function setupDemo(page: Page) {
       // 提前關掉所有 onboarding / coach / 影片，避免擋到匯出 summary 點擊
       window.localStorage.setItem('checkup-coach-seen-v1', '1');
       window.localStorage.setItem('holdings-intro-video-seen-v2', '1');
+      window.localStorage.setItem('lf.checkup.onboarded', '1');
       window.sessionStorage.setItem('holdings-intro-video-dismissed-session', '1');
       window.localStorage.setItem('checkup-onboarding-tour-v1', 'done');
     } catch {}
