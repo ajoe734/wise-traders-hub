@@ -11,6 +11,7 @@ import { CURRENCY_SYMBOL, normalizeCurrency, type Currency } from '@/lib/currenc
 import { getAssetSpec, normalizeAssetClass, type AssetClass } from '@/lib/asset';
 import { assetBadge } from '@/pages/_adminPerformance/types';
 import { FxHint } from '@/components/FxHint';
+import { InstrumentTooltip } from '@/components/InstrumentTooltip';
 
 interface Props {
   signal: any;
