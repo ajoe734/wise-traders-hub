@@ -3387,11 +3387,13 @@ ${JSON.stringify(strategyBrain || { rules: [], lessons: [], commonMistakes: [], 
                 <button
                   type="button"
                   className="cm-header-mobile-more"
+                  data-testid="checkup-mobile-more-cta"
                   aria-label="更多選項"
                   aria-haspopup="dialog"
                   aria-expanded={mobileActionsOpen}
                   onClick={() => setMobileActionsOpen(true)}
                 >⋯ 更多</button>
+
               </span>
             </div>
           </div>
