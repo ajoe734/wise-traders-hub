@@ -53,8 +53,8 @@ const handler = withLogging("checkup-warrant-sync", async (_req, log) => {
     if (!/^\d{6}$/.test(symbol)) continue;
 
     const name = get("權證名稱", "證券名稱");
-    const parent = get("標的證券代號", "標的代號");
-    const parent_code = /^\d{4,6}$/.test(parent) ? parent : null;
+    const parent = get("標的證券代號", "標的代號").toUpperCase();
+    const parent_code = /^\d{4,6}[A-Z]?$/.test(parent) ? parent : null;
 
     const rawDate = get("到期日");
     let expire_date: string | null = null;

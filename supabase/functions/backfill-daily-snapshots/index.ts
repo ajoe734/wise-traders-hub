@@ -85,7 +85,7 @@ Deno.serve(withLogging('backfill-daily-snapshots', async (req) => {
     } else {
       const { data, error } = await sb.from('current_prices').select('symbol').order('symbol')
       if (error) throw error
-      targetSymbols = (data ?? []).map((r: any) => r.symbol).filter((s: string) => /^\d{4,6}$/.test(s))
+      targetSymbols = (data ?? []).map((r: any) => r.symbol).filter((s: string) => /^\d{4,6}[A-Z]?$/i.test(s))
     }
     const monthList = monthsBack(months)
 

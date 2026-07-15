@@ -42,17 +42,18 @@ export function formatPriceByCurrency(n: number | null | undefined, c: Currency 
 
 
 const US_SYMBOL_RE = /^[A-Z]{1,5}(\.[A-Z])?$/;
-const TW_SYMBOL_RE = /^\d{4,6}$/;
+// 台股：4–6 位數字 + 選填 1 個大寫英文字母（涵蓋槓桿 L / 反向 R / 債券 B 等 ETF）
+const TW_SYMBOL_RE = /^\d{4,6}[A-Z]?$/;
 
 export function isValidSymbol(code: string, c: Currency): boolean {
-  const s = (code || '').trim();
+  const s = (code || '').trim().toUpperCase();
   if (!s) return false;
-  return c === 'USD' ? US_SYMBOL_RE.test(s.toUpperCase()) : TW_SYMBOL_RE.test(s);
+  return c === 'USD' ? US_SYMBOL_RE.test(s) : TW_SYMBOL_RE.test(s);
 }
 
 /** 給 placeholder / error message 用的範例代碼字串 */
 export function symbolPlaceholder(c: Currency): string {
-  return c === 'USD' ? '例：AAPL / TSLA' : '例：2330';
+  return c === 'USD' ? '例：AAPL / TSLA' : '例：2330 / 00631L';
 }
 
 /** 允許的單位下拉選項 */

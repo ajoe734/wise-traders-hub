@@ -75,7 +75,8 @@ export function TradeCard({
               value={t.stockCode}
               onChange={(e) => {
                 const raw = e.target.value;
-                const v = isUsd ? raw.toUpperCase() : raw;
+                // 一律 uppercase：TW 純數字為 no-op；ETF 字尾（L/R/B）需大寫；US 需大寫
+                const v = raw.toUpperCase();
                 updateTrade(idx, { stockCode: v });
                 if (v.trim().length >= (isUsd ? 1 : 4)) fetchStockInfo(idx, v);
               }}

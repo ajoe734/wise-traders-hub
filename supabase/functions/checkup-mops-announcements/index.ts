@@ -76,11 +76,11 @@ Deno.serve(withLogging('checkup-mops-announcements', async (req) => {
     const rowRegex = /<tr[^>]*>[\s\S]*?<td[^>]*>([\s\S]*?)<\/td>[\s\S]*?<td[^>]*>([\s\S]*?)<\/td>[\s\S]*?<td[^>]*>([\s\S]*?)<\/td>[\s\S]*?<td[^>]*>([\s\S]*?)<\/td>/gi;
     let match;
     while ((match = rowRegex.exec(html)) !== null) {
-      const code = match[1].replace(/<[^>]*>/g, '').trim();
+      const code = match[1].replace(/<[^>]*>/g, '').trim().toUpperCase();
       const name = match[2].replace(/<[^>]*>/g, '').trim();
       const time = match[3].replace(/<[^>]*>/g, '').trim();
       const title = match[4].replace(/<[^>]*>/g, '').trim();
-      if (code && title && /^\d{4,6}$/.test(code)) {
+      if (code && title && /^\d{4,6}[A-Z]?$/i.test(code)) {
         announcements.push({ code, name, type: inferType(title), title, time });
       }
     }
