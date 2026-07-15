@@ -342,7 +342,7 @@ export function SignalCreateDialog({
           {signalTemplates.length > 0 && (
             <div className="space-y-1.5">
               <Label className="text-xs text-muted-foreground">訊號模板</Label>
-              <div className="flex flex-wrap gap-1.5 max-h-16 overflow-y-auto">
+              <div data-testid="signal-template-group" className="flex flex-wrap gap-x-1.5 gap-y-2 max-h-16 overflow-y-auto p-0.5 -m-0.5">
                 {signalTemplates.map((tpl) => {
                   const actionColor: Record<string, string> = {
                     buy: 'border-success text-success hover:bg-success/10',
