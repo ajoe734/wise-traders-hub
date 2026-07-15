@@ -93,6 +93,8 @@ function activityToneClass(iso: string | null | undefined): string {
 
 export default function CompanyUsers() {
   const { user } = useAuth();
+  const navigate = useNavigate();
+
   const queryClient = useQueryClient();
   const [search, setSearch] = useState('');
   const [debouncedSearch, setDebouncedSearch] = useState('');
