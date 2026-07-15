@@ -89,6 +89,15 @@ export default function SignalEditorHarnessEntry() {
         placeholder={spec.symbolPlaceholder}
         style={{ width: '100%', padding: 8, fontSize: 16, border: '1px solid #ccc', borderRadius: 4 }}
       />
+      {autoUppercased && (
+        <p
+          data-testid="uppercase-hint"
+          aria-live="polite"
+          style={{ marginTop: 4, fontSize: 11, color: '#666' }}
+        >
+          已自動轉大寫
+        </p>
+      )}
 
       <div style={{ marginTop: 8, fontSize: 12 }} data-testid="editor-resolving">
         {resolving ? 'resolving…' : 'idle'}
