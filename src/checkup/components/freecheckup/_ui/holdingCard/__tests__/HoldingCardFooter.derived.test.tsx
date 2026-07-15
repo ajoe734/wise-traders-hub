@@ -239,13 +239,12 @@ describe('HoldingCardFooter — valueStr / tgtStr / todayNode 派生', () => {
     expect(vals[1]?.textContent).toBe('—');
   });
 
-  it('value=0 → toLocaleString 為 "0"（但因 || fallback 會顯示 —）', () => {
-    // 目前實作使用 || fallback，0 會被判為 falsy → —
+  it('value=0 → 因 `||` fallback 判定為 falsy 前的 toLocaleString="0"（truthy）→ 顯示 "0"', () => {
     const { container } = render(
       <HoldingCardFooter {...base} h={{ value: 0, price: 1 }} />,
     );
     const vals = container.querySelectorAll('.wb-bottom-val');
-    expect(vals[1]?.textContent).toBe('—');
+    expect(vals[1]?.textContent).toBe('0');
   });
 
   it('tgtStr: ink + tp + upside≥0 → "TGT +X.X%"', () => {
