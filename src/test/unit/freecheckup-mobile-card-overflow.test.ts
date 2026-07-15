@@ -23,6 +23,14 @@ beforeAll(() => {
     resolve(__dirname, '../../checkup/components/freecheckup/HoldingCard.tsx'),
     'utf8'
   );
+  const cardReturn = readFileSync(
+    resolve(__dirname, '../../checkup/components/freecheckup/_ui/holdingCard/HoldingCardReturn.tsx'),
+    'utf8'
+  );
+  const cardFooter = readFileSync(
+    resolve(__dirname, '../../checkup/components/freecheckup/_ui/holdingCard/HoldingCardFooter.tsx'),
+    'utf8'
+  );
   const tab = readFileSync(
     resolve(__dirname, '../../checkup/components/freecheckup/HoldingsTab.tsx'),
     'utf8'
@@ -33,8 +41,9 @@ beforeAll(() => {
   );
   SRC = main
     + '\n/* === HoldingCard.tsx === */\n' + card
+    + '\n/* === HoldingCardReturn.tsx === */\n' + cardReturn
+    + '\n/* === HoldingCardFooter.tsx === */\n' + cardFooter
     + '\n/* === HoldingsTab.tsx === */\n' + tab
-    // 把外部 CSS 包成 <style>{`...`}</style> 形式，讓 getAllCss() 一致萃取
     + '\n/* === holdingsTab.css === */\n<style>{`' + holdingsCss + '`}</style>';
 });
 
