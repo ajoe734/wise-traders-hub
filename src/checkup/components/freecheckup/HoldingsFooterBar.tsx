@@ -60,9 +60,8 @@ function HoldingsFooterBar({
               />
               <div style={{
                 position:'absolute', bottom:'calc(100% + 6px)', right:0, zIndex:50,
-                background:WB.surface, border:`1px solid ${WB.hairStrong}`, borderRadius:4,
+                background:WB.surface, border:`1px solid ${WB.hairStrong}`, borderRadius:0,
                 minWidth:140, padding:'6px 0',
-                boxShadow:'0 2px 12px rgba(0,0,0,0.04)',
               }}>
                 {SORT_OPTIONS.map(([k, l]) => {
                   const active = sortBy === k;
