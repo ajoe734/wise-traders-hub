@@ -23,6 +23,8 @@ import { SubscriptionTimeline } from '@/components/SubscriptionTimeline';
 import { useSubscriptionTimeline } from '@/hooks/useSubscriptionTimeline';
 import { useEffectiveUserId } from '@/hooks/useEffectiveUserId';
 import { UnavailableContent } from '@/components/UnavailableContent';
+import { parseInstrument } from '@/lib/instrument';
+import { resolveStockNames } from '@/lib/stockNameResolver';
 
 interface SignalDetail {
   id: string;
@@ -46,7 +48,7 @@ interface SignalDetail {
   };
 }
 
-const TradeItem = ({ signal }: { signal: SignalDetail }) => {
+const TradeItem = ({ signal, nameMap }: { signal: SignalDetail; nameMap: Record<string, string> }) => {
   const [expanded, setExpanded] = useState(false);
   const hasDetails = signal.reason_summary || signal.reason_detail || signal.risk_notes;
   const cur: Currency = normalizeCurrency(signal.currency);
@@ -55,6 +57,14 @@ const TradeItem = ({ signal }: { signal: SignalDetail }) => {
   const total = signal.price_hint != null && signal.quantity != null
     ? Number(signal.price_hint) * Number(signal.quantity)
     : null;
+
+  // 保留 ETF 字尾（L / R / B）+ 名稱回填：DB 若只存了代號（過去 fetchStockInfo 失敗過），
+  // 用 stock_names 補上人類可讀名稱。
+  const { code, name: nameFromInstrument } = parseInstrument(signal.instrument);
+  const resolvedName = nameFromInstrument || (code ? nameMap[code] : '') || '';
+  const displayInstrument = code
+    ? (resolvedName ? `${code} ${resolvedName}` : code)
+    : (signal.instrument || '');
 
   return (
     <div className="px-4 py-3">
@@ -65,7 +75,7 @@ const TradeItem = ({ signal }: { signal: SignalDetail }) => {
         <ActionBadge action={signal.action as any} size="sm" />
         <div className="flex-1 min-w-0">
           <div className="flex items-center gap-2 flex-wrap">
-            <span className="font-medium text-sm">{signal.instrument}</span>
+            <span className="font-medium text-sm" title={displayInstrument}>{displayInstrument}</span>
             <span className="text-xs text-muted-foreground">{format(new Date(signal.published_at), 'MM/dd')}</span>
             {(signal.price_hint != null || signal.quantity != null) && (
               <span className="text-xs text-foreground/80 font-medium">
@@ -180,6 +190,27 @@ const JournalDetail = () => {
   useEffect(() => {
     markAppJournalsAsRead();
   }, []);
+
+  // 名稱回填：若 instrument 只存了代號（例如 "00631L"）而沒有名稱，透過 stock_names
+  // 補上人類可讀名稱。使用 batch 查詢一次抓齊本週所有缺名的代號。
+  const [nameMap, setNameMap] = useState<Record<string, string>>({});
+  useEffect(() => {
+    const missingCodes = Array.from(new Set(
+      (weekSignals || [])
+        .map(s => {
+          const { code, name } = parseInstrument(s.instrument);
+          return code && !name ? code : null;
+        })
+        .filter((c): c is string => !!c),
+    ));
+    if (missingCodes.length === 0) return;
+    let cancelled = false;
+    resolveStockNames(missingCodes)
+      .then((map) => { if (!cancelled) setNameMap(prev => ({ ...prev, ...map })); })
+      .catch(() => { /* 靜默失敗：仍會顯示代號 */ });
+    return () => { cancelled = true; };
+  }, [weekSignals]);
+
 
   if (loading) {
     return (
@@ -451,7 +482,7 @@ const JournalDetail = () => {
               <CardContent className="p-0">
                 <div className="divide-y divide-border">
                   {weekSignals.map(ws => (
-                    <TradeItem key={ws.id} signal={ws} />
+                    <TradeItem key={ws.id} signal={ws} nameMap={nameMap} />
                   ))}
                 </div>
               </CardContent>
