@@ -3560,7 +3560,7 @@ ${JSON.stringify(strategyBrain || { rules: [], lessons: [], commonMistakes: [], 
             type="button"
             className="cm-upload-cta"
             data-testid="checkup-upload-cta"
-            onClick={()=>{setTab('trade');trackRaw('checkup_tab_change',{tab:'trade',via:'upload_cta'});window.scrollTo({top:0,behavior:"smooth"})}}
+            onClick={()=>{openUploadModal();trackRaw('checkup_tab_change',{tab:'trade',via:'upload_cta'});}}
             aria-label="上傳成交"
             style={{marginLeft:8}}
           >＋ 上傳</button>
