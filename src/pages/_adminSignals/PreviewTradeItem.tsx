@@ -39,8 +39,8 @@ export const PreviewTradeItem = ({
             const name = m ? m[2] : '';
             return (
               <span className="font-medium text-[13px] sm:text-sm break-words [overflow-wrap:anywhere] tracking-normal">
-                <span className="font-mono tabular-nums tracking-normal">{code}</span>
-                {name && <> <span className="tracking-tight">{name}</span></>}
+                <span data-testid="pti-code" className="font-mono tabular-nums tracking-normal">{code}</span>
+                {name && <> <span data-testid="pti-name" className="tracking-tight">{name}</span></>}
               </span>
             );
           })()}
