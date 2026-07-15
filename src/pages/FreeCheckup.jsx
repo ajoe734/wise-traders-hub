@@ -3280,7 +3280,7 @@ ${JSON.stringify(strategyBrain || { rules: [], lessons: [], commonMistakes: [], 
           ← 返回
         </button>
         {!isDemo && (
-          <button onClick={()=>navigate("/app")} style={{
+          <button onClick={()=>navigate("/app")} className="cm-header-desktop-only" style={{
             background:C.blue,border:"none",cursor:"pointer",padding:"4px 12px",borderRadius:6,
             color:"#fff",fontSize:12,fontWeight:500,display:"flex",alignItems:"center",gap:4,
           }}>
