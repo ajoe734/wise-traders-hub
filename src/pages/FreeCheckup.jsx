@@ -3135,6 +3135,19 @@ ${JSON.stringify(strategyBrain || { rules: [], lessons: [], commonMistakes: [], 
   const [showResetConfirm, setShowResetConfirm] = useState(false);
   // Batch D IA §2：手機頂欄「更多」sheet
   const [mobileActionsOpen, setMobileActionsOpen] = useState(false);
+  // ESC 關閉 + body overflow 鎖定（與 TradeUploadModal 同步）
+  useEffect(() => {
+    if (!mobileActionsOpen) return;
+    const onKey = (e) => { if (e.key === 'Escape') setMobileActionsOpen(false); };
+    document.addEventListener('keydown', onKey);
+    const prev = document.body.style.overflow;
+    document.body.style.overflow = 'hidden';
+    return () => {
+      document.removeEventListener('keydown', onKey);
+      document.body.style.overflow = prev;
+    };
+  }, [mobileActionsOpen]);
+
 
   const clearAnalysisAndLessons = () => {
     if (!confirm("確定要清除『歷史分析記錄』與『最近教訓』嗎？")) return;
