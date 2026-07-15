@@ -1,0 +1,509 @@
+### 掃描根：src/checkup/** + src/pages/FreeCheckup.jsx + src/pages/_freeCheckup/**
+
+## 1) box-shadow 違規（憲法：.checkup-mono 零陰影）
+src/checkup/styles/holdingsTab.css:139:  box-shadow: 0 0 0 4px rgba(255, 77, 31, 0.18);
+src/checkup/styles/holdingsTab.css:145:  box-shadow: 0 0 0 4px rgba(244, 241, 236, 0.22);
+src/checkup/components/HoldingsIntroVideo.jsx:170:          boxShadow: "0 16px 40px rgba(0,0,0,0.18)",
+src/checkup/components/Header.jsx:67:    boxShadow: `${C.insetLine}, ${C.shadow}`,
+src/checkup/components/Header.jsx:634:                  boxShadow: tab === t.k ? C.insetLine : 'none',
+src/checkup/DESIGN_SPEC.md:87:| `boxShadow` | 全面禁止（theme shadow 設為 `none`） |
+src/checkup/components/holdings/HoldingsPanel.tsx:12: * 3. 移除所有 boxShadow，用 24px 間距取代邊線
+src/checkup/components/Toast.jsx:98:            boxShadow: '0 4px 12px rgba(0,0,0,0.3)',
+src/checkup/components/common/Dialogs.jsx:45:          boxShadow: `${C.insetLine}, ${C.shadow}`,
+src/checkup/components/common/Dialogs.jsx:154:            boxShadow: `inset 0 0 0 1px ${alpha(accent, '25')}`,
+src/checkup/components/common/Base.jsx:11:    boxShadow: C.shadow,
+src/checkup/components/common/Base.jsx:35:      boxShadow: `${C.insetLine}, ${C.shadow}`,
+src/checkup/components/freecheckup/HoldingsFooterBar.tsx:65:                boxShadow:'0 2px 12px rgba(0,0,0,0.04)',
+
+## 2) borderRadius > 0 違規（憲法：零圓角；例外：圓鈕 999/50%）
+src/pages/FreeCheckup.jsx:3358:            background:C.blue,border:"none",cursor:"pointer",padding:"4px 12px",borderRadius:6,
+src/pages/FreeCheckup.jsx:3394:                        borderRadius:6, padding:"3px 10px", fontSize:11, fontWeight:500,
+src/pages/FreeCheckup.jsx:3409:                          borderRadius:6, padding:"3px 8px", fontSize:11, fontWeight:400,
+src/pages/FreeCheckup.jsx:3422:                  borderRadius:6, padding:"3px 8px", fontSize:11, fontWeight:600,
+src/pages/FreeCheckup.jsx:3431:                    borderRadius:6, padding:"3px 8px", fontSize:11, fontWeight:600,
+src/pages/FreeCheckup.jsx:3478:            borderRadius:6,
+src/pages/FreeCheckup.jsx:3520:              borderRadius:6,
+src/pages/FreeCheckup.jsx:3564:                      borderRadius:6, padding:'3px 8px', fontSize:11, fontWeight:600, cursor:'pointer',
+src/pages/FreeCheckup.jsx:3578:                border:'none', borderRadius:6, padding:'3px 10px',
+src/pages/FreeCheckup.jsx:3607:                borderRadius:6, padding:'3px 8px', fontSize:11, cursor:'pointer',
+src/pages/FreeCheckup.jsx:3624:                borderRadius:6, padding:'3px 8px', fontSize:11, cursor:'pointer',
+src/pages/FreeCheckup.jsx:3632:            borderRadius:4,padding:"7px 10px",marginBottom:10,
+src/pages/FreeCheckup.jsx:4031:            background:C.card, borderRadius:12, padding:"28px 24px", maxWidth:360, width:"100%",
+src/pages/FreeCheckup.jsx:4039:            <div style={{background:C.subtle,borderRadius:8,padding:"10px 14px",marginBottom:16,
+src/pages/FreeCheckup.jsx:4054:                borderRadius:8, padding:"10px 0", fontSize:13, fontWeight:400, cursor:"pointer",
+src/pages/FreeCheckup.jsx:4058:                borderRadius:8, padding:"10px 0", fontSize:13, fontWeight:500, cursor:"pointer",
+src/pages/FreeCheckup.jsx:4307:                        borderRadius:6,padding:"6px 12px",fontSize:14,minWidth:40,minHeight:36,
+src/pages/FreeCheckup.jsx:4326:                        borderRadius:6,padding:"6px 12px",fontSize:14,minWidth:40,minHeight:36,
+src/pages/FreeCheckup.jsx:4374:                    background:alpha(C.textMute,'04'),borderRadius:8,padding:"10px 12px",marginBottom:14,
+src/pages/FreeCheckup.jsx:4392:                          <span title="此產業/策略由 AI 研究覆蓋" style={{fontSize:9,padding:'1px 5px',border:`1px solid ${alpha(C.textMute,'30')}`,borderRadius:3,letterSpacing:'0.06em'}}>AI</span>
+src/pages/FreeCheckup.jsx:4402:                      <div style={{padding:"10px 12px",border:`1px solid ${alpha(C.textMute,'12')}`,borderRadius:8}}>
+src/pages/FreeCheckup.jsx:4430:                          <div key={idx} style={{display:"flex",justifyContent:"space-between",fontSize:11,color:C.textSec,padding:"4px 10px",background:alpha(C.textMute,'04'),borderRadius:4}}>
+src/pages/FreeCheckup.jsx:4446:                    <div style={{fontSize:12,color:C.textSec,lineHeight:1.7,padding:"8px 12px",background:alpha(C.textMute,'04'),borderRadius:6}}>
+src/pages/FreeCheckup.jsx:4475:                          background:C.text,color:C.bg,border:"none",borderRadius:6,
+src/pages/FreeCheckup.jsx:4507:                                <span style={{fontSize:9,color:e.source==='user'?C.blue:e.source==='ai'?C.teal:C.textMute,border:`1px solid ${alpha(e.source==='user'?C.blue:e.source==='ai'?C.teal:C.textMute,'25')}`,borderRadius:3,padding:"0 4px"}}>
+src/pages/_freeCheckup/constants.jsx:264:export const card  = { background:C.card, border:`1px solid ${C.border}`, borderRadius:10, padding:"14px 16px" };
+src/checkup/DESIGN_SPEC.md:91:| `borderRadius > 8px` | 避免「卡片感」 |
+src/checkup/components/TargetPriceHistorySection.jsx:42:          border: `1px solid ${alpha(C.textMute, '14')}`, borderRadius: 6,
+src/checkup/components/TargetPriceHistorySection.jsx:62:                padding: '4px 8px', background: alpha(C.textMute, '04'), borderRadius: 4,
+src/checkup/components/TargetPriceHistorySection.jsx:66:                  <span style={{ fontSize: 9, color: C.textMute, padding: '0 4px', border: `1px solid ${alpha(C.textMute, '20')}`, borderRadius: 2 }}>
+src/checkup/components/DemoBanner.jsx:130:              borderRadius: 6,
+src/checkup/components/DemoBanner.jsx:147:              borderRadius: 6,
+src/checkup/components/trade/TradePanel.jsx:39:      style: { maxWidth: '100%', maxHeight: '100%', objectFit: 'contain', borderRadius: 8 },
+src/checkup/components/trade/TradePanel.jsx:129:          borderRadius: 12,
+src/checkup/components/trade/TradePanel.jsx:162:                borderRadius: 8,
+src/checkup/components/trade/TradePanel.jsx:257:                borderRadius: 2,
+src/checkup/components/trade/TradePanel.jsx:330:                      borderRadius: 4,
+src/checkup/components/trade/TradePanel.jsx:366:            borderRadius: 10,
+src/checkup/components/trade/TradePanel.jsx:388:            borderRadius: 10,
+src/checkup/components/trade/TradePanel.jsx:537:              borderRadius: 8,
+src/checkup/components/trade/TradePanel.jsx:554:              borderRadius: 8,
+src/checkup/components/trade/TradePanel.jsx:580:              borderRadius: 8,
+src/checkup/components/trade/TradePanel.jsx:597:              borderRadius: 8,
+src/checkup/components/trade/TradePanel.jsx:614:              borderRadius: 8,
+src/checkup/components/trade/TradePanel.jsx:631:              borderRadius: 8,
+src/checkup/components/trade/TradePanel.jsx:651:              borderRadius: 8,
+src/checkup/components/trade/TradePanel.jsx:698:                      borderRadius: 7,
+src/checkup/components/trade/TradePanel.jsx:738:                  borderRadius: 4,
+src/checkup/components/trade/TradePanel.jsx:803:                  borderRadius: 6,
+src/checkup/components/trade/TradePanel.jsx:821:              borderRadius: 7,
+src/checkup/components/trade/TradePanel.jsx:860:                borderRadius: 6,
+src/checkup/components/trade/TradePanel.jsx:882:          borderRadius: 8,
+src/checkup/components/trade/TradePanel.jsx:903:            borderRadius: 8,
+src/checkup/components/trade/TradePanel.jsx:995:              borderRadius: 7,
+src/checkup/components/trade/TradePanel.jsx:1017:              borderRadius: 7,
+src/checkup/components/trade/TradePanel.jsx:1039:            borderRadius: 7,
+src/checkup/components/trade/TradePanel.jsx:1057:            borderRadius: 8,
+src/checkup/components/trade/TradePanel.jsx:1093:              borderRadius: 7,
+src/checkup/components/trade/TradePanel.jsx:1115:              borderRadius: 7,
+src/checkup/components/trade/TradePanel.jsx:1137:              borderRadius: 8,
+src/checkup/components/trade/TradePanel.jsx:1234:              borderRadius: 6,
+src/checkup/components/HoldingsIntroVideo.jsx:165:          borderRadius: 14,
+src/checkup/components/HoldingsIntroVideo.jsx:206:            borderRadius: 8,
+src/checkup/components/log/LogPanel.jsx:125:    borderRadius: 6,
+src/checkup/components/log/LogPanel.jsx:265:                      borderRadius: 4,
+src/checkup/components/log/LogPanel.jsx:373:                      borderRadius: 6,
+src/checkup/components/log/LogPanel.jsx:457:                        borderRadius: 6,
+src/checkup/components/log/LogPanel.jsx:481:                  borderRadius: 6,
+src/checkup/components/log/LogPanel.jsx:502:                  borderRadius: 6,
+src/checkup/components/log/LogPanel.jsx:522:                  borderRadius: 6,
+src/checkup/components/overview/OverviewPanel.jsx:14:  borderRadius: 20,
+src/checkup/components/overview/OverviewPanel.jsx:129:              borderRadius: 8,
+src/checkup/components/overview/OverviewPanel.jsx:307:              borderRadius: 8,
+src/checkup/components/DedupSettingsButton.tsx:83:            background: '#F5F3EF', borderRadius: 10, width: 360, maxWidth: '92vw',
+src/checkup/components/DedupSettingsButton.tsx:98:                    flex: 1, padding: '7px 10px', borderRadius: 6, fontSize: 12, cursor: 'pointer',
+src/checkup/components/DedupSettingsButton.tsx:105:                    flex: 1, padding: '7px 10px', borderRadius: 6, fontSize: 12, cursor: 'pointer',
+src/checkup/components/DedupSettingsButton.tsx:125:                style={{ padding: '6px 12px', fontSize: 12, borderRadius: 6, background: 'transparent', border: '1px solid rgba(0,0,0,0.12)', color: '#666', cursor: 'pointer' }}>
+src/checkup/components/DedupSettingsButton.tsx:129:                style={{ padding: '6px 14px', fontSize: 12, borderRadius: 6, background: '#1a1a1a', color: '#fff', border: 0, cursor: 'pointer' }}>
+src/checkup/components/Toast.jsx:94:            borderRadius: 8,
+src/checkup/components/holdings/HoldingsTable.jsx:99:          borderRadius: 10,
+src/checkup/components/holdings/HoldingsTable.jsx:294:                borderRadius: 6,
+src/checkup/components/holdings/HoldingsTable.jsx:333:                borderRadius: 6,
+src/checkup/components/Header.jsx:54:    borderRadius: 20,
+src/checkup/components/Header.jsx:65:    borderRadius: 10,
+src/checkup/components/Header.jsx:228:            borderRadius: 8,
+src/checkup/components/Header.jsx:343:                  borderRadius: 8,
+src/checkup/components/Header.jsx:470:                      borderRadius: 7,
+src/checkup/components/Header.jsx:496:                      borderRadius: 7,
+src/checkup/components/Header.jsx:523:                    borderRadius: 7,
+src/checkup/components/Header.jsx:545:                  borderRadius: 8,
+src/checkup/components/Header.jsx:564:            borderRadius: 6,
+src/checkup/components/Header.jsx:584:              borderRadius: 8,
+src/checkup/components/CoachMarks.jsx:120:          borderRadius: 14,
+src/checkup/components/CoachMarks.jsx:143:              flex:1, height:2, borderRadius:1,
+src/checkup/components/CoachMarks.jsx:154:            border:"none", borderRadius:8,
+src/checkup/components/holdings/HoldingsPanel.tsx:41:          borderRadius: 12,
+src/checkup/components/holdings/HoldingsPanel.tsx:159:        borderRadius: 4,
+src/checkup/components/holdings/HoldingsPanel.tsx:183:          borderRadius: 4,
+src/checkup/components/holdings/HoldingsPanel.tsx:244:          borderRadius: 3,
+src/checkup/components/holdings/HoldingsPanel.tsx:276:                borderRadius: 4,
+src/checkup/components/holdings/HoldingsPanel.tsx:294:            borderRadius: 4,
+src/checkup/components/holdings/HoldingsPanel.tsx:420:                  borderRadius: 1,
+src/checkup/components/holdings/HoldingsPanel.tsx:430:                    borderRadius: 1,
+src/checkup/components/ErrorBoundary.jsx:48:      borderRadius: 10,
+src/checkup/components/ErrorBoundary.jsx:81:            borderRadius: 6,
+src/checkup/components/reports/DailyReportPanel.jsx:48:    borderRadius: 5,
+src/checkup/components/reports/DailyReportPanel.jsx:86:            borderRadius: 8,
+src/checkup/components/reports/DailyReportPanel.jsx:105:            borderRadius: 8,
+src/checkup/components/reports/DailyReportPanel.jsx:155:          borderRadius: 2,
+src/checkup/components/reports/DailyReportPanel.jsx:164:          borderRadius: 2,
+src/checkup/components/reports/DailyReportPanel.jsx:302:                  borderRadius: 3,
+src/checkup/components/reports/DailyReportPanel.jsx:388:          style: { marginBottom: 10, background: C.subtle, borderRadius: 7, padding: '9px 11px' },
+src/checkup/components/reports/DailyReportPanel.jsx:449:          style: { marginBottom: 8, background: C.subtle, borderRadius: 7, padding: '9px 11px' },
+src/checkup/components/reports/DailyReportPanel.jsx:471:                  borderRadius: 3,
+src/checkup/components/reports/DailyReportPanel.jsx:486:                    borderRadius: 3,
+src/checkup/components/reports/DailyReportPanel.jsx:531:                borderRadius: 5,
+src/checkup/components/reports/DailyReportPanel.jsx:587:                borderRadius: 7,
+src/checkup/components/reports/DailyReportPanel.jsx:675:              borderRadius: 5,
+src/checkup/components/reports/DailyReportPanel.jsx:721:              borderRadius: 4,
+src/checkup/components/reports/DailyReportPanel.jsx:785:                  fontSize: 9, padding: '1px 5px', borderRadius: 3, fontWeight: 600,
+src/checkup/components/reports/DailyReportPanel.jsx:901:              borderRadius: 8,
+src/checkup/components/research/ResearchPanel.jsx:47:            borderRadius: 8,
+src/checkup/components/research/ResearchPanel.jsx:67:            borderRadius: 8,
+src/checkup/components/research/ResearchPanel.jsx:120:              borderRadius: 6,
+src/checkup/components/research/ResearchPanel.jsx:205:              borderRadius: 8,
+src/checkup/components/research/ResearchPanel.jsx:234:                borderRadius: 7,
+src/checkup/components/research/ResearchPanel.jsx:294:          borderRadius: 2,
+src/checkup/components/research/ResearchPanel.jsx:302:          borderRadius: 2,
+src/checkup/components/research/ResearchPanel.jsx:360:                borderRadius: 7,
+src/checkup/components/research/ResearchPanel.jsx:432:            borderRadius: 6,
+src/checkup/components/Form.jsx:9:  borderRadius: 8,
+src/checkup/components/freecheckup/HoldingsQuotaMeter.tsx:31:        border: `1px solid ${C.border}`, borderRadius: 10, background: C.card,
+src/checkup/components/freecheckup/HoldingsQuotaMeter.tsx:34:        <div style={{ height: 4, background: alpha(C.textMute, '18'), borderRadius: 2, overflow: 'hidden' }}>
+src/checkup/components/freecheckup/HoldingsQuotaMeter.tsx:87:      borderRadius: 10,
+src/checkup/components/freecheckup/HoldingsQuotaMeter.tsx:94:            padding: '2px 7px', border: `1px solid ${C.border}`, borderRadius: 4,
+src/checkup/components/freecheckup/HoldingsQuotaMeter.tsx:109:        <div style={{ height: 4, background: alpha(C.textMute, '18'), borderRadius: 2, overflow: 'hidden', marginBottom: 8 }}>
+src/checkup/components/freecheckup/HoldingsQuotaMeter.tsx:137:              letterSpacing: '0.02em', padding: '4px 10px', borderRadius: 4, fontWeight: 500,
+src/checkup/components/freecheckup/HoldingsQuotaMeter.tsx:144:              padding: '3px 8px', border: `1px solid ${alpha(C.blue, '40')}`, borderRadius: 4,
+src/checkup/components/freecheckup/HoldingsQuotaMeter.tsx:155:          borderRadius: 6,
+src/checkup/components/freecheckup/HoldingsQuotaMeter.tsx:170:          borderRadius: 6,
+src/checkup/components/freecheckup/HoldingsQuotaMeter.tsx:177:            padding: '4px 10px', borderRadius: 4, textDecoration: 'none', letterSpacing: '0.02em', whiteSpace: 'nowrap',
+src/checkup/components/freecheckup/HoldingsNoMatchState.tsx:15:        borderRadius:4,
+src/checkup/components/freecheckup/HoldingsNoMatchState.tsx:37:          borderRadius:2,
+src/checkup/components/common/Dialogs.jsx:44:          borderRadius: 14,
+src/checkup/components/common/Dialogs.jsx:211:          borderRadius: 8,
+src/checkup/components/common/DemoCTA.jsx:31:        borderRadius: 10,
+src/checkup/components/common/DemoCTA.jsx:52:          borderRadius: 6,
+src/checkup/components/common/Base.jsx:9:    borderRadius: 12,
+src/checkup/components/common/Base.jsx:33:      borderRadius: 8,
+src/checkup/components/common/Base.jsx:114:      borderRadius: 20,
+src/checkup/components/events/EventsPanel.jsx:94:            borderRadius: 20,
+src/checkup/components/events/EventsPanel.jsx:122:              borderRadius: 20,
+src/checkup/components/events/EventsPanel.jsx:153:              borderRadius: 9,
+src/checkup/components/events/EventsPanel.jsx:192:                  borderRadius: 20,
+src/checkup/components/events/EventsPanel.jsx:256:                  borderRadius: 8,
+src/checkup/components/events/EventsPanel.jsx:289:                  borderRadius: 8,
+src/checkup/components/events/EventsPanel.jsx:331:                  borderRadius: 8,
+src/checkup/components/events/EventsPanel.jsx:369:                  borderRadius: 8,
+src/checkup/components/events/EventsPanel.jsx:409:        borderRadius: 4,
+src/checkup/components/events/EventsPanel.jsx:418:        borderRadius: 3,
+src/checkup/components/events/EventsPanel.jsx:472:                  borderRadius: 12,
+src/checkup/components/events/EventsPanel.jsx:489:          borderRadius: 2,
+src/checkup/components/events/EventsPanel.jsx:498:          borderRadius: 2,
+src/checkup/components/events/EventsPanel.jsx:538:              borderRadius: 4,
+src/checkup/components/events/EventsPanel.jsx:553:                borderRadius: 3,
+src/checkup/components/events/EventsPanel.jsx:600:                    borderRadius: 4,
+src/checkup/components/events/EventsPanel.jsx:635:            borderRadius: 20,
+src/checkup/components/events/EventsPanel.jsx:670:            borderRadius: 20,
+src/checkup/components/freecheckup/HoldingsFooterBar.tsx:63:                background:WB.surface, border:`1px solid ${WB.hairStrong}`, borderRadius:4,
+src/checkup/components/freecheckup/HoldingsFooterBar.tsx:109:              fontSize:10, borderRadius:2, fontFamily:'inherit',
+src/checkup/components/freecheckup/HoldingsFooterBar.tsx:124:              fontSize:10, borderRadius:2, fontFamily:'inherit',
+src/checkup/components/freecheckup/HoldingsFilterBar.tsx:109:      borderRadius: 8, display: 'flex', flexDirection: 'column', gap: 10,
+src/checkup/components/freecheckup/HoldingsFilterBar.tsx:122:              borderRadius: 6, fontSize: 12, color: C.text,
+src/checkup/components/freecheckup/HoldingsFilterBar.tsx:164:              padding: '2px 4px 2px 8px', borderRadius: 4, fontSize: 11, fontWeight: 400,
+src/checkup/components/freecheckup/TradeTab.jsx:143:            background:C.card, border:`1px solid ${C.border}`, borderRadius:14,
+src/checkup/components/freecheckup/TradeTab.jsx:159:              <div style={{height:3,background:alpha(C.textMute,'22'),borderRadius:2,overflow:"hidden"}}>
+src/checkup/components/freecheckup/TradeTab.jsx:173:        <div style={{marginBottom:16, padding:"20px 16px", background:alpha(C.amber,'06'), borderRadius:10, textAlign:"center"}}>
+src/checkup/components/freecheckup/TradeTab.jsx:182:            borderRadius:8, padding:"10px 24px", fontSize:13, fontWeight:500,
+src/checkup/components/freecheckup/TradeTab.jsx:194:          borderRadius:10,
+src/checkup/components/freecheckup/TradeTab.jsx:218:              borderRadius:8, padding:"6px 14px", fontSize:11, fontWeight:500,
+src/checkup/components/freecheckup/TradeTab.jsx:240:              borderRadius:12,padding:"28px 16px",textAlign:"center",cursor:"pointer",
+src/checkup/components/freecheckup/TradeTab.jsx:252:                borderRadius:8,objectFit:"contain",marginBottom:8}}/>
+src/checkup/components/freecheckup/TradeTab.jsx:263:              width:"100%",padding:"13px",borderRadius:10,
+src/checkup/components/freecheckup/TradeTab.jsx:276:              borderRadius:10, padding:'10px 12px',
+src/checkup/components/freecheckup/TradeTab.jsx:291:              <div style={{height:3,background:alpha(C.textMute,'22'),borderRadius:2,overflow:'hidden'}}>
+src/checkup/components/freecheckup/TradeTab.jsx:304:            border:`1px solid ${alpha(C.up,'44')}`, borderRadius:10,
+src/checkup/components/freecheckup/TradeTab.jsx:431:                        padding: "3px 10px", borderRadius: 4,
+src/checkup/components/freecheckup/TradeTab.jsx:496:                borderRadius:7,padding:"8px 10px"}}>
+src/checkup/components/freecheckup/TradeTab.jsx:518:                borderRadius: 8,
+src/checkup/components/freecheckup/TradeTab.jsx:538:                  borderRadius:6,padding:"8px 10px",lineHeight:1.6}}>{a}</div>
+src/checkup/components/freecheckup/TradeTab.jsx:548:                borderRadius:8, padding:"10px", color:C.text, fontSize:14,
+src/checkup/components/freecheckup/TradeTab.jsx:552:              width:"100%", padding:"12px", border:"none", borderRadius:8,
+src/checkup/components/freecheckup/TradeTab.jsx:605:                    borderRadius:7,padding:"8px 10px",color:C.text,fontSize:14,outline:"none",fontFamily:"inherit"}}/>
+src/checkup/components/freecheckup/TradeTab.jsx:613:                    borderRadius:7,padding:"8px 10px",color:C.text,fontSize:14,outline:"none",fontFamily:"inherit"}}/>
+src/checkup/components/freecheckup/TradeTab.jsx:621:                  borderRadius:7,padding:"8px 10px",color:C.text,fontSize:14,outline:"none",fontFamily:"inherit"}}/>
+src/checkup/components/freecheckup/TradeTab.jsx:626:                width:"100%",padding:"10px",border:"none",borderRadius:8,
+src/checkup/components/news/NewsPanel.jsx:72:                    borderRadius: 4,
+src/checkup/components/news/NewsPanel.jsx:99:                    borderRadius: 6,
+src/checkup/components/news/NewsPanel.jsx:144:              borderRadius: 4,
+src/checkup/components/news/NewsPanel.jsx:181:                borderRadius: 5,
+src/checkup/components/news/NewsPanel.jsx:261:                  borderRadius: 7,
+src/checkup/components/news/NewsPanel.jsx:286:                borderRadius: 7,
+src/checkup/components/news/NewsPanel.jsx:310:                borderRadius: 7,
+src/checkup/components/news/NewsPanel.jsx:330:                borderRadius: 8,
+src/checkup/components/freecheckup/ResearchTab.jsx:34:      padding: '8px 14px', borderRadius: 8, fontSize: 12, fontWeight: 500,
+src/checkup/components/freecheckup/ResearchTab.jsx:71:              padding: '6px 10px', borderRadius: 6, fontSize: 11,
+src/checkup/components/freecheckup/ResearchTab.jsx:82:            padding: 10, borderRadius: 6, background: alpha(C.text, '04'),
+src/checkup/components/freecheckup/ResearchTab.jsx:102:          padding: 10, borderRadius: 6, background: alpha(C.text, '04'),
+src/checkup/components/freecheckup/HoldingExportCard.tsx:69:            padding: '4px 12px', letterSpacing: '0.22em', fontWeight: 700, borderRadius: 2,
+src/checkup/components/freecheckup/HoldingExportCard.tsx:103:            background: WB.ink, color: '#F4F1EC', padding: '28px 32px', borderRadius: 4,
+src/checkup/components/freecheckup/HoldingExportCard.tsx:142:              borderRadius: 3,
+src/checkup/components/freecheckup/HoldingExportCard.tsx:150:            <div style={{ padding: '18px 22px', border: `1px solid ${WB.hair}`, borderRadius: 3 }}>
+src/checkup/components/freecheckup/HoldingExportCard.tsx:153:                {nextEvent.date && <span style={{ fontSize: 12, color: WB.surface, background: WB.accent, padding: '3px 10px', letterSpacing: '0.18em', fontWeight: 700, borderRadius: 2 }}>{nextEvent.date}</span>}
+src/checkup/components/freecheckup/HoldingsEmptyState.tsx:51:        borderRadius:4,
+src/checkup/components/freecheckup/HoldingsEmptyState.tsx:78:            borderRadius:4,
+src/checkup/components/freecheckup/HoldingsEmptyState.tsx:108:          borderRadius:2,
+src/checkup/components/freecheckup/NewsTab.jsx:72:        <div style={{marginBottom:12,padding:"12px 14px",background:alpha(C.amber,'06'),border:`1px solid ${alpha(C.amber,'25')}`,borderRadius:8}}>
+src/checkup/components/freecheckup/NewsTab.jsx:76:            <button onClick={() => { try { startLineLogin?.(); } catch { navigate('/auth/login?redirect=/checkup'); } }} style={{background:"#06C755",color:"#fff",border:"none",borderRadius:6,padding:"5px 12px",fontSize:11,fontWeight:500,cursor:"pointer",letterSpacing:"0.02em"}}>LINE 登入解鎖</button>
+src/checkup/components/freecheckup/NewsTab.jsx:77:            <button onClick={() => navigate('/auth/login?redirect=/checkup')} style={{background:"transparent",color:C.text,border:`1px solid ${C.border}`,borderRadius:6,padding:"5px 12px",fontSize:11,fontWeight:400,cursor:"pointer",letterSpacing:"0.02em"}}>Email 登入</button>
+src/checkup/components/freecheckup/NewsTab.jsx:89:          <div key={l} style={{background:bg,border:`1px solid ${C.border}`,borderRadius:10,padding:"10px 11px"}}>
+src/checkup/components/freecheckup/NewsTab.jsx:98:        width:"100%",padding:"10px",marginBottom:10,borderRadius:8,
+src/checkup/components/freecheckup/NewsTab.jsx:114:                  borderRadius:7,padding:"8px 10px",color:C.text,fontSize:14,outline:"none",fontFamily:"inherit"}}/>
+src/checkup/components/freecheckup/NewsTab.jsx:131:                        color:C.blue,fontSize:11,padding:"2px 8px",borderRadius:5,
+src/checkup/components/freecheckup/NewsTab.jsx:151:                  borderRadius:7,padding:"8px 10px",color:C.text,fontSize:14,outline:"none",fontFamily:"inherit"}}/>
+src/checkup/components/freecheckup/NewsTab.jsx:159:                borderRadius:7,padding:"8px 10px",color:C.text,fontSize:14,outline:"none",fontFamily:"inherit"}}/>
+src/checkup/components/freecheckup/NewsTab.jsx:166:                borderRadius:7,padding:8,color:C.text,fontSize:13,resize:"none",
+src/checkup/components/freecheckup/NewsTab.jsx:174:                  style={{flex:1,padding:"6px",borderRadius:6,fontSize:12,fontWeight:500,cursor:"pointer",
+src/checkup/components/freecheckup/NewsTab.jsx:188:                borderRadius:7,padding:8,color:C.text,fontSize:13,resize:"none",
+src/checkup/components/freecheckup/NewsTab.jsx:193:            style={{width:"100%",padding:"10px",borderRadius:8,border:"none",fontSize:14,
+src/checkup/components/freecheckup/NewsTab.jsx:221:                width:"100%",padding:"8px 0",border:`1px dashed ${C.border}`,borderRadius:8,
+src/checkup/components/freecheckup/NewsTab.jsx:245:              width:"100%",padding:"8px 0",border:`1px dashed ${C.border}`,borderRadius:8,
+src/checkup/components/freecheckup/NewsTab.jsx:262:              width:"100%",padding:"8px 0",border:`1px dashed ${C.border}`,borderRadius:8,
+src/checkup/components/freecheckup/NewsEventRow.jsx:61:        borderRadius: 10,
+src/checkup/components/freecheckup/NewsEventRow.jsx:113:                      borderRadius: 3,
+src/checkup/components/freecheckup/NewsEventRow.jsx:170:                    borderRadius: 3,
+src/checkup/components/freecheckup/NewsEventRow.jsx:187:              borderRadius: 7,
+src/checkup/components/freecheckup/NewsEventRow.jsx:211:                borderRadius: 7,
+src/checkup/components/freecheckup/NewsEventRow.jsx:236:                borderRadius: 7,
+src/checkup/components/freecheckup/NewsEventRow.jsx:260:                borderRadius: 8,
+src/checkup/components/freecheckup/NewsEventRow.jsx:277:                borderRadius: 8,
+src/checkup/components/freecheckup/NewsEventRow.jsx:296:                        borderRadius: 6,
+src/checkup/components/freecheckup/NewsEventRow.jsx:345:                    borderRadius: 7,
+src/checkup/components/freecheckup/NewsEventRow.jsx:370:                    borderRadius: 7,
+src/checkup/components/freecheckup/NewsEventRow.jsx:391:                    borderRadius: 7,
+src/checkup/components/freecheckup/NewsEventRow.jsx:405:                    borderRadius: 7,
+src/checkup/components/freecheckup/DailyTab.jsx:166:              margin:"0 0 14px",padding:"14px 16px",borderRadius:8,
+src/checkup/components/freecheckup/DailyTab.jsx:196:                    padding:"6px 14px",borderRadius:6,
+src/checkup/components/freecheckup/DailyTab.jsx:206:                  padding:"6px 14px",borderRadius:6,
+src/checkup/components/freecheckup/DailyTab.jsx:277:              <div style={{width:"100%",height:2,background:alpha(C.textMute,'08'),borderRadius:1,marginTop:16,overflow:"hidden"}}>
+src/checkup/components/freecheckup/DailyTab.jsx:278:                <div style={{height:"100%",borderRadius:1,
+src/checkup/components/freecheckup/DailyTab.jsx:290:              borderRadius:12,padding:"18px 18px 16px",marginBottom:14}}>
+src/checkup/components/freecheckup/DailyTab.jsx:294:                    <button onClick={()=>setDailyReport(null)} style={{fontSize:11,padding:"3px 8px",borderRadius:6,border:"none",background:"transparent",color:C.textSec,cursor:"pointer",fontWeight:600}}>← 返回</button>
+src/checkup/components/freecheckup/DailyTab.jsx:393:              style={{background:C.card, borderRadius:10, width:'min(640px, 100%)',
+src/checkup/components/freecheckup/DailyTab.jsx:507:                  }} style={{fontSize:11,padding:"3px 8px",borderRadius:4,border:"none",background:"transparent",color:C.textMute,cursor:"pointer",fontWeight:400}}>
+src/checkup/components/freecheckup/DailyTab.jsx:515:                  }} style={{fontSize:11,padding:"3px 8px",borderRadius:4,border:"none",background:"transparent",color:C.textMute,cursor:"pointer",fontWeight:400}}>
+src/checkup/components/freecheckup/DailyTab.jsx:574:                        }} style={{marginTop:4,padding:"4px 10px",borderRadius:4,border:"none",
+src/checkup/components/freecheckup/BatchParsePanel.jsx:65:      borderRadius: 12,
+src/checkup/components/freecheckup/BatchParsePanel.jsx:79:              padding: '6px 12px', borderRadius: 8, border: `1px solid ${C?.border || '#E5E0D8'}`,
+src/checkup/components/freecheckup/BatchParsePanel.jsx:85:              padding: '6px 12px', borderRadius: 8, border: '1px solid #C97B3A',
+src/checkup/components/freecheckup/BatchParsePanel.jsx:113:        borderRadius: 8,
+src/checkup/components/freecheckup/BatchParsePanel.jsx:138:                    borderRadius: 4, border: `1px solid ${C?.border || '#E5E0D8'}`,
+src/checkup/components/freecheckup/BatchParsePanel.jsx:142:                  <div style={{ width: 36, height: 36, borderRadius: 4, background: alpha(C?.text || '#292520', '08'), flexShrink: 0 }} />
+src/checkup/components/freecheckup/BatchParsePanel.jsx:162:                      padding: '4px 8px', borderRadius: 6,
+src/checkup/components/freecheckup/HoldingMetaReportModal.tsx:20:  borderRadius: 4,
+src/checkup/components/freecheckup/HoldingMetaReportModal.tsx:213:          borderRadius: 6,
+src/checkup/components/freecheckup/HoldingMetaReportModal.tsx:302:  borderRadius: 4,
+src/checkup/components/freecheckup/HoldingMetaReportModal.tsx:311:  borderRadius: 4,
+src/checkup/components/freecheckup/EventsTab.jsx:223:            <div style={{marginBottom:12,padding:"12px 14px",background:alpha(C.amber,'06'),border:`1px solid ${alpha(C.amber,'25')}`,borderRadius:8}}>
+src/checkup/components/freecheckup/EventsTab.jsx:227:                <button onClick={() => { try { startLineLogin?.(); } catch { navigate('/auth/login?redirect=/checkup'); } }} style={{background:"#06C755",color:"#fff",border:"none",borderRadius:6,padding:"5px 12px",fontSize:11,fontWeight:500,cursor:"pointer",letterSpacing:"0.02em"}}>LINE 登入解鎖</button>
+src/checkup/components/freecheckup/EventsTab.jsx:228:                <button onClick={() => navigate('/auth/login?redirect=/checkup')} style={{background:"transparent",color:C.text,border:`1px solid ${C.border}`,borderRadius:6,padding:"5px 12px",fontSize:11,fontWeight:400,cursor:"pointer",letterSpacing:"0.02em"}}>Email 登入</button>
+src/checkup/components/freecheckup/EventsTab.jsx:256:              border:`1px solid ${alpha(C.amber, disabled?'33':'66')}`,borderRadius:4,
+src/checkup/components/freecheckup/EventsTab.jsx:275:                      border:`1px solid ${alpha(C.textMute,'33')}`,borderRadius:6,
+src/checkup/components/freecheckup/EventsTab.jsx:289:                      border:`1px solid ${alpha(C.textMute,'33')}`,borderRadius:6,
+src/checkup/components/freecheckup/EventsTab.jsx:302:                    borderRadius:6,fontSize:11,fontWeight:500,letterSpacing:"0.02em",
+src/checkup/components/freecheckup/EventsTab.jsx:341:                    borderRadius:6,fontSize:11,lineHeight:1.6,
+src/checkup/components/freecheckup/EventsTab.jsx:366:                    borderRadius:6,fontSize:11,lineHeight:1.6,
+src/checkup/components/freecheckup/EventsTab.jsx:391:                    borderRadius:6,
+src/checkup/components/freecheckup/EventsTab.jsx:453:                                    fontSize:10,padding:"2px 6px",borderRadius:10,
+src/checkup/components/freecheckup/EventsTab.jsx:462:                                marginBottom:6,padding:"6px 8px",borderRadius:4,
+src/checkup/components/freecheckup/EventsTab.jsx:498:                                        fontSize:10,padding:"2px 8px",borderRadius:3,
+src/checkup/components/freecheckup/EventsTab.jsx:505:                                    margin:0,padding:6,borderRadius:3,
+src/checkup/components/freecheckup/EventsTab.jsx:525:                                    borderRadius:4,
+src/checkup/components/freecheckup/EventsTab.jsx:558:                    borderRadius:6,
+src/checkup/components/freecheckup/EventsTab.jsx:666:                  borderRadius:20,padding:"3px 11px",fontSize:12,fontWeight:500,cursor:"pointer",
+src/checkup/components/freecheckup/EventsTab.jsx:715:                    width:"100%",padding:"8px 0",border:`1px dashed ${C.border}`,borderRadius:8,
+src/checkup/components/freecheckup/HoldingsTab.tsx:230:        <div style={{marginBottom:12,padding:"12px 14px",background:alpha(C.amber,'06'),border:`1px solid ${alpha(C.amber,'25')}`,borderRadius:8}}>
+src/checkup/components/freecheckup/HoldingsTab.tsx:234:            <button onClick={() => { try { startLineLogin?.(); } catch { navigate('/auth/login?redirect=/checkup'); } }} style={{background:"#06C755",color:"#fff",border:"none",borderRadius:6,padding:"5px 12px",fontSize:11,fontWeight:500,cursor:"pointer",letterSpacing:"0.02em"}}>LINE 登入解鎖</button>
+src/checkup/components/freecheckup/HoldingsTab.tsx:235:            <button onClick={() => navigate('/auth/login?redirect=/checkup')} style={{background:"transparent",color:C.text,border:`1px solid ${C.border}`,borderRadius:6,padding:"5px 12px",fontSize:11,fontWeight:400,cursor:"pointer",letterSpacing:"0.02em"}}>Email 登入</button>
+src/checkup/components/freecheckup/HoldingsReversalSection.tsx:28:    borderRadius: 6, padding: '6px 8px', color: C.text, fontSize: 13, outline: 'none', fontFamily: 'inherit',
+src/checkup/components/freecheckup/HoldingsReversalSection.tsx:42:            padding: '3px 9px', borderRadius: 5, fontSize: 11, cursor: 'pointer',
+src/checkup/components/freecheckup/HoldingsReversalSection.tsx:55:        <div style={{ marginTop: 8, background: C.subtle, borderRadius: 7, padding: 10 }}>
+src/checkup/components/freecheckup/HoldingsReversalSection.tsx:85:              width: '100%', padding: '8px', borderRadius: 6, border: `1px solid ${C.border}`,
+src/checkup/components/freecheckup/HoldingsUploadSummary.tsx:21:        borderRadius: 8,
+
+## 3) Emoji 違規（憲法：零 emoji；例外：純訊息文案可保留）
+src/pages/FreeCheckup.jsx:426:        setSaved('✅ DEMO 模擬報價已更新');
+src/pages/FreeCheckup.jsx:456:        setSaved(`✅ 排程已執行：拉取 ${data.prices_fetched ?? 0} 檔報價`);
+src/pages/FreeCheckup.jsx:483:    setSaved(`✕ 排程失敗：${lastErr}`);
+src/pages/FreeCheckup.jsx:504:      setSaved('✓ 報價已齊，無需補抓');
+src/pages/FreeCheckup.jsx:527:        setSaved(`✓ 全部補齊（${codes.length} 檔）`);
+src/pages/FreeCheckup.jsx:550:      setSaved(`✕ 補抓失敗：${msg}`);
+src/pages/FreeCheckup.jsx:1116:          toast.success('📊 背景收盤分析完成，可重新整理頁面檢視', { duration: 8000 });
+src/pages/FreeCheckup.jsx:1916:        ? { type: 'search', label: '📋 持倉列表（篩選結果）' }
+src/pages/FreeCheckup.jsx:1917:        : { type: 'list', label: '📋 持倉列表' });
+src/pages/FreeCheckup.jsx:2045:        setSaved(`✅ ${updated}/${total} 檔已更新（${missedNames.slice(0,3).join('、')}${missedNames.length>3?'…':''} 暫無報價）`);
+src/pages/FreeCheckup.jsx:2049:        setSaved(`✅ ${updated} 檔股價已更新`);
+src/pages/FreeCheckup.jsx:2057:      setSaved(`✕ 刷新失敗：${msg}`);
+src/pages/FreeCheckup.jsx:2343:${autoVerified.map(v => `- ${v.title}：預測${v.pred==="up"?"看漲":"看跌"} → 實際${v.actual==="up"?"漲":"跌"} → ${v.correct?"✓正確":"✗有誤"}`).join("\n")}` : ""}
+src/pages/FreeCheckup.jsx:2477:      setSaved("❌ 分析失敗");
+src/pages/FreeCheckup.jsx:2554:    setSaved("✅ 復盤已儲存");
+src/pages/FreeCheckup.jsx:2580:    setSaved("✅ 事件已新增");
+src/pages/FreeCheckup.jsx:2590:    setSaved("✅ 反轉條件已儲存");
+src/pages/FreeCheckup.jsx:3055:          setSaved("✅ 成交已更新到持倉與記錄");
+src/pages/FreeCheckup.jsx:3063:          // ✨ 解析成功後自動拉一次 TWSE 即時報價，避免依賴截圖內 market_price
+src/pages/FreeCheckup.jsx:3116:    setSaved("✅ 已儲存備忘錄");
+src/pages/FreeCheckup.jsx:3222:    setSaved("🧹 已清除歷史分析與最近教訓");
+src/pages/FreeCheckup.jsx:3253:    setSaved("🗑️ 已全部清除");
+src/pages/FreeCheckup.jsx:3485:              {refreshStatus.phase==='done' && refreshStatus.fail===0 && '✓ 報價同步完成'}
+src/pages/FreeCheckup.jsx:3487:              {refreshStatus.phase==='error' && '✕ 同步失敗'}
+src/pages/FreeCheckup.jsx:3541:                ✕ {syncError.message}
+src/pages/FreeCheckup.jsx:3550:                {syncError.exhausted ? '　⚠︎ 建議重新整理或稍後再試' : ''}
+src/pages/FreeCheckup.jsx:3608:              }}>{syncCopyState === 'copied' ? '✓ 已複製' : '複製錯誤內容'}</button>
+src/pages/FreeCheckup.jsx:4223:            const srcLabel = drawerSource?.label || '📋 持倉列表';
+src/pages/FreeCheckup.jsx:4411:                          {dec.hasConflict && <span style={{color:C.down}}>⚠ 存在衝突</span>}
+src/pages/FreeCheckup.jsx:4541:                  <button onClick={safeCloseDrawer}>✕ 關閉</button>
+src/pages/_freeCheckup/constants.jsx:80:    text = '🔴 Gateway 與直連配額皆用盡：補值 Lovable Gateway 或升級 Gemini API 方案後再試。';
+src/pages/_freeCheckup/constants.jsx:83:    text = '🟡 Lovable Gateway 配額用盡：建議立即切換直連 Gemini（無需等待）。';
+src/pages/_freeCheckup/constants.jsx:85:    text = `🟡 限流：等待 ${policy.waitSec}s 後重試，最多 ${policy.maxRetries} 次（指數退避）。`;
+src/pages/_freeCheckup/constants.jsx:87:    text = `🟡 服務忙碌：等待 ${policy.waitSec}s 後重試，可考慮切換另一條路徑。`;
+src/pages/_freeCheckup/constants.jsx:89:    text = '🔴 模型不可用：請改用其他模型（如 gemini-2.5-flash），勿原樣重試。';
+src/pages/_freeCheckup/constants.jsx:91:    text = '🔴 認證失敗：檢查 LOVABLE_API_KEY 或 GOOGLE_GEMINI_API_KEY 是否有效，重試無意義。';
+src/pages/_freeCheckup/constants.jsx:93:    text = `🔴 服務端錯誤：等待 ${policy.waitSec}s 後重試最多 ${policy.maxRetries} 次。`;
+src/pages/_freeCheckup/constants.jsx:95:    text = `🟡 網路錯誤：檢查連線後等待 ${policy.waitSec}s 重試（最多 ${policy.maxRetries} 次）。`;
+src/pages/_freeCheckup/constants.jsx:97:    text = '🟡 多種錯誤混合：建議延後重試；持續失敗請切換直連或檢查金鑰。';
+src/pages/_freeCheckup/constants.jsx:144:  { code:"6274", name:"台燿",    price:505,   target:710,  status:"⚡今日法說", catalyst:"3/18法說+財報",  note:"成本507；毛利率回沖→補足2/3；展望差→停損430" },
+src/checkup/DESIGN_SPEC.md:69:- ✅ 損益金額（`C.up` / `C.down`）
+src/checkup/DESIGN_SPEC.md:70:- ✅ 損益百分比（同上，`opacity:0.6-0.7`）
+src/checkup/DESIGN_SPEC.md:71:- ✅ 事件/交易分頁的功能按鈕（`C.blue` 等，僅限文字色）
+src/checkup/DESIGN_SPEC.md:75:- ❌ 標籤背景（DEMO、LINE、雲端等）
+src/checkup/DESIGN_SPEC.md:76:- ❌ 進度條填充（統一用 `alpha(C.textMute,'20')`)
+src/checkup/DESIGN_SPEC.md:77:- ❌ 按鈕背景填充（統一 transparent + border）
+src/checkup/DESIGN_SPEC.md:78:- ❌ 分隔線（統一 `C.border` 或 `alpha(C.textMute,'06')`)
+src/checkup/DESIGN_SPEC.md:79:- ❌ 狀態指示（到期、警示等，統一 `C.textMute`）
+src/checkup/DESIGN_SPEC.md:90:| Emoji | 禁止（📅🔒⚠️⏳👀） |
+src/checkup/hooks/useHoldingsDerivations.js:8://   ✅ 純函式 of (sorted, decisionsMap, STOCK_META, H, showAll, globalPriorityList)
+src/checkup/hooks/useHoldingsDerivations.js:9://   ✅ 父層其他 region 完全不依賴這些 derived（已 grep 確認）
+src/checkup/hooks/useHoldingsDerivations.js:12://   ❌ 它們被 drawer 來源（drawerSourceList）/ KPI 計數（exitListCount 等）共用，
+src/checkup/hooks/useTradeCaptureRuntime.js:95:        flashSaved('🔒 訪客模式不能上傳成交，請先用 Line 登入', 4000)
+src/checkup/hooks/useTradeCaptureRuntime.js:150:        flashSaved(`❌ 讀取截圖失敗：${error.message || '請重新選擇圖片'}`, 4000)
+src/checkup/hooks/useTradeCaptureRuntime.js:301:        flashSaved('🔒 訪客模式不能解析成交，請先用 Line 登入', 4000)
+src/checkup/hooks/useTradeCaptureRuntime.js:457:      flashSaved('❌ 寫入失敗，未變動任何資料', 3500)
+src/checkup/hooks/useTradeCaptureRuntime.js:483:        ? `✅ 已寫入 ${entries.length} 筆成交，還有 ${remainingUploads} 張待處理`
+src/checkup/hooks/useTradeCaptureRuntime.js:484:        : `✅ 已寫入 ${entries.length} 筆成交（${Math.round(UNDO_WINDOW_MS / 1000)} 秒內可撤銷）`,
+src/checkup/components/Toast.jsx:59:        return '✓'
+src/checkup/components/Toast.jsx:61:        return '✕'
+src/checkup/components/Toast.jsx:63:        return '⚠'
+src/checkup/hooks/useAppRuntimeComposer.js:17: *  │  ❌ 不准再經 composer 傳入的 setter（已搬到 Zustand store）         │
+src/checkup/hooks/useAppRuntimeComposer.js:38: *  │  ✅ 仍由 composer 傳入的 setter（純 UI / cloud / 暫存 state）        │
+src/checkup/components/HoldingsIntroVideo.jsx:193:          >✕</button>
+src/checkup/hooks/useDailyAnalysisWorkflow.js:132:    if (__jobId) emitSaved('🔔 分析已開始，可關閉網頁，完成後將通知您', 5000)
+src/checkup/hooks/useDailyAnalysisWorkflow.js:239:    ? `✅ 已驗證規則（用戶確認）：
+src/checkup/hooks/useDailyAnalysisWorkflow.js:244:}🤖 核心規則（AI/系統整理）：
+src/checkup/hooks/useDailyAnalysisWorkflow.js:247:🧪 候選規則（需持續驗證）：
+src/checkup/hooks/useDailyAnalysisWorkflow.js:250:📋 決策檢查表：
+src/checkup/hooks/useDailyAnalysisWorkflow.js:253:⚠️ 今日任務不是盲目沿用規則，而是先驗證這些規則今天是否仍成立；只有當現有規則無法解釋今日表現時，才新增少量候選規則。
+src/checkup/hooks/useDailyAnalysisWorkflow.js:254:⚠️ 注意：AI 建議規則可能存在確認偏差，不要因為「策略大腦這樣說」就不加質疑地套用。
+src/checkup/hooks/useDailyAnalysisWorkflow.js:255:⚠️ 驗證規則時，要盡量對照過往台股相似案例；若結果失準，需分清楚是規則失準，還是個股 / 流動性 / 市場節奏差異。
+src/checkup/hooks/useDailyAnalysisWorkflow.js:373:            /## 📋 EVENT_ASSESSMENTS([\s\S]*?)(?=## 🧬 BRAIN_UPDATE|$)/
+src/checkup/hooks/useDailyAnalysisWorkflow.js:384:          const brainMatch = displayText.match(/## 🧬 BRAIN_UPDATE([\s\S]*?)$/)
+src/checkup/hooks/useDailyAnalysisWorkflow.js:537:      emitSaved('❌ 分析失敗', 3000)
+src/checkup/hooks/useDailyAnalysisWorkflow.js:636:        ? `══ 策略大腦（累積知識庫）══\n${userRules.length > 0 ? `✅ 已驗證規則：\n${formatBrainRulesForValidationPrompt(userRules, { limit: 8 })}\n\n` : ''}🤖 核心規則：\n${formatBrainRulesForValidationPrompt(aiRules, { limit: 10 })}\n\n🧪 候選規則：\n${formatBrainRulesForValidationPrompt(candidateRules, { limit: 6 })}\n\n📋 檢查表：\n${checklistText}\n\n歷史教訓：\n${(brain.lessons || []).slice(-10).map((l) => `- [${l.date}] ${l.text}`).join('\n')}\n勝率：${brain.stats?.hitRate || '尚無'}\n常犯錯誤：${(brain.commonMistakes || []).join('、') || '尚無'}\n══════════════════════════`
+src/checkup/hooks/useDailyAnalysisWorkflow.js:671:        emitSaved('❌ 背景分析啟動失敗', 4000)
+src/checkup/hooks/useDailyAnalysisWorkflow.js:674:      emitSaved('🔔 分析已送背景，可關閉網頁，完成後將通知您', 6000)
+src/checkup/hooks/useDailyAnalysisWorkflow.js:678:      emitSaved('❌ 背景分析啟動失敗', 4000)
+src/checkup/components/Header.jsx:109:          cloudSync ? '☁' : '⚡'
+src/checkup/components/Header.jsx:129:          '📋 週報'
+src/checkup/hooks/useResearchWorkflow.js:106:                  '✅ 研究完成 · 已同步目標價 / 財報到持倉',
+src/checkup/hooks/useResearchWorkflow.js:117:            emitSaved('✅ 系統進化完成 · 策略大腦已更新')
+src/checkup/hooks/useResearchWorkflow.js:119:            emitSaved('✅ 研究完成')
+src/checkup/hooks/useResearchWorkflow.js:123:          emitSaved('⚠️ 研究無結果')
+src/checkup/hooks/useResearchWorkflow.js:128:        emitSaved('❌ 研究失敗')
+src/checkup/components/research/ResearchPanel.jsx:58:        researching ? '全組合研究 + 系統進化中...' : '🧬 全組合研究 + 系統進化'
+src/checkup/components/research/ResearchPanel.jsx:443:            `${r.mode === 'evolve' ? '🧬 ' : '🔬 '}${r.name}`
+src/checkup/hooks/useRouteResearchPage.js:109:        setReportRefreshStatus('✅ 報告已刷新')
+src/checkup/hooks/useRouteResearchPage.js:113:        setReportRefreshStatus('❌ 刷新失敗')
+src/checkup/seedData.js:494:    alert: '⚡出場區間到',
+src/checkup/seedData.js:804:    status: '⚡法說追蹤',
+src/checkup/hooks/useRoutePortfolioRuntime.js:369:    flashSaved('✅ 已重讀本機收盤價快取')
+src/checkup/hooks/useRoutePortfolioRuntime.js:393:      flashSaved('✅ 週報摘要已複製')
+src/checkup/hooks/useRoutePortfolioRuntime.js:396:      flashSaved('❌ 週報複製失敗')
+src/checkup/hooks/useRoutePortfolioRuntime.js:405:    flashSaved('✅ 已匯出本機備份')
+src/checkup/hooks/useRoutePortfolioRuntime.js:429:          flashSaved('✅ 已匯入本機備份')
+src/checkup/hooks/useRoutePortfolioRuntime.js:432:          flashSaved('❌ 匯入失敗')
+src/checkup/hooks/useRoutePortfolioRuntime.js:464:      flashSaved(`✅ 已新增組合「${name}」`)
+src/checkup/hooks/useRoutePortfolioRuntime.js:492:      flashSaved(`✅ 已更新組合名稱為「${name}」`)
+src/checkup/hooks/useRoutePortfolioRuntime.js:510:      flashSaved(`✅ 已刪除組合「${current.name}」`)
+src/checkup/components/DedupSettingsButton.tsx:69:      >⚙︎</button>
+src/checkup/components/reports/DailyReportPanel.jsx:116:        stressTesting ? '測試中...' : '⚠️ 風險壓力測試'
+src/checkup/components/reports/DailyReportPanel.jsx:202:        `⚠️ 風險壓力測試 · ${result.date}`
+src/checkup/components/freecheckup/BatchParsePanel.jsx:9:  success:   { label: '已完成', color: '#2E7D5C', icon: '✓' },
+src/checkup/components/freecheckup/BatchParsePanel.jsx:10:  failed:    { label: '失敗',   color: '#B33A3A', icon: '✗' },
+src/checkup/components/freecheckup/DailyTab.jsx:400:                    background:'transparent',border:'none',color:C.textMute,cursor:'pointer',fontSize:18,padding:0,lineHeight:1}}>✕</button>
+src/checkup/components/freecheckup/HoldingsQuotaMeter.tsx:126:                      ? <>🎁 已回送補償額度・還剩 <span style={{ color: C.text, fontWeight: 500 }}>{remain}</span> 次免費收盤分析</>
+src/checkup/components/freecheckup/HoldingsQuotaMeter.tsx:159:          <span>⚡</span>
+src/checkup/components/freecheckup/EventsTab.jsx:238:              aborted: { txt: '✕ 已中斷舊請求', color: C.textMute },
+src/checkup/components/freecheckup/EventsTab.jsx:239:              success: { txt: '✓ 完成', color: C.up },
+src/checkup/components/freecheckup/EventsTab.jsx:240:              error: { txt: '⚠ 失敗', color: C.amber },
+src/checkup/components/freecheckup/EventsTab.jsx:445:                                ✓ 成功：{dbg.succeededWith.path} / {dbg.succeededWith.model}
+src/checkup/components/freecheckup/EventsTab.jsx:478:                                  <span>{suggestion.policy.switchPath === 'yes' ? '✅ 立即切換' : suggestion.policy.switchPath === 'optional' ? '⚪ 可選' : '❌ 無助於修復'}</span>
+src/checkup/components/freecheckup/EventsTab.jsx:493:                                          btn.textContent = '已複製 ✓';
+src/checkup/components/freecheckup/EventsTab.jsx:531:                                      {a.ok ? '✓' : '✕'} {a.status ?? '—'}
+src/checkup/hooks/usePortfolioManagement.js:241:        emitSaved('❌ 組合切換失敗')
+src/checkup/hooks/usePortfolioManagement.js:282:      emitSaved(`✅ 已新增組合「${name}」`)
+src/checkup/hooks/usePortfolioManagement.js:301:      emitSaved(`✅ 已更新組合名稱為「${name}」`)
+src/checkup/hooks/usePortfolioManagement.js:341:        emitSaved(`✅ 已刪除組合「${current.name}」`)
+src/checkup/hooks/usePortfolioManagement.js:345:        emitSaved('❌ 刪除組合失敗')
+src/checkup/hooks/usePortfolioDerivedData.js:282:          const alertText = item.alert.replace(/^⚡\s*/, '').trim()
+src/checkup/hooks/usePortfolioDerivedData.js:310:          /⚡/.test(item.status || '') ||
+src/checkup/components/freecheckup/HoldingCard.tsx:158:      <span aria-hidden>✕</span>
+src/checkup/components/freecheckup/HoldingsSectorSummary.tsx:571:                      >✓</button>
+src/checkup/components/freecheckup/HoldingsSectorSummary.tsx:608:                      >✎</button>
+src/checkup/components/freecheckup/HoldingsFilterBar.tsx:96:  if (searchQ.trim()) activeTags.push({ key: 'q', label: `🔍 "${searchQ.trim()}"`, clear: () => setSearchQ('') });
+src/checkup/components/freecheckup/HoldingsFilterBar.tsx:126:          <span style={{ position: 'absolute', left: 10, top: '50%', transform: 'translateY(-50%)', fontSize: 11, color: C.textMute }}>🔍</span>
+src/checkup/components/freecheckup/HoldingsFilterBar.tsx:131:            }}>✕</button>
+src/checkup/components/freecheckup/HoldingsFilterBar.tsx:167:              <button onClick={t.clear} style={{ background: 'transparent', border: 'none', color: C.textMute, cursor: 'pointer', padding: '0 4px', fontSize: 12, lineHeight: 1 }}>✕</button>
+src/checkup/lib/tradeUploadGuards.js:73:  return `⚠️ 已忽略：${parts.join('、')}`
+src/checkup/components/news/NewsPanel.jsx:269:              h('option', { value: 'up' }, '看漲 ✓'),
+src/checkup/components/news/NewsPanel.jsx:270:              h('option', { value: 'down' }, '看跌 ✗'),
+src/checkup/data/demoData.js:67:  summary: `## 📊 今日收盤分析（Demo 模式）
+src/checkup/data/demoData.js:84:⚠️ 持倉集中於 AI/半導體族群（佔比 > 60%），建議適度分散。
+src/checkup/data/demoData.js:85:⚠️ 權證部位佔比留意時間價值耗損。
+src/checkup/lib/routeRuntime.js:300:      const cleaned = item.alert.replace(/^⚡\s*/, '').trim()
+src/checkup/components/freecheckup/NewsEventRow.jsx:145:              {isCorrect ? "✓ 正確" : "⚠ 有誤"}
+src/checkup/lib/promptTemplateCatalog.js:98:## 🔴 逐股致命風險
+src/checkup/lib/promptTemplateCatalog.js:101:## 💀 Thesis 失效情境
+src/checkup/lib/promptTemplateCatalog.js:104:## ⚡ 催化劑失效風險
+src/checkup/lib/promptTemplateCatalog.js:107:## 📉 最壞情境計算
+src/checkup/lib/promptTemplateCatalog.js:110:## 🚨 最需要立即行動的 3 檔
+src/checkup/lib/promptTemplateCatalog.js:198:        `[${event.correct ? '✓準確' : '✗失誤'}] ${event.date} ${event.title}\n  預測：${formatPredictionLabel(event.pred)} | 結果：${event.actualNote}`
+src/checkup/components/log/LogPanel.jsx:43:    flashSaved?.(`✅ 已匯出 ${filtered.length} 筆 CSV`, 2500)
+src/checkup/components/log/LogPanel.jsx:69:    flashSaved?.('✅ 備忘已更新', 2000)
+src/checkup/components/log/LogPanel.jsx:78:      flashSaved?.('❌ 股數需為正數', 2500)
+src/checkup/components/log/LogPanel.jsx:82:      flashSaved?.('❌ 價格需為正數', 2500)
+src/checkup/components/log/LogPanel.jsx:87:      flashSaved?.('❌ 日期格式需為 YYYY/MM/DD', 2800)
+src/checkup/components/log/LogPanel.jsx:98:    flashSaved?.('✅ 已更新並重新計算持倉', 2800)
+src/checkup/lib/market.js:130: * ⚠️ 不再使用 open price 作 fallback；h 需有量才採用（避免漲停未成交誤採）。
+src/checkup/components/freecheckup/TradeTab.jsx:285:                  {parseStep.stage==='done' && '✓ '}
+src/checkup/components/freecheckup/TradeTab.jsx:286:                  {parseStep.stage==='error' && '✕ '}
+src/checkup/components/freecheckup/TradeTab.jsx:589:          setSaved("✅ 目標價已更新");
+src/checkup/lib/dailyAnalysisRuntime.js:14:⚠️ 核心原則：不同類型持股必須用不同策略框架分析，禁止一套邏輯套用全部。
+src/checkup/lib/dailyAnalysisRuntime.js:96:## 📊 個股策略分析
+src/checkup/lib/dailyAnalysisRuntime.js:99:## 🔥 事件連動分析
+src/checkup/lib/dailyAnalysisRuntime.js:102:## ⚠️ 風險與停損追蹤
+src/checkup/lib/dailyAnalysisRuntime.js:105:## ⚔️ 反面論證
+src/checkup/lib/dailyAnalysisRuntime.js:108:## 🎯 明日觀察與操作建議
+src/checkup/lib/dailyAnalysisRuntime.js:111:## 🧠 策略進化建議
+src/checkup/lib/dailyAnalysisRuntime.js:114:## 📋 EVENT_ASSESSMENTS
+src/checkup/lib/dailyAnalysisRuntime.js:123:## 🧬 BRAIN_UPDATE
+src/checkup/lib/dailyAnalysisRuntime.js:494:    .replace(/## 📋 EVENT_ASSESSMENTS[\s\S]*?```[\s\S]*?```/g, '')
+src/checkup/lib/dailyAnalysisRuntime.js:495:    .replace(/## 🧬 BRAIN_UPDATE[\s\S]*?```[\s\S]*?```/g, '')
+src/checkup/lib/knowledgeBase.js:210:    lines.push('📊 相關知識：')
+src/checkup/lib/knowledgeBase.js:219:    lines.push('📚 歷史案例：')
+src/checkup/lib/appMessages.js:54:  priceSyncBeforeClose: '⚠️ 收盤價僅在台北時間 13:35 後同步',
+src/checkup/lib/appMessages.js:55:  priceSyncMarketClosed: '⚠️ 非交易日，沿用最近收盤價',
+src/checkup/lib/appMessages.js:56:  priceSyncAlreadyAttempted: '⚠️ 今日已嘗試同步收盤價，沿用既有快取',
+src/checkup/lib/appMessages.js:57:  priceSyncAlreadyDone: '✅ 今日收盤價已同步，避免重複抓取',
+src/checkup/lib/appMessages.js:58:  priceSyncUseCache: '✅ 使用既有收盤價快取',
+src/checkup/lib/appMessages.js:59:  priceSyncNoTrackedCodes: '⚠️ 目前沒有可同步的股票代碼',
+src/checkup/lib/appMessages.js:60:  priceSyncFailedKeepCache: '⚠️ 今日收盤價同步失敗，沿用既有快取',
+src/checkup/lib/appMessages.js:61:  priceSyncFailedRetry: '❌ 收盤價同步失敗，請稍後再試',
+src/checkup/lib/appMessages.js:63:    return `✅ 收盤價已同步（${successCount}/${totalCount} 檔成功）`
+src/checkup/lib/appMessages.js:66:    return `✅ 今日收盤價已同步（${totalCount} 檔）`
+src/checkup/lib/appMessages.js:68:  reviewSavedIntegrating: '✅ 復盤已儲存，策略整合中...',
+src/checkup/lib/appMessages.js:69:  reviewSaved: '✅ 復盤已儲存',
+src/checkup/lib/appMessages.js:71:    return feedback ? `🧠 ${feedback}` : '✅ 策略大腦已更新'
+src/checkup/lib/appMessages.js:73:  reversalSaved: '✅ 反轉條件已儲存',
+src/checkup/lib/appMessages.js:74:  weeklyReportCopiedClipboard: '✅ 週報素材已複製到剪貼簿',
+src/checkup/lib/appMessages.js:75:  weeklyReportCopied: '✅ 週報素材已複製',
+src/checkup/lib/appMessages.js:76:  targetUpdated: '✅ 目標價已更新',
+src/checkup/lib/appMessages.js:77:  fundamentalsUpdated: '✅ 財報 / 營收資料已更新',
+src/checkup/lib/appMessages.js:78:  researchSyncedToDossier: '✅ 研究結果已同步回 dossier',
+src/checkup/lib/appMessages.js:81:    return `⚠️ ${detail}`
+src/checkup/lib/appMessages.js:86:      ? `✅ 已刷新 ${checkedCount} 檔公開報告索引（${changedCount} 檔有新資料）`
+src/checkup/lib/appMessages.js:89:  backupNoExportableData: '⚠️ 目前沒有可匯出的本機資料',
+src/checkup/lib/appMessages.js:90:  backupExported: '✅ 本機備份已匯出',
+src/checkup/lib/appMessages.js:91:  backupExportFailed: '❌ 匯出失敗',
+src/checkup/lib/appMessages.js:93:    return `✅ 已匯入 ${itemCount} 項本機資料`
+src/checkup/lib/appMessages.js:96:    return `❌ 匯入失敗：${detail}`
+src/checkup/lib/appMessages.js:107:    return `❌ 壓力測試失敗: ${detail}`
+
+## 4) #EC662D 使用（品牌橘應僅在 tokens/CSS 變數；不應散落 inline）
