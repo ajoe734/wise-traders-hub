@@ -33,6 +33,9 @@ interface ExportArgs {
   avatarSrc: string;
 }
 
+// 色票對齊 legendflow 品牌與 ActionBadge 螢幕呈現：
+//   brand 橘點 #EC662D、ink #292520、paper #F5F3EF
+//   台股慣例：紅 = 上漲/買、綠 = 下跌/賣
 const COLORS = {
   ink: '#292520',
   paper: '#F5F3EF',
@@ -41,40 +44,53 @@ const COLORS = {
   line: '#E4DFD6',
 };
 
+// ActionBadge 螢幕 config 完整鏡像（含中文 label 與台股顏色）
+// src/components/ActionBadge.tsx actionConfig 為單一真源
+const actionMeta = (action: string) => {
+  const raw = (action || '').trim();
+  const key = raw.toLowerCase();
+  if (key === 'buy' || raw === '買進') return { label: '買進', bg: '#D94848', fg: '#FFFFFF' };
+  if (key === 'sell' || raw === '賣出') return { label: '賣出', bg: '#2E8B57', fg: '#FFFFFF' };
+  if (key === 'add' || raw === '加碼') return { label: '加碼', bg: '#3B82F6', fg: '#FFFFFF' };
+  if (key === 'trim' || raw === '減碼') return { label: '減碼', bg: '#F59E0B', fg: '#FFFFFF' };
+  if (key === 'exit' || raw === '平損') return { label: '平損', bg: '#64748B', fg: '#FFFFFF' };
+  return { label: raw || 'HOLD', bg: COLORS.gray, fg: '#FFFFFF' };
+};
+
 const escapeHtml = (s: string) =>
   s.replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;');
 
-const actionMeta = (action: string) => {
-  const a = (action || '').toLowerCase();
-  if (a.includes('buy') || a === '買進' || a === '加碼') return { label: 'BUY', bg: '#D94848', fg: '#FFFFFF' };
-  if (a.includes('sell') || a === '賣出' || a === '減碼') return { label: 'SELL', bg: '#2E8B57', fg: '#FFFFFF' };
-  return { label: action?.toUpperCase() || 'HOLD', bg: '#8A857C', fg: '#FFFFFF' };
-};
-
+// 自架 woff2 字型 — 與 App 前台一致，避免 Google Fonts 未載入導致 PDF 版面漂移
+let fontsPromise: Promise<unknown> | null = null;
 const ensureFonts = async () => {
-  const id = 'lf-pdf-fonts';
-  if (!document.getElementById(id)) {
-    const link = document.createElement('link');
-    link.id = id;
-    link.rel = 'stylesheet';
-    link.href =
-      'https://fonts.googleapis.com/css2?family=Source+Serif+4:ital,wght@0,400;0,600;0,700;1,400&family=Noto+Sans+TC:wght@400;500;700&display=swap';
-    document.head.appendChild(link);
+  if (!fontsPromise) {
+    fontsPromise = Promise.all([
+      // Source Serif 4：cover 標題、章節 h2、簽名
+      import('@fontsource/source-serif-4/400.css'),
+      import('@fontsource/source-serif-4/400-italic.css'),
+      import('@fontsource/source-serif-4/600.css'),
+      import('@fontsource/source-serif-4/700.css'),
+      // Noto Sans TC / Noto Serif TC：本文
+      import('@fontsource/noto-sans-tc/chinese-traditional-400.css'),
+      import('@fontsource/noto-sans-tc/chinese-traditional-500.css'),
+      import('@fontsource/noto-sans-tc/chinese-traditional-700.css'),
+      import('@fontsource/noto-serif-tc/chinese-traditional-700.css'),
+    ]).catch(() => []);
   }
+  await fontsPromise;
   try {
-    // @ts-ignore
-    await document.fonts.ready;
-    // Explicitly warm up to make sure glyphs are cached
+    // 熱身：確保字型 glyph 已 cache，避免 html2canvas 首張截圖 fallback
     await Promise.all([
-      // @ts-ignore
-      document.fonts.load('700 60px "Source Serif 4"'),
-      // @ts-ignore
-      document.fonts.load('400 12px "Noto Sans TC"'),
-      // @ts-ignore
-      document.fonts.load('500 13px "Noto Sans TC"'),
+      document.fonts.load('700 60px "Source Serif 4"', 'legendflow'),
+      document.fonts.load('400 italic 22px "Source Serif 4"', 'A'),
+      document.fonts.load('700 22px "Noto Serif TC"', '週'),
+      document.fonts.load('400 12px "Noto Sans TC"', '週記'),
+      document.fonts.load('500 13px "Noto Sans TC"', '本週'),
+      document.fonts.ready,
     ]);
   } catch {}
 };
+
 
 const toDataUrl = async (src: string): Promise<string | null> => {
   try {
