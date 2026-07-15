@@ -159,55 +159,69 @@ function HoldingCardHeaderImpl({
         }}>{actionLabel}</span>
       </div>
 
-      {hasTags && (
-        <div
-          className="wb-tags"
-          style={{
-            display: 'flex', gap: 6, marginBottom: isFeature ? 10 : 8,
-            flexWrap: 'wrap', alignItems: 'center',
-          }}
-        >
-          {industries.map((ind, i) => (
-            <span
-              key={`ind-${i}`}
-              style={{
-                fontSize: 10, color: tagColor, letterSpacing: '0.08em',
-                padding: '4px 8px', background: tagBg,
-                border: 'none', borderRadius: 0,
-                opacity: i === 0 ? 1 : 0.75,
-              }}
-            >{ind}</span>
-          ))}
-          {meta?.strategy && (
-            <span style={{
+      {/* wb-tags：教學徽章恆存在，因此容器總是渲染；industries/strategy/回報 依資料條件出現 */}
+      <div
+        className="wb-tags"
+        style={{
+          display: 'flex', gap: 6, marginBottom: isFeature ? 10 : 8,
+          flexWrap: 'wrap', alignItems: 'center',
+        }}
+      >
+        {industries.map((ind, i) => (
+          <span
+            key={`ind-${i}`}
+            style={{
               fontSize: 10, color: tagColor, letterSpacing: '0.08em',
               padding: '4px 8px', background: tagBg,
               border: 'none', borderRadius: 0,
-            }}>{meta.strategy}</span>
-          )}
-          {onReportMeta && (
-            // 為避免 <button> 巢狀（HTML 規範禁止），使用 role=button 的 span
-            <span
-              role="button"
-              tabIndex={0}
-              onClick={openReportMeta}
-              onKeyDown={onReportKeyDown}
-              title="回報分類錯誤"
-              aria-label={`回報 ${h.code} 分類錯誤`}
-              style={{
-                fontSize: 10, color: reportColor, letterSpacing: '0.08em',
-                padding: '4px 6px', background: 'transparent',
-                border: `1px dashed ${reportBorder}`, borderRadius: 0,
-                cursor: 'pointer', marginLeft: 'auto',
-                userSelect: 'none', display: 'inline-block',
-              }}
-            >回報</span>
-          )}
-        </div>
-      )}
+              opacity: i === 0 ? 1 : 0.75,
+            }}
+          >{ind}</span>
+        ))}
+        {meta?.strategy && (
+          <span style={{
+            fontSize: 10, color: tagColor, letterSpacing: '0.08em',
+            padding: '4px 8px', background: tagBg,
+            border: 'none', borderRadius: 0,
+          }}>{meta.strategy}</span>
+        )}
+        {/* per-signal 教學徽章：meta 缺時走 fallback 文案，永遠存在 */}
+        <span
+          className="wb-tip"
+          data-tip-source={tipInfo.source}
+          data-tip-action={actionLabel || ''}
+          title={[tipInfo.text, ...tipInfo.extra].join('\n') || undefined}
+          aria-label={`教學提示：${tipInfo.text}`}
+          style={{
+            fontSize: 10, color: tagColor, letterSpacing: '0.08em',
+            padding: '4px 8px', background: tagBg,
+            border: `1px dashed ${reportBorder}`, borderRadius: 0,
+            opacity: tipInfo.source === 'fallback' ? 0.7 : 1,
+          }}
+        >{tipInfo.text}</span>
+        {onReportMeta && (
+          // 為避免 <button> 巢狀（HTML 規範禁止），使用 role=button 的 span
+          <span
+            role="button"
+            tabIndex={0}
+            onClick={openReportMeta}
+            onKeyDown={onReportKeyDown}
+            title="回報分類錯誤"
+            aria-label={`回報 ${h.code} 分類錯誤`}
+            style={{
+              fontSize: 10, color: reportColor, letterSpacing: '0.08em',
+              padding: '4px 6px', background: 'transparent',
+              border: `1px dashed ${reportBorder}`, borderRadius: 0,
+              cursor: 'pointer', marginLeft: 'auto',
+              userSelect: 'none', display: 'inline-block',
+            }}
+          >回報</span>
+        )}
+      </div>
     </>
   );
 }
+
 
 export const HoldingCardHeader = memo(HoldingCardHeaderImpl);
 export default HoldingCardHeader;
