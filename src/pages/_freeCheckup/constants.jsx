@@ -413,6 +413,7 @@ export async function save(key, data, userId) {
 export function formatResetCountdown(resetsAt) {
   if (!resetsAt) return "";
   const target = new Date(resetsAt).getTime();
+  if (!Number.isFinite(target)) return "";
   const now = Date.now();
   const ms = target - now;
   if (ms <= 0) return "即將重置";
