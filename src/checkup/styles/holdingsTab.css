@@ -108,7 +108,12 @@
   text-overflow: clip;
 }
 .wb-card .wb-roi > * { white-space: nowrap; }
-.wb-card .wb-bottom { align-items: baseline !important; min-width: 0; }
+.wb-card .wb-bottom {
+  align-items: baseline !important;
+  min-width: 0;
+  max-width: 100%;
+  overflow: hidden;
+}
 .wb-card .wb-bottom > span { min-width: 0; overflow: hidden; }
 .wb-card .wb-bottom-val {
   display: inline-block;
