@@ -198,6 +198,12 @@ export default defineConfig({
       use: { ...devices['Desktop Chrome'], viewport: { width: 1280, height: 900 } },
     },
     {
+      // ETF 代號+名稱跨寬度視覺不截斷（00631L / 00878B），viewport 由 spec 動態切換
+      name: 'etf-display-visual-parity',
+      testMatch: /etf-display-visual-parity\.spec\.ts/,
+      use: { ...devices['Desktop Chrome'] },
+    },
+    {
       // /expert/:slug bundle RPC 5xx 回退（ExpertFetchError，不可炸 ErrorBoundary）
       name: 'desktop-expert-profile-error',
       testMatch: /expert-profile-error\.spec\.ts/,

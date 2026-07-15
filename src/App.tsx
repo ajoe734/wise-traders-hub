@@ -59,6 +59,7 @@ const FreeCheckupPage = lazy(() => import("./pages/FreeCheckup"));
 const HoldingCheckupDemoEntry = lazy(() => import("./pages/HoldingCheckupDemoEntry"));
 const HoldingCardHarnessEntry = lazy(() => import("./pages/HoldingCardHarnessEntry"));
 const SignalEditorHarnessEntry = lazy(() => import("./pages/SignalEditorHarnessEntry"));
+const EtfDisplayHarnessEntry = lazy(() => import("./pages/EtfDisplayHarnessEntry"));
 const NotFound = lazy(() => import("./pages/NotFound"));
 
 const CheckupModeProviderLazy = lazy(() =>
@@ -258,6 +259,7 @@ const AppShell = () => (
             <Route path="/holding-checkup-demo" element={<HoldingCheckupDemoEntry />} />
             <Route path="/e2e/holding-card-harness" element={<HoldingCardHarnessEntry />} />
             <Route path="/e2e/signal-editor-harness" element={<SignalEditorHarnessEntry />} />
+            <Route path="/e2e/etf-display-harness" element={<EtfDisplayHarnessEntry />} />
             <Route path="/free-checkup" element={<LegacyFreeCheckupRedirect />} />
             <Route path="/legal" element={<Legal />} />
             <Route path="/data-sources" element={<DataSources />} />
