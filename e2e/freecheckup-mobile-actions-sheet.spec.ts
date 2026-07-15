@@ -74,8 +74,84 @@ test.describe('FreeCheckup 手機頂欄「更多」sheet — Batch D §2', () =>
     // dialog a11y
     await expect(sheet).toHaveAttribute('role', 'dialog');
     await expect(sheet).toHaveAttribute('aria-modal', 'true');
+    await expect(sheet).toHaveAttribute('aria-labelledby', 'cm-mobile-actions-title');
+    await expect(cta).toHaveAttribute('aria-controls', 'cm-mobile-actions-sheet');
+    // backdrop 對讀屏隱藏
+    await expect(page.getByTestId('mobile-actions-sheet-backdrop')).toHaveAttribute('aria-hidden', 'true');
+    // aria-labelledby 指向的標題實際存在且文字為「更多」
+    await expect(page.locator('#cm-mobile-actions-title')).toHaveText('更多');
+
+    // 初次焦點應落在 sheet 容器內（focus trap 前置條件）
+    await page.waitForTimeout(50);
+    const focusedInsideSheet = await page.evaluate(() => {
+      const sheet = document.querySelector('[data-testid="mobile-actions-sheet"]');
+      return !!sheet && (sheet === document.activeElement || sheet.contains(document.activeElement));
+    });
+    expect(focusedInsideSheet).toBe(true);
 
     expect(errors.filter((e) => !NOISE.test(e))).toEqual([]);
+  });
+
+  test('鍵盤焦點陷阱：Tab 循環在 sheet 內、Shift+Tab 反向亦不外洩', async ({ page }) => {
+    await gotoDemoMobile(page);
+    await page.getByTestId('checkup-mobile-more-cta').click();
+    const sheet = page.getByTestId('mobile-actions-sheet');
+    await expect(sheet).toBeVisible();
+    await page.waitForTimeout(50);
+
+    // 連按 12 次 Tab，焦點永遠應在 sheet 內
+    for (let i = 0; i < 12; i++) {
+      await page.keyboard.press('Tab');
+      const inside = await page.evaluate(() => {
+        const s = document.querySelector('[data-testid="mobile-actions-sheet"]');
+        return !!s && s.contains(document.activeElement);
+      });
+      expect(inside, `第 ${i + 1} 次 Tab 焦點跑出 sheet`).toBe(true);
+    }
+    // Shift+Tab 也不外洩
+    for (let i = 0; i < 6; i++) {
+      await page.keyboard.press('Shift+Tab');
+      const inside = await page.evaluate(() => {
+        const s = document.querySelector('[data-testid="mobile-actions-sheet"]');
+        return !!s && s.contains(document.activeElement);
+      });
+      expect(inside, `第 ${i + 1} 次 Shift+Tab 焦點跑出 sheet`).toBe(true);
+    }
+  });
+
+  test('關閉後焦點回到觸發按鈕（× / ESC / 背景 三條路徑）', async ({ page }) => {
+    await gotoDemoMobile(page);
+    const cta = page.getByTestId('checkup-mobile-more-cta');
+
+    // 路徑 1：× 關閉
+    await cta.click();
+    await expect(page.getByTestId('mobile-actions-sheet')).toBeVisible();
+    await page.getByTestId('mobile-actions-sheet-close').click();
+    await expect(page.getByTestId('mobile-actions-sheet')).toHaveCount(0);
+    await page.waitForTimeout(50);
+    expect(await page.evaluate(() =>
+      document.activeElement?.getAttribute('data-testid')
+    )).toBe('checkup-mobile-more-cta');
+
+    // 路徑 2：ESC 關閉
+    await cta.click();
+    await expect(page.getByTestId('mobile-actions-sheet')).toBeVisible();
+    await page.keyboard.press('Escape');
+    await expect(page.getByTestId('mobile-actions-sheet')).toHaveCount(0);
+    await page.waitForTimeout(50);
+    expect(await page.evaluate(() =>
+      document.activeElement?.getAttribute('data-testid')
+    )).toBe('checkup-mobile-more-cta');
+
+    // 路徑 3：背景遮罩關閉
+    await cta.click();
+    await expect(page.getByTestId('mobile-actions-sheet')).toBeVisible();
+    await page.getByTestId('mobile-actions-sheet-backdrop').click();
+    await expect(page.getByTestId('mobile-actions-sheet')).toHaveCount(0);
+    await page.waitForTimeout(50);
+    expect(await page.evaluate(() =>
+      document.activeElement?.getAttribute('data-testid')
+    )).toBe('checkup-mobile-more-cta');
   });
 
   test('× 按鈕關閉 sheet：overflow 復原', async ({ page }) => {
