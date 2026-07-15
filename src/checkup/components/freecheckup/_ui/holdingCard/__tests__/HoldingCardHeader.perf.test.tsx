@@ -7,9 +7,10 @@
  *    Sparkline (React.memo) 不應重繪。
  *  - 跨零（正↔負）才允許重新計算並重繪一次。
  */
-import { describe, it, expect, vi } from 'vitest';
+import { describe, it, expect, vi, beforeEach } from 'vitest';
 import { memo } from 'react';
 import { render } from '@testing-library/react';
+import { resetRenderStats } from '@/checkup/hooks/useRenderCounter';
 
 // 以 spy 版 Sparkline 取代真實元件，計算實際 render 次數
 const sparkRenderSpy = vi.fn();
@@ -39,6 +40,11 @@ const baseProps = {
 };
 
 describe('HoldingCardHeader — Sparkline 效能回歸', () => {
+  beforeEach(() => {
+    // 清掉 dev-only render counter；跨 it 累積會觸發 warn 噪音
+    resetRenderStats();
+    sparkRenderSpy.mockClear();
+  });
   it('pctVal 在同號區間變動（不跨零）時，Sparkline props 引用穩定且不重繪', () => {
     sparkRenderSpy.mockClear();
     const { rerender } = render(<HoldingCardHeader {...baseProps} pctVal={5} />);

@@ -12,6 +12,7 @@ import { memo } from "react";
 import { supabase } from "@/integrations/supabase/client";
 import { INIT_HOLDINGS as SEED_HOLDINGS } from "@/checkup/seedData";
 import { L as ThemeL } from "@/checkup/theme";
+import { useRenderCounter } from "@/checkup/hooks/useRenderCounter";
 
 // #region Constants & Helpers — 政策、顏色、種子、純函式（不依賴 React state）
 export const SUPABASE_FN_BASE = `${import.meta.env.VITE_SUPABASE_URL}/functions/v1`;
@@ -178,6 +179,8 @@ export const EMPTY_HOLDINGS = Object.freeze([]);
 
 // ── Sparkline：純 SVG，無依賴 ── (P3-perf: memo'd 避免持倉每秒 quote tick 重繪)
 export const Sparkline = memo(function Sparkline({ data = [], width = 120, height = 36, color = WB.accent, strokeWidth = 1.4, opacity = 0.85 }) {
+  // dev/test：全域彙總 Sparkline 實際渲染次數；生產環境 no-op
+  useRenderCounter('Sparkline', { warnThreshold: 60 });
   const arr = Array.isArray(data) ? data.filter((n) => Number.isFinite(n)) : [];
   if (arr.length < 2) {
     return (
