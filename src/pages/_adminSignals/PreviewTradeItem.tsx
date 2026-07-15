@@ -32,9 +32,20 @@ export const PreviewTradeItem = ({
       >
         <Badge className={cn(ai.className, 'text-[10px] px-1.5 py-0 shrink-0')}>{ai.label}</Badge>
         <div className="flex-1 min-w-0">
-          <span className="font-medium text-sm break-words [overflow-wrap:anywhere]">{instrument}</span>
+          {(() => {
+            const trimmed = instrument.trim();
+            const m = trimmed.match(/^(\S+)\s+(.+)$/);
+            const code = m ? m[1] : trimmed;
+            const name = m ? m[2] : '';
+            return (
+              <span className="font-medium text-[13px] sm:text-sm break-words [overflow-wrap:anywhere] tracking-normal">
+                <span className="font-mono tabular-nums tracking-normal">{code}</span>
+                {name && <> <span className="tracking-tight">{name}</span></>}
+              </span>
+            );
+          })()}
           {priceHint != null && (
-            <span className="text-xs text-muted-foreground ml-1 whitespace-nowrap">@{priceHint}</span>
+            <span className="font-mono tabular-nums text-xs text-muted-foreground ml-1 whitespace-nowrap tracking-normal">@{priceHint}</span>
           )}
         </div>
         {hasDetails && (
