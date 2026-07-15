@@ -79,6 +79,11 @@ export function AnalystsTable({ loading, experts, subscriberCounts = {}, onOpenL
                   </td>
                   <td className="p-4">
                     <div className="flex items-center gap-1 flex-wrap">
+                      {exp.status === 'pending' && onAdopt && (
+                        <Button variant="default" size="sm" className="h-7 text-xs bg-amber-600 hover:bg-amber-700 text-white" onClick={() => onAdopt(exp)}>
+                          補資料
+                        </Button>
+                      )}
                       <Button variant="ghost" size="sm" className="h-7 text-xs" onClick={() => onOpenLine(exp)}>
                         <MessageCircle className="h-3 w-3 mr-1" />LINE
                       </Button>
@@ -92,6 +97,7 @@ export function AnalystsTable({ loading, experts, subscriberCounts = {}, onOpenL
                         {exp.status === 'suspended' ? '啟用' : '停用'}
                       </Button>
                     </div>
+
                   </td>
                 </tr>
               ))
