@@ -223,6 +223,12 @@ export default defineConfig({
       use: { ...devices['Desktop Chrome'] },
     },
     {
+      // SignalCreateDialog 按鍵焦點 / 字級 / 直橫切換合約
+      name: 'signal-create-focus-rotate',
+      testMatch: /signal-create-focus-rotate\.spec\.ts/,
+      use: { ...devices['Desktop Chrome'] },
+    },
+    {
       // /expert/:slug bundle RPC 5xx 回退（ExpertFetchError，不可炸 ErrorBoundary）
       name: 'desktop-expert-profile-error',
       testMatch: /expert-profile-error\.spec\.ts/,
