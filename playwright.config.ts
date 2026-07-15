@@ -84,6 +84,12 @@ export default defineConfig({
       use: { ...devices['Desktop Chrome'], viewport: { width: 390, height: 844 } },
     },
     {
+      // Sparkline pctSign → stroke/opacity 視覺一致性回歸（跨零時輸出必變）
+      name: 'iphone-390-sparkline',
+      testMatch: /freecheckup-sparkline-signs\.spec\.ts/,
+      use: { ...devices['Desktop Chrome'], viewport: { width: 390, height: 844 } },
+    },
+    {
       name: 'desktop-batch3',
       testMatch: /batch3-.*\.spec\.ts/,
       use: { ...devices['Desktop Chrome'], viewport: { width: 1280, height: 800 } },
