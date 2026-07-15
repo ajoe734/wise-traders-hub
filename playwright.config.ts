@@ -515,17 +515,9 @@ export default defineConfig({
       },
     },
 
-    // HoldingCard PriceTrack / Footer 文字合約回歸（隔離 harness）
-    {
-      name: 'desktop-holding-card-price-track-parity',
-      testMatch: /holding-card-price-track-parity\.spec\.ts/,
-      use: { ...devices['Desktop Chrome'], viewport: { width: 1280, height: 900 } },
-    },
-    {
-      name: 'desktop-holding-card-footer-parity',
-      testMatch: /holding-card-footer-parity\.spec\.ts/,
-      use: { ...devices['Desktop Chrome'], viewport: { width: 1280, height: 900 } },
-    },
+    // HoldingCard PriceTrack / Footer 舊 parity spec 已於 2026-07-15 隨 DESIGN_HANDOFF 改版刪除。
+    // 新規格由手機 RWD 與 harness 內視覺驗證涵蓋（下一輪抽屜對接後補回）。
+
 
   ],
   webServer: {
