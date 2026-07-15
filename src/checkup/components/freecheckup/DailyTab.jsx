@@ -353,17 +353,18 @@ function DailyTabImpl({
 
             {/* 需要復盤的事件 */}
             {(dailyReport.needsReview||[]).length>0 && (
-              <div style={{marginBottom:14,paddingBottom:14,borderBottom:`1px solid ${alpha(C.textMute,'06')}`}}>
-                <div style={{fontSize:10,color:C.text,letterSpacing:"0.12em",fontWeight:700,marginBottom:10}}>
-                  需 要 復 盤 · {dailyReport.needsReview.length}件
+              <div style={{marginBottom:18,paddingBottom:16,borderBottom:`1px solid ${alpha(C.textMute,'20')}`}}>
+                <div style={{borderTop:`1px solid ${C.text}`,paddingTop:12,marginBottom:12,display:"flex",alignItems:"baseline",justifyContent:"space-between"}}>
+                  <h3 style={{margin:0,fontFamily:"'Noto Serif TC',ui-serif,Georgia,serif",fontSize:16,color:C.text,fontWeight:400,letterSpacing:0}}>需要復盤</h3>
+                  <span style={{fontSize:10,color:C.textMute,letterSpacing:"0.12em"}}>{dailyReport.needsReview.length} 件</span>
                 </div>
                 {dailyReport.needsReview.map(e=>(
-                  <div key={e.id} style={{marginBottom:8}}>
-                    <div style={{fontSize:12,fontWeight:700,color:C.text}}>{e.title}</div>
-                    <div style={{fontSize:11,color:C.textSec,marginTop:2,fontWeight:600}}>{e.date} — 預測{e.pred==="up"?"看漲":"看跌"}</div>
+                  <div key={e.id} style={{padding:"8px 0",borderBottom:`1px solid ${alpha(C.textMute,'10')}`}}>
+                    <div style={{fontSize:13,color:C.text}}>{e.title}</div>
+                    <div style={{fontSize:11,color:C.textMute,marginTop:2}}>{e.date} — 預測{e.pred==="up"?"看漲":"看跌"}</div>
                     <button onClick={()=>{setTab("news");setExpandedNews(new Set([e.id]))}}
-                      style={{marginTop:4,padding:"4px 10px",borderRadius:4,border:"none",
-                        background:"transparent",color:C.textSec,fontSize:11,cursor:"pointer",fontWeight:400}}>
+                      style={{marginTop:6,padding:0,border:"none",
+                        background:"transparent",color:C.text,fontSize:11,cursor:"pointer",letterSpacing:"0.04em",textDecoration:"underline"}}>
                       前往復盤 →
                     </button>
                   </div>
