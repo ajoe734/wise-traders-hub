@@ -297,7 +297,7 @@ function DailyTabImpl({
                   <div style={{fontSize:11,color:C.textSec,marginTop:2,fontWeight:600}}>{dailyReport.time} 更新</div>
                 </div>
                 <div style={{textAlign:"right"}}>
-                  <div style={{fontSize:10,color:C.text,letterSpacing:"0.12em",marginBottom:4,fontWeight:700}}>TODAY P&L</div>
+                  <div style={{fontSize:10,color:C.textMute,letterSpacing:"0.12em",marginBottom:4}}>今日損益</div>
                   <div style={{fontSize:"clamp(22px, 6vw, 28px)",fontWeight:800,color:pc(dailyReport.totalTodayPnl),lineHeight:1,fontVariantNumeric:"tabular-nums"}}>
                     {dailyReport.totalTodayPnl>=0?"+":""}{dailyReport.totalTodayPnl.toLocaleString()}
                   </div>
