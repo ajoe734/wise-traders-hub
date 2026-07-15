@@ -61,6 +61,7 @@ const HoldingCardHarnessEntry = lazy(() => import("./pages/HoldingCardHarnessEnt
 const SignalEditorHarnessEntry = lazy(() => import("./pages/SignalEditorHarnessEntry"));
 const EtfDisplayHarnessEntry = lazy(() => import("./pages/EtfDisplayHarnessEntry"));
 const SignalPreviewHarnessEntry = lazy(() => import("./pages/SignalPreviewHarnessEntry"));
+const SignalFocusHarnessEntry = lazy(() => import("./pages/SignalFocusHarnessEntry"));
 const NotFound = lazy(() => import("./pages/NotFound"));
 
 const CheckupModeProviderLazy = lazy(() =>
@@ -262,6 +263,7 @@ const AppShell = () => (
             <Route path="/e2e/signal-editor-harness" element={<SignalEditorHarnessEntry />} />
             <Route path="/e2e/etf-display-harness" element={<EtfDisplayHarnessEntry />} />
             <Route path="/e2e/signal-preview-harness" element={<SignalPreviewHarnessEntry />} />
+            <Route path="/e2e/signal-focus-harness" element={<SignalFocusHarnessEntry />} />
             <Route path="/free-checkup" element={<LegacyFreeCheckupRedirect />} />
             <Route path="/legal" element={<Legal />} />
             <Route path="/data-sources" element={<DataSources />} />
