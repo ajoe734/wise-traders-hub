@@ -46,7 +46,7 @@ interface SignalDetail {
   };
 }
 
-const TradeItem = ({ signal }: { signal: SignalDetail }) => {
+const TradeItem = ({ signal, nameMap }: { signal: SignalDetail; nameMap: Record<string, string> }) => {
   const [expanded, setExpanded] = useState(false);
   const hasDetails = signal.reason_summary || signal.reason_detail || signal.risk_notes;
   const cur: Currency = normalizeCurrency(signal.currency);
@@ -55,6 +55,14 @@ const TradeItem = ({ signal }: { signal: SignalDetail }) => {
   const total = signal.price_hint != null && signal.quantity != null
     ? Number(signal.price_hint) * Number(signal.quantity)
     : null;
+
+  // 保留 ETF 字尾（L / R / B）+ 名稱回填：DB 若只存了代號（過去 fetchStockInfo 失敗過），
+  // 用 stock_names 補上人類可讀名稱。
+  const { code, name: nameFromInstrument } = parseInstrument(signal.instrument);
+  const resolvedName = nameFromInstrument || (code ? nameMap[code] : '') || '';
+  const displayInstrument = code
+    ? (resolvedName ? `${code} ${resolvedName}` : code)
+    : (signal.instrument || '');
 
   return (
     <div className="px-4 py-3">
@@ -65,7 +73,7 @@ const TradeItem = ({ signal }: { signal: SignalDetail }) => {
         <ActionBadge action={signal.action as any} size="sm" />
         <div className="flex-1 min-w-0">
           <div className="flex items-center gap-2 flex-wrap">
-            <span className="font-medium text-sm">{signal.instrument}</span>
+            <span className="font-medium text-sm" title={displayInstrument}>{displayInstrument}</span>
             <span className="text-xs text-muted-foreground">{format(new Date(signal.published_at), 'MM/dd')}</span>
             {(signal.price_hint != null || signal.quantity != null) && (
               <span className="text-xs text-foreground/80 font-medium">
