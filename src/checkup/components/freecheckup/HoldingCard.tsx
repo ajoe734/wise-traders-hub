@@ -244,7 +244,6 @@ function HoldingCardImpl(props) {
           <HoldingCardHeader
             h={h}
             meta={meta}
-            onReportMeta={onReportMeta}
             variant={variantForChildren}
             cardColor={cardColor}
             muteColor={muteColor}
