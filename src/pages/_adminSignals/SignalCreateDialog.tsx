@@ -53,11 +53,13 @@ export function SignalCreateDialog({
   const [overallSummary, setOverallSummary] = useState('');
   const [showPreview, setShowPreview] = useState(false);
   const [fetchingQuote, setFetchingQuote] = useState(false);
+  const [autoUppercased, setAutoUppercased] = useState(false);
   const [linePushing, setLinePushing] = useState(false);
   const [linePushed, setLinePushed] = useState(false);
   const [recalling, setRecalling] = useState(false);
   const [, setLastPublishedId] = useState<string | null>(null);
   const fetchTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const uppercaseHintTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
 
   useEffect(() => {
     if (isCreateOpen) sessionStorage.setItem(FORM_KEY, JSON.stringify({ _open: true }));
