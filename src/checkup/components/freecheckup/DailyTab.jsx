@@ -276,7 +276,7 @@ function DailyTabImpl({
               </div>
               <div style={{width:"100%",height:2,background:alpha(C.textMute,'08'),borderRadius:1,marginTop:16,overflow:"hidden"}}>
                 <div style={{height:"100%",borderRadius:1,
-                  background:C.teal,
+                  background:C.text,
                   width:"70%",
                   transition:"width 0.5s ease"}} />
               </div>
