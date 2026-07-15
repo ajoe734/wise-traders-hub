@@ -40,6 +40,11 @@ const baseProps = {
 };
 
 describe('HoldingCardHeader — Sparkline 效能回歸', () => {
+  beforeEach(() => {
+    // 清掉 dev-only render counter；跨 it 累積會觸發 warn 噪音
+    resetRenderStats();
+    sparkRenderSpy.mockClear();
+  });
   it('pctVal 在同號區間變動（不跨零）時，Sparkline props 引用穩定且不重繪', () => {
     sparkRenderSpy.mockClear();
     const { rerender } = render(<HoldingCardHeader {...baseProps} pctVal={5} />);
