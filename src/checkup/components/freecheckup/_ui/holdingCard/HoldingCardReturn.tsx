@@ -1,7 +1,8 @@
 // @ts-nocheck
 /**
- * HoldingCardReturn — 第 2 層：大字 ROI（%）＋ 附屬損益數值。
+ * HoldingCardReturn — 第 2 層：大字 ROI（%）＋ ±40% 尺規報酬條 ＋ 附屬損益數值。
  * 保留 `.wb-roi` class 給 CSS clamp 與截圖回歸偵測。
+ * Handoff §3.4 步驟 2：8px 橫條軌、共用 ±40% 尺規、正 accent／負 loss-bar、破表 ▸。
  *
  * 效能：
  *  - variant 決定的排版常數 (`variantStyle`) 以 `useMemo([isFeature])` 快取。
@@ -9,6 +10,7 @@
  *    避免每次 render 產生新引用，DOM diff 更輕。
  */
 import { memo, useMemo } from 'react';
+import ReturnBar from '../ReturnBar';
 
 const ROI_ARROW_STYLE = Object.freeze({ fontSize: '0.40em', opacity: 0.7, fontWeight: 400 });
 const ROI_PCT_STYLE = Object.freeze({
