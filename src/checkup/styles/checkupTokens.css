@@ -277,7 +277,7 @@
 
 /* 手機隱藏桌機頂欄 tabs、桌機隱藏底欄 */
 @media (max-width: 640px) {
-  .checkup-mono .cm-desktop-tabs { display: none; }
+  .checkup-mono .cm-desktop-tabs { display: none !important; }
   .checkup-mono .cm-page-content { padding-bottom: 84px; }
   /* IA §2 手機頂欄：只保留 logo + 頁名，其他選項收到「更多」sheet */
   .checkup-mono .cm-header-desktop-only,
