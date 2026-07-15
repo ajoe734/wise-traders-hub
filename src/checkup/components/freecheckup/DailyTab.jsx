@@ -91,45 +91,27 @@ function DailyTabImpl({
   validateProps('DailyTab', arguments[0], DAILY_TAB_PROP_SCHEMA);
   return (
     <>
-          {/* B-25：LINE 已登入但未加好友 → 顯示加好友提示，避免錯過推播通知 */}
-          {needsAddFriend && !isDemo && (
-            <div style={{marginBottom:12,padding:"12px 14px",background:alpha(C.blue,'06'),border:`1px solid ${alpha(C.blue,'25')}`,borderRadius:8}}>
-              <div style={{fontSize:12,fontWeight:500,color:C.text,marginBottom:4,letterSpacing:"0.02em"}}>📣 加入官方 LINE 好友，收盤後即時推播分析結果</div>
-              <div style={{fontSize:11,color:C.textSec,fontWeight:600,lineHeight:1.7,marginBottom:8}}>未加好友時，仍可使用本頁功能，但分析完成後無法主動推播給您。</div>
-              <a href="https://line.me/R/ti/p/@legendflow" target="_blank" rel="noopener noreferrer" style={{display:"inline-block",background:"#06C755",color:"#fff",borderRadius:6,padding:"5px 12px",fontSize:11,fontWeight:500,textDecoration:"none",letterSpacing:"0.02em"}}>加入 LINE 好友</a>
-            </div>
-          )}
-
+          {/* §6.5 憲法：Demo/LINE 提示改由頁腳 DemoFooterHint 提示，此處只保留 dev-only 的 demo 模式切換（isDemo 時） */}
           {isDemo && (
-            <div style={{marginBottom:12,padding:"12px 14px",background:alpha(C.amber,'06'),border:`1px solid ${alpha(C.amber,'25')}`,borderRadius:8}}>
-              <div style={{fontSize:12,fontWeight:700,color:C.text,marginBottom:4,letterSpacing:"0.02em"}}>{DEMO_TAB_NOTICE_COPY.daily.title}</div>
-              <div style={{fontSize:11,color:C.textSec,fontWeight:600,lineHeight:1.7,marginBottom:8}}>{DEMO_TAB_NOTICE_COPY.daily.body}</div>
-              <div style={{display:"flex",gap:8,flexWrap:"wrap"}}>
-                <button onClick={() => { try { startLineLogin?.(); } catch { navigate('/auth/login?redirect=/checkup'); } }} style={{background:"#06C755",color:"#fff",border:"none",borderRadius:6,padding:"5px 12px",fontSize:11,fontWeight:500,cursor:"pointer",letterSpacing:"0.02em"}}>LINE 登入解鎖</button>
-                <button onClick={() => navigate('/auth/login?redirect=/checkup')} style={{background:"transparent",color:C.text,border:`1px solid ${C.border}`,borderRadius:6,padding:"5px 12px",fontSize:11,fontWeight:400,cursor:"pointer",letterSpacing:"0.02em"}}>Email 登入</button>
-              </div>
-              <div style={{marginTop:10,paddingTop:10,borderTop:`1px solid ${alpha(C.border,'80')}`}}>
-                <div style={{fontSize:10,color:C.text,letterSpacing:"0.08em",marginBottom:6,fontWeight:700}}>DEMO 收盤分析來源</div>
-                <div style={{display:"flex",gap:6}}>
-                  {[
-                    { k: 'static', label: '靜態範例', hint: '預錄文案，不消耗配額' },
-                    { k: 'live', label: '即時 AI + 知識庫', hint: '呼叫真實 edge / 知識庫' },
-                  ].map(opt => {
-                    const active = demoDailyMode === opt.k;
-                    return (
-                      <button key={opt.k} onClick={() => setDemoDailyMode(opt.k)} title={opt.hint}
-                        style={{flex:1,padding:"6px 10px",borderRadius:6,fontSize:11,fontWeight:active?500:400,letterSpacing:"0.02em",cursor:"pointer",
-                          background: active ? C.text : "transparent",
-                          color: active ? C.bg : C.textSec,
-                          border: `1px solid ${active ? C.text : C.border}`}}>
-                        {opt.label}
-                      </button>
-                    );
-                  })}
-                </div>
-                <div style={{fontSize:10,color:C.textSec,fontWeight:600,marginTop:6,lineHeight:1.6}}>
-                  {demoDailyMode === 'live' ? '⚡ 將呼叫真實 AI / 知識庫，回傳內容會基於目前 demo 持倉動態生成。' : '📋 顯示預錄範例文案，配合 demo 持倉產生個股漲跌列。'}
-                </div>
+            <div style={{marginBottom:14,padding:"10px 0",borderBottom:`1px solid ${alpha(C.textMute,'20')}`,display:"flex",alignItems:"baseline",justifyContent:"space-between",gap:12,flexWrap:"wrap"}}>
+              <span style={{fontSize:10,color:C.textMute,letterSpacing:"0.12em"}}>DEMO 資料來源</span>
+              <div style={{display:"flex",gap:8}}>
+                {[
+                  { k: 'static', label: '靜態範例' },
+                  { k: 'live', label: '即時 AI' },
+                ].map(opt => {
+                  const active = demoDailyMode === opt.k;
+                  return (
+                    <button key={opt.k} onClick={() => setDemoDailyMode(opt.k)}
+                      style={{padding:"4px 10px",fontSize:11,letterSpacing:"0.04em",cursor:"pointer",
+                        background:"transparent",
+                        color: active ? C.text : C.textMute,
+                        border:"none",
+                        borderBottom:`1px solid ${active ? C.text : "transparent"}`}}>
+                      {opt.label}
+                    </button>
+                  );
+                })}
               </div>
             </div>
           )}
