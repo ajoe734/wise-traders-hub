@@ -204,6 +204,13 @@ export default defineConfig({
       use: { ...devices['Desktop Chrome'] },
     },
     {
+      // 手機寬度 SignalCreateDialog 訂閱者預覽列 + PreviewTradeItem
+      // 不重疊 / 不溢出 / 保留字尾（viewport 由 spec 動態切換）
+      name: 'signal-preview-mobile-visual',
+      testMatch: /signal-preview-mobile-visual\.spec\.ts/,
+      use: { ...devices['Desktop Chrome'] },
+    },
+    {
       // /expert/:slug bundle RPC 5xx 回退（ExpertFetchError，不可炸 ErrorBoundary）
       name: 'desktop-expert-profile-error',
       testMatch: /expert-profile-error\.spec\.ts/,
