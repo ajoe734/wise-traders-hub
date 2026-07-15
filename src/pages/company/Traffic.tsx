@@ -568,9 +568,9 @@ export default function CompanyTraffic() {
                   <TableBody>
                     {(instruments || []).map((i) => (
                       <TableRow key={i.instrument}>
-                        <TableCell className="font-mono text-xs">{i.instrument}</TableCell>
-                        <TableCell className="text-right">{fmtNum(i.events)}</TableCell>
-                        <TableCell className="text-right">{fmtNum(i.unique_visitors)}</TableCell>
+                        <TableCell className="font-mono text-xs break-words [overflow-wrap:anywhere] min-w-0">{i.instrument}</TableCell>
+                        <TableCell className="text-right whitespace-nowrap tabular-nums">{fmtNum(i.events)}</TableCell>
+                        <TableCell className="text-right whitespace-nowrap tabular-nums">{fmtNum(i.unique_visitors)}</TableCell>
                       </TableRow>
                     ))}
                     {(!instruments || instruments.length === 0) && (

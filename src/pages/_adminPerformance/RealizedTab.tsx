@@ -71,14 +71,22 @@ export default function RealizedTab({
       <Card>
         <CardContent className="p-0">
           <div className="overflow-x-auto">
-            <table className="w-full">
+            <table className="w-full table-fixed">
+              {/* 固定 colgroup：ETF 英文字尾也不會撐爆數字欄位 */}
+              <colgroup>
+                <col style={{ minWidth: '180px', width: '32%' }} />
+                <col style={{ width: '17%' }} />
+                <col style={{ width: '17%' }} />
+                <col style={{ width: '17%' }} />
+                <col style={{ width: '17%' }} />
+              </colgroup>
               <thead>
                 <tr className="border-b bg-muted/50">
                   <th className="text-left p-3 text-xs font-medium text-muted-foreground">標的</th>
-                  <th className="text-right p-3 text-xs font-medium text-muted-foreground">進場價</th>
-                  <th className="text-right p-3 text-xs font-medium text-muted-foreground">出場價</th>
-                  <th className="text-right p-3 text-xs font-medium text-muted-foreground">報酬</th>
-                  <th className="text-center p-3 text-xs font-medium text-muted-foreground">出場日</th>
+                  <th className="text-right p-3 text-xs font-medium text-muted-foreground whitespace-nowrap">進場價</th>
+                  <th className="text-right p-3 text-xs font-medium text-muted-foreground whitespace-nowrap">出場價</th>
+                  <th className="text-right p-3 text-xs font-medium text-muted-foreground whitespace-nowrap">報酬</th>
+                  <th className="text-center p-3 text-xs font-medium text-muted-foreground whitespace-nowrap">出場日</th>
                 </tr>
               </thead>
               <tbody>
@@ -100,22 +108,22 @@ export default function RealizedTab({
                     const { symbol, name } = parseInstrument(row.instrument);
                     return (
                       <tr key={row.id} className="border-b last:border-0">
-                        <td className="p-3">
-                          <div className="flex flex-col">
-                            <span className="text-sm font-medium">{name || symbol}</span>
-                            <span className="text-xs text-muted-foreground">{symbol}</span>
+                        <td className="p-3 align-top">
+                          <div className="flex flex-col min-w-0">
+                            <span className="text-sm font-medium break-words [overflow-wrap:anywhere]">{name || symbol}</span>
+                            <span className="text-xs text-muted-foreground font-mono tabular-nums break-words [overflow-wrap:anywhere]">{symbol}</span>
                           </div>
                         </td>
-                        <td className="text-right p-3 text-sm tabular-nums">
+                        <td className="text-right p-3 text-sm tabular-nums whitespace-nowrap align-top">
                           {fmtPrice(row.entry_price, row.currency)}
                         </td>
-                        <td className="text-right p-3 text-sm tabular-nums">
+                        <td className="text-right p-3 text-sm tabular-nums whitespace-nowrap align-top">
                           {fmtPrice(row.exit_price, row.currency)}
                         </td>
-                        <td className={cn('text-right p-3 text-sm font-medium tabular-nums', pnlColor(row.pnl_percent))}>
+                        <td className={cn('text-right p-3 text-sm font-medium tabular-nums whitespace-nowrap align-top', pnlColor(row.pnl_percent))}>
                           {row.pnl_percent != null ? fmtPct(row.pnl_percent) : '-'}
                         </td>
-                        <td className="text-center p-3 text-sm text-muted-foreground">
+                        <td className="text-center p-3 text-sm text-muted-foreground whitespace-nowrap align-top">
                           {fmtDate(row.exit_date)}
                         </td>
                       </tr>

@@ -608,7 +608,12 @@ const JournalsExport = () => {
                             <TableCell className="whitespace-nowrap text-xs">
                               {fmtTaipei(r.published_at || r.created_at)}
                             </TableCell>
-                            <TableCell className="whitespace-nowrap">{r.instrument ?? '-'}</TableCell>
+                            <TableCell
+                              className="max-w-[240px] min-w-[140px] break-words [overflow-wrap:anywhere] align-top"
+                              title={r.instrument ?? ''}
+                            >
+                              {r.instrument ?? '-'}
+                            </TableCell>
                             <TableCell>{r.action ?? '-'}</TableCell>
                             <TableCell className="text-right">{r.price_hint ?? '-'}</TableCell>
                             <TableCell className="max-w-[320px] truncate" title={r.reason_summary ?? ''}>

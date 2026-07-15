@@ -35,16 +35,31 @@ export function SignalsTable(p: Props) {
     <Card>
       <CardContent className="p-0">
         <div className="overflow-x-auto">
-          <table className="w-full">
+          <table className="w-full table-fixed">
+            {/*
+              固定 colgroup 寬度分配，避免長 ETF 字尾（例：00631L 元大台灣50正2）
+              把 標的 欄推寬、擠壓其他欄位導致對齊錯亂。
+              合計為 100%，overflow-x-auto 提供小螢幕橫向捲動兜底。
+            */}
+            <colgroup>
+              <col style={{ width: '140px' }} />
+              <col style={{ minWidth: '180px', width: '22%' }} />
+              <col style={{ width: '72px' }} />
+              <col style={{ width: '160px' }} />
+              <col style={{ minWidth: '200px', width: 'auto' }} />
+              {p.isMentor && <col style={{ width: '90px' }} />}
+              <col style={{ width: '90px' }} />
+              <col style={{ width: '120px' }} />
+            </colgroup>
             <thead>
               <tr className="border-b bg-muted/50">
-                <th className="text-left p-3 text-xs font-medium text-muted-foreground">時間</th>
+                <th className="text-left p-3 text-xs font-medium text-muted-foreground whitespace-nowrap">時間</th>
                 <th className="text-left p-3 text-xs font-medium text-muted-foreground">標的</th>
-                <th className="text-left p-3 text-xs font-medium text-muted-foreground">方向</th>
-                <th className="text-left p-3 text-xs font-medium text-muted-foreground">價位</th>
+                <th className="text-left p-3 text-xs font-medium text-muted-foreground whitespace-nowrap">方向</th>
+                <th className="text-left p-3 text-xs font-medium text-muted-foreground whitespace-nowrap">價位</th>
                 <th className="text-left p-3 text-xs font-medium text-muted-foreground">理由</th>
-                {p.isMentor && <th className="text-left p-3 text-xs font-medium text-muted-foreground">發布狀態</th>}
-                <th className="text-left p-3 text-xs font-medium text-muted-foreground">狀態</th>
+                {p.isMentor && <th className="text-left p-3 text-xs font-medium text-muted-foreground whitespace-nowrap">發布狀態</th>}
+                <th className="text-left p-3 text-xs font-medium text-muted-foreground whitespace-nowrap">狀態</th>
                 <th className="text-left p-3 text-xs font-medium text-muted-foreground"></th>
               </tr>
             </thead>
@@ -86,8 +101,9 @@ export function SignalsTable(p: Props) {
               <tfoot>
                 {p.holdingSummary.map(({ instrument, zhangQty, guQty, cost }) => (
                   <tr key={instrument} className="border-t bg-muted/40">
-                    <td colSpan={3} className="p-3 text-sm font-medium text-muted-foreground">
-                      {instrument} 目前持有
+                    <td colSpan={3} className="p-3 text-sm font-medium text-muted-foreground align-top">
+                      <span className="break-words [overflow-wrap:anywhere]">{instrument}</span>
+                      <span className="whitespace-nowrap"> 目前持有</span>
                     </td>
                     <td colSpan={2} className="p-3 text-sm font-bold text-foreground">
                       {assetClass === 'crypto'
