@@ -3135,18 +3135,72 @@ ${JSON.stringify(strategyBrain || { rules: [], lessons: [], commonMistakes: [], 
   const [showResetConfirm, setShowResetConfirm] = useState(false);
   // Batch D IA §2：手機頂欄「更多」sheet
   const [mobileActionsOpen, setMobileActionsOpen] = useState(false);
-  // ESC 關閉 + body overflow 鎖定（與 TradeUploadModal 同步）
+  const mobileActionsSheetRef = useRef(null);
+  const mobileActionsTriggerRef = useRef(null);
+  const mobileActionsPrevFocus = useRef(null);
+  // a11y：ESC 關閉 + body overflow 鎖定 + 焦點陷阱 + 關閉後回到觸發按鈕
   useEffect(() => {
     if (!mobileActionsOpen) return;
-    const onKey = (e) => { if (e.key === 'Escape') setMobileActionsOpen(false); };
+    // 1) 記住觸發前的焦點（若沒抓到 trigger ref 就退回 activeElement）
+    mobileActionsPrevFocus.current =
+      mobileActionsTriggerRef.current ||
+      (typeof document !== 'undefined' ? document.activeElement : null);
+
+    const getFocusable = () => {
+      const root = mobileActionsSheetRef.current;
+      if (!root) return [];
+      return Array.from(
+        root.querySelectorAll(
+          'button:not([disabled]), [href], [tabindex]:not([tabindex="-1"])'
+        )
+      ).filter((el) => el.offsetParent !== null);
+    };
+
+    const onKey = (e) => {
+      if (e.key === 'Escape') {
+        e.stopPropagation();
+        setMobileActionsOpen(false);
+        return;
+      }
+      if (e.key === 'Tab') {
+        const focusables = getFocusable();
+        if (focusables.length === 0) {
+          e.preventDefault();
+          mobileActionsSheetRef.current?.focus?.();
+          return;
+        }
+        const first = focusables[0];
+        const last = focusables[focusables.length - 1];
+        const active = document.activeElement;
+        if (e.shiftKey && active === first) {
+          e.preventDefault();
+          last.focus();
+        } else if (!e.shiftKey && active === last) {
+          e.preventDefault();
+          first.focus();
+        }
+      }
+    };
+
     document.addEventListener('keydown', onKey);
     const prev = document.body.style.overflow;
     document.body.style.overflow = 'hidden';
+
+    // 2) 初次焦點：sheet 本身（讓讀屏從 aria-labelledby 的標題唸起，
+    //    再往下依 DOM 順序：更多 → 選項 → 取消）
+    const t = setTimeout(() => {
+      mobileActionsSheetRef.current?.focus?.();
+    }, 0);
+
     return () => {
+      clearTimeout(t);
       document.removeEventListener('keydown', onKey);
       document.body.style.overflow = prev;
+      // 3) 關閉後回到原本觸發按鈕
+      try { mobileActionsPrevFocus.current?.focus?.(); } catch {}
     };
   }, [mobileActionsOpen]);
+
 
 
   const clearAnalysisAndLessons = () => {
