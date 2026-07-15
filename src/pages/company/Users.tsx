@@ -166,10 +166,35 @@ export default function CompanyUsers() {
     const verb = enabled ? '指派' : '移除';
     const label = role === 'company_admin' ? '管理員' : '分析師';
     if (!confirm(`確定要${verb}「${row.display_name || row.email}」的${label}權限？`)) return;
-    await callAction(`${row.user_id}:${role}`, {
-      action: 'set_role', user_id: row.user_id, role, enabled,
-    }, `已${verb} ${label} 權限`);
+    const key = `${row.user_id}:${role}`;
+    setBusy(key);
+    const { data, error } = await supabase.functions.invoke('admin-manage-users', {
+      body: { action: 'set_role', user_id: row.user_id, role, enabled },
+    });
+    setBusy(null);
+    if (error || data?.error) {
+      const msg = data?.error || error?.message || '操作失敗';
+      toast({ title: '失敗', description: errorMap[msg] || msg, variant: 'destructive' });
+      return;
+    }
+    if (role === 'analyst' && enabled && data?.needs_setup) {
+      toast({
+        title: '已開通分析師權限',
+        description: '已建立骨架資料，請至「分析師管理」補齊 slug / 姓名 / 角色',
+        action: (
+          <Button size="sm" variant="outline" onClick={() => navigate('/company/analysts')}>
+            前往補資料
+          </Button>
+        ) as any,
+      });
+    } else if (role === 'analyst' && !enabled && data?.expert_kept) {
+      toast({ title: '已回收分析師權限', description: 'expert 檔案保留（有訂閱者或已啟用）' });
+    } else {
+      toast({ title: `已${verb} ${label} 權限` });
+    }
+    await load();
   };
+
 
   const toggleTester = async (row: UserRow, value: boolean) => {
     if (!confirm(`確定要將「${row.display_name || row.email}」設為${value ? '' : '非'} Tester？`)) return;
