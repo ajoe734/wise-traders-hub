@@ -169,6 +169,17 @@ test.describe('Checkup tokens visual — /holding-checkup', () => {
         )
         .catch(() => {});
       await page.waitForTimeout(220);
+
+      // 8a) §3.4 ROI 符號合約 — 卡片 `.wb-roi` 必須用 `+` / `−` (U+2212)，
+      //     嚴禁再出現 `↑` / `↓` 或 ASCII `-` 或 `+/-`。
+      const cardRoiText = (await firstCard.locator('.wb-roi').first().textContent()) ?? '';
+      expect(cardRoiText, `卡片 ROI 不得含 ↑/↓ 箭頭：${cardRoiText}`).not.toMatch(/[↑↓]/);
+      expect(cardRoiText, `卡片 ROI 負號必須為 U+2212，不得用 ASCII '-'：${cardRoiText}`)
+        .not.toMatch(/-\d/);
+      // 至少要見到 `+`、`−` (U+2212) 或以 0 開頭（0.00%）三者其一
+      expect(cardRoiText, `卡片 ROI 必須帶 +/−/0 符號：${cardRoiText}`)
+        .toMatch(/[+\u2212]|^\s*0/);
+
       await expect(firstCard).toHaveScreenshot(
         `checkup-tokens-holding-card-${testInfo.project.name}.png`,
         { maxDiffPixelRatio: 0.03, animations: 'disabled', caret: 'hide', scale: 'css' },
@@ -183,6 +194,21 @@ test.describe('Checkup tokens visual — /holding-checkup', () => {
       // 等 Radix Dialog 動畫結束 + 內容 lazy import 完成
       await page.waitForTimeout(500);
       await page.evaluate(() => document.fonts?.ready);
+
+      // 9a) §3.4 ROI 符號合約 — 抽屜大字 ROI 同樣禁用箭頭 / ASCII '-'
+      const drawerRoi = drawer.locator('[data-testid="drawer-roi-main"]').first();
+      await expect(drawerRoi).toBeVisible();
+      const drawerRoiText = (await drawerRoi.textContent()) ?? '';
+      expect(drawerRoiText, `抽屜 ROI 不得含 ↑/↓ 箭頭：${drawerRoiText}`).not.toMatch(/[↑↓]/);
+      expect(drawerRoiText, `抽屜 ROI 負號必須為 U+2212，不得用 ASCII '-'：${drawerRoiText}`)
+        .not.toMatch(/-\d/);
+      expect(drawerRoiText, `抽屜 ROI 必須帶 +/−/0 符號：${drawerRoiText}`)
+        .toMatch(/[+\u2212]|^\s*0/);
+      // 兜住整個抽屜第一屏：全域檢查沒有殘留 `↑` / `↓` 出現在數值旁（例如 `↑ 12.3%`）
+      const drawerFullText = (await drawer.textContent()) ?? '';
+      expect(drawerFullText, '抽屜任何位置都不得出現 `↑數字%` 或 `↓數字%` 樣式')
+        .not.toMatch(/[↑↓]\s*\d+(?:\.\d+)?\s*%/);
+
       // 抽屜可能超出 viewport → 用 element screenshot 保證完整
       await expect(drawer).toHaveScreenshot(
         `checkup-tokens-drawer-${testInfo.project.name}.png`,
