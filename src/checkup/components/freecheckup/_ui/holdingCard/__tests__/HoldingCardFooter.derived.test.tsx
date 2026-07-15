@@ -130,14 +130,18 @@ describe('HoldingCardFooter — srcTitle 派生（tooltip）', () => {
 });
 
 describe('HoldingCardFooter — srcBadge / errBadge 樣式派生', () => {
+  // WB.accent = #FF4D1F → rgb(255, 77, 31)
+  const ACCENT_RGB = 'rgba(255, 77, 31,';
+
   it('normal + live → 前景 WB.accent、背景 alpha(WB.accent, 22)', () => {
     const { container } = render(
       <HoldingCardFooter {...base} h={{ ...base.h, priceSource: 'live' }} />,
     );
     const badge = getBadge(container, '即時')!;
     const style = badge.getAttribute('style') || '';
-    // WB.accent 是 orange，rgb 值不硬碼，改測背景含 alpha suffix 22 → 十六進制 0x22
-    expect(style.toLowerCase()).toContain(WB.accent.toLowerCase() + '22');
+    expect(style).toContain(`background: ${ACCENT_RGB}`);
+    expect(style).toContain('color: rgb(255, 77, 31)');
+    expect(style).toContain('opacity: 0.85');
   });
 
   it('normal + screenshot → 背景 alpha(muteColor, 18)', () => {
@@ -149,7 +153,10 @@ describe('HoldingCardFooter — srcBadge / errBadge 樣式派生', () => {
       />,
     );
     const badge = getBadge(container, '截圖')!;
-    expect((badge.getAttribute('style') || '').toLowerCase()).toContain('#abcdef18');
+    const style = badge.getAttribute('style') || '';
+    expect(style).toContain('background: rgba(171, 205, 239,');
+    // 前景色為 subColor
+    expect(style).toContain('color: rgb(51, 51, 51)');
   });
 
   it('normal + 其他來源 → 背景 alpha(lossColor, 22)', () => {
@@ -161,7 +168,7 @@ describe('HoldingCardFooter — srcBadge / errBadge 樣式派生', () => {
       />,
     );
     const badge = getBadge(container, '賣一')!;
-    expect((badge.getAttribute('style') || '').toLowerCase()).toContain('#11223322');
+    expect(badge.getAttribute('style') || '').toContain('background: rgba(17, 34, 51,');
   });
 
   it('ink + live → 背景 alpha(WB.accent, 30)、色 WB.accent、opacity 0.9', () => {
@@ -169,12 +176,13 @@ describe('HoldingCardFooter — srcBadge / errBadge 樣式派生', () => {
       <HoldingCardFooter {...base} variant="ink" h={{ ...base.h, priceSource: 'live' }} />,
     );
     const badge = getBadge(container, '即時')!;
-    const style = (badge.getAttribute('style') || '').toLowerCase();
-    expect(style).toContain(WB.accent.toLowerCase() + '30');
+    const style = badge.getAttribute('style') || '';
+    expect(style).toContain(`background: ${ACCENT_RGB}`);
+    expect(style).toContain('color: rgb(255, 77, 31)');
     expect(style).toContain('opacity: 0.9');
   });
 
-  it('ink + 非 live → 背景 rgba(244,241,236,0.10)、色 rgba(244,241,236,0.85)', () => {
+  it('ink + 非 live → 背景 rgba(244,241,236,0.…)、色 rgba(244,241,236,0.85)', () => {
     const { container } = render(
       <HoldingCardFooter
         {...base}
@@ -184,8 +192,8 @@ describe('HoldingCardFooter — srcBadge / errBadge 樣式派生', () => {
     );
     const badge = getBadge(container, '截圖')!;
     const style = (badge.getAttribute('style') || '').replace(/\s+/g, '');
-    expect(style).toContain('rgba(244,241,236,0.1)');
-    expect(style).toContain('rgba(244,241,236,0.85)');
+    expect(style).toContain('background:rgba(244,241,236,');
+    expect(style).toContain('color:rgba(244,241,236,0.85)');
   });
 
   it('normal errBadge → 背景 alpha(lossColor, 22)、色 lossColor', () => {
@@ -197,8 +205,8 @@ describe('HoldingCardFooter — srcBadge / errBadge 樣式派生', () => {
       />,
     );
     const err = getBadge(container, '失敗')!;
-    const style = (err.getAttribute('style') || '').toLowerCase();
-    expect(style).toContain('#44556622');
+    const style = err.getAttribute('style') || '';
+    expect(style).toContain('background: rgba(68, 85, 102,');
     expect(style).toContain('color: rgb(68, 85, 102)');
   });
 
