@@ -89,6 +89,17 @@ test.describe('Signal editor — ETF 英文字尾顯示 parity', () => {
     await expect(page.getByTestId('editor-list-instrument')).toHaveText('00631L 元大台灣50正2');
     await expect(page.getByTestId('editor-content-code')).toHaveText('00631L');
     await expect(page.getByTestId('editor-content-name')).toHaveText('元大台灣50正2');
+    await expect(page.getByTestId('uppercase-hint')).toHaveText('已自動轉大寫');
+  });
+
+  test('全大寫輸入 → 不顯示「已自動轉大寫」提示', async ({ page }) => {
+    await typeAndResolve(page, '00631L');
+    await expect(page.getByTestId('uppercase-hint')).toHaveCount(0);
+  });
+
+  test('純數字輸入 → 不顯示「已自動轉大寫」提示', async ({ page }) => {
+    await typeAndResolve(page, '2330');
+    await expect(page.getByTestId('uppercase-hint')).toHaveCount(0);
   });
 
   test('未命名代號 → 只顯示代號、無例外', async ({ page }) => {
