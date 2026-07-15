@@ -29,11 +29,31 @@ describe('currency utils', () => {
   });
 
   describe('isValidSymbol', () => {
-    it('TWD 只接受 4–6 位數字', () => {
+    it('TWD 接受 4–6 位數字（純數字）', () => {
       expect(isValidSymbol('2330', 'TWD')).toBe(true);
+      expect(isValidSymbol('0050', 'TWD')).toBe(true);
       expect(isValidSymbol('00878', 'TWD')).toBe(true);
       expect(isValidSymbol('123', 'TWD')).toBe(false);
       expect(isValidSymbol('AAPL', 'TWD')).toBe(false);
+    });
+    it('TWD 接受 4–6 位數字 + 選填 1 個英文字母（涵蓋槓桿/反向/債券 ETF）', () => {
+      expect(isValidSymbol('00631L', 'TWD')).toBe(true);   // 元大台灣 50 正 2
+      expect(isValidSymbol('00632R', 'TWD')).toBe(true);   // 元大台灣 50 反 1
+      expect(isValidSymbol('00878B', 'TWD')).toBe(true);   // 國泰投資級公司債
+      expect(isValidSymbol('00679B', 'TWD')).toBe(true);   // 元大美債 20 年
+      expect(isValidSymbol('12345B', 'TWD')).toBe(true);   // 5 碼 + 字母
+      expect(isValidSymbol('9999X', 'TWD')).toBe(true);    // 4 碼 + 字母
+    });
+    it('TWD 小寫字母自動 uppercase 後接受', () => {
+      expect(isValidSymbol('00631l', 'TWD')).toBe(true);
+      expect(isValidSymbol('00878b', 'TWD')).toBe(true);
+    });
+    it('TWD 拒絕雙字母尾或不合格式', () => {
+      expect(isValidSymbol('00631LR', 'TWD')).toBe(false); // 雙字母
+      expect(isValidSymbol('L00631', 'TWD')).toBe(false);  // 字母開頭
+      expect(isValidSymbol('006318', 'TWD')).toBe(true);   // 6 碼純數字
+      expect(isValidSymbol('0063189', 'TWD')).toBe(false); // 7 碼超長
+      expect(isValidSymbol('006318BB', 'TWD')).toBe(false);
     });
     it('USD 接受 1–5 大寫字母與 .X 後綴', () => {
       expect(isValidSymbol('AAPL', 'USD')).toBe(true);

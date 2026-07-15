@@ -223,7 +223,7 @@ Deno.serve(withLogging('stock-price-sync', async (req) => {
       for (const sym of requestedSymbols) {
         const m = detectMarket(sym)
         if (m === 'TW') {
-          if (/^\d{4,6}$/.test(sym)) twSyms.push(sym)
+          if (/^\d{4,6}[A-Z]?$/i.test(sym)) twSyms.push(sym.toUpperCase())
           else reasons[sym] = 'invalid_format'
         } else {
           usSyms.push(sym.toUpperCase())
@@ -321,8 +321,8 @@ Deno.serve(withLogging('stock-price-sync', async (req) => {
     for (const row of (checkupRows || [])) {
       const arr = Array.isArray(row?.data) ? row.data : []
       for (const h of arr) {
-        const code = String(h?.code || '').trim()
-        if (code && /^\d{4,6}$/.test(code)) checkupSymbols.add(code)
+        const code = String(h?.code || '').trim().toUpperCase()
+        if (code && /^\d{4,6}[A-Z]?$/i.test(code)) checkupSymbols.add(code)
       }
     }
 

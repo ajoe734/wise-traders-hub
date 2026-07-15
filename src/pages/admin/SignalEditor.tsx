@@ -138,7 +138,8 @@ const SignalEditor = () => {
 
   // ── Stock-name lookup ────────────────────────────────────────────────
   const fetchStockInfo = useCallback(async (idx: number, code: string) => {
-    const c = code.trim();
+    // uppercase 確保台股 ETF 字尾（如 00631L）與大小寫快取一致
+    const c = code.trim().toUpperCase();
     const minLen = currency === 'USD' ? 1 : 4;
     if (!c || c.length < minLen) return;
     if (stockCacheRef.current.has(c)) {

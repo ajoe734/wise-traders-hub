@@ -41,6 +41,23 @@ describe('asset spec', () => {
     expect(isValidAssetSymbol('中文', 'crypto')).toBe(false);
     expect(isValidAssetSymbol('', 'tw_stock')).toBe(false);
   });
+
+  it('tw_stock 接受英數字尾 ETF 代碼（槓桿 / 反向 / 債券）', () => {
+    expect(isValidAssetSymbol('00631L', 'tw_stock')).toBe(true);
+    expect(isValidAssetSymbol('00632R', 'tw_stock')).toBe(true);
+    expect(isValidAssetSymbol('00878B', 'tw_stock')).toBe(true);
+    expect(isValidAssetSymbol('00679B', 'tw_stock')).toBe(true);
+    // uppercaseSymbol=true → 小寫輸入被 uppercase 後接受
+    expect(isValidAssetSymbol('00631l', 'tw_stock')).toBe(true);
+    // 雙字母 / 字母開頭 / 超長 一律拒絕
+    expect(isValidAssetSymbol('00631LR', 'tw_stock')).toBe(false);
+    expect(isValidAssetSymbol('L0050', 'tw_stock')).toBe(false);
+    expect(isValidAssetSymbol('0063180', 'tw_stock')).toBe(false);
+  });
+
+  it('tw_stock uppercaseSymbol 已開啟（避免大小寫快取分裂）', () => {
+    expect(getAssetSpec('tw_stock').uppercaseSymbol).toBe(true);
+  });
 });
 
 describe('isMarketClosedFor', () => {
