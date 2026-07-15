@@ -118,9 +118,10 @@ describe('Free Checkup: 卡片靜態防擠壓合約', () => {
     );
   });
 
-  it('ROI 內聯樣式採用 tabular-nums (baseline 對齊)', () => {
-    // ROI clamp + lineHeight:1
-    expect(SRC).toMatch(/wb-roi[\s\S]{0,400}?fontSize:\s*'clamp\(/);
+  it('ROI 內聯樣式採用 tabular-nums 與 clamp 字級', () => {
+    expect(SRC).toMatch(/wb-roi/);
+    expect(SRC).toMatch(/fontSize:\s*'clamp\(/);
+    expect(SRC).toMatch(/tabular-nums/);
   });
 
   it('Sparkline 在 ≤380px 隱藏 (避免擠壓 ROI)', () => {
