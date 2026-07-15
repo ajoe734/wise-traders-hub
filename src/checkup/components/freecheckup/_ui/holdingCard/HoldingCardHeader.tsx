@@ -19,6 +19,9 @@ function HoldingCardHeaderImpl({
   actionLabel,
   pctVal,
 }) {
+  // dev/test：追蹤本卡標頭 render 次數；生產環境 no-op
+  useRenderCounter('HoldingCardHeader', { id: h?.code });
+
   const isInk = variant === 'ink';
   const isFeature = isInk; // 語意等價保留（原本重複判定 variant === 'ink'）
   const nameFont = isFeature ? 15 : 13;
