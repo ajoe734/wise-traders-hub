@@ -152,18 +152,24 @@ const SignalDetail = () => {
         <div className="flex items-start gap-3 flex-wrap">
           <Badge className={cn(ac.className, 'text-xs px-2 py-0.5 shrink-0 mt-1')}>{ac.label}</Badge>
           <h1 className="text-2xl font-bold min-w-0 break-words [overflow-wrap:anywhere] leading-tight">
-            {tickerCode ? (
-              <>
-                <span className="font-mono tabular-nums tracking-tight">{tickerCode}</span>
-                {tickerName ? (
-                  <> <span>{tickerName}</span></>
-                ) : (
-                  <span className="text-muted-foreground">.TW</span>
-                )}
-              </>
-            ) : (
-              signal.instrument
-            )}
+            <InstrumentTooltip
+              full={displaySymbol}
+              data-testid="signal-detail-instrument"
+              className="text-2xl font-bold leading-tight"
+            >
+              {tickerCode ? (
+                <>
+                  <span className="font-mono tabular-nums tracking-tight">{tickerCode}</span>
+                  {tickerName ? (
+                    <> <span>{tickerName}</span></>
+                  ) : (
+                    <span className="text-muted-foreground">.TW</span>
+                  )}
+                </>
+              ) : (
+                signal.instrument
+              )}
+            </InstrumentTooltip>
           </h1>
         </div>
         {/* Row 2: date + expert name + role badge */}
