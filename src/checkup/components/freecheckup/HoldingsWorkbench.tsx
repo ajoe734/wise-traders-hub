@@ -68,6 +68,7 @@ function HoldingsWorkbench(props) {
     setSectorFilterPersisted,
     showAll,
     setShowAll,
+    tradeLog,
   } = props;
 
   const selected = useMemo(() => {
@@ -282,6 +283,7 @@ function HoldingsWorkbench(props) {
                 sortDir={sortDir}
                 setSortBy={setSortBy}
                 setSortDir={setSortDir}
+                tradeLog={tradeLog}
               />
             </Suspense>
           )}

@@ -126,6 +126,8 @@ function HoldingsTab(props) {
     holdingSyncStates,
     // navigation
     setTab,
+    // A2 抽屜資料源通線
+    tradeLog,
   } = props;
 
   // E-Maint-R7 + C3 (audit 2026-06)：useCheckupMode 現在缺 provider 也回安全預設，
@@ -417,6 +419,7 @@ function HoldingsTab(props) {
         setSectorFilterPersisted={setSectorFilterPersisted}
         showAll={showAll}
         setShowAll={setShowAll}
+        tradeLog={tradeLog}
       />
 
 

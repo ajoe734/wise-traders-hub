@@ -3766,6 +3766,7 @@ ${JSON.stringify(strategyBrain || { rules: [], lessons: [], commonMistakes: [], 
               setShowAll={setShowAll}
               holdingSyncStates={holdingSyncStates}
               setTab={setTab}
+              tradeLog={tradeLog}
             />
 
           </Suspense>
