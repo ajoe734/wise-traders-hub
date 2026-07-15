@@ -317,6 +317,15 @@ export function SignalCreateDialog({
             <div className="space-y-2">
               <Label>股票代碼</Label>
               <Input value={stockCode} onChange={(e) => handleStockCodeChange(e.target.value)} placeholder={spec.symbolPlaceholder} />
+              {autoUppercased && (
+                <p
+                  data-testid="uppercase-hint"
+                  className="text-[11px] text-muted-foreground animate-in fade-in slide-in-from-top-1 duration-200"
+                  aria-live="polite"
+                >
+                  已自動轉大寫
+                </p>
+              )}
             </div>
             <div className="space-y-2">
               <Label>股票名稱 {fetchingQuote && <Loader2 className="inline h-3 w-3 animate-spin text-muted-foreground" />}</Label>
