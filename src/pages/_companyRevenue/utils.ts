@@ -1,14 +1,20 @@
-export const fmtMoney = (n: number) => `NT$${(n || 0).toLocaleString()}`;
+export const fmtMoney = (n: number | null | undefined) => {
+  const num = Number(n);
+  if (!Number.isFinite(num)) return 'NT$0';
+  return `NT$${num.toLocaleString()}`;
+};
 
 export const fmtDate = (d?: string | null) => {
   if (!d) return '-';
   const x = new Date(d);
+  if (Number.isNaN(x.getTime())) return '-';
   return `${x.getFullYear()}/${String(x.getMonth() + 1).padStart(2, '0')}/${String(x.getDate()).padStart(2, '0')}`;
 };
 
 export const fmtDateTime = (d?: string | null) => {
   if (!d) return '-';
   const x = new Date(d);
+  if (Number.isNaN(x.getTime())) return '-';
   return `${fmtDate(d)} ${String(x.getHours()).padStart(2, '0')}:${String(x.getMinutes()).padStart(2, '0')}`;
 };
 

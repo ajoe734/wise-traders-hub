@@ -69,14 +69,15 @@ export function formatTaipeiYMDHMWithFallback(
  * 用於 month-to-date 統計查詢，避免直接 new Date(year, month, 1) 受瀏覽器/伺服器時區影響。
  */
 export function taipeiMonthStartIso(now: Date = new Date()): string {
+  const safeNow = now instanceof Date && !Number.isNaN(now.getTime()) ? now : new Date();
   const parts = new Intl.DateTimeFormat('en-CA', {
     timeZone: 'Asia/Taipei',
     year: 'numeric',
     month: '2-digit',
-  }).formatToParts(now);
+  }).formatToParts(safeNow);
   const y = parts.find((p) => p.type === 'year')?.value;
   const m = parts.find((p) => p.type === 'month')?.value;
-  if (!y || !m) return new Date(now.getFullYear(), now.getMonth(), 1).toISOString();
+  if (!y || !m) return new Date(safeNow.getFullYear(), safeNow.getMonth(), 1).toISOString();
   // Asia/Taipei = UTC+8，無 DST → 當月 1 號 00:00 對應 UTC 前一日 16:00
   return `${y}-${m}-01T00:00:00+08:00`;
 }
