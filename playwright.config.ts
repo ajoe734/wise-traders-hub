@@ -230,6 +230,12 @@ export default defineConfig({
       use: { ...devices['Desktop Chrome'], viewport: { width: 1280, height: 900 } },
     },
     {
+      // Batch D §2 — 手機頂欄「⋯ 更多」actions sheet 開/關 + 選項行為
+      name: 'mobile-freecheckup-actions-sheet',
+      testMatch: /freecheckup-mobile-actions-sheet\.spec\.ts/,
+      use: { ...devices['Desktop Chrome'], viewport: { width: 390, height: 844 } },
+    },
+    {
       // F1 — 登入/註冊漏斗（auth_login_*, auth_signup_*）
       name: 'desktop-auth-funnel',
       testMatch: /auth-funnel\.spec\.ts/,

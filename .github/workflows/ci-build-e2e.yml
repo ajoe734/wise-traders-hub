@@ -69,6 +69,7 @@ jobs:
           - desktop-freecheckup-batch-parse-limit
           - desktop-freecheckup-single-parse
           - desktop-freecheckup-upload-modal
+          - mobile-freecheckup-actions-sheet
     steps:
       - uses: actions/checkout@v4
       - uses: oven-sh/setup-bun@v2

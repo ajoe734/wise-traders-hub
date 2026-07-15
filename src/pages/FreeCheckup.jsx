@@ -3135,6 +3135,19 @@ ${JSON.stringify(strategyBrain || { rules: [], lessons: [], commonMistakes: [], 
   const [showResetConfirm, setShowResetConfirm] = useState(false);
   // Batch D IA §2：手機頂欄「更多」sheet
   const [mobileActionsOpen, setMobileActionsOpen] = useState(false);
+  // ESC 關閉 + body overflow 鎖定（與 TradeUploadModal 同步）
+  useEffect(() => {
+    if (!mobileActionsOpen) return;
+    const onKey = (e) => { if (e.key === 'Escape') setMobileActionsOpen(false); };
+    document.addEventListener('keydown', onKey);
+    const prev = document.body.style.overflow;
+    document.body.style.overflow = 'hidden';
+    return () => {
+      document.removeEventListener('keydown', onKey);
+      document.body.style.overflow = prev;
+    };
+  }, [mobileActionsOpen]);
+
 
   const clearAnalysisAndLessons = () => {
     if (!confirm("確定要清除『歷史分析記錄』與『最近教訓』嗎？")) return;
@@ -3374,11 +3387,13 @@ ${JSON.stringify(strategyBrain || { rules: [], lessons: [], commonMistakes: [], 
                 <button
                   type="button"
                   className="cm-header-mobile-more"
+                  data-testid="checkup-mobile-more-cta"
                   aria-label="更多選項"
                   aria-haspopup="dialog"
                   aria-expanded={mobileActionsOpen}
                   onClick={() => setMobileActionsOpen(true)}
                 >⋯ 更多</button>
+
               </span>
             </div>
           </div>
@@ -3986,9 +4001,19 @@ ${JSON.stringify(strategyBrain || { rules: [], lessons: [], commonMistakes: [], 
       {/* Batch D §2：手機頂欄「更多」sheet — 收納同步、補價、日誌、清除 */}
       {mobileActionsOpen && (
         <>
-          <div className="cm-mobile-actions-sheet__backdrop" onClick={()=>setMobileActionsOpen(false)} />
-          <div className="cm-mobile-actions-sheet" role="dialog" aria-modal="true" aria-labelledby="cm-mobile-actions-title">
-            <h3 id="cm-mobile-actions-title" className="cm-mobile-actions-sheet__title">更多</h3>
+          <div className="cm-mobile-actions-sheet__backdrop" data-testid="mobile-actions-sheet-backdrop" onClick={()=>setMobileActionsOpen(false)} />
+          <div className="cm-mobile-actions-sheet" data-testid="mobile-actions-sheet" role="dialog" aria-modal="true" aria-labelledby="cm-mobile-actions-title">
+            <div style={{display:'flex',alignItems:'center',justifyContent:'space-between',gap:8,marginBottom:10,paddingBottom:8,borderBottom:'1px solid var(--cm-ink)'}}>
+              <h3 id="cm-mobile-actions-title" className="cm-mobile-actions-sheet__title" style={{margin:0,padding:0,border:'none'}}>更多</h3>
+              <button
+                type="button"
+                aria-label="關閉"
+                data-testid="mobile-actions-sheet-close"
+                onClick={()=>setMobileActionsOpen(false)}
+                style={{background:'transparent',border:'none',fontSize:20,lineHeight:1,cursor:'pointer',color:'var(--cm-ink-sec)',padding:'2px 6px'}}
+              >×</button>
+            </div>
+
             {!isDemo && (
               <button type="button" className="cm-mobile-actions-sheet__item"
                 onClick={()=>{ setMobileActionsOpen(false); navigate("/app"); }}>
