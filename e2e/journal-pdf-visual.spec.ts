@@ -53,7 +53,7 @@ test.describe('journal-pdf-visual', () => {
     expect(errors, `harness console/page errors: ${errors.join(' | ')}`).toEqual([]);
 
     const pageCount = await page.locator('[data-pdf-page]').count();
-    expect(pageCount).toBeGreaterThanOrEqual(2);
+    expect(pageCount, 'cover + 操作回顧 + 成交明細 + 產業分佈 ≥ 4').toBeGreaterThanOrEqual(4);
 
     // 每個 PDF 頁面尺寸必須固定
     for (let i = 1; i <= pageCount; i++) {
@@ -119,13 +119,52 @@ test.describe('journal-pdf-visual', () => {
     }, ACCENT);
     expect(bulletColor, '學習重點橘色項目符號').toBe(ACCENT);
 
-    // 逐頁像素快照（cover + 內文各一，避免 baseline 太多）
+    // 逐頁像素快照（cover + 操作回顧 + 成交明細 + 產業分佈）
+    // 學習重點頁排在最後、字體與其他頁共用，不再重複 baseline。
     await expect(page.locator('[data-pdf-page="1"]')).toHaveScreenshot(
       `journal-pdf-cover-${testInfo.project.name}.png`,
       { maxDiffPixelRatio: 0.02 },
     );
     await expect(page.locator('[data-pdf-page="2"]')).toHaveScreenshot(
       `journal-pdf-page2-${testInfo.project.name}.png`,
+      { maxDiffPixelRatio: 0.02 },
+    );
+
+    // 第 3 頁：本週成交明細 —— 必須有 5 列且 5 種 action badge 各出現一次
+    const tradeTable = page.locator('[data-pdf-page="3"] table[data-pdf-trade-detail]');
+    await expect(tradeTable, '成交明細 table').toBeVisible();
+    const bodyRows = tradeTable.locator('tbody tr');
+    expect(await bodyRows.count(), '成交明細列數').toBe(5);
+    for (const [label, expectedBg] of badgeChecks) {
+      const cell = tradeTable.locator(`tbody tr td span:has-text("${label}")`).filter({
+        hasText: new RegExp(`^${label}$`),
+      }).first();
+      await expect(cell, `成交明細 badge "${label}"`).toBeVisible();
+      const bg = await cell.evaluate((n) => getComputedStyle(n).backgroundColor);
+      expect(bg, `成交明細 ${label} badge bg`).toBe(expectedBg);
+    }
+    await expect(page.locator('[data-pdf-page="3"]')).toHaveScreenshot(
+      `journal-pdf-trade-detail-${testInfo.project.name}.png`,
+      { maxDiffPixelRatio: 0.02 },
+    );
+
+    // 第 4 頁：本週產業分佈 —— 3 類（半導體 / 電子零組件 / 航運），bar 為品牌橘
+    const sectorBlock = page.locator('[data-pdf-page="4"] [data-pdf-sector-distribution]');
+    await expect(sectorBlock, '產業分佈 block').toBeVisible();
+    for (const sectorName of ['半導體', '電子零組件', '航運']) {
+      await expect(
+        sectorBlock.locator(`div:has-text("${sectorName}")`).first(),
+        `sector row "${sectorName}"`,
+      ).toBeVisible();
+    }
+    // bar 顏色守門：至少一條產業 bar 用品牌橘（避免混入 action 色）
+    const orangeBars = await sectorBlock.evaluate((root, expected) => {
+      const nodes = Array.from(root.querySelectorAll('div'));
+      return nodes.filter((n) => getComputedStyle(n as HTMLElement).backgroundColor === expected).length;
+    }, ACCENT);
+    expect(orangeBars, '產業分佈品牌橘 bar 數').toBeGreaterThanOrEqual(3);
+    await expect(page.locator('[data-pdf-page="4"]')).toHaveScreenshot(
+      `journal-pdf-sector-distribution-${testInfo.project.name}.png`,
       { maxDiffPixelRatio: 0.02 },
     );
   });

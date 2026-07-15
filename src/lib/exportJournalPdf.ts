@@ -15,6 +15,8 @@ interface Signal {
   risk_notes: string | null;
   learning_points: string | null;
   published_at: string;
+  /** 產業分類（用於「本週產業分佈」頁；未提供則歸為「未分類」） */
+  sector?: string | null;
   experts: {
     name: string;
     slug: string;
@@ -322,6 +324,96 @@ const signalBlockHtml = (s: Signal) => {
   `;
 };
 
+/**
+ * 本週成交明細 — 一頁 tabular 匯總，欄位：日期 / 動作 / 標的 / 價格 / 數量。
+ * 與螢幕 ActionBadge 使用同一份 actionMeta 色票，避免匯出漂移。
+ */
+const buildTradeDetailBodyHtml = (signals: Signal[]): string => {
+  if (!signals.length) {
+    return `${sectionTitle('本週成交明細')}<div style="color:${COLORS.gray}; font-size:12px;">本週無成交紀錄。</div>`;
+  }
+  const th = (t: string, w?: string) =>
+    `<th style="text-align:left; font-weight:700; font-size:10px; letter-spacing:0.1em; color:${COLORS.gray}; padding:10px 8px; border-bottom:1px solid ${COLORS.ink};${w ? ` width:${w};` : ''}">${escapeHtml(t)}</th>`;
+  const rows = signals
+    .map((s) => {
+      const meta = actionMeta(s.action);
+      const price = s.price_hint != null ? String(s.price_hint) : '—';
+      const qty =
+        s.quantity != null ? `${s.quantity} ${s.quantity_unit || '張'}` : '—';
+      return `
+        <tr>
+          <td style="padding:12px 8px; border-bottom:1px solid ${COLORS.line}; font-size:11px; color:${COLORS.gray}; letter-spacing:0.05em; white-space:nowrap;">${format(new Date(s.published_at), 'yyyy / MM / dd')}</td>
+          <td style="padding:12px 8px; border-bottom:1px solid ${COLORS.line};">
+            <span style="display:inline-block; padding:3px 10px; background:${meta.bg}; color:${meta.fg}; font-size:11px; font-weight:700; letter-spacing:0.1em;">${escapeHtml(meta.label)}</span>
+          </td>
+          <td style="padding:12px 8px; border-bottom:1px solid ${COLORS.line}; font-family:${serif}; font-size:15px; font-weight:700; color:${COLORS.ink};">${escapeHtml(s.instrument)}</td>
+          <td style="padding:12px 8px; border-bottom:1px solid ${COLORS.line}; font-size:12px; color:${COLORS.ink}; font-variant-numeric:tabular-nums; text-align:right;">${escapeHtml(price)}</td>
+          <td style="padding:12px 8px; border-bottom:1px solid ${COLORS.line}; font-size:12px; color:${COLORS.ink}; font-variant-numeric:tabular-nums; text-align:right; white-space:nowrap;">${escapeHtml(qty)}</td>
+        </tr>
+      `;
+    })
+    .join('');
+  return `
+    ${sectionTitle('本週成交明細')}
+    <table data-pdf-trade-detail style="width:100%; border-collapse:collapse; table-layout:auto;">
+      <thead>
+        <tr>
+          ${th('日期', '110px')}
+          ${th('動作', '78px')}
+          ${th('標的')}
+          ${th('價格', '80px')}
+          ${th('數量', '90px')}
+        </tr>
+      </thead>
+      <tbody>${rows}</tbody>
+    </table>
+    <div style="margin-top:14px; font-size:10px; color:${COLORS.gray}; letter-spacing:0.05em;">共 ${signals.length} 筆 · 動作色票與螢幕 ActionBadge 一致</div>
+  `;
+};
+
+/**
+ * 本週產業分佈 — 依 Signal.sector 分組計數，橫向 bar 呈現。
+ * bar 顏色一律 brand 橘，避免與 action 色混淆。
+ */
+const buildSectorDistributionBodyHtml = (signals: Signal[]): string => {
+  if (!signals.length) {
+    return `${sectionTitle('本週產業分佈')}<div style="color:${COLORS.gray}; font-size:12px;">本週無成交紀錄。</div>`;
+  }
+  const counts = new Map<string, number>();
+  for (const s of signals) {
+    const key = (s.sector || '').trim() || '未分類';
+    counts.set(key, (counts.get(key) || 0) + 1);
+  }
+  const total = signals.length;
+  const entries = Array.from(counts.entries()).sort((a, b) => b[1] - a[1]);
+  const max = entries[0][1];
+  const rows = entries
+    .map(([sector, count]) => {
+      const pct = Math.round((count / total) * 100);
+      const barW = Math.round((count / max) * 100);
+      return `
+        <div style="display:flex; align-items:center; gap:16px; padding:14px 0; border-bottom:1px solid ${COLORS.line};">
+          <div style="width:140px; flex-shrink:0; font-family:${serif}; font-size:14px; font-weight:700; color:${COLORS.ink};">${escapeHtml(sector)}</div>
+          <div style="flex:1; min-width:0;">
+            <div style="height:10px; background:${COLORS.line}; position:relative;">
+              <div style="position:absolute; left:0; top:0; bottom:0; width:${barW}%; background:${COLORS.brand};"></div>
+            </div>
+          </div>
+          <div style="width:64px; text-align:right; font-size:12px; color:${COLORS.ink}; font-variant-numeric:tabular-nums; font-weight:500;">${count} 筆</div>
+          <div style="width:56px; text-align:right; font-size:12px; color:${COLORS.gray}; font-variant-numeric:tabular-nums;">${pct}%</div>
+        </div>
+      `;
+    })
+    .join('');
+  return `
+    ${sectionTitle('本週產業分佈')}
+    <div data-pdf-sector-distribution>${rows}</div>
+    <div style="margin-top:18px; font-size:10px; color:${COLORS.gray}; letter-spacing:0.05em;">依 Signal.sector 分組 · 共 ${entries.length} 類 / ${total} 筆</div>
+  `;
+};
+
+
+
 const buildPage = (headerTitle: string, weekNum: number, bodyHtml: string) => `
   <div style="${pageShellCss}">
     ${watermarkHtml}
@@ -405,6 +497,19 @@ export const renderJournalPageHtmls = async (
     const chunked = await measureAndSplit(root, '本週操作回顧', weekNum, firstBlocks, maxBody);
     for (const html of chunked) pageHtmls.push(buildPage('本週操作回顧', weekNum, html));
   }
+
+  // 成交明細 + 產業分佈 —— 只在有 signals 時輸出，各佔一頁；
+  // 這兩頁與螢幕呈現對齊，交由 harness 做視覺回歸守門
+  if (args.weekSignals.length) {
+    pageHtmls.push(
+      buildPage('本週成交明細', weekNum, buildTradeDetailBodyHtml(args.weekSignals)),
+    );
+    pageHtmls.push(
+      buildPage('本週產業分佈', weekNum, buildSectorDistributionBodyHtml(args.weekSignals)),
+    );
+  }
+
+
 
   if (args.learningPoints.length) {
     const lpBlocks = args.learningPoints.map(
