@@ -125,12 +125,18 @@ test.describe('Checkup tokens visual — /holding-checkup', () => {
       expect(bg).toBe(ACCENT_RGB);
     }
 
-    // 6) Pixel diff — Header 區塊（含 wordmark + tab bar / 手機頂欄）
-    const header = page.locator('.app-shell').first();
-    await expect(header).toBeVisible();
-    await expect(header).toHaveScreenshot(
+    // 6) Pixel diff — 頁面頂部固定範圍（含返回列 + 品牌/tab 區）
+    //    /holding-checkup 頂欄無單一穩定 selector，直接以 clip 截固定範圍即可
+    await expect(page).toHaveScreenshot(
       `checkup-tokens-header-${testInfo.project.name}.png`,
-      { maxDiffPixelRatio: 0.02, animations: 'disabled', caret: 'hide', scale: 'css' },
+      {
+        clip: { x: 0, y: 0, width, height: 220 },
+        maxDiffPixelRatio: 0.02,
+        animations: 'disabled',
+        caret: 'hide',
+        scale: 'css',
+      },
     );
   });
 });
+
