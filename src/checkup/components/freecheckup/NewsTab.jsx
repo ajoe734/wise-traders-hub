@@ -79,16 +79,17 @@ function NewsTabImpl({
         </div>
       )}
 
-      {/* 準確率摘要 */}
-      <div className="rwd-3col" style={{ marginBottom:14 }}>
+      {/* 準確率摘要（編輯化：無色卡，一行文字統計） */}
+      <div style={{ marginBottom:14, padding:"10px 0", borderTop:`1px solid ${alpha(C.textMute,'20')}`, borderBottom:`1px solid ${alpha(C.textMute,'20')}`,
+        display:"flex", gap:24, flexWrap:"wrap", alignItems:"baseline", fontVariantNumeric:"tabular-nums" }}>
         {[
-          ["已驗證", `${hits+misses}`, C.textSec, C.card],
-          ["預測正確", `${hits}`, C.up, C.cardRose],
-          ["命中率", hits+misses>0?`${Math.round(hits/(hits+misses)*100)}%`:"—", C.amber, C.cardAmber],
-        ].map(([l,v,c,bg])=>(
-          <div key={l} style={{background:bg,border:`1px solid ${C.border}`,borderRadius:10,padding:"10px 11px"}}>
-            <div style={{fontSize:12,color:C.textMute,letterSpacing:"0.06em"}}>{l}</div>
-            <div style={{fontSize:18,fontWeight:500,color:c,marginTop:4}}>{v}</div>
+          ["已驗證", `${hits+misses}`],
+          ["預測正確", `${hits}`],
+          ["命中率", hits+misses>0?`${Math.round(hits/(hits+misses)*100)}%`:"—"],
+        ].map(([l,v])=>(
+          <div key={l} style={{ display:"flex", alignItems:"baseline", gap:8 }}>
+            <span style={{fontSize:10,color:C.textMute,letterSpacing:"0.12em"}}>{l}</span>
+            <span style={{fontSize:15,fontWeight:400,color:C.text}}>{v}</span>
           </div>
         ))}
       </div>
