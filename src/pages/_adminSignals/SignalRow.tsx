@@ -103,7 +103,7 @@ export function SignalRow({
           </div>
         </td>
         <td className="p-3"><Badge className={`${ai.className} text-xs`}>{ai.label}</Badge></td>
-        <td className="p-3 text-sm">
+        <td className="p-3 text-sm whitespace-nowrap tabular-nums align-top">
           {signal.price_hint ? (
             <>
               {priceSymbol}{Number(signal.price_hint).toLocaleString(undefined, { minimumFractionDigits: spec.priceDigits >= 4 ? 2 : (currency === 'USD' ? 2 : 0), maximumFractionDigits: spec.priceDigits })}
@@ -116,7 +116,7 @@ export function SignalRow({
                   currency="USD"
                   showMeta={false}
                   forceAuto
-                  className="block"
+                  className="block whitespace-nowrap"
                 />
               )}
             </>
