@@ -9,6 +9,7 @@
         "@ai-sdk/react": "^2.0.0",
         "@fontsource/noto-sans-tc": "^5.2.9",
         "@fontsource/noto-serif-tc": "^5.2.10",
+        "@fontsource/source-serif-4": "^5.2.9",
         "@hookform/resolvers": "^3.10.0",
         "@radix-ui/react-accordion": "^1.2.11",
         "@radix-ui/react-alert-dialog": "^1.1.14",
@@ -249,6 +250,8 @@
     "@fontsource/noto-sans-tc": ["@fontsource/noto-sans-tc@5.2.9", "https://europe-west4-npm.pkg.dev/lovable-core-prod/sandbox-npm-cache/@fontsource/noto-sans-tc/-/noto-sans-tc-5.2.9.tgz", {}, "sha512-Z+pXTvXYrip79lPV9X1lCYO3UTys55P25VqcifDStIzdZ86I4R6t8dz+NhGd09YdbvHWvOCB5Icw1m7glKHPNQ=="],
 
     "@fontsource/noto-serif-tc": ["@fontsource/noto-serif-tc@5.2.10", "https://europe-west4-npm.pkg.dev/lovable-core-prod/sandbox-npm-cache/@fontsource/noto-serif-tc/-/noto-serif-tc-5.2.10.tgz", {}, "sha512-oxetD2CojPqT3ckha45cUamUVOfuuae4mkULupvjIwv5nW/AGQmpKW2x8PvY62vixRXLs+uYqbZT1TY3RJ42tg=="],
+
+    "@fontsource/source-serif-4": ["@fontsource/source-serif-4@5.2.9", "https://europe-west1-npm.pkg.dev/lovable-core-prod/sandbox-npm-cache/@fontsource/source-serif-4/-/source-serif-4-5.2.9.tgz", {}, "sha512-er/Pym9emsEVJNf947umJ4kXarXfsiN6CN7kTYinefKRaHLwiquiiHOZvKvxWgkV8JMCf3pV3g0NcsPFpVCH9w=="],
 
     "@hookform/resolvers": ["@hookform/resolvers@3.10.0", "", { "peerDependencies": { "react-hook-form": "^7.0.0" } }, "sha512-79Dv+3mDF7i+2ajj7SkypSKHhl1cbln1OGavqrsF7p6mbUv11xpqpacPsGDCTRvCSjEEIez2ef1NveSVL3b0Ag=="],
 
