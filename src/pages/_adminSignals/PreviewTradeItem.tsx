@@ -30,11 +30,11 @@ export const PreviewTradeItem = ({
         className={`flex items-center gap-3 ${hasDetails ? 'cursor-pointer' : ''}`}
         onClick={() => hasDetails && setExpanded(!expanded)}
       >
-        <Badge className={cn(ai.className, 'text-[10px] px-1.5 py-0')}>{ai.label}</Badge>
+        <Badge className={cn(ai.className, 'text-[10px] px-1.5 py-0 shrink-0')}>{ai.label}</Badge>
         <div className="flex-1 min-w-0">
-          <span className="font-medium text-sm">{instrument}</span>
+          <span className="font-medium text-sm break-words [overflow-wrap:anywhere]">{instrument}</span>
           {priceHint != null && (
-            <span className="text-xs text-muted-foreground ml-1">@{priceHint}</span>
+            <span className="text-xs text-muted-foreground ml-1 whitespace-nowrap">@{priceHint}</span>
           )}
         </div>
         {hasDetails && (
