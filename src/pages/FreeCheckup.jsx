@@ -41,6 +41,10 @@ const DailyTab = lazy(() => import("@/checkup/components/freecheckup/DailyTab"))
 const LogTab = lazy(() => import("@/checkup/components/freecheckup/LogTab"));
 const TradeTab = lazy(() => import("@/checkup/components/freecheckup/TradeTab"));
 const ResearchTab = lazy(() => import("@/checkup/components/freecheckup/ResearchTab"));
+// Batch C §6.3 / §6.5：上傳 modal + 一次性引導 + 頁腳 demo hint
+const TradeUploadModal = lazy(() => import("@/checkup/components/freecheckup/TradeUploadModal"));
+const OnboardingOverlay = lazy(() => import("@/checkup/components/freecheckup/OnboardingOverlay"));
+const DemoFooterHint = lazy(() => import("@/checkup/components/freecheckup/DemoFooterHint"));
 
 // Phase 3 A1: lazy-load heavy/conditional UI to shrink initial bundle
 const Md = lazy(() => import("@/checkup/components/Md"));
