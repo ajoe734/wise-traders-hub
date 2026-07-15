@@ -884,7 +884,9 @@ function ColumnIndex({
             <span
               className="cm-num"
               style={{
-                fontSize: 12, color: 'var(--cm-ink)', fontWeight: 500,
+                fontSize: 12,
+                color: accentFirst && i === 0 ? 'var(--cm-accent)' : 'var(--cm-ink)',
+                fontWeight: 500,
                 letterSpacing: '0.02em',
               }}
             >{r.primary}</span>
