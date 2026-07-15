@@ -68,6 +68,7 @@ jobs:
           - desktop-freecheckup-batch-parse-quota
           - desktop-freecheckup-batch-parse-limit
           - desktop-freecheckup-single-parse
+          - desktop-freecheckup-upload-modal
     steps:
       - uses: actions/checkout@v4
       - uses: oven-sh/setup-bun@v2

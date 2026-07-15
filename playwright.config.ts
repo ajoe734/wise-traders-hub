@@ -223,6 +223,13 @@ export default defineConfig({
       use: { ...devices['Desktop Chrome'], viewport: { width: 1280, height: 800 } },
     },
     {
+      // Batch C §6.3 — TradeUploadModal 三條關閉路徑 + DailyTab/LogTab 切換不破版
+      // 每個 test 內用 setViewportSize 自行切換桌面／手機寬度
+      name: 'desktop-freecheckup-upload-modal',
+      testMatch: /freecheckup-upload-modal\.spec\.ts/,
+      use: { ...devices['Desktop Chrome'], viewport: { width: 1280, height: 900 } },
+    },
+    {
       // F1 — 登入/註冊漏斗（auth_login_*, auth_signup_*）
       name: 'desktop-auth-funnel',
       testMatch: /auth-funnel\.spec\.ts/,
