@@ -118,6 +118,51 @@ function HoldingsDetailPanelImpl({
   const dec = decisionsMap[h.code];
   const meta = stockMeta[h.code] || null;
   const baseTarget = targets && avgTarget && h.code ? avgTarget(h.code) : null;
+
+  // A2 資料通線：若父層未注入，自帶 hooks 取 target_price_history / thesisTracking。
+  // 只在有 selected 時啟用，避免抽屜關閉仍持續 fetch。
+  const { rows: tpHistoryRows } = useTargetPriceHistory(h.code, {
+    limit: 30,
+    enabled: !targetPriceHistoryProp && !!h.code,
+  });
+  const { theses } = useThesisTracking();
+  const targetPriceHistory = useMemo(() => {
+    if (targetPriceHistoryProp) return targetPriceHistoryProp;
+    if (!h.code || !Array.isArray(tpHistoryRows) || tpHistoryRows.length === 0) return null;
+    const shaped = tpHistoryRows
+      .map((r: any) => ({
+        date: r?.report_date || (r?.created_at ? String(r.created_at).slice(0, 10) : null),
+        target: Number(r?.target),
+      }))
+      .filter((r) => r.date && Number.isFinite(r.target) && r.target > 0);
+    return shaped.length ? { [h.code]: shaped } : null;
+  }, [targetPriceHistoryProp, tpHistoryRows, h.code]);
+  const thesisTracking = useMemo(() => {
+    if (thesisTrackingProp) return thesisTrackingProp;
+    if (!h.code || !Array.isArray(theses) || theses.length === 0) return null;
+    const forCode = theses.filter(
+      (t: any) => t?.stockId === h.code || t?.code === h.code,
+    );
+    if (!forCode.length) return null;
+    const rows: any[] = [];
+    for (const t of forCode) {
+      const history = Array.isArray(t?.reviewHistory) ? t.reviewHistory : [];
+      for (const r of history) {
+        const rawDate = r?.timestamp || r?.date || r?.createdAt;
+        if (!rawDate) continue;
+        rows.push({
+          date: String(rawDate).slice(0, 10),
+          suggestion: r?.suggestion || r?.action || r?.decision || '—',
+          myAction: r?.myAction || r?.userAction || '—',
+          afterPct: Number.isFinite(Number(r?.afterPct)) ? Number(r.afterPct) : null,
+        });
+      }
+    }
+    if (!rows.length) return null;
+    rows.sort((a, b) => (a.date < b.date ? -1 : a.date > b.date ? 1 : 0));
+    return { [h.code]: rows };
+  }, [thesisTrackingProp, theses, h.code]);
+
   const pctVal = h.pct ?? h.totalPct ?? 0;
   const pnlVal = Number(h.pnl ?? h.totalPnl ?? 0);
   const todayPct = Number.isFinite(Number(h.changePct)) ? Number(h.changePct) : null;
