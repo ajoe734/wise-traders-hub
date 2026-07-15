@@ -78,6 +78,12 @@ export default defineConfig({
       use: { ...devices['Desktop Chrome'], viewport: { width: 414, height: 896 } },
     },
     {
+      // HoldingCard 鍵盤/ARIA 回歸 — memoization 後行為對等驗證（iPhone 390 寬）
+      name: 'iphone-390-a11y',
+      testMatch: /freecheckup-card-a11y\.spec\.ts/,
+      use: { ...devices['Desktop Chrome'], viewport: { width: 390, height: 844 } },
+    },
+    {
       name: 'desktop-batch3',
       testMatch: /batch3-.*\.spec\.ts/,
       use: { ...devices['Desktop Chrome'], viewport: { width: 1280, height: 800 } },
