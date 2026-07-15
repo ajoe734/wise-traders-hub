@@ -286,10 +286,86 @@ const measureAndSplit = async (
   return pages;
 };
 
+/**
+ * 建構所有 PDF 頁面的 HTML 陣列（含頁碼/頁尾/免責聲明），
+ * 但不觸發截圖或下載。用於視覺回歸測試 harness 直接把 HTML 掛到頁面上比對。
+ *
+ * @param root 用來暫存 measure probe 的 DOM 容器；呼叫端負責掛到 document 上
+ */
+export const renderJournalPageHtmls = async (
+  args: ExportArgs,
+  root: HTMLElement,
+): Promise<string[]> => {
+  const avatarDataUrl = args.avatarSrc ? await toDataUrl(args.avatarSrc) : null;
+
+  const weekNum = (() => {
+    const d = new Date(args.weekStart);
+    const oneJan = new Date(d.getFullYear(), 0, 1);
+    const days = Math.floor((d.getTime() - oneJan.getTime()) / 86400000);
+    return Math.ceil((days + oneJan.getDay() + 1) / 7);
+  })();
+
+  const pageHtmls: string[] = [];
+  pageHtmls.push(buildCoverHtml(args, avatarDataUrl));
+
+  const summaryPlain = richHtmlToPlain(args.headSignal.reason_detail);
+  const summaryBlock = summaryPlain
+    ? `
+      <div style="margin-bottom: 32px;">
+        ${sectionTitle('本週整體摘要')}
+        <div style="column-count: 2; column-gap: 32px; font-size: 12px; line-height: 1.85; color:${COLORS.ink}; white-space: pre-wrap;">${escapeHtml(summaryPlain)}</div>
+      </div>
+    `
+    : '';
+
+  const signalsIntro = `${sectionTitle('本週操作')}`;
+  const signalBlocks = args.weekSignals.map((s) => signalBlockHtml(s));
+  const maxBody = 1123 - 68 * 2 - 40 - 26 - 20;
+
+  if (signalBlocks.length === 0) {
+    pageHtmls.push(buildPage('本週操作回顧', weekNum, summaryBlock || '<div style="color:#8A857C">本週無交易紀錄。</div>'));
+  } else {
+    const firstBlocks = [summaryBlock, signalsIntro, ...signalBlocks].filter(Boolean);
+    const chunked = await measureAndSplit(root, '本週操作回顧', weekNum, firstBlocks, maxBody);
+    for (const html of chunked) pageHtmls.push(buildPage('本週操作回顧', weekNum, html));
+  }
+
+  if (args.learningPoints.length) {
+    const lpBlocks = args.learningPoints.map(
+      (p) => `
+        <li style="display:flex; gap: 12px; padding: 10px 0; border-bottom: 1px solid ${COLORS.line}; font-size: 13px; line-height: 1.7;">
+          <span style="color:${COLORS.brand}; font-weight: 700; flex-shrink: 0;">•</span>
+          <span>${escapeHtml(p)}</span>
+        </li>
+      `,
+    );
+    const intro = sectionTitle('本週學習重點');
+    const wrapped = [intro, `<ul style="list-style:none; padding:0; margin:0;">${lpBlocks.join('')}</ul>`];
+    const chunked = await measureAndSplit(root, '本週學習重點', weekNum, wrapped, maxBody);
+    for (const html of chunked) pageHtmls.push(buildPage('本週學習重點', weekNum, html));
+  }
+
+  const disclaimer = `
+    <div style="position:absolute; left:68px; right:68px; bottom: 58px; padding-top: 12px; border-top: 1px solid ${COLORS.line}; font-size: 9px; color:${COLORS.gray}; line-height: 1.6;">
+      本頁內容為一週前之操作回顧（T+7），僅供教學用途，不構成任何即時投資建議。 &nbsp;·&nbsp; legendflow · 產出於 ${format(new Date(), 'yyyy/MM/dd')}
+    </div>
+  `;
+  pageHtmls[pageHtmls.length - 1] = pageHtmls[pageHtmls.length - 1].replace(
+    /<\/div>\s*$/,
+    `${disclaimer}</div>`,
+  );
+
+  // 注入頁碼（跳過封面）
+  const total = pageHtmls.length;
+  return pageHtmls.map((html, i) =>
+    i === 0
+      ? html
+      : html.replace(/<\/div>\s*$/, `${pageFooter(i + 1, total)}</div>`),
+  );
+};
+
 export const exportJournalPdf = async (args: ExportArgs) => {
   await ensureFonts();
-
-  const avatarDataUrl = args.avatarSrc ? await toDataUrl(args.avatarSrc) : null;
 
   const root = document.createElement('div');
   root.id = 'lf-pdf-root';
@@ -297,87 +373,13 @@ export const exportJournalPdf = async (args: ExportArgs) => {
   document.body.appendChild(root);
 
   try {
-    const weekNum = (() => {
-      const d = new Date(args.weekStart);
-      const oneJan = new Date(d.getFullYear(), 0, 1);
-      const days = Math.floor((d.getTime() - oneJan.getTime()) / 86400000);
-      return Math.ceil((days + oneJan.getDay() + 1) / 7);
-    })();
+    const pageHtmls = await renderJournalPageHtmls(args, root);
 
-    // Build all page HTMLs
-    const pageHtmls: string[] = [];
-
-    // 1. Cover
-    pageHtmls.push(buildCoverHtml(args, avatarDataUrl));
-
-    // 2+. Summary page (may share with signals if room)
-    const summaryPlain = richHtmlToPlain(args.headSignal.reason_detail);
-    const summaryBlock = summaryPlain
-      ? `
-        <div style="margin-bottom: 32px;">
-          ${sectionTitle('本週整體摘要')}
-          <div style="column-count: 2; column-gap: 32px; font-size: 12px; line-height: 1.85; color:${COLORS.ink}; white-space: pre-wrap;">${escapeHtml(summaryPlain)}</div>
-        </div>
-      `
-      : '';
-
-    const signalsIntro = `${sectionTitle('本週操作')}`;
-    const signalBlocks = args.weekSignals.map((s) => signalBlockHtml(s));
-
-    // Measure body area: page height 1123 - top padding 68 - bottom padding 68 - header ~40 - top-body-padding 26 - footer buffer 30
-    const maxBody = 1123 - 68 * 2 - 40 - 26 - 20;
-
-    if (signalBlocks.length === 0) {
-      pageHtmls.push(buildPage('本週操作回顧', weekNum, summaryBlock || '<div style="color:#8A857C">本週無交易紀錄。</div>'));
-    } else {
-      // First content page carries summary + intro + as many signals as fit.
-      const firstBlocks = [summaryBlock, signalsIntro, ...signalBlocks].filter(Boolean);
-      const chunked = await measureAndSplit(root, '本週操作回顧', weekNum, firstBlocks, maxBody);
-      for (const html of chunked) {
-        pageHtmls.push(buildPage('本週操作回顧', weekNum, html));
-      }
-    }
-
-    // Last. Learning points
-    if (args.learningPoints.length) {
-      const lpBlocks = args.learningPoints.map(
-        (p) => `
-          <li style="display:flex; gap: 12px; padding: 10px 0; border-bottom: 1px solid ${COLORS.line}; font-size: 13px; line-height: 1.7;">
-            <span style="color:${COLORS.brand}; font-weight: 700; flex-shrink: 0;">•</span>
-            <span>${escapeHtml(p)}</span>
-          </li>
-        `,
-      );
-      const intro = sectionTitle('本週學習重點');
-      const wrapped = [intro, `<ul style="list-style:none; padding:0; margin:0;">${lpBlocks.join('')}</ul>`];
-      const chunked = await measureAndSplit(root, '本週學習重點', weekNum, wrapped, maxBody);
-      for (const html of chunked) {
-        pageHtmls.push(buildPage('本週學習重點', weekNum, html));
-      }
-    }
-
-    // Disclaimer footer strip appended to last page bottom (baked into last page HTML)
-    const disclaimer = `
-      <div style="position:absolute; left:68px; right:68px; bottom: 58px; padding-top: 12px; border-top: 1px solid ${COLORS.line}; font-size: 9px; color:${COLORS.gray}; line-height: 1.6;">
-        本頁內容為一週前之操作回顧（T+7），僅供教學用途，不構成任何即時投資建議。 &nbsp;·&nbsp; legendflow · 產出於 ${format(new Date(), 'yyyy/MM/dd')}
-      </div>
-    `;
-    pageHtmls[pageHtmls.length - 1] = pageHtmls[pageHtmls.length - 1].replace(
-      /<\/div>\s*$/,
-      `${disclaimer}</div>`,
-    );
-
-    // Render each page node, snapshot, add to PDF
     const doc = new jsPDF({ unit: 'mm', format: 'a4', orientation: 'portrait' });
-    const total = pageHtmls.length;
 
     for (let i = 0; i < pageHtmls.length; i++) {
       const wrapper = document.createElement('div');
-      wrapper.innerHTML = pageHtmls[i].replace(
-        /<\/div>\s*$/,
-        // inject footer page number (skip on cover)
-        i === 0 ? '</div>' : `${pageFooter(i + 1, total)}</div>`,
-      );
+      wrapper.innerHTML = pageHtmls[i];
       const pageEl = wrapper.firstElementChild as HTMLElement;
       root.appendChild(pageEl);
 
@@ -408,3 +410,7 @@ export const exportJournalPdf = async (args: ExportArgs) => {
     document.body.removeChild(root);
   }
 };
+
+// 給 harness 用的品牌色常數，避免 test 檔硬編
+export const JOURNAL_PDF_COLORS = COLORS;
+
