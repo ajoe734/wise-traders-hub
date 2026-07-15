@@ -15,6 +15,8 @@ interface Signal {
   risk_notes: string | null;
   learning_points: string | null;
   published_at: string;
+  /** 產業分類（用於「本週產業分佈」頁；未提供則歸為「未分類」） */
+  sector?: string | null;
   experts: {
     name: string;
     slug: string;
