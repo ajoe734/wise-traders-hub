@@ -478,6 +478,18 @@ export default defineConfig({
       },
     },
 
+    // HoldingCard PriceTrack / Footer 文字合約回歸（隔離 harness）
+    {
+      name: 'desktop-holding-card-price-track-parity',
+      testMatch: /holding-card-price-track-parity\.spec\.ts/,
+      use: { ...devices['Desktop Chrome'], viewport: { width: 1280, height: 900 } },
+    },
+    {
+      name: 'desktop-holding-card-footer-parity',
+      testMatch: /holding-card-footer-parity\.spec\.ts/,
+      use: { ...devices['Desktop Chrome'], viewport: { width: 1280, height: 900 } },
+    },
+
   ],
   webServer: {
     command: 'bun run dev',
