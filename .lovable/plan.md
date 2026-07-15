@@ -88,6 +88,16 @@
 - [x] **Noto Serif TC self-host woff2**：`@fontsource/noto-sans-tc` + `@fontsource/noto-serif-tc` 安裝，於 `FreeCheckup.jsx` 頂端引入 `chinese-traditional-{400,500,600,700}.css`；`checkupTokens.css` 移除 Google Fonts 遠端 `@import`。
 - [x] **頁面內距 token**：`--cm-page-px: clamp(16px, 3.5vw, 40px)` 定義於 `.checkup-mono :root`；`.cm-page-content { padding: 14px var(--cm-page-px); }`，移除 `FreeCheckup.jsx` L3695 inline `padding:"14px 14px"`。實測 1280px 下 computed = `14px 40px` ✓。
 
+### 批次 F · Token 全域擴散（本輪）
+- [x] `checkupTokens.css` 新增 `--cm-page-py: 10px` 與全域 utility `.cm-shell-inner` / `.cm-header-inner`（脫離 `.checkup-mono` scope，供多個 layout 共用）。
+- [x] `AppShellFrame.jsx` — 移除內嵌 Google Fonts `<style>` @import、`fontFamily: "'Inter',..."` → `var(--cm-font-sans)`、`padding: '10px 14px'` inline → `className="cm-shell-inner"`。
+- [x] `PortfolioLayout.jsx` — 同上（`fontFamily` token + `className="cm-shell-inner"`）。
+- [x] `Header.jsx` — `padding: '10px 14px 0'` inline → `className="cm-header-inner"`。
+- [x] `FreeCheckup.jsx` L4156 (`.holding-drawer-mobile-close` @media) `padding: 10px 14px ...` → `var(--cm-page-py) var(--cm-page-px) ...`。
+- [x] 移除三處 inline `#FF4D1F` → `var(--cm-accent)`：`EventsTab.jsx` L146、`OnboardingOverlay.jsx` L72、`holdingsTab.css` L137/L149（focus-visible outline ×2）。
+- [x] `OnboardingOverlay.jsx` inline `fontFamily: "'Noto Serif TC',..."` → `var(--cm-font-serif)`。
+
+
 ---
 
 ## 驗收清單（§8）

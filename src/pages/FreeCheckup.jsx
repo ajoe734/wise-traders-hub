@@ -4153,7 +4153,7 @@ ${JSON.stringify(strategyBrain || { rules: [], lessons: [], commonMistakes: [], 
                 display: flex !important;
                 position: fixed; left: 0; right: 0; bottom: 0;
                 z-index: 60;
-                padding: 10px 14px calc(10px + env(safe-area-inset-bottom));
+                padding: var(--cm-page-py) var(--cm-page-px) calc(var(--cm-page-py) + env(safe-area-inset-bottom));
                 background: ${C.bg};
                 border-top: 1px solid ${alpha(C.textMute, '15')};
                 gap: 8px;

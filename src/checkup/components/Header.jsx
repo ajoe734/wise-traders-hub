@@ -77,11 +77,10 @@ export default function Header(props) {
   return h(
     'div',
     {
-      className: 'app-shell',
+      className: 'app-shell cm-header-inner',
       style: {
         background: `${C.shell}f0`,
         borderBottom: `1px solid ${C.borderSoft}`,
-        padding: '10px 14px 0',
         position: 'sticky',
         top: 0,
         zIndex: 10,

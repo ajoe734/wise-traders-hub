@@ -143,7 +143,7 @@ function EventsTabImpl({
             {verifiedList.map(e => {
               const correct = e.correct === true;
               const wrong = e.correct === false;
-              const tone = correct ? '#FF4D1F' : (wrong ? C.textMute : C.textMute);
+              const tone = correct ? 'var(--cm-accent)' : C.textMute;
               const label = correct ? '命中' : (wrong ? '未中' : '未判定');
               const post = typeof e.postPct === 'number' ? `${e.postPct >= 0 ? '+' : ''}${e.postPct.toFixed(1)}%` : '';
               return (

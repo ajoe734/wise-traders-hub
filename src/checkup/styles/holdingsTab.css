@@ -134,7 +134,7 @@
 /* A11y：鍵盤 focus-visible 焦點環（滑鼠點擊不顯示，Tab 才顯示） */
 .wb-card { outline: none; }
 .wb-card:focus-visible {
-  outline: 2px solid #FF4D1F;
+  outline: 2px solid var(--cm-accent);
   outline-offset: 2px;
   box-shadow: 0 0 0 4px rgba(255, 77, 31, 0.18);
   z-index: 2;
@@ -146,7 +146,7 @@
 }
 /* 卡內 report 巢狀按鈕的焦點也要看得見 */
 .wb-card .wb-tags button:focus-visible {
-  outline: 2px solid #FF4D1F;
+  outline: 2px solid var(--cm-accent);
   outline-offset: 2px;
 }
 

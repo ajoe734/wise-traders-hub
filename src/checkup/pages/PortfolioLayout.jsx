@@ -15,11 +15,11 @@ export function PortfolioLayout() {
         background: C.bg,
         minHeight: '100vh',
         color: C.text,
-        fontFamily: "'Inter','Noto Sans TC',system-ui,sans-serif",
+        fontFamily: 'var(--cm-font-sans)',
         paddingBottom: 40,
       },
     },
     h(Header, headerProps),
-    h('div', { style: { padding: '10px 14px' } }, h(Outlet, { context: outletContext }))
+    h('div', { className: 'cm-shell-inner' }, h(Outlet, { context: outletContext }))
   )
 }
