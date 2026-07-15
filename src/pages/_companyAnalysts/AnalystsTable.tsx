@@ -13,9 +13,11 @@ interface Props {
   onOpenAccount: (exp: any) => void;
   onToggleStatus: (id: string, currentStatus: string) => void;
   onOpenSubscribers?: (exp: any) => void;
+  onAdopt?: (exp: any) => void;
 }
 
-export function AnalystsTable({ loading, experts, subscriberCounts = {}, onOpenLine, onOpenAccount, onToggleStatus, onOpenSubscribers }: Props) {
+export function AnalystsTable({ loading, experts, subscriberCounts = {}, onOpenLine, onOpenAccount, onToggleStatus, onOpenSubscribers, onAdopt }: Props) {
+
   return (
     <Card>
       <CardContent className="p-0">
