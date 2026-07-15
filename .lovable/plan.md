@@ -1,111 +1,77 @@
-# Plan：HoldingCardHeader 導入 per-signal 教學片段徽章
+# Plan：Footer / PriceTrack DOM 快照回歸
 
-## 需求
-在 `HoldingCardHeader` 的 `.wb-tags` 列末端新增 `.wb-tip` 教學徽章：
-- **資料源**：優先讀 `meta.tip`（字串）或 `meta.tips[]`（陣列，取第 0 個顯示、其餘進 title 換行）。
-- **Fallback**：兩者皆缺 → 依 `actionLabel` 分流靜態文案（見下）。
-- **aria-label 不變**：不影響卡片外層 `aria-label`；徽章自身用獨立 `aria-label`。
+## 目的
+用 vitest `toMatchInlineSnapshot` 鎖住 `HoldingCardFooter` 與 `HoldingCardPriceTrack` 在關鍵組合下的 DOM 結構與可見文字，防止未來 refactor 意外改動 class / grid 定位 / badge 文案 / decText 截斷。
 
-## Fallback 文案表（依 action，全繁中）
+## 檔案
+新增：
+- `src/checkup/components/freecheckup/_ui/holdingCard/__tests__/HoldingCardFooter.snapshot.test.tsx`
+- `src/checkup/components/freecheckup/_ui/holdingCard/__tests__/HoldingCardPriceTrack.snapshot.test.tsx`
+
+不動元件源碼。使用 `container.firstChild` 的 `toMatchInlineSnapshot()`；快取整段 markup 於檔案內，人審友善。
+
+## Footer 快照矩陣（12 case）
+
+軸：
+- `variant`：`normal` / `ink`
+- `priceSource` badge 分流：`live` / `screenshot` / `demo` / `yclose` / `null`（`priceError` 觸發 errBadge）
+- 補充：`hasToday=false` / `todayPnl<0` / `showTgt=true` 三個獨立情境
+
+| # | variant | priceSource | priceError | 其他 |
+|---|---------|-------------|------------|------|
+| 1 | normal  | live        | -          | 基準 |
+| 2 | normal  | screenshot  | -          | badge 走 muteColor 支 |
+| 3 | normal  | demo        | -          | badge 走 lossColor 支（非 live/非 screenshot）|
+| 4 | normal  | yclose      | -          | 同上，label='昨收' |
+| 5 | normal  | null        | '報價逾時'  | errBadge=失敗 |
+| 6 | normal  | null        | null       | 完全無 badge |
+| 7 | ink     | live        | -          | ink live tint |
+| 8 | ink     | screenshot  | -          | ink 非-live 支 |
+| 9 | ink     | null        | '網路錯誤'  | ink errBadge |
+| 10 | normal | live        | -          | `hasToday=false` → today 節點=「—」 |
+| 11 | normal | live        | -          | `todayPnlNum=-800`、`todayPctNum=-1.23` → 負號無 `+` |
+| 12 | ink    | live        | -          | `tp=120, upside=8.5` → `.wb-bottom-val` 內含 `TGT +8.5%` |
+
+固定共用 props：
 ```
-ADD / BUY / 加碼 / 買進     → 「進場前先確認風險比例」
-REDUCE / SELL / 減碼 / 賣出 → 「分批減碼保留紀律」
-HOLD / 續抱                 → 「續抱請設好停損」
-其他 / 空字串               → 「持倉檢視小提醒」
-```
-分流放在 `getFallbackTip(actionLabel)` 純函式，方便單測窮舉。
-
-## 元件變更（`HoldingCardHeader.tsx`）
-
-1. `useMemo` 派生 `tipInfo`：
-   ```ts
-   const tipInfo = useMemo(() => {
-     const list = Array.isArray(meta?.tips) ? meta.tips.filter(s => typeof s === 'string' && s.trim()) : [];
-     const single = typeof meta?.tip === 'string' && meta.tip.trim() ? meta.tip.trim() : '';
-     const primary = single || list[0] || '';
-     const source = primary ? 'meta' : 'fallback';
-     const text = primary || getFallbackTip(actionLabel);
-     const extra = list.slice(single ? 0 : 1);   // hover title 顯示更多
-     return { text, source, extra };
-   }, [meta?.tip, meta?.tips, actionLabel]);
-   ```
-   deps 僅含 `meta.tip / meta.tips / actionLabel`，符合現有 ref-stability 憲法。
-
-2. 徽章 DOM（放在 `{onReportMeta && ...}` 之前，屬於 `wb-tags` 內、`marginLeft: 'auto'` 之前）：
-   ```tsx
-   <span
-     className="wb-tip"
-     data-tip-source={tipInfo.source}
-     data-tip-action={actionLabel || ''}
-     title={[tipInfo.text, ...tipInfo.extra].join('\n') || undefined}
-     aria-label={`教學提示：${tipInfo.text}`}
-     style={{
-       fontSize: 10, color: tagColor, letterSpacing: '0.08em',
-       padding: '4px 8px', background: tagBg,
-       border: `1px dashed ${reportBorder}`, borderRadius: 0,
-       opacity: tipInfo.source === 'fallback' ? 0.7 : 1,
-     }}
-   >{tipInfo.text}</span>
-   ```
-   - `data-tip-source ∈ {"meta","fallback"}`：測試 hook。
-   - `hasTags` 需擴充為 `industries.length > 0 || meta?.strategy || onReportMeta || true`（徽章恆存在），因此改為總是渲染 `.wb-tags` 容器。
-   - 為避免視覺回歸，若 industries 與 strategy 都空且無 onReportMeta，仍渲染容器 + 徽章 —— 這是新規範。
-
-3. Fallback 函式：
-   ```ts
-   export function getFallbackTip(actionLabel) {
-     const k = String(actionLabel || '').trim().toUpperCase();
-     if (/^(ADD|BUY)$/.test(k) || /加碼|買進/.test(actionLabel || '')) return '進場前先確認風險比例';
-     if (/^(REDUCE|SELL)$/.test(k) || /減碼|賣出/.test(actionLabel || '')) return '分批減碼保留紀律';
-     if (/^HOLD$/.test(k) || /續抱/.test(actionLabel || '')) return '續抱請設好停損';
-     return '持倉檢視小提醒';
-   }
-   ```
-   放在同檔頂部 `export`，方便單測 import。
-
-## 卡片外層 aria-label 不變的守門
-- Header 只設 `.wb-tip` 自己的 `aria-label`；卡片外層由 `HoldingCard.tsx` 控制，不改。
-- 新增回歸測試斷言：注入 tip 前後 `card.getAttribute('aria-label')` 完全相同。
-
-## 新增測試
-
-### `__tests__/HoldingCardHeader.tip.test.tsx`（單元）
-1. `getFallbackTip` 表格測試：ADD/BUY/加碼/買進/REDUCE/SELL/減碼/賣出/HOLD/續抱/空字串/未知 12 條案例，逐一比對。
-2. Render 案例：
-   - `meta.tip='自訂A'` → 徽章文字=自訂A、`data-tip-source=meta`、`aria-label=教學提示：自訂A`。
-   - `meta.tips=['A','B','C']` → 徽章文字=A、`title` 含 `A\nB\nC`、source=meta。
-   - `meta` 缺、`actionLabel='ADD'` → 文字=進場前先確認風險比例、source=fallback、opacity=0.7 style。
-   - `meta={}`、`actionLabel=''` → 文字=持倉檢視小提醒。
-   - 卡片外層 `aria-label` 不受影響（比對前後值全等）。
-   - `industries=[]`、`strategy` 空、`onReportMeta` 未傳 → `.wb-tags` 仍渲染且含 `.wb-tip`（新規範）。
-3. Ref-stability：追加至既有 `HoldingCard.refStability.test.tsx` 對應 case —— 改 `pctVal` 不重算 `tipInfo`（deps 不含 pctVal）；改 `meta.tip` 才會變更 tipInfo 引用。
-
-### `e2e/freecheckup-tip-badge.spec.ts`（Playwright，390 寬）
-1. 導頁 demo → 收集所有 `.wb-card`：每張都有 `.wb-tip`，`data-tip-source ∈ {meta, fallback}`。
-2. 對每張卡：`card.aria-label` 與從 seed 推得的預期值一致（沿用 sparkline-signs 的採樣邏輯）—— 這守住外層 aria 不被 Header 變更污染。
-3. `.wb-tip` `aria-label` 開頭必為 `教學提示：`，文字非空。
-4. Fallback 分流：以 `data-tip-action` + `data-tip-source=fallback` 篩出卡片，斷言其文字對應 `getFallbackTip` 表。
-5. 新增 project `iphone-390-tip-badge`（沿用 `freecheckup-sparkline-signs` 的 viewport 設定與 IO stub）。
-
-## `playwright.config.ts` 變更
-新增一個 project 條目：
-```ts
-{ name: 'iphone-390-tip-badge',
-  testMatch: /freecheckup-tip-badge\.spec\.ts/,
-  use: { ...devices['Desktop Chrome'], viewport: { width: 390, height: 844 } } },
+h.value=123456, h.price=100.5, h.yesterday=99, h.priceUpdatedAt='2026-01-01T02:30:00Z'
+hasToday=true, todayPnlNum=500, todayPctNum=1.23（除 10/11）
+subColor='#292520', muteColor='#8A857F', hairColor='#EEE', lossColor='#8A857F'
 ```
 
-## 非目標 / 明確不動
-- 不改卡片外層 `HoldingCard.tsx` 的 `aria-label` 邏輯。
-- 不動 sparkline / ROI / footer 派生。
-- 不建雲端表、不改 seed 資料（tip 由呼叫端後續慢慢供）。
-- 不加動畫、不加點擊展開 Modal（後續 iteration 再議）。
+## PriceTrack 快照矩陣（8 case）
+
+軸：
+- `variant`：`normal` / `ink`
+- `dec.actionText`：無 / 短句（<40字）/ 超長（觸發 truncateAction 截尾＋…）
+- `meta.strategy`：無 / 有（測試 fallback）
+
+| # | variant | dec.actionText | meta.strategy | 預期焦點 |
+|---|---------|----------------|---------------|----------|
+| 1 | normal  | '維持持有'      | 'STRAT'       | decText='維持持有' |
+| 2 | normal  | null           | 'STRAT'       | fallback = strategy.slice(0,40) |
+| 3 | normal  | null           | null          | decText='' |
+| 4 | normal  | 超長 80 字＋句號 | null          | 走標點斷句 + '…' |
+| 5 | ink     | '維持持有'      | 'STRAT'       | ink layout（min-height 48、gap 18）|
+| 6 | ink     | null           | null          | ink fallback = '持續監控基本面與籌碼變動。' |
+| 7 | ink     | 超長 120 字     | null          | limit=90 截尾 |
+| 8 | normal  | '維持持有'      | 'STRAT'       | `h.cost=null, h.price=null` → 顯示 '—' 兩處 |
+
+固定共用 props：
+```
+h={ cost:100, price:123 }, subColor='#292520', muteColor='#8A857F'
+```
+
+## 實作重點
+- 用 `render()` + `container.firstChild` → `toMatchInlineSnapshot()`；首跑 vitest 會自動填入 snapshot literal，之後就會鎖住。
+- 每個 case 一個 `it()`，命名含 variant + badge，方便 diff 定位。
+- 不斷言完整 style 物件字串（React 已把 style 展開成 `style="..."` attr，會被 snapshot 完整收錄——本來就是我們要鎖的）。
+- 不做視覺截圖（Playwright 那條路已由 sparkline-width-parity 覆蓋）；此處純 DOM/HTML 快照，跑得快、review 直觀。
 
 ## 驗收
 ```
-bunx vitest run src/checkup/components/freecheckup/_ui/holdingCard/__tests__/HoldingCardHeader.tip.test.tsx
-bunx vitest run src/checkup/components/freecheckup/_ui/holdingCard/__tests__/HoldingCard.refStability.test.tsx
-bunx playwright test --project=iphone-390-tip-badge --reporter=list
-bunx playwright test --project=iphone-390-sparkline --project=iphone-390-a11y --reporter=list   # 迴避回歸
+bunx vitest run src/checkup/components/freecheckup/_ui/holdingCard/__tests__/HoldingCardFooter.snapshot.test.tsx \
+                src/checkup/components/freecheckup/_ui/holdingCard/__tests__/HoldingCardPriceTrack.snapshot.test.tsx
 ```
-全綠即完成。
+首跑 → 自動寫入 inline snapshot；二跑 → 20 tests 全綠、無 snapshot 更新。
+再跑既有 Footer/PriceTrack derived/refStability 測試確認沒回歸。

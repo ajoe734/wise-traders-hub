@@ -132,13 +132,13 @@ describe('HoldingCardHeader 派生計算', () => {
       const { container, rerender } = render(
         <HoldingCardHeader {...baseProps} meta={{ industries }} />
       );
-      const first = Array.from(container.querySelectorAll('.wb-tags > span')).map(
-        (n) => n.textContent
-      );
+      const first = Array.from(
+        container.querySelectorAll('.wb-tags > span:not(.wb-tip)')
+      ).map((n) => n.textContent);
       rerender(<HoldingCardHeader {...baseProps} meta={{ industries }} pctVal={7} />);
-      const second = Array.from(container.querySelectorAll('.wb-tags > span')).map(
-        (n) => n.textContent
-      );
+      const second = Array.from(
+        container.querySelectorAll('.wb-tags > span:not(.wb-tip)')
+      ).map((n) => n.textContent);
       expect(second).toEqual(first);
       expect(second).toEqual(['半導體', 'AI']);
     });
@@ -147,22 +147,25 @@ describe('HoldingCardHeader 派生計算', () => {
       const { container } = render(
         <HoldingCardHeader {...baseProps} meta={{ industry: '金融' }} />
       );
-      const tags = Array.from(container.querySelectorAll('.wb-tags > span')).map(
-        (n) => n.textContent
-      );
+      const tags = Array.from(
+        container.querySelectorAll('.wb-tags > span:not(.wb-tip)')
+      ).map((n) => n.textContent);
       expect(tags).toEqual(['金融']);
     });
 
-    it('industries 從空變有：從無 .wb-tags → 有 N 個 tag', () => {
+    it('industries 從空變有：industries 相關 tag 從 0 → N 個', () => {
+      // 註：`.wb-tags` 容器現為恆渲染（教學徽章依賴），空 meta 時內僅有 .wb-tip。
       const { container, rerender } = render(<HoldingCardHeader {...baseProps} meta={null} />);
-      expect(container.querySelector('.wb-tags')).toBeNull();
+      expect(
+        container.querySelectorAll('.wb-tags > span:not(.wb-tip)').length,
+      ).toBe(0);
       rerender(
         <HoldingCardHeader
           {...baseProps}
           meta={{ industries: ['a', 'b', 'c'] }}
         />
       );
-      const tags = container.querySelectorAll('.wb-tags > span');
+      const tags = container.querySelectorAll('.wb-tags > span:not(.wb-tip)');
       expect(tags.length).toBe(3);
     });
 
@@ -174,9 +177,9 @@ describe('HoldingCardHeader 派生計算', () => {
       rerender(
         <HoldingCardHeader {...baseProps} meta={{ industries: ['光電', '生技'] }} />
       );
-      const tags = Array.from(container.querySelectorAll('.wb-tags > span')).map(
-        (n) => n.textContent
-      );
+      const tags = Array.from(
+        container.querySelectorAll('.wb-tags > span:not(.wb-tip)')
+      ).map((n) => n.textContent);
       expect(tags).toEqual(['光電', '生技']);
       expect(container.textContent).not.toContain('半導體');
     });
@@ -188,9 +191,9 @@ describe('HoldingCardHeader 派生計算', () => {
           meta={{ industries: ['半導體'], industry: '金融' }}
         />
       );
-      const tags = Array.from(container.querySelectorAll('.wb-tags > span')).map(
-        (n) => n.textContent
-      );
+      const tags = Array.from(
+        container.querySelectorAll('.wb-tags > span:not(.wb-tip)')
+      ).map((n) => n.textContent);
       expect(tags).toEqual(['半導體']);
       expect(container.textContent).not.toContain('金融');
     });
@@ -202,25 +205,30 @@ describe('HoldingCardHeader 派生計算', () => {
           meta={{ industries: [], industry: '金融' }}
         />
       );
-      const tags = Array.from(container.querySelectorAll('.wb-tags > span')).map(
-        (n) => n.textContent
-      );
+      const tags = Array.from(
+        container.querySelectorAll('.wb-tags > span:not(.wb-tip)')
+      ).map((n) => n.textContent);
       expect(tags).toEqual(['金融']);
     });
   });
 
-  // ─── hasTags 條件渲染 ──────────────────────────────────────
-  describe('hasTags 條件渲染', () => {
-    it('industries 空 + strategy 空 + 無 onReportMeta → .wb-tags 不渲染', () => {
+  // ─── wb-tags 條件渲染（教學徽章導入後：容器恆存在，僅資訊 tag 依條件） ─
+  describe('wb-tags 內部內容條件渲染', () => {
+    it('industries 空 + strategy 空 + 無 onReportMeta → .wb-tags 只剩 .wb-tip', () => {
       const { container } = render(<HoldingCardHeader {...baseProps} meta={{}} />);
-      expect(container.querySelector('.wb-tags')).toBeNull();
+      const tags = container.querySelector('.wb-tags');
+      expect(tags).not.toBeNull();
+      expect(tags?.querySelectorAll('span:not(.wb-tip)').length).toBe(0);
+      expect(tags?.querySelector('.wb-tip')).not.toBeNull();
     });
 
-    it('只有 strategy → .wb-tags 渲染', () => {
+    it('只有 strategy → strategy tag 出現於 .wb-tags', () => {
       const { container } = render(
         <HoldingCardHeader {...baseProps} meta={{ strategy: '成長' }} />
       );
-      expect(container.querySelector('.wb-tags')).not.toBeNull();
+      const tags = container.querySelector('.wb-tags');
+      expect(tags).not.toBeNull();
+      expect(tags?.textContent).toContain('成長');
     });
 
     it('只有 onReportMeta → .wb-tags 渲染回報按鈕', () => {
@@ -232,7 +240,7 @@ describe('HoldingCardHeader 派生計算', () => {
       expect(tags?.querySelector('[role="button"]')).not.toBeNull();
     });
 
-    it('三者皆有 → 完整渲染（industries + strategy + 回報）', () => {
+    it('三者皆有 → 完整渲染（industries + strategy + tip + 回報）', () => {
       const { container } = render(
         <HoldingCardHeader
           {...baseProps}
@@ -246,6 +254,8 @@ describe('HoldingCardHeader 派生計算', () => {
       expect(spans).toContain('半導體');
       expect(spans).toContain('成長');
       expect(spans).toContain('回報');
+      expect(container.querySelector('.wb-tip')).not.toBeNull();
     });
   });
 });
+
