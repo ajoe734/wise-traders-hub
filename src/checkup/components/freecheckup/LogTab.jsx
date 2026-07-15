@@ -3,6 +3,8 @@ import { validateProps } from './_validateProps';
 
 /**
  * Props schema 守門：增刪同步 freecheckup-tab-prop-schema.test.ts。
+ * DEMO_TAB_NOTICE_COPY / startLineLogin 保留於 schema 以維持既有守門契約，
+ *   但視覺上不再渲染 Demo/LINE banner（§6.5：改由頁腳 DemoFooterHint 提示）。
  */
 const LOG_TAB_PROP_SCHEMA = {
   isDemo: 'boolean',
@@ -17,115 +19,135 @@ const LOG_TAB_PROP_SCHEMA = {
 
 /**
  * LogTab — Free Checkup「交易記錄」tab。
- * 抽自 FreeCheckup.jsx L3984-L4078（純展示，無內部 state）。
- * Allowed by inline-rendering constitution as a tab-container-level component
- * (Phase A2-4, 2026-05). Pure display, all data via props, no `<style>` strings,
- * does not touch Hero / .wb-card.
+ * §6.4 編輯化：serif 日期節標；買進 accent／賣出 --loss；
+ * 備忘 → 左髮絲引文（serif）；未填 → faint「（未留筆記）補寫 →」。
  */
 function LogTabImpl({
-  isDemo,
+  isDemo: _isDemo,
   tradeLog,
   C, alpha, card,
-  DEMO_TAB_NOTICE_COPY,
-  startLineLogin,
-  navigate,
+  DEMO_TAB_NOTICE_COPY: _DEMO_TAB_NOTICE_COPY,
+  startLineLogin: _startLineLogin,
+  navigate: _navigate,
 }) {
   validateProps('LogTab', arguments[0], LOG_TAB_PROP_SCHEMA);
+
+  const serif = { fontFamily: "'Noto Serif TC', 'Source Serif 4', ui-serif, Georgia, serif" };
+  const tab = { fontVariantNumeric: 'tabular-nums' };
+
+  if (!tradeLog || tradeLog.length === 0) {
+    return (
+      <div style={{ ...card, textAlign: 'center', padding: '48px 16px' }}>
+        <div style={{ ...serif, fontSize: 17, color: C.text, marginBottom: 8 }}>還沒有交易記錄</div>
+        <div style={{ fontSize: 12, color: C.textMute, lineHeight: 1.7 }}>上傳成交截圖後自動記錄在這裡</div>
+      </div>
+    );
+  }
+
+  const sorted = [...tradeLog];
+  const dateGroups = [];
+  let currentGroup = null;
+  sorted.forEach((log) => {
+    const d = log.date || '未知日期';
+    if (!currentGroup || currentGroup.date !== d) {
+      currentGroup = { date: d, logs: [] };
+      dateGroups.push(currentGroup);
+    }
+    currentGroup.logs.push(log);
+  });
+
   return (
     <>
-      {isDemo && (
-        <div style={{marginBottom:12,padding:"12px 14px",background:alpha(C.amber,'06'),border:`1px solid ${alpha(C.amber,'25')}`,borderRadius:8}}>
-          <div style={{fontSize:12,fontWeight:500,color:C.text,marginBottom:4,letterSpacing:"0.02em"}}>{DEMO_TAB_NOTICE_COPY.log.title}</div>
-          <div style={{fontSize:11,color:C.textMute,lineHeight:1.7,marginBottom:8}}>{DEMO_TAB_NOTICE_COPY.log.body}</div>
-          <div style={{display:"flex",gap:8,flexWrap:"wrap"}}>
-            <button onClick={() => { try { startLineLogin?.(); } catch { navigate('/auth/login?redirect=/checkup'); } }} style={{background:"#06C755",color:"#fff",border:"none",borderRadius:6,padding:"5px 12px",fontSize:11,fontWeight:500,cursor:"pointer",letterSpacing:"0.02em"}}>LINE 登入解鎖</button>
-            <button onClick={() => navigate('/auth/login?redirect=/checkup')} style={{background:"transparent",color:C.text,border:`1px solid ${C.border}`,borderRadius:6,padding:"5px 12px",fontSize:11,fontWeight:400,cursor:"pointer",letterSpacing:"0.02em"}}>Email 登入</button>
-          </div>
-        </div>
-      )}
-      {(!tradeLog||tradeLog.length===0) ? (
-        <div style={{...card,textAlign:"center",padding:"36px 16px"}}>
-          <div style={{fontSize:20,marginBottom:10,opacity:0.2}}>◌</div>
-          <div style={{fontSize:15,color:C.textMute,fontWeight:400}}>
-            還沒有交易記錄<br/>
-            <span style={{fontSize:13}}>上傳成交截圖後自動記錄在這裡</span>
-          </div>
-        </div>
-      ) : (
-        (() => {
-          const sorted = [...(tradeLog||[])];
-          const dateGroups = [];
-          let currentGroup = null;
-          sorted.forEach(log => {
-            const d = log.date || "未知日期";
-            if (!currentGroup || currentGroup.date !== d) {
-              currentGroup = { date: d, logs: [] };
-              dateGroups.push(currentGroup);
-            }
-            currentGroup.logs.push(log);
-          });
-          return dateGroups.map((group, gi) => (
-            <div key={"grp-"+gi}>
-              <div style={{fontSize:12,fontWeight:400,color:C.textMute,letterSpacing:"0.08em",marginBottom:8,marginTop:gi===0?0:6}}>
+      {dateGroups.map((group, gi) => (
+        <div key={'grp-' + gi} style={{ marginBottom: gi < dateGroups.length - 1 ? 24 : 8 }}>
+          {/* serif 日期節標：1px ink 主線 + 序列 */}
+          <div style={{ borderTop: '1px solid var(--cm-ink, #0A0A0A)', padding: '14px 0 12px', marginTop: gi === 0 ? 0 : 4 }}>
+            <div style={{ display: 'flex', alignItems: 'baseline', justifyContent: 'space-between' }}>
+              <h3 style={{ ...serif, ...tab, margin: 0, fontSize: 16, color: C.text, letterSpacing: 0 }}>
                 {group.date}
-              </div>
-              {(() => {
-                const timeGroups = [];
-                let curTime = null;
-                group.logs.forEach(log => {
-                  if (!curTime || log.time !== curTime.time) {
-                    curTime = { time: log.time, items: [] };
-                    timeGroups.push(curTime);
-                  }
-                  curTime.items.push(log);
-                });
-                return timeGroups.map((tg, ti) => (
-                  <div key={"tg-"+ti}>
-                    {tg.items.map((log, li) => (
-                      <div key={log.id} style={{marginBottom:0,padding:"10px 0",
-                        borderBottom:`1px solid ${alpha(C.textMute,'06')}`}}>
-                        <div style={{display:"flex",justifyContent:"space-between",marginBottom:6}}>
-                          <div style={{display:"flex",alignItems:"center",gap:7}}>
-                            <span style={{
-                              color: log.action==="買進" ? C.up : C.down,
-                              fontSize:11, fontWeight:400}}>
-                              {log.action}
-                            </span>
-                            <span style={{fontSize:13,fontWeight:500,color:C.text}}>{log.name}</span>
-                            <span style={{fontSize:10,color:C.textMute}}>{log.code}</span>
-                          </div>
-                          {li === 0 && <div style={{fontSize:12,color:C.textMute}}>{log.time}</div>}
-                        </div>
-                        <div style={{fontSize:13,color:C.textMute,marginBottom: log.qa.length > 0 ? 10 : 0}}>
-                          {log.qty}股 @ {log.price?.toLocaleString()}元
-                        </div>
-                        {log.qa.map((qi,i)=>(
-                          <div key={i} style={{marginBottom:8}}>
-                            <div style={{fontSize:12,color:C.textMute,marginBottom:3}}>{qi.q}</div>
-                            <div style={{fontSize:13,color:C.textSec,background:C.subtle,
-                              borderRadius:6,padding:"7px 10px",lineHeight:1.7}}>
-                              {qi.a||"（未填）"}
-                            </div>
-                          </div>
-                        ))}
-                      </div>
-                    ))}
-                    {ti < timeGroups.length - 1 && (
-                      <div style={{height:1,background:C.border,margin:"10px 0"}}/>
-                    )}
-                  </div>
-                ));
-              })()}
-              {gi < dateGroups.length - 1 && (
-                <div style={{height:1,background:C.border,margin:"10px 0 14px"}}/>
-              )}
+              </h3>
+              <span style={{ fontSize: 10, color: C.textMute, letterSpacing: '0.12em' }}>
+                {group.logs.length} 筆
+              </span>
             </div>
-          ));
-        })()
-      )}
+          </div>
+
+          {group.logs.map((log, li) => {
+            const isBuy = log.action === '買進';
+            // §1.3 憲法：買進＝accent（橘）、賣出＝--loss（灰）
+            const actionColor = isBuy ? 'var(--cm-accent, #FF4D1F)' : 'var(--cm-loss, #8A857F)';
+            return (
+              <div
+                key={log.id}
+                style={{
+                  padding: '12px 0',
+                  borderBottom: li < group.logs.length - 1
+                    ? `1px solid ${alpha(C.textMute, '06')}`
+                    : 'none',
+                }}
+              >
+                {/* 動作＋名稱＋時間 / 股數＠價 */}
+                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'baseline', gap: 12, marginBottom: 6 }}>
+                  <div style={{ display: 'flex', alignItems: 'baseline', gap: 8, minWidth: 0 }}>
+                    <span style={{ fontSize: 12, color: actionColor, letterSpacing: '0.06em' }}>
+                      {log.action}
+                    </span>
+                    <span style={{ ...serif, fontSize: 15, color: C.text, letterSpacing: 0 }}>{log.name}</span>
+                    <span style={{ ...tab, fontSize: 11, color: C.textMute }}>{log.code}</span>
+                  </div>
+                  <div style={{ ...tab, fontSize: 11, color: C.textMute, whiteSpace: 'nowrap' }}>
+                    {log.time || ''}
+                  </div>
+                </div>
+                <div style={{ ...tab, fontSize: 12, color: C.textSec, marginBottom: log.qa.length > 0 ? 10 : 0 }}>
+                  {log.qty} 股　@　{log.price?.toLocaleString()} 元
+                </div>
+
+                {/* 備忘引文：左髮絲線 + serif */}
+                {log.qa.map((qi, i) => {
+                  const empty = !qi.a || String(qi.a).trim() === '';
+                  return (
+                    <div key={i} style={{ marginTop: i === 0 ? 4 : 8 }}>
+                      <div style={{ fontSize: 10, color: C.textMute, letterSpacing: '0.10em', marginBottom: 4 }}>
+                        {qi.q}
+                      </div>
+                      <div
+                        style={{
+                          ...serif,
+                          borderLeft: `1px solid ${alpha(C.textMute, '30')}`,
+                          paddingLeft: 12,
+                          fontSize: 13,
+                          lineHeight: 1.9,
+                          color: empty ? 'var(--cm-ink-faint, #C7C2BA)' : C.textSec,
+                        }}
+                      >
+                        {empty ? (
+                          <>
+                            （未留筆記）
+                            <a
+                              href="#"
+                              onClick={(e) => e.preventDefault()}
+                              style={{ marginLeft: 8, color: C.textMute, textDecoration: 'none', fontFamily: 'inherit' }}
+                            >
+                              補寫 →
+                            </a>
+                          </>
+                        ) : (
+                          qi.a
+                        )}
+                      </div>
+                    </div>
+                  );
+                })}
+              </div>
+            );
+          })}
+        </div>
+      ))}
     </>
   );
 }
 
 const LogTab = React.memo(LogTabImpl);
+LogTab.displayName = 'LogTab';
 export default LogTab;
