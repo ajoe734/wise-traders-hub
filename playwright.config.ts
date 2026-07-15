@@ -192,6 +192,12 @@ export default defineConfig({
       use: { ...devices['Desktop Chrome'], viewport: { width: 1280, height: 900 } },
     },
     {
+      // 週記 / 訊號編輯器：ETF 英文字尾（00631L / 00878B）代號+名稱顯示 parity
+      name: 'desktop-signal-editor-etf-suffix',
+      testMatch: /signal-editor-etf-suffix\.spec\.ts/,
+      use: { ...devices['Desktop Chrome'], viewport: { width: 1280, height: 900 } },
+    },
+    {
       // /expert/:slug bundle RPC 5xx 回退（ExpertFetchError，不可炸 ErrorBoundary）
       name: 'desktop-expert-profile-error',
       testMatch: /expert-profile-error\.spec\.ts/,
