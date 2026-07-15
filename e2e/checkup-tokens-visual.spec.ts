@@ -98,13 +98,20 @@ test.describe('Checkup tokens visual — /holding-checkup', () => {
     );
     expect(pagePy).toBe('10px');
 
-    // 4) 字型 stack — 已載入 Noto Sans TC / Noto Serif TC
-    const fontsLoaded = await page.evaluate(() => ({
-      sans: document.fonts.check('16px "Noto Sans TC"'),
-      serif: document.fonts.check('16px "Noto Serif TC"'),
-    }));
+    // 4) 字型 stack — 已載入 Noto Sans TC / Noto Serif TC 至少一個 face
+    const fontsLoaded = await page.evaluate(async () => {
+      // 觸發載入，避免只 check 未 load 導致 false negative
+      await Promise.all([
+        document.fonts.load('400 16px "Noto Sans TC"'),
+        document.fonts.load('600 16px "Noto Serif TC"'),
+      ]).catch(() => []);
+      const families = new Set<string>();
+      document.fonts.forEach((f) => { if (f.status === 'loaded') families.add(f.family.replace(/^["']|["']$/g, '')); });
+      return { sans: families.has('Noto Sans TC'), serif: families.has('Noto Serif TC') };
+    });
     expect(fontsLoaded.sans).toBe(true);
     expect(fontsLoaded.serif).toBe(true);
+
 
     // 5) 實際使用 accent 的元素配色正確
     //    上傳 CTA 桌機顯示、手機由底欄圓鈕承接；用寬度切
