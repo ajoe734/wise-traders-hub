@@ -29,28 +29,322 @@ const LONG_120 = '這段是超過九十字的 ink 卡操作說明，內容較長
 
 describe('HoldingCardPriceTrack — DOM 快照', () => {
   it('#1 normal + dec.actionText 短句 + strategy', () => {
-    expect(snap({ dec: { actionText: '維持持有' }, meta: { strategy: 'STRAT' } })).toMatchInlineSnapshot();
+    expect(snap({ dec: { actionText: '維持持有' }, meta: { strategy: 'STRAT' } })).toMatchInlineSnapshot(`
+      <div>
+        <div
+          style="display: flex; align-items: baseline; gap: 8px; margin-bottom: 8px; font-size: 11px; color: rgb(41, 37, 32); font-variant-numeric: tabular-nums; letter-spacing: 0.04em;"
+        >
+          <span
+            style="color: rgb(138, 133, 127); letter-spacing: 0.12em; font-size: 9px; opacity: 0.8;"
+          >
+            成本
+          </span>
+          <span>
+            100.00
+          </span>
+          <span
+            style="color: rgb(138, 133, 127); opacity: 0.6;"
+          >
+            →
+          </span>
+          <span
+            style="color: rgb(138, 133, 127); letter-spacing: 0.12em; font-size: 9px; opacity: 0.8;"
+          >
+            現價
+          </span>
+          <span>
+            123.00
+          </span>
+        </div>
+        <div
+          style="flex: 1 1 0%; display: flex; align-items: flex-end; gap: 14px; min-height: 40px; padding-top: 4px;"
+        >
+          <div
+            style="flex: 1 1 0%; font-size: 11px; color: rgb(41, 37, 32); line-height: 1.65; letter-spacing: 0px;"
+          >
+            維持持有
+          </div>
+        </div>
+      </div>
+    `);
   });
   it('#2 normal + 無 dec → fallback = strategy.slice(0,40)', () => {
-    expect(snap({ dec: null, meta: { strategy: 'STRAT' } })).toMatchInlineSnapshot();
+    expect(snap({ dec: null, meta: { strategy: 'STRAT' } })).toMatchInlineSnapshot(`
+      <div>
+        <div
+          style="display: flex; align-items: baseline; gap: 8px; margin-bottom: 8px; font-size: 11px; color: rgb(41, 37, 32); font-variant-numeric: tabular-nums; letter-spacing: 0.04em;"
+        >
+          <span
+            style="color: rgb(138, 133, 127); letter-spacing: 0.12em; font-size: 9px; opacity: 0.8;"
+          >
+            成本
+          </span>
+          <span>
+            100.00
+          </span>
+          <span
+            style="color: rgb(138, 133, 127); opacity: 0.6;"
+          >
+            →
+          </span>
+          <span
+            style="color: rgb(138, 133, 127); letter-spacing: 0.12em; font-size: 9px; opacity: 0.8;"
+          >
+            現價
+          </span>
+          <span>
+            123.00
+          </span>
+        </div>
+        <div
+          style="flex: 1 1 0%; display: flex; align-items: flex-end; gap: 14px; min-height: 40px; padding-top: 4px;"
+        >
+          <div
+            style="flex: 1 1 0%; font-size: 11px; color: rgb(41, 37, 32); line-height: 1.65; letter-spacing: 0px;"
+          >
+            STRAT
+          </div>
+        </div>
+      </div>
+    `);
   });
   it('#3 normal + 無 dec + 無 strategy → decText 空', () => {
-    expect(snap({ dec: null, meta: null })).toMatchInlineSnapshot();
+    expect(snap({ dec: null, meta: null })).toMatchInlineSnapshot(`
+      <div>
+        <div
+          style="display: flex; align-items: baseline; gap: 8px; margin-bottom: 8px; font-size: 11px; color: rgb(41, 37, 32); font-variant-numeric: tabular-nums; letter-spacing: 0.04em;"
+        >
+          <span
+            style="color: rgb(138, 133, 127); letter-spacing: 0.12em; font-size: 9px; opacity: 0.8;"
+          >
+            成本
+          </span>
+          <span>
+            100.00
+          </span>
+          <span
+            style="color: rgb(138, 133, 127); opacity: 0.6;"
+          >
+            →
+          </span>
+          <span
+            style="color: rgb(138, 133, 127); letter-spacing: 0.12em; font-size: 9px; opacity: 0.8;"
+          >
+            現價
+          </span>
+          <span>
+            123.00
+          </span>
+        </div>
+        <div
+          style="flex: 1 1 0%; display: flex; align-items: flex-end; gap: 14px; min-height: 40px; padding-top: 4px;"
+        >
+          <div
+            style="flex: 1 1 0%; font-size: 11px; color: rgb(41, 37, 32); line-height: 1.65; letter-spacing: 0px;"
+          />
+        </div>
+      </div>
+    `);
   });
   it('#4 normal + 超長 actionText → 標點斷句 + …', () => {
-    expect(snap({ dec: { actionText: LONG_80 }, meta: null })).toMatchInlineSnapshot();
+    expect(snap({ dec: { actionText: LONG_80 }, meta: null })).toMatchInlineSnapshot(`
+      <div>
+        <div
+          style="display: flex; align-items: baseline; gap: 8px; margin-bottom: 8px; font-size: 11px; color: rgb(41, 37, 32); font-variant-numeric: tabular-nums; letter-spacing: 0.04em;"
+        >
+          <span
+            style="color: rgb(138, 133, 127); letter-spacing: 0.12em; font-size: 9px; opacity: 0.8;"
+          >
+            成本
+          </span>
+          <span>
+            100.00
+          </span>
+          <span
+            style="color: rgb(138, 133, 127); opacity: 0.6;"
+          >
+            →
+          </span>
+          <span
+            style="color: rgb(138, 133, 127); letter-spacing: 0.12em; font-size: 9px; opacity: 0.8;"
+          >
+            現價
+          </span>
+          <span>
+            123.00
+          </span>
+        </div>
+        <div
+          style="flex: 1 1 0%; display: flex; align-items: flex-end; gap: 14px; min-height: 40px; padding-top: 4px;"
+        >
+          <div
+            style="flex: 1 1 0%; font-size: 11px; color: rgb(41, 37, 32); line-height: 1.65; letter-spacing: 0px;"
+          >
+            這段是超過六十字的操作說明文字，內含逗號、句號。用來測試 truncateAction 是否會在標點處收尾，…
+          </div>
+        </div>
+      </div>
+    `);
   });
 
   it('#5 ink + dec + strategy', () => {
-    expect(snap({ variant: 'ink', dec: { actionText: '維持持有' }, meta: { strategy: 'STRAT' } })).toMatchInlineSnapshot();
+    expect(snap({ variant: 'ink', dec: { actionText: '維持持有' }, meta: { strategy: 'STRAT' } })).toMatchInlineSnapshot(`
+      <div>
+        <div
+          style="display: flex; align-items: baseline; gap: 8px; margin-bottom: 10px; font-size: 11px; color: rgb(41, 37, 32); font-variant-numeric: tabular-nums; letter-spacing: 0.04em;"
+        >
+          <span
+            style="color: rgb(138, 133, 127); letter-spacing: 0.12em; font-size: 9px; opacity: 0.8;"
+          >
+            成本
+          </span>
+          <span>
+            100.00
+          </span>
+          <span
+            style="color: rgb(138, 133, 127); opacity: 0.6;"
+          >
+            →
+          </span>
+          <span
+            style="color: rgb(138, 133, 127); letter-spacing: 0.12em; font-size: 9px; opacity: 0.8;"
+          >
+            現價
+          </span>
+          <span>
+            123.00
+          </span>
+        </div>
+        <div
+          style="flex: 1 1 0%; display: flex; align-items: center; gap: 18px; min-height: 48px; padding-top: 0px;"
+        >
+          <div
+            style="flex: 1 1 0%; font-size: 11px; color: rgb(41, 37, 32); line-height: 1.7; letter-spacing: 0.01em;"
+          >
+            維持持有
+          </div>
+        </div>
+      </div>
+    `);
   });
   it('#6 ink + 無 dec + 無 strategy → ink fallback 文案', () => {
-    expect(snap({ variant: 'ink', dec: null, meta: null })).toMatchInlineSnapshot();
+    expect(snap({ variant: 'ink', dec: null, meta: null })).toMatchInlineSnapshot(`
+      <div>
+        <div
+          style="display: flex; align-items: baseline; gap: 8px; margin-bottom: 10px; font-size: 11px; color: rgb(41, 37, 32); font-variant-numeric: tabular-nums; letter-spacing: 0.04em;"
+        >
+          <span
+            style="color: rgb(138, 133, 127); letter-spacing: 0.12em; font-size: 9px; opacity: 0.8;"
+          >
+            成本
+          </span>
+          <span>
+            100.00
+          </span>
+          <span
+            style="color: rgb(138, 133, 127); opacity: 0.6;"
+          >
+            →
+          </span>
+          <span
+            style="color: rgb(138, 133, 127); letter-spacing: 0.12em; font-size: 9px; opacity: 0.8;"
+          >
+            現價
+          </span>
+          <span>
+            123.00
+          </span>
+        </div>
+        <div
+          style="flex: 1 1 0%; display: flex; align-items: center; gap: 18px; min-height: 48px; padding-top: 0px;"
+        >
+          <div
+            style="flex: 1 1 0%; font-size: 11px; color: rgb(41, 37, 32); line-height: 1.7; letter-spacing: 0.01em;"
+          >
+            持續監控基本面與籌碼變動。
+          </div>
+        </div>
+      </div>
+    `);
   });
   it('#7 ink + 超長 actionText → limit=90 截尾', () => {
-    expect(snap({ variant: 'ink', dec: { actionText: LONG_120 }, meta: null })).toMatchInlineSnapshot();
+    expect(snap({ variant: 'ink', dec: { actionText: LONG_120 }, meta: null })).toMatchInlineSnapshot(`
+      <div>
+        <div
+          style="display: flex; align-items: baseline; gap: 8px; margin-bottom: 10px; font-size: 11px; color: rgb(41, 37, 32); font-variant-numeric: tabular-nums; letter-spacing: 0.04em;"
+        >
+          <span
+            style="color: rgb(138, 133, 127); letter-spacing: 0.12em; font-size: 9px; opacity: 0.8;"
+          >
+            成本
+          </span>
+          <span>
+            100.00
+          </span>
+          <span
+            style="color: rgb(138, 133, 127); opacity: 0.6;"
+          >
+            →
+          </span>
+          <span
+            style="color: rgb(138, 133, 127); letter-spacing: 0.12em; font-size: 9px; opacity: 0.8;"
+          >
+            現價
+          </span>
+          <span>
+            123.00
+          </span>
+        </div>
+        <div
+          style="flex: 1 1 0%; display: flex; align-items: center; gap: 18px; min-height: 48px; padding-top: 0px;"
+        >
+          <div
+            style="flex: 1 1 0%; font-size: 11px; color: rgb(41, 37, 32); line-height: 1.7; letter-spacing: 0.01em;"
+          >
+            這段是超過九十字的 ink 卡操作說明，內容較長會被 truncateAction 依照句號斷句收尾，並補上刪節號；…
+          </div>
+        </div>
+      </div>
+    `);
   });
   it('#8 normal + h.cost/price=null → 兩處顯示「—」', () => {
-    expect(snap({ h: { cost: null, price: null }, dec: { actionText: '維持持有' }, meta: { strategy: 'STRAT' } })).toMatchInlineSnapshot();
+    expect(snap({ h: { cost: null, price: null }, dec: { actionText: '維持持有' }, meta: { strategy: 'STRAT' } })).toMatchInlineSnapshot(`
+      <div>
+        <div
+          style="display: flex; align-items: baseline; gap: 8px; margin-bottom: 8px; font-size: 11px; color: rgb(41, 37, 32); font-variant-numeric: tabular-nums; letter-spacing: 0.04em;"
+        >
+          <span
+            style="color: rgb(138, 133, 127); letter-spacing: 0.12em; font-size: 9px; opacity: 0.8;"
+          >
+            成本
+          </span>
+          <span>
+            —
+          </span>
+          <span
+            style="color: rgb(138, 133, 127); opacity: 0.6;"
+          >
+            →
+          </span>
+          <span
+            style="color: rgb(138, 133, 127); letter-spacing: 0.12em; font-size: 9px; opacity: 0.8;"
+          >
+            現價
+          </span>
+          <span>
+            —
+          </span>
+        </div>
+        <div
+          style="flex: 1 1 0%; display: flex; align-items: flex-end; gap: 14px; min-height: 40px; padding-top: 4px;"
+        >
+          <div
+            style="flex: 1 1 0%; font-size: 11px; color: rgb(41, 37, 32); line-height: 1.65; letter-spacing: 0px;"
+          >
+            維持持有
+          </div>
+        </div>
+      </div>
+    `);
   });
 });
