@@ -116,7 +116,7 @@ describe('auditFonts', () => {
 
 describe('ensureJournalPdfFonts', () => {
   it('成功：全部字型 ready → { ok: true, missing: [] }', async () => {
-    const load = vi.fn(() => Promise.resolve([]));
+    const load = vi.fn((_spec: string, _sample?: string) => Promise.resolve([]));
     installFonts({ check: () => true, load });
     const { ensureJournalPdfFonts, REQUIRED_FONTS } = await import('@/lib/exportJournalPdf');
 
