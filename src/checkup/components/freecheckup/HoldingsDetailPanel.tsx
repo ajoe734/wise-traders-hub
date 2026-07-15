@@ -8,6 +8,8 @@ import {
 } from 'lucide-react';
 import { useHoldingShareExport } from '@/checkup/hooks/useHoldingShareExport';
 import { useSimHistory } from '@/checkup/hooks/useSimHistory';
+import { useTargetPriceHistory } from '@/checkup/hooks/useTargetPriceHistory';
+import { useThesisTracking } from '@/checkup/hooks/useThesisTracking';
 import { Sparkline } from '@/pages/_freeCheckup/constants.jsx';
 import { computeScenario, isDirty } from './holdingScenario';
 import HoldingExportCard from './HoldingExportCard';
