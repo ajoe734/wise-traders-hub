@@ -119,7 +119,7 @@ const pageShellCss = `
   overflow: hidden;
 `;
 
-const serif = `'Source Serif 4', Georgia, 'Songti TC', serif`;
+const serif = `'Source Serif 4','Noto Serif TC',Georgia,'Songti TC',serif`;
 
 const watermarkHtml = `
   <div aria-hidden="true" style="position:absolute; inset:0; pointer-events:none; overflow:hidden; z-index:0;">
