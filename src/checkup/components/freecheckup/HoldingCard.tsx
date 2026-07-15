@@ -251,10 +251,10 @@ function HoldingCardImpl(props) {
             pnlVal={pnlVal}
             pnlColor={pnlColor}
             pnlWeight={pnlWeight}
-            pnlArrow={pnlArrow}
             subColor={subColor}
             variant={variantForChildren}
           />
+
 
           {/* Layer 3 · 價格軌 */}
           <HoldingCardPriceTrack
