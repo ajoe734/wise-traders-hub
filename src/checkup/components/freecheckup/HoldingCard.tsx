@@ -197,29 +197,19 @@ function HoldingCardImpl(props) {
     }
   };
 
-  // ── 兩種 variant 共用 button 外殼 ──
-  const buttonClass = isFeature
-    ? 'wb-card wb-card-feature wb-span-feature'
-    : 'wb-card wb-span-1';
-  const buttonStyle = isFeature
-    ? {
-        position: 'relative', minHeight: MIN_H, textAlign: 'left',
-        background: cardBg, border: 'none', borderRadius: 0,
-        padding: '24px 28px 20px', cursor: 'pointer',
-        display: 'flex', flexDirection: 'column',
-        transition: 'background 160ms ease',
-        fontFamily: 'inherit', color: cardColor, overflow: 'hidden',
-      }
-    : {
-        position: 'relative', minHeight: MIN_H, textAlign: 'left',
-        background: cardBg, border: cardBorder, borderRadius: 0,
-        padding: '22px 22px 18px', cursor: 'pointer',
-        display: 'flex', flexDirection: 'column',
-        transition: 'background 160ms ease, border-color 160ms ease',
-        fontFamily: 'inherit', color: cardColor, overflow: 'hidden',
-      };
+  // ── §3.4：所有卡片同一外殼 ──
+  const buttonClass = 'wb-card wb-span-1';
+  const buttonStyle = {
+    position: 'relative', minHeight: MIN_H, textAlign: 'left',
+    background: cardBg, border: cardBorder, borderRadius: 0,
+    padding: '18px 20px 14px', cursor: 'pointer',
+    display: 'flex', flexDirection: 'column',
+    transition: 'background 160ms ease, border-color 160ms ease',
+    fontFamily: 'inherit', color: cardColor, overflow: 'hidden',
+  };
 
-  const variantForChildren = isInk ? 'ink' : 'normal';
+  const variantForChildren = 'normal';
+
 
   return (
     <button
