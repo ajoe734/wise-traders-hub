@@ -172,6 +172,7 @@ const returnProps = (over: Record<string, unknown> = {}) => ({
   pnlArrow: '↑',
   subColor: '#555555',
   variant: 'normal' as const,
+  __k: {},
   ...over,
 });
 
@@ -244,6 +245,7 @@ const priceTrackProps = (over: Record<string, unknown> = {}) => ({
   subColor: '#333',
   muteColor: '#888',
   variant: 'normal' as const,
+  __k: {},
   ...over,
 });
 
@@ -331,6 +333,7 @@ const footerProps = (over: Record<string, unknown> = {}) => ({
   muteColor: '#888',
   hairColor: '#eeeeee',
   lossColor: '#8A857F',
+  __k: {},
   ...over,
 });
 
