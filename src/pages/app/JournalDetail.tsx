@@ -92,12 +92,18 @@ const TradeItem = ({ signal, nameMap }: { signal: SignalDetail; nameMap: Record<
             </InstrumentTooltip>
             <span className="text-xs text-muted-foreground whitespace-nowrap shrink-0">{format(new Date(signal.published_at), 'MM/dd')}</span>
             {(signal.price_hint != null || signal.quantity != null) && (
-              <span className="text-xs text-foreground/80 font-medium">
+              <span className="text-xs text-foreground/80 font-medium inline-flex items-baseline flex-wrap gap-x-1">
                 {signal.price_hint != null && (
-                  <>價 {sym}{Number(signal.price_hint).toLocaleString(undefined, { minimumFractionDigits: cur === 'USD' ? 2 : 0, maximumFractionDigits: 2 })}</>
+                  <span data-testid="jd-price" className="whitespace-nowrap font-mono tabular-nums tracking-normal">
+                    <span className="font-sans">價 </span>{sym}{Number(signal.price_hint).toLocaleString(undefined, { minimumFractionDigits: cur === 'USD' ? 2 : 0, maximumFractionDigits: 2 })}
+                  </span>
                 )}
-                {signal.price_hint != null && signal.quantity != null && <span className="mx-1 text-muted-foreground">·</span>}
-                {signal.quantity != null && <>{signal.quantity} {unit}</>}
+                {signal.price_hint != null && signal.quantity != null && <span className="text-muted-foreground">·</span>}
+                {signal.quantity != null && (
+                  <span data-testid="jd-qty" className="whitespace-nowrap font-mono tabular-nums tracking-normal">
+                    {signal.quantity} <span className="font-sans">{unit}</span>
+                  </span>
+                )}
               </span>
             )}
             {total != null && <FxHint amount={total} currency={cur} showMeta={false} />}
