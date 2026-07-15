@@ -68,6 +68,7 @@ function HoldingsWorkbench(props) {
     setSectorFilterPersisted,
     showAll,
     setShowAll,
+    tradeLog,
   } = props;
 
   const selected = useMemo(() => {
