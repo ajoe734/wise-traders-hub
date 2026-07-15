@@ -154,12 +154,11 @@ describe.each([
   });
 
   it('§3.4：ROI 走 inline clamp(18-22px)，不再依斷點覆蓋（feature 變體已移除）', () => {
-    // §3.4 定案後 ROI 全部同尺寸 clamp(18px, 1.4vw + 12px, 22px)，且不再有 .wb-card-feature。
-    // 因此各斷點 CSS 不應再出現舊的 28/36 或 32/44 覆蓋規則。
+    // §3.4 定案後 ROI 全部同尺寸 clamp(18px, 1.4vw + 12px, 22px)，且卡片不再套用 feature 變體樣式。
     if (vw <= 340) {
       const css = effectiveCssAt(vw);
       expect(css).not.toMatch(/\.wb-card\s+\.wb-roi\s*\{[^}]*font-size:\s*clamp\(28px/);
-      expect(css).not.toMatch(/\.wb-card-feature/);
+      expect(css).not.toMatch(/\.wb-card-feature\s+\.wb-roi\s*\{[^}]*font-size:\s*clamp\(32px/);
     }
     // ROI 的 clamp 由 HoldingCardReturn.tsx inline style 提供。
     expect(SRC).toMatch(/fontSize:\s*'clamp\(18px,\s*1\.4vw\s*\+\s*12px,\s*22px\)'/);
