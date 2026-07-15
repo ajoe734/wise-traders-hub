@@ -25,9 +25,16 @@
   --cm-font-sans: 'Noto Sans TC', -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
   --cm-font-serif: 'Noto Serif TC', 'Songti TC', 'PingFang TC', Georgia, serif;
 
-  /* 頁面內距 token — Batch E §3 */
+  /* 頁面內距 token — Batch E §3 / F §1（擴展 py + 全域 utility） */
   --cm-page-px: clamp(16px, 3.5vw, 40px);
+  --cm-page-py: 10px;
 }
+
+/* 全域頁面內距 utility（不需 .checkup-mono scope，供 AppShellFrame/PortfolioLayout/Header 共用） */
+.cm-page-content { padding: 14px var(--cm-page-px); }
+.cm-shell-inner  { padding: var(--cm-page-py) var(--cm-page-px); }
+.cm-header-inner { padding: var(--cm-page-py) var(--cm-page-px) 0; }
+
 
 /* 深色（會員版 /checkup 同語彙，透過 body.dark 或 .cm-dark 切換） */
 .cm-dark {

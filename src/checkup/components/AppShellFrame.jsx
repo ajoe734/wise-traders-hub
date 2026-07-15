@@ -40,15 +40,10 @@ export default function AppShellFrame({
         background: C.bg,
         minHeight: '100vh',
         color: C.text,
-        fontFamily: "'Inter','Noto Sans TC',system-ui,sans-serif",
+        fontFamily: 'var(--cm-font-sans)',
         paddingBottom: 40,
       }}
     >
-      <style>{`
-        @import url('https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&display=swap');
-        /* Global styles moved to a separate CSS file or a dedicated style component if needed */
-      `}</style>
-
       <ErrorBoundary
         scope="header"
         title={headerBoundaryCopy.title}
@@ -57,7 +52,7 @@ export default function AppShellFrame({
         <Header {...headerProps} />
       </ErrorBoundary>
 
-      <div className="app-shell" style={{ padding: '10px 14px' }}>
+      <div className="app-shell cm-shell-inner">
         <PortfolioPanelsProvider data={panelsData} actions={panelsActions}>
           <AppPanels {...panelsProps} />
         </PortfolioPanelsProvider>

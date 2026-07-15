@@ -68,8 +68,8 @@ export default function OnboardingOverlay({ C, onStartLine, onStartDemo }) {
               paddingBottom: 12, borderBottom: `1px solid ${C?.border || '#ECEAE5'}`,
             }}>
               <div style={{
-                fontFamily: "'Noto Serif TC', ui-serif, Georgia, serif",
-                fontSize: 22, fontWeight: 600, color: '#FF4D1F',
+                fontFamily: 'var(--cm-font-serif)',
+                fontSize: 22, fontWeight: 600, color: 'var(--cm-accent)',
                 fontVariantNumeric: 'tabular-nums',
               }}>{s.n}</div>
               <div>
