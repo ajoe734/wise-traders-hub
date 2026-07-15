@@ -31,7 +31,8 @@ const CASES = [
 const WIDTHS = [320, 375, 414];
 const PRICES = [
   { price: '123.45', qty: '2', label: 'short' },
-  { price: '1,234,567.89', qty: '9999', label: 'long' },
+  // 純數字（harness 直接輸出，不做 locale format），涵蓋長價擠壓情境
+  { price: '1234567.89', qty: '9999', label: 'long' },
 ];
 
 type Metrics = {
