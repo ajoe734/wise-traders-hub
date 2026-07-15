@@ -62,11 +62,22 @@ export function SignalRow({
         </td>
         <td className="p-3 text-sm font-medium">
           <div className="flex items-center gap-1.5 flex-wrap">
-            <span className="break-words [overflow-wrap:anywhere]">
-              {signal.action === 'teaching'
-                ? '純教學週記'
-                : `${signal.instrument}${isBatchCollapsed ? ` 等 ${batchInfo.get(signal.batch_id)!.count} 檔` : ''}`}
-            </span>
+            {signal.action === 'teaching' ? (
+              <span className="break-words [overflow-wrap:anywhere]">純教學週記</span>
+            ) : (
+              (() => {
+                const full = `${signal.instrument}${isBatchCollapsed ? ` 等 ${batchInfo.get(signal.batch_id)!.count} 檔` : ''}`;
+                return (
+                  <InstrumentTooltip
+                    full={full}
+                    data-testid="admin-signal-row-instrument"
+                    className="break-words [overflow-wrap:anywhere] font-medium"
+                  >
+                    <span className="line-clamp-2">{full}</span>
+                  </InstrumentTooltip>
+                );
+              })()
+            )}
             {badge && signal.action !== 'teaching' && (
               <Badge variant="outline" className={cn('text-[10px] px-1.5 py-0 h-4', badge.className)}>
                 {badge.label}
