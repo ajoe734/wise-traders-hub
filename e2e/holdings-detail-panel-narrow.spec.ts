@@ -31,26 +31,24 @@ test.describe('Holdings detail panel @ 863px (narrow viewport)', () => {
     await page.locator('.wb-card').first().waitFor({ state: 'visible', timeout: 15_000 });
   });
 
-  test('單擊持倉卡 → 展開新版 HoldingsDetailPanel + ComparisonCharts + ExportMenu', async ({ page }) => {
+  test('單擊持倉卡 → 展開新版 HoldingsDetailPanel（§4）+ 建議印章行 + ExportMenu', async ({ page }) => {
     await page.locator('.wb-card').first().click();
 
     const panel = page.locator('[data-testid="holdings-detail-panel"]');
     await expect(panel).toBeVisible({ timeout: 10_000 });
 
-    // 不是 legacy overlay drawer（那邊獨有「返回列表 / 來自」文案）
     await expect(page.getByText('返回列表', { exact: false })).toHaveCount(0);
     await expect(page.getByText('來自：', { exact: false })).toHaveCount(0);
 
-    // 窄螢幕提示帶可見
     const hint = page.locator('[data-testid="holdings-panel-narrow-hint"]');
     await expect(hint).toBeVisible();
     await expect(hint).toContainText('已展開完整圖表面板');
 
-    // ComparisonCharts 出現
-    await expect(panel.locator('[data-testid="holdings-comparison-charts"]')).toBeVisible();
+    // §4 刪除 & 新增
+    await expect(panel.locator('[data-testid="holdings-comparison-charts"]')).toHaveCount(0);
+    await expect(panel.locator('[data-testid="decision-stamp"]')).toBeVisible();
+    await expect(panel.locator('[data-testid="decision-stamp"]')).toContainText('建議');
 
-    // ExportMenu 存在；展開後三段 segmented + 立即匯出按鈕可見
-    // Radix DropdownMenu 會 portal Content 到 body，所以 seg / trigger 在 page 層級查
     const exportMenu = panel.locator('[data-testid="holdings-export-menu"]');
     await expect(exportMenu).toBeVisible();
     await exportMenu.click();
