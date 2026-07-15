@@ -174,7 +174,7 @@
   }
   /* 手機隱藏價格軌與 sparkline，把資訊密度收到 header + return + footer */
   .wb-card .wb-spark { display: none !important; }
-  .wb-card .cm-price-track { display: none !important; }
+  .wb-card .wb-price-track { display: none !important; }
   .wb-card .wb-bottom { gap: 8px !important; }
   .wb-card .wb-bottom-val { font-size: clamp(10px, 2.6vw, 12px) !important; }
 }
