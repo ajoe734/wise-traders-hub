@@ -3293,14 +3293,18 @@ ${JSON.stringify(strategyBrain || { rules: [], lessons: [], commonMistakes: [], 
       <div style={{background:C.bg,borderBottom:`1px solid ${C.border}`,
         padding:"14px 16px 0",position:"sticky",top:34,zIndex:10}}>
 
-        <div style={{display:"flex",justifyContent:"space-between",marginBottom:12}}>
-          <div>
-            <div style={{fontSize:11,color:C.textSec,letterSpacing:"0.1em",fontWeight:600,marginBottom:4}}>
+        <div style={{display:"flex",justifyContent:"space-between",marginBottom:12,gap:8}}>
+          <div style={{minWidth:0}}>
+            <div className="cm-header-meta" style={{fontSize:11,color:C.textSec,letterSpacing:"0.1em",fontWeight:600,marginBottom:4}}>
               {lineProfile && <span style={{color:C.textSec,padding:"2px 0",fontSize:10,fontWeight:600,marginRight:6}}>{lineProfile.displayName}</span>}
               {saved && <span style={{color:C.textSec,marginLeft:6,fontWeight:600,fontSize:11}}>{saved}</span>}
             </div>
             <div style={{display:"flex",alignItems:"center",gap:8,flexWrap:"wrap"}}>
+              <span className="cm-header-mobile-logomark" aria-hidden="true">
+                <Logomark size={20} />
+              </span>
               <span style={{fontSize:18,fontWeight:700,color:C.text,letterSpacing:"-0.01em"}}>持倉看板</span>
+              <span className="cm-header-actions" style={{display:"inline-flex",alignItems:"center",gap:8,flexWrap:"wrap"}}>
               {H.length > 0 && (() => {
                 const missingCount = (H || []).filter(h => !h.priceSource || h.priceError).length;
                 return (
@@ -3364,9 +3368,21 @@ ${JSON.stringify(strategyBrain || { rules: [], lessons: [], commonMistakes: [], 
                   {lastUpdate.toLocaleTimeString("zh-TW",{hour:"2-digit",minute:"2-digit"})}
                 </span>
               )}
+              </span>
+              {/* 手機版：只顯示「更多」按鈕，其他操作進 sheet */}
+              <span className="cm-header-mobile-actions">
+                <button
+                  type="button"
+                  className="cm-header-mobile-more"
+                  aria-label="更多選項"
+                  aria-haspopup="dialog"
+                  aria-expanded={mobileActionsOpen}
+                  onClick={() => setMobileActionsOpen(true)}
+                >⋯ 更多</button>
+              </span>
             </div>
           </div>
-          <div style={{textAlign:"right"}}>
+          <div className="cm-header-pnl" style={{textAlign:"right"}}>
             <div style={{fontSize:10,color:C.textSec,marginBottom:2,letterSpacing:"0.05em",fontWeight:700}}>未實現損益</div>
             <div style={{fontSize:20,fontWeight:800,color:pc(totalPnl),letterSpacing:"-0.01em",lineHeight:1.2}}>
               {totalPnl>=0?"+":""}{totalPnl.toLocaleString()}
