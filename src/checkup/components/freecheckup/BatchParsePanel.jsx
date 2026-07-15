@@ -4,12 +4,13 @@ import React, { useState } from 'react';
 import { alpha } from '@/checkup/theme';
 
 const STATUS_META = {
-  pending:   { label: '等待中', color: '#8A857C', icon: '○' },
-  parsing:   { label: '解析中', color: '#C97B3A', icon: '◐' },
-  success:   { label: '已完成', color: '#2E7D5C', icon: '✓' },
-  failed:    { label: '失敗',   color: '#B33A3A', icon: '✗' },
-  cancelled: { label: '已取消', color: '#8A857C', icon: '—' },
+  pending:   { label: '等待中', color: 'var(--cm-ink-mute, #9B968D)', icon: '' },
+  parsing:   { label: '解析中', color: 'var(--cm-accent, #FF4D1F)',   icon: '' },
+  success:   { label: '已完成', color: 'var(--cm-accent, #FF4D1F)',   icon: '' },
+  failed:    { label: '失敗',   color: 'var(--cm-loss, #8A857F)',     icon: '' },
+  cancelled: { label: '已取消', color: 'var(--cm-ink-mute, #9B968D)', icon: '' },
 };
+
 
 function formatErrorDetail(item) {
   const d = item?.errorDetail;

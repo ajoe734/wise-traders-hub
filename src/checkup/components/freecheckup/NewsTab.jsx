@@ -205,11 +205,11 @@ function NewsTabImpl({
           display:"flex", alignItems:"center", justifyContent:"space-between",
           marginBottom:8,
         }}>
-          <div style={{...lbl, marginBottom:0, color:C.amber}}>⏳ 待驗證 · {verifying.length} 件</div>
+          <div style={{...lbl, marginBottom:0, color:C.amber}}>待驗證 · {verifying.length} 件</div>
           <span style={{fontSize:12,color:C.textMute}}>7天內事件・AI已預測</span>
         </div>
         {predictingEvents && (
-          <div style={{fontSize:13,color:C.amber,marginBottom:8,textAlign:"center"}}>⏳ AI 正在預測中...</div>
+          <div style={{fontSize:13,color:C.amber,marginBottom:8,textAlign:"center"}}>AI 正在預測中…</div>
         )}
         {(()=>{
           const LIMIT = 10;

@@ -142,7 +142,7 @@ function NewsEventRowImpl({
                 color: isCorrect ? C.olive : C.amber,
               }}
             >
-              {isCorrect ? "✓ 正確" : "⚠ 有誤"}
+              {isCorrect ? "命中" : "未中"}
             </span>
           )}
           {e.status === "verifying" && (
