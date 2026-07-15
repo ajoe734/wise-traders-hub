@@ -62,15 +62,49 @@ const escapeHtml = (s: string) =>
 
 // 自架 woff2 字型 — 與 App 前台一致，避免 Google Fonts 未載入導致 PDF 版面漂移
 let fontsPromise: Promise<unknown> | null = null;
-export const ensureJournalPdfFonts = async () => {
+
+// PDF 內實際會用到的 (family, weight, style, sample) 組合。
+// 缺任何一組就代表 html2canvas 會 fallback（Georgia / PingFang / system-ui）。
+type FontSpec = { family: string; weight: number; style?: 'normal' | 'italic'; sample: string };
+const REQUIRED_FONTS: readonly FontSpec[] = [
+  // Source Serif 4：cover 標題 / 章節 h2 / 品牌 wordmark / 引言（斜體）
+  { family: 'Source Serif 4', weight: 700, sample: 'legendflow' },
+  { family: 'Source Serif 4', weight: 600, sample: 'legendflow' },
+  { family: 'Source Serif 4', weight: 400, sample: 'legendflow' },
+  { family: 'Source Serif 4', weight: 400, style: 'italic', sample: 'Aa' },
+  // Noto Serif TC：個股名稱 22px/700（中文標題）
+  { family: 'Noto Serif TC', weight: 700, sample: '週記回顧本' },
+  // Noto Sans TC：本文段落、章節標籤、footer
+  { family: 'Noto Sans TC', weight: 400, sample: '本週操作回顧摘要' },
+  { family: 'Noto Sans TC', weight: 500, sample: '本週操作回顧摘要' },
+  { family: 'Noto Sans TC', weight: 700, sample: '本週操作回顧摘要' },
+];
+
+const fontSpec = (f: FontSpec) =>
+  `${f.style === 'italic' ? 'italic ' : ''}${f.weight} 16px "${f.family}"`;
+
+/**
+ * 用 document.fonts.check() 掃描 REQUIRED_FONTS，若還沒 ready 就 polling。
+ * 回傳仍缺席的 spec 陣列（正常情況下應為空）。
+ */
+const auditFonts = (): FontSpec[] => {
+  if (typeof document === 'undefined' || !document.fonts?.check) return [];
+  return REQUIRED_FONTS.filter((f) => {
+    try {
+      return !document.fonts.check(fontSpec(f), f.sample);
+    } catch {
+      return false; // check() 拋錯就當它已 ready，避免無窮 loop
+    }
+  });
+};
+
+export const ensureJournalPdfFonts = async (): Promise<{ ok: boolean; missing: FontSpec[] }> => {
   if (!fontsPromise) {
     fontsPromise = Promise.all([
-      // Source Serif 4：cover 標題、章節 h2、簽名
       import('@fontsource/source-serif-4/400.css'),
       import('@fontsource/source-serif-4/400-italic.css'),
       import('@fontsource/source-serif-4/600.css'),
       import('@fontsource/source-serif-4/700.css'),
-      // Noto Sans TC / Noto Serif TC：本文
       import('@fontsource/noto-sans-tc/chinese-traditional-400.css'),
       import('@fontsource/noto-sans-tc/chinese-traditional-500.css'),
       import('@fontsource/noto-sans-tc/chinese-traditional-700.css'),
@@ -78,19 +112,61 @@ export const ensureJournalPdfFonts = async () => {
     ]).catch(() => []);
   }
   await fontsPromise;
+
+  // Step 1: 對每一組 (spec, sample) 明確 load，強制 UA 抓 woff2 進 FontFaceSet
   try {
-    // 熱身：確保字型 glyph 已 cache，避免 html2canvas 首張截圖 fallback
-    await Promise.all([
-      document.fonts.load('700 60px "Source Serif 4"', 'legendflow'),
-      document.fonts.load('400 italic 22px "Source Serif 4"', 'A'),
-      document.fonts.load('700 22px "Noto Serif TC"', '週'),
-      document.fonts.load('400 12px "Noto Sans TC"', '週記'),
-      document.fonts.load('500 13px "Noto Sans TC"', '本週'),
-      document.fonts.ready,
-    ]);
+    await Promise.all(REQUIRED_FONTS.map((f) => document.fonts.load(fontSpec(f), f.sample)));
   } catch {}
+  // Step 2: 等 fonts.ready（clears pending loads）
+  try {
+    await document.fonts.ready;
+  } catch {}
+
+  // Step 3: polling 校驗 —— 有些 UA 在 unicode-range 拆分的字型上，load() resolve 後
+  //         first-paint 仍會 miss 1-2 frame，這裡最多輪詢 ~2s。
+  let missing = auditFonts();
+  const deadline = Date.now() + 2000;
+  while (missing.length && Date.now() < deadline) {
+    await new Promise((r) => setTimeout(r, 80));
+    try { await document.fonts.ready; } catch {}
+    missing = auditFonts();
+  }
+
+  if (missing.length) {
+    // eslint-disable-next-line no-console
+    console.warn('[exportJournalPdf] font preflight incomplete, fallback risk:',
+      missing.map((f) => `${f.family}/${f.weight}${f.style === 'italic' ? '/italic' : ''}`));
+  }
+  return { ok: missing.length === 0, missing };
 };
 const ensureFonts = ensureJournalPdfFonts;
+
+/**
+ * 針對「即將截圖的 pageEl」做最後一次守門：
+ *   1. 等一個 rAF 讓 layout / 換行落定
+ *   2. 若 element 內有中文字，額外對該字元 load 一次 Noto Serif/Sans TC
+ *      —— 覆蓋 fontsource 用 unicode-range 拆分 subset 時的殘留 miss
+ *   3. 對 REQUIRED_FONTS 再跑一次 auditFonts()，仍缺就 polling 至 ready 或超時
+ */
+const waitForPageFontsReady = async (pageEl: HTMLElement, timeoutMs = 1500) => {
+  await new Promise((r) => requestAnimationFrame(() => r(null)));
+  const text = pageEl.textContent || '';
+  const cjkSample = (text.match(/[\u3400-\u9fff]/g) || []).slice(0, 60).join('') || '週';
+  try {
+    await Promise.all([
+      document.fonts.load(`700 22px "Noto Serif TC"`, cjkSample),
+      document.fonts.load(`400 12px "Noto Sans TC"`, cjkSample),
+      document.fonts.load(`500 13px "Noto Sans TC"`, cjkSample),
+      document.fonts.load(`700 13px "Noto Sans TC"`, cjkSample),
+    ]);
+    await document.fonts.ready;
+  } catch {}
+  const deadline = Date.now() + timeoutMs;
+  while (auditFonts().length && Date.now() < deadline) {
+    await new Promise((r) => setTimeout(r, 60));
+    try { await document.fonts.ready; } catch {}
+  }
+};
 
 
 const toDataUrl = async (src: string): Promise<string | null> => {
@@ -383,8 +459,9 @@ export const exportJournalPdf = async (args: ExportArgs) => {
       const pageEl = wrapper.firstElementChild as HTMLElement;
       root.appendChild(pageEl);
 
-      // Wait a frame so fonts/layout settle
-      await new Promise((r) => requestAnimationFrame(() => r(null)));
+      // 截圖前守門：等 fonts.ready + polling auditFonts()，
+      // 消除首張截圖 fallback 到 Georgia / PingFang 的機率。
+      await waitForPageFontsReady(pageEl);
 
       const canvas = await html2canvas(pageEl, {
         scale: 2,
