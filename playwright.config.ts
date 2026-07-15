@@ -217,6 +217,12 @@ export default defineConfig({
       use: { ...devices['Desktop Chrome'] },
     },
     {
+      // @價 + 張/股 tabular-nums 不擠壓/不截斷（4 表面 × 2 ETF × 3 手機斷點 × 短/長價）
+      name: 'etf-numeric-tabular-nowrap',
+      testMatch: /etf-numeric-tabular-nowrap\.spec\.ts/,
+      use: { ...devices['Desktop Chrome'] },
+    },
+    {
       // /expert/:slug bundle RPC 5xx 回退（ExpertFetchError，不可炸 ErrorBoundary）
       name: 'desktop-expert-profile-error',
       testMatch: /expert-profile-error\.spec\.ts/,
