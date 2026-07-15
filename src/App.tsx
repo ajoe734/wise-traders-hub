@@ -58,6 +58,7 @@ const CheckupCheckout = lazy(() => import("./pages/CheckupCheckout"));
 const FreeCheckupPage = lazy(() => import("./pages/FreeCheckup"));
 const HoldingCheckupDemoEntry = lazy(() => import("./pages/HoldingCheckupDemoEntry"));
 const HoldingCardHarnessEntry = lazy(() => import("./pages/HoldingCardHarnessEntry"));
+const SignalEditorHarnessEntry = lazy(() => import("./pages/SignalEditorHarnessEntry"));
 const NotFound = lazy(() => import("./pages/NotFound"));
 
 const CheckupModeProviderLazy = lazy(() =>
