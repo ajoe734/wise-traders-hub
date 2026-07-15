@@ -283,6 +283,7 @@ function HoldingsWorkbench(props) {
                 sortDir={sortDir}
                 setSortBy={setSortBy}
                 setSortDir={setSortDir}
+                tradeLog={tradeLog}
               />
             </Suspense>
           )}
