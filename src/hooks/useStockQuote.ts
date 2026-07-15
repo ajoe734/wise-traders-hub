@@ -15,8 +15,9 @@ export function useStockQuote(symbol: string = '2330', refreshInterval: number =
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
 
-  // Extract 4-digit code from symbol (e.g. "2330.TW" → "2330", "2330 台積電" → "2330")
-  const code = symbol.match(/^\d{4}/)?.[0] || symbol;
+  // Extract full TW code including ETF letter suffix (e.g. "00631L 元大台灣50正2" → "00631L",
+  // "2330.TW" → "2330"). 舊 `/^\d{4}/` 會把 00631L 截成 0063 造成報價查不到。
+  const code = symbol.match(/^\d{4,6}[A-Z]?/)?.[0] || symbol;
 
   const fetchQuote = useCallback(async () => {
     if (!code) {
