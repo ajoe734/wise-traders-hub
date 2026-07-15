@@ -12,6 +12,7 @@ import { memo } from "react";
 import { supabase } from "@/integrations/supabase/client";
 import { INIT_HOLDINGS as SEED_HOLDINGS } from "@/checkup/seedData";
 import { L as ThemeL } from "@/checkup/theme";
+import { useRenderCounter } from "@/checkup/hooks/useRenderCounter";
 
 // #region Constants & Helpers — 政策、顏色、種子、純函式（不依賴 React state）
 export const SUPABASE_FN_BASE = `${import.meta.env.VITE_SUPABASE_URL}/functions/v1`;
