@@ -103,6 +103,7 @@ import {
   useFetchCalendarEventsRef,
 } from "@/hooks/useFreeCheckupBootstrap";
 import HoldingsIntroVideo from "@/checkup/components/HoldingsIntroVideo";
+import { Logomark } from "@/components/brand";
 
 // #region App() — 主元件（state、effects、JSX 全部 inline；遵守 inline 憲法）
 export default function App() {
@@ -3132,6 +3133,8 @@ ${JSON.stringify(strategyBrain || { rules: [], lessons: [], commonMistakes: [], 
   };
 
   const [showResetConfirm, setShowResetConfirm] = useState(false);
+  // Batch D IA §2：手機頂欄「更多」sheet
+  const [mobileActionsOpen, setMobileActionsOpen] = useState(false);
 
   const clearAnalysisAndLessons = () => {
     if (!confirm("確定要清除『歷史分析記錄』與『最近教訓』嗎？")) return;
@@ -3277,7 +3280,7 @@ ${JSON.stringify(strategyBrain || { rules: [], lessons: [], commonMistakes: [], 
           ← 返回
         </button>
         {!isDemo && (
-          <button onClick={()=>navigate("/app")} style={{
+          <button onClick={()=>navigate("/app")} className="cm-header-desktop-only" style={{
             background:C.blue,border:"none",cursor:"pointer",padding:"4px 12px",borderRadius:6,
             color:"#fff",fontSize:12,fontWeight:500,display:"flex",alignItems:"center",gap:4,
           }}>
@@ -3290,14 +3293,18 @@ ${JSON.stringify(strategyBrain || { rules: [], lessons: [], commonMistakes: [], 
       <div style={{background:C.bg,borderBottom:`1px solid ${C.border}`,
         padding:"14px 16px 0",position:"sticky",top:34,zIndex:10}}>
 
-        <div style={{display:"flex",justifyContent:"space-between",marginBottom:12}}>
-          <div>
-            <div style={{fontSize:11,color:C.textSec,letterSpacing:"0.1em",fontWeight:600,marginBottom:4}}>
+        <div style={{display:"flex",justifyContent:"space-between",marginBottom:12,gap:8}}>
+          <div style={{minWidth:0}}>
+            <div className="cm-header-meta" style={{fontSize:11,color:C.textSec,letterSpacing:"0.1em",fontWeight:600,marginBottom:4}}>
               {lineProfile && <span style={{color:C.textSec,padding:"2px 0",fontSize:10,fontWeight:600,marginRight:6}}>{lineProfile.displayName}</span>}
               {saved && <span style={{color:C.textSec,marginLeft:6,fontWeight:600,fontSize:11}}>{saved}</span>}
             </div>
             <div style={{display:"flex",alignItems:"center",gap:8,flexWrap:"wrap"}}>
+              <span className="cm-header-mobile-logomark" aria-hidden="true">
+                <Logomark size={20} />
+              </span>
               <span style={{fontSize:18,fontWeight:700,color:C.text,letterSpacing:"-0.01em"}}>持倉看板</span>
+              <span className="cm-header-actions" style={{display:"inline-flex",alignItems:"center",gap:8,flexWrap:"wrap"}}>
               {H.length > 0 && (() => {
                 const missingCount = (H || []).filter(h => !h.priceSource || h.priceError).length;
                 return (
@@ -3361,9 +3368,21 @@ ${JSON.stringify(strategyBrain || { rules: [], lessons: [], commonMistakes: [], 
                   {lastUpdate.toLocaleTimeString("zh-TW",{hour:"2-digit",minute:"2-digit"})}
                 </span>
               )}
+              </span>
+              {/* 手機版：只顯示「更多」按鈕，其他操作進 sheet */}
+              <span className="cm-header-mobile-actions">
+                <button
+                  type="button"
+                  className="cm-header-mobile-more"
+                  aria-label="更多選項"
+                  aria-haspopup="dialog"
+                  aria-expanded={mobileActionsOpen}
+                  onClick={() => setMobileActionsOpen(true)}
+                >⋯ 更多</button>
+              </span>
             </div>
           </div>
-          <div style={{textAlign:"right"}}>
+          <div className="cm-header-pnl" style={{textAlign:"right"}}>
             <div style={{fontSize:10,color:C.textSec,marginBottom:2,letterSpacing:"0.05em",fontWeight:700}}>未實現損益</div>
             <div style={{fontSize:20,fontWeight:800,color:pc(totalPnl),letterSpacing:"-0.01em",lineHeight:1.2}}>
               {totalPnl>=0?"+":""}{totalPnl.toLocaleString()}
@@ -3963,6 +3982,52 @@ ${JSON.stringify(strategyBrain || { rules: [], lessons: [], commonMistakes: [], 
           </div>
         </div>
       )}
+
+      {/* Batch D §2：手機頂欄「更多」sheet — 收納同步、補價、日誌、清除 */}
+      {mobileActionsOpen && (
+        <>
+          <div className="cm-mobile-actions-sheet__backdrop" onClick={()=>setMobileActionsOpen(false)} />
+          <div className="cm-mobile-actions-sheet" role="dialog" aria-modal="true" aria-labelledby="cm-mobile-actions-title">
+            <h3 id="cm-mobile-actions-title" className="cm-mobile-actions-sheet__title">更多</h3>
+            {!isDemo && (
+              <button type="button" className="cm-mobile-actions-sheet__item"
+                onClick={()=>{ setMobileActionsOpen(false); navigate("/app"); }}>
+                前往戰情室 →
+              </button>
+            )}
+            {H.length > 0 && (
+              <button type="button" className="cm-mobile-actions-sheet__item"
+                disabled={serverSyncing}
+                onClick={()=>{ setMobileActionsOpen(false); triggerServerSync(); }}>
+                {serverSyncing ? '同步中…' : '⟳ 立即更新報價'}
+              </button>
+            )}
+            {H.length > 0 && (H || []).some(h => !h.priceSource || h.priceError) && (
+              <button type="button" className="cm-mobile-actions-sheet__item"
+                disabled={backfilling}
+                onClick={()=>{ setMobileActionsOpen(false); runBackfillReport(); }}>
+                {backfilling ? '補抓中…' : '補齊缺價持倉'}
+              </button>
+            )}
+            {syncLog.length > 0 && (
+              <button type="button" className="cm-mobile-actions-sheet__item"
+                onClick={()=>{ setMobileActionsOpen(false); downloadSyncLog(); }}>
+                ↓ 下載任務日誌（{syncLog.length}）
+              </button>
+            )}
+            <button type="button" className="cm-mobile-actions-sheet__item cm-mobile-actions-sheet__item--danger"
+              onClick={()=>{ setMobileActionsOpen(false); setShowResetConfirm(true); }}>
+              清除全部資料
+            </button>
+            <button type="button" className="cm-mobile-actions-sheet__item"
+              style={{ textAlign: 'center', color: 'var(--cm-ink-sec)' }}
+              onClick={()=>setMobileActionsOpen(false)}>
+              取消
+            </button>
+          </div>
+        </>
+      )}
+
 
       {/* ══════════ 持倉資料庫 Detail Drawer ══════════ */}
       <Sheet open={drawerOpen} onOpenChange={handleDrawerOpenChange}>

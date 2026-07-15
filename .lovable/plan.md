@@ -76,7 +76,12 @@
 
 **驗證**：`bunx tsgo` 綠；`rg` 確認兩檔已無 teal / 禁用 emoji。
 
-### 批次 D · IA §2（大部分已在批次 A / C 中對齊；剩：手機頂欄只留 logo + 頁名）
+### 批次 D · IA §2 手機頂欄簡化 ✅（本輪）
+- 手機頂欄僅保留 `<Logomark size={20}/>` + `持倉看板` + `⋯ 更多` 按鈕
+- 隱藏於 ≤640px：`.cm-header-actions`（⟳ 立即更新／補齊報價／⋯／↓ Log／時戳）、`.cm-header-pnl`（右側未實現損益，Hero 已有）、`.cm-header-meta`（LINE displayName／saved）、`前往戰情室 →`
+- 修正：`.cm-desktop-tabs { display: none !important }` 覆蓋 inline `display:flex`
+- 新增 `mobileActionsOpen` state + bottom-sheet：`前往戰情室 / ⟳ 立即更新報價 / 補齊缺價持倉 / ↓ 下載任務日誌 / 清除全部資料 / 取消`（背景點擊或取消可關）
+- Desktop 樣式與行為 100% 保留（`.cm-header-mobile-actions`、`.cm-header-mobile-logomark` 於 ≥641px `!important` 隱藏）
 
 ### 批次 E · Design tokens §1 全站落實
 - 全站 `#EC662D` → `--accent: #FF4D1F`
