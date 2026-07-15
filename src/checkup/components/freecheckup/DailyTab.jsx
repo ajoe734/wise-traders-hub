@@ -308,11 +308,13 @@ function DailyTabImpl({
 
             {/* AI 策略分析 — Markdown 渲染 */}
             {dailyReport.aiInsight && (
-              <div style={{marginBottom:14,paddingBottom:14,borderBottom:`1px solid ${alpha(C.textMute,'06')}`}}>
-                <div style={{display:"flex",alignItems:"center",gap:6,marginBottom:10}}>
-                  <span style={{fontSize:10,color:C.text,letterSpacing:"0.12em",fontWeight:700}}>AI 策 略 分 析</span>
+              <div style={{marginBottom:18,paddingBottom:16,borderBottom:`1px solid ${alpha(C.textMute,'20')}`}}>
+                <div style={{borderTop:`1px solid ${C.text}`,paddingTop:12,marginBottom:12}}>
+                  <h3 style={{margin:0,fontFamily:"'Noto Serif TC',ui-serif,Georgia,serif",fontSize:16,color:C.text,fontWeight:400,letterSpacing:0}}>AI 策略分析</h3>
                 </div>
-                <Suspense fallback={null}><Md text={dailyReport.aiInsight} color={C.text} /></Suspense>
+                <div style={{fontSize:15,lineHeight:2,color:C.text}}>
+                  <Suspense fallback={null}><Md text={dailyReport.aiInsight} color={C.text} /></Suspense>
+                </div>
               </div>
             )}
 
