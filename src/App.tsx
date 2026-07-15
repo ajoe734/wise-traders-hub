@@ -60,6 +60,7 @@ const HoldingCheckupDemoEntry = lazy(() => import("./pages/HoldingCheckupDemoEnt
 const HoldingCardHarnessEntry = lazy(() => import("./pages/HoldingCardHarnessEntry"));
 const SignalEditorHarnessEntry = lazy(() => import("./pages/SignalEditorHarnessEntry"));
 const EtfDisplayHarnessEntry = lazy(() => import("./pages/EtfDisplayHarnessEntry"));
+const SignalPreviewHarnessEntry = lazy(() => import("./pages/SignalPreviewHarnessEntry"));
 const NotFound = lazy(() => import("./pages/NotFound"));
 
 const CheckupModeProviderLazy = lazy(() =>
