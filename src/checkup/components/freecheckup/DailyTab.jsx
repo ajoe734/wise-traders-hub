@@ -266,16 +266,16 @@ function DailyTabImpl({
 
           {analyzing && (
             <div style={{textAlign:"center",padding:"36px 16px"}}>
-              <div style={{fontSize:13,color:C.text,fontWeight:700,marginBottom:10,letterSpacing:"0.04em"}}>
+              <div style={{fontSize:13,color:C.text,fontWeight:400,marginBottom:10,letterSpacing:"0.04em"}}>
                 {analyzeStep || "正在分析今日收盤數據..."}
               </div>
-              <div style={{fontSize:11,color:C.textSec,marginTop:8,display:"flex",justifyContent:"center",gap:8,flexWrap:"wrap"}}>
-                {["取得股價","比對事件","AI策略分析","大腦進化"].map((s,i)=>(
-                  <span key={i} style={{fontSize:10,color:C.textSec,fontWeight:600}}>{s}</span>
+              <div style={{fontSize:11,color:C.textMute,marginTop:8,display:"flex",justifyContent:"center",gap:10,flexWrap:"wrap"}}>
+                {["取得股價","比對事件","AI 策略分析","大腦進化"].map((s,i)=>(
+                  <span key={i} style={{fontSize:10,color:C.textMute,fontWeight:400,letterSpacing:"0.04em"}}>{s}</span>
                 ))}
               </div>
-              <div style={{width:"100%",height:2,background:alpha(C.textMute,'08'),borderRadius:1,marginTop:16,overflow:"hidden"}}>
-                <div style={{height:"100%",borderRadius:1,
+              <div style={{width:"100%",height:1,background:alpha(C.textMute,'12'),marginTop:16,overflow:"hidden"}}>
+                <div style={{height:"100%",
                   background:C.text,
                   width:"70%",
                   transition:"width 0.5s ease"}} />
@@ -284,22 +284,22 @@ function DailyTabImpl({
           )}
 
           {dailyReport && !analyzing && <>
-            {/* 今日損益摘要 */}
+            {/* 今日損益摘要（編輯化：無色卡、無圓角、serif 日期） */}
             <div id="daily-report-top" style={{
-              background:alpha(dailyReport.totalTodayPnl>=0?C.up:C.down,'06'),
-              borderRadius:12,padding:"18px 18px 16px",marginBottom:14}}>
-              <div style={{display:"flex",justifyContent:"space-between",alignItems:"flex-start"}}>
+              padding:"18px 0 16px",marginBottom:14,
+              borderBottom:`1px solid ${alpha(C.textMute,'20')}`}}>
+              <div style={{display:"flex",justifyContent:"space-between",alignItems:"flex-start",gap:12,flexWrap:"wrap"}}>
                 <div>
-                  <div style={{display:"flex",alignItems:"center",gap:8,marginBottom:6}}>
-                    <button onClick={()=>setDailyReport(null)} style={{fontSize:11,padding:"3px 8px",borderRadius:6,border:"none",background:"transparent",color:C.textSec,cursor:"pointer",fontWeight:600}}>← 返回</button>
-                    <span style={{fontSize:12,fontWeight:700,color:C.text}}>{dailyReport.date}</span>
+                  <div style={{display:"flex",alignItems:"baseline",gap:10,marginBottom:4}}>
+                    <button onClick={()=>setDailyReport(null)} style={{fontSize:12,padding:0,border:"none",background:"transparent",color:C.textMute,cursor:"pointer",fontWeight:400,letterSpacing:"0.04em"}}>← 返回</button>
+                    <span style={{fontFamily:"'Noto Serif TC',ui-serif,Georgia,serif",fontSize:18,color:C.text,fontWeight:400,fontVariantNumeric:"tabular-nums"}}>{dailyReport.date}</span>
                   </div>
-                  <div style={{fontSize:11,color:C.textSec,marginTop:2,fontWeight:600}}>{dailyReport.time} 更新</div>
+                  <div style={{fontSize:11,color:C.textMute,letterSpacing:"0.04em"}}>{dailyReport.time} 更新</div>
                 </div>
                 <div style={{textAlign:"right"}}>
                   <div style={{fontSize:10,color:C.textMute,letterSpacing:"0.12em",marginBottom:4}}>今日損益</div>
-                  <div style={{fontSize:"clamp(22px, 6vw, 28px)",fontWeight:800,color:pc(dailyReport.totalTodayPnl),lineHeight:1,fontVariantNumeric:"tabular-nums"}}>
-                    {dailyReport.totalTodayPnl>=0?"+":""}{dailyReport.totalTodayPnl.toLocaleString()}
+                  <div style={{fontSize:"clamp(22px, 6vw, 28px)",fontWeight:500,color:pc(dailyReport.totalTodayPnl),lineHeight:1,fontVariantNumeric:"tabular-nums"}}>
+                    {dailyReport.totalTodayPnl>=0?"+":"−"}{Math.abs(dailyReport.totalTodayPnl).toLocaleString()}
                   </div>
                 </div>
               </div>
@@ -493,7 +493,7 @@ function DailyTabImpl({
               )}
 
               <div style={{display:"flex",justifyContent:"space-between",alignItems:"center",marginTop:10}}>
-                <div style={{fontSize:11,color:C.textSec,fontWeight:600}}>
+                <div style={{fontSize:11,color:C.textSec,fontWeight:400,letterSpacing:"0.04em"}}>
                   命中率：{strategyBrain.stats?.hitRate||"計算中"}
                 </div>
                 <div style={{display:"flex",gap:6}}>
@@ -524,9 +524,9 @@ function DailyTabImpl({
           )}
 
           {!strategyBrain && (
-            <div style={{marginBottom:14,textAlign:"center",padding:"16px 0"}}>
-              <div style={{fontSize:12,color:C.textSec,fontWeight:600}}>
-                執行第一次收盤分析後，策略大腦將自動建立並持續進化
+            <div style={{marginBottom:14,padding:"16px 0",borderTop:`1px solid ${alpha(C.textMute,'20')}`}}>
+              <div style={{fontSize:12,color:C.textMute,fontWeight:400,lineHeight:1.8,letterSpacing:"0.04em"}}>
+                執行第一次收盤分析後，策略大腦將自動建立並持續進化。
               </div>
             </div>
           )}
