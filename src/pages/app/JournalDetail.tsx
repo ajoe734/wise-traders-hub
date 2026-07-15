@@ -191,6 +191,27 @@ const JournalDetail = () => {
     markAppJournalsAsRead();
   }, []);
 
+  // 名稱回填：若 instrument 只存了代號（例如 "00631L"）而沒有名稱，透過 stock_names
+  // 補上人類可讀名稱。使用 batch 查詢一次抓齊本週所有缺名的代號。
+  const [nameMap, setNameMap] = useState<Record<string, string>>({});
+  useEffect(() => {
+    const missingCodes = Array.from(new Set(
+      (weekSignals || [])
+        .map(s => {
+          const { code, name } = parseInstrument(s.instrument);
+          return code && !name ? code : null;
+        })
+        .filter((c): c is string => !!c),
+    ));
+    if (missingCodes.length === 0) return;
+    let cancelled = false;
+    resolveStockNames(missingCodes)
+      .then((map) => { if (!cancelled) setNameMap(prev => ({ ...prev, ...map })); })
+      .catch(() => { /* 靜默失敗：仍會顯示代號 */ });
+    return () => { cancelled = true; };
+  }, [weekSignals]);
+
+
   if (loading) {
     return (
       <UnifiedAppLayout>
