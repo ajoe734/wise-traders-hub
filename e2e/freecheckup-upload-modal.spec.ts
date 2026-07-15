@@ -21,6 +21,7 @@ async function setupCleanDemoOnce(page: Page) {
       window.localStorage.setItem(guardKey, '1');
       window.localStorage.removeItem('holdings-intro-video-seen-v2');
       window.localStorage.removeItem('checkup-coach-seen-v1');
+      window.localStorage.setItem('lf.checkup.onboarded', '1');
       window.sessionStorage.setItem('holdings-intro-video-dismissed-session', '1');
     } catch {}
   }, CLEAR_GUARD);
