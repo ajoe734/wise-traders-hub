@@ -61,8 +61,7 @@ describe('auditFonts', () => {
   it('SSR：無 document 時回傳空陣列', async () => {
     const { auditFonts } = await import('@/lib/exportJournalPdf');
     const originalDocument = globalThis.document;
-    // @ts-expect-error 模擬 SSR
-    delete (globalThis as any).document;
+    delete (globalThis as { document?: Document }).document;
     try {
       expect(auditFonts()).toEqual([]);
     } finally {
