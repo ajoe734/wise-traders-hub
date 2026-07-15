@@ -43,24 +43,27 @@ describe('HoldingCardReturn 派生 useMemo', () => {
       const { container } = render(<HoldingCardReturn {...base} variant="normal" />);
       const row = rowOf(container);
       const roi = roiOf(container);
+      const roiStyle = roi.getAttribute('style') || '';
       expect(row.style.gap).toBe('10px');
       expect(row.style.marginTop).toBe('8px');
       expect(row.style.marginBottom).toBe('8px');
-      expect(roi.style.fontSize).toBe('clamp(36px, 4.5vw + 10px, 52px)');
-      expect(roi.style.letterSpacing).toBe('-0.035em');
-      expect(roi.style.gap).toBe('5px');
+      // jsdom 不解析 clamp()，改讀 style 原始字串
+      expect(roiStyle).toContain('clamp(36px, 4.5vw + 10px, 52px)');
+      expect(roiStyle).toContain('letter-spacing: -0.035em');
+      expect(roiStyle).toContain('gap: 5px');
     });
 
     it('ink：fontSize / letterSpacing / gap / rowGap / marginBottom 為 ink 版本', () => {
       const { container } = render(<HoldingCardReturn {...base} variant="ink" />);
       const row = rowOf(container);
       const roi = roiOf(container);
+      const roiStyle = roi.getAttribute('style') || '';
       expect(row.style.gap).toBe('14px');
       expect(row.style.marginTop).toBe('8px');
       expect(row.style.marginBottom).toBe('10px');
-      expect(roi.style.fontSize).toBe('clamp(40px, 6vw + 12px, 64px)');
-      expect(roi.style.letterSpacing).toBe('-0.04em');
-      expect(roi.style.gap).toBe('6px');
+      expect(roiStyle).toContain('clamp(40px, 6vw + 12px, 64px)');
+      expect(roiStyle).toContain('letter-spacing: -0.04em');
+      expect(roiStyle).toContain('gap: 6px');
     });
   });
 
