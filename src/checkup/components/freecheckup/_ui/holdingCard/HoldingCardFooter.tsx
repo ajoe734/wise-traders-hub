@@ -115,7 +115,11 @@ function HoldingCardFooterImpl({
   const tgtStyle = todayPctStyle;
 
   const todayNode = useMemo(() => {
-    if (!hasToday) return <span style={{ color: muteColor }}>—</span>;
+    if (!hasToday) {
+      return (
+        <span style={{ color: muteColor }} aria-label="無資料">—</span>
+      );
+    }
     return (
       <>
         {todayPnlNum != null ? `${todayPnlNum >= 0 ? '+' : ''}${todayPnlNum.toLocaleString()}` : '—'}
@@ -132,6 +136,7 @@ function HoldingCardFooterImpl({
     () => (h.value?.toLocaleString() || '—'),
     [h.value],
   );
+  const valueMissing = valueStr === '—';
 
   const showTgt = isFeature && tp && upside != null;
   const tgtStr = useMemo(
@@ -148,13 +153,23 @@ function HoldingCardFooterImpl({
       }}>
         <span>VALUE</span>
         {srcLabel && (
-          <span title={srcTitle} style={srcBadge}>{srcLabel}</span>
+          <span
+            role="img"
+            title={srcTitle}
+            aria-label={`報價來源：${srcTitle}`}
+            style={srcBadge}
+          >{srcLabel}</span>
         )}
         {h.priceError && !srcLabel && (
-          <span title={h.priceError} style={errBadge}>失敗</span>
+          <span
+            role="img"
+            title={h.priceError}
+            aria-label={`報價錯誤：${h.priceError}`}
+            style={errBadge}
+          >失敗</span>
         )}
       </span>
-      <div style={dividerStyle} />
+      <div style={dividerStyle} aria-hidden="true" />
       <span
         className="wb-bottom-val"
         style={{ gridColumn: '1', gridRow: '2', ...valCellStyle }}
@@ -162,6 +177,7 @@ function HoldingCardFooterImpl({
       <span
         className="wb-bottom-val"
         style={{ gridColumn: '3', gridRow: '2', ...valCellStyle }}
+        aria-label={valueMissing ? '無資料' : undefined}
       >
         {valueStr}
         {tgtStr && <span style={tgtStyle}>{tgtStr}</span>}
@@ -169,6 +185,7 @@ function HoldingCardFooterImpl({
     </div>
   );
 }
+
 
 export const HoldingCardFooter = memo(HoldingCardFooterImpl);
 HoldingCardFooter.displayName = 'HoldingCardFooter';

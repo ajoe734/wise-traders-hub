@@ -1,77 +1,76 @@
-# Plan：Footer / PriceTrack DOM 快照回歸
+# Plan：HoldingCardFooter A11y — badge/srcTitle 可讀性
 
-## 目的
-用 vitest `toMatchInlineSnapshot` 鎖住 `HoldingCardFooter` 與 `HoldingCardPriceTrack` 在關鍵組合下的 DOM 結構與可見文字，防止未來 refactor 意外改動 class / grid 定位 / badge 文案 / decText 截斷。
+## 元件修正（`HoldingCardFooter.tsx`）
 
-## 檔案
-新增：
-- `src/checkup/components/freecheckup/_ui/holdingCard/__tests__/HoldingCardFooter.snapshot.test.tsx`
-- `src/checkup/components/freecheckup/_ui/holdingCard/__tests__/HoldingCardPriceTrack.snapshot.test.tsx`
+Footer 目前僅在 badge 上掛 `title`，螢幕閱讀器（SR）大多不會朗讀 `title` → 補上 `aria-label` 讓報價來源 / 錯誤能被讀出。同時把「用不到卻會被 SR 讀出」的裝飾字消音。
 
-不動元件源碼。使用 `container.firstChild` 的 `toMatchInlineSnapshot()`；快取整段 markup 於檔案內，人審友善。
+1. **srcBadge**（`priceSource` 有值時渲染）
+   - 現況：`<span title={srcTitle} style={srcBadge}>{srcLabel}</span>`
+   - 改為：加 `role="img"` + `aria-label={\`報價來源：${srcTitle}\`}`；保留 `title`。
+   - 理由：`aria-label` 覆寫可見文字（原為簡短 label 例如「即時」），SR 讀完整 `srcTitle`（含更新時間、昨收、現價）；`role="img"` 讓 SR 把它視為單一原子節點，不會把內文的簡稱再讀一次。
 
-## Footer 快照矩陣（12 case）
+2. **errBadge**（`priceError && !srcLabel`）
+   - 加 `role="img"` + `aria-label={\`報價錯誤：${h.priceError}\`}`；保留可見文字「失敗」與 `title`。
 
-軸：
-- `variant`：`normal` / `ink`
-- `priceSource` badge 分流：`live` / `screenshot` / `demo` / `yclose` / `null`（`priceError` 觸發 errBadge）
-- 補充：`hasToday=false` / `todayPnl<0` / `showTgt=true` 三個獨立情境
+3. **兩個「—」dash placeholder**（`todayNode` 缺 pnl、`valueStr` 缺 value）
+   - 目前是純文字「—」，SR 會唸「破折號」→ 補 `aria-label="無資料"` 於外層 span。
+   - 為避免 today wrapper 重讀外層 label，只在 `hasToday=false` 的 today span 加 `aria-label`；`valueStr` 為 '—' 時加 `aria-label`。
 
-| # | variant | priceSource | priceError | 其他 |
-|---|---------|-------------|------------|------|
-| 1 | normal  | live        | -          | 基準 |
-| 2 | normal  | screenshot  | -          | badge 走 muteColor 支 |
-| 3 | normal  | demo        | -          | badge 走 lossColor 支（非 live/非 screenshot）|
-| 4 | normal  | yclose      | -          | 同上，label='昨收' |
-| 5 | normal  | null        | '報價逾時'  | errBadge=失敗 |
-| 6 | normal  | null        | null       | 完全無 badge |
-| 7 | ink     | live        | -          | ink live tint |
-| 8 | ink     | screenshot  | -          | ink 非-live 支 |
-| 9 | ink     | null        | '網路錯誤'  | ink errBadge |
-| 10 | normal | live        | -          | `hasToday=false` → today 節點=「—」 |
-| 11 | normal | live        | -          | `todayPnlNum=-800`、`todayPctNum=-1.23` → 負號無 `+` |
-| 12 | ink    | live        | -          | `tp=120, upside=8.5` → `.wb-bottom-val` 內含 `TGT +8.5%` |
+4. **VALUE / TODAY header cells**：保持純文字（本身就是 label），不動。
 
-固定共用 props：
-```
-h.value=123456, h.price=100.5, h.yesterday=99, h.priceUpdatedAt='2026-01-01T02:30:00Z'
-hasToday=true, todayPnlNum=500, todayPctNum=1.23（除 10/11）
-subColor='#292520', muteColor='#8A857F', hairColor='#EEE', lossColor='#8A857F'
-```
+## 測試（新增）`HoldingCardFooter.a11y.test.tsx`
 
-## PriceTrack 快照矩陣（8 case）
+**Case 矩陣 — badge aria 分流（10 case）**
 
-軸：
-- `variant`：`normal` / `ink`
-- `dec.actionText`：無 / 短句（<40字）/ 超長（觸發 truncateAction 截尾＋…）
-- `meta.strategy`：無 / 有（測試 fallback）
+| # | 情境                                       | 斷言                                                                                                          |
+|---|-------------------------------------------|--------------------------------------------------------------------------------------------------------------|
+| 1 | `priceSource='live'`                       | 有一個 `role="img"` badge，`aria-label` 開頭 `報價來源：`，包含 `來源：即時`、`更新於`、`昨收 99.00`、`現價 100.50` |
+| 2 | `priceSource='screenshot'`                 | `aria-label` 含 `來源：截圖（screenshot）`                                                                    |
+| 3 | `priceSource='demo'`                       | `aria-label` 含 `來源：DEMO（demo）`                                                                          |
+| 4 | `priceSource='yclose'`                     | `aria-label` 含 `來源：昨收（yclose）`                                                                        |
+| 5 | `priceSource=null, priceError='報價逾時'`  | errBadge 存在、text=`失敗`、`aria-label='報價錯誤：報價逾時'`；srcBadge 不存在                                 |
+| 6 | `priceSource=null, priceError=null`        | srcBadge 與 errBadge 皆不存在                                                                                 |
+| 7 | `priceSource='live'` + `priceError='X'`    | srcTitle 首行為 `報價問題：X`；`aria-label` 開頭 `報價來源：報價問題：X`（errBadge 不出現，因 srcLabel 存在） |
+| 8 | `variant='ink'` + `priceSource='live'`     | 同 #1 aria 內容；額外驗 `role="img"` 屬性沒被 ink 樣式覆蓋                                                    |
+| 9 | `variant='ink'` + `priceError, no source`  | ink errBadge `aria-label='報價錯誤：網路錯誤'`                                                                |
+| 10 | `priceSource='live'` 無 `priceUpdatedAt` / `yesterday`（皆缺） | `aria-label` 不含 `更新於`、`昨收`，仍含 `來源：即時（live）` 與 `現價` |
 
-| # | variant | dec.actionText | meta.strategy | 預期焦點 |
-|---|---------|----------------|---------------|----------|
-| 1 | normal  | '維持持有'      | 'STRAT'       | decText='維持持有' |
-| 2 | normal  | null           | 'STRAT'       | fallback = strategy.slice(0,40) |
-| 3 | normal  | null           | null          | decText='' |
-| 4 | normal  | 超長 80 字＋句號 | null          | 走標點斷句 + '…' |
-| 5 | ink     | '維持持有'      | 'STRAT'       | ink layout（min-height 48、gap 18）|
-| 6 | ink     | null           | null          | ink fallback = '持續監控基本面與籌碼變動。' |
-| 7 | ink     | 超長 120 字     | null          | limit=90 截尾 |
-| 8 | normal  | '維持持有'      | 'STRAT'       | `h.cost=null, h.price=null` → 顯示 '—' 兩處 |
+**Case 矩陣 — 「—」placeholder aria（4 case）**
 
-固定共用 props：
-```
-h={ cost:100, price:123 }, subColor='#292520', muteColor='#8A857F'
-```
+| # | 情境                          | 斷言                                                    |
+|---|-------------------------------|---------------------------------------------------------|
+| 11 | `hasToday=false`              | today span textContent='—'、`aria-label='無資料'`       |
+| 12 | `hasToday=true, todayPnlNum=null, todayPctNum=null` | today span textContent 含 '—'，不強制 aria-label（wrapper 內是動態片段） |
+| 13 | `h.value=null`                | value span textContent='—'、`aria-label='無資料'`       |
+| 14 | `h.value=123456`              | value span 無 `aria-label`（避免多餘朗讀）             |
 
-## 實作重點
-- 用 `render()` + `container.firstChild` → `toMatchInlineSnapshot()`；首跑 vitest 會自動填入 snapshot literal，之後就會鎖住。
-- 每個 case 一個 `it()`，命名含 variant + badge，方便 diff 定位。
-- 不斷言完整 style 物件字串（React 已把 style 展開成 `style="..."` attr，會被 snapshot 完整收錄——本來就是我們要鎖的）。
-- 不做視覺截圖（Playwright 那條路已由 sparkline-width-parity 覆蓋）；此處純 DOM/HTML 快照，跑得快、review 直觀。
+**Case 矩陣 — 結構守門（3 case）**
+
+| # | 情境                | 斷言                                                                          |
+|---|--------------------|-------------------------------------------------------------------------------|
+| 15 | 任一 badge 存在時   | 該 badge 無 `aria-hidden`（不能被隱藏；違反會 fail）                          |
+| 16 | 全部情境（loop）    | Footer 根 `.wb-bottom` 無 `aria-hidden="true"`                                |
+| 17 | TODAY / VALUE label | 兩者以純文字出現在 DOM，`textContent` 可被 `getByText` 找到（`exact:true`）    |
+
+實作用 `render()` + `container.querySelector`；aria 斷言用 `getAttribute('aria-label')` 對正則。
+
+## 對既有測試影響
+
+- `HoldingCardFooter.snapshot.test.tsx` 剛跑過的 12 個 inline snapshot **會全部因新增 `aria-label`/`role` 屬性而 diff** → 同步用 `-u` 重生。
+- `HoldingCardFooter.test.tsx` / `HoldingCardFooter.derived.test.tsx` 檢查 textContent 與 title 的既有斷言不受影響（本次不移除任何 title / 可見文字）。
 
 ## 驗收
+
 ```
-bunx vitest run src/checkup/components/freecheckup/_ui/holdingCard/__tests__/HoldingCardFooter.snapshot.test.tsx \
-                src/checkup/components/freecheckup/_ui/holdingCard/__tests__/HoldingCardPriceTrack.snapshot.test.tsx
+bunx vitest run \
+  src/checkup/components/freecheckup/_ui/holdingCard/__tests__/HoldingCardFooter.a11y.test.tsx \
+  src/checkup/components/freecheckup/_ui/holdingCard/__tests__/HoldingCardFooter.snapshot.test.tsx \
+  src/checkup/components/freecheckup/_ui/holdingCard/__tests__/HoldingCardFooter.test.tsx \
+  src/checkup/components/freecheckup/_ui/holdingCard/__tests__/HoldingCardFooter.derived.test.tsx
 ```
-首跑 → 自動寫入 inline snapshot；二跑 → 20 tests 全綠、無 snapshot 更新。
-再跑既有 Footer/PriceTrack derived/refStability 測試確認沒回歸。
+先 `-u` 重生 snapshot，再無 `-u` 二跑 → 全綠。
+
+## 非目標
+- 不動 PriceTrack / Header（本次僅 Footer）。
+- 不加 axe-core（既有測試環境未安裝；用細粒度 aria 斷言足以）。
+- Playwright e2e 不動（既有 sparkline aria / roi aria 已覆蓋 Header 端）。

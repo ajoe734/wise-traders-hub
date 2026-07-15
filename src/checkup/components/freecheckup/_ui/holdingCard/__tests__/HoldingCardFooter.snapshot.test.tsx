@@ -54,6 +54,8 @@ describe('HoldingCardFooter — DOM 快照', () => {
             VALUE
           </span>
           <span
+            aria-label="報價來源：來源：即時（live）　更新於 上午02:30　昨收 99.00　現價 100.50"
+            role="img"
             style="font-size: 8px; letter-spacing: 0.06em; padding: 1px 5px; border-radius: 2px; background: rgba(255, 77, 31, 0.133); color: rgb(255, 77, 31); opacity: 0.85; font-weight: 500;"
             title="來源：即時（live）　更新於 上午02:30　昨收 99.00　現價 100.50"
           >
@@ -61,6 +63,7 @@ describe('HoldingCardFooter — DOM 快照', () => {
           </span>
         </span>
         <div
+          aria-hidden="true"
           style="grid-column: 2; grid-row: 1 / span 2; background: rgb(238, 238, 238); width: 1px; height: 100%;"
         />
         <span
@@ -103,6 +106,8 @@ describe('HoldingCardFooter — DOM 快照', () => {
             VALUE
           </span>
           <span
+            aria-label="報價來源：來源：截圖（screenshot）　更新於 上午02:30　昨收 99.00　現價 100.50"
+            role="img"
             style="font-size: 8px; letter-spacing: 0.06em; padding: 1px 5px; border-radius: 2px; background: rgba(138, 133, 127, 0.094); color: rgb(41, 37, 32); opacity: 0.85; font-weight: 500;"
             title="來源：截圖（screenshot）　更新於 上午02:30　昨收 99.00　現價 100.50"
           >
@@ -110,6 +115,7 @@ describe('HoldingCardFooter — DOM 快照', () => {
           </span>
         </span>
         <div
+          aria-hidden="true"
           style="grid-column: 2; grid-row: 1 / span 2; background: rgb(238, 238, 238); width: 1px; height: 100%;"
         />
         <span
@@ -152,6 +158,8 @@ describe('HoldingCardFooter — DOM 快照', () => {
             VALUE
           </span>
           <span
+            aria-label="報價來源：來源：DEMO（demo）　更新於 上午02:30　昨收 99.00　現價 100.50"
+            role="img"
             style="font-size: 8px; letter-spacing: 0.06em; padding: 1px 5px; border-radius: 2px; background: rgba(138, 133, 127, 0.133); color: rgb(41, 37, 32); opacity: 0.85; font-weight: 500;"
             title="來源：DEMO（demo）　更新於 上午02:30　昨收 99.00　現價 100.50"
           >
@@ -159,6 +167,7 @@ describe('HoldingCardFooter — DOM 快照', () => {
           </span>
         </span>
         <div
+          aria-hidden="true"
           style="grid-column: 2; grid-row: 1 / span 2; background: rgb(238, 238, 238); width: 1px; height: 100%;"
         />
         <span
@@ -201,6 +210,8 @@ describe('HoldingCardFooter — DOM 快照', () => {
             VALUE
           </span>
           <span
+            aria-label="報價來源：來源：昨收（yclose）　更新於 上午02:30　昨收 99.00　現價 100.50"
+            role="img"
             style="font-size: 8px; letter-spacing: 0.06em; padding: 1px 5px; border-radius: 2px; background: rgba(138, 133, 127, 0.133); color: rgb(41, 37, 32); opacity: 0.85; font-weight: 500;"
             title="來源：昨收（yclose）　更新於 上午02:30　昨收 99.00　現價 100.50"
           >
@@ -208,6 +219,7 @@ describe('HoldingCardFooter — DOM 快照', () => {
           </span>
         </span>
         <div
+          aria-hidden="true"
           style="grid-column: 2; grid-row: 1 / span 2; background: rgb(238, 238, 238); width: 1px; height: 100%;"
         />
         <span
@@ -250,6 +262,8 @@ describe('HoldingCardFooter — DOM 快照', () => {
             VALUE
           </span>
           <span
+            aria-label="報價錯誤：報價逾時"
+            role="img"
             style="font-size: 8px; padding: 1px 5px; border-radius: 2px; background: rgba(138, 133, 127, 0.133); color: rgb(138, 133, 127);"
             title="報價逾時"
           >
@@ -257,6 +271,7 @@ describe('HoldingCardFooter — DOM 快照', () => {
           </span>
         </span>
         <div
+          aria-hidden="true"
           style="grid-column: 2; grid-row: 1 / span 2; background: rgb(238, 238, 238); width: 1px; height: 100%;"
         />
         <span
@@ -300,6 +315,7 @@ describe('HoldingCardFooter — DOM 快照', () => {
           </span>
         </span>
         <div
+          aria-hidden="true"
           style="grid-column: 2; grid-row: 1 / span 2; background: rgb(238, 238, 238); width: 1px; height: 100%;"
         />
         <span
@@ -343,6 +359,8 @@ describe('HoldingCardFooter — DOM 快照', () => {
             VALUE
           </span>
           <span
+            aria-label="報價來源：來源：即時（live）　更新於 上午02:30　昨收 99.00　現價 100.50"
+            role="img"
             style="font-size: 8px; letter-spacing: 0.06em; padding: 1px 5px; border-radius: 2px; background: rgba(255, 77, 31, 0.19); color: rgb(255, 77, 31); opacity: 0.9; font-weight: 500;"
             title="來源：即時（live）　更新於 上午02:30　昨收 99.00　現價 100.50"
           >
@@ -350,6 +368,7 @@ describe('HoldingCardFooter — DOM 快照', () => {
           </span>
         </span>
         <div
+          aria-hidden="true"
           style="grid-column: 2; grid-row: 1 / span 2; background: rgb(238, 238, 238); width: 1px; height: 100%;"
         />
         <span
@@ -392,6 +411,8 @@ describe('HoldingCardFooter — DOM 快照', () => {
             VALUE
           </span>
           <span
+            aria-label="報價來源：來源：截圖（screenshot）　更新於 上午02:30　昨收 99.00　現價 100.50"
+            role="img"
             style="font-size: 8px; letter-spacing: 0.06em; padding: 1px 5px; border-radius: 2px; background: rgba(244, 241, 236, 0.1); color: rgba(244, 241, 236, 0.85); opacity: 0.9; font-weight: 500;"
             title="來源：截圖（screenshot）　更新於 上午02:30　昨收 99.00　現價 100.50"
           >
@@ -399,6 +420,7 @@ describe('HoldingCardFooter — DOM 快照', () => {
           </span>
         </span>
         <div
+          aria-hidden="true"
           style="grid-column: 2; grid-row: 1 / span 2; background: rgb(238, 238, 238); width: 1px; height: 100%;"
         />
         <span
@@ -441,6 +463,8 @@ describe('HoldingCardFooter — DOM 快照', () => {
             VALUE
           </span>
           <span
+            aria-label="報價錯誤：網路錯誤"
+            role="img"
             style="font-size: 8px; padding: 1px 5px; border-radius: 2px; background: rgba(244, 241, 236, 0.12); color: rgba(244, 241, 236, 0.65);"
             title="網路錯誤"
           >
@@ -448,6 +472,7 @@ describe('HoldingCardFooter — DOM 快照', () => {
           </span>
         </span>
         <div
+          aria-hidden="true"
           style="grid-column: 2; grid-row: 1 / span 2; background: rgb(238, 238, 238); width: 1px; height: 100%;"
         />
         <span
@@ -491,6 +516,8 @@ describe('HoldingCardFooter — DOM 快照', () => {
             VALUE
           </span>
           <span
+            aria-label="報價來源：來源：即時（live）　更新於 上午02:30　昨收 99.00　現價 100.50"
+            role="img"
             style="font-size: 8px; letter-spacing: 0.06em; padding: 1px 5px; border-radius: 2px; background: rgba(255, 77, 31, 0.133); color: rgb(255, 77, 31); opacity: 0.85; font-weight: 500;"
             title="來源：即時（live）　更新於 上午02:30　昨收 99.00　現價 100.50"
           >
@@ -498,6 +525,7 @@ describe('HoldingCardFooter — DOM 快照', () => {
           </span>
         </span>
         <div
+          aria-hidden="true"
           style="grid-column: 2; grid-row: 1 / span 2; background: rgb(238, 238, 238); width: 1px; height: 100%;"
         />
         <span
@@ -505,6 +533,7 @@ describe('HoldingCardFooter — DOM 快照', () => {
           style="grid-column: 1; grid-row: 2; color: rgb(41, 37, 32); font-variant-numeric: tabular-nums; line-height: 1.2;"
         >
           <span
+            aria-label="無資料"
             style="color: rgb(138, 133, 127);"
           >
             —
@@ -537,6 +566,8 @@ describe('HoldingCardFooter — DOM 快照', () => {
             VALUE
           </span>
           <span
+            aria-label="報價來源：來源：即時（live）　更新於 上午02:30　昨收 99.00　現價 100.50"
+            role="img"
             style="font-size: 8px; letter-spacing: 0.06em; padding: 1px 5px; border-radius: 2px; background: rgba(255, 77, 31, 0.133); color: rgb(255, 77, 31); opacity: 0.85; font-weight: 500;"
             title="來源：即時（live）　更新於 上午02:30　昨收 99.00　現價 100.50"
           >
@@ -544,6 +575,7 @@ describe('HoldingCardFooter — DOM 快照', () => {
           </span>
         </span>
         <div
+          aria-hidden="true"
           style="grid-column: 2; grid-row: 1 / span 2; background: rgb(238, 238, 238); width: 1px; height: 100%;"
         />
         <span
@@ -585,6 +617,8 @@ describe('HoldingCardFooter — DOM 快照', () => {
             VALUE
           </span>
           <span
+            aria-label="報價來源：來源：即時（live）　更新於 上午02:30　昨收 99.00　現價 100.50"
+            role="img"
             style="font-size: 8px; letter-spacing: 0.06em; padding: 1px 5px; border-radius: 2px; background: rgba(255, 77, 31, 0.19); color: rgb(255, 77, 31); opacity: 0.9; font-weight: 500;"
             title="來源：即時（live）　更新於 上午02:30　昨收 99.00　現價 100.50"
           >
@@ -592,6 +626,7 @@ describe('HoldingCardFooter — DOM 快照', () => {
           </span>
         </span>
         <div
+          aria-hidden="true"
           style="grid-column: 2; grid-row: 1 / span 2; background: rgb(238, 238, 238); width: 1px; height: 100%;"
         />
         <span
