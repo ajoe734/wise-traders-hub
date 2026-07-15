@@ -96,6 +96,24 @@ export default defineConfig({
       use: { ...devices['Desktop Chrome'], viewport: { width: 390, height: 844 } },
     },
     {
+      // 跨寬度 sparkline 快照 + DOM parity — 窄
+      name: 'sparkline-width-390',
+      testMatch: /freecheckup-sparkline-width-parity\.spec\.ts/,
+      use: { ...devices['Desktop Chrome'], viewport: { width: 390, height: 844 } },
+    },
+    {
+      // 跨寬度 sparkline 快照 + DOM parity — 中（iPad 直立）
+      name: 'sparkline-width-768',
+      testMatch: /freecheckup-sparkline-width-parity\.spec\.ts/,
+      use: { ...devices['Desktop Chrome'], viewport: { width: 768, height: 1024 } },
+    },
+    {
+      // 跨寬度 sparkline 快照 + DOM parity — 桌面
+      name: 'sparkline-width-1280',
+      testMatch: /freecheckup-sparkline-width-parity\.spec\.ts/,
+      use: { ...devices['Desktop Chrome'], viewport: { width: 1280, height: 900 } },
+    },
+    {
       name: 'desktop-batch3',
       testMatch: /batch3-.*\.spec\.ts/,
       use: { ...devices['Desktop Chrome'], viewport: { width: 1280, height: 800 } },
