@@ -83,10 +83,10 @@
 - 新增 `mobileActionsOpen` state + bottom-sheet：`前往戰情室 / ⟳ 立即更新報價 / 補齊缺價持倉 / ↓ 下載任務日誌 / 清除全部資料 / 取消`（背景點擊或取消可關）
 - Desktop 樣式與行為 100% 保留（`.cm-header-mobile-actions`、`.cm-header-mobile-logomark` 於 ≥641px `!important` 隱藏）
 
-### 批次 E · Design tokens §1 全站落實
-- 全站 `#EC662D` → `--accent: #FF4D1F`
-- Noto Serif TC 引入
-- 頁面內距 token `clamp(16px, 3.5vw, 40px)`
+### 批次 E · Design tokens §1（已完成，範圍收斂於 Checkup）
+- [x] **Checkup 內部 accent 換色**：`src/checkup/theme.js`（up/urgent/fillTomato ×2 主題）、`holdingsTokens.js`（accent/gain）、`DailyReportPanel.jsx` 註解 全數 `#EC662D → #FF4D1F`。品牌識別 (`brand/*.svg`、favicon、theme-color、Index.tsx、`--cta`/`--advisor`/`--jh-candle`) 依 core memory 保留 `#EC662D`。
+- [x] **Noto Serif TC self-host woff2**：`@fontsource/noto-sans-tc` + `@fontsource/noto-serif-tc` 安裝，於 `FreeCheckup.jsx` 頂端引入 `chinese-traditional-{400,500,600,700}.css`；`checkupTokens.css` 移除 Google Fonts 遠端 `@import`。
+- [x] **頁面內距 token**：`--cm-page-px: clamp(16px, 3.5vw, 40px)` 定義於 `.checkup-mono :root`；`.cm-page-content { padding: 14px var(--cm-page-px); }`，移除 `FreeCheckup.jsx` L3695 inline `padding:"14px 14px"`。實測 1280px 下 computed = `14px 40px` ✓。
 
 ---
 
