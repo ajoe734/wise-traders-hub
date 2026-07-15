@@ -294,14 +294,20 @@ export function SignalCreateDialog({
 
   return (
     <Dialog open={isCreateOpen} onOpenChange={setIsCreateOpen}>
-      <DialogContent className="max-w-lg max-h-[90vh] flex flex-col">
+      <DialogContent
+        data-testid="signal-create-dialog"
+        className="w-[calc(100vw-1rem)] max-w-lg max-h-[90dvh] landscape:max-h-[95dvh] flex flex-col"
+      >
         <DialogHeader>
           <DialogTitle className="flex items-center gap-2">
             發布新{isMentor ? '週記' : '訊號'}
             <Badge variant="outline" className="text-[10px]">{spec.label} · {spec.currency}</Badge>
           </DialogTitle>
         </DialogHeader>
-        <div className="space-y-4 mt-4 overflow-y-auto flex-1 px-1 -mx-1">
+        <div
+          data-testid="signal-create-scroll"
+          className="space-y-4 mt-4 overflow-y-auto flex-1 min-h-0 p-1 -m-1 overscroll-contain"
+        >
           {isMentor && (
             <div className="space-y-2">
               <Label>教學主題</Label>
