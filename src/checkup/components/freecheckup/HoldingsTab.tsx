@@ -419,6 +419,7 @@ function HoldingsTab(props) {
         setSectorFilterPersisted={setSectorFilterPersisted}
         showAll={showAll}
         setShowAll={setShowAll}
+        tradeLog={tradeLog}
       />
 
 
