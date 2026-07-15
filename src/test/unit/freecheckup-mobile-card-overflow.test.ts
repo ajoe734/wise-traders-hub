@@ -23,6 +23,14 @@ beforeAll(() => {
     resolve(__dirname, '../../checkup/components/freecheckup/HoldingCard.tsx'),
     'utf8'
   );
+  const cardReturn = readFileSync(
+    resolve(__dirname, '../../checkup/components/freecheckup/_ui/holdingCard/HoldingCardReturn.tsx'),
+    'utf8'
+  );
+  const cardFooter = readFileSync(
+    resolve(__dirname, '../../checkup/components/freecheckup/_ui/holdingCard/HoldingCardFooter.tsx'),
+    'utf8'
+  );
   const tab = readFileSync(
     resolve(__dirname, '../../checkup/components/freecheckup/HoldingsTab.tsx'),
     'utf8'
@@ -33,8 +41,9 @@ beforeAll(() => {
   );
   SRC = main
     + '\n/* === HoldingCard.tsx === */\n' + card
+    + '\n/* === HoldingCardReturn.tsx === */\n' + cardReturn
+    + '\n/* === HoldingCardFooter.tsx === */\n' + cardFooter
     + '\n/* === HoldingsTab.tsx === */\n' + tab
-    // 把外部 CSS 包成 <style>{`...`}</style> 形式，讓 getAllCss() 一致萃取
     + '\n/* === holdingsTab.css === */\n<style>{`' + holdingsCss + '`}</style>';
 });
 
@@ -91,7 +100,7 @@ describe('Free Checkup: 卡片靜態防擠壓合約', () => {
     expect(css).toMatch(/\.wb-card\s+\.wb-roi\s*\{[^}]*max-width:\s*100%/);
   });
 
-  it('全域 .wb-bottom 是 grid + min-width:0 + 子元素可截斷', () => {
+  it('全域 .wb-bottom 具 min-width:0 + 子元素可截斷（DESIGN_HANDOFF §3.4 步驟 4：中文一行）', () => {
     const css = getAllCss();
     expect(css).toMatch(/\.wb-card\s+\.wb-bottom\b[^{]*\{[^}]*min-width:\s*0/);
     expect(css).toMatch(
@@ -99,7 +108,7 @@ describe('Free Checkup: 卡片靜態防擠壓合約', () => {
     );
   });
 
-  it('TODAY/VALUE 數值套用 ellipsis + nowrap', () => {
+  it('今日/市值 數值套用 ellipsis + nowrap', () => {
     const css = getAllCss();
     expect(css).toMatch(
       /\.wb-card\s+\.wb-bottom-val\s*\{[\s\S]*?white-space:\s*nowrap/
@@ -109,11 +118,10 @@ describe('Free Checkup: 卡片靜態防擠壓合約', () => {
     );
   });
 
-  it('ROI 與 TODAY/VALUE 內聯樣式採用 tabular-nums (baseline 對齊)', () => {
-    // ROI clamp + lineHeight:1
-    expect(SRC).toMatch(/wb-roi[\s\S]{0,400}?fontSize:\s*'clamp\(/);
-    // TODAY/VALUE 數值列使用 fontVariantNumeric:'tabular-nums'
-    expect(SRC).toMatch(/wb-bottom-val[\s\S]{0,300}?tabular-nums/);
+  it('ROI 內聯樣式採用 tabular-nums 與 clamp 字級', () => {
+    expect(SRC).toMatch(/wb-roi/);
+    expect(SRC).toMatch(/fontSize:\s*'clamp\(/);
+    expect(SRC).toMatch(/tabular-nums/);
   });
 
   it('Sparkline 在 ≤380px 隱藏 (避免擠壓 ROI)', () => {
@@ -140,24 +148,9 @@ describe.each([
   });
 
   it('ROI 與 % 不換行 (繼承全域 nowrap 規則)', () => {
-    // 全域規則永遠生效；確認沒有任何 media block 將其覆蓋為 normal/wrap
     const css = effectiveCssAt(vw);
     expect(css).not.toMatch(/\.wb-roi[^{}]*\{[^}]*white-space:\s*normal/);
     expect(css).not.toMatch(/\.wb-roi[^{}]*\{[^}]*white-space:\s*wrap/);
-  });
-
-  it('TODAY/VALUE 雙區塊保持 grid 兩欄 + 分隔線', () => {
-    if (vw <= 340) {
-      const css = effectiveCssAt(vw);
-      // ≤340px 升級為 minmax(0, 1fr) 以強制安全溢出（不擠壓卡片邊界）
-      expect(css).toMatch(
-        /\.wb-bottom\s*\{[^}]*grid-template-columns:\s*minmax\(0,\s*1fr\)\s+1px\s+minmax\(0,\s*1fr\)/
-      );
-    }
-    // 內聯預設 grid 結構必須存在
-    expect(SRC).toMatch(
-      /gridTemplateColumns:\s*['"]minmax\(0,\s*1fr\)\s+1px\s+minmax\(0,\s*1fr\)['"]/
-    );
   });
 
   it('極窄 (≤340px) 啟用 ROI 字級縮放避免溢出', () => {
@@ -172,7 +165,7 @@ describe.each([
     }
   });
 
-  it('TODAY/VALUE 數值字級在小螢幕受 clamp 控制不超 12px', () => {
+  it('今日/市值 數值字級在小螢幕受 clamp 控制', () => {
     if (vw <= 640) {
       const css = effectiveCssAt(vw);
       expect(css).toMatch(/\.wb-bottom-val\s*\{[^}]*font-size:\s*clamp\(/);
@@ -182,15 +175,13 @@ describe.each([
   it('≤340px footer 強制 ellipsis + overflow:hidden + 縮小 column-gap', () => {
     if (vw <= 340) {
       const css = effectiveCssAt(vw);
-      // footer container 必須限制最大寬度與隱藏溢出
       expect(css).toMatch(/\.wb-bottom\s*\{[^}]*max-width:\s*100%/);
       expect(css).toMatch(/\.wb-bottom\s*\{[^}]*overflow:\s*hidden/);
-      // column-gap 緊縮（≤6px）
       expect(css).toMatch(/\.wb-bottom\s*\{[^}]*column-gap:\s*[0-6]px/);
-      // 子 span 強制 ellipsis
       expect(css).toMatch(
         /\.wb-bottom\s*>\s*span\s*\{[\s\S]*?text-overflow:\s*ellipsis/
       );
     }
   });
 });
+

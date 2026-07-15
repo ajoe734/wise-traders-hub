@@ -1,168 +1,100 @@
-## 目標
-把全站「價格 / 金額 / 日期 / 時間」formatter 的極端輸入合約鎖死：不論收到 `null` / `undefined` / `''` / 純字串 / `NaN` / `±Infinity` / `Number.MAX_VALUE` / `Number.MIN_VALUE` / 負零 / invalid Date / 極端 ISO，都必須**不丟例外**且回傳穩定 sentinel（`—` / `-` / `''` / fallback），絕不輸出 `NaN`、`Invalid Date`、`∞` 或 `NaN/NaN/NaN`。
+# 持倉看板 vs. 交接規格（`DESIGN_HANDOFF.md` 2026-07-15）偏差修正
 
-## 覆蓋清單（完整盤點，禁止漏檔）
+## 診斷結論
 
-| # | 檔案 | 導出函數 | 對應測試檔（新增） |
-|---|---|---|---|
-| 1 | `src/checkup/lib/checkupFormat.ts` | `fmtSigned` `fmtSignedInt` `fmtWan` `clampReturnBar` `daysBetween` `fmtDate` `fmtMD` | `src/checkup/lib/__tests__/checkupFormat.test.ts` |
-| 2 | `src/lib/currency.ts` | `normalizeCurrency` `formatMoneyByCurrency` `formatPriceByCurrency` `isValidSymbol` | `src/lib/__tests__/currency.test.ts` |
-| 3 | `src/checkup/utils/formatTaipeiDate.ts` | `formatTaipeiYMD` `formatTaipeiYMDWithFallback` `formatTaipeiYMDHM` `formatTaipeiYMDHMWithFallback` `taipeiMonthStartIso` | `src/checkup/utils/__tests__/formatTaipeiDate.test.ts` |
-| 4 | `src/checkup/lib/datetime.js` | `parseStoredDate` `parseFlexibleDate` `formatDateToStorageDate` `daysSince` `formatDateTW` `formatDateMD` `formatTime` `formatDateTime` `getRelativeTime` | `src/checkup/lib/__tests__/datetime.test.ts` |
-| 5 | `src/pages/_freeCheckup/constants.jsx` | `fmtN` `formatResetCountdown` `formatResetDateTime` | `src/pages/_freeCheckup/__tests__/quotaFormatters.test.ts` |
-| 6 | `src/pages/_backtestMonitor/format.ts` | `fmtDateTime` `fmtPct` | `src/pages/_backtestMonitor/__tests__/format.test.ts` |
-| 7 | `src/pages/_companyRevenue/utils.ts` | `fmtMoney` `fmtDate` `fmtDateTime` | `src/pages/_companyRevenue/__tests__/utils.test.ts` |
+規格 §3.4「持倉卡（1c）」定義了四層：**標頭 → 報酬條 → 價格軌 → 頁腳**，且明確列出**刪除清單**。專案裡雖然已抽出符合規格的 `_ui/ReturnBar.tsx`（±40% 尺規＋▸ 破表）與 `_ui/PriceTrack.tsx`（1px 髮絲線＋圓點），但 `HoldingCard.tsx` 從沒 import 它們，實際渲染仍是舊 4 層。以下逐項比對。
 
-（7 檔 formatter × 26 導出函數 → 7 個新測試檔）
+### A. 標頭（`_ui/holdingCard/HoldingCardHeader.tsx`）
+| 規格 §3.4 步驟 1 | 現況 | 判定 |
+|---|---|---|
+| `名稱 代號` + 「檢視／出場」中文徽章 | 顯示 `EXIT`/`REVIEW`/`HOLD` 英文小標 | ❌ |
+| HOLD **不標** | HOLD 仍渲染 | ❌ |
+| 只留產業 tag（權證虛線框） | 仍有 `策略 tag`、`教學徽章`、`回報` 虛線鈕 | ❌ |
+| 股數移入抽屜 | 卡頭仍列 `× N 股` | ❌ |
+| Sparkline 屬抽屜 §4.2 | 卡頭仍畫 60×20 sparkline | ❌ |
 
-## 探索階段揭露的既有 bug（測試會 fail → Phase B 修正）
+### B. 報酬條（`_ui/holdingCard/HoldingCardReturn.tsx`）
+| 規格 §3.4 步驟 2 | 現況 | 判定 |
+|---|---|---|
+| 8px 橫條軌＋±40% 尺規＋`▸` 破表 | 只有大字 ROI 百分比，無條軌 | ❌（`_ui/ReturnBar.tsx` 未接） |
+| 數字照實顯示、正 accent／負 --loss | ✅ | ✅ |
 
-| 位置 | 輸入 | 目前輸出（bug） | 期望 |
-|---|---|---|---|
-| `fmtN` (constants.jsx) | `NaN` | `"NaN"` | `"—"` |
-| `fmtN` (constants.jsx) | `Infinity` | `"Infinity萬"` | `"—"` |
-| `fmtWan` (checkupFormat.ts) | `Infinity` | `"∞ 萬"` | `"—"` |
-| `formatMoneyByCurrency` | `Infinity` | `"NT$∞"` | `"—"`（統一 sentinel） |
-| `fmtPct` (_backtestMonitor) | `NaN` | `"NaN%"` | `"—"` |
-| `fmtDate` (_companyRevenue) | `'garbage'` | `"NaN/NaN/NaN"` | `"-"` |
-| `fmtDateTime` (_companyRevenue) | `'garbage'` | `"NaN/NaN/NaN NaN:NaN"` | `"-"` |
-| `fmtDateTime` (_backtestMonitor) | `'garbage'` | `"NaN/NaN/NaN NaN:NaN"` | `"—"` |
-| `formatResetCountdown` (constants.jsx) | `'garbage'` / `NaN` | `"NaN 分鐘後重置"` | `""`（同 falsy 分支） |
+### C. 價格軌（`_ui/holdingCard/HoldingCardPriceTrack.tsx`）
+| 規格 §3.4 步驟 3 | 現況 | 判定 |
+|---|---|---|
+| 1px 髮絲線 + 成本刻度 + 8px 圓點 + 下方 `成本 X ｜ 現價 Y` | 純文字 `成本 → 現價` | ❌（`_ui/PriceTrack.tsx` 未接） |
+| **刪除策略散文** | 仍在同層渲染 `decText`（決策/策略 fallback） | ❌ |
 
-## Phase A — 撰寫測試（純新增，不動元件）
+### D. 頁腳（`_ui/holdingCard/HoldingCardFooter.tsx`）
+| 規格 §3.4 步驟 4 | 現況 | 判定 |
+|---|---|---|
+| `今日 +423 ｜ 市值 9,457`（中文一行） | 兩欄格線＋`TODAY`/`VALUE` 英文欄名 | ❌ |
+| **刪除價格來源徽章**（移入抽屜 title） | Footer 仍渲染 `srcBadge`（截圖/即時/失敗…） | ❌ |
+| Footer 不含目標價 | `feature` 卡仍顯示 `TGT ±%` | ❌ |
 
-每個測試檔用共用矩陣覆蓋以下 12 類極端輸入 + 該 formatter 領域特定 case：
+### E. 其它連動（正確項，維持不動）
+- Hero（`HoldingsHero.tsx`）：與 §3.1 一致，保留。
+- 今日待辦（`HoldingsActionPriority.tsx`）：與 §3.2 一致，保留。
+- 產業分佈 / 決策書抽屜：本輪不列入，若需要再拆下一批。
 
-**數值 formatter 矩陣（fmtN / fmtSigned / fmtSignedInt / fmtWan / formatMoneyByCurrency / formatPriceByCurrency / fmtPct / fmtMoney / clampReturnBar）**
-1. `null`、`undefined`
-2. `NaN`、`Number.NaN`
-3. `Infinity`、`-Infinity`
-4. `Number.MAX_VALUE`、`-Number.MAX_VALUE`
-5. `Number.MIN_VALUE`（極小正）、`Number.EPSILON`
-6. `0`、`-0`
-7. 字串 `''`、`'abc'`、`'12.5abc'`、`'  '`
-8. Boolean `true` / `false`（TS `any` 傳入）
-9. 一般正常值：正、負、跨零、小數點四捨五入邊界（1.005 / -0.005）
-10. 大整數 `1e15`
-11. 中文全形字元字串 `'一二三'`
-12. 物件 `{}` / 陣列 `[]`（防守 TypeScript 之外的 runtime 誤傳）
+---
 
-斷言雙保險：
-- `expect(() => fn(x)).not.toThrow()`
-- `expect(fn(x)).toMatch(SENTINEL_RE)` 或明確 equal 期望 sentinel
+## 修正方案（本輪只動持倉卡四層）
 
-**日期 formatter 矩陣（fmtDate / fmtMD / formatTaipei* / formatDateTW / formatDateMD / formatTime / formatDateTime / getRelativeTime / daysSince / parseFlexibleDate / fmtDateTime × 2 / fmtDate × 1 / formatResetDateTime / formatResetCountdown）**
-1. `null`、`undefined`、`''`、`'   '`
-2. `'garbage'`、`'2026-13-40'`、`'not-a-date'`、`'2026/02/30'`（不存在的日期）
-3. `NaN`、Boolean、`{}` `[]`
-4. `new Date(NaN)`、`new Date('')`
-5. 極端 timestamp：`0`（1970 epoch）、`Number.MAX_SAFE_INTEGER`、`8.64e15`（Date 上界）、`8.64e15+1`（overflow → invalid）、`-8.64e15`、`-8.64e15-1`
-6. ISO 邊界：`'1970-01-01T00:00:00Z'`、`'9999-12-31T23:59:59Z'`
-7. 閏年：`'2024-02-29'`、`'2100-02-29'`（非閏年，應 fallback）
-8. Taipei 跨日：`'2026-01-01T15:00:00Z'`（TW 23:00 vs 隔日）→ 明確斷言 YMD
-9. `formatResetCountdown`：`resetsAt` 過去 → `"即將重置"`；1 天以上 / 1 小時以上 / 分鐘 分支各一。
-10. `daysSince` / `getRelativeTime`：今天 / 昨天 / 6 天 / 7 天 / 29 天 / 30 天 / 364 天 / 365 天 邊界。
-11. `taipeiMonthStartIso`：以固定 `now` 驗證輸出格式 `YYYY-MM-01T00:00:00+08:00`。
-12. `parseFlexibleDate`：`'2024/2/9'`（單位數月）、`'2024-02-09'`、Date instance、number timestamp。
+**S1 · HoldingCardHeader**
+- 移除 sparkline block（`.wb-spark` 保留為 hidden placeholder 以維持 e2e 選擇器契約，或改由抽屜 §4.2 承擔——先隱藏＋加 `aria-hidden`，不刪 DOM 節點以免打壞 `holding-card-price-track-parity.spec.ts`；抽屜側後續補）。
+- 移除 `× N 股`、`策略 tag`、`教學徽章`、`回報 →` 節點；`onReportMeta` 改由抽屜承接（先保留 prop、暫時 no-op 在卡）。
+- 將 `EXIT/REVIEW/HOLD` 英文徽章換成中文樣式：
+  - `exit` → 橘底白字「出場」
+  - `review` → 橘框橘字「檢視」
+  - `hold` → **不渲染任何徽章**
+- 徽章統一走 `_ui/ActionBadge.tsx`（已在 `HoldingsActionPriority` 使用），保持一致。
 
-**Symbol / normalize 矩陣（normalizeCurrency / isValidSymbol）**
-- `normalizeCurrency`：`'USD'` / `'usd'` / `null` / `undefined` / `''` / `{}` / `'JPY'` → 全都應回傳 `'TWD'` 或 `'USD'`（無例外）
-- `isValidSymbol`：TW 4/5/6 位數字、含 `L`/`R`/`B` 尾綴、含空白、小寫；US 1-5 字母、含 `.B`、超長字串、含中文、含數字 → 各斷言 true/false
+**S2 · HoldingCardReturn**
+- 保留大字 ROI，但在其下加入 `<ReturnBar pct={pctVal} scale={40} />`（`_ui/ReturnBar.tsx`）。
+- feature 卡的附屬損益數字保留（規格未禁止且抽屜也有相同資料，屬視覺補足）。
 
-**clampReturnBar 邊界**
-- `pct=null` / `NaN` / `0` → `{ratio:0, over:false, sign:0}`
-- `40` / `-40` / `41` / `-41` / `Infinity` / `-Infinity` → over 判定
-- `scale` 客製為 `20`
+**S3 · HoldingCardPriceTrack**
+- 用 `<PriceTrack cost={h.cost} now={h.price} />`（`_ui/PriceTrack.tsx`）取代目前的 `成本 → 現價` 文字列。
+- **完全刪除 decText 區塊**（策略／決策散文）——規格明列刪除。`meta.strategy` / `dec.actionText` 在抽屜 §4 已有位置。
 
-**測試工具：** vitest（已在 `vitest.config.ts` 設好）。每檔 30-60 case。
+**S4 · HoldingCardFooter**
+- 版型改為單列 `今日 {+/-N} ｜ 市值 {N}`（中文欄名，`｜` 為 U+FF5C 全形）。
+- 保留 `.wb-bottom` / `.wb-bottom-val` class name 契約，但重寫內容。
+- **刪除 `srcBadge` / `errBadge` / `TGT` 節點**——`srcTitle` 字串改由 `HoldingCard.tsx` 傳給抽屜（本輪只把 footer 上的移除，抽屜對接列在下一輪）。
+- 為避免 `holding-card-footer-parity.spec.ts` 崩潰，先把 `data-src-*` 屬性放在 `.wb-bottom` 容器上（keep e2e hooks），DOM 元素本體移除。
 
-## Phase B — 修正 formatter（依 Phase A 揭露 bug）
+**S5 · 憲法保護**
+- 保留 e2e class 契約：`wb-card`、`wb-card-feature`、`wb-span-feature`、`wb-span-1`、`wb-spark`、`wb-tags`、`wb-roi`、`wb-bottom`、`wb-bottom-val` 全部維持（依需要以 hidden 節點保底）。
+- 保留 `WB` accent / `alpha` token；不新增顏色。
+- 保留 `syncState` 三段 overlay/error/sr-status。
+- Storage / callback prop signature 不動，避免 `HoldingsTab` 呼叫端連帶改。
 
-### `src/pages/_freeCheckup/constants.jsx`
-```js
-export const fmtN = (n) => {
-  if (n == null || !Number.isFinite(Number(n))) return "—";
-  const num = Number(n);
-  return Math.abs(num) >= 10000 ? (num/10000).toFixed(1) + "萬" : num.toLocaleString();
-};
+**S6 · 驗證**
+- 重跑：`e2e/holding-card-price-track-parity.spec.ts`、`e2e/holding-card-footer-parity.spec.ts`、`e2e/freecheckup-card-*.spec.ts`、`e2e/freecheckup-sparkline-*.spec.ts`、`e2e/holdings-*` 全套。
+- 手機／桌機截圖比對規格 §3.4：
+  - 條軌是否 8px、破表 ▸ 是否出現於 |pct|>40。
+  - 價格軌圓點顏色與規格一致。
+  - Footer 中文欄名、無 src badge、hold 卡無徽章。
+- 依照 `mem://qa/checkup/freecheckup-mobile-regression-checklist` 跑 560／390／380px。
 
-export function formatResetCountdown(resetsAt) {
-  if (!resetsAt) return "";
-  const target = new Date(resetsAt).getTime();
-  if (!Number.isFinite(target)) return "";
-  // ...其餘不動
-}
-```
+---
 
-### `src/checkup/lib/checkupFormat.ts`
-```ts
-export function fmtWan(v: number | null | undefined): string {
-  if (v == null || !Number.isFinite(v)) return '—';
-  // ...其餘不動
-}
-```
-`fmtSigned` / `fmtSignedInt` 亦補 `!Number.isFinite` 保險（現在只擋 `NaN`，未擋 `Infinity`）。
+## 技術細節（給工程審閱）
 
-### `src/lib/currency.ts`
-```ts
-export function formatMoneyByCurrency(n, c = 'TWD') {
-  const sym = CURRENCY_SYMBOL[c] || 'NT$';
-  const num = Number(n);
-  if (!Number.isFinite(num)) return '—';
-  const v = Math.round(num);
-  if (v < 0) return `-${sym}${Math.abs(v).toLocaleString()}`;
-  return `${sym}${v.toLocaleString()}`;
-}
-```
+- 檔案異動：
+  - `src/checkup/components/freecheckup/_ui/holdingCard/HoldingCardHeader.tsx`
+  - `src/checkup/components/freecheckup/_ui/holdingCard/HoldingCardReturn.tsx`
+  - `src/checkup/components/freecheckup/_ui/holdingCard/HoldingCardPriceTrack.tsx`
+  - `src/checkup/components/freecheckup/_ui/holdingCard/HoldingCardFooter.tsx`
+  - `src/checkup/components/freecheckup/HoldingCard.tsx`（改層次注入 props；仍保留 `_ui/holdingCard/*` 分層）
+- 不動：`HoldingsHero.tsx`、`HoldingsActionPriority.tsx`、`HoldingsTab.tsx`、`FreeCheckup.jsx`、任何 `_freeCheckup/constants.jsx` 硬合約字串。
+- ActionBadge 統一：確認 `_ui/ActionBadge.tsx` 已支援 `kind='exit'|'review'`；若無 `hold` 分支就不宣告，符合「HOLD 不標」。
 
-### `src/pages/_companyRevenue/utils.ts`
-```ts
-export const fmtMoney = (n?: number | null) => {
-  const num = Number(n);
-  if (!Number.isFinite(num)) return 'NT$0';
-  return `NT$${num.toLocaleString()}`;
-};
-export const fmtDate = (d) => {
-  if (!d) return '-';
-  const x = new Date(d);
-  if (Number.isNaN(x.getTime())) return '-';
-  // ...
-};
-export const fmtDateTime = (d) => {
-  if (!d) return '-';
-  const x = new Date(d);
-  if (Number.isNaN(x.getTime())) return '-';
-  return `${fmtDate(d)} ${...}`;
-};
-```
+## 明確不做（本輪範圍外，等下一輪）
 
-### `src/pages/_backtestMonitor/format.ts`
-```ts
-export const fmtDateTime = (s) => {
-  if (!s) return '—';
-  const d = new Date(s);
-  if (Number.isNaN(d.getTime())) return '—';
-  // ...
-};
-export const fmtPct = (v) => {
-  if (v == null || !Number.isFinite(Number(v))) return '—';
-  return `${(Number(v) * 100).toFixed(1)}%`;
-};
-```
+1. 抽屜 §4（`HoldingsDetailPanel.tsx`）承接卡頭抽掉的 sparkline／股數／價格來源。
+2. 產業分佈 §3.3 的索引三欄與集中度編輯註記細調。
+3. 其他分頁（收盤、事件、上傳、記錄）§6 的深度改寫。
 
-**不動的檔案（現行實作已充分守護）：**
-- `src/checkup/lib/checkupFormat.ts` 的 `fmtDate` / `fmtMD` — 已 `Number.isNaN(x.getTime())` guard
-- `src/checkup/utils/formatTaipeiDate.ts` — 已完整 guard
-- `src/checkup/lib/datetime.js` — `parseFlexibleDate` 全走 `Number.isNaN(getTime())` guard
-- `constants.jsx` 的 `formatResetDateTime` — 已 guard
-
-## Phase C — 執行與驗證
-
-1. `bunx vitest run src/checkup/lib/__tests__/checkupFormat.test.ts src/lib/__tests__/currency.test.ts src/checkup/utils/__tests__/formatTaipeiDate.test.ts src/checkup/lib/__tests__/datetime.test.ts src/pages/_freeCheckup/__tests__/quotaFormatters.test.ts src/pages/_backtestMonitor/__tests__/format.test.ts src/pages/_companyRevenue/__tests__/utils.test.ts` — 期望全綠。
-2. `bunx vitest run` — 全域回歸：確保修改 `fmtN` / `fmtWan` / `formatMoneyByCurrency` / `fmtPct` 沒炸現存測試（尤其 `holdings-*` / `_companyRevenue` 相關）。若既有 snapshot 有 `Infinity` 或 `NaN` 字面（不太可能）則檢查後決定修正。
-3. **故障注入驗證**：暫時在某 formatter 拿掉 `Number.isFinite` guard，跑 vitest 應立即 fail 於 `Infinity` case，證明測試有攔到；復原後全綠。
-4. `tsgo` 檢查 TS 型別（`Number | null | undefined` 拓寬到 `unknown` 傳入時的行為）。
-
-## 不改變的合約
-- Sentinel 每個 formatter 保留自己既有 sentinel（checkupFormat 用 `—`、_companyRevenue 用 `-`、Taipei 用空字串 / fallback），不做跨模組統一，避免衝擊 UI 佈局。只在 NaN/Infinity/garbage 時對齊自己模組內的既有 sentinel。
-- 不改動函數簽名、不改 export 名稱、不改 CSS。
+如同意，回覆「照做」我就進 build mode。若你要把抽屜對接一併做進本輪，請說明，我把 S5 擴到 §4。
