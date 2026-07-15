@@ -93,7 +93,7 @@ function HoldingsFilterBarImpl(props) {
   } = props;
 
   const activeTags = [];
-  if (searchQ.trim()) activeTags.push({ key: 'q', label: `🔍 "${searchQ.trim()}"`, clear: () => setSearchQ('') });
+  if (searchQ.trim()) activeTags.push({ key: 'q', label: `搜尋："${searchQ.trim()}"`, clear: () => setSearchQ('') });
   filterDecision.forEach((v) => activeTags.push({ key: `d-${v}`, label: `決策：${DEC_LABEL[v] || v}`, clear: () => toggleSetItem(setFilterDecision)(v) }));
   filterThesis.forEach((v) => activeTags.push({ key: `t-${v}`, label: `論點：${TH_LABEL[v] || v}`, clear: () => toggleSetItem(setFilterThesis)(v) }));
   filterUrgency.forEach((v) => activeTags.push({ key: `u-${v}`, label: `緊急：${UR_LABEL[v] || v}`, clear: () => toggleSetItem(setFilterUrgency)(v) }));
@@ -117,13 +117,12 @@ function HoldingsFilterBarImpl(props) {
             onChange={(e) => setSearchQ(e.target.value)}
             placeholder="搜尋代碼／名稱／題材／策略"
             style={{
-              width: '100%', padding: '7px 28px 7px 30px',
+              width: '100%', padding: '7px 28px 7px 10px',
               background: C.card, border: `1px solid ${C.border}`,
               borderRadius: 6, fontSize: 12, color: C.text,
               outline: 'none', fontFamily: 'inherit',
             }}
           />
-          <span style={{ position: 'absolute', left: 10, top: '50%', transform: 'translateY(-50%)', fontSize: 11, color: C.textMute }}>🔍</span>
           {searchQ && (
             <button onClick={() => setSearchQ('')} style={{
               position: 'absolute', right: 8, top: '50%', transform: 'translateY(-50%)',

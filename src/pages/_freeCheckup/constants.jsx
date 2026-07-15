@@ -77,24 +77,24 @@ export function deriveSuggestion(attempts, source) {
   let text;
   let tone = policy.maxRetries === 0 ? 'down' : 'amber';
   if (gwAllQuota && directAllQuota) {
-    text = '🔴 Gateway 與直連配額皆用盡：補值 Lovable Gateway 或升級 Gemini API 方案後再試。';
+    text = 'Gateway 與直連配額皆用盡：補值 Lovable Gateway 或升級 Gemini API 方案後再試。';
     tone = 'down';
   } else if (gwAllQuota && direct.length === 0) {
-    text = '🟡 Lovable Gateway 配額用盡：建議立即切換直連 Gemini（無需等待）。';
+    text = 'Lovable Gateway 配額用盡：建議立即切換直連 Gemini（無需等待）。';
   } else if (primary === 'rateLimit') {
-    text = `🟡 限流：等待 ${policy.waitSec}s 後重試，最多 ${policy.maxRetries} 次（指數退避）。`;
+    text = `限流：等待 ${policy.waitSec}s 後重試，最多 ${policy.maxRetries} 次（指數退避）。`;
   } else if (primary === 'serverBusy') {
-    text = `🟡 服務忙碌：等待 ${policy.waitSec}s 後重試，可考慮切換另一條路徑。`;
+    text = `服務忙碌：等待 ${policy.waitSec}s 後重試，可考慮切換另一條路徑。`;
   } else if (primary === 'modelUnavailable') {
-    text = '🔴 模型不可用：請改用其他模型（如 gemini-2.5-flash），勿原樣重試。';
+    text = '模型不可用：請改用其他模型（如 gemini-2.5-flash），勿原樣重試。';
   } else if (primary === 'auth') {
-    text = '🔴 認證失敗：檢查 LOVABLE_API_KEY 或 GOOGLE_GEMINI_API_KEY 是否有效，重試無意義。';
+    text = '認證失敗：檢查 LOVABLE_API_KEY 或 GOOGLE_GEMINI_API_KEY 是否有效，重試無意義。';
   } else if (primary === 'serverError') {
-    text = `🔴 服務端錯誤：等待 ${policy.waitSec}s 後重試最多 ${policy.maxRetries} 次。`;
+    text = `服務端錯誤：等待 ${policy.waitSec}s 後重試最多 ${policy.maxRetries} 次。`;
   } else if (primary === 'network') {
-    text = `🟡 網路錯誤：檢查連線後等待 ${policy.waitSec}s 重試（最多 ${policy.maxRetries} 次）。`;
+    text = `網路錯誤：檢查連線後等待 ${policy.waitSec}s 重試（最多 ${policy.maxRetries} 次）。`;
   } else {
-    text = '🟡 多種錯誤混合：建議延後重試；持續失敗請切換直連或檢查金鑰。';
+    text = '多種錯誤混合：建議延後重試；持續失敗請切換直連或檢查金鑰。';
   }
 
   const fn = SOURCE_TO_FN[source] || 'checkup-predict-events';

@@ -123,7 +123,7 @@ function HoldingsQuotaMeterImpl(props) {
               ? (remain === 0
                   ? <>免費／補償額度已用完・<span style={{ color: C.textSec }}>使用日 {formatTaipeiYMD(quota.last_used_at) || '尚未紀錄'}</span>・<span style={{ color: C.textSec }}>升級後可繼續使用</span></>
                   : (hasEntitlement
-                      ? <>🎁 已回送補償額度・還剩 <span style={{ color: C.text, fontWeight: 500 }}>{remain}</span> 次免費收盤分析</>
+                      ? <>已回送補償額度・還剩 <span style={{ color: C.text, fontWeight: 500 }}>{remain}</span> 次免費收盤分析</>
                       : <>LINE 註冊禮：第一次免費；第二次起需付費・還剩 <span style={{ color: C.text, fontWeight: 500 }}>{remain}</span> 次</>))
               : (remain === 0
                   ? <>已用完・<span style={{ color: C.textSec }}>{formatResetCountdown(quota.resets_at)}</span></>
@@ -156,7 +156,7 @@ function HoldingsQuotaMeterImpl(props) {
           fontSize: 11, color: C.text, letterSpacing: '0.02em', lineHeight: 1.6,
           display: 'flex', alignItems: 'center', gap: 6, flexWrap: 'wrap',
         }}>
-          <span>⚡</span>
+          
           <span style={{ fontWeight: 500 }}>最後一次</span>
           <span style={{ color: C.textSec }}>用完前先升級，下期不間斷</span>
         </div>
