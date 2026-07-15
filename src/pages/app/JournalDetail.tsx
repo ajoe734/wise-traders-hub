@@ -482,7 +482,7 @@ const JournalDetail = () => {
               <CardContent className="p-0">
                 <div className="divide-y divide-border">
                   {weekSignals.map(ws => (
-                    <TradeItem key={ws.id} signal={ws} />
+                    <TradeItem key={ws.id} signal={ws} nameMap={nameMap} />
                   ))}
                 </div>
               </CardContent>
