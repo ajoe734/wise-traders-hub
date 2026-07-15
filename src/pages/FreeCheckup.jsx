@@ -3896,7 +3896,24 @@ ${JSON.stringify(strategyBrain || { rules: [], lessons: [], commonMistakes: [], 
           </Suspense>
         )}
 
+        {/* Batch C §6.5：Demo/LINE 頁腳一行提示（取代散落各 tab 頂部的 banner） */}
+        <Suspense fallback={null}>
+          <DemoFooterHint
+            isDemo={isDemo}
+            C={C}
+            onStartLine={() => { try { startLineLogin?.(); } catch { navigate('/auth/login?redirect=/checkup'); } }}
+            onStartEmail={() => navigate('/auth/login?redirect=/checkup')}
+          />
+        </Suspense>
       </div>
+      {/* Batch C §6.5：首次進站 onboarding overlay */}
+      <Suspense fallback={null}>
+        <OnboardingOverlay
+          C={C}
+          onStartLine={() => { try { startLineLogin?.(); } catch { navigate('/auth/login?redirect=/checkup'); } }}
+          onStartDemo={() => { /* demo 為預設狀態，關閉即進入 */ }}
+        />
+      </Suspense>
       {/* Decision Debug toggle */}
       <div style={{padding:"12px 16px",display:"flex",alignItems:"center",gap:8}}>
         <label style={{fontSize:10,color:C.textMute,fontWeight:400,cursor:"pointer",display:"flex",alignItems:"center",gap:4}}>
