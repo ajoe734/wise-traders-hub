@@ -68,7 +68,23 @@ function HoldingCardHeaderImpl({
     if (meta?.industry) return [meta.industry];
     return [];
   }, [meta?.industries, meta?.industry]);
-  const hasTags = industries.length > 0 || !!meta?.strategy || !!onReportMeta;
+
+  // per-signal 教學片段（tipInfo）：優先 meta.tip / meta.tips[0]，缺則依 actionLabel fallback。
+  // deps 僅含 meta.tip / meta.tips / actionLabel，避免 pctVal tick 每次觸發重算。
+  const tipInfo = useMemo(() => {
+    const list = Array.isArray(meta?.tips)
+      ? meta.tips.filter((s) => typeof s === 'string' && s.trim())
+      : [];
+    const single = typeof meta?.tip === 'string' && meta.tip.trim() ? meta.tip.trim() : '';
+    const primary = single || list[0] || '';
+    const source = primary ? 'meta' : 'fallback';
+    const text = primary || getFallbackTip(actionLabel);
+    const extra = single ? list : list.slice(1);
+    return { text, source, extra };
+  }, [meta?.tip, meta?.tips, actionLabel]);
+
+  const hasVisibleTags = industries.length > 0 || !!meta?.strategy || !!onReportMeta;
+
 
   // 事件 handler 缓存：Sparkline 為 memo 元件，穩定引用避免子樹重渲染
   const openReportMeta = useCallback((e) => {
