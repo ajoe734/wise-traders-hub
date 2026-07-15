@@ -169,7 +169,7 @@ function DailyTabImpl({
             }}>
               <div style={{display:"flex",alignItems:"center",justifyContent:"space-between",gap:8,marginBottom:6}}>
                 <div style={{fontSize:12,color:C.down,fontWeight:500,letterSpacing:"0.04em"}}>
-                  ⚠ 收盤分析失敗
+                  收盤分析失敗
                 </div>
                 {dailyRetryHistory.length > 0 && (
                   <div style={{fontSize:10,color:C.textMute,fontWeight:400,opacity:0.8,letterSpacing:"0.04em"}}>
