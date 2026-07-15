@@ -153,10 +153,39 @@ function HoldingCardHeaderImpl({
             data-spark-fallback={sparkFailed ? 'failed' : 'empty'}
           >{sparkFailed ? '~' : '———'}</span>
         )}
-        <span aria-hidden="true" style={{
-          fontSize: 9, fontWeight: 500, letterSpacing: '0.20em',
-          color: WB.accent, textTransform: 'uppercase', flexShrink: 0,
-        }}>{actionLabel}</span>
+        {(() => {
+          // Handoff §3.4 步驟 1：EXIT→橘底白字「出場」、REVIEW→橘框橘字「檢視」、HOLD 不標。
+          const kind = String(actionLabel || '').toLowerCase();
+          if (kind === 'exit') {
+            return (
+              <span
+                data-action-badge="exit"
+                style={{
+                  fontSize: 10, fontWeight: 500, letterSpacing: '0.12em',
+                  color: '#FFFFFF', background: WB.accent,
+                  padding: '3px 8px', borderRadius: 0, flexShrink: 0,
+                  lineHeight: 1.4,
+                }}
+              >出場</span>
+            );
+          }
+          if (kind === 'review') {
+            return (
+              <span
+                data-action-badge="review"
+                style={{
+                  fontSize: 10, fontWeight: 500, letterSpacing: '0.12em',
+                  color: WB.accent, background: 'transparent',
+                  border: `1px solid ${WB.accent}`,
+                  padding: '2px 7px', borderRadius: 0, flexShrink: 0,
+                  lineHeight: 1.4,
+                }}
+              >檢視</span>
+            );
+          }
+          // HOLD / 其他：不渲染任何徽章
+          return null;
+        })()}
       </div>
 
       {/* wb-tags：教學徽章恆存在，因此容器總是渲染；industries/strategy/回報 依資料條件出現 */}
