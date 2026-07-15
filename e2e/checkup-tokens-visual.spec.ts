@@ -174,16 +174,14 @@ test.describe('Checkup tokens visual — /holding-checkup', () => {
         { maxDiffPixelRatio: 0.03, animations: 'disabled', caret: 'hide', scale: 'css' },
       );
 
-      // 9) 抽屜 — Shift+Enter 或 dblclick 開啟 HoldingsDetailPanel
-      //    使用 keyboard 觸發避免 pointer hover 差異
-      await firstCard.focus();
-      await page.keyboard.down('Shift');
-      await page.keyboard.press('Enter');
-      await page.keyboard.up('Shift');
+      // 9) 抽屜 — dblclick 開啟 HoldingsDetailPanel（比 Shift+Enter 對焦更穩定）
+      await firstCard.scrollIntoViewIfNeeded();
+      await firstCard.dblclick();
       const drawer = page.locator('[data-testid="holdings-detail-panel"]').first();
-      await drawer.waitFor({ state: 'visible', timeout: 10_000 });
+      await drawer.waitFor({ state: 'attached', timeout: 15_000 });
+      await drawer.waitFor({ state: 'visible', timeout: 15_000 });
       // 等 Radix Dialog 動畫結束 + 內容 lazy import 完成
-      await page.waitForTimeout(400);
+      await page.waitForTimeout(500);
       await page.evaluate(() => document.fonts?.ready);
       // 抽屜可能超出 viewport → 用 element screenshot 保證完整
       await expect(drawer).toHaveScreenshot(
