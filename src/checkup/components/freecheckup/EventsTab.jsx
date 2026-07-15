@@ -443,7 +443,7 @@ function UpcomingEventsBody({
                             </div>
                             {dbg.succeededWith && (
                               <div style={{fontSize:10,color:C.up,marginBottom:4,opacity:0.85}}>
-                                ✓ 成功：{dbg.succeededWith.path} / {dbg.succeededWith.model}
+                                成功：{dbg.succeededWith.path} / {dbg.succeededWith.model}
                               </div>
                             )}
                             {/* 分類 chips */}
@@ -476,7 +476,7 @@ function UpcomingEventsBody({
                                   <span style={{opacity:0.7}}>建議等待</span>
                                   <span>{suggestion.policy.waitSec > 0 ? `${suggestion.policy.waitSec}s` : '不需等待'}</span>
                                   <span style={{opacity:0.7}}>切換直連</span>
-                                  <span>{suggestion.policy.switchPath === 'yes' ? '✅ 立即切換' : suggestion.policy.switchPath === 'optional' ? '⚪ 可選' : '❌ 無助於修復'}</span>
+                                  <span>{suggestion.policy.switchPath === 'yes' ? '立即切換' : suggestion.policy.switchPath === 'optional' ? '可選' : '無助於修復'}</span>
                                   <span style={{opacity:0.7}}>策略</span>
                                   <span>{suggestion.policy.desc}</span>
                                 </div>
@@ -491,7 +491,7 @@ function UpcomingEventsBody({
                                         try {
                                           navigator.clipboard?.writeText(suggestion.curl);
                                           const orig = btn.textContent;
-                                          btn.textContent = '已複製 ✓';
+                                          btn.textContent = '已複製';
                                           setTimeout(() => { btn.textContent = orig; }, 1500);
                                         } catch { /* noop */ }
                                       }}
@@ -529,7 +529,7 @@ function UpcomingEventsBody({
                                     fontSize:10,
                                   }}>
                                     <span style={{color:statusColor,fontWeight:600}}>
-                                      {a.ok ? '✓' : '✕'} {a.status ?? '—'}
+                                      {a.ok ? 'OK' : 'ERR'} {a.status ?? '—'}
                                     </span>
                                     <span style={{color:statusColor,opacity:0.85,whiteSpace:"nowrap"}}>
                                       {cls.label}
