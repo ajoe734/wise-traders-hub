@@ -3581,7 +3581,7 @@ ${JSON.stringify(strategyBrain || { rules: [], lessons: [], commonMistakes: [], 
             className="cm-mobile-tabbar__upload"
             data-testid="checkup-upload-cta-mobile"
             aria-label="上傳成交"
-            onClick={()=>{setTab('trade');trackRaw('checkup_tab_change',{tab:'trade',via:'mobile_upload_cta'});window.scrollTo({top:0,behavior:"smooth"})}}
+            onClick={()=>{openUploadModal();trackRaw('checkup_tab_change',{tab:'trade',via:'mobile_upload_cta'});}}
           >＋</button>
           {[
             {k:'events',l:'事件'},
