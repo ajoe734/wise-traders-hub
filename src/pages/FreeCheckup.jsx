@@ -41,6 +41,10 @@ const DailyTab = lazy(() => import("@/checkup/components/freecheckup/DailyTab"))
 const LogTab = lazy(() => import("@/checkup/components/freecheckup/LogTab"));
 const TradeTab = lazy(() => import("@/checkup/components/freecheckup/TradeTab"));
 const ResearchTab = lazy(() => import("@/checkup/components/freecheckup/ResearchTab"));
+// Batch C §6.3 / §6.5：上傳 modal + 一次性引導 + 頁腳 demo hint
+const TradeUploadModal = lazy(() => import("@/checkup/components/freecheckup/TradeUploadModal"));
+const OnboardingOverlay = lazy(() => import("@/checkup/components/freecheckup/OnboardingOverlay"));
+const DemoFooterHint = lazy(() => import("@/checkup/components/freecheckup/DemoFooterHint"));
 
 // Phase 3 A1: lazy-load heavy/conditional UI to shrink initial bundle
 const Md = lazy(() => import("@/checkup/components/Md"));
@@ -105,6 +109,10 @@ export default function App() {
   const navigate = useNavigate();
   const { isDemo, isReady: authReady, canUpload, hasReachedDailyLimit, startLineLogin, incrementUploadCount, lineProfile, demoData, tier, tierLabel, quota, remainingQuota, periodLabel, refreshQuota, applyQuotaFromResponse, supabaseUser, needsAddFriend } = useCheckupMode();
   const [tab, setTab]     = useState("holdings");
+  // Batch C §6.3：「＋ 上傳」不再切 tab，改為 modal
+  const [uploadModalOpen, setUploadModalOpen] = useState(false);
+  const openUploadModal = () => { setUploadModalOpen(true); try { trackRaw('checkup_upload_modal_open'); } catch {} };
+  const closeUploadModal = () => setUploadModalOpen(false);
   useEffect(() => { trackRaw('checkup_view', { tab: 'holdings' }); }, []);
   // 配額耗盡採 inline banner（TradeTab L162 / DailyTab）+ toast 提示，
   // 不再使用全螢幕 modal，避免擋住 tab 導航（見 .lovable/plan.md）
@@ -3552,7 +3560,7 @@ ${JSON.stringify(strategyBrain || { rules: [], lessons: [], commonMistakes: [], 
             type="button"
             className="cm-upload-cta"
             data-testid="checkup-upload-cta"
-            onClick={()=>{setTab('trade');trackRaw('checkup_tab_change',{tab:'trade',via:'upload_cta'});window.scrollTo({top:0,behavior:"smooth"})}}
+            onClick={()=>{openUploadModal();trackRaw('checkup_tab_change',{tab:'trade',via:'upload_cta'});}}
             aria-label="上傳成交"
             style={{marginLeft:8}}
           >＋ 上傳</button>
@@ -3573,7 +3581,7 @@ ${JSON.stringify(strategyBrain || { rules: [], lessons: [], commonMistakes: [], 
             className="cm-mobile-tabbar__upload"
             data-testid="checkup-upload-cta-mobile"
             aria-label="上傳成交"
-            onClick={()=>{setTab('trade');trackRaw('checkup_tab_change',{tab:'trade',via:'mobile_upload_cta'});window.scrollTo({top:0,behavior:"smooth"})}}
+            onClick={()=>{openUploadModal();trackRaw('checkup_tab_change',{tab:'trade',via:'mobile_upload_cta'});}}
           >＋</button>
           {[
             {k:'events',l:'事件'},
@@ -3763,41 +3771,54 @@ ${JSON.stringify(strategyBrain || { rules: [], lessons: [], commonMistakes: [], 
         {/* #endregion Tab: Daily */}
 
         {/* ══════════ UPLOAD ══════════ */}
-        {/* #region Tab: Trade — 上傳成交回報 / 解析 / 影像 lightbox */}
-        {tab==="trade" && (
-          <Suspense fallback={null}>
-            <TradeTab
-              C={C} alpha={alpha} card={card} lbl={lbl}
-              parsing={parsing} parseStep={parseStep} parseErr={parseErr}
-              parsed={parsed} setParsed={setParsed}
-              img={img} dragOver={dragOver} setDragOver={setDragOver}
-              processFile={processFile} processFiles={processFiles} parseShot={parseShot}
-              batchState={batchState} cancelBatch={cancelBatch}
-              retryBatchFailures={retryBatchFailures} restoreBatchItemPreview={restoreBatchItemPreview}
-              setImg={setImg} setB64={setB64} setParseErr={setParseErr}
-              isDemo={isDemo} startLineLogin={startLineLogin}
-              hasReachedDailyLimit={hasReachedDailyLimit} tier={tier} quota={quota}
-              formatResetDateTime={formatResetDateTime}
-              formatResetCountdown={formatResetCountdown}
-              holdings={holdings} setHoldings={setHoldings} setTradeLog={setTradeLog}
-              setUploadSummary={setUploadSummary}
-              holdingsChangedByUserRef={holdingsChangedByUserRef}
-              stripDemoSeedHoldings={stripDemoSeedHoldings}
-              mergeTradeIntoHoldings={mergeTradeIntoHoldings}
-              upsertSnapshotHolding={upsertSnapshotHolding}
-              SNAPSHOT_IMPORT_ACTION={SNAPSHOT_IMPORT_ACTION}
-              MAX_HOLDINGS={MAX_HOLDINGS}
-              toast={toast} setTab={setTab}
-              memoAns={memoAns} memoIn={memoIn} setMemoIn={setMemoIn}
-              memoStep={memoStep} qs={qs} submitMemo={submitMemo}
-              tpCode={tpCode} setTpCode={setTpCode}
-              tpFirm={tpFirm} setTpFirm={setTpFirm}
-              tpVal={tpVal} setTpVal={setTpVal}
-              setTargets={setTargets} setSaved={setSaved}
-            />
-          </Suspense>
-        )}
+        {/* #region Tab: Trade — Batch C §6.3：改為 modal；`tab==='trade'` 走 modal 開啟，內部 setTab('trade') 呼叫（上傳成功後導回）維持原 flow */}
+        {(() => {
+          const tradeProps = {
+            C, alpha, card, lbl,
+            parsing, parseStep, parseErr,
+            parsed, setParsed,
+            img, dragOver, setDragOver,
+            processFile, processFiles, parseShot,
+            batchState, cancelBatch,
+            retryBatchFailures, restoreBatchItemPreview,
+            setImg, setB64, setParseErr,
+            isDemo, startLineLogin,
+            hasReachedDailyLimit, tier, quota,
+            formatResetDateTime,
+            formatResetCountdown,
+            holdings, setHoldings, setTradeLog,
+            setUploadSummary,
+            holdingsChangedByUserRef,
+            stripDemoSeedHoldings,
+            mergeTradeIntoHoldings,
+            upsertSnapshotHolding,
+            SNAPSHOT_IMPORT_ACTION,
+            MAX_HOLDINGS,
+            toast,
+            setTab: (t) => { if (t === 'holdings') { setUploadModalOpen(false); } setTab(t); },
+            memoAns, memoIn, setMemoIn,
+            memoStep, qs, submitMemo,
+            tpCode, setTpCode,
+            tpFirm, setTpFirm,
+            tpVal, setTpVal,
+            setTargets, setSaved,
+          };
+          const modalOpen = uploadModalOpen || tab === 'trade';
+          return (
+            <Suspense fallback={null}>
+              <TradeUploadModal
+                open={modalOpen}
+                onClose={() => { setUploadModalOpen(false); if (tab === 'trade') setTab('holdings'); }}
+                C={C} alpha={alpha}
+                quota={quota}
+                formatResetCountdown={formatResetCountdown}
+                tradeProps={tradeProps}
+              />
+            </Suspense>
+          );
+        })()}
         {/* #endregion Tab: Trade */}
+
 
         {/* ══════════ LOG ══════════ */}
         {/* #region Tab: Log — 交易日誌 */}
@@ -3875,7 +3896,24 @@ ${JSON.stringify(strategyBrain || { rules: [], lessons: [], commonMistakes: [], 
           </Suspense>
         )}
 
+        {/* Batch C §6.5：Demo/LINE 頁腳一行提示（取代散落各 tab 頂部的 banner） */}
+        <Suspense fallback={null}>
+          <DemoFooterHint
+            isDemo={isDemo}
+            C={C}
+            onStartLine={() => { try { startLineLogin?.(); } catch { navigate('/auth/login?redirect=/checkup'); } }}
+            onStartEmail={() => navigate('/auth/login?redirect=/checkup')}
+          />
+        </Suspense>
       </div>
+      {/* Batch C §6.5：首次進站 onboarding overlay */}
+      <Suspense fallback={null}>
+        <OnboardingOverlay
+          C={C}
+          onStartLine={() => { try { startLineLogin?.(); } catch { navigate('/auth/login?redirect=/checkup'); } }}
+          onStartDemo={() => { /* demo 為預設狀態，關閉即進入 */ }}
+        />
+      </Suspense>
       {/* Decision Debug toggle */}
       <div style={{padding:"12px 16px",display:"flex",alignItems:"center",gap:8}}>
         <label style={{fontSize:10,color:C.textMute,fontWeight:400,cursor:"pointer",display:"flex",alignItems:"center",gap:4}}>

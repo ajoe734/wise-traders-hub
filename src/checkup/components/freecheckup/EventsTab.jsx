@@ -1,4 +1,4 @@
-import React from 'react';
+import React, { useState, useMemo } from 'react';
 import { validateProps } from './_validateProps';
 
 /**
@@ -83,6 +83,140 @@ function EventsTabImpl({
   runPredictEvents,
 }) {
   validateProps('EventsTab', arguments[0], EVENTS_TAB_PROP_SCHEMA);
+  // Batch C §6.2：兩態切換（未來 / 已驗證）。已驗證來自 newsEvents (status==='past')
+  const [eventsMode, setEventsMode] = useState('upcoming');
+  const verifiedList = useMemo(() => {
+    return (newsEvents || [])
+      .filter(e => e.status === 'past')
+      .sort((a, b) => (b.date || '').localeCompare(a.date || ''));
+  }, [newsEvents]);
+  const hits = verifiedList.filter(e => e.correct === true).length;
+  const misses = verifiedList.filter(e => e.correct === false).length;
+  const hitRate = (hits + misses) > 0 ? Math.round(hits / (hits + misses) * 100) : null;
+
+  return (
+    <>
+      {/* Batch C §6.2 報頭 + 兩態 pill */}
+      <div style={{
+        display: 'flex', alignItems: 'baseline', justifyContent: 'space-between',
+        gap: 12, flexWrap: 'wrap',
+        paddingBottom: 10, marginBottom: 14,
+        borderBottom: `1px solid ${C.text}`,
+      }}>
+        <h3 style={{
+          margin: 0,
+          fontFamily: "'Noto Serif TC', ui-serif, Georgia, serif",
+          fontSize: 'clamp(18px,3.5vw,22px)', fontWeight: 600, color: C.text,
+          letterSpacing: '0.02em',
+        }}>事件</h3>
+        <div role="tablist" aria-label="事件切換" style={{ display: 'inline-flex', gap: 0, border: `1px solid ${C.border}` }}>
+          {[
+            { k: 'upcoming', label: `未來 ${filteredEvents?.length ?? 0}` },
+            { k: 'verified', label: hitRate != null ? `已驗證 ${verifiedList.length} · 命中率 ${hitRate}%` : `已驗證 ${verifiedList.length}` },
+          ].map(m => (
+            <button
+              key={m.k}
+              type="button"
+              role="tab"
+              aria-selected={eventsMode === m.k}
+              data-testid={`events-mode-${m.k}`}
+              onClick={() => setEventsMode(m.k)}
+              style={{
+                padding: '6px 12px', fontSize: 11, letterSpacing: '0.04em',
+                border: 'none', cursor: 'pointer',
+                background: eventsMode === m.k ? C.text : 'transparent',
+                color: eventsMode === m.k ? C.bg : C.textSec,
+                fontVariantNumeric: 'tabular-nums',
+              }}
+            >{m.label}</button>
+          ))}
+        </div>
+      </div>
+
+      {eventsMode === 'verified' ? (
+        verifiedList.length === 0 ? (
+          <div style={{ textAlign: 'center', padding: '36px 16px', fontSize: 13, color: C.textMute }}>
+            尚未累積已驗證事件
+          </div>
+        ) : (
+          <div>
+            {verifiedList.map(e => {
+              const correct = e.correct === true;
+              const wrong = e.correct === false;
+              const tone = correct ? '#FF4D1F' : (wrong ? C.textMute : C.textMute);
+              const label = correct ? '命中' : (wrong ? '未中' : '未判定');
+              const post = typeof e.postPct === 'number' ? `${e.postPct >= 0 ? '+' : ''}${e.postPct.toFixed(1)}%` : '';
+              return (
+                <div key={e.id} style={{
+                  display: 'grid', gridTemplateColumns: '68px 1fr auto',
+                  gap: 14, padding: '12px 0',
+                  borderBottom: `1px solid ${C.border}`,
+                  alignItems: 'baseline',
+                }}>
+                  <div style={{
+                    fontFamily: "'Noto Serif TC', ui-serif, Georgia, serif",
+                    fontSize: 14, color: C.text, fontVariantNumeric: 'tabular-nums',
+                  }}>{e.date}</div>
+                  <div style={{ fontSize: 13, color: C.text, lineHeight: 1.6 }}>
+                    {e.title || e.label}
+                    {e.stocks && <span style={{ color: C.textMute, marginLeft: 8, fontSize: 11 }}>{e.stocks}</span>}
+                  </div>
+                  <div style={{ fontSize: 12, color: tone, whiteSpace: 'nowrap', fontVariantNumeric: 'tabular-nums' }}>
+                    {label}{post ? ` · ${post}` : ''}
+                  </div>
+                </div>
+              );
+            })}
+          </div>
+        )
+      ) : (
+        <UpcomingEventsBody
+          isDemo={isDemo} navigate={navigate} startLineLogin={startLineLogin}
+          C={C} alpha={alpha} DEMO_TAB_NOTICE_COPY={DEMO_TAB_NOTICE_COPY}
+          TYPE_COLOR={TYPE_COLOR} RETRY_MAX={RETRY_MAX}
+          calendarAutoStatus={calendarAutoStatus} predictAutoStatus={predictAutoStatus}
+          calendarLoading={calendarLoading} predictingEvents={predictingEvents}
+          calendarRetry={calendarRetry} predictRetry={predictRetry}
+          calendarLastError={calendarLastError} predictLastError={predictLastError}
+          calendarLastDebug={calendarLastDebug} predictLastDebug={predictLastDebug}
+          setCalendarLastDebug={setCalendarLastDebug} setPredictLastDebug={setPredictLastDebug}
+          debugPanelOpen={debugPanelOpen} setDebugPanelOpen={setDebugPanelOpen}
+          updateLog={updateLog} setUpdateLog={setUpdateLog}
+          updateLogOpen={updateLogOpen} setUpdateLogOpen={setUpdateLogOpen}
+          classifyAttempt={classifyAttempt} deriveSuggestion={deriveSuggestion}
+          holdings={holdings} newsEvents={newsEvents}
+          H={H} CE={CE} filteredEvents={filteredEvents}
+          filterType={filterType} setFilterType={setFilterType}
+          calendarExpanded={calendarExpanded} setCalendarExpanded={setCalendarExpanded}
+          manualRefreshCalendar={manualRefreshCalendar}
+          runPredictEvents={runPredictEvents}
+        />
+      )}
+    </>
+  );
+}
+
+function UpcomingEventsBody({
+  isDemo, navigate, startLineLogin,
+  C, alpha, DEMO_TAB_NOTICE_COPY,
+  TYPE_COLOR, RETRY_MAX,
+  calendarAutoStatus, predictAutoStatus,
+  calendarLoading, predictingEvents,
+  calendarRetry, predictRetry,
+  calendarLastError, predictLastError,
+  calendarLastDebug, predictLastDebug,
+  setCalendarLastDebug, setPredictLastDebug,
+  debugPanelOpen, setDebugPanelOpen,
+  updateLog, setUpdateLog,
+  updateLogOpen, setUpdateLogOpen,
+  classifyAttempt, deriveSuggestion,
+  holdings, newsEvents,
+  H, CE, filteredEvents,
+  filterType, setFilterType,
+  calendarExpanded, setCalendarExpanded,
+  manualRefreshCalendar,
+  runPredictEvents,
+}) {
   return (
     <>
           {isDemo && (
