@@ -53,11 +53,13 @@ export function SignalCreateDialog({
   const [overallSummary, setOverallSummary] = useState('');
   const [showPreview, setShowPreview] = useState(false);
   const [fetchingQuote, setFetchingQuote] = useState(false);
+  const [autoUppercased, setAutoUppercased] = useState(false);
   const [linePushing, setLinePushing] = useState(false);
   const [linePushed, setLinePushed] = useState(false);
   const [recalling, setRecalling] = useState(false);
   const [, setLastPublishedId] = useState<string | null>(null);
   const fetchTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const uppercaseHintTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
 
   useEffect(() => {
     if (isCreateOpen) sessionStorage.setItem(FORM_KEY, JSON.stringify({ _open: true }));
@@ -142,6 +144,12 @@ export function SignalCreateDialog({
 
   const handleStockCodeChange = (value: string) => {
     const normalized = spec.uppercaseSymbol ? value.toUpperCase() : value;
+    // 偵測：只要使用者輸入了小寫字母、被自動轉大寫，就顯示提示（3 秒後淡出）
+    if (spec.uppercaseSymbol && value !== normalized && /[a-z]/.test(value)) {
+      setAutoUppercased(true);
+      if (uppercaseHintTimer.current) clearTimeout(uppercaseHintTimer.current);
+      uppercaseHintTimer.current = setTimeout(() => setAutoUppercased(false), 3000);
+    }
     setStockCode(normalized);
     if (fetchTimer.current) clearTimeout(fetchTimer.current);
     if (normalized.trim().length >= spec.minSymbolLen) {
@@ -309,6 +317,15 @@ export function SignalCreateDialog({
             <div className="space-y-2">
               <Label>股票代碼</Label>
               <Input value={stockCode} onChange={(e) => handleStockCodeChange(e.target.value)} placeholder={spec.symbolPlaceholder} />
+              {autoUppercased && (
+                <p
+                  data-testid="uppercase-hint"
+                  className="text-[11px] text-muted-foreground animate-in fade-in slide-in-from-top-1 duration-200"
+                  aria-live="polite"
+                >
+                  已自動轉大寫
+                </p>
+              )}
             </div>
             <div className="space-y-2">
               <Label>股票名稱 {fetchingQuote && <Loader2 className="inline h-3 w-3 animate-spin text-muted-foreground" />}</Label>

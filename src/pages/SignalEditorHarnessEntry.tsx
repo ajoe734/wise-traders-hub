@@ -41,16 +41,22 @@ export default function SignalEditorHarnessEntry() {
   const [code, setCode] = useState('');
   const [name, setName] = useState('');
   const [resolving, setResolving] = useState(false);
+  const [autoUppercased, setAutoUppercased] = useState(false);
   const timer = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const hintTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
 
   // Mirror SignalCreateDialog.handleStockCodeChange exactly.
   const onChange = (raw: string) => {
     const normalized = spec.uppercaseSymbol ? raw.toUpperCase() : raw;
+    if (spec.uppercaseSymbol && raw !== normalized && /[a-z]/.test(raw)) {
+      setAutoUppercased(true);
+      if (hintTimer.current) clearTimeout(hintTimer.current);
+      hintTimer.current = setTimeout(() => setAutoUppercased(false), 3000);
+    }
     setCode(normalized);
     setName('');
     if (timer.current) clearTimeout(timer.current);
     if (normalized.trim().length >= spec.minSymbolLen) {
-      // Mark pending *immediately* so tests can wait for the true settled state.
       setResolving(true);
       timer.current = setTimeout(async () => {
         try {
@@ -83,6 +89,15 @@ export default function SignalEditorHarnessEntry() {
         placeholder={spec.symbolPlaceholder}
         style={{ width: '100%', padding: 8, fontSize: 16, border: '1px solid #ccc', borderRadius: 4 }}
       />
+      {autoUppercased && (
+        <p
+          data-testid="uppercase-hint"
+          aria-live="polite"
+          style={{ marginTop: 4, fontSize: 11, color: '#666' }}
+        >
+          已自動轉大寫
+        </p>
+      )}
 
       <div style={{ marginTop: 8, fontSize: 12 }} data-testid="editor-resolving">
         {resolving ? 'resolving…' : 'idle'}
