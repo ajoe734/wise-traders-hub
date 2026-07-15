@@ -65,19 +65,24 @@ function HoldingCardReturnImpl({
   }), [subColor]);
 
   return (
-    <div aria-hidden="true" style={rowStyle}>
-      <span className="wb-roi" style={roiStyle}>
-        {pnlArrow && <span style={ROI_ARROW_STYLE}>{pnlArrow}</span>}
-        <span>
-          {pctVal >= 0 ? '+' : ''}{pctVal.toFixed(2)}
-          <span style={ROI_PCT_STYLE}>%</span>
+    <div aria-hidden="true" style={{
+      marginTop: variantStyle.marginTop,
+      marginBottom: variantStyle.marginBottom,
+    }}>
+      <div style={{ display: 'flex', alignItems: 'baseline', gap: variantStyle.rowGap }}>
+        <span className="wb-roi" style={roiStyle}>
+          {pnlArrow && <span style={ROI_ARROW_STYLE}>{pnlArrow}</span>}
+          <span>
+            {pctVal >= 0 ? '+' : ''}{pctVal.toFixed(2)}
+            <span style={ROI_PCT_STYLE}>%</span>
+          </span>
         </span>
-      </span>
-      {isFeature && (
-        <span style={pnlSubStyle}>
-          {pnlVal >= 0 ? '+' : ''}{pnlVal.toLocaleString()}
-        </span>
-      )}
+        {isFeature && (
+          <span style={pnlSubStyle}>
+            {pnlVal >= 0 ? '+' : ''}{pnlVal.toLocaleString()}
+          </span>
+        )}
+      </div>
       <ReturnBar pct={pctVal} scale={40} className="wb-return-bar" />
     </div>
   );
