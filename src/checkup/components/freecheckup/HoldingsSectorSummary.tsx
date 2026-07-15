@@ -814,7 +814,7 @@ function HoldingsSectorSummaryImpl({
 
 function ColumnIndex({
   title, rows, kind, isSelected, toggle,
-  colorFn, isRight, emptyText,
+  colorFn, isRight, emptyText, accentFirst,
 }: any) {
   return (
     <div
