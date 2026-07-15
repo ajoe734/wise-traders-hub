@@ -8,16 +8,16 @@
 /* Desktop 預設：3 欄 */
 .holdings-card-grid { grid-template-columns: repeat(3, minmax(0, 1fr)); }
 
-/* 清單檢視：強制單欄並讓 feature 卡片佔滿一列 */
+/* 清單檢視：強制單欄（§3.4 後全部同尺寸卡，無 feature span） */
 .holdings-card-grid--list { grid-template-columns: 1fr !important; }
-.holdings-card-grid--list .wb-span-feature,
-.holdings-card-grid--list .wb-card-feature { grid-column: 1 / -1 !important; }
 .holdings-card-grid--list .wb-card { min-height: 0 !important; }
 
-/* 卡片 span 工具類：以 CSS 控制，避免 inline style 在 RWD 切換時 race */
-.wb-span-1 { grid-column: span 1; }
-.wb-span-feature { grid-column: span 2; }
+/* 卡片 span 工具類：§3.4 統一 span 1；.wb-span-feature/.wb-card-feature 為相容用 alias */
+.wb-span-1,
+.wb-span-feature,
+.wb-card-feature { grid-column: span 1; }
 .wb-span-full { grid-column: 1 / -1; }
+
 
 /* scrollIntoView 平滑捲動時，為 sticky header 保留頂部空間，避免卡片被遮住 */
 .wb-card { scroll-margin-top: 96px; scroll-margin-bottom: 32px; }
@@ -125,11 +125,11 @@
 }
 
 @media (max-width: 768px) {
-  .wb-card-feature { padding: 20px 18px 16px !important; }
   .wb-card { padding: 18px 16px 14px !important; }
   .wb-card .wb-bottom { gap: 10px !important; }
   .wb-card .wb-tags { row-gap: 6px !important; }
 }
+
 
 /* A11y：鍵盤 focus-visible 焦點環（滑鼠點擊不顯示，Tab 才顯示） */
 .wb-card { outline: none; }
@@ -140,10 +140,8 @@
   z-index: 2;
   position: relative;
 }
-.wb-card.wb-card-feature:focus-visible {
-  outline-color: #F4F1EC;
-  box-shadow: 0 0 0 4px rgba(244, 241, 236, 0.22);
-}
+/* §3.4 後不再有 feature 變體；相容 selector 保留但無 override */
+
 /* 卡內 report 巢狀按鈕的焦點也要看得見 */
 .wb-card .wb-tags button:focus-visible {
   outline: 2px solid var(--cm-accent);
@@ -163,9 +161,7 @@
     transform: scale(0.985);
     background: #EEEBE3 !important;
   }
-  .wb-card.wb-card-feature:active {
-    background: #0F0E0C !important;
-  }
+
 }
 
 @media (max-width: 640px) {
