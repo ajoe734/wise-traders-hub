@@ -51,9 +51,10 @@ afterEach(() => {
   vi.resetModules();
   // 還原 document.fonts（避免污染其他測試）
   try {
-    // @ts-expect-error deletion is fine on jsdom Document
-    delete (document as any).fonts;
-  } catch {}
+    delete (document as unknown as { fonts?: unknown }).fonts;
+  } catch {
+    /* noop */
+  }
 });
 
 describe('auditFonts', () => {
