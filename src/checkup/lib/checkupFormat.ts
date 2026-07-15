@@ -6,32 +6,32 @@
 const MINUS = '\u2212';
 
 export function fmtSigned(v: number | null | undefined, digits = 2): string {
-  if (v == null || Number.isNaN(v)) return '—';
-  const abs = Math.abs(v);
+  if (v == null || !Number.isFinite(v as number)) return '—';
+  const abs = Math.abs(v as number);
   const s = abs.toLocaleString(undefined, {
     minimumFractionDigits: digits,
     maximumFractionDigits: digits,
   });
-  if (v > 0) return `+${s}`;
-  if (v < 0) return `${MINUS}${s}`;
+  if ((v as number) > 0) return `+${s}`;
+  if ((v as number) < 0) return `${MINUS}${s}`;
   return s;
 }
 
 export function fmtSignedInt(v: number | null | undefined): string {
-  if (v == null || Number.isNaN(v)) return '—';
-  const abs = Math.abs(Math.round(v));
+  if (v == null || !Number.isFinite(v as number)) return '—';
+  const abs = Math.abs(Math.round(v as number));
   const s = abs.toLocaleString();
-  if (v > 0) return `+${s}`;
-  if (v < 0) return `${MINUS}${s}`;
+  if ((v as number) > 0) return `+${s}`;
+  if ((v as number) < 0) return `${MINUS}${s}`;
   return s;
 }
 
 /** 金額顯示：< 10,000 直接數字；≥ 10,000 顯示為「X.X 萬」（保留一位小數，>= 10 萬則整數） */
 export function fmtWan(v: number | null | undefined): string {
-  if (v == null || Number.isNaN(v)) return '—';
-  const abs = Math.abs(v);
-  if (abs < 10000) return Math.round(v).toLocaleString();
-  const wan = v / 10000;
+  if (v == null || !Number.isFinite(v as number)) return '—';
+  const abs = Math.abs(v as number);
+  if (abs < 10000) return Math.round(v as number).toLocaleString();
+  const wan = (v as number) / 10000;
   const digits = Math.abs(wan) >= 100 ? 0 : 1;
   return `${wan.toLocaleString(undefined, { minimumFractionDigits: digits, maximumFractionDigits: digits })} 萬`;
 }
