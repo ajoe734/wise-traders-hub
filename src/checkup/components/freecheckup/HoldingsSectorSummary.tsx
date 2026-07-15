@@ -780,7 +780,7 @@ function HoldingsSectorSummaryImpl({
 
 
       {/* ═══ 附註區 ═══ */}
-      {(singleHolding || warnings.length > 0 || overDiversified || unclassifiedCount > 0 || multiIndustryCount > 0) && (
+      {(singleHolding || overDiversified || unclassifiedCount > 0 || multiIndustryCount > 0) && (
         <div
           style={{
             marginTop: 12, paddingTop: 8,
