@@ -587,11 +587,14 @@ export function SignalCreateDialog({
           {isAdvisor && canPublish && (
             <Card className="bg-muted/50"><CardContent className="p-4 space-y-2">
               <p className="text-xs font-medium text-muted-foreground">📋 訂閱者預覽</p>
-              <div className="flex items-center gap-2">
-                <Badge variant="secondary" className="text-xs">{actionLabels[action]?.label || action}</Badge>
-                <span className="font-medium text-sm">{stockCode} {stockName}</span>
-                {priceHint && <span className="text-sm text-muted-foreground">@ {currencySymbol}{priceHint}</span>}
-                {quantity && <span className="text-sm text-muted-foreground">{quantity} {quantityUnit}</span>}
+              <div className="flex items-start gap-2 flex-wrap">
+                <Badge variant="secondary" className="text-xs shrink-0">{actionLabels[action]?.label || action}</Badge>
+                <span className="font-medium text-sm min-w-0 break-words [overflow-wrap:anywhere]">
+                  <span className="font-mono tabular-nums tracking-tight">{stockCode}</span>
+                  {stockName && <> <span>{stockName}</span></>}
+                </span>
+                {priceHint && <span className="text-sm text-muted-foreground shrink-0 whitespace-nowrap">@ {currencySymbol}{priceHint}</span>}
+                {quantity && <span className="text-sm text-muted-foreground shrink-0 whitespace-nowrap">{quantity} {quantityUnit}</span>}
               </div>
               {reasonSummary && <p className="text-sm">{reasonSummary}</p>}
               {reasonDetail && <p className="text-xs text-muted-foreground whitespace-pre-wrap">{reasonDetail}</p>}
