@@ -655,14 +655,14 @@ function HoldingsSectorSummaryImpl({
         </div>
       )}
 
-      {/* ═══ 100% 產業帶 ═══ */}
-      <div style={{ padding: '16px 0 6px' }}>
+      {/* ═══ 100% 產業帶（高 34px + 2px 白縫） ═══ */}
+      <div style={{ padding: '8px 0 6px' }}>
         <div
           role="img"
           aria-label={`產業市值分佈：${bandSegs.map((s) => `${s.key} ${s.pct.toFixed(0)}%`).join('、')}`}
           style={{
-            display: 'flex', width: '100%', height: 22,
-            border: '1px solid var(--cm-ink)', background: 'var(--cm-fill)',
+            display: 'flex', width: '100%', height: 34,
+            background: 'var(--cm-bg)',
           }}
         >
           {bandSegs.map((seg, i) => {
@@ -679,7 +679,7 @@ function HoldingsSectorSummaryImpl({
                 style={{
                   width: `${seg.pct}%`, height: '100%',
                   background: seg.color, border: 'none', padding: 0,
-                  borderRight: i < bandSegs.length - 1 ? '1px solid var(--cm-bg)' : 'none',
+                  marginRight: i < bandSegs.length - 1 ? 2 : 0,
                   cursor: isOthers ? 'default' : 'pointer',
                   outline: on ? '2px solid var(--cm-ink)' : 'none',
                   outlineOffset: -2, transition: 'filter 0.15s ease',
@@ -688,59 +688,96 @@ function HoldingsSectorSummaryImpl({
             )
           })}
         </div>
-        {/* 刻度 */}
+        {/* 帶下標籤列：前 3–4 名 + 其他 */}
         <div
-          aria-hidden
           style={{
-            display: 'flex', justifyContent: 'space-between',
-            fontSize: 9, color: 'var(--cm-ink-mute)',
-            marginTop: 3, letterSpacing: '0.14em',
+            display: 'flex', flexWrap: 'wrap', gap: '4px 14px',
+            marginTop: 8, fontSize: 11, color: 'var(--cm-ink-sub)',
+            letterSpacing: '0.02em',
           }}
         >
-          <span>0</span><span>25</span><span>50</span><span>75</span><span>100%</span>
+          {bandSegs.slice(0, 4).map((seg, i) => (
+            <span key={`lbl-${seg.key}-${i}`} style={{ display: 'inline-flex', alignItems: 'baseline', gap: 6 }}>
+              <span
+                aria-hidden
+                style={{ width: 8, height: 8, background: seg.color, display: 'inline-block' }}
+              />
+              <span>{seg.key}</span>
+              <span className="cm-num" style={{ color: 'var(--cm-ink)', fontWeight: 500 }}>
+                {seg.pct.toFixed(0)}%
+              </span>
+            </span>
+          ))}
+          {bandSegs.length > 4 && (
+            <span style={{ color: 'var(--cm-ink-sec)' }}>
+              其他 {bandSegs.slice(4).reduce((s, x) => s + x.pct, 0).toFixed(0)}%
+            </span>
+          )}
         </div>
       </div>
 
-      {/* ═══ 三欄索引 ═══ */}
-      <div
-        style={{
-          display: 'grid',
-          gridTemplateColumns: 'repeat(3, minmax(0, 1fr))',
-          gap: 0, marginTop: 16,
-          borderTop: '1px solid var(--cm-ink)',
-          borderBottom: '1px solid var(--cm-ink)',
-        }}
-      >
-        <ColumnIndex
-          title="產業"
-          rows={industryByValue.map((x: any) => ({
-            key: x.key,
-            primary: `${x.pct.toFixed(0)}%`,
-            secondary: `${x.count}檔`,
-          }))}
-          kind="industry"
-          isSelected={isSelected}
-          toggle={toggle}
-          colorFn={(i) => bandColor(i)}
-          isRight={false}
-        />
-        <ColumnIndex
-          title="題材"
-          rows={themeByCount.map((t: any) => ({ key: t.key, primary: `${t.count}`, secondary: '檔' }))}
-          kind="theme"
-          isSelected={isSelected}
-          toggle={toggle}
-          emptyText="無題材標籤"
-        />
-        <ColumnIndex
-          title="策略"
-          rows={strategyByCount.map((s: any) => ({ key: s.key, primary: `${s.count}`, secondary: '檔' }))}
-          kind="strategy"
-          isSelected={isSelected}
-          toggle={toggle}
-          isRight
-        />
+      {/* ═══ 索引 ↓（收合三欄清單 + 篩選預設） ═══ */}
+      <div style={{ marginTop: 10, borderTop: '1px solid var(--cm-hair)' }}>
+        <button
+          type="button"
+          onClick={() => setIndexOpen((v) => !v)}
+          aria-expanded={indexOpen}
+          className="cm-label"
+          style={{
+            display: 'flex', alignItems: 'center', gap: 6,
+            padding: '8px 0', background: 'transparent', border: 'none',
+            color: 'var(--cm-ink)', cursor: 'pointer', fontFamily: 'inherit',
+            letterSpacing: '0.14em', fontSize: 10,
+          }}
+        >
+          索引 {indexOpen ? '↑' : '↓'}
+          <span style={{ color: 'var(--cm-ink-mute)', marginLeft: 4 }}>
+            產業 {industryByValue.length} · 題材 {themeByCount.length} · 策略 {strategyByCount.length}
+          </span>
+        </button>
+        {indexOpen && (
+          <div
+            style={{
+              display: 'grid',
+              gridTemplateColumns: 'repeat(3, minmax(0, 1fr))',
+              gap: 0,
+              borderTop: '1px solid var(--cm-hair)',
+              borderBottom: '1px solid var(--cm-ink)',
+            }}
+          >
+            <ColumnIndex
+              title="產業"
+              rows={industryByValue.map((x: any) => ({
+                key: x.key,
+                primary: `${x.pct.toFixed(0)}%`,
+                secondary: `${x.count}檔`,
+              }))}
+              kind="industry"
+              isSelected={isSelected}
+              toggle={toggle}
+              accentFirst
+              isRight={false}
+            />
+            <ColumnIndex
+              title="題材"
+              rows={themeByCount.map((t: any) => ({ key: t.key, primary: `${t.count}`, secondary: '檔' }))}
+              kind="theme"
+              isSelected={isSelected}
+              toggle={toggle}
+              emptyText="無題材標籤"
+            />
+            <ColumnIndex
+              title="策略"
+              rows={strategyByCount.map((s: any) => ({ key: s.key, primary: `${s.count}`, secondary: '檔' }))}
+              kind="strategy"
+              isSelected={isSelected}
+              toggle={toggle}
+              isRight
+            />
+          </div>
+        )}
       </div>
+
 
       {/* ═══ 附註區 ═══ */}
       {(singleHolding || warnings.length > 0 || overDiversified || unclassifiedCount > 0 || multiIndustryCount > 0) && (
