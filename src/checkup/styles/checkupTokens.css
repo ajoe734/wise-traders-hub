@@ -278,6 +278,9 @@
 }
 .checkup-mono .cm-upload-cta:hover { filter: brightness(0.95); }
 
+/* 頁面內距 token 套用（Batch E §3） */
+.checkup-mono .cm-page-content { padding: 14px var(--cm-page-px); }
+
 /* 手機隱藏桌機頂欄 tabs、桌機隱藏底欄 */
 @media (max-width: 640px) {
   .checkup-mono .cm-desktop-tabs { display: none !important; }
