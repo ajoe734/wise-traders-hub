@@ -32,21 +32,27 @@
 
 ## 待辦（依用戶決定：全部依序做完）
 
-### 批次 A · 抽屜 §4（`HoldingsDetailPanel.tsx`，1163 行）
-承接 §3.4 抽掉的內容 + 10 區塊重整：
-1. 操作列 sticky 全文字化
-2. 識別列（代號 · 產業 · 策略 + serif 名稱 26px + 30D sparkline）
-3. 報酬塔 + **持有脈絡**（tradeLog 推導：`持有 87 天 · 加碼 2 次 · 上次 6/12 減碼`）
-4. 建議印章行（sticky top:48px 手機）
-5. 一條價格軸（併掉成本/現價/TARGET/成本↔現價 4 圖）+ **目標價修正方向**
-6. 30D 走勢帶（併掉區間文字+區間位置圖）
-7. 佔比排名表（**甜甜圈刪除**）
-8. **決策履歷**（thesisTracking：日期｜建議｜動作｜其後 ±%）
-9. 情境模擬（`holdingScenario.ts computeScenario` 沿用）
-10. 論點引文 + 頁腳
+### 批次 A · 抽屜 §4（已完成視覺層＋結構重寫，✅）
+`HoldingsDetailPanel.tsx` 1163 → 750 行，10 區塊按規格重排：
+- **刪除**：`MiniChartsRow` / `ComparisonCharts` / `WeightDonut`（甜甜圈）／`PriceAxisChart` / `RangeChart` 舊 4 圖框、黑底 DECISION 盒、急迫度五點、反向 TARGET 紅條、`SHARE MODE`、RETURN/TARGET/THESIS/NEXT EVENT 英文小標、`showCharts`/`showRange`/`showCost`/`showTargetBar` prefs
+- **新增**：
+  - `<PriceAxis>`：一條 1px 髮絲軸、成本 灰刻度 + 目標 accent 刻度 + 現價 ink 圓點，同尺 ±5%
+  - `<RangeBand>`：30D sparkline + 現價 accent 點 + 中文「低 X — 高 Y」
+  - `<WeightRank>`：灰條 + 本檔 accent、`排名 #x／N`
+  - `<ThesisHistory>`：4 欄表格（日期｜建議｜動作｜其後 ±%）＋勝率尾註
+  - `<PriceAxis>` 內接 `tpHistory` → 顯示 `目標 X ↓Y%` + 編輯註記（「共識 N 日內由 X 下修至 Y…」）
+  - 建議印章行（`.holdings-detail-decision` sticky top:48px 手機）：上下 1px ink 線、serif「建議 —— 續抱／檢視／出場」＋「急迫度 · 立即/儘快/觀察/低」
+  - 頁腳 nav：`‹ 上一檔名 ｜ 研究筆記 ｜ 下一檔名 ›` serif
+  - `holdContext`（tradeLog 推導：持有 N 天 · 加碼 M 次 · 上次 X/Y 減碼）
+- **保留**：SortMenu / PrefsMenu（收斂為論點+情境模擬 2 toggle）/ ExportMenu（三段 seg + 立即匯出，`data-testid` 全保留）、鍵盤 Cmd+Z / Cmd+Shift+Z、離屏匯出、sync overlay、a11y
+- **中文化**：TODAY→今日、VALUE→市值、RETURN→報酬（大字直接呈現，不加標籤）、TARGET→目標、DECISION→建議、THESIS→論點、NEXT EVENT→下個事件、HOLD/REVIEW/EXIT→續抱/檢視/出場、NOW/SOON/MONITOR/LOW→立即/儘快/觀察/低
+- **e2e / CSS**：
+  - `e2e/holdings-detail-panel-wide.spec.ts` / `narrow.spec.ts` 改斷言 `[data-testid="decision-stamp"]` + 無 `comparison-charts`
+  - `holdingsDetailPanel.css` 刪除 `.hp-charts-row` / `.hp-cmp-row` 死規則；`.holdings-detail-decision` sticky top 由 0 改 48
+- **待批次 A2 通線**：`tradeLog` / `targetPriceHistory[code]` / `thesisTracking[code]` 從 `FreeCheckup.jsx` → `HoldingsWorkbench` → `HoldingsDetailPanel` 三層 prop 通道；資料未通時 §4.3 / §4.5 / §4.8 三區以 optional chain 靜默隱藏，不會 crash
 
-**刪除清單**：甜甜圈、RETURN/TARGET/THESIS/NEXT EVENT 英文小標、黑底 DECISION 盒、急迫度五點、反向 TARGET 紅條
-**a11y / sync shimmer / error strip 全保留**
+### 批次 A2 · 抽屜資料源通線
+
 
 ### 批次 B · 產業分佈 §3.3（`HoldingsSectorSummary.tsx`，853 行）
 - 一條 100% 帶（高 34px、段間 2px 白縫）
