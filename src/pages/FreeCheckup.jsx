@@ -103,6 +103,7 @@ import {
   useFetchCalendarEventsRef,
 } from "@/hooks/useFreeCheckupBootstrap";
 import HoldingsIntroVideo from "@/checkup/components/HoldingsIntroVideo";
+import { Logomark } from "@/components/brand";
 
 // #region App() — 主元件（state、effects、JSX 全部 inline；遵守 inline 憲法）
 export default function App() {
