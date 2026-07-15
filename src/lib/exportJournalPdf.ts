@@ -62,7 +62,7 @@ const escapeHtml = (s: string) =>
 
 // 自架 woff2 字型 — 與 App 前台一致，避免 Google Fonts 未載入導致 PDF 版面漂移
 let fontsPromise: Promise<unknown> | null = null;
-const ensureFonts = async () => {
+export const ensureJournalPdfFonts = async () => {
   if (!fontsPromise) {
     fontsPromise = Promise.all([
       // Source Serif 4：cover 標題、章節 h2、簽名
@@ -90,6 +90,7 @@ const ensureFonts = async () => {
     ]);
   } catch {}
 };
+const ensureFonts = ensureJournalPdfFonts;
 
 
 const toDataUrl = async (src: string): Promise<string | null> => {
