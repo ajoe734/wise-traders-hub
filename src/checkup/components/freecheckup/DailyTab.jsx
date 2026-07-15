@@ -194,9 +194,9 @@ function DailyTabImpl({
                   title={dailyRetryLocked || analyzing ? '重試中，請稍候' : '重新嘗試收盤分析'}
                   style={{
                     padding:"6px 14px",borderRadius:6,
-                    border:`1px solid ${alpha(C.teal,'40')}`,
-                    background:alpha(C.teal,'08'),
-                    color:C.teal,fontSize:12,fontWeight:400,
+                    border:`1px solid ${C.text}`,
+                    background:"transparent",
+                    color:C.text,fontSize:12,fontWeight:400,
                     cursor:(analyzing||dailyRetryLocked)?"not-allowed":"pointer",
                     opacity:(analyzing||dailyRetryLocked)?0.5:1,
                     letterSpacing:"0.04em"}}>
