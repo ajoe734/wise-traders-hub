@@ -146,9 +146,22 @@ const SignalDetail = () => {
         </div>
         {/* Header: instrument + expert name + stock price */}
         {/* Row 1: Badge + ticker */}
-        <div className="flex items-center gap-3">
-          <Badge className={cn(ac.className, 'text-xs px-2 py-0.5')}>{ac.label}</Badge>
-          <span className="text-2xl font-bold">{displaySymbol}</span>
+        <div className="flex items-start gap-3 flex-wrap">
+          <Badge className={cn(ac.className, 'text-xs px-2 py-0.5 shrink-0 mt-1')}>{ac.label}</Badge>
+          <h1 className="text-2xl font-bold min-w-0 break-words [overflow-wrap:anywhere] leading-tight">
+            {tickerCode ? (
+              <>
+                <span className="font-mono tabular-nums tracking-tight">{tickerCode}</span>
+                {tickerName ? (
+                  <> <span>{tickerName}</span></>
+                ) : (
+                  <span className="text-muted-foreground">.TW</span>
+                )}
+              </>
+            ) : (
+              signal.instrument
+            )}
+          </h1>
         </div>
         {/* Row 2: date + expert name + role badge */}
         <div className="flex items-center gap-2 text-sm text-muted-foreground">
