@@ -11,6 +11,8 @@ import { Button } from '@/components/ui/button';
 import { toast } from '@/hooks/use-toast';
 import { Loader2, Shield, Search, RefreshCw, MoreHorizontal, Pencil, KeyRound, Ban, Trash2, ShieldOff, Eye } from 'lucide-react';
 import { launchViewAs } from '@/lib/viewAsLauncher';
+import { useNavigate } from 'react-router-dom';
+
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
 import { PermissionTooltip } from '@/components/admin/PermissionTooltip';
 import {
