@@ -90,6 +90,12 @@ export default defineConfig({
       use: { ...devices['Desktop Chrome'], viewport: { width: 390, height: 844 } },
     },
     {
+      // Demo × Real 兩模式 sparkline / ROI 派生一致性
+      name: 'iphone-390-sparkline-mode-parity',
+      testMatch: /freecheckup-sparkline-roi-mode-parity\.spec\.ts/,
+      use: { ...devices['Desktop Chrome'], viewport: { width: 390, height: 844 } },
+    },
+    {
       name: 'desktop-batch3',
       testMatch: /batch3-.*\.spec\.ts/,
       use: { ...devices['Desktop Chrome'], viewport: { width: 1280, height: 800 } },
