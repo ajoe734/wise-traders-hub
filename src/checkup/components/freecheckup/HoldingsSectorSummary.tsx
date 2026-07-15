@@ -791,13 +791,7 @@ function HoldingsSectorSummaryImpl({
           {singleHolding && (
             <div>— 僅 1 檔，暫無族群比較意義。</div>
           )}
-          {warnings.length > 0 && (
-            <div style={{ color: severe ? 'var(--cm-accent)' : 'var(--cm-ink-sec)' }}>
-              — 集中：{warnings.map((w: any) => `${w.key} ${w.count}檔 ${w.pct.toFixed(0)}%`).join('、')}
-              {severe && ' — 建議分散風險。'}
-            </div>
-          )}
-          {overDiversified && (
+          {overDiversified && !concentrationNote && (
             <div>— 產業數多且無明顯核心倉，追蹤成本較高，可考慮精簡。</div>
           )}
           {unclassifiedCount > 0 && (
