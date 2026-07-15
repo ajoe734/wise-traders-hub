@@ -191,12 +191,16 @@ const SignalDetail = () => {
           const unit = signal.quantity_unit || defaultQuantityUnit(cur);
           const total = signal.quantity != null ? Number(signal.price_hint) * Number(signal.quantity) : null;
           return (
-            <div className="text-sm text-muted-foreground">
-              參考價位：
-              <span className="font-medium text-foreground">
+            <div className="text-sm text-muted-foreground inline-flex items-baseline flex-wrap gap-x-1">
+              <span className="font-sans">參考價位：</span>
+              <span data-testid="sd-price" className="font-medium text-foreground whitespace-nowrap font-mono tabular-nums tracking-normal">
                 {sym}{Number(signal.price_hint).toLocaleString(undefined, { minimumFractionDigits: cur === 'USD' ? 2 : 0, maximumFractionDigits: 2 })}
-                {signal.quantity != null ? `（${signal.quantity}${unit}）` : ''}
               </span>
+              {signal.quantity != null && (
+                <span data-testid="sd-qty" className="font-medium text-foreground whitespace-nowrap font-mono tabular-nums tracking-normal">
+                  （{signal.quantity}<span className="font-sans">{unit}</span>）
+                </span>
+              )}
               {total != null && <FxHint amount={total} currency={cur} className="ml-2" showMeta={false} />}
             </div>
           );
