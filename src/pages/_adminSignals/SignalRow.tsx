@@ -61,7 +61,7 @@ export function SignalRow({
         </td>
         <td className="p-3 text-sm font-medium">
           <div className="flex items-center gap-1.5 flex-wrap">
-            <span>
+            <span className="break-words [overflow-wrap:anywhere]">
               {signal.action === 'teaching'
                 ? '純教學週記'
                 : `${signal.instrument}${isBatchCollapsed ? ` 等 ${batchInfo.get(signal.batch_id)!.count} 檔` : ''}`}
