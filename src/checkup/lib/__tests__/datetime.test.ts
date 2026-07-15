@@ -61,7 +61,7 @@ describe('daysSince', () => {
   it('無效 → null', () => {
     expect(daysSince(null)).toBeNull();
     expect(daysSince('garbage')).toBeNull();
-    expect(daysSince('2026-01-01', 'nope')).toBeNull();
+    expect(daysSince('2026-01-01', anyIn('nope'))).toBeNull();
   });
   it('邊界', () => {
     const now = new Date('2026-06-15T00:00:00');
