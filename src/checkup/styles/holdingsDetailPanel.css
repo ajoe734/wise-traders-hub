@@ -1,40 +1,22 @@
 /* HoldingsDetailPanel — 持倉抽屜手機優化。
- * 設計憲法：Kore-eda 極簡、無陰影、surface 同色 mask 替代 hard divider。
- * 守門：對應 e2e/holdings-export-menu.spec.ts 及目視 360/390/414 斷點。
+ * Handoff 2026-07-15 §4：Kore-eda 極簡、無陰影、surface 同色 mask 替代 hard divider。
+ * 守門：對應 e2e/holdings-export-menu.spec.ts / holdings-detail-panel-narrow.spec.ts
+ * ／wide.spec.ts；目視 360/390/414 斷點。
  */
 
-/* ====== 手機（≤640px）：DECISION sticky + Sandbox/Chart 橫滑 ====== */
+/* ====== 手機（≤640px）：建議印章行 sticky + Sandbox 橫滑 ====== */
 @media (max-width: 640px) {
+  /* §4 步驟 4：建議印章行手機 sticky（跟在操作列下方 48px） */
   .holdings-detail-decision {
     position: sticky;
-    top: 0;
+    top: 48px;
     z-index: 5;
-    /* 用 surface 同色 mask 替代 box-shadow，符合無陰影憲法 */
+    background: var(--bg, #FFFFFF);
     margin-left: -22px;
     margin-right: -22px;
     padding-left: 22px !important;
     padding-right: 22px !important;
     border-radius: 0 !important;
-  }
-  /* MiniChartsRow 水平 scroll */
-  .hp-charts-row {
-    display: flex !important;
-    grid-template-columns: none !important;
-    overflow-x: auto;
-    scroll-snap-type: x mandatory;
-    -webkit-overflow-scrolling: touch;
-    gap: 8px !important;
-    margin-left: -22px;
-    margin-right: -22px;
-    padding: 0 22px 4px;
-    scrollbar-width: none;
-  }
-  .hp-charts-row::-webkit-scrollbar { display: none; }
-  .hp-charts-row > * {
-    flex: 0 0 auto;
-    min-width: 82vw;
-    max-width: 82vw;
-    scroll-snap-align: start;
   }
 
   /* Sandbox：4 個 Field 橫向滑動 */
@@ -60,31 +42,4 @@
     grid-template-columns: repeat(2, 1fr) !important;
     row-gap: 10px !important;
   }
-}
-
-/* RWD：focus 區（RETURN 大數字 + DECISION 卡）在 ≤480px 折成單欄，避免擠壓 */
-@media (max-width: 480px) {
-  .holdings-detail-focus {
-    grid-template-columns: minmax(0, 1fr) !important;
-    row-gap: 12px;
-  }
-  .holdings-detail-decision {
-    min-width: 0 !important;
-  }
-}
-
-/* ====== MiniChartsRow / ComparisonCharts 響應式（C4 audit 2026-07）
- * 從 HoldingsDetailPanel.tsx L894-919 inline `<style>` 搬遷過來，
- * 讓 PostCSS 可壓縮、避免每次 render 重建 <style> node。
- * 手機（≤640）的 .hp-charts-row 橫滑規則在檔案上方已定義，
- * 這裡只補中間斷點與 .hp-cmp-row 的降階規則。
- */
-@media (max-width: 900px) {
-  .hp-cmp-row { grid-template-columns: repeat(2, minmax(0, 1fr)) !important; }
-}
-@media (max-width: 560px) {
-  .hp-charts-row { grid-template-columns: 1fr !important; }
-}
-@media (max-width: 520px) {
-  .hp-cmp-row { grid-template-columns: 1fr !important; }
 }
