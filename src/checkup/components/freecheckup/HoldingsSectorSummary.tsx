@@ -16,7 +16,7 @@
  * 憲法：零圓角、零陰影、hairline、負號 U+2212、cm-* tokens。
  * 所有 preset 邏輯（存/命/刪 2-step/排序/搜尋/重名檢查/高亮）保留。
  */
-import { memo, useEffect, useRef, useState } from 'react'
+import { memo, useEffect, useMemo, useRef, useState } from 'react'
 
 import {
   aggregateBySector,
