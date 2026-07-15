@@ -65,11 +65,8 @@ function HoldingCardReturnImpl({
   }), [subColor]);
 
   return (
-    <div aria-hidden="true" style={{
-      marginTop: variantStyle.marginTop,
-      marginBottom: variantStyle.marginBottom,
-    }}>
-      <div style={{ display: 'flex', alignItems: 'baseline', gap: variantStyle.rowGap }}>
+    <>
+      <div aria-hidden="true" style={rowStyle}>
         <span className="wb-roi" style={roiStyle}>
           {pnlArrow && <span style={ROI_ARROW_STYLE}>{pnlArrow}</span>}
           <span>
@@ -84,7 +81,7 @@ function HoldingCardReturnImpl({
         )}
       </div>
       <ReturnBar pct={pctVal} scale={40} className="wb-return-bar" />
-    </div>
+    </>
   );
 }
 
