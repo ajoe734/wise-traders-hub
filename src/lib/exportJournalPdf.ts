@@ -46,7 +46,7 @@ const COLORS = {
 
 // ActionBadge 螢幕 config 完整鏡像（含中文 label 與台股顏色）
 // src/components/ActionBadge.tsx actionConfig 為單一真源
-const actionMeta = (action: string) => {
+export const actionMeta = (action: string) => {
   const raw = (action || '').trim();
   const key = raw.toLowerCase();
   if (key === 'buy' || raw === '買進') return { label: '買進', bg: '#D94848', fg: '#FFFFFF' };
