@@ -23,6 +23,8 @@ import { SubscriptionTimeline } from '@/components/SubscriptionTimeline';
 import { useSubscriptionTimeline } from '@/hooks/useSubscriptionTimeline';
 import { useEffectiveUserId } from '@/hooks/useEffectiveUserId';
 import { UnavailableContent } from '@/components/UnavailableContent';
+import { parseInstrument, extractInstrumentCode } from '@/lib/instrument';
+import { resolveStockNames } from '@/lib/stockNameResolver';
 
 interface SignalDetail {
   id: string;
