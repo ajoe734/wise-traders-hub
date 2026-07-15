@@ -81,6 +81,7 @@ function HoldingsSectorSummaryImpl({
   })
   const [presetSearch, setPresetSearch] = useState('')
   const [pendingDeleteId, setPendingDeleteId] = useState<string | null>(null)
+  const [indexOpen, setIndexOpen] = useState(false)
   const pendingDeleteTimer = useRef<any>(null)
   const highlightTimer = useRef<any>(null)
   const presetRefs = useRef(new Map<string, HTMLElement>())
