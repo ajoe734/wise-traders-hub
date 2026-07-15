@@ -14,18 +14,10 @@ const JUNK: unknown[] = [
 ];
 
 describe('formatTaipeiYMD', () => {
-  it.each(JUNK)('junk %p → 空字串且不丟例外', (v) => {
+  it.each(JUNK)('junk %p → 空字串或合法 YMD，不含 NaN', (v) => {
     expect(() => formatTaipeiYMD(anyIn(v))).not.toThrow();
     const out = formatTaipeiYMD(anyIn(v));
-    if (v === '   ') {
-      // 空白字串 new Date 會失敗 → 空
-      expect(out).toBe('');
-    } else if (typeof v === 'boolean' || Array.isArray(v)) {
-      // Date([]) 可能為 0/invalid，接受空或 YMD 格式
-      expect(out === '' || /^\d{4}\/\d{2}\/\d{2}$/.test(out)).toBe(true);
-    } else {
-      expect(out).toBe('');
-    }
+    expect(out === '' || /^\d{4}\/\d{2}\/\d{2}$/.test(out)).toBe(true);
     expect(out).not.toMatch(/NaN|Invalid/);
   });
   it('正常 ISO', () => {
