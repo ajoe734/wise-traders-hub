@@ -110,17 +110,19 @@ const CompanyAnalysts = () => {
       toast.error(data?.error || error?.message || '建立失敗');
       return;
     }
-    toast.success('分析師已建立');
+    const adopted = !!data?.adopted;
+    toast.success(adopted ? '分析師資料已補齊' : '分析師已建立');
     await logAdminAction({
-      action: 'analyst.create',
+      action: adopted ? 'analyst.adopt' : 'analyst.create',
       targetType: 'experts',
       targetId: data?.expert_id ?? null,
-      detail: { after: { name, slug, role, email }, context: { email, role } },
+      detail: { after: { name, slug, role, email }, context: { email, role, adopted } },
     });
     setIsCreateOpen(false);
     clearForm();
     refetchExperts();
   };
+
 
   const toggleStatus = async (id: string, currentStatus: string) => {
     let newStatus: string;
