@@ -167,6 +167,7 @@ const CompanyAnalysts = () => {
             creating={creating}
             clearForm={clearForm}
             onCreate={handleCreate}
+            mode={dialogMode}
           />
         </div>
 
@@ -178,8 +179,10 @@ const CompanyAnalysts = () => {
           onOpenAccount={account.openAccountDialog}
           onToggleStatus={toggleStatus}
           onOpenSubscribers={(exp) => setSubscribersExpert({ id: exp.id, name: exp.name })}
+          onAdopt={handleAdopt}
         />
       </div>
+
 
       <LineChannelDialog editor={lineEditor} />
       <AccountCredentialsDialog account={account} />
