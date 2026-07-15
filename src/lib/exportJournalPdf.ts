@@ -459,8 +459,9 @@ export const exportJournalPdf = async (args: ExportArgs) => {
       const pageEl = wrapper.firstElementChild as HTMLElement;
       root.appendChild(pageEl);
 
-      // Wait a frame so fonts/layout settle
-      await new Promise((r) => requestAnimationFrame(() => r(null)));
+      // 截圖前守門：等 fonts.ready + polling auditFonts()，
+      // 消除首張截圖 fallback 到 Georgia / PingFang 的機率。
+      await waitForPageFontsReady(pageEl);
 
       const canvas = await html2canvas(pageEl, {
         scale: 2,
