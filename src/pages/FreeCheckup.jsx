@@ -3983,6 +3983,52 @@ ${JSON.stringify(strategyBrain || { rules: [], lessons: [], commonMistakes: [], 
         </div>
       )}
 
+      {/* Batch D §2：手機頂欄「更多」sheet — 收納同步、補價、日誌、清除 */}
+      {mobileActionsOpen && (
+        <>
+          <div className="cm-mobile-actions-sheet__backdrop" onClick={()=>setMobileActionsOpen(false)} />
+          <div className="cm-mobile-actions-sheet" role="dialog" aria-modal="true" aria-labelledby="cm-mobile-actions-title">
+            <h3 id="cm-mobile-actions-title" className="cm-mobile-actions-sheet__title">更多</h3>
+            {!isDemo && (
+              <button type="button" className="cm-mobile-actions-sheet__item"
+                onClick={()=>{ setMobileActionsOpen(false); navigate("/app"); }}>
+                前往戰情室 →
+              </button>
+            )}
+            {H.length > 0 && (
+              <button type="button" className="cm-mobile-actions-sheet__item"
+                disabled={serverSyncing}
+                onClick={()=>{ setMobileActionsOpen(false); triggerServerSync(); }}>
+                {serverSyncing ? '同步中…' : '⟳ 立即更新報價'}
+              </button>
+            )}
+            {H.length > 0 && (H || []).some(h => !h.priceSource || h.priceError) && (
+              <button type="button" className="cm-mobile-actions-sheet__item"
+                disabled={backfilling}
+                onClick={()=>{ setMobileActionsOpen(false); runBackfillReport(); }}>
+                {backfilling ? '補抓中…' : '補齊缺價持倉'}
+              </button>
+            )}
+            {syncLog.length > 0 && (
+              <button type="button" className="cm-mobile-actions-sheet__item"
+                onClick={()=>{ setMobileActionsOpen(false); downloadSyncLog(); }}>
+                ↓ 下載任務日誌（{syncLog.length}）
+              </button>
+            )}
+            <button type="button" className="cm-mobile-actions-sheet__item cm-mobile-actions-sheet__item--danger"
+              onClick={()=>{ setMobileActionsOpen(false); setShowResetConfirm(true); }}>
+              清除全部資料
+            </button>
+            <button type="button" className="cm-mobile-actions-sheet__item"
+              style={{ textAlign: 'center', color: 'var(--cm-ink-sec)' }}
+              onClick={()=>setMobileActionsOpen(false)}>
+              取消
+            </button>
+          </div>
+        </>
+      )}
+
+
       {/* ══════════ 持倉資料庫 Detail Drawer ══════════ */}
       <Sheet open={drawerOpen} onOpenChange={handleDrawerOpenChange}>
         <SheetContent
