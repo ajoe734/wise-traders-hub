@@ -40,6 +40,7 @@ function HoldingsHeroImpl(props) {
   return (
     <section
       aria-label="持倉概覽"
+      data-testid="holdings-hero"
       style={{
         padding: '24px 4px 22px',
         marginBottom: 18,

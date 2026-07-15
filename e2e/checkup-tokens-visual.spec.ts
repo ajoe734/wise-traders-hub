@@ -137,6 +137,65 @@ test.describe('Checkup tokens visual — /holding-checkup', () => {
         scale: 'css',
       },
     );
+
+    // 7) Hero — 持倉概覽 section（未實現損益 + 狀態列）
+    //    以 [data-testid="holdings-hero"] 定位；等它可見再截圖
+    const hero = page.locator('[data-testid="holdings-hero"]').first();
+    await hero.waitFor({ state: 'visible', timeout: 10_000 });
+    // hero 內部有相對時間文案，穩定化：把時間節點藏起（Playwright add style）
+    await page.addStyleTag({
+      content: `[data-testid="holdings-hero"] [data-live-timestamp],
+                [data-testid="holdings-hero"] time { visibility: hidden !important; }`,
+    });
+    await expect(hero).toHaveScreenshot(
+      `checkup-tokens-hero-${testInfo.project.name}.png`,
+      { maxDiffPixelRatio: 0.02, animations: 'disabled', caret: 'hide', scale: 'css' },
+    );
+
+    // 8) 持倉卡 — 第一張 .wb-card（未展開狀態）
+    //    有 demo 資料保底；若真的沒卡（新註冊會員）就跳過此檢查
+    const firstCard = page.locator('.holdings-card-grid .wb-card').first();
+    const cardCount = await page.locator('.holdings-card-grid .wb-card').count();
+    if (cardCount > 0) {
+      await firstCard.waitFor({ state: 'visible', timeout: 10_000 });
+      // 等 sparkline 準備好（若有）或 220ms 讓 layout 穩定
+      await page
+        .waitForFunction(
+          () => {
+            const c = document.querySelector('.holdings-card-grid .wb-card');
+            return !!c && !c.hasAttribute('aria-busy');
+          },
+          { timeout: 5_000 },
+        )
+        .catch(() => {});
+      await page.waitForTimeout(220);
+      await expect(firstCard).toHaveScreenshot(
+        `checkup-tokens-holding-card-${testInfo.project.name}.png`,
+        { maxDiffPixelRatio: 0.03, animations: 'disabled', caret: 'hide', scale: 'css' },
+      );
+
+      // 9) 抽屜 — Shift+Enter 或 dblclick 開啟 HoldingsDetailPanel
+      //    使用 keyboard 觸發避免 pointer hover 差異
+      await firstCard.focus();
+      await page.keyboard.down('Shift');
+      await page.keyboard.press('Enter');
+      await page.keyboard.up('Shift');
+      const drawer = page.locator('[data-testid="holdings-detail-panel"]').first();
+      await drawer.waitFor({ state: 'visible', timeout: 10_000 });
+      // 等 Radix Dialog 動畫結束 + 內容 lazy import 完成
+      await page.waitForTimeout(400);
+      await page.evaluate(() => document.fonts?.ready);
+      // 抽屜可能超出 viewport → 用 element screenshot 保證完整
+      await expect(drawer).toHaveScreenshot(
+        `checkup-tokens-drawer-${testInfo.project.name}.png`,
+        {
+          maxDiffPixelRatio: 0.03,
+          animations: 'disabled',
+          caret: 'hide',
+          scale: 'css',
+        },
+      );
+    }
   });
 });
 
