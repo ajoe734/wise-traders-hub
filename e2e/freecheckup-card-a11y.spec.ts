@@ -103,10 +103,12 @@ test.describe('HoldingCard — 鍵盤與 ARIA 回歸（memoization 後）', () =
     await first.evaluate((el: HTMLElement) => el.focus());
     await page.keyboard.press('Shift+Enter');
 
-    // 抽屜可能透過 role=dialog、data-testid、或 .wb-drawer 呈現 — 窮舉三種
-    const drawerLoc = page.locator(
-      'role=dialog, [data-testid="holding-decision-drawer"], .wb-drawer, [data-holding-drawer]',
-    );
+    // 抽屜可能透過 role=dialog、data-testid、或 .wb-drawer 呈現 — 窮舉四種
+    const drawerLoc = page
+      .getByRole('dialog')
+      .or(page.locator('[data-testid="holding-decision-drawer"]'))
+      .or(page.locator('.wb-drawer'))
+      .or(page.locator('[data-holding-drawer]'));
     await expect(drawerLoc.first()).toBeVisible({ timeout: 5_000 });
   });
 
