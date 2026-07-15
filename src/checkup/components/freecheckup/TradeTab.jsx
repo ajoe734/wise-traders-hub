@@ -277,13 +277,14 @@ function TradeTabImpl({
             }}>
               <div style={{display:'flex',alignItems:'center',justifyContent:'space-between',gap:8,marginBottom:6}}>
                 <span style={{fontSize:12,fontWeight:500,letterSpacing:'0.04em',color:parseStep.stage==='error'?C.down:parseStep.stage==='done'?C.olive:C.text}}>
-                  {parseStep.stage==='upload' && '① '}
-                  {parseStep.stage==='ai' && '② '}
-                  {parseStep.stage==='retry' && '② '}
-                  {parseStep.stage==='persist' && '③ '}
-                  {parseStep.stage==='refresh' && '④ '}
-                  {parseStep.stage==='done' && '✓ '}
-                  {parseStep.stage==='error' && '✕ '}
+                  {parseStep.stage==='upload' && '1 · '}
+                  {parseStep.stage==='ai' && '2 · '}
+                  {parseStep.stage==='retry' && '2 · '}
+                  {parseStep.stage==='persist' && '3 · '}
+                  {parseStep.stage==='refresh' && '4 · '}
+                  {parseStep.stage==='done' && '完成 · '}
+                  {parseStep.stage==='error' && '失敗 · '}
+
                   {parseStep.label}
                 </span>
                 <span style={{fontSize:11,color:C.textMute,fontVariantNumeric:'tabular-nums'}}>{parseStep.progress}%</span>
