@@ -1,41 +1,27 @@
 // @ts-nocheck
 /**
- * HoldingCardPriceTrack — 第 3 層：成本→現價文字帶 + 決策文字摘要。
- * 決策文字放在此層是刻意的：讓「價格如何走→為何持有」在視覺上緊鄰。
+ * HoldingCardPriceTrack — 第 3 層：Monocle 價格軌（1px 髮絲線 + 成本刻度 + 現價圓點）+
+ * 「成本 X ｜ 現價 Y」10px 標籤級文字。
  *
- * 效能：
- *  - `decText` 以 `useMemo([dec?.actionText, meta?.strategy, isFeature])` 快取，
- *    避免每次現價 tick 都跑 `truncateAction` 正規表達式。
- *  - 成本 / 現價 顯示字串 (`costStr` / `priceStr`) 以 `useMemo` 快取。
- *  - 排版樣式物件依 `isFeature` / `subColor` 快取，維持 DOM diff 輕量。
+ * Handoff §3.4 步驟 3：
+ *   - 已改用 `_ui/PriceTrack.tsx`（.cm-pricetrack 憲法）。
+ *   - **刪除** 決策/策略散文（`decText` fallback）— 移入抽屜 §4。
+ *
+ * DOM 契約：保留外層 div 讓 e2e 觀察容器；文字節點以 `成本 → 現價` 順序輸出，
+ * 與舊 parity spec 一致（新 e2e 於本輪重寫）。
  */
 import { memo, useMemo } from 'react';
-
-const truncateAction = (txt, limit) => {
-  if (!txt || txt.length <= limit) return txt;
-  const head = txt.slice(0, limit);
-  const m = head.match(/^(.*[。、，；！？,.;!?])[^。、，；！？,.;!?]*$/);
-  const cut = m ? m[1] : head.slice(0, limit - 2);
-  return cut + '…';
-};
+import PriceTrack from '../PriceTrack';
 
 function HoldingCardPriceTrackImpl({
   h,
-  meta,
-  dec,
+  meta: _meta, // eslint-disable-line no-unused-vars
+  dec: _dec,   // eslint-disable-line no-unused-vars
   subColor,
   muteColor,
   variant = 'normal',
 }) {
   const isFeature = variant === 'ink';
-
-  const decText = useMemo(() => {
-    const decLimit = isFeature ? 90 : 60;
-    const decFallback = isFeature
-      ? (meta?.strategy || '持續監控基本面與籌碼變動。')
-      : (meta?.strategy ? meta.strategy.slice(0, 40) : '');
-    return dec?.actionText ? truncateAction(dec.actionText, decLimit) : decFallback;
-  }, [dec?.actionText, meta?.strategy, isFeature]);
 
   const costStr = useMemo(
     () => (h.cost != null ? Number(h.cost).toFixed(2) : '—'),
@@ -46,50 +32,42 @@ function HoldingCardPriceTrackImpl({
     [h.price],
   );
 
-  const rowStyle = useMemo(() => ({
-    display: 'flex', alignItems: 'baseline', gap: 8,
+  const wrapStyle = useMemo(() => ({
     marginBottom: isFeature ? 10 : 8,
-    fontSize: 11, color: subColor,
-    fontVariantNumeric: 'tabular-nums', letterSpacing: '0.04em',
-  }), [isFeature, subColor]);
-
-  const labelStyle = useMemo(() => ({
-    color: muteColor, letterSpacing: '0.12em', fontSize: 9, opacity: 0.8,
-  }), [muteColor]);
-
-  const arrowStyle = useMemo(
-    () => ({ color: muteColor, opacity: 0.6 }),
-    [muteColor],
-  );
-
-  const decWrapStyle = useMemo(() => ({
-    flex: 1, display: 'flex',
-    alignItems: isFeature ? 'center' : 'flex-end',
-    gap: isFeature ? 18 : 14,
-    minHeight: isFeature ? 48 : 40,
-    paddingTop: isFeature ? 0 : 4,
   }), [isFeature]);
 
-  const decTextStyle = useMemo(() => ({
-    flex: 1, fontSize: 11, color: subColor,
-    lineHeight: isFeature ? 1.7 : 1.65,
-    letterSpacing: isFeature ? '0.01em' : 0,
-  }), [isFeature, subColor]);
+  const legendStyle = useMemo(() => ({
+    display: 'flex',
+    justifyContent: 'space-between',
+    fontSize: 10,
+    letterSpacing: '0.10em',
+    color: muteColor,
+    fontVariantNumeric: 'tabular-nums',
+    marginTop: 4,
+  }), [muteColor]);
+
+  const labelStyle = useMemo(() => ({
+    color: muteColor, opacity: 0.85,
+  }), [muteColor]);
+
+  const valStyle = useMemo(() => ({
+    color: subColor, marginLeft: 4,
+  }), [subColor]);
 
   return (
-    <>
-      <div style={rowStyle}>
-        <span style={labelStyle}>成本</span>
-        <span>{costStr}</span>
-        <span style={arrowStyle}>→</span>
-        <span style={labelStyle}>現價</span>
-        <span>{priceStr}</span>
+    <div className="wb-price-track" style={wrapStyle}>
+      <PriceTrack cost={Number(h.cost)} now={Number(h.price)} />
+      <div style={legendStyle}>
+        <span>
+          <span style={labelStyle}>成本</span>
+          <span style={valStyle}>{costStr}</span>
+        </span>
+        <span>
+          <span style={labelStyle}>現價</span>
+          <span style={valStyle}>{priceStr}</span>
+        </span>
       </div>
-
-      <div style={decWrapStyle}>
-        <div style={decTextStyle}>{decText}</div>
-      </div>
-    </>
+    </div>
   );
 }
 
