@@ -29,7 +29,7 @@ test.describe('Holdings detail panel @ 1280px (wide viewport)', () => {
     await page.locator('.wb-card').first().waitFor({ state: 'visible', timeout: 15_000 });
   });
 
-  test('單擊持倉卡 → 顯示新版 HoldingsDetailPanel + ComparisonCharts + ExportMenu，且無 legacy overlay', async ({ page }) => {
+  test('單擊持倉卡 → 顯示新版 HoldingsDetailPanel（§4）+ 建議印章行 + ExportMenu', async ({ page }) => {
     await page.locator('.wb-card').first().click();
 
     const panel = page.locator('[data-testid="holdings-detail-panel"]');
@@ -39,15 +39,22 @@ test.describe('Holdings detail panel @ 1280px (wide viewport)', () => {
     await expect(page.getByText('返回列表', { exact: false })).toHaveCount(0);
     await expect(page.getByText('來自：', { exact: false })).toHaveCount(0);
 
-    // 窄螢幕提示帶在寬螢幕應隱藏（CSS media query ≥1024px → display:none）
+    // 窄螢幕提示帶在寬螢幕應隱藏
     const hint = page.locator('[data-testid="holdings-panel-narrow-hint"]');
     await expect(hint).toBeHidden();
 
-    // ComparisonCharts 可見
-    await expect(panel.locator('[data-testid="holdings-comparison-charts"]')).toBeVisible();
+    // §4 刪除：ComparisonCharts / 甜甜圈 / 英文 DECISION 盒
+    await expect(panel.locator('[data-testid="holdings-comparison-charts"]')).toHaveCount(0);
+    await expect(panel.getByText(/^DECISION$/)).toHaveCount(0);
+    await expect(panel.getByText(/^RETURN$/)).toHaveCount(0);
+    await expect(panel.getByText(/^TARGET$/)).toHaveCount(0);
 
-    // ExportMenu 與三段 segmented + 立即匯出按鈕
-    // Radix DropdownMenu 會 portal Content 到 body，所以 seg / trigger 在 page 層級查
+    // §4 新增：建議印章行（中文「建議」+ 急迫度）
+    await expect(panel.locator('[data-testid="decision-stamp"]')).toBeVisible();
+    await expect(panel.locator('[data-testid="decision-stamp"]')).toContainText('建議');
+    await expect(panel.locator('[data-testid="decision-stamp"]')).toContainText('急迫度');
+
+    // ExportMenu 與三段 segmented + 立即匯出按鈕（功能保留）
     const exportMenu = panel.locator('[data-testid="holdings-export-menu"]');
     await expect(exportMenu).toBeVisible();
     await exportMenu.click();
