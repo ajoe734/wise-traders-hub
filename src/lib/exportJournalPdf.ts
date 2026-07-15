@@ -498,6 +498,19 @@ export const renderJournalPageHtmls = async (
     for (const html of chunked) pageHtmls.push(buildPage('本週操作回顧', weekNum, html));
   }
 
+  // 成交明細 + 產業分佈 —— 只在有 signals 時輸出，各佔一頁；
+  // 這兩頁與螢幕呈現對齊，交由 harness 做視覺回歸守門
+  if (args.weekSignals.length) {
+    pageHtmls.push(
+      buildPage('本週成交明細', weekNum, buildTradeDetailBodyHtml(args.weekSignals)),
+    );
+    pageHtmls.push(
+      buildPage('本週產業分佈', weekNum, buildSectorDistributionBodyHtml(args.weekSignals)),
+    );
+  }
+
+
+
   if (args.learningPoints.length) {
     const lpBlocks = args.learningPoints.map(
       (p) => `
