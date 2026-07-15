@@ -115,49 +115,49 @@ function DailyTabImpl({
               </div>
             </div>
           )}
-          {/* 手動觸發按鈕 */}
+          {/* §6.1 起始態：serif 節標 + 一句提示 + 文字鏈結（刪除置中大 teal 按鈕/字距標題） */}
            {!dailyReport && !analyzing && (
-             <div style={{textAlign:"center",padding:"36px 16px",marginBottom:14}}>
-               <div style={{fontSize:10,color:C.text,letterSpacing:"0.12em",fontWeight:700,marginBottom:10}}>每 日 收 盤 分 析</div>
-               <div style={{fontSize:13,color:C.textSec,marginBottom:20,lineHeight:1.8,fontWeight:600}}>
-                 分析今日股價變動與事件連動性<br/>自動比對持倉漲跌、異常波動、策略建議
+             <div style={{padding:"24px 0 20px",marginBottom:14,borderBottom:`1px solid ${alpha(C.textMute,'20')}`}}>
+               <h3 style={{margin:0,fontFamily:"'Noto Serif TC',ui-serif,Georgia,serif",fontSize:20,color:C.text,fontWeight:400,letterSpacing:0}}>收盤分析</h3>
+               <div style={{fontSize:13,color:C.textSec,marginTop:10,lineHeight:1.9}}>
+                 分析今日股價變動、事件連動性，比對持倉漲跌、異常波動、策略建議。
                </div>
-               <button onClick={runDailyAnalysis} disabled={hasReachedDailyLimit} style={{
-                 padding:"10px 24px",borderRadius:8,
-                 border:`1px solid ${alpha(C.teal,'30')}`,
-                 background:alpha(C.teal,'06'),
-                  color:hasReachedDailyLimit ? C.textSec : C.teal,fontSize:13,fontWeight:700,
-                 cursor:hasReachedDailyLimit ? "not-allowed" : "pointer",
-                 opacity:hasReachedDailyLimit ? 0.5 : 1,
-                 letterSpacing:"0.04em"}}>
-                  {hasReachedDailyLimit ? `🔒 ${tier === 'none' ? '需訂閱方案' : tier === 'line_free' ? '免費／補償額度已用完' : (quota?.period === 'week' ? '本週' : '本月') + '配額已用完'}` : "開始今日收盤分析"}
-                 </button>
-                 {!hasReachedDailyLimit && typeof runDailyAnalysisInBackground === 'function' && (
-                   <div style={{marginTop:10}}>
-                     <button onClick={runDailyAnalysisInBackground} style={{
-                       padding:"6px 16px",borderRadius:6,
-                       border:`1px solid ${alpha(C.textMute,'25')}`,
-                       background:'transparent',color:C.textMute,
-                       fontSize:11,fontWeight:400,cursor:'pointer',letterSpacing:'0.04em'
-                     }}>背景跑（可關頁面）</button>
-                   </div>
-                 )}
-                  <div style={{fontSize:11,color:C.textSec,fontWeight:600,marginTop:10,lineHeight:1.7}}>
-                   {hasReachedDailyLimit
-                     ? <>
-                         {(tier !== 'none' && tier !== 'line_free') && formatResetCountdown(quota?.resets_at)}
-                         {tier === 'line_free' && <>免費／補償額度已用完（使用日 {formatTaipeiYMD(quota?.last_used_at) || '尚未紀錄'}）</>}
-                         {tier === 'none' && '訂閱後即可開始使用'}
-                         {(tier === 'free' || tier === 'basic' || tier === 'line_free' || tier === 'none') && (
-                           <>　・　<a href="/pricing#checkup" onClick={() => trackPaywall('click_upgrade', 'daily_tab_limit', { tier })} style={{color:C.blue,textDecoration:"none"}}>查看訂閱方案 →</a></>
-                         )}
-                       </>
-                     : (tier === 'line_free'
-                         ? ((Number(quota?.entitlement_total || 0) > 0)
-                             ? <>🎁 已回送補償額度・還可使用 <span style={{color:C.text,fontWeight:500}}>{Math.max((quota?.limit || 0) - (quota?.used || 0), 0)}</span> 次</>
-                             : <>LINE 註冊禮：第一次免費；第二次起需付費・還可使用 <span style={{color:C.text,fontWeight:500}}>{Math.max((quota?.limit || 0) - (quota?.used || 0), 0)}</span> 次</>)
-                         : "收盤後按下即可開始分析")}
-                 </div>
+               <div style={{marginTop:16,display:"flex",alignItems:"center",gap:16,flexWrap:"wrap"}}>
+                 <button onClick={runDailyAnalysis} disabled={hasReachedDailyLimit} style={{
+                   padding:"8px 0",
+                   border:"none",borderBottom:`1px solid ${C.text}`,
+                   background:"transparent",
+                   color:hasReachedDailyLimit ? C.textMute : C.text,
+                   fontSize:13,fontWeight:400,
+                   cursor:hasReachedDailyLimit ? "not-allowed" : "pointer",
+                   opacity:hasReachedDailyLimit ? 0.5 : 1,
+                   letterSpacing:"0.04em"}}>
+                   {hasReachedDailyLimit ? (tier === 'none' ? '需訂閱方案' : tier === 'line_free' ? '免費配額已用完' : (quota?.period === 'week' ? '本週' : '本月') + '配額已用完') : "開始今日收盤分析 →"}
+                  </button>
+                  {!hasReachedDailyLimit && typeof runDailyAnalysisInBackground === 'function' && (
+                    <button onClick={runDailyAnalysisInBackground} style={{
+                      padding:"4px 0",
+                      border:"none",background:'transparent',color:C.textMute,
+                      fontSize:12,fontWeight:400,cursor:'pointer',letterSpacing:'0.04em'
+                    }}>背景執行 →</button>
+                  )}
+               </div>
+               <div style={{fontSize:11,color:C.textMute,marginTop:12,lineHeight:1.8}}>
+                    {hasReachedDailyLimit
+                      ? <>
+                          {(tier !== 'none' && tier !== 'line_free') && formatResetCountdown(quota?.resets_at)}
+                          {tier === 'line_free' && <>免費／補償額度已用完（使用日 {formatTaipeiYMD(quota?.last_used_at) || '尚未紀錄'}）</>}
+                          {tier === 'none' && '訂閱後即可開始使用'}
+                          {(tier === 'free' || tier === 'basic' || tier === 'line_free' || tier === 'none') && (
+                            <>　·　<a href="/pricing#checkup" onClick={() => trackPaywall('click_upgrade', 'daily_tab_limit', { tier })} style={{color:C.text,textDecoration:"underline"}}>查看訂閱方案 →</a></>
+                          )}
+                        </>
+                      : (tier === 'line_free'
+                          ? ((Number(quota?.entitlement_total || 0) > 0)
+                              ? <>已回送補償額度・還可使用 <span style={{color:C.text}}>{Math.max((quota?.limit || 0) - (quota?.used || 0), 0)}</span> 次</>
+                              : <>LINE 註冊禮：第一次免費；第二次起需付費・還可使用 <span style={{color:C.text}}>{Math.max((quota?.limit || 0) - (quota?.used || 0), 0)}</span> 次</>)
+                          : "收盤後按下即可開始分析")}
+                  </div>
              </div>
             )}
 
