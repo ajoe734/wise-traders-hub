@@ -537,10 +537,10 @@ function DailyTabImpl({
             const validHistory = (analysisHistory||[]).filter(r => r.changes && r.changes.length > 0);
             if (validHistory.length === 0) return null;
             return (
-              <div style={{marginTop:14}}>
-                <div style={{display:"flex",justifyContent:"space-between",alignItems:"center",marginBottom:8}}>
-                  <span style={{fontSize:10,color:C.text,letterSpacing:"0.12em",fontWeight:700}}>歷 史 記 錄</span>
-                  <span style={{fontSize:11,color:C.textSec,fontWeight:600}}>共 {validHistory.length} 筆</span>
+              <div style={{marginTop:18}}>
+                <div style={{borderTop:`1px solid ${C.text}`,paddingTop:12,marginBottom:8,display:"flex",alignItems:"baseline",justifyContent:"space-between"}}>
+                  <h3 style={{margin:0,fontFamily:"'Noto Serif TC',ui-serif,Georgia,serif",fontSize:16,color:C.text,fontWeight:400,letterSpacing:0}}>歷史記錄</h3>
+                  <span style={{fontSize:10,color:C.textMute,letterSpacing:"0.12em"}}>共 {validHistory.length} 筆</span>
                 </div>
                 {validHistory.slice(0,15).map(r=>{
                   const isExpanded = dailyReport?.id === r.id;
@@ -550,16 +550,14 @@ function DailyTabImpl({
                         if (isExpanded) { setDailyReport(null); } else { setDailyReport(r); }
                       }}
                       style={{display:"flex",justifyContent:"space-between",alignItems:"center",
-                        padding:"8px 0",cursor:"pointer",
-                        borderBottom:`1px solid ${alpha(C.textMute,'06')}`,
-                        transition:"background 0.15s"}}>
-                      <div style={{display:"flex",alignItems:"center",gap:6}}>
-                        <span style={{fontSize:10,color:C.textSec,fontWeight:600,transition:"transform 0.15s",
-                          display:"inline-block",transform:isExpanded?"rotate(90deg)":"rotate(0deg)"}}>▶</span>
-                        <span style={{fontSize:12,color:C.text,fontWeight:700}}>{r.date}</span>
-                        <span style={{fontSize:10,color:C.textSec,fontWeight:600}}>{r.time}</span>
+                        padding:"10px 0",cursor:"pointer",
+                        borderBottom:`1px solid ${alpha(C.textMute,'10')}`}}>
+                      <div style={{display:"flex",alignItems:"baseline",gap:10}}>
+                        <span style={{fontSize:11,color:C.textMute,fontVariantNumeric:"tabular-nums"}}>{isExpanded?"—":"›"}</span>
+                        <span style={{fontFamily:"'Noto Serif TC',ui-serif,Georgia,serif",fontSize:14,color:C.text,fontVariantNumeric:"tabular-nums"}}>{r.date}</span>
+                        <span style={{fontSize:11,color:C.textMute,fontVariantNumeric:"tabular-nums"}}>{r.time}</span>
                       </div>
-                      <span style={{fontSize:12,fontWeight:500,
+                      <span style={{fontSize:13,fontVariantNumeric:"tabular-nums",
                         color:pc(r.totalTodayPnl)}}>
                         {r.totalTodayPnl>=0?"+":""}{r.totalTodayPnl.toLocaleString()}
                       </span>
