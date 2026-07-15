@@ -5,6 +5,7 @@
  */
 import { memo, useMemo, useCallback } from 'react';
 import { WB, Sparkline } from '@/pages/_freeCheckup/constants.jsx';
+import { useRenderCounter } from '@/checkup/hooks/useRenderCounter';
 
 function HoldingCardHeaderImpl({
   h,
