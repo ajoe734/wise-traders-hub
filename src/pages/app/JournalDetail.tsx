@@ -18,6 +18,7 @@ import { avatarUrl } from '@/lib/imageTransform';
 import { toast } from 'sonner';
 import { exportJournalPdf } from '@/lib/exportJournalPdf';
 import { FxHint } from '@/components/FxHint';
+import { InstrumentTooltip } from '@/components/InstrumentTooltip';
 import { CURRENCY_SYMBOL, defaultQuantityUnit, normalizeCurrency, type Currency } from '@/lib/currency';
 import { SubscriptionTimeline } from '@/components/SubscriptionTimeline';
 import { useSubscriptionTimeline } from '@/hooks/useSubscriptionTimeline';
