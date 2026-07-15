@@ -1,19 +1,20 @@
 // @ts-nocheck
 /**
- * HoldingCardFooter — 第 4 層：TODAY | VALUE 兩欄底部帶。
- * 保留 `.wb-bottom` / `.wb-bottom-val` class 給 CSS clamp 與截圖回歸偵測。
+ * HoldingCardFooter — 第 4 層：中文一行「今日 X ｜ 市值 Y」。
  *
- * 效能：
- *  - srcLabel / srcTitle 依 `priceSource` / `priceError` / `priceUpdatedAt` /
- *    `yesterday` / `price` 快取，避免每次 render 重建字串。
- *  - badge 顏色 / 排版樣式物件依 `variant` + `priceSource` 快取。
- *  - 今日損益 / VALUE 文字節點以 `useMemo` 產生穩定 vnode。
+ * Handoff §3.4 步驟 4：
+ *   - 刪除 TODAY / VALUE 英文欄頭。
+ *   - 刪除價格來源徽章（screenshot / 即時 / 昨收…）— 移入抽屜 title。
+ *   - 刪除 TGT ±% — 屬決策書抽屜的目標價區。
+ *   - 為避免資料流丟失，來源字串以 `data-price-src` / `title` 掛在 `.wb-bottom` 容器上，
+ *     供下一輪抽屜對接消費；本層不再產生任何徽章 DOM。
+ *
+ * 保留 `.wb-bottom` / `.wb-bottom-val` class 讓卡片 RWD CSS 沿用。
  */
 import { memo, useMemo } from 'react';
 import { WB } from '@/pages/_freeCheckup/constants.jsx';
-import { alpha } from '@/checkup/theme.js';
 
-// 對齊後端 daily-performance / _shared/stockPriceWaterfall.ts 的取價順序
+// 對齊 supabase/functions/_shared/stockPriceWaterfall.ts 的 label 映射，保留 data-price-src 以供抽屜使用
 const SRC_LABEL = {
   screenshot: '截圖',
   live: '即時',
@@ -30,8 +31,8 @@ const SRC_LABEL = {
 
 function HoldingCardFooterImpl({
   h,
-  tp,
-  upside,
+  tp: _tp,           // eslint-disable-line no-unused-vars
+  upside: _upside,   // eslint-disable-line no-unused-vars
   hasToday,
   todayPnlNum,
   todayPctNum,
@@ -41,14 +42,9 @@ function HoldingCardFooterImpl({
   hairColor,
   lossColor,
 }) {
-  const isInk = variant === 'ink';
-  const isFeature = isInk;
+  const isFeature = variant === 'ink';
 
-  const srcLabel = useMemo(
-    () => (h.priceSource ? (SRC_LABEL[h.priceSource] || h.priceSource) : null),
-    [h.priceSource],
-  );
-
+  const srcLabel = h.priceSource ? (SRC_LABEL[h.priceSource] || h.priceSource) : null;
   const srcTitle = useMemo(() => {
     if (h.priceError) return `報價問題：${h.priceError}`;
     return [
@@ -61,126 +57,83 @@ function HoldingCardFooterImpl({
     ].filter(Boolean).join('　');
   }, [h.priceError, h.priceSource, h.priceUpdatedAt, h.yesterday, h.price, srcLabel]);
 
-  const srcBadge = useMemo(() => {
-    const bg = isFeature
-      ? (h.priceSource === 'live' ? alpha(WB.accent, '30') : 'rgba(244,241,236,0.10)')
-      : (h.priceSource === 'live'
-          ? alpha(WB.accent, '22')
-          : h.priceSource === 'screenshot'
-            ? alpha(muteColor, '18')
-            : alpha(lossColor, '22'));
-    const color = isFeature
-      ? (h.priceSource === 'live' ? WB.accent : 'rgba(244,241,236,0.85)')
-      : (h.priceSource === 'live' ? WB.accent : subColor);
-    return {
-      fontSize: 8, letterSpacing: '0.06em', padding: '1px 5px', borderRadius: 2,
-      background: bg, color, opacity: isFeature ? 0.9 : 0.85, fontWeight: 500,
-    };
-  }, [isFeature, h.priceSource, muteColor, lossColor, subColor]);
-
-  const errBadge = useMemo(() => ({
-    fontSize: 8, padding: '1px 5px', borderRadius: 2,
-    background: isFeature ? 'rgba(244,241,236,0.12)' : alpha(lossColor, '22'),
-    color: isFeature ? 'rgba(244,241,236,0.65)' : lossColor,
-  }), [isFeature, lossColor]);
+  // pnl 顏色：正 accent / 負 lossColor / 空 muteColor
+  const todayPctColor = todayPctNum == null
+    ? muteColor
+    : (todayPctNum >= 0 ? WB.accent : lossColor);
 
   const containerStyle = useMemo(() => ({
-    paddingTop: isFeature ? 12 : 10, marginTop: 8,
+    paddingTop: isFeature ? 12 : 10,
+    marginTop: 'auto',
     borderTop: `1px solid ${hairColor}`,
-    display: 'grid',
-    gridTemplateColumns: 'minmax(0,1fr) 1px minmax(0,1fr)',
-    gridTemplateRows: 'auto auto',
-    columnGap: isFeature ? 16 : 12, rowGap: 2,
+    display: 'flex',
     alignItems: 'baseline',
-    fontSize: 10, color: muteColor, fontWeight: 400,
-    fontVariantNumeric: 'tabular-nums', letterSpacing: '0.06em',
-  }), [isFeature, hairColor, muteColor]);
+    justifyContent: 'space-between',
+    gap: 12,
+    fontSize: 11,
+    color: subColor,
+    fontVariantNumeric: 'tabular-nums',
+    letterSpacing: '0.02em',
+    minWidth: 0,
+    overflow: 'hidden',
+    maxWidth: '100%',
+  }), [isFeature, hairColor, subColor]);
 
-  const headerCellStyle = useMemo(() => ({
-    fontSize: 9, color: muteColor,
-    letterSpacing: '0.16em', opacity: 0.7, lineHeight: 1,
+  const labelStyle = useMemo(() => ({
+    color: muteColor, marginRight: 6, letterSpacing: '0.06em',
   }), [muteColor]);
 
-  const dividerStyle = useMemo(() => ({
-    gridColumn: '2', gridRow: '1 / span 2',
-    background: hairColor, width: 1, height: '100%',
-  }), [hairColor]);
-
   const valCellStyle = useMemo(() => ({
-    fontSize: 'clamp(10.5px, 0.9vw + 8px, 12px)',
-    color: subColor, fontVariantNumeric: 'tabular-nums', lineHeight: 1.2,
+    display: 'inline-block',
+    verticalAlign: 'baseline',
+    whiteSpace: 'nowrap',
+    maxWidth: '100%',
+    overflow: 'hidden',
+    textOverflow: 'ellipsis',
+    fontSize: 'clamp(11px, 0.9vw + 8px, 13px)',
+    color: subColor,
+    fontVariantNumeric: 'tabular-nums',
+    lineHeight: 1.2,
   }), [subColor]);
 
-  const todayPctStyle = useMemo(() => ({ marginLeft: 6, color: muteColor }), [muteColor]);
-  const tgtStyle = todayPctStyle;
+  const todayText = hasToday && todayPnlNum != null
+    ? `${todayPnlNum >= 0 ? '+' : ''}${todayPnlNum.toLocaleString()}`
+    : '—';
+  const todayPctText = hasToday && todayPctNum != null
+    ? `${todayPctNum >= 0 ? '+' : ''}${todayPctNum.toFixed(2)}%`
+    : '';
 
-  const todayNode = useMemo(() => {
-    if (!hasToday) {
-      return (
-        <span style={{ color: muteColor }} aria-label="無資料">—</span>
-      );
-    }
-    return (
-      <>
-        {todayPnlNum != null ? `${todayPnlNum >= 0 ? '+' : ''}${todayPnlNum.toLocaleString()}` : '—'}
-        {todayPctNum != null && (
-          <span style={todayPctStyle}>
-            {todayPctNum >= 0 ? '+' : ''}{todayPctNum.toFixed(2)}%
-          </span>
-        )}
-      </>
-    );
-  }, [hasToday, todayPnlNum, todayPctNum, muteColor, todayPctStyle]);
-
-  const valueStr = useMemo(
-    () => (h.value?.toLocaleString() || '—'),
-    [h.value],
-  );
+  const valueStr = h.value?.toLocaleString() || '—';
   const valueMissing = valueStr === '—';
 
-  const showTgt = isFeature && tp && upside != null;
-  const tgtStr = useMemo(
-    () => (showTgt ? `TGT ${upside >= 0 ? '+' : ''}${upside.toFixed(1)}%` : null),
-    [showTgt, upside],
-  );
-
   return (
-    <div className="wb-bottom" style={containerStyle}>
-      <span style={{ gridColumn: '1', gridRow: '1', ...headerCellStyle }}>TODAY</span>
-      <span style={{
-        gridColumn: '3', gridRow: '1', display: 'flex', alignItems: 'center',
-        gap: 6, ...headerCellStyle,
-      }}>
-        <span>VALUE</span>
-        {srcLabel && (
-          <span
-            role="img"
-            title={srcTitle}
-            aria-label={`報價來源：${srcTitle}`}
-            style={srcBadge}
-          >{srcLabel}</span>
-        )}
-        {h.priceError && !srcLabel && (
-          <span
-            role="img"
-            title={h.priceError}
-            aria-label={`報價錯誤：${h.priceError}`}
-            style={errBadge}
-          >失敗</span>
-        )}
+    <div
+      className="wb-bottom"
+      data-price-src={h.priceSource || ''}
+      data-price-src-label={srcLabel || ''}
+      data-price-error={h.priceError || ''}
+      title={srcTitle}
+      style={containerStyle}
+    >
+      <span style={{ minWidth: 0, overflow: 'hidden' }}>
+        <span style={labelStyle}>今日</span>
+        <span className="wb-bottom-val" style={valCellStyle}>
+          {todayText}
+          {todayPctText && (
+            <span style={{ marginLeft: 6, color: todayPctColor }}>{todayPctText}</span>
+          )}
+        </span>
       </span>
-      <div style={dividerStyle} aria-hidden="true" />
-      <span
-        className="wb-bottom-val"
-        style={{ gridColumn: '1', gridRow: '2', ...valCellStyle }}
-      >{todayNode}</span>
-      <span
-        className="wb-bottom-val"
-        style={{ gridColumn: '3', gridRow: '2', ...valCellStyle }}
-        aria-label={valueMissing ? '無資料' : undefined}
-      >
-        {valueStr}
-        {tgtStr && <span style={tgtStyle}>{tgtStr}</span>}
+      <span aria-hidden="true" style={{
+        color: muteColor, opacity: 0.5, fontSize: 10, flexShrink: 0,
+      }}>｜</span>
+      <span style={{ minWidth: 0, overflow: 'hidden', textAlign: 'right' }}>
+        <span style={labelStyle}>市值</span>
+        <span
+          className="wb-bottom-val"
+          style={valCellStyle}
+          aria-label={valueMissing ? '無資料' : undefined}
+        >{valueStr}</span>
       </span>
     </div>
   );
