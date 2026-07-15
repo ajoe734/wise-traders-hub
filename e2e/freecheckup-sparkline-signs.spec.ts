@@ -75,6 +75,16 @@ interface SparkSample {
   hasPolyline: boolean;
 }
 
+async function waitForSparklines(page: Page, minCount = 1) {
+  // sparkline 由 hooks 的 sparkData 決定；歷史價可能 async 才進來
+  // 這裡輪詢 polyline 節點數，最多 8 秒
+  await page.waitForFunction(
+    (min) => document.querySelectorAll('.holdings-card-grid .wb-card .wb-spark svg polyline').length >= min,
+    minCount,
+    { timeout: 8_000 },
+  ).catch(() => { /* 允許 0：由 caller 決定要不要 skip */ });
+}
+
 async function collect(page: Page): Promise<SparkSample[]> {
   return page.$$eval(CARD_SELECTOR, (cards) => {
     return cards.map((card, i) => {
