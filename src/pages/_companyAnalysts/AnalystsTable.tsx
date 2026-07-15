@@ -53,12 +53,18 @@ export function AnalystsTable({ loading, experts, subscriberCounts = {}, onOpenL
                   </td>
                   <td className="p-4 text-sm text-muted-foreground">{exp.slug}</td>
                   <td className="p-4">
-                    <Badge
-                      className={`text-xs ${exp.status === 'suspended' ? 'bg-red-500 text-white' : 'bg-emerald-500 text-white'}`}
-                    >
-                      {exp.status === 'suspended' ? '已停用' : '啟用中'}
-                    </Badge>
+                    {(() => {
+                      const s = exp.status;
+                      const cls = s === 'suspended'
+                        ? 'bg-red-500 text-white'
+                        : s === 'pending'
+                        ? 'bg-amber-500 text-white'
+                        : 'bg-emerald-500 text-white';
+                      const label = s === 'suspended' ? '已停用' : s === 'pending' ? '待補資料' : '啟用中';
+                      return <Badge className={`text-xs ${cls}`}>{label}</Badge>;
+                    })()}
                   </td>
+
                   <td className="p-4">
                     <Button
                       variant="ghost"
