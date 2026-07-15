@@ -59,12 +59,13 @@ const FIXTURE = {
     },
   },
   weekSignals: [
-    // 覆蓋 5 種 action，確保 badge 色票都被截到
-    { action: 'buy', instrument: '2330 台積電', price: 1100 },
-    { action: 'add', instrument: '2454 聯發科', price: 1500 },
-    { action: 'trim', instrument: '2317 鴻海', price: 210 },
-    { action: 'sell', instrument: '2603 長榮', price: 195 },
-    { action: 'exit', instrument: '3008 大立光', price: 2400 },
+    // 覆蓋 5 種 action，確保 badge 色票都被截到；
+    // 附 sector 讓「本週產業分佈」頁有 3 類（半導體 3 / 電子零組件 1 / 航運 1）
+    { action: 'buy',  instrument: '2330 台積電', price: 1100, sector: '半導體' },
+    { action: 'add',  instrument: '2454 聯發科', price: 1500, sector: '半導體' },
+    { action: 'trim', instrument: '2317 鴻海',   price: 210,  sector: '電子零組件' },
+    { action: 'sell', instrument: '2603 長榮',   price: 195,  sector: '航運' },
+    { action: 'exit', instrument: '3008 大立光', price: 2400, sector: '半導體' },
   ].map((s, i) => ({
     id: `s-${i}`,
     instrument: s.instrument,
@@ -72,6 +73,7 @@ const FIXTURE = {
     price_hint: s.price,
     quantity: 1,
     quantity_unit: '張',
+    sector: s.sector,
     reason_summary: '主流動能延續，訊號明確。',
     reason_detail: '依原策略執行部位控管，避免情緒單。',
     risk_notes: s.action === 'exit' ? '跌破停損位，紀律出場。' : null,
