@@ -91,91 +91,73 @@ function DailyTabImpl({
   validateProps('DailyTab', arguments[0], DAILY_TAB_PROP_SCHEMA);
   return (
     <>
-          {/* B-25：LINE 已登入但未加好友 → 顯示加好友提示，避免錯過推播通知 */}
-          {needsAddFriend && !isDemo && (
-            <div style={{marginBottom:12,padding:"12px 14px",background:alpha(C.blue,'06'),border:`1px solid ${alpha(C.blue,'25')}`,borderRadius:8}}>
-              <div style={{fontSize:12,fontWeight:500,color:C.text,marginBottom:4,letterSpacing:"0.02em"}}>📣 加入官方 LINE 好友，收盤後即時推播分析結果</div>
-              <div style={{fontSize:11,color:C.textSec,fontWeight:600,lineHeight:1.7,marginBottom:8}}>未加好友時，仍可使用本頁功能，但分析完成後無法主動推播給您。</div>
-              <a href="https://line.me/R/ti/p/@legendflow" target="_blank" rel="noopener noreferrer" style={{display:"inline-block",background:"#06C755",color:"#fff",borderRadius:6,padding:"5px 12px",fontSize:11,fontWeight:500,textDecoration:"none",letterSpacing:"0.02em"}}>加入 LINE 好友</a>
-            </div>
-          )}
-
+          {/* §6.5 憲法：Demo/LINE 提示改由頁腳 DemoFooterHint 提示，此處只保留 dev-only 的 demo 模式切換（isDemo 時） */}
           {isDemo && (
-            <div style={{marginBottom:12,padding:"12px 14px",background:alpha(C.amber,'06'),border:`1px solid ${alpha(C.amber,'25')}`,borderRadius:8}}>
-              <div style={{fontSize:12,fontWeight:700,color:C.text,marginBottom:4,letterSpacing:"0.02em"}}>{DEMO_TAB_NOTICE_COPY.daily.title}</div>
-              <div style={{fontSize:11,color:C.textSec,fontWeight:600,lineHeight:1.7,marginBottom:8}}>{DEMO_TAB_NOTICE_COPY.daily.body}</div>
-              <div style={{display:"flex",gap:8,flexWrap:"wrap"}}>
-                <button onClick={() => { try { startLineLogin?.(); } catch { navigate('/auth/login?redirect=/checkup'); } }} style={{background:"#06C755",color:"#fff",border:"none",borderRadius:6,padding:"5px 12px",fontSize:11,fontWeight:500,cursor:"pointer",letterSpacing:"0.02em"}}>LINE 登入解鎖</button>
-                <button onClick={() => navigate('/auth/login?redirect=/checkup')} style={{background:"transparent",color:C.text,border:`1px solid ${C.border}`,borderRadius:6,padding:"5px 12px",fontSize:11,fontWeight:400,cursor:"pointer",letterSpacing:"0.02em"}}>Email 登入</button>
-              </div>
-              <div style={{marginTop:10,paddingTop:10,borderTop:`1px solid ${alpha(C.border,'80')}`}}>
-                <div style={{fontSize:10,color:C.text,letterSpacing:"0.08em",marginBottom:6,fontWeight:700}}>DEMO 收盤分析來源</div>
-                <div style={{display:"flex",gap:6}}>
-                  {[
-                    { k: 'static', label: '靜態範例', hint: '預錄文案，不消耗配額' },
-                    { k: 'live', label: '即時 AI + 知識庫', hint: '呼叫真實 edge / 知識庫' },
-                  ].map(opt => {
-                    const active = demoDailyMode === opt.k;
-                    return (
-                      <button key={opt.k} onClick={() => setDemoDailyMode(opt.k)} title={opt.hint}
-                        style={{flex:1,padding:"6px 10px",borderRadius:6,fontSize:11,fontWeight:active?500:400,letterSpacing:"0.02em",cursor:"pointer",
-                          background: active ? C.text : "transparent",
-                          color: active ? C.bg : C.textSec,
-                          border: `1px solid ${active ? C.text : C.border}`}}>
-                        {opt.label}
-                      </button>
-                    );
-                  })}
-                </div>
-                <div style={{fontSize:10,color:C.textSec,fontWeight:600,marginTop:6,lineHeight:1.6}}>
-                  {demoDailyMode === 'live' ? '⚡ 將呼叫真實 AI / 知識庫，回傳內容會基於目前 demo 持倉動態生成。' : '📋 顯示預錄範例文案，配合 demo 持倉產生個股漲跌列。'}
-                </div>
+            <div style={{marginBottom:14,padding:"10px 0",borderBottom:`1px solid ${alpha(C.textMute,'20')}`,display:"flex",alignItems:"baseline",justifyContent:"space-between",gap:12,flexWrap:"wrap"}}>
+              <span style={{fontSize:10,color:C.textMute,letterSpacing:"0.12em"}}>DEMO 資料來源</span>
+              <div style={{display:"flex",gap:8}}>
+                {[
+                  { k: 'static', label: '靜態範例' },
+                  { k: 'live', label: '即時 AI' },
+                ].map(opt => {
+                  const active = demoDailyMode === opt.k;
+                  return (
+                    <button key={opt.k} onClick={() => setDemoDailyMode(opt.k)}
+                      style={{padding:"4px 10px",fontSize:11,letterSpacing:"0.04em",cursor:"pointer",
+                        background:"transparent",
+                        color: active ? C.text : C.textMute,
+                        border:"none",
+                        borderBottom:`1px solid ${active ? C.text : "transparent"}`}}>
+                      {opt.label}
+                    </button>
+                  );
+                })}
               </div>
             </div>
           )}
-          {/* 手動觸發按鈕 */}
+          {/* §6.1 起始態：serif 節標 + 一句提示 + 文字鏈結（刪除置中大 teal 按鈕/字距標題） */}
            {!dailyReport && !analyzing && (
-             <div style={{textAlign:"center",padding:"36px 16px",marginBottom:14}}>
-               <div style={{fontSize:10,color:C.text,letterSpacing:"0.12em",fontWeight:700,marginBottom:10}}>每 日 收 盤 分 析</div>
-               <div style={{fontSize:13,color:C.textSec,marginBottom:20,lineHeight:1.8,fontWeight:600}}>
-                 分析今日股價變動與事件連動性<br/>自動比對持倉漲跌、異常波動、策略建議
+             <div style={{padding:"24px 0 20px",marginBottom:14,borderBottom:`1px solid ${alpha(C.textMute,'20')}`}}>
+               <h3 style={{margin:0,fontFamily:"'Noto Serif TC',ui-serif,Georgia,serif",fontSize:20,color:C.text,fontWeight:400,letterSpacing:0}}>收盤分析</h3>
+               <div style={{fontSize:13,color:C.textSec,marginTop:10,lineHeight:1.9}}>
+                 分析今日股價變動、事件連動性，比對持倉漲跌、異常波動、策略建議。
                </div>
-               <button onClick={runDailyAnalysis} disabled={hasReachedDailyLimit} style={{
-                 padding:"10px 24px",borderRadius:8,
-                 border:`1px solid ${alpha(C.teal,'30')}`,
-                 background:alpha(C.teal,'06'),
-                  color:hasReachedDailyLimit ? C.textSec : C.teal,fontSize:13,fontWeight:700,
-                 cursor:hasReachedDailyLimit ? "not-allowed" : "pointer",
-                 opacity:hasReachedDailyLimit ? 0.5 : 1,
-                 letterSpacing:"0.04em"}}>
-                  {hasReachedDailyLimit ? `🔒 ${tier === 'none' ? '需訂閱方案' : tier === 'line_free' ? '免費／補償額度已用完' : (quota?.period === 'week' ? '本週' : '本月') + '配額已用完'}` : "開始今日收盤分析"}
-                 </button>
-                 {!hasReachedDailyLimit && typeof runDailyAnalysisInBackground === 'function' && (
-                   <div style={{marginTop:10}}>
-                     <button onClick={runDailyAnalysisInBackground} style={{
-                       padding:"6px 16px",borderRadius:6,
-                       border:`1px solid ${alpha(C.textMute,'25')}`,
-                       background:'transparent',color:C.textMute,
-                       fontSize:11,fontWeight:400,cursor:'pointer',letterSpacing:'0.04em'
-                     }}>背景跑（可關頁面）</button>
-                   </div>
-                 )}
-                  <div style={{fontSize:11,color:C.textSec,fontWeight:600,marginTop:10,lineHeight:1.7}}>
-                   {hasReachedDailyLimit
-                     ? <>
-                         {(tier !== 'none' && tier !== 'line_free') && formatResetCountdown(quota?.resets_at)}
-                         {tier === 'line_free' && <>免費／補償額度已用完（使用日 {formatTaipeiYMD(quota?.last_used_at) || '尚未紀錄'}）</>}
-                         {tier === 'none' && '訂閱後即可開始使用'}
-                         {(tier === 'free' || tier === 'basic' || tier === 'line_free' || tier === 'none') && (
-                           <>　・　<a href="/pricing#checkup" onClick={() => trackPaywall('click_upgrade', 'daily_tab_limit', { tier })} style={{color:C.blue,textDecoration:"none"}}>查看訂閱方案 →</a></>
-                         )}
-                       </>
-                     : (tier === 'line_free'
-                         ? ((Number(quota?.entitlement_total || 0) > 0)
-                             ? <>🎁 已回送補償額度・還可使用 <span style={{color:C.text,fontWeight:500}}>{Math.max((quota?.limit || 0) - (quota?.used || 0), 0)}</span> 次</>
-                             : <>LINE 註冊禮：第一次免費；第二次起需付費・還可使用 <span style={{color:C.text,fontWeight:500}}>{Math.max((quota?.limit || 0) - (quota?.used || 0), 0)}</span> 次</>)
-                         : "收盤後按下即可開始分析")}
-                 </div>
+               <div style={{marginTop:16,display:"flex",alignItems:"center",gap:16,flexWrap:"wrap"}}>
+                 <button onClick={runDailyAnalysis} disabled={hasReachedDailyLimit} style={{
+                   padding:"8px 0",
+                   border:"none",borderBottom:`1px solid ${C.text}`,
+                   background:"transparent",
+                   color:hasReachedDailyLimit ? C.textMute : C.text,
+                   fontSize:13,fontWeight:400,
+                   cursor:hasReachedDailyLimit ? "not-allowed" : "pointer",
+                   opacity:hasReachedDailyLimit ? 0.5 : 1,
+                   letterSpacing:"0.04em"}}>
+                   {hasReachedDailyLimit ? (tier === 'none' ? '需訂閱方案' : tier === 'line_free' ? '免費配額已用完' : (quota?.period === 'week' ? '本週' : '本月') + '配額已用完') : "開始今日收盤分析 →"}
+                  </button>
+                  {!hasReachedDailyLimit && typeof runDailyAnalysisInBackground === 'function' && (
+                    <button onClick={runDailyAnalysisInBackground} style={{
+                      padding:"4px 0",
+                      border:"none",background:'transparent',color:C.textMute,
+                      fontSize:12,fontWeight:400,cursor:'pointer',letterSpacing:'0.04em'
+                    }}>背景執行 →</button>
+                  )}
+               </div>
+               <div style={{fontSize:11,color:C.textMute,marginTop:12,lineHeight:1.8}}>
+                    {hasReachedDailyLimit
+                      ? <>
+                          {(tier !== 'none' && tier !== 'line_free') && formatResetCountdown(quota?.resets_at)}
+                          {tier === 'line_free' && <>免費／補償額度已用完（使用日 {formatTaipeiYMD(quota?.last_used_at) || '尚未紀錄'}）</>}
+                          {tier === 'none' && '訂閱後即可開始使用'}
+                          {(tier === 'free' || tier === 'basic' || tier === 'line_free' || tier === 'none') && (
+                            <>　·　<a href="/pricing#checkup" onClick={() => trackPaywall('click_upgrade', 'daily_tab_limit', { tier })} style={{color:C.text,textDecoration:"underline"}}>查看訂閱方案 →</a></>
+                          )}
+                        </>
+                      : (tier === 'line_free'
+                          ? ((Number(quota?.entitlement_total || 0) > 0)
+                              ? <>已回送補償額度・還可使用 <span style={{color:C.text}}>{Math.max((quota?.limit || 0) - (quota?.used || 0), 0)}</span> 次</>
+                              : <>LINE 註冊禮：第一次免費；第二次起需付費・還可使用 <span style={{color:C.text}}>{Math.max((quota?.limit || 0) - (quota?.used || 0), 0)}</span> 次</>)
+                          : "收盤後按下即可開始分析")}
+                  </div>
              </div>
             )}
 
@@ -187,7 +169,7 @@ function DailyTabImpl({
             }}>
               <div style={{display:"flex",alignItems:"center",justifyContent:"space-between",gap:8,marginBottom:6}}>
                 <div style={{fontSize:12,color:C.down,fontWeight:500,letterSpacing:"0.04em"}}>
-                  ⚠ 收盤分析失敗
+                  收盤分析失敗
                 </div>
                 {dailyRetryHistory.length > 0 && (
                   <div style={{fontSize:10,color:C.textMute,fontWeight:400,opacity:0.8,letterSpacing:"0.04em"}}>
@@ -212,9 +194,9 @@ function DailyTabImpl({
                   title={dailyRetryLocked || analyzing ? '重試中，請稍候' : '重新嘗試收盤分析'}
                   style={{
                     padding:"6px 14px",borderRadius:6,
-                    border:`1px solid ${alpha(C.teal,'40')}`,
-                    background:alpha(C.teal,'08'),
-                    color:C.teal,fontSize:12,fontWeight:400,
+                    border:`1px solid ${C.text}`,
+                    background:"transparent",
+                    color:C.text,fontSize:12,fontWeight:400,
                     cursor:(analyzing||dailyRetryLocked)?"not-allowed":"pointer",
                     opacity:(analyzing||dailyRetryLocked)?0.5:1,
                     letterSpacing:"0.04em"}}>
@@ -294,7 +276,7 @@ function DailyTabImpl({
               </div>
               <div style={{width:"100%",height:2,background:alpha(C.textMute,'08'),borderRadius:1,marginTop:16,overflow:"hidden"}}>
                 <div style={{height:"100%",borderRadius:1,
-                  background:C.teal,
+                  background:C.text,
                   width:"70%",
                   transition:"width 0.5s ease"}} />
               </div>
@@ -315,7 +297,7 @@ function DailyTabImpl({
                   <div style={{fontSize:11,color:C.textSec,marginTop:2,fontWeight:600}}>{dailyReport.time} 更新</div>
                 </div>
                 <div style={{textAlign:"right"}}>
-                  <div style={{fontSize:10,color:C.text,letterSpacing:"0.12em",marginBottom:4,fontWeight:700}}>TODAY P&L</div>
+                  <div style={{fontSize:10,color:C.textMute,letterSpacing:"0.12em",marginBottom:4}}>今日損益</div>
                   <div style={{fontSize:"clamp(22px, 6vw, 28px)",fontWeight:800,color:pc(dailyReport.totalTodayPnl),lineHeight:1,fontVariantNumeric:"tabular-nums"}}>
                     {dailyReport.totalTodayPnl>=0?"+":""}{dailyReport.totalTodayPnl.toLocaleString()}
                   </div>
@@ -326,11 +308,13 @@ function DailyTabImpl({
 
             {/* AI 策略分析 — Markdown 渲染 */}
             {dailyReport.aiInsight && (
-              <div style={{marginBottom:14,paddingBottom:14,borderBottom:`1px solid ${alpha(C.textMute,'06')}`}}>
-                <div style={{display:"flex",alignItems:"center",gap:6,marginBottom:10}}>
-                  <span style={{fontSize:10,color:C.text,letterSpacing:"0.12em",fontWeight:700}}>AI 策 略 分 析</span>
+              <div style={{marginBottom:18,paddingBottom:16,borderBottom:`1px solid ${alpha(C.textMute,'20')}`}}>
+                <div style={{borderTop:`1px solid ${C.text}`,paddingTop:12,marginBottom:12}}>
+                  <h3 style={{margin:0,fontFamily:"'Noto Serif TC',ui-serif,Georgia,serif",fontSize:16,color:C.text,fontWeight:400,letterSpacing:0}}>AI 策略分析</h3>
                 </div>
-                <Suspense fallback={null}><Md text={dailyReport.aiInsight} color={C.text} /></Suspense>
+                <div style={{fontSize:15,lineHeight:2,color:C.text}}>
+                  <Suspense fallback={null}><Md text={dailyReport.aiInsight} color={C.text} /></Suspense>
+                </div>
               </div>
             )}
 
@@ -344,22 +328,23 @@ function DailyTabImpl({
 
             {/* 自動驗證事件結果 */}
             {(dailyReport.autoVerified||[]).length>0 && (
-              <div style={{marginBottom:14,paddingBottom:14,borderBottom:`1px solid ${alpha(C.textMute,'06')}`}}>
-                <div style={{fontSize:10,color:C.text,letterSpacing:"0.12em",fontWeight:700,marginBottom:10}}>
-                  自 動 驗 證 · {dailyReport.autoVerified.length}件
+              <div style={{marginBottom:18,paddingBottom:16,borderBottom:`1px solid ${alpha(C.textMute,'20')}`}}>
+                <div style={{borderTop:`1px solid ${C.text}`,paddingTop:12,marginBottom:12,display:"flex",alignItems:"baseline",justifyContent:"space-between"}}>
+                  <h3 style={{margin:0,fontFamily:"'Noto Serif TC',ui-serif,Georgia,serif",fontSize:16,color:C.text,fontWeight:400,letterSpacing:0}}>自動驗證</h3>
+                  <span style={{fontSize:10,color:C.textMute,letterSpacing:"0.12em"}}>{dailyReport.autoVerified.length} 件</span>
                 </div>
                 {dailyReport.autoVerified.map((v,i)=>(
-                  <div key={i} style={{display:"flex",justifyContent:"space-between",alignItems:"center",
-                    padding:"6px 0",borderBottom:i<dailyReport.autoVerified.length-1?`1px solid ${alpha(C.textMute,'04')}`:"none"}}>
+                  <div key={i} style={{display:"flex",justifyContent:"space-between",alignItems:"center",gap:12,
+                    padding:"8px 0",borderBottom:i<dailyReport.autoVerified.length-1?`1px solid ${alpha(C.textMute,'10')}`:"none"}}>
                     <div style={{flex:1,minWidth:0}}>
-                      <div style={{fontSize:12,fontWeight:700,color:C.text,overflow:"hidden",textOverflow:"ellipsis",whiteSpace:"nowrap"}}>{v.title}</div>
-                      <div style={{fontSize:11,color:C.textSec,marginTop:2,fontWeight:600}}>
+                      <div style={{fontSize:13,color:C.text,overflow:"hidden",textOverflow:"ellipsis",whiteSpace:"nowrap"}}>{v.title}</div>
+                      <div style={{fontSize:11,color:C.textMute,marginTop:2}}>
                         預測{v.pred==="up"?"看漲":"看跌"} → 實際{v.actual==="up"?"漲":v.actual==="down"?"跌":"中性"}
                       </div>
                     </div>
-                    <span style={{fontSize:11,fontWeight:400,flexShrink:0,
-                      color:v.correct?C.teal:C.up}}>
-                      {v.correct?"命中":"失誤"}
+                    <span style={{fontSize:12,flexShrink:0,letterSpacing:"0.04em",
+                      color:v.correct?"var(--cm-accent, #FF4D1F)":C.textMute}}>
+                      {v.correct?"命中":"未中"}
                     </span>
                   </div>
                 ))}
@@ -368,17 +353,18 @@ function DailyTabImpl({
 
             {/* 需要復盤的事件 */}
             {(dailyReport.needsReview||[]).length>0 && (
-              <div style={{marginBottom:14,paddingBottom:14,borderBottom:`1px solid ${alpha(C.textMute,'06')}`}}>
-                <div style={{fontSize:10,color:C.text,letterSpacing:"0.12em",fontWeight:700,marginBottom:10}}>
-                  需 要 復 盤 · {dailyReport.needsReview.length}件
+              <div style={{marginBottom:18,paddingBottom:16,borderBottom:`1px solid ${alpha(C.textMute,'20')}`}}>
+                <div style={{borderTop:`1px solid ${C.text}`,paddingTop:12,marginBottom:12,display:"flex",alignItems:"baseline",justifyContent:"space-between"}}>
+                  <h3 style={{margin:0,fontFamily:"'Noto Serif TC',ui-serif,Georgia,serif",fontSize:16,color:C.text,fontWeight:400,letterSpacing:0}}>需要復盤</h3>
+                  <span style={{fontSize:10,color:C.textMute,letterSpacing:"0.12em"}}>{dailyReport.needsReview.length} 件</span>
                 </div>
                 {dailyReport.needsReview.map(e=>(
-                  <div key={e.id} style={{marginBottom:8}}>
-                    <div style={{fontSize:12,fontWeight:700,color:C.text}}>{e.title}</div>
-                    <div style={{fontSize:11,color:C.textSec,marginTop:2,fontWeight:600}}>{e.date} — 預測{e.pred==="up"?"看漲":"看跌"}</div>
+                  <div key={e.id} style={{padding:"8px 0",borderBottom:`1px solid ${alpha(C.textMute,'10')}`}}>
+                    <div style={{fontSize:13,color:C.text}}>{e.title}</div>
+                    <div style={{fontSize:11,color:C.textMute,marginTop:2}}>{e.date} — 預測{e.pred==="up"?"看漲":"看跌"}</div>
                     <button onClick={()=>{setTab("news");setExpandedNews(new Set([e.id]))}}
-                      style={{marginTop:4,padding:"4px 10px",borderRadius:4,border:"none",
-                        background:"transparent",color:C.textSec,fontSize:11,cursor:"pointer",fontWeight:400}}>
+                      style={{marginTop:6,padding:0,border:"none",
+                        background:"transparent",color:C.text,fontSize:11,cursor:"pointer",letterSpacing:"0.04em",textDecoration:"underline"}}>
                       前往復盤 →
                     </button>
                   </div>
@@ -450,55 +436,57 @@ function DailyTabImpl({
       })()}
 
 
-            {/* 重新分析 */}
-            <button onClick={runDailyAnalysis} disabled={analyzing} style={{
-              width:"100%",padding:"11px",borderRadius:8,border:`1px solid ${C.border}`,
-              background:"transparent",color:C.textSec,fontSize:13,cursor:"pointer",fontWeight:600,
-              marginBottom:16}}>
-              重新分析
-            </button>
+            {/* 重新分析（頁腳文字鏈結） */}
+            <div style={{padding:"14px 0",marginBottom:16,borderTop:`1px solid ${alpha(C.textMute,'20')}`,textAlign:"right"}}>
+              <button onClick={runDailyAnalysis} disabled={analyzing} style={{
+                padding:"6px 0",border:"none",
+                background:"transparent",color:analyzing?C.textMute:C.text,fontSize:12,cursor:analyzing?"not-allowed":"pointer",
+                letterSpacing:"0.04em",textDecoration:"underline"}}>
+                重新分析 →
+              </button>
+            </div>
           </>}
 
           {/* 策略大腦 */}
           {strategyBrain && (
-            <div style={{marginBottom:14,paddingBottom:14,borderBottom:`1px solid ${alpha(C.textMute,'06')}`}}>
-              <div style={{display:"flex",justifyContent:"space-between",alignItems:"center",marginBottom:10}}>
-                <span style={{fontSize:10,color:C.text,letterSpacing:"0.12em",fontWeight:700}}>策 略 大 腦</span>
-                <span style={{fontSize:11,color:C.textSec,fontWeight:600}}>
-                  更新：{strategyBrain.lastUpdate||"—"} | 分析：{strategyBrain.stats?.totalAnalyses||0}次
+            <div style={{marginBottom:18,paddingBottom:16,borderBottom:`1px solid ${alpha(C.textMute,'20')}`}}>
+              <div style={{borderTop:`1px solid ${C.text}`,paddingTop:12,marginBottom:12,display:"flex",alignItems:"baseline",justifyContent:"space-between",gap:12,flexWrap:"wrap"}}>
+                <h3 style={{margin:0,fontFamily:"'Noto Serif TC',ui-serif,Georgia,serif",fontSize:16,color:C.text,fontWeight:400,letterSpacing:0}}>策略大腦</h3>
+                <span style={{fontSize:10,color:C.textMute,letterSpacing:"0.06em"}}>
+                  更新 {strategyBrain.lastUpdate||"—"} ｜ 分析 {strategyBrain.stats?.totalAnalyses||0} 次
                 </span>
               </div>
 
               {(strategyBrain.rules||[]).length>0 && (
-                <div style={{marginBottom:10}}>
-                  <div style={{fontSize:10,color:C.text,fontWeight:700,letterSpacing:"0.08em",marginBottom:5}}>核心策略規則</div>
+                <div style={{marginBottom:12}}>
+                  <div style={{fontSize:10,color:C.textMute,letterSpacing:"0.10em",marginBottom:6}}>核心策略規則</div>
                   {strategyBrain.rules.map((r,i)=>(
-                    <div key={i} style={{fontSize:12,color:C.textSec,lineHeight:1.8,fontWeight:600,
-                      padding:"3px 0",borderBottom:`1px solid ${alpha(C.textMute,'04')}`}}>
-                      {i+1}. {r}
+                    <div key={i} style={{fontSize:13,color:C.text,lineHeight:1.9,
+                      padding:"4px 0",borderBottom:`1px solid ${alpha(C.textMute,'10')}`}}>
+                      <span style={{color:C.textMute,marginRight:8,fontVariantNumeric:"tabular-nums"}}>{String(i+1).padStart(2,'0')}</span>{r}
                     </div>
                   ))}
                 </div>
               )}
 
               {(strategyBrain.commonMistakes||[]).length>0 && (
-                <div style={{marginBottom:10}}>
-                  <div style={{fontSize:10,color:C.text,fontWeight:700,letterSpacing:"0.08em",marginBottom:5}}>常犯錯誤</div>
+                <div style={{marginBottom:12}}>
+                  <div style={{fontSize:10,color:C.textMute,letterSpacing:"0.10em",marginBottom:6}}>常犯錯誤</div>
                   {strategyBrain.commonMistakes.map((m,i)=>(
-                    <div key={i} style={{fontSize:12,color:C.textSec,lineHeight:1.8,fontWeight:600}}>{m}</div>
+                    <div key={i} style={{fontSize:13,color:C.textSec,lineHeight:1.9,padding:"3px 0"}}>{m}</div>
                   ))}
                 </div>
               )}
 
               {(strategyBrain.lessons||[]).length>0 && (
                 <div>
-                  <div style={{fontSize:10,color:C.text,fontWeight:700,letterSpacing:"0.08em",marginBottom:5}}>
+                  <div style={{fontSize:10,color:C.textMute,letterSpacing:"0.10em",marginBottom:6}}>
                     最近教訓（共 {strategyBrain.lessons.length} 條）
                   </div>
                   {strategyBrain.lessons.slice(-5).reverse().map((l,i)=>(
-                    <div key={i} style={{fontSize:11,color:C.textSec,lineHeight:1.7,fontWeight:600,
-                      padding:"4px 0",borderBottom:`1px solid ${alpha(C.textMute,'04')}`}}>
-                      <span style={{color:C.textSec}}>[{l.date}]</span> {l.text}
+                    <div key={i} style={{fontSize:12,color:C.textSec,lineHeight:1.8,
+                      padding:"4px 0",borderBottom:`1px solid ${alpha(C.textMute,'10')}`}}>
+                      <span style={{color:C.textMute,marginRight:8,fontVariantNumeric:"tabular-nums"}}>{l.date}</span>{l.text}
                     </div>
                   ))}
                 </div>
@@ -549,10 +537,10 @@ function DailyTabImpl({
             const validHistory = (analysisHistory||[]).filter(r => r.changes && r.changes.length > 0);
             if (validHistory.length === 0) return null;
             return (
-              <div style={{marginTop:14}}>
-                <div style={{display:"flex",justifyContent:"space-between",alignItems:"center",marginBottom:8}}>
-                  <span style={{fontSize:10,color:C.text,letterSpacing:"0.12em",fontWeight:700}}>歷 史 記 錄</span>
-                  <span style={{fontSize:11,color:C.textSec,fontWeight:600}}>共 {validHistory.length} 筆</span>
+              <div style={{marginTop:18}}>
+                <div style={{borderTop:`1px solid ${C.text}`,paddingTop:12,marginBottom:8,display:"flex",alignItems:"baseline",justifyContent:"space-between"}}>
+                  <h3 style={{margin:0,fontFamily:"'Noto Serif TC',ui-serif,Georgia,serif",fontSize:16,color:C.text,fontWeight:400,letterSpacing:0}}>歷史記錄</h3>
+                  <span style={{fontSize:10,color:C.textMute,letterSpacing:"0.12em"}}>共 {validHistory.length} 筆</span>
                 </div>
                 {validHistory.slice(0,15).map(r=>{
                   const isExpanded = dailyReport?.id === r.id;
@@ -562,16 +550,14 @@ function DailyTabImpl({
                         if (isExpanded) { setDailyReport(null); } else { setDailyReport(r); }
                       }}
                       style={{display:"flex",justifyContent:"space-between",alignItems:"center",
-                        padding:"8px 0",cursor:"pointer",
-                        borderBottom:`1px solid ${alpha(C.textMute,'06')}`,
-                        transition:"background 0.15s"}}>
-                      <div style={{display:"flex",alignItems:"center",gap:6}}>
-                        <span style={{fontSize:10,color:C.textSec,fontWeight:600,transition:"transform 0.15s",
-                          display:"inline-block",transform:isExpanded?"rotate(90deg)":"rotate(0deg)"}}>▶</span>
-                        <span style={{fontSize:12,color:C.text,fontWeight:700}}>{r.date}</span>
-                        <span style={{fontSize:10,color:C.textSec,fontWeight:600}}>{r.time}</span>
+                        padding:"10px 0",cursor:"pointer",
+                        borderBottom:`1px solid ${alpha(C.textMute,'10')}`}}>
+                      <div style={{display:"flex",alignItems:"baseline",gap:10}}>
+                        <span style={{fontSize:11,color:C.textMute,fontVariantNumeric:"tabular-nums"}}>{isExpanded?"—":"›"}</span>
+                        <span style={{fontFamily:"'Noto Serif TC',ui-serif,Georgia,serif",fontSize:14,color:C.text,fontVariantNumeric:"tabular-nums"}}>{r.date}</span>
+                        <span style={{fontSize:11,color:C.textMute,fontVariantNumeric:"tabular-nums"}}>{r.time}</span>
                       </div>
-                      <span style={{fontSize:12,fontWeight:500,
+                      <span style={{fontSize:13,fontVariantNumeric:"tabular-nums",
                         color:pc(r.totalTodayPnl)}}>
                         {r.totalTodayPnl>=0?"+":""}{r.totalTodayPnl.toLocaleString()}
                       </span>

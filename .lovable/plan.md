@@ -56,9 +56,25 @@
 
 ## 待辦
 
-### 批次 C2 · DailyTab / LogTab 編輯化
-- DailyTab serif 報頭；三欄個股列；刪 teal 大按鈕/emoji；歷史日期＋「重新分析 →」
-- LogTab serif 日期節標；備忘引文；未填 faint 色
+### 批次 C2 · DailyTab / LogTab 編輯化 ✅（本輪）
+
+**DailyTab**
+- 移除 needsAddFriend 藍色 banner；`isDemo` banner 收斂為單行 DEMO 資料源切換
+- 起始態刪置中大 teal 按鈕：改 serif h3「收盤分析」＋一句提示＋文字鏈結「開始今日收盤分析 →」
+- 全站 emoji 清零（📣🔒🎁📋⚡⚠▶ 全刪；✕ 為關閉鈕保留）
+- teal 色全數 → ink：重試鈕、分析進度條、命中色改 accent
+- 所有 `letterSpacing:0.12em fontWeight:700` 字距標題 → serif h3 + `1px solid var(--cm-ink)` 頂線：AI 策略分析／自動驗證／需要復盤／策略大腦／歷史記錄
+- `TODAY P&L` → 今日損益；歷史列 ▶ 三角形 → `›`/`—`；日期改 serif + tabular-nums
+- 頁腳「重新分析 →」文字鏈結（取代整寬邊框按鈕）
+
+**LogTab**
+- 移除 isDemo banner（收斂至頁腳 DemoFooterHint）
+- serif 日期節標 + `1px solid var(--cm-ink)` 頂線 + 右側件數
+- 買進 → `var(--cm-accent)`、賣出 → `var(--cm-loss)`（原 C.up/C.down 撤除）
+- 備忘引文改左 1px 髮絲 + serif；未填顯示 `var(--cm-ink-faint)`「（未留筆記）補寫 →」
+- 空狀態改 serif 「還沒有交易記錄」（無 emoji）
+
+**驗證**：`bunx tsgo` 綠；`rg` 確認兩檔已無 teal / 禁用 emoji。
 
 ### 批次 D · IA §2（大部分已在批次 A / C 中對齊；剩：手機頂欄只留 logo + 頁名）
 
