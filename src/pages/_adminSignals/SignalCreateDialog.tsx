@@ -17,6 +17,7 @@ import { actionLabels } from './actionLabels';
 import { PreviewTradeItem } from './PreviewTradeItem';
 import { isMarketClosed } from './derive';
 import { getAssetSpec, resolveAssetClass, isValidAssetSymbol } from '@/lib/asset';
+import { InstrumentTooltip } from '@/components/InstrumentTooltip';
 
 interface Props {
   expert: any;
