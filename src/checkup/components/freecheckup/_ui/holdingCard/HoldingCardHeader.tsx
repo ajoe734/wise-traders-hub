@@ -1,11 +1,25 @@
 // @ts-nocheck
 /**
- * HoldingCardHeader — 第 1 層：代號 · 名稱 · 股數 · Sparkline · Action badge + 產業/策略 tags
- * 對外憲法：保留 `.wb-spark` / `.wb-tags` class name（既有 CSS 與截圖回歸依賴）。
+ * HoldingCardHeader — 第 1 層：代號 · 名稱 · 股數 · Sparkline · Action badge + 產業/策略 tags + 教學徽章
+ * 對外憲法：保留 `.wb-spark` / `.wb-tags` / `.wb-tip` class name（既有 CSS 與截圖回歸依賴）。
  */
 import { memo, useMemo, useCallback } from 'react';
 import { WB, Sparkline } from '@/pages/_freeCheckup/constants.jsx';
 import { useRenderCounter } from '@/checkup/hooks/useRenderCounter';
+
+/**
+ * per-signal 教學片段 fallback：依 actionLabel 分流。
+ * 支援英文 (ADD/BUY/REDUCE/SELL/HOLD) 與繁中 (加碼/買進/減碼/賣出/續抱)。
+ */
+export function getFallbackTip(actionLabel) {
+  const raw = String(actionLabel || '');
+  const k = raw.trim().toUpperCase();
+  if (/^(ADD|BUY)$/.test(k) || /加碼|買進/.test(raw)) return '進場前先確認風險比例';
+  if (/^(REDUCE|SELL)$/.test(k) || /減碼|賣出/.test(raw)) return '分批減碼保留紀律';
+  if (/^HOLD$/.test(k) || /續抱/.test(raw)) return '續抱請設好停損';
+  return '持倉檢視小提醒';
+}
+
 
 function HoldingCardHeaderImpl({
   h,
