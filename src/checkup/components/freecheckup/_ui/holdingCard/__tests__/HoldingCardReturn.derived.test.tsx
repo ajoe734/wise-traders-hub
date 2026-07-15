@@ -38,32 +38,38 @@ function roiOf(container: HTMLElement) {
 
 describe('HoldingCardReturn 派生 useMemo', () => {
   // ─── variantStyle 分支 ─────────────────────────────
+  // 註：jsdom 會丟棄不支援的 CSS 值（如 `clamp()`），無法在此驗證 fontSize；
+  //     以 letter-spacing / gap / marginBottom 這三個 variant 差異必然值來驗證。
   describe('variantStyle 分支', () => {
-    it('normal：fontSize / letterSpacing / gap / rowGap / marginBottom 為 normal 版本', () => {
+    it('normal：letterSpacing=-0.035em / gap=5px / rowGap=10px / marginBottom=8px', () => {
       const { container } = render(<HoldingCardReturn {...base} variant="normal" />);
       const row = rowOf(container);
       const roi = roiOf(container);
-      const roiStyle = roi.getAttribute('style') || '';
       expect(row.style.gap).toBe('10px');
       expect(row.style.marginTop).toBe('8px');
       expect(row.style.marginBottom).toBe('8px');
-      // jsdom 不解析 clamp()，改讀 style 原始字串
-      expect(roiStyle).toContain('clamp(36px, 4.5vw + 10px, 52px)');
-      expect(roiStyle).toContain('letter-spacing: -0.035em');
-      expect(roiStyle).toContain('gap: 5px');
+      expect(roi.style.letterSpacing).toBe('-0.035em');
+      expect(roi.style.gap).toBe('5px');
     });
 
-    it('ink：fontSize / letterSpacing / gap / rowGap / marginBottom 為 ink 版本', () => {
+    it('ink：letterSpacing=-0.04em / gap=6px / rowGap=14px / marginBottom=10px', () => {
       const { container } = render(<HoldingCardReturn {...base} variant="ink" />);
       const row = rowOf(container);
       const roi = roiOf(container);
-      const roiStyle = roi.getAttribute('style') || '';
       expect(row.style.gap).toBe('14px');
       expect(row.style.marginTop).toBe('8px');
       expect(row.style.marginBottom).toBe('10px');
-      expect(roiStyle).toContain('clamp(40px, 6vw + 12px, 64px)');
-      expect(roiStyle).toContain('letter-spacing: -0.04em');
-      expect(roiStyle).toContain('gap: 6px');
+      expect(roi.style.letterSpacing).toBe('-0.04em');
+      expect(roi.style.gap).toBe('6px');
+    });
+
+    it('normal vs ink：letterSpacing / gap / marginBottom 三者必相異（分支不錯位）', () => {
+      const { container: cn } = render(<HoldingCardReturn {...base} variant="normal" />);
+      const { container: ci } = render(<HoldingCardReturn {...base} variant="ink" />);
+      expect(roiOf(cn).style.letterSpacing).not.toBe(roiOf(ci).style.letterSpacing);
+      expect(roiOf(cn).style.gap).not.toBe(roiOf(ci).style.gap);
+      expect(rowOf(cn).style.marginBottom).not.toBe(rowOf(ci).style.marginBottom);
+      expect(rowOf(cn).style.gap).not.toBe(rowOf(ci).style.gap);
     });
   });
 
