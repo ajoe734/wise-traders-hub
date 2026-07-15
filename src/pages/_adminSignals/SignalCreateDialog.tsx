@@ -17,6 +17,7 @@ import { actionLabels } from './actionLabels';
 import { PreviewTradeItem } from './PreviewTradeItem';
 import { isMarketClosed } from './derive';
 import { getAssetSpec, resolveAssetClass, isValidAssetSymbol } from '@/lib/asset';
+import { InstrumentTooltip } from '@/components/InstrumentTooltip';
 
 interface Props {
   expert: any;
@@ -589,10 +590,14 @@ export function SignalCreateDialog({
               <p className="text-xs font-medium text-muted-foreground">📋 訂閱者預覽</p>
               <div className="flex items-start gap-2 flex-wrap">
                 <Badge variant="secondary" className="text-xs shrink-0">{actionLabels[action]?.label || action}</Badge>
-                <span className="font-medium text-sm min-w-0 break-words [overflow-wrap:anywhere]">
+                <InstrumentTooltip
+                  full={stockName ? `${stockCode} ${stockName}` : stockCode}
+                  data-testid="advisor-preview-instrument"
+                  className="font-medium text-sm min-w-0 break-words [overflow-wrap:anywhere]"
+                >
                   <span className="font-mono tabular-nums tracking-tight">{stockCode}</span>
                   {stockName && <> <span>{stockName}</span></>}
-                </span>
+                </InstrumentTooltip>
                 {priceHint && <span className="text-sm text-muted-foreground shrink-0 whitespace-nowrap">@ {currencySymbol}{priceHint}</span>}
                 {quantity && <span className="text-sm text-muted-foreground shrink-0 whitespace-nowrap">{quantity} {quantityUnit}</span>}
               </div>

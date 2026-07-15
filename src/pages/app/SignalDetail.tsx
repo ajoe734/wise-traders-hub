@@ -19,6 +19,7 @@ import { FxHint } from '@/components/FxHint';
 import { CURRENCY_SYMBOL, defaultQuantityUnit, normalizeCurrency, type Currency } from '@/lib/currency';
 import { UnavailableContent } from '@/components/UnavailableContent';
 import { parseInstrument } from '@/lib/instrument';
+import { InstrumentTooltip } from '@/components/InstrumentTooltip';
 
 const actionConfig: Record<string, { label: string; className: string }> = {
   buy: { label: '買進', className: 'bg-success text-white border-success' },
@@ -108,11 +109,9 @@ const SignalDetail = () => {
   const publishedAt = signal.published_at ? new Date(signal.published_at) : null;
   // 保留 ETF 字尾（L / R / B）：`/^\d+/` 舊 regex 會把 00631L 截成 00631，造成報價鏈壞掉。
   const { code: tickerCode, name: tickerName } = parseInstrument(signal?.instrument);
-  // 保留供 SEO/title 使用的純字串版本
   const displaySymbol = tickerName
     ? `${tickerCode} ${tickerName}`
     : (tickerCode ? `${tickerCode}.TW` : signal.instrument);
-  void displaySymbol;
 
   return (
     <UnifiedAppLayout>
@@ -151,18 +150,24 @@ const SignalDetail = () => {
         <div className="flex items-start gap-3 flex-wrap">
           <Badge className={cn(ac.className, 'text-xs px-2 py-0.5 shrink-0 mt-1')}>{ac.label}</Badge>
           <h1 className="text-2xl font-bold min-w-0 break-words [overflow-wrap:anywhere] leading-tight">
-            {tickerCode ? (
-              <>
-                <span className="font-mono tabular-nums tracking-tight">{tickerCode}</span>
-                {tickerName ? (
-                  <> <span>{tickerName}</span></>
-                ) : (
-                  <span className="text-muted-foreground">.TW</span>
-                )}
-              </>
-            ) : (
-              signal.instrument
-            )}
+            <InstrumentTooltip
+              full={displaySymbol}
+              data-testid="signal-detail-instrument"
+              className="text-2xl font-bold leading-tight"
+            >
+              {tickerCode ? (
+                <>
+                  <span className="font-mono tabular-nums tracking-tight">{tickerCode}</span>
+                  {tickerName ? (
+                    <> <span>{tickerName}</span></>
+                  ) : (
+                    <span className="text-muted-foreground">.TW</span>
+                  )}
+                </>
+              ) : (
+                signal.instrument
+              )}
+            </InstrumentTooltip>
           </h1>
         </div>
         {/* Row 2: date + expert name + role badge */}

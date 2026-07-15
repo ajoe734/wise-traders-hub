@@ -18,6 +18,7 @@ import { avatarUrl } from '@/lib/imageTransform';
 import { toast } from 'sonner';
 import { exportJournalPdf } from '@/lib/exportJournalPdf';
 import { FxHint } from '@/components/FxHint';
+import { InstrumentTooltip } from '@/components/InstrumentTooltip';
 import { CURRENCY_SYMBOL, defaultQuantityUnit, normalizeCurrency, type Currency } from '@/lib/currency';
 import { SubscriptionTimeline } from '@/components/SubscriptionTimeline';
 import { useSubscriptionTimeline } from '@/hooks/useSubscriptionTimeline';
@@ -75,9 +76,10 @@ const TradeItem = ({ signal, nameMap }: { signal: SignalDetail; nameMap: Record<
         <ActionBadge action={signal.action as any} size="sm" />
         <div className="flex-1 min-w-0">
           <div className="flex items-center gap-2 flex-wrap">
-            <span
+            <InstrumentTooltip
+              full={displayInstrument}
+              data-testid="journal-detail-instrument"
               className="font-medium text-sm min-w-0 break-words [overflow-wrap:anywhere]"
-              title={displayInstrument}
             >
               {code ? (
                 <>
@@ -87,7 +89,7 @@ const TradeItem = ({ signal, nameMap }: { signal: SignalDetail; nameMap: Record<
               ) : (
                 displayInstrument
               )}
-            </span>
+            </InstrumentTooltip>
             <span className="text-xs text-muted-foreground whitespace-nowrap shrink-0">{format(new Date(signal.published_at), 'MM/dd')}</span>
             {(signal.price_hint != null || signal.quantity != null) && (
               <span className="text-xs text-foreground/80 font-medium">
