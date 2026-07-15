@@ -328,22 +328,23 @@ function DailyTabImpl({
 
             {/* 自動驗證事件結果 */}
             {(dailyReport.autoVerified||[]).length>0 && (
-              <div style={{marginBottom:14,paddingBottom:14,borderBottom:`1px solid ${alpha(C.textMute,'06')}`}}>
-                <div style={{fontSize:10,color:C.text,letterSpacing:"0.12em",fontWeight:700,marginBottom:10}}>
-                  自 動 驗 證 · {dailyReport.autoVerified.length}件
+              <div style={{marginBottom:18,paddingBottom:16,borderBottom:`1px solid ${alpha(C.textMute,'20')}`}}>
+                <div style={{borderTop:`1px solid ${C.text}`,paddingTop:12,marginBottom:12,display:"flex",alignItems:"baseline",justifyContent:"space-between"}}>
+                  <h3 style={{margin:0,fontFamily:"'Noto Serif TC',ui-serif,Georgia,serif",fontSize:16,color:C.text,fontWeight:400,letterSpacing:0}}>自動驗證</h3>
+                  <span style={{fontSize:10,color:C.textMute,letterSpacing:"0.12em"}}>{dailyReport.autoVerified.length} 件</span>
                 </div>
                 {dailyReport.autoVerified.map((v,i)=>(
-                  <div key={i} style={{display:"flex",justifyContent:"space-between",alignItems:"center",
-                    padding:"6px 0",borderBottom:i<dailyReport.autoVerified.length-1?`1px solid ${alpha(C.textMute,'04')}`:"none"}}>
+                  <div key={i} style={{display:"flex",justifyContent:"space-between",alignItems:"center",gap:12,
+                    padding:"8px 0",borderBottom:i<dailyReport.autoVerified.length-1?`1px solid ${alpha(C.textMute,'10')}`:"none"}}>
                     <div style={{flex:1,minWidth:0}}>
-                      <div style={{fontSize:12,fontWeight:700,color:C.text,overflow:"hidden",textOverflow:"ellipsis",whiteSpace:"nowrap"}}>{v.title}</div>
-                      <div style={{fontSize:11,color:C.textSec,marginTop:2,fontWeight:600}}>
+                      <div style={{fontSize:13,color:C.text,overflow:"hidden",textOverflow:"ellipsis",whiteSpace:"nowrap"}}>{v.title}</div>
+                      <div style={{fontSize:11,color:C.textMute,marginTop:2}}>
                         預測{v.pred==="up"?"看漲":"看跌"} → 實際{v.actual==="up"?"漲":v.actual==="down"?"跌":"中性"}
                       </div>
                     </div>
-                    <span style={{fontSize:11,fontWeight:400,flexShrink:0,
-                      color:v.correct?C.teal:C.up}}>
-                      {v.correct?"命中":"失誤"}
+                    <span style={{fontSize:12,flexShrink:0,letterSpacing:"0.04em",
+                      color:v.correct?"var(--cm-accent, #FF4D1F)":C.textMute}}>
+                      {v.correct?"命中":"未中"}
                     </span>
                   </div>
                 ))}
