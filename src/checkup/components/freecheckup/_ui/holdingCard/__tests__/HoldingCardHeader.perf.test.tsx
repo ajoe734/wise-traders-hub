@@ -7,9 +7,10 @@
  *    Sparkline (React.memo) 不應重繪。
  *  - 跨零（正↔負）才允許重新計算並重繪一次。
  */
-import { describe, it, expect, vi } from 'vitest';
+import { describe, it, expect, vi, beforeEach } from 'vitest';
 import { memo } from 'react';
 import { render } from '@testing-library/react';
+import { resetRenderStats } from '@/checkup/hooks/useRenderCounter';
 
 // 以 spy 版 Sparkline 取代真實元件，計算實際 render 次數
 const sparkRenderSpy = vi.fn();
