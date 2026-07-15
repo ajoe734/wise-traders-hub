@@ -4057,18 +4057,34 @@ ${JSON.stringify(strategyBrain || { rules: [], lessons: [], commonMistakes: [], 
       {/* Batch D §2：手機頂欄「更多」sheet — 收納同步、補價、日誌、清除 */}
       {mobileActionsOpen && (
         <>
-          <div className="cm-mobile-actions-sheet__backdrop" data-testid="mobile-actions-sheet-backdrop" onClick={()=>setMobileActionsOpen(false)} />
-          <div className="cm-mobile-actions-sheet" data-testid="mobile-actions-sheet" role="dialog" aria-modal="true" aria-labelledby="cm-mobile-actions-title">
+          <div
+            className="cm-mobile-actions-sheet__backdrop"
+            data-testid="mobile-actions-sheet-backdrop"
+            aria-hidden="true"
+            onClick={()=>setMobileActionsOpen(false)}
+          />
+          <div
+            ref={mobileActionsSheetRef}
+            id="cm-mobile-actions-sheet"
+            className="cm-mobile-actions-sheet"
+            data-testid="mobile-actions-sheet"
+            role="dialog"
+            aria-modal="true"
+            aria-labelledby="cm-mobile-actions-title"
+            tabIndex={-1}
+            style={{ outline: 'none' }}
+          >
             <div style={{display:'flex',alignItems:'center',justifyContent:'space-between',gap:8,marginBottom:10,paddingBottom:8,borderBottom:'1px solid var(--cm-ink)'}}>
               <h3 id="cm-mobile-actions-title" className="cm-mobile-actions-sheet__title" style={{margin:0,padding:0,border:'none'}}>更多</h3>
               <button
                 type="button"
-                aria-label="關閉"
+                aria-label="關閉更多選項"
                 data-testid="mobile-actions-sheet-close"
                 onClick={()=>setMobileActionsOpen(false)}
-                style={{background:'transparent',border:'none',fontSize:20,lineHeight:1,cursor:'pointer',color:'var(--cm-ink-sec)',padding:'2px 6px'}}
-              >×</button>
+                style={{background:'transparent',border:'none',fontSize:20,lineHeight:1,cursor:'pointer',color:'var(--cm-ink-sec)',padding:'4px 8px',minWidth:32,minHeight:32}}
+              ><span aria-hidden="true">×</span></button>
             </div>
+
 
             {!isDemo && (
               <button type="button" className="cm-mobile-actions-sheet__item"
