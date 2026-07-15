@@ -142,13 +142,16 @@ describe('HoldingCardHeader — 引用穩定性', () => {
     );
   });
 
-  it('actionLabel 變動（HOLD → BUY）→ 全 useMemo 穩定（無 memo 依賴 actionLabel）', () => {
+  it('actionLabel 變動（HOLD → BUY）→ 僅 tipInfo(4) 可變；palette/spark*/industries 穩定', () => {
+    // memo 順序：0=palette 1=sparkColor 2=sparkOpacity 3=industries 4=tipInfo
     const { rerender } = render(<HoldingCardHeader {...headerProps()} />);
-    assertAllMemosStable(
+    assertMemosStableExcept(
       () => rerender(<HoldingCardHeader {...headerProps({ actionLabel: 'HOLD' })} />),
       () => rerender(<HoldingCardHeader {...headerProps({ actionLabel: 'BUY' })} />),
+      [4],
     );
   });
+
 
   it('meta 保持同引用 + 其他 props 變 → industries 引用不變', () => {
     const { rerender } = render(<HoldingCardHeader {...headerProps()} />);
