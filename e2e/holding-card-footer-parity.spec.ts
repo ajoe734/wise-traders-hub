@@ -62,7 +62,7 @@ test.describe.parallel('Footer srcLabel / srcTitle', () => {
       hasToday: false,
     });
     const title = await badges(page).src.getAttribute('title');
-    expect(title).toMatch(/更新於 \d{2}:\d{2}/);
+    expect(title).toMatch(/更新於 (上午|下午)?\d{1,2}:\d{2}/);
   });
 
   test('srcTitle 含 yesterday（保留 2 位小數）', async ({ page }) => {
