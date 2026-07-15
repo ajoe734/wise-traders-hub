@@ -1,86 +1,118 @@
-## 問題根因（已就 8999.penguin@gmail.com 實際 DB 資料驗證）
+## 目標
+用 Playwright 針對兩個元件的**純輸出字串**做跨正負／邊界值的完整回歸，鎖死 `costStr / priceStr / decText` 與 `srcTitle / srcBadge / errBadge / valueStr / tgtStr` 的合約，任何未預期的格式變動都要 fail。
 
-該用戶的實際狀態：
-- `auth.users`: 存在（user_id `d8fa2533…`）
-- `user_roles`: `['analyst']`（已被後台開通）
-- `experts`: 存在但 `status='pending'`, `created_by=null`, `name='Benny'`, `slug='benny'`（舊資料，非本次後台開通建立）
+## 為什麼不用現有 `/holding-checkup-demo` 路由
+現有 demo 資料是**固定 fixture**，只能覆蓋一種 priceSource、一種 dec 長度、一組值。要覆蓋 null / 0 / 正 / 負 / 超長 / 各 priceSource / 各 priceError 組合，必須新增一個「以 URL 參數驅動 fixture」的隔離 harness。
 
-三個獨立缺陷疊在一起造成使用者感受到的斷點：
+## 新增檔案
 
-**1. `/company/users` 開分析師開關只給 role，不建 expert record**
-`admin-manage-users` 的 `set_role` 只 upsert 到 `user_roles`，完全沒碰 `experts`。所以「開通後分析師頁沒顯示」——是因為對「新註冊、還沒有任何 expert row 的人」按開關，`experts` 表始終沒有那一列。
+### 1. `src/pages/HoldingCardHarnessEntry.tsx`（preview-only）
+路由 `/e2e/holding-card-harness`，讀 `?d=<base64url-json>` → JSON.parse → 直接渲染兩個元件：
 
-**2. `/company/analysts` 的清單沒有把 `status='pending'` 標示為「待補資料」**
-`AnalystsTable` 只判斷 `status === 'suspended'`，其他一律顯示綠色「啟用中」badge。目前 12 筆裡有 6 筆 `status='pending'`、`created_by=null`（Benny/MK/Ele/老佛爺/Sean/永維），全部被誤標為啟用中且沒有「補齊資料」入口。
+```
+<HoldingCardPriceTrack h={fx.h} meta={fx.meta} dec={fx.dec}
+  subColor="#1a1a1a" muteColor="#666" variant={fx.variant} />
+<HoldingCardFooter h={fx.h} tp={fx.tp} upside={fx.upside}
+  hasToday={fx.hasToday} todayPnlNum={fx.todayPnlNum} todayPctNum={fx.todayPctNum}
+  variant={fx.variant} subColor="#1a1a1a" muteColor="#666"
+  hairColor="#eee" lossColor="#c0392b" />
+```
 
-**3. `create-analyst` edge function 對「已有 analyst role」或「已有 expert row」一律硬擋 409**
-沒有 upgrade / adopt 路徑，導致「想在分析師頁重新建立此人」永遠 400/409，即使目的是要補資料。
+- 環境判斷（`import.meta.env.DEV || localhost || *.lovableproject.com || id-preview--*.lovable.app`）與 `HoldingCheckupDemoEntry` 一致；非 preview 環境回傳 `null`（避免 production 洩漏）。
+- 頁面根 `<div id="harness-root">` 便於選取。
+- URL 缺 `?d=` 或 JSON parse 失敗 → 顯示 `<pre>ERR: ...</pre>`（測試會斷言不能出現此節點）。
+- 在 `App.tsx`（或 `src/main.tsx` route table，先讀取才決定）加 `<Route path="/e2e/holding-card-harness" element={<HoldingCardHarnessEntry />} />`，`lazy()` 引入避免影響主 bundle。
 
-## 修復設計
+### 2. `e2e/helpers/holdingCardHarness.ts`
+共用工具：`encodeFixture(fx)` → base64url、`navigateHarness(page, fx)` → `page.goto(\`/e2e/holding-card-harness?d=\${enc}\`)`、`readText(page, selector)` helper。
 
-### A. `admin-manage-users` — `set_role` 分析師時同步建立 expert 骨架
-`set_role` action 內、當 `role === 'analyst' && enabled === true`：
-- upsert `user_roles`（現行行為）
-- 若 `experts.user_id = targetId` 不存在，插入一列：
-  - `status = 'pending'`
-  - `role = 'mentor'`（預設；後台可改）
-  - `name = profiles.display_name` 或 `auth.email` 前綴
-  - `slug = 'pending-' + substr(user_id,0,8)`（唯一、可辨識、之後於分析師頁改）
-  - `created_by = callerId`
-- 回傳 `{ ok: true, expert_created: true, expert_id, needs_setup: true }`
+### 3. `e2e/holding-card-price-track-parity.spec.ts`
+矩陣 case（每個 `test()` 一組 fixture），selector 用**純結構**避免動元件：
+- `cost` cell: `page.locator('xpath=//span[text()="成本"]/following-sibling::span[1]')`
+- `price` cell: `page.locator('xpath=//span[text()="現價"]/following-sibling::span[1]')`
+- `dec` text: `page.locator('#harness-root > div').nth(1).locator('div')`
 
-當 `role === 'analyst' && enabled === false`：
-- 只刪 `user_roles` 那一列（現行行為）
-- 若對應 `experts.status IN ('pending','suspended')` 且無訂閱者、無訊號 → 一併軟刪：`status='suspended'`（不硬刪保留稽核）
-- 若已 `active` 或有訂閱者 → 保留 expert row，只回收 role，並在 response 標記 `expert_kept=true`
+覆蓋範圍：
+| 名稱 | h.cost | h.price | dec.actionText | meta.strategy | variant | 預期 |
+|---|---|---|---|---|---|---|
+| both null | null | null | null | null | normal | 成本`—` / 現價`—` / decText `''` |
+| zero cost | 0 | 100 | null | 'A' | normal | 成本`0.00` / 現價`100.00` / decText `A`（40字內原文，此處長度3） |
+| integer trunc | 12 | 12.345 | null | null | normal | 成本`12.00` / 現價`12.35`（四捨五入 toFixed） |
+| large numbers | 1234567.891 | 999999.999 | null | null | normal | 成本`1234567.89` / 現價`1000000.00` |
+| dec short | 100 | 110 | '短句' | null | normal | decText `短句` |
+| dec exactly limit normal | 100 | 110 | 'X'.repeat(60) | null | normal | decText 原文 60 字 |
+| dec over limit normal | 100 | 110 | 'X'.repeat(65) | null | normal | decText 以 `…` 結尾、長度 ≤ 60 |
+| dec with punctuation break | 100 | 110 | `A。${'B'.repeat(80)}` | null | normal | 保留至第一個標點後 `…` |
+| dec over limit ink | 100 | 110 | 'Y'.repeat(120) | null | ink | decText 以 `…` 結尾、長度 ≤ 90 |
+| dec null fallback strategy normal | 100 | 110 | null | 'S'.repeat(60) | normal | decText `S`.repeat(40)（slice 40） |
+| dec null fallback strategy ink | 100 | 110 | null | 'S'.repeat(120) | ink | decText 原文（ink 不裁切 strategy） |
+| dec null no strategy ink | 100 | 110 | null | null | ink | decText `持續監控基本面與籌碼變動。` |
 
-### B. `create-analyst` — 支援 adopt / upgrade 既有帳號
-把「email 已存在」分支的三種硬擋改成幂等升級：
+每個 case 用「測試中複寫一份 `truncateAction`」與元件一致，計算期望值後 strict equal — 元件邏輯變動即 fail。
 
-| 現況 | 現行行為 | 改為 |
-|---|---|---|
-| `experts` 存在且 `status='active'` | 409 | 保留 409 訊息，附上 `slug` 讓管理員知道去哪編輯 |
-| `experts` 存在但 `status IN ('pending','suspended')` | 409 | UPDATE 該列：name/slug/role/bio/status='suspended'/created_by=caller，回傳 200 + `adopted:true` |
-| `user_roles` 有 analyst 但無 `experts` | 409 | 走原本 insert experts 流程（不再擋） |
-| 皆無 | 建立 | 現行行為 |
+### 4. `e2e/holding-card-footer-parity.spec.ts`
+Selector 依 Footer 現有 aria/role/class，**不改元件**：
+- srcBadge: `page.getByRole('img').filter({ hasText: /^(截圖|即時|最高|賣一|昨收|DEMO|收盤|已收K|TWSE|Yahoo)$/ })`
+- errBadge: `page.getByRole('img', { name: /^報價錯誤：/ })`（也對應 hasText `失敗`）
+- valueStr: `page.locator('.wb-bottom > span.wb-bottom-val').nth(1)`
+- todayCell: `page.locator('.wb-bottom > span.wb-bottom-val').nth(0)`
+- tgtStr: `valueStr.locator('span').last()` 且 textContent 以 `TGT ` 開頭
 
-slug 衝突（不同 user_id 已佔用該 slug）仍要 409，並附「slug 已被 X 使用」訊息。
+覆蓋範圍（每列一個 test）：
 
-### C. `/company/analysts` UI — pending 狀態視覺化與補資料入口
-`AnalystsTable` badge 邏輯改為三態：
-- `suspended` → 紅色「已停用」
-- `pending` → 琥珀色「待補資料」
-- 其他 → 綠色「啟用中」
+**srcLabel / srcTitle**
+1. priceSource 為 `SRC_LABEL` 全部 10 key（screenshot/live/high/ask/yclose/demo/regularMarketPrice/previousClose/chartClose/twse/yahoo）→ 斷言 srcBadge 文字 = SRC_LABEL[key]、`title` 內含 `來源：{label}（{key}）`
+2. priceSource 未知字串 `mystery` → srcBadge 文字 = `mystery`、title 含 `來源：mystery（mystery）`
+3. priceSource null、無 priceError → 無 srcBadge、無 errBadge
+4. srcTitle 拼接：`priceUpdatedAt` 給 `2026-07-15T04:30:00Z` → title 含 `更新於 HH:MM`（不寫死時區小時，只 assert `更新於 \d{2}:\d{2}` regex）
+5. srcTitle 拼接：`yesterday=105.5` → title 含 `昨收 105.50`
+6. srcTitle 拼接：`price=110.123` → title 含 `現價 110.12`
+7. srcTitle 拼接：三者皆缺、只有 srcLabel → title 完全等於 `來源：即時（live）`
+8. srcTitle 拼接：無 srcLabel 且無 priceError → title = `尚未同步即時報價`
 
-pending 列在操作區增加「補資料」按鈕，點擊開啟現有的 `CreateAnalystDialog`（以編輯模式打開，帶入 email/slug/name/role），送出時走 `create-analyst`（B 已支援 adopt）。
+**errBadge**
+9. priceError='NET' 且 priceSource=null → srcBadge 不存在、errBadge 文字 `失敗`、title=`NET`、aria-label=`報價錯誤：NET`、srcTitle= `報價問題：NET`（透過 srcTitle 位置：Footer 上 title 屬性只掛在 srcBadge/errBadge，故用 errBadge title 驗證）
+10. priceError='X' 且 priceSource='live' → 顯示 srcBadge（不顯示 errBadge），且 srcBadge.title 起首是 `報價問題：X`
 
-### D. `/company/users` UI — 分析師開關後給明確導向
-`toggleRole` 成功時，若 `data?.needs_setup === true`：
-- toast 顯示「已開通分析師，請至分析師管理補齊 slug/姓名/角色」
-- 附「前往分析師管理」按鈕（`useNavigate` 到 `/company/analysts`）
+**valueStr**
+11. h.value=null → valueStr `—`、aria-label=`無資料`
+12. h.value=0 → valueStr `0`、無 aria-label
+13. h.value=1500000.5 → valueStr `1,500,000.5`（`toLocaleString`）
+14. h.value=undefined → valueStr `—`
 
-### E. 資料補救（一次性 migration，不動 slug 只補 created_by）
-6 筆 pending 舊資料補上 `created_by`（用當前操作 admin 的 id 不合適，改用 `null` 保留現況即可）— **這步略過**，改由 UI「待補資料」提示引導管理員逐一補齊，避免污染稽核歷史。
+**tgtStr**
+15. variant=ink, tp=200, upside=15.267 → tgtStr `TGT +15.3%`
+16. variant=ink, tp=200, upside=-0.05 → tgtStr `TGT -0.1%`（toFixed(1) 四捨五入）
+17. variant=ink, tp=200, upside=0 → tgtStr `TGT +0.0%`
+18. variant=normal, tp=200, upside=15 → tgtStr 不存在（selector 找不到）
+19. variant=ink, tp=null, upside=15 → tgtStr 不存在
+20. variant=ink, tp=200, upside=null → tgtStr 不存在
 
-## 影響檔案
+**todayCell**
+21. hasToday=false → textContent=`—`、aria-label=`無資料`
+22. hasToday=true, todayPnlNum=1234, todayPctNum=2.567 → `+1,234+2.57%`
+23. hasToday=true, todayPnlNum=-1234, todayPctNum=-2.567 → `-1,234-2.57%`
+24. hasToday=true, todayPnlNum=0, todayPctNum=0 → `+0+0.00%`
+25. hasToday=true, todayPnlNum=null, todayPctNum=5 → `—+5.00%`
+26. hasToday=true, todayPnlNum=100, todayPctNum=null → `+100`（無百分比 span）
 
-- `supabase/functions/admin-manage-users/index.ts` — set_role 分支擴充（A）
-- `supabase/functions/create-analyst/index.ts` — 已存在分支重寫為 adopt（B）
-- `src/pages/_companyAnalysts/AnalystsTable.tsx` — 三態 badge + 補資料按鈕（C）
-- `src/pages/company/Analysts.tsx` — 接住補資料按鈕、預設 role/slug/email 帶入 CreateAnalystDialog
-- `src/pages/_companyAnalysts/CreateAnalystDialog.tsx` — 標題與 CTA 依 mode 切換（新增／補資料）
-- `src/pages/company/Users.tsx` — toggleRole 成功後跳轉提示（D）
+## 不動元件（守住現有 snapshot 合約）
+- 不加 `data-testid`、不改 aria-label、不改 class name、不改樣式 → `HoldingCardFooter.snapshot.test.tsx` 12 個 inline snapshot 與 `HoldingCardFooter.a11y.test.tsx` 18 case 全部不受影響。
+- PriceTrack 目前沒有 data-testid／class；用 xpath 找「成本／現價」sibling 是唯一穩定路徑，接受此輕微耦合。
 
-## 不動範圍
+## Playwright config
+- 現有 `playwright.config.ts` 已含 `baseURL: http://localhost:8080` 與 chromium 專案。新增 spec 直接沿用，不加新 project。
+- 兩個新 spec 都用 `test.describe.parallel` 加速。
+- 不做 pixel screenshot；只做 `expect(locator).toHaveText(exact)` / `toHaveAttribute` 斷言，避免 flaky。
 
-- `experts` schema、RLS 不動
-- Line 綁定、訂閱、payout 流程不動
-- 分析師自助註冊路徑（若未來要開）另案
+## Playwright 執行
+```
+bunx playwright test e2e/holding-card-price-track-parity.spec.ts e2e/holding-card-footer-parity.spec.ts
+```
+CI 加入 default matrix，本地手動驗證通過後回報。
 
-## 驗證清單
-
-1. 新註冊帳號 `foo@bar` → `/company/users` 開分析師 → `/company/analysts` 立刻看到 `foo` 為「待補資料」
-2. 點「補資料」→ 改 slug/name/role → 送出後變「已停用」（因 create-analyst 預設 status=suspended），再按「啟用」變綠色
-3. 對同一 email 重複點「新增分析師」→ 不再 409，直接進 adopt 流程
-4. 8999.penguin@gmail.com 進到分析師頁能看到 Benny（pending 態）並能透過「補資料」修正
-5. 停權已有訂閱者的分析師 → 保留 expert row，只回收 role
+## 驗證流程
+1. 加 harness → 手動開 `/e2e/holding-card-harness?d=<encoded>` 目視確認可渲染
+2. 跑 12 (PriceTrack) + 26 (Footer) = 38 案例，全綠
+3. 故意在本地把 `truncateAction` 的 `limit` 改成 30 → PriceTrack case #6/#7/#9 應立即 fail（驗證測試真的能抓到回歸）
+4. 復原改動 → 再跑一次全綠 → 完成
