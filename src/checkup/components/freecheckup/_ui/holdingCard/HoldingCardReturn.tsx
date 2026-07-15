@@ -78,6 +78,7 @@ function HoldingCardReturnImpl({
           {pnlVal >= 0 ? '+' : ''}{pnlVal.toLocaleString()}
         </span>
       )}
+      <ReturnBar pct={pctVal} scale={40} className="wb-return-bar" />
     </div>
   );
 }
