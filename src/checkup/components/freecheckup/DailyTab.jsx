@@ -458,35 +458,35 @@ function DailyTabImpl({
               </div>
 
               {(strategyBrain.rules||[]).length>0 && (
-                <div style={{marginBottom:10}}>
-                  <div style={{fontSize:10,color:C.text,fontWeight:700,letterSpacing:"0.08em",marginBottom:5}}>核心策略規則</div>
+                <div style={{marginBottom:12}}>
+                  <div style={{fontSize:10,color:C.textMute,letterSpacing:"0.10em",marginBottom:6}}>核心策略規則</div>
                   {strategyBrain.rules.map((r,i)=>(
-                    <div key={i} style={{fontSize:12,color:C.textSec,lineHeight:1.8,fontWeight:600,
-                      padding:"3px 0",borderBottom:`1px solid ${alpha(C.textMute,'04')}`}}>
-                      {i+1}. {r}
+                    <div key={i} style={{fontSize:13,color:C.text,lineHeight:1.9,
+                      padding:"4px 0",borderBottom:`1px solid ${alpha(C.textMute,'10')}`}}>
+                      <span style={{color:C.textMute,marginRight:8,fontVariantNumeric:"tabular-nums"}}>{String(i+1).padStart(2,'0')}</span>{r}
                     </div>
                   ))}
                 </div>
               )}
 
               {(strategyBrain.commonMistakes||[]).length>0 && (
-                <div style={{marginBottom:10}}>
-                  <div style={{fontSize:10,color:C.text,fontWeight:700,letterSpacing:"0.08em",marginBottom:5}}>常犯錯誤</div>
+                <div style={{marginBottom:12}}>
+                  <div style={{fontSize:10,color:C.textMute,letterSpacing:"0.10em",marginBottom:6}}>常犯錯誤</div>
                   {strategyBrain.commonMistakes.map((m,i)=>(
-                    <div key={i} style={{fontSize:12,color:C.textSec,lineHeight:1.8,fontWeight:600}}>{m}</div>
+                    <div key={i} style={{fontSize:13,color:C.textSec,lineHeight:1.9,padding:"3px 0"}}>{m}</div>
                   ))}
                 </div>
               )}
 
               {(strategyBrain.lessons||[]).length>0 && (
                 <div>
-                  <div style={{fontSize:10,color:C.text,fontWeight:700,letterSpacing:"0.08em",marginBottom:5}}>
+                  <div style={{fontSize:10,color:C.textMute,letterSpacing:"0.10em",marginBottom:6}}>
                     最近教訓（共 {strategyBrain.lessons.length} 條）
                   </div>
                   {strategyBrain.lessons.slice(-5).reverse().map((l,i)=>(
-                    <div key={i} style={{fontSize:11,color:C.textSec,lineHeight:1.7,fontWeight:600,
-                      padding:"4px 0",borderBottom:`1px solid ${alpha(C.textMute,'04')}`}}>
-                      <span style={{color:C.textSec}}>[{l.date}]</span> {l.text}
+                    <div key={i} style={{fontSize:12,color:C.textSec,lineHeight:1.8,
+                      padding:"4px 0",borderBottom:`1px solid ${alpha(C.textMute,'10')}`}}>
+                      <span style={{color:C.textMute,marginRight:8,fontVariantNumeric:"tabular-nums"}}>{l.date}</span>{l.text}
                     </div>
                   ))}
                 </div>
