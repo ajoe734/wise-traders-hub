@@ -396,6 +396,14 @@ export default defineConfig({
       use: { ...devices['Desktop Chrome'], viewport: { width: w, height: 900 } },
     })),
 
+    // Journal PDF 匯出 — 字型 / accent 色漂移守門 × 3 常見桌面/平板寬度
+    // 頁面本身固定 794px，跨 viewport 主要是 catch 外層 layout / 字型延遲 fallback
+    ...([768, 1024, 1280] as const).map((w) => ({
+      name: `journal-pdf-visual-${w}`,
+      testMatch: /journal-pdf-visual\.spec\.ts/,
+      use: { ...devices['Desktop Chrome'], viewport: { width: w, height: 1400 } },
+    })),
+
 
     // 分享流程：短連結 redirect / og-card / ShareButton dropdown
     {
