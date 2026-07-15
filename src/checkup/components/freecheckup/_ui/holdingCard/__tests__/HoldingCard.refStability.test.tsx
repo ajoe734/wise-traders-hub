@@ -107,6 +107,9 @@ const headerProps = (over: Record<string, unknown> = {}) => ({
   sparkFailed: false,
   actionLabel: 'HOLD',
   pctVal: 5,
+  // sentinel：每次呼叫都是新引用，強制 React.memo 通過並觸發 re-render，
+  // 讓 useMemo 有機會執行以驗證 deps 未變時的 bailout。
+  __k: {},
   ...over,
 });
 
