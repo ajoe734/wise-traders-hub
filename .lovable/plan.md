@@ -1,63 +1,50 @@
-# 修正台股 ETF 英數字尾（00631L、00878B、00679B 等）被過濾的問題
+# Plan：擴充 sparkline / ROI 的 demo × real 雙模式 E2E 驗證
 
-## 根因
+## 目標
+在自由檢查頁（`/holding-checkup`）新增一支 Playwright 回歸，證明「**同一筆持倉在 demo 模式與登入後真實資料模式下，Header 派生出的字串（ROI %、aria-label、pctSign）與顏色（sparkColor / sparkOpacity / variant 對應）在 DOM 上完全一致**」，避免未來調 seed 或改 backfill 時，兩條路徑的派生分支發生漂移。
 
-台股 ETF 有槓桿 (L)、反向 (R)、債券 (B) 等變體，代碼格式為「4–6 位數字 + 選填 1 個大寫英文字母」，例如 `00631L`（元大台灣 50 正 2）、`00878B`（國泰投資級公司債）、`00679B`（元大美債 20 年）。
+## 新增檔案
+- `e2e/freecheckup-sparkline-roi-mode-parity.spec.ts`
 
-但前端 `TW_SYMBOL_RE = /^\d{4,6}$/` 只允許純數字，也沒對 TW 輸入做 uppercase。老師在週記 / 訊號編輯器輸入這類代碼時：
-1. 打大寫 → 名稱可查到，但按「發布」時被 `isValidSymbol` 擋 → toast「代碼格式錯誤」。
-2. 打小寫 → 沒 uppercase → regex 更不可能過。
+## 測試設計
 
-同一 pattern 也散在多個 edge function，導致後端價格同步、法說會公告等資料流也漏這些 ETF（用戶未直接看到，但已造成資料破損）。
+### 共用 fixture
+沿用既有 `e2e/freecheckup-sparkline-signs.spec.ts` 的 IntersectionObserver stub 與 `navigateAndWaitForCardReady` helper，抽出到本檔頂部（不動舊檔）：
+- `bootDemo(page)`：`localStorage['checkup-demo-mode']='1'`、跳過 intro 影片。
+- `bootReal(page)`：注入受管理 Supabase session（依 `LOVABLE_BROWSER_AUTH_STATUS`），並在導頁前把 demo seed 以 RPC / 直寫 `trade_records` 方式建立為使用者資料；若 `AUTH_STATUS !== 'injected'` 則 `test.skip`。
 
-## 修改範圍（窮舉）
+### 資料收集器
+複用 `collect(page)` 邏輯，回傳每張卡的：
+`{ code, isFeature, variantAttr, ariaLabel, roiText, sparkSign, sparkColor, sparkOpacity, pnlText, pnlSubText }`。
+key 用 `data-code`（若無則從 `.wb-code` 讀）確保兩模式可對齊。
 
-### 前端（用戶主訴路徑）
+### Case 1 — Demo baseline 白名單
+執行 `bootDemo` → 收集全部卡：
+- `sparkColor ∈ {#ff4d1f, #9b968d, #f4f1ec}`
+- `sparkOpacity ∈ {0.85, 0.55, 0.6}`
+- `sparkSign ∈ {"1","-1"}`
+- 每卡 `signFromAriaLabel === signFromRoiText`
 
-| 檔案 | 位置 | 修改 |
-|---|---|---|
-| `src/lib/currency.ts` | L45 `TW_SYMBOL_RE` | `/^\d{4,6}$/` → `/^\d{4,6}[A-Z]?$/` |
-| `src/lib/currency.ts` | L47–51 `isValidSymbol` | TW 分支加 `.toUpperCase()`，與 USD 對稱 |
-| `src/lib/currency.ts` | L54 `symbolPlaceholder` | 台股 placeholder 補範例：`例：2330 / 00631L` |
-| `src/lib/asset.ts` | L47 `tw_stock.symbolRegex` | `/^\d{4,6}$/` → `/^\d{4,6}[A-Z]?$/` |
-| `src/lib/asset.ts` | L48 `symbolPlaceholder` | 同上補範例 |
-| `src/lib/asset.ts` | L50 `tw_stock.uppercaseSymbol` | `false` → `true`（純數字 uppercase 為 no-op，改動零風險） |
-| `src/pages/_signalEditor/TradeCard.tsx` | L78 | `const v = isUsd ? raw.toUpperCase() : raw;` → 一律 `raw.toUpperCase()`（TW 純數字不受影響） |
-| `src/pages/admin/SignalEditor.tsx` | `fetchStockInfo` (L140–157) | 送出前 `c = c.toUpperCase()`，避免大小寫快取分裂 |
+### Case 2 — Real baseline 白名單
+`bootReal` → 相同斷言（防呆：真實資料路徑不會意外冒出第四種顏色 / 透明度）。
 
-`src/pages/_adminSignals/SignalCreateDialog.tsx` 已透過 `spec.uppercaseSymbol` + `isValidAssetSymbol` 走 asset spec → 只要上面兩個 lib 改完就自動生效，不需再改。
+### Case 3 — Demo × Real 逐卡 parity（核心）
+兩次 run 用相同 seed（DEMO_HOLDING_LOOKUP），以 `code` 對齊後逐卡比對：
+- `variantAttr`、`sparkSign`、`sparkColor`、`sparkOpacity` 全等
+- `roiText.trim()`、`pnlText.trim()`、`pnlSubText.trim()`、`aria-label` 的 `報酬率 ±X.XX%` 片段字面全等
+- `isFeature` flag 一致（feature 卡策略在兩模式應一致）
 
-`src/pages/_signalEditor/derive.ts:195` 已 `.trim().toUpperCase()` → 只等 regex 放寬。
+### Case 4 — 跨零守門
+篩出 `pctSign=+1` 與 `-1` 各至少一張，斷言兩組 `sparkColor` / `sparkOpacity` 相異；兩模式各自跑一次。
 
-### 後端 Edge Functions（資料一致性）
+### Case 5 — Feature (ink) 卡專屬
+ink 卡在兩模式都必須 `sparkColor==='#f4f1ec'`，正號 opacity=0.85、負號 0.6。
 
-| 檔案 | 位置 | 修改 |
-|---|---|---|
-| `supabase/functions/stock-price-sync/index.ts` | L226, L325 | `/^\d{4,6}$/` → `/^\d{4,6}[A-Z]?$/i` |
-| `supabase/functions/checkup-warrant-sync/index.ts` | L57 | 同上 |
-| `supabase/functions/checkup-mops-announcements/index.ts` | L83 | 同上 |
-| `supabase/functions/backfill-daily-snapshots/index.ts` | L88 | 同上 |
+## 執行環境備註
+- viewport `390×844`
+- 若 `AUTH_STATUS='signed_out' | 'external_unmanaged' | 'no_supabase'`：Case 2/3 `test.skip` 並印訊息；Case 1/4/5 仍跑。
+- 不新增 npm 套件；不動 `playwright.config.ts`（既有 setup 已涵蓋）。
+- 不改任何應用碼；`data-spark-*` 屬性已在 `HoldingCardHeader.tsx` line 101 附近就緒。
 
-已支援 `[A-Z]?` 不需改：`checkup-analyst-reports`、`checkup-mops-revenue`、`_shared/validation_schemas_test.ts`。
-
-`stock-name-lookup` 對代碼無 pattern 限制、TWSE MIS `tse_00631L.tw` 本來就可解析 → 不需改。
-
-### 測試補齊
-
-| 檔案 | 新增 case |
-|---|---|
-| `src/test/unit/currency.test.ts` | `isValidSymbol('00631L','TWD')=true`、`'00878B'=true`、`'00679B'=true`、`'0050'=true`、`'00631l'=true`（小寫接受）、`'00631LR'=false`（雙字母）、`'123'=false` 保留、`'12345B'=true`（5 碼 + B） |
-| `src/test/unit/assetSpec.test.ts` | 同上以 `isValidAssetSymbol(..., 'tw_stock')` 覆蓋；追加 `getAssetSpec('tw_stock').uppercaseSymbol === true` |
-
-## 驗證步驟
-
-1. `bunx vitest run src/test/unit/currency.test.ts src/test/unit/assetSpec.test.ts`
-2. `bunx tsgo --noEmit` 確認型別
-3. 手動：以老師身份在 SignalEditor 輸入 `00631l` → 自動變 `00631L`、名稱帶回「元大台灣 50 正 2」、按發布不擋。
-4. 部署 4 個 edge functions 後檢查 `stock-price-sync` 下一輪跑批 log 有納入英數尾 ETF symbol。
-
-## 不做
-
-- 不擴充到多字母尾（`00631LR` 這種目前市場上不存在）。
-- 不動 auto-gen (`src/integrations/supabase/client.ts`、`types.ts`)。
-- 不修改 auth/storage 相關 schema。
+## 交付驗收
+`bunx playwright test e2e/freecheckup-sparkline-roi-mode-parity.spec.ts` 於 injected session 下全綠；於 signed_out 環境下 Case 2/3 顯示 skipped、其餘綠。
