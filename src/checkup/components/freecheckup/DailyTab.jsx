@@ -449,11 +449,11 @@ function DailyTabImpl({
 
           {/* 策略大腦 */}
           {strategyBrain && (
-            <div style={{marginBottom:14,paddingBottom:14,borderBottom:`1px solid ${alpha(C.textMute,'06')}`}}>
-              <div style={{display:"flex",justifyContent:"space-between",alignItems:"center",marginBottom:10}}>
-                <span style={{fontSize:10,color:C.text,letterSpacing:"0.12em",fontWeight:700}}>策 略 大 腦</span>
-                <span style={{fontSize:11,color:C.textSec,fontWeight:600}}>
-                  更新：{strategyBrain.lastUpdate||"—"} | 分析：{strategyBrain.stats?.totalAnalyses||0}次
+            <div style={{marginBottom:18,paddingBottom:16,borderBottom:`1px solid ${alpha(C.textMute,'20')}`}}>
+              <div style={{borderTop:`1px solid ${C.text}`,paddingTop:12,marginBottom:12,display:"flex",alignItems:"baseline",justifyContent:"space-between",gap:12,flexWrap:"wrap"}}>
+                <h3 style={{margin:0,fontFamily:"'Noto Serif TC',ui-serif,Georgia,serif",fontSize:16,color:C.text,fontWeight:400,letterSpacing:0}}>策略大腦</h3>
+                <span style={{fontSize:10,color:C.textMute,letterSpacing:"0.06em"}}>
+                  更新 {strategyBrain.lastUpdate||"—"} ｜ 分析 {strategyBrain.stats?.totalAnalyses||0} 次
                 </span>
               </div>
 
