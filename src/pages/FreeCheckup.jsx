@@ -3439,11 +3439,13 @@ ${JSON.stringify(strategyBrain || { rules: [], lessons: [], commonMistakes: [], 
               {/* 手機版：只顯示「更多」按鈕，其他操作進 sheet */}
               <span className="cm-header-mobile-actions">
                 <button
+                  ref={mobileActionsTriggerRef}
                   type="button"
                   className="cm-header-mobile-more"
                   data-testid="checkup-mobile-more-cta"
                   aria-label="更多選項"
                   aria-haspopup="dialog"
+                  aria-controls="cm-mobile-actions-sheet"
                   aria-expanded={mobileActionsOpen}
                   onClick={() => setMobileActionsOpen(true)}
                 >⋯ 更多</button>
