@@ -263,6 +263,7 @@ const AppShell = () => (
             <Route path="/e2e/signal-editor-harness" element={<SignalEditorHarnessEntry />} />
             <Route path="/e2e/etf-display-harness" element={<EtfDisplayHarnessEntry />} />
             <Route path="/e2e/signal-preview-harness" element={<SignalPreviewHarnessEntry />} />
+            <Route path="/e2e/signal-focus-harness" element={<SignalFocusHarnessEntry />} />
             <Route path="/free-checkup" element={<LegacyFreeCheckupRedirect />} />
             <Route path="/legal" element={<Legal />} />
             <Route path="/data-sources" element={<DataSources />} />
