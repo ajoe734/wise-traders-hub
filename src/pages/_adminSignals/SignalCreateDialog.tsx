@@ -593,13 +593,13 @@ export function SignalCreateDialog({
                 <InstrumentTooltip
                   full={stockName ? `${stockCode} ${stockName}` : stockCode}
                   data-testid="advisor-preview-instrument"
-                  className="font-medium text-sm min-w-0 break-words [overflow-wrap:anywhere]"
+                  className="font-medium text-[13px] sm:text-sm min-w-0 break-words [overflow-wrap:anywhere] tracking-normal"
                 >
-                  <span className="font-mono tabular-nums tracking-tight">{stockCode}</span>
-                  {stockName && <> <span>{stockName}</span></>}
+                  <span className="font-mono tabular-nums tracking-normal">{stockCode}</span>
+                  {stockName && <> <span className="tracking-tight">{stockName}</span></>}
                 </InstrumentTooltip>
-                {priceHint && <span className="text-sm text-muted-foreground shrink-0 whitespace-nowrap">@ {currencySymbol}{priceHint}</span>}
-                {quantity && <span className="text-sm text-muted-foreground shrink-0 whitespace-nowrap">{quantity} {quantityUnit}</span>}
+                {priceHint && <span className="font-mono tabular-nums text-[13px] sm:text-sm text-muted-foreground shrink-0 whitespace-nowrap tracking-normal">@ {currencySymbol}{priceHint}</span>}
+                {quantity && <span className="font-mono tabular-nums text-[13px] sm:text-sm text-muted-foreground shrink-0 whitespace-nowrap tracking-normal">{quantity} <span className="font-sans">{quantityUnit}</span></span>}
               </div>
               {reasonSummary && <p className="text-sm">{reasonSummary}</p>}
               {reasonDetail && <p className="text-xs text-muted-foreground whitespace-pre-wrap">{reasonDetail}</p>}
