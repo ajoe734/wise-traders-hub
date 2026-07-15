@@ -98,20 +98,22 @@ function HoldingCardImpl(props) {
     ? ((tp - _priceForUpside) / _priceForUpside) * 100
     : null;
 
-  const isInk = variant === 'ink';
-  const isFeature = isInk && isFeatureSlot;
-  const cardBg = isInk ? WB.ink : WB.surface;
-  const cardColor = isInk ? '#F4F1EC' : WB.ink;
-  const cardBorder = isInk ? 'none' : `1px solid ${isActive ? WB.hairStrong : WB.hair}`;
-  const MIN_H = 320;
+  // §3.4 定案：卡片全部同尺寸白底黑框，不再有 feature 黑底變體；箭頭 ↑/↓ 全刪，
+  // 正負以 `+`/`−` 表達（Return 層處理）。variant/isFeatureSlot props 保留供上游相容。
+  const isInk = false;
+  const isFeature = false;
+  const cardBg = '#FFFFFF';
+  const cardColor = 'var(--cm-ink, #0A0A0A)';
+  const cardBorder = `1px solid ${isActive ? 'var(--cm-ink, #0A0A0A)' : 'var(--cm-hair, #ECEAE5)'}`;
+  const MIN_H = 200;
 
-  const muteColor = isInk ? 'rgba(244,241,236,0.50)' : WB.inkLight;
-  const subColor = isInk ? 'rgba(244,241,236,0.80)' : WB.inkSub;
-  const hairColor = isInk ? 'rgba(244,241,236,0.14)' : WB.hair;
-  const lossColor = isInk ? 'rgba(244,241,236,0.55)' : '#8A857F';
-  const pnlColor = pctVal > 0 ? WB.accent : pctVal < 0 ? lossColor : muteColor;
+  const muteColor = 'var(--cm-ink-mute, #9B968D)';
+  const subColor = 'var(--cm-ink-sub, #3A3A3A)';
+  const hairColor = 'var(--cm-hair, #ECEAE5)';
+  const lossColor = 'var(--cm-loss, #8A857F)';
+  const pnlColor = pctVal > 0 ? 'var(--cm-accent, #FF4D1F)' : pctVal < 0 ? lossColor : muteColor;
   const pnlWeight = pctVal > 0 ? 500 : 400;
-  const pnlArrow = pctVal > 0 ? '↑' : pctVal < 0 ? '↓' : '';
+
 
   const ariaLabel = `${h.name || ''} ${h.code}，決策 ${
     actionLabel === 'EXIT' ? '建議出場' : actionLabel === 'REVIEW' ? '需要檢查' : '維持持有'
@@ -195,29 +197,19 @@ function HoldingCardImpl(props) {
     }
   };
 
-  // ── 兩種 variant 共用 button 外殼 ──
-  const buttonClass = isFeature
-    ? 'wb-card wb-card-feature wb-span-feature'
-    : 'wb-card wb-span-1';
-  const buttonStyle = isFeature
-    ? {
-        position: 'relative', minHeight: MIN_H, textAlign: 'left',
-        background: cardBg, border: 'none', borderRadius: 0,
-        padding: '24px 28px 20px', cursor: 'pointer',
-        display: 'flex', flexDirection: 'column',
-        transition: 'background 160ms ease',
-        fontFamily: 'inherit', color: cardColor, overflow: 'hidden',
-      }
-    : {
-        position: 'relative', minHeight: MIN_H, textAlign: 'left',
-        background: cardBg, border: cardBorder, borderRadius: 0,
-        padding: '22px 22px 18px', cursor: 'pointer',
-        display: 'flex', flexDirection: 'column',
-        transition: 'background 160ms ease, border-color 160ms ease',
-        fontFamily: 'inherit', color: cardColor, overflow: 'hidden',
-      };
+  // ── §3.4：所有卡片同一外殼 ──
+  const buttonClass = 'wb-card wb-span-1';
+  const buttonStyle = {
+    position: 'relative', minHeight: MIN_H, textAlign: 'left',
+    background: cardBg, border: cardBorder, borderRadius: 0,
+    padding: '18px 20px 14px', cursor: 'pointer',
+    display: 'flex', flexDirection: 'column',
+    transition: 'background 160ms ease, border-color 160ms ease',
+    fontFamily: 'inherit', color: cardColor, overflow: 'hidden',
+  };
 
-  const variantForChildren = isInk ? 'ink' : 'normal';
+  const variantForChildren = 'normal';
+
 
   return (
     <button
@@ -259,10 +251,10 @@ function HoldingCardImpl(props) {
             pnlVal={pnlVal}
             pnlColor={pnlColor}
             pnlWeight={pnlWeight}
-            pnlArrow={pnlArrow}
             subColor={subColor}
             variant={variantForChildren}
           />
+
 
           {/* Layer 3 · 價格軌 */}
           <HoldingCardPriceTrack
