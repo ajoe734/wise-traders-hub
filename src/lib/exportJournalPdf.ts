@@ -67,8 +67,8 @@ let fontsPromise: Promise<unknown> | null = null;
 
 // PDF 內實際會用到的 (family, weight, style, sample) 組合。
 // 缺任何一組就代表 html2canvas 會 fallback（Georgia / PingFang / system-ui）。
-type FontSpec = { family: string; weight: number; style?: 'normal' | 'italic'; sample: string };
-const REQUIRED_FONTS: readonly FontSpec[] = [
+export type FontSpec = { family: string; weight: number; style?: 'normal' | 'italic'; sample: string };
+export const REQUIRED_FONTS: readonly FontSpec[] = [
   // Source Serif 4：cover 標題 / 章節 h2 / 品牌 wordmark / 引言（斜體）
   { family: 'Source Serif 4', weight: 700, sample: 'legendflow' },
   { family: 'Source Serif 4', weight: 600, sample: 'legendflow' },
@@ -82,14 +82,14 @@ const REQUIRED_FONTS: readonly FontSpec[] = [
   { family: 'Noto Sans TC', weight: 700, sample: '本週操作回顧摘要' },
 ];
 
-const fontSpec = (f: FontSpec) =>
+export const fontSpec = (f: FontSpec) =>
   `${f.style === 'italic' ? 'italic ' : ''}${f.weight} 16px "${f.family}"`;
 
 /**
  * 用 document.fonts.check() 掃描 REQUIRED_FONTS，若還沒 ready 就 polling。
  * 回傳仍缺席的 spec 陣列（正常情況下應為空）。
  */
-const auditFonts = (): FontSpec[] => {
+export const auditFonts = (): FontSpec[] => {
   if (typeof document === 'undefined' || !document.fonts?.check) return [];
   return REQUIRED_FONTS.filter((f) => {
     try {
