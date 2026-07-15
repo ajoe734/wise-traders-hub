@@ -158,6 +158,7 @@ test.describe('Sparkline pctSign 視覺一致性回歸', () => {
 
   test('feature (ink) 卡：stroke 恆為 #F4F1EC，opacity 依符號 0.85 / 0.6', async ({ page }) => {
     await gotoFreeCheckup(page);
+    await waitForSparklines(page, 1);
     const samples = (await collect(page)).filter((s) => s.isFeature && s.hasPolyline);
     if (samples.length === 0) test.skip(true, '本輪 demo 無 feature 卡具 sparkline');
 
@@ -186,7 +187,9 @@ test.describe('Sparkline pctSign 視覺一致性回歸', () => {
 
   test('sparkline stroke 屬性值全部合法（僅三種預期色）', async ({ page }) => {
     await gotoFreeCheckup(page);
+    await waitForSparklines(page, 1);
     const samples = (await collect(page)).filter((s) => s.hasPolyline);
+    if (samples.length === 0) test.skip(true, '本輪 demo 無任何 sparkline');
     const allowed = new Set(['#ff4d1f', '#9b968d', '#f4f1ec']);
     for (const s of samples) {
       expect(allowed.has(s.stroke), `card #${s.index} stroke=${s.stroke} 不在白名單`).toBe(true);
@@ -195,7 +198,9 @@ test.describe('Sparkline pctSign 視覺一致性回歸', () => {
 
   test('sparkline opacity 屬性值全部合法（僅 0.85 / 0.55 / 0.6）', async ({ page }) => {
     await gotoFreeCheckup(page);
+    await waitForSparklines(page, 1);
     const samples = (await collect(page)).filter((s) => s.hasPolyline);
+    if (samples.length === 0) test.skip(true, '本輪 demo 無任何 sparkline');
     const allowed = new Set(['0.85', '0.55', '0.6']);
     for (const s of samples) {
       expect(allowed.has(s.opacity), `card #${s.index} opacity=${s.opacity} 不在白名單`).toBe(true);
