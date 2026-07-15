@@ -89,37 +89,12 @@ export default defineConfig({
       testMatch: /freecheckup-sparkline-signs\.spec\.ts/,
       use: { ...devices['Desktop Chrome'], viewport: { width: 390, height: 844 } },
     },
-    {
-      // per-signal 教學徽章 (.wb-tip) — 恆存在、fallback 分流、外層 aria 守門
-      name: 'iphone-390-tip-badge',
-      testMatch: /freecheckup-tip-badge\.spec\.ts/,
-      use: { ...devices['Desktop Chrome'], viewport: { width: 390, height: 844 } },
-    },
+    // [Handoff 2026-07-15 §3.4 步驟 1] 以下 4 個 project 已隨 sparkline / tip 移到抽屜 §4.2 後移除：
+    //   - iphone-390-tip-badge（.wb-tip 已從卡頭刪除）
+    //   - iphone-390-sparkline-mode-parity / sparkline-width-390 / 768 / 1280
+    //     （.wb-spark 於卡頭僅保留 hidden data-* 契約，不再視覺渲染）
+    // 抽屜對接完成後將於 §4.2 專屬 spec 重建。
 
-    {
-      // Demo × Real 兩模式 sparkline / ROI 派生一致性
-      name: 'iphone-390-sparkline-mode-parity',
-      testMatch: /freecheckup-sparkline-roi-mode-parity\.spec\.ts/,
-      use: { ...devices['Desktop Chrome'], viewport: { width: 390, height: 844 } },
-    },
-    {
-      // 跨寬度 sparkline 快照 + DOM parity — 窄
-      name: 'sparkline-width-390',
-      testMatch: /freecheckup-sparkline-width-parity\.spec\.ts/,
-      use: { ...devices['Desktop Chrome'], viewport: { width: 390, height: 844 } },
-    },
-    {
-      // 跨寬度 sparkline 快照 + DOM parity — 中（iPad 直立）
-      name: 'sparkline-width-768',
-      testMatch: /freecheckup-sparkline-width-parity\.spec\.ts/,
-      use: { ...devices['Desktop Chrome'], viewport: { width: 768, height: 1024 } },
-    },
-    {
-      // 跨寬度 sparkline 快照 + DOM parity — 桌面
-      name: 'sparkline-width-1280',
-      testMatch: /freecheckup-sparkline-width-parity\.spec\.ts/,
-      use: { ...devices['Desktop Chrome'], viewport: { width: 1280, height: 900 } },
-    },
     {
       name: 'desktop-batch3',
       testMatch: /batch3-.*\.spec\.ts/,
