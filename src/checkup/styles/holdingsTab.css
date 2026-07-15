@@ -164,14 +164,21 @@
 
 }
 
+/* §3.4 手機清單列變體：≤640px 卡牆 → 單欄列表；價格軌隱藏、padding 收緊 */
 @media (max-width: 640px) {
-  .holdings-card-grid { grid-template-columns: 1fr !important; gap: 12px !important; }
+  .holdings-card-grid { grid-template-columns: 1fr !important; gap: 8px !important; }
   .wb-card-feature, .wb-span-feature { grid-column: span 1 !important; }
-  .wb-card { min-height: 0 !important; }
-  .wb-card .wb-spark { width: 52px !important; }
+  .wb-card {
+    min-height: 0 !important;
+    padding: 14px 14px 12px !important;
+  }
+  /* 手機隱藏價格軌與 sparkline，把資訊密度收到 header + return + footer */
+  .wb-card .wb-spark { display: none !important; }
+  .wb-card .cm-price-track { display: none !important; }
   .wb-card .wb-bottom { gap: 8px !important; }
   .wb-card .wb-bottom-val { font-size: clamp(10px, 2.6vw, 12px) !important; }
 }
+
 
 /* 持倉空狀態引導 — 手機優化 */
 @media (max-width: 560px) {
