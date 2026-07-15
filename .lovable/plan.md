@@ -1,95 +1,92 @@
-# /holding-checkup 視覺改版 — 執行進度
+# Batch C · §6 其他分頁：結構與路由改版
 
-規格來源：`.lovable/DESIGN_HANDOFF.md`（2026-07-15，Monocle/Kinfolk/MUJI 編輯設計）
-
-## 已完成
-
-### S1 · 持倉卡 §3.4（本輪真正完工）
-- `HoldingCardHeader.tsx`：
-  - 卡頭只留 `名稱 代號` + 檢視/出場徽章 + 產業 tag
-  - 權證支援：`instrument==='warrant'` 或字母開頭代號 → 虛線框 `權證 · 到期 X 月`；`≤1 月` 轉 accent
-  - HOLD 不渲染徽章 ✅
-  - **移除**：股數 `× N 股`、策略 tag、教學徽章、回報鈕
-  - **移除**：可見 sparkline（保留 hidden `.wb-spark` 加 `data-spark-*` 契約，`data-spark-relocated="drawer-4.2"` 標註歸屬）
-- `HoldingCard.tsx`：不再傳 `onReportMeta` 給 header（drawer §4 承接）
-- 過時測試已刪：
-  - `__tests__/HoldingCardHeader.derived.test.tsx`
-  - `__tests__/HoldingCardHeader.tip.test.tsx`
-  - `__tests__/HoldingCardHeader.perf.test.tsx`
-  - `e2e/freecheckup-tip-badge.spec.ts`
-  - `e2e/freecheckup-sparkline-width-parity.spec.ts`
-  - `e2e/freecheckup-sparkline-roi-mode-parity.spec.ts`
-- `playwright.config.ts`：移除 4 個對應 project（tip-badge + 3 個 sparkline-width）
-- Ret/PriceTrack/Footer（前輪已完成）：`<ReturnBar>` + `<PriceTrack>` + 中文一行 footer
-
-### 前輪已完成（承接無異動）
-- `HoldingCardReturn.tsx` → 使用 `<ReturnBar>`（±40% 尺規、▸ 破表）
-- `HoldingCardPriceTrack.tsx` → 使用 `<PriceTrack>`，`decText` 已刪
-- `HoldingCardFooter.tsx` → `今日 X ｜ 市值 Y` 單列
-- Hero §3.1 / 今日待辦 §3.2 → 前批已對齊
+依 `.lovable/DESIGN_HANDOFF.md` §6，接續 §3.3 產業分佈的編輯化語彙（serif 節標 + 髮絲線 + 純文字索引 + 零色卡零 emoji），把 §6.1–§6.5 逐一改造。**此批次只動視覺／結構／路由，商業邏輯（AI 分析、行事曆同步、批次解析、去重、備忘三問、勝率統計、Demo/LINE 提示邏輯）全數保留**。
 
 ---
 
-## 待辦（依用戶決定：全部依序做完）
+## 1. 頂欄 / 路由（`src/pages/FreeCheckup.jsx`）
 
-### 批次 A · 抽屜 §4（已完成視覺層＋結構重寫，✅）
-`HoldingsDetailPanel.tsx` 1163 → 750 行，10 區塊按規格重排：
-- **刪除**：`MiniChartsRow` / `ComparisonCharts` / `WeightDonut`（甜甜圈）／`PriceAxisChart` / `RangeChart` 舊 4 圖框、黑底 DECISION 盒、急迫度五點、反向 TARGET 紅條、`SHARE MODE`、RETURN/TARGET/THESIS/NEXT EVENT 英文小標、`showCharts`/`showRange`/`showCost`/`showTargetBar` prefs
-- **新增**：
-  - `<PriceAxis>`：一條 1px 髮絲軸、成本 灰刻度 + 目標 accent 刻度 + 現價 ink 圓點，同尺 ±5%
-  - `<RangeBand>`：30D sparkline + 現價 accent 點 + 中文「低 X — 高 Y」
-  - `<WeightRank>`：灰條 + 本檔 accent、`排名 #x／N`
-  - `<ThesisHistory>`：4 欄表格（日期｜建議｜動作｜其後 ±%）＋勝率尾註
-  - `<PriceAxis>` 內接 `tpHistory` → 顯示 `目標 X ↓Y%` + 編輯註記（「共識 N 日內由 X 下修至 Y…」）
-  - 建議印章行（`.holdings-detail-decision` sticky top:48px 手機）：上下 1px ink 線、serif「建議 —— 續抱／檢視／出場」＋「急迫度 · 立即/儘快/觀察/低」
-  - 頁腳 nav：`‹ 上一檔名 ｜ 研究筆記 ｜ 下一檔名 ›` serif
-  - `holdContext`（tradeLog 推導：持有 N 天 · 加碼 M 次 · 上次 X/Y 減碼）
-- **保留**：SortMenu / PrefsMenu（收斂為論點+情境模擬 2 toggle）/ ExportMenu（三段 seg + 立即匯出，`data-testid` 全保留）、鍵盤 Cmd+Z / Cmd+Shift+Z、離屏匯出、sync overlay、a11y
-- **中文化**：TODAY→今日、VALUE→市值、RETURN→報酬（大字直接呈現，不加標籤）、TARGET→目標、DECISION→建議、THESIS→論點、NEXT EVENT→下個事件、HOLD/REVIEW/EXIT→續抱/檢視/出場、NOW/SOON/MONITOR/LOW→立即/儘快/觀察/低
-- **e2e / CSS**：
-  - `e2e/holdings-detail-panel-wide.spec.ts` / `narrow.spec.ts` 改斷言 `[data-testid="decision-stamp"]` + 無 `comparison-charts`
-  - `holdingsDetailPanel.css` 刪除 `.hp-charts-row` / `.hp-cmp-row` 死規則；`.holdings-detail-decision` sticky top 由 0 改 48
-- **待批次 A2 通線**：`tradeLog` / `targetPriceHistory[code]` / `thesisTracking[code]` 從 `FreeCheckup.jsx` → `HoldingsWorkbench` → `HoldingsDetailPanel` 三層 prop 通道；資料未通時 §4.3 / §4.5 / §4.8 三區以 optional chain 靜默隱藏，不會 crash
+**現況**：TABS = 持倉 / 收盤分析 / 事件 / 記錄 4 tab（已對齊 §2），「＋ 上傳」按鈕呼叫 `setTab('trade')` 切到 trade 分頁；`tab==='news'` 仍靠內部 setTab 觸發。
 
-### 批次 A2 · 抽屜資料源通線
+**改動**：
+- 新增 `uploadModalOpen` state，「＋ 上傳」（桌機 + 手機圓鈕）改為 `setUploadModalOpen(true)`，不再 setTab。
+- `tab==='trade'` 區塊改成用 `<TradeUploadModal>` 包一層，只在 `uploadModalOpen` 時掛載；成功後呼叫 `setUploadModalOpen(false)` 並 `setTab('holdings')`（沿用既有 flow）。
+- `tab==='news'` 區塊整段刪除；`NewsTab` 的顯示由 `EventsTab` 內兩態切換承接。
+- `TABS` 標籤：`收盤分析→收盤`、`事件${…}`、`記錄` — 對齊 §6 報頭字。
+- 相容：保留 `setTab` 對 `trade/news/research` 的呼叫路徑，但視覺入口拿掉；`research` tab 目前無入口，維持隱藏渲染。
 
+## 2. §6.1 收盤分析（`freecheckup/DailyTab.jsx`）
 
-### 批次 B · 產業分佈 §3.3（`HoldingsSectorSummary.tsx`）✅
-- ✅ 一條 100% 帶（高 34px、段間 2px 白縫）
-- ✅ 前 5 名色階 accent → ink → ink-sub → ink-sec → ink-mute + 其他合併 hair-strong
-- ✅ 帶下標籤列（前 4 名 + 「其他 N%」）
-- ✅ 「索引 ↓」展開三欄純文字（第 1 名數字 accent）
-- ✅ 集中度：badge 移除，改為節標下方 serif 編輯註記（前三大合計 X%）
-- ✅ **保留**：既有篩選（chip toggle、聯集/交集、presets、搜尋、排序、重名檢查）邏輯
+- 報頭：serif `收盤分析` 22px + 右側 `YYYY/MM/DD · 今日餘 N 次`（tabular-nums）。
+- 分析文：serif 15–16 / 行高 2；段落間 12px；引文塊改為左 1px 髮絲。
+- 個股清單：三欄 grid `名稱｜漲跌%｜一句判斷`（判斷內的動詞用 accent）；欄距用 24px；每列底 1px `--hair`。
+- 頁腳：`歷史日期 · 重新分析 →`（連結色 = ink，hover accent）。
+- **刪除**：置中大按鈕、字距英文小標、teal 色塊、所有 emoji。
+- **保留**：`runDailyAnalysis / analyzing / analyzeStep / dailyLastError / handleDailyRetry / analysisHistory / coverageReport / strategyBrain` 全套資料流；配額耗盡態改為一行 `今日餘 0 次 · HH:MM 重置`。
 
-### 批次 C · 其他分頁 §6
-| 檔案 | 改動 |
-|---|---|
-| `DailyTab` / `DailyPage.jsx` | serif 報頭；三欄個股列；刪 emoji/teal/大按鈕 |
-| `EventsTab` + `NewsTab` 合併 | 兩態切換（未來 / 已驗證）；刪 TYPE_COLOR、三色統計卡、五色卡底 |
-| `TradeTab` | 由 tab 改 modal（「＋ 上傳」）；虛線框投遞區 |
-| `LogTab` | serif 日期節標；備忘引文；未填 faint 色 |
-| 一次性引導 §6.5 | 三步 onboarding；tab 內 Demo/LINE banner 全刪，只留頁腳一行 |
+## 3. §6.2 事件 + 新聞驗證合併（`freecheckup/EventsTab.jsx`）
 
-### 批次 D · 資訊架構 §2（可能與 C 合併）
-- 4 tab（持倉/收盤/事件/記錄）+ 「＋ 上傳」動作鈕
-- 手機底部 5 格 tab bar，中央 ＋ 圓鈕
-- 頂欄只留 logo + 當前頁名
+- 報頭：serif `事件`；右上兩態 pill toggle：`未來 N ｜ 已驗證 N · 命中率 x%`（狀態存 `mode: 'upcoming' | 'verified'`）。
+- **未來列**（原 EventsTab 資料）：`serif MM/DD｜型別灰字 10px｜摘要 13px｜預測漲(accent)/待觀察(mute) 尾註`。
+- **已驗證列**（原 NewsTab review 資料）：`serif MM/DD｜摘要｜命中(accent)/未中(mute) + 事後 ±%`。
+- 讀取 `NewsTab` 需要的 props（`newsEvents / stableStartReview / stableSubmitReview / reviewForm / reviewingEvent` 等）直接由 `FreeCheckup.jsx` 一次傳給 `EventsTab`。
+- Debug／同步狀態：⟳✓⚠ 徽章牆刪除，改為 `更新於 HH:MM · 立即更新 →` 一行；長按或 `?debug=1` 打開既有 debug 面板（`debugPanelOpen` state 保留）。
+- 刪 `TYPE_COLOR` 八色 chip、統計三色卡、五色輪替卡底。
 
-### 批次 E · 一次性引導 §6.5 + Design tokens §1
-- 全站退役 `#EC662D` → `--accent: #FF4D1F`（深色 `#FF6240`）
-- Noto Serif TC 引入（頁標 / 節標 / 引文 / 日期主角）
-- 頁面內距 `clamp(16px, 3.5vw, 40px)`
+## 4. §6.3 上傳成交 modal（新 `freecheckup/TradeUploadModal.jsx` 包 TradeTab）
+
+- 新元件 `TradeUploadModal.jsx`：`{open, onClose, ...tradeProps}`；置中 modal（max-width 560、border 1px ink、遮罩 `rgba(10,10,10,0.18)`）。
+- Header：serif `上傳成交` + `今日餘 N 次 · 18:00 重置`。
+- Body：虛線框 `1px dashed --hair-strong` 投遞區，hover / dragover 轉 accent；下方保留既有批次列表、備忘三問、目標價手動輸入。
+- Footer：`手動輸入目標價 →｜上次上傳 HH:MM · X 筆`。
+- 內部直接 render `<TradeTab {...}/>` 避免搬 643 行邏輯，只在外層套 modal chrome 與新 header/footer；`TradeTab` 內部視覺樣式維持（改版留給下一輪 C2）。
+- 成功回呼：解析成功 / 匯入 holdings 後自動 `onClose()` + `setTab('holdings')`。
+- ESC / 背景點擊 / 右上 `×` 三種關閉；`aria-modal`、focus trap、`data-testid="trade-upload-modal"`。
+
+## 5. §6.4 交易記錄（`freecheckup/LogTab.jsx`）
+
+- 移除 Demo LINE 提示框（移到頁腳一行，§6.5 承接）。
+- 日期節標：serif 15px `YYYY/MM/DD ・ 週三`（Taipei tz）。
+- 每筆：`買進(accent)/賣出(--loss) 一字 + 名稱代號 · 時間 · N 股 @ 價`。
+- 問答：引文塊改左 1px 髮絲 + serif 內文；未填 → `--ink-faint` 「（未留筆記）補寫 →」（點擊回填目前無 handler，先以 `href="#"` + `data-testid="log-fill-memo"` 佔位，後批次接 modal）。
+- 空狀態：serif 一行 `還沒有交易記錄` + 次行 `上傳成交截圖後自動記錄在這裡`。
+
+## 6. §6.5 一次性引導（`freecheckup/OnboardingOverlay.jsx`）
+
+- 新元件：首次進站全屏卡（`localStorage.getItem('lf.checkup.onboarded')` 判斷）。
+- 內容：serif 22px 標題 `三步，把持倉變成每天的決策書` + 三步列 `01 上傳｜02 診斷｜03 決策`（數字 accent）+ `LINE 登入開始 (ink 底)｜先看示範資料 (hair 框)`。
+- 關閉後寫入 flag；同時將既有 `DEMO_TAB_NOTICE_COPY` 在 Daily/Events/Log/Research 各 tab 頂部的 banner 全部隱藏，只在頁腳留一行 `示範資料 · 登入`（新元件 `<DemoFooterHint>`）。
+- 保留 `startLineLogin / navigate` 呼叫。
+
+## 7. E2E / 測試
+
+- `e2e/freecheckup-batch-parse.spec.ts` 等 trade 相關 spec：新增 `page.click('[data-testid="checkup-upload-cta"]')` 開啟 modal，之後選擇器不變（TradeTab 內部 DOM 保留）。
+- 新增 `e2e/freecheckup-upload-modal.spec.ts`：開啟 / ESC / 背景關 / 成功後自動關並跳持倉。
+- 更新 `e2e/freecheckup-tab-prop-schema.test.ts`（若有）以反映 EventsTab 新增的 news props。
+- `NewsTab.jsx` 檔案不刪，先掛 `@deprecated`；等下一輪確認 EventsTab 已涵蓋所有情境再刪。
+
+## 8. Plan 更新
+
+`.lovable/plan.md` 批次 C 更新為完工狀態，附本次結構決策；驗收清單勾選 `4 tab＋上傳 modal；事件頁兩態含原新聞驗證資料`、`Demo/LINE banner 全刪只留頁腳一行`。
 
 ---
 
-## 驗收清單（§8，每批完工後逐項打勾）
-- [ ] 全站無 emoji / `#EC662D` 舊值 / `border-radius>0`（圓鈕除外） / `box-shadow`
-- [x] 持倉卡只有 4 層資訊；hold 不顯示徽章
-- [x] 報酬條 ±40% 截斷 + ▸；權證虛線 tag + 到期警示
-- [ ] 抽屜內成本/現價/目標/佔比各只出現一次；甜甜圈不存在
-- [ ] 持有脈絡、目標價 ↓%、決策履歷三區有資料時顯示
-- [ ] 今日待辦列出全部 exit/review；「其餘 N 檔」數字正確
-- [ ] 4 tab + 上傳 modal；事件頁兩態含原新聞驗證資料
-- [ ] 手機：底欄、清單列、sheet、sticky 印章行
-- [ ] 既有 analytics（`checkup_holding_expand` 等）、a11y、sync 狀態全數保留
+## 產出檔案清單
+
+- 新增 `src/checkup/components/freecheckup/TradeUploadModal.jsx`
+- 新增 `src/checkup/components/freecheckup/OnboardingOverlay.jsx`
+- 新增 `src/checkup/components/freecheckup/DemoFooterHint.jsx`
+- 修改 `src/pages/FreeCheckup.jsx`（路由 / upload CTA / 事件 news 合併掛載 / onboarding overlay 掛載）
+- 修改 `src/checkup/components/freecheckup/DailyTab.jsx`（編輯化）
+- 修改 `src/checkup/components/freecheckup/EventsTab.jsx`（兩態切換 + 併入 News 驗證列）
+- 修改 `src/checkup/components/freecheckup/LogTab.jsx`（編輯化）
+- 修改 `.lovable/plan.md`（批次 C 完工註記）
+- 新增 `e2e/freecheckup-upload-modal.spec.ts`
+
+## 不動
+
+- `TradeTab.jsx`（內部 643 行邏輯不搬，只由 modal 包裝；視覺改版列入未來 C2）
+- `NewsTab.jsx`（暫留 deprecated，資料流已被 EventsTab 承接）
+- `ResearchTab.jsx`（頂欄已無入口，隱藏渲染保留給 setTab('research') 內部呼叫）
+- Hero / 今日待辦 / 產業分佈 / 持倉卡 / 抽屜（前批完工）
+- 所有商業邏輯：AI 分析、行事曆同步、批次解析、備忘三問、勝率統計、Demo 資料
