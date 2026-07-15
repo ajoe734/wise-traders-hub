@@ -210,6 +210,20 @@ function HoldingsSectorSummaryImpl({
     return (b.createdAt || 0) - (a.createdAt || 0)
   })
 
+  // ── 集中度編輯註記（前 3 大合計）
+  const top3Pct = industryByValue.slice(0, 3).reduce((s: number, x: any) => s + x.pct, 0)
+  const concentrationNote = useMemo(() => {
+    if (industryByValue.length === 0) return ''
+    if (industryByValue.length <= 2) return ''
+    const p = Math.round(top3Pct)
+    if (top3Pct >= 70) return `前三大合計 ${p}%——集中度偏高。`
+    if (top3Pct >= 50) return `前三大合計 ${p}%——集中度略高。`
+    if (industryByValue.length > 6 && (industryByValue[0]?.pct ?? 0) < 20) {
+      return `共 ${industryByValue.length} 個產業且無明顯核心倉，追蹤成本較高。`
+    }
+    return `前三大合計 ${p}%——分佈尚均衡。`
+  }, [industryByValue, top3Pct])
+
   return (
     <section
       aria-label="持倉族群分佈"
@@ -221,36 +235,33 @@ function HoldingsSectorSummaryImpl({
         color: 'var(--cm-ink)',
       }}
     >
-      {/* ═══ 頂部欄：標籤 + 序 + 集中警示 ═══ */}
-      <div style={{ display: 'flex', alignItems: 'baseline', gap: 12, paddingBottom: 8 }}>
-        <span className="cm-label">SECTOR / 01</span>
-        <span
-          className="cm-serif"
-          style={{ fontSize: 18, lineHeight: 1, color: 'var(--cm-ink)' }}
-        >
-          產業分佈
-        </span>
-        <span style={{ fontSize: 11, color: 'var(--cm-ink-sec)', letterSpacing: '0.04em' }}>
-          依市值 · {industryByValue.length} 產業 / {holdings.length} 檔
-        </span>
-        {warnings.length > 0 && (
-          <span
+      {/* ═══ 節標：serif 標題 + 編輯註記 ═══ */}
+      <div style={{ borderTop: '1px solid var(--cm-ink)', padding: '14px 0 10px' }}>
+        <div style={{ display: 'flex', alignItems: 'baseline', justifyContent: 'space-between', gap: 12 }}>
+          <h3
+            className="cm-serif"
+            style={{ margin: 0, fontSize: 16, letterSpacing: 0, color: 'var(--cm-ink)' }}
+          >
+            產業分佈
+          </h3>
+          <span className="cm-label" style={{ color: 'var(--cm-ink-sec)', letterSpacing: '0.10em', fontSize: 10 }}>
+            {industryByValue.length} 產業 / {holdings.length} 檔 · 依市值
+          </span>
+        </div>
+        {concentrationNote && (
+          <div
+            className="cm-serif"
             style={{
-              marginLeft: 'auto',
-              fontSize: 10,
-              padding: '2px 8px',
-              letterSpacing: '0.14em',
-              fontWeight: 500,
-              border: `1px solid ${severe ? 'var(--cm-accent)' : 'var(--cm-hair-strong)'}`,
-              color: severe ? 'var(--cm-accent)' : 'var(--cm-ink-sec)',
-              background: 'transparent',
+              marginTop: 6, fontSize: 13, lineHeight: 1.55,
+              color: severe ? 'var(--cm-accent)' : 'var(--cm-ink-sub)',
+              letterSpacing: '0.01em',
             }}
           >
-            {severe ? '集中警示' : '留意集中度'}
-          </span>
+            {concentrationNote}
+          </div>
         )}
       </div>
-      <hr className="cm-rule" />
+
 
       {/* ═══ 已選條件 & 操作列 ═══ */}
       {hasActive && (
