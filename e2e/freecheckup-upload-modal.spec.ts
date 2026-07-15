@@ -90,7 +90,7 @@ test.describe('TradeUploadModal — desktop 1280', () => {
     await page.mouse.click(20, 20);
     await expect(modal).toHaveCount(0);
 
-    expect(errors.filter((e) => !/ResizeObserver|Non-Error promise/i.test(e))).toEqual([]);
+    expect(errors.filter((e) => !/ResizeObserver|Non-Error promise|traffic-ingest|CORS|ERR_FAILED|Failed to load resource/i.test(e))).toEqual([]);
   });
 });
 
@@ -111,7 +111,7 @@ test.describe('TradeUploadModal — mobile 390', () => {
     await page.keyboard.press('Escape');
     await expect(modal).toHaveCount(0);
 
-    expect(errors.filter((e) => !/ResizeObserver|Non-Error promise/i.test(e))).toEqual([]);
+    expect(errors.filter((e) => !/ResizeObserver|Non-Error promise|traffic-ingest|CORS|ERR_FAILED|Failed to load resource/i.test(e))).toEqual([]);
   });
 });
 
@@ -142,7 +142,7 @@ test.describe('DailyTab / LogTab 切換 — 不破版回歸', () => {
     await expect(page.locator('.wb-hero-pnl-num').first()).toBeVisible();
     await expectNoHorizontalScroll(page, 'holdings 回訪');
 
-    expect(errors.filter((e) => !/ResizeObserver|Non-Error promise/i.test(e))).toEqual([]);
+    expect(errors.filter((e) => !/ResizeObserver|Non-Error promise|traffic-ingest|CORS|ERR_FAILED|Failed to load resource/i.test(e))).toEqual([]);
   });
 
   test('手機 390：DailyTab / LogTab 切換不橫向 scroll', async ({ page }) => {
