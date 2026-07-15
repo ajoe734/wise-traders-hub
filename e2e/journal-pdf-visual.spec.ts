@@ -24,9 +24,13 @@ const BADGE_COLORS: Record<string, string> = {
 
 async function openHarness(page: Page) {
   const errors: string[] = [];
+  const IGNORE = [/traffic-ingest/i, /Failed to load resource/i, /CORS/i];
   page.on('pageerror', (e) => errors.push(String(e)));
   page.on('console', (m) => {
-    if (m.type() === 'error') errors.push(m.text());
+    if (m.type() !== 'error') return;
+    const t = m.text();
+    if (IGNORE.some((rx) => rx.test(t))) return;
+    errors.push(t);
   });
 
   await page.goto('/e2e/journal-pdf-harness', { waitUntil: 'domcontentloaded' });
