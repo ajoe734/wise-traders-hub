@@ -153,16 +153,15 @@ describe.each([
     expect(css).not.toMatch(/\.wb-roi[^{}]*\{[^}]*white-space:\s*wrap/);
   });
 
-  it('極窄 (≤340px) 啟用 ROI 字級縮放避免溢出', () => {
+  it('§3.4：ROI 走 inline clamp(18-22px)，不再依斷點覆蓋（feature 變體已移除）', () => {
+    // §3.4 定案後 ROI 全部同尺寸 clamp(18px, 1.4vw + 12px, 22px)，且卡片不再套用 feature 變體樣式。
     if (vw <= 340) {
       const css = effectiveCssAt(vw);
-      expect(css).toMatch(
-        /\.wb-card\s+\.wb-roi\s*\{[^}]*font-size:\s*clamp\(28px,\s*11vw,\s*36px\)/
-      );
-      expect(css).toMatch(
-        /\.wb-card-feature\s+\.wb-roi\s*\{[^}]*font-size:\s*clamp\(32px,\s*13vw,\s*44px\)/
-      );
+      expect(css).not.toMatch(/\.wb-card\s+\.wb-roi\s*\{[^}]*font-size:\s*clamp\(28px/);
+      expect(css).not.toMatch(/\.wb-card-feature\s+\.wb-roi\s*\{[^}]*font-size:\s*clamp\(32px/);
     }
+    // ROI 的 clamp 由 HoldingCardReturn.tsx inline style 提供。
+    expect(SRC).toMatch(/fontSize:\s*'clamp\(18px,\s*1\.4vw\s*\+\s*12px,\s*22px\)'/);
   });
 
   it('今日/市值 數值字級在小螢幕受 clamp 控制', () => {
