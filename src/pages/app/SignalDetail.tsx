@@ -106,8 +106,11 @@ const SignalDetail = () => {
 
   const ac = actionConfig[signal.action] || actionConfig.buy;
   const publishedAt = signal.published_at ? new Date(signal.published_at) : null;
-  const ticker = signal?.instrument?.match(/^\d+/)?.[0];
-  const displaySymbol = ticker ? `${ticker}.TW` : signal.instrument;
+  // 保留 ETF 字尾（L / R / B）：`/^\d+/` 舊 regex 會把 00631L 截成 00631，造成報價鏈壞掉。
+  const { code: tickerCode, name: tickerName } = parseInstrument(signal?.instrument);
+  const displaySymbol = tickerName
+    ? `${tickerCode} ${tickerName}`
+    : (tickerCode ? `${tickerCode}.TW` : signal.instrument);
 
   return (
     <UnifiedAppLayout>
