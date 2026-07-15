@@ -90,6 +90,13 @@ export default defineConfig({
       use: { ...devices['Desktop Chrome'], viewport: { width: 390, height: 844 } },
     },
     {
+      // per-signal 教學徽章 (.wb-tip) — 恆存在、fallback 分流、外層 aria 守門
+      name: 'iphone-390-tip-badge',
+      testMatch: /freecheckup-tip-badge\.spec\.ts/,
+      use: { ...devices['Desktop Chrome'], viewport: { width: 390, height: 844 } },
+    },
+
+    {
       // Demo × Real 兩模式 sparkline / ROI 派生一致性
       name: 'iphone-390-sparkline-mode-parity',
       testMatch: /freecheckup-sparkline-roi-mode-parity\.spec\.ts/,

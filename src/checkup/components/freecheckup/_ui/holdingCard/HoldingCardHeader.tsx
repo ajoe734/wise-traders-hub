@@ -1,11 +1,25 @@
 // @ts-nocheck
 /**
- * HoldingCardHeader — 第 1 層：代號 · 名稱 · 股數 · Sparkline · Action badge + 產業/策略 tags
- * 對外憲法：保留 `.wb-spark` / `.wb-tags` class name（既有 CSS 與截圖回歸依賴）。
+ * HoldingCardHeader — 第 1 層：代號 · 名稱 · 股數 · Sparkline · Action badge + 產業/策略 tags + 教學徽章
+ * 對外憲法：保留 `.wb-spark` / `.wb-tags` / `.wb-tip` class name（既有 CSS 與截圖回歸依賴）。
  */
 import { memo, useMemo, useCallback } from 'react';
 import { WB, Sparkline } from '@/pages/_freeCheckup/constants.jsx';
 import { useRenderCounter } from '@/checkup/hooks/useRenderCounter';
+
+/**
+ * per-signal 教學片段 fallback：依 actionLabel 分流。
+ * 支援英文 (ADD/BUY/REDUCE/SELL/HOLD) 與繁中 (加碼/買進/減碼/賣出/續抱)。
+ */
+export function getFallbackTip(actionLabel) {
+  const raw = String(actionLabel || '');
+  const k = raw.trim().toUpperCase();
+  if (/^(ADD|BUY)$/.test(k) || /加碼|買進/.test(raw)) return '進場前先確認風險比例';
+  if (/^(REDUCE|SELL)$/.test(k) || /減碼|賣出/.test(raw)) return '分批減碼保留紀律';
+  if (/^HOLD$/.test(k) || /續抱/.test(raw)) return '續抱請設好停損';
+  return '持倉檢視小提醒';
+}
+
 
 function HoldingCardHeaderImpl({
   h,
@@ -54,7 +68,23 @@ function HoldingCardHeaderImpl({
     if (meta?.industry) return [meta.industry];
     return [];
   }, [meta?.industries, meta?.industry]);
-  const hasTags = industries.length > 0 || !!meta?.strategy || !!onReportMeta;
+
+  // per-signal 教學片段（tipInfo）：優先 meta.tip / meta.tips[0]，缺則依 actionLabel fallback。
+  // deps 僅含 meta.tip / meta.tips / actionLabel，避免 pctVal tick 每次觸發重算。
+  const tipInfo = useMemo(() => {
+    const list = Array.isArray(meta?.tips)
+      ? meta.tips.filter((s) => typeof s === 'string' && s.trim())
+      : [];
+    const single = typeof meta?.tip === 'string' && meta.tip.trim() ? meta.tip.trim() : '';
+    const primary = single || list[0] || '';
+    const source = primary ? 'meta' : 'fallback';
+    const text = primary || getFallbackTip(actionLabel);
+    const extra = single ? list : list.slice(1);
+    return { text, source, extra };
+  }, [meta?.tip, meta?.tips, actionLabel]);
+
+  const hasVisibleTags = industries.length > 0 || !!meta?.strategy || !!onReportMeta;
+
 
   // 事件 handler 缓存：Sparkline 為 memo 元件，穩定引用避免子樹重渲染
   const openReportMeta = useCallback((e) => {
@@ -129,55 +159,69 @@ function HoldingCardHeaderImpl({
         }}>{actionLabel}</span>
       </div>
 
-      {hasTags && (
-        <div
-          className="wb-tags"
-          style={{
-            display: 'flex', gap: 6, marginBottom: isFeature ? 10 : 8,
-            flexWrap: 'wrap', alignItems: 'center',
-          }}
-        >
-          {industries.map((ind, i) => (
-            <span
-              key={`ind-${i}`}
-              style={{
-                fontSize: 10, color: tagColor, letterSpacing: '0.08em',
-                padding: '4px 8px', background: tagBg,
-                border: 'none', borderRadius: 0,
-                opacity: i === 0 ? 1 : 0.75,
-              }}
-            >{ind}</span>
-          ))}
-          {meta?.strategy && (
-            <span style={{
+      {/* wb-tags：教學徽章恆存在，因此容器總是渲染；industries/strategy/回報 依資料條件出現 */}
+      <div
+        className="wb-tags"
+        style={{
+          display: 'flex', gap: 6, marginBottom: isFeature ? 10 : 8,
+          flexWrap: 'wrap', alignItems: 'center',
+        }}
+      >
+        {industries.map((ind, i) => (
+          <span
+            key={`ind-${i}`}
+            style={{
               fontSize: 10, color: tagColor, letterSpacing: '0.08em',
               padding: '4px 8px', background: tagBg,
               border: 'none', borderRadius: 0,
-            }}>{meta.strategy}</span>
-          )}
-          {onReportMeta && (
-            // 為避免 <button> 巢狀（HTML 規範禁止），使用 role=button 的 span
-            <span
-              role="button"
-              tabIndex={0}
-              onClick={openReportMeta}
-              onKeyDown={onReportKeyDown}
-              title="回報分類錯誤"
-              aria-label={`回報 ${h.code} 分類錯誤`}
-              style={{
-                fontSize: 10, color: reportColor, letterSpacing: '0.08em',
-                padding: '4px 6px', background: 'transparent',
-                border: `1px dashed ${reportBorder}`, borderRadius: 0,
-                cursor: 'pointer', marginLeft: 'auto',
-                userSelect: 'none', display: 'inline-block',
-              }}
-            >回報</span>
-          )}
-        </div>
-      )}
+              opacity: i === 0 ? 1 : 0.75,
+            }}
+          >{ind}</span>
+        ))}
+        {meta?.strategy && (
+          <span style={{
+            fontSize: 10, color: tagColor, letterSpacing: '0.08em',
+            padding: '4px 8px', background: tagBg,
+            border: 'none', borderRadius: 0,
+          }}>{meta.strategy}</span>
+        )}
+        {/* per-signal 教學徽章：meta 缺時走 fallback 文案，永遠存在 */}
+        <span
+          className="wb-tip"
+          data-tip-source={tipInfo.source}
+          data-tip-action={actionLabel || ''}
+          title={[tipInfo.text, ...tipInfo.extra].join('\n') || undefined}
+          aria-label={`教學提示：${tipInfo.text}`}
+          style={{
+            fontSize: 10, color: tagColor, letterSpacing: '0.08em',
+            padding: '4px 8px', background: tagBg,
+            border: `1px dashed ${reportBorder}`, borderRadius: 0,
+            opacity: tipInfo.source === 'fallback' ? 0.7 : 1,
+          }}
+        >{tipInfo.text}</span>
+        {onReportMeta && (
+          // 為避免 <button> 巢狀（HTML 規範禁止），使用 role=button 的 span
+          <span
+            role="button"
+            tabIndex={0}
+            onClick={openReportMeta}
+            onKeyDown={onReportKeyDown}
+            title="回報分類錯誤"
+            aria-label={`回報 ${h.code} 分類錯誤`}
+            style={{
+              fontSize: 10, color: reportColor, letterSpacing: '0.08em',
+              padding: '4px 6px', background: 'transparent',
+              border: `1px dashed ${reportBorder}`, borderRadius: 0,
+              cursor: 'pointer', marginLeft: 'auto',
+              userSelect: 'none', display: 'inline-block',
+            }}
+          >回報</span>
+        )}
+      </div>
     </>
   );
 }
+
 
 export const HoldingCardHeader = memo(HoldingCardHeaderImpl);
 export default HoldingCardHeader;
