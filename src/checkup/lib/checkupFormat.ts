@@ -28,7 +28,7 @@ export function fmtSignedInt(v: number | null | undefined): string {
 
 /** 金額顯示：< 10,000 直接數字；≥ 10,000 顯示為「X.X 萬」（保留一位小數，>= 10 萬則整數） */
 export function fmtWan(v: number | null | undefined): string {
-  if (v == null || Number.isNaN(v as number)) return '—';
+  if (v == null || !Number.isFinite(v as number)) return '—';
   const abs = Math.abs(v as number);
   if (abs < 10000) return Math.round(v as number).toLocaleString();
   const wan = (v as number) / 10000;
