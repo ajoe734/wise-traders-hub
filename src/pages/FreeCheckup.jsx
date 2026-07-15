@@ -3135,18 +3135,72 @@ ${JSON.stringify(strategyBrain || { rules: [], lessons: [], commonMistakes: [], 
   const [showResetConfirm, setShowResetConfirm] = useState(false);
   // Batch D IA §2：手機頂欄「更多」sheet
   const [mobileActionsOpen, setMobileActionsOpen] = useState(false);
-  // ESC 關閉 + body overflow 鎖定（與 TradeUploadModal 同步）
+  const mobileActionsSheetRef = useRef(null);
+  const mobileActionsTriggerRef = useRef(null);
+  const mobileActionsPrevFocus = useRef(null);
+  // a11y：ESC 關閉 + body overflow 鎖定 + 焦點陷阱 + 關閉後回到觸發按鈕
   useEffect(() => {
     if (!mobileActionsOpen) return;
-    const onKey = (e) => { if (e.key === 'Escape') setMobileActionsOpen(false); };
+    // 1) 記住觸發前的焦點（若沒抓到 trigger ref 就退回 activeElement）
+    mobileActionsPrevFocus.current =
+      mobileActionsTriggerRef.current ||
+      (typeof document !== 'undefined' ? document.activeElement : null);
+
+    const getFocusable = () => {
+      const root = mobileActionsSheetRef.current;
+      if (!root) return [];
+      return Array.from(
+        root.querySelectorAll(
+          'button:not([disabled]), [href], [tabindex]:not([tabindex="-1"])'
+        )
+      ).filter((el) => el.offsetParent !== null);
+    };
+
+    const onKey = (e) => {
+      if (e.key === 'Escape') {
+        e.stopPropagation();
+        setMobileActionsOpen(false);
+        return;
+      }
+      if (e.key === 'Tab') {
+        const focusables = getFocusable();
+        if (focusables.length === 0) {
+          e.preventDefault();
+          mobileActionsSheetRef.current?.focus?.();
+          return;
+        }
+        const first = focusables[0];
+        const last = focusables[focusables.length - 1];
+        const active = document.activeElement;
+        if (e.shiftKey && active === first) {
+          e.preventDefault();
+          last.focus();
+        } else if (!e.shiftKey && active === last) {
+          e.preventDefault();
+          first.focus();
+        }
+      }
+    };
+
     document.addEventListener('keydown', onKey);
     const prev = document.body.style.overflow;
     document.body.style.overflow = 'hidden';
+
+    // 2) 初次焦點：sheet 本身（讓讀屏從 aria-labelledby 的標題唸起，
+    //    再往下依 DOM 順序：更多 → 選項 → 取消）
+    const t = setTimeout(() => {
+      mobileActionsSheetRef.current?.focus?.();
+    }, 0);
+
     return () => {
+      clearTimeout(t);
       document.removeEventListener('keydown', onKey);
       document.body.style.overflow = prev;
+      // 3) 關閉後回到原本觸發按鈕
+      try { mobileActionsPrevFocus.current?.focus?.(); } catch {}
     };
   }, [mobileActionsOpen]);
+
 
 
   const clearAnalysisAndLessons = () => {
@@ -3385,11 +3439,13 @@ ${JSON.stringify(strategyBrain || { rules: [], lessons: [], commonMistakes: [], 
               {/* 手機版：只顯示「更多」按鈕，其他操作進 sheet */}
               <span className="cm-header-mobile-actions">
                 <button
+                  ref={mobileActionsTriggerRef}
                   type="button"
                   className="cm-header-mobile-more"
                   data-testid="checkup-mobile-more-cta"
                   aria-label="更多選項"
                   aria-haspopup="dialog"
+                  aria-controls="cm-mobile-actions-sheet"
                   aria-expanded={mobileActionsOpen}
                   onClick={() => setMobileActionsOpen(true)}
                 >⋯ 更多</button>
@@ -4001,18 +4057,34 @@ ${JSON.stringify(strategyBrain || { rules: [], lessons: [], commonMistakes: [], 
       {/* Batch D §2：手機頂欄「更多」sheet — 收納同步、補價、日誌、清除 */}
       {mobileActionsOpen && (
         <>
-          <div className="cm-mobile-actions-sheet__backdrop" data-testid="mobile-actions-sheet-backdrop" onClick={()=>setMobileActionsOpen(false)} />
-          <div className="cm-mobile-actions-sheet" data-testid="mobile-actions-sheet" role="dialog" aria-modal="true" aria-labelledby="cm-mobile-actions-title">
+          <div
+            className="cm-mobile-actions-sheet__backdrop"
+            data-testid="mobile-actions-sheet-backdrop"
+            aria-hidden="true"
+            onClick={()=>setMobileActionsOpen(false)}
+          />
+          <div
+            ref={mobileActionsSheetRef}
+            id="cm-mobile-actions-sheet"
+            className="cm-mobile-actions-sheet"
+            data-testid="mobile-actions-sheet"
+            role="dialog"
+            aria-modal="true"
+            aria-labelledby="cm-mobile-actions-title"
+            tabIndex={-1}
+            style={{ outline: 'none' }}
+          >
             <div style={{display:'flex',alignItems:'center',justifyContent:'space-between',gap:8,marginBottom:10,paddingBottom:8,borderBottom:'1px solid var(--cm-ink)'}}>
               <h3 id="cm-mobile-actions-title" className="cm-mobile-actions-sheet__title" style={{margin:0,padding:0,border:'none'}}>更多</h3>
               <button
                 type="button"
-                aria-label="關閉"
+                aria-label="關閉更多選項"
                 data-testid="mobile-actions-sheet-close"
                 onClick={()=>setMobileActionsOpen(false)}
-                style={{background:'transparent',border:'none',fontSize:20,lineHeight:1,cursor:'pointer',color:'var(--cm-ink-sec)',padding:'2px 6px'}}
-              >×</button>
+                style={{background:'transparent',border:'none',fontSize:20,lineHeight:1,cursor:'pointer',color:'var(--cm-ink-sec)',padding:'4px 8px',minWidth:32,minHeight:32}}
+              ><span aria-hidden="true">×</span></button>
             </div>
+
 
             {!isDemo && (
               <button type="button" className="cm-mobile-actions-sheet__item"
