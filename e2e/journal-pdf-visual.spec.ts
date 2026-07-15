@@ -53,7 +53,7 @@ test.describe('journal-pdf-visual', () => {
     expect(errors, `harness console/page errors: ${errors.join(' | ')}`).toEqual([]);
 
     const pageCount = await page.locator('[data-pdf-page]').count();
-    expect(pageCount).toBeGreaterThanOrEqual(2);
+    expect(pageCount, 'cover + 操作回顧 + 成交明細 + 產業分佈 ≥ 4').toBeGreaterThanOrEqual(4);
 
     // 每個 PDF 頁面尺寸必須固定
     for (let i = 1; i <= pageCount; i++) {
