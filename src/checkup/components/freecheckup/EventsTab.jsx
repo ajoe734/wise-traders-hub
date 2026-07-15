@@ -106,8 +106,8 @@ function EventsTabImpl({
         <h3 style={{
           margin: 0,
           fontFamily: "'Noto Serif TC', ui-serif, Georgia, serif",
-          fontSize: 'clamp(18px,3.5vw,22px)', fontWeight: 600, color: C.text,
-          letterSpacing: '0.02em',
+          fontSize: 'clamp(18px,3.5vw,22px)', fontWeight: 400, color: C.text,
+          letterSpacing: 0,
         }}>事件</h3>
         <div role="tablist" aria-label="事件切換" style={{ display: 'inline-flex', gap: 0, border: `1px solid ${C.border}` }}>
           {[
@@ -650,23 +650,26 @@ function UpcomingEventsBody({
               </div>
             </div>
           ) : H.length === 0 && CE.length === 0 ? (
-            <div style={{textAlign:"center",padding:"36px 16px"}}>
-              <div style={{fontSize:20,marginBottom:10,opacity:0.2}}>◌</div>
-              <div style={{fontSize:13,color:C.textMute,fontWeight:400}}>尚無行事曆事件</div>
-              <div style={{fontSize:12,color:C.textMute,marginTop:6,lineHeight:1.7,opacity:0.6}}>
-                上傳成交截圖後，相關股票的財報、法說、催化事件會自動列出
+            <div style={{padding:"36px 0",borderTop:`1px solid ${alpha(C.textMute,'20')}`,borderBottom:`1px solid ${alpha(C.textMute,'20')}`}}>
+              <div style={{fontSize:13,color:C.textMute,fontWeight:400,letterSpacing:"0.04em"}}>尚無行事曆事件</div>
+              <div style={{fontSize:12,color:C.textMute,marginTop:6,lineHeight:1.7,opacity:0.7}}>
+                上傳成交截圖後，相關股票的財報、法說、催化事件會自動列出。
               </div>
             </div>
           ) : <>
-            <div style={{display:"flex",gap:5,flexWrap:"wrap",marginBottom:12,alignItems:"center"}}>
-              {["全部",...Object.keys(TYPE_COLOR)].map(t=>(
-                <button key={t} onClick={()=>{setFilterType(t);setCalendarExpanded(false);}} style={{
-                  background: filterType===t ? (alpha(TYPE_COLOR[t]||C.subtle,'33')) : "transparent",
-                  color: filterType===t ? (TYPE_COLOR[t]||C.text) : C.textMute,
-                  border:`1px solid ${filterType===t?alpha(TYPE_COLOR[t]||C.border,'66'):C.border}`,
-                  borderRadius:20,padding:"3px 11px",fontSize:12,fontWeight:500,cursor:"pointer",
-                }}>{t}</button>
-              ))}
+            <div style={{display:"flex",gap:0,flexWrap:"wrap",marginBottom:12,alignItems:"center",borderBottom:`1px solid ${alpha(C.textMute,'15')}`,paddingBottom:6}}>
+              {["全部",...Object.keys(TYPE_COLOR)].map(t=>{
+                const active = filterType===t;
+                return (
+                  <button key={t} onClick={()=>{setFilterType(t);setCalendarExpanded(false);}} style={{
+                    background: "transparent",
+                    color: active ? C.text : C.textMute,
+                    border:"none",
+                    borderBottom:`1px solid ${active ? C.text : "transparent"}`,
+                    padding:"4px 10px",fontSize:12,fontWeight:400,cursor:"pointer",letterSpacing:"0.04em",
+                  }}>{t}</button>
+                );
+              })}
               {/* 重新產生按鈕已移除，行事曆只抓一次 */}
             </div>
 
@@ -680,7 +683,6 @@ function UpcomingEventsBody({
               const visibleEvents = shouldCollapse ? filteredEvents.slice(0, COLLAPSE_LIMIT) : filteredEvents;
               return <>
                 {visibleEvents.map((e,i)=>{
-                  const tc = TYPE_COLOR[e.type]||C.textMute;
                   const globalIdx = CE.indexOf(e);
                   return <div key={i} style={{marginBottom:0,padding:"10px 0",
                     borderBottom:`1px solid ${alpha(C.textMute,'06')}`}}>
@@ -713,11 +715,11 @@ function UpcomingEventsBody({
                 })}
                 {filteredEvents.length > COLLAPSE_LIMIT && (
                   <button onClick={()=>setCalendarExpanded(!calendarExpanded)} style={{
-                    width:"100%",padding:"8px 0",border:`1px dashed ${C.border}`,borderRadius:8,
-                    background:"transparent",color:C.blue,fontSize:13,fontWeight:500,cursor:"pointer",
-                    marginTop:4,
+                    width:"100%",padding:"10px 0",border:"none",borderTop:`1px solid ${alpha(C.textMute,'15')}`,
+                    background:"transparent",color:C.text,fontSize:12,fontWeight:400,cursor:"pointer",
+                    marginTop:4,letterSpacing:"0.04em",
                   }}>
-                    {calendarExpanded ? "▲ 收合" : `▼ 展開其餘 ${filteredEvents.length - COLLAPSE_LIMIT} 則事件`}
+                    {calendarExpanded ? "收合" : `展開其餘 ${filteredEvents.length - COLLAPSE_LIMIT} 則事件 →`}
                   </button>
                 )}
               </>;
