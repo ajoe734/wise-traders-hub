@@ -114,16 +114,16 @@ export default function RealizedTab({
                             <span className="text-xs text-muted-foreground font-mono tabular-nums break-words [overflow-wrap:anywhere]">{symbol}</span>
                           </div>
                         </td>
-                        <td className="text-right p-3 text-sm tabular-nums">
+                        <td className="text-right p-3 text-sm tabular-nums whitespace-nowrap align-top">
                           {fmtPrice(row.entry_price, row.currency)}
                         </td>
-                        <td className="text-right p-3 text-sm tabular-nums">
+                        <td className="text-right p-3 text-sm tabular-nums whitespace-nowrap align-top">
                           {fmtPrice(row.exit_price, row.currency)}
                         </td>
-                        <td className={cn('text-right p-3 text-sm font-medium tabular-nums', pnlColor(row.pnl_percent))}>
+                        <td className={cn('text-right p-3 text-sm font-medium tabular-nums whitespace-nowrap align-top', pnlColor(row.pnl_percent))}>
                           {row.pnl_percent != null ? fmtPct(row.pnl_percent) : '-'}
                         </td>
-                        <td className="text-center p-3 text-sm text-muted-foreground">
+                        <td className="text-center p-3 text-sm text-muted-foreground whitespace-nowrap align-top">
                           {fmtDate(row.exit_date)}
                         </td>
                       </tr>
