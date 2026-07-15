@@ -257,6 +257,7 @@ const AppShell = () => (
             {/* Dev/Preview-only demo entry — gated by hostname inside the component. */}
             <Route path="/holding-checkup-demo" element={<HoldingCheckupDemoEntry />} />
             <Route path="/e2e/holding-card-harness" element={<HoldingCardHarnessEntry />} />
+            <Route path="/e2e/signal-editor-harness" element={<SignalEditorHarnessEntry />} />
             <Route path="/free-checkup" element={<LegacyFreeCheckupRedirect />} />
             <Route path="/legal" element={<Legal />} />
             <Route path="/data-sources" element={<DataSources />} />
