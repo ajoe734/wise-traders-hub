@@ -8,8 +8,8 @@ const Textarea = React.forwardRef<HTMLTextAreaElement, TextareaProps>(({ classNa
   return (
     <textarea
       className={cn(
-        // text-base (16px) on mobile → 避免 iOS Safari 聚焦時自動 zoom；桌面回到 text-sm
-        "flex min-h-[80px] w-full rounded-md border border-input bg-background px-3 py-2 text-base md:text-sm ring-offset-background placeholder:text-muted-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 disabled:cursor-not-allowed disabled:opacity-50",
+        // 觸控裝置一律 16px 防 iOS/iPadOS Safari 聚焦自動 zoom；桌面(pointer:fine)才 text-sm
+        "flex min-h-[80px] w-full rounded-md border border-input bg-background px-3 py-2 text-base [@media(pointer:fine)]:text-sm ring-offset-background placeholder:text-muted-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 disabled:cursor-not-allowed disabled:opacity-50",
         className,
       )}
       ref={ref}
