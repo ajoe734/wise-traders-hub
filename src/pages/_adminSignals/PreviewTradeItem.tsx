@@ -45,7 +45,7 @@ export const PreviewTradeItem = ({
             );
           })()}
           {priceHint != null && (
-            <span className="font-mono tabular-nums text-xs text-muted-foreground ml-1 whitespace-nowrap tracking-normal">@{priceHint}</span>
+            <span data-testid="pti-price" className="font-mono tabular-nums text-xs text-muted-foreground ml-1 whitespace-nowrap tracking-normal">@{priceHint}</span>
           )}
         </div>
         {hasDetails && (
