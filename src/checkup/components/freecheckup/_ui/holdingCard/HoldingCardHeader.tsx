@@ -94,7 +94,16 @@ function HoldingCardHeaderImpl({
           )}
         </div>
         {sparkData.length >= 2 ? (
-          <span className="wb-spark" aria-hidden="true" style={{ display: 'inline-flex', flexShrink: 0 }}>
+          <span
+            className="wb-spark"
+            aria-hidden="true"
+            style={{ display: 'inline-flex', flexShrink: 0 }}
+            // e2e hook：即使 demo 種子沒實際歷史價，仍可從屬性驗證派生值一致性
+            data-spark-sign={pctSign}
+            data-spark-color={sparkColor}
+            data-spark-opacity={String(sparkOpacity)}
+            data-spark-variant={isInk ? 'ink' : 'normal'}
+          >
             <Sparkline data={sparkData} width={60} height={20} color={sparkColor} opacity={sparkOpacity} />
           </span>
         ) : (
@@ -107,6 +116,11 @@ function HoldingCardHeaderImpl({
               width: 60, height: 20, fontSize: 11, color: muteColor,
               opacity: 0.4, flexShrink: 0, letterSpacing: '0.3em',
             }}
+            data-spark-sign={pctSign}
+            data-spark-color={sparkColor}
+            data-spark-opacity={String(sparkOpacity)}
+            data-spark-variant={isInk ? 'ink' : 'normal'}
+            data-spark-fallback={sparkFailed ? 'failed' : 'empty'}
           >{sparkFailed ? '~' : '———'}</span>
         )}
         <span aria-hidden="true" style={{
