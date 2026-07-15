@@ -3692,7 +3692,7 @@ ${JSON.stringify(strategyBrain || { rules: [], lessons: [], commonMistakes: [], 
         </nav>
       </div>
 
-      <div className="cm-page-content" style={{padding:"14px 14px"}}>
+      <div className="cm-page-content">{/* padding 由 --cm-page-px 提供，Batch E §3 */}
 
 
         {/* ══════════ HOLDINGS ══════════ */}
