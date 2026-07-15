@@ -223,6 +223,18 @@ export default defineConfig({
       use: { ...devices['Desktop Chrome'], viewport: { width: 1280, height: 800 } },
     },
     {
+      // Batch C §6.3 — TradeUploadModal 三條關閉路徑 + DailyTab/LogTab 切換不破版（desktop）
+      name: 'desktop-freecheckup-upload-modal',
+      testMatch: /freecheckup-upload-modal\.spec\.ts/,
+      use: { ...devices['Desktop Chrome'], viewport: { width: 1280, height: 900 } },
+    },
+    {
+      // Batch C §6.3 — 手機 390：CTA 打開 modal + 切 tab 不橫向 scroll
+      name: 'mobile-freecheckup-upload-modal',
+      testMatch: /freecheckup-upload-modal\.spec\.ts/,
+      use: { ...devices['Desktop Chrome'], viewport: { width: 390, height: 844 } },
+    },
+    {
       // F1 — 登入/註冊漏斗（auth_login_*, auth_signup_*）
       name: 'desktop-auth-funnel',
       testMatch: /auth-funnel\.spec\.ts/,
