@@ -89,10 +89,10 @@ function HoldingsDetailPanelImpl({
   sortDir,
   setSortBy,
   setSortDir,
-  // §4.3 / §4.5 / §4.8：以下 props 尚未通線；panel 使用 optional chaining，通線前顯示 placeholder。
+  // §4.3 / §4.5 / §4.8：資料源可外部注入；若未注入，內部以 hooks 自行拉取（A2 通線）。
   tradeLog,
-  targetPriceHistory,
-  thesisTracking,
+  targetPriceHistory: targetPriceHistoryProp,
+  thesisTracking: thesisTrackingProp,
 }) {
   const [prefs, setPrefs] = useState(loadPrefs);
   const [exportPrefs, setExportPrefsRaw] = useState(loadExportPrefs);
