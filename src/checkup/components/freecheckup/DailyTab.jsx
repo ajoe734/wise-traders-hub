@@ -436,13 +436,15 @@ function DailyTabImpl({
       })()}
 
 
-            {/* 重新分析 */}
-            <button onClick={runDailyAnalysis} disabled={analyzing} style={{
-              width:"100%",padding:"11px",borderRadius:8,border:`1px solid ${C.border}`,
-              background:"transparent",color:C.textSec,fontSize:13,cursor:"pointer",fontWeight:600,
-              marginBottom:16}}>
-              重新分析
-            </button>
+            {/* 重新分析（頁腳文字鏈結） */}
+            <div style={{padding:"14px 0",marginBottom:16,borderTop:`1px solid ${alpha(C.textMute,'20')}`,textAlign:"right"}}>
+              <button onClick={runDailyAnalysis} disabled={analyzing} style={{
+                padding:"6px 0",border:"none",
+                background:"transparent",color:analyzing?C.textMute:C.text,fontSize:12,cursor:analyzing?"not-allowed":"pointer",
+                letterSpacing:"0.04em",textDecoration:"underline"}}>
+                重新分析 →
+              </button>
+            </div>
           </>}
 
           {/* 策略大腦 */}
