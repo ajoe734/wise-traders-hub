@@ -101,8 +101,9 @@ export function SignalsTable(p: Props) {
               <tfoot>
                 {p.holdingSummary.map(({ instrument, zhangQty, guQty, cost }) => (
                   <tr key={instrument} className="border-t bg-muted/40">
-                    <td colSpan={3} className="p-3 text-sm font-medium text-muted-foreground">
-                      {instrument} 目前持有
+                    <td colSpan={3} className="p-3 text-sm font-medium text-muted-foreground align-top">
+                      <span className="break-words [overflow-wrap:anywhere]">{instrument}</span>
+                      <span className="whitespace-nowrap"> 目前持有</span>
                     </td>
                     <td colSpan={2} className="p-3 text-sm font-bold text-foreground">
                       {assetClass === 'crypto'
