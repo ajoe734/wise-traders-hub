@@ -3133,6 +3133,8 @@ ${JSON.stringify(strategyBrain || { rules: [], lessons: [], commonMistakes: [], 
   };
 
   const [showResetConfirm, setShowResetConfirm] = useState(false);
+  // Batch D IA §2：手機頂欄「更多」sheet
+  const [mobileActionsOpen, setMobileActionsOpen] = useState(false);
 
   const clearAnalysisAndLessons = () => {
     if (!confirm("確定要清除『歷史分析記錄』與『最近教訓』嗎？")) return;
