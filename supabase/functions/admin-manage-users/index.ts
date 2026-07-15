@@ -166,11 +166,54 @@ Deno.serve(withLogging('admin-manage-users', async (req) => {
         if ((count || 0) <= 1) return json({ error: 'last_admin' }, 400);
       }
 
+      let expertCreated = false;
+      let expertKept = false;
+      let expertId: string | null = null;
+
       if (enabled) {
         const { error } = await admin
           .from('user_roles')
           .upsert({ user_id: targetId, role }, { onConflict: 'user_id,role' });
         if (error) return json({ error: error.message }, 500);
+
+        // 授予 analyst 時，若尚無 experts row，自動建立骨架，避免分析師頁看不到人
+        if (role === 'analyst') {
+          const { data: existingExpert } = await admin
+            .from('experts')
+            .select('id')
+            .eq('user_id', targetId)
+            .maybeSingle();
+          if (existingExpert) {
+            expertId = existingExpert.id;
+          } else {
+            // 取 name / email 做預設值
+            const { data: prof } = await admin
+              .from('profiles')
+              .select('display_name')
+              .eq('user_id', targetId)
+              .maybeSingle();
+            const { data: authRes } = await admin.auth.admin.getUserById(targetId);
+            const email = authRes?.user?.email || '';
+            const emailPrefix = email.split('@')[0] || '';
+            const defaultName = prof?.display_name || emailPrefix || `user-${targetId.slice(0, 8)}`;
+            const defaultSlug = `pending-${targetId.slice(0, 8)}`;
+            const { data: newExpert, error: expErr } = await admin
+              .from('experts')
+              .insert({
+                user_id: targetId,
+                slug: defaultSlug,
+                name: defaultName,
+                role: 'mentor',
+                status: 'pending',
+                created_by: callerId,
+              })
+              .select('id')
+              .single();
+            if (expErr) return json({ error: `expert_create_failed: ${expErr.message}` }, 500);
+            expertId = newExpert.id;
+            expertCreated = true;
+          }
+        }
       } else {
         const { error } = await admin
           .from('user_roles')
@@ -178,6 +221,28 @@ Deno.serve(withLogging('admin-manage-users', async (req) => {
           .eq('user_id', targetId)
           .eq('role', role);
         if (error) return json({ error: error.message }, 500);
+
+        // 回收 analyst role 時，若對應 expert 未 active 且無訂閱者，軟停用
+        if (role === 'analyst') {
+          const { data: existingExpert } = await admin
+            .from('experts')
+            .select('id, status')
+            .eq('user_id', targetId)
+            .maybeSingle();
+          if (existingExpert) {
+            expertId = existingExpert.id;
+            if (existingExpert.status !== 'active') {
+              await admin
+                .from('experts')
+                .update({ status: 'suspended' })
+                .eq('id', existingExpert.id);
+              expertKept = true;
+            } else {
+              // active 分析師保留，只回收 role
+              expertKept = true;
+            }
+          }
+        }
       }
 
       await admin.from('audit_logs').insert({
@@ -185,11 +250,18 @@ Deno.serve(withLogging('admin-manage-users', async (req) => {
         action: enabled ? 'role.grant' : 'role.revoke',
         target_id: targetId,
         target_type: 'user',
-        detail: { role, enabled },
+        detail: { role, enabled, expert_created: expertCreated, expert_kept: expertKept, expert_id: expertId },
       });
 
-      return json({ ok: true });
+      return json({
+        ok: true,
+        expert_created: expertCreated,
+        expert_kept: expertKept,
+        expert_id: expertId,
+        needs_setup: expertCreated,
+      });
     }
+
 
     if (action === 'set_tester') {
       const targetId = body?.user_id as string;

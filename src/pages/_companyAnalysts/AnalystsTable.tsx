@@ -13,9 +13,11 @@ interface Props {
   onOpenAccount: (exp: any) => void;
   onToggleStatus: (id: string, currentStatus: string) => void;
   onOpenSubscribers?: (exp: any) => void;
+  onAdopt?: (exp: any) => void;
 }
 
-export function AnalystsTable({ loading, experts, subscriberCounts = {}, onOpenLine, onOpenAccount, onToggleStatus, onOpenSubscribers }: Props) {
+export function AnalystsTable({ loading, experts, subscriberCounts = {}, onOpenLine, onOpenAccount, onToggleStatus, onOpenSubscribers, onAdopt }: Props) {
+
   return (
     <Card>
       <CardContent className="p-0">
@@ -51,12 +53,18 @@ export function AnalystsTable({ loading, experts, subscriberCounts = {}, onOpenL
                   </td>
                   <td className="p-4 text-sm text-muted-foreground">{exp.slug}</td>
                   <td className="p-4">
-                    <Badge
-                      className={`text-xs ${exp.status === 'suspended' ? 'bg-red-500 text-white' : 'bg-emerald-500 text-white'}`}
-                    >
-                      {exp.status === 'suspended' ? '已停用' : '啟用中'}
-                    </Badge>
+                    {(() => {
+                      const s = exp.status;
+                      const cls = s === 'suspended'
+                        ? 'bg-red-500 text-white'
+                        : s === 'pending'
+                        ? 'bg-amber-500 text-white'
+                        : 'bg-emerald-500 text-white';
+                      const label = s === 'suspended' ? '已停用' : s === 'pending' ? '待補資料' : '啟用中';
+                      return <Badge className={`text-xs ${cls}`}>{label}</Badge>;
+                    })()}
                   </td>
+
                   <td className="p-4">
                     <Button
                       variant="ghost"
@@ -71,6 +79,11 @@ export function AnalystsTable({ loading, experts, subscriberCounts = {}, onOpenL
                   </td>
                   <td className="p-4">
                     <div className="flex items-center gap-1 flex-wrap">
+                      {exp.status === 'pending' && onAdopt && (
+                        <Button variant="default" size="sm" className="h-7 text-xs bg-amber-600 hover:bg-amber-700 text-white" onClick={() => onAdopt(exp)}>
+                          補資料
+                        </Button>
+                      )}
                       <Button variant="ghost" size="sm" className="h-7 text-xs" onClick={() => onOpenLine(exp)}>
                         <MessageCircle className="h-3 w-3 mr-1" />LINE
                       </Button>
@@ -84,6 +97,7 @@ export function AnalystsTable({ loading, experts, subscriberCounts = {}, onOpenL
                         {exp.status === 'suspended' ? '啟用' : '停用'}
                       </Button>
                     </div>
+
                   </td>
                 </tr>
               ))

@@ -16,12 +16,14 @@ interface Props {
   creating: boolean;
   clearForm: () => void;
   onCreate: () => void;
+  mode?: 'create' | 'adopt';
 }
 
 export function CreateAnalystDialog({
   open, setOpen, email, setEmail, password, setPassword,
-  name, setName, slug, setSlug, role, setRole, creating, clearForm, onCreate,
+  name, setName, slug, setSlug, role, setRole, creating, clearForm, onCreate, mode = 'create',
 }: Props) {
+  const isAdopt = mode === 'adopt';
   return (
     <Dialog open={open} onOpenChange={setOpen}>
       <DialogTrigger asChild>
@@ -30,15 +32,17 @@ export function CreateAnalystDialog({
         </Button>
       </DialogTrigger>
       <DialogContent>
-        <DialogHeader><DialogTitle>新增分析師帳號</DialogTitle></DialogHeader>
+        <DialogHeader>
+          <DialogTitle>{isAdopt ? '補齊分析師資料' : '新增分析師帳號'}</DialogTitle>
+        </DialogHeader>
         <div className="space-y-4 mt-4">
           <div className="space-y-2">
-            <Label>Email</Label>
-            <Input value={email} onChange={e => setEmail(e.target.value)} placeholder="analyst@example.com" type="email" />
+            <Label>Email {isAdopt && <span className="text-xs text-muted-foreground">（既有帳號，不可改）</span>}</Label>
+            <Input value={email} onChange={e => setEmail(e.target.value)} placeholder="analyst@example.com" type="email" disabled={isAdopt} />
           </div>
           <div className="space-y-2">
-            <Label>密碼</Label>
-            <Input value={password} onChange={e => setPassword(e.target.value)} placeholder="至少 6 位" type="password" />
+            <Label>密碼 {isAdopt && <span className="text-xs text-muted-foreground">（會覆寫既有密碼）</span>}</Label>
+            <Input value={password} onChange={e => setPassword(e.target.value)} placeholder="至少 8 位" type="password" />
           </div>
           <div className="grid grid-cols-2 gap-4">
             <div className="space-y-2">
@@ -62,7 +66,9 @@ export function CreateAnalystDialog({
           </div>
           <div className="flex justify-end gap-3 pt-2">
             <Button variant="outline" onClick={() => setOpen(false)}>取消</Button>
-            <Button onClick={onCreate} disabled={creating}>{creating ? '建立中...' : '建立帳號'}</Button>
+            <Button onClick={onCreate} disabled={creating}>
+              {creating ? (isAdopt ? '更新中...' : '建立中...') : (isAdopt ? '補齊資料' : '建立帳號')}
+            </Button>
           </div>
         </div>
       </DialogContent>

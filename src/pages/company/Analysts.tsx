@@ -60,11 +60,32 @@ const CompanyAnalysts = () => {
   const [slug, setSlug] = useSessionString('ca_slug');
   const [role, setRole] = useSessionString('ca_role');
   const [creating, setCreating] = useState(false);
+  const [dialogMode, setDialogMode] = useState<'create' | 'adopt'>('create');
 
   const clearForm = () => {
     setEmail(''); setPassword(''); setName(''); setSlug(''); setRole('');
+    setDialogMode('create');
     ['ca_email','ca_password','ca_name','ca_slug','ca_role'].forEach(k => sessionStorage.removeItem(k));
   };
+
+  const handleAdopt = async (exp: any) => {
+    // 抓 email 需要走 edge function
+    const { data, error } = await supabase.functions.invoke('update-analyst-credentials', {
+      body: { expert_id: exp.id, action: 'fetch_email' },
+    });
+    if (error || data?.error) {
+      toast.error(data?.error || error?.message || '無法讀取 Email');
+      return;
+    }
+    setEmail(data.email || '');
+    setPassword('');
+    setName(exp.name || '');
+    setSlug(exp.slug?.startsWith('pending-') ? '' : (exp.slug || ''));
+    setRole(exp.role || 'mentor');
+    setDialogMode('adopt');
+    setIsCreateOpen(true);
+  };
+
 
   const lineEditor = useLineChannelEditor();
   const account = useAnalystAccount();
@@ -89,17 +110,19 @@ const CompanyAnalysts = () => {
       toast.error(data?.error || error?.message || '建立失敗');
       return;
     }
-    toast.success('分析師已建立');
+    const adopted = !!data?.adopted;
+    toast.success(adopted ? '分析師資料已補齊' : '分析師已建立');
     await logAdminAction({
-      action: 'analyst.create',
+      action: adopted ? 'analyst.adopt' : 'analyst.create',
       targetType: 'experts',
       targetId: data?.expert_id ?? null,
-      detail: { after: { name, slug, role, email }, context: { email, role } },
+      detail: { after: { name, slug, role, email }, context: { email, role, adopted } },
     });
     setIsCreateOpen(false);
     clearForm();
     refetchExperts();
   };
+
 
   const toggleStatus = async (id: string, currentStatus: string) => {
     let newStatus: string;
@@ -144,6 +167,7 @@ const CompanyAnalysts = () => {
             creating={creating}
             clearForm={clearForm}
             onCreate={handleCreate}
+            mode={dialogMode}
           />
         </div>
 
@@ -155,8 +179,10 @@ const CompanyAnalysts = () => {
           onOpenAccount={account.openAccountDialog}
           onToggleStatus={toggleStatus}
           onOpenSubscribers={(exp) => setSubscribersExpert({ id: exp.id, name: exp.name })}
+          onAdopt={handleAdopt}
         />
       </div>
+
 
       <LineChannelDialog editor={lineEditor} />
       <AccountCredentialsDialog account={account} />
