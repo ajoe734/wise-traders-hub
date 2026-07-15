@@ -17,56 +17,18 @@ function HoldingCardPriceTrackImpl({
   h,
   meta: _meta, // eslint-disable-line no-unused-vars
   dec: _dec,   // eslint-disable-line no-unused-vars
-  subColor,
-  muteColor,
+  subColor: _subColor, // eslint-disable-line no-unused-vars
+  muteColor: _muteColor, // eslint-disable-line no-unused-vars
   variant = 'normal',
 }) {
   const isFeature = variant === 'ink';
-
-  const costStr = useMemo(
-    () => (h.cost != null ? Number(h.cost).toFixed(2) : '—'),
-    [h.cost],
-  );
-  const priceStr = useMemo(
-    () => (h.price != null ? Number(h.price).toFixed(2) : '—'),
-    [h.price],
-  );
-
   const wrapStyle = useMemo(() => ({
     marginBottom: isFeature ? 10 : 8,
   }), [isFeature]);
 
-  const legendStyle = useMemo(() => ({
-    display: 'flex',
-    justifyContent: 'space-between',
-    fontSize: 10,
-    letterSpacing: '0.10em',
-    color: muteColor,
-    fontVariantNumeric: 'tabular-nums',
-    marginTop: 4,
-  }), [muteColor]);
-
-  const labelStyle = useMemo(() => ({
-    color: muteColor, opacity: 0.85,
-  }), [muteColor]);
-
-  const valStyle = useMemo(() => ({
-    color: subColor, marginLeft: 4,
-  }), [subColor]);
-
   return (
     <div className="wb-price-track" style={wrapStyle}>
       <PriceTrack cost={Number(h.cost)} now={Number(h.price)} />
-      <div style={legendStyle}>
-        <span>
-          <span style={labelStyle}>成本</span>
-          <span style={valStyle}>{costStr}</span>
-        </span>
-        <span>
-          <span style={labelStyle}>現價</span>
-          <span style={valStyle}>{priceStr}</span>
-        </span>
-      </div>
     </div>
   );
 }
