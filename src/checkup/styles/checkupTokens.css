@@ -288,6 +288,7 @@
 @media (min-width: 641px) {
   .checkup-mono .cm-mobile-tabbar { display: none; }
   .checkup-mono .cm-header-mobile-actions { display: none !important; }
+  .checkup-mono .cm-header-mobile-logomark { display: none !important; }
 }
 .checkup-mono .cm-header-mobile-actions {
   display: inline-flex;
