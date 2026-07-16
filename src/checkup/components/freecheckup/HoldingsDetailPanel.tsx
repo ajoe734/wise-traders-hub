@@ -397,7 +397,13 @@ function HoldingsDetailPanelImpl({
               type="button"
               title="回報分類錯誤"
               aria-label={h.code ? `回報 ${h.code} 分類錯誤` : '回報分類錯誤'}
-              onClick={(e) => { e.stopPropagation(); onReportMeta(h); }}
+              onClick={(e) => {
+                e.stopPropagation();
+                // 先關抽屜再開 modal，避免 Radix Sheet 的 inert/focus-trap 攔截 modal 內點擊。
+                const holdingRef = h;
+                setExpandedDecision(null);
+                setTimeout(() => onReportMeta(holdingRef), 0);
+              }}
               style={{
                 background: 'transparent', border: 'none', padding: '4px 6px',
                 fontSize: 12, color: WB.inkSub, cursor: 'pointer', letterSpacing: '0.04em',
