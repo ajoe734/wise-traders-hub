@@ -281,16 +281,7 @@ function HoldingsTab(props) {
       />
 
 
-      {/* 反轉追蹤（虧損持股）— 預設折疊，避免擠壓卡片牆 */}
-      <HoldingsReversalSection
-        losers={losers}
-        reversalConditions={reversalConditions}
-        reviewingEvent={reviewingEvent}
-        setReviewingEvent={setReviewingEvent}
-        updateReversal={updateReversal}
-        C={C}
-        alpha={alpha}
-      />
+      {/* HoldingsReversalSection 已下線（不在設計規格 §3 內），losers 由「今日待辦」統一呈現 */}
 
       {/* ══════════ Action Priority（單行 inline 文字流） ══════════
           B-P5: items 在 parent 已預先含 tag/desc，元件不再吃 decisionsMap/stockMeta */}
