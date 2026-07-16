@@ -78,19 +78,22 @@ async function gotoFreeCheckup(page: Page) {
   );
 }
 
+// §3.4 憲法：ROI 顯示以 `+` / `−` (U+2212)。aria-label 為輔助文字，
+// 允許 ASCII `-` 也接受 U+2212。此處兩個 helper 都需同時匹配兩種負號。
+const NEG = /[-\u2212]/;
 function signFromAriaLabel(label: string | null): 1 | -1 | 0 {
   if (!label) return 0;
-  const m = label.match(/報酬率\s*([+\-]?)([\d.]+)/);
+  const m = label.match(/報酬率\s*([+\-\u2212]?)([\d.]+)/);
   if (!m) return 0;
   const num = Number(m[2]);
   if (!Number.isFinite(num)) return 0;
-  return m[1] === '-' ? -1 : 1;
+  return NEG.test(m[1] || '') ? -1 : 1;
 }
 function signFromRoiText(txt: string | null): 1 | -1 | 0 {
   if (!txt) return 0;
-  const m = txt.match(/([+\-])?(\d+\.\d+)\s*%/);
+  const m = txt.match(/([+\-\u2212])?(\d+\.\d+)\s*%/);
   if (!m) return 0;
-  return m[1] === '-' ? -1 : 1;
+  return NEG.test(m[1] || '') ? -1 : 1;
 }
 
 interface Sample {
