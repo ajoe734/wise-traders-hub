@@ -233,7 +233,7 @@ function HoldingsWorkbench(props) {
               '--wb-ink-mute': WB.inkMute,
             } as React.CSSProperties}
           >
-            VIEW ALL {sorted.length}
+            顯示全部 {sorted.length} 檔
           </button>
         )}
       </div>
