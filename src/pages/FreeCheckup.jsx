@@ -3582,7 +3582,6 @@ ${JSON.stringify(strategyBrain || { rules: [], lessons: [], commonMistakes: [], 
         {tab==="holdings" && (
           <Suspense fallback={null}>
             <HoldingsTab
-              DEMO_TAB_NOTICE_COPY={DEMO_TAB_NOTICE_COPY}
               navigate={navigate}
               C={C}
               alpha={alpha}
@@ -3665,7 +3664,6 @@ ${JSON.stringify(strategyBrain || { rules: [], lessons: [], commonMistakes: [], 
               startLineLogin={startLineLogin}
               C={C}
               alpha={alpha}
-              DEMO_TAB_NOTICE_COPY={DEMO_TAB_NOTICE_COPY}
               TYPE_COLOR={TYPE_COLOR}
               RETRY_MAX={RETRY_MAX}
               calendarAutoStatus={calendarAutoStatus}
@@ -3714,7 +3712,6 @@ ${JSON.stringify(strategyBrain || { rules: [], lessons: [], commonMistakes: [], 
               startLineLogin={startLineLogin}
               C={C}
               alpha={alpha}
-              DEMO_TAB_NOTICE_COPY={DEMO_TAB_NOTICE_COPY}
               demoDailyMode={demoDailyMode}
               setDemoDailyMode={setDemoDailyMode}
               dailyReport={dailyReport}
@@ -3810,7 +3807,6 @@ ${JSON.stringify(strategyBrain || { rules: [], lessons: [], commonMistakes: [], 
               C={C}
               alpha={alpha}
               card={card}
-              DEMO_TAB_NOTICE_COPY={DEMO_TAB_NOTICE_COPY}
               startLineLogin={startLineLogin}
               navigate={navigate}
             />
@@ -3830,7 +3826,6 @@ ${JSON.stringify(strategyBrain || { rules: [], lessons: [], commonMistakes: [], 
               alpha={alpha}
               card={card}
               lbl={lbl}
-              DEMO_TAB_NOTICE_COPY={DEMO_TAB_NOTICE_COPY}
               showAddEvent={showAddEvent}
               setShowAddEvent={setShowAddEvent}
               newEvent={newEvent}
@@ -3867,7 +3862,6 @@ ${JSON.stringify(strategyBrain || { rules: [], lessons: [], commonMistakes: [], 
               alpha={alpha}
               card={card}
               lbl={lbl}
-              DEMO_TAB_NOTICE_COPY={DEMO_TAB_NOTICE_COPY}
               holdings={holdings}
               navigate={navigate}
               startLineLogin={startLineLogin}
