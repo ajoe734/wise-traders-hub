@@ -55,13 +55,14 @@ const PATTERNS = [
   { name: '--demo-*',       re: /--demo-[a-z0-9-]+/g },
 ];
 
-/** 用 git ls-files 拿追蹤中的檔案，避免掃到本地 build 產物 / 未追蹤大目錄。 */
+/** 追蹤 + 未追蹤（未被 .gitignore 排除）皆掃描，避免 PR 前本地漏檢。 */
 function listFiles() {
   let out = '';
   try {
-    out = execSync('git ls-files', { cwd: ROOT, encoding: 'utf8', maxBuffer: 32 * 1024 * 1024 });
+    out = execSync('git ls-files -co --exclude-standard', {
+      cwd: ROOT, encoding: 'utf8', maxBuffer: 32 * 1024 * 1024,
+    });
   } catch {
-    // fallback：直接 walk（極少數場景）
     return [];
   }
   return out.split('\n').filter(Boolean);
