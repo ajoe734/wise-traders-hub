@@ -184,7 +184,7 @@ export default function HoldingMetaReportModal({ holding, currentMeta, onClose, 
     }
   }
 
-  return (
+  const dialog = (
     <div
       role="dialog"
       aria-modal="true"
