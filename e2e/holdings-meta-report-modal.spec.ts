@@ -24,17 +24,16 @@ async function setupDemo(page: Page) {
 }
 
 async function openModal(page: Page) {
-  // 先把第一張 wb-card 捲進畫面，否則 IntersectionObserver 不會觸發 inView，內文（含「回報」鈕）不會渲染
+  // §4：回報鈕已從卡片移到抽屜 sticky 操作列。先點卡片開抽屜，再點回報。
   const firstCard = page.locator('.wb-card').first();
   await firstCard.waitFor({ state: 'attached', timeout: 15_000 });
   await firstCard.scrollIntoViewIfNeeded();
-  const reportBtn = page.locator('button[title="回報分類錯誤"]').first();
-  await reportBtn.waitFor({ state: 'attached', timeout: 15_000 });
-  await reportBtn.scrollIntoViewIfNeeded();
-  await expect(reportBtn).toBeVisible({ timeout: 10_000 });
-  // 內層 button 巢在 wb-card <button> 內；點擊靠 stopPropagation 阻止父層 select，
-  // 少數情境父層 hit-test 會搶先，用 force 讓事件直接送到子節點。
-  await reportBtn.click({ force: true });
+  await firstCard.click();
+  const panel = page.locator('[data-testid="holdings-detail-panel"]');
+  await expect(panel).toBeVisible({ timeout: 10_000 });
+  const reportBtn = panel.locator('button[title="回報分類錯誤"]').first();
+  await reportBtn.waitFor({ state: 'visible', timeout: 10_000 });
+  await reportBtn.click();
   const dialog = page.getByRole('dialog', { name: '回報分類錯誤' });
   await expect(dialog).toBeVisible({ timeout: 5_000 });
   return dialog;
