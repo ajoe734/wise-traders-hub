@@ -3332,17 +3332,7 @@ ${JSON.stringify(strategyBrain || { rules: [], lessons: [], commonMistakes: [], 
 
       {/* ── 介紹影片折疊入口已下移至看板核心之後（demo 首屏可見性修復），見頁尾 ── */}
 
-      {/* ── DEMO BANNER（僅 demo 模式顯示） ── */}
-      {isDemo && (
-        <DemoBanner
-          C={C}
-          alpha={alpha}
-          onLineLogin={() => {
-            try { startLineLogin?.(); } catch { navigate('/auth/login?redirect=/checkup'); }
-          }}
-          onEmailLogin={() => navigate('/auth/login?redirect=/checkup')}
-        />
-      )}
+      {/* DEMO banner 已移除（§6.5：首次三步引導 + 頁腳提示取代所有 tab 內 demo cta） */}
 
       {/* ── BACK BUTTON + 戰情室入口 ── */}
       <div style={{background:C.bg,borderBottom:`1px solid ${C.border}`,padding:"8px 16px",position:"sticky",top:0,zIndex:11,display:"flex",alignItems:"center",justifyContent:"space-between"}}>
