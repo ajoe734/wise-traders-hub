@@ -149,15 +149,19 @@ test.describe('DailyTab / LogTab 切換 — 不破版回歸', () => {
     await page.setViewportSize({ width: 390, height: 844 });
     await gotoDemo(page);
 
-    await page.getByRole('button', { name: /^收盤$/ }).first().click();
+    // 手機底欄的 tab 專屬 class，避免被 DailyTab 內「去重策略設定 ⚙︎」等浮層攔截
+    const tabbarBtn = (name: RegExp) =>
+      page.locator('.cm-mobile-tabbar__btn').filter({ hasText: name }).first();
+
+    await tabbarBtn(/^收盤$/).click();
     await page.waitForTimeout(300);
     await expectNoHorizontalScroll(page, 'mobile daily');
 
-    await page.getByRole('button', { name: /^記錄$/ }).first().click();
+    await tabbarBtn(/^記錄$/).click();
     await page.waitForTimeout(300);
     await expectNoHorizontalScroll(page, 'mobile log');
 
-    await page.getByRole('button', { name: /^持倉$/ }).first().click();
+    await tabbarBtn(/^持倉$/).click();
     await page.waitForTimeout(300);
     await expectNoHorizontalScroll(page, 'mobile holdings');
   });
