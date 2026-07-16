@@ -18,7 +18,7 @@ const DAILY_TAB_PROP_SCHEMA = {
   startLineLogin: { type: 'function', optional: true },
   C: 'object',
   alpha: 'function',
-  DEMO_TAB_NOTICE_COPY: 'object',
+  
   demoDailyMode: 'string',
   setDemoDailyMode: 'function',
   dailyReport: { type: 'object', optional: true },
@@ -59,7 +59,6 @@ function DailyTabImpl({
   startLineLogin,
   // 樣式 / 文案
   C, alpha,
-  DEMO_TAB_NOTICE_COPY,
   // demo 子模式
   demoDailyMode, setDemoDailyMode,
   // 報告

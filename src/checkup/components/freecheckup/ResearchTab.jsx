@@ -7,18 +7,23 @@ const RESEARCH_TAB_PROP_SCHEMA = {
   alpha: 'function',
   card: 'object',
   lbl: 'object',
-  DEMO_TAB_NOTICE_COPY: 'object',
   holdings: 'array',
   navigate: 'function',
   startLineLogin: { type: 'function', optional: true },
   setTab: 'function',
 };
 
+// §6.5：demo 訪客提示（原 DEMO_TAB_NOTICE_COPY.research 內化，唯一使用者只有 ResearchTab）
+const RESEARCH_DEMO_NOTICE = {
+  title: '這是 DEMO 深度研究',
+  body: '預覽個股研究與策略大腦評估的輸出範例。登入後可對任一持股啟動 3 輪迭代 AI 研究，或對整體組合執行策略大腦進化。',
+};
+
 function ResearchTabImpl({
-  isDemo, C, alpha, card, lbl, DEMO_TAB_NOTICE_COPY,
+  isDemo, C, alpha, card, lbl,
   holdings, navigate, startLineLogin, setTab,
 }) {
-  const notice = DEMO_TAB_NOTICE_COPY?.research;
+  const notice = RESEARCH_DEMO_NOTICE;
   const sample = holdings?.[0];
 
   const Section = ({ title, sub, children }) => (

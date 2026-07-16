@@ -45,7 +45,6 @@ const HOLDINGS_TAB_PROP_SCHEMA = {
   setSortBy: 'function',
   setSortDir: 'function',
   // 其它 prop（容許 any，避免 unknown-prop 警告噪音）
-  DEMO_TAB_NOTICE_COPY: _opt('any'),
   wbTone: _opt('any'),
   quota: _opt('any'), tier: _opt('any'), tierLabel: _opt('any'), formatResetCountdown: _opt('any'),
   totalVal: _opt('any'), totalCost: _opt('any'), H: _opt('any'),
@@ -90,8 +89,6 @@ function HoldingsTab(props) {
   // E1: dev-only schema check（漏傳 setTab 等核心 callback 立即在 console 警告）
   validateProps('HoldingsTab', props, HOLDINGS_TAB_PROP_SCHEMA);
   const {
-    // demo / auth notice
-    DEMO_TAB_NOTICE_COPY,
     navigate,
     // theme tokens
     C, alpha, WB, wbTone,

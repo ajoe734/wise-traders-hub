@@ -17,7 +17,6 @@ function renderDaily(quota: any, tier: string, hasReached: boolean) {
     startLineLogin: vi.fn(),
     C,
     alpha: (c: string) => c,
-    DEMO_TAB_NOTICE_COPY: { daily: { title: '', body: '' } },
     demoDailyMode: 'static',
     setDemoDailyMode: vi.fn(),
     dailyReport: null,

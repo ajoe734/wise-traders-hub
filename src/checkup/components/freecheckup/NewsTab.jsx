@@ -15,7 +15,6 @@ function NewsTabImpl({
   predictingEvents,
   // 樣式
   C, alpha, card, lbl,
-  DEMO_TAB_NOTICE_COPY,
   // 新增事件
   showAddEvent, setShowAddEvent,
   newEvent, setNewEvent,
