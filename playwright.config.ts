@@ -389,6 +389,16 @@ export default defineConfig({
       use: { ...devices['Desktop Chrome'], viewport: { width: w, height: 900 } },
     })),
 
+    // FreeCheckup 6 個主要分頁（Holdings/News/Daily/Events/Log/Research）視覺回歸
+    // × 3 斷點（375 手機 / 768 平板 / 1280 桌面）
+    ...([375, 768, 1280] as const).map((w) => ({
+      name: `freecheckup-tabs-${w}`,
+      testMatch: /freecheckup-tabs-visual\.spec\.ts/,
+      use: { ...devices['Desktop Chrome'], viewport: { width: w, height: 900 } },
+    })),
+
+
+
     // Batch F — Checkup token / accent / 字型 漂移守門 × 4 常見斷點
     ...([390, 768, 1024, 1280] as const).map((w) => ({
       name: `checkup-tokens-${w}`,
