@@ -27,14 +27,16 @@ async function setupDemo(page: Page) {
 }
 
 async function openModal(page: Page) {
+  // §4：回報鈕已移到抽屜 sticky 操作列。
   const firstCard = page.locator('.wb-card').first();
   await firstCard.waitFor({ state: 'attached', timeout: 15_000 });
   await firstCard.scrollIntoViewIfNeeded();
-  const reportBtn = page.locator('button[title="回報分類錯誤"]').first();
-  await reportBtn.waitFor({ state: 'attached', timeout: 15_000 });
-  await reportBtn.scrollIntoViewIfNeeded();
-  await expect(reportBtn).toBeVisible({ timeout: 10_000 });
-  await reportBtn.click({ force: true });
+  await firstCard.click();
+  const panel = page.locator('[data-testid="holdings-detail-panel"]');
+  await expect(panel).toBeVisible({ timeout: 10_000 });
+  const reportBtn = panel.locator('button[title="回報分類錯誤"]').first();
+  await reportBtn.waitFor({ state: 'visible', timeout: 10_000 });
+  await reportBtn.click();
   const dialog = page.getByRole('dialog', { name: '回報分類錯誤' });
   await expect(dialog).toBeVisible({ timeout: 5_000 });
   return dialog;
