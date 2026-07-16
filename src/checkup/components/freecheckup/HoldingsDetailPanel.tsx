@@ -93,6 +93,7 @@ function HoldingsDetailPanelImpl({
   tradeLog,
   targetPriceHistory: targetPriceHistoryProp,
   thesisTracking: thesisTrackingProp,
+  onReportMeta,
 }) {
   const [prefs, setPrefs] = useState(loadPrefs);
   const [exportPrefs, setExportPrefsRaw] = useState(loadExportPrefs);
