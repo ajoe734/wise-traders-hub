@@ -232,14 +232,7 @@ export default function App() {
 
   // ── Demo Tab 說明卡（行事曆 / 事件分析 / 收盤分析 / 交易日誌）──
   // 直接 inline 在 FreeCheckup.jsx 內，符合既有 inline 渲染慣例
-  const DEMO_TAB_NOTICE_COPY = {
-    holdings: { title: '這是 DEMO 持倉', body: '示範資料：虛構持倉與模擬報價，便於你體驗介面。登入後可上傳成交截圖、自動建立你的真實持倉，並啟用 AI 健檢。' },
-    events: { title: '這是 DEMO 行事曆', body: '顯示的法說、營收、除息日為示範資料。登入後會根據你的真實持倉自動抓取財報行事曆與 AI 事件預測。' },
-    news:   { title: '這是 DEMO 事件分析', body: '範例事件已套用策略大腦邏輯。登入後 AI 會即時抓取個股新聞、進行事件影響評估與命中率追蹤。' },
-    daily:  { title: '這是 DEMO 收盤分析', body: '點「開始今日收盤分析」會以模擬延遲呈現範例報告。登入後系統會根據你的實際持倉與盤後資料生成個人化分析。' },
-    log:    { title: '這是 DEMO 交易日誌', body: '訪客看到的是空白範本。登入後上傳成交截圖即可自動寫入交易日誌與 Q&A 反思。' },
-    research: { title: '這是 DEMO 深度研究', body: '預覽個股研究與策略大腦評估的輸出範例。登入後可對任一持股啟動 3 輪迭代 AI 研究，或對整體組合執行策略大腦進化。' },
-  };
+  // §6.5：DEMO_TAB_NOTICE_COPY 已內化到唯一使用者 ResearchTab（RESEARCH_DEMO_NOTICE）。
 
   // dashboard UI
   const [sortBy,      setSortBy]      = useState("decision");
