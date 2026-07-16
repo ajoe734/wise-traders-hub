@@ -4454,7 +4454,7 @@ ${JSON.stringify(strategyBrain || { rules: [], lessons: [], commonMistakes: [], 
           現改用 TradeTab/DailyTab inline banner + toast 提示。見 .lovable/plan.md */}
 
       {/* ── 介紹影片折疊入口（從頂部下移，避免擠掉首屏看板核心） ── */}
-      <HoldingsIntroVideo isDemo={isDemo} />
+      {/* §6.5：HoldingsIntroVideo 開場影片已移除，改由 OnboardingOverlay 三步文案卡取代 */}
     </div>
   );
 }
