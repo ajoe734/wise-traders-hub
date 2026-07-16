@@ -2,6 +2,7 @@
  * Handoff 2026-07-15 §4：Kore-eda 極簡、無陰影、surface 同色 mask 替代 hard divider。
  * 守門：對應 e2e/holdings-export-menu.spec.ts / holdings-detail-panel-narrow.spec.ts
  * ／wide.spec.ts；目視 360/390/414 斷點。
+ */
 
 /* ====== 窄螢幕（<1024px）提示帶：wide viewport 時隱藏 ====== */
 .holdings-panel-narrow-hint { display: block; }
