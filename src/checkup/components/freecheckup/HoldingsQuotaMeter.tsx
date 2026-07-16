@@ -133,10 +133,11 @@ function HoldingsQuotaMeterImpl(props) {
         <div style={{ display: 'flex', gap: 6, flexWrap: 'wrap', alignItems: 'center' }}>
           {(tier === 'none' || tier === 'free') && !isLineBound && (
             <a href="/app/account#line" style={{
-              fontSize: 11, color: '#fff', background: '#06C755', textDecoration: 'none',
-              letterSpacing: '0.02em', padding: '4px 10px', borderRadius: 4, fontWeight: 500,
+              fontSize: 11, color: C.text, textDecoration: 'none',
+              letterSpacing: '0.02em', padding: '3px 8px',
+              border: `1px solid ${alpha(C.text, '40')}`, borderRadius: 4,
               whiteSpace: 'nowrap',
-            }}>綁定 LINE 領免費 1 次</a>
+            }}>綁定 LINE 領免費 1 次 →</a>
           )}
           {showUpgrade && (
             <a href="/pricing#checkup" onClick={() => onUpgradeClick('inline_upgrade')} style={{
