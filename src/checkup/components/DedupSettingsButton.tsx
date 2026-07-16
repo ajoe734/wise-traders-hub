@@ -42,6 +42,16 @@ export function DedupSettingsButton() {
   const path = useCurrentPath()
   const [open, setOpen] = useState(false)
   const [prefs, setPrefsState] = useState(getCoercePrefs())
+  // 手機底欄（.cm-mobile-tabbar）在 ≤768px 出現於畫面底部，會與這顆浮動齒輪重疊，
+  // 造成使用者無法點到「記錄／持倉」tab。手機隱藏此鈕（設定入口已納入手機「更多」sheet）。
+  const [isMobile, setIsMobile] = useState(
+    typeof window !== 'undefined' ? window.innerWidth <= 768 : false,
+  )
+  useEffect(() => {
+    const onResize = () => setIsMobile(window.innerWidth <= 768)
+    window.addEventListener('resize', onResize)
+    return () => window.removeEventListener('resize', onResize)
+  }, [])
 
   useEffect(() => {
     const unsub = subscribeCoercePrefs(setPrefsState)
@@ -49,6 +59,7 @@ export function DedupSettingsButton() {
   }, [])
 
   if (!path.startsWith('/holding-checkup') && !path.startsWith('/free-checkup')) return null
+  if (isMobile) return null
 
   const update = (patch: Partial<typeof prefs>) => setPrefsState(setCoercePrefs(patch))
 
