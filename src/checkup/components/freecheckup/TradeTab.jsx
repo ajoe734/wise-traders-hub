@@ -178,8 +178,8 @@ function TradeTabImpl({
             透過 LINE 快速登入，即可免費使用 AI 健檢功能（每日一次）
           </div>
           <button onClick={startLineLogin} style={{
-            background:"#06C755", color:"#fff", border:"none",
-            borderRadius:8, padding:"10px 24px", fontSize:13, fontWeight:500,
+            background:C.text, color:C.bg, border:"none",
+            borderRadius:4, padding:"10px 24px", fontSize:13, fontWeight:500,
             cursor:"pointer", letterSpacing:"0.02em",
           }}>
             使用 LINE 快速登入
