@@ -48,6 +48,5 @@ jobs:
       - run: npm install
       - name: Scan repo for forbidden demo identifiers / CSS tokens
         run: npm run check:no-demo-artifacts
-      - name: ESLint no-restricted-syntax (DemoBanner / DemoCTA identifiers)
-        run: npx eslint . --rule 'no-restricted-syntax: error' --no-warn-ignored || true
+
 
