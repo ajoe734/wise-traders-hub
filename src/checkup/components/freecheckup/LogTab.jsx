@@ -3,7 +3,7 @@ import { validateProps } from './_validateProps';
 
 /**
  * Props schema 守門：增刪同步 freecheckup-tab-prop-schema.test.ts。
- * DEMO_TAB_NOTICE_COPY / startLineLogin 保留於 schema 以維持既有守門契約，
+ * startLineLogin 保留於 schema 以維持既有守門契約，
  *   但視覺上不再渲染 Demo/LINE banner（§6.5：改由頁腳 DemoFooterHint 提示）。
  */
 const LOG_TAB_PROP_SCHEMA = {
@@ -12,7 +12,6 @@ const LOG_TAB_PROP_SCHEMA = {
   C: 'object',
   alpha: 'function',
   card: 'object',
-  DEMO_TAB_NOTICE_COPY: 'object',
   startLineLogin: { type: 'function', optional: true },
   navigate: 'function',
 };
@@ -26,7 +25,6 @@ function LogTabImpl({
   isDemo: _isDemo,
   tradeLog,
   C, alpha, card,
-  DEMO_TAB_NOTICE_COPY: _DEMO_TAB_NOTICE_COPY,
   startLineLogin: _startLineLogin,
   navigate: _navigate,
 }) {

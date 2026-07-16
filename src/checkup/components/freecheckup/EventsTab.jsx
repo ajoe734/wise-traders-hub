@@ -14,7 +14,7 @@ const EVENTS_TAB_PROP_SCHEMA = {
   startLineLogin: { type: 'function', optional: true },
   C: 'object',
   alpha: 'function',
-  DEMO_TAB_NOTICE_COPY: 'object',
+  
   TYPE_COLOR: 'object',
   RETRY_MAX: 'number',
   calendarAutoStatus: 'object',
@@ -57,7 +57,6 @@ function EventsTabImpl({
   startLineLogin,
   // 樣式 / 文案
   C, alpha,
-  DEMO_TAB_NOTICE_COPY,
   TYPE_COLOR,
   RETRY_MAX,
   // 自動更新狀態
@@ -172,7 +171,7 @@ function EventsTabImpl({
       ) : (
         <UpcomingEventsBody
           isDemo={isDemo} navigate={navigate} startLineLogin={startLineLogin}
-          C={C} alpha={alpha} DEMO_TAB_NOTICE_COPY={DEMO_TAB_NOTICE_COPY}
+          C={C} alpha={alpha}
           TYPE_COLOR={TYPE_COLOR} RETRY_MAX={RETRY_MAX}
           calendarAutoStatus={calendarAutoStatus} predictAutoStatus={predictAutoStatus}
           calendarLoading={calendarLoading} predictingEvents={predictingEvents}
@@ -198,7 +197,7 @@ function EventsTabImpl({
 
 function UpcomingEventsBody({
   isDemo, navigate, startLineLogin,
-  C, alpha, DEMO_TAB_NOTICE_COPY,
+  C, alpha,
   TYPE_COLOR, RETRY_MAX,
   calendarAutoStatus, predictAutoStatus,
   calendarLoading, predictingEvents,
