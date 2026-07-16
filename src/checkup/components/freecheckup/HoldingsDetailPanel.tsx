@@ -396,7 +396,7 @@ function HoldingsDetailPanelImpl({
             <button
               type="button"
               title="回報分類錯誤"
-              aria-label="回報分類錯誤"
+              aria-label={h.code ? `回報 ${h.code} 分類錯誤` : '回報分類錯誤'}
               onClick={(e) => { e.stopPropagation(); onReportMeta(h); }}
               style={{
                 background: 'transparent', border: 'none', padding: '4px 6px',
