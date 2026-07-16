@@ -282,6 +282,9 @@ export default function HoldingMetaReportModal({ holding, currentMeta, onClose, 
       </div>
     </div>
   )
+  // §4：drawer 開啟時 modal 若不 portal 到 body 會被 Radix Sheet 蓋住而攔截點擊。
+  if (typeof document === 'undefined') return dialog
+  return createPortal(dialog, document.body)
 }
 
 function Field({ label, children }) {
