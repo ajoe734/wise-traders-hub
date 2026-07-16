@@ -1,13 +1,14 @@
 import { memo } from "react";
 
+// §5 中文化：所有英文欄名對照 handoff §5 表
 const SORT_OPTIONS = [
-  ['decision', 'PRIORITY'],
-  ['value', 'VALUE'],
-  ['pnl', 'P&L'],
-  ['pct', 'RETURN'],
-  ['urgency', 'URGENCY'],
-  ['confidence', 'CONFIDENCE'],
-  ['updated', 'UPDATED'],
+  ['decision', '決策'],
+  ['value', '市值'],
+  ['pnl', '損益'],
+  ['pct', '報酬'],
+  ['urgency', '急迫度'],
+  ['confidence', '信心'],
+  ['updated', '更新'],
 ];
 const SORT_LABEL_MAP = Object.fromEntries(SORT_OPTIONS);
 
