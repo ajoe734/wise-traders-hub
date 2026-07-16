@@ -27,7 +27,7 @@ function ReturnBarImpl({ pct, scale = 40, className, ariaLabel }: Props) {
       {over && (
         <span
           className="cm-returnbar__over"
-          style={sign > 0 ? { right: -14 } : { left: -14, transform: 'scaleX(-1)' }}
+          style={sign > 0 ? { right: 2 } : { left: 2, transform: 'scaleX(-1)' }}
           aria-hidden
         >▸</span>
       )}

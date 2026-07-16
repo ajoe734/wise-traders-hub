@@ -207,21 +207,7 @@ function HoldingsWorkbench(props) {
               setSectorFilterPersisted({ items: [], mode: 'union' });
             }}
           />
-        ) : (
-          <button
-            type="button"
-            onClick={() => setTab && setTab('trade')}
-            className="wb-span-1 holdings-upload-cta"
-            style={{
-              '--wb-hair-strong': WB.hairStrong,
-              '--wb-ink': WB.ink,
-              '--wb-ink-light': WB.inkLight,
-            } as React.CSSProperties}
-          >
-            <span className="holdings-upload-cta__plus">+</span>
-            <span className="holdings-upload-cta__label">上傳成交</span>
-          </button>
-        )}
+        ) : null /* §6.3：上傳降為 modal（頂欄「＋ 上傳」按鈕），移除卡牆內冗餘 tile */}
 
         {!showAll && sorted.length > 12 && (
           <button
@@ -233,7 +219,7 @@ function HoldingsWorkbench(props) {
               '--wb-ink-mute': WB.inkMute,
             } as React.CSSProperties}
           >
-            VIEW ALL {sorted.length}
+            顯示全部 {sorted.length} 檔
           </button>
         )}
       </div>

@@ -22,11 +22,15 @@ export function getFallbackTip(actionLabel) {
   return '持倉檢視小提醒';
 }
 
-/** 權證判定：meta.instrument 明示或代號字母開頭。 */
+/** 權證判定：meta.instrument 明示｜代號字母開頭｜名稱結尾「購/售/購X/售X」（台灣認購/認售權證命名慣例）。 */
 function isWarrant(h, meta) {
   if (meta?.instrument === 'warrant') return true;
   const code = String(h?.code || '');
-  return /^[A-Za-z]/.test(code) && code.length >= 5;
+  if (/^[A-Za-z]/.test(code) && code.length >= 5) return true;
+  const name = String(h?.name || '');
+  // 台灣權證常見名稱結尾：XX購01 / XX售02 / XX購 / XX售 / XX購A / XX售B
+  if (/[購售][A-Za-z0-9]{0,3}$/.test(name)) return true;
+  return false;
 }
 
 /** 權證到期文案：≤1 月轉 accent。 */

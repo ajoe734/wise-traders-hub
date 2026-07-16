@@ -1,13 +1,14 @@
 import { memo } from "react";
 
+// §5 中文化：所有英文欄名對照 handoff §5 表
 const SORT_OPTIONS = [
-  ['decision', 'PRIORITY'],
-  ['value', 'VALUE'],
-  ['pnl', 'P&L'],
-  ['pct', 'RETURN'],
-  ['urgency', 'URGENCY'],
-  ['confidence', 'CONFIDENCE'],
-  ['updated', 'UPDATED'],
+  ['decision', '決策'],
+  ['value', '市值'],
+  ['pnl', '損益'],
+  ['pct', '報酬'],
+  ['urgency', '急迫度'],
+  ['confidence', '信心'],
+  ['updated', '更新'],
 ];
 const SORT_LABEL_MAP = Object.fromEntries(SORT_OPTIONS);
 
@@ -22,18 +23,18 @@ function HoldingsFooterBar({
   viewMode, setViewMode,
   WB,
 }) {
-  const currentSortLabel = SORT_LABEL_MAP[sortBy] || 'PRIORITY';
+  const currentSortLabel = SORT_LABEL_MAP[sortBy] || '決策';
 
   return (
     <div style={{
       marginTop:24,paddingTop:14,
       borderTop:`1px solid ${WB.hair}`,
       display:'flex',justifyContent:'space-between',alignItems:'center',
-      fontSize:10,color:WB.inkMute,letterSpacing:'0.16em',fontWeight:500,
+      fontSize:11,color:WB.inkMute,letterSpacing:'0.08em',fontWeight:500,
     }}>
-      <span>{sortedCount} HOLDINGS</span>
+      <span>共 {sortedCount} 檔</span>
       <div style={{display:'flex',alignItems:'center',gap:14}}>
-        {/* SORT BY 下拉選單 */}
+        {/* 排序下拉選單 */}
         <div style={{position:'relative'}}>
           <button
             type="button"
@@ -43,12 +44,12 @@ function HoldingsFooterBar({
             aria-label={`依 ${currentSortLabel} 排序，目前為${sortDir === 'desc' ? '降冪' : '升冪'}`}
             style={{
               background:'transparent', border:'none', padding:0, margin:0,
-              fontSize:10, color:WB.inkMute, letterSpacing:'0.16em', fontWeight:500,
+              fontSize:11, color:WB.inkMute, letterSpacing:'0.08em', fontWeight:500,
               cursor:'pointer', display:'inline-flex', alignItems:'center', gap:6,
               fontFamily:'inherit',
             }}
           >
-            SORT BY <span style={{color:WB.ink}}>
+            排序 <span style={{color:WB.ink}}>
               {currentSortLabel} {sortMenuOpen ? '▴' : '▾'}
             </span>
           </button>
