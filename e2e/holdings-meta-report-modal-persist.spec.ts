@@ -138,6 +138,10 @@ test.describe('HoldingMetaReportModal — 儲存 → 關閉 → reopen 欄位保
 
     await expect(dialog1).toHaveCount(0, { timeout: 5_000 });
 
+    // §4：回報鈕已移到抽屜。先關抽屜才看得到卡片 chip 更新。
+    await page.keyboard.press('Escape');
+    await expect(page.locator('[data-testid="holdings-detail-panel"]')).toBeHidden({ timeout: 5_000 });
+
     // 儲存後：wb-card 內的產業 chip 應該立刻反映新值（override → filteredSortedList → HoldingCard）
     await expect(page.locator('.wb-card').getByText(uniqueIndustry).first()).toBeVisible({
       timeout: 10_000,
@@ -156,13 +160,19 @@ test.describe('HoldingMetaReportModal — 儲存 → 關閉 → reopen 欄位保
     expect(Array.isArray(dbRow) && dbRow.length, `mock DB 應含 override row`).toBeTruthy();
     expect(dbRow[0]?.industries).toEqual([uniqueIndustry]);
 
-    // === Act 2：不做 full reload，直接 reopen 同一張 3443 卡片的 modal
-    //     （用 aria-label 精確定位到該股 code 的「回報」按鈕，避免 .first() 因 sort 改變而錯位）
-    const targetReportBtn = page.locator(`button[aria-label="回報 ${code} 分類錯誤"]`).first();
-    await targetReportBtn.waitFor({ state: 'attached', timeout: 15_000 });
-    await targetReportBtn.scrollIntoViewIfNeeded();
+    // === Act 2：reopen 同一張 code 的 modal（先開抽屜再點回報鈕）===
+    const targetCard = page.locator(`.wb-card[aria-label*="${code}"]`).first();
+    // fallback：若 wb-card 沒 code aria，就用 chip 文案定位到含 uniqueIndustry 的卡
+    const card2 = (await targetCard.count())
+      ? targetCard
+      : page.locator('.wb-card').filter({ hasText: uniqueIndustry }).first();
+    await card2.scrollIntoViewIfNeeded();
+    await card2.click();
+    const panel2 = page.locator('[data-testid="holdings-detail-panel"]');
+    await expect(panel2).toBeVisible({ timeout: 10_000 });
+    const targetReportBtn = panel2.locator(`button[aria-label="回報 ${code} 分類錯誤"]`).first();
     await expect(targetReportBtn).toBeVisible({ timeout: 10_000 });
-    await targetReportBtn.click({ force: true });
+    await targetReportBtn.click();
     const dialog2 = page.getByRole('dialog', { name: '回報分類錯誤' });
     await expect(dialog2).toBeVisible({ timeout: 5_000 });
 
