@@ -8,10 +8,9 @@ import { gotoWithRetry } from './helpers/navigation';
  *   1. Today's P&L 標題與大數字（+11,xxx）首屏可見
  *   2. demo 持倉（ACTION PRIORITY、3443/3017/2308）首屏可見
  *   3. CoachMarks 不擋首屏
- *   4. DemoBanner 高度受控（desktop ≤ 60、mobile ≤ 96）
- *   5. demo intro video **改為一次性 modal**：首次進入 demo 自動彈出；
+ *   4. demo intro video **改為一次性 modal**：首次進入 demo 自動彈出；
  *      關閉後本 session + reload 都不再彈；切 tab 不重彈；video 只在 modal 開啟時 mount
- *   6. 已登入空倉：不得看到 modal、DemoBanner、demo data
+ *   5. 已登入空倉：不得看到 modal、demo data
  */
 
 const ROUTE = '/holding-checkup?demo=1'; // dev-only force-demo，避免被 Lovable Preview session 污染
@@ -123,16 +122,14 @@ test.describe('demo first-fold visibility', () => {
 
     await expect(page.getByTestId('coachmarks-dialog')).toHaveCount(0);
 
-    const banner = page.getByTestId('demo-banner');
-    await expect(banner).toBeVisible();
-    const bbox = await banner.boundingBox();
-    expect(bbox!.height, `desktop DemoBanner 高度 ${bbox!.height}px`).toBeLessThanOrEqual(60);
+    // DemoBanner 已於 §6 精簡時刪除，這裡確保沒有殘留節點
+    await expect(page.getByTestId('demo-banner')).toHaveCount(0);
 
     // eslint-disable-next-line no-console
-    console.log(`[demo desktop] pnl="${numText}" banner=${bbox!.height}px`);
+    console.log(`[demo desktop] pnl="${numText}"`);
   });
 
-  test('mobile 390×844：核心看板可見、DemoBanner ≤ 96', async ({ page }) => {
+  test('mobile 390×844：核心看板可見、無 DemoBanner 殘留', async ({ page }) => {
     await page.setViewportSize({ width: 390, height: 844 });
     await gotoDemo(page);
 
@@ -148,9 +145,7 @@ test.describe('demo first-fold visibility', () => {
     await expect(page.getByTestId('holdings-intro-modal')).toHaveCount(0);
     expect(await page.locator('video').count()).toBe(0);
 
-    const banner = page.getByTestId('demo-banner');
-    const bbox = await banner.boundingBox();
-    expect(bbox!.height, `mobile DemoBanner 高度 ${bbox!.height}px`).toBeLessThanOrEqual(96);
+    await expect(page.getByTestId('demo-banner')).toHaveCount(0);
   });
 
   test('demo intro modal：首次進入 demo 自動彈出，關閉後 unmount video，切 tab 不重彈', async ({ page }) => {
@@ -286,7 +281,7 @@ async function setupAuthenticatedEmptyPortfolio(page: Page) {
 }
 
 test.describe('authenticated empty portfolio', () => {
-  test('已登入空倉：無 DemoBanner / 無 demo data / 無 intro modal', async ({ page }) => {
+  test('已登入空倉：無 demo data / 無 intro modal', async ({ page }) => {
     await page.setViewportSize({ width: 1280, height: 800 });
     await setupAuthenticatedEmptyPortfolio(page);
     await gotoWithRetry(page, '/holding-checkup', { waitUntil: 'domcontentloaded' });

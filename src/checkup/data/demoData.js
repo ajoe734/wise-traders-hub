@@ -7,12 +7,10 @@ import { INIT_HOLDINGS } from '../seedData.js'
 
 /**
  * Demo 資料版本（YYYY-MM）。每次手動更新本檔內容時請同步調整。
- * 若版本與當前月份相差 > 60 天，DemoBanner 會顯示「示範資料更新中」提醒。
  * 維護方式：scripts/refresh-demo-data.mjs（詳見 docs/demo-data-maintenance.md）
  *
- * 真正的常數住在 `./demoDataVersion.js`（單獨小檔），這邊只重新匯出。
- * 這樣 DemoBanner 只需 import 那個常數檔，就不會把整個 15KB demoData
- * 拉進 FreeCheckup 首屏 chunk。
+ * 真正的常數住在 `./demoDataVersion.js`（單獨小檔），這邊只重新匯出，
+ * 讓輕量呼叫端不必為了讀取一個字串把整個 15KB demoData 拉進首屏 chunk。
  */
 export { DEMO_DATA_VERSION } from './demoDataVersion.js'
 
