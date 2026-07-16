@@ -1,6 +1,6 @@
 import { createElement as h, useState } from 'react'
 import { C, alpha } from '../../theme.js'
-import { Card, Button, TextFieldDialog, DemoCTA } from '../common'
+import { Card, Button, TextFieldDialog } from '../common'
 import {
   recomputeHoldingsAfterDelete,
   replayTradeLog,
@@ -103,7 +103,7 @@ export function LogPanel({ tradeLog = [], setTradeLog, setHoldings, flashSaved }
     return h(
       'div',
       null,
-      h(DemoCTA, { feature: 'log' }),
+      null,
       h(
         Card,
         { style: { textAlign: 'center', padding: '24px 14px' } },
@@ -133,7 +133,7 @@ export function LogPanel({ tradeLog = [], setTradeLog, setHoldings, flashSaved }
   return h(
     'div',
     null,
-    h(DemoCTA, { feature: 'log' }),
+    null,
     // ── Summary card ──
     h(
       Card,

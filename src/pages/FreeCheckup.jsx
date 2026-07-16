@@ -18,7 +18,7 @@ import { toast } from "sonner";
 import { useCheckupMode } from "@/checkup/contexts/CheckupModeContext";
 // P0-3: demoData (~15 KB) lazy — only fetched when isDemo handlers run
 import { simulateSteps, demoDelay } from "@/checkup/utils/demoSimulate";
-import DemoBanner from "@/checkup/components/DemoBanner";
+
 import { STOCK_META, IND_COLOR } from "@/checkup/seedData";
 import { C as ThemeC, L as ThemeL, A, alpha } from "@/checkup/theme";
 import { calcWeightedAvgCost, calcNetSettlement, calcPnlWithNet, calcRemainingCostAfterPartialSell } from "@/checkup/lib/holdingMath";

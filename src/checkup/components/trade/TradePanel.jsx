@@ -1,6 +1,6 @@
 import { createElement as h, useEffect, useState } from 'react'
 import { C, alpha } from '../../theme.js'
-import { Card, Button, TextFieldDialog, DemoCTA } from '../common'
+import { Card, Button, TextFieldDialog } from '../common'
 import { assessTradeParseQuality, summarizeTradeBatch } from '../../lib/tradeParseUtils.js'
 
 /**
@@ -1201,7 +1201,7 @@ export function TradePanel({
   return h(
     'div',
     null,
-    h(DemoCTA, { feature: 'trade' }),
+    null,
     h(ImageLightbox, { src: previewSrc, onClose: () => setPreviewSrc(null) }),
     hasUndoableSubmit &&
       h(
