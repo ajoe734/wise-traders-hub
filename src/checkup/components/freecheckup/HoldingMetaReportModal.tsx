@@ -6,6 +6,7 @@
  * 存檔後 useMetaOverrides 自動 invalidate cache，聚合面板即時更新。
  */
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
+import { createPortal } from 'react-dom'
 import { L as C, alpha } from '@/checkup/theme'
 
 // C10 (audit 2026-07)：色彩改走 theme token（L 常數），避免散落 hex。
