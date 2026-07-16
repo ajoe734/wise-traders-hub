@@ -33,7 +33,6 @@ const eventsProps: any = {
   navigate: noop,
   startLineLogin: noop,
   C, alpha,
-  DEMO_TAB_NOTICE_COPY: { events: { title: '', body: '' } },
   TYPE_COLOR: {},
   RETRY_MAX: 3,
   calendarAutoStatus: { status: 'idle', msg: '' },
@@ -72,7 +71,6 @@ const dailyProps: any = {
   navigate: noop,
   startLineLogin: noop,
   C, alpha,
-  DEMO_TAB_NOTICE_COPY: { daily: { title: '', body: '' } },
   demoDailyMode: 'static',
   setDemoDailyMode: noop,
   dailyReport: null,
@@ -114,7 +112,6 @@ const Sparkline = () => null;
 
 const holdingsProps: any = {
   isDemo: false,
-  DEMO_TAB_NOTICE_COPY: { holdings: { title: '', body: '' } },
   startLineLogin: noop,
   navigate: noop,
   C, alpha, WB, wbTone,
