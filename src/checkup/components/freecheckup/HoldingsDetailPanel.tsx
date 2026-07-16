@@ -93,6 +93,7 @@ function HoldingsDetailPanelImpl({
   tradeLog,
   targetPriceHistory: targetPriceHistoryProp,
   thesisTracking: thesisTrackingProp,
+  onReportMeta,
 }) {
   const [prefs, setPrefs] = useState(loadPrefs);
   const [exportPrefs, setExportPrefsRaw] = useState(loadExportPrefs);
@@ -391,6 +392,24 @@ function HoldingsDetailPanelImpl({
           <span style={{ ...microStyle, fontFamily: SERIF, fontSize: 12, letterSpacing: '0.06em' }}>{todayLabel}</span>
         </div>
         <div style={{ display: 'flex', alignItems: 'center', gap: 12 }}>
+          {onReportMeta && (
+            <button
+              type="button"
+              title="回報分類錯誤"
+              aria-label={h.code ? `回報 ${h.code} 分類錯誤` : '回報分類錯誤'}
+              onClick={(e) => {
+                e.stopPropagation();
+                // 先關抽屜再開 modal，避免 Radix Sheet 的 inert/focus-trap 攔截 modal 內點擊。
+                const holdingRef = h;
+                setExpandedDecision(null);
+                setTimeout(() => onReportMeta(holdingRef), 0);
+              }}
+              style={{
+                background: 'transparent', border: 'none', padding: '4px 6px',
+                fontSize: 12, color: WB.inkSub, cursor: 'pointer', letterSpacing: '0.04em',
+              }}
+            >回報</button>
+          )}
           <SortMenu WB={WB} sortBy={sortBy} sortDir={sortDir} setSortBy={setSortBy} setSortDir={setSortDir} />
           <PrefsMenu WB={WB} prefs={prefs} setPrefs={setPrefs} />
           <ExportMenu
@@ -404,6 +423,16 @@ function HoldingsDetailPanelImpl({
           <TextBtn WB={WB} onClick={() => setExpandedDecision(null)} label="關閉">×</TextBtn>
         </div>
       </div>
+
+      {/* 窄螢幕提示帶（≥1024px 隱藏，由 holdingsDetailPanel.css 控制） */}
+      <div
+        data-testid="holdings-panel-narrow-hint"
+        className="holdings-panel-narrow-hint"
+        style={{
+          padding: '6px 14px', fontSize: 11, letterSpacing: '0.08em',
+          color: WB.inkMute, background: WB.surface, borderBottom: `1px solid ${WB.hair}`,
+        }}
+      >已展開完整圖表面板</div>
 
       <div style={{ padding: '18px 22px 22px', background: WB.surface }}>
         {/* 2) 識別 */}

@@ -4,6 +4,13 @@
  * ／wide.spec.ts；目視 360/390/414 斷點。
  */
 
+/* ====== 窄螢幕（<1024px）提示帶：wide viewport 時隱藏 ====== */
+.holdings-panel-narrow-hint { display: block; }
+@media (min-width: 1024px) {
+  .holdings-panel-narrow-hint { display: none !important; }
+}
+
+
 /* ====== 手機（≤640px）：建議印章行 sticky + Sandbox 橫滑 ====== */
 @media (max-width: 640px) {
   /* §4 步驟 4：建議印章行手機 sticky（跟在操作列下方 48px） */

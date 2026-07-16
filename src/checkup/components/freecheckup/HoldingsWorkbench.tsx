@@ -284,6 +284,7 @@ function HoldingsWorkbench(props) {
                 setSortBy={setSortBy}
                 setSortDir={setSortDir}
                 tradeLog={tradeLog}
+                onReportMeta={handleReportMeta}
               />
             </Suspense>
           )}
