@@ -31,7 +31,10 @@ const STEPS = [
  *  - 觸發後立刻移除 scroll listener，避免重複彈出。
  *  - cleanup 確保 unmount 一定移除 listener。
  */
-export function CoachMarks({ onTabChange }) {
+export function CoachMarks({ onTabChange: _onTabChange }) {
+  // §6.5：由 OnboardingOverlay 三步文案卡統一承接首訪引導，CoachMarks 教學氣泡下線
+  return null;
+  // eslint-disable-next-line no-unreachable
   const { isDemo, isReady } = useCheckupMode();
   const [open, setOpen] = useState(false);
   const [step, setStep] = useState(0);
