@@ -42,7 +42,6 @@ node scripts/refresh-demo-data.mjs
 
 訪客模式（瀏覽器隱身視窗 → `/holding-checkup`）必須通過：
 
-- [ ] DemoBanner 顯示，**沒有**「示範資料更新中」
 - [ ] 持倉看板顯示完整 20+ 檔
 - [ ] 點「收盤分析」按鈕 → 走 4 段模擬載入步驟（4-6 秒）→ 顯示 `aiInsight`
 - [ ] **Network tab 完全沒有** `checkup-analyze` / `checkup-calendar` / `checkup-predict-events` 請求
@@ -53,13 +52,13 @@ node scripts/refresh-demo-data.mjs
 ### 4. 常見錯誤
 
 - ❌ `aiInsight` 提到 `INIT_HOLDINGS` 沒有的股票 → 點「個股」會找不到資料
-- ❌ 忘記更新 `DEMO_DATA_VERSION` → DemoBanner 會誤顯「示範資料更新中」
+- ❌ 忘記更新 `DEMO_DATA_VERSION` → 稽核時無法判斷資料新鮮度
 - ❌ 把 `DEMO_BRAIN_UPDATED.lessons` 整個清空 → 看起來像剛初始化的空大腦
 
 ## 相關檔案
 
 - `src/checkup/data/demoData.js` — 主要資料檔
+- `src/checkup/data/demoDataVersion.js` — 版本常數（獨立小檔）
 - `src/checkup/utils/demoSimulate.js` — 模擬載入延遲工具
-- `src/checkup/components/DemoBanner.jsx` — 頂部提示條
 - `src/pages/FreeCheckup.jsx` — Demo 守門邏輯（搜尋 `if (isDemo)`）
 - `scripts/refresh-demo-data.mjs` — 提示腳本
