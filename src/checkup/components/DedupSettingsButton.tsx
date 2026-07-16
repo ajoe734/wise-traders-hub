@@ -59,6 +59,9 @@ export function DedupSettingsButton() {
   }, [])
 
   if (!path.startsWith('/holding-checkup') && !path.startsWith('/free-checkup')) return null
+  // §2 憲法：右下浮動齒輪不在設計規格內；設定入口已納入手機「更多」sheet 與桌機頂欄選單
+  return null
+  // eslint-disable-next-line no-unreachable
   if (isMobile) return null
 
   const update = (patch: Partial<typeof prefs>) => setPrefsState(setCoercePrefs(patch))

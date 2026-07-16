@@ -225,17 +225,7 @@ function HoldingsTab(props) {
 
   return (
     <>
-      {/* DEMO 持倉提示卡（與 events/news/daily/log 同款，僅訪客顯示） */}
-      {isDemo && (
-        <div style={{marginBottom:12,padding:"12px 14px",background:alpha(C.amber,'06'),border:`1px solid ${alpha(C.amber,'25')}`,borderRadius:8}}>
-          <div style={{fontSize:12,fontWeight:500,color:C.text,marginBottom:4,letterSpacing:"0.02em"}}>{DEMO_TAB_NOTICE_COPY.holdings.title}</div>
-          <div style={{fontSize:11,color:C.textMute,lineHeight:1.7,marginBottom:8}}>{DEMO_TAB_NOTICE_COPY.holdings.body}</div>
-          <div style={{display:"flex",gap:8,flexWrap:"wrap"}}>
-            <button onClick={() => { try { startLineLogin?.(); } catch { navigate('/auth/login?redirect=/checkup'); } }} style={{background:"#06C755",color:"#fff",border:"none",borderRadius:6,padding:"5px 12px",fontSize:11,fontWeight:500,cursor:"pointer",letterSpacing:"0.02em"}}>LINE 登入解鎖</button>
-            <button onClick={() => navigate('/auth/login?redirect=/checkup')} style={{background:"transparent",color:C.text,border:`1px solid ${C.border}`,borderRadius:6,padding:"5px 12px",fontSize:11,fontWeight:400,cursor:"pointer",letterSpacing:"0.02em"}}>Email 登入</button>
-          </div>
-        </div>
-      )}
+      {/* §6.5：Demo 提示卡已移除，改由頁腳 DemoFooterHint 統一提示 */}
       {/* 配額卡：常駐顯示 used/limit 進度條 + 重置倒數 + 升級 CTA（訪客/載入中也顯示） */}
       <HoldingsQuotaMeter
         isDemo={isDemo}
@@ -291,16 +281,7 @@ function HoldingsTab(props) {
       />
 
 
-      {/* 反轉追蹤（虧損持股）— 預設折疊，避免擠壓卡片牆 */}
-      <HoldingsReversalSection
-        losers={losers}
-        reversalConditions={reversalConditions}
-        reviewingEvent={reviewingEvent}
-        setReviewingEvent={setReviewingEvent}
-        updateReversal={updateReversal}
-        C={C}
-        alpha={alpha}
-      />
+      {/* HoldingsReversalSection 已下線（不在設計規格 §3 內），losers 由「今日待辦」統一呈現 */}
 
       {/* ══════════ Action Priority（單行 inline 文字流） ══════════
           B-P5: items 在 parent 已預先含 tag/desc，元件不再吃 decisionsMap/stockMeta */}
