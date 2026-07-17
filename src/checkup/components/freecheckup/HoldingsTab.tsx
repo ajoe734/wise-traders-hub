@@ -41,7 +41,7 @@ const HOLDINGS_TAB_PROP_SCHEMA = {
   filteredSortedList: 'array',
   decisionsMap: 'object',
   STOCK_META: 'object',
-  handleHoldingCardOpenDrawer: 'function',
+  handleHoldingCardOpenDrawer: _opt('any'),
   setSortBy: 'function',
   setSortDir: 'function',
   // 其它 prop（容許 any，避免 unknown-prop 警告噪音）
