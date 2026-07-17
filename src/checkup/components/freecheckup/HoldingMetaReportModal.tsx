@@ -61,9 +61,15 @@ export default function HoldingMetaReportModal({ holding, currentMeta, onClose, 
   const [error, setError] = useState(null)
 
   // Bug A2 fix：Modal a11y — ESC/body scroll lock/focus trap/focus restore
+  // Bug B8 fix：saving 中不允許關閉（避免 setState on unmounted + 誤以為儲存了）
   const dialogRef = useRef(null)
   const previousFocusRef = useRef(null)
-  const stableOnClose = useCallback(() => onClose && onClose(), [onClose])
+  const savingRef = useRef(false)
+  useEffect(() => { savingRef.current = saving }, [saving])
+  const stableOnClose = useCallback(() => {
+    if (savingRef.current) return
+    onClose && onClose()
+  }, [onClose])
 
   useEffect(() => {
     if (!holding) return
@@ -189,7 +195,7 @@ export default function HoldingMetaReportModal({ holding, currentMeta, onClose, 
       role="dialog"
       aria-modal="true"
       aria-label="回報分類錯誤"
-      onClick={onClose}
+      onClick={stableOnClose}
       style={{
         position: 'fixed',
         inset: 0,
@@ -272,7 +278,7 @@ export default function HoldingMetaReportModal({ holding, currentMeta, onClose, 
         )}
 
         <div style={{ display: 'flex', gap: 8, justifyContent: 'flex-end', marginTop: 18 }}>
-          <button type="button" onClick={onClose} style={{ ...btnStyle, background: 'transparent', color: C.textMute }}>
+          <button type="button" onClick={stableOnClose} disabled={saving} style={{ ...btnStyle, background: 'transparent', color: C.textMute, opacity: saving ? 0.5 : 1, cursor: saving ? 'not-allowed' : 'pointer' }}>
             取消
           </button>
           <button type="button" onClick={save} disabled={saving} style={{ ...btnStyle, background: C.text, color: C.bg }}>
