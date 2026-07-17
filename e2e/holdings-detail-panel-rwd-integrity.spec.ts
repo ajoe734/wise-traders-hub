@@ -91,16 +91,37 @@ test.describe('HoldingsDetailPanel · RWD integrity + legacy drawer guard', () =
       const badTextNodes: Array<{ text: string; left: number; right: number; rootLeft: number; rootRight: number; overflow: number }> = [];
 
       /**
-       * 幾何佔位判定 — 只問：這個節點在版面上是否實際佔位？
-       * 完全不看 aria-hidden、data-radix-visually-hidden、sr-only。
+       * 幾何佔位判定 — 只問：這個節點在版面上是否實際佔位並可見？
+       * 完全不看 aria-hidden、data-radix-visually-hidden 這類 ARIA 標記。
+       * 但仍會排除「純視覺尺寸為 0」的節點（CSS clip / clip-path 收成 0、
+       *   或 boundingRect ≤ 1px 的 sr-only trick）— 這是幾何/視覺尺寸判定，
+       *   與 ARIA 判讀無關，避免 shadcn `<span class="sr-only">Close</span>`
+       *   類節點被誤報為溢出。
        */
+      const SUBPIXEL = 1;
+      const isClippedToZero = (cs: CSSStyleDeclaration): boolean => {
+        if (cs.clip && cs.clip !== 'auto' && cs.clip.replace(/\s/g, '').includes('rect(0px,0px,0px,0px)')) return true;
+        if (cs.clipPath && cs.clipPath !== 'none' && cs.clipPath.replace(/\s/g, '') === 'inset(50%)') return true;
+        return false;
+      };
       const hasLayout = (el: Element): boolean => {
         const cs = window.getComputedStyle(el);
         if (cs.display === 'none' || cs.visibility === 'hidden') return false;
+        if (isClippedToZero(cs)) return false;
         const rects = (el as HTMLElement).getClientRects?.();
         if (!rects || rects.length === 0) return false;
         const rect = el.getBoundingClientRect();
-        return rect.width > 0 && rect.height > 0;
+        if (rect.width <= SUBPIXEL || rect.height <= SUBPIXEL) return false;
+        // 祖先鏈若被 clip 成 0 / 收成 1px（sr-only 慣用），本節點視覺上也不佔位
+        let cur: Element | null = el.parentElement;
+        while (cur && cur !== root) {
+          const curCs = window.getComputedStyle(cur);
+          if (isClippedToZero(curCs)) return false;
+          const curRect = cur.getBoundingClientRect();
+          if (curCs.overflow !== 'visible' && (curRect.width <= SUBPIXEL || curRect.height <= SUBPIXEL)) return false;
+          cur = cur.parentElement;
+        }
+        return true;
       };
 
       const overflowAmount = (rect: { left: number; right: number }) => {
