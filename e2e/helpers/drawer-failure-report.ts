@@ -164,6 +164,10 @@ export function registerDrawerFailureReport() {
         trace ? `  ▶ trace    : bunx playwright show-trace "${trace}"` : '  ▶ trace    : (missing)',
         video ? `  ▶ video    : ${video}` : '  ▶ video    : (missing)',
         shots.length ? `  ▶ screenshot: ${shots.join('\n                 ')}` : '  ▶ screenshot: (missing)',
+        overflows.length
+          ? `  ▶ overflow  : ${overflows.length} annotation(s), worst ${Math.max(...overflows.map((o) => o.maxOverflow)).toFixed(2)}px\n                 ` +
+              overflows.map((o) => `${o.label} → ${o.pngPath}`).join('\n                 ')
+          : '  ▶ overflow  : (none)',
         '════════════════════════════════════════════════════════════════',
         '',
       ].join('\n'),
