@@ -35,8 +35,8 @@ async function auditPanel(page: Page) {
     const { maxFontPx, tolerance } = args;
     const rootBox = root.getBoundingClientRect();
     const badFonts: Array<{ tag: string; text: string; fontSize: number }> = [];
-    const badBoxes: Array<{ tag: string; text: string; overflow: number }> = [];
-    const badTextNodes: Array<{ text: string; overflow: number }> = [];
+    const badBoxes: Array<{ tag: string; text: string; left: number; right: number; top: number; bottom: number; rootLeft: number; rootRight: number; overflow: number }> = [];
+    const badTextNodes: Array<{ text: string; left: number; right: number; top: number; bottom: number; rootLeft: number; rootRight: number; overflow: number }> = [];
 
     const SUBPIXEL = 1;
     const isClippedToZero = (cs: CSSStyleDeclaration): boolean => {
