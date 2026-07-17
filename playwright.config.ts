@@ -468,6 +468,18 @@ export default defineConfig({
       use: { ...devices['Desktop Chrome'], viewport: { width: w, height: 1400 } },
     })),
 
+    // HoldingsDetailPanel 抽屜 · 內部垂直捲動不得觸發水平溢出
+    //   × 3 scroll 方式（programmatic / wheel / keyboard）× 6 段位置（0~100%）× 來回
+    //   共 3 × 11 = 33 個 audit 點 / 每 viewport
+    // 失敗產物落點：test-results/holdings-drawer/scroll-overflow-<w>/
+    ...([320, 390, 768, 1280] as const).map((w) => ({
+      name: `holdings-detail-scroll-overflow-${w}`,
+      testMatch: /holdings-detail-panel-scroll-overflow\.spec\.ts/,
+      outputDir: `test-results/holdings-drawer/scroll-overflow-${w}`,
+      // 高度刻意壓低到 720，逼抽屜內容溢出容器 → 觸發內部垂直捲動路徑
+      use: { ...devices['Desktop Chrome'], viewport: { width: w, height: 720 } },
+    })),
+
     // HoldingsDetailPanel 抽屜 · 極端視窗 × 旋轉 × 滾動位置 幾何守門
     //   portrait ultra-narrow / iphone / landscape rotation / keyboard-open short /
     //   tall narrow / tablet portrait+landscape / ultra-wide desktop
