@@ -476,7 +476,8 @@ export default defineConfig({
       name: `holdings-detail-scroll-overflow-${w}`,
       testMatch: /holdings-detail-panel-scroll-overflow\.spec\.ts/,
       outputDir: `test-results/holdings-drawer/scroll-overflow-${w}`,
-      use: { ...devices['Desktop Chrome'], viewport: { width: w, height: 1400 } },
+      // 高度刻意壓低到 720，逼抽屜內容溢出容器 → 觸發內部垂直捲動路徑
+      use: { ...devices['Desktop Chrome'], viewport: { width: w, height: 720 } },
     })),
 
     // HoldingsDetailPanel 抽屜 · 極端視窗 × 旋轉 × 滾動位置 幾何守門
