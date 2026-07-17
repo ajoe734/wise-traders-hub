@@ -315,6 +315,12 @@ export default defineConfig({
       use: { ...devices['Desktop Chrome'], viewport: { width: 1280, height: 900 } },
     },
     {
+      // 目標價 = 0 回歸：0 不被 falsy 吞成空白 / null；折疊再展開仍保留 0
+      name: 'desktop-holdings-target-price-zero',
+      testMatch: /holdings-target-price-zero\.spec\.ts/,
+      use: { ...devices['Desktop Chrome'], viewport: { width: 1280, height: 900 } },
+    },
+    {
       // HoldingCard aria-live 螢幕閱讀器狀態（同步中 / 完成 / 錯誤三態）
       name: 'desktop-holdings-aria-live-sync',
       testMatch: /holdings-aria-live-sync-status\.spec\.ts/,
