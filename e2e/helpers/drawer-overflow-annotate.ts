@@ -125,15 +125,16 @@ export async function annotateOverflowAndAttach(
     document.body.appendChild(layer);
   }, { boxes: annotated });
 
-  const png = await page.screenshot({ fullPage: false });
-  await testInfo.attach(`overflow-annotated-${label}.png`, {
-    body: png,
-    contentType: 'image/png',
-  });
-  await testInfo.attach(`overflow-findings-${label}.json`, {
-    body: JSON.stringify(annotated, null, 2),
-    contentType: 'application/json',
-  });
+  // 落地到 testInfo.outputDir 以便使用者直接開檔／trace / html report 也會夾帶
+  const pngName = `overflow-annotated-${label}.png`;
+  const jsonName = `overflow-findings-${label}.json`;
+  const pngPath = testInfo.outputPath(pngName);
+  const jsonPath = testInfo.outputPath(jsonName);
+  fs.mkdirSync(path.dirname(pngPath), { recursive: true });
+  await page.screenshot({ path: pngPath, fullPage: false });
+  fs.writeFileSync(jsonPath, JSON.stringify(annotated, null, 2), 'utf8');
+  await testInfo.attach(pngName, { path: pngPath, contentType: 'image/png' });
+  await testInfo.attach(jsonName, { path: jsonPath, contentType: 'application/json' });
 
   const lines = annotated.map((b, i) =>
     `  ${i + 1}. ${b.side.toUpperCase().padEnd(5)} +${b.overflow.toFixed(2)}px  ` +
