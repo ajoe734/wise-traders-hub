@@ -19,10 +19,19 @@
 .wb-span-full { grid-column: 1 / -1; }
 
 
-/* scrollIntoView 平滑捲動時，為 sticky header 保留頂部空間，避免卡片被遮住 */
+/* scrollIntoView 平滑捲動時：
+ *  - 頂部保留 sticky header 空間
+ *  - 底部保留 .cm-mobile-tabbar（≤640px, fixed 底欄實測 59px + safe-area）+ 安全 margin
+ *    tall-narrow (e.g. 320×1200) 單欄格線卡片堆得長、最末幾張最容易落入 tabbar
+ *    遮擋區，scroll-margin-bottom 過小會讓瀏覽器 scrollIntoView 把卡片停在
+ *    tabbar 下方 → 點擊事件被 tabbar 攔截、抽屜無法開啟。
+ */
 .wb-card { scroll-margin-top: 96px; scroll-margin-bottom: 32px; }
 @media (max-width: 640px) {
-  .wb-card { scroll-margin-top: 72px; scroll-margin-bottom: 24px; }
+  .wb-card {
+    scroll-margin-top: 72px;
+    scroll-margin-bottom: calc(96px + env(safe-area-inset-bottom, 0px));
+  }
 }
 
 @media (max-width: 1279px) {
