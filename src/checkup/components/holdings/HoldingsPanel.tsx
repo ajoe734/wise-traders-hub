@@ -1,6 +1,6 @@
 // @ts-nocheck — F-Maint-R4：與其他 holdings 元件一致採漸進式 TS，完整型別化留待後續
 // F-Maint-R3：原 createElement(h, ...) 全面改寫為 JSX。語意/樣式逐行對照原版維持 1:1。
-import { useState } from 'react';
+import { useMemo, useState } from 'react';
 import { C, alpha } from '../../theme.js';
 import { IND_COLOR, STOCK_META } from '../../seedData.js';
 import { getHoldingMarketValue, getHoldingReturnPct } from '../../lib/holdings.js';
@@ -196,42 +196,38 @@ export function HoldingsIntegrityWarning({ issues, onRetry }) {
  * Portfolio Health Check — 灰階產業條 + 最大產業主題色
  */
 export function PortfolioHealthCheck({ holdings }) {
-  if (!holdings || holdings.length === 0) return null;
+  // B2/B3/B4 fix：一次 loop 累計所有 map + count，避免 O(n²) 與 "undefined" key，並 useMemo 化。
+  const agg = useMemo(() => {
+    if (!holdings || holdings.length === 0) return null;
+    const indMap: Record<string, number> = {};
+    const indCountMap: Record<string, number> = {};
+    const stratMap: Record<string, number> = {};
+    const periodMap: Record<string, number> = {};
+    const posMap: Record<string, number> = {};
+    for (const item of holdings) {
+      const m = STOCK_META[item.code];
+      if (!m) continue;
+      const mv = getHoldingMarketValue(item);
+      if (m.industry) {
+        indMap[m.industry] = (indMap[m.industry] || 0) + mv;
+        indCountMap[m.industry] = (indCountMap[m.industry] || 0) + 1;
+      }
+      if (m.strategy) stratMap[m.strategy] = (stratMap[m.strategy] || 0) + 1;
+      if (m.period)   periodMap[m.period]  = (periodMap[m.period]  || 0) + 1;
+      if (m.position) posMap[m.position]   = (posMap[m.position]   || 0) + mv;
+    }
+    const indArr = Object.entries(indMap).sort((a, b) => b[1] - a[1]);
+    const indTotal = indArr.reduce((s, x) => s + x[1], 0) || 1;
+    const warnings = indArr.filter(([ind, val]) => {
+      const count = indCountMap[ind] || 0;
+      return count >= 3 || val / indTotal > 0.25;
+    });
+    const posTotal = Object.values(posMap).reduce((s, v) => s + (v || 0), 0) || 1;
+    return { indMap, indCountMap, stratMap, periodMap, posMap, indArr, indTotal, warnings, posTotal };
+  }, [holdings]);
 
-  const indMap: Record<string, number> = {};
-  holdings.forEach((item) => {
-    const m = STOCK_META[item.code];
-    if (!m) return;
-    indMap[m.industry] = (indMap[m.industry] || 0) + getHoldingMarketValue(item);
-  });
-  const indArr = Object.entries(indMap).sort((a, b) => b[1] - a[1]);
-  const indTotal = indArr.reduce((s, x) => s + x[1], 0) || 1;
-
-  const stratMap: Record<string, number> = {};
-  holdings.forEach((item) => {
-    const m = STOCK_META[item.code];
-    if (!m) return;
-    stratMap[m.strategy] = (stratMap[m.strategy] || 0) + 1;
-  });
-
-  const periodMap: Record<string, number> = {};
-  holdings.forEach((item) => {
-    const m = STOCK_META[item.code];
-    if (!m) return;
-    periodMap[m.period] = (periodMap[m.period] || 0) + 1;
-  });
-
-  const posMap: Record<string, number> = {};
-  holdings.forEach((item) => {
-    const m = STOCK_META[item.code];
-    if (!m) return;
-    posMap[m.position] = (posMap[m.position] || 0) + getHoldingMarketValue(item);
-  });
-
-  const warnings = indArr.filter(([ind, val]) => {
-    const count = holdings.filter((item) => STOCK_META[item.code]?.industry === ind).length;
-    return count >= 3 || val / indTotal > 0.25;
-  });
+  if (!agg) return null;
+  const { indCountMap, stratMap, periodMap, posMap, indArr, indTotal, warnings, posTotal } = agg;
 
   return (
     <div style={{ marginBottom: 24 }}>
@@ -265,7 +261,7 @@ export function PortfolioHealthCheck({ holdings }) {
       <div style={{ display: 'flex', gap: 6, flexWrap: 'wrap', marginBottom: 14 }}>
         {indArr.map(([ind, val], i) => {
           const pct = ((val / indTotal) * 100).toFixed(0);
-          const count = holdings.filter((item) => STOCK_META[item.code]?.industry === ind).length;
+          const count = indCountMap[ind] || 0;
           const isTop = i === 0;
           return (
             <span
@@ -302,10 +298,7 @@ export function PortfolioHealthCheck({ holdings }) {
         >
           {'產業集中：'}
           {warnings
-            .map(([ind]) => {
-              const count = holdings.filter((item) => STOCK_META[item.code]?.industry === ind).length;
-              return `${ind}(${count}檔)`;
-            })
+            .map(([ind]) => `${ind}(${indCountMap[ind] || 0}檔)`)
             .join('、')}
           {warnings.some(([, val]) => val / indTotal > 0.3) && ' — 建議分散風險'}
         </div>
@@ -336,17 +329,14 @@ export function PortfolioHealthCheck({ holdings }) {
         <div>
           <div style={{ fontSize: 9, color: C.textMute, marginBottom: 6, letterSpacing: '0.08em', fontWeight: 400 }}>定位</div>
           {/* C5 (audit 2026-06)：定位佔比分母原為 indTotal（產業總值），語義錯誤 → 應為 posMap 自身總和。 */}
-          {(() => {
-            const posTotal = Object.values(posMap).reduce((s, v) => s + (v || 0), 0) || 1;
-            return Object.entries(posMap)
-              .sort((a, b) => b[1] - a[1])
-              .map(([p, val]) => (
-                <div key={p} style={{ fontSize: 10, color: C.textSec, marginBottom: 3, fontWeight: 400 }}>
-                  {p}{' '}
-                  <span style={{ color: C.text, fontWeight: 500 }}>{`${((val / posTotal) * 100).toFixed(0)}%`}</span>
-                </div>
-              ));
-          })()}
+          {Object.entries(posMap)
+            .sort((a, b) => b[1] - a[1])
+            .map(([p, val]) => (
+              <div key={p} style={{ fontSize: 10, color: C.textSec, marginBottom: 3, fontWeight: 400 }}>
+                {p}{' '}
+                <span style={{ color: C.text, fontWeight: 500 }}>{`${((val / posTotal) * 100).toFixed(0)}%`}</span>
+              </div>
+            ))}
         </div>
       </div>
     </div>
@@ -357,9 +347,11 @@ export function PortfolioHealthCheck({ holdings }) {
  * Top 5 Holdings — 移除圓環，改為排名數字 + 簡約進度條
  */
 export function Top5Holdings({ holdings, totalVal }) {
-  const top5 = [...holdings]
-    .sort((a, b) => getHoldingMarketValue(b) - getHoldingMarketValue(a))
-    .slice(0, 5);
+  // B4 fix：memoize top5 排序
+  const top5 = useMemo(
+    () => [...holdings].sort((a, b) => getHoldingMarketValue(b) - getHoldingMarketValue(a)).slice(0, 5),
+    [holdings],
+  );
 
   if (top5.length === 0) return null;
 
