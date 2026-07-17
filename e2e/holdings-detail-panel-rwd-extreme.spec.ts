@@ -21,6 +21,7 @@
 import { test, expect, type Page, type Locator } from '@playwright/test';
 import { gotoWithRetry } from './helpers/navigation';
 import { drawerStep, registerDrawerFailureReport } from './helpers/drawer-failure-report';
+import { annotateOverflowAndAttach, mergeAuditFindings, type OverflowFinding } from './helpers/drawer-overflow-annotate';
 
 registerDrawerFailureReport();
 
