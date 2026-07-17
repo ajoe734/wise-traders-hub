@@ -32,6 +32,35 @@ export type OverflowFinding = {
 
 type AnnotatedFinding = OverflowFinding & { side: 'left' | 'right' };
 
+/**
+ * Per-test overflow annotation registry — 讓 drawer-failure-report 能在 summary
+ * 中把每次 annotateOverflowAndAttach 產出的 label / 檔案路徑 / 統計數據列出來。
+ * key = testInfo instance；value = 累積的 record 列表（同一 test 可能觸發多個 label）。
+ */
+export type OverflowAnnotationRecord = {
+  label: string;
+  pngName: string;
+  jsonName: string;
+  pngPath: string;
+  jsonPath: string;
+  findings: AnnotatedFinding[];
+  maxSide: 'left' | 'right';
+  maxOverflow: number;
+  count: number;
+  createdAt: number;
+};
+const overflowRegistry = new WeakMap<object, OverflowAnnotationRecord[]>();
+
+export function getOverflowAnnotations(testInfo: object): OverflowAnnotationRecord[] {
+  return overflowRegistry.get(testInfo) ?? [];
+}
+
+function pushRecord(testInfo: object, rec: OverflowAnnotationRecord) {
+  const arr = overflowRegistry.get(testInfo) ?? [];
+  arr.push(rec);
+  overflowRegistry.set(testInfo, arr);
+}
+
 function withSide(f: OverflowFinding): AnnotatedFinding {
   const leftOver = f.rootLeft - f.left;
   const rightOver = f.right - f.rootRight;
@@ -135,6 +164,25 @@ export async function annotateOverflowAndAttach(
   fs.writeFileSync(jsonPath, JSON.stringify(annotated, null, 2), 'utf8');
   await testInfo.attach(pngName, { path: pngPath, contentType: 'image/png' });
   await testInfo.attach(jsonName, { path: jsonPath, contentType: 'application/json' });
+
+  // 註冊到 registry：drawer-failure-report 生成 drawer-failure-summary 時會把
+  // 每筆 label / side / overflow / 檔案路徑條列進去，讓打開 summary 就看到全貌
+  const maxFinding = annotated.reduce(
+    (acc, cur) => (cur.overflow > acc.overflow ? cur : acc),
+    annotated[0],
+  );
+  pushRecord(testInfo, {
+    label,
+    pngName,
+    jsonName,
+    pngPath,
+    jsonPath,
+    findings: annotated,
+    maxSide: maxFinding.side,
+    maxOverflow: maxFinding.overflow,
+    count: annotated.length,
+    createdAt: Date.now(),
+  });
 
   const lines = annotated.map((b, i) =>
     `  ${i + 1}. ${b.side.toUpperCase().padEnd(5)} +${b.overflow.toFixed(2)}px  ` +

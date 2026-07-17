@@ -17,6 +17,7 @@
 import { test, type Page } from '@playwright/test';
 import path from 'node:path';
 import fs from 'node:fs';
+import { getOverflowAnnotations } from './drawer-overflow-annotate';
 
 type StepFn<T> = () => Promise<T> | T;
 
@@ -55,6 +56,35 @@ export function registerDrawerFailureReport() {
     const trail = stepTrail.get(testInfo) ?? [];
     const lastStep = trail[trail.length - 1] ?? '(no step recorded)';
 
+    // Overflow annotations（annotateOverflowAndAttach 每次呼叫都會 push 一筆）
+    const overflows = getOverflowAnnotations(testInfo);
+    const overflowLines: string[] = [];
+    if (overflows.length > 0) {
+      overflowLines.push('', 'overflow annotations:');
+      overflowLines.push(
+        `  count = ${overflows.length}   ` +
+          `worst = ${Math.max(...overflows.map((o) => o.maxOverflow)).toFixed(2)}px`,
+      );
+      overflows.forEach((rec, i) => {
+        overflowLines.push(
+          `  [${i + 1}] label=${rec.label}`,
+          `      worst      : ${rec.maxSide.toUpperCase()} +${rec.maxOverflow.toFixed(2)}px  (${rec.count} finding(s))`,
+          `      annotated  : ${path.relative(testInfo.outputDir, rec.pngPath)}`,
+          `      findings   : ${path.relative(testInfo.outputDir, rec.jsonPath)}`,
+        );
+        // 前 3 筆詳細 rect（超過折疊）
+        rec.findings.slice(0, 3).forEach((b, j) => {
+          overflowLines.push(
+            `        - #${j + 1} ${b.side.toUpperCase().padEnd(5)} +${b.overflow.toFixed(2)}px  ` +
+              `[${b.kind}${b.tag ? `:${b.tag}` : ''}] "${(b.text || '').slice(0, 48)}"`,
+          );
+        });
+        if (rec.findings.length > 3) {
+          overflowLines.push(`        … +${rec.findings.length - 3} more (見 ${rec.jsonName})`);
+        }
+      });
+    }
+
     const summary = [
       `TEST FAILED · ${testInfo.title}`,
       `project      : ${project}`,
@@ -63,12 +93,67 @@ export function registerDrawerFailureReport() {
       `last step    : ${lastStep}`,
       `step trail   :`,
       ...trail.map((s, i) => `  ${i + 1}. ${s}`),
+      ...overflowLines,
     ].join('\n');
 
+    // 用 path 屬性 attach → Playwright 會把檔案落地到 outputDir 且以 hash 名複製
+    // 到 attachments/，這樣 CLI 就能直接 `cat test-results/.../drawer-failure-summary.txt`
+    // 取到完整內容（body 屬性走 in-memory，CLI reporter 會截斷顯示、且不落地）。
+    const summaryTxtPath = testInfo.outputPath('drawer-failure-summary.txt');
+    fs.writeFileSync(summaryTxtPath, summary, 'utf8');
     await testInfo.attach('drawer-failure-summary', {
-      body: summary,
+      path: summaryTxtPath,
       contentType: 'text/plain',
     });
+
+    // Markdown 版：Playwright HTML report 對 markdown 有 render，且會把同一 test
+    // 內的所有 attachments 並列展示 → 打開 summary 即看得到旁邊 overflow-annotated
+    // PNG 與 overflow-findings JSON。這裡再多提供一份含 label / 相對路徑的 md 便於
+    // 直接複製檔名到終端 open。
+    if (overflows.length > 0) {
+      const md = [
+        `# Drawer failure · ${testInfo.title}`,
+        '',
+        `- project: \`${project}\``,
+        `- viewport: \`${viewport ? `${viewport.width}x${viewport.height}` : 'unknown'}\``,
+        `- last step: ${lastStep}`,
+        '',
+        '## Overflow annotations',
+        '',
+        '| # | label | worst side | overflow (px) | findings | annotated PNG | JSON |',
+        '|---|-------|------------|---------------|----------|---------------|------|',
+        ...overflows.map(
+          (r, i) =>
+            `| ${i + 1} | \`${r.label}\` | ${r.maxSide.toUpperCase()} | ${r.maxOverflow.toFixed(
+              2,
+            )} | ${r.count} | \`${r.pngName}\` | \`${r.jsonName}\` |`,
+        ),
+        '',
+        '## Top findings (per label)',
+        '',
+        ...overflows.flatMap((r) => [
+          `### ${r.label}`,
+          '',
+          ...r.findings.slice(0, 5).map(
+            (b, j) =>
+              `- #${j + 1} **${b.side.toUpperCase()}** \`+${b.overflow.toFixed(2)}px\` ` +
+              `[${b.kind}${b.tag ? `:${b.tag}` : ''}] "${(b.text || '').slice(0, 60).replace(/\|/g, '\\|')}"  ` +
+              `rect=(L${b.left.toFixed(1)}, R${b.right.toFixed(1)}) ` +
+              `root=(L${b.rootLeft.toFixed(1)}, R${b.rootRight.toFixed(1)})`,
+          ),
+          r.findings.length > 5 ? `- … +${r.findings.length - 5} more (見 \`${r.jsonName}\`)` : '',
+          '',
+        ]),
+        '> 同一 test 的所有 attachments 已與本檔並列於 Playwright HTML report / trace；',
+        '> CLI 直接開圖：`open $(pwd)/' + path.relative(process.cwd(), overflows[0]!.pngPath) + '`',
+      ].join('\n');
+      const summaryMdPath = testInfo.outputPath('drawer-failure-summary.md');
+      fs.writeFileSync(summaryMdPath, md, 'utf8');
+      await testInfo.attach('drawer-failure-summary.md', {
+        path: summaryMdPath,
+        contentType: 'text/markdown',
+      });
+    }
 
     // 收集實體回放檔（trace / video / screenshot）— retain-on-failure 由全域 config 控制，
     // 這裡再列出實際落地路徑，方便使用者直接複製指令回放
@@ -101,6 +186,10 @@ export function registerDrawerFailureReport() {
         trace ? `  ▶ trace    : bunx playwright show-trace "${trace}"` : '  ▶ trace    : (missing)',
         video ? `  ▶ video    : ${video}` : '  ▶ video    : (missing)',
         shots.length ? `  ▶ screenshot: ${shots.join('\n                 ')}` : '  ▶ screenshot: (missing)',
+        overflows.length
+          ? `  ▶ overflow  : ${overflows.length} annotation(s), worst ${Math.max(...overflows.map((o) => o.maxOverflow)).toFixed(2)}px\n                 ` +
+              overflows.map((o) => `${o.label} → ${o.pngPath}`).join('\n                 ')
+          : '  ▶ overflow  : (none)',
         '════════════════════════════════════════════════════════════════',
         '',
       ].join('\n'),
