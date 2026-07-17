@@ -96,8 +96,8 @@ test.describe('HoldingsDetailPanel · RWD integrity + legacy drawer guard', () =
       const { maxFontPx, tolerance } = args;
       const rootBox = root.getBoundingClientRect();
       const badFonts: Array<{ tag: string; text: string; fontSize: number }> = [];
-      const badBoxes: Array<{ tag: string; text: string; left: number; right: number; rootLeft: number; rootRight: number; overflow: number }> = [];
-      const badTextNodes: Array<{ text: string; left: number; right: number; rootLeft: number; rootRight: number; overflow: number }> = [];
+      const badBoxes: Array<{ tag: string; text: string; left: number; right: number; top: number; bottom: number; rootLeft: number; rootRight: number; overflow: number }> = [];
+      const badTextNodes: Array<{ text: string; left: number; right: number; top: number; bottom: number; rootLeft: number; rootRight: number; overflow: number }> = [];
 
       /**
        * 幾何佔位判定 — 只問：這個節點在版面上是否實際佔位並可見？
