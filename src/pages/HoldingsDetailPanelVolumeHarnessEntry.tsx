@@ -175,6 +175,21 @@ export default function HoldingsDetailPanelVolumeHarnessEntry() {
   const stress = parseStress(params.get('stress'));
   const stressLabel = params.get('stress') || 'none';
 
+  // ?loading=NNN — 先渲染骨架 NNN ms 再切換到真實內容
+  //   0 或未指定：直接渲染真實內容（既有行為）
+  //   > 0：期間 data-drawer-render-state="skeleton"；到期後切回 "ready"
+  const loadingRaw = Number.parseInt(params.get('loading') || '0', 10);
+  const loadingMs = Math.max(0, Math.min(5000, Number.isFinite(loadingRaw) ? loadingRaw : 0));
+
+  const [renderState, setRenderState] = useState<'skeleton' | 'ready'>(
+    loadingMs > 0 ? 'skeleton' : 'ready',
+  );
+  useEffect(() => {
+    if (loadingMs <= 0) return;
+    const t = window.setTimeout(() => setRenderState('ready'), loadingMs);
+    return () => window.clearTimeout(t);
+  }, [loadingMs]);
+
   // mega-list：把三個列表放到 500 筆，count 保留 URL 值
   const listCount = stress.megaList ? 500 : count;
 
@@ -223,32 +238,121 @@ export default function HoldingsDetailPanelVolumeHarnessEntry() {
       data-volume-width={widthMode}
       data-volume-stress={stressLabel}
       data-volume-list-count={String(listCount)}
+      data-drawer-render-state={renderState}
+      data-drawer-loading-ms={String(loadingMs)}
       style={containerStyle}
     >
-      <Suspense fallback={<div style={{ padding: 24 }}>loading…</div>}>
-        <HoldingsDetailPanel
-          selected={selected}
-          decisionsMap={decisionsMap}
-          stockMeta={stockMeta}
-          targets={targets}
-          avgTarget={avgTarget}
-          normalizedEvents={normalizedEvents}
-          orderedDisplayed={orderedDisplayed}
-          WB={WB}
-          setExpandedDecision={() => {}}
-          openHoldingDrawer={() => {}}
-          totalPortfolioValue={totalPortfolioValue}
-          sparkData30D={sparkData30D}
-          sortBy="pct"
-          sortDir="desc"
-          setSortBy={() => {}}
-          setSortDir={() => {}}
-          tradeLog={[]}
-          targetPriceHistory={targetPriceHistory}
-          thesisTracking={thesisTracking}
-          onReportMeta={() => {}}
-        />
-      </Suspense>
+      {renderState === 'skeleton' ? (
+        <HoldingsDetailPanelSkeleton />
+      ) : (
+        <Suspense fallback={<HoldingsDetailPanelSkeleton />}>
+          <HoldingsDetailPanel
+            selected={selected}
+            decisionsMap={decisionsMap}
+            stockMeta={stockMeta}
+            targets={targets}
+            avgTarget={avgTarget}
+            normalizedEvents={normalizedEvents}
+            orderedDisplayed={orderedDisplayed}
+            WB={WB}
+            setExpandedDecision={() => {}}
+            openHoldingDrawer={() => {}}
+            totalPortfolioValue={totalPortfolioValue}
+            sparkData30D={sparkData30D}
+            sortBy="pct"
+            sortDir="desc"
+            setSortBy={() => {}}
+            setSortDir={() => {}}
+            tradeLog={[]}
+            targetPriceHistory={targetPriceHistory}
+            thesisTracking={thesisTracking}
+            onReportMeta={() => {}}
+          />
+        </Suspense>
+      )}
+    </div>
+  );
+}
+
+/**
+ * 抽屜骨架 — 骨骼形狀對齊真實 HoldingsDetailPanel 的主要段落：
+ *   標題列 · 摘要卡片 · 分頁 · 決策卡 · 事件列表 · 目標價列
+ * 全部使用寬度 100% + max-width 內斂 + box-sizing:border-box，
+ * 幾何守門測試會確認這些骨骼節點在所有斷點下都不外溢容器。
+ */
+function HoldingsDetailPanelSkeleton() {
+  const bar = (w: string, h = 14): React.CSSProperties => ({
+    width: w,
+    height: h,
+    maxWidth: '100%',
+    background: '#E5E1DA',
+    borderRadius: 4,
+    boxSizing: 'border-box',
+  });
+  const row: React.CSSProperties = {
+    display: 'flex',
+    gap: 8,
+    padding: '8px 12px',
+    borderBottom: '1px solid #EDE9E2',
+    boxSizing: 'border-box',
+    maxWidth: '100%',
+    overflow: 'hidden',
+  };
+  const section: React.CSSProperties = {
+    padding: '12px 16px',
+    boxSizing: 'border-box',
+    maxWidth: '100%',
+  };
+  return (
+    <div
+      data-testid="holdings-detail-panel-skeleton"
+      role="status"
+      aria-live="polite"
+      aria-label="載入中"
+      style={{ width: '100%', maxWidth: '100%', boxSizing: 'border-box', overflow: 'hidden' }}
+    >
+      <div style={section}>
+        <div style={{ ...bar('60%', 20), marginBottom: 10 }} />
+        <div style={{ ...bar('40%', 12) }} />
+      </div>
+      <div style={{ ...section, display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 12 }}>
+        {[0, 1, 2, 3].map((k) => (
+          <div key={k} style={{ padding: 12, background: '#F0ECE4', borderRadius: 6, minWidth: 0 }}>
+            <div style={{ ...bar('50%', 10), marginBottom: 8 }} />
+            <div style={{ ...bar('70%', 18) }} />
+          </div>
+        ))}
+      </div>
+      <div style={{ ...section, display: 'flex', gap: 8, flexWrap: 'wrap' }}>
+        {[0, 1, 2].map((k) => (
+          <div key={k} style={bar('72px', 28)} />
+        ))}
+      </div>
+      <div style={{ ...section, padding: 0 }}>
+        {Array.from({ length: 8 }, (_, k) => (
+          <div key={k} style={row}>
+            <div style={{ ...bar('44%', 14) }} />
+            <div style={{ ...bar('28%', 14) }} />
+            <div style={{ ...bar('20%', 14) }} />
+          </div>
+        ))}
+      </div>
+      {/* sr-only 進度提示 — 幾何 audit 會排除 sr-only clip 節點 */}
+      <span
+        style={{
+          position: 'absolute',
+          width: 1,
+          height: 1,
+          padding: 0,
+          margin: -1,
+          overflow: 'hidden',
+          clip: 'rect(0,0,0,0)',
+          whiteSpace: 'nowrap',
+          border: 0,
+        }}
+      >
+        資料載入中，請稍候
+      </span>
     </div>
   );
 }
