@@ -13,11 +13,17 @@ import { test, expect, type Page } from '@playwright/test';
 import { gotoWithRetry } from './helpers/navigation';
 import { drawerStep, registerDrawerFailureReport } from './helpers/drawer-failure-report';
 import { annotateOverflowAndAttach, mergeAuditFindings } from './helpers/drawer-overflow-annotate';
+import {
+  assertOverflowHardCap,
+  findingsMaxOverflow,
+  OVERFLOW_HARD_CAP_PX,
+  OVERFLOW_TOLERANCE_PX,
+  VolatilityTracker,
+} from './helpers/drawer-rwd-thresholds';
 
 registerDrawerFailureReport();
 
 const MAX_FONT_PX = 22;
-const OVERFLOW_TOLERANCE_PX = 1.5;
 const COUNTS = [1, 10, 50] as const;
 
 async function auditPanel(page: Page) {
