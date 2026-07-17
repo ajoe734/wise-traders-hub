@@ -457,6 +457,35 @@ export default defineConfig({
       use: { ...devices['Desktop Chrome'], viewport: { width: w, height: 1400 } },
     })),
 
+    // HoldingsDetailPanel 抽屜 · 極端視窗 × 旋轉 × 滾動位置 幾何守門
+    //   portrait ultra-narrow / iphone / landscape rotation / keyboard-open short /
+    //   tall narrow / tablet portrait+landscape / ultra-wide desktop
+    // 每組合另在 top / mid / bottom 三個 scroll 位置做 audit
+    // 失敗產物落點：test-results/holdings-drawer/rwd-extreme-<slug>/
+    ...([
+      { slug: 'fold-280x653',       w: 280,  h: 653 },
+      { slug: 'android-360x640',    w: 360,  h: 640 },
+      { slug: 'iphone-15-pmax',     w: 430,  h: 932 },
+      { slug: 'iphone-se-land',     w: 667,  h: 375 },
+      { slug: 'iphone-x-land',      w: 812,  h: 375 },
+      { slug: 'iphone-12-land',     w: 844,  h: 390 },
+      { slug: 'iphone-pmax-land',   w: 896,  h: 414 },
+      { slug: 'iphone-15pmax-land', w: 932,  h: 430 },
+      { slug: 'kbd-390x420',        w: 390,  h: 420 },
+      { slug: 'kbd-414x500',        w: 414,  h: 500 },
+      { slug: 'tall-320x1200',      w: 320,  h: 1200 },
+      { slug: 'ipad-820x1180',      w: 820,  h: 1180 },
+      { slug: 'ipad-land-1180x820', w: 1180, h: 820 },
+      { slug: 'desktop-1440x900',   w: 1440, h: 900 },
+      { slug: 'fhd-1920x1080',      w: 1920, h: 1080 },
+      { slug: 'uw-2560x1080',       w: 2560, h: 1080 },
+    ] as const).map(({ slug, w, h }) => ({
+      name: `holdings-detail-rwd-extreme-${slug}`,
+      testMatch: /holdings-detail-panel-rwd-extreme\.spec\.ts/,
+      outputDir: `test-results/holdings-drawer/rwd-extreme-${slug}`,
+      use: { ...devices['Desktop Chrome'], viewport: { width: w, height: h } },
+    })),
+
     // Journal PDF 匯出 — 字型 / accent 色漂移守門 × 3 常見桌面/平板寬度
     // 頁面本身固定 794px，跨 viewport 主要是 catch 外層 layout / 字型延遲 fallback
     ...([768, 1024, 1280] as const).map((w) => ({
