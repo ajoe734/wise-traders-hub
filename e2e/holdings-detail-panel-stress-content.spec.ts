@@ -16,11 +16,16 @@ import { test, expect, type Page, type Locator } from '@playwright/test';
 import { gotoWithRetry } from './helpers/navigation';
 import { drawerStep, registerDrawerFailureReport } from './helpers/drawer-failure-report';
 import { annotateOverflowAndAttach, mergeAuditFindings } from './helpers/drawer-overflow-annotate';
+import {
+  assertOverflowHardCap,
+  findingsMaxOverflow,
+  OVERFLOW_TOLERANCE_PX,
+  VolatilityTracker,
+} from './helpers/drawer-rwd-thresholds';
 
 registerDrawerFailureReport();
 
 const MAX_FONT_PX = 22;
-const OVERFLOW_TOLERANCE_PX = 1.5;
 const STRESS_PRESETS = ['long-title', 'multiline', 'mega-list', 'all'] as const;
 type Preset = (typeof STRESS_PRESETS)[number];
 
