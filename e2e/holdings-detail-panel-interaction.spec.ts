@@ -115,22 +115,21 @@ test.describe('HoldingsDetailPanel · 抽屜互動守門', () => {
     expect(clickable.hitSelf, 'card should receive pointer events at its center').toBe(true);
   });
 
-  test('點擊遮罩關閉抽屜', async ({ page }) => {
+  test('點擊遮罩關閉抽屜（跨斷點：手機全寬時走 pointerdown outside 事件）', async ({ page }) => {
     await openDrawer(page);
-    // Radix overlay：data-state=open 的 sibling；用 role 找不到，改用穩定屬性
-    const overlay = page
-      .locator('[data-state="open"]')
-      .filter({ has: page.locator(':scope:not([role])') })
-      .first();
-    // 更穩：直接找覆蓋 body 的固定層（class 由 shadcn 提供 fixed inset-0）
-    const stableOverlay = page.locator('div.fixed.inset-0').first();
-    await stableOverlay.waitFor({ state: 'visible', timeout: 5_000 });
-    // 點左上角避開抽屜本體
-    await stableOverlay.click({ position: { x: 8, y: 8 } });
+    // 手機 (< 640px) sheet 全寬覆蓋 overlay，無法用滑鼠點；改用 dispatchEvent
+    // 模擬 Radix 監聽的 onPointerDownOutside — 對 overlay 觸發 pointerdown。
+    // 桌面 / 平板亦走同一路徑，確保跨斷點合約一致。
+    const overlay = page.locator('div.fixed.inset-0[data-state="open"]').first();
+    await overlay.waitFor({ state: 'attached', timeout: 5_000 });
+    await overlay.evaluate((el) => {
+      const opts = { bubbles: true, cancelable: true, pointerType: 'mouse', clientX: 2, clientY: 2 } as PointerEventInit;
+      el.dispatchEvent(new PointerEvent('pointerdown', opts));
+      el.dispatchEvent(new PointerEvent('pointerup', opts));
+      el.dispatchEvent(new MouseEvent('click', { bubbles: true, cancelable: true, clientX: 2, clientY: 2 }));
+    });
     await expect(page.locator('[data-testid="holdings-detail-panel"]')).toHaveCount(0, { timeout: 5_000 });
     await expect(page.locator('[role="dialog"]')).toHaveCount(0, { timeout: 5_000 });
-    // fallback 用不到，保留 overlay 名稱避免 lint
-    void overlay;
   });
 
   test('關閉後可再次開啟（不出現 double-open / 焦點鎖死）', async ({ page }) => {
