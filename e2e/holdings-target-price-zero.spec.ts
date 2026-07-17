@@ -26,10 +26,11 @@ test.describe('持倉看板 · 目標價 = 0 回歸', () => {
   test('輸入 0：即時顯示 "0"、距目標 -100.0%、折疊再展開後仍保留 0', async ({ page }) => {
     await primeDemo(page)
     await gotoWithRetry(page, '/holding-checkup?demo=1')
-    await expect(page.getByText('持倉看板').first()).toBeVisible({ timeout: 20000 })
+    await expect(page.getByRole('region', { name: '持倉概覽' })).toBeVisible({ timeout: 20000 })
 
     // 找第一張持股卡的「展開」按鈕
     const expandBtn = page.getByRole('button', { name: '展開' }).first()
+    await expect(expandBtn).toBeVisible({ timeout: 20000 })
     await expandBtn.scrollIntoViewIfNeeded()
     await expandBtn.click()
 
