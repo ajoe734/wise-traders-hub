@@ -32,7 +32,6 @@ import {
 registerDrawerFailureReport();
 
 const MAX_FONT_PX = 22;
-const OVERFLOW_TOLERANCE_PX = 1.5;
 
 async function primeDemo(page: Page) {
   await page.addInitScript(() => {
