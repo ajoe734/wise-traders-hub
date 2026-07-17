@@ -32,8 +32,10 @@ export default defineConfig({
         ['html', { open: 'never', outputFolder: 'playwright-report' }],
         ['json', { outputFile: 'playwright-report/results.json' }],
         ['blob', { outputDir: 'blob-report' }],
+        // 抽屜極端失敗自動彙總頁 → playwright-report/drawer-failures.html
+        ['./e2e/reporters/drawer-extreme-html-reporter.ts'],
       ]
-    : [['list']],
+    : [['list'], ['./e2e/reporters/drawer-extreme-html-reporter.ts']],
   timeout: 60_000,
   expect: {
     // Strict pixel diff for layout regressions; tolerate sub-pixel AA.
