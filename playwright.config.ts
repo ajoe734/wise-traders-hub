@@ -412,6 +412,14 @@ export default defineConfig({
       use: { ...devices['Desktop Chrome'], viewport: { width: w, height: 900 } },
     })),
 
+    // HoldingsDetailPanel ROI 字級守門 — 憲法：computed fontSize ≤ 22px
+    // 覆蓋 iPhone SE / iPhone 12 / iPhone Pro Max / tablet / laptop / desktop 六個常見斷點
+    ...([320, 375, 390, 414, 560, 768, 1024, 1280] as const).map((w) => ({
+      name: `holdings-detail-roi-fontsize-${w}`,
+      testMatch: /holdings-detail-panel-roi-fontsize\.spec\.ts/,
+      use: { ...devices['Desktop Chrome'], viewport: { width: w, height: 900 } },
+    })),
+
     // Journal PDF 匯出 — 字型 / accent 色漂移守門 × 3 常見桌面/平板寬度
     // 頁面本身固定 794px，跨 viewport 主要是 catch 外層 layout / 字型延遲 fallback
     ...([768, 1024, 1280] as const).map((w) => ({
