@@ -22,6 +22,12 @@ import { test, expect, type Page, type Locator } from '@playwright/test';
 import { gotoWithRetry } from './helpers/navigation';
 import { drawerStep, registerDrawerFailureReport } from './helpers/drawer-failure-report';
 import { annotateOverflowAndAttach, mergeAuditFindings, type OverflowFinding } from './helpers/drawer-overflow-annotate';
+import {
+  assertOverflowHardCap,
+  findingsMaxOverflow,
+  OVERFLOW_TOLERANCE_PX,
+  VolatilityTracker,
+} from './helpers/drawer-rwd-thresholds';
 
 registerDrawerFailureReport();
 
