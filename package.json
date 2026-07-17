@@ -36,6 +36,7 @@
     "@fontsource/noto-serif-tc": "^5.2.10",
     "@fontsource/source-serif-4": "^5.2.9",
     "@hookform/resolvers": "^3.10.0",
+    "@lovable.dev/mcp-js": "^0.23.0",
     "@radix-ui/react-accordion": "^1.2.11",
     "@radix-ui/react-alert-dialog": "^1.1.14",
     "@radix-ui/react-aspect-ratio": "^1.1.7",
@@ -103,7 +104,7 @@
     "tailwindcss-animate": "^1.0.7",
     "vaul": "^0.9.9",
     "web-vitals": "^5.3.0",
-    "zod": "^3.25.76",
+    "zod": "^4.4.3",
     "zustand": "^5.0.12"
   },
   "devDependencies": {
