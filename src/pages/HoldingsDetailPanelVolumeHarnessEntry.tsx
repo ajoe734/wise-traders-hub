@@ -2,14 +2,17 @@
 /**
  * Preview-only E2E harness · HoldingsDetailPanel 多資料量 RWD 守門
  *
- * URL: /e2e/holdings-detail-panel-volume?count=1|10|50&width=mobile|desktop
+ * URL: /e2e/holdings-detail-panel-volume
+ *   ?count=1|10|50|100
+ *   &width=mobile|desktop
+ *   &stress=none|long-title|multiline|mega-list （可用逗號組合，例：stress=long-title,multiline）
  *
- * 目的：不依賴 demo 真實資料筆數，直接注入 N 筆 mock（rank / decisions /
- *   thesisTracking / targetPriceHistory / normalizedEvents），確認長清單
- *   不重新觸發溢出。
- *
- * 容器寬度：預設 100vw；`width=desktop` 時套 max-width: 512px（≈ sm:max-w-lg），
- * 模擬桌面 sheet 抽屜寬度。
+ * stress presets：
+ *   - none        : 標準 mock（既有行為）
+ *   - long-title  : 個股名稱 60 字、決策 note 200 字單行、事件標題 120 字
+ *   - multiline   : 決策 note 20 行、thesis 描述含強制換行、多行說明段落
+ *   - mega-list   : events=500、targetPriceHistory=500、thesisTracking=500
+ *                  （count 仍以 URL 參數為主，但列表長度 override）
  *
  * SECURITY: preview-only；prod 回傳 null。
  */
