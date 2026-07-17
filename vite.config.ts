@@ -2,6 +2,7 @@ import { defineConfig, type Plugin } from "vite";
 import react from "@vitejs/plugin-react-swc";
 import path from "path";
 import { componentTagger } from "lovable-tagger";
+import { mcpPlugin } from "@lovable.dev/mcp-js/stacks/supabase/vite";
 
 const APP_VERSION = `${Date.now()}-${Math.random().toString(36).slice(2, 8)}`;
 
@@ -37,7 +38,7 @@ export default defineConfig(({ mode }) => ({
       allowedHosts: [".trycloudflare.com", ".ngrok-free.app", ".ngrok.io", ".loca.lt"],
     }),
   },
-  plugins: [react(), appVersionPlugin(), mode === "development" && componentTagger()].filter(Boolean),
+  plugins: [react(), appVersionPlugin(), mcpPlugin(), mode === "development" && componentTagger()].filter(Boolean),
   resolve: {
     alias: {
       "@": path.resolve(__dirname, "./src"),
