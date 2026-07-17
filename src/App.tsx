@@ -59,6 +59,7 @@ const FreeCheckupPage = lazy(() => import("./pages/FreeCheckup"));
 const HoldingCheckupDemoEntry = lazy(() => import("./pages/HoldingCheckupDemoEntry"));
 const HoldingCardHarnessEntry = lazy(() => import("./pages/HoldingCardHarnessEntry"));
 const HoldingsTableTargetHarnessEntry = lazy(() => import("./pages/HoldingsTableTargetHarnessEntry"));
+const HoldingsDetailPanelVolumeHarnessEntry = lazy(() => import("./pages/HoldingsDetailPanelVolumeHarnessEntry"));
 const SignalEditorHarnessEntry = lazy(() => import("./pages/SignalEditorHarnessEntry"));
 const EtfDisplayHarnessEntry = lazy(() => import("./pages/EtfDisplayHarnessEntry"));
 const SignalPreviewHarnessEntry = lazy(() => import("./pages/SignalPreviewHarnessEntry"));
