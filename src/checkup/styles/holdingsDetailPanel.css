@@ -1,8 +1,57 @@
 /* HoldingsDetailPanel — 持倉抽屜手機優化。
  * Handoff 2026-07-15 §4：Kore-eda 極簡、無陰影、surface 同色 mask 替代 hard divider。
  * 守門：對應 e2e/holdings-export-menu.spec.ts / holdings-detail-panel-narrow.spec.ts
- * ／wide.spec.ts；目視 360/390/414 斷點。
+ * ／wide.spec.ts / rwd-extreme.spec.ts；目視 360/390/414 斷點。
  */
+
+/* ====== SheetContent 幾何硬契約（rwd-extreme spec 守門）======
+ * 覆蓋 shadcn sheet.tsx side="right" variant 的以下漏洞：
+ *   1. base 有 border-l:1px；在 <sm 用 w-full 時會與 box-border + Radix
+ *      ScrollLock 的 --removed-body-scroll-bar-size margin 補償相互作用，
+ *      在 280 / 320 / 360 / 414 / 430 / 812 等寬度出現 sub-pixel panel-right 溢出
+ *   2. base sm:max-w-sm(384) 與外部 sm:max-w-md(448) 疊加時 tailwind cascade
+ *      不保證後者勝出（同 specificity），必須用 !important
+ *
+ * 契約：
+ *   - 任何寬度下 panel-right ≤ viewport-right（tolerance 0.5px 已由 spec 保證）
+ *   - < sm(640)：left:0 !important; right:0 !important; width:auto → 貼齊兩側
+ *   - ≥ sm：left:auto !important 讓 max-width + right:0 dock 到右側
+ *   - border-l 保留（視覺分隔）但強制 box-sizing:border-box
+ */
+[data-testid="holdings-detail-panel"].holdings-sheet-content {
+  box-sizing: border-box;
+  max-width: 100vw;
+  /* Radix 有時對 fixed 內容注入 --removed-body-scroll-bar-size margin 補償；
+     這裡把 margin 歸零避免與 right:0 疊加造成 panel-right 越界 */
+  margin: 0 !important;
+  /* 移除 shadcn slide-in-from-right 的水平位移動畫（保留 opacity fade）。
+     原始動畫從 translateX(100%) 動到 0，t<500ms 期間 panel 會短暫超出
+     viewport 右緣（rwd-extreme spec 在 t≈250ms 量測時抓到 3~8px 溢出）。
+     用兩個自訂變數把水平位移歸零，只保留淡入淡出。 */
+  --tw-enter-translate-x: 0px !important;
+  --tw-exit-translate-x: 0px !important;
+}
+@media (max-width: 639.98px) {
+  [data-testid="holdings-detail-panel"].holdings-sheet-content {
+    left: 0 !important;
+    right: 0 !important;
+    width: auto !important;
+    /* border-l 在 <sm 拿掉：貼齊兩側時 1px 額外邊會與 100vw 疊加造成 sub-pixel 溢出 */
+    border-left-width: 0 !important;
+  }
+}
+@media (min-width: 640px) {
+  [data-testid="holdings-detail-panel"].holdings-sheet-content {
+    left: auto !important;
+    right: 0 !important;
+  }
+}
+@media (min-width: 640px) {
+  [data-testid="holdings-detail-panel"].holdings-sheet-content {
+    left: auto !important;
+    right: 0 !important;
+  }
+}
 
 /* ====== 窄螢幕（<1024px）提示帶：wide viewport 時隱藏 ====== */
 .holdings-panel-narrow-hint { display: block; }
