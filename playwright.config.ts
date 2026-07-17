@@ -447,6 +447,16 @@ export default defineConfig({
       use: { ...devices['Desktop Chrome'], viewport: { width: w, height: 900 } },
     })),
 
+    // HoldingsDetailPanel 抽屜 · 多資料量 RWD 溢出守門
+    // count ∈ {1,10,50} × viewport ∈ {320,390,768,1280}（共 12 組合）
+    // 失敗產物落點：test-results/holdings-drawer/volume-rwd-<w>/
+    ...([320, 390, 768, 1280] as const).map((w) => ({
+      name: `holdings-detail-volume-rwd-${w}`,
+      testMatch: /holdings-detail-panel-volume-rwd\.spec\.ts/,
+      outputDir: `test-results/holdings-drawer/volume-rwd-${w}`,
+      use: { ...devices['Desktop Chrome'], viewport: { width: w, height: 1400 } },
+    })),
+
     // Journal PDF 匯出 — 字型 / accent 色漂移守門 × 3 常見桌面/平板寬度
     // 頁面本身固定 794px，跨 viewport 主要是 catch 外層 layout / 字型延遲 fallback
     ...([768, 1024, 1280] as const).map((w) => ({
