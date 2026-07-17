@@ -10,9 +10,43 @@
   .holdings-panel-narrow-hint { display: none !important; }
 }
 
+.holdings-detail-toolbar,
+.holdings-detail-toolbar-left,
+.holdings-detail-toolbar-actions,
+.holdings-detail-body,
+.holdings-detail-footer {
+  min-width: 0;
+  max-width: 100%;
+  box-sizing: border-box;
+}
+
+.holdings-detail-toolbar-actions {
+  flex-wrap: wrap;
+  justify-content: flex-end;
+}
+
 
 /* ====== 手機（≤640px）：建議印章行 sticky + Sandbox 橫滑 ====== */
 @media (max-width: 640px) {
+  .holdings-detail-toolbar {
+    align-items: flex-start !important;
+    gap: 6px !important;
+    padding: 8px 10px !important;
+  }
+  .holdings-detail-toolbar-left { gap: 4px !important; }
+  .holdings-detail-toolbar-actions { gap: 4px !important; }
+  .holdings-detail-toolbar button { padding: 3px 4px !important; font-size: 12px !important; }
+  .holdings-detail-body { padding: 16px 14px 18px !important; }
+  .holdings-detail-footer {
+    padding: 12px 14px 18px !important;
+    gap: 6px !important;
+  }
+  .holdings-detail-footer button {
+    padding-left: 4px !important;
+    padding-right: 4px !important;
+    font-size: 12px !important;
+  }
+
   /* §4 步驟 4：建議印章行手機 sticky（跟在操作列下方 48px） */
   .holdings-detail-decision {
     position: sticky;
@@ -48,5 +82,15 @@
   .hp-sandbox-stats {
     grid-template-columns: repeat(2, 1fr) !important;
     row-gap: 10px !important;
+  }
+}
+
+@media (max-width: 380px) {
+  .holdings-detail-toolbar {
+    flex-direction: column !important;
+  }
+  .holdings-detail-toolbar-actions {
+    width: 100% !important;
+    justify-content: space-between !important;
   }
 }

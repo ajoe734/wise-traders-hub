@@ -11,9 +11,7 @@ import "@/checkup/styles/checkupTokens.css";
 
 import { useNavigate } from "react-router-dom";
 import { supabase } from "@/integrations/supabase/client";
-import { Sheet, SheetContent } from "@/components/ui/sheet";
 import { Input } from "@/components/ui/input";
-import { Textarea } from "@/components/ui/textarea";
 import { toast } from "sonner";
 import { useCheckupMode } from "@/checkup/contexts/CheckupModeContext";
 // P0-3: demoData (~15 KB) lazy — only fetched when isDemo handlers run
@@ -22,7 +20,7 @@ import { simulateSteps, demoDelay } from "@/checkup/utils/demoSimulate";
 import { STOCK_META, IND_COLOR } from "@/checkup/seedData";
 import { C as ThemeC, L as ThemeL, A, alpha } from "@/checkup/theme";
 import { calcWeightedAvgCost, calcNetSettlement, calcPnlWithNet, calcRemainingCostAfterPartialSell } from "@/checkup/lib/holdingMath";
-import { buildDecision, sortByDecisionPriority, isEventOpen, getEffectiveStatus } from "@/checkup/lib/holdingEventUtils";
+import { buildDecision, sortByDecisionPriority, getEffectiveStatus } from "@/checkup/lib/holdingEventUtils";
 import { normalizeEventRecord } from "@/checkup/lib/eventUtils";
 import { URGENCY_RANK, CONF_RANK, makeCompareByPriority, holdingsValueKeyShort } from "@/checkup/lib/holdingsSort";
 import { normalizeHoldingMetrics } from "@/checkup/lib/holdings.js";
@@ -31,15 +29,9 @@ import { normalizeHoldingMetrics } from "@/checkup/lib/holdings.js";
 import { callEdge } from "@/checkup/lib/edgeInvoke";
 import { preloadKnowledgeBase } from "@/checkup/lib/knowledgeBase";
 import { mergeCalendarToNewsEvents } from "@/checkup/lib/calendarSync";
-import { useMetaOverrides, mergeMeta } from "@/checkup/hooks/useMetaOverrides";
 import { NewsEventRow } from "@/checkup/components/freecheckup/NewsEventRow";
 import { trackRaw } from "@/lib/analytics/events";
-import { ErrorBoundary } from "@/checkup/components/ErrorBoundary";
 
-// ── 觸覺回饋（行動裝置）：iOS Safari 不支援會自動 no-op ──
-const hapticTap = (ms = 10) => {
-  try { if (typeof navigator !== 'undefined' && navigator.vibrate) navigator.vibrate(ms); } catch {}
-};
 // P3-perf: HoldingsTab 整段抽出並 lazy-load，首屏不再為持倉牆付出解析成本
 const HoldingsTab = lazy(() => import("@/checkup/components/freecheckup/HoldingsTab"));
 const NewsTab = lazy(() => import("@/checkup/components/freecheckup/NewsTab"));
@@ -58,8 +50,6 @@ const Md = lazy(() => import("@/checkup/components/Md"));
 const CoachMarks = lazy(() =>
   import("@/checkup/components/CoachMarks").then((m) => ({ default: m.CoachMarks }))
 );
-const TargetPriceHistorySection = lazy(() => import("@/checkup/components/TargetPriceHistorySection"));
-
 // Constants & helpers extracted to _freeCheckup/constants.js (pure, no React state).
 // Inline 憲法仍適用於 JSX / hooks；本 import 只搬「不依賴 component state」的部分。
 import {
@@ -135,9 +125,6 @@ export default function App() {
     refreshQuota?.().catch(() => {});
   }, [tab, isDemo, supabaseUser?.id, refreshQuota]);
   const [ready, setReady] = useState(false);
-
-  // AI 覆蓋的 meta（產業/策略/領頭/部位），優先於 STOCK_META
-  const { overrides: metaOverrides, reload: reloadMetaOverrides } = useMetaOverrides();
 
   // persistent state
   const [holdings,  setHoldings]  = useState(null);
@@ -679,7 +666,7 @@ export default function App() {
     return () => clearInterval(t);
   }, [calendarRetry.cooldownUntil, predictRetry.cooldownUntil]);
   // Decision System v6
-  const [userOverrides, setUserOverrides] = useState({});
+  const [userOverrides] = useState({});
   // A2-lite: expandedDecision 已內化為 HoldingsTab local state（卡片選取不再污染 parent）
   const [debugMode, setDebugMode] = useState(false);
   const [sparklines, setSparklines] = useState({}); // { [code]: number[] }
@@ -694,20 +681,7 @@ export default function App() {
   const [filterPnl, setFilterPnl] = useState(new Set());           // win/loss/flat
   const [filterStrategy, setFilterStrategy] = useState(new Set()); // dynamic
   const [sortDir, setSortDir] = useState("desc");                  // asc / desc
-  const [drawerOpen, setDrawerOpen] = useState(false);
-  const [activeCode, setActiveCode] = useState(null);
-  const [drawerSource, setDrawerSource] = useState(null); // {type:'priority-global'|'category'|'list'|'search', key?, label}
-  const [drawerTab, setDrawerTab] = useState('summary'); // 'summary' | 'thesis' | 'risk'
-  const [drawerSkeleton, setDrawerSkeleton] = useState(false);
-  const [drawerRetryN, setDrawerRetryN] = useState(0); // 觸發 ErrorBoundary reset 與子元件 remount
-  // 手勢防誤觸 refs（component 層級，跨 render 持久）
-  const swipeStartRef = useRef(null);
-  const lastSwipeAtRef = useRef(0);
-  const lastTabChangeAtRef = useRef(0);
-  const [draftNote, setDraftNote] = useState("");
-  const [draftExitCue, setDraftExitCue] = useState("");
-  const scrollPosRef = useRef(0);
-  const draftDirtyRef = useRef(false);
+  // legacy Detail Drawer 已移除：持倉卡只走 HoldingsWorkbench -> HoldingsDetailPanel 單一路徑。
 
   const toggleSetItem = (setter) => (val) => {
     setter(prev => {
@@ -1756,172 +1730,8 @@ export default function App() {
   // 已下沉至 useHoldingsDerivations（在 HoldingsTab 內 call）。
   // 父層改用 filteredSortedList 即可。
 
-
-  // ── 來源清單推導：依 drawerSource 決定 prev/next 的循環範圍 ──
-  const sourceList = useMemo(() => {
-    if (!drawerSource) return filteredSortedList;
-    if (drawerSource.type === 'priority-global') return globalPriorityList;
-    if (drawerSource.type === 'category') {
-      if (drawerSource.key === 'exit') return exitList;
-      if (drawerSource.key === 'review') return reviewList;
-      if (drawerSource.key === 'upcoming') return upcomingList;
-    }
-    return filteredSortedList;
-  }, [drawerSource, filteredSortedList, globalPriorityList, exitList, reviewList, upcomingList]);
-
-  // ── activeCode 安全處理：sourceList 改變時防 undefined ──
-  const activeIndex = useMemo(
-    () => sourceList.findIndex(h => h.code === activeCode),
-    [sourceList, activeCode]
-  );
-  const activeIndexInFiltered = useMemo(
-    () => filteredSortedList.findIndex(h => h.code === activeCode),
-    [filteredSortedList, activeCode]
-  );
-  useEffect(() => {
-    if (!drawerOpen) return;
-    if (activeIndex !== -1) return;
-    if (sourceList.length === 0) {
-      setDrawerOpen(false);
-      setActiveCode(null);
-      setDrawerSource(null);
-    } else {
-      setActiveCode(sourceList[0].code);
-    }
-  }, [drawerOpen, activeIndex, sourceList]);
-
-  // 同步 drawer draft 內容
-  useEffect(() => {
-    if (!drawerOpen || !activeCode) return;
-    const ov = userOverrides[activeCode] || {};
-    setDraftNote(ov.note || "");
-    setDraftExitCue(ov.exitCue || "");
-    draftDirtyRef.current = false;
-  }, [drawerOpen, activeCode, userOverrides]);
-
-  // 抽屜開啟 / 切換個股：先顯示骨架，下一幀再呈現明細（讓 transition 與 layout 穩定）
-  useEffect(() => {
-    if (!drawerOpen || !activeCode) { setDrawerSkeleton(false); return; }
-    setDrawerSkeleton(true);
-    setDrawerTab('summary');
-    const t = setTimeout(() => setDrawerSkeleton(false), 180);
-    return () => clearTimeout(t);
-  }, [drawerOpen, activeCode]);
-
-  const persistDraftIfDirty = useCallback(() => {
-    if (!draftDirtyRef.current || !activeCode) return;
-    setUserOverrides(prev => ({
-      ...prev,
-      [activeCode]: { ...(prev[activeCode] || {}), note: draftNote, exitCue: draftExitCue },
-    }));
-    draftDirtyRef.current = false;
-  }, [activeCode, draftNote, draftExitCue]);
-
-  const goPrev = useCallback(() => {
-    if (sourceList.length < 2 || activeIndex < 0) return;
-    persistDraftIfDirty();
-    const next = (activeIndex - 1 + sourceList.length) % sourceList.length;
-    setActiveCode(sourceList[next].code);
-  }, [sourceList, activeIndex, persistDraftIfDirty]);
-  const goNext = useCallback(() => {
-    if (sourceList.length < 2 || activeIndex < 0) return;
-    persistDraftIfDirty();
-    const next = (activeIndex + 1) % sourceList.length;
-    setActiveCode(sourceList[next].code);
-  }, [sourceList, activeIndex, persistDraftIfDirty]);
-
-  // ── 鍵盤快捷鍵 ←/→ ──
-  useEffect(() => {
-    if (!drawerOpen) return;
-    const onKey = (e) => {
-      const tag = (e.target?.tagName || "").toLowerCase();
-      if (tag === "textarea" || tag === "input") return;
-      if (e.key === "ArrowLeft")  { e.preventDefault(); goPrev(); }
-      if (e.key === "ArrowRight") { e.preventDefault(); goNext(); }
-    };
-    window.addEventListener("keydown", onKey);
-    return () => window.removeEventListener("keydown", onKey);
-  }, [drawerOpen, goPrev, goNext]);
-
-  // ── Drawer 開啟期間追蹤背景 scroll，關閉時還原 ──
-  useEffect(() => {
-    if (!drawerOpen) return;
-    const onScroll = () => { scrollPosRef.current = window.scrollY; };
-    window.addEventListener("scroll", onScroll, { passive: true });
-    return () => window.removeEventListener("scroll", onScroll);
-  }, [drawerOpen]);
-
-  const handleDrawerOpenChange = (open) => {
-    if (!open) {
-      persistDraftIfDirty();
-      const src = drawerSource;
-      setDrawerOpen(false);
-      setActiveCode(null);
-      setDrawerSource(null);
-      if (src && (src.type === 'priority-global' || src.type === 'category')) {
-        requestAnimationFrame(() => {
-          const el = document.getElementById('action-banner');
-          if (el) el.scrollIntoView({ behavior: 'instant', block: 'start' });
-        });
-      } else {
-        const y = scrollPosRef.current;
-        requestAnimationFrame(() => window.scrollTo({ top: y, behavior: "instant" }));
-      }
-    } else {
-      setDrawerOpen(true);
-    }
-  };
-
-  // ── Drawer tab 切換（throttle 防誤觸 + 觸覺回饋） ──
-  const TAB_ORDER = ['summary', 'thesis', 'risk'];
-  const TAB_THROTTLE_MS = 280;
-  const safeSetDrawerTab = useCallback((next) => {
-    const now = Date.now();
-    if (now - lastTabChangeAtRef.current < TAB_THROTTLE_MS) return;
-    lastTabChangeAtRef.current = now;
-    setDrawerTab((prev) => {
-      if (prev === next) return prev;
-      hapticTap(10);
-      return next;
-    });
-  }, []);
-  const safeCloseDrawer = useCallback(() => {
-    hapticTap(15);
-    handleDrawerOpenChange(false);
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [drawerSource]);
-  const retryDrawerTab = useCallback(() => {
-    setDrawerSkeleton(true);
-    setDrawerRetryN((n) => n + 1);
-    setTimeout(() => setDrawerSkeleton(false), 180);
-  }, []);
-
-
-  const openHoldingDrawer = (code, source = null) => {
-    scrollPosRef.current = window.scrollY;
-    setActiveCode(code);
-    if (source) {
-      setDrawerSource(source);
-    } else {
-      const hasSearch = !!searchQ.trim();
-      const hasFilter = filterDecision.size || filterThesis.size || filterUrgency.size || filterConflict.size || filterPnl.size || filterStrategy.size;
-      setDrawerSource(hasSearch || hasFilter
-        ? { type: 'search', label: '📋 持倉列表（篩選結果）' }
-        : { type: 'list', label: '📋 持倉列表' });
-    }
-    setDrawerOpen(true);
-  };
-
-  // P3-perf: HoldingCard 用的 stable callbacks（透過 ref 取得最新 closure，
-  // 自身 reference 永不變 → React.memo 可有效跳過未變動卡片的 re-render）
-  const openHoldingDrawerRef = useRef(openHoldingDrawer);
-  openHoldingDrawerRef.current = openHoldingDrawer;
-  const handleHoldingCardOpenDrawer = useCallback((code) => {
-    openHoldingDrawerRef.current(code);
-  }, []);
-  // A2-lite: handleHoldingCardSelect 已內化為 HoldingsTab local（搭配 expandedDecision）
-
-  const activeHolding = activeIndex >= 0 ? sourceList[activeIndex] : null;
+  // A2-lite: handleHoldingCardSelect 已內化為 HoldingsTab local（搭配 expandedDecision）。
+  // legacy drawer open callback 保留為 undefined；HoldingsWorkbench 會 fallback 到新版 DetailPanel。
   const top5 = [...H].sort((a,b)=>b.value-a.value).slice(0,5);
   const topColors = [C.blue, C.amber, C.lavender, C.olive, C.teal];
   // A4：winnersCount 只用於 HoldingsHero（4 欄 KPI / win rate）；
@@ -3641,8 +3451,6 @@ ${JSON.stringify(strategyBrain || { rules: [], lessons: [], commonMistakes: [], 
               sparklineErrors={sparklineErrors}
               EMPTY_SPARK={EMPTY_SPARK}
               normalizedEvents={normalizedEvents}
-              openHoldingDrawer={openHoldingDrawer}
-              handleHoldingCardOpenDrawer={handleHoldingCardOpenDrawer}
               showAll={showAll}
               setShowAll={setShowAll}
               holdingSyncStates={holdingSyncStates}
@@ -4010,435 +3818,6 @@ ${JSON.stringify(strategyBrain || { rules: [], lessons: [], commonMistakes: [], 
           </div>
         </>
       )}
-
-
-      {/* ══════════ 持倉資料庫 Detail Drawer ══════════ */}
-      <Sheet open={drawerOpen} onOpenChange={handleDrawerOpenChange}>
-        <SheetContent
-          side="right"
-          className="overflow-y-auto holding-drawer-content"
-          style={{
-            background: C.bg, color: C.text, width: "min(480px, 100vw)",
-            maxWidth: "100vw", padding: 0, border: "none",
-          }}
-          onOpenAutoFocus={(e) => e.preventDefault()}
-        >
-          {/* 行動裝置抽屜樣式：底部關閉條、tab bar、骨架動畫 */}
-          <style>{`
-            .holding-drawer-mobile-close { display: none; }
-            @media (max-width: 640px) {
-              .holding-drawer-content { padding-bottom: 64px !important; }
-              .holding-drawer-mobile-close {
-                display: flex !important;
-                position: fixed; left: 0; right: 0; bottom: 0;
-                z-index: 60;
-                padding: var(--cm-page-py) var(--cm-page-px) calc(var(--cm-page-py) + env(safe-area-inset-bottom));
-                background: ${C.bg};
-                border-top: 1px solid ${alpha(C.textMute, '15')};
-                gap: 8px;
-              }
-              .holding-drawer-mobile-close button {
-                flex: 1; min-height: 44px;
-                background: ${C.text}; color: ${C.bg};
-                border: none; border-radius: 8px;
-                font-size: 14px; font-weight: 500; letter-spacing: 0.04em;
-                cursor: pointer;
-                -webkit-tap-highlight-color: transparent;
-              }
-              .holding-drawer-tab {
-                flex: 1; min-height: 40px;
-                background: transparent; border: none;
-                font-size: 12px; font-weight: 500; letter-spacing: 0.08em;
-                cursor: pointer; padding: 8px 4px;
-                -webkit-tap-highlight-color: transparent;
-              }
-            }
-            .holding-drawer-tabs {
-              display: flex; gap: 4px; margin-bottom: 14px;
-              border-bottom: 1px solid ${alpha(C.textMute, '12')};
-            }
-            .holding-drawer-tab {
-              flex: 1; background: transparent; border: none;
-              padding: 8px 4px; font-size: 12px; font-weight: 500;
-              letter-spacing: 0.06em; cursor: pointer;
-              color: ${C.textMute};
-              border-bottom: 2px solid transparent;
-              transition: color 120ms, border-color 120ms;
-              -webkit-tap-highlight-color: transparent;
-            }
-            .holding-drawer-tab[aria-selected="true"] {
-              color: ${C.text};
-              border-bottom-color: ${C.text};
-            }
-            .holding-drawer-skel {
-              background: ${alpha(C.textMute, '08')};
-              border-radius: 6px;
-              animation: hd-skel 1.1s ease-in-out infinite;
-            }
-            @keyframes hd-skel {
-              0%, 100% { opacity: 0.55; }
-              50% { opacity: 1; }
-            }
-          `}</style>
-
-          {activeHolding ? (() => {
-            const h = activeHolding;
-            const dec = decisionsMap[h.code];
-            const meta = mergeMeta(STOCK_META[h.code] || null, metaOverrides[h.code] || null);
-            const metaOverridden = !!metaOverrides[h.code];
-            const T = targets?.[h.code];
-            const tp = T ? avgTarget(h.code) : null;
-            const upside = tp && h.price ? ((tp - h.price) / h.price * 100) : null;
-            const total = sourceList.length;
-            const evtsAll = normalizedEvents
-              .filter(e => (e.relatedCodes || []).includes(h.code) && e.source !== 'demo');
-            const openEvts = evtsAll.filter(isEventOpen)
-              .sort((a,b) => new Date(b.occurredAt||0) - new Date(a.occurredAt||0));
-            const resolvedEvts = evtsAll.filter(e => !isEventOpen(e))
-              .sort((a,b) => new Date(b.occurredAt||0) - new Date(a.occurredAt||0)).slice(0, 5);
-            const timeline = [...openEvts, ...resolvedEvts];
-
-            const srcLabel = drawerSource?.label || '📋 持倉列表';
-            const backText = drawerSource?.type === 'priority-global'
-              ? '返回今日優先'
-              : drawerSource?.type === 'category'
-                ? `返回${drawerSource.label?.replace(/^[^\s]+\s/, '') || '分類'}`
-                : '返回列表';
-
-            // ── 手機左右滑動切換 tab（多指/快滑/連點防誤觸 + haptic） ──
-            const SWIPE_MIN_DX = 60;
-            const SWIPE_MAX_DY = 40;
-            const SWIPE_MAX_DT = 600;
-            const SWIPE_MIN_DT = 60; // 太快視為意外（彈跳/慣性）
-            const SWIPE_THROTTLE_MS = 320;
-            const onTouchStart = (e) => {
-              // 多指捏放/滾動由瀏覽器處理，不參與 swipe
-              if ((e.touches?.length || 0) !== 1) { swipeStartRef.current = null; return; }
-              // 在 textarea/input/可滾動容器內不攔截
-              const tag = (e.target?.tagName || '').toLowerCase();
-              if (tag === 'textarea' || tag === 'input' || tag === 'select') {
-                swipeStartRef.current = null; return;
-              }
-              const t = e.touches[0];
-              swipeStartRef.current = { x: t.clientX, y: t.clientY, at: Date.now() };
-            };
-            const onTouchMove = (e) => {
-              // 一旦中途出現第二指，取消手勢避免錯跳
-              if ((e.touches?.length || 0) > 1) swipeStartRef.current = null;
-            };
-            const onTouchEnd = (e) => {
-              const start = swipeStartRef.current;
-              swipeStartRef.current = null;
-              if (!start) return;
-              const t = e.changedTouches?.[0];
-              if (!t) return;
-              const dx = t.clientX - start.x;
-              const dy = t.clientY - start.y;
-              const dt = Date.now() - start.at;
-              if (dt > SWIPE_MAX_DT || dt < SWIPE_MIN_DT) return;
-              if (Math.abs(dx) < SWIPE_MIN_DX) return;
-              if (Math.abs(dy) > SWIPE_MAX_DY) return;
-              if (Math.abs(dy) > Math.abs(dx) * 0.6) return; // 偏垂直視為滾動
-              const now = Date.now();
-              if (now - lastSwipeAtRef.current < SWIPE_THROTTLE_MS) return;
-              lastSwipeAtRef.current = now;
-              const idx = TAB_ORDER.indexOf(drawerTab);
-              if (dx < 0 && idx < TAB_ORDER.length - 1) safeSetDrawerTab(TAB_ORDER[idx + 1]);
-              else if (dx > 0 && idx > 0) safeSetDrawerTab(TAB_ORDER[idx - 1]);
-            };
-
-            return (
-              <div
-                style={{padding:"18px 20px 32px"}}
-                onTouchStart={onTouchStart}
-                onTouchMove={onTouchMove}
-                onTouchEnd={onTouchEnd}
-                onTouchCancel={() => { swipeStartRef.current = null; }}
-              >
-
-                {/* Phase 2.5 Drawer Header (3 layers) */}
-                <div style={{marginBottom:14, paddingRight:32}}>
-                  {/* 第一行：返回 [來源] */}
-                  <button
-                    onClick={() => handleDrawerOpenChange(false)}
-                    style={{
-                      background:"transparent",border:"none",
-                      color:C.textMute,fontSize:11,fontWeight:400,
-                      cursor:"pointer",padding:"2px 0",
-                      display:"inline-flex",alignItems:"center",gap:4,
-                      letterSpacing:"0.04em",
-                    }}
-                  >‹ {backText}</button>
-                  {/* 第二行：來源 label */}
-                  <div style={{
-                    fontSize:10,color:C.textMute,marginTop:4,marginBottom:8,
-                    letterSpacing:"0.06em",fontWeight:400,
-                  }}>來自：{srcLabel}</div>
-                  {/* 第三行：上一檔 / 名稱 (i/N) / 下一檔 */}
-                  <div style={{display:"flex",alignItems:"center",gap:8}}>
-                    <button
-                      onClick={goPrev}
-                      disabled={total < 2}
-                      aria-label="上一檔"
-                      style={{
-                        background:"transparent",border:`1px solid ${C.border}`,
-                        borderRadius:6,padding:"6px 12px",fontSize:14,minWidth:40,minHeight:36,
-                        color: total < 2 ? alpha(C.textMute,'40') : C.textSec,
-                        cursor: total < 2 ? "not-allowed" : "pointer",fontWeight:400,
-                      }}
-                    >‹</button>
-                    <div style={{flex:1,textAlign:"center"}}>
-                      <div style={{fontSize:14,fontWeight:500,color:C.text,letterSpacing:"0.02em"}}>
-                        {h.name} <span style={{fontSize:11,color:C.textMute,fontWeight:400,marginLeft:4}}>{h.code}</span>
-                      </div>
-                      <div style={{fontSize:10,color:C.textMute,marginTop:2,letterSpacing:"0.05em"}}>
-                        {activeIndex + 1} / {total}
-                      </div>
-                    </div>
-                    <button
-                      onClick={goNext}
-                      disabled={total < 2}
-                      aria-label="下一檔"
-                      style={{
-                        background:"transparent",border:`1px solid ${C.border}`,
-                        borderRadius:6,padding:"6px 12px",fontSize:14,minWidth:40,minHeight:36,
-                        color: total < 2 ? alpha(C.textMute,'40') : C.textSec,
-                        cursor: total < 2 ? "not-allowed" : "pointer",fontWeight:400,
-                      }}
-                    >›</button>
-                  </div>
-                </div>
-
-                {/* Tab Bar：摘要 / 教學 / 風險（手機可左右滑動切換） */}
-                <div className="holding-drawer-tabs" role="tablist" aria-label="持倉抽屜分頁">
-                  {[
-                    ['summary', '摘要'],
-                    ['thesis', '教學'],
-                    ['risk', '風險'],
-                  ].map(([k, label]) => (
-                    <button
-                      key={k}
-                      role="tab"
-                      aria-selected={drawerTab === k}
-                      className="holding-drawer-tab"
-                      onClick={() => safeSetDrawerTab(k)}
-                    >{label}</button>
-                  ))}
-                </div>
-
-                {drawerSkeleton ? (
-                  <div style={{display:'flex',flexDirection:'column',gap:12}} aria-busy="true" aria-live="polite">
-                    <div className="holding-drawer-skel" style={{height:62}} />
-                    <div className="holding-drawer-skel" style={{height:90}} />
-                    <div className="holding-drawer-skel" style={{height:140}} />
-                    <div className="holding-drawer-skel" style={{height:60,width:'70%'}} />
-                  </div>
-                ) : (
-                <ErrorBoundary
-                  key={`drawer-${activeCode}-${drawerTab}-${drawerRetryN}`}
-                  title={`「${drawerTab === 'summary' ? '摘要' : drawerTab === 'thesis' ? '教學' : '風險'}」分頁`}
-                  description="此分頁內容載入失敗，分頁與骨架狀態已保留，可重試。"
-                  actionLabel="重試載入"
-                  onReset={retryDrawerTab}
-                  style={{margin:'4px 0 12px'}}
-                >
-                <>
-
-
-                {/* ━━━━━━━━━━━━━ 摘要 Tab ━━━━━━━━━━━━━ */}
-                {drawerTab === 'summary' && (<>
-                  {/* 數量·成本·市價·市值·損益·% */}
-                  <div style={{
-                    background:alpha(C.textMute,'04'),borderRadius:8,padding:"10px 12px",marginBottom:14,
-                    display:"flex",flexDirection:"column",gap:4,
-                  }}>
-                    <div style={{fontSize:11,color:C.textMute,fontWeight:400}}>
-                      {h.qty}{h.unit || "股"} · 成本 {h.cost} · 市價 {h.price?.toLocaleString()}
-                    </div>
-                    <div style={{fontSize:10,color:alpha(C.textMute,'80'),fontWeight:400,letterSpacing:'0.04em'}}>
-                      數量與成本請透過「上傳成交」修改
-                    </div>
-                    <div style={{display:"flex",gap:10,alignItems:"baseline"}}>
-                      <span style={{fontSize:11,color:C.textMute}}>市值 {h.value?.toLocaleString()}</span>
-                      <span style={{fontSize:13,fontWeight:500,color:pc(h.pnl)}}>{h.pnl>=0?"+":""}{h.pnl?.toLocaleString()}</span>
-                      <span style={{fontSize:11,color:pc(h.pct)}}>{h.pct>=0?"+":""}{h.pct?.toFixed(2)}%</span>
-                    </div>
-                    {meta && (
-                      <div style={{fontSize:10,color:C.textMute,marginTop:2,display:'flex',alignItems:'center',gap:6}}>
-                        <span>{meta.industry}{meta.strategy && ` · ${meta.strategy}`}{meta.position && ` · ${meta.position}`}{meta.leader && ` · 領頭 ${meta.leader}`}</span>
-                        {metaOverridden && (
-                          <span title="此產業/策略由 AI 研究覆蓋" style={{fontSize:9,padding:'1px 5px',border:`1px solid ${alpha(C.textMute,'30')}`,borderRadius:3,letterSpacing:'0.06em'}}>AI</span>
-                        )}
-                      </div>
-                    )}
-                  </div>
-
-                  {/* Decision Box */}
-                  {dec && (
-                    <section style={{marginBottom:16}}>
-                      <div style={{fontSize:10,color:C.textMute,letterSpacing:"0.1em",marginBottom:6}}>DECISION</div>
-                      <div style={{padding:"10px 12px",border:`1px solid ${alpha(C.textMute,'12')}`,borderRadius:8}}>
-                        <div style={{fontSize:13,color:dec.actionType==='exit'?C.down:dec.actionType==='review'?C.amber:C.text,fontWeight:500,marginBottom:6}}>
-                          {dec.actionText || (dec.actionType==='exit'?'建議出場':dec.actionType==='review'?'需要檢查':'維持持有')}
-                        </div>
-                        <div style={{display:"flex",flexWrap:"wrap",gap:8,fontSize:11,color:C.textMute}}>
-                          <span>論點：{dec.thesisState==='broken'?'破裂':dec.thesisState==='weakening'?'弱化':'完整'}</span>
-                          <span>可信度：{dec.confidence==='high'?'高':dec.confidence==='medium'?'中':'低'}</span>
-                          <span>緊急：{dec.urgency==='now'?'立即':dec.urgency==='soon'?'近期':'觀察'}</span>
-                          <span>事件：{dec.openEventCount || 0}</span>
-                          {dec.hasConflict && <span style={{color:C.down}}>⚠ 存在衝突</span>}
-                        </div>
-                      </div>
-                    </section>
-                  )}
-
-                  {/* 目標價清單 */}
-                  {T?.reports?.length > 0 && (
-                    <section style={{marginBottom:8}}>
-                      <div style={{fontSize:10,color:C.textMute,letterSpacing:"0.1em",marginBottom:6}}>
-                        TARGETS · 分析師目標價
-                        {tp && (
-                          <span style={{marginLeft:8,color:upside>=0?C.up:C.down,fontWeight:500}}>
-                            均 {tp.toLocaleString()}（{upside>=0?"+":""}{upside?.toFixed(1)}%）
-                          </span>
-                        )}
-                      </div>
-                      <div style={{display:"flex",flexDirection:"column",gap:4}}>
-                        {T.reports.map((r, idx) => (
-                          <div key={idx} style={{display:"flex",justifyContent:"space-between",fontSize:11,color:C.textSec,padding:"4px 10px",background:alpha(C.textMute,'04'),borderRadius:4}}>
-                            <span>{r.firm}</span>
-                            <span>{r.target?.toLocaleString()} <span style={{color:C.textMute,marginLeft:4}}>{r.date}</span></span>
-                          </div>
-                        ))}
-                      </div>
-                    </section>
-                  )}
-                  <Suspense fallback={null}><TargetPriceHistorySection code={h.code} C={C} alpha={alpha} enabled={!isDemo} /></Suspense>
-                </>)}
-
-                {/* ━━━━━━━━━━━━━ 教學 Tab ━━━━━━━━━━━━━ */}
-                {drawerTab === 'thesis' && (<>
-                  {/* Thesis */}
-                  <section style={{marginBottom:16}}>
-                    <div style={{fontSize:10,color:C.textMute,letterSpacing:"0.1em",marginBottom:6}}>THESIS · 進場理由</div>
-                    <div style={{fontSize:12,color:C.textSec,lineHeight:1.7,padding:"8px 12px",background:alpha(C.textMute,'04'),borderRadius:6}}>
-                      {(userOverrides[h.code]?.note) || (meta?.thesis) || meta?.strategy || "尚未填寫進場理由。"}
-                    </div>
-                  </section>
-
-                  {/* 筆記 / Exit Cue */}
-                  <section style={{marginBottom:16}}>
-                    <div style={{fontSize:10,color:C.textMute,letterSpacing:"0.1em",marginBottom:6}}>NOTES · 筆記與出場條件</div>
-                    <div style={{display:"flex",flexDirection:"column",gap:8}}>
-                      <div>
-                        <div style={{fontSize:10,color:C.textMute,marginBottom:3}}>筆記</div>
-                        <Textarea
-                          value={draftNote}
-                          onChange={(e)=>{ setDraftNote(e.target.value); draftDirtyRef.current = true; }}
-                          placeholder="進場理由、研究心得、後續觀察重點..."
-                          style={{minHeight:60,fontSize:12,background:C.card,color:C.text,borderColor:C.border}}
-                        />
-                      </div>
-                      <div>
-                        <div style={{fontSize:10,color:C.textMute,marginBottom:3}}>Exit Cue · 出場條件</div>
-                        <Textarea
-                          value={draftExitCue}
-                          onChange={(e)=>{ setDraftExitCue(e.target.value); draftDirtyRef.current = true; }}
-                          placeholder="達標出場、停損觸發、論點破裂訊號..."
-                          style={{minHeight:50,fontSize:12,background:C.card,color:C.text,borderColor:C.border}}
-                        />
-                      </div>
-                      <div style={{display:"flex",gap:8,alignItems:"center"}}>
-                        <button onClick={persistDraftIfDirty} style={{
-                          background:C.text,color:C.bg,border:"none",borderRadius:6,
-                          padding:"8px 16px",fontSize:13,fontWeight:500,cursor:"pointer",minHeight:36,
-                        }}>儲存</button>
-                        {userOverrides[h.code]?.actionType && (
-                          <span style={{fontSize:10,color:C.blue}}>已覆寫決策：{userOverrides[h.code].actionType}</span>
-                        )}
-                      </div>
-                    </div>
-                  </section>
-                </>)}
-
-                {/* ━━━━━━━━━━━━━ 風險 Tab ━━━━━━━━━━━━━ */}
-                {drawerTab === 'risk' && (<>
-                  <section style={{marginBottom:16}}>
-                    <div style={{fontSize:10,color:C.textMute,letterSpacing:"0.1em",marginBottom:6}}>
-                      EVENTS · 事件時序（{openEvts.length} open / {resolvedEvts.length} 近期已結）
-                    </div>
-                    {timeline.length === 0 ? (
-                      <div style={{fontSize:12,color:C.textMute,padding:"8px 12px"}}>無事件紀錄</div>
-                    ) : (
-                      <div style={{display:"flex",flexDirection:"column",gap:6}}>
-                        {timeline.map((e, idx) => {
-                          const open = isEventOpen(e);
-                          const impact = e.decisionImpact || e.impact;
-                          const impactColor = impact==='break' ? C.down : impact==='weaken' ? C.amber : C.textMute;
-                          return (
-                            <div key={e.id || idx} style={{
-                              padding:"8px 10px",borderLeft:`2px solid ${open?C.amber:alpha(C.textMute,'25')}`,
-                              background: open ? alpha(C.amber,'05') : "transparent",
-                              borderRadius:"0 4px 4px 0",
-                            }}>
-                              <div style={{display:"flex",alignItems:"center",gap:6,marginBottom:2}}>
-                                <span style={{fontSize:9,color:e.source==='user'?C.blue:e.source==='ai'?C.teal:C.textMute,border:`1px solid ${alpha(e.source==='user'?C.blue:e.source==='ai'?C.teal:C.textMute,'25')}`,borderRadius:3,padding:"0 4px"}}>
-                                  {e.source==='user'?'手動':e.source==='ai'?'AI':e.source==='calendar'?'日曆':'其他'}
-                                </span>
-                                <span style={{fontSize:9,color:C.textMute}}>{e.occurredAt ? new Date(e.occurredAt).toLocaleDateString("zh-TW") : ''}</span>
-                                {impact && <span style={{fontSize:9,color:impactColor,marginLeft:"auto"}}>{impact}</span>}
-                              </div>
-                              <div style={{fontSize:12,color:C.textSec,lineHeight:1.5}}>
-                                {e.summary || e.title || '(無摘要)'}
-                              </div>
-                            </div>
-                          );
-                        })}
-                      </div>
-                    )}
-                  </section>
-                </>)}
-
-                </>
-                </ErrorBoundary>
-                )}
-
-                {/* 手機底部固定關閉條（單手好按） */}
-                <div className="holding-drawer-mobile-close">
-                  <button
-                    onClick={() => { hapticTap(8); goPrev(); }}
-                    disabled={total < 2}
-                    aria-label="上一檔"
-                    style={{
-                      flex:'0 0 56px', minWidth:56,
-                      background:'transparent',
-                      color: total < 2 ? alpha(C.textMute,'40') : C.text,
-                      border:`1px solid ${C.border}`,
-                    }}
-                  >‹</button>
-                  <button onClick={safeCloseDrawer}>✕ 關閉</button>
-
-                  <button
-                    onClick={() => { hapticTap(8); goNext(); }}
-                    disabled={total < 2}
-                    aria-label="下一檔"
-                    style={{
-                      flex:'0 0 56px', minWidth:56,
-                      background:'transparent',
-                      color: total < 2 ? alpha(C.textMute,'40') : C.text,
-                      border:`1px solid ${C.border}`,
-                    }}
-                  >›</button>
-                </div>
-              </div>
-            );
-          })() : (
-            <div style={{padding:32,textAlign:"center",color:C.textMute,fontSize:13}}>無資料</div>
-          )}
-        </SheetContent>
-      </Sheet>
-
-
       {/* 配額不足 modal 已移除（2026-06）— 全螢幕遮罩會擋住 tab 導航，
           現改用 TradeTab/DailyTab inline banner + toast 提示。見 .lovable/plan.md */}
 

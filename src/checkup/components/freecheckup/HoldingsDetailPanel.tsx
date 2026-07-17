@@ -387,17 +387,17 @@ function HoldingsDetailPanelImpl({
   return (
     <div>
       {/* 1) 操作列 — sticky、全文字化 */}
-      <div style={{
+      <div className="holdings-detail-toolbar" style={{
         position: 'sticky', top: 0, zIndex: 6,
         display: 'flex', alignItems: 'center', justifyContent: 'space-between',
         padding: '10px 14px', borderBottom: `1px solid ${WB.hair}`, background: WB.surface,
       }}>
-        <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
+        <div className="holdings-detail-toolbar-left" style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
           <TextBtn WB={WB} disabled={!prev} onClick={() => prev && setExpandedDecision(prev.code)} label="上一檔">‹</TextBtn>
           <TextBtn WB={WB} disabled={!next} onClick={() => next && setExpandedDecision(next.code)} label="下一檔">›</TextBtn>
           <span style={{ ...microStyle, fontFamily: SERIF, fontSize: 12, letterSpacing: '0.06em' }}>{todayLabel}</span>
         </div>
-        <div style={{ display: 'flex', alignItems: 'center', gap: 12 }}>
+        <div className="holdings-detail-toolbar-actions" style={{ display: 'flex', alignItems: 'center', gap: 12 }}>
           {onReportMeta && (
             <button
               type="button"
@@ -440,7 +440,7 @@ function HoldingsDetailPanelImpl({
         }}
       >已展開完整圖表面板</div>
 
-      <div style={{ padding: '18px 22px 22px', background: WB.surface }}>
+      <div className="holdings-detail-body" style={{ padding: '18px 22px 22px', background: WB.surface }}>
         {/* 2) 識別 */}
         <div style={{ marginBottom: 16 }}>
           <div style={{ ...microStyle, marginBottom: 6 }}>
@@ -589,7 +589,7 @@ function HoldingsDetailPanelImpl({
       </div>
 
       {/* 頁腳 nav */}
-      <div style={{
+      <div className="holdings-detail-footer" style={{
         padding: '14px 22px 22px', borderTop: `1px solid ${WB.hair}`,
         display: 'flex', alignItems: 'center', justifyContent: 'space-between',
         fontFamily: SERIF, fontSize: 13, color: WB.inkSub,
@@ -832,6 +832,10 @@ function PriceAxis({ WB, price, cost, target, baseTarget, upside, tpHistory }) {
   const lo = Math.min(...pts) * 0.95;
   const hi = Math.max(...pts) * 1.05;
   const pos = (v) => Number.isFinite(Number(v)) ? ((Number(v) - lo) / (hi - lo)) * 100 : null;
+  const labelPos = (v) => {
+    const x = pos(v);
+    return x == null ? null : Math.min(92, Math.max(8, x));
+  };
   const tpLabel = tpHistory
     ? `目標 ${Number(target).toLocaleString()} ${tpHistory.arrow}${Math.abs(tpHistory.deltaPct).toFixed(0)}%`
     : (target != null ? `目標 ${Number(target).toLocaleString()}` : null);
@@ -840,8 +844,13 @@ function PriceAxis({ WB, price, cost, target, baseTarget, upside, tpHistory }) {
     : null;
   const H = 70;
   const y = H * 0.55;
+  const markers = [
+    { v: cost, color: WB.inkLight, label: '成本', shape: 'tick', side: 'top' },
+    { v: target, color: WB.accent, label: '目標', shape: 'tick', side: 'top' },
+    { v: price, color: WB.ink, label: '現價', shape: 'dot', side: 'bottom' },
+  ].map((p) => ({ ...p, x: pos(p.v), lx: labelPos(p.v) })).filter((p) => p.x != null);
   return (
-    <div style={{ margin: '20px 0 18px' }}>
+    <div data-testid="holdings-price-axis" style={{ margin: '20px 0 18px', minWidth: 0 }}>
       <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'baseline', marginBottom: 8 }}>
         <span style={{ fontSize: 12, color: WB.inkMute, letterSpacing: '0.14em' }}>價格</span>
         {tpLabel && (
@@ -851,29 +860,41 @@ function PriceAxis({ WB, price, cost, target, baseTarget, upside, tpHistory }) {
           }}>{tpLabel}</span>
         )}
       </div>
-      <svg width="100%" height={H} viewBox={`0 0 100 ${H}`} preserveAspectRatio="none"
-        style={{ width: '100%', height: H, overflow: 'visible' }}>
-        <line x1="0" y1={y} x2="100" y2={y} stroke={WB.hair} strokeWidth="1" vectorEffect="non-scaling-stroke" />
-        {[
-          { v: cost, color: WB.inkLight, label: '成本', shape: 'tick', side: 'top' },
-          { v: target, color: WB.accent, label: '目標', shape: 'tick', side: 'top' },
-          { v: price, color: WB.ink, label: '現價', shape: 'dot', side: 'bottom' },
-        ].map((p, i) => {
-          const x = pos(p.v);
-          if (x == null) return null;
-          return (
+      <div style={{ position: 'relative', height: H, minWidth: 0, overflow: 'hidden' }}>
+        <svg width="100%" height={H} viewBox={`0 0 100 ${H}`} preserveAspectRatio="none"
+          aria-hidden="true"
+          style={{ position: 'absolute', inset: 0, width: '100%', height: H, overflow: 'hidden' }}>
+          <line x1="0" y1={y} x2="100" y2={y} stroke={WB.hair} strokeWidth="1" vectorEffect="non-scaling-stroke" />
+          {markers.map((p, i) => (
             <g key={i}>
               {p.shape === 'tick'
-                ? <line x1={`${x}%`} y1={y - 5} x2={`${x}%`} y2={y + 5} stroke={p.color} strokeWidth="1.5" vectorEffect="non-scaling-stroke" />
-                : <circle cx={`${x}%`} cy={y} r={4} fill={p.color} />}
-              <text x={`${x}%`} y={p.side === 'top' ? y - 12 : y + 18} fontSize={10} fill={WB.inkSub}
-                textAnchor="middle" style={{ letterSpacing: '0.02em', fontVariantNumeric: 'tabular-nums' }}>
-                {p.label} {Number(p.v).toFixed(2)}
-              </text>
+                ? <line x1={`${p.x}%`} y1={y - 5} x2={`${p.x}%`} y2={y + 5} stroke={p.color} strokeWidth="1.5" vectorEffect="non-scaling-stroke" />
+                : <circle cx={`${p.x}%`} cy={y} r={4} fill={p.color} />}
             </g>
-          );
-        })}
-      </svg>
+          ))}
+        </svg>
+        {markers.map((p, i) => (
+          <span
+            key={`label-${i}`}
+            style={{
+              position: 'absolute',
+              left: `${p.lx}%`,
+              top: p.side === 'top' ? y - 28 : y + 9,
+              transform: 'translateX(-50%)',
+              maxWidth: 82,
+              overflow: 'hidden',
+              textOverflow: 'ellipsis',
+              whiteSpace: 'nowrap',
+              fontSize: 10,
+              color: WB.inkSub,
+              letterSpacing: '0.02em',
+              fontVariantNumeric: 'tabular-nums',
+              lineHeight: '14px',
+              pointerEvents: 'none',
+            }}
+          >{p.label} {Number(p.v).toFixed(2)}</span>
+        ))}
+      </div>
       {note && (
         <div style={{ marginTop: 8, fontFamily: SERIF, fontSize: 13, color: WB.inkSub, lineHeight: 1.65 }}>
           {note}
@@ -888,7 +909,7 @@ function PriceAxis({ WB, price, cost, target, baseTarget, upside, tpHistory }) {
 function RangeBand({ WB, price, low, high, spark }) {
   const posPrice = ((price - low) / (high - low)) * 100;
   return (
-    <div style={{ margin: '0 0 20px' }}>
+    <div data-testid="holdings-range-band" style={{ margin: '0 0 20px', minWidth: 0 }}>
       <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: 6 }}>
         <span style={{ fontSize: 12, color: WB.inkMute, letterSpacing: '0.14em' }}>30 日走勢</span>
         <span style={{ fontSize: 12, color: WB.inkSub, fontVariantNumeric: 'tabular-nums' }}>
@@ -929,7 +950,7 @@ function WeightRank({ WB, h, orderedDisplayed, totalPortfolioValue }) {
     .slice(0, 6);
   const maxPct = Math.max(...items.map((r) => r.pct), 1);
   return (
-    <div style={{ margin: '0 0 20px' }}>
+    <div data-testid="holdings-weight-rank" style={{ margin: '0 0 20px', minWidth: 0 }}>
       <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: 8 }}>
         <span style={{ fontSize: 12, color: WB.inkMute, letterSpacing: '0.14em' }}>佔比</span>
         <span style={{ fontSize: 12, color: WB.inkSub, fontVariantNumeric: 'tabular-nums' }}>
@@ -942,7 +963,7 @@ function WeightRank({ WB, h, orderedDisplayed, totalPortfolioValue }) {
           const isMe = r.code === h.code;
           const w = (r.pct / maxPct) * 100;
           return (
-            <div key={r.code} style={{ display: 'grid', gridTemplateColumns: '24px 1fr 56px', gap: 6, alignItems: 'center' }}>
+            <div key={r.code} style={{ display: 'grid', gridTemplateColumns: '24px minmax(0, 1fr) 56px', gap: 6, alignItems: 'center', minWidth: 0 }}>
               <span style={{ fontSize: 10, color: WB.inkMute, fontVariantNumeric: 'tabular-nums', textAlign: 'right' }}>#{idx + 1}</span>
               <div style={{ height: 10, background: WB.hair, position: 'relative', overflow: 'hidden' }}>
                 <div style={{
@@ -951,6 +972,7 @@ function WeightRank({ WB, h, orderedDisplayed, totalPortfolioValue }) {
                 }} />
                 <span style={{
                   position: 'absolute', left: 6, top: '50%', transform: 'translateY(-50%)',
+                  maxWidth: 'calc(100% - 12px)', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap',
                   fontSize: 10, color: WB.surface, letterSpacing: '0.02em', pointerEvents: 'none',
                 }}>{r.code} · {r.name}</span>
               </div>
@@ -971,7 +993,7 @@ function ThesisHistory({ WB, rows }) {
   const success = rows.filter((r) => r.afterPct != null && r.myAction === r.suggestion && r.afterPct > 0).length;
   const total = rows.length;
   return (
-    <div style={{ margin: '20px 0' }}>
+    <div data-testid="holdings-thesis-history" style={{ margin: '20px 0', minWidth: 0 }}>
       <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: 8 }}>
         <span style={{ fontSize: 12, color: WB.inkMute, letterSpacing: '0.14em' }}>決策履歷</span>
         <span style={{ fontSize: 12, color: WB.inkSub, fontVariantNumeric: 'tabular-nums' }}>

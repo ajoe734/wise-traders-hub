@@ -162,6 +162,18 @@ function HoldingsWorkbench(props) {
     if (!open) setExpandedDecision?.(null);
   };
 
+  const openNewDetailPanel = useCallback(
+    (code: string) => setExpandedDecision?.(code),
+    [setExpandedDecision],
+  );
+  const openResearchNote = useCallback(
+    (code: string) => {
+      if (typeof openHoldingDrawer === 'function') openHoldingDrawer(code);
+      else setExpandedDecision?.(code);
+    },
+    [openHoldingDrawer, setExpandedDecision],
+  );
+
   return (
     <div className="holdings-workbench">
 
@@ -185,7 +197,7 @@ function HoldingsWorkbench(props) {
             isActive={expandedDecision === h.code}
             syncState={holdingSyncStates?.[h.code]}
             onSelect={handleHoldingCardSelect}
-            onOpenDrawer={handleHoldingCardOpenDrawer}
+            onOpenDrawer={handleHoldingCardOpenDrawer || openNewDetailPanel}
             onReportMeta={handleReportMeta}
           />
         ))}
@@ -262,7 +274,7 @@ function HoldingsWorkbench(props) {
                 orderedDisplayed={orderedDisplayed}
                 WB={WB}
                 setExpandedDecision={setExpandedDecision}
-                openHoldingDrawer={openHoldingDrawer}
+                openHoldingDrawer={openResearchNote}
                 totalPortfolioValue={totalVal || 0}
                 sparkData30D={sparklines?.[selected.code] || []}
                 sortBy={sortBy}
