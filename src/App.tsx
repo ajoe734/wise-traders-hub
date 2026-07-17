@@ -88,6 +88,7 @@ const Register = lazy(() => import("./pages/auth/Register"));
 const LineCallback = lazy(() => import("./pages/auth/LineCallback"));
 const ForgotPassword = lazy(() => import("./pages/auth/ForgotPassword"));
 const ResetPassword = lazy(() => import("./pages/auth/ResetPassword"));
+const OAuthConsent = lazy(() => import("./pages/auth/OAuthConsent"));
 
 // Account pages
 const AccountProfile = lazy(() => import("./pages/account/Profile"));
@@ -297,6 +298,7 @@ const AppShell = () => (
             <Route path="/auth/line-callback" element={<LineCallback />} />
             <Route path="/auth/forgot-password" element={<ForgotPassword />} />
             <Route path="/auth/reset-password" element={<ResetPassword />} />
+            <Route path="/.lovable/oauth/consent" element={<OAuthConsent />} />
 
             {/* Account */}
             <Route path="/account/subscriptions" element={<Navigate to="/app/account" replace />} />
