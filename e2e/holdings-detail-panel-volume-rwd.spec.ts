@@ -103,6 +103,8 @@ async function auditPanel(page: Page) {
         if (overflow > tolerance) {
           badTextNodes.push({
             text: (node.textContent || '').replace(/\s+/g, ' ').trim().slice(0, 80),
+            left: rect.left, right: rect.right, top: rect.top, bottom: rect.bottom,
+            rootLeft: rootBox.left, rootRight: rootBox.right,
             overflow,
           });
         }
