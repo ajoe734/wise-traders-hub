@@ -457,6 +457,17 @@ export default defineConfig({
       use: { ...devices['Desktop Chrome'], viewport: { width: w, height: 1400 } },
     })),
 
+    // HoldingsDetailPanel 抽屜 · 極端內容壓力（長標題 / 多行摘要 / 大量列表）
+    // stress ∈ {long-title, multiline, mega-list, all} × viewport ∈ {320,390,768,1280}
+    // spec 內部再 × 3 scroll 位置（共 16 test × 3 audit = 48 個實際 audit 點）
+    // 失敗產物落點：test-results/holdings-drawer/stress-content-<w>/
+    ...([320, 390, 768, 1280] as const).map((w) => ({
+      name: `holdings-detail-stress-content-${w}`,
+      testMatch: /holdings-detail-panel-stress-content\.spec\.ts/,
+      outputDir: `test-results/holdings-drawer/stress-content-${w}`,
+      use: { ...devices['Desktop Chrome'], viewport: { width: w, height: 1400 } },
+    })),
+
     // HoldingsDetailPanel 抽屜 · 極端視窗 × 旋轉 × 滾動位置 幾何守門
     //   portrait ultra-narrow / iphone / landscape rotation / keyboard-open short /
     //   tall narrow / tablet portrait+landscape / ultra-wide desktop
