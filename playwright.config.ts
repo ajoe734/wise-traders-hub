@@ -427,6 +427,13 @@ export default defineConfig({
       use: { ...devices['Desktop Chrome'], viewport: { width: w, height: 900 } },
     })),
 
+    // HoldingsDetailPanel 抽屜 · 視覺快照回歸（多斷點）— pixel diff 防溢出/佈局跳動
+    ...([320, 375, 390, 414, 560, 768, 863, 1024, 1280] as const).map((w) => ({
+      name: `holdings-detail-visual-snapshot-${w}`,
+      testMatch: /holdings-detail-panel-visual-snapshot\.spec\.ts/,
+      use: { ...devices['Desktop Chrome'], viewport: { width: w, height: 900 } },
+    })),
+
     // Journal PDF 匯出 — 字型 / accent 色漂移守門 × 3 常見桌面/平板寬度
     // 頁面本身固定 794px，跨 viewport 主要是 catch 外層 layout / 字型延遲 fallback
     ...([768, 1024, 1280] as const).map((w) => ({
