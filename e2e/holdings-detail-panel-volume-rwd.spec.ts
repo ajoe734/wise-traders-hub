@@ -75,7 +75,12 @@ async function auditPanel(page: Page) {
         badFonts.push({ tag: el.tagName.toLowerCase(), text, fontSize });
       }
       const overflow = overflowAmount(rect);
-      if (text && overflow > tolerance) badBoxes.push({ tag: el.tagName.toLowerCase(), text, overflow });
+      if (text && overflow > tolerance) badBoxes.push({
+        tag: el.tagName.toLowerCase(), text,
+        left: rect.left, right: rect.right, top: rect.top, bottom: rect.bottom,
+        rootLeft: rootBox.left, rootRight: rootBox.right,
+        overflow,
+      });
     }
 
     const walker = document.createTreeWalker(root, NodeFilter.SHOW_TEXT, {
