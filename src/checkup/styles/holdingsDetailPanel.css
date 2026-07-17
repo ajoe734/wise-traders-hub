@@ -24,6 +24,12 @@
   /* Radix 有時對 fixed 內容注入 --removed-body-scroll-bar-size margin 補償；
      這裡把 margin 歸零避免與 right:0 疊加造成 panel-right 越界 */
   margin: 0 !important;
+  /* 移除 shadcn slide-in-from-right 的水平位移動畫（保留 opacity fade）。
+     原始動畫從 translateX(100%) 動到 0，t<500ms 期間 panel 會短暫超出
+     viewport 右緣（rwd-extreme spec 在 t≈250ms 量測時抓到 3~8px 溢出）。
+     用兩個自訂變數把水平位移歸零，只保留淡入淡出。 */
+  --tw-enter-translate-x: 0px !important;
+  --tw-exit-translate-x: 0px !important;
 }
 @media (max-width: 639.98px) {
   [data-testid="holdings-detail-panel"].holdings-sheet-content {
@@ -32,6 +38,12 @@
     width: auto !important;
     /* border-l 在 <sm 拿掉：貼齊兩側時 1px 額外邊會與 100vw 疊加造成 sub-pixel 溢出 */
     border-left-width: 0 !important;
+  }
+}
+@media (min-width: 640px) {
+  [data-testid="holdings-detail-panel"].holdings-sheet-content {
+    left: auto !important;
+    right: 0 !important;
   }
 }
 @media (min-width: 640px) {
