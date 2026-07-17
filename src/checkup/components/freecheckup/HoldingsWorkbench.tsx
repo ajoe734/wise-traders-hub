@@ -242,7 +242,13 @@ function HoldingsWorkbench(props) {
           ref={setSheetRef}
           side="right"
           data-testid="holdings-detail-panel"
-          className="holdings-sheet-content w-full sm:max-w-md md:max-w-lg lg:max-w-xl xl:max-w-2xl overflow-y-auto p-0"
+          // width / positioning 契約（對應 holdings-detail-panel-rwd-extreme spec）：
+          //   < sm(640)：!left-0 !right-0 !w-auto → 兩邊錨定、寬度=viewport，
+          //     避免 base variant 的 w-3/4 + border-l + Radix ScrollLock 補償變數
+          //     在窄寬度／折疊機出現 sub-pixel 漂移導致 panel-right 越過 viewport
+          //   ≥ sm：!left-auto 切回右側 docked，max-w-md → xl:max-w-2xl 響應式收斂
+          //   全部強制 box-border + max-w-[100vw]（extreme 硬上限保險絲）
+          className="holdings-sheet-content box-border !left-0 !right-0 !w-auto max-w-[100vw] sm:!left-auto sm:!w-auto sm:max-w-md md:max-w-lg lg:max-w-xl xl:max-w-2xl overflow-y-auto p-0"
           style={{
             background: WB.surface,
             borderColor: WB.hairStrong,
