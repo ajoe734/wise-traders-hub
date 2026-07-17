@@ -8,6 +8,7 @@
 import { test, expect, type Page } from '@playwright/test';
 import { gotoWithRetry } from './helpers/navigation';
 import { drawerStep, registerDrawerFailureReport } from './helpers/drawer-failure-report';
+import { annotateOverflowAndAttach, mergeAuditFindings } from './helpers/drawer-overflow-annotate';
 
 registerDrawerFailureReport();
 
@@ -95,8 +96,8 @@ test.describe('HoldingsDetailPanel · RWD integrity + legacy drawer guard', () =
       const { maxFontPx, tolerance } = args;
       const rootBox = root.getBoundingClientRect();
       const badFonts: Array<{ tag: string; text: string; fontSize: number }> = [];
-      const badBoxes: Array<{ tag: string; text: string; left: number; right: number; rootLeft: number; rootRight: number; overflow: number }> = [];
-      const badTextNodes: Array<{ text: string; left: number; right: number; rootLeft: number; rootRight: number; overflow: number }> = [];
+      const badBoxes: Array<{ tag: string; text: string; left: number; right: number; top: number; bottom: number; rootLeft: number; rootRight: number; overflow: number }> = [];
+      const badTextNodes: Array<{ text: string; left: number; right: number; top: number; bottom: number; rootLeft: number; rootRight: number; overflow: number }> = [];
 
       /**
        * 幾何佔位判定 — 只問：這個節點在版面上是否實際佔位並可見？
@@ -151,7 +152,7 @@ test.describe('HoldingsDetailPanel · RWD integrity + legacy drawer guard', () =
         if (text && overflow > tolerance) {
           badBoxes.push({
             tag: el.tagName.toLowerCase(), text,
-            left: rect.left, right: rect.right,
+            left: rect.left, right: rect.right, top: rect.top, bottom: rect.bottom,
             rootLeft: rootBox.left, rootRight: rootBox.right,
             overflow,
           });
@@ -178,7 +179,7 @@ test.describe('HoldingsDetailPanel · RWD integrity + legacy drawer guard', () =
           if (overflow > tolerance) {
             badTextNodes.push({
               text: (node.textContent || '').replace(/\s+/g, ' ').trim().slice(0, 80),
-              left: rect.left, right: rect.right,
+              left: rect.left, right: rect.right, top: rect.top, bottom: rect.bottom,
               rootLeft: rootBox.left, rootRight: rootBox.right,
               overflow,
             });
@@ -188,6 +189,11 @@ test.describe('HoldingsDetailPanel · RWD integrity + legacy drawer guard', () =
 
       return { badFonts, badBoxes, badTextNodes };
     }, { maxFontPx: MAX_FONT_PX, tolerance: OVERFLOW_TOLERANCE_PX });
+
+    const findings = mergeAuditFindings(audit);
+    if (findings.length > 0) {
+      await annotateOverflowAndAttach(page, panel, findings, testInfo, `rwd-${width}`);
+    }
 
     expect(audit.badFonts, `[${width}px] font-size > ${MAX_FONT_PX}px`).toEqual([]);
     expect(

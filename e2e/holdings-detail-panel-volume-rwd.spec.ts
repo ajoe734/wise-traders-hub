@@ -12,6 +12,7 @@
 import { test, expect, type Page } from '@playwright/test';
 import { gotoWithRetry } from './helpers/navigation';
 import { drawerStep, registerDrawerFailureReport } from './helpers/drawer-failure-report';
+import { annotateOverflowAndAttach, mergeAuditFindings } from './helpers/drawer-overflow-annotate';
 
 registerDrawerFailureReport();
 
@@ -34,8 +35,8 @@ async function auditPanel(page: Page) {
     const { maxFontPx, tolerance } = args;
     const rootBox = root.getBoundingClientRect();
     const badFonts: Array<{ tag: string; text: string; fontSize: number }> = [];
-    const badBoxes: Array<{ tag: string; text: string; overflow: number }> = [];
-    const badTextNodes: Array<{ text: string; overflow: number }> = [];
+    const badBoxes: Array<{ tag: string; text: string; left: number; right: number; top: number; bottom: number; rootLeft: number; rootRight: number; overflow: number }> = [];
+    const badTextNodes: Array<{ text: string; left: number; right: number; top: number; bottom: number; rootLeft: number; rootRight: number; overflow: number }> = [];
 
     const SUBPIXEL = 1;
     const isClippedToZero = (cs: CSSStyleDeclaration): boolean => {
@@ -74,7 +75,12 @@ async function auditPanel(page: Page) {
         badFonts.push({ tag: el.tagName.toLowerCase(), text, fontSize });
       }
       const overflow = overflowAmount(rect);
-      if (text && overflow > tolerance) badBoxes.push({ tag: el.tagName.toLowerCase(), text, overflow });
+      if (text && overflow > tolerance) badBoxes.push({
+        tag: el.tagName.toLowerCase(), text,
+        left: rect.left, right: rect.right, top: rect.top, bottom: rect.bottom,
+        rootLeft: rootBox.left, rootRight: rootBox.right,
+        overflow,
+      });
     }
 
     const walker = document.createTreeWalker(root, NodeFilter.SHOW_TEXT, {
@@ -97,6 +103,8 @@ async function auditPanel(page: Page) {
         if (overflow > tolerance) {
           badTextNodes.push({
             text: (node.textContent || '').replace(/\s+/g, ' ').trim().slice(0, 80),
+            left: rect.left, right: rect.right, top: rect.top, bottom: rect.bottom,
+            rootLeft: rootBox.left, rootRight: rootBox.right,
             overflow,
           });
         }
@@ -124,6 +132,12 @@ test.describe('HoldingsDetailPanel · 多資料量 RWD 溢出守門', () => {
       );
 
       const { viewport, audit } = await drawerStep(`audit geometry (count=${count})`, () => auditPanel(page));
+
+      const findings = mergeAuditFindings(audit);
+      if (findings.length > 0) {
+        const panel = page.locator('[data-testid="holdings-detail-panel"]').first();
+        await annotateOverflowAndAttach(page, panel, findings, testInfo, `count-${count}-vp-${width}`);
+      }
 
       expect(
         viewport.scrollWidth,
