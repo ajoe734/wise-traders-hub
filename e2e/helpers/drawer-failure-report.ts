@@ -17,6 +17,7 @@
 import { test, type Page } from '@playwright/test';
 import path from 'node:path';
 import fs from 'node:fs';
+import { getOverflowAnnotations } from './drawer-overflow-annotate';
 
 type StepFn<T> = () => Promise<T> | T;
 
