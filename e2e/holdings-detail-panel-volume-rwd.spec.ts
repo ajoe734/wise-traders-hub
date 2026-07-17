@@ -133,6 +133,12 @@ test.describe('HoldingsDetailPanel · 多資料量 RWD 溢出守門', () => {
 
       const { viewport, audit } = await drawerStep(`audit geometry (count=${count})`, () => auditPanel(page));
 
+      const findings = mergeAuditFindings(audit);
+      if (findings.length > 0) {
+        const panel = page.locator('[data-testid="holdings-detail-panel"]').first();
+        await annotateOverflowAndAttach(page, panel, findings, testInfo, `count-${count}-vp-${width}`);
+      }
+
       expect(
         viewport.scrollWidth,
         `[count=${count} viewport=${width}px] document horizontal scroll: scrollWidth(${viewport.scrollWidth}) > clientWidth(${viewport.clientWidth})`,
