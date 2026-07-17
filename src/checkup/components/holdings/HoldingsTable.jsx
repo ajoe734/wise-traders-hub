@@ -284,7 +284,7 @@ function HoldingRowImpl({
             }, '目標價'),
             h('input', {
               type: 'number',
-              value: holding.targetPrice || '',
+              value: holding.targetPrice ?? '',
               onChange: handleUpdateTarget,
               placeholder: '輸入目標價',
               style: {
@@ -300,18 +300,18 @@ function HoldingRowImpl({
                 transition: 'border-color 0.2s',
               },
             }),
-            holding.targetPrice && holding.price && h(
+            holding.targetPrice != null && holding.price != null && Number(holding.price) > 0 && h(
               'div',
               {
                 style: {
                   fontSize: 9,
-                  color: holding.price < holding.targetPrice ? C.up : C.down,
+                  color: Number(holding.price) < Number(holding.targetPrice) ? C.up : C.down,
                   marginTop: 4,
                   fontWeight: 400,
                   opacity: 0.7,
                 },
               },
-              `距目標 ${(((holding.targetPrice - holding.price) / holding.price) * 100).toFixed(1)}%`
+              `距目標 ${(((Number(holding.targetPrice) - Number(holding.price)) / Number(holding.price)) * 100).toFixed(1)}%`
             )
           ),
 
@@ -393,36 +393,32 @@ export function HoldingsTable({
     )
   }
 
-  // Bug B4 fix：sort 是 O(n log n)，quote tick 高頻 re-render 下每秒跑數十次會拖慢低階裝置。
-  // useMemo 讓 sort 只在 holdings / sortBy / sortDir 變動時執行。
+  // Bug B4/B5 fix：sort memoize + NaN 穩定化（NaN 全丟到序尾，避免 <, > 都 false 導致亂序）。
   const sorted = useMemo(() => {
-    return [...holdings].sort((a, b) => {
-      let aVal, bVal
+    const isNumeric = sortBy === 'value' || sortBy === 'pnl' || sortBy === 'pct'
+    const NAN_SENTINEL = sortDir === 'asc' ? Infinity : -Infinity
+    const getVal = (x) => {
       switch (sortBy) {
+        case 'value': return getHoldingMarketValue(x)
+        case 'pnl':   return getHoldingUnrealizedPnl(x)
+        case 'pct':   return getHoldingReturnPct(x)
         case 'code':
-          aVal = a.code
-          bVal = b.code
-          break
-        case 'value':
-          aVal = getHoldingMarketValue(a)
-          bVal = getHoldingMarketValue(b)
-          break
-        case 'pnl':
-          aVal = getHoldingUnrealizedPnl(a)
-          bVal = getHoldingUnrealizedPnl(b)
-          break
-        case 'pct':
-          aVal = getHoldingReturnPct(a)
-          bVal = getHoldingReturnPct(b)
-          break
-        default:
-          aVal = a.code
-          bVal = b.code
+        default:      return x.code
       }
-      if (sortDir === 'asc') {
-        return aVal < bVal ? -1 : aVal > bVal ? 1 : 0
+    }
+    return [...holdings].sort((a, b) => {
+      let aVal = getVal(a)
+      let bVal = getVal(b)
+      if (isNumeric) {
+        aVal = Number.isFinite(aVal) ? aVal : NAN_SENTINEL
+        bVal = Number.isFinite(bVal) ? bVal : NAN_SENTINEL
+        return sortDir === 'asc' ? aVal - bVal : bVal - aVal
       }
-      return aVal > bVal ? -1 : aVal < bVal ? 1 : 0
+      // string 分支
+      const sa = String(aVal ?? '')
+      const sb = String(bVal ?? '')
+      const cmp = sa < sb ? -1 : sa > sb ? 1 : 0
+      return sortDir === 'asc' ? cmp : -cmp
     })
   }, [holdings, sortBy, sortDir])
 
