@@ -192,8 +192,9 @@ test.describe('HoldingsDetailPanel · RWD integrity + legacy drawer guard', () =
     }, { maxFontPx: MAX_FONT_PX, tolerance: OVERFLOW_TOLERANCE_PX });
 
     const findings = mergeAuditFindings(audit);
+    const label = `rwd-${width}`;
     if (findings.length > 0) {
-      await annotateOverflowAndAttach(page, panel, findings, testInfo, `rwd-${width}`);
+      await annotateOverflowAndAttach(page, panel, findings, testInfo, label);
     }
 
     expect(audit.badFonts, `[${width}px] font-size > ${MAX_FONT_PX}px`).toEqual([]);
@@ -205,5 +206,8 @@ test.describe('HoldingsDetailPanel · RWD integrity + legacy drawer guard', () =
       audit.badTextNodes,
       `[${width}px] text node overflows panel (tolerance=${OVERFLOW_TOLERANCE_PX}px, geometry-only)`,
     ).toEqual([]);
+
+    // CI-strict：任何單一 overflow 不得超過 OVERFLOW_HARD_CAP_PX（CI=2.0 / local=3.0）
+    assertOverflowHardCap(findings, label);
   });
 });
