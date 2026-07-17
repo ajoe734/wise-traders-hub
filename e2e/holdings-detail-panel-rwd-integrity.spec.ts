@@ -179,7 +179,7 @@ test.describe('HoldingsDetailPanel · RWD integrity + legacy drawer guard', () =
           if (overflow > tolerance) {
             badTextNodes.push({
               text: (node.textContent || '').replace(/\s+/g, ' ').trim().slice(0, 80),
-              left: rect.left, right: rect.right,
+              left: rect.left, right: rect.right, top: rect.top, bottom: rect.bottom,
               rootLeft: rootBox.left, rootRight: rootBox.right,
               overflow,
             });
@@ -189,6 +189,11 @@ test.describe('HoldingsDetailPanel · RWD integrity + legacy drawer guard', () =
 
       return { badFonts, badBoxes, badTextNodes };
     }, { maxFontPx: MAX_FONT_PX, tolerance: OVERFLOW_TOLERANCE_PX });
+
+    const findings = mergeAuditFindings(audit);
+    if (findings.length > 0) {
+      await annotateOverflowAndAttach(page, panel, findings, testInfo, `rwd-${width}`);
+    }
 
     expect(audit.badFonts, `[${width}px] font-size > ${MAX_FONT_PX}px`).toEqual([]);
     expect(
