@@ -2,14 +2,17 @@
 /**
  * Preview-only E2E harness · HoldingsDetailPanel 多資料量 RWD 守門
  *
- * URL: /e2e/holdings-detail-panel-volume?count=1|10|50&width=mobile|desktop
+ * URL: /e2e/holdings-detail-panel-volume
+ *   ?count=1|10|50|100
+ *   &width=mobile|desktop
+ *   &stress=none|long-title|multiline|mega-list （可用逗號組合，例：stress=long-title,multiline）
  *
- * 目的：不依賴 demo 真實資料筆數，直接注入 N 筆 mock（rank / decisions /
- *   thesisTracking / targetPriceHistory / normalizedEvents），確認長清單
- *   不重新觸發溢出。
- *
- * 容器寬度：預設 100vw；`width=desktop` 時套 max-width: 512px（≈ sm:max-w-lg），
- * 模擬桌面 sheet 抽屜寬度。
+ * stress presets：
+ *   - none        : 標準 mock（既有行為）
+ *   - long-title  : 個股名稱 60 字、決策 note 200 字單行、事件標題 120 字
+ *   - multiline   : 決策 note 20 行、thesis 描述含強制換行、多行說明段落
+ *   - mega-list   : events=500、targetPriceHistory=500、thesisTracking=500
+ *                  （count 仍以 URL 參數為主，但列表長度 override）
  *
  * SECURITY: preview-only；prod 回傳 null。
  */
@@ -44,11 +47,37 @@ const NAME_POOL = [
   '統一', '味全', '大成', '卜蜂', '南僑', '中華食',
 ];
 
-function makeHoldings(count: number) {
+// 加壓工具 —— 用 repeat 造出精確長度的中英文
+const CJK = '極長標題壓力測試中文字元不換行不斷字持續拉長';
+const ASCII = 'LOREMIPSUMDOLORSITAMETCONSECTETURADIPISCINGELIT';
+function chars(len: number, seed: string): string {
+  let out = '';
+  while (out.length < len) out += seed;
+  return out.slice(0, len);
+}
+
+type StressFlags = {
+  longTitle: boolean;
+  multiline: boolean;
+  megaList: boolean;
+};
+
+function parseStress(raw: string | null): StressFlags {
+  const set = new Set((raw || 'none').split(',').map((s) => s.trim().toLowerCase()));
+  return {
+    longTitle: set.has('long-title') || set.has('all'),
+    multiline: set.has('multiline') || set.has('all'),
+    megaList: set.has('mega-list') || set.has('all'),
+  };
+}
+
+function makeHoldings(count: number, s: StressFlags) {
   const arr = [];
   for (let i = 0; i < count; i += 1) {
     const code = String(2000 + i);
-    const name = NAME_POOL[i % NAME_POOL.length];
+    const baseName = NAME_POOL[i % NAME_POOL.length];
+    // long-title：拉到 60 字中文，強調 title 節點在窄寬度下也不撐爆
+    const name = s.longTitle ? chars(60, `${baseName}${CJK}`) : baseName;
     const pct = ((count - i) / count) * (12 + (i % 5));
     const price = 100 + (i * 7) % 900;
     const qty = 100 * (1 + (i % 8));
@@ -61,14 +90,21 @@ function makeHoldings(count: number) {
   return arr;
 }
 
-function makeDecisionsMap(codes: string[]) {
+function makeDecisionsMap(codes: string[], s: StressFlags) {
   const map: Record<string, any> = {};
   const actions = ['hold', 'add', 'trim', 'watch'];
+  const longSingleLine = chars(200, `決策長註 ${CJK}`);
+  const multilineNote = Array.from({ length: 20 }, (_, k) =>
+    `第 ${k + 1} 行 · ${CJK.slice(0, 20)}`).join('\n');
   codes.forEach((code, i) => {
+    let note = `決策備註 · ${code} · 長註解確認在長清單下也不會撐爆容器邊界，這是刻意加長的中文文字節點。`;
+    if (s.longTitle) note = longSingleLine;
+    if (s.multiline) note = multilineNote;
+    if (s.longTitle && s.multiline) note = `${longSingleLine}\n\n${multilineNote}`;
     map[code] = {
       action: actions[i % actions.length],
       timestamp: `2026-07-${String((i % 28) + 1).padStart(2, '0')}`,
-      note: `決策備註 · ${code} · 長註解確認在長清單下也不會撐爆容器邊界，這是刻意加長的中文文字節點。`,
+      note,
     };
   });
   return map;
@@ -94,27 +130,34 @@ function makeTargetPriceHistory(code: string, count: number) {
   return { [code]: rows };
 }
 
-function makeThesisTracking(code: string, count: number) {
+function makeThesisTracking(code: string, count: number, s: StressFlags) {
   const rows = [];
   const suggestions = ['hold', 'add', 'trim', 'exit'];
+  const longNote = s.multiline
+    ? `${chars(120, `多行論述 ${CJK} `)}\n第二段：${chars(80, ASCII)}\n第三段：${chars(80, CJK)}`
+    : undefined;
   for (let i = 0; i < count; i += 1) {
     rows.push({
       date: `2026-${String(1 + (i % 12)).padStart(2, '0')}-${String(1 + (i % 28)).padStart(2, '0')}`,
       suggestion: suggestions[i % 4],
       myAction: suggestions[(i + 1) % 4],
       afterPct: ((i % 11) - 5) * 1.2,
+      ...(longNote ? { note: longNote, description: longNote } : {}),
     });
   }
   return { [code]: rows };
 }
 
-function makeEvents(count: number) {
+function makeEvents(count: number, s: StressFlags) {
   const arr = [];
+  const longTitle = chars(120, `事件超長標題 ${CJK} `);
   for (let i = 0; i < count; i += 1) {
     arr.push({
       code: String(2000 + i),
       date: `2026-08-${String(1 + (i % 28)).padStart(2, '0')}`,
-      title: `事件 ${i} · 這是刻意加長的事件標題，避免長清單下換行/溢出退化`,
+      title: s.longTitle
+        ? longTitle
+        : `事件 ${i} · 這是刻意加長的事件標題，避免長清單下換行/溢出退化`,
       kind: i % 2 === 0 ? 'earnings' : 'dividend',
     });
   }
@@ -129,29 +172,35 @@ export default function HoldingsDetailPanelVolumeHarnessEntry() {
   const countRaw = Number.parseInt(params.get('count') || '10', 10);
   const count = Math.max(1, Math.min(200, Number.isFinite(countRaw) ? countRaw : 10));
   const widthMode = params.get('width') === 'desktop' ? 'desktop' : 'mobile';
+  const stress = parseStress(params.get('stress'));
+  const stressLabel = params.get('stress') || 'none';
+
+  // mega-list：把三個列表放到 500 筆，count 保留 URL 值
+  const listCount = stress.megaList ? 500 : count;
 
   const {
     holdings, selected, decisionsMap, stockMeta, orderedDisplayed,
     normalizedEvents, targetPriceHistory, thesisTracking, sparkData30D,
   } = useMemo(() => {
-    const hs = makeHoldings(count);
+    const hs = makeHoldings(count, stress);
     const codes = hs.map((h) => h.code);
     const sel = hs[0];
     return {
       holdings: hs,
       selected: sel,
-      decisionsMap: makeDecisionsMap(codes),
+      decisionsMap: makeDecisionsMap(codes, stress),
       stockMeta: makeStockMeta(codes),
       orderedDisplayed: hs,
-      normalizedEvents: makeEvents(count),
-      targetPriceHistory: makeTargetPriceHistory(sel.code, count),
-      thesisTracking: makeThesisTracking(sel.code, count),
+      normalizedEvents: makeEvents(listCount, stress),
+      targetPriceHistory: makeTargetPriceHistory(sel.code, listCount),
+      thesisTracking: makeThesisTracking(sel.code, listCount, stress),
       sparkData30D: Array.from({ length: 30 }, (_, i) => ({
         date: `2026-06-${String(i + 1).padStart(2, '0')}`,
         v: 100 + Math.sin(i / 3) * 8,
       })),
     };
-  }, [count]);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [count, listCount, stress.longTitle, stress.multiline, stress.megaList]);
 
   const totalPortfolioValue = holdings.reduce((s, h) => s + h.price * h.qty, 0);
   const targets = () => selected.targetPrice;
@@ -172,6 +221,8 @@ export default function HoldingsDetailPanelVolumeHarnessEntry() {
       data-testid="holdings-detail-panel"
       data-volume-count={String(count)}
       data-volume-width={widthMode}
+      data-volume-stress={stressLabel}
+      data-volume-list-count={String(listCount)}
       style={containerStyle}
     >
       <Suspense fallback={<div style={{ padding: 24 }}>loading…</div>}>
