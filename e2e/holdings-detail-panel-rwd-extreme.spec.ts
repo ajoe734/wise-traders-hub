@@ -238,6 +238,7 @@ test.describe('HoldingsDetailPanel · RWD extreme geometry guard', () => {
     }
 
     // 3. 三個滾動位置分別做幾何守門（頂 / 中 / 底），避免只驗首屏漏檢下方 sections
+    const tracker = new VolatilityTracker(`rwd-extreme ${label} · scroll positions`);
     const positions = ['top', 'mid', 'bottom'] as const;
     for (const pos of positions) {
       const scrollInfo = await drawerStep(`scroll panel → ${pos}`, () => scrollPanelTo(panel, pos));
@@ -245,9 +246,11 @@ test.describe('HoldingsDetailPanel · RWD extreme geometry guard', () => {
       const audit = await drawerStep(`geometry audit @ ${pos}`, () => auditPanel(panel));
 
       const findings = mergeAuditFindings(audit);
+      const posLabel = `${label}-${pos}`;
       if (findings.length > 0) {
-        await annotateOverflowAndAttach(page, panel, findings, testInfo, `${label}-${pos}`);
+        await annotateOverflowAndAttach(page, panel, findings, testInfo, posLabel);
       }
+      tracker.record(pos, findingsMaxOverflow(findings));
 
       expect(
         audit.badFonts,
@@ -261,6 +264,12 @@ test.describe('HoldingsDetailPanel · RWD extreme geometry guard', () => {
         audit.badTextNodes,
         `[${label} · ${pos} scroll=${scrollInfo.scrollTop}/${scrollInfo.scrollHeight}] text node overflow (tol=${OVERFLOW_TOLERANCE_PX}px)`,
       ).toEqual([]);
+
+      // CI-strict：任何單一 overflow 不得超過硬上限
+      assertOverflowHardCap(findings, `${label}·${pos}`);
     }
+
+    // 波動守門：三個 scroll 位置的 maxOverflow 極差不得超過 VOLATILITY_MAX_RANGE_PX
+    tracker.assertRange();
   });
 });
