@@ -265,6 +265,7 @@ const AppShell = () => (
             <Route path="/holding-checkup-demo" element={<HoldingCheckupDemoEntry />} />
             <Route path="/e2e/holding-card-harness" element={<HoldingCardHarnessEntry />} />
             <Route path="/e2e/holdings-table-target-harness" element={<HoldingsTableTargetHarnessEntry />} />
+            <Route path="/e2e/holdings-detail-panel-volume" element={<HoldingsDetailPanelVolumeHarnessEntry />} />
             <Route path="/e2e/signal-editor-harness" element={<SignalEditorHarnessEntry />} />
             <Route path="/e2e/etf-display-harness" element={<EtfDisplayHarnessEntry />} />
             <Route path="/e2e/signal-preview-harness" element={<SignalPreviewHarnessEntry />} />
