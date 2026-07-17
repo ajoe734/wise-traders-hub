@@ -165,6 +165,25 @@ export async function annotateOverflowAndAttach(
   await testInfo.attach(pngName, { path: pngPath, contentType: 'image/png' });
   await testInfo.attach(jsonName, { path: jsonPath, contentType: 'application/json' });
 
+  // 註冊到 registry：drawer-failure-report 生成 drawer-failure-summary 時會把
+  // 每筆 label / side / overflow / 檔案路徑條列進去，讓打開 summary 就看到全貌
+  const maxFinding = annotated.reduce(
+    (acc, cur) => (cur.overflow > acc.overflow ? cur : acc),
+    annotated[0],
+  );
+  pushRecord(testInfo, {
+    label,
+    pngName,
+    jsonName,
+    pngPath,
+    jsonPath,
+    findings: annotated,
+    maxSide: maxFinding.side,
+    maxOverflow: maxFinding.overflow,
+    count: annotated.length,
+    createdAt: Date.now(),
+  });
+
   const lines = annotated.map((b, i) =>
     `  ${i + 1}. ${b.side.toUpperCase().padEnd(5)} +${b.overflow.toFixed(2)}px  ` +
     `[${b.kind}${b.tag ? `:${b.tag}` : ''}] "${b.text.slice(0, 60)}"  ` +
