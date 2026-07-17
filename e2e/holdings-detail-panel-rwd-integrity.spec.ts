@@ -9,10 +9,7 @@ import { test, expect, type Page } from '@playwright/test';
 import { gotoWithRetry } from './helpers/navigation';
 import { drawerStep, registerDrawerFailureReport } from './helpers/drawer-failure-report';
 import { annotateOverflowAndAttach, mergeAuditFindings } from './helpers/drawer-overflow-annotate';
-import {
-  assertOverflowHardCap,
-  OVERFLOW_TOLERANCE_PX as RWD_TOLERANCE,
-} from './helpers/drawer-rwd-thresholds';
+import { assertOverflowHardCap } from './helpers/drawer-rwd-thresholds';
 
 registerDrawerFailureReport();
 
