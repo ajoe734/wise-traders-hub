@@ -14,6 +14,8 @@
  * 覆蓋層加完 → 截圖 → 立即移除，避免影響 retry / 後續斷言。
  */
 import type { Page, Locator, TestInfo } from '@playwright/test';
+import fs from 'node:fs';
+import path from 'node:path';
 
 export type OverflowFinding = {
   kind: 'element' | 'text';
