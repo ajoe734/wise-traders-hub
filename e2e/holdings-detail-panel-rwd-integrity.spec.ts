@@ -7,6 +7,9 @@
  */
 import { test, expect, type Page } from '@playwright/test';
 import { gotoWithRetry } from './helpers/navigation';
+import { drawerStep, registerDrawerFailureReport } from './helpers/drawer-failure-report';
+
+registerDrawerFailureReport();
 
 const MAX_FONT_PX = 22;
 const LEGACY_TEXTS = [
@@ -32,18 +35,23 @@ test.describe('HoldingsDetailPanel · RWD integrity + legacy drawer guard', () =
   test('新版抽屜單一路徑、無 legacy DOM、無水平溢出、全域字級 ≤ 22px', async ({ page }, testInfo) => {
     const width = testInfo.project.use.viewport?.width ?? 1280;
 
-    await primeDemo(page);
-    await gotoWithRetry(page, '/holding-checkup-demo', { waitUntil: 'domcontentloaded' });
+    await drawerStep('prime demo storage', () => primeDemo(page));
+    await drawerStep(`goto /holding-checkup-demo @ ${width}px`, () =>
+      gotoWithRetry(page, '/holding-checkup-demo', { waitUntil: 'domcontentloaded' }),
+    );
 
-    const firstCard = page.locator('.wb-card').first();
-    await firstCard.waitFor({ state: 'visible', timeout: 15_000 });
-    await firstCard.scrollIntoViewIfNeeded();
-    await firstCard.click();
+    await drawerStep('click first card + wait drawer visible + fonts ready', async () => {
+      const firstCard = page.locator('.wb-card').first();
+      await firstCard.waitFor({ state: 'visible', timeout: 15_000 });
+      await firstCard.scrollIntoViewIfNeeded();
+      await firstCard.click();
+      const panel = page.locator('[data-testid="holdings-detail-panel"]').first();
+      await panel.waitFor({ state: 'visible', timeout: 15_000 });
+      await page.evaluate(() => document.fonts?.ready);
+      await page.waitForTimeout(250);
+    });
 
     const panel = page.locator('[data-testid="holdings-detail-panel"]').first();
-    await panel.waitFor({ state: 'visible', timeout: 15_000 });
-    await page.evaluate(() => document.fonts?.ready);
-    await page.waitForTimeout(250);
 
     await expect(page.locator('[data-testid="holdings-detail-panel"]')).toHaveCount(1);
     await expect(page.locator('.holding-drawer-content')).toHaveCount(0);

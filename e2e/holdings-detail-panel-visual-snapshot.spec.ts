@@ -14,6 +14,9 @@
  */
 import { test, expect, type Page, type Locator } from '@playwright/test';
 import { gotoWithRetry } from './helpers/navigation';
+import { drawerStep, registerDrawerFailureReport } from './helpers/drawer-failure-report';
+
+registerDrawerFailureReport();
 
 async function primeDemo(page: Page) {
   await page.addInitScript(() => {
@@ -49,19 +52,22 @@ test.describe('HoldingsDetailPanel · 視覺快照回歸（多斷點）', () => 
   test('抽屜於當前斷點視覺快照與 baseline 相符', async ({ page }, testInfo) => {
     const width = testInfo.project.use.viewport?.width ?? 1280;
 
-    await primeDemo(page);
-    await gotoWithRetry(page, '/holding-checkup-demo', { waitUntil: 'domcontentloaded' });
-
-    const firstCard = page.locator('.wb-card').first();
-    await firstCard.waitFor({ state: 'visible', timeout: 15_000 });
-    await firstCard.scrollIntoViewIfNeeded();
-    await firstCard.click();
+    await drawerStep('prime demo storage', () => primeDemo(page));
+    await drawerStep(`goto /holding-checkup-demo @ ${width}px`, () =>
+      gotoWithRetry(page, '/holding-checkup-demo', { waitUntil: 'domcontentloaded' }),
+    );
+    await drawerStep('open drawer + stabilize', async () => {
+      const firstCard = page.locator('.wb-card').first();
+      await firstCard.waitFor({ state: 'visible', timeout: 15_000 });
+      await firstCard.scrollIntoViewIfNeeded();
+      await firstCard.click();
+      const panel0 = page.locator('[data-testid="holdings-detail-panel"]').first();
+      await panel0.waitFor({ state: 'visible', timeout: 15_000 });
+      await stabilize(page);
+      await page.waitForTimeout(400);
+    });
 
     const panel = page.locator('[data-testid="holdings-detail-panel"]').first();
-    await panel.waitFor({ state: 'visible', timeout: 15_000 });
-    await stabilize(page);
-    // 給 layout + font metrics 一點時間穩定
-    await page.waitForTimeout(400);
 
     // 動態內容 mask — 避免每次跑價/時間差異炸掉快照
     const masks: Locator[] = [
@@ -74,13 +80,15 @@ test.describe('HoldingsDetailPanel · 視覺快照回歸（多斷點）', () => 
       page.locator('[data-testid="holdings-thesis-history"]'),
     ];
 
-    await expect(panel).toHaveScreenshot(`holdings-detail-panel-${width}.png`, {
-      mask: masks,
-      maskColor: '#efeae1',
-      animations: 'disabled',
-      caret: 'hide',
-      scale: 'css',
-      maxDiffPixelRatio: 0.02,
-    });
+    await drawerStep(`snapshot diff @ ${width}px`, () =>
+      expect(panel).toHaveScreenshot(`holdings-detail-panel-${width}.png`, {
+        mask: masks,
+        maskColor: '#efeae1',
+        animations: 'disabled',
+        caret: 'hide',
+        scale: 'css',
+        maxDiffPixelRatio: 0.02,
+      }),
+    );
   });
 });
