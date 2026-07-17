@@ -480,6 +480,17 @@ export default defineConfig({
       use: { ...devices['Desktop Chrome'], viewport: { width: w, height: 720 } },
     })),
 
+    // HoldingsDetailPanel 抽屜 · 載入中（skeleton）→ 渲染完成（ready）全流程幾何守門
+    //   × 2 loading 延遲（400ms / 1200ms）× 3 phase（skeleton / transition / ready）
+    //   = 每 viewport 2 test × 3 audit
+    // 失敗產物落點：test-results/holdings-drawer/loading-to-ready-<w>/
+    ...([320, 390, 768, 1280] as const).map((w) => ({
+      name: `holdings-detail-loading-to-ready-${w}`,
+      testMatch: /holdings-detail-panel-loading-to-ready\.spec\.ts/,
+      outputDir: `test-results/holdings-drawer/loading-to-ready-${w}`,
+      use: { ...devices['Desktop Chrome'], viewport: { width: w, height: 900 } },
+    })),
+
     // HoldingsDetailPanel 抽屜 · 極端視窗 × 旋轉 × 滾動位置 幾何守門
     //   portrait ultra-narrow / iphone / landscape rotation / keyboard-open short /
     //   tall narrow / tablet portrait+landscape / ultra-wide desktop
