@@ -96,8 +96,13 @@ export function registerDrawerFailureReport() {
       ...overflowLines,
     ].join('\n');
 
+    // 用 path 屬性 attach → Playwright 會把檔案落地到 outputDir 且以 hash 名複製
+    // 到 attachments/，這樣 CLI 就能直接 `cat test-results/.../drawer-failure-summary.txt`
+    // 取到完整內容（body 屬性走 in-memory，CLI reporter 會截斷顯示、且不落地）。
+    const summaryTxtPath = testInfo.outputPath('drawer-failure-summary.txt');
+    fs.writeFileSync(summaryTxtPath, summary, 'utf8');
     await testInfo.attach('drawer-failure-summary', {
-      body: summary,
+      path: summaryTxtPath,
       contentType: 'text/plain',
     });
 
@@ -124,11 +129,28 @@ export function registerDrawerFailureReport() {
             )} | ${r.count} | \`${r.pngName}\` | \`${r.jsonName}\` |`,
         ),
         '',
-        '> 同一 test 的 attachments 已與本檔並列於 Playwright HTML report；',
-        '> 若在 CLI 直接 open：`open $(pwd)/' + path.relative(process.cwd(), overflows[0]!.pngPath) + '`',
+        '## Top findings (per label)',
+        '',
+        ...overflows.flatMap((r) => [
+          `### ${r.label}`,
+          '',
+          ...r.findings.slice(0, 5).map(
+            (b, j) =>
+              `- #${j + 1} **${b.side.toUpperCase()}** \`+${b.overflow.toFixed(2)}px\` ` +
+              `[${b.kind}${b.tag ? `:${b.tag}` : ''}] "${(b.text || '').slice(0, 60).replace(/\|/g, '\\|')}"  ` +
+              `rect=(L${b.left.toFixed(1)}, R${b.right.toFixed(1)}) ` +
+              `root=(L${b.rootLeft.toFixed(1)}, R${b.rootRight.toFixed(1)})`,
+          ),
+          r.findings.length > 5 ? `- … +${r.findings.length - 5} more (見 \`${r.jsonName}\`)` : '',
+          '',
+        ]),
+        '> 同一 test 的所有 attachments 已與本檔並列於 Playwright HTML report / trace；',
+        '> CLI 直接開圖：`open $(pwd)/' + path.relative(process.cwd(), overflows[0]!.pngPath) + '`',
       ].join('\n');
+      const summaryMdPath = testInfo.outputPath('drawer-failure-summary.md');
+      fs.writeFileSync(summaryMdPath, md, 'utf8');
       await testInfo.attach('drawer-failure-summary.md', {
-        body: md,
+        path: summaryMdPath,
         contentType: 'text/markdown',
       });
     }
