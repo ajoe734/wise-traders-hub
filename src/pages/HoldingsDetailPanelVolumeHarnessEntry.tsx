@@ -16,7 +16,7 @@
  *
  * SECURITY: preview-only；prod 回傳 null。
  */
-import { Suspense, lazy, useMemo } from 'react';
+import { Suspense, lazy, useEffect, useMemo, useState } from 'react';
 import { WB } from '@/pages/_freeCheckup/constants.jsx';
 
 const HoldingsDetailPanel = lazy(
