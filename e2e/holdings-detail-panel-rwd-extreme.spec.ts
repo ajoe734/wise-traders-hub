@@ -204,10 +204,30 @@ test.describe('HoldingsDetailPanel · RWD extreme geometry guard', () => {
       `[${label}] document horizontal scroll: scrollWidth(${viewport.scrollWidth}) > clientWidth(${viewport.clientWidth})`,
     ).toBeLessThanOrEqual(viewport.clientWidth + 1);
 
-    // 2. panel bounding box 不外溢視窗
+    // 2. panel bounding box 不外溢視窗 — 出界時先產出以 <html> 為 root 的合成標註截圖
     const panelBox = await panel.boundingBox();
     expect(panelBox, `[${label}] panel bounding box should exist`).not.toBeNull();
     if (panelBox) {
+      const rootRight = viewport.clientWidth;
+      const leftOver = 0 - panelBox.x;
+      const rightOver = (panelBox.x + panelBox.width) - rootRight;
+      const overflow = Math.max(leftOver, rightOver, 0);
+      if (overflow > 0.5) {
+        const synthetic: OverflowFinding[] = [{
+          kind: 'element',
+          tag: 'panel-vs-viewport',
+          text: `panel bounding box vs viewport ${viewport.clientWidth}px`,
+          left: panelBox.x,
+          right: panelBox.x + panelBox.width,
+          top: panelBox.y,
+          bottom: panelBox.y + panelBox.height,
+          rootLeft: 0,
+          rootRight: rootRight,
+          overflow,
+        }];
+        const html = page.locator('html');
+        await annotateOverflowAndAttach(page, html, synthetic, testInfo, `panel-vs-viewport-${label}`);
+      }
       expect(panelBox.x, `[${label}] panel left overflow`).toBeGreaterThanOrEqual(-0.5);
       expect(panelBox.x + panelBox.width, `[${label}] panel right overflow`).toBeLessThanOrEqual(viewport.clientWidth + 0.5);
     }
@@ -218,6 +238,11 @@ test.describe('HoldingsDetailPanel · RWD extreme geometry guard', () => {
       const scrollInfo = await drawerStep(`scroll panel → ${pos}`, () => scrollPanelTo(panel, pos));
       await page.waitForTimeout(120);
       const audit = await drawerStep(`geometry audit @ ${pos}`, () => auditPanel(panel));
+
+      const findings = mergeAuditFindings(audit);
+      if (findings.length > 0) {
+        await annotateOverflowAndAttach(page, panel, findings, testInfo, `${label}-${pos}`);
+      }
 
       expect(
         audit.badFonts,
