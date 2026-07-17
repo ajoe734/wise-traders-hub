@@ -291,7 +291,12 @@
 /* 手機隱藏桌機頂欄 tabs、桌機隱藏底欄 */
 @media (max-width: 640px) {
   .checkup-mono .cm-desktop-tabs { display: none !important; }
-  .checkup-mono .cm-page-content { padding-bottom: 84px; }
+  /* 底部 tabbar 實測 59px（padding 6+6 + 內容 ≈ 40+ + safe-area）。
+     用 calc 動態覆蓋 iOS safe-area-inset-bottom；
+     tall-narrow 視窗（320×1200 等）最末幾張卡靠這條 padding 才能被完整滾出遮擋區。 */
+  .checkup-mono .cm-page-content {
+    padding-bottom: calc(96px + env(safe-area-inset-bottom, 0px));
+  }
   /* IA §2 手機頂欄：只保留 logo + 頁名，其他選項收到「更多」sheet */
   .checkup-mono .cm-header-desktop-only,
   .checkup-mono .cm-header-actions,
