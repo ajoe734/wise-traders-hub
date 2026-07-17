@@ -215,7 +215,7 @@ export default function HoldingMetaReportModal({ holding, currentMeta, onClose, 
           border: `1px solid ${C.border}`,
         }}
       >
-        <div style={{ fontSize: 14, fontWeight: 700, color: C.text, marginBottom: 4 }}>
+        <div style={{ fontSize: 14, fontWeight: 500, color: C.text, marginBottom: 4 }}>
           回報分類 — {holding.name || holding.code}（{holding.code}）
         </div>
         <div style={{ fontSize: 11, color: C.textMute, marginBottom: 16, lineHeight: 1.6 }}>
