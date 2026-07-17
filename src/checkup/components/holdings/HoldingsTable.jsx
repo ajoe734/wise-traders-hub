@@ -96,7 +96,7 @@ function HoldingRowImpl({
         style: {
           background: 'transparent',
           border: `1px solid ${alpha(C.textMute, '10')}`,
-          borderRadius: 10,
+          borderRadius: 8,
           padding: '20px 18px 18px',
           transition: 'border-color 0.2s ease',
           display: 'flex',
@@ -174,8 +174,8 @@ function HoldingRowImpl({
           {
             className: 'tn',
             style: {
-              fontSize: 32,
-              fontWeight: 300,
+              fontSize: 22,
+              fontWeight: 500,
               color: pnlColor,
               letterSpacing: '-0.01em',
               lineHeight: 1,

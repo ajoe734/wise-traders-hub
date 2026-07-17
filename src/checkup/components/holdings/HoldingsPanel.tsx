@@ -38,7 +38,7 @@ export function HoldingsSummary({ holdings, totalVal, totalCost }) {
       <div
         style={{
           background: alpha(heroColor, '06'),
-          borderRadius: 12,
+          borderRadius: 8,
           padding: '24px 20px',
           marginBottom: 16,
           textAlign: 'center',
@@ -58,7 +58,7 @@ export function HoldingsSummary({ holdings, totalVal, totalCost }) {
         <div
           className="tn"
           style={{
-            fontSize: 28,
+            fontSize: 22,
             fontWeight: 500,
             color: heroColor,
             lineHeight: 1.3,
@@ -154,7 +154,7 @@ export function HoldingsIntegrityWarning({ issues, onRetry }) {
         fontSize: 10,
         color: C.amber,
         lineHeight: 1.7,
-        borderLeft: `1px solid ${alpha(C.amber, '20')}`,
+        
         background: alpha(C.amber, '04'),
         borderRadius: 4,
         display: 'flex',
@@ -289,7 +289,7 @@ export function PortfolioHealthCheck({ holdings }) {
       {warnings.length > 0 && (
         <div
           style={{
-            borderLeft: `2px solid ${alpha(C.amber, '30')}`,
+            
             background: alpha(C.amber, '04'),
             borderRadius: 4,
             padding: '8px 12px',

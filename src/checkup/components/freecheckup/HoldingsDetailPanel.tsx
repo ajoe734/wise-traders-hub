@@ -445,7 +445,7 @@ function HoldingsDetailPanelImpl({
           </div>
           <div style={{ display: 'flex', alignItems: 'flex-end', justifyContent: 'space-between', gap: 12 }}>
             <h2 style={{
-              margin: 0, fontFamily: SERIF, fontSize: 26, fontWeight: 500,
+              margin: 0, fontFamily: SERIF, fontSize: 22, fontWeight: 500,
               color: WB.ink, letterSpacing: '-0.005em', lineHeight: 1.15,
               whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis', flex: 1, minWidth: 0,
             }}>{h.name}</h2>

@@ -28,11 +28,11 @@ function HoldingsQuotaMeterImpl(props) {
     return (
       <div className="checkup-quota-meter" style={{
         marginBottom: 14, padding: '12px 14px',
-        border: `1px solid ${C.border}`, borderRadius: 10, background: C.card,
+        border: `1px solid ${C.border}`, borderRadius: 8, background: C.card,
       }}>
         <div style={{ fontSize: 12, color: C.textMute, letterSpacing: '0.02em', marginBottom: 8 }}>載入配額中…</div>
         <div style={{ height: 4, background: alpha(C.textMute, '18'), borderRadius: 2, overflow: 'hidden' }}>
-          <div style={{ height: '100%', width: '30%', background: alpha(C.textMute, '40'), animation: 'pulse 1.4s ease-in-out infinite' }} />
+          <div style={{ height: '100%', width: '30%', background: alpha(C.textMute, '40') }} />
         </div>
       </div>
     );
@@ -84,7 +84,7 @@ function HoldingsQuotaMeterImpl(props) {
       marginBottom: 14,
       padding: '12px 14px',
       border: `1px solid ${C.border}`,
-      borderRadius: 10,
+      borderRadius: 8,
       background: C.card,
     }}>
       <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 10, marginBottom: 8, flexWrap: 'wrap' }}>

@@ -133,9 +133,7 @@ function HoldingCardImpl(props) {
       aria-hidden
       style={{
         position: 'absolute', inset: 0, pointerEvents: 'none',
-        background: 'linear-gradient(90deg, rgba(255,255,255,0) 0%, rgba(255,255,255,0.25) 50%, rgba(255,255,255,0) 100%)',
-        backgroundSize: '200% 100%',
-        animation: 'shimmer 1.1s linear infinite',
+        background: 'rgba(255,255,255,0.35)',
         zIndex: 3,
       }}
     />
@@ -151,7 +149,7 @@ function HoldingCardImpl(props) {
       style={{
         position: 'absolute', left: 0, right: 0, bottom: 0,
         padding: '4px 10px',
-        fontSize: 10, fontWeight: 600, letterSpacing: '0.04em',
+        fontSize: 10, fontWeight: 500, letterSpacing: '0.04em',
         color: '#fff', background: '#c8362c',
         display: 'flex', alignItems: 'center', gap: 6,
         zIndex: 4,
