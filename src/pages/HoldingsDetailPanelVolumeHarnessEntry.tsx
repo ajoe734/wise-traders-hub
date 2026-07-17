@@ -172,29 +172,35 @@ export default function HoldingsDetailPanelVolumeHarnessEntry() {
   const countRaw = Number.parseInt(params.get('count') || '10', 10);
   const count = Math.max(1, Math.min(200, Number.isFinite(countRaw) ? countRaw : 10));
   const widthMode = params.get('width') === 'desktop' ? 'desktop' : 'mobile';
+  const stress = parseStress(params.get('stress'));
+  const stressLabel = params.get('stress') || 'none';
+
+  // mega-list：把三個列表放到 500 筆，count 保留 URL 值
+  const listCount = stress.megaList ? 500 : count;
 
   const {
     holdings, selected, decisionsMap, stockMeta, orderedDisplayed,
     normalizedEvents, targetPriceHistory, thesisTracking, sparkData30D,
   } = useMemo(() => {
-    const hs = makeHoldings(count);
+    const hs = makeHoldings(count, stress);
     const codes = hs.map((h) => h.code);
     const sel = hs[0];
     return {
       holdings: hs,
       selected: sel,
-      decisionsMap: makeDecisionsMap(codes),
+      decisionsMap: makeDecisionsMap(codes, stress),
       stockMeta: makeStockMeta(codes),
       orderedDisplayed: hs,
-      normalizedEvents: makeEvents(count),
-      targetPriceHistory: makeTargetPriceHistory(sel.code, count),
-      thesisTracking: makeThesisTracking(sel.code, count),
+      normalizedEvents: makeEvents(listCount, stress),
+      targetPriceHistory: makeTargetPriceHistory(sel.code, listCount),
+      thesisTracking: makeThesisTracking(sel.code, listCount, stress),
       sparkData30D: Array.from({ length: 30 }, (_, i) => ({
         date: `2026-06-${String(i + 1).padStart(2, '0')}`,
         v: 100 + Math.sin(i / 3) * 8,
       })),
     };
-  }, [count]);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [count, listCount, stress.longTitle, stress.multiline, stress.megaList]);
 
   const totalPortfolioValue = holdings.reduce((s, h) => s + h.price * h.qty, 0);
   const targets = () => selected.targetPrice;
@@ -215,6 +221,8 @@ export default function HoldingsDetailPanelVolumeHarnessEntry() {
       data-testid="holdings-detail-panel"
       data-volume-count={String(count)}
       data-volume-width={widthMode}
+      data-volume-stress={stressLabel}
+      data-volume-list-count={String(listCount)}
       style={containerStyle}
     >
       <Suspense fallback={<div style={{ padding: 24 }}>loading…</div>}>
