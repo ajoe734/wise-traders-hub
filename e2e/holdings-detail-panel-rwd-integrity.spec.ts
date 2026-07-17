@@ -75,38 +75,41 @@ test.describe('HoldingsDetailPanel · RWD integrity + legacy drawer guard', () =
       expect(panelBox.x + panelBox.width, `[${width}px] panel right overflow`).toBeLessThanOrEqual(viewport.clientWidth + 0.5);
     }
 
-    const audit = await panel.evaluate((root, maxFontPx) => {
+    // 溢出判定改為「純幾何」路徑：
+    //   1. 不再依賴 aria-hidden / Radix visually-hidden / sr-only 判讀（Radix Dialog
+    //      的 VisuallyHidden 節點會誤導判定；aria-hidden 也不代表視覺不佔位）。
+    //   2. 排除條件僅限「布局上真的沒佔位」：display:none、visibility:hidden、
+    //      getClientRects() 為空、或 rect 面積 = 0。
+    //   3. 溢出比對統一使用 boundingClientRect + 明確像素容差 `OVERFLOW_TOLERANCE_PX`，
+    //      吸收 sub-pixel rounding / transform AA / scrollbar gutter 誤差。
+    const OVERFLOW_TOLERANCE_PX = 1.5;
+    const audit = await panel.evaluate((root, args) => {
+      const { maxFontPx, tolerance } = args;
       const rootBox = root.getBoundingClientRect();
       const badFonts: Array<{ tag: string; text: string; fontSize: number }> = [];
-      const badBoxes: Array<{ tag: string; text: string; left: number; right: number; rootLeft: number; rootRight: number }> = [];
-      const badTextNodes: Array<{ text: string; left: number; right: number; rootLeft: number; rootRight: number }> = [];
+      const badBoxes: Array<{ tag: string; text: string; left: number; right: number; rootLeft: number; rootRight: number; overflow: number }> = [];
+      const badTextNodes: Array<{ text: string; left: number; right: number; rootLeft: number; rootRight: number; overflow: number }> = [];
 
-      const visible = (el: Element) => {
+      /**
+       * 幾何佔位判定 — 只問：這個節點在版面上是否實際佔位？
+       * 完全不看 aria-hidden、data-radix-visually-hidden、sr-only。
+       */
+      const hasLayout = (el: Element): boolean => {
         const cs = window.getComputedStyle(el);
+        if (cs.display === 'none' || cs.visibility === 'hidden') return false;
+        const rects = (el as HTMLElement).getClientRects?.();
+        if (!rects || rects.length === 0) return false;
         const rect = el.getBoundingClientRect();
-        let cur: Element | null = el;
-        const visuallyHidden =
-          !!el.closest('[data-radix-visually-hidden], .sr-only') ||
-          (() => {
-            while (cur && cur !== root) {
-              const curCs = window.getComputedStyle(cur);
-              const curRect = cur.getBoundingClientRect();
-              const cls = String((cur as HTMLElement).className || '');
-              if (
-                cls.includes('sr-only') ||
-                cur.hasAttribute('data-radix-visually-hidden') ||
-                curCs.clip !== 'auto' ||
-                curCs.clipPath !== 'none' ||
-                (curCs.position === 'absolute' && curRect.width <= 1 && curRect.height <= 1)
-              ) return true;
-              cur = cur.parentElement;
-            }
-            return false;
-          })();
-        return !visuallyHidden && cs.display !== 'none' && cs.visibility !== 'hidden' && rect.width > 0 && rect.height > 0;
+        return rect.width > 0 && rect.height > 0;
       };
 
-      const elements = Array.from(root.querySelectorAll('*')).filter(visible);
+      const overflowAmount = (rect: { left: number; right: number }) => {
+        const leftOver = rootBox.left - rect.left;
+        const rightOver = rect.right - rootBox.right;
+        return Math.max(leftOver, rightOver, 0);
+      };
+
+      const elements = Array.from(root.querySelectorAll('*')).filter(hasLayout);
       for (const el of elements) {
         const cs = window.getComputedStyle(el);
         const rect = el.getBoundingClientRect();
@@ -115,11 +118,13 @@ test.describe('HoldingsDetailPanel · RWD integrity + legacy drawer guard', () =
         if (Number.isFinite(fontSize) && fontSize > maxFontPx + 0.01) {
           badFonts.push({ tag: el.tagName.toLowerCase(), text, fontSize });
         }
-        if (text && (rect.left < rootBox.left - 1 || rect.right > rootBox.right + 1)) {
+        const overflow = overflowAmount(rect);
+        if (text && overflow > tolerance) {
           badBoxes.push({
             tag: el.tagName.toLowerCase(), text,
             left: rect.left, right: rect.right,
             rootLeft: rootBox.left, rootRight: rootBox.right,
+            overflow,
           });
         }
       }
@@ -129,7 +134,7 @@ test.describe('HoldingsDetailPanel · RWD integrity + legacy drawer guard', () =
           const value = (node.textContent || '').replace(/\s+/g, '').trim();
           if (!value) return NodeFilter.FILTER_REJECT;
           const parent = node.parentElement;
-          if (!parent || !visible(parent)) return NodeFilter.FILTER_REJECT;
+          if (!parent || !hasLayout(parent)) return NodeFilter.FILTER_REJECT;
           return NodeFilter.FILTER_ACCEPT;
         },
       });
@@ -140,21 +145,29 @@ test.describe('HoldingsDetailPanel · RWD integrity + legacy drawer guard', () =
         const rects = Array.from(range.getClientRects()).filter((r) => r.width > 0 && r.height > 0);
         range.detach();
         for (const rect of rects) {
-          if (rect.left < rootBox.left - 1 || rect.right > rootBox.right + 1) {
+          const overflow = overflowAmount(rect);
+          if (overflow > tolerance) {
             badTextNodes.push({
               text: (node.textContent || '').replace(/\s+/g, ' ').trim().slice(0, 80),
               left: rect.left, right: rect.right,
               rootLeft: rootBox.left, rootRight: rootBox.right,
+              overflow,
             });
           }
         }
       }
 
       return { badFonts, badBoxes, badTextNodes };
-    }, MAX_FONT_PX);
+    }, { maxFontPx: MAX_FONT_PX, tolerance: OVERFLOW_TOLERANCE_PX });
 
     expect(audit.badFonts, `[${width}px] font-size > ${MAX_FONT_PX}px`).toEqual([]);
-    expect(audit.badBoxes, `[${width}px] visible element overflows panel`).toEqual([]);
-    expect(audit.badTextNodes, `[${width}px] visible text node overflows panel`).toEqual([]);
+    expect(
+      audit.badBoxes,
+      `[${width}px] element overflows panel (tolerance=${OVERFLOW_TOLERANCE_PX}px, geometry-only)`,
+    ).toEqual([]);
+    expect(
+      audit.badTextNodes,
+      `[${width}px] text node overflows panel (tolerance=${OVERFLOW_TOLERANCE_PX}px, geometry-only)`,
+    ).toEqual([]);
   });
 });
