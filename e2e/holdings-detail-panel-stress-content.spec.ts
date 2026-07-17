@@ -16,11 +16,16 @@ import { test, expect, type Page, type Locator } from '@playwright/test';
 import { gotoWithRetry } from './helpers/navigation';
 import { drawerStep, registerDrawerFailureReport } from './helpers/drawer-failure-report';
 import { annotateOverflowAndAttach, mergeAuditFindings } from './helpers/drawer-overflow-annotate';
+import {
+  assertOverflowHardCap,
+  findingsMaxOverflow,
+  OVERFLOW_TOLERANCE_PX,
+  VolatilityTracker,
+} from './helpers/drawer-rwd-thresholds';
 
 registerDrawerFailureReport();
 
 const MAX_FONT_PX = 22;
-const OVERFLOW_TOLERANCE_PX = 1.5;
 const STRESS_PRESETS = ['long-title', 'multiline', 'mega-list', 'all'] as const;
 type Preset = (typeof STRESS_PRESETS)[number];
 
@@ -165,24 +170,30 @@ test.describe('HoldingsDetailPanel · 極端內容壓力（長標題 / 多行摘
       ).toBeLessThanOrEqual(viewport.clientWidth + 1);
 
       // 2. 三個滾動位置（top / mid / bottom）分別 audit
+      const tracker = new VolatilityTracker(`stress=${preset} vp=${width} · scroll positions`);
       for (const pos of ['top', 'mid', 'bottom'] as const) {
         const scrollInfo = await drawerStep(`scroll → ${pos}`, () => scrollPanelTo(page, pos));
         await page.waitForTimeout(120);
         const audit = await drawerStep(`audit @ ${pos}`, () => auditPanel(panel));
 
         const findings = mergeAuditFindings(audit);
+        const label = `stress-${preset}-vp${width}-${pos}`;
         if (findings.length > 0) {
-          await annotateOverflowAndAttach(
-            page, panel, findings, testInfo,
-            `stress-${preset}-vp${width}-${pos}`,
-          );
+          await annotateOverflowAndAttach(page, panel, findings, testInfo, label);
         }
+        tracker.record(pos, findingsMaxOverflow(findings));
 
         const tag = `[stress=${preset} vp=${width} ${pos} scroll=${scrollInfo.scrollTop}/${scrollInfo.scrollHeight} listCount=${meta.listCount}]`;
         expect(audit.badFonts, `${tag} font-size > ${MAX_FONT_PX}px`).toEqual([]);
         expect(audit.badBoxes, `${tag} element overflow (tol=${OVERFLOW_TOLERANCE_PX}px)`).toEqual([]);
         expect(audit.badTextNodes, `${tag} text node overflow (tol=${OVERFLOW_TOLERANCE_PX}px)`).toEqual([]);
+
+        // CI-strict：單一 overflow 硬上限
+        assertOverflowHardCap(findings, label);
       }
+
+      // 波動守門：同一 preset × vp 下三個 scroll 位置的 maxOverflow 極差不得跳動
+      tracker.assertRange();
     });
   }
 });

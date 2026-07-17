@@ -13,11 +13,17 @@ import { test, expect, type Page } from '@playwright/test';
 import { gotoWithRetry } from './helpers/navigation';
 import { drawerStep, registerDrawerFailureReport } from './helpers/drawer-failure-report';
 import { annotateOverflowAndAttach, mergeAuditFindings } from './helpers/drawer-overflow-annotate';
+import {
+  assertOverflowHardCap,
+  findingsMaxOverflow,
+  OVERFLOW_HARD_CAP_PX,
+  OVERFLOW_TOLERANCE_PX,
+  VolatilityTracker,
+} from './helpers/drawer-rwd-thresholds';
 
 registerDrawerFailureReport();
 
 const MAX_FONT_PX = 22;
-const OVERFLOW_TOLERANCE_PX = 1.5;
 const COUNTS = [1, 10, 50] as const;
 
 async function auditPanel(page: Page) {
@@ -118,6 +124,8 @@ async function auditPanel(page: Page) {
 }
 
 test.describe('HoldingsDetailPanel · 多資料量 RWD 溢出守門', () => {
+  const tracker = new VolatilityTracker('volume-rwd · count sweep');
+
   for (const count of COUNTS) {
     test(`count=${count} · 抽屜與內容不因清單筆數溢出`, async ({ page }, testInfo) => {
       const width = testInfo.project.use.viewport?.width ?? 1280;
@@ -134,10 +142,12 @@ test.describe('HoldingsDetailPanel · 多資料量 RWD 溢出守門', () => {
       const { viewport, audit } = await drawerStep(`audit geometry (count=${count})`, () => auditPanel(page));
 
       const findings = mergeAuditFindings(audit);
+      const label = `count-${count}-vp-${width}`;
       if (findings.length > 0) {
         const panel = page.locator('[data-testid="holdings-detail-panel"]').first();
-        await annotateOverflowAndAttach(page, panel, findings, testInfo, `count-${count}-vp-${width}`);
+        await annotateOverflowAndAttach(page, panel, findings, testInfo, label);
       }
+      tracker.record(label, findingsMaxOverflow(findings));
 
       expect(
         viewport.scrollWidth,
@@ -156,6 +166,14 @@ test.describe('HoldingsDetailPanel · 多資料量 RWD 溢出守門', () => {
         audit.badTextNodes,
         `[count=${count} viewport=${width}px] text node overflows panel (tolerance=${OVERFLOW_TOLERANCE_PX}px)`,
       ).toEqual([]);
+
+      // CI-strict：任何單一 overflow 不得超過 OVERFLOW_HARD_CAP_PX
+      assertOverflowHardCap(findings, label);
     });
   }
+
+  // 波動守門：不同 count 之間 maxOverflow 極差不得跳動（避免只有某個 count 特別會爆）
+  test.afterAll(() => {
+    tracker.assertRange();
+  });
 });
