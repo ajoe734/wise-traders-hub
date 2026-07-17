@@ -204,33 +204,39 @@ function HoldingsDetailPanelImpl({
   const rangeLow = sparkArr.length ? Math.min(...sparkArr) : null;
   const rangeHigh = sparkArr.length ? Math.max(...sparkArr) : null;
 
+  // B7 fix：deps 改為 primitive，避免父層 render 帶新 dec/meta reference 使 memo 失效。
   const thesisSentence = useMemo(() => {
     const raw = dec?.actionText || meta?.strategy || '';
     if (!raw) return '';
     const m = String(raw).match(/^(.*?[。.!?！？])/);
     return (m ? m[1] : raw).slice(0, 90);
-  }, [dec, meta]);
+  }, [dec?.actionText, meta?.strategy]);
   const relatedEvents = (normalizedEvents || [])
     .filter((e) => (e.relatedCodes || []).includes(h.code) && e.source !== 'demo')
     .slice(0, 5);
   const nextEvent = relatedEvents[0];
 
   // §4.3 持有脈絡（tradeLog 推導）— 資料未通時整區隱藏
+  // B9 fix：預先計算 timestamp、過濾 NaN，避免 sort 遇 invalid date 亂序。
   const holdContext = useMemo(() => {
     const logs = Array.isArray(tradeLog)
       ? tradeLog.filter((r) => r?.code === h.code || r?.stockCode === h.code)
       : [];
     if (!logs.length) return null;
-    const dates = logs.map((r) => new Date(r.date || r.tradeDate || r.createdAt || 0).getTime()).filter(Boolean);
-    if (!dates.length) return null;
-    const firstBuy = Math.min(...dates);
+    const withTs = logs
+      .map((r) => {
+        const ts = new Date(r?.date || r?.tradeDate || r?.createdAt || 0).getTime();
+        return { r, ts: Number.isFinite(ts) && ts > 0 ? ts : 0 };
+      })
+      .filter((x) => x.ts > 0);
+    if (!withTs.length) return null;
+    const firstBuy = Math.min(...withTs.map((x) => x.ts));
     const heldDays = Math.max(0, Math.round((Date.now() - firstBuy) / 86400000));
     const addCount = logs.filter((r) => /add|buy|加碼|買/i.test(String(r.action || r.actionType || ''))).length - 1;
-    const lastAction = [...logs].sort((a, b) =>
-      new Date(b.date || b.tradeDate).getTime() - new Date(a.date || a.tradeDate).getTime()
-    )[0];
-    const lastDate = lastAction ? new Date(lastAction.date || lastAction.tradeDate) : null;
-    const lastLabel = lastDate && !Number.isNaN(lastDate.getTime())
+    const lastEntry = [...withTs].sort((a, b) => b.ts - a.ts)[0];
+    const lastAction = lastEntry?.r;
+    const lastDate = new Date(lastEntry.ts);
+    const lastLabel = !Number.isNaN(lastDate.getTime())
       ? `${lastDate.getMonth() + 1}/${lastDate.getDate()} ${String(lastAction.action || '').replace(/add|buy/i, '加碼').replace(/reduce|sell/i, '減碼')}`
       : null;
     return { heldDays, addCount: Math.max(0, addCount), lastLabel };
@@ -462,11 +468,11 @@ function HoldingsDetailPanelImpl({
         <div style={{ marginBottom: 18 }}>
           <div style={{ display: 'flex', alignItems: 'baseline', gap: 12, flexWrap: 'wrap' }}>
             <span data-testid="drawer-roi-main" style={{
-              fontFamily: SERIF, fontSize: 'clamp(36px, 7vw, 52px)', fontWeight: 500,
-              color: pnlColor, letterSpacing: '-0.03em', lineHeight: 1, fontVariantNumeric: 'tabular-nums',
+              fontFamily: SERIF, fontSize: 22, fontWeight: 500,
+              color: pnlColor, letterSpacing: '-0.01em', lineHeight: 1.15, fontVariantNumeric: 'tabular-nums',
             }}>
               {displayPnlPct >= 0 ? '+' : '−'}{Math.abs(Number(displayPnlPct)).toFixed(2)}
-              <span style={{ fontSize: 20, opacity: 0.55, marginLeft: 2 }}>%</span>
+              <span style={{ fontSize: 12, opacity: 0.55, marginLeft: 2 }}>%</span>
             </span>
             <span style={{ fontSize: 14, color: WB.inkSub, fontVariantNumeric: 'tabular-nums' }}>
               {displayPnlAbs >= 0 ? '+' : '−'}{Math.abs(Math.round(displayPnlAbs)).toLocaleString()}
