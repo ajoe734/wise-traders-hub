@@ -152,7 +152,7 @@ test.describe('HoldingsDetailPanel · RWD integrity + legacy drawer guard', () =
         if (text && overflow > tolerance) {
           badBoxes.push({
             tag: el.tagName.toLowerCase(), text,
-            left: rect.left, right: rect.right,
+            left: rect.left, right: rect.right, top: rect.top, bottom: rect.bottom,
             rootLeft: rootBox.left, rootRight: rootBox.right,
             overflow,
           });
