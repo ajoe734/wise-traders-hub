@@ -186,6 +186,14 @@ export default defineConfig({
       testMatch: /journal-detail-owner-preview-brcto\.spec\.ts/,
       use: { ...devices['Desktop Chrome'], viewport: { width: 1280, height: 900 } },
     },
+    {
+      // 管理員 / 公司管理員以 ?preview=1 預覽任何老師週記 → RPC role bypass 命中
+      name: 'desktop-journal-detail-admin-preview',
+      testMatch: /journal-detail-admin-preview\.spec\.ts/,
+      use: { ...devices['Desktop Chrome'], viewport: { width: 1280, height: 900 } },
+    },
+
+
 
     {
       // 週記 / 訊號編輯器：ETF 英文字尾（00631L / 00878B）代號+名稱顯示 parity
