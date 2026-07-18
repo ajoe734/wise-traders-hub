@@ -19,6 +19,8 @@ export function AssetBadge({
     tw_stock: 'bg-blue-500/10 text-blue-700 border-blue-300/60',
     us_stock: 'bg-indigo-500/10 text-indigo-700 border-indigo-300/60',
     crypto: 'bg-amber-500/10 text-amber-700 border-amber-300/60',
+    us_option: 'bg-violet-500/10 text-violet-700 border-violet-300/60',
+    us_future: 'bg-rose-500/10 text-rose-700 border-rose-300/60',
   };
   return (
     <Badge

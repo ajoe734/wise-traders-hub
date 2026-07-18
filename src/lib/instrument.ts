@@ -17,6 +17,10 @@
 const TW_CODE_RE = /^\d{4,6}[A-Z]?/;
 // 美股：1-5 個大寫英文字母 + 可選 .X 後綴（BRK.B、BF.B 等）
 const US_CODE_RE = /^[A-Z]{1,5}(?:\.[A-Z])?/;
+// 美股選擇權：OCC 21 字元格式（Root 1-6 + YYMMDD + C/P + 8 位履約價）
+const US_OPTION_CODE_RE = /^[A-Z.]{1,6}\d{6}[CP]\d{8}/;
+// 美股期貨：/ + 1-3 大寫 + 可選月碼 + 可選 1-2 位年碼
+const US_FUTURE_CODE_RE = /^\/[A-Z0-9]{1,3}[FGHJKMNQUVXZ]?\d{0,2}/;
 
 export interface ParsedInstrument {
   code: string;
@@ -25,17 +29,24 @@ export interface ParsedInstrument {
 
 /**
  * 從 instrument 拆出代號 + 名稱。
- * - "00631L 元大台灣50正2" → { code: "00631L", name: "元大台灣50正2" }
- * - "00631L"              → { code: "00631L", name: "" }
- * - "AAPL Apple"          → { code: "AAPL",   name: "Apple" }
- * - null / ""             → { code: "",       name: "" }
- * - "中文開頭"             → { code: "",       name: "中文開頭" }（無法解析代號時保留原字串為 name）
+ * - "00631L 元大台灣50正2"          → { code: "00631L", name: "元大台灣50正2" }
+ * - "AAPL Apple"                    → { code: "AAPL",   name: "Apple" }
+ * - "AAPL240119C00150000 Apple C150" → { code: "AAPL240119C00150000", name: "Apple C150" }
+ * - "/ES E-mini S&P"                → { code: "/ES",    name: "E-mini S&P" }
+ * - null / ""                        → { code: "",      name: "" }
+ * - "中文開頭"                       → { code: "",      name: "中文開頭" }
+ *
+ * 匹配順序：期貨（`/` 起首）→ 選擇權（含 C/P 中段）→ 台股（純數字）→ 美股（純字母）
+ * 這個順序很重要：US_CODE_RE 會吃掉 "AAPL240119..." 前 5 個字母。
  */
 export function parseInstrument(raw?: string | null): ParsedInstrument {
   const s = String(raw ?? '').trim();
   if (!s) return { code: '', name: '' };
-  // 先嘗試 TW 格式（純數字開頭），失敗再試 US 格式
-  const m = s.match(TW_CODE_RE) || s.match(US_CODE_RE);
+  const m =
+    s.match(US_FUTURE_CODE_RE) ||
+    s.match(US_OPTION_CODE_RE) ||
+    s.match(TW_CODE_RE) ||
+    s.match(US_CODE_RE);
   if (!m) return { code: '', name: s };
   const code = m[0];
   const name = s.slice(code.length).trim();

@@ -2,6 +2,7 @@ import { useQuery, useQueryClient, useMutation } from '@tanstack/react-query';
 import { supabase } from '@/integrations/supabase/client';
 import { useExpertPerformance } from '@/hooks/usePerformance';
 import { toast } from 'sonner';
+import type { AssetClass } from '@/lib/asset';
 
 export interface ExpertProfilePayload {
   name: string;
@@ -14,7 +15,7 @@ export interface ExpertProfilePayload {
   style_tags: string[];
   markets: string[];
   currency?: 'TWD' | 'USD';
-  asset_class?: 'tw_stock' | 'us_stock' | 'crypto';
+  asset_class?: AssetClass;
 }
 
 export interface CapitalStatus {
@@ -183,7 +184,7 @@ export function useAdminProfile(expertSlug: string | undefined, opts?: {
    * - starting_capital 清空，讓老師重設新幣別的本金
    */
   const resetAssetClass = useMutation({
-    mutationFn: async (newAssetClass: 'tw_stock' | 'us_stock' | 'crypto') => {
+    mutationFn: async (newAssetClass: AssetClass) => {
       if (!expert) throw new Error('expert 未載入');
       const { error } = await supabase.rpc('admin_reset_expert_asset_class' as any, {
         _expert_id: expert.id,

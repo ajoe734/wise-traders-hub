@@ -5,7 +5,61 @@ import {
   isValidAssetSymbol,
   isMarketClosedFor,
   normalizeAssetClass,
+  isDerivativeAssetClass,
+  detectDerivativeFromSymbol,
+  ALL_ASSET_CLASSES,
 } from '@/lib/asset';
+
+describe('us_option / us_future spec', () => {
+  it('spec 完整登記', () => {
+    expect(ALL_ASSET_CLASSES).toContain('us_option');
+    expect(ALL_ASSET_CLASSES).toContain('us_future');
+    expect(getAssetSpec('us_option').defaultUnit).toBe('口');
+    expect(getAssetSpec('us_future').defaultUnit).toBe('口');
+    expect(getAssetSpec('us_option').currency).toBe('USD');
+    expect(getAssetSpec('us_future').currency).toBe('USD');
+    expect(getAssetSpec('us_option').requiresManualPrice).toBe(true);
+    expect(getAssetSpec('us_future').requiresManualPrice).toBe(true);
+    expect(getAssetSpec('us_option').priceSource).toBe('manual');
+    expect(getAssetSpec('us_future').priceSource).toBe('manual');
+  });
+
+  it('symbol regex', () => {
+    // options
+    expect(isValidAssetSymbol('AAPL240119C00150000', 'us_option')).toBe(true);
+    expect(isValidAssetSymbol('SPXW240119P04500000', 'us_option')).toBe(true);
+    expect(isValidAssetSymbol('AAPL', 'us_option')).toBe(false);
+    expect(isValidAssetSymbol('/ES', 'us_option')).toBe(false);
+    // futures
+    expect(isValidAssetSymbol('/ES', 'us_future')).toBe(true);
+    expect(isValidAssetSymbol('/NQ', 'us_future')).toBe(true);
+    expect(isValidAssetSymbol('/CL', 'us_future')).toBe(true);
+    expect(isValidAssetSymbol('/ESZ5', 'us_future')).toBe(true);
+    expect(isValidAssetSymbol('ES', 'us_future')).toBe(false);
+    expect(isValidAssetSymbol('AAPL', 'us_future')).toBe(false);
+  });
+
+  it('isDerivativeAssetClass / detectDerivativeFromSymbol', () => {
+    expect(isDerivativeAssetClass('us_option')).toBe(true);
+    expect(isDerivativeAssetClass('us_future')).toBe(true);
+    expect(isDerivativeAssetClass('us_stock')).toBe(false);
+    expect(detectDerivativeFromSymbol('/ES')).toBe('us_future');
+    expect(detectDerivativeFromSymbol('AAPL240119C00150000')).toBe('us_option');
+    expect(detectDerivativeFromSymbol('AAPL')).toBe(null);
+  });
+
+  it('市場時區', () => {
+    // 選擇權 09:30–16:15 ET
+    expect(isMarketClosedFor('us_ext', new Date('2026-07-14T15:00:00Z'))).toBe(false); // Tue 11:00 EDT
+    expect(isMarketClosedFor('us_ext', new Date('2026-07-14T20:20:00Z'))).toBe(true); // Tue 16:20 EDT
+    // 期貨 5x24
+    expect(isMarketClosedFor('us_future_5x24', new Date('2026-07-18T15:00:00Z'))).toBe(true); // Sat
+    expect(isMarketClosedFor('us_future_5x24', new Date('2026-07-14T10:00:00Z'))).toBe(false); // Tue open
+    expect(isMarketClosedFor('us_future_5x24', new Date('2026-07-14T21:30:00Z'))).toBe(true); // Tue 17:30 ET daily halt
+  });
+});
+
+
 
 describe('asset spec', () => {
   it('resolves asset_class from expert.currency fallback', () => {

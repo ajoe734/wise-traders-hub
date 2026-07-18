@@ -16,7 +16,7 @@ import { avatarUrl } from '@/lib/imageTransform';
 import { actionLabels } from './actionLabels';
 import { PreviewTradeItem } from './PreviewTradeItem';
 import { isMarketClosed } from './derive';
-import { getAssetSpec, resolveAssetClass, isValidAssetSymbol } from '@/lib/asset';
+import { getAssetSpec, resolveAssetClass, isValidAssetSymbol, type QuantityUnit } from '@/lib/asset';
 import { InstrumentTooltip } from '@/components/InstrumentTooltip';
 
 interface Props {
@@ -49,7 +49,7 @@ export function SignalCreateDialog({
   const [riskNotes, setRiskNotes] = useState('');
   const [learningPoints, setLearningPoints] = useState('');
   const [quantity, setQuantity] = useState('');
-  const [quantityUnit, setQuantityUnit] = useState<'張' | '股' | '顆'>(spec.defaultUnit);
+  const [quantityUnit, setQuantityUnit] = useState<QuantityUnit>(spec.defaultUnit);
   const [teachingTopic, setTeachingTopic] = useState('');
   const [overallSummary, setOverallSummary] = useState('');
   const [showPreview, setShowPreview] = useState(false);
