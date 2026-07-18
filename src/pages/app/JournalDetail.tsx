@@ -203,9 +203,13 @@ const JournalDetail = () => {
   const [isExporting, setIsExporting] = useState(false);
   const [exportError, setExportError] = useState<string | null>(null);
 
+  const { isPreview: isPreviewSession, previewSlug: previewSlugFromSession } = usePreviewMode();
+  const previewFlagFromUrl = searchParams.get('preview') === '1';
+  const forceOwner = isPreviewSession || previewFlagFromUrl || !!user?.expertSlug || hasRole('company_admin');
+
   const { data, isLoading: loading } = useQuery({
-    queryKey: ['app-journal-detail', id],
-    queryFn: () => fetchJournalBundle(id!),
+    queryKey: ['app-journal-detail', id, forceOwner],
+    queryFn: () => fetchJournalBundle(id!, forceOwner),
     enabled: !!id,
     staleTime: 5 * 60 * 1000,
     gcTime: 24 * 60 * 60 * 1000,
