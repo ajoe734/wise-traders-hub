@@ -599,7 +599,7 @@ const JournalsExport = () => {
             </div>
             <Button onClick={() => setConfirmOpen(true)} disabled={isLoading || rows.length === 0} className="gap-2">
               <Download className="h-4 w-4" />
-              匯出 CSV
+              匯出 Markdown
             </Button>
           </CardHeader>
           <CardContent className="space-y-4">
