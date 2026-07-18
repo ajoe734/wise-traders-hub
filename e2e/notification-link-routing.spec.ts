@@ -84,4 +84,49 @@ test.describe('NotificationBell · link routing', () => {
     await expect(page.getByTestId('external-url')).toHaveText('(empty)');
     await expect(page.getByTestId('nav-target')).toHaveText(HARNESS);
   });
+
+  test('signed URL 已過期：不開新分頁、回報 signed_url_expired 錯誤訊息', async ({ page }) => {
+    await page.goto(HARNESS, { waitUntil: 'domcontentloaded' });
+    await page.getByTestId('fire-expired-signed').click();
+
+    await expect(page.getByTestId('last-kind')).toHaveText('external');
+    await expect(page.getByTestId('last-error')).toHaveText('signed_url_expired');
+    await expect(page.getByTestId('last-message')).toContainText('過期');
+    // 過期時不應該真的開分頁 → external-url 保持空
+    await expect(page.getByTestId('external-url')).toHaveText('(empty)');
+  });
+
+  test('signed URL token 格式錯誤：回報 signed_url_malformed', async ({ page }) => {
+    await page.goto(HARNESS, { waitUntil: 'domcontentloaded' });
+    await page.getByTestId('fire-malformed-signed').click();
+
+    await expect(page.getByTestId('last-error')).toHaveText('signed_url_malformed');
+    await expect(page.getByTestId('external-url')).toHaveText('(empty)');
+  });
+
+  test('URL 格式錯誤：回報 invalid_url', async ({ page }) => {
+    await page.goto(HARNESS, { waitUntil: 'domcontentloaded' });
+    await page.getByTestId('fire-invalid-url').click();
+
+    await expect(page.getByTestId('last-error')).toHaveText('invalid_url');
+    await expect(page.getByTestId('external-url')).toHaveText('(empty)');
+  });
+
+  test('合法未過期 signed URL：正常開新分頁、無錯誤', async ({ page }) => {
+    await page.goto(HARNESS, { waitUntil: 'domcontentloaded' });
+    await page.getByTestId('fire-valid-signed').click();
+
+    await expect(page.getByTestId('last-kind')).toHaveText('external');
+    await expect(page.getByTestId('last-error')).toHaveText('(none)');
+    await expect(page.getByTestId('external-url')).toContainText('/storage/v1/object/sign/');
+  });
+
+  test('popup 被瀏覽器擋掉：回報 popup_blocked', async ({ page }) => {
+    await page.goto(HARNESS, { waitUntil: 'domcontentloaded' });
+    await page.getByTestId('toggle-popup-blocked').check();
+    await page.getByTestId('fire-valid-signed').click();
+
+    await expect(page.getByTestId('last-error')).toHaveText('popup_blocked');
+    await expect(page.getByTestId('last-message')).toContainText('封鎖');
+  });
 });
