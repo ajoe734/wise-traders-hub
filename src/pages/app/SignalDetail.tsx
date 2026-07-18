@@ -36,7 +36,6 @@ interface DbSignal {
   price_hint: number | null;
   quantity: number | null;
   quantity_unit: string;
-  currency?: string | null;
   reason_summary: string | null;
   reason_detail: string | null;
   risk_notes: string | null;
@@ -47,6 +46,7 @@ interface DbSignal {
     slug: string;
     role: string;
     avatar_url: string | null;
+    currency?: string | null;
   } | null;
 }
 
@@ -67,7 +67,7 @@ const TextBlock = ({ text, dotColor }: { text: string; dotColor?: string }) => {
 const fetchSignalDetail = async (signalId: string): Promise<DbSignal | null> => {
   const { data } = await supabase
     .from('expert_signals')
-    .select('id, instrument, action, price_hint, quantity, quantity_unit, currency, reason_summary, reason_detail, risk_notes, learning_points, published_at, experts(name, slug, role, avatar_url)')
+    .select('id, instrument, action, price_hint, quantity, quantity_unit, reason_summary, reason_detail, risk_notes, learning_points, published_at, experts(name, slug, role, avatar_url, currency)')
     .eq('id', signalId)
     .single();
   return (data as unknown as DbSignal | null) ?? null;
@@ -186,7 +186,7 @@ const SignalDetail = () => {
 
         {/* Price hint */}
         {signal.price_hint != null && (() => {
-          const cur: Currency = normalizeCurrency(signal.currency);
+          const cur: Currency = normalizeCurrency(signal.experts?.currency);
           const sym = CURRENCY_SYMBOL[cur];
           const unit = signal.quantity_unit || defaultQuantityUnit(cur);
           const total = signal.quantity != null ? Number(signal.price_hint) * Number(signal.quantity) : null;

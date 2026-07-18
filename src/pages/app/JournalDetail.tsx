@@ -335,7 +335,7 @@ const JournalDetail = () => {
   const forceOwner = isPreviewSession || previewFlagFromUrl || !!user?.expertSlug || hasRole('company_admin');
 
   const { data, isLoading: loading } = useQuery({
-    queryKey: ['app-journal-detail', id, forceOwner],
+    queryKey: ['app-journal-detail', id, forceOwner, 'v2'],
     queryFn: () => fetchJournalBundle(id!, forceOwner),
     enabled: !!id,
     staleTime: 5 * 60 * 1000,
