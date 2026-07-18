@@ -2,6 +2,7 @@ import { useQuery, useQueryClient, useMutation } from '@tanstack/react-query';
 import { supabase } from '@/integrations/supabase/client';
 import { useExpertPerformance } from '@/hooks/usePerformance';
 import { toast } from 'sonner';
+import type { AssetClass } from '@/lib/asset';
 
 export interface ExpertProfilePayload {
   name: string;
@@ -14,7 +15,7 @@ export interface ExpertProfilePayload {
   style_tags: string[];
   markets: string[];
   currency?: 'TWD' | 'USD';
-  asset_class?: 'tw_stock' | 'us_stock' | 'crypto';
+  asset_class?: AssetClass;
 }
 
 export interface CapitalStatus {
