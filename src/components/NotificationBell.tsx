@@ -59,7 +59,13 @@ export function NotificationBell() {
     }
     if (notif.link) {
       setOpen(false);
-      openNotificationLink(notif.link, { navigate });
+      openNotificationLink(notif.link, {
+        navigate,
+        onError: (error, message) => {
+          trackRaw('notification_link_error', { notification_id: notif.id, error });
+          toast.error(message);
+        },
+      });
     }
   };
 
