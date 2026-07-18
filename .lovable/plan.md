@@ -1,54 +1,62 @@
-# 抽屜黑點變橢圓 + 滾動不下去 — 根因處理
+## 目標
 
-## 已驗證的根因（Playwright 實測）
+讓後台（週記 SignalCreateDialog）與前台持倉看板都能新增 **美股選擇權（Options）** 與 **美股期貨（Futures）**，補齊「美股 asset_class 只能買現股」的缺口。
 
-### Bug 1：「現價」黑點變扁橢圓（截圖裡的元凶）
-`HoldingsDetailPanel.tsx` PriceAxis 與 RangeBand 的 SVG 都用 `preserveAspectRatio="none"`（為了讓 tick 位置可用 `%` 對齊），但裡面直接放了 `<circle>`：
+## 範圍界定
 
-- `PriceAxis`：`viewBox="0 0 100 70"` + `<circle r={4}>`
-- `RangeBand`：`viewBox="0 0 100 30"` + `<circle r={2.5}>`
+現況：`asset_class` 只有 `tw_stock / us_stock / crypto` 三種，`us_stock` 的 `symbolRegex = /^[A-Z]{1,5}(\.[A-Z])?$/`，直接把 `AAPL 250117C00150000`、`/ES`、`/NQ` 全部擋掉。DB CHECK constraint、`current_prices`、`stock_names` 也都寫死這三種。
 
-`<circle>` 沒有 `vector-effect="non-scaling-stroke"` 對 fill 也無效——**填色圓形會被 X/Y 非等比拉伸**。實測圓點在不同寬度變成：
+新增兩個一等公民資產類別（不是「附掛在 us_stock 底下的變體」，因為單位、乘數、報價來源、市場時區都不同）：
 
-| 寬度 | 現價圓點實際尺寸 |
-| ---- | ---- |
-| 390px | 29 × 8 px（橢圓）|
-| 768px | 58 × 8 px |
-| 1280px | 99 × 8 px（幾乎變一條線）|
+| 新 asset_class | 代碼格式 | 單位 | 乘數 | 幣別 | 交易時區 |
+|---|---|---|---|---|---|
+| `us_option` | OCC 21 字元 `AAPL  250117C00150000`（Root 1–6 + YYMMDD + C/P + 8 位履約價） | 口 | 100 | USD | US（延伸至 09:30–16:15 ET） |
+| `us_future` | `/` + 1–3 大寫 + 可選月份月碼與年碼，如 `/ES`, `/NQ`, `/CL`, `/ESZ5` | 口 | 依合約另表（先只顯示、不參與 PnL 計算） | USD | 24×5（週日 18:00 ET – 週五 17:00 ET） |
 
-正是使用者截圖看到「當初設計是圓點，實際是黑色橢圓」的原因。RangeBand 的 30D 紅點同樣中招。
+第一階段報價與名稱皆走 **手動 override**（`holding_meta_overrides.override_price` + `stock_names` 手填），不接外部行情源；`stock-price-sync` / `daily-snapshot` 對這兩類直接跳過，避免 429/找不到報價把 job 打壞。第二階段再評估 Polygon/Tradier 整合。
 
-### Bug 2：抽屜滾動不下去
-`components/ui/sheet.tsx` 的 `side="right"` variant 是 `h-full`，等同 `100vh`。iOS Safari / 動態 URL bar 下 100vh **含瀏覽器 chrome 高度**，抽屜實際渲染比可視區高 → 底部內容被瀏覽器 UI 蓋住無法滾到。
+## 實作步驟
 
-`HoldingsWorkbench.tsx` 用的是共用的 `SheetContent`，只加了 `overflow-y-auto`，沒有覆寫高度上限，也沒吃 `dvh`。桌面 1280×900 實測 `maxScroll=39`（勉強夠），一到 iPhone 尺寸就會把 `情境模擬 / 論點筆記 / 研究筆記 pager` 卡在瀏覽器 URL bar 後面。
+### 1. DB migration（放寬 CHECK、擴充白名單）
+- `experts.asset_class`、`current_prices.asset_class`、`stock_names.asset_class` 三個 CHECK constraint：
+  `CHECK (asset_class IN ('tw_stock','us_stock','crypto','us_option','us_future'))`
+- `admin_reset_expert_asset_class(_new_asset_class)` RPC 的參數驗證同步放寬。
+- `trg_enforce_expert_asset_class_lock` 觸發器：`us_option` / `us_future` 一併納入合法值。
+- 為兩個新類別建立 seed row（供 SignalCreateDialog 下拉顯示）：不需要新表，仍靠前端 `ALL_ASSET_CLASSES` 常數。
 
-## 修法
+### 2. `src/lib/asset.ts`（單一來源）
+- `AssetClass` type 新增 `us_option | us_future`。
+- `QuantityUnit` 新增 `'口'`。
+- `SPECS.us_option` / `SPECS.us_future` 兩份完整 spec：regex、placeholder、單位、priceDigits、marketHours、priceSource（新增 `'us_option' | 'us_future'`）。
+- `resolveAssetClass` 保留舊 fallback 行為（不影響已存在的 tw/us/crypto 老師）。
+- `isMarketClosedFor`：新增 `'us_ext'`（09:30–16:15 ET）與 `'us_future_5x24'` 兩種模式。
+- `ALL_ASSET_CLASSES` 加入兩個新值。
 
-### 1. `src/checkup/components/freecheckup/HoldingsDetailPanel.tsx`
+### 3. `supabase/functions/_shared/marketDetect.ts`
+- `detectMarket` 加兩條：`/^\//` → `US`（期貨）；`/^[A-Z.]{1,6}\s?\d{6}[CP]\d{8}$/` → `US`（選擇權）。
+- `currencyOf` 保持 USD。
+- `stock-price-sync` / `daily-snapshot` / `publish-weekly-journals` 在 fetch 前先判斷 `assetClass in ('us_option','us_future')`，直接 skip 並記一筆 `function_run_logs`，不再打行情 API。
 
-**PriceAxis (L863–896)**：把「現價圓點」從 SVG `<circle>` 抽出來，改用 HTML 絕對定位 `<div>`（跟現有的 label overlay 同一層），寬高用真實 px（8×8 圓）。SVG 只保留水平基準線與 tick 垂直短線（都是 stroke，用 `vector-effect="non-scaling-stroke"` 保 1.5px）。
+### 4. `SignalCreateDialog` + `useSignalEditorData`
+- Asset class 下拉補上「美股選擇權 / 美股期貨」兩個選項（受 `resolveAssetClass(expert)` 綁定，仍以老師目前 `asset_class` 為預設）。
+- 驗證改走 `isValidAssetSymbol`，錯誤訊息使用新 spec 的 `symbolPlaceholder`。
+- 「目前價格」欄若對應 asset 沒有自動報價，顯示提示「需手動輸入，系統暫不自動更新」。
 
-**RangeBand (L919–932)**：同樣手法，把 SVG 內 `<circle>` 移到 SVG 外的 HTML overlay `<div>`（5×5 圓，用 `posPrice%` 定位），SVG 只留 polyline。
+### 5. 持倉看板 / HoldingsTable
+- Instrument 輸入時走 `isValidAssetSymbol(spec)`；數量單位顯示改讀 `spec.units[0]`。
+- `parseInstrument`（`src/lib/instrument.ts`）：新增選擇權 / 期貨的 code 抽取（不能沿用現有 4–6 位數字 regex）。
+- PriceAxis / RangeBand：若 `assetClass in ('us_option','us_future')` 且無報價，隱藏區間帶並顯示「手動輸入」badge，避免 30D trend / axis 空資料時整條崩掉。
 
-留下顯眼註解，說明「preserveAspectRatio=none 的 SVG 內禁止使用 fill 幾何形狀」，避免下一輪打磨又踩回來。
+### 6. 測試（強制窮舉，不可只挑樣本）
+- `src/test/unit/assetSpec.test.ts` 新增：五個 asset class 全覆蓋 symbol / unit / market hours。
+- `src/lib/__tests__/instrument.test.ts` 新增：`AAPL 250117C00150000`、`/ES`、`/NQMZ5` 三組 parse。
+- 新增 `e2e/signal-create-us-derivatives.spec.ts`：分別建立 option / future 訊號，驗證儲存後 SignalsTable 顯示與持倉看板顯示不噴錯。
+- Edge functions Deno test：`marketDetect.test.ts` 補選擇權/期貨判別。
 
-### 2. `src/components/ui/sheet.tsx`
+## 開放問題（實作前先確認一件事）
 
-`side: right` / `left` 的 variant 補上 `max-h-[100dvh]`（`h-full` 保留，dvh 舊瀏覽器 fallback 100vh 不會壞）。這是共用 primitive，只加上限、不改行為，其他用途仍然 100%。
+**選擇權/期貨的 PnL 該怎麼算？**
+- **A. 只做「部位紀錄」**：不計算未實現損益，PnL 欄顯示「—」，實現損益仍照 (賣-買)×數量 但乘數用 1（等於原本現股邏輯）。實作最快、資料最乾淨。
+- **B. 完整支援乘數**：Options ×100、Futures 依合約表（/ES ×50、/NQ ×20、/CL ×1000），需要新表 `future_contract_specs`，且要處理保證金、每日結算。工程量大。
 
-### 3. `src/checkup/components/freecheckup/HoldingsWorkbench.tsx`
-
-`SheetContent` className 追加 `!h-[100dvh] max-h-[100dvh]`（強制 override，因 sheet.tsx 的 `h-full` 用 tailwind class），並在 inline style 補 `WebkitOverflowScrolling: 'touch'` 保留（已有）。
-
-## 回歸驗證
-
-1. Playwright 已抓到「橢圓」數據，在 3 個斷點斷言 `dot.getBoundingClientRect().width === dot.height`（±0.5px），加進 `e2e/holdings-detail-panel-visual-snapshot.spec.ts` 或新增 `e2e/holdings-price-axis-dot-shape.spec.ts`。
-2. iOS 尺寸滾動：在 390×667 / 390×844 兩個 viewport 打開抽屜，斷言 `panel.scrollHeight - panel.clientHeight === maxScroll`（可完整滾到底），並截圖比對底部 `研究筆記` pager 可見。
-3. `bunx tsgo --noEmit` 型別檢查。
-
-## 不動的東西
-
-- PriceAxis 標籤定位／臨界 clamp（`labelPos` 8~92%）不改，避免又動到已修好的重疊問題。
-- SheetContent 只加高度上限，不重寫動畫／變體。
-- `holdings-detail-panel` `data-testid` 與 body 結構不動，現有 15+ 支 e2e spec 全保留。
+先請你選 A 或 B，我再進 build mode 執行。
