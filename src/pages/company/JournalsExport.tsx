@@ -442,7 +442,7 @@ const JournalsExport = () => {
             <FileText className="h-6 w-6" /> 週記匯出
           </h1>
           <p className="text-sm text-muted-foreground mt-1">
-            匯出實戰導師（mentor）於指定週別（週一 00:00 ~ 週日 23:59 Asia/Taipei）之週記為 CSV。可依老師、資產類別、發布狀態精準篩選。
+            匯出實戰導師（mentor）於指定週別（週一 00:00 ~ 週日 23:59 Asia/Taipei）之週記為 <strong>Markdown</strong>，每位老師一份獨立檔案（多位老師會打包成 zip）。可依老師、資產類別、發布狀態精準篩選。
           </p>
         </div>
 
