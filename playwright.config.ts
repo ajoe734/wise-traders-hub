@@ -305,6 +305,12 @@ export default defineConfig({
       use: { ...devices['Desktop Chrome'] },
     },
     {
+      // 圓點視覺回歸：像素快照比對，雙保險擋 SVG <circle> 回退 / 橢圓形變
+      name: 'holdings-price-axis-dot-visual',
+      testMatch: /holdings-price-axis-dot-visual\.spec\.ts/,
+      use: { ...devices['Desktop Chrome'] },
+    },
+    {
       // overridePrice 換價後 HoldingCard 必須重算 todayPnl / todayPct / 保留 yesterday
       name: 'desktop-holdings-override-price',
       testMatch: /holdings-override-price-recompute\.spec\.ts/,
