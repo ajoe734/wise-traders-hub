@@ -1,13 +1,32 @@
 import { useLocation } from "react-router-dom";
 import { useEffect } from "react";
 import { SEO } from "@/components/SEO";
+import { trackRaw } from "@/lib/analytics/events";
+
+interface FromNotificationState {
+  fromNotification?: {
+    id?: string;
+    type?: string;
+    source?: string;
+  };
+}
 
 const NotFound = () => {
   const location = useLocation();
 
   useEffect(() => {
     console.error("404 Error: User attempted to access non-existent route:", location.pathname);
-  }, [location.pathname]);
+    const state = (location.state ?? null) as FromNotificationState | null;
+    const from = state?.fromNotification;
+    if (from) {
+      trackRaw('notification_link_404', {
+        notification_id: from.id,
+        notification_type: from.type,
+        source: from.source,
+        path: location.pathname,
+      });
+    }
+  }, [location.pathname, location.state]);
 
   return (
     <div className="flex min-h-screen items-center justify-center bg-muted">

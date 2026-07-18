@@ -52,7 +52,7 @@ export function NotificationBell() {
   };
 
   const handleClick = async (notif: any) => {
-    trackRaw('notification_click', { notification_id: notif.id });
+    trackRaw('notification_click', { notification_id: notif.id, notification_type: notif.type });
     if (!notif.is_read && !isViewAs) {
       setLocal((n) => (n.id === notif.id ? { ...n, is_read: true } : n));
       await supabase.from('notifications').update({ is_read: true }).eq('id', notif.id);
@@ -61,8 +61,22 @@ export function NotificationBell() {
       setOpen(false);
       openNotificationLink(notif.link, {
         navigate,
+        navigateState: { fromNotification: { id: notif.id, type: notif.type, source: 'bell' } },
+        onOpen: ({ kind }) => {
+          trackRaw('notification_link_open', {
+            notification_id: notif.id,
+            notification_type: notif.type,
+            kind,
+            source: 'bell',
+          });
+        },
         onError: (error, message) => {
-          trackRaw('notification_link_error', { notification_id: notif.id, error });
+          trackRaw('notification_link_error', {
+            notification_id: notif.id,
+            notification_type: notif.type,
+            error,
+            source: 'bell',
+          });
           toast.error(message);
         },
       });
@@ -141,8 +155,21 @@ export function NotificationBell() {
                         e.stopPropagation();
                         openNotificationLink(n.download_url, {
                           navigate,
+                          onOpen: ({ kind }) => {
+                            trackRaw('notification_link_open', {
+                              notification_id: n.id,
+                              notification_type: n.type,
+                              kind,
+                              source: 'download_url',
+                            });
+                          },
                           onError: (error, message) => {
-                            trackRaw('notification_link_error', { notification_id: n.id, error, source: 'download_url' });
+                            trackRaw('notification_link_error', {
+                              notification_id: n.id,
+                              notification_type: n.type,
+                              error,
+                              source: 'download_url',
+                            });
                             toast.error(message);
                           },
                         });
