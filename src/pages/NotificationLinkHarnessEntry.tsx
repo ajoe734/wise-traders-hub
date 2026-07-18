@@ -36,17 +36,19 @@ function isPreviewEnv() {
 const INTERNAL_LINK = '/pricing?src=harness';
 const EXTERNAL_LINK =
   'https://yqacmrgdjlenbijclngi.supabase.co/storage/v1/object/sign/journal-exports/demo.pdf?token=abc.def';
-// exp=2000000000 (2033) → 未來
-const VALID_SIGNED =
-  'https://yqacmrgdjlenbijclngi.supabase.co/storage/v1/object/sign/journal-exports/ok.pdf?token=h.' +
+// 未過期 signed URL：預設 fire-external 用它，方便既有「新分頁開啟」測試沿用
+const EXTERNAL_LINK =
+  'https://yqacmrgdjlenbijclngi.supabase.co/storage/v1/object/sign/journal-exports/demo.pdf?token=h.' +
   btoa(JSON.stringify({ exp: 2000000000 })).replace(/=+$/, '');
+const VALID_SIGNED = EXTERNAL_LINK;
 // exp=1000000000 (2001) → 已過期
 const EXPIRED_SIGNED =
   'https://yqacmrgdjlenbijclngi.supabase.co/storage/v1/object/sign/journal-exports/old.pdf?token=h.' +
   btoa(JSON.stringify({ exp: 1000000000 })).replace(/=+$/, '');
 const MALFORMED_SIGNED =
   'https://yqacmrgdjlenbijclngi.supabase.co/storage/v1/object/sign/journal-exports/x.pdf?token=not-a-jwt';
-const INVALID_URL = 'https://not a real url';
+// WHATWG URL 解析器對 `https://[...` 這種畸形 host 會直接 throw
+const INVALID_URL = 'https://[bad-host';
 
 export default function NotificationLinkHarnessEntry() {
   if (!isPreviewEnv()) return null;
