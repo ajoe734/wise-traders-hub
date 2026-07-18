@@ -65,7 +65,7 @@ test('SignalDetail 預覽：不會 select expert_signals.currency，也無 schem
           const sel = url.searchParams.get('select') || '';
           expertSignalsSelects.push(sel);
         }
-        return [signalRow];
+        return signalRow;
       },
       subscription_timeline: () => [],
       subscriptions: () => [],
