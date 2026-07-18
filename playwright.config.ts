@@ -392,6 +392,7 @@ export default defineConfig({
       name: 'desktop-journals-export-filename-week-parity',
       testMatch: /journals-export-filename-and-week-parity\.spec\.ts/,
       use: { ...devices['Desktop Chrome'], viewport: { width: 1280, height: 900 }, acceptDownloads: true },
+    },
     {
       // 週記匯出：跨多週別 / 重複下載 / 重新掛載的檔名 × slug × 週別 parity 矩陣
       name: 'desktop-journals-export-parity-matrix',
