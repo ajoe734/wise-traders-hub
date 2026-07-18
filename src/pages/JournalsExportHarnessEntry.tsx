@@ -31,7 +31,19 @@ function isPreviewEnv() {
   }
 }
 
-const RANGE = { startLabel: '2026-07-13', endLabel: '2026-07-19' };
+const DEFAULT_RANGE = { startLabel: '2026-07-13', endLabel: '2026-07-19' };
+
+function readRangeFromQuery() {
+  try {
+    const p = new URLSearchParams(window.location.search);
+    const s = p.get('start');
+    const e = p.get('end');
+    if (s && /^\d{4}-\d{2}-\d{2}$/.test(s) && e && /^\d{4}-\d{2}-\d{2}$/.test(e)) {
+      return { startLabel: s, endLabel: e };
+    }
+  } catch {}
+  return DEFAULT_RANGE;
+}
 
 const MENTOR_A_ROWS: JournalRowExport[] = [
   {
