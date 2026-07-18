@@ -90,7 +90,10 @@ export function AdminLayout({ children }: AdminLayoutProps) {
   return (
     <div className="min-h-screen bg-background flex">
       {/* Sidebar */}
-      <aside className="w-64 border-r bg-card flex flex-col shrink-0 sticky top-0 h-[100dvh] max-h-[100dvh] min-h-0 overflow-hidden">
+      <aside
+        className="w-64 border-r bg-card flex flex-col shrink-0 sticky top-0 h-[100dvh] max-h-[100dvh] min-h-0 overflow-hidden"
+        aria-label="分析師後台側邊欄"
+      >
         {/* Expert Header */}
         <div className="shrink-0 p-4 border-b">
           <div className="flex items-center gap-3 mb-2">
