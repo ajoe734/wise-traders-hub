@@ -182,12 +182,15 @@ const TradeItem = ({ signal, nameMap, showDebug }: { signal: SignalDetail; nameM
               <SafeRichHtml html={signal.risk_notes} className="text-xs" />
             </div>
           )}
-          {signal.learning_points && (
+          {(signal.learning_points || (isTeaching && showDebug)) && (
             <div data-testid="jd-learning-points">
               <h3 className="text-xs font-semibold flex items-center gap-1.5 mb-1 text-mentor">
                 <BookOpen className="h-3.5 w-3.5" /> 教學重點
               </h3>
-              <SafeRichHtml html={signal.learning_points} className="text-xs" />
+              {showDebug && <TeachingDebugBadge raw={signal.learning_points} />}
+              {signal.learning_points
+                ? <SafeRichHtml html={signal.learning_points} className="text-xs" />
+                : showDebug && <p className="text-xs text-muted-foreground">（無 learning_points 內容，見上方 debug 標籤）</p>}
             </div>
           )}
         </div>
