@@ -329,6 +329,8 @@ const JournalsExport = () => {
   const [mdBuilding, setMdBuilding] = useState(false);
   const [mdFailure, setMdFailure] = useState<ExportFailure | null>(null);
   const [previewMentorId, setPreviewMentorId] = useState<string | null>(null);
+  // 對話框內每位老師的勾選狀態；null 代表尚未初始化（開啟對話框時預設全選）
+  const [dialogSelected, setDialogSelected] = useState<Set<string> | null>(null);
   const range = useMemo(() => weekRangeUtc(weekStart), [weekStart]);
 
 
@@ -459,16 +461,19 @@ const JournalsExport = () => {
     (assetFilter !== 'all' ? 1 : 0) +
     (!publishedOnly ? 1 : 0);
 
-  const doExportMarkdown = async () => {
-    if (rows.length === 0) {
-      toast.warning('目前篩選條件下沒有可匯出的週記');
+  const doExportMarkdown = async (mentorFilter?: Set<string>) => {
+    const scoped = mentorFilter && mentorFilter.size > 0
+      ? rows.filter((r) => mentorFilter.has(r.expert_id))
+      : rows;
+    if (scoped.length === 0) {
+      toast.warning('目前條件下沒有可匯出的週記（請至少勾選一位老師）');
       return;
     }
     setMdBuilding(true);
     setMdFailure(null);
     try {
       const result = await buildJournalExport(
-        rows as unknown as JournalRowExport[],
+        scoped as unknown as JournalRowExport[],
         { startLabel: range.startLabel, endLabel: range.endLabel },
         publishedOnly,
       );
@@ -490,7 +495,7 @@ const JournalsExport = () => {
         message: 'Markdown 匯出過程失敗',
         detail: e?.message ?? String(e ?? '未知錯誤'),
         source: 'unknown',
-        at: Date.now(),
+      at: Date.now(),
       };
       setMdFailure(info);
       toast.error(info.message, { description: info.detail, duration: 8000 });
@@ -804,7 +809,18 @@ const JournalsExport = () => {
       </div>
 
 
-      <AlertDialog open={confirmOpen} onOpenChange={setConfirmOpen}>
+      <AlertDialog
+        open={confirmOpen}
+        onOpenChange={(open) => {
+          setConfirmOpen(open);
+          if (open) {
+            // 開啟時預設全部老師勾選
+            setDialogSelected(new Set(previews.map((p) => p.expertId)));
+          } else {
+            setDialogSelected(null);
+          }
+        }}
+      >
         <AlertDialogContent className="max-w-3xl">
           <AlertDialogHeader>
             <AlertDialogTitle>確認匯出週記 Markdown？</AlertDialogTitle>
@@ -813,45 +829,96 @@ const JournalsExport = () => {
                 <div data-testid="je-confirm-week">週別：<span className="font-medium text-foreground">{range.startLabel} ~ {range.endLabel}</span></div>
                 <div>發布狀態：<span className="font-medium text-foreground">{publishedOnly ? '只匯出已發布' : '含全部狀態（草稿/撤回/已發布）'}</span></div>
                 <div>資產類別：<span className="font-medium text-foreground">{assetFilter === 'all' ? '全部' : ASSET_LABEL[assetFilter]}</span></div>
-                <div>老師：<span className="font-medium text-foreground">{selectedMentors.size === 0 ? '全部' : `已選 ${selectedMentors.size} 位`}</span></div>
-                <div className="pt-1">
-                  將為 <span className="font-semibold text-foreground">{groups.length}</span> 位老師各產出一份 Markdown（共 <span className="font-semibold text-foreground">{rows.length}</span> 則週記）。
-                </div>
-                <div className="text-xs text-muted-foreground" data-testid="je-confirm-filename-hint">
-                  {previews.length <= 1
-                    ? `檔名：${previews[0]?.filename ?? `legendflow-journal-<slug>-${range.startLabel}_to_${range.endLabel}_${publishedOnly ? 'published' : 'all'}.md`}`
-                    : `檔名：legendflow-journals-${range.startLabel}_to_${range.endLabel}_${publishedOnly ? 'published' : 'all'}.zip（內含每位老師一份 .md）`}
-                </div>
+                {(() => {
+                  const sel = dialogSelected ?? new Set(previews.map((p) => p.expertId));
+                  const chosen = previews.filter((p) => sel.has(p.expertId));
+                  const chosenRows = chosen.reduce((sum, p) => sum + p.rowCount, 0);
+                  const suffix = publishedOnly ? 'published' : 'all';
+                  let filenameHint = '';
+                  if (chosen.length === 0) {
+                    filenameHint = '尚未勾選任何老師';
+                  } else if (chosen.length === 1) {
+                    filenameHint = `檔名：legendflow-journal-${chosen[0].slug}-${range.startLabel}_to_${range.endLabel}_${suffix}.md`;
+                  } else {
+                    filenameHint = `檔名：legendflow-journals-${range.startLabel}_to_${range.endLabel}_${suffix}.zip（內含每位老師一份 .md）`;
+                  }
+                  return (
+                    <>
+                      <div className="pt-1" data-testid="je-confirm-summary">
+                        將為 <span className="font-semibold text-foreground">{chosen.length}</span> / {previews.length} 位老師產出 Markdown
+                        （共 <span className="font-semibold text-foreground">{chosenRows}</span> 則週記）。
+                      </div>
+                      <div className="text-xs text-muted-foreground" data-testid="je-confirm-filename-hint">
+                        {filenameHint}
+                      </div>
+                    </>
+                  );
+                })()}
               </div>
             </AlertDialogDescription>
           </AlertDialogHeader>
 
           {previews.length > 0 && (
             <div className="space-y-2 border-t pt-3" data-testid="je-confirm-preview">
-              <div className="flex items-center justify-between gap-2">
+              <div className="flex items-center justify-between gap-2 flex-wrap">
                 <div className="text-xs font-medium text-muted-foreground">
-                  內容預覽（點擊老師頁籤切換，共 {previews.length} 份檔案）
+                  勾選要匯出的老師（點文字切換預覽 / 勾選框控制是否納入下載）
                 </div>
-                {activePreview && (
-                  <div className="text-[11px] font-mono text-muted-foreground truncate max-w-[60%]" title={activePreview.filename} data-testid="je-preview-active-filename">
-                    {activePreview.filename} · {activePreview.md.length.toLocaleString()} 字元
-                  </div>
-                )}
+                <div className="flex items-center gap-2 text-[11px]">
+                  <button
+                    type="button"
+                    className="text-primary hover:underline"
+                    data-testid="je-dialog-select-all"
+                    onClick={() => setDialogSelected(new Set(previews.map((p) => p.expertId)))}
+                  >全選</button>
+                  <span className="text-muted-foreground">·</span>
+                  <button
+                    type="button"
+                    className="text-muted-foreground hover:underline"
+                    data-testid="je-dialog-clear-all"
+                    onClick={() => setDialogSelected(new Set())}
+                  >清除</button>
+                </div>
               </div>
-              <div className="flex flex-wrap gap-1 max-h-24 overflow-y-auto" role="tablist">
+              {activePreview && (
+                <div className="text-[11px] font-mono text-muted-foreground truncate" title={activePreview.filename} data-testid="je-preview-active-filename">
+                  預覽中：{activePreview.filename} · {activePreview.md.length.toLocaleString()} 字元
+                </div>
+              )}
+              <div className="flex flex-wrap gap-1 max-h-32 overflow-y-auto" role="tablist">
                 {previews.map((p) => {
                   const isActive = activePreview?.expertId === p.expertId;
+                  const sel = dialogSelected ?? new Set(previews.map((x) => x.expertId));
+                  const isChecked = sel.has(p.expertId);
                   return (
-                    <button
+                    <div
                       key={p.expertId}
-                      role="tab"
-                      aria-selected={isActive}
-                      onClick={() => setPreviewMentorId(p.expertId)}
-                      data-testid={`je-preview-tab-${p.slug}`}
-                      className={`text-xs px-2 py-1 rounded border transition ${isActive ? 'bg-primary text-primary-foreground border-primary' : 'bg-background hover:bg-muted'}`}
+                      className={`flex items-center gap-1 text-xs pl-1.5 pr-2 py-1 rounded border transition ${isActive ? 'border-primary ring-1 ring-primary/40' : 'border-border'} ${isChecked ? 'bg-background' : 'bg-muted/40 opacity-70'}`}
                     >
-                      {p.mentorName} <span className="opacity-70">· {p.rowCount}</span>
-                    </button>
+                      <Checkbox
+                        checked={isChecked}
+                        onCheckedChange={(v) => {
+                          setDialogSelected((prev) => {
+                            const base = prev ?? new Set(previews.map((x) => x.expertId));
+                            const next = new Set(base);
+                            if (v) next.add(p.expertId); else next.delete(p.expertId);
+                            return next;
+                          });
+                        }}
+                        aria-label={`匯出 ${p.mentorName}`}
+                        data-testid={`je-dialog-mentor-check-${p.slug}`}
+                      />
+                      <button
+                        type="button"
+                        role="tab"
+                        aria-selected={isActive}
+                        onClick={() => setPreviewMentorId(p.expertId)}
+                        data-testid={`je-preview-tab-${p.slug}`}
+                        className={`${isActive ? 'font-medium text-primary' : ''}`}
+                      >
+                        {p.mentorName} <span className="opacity-70">· {p.rowCount}</span>
+                      </button>
+                    </div>
                   );
                 })}
               </div>
@@ -872,7 +939,12 @@ const JournalsExport = () => {
             <AlertDialogCancel>取消</AlertDialogCancel>
             <AlertDialogAction
               data-testid="je-confirm-download"
-              onClick={() => { setConfirmOpen(false); void doExportMarkdown(); }}
+              disabled={(dialogSelected?.size ?? previews.length) === 0}
+              onClick={() => {
+                const sel = new Set(dialogSelected ?? new Set(previews.map((p) => p.expertId)));
+                setConfirmOpen(false);
+                void doExportMarkdown(sel);
+              }}
             >
               確認下載
             </AlertDialogAction>
