@@ -31,7 +31,19 @@ function isPreviewEnv() {
   }
 }
 
-const RANGE = { startLabel: '2026-07-13', endLabel: '2026-07-19' };
+const DEFAULT_RANGE = { startLabel: '2026-07-13', endLabel: '2026-07-19' };
+
+function readRangeFromQuery() {
+  try {
+    const p = new URLSearchParams(window.location.search);
+    const s = p.get('start');
+    const e = p.get('end');
+    if (s && /^\d{4}-\d{2}-\d{2}$/.test(s) && e && /^\d{4}-\d{2}-\d{2}$/.test(e)) {
+      return { startLabel: s, endLabel: e };
+    }
+  } catch {}
+  return DEFAULT_RANGE;
+}
 
 const MENTOR_A_ROWS: JournalRowExport[] = [
   {
@@ -86,6 +98,7 @@ export default function JournalsExportHarnessEntry() {
   if (!isPreviewEnv()) return null;
 
   const [status, setStatus] = useState<string>('idle');
+  const RANGE = readRangeFromQuery();
 
   const runSingle = async () => {
     setStatus('running-single');
@@ -103,15 +116,8 @@ export default function JournalsExportHarnessEntry() {
     setStatus(`multi:${res.kind}:${res.filename}`);
   };
 
-  // Mirror the exact week-range display string used in
-  // `src/pages/company/JournalsExport.tsx` (`{startLabel} ~ {endLabel}`),
-  // so E2E can assert parity between the on-screen label and the
-  // `- 週別：...` header written inside each exported Markdown file.
   const weekDisplay = `${RANGE.startLabel} ~ ${RANGE.endLabel}`;
 
-  // Slug map (expert_id → slug) exposed for E2E filename assertions;
-  // lets the test verify every mentor file is named after its own slug
-  // without hard-coding the mapping inside the spec.
   const slugMap = {
     'expert-a': 'master-zhou',
     'expert-b': 'wendy-us',
