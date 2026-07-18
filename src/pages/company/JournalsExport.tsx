@@ -323,7 +323,10 @@ const JournalsExport = () => {
   const [publishedOnly, setPublishedOnly] = useState(true);
   const [assetFilter, setAssetFilter] = useState<AssetFilter>('all');
   const [selectedMentors, setSelectedMentors] = useState<Set<string>>(new Set());
+  const [mdBuilding, setMdBuilding] = useState(false);
+  const [mdFailure, setMdFailure] = useState<ExportFailure | null>(null);
   const range = useMemo(() => weekRangeUtc(weekStart), [weekStart]);
+
 
   // ── 全部 mentor（給下拉多選用；不受週別/資產影響）────
   const { data: mentors = [] } = useQuery({
