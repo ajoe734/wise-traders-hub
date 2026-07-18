@@ -19,7 +19,7 @@ import {
 } from '@/components/ui/alert-dialog';
 import { supabase } from '@/integrations/supabase/client';
 import { toast } from 'sonner';
-import { Download, FileText, Filter, X } from 'lucide-react';
+import { AlertTriangle, Download, FileText, Filter, RotateCw, X } from 'lucide-react';
 import { useQuery } from '@tanstack/react-query';
 import {
   ASSET_LABEL,
@@ -98,8 +98,39 @@ interface StoredExport {
   updatedAt: string | null;
 }
 
+interface ExportFailure {
+  message: string;      // human short reason (toast title)
+  detail?: string;      // extended cause line (banner + toast description)
+  source: 'edge' | 'network' | 'payload' | 'server' | 'unknown';
+  at: number;
+}
+
+/** Best-effort parser for supabase.functions.invoke errors (FunctionsHttpError / FetchError). */
+async function describeInvokeError(err: unknown): Promise<{ message: string; detail?: string; source: ExportFailure['source'] }> {
+  const anyErr = err as any;
+  const name = anyErr?.name ?? '';
+  let bodyText: string | undefined;
+  try {
+    if (anyErr?.context && typeof anyErr.context.text === 'function') {
+      bodyText = await anyErr.context.text();
+    }
+  } catch { /* ignore */ }
+  if (name === 'FunctionsHttpError') {
+    return {
+      message: 'Edge Function 回傳錯誤',
+      detail: bodyText?.slice(0, 400) ?? anyErr?.message ?? 'HTTP 非 2xx',
+      source: 'edge',
+    };
+  }
+  if (name === 'FunctionsFetchError' || name === 'TypeError') {
+    return { message: '無法連線 Edge Function', detail: anyErr?.message ?? '網路異常', source: 'network' };
+  }
+  return { message: '觸發失敗', detail: anyErr?.message ?? String(err ?? '未知錯誤'), source: 'unknown' };
+}
+
 function AutoExportSection() {
   const [running, setRunning] = useState(false);
+  const [failure, setFailure] = useState<ExportFailure | null>(null);
 
   const { data: files = [], isLoading, refetch } = useQuery({
     queryKey: ['company-journals-export', 'storage-history'],
@@ -144,13 +175,46 @@ function AutoExportSection() {
 
   const triggerNow = async () => {
     setRunning(true);
+    setFailure(null);
     try {
       const { data, error } = await supabase.functions.invoke('weekly-journal-export', { body: {} });
-      if (error) throw error;
-      toast.success(`已手動觸發：${data?.journals ?? 0} 則 / ${data?.mentors ?? 0} 位老師`);
+      if (error) {
+        const info = await describeInvokeError(error);
+        setFailure({ ...info, at: Date.now() });
+        toast.error(info.message, { description: info.detail, duration: 8000 });
+        return;
+      }
+      // 檢查回傳 payload 結構是否合預期
+      if (!data || typeof data !== 'object') {
+        const info: ExportFailure = {
+          message: '匯出回傳異常',
+          detail: `Edge Function 沒有回傳 JSON 內容（收到 ${data === null ? 'null' : typeof data}）`,
+          source: 'payload',
+          at: Date.now(),
+        };
+        setFailure(info);
+        toast.error(info.message, { description: info.detail, duration: 8000 });
+        return;
+      }
+      if ((data as any).ok === false) {
+        const info: ExportFailure = {
+          message: '匯出流程回報失敗',
+          detail: String((data as any).error ?? '未提供錯誤原因'),
+          source: 'server',
+          at: Date.now(),
+        };
+        setFailure(info);
+        toast.error(info.message, { description: info.detail, duration: 8000 });
+        return;
+      }
+      const journals = Number((data as any).journals ?? 0);
+      const mentors = Number((data as any).mentors ?? 0);
+      toast.success(`已手動觸發：${journals} 則 / ${mentors} 位老師`);
       refetch();
-    } catch (e: any) {
-      toast.error(`觸發失敗：${e?.message ?? e}`);
+    } catch (e) {
+      const info = await describeInvokeError(e);
+      setFailure({ ...info, at: Date.now() });
+      toast.error(info.message, { description: info.detail, duration: 8000 });
     } finally {
       setRunning(false);
     }
@@ -168,12 +232,59 @@ function AutoExportSection() {
         </div>
         <div className="flex gap-2">
           <Button variant="outline" size="sm" onClick={() => refetch()}>重新整理</Button>
-          <Button size="sm" onClick={triggerNow} disabled={running}>
+          <Button size="sm" onClick={triggerNow} disabled={running} data-testid="je-manual-trigger">
             {running ? '執行中…' : '立即手動觸發'}
           </Button>
         </div>
       </CardHeader>
       <CardContent>
+        {failure && (
+          <div
+            role="alert"
+            data-testid="je-manual-error"
+            data-error-source={failure.source}
+            className="mb-4 rounded-md border border-destructive/40 bg-destructive/5 p-3 text-sm"
+          >
+            <div className="flex items-start justify-between gap-3">
+              <div className="flex items-start gap-2 min-w-0">
+                <AlertTriangle className="h-4 w-4 mt-0.5 text-destructive shrink-0" />
+                <div className="min-w-0">
+                  <div className="font-medium text-destructive">
+                    匯出失敗：{failure.message}
+                    <span className="ml-2 text-[11px] font-normal text-muted-foreground">
+                      來源：{failure.source} · {fmtTaipei(new Date(failure.at).toISOString())}
+                    </span>
+                  </div>
+                  {failure.detail && (
+                    <div className="text-xs text-muted-foreground break-all mt-1" data-testid="je-manual-error-detail">
+                      {failure.detail}
+                    </div>
+                  )}
+                </div>
+              </div>
+              <div className="flex items-center gap-2 shrink-0">
+                <Button
+                  size="sm"
+                  variant="outline"
+                  onClick={triggerNow}
+                  disabled={running}
+                  className="gap-1"
+                  data-testid="je-manual-retry"
+                >
+                  <RotateCw className="h-3 w-3" /> 重試
+                </Button>
+                <Button
+                  size="sm"
+                  variant="ghost"
+                  onClick={() => setFailure(null)}
+                  aria-label="關閉錯誤提示"
+                >
+                  <X className="h-3 w-3" />
+                </Button>
+              </div>
+            </div>
+          </div>
+        )}
         {isLoading ? (
           <div className="py-6 text-center text-sm text-muted-foreground">載入中…</div>
         ) : files.length === 0 ? (
@@ -205,13 +316,17 @@ function AutoExportSection() {
 }
 
 
+
 const JournalsExport = () => {
   const [weekStart, setWeekStart] = useState<string>(() => taipeiMondayOf(new Date()));
   const [confirmOpen, setConfirmOpen] = useState(false);
   const [publishedOnly, setPublishedOnly] = useState(true);
   const [assetFilter, setAssetFilter] = useState<AssetFilter>('all');
   const [selectedMentors, setSelectedMentors] = useState<Set<string>>(new Set());
+  const [mdBuilding, setMdBuilding] = useState(false);
+  const [mdFailure, setMdFailure] = useState<ExportFailure | null>(null);
   const range = useMemo(() => weekRangeUtc(weekStart), [weekStart]);
+
 
   // ── 全部 mentor（給下拉多選用；不受週別/資產影響）────
   const { data: mentors = [] } = useQuery({
@@ -314,18 +429,44 @@ const JournalsExport = () => {
       toast.warning('目前篩選條件下沒有可匯出的週記');
       return;
     }
-    const result = await buildJournalExport(
-      rows as unknown as JournalRowExport[],
-      { startLabel: range.startLabel, endLabel: range.endLabel },
-      publishedOnly,
-    );
-    if (!result) return;
-    downloadBlob(result.filename, result.blob);
-    toast.success(`已匯出 ${result.totalRows} 則週記（${result.mentorCount} 位老師 · Markdown）`);
+    setMdBuilding(true);
+    setMdFailure(null);
+    try {
+      const result = await buildJournalExport(
+        rows as unknown as JournalRowExport[],
+        { startLabel: range.startLabel, endLabel: range.endLabel },
+        publishedOnly,
+      );
+      if (!result) {
+        const info: ExportFailure = {
+          message: '匯出建構回傳空值',
+          detail: '同批資料經 buildJournalExport 後無有效輸出，請重試或刷新資料。',
+          source: 'payload',
+          at: Date.now(),
+        };
+        setMdFailure(info);
+        toast.error(info.message, { description: info.detail, duration: 8000 });
+        return;
+      }
+      downloadBlob(result.filename, result.blob);
+      toast.success(`已匯出 ${result.totalRows} 則週記（${result.mentorCount} 位老師 · Markdown）`);
+    } catch (e: any) {
+      const info: ExportFailure = {
+        message: 'Markdown 匯出過程失敗',
+        detail: e?.message ?? String(e ?? '未知錯誤'),
+        source: 'unknown',
+        at: Date.now(),
+      };
+      setMdFailure(info);
+      toast.error(info.message, { description: info.detail, duration: 8000 });
+    } finally {
+      setMdBuilding(false);
+    }
   };
 
   return (
     <CompanyLayout>
+
       <SEO title="週記匯出 | 公司後台" description="批次匯出實戰導師本週已發布週記" path="/company/journals-export" noindex />
       <div className="p-6 space-y-6">
         <div>
@@ -494,6 +635,54 @@ const JournalsExport = () => {
             </Button>
           </CardHeader>
           <CardContent className="space-y-4">
+            {mdFailure && (
+              <div
+                role="alert"
+                data-testid="je-md-error"
+                data-error-source={mdFailure.source}
+                className="rounded-md border border-destructive/40 bg-destructive/5 p-3 text-sm"
+              >
+                <div className="flex items-start justify-between gap-3">
+                  <div className="flex items-start gap-2 min-w-0">
+                    <AlertTriangle className="h-4 w-4 mt-0.5 text-destructive shrink-0" />
+                    <div className="min-w-0">
+                      <div className="font-medium text-destructive">
+                        匯出失敗：{mdFailure.message}
+                        <span className="ml-2 text-[11px] font-normal text-muted-foreground">
+                          來源：{mdFailure.source} · {fmtTaipei(new Date(mdFailure.at).toISOString())}
+                        </span>
+                      </div>
+                      {mdFailure.detail && (
+                        <div className="text-xs text-muted-foreground break-all mt-1" data-testid="je-md-error-detail">
+                          {mdFailure.detail}
+                        </div>
+                      )}
+                    </div>
+                  </div>
+                  <div className="flex items-center gap-2 shrink-0">
+                    <Button
+                      size="sm"
+                      variant="outline"
+                      onClick={() => void doExportMarkdown()}
+                      disabled={mdBuilding || isLoading || rows.length === 0}
+                      className="gap-1"
+                      data-testid="je-md-retry"
+                    >
+                      <RotateCw className="h-3 w-3" /> 重試
+                    </Button>
+                    <Button
+                      size="sm"
+                      variant="ghost"
+                      onClick={() => setMdFailure(null)}
+                      aria-label="關閉錯誤提示"
+                    >
+                      <X className="h-3 w-3" />
+                    </Button>
+                  </div>
+                </div>
+              </div>
+            )}
+
             {isLoading ? (
               <div className="py-8 text-center text-sm text-muted-foreground">載入中…</div>
             ) : groups.length === 0 ? (
