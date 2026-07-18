@@ -357,6 +357,7 @@ const AppShell = () => (
             <Route path="/company/missing-prices" element={<ProtectedRoute requiredRole="company_admin"><CompanyMissingPrices /></ProtectedRoute>} />
             <Route path="/company/meta-overrides" element={<ProtectedRoute requiredRole="company_admin"><CompanyMetaOverrides /></ProtectedRoute>} />
             <Route path="/company/perf-metrics" element={<ProtectedRoute requiredRole="company_admin"><CompanyPerfMetrics /></ProtectedRoute>} />
+            <Route path="/company/currency-diagnostics" element={<ProtectedRoute requiredRole="company_admin"><CompanyCurrencyDiagnostics /></ProtectedRoute>} />
             <Route path="/company/stream-health" element={<ProtectedRoute requiredRole="company_admin"><CompanyStreamHealth /></ProtectedRoute>} />
             <Route path="/company/stream-health/trace" element={<ProtectedRoute requiredRole="company_admin"><CompanyStreamHealthTrace /></ProtectedRoute>} />
             <Route path="/company/traffic" element={<ProtectedRoute requiredRole="company_admin"><CompanyTraffic /></ProtectedRoute>} />
