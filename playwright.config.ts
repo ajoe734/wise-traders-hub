@@ -198,6 +198,12 @@ export default defineConfig({
       testMatch: /signal-detail-preview-currency-schema\.spec\.ts/,
       use: { ...devices['Desktop Chrome'], viewport: { width: 1280, height: 900 } },
     },
+    {
+      // SignalDetail 韌性：teaching / experts embed 欄位不完整時仍能正常渲染
+      name: 'desktop-signal-detail-incomplete-teaching-fields',
+      testMatch: /signal-detail-incomplete-teaching-fields\.spec\.ts/,
+      use: { ...devices['Desktop Chrome'], viewport: { width: 1280, height: 900 } },
+    },
 
 
 
