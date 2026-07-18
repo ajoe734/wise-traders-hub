@@ -151,6 +151,7 @@ const CompanyUsers = lazy(() => import("./pages/company/Users"));
 const CompanyMembers = lazy(() => import("./pages/company/Members"));
 const ViewAsEntry = lazy(() => import("./pages/app/ViewAsEntry"));
 const CompanyPerfMetrics = lazy(() => import("./pages/company/PerfMetrics"));
+const CompanyCurrencyDiagnostics = lazy(() => import("./pages/company/CurrencyDiagnostics"));
 const CompanyStreamHealth = lazy(() => import("./pages/company/StreamHealth"));
 const CompanyStreamHealthTrace = lazy(() => import("./pages/company/StreamHealthTrace"));
 const CompanyTraffic = lazy(() => import("./pages/company/Traffic"));
@@ -356,6 +357,7 @@ const AppShell = () => (
             <Route path="/company/missing-prices" element={<ProtectedRoute requiredRole="company_admin"><CompanyMissingPrices /></ProtectedRoute>} />
             <Route path="/company/meta-overrides" element={<ProtectedRoute requiredRole="company_admin"><CompanyMetaOverrides /></ProtectedRoute>} />
             <Route path="/company/perf-metrics" element={<ProtectedRoute requiredRole="company_admin"><CompanyPerfMetrics /></ProtectedRoute>} />
+            <Route path="/company/currency-diagnostics" element={<ProtectedRoute requiredRole="company_admin"><CompanyCurrencyDiagnostics /></ProtectedRoute>} />
             <Route path="/company/stream-health" element={<ProtectedRoute requiredRole="company_admin"><CompanyStreamHealth /></ProtectedRoute>} />
             <Route path="/company/stream-health/trace" element={<ProtectedRoute requiredRole="company_admin"><CompanyStreamHealthTrace /></ProtectedRoute>} />
             <Route path="/company/traffic" element={<ProtectedRoute requiredRole="company_admin"><CompanyTraffic /></ProtectedRoute>} />
