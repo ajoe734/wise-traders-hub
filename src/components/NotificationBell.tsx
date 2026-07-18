@@ -13,6 +13,7 @@ import { useNavigate } from 'react-router-dom';
 import { fetchMemberNotifications } from '@/lib/memberDataAccess';
 import { trackRaw } from '@/lib/analytics/events';
 import { openNotificationLink } from '@/lib/openNotificationLink';
+import { toast } from 'sonner';
 
 export function NotificationBell() {
   const { user } = useAuth();
