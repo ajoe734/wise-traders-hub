@@ -36,7 +36,6 @@ interface DbSignal {
   price_hint: number | null;
   quantity: number | null;
   quantity_unit: string;
-  currency?: string | null;
   reason_summary: string | null;
   reason_detail: string | null;
   risk_notes: string | null;
@@ -47,6 +46,7 @@ interface DbSignal {
     slug: string;
     role: string;
     avatar_url: string | null;
+    currency?: string | null;
   } | null;
 }
 
