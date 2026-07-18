@@ -107,16 +107,18 @@ const SignalDetail = () => {
   // 幣別解析事件：signal 就緒後送出，方便日後查 explicit / inferred / fallback 比例
   useEffect(() => {
     if (!signal?.id) return;
-    trackRaw('signal_currency_resolution', {
-      signal_id: signal.id,
-      expert_slug: signal.experts?.slug ?? null,
-      instrument: signal.instrument ?? null,
-      resolved_currency: resolvedCurrency,
-      source: currencySource,
-      had_explicit: signal.experts?.currency === 'USD' || signal.experts?.currency === 'TWD',
-      is_preview: isPreview,
-    });
+    trackRaw(
+      'signal_currency_resolution',
+      buildSignalCurrencyResolutionPayload({
+        signal_id: signal.id,
+        expert_slug: signal.experts?.slug ?? null,
+        expert_currency: signal.experts?.currency,
+        instrument: signal.instrument,
+        is_preview: isPreview,
+      }),
+    );
   }, [signal?.id, resolvedCurrency, currencySource, isPreview, signal?.experts?.slug, signal?.experts?.currency, signal?.instrument]);
+
 
   if (loading) {
     return <UnifiedAppLayout><div className="p-4 text-center text-muted-foreground">載入中...</div></UnifiedAppLayout>;
