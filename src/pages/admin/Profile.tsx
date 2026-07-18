@@ -35,6 +35,7 @@ const AdminProfile = () => {
   const {
     expert, isLoading, capitalStatus, perf,
     saveProfile, setStartingCapital: setStartingCapitalMut, uploadAvatar,
+    resetAssetClass,
   } = useAdminProfile(expertSlug, {
     isOwner,
     isCompanyAdmin,
