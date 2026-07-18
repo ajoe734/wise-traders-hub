@@ -108,26 +108,51 @@ export function NotificationBell() {
             <p className="text-sm text-muted-foreground text-center py-8">暫無通知</p>
           ) : (
             notifications.map(n => (
-              <button
+              <div
                 key={n.id}
-                onClick={() => handleClick(n)}
                 className={cn(
-                  "w-full text-left px-3 py-2.5 border-b last:border-0 hover:bg-muted/50 transition-colors",
+                  "border-b last:border-0",
                   !n.is_read && "bg-primary/5"
                 )}
               >
-                <div className="flex gap-2">
-                  <span className="text-sm shrink-0">{typeIcons[n.type] || '📢'}</span>
-                  <div className="min-w-0">
-                    <p className={cn("text-sm truncate", !n.is_read && "font-medium")}>{n.title}</p>
-                    {n.body && <p className="text-xs text-muted-foreground truncate">{n.body}</p>}
-                    <p className="text-[10px] text-muted-foreground mt-0.5">
-                      {new Date(n.created_at).toLocaleString('zh-TW')}
-                    </p>
+                <button
+                  onClick={() => handleClick(n)}
+                  className="w-full text-left px-3 py-2.5 hover:bg-muted/50 transition-colors"
+                >
+                  <div className="flex gap-2">
+                    <span className="text-sm shrink-0">{typeIcons[n.type] || '📢'}</span>
+                    <div className="min-w-0">
+                      <p className={cn("text-sm truncate", !n.is_read && "font-medium")}>{n.title}</p>
+                      {n.body && <p className="text-xs text-muted-foreground truncate">{n.body}</p>}
+                      <p className="text-[10px] text-muted-foreground mt-0.5">
+                        {new Date(n.created_at).toLocaleString('zh-TW')}
+                      </p>
+                    </div>
+                    {!n.is_read && <div className="h-2 w-2 rounded-full bg-primary shrink-0 mt-1.5" />}
                   </div>
-                  {!n.is_read && <div className="h-2 w-2 rounded-full bg-primary shrink-0 mt-1.5" />}
-                </div>
-              </button>
+                </button>
+                {n.download_url && (
+                  <div className="px-3 pb-2 -mt-1">
+                    <Button
+                      variant="outline"
+                      size="sm"
+                      className="h-6 text-xs"
+                      onClick={(e) => {
+                        e.stopPropagation();
+                        openNotificationLink(n.download_url, {
+                          navigate,
+                          onError: (error, message) => {
+                            trackRaw('notification_link_error', { notification_id: n.id, error, source: 'download_url' });
+                            toast.error(message);
+                          },
+                        });
+                      }}
+                    >
+                      下載檔案
+                    </Button>
+                  </div>
+                )}
+              </div>
             ))
           )}
         </ScrollArea>
