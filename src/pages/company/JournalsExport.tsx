@@ -205,8 +205,8 @@ function AutoExportSection() {
         <div>
           <CardTitle className="text-base">4. 自動排程 & 歷史匯出</CardTitle>
           <p className="text-xs text-muted-foreground mt-1">
-            系統於<span className="font-medium text-foreground"> 每週五 23:30 (Asia/Taipei)</span> 自動匯出當週所有 mentor 已發布週記為 CSV，
-            上傳至受保護的 Storage，並以站內通知附上 30 天有效的下載連結。舊檔於 30 天後自動清理。
+            系統於<span className="font-medium text-foreground"> 每週五 23:30 (Asia/Taipei)</span> 自動為當週<strong>每位 mentor 產出一份 Markdown</strong>，
+            上傳至受保護的 Storage，並以站內通知連向下方歷史列表。舊檔於 30 天後自動清理。
           </p>
         </div>
         <div className="flex gap-2">
