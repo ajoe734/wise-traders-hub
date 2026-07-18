@@ -98,6 +98,25 @@ const SignalDetail = () => {
     markAppSignalsAsRead();
   }, []);
 
+  // 幣別解析（含來源）：一次算完供整頁使用；signal 未載入時給安全預設值。
+  const { currency: resolvedCurrency, source: currencySource } = signal
+    ? resolveDisplayCurrencyWithSource(signal.experts?.currency, signal.instrument)
+    : { currency: 'TWD' as Currency, source: 'default-fallback' as const };
+
+  // 幣別解析事件：signal 就緒後送出，方便日後查 explicit / inferred / fallback 比例
+  useEffect(() => {
+    if (!signal?.id) return;
+    trackRaw('signal_currency_resolution', {
+      signal_id: signal.id,
+      expert_slug: signal.experts?.slug ?? null,
+      instrument: signal.instrument ?? null,
+      resolved_currency: resolvedCurrency,
+      source: currencySource,
+      had_explicit: signal.experts?.currency === 'USD' || signal.experts?.currency === 'TWD',
+      is_preview: isPreview,
+    });
+  }, [signal?.id, resolvedCurrency, currencySource, isPreview, signal?.experts?.slug, signal?.experts?.currency, signal?.instrument]);
+
   if (loading) {
     return <UnifiedAppLayout><div className="p-4 text-center text-muted-foreground">載入中...</div></UnifiedAppLayout>;
   }
@@ -113,23 +132,6 @@ const SignalDetail = () => {
   const displaySymbol = tickerName
     ? `${tickerCode} ${tickerName}`
     : (tickerCode ? `${tickerCode}.TW` : signal.instrument);
-
-  // 幣別解析（含來源）：一次算完供整頁使用，並在 preview 顯示、發送 analytics。
-  const { currency: resolvedCurrency, source: currencySource } =
-    resolveDisplayCurrencyWithSource(signal.experts?.currency, signal.instrument);
-
-  useEffect(() => {
-    if (!signal?.id) return;
-    trackRaw('signal_currency_resolution', {
-      signal_id: signal.id,
-      expert_slug: signal.experts?.slug ?? null,
-      instrument: signal.instrument ?? null,
-      resolved_currency: resolvedCurrency,
-      source: currencySource,
-      had_explicit: signal.experts?.currency === 'USD' || signal.experts?.currency === 'TWD',
-      is_preview: isPreview,
-    });
-  }, [signal?.id, resolvedCurrency, currencySource, isPreview, signal?.experts?.slug, signal?.experts?.currency, signal?.instrument]);
 
   return (
     <UnifiedAppLayout>
