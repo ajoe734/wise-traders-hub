@@ -21,7 +21,13 @@ import { supabase } from '@/integrations/supabase/client';
 import { toast } from 'sonner';
 import { Download, FileText, Filter, X } from 'lucide-react';
 import { useQuery } from '@tanstack/react-query';
-import JSZip from 'jszip';
+import {
+  ASSET_LABEL,
+  buildJournalExport,
+  downloadBlob,
+  fmtTaipei,
+  type JournalRowExport,
+} from '@/lib/journalsExport';
 
 // ── Taipei week helpers ────────────────────────────────────
 const TZ_OFFSET_MS = 8 * 60 * 60 * 1000;
@@ -46,58 +52,9 @@ function weekRangeUtc(weekStart: string) {
   };
 }
 
-// ── Markdown helpers ───────────────────────────────────────
-function stripHtml(html: string): string {
-  return html
-    .replace(/<\s*(br|BR)\s*\/?>/g, '\n')
-    .replace(/<\/?(p|div|li|h[1-6])[^>]*>/gi, '\n')
-    .replace(/<[^>]+>/g, '')
-    .replace(/&nbsp;/g, ' ')
-    .replace(/&amp;/g, '&')
-    .replace(/&lt;/g, '<')
-    .replace(/&gt;/g, '>')
-    .replace(/&quot;/g, '"')
-    .replace(/[ \t]+\n/g, '\n')
-    .replace(/\n{3,}/g, '\n\n')
-    .trim();
-}
-function mdSection(label: string, raw: string | null | undefined): string {
-  const v = (raw ?? '').trim();
-  if (!v) return '';
-  const text = /<[a-z][\s\S]*>/i.test(v) ? stripHtml(v) : v;
-  if (!text.trim()) return '';
-  return `**${label}**\n\n${text.trim()}\n\n`;
-}
-function safeSlug(s: string, fallback: string): string {
-  const cleaned = (s || '').normalize('NFKC').replace(/[\\/:*?"<>|]/g, '-').replace(/\s+/g, '-').trim();
-  return cleaned || fallback;
-}
-function downloadBlob(name: string, blob: Blob) {
-  const url = URL.createObjectURL(blob);
-  const a = document.createElement('a');
-  a.href = url;
-  a.download = name;
-  document.body.appendChild(a); a.click(); a.remove();
-  setTimeout(() => URL.revokeObjectURL(url), 0);
-}
+// ── Markdown / download helpers now come from '@/lib/journalsExport' ──
+// Keep local helpers only for UI-specific formatting that isn't reused.
 
-function fmtTaipei(iso?: string | null): string {
-  if (!iso) return '';
-  const d = new Date(iso);
-  const shifted = new Date(d.getTime() + TZ_OFFSET_MS);
-  const yyyy = shifted.getUTCFullYear();
-  const mm = String(shifted.getUTCMonth() + 1).padStart(2, '0');
-  const dd = String(shifted.getUTCDate()).padStart(2, '0');
-  const hh = String(shifted.getUTCHours()).padStart(2, '0');
-  const mi = String(shifted.getUTCMinutes()).padStart(2, '0');
-  return `${yyyy}/${mm}/${dd} ${hh}:${mi}`;
-}
-
-const ASSET_LABEL: Record<string, string> = {
-  tw_stock: '台股',
-  us_stock: '美股',
-  crypto: '加密',
-};
 type AssetFilter = 'all' | 'tw_stock' | 'us_stock' | 'crypto';
 type StatusFilter = 'published_only' | 'all';
 
@@ -352,85 +309,19 @@ const JournalsExport = () => {
     (assetFilter !== 'all' ? 1 : 0) +
     (!publishedOnly ? 1 : 0);
 
-  const buildMentorMarkdown = (mentorRows: JournalRow[]): string => {
-    const first = mentorRows[0];
-    const name = first.experts?.name ?? '(未命名)';
-    const slug = first.experts?.slug ?? first.expert_id;
-    const asset = ASSET_LABEL[first.experts?.asset_class ?? ''] ?? (first.experts?.asset_class ?? '');
-    const currency = first.experts?.currency ?? '';
-    const lines: string[] = [];
-    lines.push(`# ${name} 週記`);
-    lines.push('');
-    lines.push(`- 週別：${range.startLabel} ~ ${range.endLabel}`);
-    lines.push(`- Slug：\`${slug}\``);
-    lines.push(`- 資產類別：${asset || '-'}`);
-    lines.push(`- 幣別：${currency || '-'}`);
-    lines.push(`- 則數：${mentorRows.length}`);
-    lines.push('');
-    lines.push('---');
-    lines.push('');
-    mentorRows.forEach((r, idx) => {
-      const time = fmtTaipei(r.published_at || r.created_at);
-      const title = r.reason_summary ? stripHtml(String(r.reason_summary)).slice(0, 80) : (r.instrument || '教學筆記');
-      lines.push(`## ${idx + 1}. ${title}`);
-      lines.push('');
-      const meta: string[] = [];
-      if (time) meta.push(`時間：${time}`);
-      if (r.status) meta.push(`狀態：${r.status}`);
-      if (r.instrument) meta.push(`標的：${r.instrument}`);
-      if (r.action) meta.push(`動作：${r.action}`);
-      if (r.price_hint !== null && r.price_hint !== undefined) meta.push(`參考價：${r.price_hint}`);
-      if (meta.length) { lines.push(meta.map((m) => `- ${m}`).join('\n')); lines.push(''); }
-      lines.push(mdSection('重點摘要', r.reason_summary));
-      lines.push(mdSection('詳細分析', r.reason_detail));
-      lines.push(mdSection('風險提醒', r.risk_notes));
-      lines.push(mdSection('學習重點', r.learning_points));
-      lines.push(`> 訊號 ID：\`${r.id}\``);
-      lines.push('');
-      lines.push('---');
-      lines.push('');
-    });
-    return lines.join('\n').replace(/\n{3,}/g, '\n\n');
-  };
-
   const doExportMarkdown = async () => {
     if (rows.length === 0) {
       toast.warning('目前篩選條件下沒有可匯出的週記');
       return;
     }
-    // 依 expert_id 分組
-    const byMentor = new Map<string, JournalRow[]>();
-    for (const r of rows) {
-      const arr = byMentor.get(r.expert_id) ?? [];
-      arr.push(r);
-      byMentor.set(r.expert_id, arr);
-    }
-
-    const suffix = publishedOnly ? 'published' : 'all';
-
-    // 單一老師 → 直接下載 .md；多位老師 → 打包 zip
-    if (byMentor.size === 1) {
-      const [[expertId, mentorRows]] = Array.from(byMentor);
-      const md = buildMentorMarkdown(mentorRows);
-      const slug = safeSlug(mentorRows[0].experts?.slug ?? expertId, expertId);
-      downloadBlob(
-        `legendflow-journal-${slug}-${range.startLabel}_to_${range.endLabel}_${suffix}.md`,
-        new Blob([md], { type: 'text/markdown;charset=utf-8' }),
-      );
-    } else {
-      const zip = new JSZip();
-      for (const [expertId, mentorRows] of byMentor) {
-        const md = buildMentorMarkdown(mentorRows);
-        const slug = safeSlug(mentorRows[0].experts?.slug ?? expertId, expertId);
-        zip.file(`${slug}.md`, md);
-      }
-      const blob = await zip.generateAsync({ type: 'blob' });
-      downloadBlob(
-        `legendflow-journals-${range.startLabel}_to_${range.endLabel}_${suffix}.zip`,
-        blob,
-      );
-    }
-    toast.success(`已匯出 ${rows.length} 則週記（${byMentor.size} 位老師 · Markdown）`);
+    const result = await buildJournalExport(
+      rows as unknown as JournalRowExport[],
+      { startLabel: range.startLabel, endLabel: range.endLabel },
+      publishedOnly,
+    );
+    if (!result) return;
+    downloadBlob(result.filename, result.blob);
+    toast.success(`已匯出 ${result.totalRows} 則週記（${result.mentorCount} 位老師 · Markdown）`);
   };
 
   return (
