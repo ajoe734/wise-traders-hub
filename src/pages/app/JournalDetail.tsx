@@ -47,6 +47,7 @@ interface SignalDetail {
     slug: string;
     role: string;
     avatar_url: string | null;
+    currency?: string | null;
   };
 }
 
