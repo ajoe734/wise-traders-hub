@@ -18,6 +18,7 @@ import { SafeRichHtml } from '@/components/SafeRichHtml';
 import { FxHint } from '@/components/FxHint';
 import { CURRENCY_SYMBOL, CURRENCY_SOURCE_LABEL, defaultQuantityUnit, resolveDisplayCurrencyWithSource, type Currency } from '@/lib/currency';
 import { trackRaw } from '@/lib/analytics/events';
+import { buildSignalCurrencyResolutionPayload } from '@/lib/analytics/signalCurrencyResolution';
 import { UnavailableContent } from '@/components/UnavailableContent';
 import { parseInstrument } from '@/lib/instrument';
 import { InstrumentTooltip } from '@/components/InstrumentTooltip';
