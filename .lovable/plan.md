@@ -1,54 +1,54 @@
-## 根因
+# 抽屜黑點變橢圓 + 滾動不下去 — 根因處理
 
-這**不是**後台不支援美股，而是資產類別切換後的快取沒串好，導致下游元件在 30 秒內仍讀到舊的 `tw_stock` 快照，看起來像「後台寫不了美股」。
+## 已驗證的根因（Playwright 實測）
 
-流程實際發生的事：
+### Bug 1：「現價」黑點變扁橢圓（截圖裡的元凶）
+`HoldingsDetailPanel.tsx` PriceAxis 與 RangeBand 的 SVG 都用 `preserveAspectRatio="none"`（為了讓 tick 位置可用 `%` 對齊），但裡面直接放了 `<circle>`：
 
-1. `admin/Profile` 把資產類別切成美股 → `useAdminProfile.saveProfile` 對 `experts` 表 `UPDATE {asset_class:'us_stock'}`
-2. DB 觸發器 `sync_expert_currency_with_asset_class` 自動把 `currency` 同步成 `USD`（DB 側已正確）
-3. `saveProfile.onSuccess` 只 invalidate 了 `['admin','profile',slug]` 這一把 key
-4. `SignalCreateDialog` 拿到的 `expert` 是從 `useAdminSignals` 的 `['admin-signals-bundle', slug]` 出來的（`staleTime: 30_000`），**沒被 invalidate**
-5. `resolveAssetClass(expert)` 因此仍回 `tw_stock` → NT$ / 張 / 台股代碼驗證
-6. `CapitalPanel` 走 `['expert-holdings-bundle', expertId]` 也同樣沒失效
+- `PriceAxis`：`viewBox="0 0 100 70"` + `<circle r={4}>`
+- `RangeBand`：`viewBox="0 0 100 30"` + `<circle r={2.5}>`
 
-硬重整頁面就會恢復正常，這也是為什麼「看起來後台不支援美股」的錯覺出現。
+`<circle>` 沒有 `vector-effect="non-scaling-stroke"` 對 fill 也無效——**填色圓形會被 X/Y 非等比拉伸**。實測圓點在不同寬度變成：
 
-同時：一旦該分析師曾經發布過任何一筆訊號，DB 觸發器 `enforce_expert_asset_class_lock` 會直接 RAISE EXCEPTION 阻擋。這位分析師若已有歷史台股訊號，我會**在同一輪一併解鎖** asset_class 切換路徑（管理員專用），並在切換完後把過去發布的台股訊號在後台清單裡標為 legacy，避免混淆。
+| 寬度 | 現價圓點實際尺寸 |
+| ---- | ---- |
+| 390px | 29 × 8 px（橢圓）|
+| 768px | 58 × 8 px |
+| 1280px | 99 × 8 px（幾乎變一條線）|
 
-## 動作
+正是使用者截圖看到「當初設計是圓點，實際是黑色橢圓」的原因。RangeBand 的 30D 紅點同樣中招。
 
-### 1. 修「快取失效缺口」（真正解決 UI 卡在 NT$ 的 bug）
+### Bug 2：抽屜滾動不下去
+`components/ui/sheet.tsx` 的 `side="right"` variant 是 `h-full`，等同 `100vh`。iOS Safari / 動態 URL bar 下 100vh **含瀏覽器 chrome 高度**，抽屜實際渲染比可視區高 → 底部內容被瀏覽器 UI 蓋住無法滾到。
 
-`src/hooks/admin/useAdminProfile.ts` — `saveProfile.onSuccess` 補上下游 bundle 的 invalidate：
+`HoldingsWorkbench.tsx` 用的是共用的 `SheetContent`，只加了 `overflow-y-auto`，沒有覆寫高度上限，也沒吃 `dvh`。桌面 1280×900 實測 `maxScroll=39`（勉強夠），一到 iPhone 尺寸就會把 `情境模擬 / 論點筆記 / 研究筆記 pager` 卡在瀏覽器 URL bar 後面。
 
-```ts
-queryClient.invalidateQueries({ queryKey: expertQueryKey });
-queryClient.invalidateQueries({ queryKey: ['admin-signals-bundle', expertSlug] });
-queryClient.invalidateQueries({ queryKey: ['admin', 'signal-editor', expertSlug] });
-if (expert?.id) {
-  queryClient.invalidateQueries({ queryKey: ['expert-holdings-bundle', expert.id] });
-}
-```
+## 修法
 
-### 2. 給「這位老師想從台股整個切成美股」一條合法路徑
+### 1. `src/checkup/components/freecheckup/HoldingsDetailPanel.tsx`
 
-因為 DB 觸發器 `enforce_expert_asset_class_lock` 會擋，先問你要哪一種：
+**PriceAxis (L863–896)**：把「現價圓點」從 SVG `<circle>` 抽出來，改用 HTML 絕對定位 `<div>`（跟現有的 label overlay 同一層），寬高用真實 px（8×8 圓）。SVG 只保留水平基準線與 tick 垂直短線（都是 stroke，用 `vector-effect="non-scaling-stroke"` 保 1.5px）。
 
-- **A. 提供管理員專用「重置為美股」按鈕**：在 `CurrencyCard` 於 `company_admin` 且 `locked=true` 時顯示「重置為美股」，走一個新的 edge function `admin-reset-expert-asset-class`：以 service_role 先把舊 `expert_signals` 標記 `status='archived'`（或搬到 legacy 表），再 `UPDATE experts.asset_class='us_stock'`，並清 `starting_capital` 讓老師重新設定美股本金。
-- **B. 保留舊台股資料，另開一個純美股 expert 帳號**：不動觸發器，只在 `admin/experts` 給「複製老師檔案 → 新增美股版」的入口。
+**RangeBand (L919–932)**：同樣手法，把 SVG 內 `<circle>` 移到 SVG 外的 HTML overlay `<div>`（5×5 圓，用 `posPrice%` 定位），SVG 只留 polyline。
 
-### 3. 加回歸測試
+留下顯眼註解，說明「preserveAspectRatio=none 的 SVG 內禁止使用 fill 幾何形狀」，避免下一輪打磨又踩回來。
 
-- `src/hooks/admin/__tests__/useAdminProfile.test.ts`：mock supabase，驗證 saveProfile 成功後 4 把 key 都被 invalidate。
-- `e2e/admin-asset-class-switch.spec.ts`：模擬「Profile 切美股 → 進 Signals 頁 → 開 SignalCreateDialog」，斷言看到 `US$` 前綴、單位下拉只有「股」、代碼 placeholder 是 `例：AAPL / BRK.B`。
+### 2. `src/components/ui/sheet.tsx`
 
-### 4. 文件
+`side: right` / `left` 的 variant 補上 `max-h-[100dvh]`（`h-full` 保留，dvh 舊瀏覽器 fallback 100vh 不會壞）。這是共用 primitive，只加上限、不改行為，其他用途仍然 100%。
 
-`.lovable/plan.md` 追加一段「asset_class 切換的快取失效清單」，明列 4 把 query key 與觸發器行為，避免下一次改 profile 又漏。
+### 3. `src/checkup/components/freecheckup/HoldingsWorkbench.tsx`
 
-## 需要你決定
+`SheetContent` className 追加 `!h-[100dvh] max-h-[100dvh]`（強制 override，因 sheet.tsx 的 `h-full` 用 tailwind class），並在 inline style 補 `WebkitOverflowScrolling: 'touch'` 保留（已有）。
 
-1. 走 **A（重置為美股）** 還是 **B（另開美股帳號）**？
-2. 如果選 A，過去台股訊號要 **保留可查（archived）** 還是 **物理刪除**？
+## 回歸驗證
 
-只要你回答，我就進 build mode 一次做完 1 → 4 步。
+1. Playwright 已抓到「橢圓」數據，在 3 個斷點斷言 `dot.getBoundingClientRect().width === dot.height`（±0.5px），加進 `e2e/holdings-detail-panel-visual-snapshot.spec.ts` 或新增 `e2e/holdings-price-axis-dot-shape.spec.ts`。
+2. iOS 尺寸滾動：在 390×667 / 390×844 兩個 viewport 打開抽屜，斷言 `panel.scrollHeight - panel.clientHeight === maxScroll`（可完整滾到底），並截圖比對底部 `研究筆記` pager 可見。
+3. `bunx tsgo --noEmit` 型別檢查。
+
+## 不動的東西
+
+- PriceAxis 標籤定位／臨界 clamp（`labelPos` 8~92%）不改，避免又動到已修好的重疊問題。
+- SheetContent 只加高度上限，不重寫動畫／變體。
+- `holdings-detail-panel` `data-testid` 與 body 結構不動，現有 15+ 支 e2e spec 全保留。

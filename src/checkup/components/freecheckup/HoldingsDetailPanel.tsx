@@ -861,18 +861,39 @@ function PriceAxis({ WB, price, cost, target, baseTarget, upside, tpHistory }) {
         )}
       </div>
       <div style={{ position: 'relative', height: H, minWidth: 0, overflow: 'hidden' }}>
+        {/* ⚠️ 禁止在 preserveAspectRatio="none" 的 SVG 內使用 <circle>/<rect> 等填色幾何形狀：
+            X/Y 非等比縮放會把「圓」拉成扁橢圓（越寬螢幕越扁）。
+            解法：只有 stroke 幾何（line、polyline）能留在 SVG 內（配 vector-effect="non-scaling-stroke"），
+            其他圓點／方塊一律用 HTML overlay <div> 以真實 px 尺寸繪製。 */}
         <svg width="100%" height={H} viewBox={`0 0 100 ${H}`} preserveAspectRatio="none"
           aria-hidden="true"
           style={{ position: 'absolute', inset: 0, width: '100%', height: H, overflow: 'hidden' }}>
           <line x1="0" y1={y} x2="100" y2={y} stroke={WB.hair} strokeWidth="1" vectorEffect="non-scaling-stroke" />
-          {markers.map((p, i) => (
-            <g key={i}>
-              {p.shape === 'tick'
-                ? <line x1={`${p.x}%`} y1={y - 5} x2={`${p.x}%`} y2={y + 5} stroke={p.color} strokeWidth="1.5" vectorEffect="non-scaling-stroke" />
-                : <circle cx={`${p.x}%`} cy={y} r={4} fill={p.color} />}
-            </g>
+          {markers.filter((p) => p.shape === 'tick').map((p, i) => (
+            <line key={`tick-${i}`}
+              x1={`${p.x}%`} y1={y - 5} x2={`${p.x}%`} y2={y + 5}
+              stroke={p.color} strokeWidth="1.5" vectorEffect="non-scaling-stroke" />
           ))}
         </svg>
+        {/* HTML overlay：現價圓點（真實 px、永遠正圓） */}
+        {markers.filter((p) => p.shape === 'dot').map((p, i) => (
+          <span
+            key={`dot-${i}`}
+            data-testid="holdings-price-axis-dot"
+            aria-hidden="true"
+            style={{
+              position: 'absolute',
+              left: `${p.x}%`,
+              top: y,
+              width: 8,
+              height: 8,
+              borderRadius: '50%',
+              background: p.color,
+              transform: 'translate(-50%, -50%)',
+              pointerEvents: 'none',
+            }}
+          />
+        ))}
         {markers.map((p, i) => (
           <span
             key={`label-${i}`}
@@ -908,6 +929,9 @@ function PriceAxis({ WB, price, cost, target, baseTarget, upside, tpHistory }) {
 
 function RangeBand({ WB, price, low, high, spark }) {
   const posPrice = ((price - low) / (high - low)) * 100;
+  const clampedPos = Math.min(Math.max(posPrice, 0), 100);
+  const svgH = 40; // 顯示高度（px）
+  const dotY = svgH - ((price - low) / (high - low)) * svgH;
   return (
     <div data-testid="holdings-range-band" style={{ margin: '0 0 20px', minWidth: 0 }}>
       <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: 6 }}>
@@ -917,18 +941,34 @@ function RangeBand({ WB, price, low, high, spark }) {
         </span>
       </div>
       {spark && spark.length >= 2 && (
-        <svg viewBox="0 0 100 30" preserveAspectRatio="none" style={{ width: '100%', height: 40, display: 'block' }}>
-          <polyline fill="none" stroke={WB.inkSub} strokeWidth="1" vectorEffect="non-scaling-stroke"
-            points={spark.map((v, i) => {
-              const x = (i / (spark.length - 1)) * 100;
-              const yy = 30 - ((v - low) / (high - low)) * 30;
-              return `${x.toFixed(2)},${yy.toFixed(2)}`;
-            }).join(' ')} />
-          <circle
-            cx={`${Math.min(Math.max(posPrice, 0), 100)}`}
-            cy={30 - ((price - low) / (high - low)) * 30}
-            r={2.5} fill={WB.accent} />
-        </svg>
+        <div style={{ position: 'relative', width: '100%', height: svgH }}>
+          {/* preserveAspectRatio="none" SVG 只放 stroke polyline；圓點禁止進 SVG（會被壓成橢圓） */}
+          <svg viewBox="0 0 100 30" preserveAspectRatio="none"
+            style={{ width: '100%', height: svgH, display: 'block', position: 'absolute', inset: 0 }}>
+            <polyline fill="none" stroke={WB.inkSub} strokeWidth="1" vectorEffect="non-scaling-stroke"
+              points={spark.map((v, i) => {
+                const x = (i / (spark.length - 1)) * 100;
+                const yy = 30 - ((v - low) / (high - low)) * 30;
+                return `${x.toFixed(2)},${yy.toFixed(2)}`;
+              }).join(' ')} />
+          </svg>
+          {/* HTML overlay：現價圓點（真實 px 正圓） */}
+          <span
+            data-testid="holdings-range-band-dot"
+            aria-hidden="true"
+            style={{
+              position: 'absolute',
+              left: `${clampedPos}%`,
+              top: dotY,
+              width: 6,
+              height: 6,
+              borderRadius: '50%',
+              background: WB.accent,
+              transform: 'translate(-50%, -50%)',
+              pointerEvents: 'none',
+            }}
+          />
+        </div>
       )}
     </div>
   );
