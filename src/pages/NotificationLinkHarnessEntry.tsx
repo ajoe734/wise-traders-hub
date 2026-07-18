@@ -33,7 +33,7 @@ function isPreviewEnv() {
   }
 }
 
-const INTERNAL_LINK = '/account/notifications?src=harness';
+const INTERNAL_LINK = '/pricing?src=harness';
 const EXTERNAL_LINK =
   'https://yqacmrgdjlenbijclngi.supabase.co/storage/v1/object/sign/journal-exports/demo.pdf?token=abc.def';
 
