@@ -409,6 +409,37 @@ const JournalsExport = () => {
       .sort((a, b) => a.name.localeCompare(b.name, 'zh-Hant'));
   }, [rows]);
 
+  // Build per-mentor MD previews for the confirm dialog so users can eyeball
+  // the exact content that will be downloaded before committing.
+  const previews = useMemo(() => {
+    if (rows.length === 0) return [] as { expertId: string; mentorName: string; slug: string; filename: string; md: string; rowCount: number }[];
+    const byMentor = groupRowsByMentor(rows as unknown as JournalRowExport[]);
+    const singleMentor = byMentor.size === 1;
+    const suffix = publishedOnly ? 'published' : 'all';
+    const list: { expertId: string; mentorName: string; slug: string; filename: string; md: string; rowCount: number }[] = [];
+    for (const [expertId, mentorRows] of byMentor) {
+      const md = buildMentorMarkdown(mentorRows, { startLabel: range.startLabel, endLabel: range.endLabel });
+      const slug = safeSlug(mentorRows[0].experts?.slug ?? expertId, expertId);
+      const filename = singleMentor
+        ? `legendflow-journal-${slug}-${range.startLabel}_to_${range.endLabel}_${suffix}.md`
+        : `${slug}.md`;
+      list.push({
+        expertId,
+        mentorName: mentorRows[0].experts?.name ?? '(未命名)',
+        slug,
+        filename,
+        md,
+        rowCount: mentorRows.length,
+      });
+    }
+    return list.sort((a, b) => a.mentorName.localeCompare(b.mentorName, 'zh-Hant'));
+  }, [rows, range.startLabel, range.endLabel, publishedOnly]);
+
+  const activePreview = useMemo(() => {
+    if (previews.length === 0) return null;
+    return previews.find((p) => p.expertId === previewMentorId) ?? previews[0];
+  }, [previews, previewMentorId]);
+
   const toggleMentor = (id: string) => {
     setSelectedMentors((prev) => {
       const next = new Set(prev);
