@@ -429,18 +429,44 @@ const JournalsExport = () => {
       toast.warning('目前篩選條件下沒有可匯出的週記');
       return;
     }
-    const result = await buildJournalExport(
-      rows as unknown as JournalRowExport[],
-      { startLabel: range.startLabel, endLabel: range.endLabel },
-      publishedOnly,
-    );
-    if (!result) return;
-    downloadBlob(result.filename, result.blob);
-    toast.success(`已匯出 ${result.totalRows} 則週記（${result.mentorCount} 位老師 · Markdown）`);
+    setMdBuilding(true);
+    setMdFailure(null);
+    try {
+      const result = await buildJournalExport(
+        rows as unknown as JournalRowExport[],
+        { startLabel: range.startLabel, endLabel: range.endLabel },
+        publishedOnly,
+      );
+      if (!result) {
+        const info: ExportFailure = {
+          message: '匯出建構回傳空值',
+          detail: '同批資料經 buildJournalExport 後無有效輸出，請重試或刷新資料。',
+          source: 'payload',
+          at: Date.now(),
+        };
+        setMdFailure(info);
+        toast.error(info.message, { description: info.detail, duration: 8000 });
+        return;
+      }
+      downloadBlob(result.filename, result.blob);
+      toast.success(`已匯出 ${result.totalRows} 則週記（${result.mentorCount} 位老師 · Markdown）`);
+    } catch (e: any) {
+      const info: ExportFailure = {
+        message: 'Markdown 匯出過程失敗',
+        detail: e?.message ?? String(e ?? '未知錯誤'),
+        source: 'unknown',
+        at: Date.now(),
+      };
+      setMdFailure(info);
+      toast.error(info.message, { description: info.detail, duration: 8000 });
+    } finally {
+      setMdBuilding(false);
+    }
   };
 
   return (
     <CompanyLayout>
+
       <SEO title="週記匯出 | 公司後台" description="批次匯出實戰導師本週已發布週記" path="/company/journals-export" noindex />
       <div className="p-6 space-y-6">
         <div>
