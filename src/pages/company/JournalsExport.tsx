@@ -21,6 +21,7 @@ import { supabase } from '@/integrations/supabase/client';
 import { toast } from 'sonner';
 import { Download, FileText, Filter, X } from 'lucide-react';
 import { useQuery } from '@tanstack/react-query';
+import JSZip from 'jszip';
 
 // ── Taipei week helpers ────────────────────────────────────
 const TZ_OFFSET_MS = 8 * 60 * 60 * 1000;
@@ -45,18 +46,33 @@ function weekRangeUtc(weekStart: string) {
   };
 }
 
-// ── CSV helpers ────────────────────────────────────────────
-function csvEscape(v: unknown): string {
-  const s = v == null ? '' : String(v);
-  if (/[",\n\r]/.test(s)) return `"${s.replace(/"/g, '""')}"`;
-  return s;
+// ── Markdown helpers ───────────────────────────────────────
+function stripHtml(html: string): string {
+  return html
+    .replace(/<\s*(br|BR)\s*\/?>/g, '\n')
+    .replace(/<\/?(p|div|li|h[1-6])[^>]*>/gi, '\n')
+    .replace(/<[^>]+>/g, '')
+    .replace(/&nbsp;/g, ' ')
+    .replace(/&amp;/g, '&')
+    .replace(/&lt;/g, '<')
+    .replace(/&gt;/g, '>')
+    .replace(/&quot;/g, '"')
+    .replace(/[ \t]+\n/g, '\n')
+    .replace(/\n{3,}/g, '\n\n')
+    .trim();
 }
-function buildCsv(header: string[], rows: unknown[][]): string {
-  const body = [header, ...rows].map((r) => r.map(csvEscape).join(',')).join('\n');
-  return '\ufeff' + body;
+function mdSection(label: string, raw: string | null | undefined): string {
+  const v = (raw ?? '').trim();
+  if (!v) return '';
+  const text = /<[a-z][\s\S]*>/i.test(v) ? stripHtml(v) : v;
+  if (!text.trim()) return '';
+  return `**${label}**\n\n${text.trim()}\n\n`;
 }
-function downloadFile(name: string, content: string, mime: string) {
-  const blob = new Blob([content], { type: `${mime};charset=utf-8;` });
+function safeSlug(s: string, fallback: string): string {
+  const cleaned = (s || '').normalize('NFKC').replace(/[\\/:*?"<>|]/g, '-').replace(/\s+/g, '-').trim();
+  return cleaned || fallback;
+}
+function downloadBlob(name: string, blob: Blob) {
   const url = URL.createObjectURL(blob);
   const a = document.createElement('a');
   a.href = url;
@@ -189,8 +205,8 @@ function AutoExportSection() {
         <div>
           <CardTitle className="text-base">4. 自動排程 & 歷史匯出</CardTitle>
           <p className="text-xs text-muted-foreground mt-1">
-            系統於<span className="font-medium text-foreground"> 每週五 23:30 (Asia/Taipei)</span> 自動匯出當週所有 mentor 已發布週記為 CSV，
-            上傳至受保護的 Storage，並以站內通知附上 30 天有效的下載連結。舊檔於 30 天後自動清理。
+            系統於<span className="font-medium text-foreground"> 每週五 23:30 (Asia/Taipei)</span> 自動為當週<strong>每位 mentor 產出一份 Markdown</strong>，
+            上傳至受保護的 Storage，並以站內通知連向下方歷史列表。舊檔於 30 天後自動清理。
           </p>
         </div>
         <div className="flex gap-2">
@@ -336,46 +352,85 @@ const JournalsExport = () => {
     (assetFilter !== 'all' ? 1 : 0) +
     (!publishedOnly ? 1 : 0);
 
-  const doExportCsv = () => {
+  const buildMentorMarkdown = (mentorRows: JournalRow[]): string => {
+    const first = mentorRows[0];
+    const name = first.experts?.name ?? '(未命名)';
+    const slug = first.experts?.slug ?? first.expert_id;
+    const asset = ASSET_LABEL[first.experts?.asset_class ?? ''] ?? (first.experts?.asset_class ?? '');
+    const currency = first.experts?.currency ?? '';
+    const lines: string[] = [];
+    lines.push(`# ${name} 週記`);
+    lines.push('');
+    lines.push(`- 週別：${range.startLabel} ~ ${range.endLabel}`);
+    lines.push(`- Slug：\`${slug}\``);
+    lines.push(`- 資產類別：${asset || '-'}`);
+    lines.push(`- 幣別：${currency || '-'}`);
+    lines.push(`- 則數：${mentorRows.length}`);
+    lines.push('');
+    lines.push('---');
+    lines.push('');
+    mentorRows.forEach((r, idx) => {
+      const time = fmtTaipei(r.published_at || r.created_at);
+      const title = r.reason_summary ? stripHtml(String(r.reason_summary)).slice(0, 80) : (r.instrument || '教學筆記');
+      lines.push(`## ${idx + 1}. ${title}`);
+      lines.push('');
+      const meta: string[] = [];
+      if (time) meta.push(`時間：${time}`);
+      if (r.status) meta.push(`狀態：${r.status}`);
+      if (r.instrument) meta.push(`標的：${r.instrument}`);
+      if (r.action) meta.push(`動作：${r.action}`);
+      if (r.price_hint !== null && r.price_hint !== undefined) meta.push(`參考價：${r.price_hint}`);
+      if (meta.length) { lines.push(meta.map((m) => `- ${m}`).join('\n')); lines.push(''); }
+      lines.push(mdSection('重點摘要', r.reason_summary));
+      lines.push(mdSection('詳細分析', r.reason_detail));
+      lines.push(mdSection('風險提醒', r.risk_notes));
+      lines.push(mdSection('學習重點', r.learning_points));
+      lines.push(`> 訊號 ID：\`${r.id}\``);
+      lines.push('');
+      lines.push('---');
+      lines.push('');
+    });
+    return lines.join('\n').replace(/\n{3,}/g, '\n\n');
+  };
+
+  const doExportMarkdown = async () => {
     if (rows.length === 0) {
       toast.warning('目前篩選條件下沒有可匯出的週記');
       return;
     }
-    const header = [
-      '老師名稱', '老師 Slug', '資產類別', '幣別',
-      '週別起始', '週別結束',
-      '狀態', '發布時間 (台北)', '建立時間 (台北)',
-      '標的', '動作', '參考價',
-      '重點摘要', '詳細分析', '風險提醒', '學習重點',
-      '訊號 ID',
-    ];
-    const body: unknown[][] = rows.map((r) => [
-      r.experts?.name ?? '',
-      r.experts?.slug ?? '',
-      ASSET_LABEL[r.experts?.asset_class ?? ''] ?? (r.experts?.asset_class ?? ''),
-      r.experts?.currency ?? '',
-      range.startLabel,
-      range.endLabel,
-      r.status ?? '',
-      fmtTaipei(r.published_at),
-      fmtTaipei(r.created_at),
-      r.instrument ?? '',
-      r.action ?? '',
-      r.price_hint ?? '',
-      r.reason_summary ?? '',
-      r.reason_detail ?? '',
-      r.risk_notes ?? '',
-      r.learning_points ?? '',
-      r.id,
-    ]);
-    const csv = buildCsv(header, body);
+    // 依 expert_id 分組
+    const byMentor = new Map<string, JournalRow[]>();
+    for (const r of rows) {
+      const arr = byMentor.get(r.expert_id) ?? [];
+      arr.push(r);
+      byMentor.set(r.expert_id, arr);
+    }
+
     const suffix = publishedOnly ? 'published' : 'all';
-    downloadFile(
-      `legendflow-journals-${range.startLabel}_to_${range.endLabel}_${suffix}.csv`,
-      csv,
-      'text/csv',
-    );
-    toast.success(`已匯出 ${rows.length} 則週記（${groups.length} 位老師）`);
+
+    // 單一老師 → 直接下載 .md；多位老師 → 打包 zip
+    if (byMentor.size === 1) {
+      const [[expertId, mentorRows]] = Array.from(byMentor);
+      const md = buildMentorMarkdown(mentorRows);
+      const slug = safeSlug(mentorRows[0].experts?.slug ?? expertId, expertId);
+      downloadBlob(
+        `legendflow-journal-${slug}-${range.startLabel}_to_${range.endLabel}_${suffix}.md`,
+        new Blob([md], { type: 'text/markdown;charset=utf-8' }),
+      );
+    } else {
+      const zip = new JSZip();
+      for (const [expertId, mentorRows] of byMentor) {
+        const md = buildMentorMarkdown(mentorRows);
+        const slug = safeSlug(mentorRows[0].experts?.slug ?? expertId, expertId);
+        zip.file(`${slug}.md`, md);
+      }
+      const blob = await zip.generateAsync({ type: 'blob' });
+      downloadBlob(
+        `legendflow-journals-${range.startLabel}_to_${range.endLabel}_${suffix}.zip`,
+        blob,
+      );
+    }
+    toast.success(`已匯出 ${rows.length} 則週記（${byMentor.size} 位老師 · Markdown）`);
   };
 
   return (
@@ -387,7 +442,7 @@ const JournalsExport = () => {
             <FileText className="h-6 w-6" /> 週記匯出
           </h1>
           <p className="text-sm text-muted-foreground mt-1">
-            匯出實戰導師（mentor）於指定週別（週一 00:00 ~ 週日 23:59 Asia/Taipei）之週記為 CSV。可依老師、資產類別、發布狀態精準篩選。
+            匯出實戰導師（mentor）於指定週別（週一 00:00 ~ 週日 23:59 Asia/Taipei）之週記為 <strong>Markdown</strong>，每位老師一份獨立檔案（多位老師會打包成 zip）。可依老師、資產類別、發布狀態精準篩選。
           </p>
         </div>
 
@@ -544,7 +599,7 @@ const JournalsExport = () => {
             </div>
             <Button onClick={() => setConfirmOpen(true)} disabled={isLoading || rows.length === 0} className="gap-2">
               <Download className="h-4 w-4" />
-              匯出 CSV
+              匯出 Markdown
             </Button>
           </CardHeader>
           <CardContent className="space-y-4">
@@ -637,7 +692,7 @@ const JournalsExport = () => {
       <AlertDialog open={confirmOpen} onOpenChange={setConfirmOpen}>
         <AlertDialogContent>
           <AlertDialogHeader>
-            <AlertDialogTitle>確認匯出週記 CSV？</AlertDialogTitle>
+            <AlertDialogTitle>確認匯出週記 Markdown？</AlertDialogTitle>
             <AlertDialogDescription asChild>
               <div className="space-y-1 text-sm">
                 <div>週別：<span className="font-medium text-foreground">{range.startLabel} ~ {range.endLabel}</span></div>
@@ -645,17 +700,19 @@ const JournalsExport = () => {
                 <div>資產類別：<span className="font-medium text-foreground">{assetFilter === 'all' ? '全部' : ASSET_LABEL[assetFilter]}</span></div>
                 <div>老師：<span className="font-medium text-foreground">{selectedMentors.size === 0 ? '全部' : `已選 ${selectedMentors.size} 位`}</span></div>
                 <div className="pt-2">
-                  將匯出 <span className="font-semibold text-foreground">{rows.length}</span> 則週記，涵蓋 <span className="font-semibold text-foreground">{groups.length}</span> 位老師。
+                  將為 <span className="font-semibold text-foreground">{groups.length}</span> 位老師各產出一份 Markdown（共 <span className="font-semibold text-foreground">{rows.length}</span> 則週記）。
                 </div>
                 <div className="text-xs text-muted-foreground pt-1">
-                  檔名：legendflow-journals-{range.startLabel}_to_{range.endLabel}_{publishedOnly ? 'published' : 'all'}.csv
+                  {groups.length <= 1
+                    ? `檔名：legendflow-journal-<slug>-${range.startLabel}_to_${range.endLabel}_${publishedOnly ? 'published' : 'all'}.md`
+                    : `檔名：legendflow-journals-${range.startLabel}_to_${range.endLabel}_${publishedOnly ? 'published' : 'all'}.zip（內含每位老師一份 .md）`}
                 </div>
               </div>
             </AlertDialogDescription>
           </AlertDialogHeader>
           <AlertDialogFooter>
             <AlertDialogCancel>取消</AlertDialogCancel>
-            <AlertDialogAction onClick={() => { setConfirmOpen(false); doExportCsv(); }}>
+            <AlertDialogAction onClick={() => { setConfirmOpen(false); void doExportMarkdown(); }}>
               確認下載
             </AlertDialogAction>
           </AlertDialogFooter>
