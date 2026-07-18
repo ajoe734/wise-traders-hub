@@ -861,18 +861,39 @@ function PriceAxis({ WB, price, cost, target, baseTarget, upside, tpHistory }) {
         )}
       </div>
       <div style={{ position: 'relative', height: H, minWidth: 0, overflow: 'hidden' }}>
+        {/* ⚠️ 禁止在 preserveAspectRatio="none" 的 SVG 內使用 <circle>/<rect> 等填色幾何形狀：
+            X/Y 非等比縮放會把「圓」拉成扁橢圓（越寬螢幕越扁）。
+            解法：只有 stroke 幾何（line、polyline）能留在 SVG 內（配 vector-effect="non-scaling-stroke"），
+            其他圓點／方塊一律用 HTML overlay <div> 以真實 px 尺寸繪製。 */}
         <svg width="100%" height={H} viewBox={`0 0 100 ${H}`} preserveAspectRatio="none"
           aria-hidden="true"
           style={{ position: 'absolute', inset: 0, width: '100%', height: H, overflow: 'hidden' }}>
           <line x1="0" y1={y} x2="100" y2={y} stroke={WB.hair} strokeWidth="1" vectorEffect="non-scaling-stroke" />
-          {markers.map((p, i) => (
-            <g key={i}>
-              {p.shape === 'tick'
-                ? <line x1={`${p.x}%`} y1={y - 5} x2={`${p.x}%`} y2={y + 5} stroke={p.color} strokeWidth="1.5" vectorEffect="non-scaling-stroke" />
-                : <circle cx={`${p.x}%`} cy={y} r={4} fill={p.color} />}
-            </g>
+          {markers.filter((p) => p.shape === 'tick').map((p, i) => (
+            <line key={`tick-${i}`}
+              x1={`${p.x}%`} y1={y - 5} x2={`${p.x}%`} y2={y + 5}
+              stroke={p.color} strokeWidth="1.5" vectorEffect="non-scaling-stroke" />
           ))}
         </svg>
+        {/* HTML overlay：現價圓點（真實 px、永遠正圓） */}
+        {markers.filter((p) => p.shape === 'dot').map((p, i) => (
+          <span
+            key={`dot-${i}`}
+            data-testid="holdings-price-axis-dot"
+            aria-hidden="true"
+            style={{
+              position: 'absolute',
+              left: `${p.x}%`,
+              top: y,
+              width: 8,
+              height: 8,
+              borderRadius: '50%',
+              background: p.color,
+              transform: 'translate(-50%, -50%)',
+              pointerEvents: 'none',
+            }}
+          />
+        ))}
         {markers.map((p, i) => (
           <span
             key={`label-${i}`}
