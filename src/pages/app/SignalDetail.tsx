@@ -20,8 +20,15 @@ import { CURRENCY_SYMBOL, CURRENCY_SOURCE_LABEL, defaultQuantityUnit, resolveDis
 import { trackRaw } from '@/lib/analytics/events';
 import { buildSignalCurrencyResolutionPayload } from '@/lib/analytics/signalCurrencyResolution';
 import { UnavailableContent } from '@/components/UnavailableContent';
-import { parseInstrument } from '@/lib/instrument';
 import { InstrumentTooltip } from '@/components/InstrumentTooltip';
+import {
+  resolveInstrument,
+  resolveNumeric,
+  safeMultiply,
+  INSTRUMENT_MARKET_LABEL,
+  INSTRUMENT_SOURCE_LABEL,
+  NUMERIC_SOURCE_LABEL,
+} from '@/lib/signalFieldResolvers';
 
 const actionConfig: Record<string, { label: string; className: string }> = {
   buy: { label: '買進', className: 'bg-success text-white border-success' },
