@@ -98,8 +98,39 @@ interface StoredExport {
   updatedAt: string | null;
 }
 
+interface ExportFailure {
+  message: string;      // human short reason (toast title)
+  detail?: string;      // extended cause line (banner + toast description)
+  source: 'edge' | 'network' | 'payload' | 'server' | 'unknown';
+  at: number;
+}
+
+/** Best-effort parser for supabase.functions.invoke errors (FunctionsHttpError / FetchError). */
+async function describeInvokeError(err: unknown): Promise<{ message: string; detail?: string; source: ExportFailure['source'] }> {
+  const anyErr = err as any;
+  const name = anyErr?.name ?? '';
+  let bodyText: string | undefined;
+  try {
+    if (anyErr?.context && typeof anyErr.context.text === 'function') {
+      bodyText = await anyErr.context.text();
+    }
+  } catch { /* ignore */ }
+  if (name === 'FunctionsHttpError') {
+    return {
+      message: 'Edge Function 回傳錯誤',
+      detail: bodyText?.slice(0, 400) ?? anyErr?.message ?? 'HTTP 非 2xx',
+      source: 'edge',
+    };
+  }
+  if (name === 'FunctionsFetchError' || name === 'TypeError') {
+    return { message: '無法連線 Edge Function', detail: anyErr?.message ?? '網路異常', source: 'network' };
+  }
+  return { message: '觸發失敗', detail: anyErr?.message ?? String(err ?? '未知錯誤'), source: 'unknown' };
+}
+
 function AutoExportSection() {
   const [running, setRunning] = useState(false);
+  const [failure, setFailure] = useState<ExportFailure | null>(null);
 
   const { data: files = [], isLoading, refetch } = useQuery({
     queryKey: ['company-journals-export', 'storage-history'],
@@ -144,13 +175,46 @@ function AutoExportSection() {
 
   const triggerNow = async () => {
     setRunning(true);
+    setFailure(null);
     try {
       const { data, error } = await supabase.functions.invoke('weekly-journal-export', { body: {} });
-      if (error) throw error;
-      toast.success(`已手動觸發：${data?.journals ?? 0} 則 / ${data?.mentors ?? 0} 位老師`);
+      if (error) {
+        const info = await describeInvokeError(error);
+        setFailure({ ...info, at: Date.now() });
+        toast.error(info.message, { description: info.detail, duration: 8000 });
+        return;
+      }
+      // 檢查回傳 payload 結構是否合預期
+      if (!data || typeof data !== 'object') {
+        const info: ExportFailure = {
+          message: '匯出回傳異常',
+          detail: `Edge Function 沒有回傳 JSON 內容（收到 ${data === null ? 'null' : typeof data}）`,
+          source: 'payload',
+          at: Date.now(),
+        };
+        setFailure(info);
+        toast.error(info.message, { description: info.detail, duration: 8000 });
+        return;
+      }
+      if ((data as any).ok === false) {
+        const info: ExportFailure = {
+          message: '匯出流程回報失敗',
+          detail: String((data as any).error ?? '未提供錯誤原因'),
+          source: 'server',
+          at: Date.now(),
+        };
+        setFailure(info);
+        toast.error(info.message, { description: info.detail, duration: 8000 });
+        return;
+      }
+      const journals = Number((data as any).journals ?? 0);
+      const mentors = Number((data as any).mentors ?? 0);
+      toast.success(`已手動觸發：${journals} 則 / ${mentors} 位老師`);
       refetch();
-    } catch (e: any) {
-      toast.error(`觸發失敗：${e?.message ?? e}`);
+    } catch (e) {
+      const info = await describeInvokeError(e);
+      setFailure({ ...info, at: Date.now() });
+      toast.error(info.message, { description: info.detail, duration: 8000 });
     } finally {
       setRunning(false);
     }
@@ -168,12 +232,59 @@ function AutoExportSection() {
         </div>
         <div className="flex gap-2">
           <Button variant="outline" size="sm" onClick={() => refetch()}>重新整理</Button>
-          <Button size="sm" onClick={triggerNow} disabled={running}>
+          <Button size="sm" onClick={triggerNow} disabled={running} data-testid="je-manual-trigger">
             {running ? '執行中…' : '立即手動觸發'}
           </Button>
         </div>
       </CardHeader>
       <CardContent>
+        {failure && (
+          <div
+            role="alert"
+            data-testid="je-manual-error"
+            data-error-source={failure.source}
+            className="mb-4 rounded-md border border-destructive/40 bg-destructive/5 p-3 text-sm"
+          >
+            <div className="flex items-start justify-between gap-3">
+              <div className="flex items-start gap-2 min-w-0">
+                <AlertTriangle className="h-4 w-4 mt-0.5 text-destructive shrink-0" />
+                <div className="min-w-0">
+                  <div className="font-medium text-destructive">
+                    匯出失敗：{failure.message}
+                    <span className="ml-2 text-[11px] font-normal text-muted-foreground">
+                      來源：{failure.source} · {fmtTaipei(new Date(failure.at).toISOString())}
+                    </span>
+                  </div>
+                  {failure.detail && (
+                    <div className="text-xs text-muted-foreground break-all mt-1" data-testid="je-manual-error-detail">
+                      {failure.detail}
+                    </div>
+                  )}
+                </div>
+              </div>
+              <div className="flex items-center gap-2 shrink-0">
+                <Button
+                  size="sm"
+                  variant="outline"
+                  onClick={triggerNow}
+                  disabled={running}
+                  className="gap-1"
+                  data-testid="je-manual-retry"
+                >
+                  <RotateCw className="h-3 w-3" /> 重試
+                </Button>
+                <Button
+                  size="sm"
+                  variant="ghost"
+                  onClick={() => setFailure(null)}
+                  aria-label="關閉錯誤提示"
+                >
+                  <X className="h-3 w-3" />
+                </Button>
+              </div>
+            </div>
+          </div>
+        )}
         {isLoading ? (
           <div className="py-6 text-center text-sm text-muted-foreground">載入中…</div>
         ) : files.length === 0 ? (
@@ -203,6 +314,7 @@ function AutoExportSection() {
     </Card>
   );
 }
+
 
 
 const JournalsExport = () => {
