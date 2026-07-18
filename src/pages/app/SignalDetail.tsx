@@ -186,7 +186,7 @@ const SignalDetail = () => {
 
         {/* Price hint */}
         {signal.price_hint != null && (() => {
-          const cur: Currency = normalizeCurrency(signal.experts?.currency);
+          const cur: Currency = resolveDisplayCurrency(signal.experts?.currency, signal.instrument);
           const sym = CURRENCY_SYMBOL[cur];
           const unit = signal.quantity_unit || defaultQuantityUnit(cur);
           const total = signal.quantity != null ? Number(signal.price_hint) * Number(signal.quantity) : null;
