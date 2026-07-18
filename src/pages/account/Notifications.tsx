@@ -217,10 +217,10 @@ export default function AccountNotifications() {
             ) : (
               <ul className="divide-y">
                 {items.map((n: any) => (
-                  <li key={n.id}>
+                  <li key={n.id} className={!n.is_read ? 'bg-primary/5' : ''}>
                     <button
                       onClick={() => handleClick(n)}
-                      className={`w-full text-left px-4 py-3 hover:bg-muted/50 transition-colors ${!n.is_read ? 'bg-primary/5' : ''}`}
+                      className="w-full text-left px-4 py-3 hover:bg-muted/50 transition-colors"
                     >
                       <div className="flex items-start gap-3">
                         <div className="flex-1 min-w-0">
@@ -235,6 +235,13 @@ export default function AccountNotifications() {
                         </div>
                       </div>
                     </button>
+                    {n.download_url && (
+                      <div className="px-4 pb-3 -mt-1">
+                        <Button variant="outline" size="sm" className="h-7 text-xs" onClick={() => handleDownload(n)}>
+                          下載檔案
+                        </Button>
+                      </div>
+                    )}
                   </li>
                 ))}
               </ul>
