@@ -47,13 +47,14 @@ interface SignalDetail {
     slug: string;
     role: string;
     avatar_url: string | null;
+    currency?: string | null;
   };
 }
 
 const TradeItem = ({ signal, nameMap }: { signal: SignalDetail; nameMap: Record<string, string> }) => {
   const [expanded, setExpanded] = useState(false);
   const hasDetails = signal.reason_summary || signal.reason_detail || signal.risk_notes;
-  const cur: Currency = normalizeCurrency(signal.currency);
+  const cur: Currency = normalizeCurrency(signal.currency ?? signal.experts?.currency);
   const sym = CURRENCY_SYMBOL[cur];
   const unit = signal.quantity_unit || defaultQuantityUnit(cur);
   const total = signal.price_hint != null && signal.quantity != null
@@ -178,7 +179,7 @@ const fetchJournalBundle = async (signalId: string, forceOwner: boolean) => {
 
   const { data, error } = await supabase
     .from('expert_signals')
-    .select('id, instrument, action, price_hint, quantity, quantity_unit, currency, reason_summary, reason_detail, risk_notes, learning_points, published_at, expert_id, experts(name, slug, role, avatar_url)')
+    .select('id, instrument, action, price_hint, quantity, quantity_unit, reason_summary, reason_detail, risk_notes, learning_points, published_at, expert_id, experts(name, slug, role, avatar_url, currency)')
     .eq('id', signalId)
     .maybeSingle();
 
@@ -228,7 +229,7 @@ const fetchJournalBundle = async (signalId: string, forceOwner: boolean) => {
 
   const { data: weekData } = await supabase
     .from('expert_signals')
-    .select('id, instrument, action, price_hint, quantity, quantity_unit, currency, reason_summary, reason_detail, risk_notes, learning_points, published_at, expert_id, experts(name, slug, role, avatar_url)')
+    .select('id, instrument, action, price_hint, quantity, quantity_unit, reason_summary, reason_detail, risk_notes, learning_points, published_at, expert_id, experts(name, slug, role, avatar_url, currency)')
     .eq('expert_id', s.expert_id)
     .eq('status', 'published')
     .gte('published_at', ws.toISOString())
