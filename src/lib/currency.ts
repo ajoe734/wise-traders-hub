@@ -38,6 +38,31 @@ export function inferCurrencyFromInstrument(instrument: string | null | undefine
   return null;
 }
 
+/** 幣別解析來源，供前端診斷 & analytics 追蹤使用。 */
+export type CurrencySource = 'explicit' | 'inferred-instrument' | 'default-fallback';
+
+export const CURRENCY_SOURCE_LABEL: Record<CurrencySource, string> = {
+  explicit: '教師設定',
+  'inferred-instrument': '代號推斷',
+  'default-fallback': '預設 TWD',
+};
+
+/**
+ * 同 resolveDisplayCurrency，但同時回傳幣別來源，讓 UI 能顯示「由 experts 或 instrument 推斷」
+ * 並在 analytics 事件中紀錄，方便日後除錯。
+ */
+export function resolveDisplayCurrencyWithSource(
+  explicit: unknown,
+  instrument: string | null | undefined,
+): { currency: Currency; source: CurrencySource } {
+  if (explicit === 'USD' || explicit === 'TWD') {
+    return { currency: explicit, source: 'explicit' };
+  }
+  const inferred = inferCurrencyFromInstrument(instrument);
+  if (inferred) return { currency: inferred, source: 'inferred-instrument' };
+  return { currency: 'TWD', source: 'default-fallback' };
+}
+
 /**
  * SignalDetail / 週記顯示用：優先吃 experts.currency，缺值時從 instrument 推斷，
  * 都沒有才回落預設 TWD。確保即使教學欄位不完整頁面也不會壞。
@@ -46,9 +71,7 @@ export function resolveDisplayCurrency(
   explicit: unknown,
   instrument: string | null | undefined,
 ): Currency {
-  if (explicit === 'USD' || explicit === 'TWD') return explicit;
-  const inferred = inferCurrencyFromInstrument(instrument);
-  return inferred ?? 'TWD';
+  return resolveDisplayCurrencyWithSource(explicit, instrument).currency;
 }
 
 

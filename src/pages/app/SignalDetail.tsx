@@ -16,7 +16,8 @@ import { Button } from '@/components/ui/button';
 import { useQuery } from '@tanstack/react-query';
 import { SafeRichHtml } from '@/components/SafeRichHtml';
 import { FxHint } from '@/components/FxHint';
-import { CURRENCY_SYMBOL, defaultQuantityUnit, resolveDisplayCurrency, type Currency } from '@/lib/currency';
+import { CURRENCY_SYMBOL, CURRENCY_SOURCE_LABEL, defaultQuantityUnit, resolveDisplayCurrencyWithSource, type Currency } from '@/lib/currency';
+import { trackRaw } from '@/lib/analytics/events';
 import { UnavailableContent } from '@/components/UnavailableContent';
 import { parseInstrument } from '@/lib/instrument';
 import { InstrumentTooltip } from '@/components/InstrumentTooltip';
@@ -96,6 +97,25 @@ const SignalDetail = () => {
   useEffect(() => {
     markAppSignalsAsRead();
   }, []);
+
+  // 幣別解析（含來源）：一次算完供整頁使用；signal 未載入時給安全預設值。
+  const { currency: resolvedCurrency, source: currencySource } = signal
+    ? resolveDisplayCurrencyWithSource(signal.experts?.currency, signal.instrument)
+    : { currency: 'TWD' as Currency, source: 'default-fallback' as const };
+
+  // 幣別解析事件：signal 就緒後送出，方便日後查 explicit / inferred / fallback 比例
+  useEffect(() => {
+    if (!signal?.id) return;
+    trackRaw('signal_currency_resolution', {
+      signal_id: signal.id,
+      expert_slug: signal.experts?.slug ?? null,
+      instrument: signal.instrument ?? null,
+      resolved_currency: resolvedCurrency,
+      source: currencySource,
+      had_explicit: signal.experts?.currency === 'USD' || signal.experts?.currency === 'TWD',
+      is_preview: isPreview,
+    });
+  }, [signal?.id, resolvedCurrency, currencySource, isPreview, signal?.experts?.slug, signal?.experts?.currency, signal?.instrument]);
 
   if (loading) {
     return <UnifiedAppLayout><div className="p-4 text-center text-muted-foreground">載入中...</div></UnifiedAppLayout>;
@@ -186,7 +206,7 @@ const SignalDetail = () => {
 
         {/* Price hint */}
         {signal.price_hint != null && (() => {
-          const cur: Currency = resolveDisplayCurrency(signal.experts?.currency, signal.instrument);
+          const cur: Currency = resolvedCurrency;
           const sym = CURRENCY_SYMBOL[cur];
           const unit = signal.quantity_unit || defaultQuantityUnit(cur);
           const total = signal.quantity != null ? Number(signal.price_hint) * Number(signal.quantity) : null;
@@ -205,6 +225,20 @@ const SignalDetail = () => {
             </div>
           );
         })()}
+
+        {/* Preview 模式下顯示幣別解析來源，方便老師 / 管理員除錯 */}
+        {isPreview && (
+          <div
+            data-testid="sd-currency-source"
+            data-currency={resolvedCurrency}
+            data-source={currencySource}
+            className="inline-flex items-center gap-1 text-[11px] text-muted-foreground border border-border/60 rounded px-2 py-0.5"
+          >
+            <span>幣別來源：</span>
+            <span className="font-medium text-foreground">{CURRENCY_SOURCE_LABEL[currencySource]}</span>
+            <span>→ {resolvedCurrency}</span>
+          </div>
+        )}
 
         {/* 1. 為什麼這樣操作？ */}
         {signal.reason_detail && (
