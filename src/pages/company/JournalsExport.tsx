@@ -52,58 +52,9 @@ function weekRangeUtc(weekStart: string) {
   };
 }
 
-// ── Markdown helpers ───────────────────────────────────────
-function stripHtml(html: string): string {
-  return html
-    .replace(/<\s*(br|BR)\s*\/?>/g, '\n')
-    .replace(/<\/?(p|div|li|h[1-6])[^>]*>/gi, '\n')
-    .replace(/<[^>]+>/g, '')
-    .replace(/&nbsp;/g, ' ')
-    .replace(/&amp;/g, '&')
-    .replace(/&lt;/g, '<')
-    .replace(/&gt;/g, '>')
-    .replace(/&quot;/g, '"')
-    .replace(/[ \t]+\n/g, '\n')
-    .replace(/\n{3,}/g, '\n\n')
-    .trim();
-}
-function mdSection(label: string, raw: string | null | undefined): string {
-  const v = (raw ?? '').trim();
-  if (!v) return '';
-  const text = /<[a-z][\s\S]*>/i.test(v) ? stripHtml(v) : v;
-  if (!text.trim()) return '';
-  return `**${label}**\n\n${text.trim()}\n\n`;
-}
-function safeSlug(s: string, fallback: string): string {
-  const cleaned = (s || '').normalize('NFKC').replace(/[\\/:*?"<>|]/g, '-').replace(/\s+/g, '-').trim();
-  return cleaned || fallback;
-}
-function downloadBlob(name: string, blob: Blob) {
-  const url = URL.createObjectURL(blob);
-  const a = document.createElement('a');
-  a.href = url;
-  a.download = name;
-  document.body.appendChild(a); a.click(); a.remove();
-  setTimeout(() => URL.revokeObjectURL(url), 0);
-}
+// ── Markdown / download helpers now come from '@/lib/journalsExport' ──
+// Keep local helpers only for UI-specific formatting that isn't reused.
 
-function fmtTaipei(iso?: string | null): string {
-  if (!iso) return '';
-  const d = new Date(iso);
-  const shifted = new Date(d.getTime() + TZ_OFFSET_MS);
-  const yyyy = shifted.getUTCFullYear();
-  const mm = String(shifted.getUTCMonth() + 1).padStart(2, '0');
-  const dd = String(shifted.getUTCDate()).padStart(2, '0');
-  const hh = String(shifted.getUTCHours()).padStart(2, '0');
-  const mi = String(shifted.getUTCMinutes()).padStart(2, '0');
-  return `${yyyy}/${mm}/${dd} ${hh}:${mi}`;
-}
-
-const ASSET_LABEL: Record<string, string> = {
-  tw_stock: '台股',
-  us_stock: '美股',
-  crypto: '加密',
-};
 type AssetFilter = 'all' | 'tw_stock' | 'us_stock' | 'crypto';
 type StatusFilter = 'published_only' | 'all';
 
