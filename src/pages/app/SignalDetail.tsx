@@ -204,7 +204,7 @@ const SignalDetail = () => {
 
         {/* Price hint */}
         {signal.price_hint != null && (() => {
-          const cur: Currency = resolveDisplayCurrency(signal.experts?.currency, signal.instrument);
+          const cur: Currency = resolvedCurrency;
           const sym = CURRENCY_SYMBOL[cur];
           const unit = signal.quantity_unit || defaultQuantityUnit(cur);
           const total = signal.quantity != null ? Number(signal.price_hint) * Number(signal.quantity) : null;
@@ -223,6 +223,20 @@ const SignalDetail = () => {
             </div>
           );
         })()}
+
+        {/* Preview 模式下顯示幣別解析來源，方便老師 / 管理員除錯 */}
+        {isPreview && (
+          <div
+            data-testid="sd-currency-source"
+            data-currency={resolvedCurrency}
+            data-source={currencySource}
+            className="inline-flex items-center gap-1 text-[11px] text-muted-foreground border border-border/60 rounded px-2 py-0.5"
+          >
+            <span>幣別來源：</span>
+            <span className="font-medium text-foreground">{CURRENCY_SOURCE_LABEL[currencySource]}</span>
+            <span>→ {resolvedCurrency}</span>
+          </div>
+        )}
 
         {/* 1. 為什麼這樣操作？ */}
         {signal.reason_detail && (
