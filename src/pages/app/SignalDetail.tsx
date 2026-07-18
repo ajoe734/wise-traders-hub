@@ -230,27 +230,41 @@ const SignalDetail = () => {
           )}
         </div>
 
-        {/* Price hint */}
-        {signal.price_hint != null && (() => {
+        {/* Price hint（韌性渲染：resolveNumeric 已濾掉 NaN / 負值 / 空字串） */}
+        {(priceResolved.value !== null || qtyResolved.value !== null) && (() => {
           const cur: Currency = resolvedCurrency;
           const sym = CURRENCY_SYMBOL[cur];
           const unit = signal.quantity_unit || defaultQuantityUnit(cur);
-          const total = signal.quantity != null ? Number(signal.price_hint) * Number(signal.quantity) : null;
           return (
             <div className="text-sm text-muted-foreground inline-flex items-baseline flex-wrap gap-x-1">
               <span className="font-sans">參考價位：</span>
-              <span data-testid="sd-price" className="font-medium text-foreground whitespace-nowrap font-mono tabular-nums tracking-normal">
-                {sym}{Number(signal.price_hint).toLocaleString(undefined, { minimumFractionDigits: cur === 'USD' ? 2 : 0, maximumFractionDigits: 2 })}
-              </span>
-              {signal.quantity != null && (
+              {priceResolved.value !== null ? (
+                <span data-testid="sd-price" className="font-medium text-foreground whitespace-nowrap font-mono tabular-nums tracking-normal">
+                  {sym}{priceResolved.value.toLocaleString(undefined, { minimumFractionDigits: cur === 'USD' ? 2 : 0, maximumFractionDigits: 2 })}
+                </span>
+              ) : (
+                <span data-testid="sd-price-missing" className="text-muted-foreground italic">未提供</span>
+              )}
+              {qtyResolved.value !== null && (
                 <span data-testid="sd-qty" className="font-medium text-foreground whitespace-nowrap font-mono tabular-nums tracking-normal">
-                  （{signal.quantity}<span className="font-sans">{unit}</span>）
+                  （{qtyResolved.value}<span className="font-sans">{unit}</span>）
                 </span>
               )}
-              {total != null && <FxHint amount={total} currency={cur} className="ml-2" showMeta={false} />}
+              {totalAmount !== null && <FxHint amount={totalAmount} currency={cur} className="ml-2" showMeta={false} />}
+              {isPreview && (
+                <span
+                  data-testid="sd-numeric-source"
+                  data-price-source={priceResolved.source}
+                  data-qty-source={qtyResolved.source}
+                  className="ml-2 text-[11px] text-muted-foreground border border-border/60 rounded px-2 py-0.5"
+                >
+                  價：{NUMERIC_SOURCE_LABEL[priceResolved.source]} ／ 量：{NUMERIC_SOURCE_LABEL[qtyResolved.source]}
+                </span>
+              )}
             </div>
           );
         })()}
+
 
         {/* Preview 模式下顯示幣別解析來源，方便老師 / 管理員除錯 */}
         {isPreview && (
