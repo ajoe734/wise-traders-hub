@@ -1,48 +1,54 @@
-## 問題判定
+## 根因
 
-目前「抽屜」其實存在兩套路徑：
+這**不是**後台不支援美股，而是資產類別切換後的快取沒串好，導致下游元件在 30 秒內仍讀到舊的 `tw_stock` 快照，看起來像「後台寫不了美股」。
 
-1. 新版 `HoldingsWorkbench` 的 `HoldingsDetailPanel`：已經有 ROI 字級 E2E，但只驗到新版 panel 內的 `drawer-roi-main`。
-2. `FreeCheckup.jsx` 內仍殘留舊版「持倉資料庫 Detail Drawer」：包含 `返回列表`、`來自：`、`DECISION`、`TARGETS`、tab bar、手機底部關閉條等舊設計。這就是十輪掃描沒抓到的漏網 bug，因為既有 E2E 只檢查新版抽屜「出現」，沒有強制掃完整 DOM、所有斷點與舊抽屜不得存在。
+流程實際發生的事：
 
-## 修復範圍
+1. `admin/Profile` 把資產類別切成美股 → `useAdminProfile.saveProfile` 對 `experts` 表 `UPDATE {asset_class:'us_stock'}`
+2. DB 觸發器 `sync_expert_currency_with_asset_class` 自動把 `currency` 同步成 `USD`（DB 側已正確）
+3. `saveProfile.onSuccess` 只 invalidate 了 `['admin','profile',slug]` 這一把 key
+4. `SignalCreateDialog` 拿到的 `expert` 是從 `useAdminSignals` 的 `['admin-signals-bundle', slug]` 出來的（`staleTime: 30_000`），**沒被 invalidate**
+5. `resolveAssetClass(expert)` 因此仍回 `tw_stock` → NT$ / 張 / 台股代碼驗證
+6. `CapitalPanel` 走 `['expert-holdings-bundle', expertId]` 也同樣沒失效
 
-### 1. 移除舊版 drawer 路徑
-- 在 `src/pages/FreeCheckup.jsx` 清掉殘留的 legacy drawer state、事件、tab、draft、swipe、sheet render 與相關未使用 import。
-- 保留真正仍被新版流程使用的狀態與 helper，不做無關重構。
-- 確保持倉卡點擊只走 `HoldingsTab -> HoldingsWorkbench -> HoldingsDetailPanel` 單一路徑。
+硬重整頁面就會恢復正常，這也是為什麼「看起來後台不支援美股」的錯覺出現。
 
-### 2. 修正新版抽屜可能的 RWD 溢出
-- 在 `src/checkup/components/freecheckup/HoldingsDetailPanel.tsx` 對價格軸、30D 走勢、佔比排名、決策履歷、操作列與頁腳導覽做硬性尺寸收斂。
-- 將價格軸 SVG 文字避免超出抽屜邊界：針對邊界附近 label 改用 clamped anchor / hidden overflow 或 DOM overlay，不再讓 `目標 280` 這類文字被裁切或衝出 viewport。
-- 手機寬度下收斂 top toolbar gap、字級、padding，避免右上控制列擠爆。
-- 佔比排名內的股票名稱加 `minWidth:0`、ellipsis / overflow-wrap，避免長名稱撐寬。
+同時：一旦該分析師曾經發布過任何一筆訊號，DB 觸發器 `enforce_expert_asset_class_lock` 會直接 RAISE EXCEPTION 阻擋。這位分析師若已有歷史台股訊號，我會**在同一輪一併解鎖** asset_class 切換路徑（管理員專用），並在切換完後把過去發布的台股訊號在後台清單裡標為 legacy，避免混淆。
 
-### 3. 補齊抽屜 E2E 守門
-新增或擴充抽屜專屬 E2E，覆蓋完整斷點：
-- 320 / 375 / 390 / 414 / 560 / 768 / 863 / 1024 / 1280。
-- 每個斷點打開持倉卡後檢查：
-  - 只能存在新版 `[data-testid="holdings-detail-panel"]`。
-  - 不得出現舊版字串：`返回列表`、`來自：`、`DECISION`、`TARGETS · 分析師目標價`、`摘要`、`教學`、`風險` legacy tab。
-  - `documentElement.scrollWidth <= clientWidth + 1`。
-  - 抽屜 bounding box 不超出 viewport。
-  - 價格軸、30D 走勢、佔比、決策履歷、footer nav 內所有可見文字 bounding box 不超出 panel。
-  - computed font-size 全面不超過 22px，不只 ROI。
+## 動作
 
-### 4. 更新 Playwright projects
-- 在 `playwright.config.ts` 加入抽屜完整 RWD project map。
-- 保留既有 ROI 字級測試，但把新測試作為「抽屜整體」回歸，不再只量 ROI。
+### 1. 修「快取失效缺口」（真正解決 UI 卡在 NT$ 的 bug）
 
-### 5. 驗證清單
-實作後必跑：
-- `bunx tsgo --noEmit`
-- `bunx playwright test e2e/holdings-detail-panel-*.spec.ts`
-- `bunx playwright test e2e/rwd-no-horizontal-scroll.spec.ts --project=rwd-320 --project=rwd-375 --project=rwd-414 --project=rwd-560 --project=rwd-768 --project=rwd-1023`
-- 針對 320 / 390 / 809 / 1280 用 Playwright 截圖確認抽屜：價格軸不裁字、不橫向溢出、舊版 drawer 完全不存在。
+`src/hooks/admin/useAdminProfile.ts` — `saveProfile.onSuccess` 補上下游 bundle 的 invalidate：
 
-## 完成標準
+```ts
+queryClient.invalidateQueries({ queryKey: expertQueryKey });
+queryClient.invalidateQueries({ queryKey: ['admin-signals-bundle', expertSlug] });
+queryClient.invalidateQueries({ queryKey: ['admin', 'signal-editor', expertSlug] });
+if (expert?.id) {
+  queryClient.invalidateQueries({ queryKey: ['expert-holdings-bundle', expert.id] });
+}
+```
 
-- 持倉看板只剩一套新版抽屜。
-- 舊版抽屜內容與入口從 DOM / 測試 / 使用流程全數消失。
-- 所有抽屜內容跨 320–1280px 不水平溢出。
-- 字級上限守門從 ROI 擴大到抽屜主要內容。
+### 2. 給「這位老師想從台股整個切成美股」一條合法路徑
+
+因為 DB 觸發器 `enforce_expert_asset_class_lock` 會擋，先問你要哪一種：
+
+- **A. 提供管理員專用「重置為美股」按鈕**：在 `CurrencyCard` 於 `company_admin` 且 `locked=true` 時顯示「重置為美股」，走一個新的 edge function `admin-reset-expert-asset-class`：以 service_role 先把舊 `expert_signals` 標記 `status='archived'`（或搬到 legacy 表），再 `UPDATE experts.asset_class='us_stock'`，並清 `starting_capital` 讓老師重新設定美股本金。
+- **B. 保留舊台股資料，另開一個純美股 expert 帳號**：不動觸發器，只在 `admin/experts` 給「複製老師檔案 → 新增美股版」的入口。
+
+### 3. 加回歸測試
+
+- `src/hooks/admin/__tests__/useAdminProfile.test.ts`：mock supabase，驗證 saveProfile 成功後 4 把 key 都被 invalidate。
+- `e2e/admin-asset-class-switch.spec.ts`：模擬「Profile 切美股 → 進 Signals 頁 → 開 SignalCreateDialog」，斷言看到 `US$` 前綴、單位下拉只有「股」、代碼 placeholder 是 `例：AAPL / BRK.B`。
+
+### 4. 文件
+
+`.lovable/plan.md` 追加一段「asset_class 切換的快取失效清單」，明列 4 把 query key 與觸發器行為，避免下一次改 profile 又漏。
+
+## 需要你決定
+
+1. 走 **A（重置為美股）** 還是 **B（另開美股帳號）**？
+2. 如果選 A，過去台股訊號要 **保留可查（archived）** 還是 **物理刪除**？
+
+只要你回答，我就進 build mode 一次做完 1 → 4 步。

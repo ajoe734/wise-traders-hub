@@ -84,6 +84,14 @@ export function useAdminProfile(expertSlug: string | undefined, opts?: {
     onSuccess: () => {
       toast.success('已儲存');
       queryClient.invalidateQueries({ queryKey: expertQueryKey });
+      // asset_class / currency 變更會影響 SignalCreateDialog、CapitalPanel、TradeCard、
+      // 這些下游從 useAdminSignals / useExpertHoldingsBundle / useSignalEditorData 拿 expert，
+      // 若不一併 invalidate，切到訊號頁仍會拿到 30s 內的舊快取（表面像「後台不支援美股」）。
+      queryClient.invalidateQueries({ queryKey: ['admin-signals-bundle', expertSlug] });
+      queryClient.invalidateQueries({ queryKey: ['admin', 'signal-editor', expertSlug] });
+      if (expert?.id) {
+        queryClient.invalidateQueries({ queryKey: ['expert-holdings-bundle', expert.id] });
+      }
     },
     onError: (e: any) => {
       toast.error('儲存失敗：' + (e?.message || '未知錯誤'));
@@ -168,6 +176,38 @@ export function useAdminProfile(expertSlug: string | undefined, opts?: {
     },
   });
 
+  /**
+   * 管理員專用：把分析師從舊資產類別整個切成新的。
+   * - 舊 expert_signals 一律 status='archived'（保留可查）
+   * - experts.asset_class 更新（DB trigger 會同步 currency）
+   * - starting_capital 清空，讓老師重設新幣別的本金
+   */
+  const resetAssetClass = useMutation({
+    mutationFn: async (newAssetClass: 'tw_stock' | 'us_stock' | 'crypto') => {
+      if (!expert) throw new Error('expert 未載入');
+      const { error } = await supabase.rpc('admin_reset_expert_asset_class' as any, {
+        _expert_id: expert.id,
+        _new_asset_class: newAssetClass,
+      });
+      if (error) throw error;
+    },
+    onSuccess: () => {
+      toast.success('已重置資產類別，舊訊號已封存');
+      queryClient.invalidateQueries({ queryKey: expertQueryKey });
+      queryClient.invalidateQueries({ queryKey: ['admin-signals-bundle', expertSlug] });
+      queryClient.invalidateQueries({ queryKey: ['admin', 'signal-editor', expertSlug] });
+      queryClient.invalidateQueries({
+        queryKey: ['admin', 'profile', 'published-signal-count', expert?.id],
+      });
+      if (expert?.id) {
+        queryClient.invalidateQueries({ queryKey: ['expert-holdings-bundle', expert.id] });
+      }
+    },
+    onError: (e: any) => {
+      toast.error('重置失敗：' + (e?.message || '未知錯誤'));
+    },
+  });
+
   return {
     expert,
     isLoading,
@@ -176,5 +216,6 @@ export function useAdminProfile(expertSlug: string | undefined, opts?: {
     saveProfile,
     setStartingCapital,
     uploadAvatar,
+    resetAssetClass,
   };
 }
