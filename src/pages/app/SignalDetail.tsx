@@ -137,11 +137,12 @@ const SignalDetail = () => {
 
   const ac = actionConfig[signal.action] || actionConfig.buy;
   const publishedAt = signal.published_at ? new Date(signal.published_at) : null;
-  // 保留 ETF 字尾（L / R / B）：`/^\d+/` 舊 regex 會把 00631L 截成 00631，造成報價鏈壞掉。
-  const { code: tickerCode, name: tickerName } = parseInstrument(signal?.instrument);
-  const displaySymbol = tickerName
-    ? `${tickerCode} ${tickerName}`
-    : (tickerCode ? `${tickerCode}.TW` : signal.instrument);
+  // 韌性解析：instrument / price / quantity 一律走 resolver，避免 NaN、undefined、null 進畫面
+  const inst = resolveInstrument(signal?.instrument);
+  const { code: tickerCode, name: tickerName, display: displaySymbol } = inst;
+  const priceResolved = resolveNumeric(signal.price_hint, { allowZero: false });
+  const qtyResolved = resolveNumeric(signal.quantity, { allowZero: false });
+  const totalAmount = safeMultiply(priceResolved.value, qtyResolved.value);
 
   return (
     <UnifiedAppLayout>
