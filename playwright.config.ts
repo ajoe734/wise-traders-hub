@@ -163,6 +163,12 @@ export default defineConfig({
       use: { ...devices['Desktop Chrome'], viewport: { width: 1280, height: 900 } },
     },
     {
+      // 分析師後台側邊欄：短視窗也必須能滾到底，footer 不可被吃掉
+      name: 'admin-sidebar-scroll',
+      testMatch: /admin-sidebar-scroll\.spec\.ts/,
+      use: { ...devices['Desktop Chrome'] },
+    },
+    {
       // /app/journal/:id 標題完整顯示 + 顯示全部/收合折疊行為
       name: 'desktop-journal-detail-title-collapse',
       testMatch: /journal-detail-title-collapse\.spec\.ts/,
