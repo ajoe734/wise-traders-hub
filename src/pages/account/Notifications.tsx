@@ -137,11 +137,29 @@ export default function AccountNotifications() {
   });
 
   const handleClick = async (n: any) => {
+    trackRaw('notification_click', { notification_id: n.id, notification_type: n.type });
     if (!n.is_read) await markOneRead.mutateAsync(n.id);
     if (n.link) {
       openNotificationLink(n.link, {
         navigate,
-        onError: (_e, msg) => toast.error(msg),
+        navigateState: { fromNotification: { id: n.id, type: n.type, source: 'page' } },
+        onOpen: ({ kind }) => {
+          trackRaw('notification_link_open', {
+            notification_id: n.id,
+            notification_type: n.type,
+            kind,
+            source: 'page',
+          });
+        },
+        onError: (error, msg) => {
+          trackRaw('notification_link_error', {
+            notification_id: n.id,
+            notification_type: n.type,
+            error,
+            source: 'page',
+          });
+          toast.error(msg);
+        },
       });
     }
   };
@@ -150,7 +168,23 @@ export default function AccountNotifications() {
     if (!n.download_url) return;
     openNotificationLink(n.download_url, {
       navigate,
-      onError: (_e, msg) => toast.error(msg),
+      onOpen: ({ kind }) => {
+        trackRaw('notification_link_open', {
+          notification_id: n.id,
+          notification_type: n.type,
+          kind,
+          source: 'download_url',
+        });
+      },
+      onError: (error, msg) => {
+        trackRaw('notification_link_error', {
+          notification_id: n.id,
+          notification_type: n.type,
+          error,
+          source: 'download_url',
+        });
+        toast.error(msg);
+      },
     });
   };
 
