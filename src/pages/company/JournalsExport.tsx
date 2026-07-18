@@ -805,29 +805,75 @@ const JournalsExport = () => {
 
 
       <AlertDialog open={confirmOpen} onOpenChange={setConfirmOpen}>
-        <AlertDialogContent>
+        <AlertDialogContent className="max-w-3xl">
           <AlertDialogHeader>
             <AlertDialogTitle>確認匯出週記 Markdown？</AlertDialogTitle>
             <AlertDialogDescription asChild>
-              <div className="space-y-1 text-sm">
-                <div>週別：<span className="font-medium text-foreground">{range.startLabel} ~ {range.endLabel}</span></div>
+              <div className="space-y-2 text-sm">
+                <div data-testid="je-confirm-week">週別：<span className="font-medium text-foreground">{range.startLabel} ~ {range.endLabel}</span></div>
                 <div>發布狀態：<span className="font-medium text-foreground">{publishedOnly ? '只匯出已發布' : '含全部狀態（草稿/撤回/已發布）'}</span></div>
                 <div>資產類別：<span className="font-medium text-foreground">{assetFilter === 'all' ? '全部' : ASSET_LABEL[assetFilter]}</span></div>
                 <div>老師：<span className="font-medium text-foreground">{selectedMentors.size === 0 ? '全部' : `已選 ${selectedMentors.size} 位`}</span></div>
-                <div className="pt-2">
+                <div className="pt-1">
                   將為 <span className="font-semibold text-foreground">{groups.length}</span> 位老師各產出一份 Markdown（共 <span className="font-semibold text-foreground">{rows.length}</span> 則週記）。
                 </div>
-                <div className="text-xs text-muted-foreground pt-1">
-                  {groups.length <= 1
-                    ? `檔名：legendflow-journal-<slug>-${range.startLabel}_to_${range.endLabel}_${publishedOnly ? 'published' : 'all'}.md`
+                <div className="text-xs text-muted-foreground" data-testid="je-confirm-filename-hint">
+                  {previews.length <= 1
+                    ? `檔名：${previews[0]?.filename ?? `legendflow-journal-<slug>-${range.startLabel}_to_${range.endLabel}_${publishedOnly ? 'published' : 'all'}.md`}`
                     : `檔名：legendflow-journals-${range.startLabel}_to_${range.endLabel}_${publishedOnly ? 'published' : 'all'}.zip（內含每位老師一份 .md）`}
                 </div>
               </div>
             </AlertDialogDescription>
           </AlertDialogHeader>
+
+          {previews.length > 0 && (
+            <div className="space-y-2 border-t pt-3" data-testid="je-confirm-preview">
+              <div className="flex items-center justify-between gap-2">
+                <div className="text-xs font-medium text-muted-foreground">
+                  內容預覽（點擊老師頁籤切換，共 {previews.length} 份檔案）
+                </div>
+                {activePreview && (
+                  <div className="text-[11px] font-mono text-muted-foreground truncate max-w-[60%]" title={activePreview.filename} data-testid="je-preview-active-filename">
+                    {activePreview.filename} · {activePreview.md.length.toLocaleString()} 字元
+                  </div>
+                )}
+              </div>
+              <div className="flex flex-wrap gap-1 max-h-24 overflow-y-auto" role="tablist">
+                {previews.map((p) => {
+                  const isActive = activePreview?.expertId === p.expertId;
+                  return (
+                    <button
+                      key={p.expertId}
+                      role="tab"
+                      aria-selected={isActive}
+                      onClick={() => setPreviewMentorId(p.expertId)}
+                      data-testid={`je-preview-tab-${p.slug}`}
+                      className={`text-xs px-2 py-1 rounded border transition ${isActive ? 'bg-primary text-primary-foreground border-primary' : 'bg-background hover:bg-muted'}`}
+                    >
+                      {p.mentorName} <span className="opacity-70">· {p.rowCount}</span>
+                    </button>
+                  );
+                })}
+              </div>
+              {activePreview && (
+                <pre
+                  data-testid="je-preview-content"
+                  className="text-[11px] leading-relaxed whitespace-pre-wrap break-words border rounded bg-muted/30 p-3 max-h-[320px] overflow-y-auto font-mono"
+                >
+                  {activePreview.md.length > 4000
+                    ? `${activePreview.md.slice(0, 4000)}\n\n… (已截斷 ${activePreview.md.length - 4000} 字元，實際下載為完整內容)`
+                    : activePreview.md}
+                </pre>
+              )}
+            </div>
+          )}
+
           <AlertDialogFooter>
             <AlertDialogCancel>取消</AlertDialogCancel>
-            <AlertDialogAction onClick={() => { setConfirmOpen(false); void doExportMarkdown(); }}>
+            <AlertDialogAction
+              data-testid="je-confirm-download"
+              onClick={() => { setConfirmOpen(false); void doExportMarkdown(); }}
+            >
               確認下載
             </AlertDialogAction>
           </AlertDialogFooter>
