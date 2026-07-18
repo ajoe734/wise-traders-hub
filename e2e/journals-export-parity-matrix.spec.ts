@@ -16,8 +16,13 @@ import { readFile } from 'node:fs/promises';
 
 const HARNESS = '/e2e/journals-export-harness';
 const SUFFIX = 'published';
+const MENTOR_A_SLUG = 'master-zhou';
+const MENTOR_B_SLUG = 'wendy-us';
+// The multi-export button only exports these two mentors; other harness mentors are separate buttons.
+const MULTI_EXPORT_SLUGS = [MENTOR_A_SLUG, MENTOR_B_SLUG];
 
 const RANGES = [
+
   { start: '2026-07-13', end: '2026-07-19' }, // canonical
   { start: '2026-01-05', end: '2026-01-11' }, // year boundary-ish
   { start: '2025-12-29', end: '2026-01-04' }, // cross-year week
