@@ -15,6 +15,9 @@ import JSZip from 'jszip';
 
 const HARNESS_URL = '/e2e/journals-export-harness';
 const SUFFIX = 'published';
+const MENTOR_A_SLUG = 'master-zhou';
+const MENTOR_B_SLUG = 'wendy-us';
+
 
 async function readWeekDisplay(page: import('@playwright/test').Page) {
   const txt = (await page.getByTestId('je-week-display').textContent()) ?? '';
