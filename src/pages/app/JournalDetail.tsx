@@ -149,16 +149,36 @@ const TradeItem = ({ signal, nameMap }: { signal: SignalDetail; nameMap: Record<
   );
 };
 
-const fetchJournalBundle = async (signalId: string) => {
+const fetchJournalBundle = async (signalId: string, forceOwner: boolean) => {
   const { data, error } = await supabase
     .from('expert_signals')
     .select('id, instrument, action, price_hint, quantity, quantity_unit, currency, reason_summary, reason_detail, risk_notes, learning_points, published_at, expert_id, experts(name, slug, role, avatar_url)')
     .eq('id', signalId)
-    .single();
+    .maybeSingle();
 
-  if (error || !data) return { signal: null, weekSignals: [] as SignalDetail[] };
+  let signal: SignalDetail | null = (data as any) ?? null;
+  let fetchError: string | null = error?.message ?? null;
 
-  const s = data as any as SignalDetail;
+  // Owner fallback：直接 RLS 拉不到，改走 SECURITY DEFINER RPC（僅 owner 有效）
+  if (!signal && forceOwner) {
+    const { data: rpcData, error: rpcErr } = await supabase
+      .rpc('get_owned_journal_bundle', { _signal_id: signalId });
+    if (rpcErr) fetchError = rpcErr.message;
+    if (rpcData && (rpcData as any).signal) {
+      const bundle = rpcData as any;
+      return {
+        signal: bundle.signal as SignalDetail,
+        weekSignals: (bundle.weekSignals ?? []) as SignalDetail[],
+        error: null as string | null,
+      };
+    }
+  }
+
+  if (!signal) {
+    return { signal: null, weekSignals: [] as SignalDetail[], error: fetchError ?? 'not_found_or_forbidden' };
+  }
+
+  const s = signal;
   const pubDate = new Date(s.published_at);
   const ws = startOfWeek(pubDate, { weekStartsOn: 1 });
   const we = addDays(ws, 4);
@@ -172,7 +192,7 @@ const fetchJournalBundle = async (signalId: string) => {
     .lte('published_at', new Date(we.getFullYear(), we.getMonth(), we.getDate(), 23, 59, 59).toISOString())
     .order('published_at', { ascending: false });
 
-  return { signal: s, weekSignals: ((weekData as any) || []) as SignalDetail[] };
+  return { signal: s, weekSignals: ((weekData as any) || []) as SignalDetail[], error: null as string | null };
 };
 
 const JournalDetail = () => {
