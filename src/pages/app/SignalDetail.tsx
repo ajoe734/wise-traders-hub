@@ -268,4 +268,15 @@ const SignalDetail = () => {
   );
 };
 
-export default SignalDetail;
+import { SignalDetailErrorBoundary } from './SignalDetailErrorBoundary';
+
+const SignalDetailWithBoundary = () => {
+  const { id } = useParams<{ id: string }>();
+  return (
+    <SignalDetailErrorBoundary signalId={id ?? null}>
+      <SignalDetail />
+    </SignalDetailErrorBoundary>
+  );
+};
+
+export default SignalDetailWithBoundary;
