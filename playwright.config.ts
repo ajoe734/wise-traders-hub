@@ -175,6 +175,12 @@ export default defineConfig({
       use: { ...devices['Desktop Chrome'], viewport: { width: 1280, height: 900 } },
     },
     {
+      // /app/journal/:id owner 預覽（?preview=1）走 RPC fallback、不顯示 UnavailableContent
+      name: 'desktop-journal-detail-owner-preview',
+      testMatch: /journal-detail-owner-preview\.spec\.ts/,
+      use: { ...devices['Desktop Chrome'], viewport: { width: 1280, height: 900 } },
+    },
+    {
       // 週記 / 訊號編輯器：ETF 英文字尾（00631L / 00878B）代號+名稱顯示 parity
       name: 'desktop-signal-editor-etf-suffix',
       testMatch: /signal-editor-etf-suffix\.spec\.ts/,
