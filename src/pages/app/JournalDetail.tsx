@@ -393,18 +393,26 @@ const JournalDetail = () => {
     );
   }
 
+  const showDiagnostics = isPreviewSession || previewFlagFromUrl || hasRole('company_admin') || !!user?.expertSlug;
+  const diagnosticsNode = showDiagnostics ? (
+    <PreviewDiagnosticsBlock
+      diagnostics={data?.diagnostics ?? null}
+      currentUserId={user?.id ?? null}
+      effectiveUserId={effectiveUserId ?? null}
+      currentExpertSlug={user?.expertSlug ?? null}
+      ownerSlug={signal?.experts?.slug ?? null}
+      previewSlugFromSession={previewSlugFromSession ?? null}
+      isPreviewSession={isPreviewSession}
+      previewFlagFromUrl={previewFlagFromUrl}
+      topLevelError={data?.error ?? null}
+    />
+  ) : null;
+
   if (!signal) {
     return (
       <UnifiedAppLayout>
         <UnavailableContent kind="journal" />
-        {(isPreviewSession || previewFlagFromUrl) && data?.error && (
-          <div className="max-w-2xl mx-auto mt-4 px-4">
-            <div className="text-xs text-muted-foreground border border-dashed border-warning/40 rounded p-3 bg-warning/5">
-              預覽診斷：<code className="text-warning">{data.error}</code>
-              {previewSlugFromSession && <>（預覽 slug: {previewSlugFromSession}）</>}
-            </div>
-          </div>
-        )}
+        {diagnosticsNode}
       </UnifiedAppLayout>
     );
   }
