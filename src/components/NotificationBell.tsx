@@ -155,8 +155,21 @@ export function NotificationBell() {
                         e.stopPropagation();
                         openNotificationLink(n.download_url, {
                           navigate,
+                          onOpen: ({ kind }) => {
+                            trackRaw('notification_link_open', {
+                              notification_id: n.id,
+                              notification_type: n.type,
+                              kind,
+                              source: 'download_url',
+                            });
+                          },
                           onError: (error, message) => {
-                            trackRaw('notification_link_error', { notification_id: n.id, error, source: 'download_url' });
+                            trackRaw('notification_link_error', {
+                              notification_id: n.id,
+                              notification_type: n.type,
+                              error,
+                              source: 'download_url',
+                            });
                             toast.error(message);
                           },
                         });
