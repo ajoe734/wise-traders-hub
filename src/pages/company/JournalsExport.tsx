@@ -692,7 +692,7 @@ const JournalsExport = () => {
       <AlertDialog open={confirmOpen} onOpenChange={setConfirmOpen}>
         <AlertDialogContent>
           <AlertDialogHeader>
-            <AlertDialogTitle>確認匯出週記 CSV？</AlertDialogTitle>
+            <AlertDialogTitle>確認匯出週記 Markdown？</AlertDialogTitle>
             <AlertDialogDescription asChild>
               <div className="space-y-1 text-sm">
                 <div>週別：<span className="font-medium text-foreground">{range.startLabel} ~ {range.endLabel}</span></div>
@@ -700,17 +700,19 @@ const JournalsExport = () => {
                 <div>資產類別：<span className="font-medium text-foreground">{assetFilter === 'all' ? '全部' : ASSET_LABEL[assetFilter]}</span></div>
                 <div>老師：<span className="font-medium text-foreground">{selectedMentors.size === 0 ? '全部' : `已選 ${selectedMentors.size} 位`}</span></div>
                 <div className="pt-2">
-                  將匯出 <span className="font-semibold text-foreground">{rows.length}</span> 則週記，涵蓋 <span className="font-semibold text-foreground">{groups.length}</span> 位老師。
+                  將為 <span className="font-semibold text-foreground">{groups.length}</span> 位老師各產出一份 Markdown（共 <span className="font-semibold text-foreground">{rows.length}</span> 則週記）。
                 </div>
                 <div className="text-xs text-muted-foreground pt-1">
-                  檔名：legendflow-journals-{range.startLabel}_to_{range.endLabel}_{publishedOnly ? 'published' : 'all'}.csv
+                  {groups.length <= 1
+                    ? `檔名：legendflow-journal-<slug>-${range.startLabel}_to_${range.endLabel}_${publishedOnly ? 'published' : 'all'}.md`
+                    : `檔名：legendflow-journals-${range.startLabel}_to_${range.endLabel}_${publishedOnly ? 'published' : 'all'}.zip（內含每位老師一份 .md）`}
                 </div>
               </div>
             </AlertDialogDescription>
           </AlertDialogHeader>
           <AlertDialogFooter>
             <AlertDialogCancel>取消</AlertDialogCancel>
-            <AlertDialogAction onClick={() => { setConfirmOpen(false); doExportCsv(); }}>
+            <AlertDialogAction onClick={() => { setConfirmOpen(false); void doExportMarkdown(); }}>
               確認下載
             </AlertDialogAction>
           </AlertDialogFooter>
