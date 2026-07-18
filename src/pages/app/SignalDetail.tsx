@@ -16,7 +16,7 @@ import { Button } from '@/components/ui/button';
 import { useQuery } from '@tanstack/react-query';
 import { SafeRichHtml } from '@/components/SafeRichHtml';
 import { FxHint } from '@/components/FxHint';
-import { CURRENCY_SYMBOL, defaultQuantityUnit, normalizeCurrency, type Currency } from '@/lib/currency';
+import { CURRENCY_SYMBOL, defaultQuantityUnit, resolveDisplayCurrency, type Currency } from '@/lib/currency';
 import { UnavailableContent } from '@/components/UnavailableContent';
 import { parseInstrument } from '@/lib/instrument';
 import { InstrumentTooltip } from '@/components/InstrumentTooltip';
@@ -186,7 +186,7 @@ const SignalDetail = () => {
 
         {/* Price hint */}
         {signal.price_hint != null && (() => {
-          const cur: Currency = normalizeCurrency(signal.experts?.currency);
+          const cur: Currency = resolveDisplayCurrency(signal.experts?.currency, signal.instrument);
           const sym = CURRENCY_SYMBOL[cur];
           const unit = signal.quantity_unit || defaultQuantityUnit(cur);
           const total = signal.quantity != null ? Number(signal.price_hint) * Number(signal.quantity) : null;
