@@ -352,46 +352,85 @@ const JournalsExport = () => {
     (assetFilter !== 'all' ? 1 : 0) +
     (!publishedOnly ? 1 : 0);
 
-  const doExportCsv = () => {
+  const buildMentorMarkdown = (mentorRows: JournalRow[]): string => {
+    const first = mentorRows[0];
+    const name = first.experts?.name ?? '(未命名)';
+    const slug = first.experts?.slug ?? first.expert_id;
+    const asset = ASSET_LABEL[first.experts?.asset_class ?? ''] ?? (first.experts?.asset_class ?? '');
+    const currency = first.experts?.currency ?? '';
+    const lines: string[] = [];
+    lines.push(`# ${name} 週記`);
+    lines.push('');
+    lines.push(`- 週別：${range.startLabel} ~ ${range.endLabel}`);
+    lines.push(`- Slug：\`${slug}\``);
+    lines.push(`- 資產類別：${asset || '-'}`);
+    lines.push(`- 幣別：${currency || '-'}`);
+    lines.push(`- 則數：${mentorRows.length}`);
+    lines.push('');
+    lines.push('---');
+    lines.push('');
+    mentorRows.forEach((r, idx) => {
+      const time = fmtTaipei(r.published_at || r.created_at);
+      const title = r.reason_summary ? stripHtml(String(r.reason_summary)).slice(0, 80) : (r.instrument || '教學筆記');
+      lines.push(`## ${idx + 1}. ${title}`);
+      lines.push('');
+      const meta: string[] = [];
+      if (time) meta.push(`時間：${time}`);
+      if (r.status) meta.push(`狀態：${r.status}`);
+      if (r.instrument) meta.push(`標的：${r.instrument}`);
+      if (r.action) meta.push(`動作：${r.action}`);
+      if (r.price_hint !== null && r.price_hint !== undefined) meta.push(`參考價：${r.price_hint}`);
+      if (meta.length) { lines.push(meta.map((m) => `- ${m}`).join('\n')); lines.push(''); }
+      lines.push(mdSection('重點摘要', r.reason_summary));
+      lines.push(mdSection('詳細分析', r.reason_detail));
+      lines.push(mdSection('風險提醒', r.risk_notes));
+      lines.push(mdSection('學習重點', r.learning_points));
+      lines.push(`> 訊號 ID：\`${r.id}\``);
+      lines.push('');
+      lines.push('---');
+      lines.push('');
+    });
+    return lines.join('\n').replace(/\n{3,}/g, '\n\n');
+  };
+
+  const doExportMarkdown = async () => {
     if (rows.length === 0) {
       toast.warning('目前篩選條件下沒有可匯出的週記');
       return;
     }
-    const header = [
-      '老師名稱', '老師 Slug', '資產類別', '幣別',
-      '週別起始', '週別結束',
-      '狀態', '發布時間 (台北)', '建立時間 (台北)',
-      '標的', '動作', '參考價',
-      '重點摘要', '詳細分析', '風險提醒', '學習重點',
-      '訊號 ID',
-    ];
-    const body: unknown[][] = rows.map((r) => [
-      r.experts?.name ?? '',
-      r.experts?.slug ?? '',
-      ASSET_LABEL[r.experts?.asset_class ?? ''] ?? (r.experts?.asset_class ?? ''),
-      r.experts?.currency ?? '',
-      range.startLabel,
-      range.endLabel,
-      r.status ?? '',
-      fmtTaipei(r.published_at),
-      fmtTaipei(r.created_at),
-      r.instrument ?? '',
-      r.action ?? '',
-      r.price_hint ?? '',
-      r.reason_summary ?? '',
-      r.reason_detail ?? '',
-      r.risk_notes ?? '',
-      r.learning_points ?? '',
-      r.id,
-    ]);
-    const csv = buildCsv(header, body);
+    // 依 expert_id 分組
+    const byMentor = new Map<string, JournalRow[]>();
+    for (const r of rows) {
+      const arr = byMentor.get(r.expert_id) ?? [];
+      arr.push(r);
+      byMentor.set(r.expert_id, arr);
+    }
+
     const suffix = publishedOnly ? 'published' : 'all';
-    downloadFile(
-      `legendflow-journals-${range.startLabel}_to_${range.endLabel}_${suffix}.csv`,
-      csv,
-      'text/csv',
-    );
-    toast.success(`已匯出 ${rows.length} 則週記（${groups.length} 位老師）`);
+
+    // 單一老師 → 直接下載 .md；多位老師 → 打包 zip
+    if (byMentor.size === 1) {
+      const [[expertId, mentorRows]] = Array.from(byMentor);
+      const md = buildMentorMarkdown(mentorRows);
+      const slug = safeSlug(mentorRows[0].experts?.slug ?? expertId, expertId);
+      downloadBlob(
+        `legendflow-journal-${slug}-${range.startLabel}_to_${range.endLabel}_${suffix}.md`,
+        new Blob([md], { type: 'text/markdown;charset=utf-8' }),
+      );
+    } else {
+      const zip = new JSZip();
+      for (const [expertId, mentorRows] of byMentor) {
+        const md = buildMentorMarkdown(mentorRows);
+        const slug = safeSlug(mentorRows[0].experts?.slug ?? expertId, expertId);
+        zip.file(`${slug}.md`, md);
+      }
+      const blob = await zip.generateAsync({ type: 'blob' });
+      downloadBlob(
+        `legendflow-journals-${range.startLabel}_to_${range.endLabel}_${suffix}.zip`,
+        blob,
+      );
+    }
+    toast.success(`已匯出 ${rows.length} 則週記（${byMentor.size} 位老師 · Markdown）`);
   };
 
   return (
