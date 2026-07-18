@@ -84,6 +84,14 @@ export function useAdminProfile(expertSlug: string | undefined, opts?: {
     onSuccess: () => {
       toast.success('已儲存');
       queryClient.invalidateQueries({ queryKey: expertQueryKey });
+      // asset_class / currency 變更會影響 SignalCreateDialog、CapitalPanel、TradeCard、
+      // 這些下游從 useAdminSignals / useExpertHoldingsBundle / useSignalEditorData 拿 expert，
+      // 若不一併 invalidate，切到訊號頁仍會拿到 30s 內的舊快取（表面像「後台不支援美股」）。
+      queryClient.invalidateQueries({ queryKey: ['admin-signals-bundle', expertSlug] });
+      queryClient.invalidateQueries({ queryKey: ['admin', 'signal-editor', expertSlug] });
+      if (expert?.id) {
+        queryClient.invalidateQueries({ queryKey: ['expert-holdings-bundle', expert.id] });
+      }
     },
     onError: (e: any) => {
       toast.error('儲存失敗：' + (e?.message || '未知錯誤'));
