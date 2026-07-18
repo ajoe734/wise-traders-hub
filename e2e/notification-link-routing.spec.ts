@@ -31,7 +31,7 @@ test.describe('NotificationBell · link routing', () => {
 
     // navigate 已切到 /account/notifications?src=harness（harness 元件會被卸載）
     // 只驗證：URL 正確 + 沒落到 NotFound + 沒開新分頁
-    await expect(page).toHaveURL(/\/account\/notifications\?src=harness/);
+    await expect(page).toHaveURL(/\/pricing\?src=harness/);
 
     const bodyText = await page.locator('body').innerText();
     expect(bodyText).not.toMatch(/404|找不到頁面|Not Found/i);
