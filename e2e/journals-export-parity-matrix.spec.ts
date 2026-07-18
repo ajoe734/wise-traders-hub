@@ -16,8 +16,13 @@ import { readFile } from 'node:fs/promises';
 
 const HARNESS = '/e2e/journals-export-harness';
 const SUFFIX = 'published';
+const MENTOR_A_SLUG = 'master-zhou';
+const MENTOR_B_SLUG = 'wendy-us';
+// The multi-export button only exports these two mentors; other harness mentors are separate buttons.
+const MULTI_EXPORT_SLUGS = [MENTOR_A_SLUG, MENTOR_B_SLUG];
 
 const RANGES = [
+
   { start: '2026-07-13', end: '2026-07-19' }, // canonical
   { start: '2026-01-05', end: '2026-01-11' }, // year boundary-ish
   { start: '2025-12-29', end: '2026-01-04' }, // cross-year week
@@ -91,9 +96,10 @@ test.describe('Journals export — filename × slug × week parity matrix', () =
 
     test(`multi: ${r.start}~${r.end} — zip entries per-slug + week parity + reload stability`, async ({ page }) => {
       const first = await open(page, r);
-      const expectedSlugs = Object.values(first.slugMap).sort();
+      const expectedSlugs = [...MULTI_EXPORT_SLUGS].sort();
 
       const firstDl = await downloadOnce(page, 'je-export-multi');
+
       assertZipFilename(firstDl.filename, r);
 
       // Full remount to catch any drift between renders.
@@ -128,9 +134,10 @@ test.describe('Journals export — filename × slug × week parity matrix', () =
     const r = RANGES[0];
     const { weekDisplay, slugMap } = await open(page, r);
     const expectedSlug = slugMap['expert-a'];
-    const expectedSlugs = Object.values(slugMap).sort();
+    const expectedSlugs = [...MULTI_EXPORT_SLUGS].sort();
 
     const s1 = await downloadOnce(page, 'je-export-single');
+
     assertSingleFilename(s1.filename, expectedSlug, r);
 
     const m1 = await downloadOnce(page, 'je-export-multi');

@@ -399,6 +399,13 @@ export default defineConfig({
       testMatch: /journals-export-parity-matrix\.spec\.ts/,
       use: { ...devices['Desktop Chrome'], viewport: { width: 1280, height: 900 }, acceptDownloads: true },
     },
+    {
+      // 週記匯出：quantity_unit 為空 / 不存在 / null / 純空白時，仍預設使用「股」
+      name: 'desktop-journals-export-quantity-unit-default',
+      testMatch: /journals-export-quantity-unit-default\.spec\.ts/,
+      use: { ...devices['Desktop Chrome'], viewport: { width: 1280, height: 900 }, acceptDownloads: true },
+    },
+
 
 
     {

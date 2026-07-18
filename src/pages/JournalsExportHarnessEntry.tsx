@@ -6,6 +6,7 @@
  * test can assert:
  *   - single-mentor → downloads one `.md` with correct filename & content
  *   - multi-mentor  → downloads a `.zip` containing one `<slug>.md` per mentor
+ *   - quantity_unit empty / missing / null / whitespace → defaults to "股"
  *
  * SECURITY: preview-only；prod 回傳 null。
  */
@@ -100,6 +101,78 @@ const MENTOR_B_ROW: JournalRowExport = {
   experts: { name: 'Wendy', slug: 'wendy-us', role: 'mentor', asset_class: 'us_stock', currency: 'USD' },
 };
 
+// Regression: quantity_unit empty / missing / null / whitespace → must default to "股"
+const MENTOR_C_ROWS: JournalRowExport[] = [
+  {
+    id: 'sig-c-1',
+    status: 'published',
+    instrument: '0050 元大台灣50',
+    action: 'buy',
+    price_hint: 150,
+    quantity: 3,
+    quantity_unit: '', // empty string
+    reason_summary: 'C-summary-empty',
+    reason_detail: '<p>C-detail-empty</p>',
+    risk_notes: null,
+    learning_points: null,
+    published_at: '2026-07-17T01:00:00Z',
+    created_at: '2026-07-17T00:30:00Z',
+    expert_id: 'expert-c',
+    experts: { name: '助教小陳', slug: 'assistant-chen', role: 'mentor', asset_class: 'tw_stock', currency: 'TWD' },
+  },
+  {
+    id: 'sig-c-2',
+    status: 'published',
+    instrument: '0056 元大高股息',
+    action: 'sell',
+    price_hint: 35,
+    quantity: 5,
+    // quantity_unit omitted → undefined
+    reason_summary: 'C-summary-undefined',
+    reason_detail: null,
+    risk_notes: null,
+    learning_points: null,
+    published_at: '2026-07-17T02:00:00Z',
+    created_at: '2026-07-17T01:30:00Z',
+    expert_id: 'expert-c',
+    experts: { name: '助教小陳', slug: 'assistant-chen', role: 'mentor', asset_class: 'tw_stock', currency: 'TWD' },
+  },
+  {
+    id: 'sig-c-3',
+    status: 'published',
+    instrument: '00878 國泰永續高股息',
+    action: 'buy',
+    price_hint: 25,
+    quantity: 7,
+    quantity_unit: null,
+    reason_summary: 'C-summary-null',
+    reason_detail: null,
+    risk_notes: null,
+    learning_points: null,
+    published_at: '2026-07-17T03:00:00Z',
+    created_at: '2026-07-17T02:30:00Z',
+    expert_id: 'expert-c',
+    experts: { name: '助教小陳', slug: 'assistant-chen', role: 'mentor', asset_class: 'tw_stock', currency: 'TWD' },
+  },
+  {
+    id: 'sig-c-4',
+    status: 'published',
+    instrument: '00692 富邦台50',
+    action: 'sell',
+    price_hint: 45,
+    quantity: 9,
+    quantity_unit: '   ', // whitespace-only
+    reason_summary: 'C-summary-whitespace',
+    reason_detail: null,
+    risk_notes: null,
+    learning_points: null,
+    published_at: '2026-07-17T04:00:00Z',
+    created_at: '2026-07-17T03:30:00Z',
+    expert_id: 'expert-c',
+    experts: { name: '助教小陳', slug: 'assistant-chen', role: 'mentor', asset_class: 'tw_stock', currency: 'TWD' },
+  },
+];
+
 export default function JournalsExportHarnessEntry() {
   if (!isPreviewEnv()) return null;
 
@@ -122,11 +195,28 @@ export default function JournalsExportHarnessEntry() {
     setStatus(`multi:${res.kind}:${res.filename}`);
   };
 
+  const runEmptyUnit = async () => {
+    setStatus('running-empty-unit');
+    const res = await buildJournalExport(MENTOR_C_ROWS, RANGE, true);
+    if (!res) { setStatus('empty'); return; }
+    downloadBlob(res.filename, res.blob);
+    setStatus(`empty-unit:${res.kind}:${res.filename}`);
+  };
+
+  const runMultiMixed = async () => {
+    setStatus('running-multi-mixed');
+    const res = await buildJournalExport([...MENTOR_A_ROWS, ...MENTOR_C_ROWS], RANGE, true);
+    if (!res) { setStatus('empty'); return; }
+    downloadBlob(res.filename, res.blob);
+    setStatus(`multi-mixed:${res.kind}:${res.filename}`);
+  };
+
   const weekDisplay = `${RANGE.startLabel} ~ ${RANGE.endLabel}`;
 
   const slugMap = {
     'expert-a': 'master-zhou',
     'expert-b': 'wendy-us',
+    'expert-c': 'assistant-chen',
   };
 
   return (
@@ -141,13 +231,18 @@ export default function JournalsExportHarnessEntry() {
       <div data-testid="je-status" style={{ fontFamily: 'monospace', fontSize: 12, marginBottom: 12 }}>
         {status}
       </div>
-      <button data-testid="je-export-single" onClick={runSingle} style={{ marginRight: 8, padding: '6px 12px' }}>
+      <button data-testid="je-export-single" onClick={runSingle} style={{ marginRight: 8, marginBottom: 8, padding: '6px 12px' }}>
         Export single mentor (老周)
       </button>
-      <button data-testid="je-export-multi" onClick={runMulti} style={{ padding: '6px 12px' }}>
+      <button data-testid="je-export-multi" onClick={runMulti} style={{ marginRight: 8, marginBottom: 8, padding: '6px 12px' }}>
         Export multiple mentors (老周 + Wendy)
+      </button>
+      <button data-testid="je-export-empty-unit" onClick={runEmptyUnit} style={{ marginRight: 8, marginBottom: 8, padding: '6px 12px' }}>
+        Export mentor with empty/missing unit (助教小陳)
+      </button>
+      <button data-testid="je-export-multi-mixed" onClick={runMultiMixed} style={{ padding: '6px 12px' }}>
+        Export mixed units (老周 張 + 助教小陳 股)
       </button>
     </div>
   );
 }
-

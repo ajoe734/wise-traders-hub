@@ -15,6 +15,9 @@ import JSZip from 'jszip';
 
 const HARNESS_URL = '/e2e/journals-export-harness';
 const SUFFIX = 'published';
+const MENTOR_A_SLUG = 'master-zhou';
+const MENTOR_B_SLUG = 'wendy-us';
+
 
 async function readWeekDisplay(page: import('@playwright/test').Page) {
   const txt = (await page.getByTestId('je-week-display').textContent()) ?? '';
@@ -74,8 +77,8 @@ test.describe('Journals export — filename + week header parity', () => {
     await expect(page.getByTestId('je-status')).toHaveText('idle');
 
     const weekDisplay = await readWeekDisplay(page);
-    const slugMap = await readSlugMap(page);
-    const expectedSlugs = Object.values(slugMap).sort();
+    // The multi-export button only exports 老周 + Wendy; other harness mentors are not included.
+    const expectedSlugs = [MENTOR_A_SLUG, MENTOR_B_SLUG].sort();
 
     const [download] = await Promise.all([
       page.waitForEvent('download'),
@@ -98,11 +101,12 @@ test.describe('Journals export — filename + week header parity', () => {
     const zip = await JSZip.loadAsync(buf);
 
     const entryNames = Object.keys(zip.files).sort();
-    // Every entry must be `<slug>.md`, and the set must exactly equal every mentor's slug
+    // Every entry must be `<slug>.md`, and the set must exactly equal the two mentors exported by the multi button
     expect(entryNames).toEqual(expectedSlugs.map((s) => `${s}.md`).sort());
     for (const name of entryNames) {
       expect(name).toMatch(/^[a-z0-9][a-z0-9-_]*\.md$/i);
     }
+
 
     // Each MD must carry the same week header the user saw on screen,
     // and the H1 must belong to the mentor whose slug names the file.
