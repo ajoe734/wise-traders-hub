@@ -328,6 +328,7 @@ const JournalsExport = () => {
   const [selectedMentors, setSelectedMentors] = useState<Set<string>>(new Set());
   const [mdBuilding, setMdBuilding] = useState(false);
   const [mdFailure, setMdFailure] = useState<ExportFailure | null>(null);
+  const [previewMentorId, setPreviewMentorId] = useState<string | null>(null);
   const range = useMemo(() => weekRangeUtc(weekStart), [weekStart]);
 
 
