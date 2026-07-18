@@ -286,7 +286,7 @@ const Journals = () => {
                   weekEnd={group.weekEnd}
                   signals={group.signals}
                   expert={group.expert}
-                  to={`/app/journal/${group.signals[0].id}`}
+                  to={`/app/journal/${group.signals[0].id}${previewExpertId ? '?preview=1' : ''}`}
                 />
               ))}
             </div>
