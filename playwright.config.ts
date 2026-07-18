@@ -657,8 +657,45 @@ export default defineConfig({
       },
     },
 
-    // HoldingCard PriceTrack / Footer 舊 parity spec 已於 2026-07-15 隨 DESIGN_HANDOFF 改版刪除。
-    // 新規格由手機 RWD 與 harness 內視覺驗證涵蓋（下一輪抽屜對接後補回）。
+    // HoldingsDetailPanel 抽屜 · 多裝置滾動守門（iOS + Android + 折疊 + 平板 + 直橫）
+    //   驗證 100dvh 契約、可滾到最底、最後元素不被底部遮住
+    // 失敗產物落點：test-results/holdings-drawer/scroll-bottom-<slug>/
+    ...([
+      // ---- iOS 直向 ----
+      { slug: 'ios-se-375x667',        w: 375,  h: 667 },
+      { slug: 'ios-12mini-375x812',    w: 375,  h: 812 },
+      { slug: 'ios-13-390x844',        w: 390,  h: 844 },
+      { slug: 'ios-14pro-393x852',     w: 393,  h: 852 },
+      { slug: 'ios-14plus-428x926',    w: 428,  h: 926 },
+      { slug: 'ios-15pmax-430x932',    w: 430,  h: 932 },
+      // ---- iOS 橫向（URL bar + home indicator 最容易吃到底部）----
+      { slug: 'ios-se-land-667x375',   w: 667,  h: 375 },
+      { slug: 'ios-13-land-844x390',   w: 844,  h: 390 },
+      { slug: 'ios-15pmax-land',       w: 932,  h: 430 },
+      // ---- iPad ----
+      { slug: 'ipad-mini-768x1024',    w: 768,  h: 1024 },
+      { slug: 'ipad-820x1180',         w: 820,  h: 1180 },
+      { slug: 'ipad-land-1180x820',    w: 1180, h: 820 },
+      // ---- Android 直向 ----
+      { slug: 'android-small-360x640', w: 360,  h: 640 },
+      { slug: 'pixel5-393x851',        w: 393,  h: 851 },
+      { slug: 'galaxy-s20-360x800',    w: 360,  h: 800 },
+      { slug: 'pixel7pro-412x915',     w: 412,  h: 915 },
+      { slug: 'galaxy-s23u-412x915',   w: 412,  h: 915 },
+      // ---- Android 折疊機（極窄）----
+      { slug: 'fold-outer-280x653',    w: 280,  h: 653 },
+      { slug: 'fold-inner-717x512',    w: 717,  h: 512 },
+      // ---- Android 橫向 ----
+      { slug: 'pixel5-land-851x393',   w: 851,  h: 393 },
+      { slug: 'pixel7pro-land',        w: 915,  h: 412 },
+    ] as const).map(({ slug, w, h }) => ({
+      name: `holdings-drawer-scroll-bottom-${slug}`,
+      testMatch: /holdings-drawer-scroll-bottom-devices\.spec\.ts/,
+      outputDir: `test-results/holdings-drawer/scroll-bottom-${slug}`,
+      use: { ...devices['Desktop Chrome'], viewport: { width: w, height: h } },
+    })),
+
+
 
 
   ],
