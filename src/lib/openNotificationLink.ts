@@ -5,9 +5,25 @@
  *     把整段外部 URL 當成 SPA 相對路徑，走進 /notfound 造成 404。
  *   - 其他（例如 /account/notifications）→ 交給 react-router navigate。
  *
- * 抽出成純函式方便 e2e/單元測試在不掛整個 AuthProvider 的情況下驗證分流。
+ * 額外偵測：
+ *   - Supabase Storage signed URL 的 token 若已過期或格式錯誤，直接回報 error
+ *     而不真的開新分頁（避免使用者跳到一頁「JWT expired」XML）。
+ *   - `window.open` 被瀏覽器擋（回傳 null）→ 回報 popup_blocked 讓 UI 顯示 toast。
  */
 export type NotificationLinkKind = 'none' | 'external' | 'internal';
+
+export type NotificationLinkError =
+  | 'invalid_url'
+  | 'signed_url_expired'
+  | 'signed_url_malformed'
+  | 'popup_blocked'
+  | 'open_failed';
+
+export interface NotificationLinkResult {
+  kind: NotificationLinkKind;
+  error?: NotificationLinkError;
+  message?: string;
+}
 
 export function classifyNotificationLink(link: string | null | undefined): NotificationLinkKind {
   if (!link) return 'none';
@@ -15,21 +31,87 @@ export function classifyNotificationLink(link: string | null | undefined): Notif
   return 'internal';
 }
 
+/**
+ * 檢查 Supabase Storage signed URL 是否過期或格式錯誤。
+ * 回傳 null 代表看起來合法（或不是 signed URL，交由外部服務判斷）。
+ */
+export function validateSignedUrl(
+  url: string,
+  now: number = Date.now(),
+): NotificationLinkError | null {
+  let parsed: URL;
+  try {
+    parsed = new URL(url);
+  } catch {
+    return 'invalid_url';
+  }
+  // 只針對 Supabase Storage signed URL 做嚴格檢查，其他外部連結不擋
+  if (!/\/storage\/v[0-9]+\/object\/sign\//i.test(parsed.pathname)) return null;
+  const token = parsed.searchParams.get('token');
+  if (!token) return 'signed_url_malformed';
+  const parts = token.split('.');
+  if (parts.length < 2) return 'signed_url_malformed';
+  try {
+    const payloadStr = atob(parts[1].replace(/-/g, '+').replace(/_/g, '/'));
+    const payload = JSON.parse(payloadStr);
+    if (typeof payload.exp === 'number' && payload.exp * 1000 < now) {
+      return 'signed_url_expired';
+    }
+  } catch {
+    return 'signed_url_malformed';
+  }
+  return null;
+}
+
 export interface OpenNotificationLinkDeps {
   navigate: (path: string) => void;
-  openExternal?: (url: string) => void;
+  /** 回傳 false / null 代表被瀏覽器擋，回傳 true 或 Window 代表成功。 */
+  openExternal?: (url: string) => Window | null | boolean | void;
+  onError?: (error: NotificationLinkError, message: string) => void;
+  now?: number;
 }
+
+const ERROR_MESSAGES: Record<NotificationLinkError, string> = {
+  invalid_url: '通知連結格式錯誤，無法開啟。',
+  signed_url_expired: '此下載連結已過期，請重新產生。',
+  signed_url_malformed: '此下載連結格式異常，請聯繫客服。',
+  popup_blocked: '瀏覽器已封鎖彈出視窗，請允許後再試一次。',
+  open_failed: '無法開啟連結，請稍後再試。',
+};
 
 export function openNotificationLink(
   link: string | null | undefined,
-  { navigate, openExternal }: OpenNotificationLinkDeps,
-): NotificationLinkKind {
+  { navigate, openExternal, onError, now }: OpenNotificationLinkDeps,
+): NotificationLinkResult {
   const kind = classifyNotificationLink(link);
+  if (kind === 'none') return { kind };
+
   if (kind === 'external') {
-    const open = openExternal ?? ((url: string) => window.open(url, '_blank', 'noopener,noreferrer'));
-    open(link as string);
-  } else if (kind === 'internal') {
-    navigate(link as string);
+    const url = link as string;
+    const validationError = validateSignedUrl(url, now);
+    if (validationError) {
+      const msg = ERROR_MESSAGES[validationError];
+      onError?.(validationError, msg);
+      return { kind, error: validationError, message: msg };
+    }
+    try {
+      const open =
+        openExternal ?? ((u: string) => window.open(u, '_blank', 'noopener,noreferrer'));
+      const result = open(url);
+      // window.open 回傳 null 代表被 popup blocker 擋；自訂 openExternal 若明確回傳 false 也視為擋掉
+      if (result === null || result === false) {
+        const msg = ERROR_MESSAGES.popup_blocked;
+        onError?.('popup_blocked', msg);
+        return { kind, error: 'popup_blocked', message: msg };
+      }
+    } catch (e) {
+      const msg = ERROR_MESSAGES.open_failed;
+      onError?.('open_failed', msg);
+      return { kind, error: 'open_failed', message: msg };
+    }
+    return { kind };
   }
-  return kind;
+
+  navigate(link as string);
+  return { kind };
 }
