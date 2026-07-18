@@ -97,13 +97,24 @@ function HoldingsWorkbench(props) {
       // 抽屜開啟時，先把內部捲軸歸零（不動畫，避免與 Sheet 進場動畫互撞）
       node.scrollTop = 0;
       setShowTopBtn(false);
-      const onScroll = () => setShowTopBtn(node.scrollTop > 160);
+      // 使用 rAF 節流 setState，避免每個 scroll 事件都觸發 React 重新 render
+      // 造成 Radix FocusScope / RemoveScroll 邊界處理把 scrollTop 重設回 0
+      let ticking = false;
+      const onScroll = () => {
+        if (ticking) return;
+        ticking = true;
+        requestAnimationFrame(() => {
+          ticking = false;
+          setShowTopBtn(node.scrollTop > 160);
+        });
+      };
       onScrollRef.current = onScroll;
       node.addEventListener('scroll', onScroll, { passive: true });
     } else {
       onScrollRef.current = null;
       setShowTopBtn(false);
     }
+
   }, []);
 
   // 抽屜開啟時，把對應的持倉卡平滑捲入視野。
