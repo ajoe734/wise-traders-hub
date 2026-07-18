@@ -185,6 +185,9 @@ const AdminProfile = () => {
           setAssetClass={setAssetClass}
           isReadOnly={isReadOnly}
           locked={currencyLocked}
+          isCompanyAdmin={isCompanyAdmin}
+          onReset={(next) => resetAssetClass.mutateAsync(next)}
+          resetting={resetAssetClass.isPending}
         />
 
         <StartingCapitalCard
