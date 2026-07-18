@@ -51,10 +51,41 @@ interface SignalDetail {
   };
 }
 
-const TradeItem = ({ signal, nameMap }: { signal: SignalDetail; nameMap: Record<string, string> }) => {
+const TeachingDebugBadge = ({ raw }: { raw: string | null }) => {
+  const rawStr = raw ?? '';
+  const rawLen = rawStr.length;
+  const plain = rawStr ? richHtmlToPlain(rawStr) : '';
+  const plainLen = plain.length;
+  const imgCount = (rawStr.match(/<img\b/gi) || []).length;
+  const iframeCount = (rawStr.match(/<iframe\b/gi) || []).length;
+  const status = raw === null ? 'null' : raw === '' ? 'empty-string' : plainLen === 0 && imgCount === 0 ? 'html-no-text-no-img' : 'ok';
+  const tone =
+    status === 'ok' ? 'bg-emerald-50 text-emerald-700 border-emerald-200'
+    : status === 'null' || status === 'empty-string' ? 'bg-rose-50 text-rose-700 border-rose-200'
+    : 'bg-amber-50 text-amber-700 border-amber-200';
+  return (
+    <div
+      data-testid="jd-learning-debug"
+      data-lp-status={status}
+      data-lp-raw-len={rawLen}
+      data-lp-plain-len={plainLen}
+      data-lp-img-count={imgCount}
+      className={`mt-1 mb-2 inline-flex flex-wrap items-center gap-1.5 rounded border px-2 py-1 text-[10px] font-mono ${tone}`}
+    >
+      <span className="font-semibold">learning_points</span>
+      <span>status={status}</span>
+      <span>raw={rawLen}b</span>
+      <span>plain={plainLen}b</span>
+      <span>img={imgCount}</span>
+      {iframeCount > 0 && <span>iframe={iframeCount}</span>}
+    </div>
+  );
+};
+
+const TradeItem = ({ signal, nameMap, showDebug }: { signal: SignalDetail; nameMap: Record<string, string>; showDebug: boolean }) => {
   const isTeaching = signal.action === 'teaching';
   const hasDetails = !!(signal.reason_summary || signal.reason_detail || signal.risk_notes || signal.learning_points);
-  const [expanded, setExpanded] = useState(isTeaching && hasDetails);
+  const [expanded, setExpanded] = useState(isTeaching && (hasDetails || showDebug));
   const cur: Currency = normalizeCurrency(signal.currency ?? signal.experts?.currency);
   const sym = CURRENCY_SYMBOL[cur];
   const unit = signal.quantity_unit || defaultQuantityUnit(cur);
@@ -70,6 +101,7 @@ const TradeItem = ({ signal, nameMap }: { signal: SignalDetail; nameMap: Record<
   const displayInstrument = code
     ? (resolvedName ? `${code} ${resolvedName}` : code)
     : (signal.instrument || '');
+
 
   return (
     <div className="px-4 py-3">
@@ -150,12 +182,15 @@ const TradeItem = ({ signal, nameMap }: { signal: SignalDetail; nameMap: Record<
               <SafeRichHtml html={signal.risk_notes} className="text-xs" />
             </div>
           )}
-          {signal.learning_points && (
+          {(signal.learning_points || (isTeaching && showDebug)) && (
             <div data-testid="jd-learning-points">
               <h3 className="text-xs font-semibold flex items-center gap-1.5 mb-1 text-mentor">
                 <BookOpen className="h-3.5 w-3.5" /> 教學重點
               </h3>
-              <SafeRichHtml html={signal.learning_points} className="text-xs" />
+              {showDebug && <TeachingDebugBadge raw={signal.learning_points} />}
+              {signal.learning_points
+                ? <SafeRichHtml html={signal.learning_points} className="text-xs" />
+                : showDebug && <p className="text-xs text-muted-foreground">（無 learning_points 內容，見上方 debug 標籤）</p>}
             </div>
           )}
         </div>
@@ -690,7 +725,7 @@ const JournalDetail = () => {
               <CardContent className="p-0">
                 <div className="divide-y divide-border">
                   {weekSignals.map(ws => (
-                    <TradeItem key={ws.id} signal={ws} nameMap={nameMap} />
+                    <TradeItem key={ws.id} signal={ws} nameMap={nameMap} showDebug={showDiagnostics || searchParams.get('debug') === '1'} />
                   ))}
                 </div>
               </CardContent>
