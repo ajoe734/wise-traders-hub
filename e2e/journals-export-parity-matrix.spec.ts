@@ -96,9 +96,10 @@ test.describe('Journals export — filename × slug × week parity matrix', () =
 
     test(`multi: ${r.start}~${r.end} — zip entries per-slug + week parity + reload stability`, async ({ page }) => {
       const first = await open(page, r);
-      const expectedSlugs = Object.values(first.slugMap).sort();
+      const expectedSlugs = [...MULTI_EXPORT_SLUGS].sort();
 
       const firstDl = await downloadOnce(page, 'je-export-multi');
+
       assertZipFilename(firstDl.filename, r);
 
       // Full remount to catch any drift between renders.
