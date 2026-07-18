@@ -16,6 +16,7 @@ export interface SignalCurrencyResolutionPayload {
   source: CurrencySource;
   had_explicit: boolean;
   is_preview: boolean;
+  [key: string]: unknown;
 }
 
 /**
