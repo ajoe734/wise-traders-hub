@@ -191,15 +191,30 @@ const SignalDetail = () => {
                   <span className="font-mono tabular-nums tracking-tight">{tickerCode}</span>
                   {tickerName ? (
                     <> <span>{tickerName}</span></>
-                  ) : (
+                  ) : inst.market === 'tw-stock' ? (
                     <span className="text-muted-foreground">.TW</span>
-                  )}
+                  ) : null}
                 </>
+              ) : inst.name ? (
+                <span>{inst.name}</span>
               ) : (
-                signal.instrument
+                <span className="text-muted-foreground" data-testid="sd-instrument-missing">
+                  未提供商品資訊
+                </span>
               )}
             </InstrumentTooltip>
           </h1>
+          {isPreview && inst.raw && (
+            <span
+              data-testid="sd-instrument-source"
+              data-market={inst.market}
+              data-source={inst.source}
+              className="mt-2 text-[11px] text-muted-foreground border border-border/60 rounded px-2 py-0.5"
+            >
+              {INSTRUMENT_MARKET_LABEL[inst.market]}｜{INSTRUMENT_SOURCE_LABEL[inst.source]}
+            </span>
+          )}
+
         </div>
         {/* Row 2: date + expert name + role badge */}
         <div className="flex items-center gap-2 text-sm text-muted-foreground">
