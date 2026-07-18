@@ -103,9 +103,29 @@ export default function JournalsExportHarnessEntry() {
     setStatus(`multi:${res.kind}:${res.filename}`);
   };
 
+  // Mirror the exact week-range display string used in
+  // `src/pages/company/JournalsExport.tsx` (`{startLabel} ~ {endLabel}`),
+  // so E2E can assert parity between the on-screen label and the
+  // `- 週別：...` header written inside each exported Markdown file.
+  const weekDisplay = `${RANGE.startLabel} ~ ${RANGE.endLabel}`;
+
+  // Slug map (expert_id → slug) exposed for E2E filename assertions;
+  // lets the test verify every mentor file is named after its own slug
+  // without hard-coding the mapping inside the spec.
+  const slugMap = {
+    'expert-a': 'master-zhou',
+    'expert-b': 'wendy-us',
+  };
+
   return (
     <div id="je-harness-root" style={{ padding: 24, background: '#fff', color: '#1a1a1a' }}>
       <h1 style={{ fontSize: 18, marginBottom: 12 }}>Journals Export Harness</h1>
+      <div data-testid="je-week-display" style={{ fontFamily: 'monospace', fontSize: 12, marginBottom: 6 }}>
+        {weekDisplay}
+      </div>
+      <div data-testid="je-slug-map" style={{ fontFamily: 'monospace', fontSize: 12, marginBottom: 6 }}>
+        {JSON.stringify(slugMap)}
+      </div>
       <div data-testid="je-status" style={{ fontFamily: 'monospace', fontSize: 12, marginBottom: 12 }}>
         {status}
       </div>
@@ -118,3 +138,4 @@ export default function JournalsExportHarnessEntry() {
     </div>
   );
 }
+
