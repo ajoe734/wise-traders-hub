@@ -11,6 +11,8 @@ export interface JournalRowExport {
   instrument: string | null;
   action: string | null;
   price_hint: number | null;
+  quantity?: number | null;
+  quantity_unit?: string | null;
   reason_summary: string | null;
   reason_detail: string | null;
   risk_notes: string | null;
@@ -108,6 +110,11 @@ export function buildMentorMarkdown(mentorRows: JournalRowExport[], range: WeekR
     if (r.instrument) meta.push(`標的：${r.instrument}`);
     if (r.action) meta.push(`動作：${r.action}`);
     if (r.price_hint !== null && r.price_hint !== undefined) meta.push(`參考價：${r.price_hint}`);
+    if (r.quantity !== null && r.quantity !== undefined && r.quantity !== 0) {
+      const unit = (r.quantity_unit ?? '').trim() || '股';
+      const verb = r.action === 'sell' ? '賣出' : r.action === 'buy' ? '買進' : '數量';
+      meta.push(`${verb}股數：${r.quantity} ${unit}`);
+    }
     if (meta.length) { lines.push(meta.map((m) => `- ${m}`).join('\n')); lines.push(''); }
     lines.push(mdSection('重點摘要', r.reason_summary));
     lines.push(mdSection('詳細分析', r.reason_detail));
