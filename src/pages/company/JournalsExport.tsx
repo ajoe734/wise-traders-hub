@@ -21,6 +21,7 @@ import { supabase } from '@/integrations/supabase/client';
 import { toast } from 'sonner';
 import { Download, FileText, Filter, X } from 'lucide-react';
 import { useQuery } from '@tanstack/react-query';
+import JSZip from 'jszip';
 
 // ── Taipei week helpers ────────────────────────────────────
 const TZ_OFFSET_MS = 8 * 60 * 60 * 1000;
