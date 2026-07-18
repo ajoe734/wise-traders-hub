@@ -64,10 +64,14 @@ export function validateSignedUrl(
 }
 
 export interface OpenNotificationLinkDeps {
-  navigate: (path: string) => void;
+  navigate: (path: string, options?: { state?: unknown }) => void;
   /** 回傳 false / null 代表被瀏覽器擋，回傳 true 或 Window 代表成功。 */
   openExternal?: (url: string) => Window | null | boolean | void;
   onError?: (error: NotificationLinkError, message: string) => void;
+  /** 在成功發起導向/開啟後觸發，供呼叫端埋 analytics。 */
+  onOpen?: (info: { kind: 'internal' | 'external' }) => void;
+  /** 傳給 react-router navigate 的 state，讓 NotFound 頁可以偵測 404 來源。 */
+  navigateState?: unknown;
   now?: number;
 }
 
@@ -81,7 +85,7 @@ const ERROR_MESSAGES: Record<NotificationLinkError, string> = {
 
 export function openNotificationLink(
   link: string | null | undefined,
-  { navigate, openExternal, onError, now }: OpenNotificationLinkDeps,
+  { navigate, openExternal, onError, onOpen, navigateState, now }: OpenNotificationLinkDeps,
 ): NotificationLinkResult {
   const kind = classifyNotificationLink(link);
   if (kind === 'none') return { kind };
@@ -98,7 +102,6 @@ export function openNotificationLink(
       const open =
         openExternal ?? ((u: string) => window.open(u, '_blank', 'noopener,noreferrer'));
       const result = open(url);
-      // window.open 回傳 null 代表被 popup blocker 擋；自訂 openExternal 若明確回傳 false 也視為擋掉
       if (result === null || result === false) {
         const msg = ERROR_MESSAGES.popup_blocked;
         onError?.('popup_blocked', msg);
@@ -109,9 +112,11 @@ export function openNotificationLink(
       onError?.('open_failed', msg);
       return { kind, error: 'open_failed', message: msg };
     }
+    onOpen?.({ kind });
     return { kind };
   }
 
-  navigate(link as string);
+  navigate(link as string, navigateState !== undefined ? { state: navigateState } : undefined);
+  onOpen?.({ kind });
   return { kind };
 }
