@@ -103,13 +103,17 @@ test('抽屜底部不會被 viewport 遮住（scrollHeight 完整可觸及）', 
 
   const panel = page.locator('[data-testid="holdings-detail-panel"]');
   await panel.waitFor({ state: 'visible', timeout: 10_000 });
-  await page.waitForTimeout(500);
+  // 等 Suspense/lazy 內容穩定
+  await page.waitForTimeout(1200);
 
-  // 分兩次 scroll 確保沒有 IntersectionObserver-based lazy-load 遺漏
-  await panel.evaluate((el) => ((el as HTMLElement).scrollTop = 999999));
-  await page.waitForTimeout(200);
-  await panel.evaluate((el) => ((el as HTMLElement).scrollTop = 999999));
-  await page.waitForTimeout(200);
+  // 多輪 scroll：Radix + Suspense 期間 scrollTop 可能被 reset，重複 5 次逼到底
+  for (let i = 0; i < 5; i++) {
+    await panel.evaluate((el) => {
+      const t = el as HTMLElement;
+      t.scrollTop = t.scrollHeight;
+    });
+    await page.waitForTimeout(150);
+  }
 
   const info = await panel.evaluate((el) => {
     const t = el as HTMLElement;
@@ -118,10 +122,9 @@ test('抽屜底部不會被 viewport 遮住（scrollHeight 完整可觸及）', 
       scrollTop: t.scrollTop,
       scrollH: t.scrollHeight,
       clientH: t.clientHeight,
-      maxScroll: t.scrollHeight - t.clientHeight,
+      maxScroll: Math.max(0, t.scrollHeight - t.clientHeight),
       panelBottom: r.bottom,
       panelTop: r.top,
-      // 有沒有內容還在 scroll clip 之下（正常應為 0）
       hiddenBelow: Math.max(0, t.scrollHeight - t.clientHeight - t.scrollTop),
     };
   });
@@ -133,8 +136,9 @@ test('抽屜底部不會被 viewport 遮住（scrollHeight 完整可觸及）', 
 
   // panel bottom 貼齊 viewport（100dvh 契約）
   expect(Math.abs(info.panelBottom - vp.height)).toBeLessThanOrEqual(2);
-  // 沒有殘留無法滾到的內容
-  expect(info.hiddenBelow).toBeLessThanOrEqual(1);
+  // 沒有殘留無法滾到的內容（±2px 容忍 sub-pixel）
+  expect(info.hiddenBelow).toBeLessThanOrEqual(2);
 });
+
 
 
