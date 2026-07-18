@@ -29,6 +29,7 @@ describe('parseInstrument', () => {
     expect(parseInstrument('')).toEqual({ code: '', name: '' });
     expect(parseInstrument(null)).toEqual({ code: '', name: '' });
     expect(parseInstrument(undefined)).toEqual({ code: '', name: '' });
+  });
   it('美股選擇權 OCC 21 字元', () => {
     expect(parseInstrument('AAPL240119C00150000 Apple Call 150')).toEqual({
       code: 'AAPL240119C00150000',
