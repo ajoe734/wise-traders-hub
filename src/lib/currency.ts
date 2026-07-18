@@ -25,6 +25,33 @@ export function normalizeCurrency(v: unknown): Currency {
   return v === 'USD' ? 'USD' : 'TWD';
 }
 
+/**
+ * 從 instrument（可能是 "2330 台積電" / "AAPL Apple" / 純代碼）推斷幣別。
+ * 找不到有效代碼時回傳 null，讓呼叫端決定要不要再 fallback。
+ */
+export function inferCurrencyFromInstrument(instrument: string | null | undefined): Currency | null {
+  if (!instrument) return null;
+  const first = instrument.trim().split(/\s+/)[0]?.toUpperCase() ?? '';
+  if (!first) return null;
+  if (TW_SYMBOL_RE.test(first)) return 'TWD';
+  if (US_SYMBOL_RE.test(first)) return 'USD';
+  return null;
+}
+
+/**
+ * SignalDetail / 週記顯示用：優先吃 experts.currency，缺值時從 instrument 推斷，
+ * 都沒有才回落預設 TWD。確保即使教學欄位不完整頁面也不會壞。
+ */
+export function resolveDisplayCurrency(
+  explicit: unknown,
+  instrument: string | null | undefined,
+): Currency {
+  if (explicit === 'USD' || explicit === 'TWD') return explicit;
+  const inferred = inferCurrencyFromInstrument(instrument);
+  return inferred ?? 'TWD';
+}
+
+
 /** 金額顯示：取整數後加千分位 + 幣別符號。負數會把 `-` 移到符號前。 */
 export function formatMoneyByCurrency(n: number | null | undefined, c: Currency = 'TWD'): string {
   const sym = CURRENCY_SYMBOL[c] || 'NT$';
