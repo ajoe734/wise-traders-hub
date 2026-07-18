@@ -461,16 +461,19 @@ const JournalsExport = () => {
     (assetFilter !== 'all' ? 1 : 0) +
     (!publishedOnly ? 1 : 0);
 
-  const doExportMarkdown = async () => {
-    if (rows.length === 0) {
-      toast.warning('目前篩選條件下沒有可匯出的週記');
+  const doExportMarkdown = async (mentorFilter?: Set<string>) => {
+    const scoped = mentorFilter && mentorFilter.size > 0
+      ? rows.filter((r) => mentorFilter.has(r.expert_id))
+      : rows;
+    if (scoped.length === 0) {
+      toast.warning('目前條件下沒有可匯出的週記（請至少勾選一位老師）');
       return;
     }
     setMdBuilding(true);
     setMdFailure(null);
     try {
       const result = await buildJournalExport(
-        rows as unknown as JournalRowExport[],
+        scoped as unknown as JournalRowExport[],
         { startLabel: range.startLabel, endLabel: range.endLabel },
         publishedOnly,
       );
@@ -492,7 +495,7 @@ const JournalsExport = () => {
         message: 'Markdown 匯出過程失敗',
         detail: e?.message ?? String(e ?? '未知錯誤'),
         source: 'unknown',
-        at: Date.now(),
+      at: Date.now(),
       };
       setMdFailure(info);
       toast.error(info.message, { description: info.detail, duration: 8000 });
