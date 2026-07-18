@@ -13,6 +13,7 @@ import { useNavigate } from 'react-router-dom';
 import { fetchMemberNotifications } from '@/lib/memberDataAccess';
 import { trackRaw } from '@/lib/analytics/events';
 import { openNotificationLink } from '@/lib/openNotificationLink';
+import { toast } from 'sonner';
 
 export function NotificationBell() {
   const { user } = useAuth();
@@ -58,7 +59,13 @@ export function NotificationBell() {
     }
     if (notif.link) {
       setOpen(false);
-      openNotificationLink(notif.link, { navigate });
+      openNotificationLink(notif.link, {
+        navigate,
+        onError: (error, message) => {
+          trackRaw('notification_link_error', { notification_id: notif.id, error });
+          toast.error(message);
+        },
+      });
     }
   };
 
