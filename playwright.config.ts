@@ -323,6 +323,12 @@ export default defineConfig({
       use: { ...devices['Desktop Chrome'], viewport: { width: 1280, height: 900 } },
     },
     {
+      // NotificationBell link routing：內部路徑走 navigate、Storage signed URL 走新分頁、null 不動作
+      name: 'desktop-notification-link-routing',
+      testMatch: /notification-link-routing\.spec\.ts/,
+      use: { ...devices['Desktop Chrome'], viewport: { width: 1280, height: 900 } },
+    },
+    {
       // HoldingCard aria-live 螢幕閱讀器狀態（同步中 / 完成 / 錯誤三態）
       name: 'desktop-holdings-aria-live-sync',
       testMatch: /holdings-aria-live-sync-status\.spec\.ts/,
