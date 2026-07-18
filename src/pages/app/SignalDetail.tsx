@@ -20,8 +20,15 @@ import { CURRENCY_SYMBOL, CURRENCY_SOURCE_LABEL, defaultQuantityUnit, resolveDis
 import { trackRaw } from '@/lib/analytics/events';
 import { buildSignalCurrencyResolutionPayload } from '@/lib/analytics/signalCurrencyResolution';
 import { UnavailableContent } from '@/components/UnavailableContent';
-import { parseInstrument } from '@/lib/instrument';
 import { InstrumentTooltip } from '@/components/InstrumentTooltip';
+import {
+  resolveInstrument,
+  resolveNumeric,
+  safeMultiply,
+  INSTRUMENT_MARKET_LABEL,
+  INSTRUMENT_SOURCE_LABEL,
+  NUMERIC_SOURCE_LABEL,
+} from '@/lib/signalFieldResolvers';
 
 const actionConfig: Record<string, { label: string; className: string }> = {
   buy: { label: '買進', className: 'bg-success text-white border-success' },
@@ -130,11 +137,12 @@ const SignalDetail = () => {
 
   const ac = actionConfig[signal.action] || actionConfig.buy;
   const publishedAt = signal.published_at ? new Date(signal.published_at) : null;
-  // 保留 ETF 字尾（L / R / B）：`/^\d+/` 舊 regex 會把 00631L 截成 00631，造成報價鏈壞掉。
-  const { code: tickerCode, name: tickerName } = parseInstrument(signal?.instrument);
-  const displaySymbol = tickerName
-    ? `${tickerCode} ${tickerName}`
-    : (tickerCode ? `${tickerCode}.TW` : signal.instrument);
+  // 韌性解析：instrument / price / quantity 一律走 resolver，避免 NaN、undefined、null 進畫面
+  const inst = resolveInstrument(signal?.instrument);
+  const { code: tickerCode, name: tickerName, display: displaySymbol } = inst;
+  const priceResolved = resolveNumeric(signal.price_hint, { allowZero: false });
+  const qtyResolved = resolveNumeric(signal.quantity, { allowZero: false });
+  const totalAmount = safeMultiply(priceResolved.value, qtyResolved.value);
 
   return (
     <UnifiedAppLayout>
@@ -183,15 +191,30 @@ const SignalDetail = () => {
                   <span className="font-mono tabular-nums tracking-tight">{tickerCode}</span>
                   {tickerName ? (
                     <> <span>{tickerName}</span></>
-                  ) : (
+                  ) : inst.market === 'tw-stock' ? (
                     <span className="text-muted-foreground">.TW</span>
-                  )}
+                  ) : null}
                 </>
+              ) : inst.name ? (
+                <span>{inst.name}</span>
               ) : (
-                signal.instrument
+                <span className="text-muted-foreground" data-testid="sd-instrument-missing">
+                  未提供商品資訊
+                </span>
               )}
             </InstrumentTooltip>
           </h1>
+          {isPreview && inst.raw && (
+            <span
+              data-testid="sd-instrument-source"
+              data-market={inst.market}
+              data-source={inst.source}
+              className="mt-2 text-[11px] text-muted-foreground border border-border/60 rounded px-2 py-0.5"
+            >
+              {INSTRUMENT_MARKET_LABEL[inst.market]}｜{INSTRUMENT_SOURCE_LABEL[inst.source]}
+            </span>
+          )}
+
         </div>
         {/* Row 2: date + expert name + role badge */}
         <div className="flex items-center gap-2 text-sm text-muted-foreground">
@@ -207,27 +230,41 @@ const SignalDetail = () => {
           )}
         </div>
 
-        {/* Price hint */}
-        {signal.price_hint != null && (() => {
+        {/* Price hint（韌性渲染：resolveNumeric 已濾掉 NaN / 負值 / 空字串） */}
+        {(priceResolved.value !== null || qtyResolved.value !== null) && (() => {
           const cur: Currency = resolvedCurrency;
           const sym = CURRENCY_SYMBOL[cur];
           const unit = signal.quantity_unit || defaultQuantityUnit(cur);
-          const total = signal.quantity != null ? Number(signal.price_hint) * Number(signal.quantity) : null;
           return (
             <div className="text-sm text-muted-foreground inline-flex items-baseline flex-wrap gap-x-1">
               <span className="font-sans">參考價位：</span>
-              <span data-testid="sd-price" className="font-medium text-foreground whitespace-nowrap font-mono tabular-nums tracking-normal">
-                {sym}{Number(signal.price_hint).toLocaleString(undefined, { minimumFractionDigits: cur === 'USD' ? 2 : 0, maximumFractionDigits: 2 })}
-              </span>
-              {signal.quantity != null && (
+              {priceResolved.value !== null ? (
+                <span data-testid="sd-price" className="font-medium text-foreground whitespace-nowrap font-mono tabular-nums tracking-normal">
+                  {sym}{priceResolved.value.toLocaleString(undefined, { minimumFractionDigits: cur === 'USD' ? 2 : 0, maximumFractionDigits: 2 })}
+                </span>
+              ) : (
+                <span data-testid="sd-price-missing" className="text-muted-foreground italic">未提供</span>
+              )}
+              {qtyResolved.value !== null && (
                 <span data-testid="sd-qty" className="font-medium text-foreground whitespace-nowrap font-mono tabular-nums tracking-normal">
-                  （{signal.quantity}<span className="font-sans">{unit}</span>）
+                  （{qtyResolved.value}<span className="font-sans">{unit}</span>）
                 </span>
               )}
-              {total != null && <FxHint amount={total} currency={cur} className="ml-2" showMeta={false} />}
+              {totalAmount !== null && <FxHint amount={totalAmount} currency={cur} className="ml-2" showMeta={false} />}
+              {isPreview && (
+                <span
+                  data-testid="sd-numeric-source"
+                  data-price-source={priceResolved.source}
+                  data-qty-source={qtyResolved.source}
+                  className="ml-2 text-[11px] text-muted-foreground border border-border/60 rounded px-2 py-0.5"
+                >
+                  價：{NUMERIC_SOURCE_LABEL[priceResolved.source]} ／ 量：{NUMERIC_SOURCE_LABEL[qtyResolved.source]}
+                </span>
+              )}
             </div>
           );
         })()}
+
 
         {/* Preview 模式下顯示幣別解析來源，方便老師 / 管理員除錯 */}
         {isPreview && (
