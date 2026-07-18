@@ -4258,6 +4258,7 @@ export type Database = {
         Returns: Json
       }
       get_knowledge_revision: { Args: never; Returns: string }
+      get_owned_journal_bundle: { Args: { _signal_id: string }; Returns: Json }
       get_page_analytics: {
         Args: { _from: string; _include_internal?: boolean; _to: string }
         Returns: Json
