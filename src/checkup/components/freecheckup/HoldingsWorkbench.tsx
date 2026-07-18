@@ -294,25 +294,29 @@ function HoldingsWorkbench(props) {
           )}
           {/* 底部保留區：讓最後一張卡完整可見，並吃 iOS safe-area */}
           <div aria-hidden className="holdings-sheet-bottom-spacer" />
-          {showTopBtn && (
-            <button
-              type="button"
-              aria-label="回到頂部"
-              data-testid="holdings-sheet-back-to-top"
-              onClick={() =>
-                sheetRef.current?.scrollTo({ top: 0, behavior: 'smooth' })
-              }
-              className="holdings-sheet-top-btn fixed z-50 flex h-11 w-11 items-center justify-center rounded-full border focus:outline-none focus:ring-2 focus:ring-ring focus:ring-offset-2 transition-opacity"
-              style={{
-                background: WB.surface,
-                borderColor: WB.hairStrong,
-                color: WB.ink,
-              }}
-            >
-              <ArrowUp className="h-5 w-5" />
-              <span className="sr-only">回到頂部</span>
-            </button>
-          )}
+          {/* 「回到頂部」按鈕：always mounted，透過 CSS 顯隱，避免 tree 變動觸發 FocusScope 重新 focus 導致 scrollTop 被重置。*/}
+          <button
+            type="button"
+            aria-label="回到頂部"
+            data-testid="holdings-sheet-back-to-top"
+            aria-hidden={!showTopBtn}
+            tabIndex={showTopBtn ? 0 : -1}
+            onClick={() =>
+              sheetRef.current?.scrollTo({ top: 0, behavior: 'smooth' })
+            }
+            className="holdings-sheet-top-btn fixed z-50 flex h-11 w-11 items-center justify-center rounded-full border focus:outline-none focus:ring-2 focus:ring-ring focus:ring-offset-2 transition-opacity"
+            style={{
+              background: WB.surface,
+              borderColor: WB.hairStrong,
+              color: WB.ink,
+              opacity: showTopBtn ? 1 : 0,
+              pointerEvents: showTopBtn ? 'auto' : 'none',
+            }}
+          >
+            <ArrowUp className="h-5 w-5" />
+            <span className="sr-only">回到頂部</span>
+          </button>
+
         </SheetContent>
       </Sheet>
 
