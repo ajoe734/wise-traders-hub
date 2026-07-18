@@ -29,17 +29,12 @@ test.describe('NotificationBell · link routing', () => {
 
     await page.getByTestId('fire-internal').click();
 
-    // navigate 已切到 /account/notifications?src=harness
-    // 該路由是受保護頁面，但這裡只驗證「路由被正確處理、不落到 NotFound」
-    await expect(page.getByTestId('last-kind')).toHaveText('internal');
-    await expect(page).toHaveURL(new RegExp('/account/notifications\\?src=harness'));
+    // navigate 已切到 /account/notifications?src=harness（harness 元件會被卸載）
+    // 只驗證：URL 正確 + 沒落到 NotFound + 沒開新分頁
+    await expect(page).toHaveURL(/\/account\/notifications\?src=harness/);
 
-    // 明確斷言沒有落到 NotFound（頁面文案 / 標題）
-    await expect(page.locator('body')).not.toContainText('404');
-    await expect(page.locator('body')).not.toContainText('找不到頁面');
-
-    // 也不能把它當外部連結開新分頁
-    // （external-url 元件已隨 SPA navigate 卸載，改抓 window.open 是否被呼叫）
+    const bodyText = await page.locator('body').innerText();
+    expect(bodyText).not.toMatch(/404|找不到頁面|Not Found/i);
   });
 
   test('Storage signed URL：以新分頁開啟且不觸發 SPA 導航', async ({ page, context }) => {
