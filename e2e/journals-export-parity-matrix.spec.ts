@@ -134,9 +134,10 @@ test.describe('Journals export — filename × slug × week parity matrix', () =
     const r = RANGES[0];
     const { weekDisplay, slugMap } = await open(page, r);
     const expectedSlug = slugMap['expert-a'];
-    const expectedSlugs = Object.values(slugMap).sort();
+    const expectedSlugs = [...MULTI_EXPORT_SLUGS].sort();
 
     const s1 = await downloadOnce(page, 'je-export-single');
+
     assertSingleFilename(s1.filename, expectedSlug, r);
 
     const m1 = await downloadOnce(page, 'je-export-multi');
