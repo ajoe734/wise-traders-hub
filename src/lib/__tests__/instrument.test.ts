@@ -29,6 +29,21 @@ describe('parseInstrument', () => {
     expect(parseInstrument('')).toEqual({ code: '', name: '' });
     expect(parseInstrument(null)).toEqual({ code: '', name: '' });
     expect(parseInstrument(undefined)).toEqual({ code: '', name: '' });
+  it('美股選擇權 OCC 21 字元', () => {
+    expect(parseInstrument('AAPL240119C00150000 Apple Call 150')).toEqual({
+      code: 'AAPL240119C00150000',
+      name: 'Apple Call 150',
+    });
+    expect(parseInstrument('SPXW240119P04500000')).toEqual({
+      code: 'SPXW240119P04500000',
+      name: '',
+    });
+  });
+  it('美股期貨 /XX', () => {
+    expect(parseInstrument('/ES E-mini S&P')).toEqual({ code: '/ES', name: 'E-mini S&P' });
+    expect(parseInstrument('/NQ')).toEqual({ code: '/NQ', name: '' });
+    expect(parseInstrument('/CL 原油')).toEqual({ code: '/CL', name: '原油' });
+    expect(parseInstrument('/ESZ5')).toEqual({ code: '/ESZ5', name: '' });
   });
 });
 
