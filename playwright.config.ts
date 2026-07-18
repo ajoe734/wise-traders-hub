@@ -382,6 +382,12 @@ export default defineConfig({
       use: { ...devices['Desktop Chrome'], viewport: { width: 1280, height: 900 } },
     },
     {
+      // 週記匯出：單一老師 .md / 多位老師 .zip 檔名與內容驗證（透過 harness fixture）
+      name: 'desktop-journals-export-markdown',
+      testMatch: /journals-export-markdown-download\.spec\.ts/,
+      use: { ...devices['Desktop Chrome'], viewport: { width: 1280, height: 900 }, acceptDownloads: true },
+    },
+    {
       // HoldingCard aria-live 螢幕閱讀器狀態（同步中 / 完成 / 錯誤三態）
       name: 'desktop-holdings-aria-live-sync',
       testMatch: /holdings-aria-live-sync-status\.spec\.ts/,
