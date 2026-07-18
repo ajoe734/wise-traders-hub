@@ -57,7 +57,12 @@ export function NotificationBell() {
     }
     if (notif.link) {
       setOpen(false);
-      navigate(notif.link);
+      // 外部連結（例如 storage 簽章下載網址）用新分頁開啟，否則丟給 react-router 會被當相對路徑而 404
+      if (/^https?:\/\//i.test(notif.link)) {
+        window.open(notif.link, '_blank', 'noopener,noreferrer');
+      } else {
+        navigate(notif.link);
+      }
     }
   };
 
