@@ -4163,6 +4163,10 @@ export type Database = {
           user_id: string
         }[]
       }
+      admin_reset_expert_asset_class: {
+        Args: { _expert_id: string; _new_asset_class: string }
+        Returns: undefined
+      }
       admin_reset_line_free_quota: {
         Args: { _line_user_id: string }
         Returns: Json
