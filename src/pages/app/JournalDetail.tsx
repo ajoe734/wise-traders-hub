@@ -52,12 +52,14 @@ interface SignalDetail {
 }
 
 const TradeItem = ({ signal, nameMap }: { signal: SignalDetail; nameMap: Record<string, string> }) => {
-  const [expanded, setExpanded] = useState(false);
-  const hasDetails = signal.reason_summary || signal.reason_detail || signal.risk_notes;
+  const isTeaching = signal.action === 'teaching';
+  const hasDetails = !!(signal.reason_summary || signal.reason_detail || signal.risk_notes || signal.learning_points);
+  const [expanded, setExpanded] = useState(isTeaching && hasDetails);
   const cur: Currency = normalizeCurrency(signal.currency ?? signal.experts?.currency);
   const sym = CURRENCY_SYMBOL[cur];
   const unit = signal.quantity_unit || defaultQuantityUnit(cur);
-  const total = signal.price_hint != null && signal.quantity != null
+  const showTrade = !isTeaching && (signal.price_hint != null || signal.quantity != null);
+  const total = !isTeaching && signal.price_hint != null && signal.quantity != null
     ? Number(signal.price_hint) * Number(signal.quantity)
     : null;
 
@@ -78,22 +80,26 @@ const TradeItem = ({ signal, nameMap }: { signal: SignalDetail; nameMap: Record<
         <ActionBadge action={signal.action as any} size="sm" />
         <div className="flex-1 min-w-0">
           <div className="flex items-center gap-2 flex-wrap">
-            <InstrumentTooltip
-              full={displayInstrument}
-              data-testid="journal-detail-instrument"
-              className="font-medium text-sm min-w-0 break-words [overflow-wrap:anywhere]"
-            >
-              {code ? (
-                <>
-                  <span className="font-mono tabular-nums tracking-tight">{code}</span>
-                  {resolvedName && <> <span>{resolvedName}</span></>}
-                </>
-              ) : (
-                displayInstrument
-              )}
-            </InstrumentTooltip>
+            {displayInstrument ? (
+              <InstrumentTooltip
+                full={displayInstrument}
+                data-testid="journal-detail-instrument"
+                className="font-medium text-sm min-w-0 break-words [overflow-wrap:anywhere]"
+              >
+                {code ? (
+                  <>
+                    <span className="font-mono tabular-nums tracking-tight">{code}</span>
+                    {resolvedName && <> <span>{resolvedName}</span></>}
+                  </>
+                ) : (
+                  displayInstrument
+                )}
+              </InstrumentTooltip>
+            ) : isTeaching ? (
+              <span className="font-medium text-sm text-mentor">教學筆記</span>
+            ) : null}
             <span className="text-xs text-muted-foreground whitespace-nowrap shrink-0">{format(new Date(signal.published_at), 'MM/dd')}</span>
-            {(signal.price_hint != null || signal.quantity != null) && (
+            {showTrade && (
               <span className="text-xs text-foreground/80 font-medium inline-flex items-baseline flex-wrap gap-x-1">
                 {signal.price_hint != null && (
                   <span data-testid="jd-price" className="whitespace-nowrap font-mono tabular-nums tracking-normal">
@@ -144,11 +150,20 @@ const TradeItem = ({ signal, nameMap }: { signal: SignalDetail; nameMap: Record<
               <SafeRichHtml html={signal.risk_notes} className="text-xs" />
             </div>
           )}
+          {signal.learning_points && (
+            <div data-testid="jd-learning-points">
+              <h3 className="text-xs font-semibold flex items-center gap-1.5 mb-1 text-mentor">
+                <BookOpen className="h-3.5 w-3.5" /> 教學重點
+              </h3>
+              <SafeRichHtml html={signal.learning_points} className="text-xs" />
+            </div>
+          )}
         </div>
       )}
     </div>
   );
 };
+
 
 export type JournalFetchSource = 'rls' | 'owner_rpc' | 'none';
 
