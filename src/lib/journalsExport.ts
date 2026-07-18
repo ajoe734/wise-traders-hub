@@ -99,6 +99,8 @@ export function buildMentorMarkdown(mentorRows: JournalRowExport[], range: WeekR
   lines.push('');
   lines.push('---');
   lines.push('');
+  const buyTotals = new Map<string, number>();
+  const sellTotals = new Map<string, number>();
   mentorRows.forEach((r, idx) => {
     const time = fmtTaipei(r.published_at || r.created_at);
     const title = r.reason_summary ? stripHtml(String(r.reason_summary)).slice(0, 80) : (r.instrument || '教學筆記');
@@ -114,6 +116,8 @@ export function buildMentorMarkdown(mentorRows: JournalRowExport[], range: WeekR
       const unit = (r.quantity_unit ?? '').trim() || '股';
       const verb = r.action === 'sell' ? '賣出' : r.action === 'buy' ? '買進' : '數量';
       meta.push(`${verb}股數：${r.quantity} ${unit}`);
+      if (r.action === 'buy') buyTotals.set(unit, (buyTotals.get(unit) ?? 0) + Number(r.quantity));
+      else if (r.action === 'sell') sellTotals.set(unit, (sellTotals.get(unit) ?? 0) + Number(r.quantity));
     }
     if (meta.length) { lines.push(meta.map((m) => `- ${m}`).join('\n')); lines.push(''); }
     lines.push(mdSection('重點摘要', r.reason_summary));
@@ -125,6 +129,15 @@ export function buildMentorMarkdown(mentorRows: JournalRowExport[], range: WeekR
     lines.push('---');
     lines.push('');
   });
+  const fmtTotals = (m: Map<string, number>) => {
+    if (m.size === 0) return '0 股';
+    return Array.from(m.entries()).map(([unit, n]) => `${n} ${unit}`).join('、');
+  };
+  lines.push('## 本週總計');
+  lines.push('');
+  lines.push(`- 總買進股數：${fmtTotals(buyTotals)}`);
+  lines.push(`- 總賣出股數：${fmtTotals(sellTotals)}`);
+  lines.push('');
   return lines.join('\n').replace(/\n{3,}/g, '\n\n');
 }
 
