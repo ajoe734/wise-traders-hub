@@ -635,6 +635,54 @@ const JournalsExport = () => {
             </Button>
           </CardHeader>
           <CardContent className="space-y-4">
+            {mdFailure && (
+              <div
+                role="alert"
+                data-testid="je-md-error"
+                data-error-source={mdFailure.source}
+                className="rounded-md border border-destructive/40 bg-destructive/5 p-3 text-sm"
+              >
+                <div className="flex items-start justify-between gap-3">
+                  <div className="flex items-start gap-2 min-w-0">
+                    <AlertTriangle className="h-4 w-4 mt-0.5 text-destructive shrink-0" />
+                    <div className="min-w-0">
+                      <div className="font-medium text-destructive">
+                        匯出失敗：{mdFailure.message}
+                        <span className="ml-2 text-[11px] font-normal text-muted-foreground">
+                          來源：{mdFailure.source} · {fmtTaipei(new Date(mdFailure.at).toISOString())}
+                        </span>
+                      </div>
+                      {mdFailure.detail && (
+                        <div className="text-xs text-muted-foreground break-all mt-1" data-testid="je-md-error-detail">
+                          {mdFailure.detail}
+                        </div>
+                      )}
+                    </div>
+                  </div>
+                  <div className="flex items-center gap-2 shrink-0">
+                    <Button
+                      size="sm"
+                      variant="outline"
+                      onClick={() => void doExportMarkdown()}
+                      disabled={mdBuilding || isLoading || rows.length === 0}
+                      className="gap-1"
+                      data-testid="je-md-retry"
+                    >
+                      <RotateCw className="h-3 w-3" /> 重試
+                    </Button>
+                    <Button
+                      size="sm"
+                      variant="ghost"
+                      onClick={() => setMdFailure(null)}
+                      aria-label="關閉錯誤提示"
+                    >
+                      <X className="h-3 w-3" />
+                    </Button>
+                  </div>
+                </div>
+              </div>
+            )}
+
             {isLoading ? (
               <div className="py-8 text-center text-sm text-muted-foreground">載入中…</div>
             ) : groups.length === 0 ? (
