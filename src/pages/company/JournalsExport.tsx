@@ -46,18 +46,33 @@ function weekRangeUtc(weekStart: string) {
   };
 }
 
-// ── CSV helpers ────────────────────────────────────────────
-function csvEscape(v: unknown): string {
-  const s = v == null ? '' : String(v);
-  if (/[",\n\r]/.test(s)) return `"${s.replace(/"/g, '""')}"`;
-  return s;
+// ── Markdown helpers ───────────────────────────────────────
+function stripHtml(html: string): string {
+  return html
+    .replace(/<\s*(br|BR)\s*\/?>/g, '\n')
+    .replace(/<\/?(p|div|li|h[1-6])[^>]*>/gi, '\n')
+    .replace(/<[^>]+>/g, '')
+    .replace(/&nbsp;/g, ' ')
+    .replace(/&amp;/g, '&')
+    .replace(/&lt;/g, '<')
+    .replace(/&gt;/g, '>')
+    .replace(/&quot;/g, '"')
+    .replace(/[ \t]+\n/g, '\n')
+    .replace(/\n{3,}/g, '\n\n')
+    .trim();
 }
-function buildCsv(header: string[], rows: unknown[][]): string {
-  const body = [header, ...rows].map((r) => r.map(csvEscape).join(',')).join('\n');
-  return '\ufeff' + body;
+function mdSection(label: string, raw: string | null | undefined): string {
+  const v = (raw ?? '').trim();
+  if (!v) return '';
+  const text = /<[a-z][\s\S]*>/i.test(v) ? stripHtml(v) : v;
+  if (!text.trim()) return '';
+  return `**${label}**\n\n${text.trim()}\n\n`;
 }
-function downloadFile(name: string, content: string, mime: string) {
-  const blob = new Blob([content], { type: `${mime};charset=utf-8;` });
+function safeSlug(s: string, fallback: string): string {
+  const cleaned = (s || '').normalize('NFKC').replace(/[\\/:*?"<>|]/g, '-').replace(/\s+/g, '-').trim();
+  return cleaned || fallback;
+}
+function downloadBlob(name: string, blob: Blob) {
   const url = URL.createObjectURL(blob);
   const a = document.createElement('a');
   a.href = url;
