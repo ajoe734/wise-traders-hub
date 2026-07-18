@@ -227,10 +227,12 @@ Deno.serve(withLogging('publish-weekly-journals', async (req) => {
     stage = 'mark_published'
     const signalIds = pendingSignals.map(s => s.id)
     // 依 instrument 判別市場，回填 expert_signals.market；同 batch 逐一 update 以帶入正確 market
-    const { detectMarket, currencyOf } = await import('../_shared/marketDetect.ts')
+    const { detectMarket, isDerivativeMarket, currencyOf } = await import('../_shared/marketDetect.ts')
     let updateErr: any = null
     for (const s of pendingSignals) {
-      const market = detectMarket((s as any).instrument)
+      const detected = detectMarket((s as any).instrument)
+      // 衍生性商品（options/futures）以 'US' 記錄 market 欄位，避免下游 filter/snapshot 破格
+      const market = isDerivativeMarket(detected) ? 'US' : detected
       const { error } = await supabaseAdmin
         .from('expert_signals')
         .update({ status: 'published', market })
