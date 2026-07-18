@@ -114,6 +114,23 @@ const SignalDetail = () => {
     ? `${tickerCode} ${tickerName}`
     : (tickerCode ? `${tickerCode}.TW` : signal.instrument);
 
+  // 幣別解析（含來源）：一次算完供整頁使用，並在 preview 顯示、發送 analytics。
+  const { currency: resolvedCurrency, source: currencySource } =
+    resolveDisplayCurrencyWithSource(signal.experts?.currency, signal.instrument);
+
+  useEffect(() => {
+    if (!signal?.id) return;
+    trackRaw('signal_currency_resolution', {
+      signal_id: signal.id,
+      expert_slug: signal.experts?.slug ?? null,
+      instrument: signal.instrument ?? null,
+      resolved_currency: resolvedCurrency,
+      source: currencySource,
+      had_explicit: signal.experts?.currency === 'USD' || signal.experts?.currency === 'TWD',
+      is_preview: isPreview,
+    });
+  }, [signal?.id, resolvedCurrency, currencySource, isPreview, signal?.experts?.slug, signal?.experts?.currency, signal?.instrument]);
+
   return (
     <UnifiedAppLayout>
       <SEO
