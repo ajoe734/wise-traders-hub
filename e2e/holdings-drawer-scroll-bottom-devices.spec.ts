@@ -94,7 +94,7 @@ test('抽屜可滾到最底（scrollTop 可達最大值）', async ({ page }, te
   expect(Math.abs(result.scrollTop - result.maxScroll)).toBeLessThanOrEqual(1);
 });
 
-test('抽屜最後一個子節點滾到底時不會被 viewport 底部遮住', async ({ page }, testInfo) => {
+test('滾到底後最後一段實際內容落在 panel 可視範圍內', async ({ page }, testInfo) => {
   const vp = page.viewportSize()!;
   await setupDemo(page);
   await gotoWithRetry(page, '/holding-checkup-demo', { waitUntil: 'domcontentloaded' });
@@ -105,7 +105,7 @@ test('抽屜最後一個子節點滾到底時不會被 viewport 底部遮住', a
   await panel.waitFor({ state: 'visible', timeout: 10_000 });
   await page.waitForTimeout(500);
 
-  // 先滾到底
+  // 滾到底
   await panel.evaluate((el) => {
     (el as HTMLElement).scrollTop = 999999;
   });
@@ -113,26 +113,30 @@ test('抽屜最後一個子節點滾到底時不會被 viewport 底部遮住', a
 
   const info = await panel.evaluate((el) => {
     const target = el as HTMLElement;
-    // 找出最後一個真正有幾何的可見子孫（跳過 Radix Close 按鈕之類的 absolute 元素）
+    const pRect = target.getBoundingClientRect();
+    // 選 panel 直接 flow 子孫（跳過 absolute/fixed 定位如 Close 按鈕、tooltip、portal）
+    // 找 scrollHeight 末端最靠近 scrollBottom 的可見 leaf
     const all = Array.from(target.querySelectorAll<HTMLElement>('*'));
-    let last: { tag: string; bottom: number; text: string } | null = null;
+    let deepest: { tag: string; bottom: number; top: number } | null = null;
     for (const node of all) {
       const style = window.getComputedStyle(node);
       if (style.position === 'absolute' || style.position === 'fixed') continue;
+      if (style.display === 'none' || style.visibility === 'hidden') continue;
       const r = node.getBoundingClientRect();
       if (r.width === 0 || r.height === 0) continue;
-      if (!last || r.bottom > last.bottom) {
-        last = {
-          tag: node.tagName.toLowerCase(),
-          bottom: r.bottom,
-          text: (node.textContent || '').trim().slice(0, 40),
-        };
+      // 必須在 panel 水平範圍內（排除跑到外面的浮動元素）
+      if (r.right < pRect.left || r.left > pRect.right) continue;
+      if (!deepest || r.bottom > deepest.bottom) {
+        deepest = { tag: node.tagName.toLowerCase(), bottom: r.bottom, top: r.top };
       }
     }
     return {
-      lastChild: last,
-      panelBottom: target.getBoundingClientRect().bottom,
+      last: deepest,
+      panelBottom: pRect.bottom,
+      panelTop: pRect.top,
       scrollTop: target.scrollTop,
+      scrollH: target.scrollHeight,
+      clientH: target.clientHeight,
       maxScroll: target.scrollHeight - target.clientHeight,
     };
   });
@@ -142,9 +146,9 @@ test('抽屜最後一個子節點滾到底時不會被 viewport 底部遮住', a
     contentType: 'application/json',
   });
 
-  expect(info.lastChild).not.toBeNull();
-  // 最後元素 bottom 不得超過 viewport（±2px：sub-pixel + safe-area padding）
-  expect(info.lastChild!.bottom).toBeLessThanOrEqual(vp.height + 2);
-  // 且不得低於 panel 上緣（代表確實在可視區）
-  expect(info.lastChild!.bottom).toBeGreaterThan(0);
+  expect(info.last).not.toBeNull();
+  // 契約：滾到底之後，「最後一段內容 bottom」必須落在 panel bottom 之內（±2px）
+  // 若超出 → 代表 scroll 卡住 / 底部被裁切 / 100dvh 契約失守
+  expect(info.last!.bottom).toBeLessThanOrEqual(info.panelBottom + 2);
 });
+
