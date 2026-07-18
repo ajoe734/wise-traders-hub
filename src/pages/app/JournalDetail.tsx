@@ -82,10 +82,20 @@ const TeachingDebugBadge = ({ raw }: { raw: string | null }) => {
   );
 };
 
+const isRichHtmlEmpty = (raw: string | null | undefined): boolean => {
+  if (!raw) return true;
+  const hasMedia = /<(img|iframe|video)\b/i.test(raw);
+  if (hasMedia) return false;
+  return richHtmlToPlain(raw).trim().length === 0;
+};
+
 const TradeItem = ({ signal, nameMap, showDebug }: { signal: SignalDetail; nameMap: Record<string, string>; showDebug: boolean }) => {
   const isTeaching = signal.action === 'teaching';
-  const hasDetails = !!(signal.reason_summary || signal.reason_detail || signal.risk_notes || signal.learning_points);
-  const [expanded, setExpanded] = useState(isTeaching && (hasDetails || showDebug));
+  const learningEmpty = isRichHtmlEmpty(signal.learning_points);
+  const hasNonLearningDetails = !!(signal.reason_summary || signal.reason_detail || signal.risk_notes);
+  // teaching 條目一律視為有展開內容（即使 learning_points 空也要顯示缺失提示，避免整段消失）
+  const hasDetails = hasNonLearningDetails || !!signal.learning_points || isTeaching;
+  const [expanded, setExpanded] = useState(isTeaching || hasDetails);
   const cur: Currency = normalizeCurrency(signal.currency ?? signal.experts?.currency);
   const sym = CURRENCY_SYMBOL[cur];
   const unit = signal.quantity_unit || defaultQuantityUnit(cur);
@@ -182,15 +192,33 @@ const TradeItem = ({ signal, nameMap, showDebug }: { signal: SignalDetail; nameM
               <SafeRichHtml html={signal.risk_notes} className="text-xs" />
             </div>
           )}
-          {(signal.learning_points || (isTeaching && showDebug)) && (
-            <div data-testid="jd-learning-points">
+          {(isTeaching || signal.learning_points) && (
+            <div data-testid="jd-learning-points" data-lp-empty={learningEmpty ? '1' : '0'}>
               <h3 className="text-xs font-semibold flex items-center gap-1.5 mb-1 text-mentor">
                 <BookOpen className="h-3.5 w-3.5" /> 教學重點
               </h3>
               {showDebug && <TeachingDebugBadge raw={signal.learning_points} />}
-              {signal.learning_points
-                ? <SafeRichHtml html={signal.learning_points} className="text-xs" />
-                : showDebug && <p className="text-xs text-muted-foreground">（無 learning_points 內容，見上方 debug 標籤）</p>}
+              {!learningEmpty ? (
+                <SafeRichHtml html={signal.learning_points!} className="text-xs" />
+              ) : (
+                <div
+                  data-testid="jd-learning-empty"
+                  className="rounded border border-dashed border-mentor/40 bg-mentor/5 px-3 py-2 text-xs text-muted-foreground flex items-start gap-2"
+                >
+                  <AlertTriangle className="h-3.5 w-3.5 text-mentor mt-0.5 shrink-0" />
+                  <div className="space-y-0.5">
+                    <p className="text-foreground/80 font-medium">教學重點尚未填寫或內容為空</p>
+                    <p>
+                      {signal.learning_points === null || signal.learning_points === undefined
+                        ? '導師此週未填寫教學重點欄位。'
+                        : signal.learning_points === ''
+                          ? '此欄位存在但為空字串，可能發布時被清空。'
+                          : '內容僅含空白標籤，實際文字與圖片皆為空。'}
+                      {showDebug ? '' : ' 若你是導師，請回到後台補上內容再重新發布。'}
+                    </p>
+                  </div>
+                </div>
+              )}
             </div>
           )}
         </div>
