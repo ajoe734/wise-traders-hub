@@ -138,7 +138,20 @@ export default function AccountNotifications() {
 
   const handleClick = async (n: any) => {
     if (!n.is_read) await markOneRead.mutateAsync(n.id);
-    if (n.link) navigate(n.link);
+    if (n.link) {
+      openNotificationLink(n.link, {
+        navigate,
+        onError: (_e, msg) => toast.error(msg),
+      });
+    }
+  };
+
+  const handleDownload = (n: any) => {
+    if (!n.download_url) return;
+    openNotificationLink(n.download_url, {
+      navigate,
+      onError: (_e, msg) => toast.error(msg),
+    });
   };
 
   const unread = items.filter((i: any) => !i.is_read).length;
