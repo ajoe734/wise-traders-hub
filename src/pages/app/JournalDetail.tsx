@@ -26,6 +26,7 @@ import { useEffectiveUserId } from '@/hooks/useEffectiveUserId';
 import { UnavailableContent } from '@/components/UnavailableContent';
 import { parseInstrument } from '@/lib/instrument';
 import { resolveStockNames } from '@/lib/stockNameResolver';
+import { usePreviewMode } from '@/hooks/usePreviewMode';
 
 interface SignalDetail {
   id: string;
@@ -148,16 +149,36 @@ const TradeItem = ({ signal, nameMap }: { signal: SignalDetail; nameMap: Record<
   );
 };
 
-const fetchJournalBundle = async (signalId: string) => {
+const fetchJournalBundle = async (signalId: string, forceOwner: boolean) => {
   const { data, error } = await supabase
     .from('expert_signals')
     .select('id, instrument, action, price_hint, quantity, quantity_unit, currency, reason_summary, reason_detail, risk_notes, learning_points, published_at, expert_id, experts(name, slug, role, avatar_url)')
     .eq('id', signalId)
-    .single();
+    .maybeSingle();
 
-  if (error || !data) return { signal: null, weekSignals: [] as SignalDetail[] };
+  let signal: SignalDetail | null = (data as any) ?? null;
+  let fetchError: string | null = error?.message ?? null;
 
-  const s = data as any as SignalDetail;
+  // Owner fallback：直接 RLS 拉不到，改走 SECURITY DEFINER RPC（僅 owner 有效）
+  if (!signal && forceOwner) {
+    const { data: rpcData, error: rpcErr } = await supabase
+      .rpc('get_owned_journal_bundle', { _signal_id: signalId });
+    if (rpcErr) fetchError = rpcErr.message;
+    if (rpcData && (rpcData as any).signal) {
+      const bundle = rpcData as any;
+      return {
+        signal: bundle.signal as SignalDetail,
+        weekSignals: (bundle.weekSignals ?? []) as SignalDetail[],
+        error: null as string | null,
+      };
+    }
+  }
+
+  if (!signal) {
+    return { signal: null, weekSignals: [] as SignalDetail[], error: fetchError ?? 'not_found_or_forbidden' };
+  }
+
+  const s = signal;
   const pubDate = new Date(s.published_at);
   const ws = startOfWeek(pubDate, { weekStartsOn: 1 });
   const we = addDays(ws, 4);
@@ -171,7 +192,7 @@ const fetchJournalBundle = async (signalId: string) => {
     .lte('published_at', new Date(we.getFullYear(), we.getMonth(), we.getDate(), 23, 59, 59).toISOString())
     .order('published_at', { ascending: false });
 
-  return { signal: s, weekSignals: ((weekData as any) || []) as SignalDetail[] };
+  return { signal: s, weekSignals: ((weekData as any) || []) as SignalDetail[], error: null as string | null };
 };
 
 const JournalDetail = () => {
@@ -182,9 +203,13 @@ const JournalDetail = () => {
   const [isExporting, setIsExporting] = useState(false);
   const [exportError, setExportError] = useState<string | null>(null);
 
+  const { isPreview: isPreviewSession, previewSlug: previewSlugFromSession } = usePreviewMode();
+  const previewFlagFromUrl = searchParams.get('preview') === '1';
+  const forceOwner = isPreviewSession || previewFlagFromUrl || !!user?.expertSlug || hasRole('company_admin');
+
   const { data, isLoading: loading } = useQuery({
-    queryKey: ['app-journal-detail', id],
-    queryFn: () => fetchJournalBundle(id!),
+    queryKey: ['app-journal-detail', id, forceOwner],
+    queryFn: () => fetchJournalBundle(id!, forceOwner),
     enabled: !!id,
     staleTime: 5 * 60 * 1000,
     gcTime: 24 * 60 * 60 * 1000,
@@ -243,7 +268,19 @@ const JournalDetail = () => {
   }
 
   if (!signal) {
-    return <UnifiedAppLayout><UnavailableContent kind="journal" /></UnifiedAppLayout>;
+    return (
+      <UnifiedAppLayout>
+        <UnavailableContent kind="journal" />
+        {(isPreviewSession || previewFlagFromUrl) && data?.error && (
+          <div className="max-w-2xl mx-auto mt-4 px-4">
+            <div className="text-xs text-muted-foreground border border-dashed border-warning/40 rounded p-3 bg-warning/5">
+              預覽診斷：<code className="text-warning">{data.error}</code>
+              {previewSlugFromSession && <>（預覽 slug: {previewSlugFromSession}）</>}
+            </div>
+          </div>
+        )}
+      </UnifiedAppLayout>
+    );
   }
 
   const pubDate = new Date(signal.published_at);
