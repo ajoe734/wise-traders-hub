@@ -299,6 +299,12 @@ export default defineConfig({
       use: { ...devices['Desktop Chrome'], viewport: { width: 1280, height: 900 } },
     },
     {
+      // PriceAxis / RangeBand 圓點必須永遠是正圓（不被 preserveAspectRatio=none SVG 拉扁）
+      name: 'holdings-price-axis-dot-shape',
+      testMatch: /holdings-price-axis-dot-shape\.spec\.ts/,
+      use: { ...devices['Desktop Chrome'] },
+    },
+    {
       // overridePrice 換價後 HoldingCard 必須重算 todayPnl / todayPct / 保留 yesterday
       name: 'desktop-holdings-override-price',
       testMatch: /holdings-override-price-recompute\.spec\.ts/,
