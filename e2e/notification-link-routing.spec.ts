@@ -49,7 +49,7 @@ test.describe('NotificationBell · link routing', () => {
 
     // 分流結果為 external，harness 攔截到的 URL 完整保留（不被 URL 編碼扭曲）
     await expect(page.getByTestId('last-kind')).toHaveText('external');
-    await expect(page.getByTestId('external-url')).toHaveText(EXTERNAL_URL);
+    await expect(page.getByTestId('external-url')).toHaveText(EXTERNAL_URL_MATCH);
 
     // 沒有觸發 react-router navigate → nav-target 仍停留在 harness
     await expect(page.getByTestId('nav-target')).toHaveText(HARNESS);
