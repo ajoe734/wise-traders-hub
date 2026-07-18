@@ -97,10 +97,16 @@ test.describe('AdminLayout sidebar vertical scroll', () => {
       expect(geometry.sidebarBottom).toBeLessThanOrEqual(geometry.viewportHeight + 1);
       expect(geometry.navBottom).toBeLessThanOrEqual(geometry.footerTop + 1);
       expect(geometry.footerBottom).toBeLessThanOrEqual(geometry.viewportHeight + 1);
-      await expect(sidebar).toHaveScreenshot(`admin-sidebar-${viewport.label}.png`, {
-        animations: 'disabled',
-        maxDiffPixelRatio: 0.02,
-      });
+      const finalMetrics = await nav.evaluate((el) => ({
+        atBottom: el.scrollTop + el.clientHeight >= el.scrollHeight - 1,
+        scrollTop: el.scrollTop,
+        clientHeight: el.clientHeight,
+        scrollHeight: el.scrollHeight,
+      }));
+      expect(
+        finalMetrics.atBottom,
+        `nav 沒有真的滾到底：scrollTop=${finalMetrics.scrollTop}, clientHeight=${finalMetrics.clientHeight}, scrollHeight=${finalMetrics.scrollHeight}`,
+      ).toBe(true);
     });
   }
 });
