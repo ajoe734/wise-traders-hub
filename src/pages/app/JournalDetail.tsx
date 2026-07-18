@@ -149,7 +149,33 @@ const TradeItem = ({ signal, nameMap }: { signal: SignalDetail; nameMap: Record<
   );
 };
 
+export type JournalFetchSource = 'rls' | 'owner_rpc' | 'none';
+
+export interface JournalFetchDiagnostics {
+  source: JournalFetchSource;
+  rlsError: string | null;
+  rlsHitRow: boolean;
+  ownerRpcAttempted: boolean;
+  ownerRpcError: string | null;
+  forceOwner: boolean;
+  signalId: string;
+  ownerExpertId: string | null;
+  fetchedAt: string;
+}
+
 const fetchJournalBundle = async (signalId: string, forceOwner: boolean) => {
+  const diagnostics: JournalFetchDiagnostics = {
+    source: 'none',
+    rlsError: null,
+    rlsHitRow: false,
+    ownerRpcAttempted: false,
+    ownerRpcError: null,
+    forceOwner,
+    signalId,
+    ownerExpertId: null,
+    fetchedAt: new Date().toISOString(),
+  };
+
   const { data, error } = await supabase
     .from('expert_signals')
     .select('id, instrument, action, price_hint, quantity, quantity_unit, currency, reason_summary, reason_detail, risk_notes, learning_points, published_at, expert_id, experts(name, slug, role, avatar_url)')
@@ -157,26 +183,43 @@ const fetchJournalBundle = async (signalId: string, forceOwner: boolean) => {
     .maybeSingle();
 
   let signal: SignalDetail | null = (data as any) ?? null;
+  diagnostics.rlsError = error?.message ?? null;
+  diagnostics.rlsHitRow = !!signal;
   let fetchError: string | null = error?.message ?? null;
 
   // Owner fallback：直接 RLS 拉不到，改走 SECURITY DEFINER RPC（僅 owner 有效）
   if (!signal && forceOwner) {
+    diagnostics.ownerRpcAttempted = true;
     const { data: rpcData, error: rpcErr } = await supabase
       .rpc('get_owned_journal_bundle', { _signal_id: signalId });
-    if (rpcErr) fetchError = rpcErr.message;
+    if (rpcErr) {
+      diagnostics.ownerRpcError = rpcErr.message;
+      fetchError = rpcErr.message;
+    }
     if (rpcData && (rpcData as any).signal) {
       const bundle = rpcData as any;
+      diagnostics.source = 'owner_rpc';
+      diagnostics.ownerExpertId = bundle.signal?.expert_id ?? null;
       return {
         signal: bundle.signal as SignalDetail,
         weekSignals: (bundle.weekSignals ?? []) as SignalDetail[],
         error: null as string | null,
+        diagnostics,
       };
     }
   }
 
   if (!signal) {
-    return { signal: null, weekSignals: [] as SignalDetail[], error: fetchError ?? 'not_found_or_forbidden' };
+    return {
+      signal: null,
+      weekSignals: [] as SignalDetail[],
+      error: fetchError ?? 'not_found_or_forbidden',
+      diagnostics,
+    };
   }
+
+  diagnostics.source = 'rls';
+  diagnostics.ownerExpertId = signal.expert_id ?? null;
 
   const s = signal;
   const pubDate = new Date(s.published_at);
@@ -192,7 +235,90 @@ const fetchJournalBundle = async (signalId: string, forceOwner: boolean) => {
     .lte('published_at', new Date(we.getFullYear(), we.getMonth(), we.getDate(), 23, 59, 59).toISOString())
     .order('published_at', { ascending: false });
 
-  return { signal: s, weekSignals: ((weekData as any) || []) as SignalDetail[], error: null as string | null };
+  return {
+    signal: s,
+    weekSignals: ((weekData as any) || []) as SignalDetail[],
+    error: null as string | null,
+    diagnostics,
+  };
+};
+
+const PreviewDiagnosticsBlock = ({
+  diagnostics,
+  currentUserId,
+  effectiveUserId,
+  currentExpertSlug,
+  ownerSlug,
+  previewSlugFromSession,
+  isPreviewSession,
+  previewFlagFromUrl,
+  topLevelError,
+}: {
+  diagnostics: JournalFetchDiagnostics | null;
+  currentUserId: string | null | undefined;
+  effectiveUserId: string | null | undefined;
+  currentExpertSlug: string | null | undefined;
+  ownerSlug: string | null | undefined;
+  previewSlugFromSession: string | null | undefined;
+  isPreviewSession: boolean;
+  previewFlagFromUrl: boolean;
+  topLevelError: string | null;
+}) => {
+  const [expanded, setExpanded] = useState(true);
+  if (!diagnostics) return null;
+  const sourceLabel =
+    diagnostics.source === 'rls' ? 'RLS 直接讀取' :
+    diagnostics.source === 'owner_rpc' ? 'Owner Fallback RPC' :
+    '未取得資料';
+  const sourceColor =
+    diagnostics.source === 'rls' ? 'text-emerald-700 bg-emerald-50 border-emerald-200' :
+    diagnostics.source === 'owner_rpc' ? 'text-amber-700 bg-amber-50 border-amber-200' :
+    'text-red-700 bg-red-50 border-red-200';
+  const Row = ({ k, v }: { k: string; v: React.ReactNode }) => (
+    <div className="flex gap-2 text-[11px] leading-relaxed">
+      <span className="w-32 shrink-0 text-muted-foreground">{k}</span>
+      <span className="flex-1 font-mono break-all">{v ?? <em className="text-muted-foreground">null</em>}</span>
+    </div>
+  );
+  return (
+    <div className="max-w-3xl mx-auto mt-4 px-4" data-testid="journal-preview-diagnostics">
+      <div className="rounded border border-dashed border-warning/40 bg-warning/5">
+        <button
+          type="button"
+          onClick={() => setExpanded((v) => !v)}
+          className="w-full flex items-center justify-between px-3 py-2 text-xs font-medium"
+        >
+          <span className="flex items-center gap-2">
+            <span className={`px-2 py-0.5 rounded border text-[10px] font-semibold ${sourceColor}`}>
+              {sourceLabel}
+            </span>
+            <span>預覽診斷</span>
+          </span>
+          {expanded ? <ChevronUp className="h-3.5 w-3.5" /> : <ChevronDown className="h-3.5 w-3.5" />}
+        </button>
+        {expanded && (
+          <div className="px-3 pb-3 space-y-1 border-t border-warning/20 pt-2">
+            <Row k="Signal ID" v={diagnostics.signalId} />
+            <Row k="Owner Expert ID" v={diagnostics.ownerExpertId} />
+            <Row k="Owner Slug" v={ownerSlug} />
+            <Row k="Current User ID" v={currentUserId} />
+            <Row k="Effective User ID" v={effectiveUserId} />
+            <Row k="Current Expert Slug" v={currentExpertSlug} />
+            <Row k="Force Owner" v={String(diagnostics.forceOwner)} />
+            <Row k="Preview Session" v={String(isPreviewSession)} />
+            <Row k="Preview URL Flag" v={String(previewFlagFromUrl)} />
+            <Row k="Preview Slug (session)" v={previewSlugFromSession} />
+            <Row k="RLS 命中" v={String(diagnostics.rlsHitRow)} />
+            <Row k="RLS 錯誤" v={diagnostics.rlsError} />
+            <Row k="Owner RPC 觸發" v={String(diagnostics.ownerRpcAttempted)} />
+            <Row k="Owner RPC 錯誤" v={diagnostics.ownerRpcError} />
+            <Row k="Top-level Error" v={topLevelError} />
+            <Row k="抓取時間" v={diagnostics.fetchedAt} />
+          </div>
+        )}
+      </div>
+    </div>
+  );
 };
 
 const JournalDetail = () => {
