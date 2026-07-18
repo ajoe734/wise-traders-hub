@@ -12,6 +12,7 @@ import { ScrollArea } from '@/components/ui/scroll-area';
 import { Bell, Loader2 } from 'lucide-react';
 import { Link, useNavigate } from 'react-router-dom';
 import { toast } from 'sonner';
+import { openNotificationLink } from '@/lib/openNotificationLink';
 
 type Pref = {
   user_id: string;
