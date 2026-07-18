@@ -12,6 +12,7 @@ import { ScrollArea } from '@/components/ui/scroll-area';
 import { Bell, Loader2 } from 'lucide-react';
 import { Link, useNavigate } from 'react-router-dom';
 import { toast } from 'sonner';
+import { openNotificationLink } from '@/lib/openNotificationLink';
 
 type Pref = {
   user_id: string;
@@ -137,7 +138,20 @@ export default function AccountNotifications() {
 
   const handleClick = async (n: any) => {
     if (!n.is_read) await markOneRead.mutateAsync(n.id);
-    if (n.link) navigate(n.link);
+    if (n.link) {
+      openNotificationLink(n.link, {
+        navigate,
+        onError: (_e, msg) => toast.error(msg),
+      });
+    }
+  };
+
+  const handleDownload = (n: any) => {
+    if (!n.download_url) return;
+    openNotificationLink(n.download_url, {
+      navigate,
+      onError: (_e, msg) => toast.error(msg),
+    });
   };
 
   const unread = items.filter((i: any) => !i.is_read).length;
@@ -203,10 +217,10 @@ export default function AccountNotifications() {
             ) : (
               <ul className="divide-y">
                 {items.map((n: any) => (
-                  <li key={n.id}>
+                  <li key={n.id} className={!n.is_read ? 'bg-primary/5' : ''}>
                     <button
                       onClick={() => handleClick(n)}
-                      className={`w-full text-left px-4 py-3 hover:bg-muted/50 transition-colors ${!n.is_read ? 'bg-primary/5' : ''}`}
+                      className="w-full text-left px-4 py-3 hover:bg-muted/50 transition-colors"
                     >
                       <div className="flex items-start gap-3">
                         <div className="flex-1 min-w-0">
@@ -221,6 +235,13 @@ export default function AccountNotifications() {
                         </div>
                       </div>
                     </button>
+                    {n.download_url && (
+                      <div className="px-4 pb-3 -mt-1">
+                        <Button variant="outline" size="sm" className="h-7 text-xs" onClick={() => handleDownload(n)}>
+                          下載檔案
+                        </Button>
+                      </div>
+                    )}
                   </li>
                 ))}
               </ul>

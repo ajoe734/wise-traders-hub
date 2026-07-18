@@ -165,12 +165,14 @@ Deno.serve(async (req) => {
       : `本週尚無 mentor 發布週記，未產生 CSV 檔。`;
 
     if (adminIds.length > 0 && list.length > 0) {
+      // link 一律存內部相對路徑；signed_url 分離到 download_url，避免前端誤把外部 URL 丟給 react-router
       const notifRows = adminIds.map((uid: string) => ({
         user_id: uid,
         title,
         body: bodyText,
         type: "journal_export",
-        link: signedUrl,
+        link: "/company/journals-export",
+        download_url: signedUrl,
       }));
       const { error: notifErr } = await supabase.from("notifications").insert(notifRows);
       if (notifErr) console.error(`insert notifications failed: ${notifErr.message}`);
