@@ -114,7 +114,7 @@ export default function CurrencyDiagnosticsPage() {
 
   return (
     <CompanyLayout>
-      <SEO title="幣別解析除錯｜營運後台 | legendflow" noindex />
+      <SEO title="幣別解析除錯｜營運後台 | legendflow" description="檢視訊號幣別解析來源分佈與最近明細，快速定位缺值導師。" noindex />
       <div className="p-4 md:p-6 space-y-4">
         <div className="flex items-center justify-between flex-wrap gap-2">
           <div className="flex items-center gap-2">
