@@ -184,7 +184,7 @@ export function useAdminProfile(expertSlug: string | undefined, opts?: {
    * - starting_capital 清空，讓老師重設新幣別的本金
    */
   const resetAssetClass = useMutation({
-    mutationFn: async (newAssetClass: 'tw_stock' | 'us_stock' | 'crypto') => {
+    mutationFn: async (newAssetClass: AssetClass) => {
       if (!expert) throw new Error('expert 未載入');
       const { error } = await supabase.rpc('admin_reset_expert_asset_class' as any, {
         _expert_id: expert.id,
