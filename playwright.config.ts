@@ -192,6 +192,14 @@ export default defineConfig({
       testMatch: /journal-detail-admin-preview\.spec\.ts/,
       use: { ...devices['Desktop Chrome'], viewport: { width: 1280, height: 900 } },
     },
+    {
+      // SignalDetail 預覽 schema 回歸：expert_signals.currency 不可出現在 top-level select
+      name: 'desktop-signal-detail-preview-currency-schema',
+      testMatch: /signal-detail-preview-currency-schema\.spec\.ts/,
+      use: { ...devices['Desktop Chrome'], viewport: { width: 1280, height: 900 } },
+    },
+
+
 
 
 
