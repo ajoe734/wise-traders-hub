@@ -90,9 +90,9 @@ export function AdminLayout({ children }: AdminLayoutProps) {
   return (
     <div className="min-h-screen bg-background flex">
       {/* Sidebar */}
-      <aside className="w-64 border-r bg-card flex flex-col shrink-0 sticky top-0 h-screen">
+      <aside className="w-64 border-r bg-card flex flex-col shrink-0 sticky top-0 h-[100dvh] max-h-[100dvh] min-h-0 overflow-hidden">
         {/* Expert Header */}
-        <div className="p-4 border-b">
+        <div className="shrink-0 p-4 border-b">
           <div className="flex items-center gap-3 mb-2">
             <img
               src={avatarUrl(expert.avatarUrl, 80)}
@@ -127,7 +127,10 @@ export function AdminLayout({ children }: AdminLayoutProps) {
         </div>
 
         {/* Navigation */}
-        <nav className="flex-1 p-3 space-y-1">
+        <nav
+          className="min-h-0 flex-1 overflow-y-auto overscroll-contain p-3 space-y-1"
+          aria-label="分析師後台導覽"
+        >
           {navItems.map((item) => {
             const active = isActive(item.path, item.exact);
             const hint = (item as any).hint as string | undefined;
@@ -158,7 +161,7 @@ export function AdminLayout({ children }: AdminLayoutProps) {
         </nav>
 
         {/* Footer */}
-        <div className="p-3 border-t space-y-1">
+        <div className="shrink-0 p-3 border-t space-y-1">
           <Button
             variant="ghost"
             size="sm"
