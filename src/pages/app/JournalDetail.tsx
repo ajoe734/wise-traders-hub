@@ -54,7 +54,7 @@ interface SignalDetail {
 const TradeItem = ({ signal, nameMap }: { signal: SignalDetail; nameMap: Record<string, string> }) => {
   const [expanded, setExpanded] = useState(false);
   const hasDetails = signal.reason_summary || signal.reason_detail || signal.risk_notes;
-  const cur: Currency = normalizeCurrency(signal.currency);
+  const cur: Currency = normalizeCurrency(signal.currency ?? signal.experts?.currency);
   const sym = CURRENCY_SYMBOL[cur];
   const unit = signal.quantity_unit || defaultQuantityUnit(cur);
   const total = signal.price_hint != null && signal.quantity != null
