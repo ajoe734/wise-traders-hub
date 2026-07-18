@@ -15,8 +15,7 @@
 import { test, expect } from '@playwright/test';
 
 const HARNESS = '/e2e/notification-link-harness';
-const EXTERNAL_URL =
-  'https://yqacmrgdjlenbijclngi.supabase.co/storage/v1/object/sign/journal-exports/demo.pdf?token=abc.def';
+const EXTERNAL_URL_MATCH = /\/storage\/v1\/object\/sign\/journal-exports\/demo\.pdf\?token=/;
 const INTERNAL_PATH = '/account/notifications?src=harness';
 
 test.describe('NotificationBell · link routing', () => {
