@@ -2,7 +2,7 @@ import { corsHeaders } from '../_shared/cors.ts';
 import { withLogging } from '../_shared/edgeLogger.ts';
 import { createClient } from 'https://esm.sh/@supabase/supabase-js@2.49.1'
 import { parsePrice, extractPrice, shouldWritePrice, type MsgItem } from '../_shared/stockPriceWaterfall.ts'
-import { detectMarket, type Market } from '../_shared/marketDetect.ts'
+import { detectMarket, isDerivativeMarket, type Market } from '../_shared/marketDetect.ts'
 import { fetchUsQuotes } from '../_shared/usStockPriceWaterfall.ts'
 
 const USER_AGENTS = [
@@ -222,6 +222,10 @@ Deno.serve(withLogging('stock-price-sync', async (req) => {
       const usSyms: string[] = []
       for (const sym of requestedSymbols) {
         const m = detectMarket(sym)
+        if (isDerivativeMarket(m)) {
+          reasons[sym] = 'derivative_manual_only'
+          continue
+        }
         if (m === 'TW') {
           if (/^\d{4,6}[A-Z]?$/i.test(sym)) twSyms.push(sym.toUpperCase())
           else reasons[sym] = 'invalid_format'
