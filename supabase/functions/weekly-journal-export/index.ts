@@ -110,6 +110,11 @@ function buildMentorMarkdown(opts: {
     if (r.price_hint !== null && r.price_hint !== undefined && r.price_hint !== "") {
       meta.push(`參考價：${r.price_hint}`);
     }
+    if (r.quantity !== null && r.quantity !== undefined && r.quantity !== "" && Number(r.quantity) !== 0) {
+      const unit = String(r.quantity_unit ?? "").trim() || "股";
+      const verb = r.action === "sell" ? "賣出" : r.action === "buy" ? "買進" : "數量";
+      meta.push(`${verb}股數：${r.quantity} ${unit}`);
+    }
     if (meta.length) {
       lines.push(meta.map((m) => `- ${m}`).join("\n"));
       lines.push("");
@@ -154,7 +159,7 @@ Deno.serve(async (req) => {
     const { data: rows, error: qErr } = await supabase
       .from("expert_signals")
       .select(
-        "id, status, instrument, action, price_hint, reason_summary, reason_detail, risk_notes, learning_points, published_at, created_at, expert_id, experts!inner(name, slug, role, asset_class, currency)",
+        "id, status, instrument, action, price_hint, quantity, quantity_unit, reason_summary, reason_detail, risk_notes, learning_points, published_at, created_at, expert_id, experts!inner(name, slug, role, asset_class, currency)",
       )
       .eq("status", "published")
       .eq("experts.role", "mentor")

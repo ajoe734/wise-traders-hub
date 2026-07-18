@@ -76,6 +76,8 @@ interface JournalRow {
   instrument: string | null;
   action: string | null;
   price_hint: number | null;
+  quantity: number | null;
+  quantity_unit: string | null;
   reason_summary: string | null;
   reason_detail: string | null;
   risk_notes: string | null;
@@ -357,7 +359,7 @@ const JournalsExport = () => {
     queryFn: async (): Promise<JournalRow[]> => {
       let q = supabase
         .from('expert_signals')
-        .select('id, status, instrument, action, price_hint, reason_summary, reason_detail, risk_notes, learning_points, published_at, created_at, expert_id, experts!inner(name, slug, role, asset_class, currency)')
+        .select('id, status, instrument, action, price_hint, quantity, quantity_unit, reason_summary, reason_detail, risk_notes, learning_points, published_at, created_at, expert_id, experts!inner(name, slug, role, asset_class, currency)')
         .eq('experts.role', 'mentor');
 
       if (publishedOnly) {
