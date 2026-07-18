@@ -26,6 +26,7 @@ import { useEffectiveUserId } from '@/hooks/useEffectiveUserId';
 import { UnavailableContent } from '@/components/UnavailableContent';
 import { parseInstrument } from '@/lib/instrument';
 import { resolveStockNames } from '@/lib/stockNameResolver';
+import { usePreviewMode } from '@/hooks/usePreviewMode';
 
 interface SignalDetail {
   id: string;
