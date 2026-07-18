@@ -181,6 +181,13 @@ export default defineConfig({
       use: { ...devices['Desktop Chrome'], viewport: { width: 1280, height: 900 } },
     },
     {
+      // 回歸：master-brcto owner ?preview=1 → RPC 成功且不觸發 expert_signals.currency schema 錯誤
+      name: 'desktop-journal-detail-owner-preview-brcto',
+      testMatch: /journal-detail-owner-preview-brcto\.spec\.ts/,
+      use: { ...devices['Desktop Chrome'], viewport: { width: 1280, height: 900 } },
+    },
+
+    {
       // 週記 / 訊號編輯器：ETF 英文字尾（00631L / 00878B）代號+名稱顯示 parity
       name: 'desktop-signal-editor-etf-suffix',
       testMatch: /signal-editor-etf-suffix\.spec\.ts/,
