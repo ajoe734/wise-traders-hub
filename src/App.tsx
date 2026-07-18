@@ -65,6 +65,7 @@ const EtfDisplayHarnessEntry = lazy(() => import("./pages/EtfDisplayHarnessEntry
 const SignalPreviewHarnessEntry = lazy(() => import("./pages/SignalPreviewHarnessEntry"));
 const SignalFocusHarnessEntry = lazy(() => import("./pages/SignalFocusHarnessEntry"));
 const JournalPdfHarnessEntry = lazy(() => import("./pages/JournalPdfHarnessEntry"));
+const NotificationLinkHarnessEntry = lazy(() => import("./pages/NotificationLinkHarnessEntry"));
 const NotFound = lazy(() => import("./pages/NotFound"));
 
 const CheckupModeProviderLazy = lazy(() =>
