@@ -34,8 +34,6 @@ function isPreviewEnv() {
 }
 
 const INTERNAL_LINK = '/pricing?src=harness';
-const EXTERNAL_LINK =
-  'https://yqacmrgdjlenbijclngi.supabase.co/storage/v1/object/sign/journal-exports/demo.pdf?token=abc.def';
 // 未過期 signed URL：預設 fire-external 用它，方便既有「新分頁開啟」測試沿用
 const EXTERNAL_LINK =
   'https://yqacmrgdjlenbijclngi.supabase.co/storage/v1/object/sign/journal-exports/demo.pdf?token=h.' +
