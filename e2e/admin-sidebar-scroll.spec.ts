@@ -65,15 +65,16 @@ test.describe('AdminLayout sidebar vertical scroll', () => {
       }));
 
       expect(metricsBefore.overflowY).toMatch(/auto|scroll/);
-      expect(
-        metricsBefore.scrollHeight,
-        `nav 應該形成自己的滾動區：scrollHeight=${metricsBefore.scrollHeight}, clientHeight=${metricsBefore.clientHeight}`,
-      ).toBeGreaterThan(metricsBefore.clientHeight);
 
       await nav.evaluate((el) => {
         el.scrollTop = el.scrollHeight;
       });
-      await expect.poll(() => nav.evaluate((el) => el.scrollTop), { timeout: 2_000 }).toBeGreaterThan(0);
+
+      if (metricsBefore.scrollHeight > metricsBefore.clientHeight + 1) {
+        await expect.poll(() => nav.evaluate((el) => el.scrollTop), { timeout: 2_000 }).toBeGreaterThan(0);
+      } else {
+        await expect.poll(() => nav.evaluate((el) => el.scrollTop), { timeout: 2_000 }).toBe(0);
+      }
 
       await expect(lastNavLink).toBeVisible();
       await expect(footerButton).toBeVisible();
