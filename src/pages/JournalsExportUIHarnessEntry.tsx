@@ -209,7 +209,9 @@ export default function JournalsExportUIHarnessEntry() {
         open={confirmOpen}
         onOpenChange={(open) => {
           setConfirmOpen(open);
-          if (!open && confirmResult === 'opened') setConfirmResult('cancelled');
+          if (!open) {
+            setConfirmResult((prev) => (prev === 'opened' ? 'cancelled' : prev));
+          }
         }}
       >
         <AlertDialogContent>
