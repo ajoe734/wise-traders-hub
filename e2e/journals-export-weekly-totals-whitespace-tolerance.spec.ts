@@ -38,12 +38,13 @@ function mutations(baseline: string): { name: string; text: string }[] {
       text: lf.replace('## 本週總計\n', '## 本週總計\n\n\n\n'),
     },
     {
-      name: '每個 bullet 前加 leading spaces / tab',
+      name: 'bullet marker 後多加空白（- 變 -   ）',
       text: lf
         .split('\n')
-        .map((line) => (line.startsWith('- ') || line.startsWith('  - ') ? '   ' + line : line))
+        .map((line) => line.replace(/^(\s*)-\s/, '$1-   '))
         .join('\n'),
     },
+
     {
       name: '每個 bullet 後加 trailing spaces',
       text: lf
