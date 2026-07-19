@@ -69,6 +69,7 @@ const NotificationLinkHarnessEntry = lazy(() => import("./pages/NotificationLink
 const JournalsExportHarnessEntry = lazy(() => import("./pages/JournalsExportHarnessEntry"));
 const JournalsExportUIHarnessEntry = lazy(() => import("./pages/JournalsExportUIHarnessEntry"));
 const JournalsExportHeaderDomHarnessEntry = lazy(() => import("./pages/JournalsExportHeaderDomHarnessEntry"));
+const ChipsSectionHarnessEntry = lazy(() => import("./pages/ChipsSectionHarnessEntry"));
 const NotFound = lazy(() => import("./pages/NotFound"));
 
 const CheckupModeProviderLazy = lazy(() =>
@@ -280,6 +281,7 @@ const AppShell = () => (
             <Route path="/e2e/journals-export-harness" element={<JournalsExportHarnessEntry />} />
             <Route path="/e2e/journals-export-ui-harness" element={<JournalsExportUIHarnessEntry />} />
             <Route path="/e2e/journals-export-header-dom" element={<JournalsExportHeaderDomHarnessEntry />} />
+            <Route path="/e2e/chips-section" element={<ChipsSectionHarnessEntry />} />
             <Route path="/free-checkup" element={<LegacyFreeCheckupRedirect />} />
             <Route path="/legal" element={<Legal />} />
             <Route path="/data-sources" element={<DataSources />} />
