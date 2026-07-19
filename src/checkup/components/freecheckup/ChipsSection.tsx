@@ -38,10 +38,29 @@ const WINDOWS = [
   { key: 'd60', label: '60日' },
 ] as const;
 
+function relTime(ts: number | null): string {
+  if (!ts) return '—';
+  const diff = Date.now() - ts;
+  const s = Math.round(diff / 1000);
+  if (s < 60) return `${s} 秒前`;
+  const m = Math.round(s / 60);
+  if (m < 60) return `${m} 分鐘前`;
+  const h = Math.round(m / 60);
+  if (h < 24) return `${h} 小時前`;
+  return `${Math.round(h / 24)} 天前`;
+}
+
+function fmtClock(ts: number | null): string {
+  if (!ts) return '';
+  const d = new Date(ts);
+  const pad = (n: number) => String(n).padStart(2, '0');
+  return `${d.getFullYear()}/${pad(d.getMonth() + 1)}/${pad(d.getDate())} ${pad(d.getHours())}:${pad(d.getMinutes())}`;
+}
+
 export default function ChipsSection({ WB, stockCode }: { WB: any; stockCode: string }) {
   if (!isTaiwanStockCode(stockCode)) return null;
 
-  const { data, loading, error } = useTwChipsDetail(stockCode, true);
+  const { data, loading, error, fetchedAt, online, stale, refetch } = useTwChipsDetail(stockCode, true);
 
   const hasInst = useMemo(
     () => data && Object.values(data.institutional || {}).some((w) => w),
@@ -59,12 +78,99 @@ export default function ChipsSection({ WB, stockCode }: { WB: any; stockCode: st
         borderTop: `1px solid ${WB.hair}`,
       }}
     >
-      <div style={{ display: 'flex', alignItems: 'baseline', justifyContent: 'space-between', marginBottom: 12 }}>
-        <div style={{ fontFamily: SERIF, fontSize: 15, color: WB.ink, letterSpacing: '0.02em' }}>籌碼面</div>
-        <div style={{ fontSize: 10, color: WB.inkMute, letterSpacing: '0.14em' }}>
-          {data?.as_of ? `AS OF ${data.as_of.replaceAll('-', '/')}` : loading ? '載入中' : error ? '暫無資料' : '—'}
+      <div style={{ display: 'flex', alignItems: 'baseline', justifyContent: 'space-between', marginBottom: 10, gap: 8, flexWrap: 'wrap' }}>
+        <div style={{ display: 'flex', alignItems: 'baseline', gap: 8 }}>
+          <div style={{ fontFamily: SERIF, fontSize: 15, color: WB.ink, letterSpacing: '0.02em' }}>籌碼面</div>
+          {loading && (
+            <span data-testid="chips-loading" style={{ fontSize: 10, color: WB.inkMute, letterSpacing: '0.14em' }}>
+              載入中…
+            </span>
+          )}
+          {!loading && stale && !error && (
+            <span data-testid="chips-stale-badge" style={{ fontSize: 10, color: WB.inkMute, border: `1px solid ${WB.hair}`, padding: '1px 6px', letterSpacing: '0.1em' }}>
+              STALE
+            </span>
+          )}
+          {!online && (
+            <span data-testid="chips-offline-badge" style={{ fontSize: 10, color: '#8a5a1e', border: '1px solid #8a5a1e', padding: '1px 6px', letterSpacing: '0.1em' }}>
+              OFFLINE
+            </span>
+          )}
+        </div>
+        <div style={{ fontSize: 10, color: WB.inkMute, letterSpacing: '0.14em', textAlign: 'right' }}>
+          {data?.as_of ? `AS OF ${data.as_of.replaceAll('-', '/')}` : loading ? '' : '尚未同步'}
+          {fetchedAt && (
+            <div title={fmtClock(fetchedAt)} style={{ fontSize: 9, letterSpacing: '0.08em', color: WB.inkMute, marginTop: 1 }}>
+              更新於 {relTime(fetchedAt)}
+            </div>
+          )}
         </div>
       </div>
+
+      {/* 錯誤 / 離線橫幅 */}
+      {error && (
+        <div
+          data-testid="chips-error-banner"
+          role="alert"
+          style={{
+            display: 'flex',
+            alignItems: 'center',
+            justifyContent: 'space-between',
+            gap: 8,
+            padding: '8px 10px',
+            marginBottom: 10,
+            border: `1px solid ${error.kind === 'offline' ? '#8a5a1e' : '#b04a4a'}`,
+            background: error.kind === 'offline' ? 'rgba(240,190,90,0.08)' : 'rgba(196,61,61,0.06)',
+            fontSize: 12,
+            color: WB.inkSub,
+            fontFamily: SERIF,
+          }}
+        >
+          <div style={{ display: 'flex', flexDirection: 'column', minWidth: 0 }}>
+            <span style={{ color: error.kind === 'offline' ? '#8a5a1e' : '#b04a4a', letterSpacing: '0.1em', fontSize: 10 }}>
+              {error.kind === 'offline'
+                ? '離線'
+                : error.kind === 'timeout'
+                ? '請求逾時'
+                : error.kind === 'auth'
+                ? '權限失效'
+                : error.kind === 'not_found'
+                ? '無資料'
+                : error.kind === 'server'
+                ? '伺服器錯誤'
+                : error.kind === 'network'
+                ? '網路異常'
+                : '錯誤'}
+              {error.status ? ` · ${error.status}` : ''}
+            </span>
+            <span style={{ overflow: 'hidden', textOverflow: 'ellipsis' }}>{error.reason}</span>
+            {data && (
+              <span style={{ fontSize: 10, color: WB.inkMute, marginTop: 2 }}>
+                目前顯示的是 {fetchedAt ? relTime(fetchedAt) : '較早'}的快取資料
+              </span>
+            )}
+          </div>
+          <button
+            data-testid="chips-retry"
+            onClick={refetch}
+            disabled={loading || !online}
+            style={{
+              fontSize: 11,
+              padding: '4px 10px',
+              border: `1px solid ${WB.ink}`,
+              background: 'transparent',
+              color: WB.ink,
+              cursor: loading || !online ? 'not-allowed' : 'pointer',
+              opacity: loading || !online ? 0.4 : 1,
+              fontFamily: SERIF,
+              letterSpacing: '0.1em',
+              whiteSpace: 'nowrap',
+            }}
+          >
+            {loading ? '重試中…' : '重試'}
+          </button>
+        </div>
+      )}
 
       {/* 三大法人 */}
       {hasInst ? (
@@ -108,8 +214,11 @@ export default function ChipsSection({ WB, stockCode }: { WB: any; stockCode: st
           ))}
         </div>
       ) : (
-        <div style={{ fontSize: 12, color: WB.inkMute, marginBottom: 14 }}>
-          — 三大法人資料尚未更新
+        <div data-testid="chips-inst-missing" style={{ fontSize: 12, color: WB.inkMute, marginBottom: 14, lineHeight: 1.6 }}>
+          — 三大法人資料尚未同步
+          <div style={{ fontSize: 10, color: WB.inkMute }}>
+            （每交易日 17:45 收盤後同步；非交易日或新上市代號可能無資料）
+          </div>
         </div>
       )}
 
@@ -117,9 +226,11 @@ export default function ChipsSection({ WB, stockCode }: { WB: any; stockCode: st
       <div style={{ borderTop: `1px dashed ${WB.hair}`, paddingTop: 12 }}>
         <div style={{ display: 'flex', alignItems: 'baseline', justifyContent: 'space-between', marginBottom: 8 }}>
           <div style={{ fontSize: 11, color: WB.inkMute, letterSpacing: '0.14em' }}>關鍵分點（近 5 日）</div>
-          {data?.bsr_as_of && (
+          {data?.bsr_as_of ? (
             <div style={{ fontSize: 10, color: WB.inkMute }}>BSR {data.bsr_as_of.replaceAll('-', '/')}</div>
-          )}
+          ) : hasInst ? (
+            <div style={{ fontSize: 10, color: WB.inkMute }}>BSR 未同步</div>
+          ) : null}
         </div>
 
         {bsrLatest ? (
@@ -137,8 +248,11 @@ export default function ChipsSection({ WB, stockCode }: { WB: any; stockCode: st
             )}
           </div>
         ) : (
-          <div data-testid="chips-bsr-missing" style={{ fontSize: 12, color: WB.inkMute }}>
-            — 分點資料尚未更新
+          <div data-testid="chips-bsr-missing" style={{ fontSize: 12, color: WB.inkMute, lineHeight: 1.6 }}>
+            — 分點資料尚未同步
+            <div style={{ fontSize: 10, color: WB.inkMute }}>
+              （每交易日 18:15 由 TWSE BSR 抓取；每批次 20 檔，冷門代號可能延後或當日無成交）
+            </div>
           </div>
         )}
       </div>
