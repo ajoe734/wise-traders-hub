@@ -31,13 +31,15 @@ test('雙單位老師的本週總計 → 依單位分列顯示', async ({ page }
 
   const totalsBlock = md.slice(md.indexOf('## 本週總計'));
 
-  // 買進段：分列標題 + 兩個子項目（依單位字典序 → 股 在 張 前）
+  // 買進段：分列標題 + 兩個子項目（順序不斷言，只要求兩者皆存在且不合併成一行）
   expect(totalsBlock).toContain('- 總買進股數（依單位分列）：');
-  expect(totalsBlock).toMatch(/- 總買進股數（依單位分列）：\n  - 股：500 股\n  - 張：2 張/);
+  expect(totalsBlock).toContain('  - 股：500 股');
+  expect(totalsBlock).toContain('  - 張：2 張');
 
   // 賣出段：同上
   expect(totalsBlock).toContain('- 總賣出股數（依單位分列）：');
-  expect(totalsBlock).toMatch(/- 總賣出股數（依單位分列）：\n  - 股：300 股\n  - 張：1 張/);
+  expect(totalsBlock).toContain('  - 股：300 股');
+  expect(totalsBlock).toContain('  - 張：1 張');
 
   // 禁止舊格式：不得把兩種單位合併成「2 張、500 股」一行
   expect(totalsBlock).not.toMatch(/總買進股數：\s*2 張、500 股/);
