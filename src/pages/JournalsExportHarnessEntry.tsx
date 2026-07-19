@@ -323,6 +323,15 @@ export default function JournalsExportHarnessEntry() {
       <button data-testid="je-export-multi-mixed" onClick={runMultiMixed} style={{ marginRight: 8, marginBottom: 8, padding: '6px 12px' }}>
         Export mixed units (老周 張 + 助教小陳 股)
       </button>
+      <button data-testid="je-export-multi-reversed" onClick={runMultiReversed} style={{ marginRight: 8, marginBottom: 8, padding: '6px 12px' }}>
+        Export multi reversed (Wendy → 老周)
+      </button>
+      <button data-testid="je-export-multi-mixed-reversed" onClick={runMultiMixedReversed} style={{ marginRight: 8, marginBottom: 8, padding: '6px 12px' }}>
+        Export multi-mixed reversed (助教 → 老周)
+      </button>
+      <button data-testid="je-export-multi-interleaved" onClick={runMultiInterleaved} style={{ marginRight: 8, marginBottom: 8, padding: '6px 12px' }}>
+        Export multi interleaved (A1,C1,A2,C2,…)
+      </button>
       <button data-testid="je-export-dual-unit" onClick={runDualUnit} style={{ padding: '6px 12px' }}>
         Export dual-unit mentor (雙棲老師 張+股)
       </button>
