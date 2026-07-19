@@ -414,7 +414,58 @@ export default function JournalsExportHarnessEntry() {
     setStatus(`multi-missing-mixed:${res.kind}:${res.filename}`);
   };
 
-  const weekDisplay = `${RANGE.startLabel} ~ ${RANGE.endLabel}`;
+  const runDuplicateSlug = async () => {
+    setStatus('running-duplicate-slug');
+    // 兩位不同 expert_id 但 slug 同為 shared-slug
+    const res = await buildJournalExport(
+      [...MENTOR_G1_ROWS, ...MENTOR_G2_ROWS],
+      RANGE,
+      true,
+    );
+    if (!res) { setStatus('empty'); return; }
+    downloadBlob(res.filename, res.blob);
+    setStatus(`duplicate-slug:${res.kind}:${res.filename}`);
+  };
+
+  const runDuplicateSlugReversed = async () => {
+    setStatus('running-duplicate-slug-reversed');
+    const res = await buildJournalExport(
+      [...MENTOR_G2_ROWS, ...MENTOR_G1_ROWS],
+      RANGE,
+      true,
+    );
+    if (!res) { setStatus('empty'); return; }
+    downloadBlob(res.filename, res.blob);
+    setStatus(`duplicate-slug-reversed:${res.kind}:${res.filename}`);
+  };
+
+  const runSlugFallbackClash = async () => {
+    setStatus('running-slug-fallback-clash');
+    // H1 slug=null → fallback expert_id "clash-id"，恰好與 H2.slug="clash-id" 撞名
+    const res = await buildJournalExport(
+      [...MENTOR_H1_ROWS, ...MENTOR_H2_ROWS],
+      RANGE,
+      true,
+    );
+    if (!res) { setStatus('empty'); return; }
+    downloadBlob(res.filename, res.blob);
+    setStatus(`slug-fallback-clash:${res.kind}:${res.filename}`);
+  };
+
+  const runDuplicateExpertId = async () => {
+    setStatus('running-duplicate-expert-id');
+    // 同 expert_id 出現多次 + 另一位老師 → zip 應僅產出 2 份檔案
+    const res = await buildJournalExport(
+      [...MENTOR_DUP_ID_ROWS, MENTOR_B_ROW],
+      RANGE,
+      true,
+    );
+    if (!res) { setStatus('empty'); return; }
+    downloadBlob(res.filename, res.blob);
+    setStatus(`duplicate-expert-id:${res.kind}:${res.filename}`);
+  };
+
+
 
   const slugMap = {
     'expert-a': 'master-zhou',
