@@ -232,6 +232,15 @@ export default function JournalsExportHarnessEntry() {
     setStatus(`multi:${res.kind}:${res.filename}`);
   };
 
+  const runMultiReversed = async () => {
+    setStatus('running-multi-reversed');
+    // 反轉輸入順序：先 Wendy，再老周
+    const res = await buildJournalExport([MENTOR_B_ROW, ...MENTOR_A_ROWS], RANGE, true);
+    if (!res) { setStatus('empty'); return; }
+    downloadBlob(res.filename, res.blob);
+    setStatus(`multi-reversed:${res.kind}:${res.filename}`);
+  };
+
   const runEmptyUnit = async () => {
     setStatus('running-empty-unit');
     const res = await buildJournalExport(MENTOR_C_ROWS, RANGE, true);
@@ -247,6 +256,31 @@ export default function JournalsExportHarnessEntry() {
     downloadBlob(res.filename, res.blob);
     setStatus(`multi-mixed:${res.kind}:${res.filename}`);
   };
+
+  const runMultiMixedReversed = async () => {
+    setStatus('running-multi-mixed-reversed');
+    // 反轉：先助教小陳，再老周
+    const res = await buildJournalExport([...MENTOR_C_ROWS, ...MENTOR_A_ROWS], RANGE, true);
+    if (!res) { setStatus('empty'); return; }
+    downloadBlob(res.filename, res.blob);
+    setStatus(`multi-mixed-reversed:${res.kind}:${res.filename}`);
+  };
+
+  const runMultiInterleaved = async () => {
+    setStatus('running-multi-interleaved');
+    // 交錯：A1, C1, A2, C2, ... 檢查 header 不會混入其他老師欄位
+    const inter: JournalRowExport[] = [];
+    const maxLen = Math.max(MENTOR_A_ROWS.length, MENTOR_C_ROWS.length);
+    for (let i = 0; i < maxLen; i++) {
+      if (MENTOR_A_ROWS[i]) inter.push(MENTOR_A_ROWS[i]);
+      if (MENTOR_C_ROWS[i]) inter.push(MENTOR_C_ROWS[i]);
+    }
+    const res = await buildJournalExport(inter, RANGE, true);
+    if (!res) { setStatus('empty'); return; }
+    downloadBlob(res.filename, res.blob);
+    setStatus(`multi-interleaved:${res.kind}:${res.filename}`);
+  };
+
 
   const runDualUnit = async () => {
     setStatus('running-dual-unit');
@@ -288,6 +322,15 @@ export default function JournalsExportHarnessEntry() {
       </button>
       <button data-testid="je-export-multi-mixed" onClick={runMultiMixed} style={{ marginRight: 8, marginBottom: 8, padding: '6px 12px' }}>
         Export mixed units (老周 張 + 助教小陳 股)
+      </button>
+      <button data-testid="je-export-multi-reversed" onClick={runMultiReversed} style={{ marginRight: 8, marginBottom: 8, padding: '6px 12px' }}>
+        Export multi reversed (Wendy → 老周)
+      </button>
+      <button data-testid="je-export-multi-mixed-reversed" onClick={runMultiMixedReversed} style={{ marginRight: 8, marginBottom: 8, padding: '6px 12px' }}>
+        Export multi-mixed reversed (助教 → 老周)
+      </button>
+      <button data-testid="je-export-multi-interleaved" onClick={runMultiInterleaved} style={{ marginRight: 8, marginBottom: 8, padding: '6px 12px' }}>
+        Export multi interleaved (A1,C1,A2,C2,…)
       </button>
       <button data-testid="je-export-dual-unit" onClick={runDualUnit} style={{ padding: '6px 12px' }}>
         Export dual-unit mentor (雙棲老師 張+股)
