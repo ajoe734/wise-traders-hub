@@ -3,6 +3,7 @@
 // 三大法人 1/5/20/60 日 + BSR 前 3 買/賣 + 集中度
 import React, { useMemo } from 'react';
 import { useTwChipsDetail, isTaiwanStockCode, type TwChipsPayload } from '@/checkup/hooks/useTwChipsDetail';
+import ChipsTrendChart from './ChipsTrendChart';
 
 const SERIF = '"Source Serif 4", "Noto Serif TC", Georgia, serif';
 
