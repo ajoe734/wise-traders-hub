@@ -423,6 +423,13 @@ export default defineConfig({
       testMatch: /journals-export-weekly-totals-whitespace-tolerance\.spec\.ts/,
       use: { ...devices['Desktop Chrome'], viewport: { width: 1280, height: 900 }, acceptDownloads: true },
     },
+    {
+      // 週記匯出：週別/日期範圍在多老師 zip 內完全一致，且與 fixture 對齊
+      name: 'desktop-journals-export-week-label-consistency',
+      testMatch: /journals-export-week-label-consistency\.spec\.ts/,
+      use: { ...devices['Desktop Chrome'], viewport: { width: 1280, height: 900 }, acceptDownloads: true },
+    },
+
 
 
 
