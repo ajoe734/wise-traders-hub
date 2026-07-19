@@ -13,6 +13,7 @@ import { useThesisTracking } from '@/checkup/hooks/useThesisTracking';
 import { Sparkline } from '@/pages/_freeCheckup/constants.jsx';
 import { computeScenario, isDirty } from './holdingScenario';
 import HoldingExportCard from './HoldingExportCard';
+import ChipsSection from './ChipsSection';
 import '@/checkup/styles/holdingsDetailPanel.css';
 
 /**
