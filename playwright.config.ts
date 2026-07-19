@@ -489,6 +489,13 @@ export default defineConfig({
     },
 
     {
+      // 週記匯出：zip 內檔案排序 + 連續匯出並行情境下週別行仍固定 index 2 且無跨檔污染
+      name: 'desktop-journals-export-zip-order-and-concurrency',
+      testMatch: /journals-export-zip-order-and-concurrency\.spec\.ts/,
+      use: { ...devices['Desktop Chrome'], viewport: { width: 1280, height: 900 }, acceptDownloads: true },
+    },
+
+    {
       // 週記匯出：Markdown 解析器反查 — 週別行位置與 (start,end) 必須一致
       name: 'desktop-journals-export-week-line-parser-parity',
       testMatch: /journals-export-week-line-parser-parity\.spec\.ts/,
