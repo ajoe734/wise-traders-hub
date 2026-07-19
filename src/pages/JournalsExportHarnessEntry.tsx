@@ -241,6 +241,68 @@ const MENTOR_F_ROWS: JournalRowExport[] = [
   },
 ];
 
+// Regression: 兩位不同 expert_id 但 slug 相同（撞名）
+// 匯出時檔名必須被自動 dedup，且各自檔案內容不得跨老師污染。
+const MENTOR_G1_ROWS: JournalRowExport[] = [
+  {
+    id: 'sig-g1-1', status: 'published', instrument: '2330 台積電', action: 'buy',
+    price_hint: 1050, quantity: 2, quantity_unit: '張',
+    reason_summary: 'G1-summary-同週記標題',
+    reason_detail: null, risk_notes: null, learning_points: 'G1-learning-token',
+    published_at: '2026-07-14T01:00:00Z', created_at: '2026-07-14T00:30:00Z',
+    expert_id: 'expert-g1',
+    experts: { name: '同名老師甲', slug: 'shared-slug', role: 'mentor', asset_class: 'tw_stock', currency: 'TWD' },
+  },
+];
+const MENTOR_G2_ROWS: JournalRowExport[] = [
+  {
+    id: 'sig-g2-1', status: 'published', instrument: 'AAPL', action: 'buy',
+    price_hint: 220, quantity: 30, quantity_unit: '股',
+    reason_summary: 'G2-summary-同週記標題', // 故意同標題
+    reason_detail: null, risk_notes: null, learning_points: 'G2-learning-token',
+    published_at: '2026-07-15T13:30:00Z', created_at: '2026-07-15T13:00:00Z',
+    expert_id: 'expert-g2',
+    experts: { name: '同名老師乙', slug: 'shared-slug', role: 'mentor', asset_class: 'us_stock', currency: 'USD' },
+  },
+];
+
+// Regression: slug 缺失（fallback 到 expert_id）且 expert_id 也剛好與別位 slug 撞名
+const MENTOR_H1_ROWS: JournalRowExport[] = [
+  {
+    id: 'sig-h1-1', status: 'published', instrument: '2454 聯發科', action: 'sell',
+    price_hint: 1400, quantity: 1, quantity_unit: '張',
+    reason_summary: 'H1-summary', reason_detail: null, risk_notes: null, learning_points: 'H1-token',
+    published_at: '2026-07-14T02:00:00Z', created_at: '2026-07-14T01:30:00Z',
+    expert_id: 'clash-id',
+    experts: { name: 'H1老師', slug: null, role: 'mentor', asset_class: 'tw_stock', currency: 'TWD' },
+  },
+];
+const MENTOR_H2_ROWS: JournalRowExport[] = [
+  {
+    id: 'sig-h2-1', status: 'published', instrument: 'NVDA', action: 'buy',
+    price_hint: 180, quantity: 10, quantity_unit: '股',
+    reason_summary: 'H2-summary', reason_detail: null, risk_notes: null, learning_points: 'H2-token',
+    published_at: '2026-07-15T13:30:00Z', created_at: '2026-07-15T13:00:00Z',
+    expert_id: 'expert-h2',
+    experts: { name: 'H2老師', slug: 'clash-id', role: 'mentor', asset_class: 'us_stock', currency: 'USD' },
+  },
+];
+
+// Regression: 同一位 expert_id 出現在多筆 row，理應被聚合為單一檔案（不重複產出）
+const MENTOR_DUP_ID_ROWS: JournalRowExport[] = [
+  ...MENTOR_A_ROWS,
+  {
+    id: 'sig-a-dup', status: 'published', instrument: '2317 鴻海', action: 'buy',
+    price_hint: 200, quantity: 5, quantity_unit: '張',
+    reason_summary: 'A-summary-dup-title', reason_detail: null, risk_notes: null,
+    learning_points: 'A-learning-dup-token',
+    published_at: '2026-07-16T01:00:00Z', created_at: '2026-07-16T00:30:00Z',
+    expert_id: 'expert-a',
+    experts: { name: '老周', slug: 'master-zhou', role: 'mentor', asset_class: 'tw_stock', currency: 'TWD' },
+  },
+];
+
+
 
 
 export default function JournalsExportHarnessEntry() {
