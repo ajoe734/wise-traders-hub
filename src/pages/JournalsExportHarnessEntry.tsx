@@ -209,6 +209,39 @@ const MENTOR_D_ROWS: JournalRowExport[] = [
   },
 ];
 
+// Regression: 完全缺失 slug / asset_class / currency（experts 存在但欄位為 null）
+const MENTOR_E_ROWS: JournalRowExport[] = [
+  {
+    id: 'sig-e-1', status: 'published', instrument: '2330 台積電', action: 'buy',
+    price_hint: 1050, quantity: 3, quantity_unit: '張',
+    reason_summary: 'E-summary-null-slug', reason_detail: null, risk_notes: null, learning_points: null,
+    published_at: '2026-07-14T01:00:00Z', created_at: '2026-07-14T00:30:00Z',
+    expert_id: 'expert-e',
+    experts: { name: '缺欄位老師', slug: null, role: 'mentor', asset_class: null, currency: null },
+  },
+  {
+    id: 'sig-e-2', status: 'published', instrument: '00878 國泰永續高股息', action: 'sell',
+    price_hint: 25, quantity: 100, quantity_unit: '股',
+    reason_summary: 'E-summary-2', reason_detail: null, risk_notes: null, learning_points: null,
+    published_at: '2026-07-15T02:00:00Z', created_at: '2026-07-15T01:30:00Z',
+    expert_id: 'expert-e',
+    experts: { name: '缺欄位老師', slug: null, role: 'mentor', asset_class: null, currency: null },
+  },
+];
+
+// Regression: experts 物件本身為 null（極端 fallback，僅剩 expert_id 可用）
+const MENTOR_F_ROWS: JournalRowExport[] = [
+  {
+    id: 'sig-f-1', status: 'published', instrument: 'NVDA', action: 'buy',
+    price_hint: 180, quantity: 10, quantity_unit: null,
+    reason_summary: 'F-summary-no-experts', reason_detail: null, risk_notes: null, learning_points: null,
+    published_at: '2026-07-14T13:30:00Z', created_at: '2026-07-14T13:00:00Z',
+    expert_id: 'expert-f',
+    experts: null,
+  },
+];
+
+
 
 export default function JournalsExportHarnessEntry() {
   if (!isPreviewEnv()) return null;
