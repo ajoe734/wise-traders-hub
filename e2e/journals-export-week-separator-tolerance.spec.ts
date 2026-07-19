@@ -122,7 +122,7 @@ const MUTATIONS: Mut[] = [
   { name: '雙波浪 ~~', replace: (s, e) => `- 週別：${s} ~~ ${e}` },
   { name: '前後多空白 "  ~  "', replace: (s, e) => `- 週別：${s}    ~    ${e}` },
   { name: '半形冒號 + 緊縮空白 (${s}~${e})', replace: (s, e) => `- 週別:${s}~${e}` },
-  { name: '週別行加 trailing spaces + BOM', replace: (s, e) => `\uFEFF- 週別：${s} ~ ${e}    ` },
+  { name: '週別行加 trailing spaces (BOM 由 parser 於檔頭處理)', replace: (s, e) => `- 週別：${s} ~ ${e}    ` },
 ];
 
 function mutateWeekLine(md: string, mut: Mut) {
