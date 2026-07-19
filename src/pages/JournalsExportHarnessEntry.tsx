@@ -173,7 +173,43 @@ const MENTOR_C_ROWS: JournalRowExport[] = [
   },
 ];
 
-export default function JournalsExportHarnessEntry() {
+// Regression: 同一位老師同時有「張／股」兩種單位 → 本週總計必須分段標示
+const MENTOR_D_ROWS: JournalRowExport[] = [
+  {
+    id: 'sig-d-1', status: 'published', instrument: '2330 台積電', action: 'buy',
+    price_hint: 1050, quantity: 2, quantity_unit: '張',
+    reason_summary: 'D-summary-a', reason_detail: null, risk_notes: null, learning_points: null,
+    published_at: '2026-07-14T01:00:00Z', created_at: '2026-07-14T00:30:00Z',
+    expert_id: 'expert-d',
+    experts: { name: '雙棲老師', slug: 'dual-unit-master', role: 'mentor', asset_class: 'tw_stock', currency: 'TWD' },
+  },
+  {
+    id: 'sig-d-2', status: 'published', instrument: '00878 國泰永續高股息', action: 'buy',
+    price_hint: 25, quantity: 500, quantity_unit: '股',
+    reason_summary: 'D-summary-b', reason_detail: null, risk_notes: null, learning_points: null,
+    published_at: '2026-07-14T02:00:00Z', created_at: '2026-07-14T01:30:00Z',
+    expert_id: 'expert-d',
+    experts: { name: '雙棲老師', slug: 'dual-unit-master', role: 'mentor', asset_class: 'tw_stock', currency: 'TWD' },
+  },
+  {
+    id: 'sig-d-3', status: 'published', instrument: '2454 聯發科', action: 'sell',
+    price_hint: 1400, quantity: 1, quantity_unit: '張',
+    reason_summary: 'D-summary-c', reason_detail: null, risk_notes: null, learning_points: null,
+    published_at: '2026-07-15T02:00:00Z', created_at: '2026-07-15T01:30:00Z',
+    expert_id: 'expert-d',
+    experts: { name: '雙棲老師', slug: 'dual-unit-master', role: 'mentor', asset_class: 'tw_stock', currency: 'TWD' },
+  },
+  {
+    id: 'sig-d-4', status: 'published', instrument: '0056 元大高股息', action: 'sell',
+    price_hint: 35, quantity: 300, quantity_unit: '股',
+    reason_summary: 'D-summary-d', reason_detail: null, risk_notes: null, learning_points: null,
+    published_at: '2026-07-15T03:00:00Z', created_at: '2026-07-15T02:30:00Z',
+    expert_id: 'expert-d',
+    experts: { name: '雙棲老師', slug: 'dual-unit-master', role: 'mentor', asset_class: 'tw_stock', currency: 'TWD' },
+  },
+];
+
+
   if (!isPreviewEnv()) return null;
 
   const [status, setStatus] = useState<string>('idle');
