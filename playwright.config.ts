@@ -482,6 +482,13 @@ export default defineConfig({
     },
 
     {
+      // 週記匯出：缺失 slug/資產/幣別（含 experts=null）的 fallback 視覺呈現與 header 位置
+      name: 'desktop-journals-export-missing-fields-fallback-visual',
+      testMatch: /journals-export-missing-fields-fallback-visual\.spec\.ts/,
+      use: { ...devices['Desktop Chrome'], viewport: { width: 1280, height: 900 }, acceptDownloads: true },
+    },
+
+    {
       // 週記匯出：Markdown 解析器反查 — 週別行位置與 (start,end) 必須一致
       name: 'desktop-journals-export-week-line-parser-parity',
       testMatch: /journals-export-week-line-parser-parity\.spec\.ts/,
