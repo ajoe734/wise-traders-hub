@@ -516,6 +516,13 @@ export default defineConfig({
       use: { ...devices['Desktop Chrome'], viewport: { width: 1280, height: 900 }, acceptDownloads: true },
     },
 
+
+    {
+      // 週記匯出：header 區塊（L0..L8）DOM ↔ markdown text 一致性 + 元素截圖視覺快照
+      name: 'desktop-journals-export-header-dom-parity',
+      testMatch: /journals-export-header-dom-parity\.spec\.ts/,
+      use: { ...devices['Desktop Chrome'], viewport: { width: 1280, height: 900 } },
+    },
     {
       // 週記匯出：zip 內同名週記 / slug 撞名 / slug fallback 撞名 / 重複 expert_id 情境下
       // 檔名必須 dedup 唯一、週別行仍固定 index 2，且不得跨老師污染
