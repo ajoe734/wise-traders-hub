@@ -69,11 +69,72 @@ export function isTaiwanStockCode(code: string | undefined | null): boolean {
   return /^\d{4,6}[A-Z]?$/.test(String(code).trim());
 }
 
+export type ChipsErrorKind =
+  | 'network'
+  | 'offline'
+  | 'timeout'
+  | 'auth'
+  | 'server'
+  | 'not_found'
+  | 'unknown';
+
+export interface ChipsError {
+  kind: ChipsErrorKind;
+  status?: number;
+  message: string;
+  reason: string; // 使用者可讀
+}
+
+function classifyError(err: unknown, status?: number): ChipsError {
+  const msg = (err as Error)?.message || String(err);
+  if (typeof navigator !== 'undefined' && !navigator.onLine) {
+    return { kind: 'offline', message: msg, reason: '目前離線，恢復連線後可自動重試' };
+  }
+  if (msg.includes('AbortError') || msg.includes('timeout')) {
+    return { kind: 'timeout', status, message: msg, reason: '請求逾時，請稍後重試' };
+  }
+  if (status === 401 || status === 403) {
+    return { kind: 'auth', status, message: msg, reason: '登入或權限失效，請重新登入' };
+  }
+  if (status === 404) {
+    return { kind: 'not_found', status, message: msg, reason: '此代號無籌碼資料' };
+  }
+  if (status && status >= 500) {
+    return { kind: 'server', status, message: msg, reason: '伺服器暫時無法回應（TWSE 可能異常）' };
+  }
+  if (msg.toLowerCase().includes('failed to fetch') || msg.toLowerCase().includes('networkerror')) {
+    return { kind: 'network', message: msg, reason: '網路連線失敗，請重試' };
+  }
+  return { kind: 'unknown', status, message: msg, reason: msg.slice(0, 80) || '未知錯誤' };
+}
+
 export function useTwChipsDetail(stockCode: string | undefined | null, enabled = true) {
   const [data, setData] = useState<TwChipsPayload | null>(null);
   const [loading, setLoading] = useState(false);
-  const [error, setError] = useState<string | null>(null);
+  const [error, setError] = useState<ChipsError | null>(null);
+  const [fetchedAt, setFetchedAt] = useState<number | null>(null);
+  const [attempt, setAttempt] = useState(0);
+  const [online, setOnline] = useState(
+    typeof navigator !== 'undefined' ? navigator.onLine : true,
+  );
   const inflight = useRef<AbortController | null>(null);
+  const [manualBump, setManualBump] = useState(0);
+
+  // 離線 / 上線監聽（上線時自動重試）
+  useEffect(() => {
+    if (typeof window === 'undefined') return;
+    const on = () => {
+      setOnline(true);
+      setManualBump((n) => n + 1); // 觸發重取
+    };
+    const off = () => setOnline(false);
+    window.addEventListener('online', on);
+    window.addEventListener('offline', off);
+    return () => {
+      window.removeEventListener('online', on);
+      window.removeEventListener('offline', off);
+    };
+  }, []);
 
   useEffect(() => {
     if (!enabled) return;
@@ -84,10 +145,23 @@ export function useTwChipsDetail(stockCode: string | undefined | null, enabled =
       return;
     }
 
+    // 離線時：若有 cache 就顯示 cache + offline error；否則 offline error
+    if (typeof navigator !== 'undefined' && !navigator.onLine) {
+      const cached = CACHE.get(stockCode);
+      if (cached) {
+        setData(cached.data);
+        setFetchedAt(cached.ts);
+      }
+      setError({ kind: 'offline', message: 'offline', reason: '目前離線，恢復連線後將自動重試' });
+      setLoading(false);
+      return;
+    }
+
     // 讀快取
     const cached = CACHE.get(stockCode);
-    if (cached && Date.now() - cached.ts < TTL_MS) {
+    if (cached && Date.now() - cached.ts < TTL_MS && manualBump === 0) {
       setData(cached.data);
+      setFetchedAt(cached.ts);
       setError(null);
       setLoading(false);
       return;
@@ -99,17 +173,10 @@ export function useTwChipsDetail(stockCode: string | undefined | null, enabled =
     setLoading(true);
     setError(null);
 
-    supabase.functions
-      .invoke('tw-chips-detail', {
-        body: null,
-        method: 'GET' as any,
-        // supabase-js 對 GET query 不直接支援，改直呼 URL
-      })
-      .then(() => {}) // 佔位；下面用手動 fetch
-      .catch(() => {});
+    const timeoutId = window.setTimeout(() => ctrl.abort(), 15000);
 
-    // 手動 fetch 才能帶 query string
     (async () => {
+      let status: number | undefined;
       try {
         const session = await supabase.auth.getSession();
         const token = session.data.session?.access_token;
@@ -118,31 +185,52 @@ export function useTwChipsDetail(stockCode: string | undefined | null, enabled =
           signal: ctrl.signal,
           headers: {
             apikey: (import.meta.env.VITE_SUPABASE_PUBLISHABLE_KEY as string) || '',
-            Authorization: token ? `Bearer ${token}` : `Bearer ${import.meta.env.VITE_SUPABASE_PUBLISHABLE_KEY}`,
+            Authorization: token
+              ? `Bearer ${token}`
+              : `Bearer ${import.meta.env.VITE_SUPABASE_PUBLISHABLE_KEY}`,
           },
         });
+        status = resp.status;
         if (!resp.ok) {
           const t = await resp.text();
           throw new Error(`chips ${resp.status}: ${t.slice(0, 120)}`);
         }
         const json = (await resp.json()) as TwChipsPayload;
-        CACHE.set(stockCode, { data: json, ts: Date.now() });
+        const now = Date.now();
+        CACHE.set(stockCode, { data: json, ts: now });
         setData(json);
+        setFetchedAt(now);
         setError(null);
+        setAttempt(0);
       } catch (err) {
-        if ((err as any).name === 'AbortError') return;
-        setError((err as Error).message);
-        setData(null);
+        if ((err as any).name === 'AbortError' && !ctrl.signal.aborted) return;
+        // 保留舊 cache 資料當降級顯示
+        const cached2 = CACHE.get(stockCode);
+        if (cached2) {
+          setData(cached2.data);
+          setFetchedAt(cached2.ts);
+        }
+        setError(classifyError(err, status));
       } finally {
+        window.clearTimeout(timeoutId);
         if (inflight.current === ctrl) inflight.current = null;
         setLoading(false);
       }
     })();
 
     return () => {
+      window.clearTimeout(timeoutId);
       ctrl.abort();
     };
-  }, [stockCode, enabled]);
+  }, [stockCode, enabled, manualBump, attempt]);
 
-  return { data, loading, error };
+  const refetch = () => {
+    if (stockCode) CACHE.delete(stockCode);
+    setAttempt((n) => n + 1);
+  };
+
+  const stale = !!(data && fetchedAt && Date.now() - fetchedAt > TTL_MS);
+
+  return { data, loading, error, fetchedAt, online, stale, refetch };
 }
+
