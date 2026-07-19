@@ -502,6 +502,13 @@ export default defineConfig({
       use: { ...devices['Desktop Chrome'], viewport: { width: 1280, height: 900 }, acceptDownloads: true },
     },
 
+    {
+      // 週記匯出：UTF-8/BOM raw bytes 合規 + CRLF/LF 五種正規化變體週別行一致性
+      name: 'desktop-journals-export-utf8-bom-newline-parity',
+      testMatch: /journals-export-utf8-bom-newline-parity\.spec\.ts/,
+      use: { ...devices['Desktop Chrome'], viewport: { width: 1280, height: 900 }, acceptDownloads: true },
+    },
+
 
 
 
