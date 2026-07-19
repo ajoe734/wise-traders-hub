@@ -111,14 +111,14 @@ test.describe('Journals export — 本週總計 vs fixture', () => {
     const tZhou = extractWeeklyTotals(mdZhou);
     expect(tZhou.buy).toBe('2 張');
     expect(tZhou.sell).toBe('1 張');
-    // 老周檔內總計不得混入「股」單位（僅檢查總計段落）
-    const zhouTotalsBlock = mdZhou.slice(mdZhou.indexOf('## 本週總計'));
-    expect(zhouTotalsBlock).not.toContain('股');
+    // 老周檔內總計「數值」不得混入「股」單位（排除欄位標籤本身的「股數」）
+    expect(tZhou.buy).not.toContain('股');
+    expect(tZhou.sell).not.toContain('股');
 
     const tChen = extractWeeklyTotals(mdChen);
     expect(tChen.buy).toBe('10 股');
     expect(tChen.sell).toBe('14 股');
-    const chenTotalsBlock = mdChen.slice(mdChen.indexOf('## 本週總計'));
-    expect(chenTotalsBlock).not.toContain('張');
+    expect(tChen.buy).not.toContain('張');
+    expect(tChen.sell).not.toContain('張');
   });
 });
