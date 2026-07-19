@@ -323,6 +323,35 @@ export default function JournalsExportHarnessEntry() {
     setStatus(`dual-unit:${res.kind}:${res.filename}`);
   };
 
+  const runMissingFields = async () => {
+    setStatus('running-missing-fields');
+    const res = await buildJournalExport(MENTOR_E_ROWS, RANGE, true);
+    if (!res) { setStatus('empty'); return; }
+    downloadBlob(res.filename, res.blob);
+    setStatus(`missing-fields:${res.kind}:${res.filename}`);
+  };
+
+  const runNoExperts = async () => {
+    setStatus('running-no-experts');
+    const res = await buildJournalExport(MENTOR_F_ROWS, RANGE, true);
+    if (!res) { setStatus('empty'); return; }
+    downloadBlob(res.filename, res.blob);
+    setStatus(`no-experts:${res.kind}:${res.filename}`);
+  };
+
+  const runMultiMissingMixed = async () => {
+    setStatus('running-multi-missing-mixed');
+    // 完整資料 + 缺欄位 + experts=null 三種老師混在同一次匯出
+    const res = await buildJournalExport(
+      [...MENTOR_A_ROWS, ...MENTOR_E_ROWS, ...MENTOR_F_ROWS],
+      RANGE,
+      true,
+    );
+    if (!res) { setStatus('empty'); return; }
+    downloadBlob(res.filename, res.blob);
+    setStatus(`multi-missing-mixed:${res.kind}:${res.filename}`);
+  };
+
   const weekDisplay = `${RANGE.startLabel} ~ ${RANGE.endLabel}`;
 
   const slugMap = {
@@ -330,7 +359,11 @@ export default function JournalsExportHarnessEntry() {
     'expert-b': 'wendy-us',
     'expert-c': 'assistant-chen',
     'expert-d': 'dual-unit-master',
+    // E/F 老師沒有 slug → 應 fallback 為 expert_id
+    'expert-e': 'expert-e',
+    'expert-f': 'expert-f',
   };
+
 
   return (
     <div id="je-harness-root" style={{ padding: 24, background: '#fff', color: '#1a1a1a' }}>
