@@ -521,8 +521,20 @@ export default function JournalsExportHarnessEntry() {
       <button data-testid="je-export-no-experts" onClick={runNoExperts} style={{ marginRight: 8, marginBottom: 8, padding: '6px 12px' }}>
         Export experts=null (F)
       </button>
-      <button data-testid="je-export-multi-missing-mixed" onClick={runMultiMissingMixed} style={{ padding: '6px 12px' }}>
+      <button data-testid="je-export-multi-missing-mixed" onClick={runMultiMissingMixed} style={{ marginRight: 8, marginBottom: 8, padding: '6px 12px' }}>
         Export multi missing mixed (A + E + F)
+      </button>
+      <button data-testid="je-export-duplicate-slug" onClick={runDuplicateSlug} style={{ marginRight: 8, marginBottom: 8, padding: '6px 12px' }}>
+        Export duplicate slug (G1 + G2 shared-slug)
+      </button>
+      <button data-testid="je-export-duplicate-slug-reversed" onClick={runDuplicateSlugReversed} style={{ marginRight: 8, marginBottom: 8, padding: '6px 12px' }}>
+        Export duplicate slug reversed (G2 → G1)
+      </button>
+      <button data-testid="je-export-slug-fallback-clash" onClick={runSlugFallbackClash} style={{ marginRight: 8, marginBottom: 8, padding: '6px 12px' }}>
+        Export slug-fallback clash (H1 null vs H2 clash-id)
+      </button>
+      <button data-testid="je-export-duplicate-expert-id" onClick={runDuplicateExpertId} style={{ padding: '6px 12px' }}>
+        Export duplicate expert_id (A+A+B)
       </button>
 
     </div>
