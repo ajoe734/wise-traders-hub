@@ -229,16 +229,16 @@ test.describe('ChipsSection · 全覆蓋', () => {
   });
 
   test('9. 離線：注入 offline → OFFLINE badge + banner，重試按鈕 disabled', async ({ page, context }) => {
-    // 在頁面載入前就把 navigator.onLine 覆寫為 false，並封鎖網路
+    // 在頁面載入前就把 navigator.onLine 覆寫為 false
+    // hook 會在偵測到 offline 時直接短路，不會真的發 request
     await context.addInitScript(() => {
       Object.defineProperty(window.navigator, 'onLine', {
         value: false,
         configurable: true,
       });
     });
-    await context.setOffline(true);
-    // 保底：即便 request 送出去也直接 abort，模擬完全離線
-    await page.route(CHIPS_ROUTE, (route) => route.abort('internetdisconnected'));
+    // 保底：即使有任何請求跑出去，也直接 fail 掉
+    await page.route(CHIPS_ROUTE, (route) => route.abort('failed'));
 
     await page.goto(`/e2e/chips-section?code=${STOCK}`);
     await page.getByTestId('chips-section').waitFor();
@@ -248,8 +248,6 @@ test.describe('ChipsSection · 全覆蓋', () => {
     await banner.waitFor();
     await expect(banner).toContainText('離線');
     await expect(page.getByTestId('chips-retry')).toBeDisabled();
-
-    await context.setOffline(false);
   });
 
   test('10. 重試流程：500 → 重試 → 成功', async ({ page }) => {
