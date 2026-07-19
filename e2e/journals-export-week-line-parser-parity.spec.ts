@@ -24,24 +24,21 @@ const RANGES = [
   { start: '2026-12-28', end: '2027-01-03', label: 'cross-year' },
 ];
 
-// 涵蓋 harness 內所有會產生 markdown 的按鈕。
-const SINGLE_BUTTONS = [
+// 涵蓋 harness 內所有會產生 markdown 的按鈕（單檔 .md 或多檔 .zip 由 buildJournalExport 依 mentor 數決定）。
+const ALL_BUTTONS = [
   'je-export-single',
-  'je-export-missing-fields',
-  'je-export-no-experts',
-  'je-export-unit-empty',
-  'je-export-unit-null',
-  'je-export-unit-whitespace',
-];
-const ZIP_BUTTONS = [
   'je-export-multi',
+  'je-export-empty-unit',
   'je-export-multi-mixed',
-  'je-export-multi-missing-mixed',
   'je-export-multi-reversed',
+  'je-export-multi-mixed-reversed',
   'je-export-multi-interleaved',
   'je-export-dual-unit',
-  'je-export-all',
+  'je-export-missing-fields',
+  'je-export-no-experts',
+  'je-export-multi-missing-mixed',
 ];
+
 
 /**
  * 純函式解析器：獨立於 src/lib/journalsExport.ts，
