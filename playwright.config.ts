@@ -447,6 +447,12 @@ export default defineConfig({
       testMatch: /journals-export-week-line-position\.spec\.ts/,
       use: { ...devices['Desktop Chrome'], viewport: { width: 1280, height: 900 }, acceptDownloads: true },
     },
+    {
+      // 週記匯出：Windows CRLF vs LF 換行下週別行 index 2 與解析結果一致
+      name: 'desktop-journals-export-week-line-newline-parity',
+      testMatch: /journals-export-week-line-newline-parity\.spec\.ts/,
+      use: { ...devices['Desktop Chrome'], viewport: { width: 1280, height: 900 }, acceptDownloads: true },
+    },
 
 
     {
