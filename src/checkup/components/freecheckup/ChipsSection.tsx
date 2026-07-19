@@ -143,6 +143,11 @@ export default function ChipsSection({ WB, stockCode }: { WB: any; stockCode: st
         )}
       </div>
 
+      {/* 趨勢圖 + 歷史回放 */}
+      <div style={{ borderTop: `1px dashed ${WB.hair}`, marginTop: 12, paddingTop: 6 }}>
+        <ChipsTrendChart WB={WB} data={data} />
+      </div>
+
       <div style={{ marginTop: 10, fontSize: 10, color: WB.inkMute, letterSpacing: '0.06em' }}>
         資料來源：臺灣證券交易所（TWSE）
       </div>
