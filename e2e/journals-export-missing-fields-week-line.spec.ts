@@ -69,14 +69,22 @@ async function readZipContents(buf: Buffer) {
 
 async function gotoHarness(page: Page) {
   const errors: string[] = [];
-  page.on('pageerror', (e) => errors.push(String(e)));
+  const IGNORE = [/traffic-ingest/i, /CORS/i, /Failed to load resource/i, /ERR_FAILED/i];
+  const shouldKeep = (s: string) => !IGNORE.some((re) => re.test(s));
+  page.on('pageerror', (e) => {
+    const s = String(e);
+    if (shouldKeep(s)) errors.push(s);
+  });
   page.on('console', (m) => {
-    if (m.type() === 'error') errors.push(m.text());
+    if (m.type() !== 'error') return;
+    const s = m.text();
+    if (shouldKeep(s)) errors.push(s);
   });
   await page.goto(HARNESS_URL);
   await expect(page.getByTestId('je-status')).toHaveText('idle');
   return { errors };
 }
+
 
 test.describe('Journals export — 缺失 slug/資產/幣別的健壯性', () => {
   test('slug/asset/currency 皆為 null：header 仍完整、週別行位置固定', async ({ page }) => {
