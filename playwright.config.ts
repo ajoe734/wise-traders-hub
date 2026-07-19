@@ -453,6 +453,12 @@ export default defineConfig({
       testMatch: /journals-export-week-line-newline-parity\.spec\.ts/,
       use: { ...devices['Desktop Chrome'], viewport: { width: 1280, height: 900 }, acceptDownloads: true },
     },
+    {
+      // 週記匯出：BOM × 換行 6 變體下 header 順序與週別行位置不變
+      name: 'desktop-journals-export-bom-newline-header-order',
+      testMatch: /journals-export-bom-newline-header-order\.spec\.ts/,
+      use: { ...devices['Desktop Chrome'], viewport: { width: 1280, height: 900 }, acceptDownloads: true },
+    },
 
 
     {
