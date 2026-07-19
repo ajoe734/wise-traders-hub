@@ -459,6 +459,12 @@ export default defineConfig({
       testMatch: /journals-export-bom-newline-header-order\.spec\.ts/,
       use: { ...devices['Desktop Chrome'], viewport: { width: 1280, height: 900 }, acceptDownloads: true },
     },
+    {
+      // 週記匯出：老師輸入順序改變下週別行仍在 index 2 且 header 不跨老師污染
+      name: 'desktop-journals-export-mentor-order-header-isolation',
+      testMatch: /journals-export-mentor-order-header-isolation\.spec\.ts/,
+      use: { ...devices['Desktop Chrome'], viewport: { width: 1280, height: 900 }, acceptDownloads: true },
+    },
 
 
     {
