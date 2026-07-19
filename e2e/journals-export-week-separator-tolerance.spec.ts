@@ -153,10 +153,13 @@ test.describe('Journals export — 週別分隔符變體寬容解析', () => {
     for (const mut of MUTATIONS) {
       const { text, start, end } = mutateWeekLine(baseline, mut);
       // eslint-disable-next-line no-console
-      console.log('MUT', mut.name, '->', JSON.stringify(text.slice(0, 120)));
+      const norm = text.replace(/\r\n?/g, '\n').replace(/^\uFEFF/, '');
+      const wl = norm.split('\n').find((l) => l.includes('週別')) || '';
+      console.log('WEEKLINE', mut.name, JSON.stringify(wl), 'match=', !!norm.match(WEEK_LINE_RE));
       const wk = parseWeek(text);
       expect(wk.start, `[${mut.name}] start`).toBe(start);
       expect(wk.end, `[${mut.name}] end`).toBe(end);
+
 
 
       // totals 必須與 baseline 完全一致（分隔符變體不能污染總計解析）
