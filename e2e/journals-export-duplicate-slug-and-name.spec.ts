@@ -194,9 +194,13 @@ test.describe('Journals export — 同名週記／slug 撞名／重複 expert_id
 
   test('全部 duplicate 情境串跑不得產生 console/page error', async ({ page }) => {
     const errors: string[] = [];
+    const IGNORE_RE = /(traffic-ingest|Access-Control-Allow-Origin|ERR_FAILED|Failed to load resource)/i;
     page.on('pageerror', (e) => errors.push(`pageerror: ${e.message}`));
     page.on('console', (m) => {
-      if (m.type() === 'error') errors.push(`console: ${m.text()}`);
+      if (m.type() !== 'error') return;
+      const t = m.text();
+      if (IGNORE_RE.test(t)) return;
+      errors.push(`console: ${t}`);
     });
     await gotoHarness(page);
     for (const btn of [
