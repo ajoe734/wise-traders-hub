@@ -435,6 +435,13 @@ export default defineConfig({
       testMatch: /journals-export-zip-filename-slug-integrity\.spec\.ts/,
       use: { ...devices['Desktop Chrome'], viewport: { width: 1280, height: 900 }, acceptDownloads: true },
     },
+    {
+      // 週記匯出：週別行分隔符 (~ 〜 ～ — – - to 至 等) 變體寬容解析
+      name: 'desktop-journals-export-week-separator-tolerance',
+      testMatch: /journals-export-week-separator-tolerance\.spec\.ts/,
+      use: { ...devices['Desktop Chrome'], viewport: { width: 1280, height: 900 }, acceptDownloads: true },
+    },
+
 
     {
       // HoldingCard aria-live 螢幕閱讀器狀態（同步中 / 完成 / 錯誤三態）
