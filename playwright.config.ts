@@ -481,6 +481,15 @@ export default defineConfig({
       use: { ...devices['Desktop Chrome'], viewport: { width: 1280, height: 900 }, acceptDownloads: true },
     },
 
+    {
+      // 週記匯出：Markdown 解析器反查 — 週別行位置與 (start,end) 必須一致
+      name: 'desktop-journals-export-week-line-parser-parity',
+      testMatch: /journals-export-week-line-parser-parity\.spec\.ts/,
+      use: { ...devices['Desktop Chrome'], viewport: { width: 1280, height: 900 }, acceptDownloads: true },
+    },
+
+
+
 
 
     {
