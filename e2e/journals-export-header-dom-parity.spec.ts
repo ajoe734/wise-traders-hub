@@ -118,7 +118,11 @@ test.describe('Journals export — header DOM/text 一致性與視覺快照', ()
     const errors: string[] = [];
     page.on('pageerror', (e) => errors.push(`pageerror: ${e.message}`));
     page.on('console', (m) => {
-      if (m.type() === 'error') errors.push(`console: ${m.text()}`);
+      if (m.type() !== 'error') return;
+      const t = m.text();
+      // 略過 analytics / traffic-ingest / CORS 等與本測試無關的環境雜訊
+      if (/traffic-ingest|CORS|Failed to load resource|net::ERR_/i.test(t)) return;
+      errors.push(`console: ${t}`);
     });
     await goto(page);
     for (const c of CASES) {
