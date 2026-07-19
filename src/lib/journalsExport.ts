@@ -198,10 +198,24 @@ export async function buildJournalExport(
 
   const zip = new JSZip();
   const files: string[] = [];
+  // Dedup: 若不同 expert_id 的 slug 撞名（或 slug 缺失時 fallback expert_id 撞名），
+  // 追加 `-<expertId>` 後綴確保 zip 內檔名唯一，避免 JSZip.file() 後者覆蓋前者
+  // 造成整份 mentor 週記被吞掉。
+  const usedNames = new Set<string>();
   for (const [expertId, mentorRows] of byMentor) {
     const md = buildMentorMarkdown(mentorRows, range);
-    const slug = safeSlug(mentorRows[0].experts?.slug ?? expertId, expertId);
-    const name = `${slug}.md`;
+    const rawSlug = safeSlug(mentorRows[0].experts?.slug ?? expertId, expertId);
+    let name = `${rawSlug}.md`;
+    if (usedNames.has(name)) {
+      const suffix = safeSlug(expertId, expertId);
+      name = `${rawSlug}-${suffix}.md`;
+      let i = 2;
+      while (usedNames.has(name)) {
+        name = `${rawSlug}-${suffix}-${i}.md`;
+        i += 1;
+      }
+    }
+    usedNames.add(name);
     zip.file(name, md);
     files.push(name);
   }
