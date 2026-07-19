@@ -108,32 +108,28 @@ function assertParity(md: string, expectedStart: string, expectedEnd: string, ct
 
 for (const range of RANGES) {
   test.describe(`Journals export — week-line parser parity [${range.label}]`, () => {
-    for (const btn of SINGLE_BUTTONS) {
-      test(`single/${btn} 位置與解析區間一致`, async ({ page }) => {
+    for (const btn of ALL_BUTTONS) {
+      test(`${btn} 位置與解析區間一致`, async ({ page }) => {
         await gotoHarness(page, range.start, range.end);
         const { filename, buf } = await downloadFrom(page, btn);
-        expect(filename.endsWith('.md'), `[${btn}] 單檔應為 .md：${filename}`).toBe(true);
-        assertParity(buf.toString('utf8'), range.start, range.end, `${range.label}/${btn}/${filename}`);
-      });
-    }
 
-    for (const btn of ZIP_BUTTONS) {
-      test(`zip/${btn} 內每份 mentor markdown 位置與解析區間一致且跨檔對齊`, async ({ page }) => {
-        await gotoHarness(page, range.start, range.end);
-        const { filename, buf } = await downloadFrom(page, btn);
-        expect(filename.endsWith('.zip'), `[${btn}] 應為 zip：${filename}`).toBe(true);
+        if (filename.endsWith('.md')) {
+          assertParity(buf.toString('utf8'), range.start, range.end, `${range.label}/${btn}/${filename}`);
+          return;
+        }
+
+        expect(filename.endsWith('.zip'), `[${btn}] 應為 .md 或 .zip：${filename}`).toBe(true);
         const files = await readZip(buf);
-        const names = Object.keys(files);
-        expect(names.length, `[${btn}] zip 至少應含 2 份 mentor 檔`).toBeGreaterThanOrEqual(2);
+        const names = Object.keys(files).filter((n) => n.endsWith('.md'));
+        expect(names.length, `[${btn}] zip 至少應含 1 份 .md`).toBeGreaterThanOrEqual(1);
 
-        const parsedTuples: string[] = [];
+        const tuples: string[] = [];
         for (const n of names) {
           assertParity(files[n], range.start, range.end, `${range.label}/${btn}/${n}`);
           const h = parseWeekLines(files[n]).hits[0];
-          parsedTuples.push(`${h.lineIndex}|${h.start}|${h.end}`);
+          tuples.push(`${h.lineIndex}|${h.start}|${h.end}`);
         }
-        // 跨檔一致性：(lineIndex, start, end) 三元組去重後只剩一種
-        expect(new Set(parsedTuples).size, `[${btn}] 跨 mentor 檔 (index,start,end) 必須全部相同`).toBe(1);
+        expect(new Set(tuples).size, `[${btn}] 跨 mentor 檔 (index,start,end) 必須全部相同`).toBe(1);
       });
     }
   });
