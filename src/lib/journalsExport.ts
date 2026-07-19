@@ -129,14 +129,28 @@ export function buildMentorMarkdown(mentorRows: JournalRowExport[], range: WeekR
     lines.push('---');
     lines.push('');
   });
-  const fmtTotals = (m: Map<string, number>) => {
-    if (m.size === 0) return '0 股';
-    return Array.from(m.entries()).map(([unit, n]) => `${n} ${unit}`).join('、');
+  // 混合單位（例如同時有「張」與「股」）時，分行標註以避免加總語意混淆。
+  const pushTotals = (label: string, m: Map<string, number>) => {
+    if (m.size === 0) {
+      lines.push(`- ${label}：0 股`);
+      return;
+    }
+    if (m.size === 1) {
+      const [unit, n] = Array.from(m.entries())[0];
+      lines.push(`- ${label}：${n} ${unit}`);
+      return;
+    }
+    // 依單位字典序排序，確保輸出穩定
+    const entries = Array.from(m.entries()).sort(([a], [b]) => a.localeCompare(b));
+    lines.push(`- ${label}（依單位分列）：`);
+    for (const [unit, n] of entries) {
+      lines.push(`  - ${unit}：${n} ${unit}`);
+    }
   };
   lines.push('## 本週總計');
   lines.push('');
-  lines.push(`- 總買進股數：${fmtTotals(buyTotals)}`);
-  lines.push(`- 總賣出股數：${fmtTotals(sellTotals)}`);
+  pushTotals('總買進股數', buyTotals);
+  pushTotals('總賣出股數', sellTotals);
   lines.push('');
   return lines.join('\n').replace(/\n{3,}/g, '\n\n');
 }

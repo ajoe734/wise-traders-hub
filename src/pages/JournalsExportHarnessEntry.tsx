@@ -173,6 +173,43 @@ const MENTOR_C_ROWS: JournalRowExport[] = [
   },
 ];
 
+// Regression: 同一位老師同時有「張／股」兩種單位 → 本週總計必須分段標示
+const MENTOR_D_ROWS: JournalRowExport[] = [
+  {
+    id: 'sig-d-1', status: 'published', instrument: '2330 台積電', action: 'buy',
+    price_hint: 1050, quantity: 2, quantity_unit: '張',
+    reason_summary: 'D-summary-a', reason_detail: null, risk_notes: null, learning_points: null,
+    published_at: '2026-07-14T01:00:00Z', created_at: '2026-07-14T00:30:00Z',
+    expert_id: 'expert-d',
+    experts: { name: '雙棲老師', slug: 'dual-unit-master', role: 'mentor', asset_class: 'tw_stock', currency: 'TWD' },
+  },
+  {
+    id: 'sig-d-2', status: 'published', instrument: '00878 國泰永續高股息', action: 'buy',
+    price_hint: 25, quantity: 500, quantity_unit: '股',
+    reason_summary: 'D-summary-b', reason_detail: null, risk_notes: null, learning_points: null,
+    published_at: '2026-07-14T02:00:00Z', created_at: '2026-07-14T01:30:00Z',
+    expert_id: 'expert-d',
+    experts: { name: '雙棲老師', slug: 'dual-unit-master', role: 'mentor', asset_class: 'tw_stock', currency: 'TWD' },
+  },
+  {
+    id: 'sig-d-3', status: 'published', instrument: '2454 聯發科', action: 'sell',
+    price_hint: 1400, quantity: 1, quantity_unit: '張',
+    reason_summary: 'D-summary-c', reason_detail: null, risk_notes: null, learning_points: null,
+    published_at: '2026-07-15T02:00:00Z', created_at: '2026-07-15T01:30:00Z',
+    expert_id: 'expert-d',
+    experts: { name: '雙棲老師', slug: 'dual-unit-master', role: 'mentor', asset_class: 'tw_stock', currency: 'TWD' },
+  },
+  {
+    id: 'sig-d-4', status: 'published', instrument: '0056 元大高股息', action: 'sell',
+    price_hint: 35, quantity: 300, quantity_unit: '股',
+    reason_summary: 'D-summary-d', reason_detail: null, risk_notes: null, learning_points: null,
+    published_at: '2026-07-15T03:00:00Z', created_at: '2026-07-15T02:30:00Z',
+    expert_id: 'expert-d',
+    experts: { name: '雙棲老師', slug: 'dual-unit-master', role: 'mentor', asset_class: 'tw_stock', currency: 'TWD' },
+  },
+];
+
+
 export default function JournalsExportHarnessEntry() {
   if (!isPreviewEnv()) return null;
 
@@ -211,12 +248,21 @@ export default function JournalsExportHarnessEntry() {
     setStatus(`multi-mixed:${res.kind}:${res.filename}`);
   };
 
+  const runDualUnit = async () => {
+    setStatus('running-dual-unit');
+    const res = await buildJournalExport(MENTOR_D_ROWS, RANGE, true);
+    if (!res) { setStatus('empty'); return; }
+    downloadBlob(res.filename, res.blob);
+    setStatus(`dual-unit:${res.kind}:${res.filename}`);
+  };
+
   const weekDisplay = `${RANGE.startLabel} ~ ${RANGE.endLabel}`;
 
   const slugMap = {
     'expert-a': 'master-zhou',
     'expert-b': 'wendy-us',
     'expert-c': 'assistant-chen',
+    'expert-d': 'dual-unit-master',
   };
 
   return (
@@ -240,8 +286,11 @@ export default function JournalsExportHarnessEntry() {
       <button data-testid="je-export-empty-unit" onClick={runEmptyUnit} style={{ marginRight: 8, marginBottom: 8, padding: '6px 12px' }}>
         Export mentor with empty/missing unit (助教小陳)
       </button>
-      <button data-testid="je-export-multi-mixed" onClick={runMultiMixed} style={{ padding: '6px 12px' }}>
+      <button data-testid="je-export-multi-mixed" onClick={runMultiMixed} style={{ marginRight: 8, marginBottom: 8, padding: '6px 12px' }}>
         Export mixed units (老周 張 + 助教小陳 股)
+      </button>
+      <button data-testid="je-export-dual-unit" onClick={runDualUnit} style={{ padding: '6px 12px' }}>
+        Export dual-unit mentor (雙棲老師 張+股)
       </button>
     </div>
   );

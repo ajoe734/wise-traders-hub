@@ -411,6 +411,12 @@ export default defineConfig({
       testMatch: /journals-export-weekly-totals\.spec\.ts/,
       use: { ...devices['Desktop Chrome'], viewport: { width: 1280, height: 900 }, acceptDownloads: true },
     },
+    {
+      // 週記匯出：單一老師同時擁有「張／股」→ 本週總計必須分段標示
+      name: 'desktop-journals-export-dual-unit-totals',
+      testMatch: /journals-export-dual-unit-totals\.spec\.ts/,
+      use: { ...devices['Desktop Chrome'], viewport: { width: 1280, height: 900 }, acceptDownloads: true },
+    },
 
 
 
