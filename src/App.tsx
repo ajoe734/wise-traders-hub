@@ -69,6 +69,7 @@ const NotificationLinkHarnessEntry = lazy(() => import("./pages/NotificationLink
 const JournalsExportHarnessEntry = lazy(() => import("./pages/JournalsExportHarnessEntry"));
 const JournalsExportUIHarnessEntry = lazy(() => import("./pages/JournalsExportUIHarnessEntry"));
 const JournalsExportHeaderDomHarnessEntry = lazy(() => import("./pages/JournalsExportHeaderDomHarnessEntry"));
+const ChipsSectionHarnessEntry = lazy(() => import("./pages/ChipsSectionHarnessEntry"));
 const NotFound = lazy(() => import("./pages/NotFound"));
 
 const CheckupModeProviderLazy = lazy(() =>
