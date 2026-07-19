@@ -430,18 +430,15 @@ export default defineConfig({
       use: { ...devices['Desktop Chrome'], viewport: { width: 1280, height: 900 }, acceptDownloads: true },
     },
     {
-      // 週記匯出：瀏覽器 timezone 邊界 — 週別/檔名/時間欄位必須永遠採用 Asia/Taipei
-      name: 'desktop-journals-export-week-timezone-boundary',
-      testMatch: /journals-export-week-timezone-boundary\.spec\.ts/,
+      // 週記匯出：zip 內檔名 / slug / 防碰撞完整性
+      name: 'desktop-journals-export-zip-filename-slug-integrity',
+      testMatch: /journals-export-zip-filename-slug-integrity\.spec\.ts/,
       use: { ...devices['Desktop Chrome'], viewport: { width: 1280, height: 900 }, acceptDownloads: true },
     },
 
-
-
-
-
     {
       // HoldingCard aria-live 螢幕閱讀器狀態（同步中 / 完成 / 錯誤三態）
+
       name: 'desktop-holdings-aria-live-sync',
       testMatch: /holdings-aria-live-sync-status\.spec\.ts/,
       use: { ...devices['Desktop Chrome'], viewport: { width: 1280, height: 900 } },
