@@ -398,9 +398,19 @@ export default function JournalsExportHarnessEntry() {
       <button data-testid="je-export-multi-interleaved" onClick={runMultiInterleaved} style={{ marginRight: 8, marginBottom: 8, padding: '6px 12px' }}>
         Export multi interleaved (A1,C1,A2,C2,…)
       </button>
-      <button data-testid="je-export-dual-unit" onClick={runDualUnit} style={{ padding: '6px 12px' }}>
+      <button data-testid="je-export-dual-unit" onClick={runDualUnit} style={{ marginRight: 8, marginBottom: 8, padding: '6px 12px' }}>
         Export dual-unit mentor (雙棲老師 張+股)
       </button>
+      <button data-testid="je-export-missing-fields" onClick={runMissingFields} style={{ marginRight: 8, marginBottom: 8, padding: '6px 12px' }}>
+        Export missing slug/asset/currency (缺欄位老師)
+      </button>
+      <button data-testid="je-export-no-experts" onClick={runNoExperts} style={{ marginRight: 8, marginBottom: 8, padding: '6px 12px' }}>
+        Export experts=null (F)
+      </button>
+      <button data-testid="je-export-multi-missing-mixed" onClick={runMultiMissingMixed} style={{ padding: '6px 12px' }}>
+        Export multi missing mixed (A + E + F)
+      </button>
+
     </div>
   );
 }
