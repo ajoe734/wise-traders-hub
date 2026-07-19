@@ -475,6 +475,15 @@ export default defineConfig({
     },
 
     {
+      // 週記匯出：週別行字面快照（缺欄位情境下不得被 fallback 改寫）
+      name: 'desktop-journals-export-week-line-literal-snapshot',
+      testMatch: /journals-export-week-line-literal-snapshot\.spec\.ts/,
+      use: { ...devices['Desktop Chrome'], viewport: { width: 1280, height: 900 }, acceptDownloads: true },
+    },
+
+
+
+    {
       // HoldingCard aria-live 螢幕閱讀器狀態（同步中 / 完成 / 錯誤三態）
 
 
