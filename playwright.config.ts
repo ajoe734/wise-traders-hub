@@ -510,6 +510,13 @@ export default defineConfig({
     },
 
     {
+      // 週記匯出：空資料 / 取消對話框 / 失敗重試 UI 回饋，含最終匯出週別行 index 2 完整性
+      name: 'desktop-journals-export-ui-feedback',
+      testMatch: /journals-export-ui-feedback\.spec\.ts/,
+      use: { ...devices['Desktop Chrome'], viewport: { width: 1280, height: 900 }, acceptDownloads: true },
+    },
+
+    {
       // 週記匯出：zip 內同名週記 / slug 撞名 / slug fallback 撞名 / 重複 expert_id 情境下
       // 檔名必須 dedup 唯一、週別行仍固定 index 2，且不得跨老師污染
       name: 'desktop-journals-export-duplicate-slug-and-name',
