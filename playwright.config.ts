@@ -405,6 +405,12 @@ export default defineConfig({
       testMatch: /journals-export-quantity-unit-default\.spec\.ts/,
       use: { ...devices['Desktop Chrome'], viewport: { width: 1280, height: 900 }, acceptDownloads: true },
     },
+    {
+      // 週記匯出：每位老師「本週總計」買進/賣出與 fixture 完全一致
+      name: 'desktop-journals-export-weekly-totals',
+      testMatch: /journals-export-weekly-totals\.spec\.ts/,
+      use: { ...devices['Desktop Chrome'], viewport: { width: 1280, height: 900 }, acceptDownloads: true },
+    },
 
 
 
