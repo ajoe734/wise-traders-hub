@@ -13,6 +13,7 @@ import { useThesisTracking } from '@/checkup/hooks/useThesisTracking';
 import { Sparkline } from '@/pages/_freeCheckup/constants.jsx';
 import { computeScenario, isDirty } from './holdingScenario';
 import HoldingExportCard from './HoldingExportCard';
+import ChipsSection from './ChipsSection';
 import '@/checkup/styles/holdingsDetailPanel.css';
 
 /**
@@ -561,6 +562,9 @@ function HoldingsDetailPanelImpl({
 
         {/* 8) 決策履歷 */}
         {thesisRows && <ThesisHistory WB={WB} rows={thesisRows} />}
+
+        {/* 8.5) 籌碼面（僅台股） */}
+        <ChipsSection WB={WB} stockCode={h.code} />
 
         {/* 9) 情境模擬 */}
         <ScenarioSandbox

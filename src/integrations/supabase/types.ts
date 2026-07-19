@@ -3826,6 +3826,168 @@ export type Database = {
         }
         Relationships: []
       }
+      tw_bsr_daily: {
+        Row: {
+          avg_buy_price: number | null
+          avg_sell_price: number | null
+          broker_id: string
+          broker_name: string
+          buy_shares: number
+          created_at: string
+          id: number
+          net_shares: number
+          sell_shares: number
+          stock_id: string
+          trade_date: string
+        }
+        Insert: {
+          avg_buy_price?: number | null
+          avg_sell_price?: number | null
+          broker_id: string
+          broker_name: string
+          buy_shares?: number
+          created_at?: string
+          id?: number
+          net_shares?: number
+          sell_shares?: number
+          stock_id: string
+          trade_date: string
+        }
+        Update: {
+          avg_buy_price?: number | null
+          avg_sell_price?: number | null
+          broker_id?: string
+          broker_name?: string
+          buy_shares?: number
+          created_at?: string
+          id?: number
+          net_shares?: number
+          sell_shares?: number
+          stock_id?: string
+          trade_date?: string
+        }
+        Relationships: []
+      }
+      tw_bsr_fetch_failures: {
+        Row: {
+          attempts: number
+          created_at: string
+          id: number
+          last_error: string | null
+          reason: string
+          resolved_at: string | null
+          stock_id: string
+          trade_date: string
+          updated_at: string
+        }
+        Insert: {
+          attempts?: number
+          created_at?: string
+          id?: number
+          last_error?: string | null
+          reason: string
+          resolved_at?: string | null
+          stock_id: string
+          trade_date: string
+          updated_at?: string
+        }
+        Update: {
+          attempts?: number
+          created_at?: string
+          id?: number
+          last_error?: string | null
+          reason?: string
+          resolved_at?: string | null
+          stock_id?: string
+          trade_date?: string
+          updated_at?: string
+        }
+        Relationships: []
+      }
+      tw_chips_rollup: {
+        Row: {
+          as_of_date: string
+          bsr_available: boolean
+          concentration_ratio: number | null
+          dealer_net: number
+          foreign_net: number
+          id: number
+          stock_id: string
+          top_buy_brokers: Json
+          top_sell_brokers: Json
+          trust_net: number
+          updated_at: string
+          window_days: number
+        }
+        Insert: {
+          as_of_date: string
+          bsr_available?: boolean
+          concentration_ratio?: number | null
+          dealer_net?: number
+          foreign_net?: number
+          id?: number
+          stock_id: string
+          top_buy_brokers?: Json
+          top_sell_brokers?: Json
+          trust_net?: number
+          updated_at?: string
+          window_days: number
+        }
+        Update: {
+          as_of_date?: string
+          bsr_available?: boolean
+          concentration_ratio?: number | null
+          dealer_net?: number
+          foreign_net?: number
+          id?: number
+          stock_id?: string
+          top_buy_brokers?: Json
+          top_sell_brokers?: Json
+          trust_net?: number
+          updated_at?: string
+          window_days?: number
+        }
+        Relationships: []
+      }
+      tw_institutional_daily: {
+        Row: {
+          created_at: string
+          dealer_net: number
+          foreign_net: number
+          id: number
+          raw: Json | null
+          stock_id: string
+          total_net: number
+          trade_date: string
+          trust_net: number
+          updated_at: string
+        }
+        Insert: {
+          created_at?: string
+          dealer_net?: number
+          foreign_net?: number
+          id?: number
+          raw?: Json | null
+          stock_id: string
+          total_net?: number
+          trade_date: string
+          trust_net?: number
+          updated_at?: string
+        }
+        Update: {
+          created_at?: string
+          dealer_net?: number
+          foreign_net?: number
+          id?: number
+          raw?: Json | null
+          stock_id?: string
+          total_net?: number
+          trade_date?: string
+          trust_net?: number
+          updated_at?: string
+        }
+        Relationships: []
+      }
       user_performances: {
         Row: {
           current_price: number | null
