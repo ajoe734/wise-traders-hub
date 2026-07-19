@@ -441,6 +441,12 @@ export default defineConfig({
       testMatch: /journals-export-week-separator-tolerance\.spec\.ts/,
       use: { ...devices['Desktop Chrome'], viewport: { width: 1280, height: 900 }, acceptDownloads: true },
     },
+    {
+      // 週記匯出：「- 週別：」行在單一/多老師匯出中位置固定於 H1 之後 header 群首位
+      name: 'desktop-journals-export-week-line-position',
+      testMatch: /journals-export-week-line-position\.spec\.ts/,
+      use: { ...devices['Desktop Chrome'], viewport: { width: 1280, height: 900 }, acceptDownloads: true },
+    },
 
 
     {
