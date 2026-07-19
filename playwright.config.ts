@@ -204,6 +204,17 @@ export default defineConfig({
       testMatch: /signal-detail-incomplete-teaching-fields\.spec\.ts/,
       use: { ...devices['Desktop Chrome'], viewport: { width: 1280, height: 900 } },
     },
+    {
+      // ChipsSection 抽屜籌碼面：空資料 / 逾時 / 部分欄位 / DOM 一致性
+      name: 'desktop-chips-section',
+      testMatch: /chips-section\.spec\.ts/,
+      use: { ...devices['Desktop Chrome'], viewport: { width: 1280, height: 900 } },
+    },
+
+
+
+
+
 
 
 
