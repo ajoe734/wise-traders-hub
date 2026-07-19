@@ -3,6 +3,7 @@
 // 三大法人 1/5/20/60 日 + BSR 前 3 買/賣 + 集中度
 import React, { useMemo } from 'react';
 import { useTwChipsDetail, isTaiwanStockCode, type TwChipsPayload } from '@/checkup/hooks/useTwChipsDetail';
+import ChipsTrendChart from './ChipsTrendChart';
 
 const SERIF = '"Source Serif 4", "Noto Serif TC", Georgia, serif';
 
@@ -140,6 +141,11 @@ export default function ChipsSection({ WB, stockCode }: { WB: any; stockCode: st
             — 分點資料尚未更新
           </div>
         )}
+      </div>
+
+      {/* 趨勢圖 + 歷史回放 */}
+      <div style={{ borderTop: `1px dashed ${WB.hair}`, marginTop: 12, paddingTop: 6 }}>
+        <ChipsTrendChart WB={WB} data={data} />
       </div>
 
       <div style={{ marginTop: 10, fontSize: 10, color: WB.inkMute, letterSpacing: '0.06em' }}>

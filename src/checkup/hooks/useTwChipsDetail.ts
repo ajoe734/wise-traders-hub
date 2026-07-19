@@ -23,6 +23,20 @@ export interface BsrWindow {
   concentration_ratio: number | null;
 }
 
+export interface InstitutionalDailyPoint {
+  date: string;
+  foreign_net: number;
+  trust_net: number;
+  dealer_net: number;
+  total_net: number;
+}
+
+export interface BsrConcentrationPoint {
+  date: string;
+  concentration_ratio: number | null;
+  top_net: number;
+}
+
 export interface TwChipsPayload {
   stock_id: string;
   as_of: string | null;
@@ -38,6 +52,10 @@ export interface TwChipsPayload {
     d60: BsrWindow | null;
   };
   bsr_as_of: string | null;
+  series?: {
+    institutional_daily: InstitutionalDailyPoint[];
+    bsr_concentration: BsrConcentrationPoint[];
+  };
   source: string;
   fetched_at: string;
 }
