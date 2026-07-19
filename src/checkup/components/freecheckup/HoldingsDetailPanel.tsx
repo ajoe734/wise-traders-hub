@@ -563,6 +563,9 @@ function HoldingsDetailPanelImpl({
         {/* 8) 決策履歷 */}
         {thesisRows && <ThesisHistory WB={WB} rows={thesisRows} />}
 
+        {/* 8.5) 籌碼面（僅台股） */}
+        <ChipsSection WB={WB} stockCode={h.code} />
+
         {/* 9) 情境模擬 */}
         <ScenarioSandbox
           WB={WB} prefs={prefs} setPrefs={setPrefs}
