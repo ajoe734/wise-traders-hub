@@ -465,6 +465,7 @@ export default function JournalsExportHarnessEntry() {
     setStatus(`duplicate-expert-id:${res.kind}:${res.filename}`);
   };
 
+  const weekDisplay = `${RANGE.startLabel} ~ ${RANGE.endLabel}`;
 
 
   const slugMap = {
