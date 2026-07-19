@@ -229,18 +229,18 @@ test.describe('ChipsSection · 全覆蓋', () => {
   });
 
   test('9. 離線：注入 offline → OFFLINE badge + banner，重試按鈕 disabled', async ({ page, context }) => {
-    await mockChips(page, (r) => fulfill(r, fullPayload()));
-    await page.goto(`/e2e/chips-section?code=${STOCK}`);
-    await page.getByTestId('chips-section').waitFor();
-
-    // 觸發 offline
-    await page.evaluate(() => {
-      Object.defineProperty(window.navigator, 'onLine', { value: false, configurable: true });
-      window.dispatchEvent(new Event('offline'));
+    // 在頁面載入前就把 navigator.onLine 覆寫為 false，並封鎖網路
+    await context.addInitScript(() => {
+      Object.defineProperty(window.navigator, 'onLine', {
+        value: false,
+        configurable: true,
+      });
     });
-    // 手動觸發 refetch 讓 hook 進入離線分支
-    // 也可以等 stale check → 直接 reload 更穩
-    await page.reload();
+    await context.setOffline(true);
+    // 保底：即便 request 送出去也直接 abort，模擬完全離線
+    await page.route(CHIPS_ROUTE, (route) => route.abort('internetdisconnected'));
+
+    await page.goto(`/e2e/chips-section?code=${STOCK}`);
     await page.getByTestId('chips-section').waitFor();
 
     await expect(page.getByTestId('chips-offline-badge')).toBeVisible();
@@ -248,6 +248,8 @@ test.describe('ChipsSection · 全覆蓋', () => {
     await banner.waitFor();
     await expect(banner).toContainText('離線');
     await expect(page.getByTestId('chips-retry')).toBeDisabled();
+
+    await context.setOffline(false);
   });
 
   test('10. 重試流程：500 → 重試 → 成功', async ({ page }) => {
