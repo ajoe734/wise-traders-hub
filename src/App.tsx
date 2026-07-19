@@ -68,6 +68,7 @@ const JournalPdfHarnessEntry = lazy(() => import("./pages/JournalPdfHarnessEntry
 const NotificationLinkHarnessEntry = lazy(() => import("./pages/NotificationLinkHarnessEntry"));
 const JournalsExportHarnessEntry = lazy(() => import("./pages/JournalsExportHarnessEntry"));
 const JournalsExportUIHarnessEntry = lazy(() => import("./pages/JournalsExportUIHarnessEntry"));
+const JournalsExportHeaderDomHarnessEntry = lazy(() => import("./pages/JournalsExportHeaderDomHarnessEntry"));
 const NotFound = lazy(() => import("./pages/NotFound"));
 
 const CheckupModeProviderLazy = lazy(() =>
@@ -278,6 +279,7 @@ const AppShell = () => (
             <Route path="/e2e/notification-link-harness" element={<NotificationLinkHarnessEntry />} />
             <Route path="/e2e/journals-export-harness" element={<JournalsExportHarnessEntry />} />
             <Route path="/e2e/journals-export-ui-harness" element={<JournalsExportUIHarnessEntry />} />
+            <Route path="/e2e/journals-export-header-dom" element={<JournalsExportHeaderDomHarnessEntry />} />
             <Route path="/free-checkup" element={<LegacyFreeCheckupRedirect />} />
             <Route path="/legal" element={<Legal />} />
             <Route path="/data-sources" element={<DataSources />} />
