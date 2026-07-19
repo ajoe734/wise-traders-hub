@@ -210,6 +210,7 @@ const MENTOR_D_ROWS: JournalRowExport[] = [
 ];
 
 
+export default function JournalsExportHarnessEntry() {
   if (!isPreviewEnv()) return null;
 
   const [status, setStatus] = useState<string>('idle');
