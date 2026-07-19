@@ -87,35 +87,67 @@ function HoldingsWorkbench(props) {
   const gridRef = useRef<HTMLDivElement | null>(null);
   const [showTopBtn, setShowTopBtn] = useState(false);
 
-  // 抽屜內部滾動時顯示「回到頂部」按鈕；透過 callback ref 掛載，避免 Sheet 動畫/portal 導致時序問題
+  // 抽屜內部滾動時顯示「回到頂部」按鈕。
+  //
+  // 根因修法：Radix `SheetContent` 內部用 `composeRefs` 合併多個 ref，
+  // 每次 re-render 都會產生新的 ref 函式；React 對於函式型 ref 的規則是
+  // 只要函式 identity 變了，就會依序呼叫舊(null) → 新(node) 來重新掛載。
+  // 過去的實作在 ref callback 裡直接 `node.scrollTop = 0`，加上
+  // scroll 事件會 setState 觸發父層 re-render，形成「滾動 → setState →
+  // 父層 re-render → composeRefs 新函式 → React re-attach ref →
+  // scrollTop 被重設為 0」的無限重設迴圈，導致抽屜怎麼都滑不下去。
+  //
+  // 修正策略：
+  //   1) ref callback 只負責同步 sheetRef.current，不做任何副作用
+  //   2) scroll listener 用 useEffect 掛載，依賴 `showPanel`；只有抽屜
+  //      真正開啟時才 attach、關閉時才 detach，不再受 re-render 影響
+  //   3) 「抽屜開啟時把 scrollTop 歸零」也搬到同一支 useEffect，並且
+  //      只在 open 邊緣觸發一次
   const setSheetRef = useCallback((node: HTMLDivElement | null) => {
-    if (onScrollRef.current && sheetRef.current) {
-      sheetRef.current.removeEventListener('scroll', onScrollRef.current);
-    }
     sheetRef.current = node;
-    if (node) {
-      // 抽屜開啟時，先把內部捲軸歸零（不動畫，避免與 Sheet 進場動畫互撞）
+  }, []);
+
+  useEffect(() => {
+    if (!showPanel) {
+      setShowTopBtn(false);
+      return;
+    }
+    // 等 Radix Portal + 進場動畫佈局穩定後再取 node，避免拿到還沒掛載的 ref
+    let raf = 0;
+    let cleanup: (() => void) | null = null;
+    const attach = () => {
+      const node = sheetRef.current;
+      if (!node) {
+        raf = requestAnimationFrame(attach);
+        return;
+      }
+      // 只在抽屜「開啟的當下」歸零一次；之後 re-render 不再重設
       node.scrollTop = 0;
       setShowTopBtn(false);
-      // 使用 rAF 節流 setState，避免每個 scroll 事件都觸發 React 重新 render
-      // 造成 Radix FocusScope / RemoveScroll 邊界處理把 scrollTop 重設回 0
       let ticking = false;
       const onScroll = () => {
         if (ticking) return;
         ticking = true;
         requestAnimationFrame(() => {
           ticking = false;
-          setShowTopBtn(node.scrollTop > 160);
+          const cur = sheetRef.current;
+          if (!cur) return;
+          setShowTopBtn(cur.scrollTop > 160);
         });
       };
       onScrollRef.current = onScroll;
       node.addEventListener('scroll', onScroll, { passive: true });
-    } else {
-      onScrollRef.current = null;
-      setShowTopBtn(false);
-    }
-
-  }, []);
+      cleanup = () => {
+        node.removeEventListener('scroll', onScroll);
+        onScrollRef.current = null;
+      };
+    };
+    raf = requestAnimationFrame(attach);
+    return () => {
+      if (raf) cancelAnimationFrame(raf);
+      if (cleanup) cleanup();
+    };
+  }, [showPanel]);
 
   // 抽屜開啟時，把對應的持倉卡平滑捲入視野。
   // - 用雙 rAF 等 Sheet 進場動畫佈局穩定，避免 layout thrash 造成 jank
