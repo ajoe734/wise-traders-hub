@@ -429,6 +429,12 @@ export default defineConfig({
       testMatch: /journals-export-week-label-consistency\.spec\.ts/,
       use: { ...devices['Desktop Chrome'], viewport: { width: 1280, height: 900 }, acceptDownloads: true },
     },
+    {
+      // 週記匯出：瀏覽器 timezone 邊界 — 週別/檔名/時間欄位必須永遠採用 Asia/Taipei
+      name: 'desktop-journals-export-week-timezone-boundary',
+      testMatch: /journals-export-week-timezone-boundary\.spec\.ts/,
+      use: { ...devices['Desktop Chrome'], viewport: { width: 1280, height: 900 }, acceptDownloads: true },
+    },
 
 
 
