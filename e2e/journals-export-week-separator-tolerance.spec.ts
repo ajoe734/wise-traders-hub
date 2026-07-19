@@ -141,31 +141,26 @@ test.describe('Journals export — 週別分隔符變體寬容解析', () => {
     await expect(page.getByTestId('je-status')).toHaveText('idle');
     const baseline = await downloadMd(page, 'je-export-single');
 
-    // DEBUG
-    // eslint-disable-next-line no-console
-    console.log('BASELINE_HEAD:', JSON.stringify(baseline.slice(0, 400)));
-
     // baseline 的 totals 是 single-unit
     const baseTotals = parseTotals(baseline);
     expect(baseTotals.kind).toBe('single');
 
-
+    const FORMS = [
+      { suffix: '', wrap: (t: string) => t },
+      { suffix: ' + 檔頭 BOM', wrap: (t: string) => '\uFEFF' + t },
+    ];
     for (const mut of MUTATIONS) {
-      const { text, start, end } = mutateWeekLine(baseline, mut);
-      // eslint-disable-next-line no-console
-      const norm = text.replace(/\r\n?/g, '\n').replace(/^\uFEFF/, '');
-      const wl = norm.split('\n').find((l) => l.includes('週別')) || '';
-      console.log('WEEKLINE', mut.name, JSON.stringify(wl), 'match=', !!norm.match(WEEK_LINE_RE));
-      const wk = parseWeek(text);
-      expect(wk.start, `[${mut.name}] start`).toBe(start);
-      expect(wk.end, `[${mut.name}] end`).toBe(end);
-
-
-
-      // totals 必須與 baseline 完全一致（分隔符變體不能污染總計解析）
-      const t = parseTotals(text);
-      expect(t, `[${mut.name}] totals 必須維持不變`).toEqual(baseTotals);
+      for (const f of FORMS) {
+        const { text, start, end } = mutateWeekLine(baseline, mut);
+        const wrapped = f.wrap(text);
+        const wk = parseWeek(wrapped);
+        expect(wk.start, `[${mut.name}${f.suffix}] start`).toBe(start);
+        expect(wk.end, `[${mut.name}${f.suffix}] end`).toBe(end);
+        const t = parseTotals(wrapped);
+        expect(t, `[${mut.name}${f.suffix}] totals 必須維持不變`).toEqual(baseTotals);
+      }
     }
+
   });
 
   test('empty-unit fallback（assistant-chen，10 / 14 股）— 週別變體不影響「股」回退解析', async ({ page }) => {
