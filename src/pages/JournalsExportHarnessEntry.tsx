@@ -209,6 +209,39 @@ const MENTOR_D_ROWS: JournalRowExport[] = [
   },
 ];
 
+// Regression: 完全缺失 slug / asset_class / currency（experts 存在但欄位為 null）
+const MENTOR_E_ROWS: JournalRowExport[] = [
+  {
+    id: 'sig-e-1', status: 'published', instrument: '2330 台積電', action: 'buy',
+    price_hint: 1050, quantity: 3, quantity_unit: '張',
+    reason_summary: 'E-summary-null-slug', reason_detail: null, risk_notes: null, learning_points: null,
+    published_at: '2026-07-14T01:00:00Z', created_at: '2026-07-14T00:30:00Z',
+    expert_id: 'expert-e',
+    experts: { name: '缺欄位老師', slug: null, role: 'mentor', asset_class: null, currency: null },
+  },
+  {
+    id: 'sig-e-2', status: 'published', instrument: '00878 國泰永續高股息', action: 'sell',
+    price_hint: 25, quantity: 100, quantity_unit: '股',
+    reason_summary: 'E-summary-2', reason_detail: null, risk_notes: null, learning_points: null,
+    published_at: '2026-07-15T02:00:00Z', created_at: '2026-07-15T01:30:00Z',
+    expert_id: 'expert-e',
+    experts: { name: '缺欄位老師', slug: null, role: 'mentor', asset_class: null, currency: null },
+  },
+];
+
+// Regression: experts 物件本身為 null（極端 fallback，僅剩 expert_id 可用）
+const MENTOR_F_ROWS: JournalRowExport[] = [
+  {
+    id: 'sig-f-1', status: 'published', instrument: 'NVDA', action: 'buy',
+    price_hint: 180, quantity: 10, quantity_unit: null,
+    reason_summary: 'F-summary-no-experts', reason_detail: null, risk_notes: null, learning_points: null,
+    published_at: '2026-07-14T13:30:00Z', created_at: '2026-07-14T13:00:00Z',
+    expert_id: 'expert-f',
+    experts: null,
+  },
+];
+
+
 
 export default function JournalsExportHarnessEntry() {
   if (!isPreviewEnv()) return null;
@@ -290,6 +323,35 @@ export default function JournalsExportHarnessEntry() {
     setStatus(`dual-unit:${res.kind}:${res.filename}`);
   };
 
+  const runMissingFields = async () => {
+    setStatus('running-missing-fields');
+    const res = await buildJournalExport(MENTOR_E_ROWS, RANGE, true);
+    if (!res) { setStatus('empty'); return; }
+    downloadBlob(res.filename, res.blob);
+    setStatus(`missing-fields:${res.kind}:${res.filename}`);
+  };
+
+  const runNoExperts = async () => {
+    setStatus('running-no-experts');
+    const res = await buildJournalExport(MENTOR_F_ROWS, RANGE, true);
+    if (!res) { setStatus('empty'); return; }
+    downloadBlob(res.filename, res.blob);
+    setStatus(`no-experts:${res.kind}:${res.filename}`);
+  };
+
+  const runMultiMissingMixed = async () => {
+    setStatus('running-multi-missing-mixed');
+    // 完整資料 + 缺欄位 + experts=null 三種老師混在同一次匯出
+    const res = await buildJournalExport(
+      [...MENTOR_A_ROWS, ...MENTOR_E_ROWS, ...MENTOR_F_ROWS],
+      RANGE,
+      true,
+    );
+    if (!res) { setStatus('empty'); return; }
+    downloadBlob(res.filename, res.blob);
+    setStatus(`multi-missing-mixed:${res.kind}:${res.filename}`);
+  };
+
   const weekDisplay = `${RANGE.startLabel} ~ ${RANGE.endLabel}`;
 
   const slugMap = {
@@ -297,7 +359,11 @@ export default function JournalsExportHarnessEntry() {
     'expert-b': 'wendy-us',
     'expert-c': 'assistant-chen',
     'expert-d': 'dual-unit-master',
+    // E/F 老師沒有 slug → 應 fallback 為 expert_id
+    'expert-e': 'expert-e',
+    'expert-f': 'expert-f',
   };
+
 
   return (
     <div id="je-harness-root" style={{ padding: 24, background: '#fff', color: '#1a1a1a' }}>
@@ -332,9 +398,19 @@ export default function JournalsExportHarnessEntry() {
       <button data-testid="je-export-multi-interleaved" onClick={runMultiInterleaved} style={{ marginRight: 8, marginBottom: 8, padding: '6px 12px' }}>
         Export multi interleaved (A1,C1,A2,C2,…)
       </button>
-      <button data-testid="je-export-dual-unit" onClick={runDualUnit} style={{ padding: '6px 12px' }}>
+      <button data-testid="je-export-dual-unit" onClick={runDualUnit} style={{ marginRight: 8, marginBottom: 8, padding: '6px 12px' }}>
         Export dual-unit mentor (雙棲老師 張+股)
       </button>
+      <button data-testid="je-export-missing-fields" onClick={runMissingFields} style={{ marginRight: 8, marginBottom: 8, padding: '6px 12px' }}>
+        Export missing slug/asset/currency (缺欄位老師)
+      </button>
+      <button data-testid="je-export-no-experts" onClick={runNoExperts} style={{ marginRight: 8, marginBottom: 8, padding: '6px 12px' }}>
+        Export experts=null (F)
+      </button>
+      <button data-testid="je-export-multi-missing-mixed" onClick={runMultiMissingMixed} style={{ padding: '6px 12px' }}>
+        Export multi missing mixed (A + E + F)
+      </button>
+
     </div>
   );
 }

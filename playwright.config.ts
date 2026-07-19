@@ -468,7 +468,16 @@ export default defineConfig({
 
 
     {
+      // 週記匯出：缺失 slug / 資產類別 / 幣別（甚至 experts=null）時 header 完整且週別行位置固定
+      name: 'desktop-journals-export-missing-fields-week-line',
+      testMatch: /journals-export-missing-fields-week-line\.spec\.ts/,
+      use: { ...devices['Desktop Chrome'], viewport: { width: 1280, height: 900 }, acceptDownloads: true },
+    },
+
+    {
       // HoldingCard aria-live 螢幕閱讀器狀態（同步中 / 完成 / 錯誤三態）
+
+
 
       name: 'desktop-holdings-aria-live-sync',
       testMatch: /holdings-aria-live-sync-status\.spec\.ts/,
