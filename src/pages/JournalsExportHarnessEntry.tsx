@@ -286,8 +286,11 @@ export default function JournalsExportHarnessEntry() {
       <button data-testid="je-export-empty-unit" onClick={runEmptyUnit} style={{ marginRight: 8, marginBottom: 8, padding: '6px 12px' }}>
         Export mentor with empty/missing unit (助教小陳)
       </button>
-      <button data-testid="je-export-multi-mixed" onClick={runMultiMixed} style={{ padding: '6px 12px' }}>
+      <button data-testid="je-export-multi-mixed" onClick={runMultiMixed} style={{ marginRight: 8, marginBottom: 8, padding: '6px 12px' }}>
         Export mixed units (老周 張 + 助教小陳 股)
+      </button>
+      <button data-testid="je-export-dual-unit" onClick={runDualUnit} style={{ padding: '6px 12px' }}>
+        Export dual-unit mentor (雙棲老師 張+股)
       </button>
     </div>
   );
