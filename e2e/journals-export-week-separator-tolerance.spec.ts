@@ -141,9 +141,14 @@ test.describe('Journals export — 週別分隔符變體寬容解析', () => {
     await expect(page.getByTestId('je-status')).toHaveText('idle');
     const baseline = await downloadMd(page, 'je-export-single');
 
+    // DEBUG
+    // eslint-disable-next-line no-console
+    console.log('BASELINE_HEAD:', JSON.stringify(baseline.slice(0, 400)));
+
     // baseline 的 totals 是 single-unit
     const baseTotals = parseTotals(baseline);
     expect(baseTotals.kind).toBe('single');
+
 
     for (const mut of MUTATIONS) {
       const { text, start, end } = mutateWeekLine(baseline, mut);
