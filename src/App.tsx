@@ -67,6 +67,7 @@ const SignalFocusHarnessEntry = lazy(() => import("./pages/SignalFocusHarnessEnt
 const JournalPdfHarnessEntry = lazy(() => import("./pages/JournalPdfHarnessEntry"));
 const NotificationLinkHarnessEntry = lazy(() => import("./pages/NotificationLinkHarnessEntry"));
 const JournalsExportHarnessEntry = lazy(() => import("./pages/JournalsExportHarnessEntry"));
+const JournalsExportUIHarnessEntry = lazy(() => import("./pages/JournalsExportUIHarnessEntry"));
 const NotFound = lazy(() => import("./pages/NotFound"));
 
 const CheckupModeProviderLazy = lazy(() =>
