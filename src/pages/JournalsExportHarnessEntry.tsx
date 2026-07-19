@@ -248,12 +248,21 @@ export default function JournalsExportHarnessEntry() {
     setStatus(`multi-mixed:${res.kind}:${res.filename}`);
   };
 
+  const runDualUnit = async () => {
+    setStatus('running-dual-unit');
+    const res = await buildJournalExport(MENTOR_D_ROWS, RANGE, true);
+    if (!res) { setStatus('empty'); return; }
+    downloadBlob(res.filename, res.blob);
+    setStatus(`dual-unit:${res.kind}:${res.filename}`);
+  };
+
   const weekDisplay = `${RANGE.startLabel} ~ ${RANGE.endLabel}`;
 
   const slugMap = {
     'expert-a': 'master-zhou',
     'expert-b': 'wendy-us',
     'expert-c': 'assistant-chen',
+    'expert-d': 'dual-unit-master',
   };
 
   return (
