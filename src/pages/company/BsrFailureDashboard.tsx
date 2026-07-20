@@ -440,6 +440,11 @@ export default function BsrFailureDashboardPage() {
           </CardContent>
         </Card>
       </div>
+      <BsrAuditDialog
+        stockId={auditStock}
+        open={!!auditStock}
+        onOpenChange={(v) => { if (!v) setAuditStock(null); }}
+      />
     </CompanyLayout>
   );
 }
