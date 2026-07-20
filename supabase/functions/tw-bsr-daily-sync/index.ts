@@ -197,11 +197,42 @@ function parseBsContent(html: string): BsrRow[] {
 interface SessionCtx {
   jar: Record<string, string>;
   ua: string;
+  uaHash: string;
+  uaLabel: string;
   acceptLang: string;
   used: number;
 }
 function newSession(cfg: SyncConfig): SessionCtx {
-  return { jar: {}, ua: randomFrom(cfg.ua_pool), acceptLang: randomFrom(cfg.accept_lang_pool), used: 0 };
+  const ua = randomFrom(cfg.ua_pool);
+  return {
+    jar: {}, ua,
+    uaHash: shortHash(ua),
+    uaLabel: uaLabelFromString(ua),
+    acceptLang: randomFrom(cfg.accept_lang_pool),
+    used: 0,
+  };
+}
+
+// 產生短雜湊（djb2），用來當 UA 的固定 key
+function shortHash(s: string): string {
+  let h = 5381;
+  for (let i = 0; i < s.length; i++) h = ((h << 5) + h + s.charCodeAt(i)) | 0;
+  return (h >>> 0).toString(16).padStart(8, "0");
+}
+// 將 UA 化簡成可讀 label：Browser/OS
+function uaLabelFromString(ua: string): string {
+  const browser = /Edg\//.test(ua) ? "Edge"
+    : /Chrome\//.test(ua) ? "Chrome"
+    : /Firefox\//.test(ua) ? "Firefox"
+    : /Safari\//.test(ua) ? "Safari" : "Other";
+  const os = /Windows NT 10/.test(ua) ? "Win10"
+    : /Windows NT 11/.test(ua) ? "Win11"
+    : /Mac OS X/.test(ua) ? "macOS"
+    : /Android/.test(ua) ? "Android"
+    : /Linux/.test(ua) ? "Linux" : "Other";
+  const verMatch = ua.match(/(?:Chrome|Firefox|Edg|Version)\/(\d+)/);
+  const ver = verMatch ? verMatch[1] : "";
+  return `${browser}${ver ? " " + ver : ""} · ${os}`;
 }
 
 async function fetchBsrForStock(stockId: string, ctx: SessionCtx, cfg: SyncConfig): Promise<BsrRow[]> {
@@ -420,6 +451,30 @@ async function bumpMetrics(supa: any, patch: { total?: number; success?: number;
   }, { onConflict: "bucket_at" });
 }
 
+// 逐次嘗試日誌：供 UA / backoff / consecutive 效果分析圖使用。失敗絕不阻斷主流程。
+async function logAttempt(supa: any, p: {
+  stockId: string; tradeDate: string;
+  ctx: SessionCtx; cfg: SyncConfig; configVersion?: string;
+  backoffBefore: number; consecBefore: number;
+  latencyMs: number; outcome: string; step: number;
+}) {
+  try {
+    await supa.from("tw_bsr_attempt_logs").insert({
+      stock_id: p.stockId,
+      trade_date: p.tradeDate,
+      attempted_at: new Date().toISOString(),
+      ua_label: p.ctx.uaLabel,
+      ua_hash: p.ctx.uaHash,
+      backoff_seconds_before: p.backoffBefore,
+      consecutive_failures_before: p.consecBefore,
+      ocr_mode: p.cfg.ocr_mode,
+      latency_ms: p.latencyMs,
+      outcome: p.outcome,
+      attempt_step: p.step,
+      config_version: p.configVersion || null,
+    });
+  } catch (_e) { /* best-effort */ }
+
 Deno.serve(async (req) => {
   if (req.method === "OPTIONS") return corsPreflight();
   try {
@@ -570,6 +625,13 @@ Deno.serve(async (req) => {
         let lastError = "";
         let ocrFailBump = 0, blockBump = 0, emptyBump = 0;
 
+        // 讀取本檔嘗試前的 backoff / consecutive 狀態（用於效果分析歸類）
+        const { data: preState } = await supa.from("tw_bsr_fetch_failures")
+          .select("consecutive_failures, backoff_seconds")
+          .eq("stock_id", stockId).eq("trade_date", tradeDate).maybeSingle();
+        const consecBefore = Number(preState?.consecutive_failures || 0);
+        const backoffBefore = Number(preState?.backoff_seconds || 0);
+
         let cursor = tradeDate;
         const startedAt = Date.now();
 
@@ -586,6 +648,8 @@ Deno.serve(async (req) => {
             break;
           }
 
+          const stepStartedAt = Date.now();
+          let stepOutcome = "success";
           try {
             const rows = await fetchBsrForStock(stockId, ctx, cfg);
             if (rows.length === 0) throw new Error("empty_rows");
@@ -612,6 +676,12 @@ Deno.serve(async (req) => {
             }).eq("stock_id", stockId).is("resolved_at", null);
 
             resolvedDate = cursor; resolvedRows = rows.length;
+            // 記錄效果分析
+            await logAttempt(supa, {
+              stockId, tradeDate: cursor, ctx, cfg, configVersion,
+              backoffBefore, consecBefore, latencyMs: Date.now() - stepStartedAt,
+              outcome: "success", step,
+            });
             break;
           } catch (err) {
             const msg = (err as Error).message || "unknown";
@@ -627,6 +697,13 @@ Deno.serve(async (req) => {
             else if (isEmpty) emptyBump++;
             attempts.push({ date: cursor, error: msg });
             lastError = msg;
+            stepOutcome = reason;
+
+            await logAttempt(supa, {
+              stockId, tradeDate: cursor, ctx, cfg, configVersion,
+              backoffBefore, consecBefore, latencyMs: Date.now() - stepStartedAt,
+              outcome: stepOutcome, step,
+            });
 
             // 被擋直接中止本檔的 lookback（避免對同 IP 再擊）
             if (isBlock) break;

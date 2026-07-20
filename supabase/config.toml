@@ -144,5 +144,9 @@ verify_jwt = false
 [functions.tw-bsr-failure-dashboard]
 verify_jwt = false
 
+[functions.tw-bsr-effect-analysis]
+verify_jwt = false
+
+
 
 
