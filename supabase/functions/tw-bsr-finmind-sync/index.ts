@@ -675,8 +675,9 @@ Deno.serve(async (req) => {
     if (mode === 'manual') {
       const date = rollBackToWeekday(String(body?.date || taipeiToday()));
       const ids: string[] = Array.isArray(body?.stock_ids)
-        ? body.stock_ids.map((s: any) => String(s).trim()).filter((s: string) => /^[0-9]{4,6}$/.test(s))
+        ? body.stock_ids.map((s: any) => String(s).trim()).filter(isValidTwStockId)
         : [];
+
       if (ids.length === 0) return json({ ok: false, error: 'stock_ids required' }, 400);
       const priority = Math.max(1, Math.min(3, Number(body?.priority ?? 1)));
       const cid = crypto.randomUUID();
