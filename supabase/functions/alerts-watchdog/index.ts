@@ -178,6 +178,93 @@ async function checkStreamAborts(admin: any) {
   });
 }
 
+// ============ BSR / FinMind rate limiter guardrails ============
+// deno-lint-ignore no-explicit-any
+async function checkBsrRateLimiter(admin: any) {
+  const HOURLY_LIMIT = Number(Deno.env.get('FINMIND_HOURLY_LIMIT') ?? 1500);
+  const results: any[] = [];
+
+  // 1) 用量：透過 check_bsr_rate_limit（已含 in-flight reservation）
+  const { data: rl } = await admin.rpc('check_bsr_rate_limit', { _limit: HOURLY_LIMIT, _api: 'finmind' });
+  const rlRow = Array.isArray(rl) ? rl[0] : rl;
+  const used = Number(rlRow?.used ?? 0);
+  const pct = HOURLY_LIMIT > 0 ? (used / HOURLY_LIMIT) * 100 : 0;
+  if (pct >= 80) {
+    results.push(await fire(admin, {
+      kind: 'bsr_rate_limit_high',
+      level: pct >= 95 ? 'critical' : 'warning',
+      title: `FinMind 用量 ${pct.toFixed(0)}%（${used}/${HOURLY_LIMIT}）`,
+      message: `近 60 分鐘含 in-flight reservation 已達 ${used} 次；剩餘 ${Math.max(0, HOURLY_LIMIT - used)}。`,
+      metric_value: Number(pct.toFixed(2)),
+      threshold: 80,
+      detail: { used, limit: HOURLY_LIMIT },
+    }));
+  }
+
+  // 2) reservation 長時間未結算（>60s 表示 worker 掛住或 lease 過長）
+  const { data: rs } = await admin.rpc('bsr_reservation_stats', { _api: 'finmind' });
+  const rsRow = Array.isArray(rs) ? rs[0] : rs;
+  const oldest = Number(rsRow?.oldest_in_flight_age_seconds ?? 0);
+  const expiredUnsettled = Number(rsRow?.expired_unsettled ?? 0);
+  if (oldest >= 60 || expiredUnsettled >= 5) {
+    results.push(await fire(admin, {
+      kind: 'bsr_reservation_stuck',
+      level: oldest >= 300 || expiredUnsettled >= 20 ? 'critical' : 'warning',
+      title: `FinMind reservation 未結算（最舊 ${oldest}s、過期未結 ${expiredUnsettled}）`,
+      message: `in-flight=${rsRow?.in_flight ?? 0}、即將到期=${rsRow?.expiring_soon ?? 0}、過期未結算=${expiredUnsettled}。`,
+      metric_value: oldest,
+      threshold: 60,
+      detail: rsRow ?? {},
+    }));
+  }
+
+  // 3) 429 連續發生（近 60 分鐘 ≥ 3 分鐘連續 rate_limited_count > 0）
+  const since = new Date(Date.now() - 60 * 60_000).toISOString();
+  const { data: usage } = await admin.from('tw_bsr_api_usage')
+    .select('bucket_start,rate_limited_count')
+    .eq('api_name', 'finmind').gte('bucket_start', since)
+    .order('bucket_start', { ascending: true });
+  let streak = 0, maxStreak = 0;
+  for (const r of (usage ?? []) as Array<{ rate_limited_count: number }>) {
+    if ((r.rate_limited_count ?? 0) > 0) { streak++; maxStreak = Math.max(maxStreak, streak); }
+    else streak = 0;
+  }
+  if (maxStreak >= 3) {
+    results.push(await fire(admin, {
+      kind: 'bsr_rate_limited_streak',
+      level: maxStreak >= 10 ? 'critical' : 'warning',
+      title: `FinMind 連續 429 ${maxStreak} 分鐘`,
+      message: `近 60 分鐘內至少 ${maxStreak} 個連續分鐘 bucket 收到 429，可能觸發上游封鎖。`,
+      metric_value: maxStreak,
+      threshold: 3,
+      detail: { window: '60m' },
+    }));
+  }
+
+  // 4) P1 queue 延遲：最舊 pending P1 job age > 30 分鐘
+  const { data: oldestP1 } = await admin.from('tw_bsr_sync_queue')
+    .select('enqueued_at,stock_id,trade_date,attempts,last_error')
+    .eq('priority', 1).eq('status', 'pending')
+    .order('enqueued_at', { ascending: true }).limit(1);
+  const p1 = (oldestP1 ?? [])[0];
+  if (p1) {
+    const ageMin = Math.floor((Date.now() - new Date(p1.enqueued_at).getTime()) / 60_000);
+    if (ageMin >= 30) {
+      results.push(await fire(admin, {
+        kind: 'bsr_p1_queue_stalled',
+        level: ageMin >= 120 ? 'critical' : 'warning',
+        title: `BSR P1 佇列延遲 ${ageMin} 分鐘`,
+        message: `最舊 P1 pending：${p1.stock_id}@${p1.trade_date}（attempts=${p1.attempts ?? 0}）。last_error=${(p1.last_error ?? '').toString().slice(0, 120)}`,
+        metric_value: ageMin,
+        threshold: 30,
+        detail: p1,
+      }));
+    }
+  }
+
+  return { ok: true, ran: results.length, results };
+}
+
 // Push pending system_alerts to admin LINE bindings (dedup via notified_at).
 // deno-lint-ignore no-explicit-any
 async function pushPendingAlertsToLine(admin: any) {
@@ -237,17 +324,18 @@ Deno.serve(async (req) => {
   if (req.method === 'OPTIONS') return corsPreflight();
   try {
     const admin = serviceClient();
-    const [a, b, c, d] = await Promise.allSettled([
+    const [a, b, c, d, e] = await Promise.allSettled([
       checkCheckoutFailureRate(admin),
       checkPaywallDrop(admin),
       checkFunctionFailures(admin),
       checkStreamAborts(admin),
+      checkBsrRateLimiter(admin),
     ]);
     const notify = await pushPendingAlertsToLine(admin).catch((e) => ({ error: e instanceof Error ? e.message : String(e) }));
     return jsonResponse({
       ok: true,
       ran_at: new Date().toISOString(),
-      results: { checkout: a, paywall: b, functions: c, stream_aborts: d },
+      results: { checkout: a, paywall: b, functions: c, stream_aborts: d, bsr: e },
       notify,
     });
   } catch (e) {

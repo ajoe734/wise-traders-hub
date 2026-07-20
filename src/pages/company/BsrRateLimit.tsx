@@ -18,6 +18,16 @@ type Stats = {
   last_24h: { total_calls: number; errors: number; r429: number; success_rate: number | null };
   hourly_last_24h: Record<string, { calls: number; success: number; error: number; r429: number }>;
   queue_latency_ms: Record<string, { count: number; p50_ms: number; p95_ms: number; max_ms: number }>;
+  reservations?: {
+    in_flight: number;
+    expiring_soon: number;
+    expired_unsettled: number;
+    settled_last_hour: number;
+    rate_limited_last_hour: number;
+    oldest_in_flight_age_seconds: number;
+  };
+  p1_oldest_pending_age_seconds?: number;
+  rate_limited_streak_minutes?: number;
 };
 
 async function callSync(body: unknown): Promise<Stats | any> {
@@ -104,6 +114,49 @@ export default function BsrRateLimit() {
             </div>
           </Card>
         </div>
+
+        <Card className="p-4">
+          <div className="text-sm font-medium mb-2">Reservation / 佇列健康度</div>
+          <div className="grid grid-cols-2 md:grid-cols-6 gap-3 text-xs">
+            <div>
+              <div className="text-muted-foreground">In-flight</div>
+              <div className="text-lg font-semibold font-mono">{data?.reservations?.in_flight ?? '—'}</div>
+            </div>
+            <div>
+              <div className="text-muted-foreground">10s 內到期</div>
+              <div className="text-lg font-semibold font-mono">{data?.reservations?.expiring_soon ?? '—'}</div>
+            </div>
+            <div>
+              <div className="text-muted-foreground">過期未結算</div>
+              <div className={`text-lg font-semibold font-mono ${(data?.reservations?.expired_unsettled ?? 0) > 0 ? 'text-destructive' : ''}`}>
+                {data?.reservations?.expired_unsettled ?? '—'}
+              </div>
+            </div>
+            <div>
+              <div className="text-muted-foreground">最舊 in-flight 年齡</div>
+              <div className={`text-lg font-semibold font-mono ${(data?.reservations?.oldest_in_flight_age_seconds ?? 0) >= 60 ? 'text-destructive' : ''}`}>
+                {data?.reservations?.oldest_in_flight_age_seconds ?? 0}s
+              </div>
+            </div>
+            <div>
+              <div className="text-muted-foreground">近 1h 429 連續分鐘</div>
+              <div className={`text-lg font-semibold font-mono ${(data?.rate_limited_streak_minutes ?? 0) >= 3 ? 'text-amber-600' : ''}`}>
+                {data?.rate_limited_streak_minutes ?? 0}
+              </div>
+            </div>
+            <div>
+              <div className="text-muted-foreground">P1 最舊 pending</div>
+              <div className={`text-lg font-semibold font-mono ${(data?.p1_oldest_pending_age_seconds ?? 0) >= 1800 ? 'text-destructive' : ''}`}>
+                {Math.round((data?.p1_oldest_pending_age_seconds ?? 0) / 60)} 分
+              </div>
+            </div>
+          </div>
+          <p className="text-[11px] text-muted-foreground mt-3">
+            過期未結算 &gt; 0 由 cron <span className="font-mono">tw-bsr-purge-expired-reservations</span>（*/5 * * * *）自動回收；
+            告警閾值：用量 ≥80%、最舊 in-flight ≥60s、429 連續 ≥3 分鐘、P1 pending ≥30 分。
+          </p>
+        </Card>
+
 
         <Card className="p-4">
           <div className="text-sm font-medium mb-2">手動操作</div>
