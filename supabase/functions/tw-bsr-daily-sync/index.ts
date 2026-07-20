@@ -304,6 +304,8 @@ async function fetchBsrForStock(stockId: string, ctx: SessionCtx, cfg: SyncConfi
   const captchaUrl = extractCaptchaImageUrl(menuHtml);
   if (!viewState || !eventValidation || !captchaUrl) throw new Error("menu_parse_failed");
 
+  // 每一檔開始都重置 OCR 軌跡
+  ctx.ocrTrace = [];
   // 細分子原因統計，讓 captcha_retry_exhausted 能拆出 OCR 空值 vs OCR 錯字
   let ocrNullCount = 0;
   let ocrMismatchCount = 0;
@@ -319,7 +321,20 @@ async function fetchBsrForStock(stockId: string, ctx: SessionCtx, cfg: SyncConfi
     // 動態升級：最後一次重試時，若允許升級且不是 aggressive，改用 aggressive 加大成功率
     const activeMode = cfg.ocr_escalate_on_fail && attempt === cfg.max_ocr_retry && cfg.ocr_mode !== "aggressive"
       ? "aggressive" : cfg.ocr_mode;
-    const captcha = await ocrTwseCaptcha(capBytes, activeMode);
+    const ocr = await ocrTwseCaptchaDetailed(capBytes, activeMode);
+    const traceEntry: OcrTraceEntry = {
+      retry: attempt,
+      mode: ocr.mode,
+      strategy: ocr.strategy,
+      variants: ocr.attempts,
+      consensus: ocr.consensus,
+      adopted: ocr.text && ocr.winner
+        ? { variant: ocr.winner.variant, text: ocr.text, votes: ocr.winner.votes }
+        : null,
+      post_outcome: "empty",
+    };
+    ctx.ocrTrace.push(traceEntry);
+    const captcha = ocr.text;
     if (!captcha) { ocrNullCount++; continue; }
 
     const form = new URLSearchParams({
@@ -341,6 +356,7 @@ async function fetchBsrForStock(stockId: string, ctx: SessionCtx, cfg: SyncConfi
 
     const loc = postResp.headers.get("location");
     if (postResp.status === 302 && loc && loc.includes("bsContent.aspx")) {
+      traceEntry.post_outcome = "accepted";
       const contentUrl = loc.startsWith("http") ? loc : `${BSR_HOST}/bshtm/${loc.replace(/^\.?\//, "")}`;
       const contentResp = await fetch(contentUrl, {
         headers: { ...baseHeaders, Cookie: jarToHeader(ctx.jar), Referer: BSR_MENU },
@@ -350,6 +366,7 @@ async function fetchBsrForStock(stockId: string, ctx: SessionCtx, cfg: SyncConfi
       return parseBsContent(contentHtml);
     }
     // 有 OCR 結果但未跳轉 bsContent → 判定為 OCR 字元辨識錯誤
+    traceEntry.post_outcome = "mismatch";
     ocrMismatchCount++;
   }
   // 附上子細分方便後續 classifyError() 拆桶
