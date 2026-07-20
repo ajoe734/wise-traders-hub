@@ -1,0 +1,50 @@
+name: Edge Functions — FinMind BSR Sync Tests
+
+# 全 offline 測試（不打 FinMind、不接 DB）：
+#   - 純邏輯（lib_test.ts）
+#   - 全域限流器契約與併發 / 序列壓測（finmindRateLimit_test.ts）
+#   - 佇列 DB 語意模擬：去重／SKIP LOCKED／退避／crash recovery（queue_simulator_test.ts）
+#   - 源碼守門：manual 分支不繞過 queue、FinMind 只透過 fetchWithRateLimit、refresh-data-source 也走限流
+#
+# 目的：把「FinMind 每小時 1500 上限、同一 (stock,date) 不重複、失敗有退避、
+# 手動同步只入隊」這些不變量鎖在 CI，任何回歸都在 PR 階段擋下。
+
+on:
+  push:
+    branches: [main, 'feat/**', 'fix/**']
+    paths:
+      - 'supabase/functions/tw-bsr-finmind-sync/**'
+      - 'supabase/functions/refresh-data-source/**'
+      - 'supabase/functions/_shared/finmindRateLimit*.ts'
+      - '.github/workflows/finmind-bsr-tests.yml'
+  pull_request:
+    branches: [main]
+    paths:
+      - 'supabase/functions/tw-bsr-finmind-sync/**'
+      - 'supabase/functions/refresh-data-source/**'
+      - 'supabase/functions/_shared/finmindRateLimit*.ts'
+      - '.github/workflows/finmind-bsr-tests.yml'
+  workflow_dispatch:
+
+concurrency:
+  group: finmind-bsr-${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  finmind-bsr:
+    name: FinMind BSR sync — offline stress + contract
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    steps:
+      - uses: actions/checkout@v4
+      - uses: denoland/setup-deno@v2
+        with:
+          deno-version: v2.x
+      - name: Pure logic — lib_test.ts
+        run: deno test --allow-env --allow-read --no-check supabase/functions/tw-bsr-finmind-sync/lib_test.ts
+      - name: Rate limiter — finmindRateLimit_test.ts
+        run: deno test --allow-env --allow-net --allow-read --no-check supabase/functions/_shared/finmindRateLimit_test.ts
+      - name: Queue DB semantics simulator — queue_simulator_test.ts
+        run: deno test --allow-env --allow-read --no-check supabase/functions/tw-bsr-finmind-sync/queue_simulator_test.ts
+      - name: Source-level invariants — manual_and_source_test.ts
+        run: deno test --allow-env --allow-read --no-check supabase/functions/tw-bsr-finmind-sync/manual_and_source_test.ts
