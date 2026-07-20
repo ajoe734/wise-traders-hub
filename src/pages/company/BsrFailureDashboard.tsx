@@ -66,7 +66,7 @@ const REASONS = [
 
 const fmtDate = (s: string | null) => {
   if (!s) return '—';
-  return s.slice(0, 10).replaceAll('-', '/');
+  return s.slice(0, 10).replace(/-/g, '/');
 };
 
 const fmtDateTime = (iso: string | null) => {
