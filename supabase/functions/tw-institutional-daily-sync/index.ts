@@ -38,32 +38,85 @@ function parseNum(v: unknown): number {
   return Number.isFinite(n) ? n : 0;
 }
 
+// YYYYMMDD -/+ N 天
+function shiftYmd(ymd: string, deltaDays: number): string {
+  const y = Number(ymd.slice(0, 4));
+  const m = Number(ymd.slice(4, 6)) - 1;
+  const d = Number(ymd.slice(6, 8));
+  const dt = new Date(Date.UTC(y, m, d));
+  dt.setUTCDate(dt.getUTCDate() + deltaDays);
+  const p = (n: number) => String(n).padStart(2, "0");
+  return `${dt.getUTCFullYear()}${p(dt.getUTCMonth() + 1)}${p(dt.getUTCDate())}`;
+}
+
+function isWeekend(ymd: string): boolean {
+  const dt = new Date(`${toISODate(ymd)}T00:00:00Z`);
+  const dow = dt.getUTCDay();
+  return dow === 0 || dow === 6;
+}
+
+async function fetchTwseT86(date: string) {
+  const twseUrl = `https://www.twse.com.tw/rwd/zh/fund/T86?date=${date}&selectType=ALL&response=json`;
+  const resp = await fetch(twseUrl, {
+    signal: AbortSignal.timeout(15000),
+    headers: {
+      "User-Agent": "Mozilla/5.0 (compatible; LegendflowBot/1.0)",
+      Accept: "application/json",
+    },
+  });
+  if (!resp.ok) throw new Error(`TWSE ${resp.status}`);
+  const raw = await resp.json();
+  return raw;
+}
+
 Deno.serve(async (req) => {
   if (req.method === "OPTIONS") return corsPreflight();
   try {
     const url = new URL(req.url);
-    const date = url.searchParams.get("date") || taipeiToday();
-    if (!/^\d{8}$/.test(date)) {
+    const requestedDate = url.searchParams.get("date") || taipeiToday();
+    const lookback = Math.min(Math.max(Number(url.searchParams.get("lookback")) || 7, 0), 14);
+    if (!/^\d{8}$/.test(requestedDate)) {
       return errorResponse("date must be YYYYMMDD", 400, { code: "BAD_REQUEST" });
     }
 
-    const twseUrl = `https://www.twse.com.tw/rwd/zh/fund/T86?date=${date}&selectType=ALL&response=json`;
-    const resp = await fetch(twseUrl, {
-      signal: AbortSignal.timeout(15000),
-      headers: {
-        "User-Agent": "Mozilla/5.0 (compatible; LegendflowBot/1.0)",
-        Accept: "application/json",
-      },
-    });
-    if (!resp.ok) {
-      return errorResponse(`TWSE ${resp.status}`, 502, { code: "UPSTREAM_ERROR" });
+    // 逐日回退（含週末自動跳過），直到抓到資料或用盡 lookback
+    const attempts: Array<{ date: string; ok: boolean; rows: number; reason?: string }> = [];
+    let resolvedDate = requestedDate;
+    let raw: any = null;
+    for (let i = 0; i <= lookback; i++) {
+      const tryDate = shiftYmd(requestedDate, -i);
+      if (isWeekend(tryDate)) {
+        attempts.push({ date: tryDate, ok: false, rows: 0, reason: "weekend" });
+        continue;
+      }
+      try {
+        const r = await fetchTwseT86(tryDate);
+        const rowCount = (r?.data || []).length;
+        if (rowCount > 0) {
+          raw = r;
+          resolvedDate = tryDate;
+          attempts.push({ date: tryDate, ok: true, rows: rowCount });
+          break;
+        }
+        attempts.push({ date: tryDate, ok: false, rows: 0, reason: r?.stat || "no_data" });
+      } catch (err) {
+        attempts.push({ date: tryDate, ok: false, rows: 0, reason: (err as Error).message.slice(0, 80) });
+      }
     }
-    const raw = await resp.json();
+
+    if (!raw) {
+      return jsonResponse({
+        requested_date: requestedDate,
+        resolved_date: null,
+        inserted: 0,
+        skipped: true,
+        reason: "no_data_in_lookback",
+        attempts,
+      });
+    }
+
     const fields: string[] = raw?.fields || [];
     const rows: any[][] = raw?.data || [];
-    if (!rows.length) {
-      return jsonResponse({ date, inserted: 0, skipped: true, reason: "no_data" });
-    }
 
     // 依 fields 動態找欄位 index（TWSE 偶爾調整名稱）
     const idxOf = (kw: string) => fields.findIndex((f) => f && f.includes(kw));
@@ -85,12 +138,11 @@ Deno.serve(async (req) => {
       });
     }
 
-    const tradeDate = toISODate(date);
+    const tradeDate = toISODate(resolvedDate);
     const supa = createClient(SUPABASE_URL, SERVICE_ROLE_KEY, {
       auth: { persistSession: false },
     });
 
-    // 分批 upsert（避免單次 payload 過大；TWSE 一天約 1800 檔）
     const BATCH = 500;
     let inserted = 0;
     for (let i = 0; i < rows.length; i += BATCH) {
@@ -120,8 +172,15 @@ Deno.serve(async (req) => {
       inserted += chunk.length;
     }
 
-    return jsonResponse({ date: tradeDate, inserted, source: "TWSE_T86" });
+    return jsonResponse({
+      requested_date: toISODate(requestedDate),
+      resolved_date: tradeDate,
+      inserted,
+      attempts,
+      source: "TWSE_T86",
+    });
   } catch (err) {
     return errorResponse((err as Error).message, 500, { code: "INTERNAL_ERROR" });
   }
 });
+
