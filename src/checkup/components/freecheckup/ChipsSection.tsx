@@ -57,6 +57,47 @@ function fmtClock(ts: number | null): string {
   return `${d.getFullYear()}/${pad(d.getMonth() + 1)}/${pad(d.getDate())} ${pad(d.getHours())}:${pad(d.getMinutes())}`;
 }
 
+/**
+ * 回傳「下一次 BSR worker 執行」的 Taipei 時鐘描述。
+ * 排程窗口：Taipei 週一至週五 14:00–20:59（cron: 0/10 6-12 * * 1-5，UTC 06-12 → Taipei 14-20）。
+ * - 若現在在窗口內 → { inWindow: true, label: '每 10 分鐘處理一輪' }
+ * - 若現在早於當日 14:00 → 下次為「今天 14:00」
+ * - 若現在晚於 20:59 → 下次為「明天 14:00」（若明天是週末則順延到週一）
+ */
+function nextWorkerWindow(now = new Date()): { inWindow: boolean; label: string } {
+  // 取 Taipei 現在的 hour/minute/weekday
+  const tp = new Date(now.toLocaleString('en-US', { timeZone: 'Asia/Taipei' }));
+  const h = tp.getHours();
+  const m = tp.getMinutes();
+  const dow = tp.getDay(); // 0=Sun ... 6=Sat
+  const isWeekday = dow >= 1 && dow <= 5;
+  const inWindow = isWeekday && ((h >= 14 && h <= 20));
+  if (inWindow) return { inWindow: true, label: '排程執行中（每 10 分鐘處理一輪）' };
+  // 計算下一次執行的日期
+  let addDays = 0;
+  if (isWeekday && (h < 14 || (h === 20 && m > 59))) {
+    // 今日尚未開始 or 剛過窗口 → 今天／明天
+    addDays = h < 14 ? 0 : 1;
+  } else {
+    addDays = 1;
+  }
+  // 找出下一個週一至週五
+  for (let i = 0; i < 7; i++) {
+    const cand = new Date(tp);
+    cand.setDate(tp.getDate() + addDays + i);
+    const cdow = cand.getDay();
+    if (cdow >= 1 && cdow <= 5) {
+      const pad = (n: number) => String(n).padStart(2, '0');
+      const isToday = cand.toDateString() === tp.toDateString();
+      const dayLabel = isToday ? '今天' : `${cand.getMonth() + 1}/${pad(cand.getDate())}`;
+      return { inWindow: false, label: `下一輪：${dayLabel} 14:00 起` };
+    }
+  }
+  return { inWindow: false, label: '下一輪：下個交易日 14:00 起' };
+}
+
+
+
 export default function ChipsSection({ WB, stockCode }: { WB: any; stockCode: string }) {
   if (!isTaiwanStockCode(stockCode)) return null;
 
@@ -239,8 +280,12 @@ export default function ChipsSection({ WB, stockCode }: { WB: any; stockCode: st
           ) : data?.bsr_last_failure ? (
             <div style={{ fontSize: 10, color: '#8a5a1e' }}>BSR 同步進行中</div>
           ) : hasInst ? (
-            <div style={{ fontSize: 10, color: WB.inkMute }}>BSR 排程等待中</div>
+            <div style={{ fontSize: 10, color: WB.inkMute, textAlign: 'right' }}>
+              BSR 排程等待中
+              <div style={{ fontSize: 9, color: WB.inkMute, marginTop: 2 }}>{nextWorkerWindow().label}</div>
+            </div>
           ) : null}
+
         </div>
 
         {/* 有失敗紀錄就顯示診斷 banner；不再要求同時要有 bsr_as_of，
@@ -334,9 +379,13 @@ export default function ChipsSection({ WB, stockCode }: { WB: any; stockCode: st
           <div data-testid="chips-bsr-missing" style={{ fontSize: 12, color: WB.inkMute, lineHeight: 1.6 }}>
             — 分點資料同步中
             <div style={{ fontSize: 10, color: WB.inkMute }}>
-              （分點資料由 FinMind 官方 API 提供，僅在收盤後 14:00–20:59 每 10 分鐘處理一輪；受全域 1500/hr 限流保護，冷門代號或首次同步可能延後）
+              （FinMind 官方 API，僅在收盤後 14:00–20:59 每 10 分鐘處理一輪；受全域 1500/hr 限流保護）
+            </div>
+            <div style={{ fontSize: 10, color: WB.inkMute, marginTop: 2 }}>
+              {nextWorkerWindow().label}
             </div>
           </div>
+
         )}
       </div>
 
