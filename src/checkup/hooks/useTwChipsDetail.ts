@@ -40,6 +40,8 @@ export interface BsrConcentrationPoint {
 export interface TwChipsPayload {
   stock_id: string;
   as_of: string | null;
+  as_of_lag_days?: number | null;
+
   institutional: {
     d1: InstitutionalWindow | null;
     d5: InstitutionalWindow | null;
