@@ -141,4 +141,8 @@ verify_jwt = false
 [functions.tw-bsr-daily-sync]
 verify_jwt = false
 
+[functions.tw-bsr-failure-dashboard]
+verify_jwt = false
+
+
 
