@@ -95,6 +95,10 @@ async function loadConfig(supa: any): Promise<{ cfg: SyncConfig; version: number
         ? Number(raw.cookie_jar_reuse) : DEFAULT_CONFIG.cookie_jar_reuse,
       lock_ttl_sec: Number(raw.lock_ttl_sec) > 0
         ? Number(raw.lock_ttl_sec) : DEFAULT_CONFIG.lock_ttl_sec,
+      ocr_mode: (["fast", "standard", "aggressive"] as const).includes(raw.ocr_mode as any)
+        ? (raw.ocr_mode as SyncConfig["ocr_mode"]) : DEFAULT_CONFIG.ocr_mode,
+      ocr_escalate_on_fail: typeof raw.ocr_escalate_on_fail === "boolean"
+        ? raw.ocr_escalate_on_fail : DEFAULT_CONFIG.ocr_escalate_on_fail,
     };
     return { cfg, version: Number(data.version) || null };
   } catch {
