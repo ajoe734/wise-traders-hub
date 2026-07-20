@@ -601,6 +601,13 @@ Deno.serve(async (req) => {
         let lastError = "";
         let ocrFailBump = 0, blockBump = 0, emptyBump = 0;
 
+        // 讀取本檔嘗試前的 backoff / consecutive 狀態（用於效果分析歸類）
+        const { data: preState } = await supa.from("tw_bsr_fetch_failures")
+          .select("consecutive_failures, backoff_seconds")
+          .eq("stock_id", stockId).eq("trade_date", tradeDate).maybeSingle();
+        const consecBefore = Number(preState?.consecutive_failures || 0);
+        const backoffBefore = Number(preState?.backoff_seconds || 0);
+
         let cursor = tradeDate;
         const startedAt = Date.now();
 
@@ -617,6 +624,8 @@ Deno.serve(async (req) => {
             break;
           }
 
+          const stepStartedAt = Date.now();
+          let stepOutcome = "success";
           try {
             const rows = await fetchBsrForStock(stockId, ctx, cfg);
             if (rows.length === 0) throw new Error("empty_rows");
@@ -643,6 +652,12 @@ Deno.serve(async (req) => {
             }).eq("stock_id", stockId).is("resolved_at", null);
 
             resolvedDate = cursor; resolvedRows = rows.length;
+            // 記錄效果分析
+            await logAttempt(supa, {
+              stockId, tradeDate: cursor, ctx, cfg, configVersion,
+              backoffBefore, consecBefore, latencyMs: Date.now() - stepStartedAt,
+              outcome: "success", step,
+            });
             break;
           } catch (err) {
             const msg = (err as Error).message || "unknown";
@@ -658,6 +673,13 @@ Deno.serve(async (req) => {
             else if (isEmpty) emptyBump++;
             attempts.push({ date: cursor, error: msg });
             lastError = msg;
+            stepOutcome = reason;
+
+            await logAttempt(supa, {
+              stockId, tradeDate: cursor, ctx, cfg, configVersion,
+              backoffBefore, consecBefore, latencyMs: Date.now() - stepStartedAt,
+              outcome: stepOutcome, step,
+            });
 
             // 被擋直接中止本檔的 lookback（避免對同 IP 再擊）
             if (isBlock) break;
