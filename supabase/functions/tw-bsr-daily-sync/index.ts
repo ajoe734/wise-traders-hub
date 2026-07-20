@@ -746,7 +746,12 @@ async function logAttempt(supa: any, p: {
       ocr_trace: p.ctx.ocrTrace && p.ctx.ocrTrace.length ? p.ctx.ocrTrace : null,
       adaptive_strategy: p.ctx.adaptive ?? null,
     });
-  } catch (_e) { /* best-effort */ }
+  } catch (e) {
+    // best-effort：不阻斷主流程，但至少 edge logs 要看得到，避免變成瞎子
+    console.error('[tw-bsr-daily-sync] logAttempt insert failed:', (e as Error)?.message || e, {
+      stock_id: p.stockId, trade_date: p.tradeDate, outcome: p.outcome, step: p.step,
+    });
+  }
 }
 
 Deno.serve(async (req) => {
