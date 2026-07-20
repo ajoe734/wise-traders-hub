@@ -287,11 +287,13 @@ export default function ChipsSection({ WB, stockCode }: { WB: any; stockCode: st
             <div>
               失敗原因：
               {data.bsr_last_failure.reason === 'captcha_retry_exhausted'
-                ? 'TWSE 驗證碼多次辨識失敗，背景任務會自動加強預處理後重試'
+                ? '舊 TWSE 驗證碼路徑失敗（已停用），已改由 FinMind 官方 API 抓取'
+                : data.bsr_last_failure.reason === 'finmind_error'
+                ? 'FinMind API 呼叫失敗（rate limit 或暫時性錯誤），下輪自動重試'
                 : data.bsr_last_failure.reason === 'http_block'
-                ? 'TWSE 暫時封鎖請求'
+                ? '上游暫時封鎖請求'
                 : data.bsr_last_failure.reason === 'empty_rows'
-                ? '當日無成交或 TWSE 回空'
+                ? '當日無成交或上游回空'
                 : data.bsr_last_failure.reason}
               {typeof data.bsr_last_failure.consecutive_failures === 'number' && data.bsr_last_failure.consecutive_failures > 1
                 ? `（已連續失敗 ${data.bsr_last_failure.consecutive_failures} 次）`
