@@ -37,7 +37,10 @@ interface BackfillConfig {
   batch_max: number;          // 前端/呼叫端可覆寫的上限
   lookback_max: number;       // 同上，避免過深爬取
   max_runs_per_hour: number;  // 高頻週期上限：每小時最多執行 backfill 次數（0=不限）
+  max_attempts_per_day: number; // 單一 stock+trade_date 累積失敗達到即進入資料冷卻
+  cooldown_hours: number;       // 冷卻時數：達 max_attempts_per_day 後 next_retry_at 至少延後這麼久
 }
+
 interface SyncConfig {
   ua_pool: string[];
   accept_lang_pool: string[];
