@@ -339,6 +339,17 @@ export default function BsrFailureDashboardPage() {
                             <span className="text-foreground/40">無 fallback</span>
                           )}
                         </td>
+                        <td className="pl-4 text-right">
+                          <Button
+                            variant="ghost"
+                            size="sm"
+                            className="h-7 px-2 text-[11px]"
+                            onClick={() => setAuditStock(p.stock_id)}
+                            data-testid={`audit-btn-${p.stock_id}`}
+                          >
+                            <Search className="h-3 w-3 mr-1" />Audit
+                          </Button>
+                        </td>
                       </tr>
                     ))}
                   </tbody>
