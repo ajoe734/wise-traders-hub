@@ -20,6 +20,8 @@ type BackfillConfig = {
   batch_max: number;
   lookback_max: number;
   max_runs_per_hour: number;
+  max_attempts_per_day: number;
+  cooldown_hours: number;
 };
 
 type ConfigRow = {
@@ -47,6 +49,8 @@ const DEFAULT_BACKFILL: BackfillConfig = {
   batch_max: 20,
   lookback_max: 10,
   max_runs_per_hour: 6,
+  max_attempts_per_day: 8,
+  cooldown_hours: 12,
 };
 
 function normalize(input: any): BackfillConfig {
@@ -61,8 +65,11 @@ function normalize(input: any): BackfillConfig {
     batch_max: Math.max(1, num('batch_max', 1)),
     lookback_max: Math.max(1, num('lookback_max', 1)),
     max_runs_per_hour: Math.max(0, num('max_runs_per_hour', 0)),
+    max_attempts_per_day: Math.max(1, num('max_attempts_per_day', 1)),
+    cooldown_hours: Math.max(1, num('cooldown_hours', 1)),
   };
 }
+
 
 export default function BsrSyncConfig() {
   const qc = useQueryClient();
