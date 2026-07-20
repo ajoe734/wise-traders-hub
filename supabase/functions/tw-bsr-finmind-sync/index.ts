@@ -205,10 +205,23 @@ async function processStock(stockId: string, date: string, cid: string | null): 
 
 // ============ ENQUEUE ============
 async function enqueueTier1Holdings(date: string, cid: string): Promise<number> {
+  // trade_records 的持倉來自 instrument 欄位（格式如「2330 台積電」或「00631L 元大台灣50正2」），
+  // 開倉條件為 exit_date IS NULL。過濾台股市場，抽出前綴 4–6 碼股票代號。
   const { data: openTrades } = await supa
-    .from('trade_records').select('stock_symbol').is('close_date', null).limit(5000);
+    .from('trade_records')
+    .select('instrument, market')
+    .is('exit_date', null)
+    .limit(5000);
   const ids = Array.from(new Set((openTrades || [])
-    .map((r: any) => String(r.stock_symbol || '').trim())
+    .filter((r: any) => {
+      const m = String(r.market || '').toUpperCase();
+      return m === 'TW' || m === 'TWSE' || m === 'TPEX' || m === '';
+    })
+    .map((r: any) => {
+      const raw = String(r.instrument || '').trim();
+      const match = raw.match(/^([0-9]{4,6}[A-Z]?)\b/);
+      return match ? match[1].replace(/[A-Z]$/, '') : '';
+    })
     .filter((s: string) => /^[0-9]{4,6}$/.test(s))));
   if (ids.length === 0) return 0;
   return await enqueueBatch(ids, date, 1, 'tier1_holdings', cid);
