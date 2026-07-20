@@ -590,6 +590,7 @@ async function logAttempt(supa: any, p: {
       fallback_as_of_date: p.fallbackAsOfDate || null,
       next_retry_at: p.nextRetryAt || null,
       next_retry_source: p.nextRetrySource || null,
+      ocr_trace: p.ctx.ocrTrace && p.ctx.ocrTrace.length ? p.ctx.ocrTrace : null,
     });
   } catch (_e) { /* best-effort */ }
 }
