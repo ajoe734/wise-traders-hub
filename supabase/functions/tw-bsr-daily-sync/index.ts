@@ -561,14 +561,41 @@ Deno.serve(async (req) => {
     const body = req.method === "POST" ? await req.json().catch(() => ({})) : {};
     const mode = String(body?.mode || (Array.isArray(body?.stock_ids) ? "manual" : "queue"));
     const explicit: string[] = Array.isArray(body?.stock_ids) ? body.stock_ids : [];
-    const batch = Math.min(Math.max(Number(body?.batch) || 8, 1), 20);
     const rawDate = String(body?.date || taipeiTodayISO());
     const tradeDate = rollBackToWeekday(rawDate);
-    const lookback = Math.min(Math.max(Number(body?.lookback) || 5, 1), 7);
     const offHours = String(body?.window || "") === "off_hours";
 
     const supa = createClient(SUPABASE_URL, SERVICE_ROLE_KEY, { auth: { persistSession: false } });
     const { cfg, version: configVersion } = await loadConfig(supa);
+
+    // 動態預設：backfill 模式吃 cfg.backfill；其他模式維持既有硬預設但仍受 cfg 上限保護
+    const isBackfill = mode === "backfill";
+    const defaultBatch = isBackfill ? cfg.backfill.batch : 8;
+    const defaultLookback = isBackfill ? cfg.backfill.lookback : 5;
+    const batchMax = Math.max(1, cfg.backfill.batch_max);
+    const lookbackMax = Math.max(1, cfg.backfill.lookback_max);
+    const batch = Math.min(Math.max(Number(body?.batch) || defaultBatch, 1), batchMax);
+    const lookback = Math.min(Math.max(Number(body?.lookback) || defaultLookback, 1), lookbackMax);
+
+    // 高頻週期上限：僅對 backfill 模式生效；0 = 不限
+    if (isBackfill && cfg.backfill.max_runs_per_hour > 0) {
+      const sinceIso = new Date(Date.now() - 3600_000).toISOString();
+      const { count: recentRuns } = await supa
+        .from("system_jobs_log")
+        .select("id", { count: "exact", head: true })
+        .eq("job", "tw-bsr-backfill")
+        .gte("created_at", sinceIso);
+      if ((recentRuns || 0) >= cfg.backfill.max_runs_per_hour) {
+        return jsonResponse({
+          skipped: "rate_limited",
+          reason: "high_frequency_cap_reached",
+          window: "1h",
+          runs_in_window: recentRuns,
+          max_runs_per_hour: cfg.backfill.max_runs_per_hour,
+          config_version: configVersion,
+        });
+      }
+    }
 
     // ---- AUDIT MODE：唯讀，不 fetch、不寫、不搶 lock ----
     if (mode === "audit") {
