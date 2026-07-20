@@ -48,14 +48,16 @@ Deno.serve(async (req) => {
   const fromStr = from.toISOString().slice(0, 10);
   const stockFilter = (url.searchParams.get("stock_id") || "").trim();
   const reasonFilter = (url.searchParams.get("reason") || "").trim();
+  const errorClassFilter = (url.searchParams.get("error_class") || "").trim();
 
   // --- fetch failures ---
   let failuresUrl =
-    `${SUPABASE_URL}/rest/v1/tw_bsr_fetch_failures?select=stock_id,trade_date,reason,attempts,last_error,resolved_at,consecutive_failures,next_retry_at,backoff_seconds,updated_at` +
+    `${SUPABASE_URL}/rest/v1/tw_bsr_fetch_failures?select=stock_id,trade_date,reason,error_class,attempts,last_error,resolved_at,consecutive_failures,next_retry_at,backoff_seconds,updated_at` +
     `&trade_date=gte.${fromStr}&trade_date=lte.${toStr}` +
     `&order=trade_date.desc&limit=5000`;
   if (stockFilter) failuresUrl += `&stock_id=eq.${encodeURIComponent(stockFilter)}`;
   if (reasonFilter) failuresUrl += `&reason=eq.${encodeURIComponent(reasonFilter)}`;
+  if (errorClassFilter) failuresUrl += `&error_class=eq.${encodeURIComponent(errorClassFilter)}`;
 
   const failuresRes = await fetch(failuresUrl, { headers: srHeaders() });
   if (!failuresRes.ok) return json({ error: "FAILURES_QUERY_FAILED" }, 500);
