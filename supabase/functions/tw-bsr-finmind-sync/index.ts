@@ -94,7 +94,7 @@ type Aggregated = {
 function aggregate(rows: FinmindRow[]): Aggregated[] {
   const map = new Map<string, Aggregated & { buy_amt: number; sell_amt: number }>();
   for (const r of rows) {
-    const brokerId = String(r.securities_trader_no || '').trim();
+    const brokerId = String(r.securities_trader_id || r.securities_trader_no || '').trim();
     if (!brokerId) continue;
     const key = `${r.stock_id}|${r.date}|${brokerId}`;
     const buy = Number(r.buy || 0);
