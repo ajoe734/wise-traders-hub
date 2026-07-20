@@ -6,8 +6,10 @@ import { Badge } from '@/components/ui/badge';
 import { supabase } from '@/integrations/supabase/client';
 import { useQuery } from '@tanstack/react-query';
 import { RefreshCw, PlayCircle, ListPlus } from 'lucide-react';
-import { useState } from 'react';
+import { useMemo, useState } from 'react';
 import { toast } from 'sonner';
+import { Input } from '@/components/ui/input';
+
 
 type DegradeMode = 'normal' | 'tier3_paused' | 'tier2_paused' | 'p1_only' | 'claim_halt';
 type Stats = {
@@ -322,6 +324,10 @@ export default function BsrRateLimit() {
           )}
         </Card>
 
+        <PerStockStatusCard />
+
+
+
 
         <Card className="p-4">
           <div className="text-sm font-medium mb-2">手動操作</div>
@@ -410,3 +416,256 @@ export default function BsrRateLimit() {
     </CompanyLayout>
   );
 }
+
+type QueueRow = {
+  stock_id: string;
+  priority: number;
+  status: string;
+  attempts: number;
+  last_success_at: string | null;
+  last_error: string | null;
+  next_run_at: string | null;
+  updated_at: string;
+  finished_at: string | null;
+};
+
+type PerStockRow = {
+  stock_id: string;
+  tier: number;
+  status: string;
+  attempts: number;
+  last_processed_at: string | null;
+  last_success_at: string | null;
+  last_error: string | null;
+  next_run_at: string | null;
+  updated_at: string;
+};
+
+const TIER_LABEL: Record<number, { label: string; tone: string }> = {
+  1: { label: 'Tier1 持倉', tone: 'bg-red-100 text-red-800 border-red-300' },
+  2: { label: 'Tier2 缺口', tone: 'bg-amber-100 text-amber-800 border-amber-300' },
+  3: { label: 'Tier3 回填', tone: 'bg-slate-100 text-slate-700 border-slate-300' },
+};
+
+const STATUS_TONE: Record<string, string> = {
+  done: 'bg-emerald-100 text-emerald-800 border-emerald-300',
+  running: 'bg-blue-100 text-blue-800 border-blue-300',
+  pending: 'bg-neutral-100 text-neutral-700 border-neutral-300',
+  failed: 'bg-red-100 text-red-800 border-red-300',
+  dead: 'bg-neutral-800 text-neutral-50 border-neutral-900',
+};
+
+function fmtTime(v: string | null): string {
+  if (!v) return '—';
+  const d = new Date(v);
+  if (Number.isNaN(d.getTime())) return '—';
+  return d.toLocaleString('zh-TW');
+}
+
+function fmtAge(v: string | null): string {
+  if (!v) return '—';
+  const diff = Date.now() - new Date(v).getTime();
+  if (Number.isNaN(diff) || diff < 0) return '—';
+  const s = Math.floor(diff / 1000);
+  if (s < 60) return `${s}s`;
+  const m = Math.floor(s / 60);
+  if (m < 60) return `${m}m`;
+  const h = Math.floor(m / 60);
+  if (h < 24) return `${h}h`;
+  return `${Math.floor(h / 24)}d`;
+}
+
+function PerStockStatusCard() {
+  const [filter, setFilter] = useState('');
+  const [tierFilter, setTierFilter] = useState<'all' | '1' | '2' | '3'>('all');
+  const [statusFilter, setStatusFilter] = useState<'all' | 'pending' | 'running' | 'done' | 'failed' | 'dead'>('all');
+  const [sortBy, setSortBy] = useState<'updated' | 'processed' | 'tier' | 'status'>('updated');
+
+  const { data, isFetching, refetch } = useQuery<QueueRow[]>({
+    queryKey: ['company', 'bsr-per-stock-queue'],
+    queryFn: async () => {
+      const { data, error } = await supabase
+        .from('tw_bsr_sync_queue')
+        .select('stock_id, priority, status, attempts, last_success_at, last_error, next_run_at, updated_at, finished_at')
+        .order('updated_at', { ascending: false })
+        .limit(2000);
+      if (error) throw new Error(error.message);
+      return (data ?? []) as QueueRow[];
+    },
+    refetchInterval: 30_000,
+    staleTime: 15_000,
+  });
+
+  const rows = useMemo<PerStockRow[]>(() => {
+    const byStock = new Map<string, PerStockRow>();
+    for (const r of data ?? []) {
+      const existing = byStock.get(r.stock_id);
+      const lastProcessed = r.finished_at || r.last_success_at || r.updated_at;
+      const candidate: PerStockRow = {
+        stock_id: r.stock_id,
+        tier: r.priority,
+        status: r.status,
+        attempts: r.attempts,
+        last_processed_at: lastProcessed,
+        last_success_at: r.last_success_at,
+        last_error: r.last_error,
+        next_run_at: r.next_run_at,
+        updated_at: r.updated_at,
+      };
+      if (!existing) {
+        byStock.set(r.stock_id, candidate);
+      } else {
+        // keep highest tier (lowest priority number) and freshest updated_at
+        if (r.priority < existing.tier) byStock.set(r.stock_id, { ...candidate, tier: r.priority });
+        else if (new Date(r.updated_at) > new Date(existing.updated_at)) byStock.set(r.stock_id, { ...candidate, tier: existing.tier });
+      }
+    }
+    let arr = Array.from(byStock.values());
+    if (tierFilter !== 'all') arr = arr.filter((r) => String(r.tier) === tierFilter);
+    if (statusFilter !== 'all') arr = arr.filter((r) => r.status === statusFilter);
+    const q = filter.trim().toLowerCase();
+    if (q) arr = arr.filter((r) => r.stock_id.toLowerCase().includes(q) || (r.last_error ?? '').toLowerCase().includes(q));
+    arr.sort((a, b) => {
+      if (sortBy === 'tier') return a.tier - b.tier || a.stock_id.localeCompare(b.stock_id);
+      if (sortBy === 'status') return a.status.localeCompare(b.status) || a.stock_id.localeCompare(b.stock_id);
+      if (sortBy === 'processed') return (new Date(b.last_processed_at ?? 0).getTime()) - (new Date(a.last_processed_at ?? 0).getTime());
+      return (new Date(b.updated_at).getTime()) - (new Date(a.updated_at).getTime());
+    });
+    return arr;
+  }, [data, filter, tierFilter, statusFilter, sortBy]);
+
+  const summary = useMemo(() => {
+    const s = { total: rows.length, done: 0, pending: 0, running: 0, failed: 0, dead: 0 } as Record<string, number>;
+    for (const r of rows) {
+      if (r.status === 'done') s.done++;
+      else if (r.status === 'pending') s.pending++;
+      else if (r.status === 'running') s.running++;
+      else if (r.status === 'failed') s.failed++;
+      else if (r.status === 'dead') s.dead++;
+    }
+    return s;
+  }, [rows]);
+
+  return (
+    <Card className="p-4">
+      <div className="flex items-center justify-between mb-3 gap-2 flex-wrap">
+        <div>
+          <div className="text-sm font-medium">每檔標的同步狀態</div>
+          <div className="text-xs text-muted-foreground mt-0.5">
+            共 {summary.total} 檔 · done {summary.done} · pending {summary.pending} · running {summary.running}
+            {summary.failed ? ` · failed ${summary.failed}` : ''}{summary.dead ? ` · dead ${summary.dead}` : ''}
+          </div>
+        </div>
+        <Button size="sm" variant="outline" onClick={() => refetch()} disabled={isFetching} className="gap-2">
+          <RefreshCw className={`h-3.5 w-3.5 ${isFetching ? 'animate-spin' : ''}`} /> 重新整理
+        </Button>
+      </div>
+
+      <div className="flex gap-2 flex-wrap mb-3">
+        <Input
+          placeholder="搜尋股票代碼或錯誤訊息…"
+          value={filter}
+          onChange={(e) => setFilter(e.target.value)}
+          className="h-8 w-64"
+        />
+        <select
+          value={tierFilter}
+          onChange={(e) => setTierFilter(e.target.value as any)}
+          className="h-8 border rounded px-2 text-xs bg-background"
+        >
+          <option value="all">全部 Tier</option>
+          <option value="1">Tier1 持倉</option>
+          <option value="2">Tier2 缺口</option>
+          <option value="3">Tier3 回填</option>
+        </select>
+        <select
+          value={statusFilter}
+          onChange={(e) => setStatusFilter(e.target.value as any)}
+          className="h-8 border rounded px-2 text-xs bg-background"
+        >
+          <option value="all">全部狀態</option>
+          <option value="done">done</option>
+          <option value="running">running</option>
+          <option value="pending">pending</option>
+          <option value="failed">failed</option>
+          <option value="dead">dead</option>
+        </select>
+        <select
+          value={sortBy}
+          onChange={(e) => setSortBy(e.target.value as any)}
+          className="h-8 border rounded px-2 text-xs bg-background"
+        >
+          <option value="updated">依 updated_at</option>
+          <option value="processed">依 last processed</option>
+          <option value="tier">依 tier</option>
+          <option value="status">依 status</option>
+        </select>
+      </div>
+
+      <div className="overflow-x-auto border rounded max-h-[520px]">
+        <table className="w-full text-xs">
+          <thead className="bg-muted sticky top-0 z-10">
+            <tr>
+              <th className="p-2 text-left">股票</th>
+              <th className="p-2 text-left">Tier</th>
+              <th className="p-2 text-left">狀態</th>
+              <th className="p-2 text-right">Attempts</th>
+              <th className="p-2 text-left">Last processed</th>
+              <th className="p-2 text-left">Last success</th>
+              <th className="p-2 text-left">Next run</th>
+              <th className="p-2 text-left">最近錯誤</th>
+            </tr>
+          </thead>
+          <tbody>
+            {rows.map((r) => {
+              const tierMeta = TIER_LABEL[r.tier] ?? TIER_LABEL[3];
+              const statusTone = STATUS_TONE[r.status] ?? 'bg-neutral-100 text-neutral-700 border-neutral-300';
+              return (
+                <tr key={r.stock_id} className="border-t align-top">
+                  <td className="p-2 font-mono font-semibold">{r.stock_id}</td>
+                  <td className="p-2">
+                    <span className={`px-1.5 py-0.5 rounded border text-[10px] ${tierMeta.tone}`}>{tierMeta.label}</span>
+                  </td>
+                  <td className="p-2">
+                    <span className={`px-1.5 py-0.5 rounded border text-[10px] font-mono ${statusTone}`}>{r.status}</span>
+                  </td>
+                  <td className="p-2 text-right font-mono">{r.attempts}</td>
+                  <td className="p-2 font-mono whitespace-nowrap">
+                    {fmtTime(r.last_processed_at)}
+                    <span className="text-muted-foreground ml-1">({fmtAge(r.last_processed_at)})</span>
+                  </td>
+                  <td className="p-2 font-mono whitespace-nowrap">
+                    {r.last_success_at ? (
+                      <>
+                        {fmtTime(r.last_success_at)}
+                        <span className="text-muted-foreground ml-1">({fmtAge(r.last_success_at)})</span>
+                      </>
+                    ) : (
+                      <span className="text-muted-foreground">—</span>
+                    )}
+                  </td>
+                  <td className="p-2 font-mono whitespace-nowrap">{fmtTime(r.next_run_at)}</td>
+                  <td className="p-2 max-w-[280px]">
+                    {r.last_error ? (
+                      <span className="text-destructive break-words" title={r.last_error}>{r.last_error}</span>
+                    ) : (
+                      <span className="text-muted-foreground">—</span>
+                    )}
+                  </td>
+                </tr>
+              );
+            })}
+            {!rows.length && (
+              <tr><td colSpan={8} className="p-6 text-center text-muted-foreground">尚無符合條件的資料</td></tr>
+            )}
+          </tbody>
+        </table>
+      </div>
+      <p className="text-[11px] text-muted-foreground mt-2">
+        以 <span className="font-mono">tw_bsr_sync_queue</span> 為權威來源，最新 2000 筆按 stock_id 去重，Tier 取該標的最高優先級。
+        「Last processed」= finished_at → last_success_at → updated_at；點欄位下拉可切換排序、輸入框可同時搜尋代碼與錯誤訊息。
+      </p>
+    </Card>
+  );
+}
+
