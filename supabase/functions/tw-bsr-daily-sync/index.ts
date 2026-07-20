@@ -22,7 +22,7 @@
 import "jsr:@supabase/functions-js/edge-runtime.d.ts";
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2.45.4";
 import { corsPreflight, jsonResponse, errorResponse } from "../_shared/cors.ts";
-import { ocrTwseCaptchaDetailed, type OcrResult } from "../_shared/twOcr.ts";
+import { ocrTwseCaptchaDetailed, planWithPriority, type OcrResult, type OcrVariantName } from "../_shared/twOcr.ts";
 
 const SUPABASE_URL = Deno.env.get("SUPABASE_URL")!;
 const SERVICE_ROLE_KEY = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!;
