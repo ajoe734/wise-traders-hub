@@ -110,18 +110,44 @@ Deno.serve(async (req) => {
     bsrConcentration.sort((a, b) => a.date.localeCompare(b.date));
 
     const asOfDate = rows[0]?.trade_date || null;
-    let asOfLagDays: number | null = null;
-    if (asOfDate) {
-      const today = new Date(
-        new Intl.DateTimeFormat("en-CA", {
-          timeZone: "Asia/Taipei",
-          year: "numeric",
-          month: "2-digit",
-          day: "2-digit",
-        }).format(new Date()),
-      );
-      const asOf = new Date(asOfDate);
-      asOfLagDays = Math.max(0, Math.round((today.getTime() - asOf.getTime()) / 86400000));
+    const todayTPE = new Date(
+      new Intl.DateTimeFormat("en-CA", {
+        timeZone: "Asia/Taipei",
+        year: "numeric",
+        month: "2-digit",
+        day: "2-digit",
+      }).format(new Date()),
+    );
+    const lagDays = (d: string | null) =>
+      d ? Math.max(0, Math.round((todayTPE.getTime() - new Date(d).getTime()) / 86400000)) : null;
+
+    const asOfLagDays = lagDays(asOfDate);
+    const bsrAsOfLagDays = lagDays(latestAsOf);
+
+    // 最近一次 BSR 抓取失敗（未 resolved），若時間新於 latestAsOf 代表「今日同步失敗、正在顯示前次成功資料」
+    let bsrLastFailure: {
+      trade_date: string;
+      reason: string;
+      last_error: string | null;
+      attempts: number;
+    } | null = null;
+    const { data: failRows } = await supa
+      .from("tw_bsr_fetch_failures")
+      .select("trade_date, reason, last_error, attempts, resolved_at")
+      .eq("stock_id", stockId)
+      .is("resolved_at", null)
+      .order("trade_date", { ascending: false })
+      .limit(1);
+    if (failRows && failRows[0]) {
+      const f = failRows[0];
+      if (!latestAsOf || String(f.trade_date) > String(latestAsOf)) {
+        bsrLastFailure = {
+          trade_date: f.trade_date,
+          reason: f.reason || "sync_failed",
+          last_error: f.last_error || null,
+          attempts: Number(f.attempts || 0),
+        };
+      }
     }
 
     const payload = {
@@ -131,6 +157,8 @@ Deno.serve(async (req) => {
       institutional,
       bsr,
       bsr_as_of: latestAsOf,
+      bsr_as_of_lag_days: bsrAsOfLagDays,
+      bsr_last_failure: bsrLastFailure,
       series: {
         institutional_daily: instAsc,
         bsr_concentration: bsrConcentration.slice(-60),
