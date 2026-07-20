@@ -451,6 +451,30 @@ async function bumpMetrics(supa: any, patch: { total?: number; success?: number;
   }, { onConflict: "bucket_at" });
 }
 
+// 逐次嘗試日誌：供 UA / backoff / consecutive 效果分析圖使用。失敗絕不阻斷主流程。
+async function logAttempt(supa: any, p: {
+  stockId: string; tradeDate: string;
+  ctx: SessionCtx; cfg: SyncConfig; configVersion?: string;
+  backoffBefore: number; consecBefore: number;
+  latencyMs: number; outcome: string; step: number;
+}) {
+  try {
+    await supa.from("tw_bsr_attempt_logs").insert({
+      stock_id: p.stockId,
+      trade_date: p.tradeDate,
+      attempted_at: new Date().toISOString(),
+      ua_label: p.ctx.uaLabel,
+      ua_hash: p.ctx.uaHash,
+      backoff_seconds_before: p.backoffBefore,
+      consecutive_failures_before: p.consecBefore,
+      ocr_mode: p.cfg.ocr_mode,
+      latency_ms: p.latencyMs,
+      outcome: p.outcome,
+      attempt_step: p.step,
+      config_version: p.configVersion || null,
+    });
+  } catch (_e) { /* best-effort */ }
+
 Deno.serve(async (req) => {
   if (req.method === "OPTIONS") return corsPreflight();
   try {
