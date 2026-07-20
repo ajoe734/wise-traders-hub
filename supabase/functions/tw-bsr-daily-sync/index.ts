@@ -772,9 +772,27 @@ Deno.serve(async (req) => {
               lag_days: Math.max(0, Math.round((new Date(tradeDate).getTime() - new Date(fallbackDate).getTime()) / 86400000)),
             };
           }
+          const nextRetrySource =
+            `backoff_step[${Math.min(nextConsec, cfg.backoff_steps_sec.length)}/${cfg.backoff_steps_sec.length}]=${backoff}s`
+            + ` (reason=${reason},consec=${nextConsec})`;
+
+          // 逐檔時間軸「收尾」列：紀錄本輪最終狀態 + fallback + next_retry 推算來源
+          await logAttempt(supa, {
+            stockId, tradeDate,
+            ctx, cfg, configVersion,
+            backoffBefore, consecBefore,
+            latencyMs, outcome: `finalized:${reason}`, step: 99,
+            error: lastError || null,
+            fallbackUsed: !!fallbackDate,
+            fallbackAsOfDate: fallbackDate || null,
+            nextRetryAt: nextRetry,
+            nextRetrySource,
+          });
+
           results.push({
             stock_id: stockId, ok: false, error: lastError || "no_data",
             attempts, fallback, next_retry_at: nextRetry, backoff_seconds: backoff,
+            next_retry_source: nextRetrySource,
           });
           await bumpMetrics(supa, {
             total: 1, ocr_fail: ocrFailBump ? 1 : 0, http_block: blockBump ? 1 : 0,
