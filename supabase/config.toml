@@ -150,3 +150,5 @@ verify_jwt = false
 
 
 
+[functions.tw-bsr-ocr-metrics]
+verify_jwt = false
