@@ -202,17 +202,31 @@ async function fetchBsrForStock(stockId: string): Promise<BsrRow[]> {
   throw new Error("captcha_retry_exhausted");
 }
 
+// 週末回退到最近一個週五
+function rollBackToWeekday(isoDate: string): string {
+  const dt = new Date(`${isoDate}T00:00:00Z`);
+  while (true) {
+    const dow = dt.getUTCDay();
+    if (dow !== 0 && dow !== 6) break;
+    dt.setUTCDate(dt.getUTCDate() - 1);
+  }
+  return dt.toISOString().slice(0, 10);
+}
+
 Deno.serve(async (req) => {
   if (req.method === "OPTIONS") return corsPreflight();
   try {
     const body = req.method === "POST" ? await req.json().catch(() => ({})) : {};
     const explicit: string[] = Array.isArray(body?.stock_ids) ? body.stock_ids : [];
     const limit = Math.min(Number(body?.limit) || 20, 50);
-    const tradeDate = String(body?.date || taipeiTodayISO());
+    const rawDate = String(body?.date || taipeiTodayISO());
+    // 沒最新就抓前一天最新的（週末自動回退到週五）
+    const tradeDate = rollBackToWeekday(rawDate);
 
     const supa = createClient(SUPABASE_URL, SERVICE_ROLE_KEY, {
       auth: { persistSession: false },
     });
+
 
     // 決定股票清單
     let stocks: string[] = explicit.filter((s) => /^[0-9]{4,6}$/.test(s));
