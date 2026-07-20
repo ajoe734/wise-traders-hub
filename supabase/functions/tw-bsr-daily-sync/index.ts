@@ -252,6 +252,9 @@ async function fetchBsrForStock(stockId: string, ctx: SessionCtx, cfg: SyncConfi
   const captchaUrl = extractCaptchaImageUrl(menuHtml);
   if (!viewState || !eventValidation || !captchaUrl) throw new Error("menu_parse_failed");
 
+  // 細分子原因統計，讓 captcha_retry_exhausted 能拆出 OCR 空值 vs OCR 錯字
+  let ocrNullCount = 0;
+  let ocrMismatchCount = 0;
   for (let attempt = 1; attempt <= cfg.max_ocr_retry; attempt++) {
     if (attempt > 1) await sleep(jitterPair(cfg.ocr_retry_sleep_ms));
     const capResp = await fetch(captchaUrl, {
@@ -265,7 +268,7 @@ async function fetchBsrForStock(stockId: string, ctx: SessionCtx, cfg: SyncConfi
     const activeMode = cfg.ocr_escalate_on_fail && attempt === cfg.max_ocr_retry && cfg.ocr_mode !== "aggressive"
       ? "aggressive" : cfg.ocr_mode;
     const captcha = await ocrTwseCaptcha(capBytes, activeMode);
-    if (!captcha) continue;
+    if (!captcha) { ocrNullCount++; continue; }
 
     const form = new URLSearchParams({
       __EVENTTARGET: "", __EVENTARGUMENT: "",
@@ -294,8 +297,29 @@ async function fetchBsrForStock(stockId: string, ctx: SessionCtx, cfg: SyncConfi
       const contentHtml = await contentResp.text();
       return parseBsContent(contentHtml);
     }
+    // 有 OCR 結果但未跳轉 bsContent → 判定為 OCR 字元辨識錯誤
+    ocrMismatchCount++;
   }
-  throw new Error("captcha_retry_exhausted");
+  // 附上子細分方便後續 classifyError() 拆桶
+  const dominant = ocrMismatchCount >= ocrNullCount ? "ocr_mismatch" : "ocr_null";
+  throw new Error(`captcha_retry_exhausted:${dominant}(null=${ocrNullCount},mis=${ocrMismatchCount})`);
+}
+
+// 依錯誤訊息拆桶為明確錯誤類別，供失敗看板堆疊圖使用
+export function classifyBsrError(msg: string | null | undefined): string {
+  const s = String(msg || "");
+  if (!s) return "unknown";
+  if (/http_block_403/.test(s)) return "http_block_403";
+  if (/http_block_429/.test(s)) return "http_block_429";
+  if (/http_block/.test(s)) return "http_block";
+  if (/captcha_http/.test(s)) return "captcha_http";
+  if (/menu_parse_failed/.test(s)) return "menu_parse_failed";
+  if (/empty_rows/.test(s)) return "empty_rows";
+  if (/db_insert/.test(s)) return "db_insert_failed";
+  if (/captcha_retry_exhausted:ocr_mismatch/.test(s)) return "ocr_mismatch";
+  if (/captcha_retry_exhausted:ocr_null/.test(s)) return "ocr_null";
+  if (/captcha_retry_exhausted/.test(s)) return "captcha_retry_exhausted";
+  return "unknown";
 }
 
 function rollBackToWeekday(isoDate: string): string {
@@ -472,8 +496,11 @@ async function logAttempt(supa: any, p: {
   fallbackAsOfDate?: string | null;
   nextRetryAt?: string | null;
   nextRetrySource?: string | null;
+  errorClass?: string | null;
 }) {
   try {
+    const errorClass = p.errorClass
+      ?? (p.outcome === "success" ? null : classifyBsrError(p.error || p.outcome));
     await supa.from("tw_bsr_attempt_logs").insert({
       stock_id: p.stockId,
       trade_date: p.tradeDate,
@@ -489,6 +516,7 @@ async function logAttempt(supa: any, p: {
       config_version: p.configVersion || null,
       http_status: deriveHttpStatus(p.outcome, p.error),
       error: p.error || null,
+      error_class: errorClass,
       fallback_used: !!p.fallbackUsed,
       fallback_as_of_date: p.fallbackAsOfDate || null,
       next_retry_at: p.nextRetryAt || null,
@@ -725,6 +753,7 @@ Deno.serve(async (req) => {
               stockId, tradeDate: cursor, ctx, cfg, configVersion,
               backoffBefore, consecBefore, latencyMs: Date.now() - stepStartedAt,
               outcome: stepOutcome, step, error: msg,
+              errorClass: classifyBsrError(msg),
             });
 
             // 被擋直接中止本檔的 lookback（避免對同 IP 再擊）
@@ -749,9 +778,11 @@ Deno.serve(async (req) => {
           const reason = blockBump ? "http_block"
             : ocrFailBump ? "captcha_retry_exhausted"
             : emptyBump ? "empty_rows" : "sync_failed";
+          const errorClass = classifyBsrError(lastError || reason);
           await supa.from("tw_bsr_fetch_failures").upsert({
             stock_id: stockId, trade_date: tradeDate,
-            reason, attempts: attempts.length, last_error: lastError,
+            reason, error_class: errorClass,
+            attempts: attempts.length, last_error: lastError,
             consecutive_failures: nextConsec, backoff_seconds: backoff,
             next_retry_at: nextRetry, updated_at: new Date().toISOString(),
           }, { onConflict: "stock_id,trade_date" });

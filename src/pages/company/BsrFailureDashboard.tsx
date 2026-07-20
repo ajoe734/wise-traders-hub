@@ -10,6 +10,9 @@ import { supabase } from '@/integrations/supabase/client';
 import { RefreshCw, Download, AlertTriangle, ShieldAlert, ChevronRight, Search } from 'lucide-react';
 import { toast } from 'sonner';
 import { useQuery } from '@tanstack/react-query';
+import {
+  ResponsiveContainer, BarChart, Bar, XAxis, YAxis, Tooltip, CartesianGrid, Legend as RcLegend,
+} from 'recharts';
 import { BsrAuditDialog } from './BsrAuditDialog';
 
 type GlobalDay = {
@@ -22,7 +25,7 @@ type GlobalDay = {
   captcha_rate: number;
 };
 
-type DailyBreakdown = { date: string; reason: string; attempts: number; resolved: boolean };
+type DailyBreakdown = { date: string; reason: string; error_class: string; attempts: number; resolved: boolean };
 
 type PerStock = {
   stock_id: string;
@@ -40,11 +43,16 @@ type PerStock = {
   dailyBreakdown: DailyBreakdown[];
 };
 
+type ClassDist = { error_class: string; count: number; share: number };
+
 type Dashboard = {
   range: { from: string; to: string; days: number };
   globalDaily: GlobalDay[];
   perStock: PerStock[];
   topOffenders: Array<PerStock & { captcha_rate: number }>;
+  errorClasses: string[];
+  errorClassDistribution: ClassDist[];
+  dailyErrorClassStack: Array<Record<string, any>>;
   totals: {
     total_failures: number;
     captcha_retry_exhausted: number;
@@ -56,14 +64,46 @@ type Dashboard = {
 };
 
 const REASONS = [
-  { value: 'all', label: '全部原因' },
+  { value: 'all', label: '全部 reason' },
   { value: 'captcha_retry_exhausted', label: 'CAPTCHA 重試耗盡' },
-  { value: 'http_403', label: 'HTTP 403 阻擋' },
-  { value: 'http_429', label: 'HTTP 429 節流' },
+  { value: 'http_block', label: 'HTTP 阻擋' },
   { value: 'empty_rows', label: '空資料' },
-  { value: 'parse_error', label: '解析失敗' },
-  { value: 'timeout', label: '逾時' },
+  { value: 'menu_parse_failed', label: '選單解析失敗' },
+  { value: 'sync_failed', label: '其他同步失敗' },
 ];
+
+// error_class 細分：OCR 空值 / OCR 字元辨識偏差 / 阻擋 / 空值 / 金鑰或欄位缺失
+const ERROR_CLASSES = [
+  { value: 'all', label: '全部細分類' },
+  { value: 'ocr_null', label: 'OCR 空值 (無有效猜測)' },
+  { value: 'ocr_mismatch', label: 'OCR 字元辨識偏差' },
+  { value: 'captcha_retry_exhausted', label: 'CAPTCHA 耗盡 (無子分類)' },
+  { value: 'captcha_http', label: 'CAPTCHA 圖片 HTTP 失敗' },
+  { value: 'http_block_403', label: 'HTTP 403 阻擋' },
+  { value: 'http_block_429', label: 'HTTP 429 節流' },
+  { value: 'http_block', label: 'HTTP 阻擋 (其他)' },
+  { value: 'menu_parse_failed', label: '金鑰/欄位缺失 (menu 解析)' },
+  { value: 'empty_rows', label: '解析空值 (bsContent 空表)' },
+  { value: 'db_insert_failed', label: 'DB 寫入失敗' },
+  { value: 'unknown', label: '未分類' },
+];
+
+const CLASS_COLORS: Record<string, string> = {
+  ocr_null: '#D97706',
+  ocr_mismatch: '#B45309',
+  captcha_retry_exhausted: '#F59E0B',
+  captcha_http: '#EA580C',
+  http_block_403: '#B23A48',
+  http_block_429: '#DC2626',
+  http_block: '#991B1B',
+  menu_parse_failed: '#6D28D9',
+  empty_rows: '#9CA3AF',
+  db_insert_failed: '#0F766E',
+  sync_failed: '#4B5563',
+  unknown: '#374151',
+};
+const classColor = (c: string) => CLASS_COLORS[c] || '#4B5563';
+const classLabel = (c: string) => ERROR_CLASSES.find((x) => x.value === c)?.label || c;
 
 const fmtDate = (s: string | null) => {
   if (!s) return '—';
@@ -94,17 +134,19 @@ export default function BsrFailureDashboardPage() {
   const [stockFilter, setStockFilter] = useState('');
   const [stockInput, setStockInput] = useState('');
   const [reason, setReason] = useState('all');
+  const [errorClass, setErrorClass] = useState('all');
   const [expanded, setExpanded] = useState<string | null>(null);
   const [auditStock, setAuditStock] = useState<string | null>(null);
 
   const { data, isLoading, error, refetch, isFetching } = useQuery<Dashboard>({
-    queryKey: ['bsr-failures', days, stockFilter, reason],
+    queryKey: ['bsr-failures', days, stockFilter, reason, errorClass],
     staleTime: 60_000,
     queryFn: async () => {
       const qs = new URLSearchParams();
       qs.set('days', String(days));
       if (stockFilter) qs.set('stock_id', stockFilter);
       if (reason !== 'all') qs.set('reason', reason);
+      if (errorClass !== 'all') qs.set('error_class', errorClass);
       const { data: sess } = await supabase.auth.getSession();
       const token = sess.session?.access_token;
       const url = `https://yqacmrgdjlenbijclngi.supabase.co/functions/v1/tw-bsr-failure-dashboard?${qs.toString()}`;
@@ -179,11 +221,20 @@ export default function BsrFailureDashboardPage() {
               </Select>
             </div>
             <div className="flex flex-col gap-1">
-              <label className="text-[11px] text-foreground/60">失敗原因</label>
+              <label className="text-[11px] text-foreground/60">失敗原因 (reason)</label>
               <Select value={reason} onValueChange={setReason}>
-                <SelectTrigger className="w-48 h-9"><SelectValue /></SelectTrigger>
+                <SelectTrigger className="w-44 h-9"><SelectValue /></SelectTrigger>
                 <SelectContent>
                   {REASONS.map((r) => <SelectItem key={r.value} value={r.value}>{r.label}</SelectItem>)}
+                </SelectContent>
+              </Select>
+            </div>
+            <div className="flex flex-col gap-1">
+              <label className="text-[11px] text-foreground/60">錯誤細分類 (error_class)</label>
+              <Select value={errorClass} onValueChange={setErrorClass}>
+                <SelectTrigger className="w-56 h-9"><SelectValue /></SelectTrigger>
+                <SelectContent>
+                  {ERROR_CLASSES.map((r) => <SelectItem key={r.value} value={r.value}>{r.label}</SelectItem>)}
                 </SelectContent>
               </Select>
             </div>
@@ -288,6 +339,66 @@ export default function BsrFailureDashboardPage() {
             )}
           </CardContent>
         </Card>
+
+        {/* 每日錯誤細分類 (error_class) 堆疊圖 + 分佈 */}
+        <Card>
+          <CardHeader className="pb-2">
+            <CardTitle className="text-[14px] font-medium">
+              每日錯誤細分類堆疊（依 error_class）
+              <span className="ml-2 text-[11px] text-foreground/50 font-normal">
+                將 captcha_retry_exhausted 拆成 OCR 空值 / 字元辨識偏差，並涵蓋 HTTP 阻擋、金鑰欄位缺失、解析空值等
+              </span>
+            </CardTitle>
+          </CardHeader>
+          <CardContent>
+            {data && (data.dailyErrorClassStack?.length ?? 0) === 0 && (
+              <div className="text-sm text-foreground/60">此區間沒有可堆疊的失敗資料</div>
+            )}
+            {data && (data.dailyErrorClassStack?.length ?? 0) > 0 && (
+              <div className="space-y-4">
+                <div style={{ width: '100%', height: 260 }}>
+                  <ResponsiveContainer>
+                    <BarChart data={data.dailyErrorClassStack} margin={{ top: 8, right: 12, left: 0, bottom: 0 }}>
+                      <CartesianGrid strokeDasharray="3 3" stroke="hsl(var(--foreground) / 0.08)" />
+                      <XAxis dataKey="date" tick={{ fontSize: 11, fill: 'hsl(var(--foreground) / 0.6)' }} />
+                      <YAxis tick={{ fontSize: 11, fill: 'hsl(var(--foreground) / 0.6)' }} allowDecimals={false} />
+                      <Tooltip
+                        contentStyle={{ fontSize: 12, background: 'hsl(var(--background))', border: '1px solid hsl(var(--foreground) / 0.15)' }}
+                        formatter={(v: any, k: any) => [`${v} 件`, classLabel(String(k))]}
+                      />
+                      <RcLegend
+                        wrapperStyle={{ fontSize: 11 }}
+                        formatter={(v: any) => classLabel(String(v))}
+                      />
+                      {(data.errorClasses || []).map((c) => (
+                        <Bar key={c} dataKey={c} stackId="err" fill={classColor(c)} />
+                      ))}
+                    </BarChart>
+                  </ResponsiveContainer>
+                </div>
+
+                {/* 分佈總覽 */}
+                {data.errorClassDistribution && data.errorClassDistribution.length > 0 && (
+                  <div className="grid grid-cols-2 md:grid-cols-4 gap-2 pt-2 border-t">
+                    {data.errorClassDistribution.map((d) => (
+                      <div key={d.error_class} className="flex items-center gap-2 text-[11px] p-2 rounded" style={{ background: 'hsl(var(--foreground) / 0.03)' }}>
+                        <span className="inline-block w-2.5 h-2.5 rounded-sm shrink-0" style={{ background: classColor(d.error_class) }} />
+                        <div className="flex-1 min-w-0">
+                          <div className="text-foreground/80 truncate">{classLabel(d.error_class)}</div>
+                          <div className="text-foreground/50 tabular-nums">
+                            {d.count} 件 · {pct(d.share)}
+                          </div>
+                        </div>
+                      </div>
+                    ))}
+                  </div>
+                )}
+              </div>
+            )}
+          </CardContent>
+        </Card>
+
+
 
         {/* Top Offenders */}
         {data && data.topOffenders.length > 0 && (
@@ -412,12 +523,16 @@ export default function BsrFailureDashboardPage() {
                                 variant="outline"
                                 className="text-[10px]"
                                 style={{
-                                  color: d.reason === 'captcha_retry_exhausted' ? '#B45309' : '#4B5563',
-                                  borderColor: d.reason === 'captcha_retry_exhausted' ? '#FCD34D' : undefined,
+                                  color: classColor(d.error_class),
+                                  borderColor: classColor(d.error_class),
                                 }}
+                                title={`reason=${d.reason} · class=${d.error_class}`}
                               >
-                                {d.reason}
+                                {classLabel(d.error_class)}
                               </Badge>
+                              {d.reason && d.reason !== d.error_class && (
+                                <span className="text-[10px] text-foreground/40">/ {d.reason}</span>
+                              )}
                               <span className="text-foreground/60 ml-auto">
                                 嘗試 {d.attempts} 次 {d.resolved && <span className="text-emerald-700 ml-1">已解決</span>}
                               </span>

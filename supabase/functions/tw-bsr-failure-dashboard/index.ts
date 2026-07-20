@@ -48,14 +48,16 @@ Deno.serve(async (req) => {
   const fromStr = from.toISOString().slice(0, 10);
   const stockFilter = (url.searchParams.get("stock_id") || "").trim();
   const reasonFilter = (url.searchParams.get("reason") || "").trim();
+  const errorClassFilter = (url.searchParams.get("error_class") || "").trim();
 
   // --- fetch failures ---
   let failuresUrl =
-    `${SUPABASE_URL}/rest/v1/tw_bsr_fetch_failures?select=stock_id,trade_date,reason,attempts,last_error,resolved_at,consecutive_failures,next_retry_at,backoff_seconds,updated_at` +
+    `${SUPABASE_URL}/rest/v1/tw_bsr_fetch_failures?select=stock_id,trade_date,reason,error_class,attempts,last_error,resolved_at,consecutive_failures,next_retry_at,backoff_seconds,updated_at` +
     `&trade_date=gte.${fromStr}&trade_date=lte.${toStr}` +
     `&order=trade_date.desc&limit=5000`;
   if (stockFilter) failuresUrl += `&stock_id=eq.${encodeURIComponent(stockFilter)}`;
   if (reasonFilter) failuresUrl += `&reason=eq.${encodeURIComponent(reasonFilter)}`;
+  if (errorClassFilter) failuresUrl += `&error_class=eq.${encodeURIComponent(errorClassFilter)}`;
 
   const failuresRes = await fetch(failuresUrl, { headers: srHeaders() });
   if (!failuresRes.ok) return json({ error: "FAILURES_QUERY_FAILED" }, 500);
@@ -132,9 +134,14 @@ Deno.serve(async (req) => {
     next_retry_at: string | null;
     fallback_as_of_date: string | null;
     fallback_lag_days: number | null;
-    dailyBreakdown: { date: string; reason: string; attempts: number; resolved: boolean }[];
+    dailyBreakdown: { date: string; reason: string; error_class: string; attempts: number; resolved: boolean }[];
   };
   const psMap: Record<string, PS> = {};
+  // 日期 → error_class → 次數 累計，供 UI 堆疊圖使用
+  const stackByDate: Record<string, Record<string, number>> = {};
+  // 全域 error_class 分佈
+  const classTotals: Record<string, number> = {};
+
   for (const f of failures) {
     const p = (psMap[f.stock_id] ||= {
       stock_id: f.stock_id,
@@ -155,6 +162,8 @@ Deno.serve(async (req) => {
     if (f.reason === "captcha_retry_exhausted") p.captcha_retry_exhausted += 1;
     else p.other_failures += 1;
     if (!f.resolved_at) p.unresolved += 1;
+    // error_class：DB 未回填時，用 reason/last_error 現場推導，向後相容舊資料
+    const cls: string = f.error_class || classifyErrorFallback(f.reason, f.last_error);
     if (!p.latest_target_date || String(f.trade_date) > p.latest_target_date) {
       p.latest_target_date = String(f.trade_date);
       p.latest_reason = f.reason;
@@ -164,10 +173,15 @@ Deno.serve(async (req) => {
     p.dailyBreakdown.push({
       date: String(f.trade_date),
       reason: f.reason,
+      error_class: cls,
       attempts: Number(f.attempts || 0),
       resolved: !!f.resolved_at,
     });
+    const dayKey = String(f.trade_date);
+    (stackByDate[dayKey] ||= {})[cls] = (stackByDate[dayKey][cls] || 0) + 1;
+    classTotals[cls] = (classTotals[cls] || 0) + 1;
   }
+
   // attach rollup fallback
   const toDate = new Date(toStr + "T00:00:00Z");
   for (const p of Object.values(psMap)) {
@@ -196,12 +210,31 @@ Deno.serve(async (req) => {
       fallback_lag_days: p.fallback_lag_days,
     }));
 
+  // 全部觀察到的 error_class，供前端渲染堆疊圖固定欄位
+  const errorClasses = Object.keys(classTotals).sort((a, b) => classTotals[b] - classTotals[a]);
+  const dailyErrorClassStack = Object.entries(stackByDate)
+    .map(([date, buckets]) => {
+      const row: Record<string, any> = { date, total: 0 };
+      for (const c of errorClasses) row[c] = buckets[c] || 0;
+      row.total = Object.values(buckets).reduce((a, b) => a + b, 0);
+      return row;
+    })
+    .sort((a, b) => (a.date < b.date ? -1 : 1));
+  const errorClassDistribution = errorClasses.map((c) => ({
+    error_class: c,
+    count: classTotals[c],
+    share: failures.length > 0 ? +(classTotals[c] / failures.length).toFixed(4) : 0,
+  }));
+
   return json({
     range: { from: fromStr, to: toStr, days },
-    filters: { stock_id: stockFilter || null, reason: reasonFilter || null },
+    filters: { stock_id: stockFilter || null, reason: reasonFilter || null, error_class: errorClassFilter || null },
     globalDaily,
     perStock,
     topOffenders,
+    errorClasses,
+    errorClassDistribution,
+    dailyErrorClassStack,
     totals: {
       total_failures: failures.length,
       captcha_retry_exhausted: failures.filter((f) => f.reason === "captcha_retry_exhausted").length,
@@ -212,6 +245,23 @@ Deno.serve(async (req) => {
     generated_at: new Date().toISOString(),
   });
 });
+
+// 舊資料 error_class 為空時的即時推導：match daily-sync 的 classifyBsrError
+function classifyErrorFallback(reason: string | null, lastError: string | null): string {
+  const s = `${reason || ""} ${lastError || ""}`;
+  if (/http_block_403/.test(s)) return "http_block_403";
+  if (/http_block_429/.test(s)) return "http_block_429";
+  if (/http_block/.test(s)) return "http_block";
+  if (/captcha_http/.test(s)) return "captcha_http";
+  if (/menu_parse_failed/.test(s)) return "menu_parse_failed";
+  if (/empty_rows/.test(s)) return "empty_rows";
+  if (/db_insert/.test(s)) return "db_insert_failed";
+  if (/captcha_retry_exhausted:ocr_mismatch/.test(s)) return "ocr_mismatch";
+  if (/captcha_retry_exhausted:ocr_null/.test(s)) return "ocr_null";
+  if (/captcha_retry_exhausted/.test(s)) return "captcha_retry_exhausted";
+  if (reason) return reason;
+  return "unknown";
+}
 
 function json(body: any, status = 200) {
   return new Response(JSON.stringify(body), {
