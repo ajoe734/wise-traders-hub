@@ -3871,9 +3871,12 @@ export type Database = {
       tw_bsr_fetch_failures: {
         Row: {
           attempts: number
+          backoff_seconds: number
+          consecutive_failures: number
           created_at: string
           id: number
           last_error: string | null
+          next_retry_at: string | null
           reason: string
           resolved_at: string | null
           stock_id: string
@@ -3882,9 +3885,12 @@ export type Database = {
         }
         Insert: {
           attempts?: number
+          backoff_seconds?: number
+          consecutive_failures?: number
           created_at?: string
           id?: number
           last_error?: string | null
+          next_retry_at?: string | null
           reason: string
           resolved_at?: string | null
           stock_id: string
@@ -3893,14 +3899,65 @@ export type Database = {
         }
         Update: {
           attempts?: number
+          backoff_seconds?: number
+          consecutive_failures?: number
           created_at?: string
           id?: number
           last_error?: string | null
+          next_retry_at?: string | null
           reason?: string
           resolved_at?: string | null
           stock_id?: string
           trade_date?: string
           updated_at?: string
+        }
+        Relationships: []
+      }
+      tw_bsr_sync_locks: {
+        Row: {
+          acquired_at: string
+          expires_at: string
+          lock_key: string
+        }
+        Insert: {
+          acquired_at?: string
+          expires_at: string
+          lock_key: string
+        }
+        Update: {
+          acquired_at?: string
+          expires_at?: string
+          lock_key?: string
+        }
+        Relationships: []
+      }
+      tw_bsr_sync_metrics: {
+        Row: {
+          avg_latency_ms: number
+          bucket_at: string
+          empty: number
+          http_block: number
+          ocr_fail: number
+          success: number
+          total: number
+        }
+        Insert: {
+          avg_latency_ms?: number
+          bucket_at: string
+          empty?: number
+          http_block?: number
+          ocr_fail?: number
+          success?: number
+          total?: number
+        }
+        Update: {
+          avg_latency_ms?: number
+          bucket_at?: string
+          empty?: number
+          http_block?: number
+          ocr_fail?: number
+          success?: number
+          total?: number
         }
         Relationships: []
       }
