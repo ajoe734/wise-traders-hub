@@ -50,6 +50,25 @@ const VARIANT_PLAN: Record<OcrMode, OcrVariantName[]> = {
   aggressive: ["otsu", "adaptive", "dilate", "loose_crop", "raw"],
 };
 
+const ALL_VARIANTS: OcrVariantName[] = ["otsu", "adaptive", "dilate", "loose_crop", "raw"];
+
+export function defaultVariantsFor(mode: OcrMode): OcrVariantName[] {
+  return [...(VARIANT_PLAN[mode] ?? VARIANT_PLAN.standard)];
+}
+
+/** 依 mode 取回變體規劃並可額外「先執行」某幾個變體（去重、去無效名）。用於自適應重排。 */
+export function planWithPriority(mode: OcrMode, priority: OcrVariantName[] = []): OcrVariantName[] {
+  const base = defaultVariantsFor(mode);
+  const seen = new Set<OcrVariantName>();
+  const out: OcrVariantName[] = [];
+  for (const v of [...priority, ...base]) {
+    if (!ALL_VARIANTS.includes(v)) continue;
+    if (seen.has(v)) continue;
+    seen.add(v); out.push(v);
+  }
+  return out;
+}
+
 export interface OcrDetailedOptions {
   mode?: OcrMode;
   /**
@@ -57,6 +76,11 @@ export interface OcrDetailedOptions {
    * 供指標/回放測試使用。生產路徑請保持預設 false 以節省 API 呼叫。
    */
   exhaustive?: boolean;
+  /**
+   * 顯式覆寫變體執行順序（同時忽略 mode 對應的 VARIANT_PLAN）。
+   * 供自適應重試提高特定變體優先權時使用。
+   */
+  variants?: OcrVariantName[];
 }
 
 export async function ocrTwseCaptcha(
@@ -76,7 +100,12 @@ export async function ocrTwseCaptchaDetailed(
     : modeOrOptions;
   const mode: OcrMode = opts.mode ?? "standard";
   const exhaustive = opts.exhaustive === true;
-  const plan = VARIANT_PLAN[mode] ?? VARIANT_PLAN.standard;
+  const overriddenPlan = Array.isArray(opts.variants) && opts.variants.length
+    ? opts.variants.filter((v): v is OcrVariantName => ALL_VARIANTS.includes(v))
+    : null;
+  const plan: OcrVariantName[] = overriddenPlan && overriddenPlan.length
+    ? overriddenPlan
+    : (VARIANT_PLAN[mode] ?? VARIANT_PLAN.standard);
   const attempts: OcrAttempt[] = [];
   if (!LOVABLE_API_KEY) {
     return { text: null, mode, strategy: plan, attempts, consensus: "none" };
