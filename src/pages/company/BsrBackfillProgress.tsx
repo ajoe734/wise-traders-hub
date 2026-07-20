@@ -9,6 +9,24 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@
 import { RefreshCw, CheckCircle2, XCircle, AlertTriangle, Layers, Calendar, ChevronDown, ChevronRight } from 'lucide-react';
 import { supabase } from '@/integrations/supabase/client';
 
+type PerStockAttempt = { date: string; error: string; error_class?: string | null };
+type PerStock = {
+  stock_id: string;
+  ok: boolean;
+  resolved_date: string | null;
+  resolved_at_updated: boolean;
+  mismatch_reason: string | null;
+  final_reason: string;
+  attempts: PerStockAttempt[];
+  attempts_count: number;
+  fallback: { source?: string; as_of_date?: string; rows?: number; lag_days?: number } | null;
+  next_retry_at: string | null;
+  next_retry_source: string | null;
+  consec_before: number;
+  lookback_from: string;
+  lookback_to: string;
+};
+
 type JobRow = {
   id: string;
   job_name: string;
@@ -18,6 +36,7 @@ type JobRow = {
     mode?: string;
     date?: string;
     lookback?: number;
+    lookback_window?: { from: string; to: string } | null;
     batch?: number;
     processed?: number;
     success?: number;
@@ -27,8 +46,10 @@ type JobRow = {
     fallback_range?: { min: string; max: string } | null;
     covered_dates?: string[];
     config_version?: number | string;
+    per_stock?: PerStock[];
   } | null;
 };
+
 
 const fmtDT = (s: string | null | undefined) => {
   if (!s) return '—';
