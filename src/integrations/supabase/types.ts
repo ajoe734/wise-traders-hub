@@ -4657,6 +4657,17 @@ export type Database = {
         }
         Returns: string
       }
+      bsr_reservation_stats: {
+        Args: { _api?: string }
+        Returns: {
+          expired_unsettled: number
+          expiring_soon: number
+          in_flight: number
+          oldest_in_flight_age_seconds: number
+          rate_limited_last_hour: number
+          settled_last_hour: number
+        }[]
+      }
       calculate_expert_performance: {
         Args: { _expert_id: string }
         Returns: Json
