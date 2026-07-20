@@ -215,8 +215,14 @@ export default function BsrBackfillProgressPage() {
                               <span className="text-foreground/60">mode</span><span className="tabular-nums">{d.mode || '—'}</span>
                               <span className="text-foreground/60">目標日</span><span className="tabular-nums">{fmtD(d.date)}</span>
                               <span className="text-foreground/60">lookback</span><span className="tabular-nums">{d.lookback ?? '—'}</span>
+                              <span className="text-foreground/60">lookback 視窗</span>
+                              <span className="tabular-nums">
+                                {d.lookback_window ? `${fmtD(d.lookback_window.from)} – ${fmtD(d.lookback_window.to)}` : '—'}
+                              </span>
                               <span className="text-foreground/60">batch</span><span className="tabular-nums">{d.batch ?? '—'}</span>
+                              <span className="text-foreground/60">run_id</span><span className="font-mono text-[10px] break-all">{row.id}</span>
                               <span className="text-foreground/60">config_version</span><span className="tabular-nums">v{d.config_version ?? '—'}</span>
+
                             </div>
                           </div>
                           <div className="p-3 rounded border">
