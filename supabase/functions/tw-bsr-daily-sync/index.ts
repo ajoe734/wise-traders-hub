@@ -297,6 +297,30 @@ async function buildQueue(supa: any, batch: number, offHours: boolean): Promise<
   return out;
 }
 
+// ---- Backfill 佇列：只挑「未 resolved 且 next_retry_at 已到期」的失敗紀錄 ----
+// 依「距離最後成功日的日數」與 consecutive_failures 排序，最舊的先補
+async function buildBackfillQueue(supa: any, batch: number): Promise<string[]> {
+  const nowIso = new Date().toISOString();
+  const { data: due } = await supa
+    .from("tw_bsr_fetch_failures")
+    .select("stock_id, trade_date, consecutive_failures, next_retry_at, updated_at")
+    .is("resolved_at", null)
+    .or(`next_retry_at.is.null,next_retry_at.lte.${nowIso}`)
+    .order("trade_date", { ascending: true })
+    .order("consecutive_failures", { ascending: true })
+    .limit(batch * 4);
+  const out: string[] = [];
+  const seen = new Set<string>();
+  for (const r of due || []) {
+    const id = String(r.stock_id);
+    if (!/^[0-9]{4,6}$/.test(id) || seen.has(id)) continue;
+    seen.add(id);
+    out.push(id);
+    if (out.length >= batch) break;
+  }
+  return out;
+}
+
 // ---- 指標桶（15 分鐘）----
 function bucketKey(): string {
   const d = new Date();
