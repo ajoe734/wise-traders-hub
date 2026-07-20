@@ -219,10 +219,11 @@ async function enqueueTier1Holdings(date: string, cid: string): Promise<number> 
     })
     .map((r: any) => {
       const raw = String(r.instrument || '').trim();
+      // 接受 4–6 碼數字，可帶 1 個尾綴字母（ETF 正 2 / 反 1 常見 L/R）；保留字母不剝除。
       const match = raw.match(/^([0-9]{4,6}[A-Z]?)\b/);
-      return match ? match[1].replace(/[A-Z]$/, '') : '';
+      return match ? match[1] : '';
     })
-    .filter((s: string) => /^[0-9]{4,6}$/.test(s))));
+    .filter((s: string) => /^[0-9]{4,6}[A-Z]?$/.test(s))));
   if (ids.length === 0) return 0;
   return await enqueueBatch(ids, date, 1, 'tier1_holdings', cid);
 }
