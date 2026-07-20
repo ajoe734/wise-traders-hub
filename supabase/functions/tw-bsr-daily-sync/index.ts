@@ -408,7 +408,12 @@ function uaLabelFromString(ua: string): string {
   return `${browser}${ver ? " " + ver : ""} · ${os}`;
 }
 
-async function fetchBsrForStock(stockId: string, ctx: SessionCtx, cfg: SyncConfig): Promise<BsrRow[]> {
+async function fetchBsrForStock(
+  stockId: string,
+  ctx: SessionCtx,
+  cfg: SyncConfig,
+  opts: { consecBefore?: number } = {},
+): Promise<BsrRow[]> {
   const baseHeaders = {
     "User-Agent": ctx.ua,
     "Accept-Language": ctx.acceptLang,
@@ -425,8 +430,11 @@ async function fetchBsrForStock(stockId: string, ctx: SessionCtx, cfg: SyncConfi
   const captchaUrl = extractCaptchaImageUrl(menuHtml);
   if (!viewState || !eventValidation || !captchaUrl) throw new Error("menu_parse_failed");
 
-  // 每一檔開始都重置 OCR 軌跡
+  // 每一檔開始都重置 OCR 軌跡；並依 consecutive_failures 決定策略
   ctx.ocrTrace = [];
+  const consecBefore = Math.max(0, Math.floor(opts.consecBefore || 0));
+  const strategy = computeAdaptiveStrategy(cfg.ocr_mode, consecBefore, cfg.adaptive);
+  ctx.adaptive = strategy;
   // 細分子原因統計，讓 captcha_retry_exhausted 能拆出 OCR 空值 vs OCR 錯字
   let ocrNullCount = 0;
   let ocrMismatchCount = 0;
@@ -439,10 +447,28 @@ async function fetchBsrForStock(stockId: string, ctx: SessionCtx, cfg: SyncConfi
     if (!capResp.ok) throw new Error(`captcha_http_${capResp.status}`);
     Object.assign(ctx.jar, parseSetCookie(capResp.headers));
     const capBytes = new Uint8Array(await capResp.arrayBuffer());
-    // 動態升級：最後一次重試時，若允許升級且不是 aggressive，改用 aggressive 加大成功率
-    const activeMode = cfg.ocr_escalate_on_fail && attempt === cfg.max_ocr_retry && cfg.ocr_mode !== "aggressive"
-      ? "aggressive" : cfg.ocr_mode;
-    const ocr = await ocrTwseCaptchaDetailed(capBytes, activeMode);
+
+    // 本次 retry 實際採用的 mode/variants：
+    // - 若是最後一次 retry 且 strategy.escalate_on_last，則再往上升一階（standard→aggressive）
+    const isLastRetry = attempt === cfg.max_ocr_retry;
+    let retryMode: OcrResult["mode"] = strategy.effective_mode;
+    let retryVariants: OcrVariantName[] = strategy.variants;
+    let lastRetryBump = false;
+    if (isLastRetry && strategy.escalate_on_last && retryMode !== "aggressive") {
+      const from = retryMode;
+      retryMode = retryMode === "fast" ? "standard" : "aggressive";
+      // last_retry_bump 也把變體重新以升級後 mode + 重排優先權補齊
+      retryVariants = planWithPriority(retryMode,
+        consecBefore >= cfg.adaptive.reorder_variants_at ? ["otsu", "adaptive", "dilate", "loose_crop"] : []);
+      lastRetryBump = true;
+      strategy.triggers.push({ rule: "last_retry_bump", from, to: retryMode, reason: `attempt=${attempt}/${cfg.max_ocr_retry}` });
+    }
+
+    const ocr = await ocrTwseCaptchaDetailed(capBytes, {
+      mode: retryMode,
+      variants: retryVariants,
+      exhaustive: strategy.exhaustive,
+    });
     const traceEntry: OcrTraceEntry = {
       retry: attempt,
       mode: ocr.mode,
@@ -453,6 +479,12 @@ async function fetchBsrForStock(stockId: string, ctx: SessionCtx, cfg: SyncConfi
         ? { variant: ocr.winner.variant, text: ocr.text, votes: ocr.winner.votes }
         : null,
       post_outcome: "empty",
+      adaptive: {
+        effective_mode: retryMode,
+        variants: retryVariants,
+        exhaustive: strategy.exhaustive,
+        last_retry_bump: lastRetryBump,
+      },
     };
     ctx.ocrTrace.push(traceEntry);
     const captcha = ocr.text;
