@@ -230,7 +230,10 @@ async function fetchBsrForStock(stockId: string, ctx: SessionCtx, cfg: SyncConfi
     if (!capResp.ok) throw new Error(`captcha_http_${capResp.status}`);
     Object.assign(ctx.jar, parseSetCookie(capResp.headers));
     const capBytes = new Uint8Array(await capResp.arrayBuffer());
-    const captcha = await ocrTwseCaptcha(capBytes);
+    // 動態升級：最後一次重試時，若允許升級且不是 aggressive，改用 aggressive 加大成功率
+    const activeMode = cfg.ocr_escalate_on_fail && attempt === cfg.max_ocr_retry && cfg.ocr_mode !== "aggressive"
+      ? "aggressive" : cfg.ocr_mode;
+    const captcha = await ocrTwseCaptcha(capBytes, activeMode);
     if (!captcha) continue;
 
     const form = new URLSearchParams({
