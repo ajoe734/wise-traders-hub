@@ -1,75 +1,71 @@
-## 目標
-在 `tw-bsr-daily-sync` 加上 `mode: "audit"`（唯讀，不觸網、不寫表），一次回傳每支股票的：
+## 現況（已驗證）
 
-- `attempted_as_of_date`：原本應抓的目標日（`rollBackToWeekday(date)`）
-- `lookback_chain`：lookback 視窗內每一天是否已有 `tw_bsr_daily` 資料
-- `last_successful_as_of_date`：`tw_bsr_daily` 中 ≤ 目標日的最近一筆成功日 + 筆數 + lag_days
-- `rollup_as_of_date`：`tw_chips_rollup` 目前對齊到的日期（5/20/60 三窗）
-- `failure_state`：`tw_bsr_fetch_failures` 目前的 reason / attempts / consecutive_failures / next_retry_at / resolved_at
-- `aligned`：`rollup.as_of == last_successful`（true 表示對齊）；否則列出 `mismatch_reason`
+| 資料表 | 筆數 | 最新 |
+|---|---|---|
+| `tw_institutional_daily`（三大法人）| 27,661 | 2026-07-20 ✅ |
+| `tw_bsr_daily`（分點）| **0** | **從未成功寫入** ❌ |
+| `tw_bsr_fetch_failures`（未解決）| 71 檔 | 全部 `captcha_retry_exhausted` |
+| `tw_bsr_attempt_logs` | **0** | logAttempt 靜默失敗，等於瞎子 |
 
-同步在前端 BSR 失敗看板加「Audit」按鈕，點單一股票即彈出 audit 結果 modal，方便端到端比對。
+結論：抽屜顯示「分點資料尚未同步 / 尚無歷史序列資料」不是前端 bug，是後端從來沒有一筆 BSR 成功。過去我補的六層防禦、自適應、預處理、回放測試都是**建在破損地基上**——TWSE 官方 BSR 頁面 (bsr.twse.com.tw) 的 CAPTCHA 對 Gemini Vision 的識別率實務上接近 0，再多預處理也救不回來。
 
-## 變更清單
+同時 `logAttempt` 用 `try/catch` 靜默吞例外（`/* best-effort */`），導致連 debug 線索都沒有。
 
-### 1. `supabase/functions/tw-bsr-daily-sync/index.ts`
-- 新增 `mode === "audit"` 分支（走 lock 之外，唯讀）：
-  - 接受 `{ mode: "audit", stock_ids: string[], date?, lookback? }`
-  - 每檔並行執行：
-    - 查 `tw_bsr_daily` 在 `[date-lookback, date]` 每一天的 count → `lookback_chain`
-    - 查 ≤ `date` 的最近 `trade_date` + count → `last_successful`
-    - 查 `tw_chips_rollup` 三個 window_days 的 `as_of_date` → `rollup`
-    - 查 `tw_bsr_fetch_failures` 該 `stock_id` 全部（含已 resolved）→ `failure_state`
-    - 比對 `rollup.as_of_date === last_successful.as_of_date` → `aligned`、`mismatch_reason`
-  - 回傳 `{ mode: "audit", date, lookback, results: [...] }`
-- 不呼叫 `acquireLock`、不 fetch TWSE、不寫任何表。
+## 修正計畫
 
-### 2. `supabase/functions/tw-bsr-failure-dashboard/index.ts`（如需）
-- 保持不動；audit 走同一 `tw-bsr-daily-sync` 但 `mode: "audit"`。
+### 1. 打開黑盒：修 attempt_logs 靜默失敗（先做，30 分鐘）
+- 檢查 `tw_bsr_attempt_logs` 的 GRANT/RLS——service_role 應可寫；若缺 GRANT 直接補。
+- `logAttempt` 改成**失敗時 `console.error` 一次**（不阻斷主流程但至少 edge logs 能看到）。
+- 立刻手動觸發一次 sync，用 `edge_function_logs` 確認實際 OCR 回傳（目前搜 `ocr`/`captcha`/`error` 全都 no match，代表現行程式碼根本沒 log 過 OCR 決策）。
 
-### 3. `src/pages/company/BsrFailureDashboard.tsx`
-- Top Offenders 每列尾端加 `Audit` 小按鈕
-- 點擊 → `supabase.functions.invoke("tw-bsr-daily-sync", { body: { mode: "audit", stock_ids: [id], lookback: 7 } })`
-- 用一個輕量 Dialog 顯示：
-  - Attempted / Last Successful / Rollup(5,20,60) 三欄對齊表
-  - Lookback chain（每日 ✔/✘ + rows）
-  - Failure 歷史（最近 5 筆）
-  - 大字 `aligned=true/false`（true 綠、false 琥珀 + mismatch_reason）
+### 2. 換資料源：新增無 CAPTCHA 的 BSR 抓取器（主修）
 
-### 4. E2E `e2e/bsr-audit-mode.spec.ts`
-- 呼叫 `tw-bsr-daily-sync` with `mode:"audit"` 針對 `2330`、`0050`、一個明知沒資料的 `9999`：
-  - 回傳結構欄位齊全
-  - `aligned` 布林正確
-  - 未寫入 `tw_bsr_daily` / `tw_bsr_fetch_failures`（比對呼叫前後 count）
+TWSE 官方 BSR 只有 captcha 版；但有**兩個穩定替代來源**可選：
+
+**方案 A — FinMind API**（推薦，免費、有 rate limit 但可接受）
+- `TaiwanStockShareholding` / `TaiwanStockInstitutionalInvestorsBuySell` 之外，`TaiwanStockPortfolioBrokerTrading` 提供每日分點淨買賣。
+- 新 edge function `tw-bsr-finmind-sync`：無需 OCR，直接 REST。
+- 需要 `FINMIND_TOKEN`（免費 sign up）→ 用 `add_secret` 請使用者提供。
+
+**方案 B — 若不想外部依賴**：直接抓 `bsr.twse.com.tw` 的 XLS 版本（部分股票有匯出鍵，不走 captcha）。覆蓋率較窄，只做 top 500。
+
+→ 建議 A 為主、B 為降級，並在 UI 顯示資料來源標籤。
+
+### 3. 改造現有 `tw-bsr-daily-sync` 為降級鏈
+```
+FinMind → 若 quota 用盡 → XLS 抓取 → 若失敗 → 原 OCR 路徑（保留但不再主打）
+```
+成功來源寫進 `tw_bsr_daily.source_provider`（新欄位）。
+
+### 4. 前端 ChipsSection 訊息校準
+- 目前的琥珀色 banner 假設「有 last_successful 可退回」，但實際 last_successful 永遠 null。
+- 補一個空狀態：「分點資料尚未同步」→ 顯示「本專案 BSR 由 FinMind 提供，若首次同步中請稍候（背景任務每 30 分執行）」。
+- 移除誤導性的「TWSE 18:15 抓取」文案。
+
+### 5. Admin 手動觸發按鈕
+`/company/bsr-config` 新增「立即回填近 5 個交易日」按鈕，走新的 FinMind 流程，方便你當場驗證。
 
 ## 技術細節
 
-Audit 分支跳過 lock：唯讀查表不會互斥、避免被 5 分鐘 cron 佔用鎖時完全卡死。
+**新 migration**
+- `tw_bsr_daily` 加 `source_provider text default 'twse_ocr'`
+- `tw_bsr_attempt_logs` 檢查 GRANT `INSERT` to `service_role`（若缺就補）
 
-`mismatch_reason` 判定：
-- `rollup_missing`：last_successful 存在但 rollup 無該日
-- `rollup_stale`：rollup.as_of < last_successful（rebuild 沒跑）
-- `rollup_ahead`：rollup.as_of > last_successful（資料被砍但 rollup 未清）
-- `no_data`：兩邊皆空
+**新 Edge Function**：`tw-bsr-finmind-sync`
+- 每 30 分排程（Taipei 09:00–20:00）
+- 一次抓當日全市場 top N + `holding-checkup` 使用者持倉聯集，upsert 進 `tw_bsr_daily`
 
-回傳範例：
-```json
-{
-  "mode": "audit",
-  "date": "2026-07-20",
-  "results": [{
-    "stock_id": "2330",
-    "attempted_as_of_date": "2026-07-20",
-    "last_successful": { "as_of_date": "2026-07-18", "rows": 892, "lag_days": 2 },
-    "rollup": { "5": "2026-07-18", "20": "2026-07-18", "60": "2026-07-18" },
-    "lookback_chain": [
-      { "date": "2026-07-20", "rows": 0 },
-      { "date": "2026-07-17", "rows": 0 },
-      { "date": "2026-07-18", "rows": 892 }
-    ],
-    "failure_state": { "reason": "captcha_retry_exhausted", "consecutive_failures": 2, "next_retry_at": "...", "resolved_at": null },
-    "aligned": true,
-    "mismatch_reason": null
-  }]
-}
-```
+**新 secret**：`FINMIND_TOKEN`（會用 `add_secret` 請你貼上）
+
+**修改的檔案**
+- `supabase/functions/tw-bsr-daily-sync/index.ts` — 改為降級 orchestrator
+- `supabase/functions/tw-bsr-finmind-sync/index.ts` — 新
+- `src/checkup/components/ChipsSection.tsx` — 空狀態文案
+- `src/pages/company/BsrConfig.tsx` — 手動觸發按鈕
+
+## 你需要決定
+
+1. **資料源**：FinMind（推薦）／XLS-only／繼續死磕 OCR？
+2. **FinMind Token**：若採 A，能否提供？（免費註冊 finmindtrade.com）
+
+我先等你回覆 (1)(2) 再進 build。
