@@ -3,13 +3,50 @@
 ## 架構總覽
 
 - Edge Function：`tw-bsr-finmind-sync`
-  - `mode=enqueue`：依 tier1(持倉) / tier2(缺口) / tier3(回填) 入列
-  - `mode=worker`：從 `tw_bsr_sync_queue` claim jobs、經全域限流器呼叫 FinMind
-  - `mode=stats`：回傳監控快照（用量、in-flight、queue 深度、延遲、429、P1 age）
-  - `mode=manual`：管理員指定 stock_id，仍會走 queue（不繞路）
+  - `mode=enqueue`：依 tier1(持倉) / tier2(缺口) / tier3(回填) 入列；tier3 若當前 degrade 模式禁止，會回 `skipped_by_degrade`。
+  - `mode=worker`：從 `tw_bsr_sync_queue` claim jobs、經全域限流器呼叫 FinMind；每次執行完會重新評估 degrade 狀態並可能自動轉移。
+  - `mode=stats`：回傳監控快照（用量、in-flight、queue 深度、延遲、429、P1 age、**degrade 模式與最近轉移事件**）。
+  - `mode=manual`：管理員指定 stock_id，仍會走 queue（不繞路），回傳 `correlation_id`。
+  - `mode=trace`：`{ correlation_id }`，回傳該 cid 完整事件鏈（queue / reservation / failure / attempt / degrade_events）。
 - 全域限流：原子額度預留（60 分鐘滑動視窗，上限 1500/hr）
-  - `reserve_bsr_api_quota` → `settle_bsr_reservation`（成功／429）→ `release_bsr_reservation`（未送出）
+  - `reserve_bsr_api_quota(_limit,_api,_lease_seconds,_correlation_id)` → `settle_bsr_reservation` → `release_bsr_reservation`
   - `purge_expired_bsr_reservations`：回收過期 lease
+- **自動降級狀態機**：normal → tier3_paused → tier2_paused → p1_only → claim_halt
+  - 升級無視 cooldown（保護優先）；降級必須 cooldown 到期並「逐級退回」，避免震盪
+  - 所有轉移寫入 `tw_bsr_degrade_events`（含 from/to/reason/trigger_metric/threshold/correlation_id）
+- **可追溯性**：每個同步 job 有自身 `correlation_id`，串聯 queue → reservation → fetch_failures → attempt_logs → degrade_events
+
+## Degrade 狀態轉移表
+
+| 模式 | max_priority | concurrency | 允許 claim | 允許 tier3 入列 | 進入條件（升級無視 cooldown） | 退回條件（cooldown 到期後逐級） |
+| --- | --- | --- | --- | --- | --- | --- |
+| `normal`       | 3 | 3 | ✅ | ✅ | — | — |
+| `tier3_paused` | 2 | 3 | ✅ | ❌ | 用量 ≥ 80% 或 P1 pending 最舊 ≥ 30 分 | 用量 < 70% 且 P1 pending < 10 分 → `normal` |
+| `tier2_paused` | 1 | 2 | ✅ | ❌ | 用量 ≥ 90% 或 429 連續 ≥ 3 分鐘 | 用量 < 75% 且 429_streak = 0 → `tier3_paused` |
+| `p1_only`      | 1 | 1 | ✅ | ❌ | （手動或未來策略升級用；狀態機不會自動升到此） | 用量 < 85% 且 429_streak = 0 → `tier2_paused` |
+| `claim_halt`   | 1 | 0 | ❌ | ❌ | reservation 過期未結 ≥ 5 或最舊 in-flight ≥ 300s（緊急，cooldown 60s） | expired_unsettled = 0 且 oldest_in_flight < 30s → `p1_only` |
+
+預設 cooldown = 600s；`claim_halt` 使用 60s 快速回收。狀態儲存於 `tw_bsr_sync_config` key = `degrade:finmind`。
+
+## Correlation ID 用法
+
+```bash
+# 從 stats 或 manual 回傳拿到 cid，然後查完整事件鏈
+curl -sX POST "$SUPABASE_URL/functions/v1/tw-bsr-finmind-sync" \
+  -H "apikey: $VITE_SUPABASE_PUBLISHABLE_KEY" \
+  -H "content-type: application/json" \
+  -d '{"mode":"trace","correlation_id":"<uuid>"}'
+```
+
+或直接查 DB：
+
+```sql
+SELECT public.bsr_trace_by_correlation('<uuid>');
+```
+
+回傳 JSON 包含 `queue / reservations / failures / attempts / degrade_events`。**不會**記錄 FinMind token 或完整 API URL。
+
+
 
 ## Cron 排程（jobname / schedule）
 
