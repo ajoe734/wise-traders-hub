@@ -16,7 +16,9 @@ import type { SupabaseClient } from 'npm:@supabase/supabase-js@2';
 
 export const FINMIND_HOURLY_LIMIT = Number(Deno.env.get('FINMIND_HOURLY_LIMIT') ?? 1500);
 export const FINMIND_API_NAME = 'finmind';
-export const DEFAULT_LEASE_SECONDS = 30;
+// Lease 蓄意設短：FinMind fetch abort timeout = 20s，多留 5s 給 settle/network。
+// 越短，crash / hang 時額度回收越快。任何實際超過 25s 的 worker 都會被自動回收。
+export const DEFAULT_LEASE_SECONDS = 25;
 
 export interface RateLimitStatus {
   used: number;
