@@ -753,6 +753,7 @@ Deno.serve(async (req) => {
               stockId, tradeDate: cursor, ctx, cfg, configVersion,
               backoffBefore, consecBefore, latencyMs: Date.now() - stepStartedAt,
               outcome: stepOutcome, step, error: msg,
+              errorClass: classifyBsrError(msg),
             });
 
             // 被擋直接中止本檔的 lookback（避免對同 IP 再擊）
@@ -777,9 +778,11 @@ Deno.serve(async (req) => {
           const reason = blockBump ? "http_block"
             : ocrFailBump ? "captcha_retry_exhausted"
             : emptyBump ? "empty_rows" : "sync_failed";
+          const errorClass = classifyBsrError(lastError || reason);
           await supa.from("tw_bsr_fetch_failures").upsert({
             stock_id: stockId, trade_date: tradeDate,
-            reason, attempts: attempts.length, last_error: lastError,
+            reason, error_class: errorClass,
+            attempts: attempts.length, last_error: lastError,
             consecutive_failures: nextConsec, backoff_seconds: backoff,
             next_retry_at: nextRetry, updated_at: new Date().toISOString(),
           }, { onConflict: "stock_id,trade_date" });
