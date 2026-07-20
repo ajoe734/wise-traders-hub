@@ -1,0 +1,75 @@
+name: OCR Replay — CAPTCHA preprocessing 回歸
+
+# 以固定 CAPTCHA 樣本回放 OCR，驗證 raw → standard → aggressive 命中率不退步。
+# 觸發：手動 dispatch、或 push 到 twOcr.ts / tw-ocr-replay/**。
+# 需要 LOVABLE_API_KEY 才會真的呼叫 AI Gateway；沒設會自動 skip（測試 ignore）。
+#
+# fixtures/labels.json 未達 OCR_REPLAY_MIN_FIXTURES 也會 skip，不擋 CI。
+
+on:
+  push:
+    branches: [main, 'feat/**', 'fix/**']
+    paths:
+      - 'supabase/functions/_shared/twOcr.ts'
+      - 'supabase/functions/tw-ocr-replay/**'
+      - '.github/workflows/ocr-replay.yml'
+  pull_request:
+    branches: [main]
+    paths:
+      - 'supabase/functions/_shared/twOcr.ts'
+      - 'supabase/functions/tw-ocr-replay/**'
+  workflow_dispatch:
+    inputs:
+      min_fixtures:
+        description: '最低樣本門檻 (低於則 skip)'
+        required: false
+        default: '5'
+
+concurrency:
+  group: ocr-replay-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  replay:
+    name: CAPTCHA replay
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    env:
+      LOVABLE_API_KEY: ${{ secrets.LOVABLE_API_KEY }}
+      OCR_REPLAY_MIN_FIXTURES: ${{ github.event.inputs.min_fixtures || '5' }}
+      OCR_REPLAY_OUT: ${{ github.workspace }}/ocr-replay-report.json
+    steps:
+      - uses: actions/checkout@v4
+      - uses: denoland/setup-deno@v2
+        with:
+          deno-version: v2.x
+
+      - name: Run replay test (Deno)
+        run: |
+          deno test \
+            --allow-net --allow-env --allow-read --allow-write \
+            --no-check \
+            supabase/functions/tw-ocr-replay/replay_test.ts
+
+      - name: Render markdown summary
+        if: always() && hashFiles('ocr-replay-report.json') != ''
+        run: |
+          deno run --allow-read --allow-write --allow-env \
+            supabase/functions/tw-ocr-replay/cli.ts \
+            --dir=supabase/functions/tw-ocr-replay/fixtures \
+            --markdown=${{ github.workspace }}/ocr-replay-report.md \
+            --fail-on-regression=false || true
+
+      - name: Upload report artifact
+        if: always() && hashFiles('ocr-replay-report.json') != ''
+        uses: actions/upload-artifact@v4
+        with:
+          name: ocr-replay-report
+          path: |
+            ocr-replay-report.json
+            ocr-replay-report.md
+          retention-days: 30
+
+      - name: Attach summary to job
+        if: always() && hashFiles('ocr-replay-report.md') != ''
+        run: cat ocr-replay-report.md >> "$GITHUB_STEP_SUMMARY"
