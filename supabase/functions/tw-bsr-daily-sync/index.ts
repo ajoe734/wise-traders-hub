@@ -583,8 +583,8 @@ Deno.serve(async (req) => {
       const { count: recentRuns } = await supa
         .from("system_jobs_log")
         .select("id", { count: "exact", head: true })
-        .eq("job", "tw-bsr-backfill")
-        .gte("created_at", sinceIso);
+        .eq("job_name", "tw-bsr-backfill")
+        .gte("ran_at", sinceIso);
       if ((recentRuns || 0) >= cfg.backfill.max_runs_per_hour) {
         return jsonResponse({
           skipped: "rate_limited",
