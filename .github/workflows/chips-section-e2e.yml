@@ -1,14 +1,16 @@
-name: ChipsSection E2E (desktop project)
+name: ChipsSection E2E (desktop + mobile)
 
-# 每次 PR 都自動跑 e2e/chips-section.spec.ts 的 desktop-chips-section 專案。
-# 涵蓋：非台股過濾 / 完整資料 / 空 payload / 部分欄位 / 500·404·timeout·offline。
-# retries 已在 playwright.config.ts 內 CI 分支設為 2，這裡不再覆蓋。
+# 每次 PR 都自動跑 ChipsSection 兩個 Playwright 專案：
+#   - desktop-chips-section : e2e/chips-section.spec.ts        (11 案例 · 1280x900)
+#   - mobile-chips-section  : e2e/chips-section-mobile.spec.ts (18 案例 · 6 個手機斷點)
+# retries=2 由 playwright.config.ts 的 CI 分支提供。
 
 on:
   push:
     branches: [main, 'feat/**', 'fix/**']
     paths:
       - 'e2e/chips-section.spec.ts'
+      - 'e2e/chips-section-mobile.spec.ts'
       - 'e2e/helpers/**'
       - 'src/checkup/components/freecheckup/ChipsSection.tsx'
       - 'src/checkup/components/freecheckup/ChipsTrendChart.tsx'
@@ -20,6 +22,7 @@ on:
     branches: [main]
     paths:
       - 'e2e/chips-section.spec.ts'
+      - 'e2e/chips-section-mobile.spec.ts'
       - 'e2e/helpers/**'
       - 'src/checkup/components/freecheckup/ChipsSection.tsx'
       - 'src/checkup/components/freecheckup/ChipsTrendChart.tsx'
@@ -40,9 +43,13 @@ env:
 
 jobs:
   chips-section:
-    name: desktop-chips-section
+    name: ${{ matrix.project }}
     runs-on: ubuntu-latest
-    timeout-minutes: 20
+    timeout-minutes: 25
+    strategy:
+      fail-fast: false
+      matrix:
+        project: [desktop-chips-section, mobile-chips-section]
     steps:
       - uses: actions/checkout@v4
 
@@ -85,19 +92,18 @@ jobs:
         if: steps.pw-cache.outputs.cache-hit == 'true'
         run: bunx playwright install-deps chromium
 
-      # ---- 執行 desktop-chips-section 專案 ----
-      # retries=2 由 playwright.config.ts 的 CI 分支提供
-      - name: Run desktop-chips-section
-        run: bunx playwright test --project=desktop-chips-section
+      # ---- 執行對應 project ----
+      - name: Run ${{ matrix.project }}
+        run: bunx playwright test --project=${{ matrix.project }}
         env:
           CI: 'true'
 
-      # ---- HTML 報告與失敗 artifact ----
+      # ---- HTML 報告：每個 project 各自一份 artifact ----
       - name: Upload Playwright HTML report
         if: always()
         uses: actions/upload-artifact@v4
         with:
-          name: chips-section-html-report
+          name: chips-section-html-report-${{ matrix.project }}
           path: playwright-report
           retention-days: 14
           if-no-files-found: ignore
@@ -106,7 +112,22 @@ jobs:
         if: failure()
         uses: actions/upload-artifact@v4
         with:
-          name: chips-section-traces
+          name: chips-section-traces-${{ matrix.project }}
           path: test-results
           retention-days: 14
           if-no-files-found: ignore
+
+  # 兩個 project 都綠才算通過，可做為分支保護 required check
+  chips-section-passed:
+    name: ChipsSection E2E passed (required)
+    runs-on: ubuntu-latest
+    needs: [chips-section]
+    if: always()
+    steps:
+      - name: Fail if any project failed or was cancelled
+        run: |
+          if [ "${{ needs.chips-section.result }}" != "success" ]; then
+            echo "chips-section matrix result=${{ needs.chips-section.result }}"
+            exit 1
+          fi
+          echo "desktop-chips-section + mobile-chips-section both passed."
