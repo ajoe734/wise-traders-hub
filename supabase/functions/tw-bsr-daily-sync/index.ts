@@ -764,7 +764,7 @@ Deno.serve(async (req) => {
         const latencyMs = Date.now() - startedAt;
 
         if (resolvedDate) {
-          results.push({ stock_id: stockId, ok: true, rows: resolvedRows, resolved_date: resolvedDate, fallback: null, attempts });
+          results.push({ stock_id: stockId, ok: true, rows: resolvedRows, resolved_date: resolvedDate, fallback: null, attempts, consec_before: consecBefore });
           await bumpMetrics(supa, { total: 1, success: 1, latency_ms: latencyMs });
         } else {
           // 寫/更新失敗紀錄（單一 row per stock，target_date = 起始日）
@@ -823,7 +823,7 @@ Deno.serve(async (req) => {
           results.push({
             stock_id: stockId, ok: false, error: lastError || "no_data",
             attempts, fallback, next_retry_at: nextRetry, backoff_seconds: backoff,
-            next_retry_source: nextRetrySource,
+            next_retry_source: nextRetrySource, consec_before: consecBefore,
           });
           await bumpMetrics(supa, {
             total: 1, ocr_fail: ocrFailBump ? 1 : 0, http_block: blockBump ? 1 : 0,
@@ -841,11 +841,54 @@ Deno.serve(async (req) => {
         await sleep(jitterPair(cfg.per_stock_sleep_ms));
       }
 
+      const successCount = results.filter((r) => r.ok).length;
+      const failedCount = results.filter((r) => r.ok === false).length;
+      // 本輪成功恢復 last_successful 的股票（先前 consecutive_failures>0，本輪 ok）
+      const recovered = results.filter((r) => r.ok && Number(r.consec_before || 0) > 0);
+      // 本輪回補覆蓋的 fallback / resolved 日期範圍
+      const coveredDates: string[] = [];
+      for (const r of results) {
+        if (r.ok && r.resolved_date) coveredDates.push(r.resolved_date);
+        if (!r.ok && r.fallback?.as_of_date) coveredDates.push(r.fallback.as_of_date);
+      }
+      const sortedDates = coveredDates.filter(Boolean).sort();
+      const fallbackRange = sortedDates.length
+        ? { min: sortedDates[0], max: sortedDates[sortedDates.length - 1] }
+        : null;
+
+      // 為 backfill 進度看板寫入摘要（其它 mode 也留紀錄，方便對照）
+      try {
+        await supa.from("system_jobs_log").insert({
+          job_name: `tw-bsr-${mode}`,
+          status: failedCount === 0 ? "success" : (successCount > 0 ? "partial" : "failed"),
+          detail: {
+            mode,
+            date: tradeDate,
+            lookback,
+            batch,
+            processed: stocks.length,
+            success: successCount,
+            failed: failedCount,
+            recovered_last_successful_count: recovered.length,
+            recovered_stocks: recovered.map((r) => ({
+              stock_id: r.stock_id,
+              resolved_date: r.resolved_date,
+              consec_before: r.consec_before,
+            })),
+            fallback_range: fallbackRange,
+            covered_dates: Array.from(new Set(sortedDates)),
+            config_version: configVersion,
+          },
+        });
+      } catch (_e) { /* log-only, 不影響回傳 */ }
+
       return jsonResponse({
         mode, date: tradeDate, lookback, batch,
         processed: stocks.length,
-        success: results.filter((r) => r.ok).length,
-        failed: results.filter((r) => r.ok === false).length,
+        success: successCount,
+        failed: failedCount,
+        recovered_last_successful_count: recovered.length,
+        fallback_range: fallbackRange,
         config_version: configVersion,
         results,
       });

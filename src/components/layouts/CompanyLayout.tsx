@@ -68,6 +68,7 @@ const navGroups: NavGroup[] = [
       { path: '/company/bsr-failures', icon: ShieldAlert, label: 'BSR OCR 失敗' },
       { path: '/company/bsr-effect', icon: Activity, label: 'BSR 效果分析' },
       { path: '/company/bsr-timeline', icon: Clock, label: 'BSR 逐檔時間軸' },
+      { path: '/company/bsr-backfill', icon: History, label: 'BSR Backfill 進度' },
       { path: '/company/conversions', icon: BarChart3, label: '轉換中心' },
       { path: '/company/paywall-analytics', icon: BarChart3, label: 'Paywall 轉換' },
       { path: '/company/funnel-analytics', icon: BarChart3, label: '漏斗分析' },
