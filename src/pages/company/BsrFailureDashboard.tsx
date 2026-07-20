@@ -340,6 +340,66 @@ export default function BsrFailureDashboardPage() {
           </CardContent>
         </Card>
 
+        {/* 每日錯誤細分類 (error_class) 堆疊圖 + 分佈 */}
+        <Card>
+          <CardHeader className="pb-2">
+            <CardTitle className="text-[14px] font-medium">
+              每日錯誤細分類堆疊（依 error_class）
+              <span className="ml-2 text-[11px] text-foreground/50 font-normal">
+                將 captcha_retry_exhausted 拆成 OCR 空值 / 字元辨識偏差，並涵蓋 HTTP 阻擋、金鑰欄位缺失、解析空值等
+              </span>
+            </CardTitle>
+          </CardHeader>
+          <CardContent>
+            {data && (data.dailyErrorClassStack?.length ?? 0) === 0 && (
+              <div className="text-sm text-foreground/60">此區間沒有可堆疊的失敗資料</div>
+            )}
+            {data && (data.dailyErrorClassStack?.length ?? 0) > 0 && (
+              <div className="space-y-4">
+                <div style={{ width: '100%', height: 260 }}>
+                  <ResponsiveContainer>
+                    <BarChart data={data.dailyErrorClassStack} margin={{ top: 8, right: 12, left: 0, bottom: 0 }}>
+                      <CartesianGrid strokeDasharray="3 3" stroke="hsl(var(--foreground) / 0.08)" />
+                      <XAxis dataKey="date" tick={{ fontSize: 11, fill: 'hsl(var(--foreground) / 0.6)' }} />
+                      <YAxis tick={{ fontSize: 11, fill: 'hsl(var(--foreground) / 0.6)' }} allowDecimals={false} />
+                      <Tooltip
+                        contentStyle={{ fontSize: 12, background: 'hsl(var(--background))', border: '1px solid hsl(var(--foreground) / 0.15)' }}
+                        formatter={(v: any, k: any) => [`${v} 件`, classLabel(String(k))]}
+                      />
+                      <RcLegend
+                        wrapperStyle={{ fontSize: 11 }}
+                        formatter={(v: any) => classLabel(String(v))}
+                      />
+                      {(data.errorClasses || []).map((c) => (
+                        <Bar key={c} dataKey={c} stackId="err" fill={classColor(c)} />
+                      ))}
+                    </BarChart>
+                  </ResponsiveContainer>
+                </div>
+
+                {/* 分佈總覽 */}
+                {data.errorClassDistribution && data.errorClassDistribution.length > 0 && (
+                  <div className="grid grid-cols-2 md:grid-cols-4 gap-2 pt-2 border-t">
+                    {data.errorClassDistribution.map((d) => (
+                      <div key={d.error_class} className="flex items-center gap-2 text-[11px] p-2 rounded" style={{ background: 'hsl(var(--foreground) / 0.03)' }}>
+                        <span className="inline-block w-2.5 h-2.5 rounded-sm shrink-0" style={{ background: classColor(d.error_class) }} />
+                        <div className="flex-1 min-w-0">
+                          <div className="text-foreground/80 truncate">{classLabel(d.error_class)}</div>
+                          <div className="text-foreground/50 tabular-nums">
+                            {d.count} 件 · {pct(d.share)}
+                          </div>
+                        </div>
+                      </div>
+                    ))}
+                  </div>
+                )}
+              </div>
+            )}
+          </CardContent>
+        </Card>
+
+
+
         {/* Top Offenders */}
         {data && data.topOffenders.length > 0 && (
           <Card>
