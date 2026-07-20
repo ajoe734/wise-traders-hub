@@ -472,7 +472,10 @@ Deno.serve(async (req) => {
     try {
       // 決定股票清單
       let stocks: string[] = explicit.filter((s) => /^[0-9]{4,6}$/.test(s));
-      if (mode !== "manual" || stocks.length === 0) {
+      if (mode === "backfill" && stocks.length === 0) {
+        // Backfill 模式：只挑已到期的失敗，忽略 off-hours 凍結，允許較深 lookback
+        stocks = await buildBackfillQueue(supa, batch);
+      } else if (mode !== "manual" || stocks.length === 0) {
         stocks = await buildQueue(supa, batch, offHours);
       } else {
         stocks = stocks.slice(0, batch);
