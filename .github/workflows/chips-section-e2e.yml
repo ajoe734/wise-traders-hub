@@ -116,11 +116,56 @@ jobs:
           retention-days: 14
           if-no-files-found: ignore
 
-      - name: Upload traces / screenshots / videos (on failure)
+      # ---- 失敗定位：把 test-results 內每個檔案改名為
+      #       <sha7>__<project>__<caseSlug>__<原檔名>
+      #      caseSlug 直接取 Playwright 為每個失敗 case 建立的資料夾名（已含 spec 與 test title）。
+      - name: Rebrand failure artifacts with SHA + case name
+        if: failure()
+        run: |
+          set -euo pipefail
+          SHA7="${GITHUB_SHA::7}"
+          PROJECT="${{ matrix.project }}"
+          OUT_DIR="failure-artifacts/${SHA7}-${PROJECT}"
+          mkdir -p "$OUT_DIR"
+          if [ ! -d test-results ]; then
+            echo "no test-results directory, skip"
+            exit 0
+          fi
+          # 逐個 case 資料夾（e.g. test-results/chips-section-visual-Chips-...-visual-chips-section）
+          while IFS= read -r -d '' case_dir; do
+            case_slug="$(basename "$case_dir")"
+            # 限制檔名長度，避免超過 filesystem 上限
+            case_short="${case_slug:0:120}"
+            while IFS= read -r -d '' f; do
+              base="$(basename "$f")"
+              new="${SHA7}__${PROJECT}__${case_short}__${base}"
+              cp "$f" "$OUT_DIR/$new"
+            done < <(find "$case_dir" -maxdepth 1 -type f \( \
+                -name 'trace*.zip' -o \
+                -name 'video*.webm' -o \
+                -name '*.png' -o \
+                -name 'error-context.md' \
+              \) -print0)
+          done < <(find test-results -mindepth 1 -maxdepth 1 -type d -print0)
+          echo "---- rebranded artifacts ----"
+          ls -lh "$OUT_DIR" || true
+
+      - name: Upload failure artifacts (SHA + case named)
         if: failure()
         uses: actions/upload-artifact@v4
         with:
-          name: chips-section-traces-${{ matrix.project }}
+          # commit SHA 也放進 artifact 名，PR 有多次 rerun 時不會互相覆蓋
+          name: chips-fail-${{ github.sha }}-${{ matrix.project }}
+          path: failure-artifacts
+          retention-days: 30
+          if-no-files-found: ignore
+
+      # ---- 保留原始 test-results 完整目錄，方便本地 `npx playwright show-trace` ----
+      - name: Upload raw test-results (on failure)
+        if: failure()
+        uses: actions/upload-artifact@v4
+        with:
+          name: chips-section-traces-${{ matrix.project }}-${{ github.sha }}
           path: test-results
           retention-days: 14
           if-no-files-found: ignore
@@ -129,24 +174,32 @@ jobs:
       - name: Collect visual diff PNGs (visual project only, on failure)
         if: failure() && matrix.project == 'visual-chips-section'
         run: |
+          set -euo pipefail
+          SHA7="${GITHUB_SHA::7}"
           mkdir -p visual-diff
           if [ -d test-results ]; then
-            find test-results -type f \( \
-              -name '*-expected.png' -o \
-              -name '*-actual.png'   -o \
-              -name '*-diff.png' \
-            \) -print -exec cp --parents {} visual-diff/ \;
+            while IFS= read -r -d '' f; do
+              case_slug="$(basename "$(dirname "$f")")"
+              case_short="${case_slug:0:120}"
+              base="$(basename "$f")"
+              cp "$f" "visual-diff/${SHA7}__${case_short}__${base}"
+            done < <(find test-results -type f \( \
+                -name '*-expected.png' -o \
+                -name '*-actual.png'   -o \
+                -name '*-diff.png' \
+              \) -print0)
           fi
-          ls -R visual-diff || true
+          ls -lh visual-diff || true
 
       - name: Upload visual diff PNGs (visual project only, on failure)
         if: failure() && matrix.project == 'visual-chips-section'
         uses: actions/upload-artifact@v4
         with:
-          name: chips-section-visual-diff
+          name: chips-visual-diff-${{ github.sha }}
           path: visual-diff
-          retention-days: 14
+          retention-days: 30
           if-no-files-found: ignore
+
 
   # 三個 project 都綠才算通過，可做為分支保護 required check
   chips-section-passed:
