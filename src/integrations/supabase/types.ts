@@ -3826,6 +3826,39 @@ export type Database = {
         }
         Relationships: []
       }
+      tw_bsr_api_reservations: {
+        Row: {
+          api_name: string
+          expires_at: string
+          id: number
+          rate_limited: boolean
+          released: boolean
+          reserved_at: string
+          settled_at: string | null
+          success: boolean | null
+        }
+        Insert: {
+          api_name?: string
+          expires_at: string
+          id?: number
+          rate_limited?: boolean
+          released?: boolean
+          reserved_at?: string
+          settled_at?: string | null
+          success?: boolean | null
+        }
+        Update: {
+          api_name?: string
+          expires_at?: string
+          id?: number
+          rate_limited?: boolean
+          released?: boolean
+          reserved_at?: string
+          settled_at?: string | null
+          success?: boolean | null
+        }
+        Relationships: []
+      }
       tw_bsr_api_usage: {
         Row: {
           api_name: string
@@ -4865,10 +4898,27 @@ export type Database = {
             }[]
           }
       prune_bsr_sync_queue: { Args: never; Returns: number }
+      purge_expired_bsr_reservations: {
+        Args: { _api?: string }
+        Returns: number
+      }
       reconcile_line_free_quota: { Args: { _user_id: string }; Returns: Json }
       record_bsr_api_call: {
         Args: { _api?: string; _rate_limited?: boolean; _success?: boolean }
         Returns: undefined
+      }
+      release_bsr_reservation: {
+        Args: { _reservation_id: number }
+        Returns: undefined
+      }
+      reserve_bsr_api_quota: {
+        Args: { _api?: string; _lease_seconds?: number; _limit?: number }
+        Returns: {
+          granted: boolean
+          remaining: number
+          reservation_id: number
+          used: number
+        }[]
       }
       run_rls_subscription_tests: {
         Args: never
@@ -4877,6 +4927,14 @@ export type Database = {
           passed: boolean
           test_name: string
         }[]
+      }
+      settle_bsr_reservation: {
+        Args: {
+          _rate_limited?: boolean
+          _reservation_id: number
+          _success?: boolean
+        }
+        Returns: undefined
       }
       show_limit: { Args: never; Returns: number }
       show_trgm: { Args: { "": string }; Returns: string[] }
