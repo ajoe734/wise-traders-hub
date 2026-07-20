@@ -3828,6 +3828,7 @@ export type Database = {
       }
       tw_bsr_attempt_logs: {
         Row: {
+          adaptive_strategy: Json | null
           attempt_step: number
           attempted_at: string
           backoff_seconds_before: number
@@ -3852,6 +3853,7 @@ export type Database = {
           ua_label: string
         }
         Insert: {
+          adaptive_strategy?: Json | null
           attempt_step?: number
           attempted_at?: string
           backoff_seconds_before?: number
@@ -3876,6 +3878,7 @@ export type Database = {
           ua_label: string
         }
         Update: {
+          adaptive_strategy?: Json | null
           attempt_step?: number
           attempted_at?: string
           backoff_seconds_before?: number

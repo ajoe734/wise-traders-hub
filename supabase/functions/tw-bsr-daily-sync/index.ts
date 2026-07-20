@@ -22,7 +22,7 @@
 import "jsr:@supabase/functions-js/edge-runtime.d.ts";
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2.45.4";
 import { corsPreflight, jsonResponse, errorResponse } from "../_shared/cors.ts";
-import { ocrTwseCaptchaDetailed, type OcrResult } from "../_shared/twOcr.ts";
+import { ocrTwseCaptchaDetailed, planWithPriority, type OcrResult, type OcrVariantName } from "../_shared/twOcr.ts";
 
 const SUPABASE_URL = Deno.env.get("SUPABASE_URL")!;
 const SERVICE_ROLE_KEY = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!;
@@ -41,6 +41,20 @@ interface BackfillConfig {
   cooldown_hours: number;       // 冷卻時數：達 max_attempts_per_day 後 next_retry_at 至少延後這麼久
 }
 
+interface AdaptiveConfig {
+  enabled: boolean;
+  /** 觸發把 fast → standard 的 consecutive_failures 門檻 */
+  escalate_to_standard_at: number;
+  /** 觸發把任意模式 → aggressive 的 consecutive_failures 門檻 */
+  escalate_to_aggressive_at: number;
+  /** 觸發把預處理變體（otsu/adaptive/dilate）插到最前面的 consecutive_failures 門檻 */
+  reorder_variants_at: number;
+  /** 觸發 exhaustive（跑完所有變體不短路）的 consecutive_failures 門檻 */
+  exhaustive_at: number;
+  /** 若 true，觸發 escalate 後最後一次 OCR 重試會再升級一階（與舊 ocr_escalate_on_fail 相容） */
+  escalate_on_last_retry: boolean;
+}
+
 interface SyncConfig {
   ua_pool: string[];
   accept_lang_pool: string[];
@@ -54,8 +68,18 @@ interface SyncConfig {
   lock_ttl_sec: number;
   ocr_mode: "fast" | "standard" | "aggressive";
   ocr_escalate_on_fail: boolean;
+  adaptive: AdaptiveConfig;
   backfill: BackfillConfig;
 }
+
+const DEFAULT_ADAPTIVE: AdaptiveConfig = {
+  enabled: true,
+  escalate_to_standard_at: 1,
+  escalate_to_aggressive_at: 2,
+  reorder_variants_at: 3,
+  exhaustive_at: 5,
+  escalate_on_last_retry: true,
+};
 
 const DEFAULT_CONFIG: SyncConfig = {
   ua_pool: [
@@ -77,6 +101,7 @@ const DEFAULT_CONFIG: SyncConfig = {
   lock_ttl_sec: 90,
   ocr_mode: "standard",
   ocr_escalate_on_fail: true,
+  adaptive: DEFAULT_ADAPTIVE,
   backfill: {
     batch: 6,
     lookback: 7,
@@ -87,6 +112,23 @@ const DEFAULT_CONFIG: SyncConfig = {
     cooldown_hours: 12,
   },
 };
+
+function normAdaptive(raw: any, fb: AdaptiveConfig): AdaptiveConfig {
+  const src = raw && typeof raw === "object" ? raw : {};
+  const pick = (k: keyof AdaptiveConfig, min: number) => {
+    const n = Number((src as any)[k]);
+    return Number.isFinite(n) && n >= min ? Math.floor(n) : (fb as any)[k];
+  };
+  return {
+    enabled: typeof src.enabled === "boolean" ? src.enabled : fb.enabled,
+    escalate_to_standard_at: pick("escalate_to_standard_at", 0),
+    escalate_to_aggressive_at: pick("escalate_to_aggressive_at", 0),
+    reorder_variants_at: pick("reorder_variants_at", 0),
+    exhaustive_at: pick("exhaustive_at", 0),
+    escalate_on_last_retry: typeof src.escalate_on_last_retry === "boolean"
+      ? src.escalate_on_last_retry : fb.escalate_on_last_retry,
+  };
+}
 
 
 function normBackfill(raw: any, fallback: BackfillConfig): BackfillConfig {
@@ -139,6 +181,7 @@ async function loadConfig(supa: any): Promise<{ cfg: SyncConfig; version: number
         ? (raw.ocr_mode as SyncConfig["ocr_mode"]) : DEFAULT_CONFIG.ocr_mode,
       ocr_escalate_on_fail: typeof raw.ocr_escalate_on_fail === "boolean"
         ? raw.ocr_escalate_on_fail : DEFAULT_CONFIG.ocr_escalate_on_fail,
+      adaptive: normAdaptive((raw as any).adaptive, DEFAULT_ADAPTIVE),
       backfill: normBackfill((raw as any).backfill, DEFAULT_CONFIG.backfill),
     };
     return { cfg, version: Number(data.version) || null };
@@ -235,6 +278,23 @@ function parseBsContent(html: string): BsrRow[] {
 }
 
 // ---- 共用 cookie jar / UA context ----
+interface AdaptiveTrigger {
+  rule: "escalate_to_standard" | "escalate_to_aggressive" | "reorder_variants" | "exhaustive" | "last_retry_bump";
+  from?: string;
+  to?: string;
+  reason: string; // 通常是 consec>=N 或 attempt=N
+}
+
+interface AdaptiveDecision {
+  base_mode: OcrResult["mode"];
+  effective_mode: OcrResult["mode"];
+  variants: OcrVariantName[]; // 實際傳給 OCR 的變體順序
+  exhaustive: boolean;
+  escalate_on_last: boolean; // 是否會在最後一次 OCR 重試再升級
+  consec_before: number;
+  triggers: AdaptiveTrigger[];
+}
+
 interface OcrTraceEntry {
   retry: number;              // OCR 重試序號（1-based）
   mode: OcrResult["mode"];    // 該次採用的 OCR 模式（可能被 escalate 成 aggressive）
@@ -243,6 +303,13 @@ interface OcrTraceEntry {
   consensus: OcrResult["consensus"]; // majority / fallback_first / none
   adopted: { variant: OcrResult["attempts"][number]["variant"]; text: string; votes: number } | null;
   post_outcome: "accepted" | "empty" | "mismatch"; // 送出後 TWSE 是否接受
+  adaptive?: {
+    // 每次 retry 實際採用的解析：base/effective mode、變體順序、是否 exhaustive、以及是否被 last_retry_bump 影響
+    effective_mode: OcrResult["mode"];
+    variants: OcrVariantName[];
+    exhaustive: boolean;
+    last_retry_bump: boolean;
+  };
 }
 
 interface SessionCtx {
@@ -253,6 +320,7 @@ interface SessionCtx {
   acceptLang: string;
   used: number;
   ocrTrace?: OcrTraceEntry[]; // 本次 fetchBsrForStock 的 OCR 軌跡
+  adaptive?: AdaptiveDecision; // 本次 fetchBsrForStock 開始時決策的策略
 }
 function newSession(cfg: SyncConfig): SessionCtx {
   const ua = randomFrom(cfg.ua_pool);
@@ -262,6 +330,59 @@ function newSession(cfg: SyncConfig): SessionCtx {
     uaLabel: uaLabelFromString(ua),
     acceptLang: randomFrom(cfg.accept_lang_pool),
     used: 0,
+  };
+}
+
+/**
+ * 純函式：依 consecutive_failures 決定本次 fetch 的 OCR 策略。
+ * 呼叫端負責把 decision 寫入 ctx.adaptive 並依 variants/exhaustive/effective_mode 呼叫 OCR。
+ */
+export function computeAdaptiveStrategy(
+  baseMode: OcrResult["mode"],
+  consecBefore: number,
+  ad: AdaptiveConfig,
+): AdaptiveDecision {
+  const triggers: AdaptiveTrigger[] = [];
+  let effective: OcrResult["mode"] = baseMode;
+  let variants: OcrVariantName[] = planWithPriority(effective);
+  let exhaustive = false;
+  const escalateOnLast = ad.escalate_on_last_retry;
+
+  if (!ad.enabled) {
+    return {
+      base_mode: baseMode, effective_mode: effective, variants,
+      exhaustive, escalate_on_last: escalateOnLast, consec_before: consecBefore,
+      triggers,
+    };
+  }
+
+  if (consecBefore >= ad.escalate_to_standard_at && effective === "fast") {
+    triggers.push({ rule: "escalate_to_standard", from: effective, to: "standard", reason: `consec>=${ad.escalate_to_standard_at}` });
+    effective = "standard";
+  }
+  if (consecBefore >= ad.escalate_to_aggressive_at && effective !== "aggressive") {
+    triggers.push({ rule: "escalate_to_aggressive", from: effective, to: "aggressive", reason: `consec>=${ad.escalate_to_aggressive_at}` });
+    effective = "aggressive";
+  }
+
+  variants = planWithPriority(effective);
+
+  if (consecBefore >= ad.reorder_variants_at) {
+    // 把預處理較重的變體優先執行，raw 排最後
+    const reordered = planWithPriority(effective, ["otsu", "adaptive", "dilate", "loose_crop"]);
+    triggers.push({ rule: "reorder_variants", from: variants.join(","), to: reordered.join(","), reason: `consec>=${ad.reorder_variants_at}` });
+    variants = reordered;
+  }
+
+  if (consecBefore >= ad.exhaustive_at) {
+    triggers.push({ rule: "exhaustive", reason: `consec>=${ad.exhaustive_at}` });
+    exhaustive = true;
+  }
+
+  return {
+    base_mode: baseMode, effective_mode: effective, variants,
+    exhaustive, escalate_on_last: escalateOnLast, consec_before: consecBefore,
+    triggers,
   };
 }
 
@@ -287,7 +408,12 @@ function uaLabelFromString(ua: string): string {
   return `${browser}${ver ? " " + ver : ""} · ${os}`;
 }
 
-async function fetchBsrForStock(stockId: string, ctx: SessionCtx, cfg: SyncConfig): Promise<BsrRow[]> {
+async function fetchBsrForStock(
+  stockId: string,
+  ctx: SessionCtx,
+  cfg: SyncConfig,
+  opts: { consecBefore?: number } = {},
+): Promise<BsrRow[]> {
   const baseHeaders = {
     "User-Agent": ctx.ua,
     "Accept-Language": ctx.acceptLang,
@@ -304,8 +430,11 @@ async function fetchBsrForStock(stockId: string, ctx: SessionCtx, cfg: SyncConfi
   const captchaUrl = extractCaptchaImageUrl(menuHtml);
   if (!viewState || !eventValidation || !captchaUrl) throw new Error("menu_parse_failed");
 
-  // 每一檔開始都重置 OCR 軌跡
+  // 每一檔開始都重置 OCR 軌跡；並依 consecutive_failures 決定策略
   ctx.ocrTrace = [];
+  const consecBefore = Math.max(0, Math.floor(opts.consecBefore || 0));
+  const strategy = computeAdaptiveStrategy(cfg.ocr_mode, consecBefore, cfg.adaptive);
+  ctx.adaptive = strategy;
   // 細分子原因統計，讓 captcha_retry_exhausted 能拆出 OCR 空值 vs OCR 錯字
   let ocrNullCount = 0;
   let ocrMismatchCount = 0;
@@ -318,10 +447,28 @@ async function fetchBsrForStock(stockId: string, ctx: SessionCtx, cfg: SyncConfi
     if (!capResp.ok) throw new Error(`captcha_http_${capResp.status}`);
     Object.assign(ctx.jar, parseSetCookie(capResp.headers));
     const capBytes = new Uint8Array(await capResp.arrayBuffer());
-    // 動態升級：最後一次重試時，若允許升級且不是 aggressive，改用 aggressive 加大成功率
-    const activeMode = cfg.ocr_escalate_on_fail && attempt === cfg.max_ocr_retry && cfg.ocr_mode !== "aggressive"
-      ? "aggressive" : cfg.ocr_mode;
-    const ocr = await ocrTwseCaptchaDetailed(capBytes, activeMode);
+
+    // 本次 retry 實際採用的 mode/variants：
+    // - 若是最後一次 retry 且 strategy.escalate_on_last，則再往上升一階（standard→aggressive）
+    const isLastRetry = attempt === cfg.max_ocr_retry;
+    let retryMode: OcrResult["mode"] = strategy.effective_mode;
+    let retryVariants: OcrVariantName[] = strategy.variants;
+    let lastRetryBump = false;
+    if (isLastRetry && strategy.escalate_on_last && retryMode !== "aggressive") {
+      const from = retryMode;
+      retryMode = retryMode === "fast" ? "standard" : "aggressive";
+      // last_retry_bump 也把變體重新以升級後 mode + 重排優先權補齊
+      retryVariants = planWithPriority(retryMode,
+        consecBefore >= cfg.adaptive.reorder_variants_at ? ["otsu", "adaptive", "dilate", "loose_crop"] : []);
+      lastRetryBump = true;
+      strategy.triggers.push({ rule: "last_retry_bump", from, to: retryMode, reason: `attempt=${attempt}/${cfg.max_ocr_retry}` });
+    }
+
+    const ocr = await ocrTwseCaptchaDetailed(capBytes, {
+      mode: retryMode,
+      variants: retryVariants,
+      exhaustive: strategy.exhaustive,
+    });
     const traceEntry: OcrTraceEntry = {
       retry: attempt,
       mode: ocr.mode,
@@ -332,6 +479,12 @@ async function fetchBsrForStock(stockId: string, ctx: SessionCtx, cfg: SyncConfi
         ? { variant: ocr.winner.variant, text: ocr.text, votes: ocr.winner.votes }
         : null,
       post_outcome: "empty",
+      adaptive: {
+        effective_mode: retryMode,
+        variants: retryVariants,
+        exhaustive: strategy.exhaustive,
+        last_retry_bump: lastRetryBump,
+      },
     };
     ctx.ocrTrace.push(traceEntry);
     const captcha = ocr.text;
@@ -591,6 +744,7 @@ async function logAttempt(supa: any, p: {
       next_retry_at: p.nextRetryAt || null,
       next_retry_source: p.nextRetrySource || null,
       ocr_trace: p.ctx.ocrTrace && p.ctx.ocrTrace.length ? p.ctx.ocrTrace : null,
+      adaptive_strategy: p.ctx.adaptive ?? null,
     });
   } catch (_e) { /* best-effort */ }
 }
@@ -798,7 +952,7 @@ Deno.serve(async (req) => {
           const stepStartedAt = Date.now();
           let stepOutcome = "success";
           try {
-            const rows = await fetchBsrForStock(stockId, ctx, cfg);
+            const rows = await fetchBsrForStock(stockId, ctx, cfg, { consecBefore });
             if (rows.length === 0) throw new Error("empty_rows");
 
             await supa.from("tw_bsr_daily").delete().eq("stock_id", stockId).eq("trade_date", cursor);
