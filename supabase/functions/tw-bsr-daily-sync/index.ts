@@ -824,7 +824,9 @@ Deno.serve(async (req) => {
             stock_id: stockId, ok: false, error: lastError || "no_data",
             attempts, fallback, next_retry_at: nextRetry, backoff_seconds: backoff,
             next_retry_source: nextRetrySource, consec_before: consecBefore,
+            mismatch_reason: errorClass, final_reason: reason, resolved_at_updated: false,
           });
+
           await bumpMetrics(supa, {
             total: 1, ocr_fail: ocrFailBump ? 1 : 0, http_block: blockBump ? 1 : 0,
             empty: emptyBump ? 1 : 0, latency_ms: latencyMs,
