@@ -823,7 +823,7 @@ Deno.serve(async (req) => {
           results.push({
             stock_id: stockId, ok: false, error: lastError || "no_data",
             attempts, fallback, next_retry_at: nextRetry, backoff_seconds: backoff,
-            next_retry_source: nextRetrySource,
+            next_retry_source: nextRetrySource, consec_before: consecBefore,
           });
           await bumpMetrics(supa, {
             total: 1, ocr_fail: ocrFailBump ? 1 : 0, http_block: blockBump ? 1 : 0,
