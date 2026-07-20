@@ -492,6 +492,11 @@ async function runStats() {
   const { data: resStats } = await supa.rpc('bsr_reservation_stats', { _api: 'finmind' });
   const resRow = Array.isArray(resStats) ? resStats[0] : resStats;
 
+  // Stuck reservations（in-flight 且 age ≥ 30s）：任何 worker crash/timeout 都會出現在這裡
+  const { data: stuck } = await supa.rpc('bsr_list_stuck_reservations', {
+    _api: 'finmind', _min_age_seconds: 30, _limit: 20,
+  });
+
   const { data: oldestP1 } = await supa.from('tw_bsr_sync_queue')
     .select('enqueued_at')
     .eq('priority', 1).eq('status', 'pending')
