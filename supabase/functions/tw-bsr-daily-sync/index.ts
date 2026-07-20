@@ -42,6 +42,8 @@ interface SyncConfig {
   freeze_window_ms: number;
   cookie_jar_reuse: number;
   lock_ttl_sec: number;
+  ocr_mode: "fast" | "standard" | "aggressive";
+  ocr_escalate_on_fail: boolean;
 }
 
 const DEFAULT_CONFIG: SyncConfig = {
