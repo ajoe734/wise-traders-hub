@@ -373,6 +373,8 @@ const AppShell = () => (
             <Route path="/company/traffic" element={<ProtectedRoute requiredRole="company_admin"><CompanyTraffic /></ProtectedRoute>} />
             <Route path="/company/ops-health" element={<ProtectedRoute requiredRole="company_admin"><CompanyOpsHealth /></ProtectedRoute>} />
             <Route path="/company/bsr-failures" element={<ProtectedRoute requiredRole="company_admin"><CompanyBsrFailures /></ProtectedRoute>} />
+            <Route path="/company/bsr-effect" element={<ProtectedRoute requiredRole="company_admin"><CompanyBsrEffect /></ProtectedRoute>} />
+
             <Route path="/company/paywall-analytics" element={<ProtectedRoute requiredRole="company_admin"><CompanyPaywallAnalytics /></ProtectedRoute>} />
             <Route path="/company/funnel-analytics" element={<ProtectedRoute requiredRole="company_admin"><CompanyFunnelAnalytics /></ProtectedRoute>} />
             <Route path="/company/conversions" element={<ProtectedRoute requiredRole="company_admin"><CompanyConversionCenter /></ProtectedRoute>} />
