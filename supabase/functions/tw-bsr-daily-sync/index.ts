@@ -281,11 +281,14 @@ Deno.serve(async (req) => {
         results.push({ stock_id: stockId, ok: true, rows: rows.length });
       } catch (err) {
         const msg = (err as Error).message || "unknown";
+        const reason = /captcha_retry_exhausted|captcha_http|menu_parse_failed|empty_rows/.test(msg)
+          ? msg.split(":")[0]
+          : "sync_failed";
         await supa.from("tw_bsr_fetch_failures").upsert(
           {
             stock_id: stockId,
             trade_date: tradeDate,
-            reason: "sync_failed",
+            reason,
             attempts: 1,
             last_error: msg,
             updated_at: new Date().toISOString(),

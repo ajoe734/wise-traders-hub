@@ -54,6 +54,13 @@ export interface TwChipsPayload {
     d60: BsrWindow | null;
   };
   bsr_as_of: string | null;
+  bsr_as_of_lag_days?: number | null;
+  bsr_last_failure?: {
+    trade_date: string;
+    reason: string;
+    last_error: string | null;
+    attempts: number;
+  } | null;
   series?: {
     institutional_daily: InstitutionalDailyPoint[];
     bsr_concentration: BsrConcentrationPoint[];
