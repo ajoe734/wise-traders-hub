@@ -235,6 +235,16 @@ function parseBsContent(html: string): BsrRow[] {
 }
 
 // ---- 共用 cookie jar / UA context ----
+interface OcrTraceEntry {
+  retry: number;              // OCR 重試序號（1-based）
+  mode: OcrResult["mode"];    // 該次採用的 OCR 模式（可能被 escalate 成 aggressive）
+  strategy: OcrResult["strategy"]; // 該模式規劃的變體順序
+  variants: OcrResult["attempts"]; // 每個變體的 5 碼結果 + 耗時
+  consensus: OcrResult["consensus"]; // majority / fallback_first / none
+  adopted: { variant: OcrResult["attempts"][number]["variant"]; text: string; votes: number } | null;
+  post_outcome: "accepted" | "empty" | "mismatch"; // 送出後 TWSE 是否接受
+}
+
 interface SessionCtx {
   jar: Record<string, string>;
   ua: string;
@@ -242,6 +252,7 @@ interface SessionCtx {
   uaLabel: string;
   acceptLang: string;
   used: number;
+  ocrTrace?: OcrTraceEntry[]; // 本次 fetchBsrForStock 的 OCR 軌跡
 }
 function newSession(cfg: SyncConfig): SessionCtx {
   const ua = randomFrom(cfg.ua_pool);
