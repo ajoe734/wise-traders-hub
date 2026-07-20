@@ -145,12 +145,10 @@ async function assertNotInternallyClipped(locator: import('@playwright/test').Lo
 
 for (const dev of MOBILES) {
   test.describe(`ChipsSection · mobile @ ${dev.name} (${dev.width}x${dev.height})`, () => {
-    test.use({
-      ...devices['Pixel 5'],
-      viewport: { width: dev.width, height: dev.height },
-      // 保留桌面 UA 以避免 hook 走 mobile 特殊分支（元件本身沒有 mobile 分支，這裡只是穩定測 CSS）
-      userAgent: devices['Desktop Chrome'].userAgent,
+    test.beforeEach(async ({ page }) => {
+      await page.setViewportSize({ width: dev.width, height: dev.height });
     });
+
 
     test('完整資料：無水平滾動 / 全區塊不溢出 / 法人格不截斷 / BSR 兩欄不重疊', async ({ page }) => {
       await page.route(CHIPS_ROUTE, (r) => fulfill(r, fullPayload()));
