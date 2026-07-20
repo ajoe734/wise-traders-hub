@@ -310,6 +310,7 @@ export default function BsrFailureDashboardPage() {
                       <th className="text-right py-2 font-normal">連續</th>
                       <th className="text-left py-2 font-normal pl-4">下次重試</th>
                       <th className="text-left py-2 font-normal pl-4">Fallback 對齊日</th>
+                      <th className="text-right py-2 font-normal pl-4">Audit</th>
                     </tr>
                   </thead>
                   <tbody>
