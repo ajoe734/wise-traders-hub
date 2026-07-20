@@ -495,6 +495,7 @@ async function logAttempt(supa: any, p: {
       next_retry_source: p.nextRetrySource || null,
     });
   } catch (_e) { /* best-effort */ }
+}
 
 Deno.serve(async (req) => {
   if (req.method === "OPTIONS") return corsPreflight();
