@@ -213,6 +213,18 @@ function rollBackToWeekday(isoDate: string): string {
   return dt.toISOString().slice(0, 10);
 }
 
+// 往前一個「工作日」（週末自動跳過）
+function prevWeekday(isoDate: string): string {
+  const dt = new Date(`${isoDate}T00:00:00Z`);
+  dt.setUTCDate(dt.getUTCDate() - 1);
+  while (true) {
+    const dow = dt.getUTCDay();
+    if (dow !== 0 && dow !== 6) break;
+    dt.setUTCDate(dt.getUTCDate() - 1);
+  }
+  return dt.toISOString().slice(0, 10);
+}
+
 Deno.serve(async (req) => {
   if (req.method === "OPTIONS") return corsPreflight();
   try {
@@ -222,6 +234,8 @@ Deno.serve(async (req) => {
     const rawDate = String(body?.date || taipeiTodayISO());
     // 沒最新就抓前一天最新的（週末自動回退到週五）
     const tradeDate = rollBackToWeekday(rawDate);
+    // 每檔股票最多回退 N 個交易日（含起始日），預設 5，上限 7
+    const lookback = Math.min(Math.max(Number(body?.lookback) || 5, 1), 7);
 
     const supa = createClient(SUPABASE_URL, SERVICE_ROLE_KEY, {
       auth: { persistSession: false },
@@ -245,62 +259,101 @@ Deno.serve(async (req) => {
       stocks = Array.from(set);
     }
 
-    const results: Array<{ stock_id: string; ok: boolean; rows?: number; error?: string }> = [];
+    const results: Array<{
+      stock_id: string;
+      ok: boolean;
+      rows?: number;
+      resolved_date?: string;
+      attempts?: Array<{ date: string; error: string }>;
+      error?: string;
+    }> = [];
+
     for (const stockId of stocks) {
-      try {
-        const rows = await fetchBsrForStock(stockId);
-        if (rows.length === 0) throw new Error("empty_rows");
+      const attempts: Array<{ date: string; error: string }> = [];
+      let resolvedDate: string | null = null;
+      let resolvedRows = 0;
+      let lastError = "";
 
-        // 刪除當日舊資料再 insert（保證冪等）
-        await supa.from("tw_bsr_daily").delete().eq("stock_id", stockId).eq("trade_date", tradeDate);
-        const payload = rows.map((r) => ({
-          stock_id: stockId,
-          trade_date: tradeDate,
-          broker_id: r.broker_id,
-          broker_name: r.broker_name,
-          buy_shares: r.buy_shares,
-          sell_shares: r.sell_shares,
-          net_shares: r.buy_shares - r.sell_shares,
-          avg_buy_price: r.avg_buy_price,
-          avg_sell_price: r.avg_sell_price,
-        }));
-        const { error: insErr } = await supa.from("tw_bsr_daily").insert(payload);
-        if (insErr) throw new Error(`db_insert:${insErr.message}`);
+      let cursor = tradeDate;
+      for (let step = 0; step < lookback; step++) {
+        if (step > 0) cursor = prevWeekday(cursor);
 
-        // rollup for this stock
-        await rebuildRollup(supa, stockId, tradeDate);
-
-        // 清失敗紀錄
-        await supa
-          .from("tw_bsr_fetch_failures")
-          .update({ resolved_at: new Date().toISOString() })
+        // 已有該日資料 → 視同成功（避免重覆抓 & OCR）
+        const { count: existCount } = await supa
+          .from("tw_bsr_daily")
+          .select("broker_id", { count: "exact", head: true })
           .eq("stock_id", stockId)
-          .eq("trade_date", tradeDate)
-          .is("resolved_at", null);
+          .eq("trade_date", cursor);
+        if ((existCount || 0) > 0) {
+          resolvedDate = cursor;
+          resolvedRows = existCount || 0;
+          // 確保 rollup 也是最新
+          await rebuildRollup(supa, stockId, cursor);
+          break;
+        }
 
-        results.push({ stock_id: stockId, ok: true, rows: rows.length });
-      } catch (err) {
-        const msg = (err as Error).message || "unknown";
-        const reason = /captcha_retry_exhausted|captcha_http|menu_parse_failed|empty_rows/.test(msg)
-          ? msg.split(":")[0]
-          : "sync_failed";
-        await supa.from("tw_bsr_fetch_failures").upsert(
-          {
+        try {
+          const rows = await fetchBsrForStock(stockId);
+          if (rows.length === 0) throw new Error("empty_rows");
+
+          await supa.from("tw_bsr_daily").delete().eq("stock_id", stockId).eq("trade_date", cursor);
+          const payload = rows.map((r) => ({
             stock_id: stockId,
-            trade_date: tradeDate,
-            reason,
-            attempts: 1,
-            last_error: msg,
-            updated_at: new Date().toISOString(),
-          },
-          { onConflict: "stock_id,trade_date" },
-        );
-        results.push({ stock_id: stockId, ok: false, error: msg });
+            trade_date: cursor,
+            broker_id: r.broker_id,
+            broker_name: r.broker_name,
+            buy_shares: r.buy_shares,
+            sell_shares: r.sell_shares,
+            net_shares: r.buy_shares - r.sell_shares,
+            avg_buy_price: r.avg_buy_price,
+            avg_sell_price: r.avg_sell_price,
+          }));
+          const { error: insErr } = await supa.from("tw_bsr_daily").insert(payload);
+          if (insErr) throw new Error(`db_insert:${insErr.message}`);
+
+          await rebuildRollup(supa, stockId, cursor);
+
+          await supa
+            .from("tw_bsr_fetch_failures")
+            .update({ resolved_at: new Date().toISOString() })
+            .eq("stock_id", stockId)
+            .eq("trade_date", cursor)
+            .is("resolved_at", null);
+
+          resolvedDate = cursor;
+          resolvedRows = rows.length;
+          break;
+        } catch (err) {
+          const msg = (err as Error).message || "unknown";
+          const reason = /captcha_retry_exhausted|captcha_http|menu_parse_failed|empty_rows/.test(msg)
+            ? msg.split(":")[0]
+            : "sync_failed";
+          await supa.from("tw_bsr_fetch_failures").upsert(
+            {
+              stock_id: stockId,
+              trade_date: cursor,
+              reason,
+              attempts: step + 1,
+              last_error: msg,
+              updated_at: new Date().toISOString(),
+            },
+            { onConflict: "stock_id,trade_date" },
+          );
+          attempts.push({ date: cursor, error: msg });
+          lastError = msg;
+        }
+      }
+
+      if (resolvedDate) {
+        results.push({ stock_id: stockId, ok: true, rows: resolvedRows, resolved_date: resolvedDate, attempts });
+      } else {
+        results.push({ stock_id: stockId, ok: false, error: lastError || "no_data", attempts });
       }
     }
 
     return jsonResponse({
       date: tradeDate,
+      lookback,
       processed: stocks.length,
       success: results.filter((r) => r.ok).length,
       failed: results.filter((r) => !r.ok).length,
@@ -310,6 +363,7 @@ Deno.serve(async (req) => {
     return errorResponse((err as Error).message, 500, { code: "INTERNAL_ERROR" });
   }
 });
+
 
 // ---- rollup helper ----
 async function rebuildRollup(supa: any, stockId: string, asOf: string) {
