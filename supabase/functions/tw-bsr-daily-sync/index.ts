@@ -1001,6 +1001,17 @@ Deno.serve(async (req) => {
             fallback_range: fallbackRange,
             covered_dates: Array.from(new Set(sortedDates)),
             config_version: configVersion,
+            cooldown_triggered_count: cooledDown.length,
+            cooldown_stocks: cooledDown.map((r) => ({
+              stock_id: r.stock_id,
+              attempts_total: r.attempts_total,
+              cooldown_until: r.cooldown_until,
+              reason: r.final_reason,
+            })),
+            cooldown_policy: {
+              max_attempts_per_day: cfg.backfill.max_attempts_per_day,
+              cooldown_hours: cfg.backfill.cooldown_hours,
+            },
             per_stock: perStock,
           },
         });
@@ -1013,10 +1024,16 @@ Deno.serve(async (req) => {
         success: successCount,
         failed: failedCount,
         recovered_last_successful_count: recovered.length,
+        cooldown_triggered_count: cooledDown.length,
+        cooldown_policy: {
+          max_attempts_per_day: cfg.backfill.max_attempts_per_day,
+          cooldown_hours: cfg.backfill.cooldown_hours,
+        },
         fallback_range: fallbackRange,
         config_version: configVersion,
         results,
       });
+
     } finally {
       await releaseLock(supa);
     }
