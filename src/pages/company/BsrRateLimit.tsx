@@ -136,7 +136,8 @@ export default function BsrRateLimit() {
                 </Badge>
               ))}
             </div>
-        </Card>
+          </Card>
+        </div>
 
         {/* Degrade 狀態機面板 */}
         {data?.degrade && (() => {
@@ -217,7 +218,6 @@ export default function BsrRateLimit() {
             </Card>
           );
         })()}
-        </div>
 
         <Card className="p-4">
           <div className="text-sm font-medium mb-2">Reservation / 佇列健康度</div>
