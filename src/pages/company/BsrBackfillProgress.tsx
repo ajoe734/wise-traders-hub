@@ -9,6 +9,24 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@
 import { RefreshCw, CheckCircle2, XCircle, AlertTriangle, Layers, Calendar, ChevronDown, ChevronRight } from 'lucide-react';
 import { supabase } from '@/integrations/supabase/client';
 
+type PerStockAttempt = { date: string; error: string; error_class?: string | null };
+type PerStock = {
+  stock_id: string;
+  ok: boolean;
+  resolved_date: string | null;
+  resolved_at_updated: boolean;
+  mismatch_reason: string | null;
+  final_reason: string;
+  attempts: PerStockAttempt[];
+  attempts_count: number;
+  fallback: { source?: string; as_of_date?: string; rows?: number; lag_days?: number } | null;
+  next_retry_at: string | null;
+  next_retry_source: string | null;
+  consec_before: number;
+  lookback_from: string;
+  lookback_to: string;
+};
+
 type JobRow = {
   id: string;
   job_name: string;
@@ -18,6 +36,7 @@ type JobRow = {
     mode?: string;
     date?: string;
     lookback?: number;
+    lookback_window?: { from: string; to: string } | null;
     batch?: number;
     processed?: number;
     success?: number;
@@ -27,8 +46,10 @@ type JobRow = {
     fallback_range?: { min: string; max: string } | null;
     covered_dates?: string[];
     config_version?: number | string;
+    per_stock?: PerStock[];
   } | null;
 };
+
 
 const fmtDT = (s: string | null | undefined) => {
   if (!s) return '—';
@@ -194,8 +215,14 @@ export default function BsrBackfillProgressPage() {
                               <span className="text-foreground/60">mode</span><span className="tabular-nums">{d.mode || '—'}</span>
                               <span className="text-foreground/60">目標日</span><span className="tabular-nums">{fmtD(d.date)}</span>
                               <span className="text-foreground/60">lookback</span><span className="tabular-nums">{d.lookback ?? '—'}</span>
+                              <span className="text-foreground/60">lookback 視窗</span>
+                              <span className="tabular-nums">
+                                {d.lookback_window ? `${fmtD(d.lookback_window.from)} – ${fmtD(d.lookback_window.to)}` : '—'}
+                              </span>
                               <span className="text-foreground/60">batch</span><span className="tabular-nums">{d.batch ?? '—'}</span>
+                              <span className="text-foreground/60">run_id</span><span className="font-mono text-[10px] break-all">{row.id}</span>
                               <span className="text-foreground/60">config_version</span><span className="tabular-nums">v{d.config_version ?? '—'}</span>
+
                             </div>
                           </div>
                           <div className="p-3 rounded border">
@@ -238,9 +265,13 @@ export default function BsrBackfillProgressPage() {
                               </div>
                             )}
                           </div>
+                          <div className="md:col-span-2">
+                            <PerStockDetail perStock={d.per_stock || []} />
+                          </div>
                         </div>
                       )}
                     </div>
+
                   );
                 })}
               </div>
@@ -266,3 +297,171 @@ function KpiCard({ icon, label, value, tone }: { icon: React.ReactNode; label: s
     </Card>
   );
 }
+
+function PerStockDetail({ perStock }: { perStock: PerStock[] }) {
+  const [filter, setFilter] = useState<'all' | 'ok' | 'fail' | 'recovered' | 'fallback'>('all');
+  const [openStock, setOpenStock] = useState<string | null>(null);
+
+  const filtered = useMemo(() => {
+    if (!perStock || perStock.length === 0) return [];
+    switch (filter) {
+      case 'ok': return perStock.filter((s) => s.ok);
+      case 'fail': return perStock.filter((s) => !s.ok);
+      case 'recovered': return perStock.filter((s) => s.ok && s.resolved_at_updated);
+      case 'fallback': return perStock.filter((s) => !s.ok && !!s.fallback);
+      default: return perStock;
+    }
+  }, [perStock, filter]);
+
+  const counts = useMemo(() => ({
+    all: perStock.length,
+    ok: perStock.filter((s) => s.ok).length,
+    fail: perStock.filter((s) => !s.ok).length,
+    recovered: perStock.filter((s) => s.ok && s.resolved_at_updated).length,
+    fallback: perStock.filter((s) => !s.ok && !!s.fallback).length,
+  }), [perStock]);
+
+  if (!perStock || perStock.length === 0) {
+    return (
+      <div className="p-3 rounded border text-[12px] text-foreground/50">
+        本輪未載入逐檔明細（可能為舊版執行，尚無 per_stock 欄位）。新一輪 sync 後即可看到。
+      </div>
+    );
+  }
+
+  const chip = (k: typeof filter, label: string, n: number) => (
+    <button
+      key={k}
+      type="button"
+      onClick={() => setFilter(k)}
+      className={`px-2 py-0.5 rounded text-[11px] tabular-nums transition ${filter === k ? 'bg-foreground text-background' : 'bg-foreground/5 text-foreground/70 hover:bg-foreground/10'}`}
+    >
+      {label} <span className="opacity-70">{n}</span>
+    </button>
+  );
+
+  return (
+    <div className="p-3 rounded border">
+      <div className="flex items-center justify-between mb-2 gap-2 flex-wrap">
+        <div className="text-foreground/60 text-[12px] flex items-center gap-1">
+          <Layers className="h-3 w-3" /> 逐檔 Backfill 明細
+          <span className="text-[10px] text-foreground/40 ml-1">
+            （點展開查看每次 lookback 嘗試與 mismatch_reason）
+          </span>
+        </div>
+        <div className="flex items-center gap-1">
+          {chip('all', '全部', counts.all)}
+          {chip('ok', '成功', counts.ok)}
+          {chip('recovered', '恢復', counts.recovered)}
+          {chip('fail', '失敗', counts.fail)}
+          {chip('fallback', 'Fallback', counts.fallback)}
+        </div>
+      </div>
+
+      <div className="divide-y">
+        {filtered.map((s) => {
+          const isOpen = openStock === s.stock_id;
+          const badgeStyle = s.ok
+            ? { bg: '#ECFDF5', fg: '#065F46', text: 'success' }
+            : s.fallback
+              ? { bg: '#FEF3C7', fg: '#92400E', text: 'fallback' }
+              : { bg: '#FEE2E2', fg: '#991B1B', text: s.final_reason };
+          return (
+            <div key={s.stock_id} className="py-2">
+              <button
+                type="button"
+                className="w-full flex items-center gap-2 text-left text-[12px]"
+                onClick={() => setOpenStock(isOpen ? null : s.stock_id)}
+              >
+                {isOpen ? <ChevronDown className="h-3 w-3 text-foreground/40" /> : <ChevronRight className="h-3 w-3 text-foreground/40" />}
+                <span className="font-mono text-foreground/80 w-16 tabular-nums">{s.stock_id}</span>
+                <Badge variant="outline" style={{ background: badgeStyle.bg, color: badgeStyle.fg, borderColor: 'transparent' }} className="text-[10px]">
+                  {badgeStyle.text}
+                </Badge>
+                <span className="text-foreground/60 tabular-nums">
+                  {fmtD(s.lookback_from)} → {fmtD(s.lookback_to)}
+                </span>
+                <span className="text-foreground/60">·</span>
+                <span className="text-foreground/60">嘗試 {s.attempts_count}</span>
+                {s.resolved_date && (
+                  <span className="text-emerald-700 text-[11px]">
+                    resolved_at → {fmtD(s.resolved_date)}
+                  </span>
+                )}
+                {s.resolved_at_updated && (
+                  <span className="text-[10px] px-1 py-0.5 rounded" style={{ background: '#FEF3C7', color: '#92400E' }}>
+                    本輪恢復
+                  </span>
+                )}
+                {!s.ok && s.mismatch_reason && (
+                  <span className="ml-auto text-[11px] text-red-700 font-mono">{s.mismatch_reason}</span>
+                )}
+              </button>
+
+              {isOpen && (
+                <div className="mt-2 ml-5 grid grid-cols-1 gap-2 text-[11px]">
+                  <div className="grid grid-cols-[80px_1fr] gap-y-1">
+                    <span className="text-foreground/60">final_reason</span>
+                    <span className="font-mono">{s.final_reason}</span>
+                    <span className="text-foreground/60">consec_before</span>
+                    <span className="tabular-nums">{s.consec_before}</span>
+                    {s.fallback && (
+                      <>
+                        <span className="text-foreground/60">fallback</span>
+                        <span className="tabular-nums">
+                          {s.fallback.source} · {fmtD(s.fallback.as_of_date)} · {s.fallback.rows} rows · lag {s.fallback.lag_days}d
+                        </span>
+                      </>
+                    )}
+                    {s.next_retry_at && (
+                      <>
+                        <span className="text-foreground/60">next_retry</span>
+                        <span className="tabular-nums">{fmtDT(s.next_retry_at)}</span>
+                        <span className="text-foreground/60">retry_source</span>
+                        <span className="font-mono text-[10px] break-all">{s.next_retry_source}</span>
+                      </>
+                    )}
+                  </div>
+
+                  <div className="mt-1">
+                    <div className="text-foreground/60 mb-1">逐次 lookback 嘗試</div>
+                    {s.attempts.length === 0 ? (
+                      <div className="text-foreground/40">首次即命中或未進入 lookback 迴圈</div>
+                    ) : (
+                      <div className="border rounded overflow-hidden">
+                        <table className="w-full text-[11px]">
+                          <thead className="bg-foreground/5 text-foreground/60">
+                            <tr>
+                              <th className="text-left px-2 py-1 w-8">#</th>
+                              <th className="text-left px-2 py-1 w-24">cursor 日期</th>
+                              <th className="text-left px-2 py-1 w-32">error_class</th>
+                              <th className="text-left px-2 py-1">error / mismatch_reason</th>
+                            </tr>
+                          </thead>
+                          <tbody>
+                            {s.attempts.map((a, i) => (
+                              <tr key={`${a.date}-${i}`} className="border-t">
+                                <td className="px-2 py-1 tabular-nums text-foreground/60">{i + 1}</td>
+                                <td className="px-2 py-1 tabular-nums">{fmtD(a.date)}</td>
+                                <td className="px-2 py-1 font-mono text-red-700">{a.error_class || '—'}</td>
+                                <td className="px-2 py-1 font-mono text-foreground/70 break-all">{a.error}</td>
+                              </tr>
+                            ))}
+                          </tbody>
+                        </table>
+                      </div>
+                    )}
+                  </div>
+                </div>
+              )}
+            </div>
+          );
+        })}
+        {filtered.length === 0 && (
+          <div className="py-4 text-center text-foreground/50 text-[12px]">此篩選條件下沒有明細</div>
+        )}
+      </div>
+    </div>
+  );
+}
+

@@ -764,8 +764,13 @@ Deno.serve(async (req) => {
         const latencyMs = Date.now() - startedAt;
 
         if (resolvedDate) {
-          results.push({ stock_id: stockId, ok: true, rows: resolvedRows, resolved_date: resolvedDate, fallback: null, attempts, consec_before: consecBefore });
+          results.push({
+            stock_id: stockId, ok: true, rows: resolvedRows, resolved_date: resolvedDate,
+            fallback: null, attempts, consec_before: consecBefore,
+            resolved_at_updated: consecBefore > 0, mismatch_reason: null,
+          });
           await bumpMetrics(supa, { total: 1, success: 1, latency_ms: latencyMs });
+
         } else {
           // 寫/更新失敗紀錄（單一 row per stock，target_date = 起始日）
           const { data: prevFail } = await supa.from("tw_bsr_fetch_failures")
@@ -824,7 +829,9 @@ Deno.serve(async (req) => {
             stock_id: stockId, ok: false, error: lastError || "no_data",
             attempts, fallback, next_retry_at: nextRetry, backoff_seconds: backoff,
             next_retry_source: nextRetrySource, consec_before: consecBefore,
+            mismatch_reason: errorClass, final_reason: reason, resolved_at_updated: false,
           });
+
           await bumpMetrics(supa, {
             total: 1, ocr_fail: ocrFailBump ? 1 : 0, http_block: blockBump ? 1 : 0,
             empty: emptyBump ? 1 : 0, latency_ms: latencyMs,
@@ -856,6 +863,33 @@ Deno.serve(async (req) => {
         ? { min: sortedDates[0], max: sortedDates[sortedDates.length - 1] }
         : null;
 
+      // 逐檔嘗試視窗（lookback_from ~ lookback_to），從 tradeDate 往回推 (lookback-1) 個交易日
+      let lookbackFrom = tradeDate;
+      for (let i = 1; i < lookback; i++) lookbackFrom = prevWeekday(lookbackFrom);
+      const lookbackWindow = { from: lookbackFrom, to: tradeDate };
+
+      // 每檔明細（供 Backfill 進度頁展開查看）
+      const perStock = results
+        .filter((r) => r.stock_id)
+        .map((r) => ({
+          stock_id: r.stock_id,
+          ok: !!r.ok,
+          resolved_date: r.resolved_date || null,
+          resolved_at_updated: !!r.resolved_at_updated,
+          mismatch_reason: r.mismatch_reason || null,
+          final_reason: r.final_reason || (r.ok ? "success" : "sync_failed"),
+          attempts: (r.attempts || []).map((a: any) => ({
+            date: a.date, error: a.error, error_class: classifyBsrError(a.error),
+          })),
+          attempts_count: (r.attempts || []).length,
+          fallback: r.fallback || null,
+          next_retry_at: r.next_retry_at || null,
+          next_retry_source: r.next_retry_source || null,
+          consec_before: Number(r.consec_before || 0),
+          lookback_from: lookbackFrom,
+          lookback_to: tradeDate,
+        }));
+
       // 為 backfill 進度看板寫入摘要（其它 mode 也留紀錄，方便對照）
       try {
         await supa.from("system_jobs_log").insert({
@@ -865,6 +899,7 @@ Deno.serve(async (req) => {
             mode,
             date: tradeDate,
             lookback,
+            lookback_window: lookbackWindow,
             batch,
             processed: stocks.length,
             success: successCount,
@@ -878,9 +913,11 @@ Deno.serve(async (req) => {
             fallback_range: fallbackRange,
             covered_dates: Array.from(new Set(sortedDates)),
             config_version: configVersion,
+            per_stock: perStock,
           },
         });
       } catch (_e) { /* log-only, 不影響回傳 */ }
+
 
       return jsonResponse({
         mode, date: tradeDate, lookback, batch,
