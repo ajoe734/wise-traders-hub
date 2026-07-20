@@ -60,6 +60,9 @@ export interface TwChipsPayload {
     reason: string;
     last_error: string | null;
     attempts: number;
+    next_retry_at?: string | null;
+    backoff_seconds?: number | null;
+    consecutive_failures?: number | null;
   } | null;
   series?: {
     institutional_daily: InstitutionalDailyPoint[];
