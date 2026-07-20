@@ -50,7 +50,8 @@ function addDays(iso: string, n: number): string {
 
 type FinmindRow = {
   date: string;
-  securities_trader_no: string;
+  securities_trader_id?: string;
+  securities_trader_no?: string;
   securities_trader: string;
   price: number;
   buy: number;
