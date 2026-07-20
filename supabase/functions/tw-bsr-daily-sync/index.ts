@@ -83,8 +83,11 @@ const DEFAULT_CONFIG: SyncConfig = {
     batch_max: 20,
     lookback_max: 10,
     max_runs_per_hour: 6,
+    max_attempts_per_day: 8,
+    cooldown_hours: 12,
   },
 };
+
 
 function normBackfill(raw: any, fallback: BackfillConfig): BackfillConfig {
   const src = raw && typeof raw === "object" ? raw : {};
