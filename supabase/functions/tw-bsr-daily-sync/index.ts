@@ -74,7 +74,28 @@ const DEFAULT_CONFIG: SyncConfig = {
   lock_ttl_sec: 90,
   ocr_mode: "standard",
   ocr_escalate_on_fail: true,
+  backfill: {
+    batch: 6,
+    lookback: 7,
+    batch_max: 20,
+    lookback_max: 10,
+    max_runs_per_hour: 6,
+  },
 };
+
+function normBackfill(raw: any, fallback: BackfillConfig): BackfillConfig {
+  const src = raw && typeof raw === "object" ? raw : {};
+  const pick = (k: keyof BackfillConfig, min: number) => {
+    const n = Number(src[k]);
+    return Number.isFinite(n) && n >= min ? n : fallback[k];
+  };
+  return {
+    batch: Math.max(1, Math.floor(pick("batch", 1))),
+    lookback: Math.max(1, Math.floor(pick("lookback", 1))),
+    batch_max: Math.max(1, Math.floor(pick("batch_max", 1))),
+    lookback_max: Math.max(1, Math.floor(pick("lookback_max", 1))),
+    max_runs_per_hour: Math.max(0, Math.floor(pick("max_runs_per_hour", 0))),
+  };
 
 async function loadConfig(supa: any): Promise<{ cfg: SyncConfig; version: number | null }> {
   try {
