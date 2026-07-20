@@ -5,6 +5,9 @@
 // 呼叫方式：
 //   POST { mode: "queue", batch?: 8, window?: "off_hours" }
 //        → 從優先級佇列取 batch 檔（跳過尚未到 next_retry_at 的），跑排程模式
+//   POST { mode: "backfill", batch?: 6, lookback?: 7 }
+//        → 高頻補跑：只挑 tw_bsr_fetch_failures 裡「未 resolved 且 next_retry_at 已到期」的股票，
+//          直到每支拿到 last_successful 為止；忽略 off-hours 冷凍條件。
 //   POST { stock_ids: [...] , date?, lookback? }
 //        → 手動指定股票（優先於 queue）
 //
@@ -297,6 +300,30 @@ async function buildQueue(supa: any, batch: number, offHours: boolean): Promise<
   return out;
 }
 
+// ---- Backfill 佇列：只挑「未 resolved 且 next_retry_at 已到期」的失敗紀錄 ----
+// 依「距離最後成功日的日數」與 consecutive_failures 排序，最舊的先補
+async function buildBackfillQueue(supa: any, batch: number): Promise<string[]> {
+  const nowIso = new Date().toISOString();
+  const { data: due } = await supa
+    .from("tw_bsr_fetch_failures")
+    .select("stock_id, trade_date, consecutive_failures, next_retry_at, updated_at")
+    .is("resolved_at", null)
+    .or(`next_retry_at.is.null,next_retry_at.lte.${nowIso}`)
+    .order("trade_date", { ascending: true })
+    .order("consecutive_failures", { ascending: true })
+    .limit(batch * 4);
+  const out: string[] = [];
+  const seen = new Set<string>();
+  for (const r of due || []) {
+    const id = String(r.stock_id);
+    if (!/^[0-9]{4,6}$/.test(id) || seen.has(id)) continue;
+    seen.add(id);
+    out.push(id);
+    if (out.length >= batch) break;
+  }
+  return out;
+}
+
 // ---- 指標桶（15 分鐘）----
 function bucketKey(): string {
   const d = new Date();
@@ -448,7 +475,10 @@ Deno.serve(async (req) => {
     try {
       // 決定股票清單
       let stocks: string[] = explicit.filter((s) => /^[0-9]{4,6}$/.test(s));
-      if (mode !== "manual" || stocks.length === 0) {
+      if (mode === "backfill" && stocks.length === 0) {
+        // Backfill 模式：只挑已到期的失敗，忽略 off-hours 凍結，允許較深 lookback
+        stocks = await buildBackfillQueue(supa, batch);
+      } else if (mode !== "manual" || stocks.length === 0) {
         stocks = await buildQueue(supa, batch, offHours);
       } else {
         stocks = stocks.slice(0, batch);
