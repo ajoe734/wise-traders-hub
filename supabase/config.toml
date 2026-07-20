@@ -132,3 +132,13 @@ verify_jwt = false
 [functions.og-card]
 verify_jwt = false
 
+[functions.tw-chips-detail]
+verify_jwt = true
+
+[functions.tw-institutional-daily-sync]
+verify_jwt = false
+
+[functions.tw-bsr-daily-sync]
+verify_jwt = false
+
+
