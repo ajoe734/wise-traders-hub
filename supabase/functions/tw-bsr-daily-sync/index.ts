@@ -101,7 +101,12 @@ function normBackfill(raw: any, fallback: BackfillConfig): BackfillConfig {
     batch_max: Math.max(1, Math.floor(pick("batch_max", 1))),
     lookback_max: Math.max(1, Math.floor(pick("lookback_max", 1))),
     max_runs_per_hour: Math.max(0, Math.floor(pick("max_runs_per_hour", 0))),
+    max_attempts_per_day: Math.max(1, Math.floor(pick("max_attempts_per_day", 1))),
+    cooldown_hours: Math.max(1, Math.floor(pick("cooldown_hours", 1))),
   };
+}
+
+
 
 async function loadConfig(supa: any): Promise<{ cfg: SyncConfig; version: number | null }> {
   try {
