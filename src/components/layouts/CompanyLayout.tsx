@@ -2,7 +2,7 @@ import { ReactNode, useState } from 'react';
 import { Link, useLocation, useNavigate } from 'react-router-dom';
 import {
   LayoutDashboard, Users, UserCheck, BarChart3, CreditCard,
-  LogOut, Moon, Sun, Building2, Megaphone, FileClock, Receipt, Settings, Layers, Activity, Brain, Gauge, AlertTriangle, ScrollText, History, Shield, ShieldAlert, Menu, FlaskConical, Bell, TrendingUp, FileText, Coins
+  LogOut, Moon, Sun, Building2, Megaphone, FileClock, Receipt, Settings, Layers, Activity, Brain, Gauge, AlertTriangle, ScrollText, History, Shield, ShieldAlert, Menu, FlaskConical, Bell, TrendingUp, FileText, Coins, Clock
 } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { useAuth } from '@/contexts/AuthContext';
@@ -67,6 +67,7 @@ const navGroups: NavGroup[] = [
       { path: '/company/ops-health', icon: Gauge, label: '後端健康/成本' },
       { path: '/company/bsr-failures', icon: ShieldAlert, label: 'BSR OCR 失敗' },
       { path: '/company/bsr-effect', icon: Activity, label: 'BSR 效果分析' },
+      { path: '/company/bsr-timeline', icon: Clock, label: 'BSR 逐檔時間軸' },
       { path: '/company/conversions', icon: BarChart3, label: '轉換中心' },
       { path: '/company/paywall-analytics', icon: BarChart3, label: 'Paywall 轉換' },
       { path: '/company/funnel-analytics', icon: BarChart3, label: '漏斗分析' },

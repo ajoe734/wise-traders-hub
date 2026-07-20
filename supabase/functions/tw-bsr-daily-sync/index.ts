@@ -451,12 +451,27 @@ async function bumpMetrics(supa: any, patch: { total?: number; success?: number;
   }, { onConflict: "bucket_at" });
 }
 
-// 逐次嘗試日誌：供 UA / backoff / consecutive 效果分析圖使用。失敗絕不阻斷主流程。
+// 從 outcome / error 字串推導 HTTP 狀態碼（success=200；其餘從 http_block_XXX / captcha_http_XXX 解析）
+function deriveHttpStatus(outcome: string, err?: string | null): number | null {
+  if (outcome === "success") return 200;
+  const s = `${outcome} ${err || ""}`;
+  const m = s.match(/http[_-]?(?:block|status)?[_-]?(\d{3})|captcha_http_(\d{3})/i);
+  if (m) return Number(m[1] || m[2]);
+  if (outcome === "empty_rows") return 200;
+  return null;
+}
+
+// 逐次嘗試日誌：供 UA / backoff / consecutive 效果分析與逐檔時間軸使用。失敗絕不阻斷主流程。
 async function logAttempt(supa: any, p: {
   stockId: string; tradeDate: string;
   ctx: SessionCtx; cfg: SyncConfig; configVersion?: string;
   backoffBefore: number; consecBefore: number;
   latencyMs: number; outcome: string; step: number;
+  error?: string | null;
+  fallbackUsed?: boolean;
+  fallbackAsOfDate?: string | null;
+  nextRetryAt?: string | null;
+  nextRetrySource?: string | null;
 }) {
   try {
     await supa.from("tw_bsr_attempt_logs").insert({
@@ -472,8 +487,15 @@ async function logAttempt(supa: any, p: {
       outcome: p.outcome,
       attempt_step: p.step,
       config_version: p.configVersion || null,
+      http_status: deriveHttpStatus(p.outcome, p.error),
+      error: p.error || null,
+      fallback_used: !!p.fallbackUsed,
+      fallback_as_of_date: p.fallbackAsOfDate || null,
+      next_retry_at: p.nextRetryAt || null,
+      next_retry_source: p.nextRetrySource || null,
     });
   } catch (_e) { /* best-effort */ }
+}
 
 Deno.serve(async (req) => {
   if (req.method === "OPTIONS") return corsPreflight();
@@ -702,7 +724,7 @@ Deno.serve(async (req) => {
             await logAttempt(supa, {
               stockId, tradeDate: cursor, ctx, cfg, configVersion,
               backoffBefore, consecBefore, latencyMs: Date.now() - stepStartedAt,
-              outcome: stepOutcome, step,
+              outcome: stepOutcome, step, error: msg,
             });
 
             // 被擋直接中止本檔的 lookback（避免對同 IP 再擊）
@@ -750,9 +772,27 @@ Deno.serve(async (req) => {
               lag_days: Math.max(0, Math.round((new Date(tradeDate).getTime() - new Date(fallbackDate).getTime()) / 86400000)),
             };
           }
+          const nextRetrySource =
+            `backoff_step[${Math.min(nextConsec, cfg.backoff_steps_sec.length)}/${cfg.backoff_steps_sec.length}]=${backoff}s`
+            + ` (reason=${reason},consec=${nextConsec})`;
+
+          // 逐檔時間軸「收尾」列：紀錄本輪最終狀態 + fallback + next_retry 推算來源
+          await logAttempt(supa, {
+            stockId, tradeDate,
+            ctx, cfg, configVersion,
+            backoffBefore, consecBefore,
+            latencyMs, outcome: `finalized:${reason}`, step: 99,
+            error: lastError || null,
+            fallbackUsed: !!fallbackDate,
+            fallbackAsOfDate: fallbackDate || null,
+            nextRetryAt: nextRetry,
+            nextRetrySource,
+          });
+
           results.push({
             stock_id: stockId, ok: false, error: lastError || "no_data",
             attempts, fallback, next_retry_at: nextRetry, backoff_seconds: backoff,
+            next_retry_source: nextRetrySource,
           });
           await bumpMetrics(supa, {
             total: 1, ocr_fail: ocrFailBump ? 1 : 0, http_block: blockBump ? 1 : 0,
