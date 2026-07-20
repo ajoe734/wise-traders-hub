@@ -724,7 +724,7 @@ Deno.serve(async (req) => {
             await logAttempt(supa, {
               stockId, tradeDate: cursor, ctx, cfg, configVersion,
               backoffBefore, consecBefore, latencyMs: Date.now() - stepStartedAt,
-              outcome: stepOutcome, step,
+              outcome: stepOutcome, step, error: msg,
             });
 
             // 被擋直接中止本檔的 lookback（避免對同 IP 再擊）
