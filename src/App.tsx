@@ -144,6 +144,7 @@ const CompanyBsrEffect = lazy(() => import("./pages/company/BsrEffectAnalysis"))
 const CompanyBsrTimeline = lazy(() => import("./pages/company/BsrStockTimeline"));
 const CompanyBsrBackfill = lazy(() => import("./pages/company/BsrBackfillProgress"));
 const CompanyBsrConfig = lazy(() => import("./pages/company/BsrSyncConfig"));
+const CompanyBsrOcrMetrics = lazy(() => import("./pages/company/BsrOcrMetrics"));
 const CompanyKnowledgeBase = lazy(() => import("./pages/company/KnowledgeBase"));
 const CompanyKnowledgeAudit = lazy(() => import("./pages/company/knowledge-base/KnowledgeAudit"));
 const CompanyKnowledgeScheduler = lazy(() => import("./pages/company/knowledge-base/KnowledgeScheduler"));
