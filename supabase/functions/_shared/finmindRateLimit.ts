@@ -60,16 +60,18 @@ export class RateLimitExhaustedError extends Error {
   }
 }
 
-/** 嘗試原子預留一格額度；失敗時回傳 null。 */
+/** 嘗試原子預留一格額度；失敗時回傳 null。可選帶入 correlation_id 串聯同一次同步工作。 */
 export async function reserveQuota(
   supa: SupabaseClient,
   limit: number = FINMIND_HOURLY_LIMIT,
   leaseSeconds: number = DEFAULT_LEASE_SECONDS,
+  correlationId?: string | null,
 ): Promise<Reservation | null> {
   const { data, error } = await supa.rpc('reserve_bsr_api_quota', {
     _limit: limit,
     _api: FINMIND_API_NAME,
     _lease_seconds: leaseSeconds,
+    _correlation_id: correlationId ?? null,
   });
   if (error) {
     // Fail-CLOSED：DB 出問題時寧可擋下也不冒著超額被 FinMind 封鎖的風險。
