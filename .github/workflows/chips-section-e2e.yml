@@ -1,0 +1,112 @@
+name: ChipsSection E2E (desktop project)
+
+# 每次 PR 都自動跑 e2e/chips-section.spec.ts 的 desktop-chips-section 專案。
+# 涵蓋：非台股過濾 / 完整資料 / 空 payload / 部分欄位 / 500·404·timeout·offline。
+# retries 已在 playwright.config.ts 內 CI 分支設為 2，這裡不再覆蓋。
+
+on:
+  push:
+    branches: [main, 'feat/**', 'fix/**']
+    paths:
+      - 'e2e/chips-section.spec.ts'
+      - 'e2e/helpers/**'
+      - 'src/checkup/components/freecheckup/ChipsSection.tsx'
+      - 'src/checkup/components/freecheckup/ChipsTrendChart.tsx'
+      - 'src/checkup/hooks/useTwChipsDetail.ts'
+      - 'src/pages/ChipsSectionHarnessEntry.tsx'
+      - 'playwright.config.ts'
+      - '.github/workflows/chips-section-e2e.yml'
+  pull_request:
+    branches: [main]
+    paths:
+      - 'e2e/chips-section.spec.ts'
+      - 'e2e/helpers/**'
+      - 'src/checkup/components/freecheckup/ChipsSection.tsx'
+      - 'src/checkup/components/freecheckup/ChipsTrendChart.tsx'
+      - 'src/checkup/hooks/useTwChipsDetail.ts'
+      - 'src/pages/ChipsSectionHarnessEntry.tsx'
+      - 'playwright.config.ts'
+      - '.github/workflows/chips-section-e2e.yml'
+  workflow_dispatch:
+
+concurrency:
+  group: chips-section-e2e-${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
+env:
+  VITE_SUPABASE_URL: https://yqacmrgdjlenbijclngi.supabase.co
+  VITE_SUPABASE_PUBLISHABLE_KEY: ${{ secrets.VITE_SUPABASE_PUBLISHABLE_KEY || 'placeholder' }}
+  VITE_SUPABASE_PROJECT_ID: yqacmrgdjlenbijclngi
+
+jobs:
+  chips-section:
+    name: desktop-chips-section
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Setup Bun
+        uses: oven-sh/setup-bun@v2
+        with:
+          bun-version: latest
+
+      # ---- bun install 快取 ----
+      - name: Cache bun store
+        uses: actions/cache@v4
+        with:
+          path: ~/.bun/install/cache
+          key: ${{ runner.os }}-bun-${{ hashFiles('bun.lockb', 'package.json') }}
+          restore-keys: |
+            ${{ runner.os }}-bun-
+
+      - name: Install deps
+        run: bun install --frozen-lockfile
+
+      # ---- Playwright chromium 快取 ----
+      - name: Get Playwright version
+        id: pw-version
+        run: |
+          version=$(node -p "require('@playwright/test/package.json').version")
+          echo "version=$version" >> "$GITHUB_OUTPUT"
+
+      - name: Cache Playwright browsers
+        id: pw-cache
+        uses: actions/cache@v4
+        with:
+          path: ~/.cache/ms-playwright
+          key: ${{ runner.os }}-playwright-${{ steps.pw-version.outputs.version }}
+
+      - name: Install Playwright chromium
+        if: steps.pw-cache.outputs.cache-hit != 'true'
+        run: bunx playwright install --with-deps chromium
+
+      - name: Install chromium system deps only (cache hit)
+        if: steps.pw-cache.outputs.cache-hit == 'true'
+        run: bunx playwright install-deps chromium
+
+      # ---- 執行 desktop-chips-section 專案 ----
+      # retries=2 由 playwright.config.ts 的 CI 分支提供
+      - name: Run desktop-chips-section
+        run: bunx playwright test --project=desktop-chips-section
+        env:
+          CI: 'true'
+
+      # ---- HTML 報告與失敗 artifact ----
+      - name: Upload Playwright HTML report
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: chips-section-html-report
+          path: playwright-report
+          retention-days: 14
+          if-no-files-found: ignore
+
+      - name: Upload traces / screenshots / videos (on failure)
+        if: failure()
+        uses: actions/upload-artifact@v4
+        with:
+          name: chips-section-traces
+          path: test-results
+          retention-days: 14
+          if-no-files-found: ignore
