@@ -764,7 +764,7 @@ Deno.serve(async (req) => {
         const latencyMs = Date.now() - startedAt;
 
         if (resolvedDate) {
-          results.push({ stock_id: stockId, ok: true, rows: resolvedRows, resolved_date: resolvedDate, fallback: null, attempts });
+          results.push({ stock_id: stockId, ok: true, rows: resolvedRows, resolved_date: resolvedDate, fallback: null, attempts, consec_before: consecBefore });
           await bumpMetrics(supa, { total: 1, success: 1, latency_ms: latencyMs });
         } else {
           // 寫/更新失敗紀錄（單一 row per stock，target_date = 起始日）
