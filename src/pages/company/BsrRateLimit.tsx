@@ -27,6 +27,10 @@ type Stats = {
     rate_limited_last_hour: number;
     oldest_in_flight_age_seconds: number;
   };
+  stuck_reservations?: Array<{
+    id: number; correlation_id: string | null;
+    reserved_at: string; expires_at: string; age_seconds: number; expired: boolean;
+  }>;
   p1_oldest_pending_age_seconds?: number;
   rate_limited_streak_minutes?: number;
   degrade?: {
