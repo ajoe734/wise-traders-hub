@@ -121,22 +121,23 @@ Deno.serve(async (req) => {
     // 依 fields 動態找欄位 index（TWSE 偶爾調整名稱）
     const idxOf = (kw: string) => fields.findIndex((f) => f && f.includes(kw));
     const iStock = idxOf("證券代號");
-    const iForeign = fields.findIndex((f) => f.includes("外陸資買賣超股數") && !f.includes("不含"));
-    const iForeignAlt = idxOf("外資買賣超");
+    // 外資 = 外陸資買賣超（不含外資自營商） + 外資自營商買賣超
+    const iForeignMain = idxOf("外陸資買賣超股數");
+    const iForeignDealer = idxOf("外資自營商買賣超股數");
     const iTrust = idxOf("投信買賣超");
-    const iDealer = fields.findIndex((f) => f.includes("自營商買賣超股數") && !f.includes("避險") && !f.includes("自行"));
-    const iDealerAlt = idxOf("自營商買賣超");
+    // 自營商合計欄位（不含「自行買賣」「避險」細分）
+    const iDealer = fields.findIndex((f) => f === "自營商買賣超股數");
+    const iDealerSelf = idxOf("自營商買賣超股數(自行買賣)");
+    const iDealerHedge = idxOf("自營商買賣超股數(避險)");
     const iTotal = idxOf("三大法人買賣超");
 
-    const foreignIdx = iForeign >= 0 ? iForeign : iForeignAlt;
-    const dealerIdx = iDealer >= 0 ? iDealer : iDealerAlt;
-
-    if (iStock < 0 || foreignIdx < 0 || iTrust < 0 || dealerIdx < 0) {
+    if (iStock < 0 || iForeignMain < 0 || iTrust < 0 || (iDealer < 0 && iDealerSelf < 0)) {
       return errorResponse("fields layout unrecognized", 502, {
         code: "SCHEMA_DRIFT",
         fields,
       });
     }
+
 
     const tradeDate = toISODate(resolvedDate);
     const supa = createClient(SUPABASE_URL, SERVICE_ROLE_KEY, {
