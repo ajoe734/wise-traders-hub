@@ -3834,8 +3834,14 @@ export type Database = {
           config_version: string | null
           consecutive_failures_before: number
           created_at: string
+          error: string | null
+          fallback_as_of_date: string | null
+          fallback_used: boolean
+          http_status: number | null
           id: number
           latency_ms: number
+          next_retry_at: string | null
+          next_retry_source: string | null
           ocr_mode: string
           outcome: string
           stock_id: string
@@ -3850,8 +3856,14 @@ export type Database = {
           config_version?: string | null
           consecutive_failures_before?: number
           created_at?: string
+          error?: string | null
+          fallback_as_of_date?: string | null
+          fallback_used?: boolean
+          http_status?: number | null
           id?: number
           latency_ms?: number
+          next_retry_at?: string | null
+          next_retry_source?: string | null
           ocr_mode?: string
           outcome: string
           stock_id: string
@@ -3866,8 +3878,14 @@ export type Database = {
           config_version?: string | null
           consecutive_failures_before?: number
           created_at?: string
+          error?: string | null
+          fallback_as_of_date?: string | null
+          fallback_used?: boolean
+          http_status?: number | null
           id?: number
           latency_ms?: number
+          next_retry_at?: string | null
+          next_retry_source?: string | null
           ocr_mode?: string
           outcome?: string
           stock_id?: string
