@@ -266,8 +266,10 @@ export default function BsrSyncConfig() {
                         </div>
                         <div className="text-xs text-muted-foreground">
                           batch={bf.batch} · lookback={bf.lookback} · max/h={bf.max_runs_per_hour} ·
-                          {' '}bmax={bf.batch_max} · lmax={bf.lookback_max}
+                          {' '}bmax={bf.batch_max} · lmax={bf.lookback_max} ·
+                          {' '}max_att/day={bf.max_attempts_per_day} · cooldown={bf.cooldown_hours}h
                         </div>
+
                         {h.note && <div className="text-xs">{h.note}</div>}
                       </div>
                     </div>
