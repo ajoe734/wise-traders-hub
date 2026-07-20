@@ -3826,6 +3826,57 @@ export type Database = {
         }
         Relationships: []
       }
+      tw_bsr_attempt_logs: {
+        Row: {
+          attempt_step: number
+          attempted_at: string
+          backoff_seconds_before: number
+          config_version: string | null
+          consecutive_failures_before: number
+          created_at: string
+          id: number
+          latency_ms: number
+          ocr_mode: string
+          outcome: string
+          stock_id: string
+          trade_date: string
+          ua_hash: string
+          ua_label: string
+        }
+        Insert: {
+          attempt_step?: number
+          attempted_at?: string
+          backoff_seconds_before?: number
+          config_version?: string | null
+          consecutive_failures_before?: number
+          created_at?: string
+          id?: number
+          latency_ms?: number
+          ocr_mode?: string
+          outcome: string
+          stock_id: string
+          trade_date: string
+          ua_hash: string
+          ua_label: string
+        }
+        Update: {
+          attempt_step?: number
+          attempted_at?: string
+          backoff_seconds_before?: number
+          config_version?: string | null
+          consecutive_failures_before?: number
+          created_at?: string
+          id?: number
+          latency_ms?: number
+          ocr_mode?: string
+          outcome?: string
+          stock_id?: string
+          trade_date?: string
+          ua_hash?: string
+          ua_label?: string
+        }
+        Relationships: []
+      }
       tw_bsr_daily: {
         Row: {
           avg_buy_price: number | null
