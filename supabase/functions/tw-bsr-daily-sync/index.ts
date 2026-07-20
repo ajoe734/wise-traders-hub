@@ -764,8 +764,13 @@ Deno.serve(async (req) => {
         const latencyMs = Date.now() - startedAt;
 
         if (resolvedDate) {
-          results.push({ stock_id: stockId, ok: true, rows: resolvedRows, resolved_date: resolvedDate, fallback: null, attempts, consec_before: consecBefore });
+          results.push({
+            stock_id: stockId, ok: true, rows: resolvedRows, resolved_date: resolvedDate,
+            fallback: null, attempts, consec_before: consecBefore,
+            resolved_at_updated: consecBefore > 0, mismatch_reason: null,
+          });
           await bumpMetrics(supa, { total: 1, success: 1, latency_ms: latencyMs });
+
         } else {
           // 寫/更新失敗紀錄（單一 row per stock，target_date = 起始日）
           const { data: prevFail } = await supa.from("tw_bsr_fetch_failures")
