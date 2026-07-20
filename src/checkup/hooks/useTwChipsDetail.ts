@@ -63,6 +63,10 @@ export interface TwChipsPayload {
     next_retry_at?: string | null;
     backoff_seconds?: number | null;
     consecutive_failures?: number | null;
+    last_successful_as_of?: string | null;
+    lookback_from?: string | null;
+    lookback_to?: string | null;
+    lookback_days?: number | null;
   } | null;
   series?: {
     institutional_daily: InstitutionalDailyPoint[];
