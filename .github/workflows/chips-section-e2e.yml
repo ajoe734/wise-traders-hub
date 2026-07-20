@@ -125,7 +125,30 @@ jobs:
           retention-days: 14
           if-no-files-found: ignore
 
-  # 兩個 project 都綠才算通過，可做為分支保護 required check
+      # ---- 視覺回歸專用：只挑 -expected / -actual / -diff.png 打包，方便快速看差異 ----
+      - name: Collect visual diff PNGs (visual project only, on failure)
+        if: failure() && matrix.project == 'visual-chips-section'
+        run: |
+          mkdir -p visual-diff
+          if [ -d test-results ]; then
+            find test-results -type f \( \
+              -name '*-expected.png' -o \
+              -name '*-actual.png'   -o \
+              -name '*-diff.png' \
+            \) -print -exec cp --parents {} visual-diff/ \;
+          fi
+          ls -R visual-diff || true
+
+      - name: Upload visual diff PNGs (visual project only, on failure)
+        if: failure() && matrix.project == 'visual-chips-section'
+        uses: actions/upload-artifact@v4
+        with:
+          name: chips-section-visual-diff
+          path: visual-diff
+          retention-days: 14
+          if-no-files-found: ignore
+
+  # 三個 project 都綠才算通過，可做為分支保護 required check
   chips-section-passed:
     name: ChipsSection E2E passed (required)
     runs-on: ubuntu-latest
@@ -138,4 +161,5 @@ jobs:
             echo "chips-section matrix result=${{ needs.chips-section.result }}"
             exit 1
           fi
-          echo "desktop-chips-section + mobile-chips-section both passed."
+          echo "desktop + mobile + visual chips-section all passed."
+
