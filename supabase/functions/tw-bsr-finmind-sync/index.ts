@@ -59,12 +59,12 @@ type FinmindRow = {
   stock_id: string;
 };
 
-async function fetchFinmind(stockId: string, startDate: string, endDate: string): Promise<FinmindRow[]> {
+async function fetchFinmindOneDay(stockId: string, date: string): Promise<FinmindRow[]> {
+  // FinMind BSR (TaiwanStockTradingDailyReport) 只支援單日查詢，end_date 必須省略
   const p = new URLSearchParams({
     dataset: 'TaiwanStockTradingDailyReport',
     data_id: stockId,
-    start_date: startDate,
-    end_date: endDate,
+    start_date: date,
   });
   if (FINMIND_TOKEN) p.set('token', FINMIND_TOKEN);
   const res = await fetch(`${FINMIND_URL}?${p}`, { signal: AbortSignal.timeout(20_000) });
@@ -76,6 +76,28 @@ async function fetchFinmind(stockId: string, startDate: string, endDate: string)
     throw new Error(`finmind_api_${j?.status ?? 'unknown'}:${String(j?.msg ?? '').slice(0, 200)}`);
   }
   return Array.isArray(j.data) ? j.data : [];
+}
+
+async function fetchFinmindRange(stockId: string, startDate: string, endDate: string): Promise<FinmindRow[]> {
+  const dates: string[] = [];
+  let cursor = startDate;
+  while (cursor <= endDate) {
+    const d = new Date(cursor + 'T00:00:00Z');
+    const dow = d.getUTCDay();
+    if (dow !== 0 && dow !== 6) dates.push(cursor); // skip weekends
+    cursor = addDays(cursor, 1);
+  }
+  const all: FinmindRow[] = [];
+  for (const d of dates) {
+    try {
+      const rows = await fetchFinmindOneDay(stockId, d);
+      all.push(...rows);
+    } catch (e) {
+      // 單日失敗不中斷整個 range；若是全部日期都掛掉會在上層被視為 empty
+      console.warn(`finmind ${stockId} ${d} failed:`, e instanceof Error ? e.message : String(e));
+    }
+  }
+  return all;
 }
 
 // 把 FinMind 的 per-trade 明細（同一分點同一日可能多筆不同價格）
