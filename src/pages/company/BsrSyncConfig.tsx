@@ -20,6 +20,8 @@ type BackfillConfig = {
   batch_max: number;
   lookback_max: number;
   max_runs_per_hour: number;
+  max_attempts_per_day: number;
+  cooldown_hours: number;
 };
 
 type ConfigRow = {
@@ -47,6 +49,8 @@ const DEFAULT_BACKFILL: BackfillConfig = {
   batch_max: 20,
   lookback_max: 10,
   max_runs_per_hour: 6,
+  max_attempts_per_day: 8,
+  cooldown_hours: 12,
 };
 
 function normalize(input: any): BackfillConfig {
@@ -61,8 +65,11 @@ function normalize(input: any): BackfillConfig {
     batch_max: Math.max(1, num('batch_max', 1)),
     lookback_max: Math.max(1, num('lookback_max', 1)),
     max_runs_per_hour: Math.max(0, num('max_runs_per_hour', 0)),
+    max_attempts_per_day: Math.max(1, num('max_attempts_per_day', 1)),
+    cooldown_hours: Math.max(1, num('cooldown_hours', 1)),
   };
 }
+
 
 export default function BsrSyncConfig() {
   const qc = useQueryClient();
@@ -197,7 +204,20 @@ export default function BsrSyncConfig() {
                   onChange={(e) => setForm({ ...form, lookback_max: Math.max(1, Number(e.target.value) || 1) })}
                 />
               </Field>
+              <Field label="單日最大嘗試次數" hint="同 stock+trade_date 累積失敗達此值即進入資料冷卻">
+                <Input
+                  type="number" min={1} value={form.max_attempts_per_day}
+                  onChange={(e) => setForm({ ...form, max_attempts_per_day: Math.max(1, Number(e.target.value) || 1) })}
+                />
+              </Field>
+              <Field label="資料冷卻小時數" hint="達最大嘗試次數後，next_retry_at 至少延後這麼久">
+                <Input
+                  type="number" min={1} value={form.cooldown_hours}
+                  onChange={(e) => setForm({ ...form, cooldown_hours: Math.max(1, Number(e.target.value) || 1) })}
+                />
+              </Field>
             </div>
+
 
             <div>
               <Label className="text-xs text-muted-foreground">變更備註（會寫入版本歷史）</Label>
@@ -246,8 +266,10 @@ export default function BsrSyncConfig() {
                         </div>
                         <div className="text-xs text-muted-foreground">
                           batch={bf.batch} · lookback={bf.lookback} · max/h={bf.max_runs_per_hour} ·
-                          {' '}bmax={bf.batch_max} · lmax={bf.lookback_max}
+                          {' '}bmax={bf.batch_max} · lmax={bf.lookback_max} ·
+                          {' '}max_att/day={bf.max_attempts_per_day} · cooldown={bf.cooldown_hours}h
                         </div>
+
                         {h.note && <div className="text-xs">{h.note}</div>}
                       </div>
                     </div>

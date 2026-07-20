@@ -37,7 +37,10 @@ interface BackfillConfig {
   batch_max: number;          // 前端/呼叫端可覆寫的上限
   lookback_max: number;       // 同上，避免過深爬取
   max_runs_per_hour: number;  // 高頻週期上限：每小時最多執行 backfill 次數（0=不限）
+  max_attempts_per_day: number; // 單一 stock+trade_date 累積失敗達到即進入資料冷卻
+  cooldown_hours: number;       // 冷卻時數：達 max_attempts_per_day 後 next_retry_at 至少延後這麼久
 }
+
 interface SyncConfig {
   ua_pool: string[];
   accept_lang_pool: string[];
@@ -80,8 +83,11 @@ const DEFAULT_CONFIG: SyncConfig = {
     batch_max: 20,
     lookback_max: 10,
     max_runs_per_hour: 6,
+    max_attempts_per_day: 8,
+    cooldown_hours: 12,
   },
 };
+
 
 function normBackfill(raw: any, fallback: BackfillConfig): BackfillConfig {
   const src = raw && typeof raw === "object" ? raw : {};
@@ -95,7 +101,12 @@ function normBackfill(raw: any, fallback: BackfillConfig): BackfillConfig {
     batch_max: Math.max(1, Math.floor(pick("batch_max", 1))),
     lookback_max: Math.max(1, Math.floor(pick("lookback_max", 1))),
     max_runs_per_hour: Math.max(0, Math.floor(pick("max_runs_per_hour", 0))),
+    max_attempts_per_day: Math.max(1, Math.floor(pick("max_attempts_per_day", 1))),
+    cooldown_hours: Math.max(1, Math.floor(pick("cooldown_hours", 1))),
   };
+}
+
+
 
 async function loadConfig(supa: any): Promise<{ cfg: SyncConfig; version: number | null }> {
   try {
@@ -835,12 +846,17 @@ Deno.serve(async (req) => {
             .eq("stock_id", stockId).eq("trade_date", tradeDate).maybeSingle();
           const nextConsec = (prevFail?.consecutive_failures || 0) + 1;
           const backoffIdx = Math.min(nextConsec - 1, cfg.backoff_steps_sec.length - 1);
-          const backoff = cfg.backoff_steps_sec[backoffIdx];
+          const stepBackoff = cfg.backoff_steps_sec[backoffIdx];
+          // 冷卻保護：同一 stock+trade_date 累積失敗達 max_attempts_per_day → 強制延後 cooldown_hours
+          const cooldownSec = cfg.backfill.cooldown_hours * 3600;
+          const cooldownTriggered = nextConsec >= cfg.backfill.max_attempts_per_day;
+          const backoff = cooldownTriggered ? Math.max(stepBackoff, cooldownSec) : stepBackoff;
           const nextRetry = new Date(Date.now() + backoff * 1000).toISOString();
-          const reason = blockBump ? "http_block"
+          const baseReason = blockBump ? "http_block"
             : ocrFailBump ? "captcha_retry_exhausted"
             : emptyBump ? "empty_rows" : "sync_failed";
-          const errorClass = classifyBsrError(lastError || reason);
+          const reason = cooldownTriggered ? `cooldown:${baseReason}` : baseReason;
+          const errorClass = classifyBsrError(lastError || baseReason);
           await supa.from("tw_bsr_fetch_failures").upsert({
             stock_id: stockId, trade_date: tradeDate,
             reason, error_class: errorClass,
@@ -865,9 +881,11 @@ Deno.serve(async (req) => {
               lag_days: Math.max(0, Math.round((new Date(tradeDate).getTime() - new Date(fallbackDate).getTime()) / 86400000)),
             };
           }
-          const nextRetrySource =
-            `backoff_step[${Math.min(nextConsec, cfg.backoff_steps_sec.length)}/${cfg.backoff_steps_sec.length}]=${backoff}s`
-            + ` (reason=${reason},consec=${nextConsec})`;
+          const nextRetrySource = cooldownTriggered
+            ? `cooldown[${nextConsec}/${cfg.backfill.max_attempts_per_day}]=${cfg.backfill.cooldown_hours}h`
+              + ` (reason=${baseReason},step_backoff=${stepBackoff}s)`
+            : `backoff_step[${Math.min(nextConsec, cfg.backoff_steps_sec.length)}/${cfg.backoff_steps_sec.length}]=${backoff}s`
+              + ` (reason=${baseReason},consec=${nextConsec})`;
 
           // 逐檔時間軸「收尾」列：紀錄本輪最終狀態 + fallback + next_retry 推算來源
           await logAttempt(supa, {
@@ -887,7 +905,12 @@ Deno.serve(async (req) => {
             attempts, fallback, next_retry_at: nextRetry, backoff_seconds: backoff,
             next_retry_source: nextRetrySource, consec_before: consecBefore,
             mismatch_reason: errorClass, final_reason: reason, resolved_at_updated: false,
+            cooldown_triggered: cooldownTriggered,
+            cooldown_until: cooldownTriggered ? nextRetry : null,
+            attempts_total: nextConsec,
+            max_attempts_per_day: cfg.backfill.max_attempts_per_day,
           });
+
 
           await bumpMetrics(supa, {
             total: 1, ocr_fail: ocrFailBump ? 1 : 0, http_block: blockBump ? 1 : 0,
@@ -909,6 +932,8 @@ Deno.serve(async (req) => {
       const failedCount = results.filter((r) => r.ok === false).length;
       // 本輪成功恢復 last_successful 的股票（先前 consecutive_failures>0，本輪 ok）
       const recovered = results.filter((r) => r.ok && Number(r.consec_before || 0) > 0);
+      // 本輪觸發資料冷卻（達 max_attempts_per_day）的股票
+      const cooledDown = results.filter((r) => r.ok === false && r.cooldown_triggered);
       // 本輪回補覆蓋的 fallback / resolved 日期範圍
       const coveredDates: string[] = [];
       for (const r of results) {
@@ -919,6 +944,7 @@ Deno.serve(async (req) => {
       const fallbackRange = sortedDates.length
         ? { min: sortedDates[0], max: sortedDates[sortedDates.length - 1] }
         : null;
+
 
       // 逐檔嘗試視窗（lookback_from ~ lookback_to），從 tradeDate 往回推 (lookback-1) 個交易日
       let lookbackFrom = tradeDate;
@@ -939,13 +965,18 @@ Deno.serve(async (req) => {
             date: a.date, error: a.error, error_class: classifyBsrError(a.error),
           })),
           attempts_count: (r.attempts || []).length,
+          attempts_total: Number(r.attempts_total || 0),
           fallback: r.fallback || null,
           next_retry_at: r.next_retry_at || null,
           next_retry_source: r.next_retry_source || null,
           consec_before: Number(r.consec_before || 0),
+          cooldown_triggered: !!r.cooldown_triggered,
+          cooldown_until: r.cooldown_until || null,
+          max_attempts_per_day: r.max_attempts_per_day || null,
           lookback_from: lookbackFrom,
           lookback_to: tradeDate,
         }));
+
 
       // 為 backfill 進度看板寫入摘要（其它 mode 也留紀錄，方便對照）
       try {
@@ -970,6 +1001,17 @@ Deno.serve(async (req) => {
             fallback_range: fallbackRange,
             covered_dates: Array.from(new Set(sortedDates)),
             config_version: configVersion,
+            cooldown_triggered_count: cooledDown.length,
+            cooldown_stocks: cooledDown.map((r) => ({
+              stock_id: r.stock_id,
+              attempts_total: r.attempts_total,
+              cooldown_until: r.cooldown_until,
+              reason: r.final_reason,
+            })),
+            cooldown_policy: {
+              max_attempts_per_day: cfg.backfill.max_attempts_per_day,
+              cooldown_hours: cfg.backfill.cooldown_hours,
+            },
             per_stock: perStock,
           },
         });
@@ -982,10 +1024,16 @@ Deno.serve(async (req) => {
         success: successCount,
         failed: failedCount,
         recovered_last_successful_count: recovered.length,
+        cooldown_triggered_count: cooledDown.length,
+        cooldown_policy: {
+          max_attempts_per_day: cfg.backfill.max_attempts_per_day,
+          cooldown_hours: cfg.backfill.cooldown_hours,
+        },
         fallback_range: fallbackRange,
         config_version: configVersion,
         results,
       });
+
     } finally {
       await releaseLock(supa);
     }
