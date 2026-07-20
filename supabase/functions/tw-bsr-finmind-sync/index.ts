@@ -204,9 +204,20 @@ async function processStock(stockId: string, date: string, cid: string | null): 
 }
 
 // ============ ENQUEUE ============
+// 台股上市櫃普通股 / ETF 白名單：
+//   - 4 碼普通股：^\d{4}$（例 2330、2454）
+//   - ETF：^00\d{2,4}[A-Z]?$（例 0050、00631L、00878、006203）
+// 明確排除 5–6 碼權證 / 受益憑證 / 可轉債 / DR（例 071111、068003、069559、707414）——
+// FinMind 的 TaiwanStockInstitutionalInvestorsBuySell 不供應這類代號資料。
+const TW_STOCK_ID_WHITELIST = /^(?:\d{4}|00\d{2,4}[A-Z]?)$/;
+
+export function isValidTwStockId(id: string): boolean {
+  return TW_STOCK_ID_WHITELIST.test(id);
+}
+
 async function enqueueTier1Holdings(date: string, cid: string): Promise<number> {
   // trade_records 的持倉來自 instrument 欄位（格式如「2330 台積電」或「00631L 元大台灣50正2」），
-  // 開倉條件為 exit_date IS NULL。過濾台股市場，抽出前綴 4–6 碼股票代號。
+  // 開倉條件為 exit_date IS NULL。
   const { data: openTrades } = await supa
     .from('trade_records')
     .select('instrument, market')
@@ -219,11 +230,10 @@ async function enqueueTier1Holdings(date: string, cid: string): Promise<number> 
     })
     .map((r: any) => {
       const raw = String(r.instrument || '').trim();
-      // 接受 4–6 碼數字，可帶 1 個尾綴字母（ETF 正 2 / 反 1 常見 L/R）；保留字母不剝除。
       const match = raw.match(/^([0-9]{4,6}[A-Z]?)\b/);
       return match ? match[1] : '';
     })
-    .filter((s: string) => /^[0-9]{4,6}[A-Z]?$/.test(s))));
+    .filter(isValidTwStockId)));
   if (ids.length === 0) return 0;
   return await enqueueBatch(ids, date, 1, 'tier1_holdings', cid);
 }
@@ -239,22 +249,37 @@ async function enqueueTier2Gaps(date: string, cid: string): Promise<number> {
     const { data: done } = await supa.from('tw_bsr_daily')
       .select('stock_id').eq('trade_date', d).in('stock_id', instIds);
     const doneSet = new Set((done || []).map((r: any) => r.stock_id));
-    for (const id of instIds) if (!doneSet.has(id) && /^[0-9]{4,6}$/.test(id)) gapIds.add(id);
+    for (const id of instIds) if (!doneSet.has(id) && isValidTwStockId(id)) gapIds.add(id);
   }
   const { data: failed } = await supa.from('tw_bsr_fetch_failures')
     .select('stock_id').is('resolved_at', null)
     .gte('trade_date', addDays(date, -7)).limit(500);
-  for (const r of failed || []) if (/^[0-9]{4,6}$/.test(String(r.stock_id))) gapIds.add(String(r.stock_id));
+  for (const r of failed || []) {
+    const sid = String(r.stock_id);
+    if (isValidTwStockId(sid)) gapIds.add(sid);
+  }
   if (gapIds.size === 0) return 0;
   return await enqueueBatch(Array.from(gapIds), date, 2, 'tier2_gaps', cid);
 }
 
 async function enqueueTier3Backfill(endDate: string, days: number, cid: string): Promise<number> {
+  // 與 Tier 1 一致：從 trade_records.instrument（開倉：exit_date IS NULL）抽 4–6 碼代號，並套白名單。
   const { data: openTrades } = await supa
-    .from('trade_records').select('stock_symbol').is('close_date', null).limit(2000);
+    .from('trade_records')
+    .select('instrument, market')
+    .is('exit_date', null)
+    .limit(5000);
   const ids = Array.from(new Set((openTrades || [])
-    .map((r: any) => String(r.stock_symbol || '').trim())
-    .filter((s: string) => /^[0-9]{4,6}$/.test(s))));
+    .filter((r: any) => {
+      const m = String(r.market || '').toUpperCase();
+      return m === 'TW' || m === 'TWSE' || m === 'TPEX' || m === '';
+    })
+    .map((r: any) => {
+      const raw = String(r.instrument || '').trim();
+      const match = raw.match(/^([0-9]{4,6}[A-Z]?)\b/);
+      return match ? match[1] : '';
+    })
+    .filter(isValidTwStockId)));
   let total = 0;
   for (let i = 1; i <= days; i++) {
     const d = rollBackToWeekday(addDays(endDate, -i));
@@ -262,6 +287,7 @@ async function enqueueTier3Backfill(endDate: string, days: number, cid: string):
   }
   return total;
 }
+
 
 async function enqueueBatch(
   stockIds: string[],
