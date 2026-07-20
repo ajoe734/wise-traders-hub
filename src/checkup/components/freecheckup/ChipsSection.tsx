@@ -227,14 +227,43 @@ export default function ChipsSection({ WB, stockCode }: { WB: any; stockCode: st
 
       {/* BSR 分點 */}
       <div style={{ borderTop: `1px dashed ${WB.hair}`, paddingTop: 12 }}>
-        <div style={{ display: 'flex', alignItems: 'baseline', justifyContent: 'space-between', marginBottom: 8 }}>
+        <div style={{ display: 'flex', alignItems: 'baseline', justifyContent: 'space-between', marginBottom: 8, gap: 8, flexWrap: 'wrap' }}>
           <div style={{ fontSize: 11, color: WB.inkMute, letterSpacing: '0.14em' }}>關鍵分點（近 5 日）</div>
           {data?.bsr_as_of ? (
-            <div style={{ fontSize: 10, color: WB.inkMute }}>BSR {data.bsr_as_of.replaceAll('-', '/')}</div>
+            <div style={{ fontSize: 10, color: WB.inkMute, textAlign: 'right' }}>
+              BSR {data.bsr_as_of.replaceAll('-', '/')}
+              {data.bsr_as_of_lag_days && data.bsr_as_of_lag_days >= 1
+                ? `（前 ${data.bsr_as_of_lag_days} 個交易日）`
+                : ''}
+            </div>
           ) : hasInst ? (
             <div style={{ fontSize: 10, color: WB.inkMute }}>BSR 未同步</div>
           ) : null}
         </div>
+
+        {data?.bsr_last_failure && data?.bsr_as_of && (
+          <div
+            data-testid="chips-bsr-fallback-hint"
+            style={{
+              fontSize: 10,
+              color: '#8a5a1e',
+              background: 'rgba(240,190,90,0.08)',
+              border: '1px solid rgba(138,90,30,0.35)',
+              padding: '4px 8px',
+              marginBottom: 8,
+              lineHeight: 1.5,
+            }}
+          >
+            最新一次同步（{data.bsr_last_failure.trade_date.replaceAll('-', '/')}）失敗
+            {data.bsr_last_failure.reason === 'captcha_retry_exhausted'
+              ? '（OCR 驗證碼多次辨識失敗）'
+              : data.bsr_last_failure.reason === 'empty_rows'
+              ? '（當日無成交或 TWSE 回空）'
+              : `（${data.bsr_last_failure.reason}）`}
+            ，以下為前次成功抓取的資料。
+          </div>
+        )}
+
 
         {bsrLatest ? (
           <div
