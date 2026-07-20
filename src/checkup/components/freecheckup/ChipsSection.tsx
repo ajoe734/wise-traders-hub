@@ -236,12 +236,16 @@ export default function ChipsSection({ WB, stockCode }: { WB: any; stockCode: st
                 ? `（前 ${data.bsr_as_of_lag_days} 個交易日）`
                 : ''}
             </div>
+          ) : data?.bsr_last_failure ? (
+            <div style={{ fontSize: 10, color: '#8a5a1e' }}>BSR 同步進行中</div>
           ) : hasInst ? (
-            <div style={{ fontSize: 10, color: WB.inkMute }}>BSR 未同步</div>
+            <div style={{ fontSize: 10, color: WB.inkMute }}>BSR 排程等待中</div>
           ) : null}
         </div>
 
-        {data?.bsr_last_failure && data?.bsr_as_of && (
+        {/* 有失敗紀錄就顯示診斷 banner；不再要求同時要有 bsr_as_of，
+            因為首次同步尚未成功時 bsr_as_of 會是 null，此時最需要向使用者說明狀態 */}
+        {data?.bsr_last_failure && (
           <div
             data-testid="chips-bsr-fallback-hint"
             style={{
@@ -255,14 +259,21 @@ export default function ChipsSection({ WB, stockCode }: { WB: any; stockCode: st
             }}
           >
             <div style={{ fontWeight: 600, letterSpacing: '0.08em', marginBottom: 2 }}>
-              分點資料延遲（顯示前次成功抓取）
+              {data.bsr_as_of ? '分點資料延遲（顯示前次成功抓取）' : '分點資料首次同步中'}
             </div>
             <div>
-              最後成功日：
-              <b style={{ color: '#5c3d10' }}>
-                {(data.bsr_last_failure.last_successful_as_of || data.bsr_as_of).replaceAll('-', '/')}
-              </b>
-              ；已嘗試回推：
+              {data.bsr_last_failure.last_successful_as_of || data.bsr_as_of ? (
+                <>
+                  最後成功日：
+                  <b style={{ color: '#5c3d10' }}>
+                    {(data.bsr_last_failure.last_successful_as_of || data.bsr_as_of)!.replaceAll('-', '/')}
+                  </b>
+                  ；
+                </>
+              ) : (
+                <>此代號尚無成功紀錄；</>
+              )}
+              已嘗試回推：
               <b style={{ color: '#5c3d10' }}>
                 {data.bsr_last_failure.lookback_to && data.bsr_last_failure.lookback_from
                   ? `${data.bsr_last_failure.lookback_to.replaceAll('-', '/')} ~ ${data.bsr_last_failure.lookback_from.replaceAll('-', '/')}`
@@ -276,7 +287,7 @@ export default function ChipsSection({ WB, stockCode }: { WB: any; stockCode: st
             <div>
               失敗原因：
               {data.bsr_last_failure.reason === 'captcha_retry_exhausted'
-                ? 'OCR 驗證碼多次辨識失敗'
+                ? 'TWSE 驗證碼多次辨識失敗，背景任務會自動加強預處理後重試'
                 : data.bsr_last_failure.reason === 'http_block'
                 ? 'TWSE 暫時封鎖請求'
                 : data.bsr_last_failure.reason === 'empty_rows'
@@ -319,9 +330,9 @@ export default function ChipsSection({ WB, stockCode }: { WB: any; stockCode: st
           </div>
         ) : (
           <div data-testid="chips-bsr-missing" style={{ fontSize: 12, color: WB.inkMute, lineHeight: 1.6 }}>
-            — 分點資料尚未同步
+            — 分點資料同步中
             <div style={{ fontSize: 10, color: WB.inkMute }}>
-              （每交易日 18:15 由 TWSE BSR 抓取；每批次 20 檔，冷門代號可能延後或當日無成交）
+              （TWSE 分點需通過驗證碼，背景任務會在交易日 18:15 起分批抓取並自動重試；冷門代號可能延後或當日無成交）
             </div>
           </div>
         )}
