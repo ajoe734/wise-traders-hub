@@ -338,6 +338,15 @@ async function runWorker(batch: number, maxPriority: number, budgetMs: number): 
   const results: any[] = [];
   let processed = 0, ok = 0, rateLimitedStop = false;
 
+  // 0) 每次 worker 呼叫先 purge 一次過期 lease，避免上一輪 crash 的 reservation 佔用額度
+  const { data: purgeRow } = await supa.rpc('purge_expired_bsr_reservations', { _api: 'finmind' });
+  const purgeSummary = Array.isArray(purgeRow) ? purgeRow[0] : purgeRow;
+  const recycledCount = Number(purgeSummary?.recycled_count ?? 0);
+  const recycledIds = (purgeSummary?.recycled_ids ?? []) as number[];
+  if (recycledCount > 0) {
+    console.warn(`[worker] recycled ${recycledCount} expired reservation(s): ${recycledIds.slice(0, 10).join(',')}`);
+  }
+
   // 1) 讀取當前 degrade 狀態，套用 policy
   const state = await loadDegradeState();
   const policy = policyOf(state.mode);
@@ -346,11 +355,11 @@ async function runWorker(batch: number, maxPriority: number, budgetMs: number): 
 
   // claim_halt：只回收 lease、不 claim job
   if (!policy.allowClaim) {
-    await supa.rpc('purge_expired_bsr_reservations', { _api: 'finmind' }).catch(() => {});
     const after = await evaluateAndMaybeTransition(null);
     return {
       ok: true, note: 'claim_halt', degrade_mode: state.mode,
       transitioned: after.transitioned, processed: 0,
+      recycled_reservations: recycledCount,
     };
   }
 
@@ -425,6 +434,7 @@ async function runWorker(batch: number, maxPriority: number, budgetMs: number): 
     policy: { max_priority: cappedMaxPriority, concurrency: cappedConcurrency },
     rate_limit_before: rl, rate_limit_after: finalRl,
     stopped_by_rate_limit: rateLimitedStop,
+    recycled_reservations: recycledCount,
     elapsed_ms: Date.now() - started,
     results,
   };
@@ -482,6 +492,11 @@ async function runStats() {
   const { data: resStats } = await supa.rpc('bsr_reservation_stats', { _api: 'finmind' });
   const resRow = Array.isArray(resStats) ? resStats[0] : resStats;
 
+  // Stuck reservations（in-flight 且 age ≥ 30s）：任何 worker crash/timeout 都會出現在這裡
+  const { data: stuck } = await supa.rpc('bsr_list_stuck_reservations', {
+    _api: 'finmind', _min_age_seconds: 30, _limit: 20,
+  });
+
   const { data: oldestP1 } = await supa.from('tw_bsr_sync_queue')
     .select('enqueued_at')
     .eq('priority', 1).eq('status', 'pending')
@@ -525,6 +540,10 @@ async function runStats() {
       rate_limited_last_hour: Number(resRow?.rate_limited_last_hour ?? 0),
       oldest_in_flight_age_seconds: Number(resRow?.oldest_in_flight_age_seconds ?? 0),
     },
+    stuck_reservations: (stuck ?? []) as Array<{
+      id: number; correlation_id: string | null;
+      reserved_at: string; expires_at: string; age_seconds: number; expired: boolean;
+    }>,
     p1_oldest_pending_age_seconds: p1OldestAgeSec,
     rate_limited_streak_minutes: r429MaxStreak,
     degrade: {
@@ -561,6 +580,25 @@ Deno.serve(async (req) => {
       const { data, error } = await supa.rpc('bsr_trace_by_correlation', { _cid: cid });
       if (error) return json({ ok: false, error: error.message }, 500);
       return json({ ok: true, trace: data });
+    }
+
+    // Manual purge / force-recycle：管理員從 UI 觸發，也可掛 cron 加強頻率
+    if (mode === 'purge_reservations') {
+      const { data, error } = await supa.rpc('purge_expired_bsr_reservations', { _api: 'finmind' });
+      if (error) return json({ ok: false, error: error.message }, 500);
+      const row = Array.isArray(data) ? data[0] : data;
+      return json({ ok: true, recycled_count: Number(row?.recycled_count ?? 0), recycled_ids: row?.recycled_ids ?? [] });
+    }
+
+    if (mode === 'force_recycle_reservation') {
+      const id = Number(body?.reservation_id);
+      const reason = String(body?.reason || 'manual_force_recycle').slice(0, 100);
+      if (!Number.isFinite(id) || id <= 0) return json({ ok: false, error: 'reservation_id required' }, 400);
+      const { data, error } = await supa.rpc('bsr_force_recycle_reservation', {
+        _reservation_id: id, _reason: reason,
+      });
+      if (error) return json({ ok: false, error: error.message }, 500);
+      return json({ ok: true, recycled: Boolean(data), reservation_id: id, reason });
     }
 
     if (mode === 'enqueue') {

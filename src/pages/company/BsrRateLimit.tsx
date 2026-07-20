@@ -27,6 +27,10 @@ type Stats = {
     rate_limited_last_hour: number;
     oldest_in_flight_age_seconds: number;
   };
+  stuck_reservations?: Array<{
+    id: number; correlation_id: string | null;
+    reserved_at: string; expires_at: string; age_seconds: number; expired: boolean;
+  }>;
   p1_oldest_pending_age_seconds?: number;
   rate_limited_streak_minutes?: number;
   degrade?: {
@@ -256,9 +260,66 @@ export default function BsrRateLimit() {
             </div>
           </div>
           <p className="text-[11px] text-muted-foreground mt-3">
-            過期未結算 &gt; 0 由 cron <span className="font-mono">tw-bsr-purge-expired-reservations</span>（*/5 * * * *）自動回收；
+            過期未結算 &gt; 0 由 cron <span className="font-mono">tw-bsr-purge-expired-reservations</span>（* * * * *，每分鐘）自動回收；
+            worker 每次執行前也會主動 purge 一次。lease 預設 25 秒（fetch abort 20s + 5s buffer）。
             告警閾值：用量 ≥80%、最舊 in-flight ≥60s、429 連續 ≥3 分鐘、P1 pending ≥30 分。
           </p>
+        </Card>
+
+        {/* Stuck reservations（≥30s in-flight）：任何 worker crash/timeout 都會在這裡浮現 */}
+        <Card className="p-4">
+          <div className="flex items-center justify-between mb-2">
+            <div className="text-sm font-medium">卡住的 Reservation（≥30 秒未結算）</div>
+            <div className="flex gap-2">
+              <Button size="sm" variant="outline" disabled={!!busy} className="gap-2"
+                onClick={() => runAction('立即 purge 過期 lease', { mode: 'purge_reservations' })}>
+                <RefreshCw className="h-4 w-4" /> 立即 purge
+              </Button>
+            </div>
+          </div>
+          {(data?.stuck_reservations?.length ?? 0) === 0 ? (
+            <div className="text-xs text-muted-foreground">目前沒有卡住的 reservation。</div>
+          ) : (
+            <div className="overflow-x-auto">
+              <table className="w-full text-xs">
+                <thead className="text-muted-foreground">
+                  <tr className="border-b">
+                    <th className="text-left py-2 pr-3">ID</th>
+                    <th className="text-left py-2 pr-3">Correlation ID</th>
+                    <th className="text-left py-2 pr-3">Reserved At</th>
+                    <th className="text-right py-2 pr-3">Age</th>
+                    <th className="text-left py-2 pr-3">狀態</th>
+                    <th className="text-right py-2">操作</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {data!.stuck_reservations!.map((r) => (
+                    <tr key={r.id} className="border-b last:border-0">
+                      <td className="py-2 pr-3 font-mono">{r.id}</td>
+                      <td className="py-2 pr-3 font-mono text-[10px]">{r.correlation_id ?? '—'}</td>
+                      <td className="py-2 pr-3 font-mono">{new Date(r.reserved_at).toLocaleTimeString('zh-TW')}</td>
+                      <td className={`py-2 pr-3 text-right font-mono ${r.age_seconds >= 60 ? 'text-destructive' : ''}`}>{r.age_seconds}s</td>
+                      <td className="py-2 pr-3">
+                        {r.expired ? <Badge variant="destructive">已過期</Badge> : <Badge variant="secondary">執行中</Badge>}
+                      </td>
+                      <td className="py-2 text-right">
+                        <Button size="sm" variant="ghost" disabled={!!busy}
+                          onClick={() => runAction(`強制回收 #${r.id}`, {
+                            mode: 'force_recycle_reservation', reservation_id: r.id, reason: 'admin_ui_force_recycle',
+                          })}>
+                          強制回收
+                        </Button>
+                      </td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+              <p className="text-[11px] text-muted-foreground mt-2">
+                「已過期」表示 lease 已超時但尚未被 cron 掃到 — 按「立即 purge」可以馬上回收；
+                「執行中」是還在 lease 內的正常 in-flight，通常不需操作。手動強制回收會寫入 <span className="font-mono">recycle_reason</span> 供 audit。
+              </p>
+            </div>
+          )}
         </Card>
 
 
