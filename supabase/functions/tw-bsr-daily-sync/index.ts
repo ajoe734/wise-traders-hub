@@ -965,13 +965,18 @@ Deno.serve(async (req) => {
             date: a.date, error: a.error, error_class: classifyBsrError(a.error),
           })),
           attempts_count: (r.attempts || []).length,
+          attempts_total: Number(r.attempts_total || 0),
           fallback: r.fallback || null,
           next_retry_at: r.next_retry_at || null,
           next_retry_source: r.next_retry_source || null,
           consec_before: Number(r.consec_before || 0),
+          cooldown_triggered: !!r.cooldown_triggered,
+          cooldown_until: r.cooldown_until || null,
+          max_attempts_per_day: r.max_attempts_per_day || null,
           lookback_from: lookbackFrom,
           lookback_to: tradeDate,
         }));
+
 
       // 為 backfill 進度看板寫入摘要（其它 mode 也留紀錄，方便對照）
       try {
