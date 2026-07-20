@@ -264,6 +264,12 @@ Deno.serve(async (req) => {
       ok: boolean;
       rows?: number;
       resolved_date?: string;
+      fallback?: {
+        source: "last_successful";
+        as_of_date: string;
+        rows: number;
+        lag_days: number;
+      } | null;
       attempts?: Array<{ date: string; error: string }>;
       error?: string;
     }> = [];
@@ -345,11 +351,49 @@ Deno.serve(async (req) => {
       }
 
       if (resolvedDate) {
-        results.push({ stock_id: stockId, ok: true, rows: resolvedRows, resolved_date: resolvedDate, attempts });
+        results.push({ stock_id: stockId, ok: true, rows: resolvedRows, resolved_date: resolvedDate, fallback: null, attempts });
       } else {
-        results.push({ stock_id: stockId, ok: false, error: lastError || "no_data", attempts });
+        // ---- Fallback：找 tw_bsr_daily 中最近一次成功的交易日，讓前端能延續顯示 ----
+        const { data: lastOk } = await supa
+          .from("tw_bsr_daily")
+          .select("trade_date")
+          .eq("stock_id", stockId)
+          .lte("trade_date", tradeDate)
+          .order("trade_date", { ascending: false })
+          .limit(1);
+        const fallbackDate = lastOk?.[0]?.trade_date as string | undefined;
+        if (fallbackDate) {
+          const { count: fbCount } = await supa
+            .from("tw_bsr_daily")
+            .select("broker_id", { count: "exact", head: true })
+            .eq("stock_id", stockId)
+            .eq("trade_date", fallbackDate);
+          // 確保 rollup 對齊到「實際成功的那天」，as_of_date 完全一致
+          await rebuildRollup(supa, stockId, fallbackDate);
+          const lagDays = Math.max(
+            0,
+            Math.round(
+              (new Date(tradeDate).getTime() - new Date(fallbackDate).getTime()) / 86400000,
+            ),
+          );
+          results.push({
+            stock_id: stockId,
+            ok: false,
+            error: lastError || "no_data",
+            attempts,
+            fallback: {
+              source: "last_successful",
+              as_of_date: fallbackDate,
+              rows: fbCount || 0,
+              lag_days: lagDays,
+            },
+          });
+        } else {
+          results.push({ stock_id: stockId, ok: false, error: lastError || "no_data", attempts, fallback: null });
+        }
       }
     }
+
 
     return jsonResponse({
       date: tradeDate,
