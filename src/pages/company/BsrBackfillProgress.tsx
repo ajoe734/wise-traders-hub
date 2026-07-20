@@ -265,8 +265,11 @@ export default function BsrBackfillProgressPage() {
                               </div>
                             )}
                           </div>
+                          <div className="md:col-span-2">
+                            <PerStockDetail perStock={d.per_stock || []} />
+                          </div>
                         </div>
-                      )}
+
                     </div>
                   );
                 })}
