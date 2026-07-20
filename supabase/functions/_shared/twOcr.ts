@@ -50,6 +50,15 @@ const VARIANT_PLAN: Record<OcrMode, OcrVariantName[]> = {
   aggressive: ["otsu", "adaptive", "dilate", "loose_crop", "raw"],
 };
 
+export interface OcrDetailedOptions {
+  mode?: OcrMode;
+  /**
+   * 若為 true，不會在共識出現時提早結束，會跑完所有變體以取得完整 attempts 資料，
+   * 供指標/回放測試使用。生產路徑請保持預設 false 以節省 API 呼叫。
+   */
+  exhaustive?: boolean;
+}
+
 export async function ocrTwseCaptcha(
   pngBytes: Uint8Array,
   mode: OcrMode = "standard",
@@ -60,8 +69,13 @@ export async function ocrTwseCaptcha(
 
 export async function ocrTwseCaptchaDetailed(
   pngBytes: Uint8Array,
-  mode: OcrMode = "standard",
+  modeOrOptions: OcrMode | OcrDetailedOptions = "standard",
 ): Promise<OcrResult> {
+  const opts: OcrDetailedOptions = typeof modeOrOptions === "string"
+    ? { mode: modeOrOptions }
+    : modeOrOptions;
+  const mode: OcrMode = opts.mode ?? "standard";
+  const exhaustive = opts.exhaustive === true;
   const plan = VARIANT_PLAN[mode] ?? VARIANT_PLAN.standard;
   const attempts: OcrAttempt[] = [];
   if (!LOVABLE_API_KEY) {
@@ -73,6 +87,7 @@ export async function ocrTwseCaptchaDetailed(
 
   const votes = new Map<string, { count: number; variant: OcrVariantName }>();
   let first: { variant: OcrVariantName; guess: string } | null = null;
+  let winnerEarly: { text: string; variant: OcrVariantName; votes: number } | null = null;
 
   for (const variant of plan) {
     const bytes = buildVariant(variant, src, pngBytes);
@@ -85,16 +100,28 @@ export async function ocrTwseCaptchaDetailed(
     const entry = votes.get(guess);
     if (entry) {
       entry.count += 1;
-      // 兩票即共識，立即回傳
-      return {
-        text: guess, mode, strategy: plan, attempts,
-        consensus: "majority",
-        winner: { variant: entry.variant, votes: entry.count },
-      };
+      if (!winnerEarly) {
+        winnerEarly = { text: guess, variant: entry.variant, votes: entry.count };
+      }
+      if (!exhaustive) {
+        return {
+          text: guess, mode, strategy: plan, attempts,
+          consensus: "majority",
+          winner: { variant: entry.variant, votes: entry.count },
+        };
+      }
+      continue;
     }
     votes.set(guess, { count: 1, variant });
   }
 
+  if (winnerEarly) {
+    return {
+      text: winnerEarly.text, mode, strategy: plan, attempts,
+      consensus: "majority",
+      winner: { variant: winnerEarly.variant, votes: winnerEarly.votes },
+    };
+  }
   if (first) {
     return {
       text: first.guess, mode, strategy: plan, attempts,
@@ -104,6 +131,7 @@ export async function ocrTwseCaptchaDetailed(
   }
   return { text: null, mode, strategy: plan, attempts, consensus: "none" };
 }
+
 
 function buildVariant(
   variant: OcrVariantName,
