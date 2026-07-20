@@ -10,6 +10,9 @@ import { supabase } from '@/integrations/supabase/client';
 import { RefreshCw, Download, AlertTriangle, ShieldAlert, ChevronRight, Search } from 'lucide-react';
 import { toast } from 'sonner';
 import { useQuery } from '@tanstack/react-query';
+import {
+  ResponsiveContainer, BarChart, Bar, XAxis, YAxis, Tooltip, CartesianGrid, Legend as RcLegend,
+} from 'recharts';
 import { BsrAuditDialog } from './BsrAuditDialog';
 
 type GlobalDay = {
@@ -22,7 +25,7 @@ type GlobalDay = {
   captcha_rate: number;
 };
 
-type DailyBreakdown = { date: string; reason: string; attempts: number; resolved: boolean };
+type DailyBreakdown = { date: string; reason: string; error_class: string; attempts: number; resolved: boolean };
 
 type PerStock = {
   stock_id: string;
@@ -40,11 +43,16 @@ type PerStock = {
   dailyBreakdown: DailyBreakdown[];
 };
 
+type ClassDist = { error_class: string; count: number; share: number };
+
 type Dashboard = {
   range: { from: string; to: string; days: number };
   globalDaily: GlobalDay[];
   perStock: PerStock[];
   topOffenders: Array<PerStock & { captcha_rate: number }>;
+  errorClasses: string[];
+  errorClassDistribution: ClassDist[];
+  dailyErrorClassStack: Array<Record<string, any>>;
   totals: {
     total_failures: number;
     captcha_retry_exhausted: number;
@@ -56,14 +64,46 @@ type Dashboard = {
 };
 
 const REASONS = [
-  { value: 'all', label: '全部原因' },
+  { value: 'all', label: '全部 reason' },
   { value: 'captcha_retry_exhausted', label: 'CAPTCHA 重試耗盡' },
-  { value: 'http_403', label: 'HTTP 403 阻擋' },
-  { value: 'http_429', label: 'HTTP 429 節流' },
+  { value: 'http_block', label: 'HTTP 阻擋' },
   { value: 'empty_rows', label: '空資料' },
-  { value: 'parse_error', label: '解析失敗' },
-  { value: 'timeout', label: '逾時' },
+  { value: 'menu_parse_failed', label: '選單解析失敗' },
+  { value: 'sync_failed', label: '其他同步失敗' },
 ];
+
+// error_class 細分：OCR 空值 / OCR 字元辨識偏差 / 阻擋 / 空值 / 金鑰或欄位缺失
+const ERROR_CLASSES = [
+  { value: 'all', label: '全部細分類' },
+  { value: 'ocr_null', label: 'OCR 空值 (無有效猜測)' },
+  { value: 'ocr_mismatch', label: 'OCR 字元辨識偏差' },
+  { value: 'captcha_retry_exhausted', label: 'CAPTCHA 耗盡 (無子分類)' },
+  { value: 'captcha_http', label: 'CAPTCHA 圖片 HTTP 失敗' },
+  { value: 'http_block_403', label: 'HTTP 403 阻擋' },
+  { value: 'http_block_429', label: 'HTTP 429 節流' },
+  { value: 'http_block', label: 'HTTP 阻擋 (其他)' },
+  { value: 'menu_parse_failed', label: '金鑰/欄位缺失 (menu 解析)' },
+  { value: 'empty_rows', label: '解析空值 (bsContent 空表)' },
+  { value: 'db_insert_failed', label: 'DB 寫入失敗' },
+  { value: 'unknown', label: '未分類' },
+];
+
+const CLASS_COLORS: Record<string, string> = {
+  ocr_null: '#D97706',
+  ocr_mismatch: '#B45309',
+  captcha_retry_exhausted: '#F59E0B',
+  captcha_http: '#EA580C',
+  http_block_403: '#B23A48',
+  http_block_429: '#DC2626',
+  http_block: '#991B1B',
+  menu_parse_failed: '#6D28D9',
+  empty_rows: '#9CA3AF',
+  db_insert_failed: '#0F766E',
+  sync_failed: '#4B5563',
+  unknown: '#374151',
+};
+const classColor = (c: string) => CLASS_COLORS[c] || '#4B5563';
+const classLabel = (c: string) => ERROR_CLASSES.find((x) => x.value === c)?.label || c;
 
 const fmtDate = (s: string | null) => {
   if (!s) return '—';
