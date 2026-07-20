@@ -383,6 +383,7 @@ const AppShell = () => (
             <Route path="/company/bsr-backfill" element={<ProtectedRoute requiredRole="company_admin"><CompanyBsrBackfill /></ProtectedRoute>} />
             <Route path="/company/bsr-config" element={<ProtectedRoute requiredRole="company_admin"><CompanyBsrConfig /></ProtectedRoute>} />
             <Route path="/company/bsr-ocr-metrics" element={<ProtectedRoute requiredRole="company_admin"><CompanyBsrOcrMetrics /></ProtectedRoute>} />
+            <Route path="/company/bsr-rate-limit" element={<ProtectedRoute requiredRole="company_admin"><CompanyBsrRateLimit /></ProtectedRoute>} />
 
             <Route path="/company/paywall-analytics" element={<ProtectedRoute requiredRole="company_admin"><CompanyPaywallAnalytics /></ProtectedRoute>} />
             <Route path="/company/funnel-analytics" element={<ProtectedRoute requiredRole="company_admin"><CompanyFunnelAnalytics /></ProtectedRoute>} />
