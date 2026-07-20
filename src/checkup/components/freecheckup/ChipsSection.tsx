@@ -98,13 +98,16 @@ export default function ChipsSection({ WB, stockCode }: { WB: any; stockCode: st
           )}
         </div>
         <div style={{ fontSize: 10, color: WB.inkMute, letterSpacing: '0.14em', textAlign: 'right' }}>
-          {data?.as_of ? `AS OF ${data.as_of.replaceAll('-', '/')}` : loading ? '' : '尚未同步'}
+          {data?.as_of
+            ? `AS OF ${data.as_of.replaceAll('-', '/')}${data.as_of_lag_days && data.as_of_lag_days >= 1 ? `（前 ${data.as_of_lag_days} 個交易日）` : ''}`
+            : loading ? '' : '尚未同步'}
           {fetchedAt && (
             <div title={fmtClock(fetchedAt)} style={{ fontSize: 9, letterSpacing: '0.08em', color: WB.inkMute, marginTop: 1 }}>
               更新於 {relTime(fetchedAt)}
             </div>
           )}
         </div>
+
       </div>
 
       {/* 錯誤 / 離線橫幅 */}
