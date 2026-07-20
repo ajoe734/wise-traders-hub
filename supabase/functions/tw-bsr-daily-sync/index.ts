@@ -42,6 +42,8 @@ interface SyncConfig {
   freeze_window_ms: number;
   cookie_jar_reuse: number;
   lock_ttl_sec: number;
+  ocr_mode: "fast" | "standard" | "aggressive";
+  ocr_escalate_on_fail: boolean;
 }
 
 const DEFAULT_CONFIG: SyncConfig = {
@@ -62,6 +64,8 @@ const DEFAULT_CONFIG: SyncConfig = {
   freeze_window_ms: 86400000,
   cookie_jar_reuse: 6,
   lock_ttl_sec: 90,
+  ocr_mode: "standard",
+  ocr_escalate_on_fail: true,
 };
 
 async function loadConfig(supa: any): Promise<{ cfg: SyncConfig; version: number | null }> {
@@ -91,6 +95,10 @@ async function loadConfig(supa: any): Promise<{ cfg: SyncConfig; version: number
         ? Number(raw.cookie_jar_reuse) : DEFAULT_CONFIG.cookie_jar_reuse,
       lock_ttl_sec: Number(raw.lock_ttl_sec) > 0
         ? Number(raw.lock_ttl_sec) : DEFAULT_CONFIG.lock_ttl_sec,
+      ocr_mode: (["fast", "standard", "aggressive"] as const).includes(raw.ocr_mode as any)
+        ? (raw.ocr_mode as SyncConfig["ocr_mode"]) : DEFAULT_CONFIG.ocr_mode,
+      ocr_escalate_on_fail: typeof raw.ocr_escalate_on_fail === "boolean"
+        ? raw.ocr_escalate_on_fail : DEFAULT_CONFIG.ocr_escalate_on_fail,
     };
     return { cfg, version: Number(data.version) || null };
   } catch {
@@ -222,7 +230,10 @@ async function fetchBsrForStock(stockId: string, ctx: SessionCtx, cfg: SyncConfi
     if (!capResp.ok) throw new Error(`captcha_http_${capResp.status}`);
     Object.assign(ctx.jar, parseSetCookie(capResp.headers));
     const capBytes = new Uint8Array(await capResp.arrayBuffer());
-    const captcha = await ocrTwseCaptcha(capBytes);
+    // 動態升級：最後一次重試時，若允許升級且不是 aggressive，改用 aggressive 加大成功率
+    const activeMode = cfg.ocr_escalate_on_fail && attempt === cfg.max_ocr_retry && cfg.ocr_mode !== "aggressive"
+      ? "aggressive" : cfg.ocr_mode;
+    const captcha = await ocrTwseCaptcha(capBytes, activeMode);
     if (!captcha) continue;
 
     const form = new URLSearchParams({
