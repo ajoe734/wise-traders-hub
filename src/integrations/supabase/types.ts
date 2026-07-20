@@ -3829,6 +3829,7 @@ export type Database = {
       tw_bsr_api_reservations: {
         Row: {
           api_name: string
+          correlation_id: string | null
           expires_at: string
           id: number
           rate_limited: boolean
@@ -3839,6 +3840,7 @@ export type Database = {
         }
         Insert: {
           api_name?: string
+          correlation_id?: string | null
           expires_at: string
           id?: number
           rate_limited?: boolean
@@ -3849,6 +3851,7 @@ export type Database = {
         }
         Update: {
           api_name?: string
+          correlation_id?: string | null
           expires_at?: string
           id?: number
           rate_limited?: boolean
@@ -3894,6 +3897,7 @@ export type Database = {
           backoff_seconds_before: number
           config_version: string | null
           consecutive_failures_before: number
+          correlation_id: string | null
           created_at: string
           error: string | null
           error_class: string | null
@@ -3919,6 +3923,7 @@ export type Database = {
           backoff_seconds_before?: number
           config_version?: string | null
           consecutive_failures_before?: number
+          correlation_id?: string | null
           created_at?: string
           error?: string | null
           error_class?: string | null
@@ -3944,6 +3949,7 @@ export type Database = {
           backoff_seconds_before?: number
           config_version?: string | null
           consecutive_failures_before?: number
+          correlation_id?: string | null
           created_at?: string
           error?: string | null
           error_class?: string | null
@@ -4006,11 +4012,54 @@ export type Database = {
         }
         Relationships: []
       }
+      tw_bsr_degrade_events: {
+        Row: {
+          api_name: string
+          correlation_id: string | null
+          created_at: string
+          detail: Json
+          from_mode: string
+          id: number
+          reason: string
+          threshold: number | null
+          to_mode: string
+          trigger_metric: string | null
+          trigger_value: number | null
+        }
+        Insert: {
+          api_name?: string
+          correlation_id?: string | null
+          created_at?: string
+          detail?: Json
+          from_mode: string
+          id?: number
+          reason: string
+          threshold?: number | null
+          to_mode: string
+          trigger_metric?: string | null
+          trigger_value?: number | null
+        }
+        Update: {
+          api_name?: string
+          correlation_id?: string | null
+          created_at?: string
+          detail?: Json
+          from_mode?: string
+          id?: number
+          reason?: string
+          threshold?: number | null
+          to_mode?: string
+          trigger_metric?: string | null
+          trigger_value?: number | null
+        }
+        Relationships: []
+      }
       tw_bsr_fetch_failures: {
         Row: {
           attempts: number
           backoff_seconds: number
           consecutive_failures: number
+          correlation_id: string | null
           created_at: string
           error_class: string | null
           id: number
@@ -4026,6 +4075,7 @@ export type Database = {
           attempts?: number
           backoff_seconds?: number
           consecutive_failures?: number
+          correlation_id?: string | null
           created_at?: string
           error_class?: string | null
           id?: number
@@ -4041,6 +4091,7 @@ export type Database = {
           attempts?: number
           backoff_seconds?: number
           consecutive_failures?: number
+          correlation_id?: string | null
           created_at?: string
           error_class?: string | null
           id?: number
@@ -4162,6 +4213,7 @@ export type Database = {
       tw_bsr_sync_queue: {
         Row: {
           attempts: number
+          correlation_id: string | null
           created_at: string
           enqueued_at: string
           enqueued_by: string | null
@@ -4180,6 +4232,7 @@ export type Database = {
         }
         Insert: {
           attempts?: number
+          correlation_id?: string | null
           created_at?: string
           enqueued_at?: string
           enqueued_by?: string | null
@@ -4198,6 +4251,7 @@ export type Database = {
         }
         Update: {
           attempts?: number
+          correlation_id?: string | null
           created_at?: string
           enqueued_at?: string
           enqueued_by?: string | null
@@ -4657,6 +4711,48 @@ export type Database = {
         }
         Returns: string
       }
+      bsr_apply_degrade_transition: {
+        Args: {
+          _api: string
+          _cooldown_seconds: number
+          _correlation_id?: string
+          _reason: string
+          _threshold: number
+          _to_mode: string
+          _trigger_metric: string
+          _trigger_value: number
+        }
+        Returns: {
+          applied: boolean
+          from_mode: string
+          to_mode: string
+        }[]
+      }
+      bsr_get_degrade_state: {
+        Args: { _api?: string }
+        Returns: {
+          cooldown_until: string
+          last_transition_at: string
+          mode: string
+          reason: string
+          since: string
+          trigger_metric: string
+          trigger_value: number
+        }[]
+      }
+      bsr_recent_degrade_events: {
+        Args: { _api?: string; _limit?: number }
+        Returns: {
+          created_at: string
+          from_mode: string
+          id: number
+          reason: string
+          threshold: number
+          to_mode: string
+          trigger_metric: string
+          trigger_value: number
+        }[]
+      }
       bsr_reservation_stats: {
         Args: { _api?: string }
         Returns: {
@@ -4668,6 +4764,7 @@ export type Database = {
           settled_last_hour: number
         }[]
       }
+      bsr_trace_by_correlation: { Args: { _cid: string }; Returns: Json }
       calculate_expert_performance: {
         Args: { _expert_id: string }
         Returns: Json
@@ -4694,6 +4791,7 @@ export type Database = {
         Args: { _batch?: number; _max_priority?: number }
         Returns: {
           attempts: number
+          correlation_id: string | null
           created_at: string
           enqueued_at: string
           enqueued_by: string | null
@@ -4923,7 +5021,12 @@ export type Database = {
         Returns: undefined
       }
       reserve_bsr_api_quota: {
-        Args: { _api?: string; _lease_seconds?: number; _limit?: number }
+        Args: {
+          _api: string
+          _correlation_id?: string
+          _lease_seconds: number
+          _limit: number
+        }
         Returns: {
           granted: boolean
           remaining: number

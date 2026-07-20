@@ -9,6 +9,7 @@ import { RefreshCw, PlayCircle, ListPlus } from 'lucide-react';
 import { useState } from 'react';
 import { toast } from 'sonner';
 
+type DegradeMode = 'normal' | 'tier3_paused' | 'tier2_paused' | 'p1_only' | 'claim_halt';
 type Stats = {
   ok: boolean;
   generated_at: string;
@@ -28,6 +29,29 @@ type Stats = {
   };
   p1_oldest_pending_age_seconds?: number;
   rate_limited_streak_minutes?: number;
+  degrade?: {
+    mode: DegradeMode;
+    since: string | null;
+    reason: string | null;
+    trigger_metric: string | null;
+    trigger_value: number | null;
+    last_transition_at: string | null;
+    cooldown_until: string | null;
+    policy: { max_priority: number; concurrency: number; allow_claim: boolean; allow_enqueue_tier3: boolean };
+    recent_transitions: Array<{
+      id: number; from_mode: string; to_mode: string; reason: string;
+      trigger_metric: string | null; trigger_value: number | null; threshold: number | null;
+      created_at: string;
+    }>;
+  };
+};
+
+const MODE_LABEL: Record<DegradeMode, { label: string; tone: string }> = {
+  normal:       { label: '正常',       tone: 'bg-emerald-100 text-emerald-800 border-emerald-300' },
+  tier3_paused: { label: 'Tier3 暫停', tone: 'bg-amber-100  text-amber-800  border-amber-300'  },
+  tier2_paused: { label: 'Tier2 暫停', tone: 'bg-orange-100 text-orange-800 border-orange-300' },
+  p1_only:      { label: '僅 P1',      tone: 'bg-red-100    text-red-800    border-red-300'    },
+  claim_halt:   { label: 'Claim 停手', tone: 'bg-neutral-900 text-neutral-50 border-neutral-800' },
 };
 
 async function callSync(body: unknown): Promise<Stats | any> {
@@ -114,6 +138,86 @@ export default function BsrRateLimit() {
             </div>
           </Card>
         </div>
+
+        {/* Degrade 狀態機面板 */}
+        {data?.degrade && (() => {
+          const meta = MODE_LABEL[data.degrade!.mode] ?? MODE_LABEL.normal;
+          const p = data.degrade!.policy;
+          return (
+            <Card className="p-4">
+              <div className="flex items-center justify-between mb-3">
+                <div className="text-sm font-medium">自動降級狀態機</div>
+                <div className={`px-2 py-0.5 rounded border text-xs font-medium ${meta.tone}`}>
+                  目前：{meta.label}（{data.degrade!.mode}）
+                </div>
+              </div>
+              <div className="grid grid-cols-2 md:grid-cols-4 gap-3 text-xs">
+                <div>
+                  <div className="text-muted-foreground">觸發原因</div>
+                  <div className="font-medium">{data.degrade!.reason ?? '—'}</div>
+                </div>
+                <div>
+                  <div className="text-muted-foreground">觸發指標</div>
+                  <div className="font-mono">
+                    {data.degrade!.trigger_metric ?? '—'}
+                    {data.degrade!.trigger_value != null ? ` = ${Number(data.degrade!.trigger_value).toFixed(1)}` : ''}
+                  </div>
+                </div>
+                <div>
+                  <div className="text-muted-foreground">開始時間</div>
+                  <div className="font-mono">{data.degrade!.since ? new Date(data.degrade!.since).toLocaleString('zh-TW') : '—'}</div>
+                </div>
+                <div>
+                  <div className="text-muted-foreground">Cooldown 到期</div>
+                  <div className="font-mono">{data.degrade!.cooldown_until ? new Date(data.degrade!.cooldown_until).toLocaleString('zh-TW') : '—'}</div>
+                </div>
+              </div>
+              <div className="mt-3 grid grid-cols-2 md:grid-cols-4 gap-3 text-xs">
+                <div><span className="text-muted-foreground">最高優先級</span><span className="ml-2 font-mono">P{p.max_priority}</span></div>
+                <div><span className="text-muted-foreground">併發</span><span className="ml-2 font-mono">{p.concurrency}</span></div>
+                <div><span className="text-muted-foreground">允許 Claim</span><span className={`ml-2 font-mono ${p.allow_claim ? '' : 'text-destructive'}`}>{p.allow_claim ? 'yes' : 'HALT'}</span></div>
+                <div><span className="text-muted-foreground">允許 Tier3 入列</span><span className={`ml-2 font-mono ${p.allow_enqueue_tier3 ? '' : 'text-amber-600'}`}>{p.allow_enqueue_tier3 ? 'yes' : 'no'}</span></div>
+              </div>
+              <div className="mt-4">
+                <div className="text-xs font-medium mb-1">最近轉移事件</div>
+                <div className="overflow-x-auto max-h-64 border rounded">
+                  <table className="w-full text-xs">
+                    <thead className="bg-muted sticky top-0">
+                      <tr>
+                        <th className="p-2 text-left">時間</th>
+                        <th className="p-2 text-left">From → To</th>
+                        <th className="p-2 text-left">原因</th>
+                        <th className="p-2 text-left">指標</th>
+                        <th className="p-2 text-right">值 / 閾值</th>
+                      </tr>
+                    </thead>
+                    <tbody>
+                      {data.degrade!.recent_transitions.map((r) => (
+                        <tr key={r.id} className="border-t">
+                          <td className="p-2 font-mono">{new Date(r.created_at).toLocaleString('zh-TW')}</td>
+                          <td className="p-2 font-mono">{r.from_mode} → {r.to_mode}</td>
+                          <td className="p-2">{r.reason}</td>
+                          <td className="p-2 font-mono">{r.trigger_metric ?? '—'}</td>
+                          <td className="p-2 text-right font-mono">
+                            {r.trigger_value != null ? Number(r.trigger_value).toFixed(1) : '—'}
+                            {r.threshold != null ? ` / ${Number(r.threshold).toFixed(1)}` : ''}
+                          </td>
+                        </tr>
+                      ))}
+                      {!data.degrade!.recent_transitions.length && (
+                        <tr><td colSpan={5} className="p-4 text-center text-muted-foreground">尚無降級事件</td></tr>
+                      )}
+                    </tbody>
+                  </table>
+                </div>
+              </div>
+              <p className="text-[11px] text-muted-foreground mt-3">
+                狀態機規則：用量 ≥80% → Tier3 暫停；≥90% 或 429 連續 ≥3 分 → Tier2 暫停；reservation stuck → Claim 停手。
+                恢復需 cooldown 到期並逐級退回（不會一次跳回 normal），避免震盪。
+              </p>
+            </Card>
+          );
+        })()}
 
         <Card className="p-4">
           <div className="text-sm font-medium mb-2">Reservation / 佇列健康度</div>

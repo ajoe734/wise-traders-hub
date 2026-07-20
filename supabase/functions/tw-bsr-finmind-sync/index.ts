@@ -1,18 +1,15 @@
 // tw-bsr-finmind-sync
-// 分層佇列 + 全域限流的 FinMind BSR 抓取器。
+// 分層佇列 + 全域限流 + 自動降級狀態機的 FinMind BSR 抓取器。
 //
 // 模式 (POST body.mode)：
-//   - "worker"   從 tw_bsr_sync_queue 取工作處理（依 priority 1→2→3），呼叫上限 1500/hr。
-//   - "enqueue"  依規則產生 pending 工作：
-//                  priority=1 使用者持倉，最近 1 個交易日
-//                  priority=2 有缺口 / >24h 未更新 / 失敗未解決
-//                  priority=3 歷史回填（body.backfill_days）
-//   - "manual"   直接指定 stock_ids 抓（管理員用；仍受限流檢查）
-//   - "stats"    回傳監控快照（用量、queue 深度、成功率）
+//   - "worker"   從 tw_bsr_sync_queue 取工作處理，依 degrade policy 決定 max_priority / concurrency。
+//   - "enqueue"  依規則產生 pending 工作；若 degrade policy 禁止 tier3，會直接跳過。
+//   - "manual"   直接指定 stock_ids 抓（管理員用；仍走 queue）。
+//   - "stats"    回傳監控快照（用量、queue 深度、成功率、degrade 狀態、最近轉移事件）。
+//   - "trace"    傳 correlation_id 查完整事件鏈（queue/reservation/failure/attempt/degrade）。
 //
-// 交易日規則：假日/週末不抓；當日 14:00 前收盤未定稿，僅補歷史（不重打當日）。
-//
-// FinMind Dataset: TaiwanStockTradingDailyReport（單日、單標的）
+// 每次 worker 呼叫都會：先讀 degrade state、cap 掉超出 policy 的 batch/priority/concurrency、
+// 處理完後蒐集訊號 → decide() → 若需轉移就寫入 tw_bsr_degrade_events 並更新 config。
 
 import { createClient } from 'npm:@supabase/supabase-js@2';
 import { corsHeaders } from 'npm:@supabase/supabase-js@2/cors';
@@ -23,10 +20,15 @@ import {
   FINMIND_HOURLY_LIMIT,
 } from '../_shared/finmindRateLimit.ts';
 import {
+  decide,
+  effectiveMaxPriority,
+  policyOf,
+  type DegradeMode,
+  type Signals,
+} from '../_shared/bsrDegrade.ts';
+import {
   addDays,
   aggregate as libAggregate,
-  decideEffectiveDate,
-  decideFailureRetry,
   isAfterCloseAt,
   isWeekday,
   rollBackToWeekday,
@@ -47,14 +49,48 @@ const supa = createClient(
 const json = (b: unknown, s = 200) =>
   new Response(JSON.stringify(b), { status: s, headers: { ...corsHeaders, 'Content-Type': 'application/json' } });
 
-// ============ 交易日 / 時間工具（薄 wrapper；實作在 lib.ts）============
+// ============ 交易日 / 時間工具 ============
 function taipeiNow(): Date { return taipeiNowFrom(Date.now()); }
 function taipeiToday(): string { return toIsoDate(taipeiNow()); }
 function isAfterClose(): boolean { return isAfterCloseAt(Date.now()); }
 
+// ============ Degrade state：DB roundtrip ============
+async function loadDegradeState(): Promise<{ mode: DegradeMode; since: number; cooldownUntil: number }> {
+  const { data } = await supa.rpc('bsr_get_degrade_state', { _api: 'finmind' });
+  const row = Array.isArray(data) ? data[0] : data;
+  const mode = (row?.mode ?? 'normal') as DegradeMode;
+  return {
+    mode,
+    since: row?.since ? new Date(row.since).getTime() : Date.now(),
+    cooldownUntil: row?.cooldown_until ? new Date(row.cooldown_until).getTime() : Date.now(),
+  };
+}
 
-// ============ FinMind fetch（走限流器）============
-async function fetchFinmindOneDay(stockId: string, date: string): Promise<FinmindRow[]> {
+async function applyDegradeTransition(
+  toMode: DegradeMode,
+  reason: string,
+  metric: string | undefined,
+  value: number | undefined,
+  threshold: number | undefined,
+  cooldownSeconds: number,
+  correlationId: string | null,
+) {
+  const { data, error } = await supa.rpc('bsr_apply_degrade_transition', {
+    _api: 'finmind',
+    _to_mode: toMode,
+    _reason: reason,
+    _trigger_metric: metric ?? null,
+    _trigger_value: value ?? null,
+    _threshold: threshold ?? null,
+    _cooldown_seconds: cooldownSeconds,
+    _correlation_id: correlationId,
+  });
+  if (error) console.warn('[degrade] apply failed:', error.message);
+  return Array.isArray(data) ? data[0] : data;
+}
+
+// ============ FinMind fetch（走限流器；帶 cid）============
+async function fetchFinmindOneDay(stockId: string, date: string, cid: string | null): Promise<FinmindRow[]> {
   const p = new URLSearchParams({
     dataset: 'TaiwanStockTradingDailyReport',
     data_id: stockId,
@@ -63,8 +99,9 @@ async function fetchFinmindOneDay(stockId: string, date: string): Promise<Finmin
   if (FINMIND_TOKEN) p.set('token', FINMIND_TOKEN);
   const res = await fetchWithRateLimit(supa, `${FINMIND_URL}?${p}`, {
     signal: AbortSignal.timeout(20_000),
-  });
+  }, { correlationId: cid });
   const text = await res.text();
+  // 錯誤訊息只保留 status + 前 200 字，且不含 URL / token
   if (!res.ok) throw new Error(`finmind_http_${res.status}:${text.slice(0, 200)}`);
   let j: any;
   try { j = JSON.parse(text); } catch { throw new Error(`finmind_bad_json:${text.slice(0, 200)}`); }
@@ -74,9 +111,7 @@ async function fetchFinmindOneDay(stockId: string, date: string): Promise<Finmin
   return Array.isArray(j.data) ? j.data : [];
 }
 
-// aggregate 已抽到 lib.ts；此處保留區域別名維持既有呼叫點。
 const aggregate = libAggregate;
-
 
 async function rebuildRollup(stockId: string, asOf: string) {
   const since = addDays(asOf, -90);
@@ -117,22 +152,33 @@ async function rebuildRollup(stockId: string, asOf: string) {
   }
 }
 
-// ============ 去重檢查（存在且完整不重打）============
 async function isDoneAlready(stockId: string, date: string): Promise<boolean> {
   const { count } = await supa.from('tw_bsr_daily')
     .select('id', { count: 'exact', head: true })
     .eq('stock_id', stockId).eq('trade_date', date);
-  // 有 broker >= 5 筆即視為完整
   return (count ?? 0) >= 5;
 }
 
-// ============ 單檔處理 ============
-async function processStock(stockId: string, date: string): Promise<{
+async function recordFailure(stockId: string, date: string, err: string, cid: string | null) {
+  try {
+    await supa.from('tw_bsr_fetch_failures').upsert({
+      stock_id: stockId, trade_date: date,
+      reason: 'finmind_error',
+      last_error: err.slice(0, 500),
+      correlation_id: cid,
+      updated_at: new Date().toISOString(),
+    }, { onConflict: 'stock_id,trade_date' });
+  } catch (e) {
+    console.warn('[failure log]', (e as Error).message);
+  }
+}
+
+async function processStock(stockId: string, date: string, cid: string | null): Promise<{
   ok: boolean; rows: number; note?: string; error?: string; rateLimited?: boolean;
 }> {
   if (await isDoneAlready(stockId, date)) return { ok: true, rows: 0, note: 'already_done' };
   try {
-    const rows = await fetchFinmindOneDay(stockId, date);
+    const rows = await fetchFinmindOneDay(stockId, date, cid);
     if (rows.length === 0) return { ok: true, rows: 0, note: 'finmind_empty' };
     const agg = aggregate(rows);
     if (agg.length === 0) return { ok: true, rows: 0, note: 'aggregated_empty' };
@@ -152,24 +198,23 @@ async function processStock(stockId: string, date: string): Promise<{
       return { ok: false, rows: 0, error: e.message, rateLimited: true };
     }
     const msg = e instanceof Error ? e.message : String(e);
+    await recordFailure(stockId, date, msg, cid);
     return { ok: false, rows: 0, error: msg };
   }
 }
 
-// ============ ENQUEUE：三層優先級 ============
-async function enqueueTier1Holdings(date: string): Promise<number> {
-  // 使用者未平倉 + watchlist（若表存在）
+// ============ ENQUEUE ============
+async function enqueueTier1Holdings(date: string, cid: string): Promise<number> {
   const { data: openTrades } = await supa
     .from('trade_records').select('stock_symbol').is('close_date', null).limit(5000);
   const ids = Array.from(new Set((openTrades || [])
     .map((r: any) => String(r.stock_symbol || '').trim())
     .filter((s: string) => /^[0-9]{4,6}$/.test(s))));
   if (ids.length === 0) return 0;
-  return await enqueueBatch(ids, date, 1, 'tier1_holdings');
+  return await enqueueBatch(ids, date, 1, 'tier1_holdings', cid);
 }
 
-async function enqueueTier2Gaps(date: string): Promise<number> {
-  // (a) tw_institutional_daily 有但 tw_bsr_daily 沒有的近 3 個交易日
+async function enqueueTier2Gaps(date: string, cid: string): Promise<number> {
   const dates = [date, rollBackToWeekday(addDays(date, -1)), rollBackToWeekday(addDays(date, -2))];
   const gapIds = new Set<string>();
   for (const d of dates) {
@@ -182,17 +227,15 @@ async function enqueueTier2Gaps(date: string): Promise<number> {
     const doneSet = new Set((done || []).map((r: any) => r.stock_id));
     for (const id of instIds) if (!doneSet.has(id) && /^[0-9]{4,6}$/.test(id)) gapIds.add(id);
   }
-  // (b) 失敗未解決
   const { data: failed } = await supa.from('tw_bsr_fetch_failures')
     .select('stock_id').is('resolved_at', null)
     .gte('trade_date', addDays(date, -7)).limit(500);
   for (const r of failed || []) if (/^[0-9]{4,6}$/.test(String(r.stock_id))) gapIds.add(String(r.stock_id));
   if (gapIds.size === 0) return 0;
-  return await enqueueBatch(Array.from(gapIds), date, 2, 'tier2_gaps');
+  return await enqueueBatch(Array.from(gapIds), date, 2, 'tier2_gaps', cid);
 }
 
-async function enqueueTier3Backfill(endDate: string, days: number): Promise<number> {
-  // 對持倉股回填歷史 days 天
+async function enqueueTier3Backfill(endDate: string, days: number, cid: string): Promise<number> {
   const { data: openTrades } = await supa
     .from('trade_records').select('stock_symbol').is('close_date', null).limit(2000);
   const ids = Array.from(new Set((openTrades || [])
@@ -201,25 +244,31 @@ async function enqueueTier3Backfill(endDate: string, days: number): Promise<numb
   let total = 0;
   for (let i = 1; i <= days; i++) {
     const d = rollBackToWeekday(addDays(endDate, -i));
-    total += await enqueueBatch(ids, d, 3, 'tier3_backfill');
+    total += await enqueueBatch(ids, d, 3, 'tier3_backfill', cid);
   }
   return total;
 }
 
-async function enqueueBatch(stockIds: string[], date: string, priority: number, tag: string): Promise<number> {
+async function enqueueBatch(
+  stockIds: string[],
+  date: string,
+  priority: number,
+  tag: string,
+  correlationId: string,
+): Promise<number> {
   if (stockIds.length === 0 || !isWeekday(date)) return 0;
-  // 過濾已完成的
   const { data: done } = await supa.from('tw_bsr_daily')
     .select('stock_id').eq('trade_date', date).in('stock_id', stockIds);
   const doneSet = new Set((done || []).map((r: any) => r.stock_id));
   const targets = stockIds.filter((id) => !doneSet.has(id));
   if (targets.length === 0) return 0;
+  // 每個 job 有自己的 cid：便於單一同步事件的追蹤（enqueue 帶入的 cid 只是 batch 標記，僅保留在 tag/log）
   const rows = targets.map((id) => ({
     stock_id: id, trade_date: date, priority, status: 'pending',
-    next_run_at: new Date().toISOString(), enqueued_by: tag,
+    next_run_at: new Date().toISOString(),
+    enqueued_by: `${tag}:${correlationId.slice(0, 8)}`,
+    correlation_id: crypto.randomUUID(),
   }));
-  // ON CONFLICT DO NOTHING via unique partial index — Supabase upsert can't target partial index,
-  // so 用手動 filter：先查有無 pending/running，再 insert
   const { data: existing } = await supa.from('tw_bsr_sync_queue')
     .select('stock_id, trade_date')
     .in('stock_id', targets).eq('trade_date', date)
@@ -238,27 +287,91 @@ async function enqueueBatch(stockIds: string[], date: string, priority: number, 
   return inserted;
 }
 
+// ============ Signal collection for state machine ============
+async function collectSignals(rl: { used: number; limit: number }): Promise<Signals> {
+  const usagePct = rl.limit > 0 ? (rl.used / rl.limit) * 100 : 0;
+  const { data: rs } = await supa.rpc('bsr_reservation_stats', { _api: 'finmind' });
+  const rsRow = Array.isArray(rs) ? rs[0] : rs;
+  const { data: oldestP1 } = await supa.from('tw_bsr_sync_queue')
+    .select('enqueued_at').eq('priority', 1).eq('status', 'pending')
+    .order('enqueued_at', { ascending: true }).limit(1);
+  const p1Age = oldestP1?.[0]
+    ? Math.round((Date.now() - new Date(oldestP1[0].enqueued_at).getTime()) / 1000)
+    : 0;
+  const since = new Date(Date.now() - 60 * 60_000).toISOString();
+  const { data: usage } = await supa.from('tw_bsr_api_usage')
+    .select('bucket_start,rate_limited_count')
+    .eq('api_name', 'finmind').gte('bucket_start', since)
+    .order('bucket_start', { ascending: true });
+  let streak = 0, maxStreak = 0;
+  for (const r of (usage ?? []) as Array<{ rate_limited_count: number }>) {
+    if ((r.rate_limited_count ?? 0) > 0) { streak++; maxStreak = Math.max(maxStreak, streak); }
+    else streak = 0;
+  }
+  return {
+    usagePct,
+    rateLimited429Streak: maxStreak,
+    p1OldestPendingAgeSec: p1Age,
+    reservationExpiredUnsettled: Number(rsRow?.expired_unsettled ?? 0),
+    reservationOldestInFlightSec: Number(rsRow?.oldest_in_flight_age_seconds ?? 0),
+  };
+}
+
+async function evaluateAndMaybeTransition(cid: string | null): Promise<{ mode: DegradeMode; transitioned: any }> {
+  const rl = await checkRateLimit(supa);
+  const sig = await collectSignals(rl);
+  const state = await loadDegradeState();
+  const d = decide(state, sig, Date.now());
+  let transitioned: any = null;
+  if (d.shouldTransition && d.targetMode !== state.mode) {
+    transitioned = await applyDegradeTransition(
+      d.targetMode, d.reason, d.triggerMetric, d.triggerValue, d.threshold,
+      d.cooldownSeconds, cid,
+    );
+  }
+  return { mode: transitioned?.applied ? d.targetMode : state.mode, transitioned };
+}
+
 // ============ WORKER ============
 async function runWorker(batch: number, maxPriority: number, budgetMs: number): Promise<any> {
   const started = Date.now();
   const results: any[] = [];
   let processed = 0, ok = 0, rateLimitedStop = false;
 
-  // 先看還剩多少配額，超過就 cap batch 大小
+  // 1) 讀取當前 degrade 狀態，套用 policy
+  const state = await loadDegradeState();
+  const policy = policyOf(state.mode);
+  const cappedMaxPriority = effectiveMaxPriority(state.mode, maxPriority);
+  const cappedConcurrency = Math.min(policy.concurrency, 3);
+
+  // claim_halt：只回收 lease、不 claim job
+  if (!policy.allowClaim) {
+    await supa.rpc('purge_expired_bsr_reservations', { _api: 'finmind' }).catch(() => {});
+    const after = await evaluateAndMaybeTransition(null);
+    return {
+      ok: true, note: 'claim_halt', degrade_mode: state.mode,
+      transitioned: after.transitioned, processed: 0,
+    };
+  }
+
   const rl = await checkRateLimit(supa);
   if (!rl.allowed) {
-    return { ok: true, note: 'rate_limit_exhausted', rate_limit: rl, processed: 0 };
+    const after = await evaluateAndMaybeTransition(null);
+    return { ok: true, note: 'rate_limit_exhausted', rate_limit: rl,
+      degrade_mode: state.mode, transitioned: after.transitioned, processed: 0 };
   }
   const effectiveBatch = Math.min(batch, Math.max(1, rl.remaining));
 
   const { data: jobs, error } = await supa.rpc('claim_bsr_queue_jobs', {
-    _batch: effectiveBatch, _max_priority: maxPriority,
+    _batch: effectiveBatch, _max_priority: cappedMaxPriority,
   });
   if (error) return { ok: false, error: `claim_failed:${error.message}` };
-  if (!jobs || jobs.length === 0) return { ok: true, note: 'no_jobs', rate_limit: rl, processed: 0 };
+  if (!jobs || jobs.length === 0) {
+    const after = await evaluateAndMaybeTransition(null);
+    return { ok: true, note: 'no_jobs', rate_limit: rl,
+      degrade_mode: state.mode, transitioned: after.transitioned, processed: 0 };
+  }
 
-  // 併發 3；每筆處理完檢查預算與限流
-  const CONCURRENCY = 3;
   let idx = 0;
   async function worker() {
     while (idx < jobs.length) {
@@ -266,12 +379,15 @@ async function runWorker(batch: number, maxPriority: number, budgetMs: number): 
       if (rateLimitedStop) return;
       const my = idx++;
       const job = jobs[my];
+      const cid: string | null = job.correlation_id ?? null;
       const t0 = Date.now();
-      const r = await processStock(job.stock_id, job.trade_date);
+      const r = await processStock(job.stock_id, job.trade_date, cid);
       processed++;
       if (r.ok) ok++;
-      results.push({ id: job.id, stock_id: job.stock_id, date: job.trade_date, priority: job.priority, ms: Date.now() - t0, ...r });
-      // 更新 queue row
+      results.push({
+        id: job.id, cid, stock_id: job.stock_id, date: job.trade_date,
+        priority: job.priority, ms: Date.now() - t0, ...r,
+      });
       if (r.ok) {
         await supa.from('tw_bsr_sync_queue').update({
           status: r.note === 'finmind_empty' && !isAfterClose() ? 'pending' : 'done',
@@ -282,7 +398,6 @@ async function runWorker(batch: number, maxPriority: number, budgetMs: number): 
             ? new Date(Date.now() + 30 * 60_000).toISOString() : undefined,
         }).eq('id', job.id);
       } else {
-        // 失敗：指數退避 next_run_at；attempts >= max 標 failed
         const nextAttempts = (job.attempts ?? 1);
         const backoffMin = Math.min(120, Math.pow(2, nextAttempts) * 5);
         const shouldFail = nextAttempts >= (job.max_attempts ?? 5);
@@ -293,17 +408,21 @@ async function runWorker(batch: number, maxPriority: number, budgetMs: number): 
           next_run_at: shouldFail ? undefined : new Date(Date.now() + backoffMin * 60_000).toISOString(),
           started_at: null,
         }).eq('id', job.id);
-        // 若是限流，剩下的都停手
         if (r.rateLimited) { rateLimitedStop = true; return; }
       }
     }
   }
-  await Promise.all(Array.from({ length: Math.min(CONCURRENCY, jobs.length) }, worker));
+  await Promise.all(Array.from({ length: Math.min(cappedConcurrency, jobs.length) }, worker));
 
   const finalRl = await checkRateLimit(supa);
+  // 最後一輪：用最新訊號重新評估狀態轉移；用最後一筆 job 的 cid 作為 audit 關聯
+  const lastCid = results[results.length - 1]?.cid ?? null;
+  const post = await evaluateAndMaybeTransition(lastCid);
   return {
     ok: true, processed, success: ok,
     claimed: jobs.length, batch: effectiveBatch,
+    degrade_mode: state.mode, degrade_after: post.mode, transitioned: post.transitioned,
+    policy: { max_priority: cappedMaxPriority, concurrency: cappedConcurrency },
     rate_limit_before: rl, rate_limit_after: finalRl,
     stopped_by_rate_limit: rateLimitedStop,
     elapsed_ms: Date.now() - started,
@@ -314,7 +433,6 @@ async function runWorker(batch: number, maxPriority: number, budgetMs: number): 
 // ============ STATS ============
 async function runStats() {
   const rl = await checkRateLimit(supa);
-  // 每小時用量 24 小時分布
   const { data: usage } = await supa.from('tw_bsr_api_usage')
     .select('bucket_start, call_count, success_count, error_count, rate_limited_count')
     .gte('bucket_start', new Date(Date.now() - 24 * 3600_000).toISOString())
@@ -328,7 +446,6 @@ async function runStats() {
     hourly[hr].error += r.error_count;
     hourly[hr].r429 += r.rate_limited_count;
   }
-  // queue 深度
   const { data: depth } = await supa.from('tw_bsr_sync_queue')
     .select('priority, status').in('status', ['pending', 'running']).limit(10000);
   const queue: Record<string, Record<string, number>> = {};
@@ -337,11 +454,9 @@ async function runStats() {
     queue[k] = queue[k] || { pending: 0, running: 0 };
     queue[k][r.status] = (queue[k][r.status] || 0) + 1;
   }
-  // 最近 24h 成功率
   const total24 = (usage || []).reduce((s, r) => s + r.call_count, 0);
   const err24 = (usage || []).reduce((s, r) => s + r.error_count, 0);
   const r429_24 = (usage || []).reduce((s, r) => s + r.rate_limited_count, 0);
-  // 各優先級延遲（enqueued → finished）
   const { data: latencies } = await supa.from('tw_bsr_sync_queue')
     .select('priority, enqueued_at, finished_at')
     .eq('status', 'done').not('finished_at', 'is', null)
@@ -364,11 +479,9 @@ async function runStats() {
     };
   }
 
-  // Reservation 監控（in-flight / 即將到期 / 過期未結算）
   const { data: resStats } = await supa.rpc('bsr_reservation_stats', { _api: 'finmind' });
   const resRow = Array.isArray(resStats) ? resStats[0] : resStats;
 
-  // P1 pending 等候時間（最舊未完成 P1 job 的年齡，秒）
   const { data: oldestP1 } = await supa.from('tw_bsr_sync_queue')
     .select('enqueued_at')
     .eq('priority', 1).eq('status', 'pending')
@@ -377,7 +490,6 @@ async function runStats() {
     ? Math.round((Date.now() - new Date(oldestP1[0].enqueued_at).getTime()) / 1000)
     : 0;
 
-  // 近 1 小時 429 是否連續（連續分鐘 bucket 皆 >0）
   const recent = (usage || [])
     .filter((r) => new Date(r.bucket_start).getTime() >= Date.now() - 60 * 60_000)
     .sort((a, b) => (a.bucket_start < b.bucket_start ? 1 : -1));
@@ -386,6 +498,12 @@ async function runStats() {
     if ((r.rate_limited_count || 0) > 0) { r429Streak++; r429MaxStreak = Math.max(r429MaxStreak, r429Streak); }
     else r429Streak = 0;
   }
+
+  // Degrade state + 最近 20 筆轉移事件
+  const { data: dgState } = await supa.rpc('bsr_get_degrade_state', { _api: 'finmind' });
+  const dgRow = Array.isArray(dgState) ? dgState[0] : dgState;
+  const { data: dgRecent } = await supa.rpc('bsr_recent_degrade_events', { _api: 'finmind', _limit: 20 });
+  const policy = policyOf((dgRow?.mode ?? 'normal') as DegradeMode);
 
   return {
     ok: true,
@@ -409,9 +527,24 @@ async function runStats() {
     },
     p1_oldest_pending_age_seconds: p1OldestAgeSec,
     rate_limited_streak_minutes: r429MaxStreak,
+    degrade: {
+      mode: dgRow?.mode ?? 'normal',
+      since: dgRow?.since ?? null,
+      reason: dgRow?.reason ?? null,
+      trigger_metric: dgRow?.trigger_metric ?? null,
+      trigger_value: dgRow?.trigger_value ?? null,
+      last_transition_at: dgRow?.last_transition_at ?? null,
+      cooldown_until: dgRow?.cooldown_until ?? null,
+      policy: {
+        max_priority: policy.maxPriority,
+        concurrency: policy.concurrency,
+        allow_claim: policy.allowClaim,
+        allow_enqueue_tier3: policy.allowEnqueueTier3,
+      },
+      recent_transitions: dgRecent ?? [],
+    },
   };
 }
-
 
 // ============ HTTP entry ============
 Deno.serve(async (req) => {
@@ -422,21 +555,36 @@ Deno.serve(async (req) => {
 
     if (mode === 'stats') return json(await runStats());
 
+    if (mode === 'trace') {
+      const cid = String(body?.correlation_id ?? '').trim();
+      if (!/^[0-9a-f-]{36}$/i.test(cid)) return json({ ok: false, error: 'correlation_id required (uuid)' }, 400);
+      const { data, error } = await supa.rpc('bsr_trace_by_correlation', { _cid: cid });
+      if (error) return json({ ok: false, error: error.message }, 500);
+      return json({ ok: true, trace: data });
+    }
+
     if (mode === 'enqueue') {
-      // 收盤前 (14:00 台北前) tier1 抓當日沒意義 → 自動回退到上一個交易日
       const requested = String(body?.date || taipeiToday());
       const effectiveDate = (!body?.date && !isAfterClose())
         ? rollBackToWeekday(addDays(taipeiToday(), -1))
         : rollBackToWeekday(requested);
-      const tiers: Record<string, number> = {};
+      const state = await loadDegradeState();
+      const policy = policyOf(state.mode);
+      const tiers: Record<string, number | string> = {};
+      const cid = crypto.randomUUID();
       const doTier1 = body?.tier1 !== false;
       const doTier2 = body?.tier2 !== false;
-      const doTier3 = body?.tier3 === true;
+      const doTier3Req = body?.tier3 === true;
+      const doTier3 = doTier3Req && policy.allowEnqueueTier3;
       const backfillDays = Math.max(1, Math.min(30, Number(body?.backfill_days ?? 5)));
-      if (doTier1) tiers.tier1 = await enqueueTier1Holdings(effectiveDate);
-      if (doTier2) tiers.tier2 = await enqueueTier2Gaps(effectiveDate);
-      if (doTier3) tiers.tier3 = await enqueueTier3Backfill(effectiveDate, backfillDays);
-      return json({ ok: true, mode, date: effectiveDate, pre_close_rolled: effectiveDate !== requested, enqueued: tiers });
+      if (doTier1) tiers.tier1 = await enqueueTier1Holdings(effectiveDate, cid);
+      if (doTier2) tiers.tier2 = await enqueueTier2Gaps(effectiveDate, cid);
+      if (doTier3) tiers.tier3 = await enqueueTier3Backfill(effectiveDate, backfillDays, cid);
+      else if (doTier3Req) tiers.tier3 = 'skipped_by_degrade';
+      return json({
+        ok: true, mode, date: effectiveDate, pre_close_rolled: effectiveDate !== requested,
+        enqueued: tiers, correlation_id: cid, degrade_mode: state.mode,
+      });
     }
 
     if (mode === 'worker') {
@@ -447,24 +595,22 @@ Deno.serve(async (req) => {
     }
 
     if (mode === 'manual') {
-      // 手動同步：一律入隊，priority=1（高於缺口回填，低於等於持倉），並回傳工作狀態。
-      // 不再繞過全域限流直打 FinMind。
       const date = rollBackToWeekday(String(body?.date || taipeiToday()));
       const ids: string[] = Array.isArray(body?.stock_ids)
         ? body.stock_ids.map((s: any) => String(s).trim()).filter((s: string) => /^[0-9]{4,6}$/.test(s))
         : [];
       if (ids.length === 0) return json({ ok: false, error: 'stock_ids required' }, 400);
       const priority = Math.max(1, Math.min(3, Number(body?.priority ?? 1)));
-      const enqueued = await enqueueBatch(ids, date, priority, 'manual');
-      // 回報目前 queue 中對應工作狀態
+      const cid = crypto.randomUUID();
+      const enqueued = await enqueueBatch(ids, date, priority, 'manual', cid);
       const { data: jobs } = await supa.from('tw_bsr_sync_queue')
-        .select('stock_id, priority, status, attempts, next_run_at, last_error, last_success_at')
+        .select('stock_id, correlation_id, priority, status, attempts, next_run_at, last_error, last_success_at')
         .in('stock_id', ids).eq('trade_date', date);
       const rl = await checkRateLimit(supa);
       return json({
         ok: true, mode, date, requested: ids.length, enqueued,
-        rate_limit: rl, jobs: jobs ?? [],
-        note: 'manual sync 已入隊，worker 會依限流與優先級處理；GET stats mode 追蹤進度',
+        rate_limit: rl, jobs: jobs ?? [], correlation_id: cid,
+        note: 'manual sync 已入隊；查 GET stats 或 trace mode + correlation_id 追蹤',
       });
     }
 

@@ -60,16 +60,18 @@ export class RateLimitExhaustedError extends Error {
   }
 }
 
-/** 嘗試原子預留一格額度；失敗時回傳 null。 */
+/** 嘗試原子預留一格額度；失敗時回傳 null。可選帶入 correlation_id 串聯同一次同步工作。 */
 export async function reserveQuota(
   supa: SupabaseClient,
   limit: number = FINMIND_HOURLY_LIMIT,
   leaseSeconds: number = DEFAULT_LEASE_SECONDS,
+  correlationId?: string | null,
 ): Promise<Reservation | null> {
   const { data, error } = await supa.rpc('reserve_bsr_api_quota', {
     _limit: limit,
     _api: FINMIND_API_NAME,
     _lease_seconds: leaseSeconds,
+    _correlation_id: correlationId ?? null,
   });
   if (error) {
     // Fail-CLOSED：DB 出問題時寧可擋下也不冒著超額被 FinMind 封鎖的風險。
@@ -121,14 +123,16 @@ export async function fetchWithRateLimit(
     baseBackoffMs?: number;
     limit?: number;
     leaseSeconds?: number;
+    correlationId?: string | null;
   } = {},
 ): Promise<Response> {
   const maxRetries = opts.maxRetries ?? 3;
   const baseBackoff = opts.baseBackoffMs ?? 2000;
   const limit = opts.limit ?? FINMIND_HOURLY_LIMIT;
   const lease = opts.leaseSeconds ?? DEFAULT_LEASE_SECONDS;
+  const cid = opts.correlationId ?? null;
 
-  let reservation = await reserveQuota(supa, limit, lease);
+  let reservation = await reserveQuota(supa, limit, lease, cid);
   if (!reservation) {
     throw new RateLimitExhaustedError({ used: limit, limit });
   }
@@ -139,7 +143,6 @@ export async function fetchWithRateLimit(
     try {
       res = await fetch(url, init);
     } catch (e) {
-      // 網路層錯誤：不確定是否真的送出，保守以「已呼叫且失敗」結算，避免額度失守
       await settleReservation(supa, reservation.id, { success: false, rateLimited: false });
       throw e;
     }
@@ -149,7 +152,6 @@ export async function fetchWithRateLimit(
       return res;
     }
 
-    // 429：結算本次 reservation
     await settleReservation(supa, reservation.id, { success: false, rateLimited: true });
     attempt += 1;
     if (attempt > maxRetries) return res;
@@ -159,11 +161,11 @@ export async function fetchWithRateLimit(
     const waitMs = Number.isFinite(retrySec) && retrySec > 0
       ? retrySec * 1000
       : baseBackoff * Math.pow(2, attempt - 1) + Math.floor(Math.random() * 500);
-    console.warn(`[rateLimit] 429 backoff ${waitMs}ms (attempt ${attempt}/${maxRetries})`);
+    // 只印安全訊息，不記錄 URL/token
+    console.warn(`[rateLimit] 429 backoff ${waitMs}ms (attempt ${attempt}/${maxRetries}) cid=${cid ?? '-'}`);
     await new Promise((r) => setTimeout(r, waitMs));
 
-    // 重試：重新原子預留
-    const next = await reserveQuota(supa, limit, lease);
+    const next = await reserveQuota(supa, limit, lease, cid);
     if (!next) {
       throw new RateLimitExhaustedError({ used: limit, limit });
     }
