@@ -65,6 +65,7 @@ const navGroups: NavGroup[] = [
       { path: '/company/stream-health', icon: Activity, label: '串流健康度' },
       { path: '/company/traffic', icon: Activity, label: '流量監控' },
       { path: '/company/ops-health', icon: Gauge, label: '後端健康/成本' },
+      { path: '/company/bsr-failures', icon: ShieldAlert, label: 'BSR OCR 失敗' },
       { path: '/company/conversions', icon: BarChart3, label: '轉換中心' },
       { path: '/company/paywall-analytics', icon: BarChart3, label: 'Paywall 轉換' },
       { path: '/company/funnel-analytics', icon: BarChart3, label: '漏斗分析' },
