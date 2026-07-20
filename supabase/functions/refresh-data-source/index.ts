@@ -9,6 +9,14 @@
 //
 // 只有 company_admin 可觸發。回傳 { ok, source_key, row_count, duration_ms, log_id }。
 import { createClient } from 'npm:@supabase/supabase-js@2';
+import { fetchWithRateLimit, checkRateLimit } from '../_shared/finmindRateLimit.ts';
+
+// service role client for rate-limit RPCs (RLS-safe)
+const _rlClient = createClient(
+  Deno.env.get('SUPABASE_URL')!,
+  Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')!,
+  { auth: { persistSession: false, autoRefreshToken: false } },
+);
 
 const corsHeaders = {
   'Access-Control-Allow-Origin': '*',
