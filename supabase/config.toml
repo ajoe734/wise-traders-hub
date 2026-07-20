@@ -153,8 +153,5 @@ verify_jwt = false
 [functions.tw-bsr-ocr-metrics]
 verify_jwt = false
 
-[functions.tw-bsr-ocr-metrics]
-verify_jwt = false
-
 [functions.tw-ocr-replay]
 verify_jwt = false
