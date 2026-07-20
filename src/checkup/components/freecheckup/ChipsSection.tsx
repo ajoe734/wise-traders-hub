@@ -379,9 +379,13 @@ export default function ChipsSection({ WB, stockCode }: { WB: any; stockCode: st
           <div data-testid="chips-bsr-missing" style={{ fontSize: 12, color: WB.inkMute, lineHeight: 1.6 }}>
             — 分點資料同步中
             <div style={{ fontSize: 10, color: WB.inkMute }}>
-              （分點資料由 FinMind 官方 API 提供，僅在收盤後 14:00–20:59 每 10 分鐘處理一輪；受全域 1500/hr 限流保護，冷門代號或首次同步可能延後）
+              （FinMind 官方 API，僅在收盤後 14:00–20:59 每 10 分鐘處理一輪；受全域 1500/hr 限流保護）
+            </div>
+            <div style={{ fontSize: 10, color: WB.inkMute, marginTop: 2 }}>
+              {nextWorkerWindow().label}
             </div>
           </div>
+
         )}
       </div>
 
