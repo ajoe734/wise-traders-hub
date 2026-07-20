@@ -197,11 +197,42 @@ function parseBsContent(html: string): BsrRow[] {
 interface SessionCtx {
   jar: Record<string, string>;
   ua: string;
+  uaHash: string;
+  uaLabel: string;
   acceptLang: string;
   used: number;
 }
 function newSession(cfg: SyncConfig): SessionCtx {
-  return { jar: {}, ua: randomFrom(cfg.ua_pool), acceptLang: randomFrom(cfg.accept_lang_pool), used: 0 };
+  const ua = randomFrom(cfg.ua_pool);
+  return {
+    jar: {}, ua,
+    uaHash: shortHash(ua),
+    uaLabel: uaLabelFromString(ua),
+    acceptLang: randomFrom(cfg.accept_lang_pool),
+    used: 0,
+  };
+}
+
+// 產生短雜湊（djb2），用來當 UA 的固定 key
+function shortHash(s: string): string {
+  let h = 5381;
+  for (let i = 0; i < s.length; i++) h = ((h << 5) + h + s.charCodeAt(i)) | 0;
+  return (h >>> 0).toString(16).padStart(8, "0");
+}
+// 將 UA 化簡成可讀 label：Browser/OS
+function uaLabelFromString(ua: string): string {
+  const browser = /Edg\//.test(ua) ? "Edge"
+    : /Chrome\//.test(ua) ? "Chrome"
+    : /Firefox\//.test(ua) ? "Firefox"
+    : /Safari\//.test(ua) ? "Safari" : "Other";
+  const os = /Windows NT 10/.test(ua) ? "Win10"
+    : /Windows NT 11/.test(ua) ? "Win11"
+    : /Mac OS X/.test(ua) ? "macOS"
+    : /Android/.test(ua) ? "Android"
+    : /Linux/.test(ua) ? "Linux" : "Other";
+  const verMatch = ua.match(/(?:Chrome|Firefox|Edg|Version)\/(\d+)/);
+  const ver = verMatch ? verMatch[1] : "";
+  return `${browser}${ver ? " " + ver : ""} · ${os}`;
 }
 
 async function fetchBsrForStock(stockId: string, ctx: SessionCtx, cfg: SyncConfig): Promise<BsrRow[]> {
