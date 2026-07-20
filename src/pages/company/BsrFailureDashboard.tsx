@@ -221,11 +221,20 @@ export default function BsrFailureDashboardPage() {
               </Select>
             </div>
             <div className="flex flex-col gap-1">
-              <label className="text-[11px] text-foreground/60">失敗原因</label>
+              <label className="text-[11px] text-foreground/60">失敗原因 (reason)</label>
               <Select value={reason} onValueChange={setReason}>
-                <SelectTrigger className="w-48 h-9"><SelectValue /></SelectTrigger>
+                <SelectTrigger className="w-44 h-9"><SelectValue /></SelectTrigger>
                 <SelectContent>
                   {REASONS.map((r) => <SelectItem key={r.value} value={r.value}>{r.label}</SelectItem>)}
+                </SelectContent>
+              </Select>
+            </div>
+            <div className="flex flex-col gap-1">
+              <label className="text-[11px] text-foreground/60">錯誤細分類 (error_class)</label>
+              <Select value={errorClass} onValueChange={setErrorClass}>
+                <SelectTrigger className="w-56 h-9"><SelectValue /></SelectTrigger>
+                <SelectContent>
+                  {ERROR_CLASSES.map((r) => <SelectItem key={r.value} value={r.value}>{r.label}</SelectItem>)}
                 </SelectContent>
               </Select>
             </div>
