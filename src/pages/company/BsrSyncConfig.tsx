@@ -204,7 +204,20 @@ export default function BsrSyncConfig() {
                   onChange={(e) => setForm({ ...form, lookback_max: Math.max(1, Number(e.target.value) || 1) })}
                 />
               </Field>
+              <Field label="單日最大嘗試次數" hint="同 stock+trade_date 累積失敗達此值即進入資料冷卻">
+                <Input
+                  type="number" min={1} value={form.max_attempts_per_day}
+                  onChange={(e) => setForm({ ...form, max_attempts_per_day: Math.max(1, Number(e.target.value) || 1) })}
+                />
+              </Field>
+              <Field label="資料冷卻小時數" hint="達最大嘗試次數後，next_retry_at 至少延後這麼久">
+                <Input
+                  type="number" min={1} value={form.cooldown_hours}
+                  onChange={(e) => setForm({ ...form, cooldown_hours: Math.max(1, Number(e.target.value) || 1) })}
+                />
+              </Field>
             </div>
+
 
             <div>
               <Label className="text-xs text-muted-foreground">變更備註（會寫入版本歷史）</Label>
