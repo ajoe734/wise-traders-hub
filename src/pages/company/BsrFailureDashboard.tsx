@@ -7,9 +7,10 @@ import { Input } from '@/components/ui/input';
 import { Button } from '@/components/ui/button';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { supabase } from '@/integrations/supabase/client';
-import { RefreshCw, Download, AlertTriangle, ShieldAlert, ChevronRight } from 'lucide-react';
+import { RefreshCw, Download, AlertTriangle, ShieldAlert, ChevronRight, Search } from 'lucide-react';
 import { toast } from 'sonner';
 import { useQuery } from '@tanstack/react-query';
+import { BsrAuditDialog } from './BsrAuditDialog';
 
 type GlobalDay = {
   date: string;
@@ -94,6 +95,7 @@ export default function BsrFailureDashboardPage() {
   const [stockInput, setStockInput] = useState('');
   const [reason, setReason] = useState('all');
   const [expanded, setExpanded] = useState<string | null>(null);
+  const [auditStock, setAuditStock] = useState<string | null>(null);
 
   const { data, isLoading, error, refetch, isFetching } = useQuery<Dashboard>({
     queryKey: ['bsr-failures', days, stockFilter, reason],
@@ -308,6 +310,7 @@ export default function BsrFailureDashboardPage() {
                       <th className="text-right py-2 font-normal">連續</th>
                       <th className="text-left py-2 font-normal pl-4">下次重試</th>
                       <th className="text-left py-2 font-normal pl-4">Fallback 對齊日</th>
+                      <th className="text-right py-2 font-normal pl-4">Audit</th>
                     </tr>
                   </thead>
                   <tbody>
@@ -335,6 +338,17 @@ export default function BsrFailureDashboardPage() {
                           ) : (
                             <span className="text-foreground/40">無 fallback</span>
                           )}
+                        </td>
+                        <td className="pl-4 text-right">
+                          <Button
+                            variant="ghost"
+                            size="sm"
+                            className="h-7 px-2 text-[11px]"
+                            onClick={() => setAuditStock(p.stock_id)}
+                            data-testid={`audit-btn-${p.stock_id}`}
+                          >
+                            <Search className="h-3 w-3 mr-1" />Audit
+                          </Button>
                         </td>
                       </tr>
                     ))}
@@ -426,6 +440,11 @@ export default function BsrFailureDashboardPage() {
           </CardContent>
         </Card>
       </div>
+      <BsrAuditDialog
+        stockId={auditStock}
+        open={!!auditStock}
+        onOpenChange={(v) => { if (!v) setAuditStock(null); }}
+      />
     </CompanyLayout>
   );
 }

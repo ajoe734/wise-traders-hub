@@ -336,6 +336,112 @@ Deno.serve(async (req) => {
 
     const supa = createClient(SUPABASE_URL, SERVICE_ROLE_KEY, { auth: { persistSession: false } });
 
+    // ---- AUDIT MODE：唯讀，不 fetch、不寫、不搶 lock ----
+    if (mode === "audit") {
+      const ids = (Array.isArray(body?.stock_ids) ? body.stock_ids : [])
+        .map((s: any) => String(s || "").trim())
+        .filter((s: string) => /^[0-9]{4,6}$/.test(s));
+      if (ids.length === 0) return errorResponse("stock_ids required", 400, { code: "BAD_INPUT" });
+
+      const auditResults = await Promise.all(ids.map(async (stockId) => {
+        // 1) lookback chain：從 tradeDate 往回 lookback 個工作日
+        const chainDates: string[] = [];
+        let cur = tradeDate;
+        for (let i = 0; i < lookback; i++) {
+          if (i > 0) cur = prevWeekday(cur);
+          chainDates.push(cur);
+        }
+        const chainCounts = await Promise.all(chainDates.map(async (d) => {
+          const { count } = await supa
+            .from("tw_bsr_daily")
+            .select("broker_id", { count: "exact", head: true })
+            .eq("stock_id", stockId).eq("trade_date", d);
+          return { date: d, rows: count || 0 };
+        }));
+
+        // 2) last_successful：≤ tradeDate 的最近成功日
+        const { data: lastOk } = await supa
+          .from("tw_bsr_daily").select("trade_date")
+          .eq("stock_id", stockId).lte("trade_date", tradeDate)
+          .order("trade_date", { ascending: false }).limit(1);
+        const lastAsOf = lastOk?.[0]?.trade_date as string | undefined;
+        let lastSuccessful: any = null;
+        if (lastAsOf) {
+          const { count } = await supa.from("tw_bsr_daily")
+            .select("broker_id", { count: "exact", head: true })
+            .eq("stock_id", stockId).eq("trade_date", lastAsOf);
+          lastSuccessful = {
+            as_of_date: lastAsOf,
+            rows: count || 0,
+            lag_days: Math.max(0, Math.round(
+              (new Date(tradeDate).getTime() - new Date(lastAsOf).getTime()) / 86400000
+            )),
+          };
+        }
+
+        // 3) rollup 三窗
+        const { data: rollupRows } = await supa
+          .from("tw_chips_rollup")
+          .select("window_days, as_of_date")
+          .eq("stock_id", stockId)
+          .order("as_of_date", { ascending: false });
+        const rollup: Record<string, string | null> = { "5": null, "20": null, "60": null };
+        for (const w of [5, 20, 60] as const) {
+          const hit = (rollupRows || []).find((r: any) => r.window_days === w);
+          if (hit) rollup[String(w)] = hit.as_of_date;
+        }
+
+        // 4) failure state
+        const { data: failRows } = await supa
+          .from("tw_bsr_fetch_failures")
+          .select("trade_date, reason, attempts, consecutive_failures, backoff_seconds, next_retry_at, resolved_at, last_error, updated_at")
+          .eq("stock_id", stockId)
+          .order("updated_at", { ascending: false })
+          .limit(10);
+        const unresolved = (failRows || []).find((r: any) => !r.resolved_at) || null;
+
+        // 5) 對齊判定：以 5-day rollup 為代表
+        const rollupPrimary = rollup["5"];
+        let aligned = false;
+        let mismatchReason: string | null = null;
+        if (!lastSuccessful && !rollupPrimary) {
+          mismatchReason = "no_data";
+        } else if (!rollupPrimary && lastSuccessful) {
+          mismatchReason = "rollup_missing";
+        } else if (rollupPrimary && !lastSuccessful) {
+          mismatchReason = "rollup_ahead";
+        } else if (rollupPrimary! < lastSuccessful.as_of_date) {
+          mismatchReason = "rollup_stale";
+        } else if (rollupPrimary! > lastSuccessful.as_of_date) {
+          mismatchReason = "rollup_ahead";
+        } else {
+          aligned = true;
+        }
+
+        return {
+          stock_id: stockId,
+          attempted_as_of_date: tradeDate,
+          lookback_chain: chainCounts,
+          last_successful: lastSuccessful,
+          rollup,
+          failure_state: {
+            unresolved,
+            recent: failRows || [],
+          },
+          aligned,
+          mismatch_reason: mismatchReason,
+        };
+      }));
+
+      return jsonResponse({
+        mode: "audit",
+        date: tradeDate,
+        lookback,
+        results: auditResults,
+        generated_at: new Date().toISOString(),
+      });
+    }
+
     const gotLock = await acquireLock(supa);
     if (!gotLock) return jsonResponse({ skipped: "lock_held" });
 
