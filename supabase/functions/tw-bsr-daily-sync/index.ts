@@ -31,6 +31,13 @@ const BSR_MENU = `${BSR_HOST}/bshtm/bsMenu.aspx`;
 const LOCK_KEY = "tw-bsr-daily-sync";
 
 // ---- 動態設定：tw_bsr_sync_config（key='bsr_sync'）→ 可熱調且有版本歷史 ----
+interface BackfillConfig {
+  batch: number;              // 每輪回補預設批次量
+  lookback: number;           // 每檔回補嘗試往回推的交易日數
+  batch_max: number;          // 前端/呼叫端可覆寫的上限
+  lookback_max: number;       // 同上，避免過深爬取
+  max_runs_per_hour: number;  // 高頻週期上限：每小時最多執行 backfill 次數（0=不限）
+}
 interface SyncConfig {
   ua_pool: string[];
   accept_lang_pool: string[];
@@ -44,6 +51,7 @@ interface SyncConfig {
   lock_ttl_sec: number;
   ocr_mode: "fast" | "standard" | "aggressive";
   ocr_escalate_on_fail: boolean;
+  backfill: BackfillConfig;
 }
 
 const DEFAULT_CONFIG: SyncConfig = {
