@@ -229,7 +229,7 @@ async function buildQueue(batch: number, tradeDate: string): Promise<string[]> {
 }
 
 async function processStock(stockId: string, startDate: string, endDate: string) {
-  const rows = await fetchFinmind(stockId, startDate, endDate);
+  const rows = await fetchFinmindRange(stockId, startDate, endDate);
   if (rows.length === 0) {
     return { stock_id: stockId, ok: true, rows: 0, note: 'finmind_empty' };
   }
