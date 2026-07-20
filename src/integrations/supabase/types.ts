@@ -3833,6 +3833,7 @@ export type Database = {
           expires_at: string
           id: number
           rate_limited: boolean
+          recycle_reason: string | null
           released: boolean
           reserved_at: string
           settled_at: string | null
@@ -3844,6 +3845,7 @@ export type Database = {
           expires_at: string
           id?: number
           rate_limited?: boolean
+          recycle_reason?: string | null
           released?: boolean
           reserved_at?: string
           settled_at?: string | null
@@ -3855,6 +3857,7 @@ export type Database = {
           expires_at?: string
           id?: number
           rate_limited?: boolean
+          recycle_reason?: string | null
           released?: boolean
           reserved_at?: string
           settled_at?: string | null
@@ -4728,6 +4731,10 @@ export type Database = {
           to_mode: string
         }[]
       }
+      bsr_force_recycle_reservation: {
+        Args: { _reason?: string; _reservation_id: number }
+        Returns: boolean
+      }
       bsr_get_degrade_state: {
         Args: { _api?: string }
         Returns: {
@@ -4738,6 +4745,17 @@ export type Database = {
           since: string
           trigger_metric: string
           trigger_value: number
+        }[]
+      }
+      bsr_list_stuck_reservations: {
+        Args: { _api?: string; _limit?: number; _min_age_seconds?: number }
+        Returns: {
+          age_seconds: number
+          correlation_id: string
+          expired: boolean
+          expires_at: string
+          id: number
+          reserved_at: string
         }[]
       }
       bsr_recent_degrade_events: {
@@ -5009,7 +5027,10 @@ export type Database = {
       prune_bsr_sync_queue: { Args: never; Returns: number }
       purge_expired_bsr_reservations: {
         Args: { _api?: string }
-        Returns: number
+        Returns: {
+          recycled_count: number
+          recycled_ids: number[]
+        }[]
       }
       reconcile_line_free_quota: { Args: { _user_id: string }; Returns: Json }
       record_bsr_api_call: {
