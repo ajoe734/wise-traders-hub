@@ -170,8 +170,9 @@ test.describe('ChipsSection · visual regression', () => {
       el.dispatchEvent(new Event('input', { bubbles: true }));
       el.dispatchEvent(new Event('change', { bubbles: true }));
     });
-    // readout 反映
-    await expect(page.getByTestId('chips-trend-readout')).toContainText('2026/07/11');
+    // scrubber 右側日期文字反映 index=10 → 2026/07/11
+    await expect(page.getByTestId('chips-trend-chart')).toContainText('2026/07/11');
+
     await page.evaluate(() => (document as any).fonts?.ready);
 
     await expect(page.getByTestId('chips-trend-chart')).toHaveScreenshot(
