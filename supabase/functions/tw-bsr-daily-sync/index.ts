@@ -932,6 +932,8 @@ Deno.serve(async (req) => {
       const failedCount = results.filter((r) => r.ok === false).length;
       // 本輪成功恢復 last_successful 的股票（先前 consecutive_failures>0，本輪 ok）
       const recovered = results.filter((r) => r.ok && Number(r.consec_before || 0) > 0);
+      // 本輪觸發資料冷卻（達 max_attempts_per_day）的股票
+      const cooledDown = results.filter((r) => r.ok === false && r.cooldown_triggered);
       // 本輪回補覆蓋的 fallback / resolved 日期範圍
       const coveredDates: string[] = [];
       for (const r of results) {
@@ -942,6 +944,7 @@ Deno.serve(async (req) => {
       const fallbackRange = sortedDates.length
         ? { min: sortedDates[0], max: sortedDates[sortedDates.length - 1] }
         : null;
+
 
       // 逐檔嘗試視窗（lookback_from ~ lookback_to），從 tradeDate 往回推 (lookback-1) 個交易日
       let lookbackFrom = tradeDate;
