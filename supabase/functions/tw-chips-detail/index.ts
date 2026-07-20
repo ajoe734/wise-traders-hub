@@ -109,9 +109,25 @@ Deno.serve(async (req) => {
     }
     bsrConcentration.sort((a, b) => a.date.localeCompare(b.date));
 
+    const asOfDate = rows[0]?.trade_date || null;
+    let asOfLagDays: number | null = null;
+    if (asOfDate) {
+      const today = new Date(
+        new Intl.DateTimeFormat("en-CA", {
+          timeZone: "Asia/Taipei",
+          year: "numeric",
+          month: "2-digit",
+          day: "2-digit",
+        }).format(new Date()),
+      );
+      const asOf = new Date(asOfDate);
+      asOfLagDays = Math.max(0, Math.round((today.getTime() - asOf.getTime()) / 86400000));
+    }
+
     const payload = {
       stock_id: stockId,
-      as_of: rows[0]?.trade_date || null,
+      as_of: asOfDate,
+      as_of_lag_days: asOfLagDays,
       institutional,
       bsr,
       bsr_as_of: latestAsOf,
@@ -122,6 +138,7 @@ Deno.serve(async (req) => {
       source: "TWSE",
       fetched_at: new Date().toISOString(),
     };
+
     cacheSet(cacheKey, payload, CACHE_TTL_MS);
     return jsonResponse(payload);
   } catch (err) {
