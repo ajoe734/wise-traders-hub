@@ -18,6 +18,16 @@ type Stats = {
   last_24h: { total_calls: number; errors: number; r429: number; success_rate: number | null };
   hourly_last_24h: Record<string, { calls: number; success: number; error: number; r429: number }>;
   queue_latency_ms: Record<string, { count: number; p50_ms: number; p95_ms: number; max_ms: number }>;
+  reservations?: {
+    in_flight: number;
+    expiring_soon: number;
+    expired_unsettled: number;
+    settled_last_hour: number;
+    rate_limited_last_hour: number;
+    oldest_in_flight_age_seconds: number;
+  };
+  p1_oldest_pending_age_seconds?: number;
+  rate_limited_streak_minutes?: number;
 };
 
 async function callSync(body: unknown): Promise<Stats | any> {
