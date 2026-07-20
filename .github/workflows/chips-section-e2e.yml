@@ -1,9 +1,12 @@
-name: ChipsSection E2E (desktop + mobile)
+name: ChipsSection E2E (desktop + mobile + visual)
 
-# 每次 PR 都自動跑 ChipsSection 兩個 Playwright 專案：
-#   - desktop-chips-section : e2e/chips-section.spec.ts        (11 案例 · 1280x900)
-#   - mobile-chips-section  : e2e/chips-section-mobile.spec.ts (18 案例 · 6 個手機斷點)
+# 每次 PR 都自動跑 ChipsSection 三個 Playwright 專案：
+#   - desktop-chips-section : e2e/chips-section.spec.ts         (11 案例 · 1280x900)
+#   - mobile-chips-section  : e2e/chips-section-mobile.spec.ts  (18 案例 · 6 個手機斷點)
+#   - visual-chips-section  : e2e/chips-section-visual.spec.ts  (8 個 screenshot diff 快照)
 # retries=2 由 playwright.config.ts 的 CI 分支提供。
+# 視覺回歸失敗時，Playwright 會把 -expected / -actual / -diff.png 寫進 test-results/，
+# 上傳為 chips-section-traces-visual-chips-section artifact 供 PR 直接下載比對。
 
 on:
   push:
@@ -11,6 +14,8 @@ on:
     paths:
       - 'e2e/chips-section.spec.ts'
       - 'e2e/chips-section-mobile.spec.ts'
+      - 'e2e/chips-section-visual.spec.ts'
+      - 'e2e/chips-section-visual.spec.ts-snapshots/**'
       - 'e2e/helpers/**'
       - 'src/checkup/components/freecheckup/ChipsSection.tsx'
       - 'src/checkup/components/freecheckup/ChipsTrendChart.tsx'
@@ -23,6 +28,8 @@ on:
     paths:
       - 'e2e/chips-section.spec.ts'
       - 'e2e/chips-section-mobile.spec.ts'
+      - 'e2e/chips-section-visual.spec.ts'
+      - 'e2e/chips-section-visual.spec.ts-snapshots/**'
       - 'e2e/helpers/**'
       - 'src/checkup/components/freecheckup/ChipsSection.tsx'
       - 'src/checkup/components/freecheckup/ChipsTrendChart.tsx'
@@ -49,7 +56,8 @@ jobs:
     strategy:
       fail-fast: false
       matrix:
-        project: [desktop-chips-section, mobile-chips-section]
+        project: [desktop-chips-section, mobile-chips-section, visual-chips-section]
+
     steps:
       - uses: actions/checkout@v4
 
@@ -117,7 +125,30 @@ jobs:
           retention-days: 14
           if-no-files-found: ignore
 
-  # 兩個 project 都綠才算通過，可做為分支保護 required check
+      # ---- 視覺回歸專用：只挑 -expected / -actual / -diff.png 打包，方便快速看差異 ----
+      - name: Collect visual diff PNGs (visual project only, on failure)
+        if: failure() && matrix.project == 'visual-chips-section'
+        run: |
+          mkdir -p visual-diff
+          if [ -d test-results ]; then
+            find test-results -type f \( \
+              -name '*-expected.png' -o \
+              -name '*-actual.png'   -o \
+              -name '*-diff.png' \
+            \) -print -exec cp --parents {} visual-diff/ \;
+          fi
+          ls -R visual-diff || true
+
+      - name: Upload visual diff PNGs (visual project only, on failure)
+        if: failure() && matrix.project == 'visual-chips-section'
+        uses: actions/upload-artifact@v4
+        with:
+          name: chips-section-visual-diff
+          path: visual-diff
+          retention-days: 14
+          if-no-files-found: ignore
+
+  # 三個 project 都綠才算通過，可做為分支保護 required check
   chips-section-passed:
     name: ChipsSection E2E passed (required)
     runs-on: ubuntu-latest
@@ -130,4 +161,5 @@ jobs:
             echo "chips-section matrix result=${{ needs.chips-section.result }}"
             exit 1
           fi
-          echo "desktop-chips-section + mobile-chips-section both passed."
+          echo "desktop + mobile + visual chips-section all passed."
+
