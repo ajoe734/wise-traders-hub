@@ -9,6 +9,7 @@ import { RefreshCw, PlayCircle, ListPlus } from 'lucide-react';
 import { useState } from 'react';
 import { toast } from 'sonner';
 
+type DegradeMode = 'normal' | 'tier3_paused' | 'tier2_paused' | 'p1_only' | 'claim_halt';
 type Stats = {
   ok: boolean;
   generated_at: string;
@@ -28,6 +29,29 @@ type Stats = {
   };
   p1_oldest_pending_age_seconds?: number;
   rate_limited_streak_minutes?: number;
+  degrade?: {
+    mode: DegradeMode;
+    since: string | null;
+    reason: string | null;
+    trigger_metric: string | null;
+    trigger_value: number | null;
+    last_transition_at: string | null;
+    cooldown_until: string | null;
+    policy: { max_priority: number; concurrency: number; allow_claim: boolean; allow_enqueue_tier3: boolean };
+    recent_transitions: Array<{
+      id: number; from_mode: string; to_mode: string; reason: string;
+      trigger_metric: string | null; trigger_value: number | null; threshold: number | null;
+      created_at: string;
+    }>;
+  };
+};
+
+const MODE_LABEL: Record<DegradeMode, { label: string; tone: string }> = {
+  normal:       { label: '正常',       tone: 'bg-emerald-100 text-emerald-800 border-emerald-300' },
+  tier3_paused: { label: 'Tier3 暫停', tone: 'bg-amber-100  text-amber-800  border-amber-300'  },
+  tier2_paused: { label: 'Tier2 暫停', tone: 'bg-orange-100 text-orange-800 border-orange-300' },
+  p1_only:      { label: '僅 P1',      tone: 'bg-red-100    text-red-800    border-red-300'    },
+  claim_halt:   { label: 'Claim 停手', tone: 'bg-neutral-900 text-neutral-50 border-neutral-800' },
 };
 
 async function callSync(body: unknown): Promise<Stats | any> {
