@@ -582,6 +582,25 @@ Deno.serve(async (req) => {
       return json({ ok: true, trace: data });
     }
 
+    // Manual purge / force-recycle：管理員從 UI 觸發，也可掛 cron 加強頻率
+    if (mode === 'purge_reservations') {
+      const { data, error } = await supa.rpc('purge_expired_bsr_reservations', { _api: 'finmind' });
+      if (error) return json({ ok: false, error: error.message }, 500);
+      const row = Array.isArray(data) ? data[0] : data;
+      return json({ ok: true, recycled_count: Number(row?.recycled_count ?? 0), recycled_ids: row?.recycled_ids ?? [] });
+    }
+
+    if (mode === 'force_recycle_reservation') {
+      const id = Number(body?.reservation_id);
+      const reason = String(body?.reason || 'manual_force_recycle').slice(0, 100);
+      if (!Number.isFinite(id) || id <= 0) return json({ ok: false, error: 'reservation_id required' }, 400);
+      const { data, error } = await supa.rpc('bsr_force_recycle_reservation', {
+        _reservation_id: id, _reason: reason,
+      });
+      if (error) return json({ ok: false, error: error.message }, 500);
+      return json({ ok: true, recycled: Boolean(data), reservation_id: id, reason });
+    }
+
     if (mode === 'enqueue') {
       const requested = String(body?.date || taipeiToday());
       const effectiveDate = (!body?.date && !isAfterClose())
