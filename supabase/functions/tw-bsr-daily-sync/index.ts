@@ -31,6 +31,13 @@ const BSR_MENU = `${BSR_HOST}/bshtm/bsMenu.aspx`;
 const LOCK_KEY = "tw-bsr-daily-sync";
 
 // ---- 動態設定：tw_bsr_sync_config（key='bsr_sync'）→ 可熱調且有版本歷史 ----
+interface BackfillConfig {
+  batch: number;              // 每輪回補預設批次量
+  lookback: number;           // 每檔回補嘗試往回推的交易日數
+  batch_max: number;          // 前端/呼叫端可覆寫的上限
+  lookback_max: number;       // 同上，避免過深爬取
+  max_runs_per_hour: number;  // 高頻週期上限：每小時最多執行 backfill 次數（0=不限）
+}
 interface SyncConfig {
   ua_pool: string[];
   accept_lang_pool: string[];
@@ -44,6 +51,7 @@ interface SyncConfig {
   lock_ttl_sec: number;
   ocr_mode: "fast" | "standard" | "aggressive";
   ocr_escalate_on_fail: boolean;
+  backfill: BackfillConfig;
 }
 
 const DEFAULT_CONFIG: SyncConfig = {
@@ -66,7 +74,28 @@ const DEFAULT_CONFIG: SyncConfig = {
   lock_ttl_sec: 90,
   ocr_mode: "standard",
   ocr_escalate_on_fail: true,
+  backfill: {
+    batch: 6,
+    lookback: 7,
+    batch_max: 20,
+    lookback_max: 10,
+    max_runs_per_hour: 6,
+  },
 };
+
+function normBackfill(raw: any, fallback: BackfillConfig): BackfillConfig {
+  const src = raw && typeof raw === "object" ? raw : {};
+  const pick = (k: keyof BackfillConfig, min: number) => {
+    const n = Number(src[k]);
+    return Number.isFinite(n) && n >= min ? n : fallback[k];
+  };
+  return {
+    batch: Math.max(1, Math.floor(pick("batch", 1))),
+    lookback: Math.max(1, Math.floor(pick("lookback", 1))),
+    batch_max: Math.max(1, Math.floor(pick("batch_max", 1))),
+    lookback_max: Math.max(1, Math.floor(pick("lookback_max", 1))),
+    max_runs_per_hour: Math.max(0, Math.floor(pick("max_runs_per_hour", 0))),
+  };
 
 async function loadConfig(supa: any): Promise<{ cfg: SyncConfig; version: number | null }> {
   try {
@@ -99,6 +128,7 @@ async function loadConfig(supa: any): Promise<{ cfg: SyncConfig; version: number
         ? (raw.ocr_mode as SyncConfig["ocr_mode"]) : DEFAULT_CONFIG.ocr_mode,
       ocr_escalate_on_fail: typeof raw.ocr_escalate_on_fail === "boolean"
         ? raw.ocr_escalate_on_fail : DEFAULT_CONFIG.ocr_escalate_on_fail,
+      backfill: normBackfill((raw as any).backfill, DEFAULT_CONFIG.backfill),
     };
     return { cfg, version: Number(data.version) || null };
   } catch {
@@ -531,14 +561,41 @@ Deno.serve(async (req) => {
     const body = req.method === "POST" ? await req.json().catch(() => ({})) : {};
     const mode = String(body?.mode || (Array.isArray(body?.stock_ids) ? "manual" : "queue"));
     const explicit: string[] = Array.isArray(body?.stock_ids) ? body.stock_ids : [];
-    const batch = Math.min(Math.max(Number(body?.batch) || 8, 1), 20);
     const rawDate = String(body?.date || taipeiTodayISO());
     const tradeDate = rollBackToWeekday(rawDate);
-    const lookback = Math.min(Math.max(Number(body?.lookback) || 5, 1), 7);
     const offHours = String(body?.window || "") === "off_hours";
 
     const supa = createClient(SUPABASE_URL, SERVICE_ROLE_KEY, { auth: { persistSession: false } });
     const { cfg, version: configVersion } = await loadConfig(supa);
+
+    // 動態預設：backfill 模式吃 cfg.backfill；其他模式維持既有硬預設但仍受 cfg 上限保護
+    const isBackfill = mode === "backfill";
+    const defaultBatch = isBackfill ? cfg.backfill.batch : 8;
+    const defaultLookback = isBackfill ? cfg.backfill.lookback : 5;
+    const batchMax = Math.max(1, cfg.backfill.batch_max);
+    const lookbackMax = Math.max(1, cfg.backfill.lookback_max);
+    const batch = Math.min(Math.max(Number(body?.batch) || defaultBatch, 1), batchMax);
+    const lookback = Math.min(Math.max(Number(body?.lookback) || defaultLookback, 1), lookbackMax);
+
+    // 高頻週期上限：僅對 backfill 模式生效；0 = 不限
+    if (isBackfill && cfg.backfill.max_runs_per_hour > 0) {
+      const sinceIso = new Date(Date.now() - 3600_000).toISOString();
+      const { count: recentRuns } = await supa
+        .from("system_jobs_log")
+        .select("id", { count: "exact", head: true })
+        .eq("job_name", "tw-bsr-backfill")
+        .gte("ran_at", sinceIso);
+      if ((recentRuns || 0) >= cfg.backfill.max_runs_per_hour) {
+        return jsonResponse({
+          skipped: "rate_limited",
+          reason: "high_frequency_cap_reached",
+          window: "1h",
+          runs_in_window: recentRuns,
+          max_runs_per_hour: cfg.backfill.max_runs_per_hour,
+          config_version: configVersion,
+        });
+      }
+    }
 
     // ---- AUDIT MODE：唯讀，不 fetch、不寫、不搶 lock ----
     if (mode === "audit") {
