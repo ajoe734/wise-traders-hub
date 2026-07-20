@@ -287,11 +287,13 @@ export default function ChipsSection({ WB, stockCode }: { WB: any; stockCode: st
             <div>
               失敗原因：
               {data.bsr_last_failure.reason === 'captcha_retry_exhausted'
-                ? 'TWSE 驗證碼多次辨識失敗，背景任務會自動加強預處理後重試'
+                ? '舊 TWSE 驗證碼路徑失敗（已停用），已改由 FinMind 官方 API 抓取'
+                : data.bsr_last_failure.reason === 'finmind_error'
+                ? 'FinMind API 呼叫失敗（rate limit 或暫時性錯誤），下輪自動重試'
                 : data.bsr_last_failure.reason === 'http_block'
-                ? 'TWSE 暫時封鎖請求'
+                ? '上游暫時封鎖請求'
                 : data.bsr_last_failure.reason === 'empty_rows'
-                ? '當日無成交或 TWSE 回空'
+                ? '當日無成交或上游回空'
                 : data.bsr_last_failure.reason}
               {typeof data.bsr_last_failure.consecutive_failures === 'number' && data.bsr_last_failure.consecutive_failures > 1
                 ? `（已連續失敗 ${data.bsr_last_failure.consecutive_failures} 次）`
@@ -332,7 +334,7 @@ export default function ChipsSection({ WB, stockCode }: { WB: any; stockCode: st
           <div data-testid="chips-bsr-missing" style={{ fontSize: 12, color: WB.inkMute, lineHeight: 1.6 }}>
             — 分點資料同步中
             <div style={{ fontSize: 10, color: WB.inkMute }}>
-              （TWSE 分點需通過驗證碼，背景任務會在交易日 18:15 起分批抓取並自動重試；冷門代號可能延後或當日無成交）
+              （分點資料由 FinMind 官方 API 提供，背景任務每日交易時段每 15 分鐘同步一次；冷門代號或首次同步可能延後）
             </div>
           </div>
         )}
@@ -344,7 +346,7 @@ export default function ChipsSection({ WB, stockCode }: { WB: any; stockCode: st
       </div>
 
       <div style={{ marginTop: 10, fontSize: 10, color: WB.inkMute, letterSpacing: '0.06em' }}>
-        資料來源：臺灣證券交易所（TWSE）
+        資料來源：FinMind（分點）· 臺灣證券交易所 TWSE（三大法人）
       </div>
     </section>
   );
