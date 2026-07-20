@@ -496,8 +496,11 @@ async function logAttempt(supa: any, p: {
   fallbackAsOfDate?: string | null;
   nextRetryAt?: string | null;
   nextRetrySource?: string | null;
+  errorClass?: string | null;
 }) {
   try {
+    const errorClass = p.errorClass
+      ?? (p.outcome === "success" ? null : classifyBsrError(p.error || p.outcome));
     await supa.from("tw_bsr_attempt_logs").insert({
       stock_id: p.stockId,
       trade_date: p.tradeDate,
@@ -513,6 +516,7 @@ async function logAttempt(supa: any, p: {
       config_version: p.configVersion || null,
       http_status: deriveHttpStatus(p.outcome, p.error),
       error: p.error || null,
+      error_class: errorClass,
       fallback_used: !!p.fallbackUsed,
       fallback_as_of_date: p.fallbackAsOfDate || null,
       next_retry_at: p.nextRetryAt || null,
