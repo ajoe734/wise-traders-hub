@@ -1,123 +1,50 @@
+## 目標
+使用者看到「網路異常／尚未同步」的根因有兩層，一併修：
 
-# 持倉抽屜籌碼面規劃
+1. **`tw-chips-detail` 根本沒部署**：`supabase/config.toml` 沒登記 `tw-chips-detail`、`tw-institutional-daily-sync`、`tw-bsr-daily-sync` 三支函式；前端 fetch 直接 `Failed to fetch`。
+2. **資料表全空**（`tw_institutional_daily` 0 列、`tw_bsr_daily` 0 列）：同步從未成功跑過，且同步器只認「今天」，遇到假日／夜間／盤前就抓空、回 `no_data` 收工，不會回補前一交易日。使用者要求：**「沒有最新就抓前一天最新的」**。
 
-## 一、使用者價值（先想清楚客戶要什麼）
+## 修改範圍
 
-持有一檔台股時，散戶最想快速判斷三件事：
-1. **今天誰在買／賣我這檔？**（三大法人方向與力道）
-2. **這波是誰在吃貨／出貨？**（分點主力集中度、關鍵券商動向）
-3. **這股資金流是延續還是反轉？**（5/20/60 日累計趨勢）
+### A. 註冊 & 部署三支函式
+- `supabase/config.toml`：新增
+  ```
+  [functions.tw-chips-detail]         verify_jwt = true
+  [functions.tw-institutional-daily-sync] verify_jwt = false
+  [functions.tw-bsr-daily-sync]           verify_jwt = false
+  ```
+  （後兩支給 pg_cron 呼叫，走 service role header，不驗 JWT。）
 
-抽屜是「決策書」，所以籌碼區塊必須在 3 秒內給出**方向 + 力道 + 集中度**三個訊號，不能是原始表格。
+### B. 同步器加入「回溯最近 N 個交易日」語意
+`tw-institutional-daily-sync/index.ts`：
+- 新增 `lookback`（預設 7）參數；當請求日 TWSE 回 `no_data` 或 `stat != OK`，`date = date - 1`，最多回溯 `lookback` 天，直到抓到資料或用盡。
+- 週六日直接跳過（TWSE 不開盤，省 request）。
+- 回傳 `{ requested_date, resolved_date, inserted, attempts }`。
 
-## 二、資料範圍與資料源
+`tw-bsr-daily-sync/index.ts`：同樣加 `lookback`（預設 5，BSR 較慢），逐日回退 + 週末跳過。
 
-| 資料 | 來源 | 免費 | 更新時間 |
-|---|---|---|---|
-| 三大法人（外資／投信／自營） | TWSE `T86`（已有 `checkup-institutional`） | ✅ | T+0 收盤後 ~17:30 |
-| 個股分點買賣超（BSR） | `bsr.twse.com.tw/bshtm/bsMenu.aspx` + 驗證碼 OCR | ✅ | T+0 收盤後 ~21:00 |
-| 歷史累計 5/20/60 日 | 自建快照表（每日 cron 落地） | ✅ | 每日一次 |
+### C. `tw-chips-detail` 明確標示資料日
+- 現有查詢已用 `order trade_date desc limit 65`，自然吃到「最新可得」那天，這部分無需改。
+- 但要把 `as_of` 的語意講清楚回前端：新增 `as_of_lag_days`（今日 vs 最新一筆 trade_date 的日曆差），前端可決定要不要提示「顯示前 X 個交易日資料」。
+- 完全沒資料時，`as_of = null` 保留；前端已有「尚未同步」文案。
 
-美股（`asset_class ≠ tw`）整個區塊不渲染。
+### D. 前端 `ChipsSection` 降級文案調整
+- 當 `data.as_of` 存在且 `as_of_lag_days ≥ 1`：在標題右側顯示 `AS OF YYYY/MM/DD（前 N 個交易日）`，不再一律叫「尚未同步」。
+- 當 `as_of = null` 才維持現在的空狀態文案。
+- 錯誤橫幅維持既有邏輯，但把 `Failed to fetch` 分類 reason 從「網路連線失敗」細分：若 function 4xx/5xx 顯示「服務尚未就緒」，避免誤導使用者是自己網路壞掉。
 
-## 三、後端架構
+### E. 首次資料回補
+- 部署後手動打一次 `tw-institutional-daily-sync?lookback=7`、`tw-bsr-daily-sync?lookback=5`，把最近一個交易日的資料塞進來，讓使用者立刻看到內容。
+- pg_cron 排程沿用（17:45 / 18:15），但 cron body 帶 `lookback=3`，允許前一天補抓。
 
-### 1. 資料表（新增 3 張）
+### F. E2E / 驗證
+- `e2e/chips-section.spec.ts` 新增 case：mock `as_of_lag_days=2`，assert 標題顯示「AS OF … (前 2 個交易日)」。
+- Deno smoke：對兩支 sync 用假日日期呼叫，assert 回傳 `resolved_date` 為前一交易日。
 
-```text
-tw_institutional_daily         每日全市場三大法人（T86 落地）
-  stock_id, trade_date, foreign_net, trust_net, dealer_net, total_net
-  PK (stock_id, trade_date)
+## 不動的東西
+- DB schema、rollup 表結構、視覺回歸 baseline。
+- BSR OCR pipeline 本體邏輯（只在外層加日期回退迴圈）。
 
-tw_bsr_daily                   每日個股分點買賣超
-  stock_id, trade_date, broker_id, broker_name, buy_shares, sell_shares, net_shares, avg_price
-  PK (stock_id, trade_date, broker_id)
-
-tw_chips_rollup                預先算好的 5/20/60 日累計快照（查詢加速）
-  stock_id, as_of_date, window_days, foreign_net, trust_net, dealer_net,
-  top_buy_brokers jsonb, top_sell_brokers jsonb, concentration_ratio
-  PK (stock_id, as_of_date, window_days)
-```
-
-RLS：三張表全部 `authenticated SELECT`；只有 service_role 可寫。
-
-### 2. Edge Functions（新增 4 支 + 復用 1 支）
-
-- `tw-bsr-fetch`：抓 BSR 網頁 → 破解驗證碼 → 解析表格 → upsert 到 `tw_bsr_daily`。單檔股票單次呼叫，可指定 `stock_id` 與 `date`。
-- `tw-institutional-daily-sync`：全市場 T86 落地到 `tw_institutional_daily`（復用現有 `checkup-institutional` 邏輯，加上寫入 DB）。
-- `tw-chips-rollup-cron`：每日 22:00 跑，重算 5/20/60 日 rollup、找出前 5 買方券商、前 5 賣方券商、集中度。
-- `tw-chips-detail`：**前端唯一查詢入口**，輸入 `stock_id` 回傳整合好的籌碼摘要（1/5/20/60 日 + top brokers + 三大法人趨勢）。有 5 分鐘記憶體快取。
-- `tw-bsr-backfill`：管理員手動觸發，補抓歷史指定區間。
-
-### 3. 驗證碼 OCR 策略
-
-BSR 頁面的驗證碼是 5 碼英數字扭曲圖：
-- **首選**：Deno 環境用 `wasm-tesseract`（純 wasm，無外部依賴），成功率 ~70%
-- **失敗自動重試**：最多 3 次不同 session（重抓驗證碼）
-- **仍失敗**：寫入 `tw_bsr_fetch_failures` 表，`tw-chips-rollup-cron` 隔天早上再補
-- **監控**：`data_source_refresh_logs` 記錄成功率，低於 60% 觸發 `system_alerts`
-
-### 4. 排程（`pg_cron`）
-
-- 17:45 每交易日：`tw-institutional-daily-sync`
-- 21:00 每交易日：對「今日至少一位使用者持倉的台股」跑 `tw-bsr-fetch`（避免全市場 1800 檔浪費配額，只跑活躍持倉集合，約 100~300 檔）
-- 22:00 每交易日：`tw-chips-rollup-cron`
-- 週末不跑
-
-## 四、前端 UI（抽屜內）
-
-在 `HoldingsDetailPanel.tsx` 「§4.5 價格軸」與「§4.8 決策履歷」之間插入新區塊 **§4.6 籌碼面**（僅 `asset_class === 'tw'` 渲染）：
-
-```text
-────────────── 籌碼面 ──────────────
-
-三大法人      1日      5日      20日     60日
-外資         +2,340   +8,120   +15.2萬   -3.1萬
-投信         +150     +820     -1,240    +2,410
-自營商       -80      -320     -450      +190
-────────────────────────────────
-關鍵分點（近 5 日）
-買超前 3   富邦 · 台北      +4,120 張
-           凱基 · 松江      +2,880 張
-           元大 · 敦南      +1,540 張
-賣超前 3   摩根大通 · 台北  -3,200 張
-           美林 · 台北      -1,980 張
-           群益 · 民生      -1,120 張
-集中度：買超前 15 大占 68%   ●●●●●○○ 高
-```
-
-視覺規範：
-- 遵守 [Kore-eda minimal] 與 [Holdings PnL 憲法]：紅=買超（正）/綠=賣超（負，台灣慣例）
-- 數字使用 `Number.formatChinese`（張 / 萬張）
-- 集中度條用 5 格點狀圖，>70% 標「高（籌碼集中，跟隨風險升高）」
-- 資料 `staleAt > 24h` 或缺漏顯示 `— 資料尚未更新`，不顯示 loading spinner 干擾
-- 手機 <560px：三大法人折成 2 欄卡片、分點只顯示前 2
-
-### 前端資料層
-- 新 hook：`useTwChipsDetail(stock_id, enabled)`，內部呼叫 `tw-chips-detail`
-- `useExpertHoldingsBundle` 不動；籌碼是抽屜私有查詢，避免拖慢主表
-- SWR 5 分鐘 stale-while-revalidate
-
-## 五、實作順序（分 3 個 PR）
-
-**PR-1（骨架）**：3 張 DB 表 + `tw-institutional-daily-sync` + 抽屜三大法人 UI（先不做 BSR）
-**PR-2（BSR）**：`tw-bsr-fetch` + OCR + `tw-chips-rollup-cron` + 抽屜分點 UI
-**PR-3（強化）**：手動 backfill 面板（`/company/tw-chips-monitor`）+ 監控告警 + E2E 測試（三大法人渲染、BSR 缺漏 fallback、asset_class 非 tw 不渲染、手機斷點）
-
-## 六、風險與底線
-
-- **BSR OCR 失敗**：允許最多 3 天資料延遲；UI 顯示 `— 待補` 不擋整個抽屜
-- **TWSE 限流**：BSR 每次抓帶 3-5 秒延遲、失敗指數退避，只跑活躍持倉集合
-- **合規**：TWSE 公開資料轉載需標註「資料來源：臺灣證券交易所」→ 抽屜區塊底部小字加註
-- **停止條件**：連續 3 日 OCR 成功率 <50% 觸發告警，管理員可從監控面板一鍵切換到「只顯示三大法人」降級模式
-
-## 七、E2E 覆蓋（依「不准偷懶」原則窮舉）
-
-1. 台股抽屜：三大法人 4 種時間軸都渲染、無 `NaN`／`undefined`
-2. 台股抽屜：BSR 前 3 買／前 3 賣、集中度條與百分比
-3. 台股抽屜：BSR 缺漏顯示 `— 待補`、不影響其他區塊
-4. 美股抽屜：籌碼區塊完全不出現（DOM 不存在）
-5. RWD：560/390/380px 三斷點不溢出（沿用現有 helper）
-6. Edge function：`tw-bsr-fetch` OCR 失敗 3 次寫入 failures 表、`tw-chips-rollup-cron` 冪等
-7. RLS：非登入使用者無法讀取三張表；service_role 可寫
-8. Cron：週末不執行、`data_source_refresh_logs` 有完整紀錄
+## 技術細節（給工程確認用）
+- 「交易日」判定：目前無 `market_calendar` 表；先用「週一到週五 + 排除同步器已知回傳 `no_data` 的日」啟發式。國定假日仍會空跑一次然後 `date--`，可接受（每次多 1 個 request，`lookback ≤ 7` 上限 7 次）。
+- 前端 `useTwChipsDetail` 型別新增 `as_of_lag_days?: number`；不破壞既有欄位。
