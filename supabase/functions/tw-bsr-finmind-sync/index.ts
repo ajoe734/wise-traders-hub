@@ -363,6 +363,30 @@ async function runStats() {
       max_ms: arr[arr.length - 1],
     };
   }
+
+  // Reservation 監控（in-flight / 即將到期 / 過期未結算）
+  const { data: resStats } = await supa.rpc('bsr_reservation_stats', { _api: 'finmind' });
+  const resRow = Array.isArray(resStats) ? resStats[0] : resStats;
+
+  // P1 pending 等候時間（最舊未完成 P1 job 的年齡，秒）
+  const { data: oldestP1 } = await supa.from('tw_bsr_sync_queue')
+    .select('enqueued_at')
+    .eq('priority', 1).eq('status', 'pending')
+    .order('enqueued_at', { ascending: true }).limit(1);
+  const p1OldestAgeSec = oldestP1?.[0]
+    ? Math.round((Date.now() - new Date(oldestP1[0].enqueued_at).getTime()) / 1000)
+    : 0;
+
+  // 近 1 小時 429 是否連續（連續分鐘 bucket 皆 >0）
+  const recent = (usage || [])
+    .filter((r) => new Date(r.bucket_start).getTime() >= Date.now() - 60 * 60_000)
+    .sort((a, b) => (a.bucket_start < b.bucket_start ? 1 : -1));
+  let r429Streak = 0, r429MaxStreak = 0;
+  for (const r of recent) {
+    if ((r.rate_limited_count || 0) > 0) { r429Streak++; r429MaxStreak = Math.max(r429MaxStreak, r429Streak); }
+    else r429Streak = 0;
+  }
+
   return {
     ok: true,
     generated_at: new Date().toISOString(),
@@ -375,8 +399,19 @@ async function runStats() {
     },
     hourly_last_24h: hourly,
     queue_latency_ms: latSummary,
+    reservations: {
+      in_flight: Number(resRow?.in_flight ?? 0),
+      expiring_soon: Number(resRow?.expiring_soon ?? 0),
+      expired_unsettled: Number(resRow?.expired_unsettled ?? 0),
+      settled_last_hour: Number(resRow?.settled_last_hour ?? 0),
+      rate_limited_last_hour: Number(resRow?.rate_limited_last_hour ?? 0),
+      oldest_in_flight_age_seconds: Number(resRow?.oldest_in_flight_age_seconds ?? 0),
+    },
+    p1_oldest_pending_age_seconds: p1OldestAgeSec,
+    rate_limited_streak_minutes: r429MaxStreak,
   };
 }
+
 
 // ============ HTTP entry ============
 Deno.serve(async (req) => {
