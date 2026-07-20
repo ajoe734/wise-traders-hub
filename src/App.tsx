@@ -139,6 +139,7 @@ const CompanyAuditLogs = lazy(() => import("./pages/company/AuditLogs"));
 const CompanyAccountMerges = lazy(() => import("./pages/company/AccountMerges"));
 const CompanySystemJobs = lazy(() => import("./pages/company/SystemJobs"));
 const CompanyFunctionLogs = lazy(() => import("./pages/company/FunctionLogs"));
+const CompanyBsrFailures = lazy(() => import("./pages/company/BsrFailureDashboard"));
 const CompanyKnowledgeBase = lazy(() => import("./pages/company/KnowledgeBase"));
 const CompanyKnowledgeAudit = lazy(() => import("./pages/company/knowledge-base/KnowledgeAudit"));
 const CompanyKnowledgeScheduler = lazy(() => import("./pages/company/knowledge-base/KnowledgeScheduler"));
@@ -370,6 +371,7 @@ const AppShell = () => (
             <Route path="/company/stream-health/trace" element={<ProtectedRoute requiredRole="company_admin"><CompanyStreamHealthTrace /></ProtectedRoute>} />
             <Route path="/company/traffic" element={<ProtectedRoute requiredRole="company_admin"><CompanyTraffic /></ProtectedRoute>} />
             <Route path="/company/ops-health" element={<ProtectedRoute requiredRole="company_admin"><CompanyOpsHealth /></ProtectedRoute>} />
+            <Route path="/company/bsr-failures" element={<ProtectedRoute requiredRole="company_admin"><CompanyBsrFailures /></ProtectedRoute>} />
             <Route path="/company/paywall-analytics" element={<ProtectedRoute requiredRole="company_admin"><CompanyPaywallAnalytics /></ProtectedRoute>} />
             <Route path="/company/funnel-analytics" element={<ProtectedRoute requiredRole="company_admin"><CompanyFunnelAnalytics /></ProtectedRoute>} />
             <Route path="/company/conversions" element={<ProtectedRoute requiredRole="company_admin"><CompanyConversionCenter /></ProtectedRoute>} />

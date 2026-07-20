@@ -1,0 +1,234 @@
+// deno-lint-ignore-file no-explicit-any
+// tw-bsr-failure-dashboard
+// 後台 BSR OCR 失敗看板：
+//   - globalDaily: 逐日抓取嘗試、成功、captcha/http_block/empty 次數
+//   - perStock:    逐檔的每日失敗細節與 fallback 對齊日 (tw_chips_rollup.as_of_date)
+//   - topOffenders: 近 N 日 captcha 率最高的檔
+// 僅 company_admin 可存取。
+import { corsHeaders } from "../_shared/cors.ts";
+
+const SUPABASE_URL = Deno.env.get("SUPABASE_URL") || "";
+const SERVICE_ROLE_KEY = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY") || "";
+
+Deno.serve(async (req) => {
+  if (req.method === "OPTIONS") return new Response("ok", { headers: corsHeaders });
+  if (req.method !== "GET") return json({ error: "METHOD_NOT_ALLOWED" }, 405);
+
+  // --- auth ---
+  const jwt = (req.headers.get("Authorization") || "").replace(/^Bearer\s+/i, "").trim();
+  if (!jwt) return json({ error: "AUTH_REQUIRED" }, 401);
+
+  let callerId = "";
+  try {
+    const ur = await fetch(`${SUPABASE_URL}/auth/v1/user`, {
+      headers: { Authorization: `Bearer ${jwt}`, apikey: SERVICE_ROLE_KEY },
+    });
+    if (!ur.ok) return json({ error: "AUTH_FAILED" }, 401);
+    callerId = (await ur.json())?.id || "";
+  } catch {
+    return json({ error: "AUTH_FAILED" }, 401);
+  }
+  if (!callerId) return json({ error: "AUTH_FAILED" }, 401);
+
+  const roleRes = await fetch(`${SUPABASE_URL}/rest/v1/rpc/has_role`, {
+    method: "POST",
+    headers: srHeaders(),
+    body: JSON.stringify({ _user_id: callerId, _role: "company_admin" }),
+  });
+  if (!roleRes.ok) return json({ error: "ROLE_CHECK_FAILED" }, 500);
+  if ((await roleRes.json()) !== true) return json({ error: "FORBIDDEN" }, 403);
+
+  // --- params ---
+  const url = new URL(req.url);
+  const today = new Date();
+  const toStr = (url.searchParams.get("to") || today.toISOString().slice(0, 10));
+  const days = clamp(parseInt(url.searchParams.get("days") || "14", 10), 1, 90);
+  const from = new Date(toStr + "T00:00:00Z");
+  from.setUTCDate(from.getUTCDate() - (days - 1));
+  const fromStr = from.toISOString().slice(0, 10);
+  const stockFilter = (url.searchParams.get("stock_id") || "").trim();
+  const reasonFilter = (url.searchParams.get("reason") || "").trim();
+
+  // --- fetch failures ---
+  let failuresUrl =
+    `${SUPABASE_URL}/rest/v1/tw_bsr_fetch_failures?select=stock_id,trade_date,reason,attempts,last_error,resolved_at,consecutive_failures,next_retry_at,backoff_seconds,updated_at` +
+    `&trade_date=gte.${fromStr}&trade_date=lte.${toStr}` +
+    `&order=trade_date.desc&limit=5000`;
+  if (stockFilter) failuresUrl += `&stock_id=eq.${encodeURIComponent(stockFilter)}`;
+  if (reasonFilter) failuresUrl += `&reason=eq.${encodeURIComponent(reasonFilter)}`;
+
+  const failuresRes = await fetch(failuresUrl, { headers: srHeaders() });
+  if (!failuresRes.ok) return json({ error: "FAILURES_QUERY_FAILED" }, 500);
+  const failures: any[] = await failuresRes.json();
+
+  // --- fetch metrics (global daily) ---
+  const metricsUrl =
+    `${SUPABASE_URL}/rest/v1/tw_bsr_sync_metrics?select=bucket_at,total,success,ocr_fail,http_block,empty,avg_latency_ms` +
+    `&bucket_at=gte.${fromStr}T00:00:00Z&bucket_at=lte.${toStr}T23:59:59Z&order=bucket_at.desc&limit=5000`;
+  const metricsRes = await fetch(metricsUrl, { headers: srHeaders() });
+  const metrics: any[] = metricsRes.ok ? await metricsRes.json() : [];
+
+  // --- rollup for fallback as_of_date per stock ---
+  const stockIds = Array.from(new Set(failures.map((f) => f.stock_id))).filter(Boolean);
+  let rollupMap: Record<string, { as_of_date: string; bsr_available: boolean }> = {};
+  if (stockIds.length) {
+    const inList = stockIds.map((s) => encodeURIComponent(s)).join(",");
+    const rollupUrl =
+      `${SUPABASE_URL}/rest/v1/tw_chips_rollup?select=stock_id,as_of_date,bsr_available` +
+      `&stock_id=in.(${inList})&window_days=eq.20&order=as_of_date.desc&limit=5000`;
+    const rr = await fetch(rollupUrl, { headers: srHeaders() });
+    if (rr.ok) {
+      const rows: any[] = await rr.json();
+      for (const r of rows) {
+        if (!rollupMap[r.stock_id]) rollupMap[r.stock_id] = { as_of_date: r.as_of_date, bsr_available: !!r.bsr_available };
+      }
+    }
+  }
+
+  // --- fetch stock names for display ---
+  let nameMap: Record<string, string> = {};
+  if (stockIds.length) {
+    const inList = stockIds.map((s) => encodeURIComponent(s)).join(",");
+    const nr = await fetch(
+      `${SUPABASE_URL}/rest/v1/stock_names?select=stock_id,name&stock_id=in.(${inList})&limit=5000`,
+      { headers: srHeaders() },
+    );
+    if (nr.ok) {
+      const rows: any[] = await nr.json();
+      for (const r of rows) nameMap[r.stock_id] = r.name;
+    }
+  }
+
+  // --- aggregate globalDaily from metrics ---
+  const globalByDate: Record<string, { attempts: number; success: number; ocr_fail: number; http_block: number; empty: number }> = {};
+  for (const m of metrics) {
+    const d = String(m.bucket_at).slice(0, 10);
+    const b = (globalByDate[d] ||= { attempts: 0, success: 0, ocr_fail: 0, http_block: 0, empty: 0 });
+    b.attempts += Number(m.total || 0);
+    b.success += Number(m.success || 0);
+    b.ocr_fail += Number(m.ocr_fail || 0);
+    b.http_block += Number(m.http_block || 0);
+    b.empty += Number(m.empty || 0);
+  }
+  const globalDaily = Object.entries(globalByDate)
+    .map(([date, v]) => ({
+      date,
+      ...v,
+      captcha_rate: v.attempts > 0 ? +(v.ocr_fail / v.attempts).toFixed(4) : 0,
+    }))
+    .sort((a, b) => (a.date < b.date ? 1 : -1));
+
+  // --- per-stock aggregation ---
+  type PS = {
+    stock_id: string;
+    name: string | null;
+    total_failures: number;
+    captcha_retry_exhausted: number;
+    other_failures: number;
+    latest_target_date: string | null;
+    latest_reason: string | null;
+    unresolved: number;
+    consecutive_failures: number;
+    next_retry_at: string | null;
+    fallback_as_of_date: string | null;
+    fallback_lag_days: number | null;
+    dailyBreakdown: { date: string; reason: string; attempts: number; resolved: boolean }[];
+  };
+  const psMap: Record<string, PS> = {};
+  for (const f of failures) {
+    const p = (psMap[f.stock_id] ||= {
+      stock_id: f.stock_id,
+      name: nameMap[f.stock_id] || null,
+      total_failures: 0,
+      captcha_retry_exhausted: 0,
+      other_failures: 0,
+      latest_target_date: null,
+      latest_reason: null,
+      unresolved: 0,
+      consecutive_failures: 0,
+      next_retry_at: null,
+      fallback_as_of_date: null,
+      fallback_lag_days: null,
+      dailyBreakdown: [],
+    });
+    p.total_failures += 1;
+    if (f.reason === "captcha_retry_exhausted") p.captcha_retry_exhausted += 1;
+    else p.other_failures += 1;
+    if (!f.resolved_at) p.unresolved += 1;
+    if (!p.latest_target_date || String(f.trade_date) > p.latest_target_date) {
+      p.latest_target_date = String(f.trade_date);
+      p.latest_reason = f.reason;
+      p.consecutive_failures = Number(f.consecutive_failures || 0);
+      p.next_retry_at = f.next_retry_at || null;
+    }
+    p.dailyBreakdown.push({
+      date: String(f.trade_date),
+      reason: f.reason,
+      attempts: Number(f.attempts || 0),
+      resolved: !!f.resolved_at,
+    });
+  }
+  // attach rollup fallback
+  const toDate = new Date(toStr + "T00:00:00Z");
+  for (const p of Object.values(psMap)) {
+    const rl = rollupMap[p.stock_id];
+    if (rl?.as_of_date) {
+      p.fallback_as_of_date = rl.as_of_date;
+      const d = new Date(rl.as_of_date + "T00:00:00Z");
+      p.fallback_lag_days = Math.max(0, Math.round((toDate.getTime() - d.getTime()) / 86400000));
+    }
+    p.dailyBreakdown.sort((a, b) => (a.date < b.date ? 1 : -1));
+  }
+  const perStock = Object.values(psMap).sort((a, b) => b.captcha_retry_exhausted - a.captcha_retry_exhausted || b.total_failures - a.total_failures);
+
+  const topOffenders = perStock
+    .filter((p) => p.total_failures >= 2)
+    .slice(0, 20)
+    .map((p) => ({
+      stock_id: p.stock_id,
+      name: p.name,
+      captcha_retry_exhausted: p.captcha_retry_exhausted,
+      total_failures: p.total_failures,
+      captcha_rate: p.total_failures > 0 ? +(p.captcha_retry_exhausted / p.total_failures).toFixed(4) : 0,
+      consecutive_failures: p.consecutive_failures,
+      next_retry_at: p.next_retry_at,
+      fallback_as_of_date: p.fallback_as_of_date,
+      fallback_lag_days: p.fallback_lag_days,
+    }));
+
+  return json({
+    range: { from: fromStr, to: toStr, days },
+    filters: { stock_id: stockFilter || null, reason: reasonFilter || null },
+    globalDaily,
+    perStock,
+    topOffenders,
+    totals: {
+      total_failures: failures.length,
+      captcha_retry_exhausted: failures.filter((f) => f.reason === "captcha_retry_exhausted").length,
+      unresolved: failures.filter((f) => !f.resolved_at).length,
+      affected_stocks: perStock.length,
+      fallback_used: perStock.filter((p) => p.fallback_as_of_date).length,
+    },
+    generated_at: new Date().toISOString(),
+  });
+});
+
+function json(body: any, status = 200) {
+  return new Response(JSON.stringify(body), {
+    status,
+    headers: { ...corsHeaders, "Content-Type": "application/json" },
+  });
+}
+
+function srHeaders() {
+  return {
+    "Content-Type": "application/json",
+    apikey: SERVICE_ROLE_KEY,
+    Authorization: `Bearer ${SERVICE_ROLE_KEY}`,
+  };
+}
+
+function clamp(n: number, min: number, max: number) {
+  if (!Number.isFinite(n)) return min;
+  return Math.min(Math.max(n, min), max);
+}
