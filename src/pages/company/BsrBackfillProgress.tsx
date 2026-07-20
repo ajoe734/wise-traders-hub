@@ -269,8 +269,9 @@ export default function BsrBackfillProgressPage() {
                             <PerStockDetail perStock={d.per_stock || []} />
                           </div>
                         </div>
-
+                      )}
                     </div>
+
                   );
                 })}
               </div>
