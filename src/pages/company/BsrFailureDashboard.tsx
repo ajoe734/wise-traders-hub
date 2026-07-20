@@ -95,6 +95,7 @@ export default function BsrFailureDashboardPage() {
   const [stockInput, setStockInput] = useState('');
   const [reason, setReason] = useState('all');
   const [expanded, setExpanded] = useState<string | null>(null);
+  const [auditStock, setAuditStock] = useState<string | null>(null);
 
   const { data, isLoading, error, refetch, isFetching } = useQuery<Dashboard>({
     queryKey: ['bsr-failures', days, stockFilter, reason],
