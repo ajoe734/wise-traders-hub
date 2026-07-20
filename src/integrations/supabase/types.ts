@@ -3913,6 +3913,63 @@ export type Database = {
         }
         Relationships: []
       }
+      tw_bsr_sync_config: {
+        Row: {
+          config: Json
+          key: string
+          note: string | null
+          updated_at: string
+          updated_by: string | null
+          version: number
+        }
+        Insert: {
+          config: Json
+          key: string
+          note?: string | null
+          updated_at?: string
+          updated_by?: string | null
+          version?: number
+        }
+        Update: {
+          config?: Json
+          key?: string
+          note?: string | null
+          updated_at?: string
+          updated_by?: string | null
+          version?: number
+        }
+        Relationships: []
+      }
+      tw_bsr_sync_config_history: {
+        Row: {
+          changed_at: string
+          changed_by: string | null
+          config: Json
+          id: string
+          key: string
+          note: string | null
+          version: number
+        }
+        Insert: {
+          changed_at?: string
+          changed_by?: string | null
+          config: Json
+          id?: string
+          key: string
+          note?: string | null
+          version: number
+        }
+        Update: {
+          changed_at?: string
+          changed_by?: string | null
+          config?: Json
+          id?: string
+          key?: string
+          note?: string | null
+          version?: number
+        }
+        Relationships: []
+      }
       tw_bsr_sync_locks: {
         Row: {
           acquired_at: string

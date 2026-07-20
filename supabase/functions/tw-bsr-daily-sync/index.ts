@@ -28,27 +28,86 @@ const SUPABASE_URL = Deno.env.get("SUPABASE_URL")!;
 const SERVICE_ROLE_KEY = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!;
 const BSR_HOST = "https://bsr.twse.com.tw";
 const BSR_MENU = `${BSR_HOST}/bshtm/bsMenu.aspx`;
-const MAX_OCR_RETRY = 3;
 const LOCK_KEY = "tw-bsr-daily-sync";
-const LOCK_TTL_SEC = 90;
-const COOKIE_JAR_REUSE = 6; // 一個 cookie jar 最多沿用幾檔股票
-const BACKOFF_STEPS = [60, 300, 1800, 7200, 21600]; // s
-const MAX_CONSECUTIVE_BEFORE_PAUSE_24H = 4;
 
-const UA_POOL = [
-  "Mozilla/5.0 (Macintosh; Intel Mac OS X 12_6) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/126.0.0.0 Safari/537.36",
-  "Mozilla/5.0 (Macintosh; Intel Mac OS X 13_5) AppleWebKit/605.1.15 (KHTML, like Gecko) Version/17.0 Safari/605.1.15",
-  "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/125.0.0.0 Safari/537.36",
-  "Mozilla/5.0 (Windows NT 10.0; Win64; x64; rv:127.0) Gecko/20100101 Firefox/127.0",
-  "Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/126.0.0.0 Safari/537.36",
-  "Mozilla/5.0 (Macintosh; Intel Mac OS X 14_2) AppleWebKit/605.1.15 (KHTML, like Gecko) Version/17.2 Safari/605.1.15",
-];
-const ACCEPT_LANG_POOL = ["zh-TW,zh;q=0.9,en;q=0.8", "zh-TW,zh-Hant;q=0.9,en;q=0.7", "zh-TW;q=0.9,zh;q=0.8"];
+// ---- 動態設定：tw_bsr_sync_config（key='bsr_sync'）→ 可熱調且有版本歷史 ----
+interface SyncConfig {
+  ua_pool: string[];
+  accept_lang_pool: string[];
+  max_ocr_retry: number;
+  ocr_retry_sleep_ms: [number, number];
+  per_stock_sleep_ms: [number, number];
+  backoff_steps_sec: number[];
+  max_consecutive_before_freeze: number;
+  freeze_window_ms: number;
+  cookie_jar_reuse: number;
+  lock_ttl_sec: number;
+}
 
-function randomUA(): string { return UA_POOL[Math.floor(Math.random() * UA_POOL.length)]; }
-function randomAcceptLang(): string { return ACCEPT_LANG_POOL[Math.floor(Math.random() * ACCEPT_LANG_POOL.length)]; }
+const DEFAULT_CONFIG: SyncConfig = {
+  ua_pool: [
+    "Mozilla/5.0 (Macintosh; Intel Mac OS X 12_6) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/126.0.0.0 Safari/537.36",
+    "Mozilla/5.0 (Macintosh; Intel Mac OS X 13_5) AppleWebKit/605.1.15 (KHTML, like Gecko) Version/17.0 Safari/605.1.15",
+    "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/125.0.0.0 Safari/537.36",
+    "Mozilla/5.0 (Windows NT 10.0; Win64; x64; rv:127.0) Gecko/20100101 Firefox/127.0",
+    "Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/126.0.0.0 Safari/537.36",
+    "Mozilla/5.0 (Macintosh; Intel Mac OS X 14_2) AppleWebKit/605.1.15 (KHTML, like Gecko) Version/17.2 Safari/605.1.15",
+  ],
+  accept_lang_pool: ["zh-TW,zh;q=0.9,en;q=0.8", "zh-TW,zh-Hant;q=0.9,en;q=0.7", "zh-TW;q=0.9,zh;q=0.8"],
+  max_ocr_retry: 3,
+  ocr_retry_sleep_ms: [1200, 2500],
+  per_stock_sleep_ms: [2500, 5000],
+  backoff_steps_sec: [60, 300, 1800, 7200, 21600],
+  max_consecutive_before_freeze: 4,
+  freeze_window_ms: 86400000,
+  cookie_jar_reuse: 6,
+  lock_ttl_sec: 90,
+};
+
+async function loadConfig(supa: any): Promise<{ cfg: SyncConfig; version: number | null }> {
+  try {
+    const { data } = await supa
+      .from("tw_bsr_sync_config")
+      .select("config, version")
+      .eq("key", "bsr_sync")
+      .maybeSingle();
+    if (!data?.config) return { cfg: DEFAULT_CONFIG, version: null };
+    const raw = data.config as Partial<SyncConfig>;
+    const cfg: SyncConfig = {
+      ua_pool: Array.isArray(raw.ua_pool) && raw.ua_pool.length ? raw.ua_pool : DEFAULT_CONFIG.ua_pool,
+      accept_lang_pool: Array.isArray(raw.accept_lang_pool) && raw.accept_lang_pool.length
+        ? raw.accept_lang_pool : DEFAULT_CONFIG.accept_lang_pool,
+      max_ocr_retry: Number(raw.max_ocr_retry) > 0 ? Number(raw.max_ocr_retry) : DEFAULT_CONFIG.max_ocr_retry,
+      ocr_retry_sleep_ms: normPair(raw.ocr_retry_sleep_ms, DEFAULT_CONFIG.ocr_retry_sleep_ms),
+      per_stock_sleep_ms: normPair(raw.per_stock_sleep_ms, DEFAULT_CONFIG.per_stock_sleep_ms),
+      backoff_steps_sec: Array.isArray(raw.backoff_steps_sec) && raw.backoff_steps_sec.length
+        ? raw.backoff_steps_sec.map((n) => Number(n)).filter((n) => n > 0)
+        : DEFAULT_CONFIG.backoff_steps_sec,
+      max_consecutive_before_freeze: Number(raw.max_consecutive_before_freeze) > 0
+        ? Number(raw.max_consecutive_before_freeze) : DEFAULT_CONFIG.max_consecutive_before_freeze,
+      freeze_window_ms: Number(raw.freeze_window_ms) > 0
+        ? Number(raw.freeze_window_ms) : DEFAULT_CONFIG.freeze_window_ms,
+      cookie_jar_reuse: Number(raw.cookie_jar_reuse) > 0
+        ? Number(raw.cookie_jar_reuse) : DEFAULT_CONFIG.cookie_jar_reuse,
+      lock_ttl_sec: Number(raw.lock_ttl_sec) > 0
+        ? Number(raw.lock_ttl_sec) : DEFAULT_CONFIG.lock_ttl_sec,
+    };
+    return { cfg, version: Number(data.version) || null };
+  } catch {
+    return { cfg: DEFAULT_CONFIG, version: null };
+  }
+}
+function normPair(v: any, fallback: [number, number]): [number, number] {
+  if (!Array.isArray(v) || v.length < 2) return fallback;
+  const a = Number(v[0]), b = Number(v[1]);
+  if (!Number.isFinite(a) || !Number.isFinite(b) || a < 0 || b < a) return fallback;
+  return [a, b];
+}
+
+function randomFrom<T>(arr: T[]): T { return arr[Math.floor(Math.random() * arr.length)]; }
 function sleep(ms: number) { return new Promise((r) => setTimeout(r, ms)); }
 function jitter(min: number, max: number) { return Math.floor(min + Math.random() * (max - min)); }
+function jitterPair(pair: [number, number]) { return jitter(pair[0], pair[1]); }
 
 function taipeiTodayISO(): string {
   const fmt = new Intl.DateTimeFormat("en-CA", {
@@ -133,11 +192,11 @@ interface SessionCtx {
   acceptLang: string;
   used: number;
 }
-function newSession(): SessionCtx {
-  return { jar: {}, ua: randomUA(), acceptLang: randomAcceptLang(), used: 0 };
+function newSession(cfg: SyncConfig): SessionCtx {
+  return { jar: {}, ua: randomFrom(cfg.ua_pool), acceptLang: randomFrom(cfg.accept_lang_pool), used: 0 };
 }
 
-async function fetchBsrForStock(stockId: string, ctx: SessionCtx): Promise<BsrRow[]> {
+async function fetchBsrForStock(stockId: string, ctx: SessionCtx, cfg: SyncConfig): Promise<BsrRow[]> {
   const baseHeaders = {
     "User-Agent": ctx.ua,
     "Accept-Language": ctx.acceptLang,
@@ -154,8 +213,8 @@ async function fetchBsrForStock(stockId: string, ctx: SessionCtx): Promise<BsrRo
   const captchaUrl = extractCaptchaImageUrl(menuHtml);
   if (!viewState || !eventValidation || !captchaUrl) throw new Error("menu_parse_failed");
 
-  for (let attempt = 1; attempt <= MAX_OCR_RETRY; attempt++) {
-    if (attempt > 1) await sleep(jitter(1200, 2500));
+  for (let attempt = 1; attempt <= cfg.max_ocr_retry; attempt++) {
+    if (attempt > 1) await sleep(jitterPair(cfg.ocr_retry_sleep_ms));
     const capResp = await fetch(captchaUrl, {
       headers: { ...baseHeaders, Cookie: jarToHeader(ctx.jar), Referer: BSR_MENU },
     });
@@ -218,9 +277,9 @@ function prevWeekday(isoDate: string): string {
 }
 
 // ---- 分散鎖 ----
-async function acquireLock(supa: any): Promise<boolean> {
+async function acquireLock(supa: any, cfg: SyncConfig): Promise<boolean> {
   const now = new Date();
-  const expires = new Date(now.getTime() + LOCK_TTL_SEC * 1000);
+  const expires = new Date(now.getTime() + cfg.lock_ttl_sec * 1000);
   // 先清過期
   await supa.from("tw_bsr_sync_locks").delete().lte("expires_at", now.toISOString());
   const { error } = await supa.from("tw_bsr_sync_locks").insert({
@@ -233,7 +292,7 @@ async function releaseLock(supa: any) {
 }
 
 // ---- 優先級佇列 ----
-async function buildQueue(supa: any, batch: number, offHours: boolean): Promise<string[]> {
+async function buildQueue(supa: any, batch: number, offHours: boolean, cfg: SyncConfig): Promise<string[]> {
   const nowIso = new Date().toISOString();
   const todayIso = taipeiTodayISO();
 
@@ -250,14 +309,15 @@ async function buildQueue(supa: any, batch: number, offHours: boolean): Promise<
     .gt("next_retry_at", nowIso);
   const waitingSet = new Set((waiting || []).map((r: any) => r.stock_id));
 
-  // C. 連續失敗 ≥ 4 且 24h 內失敗過 → 冷凍
+  // C. 連續失敗 ≥ cfg.max_consecutive_before_freeze 且 freeze_window_ms 內失敗過 → 冷凍
   const { data: frozen } = await supa
     .from("tw_bsr_fetch_failures")
     .select("stock_id, updated_at, consecutive_failures")
     .is("resolved_at", null)
-    .gte("consecutive_failures", MAX_CONSECUTIVE_BEFORE_PAUSE_24H)
-    .gte("updated_at", new Date(Date.now() - 86400000).toISOString());
+    .gte("consecutive_failures", cfg.max_consecutive_before_freeze)
+    .gte("updated_at", new Date(Date.now() - cfg.freeze_window_ms).toISOString());
   const frozenSet = offHours ? new Set() : new Set((frozen || []).map((r: any) => r.stock_id));
+
 
   const skip = (id: string) => doneSet.has(id) || waitingSet.has(id) || frozenSet.has(id);
 
@@ -362,6 +422,7 @@ Deno.serve(async (req) => {
     const offHours = String(body?.window || "") === "off_hours";
 
     const supa = createClient(SUPABASE_URL, SERVICE_ROLE_KEY, { auth: { persistSession: false } });
+    const { cfg, version: configVersion } = await loadConfig(supa);
 
     // ---- AUDIT MODE：唯讀，不 fetch、不寫、不搶 lock ----
     if (mode === "audit") {
@@ -469,8 +530,8 @@ Deno.serve(async (req) => {
       });
     }
 
-    const gotLock = await acquireLock(supa);
-    if (!gotLock) return jsonResponse({ skipped: "lock_held" });
+    const gotLock = await acquireLock(supa, cfg);
+    if (!gotLock) return jsonResponse({ skipped: "lock_held", config_version: configVersion });
 
     try {
       // 決定股票清單
@@ -479,17 +540,17 @@ Deno.serve(async (req) => {
         // Backfill 模式：只挑已到期的失敗，忽略 off-hours 凍結，允許較深 lookback
         stocks = await buildBackfillQueue(supa, batch);
       } else if (mode !== "manual" || stocks.length === 0) {
-        stocks = await buildQueue(supa, batch, offHours);
+        stocks = await buildQueue(supa, batch, offHours, cfg);
       } else {
         stocks = stocks.slice(0, batch);
       }
 
       const results: any[] = [];
-      let ctx = newSession();
+      let ctx = newSession(cfg);
 
       for (const stockId of stocks) {
         // cookie jar 輪替
-        if (ctx.used >= COOKIE_JAR_REUSE) ctx = newSession();
+        if (ctx.used >= cfg.cookie_jar_reuse) ctx = newSession(cfg);
         ctx.used++;
 
         const attempts: Array<{ date: string; error: string }> = [];
@@ -515,7 +576,7 @@ Deno.serve(async (req) => {
           }
 
           try {
-            const rows = await fetchBsrForStock(stockId, ctx);
+            const rows = await fetchBsrForStock(stockId, ctx, cfg);
             if (rows.length === 0) throw new Error("empty_rows");
 
             await supa.from("tw_bsr_daily").delete().eq("stock_id", stockId).eq("trade_date", cursor);
@@ -572,8 +633,8 @@ Deno.serve(async (req) => {
             .select("consecutive_failures, backoff_seconds")
             .eq("stock_id", stockId).eq("trade_date", tradeDate).maybeSingle();
           const nextConsec = (prevFail?.consecutive_failures || 0) + 1;
-          const backoffIdx = Math.min(nextConsec - 1, BACKOFF_STEPS.length - 1);
-          const backoff = BACKOFF_STEPS[backoffIdx];
+          const backoffIdx = Math.min(nextConsec - 1, cfg.backoff_steps_sec.length - 1);
+          const backoff = cfg.backoff_steps_sec[backoffIdx];
           const nextRetry = new Date(Date.now() + backoff * 1000).toISOString();
           const reason = blockBump ? "http_block"
             : ocrFailBump ? "captcha_retry_exhausted"
@@ -618,7 +679,7 @@ Deno.serve(async (req) => {
         }
 
         // 每檔之間節流
-        await sleep(jitter(2500, 5000));
+        await sleep(jitterPair(cfg.per_stock_sleep_ms));
       }
 
       return jsonResponse({
@@ -626,6 +687,7 @@ Deno.serve(async (req) => {
         processed: stocks.length,
         success: results.filter((r) => r.ok).length,
         failed: results.filter((r) => r.ok === false).length,
+        config_version: configVersion,
         results,
       });
     } finally {
