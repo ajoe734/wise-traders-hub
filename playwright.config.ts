@@ -210,6 +210,14 @@ export default defineConfig({
       testMatch: /chips-section\.spec\.ts/,
       use: { ...devices['Desktop Chrome'], viewport: { width: 1280, height: 900 } },
     },
+    {
+      // ChipsSection 行動端佈局回歸：viewport 由 spec 內 test.use 動態切換
+      // 覆蓋 320 / 360 / 375 / 390 / 393 / 430 六個常見手機寬度
+      name: 'mobile-chips-section',
+      testMatch: /chips-section-mobile\.spec\.ts/,
+      use: { ...devices['Desktop Chrome'] },
+    },
+
 
 
 
