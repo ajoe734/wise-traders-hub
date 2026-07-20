@@ -35,7 +35,7 @@ test('audit 模式回傳完整欄位並不搶 lock', async () => {
     expect(r.rollup).toHaveProperty('60');
     expect(r.failure_state).toHaveProperty('unresolved');
     expect(r.failure_state).toHaveProperty('recent');
-    expect(typeof r.aligned).toBe('bool'.replace('bool', 'boolean'));
+    expect(typeof r.aligned).toBe('boolean');
 
     // 對齊邏輯自檢
     const primary = r.rollup['5'];
