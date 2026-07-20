@@ -441,16 +441,20 @@ Deno.serve(async (req) => {
     if (mode === 'stats') return json(await runStats());
 
     if (mode === 'enqueue') {
-      const date = rollBackToWeekday(String(body?.date || taipeiToday()));
+      // 收盤前 (14:00 台北前) tier1 抓當日沒意義 → 自動回退到上一個交易日
+      const requested = String(body?.date || taipeiToday());
+      const effectiveDate = (!body?.date && !isAfterClose())
+        ? rollBackToWeekday(addDays(taipeiToday(), -1))
+        : rollBackToWeekday(requested);
       const tiers: Record<string, number> = {};
       const doTier1 = body?.tier1 !== false;
       const doTier2 = body?.tier2 !== false;
       const doTier3 = body?.tier3 === true;
       const backfillDays = Math.max(1, Math.min(30, Number(body?.backfill_days ?? 5)));
-      if (doTier1) tiers.tier1 = await enqueueTier1Holdings(date);
-      if (doTier2) tiers.tier2 = await enqueueTier2Gaps(date);
-      if (doTier3) tiers.tier3 = await enqueueTier3Backfill(date, backfillDays);
-      return json({ ok: true, mode, date, enqueued: tiers });
+      if (doTier1) tiers.tier1 = await enqueueTier1Holdings(effectiveDate);
+      if (doTier2) tiers.tier2 = await enqueueTier2Gaps(effectiveDate);
+      if (doTier3) tiers.tier3 = await enqueueTier3Backfill(effectiveDate, backfillDays);
+      return json({ ok: true, mode, date: effectiveDate, pre_close_rolled: effectiveDate !== requested, enqueued: tiers });
     }
 
     if (mode === 'worker') {
@@ -461,19 +465,25 @@ Deno.serve(async (req) => {
     }
 
     if (mode === 'manual') {
+      // 手動同步：一律入隊，priority=1（高於缺口回填，低於等於持倉），並回傳工作狀態。
+      // 不再繞過全域限流直打 FinMind。
       const date = rollBackToWeekday(String(body?.date || taipeiToday()));
       const ids: string[] = Array.isArray(body?.stock_ids)
         ? body.stock_ids.map((s: any) => String(s).trim()).filter((s: string) => /^[0-9]{4,6}$/.test(s))
         : [];
       if (ids.length === 0) return json({ ok: false, error: 'stock_ids required' }, 400);
+      const priority = Math.max(1, Math.min(3, Number(body?.priority ?? 1)));
+      const enqueued = await enqueueBatch(ids, date, priority, 'manual');
+      // 回報目前 queue 中對應工作狀態
+      const { data: jobs } = await supa.from('tw_bsr_sync_queue')
+        .select('stock_id, priority, status, attempts, next_run_at, last_error, last_success_at')
+        .in('stock_id', ids).eq('trade_date', date);
       const rl = await checkRateLimit(supa);
-      if (!rl.allowed) return json({ ok: false, error: 'rate_limit_exhausted', rate_limit: rl }, 429);
-      // 直接處理（不入 queue）
-      const results = [];
-      for (const id of ids.slice(0, Math.min(20, rl.remaining))) {
-        results.push({ stock_id: id, ...(await processStock(id, date)) });
-      }
-      return json({ ok: true, mode, date, results, rate_limit_after: await checkRateLimit(supa) });
+      return json({
+        ok: true, mode, date, requested: ids.length, enqueued,
+        rate_limit: rl, jobs: jobs ?? [],
+        note: 'manual sync 已入隊，worker 會依限流與優先級處理；GET stats mode 追蹤進度',
+      });
     }
 
     return json({ ok: false, error: `unknown mode: ${mode}` }, 400);

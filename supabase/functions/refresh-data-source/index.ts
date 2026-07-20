@@ -9,6 +9,14 @@
 //
 // 只有 company_admin 可觸發。回傳 { ok, source_key, row_count, duration_ms, log_id }。
 import { createClient } from 'npm:@supabase/supabase-js@2';
+import { fetchWithRateLimit, checkRateLimit } from '../_shared/finmindRateLimit.ts';
+
+// service role client for rate-limit RPCs (RLS-safe)
+const _rlClient = createClient(
+  Deno.env.get('SUPABASE_URL')!,
+  Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')!,
+  { auth: { persistSession: false, autoRefreshToken: false } },
+);
 
 const corsHeaders = {
   'Access-Control-Allow-Origin': '*',
@@ -42,15 +50,23 @@ async function fetchTwseIsin(): Promise<{ rowCount: number; meta: Record<string,
 }
 
 async function fetchFinmind(): Promise<{ rowCount: number; meta: Record<string, unknown> }> {
-  const token = Deno.env.get('FINMIND_API_TOKEN');
+  const token = Deno.env.get('FINMIND_TOKEN') || Deno.env.get('FINMIND_API_TOKEN');
+  const rl = await checkRateLimit(_rlClient);
+  if (!rl.allowed) {
+    throw new Error(`finmind_rate_limit_exhausted: used ${rl.used}/${rl.limit}, retry later`);
+  }
   const params = new URLSearchParams({ dataset: 'TaiwanStockInfo' });
   if (token) params.set('token', token);
-  const res = await fetch(`https://api.finmindtrade.com/api/v4/data?${params}`);
+  const res = await fetchWithRateLimit(
+    _rlClient,
+    `https://api.finmindtrade.com/api/v4/data?${params}`,
+    { signal: AbortSignal.timeout(30_000) },
+  );
   if (!res.ok) throw new Error(`FinMind status ${res.status}`);
   const j = await res.json();
   const rows = Array.isArray(j.data) ? j.data.length : 0;
   if (!rows) throw new Error(`FinMind returned no rows: ${JSON.stringify(j).slice(0, 200)}`);
-  return { rowCount: rows, meta: { token_used: Boolean(token) } };
+  return { rowCount: rows, meta: { token_used: Boolean(token), rate_limit_remaining: rl.remaining - 1 } };
 }
 
 async function fetchTwseOpenapi(): Promise<{ rowCount: number; meta: Record<string, unknown> }> {
