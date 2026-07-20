@@ -217,6 +217,13 @@ export default defineConfig({
       testMatch: /chips-section-mobile\.spec\.ts/,
       use: { ...devices['Desktop Chrome'] },
     },
+    {
+      // ChipsSection 視覺回歸（screenshot diff）— 顏色 / STALE·OFFLINE 徽章 / 趨勢圖回放
+      name: 'visual-chips-section',
+      testMatch: /chips-section-visual\.spec\.ts/,
+      use: { ...devices['Desktop Chrome'], viewport: { width: 900, height: 1400 } },
+    },
+
 
 
 
