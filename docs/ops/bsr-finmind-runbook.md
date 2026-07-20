@@ -52,7 +52,7 @@ SELECT public.bsr_trace_by_correlation('<uuid>');
 
 | jobname | schedule | 用途 |
 | --- | --- | --- |
-| `tw-bsr-purge-expired-reservations` | `*/5 * * * *` | 回收過期未結算的 reservation（防止額度永久佔用） |
+| `tw-bsr-purge-expired-reservations` | `* * * * *` | 每分鐘回收過期 lease（DEFAULT_LEASE_SECONDS=25s；worker 每次執行前也會主動 purge 一次） |
 | `alerts-watchdog-every-5min` | `*/5 * * * *` | 執行所有告警檢查，含新增的 4 條 BSR 檢查 |
 | `tw-bsr-worker-trading` | `*/10 6-12 * * 1-5` | 收盤後每 10 分鐘跑 worker（UTC 06–12，對應台北 14:00–20:59）。交易時段 FinMind BSR 尚未發布，無跑意義。 |
 | `tw-bsr-enqueue-post-close` | `30 7 * * 1-5` | 台北 15:30 收盤後入列 tier1+tier2 |
