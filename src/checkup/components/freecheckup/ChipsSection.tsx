@@ -257,10 +257,27 @@ export default function ChipsSection({ WB, stockCode }: { WB: any; stockCode: st
             最新一次同步（{data.bsr_last_failure.trade_date.replaceAll('-', '/')}）失敗
             {data.bsr_last_failure.reason === 'captcha_retry_exhausted'
               ? '（OCR 驗證碼多次辨識失敗）'
+              : data.bsr_last_failure.reason === 'http_block'
+              ? '（TWSE 暫時封鎖請求）'
               : data.bsr_last_failure.reason === 'empty_rows'
               ? '（當日無成交或 TWSE 回空）'
               : `（${data.bsr_last_failure.reason}）`}
             ，以下為前次成功抓取的資料。
+            {data.bsr_last_failure.next_retry_at && (
+              <>
+                {' '}將於
+                {' '}
+                {new Date(data.bsr_last_failure.next_retry_at).toLocaleString('zh-TW', {
+                  timeZone: 'Asia/Taipei',
+                  month: '2-digit', day: '2-digit',
+                  hour: '2-digit', minute: '2-digit', hour12: false,
+                })}
+                {' '}自動重試
+                {typeof data.bsr_last_failure.consecutive_failures === 'number' && data.bsr_last_failure.consecutive_failures > 1
+                  ? `（已連續失敗 ${data.bsr_last_failure.consecutive_failures} 次）` : ''}
+                。
+              </>
+            )}
           </div>
         )}
 
