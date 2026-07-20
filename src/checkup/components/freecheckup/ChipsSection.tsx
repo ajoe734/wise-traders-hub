@@ -280,8 +280,12 @@ export default function ChipsSection({ WB, stockCode }: { WB: any; stockCode: st
           ) : data?.bsr_last_failure ? (
             <div style={{ fontSize: 10, color: '#8a5a1e' }}>BSR 同步進行中</div>
           ) : hasInst ? (
-            <div style={{ fontSize: 10, color: WB.inkMute }}>BSR 排程等待中</div>
+            <div style={{ fontSize: 10, color: WB.inkMute, textAlign: 'right' }}>
+              BSR 排程等待中
+              <div style={{ fontSize: 9, color: WB.inkMute, marginTop: 2 }}>{nextWorkerWindow().label}</div>
+            </div>
           ) : null}
+
         </div>
 
         {/* 有失敗紀錄就顯示診斷 banner；不再要求同時要有 bsr_as_of，
