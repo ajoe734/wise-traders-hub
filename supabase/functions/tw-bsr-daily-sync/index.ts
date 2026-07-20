@@ -278,6 +278,23 @@ function parseBsContent(html: string): BsrRow[] {
 }
 
 // ---- 共用 cookie jar / UA context ----
+interface AdaptiveTrigger {
+  rule: "escalate_to_standard" | "escalate_to_aggressive" | "reorder_variants" | "exhaustive" | "last_retry_bump";
+  from?: string;
+  to?: string;
+  reason: string; // 通常是 consec>=N 或 attempt=N
+}
+
+interface AdaptiveDecision {
+  base_mode: OcrResult["mode"];
+  effective_mode: OcrResult["mode"];
+  variants: OcrVariantName[]; // 實際傳給 OCR 的變體順序
+  exhaustive: boolean;
+  escalate_on_last: boolean; // 是否會在最後一次 OCR 重試再升級
+  consec_before: number;
+  triggers: AdaptiveTrigger[];
+}
+
 interface OcrTraceEntry {
   retry: number;              // OCR 重試序號（1-based）
   mode: OcrResult["mode"];    // 該次採用的 OCR 模式（可能被 escalate 成 aggressive）
@@ -286,6 +303,13 @@ interface OcrTraceEntry {
   consensus: OcrResult["consensus"]; // majority / fallback_first / none
   adopted: { variant: OcrResult["attempts"][number]["variant"]; text: string; votes: number } | null;
   post_outcome: "accepted" | "empty" | "mismatch"; // 送出後 TWSE 是否接受
+  adaptive?: {
+    // 每次 retry 實際採用的解析：base/effective mode、變體順序、是否 exhaustive、以及是否被 last_retry_bump 影響
+    effective_mode: OcrResult["mode"];
+    variants: OcrVariantName[];
+    exhaustive: boolean;
+    last_retry_bump: boolean;
+  };
 }
 
 interface SessionCtx {
@@ -296,6 +320,7 @@ interface SessionCtx {
   acceptLang: string;
   used: number;
   ocrTrace?: OcrTraceEntry[]; // 本次 fetchBsrForStock 的 OCR 軌跡
+  adaptive?: AdaptiveDecision; // 本次 fetchBsrForStock 開始時決策的策略
 }
 function newSession(cfg: SyncConfig): SessionCtx {
   const ua = randomFrom(cfg.ua_pool);
@@ -305,6 +330,59 @@ function newSession(cfg: SyncConfig): SessionCtx {
     uaLabel: uaLabelFromString(ua),
     acceptLang: randomFrom(cfg.accept_lang_pool),
     used: 0,
+  };
+}
+
+/**
+ * 純函式：依 consecutive_failures 決定本次 fetch 的 OCR 策略。
+ * 呼叫端負責把 decision 寫入 ctx.adaptive 並依 variants/exhaustive/effective_mode 呼叫 OCR。
+ */
+export function computeAdaptiveStrategy(
+  baseMode: OcrResult["mode"],
+  consecBefore: number,
+  ad: AdaptiveConfig,
+): AdaptiveDecision {
+  const triggers: AdaptiveTrigger[] = [];
+  let effective: OcrResult["mode"] = baseMode;
+  let variants: OcrVariantName[] = planWithPriority(effective);
+  let exhaustive = false;
+  const escalateOnLast = ad.escalate_on_last_retry;
+
+  if (!ad.enabled) {
+    return {
+      base_mode: baseMode, effective_mode: effective, variants,
+      exhaustive, escalate_on_last: escalateOnLast, consec_before: consecBefore,
+      triggers,
+    };
+  }
+
+  if (consecBefore >= ad.escalate_to_standard_at && effective === "fast") {
+    triggers.push({ rule: "escalate_to_standard", from: effective, to: "standard", reason: `consec>=${ad.escalate_to_standard_at}` });
+    effective = "standard";
+  }
+  if (consecBefore >= ad.escalate_to_aggressive_at && effective !== "aggressive") {
+    triggers.push({ rule: "escalate_to_aggressive", from: effective, to: "aggressive", reason: `consec>=${ad.escalate_to_aggressive_at}` });
+    effective = "aggressive";
+  }
+
+  variants = planWithPriority(effective);
+
+  if (consecBefore >= ad.reorder_variants_at) {
+    // 把預處理較重的變體優先執行，raw 排最後
+    const reordered = planWithPriority(effective, ["otsu", "adaptive", "dilate", "loose_crop"]);
+    triggers.push({ rule: "reorder_variants", from: variants.join(","), to: reordered.join(","), reason: `consec>=${ad.reorder_variants_at}` });
+    variants = reordered;
+  }
+
+  if (consecBefore >= ad.exhaustive_at) {
+    triggers.push({ rule: "exhaustive", reason: `consec>=${ad.exhaustive_at}` });
+    exhaustive = true;
+  }
+
+  return {
+    base_mode: baseMode, effective_mode: effective, variants,
+    exhaustive, escalate_on_last: escalateOnLast, consec_before: consecBefore,
+    triggers,
   };
 }
 
