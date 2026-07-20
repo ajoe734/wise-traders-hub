@@ -846,12 +846,17 @@ Deno.serve(async (req) => {
             .eq("stock_id", stockId).eq("trade_date", tradeDate).maybeSingle();
           const nextConsec = (prevFail?.consecutive_failures || 0) + 1;
           const backoffIdx = Math.min(nextConsec - 1, cfg.backoff_steps_sec.length - 1);
-          const backoff = cfg.backoff_steps_sec[backoffIdx];
+          const stepBackoff = cfg.backoff_steps_sec[backoffIdx];
+          // 冷卻保護：同一 stock+trade_date 累積失敗達 max_attempts_per_day → 強制延後 cooldown_hours
+          const cooldownSec = cfg.backfill.cooldown_hours * 3600;
+          const cooldownTriggered = nextConsec >= cfg.backfill.max_attempts_per_day;
+          const backoff = cooldownTriggered ? Math.max(stepBackoff, cooldownSec) : stepBackoff;
           const nextRetry = new Date(Date.now() + backoff * 1000).toISOString();
-          const reason = blockBump ? "http_block"
+          const baseReason = blockBump ? "http_block"
             : ocrFailBump ? "captcha_retry_exhausted"
             : emptyBump ? "empty_rows" : "sync_failed";
-          const errorClass = classifyBsrError(lastError || reason);
+          const reason = cooldownTriggered ? `cooldown:${baseReason}` : baseReason;
+          const errorClass = classifyBsrError(lastError || baseReason);
           await supa.from("tw_bsr_fetch_failures").upsert({
             stock_id: stockId, trade_date: tradeDate,
             reason, error_class: errorClass,
@@ -876,9 +881,11 @@ Deno.serve(async (req) => {
               lag_days: Math.max(0, Math.round((new Date(tradeDate).getTime() - new Date(fallbackDate).getTime()) / 86400000)),
             };
           }
-          const nextRetrySource =
-            `backoff_step[${Math.min(nextConsec, cfg.backoff_steps_sec.length)}/${cfg.backoff_steps_sec.length}]=${backoff}s`
-            + ` (reason=${reason},consec=${nextConsec})`;
+          const nextRetrySource = cooldownTriggered
+            ? `cooldown[${nextConsec}/${cfg.backfill.max_attempts_per_day}]=${cfg.backfill.cooldown_hours}h`
+              + ` (reason=${baseReason},step_backoff=${stepBackoff}s)`
+            : `backoff_step[${Math.min(nextConsec, cfg.backoff_steps_sec.length)}/${cfg.backoff_steps_sec.length}]=${backoff}s`
+              + ` (reason=${baseReason},consec=${nextConsec})`;
 
           // 逐檔時間軸「收尾」列：紀錄本輪最終狀態 + fallback + next_retry 推算來源
           await logAttempt(supa, {
@@ -898,7 +905,12 @@ Deno.serve(async (req) => {
             attempts, fallback, next_retry_at: nextRetry, backoff_seconds: backoff,
             next_retry_source: nextRetrySource, consec_before: consecBefore,
             mismatch_reason: errorClass, final_reason: reason, resolved_at_updated: false,
+            cooldown_triggered: cooldownTriggered,
+            cooldown_until: cooldownTriggered ? nextRetry : null,
+            attempts_total: nextConsec,
+            max_attempts_per_day: cfg.backfill.max_attempts_per_day,
           });
+
 
           await bumpMetrics(supa, {
             total: 1, ocr_fail: ocrFailBump ? 1 : 0, http_block: blockBump ? 1 : 0,
