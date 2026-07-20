@@ -149,9 +149,11 @@ Deno.serve(async (req) => {
     for (let i = 0; i < rows.length; i += BATCH) {
       const chunk = rows.slice(i, i + BATCH).map((r) => {
         const stock_id = String(r[iStock] || "").trim();
-        const foreign_net = parseNum(r[foreignIdx]);
+        const foreign_net = parseNum(r[iForeignMain]) + (iForeignDealer >= 0 ? parseNum(r[iForeignDealer]) : 0);
         const trust_net = parseNum(r[iTrust]);
-        const dealer_net = parseNum(r[dealerIdx]);
+        const dealer_net = iDealer >= 0
+          ? parseNum(r[iDealer])
+          : parseNum(r[iDealerSelf]) + (iDealerHedge >= 0 ? parseNum(r[iDealerHedge]) : 0);
         const total_net = iTotal >= 0 ? parseNum(r[iTotal]) : foreign_net + trust_net + dealer_net;
         return {
           stock_id,
@@ -163,6 +165,7 @@ Deno.serve(async (req) => {
           raw: { fields, row: r },
         };
       }).filter((x) => x.stock_id);
+
 
       const { error } = await supa
         .from("tw_institutional_daily")
