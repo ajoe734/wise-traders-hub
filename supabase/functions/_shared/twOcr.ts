@@ -24,10 +24,23 @@ type RGBA = { w: number; h: number; data: Uint8ClampedArray };
 export type OcrMode = "fast" | "standard" | "aggressive";
 export type OcrVariantName = "raw" | "otsu" | "adaptive" | "dilate" | "loose_crop";
 
+export interface OcrAttempt {
+  variant: OcrVariantName;
+  guess: string | null;
+  elapsed_ms: number;
+}
+
 export interface OcrResult {
   text: string | null;
   mode: OcrMode;
-  attempts: Array<{ variant: OcrVariantName; guess: string | null }>;
+  strategy: OcrVariantName[];
+  attempts: OcrAttempt[];
+  /**
+   * majority       — 至少兩個變體回傳相同 5 碼，直接採用
+   * fallback_first — 沒有共識，退回第一個合法 5 碼
+   * none           — 所有變體都失敗
+   */
+  consensus: "majority" | "fallback_first" | "none";
   winner?: { variant: OcrVariantName; votes: number };
 }
 
@@ -49,41 +62,47 @@ export async function ocrTwseCaptchaDetailed(
   pngBytes: Uint8Array,
   mode: OcrMode = "standard",
 ): Promise<OcrResult> {
-  const attempts: OcrResult["attempts"] = [];
-  if (!LOVABLE_API_KEY) return { text: null, mode, attempts };
+  const plan = VARIANT_PLAN[mode] ?? VARIANT_PLAN.standard;
+  const attempts: OcrAttempt[] = [];
+  if (!LOVABLE_API_KEY) {
+    return { text: null, mode, strategy: plan, attempts, consensus: "none" };
+  }
 
   let src: RGBA | null = null;
   try { src = decodePng(pngBytes); } catch { src = null; }
 
-  const plan = VARIANT_PLAN[mode] ?? VARIANT_PLAN.standard;
   const votes = new Map<string, { count: number; variant: OcrVariantName }>();
   let first: { variant: OcrVariantName; guess: string } | null = null;
 
   for (const variant of plan) {
     const bytes = buildVariant(variant, src, pngBytes);
-    if (!bytes) { attempts.push({ variant, guess: null }); continue; }
+    if (!bytes) { attempts.push({ variant, guess: null, elapsed_ms: 0 }); continue; }
+    const t0 = Date.now();
     const guess = await callVision(bytes);
-    attempts.push({ variant, guess });
+    attempts.push({ variant, guess, elapsed_ms: Date.now() - t0 });
     if (!guess) continue;
     if (!first) first = { variant, guess };
     const entry = votes.get(guess);
     if (entry) {
       entry.count += 1;
       // 兩票即共識，立即回傳
-      return { text: guess, mode, attempts, winner: { variant: entry.variant, votes: entry.count } };
+      return {
+        text: guess, mode, strategy: plan, attempts,
+        consensus: "majority",
+        winner: { variant: entry.variant, votes: entry.count },
+      };
     }
     votes.set(guess, { count: 1, variant });
   }
 
   if (first) {
     return {
-      text: first.guess,
-      mode,
-      attempts,
+      text: first.guess, mode, strategy: plan, attempts,
+      consensus: "fallback_first",
       winner: { variant: first.variant, votes: 1 },
     };
   }
-  return { text: null, mode, attempts };
+  return { text: null, mode, strategy: plan, attempts, consensus: "none" };
 }
 
 function buildVariant(

@@ -3844,6 +3844,7 @@ export type Database = {
           next_retry_at: string | null
           next_retry_source: string | null
           ocr_mode: string
+          ocr_trace: Json | null
           outcome: string
           stock_id: string
           trade_date: string
@@ -3867,6 +3868,7 @@ export type Database = {
           next_retry_at?: string | null
           next_retry_source?: string | null
           ocr_mode?: string
+          ocr_trace?: Json | null
           outcome: string
           stock_id: string
           trade_date: string
@@ -3890,6 +3892,7 @@ export type Database = {
           next_retry_at?: string | null
           next_retry_source?: string | null
           ocr_mode?: string
+          ocr_trace?: Json | null
           outcome?: string
           stock_id?: string
           trade_date?: string

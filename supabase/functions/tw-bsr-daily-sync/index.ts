@@ -22,7 +22,7 @@
 import "jsr:@supabase/functions-js/edge-runtime.d.ts";
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2.45.4";
 import { corsPreflight, jsonResponse, errorResponse } from "../_shared/cors.ts";
-import { ocrTwseCaptcha } from "../_shared/twOcr.ts";
+import { ocrTwseCaptchaDetailed, type OcrResult } from "../_shared/twOcr.ts";
 
 const SUPABASE_URL = Deno.env.get("SUPABASE_URL")!;
 const SERVICE_ROLE_KEY = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!;
@@ -235,6 +235,16 @@ function parseBsContent(html: string): BsrRow[] {
 }
 
 // ---- 共用 cookie jar / UA context ----
+interface OcrTraceEntry {
+  retry: number;              // OCR 重試序號（1-based）
+  mode: OcrResult["mode"];    // 該次採用的 OCR 模式（可能被 escalate 成 aggressive）
+  strategy: OcrResult["strategy"]; // 該模式規劃的變體順序
+  variants: OcrResult["attempts"]; // 每個變體的 5 碼結果 + 耗時
+  consensus: OcrResult["consensus"]; // majority / fallback_first / none
+  adopted: { variant: OcrResult["attempts"][number]["variant"]; text: string; votes: number } | null;
+  post_outcome: "accepted" | "empty" | "mismatch"; // 送出後 TWSE 是否接受
+}
+
 interface SessionCtx {
   jar: Record<string, string>;
   ua: string;
@@ -242,6 +252,7 @@ interface SessionCtx {
   uaLabel: string;
   acceptLang: string;
   used: number;
+  ocrTrace?: OcrTraceEntry[]; // 本次 fetchBsrForStock 的 OCR 軌跡
 }
 function newSession(cfg: SyncConfig): SessionCtx {
   const ua = randomFrom(cfg.ua_pool);
@@ -293,6 +304,8 @@ async function fetchBsrForStock(stockId: string, ctx: SessionCtx, cfg: SyncConfi
   const captchaUrl = extractCaptchaImageUrl(menuHtml);
   if (!viewState || !eventValidation || !captchaUrl) throw new Error("menu_parse_failed");
 
+  // 每一檔開始都重置 OCR 軌跡
+  ctx.ocrTrace = [];
   // 細分子原因統計，讓 captcha_retry_exhausted 能拆出 OCR 空值 vs OCR 錯字
   let ocrNullCount = 0;
   let ocrMismatchCount = 0;
@@ -308,7 +321,20 @@ async function fetchBsrForStock(stockId: string, ctx: SessionCtx, cfg: SyncConfi
     // 動態升級：最後一次重試時，若允許升級且不是 aggressive，改用 aggressive 加大成功率
     const activeMode = cfg.ocr_escalate_on_fail && attempt === cfg.max_ocr_retry && cfg.ocr_mode !== "aggressive"
       ? "aggressive" : cfg.ocr_mode;
-    const captcha = await ocrTwseCaptcha(capBytes, activeMode);
+    const ocr = await ocrTwseCaptchaDetailed(capBytes, activeMode);
+    const traceEntry: OcrTraceEntry = {
+      retry: attempt,
+      mode: ocr.mode,
+      strategy: ocr.strategy,
+      variants: ocr.attempts,
+      consensus: ocr.consensus,
+      adopted: ocr.text && ocr.winner
+        ? { variant: ocr.winner.variant, text: ocr.text, votes: ocr.winner.votes }
+        : null,
+      post_outcome: "empty",
+    };
+    ctx.ocrTrace.push(traceEntry);
+    const captcha = ocr.text;
     if (!captcha) { ocrNullCount++; continue; }
 
     const form = new URLSearchParams({
@@ -330,6 +356,7 @@ async function fetchBsrForStock(stockId: string, ctx: SessionCtx, cfg: SyncConfi
 
     const loc = postResp.headers.get("location");
     if (postResp.status === 302 && loc && loc.includes("bsContent.aspx")) {
+      traceEntry.post_outcome = "accepted";
       const contentUrl = loc.startsWith("http") ? loc : `${BSR_HOST}/bshtm/${loc.replace(/^\.?\//, "")}`;
       const contentResp = await fetch(contentUrl, {
         headers: { ...baseHeaders, Cookie: jarToHeader(ctx.jar), Referer: BSR_MENU },
@@ -339,6 +366,7 @@ async function fetchBsrForStock(stockId: string, ctx: SessionCtx, cfg: SyncConfi
       return parseBsContent(contentHtml);
     }
     // 有 OCR 結果但未跳轉 bsContent → 判定為 OCR 字元辨識錯誤
+    traceEntry.post_outcome = "mismatch";
     ocrMismatchCount++;
   }
   // 附上子細分方便後續 classifyError() 拆桶
@@ -562,6 +590,7 @@ async function logAttempt(supa: any, p: {
       fallback_as_of_date: p.fallbackAsOfDate || null,
       next_retry_at: p.nextRetryAt || null,
       next_retry_source: p.nextRetrySource || null,
+      ocr_trace: p.ctx.ocrTrace && p.ctx.ocrTrace.length ? p.ctx.ocrTrace : null,
     });
   } catch (_e) { /* best-effort */ }
 }
