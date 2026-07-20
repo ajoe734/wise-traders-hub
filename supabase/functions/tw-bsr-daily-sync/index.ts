@@ -41,6 +41,20 @@ interface BackfillConfig {
   cooldown_hours: number;       // 冷卻時數：達 max_attempts_per_day 後 next_retry_at 至少延後這麼久
 }
 
+interface AdaptiveConfig {
+  enabled: boolean;
+  /** 觸發把 fast → standard 的 consecutive_failures 門檻 */
+  escalate_to_standard_at: number;
+  /** 觸發把任意模式 → aggressive 的 consecutive_failures 門檻 */
+  escalate_to_aggressive_at: number;
+  /** 觸發把預處理變體（otsu/adaptive/dilate）插到最前面的 consecutive_failures 門檻 */
+  reorder_variants_at: number;
+  /** 觸發 exhaustive（跑完所有變體不短路）的 consecutive_failures 門檻 */
+  exhaustive_at: number;
+  /** 若 true，觸發 escalate 後最後一次 OCR 重試會再升級一階（與舊 ocr_escalate_on_fail 相容） */
+  escalate_on_last_retry: boolean;
+}
+
 interface SyncConfig {
   ua_pool: string[];
   accept_lang_pool: string[];
@@ -54,8 +68,18 @@ interface SyncConfig {
   lock_ttl_sec: number;
   ocr_mode: "fast" | "standard" | "aggressive";
   ocr_escalate_on_fail: boolean;
+  adaptive: AdaptiveConfig;
   backfill: BackfillConfig;
 }
+
+const DEFAULT_ADAPTIVE: AdaptiveConfig = {
+  enabled: true,
+  escalate_to_standard_at: 1,
+  escalate_to_aggressive_at: 2,
+  reorder_variants_at: 3,
+  exhaustive_at: 5,
+  escalate_on_last_retry: true,
+};
 
 const DEFAULT_CONFIG: SyncConfig = {
   ua_pool: [
@@ -77,6 +101,7 @@ const DEFAULT_CONFIG: SyncConfig = {
   lock_ttl_sec: 90,
   ocr_mode: "standard",
   ocr_escalate_on_fail: true,
+  adaptive: DEFAULT_ADAPTIVE,
   backfill: {
     batch: 6,
     lookback: 7,
@@ -87,6 +112,23 @@ const DEFAULT_CONFIG: SyncConfig = {
     cooldown_hours: 12,
   },
 };
+
+function normAdaptive(raw: any, fb: AdaptiveConfig): AdaptiveConfig {
+  const src = raw && typeof raw === "object" ? raw : {};
+  const pick = (k: keyof AdaptiveConfig, min: number) => {
+    const n = Number((src as any)[k]);
+    return Number.isFinite(n) && n >= min ? Math.floor(n) : (fb as any)[k];
+  };
+  return {
+    enabled: typeof src.enabled === "boolean" ? src.enabled : fb.enabled,
+    escalate_to_standard_at: pick("escalate_to_standard_at", 0),
+    escalate_to_aggressive_at: pick("escalate_to_aggressive_at", 0),
+    reorder_variants_at: pick("reorder_variants_at", 0),
+    exhaustive_at: pick("exhaustive_at", 0),
+    escalate_on_last_retry: typeof src.escalate_on_last_retry === "boolean"
+      ? src.escalate_on_last_retry : fb.escalate_on_last_retry,
+  };
+}
 
 
 function normBackfill(raw: any, fallback: BackfillConfig): BackfillConfig {
