@@ -253,6 +253,25 @@ Deno.serve(async (req) => {
       stockIds = await buildQueue(batch, endDate);
     }
 
+    // debug=true 直接把 FinMind 原始回應吐回（不寫 DB），便於診斷帳號權限
+    if (body?.debug === true && stockIds.length > 0) {
+      const id = stockIds[0];
+      const p = new URLSearchParams({
+        dataset: 'TaiwanStockTradingDailyReport',
+        data_id: id, start_date: startDate, end_date: endDate,
+      });
+      if (FINMIND_TOKEN) p.set('token', FINMIND_TOKEN);
+      const res = await fetch(`${FINMIND_URL}?${p}`);
+      const raw = await res.text();
+      return json({
+        ok: true, debug: true, token_present: Boolean(FINMIND_TOKEN),
+        token_len: FINMIND_TOKEN.length,
+        url_no_token: `${FINMIND_URL}?dataset=TaiwanStockTradingDailyReport&data_id=${id}&start_date=${startDate}&end_date=${endDate}`,
+        http_status: res.status,
+        raw_first_500: raw.slice(0, 500),
+      });
+    }
+
     if (stockIds.length === 0) {
       return json({ ok: true, mode, endDate, startDate, processed: 0, note: 'no_targets' });
     }
