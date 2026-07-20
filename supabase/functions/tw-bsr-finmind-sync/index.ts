@@ -338,6 +338,15 @@ async function runWorker(batch: number, maxPriority: number, budgetMs: number): 
   const results: any[] = [];
   let processed = 0, ok = 0, rateLimitedStop = false;
 
+  // 0) 每次 worker 呼叫先 purge 一次過期 lease，避免上一輪 crash 的 reservation 佔用額度
+  const { data: purgeRow } = await supa.rpc('purge_expired_bsr_reservations', { _api: 'finmind' });
+  const purgeSummary = Array.isArray(purgeRow) ? purgeRow[0] : purgeRow;
+  const recycledCount = Number(purgeSummary?.recycled_count ?? 0);
+  const recycledIds = (purgeSummary?.recycled_ids ?? []) as number[];
+  if (recycledCount > 0) {
+    console.warn(`[worker] recycled ${recycledCount} expired reservation(s): ${recycledIds.slice(0, 10).join(',')}`);
+  }
+
   // 1) 讀取當前 degrade 狀態，套用 policy
   const state = await loadDegradeState();
   const policy = policyOf(state.mode);
@@ -346,11 +355,11 @@ async function runWorker(batch: number, maxPriority: number, budgetMs: number): 
 
   // claim_halt：只回收 lease、不 claim job
   if (!policy.allowClaim) {
-    await supa.rpc('purge_expired_bsr_reservations', { _api: 'finmind' }).catch(() => {});
     const after = await evaluateAndMaybeTransition(null);
     return {
       ok: true, note: 'claim_halt', degrade_mode: state.mode,
       transitioned: after.transitioned, processed: 0,
+      recycled_reservations: recycledCount,
     };
   }
 
