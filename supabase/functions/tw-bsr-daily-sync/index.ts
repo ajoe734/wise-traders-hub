@@ -744,6 +744,7 @@ async function logAttempt(supa: any, p: {
       next_retry_at: p.nextRetryAt || null,
       next_retry_source: p.nextRetrySource || null,
       ocr_trace: p.ctx.ocrTrace && p.ctx.ocrTrace.length ? p.ctx.ocrTrace : null,
+      adaptive_strategy: p.ctx.adaptive ?? null,
     });
   } catch (_e) { /* best-effort */ }
 }
