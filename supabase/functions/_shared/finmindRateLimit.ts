@@ -139,38 +139,55 @@ export async function fetchWithRateLimit(
     throw new RateLimitExhaustedError({ used: limit, limit });
   }
 
-  let attempt = 0;
-  while (true) {
-    let res: Response;
-    try {
-      res = await fetch(url, init);
-    } catch (e) {
-      await settleReservation(supa, reservation.id, { success: false, rateLimited: false });
-      throw e;
+  // Finally-scoped safety：只要離開這個函式時 reservation 還未被結算（settled=false），
+  // 一律 release 一次；即使 settle RPC 拋錯、上層 caller 沒接 catch、或 runtime 意外中止，
+  // 都不會讓 reservation 永遠占著額度。
+  let settled = false;
+  const safeSettle = async (opts: { success: boolean; rateLimited?: boolean }) => {
+    try { await settleReservation(supa, reservation.id, opts); }
+    finally { settled = true; }
+  };
+
+  try {
+    let attempt = 0;
+    while (true) {
+      let res: Response;
+      try {
+        res = await fetch(url, init);
+      } catch (e) {
+        await safeSettle({ success: false, rateLimited: false });
+        throw e;
+      }
+
+      if (res.status !== 429) {
+        await safeSettle({ success: res.ok, rateLimited: false });
+        return res;
+      }
+
+      await safeSettle({ success: false, rateLimited: true });
+      attempt += 1;
+      if (attempt > maxRetries) return res;
+
+      const retryAfterHeader = res.headers.get('retry-after');
+      const retrySec = retryAfterHeader ? Number(retryAfterHeader) : NaN;
+      const waitMs = Number.isFinite(retrySec) && retrySec > 0
+        ? retrySec * 1000
+        : baseBackoff * Math.pow(2, attempt - 1) + Math.floor(Math.random() * 500);
+      console.warn(`[rateLimit] 429 backoff ${waitMs}ms (attempt ${attempt}/${maxRetries}) cid=${cid ?? '-'}`);
+      await new Promise((r) => setTimeout(r, waitMs));
+
+      const next = await reserveQuota(supa, limit, lease, cid);
+      if (!next) {
+        throw new RateLimitExhaustedError({ used: limit, limit });
+      }
+      reservation = next;
+      settled = false;
     }
-
-    if (res.status !== 429) {
-      await settleReservation(supa, reservation.id, { success: res.ok, rateLimited: false });
-      return res;
+  } finally {
+    // 任何未 settle 的殘留 reservation 一律 release，避免額度洩漏
+    if (!settled) {
+      try { await releaseReservation(supa, reservation.id); }
+      catch (e) { console.warn('[rateLimit] finally release failed:', (e as Error).message); }
     }
-
-    await settleReservation(supa, reservation.id, { success: false, rateLimited: true });
-    attempt += 1;
-    if (attempt > maxRetries) return res;
-
-    const retryAfterHeader = res.headers.get('retry-after');
-    const retrySec = retryAfterHeader ? Number(retryAfterHeader) : NaN;
-    const waitMs = Number.isFinite(retrySec) && retrySec > 0
-      ? retrySec * 1000
-      : baseBackoff * Math.pow(2, attempt - 1) + Math.floor(Math.random() * 500);
-    // 只印安全訊息，不記錄 URL/token
-    console.warn(`[rateLimit] 429 backoff ${waitMs}ms (attempt ${attempt}/${maxRetries}) cid=${cid ?? '-'}`);
-    await new Promise((r) => setTimeout(r, waitMs));
-
-    const next = await reserveQuota(supa, limit, lease, cid);
-    if (!next) {
-      throw new RateLimitExhaustedError({ used: limit, limit });
-    }
-    reservation = next;
   }
 }
