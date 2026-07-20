@@ -130,22 +130,28 @@ Deno.serve(async (req) => {
       reason: string;
       last_error: string | null;
       attempts: number;
+      next_retry_at: string | null;
+      backoff_seconds: number | null;
+      consecutive_failures: number | null;
     } | null = null;
     const { data: failRows } = await supa
       .from("tw_bsr_fetch_failures")
-      .select("trade_date, reason, last_error, attempts, resolved_at")
+      .select("trade_date, reason, last_error, attempts, resolved_at, next_retry_at, backoff_seconds, consecutive_failures")
       .eq("stock_id", stockId)
       .is("resolved_at", null)
       .order("trade_date", { ascending: false })
       .limit(1);
     if (failRows && failRows[0]) {
-      const f = failRows[0];
+      const f: any = failRows[0];
       if (!latestAsOf || String(f.trade_date) > String(latestAsOf)) {
         bsrLastFailure = {
           trade_date: f.trade_date,
           reason: f.reason || "sync_failed",
           last_error: f.last_error || null,
           attempts: Number(f.attempts || 0),
+          next_retry_at: f.next_retry_at || null,
+          backoff_seconds: f.backoff_seconds ?? null,
+          consecutive_failures: f.consecutive_failures ?? null,
         };
       }
     }
