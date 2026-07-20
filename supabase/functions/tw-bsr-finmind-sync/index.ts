@@ -434,6 +434,7 @@ async function runWorker(batch: number, maxPriority: number, budgetMs: number): 
     policy: { max_priority: cappedMaxPriority, concurrency: cappedConcurrency },
     rate_limit_before: rl, rate_limit_after: finalRl,
     stopped_by_rate_limit: rateLimitedStop,
+    recycled_reservations: recycledCount,
     elapsed_ms: Date.now() - started,
     results,
   };
