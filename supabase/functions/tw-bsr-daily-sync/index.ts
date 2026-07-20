@@ -5,6 +5,9 @@
 // 呼叫方式：
 //   POST { mode: "queue", batch?: 8, window?: "off_hours" }
 //        → 從優先級佇列取 batch 檔（跳過尚未到 next_retry_at 的），跑排程模式
+//   POST { mode: "backfill", batch?: 6, lookback?: 7 }
+//        → 高頻補跑：只挑 tw_bsr_fetch_failures 裡「未 resolved 且 next_retry_at 已到期」的股票，
+//          直到每支拿到 last_successful 為止；忽略 off-hours 冷凍條件。
 //   POST { stock_ids: [...] , date?, lookback? }
 //        → 手動指定股票（優先於 queue）
 //
