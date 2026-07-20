@@ -163,15 +163,17 @@ test.describe('ChipsSection · visual regression', () => {
     await page.route(CHIPS_ROUTE, (r) => fulfill(r, fullPayload()));
     await page.goto(`/e2e/chips-section?code=${STOCK}&freezeTime=1`);
     await page.getByTestId('chips-trend-chart').waitFor();
-    // 把 scrubber 拉到 10（總長 19）
+    // 把 scrubber 拉到 10（總長 19）— 用 native setter 觸發 React onChange
     const scrubber = page.getByTestId('chips-trend-scrubber');
     await scrubber.evaluate((el: HTMLInputElement) => {
-      el.value = '10';
+      const setter = Object.getOwnPropertyDescriptor(HTMLInputElement.prototype, 'value')!.set!;
+      setter.call(el, '10');
       el.dispatchEvent(new Event('input', { bubbles: true }));
       el.dispatchEvent(new Event('change', { bubbles: true }));
     });
     // scrubber 右側日期文字反映 index=10 → 2026/07/11
     await expect(page.getByTestId('chips-trend-chart')).toContainText('2026/07/11');
+
 
     await page.evaluate(() => (document as any).fonts?.ready);
 
