@@ -523,12 +523,16 @@ export default function BsrFailureDashboardPage() {
                                 variant="outline"
                                 className="text-[10px]"
                                 style={{
-                                  color: d.reason === 'captcha_retry_exhausted' ? '#B45309' : '#4B5563',
-                                  borderColor: d.reason === 'captcha_retry_exhausted' ? '#FCD34D' : undefined,
+                                  color: classColor(d.error_class),
+                                  borderColor: classColor(d.error_class),
                                 }}
+                                title={`reason=${d.reason} · class=${d.error_class}`}
                               >
-                                {d.reason}
+                                {classLabel(d.error_class)}
                               </Badge>
+                              {d.reason && d.reason !== d.error_class && (
+                                <span className="text-[10px] text-foreground/40">/ {d.reason}</span>
+                              )}
                               <span className="text-foreground/60 ml-auto">
                                 嘗試 {d.attempts} 次 {d.resolved && <span className="text-emerald-700 ml-1">已解決</span>}
                               </span>
