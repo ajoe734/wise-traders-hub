@@ -128,6 +128,7 @@ async function loadConfig(supa: any): Promise<{ cfg: SyncConfig; version: number
         ? (raw.ocr_mode as SyncConfig["ocr_mode"]) : DEFAULT_CONFIG.ocr_mode,
       ocr_escalate_on_fail: typeof raw.ocr_escalate_on_fail === "boolean"
         ? raw.ocr_escalate_on_fail : DEFAULT_CONFIG.ocr_escalate_on_fail,
+      backfill: normBackfill((raw as any).backfill, DEFAULT_CONFIG.backfill),
     };
     return { cfg, version: Number(data.version) || null };
   } catch {
