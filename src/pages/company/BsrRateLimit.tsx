@@ -322,6 +322,10 @@ export default function BsrRateLimit() {
           )}
         </Card>
 
+        <PerStockStatusCard />
+
+
+
 
         <Card className="p-4">
           <div className="text-sm font-medium mb-2">手動操作</div>
