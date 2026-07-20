@@ -134,17 +134,19 @@ export default function BsrFailureDashboardPage() {
   const [stockFilter, setStockFilter] = useState('');
   const [stockInput, setStockInput] = useState('');
   const [reason, setReason] = useState('all');
+  const [errorClass, setErrorClass] = useState('all');
   const [expanded, setExpanded] = useState<string | null>(null);
   const [auditStock, setAuditStock] = useState<string | null>(null);
 
   const { data, isLoading, error, refetch, isFetching } = useQuery<Dashboard>({
-    queryKey: ['bsr-failures', days, stockFilter, reason],
+    queryKey: ['bsr-failures', days, stockFilter, reason, errorClass],
     staleTime: 60_000,
     queryFn: async () => {
       const qs = new URLSearchParams();
       qs.set('days', String(days));
       if (stockFilter) qs.set('stock_id', stockFilter);
       if (reason !== 'all') qs.set('reason', reason);
+      if (errorClass !== 'all') qs.set('error_class', errorClass);
       const { data: sess } = await supabase.auth.getSession();
       const token = sess.session?.access_token;
       const url = `https://yqacmrgdjlenbijclngi.supabase.co/functions/v1/tw-bsr-failure-dashboard?${qs.toString()}`;
