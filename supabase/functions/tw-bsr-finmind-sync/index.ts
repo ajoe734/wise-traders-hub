@@ -540,6 +540,10 @@ async function runStats() {
       rate_limited_last_hour: Number(resRow?.rate_limited_last_hour ?? 0),
       oldest_in_flight_age_seconds: Number(resRow?.oldest_in_flight_age_seconds ?? 0),
     },
+    stuck_reservations: (stuck ?? []) as Array<{
+      id: number; correlation_id: string | null;
+      reserved_at: string; expires_at: string; age_seconds: number; expired: boolean;
+    }>,
     p1_oldest_pending_age_seconds: p1OldestAgeSec,
     rate_limited_streak_minutes: r429MaxStreak,
     degrade: {
