@@ -951,7 +951,7 @@ Deno.serve(async (req) => {
           const stepStartedAt = Date.now();
           let stepOutcome = "success";
           try {
-            const rows = await fetchBsrForStock(stockId, ctx, cfg);
+            const rows = await fetchBsrForStock(stockId, ctx, cfg, { consecBefore });
             if (rows.length === 0) throw new Error("empty_rows");
 
             await supa.from("tw_bsr_daily").delete().eq("stock_id", stockId).eq("trade_date", cursor);
