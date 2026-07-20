@@ -3835,6 +3835,7 @@ export type Database = {
           consecutive_failures_before: number
           created_at: string
           error: string | null
+          error_class: string | null
           fallback_as_of_date: string | null
           fallback_used: boolean
           http_status: number | null
@@ -3857,6 +3858,7 @@ export type Database = {
           consecutive_failures_before?: number
           created_at?: string
           error?: string | null
+          error_class?: string | null
           fallback_as_of_date?: string | null
           fallback_used?: boolean
           http_status?: number | null
@@ -3879,6 +3881,7 @@ export type Database = {
           consecutive_failures_before?: number
           created_at?: string
           error?: string | null
+          error_class?: string | null
           fallback_as_of_date?: string | null
           fallback_used?: boolean
           http_status?: number | null
@@ -3943,6 +3946,7 @@ export type Database = {
           backoff_seconds: number
           consecutive_failures: number
           created_at: string
+          error_class: string | null
           id: number
           last_error: string | null
           next_retry_at: string | null
@@ -3957,6 +3961,7 @@ export type Database = {
           backoff_seconds?: number
           consecutive_failures?: number
           created_at?: string
+          error_class?: string | null
           id?: number
           last_error?: string | null
           next_retry_at?: string | null
@@ -3971,6 +3976,7 @@ export type Database = {
           backoff_seconds?: number
           consecutive_failures?: number
           created_at?: string
+          error_class?: string | null
           id?: number
           last_error?: string | null
           next_retry_at?: string | null
