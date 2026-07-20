@@ -67,10 +67,12 @@ async function fetchFinmind(stockId: string, startDate: string, endDate: string)
   });
   if (FINMIND_TOKEN) p.set('token', FINMIND_TOKEN);
   const res = await fetch(`${FINMIND_URL}?${p}`, { signal: AbortSignal.timeout(20_000) });
-  if (!res.ok) throw new Error(`finmind_http_${res.status}`);
-  const j = await res.json();
+  const text = await res.text();
+  if (!res.ok) throw new Error(`finmind_http_${res.status}:${text.slice(0, 200)}`);
+  let j: any;
+  try { j = JSON.parse(text); } catch { throw new Error(`finmind_bad_json:${text.slice(0, 200)}`); }
   if (j?.status !== 200 && !Array.isArray(j?.data)) {
-    throw new Error(`finmind_api_${j?.status ?? 'unknown'}:${String(j?.msg ?? '').slice(0, 80)}`);
+    throw new Error(`finmind_api_${j?.status ?? 'unknown'}:${String(j?.msg ?? '').slice(0, 200)}`);
   }
   return Array.isArray(j.data) ? j.data : [];
 }
