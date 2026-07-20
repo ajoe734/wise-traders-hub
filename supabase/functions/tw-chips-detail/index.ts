@@ -133,17 +133,38 @@ Deno.serve(async (req) => {
       next_retry_at: string | null;
       backoff_seconds: number | null;
       consecutive_failures: number | null;
+      last_successful_as_of: string | null;
+      lookback_from: string | null;
+      lookback_to: string | null;
+      lookback_days: number | null;
     } | null = null;
+    // 撈最近幾筆未 resolved 的失敗紀錄，用來組出「嘗試回推的日期範圍」
     const { data: failRows } = await supa
       .from("tw_bsr_fetch_failures")
       .select("trade_date, reason, last_error, attempts, resolved_at, next_retry_at, backoff_seconds, consecutive_failures")
       .eq("stock_id", stockId)
       .is("resolved_at", null)
       .order("trade_date", { ascending: false })
-      .limit(1);
+      .limit(10);
     if (failRows && failRows[0]) {
       const f: any = failRows[0];
       if (!latestAsOf || String(f.trade_date) > String(latestAsOf)) {
+        // 這批連續失敗中最舊的日期：即最深回推點
+        const dates = (failRows as any[])
+          .map((r) => String(r.trade_date))
+          .filter((d) => !latestAsOf || d > String(latestAsOf))
+          .sort();
+        const lookbackTo = dates[0] || String(f.trade_date);
+        const lookbackFrom = String(f.trade_date);
+        const spanDays =
+          lookbackFrom && lookbackTo
+            ? Math.max(
+                1,
+                Math.round(
+                  (new Date(lookbackFrom).getTime() - new Date(lookbackTo).getTime()) / 86400000,
+                ) + 1,
+              )
+            : null;
         bsrLastFailure = {
           trade_date: f.trade_date,
           reason: f.reason || "sync_failed",
@@ -152,6 +173,10 @@ Deno.serve(async (req) => {
           next_retry_at: f.next_retry_at || null,
           backoff_seconds: f.backoff_seconds ?? null,
           consecutive_failures: f.consecutive_failures ?? null,
+          last_successful_as_of: latestAsOf || null,
+          lookback_from: lookbackFrom,
+          lookback_to: lookbackTo,
+          lookback_days: spanDays,
         };
       }
     }

@@ -249,35 +249,56 @@ export default function ChipsSection({ WB, stockCode }: { WB: any; stockCode: st
               color: '#8a5a1e',
               background: 'rgba(240,190,90,0.08)',
               border: '1px solid rgba(138,90,30,0.35)',
-              padding: '4px 8px',
+              padding: '6px 8px',
               marginBottom: 8,
-              lineHeight: 1.5,
+              lineHeight: 1.6,
             }}
           >
-            最新一次同步（{data.bsr_last_failure.trade_date.replaceAll('-', '/')}）失敗
-            {data.bsr_last_failure.reason === 'captcha_retry_exhausted'
-              ? '（OCR 驗證碼多次辨識失敗）'
-              : data.bsr_last_failure.reason === 'http_block'
-              ? '（TWSE 暫時封鎖請求）'
-              : data.bsr_last_failure.reason === 'empty_rows'
-              ? '（當日無成交或 TWSE 回空）'
-              : `（${data.bsr_last_failure.reason}）`}
-            ，以下為前次成功抓取的資料。
-            {data.bsr_last_failure.next_retry_at && (
-              <>
-                {' '}將於
-                {' '}
-                {new Date(data.bsr_last_failure.next_retry_at).toLocaleString('zh-TW', {
-                  timeZone: 'Asia/Taipei',
-                  month: '2-digit', day: '2-digit',
-                  hour: '2-digit', minute: '2-digit', hour12: false,
-                })}
-                {' '}自動重試
-                {typeof data.bsr_last_failure.consecutive_failures === 'number' && data.bsr_last_failure.consecutive_failures > 1
-                  ? `（已連續失敗 ${data.bsr_last_failure.consecutive_failures} 次）` : ''}
-                。
-              </>
-            )}
+            <div style={{ fontWeight: 600, letterSpacing: '0.08em', marginBottom: 2 }}>
+              分點資料延遲（顯示前次成功抓取）
+            </div>
+            <div>
+              最後成功日：
+              <b style={{ color: '#5c3d10' }}>
+                {(data.bsr_last_failure.last_successful_as_of || data.bsr_as_of).replaceAll('-', '/')}
+              </b>
+              ；已嘗試回推：
+              <b style={{ color: '#5c3d10' }}>
+                {data.bsr_last_failure.lookback_to && data.bsr_last_failure.lookback_from
+                  ? `${data.bsr_last_failure.lookback_to.replaceAll('-', '/')} ~ ${data.bsr_last_failure.lookback_from.replaceAll('-', '/')}`
+                  : data.bsr_last_failure.trade_date.replaceAll('-', '/')}
+              </b>
+              {data.bsr_last_failure.lookback_days && data.bsr_last_failure.lookback_days > 1
+                ? `（共 ${data.bsr_last_failure.lookback_days} 個日期）`
+                : ''}
+              。
+            </div>
+            <div>
+              失敗原因：
+              {data.bsr_last_failure.reason === 'captcha_retry_exhausted'
+                ? 'OCR 驗證碼多次辨識失敗'
+                : data.bsr_last_failure.reason === 'http_block'
+                ? 'TWSE 暫時封鎖請求'
+                : data.bsr_last_failure.reason === 'empty_rows'
+                ? '當日無成交或 TWSE 回空'
+                : data.bsr_last_failure.reason}
+              {typeof data.bsr_last_failure.consecutive_failures === 'number' && data.bsr_last_failure.consecutive_failures > 1
+                ? `（已連續失敗 ${data.bsr_last_failure.consecutive_failures} 次）`
+                : ''}
+              。
+              {data.bsr_last_failure.next_retry_at && (
+                <>
+                  {' '}將於
+                  {' '}
+                  {new Date(data.bsr_last_failure.next_retry_at).toLocaleString('zh-TW', {
+                    timeZone: 'Asia/Taipei',
+                    month: '2-digit', day: '2-digit',
+                    hour: '2-digit', minute: '2-digit', hour12: false,
+                  })}
+                  {' '}自動重試。
+                </>
+              )}
+            </div>
           </div>
         )}
 
