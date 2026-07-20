@@ -66,19 +66,31 @@ jobs:
         with:
           bun-version: latest
 
-      # ---- bun install 快取 ----
+      # ---- bun install 快取（key 綁定 OS 版本，避免升級 runner 後拿到不相容的二進位）----
+      - name: Resolve runner image tag
+        id: runner-img
+        run: echo "tag=$(lsb_release -sr 2>/dev/null || echo unknown)" >> "$GITHUB_OUTPUT"
+
       - name: Cache bun store
+        id: bun-cache
         uses: actions/cache@v4
         with:
           path: ~/.bun/install/cache
-          key: ${{ runner.os }}-bun-${{ hashFiles('bun.lockb', 'package.json') }}
+          key: ${{ runner.os }}-${{ steps.runner-img.outputs.tag }}-bun-${{ hashFiles('bun.lockb', 'package.json') }}
           restore-keys: |
-            ${{ runner.os }}-bun-
+            ${{ runner.os }}-${{ steps.runner-img.outputs.tag }}-bun-
 
       - name: Install deps
         run: bun install --frozen-lockfile
 
-      # ---- Playwright chromium 快取 ----
+      - name: Verify @playwright/test present
+        run: |
+          if [ ! -f node_modules/@playwright/test/package.json ]; then
+            echo "::error::@playwright/test missing after bun install"
+            exit 1
+          fi
+
+      # ---- Playwright browsers 快取（key 綁定 OS + PW 版本）----
       - name: Get Playwright version
         id: pw-version
         run: |
@@ -90,15 +102,62 @@ jobs:
         uses: actions/cache@v4
         with:
           path: ~/.cache/ms-playwright
-          key: ${{ runner.os }}-playwright-${{ steps.pw-version.outputs.version }}
+          key: ${{ runner.os }}-${{ steps.runner-img.outputs.tag }}-playwright-${{ steps.pw-version.outputs.version }}
+          restore-keys: |
+            ${{ runner.os }}-${{ steps.runner-img.outputs.tag }}-playwright-
 
-      - name: Install Playwright chromium
+      - name: Install Playwright chromium (cache miss)
         if: steps.pw-cache.outputs.cache-hit != 'true'
         run: bunx playwright install --with-deps chromium
 
       - name: Install chromium system deps only (cache hit)
         if: steps.pw-cache.outputs.cache-hit == 'true'
         run: bunx playwright install-deps chromium
+
+      # ---- 快取完整性驗證：只要 chromium 二進位缺失就強制重灌，避免部分快取造成 CI 紅燈 ----
+      - name: Verify Playwright chromium binary
+        id: pw-verify
+        run: |
+          set -e
+          bin=$(bunx playwright install --dry-run chromium 2>/dev/null | awk '/Install location:/ {print $3; exit}')
+          echo "install_location=$bin"
+          if [ -z "$bin" ] || [ ! -d "$bin" ]; then
+            echo "needs_reinstall=true" >> "$GITHUB_OUTPUT"
+          else
+            headless=$(find "$bin" -maxdepth 3 -type f \( -name 'headless_shell' -o -name 'chrome' \) | head -n1)
+            if [ -z "$headless" ]; then
+              echo "needs_reinstall=true" >> "$GITHUB_OUTPUT"
+            else
+              echo "needs_reinstall=false" >> "$GITHUB_OUTPUT"
+            fi
+          fi
+
+      - name: Reinstall chromium (integrity failure)
+        if: steps.pw-verify.outputs.needs_reinstall == 'true'
+        run: |
+          echo "::warning::Playwright chromium cache incomplete, reinstalling"
+          rm -rf ~/.cache/ms-playwright
+          bunx playwright install --with-deps chromium
+
+      # ---- 字型：Noto CJK + emoji，確保繁中/emoji 視覺快照跨機一致 ----
+      - name: Install CJK & emoji fonts
+        run: |
+          set -e
+          need_install=false
+          for pkg in fonts-noto-cjk fonts-noto-color-emoji; do
+            dpkg -s "$pkg" >/dev/null 2>&1 || need_install=true
+          done
+          if [ "$need_install" = "true" ]; then
+            sudo apt-get update
+            sudo apt-get install -y --no-install-recommends fonts-noto-cjk fonts-noto-color-emoji
+            sudo fc-cache -f
+          fi
+          fc-list :lang=zh-tw | head -n3
+
+      - name: Smoke check chromium launch
+        run: |
+          bunx playwright --version
+          node -e "const {chromium}=require('playwright');chromium.launch().then(b=>b.close()).then(()=>console.log('chromium OK'))"
 
       # ---- 執行對應 project ----
       - name: Run ${{ matrix.project }}
