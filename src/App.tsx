@@ -145,6 +145,7 @@ const CompanyBsrTimeline = lazy(() => import("./pages/company/BsrStockTimeline")
 const CompanyBsrBackfill = lazy(() => import("./pages/company/BsrBackfillProgress"));
 const CompanyBsrConfig = lazy(() => import("./pages/company/BsrSyncConfig"));
 const CompanyBsrOcrMetrics = lazy(() => import("./pages/company/BsrOcrMetrics"));
+const CompanyBsrRateLimit = lazy(() => import("./pages/company/BsrRateLimit"));
 const CompanyKnowledgeBase = lazy(() => import("./pages/company/KnowledgeBase"));
 const CompanyKnowledgeAudit = lazy(() => import("./pages/company/knowledge-base/KnowledgeAudit"));
 const CompanyKnowledgeScheduler = lazy(() => import("./pages/company/knowledge-base/KnowledgeScheduler"));
@@ -382,6 +383,7 @@ const AppShell = () => (
             <Route path="/company/bsr-backfill" element={<ProtectedRoute requiredRole="company_admin"><CompanyBsrBackfill /></ProtectedRoute>} />
             <Route path="/company/bsr-config" element={<ProtectedRoute requiredRole="company_admin"><CompanyBsrConfig /></ProtectedRoute>} />
             <Route path="/company/bsr-ocr-metrics" element={<ProtectedRoute requiredRole="company_admin"><CompanyBsrOcrMetrics /></ProtectedRoute>} />
+            <Route path="/company/bsr-rate-limit" element={<ProtectedRoute requiredRole="company_admin"><CompanyBsrRateLimit /></ProtectedRoute>} />
 
             <Route path="/company/paywall-analytics" element={<ProtectedRoute requiredRole="company_admin"><CompanyPaywallAnalytics /></ProtectedRoute>} />
             <Route path="/company/funnel-analytics" element={<ProtectedRoute requiredRole="company_admin"><CompanyFunnelAnalytics /></ProtectedRoute>} />

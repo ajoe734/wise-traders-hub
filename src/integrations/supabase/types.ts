@@ -3826,6 +3826,33 @@ export type Database = {
         }
         Relationships: []
       }
+      tw_bsr_api_usage: {
+        Row: {
+          api_name: string
+          bucket_start: string
+          call_count: number
+          error_count: number
+          rate_limited_count: number
+          success_count: number
+        }
+        Insert: {
+          api_name?: string
+          bucket_start: string
+          call_count?: number
+          error_count?: number
+          rate_limited_count?: number
+          success_count?: number
+        }
+        Update: {
+          api_name?: string
+          bucket_start?: string
+          call_count?: number
+          error_count?: number
+          rate_limited_count?: number
+          success_count?: number
+        }
+        Relationships: []
+      }
       tw_bsr_attempt_logs: {
         Row: {
           adaptive_strategy: Json | null
@@ -4096,6 +4123,63 @@ export type Database = {
           ocr_fail?: number
           success?: number
           total?: number
+        }
+        Relationships: []
+      }
+      tw_bsr_sync_queue: {
+        Row: {
+          attempts: number
+          created_at: string
+          enqueued_at: string
+          enqueued_by: string | null
+          finished_at: string | null
+          id: number
+          last_error: string | null
+          last_success_at: string | null
+          max_attempts: number
+          next_run_at: string
+          priority: number
+          started_at: string | null
+          status: string
+          stock_id: string
+          trade_date: string
+          updated_at: string
+        }
+        Insert: {
+          attempts?: number
+          created_at?: string
+          enqueued_at?: string
+          enqueued_by?: string | null
+          finished_at?: string | null
+          id?: number
+          last_error?: string | null
+          last_success_at?: string | null
+          max_attempts?: number
+          next_run_at?: string
+          priority: number
+          started_at?: string | null
+          status?: string
+          stock_id: string
+          trade_date: string
+          updated_at?: string
+        }
+        Update: {
+          attempts?: number
+          created_at?: string
+          enqueued_at?: string
+          enqueued_by?: string | null
+          finished_at?: string | null
+          id?: number
+          last_error?: string | null
+          last_success_at?: string | null
+          max_attempts?: number
+          next_run_at?: string
+          priority?: number
+          started_at?: string | null
+          status?: string
+          stock_id?: string
+          trade_date?: string
+          updated_at?: string
         }
         Relationships: []
       }
@@ -4544,6 +4628,14 @@ export type Database = {
         Args: { _expert_id: string }
         Returns: Json
       }
+      check_bsr_rate_limit: {
+        Args: { _api?: string; _limit?: number }
+        Returns: {
+          allowed: boolean
+          remaining: number
+          used: number
+        }[]
+      }
       check_checkup_quota: { Args: { _user_id: string }; Returns: Json }
       check_knowledge_title_similarity: {
         Args: { _category: string; _threshold?: number; _title: string }
@@ -4553,6 +4645,33 @@ export type Database = {
           sim: number
           title: string
         }[]
+      }
+      claim_bsr_queue_jobs: {
+        Args: { _batch?: number; _max_priority?: number }
+        Returns: {
+          attempts: number
+          created_at: string
+          enqueued_at: string
+          enqueued_by: string | null
+          finished_at: string | null
+          id: number
+          last_error: string | null
+          last_success_at: string | null
+          max_attempts: number
+          next_run_at: string
+          priority: number
+          started_at: string | null
+          status: string
+          stock_id: string
+          trade_date: string
+          updated_at: string
+        }[]
+        SetofOptions: {
+          from: "*"
+          to: "tw_bsr_sync_queue"
+          isOneToOne: false
+          isSetofReturn: true
+        }
       }
       cleanup_account_link_codes: { Args: never; Returns: undefined }
       cleanup_line_oauth_states: { Args: never; Returns: undefined }
@@ -4745,7 +4864,12 @@ export type Database = {
               source_type: string
             }[]
           }
+      prune_bsr_sync_queue: { Args: never; Returns: number }
       reconcile_line_free_quota: { Args: { _user_id: string }; Returns: Json }
+      record_bsr_api_call: {
+        Args: { _api?: string; _rate_limited?: boolean; _success?: boolean }
+        Returns: undefined
+      }
       run_rls_subscription_tests: {
         Args: never
         Returns: {
