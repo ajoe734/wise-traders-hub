@@ -64,6 +64,8 @@ const DEFAULT_CONFIG: SyncConfig = {
   freeze_window_ms: 86400000,
   cookie_jar_reuse: 6,
   lock_ttl_sec: 90,
+  ocr_mode: "standard",
+  ocr_escalate_on_fail: true,
 };
 
 async function loadConfig(supa: any): Promise<{ cfg: SyncConfig; version: number | null }> {
