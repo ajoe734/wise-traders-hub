@@ -800,7 +800,35 @@ export function SignalCreateDialog({
               {riskNotes && <p className="text-xs text-destructive">⚠️ {riskNotes}</p>}
             </CardContent></Card>
           )}
+          {publishError && (
+            <PublishErrorBanner
+              error={publishError}
+              onDismiss={() => setPublishError(null)}
+              onRetry={() => { setPublishError(null); handlePublish(); }}
+              onGoToProfile={
+                publishError.code === 'CAPITAL_EXCEEDED'
+                  ? () => { window.location.href = '/admin/profile'; }
+                  : undefined
+              }
+              onUseLockedUnit={
+                publishError.code === 'UNIT_CONFLICT' && lockedUnit
+                  ? () => { setQuantityUnit(lockedUnit); setPublishError(null); toast.success(`已改用歷史單位「${lockedUnit}」，可重新送出`); }
+                  : undefined
+              }
+              onOpenRealign={
+                publishError.code === 'UNIT_CONFLICT' && lockedUnit && spec.units.length > 1 && stockCode.trim() && expert?.id
+                  ? () => { setRealignPreview({ toUnit: quantityUnit }); }
+                  : undefined
+              }
+              onUseAllowedUnit={
+                publishError.code === 'INCOMPATIBLE_UNIT'
+                  ? () => { setQuantityUnit(spec.defaultUnit); setPublishError(null); toast.success(`已切換為「${spec.defaultUnit}」，可重新送出`); }
+                  : undefined
+              }
+            />
+          )}
           <div className="flex justify-end gap-3 pt-2">
+
             <Button variant="outline" onClick={() => { setIsCreateOpen(false); clearForm(); }}>取消</Button>
             <Button
               onClick={handlePublish}
