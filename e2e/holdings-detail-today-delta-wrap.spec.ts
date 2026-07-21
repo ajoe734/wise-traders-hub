@@ -83,8 +83,18 @@ test.describe('HoldingsDetailPanel · today-delta wrap + 節奏守門', () => {
         panelBox.x + panelBox.width - (deltaBox.x + deltaBox.width),
         `[${w}px] delta 未右對齊，距抽屜右緣 ${panelBox.x + panelBox.width - (deltaBox.x + deltaBox.width)}px`,
       ).toBeLessThanOrEqual(32);
+
+      // 今日 delta 旁 info 圖示必須有 a11y label 與 tooltip 說明文字
+      const info = delta.locator('[data-testid="drawer-today-delta-info"]').first();
+      await expect(info).toHaveAttribute('aria-label', '今日漲跌幅說明');
+      await info.hover();
+      await page.waitForTimeout(150);
+      await expect(
+        page.locator('text=今日漲跌幅（% 與金額）與下方 30 日走勢帶使用相同收盤價來源').first(),
+      ).toBeVisible();
     });
   }
+
 
   for (const w of WIDE_WIDTHS) {
     test(`寬屏 ${w}px：抽屜 panel 受 sm:max-w-md 限制，delta 仍為獨立右對齊行`, async ({ page }) => {
