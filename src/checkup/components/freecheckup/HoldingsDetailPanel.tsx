@@ -1175,7 +1175,7 @@ function ThesisHistory({ WB, rows }) {
   const success = rows.filter((r) => r.afterPct != null && r.myAction === r.suggestion && r.afterPct > 0).length;
   const total = rows.length;
   return (
-    <div data-testid="holdings-thesis-history" style={{ margin: '20px 0', minWidth: 0 }}>
+    <div data-testid="holdings-thesis-history" style={{ margin: '0 0 20px', minWidth: 0 }}>
       <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: 8 }}>
         <span style={{ fontSize: 12, color: WB.inkMute, letterSpacing: '0.14em' }}>決策履歷</span>
         <span style={{ fontSize: 12, color: WB.inkSub, fontVariantNumeric: 'tabular-nums' }}>
