@@ -280,7 +280,7 @@ async function enqueueTier2Gaps(date: string, cid: string): Promise<number> {
     if (isChipEligible(sid)) gapIds.add(sid);
   }
   if (gapIds.size === 0) return 0;
-  return await enqueueBatch(Array.from(gapIds), date, 2, 'tier2_gaps', cid);
+  return await enqueueBatch(Array.from(gapIds), date, 2, 'tier2_gaps', cid, true);
 }
 
 async function enqueueTier3Backfill(endDate: string, days: number, cid: string): Promise<number> {
