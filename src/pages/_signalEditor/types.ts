@@ -4,6 +4,7 @@ import {
   formatMoneyByCurrency,
   normalizeCurrency,
 } from '@/lib/currency';
+import { getAssetSpec, normalizeAssetClass, type AssetClass, type QuantityUnit } from '@/lib/asset';
 
 export interface OpenPosition {
   symbol: string;
@@ -49,7 +50,7 @@ export interface TradeDraft {
   action: TradeAction | '';
   priceHint: string;
   quantity: string;
-  quantityUnit: '張' | '股';
+  quantityUnit: QuantityUnit;
   reasonSummary: string;
   reasonDetail: string;
   riskNotes: string;
@@ -63,7 +64,14 @@ export const nowLocalDatetime = () => {
   return `${d.getFullYear()}-${pad(d.getMonth() + 1)}-${pad(d.getDate())}T${pad(d.getHours())}:${pad(d.getMinutes())}`;
 };
 
-export const emptyTrade = (currency: Currency = 'TWD'): TradeDraft => ({
+export const emptyTrade = (assetOrCurrency: Currency | AssetClass = 'TWD'): TradeDraft => {
+  const assetClass: AssetClass = assetOrCurrency === 'USD'
+    ? 'us_stock'
+    : assetOrCurrency === 'TWD'
+      ? 'tw_stock'
+      : normalizeAssetClass(assetOrCurrency);
+  const spec = getAssetSpec(assetClass);
+  return {
   uid: newUid(),
   executedAt: nowLocalDatetime(),
   stockCode: '',
@@ -71,11 +79,12 @@ export const emptyTrade = (currency: Currency = 'TWD'): TradeDraft => ({
   action: '',
   priceHint: '',
   quantity: '',
-  quantityUnit: currency === 'USD' ? '股' : '張',
+  quantityUnit: spec.defaultUnit,
   reasonSummary: '',
   reasonDetail: '',
   riskNotes: '',
-});
+  };
+};
 
 /**
  * 金額格式化。
