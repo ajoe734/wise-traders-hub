@@ -231,6 +231,7 @@ export function SignalCreateDialog({
     : !!expert && !!stockCode.trim() && !!action;
 
   const handlePublish = async () => {
+    setPublishError(null);
     if (!expert) { toast.error('找不到分析師資料，請重新整理後再試'); return; }
     if (!expert.asset_class) {
       toast.error('請先到「分析師設定」選擇主打資產類別（台股 / 美股 / 加密），才能發布訊號或週記');
