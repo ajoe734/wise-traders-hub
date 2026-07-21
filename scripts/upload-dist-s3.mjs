@@ -25,7 +25,7 @@ import { readdir, readFile, stat } from "node:fs/promises";
 import { join, relative, sep, posix } from "node:path";
 import { createHash } from "node:crypto";
 import { setTimeout as sleep } from "node:timers/promises";
-import { S3Client, PutObjectCommand } from "@aws-sdk/client-s3";
+import { S3Client, PutObjectCommand, HeadObjectCommand } from "@aws-sdk/client-s3";
 
 const {
   S3_BUCKET,
