@@ -1,0 +1,52 @@
+name: Deploy — dist → S3 (retry + backoff)
+
+# 只在有設定 S3_BUCKET secret 時才會實際上傳；否則腳本會自行 skip。
+# 重試策略：per-file exponential backoff w/ full jitter，整體 wall-clock 由 UPLOAD_TIMEOUT_MS 控制。
+on:
+  workflow_dispatch:
+    inputs:
+      prefix:
+        description: "S3 key prefix (optional)"
+        required: false
+        default: ""
+  push:
+    branches: [main]
+
+concurrency:
+  group: deploy-dist-s3-${{ github.ref }}
+  cancel-in-progress: false
+
+jobs:
+  upload:
+    name: Build and upload dist to S3
+    runs-on: ubuntu-latest
+    timeout-minutes: 45
+    steps:
+      - uses: actions/checkout@v4
+      - uses: oven-sh/setup-bun@v2
+        with:
+          bun-version: latest
+      - name: Install deps
+        run: bun install --frozen-lockfile
+      - name: Build
+        run: bun run build
+        env:
+          VITE_SUPABASE_URL: https://yqacmrgdjlenbijclngi.supabase.co
+          VITE_SUPABASE_PUBLISHABLE_KEY: ${{ secrets.VITE_SUPABASE_PUBLISHABLE_KEY || 'placeholder' }}
+          VITE_SUPABASE_PROJECT_ID: yqacmrgdjlenbijclngi
+      - name: Ensure @aws-sdk/client-s3 present
+        run: bun add -d @aws-sdk/client-s3 --no-save || bun add @aws-sdk/client-s3
+      - name: Upload dist to S3 (retry until success or timeout)
+        run: node scripts/upload-dist-s3.mjs
+        env:
+          S3_BUCKET: ${{ secrets.S3_BUCKET }}
+          S3_PREFIX: ${{ github.event.inputs.prefix || secrets.S3_PREFIX }}
+          S3_REGION: ${{ secrets.S3_REGION || 'ap-northeast-1' }}
+          AWS_ACCESS_KEY_ID: ${{ secrets.AWS_ACCESS_KEY_ID }}
+          AWS_SECRET_ACCESS_KEY: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
+          DIST_DIR: dist
+          UPLOAD_TIMEOUT_MS: "1800000"    # 30 min overall budget
+          UPLOAD_MAX_ATTEMPTS: "8"        # per-file cap
+          UPLOAD_BASE_DELAY_MS: "1000"    # 1s → 2s → 4s ... capped at 60s
+          UPLOAD_MAX_DELAY_MS: "60000"
+          UPLOAD_CONCURRENCY: "8"
