@@ -155,6 +155,243 @@ export function buildMentorMarkdown(mentorRows: JournalRowExport[], range: WeekR
   return lines.join('\n').replace(/\n{3,}/g, '\n\n');
 }
 
+// ── Export risk gate ─────────────────────────────────────
+// 在匯出前檢查資料一致性，若偵測到單位或方向不一致 → 阻擋（block）或提醒（warn）。
+
+export type ExportRiskCode =
+  | 'UNIT_MIX'
+  | 'UNIT_MISSING'
+  | 'DIRECTION_NO_ENTRY'
+  | 'DIRECTION_OVERSELL'
+  | 'QTY_INVALID'
+  | 'PENDING_IN_EXPORT';
+
+export type ExportRiskSeverity = 'block' | 'warn';
+
+export interface ExportRiskIssue {
+  code: ExportRiskCode;
+  severity: ExportRiskSeverity;
+  expert_id: string;
+  expert_name?: string | null;
+  instrument: string | null;
+  detail: string;
+  rowIds: string[];
+}
+
+export interface ExportRiskReport {
+  issues: ExportRiskIssue[];
+  blocked: boolean;
+  summary: { block: number; warn: number };
+  openingBalancesProvided: boolean;
+}
+
+export interface DetectExportRisksCtx {
+  /** key = `${expert_id}::${instrument}`; value = 股（shares） */
+  openingBalances?: Map<string, number>;
+  /** publishedOnly=true 時，若仍出現非 published row，會列為 PENDING_IN_EXPORT (warn) */
+  publishedOnly?: boolean;
+}
+
+const BUY_ACTIONS = new Set(['buy', 'add']);
+const SELL_ACTIONS = new Set(['sell', 'trim', 'exit']);
+const TRADE_ACTIONS = new Set([...BUY_ACTIONS, ...SELL_ACTIONS]);
+
+export function normalizeQuantityUnit(unit: string | null | undefined): 'lot' | 'share' | 'contract' | 'other' | 'missing' {
+  const raw = (unit ?? '').trim();
+  if (!raw) return 'missing';
+  const s = raw.toLowerCase();
+  if (raw === '張' || s === 'lot' || s === 'lots') return 'lot';
+  if (raw === '股' || s === 'share' || s === 'shares') return 'share';
+  if (raw === '口' || s === 'contract' || s === 'contracts') return 'contract';
+  return 'other';
+}
+
+/** 折算為「股」；未知單位以 NaN 表達（呼叫端自行決定是否忽略） */
+function toShares(qty: number, unit: ReturnType<typeof normalizeQuantityUnit>): number {
+  if (unit === 'lot') return qty * 1000;
+  if (unit === 'share' || unit === 'missing') return qty;
+  return Number.NaN;
+}
+
+export function detectExportRisks(
+  rows: JournalRowExport[],
+  ctx: DetectExportRisksCtx = {},
+): ExportRiskReport {
+  const issues: ExportRiskIssue[] = [];
+  const openingBalancesProvided = !!ctx.openingBalances;
+
+  // 依 (expert_id, instrument) 分桶
+  const byKey = new Map<string, { rows: JournalRowExport[]; expertId: string; expertName: string | null; instrument: string | null }>();
+  for (const r of rows) {
+    const key = `${r.expert_id}::${r.instrument ?? ''}`;
+    const g = byKey.get(key) ?? {
+      rows: [],
+      expertId: r.expert_id,
+      expertName: r.experts?.name ?? null,
+      instrument: r.instrument,
+    };
+    g.rows.push(r);
+    byKey.set(key, g);
+  }
+
+  for (const [key, bucket] of byKey) {
+    const { rows: bRows, expertId, expertName, instrument } = bucket;
+
+    // PENDING_IN_EXPORT (warn) — publishedOnly=true 卻含未發布
+    if (ctx.publishedOnly) {
+      const pending = bRows.filter((r) => (r.status ?? '') !== 'published');
+      if (pending.length > 0) {
+        issues.push({
+          code: 'PENDING_IN_EXPORT',
+          severity: 'warn',
+          expert_id: expertId,
+          expert_name: expertName,
+          instrument,
+          detail: `含 ${pending.length} 則非 published 狀態訊號（勾了「僅發布」卻仍出現）`,
+          rowIds: pending.map((r) => r.id),
+        });
+      }
+    }
+
+    // QTY_INVALID (block) — 交易動作但 qty <= 0 或 NaN
+    const invalidQty = bRows.filter((r) => {
+      if (!TRADE_ACTIONS.has(String(r.action ?? '').toLowerCase())) return false;
+      if (r.quantity === null || r.quantity === undefined) return false;
+      const n = Number(r.quantity);
+      return !Number.isFinite(n) || n <= 0;
+    });
+    if (invalidQty.length > 0) {
+      issues.push({
+        code: 'QTY_INVALID',
+        severity: 'block',
+        expert_id: expertId,
+        expert_name: expertName,
+        instrument,
+        detail: `${invalidQty.length} 筆交易訊號的數量為 0 或無效數字`,
+        rowIds: invalidQty.map((r) => r.id),
+      });
+    }
+
+    // UNIT_MIX (block) — 同 (expert, instrument) 出現 lot & share 同時存在
+    const unitBuckets = new Map<string, JournalRowExport[]>();
+    let missingUnitRows: JournalRowExport[] = [];
+    for (const r of bRows) {
+      if (r.quantity === null || r.quantity === undefined) continue;
+      if (!TRADE_ACTIONS.has(String(r.action ?? '').toLowerCase())) continue;
+      const u = normalizeQuantityUnit(r.quantity_unit);
+      if (u === 'missing') missingUnitRows.push(r);
+      const list = unitBuckets.get(u) ?? [];
+      list.push(r);
+      unitBuckets.set(u, list);
+    }
+    const hasLot = (unitBuckets.get('lot')?.length ?? 0) > 0;
+    const hasShare = (unitBuckets.get('share')?.length ?? 0) > 0;
+    if (hasLot && hasShare) {
+      const related = [...(unitBuckets.get('lot') ?? []), ...(unitBuckets.get('share') ?? [])];
+      issues.push({
+        code: 'UNIT_MIX',
+        severity: 'block',
+        expert_id: expertId,
+        expert_name: expertName,
+        instrument,
+        detail: `同一標的同時使用「張」與「股」兩種單位（張 ${unitBuckets.get('lot')?.length ?? 0} 筆、股 ${unitBuckets.get('share')?.length ?? 0} 筆）`,
+        rowIds: related.map((r) => r.id),
+      });
+    }
+
+    // UNIT_MISSING (warn) — 台股/美股訊號 qty != null 但 unit 空
+    if (missingUnitRows.length > 0) {
+      const first = missingUnitRows[0];
+      const asset = first.experts?.asset_class ?? '';
+      if (asset === 'tw_stock' || asset === 'us_stock') {
+        issues.push({
+          code: 'UNIT_MISSING',
+          severity: 'warn',
+          expert_id: expertId,
+          expert_name: expertName,
+          instrument,
+          detail: `${missingUnitRows.length} 筆訊號未填寫單位（預設會顯示為「股」，建議明確補齊）`,
+          rowIds: missingUnitRows.map((r) => r.id),
+        });
+      }
+    }
+
+    // 方向類：計算 buy vs sell 累計股數
+    let buyShares = 0;
+    let sellShares = 0;
+    let hasEntry = false;
+    let hasExit = false;
+    const sellRowIds: string[] = [];
+    const buyRowIds: string[] = [];
+    for (const r of bRows) {
+      const action = String(r.action ?? '').toLowerCase();
+      if (!TRADE_ACTIONS.has(action)) continue;
+      if (r.quantity === null || r.quantity === undefined) continue;
+      const qty = Number(r.quantity);
+      if (!Number.isFinite(qty) || qty <= 0) continue;
+      const u = normalizeQuantityUnit(r.quantity_unit);
+      const shares = toShares(qty, u);
+      if (!Number.isFinite(shares)) continue;
+      if (BUY_ACTIONS.has(action)) {
+        buyShares += shares;
+        hasEntry = true;
+        buyRowIds.push(r.id);
+      } else if (SELL_ACTIONS.has(action)) {
+        sellShares += shares;
+        hasExit = true;
+        sellRowIds.push(r.id);
+      }
+    }
+    const opening = ctx.openingBalances?.get(key) ?? 0;
+
+    // DIRECTION_NO_ENTRY (block) — 只賣未買，且期初庫存 <= 0
+    if (hasExit && !hasEntry && opening <= 0) {
+      issues.push({
+        code: 'DIRECTION_NO_ENTRY',
+        severity: 'block',
+        expert_id: expertId,
+        expert_name: expertName,
+        instrument,
+        detail: openingBalancesProvided
+          ? '本週只有賣出/減碼/出場，且 trade_records 查無期初持倉'
+          : '本週只有賣出/減碼/出場（未帶入歷史庫存，僅本批判定）',
+        rowIds: sellRowIds,
+      });
+    }
+
+    // DIRECTION_OVERSELL (block) — 賣超（僅在 openingBalances 提供時判定，避免誤報）
+    if (openingBalancesProvided && sellShares > buyShares + opening) {
+      issues.push({
+        code: 'DIRECTION_OVERSELL',
+        severity: 'block',
+        expert_id: expertId,
+        expert_name: expertName,
+        instrument,
+        detail: `賣出/減碼合計 ${sellShares} 股 > 買進/加碼 ${buyShares} 股 + 期初 ${opening} 股`,
+        rowIds: [...sellRowIds, ...buyRowIds],
+      });
+    }
+  }
+
+  const block = issues.filter((i) => i.severity === 'block').length;
+  const warn = issues.filter((i) => i.severity === 'warn').length;
+  return {
+    issues,
+    blocked: block > 0,
+    summary: { block, warn },
+    openingBalancesProvided,
+  };
+}
+
+export const EXPORT_RISK_LABEL: Record<ExportRiskCode, string> = {
+  UNIT_MIX: '單位混用',
+  UNIT_MISSING: '單位缺失',
+  DIRECTION_NO_ENTRY: '只賣未買',
+  DIRECTION_OVERSELL: '賣超',
+  QTY_INVALID: '數量無效',
+  PENDING_IN_EXPORT: '含未發布',
+};
+
 export function groupRowsByMentor(rows: JournalRowExport[]): Map<string, JournalRowExport[]> {
   const byMentor = new Map<string, JournalRowExport[]>();
   for (const r of rows) {
