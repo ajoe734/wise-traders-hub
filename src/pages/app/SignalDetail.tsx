@@ -16,7 +16,7 @@ import { Button } from '@/components/ui/button';
 import { useQuery } from '@tanstack/react-query';
 import { SafeRichHtml } from '@/components/SafeRichHtml';
 import { FxHint } from '@/components/FxHint';
-import { CURRENCY_SYMBOL, CURRENCY_SOURCE_LABEL, defaultQuantityUnit, resolveDisplayCurrencyWithSource, type Currency } from '@/lib/currency';
+import { CURRENCY_SYMBOL, CURRENCY_SOURCE_LABEL, sanitizeQuantityUnit, resolveDisplayCurrencyWithSource, type Currency } from '@/lib/currency';
 import { trackRaw } from '@/lib/analytics/events';
 import { buildSignalCurrencyResolutionPayload } from '@/lib/analytics/signalCurrencyResolution';
 import { UnavailableContent } from '@/components/UnavailableContent';
@@ -234,7 +234,7 @@ const SignalDetail = () => {
         {(priceResolved.value !== null || qtyResolved.value !== null) && (() => {
           const cur: Currency = resolvedCurrency;
           const sym = CURRENCY_SYMBOL[cur];
-          const unit = signal.quantity_unit || defaultQuantityUnit(cur);
+          const unit = sanitizeQuantityUnit(signal.quantity_unit, cur);
           return (
             <div className="text-sm text-muted-foreground inline-flex items-baseline flex-wrap gap-x-1">
               <span className="font-sans">參考價位：</span>

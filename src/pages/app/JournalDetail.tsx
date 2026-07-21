@@ -19,7 +19,7 @@ import { toast } from 'sonner';
 import { exportJournalPdf } from '@/lib/exportJournalPdf';
 import { FxHint } from '@/components/FxHint';
 import { InstrumentTooltip } from '@/components/InstrumentTooltip';
-import { CURRENCY_SYMBOL, defaultQuantityUnit, normalizeCurrency, type Currency } from '@/lib/currency';
+import { CURRENCY_SYMBOL, normalizeCurrency, sanitizeQuantityUnit, type Currency } from '@/lib/currency';
 import { SubscriptionTimeline } from '@/components/SubscriptionTimeline';
 import { useSubscriptionTimeline } from '@/hooks/useSubscriptionTimeline';
 import { useEffectiveUserId } from '@/hooks/useEffectiveUserId';
@@ -98,7 +98,7 @@ const TradeItem = ({ signal, nameMap, showDebug }: { signal: SignalDetail; nameM
   const [expanded, setExpanded] = useState(isTeaching || hasDetails);
   const cur: Currency = normalizeCurrency(signal.currency ?? signal.experts?.currency);
   const sym = CURRENCY_SYMBOL[cur];
-  const unit = signal.quantity_unit || defaultQuantityUnit(cur);
+  const unit = sanitizeQuantityUnit(signal.quantity_unit, cur);
   const showTrade = !isTeaching && (signal.price_hint != null || signal.quantity != null);
   const total = !isTeaching && signal.price_hint != null && signal.quantity != null
     ? Number(signal.price_hint) * Number(signal.quantity)
