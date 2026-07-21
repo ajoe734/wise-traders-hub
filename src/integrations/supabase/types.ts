@@ -4851,6 +4851,7 @@ export type Database = {
         Args: { p_dry_run?: boolean; p_force?: boolean; p_signal_id: string }
         Returns: Json
       }
+      admin_trade_dedupe_sweep: { Args: { p_dry_run?: boolean }; Returns: Json }
       archive_and_promote_knowledge: {
         Args: {
           _new_confidence?: number
@@ -5239,6 +5240,7 @@ export type Database = {
         Returns: boolean
       }
       strip_referrer_query: { Args: { ref: string }; Returns: string }
+      trade_dedupe_sweep: { Args: { p_dry_run?: boolean }; Returns: Json }
     }
     Enums: {
       announcement_status: "draft" | "published"
