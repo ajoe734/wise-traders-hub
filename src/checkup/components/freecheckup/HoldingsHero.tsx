@@ -87,6 +87,7 @@ function HoldingsHeroImpl(props) {
     totalVal, totalCost, holdingsCount,
     rtConnected, lastUpdate, isDemo,
     refreshing, onRefreshPrices, refreshError,
+    holdings,
   } = props;
   const hasError = !refreshing && !!refreshError;
 
