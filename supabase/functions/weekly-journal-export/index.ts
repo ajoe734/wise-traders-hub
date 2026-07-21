@@ -498,6 +498,8 @@ Deno.serve(async (req) => {
       admins_notified: adminIds.length,
       files: uploaded,
       cleaned_up: deletedCount,
+      forced: force,
+      risk_report: riskReport,
     };
     console.log(`[weekly-journal-export] done`, result);
 
