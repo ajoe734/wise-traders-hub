@@ -871,7 +871,7 @@ function PriceAxis({ WB, price, cost, target, baseTarget, upside, tpHistory }) {
     { v: price, color: WB.ink, label: '現價', shape: 'dot', side: 'bottom' },
   ].map((p) => ({ ...p, x: pos(p.v), lx: labelPos(p.v) })).filter((p) => p.x != null);
   return (
-    <div data-testid="holdings-price-axis" style={{ margin: '20px 0 18px', minWidth: 0 }}>
+    <div data-testid="holdings-price-axis" style={{ margin: '0 0 20px', minWidth: 0 }}>
       <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'baseline', marginBottom: 8 }}>
         <span style={{ fontSize: 12, color: WB.inkMute, letterSpacing: '0.14em' }}>價格</span>
         {tpLabel && (
