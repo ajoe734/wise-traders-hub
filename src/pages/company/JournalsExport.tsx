@@ -337,6 +337,9 @@ const JournalsExport = () => {
   const [previewMentorId, setPreviewMentorId] = useState<string | null>(null);
   // 對話框內每位老師的勾選狀態；null 代表尚未初始化（開啟對話框時預設全選）
   const [dialogSelected, setDialogSelected] = useState<Set<string> | null>(null);
+  const [riskReport, setRiskReport] = useState<ExportRiskReport | null>(null);
+  const [riskDialogOpen, setRiskDialogOpen] = useState(false);
+  const [pendingExportScope, setPendingExportScope] = useState<Set<string> | null>(null);
   const range = useMemo(() => weekRangeUtc(weekStart), [weekStart]);
 
 
