@@ -86,6 +86,16 @@ function HoldingsWorkbench(props) {
   const onScrollRef = useRef<(() => void) | null>(null);
   const gridRef = useRef<HTMLDivElement | null>(null);
   const [showTopBtn, setShowTopBtn] = useState(false);
+  // 記錄開啟前的 focus 元素，Sheet 關閉時還原（Radix `onCloseAutoFocus` 契約）。
+  // 卡片透過程式 setExpandedDecision 開抽屜（不是 SheetTrigger），
+  // Radix 無從得知 trigger，需要手動 restore。
+  const previousFocusRef = useRef<HTMLElement | null>(null);
+  useEffect(() => {
+    if (showPanel) {
+      const active = document.activeElement as HTMLElement | null;
+      if (active && active !== document.body) previousFocusRef.current = active;
+    }
+  }, [showPanel]);
 
   // 抽屜內部滾動時顯示「回到頂部」按鈕。
   //
