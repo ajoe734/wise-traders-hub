@@ -96,8 +96,11 @@ export function buildFlexMessage(rawSignal: any, type: 'publish' | 'takedown' | 
   const isBullish = ['buy', 'add'].includes(signal.action)
   const color = isUpdate ? '#FF8C00' : (isBullish ? '#00B900' : '#DC3545')
 
-  // BUG-FIX: 拿掉 '張' 硬編 fallback（us_stock/期貨會錯）
-  const qtyLabel = signal.quantity ? `(${signal.quantity}${signal.quantity_unit || ''})` : ''
+  // 憲法：quantity 單位一律由 resolveLinePushQuantityUnit 決定
+  // （signal.asset_class → expertHint → currency=USD → tw_stock），
+  // 徹底杜絕 us_stock/us_future 被誤印為「張」。
+  const unit = resolveLinePushQuantityUnit(signal, expertHint || null)
+  const qtyLabel = signal.quantity ? `(${signal.quantity}${unit})` : ''
   const headerLine = isUpdate ? `🔄 訊號更新通知\n【${label} ${signal.instrument}】` : `【${label} ${signal.instrument}】`
   const copyLines: string[] = [headerLine]
   if (signal.price_hint) copyLines.push(`參考價位：${signal.price_hint}${qtyLabel}`)
