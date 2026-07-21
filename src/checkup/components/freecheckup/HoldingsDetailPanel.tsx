@@ -933,19 +933,32 @@ function PriceAxis({ WB, price, cost, target, baseTarget, upside, tpHistory }) {
 
 function RangeBand({ WB, price, low, high, spark }) {
   const svgH = 40; // 顯示高度（px）
-  const range = high - low;
-  const hasSpark = spark && spark.length >= 2 && range > 0;
-  // 紅點 = 時間軸末端「現在」，x 固定貼齊折線最右端；y 用 spark 末值（fallback price）換算，
-  // 確保與 polyline 尾點完全重合，不因價格軸換算飄離。
-  const lastV = hasSpark ? Number(spark[spark.length - 1]) : Number(price);
-  const rawY = range > 0 ? svgH - ((lastV - low) / range) * svgH : svgH / 2;
-  const dotY = Math.min(Math.max(rawY, 0), svgH);
+  // 淨化輸入：過濾 NaN / 非數值 spark；lo/hi 必須是有限數
+  const lo = Number.isFinite(low) ? Number(low) : NaN;
+  const hi = Number.isFinite(high) ? Number(high) : NaN;
+  const cleanSpark = Array.isArray(spark)
+    ? spark.map((v) => Number(v)).filter((v) => Number.isFinite(v))
+    : [];
+  const hasHiLo = Number.isFinite(lo) && Number.isFinite(hi);
+  const range = hasHiLo ? hi - lo : 0;
+  // 允許 range === 0（平盤）：仍畫水平線 + 紅點置中；只需 spark 至少 2 點且 hi/lo 可用
+  const hasSpark = hasHiLo && cleanSpark.length >= 2;
+  // 紅點 y：range>0 用 spark 末值換算；range=0 或 spark 缺失 → 置中，永不 NaN
+  const lastV = hasSpark ? cleanSpark[cleanSpark.length - 1] : Number(price);
+  const rawY =
+    range > 0 && Number.isFinite(lastV)
+      ? svgH - ((lastV - lo) / range) * svgH
+      : svgH / 2;
+  const dotY = Number.isFinite(rawY) ? Math.min(Math.max(rawY, 0), svgH) : svgH / 2;
+  // hi/lo label 需要 fallback，避免 toFixed 對 NaN 拋出 "NaN"
+  const loLabel = Number.isFinite(lo) ? lo.toFixed(2) : '—';
+  const hiLabel = Number.isFinite(hi) ? hi.toFixed(2) : '—';
   return (
     <div data-testid="holdings-range-band" style={{ margin: '0 0 20px', minWidth: 0 }}>
       <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: 6 }}>
         <span style={{ fontSize: 12, color: WB.inkMute, letterSpacing: '0.14em' }}>30 日走勢</span>
         <span style={{ fontSize: 12, color: WB.inkSub, fontVariantNumeric: 'tabular-nums' }}>
-          低 {low.toFixed(2)}<span style={{ margin: '0 6px', color: WB.inkLight }}>—</span>高 {high.toFixed(2)}
+          低 {loLabel}<span style={{ margin: '0 6px', color: WB.inkLight }}>—</span>高 {hiLabel}
         </span>
       </div>
       {hasSpark && (
@@ -954,9 +967,10 @@ function RangeBand({ WB, price, low, high, spark }) {
           <svg viewBox="0 0 100 30" preserveAspectRatio="none"
             style={{ width: '100%', height: svgH, display: 'block', position: 'absolute', inset: 0 }}>
             <polyline fill="none" stroke={WB.inkSub} strokeWidth="1" vectorEffect="non-scaling-stroke"
-              points={spark.map((v, i) => {
-                const x = (i / (spark.length - 1)) * 100;
-                const yy = 30 - ((v - low) / (high - low)) * 30;
+              points={cleanSpark.map((v, i) => {
+                const x = (i / (cleanSpark.length - 1)) * 100;
+                // range===0（平盤）→ 全部 y 置中，避免除零 NaN
+                const yy = range > 0 ? 30 - ((v - lo) / range) * 30 : 15;
                 return `${x.toFixed(2)},${yy.toFixed(2)}`;
               }).join(' ')} />
           </svg>
