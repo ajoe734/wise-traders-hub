@@ -204,8 +204,9 @@ describe('CompanyAnalysts', () => {
 
     await waitFor(() => expect(screen.getByText(/目前 Email/)).toBeInTheDocument());
     fireEvent.click(screen.getByRole('tab', { name: /重設密碼/ }));
-    fireEvent.change(screen.getByLabelText('新密碼'), { target: { value: 'abcd1234' } });
-    fireEvent.change(screen.getByLabelText('確認新密碼'), { target: { value: 'abcd1234' } });
+    await waitFor(() => expect(screen.getByPlaceholderText('至少 8 碼，需含英文與數字')).toBeInTheDocument());
+    fireEvent.change(screen.getByPlaceholderText('至少 8 碼，需含英文與數字'), { target: { value: 'abcd1234' } });
+    fireEvent.change(screen.getByPlaceholderText('再次輸入'), { target: { value: 'abcd1234' } });
     fireEvent.click(screen.getByRole('button', { name: '立即重設' }));
 
     await waitFor(() => {
