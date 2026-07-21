@@ -265,6 +265,7 @@ function HoldingsTab(props) {
         lastUpdate={lastUpdate}
         refreshing={refreshing}
         onRefreshPrices={onRefreshPrices}
+        refreshError={refreshError || undefined}
         isDemo={isDemo}
         WB={WB}
         wbTone={wbTone}
