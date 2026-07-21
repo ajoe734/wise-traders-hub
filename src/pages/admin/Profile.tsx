@@ -93,12 +93,14 @@ const AdminProfile = () => {
     setAssetClass(resolveAssetClass(expert as any));
     if (expert.starting_capital != null) {
       setStartingCapital(String(expert.starting_capital));
-      setStartingCapitalLocked(true);
+      // 只在已有發布訊號時鎖住，未發布前允許自由調整（與資產類別規則一致）
+      setStartingCapitalLocked(currencyLocked);
     } else {
       setStartingCapital('');
       setStartingCapitalLocked(false);
     }
-  }, [expert]);
+  }, [expert, currencyLocked]);
+
 
   const handleSave = () => {
     saveProfile.mutate({
