@@ -129,7 +129,7 @@ export function JournalPreviewDialog({
                                   <span className="text-xs text-foreground/80 font-medium">
                                     {price && <>價 {price}</>}
                                     {price && qty && <span className="mx-1 text-muted-foreground">·</span>}
-                                    {qty && <>{qty} {t.quantityUnit || '張'}</>}
+                                {qty && <>{qty} {sanitizeAssetQuantityUnit(t.quantityUnit, assetClass)}</>}
                                   </span>
                                 )}
                               </div>
