@@ -284,7 +284,30 @@ export function SignalCreateDialog({
       overall_summary: overallSummary || null,
       status: (isMentor ? 'pending' : 'published') as any,
     } as any).select('id').single();
-    if (error) { toast.error(error.message); return; }
+    if (error) {
+      const raw = error.message || '';
+      if (raw.includes('CAPITAL_EXCEEDED')) {
+        const m = raw.match(/此筆需\s*([\d.]+)\s*(\w+)，可用現金僅\s*([\d.-]+)\s*(\w+)/);
+        const msg = m
+          ? `資金額度不足：此筆需 ${Number(m[1]).toLocaleString()} ${m[2]}，可用現金僅 ${Number(m[3]).toLocaleString()} ${m[4]}`
+          : '資金額度不足，無法發布此筆';
+        toast.error(msg, {
+          duration: 10000,
+          description: '請至「分析師設定」調整初始資金，或減少此筆數量後再送出。',
+          action: {
+            label: '前往分析師設定',
+            onClick: () => { window.location.href = '/admin/profile'; },
+          },
+        });
+      } else if (raw.includes('incompatible_unit_for_asset_class')) {
+        toast.error('此資產類別不接受該單位，請改用相容單位');
+      } else if (raw.includes('unit_conflict') || raw.toLowerCase().includes('enforce_unit_consistency')) {
+        toast.error('此代碼歷史單位與本次不一致，請改用歷史單位，或先執行「改單位…」');
+      } else {
+        toast.error(raw);
+      }
+      return;
+    }
 
     if (expert.user_id) {
       const entryPrice = latestPrice ? parseFloat(latestPrice) : 0;
