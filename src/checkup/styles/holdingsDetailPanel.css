@@ -31,6 +31,15 @@
   --tw-enter-translate-x: 0px !important;
   --tw-exit-translate-x: 0px !important;
 }
+/* stress-content 守門：極端長字串（60~200 字單行、無空白）不得撐爆容器。
+   對所有子節點強制斷字換行 + min-width:0，杜絕 flex/grid 子項因內容
+   ≥ min-content 而向外擠出的 sub-pixel 溢出。 */
+[data-testid="holdings-detail-panel"].holdings-sheet-content,
+[data-testid="holdings-detail-panel"].holdings-sheet-content * {
+  min-width: 0;
+  overflow-wrap: anywhere;
+  word-break: break-word;
+}
 @media (max-width: 639.98px) {
   [data-testid="holdings-detail-panel"].holdings-sheet-content {
     left: 0 !important;
