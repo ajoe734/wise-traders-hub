@@ -52,6 +52,7 @@ const navGroups: NavGroup[] = [
       { path: '/company/missing-prices', icon: AlertTriangle, label: '缺價總覽' },
       { path: '/company/meta-overrides', icon: History, label: '持倉覆蓋' },
       { path: '/company/holdings-consistency', icon: AlertTriangle, label: '持倉一致性' },
+      { path: '/company/signal-dupe-audit', icon: AlertTriangle, label: '重複持倉稽核' },
     ],
   },
   {

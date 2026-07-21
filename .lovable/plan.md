@@ -1,66 +1,41 @@
-## 目標邏輯（用你的話重述確認）
+## 目標
+後台新增一個「Signal 重複持倉稽核」頁面，掃描所有 `trade_records`，找出同一 `signal_id` 對應 >1 筆開倉紀錄（`exit_date IS NULL`）的個案，列出清單並提供一鍵修復。
 
-- **首抓（immediate）**：任一老師的持倉出現一檔「`tw_bsr_daily` 從未有資料」的個股時，立刻進 P1 排 FinMind 一次，把歷史/最新資料灌進來。
-- **後續（post-close only）**：只要那檔已經有資料，就完全不在交易時段動它；每天等收盤後（14:00 之後）補當日一筆即可。
-- **交易時段（09:00–13:30）**：不對「已有資料」的個股做任何 FinMind 呼叫，省 rate limit。
+背景：先前 `handle_signal_trade()` bug 已造成正二等個股出現重複行；雖然已加了 `trade_records_signal_id_open_uniq` partial unique index 擋新資料，但需要一個持續監控頁面確認 unclosed 情況、以及處理 index 建立前殘留或 exit_date 已填不同值的邊界。
 
----
+## 變更清單
 
-## 現況（已確認）
+### 1. 後端 RPC（migration）
+- `admin_signal_dupe_trades_audit()`：`SECURITY DEFINER`，僅 `company_admin` 可執行。回傳每個有重複的 signal 一筆彙總：
+  - `signal_id`, `expert_id`, `expert_display_name`, `instrument`, `symbol`, `action`, `signal_published_at`
+  - `dup_count`（該 signal 對應 trade_records 筆數）
+  - `open_count`（其中 exit_date IS NULL 的筆數）
+  - `trade_ids uuid[]`（依 `created_at` 由舊到新）
+  - `has_manual_edit boolean`（任一筆 `updated_at > created_at + interval '5 seconds'` 視為老師有動過）
+- `admin_signal_dupe_trades_fix(p_signal_id uuid, p_dry_run boolean default true)`：
+  - 保留最舊那筆（`created_at ASC LIMIT 1`）；其他刪除。
+  - `has_manual_edit=true` 時，`p_dry_run=false` 仍要求呼叫端 `p_force := true` 才會執行（多一個 `p_force boolean default false` 參數），避免誤刪老師手動改過的紀錄。
+  - 回傳 `{ kept_id, removed_ids, would_remove_count, executed boolean }`。
+  - 所有刪除寫入 `audit_logs`（action=`signal_dupe_trade_fix`）。
 
-- Worker 目前有兩個 cron：
-  - `tw-bsr-worker-trading` 14:00–20:59 每 X 分鐘跑（收盤後）
-  - `tw-bsr-worker-tier1-catchup` 定時補 P1 缺口 — **這隻不分時段**，會在盤中也打 FinMind
-- 排程 enqueue 來源（`enqueueTier1Holdings` 等）在盤中被觸發時，會把「已有資料的個股」也重排進 pending，worker 就會照打。
-- 結果：盤中額度被「重抓已有資料」吃掉，新持倉首抓反而被排隊卡住。
+### 2. 前端 `src/pages/company/SignalDupeAudit.tsx`
+- ProtectedRoute + `company_admin`。
+- 上方：總覽數字（受影響 signal 數 / 重複 trade 總數 / 其中有手動編輯者數）、「重新掃描」按鈕。
+- 表格欄位：老師、代碼/標的、action、發佈時間、重複數 / 開倉數、trade_ids（可展開）、狀態（clean / 手動編輯過）、操作。
+- 每列「試算修復」（dry run 顯示會刪哪幾筆）與「執行修復」二段式；有手動編輯時執行按鈕須額外勾選「確認強制刪除」。
+- 全部修復按鈕：僅對「無手動編輯」批次執行，逐一呼叫 RPC。
+- 空狀態：「目前沒有重複的 signal_id」。
 
----
-
-## 變更計畫
-
-### 1. Enqueue 端加「首抓 vs 補資料」分流
-`enqueueTier1Holdings`（`supabase/functions/_shared/bsrQueue.ts` 或同名 helper）改為：
-- 對每個 symbol 先查 `tw_bsr_daily` 是否已有任何一筆。
-- **無資料** → priority = 1（P1 immediate）、允許任何時段。
-- **有資料** → priority = 3（post-close only）、標記 `post_close_only = true`。
-
-需要在 `tw_bsr_sync_queue` 新增欄位 `post_close_only boolean default false`（migration）。
-
-### 2. Worker 端加時段守門
-- `tw-bsr-worker-tier1-catchup` 與 `tw-bsr-worker-trading` 在取任務時：
-  - 若目前是台北時間 09:00–13:29（盤中），`WHERE post_close_only = false`。
-  - 收盤後（≥14:00）或盤前（<09:00）不限制。
-- 首抓（無歷史）永遠可跑，因為它 `post_close_only = false`。
-
-### 3. 觸發首抓的即時鉤子
-新持倉寫入時（`trade_records` insert 或 `expert_signals` published）→ 呼叫既有的 enqueue helper，讓「無資料的新標的」立刻進 P1，不用等下一輪 cron。
-
-（目前 enqueue 只在 cron 內跑，等於首抓最壞要等 10 分鐘。）
-
-### 4. 前端提示語校準
-`ChipsSection.tsx` 對「已有資料、盤中」的個股顯示「盤後更新（14:00 後）」而不是「排程等待中」，避免又被誤解為卡住。
-
----
-
-## 技術細節
-
-- **不會動到**：FinMind rate limiter、reservation lease、degrade 邏輯。
-- **Migration**：`ALTER TABLE tw_bsr_sync_queue ADD COLUMN post_close_only boolean NOT NULL DEFAULT false;` + 索引 `(status, post_close_only, priority)`。
-- **時段判斷**：直接用 `Asia/Taipei` 的 hour，週末照樣可跑（週末不是盤中）。
-- **回填舊 queue**：現有 pending 項目一次性標記 `post_close_only = true`（除了 `tw_bsr_daily` 沒資料的）。
-
----
+### 3. 路由掛載
+- `src/App.tsx`：新增 lazy import + `/company/signal-dupe-audit` route。
+- 側邊欄（若 `HoldingsConsistency` 有註冊在 layout 選單）同步加入連結，命名「重複持倉稽核」。
 
 ## 不做的事
-
-- 不改 FinMind API 呼叫方式、不改 rate limit 額度。
-- 不動白名單（ETF 等）邏輯，那是另一個議題。
-- 不改 UI 主要版面，只調文案。
-
----
+- 不重複實作已有的 `HoldingsConsistency` 五類 drift 檢查——此頁面專攻 `signal_id → trade_records` 一對多。
+- 不建 cron，觸發時機由管理員按「重新掃描」；未來要自動化再談。
+- 不動 `handle_signal_trade()` 或 partial unique index（已在前次修復處理）。
 
 ## 驗證
-
-1. 找一檔沒進過持倉的個股，模擬老師加入 → 應該幾秒內開始跑 FinMind、資料進 `tw_bsr_daily`。
-2. 已有資料的個股在盤中觀察 `tw_bsr_api_usage`，應該 0 次呼叫；14:00 後開始跑。
-3. `/company/bsr-rate-limit` 每檔個股的 next-run 標示正確（首抓即時 / 已有資料等收盤）。
+1. 呼叫 RPC 應回傳 0 列（先前已清乾淨）。
+2. 手動 INSERT 一筆重複 trade → 掃描頁應立刻列出、dry-run 顯示會刪 1 筆、執行後回到乾淨狀態、`audit_logs` 有一筆 `signal_dupe_trade_fix`。
+3. 有手動編輯的 signal，未勾強制不能執行，勾了才能。

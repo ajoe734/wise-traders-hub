@@ -4831,6 +4831,26 @@ export type Database = {
         Args: { _line_user_id: string }
         Returns: Json
       }
+      admin_signal_dupe_trades_audit: {
+        Args: never
+        Returns: {
+          action: string
+          dup_count: number
+          earliest_created_at: string
+          expert_id: string
+          expert_name: string
+          has_manual_edit: boolean
+          instrument: string
+          open_count: number
+          signal_id: string
+          signal_published_at: string
+          trade_ids: string[]
+        }[]
+      }
+      admin_signal_dupe_trades_fix: {
+        Args: { p_dry_run?: boolean; p_force?: boolean; p_signal_id: string }
+        Returns: Json
+      }
       archive_and_promote_knowledge: {
         Args: {
           _new_confidence?: number
