@@ -491,6 +491,15 @@ export default function JournalsExportHarnessEntry() {
     setStatus(`duplicate-expert-id:${res.kind}:${res.filename}`);
   };
 
+  const runYankai4576 = async () => {
+    setStatus('running-yankai-4576');
+    const res = await buildJournalExport(MENTOR_YK_ROWS, RANGE, true);
+    if (!res) { setStatus('empty'); return; }
+    downloadBlob(res.filename, res.blob);
+    setStatus(`yankai-4576:${res.kind}:${res.filename}`);
+  };
+
+
   const weekDisplay = `${RANGE.startLabel} ~ ${RANGE.endLabel}`;
 
 
