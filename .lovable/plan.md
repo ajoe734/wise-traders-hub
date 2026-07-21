@@ -1,52 +1,33 @@
+## 問題
 
-## 現況（已查證 DB）
+Benny 尚未發布任何訊號（`expert_signals` 0 筆、`trade_records` 0 筆），但 `/admin/benny/profile` 顯示「起始資金已設定，無法修改」— 鎖太早、無法調整。
 
-彥愷（`experts.slug=sharkgu`, id `13926bcc…`）在 4576 大銀微系統 的資料出現「張／股」單位混亂。
+根因：`src/pages/admin/Profile.tsx` L94-99 只要 `expert.starting_capital != null` 就 `setStartingCapitalLocked(true)`，跟 `CurrencyCard` 的「有發布訊號才鎖」規則不一致。
 
-**expert_signals（週記端）**
-| 時間 | action | qty | unit | 價格 | 狀態 |
-|---|---|---|---|---|---|
-| 07/17 09:05 | buy | 1 | 張 | 204 | published |
-| 07/17 10:16 | add | 999 | 股 | 198 | published |
-| 07/21 10:20 | trim | 1 | 張 | 188 | **pending（未發布）** |
+## 修正
 
-**trade_records（持倉／系統端）**
-| 建立時間 | qty | unit | entry | exit | 狀態 |
-|---|---|---|---|---|---|
-| 07/17 09:05 | **1000** | **張** | 198.01 | — | open |
-| 07/17 20:00 | **999** | **張** | 198.01 | — | open |
-| 07/21 10:20 | 1 | 張 | 198.01 | 188 | closed |
+**判定規則統一（跟資產類別一致）**：只有當該老師已存在至少一筆 `expert_signals`（status=published）時才鎖起始資金；沒有訊號時允許管理員/老師自由修改。
 
-## 根因
+### 檔案變更
 
-trade_records 的前兩筆是從 expert_signals 展開時單位換算錯誤：
-- signal「buy 1 張」→ 被寫成 `quantity=1000, unit=張`（正確應為 `1 張` 或 `1000 股`）
-- signal「add 999 股」→ 被寫成 `quantity=999, unit=張`（應為 `999 股`）
+1. **`src/pages/admin/Profile.tsx`**
+   - 讀 profile 時同步查該 expert 的已發布訊號數（重用現有 `expert.hasPublishedSignals` 若已存在；否則加一個輕量 count query）。
+   - 改為 `setStartingCapitalLocked(hasPublishedSignals && expert.starting_capital != null)`。
+   - 「確認設定」成功後也只在 `hasPublishedSignals` 為 true 才立即鎖住，否則保留可再改。
 
-結果持倉看板把兩筆都解讀成「張」，出現「2 張」；而週記端讀 signals 原欄位，仍顯示「賣 1 張」。使用者最後意圖：**只留 1 張（=1000 股）open 部位**，其他歸零。
+2. **`src/pages/_adminProfile/StartingCapitalCard.tsx`**
+   - 當未鎖但已有先前設定值時，把按鈕文案由「確認設定」改為「更新起始資金」，並在說明加一行：「尚未發布訊號，仍可調整」。
 
-## 目標終態
+3. **`src/hooks/admin/useAdminProfile.ts`**
+   - `saveStartingCapital`：若已有值改為 update，仍走 `experts.starting_capital` 欄位；成功後 invalidate `useCapitalStatus` cache，讓可用現金重算。
 
-- 持倉：4576 大銀微系統 = **1 張（1000 股）open**，entry_price 198.01
-- 已賣出：**0 張**（因為老師其實只想要留 1 張，之前的 trim 1 張是為了修正錯誤庫存，不是真的減碼）
-- 週記端保留 buy 1 張 + add 999 股歷史；把 pending 的 trim 1 張撤銷（避免發布誤導訂閱者）
+### 不動的部分
 
-## 執行步驟
+- `admin_reset_expert_asset_class` RPC（切換幣別的完整重置）維持不變。
+- `CurrencyCard` 鎖定規則不變（保持「已有發布訊號」判斷）。
+- 已有訊號的老師仍鎖住起始資金（避免破壞 PnL 基準）。
 
-1. **trade_records 修正**
-   - `DELETE` id `ea29173d…`（qty 1000 張）
-   - `DELETE` id `483dea25…`（qty 999 張）
-   - `DELETE` id `06272d35…`（closed 1 張）
-   - `INSERT` 一筆乾淨的 open row：`quantity=1000, quantity_unit=股, entry_price=198.01, entry_date=2026-07-17, status=open, signal_id=73ea999e…（原始 buy signal）`
+### 驗證
 
-2. **expert_signals 處理**
-   - `UPDATE` id `c872f4a9…`（pending trim 1 張）→ `status='withdrawn'`（或 taken_down），寫入 `taken_down_reason='老師修正持倉單位錯誤，此筆非真實減碼'`，避免這筆流入週記匯出
-
-3. **驗證**
-   - 重新查 trade_records / expert_signals 確認只剩上述目標狀態
-   - 請老師刷新持倉看板，確認顯示「1 張 大銀微」
-   - 確認 /company/journals-export 週記匯出不再出現「賣出 1 張」
-
-## 需要老師確認的一件事
-
-老師訊息說「我只要留 1 張」，但沒明說原本已發布的兩則 signal（buy 1 張 + add 999 股）要不要一併撤下重寫。**目前計畫：保留兩則已發布 signals（訂閱者已看過，且合起來語意就是「進 1 張」），只撤下未發布的 trim。** 若老師希望連歷史 signals 也清掉，請告知，我再加一步撤除+補發。
+- Benny (`/admin/benny/profile`)：起始資金欄可編輯，可存新值。
+- 找一位已有 published 訊號的老師（如老周 master-zhou）：起始資金仍鎖住，顯示原本的三格摘要。

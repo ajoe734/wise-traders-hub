@@ -93,12 +93,14 @@ const AdminProfile = () => {
     setAssetClass(resolveAssetClass(expert as any));
     if (expert.starting_capital != null) {
       setStartingCapital(String(expert.starting_capital));
-      setStartingCapitalLocked(true);
+      // 只在已有發布訊號時鎖住，未發布前允許自由調整（與資產類別規則一致）
+      setStartingCapitalLocked(currencyLocked);
     } else {
       setStartingCapital('');
       setStartingCapitalLocked(false);
     }
-  }, [expert]);
+  }, [expert, currencyLocked]);
+
 
   const handleSave = () => {
     saveProfile.mutate({
@@ -196,6 +198,7 @@ const AdminProfile = () => {
           capitalStatus={capitalStatus}
           isReadOnly={isReadOnly}
           currency={currency}
+          hasPublishedSignals={currencyLocked}
           setStartingCapital={setStartingCapital}
           onRequestConfirm={(amount) => {
             setPendingCapital(amount);
@@ -211,9 +214,13 @@ const AdminProfile = () => {
                 確認起始資金
               </AlertDialogTitle>
               <AlertDialogDescription>
-                您即將設定起始資金為 <strong>{currency === 'USD' ? 'US$' : 'NT$'} {pendingCapital.toLocaleString()}</strong>。
+                您即將{expert.starting_capital != null ? '更新' : '設定'}起始資金為 <strong>{currency === 'USD' ? 'US$' : 'NT$'} {pendingCapital.toLocaleString()}</strong>。
                 <br /><br />
-                <span className="text-destructive font-medium">起始資金設定後將無法更改，請確認金額正確。</span>
+                {currencyLocked ? (
+                  <span className="text-destructive font-medium">已有發布訊號，此金額為績效計算基準，設定後將無法再更改。</span>
+                ) : (
+                  <span className="text-muted-foreground">尚未發布訊號，之後仍可再調整；一旦發布首筆訊號即會鎖定。</span>
+                )}
               </AlertDialogDescription>
             </AlertDialogHeader>
             <AlertDialogFooter>
@@ -221,14 +228,15 @@ const AdminProfile = () => {
               <AlertDialogAction onClick={async () => {
                 try {
                   await setStartingCapitalMut.mutateAsync(pendingCapital);
-                  setStartingCapitalLocked(true);
+                  if (currencyLocked) setStartingCapitalLocked(true);
                 } catch { /* toast handled in hook */ }
               }}>
-                確認設定
+                確認{expert.starting_capital != null ? '更新' : '設定'}
               </AlertDialogAction>
             </AlertDialogFooter>
           </AlertDialogContent>
         </AlertDialog>
+
 
         <AiIndexCard expertId={expert.id} expertName={expert.name} isReadOnly={isReadOnly} />
 
