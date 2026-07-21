@@ -450,16 +450,35 @@ function HoldingsDetailPanelImpl({
             {meta?.strategy ? <> · {meta.strategy}</> : null}
             {meta?.priceSource ? <span title={`價格來源：${meta.priceSource}`} style={{ marginLeft: 8, opacity: 0.5 }}>· {meta.priceSource}</span> : null}
           </div>
-          <div style={{ display: 'flex', alignItems: 'flex-end', justifyContent: 'space-between', gap: 12 }}>
+          <div
+            className="holdings-detail-identity-row"
+            style={{ display: 'flex', alignItems: 'flex-end', justifyContent: 'space-between', gap: 12, flexWrap: 'wrap' }}
+          >
             <h2 style={{
               margin: 0, fontFamily: SERIF, fontSize: 22, fontWeight: 500,
               color: WB.ink, letterSpacing: '-0.005em', lineHeight: 1.15,
               whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis', flex: 1, minWidth: 0,
             }}>{h.name}</h2>
-            {sparkArr.length >= 2 && (
-              <div style={{ flexShrink: 0 }} data-panel-sparkline>
-                <Sparkline data={sparkArr} width={110} height={28}
-                  color={pctVal >= 0 ? WB.accent : '#8A857F'} opacity={0.9} />
+            {!dirty && todayPct != null && (
+              <div
+                data-testid="drawer-today-delta"
+                className="holdings-detail-today-delta"
+                style={{
+                  flexShrink: 0,
+                  textAlign: 'right',
+                  fontSize: 12,
+                  lineHeight: 1.3,
+                  color: todayPct >= 0 ? WB.inkSub : WB.inkMute,
+                  fontVariantNumeric: 'tabular-nums',
+                  letterSpacing: '0.02em',
+                }}
+              >
+                <div>今日 {todayPct >= 0 ? '+' : '−'}{Math.abs(todayPct).toFixed(2)}%</div>
+                {todayPnl != null && (
+                  <div style={{ color: WB.inkMute }}>
+                    {todayPnl >= 0 ? '+' : '−'}{Math.abs(Math.round(todayPnl)).toLocaleString()}
+                  </div>
+                )}
               </div>
             )}
           </div>
