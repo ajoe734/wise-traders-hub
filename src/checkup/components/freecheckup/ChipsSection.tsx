@@ -110,6 +110,15 @@ export default function ChipsSection({ WB, stockCode }: { WB: any; stockCode: st
 
   const bsrLatest = data?.bsr?.d5 || data?.bsr?.d20 || data?.bsr?.d60 || null;
 
+  // 自動輪詢：當 BSR 尚未同步（bsr_as_of 為 null）時，每 60 秒自動 refetch，
+  // 讓使用者不必手動刷新即可看到 Tier 1 catch-up cron（每 15 分鐘）跑完後的結果。
+  const bsrPending = !!data && !data.bsr_as_of;
+  useEffect(() => {
+    if (!bsrPending) return;
+    const t = setInterval(() => { refetch(); }, 60_000);
+    return () => clearInterval(t);
+  }, [bsrPending, refetch]);
+
   return (
     <section
       data-testid="chips-section"
