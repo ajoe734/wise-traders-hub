@@ -263,10 +263,13 @@ function HoldingsTab(props) {
         maxHoldings={MAX_HOLDINGS}
         rtConnected={rtConnected}
         lastUpdate={lastUpdate}
+        refreshing={refreshing}
+        onRefreshPrices={onRefreshPrices}
         isDemo={isDemo}
         WB={WB}
         wbTone={wbTone}
       />
+
 
 
       {/* 族群分佈總覽（產業＋題材）— 讓使用者一眼看出集中/分散；點 chip 直接篩選下方卡片 */}
