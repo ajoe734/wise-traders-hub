@@ -15,12 +15,16 @@ interface Props {
   setStartingCapital: (v: string) => void;
   onRequestConfirm: (amount: number) => void;
   currency?: Currency;
+  /** true = 已發布訊號（永久鎖定基準）；false = 未發布，仍可再調整 */
+  hasPublishedSignals?: boolean;
 }
 
 export default function StartingCapitalCard({
   startingCapital, startingCapitalLocked, capitalStatus, isReadOnly,
   setStartingCapital, onRequestConfirm, currency = 'TWD',
+  hasPublishedSignals = false,
 }: Props) {
+
   const symbol = currency === 'USD' ? 'US$' : 'NT$';
   const fmt = (n: number) => formatMoneyByCurrency(n, currency);
   return (
