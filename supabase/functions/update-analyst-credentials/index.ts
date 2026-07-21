@@ -96,7 +96,11 @@ Deno.serve(withLogging('update-analyst-credentials', async (req, log) => {
         email: newEmail,
         email_confirm: true,
       });
-      if (updErr) return fail('AUTH_EMAIL_UPDATE_FAILED', translateAuthError(updErr.message), 400, log, { expert_id: expertId, target_user_id: targetUserId, auth_error: updErr.message });
+      if (updErr) {
+        const code = (updErr as any).code || (updErr as any).error_code || '';
+        const status = (updErr as any).status || 400;
+        return fail('AUTH_EMAIL_UPDATE_FAILED', translateAuthError(updErr.message, code, status), 400, log, { expert_id: expertId, target_user_id: targetUserId, auth_error: updErr.message, auth_code: code, auth_status: status });
+      }
 
       await adminClient.from('audit_logs').insert({
         actor_id: caller.id,
@@ -122,7 +126,11 @@ Deno.serve(withLogging('update-analyst-credentials', async (req, log) => {
       const { error: updErr } = await adminClient.auth.admin.updateUserById(targetUserId, {
         password: newPassword,
       });
-      if (updErr) return fail('AUTH_PASSWORD_UPDATE_FAILED', translateAuthError(updErr.message), 400, log, { expert_id: expertId, target_user_id: targetUserId, auth_error: updErr.message });
+      if (updErr) {
+        const code = (updErr as any).code || (updErr as any).error_code || '';
+        const status = (updErr as any).status || 400;
+        return fail('AUTH_PASSWORD_UPDATE_FAILED', translateAuthError(updErr.message, code, status), 400, log, { expert_id: expertId, target_user_id: targetUserId, auth_error: updErr.message, auth_code: code, auth_status: status });
+      }
 
       await adminClient.from('audit_logs').insert({
         actor_id: caller.id,
@@ -183,12 +191,16 @@ function fail(code: string, message: string, status: number, log: EdgeLogger, de
  * 將 Supabase Auth 原始英文錯誤訊息翻譯成中文，並附上「怎麼解」的指引。
  * 對照表來源：Supabase GoTrue / Auth API 常見錯誤碼。
  */
-function translateAuthError(raw: string): string {
+function translateAuthError(raw: string, code = '', status: number | string = ''): string {
   const msg = (raw || '').toLowerCase();
+  const c = (code || '').toLowerCase();
 
   // ── 密碼類 ──────────────────────────────────────────────
-  if (msg.includes('password is known to be weak') || msg.includes('pwned')) {
-    return '此密碼曾在資料外洩名單中或過於常見，請改用獨特的新密碼（建議：英文大小寫 + 數字 + 符號，例如 Lf-Mx7q!92Kp）';
+  if (c === 'weak_password' || msg.includes('password is known to be weak') || msg.includes('pwned') || msg.includes('weak_password')) {
+    return `此密碼過於常見或曾在資料外洩名單中（HIBP 檢查），請改用更獨特的密碼。建議：英文大小寫 + 數字 + 符號 ≥ 12 碼，例如 Lf-Mx7q!92Kp。（原始錯誤：${raw}）`;
+  }
+  if (c === 'same_password' || msg.includes('new password should be different') || msg.includes('same as the old')) {
+    return `新密碼不可與舊密碼相同，請換一組。（原始錯誤：${raw}）`;
   }
   if (msg.includes('password should be at least') || msg.includes('password is too short')) {
     return '密碼長度不足，請至少使用 8 碼以上';
@@ -251,7 +263,8 @@ function translateAuthError(raw: string): string {
     return '後端服務暫時異常，請稍後再試';
   }
 
-  // ── 其他：原樣回傳但加前綴提示，方便判斷 ──────────────
-  return `操作失敗：${raw}（如持續發生請聯繫工程師）`;
+  // ── 其他：原樣回傳並附上 code/status，方便直接判斷 ──────
+  const tag = [code, status ? `HTTP ${status}` : ''].filter(Boolean).join(' · ');
+  return tag ? `操作失敗（${tag}）：${raw}` : `操作失敗：${raw}`;
 }
 
