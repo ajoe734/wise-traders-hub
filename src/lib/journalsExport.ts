@@ -82,6 +82,16 @@ export function fmtTaipei(iso?: string | null): string {
   return `${yyyy}/${mm}/${dd} ${hh}:${mi}`;
 }
 
+// 本週總計採「掛出量」口徑：加總本次匯出範圍內、有列出的所有進出場動作。
+// 進場側 = buy + add；出場側 = sell + trim + exit。非交易動作（如 hold / 教學筆記）不列入。
+const ENTRY_ACTIONS_MD = new Set(['buy', 'add']);
+const EXIT_ACTIONS_MD = new Set(['sell', 'trim', 'exit']);
+const ACTION_ZH: Record<string, string> = {
+  buy: '買進', add: '加碼',
+  sell: '賣出', trim: '減碼', exit: '出場',
+  hold: '續抱',
+};
+
 export function buildMentorMarkdown(mentorRows: JournalRowExport[], range: WeekRangeLabels): string {
   const first = mentorRows[0];
   const name = first.experts?.name ?? '(未命名)';
@@ -99,8 +109,14 @@ export function buildMentorMarkdown(mentorRows: JournalRowExport[], range: WeekR
   lines.push('');
   lines.push('---');
   lines.push('');
-  const buyTotals = new Map<string, number>();
-  const sellTotals = new Map<string, number>();
+
+  const entryTotals = new Map<string, number>();
+  const exitTotals = new Map<string, number>();
+  const entryActionCount = new Map<string, number>();
+  const exitActionCount = new Map<string, number>();
+  let excludedNoQty = 0;
+  let nonTradeRows = 0;
+
   mentorRows.forEach((r, idx) => {
     const time = fmtTaipei(r.published_at || r.created_at);
     const title = r.reason_summary ? stripHtml(String(r.reason_summary)).slice(0, 80) : (r.instrument || '教學筆記');
@@ -110,15 +126,30 @@ export function buildMentorMarkdown(mentorRows: JournalRowExport[], range: WeekR
     if (time) meta.push(`時間：${time}`);
     if (r.status) meta.push(`狀態：${r.status}`);
     if (r.instrument) meta.push(`標的：${r.instrument}`);
-    if (r.action) meta.push(`動作：${r.action}`);
+    const actionRaw = String(r.action ?? '').toLowerCase();
+    if (r.action) meta.push(`動作：${ACTION_ZH[actionRaw] ?? r.action}`);
     if (r.price_hint !== null && r.price_hint !== undefined) meta.push(`參考價：${r.price_hint}`);
+
+    const isEntry = ENTRY_ACTIONS_MD.has(actionRaw);
+    const isExit = EXIT_ACTIONS_MD.has(actionRaw);
+    const isTrade = isEntry || isExit;
+
     if (r.quantity !== null && r.quantity !== undefined && r.quantity !== 0) {
       const unit = (r.quantity_unit ?? '').trim() || '股';
-      const verb = r.action === 'sell' ? '賣出' : r.action === 'buy' ? '買進' : '數量';
-      meta.push(`${verb}股數：${r.quantity} ${unit}`);
-      if (r.action === 'buy') buyTotals.set(unit, (buyTotals.get(unit) ?? 0) + Number(r.quantity));
-      else if (r.action === 'sell') sellTotals.set(unit, (sellTotals.get(unit) ?? 0) + Number(r.quantity));
+      const zhAction = ACTION_ZH[actionRaw] ?? '數量';
+      meta.push(`${zhAction}數量：${r.quantity} ${unit}`);
+      if (isEntry) {
+        entryTotals.set(unit, (entryTotals.get(unit) ?? 0) + Number(r.quantity));
+        entryActionCount.set(actionRaw, (entryActionCount.get(actionRaw) ?? 0) + 1);
+      } else if (isExit) {
+        exitTotals.set(unit, (exitTotals.get(unit) ?? 0) + Number(r.quantity));
+        exitActionCount.set(actionRaw, (exitActionCount.get(actionRaw) ?? 0) + 1);
+      }
+    } else if (isTrade) {
+      excludedNoQty += 1;
     }
+    if (!isTrade) nonTradeRows += 1;
+
     if (meta.length) { lines.push(meta.map((m) => `- ${m}`).join('\n')); lines.push(''); }
     lines.push(mdSection('重點摘要', r.reason_summary));
     lines.push(mdSection('詳細分析', r.reason_detail));
@@ -129,29 +160,47 @@ export function buildMentorMarkdown(mentorRows: JournalRowExport[], range: WeekR
     lines.push('---');
     lines.push('');
   });
-  // 混合單位（例如同時有「張」與「股」）時，分行標註以避免加總語意混淆。
-  const pushTotals = (label: string, m: Map<string, number>) => {
+
+  const fmtActionBreakdown = (m: Map<string, number>) => {
+    if (m.size === 0) return '';
+    return Array.from(m.entries())
+      .sort(([a], [b]) => a.localeCompare(b))
+      .map(([act, n]) => `${ACTION_ZH[act] ?? act} ${n} 筆`)
+      .join('、');
+  };
+
+  const pushTotals = (label: string, m: Map<string, number>, breakdown: string) => {
+    const suffix = breakdown ? `（${breakdown}）` : '';
     if (m.size === 0) {
-      lines.push(`- ${label}：0 股`);
+      lines.push(`- ${label}${suffix}：無`);
       return;
     }
     if (m.size === 1) {
       const [unit, n] = Array.from(m.entries())[0];
-      lines.push(`- ${label}：${n} ${unit}`);
+      lines.push(`- ${label}${suffix}：${n} ${unit}`);
       return;
     }
-    // 依單位字典序排序，確保輸出穩定
     const entries = Array.from(m.entries()).sort(([a], [b]) => a.localeCompare(b));
-    lines.push(`- ${label}（依單位分列）：`);
+    lines.push(`- ${label}${suffix}（依單位分列，未換算）：`);
     for (const [unit, n] of entries) {
-      lines.push(`  - ${unit}：${n} ${unit}`);
+      lines.push(`  - ${n} ${unit}`);
     }
   };
+
   lines.push('## 本週總計');
   lines.push('');
-  pushTotals('總買進股數', buyTotals);
-  pushTotals('總賣出股數', sellTotals);
+  lines.push('> **計算口徑**：僅加總本份週記「有列出的交易訊號」；進場側 = 買進 (buy) + 加碼 (add)，出場側 = 賣出 (sell) + 減碼 (trim) + 出場 (exit)。續抱 / 教學筆記等非交易動作不計入。單位保留原始「張 / 股 / 口」等，不做換算，避免不同商品混算誤導。');
   lines.push('');
+  pushTotals('進場側合計 (buy + add)', entryTotals, fmtActionBreakdown(entryActionCount));
+  pushTotals('出場側合計 (sell + trim + exit)', exitTotals, fmtActionBreakdown(exitActionCount));
+  lines.push('');
+  const notes: string[] = [];
+  if (nonTradeRows > 0) notes.push(`未計入 ${nonTradeRows} 筆非交易動作（續抱 / 教學筆記等）`);
+  if (excludedNoQty > 0) notes.push(`另有 ${excludedNoQty} 筆交易訊號未填數量，已排除於加總`);
+  if (notes.length) {
+    lines.push(`> 備註：${notes.join('；')}。`);
+    lines.push('');
+  }
   return lines.join('\n').replace(/\n{3,}/g, '\n\n');
 }
 
