@@ -316,6 +316,7 @@ async function enqueueBatch(
   priority: number,
   tag: string,
   correlationId: string,
+  postCloseOnly = false,
 ): Promise<number> {
   if (stockIds.length === 0 || !isWeekday(date)) return 0;
   const { data: done } = await supa.from('tw_bsr_daily')
@@ -329,7 +330,9 @@ async function enqueueBatch(
     next_run_at: new Date().toISOString(),
     enqueued_by: `${tag}:${correlationId.slice(0, 8)}`,
     correlation_id: crypto.randomUUID(),
+    post_close_only: postCloseOnly,
   }));
+
   const { data: existing } = await supa.from('tw_bsr_sync_queue')
     .select('stock_id, trade_date')
     .in('stock_id', targets).eq('trade_date', date)
