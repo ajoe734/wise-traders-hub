@@ -75,7 +75,34 @@ export default function SignalDupeAudit() {
     }
   }, []);
 
-  useEffect(() => { scan(); }, [scan]);
+  const loadLastSweep = useCallback(async () => {
+    const { data } = await supabase
+      .from('function_run_logs')
+      .select('created_at, payload')
+      .eq('fn', 'trade_dedupe_sweep')
+      .eq('stage', 'done')
+      .order('created_at', { ascending: false })
+      .limit(1)
+      .maybeSingle();
+    setLastSweep((data as SweepLog) || null);
+  }, []);
+
+  useEffect(() => { scan(); loadLastSweep(); }, [scan, loadLastSweep]);
+
+  async function runSweep(dryRun: boolean) {
+    setSweeping(true);
+    try {
+      const { data, error } = await supabase.rpc('admin_trade_dedupe_sweep', { p_dry_run: dryRun });
+      if (error) throw error;
+      const r = data as { auto_fixed?: number; needs_review?: number; scanned?: number };
+      toast.success(`${dryRun ? '試跑' : '執行'}完成：掃描 ${r.scanned ?? 0}、自動修 ${r.auto_fixed ?? 0}、待審 ${r.needs_review ?? 0}`);
+      await Promise.all([scan(), loadLastSweep()]);
+    } catch (e: any) {
+      toast.error(`Sweep 失敗：${e?.message || e}`);
+    } finally {
+      setSweeping(false);
+    }
+  }
 
   const summary = useMemo(() => {
     const affected = rows.length;
