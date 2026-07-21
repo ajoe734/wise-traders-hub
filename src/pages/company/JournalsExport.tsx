@@ -783,6 +783,60 @@ const JournalsExport = () => {
               </div>
             )}
 
+            {riskReport && (riskReport.blocked || riskReport.summary.warn > 0) && (
+              <div
+                role="alert"
+                data-testid="je-risk-banner"
+                data-blocked={riskReport.blocked ? 'true' : 'false'}
+                className={`rounded-md border p-3 text-sm ${
+                  riskReport.blocked
+                    ? 'border-destructive/40 bg-destructive/5'
+                    : 'border-amber-500/40 bg-amber-500/5'
+                }`}
+              >
+                <div className="flex items-start justify-between gap-3">
+                  <div className="flex items-start gap-2 min-w-0">
+                    <AlertTriangle
+                      className={`h-4 w-4 mt-0.5 shrink-0 ${
+                        riskReport.blocked ? 'text-destructive' : 'text-amber-600'
+                      }`}
+                    />
+                    <div className="min-w-0">
+                      <div className={`font-medium ${riskReport.blocked ? 'text-destructive' : 'text-amber-700'}`}>
+                        {riskReport.blocked
+                          ? `匯出已阻擋：${riskReport.summary.block} 項高風險`
+                          : `匯出已完成，另有 ${riskReport.summary.warn} 項提醒`}
+                      </div>
+                      <div className="text-xs text-muted-foreground mt-1">
+                        {riskReport.blocked
+                          ? '請點右側「檢視風險報告」查看詳細清單與修正建議；修正後可再次匯出，或於報告中確認後強制匯出。'
+                          : '警告等級不會阻擋匯出，但建議在報告中檢視後於下次修正。'}
+                      </div>
+                    </div>
+                  </div>
+                  <div className="flex items-center gap-2 shrink-0">
+                    <Button
+                      size="sm"
+                      variant={riskReport.blocked ? 'destructive' : 'outline'}
+                      onClick={() => setRiskDialogOpen(true)}
+                      data-testid="je-risk-open-report"
+                    >
+                      檢視風險報告
+                    </Button>
+                    <Button
+                      size="sm"
+                      variant="ghost"
+                      onClick={() => setRiskReport(null)}
+                      aria-label="關閉風險提示"
+                    >
+                      <X className="h-3 w-3" />
+                    </Button>
+                  </div>
+                </div>
+              </div>
+            )}
+
+
             {isLoading ? (
               <div className="py-8 text-center text-sm text-muted-foreground">載入中…</div>
             ) : groups.length === 0 ? (
@@ -1017,6 +1071,7 @@ const JournalsExport = () => {
         onOpenChange={setRiskDialogOpen}
         report={riskReport}
         onForceExport={handleForceExport}
+        weekLabel={range.startLabel}
       />
     </CompanyLayout>
   );
