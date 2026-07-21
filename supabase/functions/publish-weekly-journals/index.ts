@@ -427,8 +427,8 @@ Deno.serve(withLogging('publish-weekly-journals', async (req) => {
 
     // Group by expert_id for LINE push
     stage = 'group_by_expert'
-    const byExpert = new Map<string, typeof pendingSignals>()
-    for (const signal of pendingSignals) {
+    const byExpert = new Map<string, typeof publishedSignals>()
+    for (const signal of publishedSignals) {
       const list = byExpert.get(signal.expert_id) || []
       list.push(signal)
       byExpert.set(signal.expert_id, list)
