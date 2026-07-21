@@ -142,6 +142,7 @@ export const TARGET_TYPE_LABELS: Record<string, string> = {
   plan_split_overrides: '分潤覆寫',
   checkup_plans: '健檢方案',
   checkup_subscriptions: '健檢訂閱',
+  trade_records: '交易紀錄',
 };
 
 export function formatTargetType(t?: string | null): string {
