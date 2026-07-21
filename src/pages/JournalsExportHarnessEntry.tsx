@@ -646,6 +646,24 @@ export default function JournalsExportHarnessEntry() {
       </button>
 
 
+      <div style={{ marginTop: 16, paddingTop: 12, borderTop: '1px solid #e5e5e5' }}>
+        <div style={{ fontSize: 14, fontWeight: 600, marginBottom: 8 }}>Risk gate</div>
+        <div data-testid="je-risk-report" style={{ fontFamily: 'monospace', fontSize: 12, marginBottom: 8, whiteSpace: 'pre-wrap' }}>
+          {riskReport ? JSON.stringify({ blocked: riskReport.blocked, summary: riskReport.summary, codes: riskReport.issues.map((i) => i.code) }) : 'no-report'}
+        </div>
+        <button data-testid="je-risk-unit-mix" onClick={runRiskUnitMix} style={{ marginRight: 8, marginBottom: 8, padding: '6px 12px' }}>
+          Risk: UNIT_MIX (should block)
+        </button>
+        <button data-testid="je-risk-no-entry" onClick={runRiskNoEntry} style={{ marginRight: 8, marginBottom: 8, padding: '6px 12px' }}>
+          Risk: DIRECTION_NO_ENTRY (should block)
+        </button>
+        <button data-testid="je-risk-warn-only" onClick={runRiskWarnOnly} style={{ marginRight: 8, marginBottom: 8, padding: '6px 12px' }}>
+          Risk: warn-only (should download)
+        </button>
+        <button data-testid="je-risk-force" onClick={runRiskForce} style={{ marginRight: 8, marginBottom: 8, padding: '6px 12px' }}>
+          Risk: force-export UNIT_MIX (should download)
+        </button>
+      </div>
     </div>
   );
 }
