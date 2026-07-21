@@ -1,78 +1,75 @@
-# 計畫：Trade Records 異常自動去重／恢復排程
+# 計畫：Signal「安全跳過」的日誌與 UI 回饋
 
-## 目標
-針對「cooldown 未收斂 + 併發重送」造成的 `trade_records` 髒資料，建立一支背景排程，定時自動：
-1. 掃描每個 `signal_id` 的重複列
-2. 自動修復**無手動編輯痕跡**的乾淨重複（idempotent）
-3. 對**有手動編輯**的個案掛出告警，交由管理員 `/company/signal-dupe-audit` 人工處理
-4. 全程寫入結構化 log 與 alert，可追蹤誰做了什麼
+## 背景
+`handle_signal_trade` trigger 在 `buy` / `add` 時會檢查 `EXISTS (trade_records WHERE signal_id = NEW.id)`，若已存在就 `RETURN NEW` 靜默跳過。這是防重複的正確設計，但目前**完全沒留痕跡**——老師 / 管理員看不到「本次觸發被略過」，也無從辨別是 trigger 保護、還是根本沒跑。
 
-不新增 Edge Function、不寫 TS——直接用 SQL RPC + pg_cron，最省失敗面。
+要做的三件事：
+1. Trigger 端寫入結構化 log
+2. 管理後台可查詢「最近安全跳過」清單
+3. 前台（`SignalCreateDialog`）在偵測到 skip 時給明確 toast
 
-## 交付檔案
+## 交付項
 
-### 1. Migration：`trade_dedupe_sweep()` RPC + cron 排程
+### 1. Migration — trigger 內寫 log
 
+改寫 `public.handle_signal_trade()`，在每個 `IF v_exists THEN RETURN NEW;` 之前先插一筆：
+
+```sql
+INSERT INTO public.function_run_logs
+  (fn, run_id, level, stage, msg, signal_id, expert_id, payload)
+VALUES
+  ('handle_signal_trade', gen_random_uuid()::text, 'info',
+   'skipped_existing_trade',
+   format('signal %s 已對應 trade_record，%s 動作跳過', NEW.id, NEW.action),
+   NEW.id, NEW.expert_id,
+   jsonb_build_object(
+     'action', NEW.action,
+     'instrument', NEW.instrument,
+     'tg_op', TG_OP,
+     'existing_trade_id', (SELECT id FROM public.trade_records WHERE signal_id = NEW.id LIMIT 1)
+   ));
 ```
-supabase/migrations/<ts>_trade_dedupe_sweep.sql
+
+覆蓋 `buy` 與 `add` 兩個分支（其它 action 分支目前無此檢查，維持不動）。
+
+### 2. 前台回饋 — `SignalCreateDialog.tsx`
+
+新訊號送出後（`inserted.id` 拿到），檢查最近 3 秒內是否有相符的 skip log：
+
+```ts
+const { data: skipLog } = await supabase
+  .from('function_run_logs')
+  .select('id, stage, msg')
+  .eq('fn', 'handle_signal_trade')
+  .eq('stage', 'skipped_existing_trade')
+  .eq('signal_id', inserted.id)
+  .gte('created_at', new Date(Date.now() - 5000).toISOString())
+  .limit(1)
+  .maybeSingle();
+
+if (skipLog) {
+  toast.info('偵測到既有 trade_record，本次觸發已被安全略過（不會造成重複）', { duration: 6000 });
+}
 ```
 
-包含：
+放在既有 `toast.success('訊號已發布')` 之前；skip 時取代 success toast。
 
-- **`public.trade_dedupe_sweep(p_dry_run boolean default false) returns jsonb`**
-  - `SECURITY DEFINER`, `search_path=public`
-  - 使用 `admin_signal_dupe_trades_audit()` 取得所有重複個案
-  - 對 `has_manual_edit=false` 者：逐一呼叫底層 DELETE 邏輯（保留最舊 `created_at`），並寫入 `audit_logs (action='signal_dupe_trade_auto_fix')`
-  - 對 `has_manual_edit=true` 者：**不動**，累積成清單
-  - `dry_run=true` 時只回報不執行
-  - 每輪產出 `function_run_logs (fn='trade_dedupe_sweep')`：`stage='start'|'fixed'|'skipped'|'done'`，`payload` 帶 signal_id / kept_id / removed_ids
-  - 若手動編輯個案 ≥ 1，插入/更新 `system_alerts (kind='trade_dedupe_manual_review_required', level='warning')`，含清單與計數；若本輪為 0 則自動 `resolved_at=now()` 收單
-  - 若自動修復數異常（例如單輪 > 20 筆，暗示 trigger 破功）→ `system_alerts (level='critical', kind='trade_dedupe_surge')`
-  - 回傳 jsonb：`{ scanned, auto_fixed, needs_review, alert_ids, run_id }`
+補一段 RLS：`function_run_logs` 目前只有 admin/service 可讀（詳查後補），若 mentor 也需讀，加一條「作者可讀自己 signal 的 log」policy。
 
-- **cron 排程**：每 15 分鐘一次（避免與交易時段其他 job 撞車，仍能快速止血）
-  ```sql
-  select cron.schedule(
-    'trade-dedupe-sweep-15min',
-    '*/15 * * * *',
-    $$ select public.trade_dedupe_sweep(false) $$
-  );
-  ```
-  若已存在同名 job 則 `cron.unschedule` 後重排，保證冪等。
+### 3. 管理後台 — `/company/signal-dupe-audit` 追加區塊
 
-- **權限**：`GRANT EXECUTE ON FUNCTION public.trade_dedupe_sweep TO service_role;` 只給 service_role 與 company_admin。
+在既有頁面「自動去重排程」條下方，加一個小卡：**「最近 24h Trigger 安全跳過」**
+- 資料：`function_run_logs where fn='handle_signal_trade' and stage='skipped_existing_trade' order by created_at desc limit 20`
+- 顯示：時間、老師（join experts）、標的、action、既有 trade_id
+- 空狀態顯示綠色「無跳過紀錄」
+- 提示：「這些是 trigger 主動防重複的成功攔截，不代表錯誤」
 
-### 2. 前端小改：`/company/signal-dupe-audit` 顯示最近一輪 sweep 結果
-
-- 頂部新增一行「最近自動掃描：`{last_run_at}` · 修 `{auto_fixed}` · 待審核 `{needs_review}`」
-- 資料來源：`function_run_logs where fn='trade_dedupe_sweep' and stage='done' order by created_at desc limit 1`
-- 附「立即執行」按鈕（呼叫 `trade_dedupe_sweep(false)`）與「試跑」（`true`），僅 company_admin 可見
-- 待審核清單直接呼叫 `admin_signal_dupe_trades_audit()` 過濾 `has_manual_edit=true`
-
-檔案：`src/pages/company/SignalDupeAudit.tsx`（既有頁面追加區塊，不新建）。
-
-## 涵蓋 cooldown/併發成因對應
-| 成因 | 是否進 auto_fix | 說明 |
-|---|---|---|
-| trigger 在同秒重觸發插入 2 筆完全一致的 open | ✅ 是 | 值一致 → `has_manual_edit=false` |
-| Retry 送出同一 signal，第二次寫入前 unique index 已阻擋 | ✅ 是 | 極少數逃逸案例仍會清 |
-| 老師事後改過其中一筆 entry_price/quantity | ❌ 否，告警 | 需要人工判斷保留哪筆 |
-| 舊 exit_date + 新 open 疊 signal_id | ❌ 否，告警 | 可能是實質新交易，人工判定 |
-
-## 監控與告警
-- `system_alerts` kind：
-  - `trade_dedupe_manual_review_required`（warning，開/關自動翻）
-  - `trade_dedupe_surge`（critical，單輪 auto_fix > 20）
-- `function_run_logs` fn=`trade_dedupe_sweep`：每輪 start/done + 每筆 fixed/skipped
-- 對接既有 `alerts-watchdog` → LINE/Email 通道無需改動，system_alerts 一寫入即被 watchdog 推播
-
-## 不做的事
-- 不自動修「手動編輯」個案（風險過高）
-- 不改 `handle_signal_trade` trigger（既有存在性檢查已到位）
-- 不新增 Edge Function（純 SQL 排程即可）
+## 不做
+- 不改 trigger 的實際邏輯（既有存在性檢查已正確）
+- 不對 sell/trim/exit/cover 加新的 skip log（那些分支沒有 skip 路徑）
+- 不動 `admin_signal_dupe_trades_audit` 或 sweep（不同用途：sweep 修髒資料，這裡追蹤「被成功防禦」）
 
 ## 驗證
-- 手動 `select public.trade_dedupe_sweep(true)` 觀察試跑結果
-- 檢查 `select * from cron.job where jobname='trade-dedupe-sweep-15min'`
-- 15 分鐘後在 `function_run_logs` 應看到 `stage='done'` 記錄
-- `/company/signal-dupe-audit` 顯示最近執行摘要
+- 手動 `UPDATE expert_signals SET status='pending' WHERE id=<x>; UPDATE ... SET status='published';` 二次翻轉，`function_run_logs` 應出現一筆 `skipped_existing_trade`。
+- 前台重送同 signal，toast 顯示「已被安全略過」。
+- `/company/signal-dupe-audit` 追加區塊列出剛才那筆。
