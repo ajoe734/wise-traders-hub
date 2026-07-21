@@ -584,7 +584,7 @@ Deno.serve(withLogging('line-push-signal', async (req) => {
       })
     }
 
-    const message = buildFlexMessage(signal, pushType)
+    const message = buildFlexMessage(signal, pushType, expertHint)
     console.log('Subscribed targets:', subscribedTargets.length, 'Canceled targets:', canceledTargets.length)
 
     let totalPushed = 0
