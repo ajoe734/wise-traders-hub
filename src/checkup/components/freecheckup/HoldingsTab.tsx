@@ -378,7 +378,7 @@ function HoldingsTab(props) {
             </div>
           </>
         )}
-        <div className="holdings-refresh-content" inert={refreshing ? '' : undefined as any}>
+        <div className="holdings-refresh-content">
           {refreshing && (!H || H.length === 0) ? (
             <div
               className="holdings-skeleton-grid"
