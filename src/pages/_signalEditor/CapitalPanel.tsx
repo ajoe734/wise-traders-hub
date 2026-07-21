@@ -5,6 +5,7 @@ import { Wallet, History, ChevronDown } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import type { TradeAction } from '@/lib/simulatePositions';
 import { formatMoneyByCurrency, normalizeCurrency, type Currency } from '@/lib/currency';
+import { getAssetSpec, normalizeAssetClass, type AssetClass } from '@/lib/asset';
 import type { CapitalStatus, TradeDraft } from './types';
 
 interface Props {
@@ -18,14 +19,18 @@ interface Props {
   updateTrade: (idx: number, patch: Partial<TradeDraft>) => void;
   /** 從 expert.currency 帶下來；預設 TWD */
   currency?: Currency;
+  /** 從 expert.asset_class 帶下來；優先於 currency，用於帶入持倉時的預設單位 */
+  assetClass?: AssetClass | string | null;
 }
 
 export function CapitalPanel({
   capital, cashSim, simulatedPositions, trades,
   showHistory, setShowHistory, addTrade, updateTrade,
-  currency: currencyProp,
+  currency: currencyProp, assetClass: assetClassProp,
 }: Props) {
   const currency: Currency = normalizeCurrency(currencyProp ?? capital.currency);
+  const assetClass = assetClassProp ? normalizeAssetClass(assetClassProp) : (currency === 'USD' ? 'us_stock' : 'tw_stock');
+  const defaultUnit = getAssetSpec(assetClass).defaultUnit;
   const fmt = (n: number) => formatMoneyByCurrency(n, currency);
   const sharesLabel = currency === 'USD' ? 'Shares' : '股數';
 
@@ -142,7 +147,7 @@ export function CapitalPanel({
                                       stockName: p.instrument.replace(p.symbol, '').trim(),
                                       action: opt.key as TradeAction,
                                       priceHint: p.current_price ? String(p.current_price) : '',
-                                      quantityUnit: '股',
+                                      quantityUnit: defaultUnit,
                                       quantity: opt.full ? String(p.quantity_shares) : '',
                                     };
                                     if (opt.reason) patch.reasonSummary = opt.reason;
