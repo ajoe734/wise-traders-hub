@@ -169,6 +169,16 @@ export function getAssetSpec(a: AssetClass | string | null | undefined): AssetSp
   return SPECS[normalizeAssetClass(a)];
 }
 
+/** 把草稿／舊資料單位校正到資產類別允許清單；僅校正標籤，不換算數量。 */
+export function sanitizeAssetQuantityUnit(
+  raw: string | null | undefined,
+  a: AssetClass | string | null | undefined,
+): QuantityUnit {
+  const spec = getAssetSpec(a);
+  const t = String(raw || '').trim() as QuantityUnit;
+  return spec.units.includes(t) ? t : spec.defaultUnit;
+}
+
 export function isValidAssetSymbol(
   code: string,
   a: AssetClass | string | null | undefined,
