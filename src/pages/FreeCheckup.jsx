@@ -27,6 +27,7 @@ import { normalizeHoldingMetrics } from "@/checkup/lib/holdings.js";
 // E-Maint-R1: assignCardVariants 已下沉至 useHoldingsDerivations，父層不再需要
 // coerceStocksString moved into NewsTab (lazy chunk) — keep out of main bundle
 import { callEdge } from "@/checkup/lib/edgeInvoke";
+import { getAutoRefreshMinutes } from "@/checkup/lib/autoRefreshInterval";
 import { preloadKnowledgeBase } from "@/checkup/lib/knowledgeBase";
 import { mergeCalendarToNewsEvents } from "@/checkup/lib/calendarSync";
 import { NewsEventRow } from "@/checkup/components/freecheckup/NewsEventRow";
