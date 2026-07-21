@@ -74,6 +74,16 @@ export default function ChipsTrendChart({
     return () => ro.disconnect();
   }, []);
 
+  // 視窗自動 clamp：資料不足時退到最大可用視窗
+  const instLen = inst.length;
+  useEffect(() => {
+    if (mode !== 'inst') return;
+    if (instLen > 0 && win > instLen) {
+      const fallback = ([60, 20, 5, 1] as Window[]).find((w2) => w2 <= instLen) ?? 1;
+      setWin(fallback);
+    }
+  }, [mode, win, instLen]);
+
   const series = useMemo(() => {
     if (mode === 'inst') {
       const totals = inst.map((r) => r.total_net);
@@ -124,11 +134,12 @@ export default function ChipsTrendChart({
 
   if (!series.length) {
     return (
-      <div style={{ fontSize: 12, color: WB.inkMute, padding: '10px 0' }}>
+      <div style={{ fontSize: 12, color: WB.inkMute, padding: '10px 0' }} data-testid="chips-trend-empty">
         — 尚無歷史序列資料
       </div>
     );
   }
+
 
   // 座標映射
   const xs = (i: number) => PAD_L + (i * (w - PAD_L - PAD_R)) / Math.max(series.length - 1, 1);
@@ -183,11 +194,21 @@ export default function ChipsTrendChart({
 
       {mode === 'inst' && (
         <div style={{ display: 'flex', gap: 4, marginBottom: 8 }}>
-          {([1, 5, 20, 60] as Window[]).map((wv) => (
-            <SegBtn key={wv} WB={WB} active={win === wv} onClick={() => setWin(wv)} small>
-              {wv} 日
-            </SegBtn>
-          ))}
+          {([1, 5, 20, 60] as Window[]).map((wv) => {
+            const disabled = wv > instLen;
+            return (
+              <SegBtn
+                key={wv}
+                WB={WB}
+                active={win === wv}
+                onClick={() => !disabled && setWin(wv)}
+                small
+                disabled={disabled}
+              >
+                {wv} 日
+              </SegBtn>
+            );
+          })}
         </div>
       )}
 
@@ -216,8 +237,51 @@ export default function ChipsTrendChart({
             />
           )}
 
-          {/* 每日長條（inst mode + 1 日）or 面積折線 */}
-          {mode === 'inst' && win === 1
+          {/* 資料點不足以繪出線／bar 的 fallback */}
+          {validPts.length === 0 && (
+            <text
+              x={w / 2}
+              y={HEIGHT / 2}
+              fontSize={11}
+              fill={WB.inkMute}
+              textAnchor="middle"
+              fontFamily={SERIF}
+              data-testid="chips-trend-empty-hint"
+            >
+              — 尚無有效資料 —
+            </text>
+          )}
+          {validPts.length === 1 && (() => {
+            const only = validPts[0];
+            const i = series.indexOf(only);
+            const v = only.value as number;
+            const hint = mode === 'inst'
+              ? `資料點不足以繪出 ${win} 日滾動線，至少需要 ${win} 個交易日`
+              : '僅 1 個交易日資料，暫無法繪出趨勢';
+            return (
+              <g data-testid="chips-trend-empty-hint">
+                <circle
+                  cx={xs(i)}
+                  cy={ys(v)}
+                  r={4}
+                  fill={mode === 'bsr' ? WB.ink : v >= 0 ? UP : DOWN}
+                />
+                <text
+                  x={w / 2}
+                  y={HEIGHT / 2}
+                  fontSize={10}
+                  fill={WB.inkMute}
+                  textAnchor="middle"
+                  fontFamily={SERIF}
+                >
+                  {hint}
+                </text>
+              </g>
+            );
+          })()}
+
+          {/* 每日長條（inst mode + 1 日）or 面積折線；至少要 2 個有效點才畫線 */}
+          {validPts.length >= 2 && (mode === 'inst' && win === 1
             ? series.map((p, i) => {
                 const v = p.value as number;
                 if (v == null || Number.isNaN(v)) return null;
@@ -238,7 +302,8 @@ export default function ChipsTrendChart({
               })
             : (
               <path d={linePath} fill="none" stroke={mode === 'bsr' ? WB.ink : UP} strokeWidth={1.4} />
-            )}
+            ))}
+
 
           {/* 播放游標 */}
           {activePt && activeVal != null && !Number.isNaN(activeVal) && (
@@ -371,17 +436,19 @@ export default function ChipsTrendChart({
   );
 }
 
-function SegBtn({ WB, active, onClick, children, small = false }: any) {
+function SegBtn({ WB, active, onClick, children, small = false, disabled = false }: any) {
   return (
     <button
-      onClick={onClick}
+      onClick={disabled ? undefined : onClick}
+      disabled={disabled}
       style={{
         fontSize: small ? 10 : 11,
         padding: small ? '3px 8px' : '4px 10px',
         border: `1px solid ${active ? WB.ink : WB.hair}`,
         background: active ? WB.ink : 'transparent',
         color: active ? '#fff' : WB.inkSub,
-        cursor: 'pointer',
+        cursor: disabled ? 'not-allowed' : 'pointer',
+        opacity: disabled ? 0.4 : 1,
         fontFamily: SERIF,
         letterSpacing: '0.08em',
       }}
@@ -390,3 +457,4 @@ function SegBtn({ WB, active, onClick, children, small = false }: any) {
     </button>
   );
 }
+
