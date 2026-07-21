@@ -122,7 +122,11 @@ Deno.serve(withLogging('update-analyst-credentials', async (req, log) => {
       const { error: updErr } = await adminClient.auth.admin.updateUserById(targetUserId, {
         password: newPassword,
       });
-      if (updErr) return fail('AUTH_PASSWORD_UPDATE_FAILED', translateAuthError(updErr.message), 400, log, { expert_id: expertId, target_user_id: targetUserId, auth_error: updErr.message });
+      if (updErr) {
+        const code = (updErr as any).code || (updErr as any).error_code || '';
+        const status = (updErr as any).status || 400;
+        return fail('AUTH_PASSWORD_UPDATE_FAILED', translateAuthError(updErr.message, code, status), 400, log, { expert_id: expertId, target_user_id: targetUserId, auth_error: updErr.message, auth_code: code, auth_status: status });
+      }
 
       await adminClient.from('audit_logs').insert({
         actor_id: caller.id,
