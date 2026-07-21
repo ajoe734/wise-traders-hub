@@ -243,11 +243,21 @@ async function enqueueTier1Holdings(date: string, cid: string): Promise<number> 
     })
     .filter(isChipEligible)));
   if (ids.length === 0) return 0;
-  return await enqueueBatch(ids, date, 1, 'tier1_holdings', cid);
+
+  // 首抓 vs 補資料分流：
+  //   - 從未有 tw_bsr_daily 資料 → post_close_only=false（可在盤中立刻抓）
+  //   - 已有歷史資料 → post_close_only=true（僅收盤後 14:00 起同步）
+  const { data: haveAny } = await supa.from('tw_bsr_daily')
+    .select('stock_id').in('stock_id', ids);
+  const seen = new Set((haveAny || []).map((r: any) => String(r.stock_id)));
+  const firstFetch = ids.filter((id) => !seen.has(id));
+  const postClose = ids.filter((id) => seen.has(id));
+  let total = 0;
+  if (firstFetch.length > 0) total += await enqueueBatch(firstFetch, date, 1, 'tier1_first_fetch', cid, false);
+  if (postClose.length > 0) total += await enqueueBatch(postClose, date, 1, 'tier1_holdings', cid, true);
+  return total;
 }
-  if (ids.length === 0) return 0;
-  return await enqueueBatch(ids, date, 1, 'tier1_holdings', cid);
-}
+
 
 async function enqueueTier2Gaps(date: string, cid: string): Promise<number> {
   const dates = [date, rollBackToWeekday(addDays(date, -1)), rollBackToWeekday(addDays(date, -2))];
