@@ -642,10 +642,18 @@ Deno.serve(withLogging('publish-weekly-journals', async (req) => {
     }
 
     const elapsedMs = Date.now() - t0
-    log(`Done. published=${signalIds.length} pushed=${totalPushed} pushFail=${pushFail} elapsedMs=${elapsedMs}`)
+    log(`Done. published=${publishedIds.length} failed=${publishFailures.length} pushed=${totalPushed} pushFail=${pushFail} elapsedMs=${elapsedMs}`)
     await flushLogs()
     return new Response(JSON.stringify({
-      runId, published: signalIds.length, pushed: totalPushed, pushFail, syncOk, syncFail, elapsedMs,
+      runId,
+      published: publishedIds.length,
+      failed: publishFailures.length,
+      failures: publishFailures,
+      pushed: totalPushed,
+      pushFail,
+      syncOk,
+      syncFail,
+      elapsedMs,
     }), {
       headers: { ...corsHeaders, 'Content-Type': 'application/json' },
     })
