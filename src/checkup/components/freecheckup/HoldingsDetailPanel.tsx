@@ -10,7 +10,7 @@ import { useHoldingShareExport } from '@/checkup/hooks/useHoldingShareExport';
 import { useSimHistory } from '@/checkup/hooks/useSimHistory';
 import { useTargetPriceHistory } from '@/checkup/hooks/useTargetPriceHistory';
 import { useThesisTracking } from '@/checkup/hooks/useThesisTracking';
-import { Sparkline } from '@/pages/_freeCheckup/constants.jsx';
+// Sparkline removed: header 迷你折線與 §6 RangeBand 資訊重複，僅保留 RangeBand。
 import { computeScenario, isDirty } from './holdingScenario';
 import HoldingExportCard from './HoldingExportCard';
 import ChipsSection from './ChipsSection';
