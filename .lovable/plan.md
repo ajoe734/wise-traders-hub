@@ -1,53 +1,52 @@
-## 目標
-把 `/company/analysts` 相關操作從「每次不同錯誤」改成穩定、可追蹤、可回歸：帳號設定、重設密碼、寄重設信、建立/補齊分析師、LINE 設定、列表資料都要有一致錯誤處理與測試覆蓋。
 
-## 已確認的現況
-- 畫面截圖的錯誤來自前端顯示 `Edge Function returned a non-2xx status code`，目前 UI 沒把後端回傳的實際原因穩定攤開。
-- `/company/analysts` 會呼叫：
-  - `update-analyst-credentials`：讀 Email、改 Email、立即重設密碼、寄重設信。
-  - `create-analyst`：建立或補齊分析師。
-  - 直接資料表操作：分析師列表、啟停用、LINE channel 設定。
-- `update-analyst-credentials` 目前「寄重設信」仍依賴 `RESEND_API_KEY`，但此專案規範是非 Auth 類寄信走內建寄信系統；這是會產生非 2xx 的高風險路徑。
-- 目前 `CompanyAnalysts` 測試只覆蓋建立成功與基本列表，沒有覆蓋帳號設定三個 tab、非 2xx 解析、LINE 設定失敗、建立/補齊失敗一致訊息。
+## 現況（已查證 DB）
 
-## 修復範圍
-1. **統一後台函式錯誤解析**
-   - 新增/整理一個前端 helper，專門解析函式錯誤：優先讀後端 JSON `error` / `message`，再讀函式錯誤 message，避免只顯示籠統的非 2xx。
-   - 套用到 `/company/analysts` 內所有函式呼叫與資料寫入錯誤：建立分析師、補齊、帳號設定、LINE 設定、啟停用。
+彥愷（`experts.slug=sharkgu`, id `13926bcc…`）在 4576 大銀微系統 的資料出現「張／股」單位混亂。
 
-2. **修正分析師密碼重設寄信路徑**
-   - 移除 `update-analyst-credentials` 內對 `RESEND_API_KEY` 的硬依賴。
-   - 改成使用 Lovable Cloud 內建交易型寄信函式或內建 Auth reset 流程可用的穩定路徑。
-   - 保留立即重設密碼功能，但錯誤要回傳明確中文原因與 `requestId/correlationId`。
+**expert_signals（週記端）**
+| 時間 | action | qty | unit | 價格 | 狀態 |
+|---|---|---|---|---|---|
+| 07/17 09:05 | buy | 1 | 張 | 204 | published |
+| 07/17 10:16 | add | 999 | 股 | 198 | published |
+| 07/21 10:20 | trim | 1 | 張 | 188 | **pending（未發布）** |
 
-3. **後端函式錯誤可追蹤化**
-   - `update-analyst-credentials` 與 `create-analyst` 的每個失敗分支都回傳一致格式：`error`、`code`、必要時 `request_id`。
-   - 避免 catch 直接把原始例外丟給前端；敏感資訊不外洩，但要足夠讓管理員知道是權限、帳號不存在、Email 重複、密碼強度、寄信設定或資料庫寫入失敗。
-   - 保留既有 `withLogging`，必要時補足關鍵 action 的 structured log。
+**trade_records（持倉／系統端）**
+| 建立時間 | qty | unit | entry | exit | 狀態 |
+|---|---|---|---|---|---|
+| 07/17 09:05 | **1000** | **張** | 198.01 | — | open |
+| 07/17 20:00 | **999** | **張** | 198.01 | — | open |
+| 07/21 10:20 | 1 | 張 | 198.01 | 188 | closed |
 
-4. **前端 UX 收斂**
-   - Dialog 內顯示可讀錯誤，不再只用 toast 一閃而過。
-   - 操作中禁用按鈕，結束後一定恢復 loading 狀態。
-   - 成功後重新整理 `company-experts` 與相關列表 cache，避免剛改完又看到舊資料。
+## 根因
 
-5. **完整回歸測試**
-   - 補 `CompanyAnalysts` component tests：
-     - 帳號設定讀取 Email 成功/失敗。
-     - 立即重設密碼成功/弱密碼失敗/後端非 2xx 顯示明確原因。
-     - 寄重設信成功/寄信不可用時顯示明確原因。
-     - 建立分析師失敗不關 dialog、不清表單。
-     - LINE 設定讀取/儲存失敗顯示明確原因。
-   - 補或更新 Edge Function tests：
-     - `update-analyst-credentials` action whitelist。
-     - 無授權、非 company_admin、找不到 expert、LINE virtual email、弱密碼、寄信路徑錯誤格式。
+trade_records 的前兩筆是從 expert_signals 展開時單位換算錯誤：
+- signal「buy 1 張」→ 被寫成 `quantity=1000, unit=張`（正確應為 `1 張` 或 `1000 股`）
+- signal「add 999 股」→ 被寫成 `quantity=999, unit=張`（應為 `999 股`）
 
-## 技術細節
-- 不改資料庫結構，除非驗證中發現 audit log 權限或欄位缺漏；若需要 migration，會只針對必要欄位/政策處理。
-- 不新增更多 UI 功能，只修穩定性、錯誤訊息、可追蹤性與測試。
-- 不處理其他後台頁面，範圍鎖定 `/company/analysts` 與它直接依賴的函式。
+結果持倉看板把兩筆都解讀成「張」，出現「2 張」；而週記端讀 signals 原欄位，仍顯示「賣 1 張」。使用者最後意圖：**只留 1 張（=1000 股）open 部位**，其他歸零。
 
-## 驗證標準
-- 使用截圖中的「Benny — 帳號設定 → 立即重設」同一路徑，不應再只看到 `Edge Function returned a non-2xx status code`。
-- 所有分析師管理操作失敗時都要顯示具體中文原因。
-- 相關單元/整合測試通過。
-- 若能用已登入 session 端到端驗證，會實際打一次帳號設定流程並回報成功/失敗與 request id；若沒有可用登入 session，會明確標示 E2E 驗證限制。
+## 目標終態
+
+- 持倉：4576 大銀微系統 = **1 張（1000 股）open**，entry_price 198.01
+- 已賣出：**0 張**（因為老師其實只想要留 1 張，之前的 trim 1 張是為了修正錯誤庫存，不是真的減碼）
+- 週記端保留 buy 1 張 + add 999 股歷史；把 pending 的 trim 1 張撤銷（避免發布誤導訂閱者）
+
+## 執行步驟
+
+1. **trade_records 修正**
+   - `DELETE` id `ea29173d…`（qty 1000 張）
+   - `DELETE` id `483dea25…`（qty 999 張）
+   - `DELETE` id `06272d35…`（closed 1 張）
+   - `INSERT` 一筆乾淨的 open row：`quantity=1000, quantity_unit=股, entry_price=198.01, entry_date=2026-07-17, status=open, signal_id=73ea999e…（原始 buy signal）`
+
+2. **expert_signals 處理**
+   - `UPDATE` id `c872f4a9…`（pending trim 1 張）→ `status='withdrawn'`（或 taken_down），寫入 `taken_down_reason='老師修正持倉單位錯誤，此筆非真實減碼'`，避免這筆流入週記匯出
+
+3. **驗證**
+   - 重新查 trade_records / expert_signals 確認只剩上述目標狀態
+   - 請老師刷新持倉看板，確認顯示「1 張 大銀微」
+   - 確認 /company/journals-export 週記匯出不再出現「賣出 1 張」
+
+## 需要老師確認的一件事
+
+老師訊息說「我只要留 1 張」，但沒明說原本已發布的兩則 signal（buy 1 張 + add 999 股）要不要一併撤下重寫。**目前計畫：保留兩則已發布 signals（訂閱者已看過，且合起來語意就是「進 1 張」），只撤下未發布的 trim。** 若老師希望連歷史 signals 也清掉，請告知，我再加一步撤除+補發。
