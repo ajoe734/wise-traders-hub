@@ -13,7 +13,9 @@
 import { useState } from 'react';
 import {
   buildJournalExport,
+  detectExportRisks,
   downloadBlob,
+  type ExportRiskReport,
   type JournalRowExport,
 } from '@/lib/journalsExport';
 
@@ -327,6 +329,51 @@ const MENTOR_YK_ROWS: JournalRowExport[] = [
   },
 ];
 
+// Risk gate fixtures ─────────────────────────────────────────────
+// UNIT_MIX：同一標的同時「張」與「股」
+const RISK_UNIT_MIX_ROWS: JournalRowExport[] = [
+  {
+    id: 'sig-risk-mix-1', status: 'published', instrument: '2330 台積電', action: 'buy',
+    price_hint: 1050, quantity: 1, quantity_unit: '張',
+    reason_summary: 'risk-mix-a', reason_detail: null, risk_notes: null, learning_points: null,
+    published_at: '2026-07-14T01:00:00Z', created_at: '2026-07-14T00:30:00Z',
+    expert_id: 'expert-risk-mix',
+    experts: { name: '單位混用老師', slug: 'risk-mix', role: 'mentor', asset_class: 'tw_stock', currency: 'TWD' },
+  },
+  {
+    id: 'sig-risk-mix-2', status: 'published', instrument: '2330 台積電', action: 'sell',
+    price_hint: 1080, quantity: 500, quantity_unit: '股',
+    reason_summary: 'risk-mix-b', reason_detail: null, risk_notes: null, learning_points: null,
+    published_at: '2026-07-15T01:00:00Z', created_at: '2026-07-15T00:30:00Z',
+    expert_id: 'expert-risk-mix',
+    experts: { name: '單位混用老師', slug: 'risk-mix', role: 'mentor', asset_class: 'tw_stock', currency: 'TWD' },
+  },
+];
+
+// DIRECTION_NO_ENTRY：只賣未買
+const RISK_NO_ENTRY_ROWS: JournalRowExport[] = [
+  {
+    id: 'sig-risk-noentry-1', status: 'published', instrument: '2454 聯發科', action: 'sell',
+    price_hint: 1400, quantity: 1, quantity_unit: '張',
+    reason_summary: 'risk-noentry', reason_detail: null, risk_notes: null, learning_points: null,
+    published_at: '2026-07-14T02:00:00Z', created_at: '2026-07-14T01:30:00Z',
+    expert_id: 'expert-risk-noentry',
+    experts: { name: '只賣未買老師', slug: 'risk-noentry', role: 'mentor', asset_class: 'tw_stock', currency: 'TWD' },
+  },
+];
+
+// UNIT_MISSING (warn only)
+const RISK_WARN_ONLY_ROWS: JournalRowExport[] = [
+  {
+    id: 'sig-risk-warn-1', status: 'published', instrument: '2330 台積電', action: 'buy',
+    price_hint: 1050, quantity: 100, quantity_unit: null,
+    reason_summary: 'risk-warn', reason_detail: null, risk_notes: null, learning_points: null,
+    published_at: '2026-07-14T01:00:00Z', created_at: '2026-07-14T00:30:00Z',
+    expert_id: 'expert-risk-warn',
+    experts: { name: '缺單位老師', slug: 'risk-warn', role: 'mentor', asset_class: 'tw_stock', currency: 'TWD' },
+  },
+];
+
 
 
 
@@ -499,6 +546,29 @@ export default function JournalsExportHarnessEntry() {
     setStatus(`yankai-4576:${res.kind}:${res.filename}`);
   };
 
+  // ── Risk gate flow ─────────────────────────────────────────
+  const [riskReport, setRiskReport] = useState<ExportRiskReport | null>(null);
+
+  const guardedExport = async (rows: JournalRowExport[], label: string, force = false) => {
+    if (!force) {
+      const report = detectExportRisks(rows, { publishedOnly: true });
+      setRiskReport(report);
+      if (report.blocked) {
+        setStatus(`blocked:${label}:block=${report.summary.block}:warn=${report.summary.warn}`);
+        return;
+      }
+    }
+    const res = await buildJournalExport(rows, RANGE, true);
+    if (!res) { setStatus('empty'); return; }
+    downloadBlob(res.filename, res.blob);
+    setStatus(`${force ? 'forced' : 'passed'}:${label}:${res.kind}:${res.filename}`);
+  };
+
+  const runRiskUnitMix = () => guardedExport(RISK_UNIT_MIX_ROWS, 'unit-mix');
+  const runRiskNoEntry = () => guardedExport(RISK_NO_ENTRY_ROWS, 'no-entry');
+  const runRiskWarnOnly = () => guardedExport(RISK_WARN_ONLY_ROWS, 'warn-only');
+  const runRiskForce = () => guardedExport(RISK_UNIT_MIX_ROWS, 'unit-mix', true);
+
 
   const weekDisplay = `${RANGE.startLabel} ~ ${RANGE.endLabel}`;
 
@@ -576,6 +646,24 @@ export default function JournalsExportHarnessEntry() {
       </button>
 
 
+      <div style={{ marginTop: 16, paddingTop: 12, borderTop: '1px solid #e5e5e5' }}>
+        <div style={{ fontSize: 14, fontWeight: 600, marginBottom: 8 }}>Risk gate</div>
+        <div data-testid="je-risk-report" style={{ fontFamily: 'monospace', fontSize: 12, marginBottom: 8, whiteSpace: 'pre-wrap' }}>
+          {riskReport ? JSON.stringify({ blocked: riskReport.blocked, summary: riskReport.summary, codes: riskReport.issues.map((i) => i.code) }) : 'no-report'}
+        </div>
+        <button data-testid="je-risk-unit-mix" onClick={runRiskUnitMix} style={{ marginRight: 8, marginBottom: 8, padding: '6px 12px' }}>
+          Risk: UNIT_MIX (should block)
+        </button>
+        <button data-testid="je-risk-no-entry" onClick={runRiskNoEntry} style={{ marginRight: 8, marginBottom: 8, padding: '6px 12px' }}>
+          Risk: DIRECTION_NO_ENTRY (should block)
+        </button>
+        <button data-testid="je-risk-warn-only" onClick={runRiskWarnOnly} style={{ marginRight: 8, marginBottom: 8, padding: '6px 12px' }}>
+          Risk: warn-only (should download)
+        </button>
+        <button data-testid="je-risk-force" onClick={runRiskForce} style={{ marginRight: 8, marginBottom: 8, padding: '6px 12px' }}>
+          Risk: force-export UNIT_MIX (should download)
+        </button>
+      </div>
     </div>
   );
 }

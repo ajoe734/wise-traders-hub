@@ -25,12 +25,16 @@ import {
   ASSET_LABEL,
   buildJournalExport,
   buildMentorMarkdown,
+  detectExportRisks,
   downloadBlob,
   fmtTaipei,
   groupRowsByMentor,
   safeSlug,
+  type ExportRiskReport,
   type JournalRowExport,
 } from '@/lib/journalsExport';
+import { ExportRiskDialog } from '@/components/company/ExportRiskDialog';
+import { trackRaw } from '@/lib/analytics/events';
 
 // ── Taipei week helpers ────────────────────────────────────
 const TZ_OFFSET_MS = 8 * 60 * 60 * 1000;
@@ -333,6 +337,9 @@ const JournalsExport = () => {
   const [previewMentorId, setPreviewMentorId] = useState<string | null>(null);
   // 對話框內每位老師的勾選狀態；null 代表尚未初始化（開啟對話框時預設全選）
   const [dialogSelected, setDialogSelected] = useState<Set<string> | null>(null);
+  const [riskReport, setRiskReport] = useState<ExportRiskReport | null>(null);
+  const [riskDialogOpen, setRiskDialogOpen] = useState(false);
+  const [pendingExportScope, setPendingExportScope] = useState<Set<string> | null>(null);
   const range = useMemo(() => weekRangeUtc(weekStart), [weekStart]);
 
 
@@ -463,7 +470,7 @@ const JournalsExport = () => {
     (assetFilter !== 'all' ? 1 : 0) +
     (!publishedOnly ? 1 : 0);
 
-  const doExportMarkdown = async (mentorFilter?: Set<string>) => {
+  const doExportMarkdown = async (mentorFilter?: Set<string>, opts?: { force?: boolean }) => {
     const scoped = mentorFilter && mentorFilter.size > 0
       ? rows.filter((r) => mentorFilter.has(r.expert_id))
       : rows;
@@ -471,6 +478,51 @@ const JournalsExport = () => {
       toast.warning('目前條件下沒有可匯出的週記（請至少勾選一位老師）');
       return;
     }
+
+    // 風險守門：偵測單位/方向不一致
+    if (!opts?.force) {
+      const report = detectExportRisks(scoped as unknown as JournalRowExport[], { publishedOnly });
+      try {
+        trackRaw('journal_export_risk_gate', {
+          blocked: report.blocked,
+          block: report.summary.block,
+          warn: report.summary.warn,
+          rows: scoped.length,
+          force: false,
+        });
+      } catch { /* never block export */ }
+      if (report.blocked) {
+        setRiskReport(report);
+        setPendingExportScope(mentorFilter ?? null);
+        setRiskDialogOpen(true);
+        toast.error(`匯出已阻擋：偵測到 ${report.summary.block} 項高風險資料`, {
+          description: '請於對話框中檢視、修正後再匯出，或明確確認後強制匯出。',
+          duration: 8000,
+        });
+        return;
+      }
+      // 僅有 warn → 直接匯出但保留 report 提示
+      if (report.summary.warn > 0) {
+        setRiskReport(report);
+        toast.warning(`已匯出，另有 ${report.summary.warn} 項提醒`, {
+          description: '可按下方「檢視風險提醒」按鈕查看細節。',
+          duration: 6000,
+        });
+      } else {
+        setRiskReport(null);
+      }
+    } else {
+      try {
+        trackRaw('journal_export_risk_gate', {
+          blocked: false,
+          block: 0,
+          warn: 0,
+          rows: scoped.length,
+          force: true,
+        });
+      } catch { /* never block export */ }
+    }
+
     setMdBuilding(true);
     setMdFailure(null);
     try {
@@ -505,6 +557,12 @@ const JournalsExport = () => {
       setMdBuilding(false);
     }
   };
+
+  const handleForceExport = () => {
+    setRiskDialogOpen(false);
+    void doExportMarkdown(pendingExportScope ?? undefined, { force: true });
+  };
+
 
   return (
     <CompanyLayout>
@@ -953,6 +1011,13 @@ const JournalsExport = () => {
           </AlertDialogFooter>
         </AlertDialogContent>
       </AlertDialog>
+
+      <ExportRiskDialog
+        open={riskDialogOpen}
+        onOpenChange={setRiskDialogOpen}
+        report={riskReport}
+        onForceExport={handleForceExport}
+      />
     </CompanyLayout>
   );
 };

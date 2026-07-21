@@ -158,6 +158,179 @@ function buildMentorMarkdown(opts: {
   return lines.join("\n").replace(/\n{3,}/g, "\n\n");
 }
 
+// ── Export risk gate (server-side backstop) ─────────────
+// 保持與 src/lib/journalsExport.ts detectExportRisks 邏輯一致。
+const BUY_ACTIONS = new Set(["buy", "add"]);
+const SELL_ACTIONS = new Set(["sell", "trim", "exit"]);
+const TRADE_ACTIONS = new Set([...BUY_ACTIONS, ...SELL_ACTIONS]);
+
+function normalizeUnit(u: any): "lot" | "share" | "contract" | "other" | "missing" {
+  const raw = String(u ?? "").trim();
+  if (!raw) return "missing";
+  const s = raw.toLowerCase();
+  if (raw === "張" || s === "lot" || s === "lots") return "lot";
+  if (raw === "股" || s === "share" || s === "shares") return "share";
+  if (raw === "口" || s === "contract" || s === "contracts") return "contract";
+  return "other";
+}
+function toSharesSrv(qty: number, u: ReturnType<typeof normalizeUnit>): number {
+  if (u === "lot") return qty * 1000;
+  if (u === "share" || u === "missing") return qty;
+  return NaN;
+}
+
+interface RiskIssue {
+  code: string;
+  severity: "block" | "warn";
+  expert_id: string;
+  expert_name: string | null;
+  instrument: string | null;
+  detail: string;
+  rowIds: string[];
+}
+
+function detectRisks(rows: any[], openingBalances: Map<string, number>) {
+  const issues: RiskIssue[] = [];
+  const byKey = new Map<string, { rows: any[]; expertId: string; expertName: string | null; instrument: string | null }>();
+  for (const r of rows) {
+    const key = `${r.expert_id}::${r.instrument ?? ""}`;
+    const g = byKey.get(key) ?? {
+      rows: [],
+      expertId: r.expert_id,
+      expertName: r.experts?.name ?? null,
+      instrument: r.instrument,
+    };
+    g.rows.push(r);
+    byKey.set(key, g);
+  }
+  for (const [key, bucket] of byKey) {
+    const { rows: bRows, expertId, expertName, instrument } = bucket;
+
+    // QTY_INVALID
+    const invalid = bRows.filter((r) => {
+      if (!TRADE_ACTIONS.has(String(r.action ?? "").toLowerCase())) return false;
+      if (r.quantity === null || r.quantity === undefined) return false;
+      const n = Number(r.quantity);
+      return !Number.isFinite(n) || n <= 0;
+    });
+    if (invalid.length > 0) {
+      issues.push({
+        code: "QTY_INVALID", severity: "block",
+        expert_id: expertId, expert_name: expertName, instrument,
+        detail: `${invalid.length} 筆交易訊號的數量為 0 或無效數字`,
+        rowIds: invalid.map((r) => r.id),
+      });
+    }
+
+    // UNIT_MIX
+    const unitBuckets = new Map<string, any[]>();
+    const missingUnitRows: any[] = [];
+    for (const r of bRows) {
+      if (r.quantity === null || r.quantity === undefined) continue;
+      if (!TRADE_ACTIONS.has(String(r.action ?? "").toLowerCase())) continue;
+      const u = normalizeUnit(r.quantity_unit);
+      if (u === "missing") missingUnitRows.push(r);
+      const list = unitBuckets.get(u) ?? [];
+      list.push(r);
+      unitBuckets.set(u, list);
+    }
+    const lotN = unitBuckets.get("lot")?.length ?? 0;
+    const shareN = unitBuckets.get("share")?.length ?? 0;
+    if (lotN > 0 && shareN > 0) {
+      const related = [...(unitBuckets.get("lot") ?? []), ...(unitBuckets.get("share") ?? [])];
+      issues.push({
+        code: "UNIT_MIX", severity: "block",
+        expert_id: expertId, expert_name: expertName, instrument,
+        detail: `同一標的同時使用「張」與「股」（張 ${lotN} 筆、股 ${shareN} 筆）`,
+        rowIds: related.map((r) => r.id),
+      });
+    }
+    if (missingUnitRows.length > 0) {
+      const asset = missingUnitRows[0].experts?.asset_class ?? "";
+      if (asset === "tw_stock" || asset === "us_stock") {
+        issues.push({
+          code: "UNIT_MISSING", severity: "warn",
+          expert_id: expertId, expert_name: expertName, instrument,
+          detail: `${missingUnitRows.length} 筆訊號未填寫單位（預設為「股」，建議補齊）`,
+          rowIds: missingUnitRows.map((r) => r.id),
+        });
+      }
+    }
+
+    // 方向
+    let buyShares = 0, sellShares = 0;
+    let hasEntry = false, hasExit = false;
+    const buyIds: string[] = [], sellIds: string[] = [];
+    for (const r of bRows) {
+      const action = String(r.action ?? "").toLowerCase();
+      if (!TRADE_ACTIONS.has(action)) continue;
+      if (r.quantity === null || r.quantity === undefined) continue;
+      const qty = Number(r.quantity);
+      if (!Number.isFinite(qty) || qty <= 0) continue;
+      const u = normalizeUnit(r.quantity_unit);
+      const sh = toSharesSrv(qty, u);
+      if (!Number.isFinite(sh)) continue;
+      if (BUY_ACTIONS.has(action)) { buyShares += sh; hasEntry = true; buyIds.push(r.id); }
+      else if (SELL_ACTIONS.has(action)) { sellShares += sh; hasExit = true; sellIds.push(r.id); }
+    }
+    const opening = openingBalances.get(key) ?? 0;
+    if (hasExit && !hasEntry && opening <= 0) {
+      issues.push({
+        code: "DIRECTION_NO_ENTRY", severity: "block",
+        expert_id: expertId, expert_name: expertName, instrument,
+        detail: "本週只有賣出/減碼/出場，且 trade_records 查無期初持倉",
+        rowIds: sellIds,
+      });
+    }
+    if (sellShares > buyShares + opening) {
+      issues.push({
+        code: "DIRECTION_OVERSELL", severity: "block",
+        expert_id: expertId, expert_name: expertName, instrument,
+        detail: `賣出/減碼合計 ${sellShares} 股 > 買進/加碼 ${buyShares} 股 + 期初 ${opening} 股`,
+        rowIds: [...sellIds, ...buyIds],
+      });
+    }
+  }
+  const block = issues.filter((i) => i.severity === "block").length;
+  const warn = issues.filter((i) => i.severity === "warn").length;
+  return { issues, blocked: block > 0, summary: { block, warn } };
+}
+
+async function loadOpeningBalances(supabase: any, rows: any[], startIso: string): Promise<Map<string, number>> {
+  const map = new Map<string, number>();
+  const pairs = new Map<string, { expert_id: string; instrument: string }>();
+  for (const r of rows) {
+    if (!r.instrument) continue;
+    const key = `${r.expert_id}::${r.instrument}`;
+    if (!pairs.has(key)) pairs.set(key, { expert_id: r.expert_id, instrument: r.instrument });
+  }
+  if (pairs.size === 0) return map;
+  const expertIds = [...new Set([...pairs.values()].map((p) => p.expert_id))];
+  const { data, error } = await supabase
+    .from("trade_records")
+    .select("expert_id, instrument, action, quantity, quantity_unit, occurred_at")
+    .in("expert_id", expertIds)
+    .lt("occurred_at", startIso);
+  if (error) {
+    console.warn(`[weekly-journal-export] loadOpeningBalances failed: ${error.message}`);
+    return map;
+  }
+  for (const t of (data ?? []) as any[]) {
+    const key = `${t.expert_id}::${t.instrument}`;
+    if (!pairs.has(key)) continue;
+    const qty = Number(t.quantity);
+    if (!Number.isFinite(qty) || qty <= 0) continue;
+    const u = normalizeUnit(t.quantity_unit);
+    const sh = toSharesSrv(qty, u);
+    if (!Number.isFinite(sh)) continue;
+    const action = String(t.action ?? "").toLowerCase();
+    const cur = map.get(key) ?? 0;
+    if (BUY_ACTIONS.has(action)) map.set(key, cur + sh);
+    else if (SELL_ACTIONS.has(action)) map.set(key, cur - sh);
+  }
+  return map;
+}
+
 Deno.serve(async (req) => {
   if (req.method === "OPTIONS") return new Response("ok", { headers: corsHeaders });
 
@@ -168,18 +341,20 @@ Deno.serve(async (req) => {
 
   try {
     let weekStart: string | null = null;
+    let force = false;
     try {
       if (req.method === "POST") {
         const body = await req.json().catch(() => ({}));
         if (body?.weekStart && /^\d{4}-\d{2}-\d{2}$/.test(body.weekStart)) {
           weekStart = taipeiMondayOf(new Date(`${body.weekStart}T12:00:00+08:00`));
         }
+        if (body?.force === true) force = true;
       }
     } catch { /* ignore */ }
     if (!weekStart) weekStart = taipeiMondayOf(new Date());
     const range = weekRangeUtc(weekStart);
 
-    console.log(`[weekly-journal-export] week=${weekStart} (${range.startIso} ~ ${range.endIso})`);
+    console.log(`[weekly-journal-export] week=${weekStart} (${range.startIso} ~ ${range.endIso}) force=${force}`);
 
     // 1. 查詢當週已發布週記
     const { data: rows, error: qErr } = await supabase
@@ -197,6 +372,27 @@ Deno.serve(async (req) => {
     if (qErr) throw new Error(`query expert_signals failed: ${qErr.message}`);
     const list = (rows ?? []) as any[];
 
+    // 1b. 風險守門（server-side backstop）
+    let riskReport: ReturnType<typeof detectRisks> | null = null;
+    if (list.length > 0) {
+      const openings = await loadOpeningBalances(supabase, list, range.startIso);
+      riskReport = detectRisks(list, openings);
+      if (riskReport.blocked && !force) {
+        console.warn(`[weekly-journal-export] blocked: ${riskReport.summary.block} block / ${riskReport.summary.warn} warn`);
+        return new Response(
+          JSON.stringify({
+            ok: false,
+            code: "EXPORT_BLOCKED",
+            error: `偵測到 ${riskReport.summary.block} 項高風險資料，已阻擋匯出。若確認可加上 { force: true } 重試。`,
+            weekStart: range.startLabel,
+            weekEnd: range.endLabel,
+            risk_report: riskReport,
+          }),
+          { status: 409, headers: { ...corsHeaders, "Content-Type": "application/json" } },
+        );
+      }
+    }
+
     // 2. 依老師分組
     const byMentor = new Map<string, { name: string; slug: string; asset: string; currency: string; rows: any[] }>();
     for (const r of list) {
@@ -213,6 +409,7 @@ Deno.serve(async (req) => {
     }
 
     console.log(`[weekly-journal-export] found ${list.length} rows, ${byMentor.size} mentors`);
+
 
     // 3. 每位老師產一份 Markdown 上傳
     const uploaded: { path: string; mentor: string; slug: string; rows: number }[] = [];
@@ -301,6 +498,8 @@ Deno.serve(async (req) => {
       admins_notified: adminIds.length,
       files: uploaded,
       cleaned_up: deletedCount,
+      forced: force,
+      risk_report: riskReport,
     };
     console.log(`[weekly-journal-export] done`, result);
 
