@@ -44,7 +44,10 @@ export default function StartingCapitalCard({
             className={cn(isReadOnly && !startingCapitalLocked && 'bg-muted/50 cursor-not-allowed')}
           />
           {startingCapitalLocked && (
-            <p className="text-xs text-muted-foreground">起始資金已設定，無法修改。</p>
+            <p className="text-xs text-muted-foreground">已有發布訊號，起始資金為績效計算基準，無法修改。</p>
+          )}
+          {!startingCapitalLocked && startingCapital && (
+            <p className="text-xs text-muted-foreground">尚未發布訊號，可再調整；發布首筆訊號後將鎖定。</p>
           )}
           {capitalStatus && startingCapitalLocked && (
             <div className="grid grid-cols-3 gap-2 pt-2">
@@ -76,10 +79,11 @@ export default function StartingCapitalCard({
               disabled={!startingCapital || Number(startingCapital) <= 0 || isReadOnly}
               onClick={() => onRequestConfirm(Number(startingCapital))}
             >
-              確認設定
+              {startingCapital && !hasPublishedSignals ? '更新起始資金' : '確認設定'}
             </Button>
           </PermissionTooltip>
         )}
+
       </CardContent>
     </Card>
   );
