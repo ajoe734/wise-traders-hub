@@ -402,6 +402,13 @@ export default defineConfig({
       use: { ...devices['Desktop Chrome'], viewport: { width: 1280, height: 900 } },
     },
     {
+      // RangeBand 資料源一致性偵測：SPARK_VS_PRICE_DRIFT / PRICE_OUT_OF_RANGE / SPARK_OUT_OF_RANGE
+      // 透過 preview-only harness 注入分歧 price / spark，驗證琥珀警示 + data-inconsistent 屬性
+      name: 'desktop-holdings-range-band-inconsistency',
+      testMatch: /holdings-range-band-inconsistency\.spec\.ts/,
+      use: { ...devices['Desktop Chrome'], viewport: { width: 640, height: 480 } },
+    },
+    {
       // NotificationBell link routing：內部路徑走 navigate、Storage signed URL 走新分頁、null 不動作
       name: 'desktop-notification-link-routing',
       testMatch: /notification-link-routing\.spec\.ts/,

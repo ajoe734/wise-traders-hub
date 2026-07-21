@@ -934,7 +934,7 @@ function PriceAxis({ WB, price, cost, target, baseTarget, upside, tpHistory }) {
 
 // ──────────────────── §4.6 30D 走勢帶 ────────────────────
 
-function RangeBand({ WB, price, low, high, spark, symbol, priceSource, priceUpdatedAt }) {
+export function RangeBand({ WB, price, low, high, spark, symbol, priceSource, priceUpdatedAt }) {
   const svgH = 40; // 顯示高度（px）
   // 淨化輸入：過濾 NaN / 非數值 spark；lo/hi 必須是有限數
   const lo = Number.isFinite(low) ? Number(low) : NaN;
@@ -1012,6 +1012,11 @@ function RangeBand({ WB, price, low, high, spark, symbol, priceSource, priceUpda
         priceUpdatedAt: priceUpdatedAt || null,
         ...d,
       };
+      // 測試觀測面：無條件推進 window array（E2E harness 讀取用；prod 亦保留，體積可忽略）
+      try {
+        g.__rangeBandDiagnostics ||= [];
+        g.__rangeBandDiagnostics.push(payload);
+      } catch { /* noop */ }
       if (import.meta?.env?.DEV) {
         // eslint-disable-next-line no-console
         console.warn('[RangeBand] data source inconsistency', payload);

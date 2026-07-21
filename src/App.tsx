@@ -58,6 +58,7 @@ const CheckupCheckout = lazy(() => import("./pages/CheckupCheckout"));
 const FreeCheckupPage = lazy(() => import("./pages/FreeCheckup"));
 const HoldingCheckupDemoEntry = lazy(() => import("./pages/HoldingCheckupDemoEntry"));
 const HoldingCardHarnessEntry = lazy(() => import("./pages/HoldingCardHarnessEntry"));
+const RangeBandHarnessEntry = lazy(() => import("./pages/RangeBandHarnessEntry"));
 const HoldingsTableTargetHarnessEntry = lazy(() => import("./pages/HoldingsTableTargetHarnessEntry"));
 const HoldingsDetailPanelVolumeHarnessEntry = lazy(() => import("./pages/HoldingsDetailPanelVolumeHarnessEntry"));
 const SignalEditorHarnessEntry = lazy(() => import("./pages/SignalEditorHarnessEntry"));
@@ -278,6 +279,7 @@ const AppShell = () => (
             {/* Dev/Preview-only demo entry — gated by hostname inside the component. */}
             <Route path="/holding-checkup-demo" element={<HoldingCheckupDemoEntry />} />
             <Route path="/e2e/holding-card-harness" element={<HoldingCardHarnessEntry />} />
+            <Route path="/e2e/range-band-harness" element={<RangeBandHarnessEntry />} />
             <Route path="/e2e/holdings-table-target-harness" element={<HoldingsTableTargetHarnessEntry />} />
             <Route path="/e2e/holdings-detail-panel-volume" element={<HoldingsDetailPanelVolumeHarnessEntry />} />
             <Route path="/e2e/signal-editor-harness" element={<SignalEditorHarnessEntry />} />
