@@ -1,9 +1,11 @@
 // @ts-nocheck
 // ChipsSection — 抽屜「§4.6 籌碼面」（僅台股渲染）
 // 三大法人 1/5/20/60 日 + BSR 前 3 買/賣 + 集中度
-import React, { useEffect, useMemo, useRef } from 'react';
+import React, { useEffect, useMemo, useRef, useState } from 'react';
 import { useTwChipsDetail, isTaiwanStockCode, isTaiwanChipEligible, type TwChipsPayload } from '@/checkup/hooks/useTwChipsDetail';
 import ChipsTrendChart from './ChipsTrendChart';
+import { supabase } from '@/integrations/supabase/client';
+import { toast } from 'sonner';
 
 const SERIF = '"Source Serif 4", "Noto Serif TC", Georgia, serif';
 
@@ -149,6 +151,41 @@ export default function ChipsSection({ WB, stockCode }: { WB: any; stockCode: st
     return () => clearTimeout(t);
   }, [bsrPending, fetchedAt, refetch]);
 
+  // 手動回補歷史（三大法人 + BSR 佇列）
+  const instDays = data?.series?.institutional_daily?.length ?? 0;
+  const bsrDays = data?.series?.bsr_concentration?.length ?? 0;
+  const sparse = !!data && (instDays < 20 || bsrDays < 5);
+  const [backfilling, setBackfilling] = useState(false);
+  const handleBackfill = async () => {
+    if (backfilling) return;
+    setBackfilling(true);
+    try {
+      const [instRes, bsrRes] = await Promise.allSettled([
+        supabase.functions.invoke('tw-institutional-daily-sync', {
+          body: { mode: 'backfill_stock', stock_id: stockCode, days: 60 },
+        }),
+        supabase.rpc('enqueue_bsr_backfill', { p_stock_id: stockCode, p_days: 60 }),
+      ]);
+      const instOk = instRes.status === 'fulfilled' && !(instRes.value as any)?.error;
+      const bsrOk = bsrRes.status === 'fulfilled' && !(bsrRes.value as any)?.error;
+      if (instOk || bsrOk) {
+        const bsrCount = bsrOk ? (bsrRes as any).value?.data ?? 0 : 0;
+        toast.success(
+          `已排入歷史回補${bsrCount ? `（BSR ${bsrCount} 個交易日）` : ''}，三大法人約 10 秒、分點約 5–15 分鐘內完成`,
+        );
+        setTimeout(() => refetch(), 3000);
+      } else {
+        const msg =
+          (instRes.status === 'rejected' ? String(instRes.reason) : (instRes.value as any)?.error?.message) ||
+          (bsrRes.status === 'rejected' ? String(bsrRes.reason) : (bsrRes.value as any)?.error?.message) ||
+          '未知錯誤';
+        toast.error(`回補失敗：${msg.slice(0, 80)}`);
+      }
+    } finally {
+      setBackfilling(false);
+    }
+  };
+
   return (
     <section
       data-testid="chips-section"
@@ -189,6 +226,41 @@ export default function ChipsSection({ WB, stockCode }: { WB: any; stockCode: st
         </div>
 
       </div>
+
+      {/* 稀疏資料：手動回補過去 60 日 */}
+      {sparse && !error && (
+        <div
+          data-testid="chips-backfill-hint"
+          style={{
+            display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 8,
+            padding: '8px 10px', marginBottom: 10,
+            border: `1px dashed ${WB.hair}`, background: 'rgba(0,0,0,0.02)',
+            fontSize: 11, color: WB.inkSub, fontFamily: SERIF,
+          }}
+        >
+          <div>
+            歷史資料僅 {Math.max(instDays, bsrDays)} 天，趨勢圖繪製點不足。
+            <div style={{ fontSize: 10, color: WB.inkMute, marginTop: 2 }}>
+              點右側可一次回補過去 60 個交易日（三大法人即時完成、分點需 5–15 分鐘）
+            </div>
+          </div>
+          <button
+            data-testid="chips-backfill-btn"
+            onClick={handleBackfill}
+            disabled={backfilling}
+            style={{
+              fontSize: 11, padding: '4px 10px',
+              border: `1px solid ${WB.ink}`, background: 'transparent', color: WB.ink,
+              cursor: backfilling ? 'not-allowed' : 'pointer', opacity: backfilling ? 0.5 : 1,
+              fontFamily: SERIF, letterSpacing: '0.1em', whiteSpace: 'nowrap',
+            }}
+          >
+            {backfilling ? '排入中…' : '回補 60 日'}
+          </button>
+        </div>
+      )}
+
+
 
       {/* 錯誤 / 離線橫幅 */}
       {error && (

@@ -5002,6 +5002,10 @@ export type Database = {
         }
         Returns: string
       }
+      enqueue_bsr_backfill: {
+        Args: { p_days?: number; p_stock_id: string }
+        Returns: number
+      }
       get_analyst_subscriber_profiles: {
         Args: never
         Returns: {
