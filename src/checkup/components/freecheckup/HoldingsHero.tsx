@@ -67,6 +67,8 @@ function HoldingsHeroImpl(props) {
   const isStale = lastUpdate ? (nowMs - lastUpdate.getTime()) > 5 * 60 * 1000 : false;
 
   const canRefresh = typeof onRefreshPrices === 'function' && !refreshing;
+  const [autoMin, setAutoMin] = useAutoRefreshMinutes();
+
 
   return (
     <section
