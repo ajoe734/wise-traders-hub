@@ -190,7 +190,6 @@ export function SignalCreateDialog({
 
   const handleStockCodeChange = (value: string) => {
     const normalized = spec.uppercaseSymbol ? value.toUpperCase() : value;
-    // 偵測：只要使用者輸入了小寫字母、被自動轉大寫，就顯示提示（3 秒後淡出）
     if (spec.uppercaseSymbol && value !== normalized && /[a-z]/.test(value)) {
       setAutoUppercased(true);
       if (uppercaseHintTimer.current) clearTimeout(uppercaseHintTimer.current);
@@ -198,8 +197,15 @@ export function SignalCreateDialog({
     }
     setStockCode(normalized);
     if (fetchTimer.current) clearTimeout(fetchTimer.current);
-    if (normalized.trim().length >= spec.minSymbolLen) {
+    if (unitLookupTimer.current) clearTimeout(unitLookupTimer.current);
+    const trimmed = normalized.trim();
+    if (!trimmed) {
+      setLockedUnit(null); setLockedUnitSource(null);
+      return;
+    }
+    if (trimmed.length >= spec.minSymbolLen) {
       fetchTimer.current = setTimeout(() => fetchStockInfo(normalized), 500);
+      unitLookupTimer.current = setTimeout(() => lookupExistingUnit(trimmed), 400);
     }
   };
 
