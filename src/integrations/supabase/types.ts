@@ -4697,6 +4697,17 @@ export type Database = {
           user_id: string
         }[]
       }
+      admin_holdings_consistency_audit: {
+        Args: never
+        Returns: {
+          category: string
+          details: Json
+          expert_name: string
+          expert_slug: string
+          severity: string
+          symbol: string
+        }[]
+      }
       admin_reset_expert_asset_class: {
         Args: { _expert_id: string; _new_asset_class: string }
         Returns: undefined
