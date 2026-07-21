@@ -2,7 +2,7 @@
 // ChipsSection — 抽屜「§4.6 籌碼面」（僅台股渲染）
 // 三大法人 1/5/20/60 日 + BSR 前 3 買/賣 + 集中度
 import React, { useEffect, useMemo, useRef } from 'react';
-import { useTwChipsDetail, isTaiwanStockCode, type TwChipsPayload } from '@/checkup/hooks/useTwChipsDetail';
+import { useTwChipsDetail, isTaiwanStockCode, isTaiwanChipEligible, type TwChipsPayload } from '@/checkup/hooks/useTwChipsDetail';
 import ChipsTrendChart from './ChipsTrendChart';
 
 const SERIF = '"Source Serif 4", "Noto Serif TC", Georgia, serif';
@@ -100,6 +100,32 @@ function nextWorkerWindow(now = new Date()): { inWindow: boolean; label: string 
 
 export default function ChipsSection({ WB, stockCode }: { WB: any; stockCode: string }) {
   if (!isTaiwanStockCode(stockCode)) return null;
+
+  // ETF / 權證 / 受益憑證 / DR：FinMind 無分點資料，直接顯示提示（不進 sync 佇列）
+  if (!isTaiwanChipEligible(stockCode)) {
+    return (
+      <section
+        data-testid="chips-section"
+        data-chip-eligible="false"
+        style={{
+          margin: '18px 0 8px',
+          padding: '14px 0',
+          borderTop: `1px solid ${WB.hair}`,
+        }}
+      >
+        <div style={{ display: 'flex', alignItems: 'baseline', justifyContent: 'space-between', marginBottom: 8 }}>
+          <div style={{ fontFamily: SERIF, fontSize: 15, color: WB.ink, letterSpacing: '0.02em' }}>籌碼面</div>
+          <div style={{ fontSize: 10, color: WB.inkMute, letterSpacing: '0.14em' }}>NOT APPLICABLE</div>
+        </div>
+        <div data-testid="chips-not-eligible" style={{ fontSize: 12, color: WB.inkMute, lineHeight: 1.7 }}>
+          — 此代號為 ETF／權證／受益憑證，FinMind 未提供分點資料
+          <div style={{ fontSize: 10, color: WB.inkMute, marginTop: 2 }}>
+            （僅一般個股 4 碼、首位 1–9 之代號會納入分點同步）
+          </div>
+        </div>
+      </section>
+    );
+  }
 
   const { data, loading, error, fetchedAt, online, stale, refetch } = useTwChipsDetail(stockCode, true);
 
@@ -295,7 +321,7 @@ export default function ChipsSection({ WB, stockCode }: { WB: any; stockCode: st
           ) : hasInst ? (
             <div style={{ fontSize: 10, color: WB.inkMute, textAlign: 'right' }}>
               BSR 自動同步中
-              <div style={{ fontSize: 9, color: WB.inkMute, marginTop: 2 }}>每 15 分鐘自動抓取，取得後自動刷新</div>
+              <div style={{ fontSize: 9, color: WB.inkMute, marginTop: 2 }}>收盤後 14:00–21:00 每 10 分鐘一輪</div>
             </div>
           ) : null}
 
@@ -350,6 +376,12 @@ export default function ChipsSection({ WB, stockCode }: { WB: any; stockCode: st
                 ? 'FinMind API 呼叫失敗（rate limit 或暫時性錯誤），下輪自動重試'
                 : data.bsr_last_failure.reason === 'http_block'
                 ? '上游暫時封鎖請求'
+                : data.bsr_last_failure.reason === 'no_chip_data'
+                ? 'FinMind 尚無此代號分點（多為新上市或非常規個股）'
+                : data.bsr_last_failure.reason === 'not_chip_eligible'
+                ? 'ETF／權證／受益憑證無分點資料'
+                : data.bsr_last_failure.reason === 'rate_limited'
+                ? 'API 額度已用完，將於下輪自動重試'
                 : data.bsr_last_failure.reason === 'empty_rows'
                 ? '當日無成交或上游回空'
                 : data.bsr_last_failure.reason}
@@ -392,7 +424,7 @@ export default function ChipsSection({ WB, stockCode }: { WB: any; stockCode: st
           <div data-testid="chips-bsr-missing" style={{ fontSize: 12, color: WB.inkMute, lineHeight: 1.6 }}>
             — 分點資料自動同步中
             <div style={{ fontSize: 10, color: WB.inkMute }}>
-              （FinMind 官方 API；持倉每 15 分鐘自動抓取一輪，取得後畫面會自動刷新）
+              （FinMind 官方 API；收盤後 14:00–21:00 每 10 分鐘一輪，取得後畫面會自動刷新）
             </div>
           </div>
 

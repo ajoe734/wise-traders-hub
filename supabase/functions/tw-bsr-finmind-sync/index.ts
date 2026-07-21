@@ -215,9 +215,17 @@ export function isValidTwStockId(id: string): boolean {
   return TW_STOCK_ID_WHITELIST.test(id);
 }
 
+// 分點（BSR / TaiwanStockTradingDailyReport）資料可用性判定。
+// FinMind 分點僅覆蓋一般個股；ETF / 權證 / 受益憑證 / 可轉債 / DR 皆無 → 不入 sync 佇列。
+// Chip-eligible = 4 碼、首位 1-9 之個股（1101、2330、6285、9958…）。
+const TW_CHIP_ELIGIBLE = /^[1-9]\d{3}$/;
+export function isChipEligible(id: string): boolean {
+  return TW_CHIP_ELIGIBLE.test(id);
+}
+
 async function enqueueTier1Holdings(date: string, cid: string): Promise<number> {
   // trade_records 的持倉來自 instrument 欄位（格式如「2330 台積電」或「00631L 元大台灣50正2」），
-  // 開倉條件為 exit_date IS NULL。
+  // 開倉條件為 exit_date IS NULL。ETF/權證/受益憑證雖是合法持倉但 FinMind 無分點，直接濾掉不入隊。
   const { data: openTrades } = await supa
     .from('trade_records')
     .select('instrument, market')
@@ -233,7 +241,10 @@ async function enqueueTier1Holdings(date: string, cid: string): Promise<number> 
       const match = raw.match(/^([0-9]{4,6}[A-Z]?)\b/);
       return match ? match[1] : '';
     })
-    .filter(isValidTwStockId)));
+    .filter(isChipEligible)));
+  if (ids.length === 0) return 0;
+  return await enqueueBatch(ids, date, 1, 'tier1_holdings', cid);
+}
   if (ids.length === 0) return 0;
   return await enqueueBatch(ids, date, 1, 'tier1_holdings', cid);
 }
@@ -249,14 +260,14 @@ async function enqueueTier2Gaps(date: string, cid: string): Promise<number> {
     const { data: done } = await supa.from('tw_bsr_daily')
       .select('stock_id').eq('trade_date', d).in('stock_id', instIds);
     const doneSet = new Set((done || []).map((r: any) => r.stock_id));
-    for (const id of instIds) if (!doneSet.has(id) && isValidTwStockId(id)) gapIds.add(id);
+    for (const id of instIds) if (!doneSet.has(id) && isChipEligible(id)) gapIds.add(id);
   }
   const { data: failed } = await supa.from('tw_bsr_fetch_failures')
     .select('stock_id').is('resolved_at', null)
     .gte('trade_date', addDays(date, -7)).limit(500);
   for (const r of failed || []) {
     const sid = String(r.stock_id);
-    if (isValidTwStockId(sid)) gapIds.add(sid);
+    if (isChipEligible(sid)) gapIds.add(sid);
   }
   if (gapIds.size === 0) return 0;
   return await enqueueBatch(Array.from(gapIds), date, 2, 'tier2_gaps', cid);
@@ -279,7 +290,7 @@ async function enqueueTier3Backfill(endDate: string, days: number, cid: string):
       const match = raw.match(/^([0-9]{4,6}[A-Z]?)\b/);
       return match ? match[1] : '';
     })
-    .filter(isValidTwStockId)));
+    .filter(isChipEligible)));
   let total = 0;
   for (let i = 1; i <= days; i++) {
     const d = rollBackToWeekday(addDays(endDate, -i));
@@ -438,14 +449,32 @@ async function runWorker(batch: number, maxPriority: number, budgetMs: number): 
         priority: job.priority, ms: Date.now() - t0, ...r,
       });
       if (r.ok) {
-        await supa.from('tw_bsr_sync_queue').update({
-          status: r.note === 'finmind_empty' && !isAfterClose() ? 'pending' : 'done',
-          finished_at: new Date().toISOString(),
-          last_success_at: r.rows > 0 ? new Date().toISOString() : undefined,
-          last_error: null,
-          next_run_at: r.note === 'finmind_empty' && !isAfterClose()
-            ? new Date(Date.now() + 30 * 60_000).toISOString() : undefined,
-        }).eq('id', job.id);
+        // finmind_empty：FinMind 回空。個股需重試（可能當日資料尚未發佈），
+        // 但連續 3 次仍空 → 標記 skipped/no_chip_data，避免佇列永遠回推
+        const isEmpty = r.note === 'finmind_empty' || r.note === 'aggregated_empty';
+        const nextAttempts = (job.attempts ?? 1);
+        if (isEmpty && nextAttempts >= 3) {
+          await supa.from('tw_bsr_sync_queue').update({
+            status: 'skipped',
+            finished_at: new Date().toISOString(),
+            last_error: 'no_chip_data',
+            next_run_at: null,
+          }).eq('id', job.id);
+        } else if (isEmpty && !isAfterClose()) {
+          await supa.from('tw_bsr_sync_queue').update({
+            status: 'pending',
+            finished_at: new Date().toISOString(),
+            last_error: 'finmind_empty',
+            next_run_at: new Date(Date.now() + 30 * 60_000).toISOString(),
+          }).eq('id', job.id);
+        } else {
+          await supa.from('tw_bsr_sync_queue').update({
+            status: 'done',
+            finished_at: new Date().toISOString(),
+            last_success_at: r.rows > 0 ? new Date().toISOString() : undefined,
+            last_error: null,
+          }).eq('id', job.id);
+        }
       } else {
         const nextAttempts = (job.attempts ?? 1);
         const backoffMin = Math.min(120, Math.pow(2, nextAttempts) * 5);
@@ -675,10 +704,10 @@ Deno.serve(async (req) => {
     if (mode === 'manual') {
       const date = rollBackToWeekday(String(body?.date || taipeiToday()));
       const ids: string[] = Array.isArray(body?.stock_ids)
-        ? body.stock_ids.map((s: any) => String(s).trim()).filter(isValidTwStockId)
+        ? body.stock_ids.map((s: any) => String(s).trim()).filter(isChipEligible)
         : [];
 
-      if (ids.length === 0) return json({ ok: false, error: 'stock_ids required' }, 400);
+      if (ids.length === 0) return json({ ok: false, error: 'stock_ids required (chip-eligible only)' }, 400);
       const priority = Math.max(1, Math.min(3, Number(body?.priority ?? 1)));
       const cid = crypto.randomUUID();
       const enqueued = await enqueueBatch(ids, date, priority, 'manual', cid);

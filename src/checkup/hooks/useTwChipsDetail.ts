@@ -85,6 +85,17 @@ export function isTaiwanStockCode(code: string | undefined | null): boolean {
   return /^\d{4,6}[A-Z]?$/.test(String(code).trim());
 }
 
+/**
+ * 分點（BSR）資料可用性判定。
+ * FinMind 的 TaiwanStockTradingDailyReport 僅覆蓋一般個股，
+ * ETF / 權證 / 受益憑證 / 可轉債 / DR 皆無分點資料 → 不入 sync 佇列、UI 直接顯示提示。
+ * 規則：4 碼、首位為 1-9 之個股（如 1101、2330、6285、9958）才視為 chip-eligible。
+ */
+export function isTaiwanChipEligible(code: string | undefined | null): boolean {
+  if (!code) return false;
+  return /^[1-9]\d{3}$/.test(String(code).trim());
+}
+
 export type ChipsErrorKind =
   | 'network'
   | 'offline'
