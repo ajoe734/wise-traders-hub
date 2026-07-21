@@ -12,6 +12,13 @@ import {
   formatMoneyByCurrency, isValidSymbol, normalizeCurrency, symbolPlaceholder,
   type Currency,
 } from '@/lib/currency';
+import {
+  getAssetSpec,
+  isValidAssetSymbol,
+  resolveAssetClass,
+  sanitizeAssetQuantityUnit,
+  type AssetClass,
+} from '@/lib/asset';
 
 interface SimState {
   /** 模擬剩餘股數 */
@@ -184,7 +191,9 @@ export function validateSignalBatch(args: {
   if (!expert) return '找不到分析師資料';
   if (trades.length === 0) return '至少要有一檔股票';
 
-  const currency: Currency = normalizeCurrency(expert?.currency);
+  const assetClass = resolveAssetClass(expert);
+  const spec = getAssetSpec(assetClass);
+  const currency: Currency = spec.currency;
   const fmt = (n: number) => formatMoneyByCurrency(n, currency);
 
   // ── 先做欄位完整性檢查（依原始 UI 順序，先填好再排序執行） ──
@@ -192,11 +201,11 @@ export function validateSignalBatch(args: {
     const t = trades[i];
     const tag = `第 ${i + 1} 檔`;
     if (!t.stockCode.trim()) return `${tag}：請填股票代碼`;
-    if (!isValidSymbol(t.stockCode.trim().toUpperCase(), currency)) {
-      return `${tag}：股票代碼格式錯誤（${symbolPlaceholder(currency)}）`;
+    if (!isValidAssetSymbol(t.stockCode.trim().toUpperCase(), assetClass)) {
+      return `${tag}：標的代碼格式錯誤（${spec.symbolPlaceholder}）`;
     }
-    if (currency === 'USD' && t.quantityUnit !== '股') {
-      return `${tag}：美股單位只能用「股」`;
+    if (!spec.units.includes(t.quantityUnit as any)) {
+      return `${tag}：${spec.label}單位只能用「${spec.units.join(' / ')}」，不能使用「${t.quantityUnit}」`;
     }
     if (!t.action) return `${tag}：請選操作方向`;
     if (!t.executedAt) return `${tag}：請填操作時間`;
@@ -284,16 +293,19 @@ export function buildPublishRows(args: {
   expertId: string;
   batchId: string;
   status: string;
+  assetClass?: AssetClass | string | null;
   isMentor: boolean;
   teachingTopic: string;
   overallSummary: string;
   learningPoints: string;
   trades: TradeDraft[];
 }) {
-  const { expertId, batchId, status, isMentor, teachingTopic, overallSummary, learningPoints, trades } = args;
+  const { expertId, batchId, status, assetClass, isMentor, teachingTopic, overallSummary, learningPoints, trades } = args;
+  const safeAssetClass = assetClass || 'tw_stock';
   const order = executionOrder(trades);
   return order.map((origIdx) => {
     const t = trades[origIdx];
+    const quantityUnit = sanitizeAssetQuantityUnit(t.quantityUnit, safeAssetClass);
     const instrument = t.stockName.trim()
       ? `${t.stockCode.trim()} ${t.stockName.trim()}`
       : t.stockCode.trim();
@@ -308,7 +320,7 @@ export function buildPublishRows(args: {
       action: t.action as any,
       price_hint: isHold ? priceHint : parseFloat(t.priceHint),
       quantity: isHold ? quantity : parseInt(t.quantity, 10),
-      quantity_unit: isHold && !quantity ? null : t.quantityUnit,
+      quantity_unit: isHold && !quantity ? null : quantityUnit,
       executed_at: new Date(t.executedAt).toISOString(),
       reason_summary: sanitizeRichHtml(t.reasonSummary),
       reason_detail: sanitizeRichHtml(t.reasonDetail),
