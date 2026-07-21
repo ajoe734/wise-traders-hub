@@ -2,7 +2,7 @@ import jsPDF from 'jspdf';
 import html2canvas from 'html2canvas-pro';
 import { format } from 'date-fns';
 import { richHtmlToPlain } from '@/components/SafeRichHtml';
-import { sanitizeAssetQuantityUnit, resolveExpertAssetClass } from '@/lib/asset';
+import { sanitizeAssetQuantityUnit, resolveAssetClass } from '@/lib/asset';
 
 interface Signal {
   id: string;
