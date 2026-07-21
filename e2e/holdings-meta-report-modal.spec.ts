@@ -94,7 +94,7 @@ test.describe('HoldingMetaReportModal — 開/關 + C10 theme token', () => {
   test('backdrop 點擊關閉：modal 消失', async ({ page }) => {
     const dialog = await openModal(page);
     // backdrop 在 dialog 外圍；用 page.mouse 點擊視窗左上角空白（backdrop 位於 fixed inset:0）
-    await page.mouse.click(10, 10);
+    await page.locator('[data-testid="holding-meta-report-backdrop"]').click({ position: { x: 5, y: 5 } });
     await expect(dialog).toHaveCount(0, { timeout: 3_000 });
   });
 
