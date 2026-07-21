@@ -25,7 +25,50 @@ const SCHEMA = {
   isDemo: 'boolean',
   WB: 'object',
   wbTone: 'function',
+  holdings: { type: 'object', optional: true }, // Array<Holding>，用來彙總價格來源與最舊抓取時間
 };
+
+// 對齊 stockPriceWaterfall 的 label 映射，讓 hero 顯示與卡片/抽屜一致
+const SRC_LABEL: Record<string, string> = {
+  screenshot: '截圖',
+  live: '即時',
+  high: '最高',
+  ask: '賣一',
+  yclose: '昨收',
+  demo: 'DEMO',
+  regularMarketPrice: '收盤',
+  previousClose: '昨收',
+  chartClose: '已收K',
+  twse: 'TWSE',
+  yahoo: 'Yahoo',
+  realtime: '即時',
+};
+
+function summarizePriceSources(holdings: any[] | undefined) {
+  if (!Array.isArray(holdings) || holdings.length === 0) return null;
+  const counts = new Map<string, number>();
+  let oldest = Number.POSITIVE_INFINITY;
+  let newest = 0;
+  let missing = 0;
+  for (const h of holdings) {
+    const src = h?.priceSource;
+    if (src) counts.set(src, (counts.get(src) || 0) + 1);
+    else missing += 1;
+    const t = h?.priceUpdatedAt ? new Date(h.priceUpdatedAt).getTime() : 0;
+    if (t > 0) {
+      if (t < oldest) oldest = t;
+      if (t > newest) newest = t;
+    }
+  }
+  const entries = Array.from(counts.entries()).sort((a, b) => b[1] - a[1]);
+  return {
+    entries, // [[srcKey, count], ...]
+    missing,
+    oldest: Number.isFinite(oldest) ? oldest : 0,
+    newest,
+  };
+}
+
 
 function formatRelative(fromMs: number, nowMs: number): string {
   const diff = Math.max(0, nowMs - fromMs);
@@ -44,6 +87,7 @@ function HoldingsHeroImpl(props) {
     totalVal, totalCost, holdingsCount,
     rtConnected, lastUpdate, isDemo,
     refreshing, onRefreshPrices, refreshError,
+    holdings,
   } = props;
   const hasError = !refreshing && !!refreshError;
 
@@ -68,6 +112,26 @@ function HoldingsHeroImpl(props) {
 
   const canRefresh = typeof onRefreshPrices === 'function' && !refreshing;
   const [autoMin, setAutoMin] = useAutoRefreshMinutes();
+
+  // 價格來源分佈 + 最舊抓取時間（讓使用者判斷是否有個股停留在舊 tick）
+  const priceSummary = summarizePriceSources(holdings);
+  const oldestMs = priceSummary?.oldest || 0;
+  const oldestText = oldestMs
+    ? new Date(oldestMs).toLocaleTimeString('zh-TW', { hour: '2-digit', minute: '2-digit', hour12: false })
+    : '';
+  const oldestAgeMin = oldestMs ? Math.floor((nowMs - oldestMs) / 60000) : 0;
+  const oldestStale = oldestMs > 0 && (nowMs - oldestMs) > 15 * 60 * 1000; // > 15 min 視為過期
+  const summaryTitle = priceSummary
+    ? [
+        priceSummary.entries.length
+          ? `價格來源：${priceSummary.entries.map(([k, v]) => `${SRC_LABEL[k] || k} ${v}`).join('、')}`
+          : null,
+        priceSummary.missing ? `${priceSummary.missing} 檔尚未同步報價` : null,
+        oldestMs ? `最舊 tick：${new Date(oldestMs).toLocaleString('zh-TW')}（${oldestAgeMin} 分鐘前）` : null,
+        priceSummary.newest ? `最新 tick：${new Date(priceSummary.newest).toLocaleString('zh-TW')}` : null,
+      ].filter(Boolean).join('\n')
+    : '';
+
 
 
   return (
@@ -269,7 +333,69 @@ function HoldingsHeroImpl(props) {
 
           </div>
 
+          {/* 價格來源與最舊抓取時間（Handoff §3.5：資料新鮮度可視化） */}
+          {priceSummary && (priceSummary.entries.length > 0 || priceSummary.missing > 0) && (
+            <div
+              data-testid="holdings-hero-price-sources"
+              title={summaryTitle}
+              style={{
+                fontSize: 10,
+                letterSpacing: '0.08em',
+                color: 'var(--cm-ink-mute)',
+                display: 'inline-flex',
+                alignItems: 'center',
+                gap: 6,
+                flexWrap: 'wrap',
+                justifyContent: 'flex-end',
+                maxWidth: '100%',
+              }}
+            >
+              <span style={{ color: 'var(--cm-ink-mute)' }}>來源</span>
+              {priceSummary.entries.map(([src, count], idx) => (
+                <span key={src} style={{ display: 'inline-flex', alignItems: 'baseline', gap: 3 }}>
+                  {idx > 0 && <span style={{ color: 'var(--cm-hair-strong)' }}>·</span>}
+                  <span
+                    data-price-src={src}
+                    style={{ color: 'var(--cm-ink-sub)', fontWeight: 500 }}
+                  >
+                    {SRC_LABEL[src] || src}
+                  </span>
+                  <span className="cm-num" style={{ color: 'var(--cm-ink-mute)' }}>{count}</span>
+                </span>
+              ))}
+              {priceSummary.missing > 0 && (
+                <span style={{ display: 'inline-flex', alignItems: 'baseline', gap: 3 }}>
+                  {priceSummary.entries.length > 0 && <span style={{ color: 'var(--cm-hair-strong)' }}>·</span>}
+                  <span style={{ color: 'var(--cm-loss)', fontWeight: 500 }}>未同步</span>
+                  <span className="cm-num" style={{ color: 'var(--cm-loss)' }}>{priceSummary.missing}</span>
+                </span>
+              )}
+              {oldestText && (
+                <>
+                  <span style={{ color: 'var(--cm-hair-strong)' }}>｜</span>
+                  <span style={{ color: 'var(--cm-ink-mute)' }}>最舊抓取</span>
+                  <span
+                    className="cm-num"
+                    data-testid="holdings-hero-oldest-fetch"
+                    style={{
+                      color: oldestStale ? 'var(--cm-loss)' : 'var(--cm-ink-sub)',
+                      fontWeight: oldestStale ? 600 : 500,
+                    }}
+                  >
+                    {oldestText}
+                  </span>
+                  {oldestStale && (
+                    <span style={{ color: 'var(--cm-loss)', fontSize: 9 }}>
+                      （{oldestAgeMin} 分鐘前）
+                    </span>
+                  )}
+                </>
+              )}
+            </div>
+          )}
+
         </div>
+
       </div>
       <style>{`@keyframes holdingsHeroSpin { to { transform: rotate(360deg); } }`}</style>
     </section>
