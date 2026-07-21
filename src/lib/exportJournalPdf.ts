@@ -2,6 +2,7 @@ import jsPDF from 'jspdf';
 import html2canvas from 'html2canvas-pro';
 import { format } from 'date-fns';
 import { richHtmlToPlain } from '@/components/SafeRichHtml';
+import { sanitizeAssetQuantityUnit, resolveAssetClass } from '@/lib/asset';
 
 interface Signal {
   id: string;
@@ -17,12 +18,27 @@ interface Signal {
   published_at: string;
   /** 產業分類（用於「本週產業分佈」頁；未提供則歸為「未分類」） */
   sector?: string | null;
+  /** 標的資產類別；缺值時由 experts.asset_class / currency 推導 */
+  asset_class?: string | null;
   experts: {
     name: string;
     slug: string;
     role: string;
     avatar_url: string | null;
+    asset_class?: string | null;
+    currency?: string | null;
   };
+}
+
+/**
+ * 單一資料源：以資產類別決定 quantity_unit。
+ * 憲法：us_stock → 股、us_future → 口、crypto → 顆、tw_stock → 張。
+ * 上游 quantity_unit 為 null 或與 asset_class 不相容時，一律以 asset_class 覆寫，
+ * 徹底杜絕 us_stock/us_future 匯出寫成「張」的回歸。
+ */
+export function resolvePdfQuantityUnit(s: Signal): string {
+  const cls = s.asset_class ?? resolveAssetClass(s.experts);
+  return sanitizeAssetQuantityUnit(s.quantity_unit, cls);
 }
 
 interface ExportArgs {
@@ -287,12 +303,11 @@ const sectionTitle = (t: string) => `
 
 const signalBlockHtml = (s: Signal) => {
   const meta = actionMeta(s.action);
-  // BUG-FIX: 不再硬編 '張' fallback — 對 us_stock/futures 會顯示錯單位。
-  // 若上游未給 quantity_unit，顯示純數字（下游可從 asset_class 推導後補回）。
-  const qtyLabel = s.quantity_unit ? ` ${s.quantity_unit}` : '';
+  // 單一資料源：由 asset_class 決定單位，避免 us_stock/us_future 匯出成「張」。
+  const unit = resolvePdfQuantityUnit(s);
   const priceQty = [
     s.price_hint != null ? `價 ${s.price_hint}` : null,
-    s.quantity != null ? `${s.quantity}${qtyLabel}` : null,
+    s.quantity != null ? `${s.quantity} ${unit}` : null,
   ]
     .filter(Boolean)
     .join(' · ');
@@ -343,7 +358,7 @@ const buildTradeDetailBodyHtml = (signals: Signal[]): string => {
       const price = s.price_hint != null ? String(s.price_hint) : '—';
       const qty =
         s.quantity != null
-          ? `${s.quantity}${s.quantity_unit ? ` ${s.quantity_unit}` : ''}`
+          ? `${s.quantity} ${resolvePdfQuantityUnit(s)}`
           : '—';
       return `
         <tr>
