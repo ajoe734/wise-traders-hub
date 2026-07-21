@@ -534,6 +534,12 @@ export function SignalCreateDialog({
                         if (!nextUnit || nextUnit === lockedUnit) return;
                         const trimmed = stockCode.trim();
                         if (!trimmed || !expert?.id) return;
+                        if (!spec.units.includes(nextUnit as QuantityUnit)) {
+                          toast.error(
+                            `無法切換：${spec.label}不支援單位「${nextUnit}」（僅允許 ${spec.units.join(' / ')}）`,
+                          );
+                          return;
+                        }
                         setRealignPreview({ toUnit: nextUnit as QuantityUnit });
                       }}
                     >
@@ -547,6 +553,7 @@ export function SignalCreateDialog({
                       </SelectContent>
                     </Select>
                   )}
+
                 </div>
               )}
             </div>
@@ -568,12 +575,25 @@ export function SignalCreateDialog({
                     p_symbol_prefix: stockCode.trim(),
                     p_new_unit: nextUnit,
                   });
-                  if (error) { toast.error(`調整單位失敗：${error.message}`); return; }
+                  if (error) {
+                    const raw = String(error.message || '');
+                    let msg = raw;
+                    if (raw.includes('incompatible_unit_for_asset_class')) {
+                      msg = `無法切換為「${nextUnit}」：此標的資產類別不支援該單位（僅允許 ${spec.units.join(' / ')}）`;
+                    } else if (raw.includes('invalid_unit')) {
+                      msg = `單位「${nextUnit}」不合法，請重新選擇`;
+                    } else if (raw.includes('forbidden')) {
+                      msg = '沒有權限調整此老師的單位';
+                    }
+                    toast.error(msg);
+                    return;
+                  }
                   const d = (data as any) || {};
                   toast.success(`已改為「${nextUnit}」（訊號 ${d.signals_updated ?? 0} 筆、持倉 ${d.trades_updated ?? 0} 筆）`);
                   setLockedUnit(nextUnit);
                   setQuantityUnit(nextUnit);
                   setRealignPreview(null);
+
                 } catch (e: any) {
                   toast.error(`調整單位失敗：${e?.message || e}`);
                 }
