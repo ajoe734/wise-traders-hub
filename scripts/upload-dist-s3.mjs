@@ -25,7 +25,7 @@ import { readdir, readFile, stat } from "node:fs/promises";
 import { join, relative, sep, posix } from "node:path";
 import { createHash } from "node:crypto";
 import { setTimeout as sleep } from "node:timers/promises";
-import { S3Client, PutObjectCommand } from "@aws-sdk/client-s3";
+import { S3Client, PutObjectCommand, HeadObjectCommand } from "@aws-sdk/client-s3";
 
 const {
   S3_BUCKET,
@@ -103,26 +103,60 @@ async function* walk(dir) {
   }
 }
 
-async function uploadOne(absPath, rootDir) {
+async function headOnce(key) {
+  try {
+    const res = await client.send(new HeadObjectCommand({ Bucket: S3_BUCKET, Key: key }));
+    return {
+      contentLength: Number(res.ContentLength ?? 0),
+      etag: (res.ETag || "").replace(/^"|"$/g, ""),
+    };
+  } catch (err) {
+    const status = err.$metadata?.httpStatusCode;
+    if (status === 404 || err.name === "NotFound") return null;
+    throw err;
+  }
+}
+
+async function headWithRetry(key) {
+  for (let attempt = 1; attempt <= maxAttempts; attempt++) {
+    if (Date.now() >= deadline) throw new Error(`Overall timeout exceeded before HEAD ${key}`);
+    try {
+      return await headOnce(key);
+    } catch (err) {
+      if (!isRetriable(err) || attempt === maxAttempts) throw err;
+      const remaining = deadline - Date.now();
+      if (remaining <= 0) throw err;
+      await sleep(Math.min(backoffDelay(attempt), Math.max(0, remaining - 100)));
+    }
+  }
+  return null;
+}
+
+function relKey(absPath, rootDir) {
   const rel = relative(rootDir, absPath).split(sep).join(posix.sep);
-  const key = S3_PREFIX ? `${S3_PREFIX.replace(/\/+$/, "")}/${rel}` : rel;
-  const body = await readFile(absPath);
+  return { rel, key: S3_PREFIX ? `${S3_PREFIX.replace(/\/+$/, "")}/${rel}` : rel };
+}
+
+async function putOnce(key, body, rel) {
   const md5 = createHash("md5").update(body).digest("base64");
-  const cmd = new PutObjectCommand({
+  await client.send(new PutObjectCommand({
     Bucket: S3_BUCKET,
     Key: key,
     Body: body,
     ContentType: contentTypeFor(rel),
     ContentMD5: md5,
     CacheControl: /\.(html|xml|txt)$/i.test(rel) ? "no-cache" : "public, max-age=31536000, immutable",
-  });
+  }));
+}
+
+async function uploadOne(absPath, rootDir) {
+  const { rel, key } = relKey(absPath, rootDir);
+  const body = await readFile(absPath);
 
   for (let attempt = 1; attempt <= maxAttempts; attempt++) {
-    if (Date.now() >= deadline) {
-      throw new Error(`Overall timeout exceeded before uploading ${key}`);
-    }
+    if (Date.now() >= deadline) throw new Error(`Overall timeout exceeded before uploading ${key}`);
     try {
-      await client.send(cmd);
+      await putOnce(key, body, rel);
       if (attempt > 1) console.log(`[upload-dist-s3] ok ${key} (attempt ${attempt})`);
       return;
     } catch (err) {
@@ -133,15 +167,88 @@ async function uploadOne(absPath, rootDir) {
         throw err;
       }
       const delay = Math.min(backoffDelay(attempt), Math.max(0, remaining - 100));
-      console.warn(
-        `[upload-dist-s3] retry ${key} attempt=${attempt} in ${delay}ms (${err.Code || err.code || err.name}: ${err.message || ""})`,
-      );
+      console.warn(`[upload-dist-s3] retry ${key} attempt=${attempt} in ${delay}ms (${err.Code || err.code || err.name}: ${err.message || ""})`);
       await sleep(delay);
     }
   }
 }
 
+/**
+ * Verify a single object: HEAD → compare Content-Length + ETag (hex MD5) with local.
+ * On mismatch, re-upload up to UPLOAD_MAX_ATTEMPTS times with backoff.
+ * Returns { key, ok, reason?, localLen, remoteLen, localMd5, remoteEtag, reuploads }.
+ */
+async function verifyOne(absPath, rootDir) {
+  const { rel, key } = relKey(absPath, rootDir);
+  const body = await readFile(absPath);
+  const localLen = body.length;
+  const localMd5 = createHash("md5").update(body).digest("hex");
+
+  let reuploads = 0;
+  for (let attempt = 1; attempt <= maxAttempts; attempt++) {
+    if (Date.now() >= deadline) {
+      return { key, ok: false, reason: "timeout", localLen, remoteLen: null, localMd5, remoteEtag: null, reuploads };
+    }
+    const head = await headWithRetry(key);
+    const remoteLen = head?.contentLength ?? null;
+    const remoteEtag = head?.etag ?? null;
+    const isMultipart = typeof remoteEtag === "string" && remoteEtag.includes("-");
+    const lenOk = head && remoteLen === localLen;
+    // Multipart ETag is not a plain MD5; if we ever hit that path, fall back to length-only compare.
+    const etagOk = head && (isMultipart ? true : remoteEtag === localMd5);
+
+    if (lenOk && etagOk) {
+      return { key, ok: true, localLen, remoteLen, localMd5, remoteEtag, reuploads };
+    }
+
+    const reason = !head
+      ? "missing"
+      : !lenOk
+        ? `length ${remoteLen} != ${localLen}`
+        : `etag ${remoteEtag} != ${localMd5}`;
+
+    if (attempt === maxAttempts) {
+      return { key, ok: false, reason, localLen, remoteLen, localMd5, remoteEtag, reuploads };
+    }
+
+    console.warn(`[upload-dist-s3] verify mismatch ${key} (${reason}); re-uploading (attempt ${attempt})`);
+    try {
+      await putOnce(key, body, rel);
+      reuploads += 1;
+    } catch (err) {
+      if (!isRetriable(err) || attempt === maxAttempts - 1) {
+        return { key, ok: false, reason: `reupload_failed: ${err.message || err.name}`, localLen, remoteLen, localMd5, remoteEtag, reuploads };
+      }
+      const remaining = deadline - Date.now();
+      await sleep(Math.min(backoffDelay(attempt), Math.max(0, remaining - 100)));
+    }
+  }
+  return { key, ok: false, reason: "exhausted", localLen, remoteLen: null, localMd5, remoteEtag: null, reuploads };
+}
+
+async function runPool(items, worker) {
+  let idx = 0;
+  const results = new Array(items.length);
+  let failed = null;
+  async function loop() {
+    while (!failed) {
+      const i = idx++;
+      if (i >= items.length) return;
+      try {
+        results[i] = await worker(items[i], i);
+      } catch (err) {
+        failed = err;
+        return;
+      }
+    }
+  }
+  await Promise.all(Array.from({ length: concurrency }, loop));
+  if (failed) throw failed;
+  return results;
+}
+
 async function main() {
+  const startedAt = Date.now();
   const st = await stat(DIST_DIR).catch(() => null);
   if (!st?.isDirectory()) {
     console.error(`[upload-dist-s3] ${DIST_DIR} is not a directory`);
@@ -151,26 +258,44 @@ async function main() {
   for await (const f of walk(DIST_DIR)) files.push(f);
   console.log(`[upload-dist-s3] uploading ${files.length} files → s3://${S3_BUCKET}/${S3_PREFIX} (budget ${budgetMs}ms, concurrency ${concurrency})`);
 
-  let idx = 0;
-  let failed = null;
-  async function worker() {
-    while (!failed) {
-      const i = idx++;
-      if (i >= files.length) return;
-      try {
-        await uploadOne(files[i], DIST_DIR);
-      } catch (err) {
-        failed = err;
-        return;
-      }
-    }
-  }
-  await Promise.all(Array.from({ length: concurrency }, worker));
-  if (failed) {
-    console.error(`[upload-dist-s3] aborted: ${failed.message || failed}`);
+  // Phase 1: upload
+  try {
+    await runPool(files, (f) => uploadOne(f, DIST_DIR));
+  } catch (err) {
+    console.error(`[upload-dist-s3] upload aborted: ${err.message || err}`);
     process.exit(1);
   }
-  console.log(`[upload-dist-s3] done in ${Date.now() - (deadline - budgetMs)}ms`);
+
+  // Phase 2: verify (HEAD + ETag/length compare, re-upload on mismatch)
+  console.log(`[upload-dist-s3] verifying ${files.length} objects (Content-Length + ETag)`);
+  let verifyResults;
+  try {
+    verifyResults = await runPool(files, (f) => verifyOne(f, DIST_DIR));
+  } catch (err) {
+    console.error(`[upload-dist-s3] verify aborted: ${err.message || err}`);
+    process.exit(1);
+  }
+
+  const mismatches = verifyResults.filter((r) => !r.ok);
+  const reuploaded = verifyResults.filter((r) => r.ok && r.reuploads > 0);
+  const elapsed = Date.now() - startedAt;
+
+  console.log(`[upload-dist-s3] verify summary: ${verifyResults.length - mismatches.length}/${verifyResults.length} ok, ${reuploaded.length} healed by re-upload, ${mismatches.length} failed (${elapsed}ms)`);
+
+  if (reuploaded.length) {
+    console.log("[upload-dist-s3] healed by re-upload:");
+    for (const r of reuploaded) console.log(`  - ${r.key} (reuploads=${r.reuploads})`);
+  }
+  if (mismatches.length) {
+    console.error("[upload-dist-s3] verification FAILED for the following keys:");
+    for (const r of mismatches) {
+      console.error(
+        `  - ${r.key} reason=${r.reason} local=${r.localLen}B/${r.localMd5} remote=${r.remoteLen ?? "?"}B/${r.remoteEtag ?? "?"} reuploads=${r.reuploads}`,
+      );
+    }
+    process.exit(1);
+  }
+  console.log(`[upload-dist-s3] done in ${elapsed}ms — all objects verified`);
 }
 
 main().catch((err) => {
