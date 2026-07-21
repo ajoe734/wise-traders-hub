@@ -444,6 +444,12 @@ export default defineConfig({
       use: { ...devices['Desktop Chrome'], viewport: { width: 1280, height: 900 }, acceptDownloads: true },
     },
     {
+      // 週記匯出：彥愷 4576 迴歸（buy 1 張 + add 999 股，無賣出，不得出現「賣出 1 張」或單位錯亂）
+      name: 'desktop-journals-export-yankai-4576',
+      testMatch: /journals-export-yankai-4576-no-sell\.spec\.ts/,
+      use: { ...devices['Desktop Chrome'], viewport: { width: 1280, height: 900 }, acceptDownloads: true },
+    },
+    {
       // 週記匯出：本週總計 parser 對 CRLF / 額外空白 / 全形冒號等 whitespace 變體的容忍度
       name: 'desktop-journals-export-weekly-totals-whitespace',
       testMatch: /journals-export-weekly-totals-whitespace-tolerance\.spec\.ts/,
