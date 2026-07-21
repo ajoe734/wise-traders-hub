@@ -4,7 +4,7 @@ import ReactDOM from 'react-dom';
 import * as DropdownMenu from '@radix-ui/react-dropdown-menu';
 import {
   Camera, Download, Copy, X as XIcon, Settings, ChevronDown,
-  RotateCcw, FileText, Image as ImageIcon, Undo2, Redo2, Check,
+  RotateCcw, FileText, Image as ImageIcon, Undo2, Redo2, Check, Info,
 } from 'lucide-react';
 import { useHoldingShareExport } from '@/checkup/hooks/useHoldingShareExport';
 import { useSimHistory } from '@/checkup/hooks/useSimHistory';
