@@ -28,6 +28,7 @@ import { normalizeHoldingMetrics } from "@/checkup/lib/holdings.js";
 // coerceStocksString moved into NewsTab (lazy chunk) — keep out of main bundle
 import { callEdge } from "@/checkup/lib/edgeInvoke";
 import { getAutoRefreshMinutes } from "@/checkup/lib/autoRefreshInterval";
+import { readLastUpdate, writeLastUpdate } from "@/checkup/lib/holdingsLastUpdate";
 import { preloadKnowledgeBase } from "@/checkup/lib/knowledgeBase";
 import { mergeCalendarToNewsEvents } from "@/checkup/lib/calendarSync";
 import { NewsEventRow } from "@/checkup/components/freecheckup/NewsEventRow";
@@ -244,7 +245,10 @@ export default function App() {
 
   // refresh prices
   const [refreshing, setRefreshing] = useState(false);
-  const [lastUpdate, setLastUpdate] = useState(null);
+  const [lastUpdate, setLastUpdate] = useState(() => {
+    // 從 localStorage 讀取上次成功同步時間，讓 F5 後仍能顯示正確的「更新於」
+    try { return readLastUpdate(null); } catch { return null; }
+  });
   const [rtConnected, setRtConnected] = useState(false); // current_prices Realtime 連線狀態
   const REFRESH_COOLDOWN = 30 * 60 * 1000; // 30 minutes
   const [cooldownText, setCooldownText] = useState("");
@@ -1936,6 +1940,20 @@ export default function App() {
     }
     if (latest > 0) setLastUpdate(new Date(latest));
   }, [holdings, lastUpdate]);
+
+  // 使用者登入後，若 state 為空則從其專屬快取補回；並在 lastUpdate 變動時寫回
+  useEffect(() => {
+    const uid = supabaseUser?.id || null;
+    if (!lastUpdate) {
+      const cached = readLastUpdate(uid);
+      if (cached) setLastUpdate(cached);
+    }
+  }, [supabaseUser?.id]); // eslint-disable-line react-hooks/exhaustive-deps
+
+  useEffect(() => {
+    const uid = supabaseUser?.id || null;
+    writeLastUpdate(uid, lastUpdate);
+  }, [lastUpdate, supabaseUser?.id]);
 
 
 
