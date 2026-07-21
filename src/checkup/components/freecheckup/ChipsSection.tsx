@@ -321,7 +321,7 @@ export default function ChipsSection({ WB, stockCode }: { WB: any; stockCode: st
           ) : hasInst ? (
             <div style={{ fontSize: 10, color: WB.inkMute, textAlign: 'right' }}>
               BSR 自動同步中
-              <div style={{ fontSize: 9, color: WB.inkMute, marginTop: 2 }}>每 15 分鐘自動抓取，取得後自動刷新</div>
+              <div style={{ fontSize: 9, color: WB.inkMute, marginTop: 2 }}>收盤後 14:00–21:00 每 10 分鐘一輪</div>
             </div>
           ) : null}
 
