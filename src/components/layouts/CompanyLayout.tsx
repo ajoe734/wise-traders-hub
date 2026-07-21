@@ -51,6 +51,7 @@ const navGroups: NavGroup[] = [
       { path: '/company/checkup-quota-audit', icon: FileClock, label: '配額稽核' },
       { path: '/company/missing-prices', icon: AlertTriangle, label: '缺價總覽' },
       { path: '/company/meta-overrides', icon: History, label: '持倉覆蓋' },
+      { path: '/company/holdings-consistency', icon: AlertTriangle, label: '持倉一致性' },
     ],
   },
   {
