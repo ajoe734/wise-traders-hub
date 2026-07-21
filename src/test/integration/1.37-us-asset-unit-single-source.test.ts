@@ -270,11 +270,10 @@ describe('D. DB trigger drift-detection：enforce_unit_consistency + handle_sign
   });
 
   it('handle_signal_trade：v_unit 從 asset_class 派生，us_stock/us_future/us_option 預設不會是「張」', () => {
-    // handle_signal_trade 目前在 enforce trigger 已擋下違規單位後，才會用 asset_class 決定 v_unit
-    // 這裡驗證 handle_signal_trade 的 CASE 對照表存在
-    expect(unitSrc).toMatch(/WHEN 'us_stock'\s+THEN '股'/);
-    expect(unitSrc).toMatch(/WHEN 'us_future'\s+THEN '口'/);
-    expect(unitSrc).toMatch(/WHEN 'us_option'\s+THEN '口'/);
+    expect(tradeSrc).toMatch(/WHEN 'us_stock'\s+THEN '股'/);
+    expect(tradeSrc).toMatch(/WHEN 'us_future'\s+THEN '口'/);
+    expect(tradeSrc).toMatch(/WHEN 'us_option'\s+THEN '口'/);
+    expect(tradeSrc).toMatch(/WHEN 'crypto'\s+THEN '顆'/);
   });
 
   it('handle_signal_trade：quantity 正規化只在 tw_stock+「張」時 ×1000，其他資產維持原值', () => {
