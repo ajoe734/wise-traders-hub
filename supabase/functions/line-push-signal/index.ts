@@ -1,6 +1,7 @@
 import { corsHeaders } from '../_shared/cors.ts';
 import { withLogging } from '../_shared/edgeLogger.ts';
 import { createClient } from 'https://esm.sh/@supabase/supabase-js@2.49.1'
+import { resolveLinePushQuantityUnit, type LinePushExpertHint } from './quantityUnit.ts'
 
 const LINE_MULTICAST_URL = 'https://api.line.me/v2/bot/message/multicast'
 
@@ -41,7 +42,7 @@ function plainifySignal(signal: any) {
   return out
 }
 
-function buildFlexMessage(rawSignal: any, type: 'publish' | 'takedown' | 'update' = 'publish') {
+export function buildFlexMessage(rawSignal: any, type: 'publish' | 'takedown' | 'update' = 'publish', expertHint?: LinePushExpertHint | null) {
   const signal = plainifySignal(rawSignal)
   const actionLabel: Record<string, string> = {
     buy: '買進', sell: '賣出', add: '加碼', trim: '減碼', exit: '平損',
@@ -95,8 +96,11 @@ function buildFlexMessage(rawSignal: any, type: 'publish' | 'takedown' | 'update
   const isBullish = ['buy', 'add'].includes(signal.action)
   const color = isUpdate ? '#FF8C00' : (isBullish ? '#00B900' : '#DC3545')
 
-  // BUG-FIX: 拿掉 '張' 硬編 fallback（us_stock/期貨會錯）
-  const qtyLabel = signal.quantity ? `(${signal.quantity}${signal.quantity_unit || ''})` : ''
+  // 憲法：quantity 單位一律由 resolveLinePushQuantityUnit 決定
+  // （signal.asset_class → expertHint → currency=USD → tw_stock），
+  // 徹底杜絕 us_stock/us_future 被誤印為「張」。
+  const unit = resolveLinePushQuantityUnit(signal, expertHint || null)
+  const qtyLabel = signal.quantity ? `(${signal.quantity}${unit})` : ''
   const headerLine = isUpdate ? `🔄 訊號更新通知\n【${label} ${signal.instrument}】` : `【${label} ${signal.instrument}】`
   const copyLines: string[] = [headerLine]
   if (signal.price_hint) copyLines.push(`參考價位：${signal.price_hint}${qtyLabel}`)
@@ -133,7 +137,7 @@ function buildFlexMessage(rawSignal: any, type: 'publish' | 'takedown' | 'update
   })
 
   if (signal.price_hint) {
-    const qtyText = signal.quantity ? `(${signal.quantity}${signal.quantity_unit || ''})` : ''
+    const qtyText = signal.quantity ? `(${signal.quantity}${unit})` : ''
     bodyContents.push({
       type: 'text',
       text: `參考價位：${signal.price_hint}${qtyText}`,
@@ -434,7 +438,11 @@ Deno.serve(withLogging('line-push-signal', async (req) => {
 
     // Verify caller is analyst of this expert OR company_admin
     const { data: expertRow } = await supabaseAdmin
-      .from('experts').select('id, user_id, role, name').eq('id', expert_id).single()
+      .from('experts').select('id, user_id, role, name, asset_class, currency').eq('id', expert_id).single()
+    const expertHint: LinePushExpertHint = {
+      asset_class: expertRow?.asset_class ?? null,
+      currency: expertRow?.currency ?? null,
+    }
 
     if (!expertRow) {
       console.error('Expert not found:', expert_id)
@@ -481,7 +489,7 @@ Deno.serve(withLogging('line-push-signal', async (req) => {
     // MODE: preview — push inline signal_data to LINE without DB
     if (mode === 'preview' && signal_data) {
       console.log('Preview mode: pushing inline signal data to LINE, type:', pushType)
-      const message = buildFlexMessage(signal_data, pushType)
+      const message = buildFlexMessage(signal_data, pushType, expertHint)
 
       let totalPushed = 0
       if (subscribedTargets.length > 0) {
@@ -519,7 +527,7 @@ Deno.serve(withLogging('line-push-signal', async (req) => {
 
       // 一隻 carousel 最多 10 個 bubble
       const bubbles = batchSignals.slice(0, 10).map((s: any) => {
-        const flex = buildFlexMessage(s, pushType)
+        const flex = buildFlexMessage(s, pushType, expertHint)
         return flex.contents // bubble 物件
       })
       const firstLabel = batchSignals[0]?.instrument || ''
@@ -576,7 +584,7 @@ Deno.serve(withLogging('line-push-signal', async (req) => {
       })
     }
 
-    const message = buildFlexMessage(signal, pushType)
+    const message = buildFlexMessage(signal, pushType, expertHint)
     console.log('Subscribed targets:', subscribedTargets.length, 'Canceled targets:', canceledTargets.length)
 
     let totalPushed = 0
