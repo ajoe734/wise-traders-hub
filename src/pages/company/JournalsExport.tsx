@@ -1017,6 +1017,7 @@ const JournalsExport = () => {
         onOpenChange={setRiskDialogOpen}
         report={riskReport}
         onForceExport={handleForceExport}
+        weekLabel={range.startLabel}
       />
     </CompanyLayout>
   );
