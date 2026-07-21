@@ -227,6 +227,41 @@ export default function ChipsSection({ WB, stockCode }: { WB: any; stockCode: st
 
       </div>
 
+      {/* 稀疏資料：手動回補過去 60 日 */}
+      {sparse && !error && (
+        <div
+          data-testid="chips-backfill-hint"
+          style={{
+            display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 8,
+            padding: '8px 10px', marginBottom: 10,
+            border: `1px dashed ${WB.hair}`, background: 'rgba(0,0,0,0.02)',
+            fontSize: 11, color: WB.inkSub, fontFamily: SERIF,
+          }}
+        >
+          <div>
+            歷史資料僅 {Math.max(instDays, bsrDays)} 天，趨勢圖繪製點不足。
+            <div style={{ fontSize: 10, color: WB.inkMute, marginTop: 2 }}>
+              點右側可一次回補過去 60 個交易日（三大法人即時完成、分點需 5–15 分鐘）
+            </div>
+          </div>
+          <button
+            data-testid="chips-backfill-btn"
+            onClick={handleBackfill}
+            disabled={backfilling}
+            style={{
+              fontSize: 11, padding: '4px 10px',
+              border: `1px solid ${WB.ink}`, background: 'transparent', color: WB.ink,
+              cursor: backfilling ? 'not-allowed' : 'pointer', opacity: backfilling ? 0.5 : 1,
+              fontFamily: SERIF, letterSpacing: '0.1em', whiteSpace: 'nowrap',
+            }}
+          >
+            {backfilling ? '排入中…' : '回補 60 日'}
+          </button>
+        </div>
+      )}
+
+
+
       {/* 錯誤 / 離線橫幅 */}
       {error && (
         <div
