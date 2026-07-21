@@ -3,13 +3,15 @@ import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Switch } from '@/components/ui/switch';
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/ui/dialog';
+import { Alert, AlertDescription } from '@/components/ui/alert';
+import { formatFailure } from '@/lib/functionError';
 import type { useLineChannelEditor } from '@/hooks/company/useLineChannelEditor';
 
 type Editor = ReturnType<typeof useLineChannelEditor>;
 
 export function LineChannelDialog({ editor }: { editor: Editor }) {
   const {
-    lineExpertId, lineExpertName, lineChannel, lineLoading, savingLine, lineBindingsCount,
+    lineExpertId, lineExpertName, lineChannel, lineLoading, savingLine, lineBindingsCount, lineError,
     lineChannelId, setLineChannelId,
     lineToken, setLineToken,
     lineChannelName, setLineChannelName,
@@ -25,6 +27,14 @@ export function LineChannelDialog({ editor }: { editor: Editor }) {
         <DialogHeader>
           <DialogTitle>{lineExpertName} — LINE 設定</DialogTitle>
         </DialogHeader>
+        {lineError && (
+          <Alert variant="destructive" className="mt-2">
+            <AlertDescription>
+              <span className="block">{formatFailure(lineError)}</span>
+              {lineError.detail && <span className="mt-1 block text-xs opacity-80 break-words">{lineError.detail}</span>}
+            </AlertDescription>
+          </Alert>
+        )}
         {lineLoading ? (
           <p className="text-sm text-muted-foreground text-center py-4">載入中...</p>
         ) : (

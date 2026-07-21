@@ -3,6 +3,8 @@ import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription } from '@/components/ui/dialog';
 import { Tabs, TabsList, TabsTrigger, TabsContent } from '@/components/ui/tabs';
+import { Alert, AlertDescription } from '@/components/ui/alert';
+import { formatFailure } from '@/lib/functionError';
 import { Mail, Key, Send } from 'lucide-react';
 import type { useAnalystAccount } from '@/hooks/company/useAnalystAccount';
 
@@ -11,7 +13,7 @@ type Account = ReturnType<typeof useAnalystAccount>;
 export function AccountCredentialsDialog({ account }: { account: Account }) {
   const {
     acctExpert, acctTab, setAcctTab,
-    acctCurrentEmail, acctIsLineVirtual, acctLoading,
+    acctCurrentEmail, acctIsLineVirtual, acctLoading, acctError,
     acctNewEmail, setAcctNewEmail,
     acctNewPassword, setAcctNewPassword,
     acctConfirmPassword, setAcctConfirmPassword,
@@ -30,6 +32,15 @@ export function AccountCredentialsDialog({ account }: { account: Account }) {
             {acctIsLineVirtual && <span className="block mt-1 text-amber-500">⚠ 此帳號透過 LINE 登入，僅可重設密碼</span>}
           </DialogDescription>
         </DialogHeader>
+
+        {acctError && (
+          <Alert variant="destructive" className="mt-2">
+            <AlertDescription>
+              <span className="block">{formatFailure(acctError)}</span>
+              {acctError.detail && <span className="mt-1 block text-xs opacity-80 break-words">{acctError.detail}</span>}
+            </AlertDescription>
+          </Alert>
+        )}
 
         <Tabs value={acctTab} onValueChange={(v) => setAcctTab(v as any)} className="mt-2">
           <TabsList className="grid grid-cols-3 w-full">

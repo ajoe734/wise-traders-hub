@@ -1,6 +1,7 @@
 import { useState } from 'react';
 import { supabase } from '@/integrations/supabase/client';
 import { toast } from 'sonner';
+import { describeFunctionFailure, formatFailure, type FunctionFailure } from '@/lib/functionError';
 
 interface ExpertLike { id: string; name: string }
 
@@ -14,6 +15,7 @@ export function useAnalystAccount() {
   const [acctNewPassword, setAcctNewPassword] = useState('');
   const [acctConfirmPassword, setAcctConfirmPassword] = useState('');
   const [acctSubmitting, setAcctSubmitting] = useState(false);
+  const [acctError, setAcctError] = useState<FunctionFailure | null>(null);
 
   const openAccountDialog = async (exp: ExpertLike) => {
     setAcctExpert({ id: exp.id, name: exp.name });
@@ -23,13 +25,16 @@ export function useAnalystAccount() {
     setAcctConfirmPassword('');
     setAcctCurrentEmail('');
     setAcctIsLineVirtual(false);
+    setAcctError(null);
     setAcctLoading(true);
     const { data, error } = await supabase.functions.invoke('update-analyst-credentials', {
       body: { expert_id: exp.id, action: 'fetch_email' },
     });
     setAcctLoading(false);
-    if (error || data?.error) {
-      toast.error(data?.error || error?.message || '無法讀取帳號資訊');
+    const failure = await describeFunctionFailure(data, error, '無法讀取帳號資訊');
+    if (failure) {
+      setAcctError(failure);
+      toast.error(formatFailure(failure, '無法讀取帳號資訊'));
       return;
     }
     setAcctCurrentEmail(data.email || '');
@@ -42,6 +47,7 @@ export function useAnalystAccount() {
     setAcctNewEmail('');
     setAcctNewPassword('');
     setAcctConfirmPassword('');
+    setAcctError(null);
   };
 
   const handleUpdateEmail = async () => {
@@ -50,13 +56,16 @@ export function useAnalystAccount() {
       toast.error('請輸入新的 Email');
       return;
     }
+    setAcctError(null);
     setAcctSubmitting(true);
     const { data, error } = await supabase.functions.invoke('update-analyst-credentials', {
       body: { expert_id: acctExpert.id, action: 'update_email', email: acctNewEmail.trim() },
     });
     setAcctSubmitting(false);
-    if (error || data?.error) {
-      toast.error(data?.error || error?.message || '更新失敗');
+    const failure = await describeFunctionFailure(data, error, '更新失敗');
+    if (failure) {
+      setAcctError(failure);
+      toast.error(formatFailure(failure, '更新失敗'));
       return;
     }
     toast.success('Email 已更新');
@@ -78,13 +87,16 @@ export function useAnalystAccount() {
       return;
     }
     if (!confirm(`確定要將 ${acctExpert.name} 的密碼重設為新密碼？此動作會立即生效。`)) return;
+    setAcctError(null);
     setAcctSubmitting(true);
     const { data, error } = await supabase.functions.invoke('update-analyst-credentials', {
       body: { expert_id: acctExpert.id, action: 'reset_password', new_password: acctNewPassword },
     });
     setAcctSubmitting(false);
-    if (error || data?.error) {
-      toast.error(data?.error || error?.message || '重設失敗');
+    const failure = await describeFunctionFailure(data, error, '重設失敗');
+    if (failure) {
+      setAcctError(failure);
+      toast.error(formatFailure(failure, '重設失敗'));
       return;
     }
     toast.success('密碼已重設');
@@ -95,13 +107,16 @@ export function useAnalystAccount() {
   const handleSendResetEmail = async () => {
     if (!acctExpert) return;
     if (!confirm(`寄送密碼重設信至 ${acctCurrentEmail}？`)) return;
+    setAcctError(null);
     setAcctSubmitting(true);
     const { data, error } = await supabase.functions.invoke('update-analyst-credentials', {
       body: { expert_id: acctExpert.id, action: 'send_reset_email' },
     });
     setAcctSubmitting(false);
-    if (error || data?.error) {
-      toast.error(data?.error || error?.message || '寄送失敗');
+    const failure = await describeFunctionFailure(data, error, '寄送失敗');
+    if (failure) {
+      setAcctError(failure);
+      toast.error(formatFailure(failure, '寄送失敗'));
       return;
     }
     toast.success(`已寄送至 ${data.sent_to}`);
@@ -109,7 +124,7 @@ export function useAnalystAccount() {
 
   return {
     acctExpert, acctTab, setAcctTab,
-    acctCurrentEmail, acctIsLineVirtual, acctLoading,
+    acctCurrentEmail, acctIsLineVirtual, acctLoading, acctError,
     acctNewEmail, setAcctNewEmail,
     acctNewPassword, setAcctNewPassword,
     acctConfirmPassword, setAcctConfirmPassword,
