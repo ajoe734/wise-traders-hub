@@ -186,6 +186,7 @@ export default function ChipsSection({ WB, stockCode }: { WB: any; stockCode: st
     }
   };
 
+  return (
     <section
       data-testid="chips-section"
       style={{
