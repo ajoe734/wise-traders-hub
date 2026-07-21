@@ -1,7 +1,7 @@
 import { useCallback, useEffect, useMemo, useState } from 'react';
 import { supabase } from '@/integrations/supabase/client';
 import SEO from '@/components/SEO';
-import { RefreshCw, AlertTriangle, CheckCircle2, ShieldAlert } from 'lucide-react';
+import { RefreshCw, AlertTriangle, CheckCircle2, ShieldAlert, Zap } from 'lucide-react';
 import { toast } from 'sonner';
 
 type Row = {
@@ -37,6 +37,17 @@ function fmtDate(v: string | null): string {
   } catch { return v; }
 }
 
+type SweepLog = {
+  created_at: string;
+  payload: {
+    scanned?: number;
+    auto_fixed?: number;
+    needs_review?: number;
+    removed_total?: number;
+    dry_run?: boolean;
+  } | null;
+};
+
 export default function SignalDupeAudit() {
   const [rows, setRows] = useState<Row[]>([]);
   const [loading, setLoading] = useState(false);
@@ -45,6 +56,8 @@ export default function SignalDupeAudit() {
   const [expanded, setExpanded] = useState<Record<string, boolean>>({});
   const [previews, setPreviews] = useState<Record<string, FixResult>>({});
   const [forceOn, setForceOn] = useState<Record<string, boolean>>({});
+  const [lastSweep, setLastSweep] = useState<SweepLog | null>(null);
+  const [sweeping, setSweeping] = useState(false);
 
   const scan = useCallback(async () => {
     setScanning(true);
@@ -62,7 +75,34 @@ export default function SignalDupeAudit() {
     }
   }, []);
 
-  useEffect(() => { scan(); }, [scan]);
+  const loadLastSweep = useCallback(async () => {
+    const { data } = await supabase
+      .from('function_run_logs')
+      .select('created_at, payload')
+      .eq('fn', 'trade_dedupe_sweep')
+      .eq('stage', 'done')
+      .order('created_at', { ascending: false })
+      .limit(1)
+      .maybeSingle();
+    setLastSweep((data as SweepLog) || null);
+  }, []);
+
+  useEffect(() => { scan(); loadLastSweep(); }, [scan, loadLastSweep]);
+
+  async function runSweep(dryRun: boolean) {
+    setSweeping(true);
+    try {
+      const { data, error } = await supabase.rpc('admin_trade_dedupe_sweep', { p_dry_run: dryRun });
+      if (error) throw error;
+      const r = data as { auto_fixed?: number; needs_review?: number; scanned?: number };
+      toast.success(`${dryRun ? '試跑' : '執行'}完成：掃描 ${r.scanned ?? 0}、自動修 ${r.auto_fixed ?? 0}、待審 ${r.needs_review ?? 0}`);
+      await Promise.all([scan(), loadLastSweep()]);
+    } catch (e: any) {
+      toast.error(`Sweep 失敗：${e?.message || e}`);
+    } finally {
+      setSweeping(false);
+    }
+  }
 
   const summary = useMemo(() => {
     const affected = rows.length;
@@ -151,6 +191,32 @@ export default function SignalDupeAudit() {
             <CheckCircle2 className="h-4 w-4" />
             修復所有「無手動編輯」（{cleanRows.length}）
           </button>
+        </div>
+      </div>
+
+      <div className="mb-4 flex flex-wrap items-center justify-between gap-3 rounded-md border border-slate-200 bg-slate-50 px-4 py-3 text-sm">
+        <div className="flex items-center gap-2 text-slate-700">
+          <Zap className="h-4 w-4 text-emerald-600" />
+          <span className="font-medium">自動去重排程（每 15 分鐘）</span>
+          {lastSweep ? (
+            <span className="text-xs text-slate-500">
+              最近：{fmtDate(lastSweep.created_at)} · 修 {lastSweep.payload?.auto_fixed ?? 0} · 待審 {lastSweep.payload?.needs_review ?? 0} · 刪 {lastSweep.payload?.removed_total ?? 0}
+            </span>
+          ) : (
+            <span className="text-xs text-slate-500">尚無執行紀錄</span>
+          )}
+        </div>
+        <div className="flex gap-2">
+          <button
+            onClick={() => runSweep(true)}
+            disabled={sweeping}
+            className="rounded-md border px-3 py-1.5 text-xs hover:bg-muted disabled:opacity-40"
+          >試跑</button>
+          <button
+            onClick={() => runSweep(false)}
+            disabled={sweeping}
+            className="rounded-md bg-slate-900 px-3 py-1.5 text-xs text-white hover:bg-slate-800 disabled:opacity-40"
+          >立即執行</button>
         </div>
       </div>
 
