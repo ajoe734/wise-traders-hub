@@ -443,7 +443,7 @@ function HoldingsDetailPanelImpl({
 
       <div className="holdings-detail-body" style={{ padding: '18px 22px 22px', background: WB.surface }}>
         {/* 2) 識別 */}
-        <div style={{ marginBottom: 20 }}>
+        <div data-testid="drawer-identity" style={{ marginBottom: 20 }}>
           <div style={{ ...microStyle, marginBottom: 6 }}>
             {h.code}
             {meta?.industry ? <> · {meta.industry}</> : null}
@@ -452,7 +452,7 @@ function HoldingsDetailPanelImpl({
           </div>
           <div
             className="holdings-detail-identity-row"
-            style={{ display: 'flex', alignItems: 'flex-end', justifyContent: 'space-between', gap: 12, flexWrap: 'wrap' }}
+            style={{ display: 'flex', alignItems: 'flex-end', justifyContent: 'space-between', gap: 12 }}
           >
             <h2 style={{
               margin: 0, fontFamily: SERIF, fontSize: 22, fontWeight: 500,
