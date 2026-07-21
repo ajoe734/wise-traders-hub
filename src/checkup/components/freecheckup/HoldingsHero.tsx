@@ -333,7 +333,69 @@ function HoldingsHeroImpl(props) {
 
           </div>
 
+          {/* 價格來源與最舊抓取時間（Handoff §3.5：資料新鮮度可視化） */}
+          {priceSummary && (priceSummary.entries.length > 0 || priceSummary.missing > 0) && (
+            <div
+              data-testid="holdings-hero-price-sources"
+              title={summaryTitle}
+              style={{
+                fontSize: 10,
+                letterSpacing: '0.08em',
+                color: 'var(--cm-ink-mute)',
+                display: 'inline-flex',
+                alignItems: 'center',
+                gap: 6,
+                flexWrap: 'wrap',
+                justifyContent: 'flex-end',
+                maxWidth: '100%',
+              }}
+            >
+              <span style={{ color: 'var(--cm-ink-mute)' }}>來源</span>
+              {priceSummary.entries.map(([src, count], idx) => (
+                <span key={src} style={{ display: 'inline-flex', alignItems: 'baseline', gap: 3 }}>
+                  {idx > 0 && <span style={{ color: 'var(--cm-hair-strong)' }}>·</span>}
+                  <span
+                    data-price-src={src}
+                    style={{ color: 'var(--cm-ink-sub)', fontWeight: 500 }}
+                  >
+                    {SRC_LABEL[src] || src}
+                  </span>
+                  <span className="cm-num" style={{ color: 'var(--cm-ink-mute)' }}>{count}</span>
+                </span>
+              ))}
+              {priceSummary.missing > 0 && (
+                <span style={{ display: 'inline-flex', alignItems: 'baseline', gap: 3 }}>
+                  {priceSummary.entries.length > 0 && <span style={{ color: 'var(--cm-hair-strong)' }}>·</span>}
+                  <span style={{ color: 'var(--cm-loss)', fontWeight: 500 }}>未同步</span>
+                  <span className="cm-num" style={{ color: 'var(--cm-loss)' }}>{priceSummary.missing}</span>
+                </span>
+              )}
+              {oldestText && (
+                <>
+                  <span style={{ color: 'var(--cm-hair-strong)' }}>｜</span>
+                  <span style={{ color: 'var(--cm-ink-mute)' }}>最舊抓取</span>
+                  <span
+                    className="cm-num"
+                    data-testid="holdings-hero-oldest-fetch"
+                    style={{
+                      color: oldestStale ? 'var(--cm-loss)' : 'var(--cm-ink-sub)',
+                      fontWeight: oldestStale ? 600 : 500,
+                    }}
+                  >
+                    {oldestText}
+                  </span>
+                  {oldestStale && (
+                    <span style={{ color: 'var(--cm-loss)', fontSize: 9 }}>
+                      （{oldestAgeMin} 分鐘前）
+                    </span>
+                  )}
+                </>
+              )}
+            </div>
+          )}
+
         </div>
+
       </div>
       <style>{`@keyframes holdingsHeroSpin { to { transform: rotate(360deg); } }`}</style>
     </section>
