@@ -25,12 +25,16 @@ import {
   ASSET_LABEL,
   buildJournalExport,
   buildMentorMarkdown,
+  detectExportRisks,
   downloadBlob,
   fmtTaipei,
   groupRowsByMentor,
   safeSlug,
+  type ExportRiskReport,
   type JournalRowExport,
 } from '@/lib/journalsExport';
+import { ExportRiskDialog } from '@/components/company/ExportRiskDialog';
+import { trackRaw } from '@/lib/analytics/events';
 
 // ── Taipei week helpers ────────────────────────────────────
 const TZ_OFFSET_MS = 8 * 60 * 60 * 1000;
