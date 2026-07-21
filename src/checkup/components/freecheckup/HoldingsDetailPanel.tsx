@@ -934,7 +934,7 @@ function PriceAxis({ WB, price, cost, target, baseTarget, upside, tpHistory }) {
 
 // ──────────────────── §4.6 30D 走勢帶 ────────────────────
 
-function RangeBand({ WB, price, low, high, spark, symbol, priceSource, priceUpdatedAt }) {
+export function RangeBand({ WB, price, low, high, spark, symbol, priceSource, priceUpdatedAt }) {
   const svgH = 40; // 顯示高度（px）
   // 淨化輸入：過濾 NaN / 非數值 spark；lo/hi 必須是有限數
   const lo = Number.isFinite(low) ? Number(low) : NaN;
