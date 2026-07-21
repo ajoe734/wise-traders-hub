@@ -1,75 +1,52 @@
-# 計畫：Signal「安全跳過」的日誌與 UI 回饋
 
-## 背景
-`handle_signal_trade` trigger 在 `buy` / `add` 時會檢查 `EXISTS (trade_records WHERE signal_id = NEW.id)`，若已存在就 `RETURN NEW` 靜默跳過。這是防重複的正確設計，但目前**完全沒留痕跡**——老師 / 管理員看不到「本次觸發被略過」，也無從辨別是 trigger 保護、還是根本沒跑。
+## 根因（已驗證）
 
-要做的三件事：
-1. Trigger 端寫入結構化 log
-2. 管理後台可查詢「最近安全跳過」清單
-3. 前台（`SignalCreateDialog`）在偵測到 skip 時給明確 toast
+Benny (`experts.id=e381e144…`, `asset_class=us_stock`, `currency=USD`, `starting_capital=30000`, `status=pending`) 目前：
+- `expert_signals` 0 筆、`trade_records` 0 筆、`function_run_logs` 0 筆。
+- RLS policy `Analysts can insert own signals` 條件符合（user_id 相符），與 RLS 無關。
 
-## 交付項
+真正擋人的是 **BEFORE INSERT trigger `enforce_signal_capital_limit_trg`** → `public.enforce_signal_capital_limit()`：
 
-### 1. Migration — trigger 內寫 log
+1. 它對 **`status IN ('published','pending')` 且 `action IN ('buy','add')`** 全部啟用。
+2. `SignalCreateDialog.handlePublish` 對 mentor 一律送 `status='pending'`（週五統一發布），所以**連草稿都被擋**。
+3. 額度用 `experts.starting_capital` 直接當「可用現金」，Benny 只設 30,000 USD，任何一筆美股買進金額只要 ≥30,000 就會被丟 `CAPITAL_EXCEEDED`；訊息中金額顯示原始數字（無幣別），mentor 不會意識到要調高 starting_capital，UI 也沒把 DB 例外翻成人話——只顯示 raw `error.message`（`SignalCreateDialog.tsx` L287：`toast.error(error.message)`）。
 
-改寫 `public.handle_signal_trade()`，在每個 `IF v_exists THEN RETURN NEW;` 之前先插一筆：
+這就是「Benny 週記發不出去」持續無解的實際卡點。
 
-```sql
-INSERT INTO public.function_run_logs
-  (fn, run_id, level, stage, msg, signal_id, expert_id, payload)
-VALUES
-  ('handle_signal_trade', gen_random_uuid()::text, 'info',
-   'skipped_existing_trade',
-   format('signal %s 已對應 trade_record，%s 動作跳過', NEW.id, NEW.action),
-   NEW.id, NEW.expert_id,
-   jsonb_build_object(
-     'action', NEW.action,
-     'instrument', NEW.instrument,
-     'tg_op', TG_OP,
-     'existing_trade_id', (SELECT id FROM public.trade_records WHERE signal_id = NEW.id LIMIT 1)
-   ));
-```
+## 修法（三段，最小侵入）
 
-覆蓋 `buy` 與 `add` 兩個分支（其它 action 分支目前無此檢查，維持不動）。
+### 1. DB trigger 只在真正對外發布時檢查（migration）
 
-### 2. 前台回饋 — `SignalCreateDialog.tsx`
+改寫 `public.enforce_signal_capital_limit()`：
+- `pending` 直接放行（草稿／週五統一發布前的暫存不該擋）。
+- 保留 `published` 才檢查，並在 `UPDATE` 由 `pending → published` 的路徑也套用（BEFORE INSERT OR UPDATE），避免有人繞過。
+- 例外訊息帶上幣別（讀 `experts.currency`）與 hint：
+  `CAPITAL_EXCEEDED: 此筆需 21000 USD，可用現金僅 9000 USD。請至「分析師設定」調整初始資金，或減少數量。`
+- 保留 company_admin bypass。
 
-新訊號送出後（`inserted.id` 拿到），檢查最近 3 秒內是否有相符的 skip log：
+### 2. 前端把 DB 例外翻成人話（`SignalCreateDialog.tsx`）
 
-```ts
-const { data: skipLog } = await supabase
-  .from('function_run_logs')
-  .select('id, stage, msg')
-  .eq('fn', 'handle_signal_trade')
-  .eq('stage', 'skipped_existing_trade')
-  .eq('signal_id', inserted.id)
-  .gte('created_at', new Date(Date.now() - 5000).toISOString())
-  .limit(1)
-  .maybeSingle();
+L287 目前 `toast.error(error.message)`。加一個 mapper（同檔內小 helper 即可，不新增檔案），對常見 code / message 前綴翻譯：
 
-if (skipLog) {
-  toast.info('偵測到既有 trade_record，本次觸發已被安全略過（不會造成重複）', { duration: 6000 });
-}
-```
+| 觸發 | 對外訊息 |
+|---|---|
+| `CAPITAL_EXCEEDED` | 顯示原例外中已帶幣別的說明，並附「前往分析師設定 →」按鈕（`toast.error` + action） |
+| `incompatible_unit_for_asset_class` | 已存在，維持 |
+| `unit_conflict` / `enforce_unit_consistency` | 「此代碼歷史單位為 X，請改用 X 或先執行『改單位…』」 |
+| 其他 | 原訊息 |
 
-放在既有 `toast.success('訊號已發布')` 之前；skip 時取代 success toast。
+### 3. 分析師設定顯示幣別與最小建議值
 
-補一段 RLS：`function_run_logs` 目前只有 admin/service 可讀（詳查後補），若 mentor 也需讀，加一條「作者可讀自己 signal 的 log」policy。
-
-### 3. 管理後台 — `/company/signal-dupe-audit` 追加區塊
-
-在既有頁面「自動去重排程」條下方，加一個小卡：**「最近 24h Trigger 安全跳過」**
-- 資料：`function_run_logs where fn='handle_signal_trade' and stage='skipped_existing_trade' order by created_at desc limit 20`
-- 顯示：時間、老師（join experts）、標的、action、既有 trade_id
-- 空狀態顯示綠色「無跳過紀錄」
-- 提示：「這些是 trigger 主動防重複的成功攔截，不代表錯誤」
-
-## 不做
-- 不改 trigger 的實際邏輯（既有存在性檢查已正確）
-- 不對 sell/trim/exit/cover 加新的 skip log（那些分支沒有 skip 路徑）
-- 不動 `admin_signal_dupe_trades_audit` 或 sweep（不同用途：sweep 修髒資料，這裡追蹤「被成功防禦」）
+`StartingCapitalCard.tsx` 在 `asset_class=us_stock/crypto/us_option/us_future` 時，label 補上幣別（USD）並顯示 placeholder「建議 ≥ 100,000」，避免下一位老師重複踩雷。**不改鎖定邏輯**（已修過）。
 
 ## 驗證
-- 手動 `UPDATE expert_signals SET status='pending' WHERE id=<x>; UPDATE ... SET status='published';` 二次翻轉，`function_run_logs` 應出現一筆 `skipped_existing_trade`。
-- 前台重送同 signal，toast 顯示「已被安全略過」。
-- `/company/signal-dupe-audit` 追加區塊列出剛才那筆。
+
+- 手動：以 Benny 身份送 `buy AAPL 100 @ 210`（USD 21,000 < 30,000）→ 應成功 pending；送 `buy NVDA 200 @ 170`（34,000 > 30,000）→ 應收到帶幣別的中文錯誤，並看到「前往分析師設定」按鈕。
+- 新增 vitest：`enforce_signal_capital_limit` 的四種 case（pending buy 放行、published buy 超限擋、published buy 未超限放、admin bypass）以 pgTAP 或 SQL fixture 覆蓋（`supabase/tests/`）。
+- 既有 E2E `e2e/live/realign-instrument-unit.spec.ts` 不受影響（未觸及 buy/add 額度）。
+
+## 不做
+
+- 不改 `starting_capital` 的預設或既有值（由 mentor 自訂）。
+- 不動 `handle_signal_trade` / `enforce_unit_consistency`（此次無關）。
+- 不改 `ExportRiskDialog` / 週記匯出（Benny 目前無 signals，跟匯出無關）。

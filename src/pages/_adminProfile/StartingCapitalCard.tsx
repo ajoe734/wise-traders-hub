@@ -34,20 +34,23 @@ export default function StartingCapitalCard({
       </CardHeader>
       <CardContent className="space-y-3">
         <div className="space-y-2 max-w-sm">
-          <Label>起始資金（{symbol}）</Label>
+          <Label>起始資金（{symbol} / {currency}）</Label>
           <Input
             type="number"
             value={startingCapital}
             onChange={e => setStartingCapital(e.target.value)}
-            placeholder={currency === 'USD' ? '例：50000' : '例：1000000'}
+            placeholder={currency === 'USD' ? '例：100000（建議 ≥ 100,000 USD）' : '例：1000000（建議 ≥ 1,000,000 TWD）'}
             disabled={startingCapitalLocked || isReadOnly}
             className={cn(isReadOnly && !startingCapitalLocked && 'bg-muted/50 cursor-not-allowed')}
           />
           {startingCapitalLocked && (
             <p className="text-xs text-muted-foreground">已有發布訊號，起始資金為績效計算基準，無法修改。</p>
           )}
-          {!startingCapitalLocked && startingCapital && (
-            <p className="text-xs text-muted-foreground">尚未發布訊號，可再調整；發布首筆訊號後將鎖定。</p>
+          {!startingCapitalLocked && (
+            <p className="text-xs text-muted-foreground">
+              以 <strong>{currency}</strong> 計價；資金額度僅在「正式發布」時檢查，草稿週記不會擋。
+              {currency === 'USD' && '（美股單筆常在 5,000–30,000 USD，請確保足以承接首筆買進）'}
+            </p>
           )}
           {capitalStatus && startingCapitalLocked && (
             <div className="grid grid-cols-3 gap-2 pt-2">
