@@ -1,5 +1,5 @@
 // Pure helpers extracted from admin/Signals.tsx
-import { isMarketClosedFor, type MarketHours } from '@/lib/asset';
+import { isMarketClosedFor, sanitizeAssetQuantityUnit, type MarketHours } from '@/lib/asset';
 
 export const actionLabelMap: Record<string, string> = { '買進': 'buy', '賣出': 'sell', '平損': 'exit' };
 export const statusOnlyKeywords = ['持有中', '已平倉', '待發布'];
