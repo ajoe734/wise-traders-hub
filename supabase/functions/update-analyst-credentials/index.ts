@@ -2,38 +2,36 @@ import { createClient } from 'https://esm.sh/@supabase/supabase-js@2.49.1';
 
 import { corsHeaders } from '../_shared/cors.ts';
 import { serviceClient } from '../_shared/supabaseClients.ts';
-import { withLogging } from '../_shared/edgeLogger.ts';
+import { withLogging, type EdgeLogger } from '../_shared/edgeLogger.ts';
 import { validateInput, validationJsonResponse } from '../_shared/inputValidator.ts';
 type Action = 'fetch_email' | 'update_email' | 'reset_password' | 'send_reset_email';
 
-Deno.serve(withLogging('update-analyst-credentials', async (req) => {
+Deno.serve(withLogging('update-analyst-credentials', async (req, log) => {
   if (req.method === 'OPTIONS') {
     return new Response(null, { headers: corsHeaders });
   }
 
   try {
     const supabaseUrl = Deno.env.get('SUPABASE_URL')!;
-    const serviceRoleKey = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')!;
     const anonKey = Deno.env.get('SUPABASE_ANON_KEY')!;
-    const resendKey = Deno.env.get('RESEND_API_KEY');
     const siteUrl = Deno.env.get('SITE_URL') || 'https://legendflow.tw';
 
     const authHeader = req.headers.get('Authorization');
     if (!authHeader) {
-      return json({ error: 'Missing authorization' }, 401);
+      return fail('MISSING_AUTHORIZATION', '缺少登入憑證，請重新登入後再試', 401, log);
     }
 
     const callerClient = createClient(supabaseUrl, anonKey, {
       global: { headers: { Authorization: authHeader } },
     });
     const { data: { user: caller } } = await callerClient.auth.getUser();
-    if (!caller) return json({ error: 'Unauthorized' }, 401);
+    if (!caller) return fail('UNAUTHORIZED', '登入憑證無效，請重新登入後再試', 401, log);
 
     const { data: roleCheck } = await callerClient.rpc('has_role', {
       _user_id: caller.id,
       _role: 'company_admin',
     });
-    if (!roleCheck) return json({ error: 'Forbidden: company_admin required' }, 403);
+    if (!roleCheck) return fail('FORBIDDEN', '權限不足，僅公司管理員可操作分析師帳號', 403, log);
 
     const body = await req.json();
     const issues = validateInput({
@@ -55,18 +53,18 @@ Deno.serve(withLogging('update-analyst-credentials', async (req) => {
       .select('id, user_id, name')
       .eq('id', expertId)
       .single();
-    if (expertErr || !expert) return json({ error: '找不到該分析師' }, 404);
+    if (expertErr || !expert) return fail('EXPERT_NOT_FOUND', '找不到該分析師', 404, log, { expert_id: expertId, db_error: expertErr?.message });
 
     const targetUserId: string = expert.user_id;
 
     // Prevent admin from operating on themselves via this endpoint
     if (targetUserId === caller.id) {
-      return json({ error: '不可對自己的帳號操作，請至「個人設定」修改' }, 400);
+      return fail('SELF_OPERATION_BLOCKED', '不可對自己的帳號操作，請至「個人設定」修改', 400, log, { expert_id: expertId });
     }
 
     // Get current auth user
     const { data: targetUserRes, error: getUserErr } = await adminClient.auth.admin.getUserById(targetUserId);
-    if (getUserErr || !targetUserRes?.user) return json({ error: '找不到對應的登入帳號' }, 404);
+    if (getUserErr || !targetUserRes?.user) return fail('AUTH_USER_NOT_FOUND', '找不到對應的登入帳號', 404, log, { expert_id: expertId, target_user_id: targetUserId, auth_error: getUserErr?.message });
     const targetEmail = targetUserRes.user.email || '';
 
     // Block operations on virtual LINE emails
@@ -84,21 +82,21 @@ Deno.serve(withLogging('update-analyst-credentials', async (req) => {
     // ── update_email ────────────────────────────────────────────
     if (action === 'update_email') {
       if (isLineVirtual) {
-        return json({ error: '此帳號透過 LINE 登入綁定，不可修改 Email' }, 400);
+        return fail('LINE_VIRTUAL_EMAIL', '此帳號透過 LINE 登入綁定，不可修改 Email', 400, log, { expert_id: expertId });
       }
       const newEmail: string = body.email;
       if (!newEmail || !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(newEmail)) {
-        return json({ error: 'Email 格式錯誤' }, 400);
+        return fail('INVALID_EMAIL', 'Email 格式錯誤', 400, log, { expert_id: expertId });
       }
       if (newEmail.endsWith('@line.local')) {
-        return json({ error: '不可使用保留網域 @line.local' }, 400);
+        return fail('RESERVED_EMAIL_DOMAIN', '不可使用保留網域 @line.local', 400, log, { expert_id: expertId });
       }
 
       const { error: updErr } = await adminClient.auth.admin.updateUserById(targetUserId, {
         email: newEmail,
         email_confirm: true,
       });
-      if (updErr) return json({ error: translateAuthError(updErr.message) }, 400);
+      if (updErr) return fail('AUTH_EMAIL_UPDATE_FAILED', translateAuthError(updErr.message), 400, log, { expert_id: expertId, target_user_id: targetUserId, auth_error: updErr.message });
 
       await adminClient.from('audit_logs').insert({
         actor_id: caller.id,
@@ -115,16 +113,16 @@ Deno.serve(withLogging('update-analyst-credentials', async (req) => {
     if (action === 'reset_password') {
       const newPassword: string = body.new_password;
       if (!newPassword || newPassword.length < 8) {
-        return json({ error: '密碼至少需 8 碼' }, 400);
+        return fail('PASSWORD_TOO_SHORT', '密碼至少需 8 碼', 400, log, { expert_id: expertId });
       }
       if (!/[A-Za-z]/.test(newPassword) || !/[0-9]/.test(newPassword)) {
-        return json({ error: '密碼需包含英文字母與數字' }, 400);
+        return fail('PASSWORD_COMPLEXITY', '密碼需包含英文字母與數字', 400, log, { expert_id: expertId });
       }
 
       const { error: updErr } = await adminClient.auth.admin.updateUserById(targetUserId, {
         password: newPassword,
       });
-      if (updErr) return json({ error: translateAuthError(updErr.message) }, 400);
+      if (updErr) return fail('AUTH_PASSWORD_UPDATE_FAILED', translateAuthError(updErr.message), 400, log, { expert_id: expertId, target_user_id: targetUserId, auth_error: updErr.message });
 
       await adminClient.from('audit_logs').insert({
         actor_id: caller.id,
@@ -140,57 +138,17 @@ Deno.serve(withLogging('update-analyst-credentials', async (req) => {
     // ── send_reset_email ────────────────────────────────────────
     if (action === 'send_reset_email') {
       if (isLineVirtual) {
-        return json({ error: '此帳號透過 LINE 登入，無有效信箱可寄送' }, 400);
+        return fail('LINE_ACCOUNT_NO_EMAIL', '此帳號透過 LINE 登入，無有效信箱可寄送', 400, log, { expert_id: expertId });
       }
-      if (!targetEmail) return json({ error: '帳號無 Email 無法寄送' }, 400);
+      if (!targetEmail) return fail('TARGET_EMAIL_EMPTY', '帳號無 Email 無法寄送', 400, log, { expert_id: expertId });
 
-      const { data: linkData, error: linkErr } = await adminClient.auth.admin.generateLink({
-        type: 'recovery',
-        email: targetEmail,
+      const mailClient = createClient(supabaseUrl, anonKey, {
+        auth: { persistSession: false, autoRefreshToken: false },
+      });
+      const { error: resetErr } = await mailClient.auth.resetPasswordForEmail(targetEmail, {
         options: { redirectTo: `${siteUrl}/reset-password` },
       });
-      if (linkErr || !linkData?.properties?.action_link) {
-        return json({ error: linkErr ? translateAuthError(linkErr.message) : '產生重設連結失敗' }, 400);
-      }
-      const actionLink = linkData.properties.action_link;
-
-      if (!resendKey) {
-        return json({ error: 'RESEND_API_KEY 未設定，無法寄信' }, 500);
-      }
-
-      const html = `
-        <div style="font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif;max-width:560px;margin:0 auto;padding:32px;background:#ffffff;color:#111827">
-          <h2 style="margin:0 0 16px;font-size:20px;color:#111827">分析師後台密碼重設</h2>
-          <p style="margin:0 0 12px;font-size:14px;line-height:1.6;color:#374151">您好 ${escapeHtml(expert.name)}，</p>
-          <p style="margin:0 0 12px;font-size:14px;line-height:1.6;color:#374151">系統管理員為您發起密碼重設。請點擊下方連結設定新密碼（連結將在 60 分鐘內失效）：</p>
-          <p style="margin:24px 0">
-            <a href="${actionLink}" style="display:inline-block;padding:12px 24px;background:#111827;color:#ffffff;text-decoration:none;border-radius:6px;font-size:14px;font-weight:600">設定新密碼</a>
-          </p>
-          <p style="margin:0 0 8px;font-size:12px;color:#6b7280">若按鈕無法點擊，請複製下方網址至瀏覽器開啟：</p>
-          <p style="margin:0 0 24px;font-size:12px;color:#6b7280;word-break:break-all">${actionLink}</p>
-          <hr style="border:none;border-top:1px solid #e5e7eb;margin:24px 0" />
-          <p style="margin:0;font-size:12px;color:#9ca3af">若您並未提出此請求，請忽略此信。 — LegendFlow</p>
-        </div>
-      `;
-
-      const resendRes = await fetch('https://api.resend.com/emails', {
-        signal: AbortSignal.timeout(10000),
-        method: 'POST',
-        headers: {
-          'Authorization': `Bearer ${resendKey}`,
-          'Content-Type': 'application/json',
-        },
-        body: JSON.stringify({
-          from: 'LegendFlow <noreply@legendflow.tw>',
-          to: [targetEmail],
-          subject: '【LegendFlow】分析師後台密碼重設',
-          html,
-        }),
-      });
-      if (!resendRes.ok) {
-        const errText = await resendRes.text();
-        return json({ error: `寄信失敗：${errText}` }, 500);
-      }
+      if (resetErr) return fail('RESET_EMAIL_SEND_FAILED', translateAuthError(resetErr.message), 400, log, { expert_id: expertId, target_user_id: targetUserId, auth_error: resetErr.message });
 
       await adminClient.from('audit_logs').insert({
         actor_id: caller.id,
@@ -205,7 +163,7 @@ Deno.serve(withLogging('update-analyst-credentials', async (req) => {
 
     return json({ error: 'Unhandled action' }, 400);
   } catch (err) {
-    return json({ error: (err as Error).message }, 500);
+    return fail('INTERNAL_ERROR', '分析師帳號操作暫時失敗，請稍後再試', 500, log, { message: (err as Error).message, stack: (err as Error).stack });
   }
 }));
 
@@ -216,8 +174,9 @@ function json(payload: unknown, status = 200) {
   });
 }
 
-function escapeHtml(s: string) {
-  return s.replace(/[&<>"']/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]!));
+function fail(code: string, message: string, status: number, log: EdgeLogger, detail?: Record<string, unknown>) {
+  log.warn('request_failed', { code, status, ...detail });
+  return json({ ok: false, code, error: message, message, request_id: log.requestId }, status);
 }
 
 /**
