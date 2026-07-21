@@ -3448,6 +3448,7 @@ ${JSON.stringify(strategyBrain || { rules: [], lessons: [], commonMistakes: [], 
               lastUpdate={lastUpdate}
               refreshing={refreshing}
               onRefreshPrices={refreshPrices}
+              refreshError={syncError ? (syncError.exhausted ? `連續失敗 ${syncError.attempts || ''} 次：${syncError.message || '報價同步失敗'}` : (syncError.message || '報價同步失敗')) : null}
 
               uploadSummary={uploadSummary}
               setUploadSummary={setUploadSummary}
