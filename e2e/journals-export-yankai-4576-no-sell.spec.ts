@@ -48,9 +48,12 @@ test('彥愷 4576：buy 1 張 + add 999 股，匯出檔無「賣出 1 張」、�
   expect(md).not.toMatch(/動作：trim/);
   expect(md).not.toMatch(/動作：exit/);
 
-  // 4576 兩個段落內部各自不得含「賣出」字樣
-  const parts = md.split(/^## \d+\. /m).slice(1); // 跳過 header
-  const yk4576 = parts.filter((s) => s.includes('4576'));
+  // 4576 兩個段落內部各自不得含「賣出」字樣（切到 `> 訊號 ID` 結束，
+  // 避免把最後段落與「本週總計：總賣出股數：0 股」黏在一起誤判）
+  const parts = md.split(/^## \d+\. /m).slice(1);
+  const yk4576 = parts
+    .filter((s) => s.includes('4576'))
+    .map((s) => s.split(/^> 訊號 ID/m)[0]);
   expect(yk4576.length).toBe(2);
   for (const seg of yk4576) {
     expect(seg).not.toContain('賣出');
@@ -58,6 +61,7 @@ test('彥愷 4576：buy 1 張 + add 999 股，匯出檔無「賣出 1 張」、�
     expect(seg).not.toContain('trim');
     expect(seg).not.toContain('exit');
   }
+
 
   // 本週總計：買進只算 buy（1 張），add 不併入；賣出為 0
   const totals = md.slice(md.indexOf('## 本週總計'));
