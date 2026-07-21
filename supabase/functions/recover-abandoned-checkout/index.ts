@@ -90,7 +90,7 @@ Deno.serve(withLogging('recover-abandoned-checkout', async (req) => {
 
   const { data: intents, error: qErr } = await supabaseAdmin
     .from('payment_intents')
-    .select('id, trade_no, user_id, product_kind, plan_id, checkup_plan_id, expert_id, amount, billing_cycle, created_at, expert_plans:plan_id(name, experts(name, slug)), checkup_plans:checkup_plan_id(name)')
+    .select('id, trade_no, user_id, product_kind, plan_id, checkup_plan_id, expert_id, amount, billing_cycle, created_at')
     .eq('status', 'pending')
     .is('recovery_notified_at', null)
     .gte('created_at', lower.toISOString())
@@ -104,6 +104,21 @@ Deno.serve(withLogging('recover-abandoned-checkout', async (req) => {
     });
   }
 
+  // 手動 lookup（payment_intents 沒有 FK，PostgREST 無法 embed）
+  const expertPlanIds = Array.from(new Set((intents || []).filter(i => i.product_kind === 'expert_plan' && i.plan_id).map(i => i.plan_id)));
+  const checkupPlanIds = Array.from(new Set((intents || []).filter(i => i.product_kind === 'checkup' && i.checkup_plan_id).map(i => i.checkup_plan_id)));
+
+  const [expertPlansRes, checkupPlansRes] = await Promise.all([
+    expertPlanIds.length
+      ? supabaseAdmin.from('expert_plans').select('id, name, expert_id, experts:expert_id(name, slug)').in('id', expertPlanIds)
+      : Promise.resolve({ data: [] as any[] }),
+    checkupPlanIds.length
+      ? supabaseAdmin.from('checkup_plans').select('id, name').in('id', checkupPlanIds)
+      : Promise.resolve({ data: [] as any[] }),
+  ]);
+  const expertPlanMap = new Map<string, any>((expertPlansRes.data || []).map((p: any) => [p.id, p]));
+  const checkupPlanMap = new Map<string, any>((checkupPlansRes.data || []).map((p: any) => [p.id, p]));
+
   const results: any[] = [];
   let lineCount = 0, emailCount = 0, skipCount = 0;
 
@@ -112,18 +127,23 @@ Deno.serve(withLogging('recover-abandoned-checkout', async (req) => {
     let productName = '訂閱方案';
     let resumeUrl = `${siteUrl}/account?utm_source=recovery&utm_campaign=abandoned`;
 
-    if (i.product_kind === 'expert_plan' && i.expert_plans) {
-      const plan = i.expert_plans as any;
-      const expert = plan.experts as any;
-      productName = `${expert?.name || ''} — ${plan?.name || ''}`;
-      const cycle = i.billing_cycle ? `&cycle=${i.billing_cycle}` : '';
-      resumeUrl = `${siteUrl}/${expert?.slug}/checkout?plan=${i.plan_id}${cycle}&utm_source=recovery&utm_campaign=abandoned`;
-    } else if (i.product_kind === 'checkup' && i.checkup_plans) {
-      const plan = i.checkup_plans as any;
-      productName = `健檢 — ${plan?.name || ''}`;
-      const cycle = i.billing_cycle ? `&cycle=${i.billing_cycle}` : '';
-      resumeUrl = `${siteUrl}/checkup/checkout?plan=${i.checkup_plan_id}${cycle}&utm_source=recovery&utm_campaign=abandoned`;
+    if (i.product_kind === 'expert_plan') {
+      const plan = expertPlanMap.get(i.plan_id);
+      const expert = plan?.experts;
+      if (plan) {
+        productName = `${expert?.name || ''} — ${plan?.name || ''}`;
+        const cycle = i.billing_cycle ? `&cycle=${i.billing_cycle}` : '';
+        resumeUrl = `${siteUrl}/${expert?.slug}/checkout?plan=${i.plan_id}${cycle}&utm_source=recovery&utm_campaign=abandoned`;
+      }
+    } else if (i.product_kind === 'checkup') {
+      const plan = checkupPlanMap.get(i.checkup_plan_id);
+      if (plan) {
+        productName = `健檢 — ${plan?.name || ''}`;
+        const cycle = i.billing_cycle ? `&cycle=${i.billing_cycle}` : '';
+        resumeUrl = `${siteUrl}/checkup/checkout?plan=${i.checkup_plan_id}${cycle}&utm_source=recovery&utm_campaign=abandoned`;
+      }
     }
+
 
     // 1. 先試 LINE（限 expert_plan 且該專家有綁定）
     let pushedVia: 'line' | 'email' | 'none' = 'none';

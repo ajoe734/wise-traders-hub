@@ -20,7 +20,8 @@
 3. 修改 token 時，同步更新 `freecheckup/HoldingCard.tsx` 等對應檔
 4. 兩套刻意分離：表格 vs 卡片牆是不同產品形態，合併會破壞 UX
 
-## Hooks 命名澄清（C 批 M7）
-- React Query 版本：`@/hooks/useMyTradeRecordHoldings`（exports `useMyHoldings`）
+## Hooks 命名澄清（C 批 M7；2026-07 更新）
+- Expert 持倉單一資料源：`@/hooks/useExpertHoldingsBundle`（RPC `get_expert_capital_status`）
 - Zustand 全域狀態：`@/checkup/stores/holdingsStore`（exports `useHoldingsStore`）
-- 已移除：`src/checkup/hooks/useHoldings.js`（orphan，無消費者）
+- 已移除：`src/checkup/hooks/useHoldings.js`（orphan）、`src/hooks/useMyTradeRecordHoldings.ts`（違反單一資料源憲法，2026-07 廢除）
+
