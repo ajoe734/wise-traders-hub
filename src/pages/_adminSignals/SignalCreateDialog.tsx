@@ -156,6 +156,18 @@ export function SignalCreateDialog({
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [spec.assetClass]);
 
+  // 開啟表單或草稿回填後，若已有代碼則重新查詢鎖定單位
+  useEffect(() => {
+    if (!isCreateOpen) return;
+    const trimmed = stockCode.trim();
+    if (trimmed.length >= spec.minSymbolLen) {
+      lookupExistingUnit(trimmed);
+    } else {
+      setLockedUnit(null); setLockedUnitSource(null);
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [isCreateOpen, expert?.id]);
+
   const currencySymbol = spec.currency === 'USD' ? 'US$' : 'NT$';
   const pricePlaceholder = spec.currency === 'USD' ? '185.50' : '890';
 
