@@ -302,6 +302,32 @@ const MENTOR_DUP_ID_ROWS: JournalRowExport[] = [
   },
 ];
 
+// Regression（彥愷 4576 大銀微系統, 2026-07-17）：
+// 老師先發 buy 1 張、再發 add 999 股，並在後台把先前誤發的 pending trim 1 張刪掉。
+// 匯出檔必須：
+//   1. 4576 只出現 buy + add 兩筆，無 sell/trim/exit
+//   2. 「本週總計」不會出現「總賣出股數：1 張」（因為根本沒賣）
+//   3. add 999 股不會被誤加進「總買進股數」（張／股不會被錯亂相加）
+const MENTOR_YK_ROWS: JournalRowExport[] = [
+  {
+    id: 'sig-yk-1', status: 'published', instrument: '4576 大銀微系統', action: 'buy',
+    price_hint: 198.01, quantity: 1, quantity_unit: '張',
+    reason_summary: 'YK-4576-buy', reason_detail: null, risk_notes: null, learning_points: null,
+    published_at: '2026-07-17T01:05:21Z', created_at: '2026-07-17T01:05:21Z',
+    expert_id: 'expert-yk',
+    experts: { name: '彥愷', slug: 'sharkgu', role: 'mentor', asset_class: 'tw_stock', currency: 'TWD' },
+  },
+  {
+    id: 'sig-yk-2', status: 'published', instrument: '4576 大銀微系統', action: 'add',
+    price_hint: 198.01, quantity: 999, quantity_unit: '股',
+    reason_summary: 'YK-4576-add', reason_detail: null, risk_notes: null, learning_points: null,
+    published_at: '2026-07-17T02:16:37Z', created_at: '2026-07-17T02:16:37Z',
+    expert_id: 'expert-yk',
+    experts: { name: '彥愷', slug: 'sharkgu', role: 'mentor', asset_class: 'tw_stock', currency: 'TWD' },
+  },
+];
+
+
 
 
 
