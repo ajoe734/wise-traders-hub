@@ -472,14 +472,29 @@ export function SignalCreateDialog({
                 <Select
                   value={quantityUnit}
                   onValueChange={(v) => setQuantityUnit(v as '張' | '股' | '顆')}
-                  disabled={spec.units.length === 1}
+                  disabled={spec.units.length === 1 || !!lockedUnit}
                 >
-                  <SelectTrigger className="w-20"><SelectValue /></SelectTrigger>
+                  <SelectTrigger
+                    className="w-20"
+                    data-testid="quantity-unit-select"
+                    data-locked={lockedUnit ? 'true' : 'false'}
+                  >
+                    <SelectValue />
+                  </SelectTrigger>
                   <SelectContent>
                     {spec.units.map((u) => <SelectItem key={u} value={u}>{u}</SelectItem>)}
                   </SelectContent>
                 </Select>
               </div>
+              {lockedUnit && (
+                <p
+                  data-testid="unit-locked-hint"
+                  className="text-[11px] text-muted-foreground"
+                  aria-live="polite"
+                >
+                  已鎖定單位「{lockedUnit}」（依既有{lockedUnitSource === 'trade' ? '持倉' : '訊號'}）— 避免 UNIT_MIX 漂移
+                </p>
+              )}
             </div>
           )}
 
