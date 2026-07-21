@@ -167,6 +167,25 @@ export default function HoldingsConsistency() {
         </div>
       </header>
 
+      <div className="flex gap-2 border-b border-slate-200">
+        <button
+          onClick={() => setView('scan')}
+          className={`px-4 py-2 text-sm border-b-2 -mb-px ${view === 'scan' ? 'border-primary text-primary font-medium' : 'border-transparent text-slate-600 hover:text-slate-900'}`}
+        >
+          Drift 掃描
+        </button>
+        <button
+          onClick={() => setView('proposals')}
+          className={`px-4 py-2 text-sm border-b-2 -mb-px ${view === 'proposals' ? 'border-primary text-primary font-medium' : 'border-transparent text-slate-600 hover:text-slate-900'}`}
+        >
+          建議修復
+        </button>
+      </div>
+
+      {view === 'proposals' ? (
+        <FixProposalsPanel />
+      ) : (
+      <>
       {error && (
         <div className="rounded-md border border-red-200 bg-red-50 text-red-900 px-4 py-3 text-sm flex items-start gap-2">
           <AlertTriangle className="w-4 h-4 mt-0.5" />
