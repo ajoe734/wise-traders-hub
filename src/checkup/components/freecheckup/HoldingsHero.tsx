@@ -25,7 +25,50 @@ const SCHEMA = {
   isDemo: 'boolean',
   WB: 'object',
   wbTone: 'function',
+  holdings: { type: 'object', optional: true }, // Array<Holding>，用來彙總價格來源與最舊抓取時間
 };
+
+// 對齊 stockPriceWaterfall 的 label 映射，讓 hero 顯示與卡片/抽屜一致
+const SRC_LABEL: Record<string, string> = {
+  screenshot: '截圖',
+  live: '即時',
+  high: '最高',
+  ask: '賣一',
+  yclose: '昨收',
+  demo: 'DEMO',
+  regularMarketPrice: '收盤',
+  previousClose: '昨收',
+  chartClose: '已收K',
+  twse: 'TWSE',
+  yahoo: 'Yahoo',
+  realtime: '即時',
+};
+
+function summarizePriceSources(holdings: any[] | undefined) {
+  if (!Array.isArray(holdings) || holdings.length === 0) return null;
+  const counts = new Map<string, number>();
+  let oldest = Number.POSITIVE_INFINITY;
+  let newest = 0;
+  let missing = 0;
+  for (const h of holdings) {
+    const src = h?.priceSource;
+    if (src) counts.set(src, (counts.get(src) || 0) + 1);
+    else missing += 1;
+    const t = h?.priceUpdatedAt ? new Date(h.priceUpdatedAt).getTime() : 0;
+    if (t > 0) {
+      if (t < oldest) oldest = t;
+      if (t > newest) newest = t;
+    }
+  }
+  const entries = Array.from(counts.entries()).sort((a, b) => b[1] - a[1]);
+  return {
+    entries, // [[srcKey, count], ...]
+    missing,
+    oldest: Number.isFinite(oldest) ? oldest : 0,
+    newest,
+  };
+}
+
 
 function formatRelative(fromMs: number, nowMs: number): string {
   const diff = Math.max(0, nowMs - fromMs);
