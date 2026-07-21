@@ -115,7 +115,7 @@ export function computeHoldingSummary(
     const unit = sanitizeAssetQuantityUnit(s.quantity_unit, assetClass);
     const price = s.price_hint || 0;
     const current = instrumentMap.get(inst) || { zhangQty: 0, guQty: 0, zhangCost: 0, guCost: 0 };
-    const isLot = unit === '張' || unit === 'lot';
+    const isLot = unit === '張';
     const lineCost = isLot ? price * qty * 1000 : price * qty;
 
     if (s.action === 'buy' || s.action === 'add') {
