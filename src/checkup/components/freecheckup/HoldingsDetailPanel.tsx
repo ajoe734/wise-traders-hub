@@ -1030,9 +1030,32 @@ function RangeBand({ WB, price, low, high, spark, symbol, priceSource, priceUpda
     : undefined;
 
   return (
-    <div data-testid="holdings-range-band" style={{ margin: '0 0 20px', minWidth: 0 }}>
+    <div
+      data-testid="holdings-range-band"
+      data-inconsistent={hasIssue ? '1' : undefined}
+      data-inconsistent-codes={hasIssue ? diagnostics.map((d) => d.code).join(',') : undefined}
+      style={{ margin: '0 0 20px', minWidth: 0 }}
+    >
       <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: 6 }}>
-        <span style={{ fontSize: 12, color: WB.inkMute, letterSpacing: '0.14em' }}>30 日走勢</span>
+        <span style={{ fontSize: 12, color: WB.inkMute, letterSpacing: '0.14em' }}>
+          30 日走勢
+          {hasIssue && (
+            <span
+              data-testid="holdings-range-band-warn"
+              title={issueTitle}
+              aria-label={issueTitle}
+              style={{
+                display: 'inline-block',
+                width: 6,
+                height: 6,
+                borderRadius: '50%',
+                background: '#D97706',
+                marginLeft: 8,
+                verticalAlign: 'middle',
+              }}
+            />
+          )}
+        </span>
         <span style={{ fontSize: 12, color: WB.inkSub, fontVariantNumeric: 'tabular-nums' }}>
           低 {loLabel}<span style={{ margin: '0 6px', color: WB.inkLight }}>—</span>高 {hiLabel}
         </span>
