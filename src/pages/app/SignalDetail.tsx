@@ -234,7 +234,7 @@ const SignalDetail = () => {
         {(priceResolved.value !== null || qtyResolved.value !== null) && (() => {
           const cur: Currency = resolvedCurrency;
           const sym = CURRENCY_SYMBOL[cur];
-          const unit = signal.quantity_unit || defaultQuantityUnit(cur);
+          const unit = sanitizeQuantityUnit(signal.quantity_unit, cur);
           return (
             <div className="text-sm text-muted-foreground inline-flex items-baseline flex-wrap gap-x-1">
               <span className="font-sans">參考價位：</span>
