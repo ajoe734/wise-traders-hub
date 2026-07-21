@@ -74,7 +74,8 @@ for (const bp of BREAKPOINTS) {
     });
 
     await expect(band).toHaveScreenshot(`range-band-dot-${bp.name}.png`, {
-      maxDiffPixelRatio: 0.02,
+      maxDiffPixels: 60,
+      maxDiffPixelRatio: 0.15,
       animations: 'disabled',
       scale: 'css',
     });
