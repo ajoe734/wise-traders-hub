@@ -203,7 +203,10 @@ describe('CompanyAnalysts', () => {
     fireEvent.click(accountButton);
 
     await waitFor(() => expect(screen.getByText(/目前 Email/)).toBeInTheDocument());
-    fireEvent.click(screen.getByRole('tab', { name: /重設密碼/ }));
+    const passwordTab = screen.getByRole('tab', { name: /重設密碼/ });
+    fireEvent.pointerDown(passwordTab, { button: 0, ctrlKey: false });
+    fireEvent.mouseDown(passwordTab, { button: 0, ctrlKey: false });
+    fireEvent.click(passwordTab);
     await waitFor(() => expect(screen.getByPlaceholderText('至少 8 碼，需含英文與數字')).toBeInTheDocument());
     fireEvent.change(screen.getByPlaceholderText('至少 8 碼，需含英文與數字'), { target: { value: 'abcd1234' } });
     fireEvent.change(screen.getByPlaceholderText('再次輸入'), { target: { value: 'abcd1234' } });
