@@ -2300,6 +2300,102 @@ export type Database = {
         }
         Relationships: []
       }
+      holdings_fix_proposals: {
+        Row: {
+          applied_at: string | null
+          applied_by: string | null
+          apply_result: Json | null
+          created_at: string
+          drift_category: string
+          expert_id: string | null
+          expert_name: string | null
+          expert_slug: string | null
+          generated_at: string
+          generated_by: string | null
+          id: string
+          instrument: string | null
+          payload: Json
+          preview: Json
+          proposed_action: string
+          review_note: string | null
+          reviewed_at: string | null
+          reviewed_by: string | null
+          severity: string
+          signature: string
+          status: string
+          summary: string
+          symbol: string | null
+          updated_at: string
+        }
+        Insert: {
+          applied_at?: string | null
+          applied_by?: string | null
+          apply_result?: Json | null
+          created_at?: string
+          drift_category: string
+          expert_id?: string | null
+          expert_name?: string | null
+          expert_slug?: string | null
+          generated_at?: string
+          generated_by?: string | null
+          id?: string
+          instrument?: string | null
+          payload?: Json
+          preview?: Json
+          proposed_action: string
+          review_note?: string | null
+          reviewed_at?: string | null
+          reviewed_by?: string | null
+          severity?: string
+          signature: string
+          status?: string
+          summary: string
+          symbol?: string | null
+          updated_at?: string
+        }
+        Update: {
+          applied_at?: string | null
+          applied_by?: string | null
+          apply_result?: Json | null
+          created_at?: string
+          drift_category?: string
+          expert_id?: string | null
+          expert_name?: string | null
+          expert_slug?: string | null
+          generated_at?: string
+          generated_by?: string | null
+          id?: string
+          instrument?: string | null
+          payload?: Json
+          preview?: Json
+          proposed_action?: string
+          review_note?: string | null
+          reviewed_at?: string | null
+          reviewed_by?: string | null
+          severity?: string
+          signature?: string
+          status?: string
+          summary?: string
+          symbol?: string | null
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "holdings_fix_proposals_expert_id_fkey"
+            columns: ["expert_id"]
+            isOneToOne: false
+            referencedRelation: "experts"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "holdings_fix_proposals_expert_id_fkey"
+            columns: ["expert_id"]
+            isOneToOne: false
+            referencedRelation: "experts_public"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       knowledge_auto_rules: {
         Row: {
           archive_below_win_rate: number
@@ -4679,6 +4775,10 @@ export type Database = {
       }
     }
     Functions: {
+      admin_apply_fix_proposal: {
+        Args: { p_confirm: boolean; p_id: string }
+        Returns: Json
+      }
       admin_checkup_usage_overview: {
         Args: never
         Returns: {
@@ -4697,6 +4797,14 @@ export type Database = {
           user_id: string
         }[]
       }
+      admin_generate_fix_proposals: {
+        Args: { p_category?: string }
+        Returns: {
+          inserted: number
+          superseded: number
+          total_pending: number
+        }[]
+      }
       admin_holdings_consistency_audit: {
         Args: never
         Returns: {
@@ -4707,6 +4815,10 @@ export type Database = {
           severity: string
           symbol: string
         }[]
+      }
+      admin_reject_fix_proposal: {
+        Args: { p_id: string; p_note?: string }
+        Returns: undefined
       }
       admin_reset_expert_asset_class: {
         Args: { _expert_id: string; _new_asset_class: string }

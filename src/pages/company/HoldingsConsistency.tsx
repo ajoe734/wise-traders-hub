@@ -2,6 +2,7 @@ import { useEffect, useMemo, useState } from 'react';
 import { supabase } from '@/integrations/supabase/client';
 import SEO from '@/components/SEO';
 import { AlertTriangle, RefreshCw, Download, Search } from 'lucide-react';
+import { FixProposalsPanel } from './_holdingsConsistency/FixProposalsPanel';
 
 type Row = {
   category: string;
@@ -70,6 +71,7 @@ function formatValue(k: string, v: any): string {
 }
 
 export default function HoldingsConsistency() {
+  const [view, setView] = useState<'scan' | 'proposals'>('scan');
   const [loading, setLoading] = useState(true);
   const [rows, setRows] = useState<Row[]>([]);
   const [error, setError] = useState<string | null>(null);
@@ -165,6 +167,25 @@ export default function HoldingsConsistency() {
         </div>
       </header>
 
+      <div className="flex gap-2 border-b border-slate-200">
+        <button
+          onClick={() => setView('scan')}
+          className={`px-4 py-2 text-sm border-b-2 -mb-px ${view === 'scan' ? 'border-primary text-primary font-medium' : 'border-transparent text-slate-600 hover:text-slate-900'}`}
+        >
+          Drift 掃描
+        </button>
+        <button
+          onClick={() => setView('proposals')}
+          className={`px-4 py-2 text-sm border-b-2 -mb-px ${view === 'proposals' ? 'border-primary text-primary font-medium' : 'border-transparent text-slate-600 hover:text-slate-900'}`}
+        >
+          建議修復
+        </button>
+      </div>
+
+      {view === 'proposals' ? (
+        <FixProposalsPanel />
+      ) : (
+      <>
       {error && (
         <div className="rounded-md border border-red-200 bg-red-50 text-red-900 px-4 py-3 text-sm flex items-start gap-2">
           <AlertTriangle className="w-4 h-4 mt-0.5" />
@@ -280,6 +301,8 @@ export default function HoldingsConsistency() {
       <div className="text-xs text-slate-400">
         說明：TW 1 張 = 1000 股。所有數據皆為即時 read-only 掃描，不會變更任何資料。
       </div>
+      </>
+      )}
     </div>
   );
 }
