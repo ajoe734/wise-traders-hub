@@ -290,8 +290,8 @@ export default function ChipsSection({ WB, stockCode }: { WB: any; stockCode: st
             <div style={{ fontSize: 10, color: '#8a5a1e' }}>BSR 同步進行中</div>
           ) : hasInst ? (
             <div style={{ fontSize: 10, color: WB.inkMute, textAlign: 'right' }}>
-              BSR 排程等待中
-              <div style={{ fontSize: 9, color: WB.inkMute, marginTop: 2 }}>{nextWorkerWindow().label}</div>
+              BSR 自動同步中
+              <div style={{ fontSize: 9, color: WB.inkMute, marginTop: 2 }}>每 15 分鐘自動抓取，取得後自動刷新</div>
             </div>
           ) : null}
 
