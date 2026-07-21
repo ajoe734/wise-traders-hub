@@ -53,11 +53,11 @@ export function UnitRealignPreviewDialog({
             .limit(200),
           supabase
             .from('trade_records')
-            .select('id, instrument, quantity, quantity_unit, opened_at')
+            .select('id, instrument, quantity, quantity_unit, entry_date')
             .eq('expert_id', expertId)
             .ilike('instrument', like)
             .neq('quantity_unit', toUnit)
-            .order('opened_at', { ascending: false })
+            .order('entry_date', { ascending: false })
             .limit(200),
         ]);
         if (cancelled) return;
