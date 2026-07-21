@@ -233,6 +233,7 @@ test.describe('RangeBand 資料源一致性偵測 (mock 分歧)', () => {
     await page.waitForTimeout(400);
     warns = await page.evaluate(() => (window as any).__warns || []);
     const hits = warns.filter((t) => t.includes('[RangeBand]') && t.includes('data source inconsistency'));
+    console.log('DEBUG warns:', JSON.stringify(warns.slice(0, 20)));
     expect(hits.length).toBeGreaterThanOrEqual(1);
 
     await ctx.close();
