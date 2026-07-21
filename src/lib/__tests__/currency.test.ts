@@ -34,12 +34,12 @@ describe('formatMoneyByCurrency', () => {
     expect(() => formatMoneyByCurrency(anyIn(v))).not.toThrow();
     expect(formatMoneyByCurrency(anyIn(v))).not.toMatch(/NaN|∞|Infinity/);
   });
-  it('null / NaN / Infinity → —', () => {
-    expect(formatMoneyByCurrency(null)).toBe('—');
-    expect(formatMoneyByCurrency(undefined)).toBe('—');
-    expect(formatMoneyByCurrency(NaN)).toBe('—');
-    expect(formatMoneyByCurrency(Infinity)).toBe('—');
-    expect(formatMoneyByCurrency(-Infinity)).toBe('—');
+  it('null / NaN / Infinity → 幣別符號 + 0（避免顯示 — 讓報表出現破洞）', () => {
+    expect(formatMoneyByCurrency(null)).toBe('NT$0');
+    expect(formatMoneyByCurrency(undefined)).toBe('NT$0');
+    expect(formatMoneyByCurrency(NaN)).toBe('NT$0');
+    expect(formatMoneyByCurrency(Infinity)).toBe('NT$0');
+    expect(formatMoneyByCurrency(-Infinity)).toBe('NT$0');
   });
   it('正常值 + 幣別 + 負值', () => {
     expect(formatMoneyByCurrency(0)).toBe('NT$0');

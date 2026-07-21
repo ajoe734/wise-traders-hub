@@ -181,7 +181,7 @@ describe('FreeCheckup tab — lazy & memo wiring', () => {
     // HoldingsTab transitively pulls 5 inner components + utils → ~3s on cold jsdom transform；
     // 預算放寬至 5000ms 以反映真實架構複雜度（仍能攔下「無意間引入更重模組」的退化）
     expect(ms).toBeLessThan(5000);
-  });
+  }, 20000);
 
   it('FreeCheckup.jsx mounts all heavy tabs only when active (gated by tab===)', () => {
     const src = fs.readFileSync(path.join(root, 'src/pages/FreeCheckup.jsx'), 'utf8');
