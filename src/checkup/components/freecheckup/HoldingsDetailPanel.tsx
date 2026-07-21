@@ -504,11 +504,6 @@ function HoldingsDetailPanelImpl({
             </span>
           </div>
           <div style={{ marginTop: 8, fontSize: 12, color: WB.inkSub, fontVariantNumeric: 'tabular-nums' }}>
-            {!dirty && todayPct != null && (
-              <>今日 {todayPct >= 0 ? '+' : '−'}{Math.abs(todayPct).toFixed(2)}%
-                {todayPnl != null && <> · {todayPnl >= 0 ? '+' : '−'}{Math.abs(Math.round(todayPnl)).toLocaleString()}</>}
-                <span style={{ margin: '0 8px', color: WB.inkLight }}>｜</span></>
-            )}
             持股 {Math.round(displayQty).toLocaleString()}
             <span style={{ margin: '0 6px', color: WB.inkLight }}>·</span>
             市值 {displayValue ? Math.round(displayValue).toLocaleString() : '—'}
