@@ -355,10 +355,65 @@ export default function SignalDupeAudit() {
         </div>
       )}
 
+      <div className="mt-8">
+        <div className="mb-2 flex items-center justify-between">
+          <h2 className="text-base font-semibold">
+            最近 24h Trigger 安全跳過
+            <span className="ml-2 text-xs font-normal text-muted-foreground">
+              （trigger 主動防重複的成功攔截，不是錯誤）
+            </span>
+          </h2>
+          <button
+            onClick={loadSkipLogs}
+            disabled={skipLoading}
+            className="inline-flex items-center gap-1 rounded border px-2 py-1 text-xs hover:bg-muted disabled:opacity-40"
+          >
+            <RefreshCw className={`h-3 w-3 ${skipLoading ? 'animate-spin' : ''}`} />
+            重新載入
+          </button>
+        </div>
+        {skipLogs.length === 0 ? (
+          <div className="rounded-md border p-4 text-center text-sm text-emerald-700">
+            <CheckCircle2 className="mx-auto mb-1 h-5 w-5" />
+            近 24 小時無安全跳過紀錄
+          </div>
+        ) : (
+          <div className="overflow-x-auto rounded-md border">
+            <table className="w-full text-sm">
+              <thead className="bg-muted/50 text-xs uppercase tracking-wide text-muted-foreground">
+                <tr>
+                  <th className="px-3 py-2 text-left">時間</th>
+                  <th className="px-3 py-2 text-left">老師</th>
+                  <th className="px-3 py-2 text-left">標的</th>
+                  <th className="px-3 py-2 text-left">action</th>
+                  <th className="px-3 py-2 text-left">TG_OP</th>
+                  <th className="px-3 py-2 text-left">既有 trade_id</th>
+                  <th className="px-3 py-2 text-left">signal_id</th>
+                </tr>
+              </thead>
+              <tbody>
+                {skipLogs.map((l) => (
+                  <tr key={l.id} className="border-t align-top">
+                    <td className="px-3 py-2 whitespace-nowrap">{fmtDate(l.created_at)}</td>
+                    <td className="px-3 py-2">{l.expert_name || '—'}</td>
+                    <td className="px-3 py-2 font-medium">{l.payload?.instrument || '—'}</td>
+                    <td className="px-3 py-2">{l.payload?.action || '—'}</td>
+                    <td className="px-3 py-2 text-xs text-muted-foreground">{l.payload?.tg_op || '—'}</td>
+                    <td className="px-3 py-2 font-mono text-[11px]">{l.payload?.existing_trade_id || '—'}</td>
+                    <td className="px-3 py-2 font-mono text-[11px]">{l.signal_id || '—'}</td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
+        )}
+      </div>
+
       <div className="mt-6 rounded-md border-l-4 border-amber-400 bg-amber-50 p-3 text-xs text-amber-900">
         <AlertTriangle className="mr-1 inline h-3 w-3" />
         修復規則：每個 signal_id 只保留 <b>created_at 最舊</b> 那筆，其餘刪除。若偵測到不同筆的 entry_price/quantity/quantity_unit/entry_date 不一致，或已有 exit_date，會標記為「疑似手動編輯」並要求手動確認強制刪除。所有刪除都會寫入 <code>audit_logs</code>。
       </div>
+
     </div>
   );
 }
