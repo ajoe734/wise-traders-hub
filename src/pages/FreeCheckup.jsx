@@ -1875,17 +1875,54 @@ export default function App() {
     if (tab !== 'holdings') return;
     if (!holdings || holdings.length === 0) return;
     if (refreshing) return;
-    const stale = !lastUpdate || (Date.now() - lastUpdate.getTime()) > 3 * 60 * 1000;
-    // 首次進入（prev==null）或從別的 tab 切回 → 只有 stale 才自動觸發
+    const minutes = getAutoRefreshMinutes();
+    if (minutes <= 0) return; // 使用者關閉自動刷新
+    const intervalMs = minutes * 60 * 1000;
+    const stale = !lastUpdate || (Date.now() - lastUpdate.getTime()) > intervalMs;
     if (prev === 'holdings' && !stale) return;
     if (!stale) return;
-    // 節流：本會話內每 60 秒最多一次自動刷新
     if (Date.now() - (holdingsAutoRefreshRef.current.lastRunAt || 0) < 60 * 1000) return;
     holdingsAutoRefreshRef.current.lastRunAt = Date.now();
     const t = setTimeout(() => { refreshPrices().catch(() => {}); }, 300);
     return () => clearTimeout(t);
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [tab, holdings]);
+
+  // 週期性自動刷新（依使用者設定的分鐘數；0=關閉）。只在 holdings tab 且非同步中觸發。
+  useEffect(() => {
+    if (tab !== 'holdings') return;
+    let disposed = false;
+    let timerId = null;
+    const schedule = () => {
+      if (disposed) return;
+      const minutes = getAutoRefreshMinutes();
+      if (minutes <= 0) return; // off
+      const intervalMs = minutes * 60 * 1000;
+      timerId = setTimeout(async () => {
+        if (disposed) return;
+        try {
+          if (!refreshing && document.visibilityState !== 'hidden' && holdings && holdings.length > 0) {
+            holdingsAutoRefreshRef.current.lastRunAt = Date.now();
+            await refreshPrices();
+          }
+        } catch {}
+        schedule();
+      }, intervalMs);
+    };
+    schedule();
+    const onChange = () => {
+      if (timerId) { clearTimeout(timerId); timerId = null; }
+      schedule();
+    };
+    window.addEventListener('fc:holdings-auto-refresh-changed', onChange);
+    return () => {
+      disposed = true;
+      if (timerId) clearTimeout(timerId);
+      window.removeEventListener('fc:holdings-auto-refresh-changed', onChange);
+    };
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [tab, holdings?.length]);
+
 
   // 初次載入 holdings 時，用最新的 priceUpdatedAt 種入 lastUpdate，
   // 讓 Hero 立刻可以顯示「更新於 HH:MM」而不是空白
