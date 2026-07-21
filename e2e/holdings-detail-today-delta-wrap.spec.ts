@@ -111,7 +111,7 @@ test.describe('HoldingsDetailPanel · today-delta wrap + 節奏守門', () => {
     const panel = await openDrawer(page, 390);
 
     const selectors = [
-      'h2',                                          // §2 identity
+      '[data-testid="drawer-identity"]',             // §2 identity（含名稱 + today delta wrap）
       '[data-testid="drawer-roi-main"]',             // §3 return tower
       '[data-testid="decision-stamp"]',              // §4 decision
       '[data-testid="holdings-price-axis"]',         // §5 price axis
