@@ -15,6 +15,7 @@ import { useFormDraft } from '@/hooks/useFormDraft';
 import { avatarUrl } from '@/lib/imageTransform';
 import { actionLabels } from './actionLabels';
 import { PreviewTradeItem } from './PreviewTradeItem';
+import { UnitRealignPreviewDialog } from './UnitRealignPreviewDialog';
 import { isMarketClosed } from './derive';
 import { getAssetSpec, resolveAssetClass, isValidAssetSymbol, type QuantityUnit } from '@/lib/asset';
 import { InstrumentTooltip } from '@/components/InstrumentTooltip';
