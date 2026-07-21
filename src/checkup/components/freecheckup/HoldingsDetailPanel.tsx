@@ -443,28 +443,25 @@ function HoldingsDetailPanelImpl({
 
       <div className="holdings-detail-body" style={{ padding: '18px 22px 22px', background: WB.surface }}>
         {/* 2) 識別 */}
-        <div style={{ marginBottom: 20 }}>
+        <div data-testid="drawer-identity" style={{ marginBottom: 20 }}>
           <div style={{ ...microStyle, marginBottom: 6 }}>
             {h.code}
             {meta?.industry ? <> · {meta.industry}</> : null}
             {meta?.strategy ? <> · {meta.strategy}</> : null}
             {meta?.priceSource ? <span title={`價格來源：${meta.priceSource}`} style={{ marginLeft: 8, opacity: 0.5 }}>· {meta.priceSource}</span> : null}
           </div>
-          <div
-            className="holdings-detail-identity-row"
-            style={{ display: 'flex', alignItems: 'flex-end', justifyContent: 'space-between', gap: 12, flexWrap: 'wrap' }}
-          >
+          <div className="holdings-detail-identity-row">
             <h2 style={{
               margin: 0, fontFamily: SERIF, fontSize: 22, fontWeight: 500,
               color: WB.ink, letterSpacing: '-0.005em', lineHeight: 1.15,
-              whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis', flex: 1, minWidth: 0,
+              whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis',
             }}>{h.name}</h2>
             {!dirty && todayPct != null && (
               <div
                 data-testid="drawer-today-delta"
                 className="holdings-detail-today-delta"
                 style={{
-                  flexShrink: 0,
+                  marginTop: 4,
                   textAlign: 'right',
                   fontSize: 12,
                   lineHeight: 1.3,
@@ -473,11 +470,11 @@ function HoldingsDetailPanelImpl({
                   letterSpacing: '0.02em',
                 }}
               >
-                <div>今日 {todayPct >= 0 ? '+' : '−'}{Math.abs(todayPct).toFixed(2)}%</div>
+                <span>今日 {todayPct >= 0 ? '+' : '−'}{Math.abs(todayPct).toFixed(2)}%</span>
                 {todayPnl != null && (
-                  <div style={{ color: WB.inkMute }}>
+                  <span style={{ marginLeft: 8, color: WB.inkMute }}>
                     {todayPnl >= 0 ? '+' : '−'}{Math.abs(Math.round(todayPnl)).toLocaleString()}
-                  </div>
+                  </span>
                 )}
               </div>
             )}
@@ -485,7 +482,7 @@ function HoldingsDetailPanelImpl({
         </div>
 
         {/* 3) 報酬塔 + 持有脈絡 */}
-        <div style={{ marginBottom: 20 }}>
+        <div data-testid="drawer-return-tower" style={{ marginBottom: 20 }}>
           <div style={{ display: 'flex', alignItems: 'baseline', gap: 12, flexWrap: 'wrap' }}>
             <span data-testid="drawer-roi-main" style={{
               fontFamily: SERIF, fontSize: 22, fontWeight: 500,

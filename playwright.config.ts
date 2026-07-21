@@ -409,6 +409,13 @@ export default defineConfig({
       use: { ...devices['Desktop Chrome'], viewport: { width: 640, height: 480 } },
     },
     {
+      // today-delta wrap + 抽屜區塊節奏守門：窄屏 4 斷點 + 寬屏 3 斷點 + 節奏測 + sparkline 移除斷言
+      // spec 內部用 page.setViewportSize 手動控制多斷點，這裡只需單 project 入口
+      name: 'holdings-detail-today-delta-wrap',
+      testMatch: /holdings-detail-today-delta-wrap\.spec\.ts/,
+      use: { ...devices['Desktop Chrome'], viewport: { width: 1280, height: 900 } },
+    },
+    {
       // NotificationBell link routing：內部路徑走 navigate、Storage signed URL 走新分頁、null 不動作
       name: 'desktop-notification-link-routing',
       testMatch: /notification-link-routing\.spec\.ts/,

@@ -143,3 +143,7 @@
     justify-content: space-between !important;
   }
 }
+
+/* Header identity row：h2 佔滿寬度 + delta 獨立右對齊行，避免 flex 撞牆造成不一致 wrap。 */
+.holdings-detail-identity-row { display: block; }
+.holdings-detail-today-delta { text-align: right; }
