@@ -137,7 +137,7 @@ export function buildFlexMessage(rawSignal: any, type: 'publish' | 'takedown' | 
   })
 
   if (signal.price_hint) {
-    const qtyText = signal.quantity ? `(${signal.quantity}${signal.quantity_unit || ''})` : ''
+    const qtyText = signal.quantity ? `(${signal.quantity}${unit})` : ''
     bodyContents.push({
       type: 'text',
       text: `參考價位：${signal.price_hint}${qtyText}`,
