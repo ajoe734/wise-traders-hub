@@ -69,10 +69,110 @@ async function fetchTwseT86(date: string) {
   return raw;
 }
 
+const FINMIND_URL = "https://api.finmindtrade.com/api/v4/data";
+const FINMIND_TOKEN = Deno.env.get("FINMIND_TOKEN") ?? "";
+
+// per-stock 多日回補：走 FinMind TaiwanStockInstitutionalInvestorsBuySell
+async function backfillStockViaFinmind(
+  supa: any,
+  stockId: string,
+  days: number,
+): Promise<{ inserted: number; from: string; to: string; rows: number }> {
+  const endD = new Date();
+  const startD = new Date();
+  startD.setUTCDate(startD.getUTCDate() - days);
+  const fmt = (d: Date) => d.toISOString().slice(0, 10);
+  const startDate = fmt(startD);
+  const endDate = fmt(endD);
+
+  const p = new URLSearchParams({
+    dataset: "TaiwanStockInstitutionalInvestorsBuySell",
+    data_id: stockId,
+    start_date: startDate,
+    end_date: endDate,
+  });
+  if (FINMIND_TOKEN) p.set("token", FINMIND_TOKEN);
+
+  const res = await fetch(`${FINMIND_URL}?${p}`, {
+    signal: AbortSignal.timeout(25000),
+    headers: { Accept: "application/json" },
+  });
+  const text = await res.text();
+  if (!res.ok) throw new Error(`finmind_http_${res.status}:${text.slice(0, 200)}`);
+  const j = JSON.parse(text);
+  if (j?.status !== 200 && !Array.isArray(j?.data)) {
+    throw new Error(`finmind_api_${j?.status}:${String(j?.msg ?? "").slice(0, 200)}`);
+  }
+  const raw: any[] = Array.isArray(j.data) ? j.data : [];
+
+  // FinMind 每天每個投資者類型一列 → 依 date 聚合
+  const byDate = new Map<string, { fBuy: number; fSell: number; tBuy: number; tSell: number; dBuy: number; dSell: number }>();
+  for (const r of raw) {
+    const d = String(r.date || "");
+    if (!d) continue;
+    const cur = byDate.get(d) || { fBuy: 0, fSell: 0, tBuy: 0, tSell: 0, dBuy: 0, dSell: 0 };
+    const name = String(r.name || "");
+    const buy = Number(r.buy || 0);
+    const sell = Number(r.sell || 0);
+    if (name.startsWith("Foreign_Investor") || name === "Foreign_Investor" || name === "Foreign_Dealer_Self") {
+      cur.fBuy += buy; cur.fSell += sell;
+    } else if (name === "Investment_Trust") {
+      cur.tBuy += buy; cur.tSell += sell;
+    } else if (name.startsWith("Dealer")) {
+      cur.dBuy += buy; cur.dSell += sell;
+    }
+    byDate.set(d, cur);
+  }
+
+  const chunk = Array.from(byDate.entries()).map(([date, v]) => {
+    const foreign_net = v.fBuy - v.fSell;
+    const trust_net = v.tBuy - v.tSell;
+    const dealer_net = v.dBuy - v.dSell;
+    return {
+      stock_id: stockId,
+      trade_date: date,
+      foreign_net,
+      trust_net,
+      dealer_net,
+      total_net: foreign_net + trust_net + dealer_net,
+      raw: { source: "finmind_backfill" },
+    };
+  });
+
+  if (chunk.length === 0) return { inserted: 0, from: startDate, to: endDate, rows: 0 };
+
+  const { error } = await supa
+    .from("tw_institutional_daily")
+    .upsert(chunk, { onConflict: "stock_id,trade_date" });
+  if (error) throw new Error(`upsert_failed:${error.message}`);
+  return { inserted: chunk.length, from: startDate, to: endDate, rows: raw.length };
+}
+
 Deno.serve(async (req) => {
   if (req.method === "OPTIONS") return corsPreflight();
   try {
     const url = new URL(req.url);
+
+    // === Mode: backfill_stock ===（per-stock 60 天歷史回補）
+    if (req.method === "POST") {
+      let body: any = null;
+      try { body = await req.json(); } catch { /* ignore */ }
+      if (body?.mode === "backfill_stock") {
+        const stockId = String(body.stock_id || "").trim();
+        const days = Math.min(Math.max(Number(body.days) || 60, 1), 120);
+        if (!/^[1-9]\d{3}$/.test(stockId)) {
+          return errorResponse("stock_id must be 4-digit code starting 1-9", 400, { code: "BAD_REQUEST" });
+        }
+        const supa = createClient(SUPABASE_URL, SERVICE_ROLE_KEY, { auth: { persistSession: false } });
+        try {
+          const result = await backfillStockViaFinmind(supa, stockId, days);
+          return jsonResponse({ mode: "backfill_stock", stock_id: stockId, ...result });
+        } catch (err) {
+          return errorResponse((err as Error).message, 502, { code: "FINMIND_ERROR" });
+        }
+      }
+    }
+
     const requestedDate = url.searchParams.get("date") || taipeiToday();
     const lookback = Math.min(Math.max(Number(url.searchParams.get("lookback")) || 7, 0), 14);
     if (!/^\d{8}$/.test(requestedDate)) {
