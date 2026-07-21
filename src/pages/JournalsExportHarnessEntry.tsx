@@ -568,9 +568,13 @@ export default function JournalsExportHarnessEntry() {
       <button data-testid="je-export-slug-fallback-clash" onClick={runSlugFallbackClash} style={{ marginRight: 8, marginBottom: 8, padding: '6px 12px' }}>
         Export slug-fallback clash (H1 null vs H2 clash-id)
       </button>
-      <button data-testid="je-export-duplicate-expert-id" onClick={runDuplicateExpertId} style={{ padding: '6px 12px' }}>
+      <button data-testid="je-export-duplicate-expert-id" onClick={runDuplicateExpertId} style={{ marginRight: 8, marginBottom: 8, padding: '6px 12px' }}>
         Export duplicate expert_id (A+A+B)
       </button>
+      <button data-testid="je-export-yankai-4576" onClick={runYankai4576} style={{ padding: '6px 12px' }}>
+        Export 彥愷 4576 (buy 1 張 + add 999 股, 無賣出)
+      </button>
+
 
     </div>
   );
