@@ -263,7 +263,8 @@ function translateAuthError(raw: string, code = '', status: number | string = ''
     return '後端服務暫時異常，請稍後再試';
   }
 
-  // ── 其他：原樣回傳但加前綴提示，方便判斷 ──────────────
-  return `操作失敗：${raw}（如持續發生請聯繫工程師）`;
+  // ── 其他：原樣回傳並附上 code/status，方便直接判斷 ──────
+  const tag = [code, status ? `HTTP ${status}` : ''].filter(Boolean).join(' · ');
+  return tag ? `操作失敗（${tag}）：${raw}` : `操作失敗：${raw}`;
 }
 
