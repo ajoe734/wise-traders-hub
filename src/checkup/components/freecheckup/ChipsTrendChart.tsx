@@ -436,17 +436,19 @@ export default function ChipsTrendChart({
   );
 }
 
-function SegBtn({ WB, active, onClick, children, small = false }: any) {
+function SegBtn({ WB, active, onClick, children, small = false, disabled = false }: any) {
   return (
     <button
-      onClick={onClick}
+      onClick={disabled ? undefined : onClick}
+      disabled={disabled}
       style={{
         fontSize: small ? 10 : 11,
         padding: small ? '3px 8px' : '4px 10px',
         border: `1px solid ${active ? WB.ink : WB.hair}`,
         background: active ? WB.ink : 'transparent',
         color: active ? '#fff' : WB.inkSub,
-        cursor: 'pointer',
+        cursor: disabled ? 'not-allowed' : 'pointer',
+        opacity: disabled ? 0.4 : 1,
         fontFamily: SERIF,
         letterSpacing: '0.08em',
       }}
@@ -455,3 +457,4 @@ function SegBtn({ WB, active, onClick, children, small = false }: any) {
     </button>
   );
 }
+
