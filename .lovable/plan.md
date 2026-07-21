@@ -1,52 +1,43 @@
+## 問題定位
 
-## 根因（已驗證）
+截圖顯示 `趨勢與歷史回放`：日期軸 07/17 → 07/21（5 天序列），選 `5 日` 滾動視窗，但整個 160px 高的 SVG 完全空白，只有底下 scrubber 上的黑點孤零零一個。
 
-Benny (`experts.id=e381e144…`, `asset_class=us_stock`, `currency=USD`, `starting_capital=30000`, `status=pending`) 目前：
-- `expert_signals` 0 筆、`trade_records` 0 筆、`function_run_logs` 0 筆。
-- RLS policy `Analysts can insert own signals` 條件符合（user_id 相符），與 RLS 無關。
+根因在 `src/checkup/components/freecheckup/ChipsTrendChart.tsx`：
 
-真正擋人的是 **BEFORE INSERT trigger `enforce_signal_capital_limit_trg`** → `public.enforce_signal_capital_limit()`：
+- `rollingSum(arr, 5)` 只有 `i >= w-1`（即第 5 天）才回傳有效值，前 4 天都是 `NaN`。
+- 序列剛好 5 天 → 只有 1 個有效點 → `linePath` 產生 `"M x,y"` 沒有任何 `L`，SVG 折線畫不出來。
+- Bar 模式（1 日）沒事，但預設落在 5 日，使用者第一眼就是全白。
+- `分點集中度` 模式在資料點不足 2 時同樣空白（單點無法連線）。
+- `20 日`、`60 日` 按鈕在只有 5~10 天資料時可按下但永遠空白，無任何提示。
 
-1. 它對 **`status IN ('published','pending')` 且 `action IN ('buy','add')`** 全部啟用。
-2. `SignalCreateDialog.handlePublish` 對 mentor 一律送 `status='pending'`（週五統一發布），所以**連草稿都被擋**。
-3. 額度用 `experts.starting_capital` 直接當「可用現金」，Benny 只設 30,000 USD，任何一筆美股買進金額只要 ≥30,000 就會被丟 `CAPITAL_EXCEEDED`；訊息中金額顯示原始數字（無幣別），mentor 不會意識到要調高 starting_capital，UI 也沒把 DB 例外翻成人話——只顯示 raw `error.message`（`SignalCreateDialog.tsx` L287：`toast.error(error.message)`）。
+## 修正範圍（`ChipsTrendChart.tsx` 單檔）
 
-這就是「Benny 週記發不出去」持續無解的實際卡點。
+1. **視窗自動 clamp**  
+   計算 `series` 前先偵測 `inst.length`。若目前 `win > inst.length`，自動退回到最大可用視窗（`min(win, max(1, inst.length))`），並在 useEffect 中同步 setState，避免每次重繪都 clamp。
 
-## 修法（三段，最小侵入）
+2. **`SegBtn` 視窗按鈕依資料量 disable**  
+   `1/5/20/60` 每個按鈕 props 加 `disabled = wv > series.length`；disabled 時降低透明度、`cursor: not-allowed`、不觸發 onClick。避免使用者又點到 60 日又是白畫面。
 
-### 1. DB trigger 只在真正對外發布時檢查（migration）
+3. **有效點 < 2 的 fallback 渲染**  
+   在 SVG 內判斷 `validPts.length`：  
+   - `0` 個 → 顯示置中「— 尚無資料 —」`<text>`。  
+   - `1` 個 → 畫一個 r=4 的圓點（顏色沿用 UP/DOWN/ink 規則）＋ 置中提示「資料點不足以繪出 {win} 日滾動線，至少需要 {win} 個交易日」。  
+   - `≥ 2` → 維持原本 line/bar 行為。  
+   readout 區塊繼續顯示該點數值（沿用現有邏輯）。
 
-改寫 `public.enforce_signal_capital_limit()`：
-- `pending` 直接放行（草稿／週五統一發布前的暫存不該擋）。
-- 保留 `published` 才檢查，並在 `UPDATE` 由 `pending → published` 的路徑也套用（BEFORE INSERT OR UPDATE），避免有人繞過。
-- 例外訊息帶上幣別（讀 `experts.currency`）與 hint：
-  `CAPITAL_EXCEEDED: 此筆需 21000 USD，可用現金僅 9000 USD。請至「分析師設定」調整初始資金，或減少數量。`
-- 保留 company_admin bypass。
+4. **`分點集中度` 模式相同 fallback**  
+   單點時畫圓點＋提示「僅 1 個交易日資料」；讓使用者知道是資料量問題不是壞掉。
 
-### 2. 前端把 DB 例外翻成人話（`SignalCreateDialog.tsx`）
+5. **X 軸日期標籤在 fallback 也保留**  
+   即使沒畫折線，`series[0].date` 與 `series[last].date` 仍要顯示，維持現在截圖那樣的日期骨架。
 
-L287 目前 `toast.error(error.message)`。加一個 mapper（同檔內小 helper 即可，不新增檔案），對常見 code / message 前綴翻譯：
+## 不動的東西
 
-| 觸發 | 對外訊息 |
-|---|---|
-| `CAPITAL_EXCEEDED` | 顯示原例外中已帶幣別的說明，並附「前往分析師設定 →」按鈕（`toast.error` + action） |
-| `incompatible_unit_for_asset_class` | 已存在，維持 |
-| `unit_conflict` / `enforce_unit_consistency` | 「此代碼歷史單位為 X，請改用 X 或先執行『改單位…』」 |
-| 其他 | 原訊息 |
-
-### 3. 分析師設定顯示幣別與最小建議值
-
-`StartingCapitalCard.tsx` 在 `asset_class=us_stock/crypto/us_option/us_future` 時，label 補上幣別（USD）並顯示 placeholder「建議 ≥ 100,000」，避免下一位老師重複踩雷。**不改鎖定邏輯**（已修過）。
+- `useTwChipsDetail` / edge function / DB — 這是純呈現層問題，資料本身沒錯。
+- 樣式 tokens、字體、UP/DOWN 顏色維持不變。
+- Scrubber / 播放邏輯不變。
 
 ## 驗證
 
-- 手動：以 Benny 身份送 `buy AAPL 100 @ 210`（USD 21,000 < 30,000）→ 應成功 pending；送 `buy NVDA 200 @ 170`（34,000 > 30,000）→ 應收到帶幣別的中文錯誤，並看到「前往分析師設定」按鈕。
-- 新增 vitest：`enforce_signal_capital_limit` 的四種 case（pending buy 放行、published buy 超限擋、published buy 未超限放、admin bypass）以 pgTAP 或 SQL fixture 覆蓋（`supabase/tests/`）。
-- 既有 E2E `e2e/live/realign-instrument-unit.spec.ts` 不受影響（未觸及 buy/add 額度）。
-
-## 不做
-
-- 不改 `starting_capital` 的預設或既有值（由 mentor 自訂）。
-- 不動 `handle_signal_trade` / `enforce_unit_consistency`（此次無關）。
-- 不改 `ExportRiskDialog` / 週記匯出（Benny 目前無 signals，跟匯出無關）。
+- 手動：`/holding-checkup` 打開任一台股抽屜，切 `1/5/20/60` 四個視窗，每個都應有可視內容（bar / line / 單點＋提示 / disabled）。
+- 加一個 unit test（vitest）給 `rollingSum`＋一個 render smoke test 驗證 `validPts.length === 1` 時 DOM 有 `data-testid="chips-trend-empty-hint"`。

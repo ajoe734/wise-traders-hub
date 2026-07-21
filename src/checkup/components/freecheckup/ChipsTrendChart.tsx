@@ -74,6 +74,16 @@ export default function ChipsTrendChart({
     return () => ro.disconnect();
   }, []);
 
+  // 視窗自動 clamp：資料不足時退到最大可用視窗
+  const instLen = inst.length;
+  useEffect(() => {
+    if (mode !== 'inst') return;
+    if (instLen > 0 && win > instLen) {
+      const fallback = ([60, 20, 5, 1] as Window[]).find((w2) => w2 <= instLen) ?? 1;
+      setWin(fallback);
+    }
+  }, [mode, win, instLen]);
+
   const series = useMemo(() => {
     if (mode === 'inst') {
       const totals = inst.map((r) => r.total_net);
@@ -124,11 +134,12 @@ export default function ChipsTrendChart({
 
   if (!series.length) {
     return (
-      <div style={{ fontSize: 12, color: WB.inkMute, padding: '10px 0' }}>
+      <div style={{ fontSize: 12, color: WB.inkMute, padding: '10px 0' }} data-testid="chips-trend-empty">
         — 尚無歷史序列資料
       </div>
     );
   }
+
 
   // 座標映射
   const xs = (i: number) => PAD_L + (i * (w - PAD_L - PAD_R)) / Math.max(series.length - 1, 1);
