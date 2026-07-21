@@ -194,6 +194,32 @@ export default function SignalDupeAudit() {
         </div>
       </div>
 
+      <div className="mb-4 flex flex-wrap items-center justify-between gap-3 rounded-md border border-slate-200 bg-slate-50 px-4 py-3 text-sm">
+        <div className="flex items-center gap-2 text-slate-700">
+          <Zap className="h-4 w-4 text-emerald-600" />
+          <span className="font-medium">自動去重排程（每 15 分鐘）</span>
+          {lastSweep ? (
+            <span className="text-xs text-slate-500">
+              最近：{fmtDate(lastSweep.created_at)} · 修 {lastSweep.payload?.auto_fixed ?? 0} · 待審 {lastSweep.payload?.needs_review ?? 0} · 刪 {lastSweep.payload?.removed_total ?? 0}
+            </span>
+          ) : (
+            <span className="text-xs text-slate-500">尚無執行紀錄</span>
+          )}
+        </div>
+        <div className="flex gap-2">
+          <button
+            onClick={() => runSweep(true)}
+            disabled={sweeping}
+            className="rounded-md border px-3 py-1.5 text-xs hover:bg-muted disabled:opacity-40"
+          >試跑</button>
+          <button
+            onClick={() => runSweep(false)}
+            disabled={sweeping}
+            className="rounded-md bg-slate-900 px-3 py-1.5 text-xs text-white hover:bg-slate-800 disabled:opacity-40"
+          >立即執行</button>
+        </div>
+      </div>
+
       <div className="mb-6 grid grid-cols-3 gap-3">
         <SumCard label="受影響 signal 數" value={summary.affected} tone="orange" />
         <SumCard label="多餘 trade 總數" value={summary.dupTrades} tone="red" />
