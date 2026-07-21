@@ -115,6 +115,13 @@ export const ACTION_LABELS: Record<string, string> = {
   'knowledge.auto_promote_candidate': '備選自動升使用中',
   'knowledge.auto_archive_candidate': '備選自動歸檔',
   'knowledge.auto_archive_rescue': '救援逾期自動歸檔',
+  // 資料表自動稽核（DB trigger）
+  'trade_records.INSERT': '新增交易紀錄',
+  'trade_records.UPDATE': '修改交易紀錄',
+  'trade_records.DELETE': '刪除交易紀錄',
+  'expert_signals.INSERT': '新增訊號',
+  'expert_signals.UPDATE': '修改訊號',
+  'expert_signals.DELETE': '刪除訊號',
 };
 
 export function formatActionLabel(action: string): string {
@@ -135,6 +142,7 @@ export const TARGET_TYPE_LABELS: Record<string, string> = {
   plan_split_overrides: '分潤覆寫',
   checkup_plans: '健檢方案',
   checkup_subscriptions: '健檢訂閱',
+  trade_records: '交易紀錄',
 };
 
 export function formatTargetType(t?: string | null): string {
