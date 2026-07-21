@@ -1,9 +1,11 @@
 // @ts-nocheck
 // ChipsSection — 抽屜「§4.6 籌碼面」（僅台股渲染）
 // 三大法人 1/5/20/60 日 + BSR 前 3 買/賣 + 集中度
-import React, { useEffect, useMemo, useRef } from 'react';
+import React, { useEffect, useMemo, useRef, useState } from 'react';
 import { useTwChipsDetail, isTaiwanStockCode, isTaiwanChipEligible, type TwChipsPayload } from '@/checkup/hooks/useTwChipsDetail';
 import ChipsTrendChart from './ChipsTrendChart';
+import { supabase } from '@/integrations/supabase/client';
+import { toast } from 'sonner';
 
 const SERIF = '"Source Serif 4", "Noto Serif TC", Georgia, serif';
 
