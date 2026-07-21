@@ -102,6 +102,7 @@ export function SignalCreateDialog({
   );
 
   const clearForm = useCallback(() => {
+    setPublishError(null);
     setStockCode(''); setStockName(''); setAction(''); setPriceHint(''); setQuantity(''); setQuantityUnit(spec.defaultUnit);
     setReasonSummary(''); setReasonDetail(''); setRiskNotes(''); setLearningPoints('');
     setTeachingTopic(''); setOverallSummary('');
