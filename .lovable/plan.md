@@ -1,41 +1,48 @@
+# 計畫：trade_records 重複防護自動化測試
+
 ## 目標
-後台新增一個「Signal 重複持倉稽核」頁面，掃描所有 `trade_records`，找出同一 `signal_id` 對應 >1 筆開倉紀錄（`exit_date IS NULL`）的個案，列出清單並提供一鍵修復。
+自動驗證：不論 `expert_signals` 被重送、trigger 被重複觸發、或第三方直接插 `trade_records`，同一 `signal_id` 的 open 交易列都只會保留 1 筆。
 
-背景：先前 `handle_signal_trade()` bug 已造成正二等個股出現重複行；雖然已加了 `trade_records_signal_id_open_uniq` partial unique index 擋新資料，但需要一個持續監控頁面確認 unclosed 情況、以及處理 index 建立前殘留或 exit_date 已填不同值的邊界。
+## 測試檔案
+新增 `supabase/tests/trade_records_dedupe_test.sql`（pgTAP 風格純 SQL 腳本，可用 `psql -f` 直接跑，也可掛到 CI）。選 SQL 而非 Playwright 是因為要驗證的是資料庫層的 trigger + unique index + `handle_signal_trade` 邏輯，走 E2E 反而繞遠且慢。
 
-## 變更清單
+## 涵蓋案例（每個 case 起 SAVEPOINT，跑完 ROLLBACK，不污染資料）
 
-### 1. 後端 RPC（migration）
-- `admin_signal_dupe_trades_audit()`：`SECURITY DEFINER`，僅 `company_admin` 可執行。回傳每個有重複的 signal 一筆彙總：
-  - `signal_id`, `expert_id`, `expert_display_name`, `instrument`, `symbol`, `action`, `signal_published_at`
-  - `dup_count`（該 signal 對應 trade_records 筆數）
-  - `open_count`（其中 exit_date IS NULL 的筆數）
-  - `trade_ids uuid[]`（依 `created_at` 由舊到新）
-  - `has_manual_edit boolean`（任一筆 `updated_at > created_at + interval '5 seconds'` 視為老師有動過）
-- `admin_signal_dupe_trades_fix(p_signal_id uuid, p_dry_run boolean default true)`：
-  - 保留最舊那筆（`created_at ASC LIMIT 1`）；其他刪除。
-  - `has_manual_edit=true` 時，`p_dry_run=false` 仍要求呼叫端 `p_force := true` 才會執行（多一個 `p_force boolean default false` 參數），避免誤刪老師手動改過的紀錄。
-  - 回傳 `{ kept_id, removed_ids, would_remove_count, executed boolean }`。
-  - 所有刪除寫入 `audit_logs`（action=`signal_dupe_trade_fix`）。
+1. **Case A｜trigger 首次插入**
+   - `INSERT INTO expert_signals(...)` 一筆買進訊號
+   - Assert：`trade_records WHERE signal_id=X AND exit_date IS NULL` count = 1
 
-### 2. 前端 `src/pages/company/SignalDupeAudit.tsx`
-- ProtectedRoute + `company_admin`。
-- 上方：總覽數字（受影響 signal 數 / 重複 trade 總數 / 其中有手動編輯者數）、「重新掃描」按鈕。
-- 表格欄位：老師、代碼/標的、action、發佈時間、重複數 / 開倉數、trade_ids（可展開）、狀態（clean / 手動編輯過）、操作。
-- 每列「試算修復」（dry run 顯示會刪哪幾筆）與「執行修復」二段式；有手動編輯時執行按鈕須額外勾選「確認強制刪除」。
-- 全部修復按鈕：僅對「無手動編輯」批次執行，逐一呼叫 RPC。
-- 空狀態：「目前沒有重複的 signal_id」。
+2. **Case B｜同 signal 重送（UPDATE 觸發 trigger 二次）**
+   - 對同一 signal 觸發會呼叫 `handle_signal_trade` 的更新
+   - Assert：仍只有 1 筆 open trade_record（驗證上輪加入的存在性檢查有效）
 
-### 3. 路由掛載
-- `src/App.tsx`：新增 lazy import + `/company/signal-dupe-audit` route。
-- 側邊欄（若 `HoldingsConsistency` 有註冊在 layout 選單）同步加入連結，命名「重複持倉稽核」。
+3. **Case C｜直接 INSERT 重複 trade_records 應被 unique index 擋下**
+   - 手動 `INSERT INTO trade_records(signal_id=X, exit_date=NULL, ...)` 第二筆
+   - Assert：拋出 `unique_violation` (`trade_records_signal_id_open_uniq`)
 
-## 不做的事
-- 不重複實作已有的 `HoldingsConsistency` 五類 drift 檢查——此頁面專攻 `signal_id → trade_records` 一對多。
-- 不建 cron，觸發時機由管理員按「重新掃描」；未來要自動化再談。
-- 不動 `handle_signal_trade()` 或 partial unique index（已在前次修復處理）。
+4. **Case D｜關閉後可再開新倉**
+   - 將第一筆 `exit_date` 設為過去日期
+   - 再插入新的 open trade_record（signal_id 相同）
+   - Assert：允許成功（unique index 只鎖 open 狀態）
 
-## 驗證
-1. 呼叫 RPC 應回傳 0 列（先前已清乾淨）。
-2. 手動 INSERT 一筆重複 trade → 掃描頁應立刻列出、dry-run 顯示會刪 1 筆、執行後回到乾淨狀態、`audit_logs` 有一筆 `signal_dupe_trade_fix`。
-3. 有手動編輯的 signal，未勾強制不能執行，勾了才能。
+5. **Case E｜`admin_signal_dupe_trades_fix` 冪等性**
+   - 人為關掉 trigger、硬塞兩筆 open（bypass unique index：暫時 DROP INDEX → INSERT → 重建）以模擬歷史髒資料
+   - 呼叫 `admin_signal_dupe_trades_fix(signal_id, p_dry_run:=false, p_force:=false)`
+   - Assert：剩 1 筆（保留最舊 `created_at`）、`audit_logs` 有一筆 `action='signal_dupe_trade_fix'`
+   - 再呼叫一次 → Assert：0 影響（冪等）
+
+## 執行方式
+- 本機/CI：`psql "$DATABASE_URL" -v ON_ERROR_STOP=1 -f supabase/tests/trade_records_dedupe_test.sql`
+- 腳本開頭 `BEGIN;`、結尾 `ROLLBACK;`，測試中每個 case 用 SAVEPOINT/ROLLBACK TO 隔離
+- 失敗即以 `RAISE EXCEPTION` 中斷並列印 case 名稱
+
+## 技術細節
+- 用 `gen_random_uuid()` 建立臨時 expert / profile 假資料（或選現有測試 expert，避免 FK 卡住）
+- 需要 service_role 權限來繞過 RLS 直接讀 `trade_records`
+- 斷言統一透過 `DO $$ BEGIN IF ... THEN RAISE EXCEPTION 'CASE X FAILED: ...'; END IF; END $$;`
+
+## 交付
+- `supabase/tests/trade_records_dedupe_test.sql`（新檔）
+- `README` 或註解說明如何在本機執行
+
+不動任何應用程式碼、不改 schema，只新增測試檔。
