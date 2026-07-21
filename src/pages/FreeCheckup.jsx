@@ -28,6 +28,7 @@ import { normalizeHoldingMetrics } from "@/checkup/lib/holdings.js";
 // coerceStocksString moved into NewsTab (lazy chunk) — keep out of main bundle
 import { callEdge } from "@/checkup/lib/edgeInvoke";
 import { getAutoRefreshMinutes } from "@/checkup/lib/autoRefreshInterval";
+import { readLastUpdate, writeLastUpdate } from "@/checkup/lib/holdingsLastUpdate";
 import { preloadKnowledgeBase } from "@/checkup/lib/knowledgeBase";
 import { mergeCalendarToNewsEvents } from "@/checkup/lib/calendarSync";
 import { NewsEventRow } from "@/checkup/components/freecheckup/NewsEventRow";
