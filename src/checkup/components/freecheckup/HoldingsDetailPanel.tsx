@@ -443,7 +443,7 @@ function HoldingsDetailPanelImpl({
 
       <div className="holdings-detail-body" style={{ padding: '18px 22px 22px', background: WB.surface }}>
         {/* 2) 識別 */}
-        <div style={{ marginBottom: 16 }}>
+        <div style={{ marginBottom: 20 }}>
           <div style={{ ...microStyle, marginBottom: 6 }}>
             {h.code}
             {meta?.industry ? <> · {meta.industry}</> : null}
