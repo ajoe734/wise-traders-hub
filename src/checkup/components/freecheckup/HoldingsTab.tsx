@@ -50,6 +50,8 @@ const HOLDINGS_TAB_PROP_SCHEMA = {
   totalVal: _opt('any'), totalCost: _opt('any'), H: _opt('any'),
   winnersCount: _opt('any'), exitListCount: _opt('any'), reviewListCount: _opt('any'),
   MAX_HOLDINGS: _opt('any'), rtConnected: _opt('any'), lastUpdate: _opt('any'),
+  refreshing: _opt('any'), onRefreshPrices: _opt('any'),
+
   uploadSummary: _opt('any'), setUploadSummary: _opt('any'),
   batchState: _opt('any'), cancelBatch: _opt('any'),
   retryBatchFailures: _opt('any'), restoreBatchItemPreview: _opt('any'),
