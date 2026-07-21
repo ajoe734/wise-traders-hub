@@ -4322,6 +4322,7 @@ export type Database = {
           last_success_at: string | null
           max_attempts: number
           next_run_at: string
+          post_close_only: boolean
           priority: number
           started_at: string | null
           status: string
@@ -4341,6 +4342,7 @@ export type Database = {
           last_success_at?: string | null
           max_attempts?: number
           next_run_at?: string
+          post_close_only?: boolean
           priority: number
           started_at?: string | null
           status?: string
@@ -4360,6 +4362,7 @@ export type Database = {
           last_success_at?: string | null
           max_attempts?: number
           next_run_at?: string
+          post_close_only?: boolean
           priority?: number
           started_at?: string | null
           status?: string
@@ -4942,6 +4945,7 @@ export type Database = {
           last_success_at: string | null
           max_attempts: number
           next_run_at: string
+          post_close_only: boolean
           priority: number
           started_at: string | null
           status: string
@@ -5115,6 +5119,7 @@ export type Database = {
         Returns: boolean
       }
       is_tester: { Args: { _user_id: string }; Returns: boolean }
+      is_tw_trading_hours: { Args: never; Returns: boolean }
       match_expert_knowledge:
         | {
             Args: {

@@ -243,11 +243,21 @@ async function enqueueTier1Holdings(date: string, cid: string): Promise<number> 
     })
     .filter(isChipEligible)));
   if (ids.length === 0) return 0;
-  return await enqueueBatch(ids, date, 1, 'tier1_holdings', cid);
+
+  // 首抓 vs 補資料分流：
+  //   - 從未有 tw_bsr_daily 資料 → post_close_only=false（可在盤中立刻抓）
+  //   - 已有歷史資料 → post_close_only=true（僅收盤後 14:00 起同步）
+  const { data: haveAny } = await supa.from('tw_bsr_daily')
+    .select('stock_id').in('stock_id', ids);
+  const seen = new Set((haveAny || []).map((r: any) => String(r.stock_id)));
+  const firstFetch = ids.filter((id) => !seen.has(id));
+  const postClose = ids.filter((id) => seen.has(id));
+  let total = 0;
+  if (firstFetch.length > 0) total += await enqueueBatch(firstFetch, date, 1, 'tier1_first_fetch', cid, false);
+  if (postClose.length > 0) total += await enqueueBatch(postClose, date, 1, 'tier1_holdings', cid, true);
+  return total;
 }
-  if (ids.length === 0) return 0;
-  return await enqueueBatch(ids, date, 1, 'tier1_holdings', cid);
-}
+
 
 async function enqueueTier2Gaps(date: string, cid: string): Promise<number> {
   const dates = [date, rollBackToWeekday(addDays(date, -1)), rollBackToWeekday(addDays(date, -2))];
@@ -270,7 +280,7 @@ async function enqueueTier2Gaps(date: string, cid: string): Promise<number> {
     if (isChipEligible(sid)) gapIds.add(sid);
   }
   if (gapIds.size === 0) return 0;
-  return await enqueueBatch(Array.from(gapIds), date, 2, 'tier2_gaps', cid);
+  return await enqueueBatch(Array.from(gapIds), date, 2, 'tier2_gaps', cid, true);
 }
 
 async function enqueueTier3Backfill(endDate: string, days: number, cid: string): Promise<number> {
@@ -294,7 +304,7 @@ async function enqueueTier3Backfill(endDate: string, days: number, cid: string):
   let total = 0;
   for (let i = 1; i <= days; i++) {
     const d = rollBackToWeekday(addDays(endDate, -i));
-    total += await enqueueBatch(ids, d, 3, 'tier3_backfill', cid);
+    total += await enqueueBatch(ids, d, 3, 'tier3_backfill', cid, true);
   }
   return total;
 }
@@ -306,6 +316,7 @@ async function enqueueBatch(
   priority: number,
   tag: string,
   correlationId: string,
+  postCloseOnly = false,
 ): Promise<number> {
   if (stockIds.length === 0 || !isWeekday(date)) return 0;
   const { data: done } = await supa.from('tw_bsr_daily')
@@ -319,7 +330,9 @@ async function enqueueBatch(
     next_run_at: new Date().toISOString(),
     enqueued_by: `${tag}:${correlationId.slice(0, 8)}`,
     correlation_id: crypto.randomUUID(),
+    post_close_only: postCloseOnly,
   }));
+
   const { data: existing } = await supa.from('tw_bsr_sync_queue')
     .select('stock_id, trade_date')
     .in('stock_id', targets).eq('trade_date', date)
