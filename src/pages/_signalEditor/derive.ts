@@ -9,7 +9,7 @@ import {
 } from './types';
 import { sanitizeRichHtml } from '@/lib/sanitizeHtml';
 import {
-  formatMoneyByCurrency, isValidSymbol, normalizeCurrency, symbolPlaceholder,
+  formatMoneyByCurrency,
   type Currency,
 } from '@/lib/currency';
 import {
