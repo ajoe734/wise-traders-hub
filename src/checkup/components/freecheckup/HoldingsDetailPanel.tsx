@@ -1012,6 +1012,11 @@ export function RangeBand({ WB, price, low, high, spark, symbol, priceSource, pr
         priceUpdatedAt: priceUpdatedAt || null,
         ...d,
       };
+      // 測試觀測面：無條件推進 window array（E2E harness 讀取用；prod 亦保留，體積可忽略）
+      try {
+        g.__rangeBandDiagnostics ||= [];
+        g.__rangeBandDiagnostics.push(payload);
+      } catch { /* noop */ }
       if (import.meta?.env?.DEV) {
         // eslint-disable-next-line no-console
         console.warn('[RangeBand] data source inconsistency', payload);
