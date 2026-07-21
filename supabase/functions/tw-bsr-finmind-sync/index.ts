@@ -215,6 +215,14 @@ export function isValidTwStockId(id: string): boolean {
   return TW_STOCK_ID_WHITELIST.test(id);
 }
 
+// 分點（BSR / TaiwanStockTradingDailyReport）資料可用性判定。
+// FinMind 分點僅覆蓋一般個股；ETF / 權證 / 受益憑證 / 可轉債 / DR 皆無 → 不入 sync 佇列。
+// Chip-eligible = 4 碼、首位 1-9 之個股（1101、2330、6285、9958…）。
+const TW_CHIP_ELIGIBLE = /^[1-9]\d{3}$/;
+export function isChipEligible(id: string): boolean {
+  return TW_CHIP_ELIGIBLE.test(id);
+}
+
 async function enqueueTier1Holdings(date: string, cid: string): Promise<number> {
   // trade_records 的持倉來自 instrument 欄位（格式如「2330 台積電」或「00631L 元大台灣50正2」），
   // 開倉條件為 exit_date IS NULL。
