@@ -102,9 +102,51 @@ export function SignalCreateDialog({
     setTeachingTopic(''); setOverallSummary('');
     setLinePushed(false); setLinePushing(false); setLastPublishedId(null);
     setShowPreview(false);
+    setLockedUnit(null); setLockedUnitSource(null);
     sessionStorage.removeItem(FORM_KEY);
     discardDraft();
   }, [FORM_KEY, discardDraft, spec.defaultUnit]);
+
+  // 單位鎖定：若此代碼在 expert_signals 或 trade_records 已有既有單位，鎖定為該單位，
+  // 防止未來出現 UNIT_MIX / UNIT_A_NE_B 資料漂移
+  const lookupExistingUnit = useCallback(async (code: string) => {
+    if (!expert?.id || !code) { setLockedUnit(null); setLockedUnitSource(null); return; }
+    try {
+      const { data: sig } = await supabase
+        .from('expert_signals')
+        .select('quantity_unit, created_at')
+        .eq('expert_id', expert.id)
+        .ilike('instrument', `${code}%`)
+        .not('quantity_unit', 'is', null)
+        .order('created_at', { ascending: false })
+        .limit(1)
+        .maybeSingle();
+      if (sig?.quantity_unit && spec.units.includes(sig.quantity_unit as any)) {
+        setLockedUnit(sig.quantity_unit as QuantityUnit);
+        setLockedUnitSource('signal');
+        setQuantityUnit(sig.quantity_unit as QuantityUnit);
+        return;
+      }
+      const { data: tr } = await supabase
+        .from('trade_records')
+        .select('quantity_unit, created_at')
+        .eq('expert_id', expert.id)
+        .ilike('instrument', `${code}%`)
+        .not('quantity_unit', 'is', null)
+        .order('created_at', { ascending: false })
+        .limit(1)
+        .maybeSingle();
+      if (tr?.quantity_unit && spec.units.includes(tr.quantity_unit as any)) {
+        setLockedUnit(tr.quantity_unit as QuantityUnit);
+        setLockedUnitSource('trade');
+        setQuantityUnit(tr.quantity_unit as QuantityUnit);
+        return;
+      }
+      setLockedUnit(null); setLockedUnitSource(null);
+    } catch (e) {
+      console.warn('lookupExistingUnit failed', e);
+    }
+  }, [expert?.id, spec.units]);
 
   // 若 asset_class 切換（例如從草稿回填 / 分析師切換），把不合法的 quantityUnit 校正回預設
   useEffect(() => {
