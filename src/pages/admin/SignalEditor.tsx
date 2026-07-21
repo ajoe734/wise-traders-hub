@@ -376,6 +376,7 @@ const SignalEditor = () => {
             addTrade={addTrade}
             updateTrade={updateTrade}
             currency={currency}
+            assetClass={assetClass}
           />
         )}
 
