@@ -124,7 +124,7 @@ export function UnitRealignPreviewDialog({
                     <span className="truncate flex-1">{r.instrument}</span>
                     {r.action && (
                       <Badge variant="outline" className="text-[10px]">
-                        {actionLabels?.[r.action as keyof typeof actionLabels] || r.action}
+                        {actionLabels?.[r.action]?.label || r.action}
                       </Badge>
                     )}
                     <span className="tabular-nums">
