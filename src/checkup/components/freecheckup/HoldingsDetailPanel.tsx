@@ -4,7 +4,7 @@ import ReactDOM from 'react-dom';
 import * as DropdownMenu from '@radix-ui/react-dropdown-menu';
 import {
   Camera, Download, Copy, X as XIcon, Settings, ChevronDown,
-  RotateCcw, FileText, Image as ImageIcon, Undo2, Redo2, Check,
+  RotateCcw, FileText, Image as ImageIcon, Undo2, Redo2, Check, Info,
 } from 'lucide-react';
 import { useHoldingShareExport } from '@/checkup/hooks/useHoldingShareExport';
 import { useSimHistory } from '@/checkup/hooks/useSimHistory';
@@ -14,6 +14,7 @@ import { useThesisTracking } from '@/checkup/hooks/useThesisTracking';
 import { computeScenario, isDirty } from './holdingScenario';
 import HoldingExportCard from './HoldingExportCard';
 import ChipsSection from './ChipsSection';
+import { Tooltip, TooltipTrigger, TooltipContent } from '@/components/ui/tooltip';
 import '@/checkup/styles/holdingsDetailPanel.css';
 
 /**
@@ -470,7 +471,48 @@ function HoldingsDetailPanelImpl({
                   letterSpacing: '0.02em',
                 }}
               >
-                <span>今日 {todayPct >= 0 ? '+' : '−'}{Math.abs(todayPct).toFixed(2)}%</span>
+                <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'flex-end', gap: 6 }}>
+                  <span>今日 {todayPct >= 0 ? '+' : '−'}{Math.abs(todayPct).toFixed(2)}%</span>
+                  <Tooltip>
+                    <TooltipTrigger asChild>
+                      <button
+                        type="button"
+                        aria-label="今日漲跌幅說明"
+                        data-testid="drawer-today-delta-info"
+                        style={{
+                          display: 'inline-flex',
+                          alignItems: 'center',
+                          padding: 0,
+                          border: 'none',
+                          background: 'transparent',
+                          color: WB.inkMute,
+                          cursor: 'pointer',
+                          lineHeight: 1,
+                        }}
+                      >
+                        <Info size={12} strokeWidth={2} />
+                      </button>
+                    </TooltipTrigger>
+                    <TooltipContent
+                      side="bottom"
+                      align="end"
+                      sideOffset={6}
+                      className="shadow-none"
+                      style={{
+                        background: WB.surface,
+                        color: WB.ink,
+                        border: `1px solid ${WB.hair}`,
+                        fontSize: 12,
+                        lineHeight: 1.55,
+                        maxWidth: 260,
+                        padding: '8px 10px',
+                        borderRadius: 6,
+                      }}
+                    >
+                      今日漲跌幅（% 與金額）與下方 30 日走勢帶使用相同收盤價來源，即折線圖最右端點的當日變化。
+                    </TooltipContent>
+                  </Tooltip>
+                </div>
                 {todayPnl != null && (
                   <span style={{ marginLeft: 8, color: WB.inkMute }}>
                     {todayPnl >= 0 ? '+' : '−'}{Math.abs(Math.round(todayPnl)).toLocaleString()}
