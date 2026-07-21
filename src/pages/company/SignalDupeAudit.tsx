@@ -37,6 +37,17 @@ function fmtDate(v: string | null): string {
   } catch { return v; }
 }
 
+type SweepLog = {
+  created_at: string;
+  payload: {
+    scanned?: number;
+    auto_fixed?: number;
+    needs_review?: number;
+    removed_total?: number;
+    dry_run?: boolean;
+  } | null;
+};
+
 export default function SignalDupeAudit() {
   const [rows, setRows] = useState<Row[]>([]);
   const [loading, setLoading] = useState(false);
@@ -45,6 +56,8 @@ export default function SignalDupeAudit() {
   const [expanded, setExpanded] = useState<Record<string, boolean>>({});
   const [previews, setPreviews] = useState<Record<string, FixResult>>({});
   const [forceOn, setForceOn] = useState<Record<string, boolean>>({});
+  const [lastSweep, setLastSweep] = useState<SweepLog | null>(null);
+  const [sweeping, setSweeping] = useState(false);
 
   const scan = useCallback(async () => {
     setScanning(true);
