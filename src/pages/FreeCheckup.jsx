@@ -3446,6 +3446,9 @@ ${JSON.stringify(strategyBrain || { rules: [], lessons: [], commonMistakes: [], 
               MAX_HOLDINGS={MAX_HOLDINGS}
               rtConnected={rtConnected}
               lastUpdate={lastUpdate}
+              refreshing={refreshing}
+              onRefreshPrices={refreshPrices}
+
               uploadSummary={uploadSummary}
               setUploadSummary={setUploadSummary}
               batchState={batchState}
