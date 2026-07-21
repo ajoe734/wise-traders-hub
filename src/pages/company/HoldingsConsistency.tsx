@@ -2,6 +2,7 @@ import { useEffect, useMemo, useState } from 'react';
 import { supabase } from '@/integrations/supabase/client';
 import SEO from '@/components/SEO';
 import { AlertTriangle, RefreshCw, Download, Search } from 'lucide-react';
+import { FixProposalsPanel } from './_holdingsConsistency/FixProposalsPanel';
 
 type Row = {
   category: string;
