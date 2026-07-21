@@ -143,3 +143,17 @@
     justify-content: space-between !important;
   }
 }
+
+/* ====== Header identity row：窄屏（≤414px）今日 delta wrap 到名稱下方 ======
+ * 寬屏保持同列右對齊；窄屏改為 column，避免長中文名 + delta 硬擠溢出。
+ */
+@media (max-width: 414px) {
+  .holdings-detail-identity-row {
+    flex-direction: column !important;
+    align-items: stretch !important;
+    gap: 6px !important;
+  }
+  .holdings-detail-today-delta {
+    text-align: right !important;
+  }
+}
