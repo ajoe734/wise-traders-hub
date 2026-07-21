@@ -2,6 +2,8 @@ import { corsHeaders } from '../_shared/cors.ts';
 import { serviceClient } from '../_shared/supabaseClients.ts';
 import { withLogging } from '../_shared/edgeLogger.ts';
 import { createClient } from 'https://esm.sh/@supabase/supabase-js@2.49.1'
+import { classifyPublishError, buildMentorFailureNotification } from './classifyPublishError.ts'
+
 
 const LINE_MULTICAST_URL = 'https://api.line.me/v2/bot/message/multicast'
 
@@ -237,41 +239,8 @@ Deno.serve(withLogging('publish-weekly-journals', async (req) => {
     const expertMap = new Map<string, { user_id: string | null; name: string | null }>()
     for (const e of expertRows || []) expertMap.set((e as any).id, { user_id: (e as any).user_id, name: (e as any).name })
 
-    // 將 DB 例外分類為可讀原因 + 修正路徑
-    const classifyPublishError = (err: any, instrument: string) => {
-      const raw = String(err?.message || '') + ' ' + String(err?.details || '') + ' ' + String(err?.hint || '')
-      const code = String(err?.code || '')
-      if (raw.includes('CAPITAL_EXCEEDED') || code === 'P0001' && raw.includes('capital')) {
-        return {
-          kind: 'CAPITAL_EXCEEDED',
-          title: `週記發布失敗：初始資金不足（${instrument}）`,
-          body: '本次發布累計金額超過分析師設定的初始資金。請前往「分析師設定」上調初始資金，或調整此筆持倉的張數/價位後再送出。',
-          link: '/admin/profile#capital',
-        }
-      }
-      if (raw.includes('incompatible_unit_for_asset_class')) {
-        return {
-          kind: 'INCOMPATIBLE_UNIT',
-          title: `週記發布失敗：單位與資產類別不符（${instrument}）`,
-          body: '該資產類別不允許此單位（例：美股僅能用「股」）。請至週記編輯頁選擇正確單位後重新送審。',
-          link: '/admin/signals',
-        }
-      }
-      if (raw.includes('unit_conflict') || raw.includes('UNIT_MIX')) {
-        return {
-          kind: 'UNIT_CONFLICT',
-          title: `週記發布失敗：單位與歷史紀錄衝突（${instrument}）`,
-          body: '此標的歷史紀錄與本次送出的單位不一致。請於編輯頁使用「改單位…」批次校齊後再送審。',
-          link: '/admin/signals',
-        }
-      }
-      return {
-        kind: 'UNKNOWN',
-        title: `週記發布失敗（${instrument}）`,
-        body: `系統錯誤：${err?.message || '未知原因'}。請聯絡管理員或於編輯頁重試。`,
-        link: '/admin/signals',
-      }
-    }
+    // 將 DB 例外分類為可讀原因 + 修正路徑 → 抽出到 classifyPublishError.ts 以便單元測試
+
 
     const publishFailures: Array<{ signal_id: string; expert_id: string; kind: string; message: string }> = []
     const publishedIds: string[] = []
@@ -291,14 +260,15 @@ Deno.serve(withLogging('publish-weekly-journals', async (req) => {
         const mentor = expertMap.get(s.expert_id)
         if (mentor?.user_id) {
           try {
-            await supabaseAdmin.from('notifications').insert({
-              user_id: mentor.user_id,
-              title: info.title,
-              body: `${info.body}\n\n[Signal ID] ${s.id}`,
-              type: 'error',
-              link: info.link,
-            })
+            await supabaseAdmin.from('notifications').insert(
+              buildMentorFailureNotification({
+                mentorUserId: mentor.user_id,
+                signalId: s.id,
+                info,
+              }),
+            )
           } catch (nErr) {
+
             logErr('notify_mentor_failed', nErr, { signalId: s.id, expertId: s.expert_id })
           }
         }
