@@ -1,63 +1,111 @@
+
 ## 目標
-對全站進行**一次性**資料一致性審計，確認三個口徑完全一致：
 
-| 口徑 | 來源 |
-|------|------|
-| A. 交易帳本 | `trade_records`（open + closed，含 shares、entry/exit price） |
-| B. 已發布訊號流水 | `expert_signals` where `status='published'`（buy/add/trim/exit/sell） |
-| C. 週記匯出口徑 | `src/lib/journalsExport.ts` 的 `buyTotals` / `sellTotals` / row 明細（實際跑 `buildMentorMarkdown`） |
+在週記匯出（前台按鈕與 `weekly-journal-export` Edge Function 兩條路徑）**執行前**加一道守門檢查，若偵測到「單位不一致」或「方向不一致」等高風險資料，**先阻擋匯出**，把問題清單顯示給管理員；管理員檢視後可選擇修資料再匯出，或明確勾選「已確認、強制匯出」放行。
 
-彥愷 4576 事件證明這三者有機會漂移（trade_records 單位錯亂、pending trim 沒發布卻被誤讀），需要一次全量對帳把所有漂移抓出來、逐筆處理。
+## 風險規則（第一版）
 
-## 交付物
-1. **一次性審計腳本** `scripts/audit/holdings-consistency.ts`（Deno / tsx，直接連 DB read-only）
-   - 不改 schema、不寫任何資料
-   - 產出 `/mnt/documents/holdings-consistency-YYYYMMDD.md` 報表
-2. **報表區塊**（每位 expert × instrument 一列）
-   - `A_open_shares`：trade_records 未平倉股數（換算成股）
-   - `B_signal_net_shares`：expert_signals published 的 buy+add − sell−trim−exit（按 unit 換算成股）
-   - `C_export_buy` / `C_export_sell`：把該老師近 90 天 signals 丟進 `buildMentorMarkdown`，parse 出「本週總計」相同口徑
-   - `unit_mix`：該 instrument 是否同時出現「張」與「股」
-   - `pending_orphan`：`status='pending'` 但已超過 7 天未發布的訊號（彥愷案主兇）
-   - `status`：`OK` / `DRIFT_A_vs_B` / `DRIFT_B_vs_C` / `UNIT_MIX` / `ORPHAN_PENDING`
-3. **摘要**
-   - 全站 DRIFT 總數、按老師分組 top 10
-   - 明列所有非 OK 的 `(expert_slug, instrument, 差異股數, 建議動作)`
-4. **後續處置清單**
-   - DRIFT_A_vs_B → 需 SQL 修 trade_records 或補發訊號（人工判斷）
-   - UNIT_MIX → 標記需老師確認
-   - ORPHAN_PENDING → 提供一鍵刪除 SQL 清單（不自動執行）
+針對送入 `buildJournalExport` 的 `JournalRowExport[]`，以 `expert_id + instrument` 為單位分組計算：
 
-## 演算法要點
+| 代碼 | 名稱 | 判定 | 嚴重度 |
+|---|---|---|---|
+| `UNIT_MIX` | 單位混用 | 同一 (expert, instrument) 內出現 `quantity_unit` 同時包含 `lot(張)` 與 `share(股)` | block |
+| `UNIT_MISSING` | 單位缺失 | 台股/美股訊號 `quantity != null` 但 `quantity_unit` 為空 | block |
+| `DIRECTION_NO_ENTRY` | 只賣未買 | 該區間內 (expert, instrument) 只有 `sell/trim/exit`，完全沒有 `buy/add`，且該持倉在 `trade_records` 也查不到開倉紀錄 | block |
+| `DIRECTION_OVERSELL` | 賣超 | 匯出範圍內 `sell+trim+exit` 股數合計 > `buy+add` 股數合計 + `trade_records` 期初持倉 | block |
+| `QTY_INVALID` | 數量異常 | `quantity <= 0` 或 NaN，但 action 為交易類 | block |
+| `PENDING_IN_EXPORT` | 含未發布 | `publishedOnly=true` 卻仍出現 `status != 'published'` 的列（防禦性） | warn |
 
-```text
-換算：1 張 = 1000 股（僅台股，us_stock/crypto 一律以 shares 為主）
-A_open_shares  = Σ trade_records where status='open' → shares
-B_signal_net   = Σ (buy+add)·qty·unitFactor − Σ (sell+trim+exit)·qty·unitFactor
-                 只計 status='published'
-C_export       = 對該 expert 所有 published signals 執行 buildMentorMarkdown，
-                 再用同一個 parser 抓「總買進股數 / 總賣出股數」
-判定：
-  |A_open − (B_buy − B_sell)| > 0        → DRIFT_A_vs_B
-  |B_buy − C_export_buy| > 0             → DRIFT_B_vs_C   (代表匯出 logic 漏了某類 action)
-  該 instrument 同時出現張/股 unit        → UNIT_MIX
-  status='pending' AND created_at < now()-7d → ORPHAN_PENDING
+`warn` 不阻擋、只在對話框列出；`block` 除非管理員勾選強制放行，否則整批不匯出。
+
+## 實作範圍
+
+### 1. `src/lib/journalsExport.ts`（純函式，兩端共用）
+
+新增：
+
+```ts
+export type ExportRiskCode =
+  | 'UNIT_MIX' | 'UNIT_MISSING'
+  | 'DIRECTION_NO_ENTRY' | 'DIRECTION_OVERSELL'
+  | 'QTY_INVALID' | 'PENDING_IN_EXPORT';
+
+export interface ExportRiskIssue {
+  code: ExportRiskCode;
+  severity: 'block' | 'warn';
+  expert_id: string;
+  expert_name?: string | null;
+  instrument: string | null;
+  detail: string;              // 中文摘要，例：「賣出 1200 股 > 買進 1000 股」
+  rowIds: string[];            // 相關 expert_signals.id
+}
+
+export interface ExportRiskReport {
+  issues: ExportRiskIssue[];
+  blocked: boolean;            // = 任一 issue.severity === 'block'
+  summary: { block: number; warn: number };
+}
+
+export function detectExportRisks(
+  rows: JournalRowExport[],
+  ctx?: { openingBalances?: Map<string, number> /* key: expertId::instrument, unit=股 */ },
+): ExportRiskReport;
 ```
 
-## 不做的事
-- 不新增 UI、不新增 cron、不改 schema、不改業務邏輯
-- 不自動修資料，只產出報表 + 建議 SQL；每一筆 drift 需人工確認再處理
-- 不動 checkup 端持倉（本次僅針對分析師 expert 端）
+`openingBalances` 供 Edge Function 帶入 `trade_records` 期初股數；前端不傳時，`DIRECTION_NO_ENTRY / OVERSELL` 只以本批列為基準判定（會誤報開倉在更早的情況，因此在 UI 訊息中註明「未帶入歷史庫存」）。
 
-## 技術細節
-- 讀取層：`@supabase/supabase-js` service role（走本地 `PGHOST` psql 或 supabase read_query 皆可）
-- 單位換算集中在 `src/lib/journalsExport.ts` 現有 `normalizeUnit` / 換算表，審計腳本 import 同一份避免二次口徑
-- Parser 重用 `journals-export-weekly-totals` 系列 e2e 用的 regex，直接 import 抽出的 helper（若沒抽出，順手抽到 `src/lib/journalsExport.ts` export）
-- Cross-check 一律 dry-run，報表寫入 `/mnt/documents/`，方便下載
+單位換算採既有 `張=1000 股` 規則，缺 unit 者不計入方向合計、改由 `UNIT_MISSING` 呈現。
 
-## 執行流程
-1. 抽出 / 匯出 `parseWeeklyTotals` helper（若尚未 exported）
-2. 建立 `scripts/audit/holdings-consistency.ts`
-3. 執行一次，產出 markdown 報表
-4. 回報：全站 DRIFT 總覽 + 明細清單 + 每筆建議動作
-5. 由你確認哪些要修，再逐筆 supabase--insert / migration 處理（不在本次計畫內）
+### 2. `src/pages/company/JournalsExport.tsx`
+
+- `doExportMarkdown` 中，`buildJournalExport` 之前先呼叫 `detectExportRisks(scoped)`。
+- 若 `report.blocked === true`：**不呼叫 `buildJournalExport`、不下載**，開啟新元件 `<ExportRiskDialog>`（`components/ui/dialog`）：
+  - 上方紅色 banner「偵測到 N 項高風險資料，已阻擋匯出」
+  - 依老師分組列出 issues：`專家名 · 標的 · code 標籤 · 中文 detail · 相關 signal id`
+  - 底部三顆按鈕：`取消` / `複製清單`（JSON 到剪貼簿） / `我已確認、強制匯出`（需先勾 checkbox 才能點）
+  - 強制匯出走 `doExportMarkdown({ force: true })` 分支跳過守門。
+- 若只有 `warn`：直接匯出，但用 `toast.warning` 顯示「已匯出，另有 N 項提醒」並保留一個「檢視」連結重開 dialog。
+- 用 analytics `trackRaw('journal_export_risk_gate', { blocked, block, warn })`。
+
+### 3. `supabase/functions/weekly-journal-export/index.ts`
+
+作為伺服器端最後防線（前端可能被繞過）：
+
+- 抓完 `list` 後、進 `byMentor` 迴圈前，同樣呼叫共用 `detectExportRisks`（把純函式複製或 `import` 到 function 目錄——依既有慣例；此專案 Edge Function 通常內聯，維持一致）。
+- 撈 `trade_records` 的期初持倉塞入 `openingBalances`，讓 `DIRECTION_*` 判斷更準。
+- 若 `blocked` 且 body 未帶 `force: true`：回 `409 { code: 'EXPORT_BLOCKED', issues, summary }`，**不生檔**。
+- 若 body 帶 `force: true` 且呼叫者為管理員：照舊產出，並在回應多帶 `risk_report` 供稽核。
+- 寫一筆 `console.warn('[weekly-journal-export] blocked', ...)` 便於日誌追蹤。
+
+### 4. Harness + E2E
+
+- `src/pages/JournalsExportHarnessEntry.tsx` 追加「彥愷 4576 賣超情境」「單位混用情境」兩個 fixture 按鈕，直接餵給頁面 flow，用來驗證 dialog 出現且不下載檔案。
+- 新增 `e2e/journals-export-risk-gate.spec.ts`：
+  - 案例 1：UNIT_MIX 觸發 → 斷言 dialog 出現、無下載事件、未勾 checkbox 時強制匯出鈕 disabled。
+  - 案例 2：勾 checkbox 後點強制匯出 → 產生 `.md` 下載、`journal_export_risk_gate` 事件 payload 含 `force: true`。
+  - 案例 3：只含 `warn` → 直接下載但 toast 出現「另有提醒」。
+- 註冊為新的 Playwright project `desktop-journals-export-risk-gate`。
+
+### 5. 不動的事
+
+- 不改資料表結構、不改既有 signal 提交流程（單位鎖定另案處理）。
+- 不改 `buildMentorMarkdown` 輸出格式。
+- 不對 `trade_records` 做任何修補；守門只是唯讀檢查。
+
+## 檔案清單
+
+- 修改：`src/lib/journalsExport.ts`
+- 修改：`src/pages/company/JournalsExport.tsx`
+- 新增：`src/components/company/ExportRiskDialog.tsx`
+- 修改：`supabase/functions/weekly-journal-export/index.ts`
+- 修改：`src/pages/JournalsExportHarnessEntry.tsx`
+- 新增：`e2e/journals-export-risk-gate.spec.ts`
+- 修改：`playwright.config.ts`（加 project）
+
+## 驗收
+
+1. 用彥愷 4576 fixture 走前台匯出 → 應被擋、dialog 列出 `UNIT_MIX` 與 `DIRECTION_*`（若有）。
+2. 呼叫 `weekly-journal-export`（無 `force`）→ 回 409、無檔案產生。
+3. `force: true` 再呼叫 → 產出檔且回應含 `risk_report`。
+4. 乾淨資料（如 benny 空持倉）匯出流程完全不變。
+5. 新 Playwright project 全綠。
