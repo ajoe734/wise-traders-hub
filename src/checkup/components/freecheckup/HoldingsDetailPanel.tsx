@@ -932,10 +932,14 @@ function PriceAxis({ WB, price, cost, target, baseTarget, upside, tpHistory }) {
 // ──────────────────── §4.6 30D 走勢帶 ────────────────────
 
 function RangeBand({ WB, price, low, high, spark }) {
-  const posPrice = ((price - low) / (high - low)) * 100;
-  const clampedPos = Math.min(Math.max(posPrice, 0), 100);
   const svgH = 40; // 顯示高度（px）
-  const dotY = svgH - ((price - low) / (high - low)) * svgH;
+  const range = high - low;
+  const hasSpark = spark && spark.length >= 2 && range > 0;
+  // 紅點 = 時間軸末端「現在」，x 固定貼齊折線最右端；y 用 spark 末值（fallback price）換算，
+  // 確保與 polyline 尾點完全重合，不因價格軸換算飄離。
+  const lastV = hasSpark ? Number(spark[spark.length - 1]) : Number(price);
+  const rawY = range > 0 ? svgH - ((lastV - low) / range) * svgH : svgH / 2;
+  const dotY = Math.min(Math.max(rawY, 0), svgH);
   return (
     <div data-testid="holdings-range-band" style={{ margin: '0 0 20px', minWidth: 0 }}>
       <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: 6 }}>
@@ -944,7 +948,7 @@ function RangeBand({ WB, price, low, high, spark }) {
           低 {low.toFixed(2)}<span style={{ margin: '0 6px', color: WB.inkLight }}>—</span>高 {high.toFixed(2)}
         </span>
       </div>
-      {spark && spark.length >= 2 && (
+      {hasSpark && (
         <div style={{ position: 'relative', width: '100%', height: svgH }}>
           {/* preserveAspectRatio="none" SVG 只放 stroke polyline；圓點禁止進 SVG（會被壓成橢圓） */}
           <svg viewBox="0 0 100 30" preserveAspectRatio="none"
@@ -956,19 +960,19 @@ function RangeBand({ WB, price, low, high, spark }) {
                 return `${x.toFixed(2)},${yy.toFixed(2)}`;
               }).join(' ')} />
           </svg>
-          {/* HTML overlay：現價圓點（真實 px 正圓） */}
+          {/* HTML overlay：現價圓點（真實 px 正圓）— 固定貼齊時間軸末端 */}
           <span
             data-testid="holdings-range-band-dot"
             aria-hidden="true"
             style={{
               position: 'absolute',
-              left: `${clampedPos}%`,
+              left: '100%',
               top: dotY,
               width: 6,
               height: 6,
               borderRadius: '50%',
               background: WB.accent,
-              transform: 'translate(-50%, -50%)',
+              transform: 'translate(-100%, -50%)',
               pointerEvents: 'none',
             }}
           />
