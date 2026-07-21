@@ -62,6 +62,7 @@ export function SignalCreateDialog({
   const [, setLastPublishedId] = useState<string | null>(null);
   const [lockedUnit, setLockedUnit] = useState<QuantityUnit | null>(null);
   const [lockedUnitSource, setLockedUnitSource] = useState<'signal' | 'trade' | null>(null);
+  const [realignPreview, setRealignPreview] = useState<{ toUnit: QuantityUnit } | null>(null);
   const fetchTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
   const unitLookupTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
   const uppercaseHintTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
