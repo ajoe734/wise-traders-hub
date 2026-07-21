@@ -59,6 +59,22 @@ function describe(log: AuditLog): string {
   if (ctx.payer_name) bits.push(`付款人：${ctx.payer_name}`);
   if (ctx.amount) bits.push(`金額：NT$${Number(ctx.amount).toLocaleString()}`);
   if (ctx.reason) bits.push(`原因：${ctx.reason}`);
+
+  // DB trigger 自動稽核（trade_records / expert_signals）
+  if (log.action.startsWith('trade_records.') || log.action.startsWith('expert_signals.')) {
+    const snap = log.detail?.after || log.detail?.before || {};
+    const via = log.detail?.via;
+    if (snap.symbol) bits.push(`標的：${snap.symbol}`);
+    if (snap.instrument) bits.push(`標的：${snap.instrument}`);
+    if (snap.action) bits.push(`動作：${snap.action}`);
+    if (snap.quantity != null) bits.push(`數量：${snap.quantity}${snap.quantity_unit ?? ''}`);
+    if (snap.status) bits.push(`狀態：${snap.status}`);
+    if (Array.isArray(log.detail?.changed) && log.detail.changed.length) {
+      bits.push(`變更欄位：${log.detail.changed.join(', ')}`);
+    }
+    if (via) bits.push(`來源：${via}`);
+  }
+
   return bits.length > 0 ? `${base}　${bits.join('・')}` : base;
 }
 
