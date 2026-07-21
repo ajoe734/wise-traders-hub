@@ -10,9 +10,16 @@ import { htmlToPlainText } from '@/lib/sanitizeHtml';
 import type { TradeAction } from '@/lib/simulatePositions';
 import type { TradeDraft, CapitalStatus, AIAssistFn } from './types';
 import {
-  normalizeCurrency, symbolPlaceholder, allowedQuantityUnits,
+  normalizeCurrency,
   type Currency,
 } from '@/lib/currency';
+import {
+  getAssetSpec,
+  normalizeAssetClass,
+  sanitizeAssetQuantityUnit,
+  type AssetClass,
+  type QuantityUnit,
+} from '@/lib/asset';
 
 interface Props {
   idx: number;
@@ -24,6 +31,8 @@ interface Props {
   expertId?: string;
   /** 從 expert.currency 帶下來；預設 TWD */
   currency?: Currency;
+  /** 從 expert.asset_class 帶下來；優先於 currency，用於單位與代碼規格 */
+  assetClass?: AssetClass | string | null;
   /** mentor 才會看到「觀察 hold」選項 */
   allowHold?: boolean;
   updateTrade: (idx: number, patch: Partial<TradeDraft>) => void;
@@ -35,13 +44,16 @@ interface Props {
 
 export function TradeCard({
   idx, trade: t, totalTrades, signalTemplates, capital, cashSim,
-  expertId, currency: currencyProp, allowHold,
+  expertId, currency: currencyProp, assetClass: assetClassProp, allowHold,
   updateTrade, removeTrade, moveTrade, fetchStockInfo, callAIAssist,
 }: Props) {
   const currency: Currency = normalizeCurrency(currencyProp);
-  const units = allowedQuantityUnits(currency);
-  const isUsd = currency === 'USD';
+  const assetClass = assetClassProp ? normalizeAssetClass(assetClassProp) : (currency === 'USD' ? 'us_stock' : 'tw_stock');
+  const spec = getAssetSpec(assetClass);
+  const units = spec.units;
+  const isUsd = spec.currency === 'USD';
   const isHold = t.action === 'hold';
+  const safeUnit = sanitizeAssetQuantityUnit(t.quantityUnit, assetClass);
   return (
     <Card>
       <CardContent className="p-4 space-y-4">
@@ -78,9 +90,9 @@ export function TradeCard({
                 // 一律 uppercase：TW 純數字為 no-op；ETF 字尾（L/R/B）需大寫；US 需大寫
                 const v = raw.toUpperCase();
                 updateTrade(idx, { stockCode: v });
-                if (v.trim().length >= (isUsd ? 1 : 4)) fetchStockInfo(idx, v);
+                if (v.trim().length >= spec.minSymbolLen) fetchStockInfo(idx, v);
               }}
-              placeholder={symbolPlaceholder(currency)}
+              placeholder={spec.symbolPlaceholder}
             />
           </div>
           <div className="space-y-1.5">
@@ -117,7 +129,7 @@ export function TradeCard({
                     const remainingBefore =
                       cashSim.perTrade[idx] ?? (capital.available_cash || 0);
                     const maxShares = Math.max(0, Math.floor(remainingBefore / price));
-                    updateTrade(idx, { quantity: String(maxShares), quantityUnit: '股' });
+                    updateTrade(idx, { quantity: String(maxShares), quantityUnit: spec.defaultUnit });
                   }}
                 >最大可買</button>
               )}
@@ -132,8 +144,8 @@ export function TradeCard({
                 placeholder={isHold ? '可不填' : ''}
               />
               <Select
-                value={units.includes(t.quantityUnit) ? t.quantityUnit : units[0]}
-                onValueChange={(v) => updateTrade(idx, { quantityUnit: v as '張' | '股' })}
+                value={safeUnit}
+                onValueChange={(v) => updateTrade(idx, { quantityUnit: v as QuantityUnit })}
                 disabled={units.length === 1}
               >
                 <SelectTrigger className="w-20"><SelectValue /></SelectTrigger>
