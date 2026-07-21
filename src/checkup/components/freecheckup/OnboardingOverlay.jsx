@@ -46,18 +46,18 @@ export default function OnboardingOverlay({ C, onStartLine, onStartDemo }) {
     >
       <div style={{
         width: '100%', maxWidth: 560,
-        background: C?.bg || '#fff',
-        border: `1px solid ${C?.text || '#0A0A0A'}`,
+        background: C?.bg,
+        border: `1px solid ${C?.text}`,
         padding: '32px 30px 26px',
       }}>
         <div style={{
           fontFamily: "'Noto Serif TC', ui-serif, Georgia, serif",
           fontSize: 'clamp(20px, 4vw, 24px)', fontWeight: 600,
-          color: C?.text || '#0A0A0A', lineHeight: 1.4, marginBottom: 6,
+          color: C?.text, lineHeight: 1.4, marginBottom: 6,
         }}>
           三步，把持倉變成每天的決策書
         </div>
-        <div style={{ fontSize: 12, color: C?.textMute || '#9B968D', letterSpacing: '0.06em', marginBottom: 20 }}>
+        <div style={{ fontSize: 12, color: C?.textMute, letterSpacing: '0.06em', marginBottom: 20 }}>
           Legendflow · Holding Checkup
         </div>
 
@@ -65,7 +65,7 @@ export default function OnboardingOverlay({ C, onStartLine, onStartDemo }) {
           {steps.map(s => (
             <div key={s.n} style={{
               display: 'grid', gridTemplateColumns: '56px 1fr', gap: 14,
-              paddingBottom: 12, borderBottom: `1px solid ${C?.border || '#ECEAE5'}`,
+              paddingBottom: 12, borderBottom: `1px solid ${C?.border}`,
             }}>
               <div style={{
                 fontFamily: 'var(--cm-font-serif)',
@@ -73,8 +73,8 @@ export default function OnboardingOverlay({ C, onStartLine, onStartDemo }) {
                 fontVariantNumeric: 'tabular-nums',
               }}>{s.n}</div>
               <div>
-                <div style={{ fontSize: 15, fontWeight: 600, color: C?.text || '#0A0A0A', marginBottom: 2 }}>{s.k}</div>
-                <div style={{ fontSize: 12, color: C?.textSec || '#6B6862', lineHeight: 1.6 }}>{s.d}</div>
+                <div style={{ fontSize: 15, fontWeight: 600, color: C?.text, marginBottom: 2 }}>{s.k}</div>
+                <div style={{ fontSize: 12, color: C?.textSec, lineHeight: 1.6 }}>{s.d}</div>
               </div>
             </div>
           ))}
@@ -87,7 +87,7 @@ export default function OnboardingOverlay({ C, onStartLine, onStartDemo }) {
             data-testid="onboarding-line-start"
             style={{
               flex: '1 1 200px', padding: '11px 16px',
-              background: C?.text || '#0A0A0A', color: C?.bg || '#fff',
+              background: C?.text, color: C?.bg,
               border: 'none', cursor: 'pointer',
               fontSize: 13, fontWeight: 500, letterSpacing: '0.04em',
             }}
@@ -98,8 +98,8 @@ export default function OnboardingOverlay({ C, onStartLine, onStartDemo }) {
             data-testid="onboarding-demo-start"
             style={{
               flex: '1 1 160px', padding: '11px 16px',
-              background: 'transparent', color: C?.text || '#0A0A0A',
-              border: `1px solid ${C?.border || '#ECEAE5'}`, cursor: 'pointer',
+              background: 'transparent', color: C?.text,
+              border: `1px solid ${C?.border}`, cursor: 'pointer',
               fontSize: 13, fontWeight: 500, letterSpacing: '0.04em',
             }}
           >先看示範資料</button>
@@ -110,7 +110,7 @@ export default function OnboardingOverlay({ C, onStartLine, onStartDemo }) {
           onClick={() => close()}
           style={{
             marginTop: 16, background: 'transparent', border: 'none',
-            color: C?.textMute || '#9B968D', fontSize: 11, cursor: 'pointer',
+            color: C?.textMute, fontSize: 11, cursor: 'pointer',
             padding: 0, letterSpacing: '0.04em',
           }}
         >稍後 ×</button>

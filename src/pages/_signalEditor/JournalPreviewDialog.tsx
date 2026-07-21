@@ -9,11 +9,14 @@ import { format, startOfWeek, addDays } from 'date-fns';
 import { zhTW } from 'date-fns/locale';
 import type { TradeDraft } from '@/pages/_signalEditor/types';
 import { sanitizeRichHtml, isHtmlEmpty } from '@/lib/sanitizeHtml';
+import { resolveAssetClass, sanitizeAssetQuantityUnit } from '@/lib/asset';
 
 interface Props {
   open: boolean;
   onOpenChange: (v: boolean) => void;
-  expert: { name?: string; role?: string; avatar_url?: string | null } | null;
+  expert:
+    | { name?: string; role?: string; avatar_url?: string | null; asset_class?: string | null; currency?: string | null }
+    | null;
   isTeachingOnly: boolean;
   teachingTopic: string;
   overallSummary: string;
@@ -32,6 +35,7 @@ export function JournalPreviewDialog({
   const now = new Date();
   const ws = startOfWeek(now, { weekStartsOn: 1 });
   const we = addDays(ws, 4);
+  const assetClass = resolveAssetClass(expert);
 
   const displayTrades = isTeachingOnly ? [] : trades.filter(t => t.stockCode || t.stockName || t.action);
 
@@ -125,7 +129,7 @@ export function JournalPreviewDialog({
                                   <span className="text-xs text-foreground/80 font-medium">
                                     {price && <>價 {price}</>}
                                     {price && qty && <span className="mx-1 text-muted-foreground">·</span>}
-                                    {qty && <>{qty} {t.quantityUnit || '張'}</>}
+                                {qty && <>{qty} {sanitizeAssetQuantityUnit(t.quantityUnit, assetClass)}</>}
                                   </span>
                                 )}
                               </div>
