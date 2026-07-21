@@ -3,9 +3,9 @@
  * a mentor-facing notification payload (title / body / link) plus a stable
  * `kind` used for aggregate logging.
  *
- * This module is imported by `index.ts` at runtime AND by
- * `index_test.ts` for unit tests — keeps the contract single-sourced so the
- * partial-failure notification payload cannot silently drift.
+ * Imported by `index.ts` at runtime AND by `index_test.ts` for unit tests —
+ * keeps the contract single-sourced so the partial-failure notification
+ * payload cannot silently drift.
  */
 export type PublishErrorKind =
   | 'CAPITAL_EXCEEDED'
@@ -69,18 +69,12 @@ export function buildMentorFailureNotification(params: {
   mentorUserId: string;
   signalId: string;
   info: PublishErrorInfo;
-}): {
-  user_id: string;
-  title: string;
-  body: string;
-  type: 'error';
-  link: string;
-} {
+}) {
   return {
     user_id: params.mentorUserId,
     title: params.info.title,
     body: `${params.info.body}\n\n[Signal ID] ${params.signalId}`,
-    type: 'error',
+    type: 'error' as const,
     link: params.info.link,
   };
 }
