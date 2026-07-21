@@ -5155,6 +5155,14 @@ export type Database = {
           recycled_ids: number[]
         }[]
       }
+      realign_instrument_unit: {
+        Args: {
+          p_expert_id: string
+          p_new_unit: string
+          p_symbol_prefix: string
+        }
+        Returns: Json
+      }
       reconcile_line_free_quota: { Args: { _user_id: string }; Returns: Json }
       record_bsr_api_call: {
         Args: { _api?: string; _rate_limited?: boolean; _success?: boolean }
