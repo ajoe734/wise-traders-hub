@@ -257,7 +257,7 @@ const fetchJournalBundle = async (signalId: string, forceOwner: boolean) => {
 
   const { data, error } = await supabase
     .from('expert_signals')
-    .select('id, instrument, action, price_hint, quantity, quantity_unit, reason_summary, reason_detail, risk_notes, learning_points, published_at, expert_id, experts(name, slug, role, avatar_url, currency)')
+    .select('id, instrument, action, price_hint, quantity, quantity_unit, reason_summary, reason_detail, risk_notes, learning_points, published_at, expert_id, experts(name, slug, role, avatar_url, currency, asset_class)')
     .eq('id', signalId)
     .maybeSingle();
 
@@ -307,7 +307,7 @@ const fetchJournalBundle = async (signalId: string, forceOwner: boolean) => {
 
   const { data: weekData } = await supabase
     .from('expert_signals')
-    .select('id, instrument, action, price_hint, quantity, quantity_unit, reason_summary, reason_detail, risk_notes, learning_points, published_at, expert_id, experts(name, slug, role, avatar_url, currency)')
+    .select('id, instrument, action, price_hint, quantity, quantity_unit, reason_summary, reason_detail, risk_notes, learning_points, published_at, expert_id, experts(name, slug, role, avatar_url, currency, asset_class)')
     .eq('expert_id', s.expert_id)
     .eq('status', 'published')
     .gte('published_at', ws.toISOString())

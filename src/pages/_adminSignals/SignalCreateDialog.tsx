@@ -518,7 +518,7 @@ export function SignalCreateDialog({
                 />
                 <Select
                   value={quantityUnit}
-                  onValueChange={(v) => setQuantityUnit(v as '張' | '股' | '顆')}
+                  onValueChange={(v) => setQuantityUnit(v as '張' | '股' | '顆' | '口')}
                   disabled={spec.units.length === 1 || !!lockedUnit}
                 >
                   <SelectTrigger

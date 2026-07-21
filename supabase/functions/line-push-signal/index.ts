@@ -95,7 +95,8 @@ function buildFlexMessage(rawSignal: any, type: 'publish' | 'takedown' | 'update
   const isBullish = ['buy', 'add'].includes(signal.action)
   const color = isUpdate ? '#FF8C00' : (isBullish ? '#00B900' : '#DC3545')
 
-  const qtyLabel = signal.quantity ? `(${signal.quantity}${signal.quantity_unit || '張'})` : ''
+  // BUG-FIX: 拿掉 '張' 硬編 fallback（us_stock/期貨會錯）
+  const qtyLabel = signal.quantity ? `(${signal.quantity}${signal.quantity_unit || ''})` : ''
   const headerLine = isUpdate ? `🔄 訊號更新通知\n【${label} ${signal.instrument}】` : `【${label} ${signal.instrument}】`
   const copyLines: string[] = [headerLine]
   if (signal.price_hint) copyLines.push(`參考價位：${signal.price_hint}${qtyLabel}`)
@@ -132,7 +133,7 @@ function buildFlexMessage(rawSignal: any, type: 'publish' | 'takedown' | 'update
   })
 
   if (signal.price_hint) {
-    const qtyText = signal.quantity ? `(${signal.quantity}${signal.quantity_unit || '張'})` : ''
+    const qtyText = signal.quantity ? `(${signal.quantity}${signal.quantity_unit || ''})` : ''
     bodyContents.push({
       type: 'text',
       text: `參考價位：${signal.price_hint}${qtyText}`,

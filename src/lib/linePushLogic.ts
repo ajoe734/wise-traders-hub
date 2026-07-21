@@ -126,8 +126,9 @@ export function buildFlexMessage(
   const isBullish = ['buy', 'add'].includes(signal.action);
   const color = isBullish ? '#00B900' : '#DC3545';
 
+  // BUG-FIX: 移除 '張' 硬編 fallback — us_stock/期貨會誤顯示。
   const qtyLabel = signal.quantity
-    ? `(${signal.quantity}${signal.quantity_unit || '張'})`
+    ? `(${signal.quantity}${signal.quantity_unit || ''})`
     : '';
 
   const bodyContents: object[] = [
@@ -142,7 +143,7 @@ export function buildFlexMessage(
 
   if (signal.price_hint) {
     const qtyText = signal.quantity
-      ? `(${signal.quantity}${signal.quantity_unit || '張'})`
+      ? `(${signal.quantity}${signal.quantity_unit || ''})`
       : '';
     bodyContents.push({
       type: 'text',

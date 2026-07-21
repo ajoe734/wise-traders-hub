@@ -287,9 +287,12 @@ const sectionTitle = (t: string) => `
 
 const signalBlockHtml = (s: Signal) => {
   const meta = actionMeta(s.action);
+  // BUG-FIX: 不再硬編 '張' fallback — 對 us_stock/futures 會顯示錯單位。
+  // 若上游未給 quantity_unit，顯示純數字（下游可從 asset_class 推導後補回）。
+  const qtyLabel = s.quantity_unit ? ` ${s.quantity_unit}` : '';
   const priceQty = [
     s.price_hint != null ? `價 ${s.price_hint}` : null,
-    s.quantity != null ? `${s.quantity} ${s.quantity_unit || '張'}` : null,
+    s.quantity != null ? `${s.quantity}${qtyLabel}` : null,
   ]
     .filter(Boolean)
     .join(' · ');
@@ -339,7 +342,9 @@ const buildTradeDetailBodyHtml = (signals: Signal[]): string => {
       const meta = actionMeta(s.action);
       const price = s.price_hint != null ? String(s.price_hint) : '—';
       const qty =
-        s.quantity != null ? `${s.quantity} ${s.quantity_unit || '張'}` : '—';
+        s.quantity != null
+          ? `${s.quantity}${s.quantity_unit ? ` ${s.quantity_unit}` : ''}`
+          : '—';
       return `
         <tr>
           <td style="padding:12px 8px; border-bottom:1px solid ${COLORS.line}; font-size:11px; color:${COLORS.gray}; letter-spacing:0.05em; white-space:nowrap;">${format(new Date(s.published_at), 'yyyy / MM / dd')}</td>
