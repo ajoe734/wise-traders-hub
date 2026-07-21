@@ -51,8 +51,9 @@ export function AccountCredentialsDialog({ account }: { account: Account }) {
 
           <TabsContent value="email" className="space-y-4 mt-4">
             <div className="space-y-2">
-              <Label>新 Email</Label>
+              <Label htmlFor="analyst-account-new-email">新 Email</Label>
               <Input
+                id="analyst-account-new-email"
                 type="email"
                 value={acctNewEmail}
                 onChange={(e) => setAcctNewEmail(e.target.value)}
@@ -71,8 +72,9 @@ export function AccountCredentialsDialog({ account }: { account: Account }) {
 
           <TabsContent value="password" className="space-y-4 mt-4">
             <div className="space-y-2">
-              <Label>新密碼</Label>
+              <Label htmlFor="analyst-account-new-password">新密碼</Label>
               <Input
+                id="analyst-account-new-password"
                 type="password"
                 value={acctNewPassword}
                 onChange={(e) => setAcctNewPassword(e.target.value)}
@@ -80,8 +82,9 @@ export function AccountCredentialsDialog({ account }: { account: Account }) {
               />
             </div>
             <div className="space-y-2">
-              <Label>確認新密碼</Label>
+              <Label htmlFor="analyst-account-confirm-password">確認新密碼</Label>
               <Input
+                id="analyst-account-confirm-password"
                 type="password"
                 value={acctConfirmPassword}
                 onChange={(e) => setAcctConfirmPassword(e.target.value)}
