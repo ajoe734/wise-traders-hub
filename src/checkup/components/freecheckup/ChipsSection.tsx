@@ -376,6 +376,12 @@ export default function ChipsSection({ WB, stockCode }: { WB: any; stockCode: st
                 ? 'FinMind API 呼叫失敗（rate limit 或暫時性錯誤），下輪自動重試'
                 : data.bsr_last_failure.reason === 'http_block'
                 ? '上游暫時封鎖請求'
+                : data.bsr_last_failure.reason === 'no_chip_data'
+                ? 'FinMind 尚無此代號分點（多為新上市或非常規個股）'
+                : data.bsr_last_failure.reason === 'not_chip_eligible'
+                ? 'ETF／權證／受益憑證無分點資料'
+                : data.bsr_last_failure.reason === 'rate_limited'
+                ? 'API 額度已用完，將於下輪自動重試'
                 : data.bsr_last_failure.reason === 'empty_rows'
                 ? '當日無成交或上游回空'
                 : data.bsr_last_failure.reason}
