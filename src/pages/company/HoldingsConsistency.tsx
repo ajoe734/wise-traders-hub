@@ -301,6 +301,8 @@ export default function HoldingsConsistency() {
       <div className="text-xs text-slate-400">
         說明：TW 1 張 = 1000 股。所有數據皆為即時 read-only 掃描，不會變更任何資料。
       </div>
+      </>
+      )}
     </div>
   );
 }
