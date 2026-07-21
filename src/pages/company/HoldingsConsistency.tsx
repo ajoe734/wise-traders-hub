@@ -71,6 +71,7 @@ function formatValue(k: string, v: any): string {
 }
 
 export default function HoldingsConsistency() {
+  const [view, setView] = useState<'scan' | 'proposals'>('scan');
   const [loading, setLoading] = useState(true);
   const [rows, setRows] = useState<Row[]>([]);
   const [error, setError] = useState<string | null>(null);
