@@ -530,28 +530,11 @@ export function SignalCreateDialog({
                   {spec.units.length > 1 && (
                     <Select
                       value=""
-                      onValueChange={async (nextUnit) => {
+                      onValueChange={(nextUnit) => {
                         if (!nextUnit || nextUnit === lockedUnit) return;
                         const trimmed = stockCode.trim();
                         if (!trimmed || !expert?.id) return;
-                        const ok = window.confirm(
-                          `將此代碼「${trimmed}」的所有既有訊號與持倉單位一併改為「${nextUnit}」？\n\n注意：僅換單位標籤，不會改動數量數值。`,
-                        );
-                        if (!ok) return;
-                        try {
-                          const { data, error } = await supabase.rpc('realign_instrument_unit', {
-                            p_expert_id: expert.id,
-                            p_symbol_prefix: trimmed,
-                            p_new_unit: nextUnit,
-                          });
-                          if (error) { toast.error(`調整單位失敗：${error.message}`); return; }
-                          const d = (data as any) || {};
-                          toast.success(`已改為「${nextUnit}」（訊號 ${d.signals_updated ?? 0} 筆、持倉 ${d.trades_updated ?? 0} 筆）`);
-                          setLockedUnit(nextUnit as QuantityUnit);
-                          setQuantityUnit(nextUnit as QuantityUnit);
-                        } catch (e: any) {
-                          toast.error(`調整單位失敗：${e?.message || e}`);
-                        }
+                        setRealignPreview({ toUnit: nextUnit as QuantityUnit });
                       }}
                     >
                       <SelectTrigger className="h-6 w-[110px] text-[11px]" data-testid="unit-realign-select">
@@ -568,6 +551,36 @@ export function SignalCreateDialog({
               )}
             </div>
           )}
+
+          {realignPreview && expert?.id && (
+            <UnitRealignPreviewDialog
+              open={!!realignPreview}
+              onClose={() => setRealignPreview(null)}
+              expertId={expert.id}
+              symbolPrefix={stockCode.trim()}
+              fromUnit={lockedUnit || ''}
+              toUnit={realignPreview.toUnit}
+              onConfirm={async () => {
+                const nextUnit = realignPreview.toUnit;
+                try {
+                  const { data, error } = await supabase.rpc('realign_instrument_unit', {
+                    p_expert_id: expert.id,
+                    p_symbol_prefix: stockCode.trim(),
+                    p_new_unit: nextUnit,
+                  });
+                  if (error) { toast.error(`調整單位失敗：${error.message}`); return; }
+                  const d = (data as any) || {};
+                  toast.success(`已改為「${nextUnit}」（訊號 ${d.signals_updated ?? 0} 筆、持倉 ${d.trades_updated ?? 0} 筆）`);
+                  setLockedUnit(nextUnit);
+                  setQuantityUnit(nextUnit);
+                  setRealignPreview(null);
+                } catch (e: any) {
+                  toast.error(`調整單位失敗：${e?.message || e}`);
+                }
+              }}
+            />
+          )}
+
 
           <div className="space-y-2">
             <Label>為什麼這樣操作？</Label>
