@@ -522,7 +522,7 @@ function HoldingsDetailPanelImpl({
           className="holdings-detail-decision"
           data-testid="decision-stamp"
           style={{
-            margin: '16px 0 18px',
+            margin: '0 0 20px',
             padding: '10px 0',
             borderTop: `1px solid ${WB.ink}`, borderBottom: `1px solid ${WB.ink}`,
             display: 'flex', alignItems: 'baseline', justifyContent: 'space-between', gap: 12,
