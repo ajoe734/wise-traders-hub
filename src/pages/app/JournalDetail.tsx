@@ -98,7 +98,7 @@ const TradeItem = ({ signal, nameMap, showDebug }: { signal: SignalDetail; nameM
   const [expanded, setExpanded] = useState(isTeaching || hasDetails);
   const cur: Currency = normalizeCurrency(signal.currency ?? signal.experts?.currency);
   const sym = CURRENCY_SYMBOL[cur];
-  const unit = signal.quantity_unit || defaultQuantityUnit(cur);
+  const unit = sanitizeQuantityUnit(signal.quantity_unit, cur);
   const showTrade = !isTeaching && (signal.price_hint != null || signal.quantity != null);
   const total = !isTeaching && signal.price_hint != null && signal.quantity != null
     ? Number(signal.price_hint) * Number(signal.quantity)
