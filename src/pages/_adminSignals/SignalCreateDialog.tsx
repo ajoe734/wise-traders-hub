@@ -339,7 +339,25 @@ export function SignalCreateDialog({
       }
     }
 
-    toast.success(isMentor ? '週記已儲存，將於本週五 20:00 統一發布' : '訊號已發布');
+    // 檢查 trigger 是否因既有 trade_record 而安全跳過
+    try {
+      const { data: skipLog } = await supabase
+        .from('function_run_logs')
+        .select('id, msg, payload')
+        .eq('fn', 'handle_signal_trade')
+        .eq('stage', 'skipped_existing_trade')
+        .eq('signal_id', (inserted as any).id)
+        .gte('created_at', new Date(Date.now() - 8000).toISOString())
+        .limit(1)
+        .maybeSingle();
+      if (skipLog) {
+        toast.info('偵測到既有 trade_record，本次觸發已被系統安全略過（防重複），未新增持倉列。', { duration: 7000 });
+      } else {
+        toast.success(isMentor ? '週記已儲存，將於本週五 20:00 統一發布' : '訊號已發布');
+      }
+    } catch {
+      toast.success(isMentor ? '週記已儲存，將於本週五 20:00 統一發布' : '訊號已發布');
+    }
     setIsCreateOpen(false);
     clearForm();
 
