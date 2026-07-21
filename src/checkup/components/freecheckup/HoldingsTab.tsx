@@ -50,7 +50,7 @@ const HOLDINGS_TAB_PROP_SCHEMA = {
   totalVal: _opt('any'), totalCost: _opt('any'), H: _opt('any'),
   winnersCount: _opt('any'), exitListCount: _opt('any'), reviewListCount: _opt('any'),
   MAX_HOLDINGS: _opt('any'), rtConnected: _opt('any'), lastUpdate: _opt('any'),
-  refreshing: _opt('any'), onRefreshPrices: _opt('any'),
+  refreshing: _opt('any'), onRefreshPrices: _opt('any'), refreshError: _opt('any'),
 
   uploadSummary: _opt('any'), setUploadSummary: _opt('any'),
   batchState: _opt('any'), cancelBatch: _opt('any'),
@@ -97,7 +97,7 @@ function HoldingsTab(props) {
     // quota / hero
     quota, tier, tierLabel, formatResetCountdown,
     totalVal, totalCost, H, winnersCount, exitListCount, reviewListCount,
-    MAX_HOLDINGS, rtConnected, lastUpdate, refreshing, onRefreshPrices,
+    MAX_HOLDINGS, rtConnected, lastUpdate, refreshing, onRefreshPrices, refreshError,
 
     // upload summary
     uploadSummary, setUploadSummary,
@@ -265,6 +265,7 @@ function HoldingsTab(props) {
         lastUpdate={lastUpdate}
         refreshing={refreshing}
         onRefreshPrices={onRefreshPrices}
+        refreshError={refreshError || undefined}
         isDemo={isDemo}
         WB={WB}
         wbTone={wbTone}

@@ -20,6 +20,7 @@ const SCHEMA = {
   lastUpdate: { type: 'object', optional: true },
   refreshing: { type: 'boolean', optional: true },
   onRefreshPrices: { type: 'function', optional: true },
+  refreshError: { type: 'string', optional: true },
   isDemo: 'boolean',
   WB: 'object',
   wbTone: 'function',
@@ -41,8 +42,9 @@ function HoldingsHeroImpl(props) {
   const {
     totalVal, totalCost, holdingsCount,
     rtConnected, lastUpdate, isDemo,
-    refreshing, onRefreshPrices,
+    refreshing, onRefreshPrices, refreshError,
   } = props;
+  const hasError = !refreshing && !!refreshError;
 
   const totalPnl = totalVal - totalCost;
   const totalPct = totalCost > 0 ? ((totalPnl / totalCost) * 100) : 0;
@@ -153,16 +155,33 @@ function HoldingsHeroImpl(props) {
             className="cm-label cm-num"
             data-testid="holdings-hero-updated-at"
             style={{
-              color: isStale ? 'var(--cm-loss)' : 'var(--cm-ink-mute)',
+              color: hasError ? 'var(--cm-loss)' : (isStale ? 'var(--cm-loss)' : 'var(--cm-ink-mute)'),
               letterSpacing: '0.10em',
               display: 'inline-flex',
               alignItems: 'center',
               gap: 8,
+              flexWrap: 'wrap',
+              justifyContent: 'flex-end',
             }}
           >
             {refreshing ? (
               <span data-testid="holdings-hero-refreshing" style={{ color: 'var(--cm-ink-sub)' }}>
                 同步中…
+              </span>
+            ) : hasError ? (
+              <span
+                data-testid="holdings-hero-refresh-error"
+                title={refreshError}
+                style={{
+                  color: 'var(--cm-loss)',
+                  fontWeight: 600,
+                  maxWidth: 260,
+                  overflow: 'hidden',
+                  textOverflow: 'ellipsis',
+                  whiteSpace: 'nowrap',
+                }}
+              >
+                ✕ 同步失敗{timeText ? `（上次 ${timeText}）` : ''}
               </span>
             ) : timeText ? (
               <>
@@ -178,18 +197,23 @@ function HoldingsHeroImpl(props) {
                 type="button"
                 onClick={() => { if (canRefresh) onRefreshPrices(); }}
                 disabled={!canRefresh}
-                aria-label="立即刷新持倉報價"
-                data-testid="holdings-hero-refresh"
+                aria-label={hasError ? '重試刷新持倉報價' : '立即刷新持倉報價'}
+                data-testid={hasError ? 'holdings-hero-retry' : 'holdings-hero-refresh'}
                 style={{
                   marginLeft: 4,
-                  border: 'none',
+                  border: hasError ? '1px solid var(--cm-loss)' : 'none',
                   background: 'transparent',
                   cursor: canRefresh ? 'pointer' : 'default',
-                  padding: 2,
-                  color: 'var(--cm-ink-sub)',
+                  padding: hasError ? '2px 8px' : 2,
+                  borderRadius: hasError ? 4 : 0,
+                  color: hasError ? 'var(--cm-loss)' : 'var(--cm-ink-sub)',
                   opacity: canRefresh ? 1 : 0.4,
                   display: 'inline-flex',
                   alignItems: 'center',
+                  gap: 4,
+                  fontSize: hasError ? 11 : undefined,
+                  fontWeight: hasError ? 600 : undefined,
+                  letterSpacing: hasError ? '0.06em' : undefined,
                 }}
               >
                 <RefreshCw
@@ -198,9 +222,11 @@ function HoldingsHeroImpl(props) {
                     animation: refreshing ? 'holdingsHeroSpin 0.9s linear infinite' : undefined,
                   }}
                 />
+                {hasError && <span>重試</span>}
               </button>
             )}
           </div>
+
         </div>
       </div>
       <style>{`@keyframes holdingsHeroSpin { to { transform: rotate(360deg); } }`}</style>
