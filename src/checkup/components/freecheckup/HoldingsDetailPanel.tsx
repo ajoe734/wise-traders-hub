@@ -14,6 +14,7 @@ import { useThesisTracking } from '@/checkup/hooks/useThesisTracking';
 import { computeScenario, isDirty } from './holdingScenario';
 import HoldingExportCard from './HoldingExportCard';
 import ChipsSection from './ChipsSection';
+import { Tooltip, TooltipTrigger, TooltipContent } from '@/components/ui/tooltip';
 import '@/checkup/styles/holdingsDetailPanel.css';
 
 /**
