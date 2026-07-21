@@ -232,10 +232,15 @@ describe('C. buildPublishRows：發送到 DB 前 quantity_unit 依 assetClass �
 
 describe('D. DB trigger drift-detection：enforce_unit_consistency + handle_signal_trade', () => {
   let unitSrc: string;
+  let tradeSrc: string;
   let capSrc: string;
   beforeAll(() => {
     unitSrc = readFileSync(
       resolve(process.cwd(), 'supabase/migrations/20260721135135_a43e42a1-2522-493f-a87b-d468780d6665.sql'),
+      'utf-8',
+    );
+    tradeSrc = readFileSync(
+      resolve(process.cwd(), 'supabase/migrations/20260721135623_756e2515-caa3-477f-8533-40018aa90184.sql'),
       'utf-8',
     );
     capSrc = readFileSync(
