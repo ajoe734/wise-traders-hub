@@ -191,51 +191,46 @@ test.describe('RangeBand 資料源一致性偵測 (mock 分歧)', () => {
     expect(title).toContain('PRICE_OUT_OF_RANGE');
   });
 
-  test('偵測到不一致時透過 console.warn 輸出 [RangeBand] 訊息', async ({ browser }) => {
-    const ctx = await browser.newContext({ viewport: { width: 640, height: 480 } });
-    // 在頁面載入前 hook console.warn，把訊息塞到 window.__warns
-    await ctx.addInitScript(() => {
-      (window as any).__warns = [] as string[];
-      const orig = console.warn.bind(console);
-      console.warn = (...args: any[]) => {
-        try {
-          (window as any).__warns.push(
-            args.map((a) => (typeof a === 'string' ? a : JSON.stringify(a))).join(' '),
-          );
-        } catch { /* noop */ }
-        orig(...args);
-      };
-    });
-    const page = await ctx.newPage();
-
-    // 一致資料：不應出現 [RangeBand] warn
-    await page.goto(`/e2e/range-band-harness?d=${encodeFixture({
+  test('偵測到不一致時推入 window.__rangeBandDiagnostics（含 code / symbol / priceSource）', async ({
+    page,
+  }) => {
+    // 一致資料：陣列應為空或不存在
+    await gotoFixture(page, {
       symbol: 'TEST-EVT-CLEAN',
       price: 100,
       low: 95,
       high: 105,
       spark: [99, 100, 100, 100, 100],
-    })}`, { waitUntil: 'domcontentloaded' });
-    await page.locator('[data-testid="holdings-range-band"]').waitFor({ state: 'visible' });
+      priceSource: 'yahoo',
+    });
     await page.waitForTimeout(300);
-    let warns: string[] = await page.evaluate(() => (window as any).__warns || []);
-    expect(warns.filter((t) => t.includes('[RangeBand]'))).toHaveLength(0);
+    let diags: any[] = await page.evaluate(
+      () => (window as any).__rangeBandDiagnostics || [],
+    );
+    expect(diags).toHaveLength(0);
 
-    // 分歧資料：至少 1 筆 [RangeBand] warn（同 context 但重新 goto → window 重建）
-    await page.goto(`/e2e/range-band-harness?d=${encodeFixture({
+    // 分歧資料（同 page 內導向 → window 重建）
+    await gotoFixture(page, {
       symbol: 'TEST-EVT-DIVERGE',
       price: 200,
       low: 95,
       high: 110,
       spark: [98, 99, 100, 100, 100],
-    })}`, { waitUntil: 'domcontentloaded' });
-    await page.locator('[data-testid="holdings-range-band"]').waitFor({ state: 'visible' });
+      priceSource: 'twse',
+    });
     await page.waitForTimeout(400);
-    warns = await page.evaluate(() => (window as any).__warns || []);
-    const hits = warns.filter((t) => t.includes('[RangeBand]') && t.includes('data source inconsistency'));
-    console.log('DEBUG warns:', JSON.stringify(warns.slice(0, 20)));
-    expect(hits.length).toBeGreaterThanOrEqual(1);
-
-    await ctx.close();
+    diags = await page.evaluate(
+      () => (window as any).__rangeBandDiagnostics || [],
+    );
+    expect(diags.length).toBeGreaterThanOrEqual(1);
+    const codes = diags.map((d) => d.code);
+    expect(codes).toEqual(
+      expect.arrayContaining(['SPARK_VS_PRICE_DRIFT', 'PRICE_OUT_OF_RANGE']),
+    );
+    // payload 必要欄位
+    for (const d of diags) {
+      expect(d.symbol).toBe('TEST-EVT-DIVERGE');
+      expect(d.priceSource).toBe('twse');
+    }
   });
 });
