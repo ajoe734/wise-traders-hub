@@ -92,7 +92,32 @@ export default function SignalDupeAudit() {
     setLastSweep((data as SweepLog) || null);
   }, []);
 
-  useEffect(() => { scan(); loadLastSweep(); }, [scan, loadLastSweep]);
+  const loadSkipLogs = useCallback(async () => {
+    setSkipLoading(true);
+    try {
+      const since = new Date(Date.now() - 24 * 3600 * 1000).toISOString();
+      const { data } = await supabase
+        .from('function_run_logs')
+        .select('id, created_at, signal_id, expert_id, msg, payload')
+        .eq('fn', 'handle_signal_trade')
+        .eq('stage', 'skipped_existing_trade')
+        .gte('created_at', since)
+        .order('created_at', { ascending: false })
+        .limit(20);
+      const logs = (data as any[]) || [];
+      const expertIds = Array.from(new Set(logs.map((l) => l.expert_id).filter(Boolean)));
+      let nameMap: Record<string, string> = {};
+      if (expertIds.length) {
+        const { data: exps } = await supabase.from('experts').select('id, display_name').in('id', expertIds);
+        nameMap = Object.fromEntries((exps || []).map((e: any) => [e.id, e.display_name]));
+      }
+      setSkipLogs(logs.map((l) => ({ ...l, expert_name: l.expert_id ? nameMap[l.expert_id] : undefined })));
+    } finally {
+      setSkipLoading(false);
+    }
+  }, []);
+
+  useEffect(() => { scan(); loadLastSweep(); loadSkipLogs(); }, [scan, loadLastSweep, loadSkipLogs]);
 
   async function runSweep(dryRun: boolean) {
     setSweeping(true);
