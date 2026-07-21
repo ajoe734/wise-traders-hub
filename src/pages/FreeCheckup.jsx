@@ -244,7 +244,14 @@ export default function App() {
 
   // refresh prices
   const [refreshing, setRefreshing] = useState(false);
-  const [lastUpdate, setLastUpdate] = useState(null);
+  const [lastUpdate, setLastUpdate] = useState(() => {
+    // 從 localStorage 讀取上次成功同步時間，讓 F5 後仍能顯示正確的「更新於」
+    try {
+      // eslint-disable-next-line @typescript-eslint/no-var-requires, global-require
+      const { readLastUpdate } = require('@/checkup/lib/holdingsLastUpdate');
+      return readLastUpdate(null);
+    } catch { return null; }
+  });
   const [rtConnected, setRtConnected] = useState(false); // current_prices Realtime 連線狀態
   const REFRESH_COOLDOWN = 30 * 60 * 1000; // 30 minutes
   const [cooldownText, setCooldownText] = useState("");
