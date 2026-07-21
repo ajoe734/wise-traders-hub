@@ -99,6 +99,26 @@ async function auditPanel(panel: Locator): Promise<AuditResult> {
       });
     }
 
+    // 見 holdings-detail-panel-stress-content.spec.ts 相同修法：
+    // Range.getClientRects() 回傳文字內在版面寬度，不會被 overflow:hidden 收斂，
+    // 因此需自行沿祖先鏈找到裁切邊界後再判定「視覺可見溢出」。
+    const findClipBox = (parent: Element | null) => {
+      let cur: Element | null = parent;
+      let clipLeft = -Infinity;
+      let clipRight = Infinity;
+      while (cur && cur !== root) {
+        const cs = window.getComputedStyle(cur);
+        const overflowX = cs.overflowX || cs.overflow;
+        if (overflowX && overflowX !== 'visible') {
+          const box = cur.getBoundingClientRect();
+          if (box.left > clipLeft) clipLeft = box.left;
+          if (box.right < clipRight) clipRight = box.right;
+        }
+        cur = cur.parentElement;
+      }
+      return { clipLeft, clipRight };
+    };
+
     const walker = document.createTreeWalker(root, NodeFilter.SHOW_TEXT, {
       acceptNode(node) {
         const value = (node.textContent || '').replace(/\s+/g, '').trim();
@@ -114,8 +134,12 @@ async function auditPanel(panel: Locator): Promise<AuditResult> {
       range.selectNodeContents(node);
       const rects = Array.from(range.getClientRects()).filter((r) => r.width > 0 && r.height > 0);
       range.detach();
+      const { clipLeft, clipRight } = findClipBox(node.parentElement);
       for (const rect of rects) {
-        const overflow = overflowAmount(rect);
+        const visibleLeft = Math.max(rect.left, clipLeft);
+        const visibleRight = Math.min(rect.right, clipRight);
+        if (visibleRight <= rootBox.right + tolerance && visibleLeft >= rootBox.left - tolerance) continue;
+        const overflow = Math.max(rootBox.left - visibleLeft, visibleRight - rootBox.right, 0);
         if (overflow > tolerance) {
           badTextNodes.push({
             text: (node.textContent || '').replace(/\s+/g, ' ').trim().slice(0, 80),
