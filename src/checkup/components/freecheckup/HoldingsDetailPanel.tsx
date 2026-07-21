@@ -949,7 +949,9 @@ function PriceAxis({ WB, price, cost, target, baseTarget, upside, tpHistory }) {
 // ──────────────────── §4.6 30D 走勢帶 ────────────────────
 
 export function RangeBand({ WB, price, low, high, spark, symbol, priceSource, priceUpdatedAt }) {
-  const svgH = 40; // 顯示高度（px）
+  // 顯示高度（px）：header 迷你 sparkline 移除後，把 30D 走勢帶拉高填補視覺空缺，
+  // 讓唯一保留的折線圖能承接原本的縱向重量、與 PriceAxis / WeightRank 對齊。
+  const svgH = 72;
   // 淨化輸入：過濾 NaN / 非數值 spark；lo/hi 必須是有限數
   const lo = Number.isFinite(low) ? Number(low) : NaN;
   const hi = Number.isFinite(high) ? Number(high) : NaN;
