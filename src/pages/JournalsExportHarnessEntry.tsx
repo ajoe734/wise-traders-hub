@@ -327,6 +327,51 @@ const MENTOR_YK_ROWS: JournalRowExport[] = [
   },
 ];
 
+// Risk gate fixtures ─────────────────────────────────────────────
+// UNIT_MIX：同一標的同時「張」與「股」
+const RISK_UNIT_MIX_ROWS: JournalRowExport[] = [
+  {
+    id: 'sig-risk-mix-1', status: 'published', instrument: '2330 台積電', action: 'buy',
+    price_hint: 1050, quantity: 1, quantity_unit: '張',
+    reason_summary: 'risk-mix-a', reason_detail: null, risk_notes: null, learning_points: null,
+    published_at: '2026-07-14T01:00:00Z', created_at: '2026-07-14T00:30:00Z',
+    expert_id: 'expert-risk-mix',
+    experts: { name: '單位混用老師', slug: 'risk-mix', role: 'mentor', asset_class: 'tw_stock', currency: 'TWD' },
+  },
+  {
+    id: 'sig-risk-mix-2', status: 'published', instrument: '2330 台積電', action: 'sell',
+    price_hint: 1080, quantity: 500, quantity_unit: '股',
+    reason_summary: 'risk-mix-b', reason_detail: null, risk_notes: null, learning_points: null,
+    published_at: '2026-07-15T01:00:00Z', created_at: '2026-07-15T00:30:00Z',
+    expert_id: 'expert-risk-mix',
+    experts: { name: '單位混用老師', slug: 'risk-mix', role: 'mentor', asset_class: 'tw_stock', currency: 'TWD' },
+  },
+];
+
+// DIRECTION_NO_ENTRY：只賣未買
+const RISK_NO_ENTRY_ROWS: JournalRowExport[] = [
+  {
+    id: 'sig-risk-noentry-1', status: 'published', instrument: '2454 聯發科', action: 'sell',
+    price_hint: 1400, quantity: 1, quantity_unit: '張',
+    reason_summary: 'risk-noentry', reason_detail: null, risk_notes: null, learning_points: null,
+    published_at: '2026-07-14T02:00:00Z', created_at: '2026-07-14T01:30:00Z',
+    expert_id: 'expert-risk-noentry',
+    experts: { name: '只賣未買老師', slug: 'risk-noentry', role: 'mentor', asset_class: 'tw_stock', currency: 'TWD' },
+  },
+];
+
+// UNIT_MISSING (warn only)
+const RISK_WARN_ONLY_ROWS: JournalRowExport[] = [
+  {
+    id: 'sig-risk-warn-1', status: 'published', instrument: '2330 台積電', action: 'buy',
+    price_hint: 1050, quantity: 100, quantity_unit: null,
+    reason_summary: 'risk-warn', reason_detail: null, risk_notes: null, learning_points: null,
+    published_at: '2026-07-14T01:00:00Z', created_at: '2026-07-14T00:30:00Z',
+    expert_id: 'expert-risk-warn',
+    experts: { name: '缺單位老師', slug: 'risk-warn', role: 'mentor', asset_class: 'tw_stock', currency: 'TWD' },
+  },
+];
+
 
 
 
