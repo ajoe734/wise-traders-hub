@@ -13,7 +13,9 @@
 import { useState } from 'react';
 import {
   buildJournalExport,
+  detectExportRisks,
   downloadBlob,
+  type ExportRiskReport,
   type JournalRowExport,
 } from '@/lib/journalsExport';
 
