@@ -438,7 +438,11 @@ Deno.serve(withLogging('line-push-signal', async (req) => {
 
     // Verify caller is analyst of this expert OR company_admin
     const { data: expertRow } = await supabaseAdmin
-      .from('experts').select('id, user_id, role, name').eq('id', expert_id).single()
+      .from('experts').select('id, user_id, role, name, asset_class, currency').eq('id', expert_id).single()
+    const expertHint: LinePushExpertHint = {
+      asset_class: expertRow?.asset_class ?? null,
+      currency: expertRow?.currency ?? null,
+    }
 
     if (!expertRow) {
       console.error('Expert not found:', expert_id)
