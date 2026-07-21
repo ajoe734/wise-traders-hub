@@ -269,7 +269,9 @@ function HoldingsTab(props) {
         isDemo={isDemo}
         WB={WB}
         wbTone={wbTone}
+        holdings={H}
       />
+
 
 
 
