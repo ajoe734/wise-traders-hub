@@ -35,6 +35,7 @@ export function JournalPreviewDialog({
   const now = new Date();
   const ws = startOfWeek(now, { weekStartsOn: 1 });
   const we = addDays(ws, 4);
+  const assetClass = resolveAssetClass(expert);
 
   const displayTrades = isTeachingOnly ? [] : trades.filter(t => t.stockCode || t.stockName || t.action);
 
