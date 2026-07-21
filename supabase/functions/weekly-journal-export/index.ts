@@ -341,18 +341,20 @@ Deno.serve(async (req) => {
 
   try {
     let weekStart: string | null = null;
+    let force = false;
     try {
       if (req.method === "POST") {
         const body = await req.json().catch(() => ({}));
         if (body?.weekStart && /^\d{4}-\d{2}-\d{2}$/.test(body.weekStart)) {
           weekStart = taipeiMondayOf(new Date(`${body.weekStart}T12:00:00+08:00`));
         }
+        if (body?.force === true) force = true;
       }
     } catch { /* ignore */ }
     if (!weekStart) weekStart = taipeiMondayOf(new Date());
     const range = weekRangeUtc(weekStart);
 
-    console.log(`[weekly-journal-export] week=${weekStart} (${range.startIso} ~ ${range.endIso})`);
+    console.log(`[weekly-journal-export] week=${weekStart} (${range.startIso} ~ ${range.endIso}) force=${force}`);
 
     // 1. 查詢當週已發布週記
     const { data: rows, error: qErr } = await supabase
@@ -370,6 +372,27 @@ Deno.serve(async (req) => {
     if (qErr) throw new Error(`query expert_signals failed: ${qErr.message}`);
     const list = (rows ?? []) as any[];
 
+    // 1b. 風險守門（server-side backstop）
+    let riskReport: ReturnType<typeof detectRisks> | null = null;
+    if (list.length > 0) {
+      const openings = await loadOpeningBalances(supabase, list, range.startIso);
+      riskReport = detectRisks(list, openings);
+      if (riskReport.blocked && !force) {
+        console.warn(`[weekly-journal-export] blocked: ${riskReport.summary.block} block / ${riskReport.summary.warn} warn`);
+        return new Response(
+          JSON.stringify({
+            ok: false,
+            code: "EXPORT_BLOCKED",
+            error: `偵測到 ${riskReport.summary.block} 項高風險資料，已阻擋匯出。若確認可加上 { force: true } 重試。`,
+            weekStart: range.startLabel,
+            weekEnd: range.endLabel,
+            risk_report: riskReport,
+          }),
+          { status: 409, headers: { ...corsHeaders, "Content-Type": "application/json" } },
+        );
+      }
+    }
+
     // 2. 依老師分組
     const byMentor = new Map<string, { name: string; slug: string; asset: string; currency: string; rows: any[] }>();
     for (const r of list) {
@@ -386,6 +409,7 @@ Deno.serve(async (req) => {
     }
 
     console.log(`[weekly-journal-export] found ${list.length} rows, ${byMentor.size} mentors`);
+
 
     // 3. 每位老師產一份 Markdown 上傳
     const uploaded: { path: string; mentor: string; slug: string; rows: number }[] = [];
