@@ -54,10 +54,13 @@ export default function SignalDupeAudit() {
   const [scanning, setScanning] = useState(false);
   const [busyId, setBusyId] = useState<string | null>(null);
   const [expanded, setExpanded] = useState<Record<string, boolean>>({});
-  const [previews, setPreviews] = useState<Record<string, FixResult>>({});
-  const [forceOn, setForceOn] = useState<Record<string, boolean>>({});
   const [lastSweep, setLastSweep] = useState<SweepLog | null>(null);
   const [sweeping, setSweeping] = useState(false);
+  const [skipLogs, setSkipLogs] = useState<Array<{
+    id: string; created_at: string; signal_id: string | null; expert_id: string | null;
+    msg: string | null; payload: any; expert_name?: string;
+  }>>([]);
+  const [skipLoading, setSkipLoading] = useState(false);
 
   const scan = useCallback(async () => {
     setScanning(true);
