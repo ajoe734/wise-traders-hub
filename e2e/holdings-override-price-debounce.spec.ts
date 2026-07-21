@@ -31,7 +31,7 @@ test.describe('overridePrice debounce / partial-fail / per-card loading', () => 
   test('連續快速點擊 → debounce 只觸發最後一次 recompute', async ({ page }) => {
     await primeDemo(page)
     await gotoWithRetry(page, '/holding-checkup?demo=1&debugPrice=1')
-    await expect(page.getByText('持倉看板').first()).toBeVisible({ timeout: 20000 })
+    await expect(page.locator('[data-testid="holdings-hero"]').first()).toBeVisible({ timeout: 20000 })
     await scrollThroughCards(page)
 
     const btn = page.getByRole('button', { name: /立即更新|同步中|重試/ }).first()
@@ -64,7 +64,7 @@ test.describe('overridePrice debounce / partial-fail / per-card loading', () => 
     await context.grantPermissions(['clipboard-read', 'clipboard-write']).catch(() => {})
     await primeDemo(page)
     await gotoWithRetry(page, '/holding-checkup?demo=1&debugPrice=1&demoPartialFail=1')
-    await expect(page.getByText('持倉看板').first()).toBeVisible({ timeout: 20000 })
+    await expect(page.locator('[data-testid="holdings-hero"]').first()).toBeVisible({ timeout: 20000 })
     await scrollThroughCards(page)
 
     await page.evaluate(() => { (window as any).__demoSyncCount = 0 })
@@ -106,7 +106,7 @@ test.describe('overridePrice debounce / partial-fail / per-card loading', () => 
   test('recompute 期間每張卡片顯示 loading shimmer；結束後消失', async ({ page }) => {
     await primeDemo(page)
     await gotoWithRetry(page, '/holding-checkup?demo=1&debugPrice=1')
-    await expect(page.getByText('持倉看板').first()).toBeVisible({ timeout: 20000 })
+    await expect(page.locator('[data-testid="holdings-hero"]').first()).toBeVisible({ timeout: 20000 })
     await scrollThroughCards(page)
 
     await page.getByRole('button', { name: /立即更新/ }).first().click()
