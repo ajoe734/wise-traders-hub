@@ -546,6 +546,29 @@ export default function JournalsExportHarnessEntry() {
     setStatus(`yankai-4576:${res.kind}:${res.filename}`);
   };
 
+  // ── Risk gate flow ─────────────────────────────────────────
+  const [riskReport, setRiskReport] = useState<ExportRiskReport | null>(null);
+
+  const guardedExport = async (rows: JournalRowExport[], label: string, force = false) => {
+    if (!force) {
+      const report = detectExportRisks(rows, { publishedOnly: true });
+      setRiskReport(report);
+      if (report.blocked) {
+        setStatus(`blocked:${label}:block=${report.summary.block}:warn=${report.summary.warn}`);
+        return;
+      }
+    }
+    const res = await buildJournalExport(rows, RANGE, true);
+    if (!res) { setStatus('empty'); return; }
+    downloadBlob(res.filename, res.blob);
+    setStatus(`${force ? 'forced' : 'passed'}:${label}:${res.kind}:${res.filename}`);
+  };
+
+  const runRiskUnitMix = () => guardedExport(RISK_UNIT_MIX_ROWS, 'unit-mix');
+  const runRiskNoEntry = () => guardedExport(RISK_NO_ENTRY_ROWS, 'no-entry');
+  const runRiskWarnOnly = () => guardedExport(RISK_WARN_ONLY_ROWS, 'warn-only');
+  const runRiskForce = () => guardedExport(RISK_UNIT_MIX_ROWS, 'unit-mix', true);
+
 
   const weekDisplay = `${RANGE.startLabel} ~ ${RANGE.endLabel}`;
 
