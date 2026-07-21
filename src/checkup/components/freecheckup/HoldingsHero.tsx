@@ -2,7 +2,9 @@
 // 原 4 欄 KPI 帶已刪。只留「未實現損益」+ 大字損益（% accent）+ 右側一行「市值 X 萬 · N 檔 · 即時」。
 // 保持所有 props signature 不變（HoldingsTab 呼叫端不需改）。
 // fontSize ≥ 32 (clamp 36-52) 已配 className="wb-hero-pnl-num"，繼承 FreeCheckup.jsx 既有 media query。
-import { memo } from 'react';
+// 2026-07-21：新增「更新於 HH:MM · N 分鐘前」與手動刷新按鈕；每 30 秒 tick 讓相對時間跟得上時鐘。
+import { memo, useEffect, useState } from 'react';
+import { RefreshCw } from 'lucide-react';
 import { fmtSigned, fmtSignedInt, fmtWan } from '@/checkup/lib/checkupFormat';
 import { validateProps } from './_validateProps.js';
 
@@ -16,16 +18,30 @@ const SCHEMA = {
   maxHoldings: 'number',
   rtConnected: 'boolean',
   lastUpdate: { type: 'object', optional: true },
+  refreshing: { type: 'boolean', optional: true },
+  onRefreshPrices: { type: 'function', optional: true },
   isDemo: 'boolean',
   WB: 'object',
   wbTone: 'function',
 };
+
+function formatRelative(fromMs: number, nowMs: number): string {
+  const diff = Math.max(0, nowMs - fromMs);
+  if (diff < 45 * 1000) return '剛剛更新';
+  const mins = Math.floor(diff / 60000);
+  if (mins < 60) return `${mins} 分鐘前`;
+  const hours = Math.floor(mins / 60);
+  if (hours < 24) return `${hours} 小時前`;
+  const days = Math.floor(hours / 24);
+  return `${days} 天前`;
+}
 
 function HoldingsHeroImpl(props) {
   validateProps('HoldingsHero', props, SCHEMA);
   const {
     totalVal, totalCost, holdingsCount,
     rtConnected, lastUpdate, isDemo,
+    refreshing, onRefreshPrices,
   } = props;
 
   const totalPnl = totalVal - totalCost;
@@ -36,6 +52,18 @@ function HoldingsHeroImpl(props) {
   const timeText = lastUpdate
     ? lastUpdate.toLocaleTimeString('zh-TW', { hour: '2-digit', minute: '2-digit', hour12: false })
     : '';
+
+  // 30 秒 tick → 讓「N 分鐘前」隨時鐘推進
+  const [nowMs, setNowMs] = useState(() => Date.now());
+  useEffect(() => {
+    if (!lastUpdate) return;
+    const id = setInterval(() => setNowMs(Date.now()), 30 * 1000);
+    return () => clearInterval(id);
+  }, [lastUpdate]);
+  const relText = lastUpdate ? formatRelative(lastUpdate.getTime(), nowMs) : '';
+  const isStale = lastUpdate ? (nowMs - lastUpdate.getTime()) > 5 * 60 * 1000 : false;
+
+  const canRefresh = typeof onRefreshPrices === 'function' && !refreshing;
 
   return (
     <section
@@ -119,15 +147,63 @@ function HoldingsHeroImpl(props) {
               }}
             >{statusText}</span>
           </div>
-          {timeText && (
-            <div className="cm-label cm-num" style={{
-              color: 'var(--cm-ink-mute)', letterSpacing: '0.10em',
-            }}>
-              更新於 {timeText}
-            </div>
-          )}
+
+          {/* 更新時間 + 手動刷新 */}
+          <div
+            className="cm-label cm-num"
+            data-testid="holdings-hero-updated-at"
+            style={{
+              color: isStale ? 'var(--cm-loss)' : 'var(--cm-ink-mute)',
+              letterSpacing: '0.10em',
+              display: 'inline-flex',
+              alignItems: 'center',
+              gap: 8,
+            }}
+          >
+            {refreshing ? (
+              <span data-testid="holdings-hero-refreshing" style={{ color: 'var(--cm-ink-sub)' }}>
+                同步中…
+              </span>
+            ) : timeText ? (
+              <>
+                <span>更新於 {timeText}</span>
+                <span style={{ color: 'var(--cm-hair-strong)' }}>·</span>
+                <span>{relText}</span>
+              </>
+            ) : (
+              <span>尚未同步報價</span>
+            )}
+            {typeof onRefreshPrices === 'function' && (
+              <button
+                type="button"
+                onClick={() => { if (canRefresh) onRefreshPrices(); }}
+                disabled={!canRefresh}
+                aria-label="立即刷新持倉報價"
+                data-testid="holdings-hero-refresh"
+                style={{
+                  marginLeft: 4,
+                  border: 'none',
+                  background: 'transparent',
+                  cursor: canRefresh ? 'pointer' : 'default',
+                  padding: 2,
+                  color: 'var(--cm-ink-sub)',
+                  opacity: canRefresh ? 1 : 0.4,
+                  display: 'inline-flex',
+                  alignItems: 'center',
+                }}
+              >
+                <RefreshCw
+                  size={12}
+                  style={{
+                    animation: refreshing ? 'holdingsHeroSpin 0.9s linear infinite' : undefined,
+                  }}
+                />
+              </button>
+            )}
+          </div>
         </div>
       </div>
+      <style>{`@keyframes holdingsHeroSpin { to { transform: rotate(360deg); } }`}</style>
     </section>
   );
 }

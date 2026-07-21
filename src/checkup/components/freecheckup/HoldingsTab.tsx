@@ -50,6 +50,8 @@ const HOLDINGS_TAB_PROP_SCHEMA = {
   totalVal: _opt('any'), totalCost: _opt('any'), H: _opt('any'),
   winnersCount: _opt('any'), exitListCount: _opt('any'), reviewListCount: _opt('any'),
   MAX_HOLDINGS: _opt('any'), rtConnected: _opt('any'), lastUpdate: _opt('any'),
+  refreshing: _opt('any'), onRefreshPrices: _opt('any'),
+
   uploadSummary: _opt('any'), setUploadSummary: _opt('any'),
   batchState: _opt('any'), cancelBatch: _opt('any'),
   retryBatchFailures: _opt('any'), restoreBatchItemPreview: _opt('any'),
@@ -95,7 +97,8 @@ function HoldingsTab(props) {
     // quota / hero
     quota, tier, tierLabel, formatResetCountdown,
     totalVal, totalCost, H, winnersCount, exitListCount, reviewListCount,
-    MAX_HOLDINGS, rtConnected, lastUpdate,
+    MAX_HOLDINGS, rtConnected, lastUpdate, refreshing, onRefreshPrices,
+
     // upload summary
     uploadSummary, setUploadSummary,
     batchState, cancelBatch, retryBatchFailures, restoreBatchItemPreview,
@@ -260,10 +263,13 @@ function HoldingsTab(props) {
         maxHoldings={MAX_HOLDINGS}
         rtConnected={rtConnected}
         lastUpdate={lastUpdate}
+        refreshing={refreshing}
+        onRefreshPrices={onRefreshPrices}
         isDemo={isDemo}
         WB={WB}
         wbTone={wbTone}
       />
+
 
 
       {/* 族群分佈總覽（產業＋題材）— 讓使用者一眼看出集中/分散；點 chip 直接篩選下方卡片 */}
