@@ -54,8 +54,8 @@ export default function TradeUploadModal({ open, onClose, C, alpha, quota, forma
         onClick={(e) => e.stopPropagation()}
         style={{
           width: '100%', maxWidth: 620,
-          background: C?.bg || '#fff',
-          border: `1px solid ${C?.text || '#0A0A0A'}`,
+          background: C?.bg,
+          border: `1px solid ${C?.text}`,
           outline: 'none',
         }}
       >
@@ -63,15 +63,15 @@ export default function TradeUploadModal({ open, onClose, C, alpha, quota, forma
         <div style={{
           display: 'flex', alignItems: 'baseline', justifyContent: 'space-between',
           padding: '18px 22px 12px',
-          borderBottom: `1px solid ${C?.border || '#ECEAE5'}`,
+          borderBottom: `1px solid ${C?.border}`,
         }}>
           <div style={{
             fontFamily: "'Noto Serif TC', ui-serif, Georgia, serif",
-            fontSize: 22, fontWeight: 600, color: C?.text || '#0A0A0A',
+            fontSize: 22, fontWeight: 600, color: C?.text,
             letterSpacing: '0.02em',
           }}>上傳成交</div>
           <div style={{ display: 'flex', alignItems: 'baseline', gap: 12 }}>
-            <div style={{ fontSize: 11, color: C?.textMute || '#9B968D', fontVariantNumeric: 'tabular-nums' }}>
+            <div style={{ fontSize: 11, color: C?.textMute, fontVariantNumeric: 'tabular-nums' }}>
               {quota ? <>今日餘 <span style={{ color: C?.text }}>{remaining}</span> 次{reset ? ` · ${reset}` : ''}</> : null}
             </div>
             <button
@@ -79,7 +79,7 @@ export default function TradeUploadModal({ open, onClose, C, alpha, quota, forma
               onClick={onClose}
               style={{
                 background: 'transparent', border: 'none', cursor: 'pointer',
-                color: C?.textMute || '#9B968D', fontSize: 20, padding: 0, lineHeight: 1,
+                color: C?.textMute, fontSize: 20, padding: 0, lineHeight: 1,
               }}
             >×</button>
           </div>
@@ -93,8 +93,8 @@ export default function TradeUploadModal({ open, onClose, C, alpha, quota, forma
         {/* footer editorial hint */}
         <div style={{
           padding: '10px 22px 14px',
-          borderTop: `1px solid ${C?.border || '#ECEAE5'}`,
-          fontSize: 11, color: C?.textMute || '#9B968D', lineHeight: 1.7,
+          borderTop: `1px solid ${C?.border}`,
+          fontSize: 11, color: C?.textMute, lineHeight: 1.7,
           display: 'flex', justifyContent: 'space-between', gap: 12, flexWrap: 'wrap',
         }}>
           <span>批次解析 · 去重 · 備忘三問全部沿用既有流程</span>
@@ -102,7 +102,7 @@ export default function TradeUploadModal({ open, onClose, C, alpha, quota, forma
             type="button"
             onClick={onClose}
             style={{
-              background: 'transparent', border: 'none', color: C?.textSec || '#6B6862',
+              background: 'transparent', border: 'none', color: C?.textSec,
               cursor: 'pointer', fontSize: 11, letterSpacing: '0.04em',
             }}
           >關閉 ×</button>
