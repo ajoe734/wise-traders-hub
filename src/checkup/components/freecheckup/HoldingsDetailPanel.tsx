@@ -549,6 +549,9 @@ function HoldingsDetailPanelImpl({
             low={rangeLow}
             high={rangeHigh}
             spark={sparkArr}
+            symbol={h?.code || h?.symbol || h?.instrument}
+            priceSource={meta?.priceSource || h?.priceSource}
+            priceUpdatedAt={h?.priceUpdatedAt}
           />
         )}
 
@@ -931,7 +934,7 @@ function PriceAxis({ WB, price, cost, target, baseTarget, upside, tpHistory }) {
 
 // ──────────────────── §4.6 30D 走勢帶 ────────────────────
 
-function RangeBand({ WB, price, low, high, spark }) {
+function RangeBand({ WB, price, low, high, spark, symbol, priceSource, priceUpdatedAt }) {
   const svgH = 40; // 顯示高度（px）
   // 淨化輸入：過濾 NaN / 非數值 spark；lo/hi 必須是有限數
   const lo = Number.isFinite(low) ? Number(low) : NaN;
@@ -953,10 +956,106 @@ function RangeBand({ WB, price, low, high, spark }) {
   // hi/lo label 需要 fallback，避免 toFixed 對 NaN 拋出 "NaN"
   const loLabel = Number.isFinite(lo) ? lo.toFixed(2) : '—';
   const hiLabel = Number.isFinite(hi) ? hi.toFixed(2) : '—';
+
+  // ── 資料源一致性偵測：spark 末值 vs live price，價格是否落於 [lo, hi] 之外 ──
+  const priceN = Number(price);
+  const diagnostics = React.useMemo(() => {
+    const issues = [];
+    if (hasSpark && Number.isFinite(priceN) && Number.isFinite(lastV) && lastV > 0) {
+      const drift = Math.abs(priceN - lastV) / lastV;
+      if (drift > 0.03) {
+        issues.push({
+          code: 'SPARK_VS_PRICE_DRIFT',
+          drift: Number(drift.toFixed(4)),
+          sparkLast: lastV,
+          price: priceN,
+        });
+      }
+    }
+    if (hasHiLo && Number.isFinite(priceN)) {
+      if (priceN < lo * 0.999 || priceN > hi * 1.001) {
+        issues.push({
+          code: 'PRICE_OUT_OF_RANGE',
+          price: priceN,
+          low: lo,
+          high: hi,
+        });
+      }
+    }
+    if (hasSpark && Number.isFinite(lastV) && hasHiLo) {
+      if (lastV < lo - 1e-6 || lastV > hi + 1e-6) {
+        issues.push({
+          code: 'SPARK_OUT_OF_RANGE',
+          sparkLast: lastV,
+          low: lo,
+          high: hi,
+        });
+      }
+    }
+    return issues;
+  }, [hasSpark, hasHiLo, priceN, lastV, lo, hi]);
+
+  useEffect(() => {
+    if (!diagnostics.length) return;
+    const sym = symbol || 'unknown';
+    // Session-scope 去重：同 symbol + code 只 fire 一次，避免刷屏
+    const g = (typeof window !== 'undefined' ? window : globalThis);
+    g.__hRangeBandDiagFired ||= new Set();
+    diagnostics.forEach((d) => {
+      const key = `${sym}:${d.code}`;
+      if (g.__hRangeBandDiagFired.has(key)) return;
+      g.__hRangeBandDiagFired.add(key);
+      const payload = {
+        symbol: sym,
+        code: d.code,
+        priceSource: priceSource || null,
+        priceUpdatedAt: priceUpdatedAt || null,
+        ...d,
+      };
+      if (import.meta?.env?.DEV) {
+        // eslint-disable-next-line no-console
+        console.warn('[RangeBand] data source inconsistency', payload);
+      }
+      try {
+        import('@/lib/analytics/events').then(({ trackRaw }) => {
+          trackRaw('holdings_range_band_inconsistency', payload);
+        }).catch(() => {});
+      } catch { /* noop */ }
+    });
+  }, [diagnostics, symbol, priceSource, priceUpdatedAt]);
+
+  const hasIssue = diagnostics.length > 0;
+  const issueTitle = hasIssue
+    ? `資料源不一致：${diagnostics.map((d) => d.code).join(', ')}`
+    : undefined;
+
   return (
-    <div data-testid="holdings-range-band" style={{ margin: '0 0 20px', minWidth: 0 }}>
+    <div
+      data-testid="holdings-range-band"
+      data-inconsistent={hasIssue ? '1' : undefined}
+      data-inconsistent-codes={hasIssue ? diagnostics.map((d) => d.code).join(',') : undefined}
+      style={{ margin: '0 0 20px', minWidth: 0 }}
+    >
       <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: 6 }}>
-        <span style={{ fontSize: 12, color: WB.inkMute, letterSpacing: '0.14em' }}>30 日走勢</span>
+        <span style={{ fontSize: 12, color: WB.inkMute, letterSpacing: '0.14em' }}>
+          30 日走勢
+          {hasIssue && (
+            <span
+              data-testid="holdings-range-band-warn"
+              title={issueTitle}
+              aria-label={issueTitle}
+              style={{
+                display: 'inline-block',
+                width: 6,
+                height: 6,
+                borderRadius: '50%',
+                background: '#D97706',
+                marginLeft: 8,
+                verticalAlign: 'middle',
+              }}
+            />
+          )}
+        </span>
         <span style={{ fontSize: 12, color: WB.inkSub, fontVariantNumeric: 'tabular-nums' }}>
           低 {loLabel}<span style={{ margin: '0 6px', color: WB.inkLight }}>—</span>高 {hiLabel}
         </span>
