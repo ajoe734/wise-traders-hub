@@ -1,7 +1,7 @@
 import { useCallback, useEffect, useMemo, useState } from 'react';
 import { supabase } from '@/integrations/supabase/client';
 import SEO from '@/components/SEO';
-import { RefreshCw, AlertTriangle, CheckCircle2, ShieldAlert } from 'lucide-react';
+import { RefreshCw, AlertTriangle, CheckCircle2, ShieldAlert, Zap } from 'lucide-react';
 import { toast } from 'sonner';
 
 type Row = {
