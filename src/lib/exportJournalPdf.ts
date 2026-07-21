@@ -2,6 +2,7 @@ import jsPDF from 'jspdf';
 import html2canvas from 'html2canvas-pro';
 import { format } from 'date-fns';
 import { richHtmlToPlain } from '@/components/SafeRichHtml';
+import { sanitizeAssetQuantityUnit, resolveExpertAssetClass } from '@/lib/asset';
 
 interface Signal {
   id: string;
@@ -17,12 +18,27 @@ interface Signal {
   published_at: string;
   /** 產業分類（用於「本週產業分佈」頁；未提供則歸為「未分類」） */
   sector?: string | null;
+  /** 標的資產類別；缺值時由 experts.asset_class / currency 推導 */
+  asset_class?: string | null;
   experts: {
     name: string;
     slug: string;
     role: string;
     avatar_url: string | null;
+    asset_class?: string | null;
+    currency?: string | null;
   };
+}
+
+/**
+ * 單一資料源：以資產類別決定 quantity_unit。
+ * 憲法：us_stock → 股、us_future → 口、crypto → 顆、tw_stock → 張。
+ * 上游 quantity_unit 為 null 或與 asset_class 不相容時，一律以 asset_class 覆寫，
+ * 徹底杜絕 us_stock/us_future 匯出寫成「張」的回歸。
+ */
+export function resolvePdfQuantityUnit(s: Signal): string {
+  const cls = s.asset_class ?? resolveExpertAssetClass(s.experts);
+  return sanitizeAssetQuantityUnit(s.quantity_unit, cls);
 }
 
 interface ExportArgs {
