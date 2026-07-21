@@ -101,6 +101,32 @@ function nextWorkerWindow(now = new Date()): { inWindow: boolean; label: string 
 export default function ChipsSection({ WB, stockCode }: { WB: any; stockCode: string }) {
   if (!isTaiwanStockCode(stockCode)) return null;
 
+  // ETF / 權證 / 受益憑證 / DR：FinMind 無分點資料，直接顯示提示（不進 sync 佇列）
+  if (!isTaiwanChipEligible(stockCode)) {
+    return (
+      <section
+        data-testid="chips-section"
+        data-chip-eligible="false"
+        style={{
+          margin: '18px 0 8px',
+          padding: '14px 0',
+          borderTop: `1px solid ${WB.hair}`,
+        }}
+      >
+        <div style={{ display: 'flex', alignItems: 'baseline', justifyContent: 'space-between', marginBottom: 8 }}>
+          <div style={{ fontFamily: SERIF, fontSize: 15, color: WB.ink, letterSpacing: '0.02em' }}>籌碼面</div>
+          <div style={{ fontSize: 10, color: WB.inkMute, letterSpacing: '0.14em' }}>NOT APPLICABLE</div>
+        </div>
+        <div data-testid="chips-not-eligible" style={{ fontSize: 12, color: WB.inkMute, lineHeight: 1.7 }}>
+          — 此代號為 ETF／權證／受益憑證，FinMind 未提供分點資料
+          <div style={{ fontSize: 10, color: WB.inkMute, marginTop: 2 }}>
+            （僅一般個股 4 碼、首位 1–9 之代號會納入分點同步）
+          </div>
+        </div>
+      </section>
+    );
+  }
+
   const { data, loading, error, fetchedAt, online, stale, refetch } = useTwChipsDetail(stockCode, true);
 
   const hasInst = useMemo(
@@ -392,7 +418,7 @@ export default function ChipsSection({ WB, stockCode }: { WB: any; stockCode: st
           <div data-testid="chips-bsr-missing" style={{ fontSize: 12, color: WB.inkMute, lineHeight: 1.6 }}>
             — 分點資料自動同步中
             <div style={{ fontSize: 10, color: WB.inkMute }}>
-              （FinMind 官方 API；持倉每 15 分鐘自動抓取一輪，取得後畫面會自動刷新）
+              （FinMind 官方 API；收盤後 14:00–21:00 每 10 分鐘一輪，取得後畫面會自動刷新）
             </div>
           </div>
 
