@@ -304,7 +304,7 @@ async function enqueueTier3Backfill(endDate: string, days: number, cid: string):
   let total = 0;
   for (let i = 1; i <= days; i++) {
     const d = rollBackToWeekday(addDays(endDate, -i));
-    total += await enqueueBatch(ids, d, 3, 'tier3_backfill', cid);
+    total += await enqueueBatch(ids, d, 3, 'tier3_backfill', cid, true);
   }
   return total;
 }
