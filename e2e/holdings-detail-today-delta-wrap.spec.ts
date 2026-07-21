@@ -87,7 +87,7 @@ test.describe('HoldingsDetailPanel · today-delta wrap + 節奏守門', () => {
   }
 
   for (const w of WIDE_WIDTHS) {
-    test(`寬屏 ${w}px：今日 delta 與名稱同列右對齊`, async ({ page }) => {
+    test(`寬屏 ${w}px：抽屜 panel 受 sm:max-w-md 限制，delta 仍為獨立右對齊行`, async ({ page }) => {
       const panel = await openDrawer(page, w);
       const name = panel.locator('h2').first();
       const delta = panel.locator('[data-testid="drawer-today-delta"]').first();
@@ -96,23 +96,30 @@ test.describe('HoldingsDetailPanel · today-delta wrap + 節奏守門', () => {
         return;
       }
 
-      const [nameBox, deltaBox] = await Promise.all([name.boundingBox(), delta.boundingBox()]);
-      if (!nameBox || !deltaBox) throw new Error('boxes missing');
+      const [nameBox, deltaBox, panelBox] = await Promise.all([
+        name.boundingBox(),
+        delta.boundingBox(),
+        panel.boundingBox(),
+      ]);
+      if (!nameBox || !deltaBox || !panelBox) throw new Error('boxes missing');
 
-      // 寬屏：delta 應與 h2 同一水平線（baseline 容差 ≤ h2 高度）
+      // 憲法：delta 為獨立行、位於 h2 之下、右對齊、不溢出
+      expect(deltaBox.y).toBeGreaterThanOrEqual(nameBox.y + nameBox.height - 4);
+      expect(deltaBox.x + deltaBox.width).toBeLessThanOrEqual(panelBox.x + panelBox.width + 0.5);
       expect(
-        Math.abs(nameBox.y - deltaBox.y),
-        `[${w}px] delta 與 h2 應同列，top 差 ${Math.abs(nameBox.y - deltaBox.y)}px`,
-      ).toBeLessThanOrEqual(nameBox.height + 4);
+        panelBox.x + panelBox.width - (deltaBox.x + deltaBox.width),
+        `[${w}px] delta 未右對齊，距抽屜右緣 ${panelBox.x + panelBox.width - (deltaBox.x + deltaBox.width)}px`,
+      ).toBeLessThanOrEqual(32);
     });
   }
 
   test('抽屜區塊間距節奏一致（無多餘留白）@ 390px', async ({ page }) => {
     const panel = await openDrawer(page, 390);
 
+    // 每個模組都用「外容器」的 testid，避免內部子節點被錯位為分段錨點
     const selectors = [
-      '[data-testid="drawer-identity"]',             // §2 identity（含名稱 + today delta wrap）
-      '[data-testid="drawer-roi-main"]',             // §3 return tower
+      '[data-testid="drawer-identity"]',             // §2 identity
+      '[data-testid="drawer-return-tower"]',         // §3 return tower
       '[data-testid="decision-stamp"]',              // §4 decision
       '[data-testid="holdings-price-axis"]',         // §5 price axis
       '[data-testid="holdings-range-band"]',         // §6 30D range band（唯一保留的折線圖）
