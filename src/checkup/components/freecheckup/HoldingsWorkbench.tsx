@@ -295,6 +295,13 @@ function HoldingsWorkbench(props) {
           ref={setSheetRef}
           side="right"
           data-testid="holdings-detail-panel"
+          onCloseAutoFocus={(e) => {
+            const prev = previousFocusRef.current;
+            if (prev && document.contains(prev)) {
+              e.preventDefault();
+              prev.focus({ preventScroll: true });
+            }
+          }}
           // width / positioning 契約（對應 holdings-detail-panel-rwd-extreme spec）：
           //   < sm(640)：!left-0 !right-0 !w-auto → 兩邊錨定、寬度=viewport，
           //     避免 base variant 的 w-3/4 + border-l + Radix ScrollLock 補償變數
