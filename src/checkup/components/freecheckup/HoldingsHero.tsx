@@ -20,6 +20,7 @@ const SCHEMA = {
   lastUpdate: { type: 'object', optional: true },
   refreshing: { type: 'boolean', optional: true },
   onRefreshPrices: { type: 'function', optional: true },
+  refreshError: { type: 'string', optional: true },
   isDemo: 'boolean',
   WB: 'object',
   wbTone: 'function',
