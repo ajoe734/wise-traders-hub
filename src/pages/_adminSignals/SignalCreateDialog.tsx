@@ -59,7 +59,10 @@ export function SignalCreateDialog({
   const [linePushed, setLinePushed] = useState(false);
   const [recalling, setRecalling] = useState(false);
   const [, setLastPublishedId] = useState<string | null>(null);
+  const [lockedUnit, setLockedUnit] = useState<QuantityUnit | null>(null);
+  const [lockedUnitSource, setLockedUnitSource] = useState<'signal' | 'trade' | null>(null);
   const fetchTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const unitLookupTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
   const uppercaseHintTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
 
   useEffect(() => {
@@ -99,9 +102,51 @@ export function SignalCreateDialog({
     setTeachingTopic(''); setOverallSummary('');
     setLinePushed(false); setLinePushing(false); setLastPublishedId(null);
     setShowPreview(false);
+    setLockedUnit(null); setLockedUnitSource(null);
     sessionStorage.removeItem(FORM_KEY);
     discardDraft();
   }, [FORM_KEY, discardDraft, spec.defaultUnit]);
+
+  // 單位鎖定：若此代碼在 expert_signals 或 trade_records 已有既有單位，鎖定為該單位，
+  // 防止未來出現 UNIT_MIX / UNIT_A_NE_B 資料漂移
+  const lookupExistingUnit = useCallback(async (code: string) => {
+    if (!expert?.id || !code) { setLockedUnit(null); setLockedUnitSource(null); return; }
+    try {
+      const { data: sig } = await supabase
+        .from('expert_signals')
+        .select('quantity_unit, created_at')
+        .eq('expert_id', expert.id)
+        .ilike('instrument', `${code}%`)
+        .not('quantity_unit', 'is', null)
+        .order('created_at', { ascending: false })
+        .limit(1)
+        .maybeSingle();
+      if (sig?.quantity_unit && spec.units.includes(sig.quantity_unit as any)) {
+        setLockedUnit(sig.quantity_unit as QuantityUnit);
+        setLockedUnitSource('signal');
+        setQuantityUnit(sig.quantity_unit as QuantityUnit);
+        return;
+      }
+      const { data: tr } = await supabase
+        .from('trade_records')
+        .select('quantity_unit, created_at')
+        .eq('expert_id', expert.id)
+        .ilike('instrument', `${code}%`)
+        .not('quantity_unit', 'is', null)
+        .order('created_at', { ascending: false })
+        .limit(1)
+        .maybeSingle();
+      if (tr?.quantity_unit && spec.units.includes(tr.quantity_unit as any)) {
+        setLockedUnit(tr.quantity_unit as QuantityUnit);
+        setLockedUnitSource('trade');
+        setQuantityUnit(tr.quantity_unit as QuantityUnit);
+        return;
+      }
+      setLockedUnit(null); setLockedUnitSource(null);
+    } catch (e) {
+      console.warn('lookupExistingUnit failed', e);
+    }
+  }, [expert?.id, spec.units]);
 
   // 若 asset_class 切換（例如從草稿回填 / 分析師切換），把不合法的 quantityUnit 校正回預設
   useEffect(() => {
@@ -110,6 +155,18 @@ export function SignalCreateDialog({
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [spec.assetClass]);
+
+  // 開啟表單或草稿回填後，若已有代碼則重新查詢鎖定單位
+  useEffect(() => {
+    if (!isCreateOpen) return;
+    const trimmed = stockCode.trim();
+    if (trimmed.length >= spec.minSymbolLen) {
+      lookupExistingUnit(trimmed);
+    } else {
+      setLockedUnit(null); setLockedUnitSource(null);
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [isCreateOpen, expert?.id]);
 
   const currencySymbol = spec.currency === 'USD' ? 'US$' : 'NT$';
   const pricePlaceholder = spec.currency === 'USD' ? '185.50' : '890';
@@ -145,7 +202,6 @@ export function SignalCreateDialog({
 
   const handleStockCodeChange = (value: string) => {
     const normalized = spec.uppercaseSymbol ? value.toUpperCase() : value;
-    // 偵測：只要使用者輸入了小寫字母、被自動轉大寫，就顯示提示（3 秒後淡出）
     if (spec.uppercaseSymbol && value !== normalized && /[a-z]/.test(value)) {
       setAutoUppercased(true);
       if (uppercaseHintTimer.current) clearTimeout(uppercaseHintTimer.current);
@@ -153,8 +209,15 @@ export function SignalCreateDialog({
     }
     setStockCode(normalized);
     if (fetchTimer.current) clearTimeout(fetchTimer.current);
-    if (normalized.trim().length >= spec.minSymbolLen) {
+    if (unitLookupTimer.current) clearTimeout(unitLookupTimer.current);
+    const trimmed = normalized.trim();
+    if (!trimmed) {
+      setLockedUnit(null); setLockedUnitSource(null);
+      return;
+    }
+    if (trimmed.length >= spec.minSymbolLen) {
       fetchTimer.current = setTimeout(() => fetchStockInfo(normalized), 500);
+      unitLookupTimer.current = setTimeout(() => lookupExistingUnit(trimmed), 400);
     }
   };
 
@@ -174,6 +237,10 @@ export function SignalCreateDialog({
     }
     if (!quantity || parseFloat(quantity) <= 0) { toast.error('請輸入數量'); return; }
     if (!priceHint || parseFloat(priceHint) <= 0) { toast.error('請輸入參考價格'); return; }
+    if (lockedUnit && quantityUnit !== lockedUnit) {
+      toast.error(`此代碼既有部位單位為「${lockedUnit}」，請勿混用單位以避免資料漂移`);
+      return;
+    }
 
 
     const latestName = stockName.trim();
@@ -417,14 +484,29 @@ export function SignalCreateDialog({
                 <Select
                   value={quantityUnit}
                   onValueChange={(v) => setQuantityUnit(v as '張' | '股' | '顆')}
-                  disabled={spec.units.length === 1}
+                  disabled={spec.units.length === 1 || !!lockedUnit}
                 >
-                  <SelectTrigger className="w-20"><SelectValue /></SelectTrigger>
+                  <SelectTrigger
+                    className="w-20"
+                    data-testid="quantity-unit-select"
+                    data-locked={lockedUnit ? 'true' : 'false'}
+                  >
+                    <SelectValue />
+                  </SelectTrigger>
                   <SelectContent>
                     {spec.units.map((u) => <SelectItem key={u} value={u}>{u}</SelectItem>)}
                   </SelectContent>
                 </Select>
               </div>
+              {lockedUnit && (
+                <p
+                  data-testid="unit-locked-hint"
+                  className="text-[11px] text-muted-foreground"
+                  aria-live="polite"
+                >
+                  已鎖定單位「{lockedUnit}」（依既有{lockedUnitSource === 'trade' ? '持倉' : '訊號'}）— 避免 UNIT_MIX 漂移
+                </p>
+              )}
             </div>
           )}
 
