@@ -1,0 +1,1 @@
+ALTER VIEW public.payment_providers_safe SET (security_invoker = false);
