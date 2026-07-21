@@ -361,51 +361,89 @@ function HoldingsTab(props) {
 
       {/* ══════════ 持倉決策工作台：左卡片牆 + 右 Detail Panel ══════════
         C8 (audit 2026-07)：原 IIFE 已抽為 HoldingsWorkbench，且 CTA hover 樣式
-        搬遷至 src/checkup/styles/holdingsTab.css .holdings-upload-cta / .holdings-view-all-cta */}
-      <HoldingsWorkbench
-        WB={WB}
-        expandedDecision={expandedDecision}
-        setExpandedDecision={setExpandedDecision}
-        displayed={displayed}
-        sorted={sorted}
-        orderedDisplayed={orderedDisplayed}
-        variantsMap={variantsMap}
-        firstFeatureCode={firstFeatureCode}
-        decisionsMap={decisionsMap}
-        targets={targets}
-        avgTarget={avgTarget}
-        STOCK_META={STOCK_META}
-        overrides={overrides}
-        sparklines={sparklines}
-        sparklineErrors={sparklineErrors}
-        EMPTY_SPARK={EMPTY_SPARK}
-        holdingSyncStates={holdingSyncStates}
-        handleHoldingCardSelect={handleHoldingCardSelect}
-        handleHoldingCardOpenDrawer={handleHoldingCardOpenDrawer}
-        handleReportMeta={handleReportMeta}
-        normalizedEvents={normalizedEvents}
-        openHoldingDrawer={openHoldingDrawer}
-        totalVal={totalVal}
-        sortBy={sortBy}
-        sortDir={sortDir}
-        setSortBy={setSortBy}
-        setSortDir={setSortDir}
-        cardGridCols={cardGridCols}
-        viewMode={viewMode}
-        H={H}
-        setTab={setTab}
-        setSearchQ={setSearchQ}
-        setFilterDecision={setFilterDecision}
-        setFilterThesis={setFilterThesis}
-        setFilterUrgency={setFilterUrgency}
-        setFilterConflict={setFilterConflict}
-        setFilterPnl={setFilterPnl}
-        setFilterStrategy={setFilterStrategy}
-        setSectorFilterPersisted={setSectorFilterPersisted}
-        showAll={showAll}
-        setShowAll={setShowAll}
-        tradeLog={tradeLog}
-      />
+        搬遷至 src/checkup/styles/holdingsTab.css .holdings-upload-cta / .holdings-view-all-cta
+        2026-07-21：外層加 .holdings-refresh-shell — refreshing 時淡化 + progress bar，
+        避免使用者在同步中重複點擊觸發操作。 */}
+      <div
+        className="holdings-refresh-shell"
+        data-refreshing={refreshing ? 'true' : 'false'}
+        data-testid="holdings-refresh-shell"
+        aria-busy={!!refreshing}
+      >
+        {refreshing && (
+          <>
+            <div className="holdings-refresh-progress" aria-hidden="true" />
+            <div className="holdings-refresh-badge" data-testid="holdings-refresh-badge">
+              同步中
+            </div>
+          </>
+        )}
+        <div className="holdings-refresh-content">
+          {refreshing && (!H || H.length === 0) ? (
+            <div
+              className="holdings-skeleton-grid"
+              data-testid="holdings-skeleton-grid"
+              role="status"
+              aria-label="正在載入持倉資料"
+            >
+              {Array.from({ length: 6 }).map((_, i) => (
+                <div key={i} className="holdings-skeleton-card" aria-hidden="true">
+                  <div className="holdings-skeleton-line sk-w-40 sk-h-16" />
+                  <div className="holdings-skeleton-line sk-w-80" />
+                  <div className="holdings-skeleton-line sk-w-60" />
+                  <div className="holdings-skeleton-line sk-w-80" />
+                </div>
+              ))}
+            </div>
+          ) : (
+            <HoldingsWorkbench
+              WB={WB}
+              expandedDecision={expandedDecision}
+              setExpandedDecision={setExpandedDecision}
+              displayed={displayed}
+              sorted={sorted}
+              orderedDisplayed={orderedDisplayed}
+              variantsMap={variantsMap}
+              firstFeatureCode={firstFeatureCode}
+              decisionsMap={decisionsMap}
+              targets={targets}
+              avgTarget={avgTarget}
+              STOCK_META={STOCK_META}
+              overrides={overrides}
+              sparklines={sparklines}
+              sparklineErrors={sparklineErrors}
+              EMPTY_SPARK={EMPTY_SPARK}
+              holdingSyncStates={holdingSyncStates}
+              handleHoldingCardSelect={handleHoldingCardSelect}
+              handleHoldingCardOpenDrawer={handleHoldingCardOpenDrawer}
+              handleReportMeta={handleReportMeta}
+              normalizedEvents={normalizedEvents}
+              openHoldingDrawer={openHoldingDrawer}
+              totalVal={totalVal}
+              sortBy={sortBy}
+              sortDir={sortDir}
+              setSortBy={setSortBy}
+              setSortDir={setSortDir}
+              cardGridCols={cardGridCols}
+              viewMode={viewMode}
+              H={H}
+              setTab={setTab}
+              setSearchQ={setSearchQ}
+              setFilterDecision={setFilterDecision}
+              setFilterThesis={setFilterThesis}
+              setFilterUrgency={setFilterUrgency}
+              setFilterConflict={setFilterConflict}
+              setFilterPnl={setFilterPnl}
+              setFilterStrategy={setFilterStrategy}
+              setSectorFilterPersisted={setSectorFilterPersisted}
+              showAll={showAll}
+              setShowAll={setShowAll}
+              tradeLog={tradeLog}
+            />
+          )}
+        </div>
+      </div>
+
 
 
       {/* Step 7：底部狀態列（B4） */}
