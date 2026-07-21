@@ -395,7 +395,9 @@ test.describe.serial('account merge — full 20-table data movement', () => {
         });
       }
     } finally {
-
+      await a.auth.admin.deleteUser(secondary.userId).catch(() => undefined);
+      await a.auth.admin.deleteUser(primary.userId).catch(() => undefined);
+    }
   });
 });
 

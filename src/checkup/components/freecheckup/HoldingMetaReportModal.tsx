@@ -195,7 +195,9 @@ export default function HoldingMetaReportModal({ holding, currentMeta, onClose, 
       role="dialog"
       aria-modal="true"
       aria-label="回報分類錯誤"
-      onClick={stableOnClose}
+      data-testid="holding-meta-report-backdrop"
+      onClick={(e) => { if (e.target === e.currentTarget) stableOnClose() }}
+      onMouseDown={(e) => { if (e.target === e.currentTarget) stableOnClose() }}
       style={{
         position: 'fixed',
         inset: 0,

@@ -31,7 +31,7 @@ test.describe('HoldingCard aria-busy + Error banner a11y', () => {
   test('同步中 aria-busy=true → 完成自動清除', async ({ page }) => {
     await primeDemo(page)
     await gotoWithRetry(page, '/holding-checkup?demo=1&debugPrice=1')
-    await expect(page.getByText('持倉看板').first()).toBeVisible({ timeout: 20000 })
+    await expect(page.locator('[data-testid="holdings-hero"]').first()).toBeVisible({ timeout: 20000 })
     await scrollThroughCards(page)
 
     const btn = page.getByRole('button', { name: /立即更新|同步中|重試/ }).first()
@@ -65,7 +65,7 @@ test.describe('HoldingCard aria-busy + Error banner a11y', () => {
     await context.grantPermissions(['clipboard-read', 'clipboard-write'])
     await primeDemo(page)
     await gotoWithRetry(page, '/holding-checkup?demo=1&debugPrice=1&demoSyncError=1')
-    await expect(page.getByText('持倉看板').first()).toBeVisible({ timeout: 20000 })
+    await expect(page.locator('[data-testid="holdings-hero"]').first()).toBeVisible({ timeout: 20000 })
     await scrollThroughCards(page)
 
     // 觸發失敗
@@ -108,7 +108,7 @@ test.describe('HoldingCard aria-busy + Error banner a11y', () => {
     await primeDemo(page)
     // sticky flag：每次重試都會失敗，直到 exhausted (>=3)
     await gotoWithRetry(page, '/holding-checkup?demo=1&debugPrice=1&demoSyncError=sticky')
-    await expect(page.getByText('持倉看板').first()).toBeVisible({ timeout: 20000 })
+    await expect(page.locator('[data-testid="holdings-hero"]').first()).toBeVisible({ timeout: 20000 })
     await scrollThroughCards(page)
 
     // 第 1 次：由主按鈕觸發

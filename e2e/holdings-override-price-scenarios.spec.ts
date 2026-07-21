@@ -77,7 +77,7 @@ test.describe('overridePrice 情境覆蓋', () => {
   test('market-closed：換價後 TODAY 重算，yesterday 不變', async ({ page }) => {
     await primeDemo(page)
     await gotoWithRetry(page, '/holding-checkup?demo=1&debugPrice=1')
-    await expect(page.getByText('持倉看板').first()).toBeVisible({ timeout: 20000 })
+    await expect(page.locator('[data-testid="holdings-hero"]').first()).toBeVisible({ timeout: 20000 })
     await scrollThroughCards(page)
     await clickSync(page)
     await expect(page.locator('.wb-card span[title*="現價"]').first())
@@ -102,7 +102,7 @@ test.describe('overridePrice 情境覆蓋', () => {
   test('market-open：quote 無 yesterday → normalize 沿用先前收盤，TODAY 仍重算', async ({ page }) => {
     await primeDemo(page)
     await gotoWithRetry(page, '/holding-checkup?demo=1&debugPrice=1&demoMarketOpen=1')
-    await expect(page.getByText('持倉看板').first()).toBeVisible({ timeout: 20000 })
+    await expect(page.locator('[data-testid="holdings-hero"]').first()).toBeVisible({ timeout: 20000 })
     await scrollThroughCards(page)
     await clickSync(page)
     const before = await snapshotCards(page)
@@ -122,7 +122,7 @@ test.describe('overridePrice 情境覆蓋', () => {
   test('一次同步 → 多張卡片同時更新，yesterday 全數保留', async ({ page }) => {
     await primeDemo(page)
     await gotoWithRetry(page, '/holding-checkup?demo=1&debugPrice=1')
-    await expect(page.getByText('持倉看板').first()).toBeVisible({ timeout: 20000 })
+    await expect(page.locator('[data-testid="holdings-hero"]').first()).toBeVisible({ timeout: 20000 })
     await scrollThroughCards(page)
     await clickSync(page)
     const before = await snapshotCards(page, 8)
@@ -146,7 +146,7 @@ test.describe('overridePrice 情境覆蓋', () => {
   test('同步失敗：顯示錯誤 banner + 重試按鈕，點重試可恢復', async ({ page }) => {
     await primeDemo(page)
     await gotoWithRetry(page, '/holding-checkup?demo=1&debugPrice=1&demoSyncError=1')
-    await expect(page.getByText('持倉看板').first()).toBeVisible({ timeout: 20000 })
+    await expect(page.locator('[data-testid="holdings-hero"]').first()).toBeVisible({ timeout: 20000 })
     await scrollThroughCards(page)
 
     // 第一次同步 → 應失敗（?demoSyncError=1 觸發模擬錯誤）

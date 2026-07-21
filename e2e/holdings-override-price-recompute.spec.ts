@@ -48,7 +48,7 @@ test.describe('overridePrice → HoldingCard recompute safeguard', () => {
   test('多輪 override 後 yesterday 不遺失、todayPnl/todayPct 重算', async ({ page }) => {
     await primeDemo(page)
     await gotoWithRetry(page, ROUTE)
-    await expect(page.getByText('持倉看板').first()).toBeVisible({ timeout: 20000 })
+    await expect(page.locator('[data-testid="holdings-hero"]').first()).toBeVisible({ timeout: 20000 })
 
     // 捲到卡片區觸發 IntersectionObserver → 讓 inner span 真的 mount
     for (const y of [400, 800, 1200, 1600]) {

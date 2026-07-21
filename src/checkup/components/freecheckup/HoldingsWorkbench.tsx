@@ -86,6 +86,16 @@ function HoldingsWorkbench(props) {
   const onScrollRef = useRef<(() => void) | null>(null);
   const gridRef = useRef<HTMLDivElement | null>(null);
   const [showTopBtn, setShowTopBtn] = useState(false);
+  // 記錄開啟前的 focus 元素，Sheet 關閉時還原（Radix `onCloseAutoFocus` 契約）。
+  // 卡片透過程式 setExpandedDecision 開抽屜（不是 SheetTrigger），
+  // Radix 無從得知 trigger，需要手動 restore。
+  const previousFocusRef = useRef<HTMLElement | null>(null);
+  useEffect(() => {
+    if (showPanel) {
+      const active = document.activeElement as HTMLElement | null;
+      if (active && active !== document.body) previousFocusRef.current = active;
+    }
+  }, [showPanel]);
 
   // 抽屜內部滾動時顯示「回到頂部」按鈕。
   //
@@ -285,6 +295,13 @@ function HoldingsWorkbench(props) {
           ref={setSheetRef}
           side="right"
           data-testid="holdings-detail-panel"
+          onCloseAutoFocus={(e) => {
+            const prev = previousFocusRef.current;
+            if (prev && document.contains(prev)) {
+              e.preventDefault();
+              prev.focus({ preventScroll: true });
+            }
+          }}
           // width / positioning 契約（對應 holdings-detail-panel-rwd-extreme spec）：
           //   < sm(640)：!left-0 !right-0 !w-auto → 兩邊錨定、寬度=viewport，
           //     避免 base variant 的 w-3/4 + border-l + Radix ScrollLock 補償變數

@@ -46,7 +46,7 @@ test.describe('HoldingCard aria-live 螢幕閱讀器狀態', () => {
   test('idle → syncing → done：每張卡的 aria-live 內容會更新', async ({ page }) => {
     await primeDemo(page)
     await gotoWithRetry(page, '/holding-checkup?demo=1&debugPrice=1')
-    await expect(page.getByText('持倉看板').first()).toBeVisible({ timeout: 20000 })
+    await expect(page.locator('[data-testid="holdings-hero"]').first()).toBeVisible({ timeout: 20000 })
     await scrollThroughCards(page)
 
     // 每張卡都必有一個 SR-only role="status" aria-live="polite"
@@ -97,7 +97,7 @@ test.describe('HoldingCard aria-live 螢幕閱讀器狀態', () => {
   test('全頁 sync banner 有 role="status" aria-live="polite"', async ({ page }) => {
     await primeDemo(page)
     await gotoWithRetry(page, '/holding-checkup?demo=1&debugPrice=1')
-    await expect(page.getByText('持倉看板').first()).toBeVisible({ timeout: 20000 })
+    await expect(page.locator('[data-testid="holdings-hero"]').first()).toBeVisible({ timeout: 20000 })
     await scrollThroughCards(page)
 
     // 觸發同步 → 全頁 banner 應出現 role="status"
@@ -129,7 +129,7 @@ test.describe('HoldingCard aria-live 螢幕閱讀器狀態', () => {
   test('同步失敗：holding-card-error 帶 role="alert" aria-live="assertive" + SR-only 前綴', async ({ page }) => {
     await primeDemo(page)
     await gotoWithRetry(page, '/holding-checkup?demo=1&debugPrice=1&demoPartialFail=1')
-    await expect(page.getByText('持倉看板').first()).toBeVisible({ timeout: 20000 })
+    await expect(page.locator('[data-testid="holdings-hero"]').first()).toBeVisible({ timeout: 20000 })
     await scrollThroughCards(page)
 
     await clickSync(page)
