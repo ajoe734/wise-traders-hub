@@ -23,7 +23,7 @@ interface Row {
   quantity: number | null;
   quantity_unit: string | null;
   created_at?: string | null;
-  opened_at?: string | null;
+  entry_date?: string | null;
 }
 
 export function UnitRealignPreviewDialog({
