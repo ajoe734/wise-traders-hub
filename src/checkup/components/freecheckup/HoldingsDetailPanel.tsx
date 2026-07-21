@@ -549,6 +549,9 @@ function HoldingsDetailPanelImpl({
             low={rangeLow}
             high={rangeHigh}
             spark={sparkArr}
+            symbol={h?.code || h?.symbol || h?.instrument}
+            priceSource={meta?.priceSource || h?.priceSource}
+            priceUpdatedAt={h?.priceUpdatedAt}
           />
         )}
 
