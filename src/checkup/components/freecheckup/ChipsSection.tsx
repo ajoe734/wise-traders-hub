@@ -151,7 +151,41 @@ export default function ChipsSection({ WB, stockCode }: { WB: any; stockCode: st
     return () => clearTimeout(t);
   }, [bsrPending, fetchedAt, refetch]);
 
-  return (
+  // 手動回補歷史（三大法人 + BSR 佇列）
+  const instDays = data?.series?.institutional_daily?.length ?? 0;
+  const bsrDays = data?.series?.bsr_concentration?.length ?? 0;
+  const sparse = !!data && (instDays < 20 || bsrDays < 5);
+  const [backfilling, setBackfilling] = useState(false);
+  const handleBackfill = async () => {
+    if (backfilling) return;
+    setBackfilling(true);
+    try {
+      const [instRes, bsrRes] = await Promise.allSettled([
+        supabase.functions.invoke('tw-institutional-daily-sync', {
+          body: { mode: 'backfill_stock', stock_id: stockCode, days: 60 },
+        }),
+        supabase.rpc('enqueue_bsr_backfill', { p_stock_id: stockCode, p_days: 60 }),
+      ]);
+      const instOk = instRes.status === 'fulfilled' && !(instRes.value as any)?.error;
+      const bsrOk = bsrRes.status === 'fulfilled' && !(bsrRes.value as any)?.error;
+      if (instOk || bsrOk) {
+        const bsrCount = bsrOk ? (bsrRes as any).value?.data ?? 0 : 0;
+        toast.success(
+          `已排入歷史回補${bsrCount ? `（BSR ${bsrCount} 個交易日）` : ''}，三大法人約 10 秒、分點約 5–15 分鐘內完成`,
+        );
+        setTimeout(() => refetch(), 3000);
+      } else {
+        const msg =
+          (instRes.status === 'rejected' ? String(instRes.reason) : (instRes.value as any)?.error?.message) ||
+          (bsrRes.status === 'rejected' ? String(bsrRes.reason) : (bsrRes.value as any)?.error?.message) ||
+          '未知錯誤';
+        toast.error(`回補失敗：${msg.slice(0, 80)}`);
+      }
+    } finally {
+      setBackfilling(false);
+    }
+  };
+
     <section
       data-testid="chips-section"
       style={{
