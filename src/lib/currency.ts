@@ -119,3 +119,17 @@ export function allowedQuantityUnits(c: Currency): Array<'張' | '股'> {
 export function defaultQuantityUnit(c: Currency): '張' | '股' {
   return c === 'USD' ? '股' : '張';
 }
+
+/**
+ * 強制修正單位標籤，避免週記/訊號顯示錯誤單位：
+ * - USD：一律回傳「股」（美股沒有「張」的概念）
+ * - TWD：若 raw 不是 張/股 一律預設「張」
+ * 僅影響顯示標籤，不會改動 quantity 數值。
+ */
+export function sanitizeQuantityUnit(raw: string | null | undefined, c: Currency): '張' | '股' {
+  if (c === 'USD') return '股';
+  const t = (raw || '').trim();
+  if (t === '張' || t === '股') return t;
+  return '張';
+}
+
