@@ -113,6 +113,26 @@ function HoldingsHeroImpl(props) {
   const canRefresh = typeof onRefreshPrices === 'function' && !refreshing;
   const [autoMin, setAutoMin] = useAutoRefreshMinutes();
 
+  // 價格來源分佈 + 最舊抓取時間（讓使用者判斷是否有個股停留在舊 tick）
+  const priceSummary = summarizePriceSources(holdings);
+  const oldestMs = priceSummary?.oldest || 0;
+  const oldestText = oldestMs
+    ? new Date(oldestMs).toLocaleTimeString('zh-TW', { hour: '2-digit', minute: '2-digit', hour12: false })
+    : '';
+  const oldestAgeMin = oldestMs ? Math.floor((nowMs - oldestMs) / 60000) : 0;
+  const oldestStale = oldestMs > 0 && (nowMs - oldestMs) > 15 * 60 * 1000; // > 15 min 視為過期
+  const summaryTitle = priceSummary
+    ? [
+        priceSummary.entries.length
+          ? `價格來源：${priceSummary.entries.map(([k, v]) => `${SRC_LABEL[k] || k} ${v}`).join('、')}`
+          : null,
+        priceSummary.missing ? `${priceSummary.missing} 檔尚未同步報價` : null,
+        oldestMs ? `最舊 tick：${new Date(oldestMs).toLocaleString('zh-TW')}（${oldestAgeMin} 分鐘前）` : null,
+        priceSummary.newest ? `最新 tick：${new Date(priceSummary.newest).toLocaleString('zh-TW')}` : null,
+      ].filter(Boolean).join('\n')
+    : '';
+
+
 
   return (
     <section
