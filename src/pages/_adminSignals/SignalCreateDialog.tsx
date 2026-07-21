@@ -499,13 +499,52 @@ export function SignalCreateDialog({
                 </Select>
               </div>
               {lockedUnit && (
-                <p
-                  data-testid="unit-locked-hint"
-                  className="text-[11px] text-muted-foreground"
-                  aria-live="polite"
-                >
-                  已鎖定單位「{lockedUnit}」（依既有{lockedUnitSource === 'trade' ? '持倉' : '訊號'}）— 避免 UNIT_MIX 漂移
-                </p>
+                <div className="flex flex-wrap items-center gap-2">
+                  <p
+                    data-testid="unit-locked-hint"
+                    className="text-[11px] text-muted-foreground"
+                    aria-live="polite"
+                  >
+                    已鎖定單位「{lockedUnit}」（依既有{lockedUnitSource === 'trade' ? '持倉' : '訊號'}）
+                  </p>
+                  {spec.units.length > 1 && (
+                    <Select
+                      value=""
+                      onValueChange={async (nextUnit) => {
+                        if (!nextUnit || nextUnit === lockedUnit) return;
+                        const trimmed = stockCode.trim();
+                        if (!trimmed || !expert?.id) return;
+                        const ok = window.confirm(
+                          `將此代碼「${trimmed}」的所有既有訊號與持倉單位一併改為「${nextUnit}」？\n\n注意：僅換單位標籤，不會改動數量數值。`,
+                        );
+                        if (!ok) return;
+                        try {
+                          const { data, error } = await supabase.rpc('realign_instrument_unit', {
+                            p_expert_id: expert.id,
+                            p_symbol_prefix: trimmed,
+                            p_new_unit: nextUnit,
+                          });
+                          if (error) { toast.error(`調整單位失敗：${error.message}`); return; }
+                          const d = (data as any) || {};
+                          toast.success(`已改為「${nextUnit}」（訊號 ${d.signals_updated ?? 0} 筆、持倉 ${d.trades_updated ?? 0} 筆）`);
+                          setLockedUnit(nextUnit as QuantityUnit);
+                          setQuantityUnit(nextUnit as QuantityUnit);
+                        } catch (e: any) {
+                          toast.error(`調整單位失敗：${e?.message || e}`);
+                        }
+                      }}
+                    >
+                      <SelectTrigger className="h-6 w-[110px] text-[11px]" data-testid="unit-realign-select">
+                        <SelectValue placeholder="改單位…" />
+                      </SelectTrigger>
+                      <SelectContent>
+                        {spec.units.filter((u) => u !== lockedUnit).map((u) => (
+                          <SelectItem key={u} value={u} className="text-xs">改為 {u}</SelectItem>
+                        ))}
+                      </SelectContent>
+                    </Select>
+                  )}
+                </div>
               )}
             </div>
           )}
