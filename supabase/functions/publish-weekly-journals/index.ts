@@ -225,35 +225,100 @@ Deno.serve(withLogging('publish-weekly-journals', async (req) => {
     log(`Found ${pendingSignals.length} pending signals`)
 
     stage = 'mark_published'
-    const signalIds = pendingSignals.map(s => s.id)
     // 依 instrument 判別市場，回填 expert_signals.market；同 batch 逐一 update 以帶入正確 market
     const { detectMarket, isDerivativeMarket, currencyOf } = await import('../_shared/marketDetect.ts')
-    let updateErr: any = null
+
+    // 預先撈 expert → user_id 供發布失敗時通知導師本人
+    const expertIds = Array.from(new Set(pendingSignals.map(s => s.expert_id)))
+    const { data: expertRows } = await supabaseAdmin
+      .from('experts')
+      .select('id, user_id, name')
+      .in('id', expertIds)
+    const expertMap = new Map<string, { user_id: string | null; name: string | null }>()
+    for (const e of expertRows || []) expertMap.set((e as any).id, { user_id: (e as any).user_id, name: (e as any).name })
+
+    // 將 DB 例外分類為可讀原因 + 修正路徑
+    const classifyPublishError = (err: any, instrument: string) => {
+      const raw = String(err?.message || '') + ' ' + String(err?.details || '') + ' ' + String(err?.hint || '')
+      const code = String(err?.code || '')
+      if (raw.includes('CAPITAL_EXCEEDED') || code === 'P0001' && raw.includes('capital')) {
+        return {
+          kind: 'CAPITAL_EXCEEDED',
+          title: `週記發布失敗：初始資金不足（${instrument}）`,
+          body: '本次發布累計金額超過分析師設定的初始資金。請前往「分析師設定」上調初始資金，或調整此筆持倉的張數/價位後再送出。',
+          link: '/admin/profile#capital',
+        }
+      }
+      if (raw.includes('incompatible_unit_for_asset_class')) {
+        return {
+          kind: 'INCOMPATIBLE_UNIT',
+          title: `週記發布失敗：單位與資產類別不符（${instrument}）`,
+          body: '該資產類別不允許此單位（例：美股僅能用「股」）。請至週記編輯頁選擇正確單位後重新送審。',
+          link: '/admin/signals',
+        }
+      }
+      if (raw.includes('unit_conflict') || raw.includes('UNIT_MIX')) {
+        return {
+          kind: 'UNIT_CONFLICT',
+          title: `週記發布失敗：單位與歷史紀錄衝突（${instrument}）`,
+          body: '此標的歷史紀錄與本次送出的單位不一致。請於編輯頁使用「改單位…」批次校齊後再送審。',
+          link: '/admin/signals',
+        }
+      }
+      return {
+        kind: 'UNKNOWN',
+        title: `週記發布失敗（${instrument}）`,
+        body: `系統錯誤：${err?.message || '未知原因'}。請聯絡管理員或於編輯頁重試。`,
+        link: '/admin/signals',
+      }
+    }
+
+    const publishFailures: Array<{ signal_id: string; expert_id: string; kind: string; message: string }> = []
+    const publishedIds: string[] = []
     for (const s of pendingSignals) {
       const detected = detectMarket((s as any).instrument)
-      // 衍生性商品（options/futures）以 'US' 記錄 market 欄位，避免下游 filter/snapshot 破格
       const market = isDerivativeMarket(detected) ? 'US' : detected
       const { error } = await supabaseAdmin
         .from('expert_signals')
         .update({ status: 'published', market })
         .eq('id', s.id)
-      if (error) { updateErr = error; break }
+      if (error) {
+        const info = classifyPublishError(error, (s as any).instrument)
+        publishFailures.push({ signal_id: s.id, expert_id: s.expert_id, kind: info.kind, message: error.message })
+        logErr('mark_published_iter', error, { signalId: s.id, expertId: s.expert_id, kind: info.kind })
+
+        // 通知導師本人（可點擊連結直達修正入口）
+        const mentor = expertMap.get(s.expert_id)
+        if (mentor?.user_id) {
+          try {
+            await supabaseAdmin.from('notifications').insert({
+              user_id: mentor.user_id,
+              title: info.title,
+              body: `${info.body}\n\n[Signal ID] ${s.id}`,
+              type: 'error',
+              link: info.link,
+            })
+          } catch (nErr) {
+            logErr('notify_mentor_failed', nErr, { signalId: s.id, expertId: s.expert_id })
+          }
+        }
+        continue
+      }
+      publishedIds.push(s.id)
     }
 
-    if (updateErr) {
-      logErr(stage, updateErr, { signalIds })
-      await flushLogs()
-      return new Response(JSON.stringify({ error: updateErr.message, stage, runId }), {
-        status: 500, headers: { ...corsHeaders, 'Content-Type': 'application/json' },
-      })
-    }
+    log(`Published ${publishedIds.length}/${pendingSignals.length} signals (failed=${publishFailures.length})`, {
+      failedByKind: publishFailures.reduce((acc: Record<string, number>, f) => { acc[f.kind] = (acc[f.kind] || 0) + 1; return acc }, {}),
+    })
 
-    log(`Updated ${signalIds.length} signals to published`)
+    // 只保留成功發布的 signals 進入後續 trade_signals sync / LINE push，避免對失敗案例做副作用
+    const failedIdSet = new Set(publishFailures.map(f => f.signal_id))
+    const publishedSignals = pendingSignals.filter(s => !failedIdSet.has(s.id))
 
     // Sync trade_signals + user_performances for each published signal
     stage = 'sync_trade_signals'
     let syncOk = 0, syncFail = 0
-    for (const signal of pendingSignals) {
+    for (const signal of publishedSignals) {
       try {
       // 'teaching' (純教學週記) / 'hold' (觀察) 不影響 trade_signals 或 user_performances
       if (signal.action === 'teaching' || signal.action === 'hold') {
@@ -362,8 +427,8 @@ Deno.serve(withLogging('publish-weekly-journals', async (req) => {
 
     // Group by expert_id for LINE push
     stage = 'group_by_expert'
-    const byExpert = new Map<string, typeof pendingSignals>()
-    for (const signal of pendingSignals) {
+    const byExpert = new Map<string, typeof publishedSignals>()
+    for (const signal of publishedSignals) {
       const list = byExpert.get(signal.expert_id) || []
       list.push(signal)
       byExpert.set(signal.expert_id, list)
@@ -577,10 +642,18 @@ Deno.serve(withLogging('publish-weekly-journals', async (req) => {
     }
 
     const elapsedMs = Date.now() - t0
-    log(`Done. published=${signalIds.length} pushed=${totalPushed} pushFail=${pushFail} elapsedMs=${elapsedMs}`)
+    log(`Done. published=${publishedIds.length} failed=${publishFailures.length} pushed=${totalPushed} pushFail=${pushFail} elapsedMs=${elapsedMs}`)
     await flushLogs()
     return new Response(JSON.stringify({
-      runId, published: signalIds.length, pushed: totalPushed, pushFail, syncOk, syncFail, elapsedMs,
+      runId,
+      published: publishedIds.length,
+      failed: publishFailures.length,
+      failures: publishFailures,
+      pushed: totalPushed,
+      pushFail,
+      syncOk,
+      syncFail,
+      elapsedMs,
     }), {
       headers: { ...corsHeaders, 'Content-Type': 'application/json' },
     })
