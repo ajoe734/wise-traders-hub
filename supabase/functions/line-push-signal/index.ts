@@ -527,7 +527,7 @@ Deno.serve(withLogging('line-push-signal', async (req) => {
 
       // 一隻 carousel 最多 10 個 bubble
       const bubbles = batchSignals.slice(0, 10).map((s: any) => {
-        const flex = buildFlexMessage(s, pushType)
+        const flex = buildFlexMessage(s, pushType, expertHint)
         return flex.contents // bubble 物件
       })
       const firstLabel = batchSignals[0]?.instrument || ''
