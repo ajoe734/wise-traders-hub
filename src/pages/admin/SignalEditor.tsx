@@ -26,6 +26,7 @@ import {
   buildPublishRows, buildTeachingOnlyRow, buildSimulatedPositions, computeCashSim, validateSignalBatch,
 } from '@/pages/_signalEditor/derive';
 import { useSignalEditorData } from '@/hooks/admin/useSignalEditorData';
+import { getAssetSpec, resolveAssetClass, sanitizeAssetQuantityUnit } from '@/lib/asset';
 
 const SignalEditor = () => {
   const { expertSlug, batchId: editBatchId } = useParams<{ expertSlug: string; batchId?: string }>();
@@ -71,21 +72,40 @@ const SignalEditor = () => {
     },
   });
 
-  // 當 expert 的 currency 載入後，若 trades 仍處於「全空初始狀態」，
-  // 重新生成預設 trade，確保 USD 預設單位為「股」而非「張」。
+  const assetClass = resolveAssetClass(expert);
+  const assetSpec = getAssetSpec(assetClass);
+
+  // 當 expert 的 asset_class 載入後，校正草稿殘留單位；確保 us_stock 永遠為「股」。
   useEffect(() => {
     if (!expert) return;
     setTrades((prev) => {
       if (prev.length !== 1) return prev;
       const t = prev[0];
       const isEmpty = !t.stockCode && !t.quantity && !t.priceHint && !t.reasonSummary && !t.action;
-      if (!isEmpty) return prev;
-      const fresh = emptyTrade(currency);
-      // 若已是相同 unit 就不要 setState 觸發 re-render
-      if (fresh.quantityUnit === t.quantityUnit) return prev;
-      return [{ ...fresh, uid: t.uid }];
+      if (isEmpty) {
+        const fresh = emptyTrade(assetClass);
+        if (fresh.quantityUnit === t.quantityUnit) return prev;
+        return [{ ...fresh, uid: t.uid }];
+      }
+      const safeUnit = sanitizeAssetQuantityUnit(t.quantityUnit, assetClass);
+      if (safeUnit === t.quantityUnit) return prev;
+      return [{ ...t, quantityUnit: safeUnit }];
     });
-  }, [expert, currency]);
+  }, [expert, assetClass]);
+
+  useEffect(() => {
+    if (!expert) return;
+    setTrades((prev) => {
+      let changed = false;
+      const next = prev.map((t) => {
+        const safeUnit = sanitizeAssetQuantityUnit(t.quantityUnit, assetClass);
+        if (safeUnit === t.quantityUnit) return t;
+        changed = true;
+        return { ...t, quantityUnit: safeUnit };
+      });
+      return changed ? next : prev;
+    });
+  }, [expert, assetClass]);
 
   const isMentor = expert?.role === 'mentor';
   const publishWindow = isPublishingWindowOpen();
@@ -106,7 +126,10 @@ const SignalEditor = () => {
       if (typeof saved.overallSummary === 'string') setOverallSummary(saved.overallSummary);
       if (typeof saved.learningPoints === 'string') setLearningPoints(saved.learningPoints);
       if (Array.isArray(saved.trades) && saved.trades.length > 0) {
-        setTrades(saved.trades.map((t: any) => ({ ...emptyTrade(currency), ...t, uid: t.uid || newUid() })));
+        setTrades(saved.trades.map((t: any) => {
+          const merged = { ...emptyTrade(assetClass), ...t, uid: t.uid || newUid() };
+          return { ...merged, quantityUnit: sanitizeAssetQuantityUnit(merged.quantityUnit, assetClass) };
+        }));
       }
     },
     { enabled: !isEditing },
@@ -121,7 +144,7 @@ const SignalEditor = () => {
   // ── Trade-row mutators ───────────────────────────────────────────────
   const updateTrade = useCallback((idx: number, patch: Partial<TradeDraft>) =>
     setTrades((prev) => prev.map((t, i) => (i === idx ? { ...t, ...patch } : t))), []);
-  const addTrade = useCallback(() => setTrades((prev) => [...prev, emptyTrade(currency)]), [currency]);
+  const addTrade = useCallback(() => setTrades((prev) => [...prev, emptyTrade(assetClass)]), [assetClass]);
   const removeTrade = useCallback(
     (idx: number) => setTrades((prev) => (prev.length === 1 ? prev : prev.filter((_, i) => i !== idx))),
     [],
@@ -140,7 +163,7 @@ const SignalEditor = () => {
   const fetchStockInfo = useCallback(async (idx: number, code: string) => {
     // uppercase 確保台股 ETF 字尾（如 00631L）與大小寫快取一致
     const c = code.trim().toUpperCase();
-    const minLen = currency === 'USD' ? 1 : 4;
+    const minLen = assetSpec.minSymbolLen;
     if (!c || c.length < minLen) return;
     if (stockCacheRef.current.has(c)) {
       const name = stockCacheRef.current.get(c)!;
@@ -155,7 +178,7 @@ const SignalEditor = () => {
         setTrades((prev) => prev.map((t, i) => (i === idx && !t.stockName ? { ...t, stockName: name } : t)));
       }
     } catch { /* ignore */ }
-  }, [currency]);
+  }, [assetSpec.minSymbolLen]);
 
   // ── AI assist passthrough ────────────────────────────────────────────
   const callAIAssist = useCallback<AIAssistFn>(async (field, mode, currentHtml, instruction, context) => {
@@ -223,7 +246,7 @@ const SignalEditor = () => {
             teachingTopic, overallSummary, learningPoints,
           })
         : buildPublishRows({
-            expertId: expert.id, batchId, status, isMentor,
+            expertId: expert.id, batchId, status, assetClass, isMentor,
             teachingTopic, overallSummary, learningPoints, trades,
           });
 
@@ -353,6 +376,7 @@ const SignalEditor = () => {
             addTrade={addTrade}
             updateTrade={updateTrade}
             currency={currency}
+            assetClass={assetClass}
           />
         )}
 
@@ -390,6 +414,7 @@ const SignalEditor = () => {
             cashSim={cashSim}
             expertId={expert?.id}
             currency={currency}
+            assetClass={assetClass}
             allowHold={isMentor}
             updateTrade={updateTrade}
             removeTrade={removeTrade}

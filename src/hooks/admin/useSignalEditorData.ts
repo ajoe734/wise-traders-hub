@@ -5,6 +5,7 @@ import {
   emptyTrade, newUid,
   type CapitalStatus, type TradeDraft,
 } from '@/pages/_signalEditor/types';
+import { resolveAssetClass, sanitizeAssetQuantityUnit } from '@/lib/asset';
 
 interface OpenPos {
   symbol: string;
@@ -101,6 +102,7 @@ export function useSignalEditorData(args: UseSignalEditorDataArgs) {
         return;
       }
       const first: any = data[0];
+      const assetClass = resolveAssetClass(expert);
       const trades: TradeDraft[] = data.map((row: any) => {
         const inst = String(row.instrument || '');
         const [code, ...rest] = inst.split(' ');
@@ -114,7 +116,7 @@ export function useSignalEditorData(args: UseSignalEditorDataArgs) {
           action: (row.action || '') as any,
           priceHint: row.price_hint != null ? String(row.price_hint) : '',
           quantity: row.quantity != null ? String(row.quantity) : '',
-          quantityUnit: (row.quantity_unit || '張') as '張' | '股',
+          quantityUnit: sanitizeAssetQuantityUnit(row.quantity_unit, assetClass),
           reasonSummary: row.reason_summary || '',
           reasonDetail: row.reason_detail || '',
           riskNotes: row.risk_notes || '',
@@ -124,7 +126,7 @@ export function useSignalEditorData(args: UseSignalEditorDataArgs) {
         teachingTopic: first.teaching_topic || '',
         overallSummary: first.overall_summary || '',
         learningPoints: first.learning_points || '',
-        trades: trades.length > 0 ? trades : [emptyTrade()],
+        trades: trades.length > 0 ? trades : [emptyTrade(assetClass)],
       });
     })();
     return () => { cancelled = true; };

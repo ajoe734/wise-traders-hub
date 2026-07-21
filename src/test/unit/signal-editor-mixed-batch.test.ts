@@ -123,4 +123,20 @@ describe('signal editor: mixed add/trim batch (執行語意排序)', () => {
     const exitRow = rows.find((r: any) => r.action === 'exit');
     expect(exitRow.teaching_topic).toBeNull();
   });
+
+  it('us_stock 發布 payload 會把舊草稿「張」校正為「股」', () => {
+    const rows = buildPublishRows({
+      expertId: 'e', batchId: 'b', status: 'pending', assetClass: 'us_stock',
+      isMentor: true, teachingTopic: '', overallSummary: '', learningPoints: '',
+      trades: [mkTrade({ stockCode: 'AAPL', action: 'buy', priceHint: '180', quantity: '10', quantityUnit: '張' })],
+    });
+    expect(rows[0].quantity_unit).toBe('股');
+  });
+
+  it('us_stock 前端驗證會阻擋 incompatible unit 並顯示中文原因', () => {
+    const usExpert = { id: 'exp-us', asset_class: 'us_stock', currency: 'USD' };
+    const trades = [mkTrade({ stockCode: 'AAPL', action: 'buy', priceHint: '180', quantity: '10', quantityUnit: '張' })];
+    const err = validateSignalBatch({ expert: usExpert, trades, openPositions: [], capital: { ...capitalEmpty, available_cash: 10_000 } });
+    expect(err).toContain('美股單位只能用「股」');
+  });
 });

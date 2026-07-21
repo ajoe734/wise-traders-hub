@@ -1,75 +1,40 @@
-## 問題根因（已核對）
+## 已確認現況
+- Benny 老師資料為 `currency=USD`、`asset_class=us_stock`，理論上只能使用「股」。
+- 前台單筆 `SignalCreateDialog` 已用 asset spec 限制美股單位，但週記批次編輯器 `/admin/:expertSlug/signal-editor` 仍主要走 `currency` 舊 helper，且草稿/編輯回填可能保留舊 `張`。
+- 批次週記發布流程 `publish-weekly-journals` 只把 pending 改 `published`，沒有在發布前依 expert asset class 正規化/驗證 `quantity_unit`。
+- 目前 DB `handle_signal_trade()` 寫入 `trade_records` 時沒有帶入 `quantity_unit`，這會讓後續單位鎖定與持倉口徑繼續漂移。
+- `enforce_unit_consistency()` 是用完整 `instrument` 比對，不是代碼 prefix；同一股票名稱不同或空白差異時，舊錯誤可能漏擋或誤判。
 
-趨勢圖只有 5 天骨架、折線畫不出來，**不是前端 clamp 的問題，是資料庫本來就只有那幾天**：
+## 修正計畫
+1. **批次週記表單改成 asset_class 單一來源**
+   - 將 `TradeDraft.quantityUnit` 型別擴充為共用 `QuantityUnit`。
+   - `SignalEditor` / `TradeCard` / `derive.ts` 從 `expert.asset_class` 解析 `getAssetSpec()`，不再只靠 `currency`。
+   - 美股永遠只顯示/保存「股」，草稿若殘留「張」會在載入與送出前強制校正成「股」。
 
-- `tw-institutional-daily-sync` 是「每日一次、抓當日全市場」的排程，新加入的持倉只會從加入那天起累積。
-- `enqueue_bsr_first_fetch_on_trade` trigger（`20260721060335`）只在 `trade_records` insert 時塞**1 筆**當天的 BSR 佇列，`tw-bsr-finmind-sync` 也沒有 per-stock 的多日回補入口。
-- `tw-chips-detail` 抓 `.limit(65)` 已經沒問題，是上游沒資料。
+2. **送出前做硬性單位正規化與中文錯誤**
+   - 在 `validateSignalBatch()` 補上 asset class 單位驗證：美股只能股、加密只能顆、衍生品只能口、台股張/股。
+   - 在 `buildPublishRows()` 寫入前套用 `normalizeTradeUnitForAsset()`，避免 stale draft 或編輯舊批次把「張」帶進 pending。
+   - 錯誤提示改成「Benny 是美股設定，只能填股；已自動改回股/請重新送出」這類明確中文。
 
-上一輪只在前端 `ChipsTrendChart.tsx` 加 clamp/fallback，是治標。使用者要「找過去的」= 補歷史。
+3. **DB 端補齊資產單位守門**
+   - 新增/更新 trigger function：依 `experts.asset_class` 檢查 `expert_signals.quantity_unit` 與 `trade_records.quantity_unit` 是否相容。
+   - `us_stock` 禁止 `張`，`crypto` 禁止股/張，`us_option/us_future` 禁止非口；台股允許張/股。
+   - 這是第二層防線，避免 Edge Function、RPC、舊 UI 繞過前端。
 
-## 修正範圍
+4. **修正 `handle_signal_trade()` 持倉寫入缺單位**
+   - INSERT `trade_records` 時帶 `quantity_unit = NEW.quantity_unit`。
+   - add/trim/partial close 路徑更新或新增 closed record 時保留既有/本次單位，避免持倉表出現 null 單位。
+   - 同時維持 safe-skip log，不破壞現有防重複邏輯。
 
-### 1. 三大法人 per-stock 歷史回補（新增能力）
+5. **修正 publish 排程的錯誤分類**
+   - `publish-weekly-journals` 目前只認 `incompatible_unit_for_asset_class`、`unit_conflict`、`UNIT_MIX`；補認目前 DB 實際 hint `UNIT_LOCK` 與中文「單位不一致」。
+   - 導師通知與 function log 會顯示明確修正入口與中文原因，不再只有 non-2xx/未知錯誤。
 
-`supabase/functions/tw-institutional-daily-sync/index.ts` 加入新模式：
+6. **資料檢查與必要回補**
+   - 查 Benny 的 pending `expert_signals` 與 `trade_records`，把 `us_stock` 下殘留的 `張` 或 null 單位修正為 `股`（用 migration/RPC，不直接手動 update）。
+   - 範圍不限 Benny：同時掃所有 `asset_class='us_stock'` expert，列出並修正同類錯誤，避免下一位老師重演。
 
-```
-POST /tw-institutional-daily-sync
-body: { mode: "backfill_stock", stock_id: "2330", days: 60 }
-```
-
-- 改走 FinMind `TaiwanStockInstitutionalInvestorsBuySell`（單檔多日，1 次 request 拿 60 天），避開 TWSE T86「單日全市場」限制。
-- 沿用既有 `finmindRateLimit` 保留額度（1 request、weight=1）。
-- upsert 進 `tw_institutional_daily`（`stock_id,trade_date` 去重）。
-- 失敗回退：FinMind 失敗時逐日呼叫 TWSE T86（保留現有邏輯），但只掃該檔。
-
-### 2. BSR 首次抓取一次補 60 天
-
-修改 `supabase/migrations/*` 新增 migration，改寫 `enqueue_bsr_first_fetch_on_trade`：
-
-- 新持倉插入時，一次塞 **N 個工作日**（N=60，跳過假日）的 P1 pending 到 `tw_bsr_sync_queue`，`post_close_only=false`，`enqueued_by='trade_insert_hook_backfill'`。
-- 用 `ON CONFLICT DO NOTHING` 避免與現有 pending 撞。
-- 只對 chip-eligible（4 碼、首位 1-9）觸發，維持既有規則。
-- 舊 trigger 保留邏輯做為「已有資料就跳過」的短路。
-
-Worker（`tw-bsr-worker-tier1-catchup`）不動，它會依 rate limit 消化這批 60 筆。
-
-### 3. 新持倉自動觸發三大法人回補
-
-在同一個 trigger（或另建 `enqueue_inst_backfill_on_trade`）用 `pg_net` / `supabase_functions.http_request` 非同步呼叫 `tw-institutional-daily-sync` 的 `backfill_stock` 模式，days=60。已存在 `tw_institutional_daily` 該檔任一筆就跳過。
-
-### 4. 前端「補歷史」手動入口
-
-`src/checkup/components/freecheckup/ChipsSection.tsx`：
-
-- 當 `series.institutional_daily.length < 20` 或 `bsr_concentration.length < 5` 時，在資料稀疏提示旁加「回補過去 60 日」按鈕。
-- 按下呼叫兩個 edge functions（inst backfill + 塞 BSR 佇列 RPC `enqueue_bsr_backfill(stock_id, days)`）。
-- 呼叫成功 toast「已排入回補，約 5–15 分鐘內完成」，並啟動既有 60s 自動重抓。
-
-### 5. 前端 clamp/fallback 保留
-
-`ChipsTrendChart.tsx` 上一輪加的 fallback 不動——回補到位前仍需優雅顯示；到位後自然畫出完整折線。
-
-## 技術細節
-
-- **新 RPC** `public.enqueue_bsr_backfill(p_stock_id text, p_days int default 60) returns int`：
-  - `security definer`、限管理員或 owner（呼叫者持有該 instrument 的 trade_records）。
-  - 產生過去 N 個工作日的 pending 行，回傳實際 insert 數量。
-  - GRANT EXECUTE TO authenticated, service_role。
-- **FinMind endpoint**：`https://api.finmindtrade.com/api/v4/data?dataset=TaiwanStockInstitutionalInvestorsBuySell&data_id={stock_id}&start_date={YYYY-MM-DD}&end_date={YYYY-MM-DD}`，欄位 `Foreign_Investor / Investment_Trust / Dealer` 需合併 self/hedge 兩支 dealer。
-- **速率**：60 天新持倉 = 1 次 FinMind inst + 60 次 BSR queue（分散在 rate limiter 5 req/min → 約 12 分鐘吃完），符合現有 1500/hr 總額。
-- **Migration 順序**：先建 RPC 與新 trigger，再重跑一次現有持倉的 backfill（一次性 seed script，寫在 migration 尾部 `DO $$ ... $$`，掃 `trade_records` 找 chip-eligible 且 `tw_bsr_daily` 少於 20 天者，補齊）。
-
-## 驗證
-
-- Seed migration 執行後，`select stock_id, count(*) from tw_bsr_daily group by 1 having count(*) < 20` 應在 15 分鐘後歸零（或僅剩上市不足 60 天者）。
-- 打開任一台股抽屜切「20 日 / 60 日」應能畫出完整折線，X 軸有 ≥ 20 個日期點。
-- 新增 `e2e/chips-trend-backfill.spec.ts`：mock `tw-chips-detail` 回 60 點資料，斷言 SVG 內 `<path>` 的 `d` 屬性有 ≥ 60 個 `L` 指令。
-- Edge function deno test：`tw-institutional-daily-sync` 的 `backfill_stock` 模式對 mock FinMind 回應能正確 upsert 60 筆。
-
-## 不動
-
-- `tw-chips-detail`（讀取端已足夠）。
-- `ChipsTrendChart` 的 clamp/fallback（做為安全網保留）。
-- rate limiter / worker 排程時窗（14:00–20:59）——回補走 P1，本來就繞過時窗限制。
+7. **回歸測試**
+   - 新增/更新單元測試：USD/us_stock 批次週記、草稿殘留張、buildPublishRows、validateSignalBatch。
+   - 新增 DB 測試：us_stock 插入/發布 `張` 必擋、`股` 必通過、`trade_records` 會保存 `quantity_unit='股'`。
+   - 擴充 live E2E：Benny us_stock 週記從填股數、儲存 pending、正式 publish 到持倉產生，全流程不再出現單位/資金換算錯誤。

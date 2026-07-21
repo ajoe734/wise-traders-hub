@@ -8,6 +8,7 @@ import {
   isDerivativeAssetClass,
   detectDerivativeFromSymbol,
   ALL_ASSET_CLASSES,
+  sanitizeAssetQuantityUnit,
 } from '@/lib/asset';
 
 describe('us_option / us_future spec', () => {
@@ -82,6 +83,14 @@ describe('asset spec', () => {
     expect(getAssetSpec('crypto').defaultUnit).toBe('顆');
     expect(getAssetSpec('crypto').quantityAllowsDecimal).toBe(true);
     expect(getAssetSpec('crypto').marketHours).toBe('24x7');
+  });
+
+  it('sanitizes stale quantity units per asset class', () => {
+    expect(sanitizeAssetQuantityUnit('張', 'us_stock')).toBe('股');
+    expect(sanitizeAssetQuantityUnit(null, 'us_stock')).toBe('股');
+    expect(sanitizeAssetQuantityUnit('股', 'tw_stock')).toBe('股');
+    expect(sanitizeAssetQuantityUnit('張', 'tw_stock')).toBe('張');
+    expect(sanitizeAssetQuantityUnit('股', 'us_option')).toBe('口');
   });
 
   it('validates symbols per class', () => {
