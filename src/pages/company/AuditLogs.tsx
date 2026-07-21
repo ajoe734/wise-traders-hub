@@ -42,6 +42,7 @@ const TARGET_LINK: Record<string, (id: string) => string> = {
   experts: () => '/company/analysts',
   announcements: () => '/company/announcements',
   expert_signals: () => '/company/subscribers',
+  trade_records: () => '/company/analysts',
   checkup_plans: () => '/company/plans',
   checkup_subscriptions: () => '/company/subscribers',
 };
