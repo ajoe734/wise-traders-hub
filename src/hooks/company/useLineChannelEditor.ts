@@ -58,11 +58,18 @@ export function useLineChannelEditor() {
     setLineExpertName(expert.name);
     setLineLoading(true);
     (async () => {
-      const { data: ch } = await supabase
+      const { data: ch, error: channelError } = await supabase
         .from('expert_line_channels')
         .select('*')
         .eq('expert_id', expert.id)
         .single();
+      const channelFailure = channelError && channelError.code !== 'PGRST116'
+        ? describeDbFailure(channelError, 'LINE 設定讀取失敗')
+        : null;
+      if (channelFailure) {
+        setLineError(channelFailure);
+        toast.error(formatFailure(channelFailure, 'LINE 設定讀取失敗'));
+      }
       if (ch) {
         setLineChannel(ch as LineChannel);
         setLineChannelId(ch.channel_id);
@@ -72,11 +79,16 @@ export function useLineChannelEditor() {
         setLineQrCodeUrl(ch.qr_code_url || '');
         setLineActive(ch.is_active);
       }
-      const { count } = await supabase
+      const { count, error: bindingsError } = await supabase
         .from('member_line_bindings_analyst')
         .select('id', { count: 'exact', head: true })
         .eq('expert_id', expert.id)
         .eq('is_active', true);
+      const bindingsFailure = describeDbFailure(bindingsError, 'LINE 綁定數讀取失敗');
+      if (bindingsFailure) {
+        setLineError(bindingsFailure);
+        toast.error(formatFailure(bindingsFailure, 'LINE 綁定數讀取失敗'));
+      }
       setLineBindingsCount(count || 0);
       setLineLoading(false);
     })().catch((err) => {
@@ -115,7 +127,7 @@ export function useLineChannelEditor() {
         .eq('id', lineChannel.id);
       const failure = describeDbFailure(error, '更新失敗');
       if (failure) { setLineError(failure); toast.error(formatFailure(failure, '更新失敗')); setSavingLine(false); return; }
-      await logAdminAction({
+      const auditFailure = describeDbFailure(await logAdminAction({
         action: 'analyst.line_channel_update',
         targetType: 'expert_line_channels',
         targetId: lineChannel.id,
@@ -124,7 +136,13 @@ export function useLineChannelEditor() {
           after: { channel_id: lineChannelId, is_active: lineActive, channel_name: lineChannelName || null },
           context: { expert_id: lineExpertId, expert_name: lineExpertName },
         },
-      });
+      }).catch((err) => err), '稽核紀錄寫入失敗');
+      if (auditFailure) {
+        setLineError(auditFailure);
+        toast.error(formatFailure(auditFailure, '稽核紀錄寫入失敗'));
+        setSavingLine(false);
+        return;
+      }
       toast.success('LINE 設定已更新');
     } else {
       const { data: inserted, error } = await supabase
@@ -142,7 +160,7 @@ export function useLineChannelEditor() {
         .single();
       const failure = describeDbFailure(error, '建立失敗');
       if (failure) { setLineError(failure); toast.error(formatFailure(failure, '建立失敗')); setSavingLine(false); return; }
-      await logAdminAction({
+      const auditFailure = describeDbFailure(await logAdminAction({
         action: 'analyst.line_channel_create',
         targetType: 'expert_line_channels',
         targetId: inserted?.id ?? null,
@@ -150,7 +168,13 @@ export function useLineChannelEditor() {
           after: { channel_id: lineChannelId, is_active: lineActive, channel_name: lineChannelName || null },
           context: { expert_id: lineExpertId, expert_name: lineExpertName },
         },
-      });
+      }).catch((err) => err), '稽核紀錄寫入失敗');
+      if (auditFailure) {
+        setLineError(auditFailure);
+        toast.error(formatFailure(auditFailure, '稽核紀錄寫入失敗'));
+        setSavingLine(false);
+        return;
+      }
       toast.success('LINE 設定已儲存');
     }
     setSavingLine(false);

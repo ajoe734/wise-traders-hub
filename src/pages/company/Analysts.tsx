@@ -13,6 +13,7 @@ import { CreateAnalystDialog } from '@/pages/_companyAnalysts/CreateAnalystDialo
 import { LineChannelDialog } from '@/pages/_companyAnalysts/LineChannelDialog';
 import { AccountCredentialsDialog } from '@/pages/_companyAnalysts/AccountCredentialsDialog';
 import { SubscribersDialog } from '@/pages/_companyAnalysts/SubscribersDialog';
+import { describeFunctionFailure, formatFailure } from '@/lib/functionError';
 
 const CompanyAnalysts = () => {
   const queryClient = useQueryClient();
@@ -73,8 +74,9 @@ const CompanyAnalysts = () => {
     const { data, error } = await supabase.functions.invoke('update-analyst-credentials', {
       body: { expert_id: exp.id, action: 'fetch_email' },
     });
-    if (error || data?.error) {
-      toast.error(data?.error || error?.message || '無法讀取 Email');
+    const failure = await describeFunctionFailure(data, error, '無法讀取 Email');
+    if (failure) {
+      toast.error(formatFailure(failure, '無法讀取 Email'));
       return;
     }
     setEmail(data.email || '');
@@ -106,8 +108,9 @@ const CompanyAnalysts = () => {
       body: { email, password, name, slug, role },
     });
     setCreating(false);
-    if (error || data?.error) {
-      toast.error(data?.error || error?.message || '建立失敗');
+    const failure = await describeFunctionFailure(data, error, '建立失敗');
+    if (failure) {
+      toast.error(formatFailure(failure, '建立失敗'));
       return;
     }
     const adopted = !!data?.adopted;

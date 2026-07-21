@@ -32,6 +32,7 @@ import {
 } from '@/components/ui/dialog';
 import { Label } from '@/components/ui/label';
 import { avatarUrl } from '@/lib/imageTransform';
+import { describeFunctionFailure, formatFailure } from '@/lib/functionError';
 
 interface UserRow {
   user_id: string;
@@ -119,7 +120,8 @@ export default function CompanyUsers() {
       const { data, error } = await supabase.functions.invoke('admin-manage-users', {
         body: { action: 'list', search: debouncedSearch, limit: 200 },
       });
-      if (error) throw error;
+      const failure = await describeFunctionFailure(data, error, '使用者清單讀取失敗');
+      if (failure) throw new Error(formatFailure(failure, '使用者清單讀取失敗'));
       return data?.users || [];
     },
     staleTime: 30_000,
@@ -152,9 +154,9 @@ export default function CompanyUsers() {
     setBusy(key);
     const { data, error } = await supabase.functions.invoke('admin-manage-users', { body: payload });
     setBusy(null);
-    if (error || data?.error) {
-      const msg = data?.error || error?.message || '操作失敗';
-      toast({ title: '失敗', description: errorMap[msg] || msg, variant: 'destructive' });
+    const failure = await describeFunctionFailure(data, error, '操作失敗');
+    if (failure) {
+      toast({ title: '失敗', description: errorMap[failure.code || failure.message] || formatFailure(failure), variant: 'destructive' });
       return false;
     }
     toast({ title: successMsg });
@@ -172,9 +174,9 @@ export default function CompanyUsers() {
       body: { action: 'set_role', user_id: row.user_id, role, enabled },
     });
     setBusy(null);
-    if (error || data?.error) {
-      const msg = data?.error || error?.message || '操作失敗';
-      toast({ title: '失敗', description: errorMap[msg] || msg, variant: 'destructive' });
+    const failure = await describeFunctionFailure(data, error, '操作失敗');
+    if (failure) {
+      toast({ title: '失敗', description: errorMap[failure.code || failure.message] || formatFailure(failure), variant: 'destructive' });
       return;
     }
     if (role === 'analyst' && enabled && data?.needs_setup) {
