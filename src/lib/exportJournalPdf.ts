@@ -303,12 +303,11 @@ const sectionTitle = (t: string) => `
 
 const signalBlockHtml = (s: Signal) => {
   const meta = actionMeta(s.action);
-  // BUG-FIX: 不再硬編 '張' fallback — 對 us_stock/futures 會顯示錯單位。
-  // 若上游未給 quantity_unit，顯示純數字（下游可從 asset_class 推導後補回）。
-  const qtyLabel = s.quantity_unit ? ` ${s.quantity_unit}` : '';
+  // 單一資料源：由 asset_class 決定單位，避免 us_stock/us_future 匯出成「張」。
+  const unit = resolvePdfQuantityUnit(s);
   const priceQty = [
     s.price_hint != null ? `價 ${s.price_hint}` : null,
-    s.quantity != null ? `${s.quantity}${qtyLabel}` : null,
+    s.quantity != null ? `${s.quantity} ${unit}` : null,
   ]
     .filter(Boolean)
     .join(' · ');
