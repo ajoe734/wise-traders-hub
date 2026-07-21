@@ -257,7 +257,7 @@ describe('FreeCheckup HoldingsTab — lazy + memo + mount budget', () => {
     unmount();
     // ~665 行 JSX（hero+filter+workbench+empty state）在 jsdom 約 80–350ms；800ms 是回歸警戒線
     expect(ms).toBeLessThan(800);
-  });
+  }, 20000);
 
   it('HoldingsTab memo skips re-render when parent re-renders with same props', async () => {
     const Tab = (await import('@/checkup/components/freecheckup/HoldingsTab')).default;

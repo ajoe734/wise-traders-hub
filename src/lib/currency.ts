@@ -78,9 +78,8 @@ export function resolveDisplayCurrency(
 /** 金額顯示：取整數後加千分位 + 幣別符號。負數會把 `-` 移到符號前。 */
 export function formatMoneyByCurrency(n: number | null | undefined, c: Currency = 'TWD'): string {
   const sym = CURRENCY_SYMBOL[c] || 'NT$';
-  if (n == null) return '—';
-  const num = Number(n);
-  if (!Number.isFinite(num)) return '—';
+  const num = n == null ? 0 : Number(n);
+  if (!Number.isFinite(num)) return `${sym}0`;
   const v = Math.round(num);
   if (v < 0) return `-${sym}${Math.abs(v).toLocaleString()}`;
   return `${sym}${v.toLocaleString()}`;
