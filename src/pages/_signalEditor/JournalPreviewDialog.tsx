@@ -9,11 +9,14 @@ import { format, startOfWeek, addDays } from 'date-fns';
 import { zhTW } from 'date-fns/locale';
 import type { TradeDraft } from '@/pages/_signalEditor/types';
 import { sanitizeRichHtml, isHtmlEmpty } from '@/lib/sanitizeHtml';
+import { resolveAssetClass, sanitizeAssetQuantityUnit } from '@/lib/asset';
 
 interface Props {
   open: boolean;
   onOpenChange: (v: boolean) => void;
-  expert: { name?: string; role?: string; avatar_url?: string | null } | null;
+  expert:
+    | { name?: string; role?: string; avatar_url?: string | null; asset_class?: string | null; currency?: string | null }
+    | null;
   isTeachingOnly: boolean;
   teachingTopic: string;
   overallSummary: string;
