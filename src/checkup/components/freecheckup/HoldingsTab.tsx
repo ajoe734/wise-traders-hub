@@ -97,7 +97,7 @@ function HoldingsTab(props) {
     // quota / hero
     quota, tier, tierLabel, formatResetCountdown,
     totalVal, totalCost, H, winnersCount, exitListCount, reviewListCount,
-    MAX_HOLDINGS, rtConnected, lastUpdate, refreshing, onRefreshPrices,
+    MAX_HOLDINGS, rtConnected, lastUpdate, refreshing, onRefreshPrices, refreshError,
 
     // upload summary
     uploadSummary, setUploadSummary,
