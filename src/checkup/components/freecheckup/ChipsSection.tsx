@@ -1,7 +1,7 @@
 // @ts-nocheck
 // ChipsSection — 抽屜「§4.6 籌碼面」（僅台股渲染）
 // 三大法人 1/5/20/60 日 + BSR 前 3 買/賣 + 集中度
-import React, { useMemo } from 'react';
+import React, { useEffect, useMemo } from 'react';
 import { useTwChipsDetail, isTaiwanStockCode, type TwChipsPayload } from '@/checkup/hooks/useTwChipsDetail';
 import ChipsTrendChart from './ChipsTrendChart';
 
@@ -109,6 +109,15 @@ export default function ChipsSection({ WB, stockCode }: { WB: any; stockCode: st
   );
 
   const bsrLatest = data?.bsr?.d5 || data?.bsr?.d20 || data?.bsr?.d60 || null;
+
+  // 自動輪詢：當 BSR 尚未同步（bsr_as_of 為 null）時，每 60 秒自動 refetch，
+  // 讓使用者不必手動刷新即可看到 Tier 1 catch-up cron（每 15 分鐘）跑完後的結果。
+  const bsrPending = !!data && !data.bsr_as_of;
+  useEffect(() => {
+    if (!bsrPending) return;
+    const t = setInterval(() => { refetch(); }, 60_000);
+    return () => clearInterval(t);
+  }, [bsrPending, refetch]);
 
   return (
     <section
@@ -281,8 +290,8 @@ export default function ChipsSection({ WB, stockCode }: { WB: any; stockCode: st
             <div style={{ fontSize: 10, color: '#8a5a1e' }}>BSR 同步進行中</div>
           ) : hasInst ? (
             <div style={{ fontSize: 10, color: WB.inkMute, textAlign: 'right' }}>
-              BSR 排程等待中
-              <div style={{ fontSize: 9, color: WB.inkMute, marginTop: 2 }}>{nextWorkerWindow().label}</div>
+              BSR 自動同步中
+              <div style={{ fontSize: 9, color: WB.inkMute, marginTop: 2 }}>每 15 分鐘自動抓取，取得後自動刷新</div>
             </div>
           ) : null}
 
@@ -377,12 +386,9 @@ export default function ChipsSection({ WB, stockCode }: { WB: any; stockCode: st
           </div>
         ) : (
           <div data-testid="chips-bsr-missing" style={{ fontSize: 12, color: WB.inkMute, lineHeight: 1.6 }}>
-            — 分點資料同步中
+            — 分點資料自動同步中
             <div style={{ fontSize: 10, color: WB.inkMute }}>
-              （FinMind 官方 API，僅在收盤後 14:00–20:59 每 10 分鐘處理一輪；受全域 1500/hr 限流保護）
-            </div>
-            <div style={{ fontSize: 10, color: WB.inkMute, marginTop: 2 }}>
-              {nextWorkerWindow().label}
+              （FinMind 官方 API；持倉每 15 分鐘自動抓取一輪，取得後畫面會自動刷新）
             </div>
           </div>
 
