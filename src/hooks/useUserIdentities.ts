@@ -1,6 +1,7 @@
 import { useQuery } from '@tanstack/react-query';
 import { useMemo } from 'react';
 import { supabase } from '@/integrations/supabase/client';
+import { describeFunctionFailure, formatFailure } from '@/lib/functionError';
 
 export type UserIdentity = {
   user_id: string;
@@ -25,7 +26,8 @@ export function useUserIdentities(userIds: string[]) {
       const { data, error } = await supabase.functions.invoke('admin-manage-users', {
         body: { action: 'lookup_identities', user_ids: ids },
       });
-      if (error) throw error;
+      const failure = await describeFunctionFailure(data, error, '使用者身份讀取失敗');
+      if (failure) throw new Error(formatFailure(failure, '使用者身份讀取失敗'));
       const map: Record<string, UserIdentity> = {};
       ((data as any)?.identities || []).forEach((i: UserIdentity) => {
         map[i.user_id] = i;

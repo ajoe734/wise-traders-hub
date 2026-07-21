@@ -1,59 +1,53 @@
+## 目標
+把 `/company/analysts` 相關操作從「每次不同錯誤」改成穩定、可追蹤、可回歸：帳號設定、重設密碼、寄重設信、建立/補齊分析師、LINE 設定、列表資料都要有一致錯誤處理與測試覆蓋。
 
-## 現況觀察（實測）
+## 已確認的現況
+- 畫面截圖的錯誤來自前端顯示 `Edge Function returned a non-2xx status code`，目前 UI 沒把後端回傳的實際原因穩定攤開。
+- `/company/analysts` 會呼叫：
+  - `update-analyst-credentials`：讀 Email、改 Email、立即重設密碼、寄重設信。
+  - `create-analyst`：建立或補齊分析師。
+  - 直接資料表操作：分析師列表、啟停用、LINE channel 設定。
+- `update-analyst-credentials` 目前「寄重設信」仍依賴 `RESEND_API_KEY`，但此專案規範是非 Auth 類寄信走內建寄信系統；這是會產生非 2xx 的高風險路徑。
+- 目前 `CompanyAnalysts` 測試只覆蓋建立成功與基本列表，沒有覆蓋帳號設定三個 tab、非 2xx 解析、LINE 設定失敗、建立/補齊失敗一致訊息。
 
-- `tw_bsr_sync_queue`：`pending 496` / `done 6`
-- Tier 1（priority=1）僅 6 筆：其中 3 筆已 done，3 筆 pending 的 `stock_id` 是 `071111 / 068003 / 00631 / 707414 / 069559 / 071745` 等 5–6 碼代號（權證／受益憑證，FinMind 沒有 BSR）
-- Tier 2（priority=2）有 490 筆，`next_run_at = 17:24 UTC`（Taipei 01:24），時間已到但仍是 pending
-- 現在時間：**UTC 17:49 ≒ Taipei 01:49**
-- `tw_bsr_api_usage` 今日累計只有 12 次呼叫，額度完全不是瓶頸
-- `tw_bsr_degrade_events` 目前 normal，無自動降級中
+## 修復範圍
+1. **統一後台函式錯誤解析**
+   - 新增/整理一個前端 helper，專門解析函式錯誤：優先讀後端 JSON `error` / `message`，再讀函式錯誤 message，避免只顯示籠統的非 2xx。
+   - 套用到 `/company/analysts` 內所有函式呼叫與資料寫入錯誤：建立分析師、補齊、帳號設定、LINE 設定、啟停用。
 
-## 根因
+2. **修正分析師密碼重設寄信路徑**
+   - 移除 `update-analyst-credentials` 內對 `RESEND_API_KEY` 的硬依賴。
+   - 改成使用 Lovable Cloud 內建交易型寄信函式或內建 Auth reset 流程可用的穩定路徑。
+   - 保留立即重設密碼功能，但錯誤要回傳明確中文原因與 `requestId/correlationId`。
 
-### 根因 A：現在已離開 worker 執行窗口
-你上一輪要求「收盤後 14:00–20:59 每 10 分鐘處理一輪」，`tw-bsr-worker-trading` cron 排程已改成僅在 Taipei 14:00–20:59 觸發。現在 Taipei 01:49，**沒有任何 worker 在跑**，所以所有 pending 都會留在原地直到今天下午 14:00。UI 顯示的「排程等待中」是正確狀態，但沒有告訴使用者「還要等幾小時」。
+3. **後端函式錯誤可追蹤化**
+   - `update-analyst-credentials` 與 `create-analyst` 的每個失敗分支都回傳一致格式：`error`、`code`、必要時 `request_id`。
+   - 避免 catch 直接把原始例外丟給前端；敏感資訊不外洩，但要足夠讓管理員知道是權限、帳號不存在、Email 重複、密碼強度、寄信設定或資料庫寫入失敗。
+   - 保留既有 `withLogging`，必要時補足關鍵 action 的 structured log。
 
-### 根因 B：Tier 1 佇列被無效代號污染
-`enqueueTier1Holdings` 從 `trade_records.instrument` 用 `\d{4,6}` 抓代號，會把權證 `071111`、受益憑證 `068003`、`069559` 等一起塞進佇列。這些代號在 FinMind 沒有 `TaiwanStockInstitutionalInvestorsBuySell` 資料，會反覆 fail、吃掉重試次數與額度，也把 Tier 1 的位置佔滿（真正的 4 碼上市櫃股票反而被排在後面 / 已 done 之後看不到）。
+4. **前端 UX 收斂**
+   - Dialog 內顯示可讀錯誤，不再只用 toast 一閃而過。
+   - 操作中禁用按鈕，結束後一定恢復 loading 狀態。
+   - 成功後重新整理 `company-experts` 與相關列表 cache，避免剛改完又看到舊資料。
 
-正規台股上市櫃普通股／ETF：
-- 上市：`^\d{4}$`
-- ETF：`^00\d{2,4}[A-Z]?$`（例 `0050`、`00878`、`00631L`）
-- 上櫃：`^\d{4}$`（同格式）
+5. **完整回歸測試**
+   - 補 `CompanyAnalysts` component tests：
+     - 帳號設定讀取 Email 成功/失敗。
+     - 立即重設密碼成功/弱密碼失敗/後端非 2xx 顯示明確原因。
+     - 寄重設信成功/寄信不可用時顯示明確原因。
+     - 建立分析師失敗不關 dialog、不清表單。
+     - LINE 設定讀取/儲存失敗顯示明確原因。
+   - 補或更新 Edge Function tests：
+     - `update-analyst-credentials` action whitelist。
+     - 無授權、非 company_admin、找不到 expert、LINE virtual email、弱密碼、寄信路徑錯誤格式。
 
-要排除的：權證（05/07/08/09 開頭 6 碼）、受益憑證、可轉債、DR 等。
+## 技術細節
+- 不改資料庫結構，除非驗證中發現 audit log 權限或欄位缺漏；若需要 migration，會只針對必要欄位/政策處理。
+- 不新增更多 UI 功能，只修穩定性、錯誤訊息、可追蹤性與測試。
+- 不處理其他後台頁面，範圍鎖定 `/company/analysts` 與它直接依賴的函式。
 
-## 修法
-
-### 1. Worker 窗口外顯示「下一次執行時間」而不是含糊的「排程等待中」
-
-修 `src/checkup/components/freecheckup/ChipsSection.tsx`：
-- 判斷現在 Taipei 時間是否落在 14:00–20:59；若否，顯示「下一次同步：今天 14:00（或明天 14:00，若已過 20:59）」，並保留現有「僅在收盤後 14:00–20:59 每 10 分鐘處理一輪」文案
-- 若在窗口內但仍 pending，顯示目前 pending 排序與預估等待輪數
-
-### 2. 修 `enqueueTier1Holdings` 的代號白名單
-
-修 `supabase/functions/tw-bsr-finmind-sync/index.ts`：
-- 抓 `trade_records.instrument` 後，改用「白名單 regex」：`/^(?:\d{4}|00\d{2,4}[A-Z]?)$/`
-- 明確排除 5–6 碼權證／受益憑證代號
-- 對已存在的 Tier 1 pending 中不合格代號，用一次性 SQL 標成 `skipped`（附 `last_error = 'invalid_stock_id_format'`）
-
-### 3. 一次性清理 + 立即補跑
-
-一次性 migration（或 admin 手動）：
-- `UPDATE tw_bsr_sync_queue SET status='skipped', last_error='invalid_stock_id_format' WHERE status='pending' AND stock_id !~ '^(\d{4}|00\d{2,4}[A-Z]?)$'`
-- 提供 `/company/bsr-rate-limit` 一顆「立即跑一輪 worker（跳過窗口限制）」的按鈕，內部呼叫 `tw-bsr-finmind-sync` with `{ manual: true, ignore_window: true }`，讓你不用等到下午
-
-### 4. 診斷測試
-
-- `supabase/functions/tw-bsr-finmind-sync/enqueue_filter_test.ts`：驗證白名單 regex，涵蓋 `2330 / 00631L / 00878 / 071111 / 068003 / 069559` 等樣本
-- `e2e/chips-section-window-hint.spec.ts`：mock 時間為窗口外，斷言 UI 顯示「下一次同步」文案而非只有「排程等待中」
-
-## 你要決定的一件事
-
-**根因 A 的處置**你想選哪一種？
-- (a) 只改 UI 文案（維持 14:00–20:59 窗口，符合你上一輪指示）
-- (b) 保留 14:00–20:59 主排程，另加一顆 03:00 Taipei 的 catch-up 跑一次（清當日殘留）
-- (c) 允許手動觸發按鈕但不改 cron
-
-我預設是 **(a) + 手動觸發按鈕**，因為你明確說過「收盤後才有使用的價值」。若你要 (b) 或 (c) 請講。
+## 驗證標準
+- 使用截圖中的「Benny — 帳號設定 → 立即重設」同一路徑，不應再只看到 `Edge Function returned a non-2xx status code`。
+- 所有分析師管理操作失敗時都要顯示具體中文原因。
+- 相關單元/整合測試通過。
+- 若能用已登入 session 端到端驗證，會實際打一次帳號設定流程並回報成功/失敗與 request id；若沒有可用登入 session，會明確標示 E2E 驗證限制。

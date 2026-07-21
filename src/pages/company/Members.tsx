@@ -7,6 +7,7 @@ import { Button } from '@/components/ui/button';
 import { Users, UserCheck, Stethoscope, ArrowRight, MessageCircle, Activity } from 'lucide-react';
 import { supabase } from '@/integrations/supabase/client';
 import { formatTaipeiYMD } from '@/checkup/utils/formatTaipeiDate';
+import { describeFunctionFailure, formatFailure } from '@/lib/functionError';
 
 interface MemberStats {
   totalUsers: number;
@@ -28,6 +29,8 @@ export default function CompanyMembers() {
         supabase.from('member_subscriptions').select('user_id, status, expires_at, expert_plans(name)').eq('status', 'active').or(`expires_at.is.null,expires_at.gt.${nowIso}`),
         supabase.from('checkup_subscriptions').select('user_id, status, expires_at, checkup_plans(name)').eq('status', 'active').or(`expires_at.is.null,expires_at.gt.${nowIso}`),
       ]);
+      const usersFailure = await describeFunctionFailure(usersRes.data, usersRes.error, '會員清單讀取失敗');
+      if (usersFailure) throw new Error(formatFailure(usersFailure, '會員清單讀取失敗'));
       const users: any[] = usersRes.data?.users || [];
       const todayStart = new Date();
       todayStart.setHours(0, 0, 0, 0);

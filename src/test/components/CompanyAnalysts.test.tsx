@@ -2,6 +2,7 @@ import { describe, it, expect, vi, beforeEach } from 'vitest';
 import { render, screen, fireEvent, waitFor } from '@testing-library/react';
 import { MemoryRouter } from 'react-router-dom';
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
+import { toast } from 'sonner';
 
 // ---------- Mocks ----------
 vi.mock('@/components/layouts/CompanyLayout', () => ({
@@ -93,6 +94,9 @@ beforeEach(() => {
   expertsUpdateChain.update.mockClear();
   expertsUpdateChain.eq.mockClear();
   invokeMock.mockReset();
+  vi.mocked(toast.error).mockClear();
+  vi.mocked(toast.success).mockClear();
+  vi.spyOn(window, 'confirm').mockReturnValue(true);
 });
 
 describe('CompanyAnalysts', () => {
@@ -173,5 +177,45 @@ describe('CompanyAnalysts', () => {
     await waitFor(() => {
       expect(expertsSelectMock.mock.calls.length).toBeGreaterThan(initialCalls);
     });
+  });
+
+  it('shows structured account reset errors instead of generic non-2xx message', async () => {
+    expertsSelectMock.mockResolvedValue({ data: expertsData, error: null });
+    invokeMock
+      .mockResolvedValueOnce({ data: { email: 'analyst@example.com', is_line_virtual: false }, error: null })
+      .mockResolvedValueOnce({
+        data: null,
+        error: {
+          message: 'Edge Function returned a non-2xx status code',
+          context: new Response(JSON.stringify({
+            code: 'PASSWORD_TOO_SHORT',
+            error: '密碼至少需 8 碼',
+            request_id: 'abcdef1234567890',
+          }), { status: 400, headers: { 'x-correlation-id': 'abcdef1234567890' } }),
+        },
+      });
+
+    renderPage();
+    await waitFor(() => expect(screen.getByText('張三')).toBeInTheDocument());
+
+    const row = screen.getByText('張三').closest('tr')!;
+    const accountButton = Array.from(row.querySelectorAll('button')).find(b => b.textContent === '帳號')!;
+    fireEvent.click(accountButton);
+
+    await waitFor(() => expect(screen.getByText(/目前 Email/)).toBeInTheDocument());
+    const passwordTab = screen.getByRole('tab', { name: /重設密碼/ });
+    fireEvent.pointerDown(passwordTab, { button: 0, ctrlKey: false });
+    fireEvent.mouseDown(passwordTab, { button: 0, ctrlKey: false });
+    fireEvent.click(passwordTab);
+    await waitFor(() => expect(screen.getByPlaceholderText('至少 8 碼，需含英文與數字')).toBeInTheDocument());
+    fireEvent.change(screen.getByPlaceholderText('至少 8 碼，需含英文與數字'), { target: { value: 'abcd1234' } });
+    fireEvent.change(screen.getByPlaceholderText('再次輸入'), { target: { value: 'abcd1234' } });
+    fireEvent.click(screen.getByRole('button', { name: '立即重設' }));
+
+    await waitFor(() => {
+      expect(screen.getByText(/密碼至少需 8 碼/)).toBeInTheDocument();
+    });
+    expect(toast.error).toHaveBeenCalledWith(expect.stringContaining('密碼至少需 8 碼'));
+    expect(toast.error).not.toHaveBeenCalledWith(expect.stringContaining('Edge Function returned a non-2xx status code'));
   });
 });

@@ -3,6 +3,8 @@ import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription } from '@/components/ui/dialog';
 import { Tabs, TabsList, TabsTrigger, TabsContent } from '@/components/ui/tabs';
+import { Alert, AlertDescription } from '@/components/ui/alert';
+import { formatFailure } from '@/lib/functionError';
 import { Mail, Key, Send } from 'lucide-react';
 import type { useAnalystAccount } from '@/hooks/company/useAnalystAccount';
 
@@ -11,7 +13,7 @@ type Account = ReturnType<typeof useAnalystAccount>;
 export function AccountCredentialsDialog({ account }: { account: Account }) {
   const {
     acctExpert, acctTab, setAcctTab,
-    acctCurrentEmail, acctIsLineVirtual, acctLoading,
+    acctCurrentEmail, acctIsLineVirtual, acctLoading, acctError,
     acctNewEmail, setAcctNewEmail,
     acctNewPassword, setAcctNewPassword,
     acctConfirmPassword, setAcctConfirmPassword,
@@ -31,6 +33,15 @@ export function AccountCredentialsDialog({ account }: { account: Account }) {
           </DialogDescription>
         </DialogHeader>
 
+        {acctError && (
+          <Alert variant="destructive" className="mt-2">
+            <AlertDescription>
+              <span className="block">{formatFailure(acctError)}</span>
+              {acctError.detail && <span className="mt-1 block text-xs opacity-80 break-words">{acctError.detail}</span>}
+            </AlertDescription>
+          </Alert>
+        )}
+
         <Tabs value={acctTab} onValueChange={(v) => setAcctTab(v as any)} className="mt-2">
           <TabsList className="grid grid-cols-3 w-full">
             <TabsTrigger value="email" disabled={acctIsLineVirtual}><Mail className="h-3 w-3 mr-1" />改 Email</TabsTrigger>
@@ -40,8 +51,9 @@ export function AccountCredentialsDialog({ account }: { account: Account }) {
 
           <TabsContent value="email" className="space-y-4 mt-4">
             <div className="space-y-2">
-              <Label>新 Email</Label>
+              <Label htmlFor="analyst-account-new-email">新 Email</Label>
               <Input
+                id="analyst-account-new-email"
                 type="email"
                 value={acctNewEmail}
                 onChange={(e) => setAcctNewEmail(e.target.value)}
@@ -60,8 +72,9 @@ export function AccountCredentialsDialog({ account }: { account: Account }) {
 
           <TabsContent value="password" className="space-y-4 mt-4">
             <div className="space-y-2">
-              <Label>新密碼</Label>
+              <Label htmlFor="analyst-account-new-password">新密碼</Label>
               <Input
+                id="analyst-account-new-password"
                 type="password"
                 value={acctNewPassword}
                 onChange={(e) => setAcctNewPassword(e.target.value)}
@@ -69,8 +82,9 @@ export function AccountCredentialsDialog({ account }: { account: Account }) {
               />
             </div>
             <div className="space-y-2">
-              <Label>確認新密碼</Label>
+              <Label htmlFor="analyst-account-confirm-password">確認新密碼</Label>
               <Input
+                id="analyst-account-confirm-password"
                 type="password"
                 value={acctConfirmPassword}
                 onChange={(e) => setAcctConfirmPassword(e.target.value)}
