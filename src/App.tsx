@@ -374,6 +374,7 @@ const AppShell = () => (
             <Route path="/company/checkup-usage" element={<ProtectedRoute requiredRole="company_admin"><CompanyCheckupUsage /></ProtectedRoute>} />
             <Route path="/company/checkup-quota-audit" element={<ProtectedRoute requiredRole="company_admin"><CompanyCheckupQuotaAudit /></ProtectedRoute>} />
             <Route path="/company/holdings-consistency" element={<ProtectedRoute requiredRole="company_admin"><CompanyHoldingsConsistency /></ProtectedRoute>} />
+            <Route path="/company/signal-dupe-audit" element={<ProtectedRoute requiredRole="company_admin"><CompanySignalDupeAudit /></ProtectedRoute>} />
             <Route path="/company/missing-prices" element={<ProtectedRoute requiredRole="company_admin"><CompanyMissingPrices /></ProtectedRoute>} />
             <Route path="/company/meta-overrides" element={<ProtectedRoute requiredRole="company_admin"><CompanyMetaOverrides /></ProtectedRoute>} />
             <Route path="/company/perf-metrics" element={<ProtectedRoute requiredRole="company_admin"><CompanyPerfMetrics /></ProtectedRoute>} />
