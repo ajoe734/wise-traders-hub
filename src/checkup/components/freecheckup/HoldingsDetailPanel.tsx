@@ -443,7 +443,7 @@ function HoldingsDetailPanelImpl({
 
       <div className="holdings-detail-body" style={{ padding: '18px 22px 22px', background: WB.surface }}>
         {/* 2) 識別 */}
-        <div style={{ marginBottom: 16 }}>
+        <div style={{ marginBottom: 20 }}>
           <div style={{ ...microStyle, marginBottom: 6 }}>
             {h.code}
             {meta?.industry ? <> · {meta.industry}</> : null}
@@ -485,7 +485,7 @@ function HoldingsDetailPanelImpl({
         </div>
 
         {/* 3) 報酬塔 + 持有脈絡 */}
-        <div style={{ marginBottom: 18 }}>
+        <div style={{ marginBottom: 20 }}>
           <div style={{ display: 'flex', alignItems: 'baseline', gap: 12, flexWrap: 'wrap' }}>
             <span data-testid="drawer-roi-main" style={{
               fontFamily: SERIF, fontSize: 22, fontWeight: 500,
@@ -522,7 +522,7 @@ function HoldingsDetailPanelImpl({
           className="holdings-detail-decision"
           data-testid="decision-stamp"
           style={{
-            margin: '16px 0 18px',
+            margin: '0 0 20px',
             padding: '10px 0',
             borderTop: `1px solid ${WB.ink}`, borderBottom: `1px solid ${WB.ink}`,
             display: 'flex', alignItems: 'baseline', justifyContent: 'space-between', gap: 12,
@@ -871,7 +871,7 @@ function PriceAxis({ WB, price, cost, target, baseTarget, upside, tpHistory }) {
     { v: price, color: WB.ink, label: '現價', shape: 'dot', side: 'bottom' },
   ].map((p) => ({ ...p, x: pos(p.v), lx: labelPos(p.v) })).filter((p) => p.x != null);
   return (
-    <div data-testid="holdings-price-axis" style={{ margin: '20px 0 18px', minWidth: 0 }}>
+    <div data-testid="holdings-price-axis" style={{ margin: '0 0 20px', minWidth: 0 }}>
       <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'baseline', marginBottom: 8 }}>
         <span style={{ fontSize: 12, color: WB.inkMute, letterSpacing: '0.14em' }}>價格</span>
         {tpLabel && (
@@ -1175,7 +1175,7 @@ function ThesisHistory({ WB, rows }) {
   const success = rows.filter((r) => r.afterPct != null && r.myAction === r.suggestion && r.afterPct > 0).length;
   const total = rows.length;
   return (
-    <div data-testid="holdings-thesis-history" style={{ margin: '20px 0', minWidth: 0 }}>
+    <div data-testid="holdings-thesis-history" style={{ margin: '0 0 20px', minWidth: 0 }}>
       <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: 8 }}>
         <span style={{ fontSize: 12, color: WB.inkMute, letterSpacing: '0.14em' }}>決策履歷</span>
         <span style={{ fontSize: 12, color: WB.inkSub, fontVariantNumeric: 'tabular-nums' }}>
