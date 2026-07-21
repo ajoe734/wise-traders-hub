@@ -358,7 +358,7 @@ const buildTradeDetailBodyHtml = (signals: Signal[]): string => {
       const price = s.price_hint != null ? String(s.price_hint) : '—';
       const qty =
         s.quantity != null
-          ? `${s.quantity}${s.quantity_unit ? ` ${s.quantity_unit}` : ''}`
+          ? `${s.quantity} ${resolvePdfQuantityUnit(s)}`
           : '—';
       return `
         <tr>
