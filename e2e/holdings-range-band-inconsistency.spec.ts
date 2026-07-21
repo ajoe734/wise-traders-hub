@@ -191,18 +191,24 @@ test.describe('RangeBand 資料源一致性偵測 (mock 分歧)', () => {
     expect(title).toContain('PRICE_OUT_OF_RANGE');
   });
 
-  test('偵測到不一致時透過 console.warn 輸出 [RangeBand] 訊息（DEV mode）', async ({ browser }) => {
-    // 使用獨立 context 收集 console messages
+  test('偵測到不一致時透過 console.warn 輸出 [RangeBand] 訊息', async ({ browser }) => {
     const ctx = await browser.newContext({ viewport: { width: 640, height: 480 } });
-    const page = await ctx.newPage();
-    const warns: string[] = [];
-    page.on('console', (msg) => {
-      if (msg.type() === 'warning' || msg.type() === 'warn') {
-        warns.push(msg.text());
-      }
+    // 在頁面載入前 hook console.warn，把訊息塞到 window.__warns
+    await ctx.addInitScript(() => {
+      (window as any).__warns = [] as string[];
+      const orig = console.warn.bind(console);
+      console.warn = (...args: any[]) => {
+        try {
+          (window as any).__warns.push(
+            args.map((a) => (typeof a === 'string' ? a : JSON.stringify(a))).join(' '),
+          );
+        } catch { /* noop */ }
+        orig(...args);
+      };
     });
+    const page = await ctx.newPage();
 
-    // 先渲染一致資料 → 應無 [RangeBand] warn
+    // 一致資料：不應出現 [RangeBand] warn
     await page.goto(`/e2e/range-band-harness?d=${encodeFixture({
       symbol: 'TEST-EVT-CLEAN',
       price: 100,
@@ -211,10 +217,11 @@ test.describe('RangeBand 資料源一致性偵測 (mock 分歧)', () => {
       spark: [99, 100, 100, 100, 100],
     })}`, { waitUntil: 'domcontentloaded' });
     await page.locator('[data-testid="holdings-range-band"]').waitFor({ state: 'visible' });
-    await page.waitForTimeout(400);
+    await page.waitForTimeout(300);
+    let warns: string[] = await page.evaluate(() => (window as any).__warns || []);
     expect(warns.filter((t) => t.includes('[RangeBand]'))).toHaveLength(0);
 
-    // 再渲染分歧資料 → 應至少 1 筆 [RangeBand] warn
+    // 分歧資料：至少 1 筆 [RangeBand] warn（同 context 但重新 goto → window 重建）
     await page.goto(`/e2e/range-band-harness?d=${encodeFixture({
       symbol: 'TEST-EVT-DIVERGE',
       price: 200,
@@ -223,7 +230,8 @@ test.describe('RangeBand 資料源一致性偵測 (mock 分歧)', () => {
       spark: [98, 99, 100, 100, 100],
     })}`, { waitUntil: 'domcontentloaded' });
     await page.locator('[data-testid="holdings-range-band"]').waitFor({ state: 'visible' });
-    await page.waitForTimeout(500);
+    await page.waitForTimeout(400);
+    warns = await page.evaluate(() => (window as any).__warns || []);
     const hits = warns.filter((t) => t.includes('[RangeBand]') && t.includes('data source inconsistency'));
     expect(hits.length).toBeGreaterThanOrEqual(1);
 
