@@ -489,7 +489,7 @@ Deno.serve(withLogging('line-push-signal', async (req) => {
     // MODE: preview — push inline signal_data to LINE without DB
     if (mode === 'preview' && signal_data) {
       console.log('Preview mode: pushing inline signal data to LINE, type:', pushType)
-      const message = buildFlexMessage(signal_data, pushType)
+      const message = buildFlexMessage(signal_data, pushType, expertHint)
 
       let totalPushed = 0
       if (subscribedTargets.length > 0) {
