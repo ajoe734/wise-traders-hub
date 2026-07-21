@@ -42,8 +42,9 @@ function HoldingsHeroImpl(props) {
   const {
     totalVal, totalCost, holdingsCount,
     rtConnected, lastUpdate, isDemo,
-    refreshing, onRefreshPrices,
+    refreshing, onRefreshPrices, refreshError,
   } = props;
+  const hasError = !refreshing && !!refreshError;
 
   const totalPnl = totalVal - totalCost;
   const totalPct = totalCost > 0 ? ((totalPnl / totalCost) * 100) : 0;
