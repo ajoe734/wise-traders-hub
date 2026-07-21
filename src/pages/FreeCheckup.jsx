@@ -1941,6 +1941,20 @@ export default function App() {
     if (latest > 0) setLastUpdate(new Date(latest));
   }, [holdings, lastUpdate]);
 
+  // 使用者登入後，若 state 為空則從其專屬快取補回；並在 lastUpdate 變動時寫回
+  useEffect(() => {
+    const uid = supabaseUser?.id || null;
+    if (!lastUpdate) {
+      const cached = readLastUpdate(uid);
+      if (cached) setLastUpdate(cached);
+    }
+  }, [supabaseUser?.id]); // eslint-disable-line react-hooks/exhaustive-deps
+
+  useEffect(() => {
+    const uid = supabaseUser?.id || null;
+    writeLastUpdate(uid, lastUpdate);
+  }, [lastUpdate, supabaseUser?.id]);
+
 
 
   // ── 每日收盤分析 ─────────────────────────────────────────────────
