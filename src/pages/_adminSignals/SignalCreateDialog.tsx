@@ -534,6 +534,12 @@ export function SignalCreateDialog({
                         if (!nextUnit || nextUnit === lockedUnit) return;
                         const trimmed = stockCode.trim();
                         if (!trimmed || !expert?.id) return;
+                        if (!spec.units.includes(nextUnit as QuantityUnit)) {
+                          toast.error(
+                            `無法切換：${spec.label}不支援單位「${nextUnit}」（僅允許 ${spec.units.join(' / ')}）`,
+                          );
+                          return;
+                        }
                         setRealignPreview({ toUnit: nextUnit as QuantityUnit });
                       }}
                     >
@@ -547,6 +553,7 @@ export function SignalCreateDialog({
                       </SelectContent>
                     </Select>
                   )}
+
                 </div>
               )}
             </div>
