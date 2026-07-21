@@ -1865,6 +1865,42 @@ export default function App() {
     }
   };
 
+  // ── 進入「持倉」分頁時自動刷新一次，避免看板顯示舊資料 ──
+  // 只在資料明顯過期（>3 分鐘）且非刷新中時觸發；DEMO 模式亦允許（走模擬路徑）
+  const holdingsAutoRefreshRef = useRef({ lastTab: null, lastRunAt: 0 });
+  useEffect(() => {
+    const prev = holdingsAutoRefreshRef.current.lastTab;
+    holdingsAutoRefreshRef.current.lastTab = tab;
+    if (tab !== 'holdings') return;
+    if (!holdings || holdings.length === 0) return;
+    if (refreshing) return;
+    const stale = !lastUpdate || (Date.now() - lastUpdate.getTime()) > 3 * 60 * 1000;
+    // 首次進入（prev==null）或從別的 tab 切回 → 只有 stale 才自動觸發
+    if (prev === 'holdings' && !stale) return;
+    if (!stale) return;
+    // 節流：本會話內每 60 秒最多一次自動刷新
+    if (Date.now() - (holdingsAutoRefreshRef.current.lastRunAt || 0) < 60 * 1000) return;
+    holdingsAutoRefreshRef.current.lastRunAt = Date.now();
+    const t = setTimeout(() => { refreshPrices().catch(() => {}); }, 300);
+    return () => clearTimeout(t);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [tab, holdings]);
+
+  // 初次載入 holdings 時，用最新的 priceUpdatedAt 種入 lastUpdate，
+  // 讓 Hero 立刻可以顯示「更新於 HH:MM」而不是空白
+  useEffect(() => {
+    if (lastUpdate) return;
+    if (!holdings || holdings.length === 0) return;
+    let latest = 0;
+    for (const h of holdings) {
+      const t = h?.priceUpdatedAt ? new Date(h.priceUpdatedAt).getTime() : 0;
+      if (t > latest) latest = t;
+    }
+    if (latest > 0) setLastUpdate(new Date(latest));
+  }, [holdings, lastUpdate]);
+
+
+
   // ── 每日收盤分析 ─────────────────────────────────────────────────
   const runDailyAnalysis = async () => {
     if (analyzing) return;
