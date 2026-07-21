@@ -19,6 +19,8 @@ import { UnitRealignPreviewDialog } from './UnitRealignPreviewDialog';
 import { isMarketClosed } from './derive';
 import { getAssetSpec, resolveAssetClass, isValidAssetSymbol, type QuantityUnit } from '@/lib/asset';
 import { InstrumentTooltip } from '@/components/InstrumentTooltip';
+import { mapPublishError, type MappedPublishError } from './publishErrorMapper';
+import { PublishErrorBanner } from './PublishErrorBanner';
 
 interface Props {
   expert: any;
@@ -63,6 +65,7 @@ export function SignalCreateDialog({
   const [lockedUnit, setLockedUnit] = useState<QuantityUnit | null>(null);
   const [lockedUnitSource, setLockedUnitSource] = useState<'signal' | 'trade' | null>(null);
   const [realignPreview, setRealignPreview] = useState<{ toUnit: QuantityUnit } | null>(null);
+  const [publishError, setPublishError] = useState<MappedPublishError | null>(null);
   const fetchTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
   const unitLookupTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
   const uppercaseHintTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
@@ -99,6 +102,7 @@ export function SignalCreateDialog({
   );
 
   const clearForm = useCallback(() => {
+    setPublishError(null);
     setStockCode(''); setStockName(''); setAction(''); setPriceHint(''); setQuantity(''); setQuantityUnit(spec.defaultUnit);
     setReasonSummary(''); setReasonDetail(''); setRiskNotes(''); setLearningPoints('');
     setTeachingTopic(''); setOverallSummary('');
@@ -228,6 +232,7 @@ export function SignalCreateDialog({
     : !!expert && !!stockCode.trim() && !!action;
 
   const handlePublish = async () => {
+    setPublishError(null);
     if (!expert) { toast.error('找不到分析師資料，請重新整理後再試'); return; }
     if (!expert.asset_class) {
       toast.error('請先到「分析師設定」選擇主打資產類別（台股 / 美股 / 加密），才能發布訊號或週記');
@@ -285,29 +290,16 @@ export function SignalCreateDialog({
       status: (isMentor ? 'pending' : 'published') as any,
     } as any).select('id').single();
     if (error) {
-      const raw = error.message || '';
-      if (raw.includes('CAPITAL_EXCEEDED')) {
-        const m = raw.match(/此筆需\s*([\d.]+)\s*(\w+)，可用現金僅\s*([\d.-]+)\s*(\w+)/);
-        const msg = m
-          ? `資金額度不足：此筆需 ${Number(m[1]).toLocaleString()} ${m[2]}，可用現金僅 ${Number(m[3]).toLocaleString()} ${m[4]}`
-          : '資金額度不足，無法發布此筆';
-        toast.error(msg, {
-          duration: 10000,
-          description: '請至「分析師設定」調整初始資金，或減少此筆數量後再送出。',
-          action: {
-            label: '前往分析師設定',
-            onClick: () => { window.location.href = '/admin/profile'; },
-          },
-        });
-      } else if (raw.includes('incompatible_unit_for_asset_class')) {
-        toast.error('此資產類別不接受該單位，請改用相容單位');
-      } else if (raw.includes('unit_conflict') || raw.toLowerCase().includes('enforce_unit_consistency')) {
-        toast.error('此代碼歷史單位與本次不一致，請改用歷史單位，或先執行「改單位…」');
-      } else {
-        toast.error(raw);
-      }
+      const mapped = mapPublishError(error.message, {
+        lockedUnit,
+        allowedUnits: spec.units,
+        assetLabel: spec.label,
+      });
+      setPublishError(mapped);
+      toast.error(mapped.title, { description: mapped.detail, duration: 8000 });
       return;
     }
+
 
     if (expert.user_id) {
       const entryPrice = latestPrice ? parseFloat(latestPrice) : 0;
@@ -809,7 +801,35 @@ export function SignalCreateDialog({
               {riskNotes && <p className="text-xs text-destructive">⚠️ {riskNotes}</p>}
             </CardContent></Card>
           )}
+          {publishError && (
+            <PublishErrorBanner
+              error={publishError}
+              onDismiss={() => setPublishError(null)}
+              onRetry={() => { setPublishError(null); handlePublish(); }}
+              onGoToProfile={
+                publishError.code === 'CAPITAL_EXCEEDED'
+                  ? () => { window.location.href = '/admin/profile'; }
+                  : undefined
+              }
+              onUseLockedUnit={
+                publishError.code === 'UNIT_CONFLICT' && lockedUnit
+                  ? () => { setQuantityUnit(lockedUnit); setPublishError(null); toast.success(`已改用歷史單位「${lockedUnit}」，可重新送出`); }
+                  : undefined
+              }
+              onOpenRealign={
+                publishError.code === 'UNIT_CONFLICT' && lockedUnit && spec.units.length > 1 && stockCode.trim() && expert?.id
+                  ? () => { setRealignPreview({ toUnit: quantityUnit }); }
+                  : undefined
+              }
+              onUseAllowedUnit={
+                publishError.code === 'INCOMPATIBLE_UNIT'
+                  ? () => { setQuantityUnit(spec.defaultUnit); setPublishError(null); toast.success(`已切換為「${spec.defaultUnit}」，可重新送出`); }
+                  : undefined
+              }
+            />
+          )}
           <div className="flex justify-end gap-3 pt-2">
+
             <Button variant="outline" onClick={() => { setIsCreateOpen(false); clearForm(); }}>取消</Button>
             <Button
               onClick={handlePublish}
