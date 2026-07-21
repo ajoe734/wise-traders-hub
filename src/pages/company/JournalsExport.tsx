@@ -1011,6 +1011,13 @@ const JournalsExport = () => {
           </AlertDialogFooter>
         </AlertDialogContent>
       </AlertDialog>
+
+      <ExportRiskDialog
+        open={riskDialogOpen}
+        onOpenChange={setRiskDialogOpen}
+        report={riskReport}
+        onForceExport={handleForceExport}
+      />
     </CompanyLayout>
   );
 };
