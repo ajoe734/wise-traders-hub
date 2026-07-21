@@ -7,6 +7,7 @@ import { memo, useEffect, useState } from 'react';
 import { RefreshCw } from 'lucide-react';
 import { fmtSigned, fmtSignedInt, fmtWan } from '@/checkup/lib/checkupFormat';
 import { validateProps } from './_validateProps.js';
+import { AUTO_REFRESH_OPTIONS, useAutoRefreshMinutes } from '@/checkup/lib/autoRefreshInterval';
 
 const SCHEMA = {
   totalVal: 'number',
@@ -66,6 +67,8 @@ function HoldingsHeroImpl(props) {
   const isStale = lastUpdate ? (nowMs - lastUpdate.getTime()) > 5 * 60 * 1000 : false;
 
   const canRefresh = typeof onRefreshPrices === 'function' && !refreshing;
+  const [autoMin, setAutoMin] = useAutoRefreshMinutes();
+
 
   return (
     <section
@@ -225,6 +228,45 @@ function HoldingsHeroImpl(props) {
                 {hasError && <span>重試</span>}
               </button>
             )}
+            {/* 自動刷新間隔設定 */}
+            <label
+              data-testid="holdings-hero-auto-refresh"
+              title="自動刷新持倉報價的間隔（依網路狀況調整）"
+              style={{
+                marginLeft: 4,
+                display: 'inline-flex',
+                alignItems: 'center',
+                gap: 4,
+                fontSize: 10,
+                color: 'var(--cm-ink-mute)',
+                letterSpacing: '0.06em',
+              }}
+            >
+              <span style={{ color: 'var(--cm-hair-strong)' }}>·</span>
+              <select
+                aria-label="自動刷新間隔"
+                data-testid="holdings-hero-auto-refresh-select"
+                value={autoMin}
+                onChange={(e) => setAutoMin(Number(e.target.value))}
+                disabled={refreshing}
+                style={{
+                  background: 'transparent',
+                  border: '1px solid var(--cm-hair)',
+                  borderRadius: 3,
+                  color: autoMin === 0 ? 'var(--cm-ink-mute)' : 'var(--cm-ink-sub)',
+                  fontSize: 10,
+                  padding: '1px 4px',
+                  letterSpacing: '0.06em',
+                  cursor: refreshing ? 'wait' : 'pointer',
+                  fontFamily: 'inherit',
+                }}
+              >
+                {AUTO_REFRESH_OPTIONS.map(opt => (
+                  <option key={opt.value} value={opt.value}>{opt.label}</option>
+                ))}
+              </select>
+            </label>
+
           </div>
 
         </div>
