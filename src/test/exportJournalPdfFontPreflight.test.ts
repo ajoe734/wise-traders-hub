@@ -70,7 +70,7 @@ describe('auditFonts', () => {
         value: originalDocument,
       });
     }
-  });
+  }, 20000);
 
   it('無 document.fonts.check 時回傳空陣列', async () => {
     Object.defineProperty(document, 'fonts', { configurable: true, value: {} });

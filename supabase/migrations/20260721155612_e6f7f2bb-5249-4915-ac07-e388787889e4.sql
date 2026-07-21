@@ -1,0 +1,1 @@
+GRANT SELECT ON public.payment_providers_safe TO anon, authenticated;

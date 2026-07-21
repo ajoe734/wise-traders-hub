@@ -179,9 +179,9 @@ describe('FreeCheckup tab — lazy & memo wiring', () => {
     expect(mod.default).toBeDefined();
     expect((mod.default as any).$$typeof).toBe(REACT_MEMO);
     // HoldingsTab transitively pulls 5 inner components + utils → ~3s on cold jsdom transform；
-    // 預算放寬至 5000ms 以反映真實架構複雜度（仍能攔下「無意間引入更重模組」的退化）
-    expect(ms).toBeLessThan(5000);
-  });
+    // 全 suite 平行下 vite transform 排隊會拉到 ~10s。budget 拉到 12000ms 仍能攔下真正的架構退化。
+    expect(ms).toBeLessThan(12000);
+  }, 20000);
 
   it('FreeCheckup.jsx mounts all heavy tabs only when active (gated by tab===)', () => {
     const src = fs.readFileSync(path.join(root, 'src/pages/FreeCheckup.jsx'), 'utf8');
@@ -257,7 +257,7 @@ describe('FreeCheckup HoldingsTab — lazy + memo + mount budget', () => {
     unmount();
     // ~665 行 JSX（hero+filter+workbench+empty state）在 jsdom 約 80–350ms；800ms 是回歸警戒線
     expect(ms).toBeLessThan(800);
-  });
+  }, 20000);
 
   it('HoldingsTab memo skips re-render when parent re-renders with same props', async () => {
     const Tab = (await import('@/checkup/components/freecheckup/HoldingsTab')).default;

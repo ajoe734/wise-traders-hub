@@ -1,6 +1,5 @@
 import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest';
 import { render, screen, act, cleanup } from '@testing-library/react';
-import userEvent from '@testing-library/user-event';
 import { CoachMarks } from '@/checkup/components/CoachMarks';
 
 // Mock useCheckupMode 以便切換 isDemo / isReady
@@ -11,7 +10,10 @@ vi.mock('@/checkup/contexts/CheckupModeContext.jsx', () => ({
 
 const COACH_KEY = 'checkup-coach-seen-v1';
 
-describe('CoachMarks gating', () => {
+// §6.5：CoachMarks 已由 OnboardingOverlay 三步文案卡取代，
+// 元件永遠 return null。以下用例守住「不可回退」門檻，
+// 確保沒有人不小心重啟舊版氣泡或全屏遮罩。
+describe('CoachMarks gating (deprecated — must stay null)', () => {
   beforeEach(() => {
     vi.useFakeTimers();
     localStorage.removeItem(COACH_KEY);
@@ -22,82 +24,31 @@ describe('CoachMarks gating', () => {
     localStorage.removeItem(COACH_KEY);
   });
 
-  it('isReady=false → 完全不渲染（避免閃現）', () => {
-    modeMock.mockReturnValue({ isDemo: true, isReady: false });
-    render(<CoachMarks onTabChange={() => {}} />);
-    act(() => { vi.advanceTimersByTime(2000); });
-    expect(screen.queryByTestId('coachmarks-dialog')).toBeNull();
-  });
+  for (const scenario of [
+    { name: 'isReady=false', ret: { isDemo: true, isReady: false } },
+    { name: '非 demo + isReady=true', ret: { isDemo: false, isReady: true } },
+    { name: 'demo + isReady=true', ret: { isDemo: true, isReady: true } },
+  ]) {
+    it(`${scenario.name} → 永遠不 render dialog`, () => {
+      modeMock.mockReturnValue(scenario.ret);
+      render(<CoachMarks onTabChange={() => {}} />);
+      act(() => { vi.advanceTimersByTime(3000); });
+      expect(screen.queryByTestId('coachmarks-dialog')).toBeNull();
+      // scroll / tab-change 事件也不該喚醒
+      Object.defineProperty(window, 'scrollY', { value: 500, writable: true, configurable: true });
+      act(() => {
+        window.dispatchEvent(new Event('scroll'));
+        window.dispatchEvent(new CustomEvent('checkup:tab-change'));
+      });
+      expect(screen.queryByTestId('coachmarks-dialog')).toBeNull();
+    });
+  }
 
-  it('非 demo + 首次：mount 後 600ms 自動彈出（行為不變）', () => {
-    modeMock.mockReturnValue({ isDemo: false, isReady: true });
-    render(<CoachMarks onTabChange={() => {}} />);
-    expect(screen.queryByTestId('coachmarks-dialog')).toBeNull();
-    act(() => { vi.advanceTimersByTime(700); });
-    expect(screen.getByTestId('coachmarks-dialog')).toBeInTheDocument();
-  });
-
-  it('非 demo + 已看過：永不彈', () => {
-    localStorage.setItem(COACH_KEY, '1');
-    modeMock.mockReturnValue({ isDemo: false, isReady: true });
-    render(<CoachMarks onTabChange={() => {}} />);
-    act(() => { vi.advanceTimersByTime(2000); });
-    expect(screen.queryByTestId('coachmarks-dialog')).toBeNull();
-  });
-
-  it('demo + 首次：mount 時不彈；scroll>200 才彈', () => {
-    modeMock.mockReturnValue({ isDemo: true, isReady: true });
-    render(<CoachMarks onTabChange={() => {}} />);
-    act(() => { vi.advanceTimersByTime(2000); });
-    expect(screen.queryByTestId('coachmarks-dialog')).toBeNull();
-
-    // scrollY=150 → 不觸發
-    Object.defineProperty(window, 'scrollY', { value: 150, writable: true, configurable: true });
-    act(() => { window.dispatchEvent(new Event('scroll')); });
-    expect(screen.queryByTestId('coachmarks-dialog')).toBeNull();
-
-    // scrollY=300 → 觸發
-    Object.defineProperty(window, 'scrollY', { value: 300, writable: true, configurable: true });
-    act(() => { window.dispatchEvent(new Event('scroll')); });
-    expect(screen.getByTestId('coachmarks-dialog')).toBeInTheDocument();
-  });
-
-  it('demo：切 tab 也能觸發（checkup:tab-change 事件）', () => {
-    modeMock.mockReturnValue({ isDemo: true, isReady: true });
-    render(<CoachMarks onTabChange={() => {}} />);
-    act(() => { vi.advanceTimersByTime(100); });
-    expect(screen.queryByTestId('coachmarks-dialog')).toBeNull();
-
-    act(() => { window.dispatchEvent(new CustomEvent('checkup:tab-change')); });
-    expect(screen.getByTestId('coachmarks-dialog')).toBeInTheDocument();
-  });
-
-  it('demo：觸發後 scroll 不重複彈（listener 已移除）', async () => {
-    modeMock.mockReturnValue({ isDemo: true, isReady: true });
-    render(<CoachMarks onTabChange={() => {}} />);
-    act(() => { vi.advanceTimersByTime(100); });
-
-    Object.defineProperty(window, 'scrollY', { value: 500, writable: true, configurable: true });
-    act(() => { window.dispatchEvent(new Event('scroll')); });
-    expect(screen.getByTestId('coachmarks-dialog')).toBeInTheDocument();
-
-    // 關閉
-    vi.useRealTimers();
-    await userEvent.click(screen.getByRole('button', { name: /略過導覽/ }));
-    expect(screen.queryByTestId('coachmarks-dialog')).toBeNull();
-
-    // 再 scroll：不該重彈
-    act(() => { window.dispatchEvent(new Event('scroll')); });
-    expect(screen.queryByTestId('coachmarks-dialog')).toBeNull();
-  });
-
-  it('unmount 後 scroll listener 已 cleanup（不再 setState）', () => {
+  it('unmount 後不留 listener（重複觸發不會 throw）', () => {
     modeMock.mockReturnValue({ isDemo: true, isReady: true });
     const { unmount } = render(<CoachMarks onTabChange={() => {}} />);
     act(() => { vi.advanceTimersByTime(100); });
     unmount();
-
-    // unmount 後 dispatch 不應 throw（listener 已移除）
     Object.defineProperty(window, 'scrollY', { value: 500, writable: true, configurable: true });
     expect(() => {
       window.dispatchEvent(new Event('scroll'));
