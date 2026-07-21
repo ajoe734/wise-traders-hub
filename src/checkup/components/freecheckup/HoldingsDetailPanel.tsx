@@ -485,7 +485,7 @@ function HoldingsDetailPanelImpl({
         </div>
 
         {/* 3) 報酬塔 + 持有脈絡 */}
-        <div style={{ marginBottom: 18 }}>
+        <div style={{ marginBottom: 20 }}>
           <div style={{ display: 'flex', alignItems: 'baseline', gap: 12, flexWrap: 'wrap' }}>
             <span data-testid="drawer-roi-main" style={{
               fontFamily: SERIF, fontSize: 22, fontWeight: 500,
