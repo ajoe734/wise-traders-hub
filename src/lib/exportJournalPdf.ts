@@ -37,7 +37,7 @@ interface Signal {
  * 徹底杜絕 us_stock/us_future 匯出寫成「張」的回歸。
  */
 export function resolvePdfQuantityUnit(s: Signal): string {
-  const cls = s.asset_class ?? resolveExpertAssetClass(s.experts);
+  const cls = s.asset_class ?? resolveAssetClass(s.experts);
   return sanitizeAssetQuantityUnit(s.quantity_unit, cls);
 }
 
