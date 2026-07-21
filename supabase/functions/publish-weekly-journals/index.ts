@@ -318,7 +318,7 @@ Deno.serve(withLogging('publish-weekly-journals', async (req) => {
     // Sync trade_signals + user_performances for each published signal
     stage = 'sync_trade_signals'
     let syncOk = 0, syncFail = 0
-    for (const signal of pendingSignals) {
+    for (const signal of publishedSignals) {
       try {
       // 'teaching' (純教學週記) / 'hold' (觀察) 不影響 trade_signals 或 user_performances
       if (signal.action === 'teaching' || signal.action === 'hold') {
