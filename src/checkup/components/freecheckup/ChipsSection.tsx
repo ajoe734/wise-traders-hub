@@ -494,11 +494,12 @@ export default function ChipsSection({ WB, stockCode }: { WB: any; stockCode: st
           </div>
         ) : (
           <div data-testid="chips-bsr-missing" style={{ fontSize: 12, color: WB.inkMute, lineHeight: 1.6 }}>
-            — 分點資料自動同步中
+            — 分點資料尚未同步（BSR 未同步）
             <div style={{ fontSize: 10, color: WB.inkMute }}>
-              （FinMind 官方 API；收盤後 14:00–21:00 每 10 分鐘一輪，取得後畫面會自動刷新）
+              （FinMind 官方 API；每交易日 18:15 起排程自動抓取，14:00–21:00 每 10 分鐘一輪，取得後畫面自動刷新）
             </div>
           </div>
+
 
         )}
       </div>
@@ -508,9 +509,13 @@ export default function ChipsSection({ WB, stockCode }: { WB: any; stockCode: st
         <ChipsTrendChart WB={WB} data={data} />
       </div>
 
-      <div style={{ marginTop: 10, fontSize: 10, color: WB.inkMute, letterSpacing: '0.06em' }}>
-        資料來源：FinMind（分點）· 臺灣證券交易所 TWSE（三大法人）
+      <div
+        data-testid="chips-data-source"
+        style={{ marginTop: 10, fontSize: 10, color: WB.inkMute, letterSpacing: '0.06em' }}
+      >
+        資料來源：FinMind（分點買賣超）・臺灣證券交易所 TWSE（三大法人）
       </div>
+
     </section>
   );
 }
