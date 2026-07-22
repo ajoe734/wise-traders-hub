@@ -85,29 +85,31 @@ function parseRow(r: TwseWarrantRow) {
 const handler = withLogging("checkup-warrant-sync", async (_req, log) => {
   let rows: TwseWarrantRow[] = [];
   try {
+    // TWSE openapi 這隻回 25MB+，Deno 預設 fetch 常會被中間 Cloudflare/gateway
+    // 提早關閉；我們允許最長 55 秒（edge 60s 上限保留餘裕），並改用 regex-per-record
+    // 抽取，容忍尾端截斷。
     const res = await fetch(TWSE_LISTED, {
-      headers: { "User-Agent": "Mozilla/5.0 legendflow-warrant-sync/2.0", Accept: "application/json" },
+      signal: AbortSignal.timeout(55000),
+      headers: {
+        "User-Agent": "Mozilla/5.0 legendflow-warrant-sync/2.0",
+        Accept: "application/json",
+      },
     });
     if (!res.ok) return jsonResponse({ ok: false, error: `TWSE ${res.status}` }, { status: 502 });
-    // TWSE 偶爾在末尾夾非閉合字串 → JSON.parse 會炸。用寬容解析：抓 `[{...},{...}]` array
     const text = await res.text();
-    try {
-      rows = JSON.parse(text);
-    } catch {
-      // fallback：逐 record 抽取
-      rows = [];
-      const re = /\{[^{}]*"權證代號":"\d{6}"[^{}]*\}/g;
-      let m: RegExpExecArray | null;
-      while ((m = re.exec(text))) {
-        try {
-          rows.push(JSON.parse(m[0]));
-        } catch { /* skip malformed */ }
-      }
-      log.info("json_fallback_used", { recovered: rows.length });
+    // 直接走寬容抽取（不 JSON.parse 全檔，避免尾端 unterminated string 全掛）
+    const re = /\{[^{}]*"權證代號":"\d{6}"[^{}]*\}/g;
+    let m: RegExpExecArray | null;
+    while ((m = re.exec(text))) {
+      try {
+        rows.push(JSON.parse(m[0]) as TwseWarrantRow);
+      } catch { /* skip malformed record */ }
     }
+    log.info("fetched", { bytes: text.length, records: rows.length });
   } catch (err) {
     return jsonResponse({ ok: false, error: String(err) }, { status: 502 });
   }
+
 
   const parsed = rows.map(parseRow).filter((x): x is NonNullable<ReturnType<typeof parseRow>> => x !== null);
   if (parsed.length === 0) {
