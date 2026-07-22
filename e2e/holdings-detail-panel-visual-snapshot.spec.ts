@@ -100,5 +100,97 @@ test.describe('HoldingsDetailPanel · 視覺快照回歸（多斷點）', () => 
         maxDiffPixelRatio: 0.02,
       }),
     );
+});
+
+// ─────────────────────────────────────────────────────────────
+// 跨斷點結構一致性
+// ─────────────────────────────────────────────────────────────
+// 同一份 demo mock 在 15 個斷點下必須渲染出「相同的結構指紋」：
+//   - 首檔標的識別列文字（symbol/name 完全一致）
+//   - 抽屜內出現的關鍵 testid 集合（排序後）
+//   - 決策戳與範圍帶等區塊的存在性
+// 任一斷點不同 → 表示 responsive 分支意外隱藏/新增了結構元素。
+const FINGERPRINT_PATH = resolve(
+  __dirname,
+  'fixtures/holdings-detail-panel-fingerprint.json',
+);
+const CANONICAL_TESTIDS = [
+  'drawer-identity',
+  'drawer-return-tower',
+  'drawer-roi-main',
+  'decision-stamp',
+  'holdings-price-axis',
+  'holdings-range-band',
+  'holdings-weight-rank',
+  'holdings-thesis-history',
+  'holdings-export-menu',
+] as const;
+
+type Fingerprint = {
+  identityText: string;
+  presentTestids: string[];
+};
+
+test.describe('HoldingsDetailPanel · 跨斷點結構一致性（同套 mock）', () => {
+  test('抽屜結構指紋在所有斷點皆與 baseline 相同', async ({ page }, testInfo) => {
+    const width = testInfo.project.use.viewport?.width ?? 1280;
+
+    await drawerStep('prime demo storage', () => primeDemo(page));
+    await drawerStep(`goto /holding-checkup-demo @ ${width}px`, () =>
+      gotoWithRetry(page, '/holding-checkup-demo', { waitUntil: 'domcontentloaded' }),
+    );
+    await drawerStep('open drawer', async () => {
+      const firstCard = page.locator('.wb-card').first();
+      await firstCard.waitFor({ state: 'visible', timeout: 15_000 });
+      await firstCard.scrollIntoViewIfNeeded();
+      await firstCard.click();
+      const panel0 = page.locator('[data-testid="holdings-detail-panel"]').first();
+      await panel0.waitFor({ state: 'visible', timeout: 15_000 });
+      await stabilize(page);
+    });
+
+    const panel = page.locator('[data-testid="holdings-detail-panel"]').first();
+
+    // 標的識別列僅取 symbol 段（避開含即時 %/價 的 sibling）
+    const identityText = (
+      await panel
+        .locator('[data-testid="drawer-identity"]')
+        .first()
+        .innerText()
+    )
+      .split('\n')
+      .map((s) => s.trim())
+      .filter(Boolean)
+      // 過濾任何含數字+% 或 +/- 的即時報價行
+      .filter((line) => !/[+\-−]?\d+(?:\.\d+)?%/.test(line) && !/^[+\-−]?\$?\d/.test(line))
+      .join(' | ');
+
+    const presentTestids: string[] = [];
+    for (const id of CANONICAL_TESTIDS) {
+      const count = await panel.locator(`[data-testid="${id}"]`).count();
+      if (count > 0) presentTestids.push(id);
+    }
+    presentTestids.sort();
+
+    const current: Fingerprint = { identityText, presentTestids };
+
+    // 首次執行或 UPDATE_FINGERPRINT=1 → 寫入 baseline
+    if (!existsSync(FINGERPRINT_PATH) || process.env.UPDATE_FINGERPRINT === '1') {
+      mkdirSync(dirname(FINGERPRINT_PATH), { recursive: true });
+      writeFileSync(FINGERPRINT_PATH, JSON.stringify(current, null, 2) + '\n', 'utf8');
+      testInfo.annotations.push({
+        type: 'fingerprint',
+        description: `wrote baseline @ ${width}px`,
+      });
+      return;
+    }
+
+    const baseline: Fingerprint = JSON.parse(readFileSync(FINGERPRINT_PATH, 'utf8'));
+    expect(
+      current,
+      `結構指紋在 ${width}px 與 baseline 不同（同套 demo mock 應完全一致）`,
+    ).toEqual(baseline);
   });
+});
+
 });
