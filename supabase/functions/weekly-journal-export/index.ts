@@ -152,9 +152,9 @@ function buildMentorMarkdown(opts: {
       meta.push(`參考價：${r.price_hint}`);
     }
     if (r.quantity !== null && r.quantity !== undefined && r.quantity !== "" && Number(r.quantity) !== 0) {
-      const unit = String(r.quantity_unit ?? "").trim() || "股";
+      const unit = resolveDisplayUnit(r);
       const verb = r.action === "sell" ? "賣出" : r.action === "buy" ? "買進" : "數量";
-      meta.push(`${verb}股數：${r.quantity} ${unit}`);
+      meta.push(`${verb}數量：${r.quantity} ${unit}`);
       const qty = Number(r.quantity);
       if (r.action === "buy") buyTotals.set(unit, (buyTotals.get(unit) ?? 0) + qty);
       else if (r.action === "sell") sellTotals.set(unit, (sellTotals.get(unit) ?? 0) + qty);
