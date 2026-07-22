@@ -43,8 +43,47 @@ function fmtTaipei(iso?: string | null): string {
 const ASSET_LABEL: Record<string, string> = {
   tw_stock: "台股",
   us_stock: "美股",
+  tw_future: "台指期",
+  tw_option: "台指選",
+  us_future: "美期",
+  us_option: "美選",
   crypto: "加密",
 };
+
+// 由 asset_class 決定合法單位；quantity_unit 缺值或不合法時，回退到該資產類別預設。
+// 絕不因缺值退回硬編「股」或「張」。
+const UNIT_ALLOWED: Record<string, string[]> = {
+  tw_stock: ["張", "股"],
+  us_stock: ["股"],
+  tw_future: ["口"],
+  tw_option: ["口"],
+  us_future: ["口"],
+  us_option: ["口"],
+  crypto: ["顆"],
+};
+const UNIT_DEFAULT: Record<string, string> = {
+  tw_stock: "張",
+  us_stock: "股",
+  tw_future: "口",
+  tw_option: "口",
+  us_future: "口",
+  us_option: "口",
+  crypto: "顆",
+};
+function resolveDisplayUnit(row: any): string {
+  const cls = String(row?.experts?.asset_class ?? "").trim();
+  const raw = String(row?.quantity_unit ?? "").trim();
+  const allowed = UNIT_ALLOWED[cls];
+  if (allowed) {
+    if (raw && allowed.includes(raw)) return raw;
+    return UNIT_DEFAULT[cls];
+  }
+  // 未知 asset_class：不硬編「股」，若原始值可用就用原始值，否則以 currency=USD 推 us_stock。
+  if (raw) return raw;
+  const currency = String(row?.experts?.currency ?? "").toUpperCase();
+  if (currency === "USD") return "股";
+  return "張";
+}
 
 // ── Markdown helpers ─────────────────────────────────────
 function stripHtml(html: string): string {
@@ -113,9 +152,9 @@ function buildMentorMarkdown(opts: {
       meta.push(`參考價：${r.price_hint}`);
     }
     if (r.quantity !== null && r.quantity !== undefined && r.quantity !== "" && Number(r.quantity) !== 0) {
-      const unit = String(r.quantity_unit ?? "").trim() || "股";
+      const unit = resolveDisplayUnit(r);
       const verb = r.action === "sell" ? "賣出" : r.action === "buy" ? "買進" : "數量";
-      meta.push(`${verb}股數：${r.quantity} ${unit}`);
+      meta.push(`${verb}數量：${r.quantity} ${unit}`);
       const qty = Number(r.quantity);
       if (r.action === "buy") buyTotals.set(unit, (buyTotals.get(unit) ?? 0) + qty);
       else if (r.action === "sell") sellTotals.set(unit, (sellTotals.get(unit) ?? 0) + qty);
@@ -135,7 +174,7 @@ function buildMentorMarkdown(opts: {
   });
   const pushTotals = (label: string, m: Map<string, number>) => {
     if (m.size === 0) {
-      lines.push(`- ${label}：0 股`);
+      lines.push(`- ${label}：0`);
       return;
     }
     if (m.size === 1) {
@@ -151,8 +190,8 @@ function buildMentorMarkdown(opts: {
   };
   lines.push("## 本週總計");
   lines.push("");
-  pushTotals("總買進股數", buyTotals);
-  pushTotals("總賣出股數", sellTotals);
+  pushTotals("總買進", buyTotals);
+  pushTotals("總賣出", sellTotals);
   lines.push("");
 
   return lines.join("\n").replace(/\n{3,}/g, "\n\n");
