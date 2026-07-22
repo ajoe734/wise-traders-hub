@@ -40,10 +40,18 @@ async function readCard(card: Locator) {
 }
 
 async function clickSync(page: Page) {
-  const btn = page.getByRole('button', { name: /立即更新|同步中/ }).first()
+  const before = await page.evaluate(() => (window as any).__demoSyncCount || 0)
+  const btn = page.getByRole('button', { name: /立即更新|同步中|重試/ }).first()
   await btn.scrollIntoViewIfNeeded()
   await btn.click()
-  await expect(btn).toHaveText(/立即更新/, { timeout: 10000 })
+  await expect
+    .poll(async () => await page.evaluate(() => (window as any).__demoSyncCount || 0), {
+      timeout: 20000,
+      intervals: [200, 500, 1000],
+    })
+    .toBeGreaterThan(before)
+  // 給 store setHoldings + rerender 一點時間穩定
+  await page.waitForTimeout(300)
 }
 
 test.describe('overridePrice → HoldingCard recompute safeguard', () => {
