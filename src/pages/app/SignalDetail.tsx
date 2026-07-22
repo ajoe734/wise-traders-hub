@@ -57,6 +57,7 @@ interface DbSignal {
     role: string;
     avatar_url: string | null;
     currency?: string | null;
+    asset_class?: string | null;
   } | null;
 }
 
@@ -235,7 +236,8 @@ const SignalDetail = () => {
         {(priceResolved.value !== null || qtyResolved.value !== null) && (() => {
           const cur: Currency = resolvedCurrency;
           const sym = CURRENCY_SYMBOL[cur];
-          const unit = sanitizeQuantityUnit(signal.quantity_unit, cur);
+          const assetClassForUnit = signal.experts?.asset_class ?? (cur === 'USD' ? 'us_stock' : 'tw_stock');
+          const unit = sanitizeAssetQuantityUnit(signal.quantity_unit, assetClassForUnit);
           return (
             <div className="text-sm text-muted-foreground inline-flex items-baseline flex-wrap gap-x-1">
               <span className="font-sans">參考價位：</span>
