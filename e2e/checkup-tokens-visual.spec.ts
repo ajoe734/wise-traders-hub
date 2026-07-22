@@ -204,8 +204,21 @@ test.describe('Checkup tokens visual — /holding-checkup', () => {
 
       await expect(firstCard).toHaveScreenshot(
         `checkup-tokens-holding-card-${testInfo.project.name}.png`,
-        { maxDiffPixelRatio: 0.03, animations: 'disabled', caret: 'hide', scale: 'css' },
+        {
+          maxDiffPixelRatio: 0.03,
+          animations: 'disabled',
+          caret: 'hide',
+          scale: 'css',
+          // 卡片內 ROI / 價格 / 損益數字會隨 demo 報價 tick 變動 → mask 掉數值區塊
+          mask: [
+            firstCard.locator('.wb-roi'),
+            firstCard.locator('.wb-card-price'),
+            firstCard.locator('.wb-card-pnl'),
+            firstCard.locator('.cm-num'),
+          ],
+        },
       );
+
 
       // 9) 抽屜 — dblclick 開啟 HoldingsDetailPanel（比 Shift+Enter 對焦更穩定）
       await firstCard.scrollIntoViewIfNeeded();
