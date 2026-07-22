@@ -54,10 +54,13 @@ function parseWeek(md: string): { start: string; end: string } {
   return { start: m![1], end: m![2] };
 }
 
-// ---------- 沿用 totals parser（與 whitespace tolerance 測試同一份契約） ----------
+// ---------- 沿用 totals parser（新版格式：進場側 / 出場側 + 依單位分列） ----------
 type Totals =
   | { kind: 'single'; buy: string; sell: string }
   | { kind: 'split'; buy: Record<string, string>; sell: Record<string, string> };
+
+const ENTRY_LABEL_RE = String.raw`進場側合計 \(buy \+ add\)`;
+const EXIT_LABEL_RE = String.raw`出場側合計 \(sell \+ trim \+ exit\)`;
 
 function parseTotals(md: string): Totals {
   const norm = md.replace(/\r\n?/g, '\n');
@@ -65,26 +68,29 @@ function parseTotals(md: string): Totals {
   expect(idx, '必須找到「## 本週總計」').toBeGreaterThan(-1);
   const tail = norm.slice(idx);
 
-  const readSection = (label: '總買進股數' | '總賣出股數') => {
+  const readSection = (labelRe: string) => {
+    // 單行格式：`- <label>（動作明細）：值` 或 `- <label>：無`
     const single = new RegExp(
-      `^[ \\t]*[-*][ \\t]+${label}[ \\t]*[：:][ \\t]*(\\S.*?)[ \\t]*$`,
+      `^[ \\t]*[-*][ \\t]+${labelRe}(?:（[^）]*）)?[ \\t]*[：:][ \\t]*(\\S.*?)[ \\t]*$`,
       'm',
     );
     const m1 = tail.match(single);
     if (m1) return { mode: 'single' as const, value: m1[1].trim() };
 
+    // 分列格式：`- <label>（動作明細）（依單位分列，未換算）：` + 縮排子項
     const header = new RegExp(
-      `^[ \\t]*[-*][ \\t]+${label}（依單位分列）[ \\t]*[：:][ \\t]*$`,
+      `^[ \\t]*[-*][ \\t]+${labelRe}(?:（[^）]*）)?（依單位分列，未換算）[ \\t]*[：:][ \\t]*$`,
       'm',
     );
     const hm = tail.match(header);
-    expect(hm, `${label} 必須是單行或分列其一`).toBeTruthy();
+    expect(hm, `${labelRe} 必須是單行或分列其一`).toBeTruthy();
     const after = tail.slice(tail.indexOf(hm![0]) + hm![0].length);
     const map: Record<string, string> = {};
-    const childRe = /^[ \t]+[-*][ \t]+(\S+?)[ \t]*[：:][ \t]*(\S.*?)[ \t]*$/gm;
+    const childRe = /^[ \t]+[-*][ \t]+(\d[\d,]*)[ \t]+(\S+)[ \t]*$/gm;
     let cm: RegExpExecArray | null;
     while ((cm = childRe.exec(after))) {
-      map[cm[1]] = cm[2].trim();
+      // 子項是 `  - <數量> <單位>`，key 為單位
+      map[cm[2]] = cm[1].trim();
       const nextNl = after.indexOf('\n', cm.index + cm[0].length);
       if (nextNl === -1) break;
       const peek = after.slice(nextNl + 1);
@@ -93,8 +99,8 @@ function parseTotals(md: string): Totals {
     return { mode: 'split' as const, value: map };
   };
 
-  const buy = readSection('總買進股數');
-  const sell = readSection('總賣出股數');
+  const buy = readSection(ENTRY_LABEL_RE);
+  const sell = readSection(EXIT_LABEL_RE);
   if (buy.mode === 'single' && sell.mode === 'single') {
     return { kind: 'single', buy: buy.value, sell: sell.value };
   }
@@ -104,6 +110,7 @@ function parseTotals(md: string): Totals {
     sell: sell.mode === 'split' ? sell.value : { _: sell.value },
   };
 }
+
 
 // ---------- 變異工具：只改「- 週別：<start> ~ <end>」這一行 ----------
 const ORIG_WEEK_RE = /^[ \t]*-[ \t]*週別：(\d{4}-\d{2}-\d{2})[ \t]*~[ \t]*(\d{4}-\d{2}-\d{2})[ \t]*$/m;
