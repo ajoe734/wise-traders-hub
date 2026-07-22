@@ -4815,6 +4815,14 @@ export type Database = {
           user_id: string
         }[]
       }
+      admin_delete_trade_records_by_signal_ids: {
+        Args: { _signal_ids: string[] }
+        Returns: number
+      }
+      admin_delete_trade_records_by_symbol: {
+        Args: { _expert_id: string; _symbol_prefix: string }
+        Returns: number
+      }
       admin_generate_fix_proposals: {
         Args: { p_category?: string }
         Returns: {
