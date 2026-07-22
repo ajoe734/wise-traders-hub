@@ -88,8 +88,10 @@ ORDER BY expert_label, g.symbol;
 `
 
 function runSql(query) {
-  const out = execSync(`psql -X -A -t -F '\\t' -c ${JSON.stringify(query)}`, {
+  const out = execSync(`psql -X -A -t -F $'\\t' -v ON_ERROR_STOP=1`, {
     encoding: 'utf8',
+    input: query,
+    shell: '/bin/bash',
     maxBuffer: 32 * 1024 * 1024,
   })
   return out
