@@ -106,8 +106,8 @@ describe('C. tw_stock 資產憲法 — 同時允許張與股', () => {
   });
 
   it('sanitize 不會把台股單位強制成單一值（6.1-C2）', () => {
-    expect(sanitizeAssetQuantityUnit('tw_stock', '張')).toBe('張');
-    expect(sanitizeAssetQuantityUnit('tw_stock', '股')).toBe('股');
+    expect(sanitizeAssetQuantityUnit('張', 'tw_stock')).toBe('張');
+    expect(sanitizeAssetQuantityUnit('股', 'tw_stock')).toBe('股');
   });
 
   it('回歸案例：歷史 buy 用「張」→ 已 sell 全部平倉 → 新一輪可挑「股」', () => {
