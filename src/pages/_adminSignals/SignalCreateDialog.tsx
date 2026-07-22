@@ -283,7 +283,7 @@ export function SignalCreateDialog({
     if (['add', 'trim', 'sell', 'exit'].includes(action)) {
       const { data: openPos } = await supabase
         .from('trade_records')
-        .select('id, quantity')
+        .select('id, quantity, quantity_unit')
         .eq('expert_id', expert.id)
         .ilike('instrument', `${stockCode.trim()}%`)
         .eq('status', 'open')
@@ -293,9 +293,15 @@ export function SignalCreateDialog({
         toast.error(`尚無 ${stockCode.trim()} 的未平倉部位，無法執行${action === 'add' ? '加碼' : action === 'exit' ? '平損' : '減碼'}操作`);
         return;
       }
-      if (['trim', 'sell'].includes(action) && parseFloat(quantity) > openPos.quantity) {
-        toast.error(`減碼數量 (${quantity}) 超過持倉量 (${openPos.quantity})`);
-        return;
+      if (['trim', 'sell'].includes(action)) {
+        // trade_records.quantity 存 base units（台股為股數）；UI quantity 依 quantityUnit 可能是張。
+        // 先把 UI 值換成 base units 再比大小，避免「2 張 vs 1000 股 → 誤放行」。
+        const requestedBase = normalizeQuantityToBaseUnits(parseFloat(quantity) || 0, quantityUnit);
+        if (requestedBase > (openPos.quantity || 0)) {
+          const currentLabel = formatBaseQuantity(openPos.quantity, openPos.quantity_unit, assetClass);
+          toast.error(`減碼數量 (${quantity} ${quantityUnit}) 超過持倉量 (${currentLabel})`);
+          return;
+        }
       }
     }
     const latestPrice = priceHint;
