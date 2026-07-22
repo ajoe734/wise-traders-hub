@@ -5,7 +5,7 @@
  * Covers:
  *   - single mentor whose rows have empty string, undefined, null, and whitespace unit
  *   - multi-mentor export where another mentor uses "張" → no unit leakage
- *   - exact numbers from fixtures match the rendered "買進股數 / 賣出股數" lines
+ *   - exact numbers from fixtures match the rendered "買進數量 / 賣出數量" lines
  */
 import { test, expect } from '@playwright/test';
 import JSZip from 'jszip';
@@ -44,20 +44,20 @@ test.describe('Journals export — quantity_unit default fallback', () => {
     expect(md).toContain('- 則數：4');
     expect(md).toContain(`- Slug：\`${MENTOR_C_SLUG}\``);
 
-    // every quantity line must render with the default unit "股"
-    expect(md).toContain('買進股數：3 股');
-    expect(md).toContain('賣出股數：5 股');
-    expect(md).toContain('買進股數：7 股');
-    expect(md).toContain('賣出股數：9 股');
+    // every quantity line must render with the tw_stock default unit "張"
+    expect(md).toContain('買進數量：3 張');
+    expect(md).toContain('賣出數量：5 張');
+    expect(md).toContain('買進數量：7 張');
+    expect(md).toContain('賣出數量：9 張');
 
-    // must not leave the line bare or use a different unit
-    expect(md).not.toContain('買進股數：3 張');
-    expect(md).not.toContain('賣出股數：5 張');
-    expect(md).not.toMatch(/買進股數：3\s*$/m);
-    expect(md).not.toMatch(/賣出股數：5\s*$/m);
+    // must not fall back to "股" (tw_stock default = 張) or leave the line bare
+    expect(md).not.toContain('買進數量：3 股');
+    expect(md).not.toContain('賣出數量：5 股');
+    expect(md).not.toMatch(/買進數量：3\s*$/m);
+    expect(md).not.toMatch(/賣出數量：5\s*$/m);
 
     // the generic "數量" verb must not appear because action is known
-    expect(md).not.toContain('數量股數：');
+    expect(md).not.toMatch(/(^|\n)- 數量：/);
 
     await expect(page.getByTestId('je-status'))
       .toHaveText(`empty-unit:single:${EMPTY_UNIT_FILENAME}`);
@@ -85,24 +85,22 @@ test.describe('Journals export — quantity_unit default fallback', () => {
 
     const mdA = await zip.files[`${MENTOR_A_SLUG}.md`].async('string');
     expect(mdA).toContain('# 老周 週記');
-    expect(mdA).toContain('買進股數：2 張');
-    expect(mdA).toContain('賣出股數：1 張');
-    // 助教小陳's default unit must not leak into 老周's file
-    expect(mdA).not.toContain('買進股數：2 股');
-    expect(mdA).not.toContain('賣出股數：1 股');
+    expect(mdA).toContain('買進數量：2 張');
+    expect(mdA).toContain('賣出數量：1 張');
+    // tw_stock default is 張 for both mentors; ensure no cross-file bleed of assistant-chen's content
     expect(mdA).not.toContain('助教小陳');
     expect(mdA).not.toContain('0050');
 
     const mdC = await zip.files[`${MENTOR_C_SLUG}.md`].async('string');
     expect(mdC).toContain('# 助教小陳 週記');
     expect(mdC).toContain('- 則數：4');
-    expect(mdC).toContain('買進股數：3 股');
-    expect(mdC).toContain('賣出股數：5 股');
-    expect(mdC).toContain('買進股數：7 股');
-    expect(mdC).toContain('賣出股數：9 股');
-    // 老周's custom unit must not leak into 助教小陳's file
-    expect(mdC).not.toContain('買進股數：3 張');
-    expect(mdC).not.toContain('賣出股數：5 張');
+    expect(mdC).toContain('買進數量：3 張');
+    expect(mdC).toContain('賣出數量：5 張');
+    expect(mdC).toContain('買進數量：7 張');
+    expect(mdC).toContain('賣出數量：9 張');
+    // must not fall back to "股"
+    expect(mdC).not.toContain('買進數量：3 股');
+    expect(mdC).not.toContain('賣出數量：5 股');
     expect(mdC).not.toContain('老周');
     expect(mdC).not.toContain('2330');
 
