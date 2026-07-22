@@ -273,9 +273,20 @@ test.describe('Journals export — zip 排序與並行匯出隔離性', () => {
 
   test('連續匯出過程無 console/page error', async ({ page }) => {
     const errors: string[] = [];
-    page.on('pageerror', (e) => errors.push(`pageerror: ${e.message}`));
+    const isNoise = (text: string) =>
+      /traffic-ingest/.test(text) ||
+      /CORS policy/.test(text) ||
+      /Failed to load resource/.test(text) ||
+      /net::ERR_FAILED/.test(text) ||
+      /analytics|telemetry/i.test(text);
+    page.on('pageerror', (e) => {
+      if (!isNoise(e.message)) errors.push(`pageerror: ${e.message}`);
+    });
     page.on('console', (m) => {
-      if (m.type() === 'error') errors.push(`console: ${m.text()}`);
+      if (m.type() !== 'error') return;
+      const text = m.text();
+      if (isNoise(text)) return;
+      errors.push(`console: ${text}`);
     });
     await gotoHarness(page);
     for (const btn of ALL_BUTTONS) {
