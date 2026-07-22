@@ -47,15 +47,26 @@ async function scrollThroughCards(page: Page) {
   }
 }
 
-async function clickSync(page: Page) {
+async function clickSync(page: Page, opts: { expectFail?: boolean } = {}) {
+  const before = await page.evaluate(() => (window as any).__demoSyncCount || 0)
   const btn = page.getByRole('button', { name: /立即更新|同步中|重試/ }).first()
   await btn.scrollIntoViewIfNeeded()
   await btn.click()
-  // 等回到「立即更新」（成功）或「重試」（失敗 → 錯誤 banner 出現）
-  await expect(async () => {
-    const t = (await btn.textContent()) || ''
-    expect(/立即更新|重試/.test(t)).toBeTruthy()
-  }).toPass({ timeout: 15000 })
+  if (opts.expectFail) {
+    // 失敗場景：counter 不一定推進，改等按鈕回到「重試」或「立即更新」文字
+    await expect(async () => {
+      const t = (await btn.textContent()) || ''
+      expect(/立即更新|重試/.test(t)).toBeTruthy()
+    }).toPass({ timeout: 15000 })
+  } else {
+    await expect
+      .poll(async () => await page.evaluate(() => (window as any).__demoSyncCount || 0), {
+        timeout: 20000,
+        intervals: [200, 500, 1000],
+      })
+      .toBeGreaterThan(before)
+    await page.waitForTimeout(300)
+  }
 }
 
 async function snapshotCards(page: Page, limit = 5) {
