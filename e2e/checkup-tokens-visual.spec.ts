@@ -129,11 +129,17 @@ test.describe('Checkup tokens visual — /holding-checkup', () => {
     // 6) Pixel diff — 頁面頂部固定範圍（含返回列 + 品牌/tab 區）
     //    /holding-checkup 頂欄無單一穩定 selector，直接以 clip 截固定範圍即可
     //    小螢幕（≤560）hero 會進到 220px 內，因此同樣要 mask 動態數字 / 更新時間
+    //    截圖前強制回頂 & 卸下焦點 → 避免 tab bar 焦點 hint 或 sticky 位移
+    await page.evaluate(() => {
+      (document.activeElement as HTMLElement | null)?.blur?.();
+      window.scrollTo(0, 0);
+    });
+    await page.waitForTimeout(120);
     await expect(page).toHaveScreenshot(
       `checkup-tokens-header-${testInfo.project.name}.png`,
       {
         clip: { x: 0, y: 0, width, height: 220 },
-        maxDiffPixelRatio: 0.02,
+        maxDiffPixelRatio: 0.05, // 容忍 tab hint / sticky 微位移
         animations: 'disabled',
         caret: 'hide',
         scale: 'css',
@@ -147,6 +153,7 @@ test.describe('Checkup tokens visual — /holding-checkup', () => {
         ],
       },
     );
+
 
 
     // 7) Hero — 持倉概覽 section（未實現損益 + 狀態列）
