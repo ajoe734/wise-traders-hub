@@ -64,6 +64,13 @@ export function SignalCreateDialog({
   const [, setLastPublishedId] = useState<string | null>(null);
   const [lockedUnit, setLockedUnit] = useState<QuantityUnit | null>(null);
   const [lockedUnitSource, setLockedUnitSource] = useState<'signal' | 'trade' | null>(null);
+  const [lockedRow, setLockedRow] = useState<{
+    id: string;
+    instrument: string | null;
+    quantity: number | null;
+    quantity_unit: string | null;
+    created_at: string | null;
+  } | null>(null);
   const [realignPreview, setRealignPreview] = useState<{ toUnit: QuantityUnit } | null>(null);
   const [publishError, setPublishError] = useState<MappedPublishError | null>(null);
   const fetchTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
