@@ -115,7 +115,7 @@ export function SignalCreateDialog({
     setTeachingTopic(''); setOverallSummary('');
     setLinePushed(false); setLinePushing(false); setLastPublishedId(null);
     setShowPreview(false);
-    setLockedUnit(null); setLockedUnitSource(null);
+    setLockedUnit(null); setLockedUnitSource(null); setLockedRow(null);
     sessionStorage.removeItem(FORM_KEY);
     discardDraft();
   }, [FORM_KEY, discardDraft, spec.defaultUnit]);
