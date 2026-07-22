@@ -37,9 +37,9 @@ import { classifyPublishError } from '../../../supabase/functions/publish-weekly
 // 註：CI 慢速機請以 baseline 相對值升級此檔（見尾端 TODO）；目前值來自本地量測 × 3
 // ─────────────────────────────────────────────
 const BUDGET = {
-  authoring: { avgMs: 15, p95Ms: 40 },
-  publish:   { avgMs: 2,  p95Ms: 5  },
-  export:    { avgMs: 250, p95Ms: 600 },
+  authoring: { avgMs: 35, p95Ms: 80 },   // 觀察值 avg~18ms p95~32ms，×2 headroom
+  publish:   { avgMs: 2,  p95Ms: 5  },   // 觀察值 avg 0.01ms，極寬鬆但仍能抓退化
+  export:    { avgMs: 20, p95Ms: 50 },   // 觀察值 avg~1ms p95~2ms（30 rows/3 mentors），×20 headroom
 } as const;
 
 const ITERATIONS = 50;
