@@ -251,7 +251,7 @@ export function SignalCreateDialog({
     if (!quantity || parseFloat(quantity) <= 0) { toast.error('請輸入數量'); return; }
     if (!priceHint || parseFloat(priceHint) <= 0) { toast.error('請輸入參考價格'); return; }
     if (lockedUnit && quantityUnit !== lockedUnit) {
-      toast.error(`此代碼既有部位單位為「${lockedUnit}」，請勿混用單位以避免資料漂移`);
+      toast.error(`此代碼目前有未平倉部位，單位需與之相同：「${lockedUnit}」`);
       return;
     }
 
