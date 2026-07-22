@@ -128,6 +128,7 @@ test.describe('Checkup tokens visual — /holding-checkup', () => {
 
     // 6) Pixel diff — 頁面頂部固定範圍（含返回列 + 品牌/tab 區）
     //    /holding-checkup 頂欄無單一穩定 selector，直接以 clip 截固定範圍即可
+    //    小螢幕（≤560）hero 會進到 220px 內，因此同樣要 mask 動態數字 / 更新時間
     await expect(page).toHaveScreenshot(
       `checkup-tokens-header-${testInfo.project.name}.png`,
       {
@@ -136,8 +137,17 @@ test.describe('Checkup tokens visual — /holding-checkup', () => {
         animations: 'disabled',
         caret: 'hide',
         scale: 'css',
+        mask: [
+          page.locator('[data-testid="holdings-hero"] .wb-hero-pnl-num'),
+          page.locator('[data-testid="holdings-hero"] .wb-hero-pnl-pct'),
+          page.locator('[data-testid="holdings-hero"] .wb-hero-market'),
+          page.locator('[data-testid="holdings-hero-updated-at"]'),
+          page.locator('[data-testid="holdings-hero-refreshing"]'),
+          page.locator('[data-testid="holdings-hero-refresh-error"]'),
+        ],
       },
     );
+
 
     // 7) Hero — 持倉概覽 section（未實現損益 + 狀態列）
     //    以 [data-testid="holdings-hero"] 定位；等它可見再截圖
