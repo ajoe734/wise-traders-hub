@@ -122,7 +122,24 @@ const handler = withLogging("checkup-warrant-sync", async (_req, log) => {
   const CHUNK = 500;
   let written = 0;
   for (let i = 0; i < finalRows.length; i += CHUNK) {
-    const slice = finalRows.slice(i, i + CHUNK).map((r) => ({ ...r, fetched_at: new Date().toISOString() }));
+    const slice = finalRows.slice(i, i + CHUNK).map((r) => {
+      const row: Record<string, unknown> = {
+        symbol: r.symbol,
+        name: r.name,
+        parent_code: r.parent_code,
+        expire_date: r.expire_date,
+        fetched_at: new Date().toISOString(),
+      };
+      // 只有抓到值時才寫入 ratio 相關欄位，避免抹掉 twse_single fallback 補上的資料
+      if (r.exercise_ratio !== null) {
+        row.exercise_ratio = r.exercise_ratio;
+        row.ratio_source = r.ratio_source;
+        row.ratio_updated_at = r.ratio_updated_at;
+      }
+      if (r.strike_price !== null) row.strike_price = r.strike_price;
+      if (r.call_put !== null) row.call_put = r.call_put;
+      return row;
+    });
     const { error } = await supabase.from("warrant_expiry").upsert(slice, { onConflict: "symbol" });
     if (error) {
       log.error("upsert_error", { message: error.message });
