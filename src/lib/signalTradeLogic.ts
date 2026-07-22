@@ -55,20 +55,7 @@ export function calcSellQty(signalQty: number | null, existingQty: number): numb
   return Math.min(signalQty ?? existingQty, existingQty);
 }
 
-/**
- * Normalize signal quantity into actual shares for trade_records storage.
- * Mirrors trigger logic:
- * - 張 => quantity * 1000
- * - 股 => quantity
- * - empty/invalid => fallback 1
- */
-export function normalizeSignalQuantityToShares(
-  quantity: number | null | undefined,
-  quantityUnit: string | null | undefined,
-): number {
-  if (!quantity || quantity <= 0) return 1;
-  return quantityUnit === '張' ? quantity * 1000 : quantity;
-}
+export { normalizeQuantityToBaseUnits as normalizeSignalQuantityToShares } from '@/lib/positionQuantity';
 
 export interface CashSimTrade {
   action: 'buy' | 'sell' | 'add' | 'trim' | 'exit' | string;

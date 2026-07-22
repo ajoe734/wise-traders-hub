@@ -7,12 +7,20 @@ import {
 import { getAssetSpec, normalizeAssetClass, type AssetClass, type QuantityUnit } from '@/lib/asset';
 
 export interface OpenPosition {
+  id?: string;
   symbol: string;
   instrument: string;
+  /** Base quantity stored in trade_records.quantity. 台股 = 股數；期權/期貨 = 口。 */
   quantity_shares: number;
+  quantity_unit?: QuantityUnit | string | null;
+  market?: string | null;
+  currency?: Currency | string | null;
+  asset_class?: AssetClass | string | null;
   entry_price: number;
+  entry_date?: string | null;
   current_price: number | null;
   market_value: number;
+  cost_value?: number;
   unrealized_pnl: number;
   unrealized_pct: number;
 }
@@ -23,8 +31,14 @@ export interface RecentTrade {
   symbol: string;
   status: string;
   quantity_shares: number;
+  quantity_unit?: QuantityUnit | string | null;
+  market?: string | null;
+  currency?: Currency | string | null;
+  asset_class?: AssetClass | string | null;
   entry_price: number | null;
+  entry_date?: string | null;
   exit_price: number | null;
+  exit_date?: string | null;
   pnl_percent: number | null;
   created_at: string;
 }
@@ -40,6 +54,8 @@ export interface CapitalStatus {
   recent_trades: RecentTrade[];
   /** 從 expert.currency 帶下來，預設 TWD */
   currency?: Currency;
+  /** 從 expert.asset_class 帶下來，預設 tw_stock */
+  asset_class?: AssetClass | string | null;
 }
 
 export interface TradeDraft {
