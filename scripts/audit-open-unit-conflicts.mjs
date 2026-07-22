@@ -75,7 +75,7 @@ grouped AS (
 )
 SELECT
   g.expert_id::text,
-  COALESCE(e.display_name, e.slug, g.expert_id::text) AS expert_label,
+  COALESCE(e.name, e.slug, g.expert_id::text) AS expert_label,
   e.asset_class,
   g.symbol,
   g.n_rows,
