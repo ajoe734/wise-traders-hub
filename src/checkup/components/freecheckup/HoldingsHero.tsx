@@ -264,7 +264,7 @@ function HoldingsHeroImpl(props) {
                 type="button"
                 onClick={() => { if (canRefresh) onRefreshPrices(); }}
                 disabled={!canRefresh}
-                aria-label={hasError ? '重試刷新持倉報價' : '立即刷新持倉報價'}
+                aria-label={refreshing ? '同步中，正在刷新持倉報價' : (hasError ? '重試同步持倉報價' : '立即更新持倉報價')}
                 data-testid={hasError ? 'holdings-hero-retry' : 'holdings-hero-refresh'}
                 style={{
                   marginLeft: 4,
