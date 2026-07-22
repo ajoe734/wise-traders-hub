@@ -73,28 +73,26 @@ const handler = withLogging("reconcile-warrant-quantities", async (req, log) => 
     ratioMap.set(w.symbol as string, { ratio: (w as any).exercise_ratio, source: (w as any).ratio_source });
   }
 
-  // 3. 對缺 ratio 的補打 TWSE singleWarrant fallback
+  // 3. 對缺 ratio 的先觸發一次 TWSE openapi 全表 sync，然後重新讀
   const missingCodes = codes.filter((c) => !ratioMap.get(c)?.ratio);
-  const fallbackResults: Record<string, number | null> = {};
-  for (const c of missingCodes) {
-    const r = await fetchRatioFallback(c);
-    fallbackResults[c] = r;
-    if (r !== null && !dryRun) {
-      await supabase.from('warrant_expiry').upsert(
-        {
-          symbol: c,
-          exercise_ratio: r,
-          ratio_source: 'twse_single',
-          ratio_updated_at: new Date().toISOString(),
-          fetched_at: new Date().toISOString(),
-        },
-        { onConflict: 'symbol' },
-      );
-      ratioMap.set(c, { ratio: r, source: 'twse_single' });
+  let refreshed = 0;
+  if (missingCodes.length > 0 && !dryRun) {
+    await refreshWarrantSync(supabase);
+    const { data: retry } = await supabase
+      .from('warrant_expiry')
+      .select('symbol, exercise_ratio, ratio_source')
+      .in('symbol', missingCodes);
+    for (const w of retry ?? []) {
+      if ((w as any).exercise_ratio) {
+        ratioMap.set(w.symbol as string, {
+          ratio: (w as any).exercise_ratio,
+          source: (w as any).ratio_source,
+        });
+        refreshed++;
+      }
     }
-    // TWSE 禮貌 delay
-    await new Promise((r) => setTimeout(r, 500));
   }
+
 
   // 4. 逐筆對帳
   let fixed = 0;
