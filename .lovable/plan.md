@@ -1,75 +1,114 @@
-## 問題定義
+# 週記撰寫零錯誤深掃 — 10 步細化計劃
 
-截圖中的週記後台「資金狀況 / 目前持倉」仍有同一類錯誤：台股持倉在資料庫中以實際股數儲存，但前端帶入週記時用資產預設單位「張」，同時把實際股數直接塞進數量欄。
+目標：老師從「開草稿 → 填欄位 → 帶入持倉 → 送出 → 發布 → 匯出 → 推播」全程零錯誤、零單位錯亂、零資金誤鎖、零發布失敗、零 404。
 
-結果會變成：
-- 1 股持倉 → 帶入表單後變成 `1 張` 語意
-- 2,000 股持倉 → 帶入後變成 `2000 張` 語意
-- 減碼 / 出場 / 停損 的模擬持倉與資金驗證全部被放大 1000 倍
-- 畫面顯示「股數」但沒有顯示目前鎖定單位，使用者無法看出哪筆是股、哪筆是張
+---
 
-## 修法計劃
+## Step 1｜表單入口靜態盤點（read-only）
+**檔案（窮舉，不抽樣）**
+- `src/pages/_signalEditor/types.ts`（`emptyTrade`、`TradeDraft`、`OpenPosition`）
+- `src/pages/SignalCreateDialog.tsx`、`SignalEditor.tsx`
+- `src/pages/_signalEditor/CapitalPanel.tsx`、`StartingCapitalCard.tsx`、`CurrencyCard.tsx`、`TradeCard.tsx`
+- `src/pages/_signalEditor/derive.ts`、`useAdminProfile.ts`
+**檢查項**
+- 每個欄位的預設值、可空、驗證、鎖定條件、錯誤 toast 文案
+- `assetClass / currency / quantity_unit / direction / target_price / learning_points` 的預設是否跟 `expert.asset_class / currency` 一致
+- 有無殘留 hardcode `'張'` / `TWD` / `tw_stock` fallback
 
-### 1. 建立台股數量顯示 / 編輯單一轉換規則
-- 新增或抽出 helper：把資料庫儲存的實際股數轉成週記表單要顯示的 `{ quantity, quantityUnit }`。
-- 規則：
-  - `tw_stock` 且 `trade_records.quantity_unit = '張'`：顯示 `quantity / 1000`、單位 `張`
-  - `tw_stock` 且 `trade_records.quantity_unit = '股'`：顯示原始股數、單位 `股`
-  - `us_stock`：顯示原始數量、單位 `股`
-  - `us_future` / `us_option`：顯示原始數量、單位 `口`
-  - `crypto`：顯示原始數量、單位 `顆`
-- 不在前端擅自換算已不整除的張數；遇到 `quantity_unit='張'` 但股數不是 1000 的倍數，保守顯示為股並標註異常來源，避免再次送出錯誤。 
+## Step 2｜持倉帶入層盤點
+**檔案**
+- `src/hooks/useExpertHoldingsBundle.ts`
+- `src/lib/positionQuantity.ts`、`asset.ts`、`sanitizeAssetQuantityUnit`
+- `src/pages/_signalEditor/derive.ts`（`buildStepStates / computeCashSim / buildSimulatedPositions / validateSignalBatch`）
+**檢查項**
+- open/pending 4 資產 × 「帶入 buy/add/sell/exit」是否都用來源 `quantity_unit`，不再用資產預設值
+- `resolveMaxBuyDraftQuantity` 對零股 / 非整千張 / 分點 crypto 是否安全
+- `normalizeSignalQuantityToShares` 反向轉回是否無誤差
+- oversell / capital-exceeded / unit-conflict 訊息是否帶得到來源 row_id
 
-### 2. 修正 `CapitalPanel` 的「帶入」行為
-- 目前問題點：`quantityUnit: defaultUnit` + `quantity: p.quantity_shares`。
-- 改為使用持倉本身的 `quantity_unit` 與轉換後的可編輯數量。
-- 出場 / 停損 full action 必須帶入正確表單數量：
-  - 1 股 + 單位股 → `1 股`
-  - 2000 股 + 單位股 → `2000 股`
-  - 2000 股 + 單位張 → `2 張`
-- 加碼 / 減碼時預設單位也要跟目前未平倉部位一致，不再用資產預設值。
+## Step 3｜DB 觸發器 & RPC 盤點
+**對象**
+- `public.handle_signal_trade()`
+- `public.enforce_unit_consistency()` + `log_unit_lock_violation`
+- `public.enforce_signal_capital_limit()`
+- `public.get_expert_capital_status()`、`get_owned_journal_bundle`
+- `admin_reset_expert_asset_class`、`profiles.expert_slug` sync trigger
+**檢查項**
+- 每一個 `RAISE EXCEPTION` 是否附中文 HINT + row_id + 允許值
+- service_role 是否正確 bypass
+- `get_expert_capital_status` 是否回傳 `quantity_unit / currency / asset_class`（前端已假設有）
+- 台股「張」→ base shares × 1000 是否只在單一入口做一次
 
-### 3. 修正資料型別與 bundle 映射
-- `OpenPosition` 型別補上 `quantity_unit`、`asset_class`、`currency` 等必要欄位。
-- `useExpertHoldingsBundle.mapOpenPositionToRow()` 不再硬寫 `quantity_unit: '股'`。
-- 從 `get_expert_capital_status` RPC 回傳 `quantity_unit`、`currency`、`asset_class`，讓所有持倉來源都知道原始單位。
+## Step 4｜資料稽核腳本（read-only，全量）
+**新增 / 擴充**
+- `scripts/audit-journal-authoring.mjs`：
+  1. open/pending trade_records：`quantity_unit` × `asset_class` 一致性（美股不得為張、期貨必為口…）
+  2. expert_signals 草稿與已發布：`target_price` 0/NULL、`quantity` 0、`direction` 缺、teaching 缺 `learning_points`
+  3. `experts.starting_capital` vs 已發布資金佔用是否負數 / 溢位
+  4. `profiles.expert_slug` 對應 `experts.slug` 缺漏
+  5. `currency` × `asset_class` 不一致（us_stock + TWD 等）
+  6. open 台股「張」但股數非 1000 倍數
+**輸出**：每類明細 JSON + 筆數摘要（先讓你過目再修）
 
-### 4. 修正後台持倉表格顯示
-- 「目前持倉」欄位不要只顯示裸數字。
-- 改成顯示「原始單位語意」：例如 `1 股`、`2,000 股`、`2 張`。
-- 「送出後」同樣依該持倉單位顯示，避免使用者看到股數但表單其實是張。
-- 表格欄名從「股數」改成「數量」，避免台股張 / 股並存時誤導。
+## Step 5｜發布路徑深掃（`publish-weekly-journals`）
+**檔案**
+- `supabase/functions/publish-weekly-journals/index.ts` + 相關 helper
+- error code：`UNIT_CONFLICT / CAPITAL_EXCEEDED / OVERSELL / QUANTITY_ZERO / MISSING_FIELDS / TRIGGER_RAISED`
+**檢查項**
+- 每個 error code 都有中文訊息 + 修正連結 + notification insert
+- per-signal 失敗不會拖垮整批
+- 通知 link 一律為相對路徑（承接先前規則）
+- Deno test 覆蓋每個 error code ≥ 1
 
-### 5. 修正模擬與驗證的單位一致性
-- `buildStepStates()`、`computeCashSim()`、`buildSimulatedPositions()` 仍保留以實際股數計算。
-- 但所有從持倉帶入的表單值必須先轉成正確單位，讓 `normalizeSignalQuantityToShares()` 回到正確實際股數。
-- 補強 `validateSignalBatch()` 的錯誤訊息：當某檔已有 open position 且單位不同時，提示「目前未平倉為 X，請使用相同單位」。
+## Step 6｜匯出 / 推播單位單一來源盤點
+**檔案**
+- `src/lib/exportJournalPdf*`、`src/test/exportJournalPdfQuantityUnit.test.ts`
+- Markdown 匯出（JSZip 路徑）
+- `supabase/functions/line-push-signal/index.ts` + `quantityUnit.ts`
+**檢查項**
+- 4 資產 × TWD/USD 皆走 `resolvePdfQuantityUnit / resolveLinePushQuantityUnit`
+- 任何 `'張'` 字面 fallback 全刪
+- Markdown zip 中 mentor-per-file 檔名 slug 對非 ASCII 安全
 
-### 6. 新增完整回歸測試
-- Unit test：
-  - `1 股 + quantity_unit=股` 帶入出場後仍是 `1 股`，實際股數 = 1。
-  - `2000 股 + quantity_unit=股` 帶入出場後仍是 `2000 股`，不可變成 2000 張。
-  - `2000 股 + quantity_unit=張` 帶入出場後顯示 `2 張`，實際股數 = 2000。
-  - 同批減碼 / 加碼後的 `computeCashSim()` 不放大 1000 倍。
-- E2E test：
-  - 開啟週記編輯頁。
-  - 從「目前持倉」點「帶入 → 出場 / 減碼」。
-  - 斷言表單數量與單位正確。
-  - 斷言「送出後預估可用現金」沒有因張股混算暴衝。
-- Drift test：
-  - `get_expert_capital_status` SQL 必須回傳 `quantity_unit`。
-  - `CapitalPanel` 不可再出現 `quantityUnit: defaultUnit` 搭配 `p.quantity_shares` 的舊錯誤模式。
+## Step 7｜顯示層盤點
+**檔案**
+- `src/pages/JournalDetail.tsx`、`SignalDetail.tsx`、`TradeItem`
+- `HoldingsPanel / HoldingsDetailPanel / CapitalPanel` 表格欄位
+**檢查項**
+- teaching 訊號 `learning_points` 一定渲染
+- currency fallback（無 signal.currency → expert.currency → USD/TWD 推導）
+- 查詢欄位不再遺漏 `asset_class / quantity_unit / currency`
+- 「目前持倉」欄名為「數量」而非「股數」，label 一律走 `formatBaseQuantity`
 
-### 7. 資料庫側補強
-- 新增 migration 覆寫 `get_expert_capital_status()`，把 open / recent trade 的 `quantity_unit` 一併回傳。
-- 檢查 `enforce_signal_capital_limit()` 仍以 `quantity_unit='張'` 才乘 1000，其餘皆不乘。
-- 不修改既有歷史資料，除非 audit 顯示 open/pending 仍有錯誤；本次修的是「帶入與送出再次污染」的根因。
+## Step 8｜根因修法（依 Step 1–7 產出的清單一次修完）
+- 表單：即時提示（單位鎖、幣別、方向、目標價 0、賣超、資金）
+- 資金鎖：`StartingCapitalCard` 對 pending 訊號的判斷、跨幣別換算
+- 發布：per-signal error 中文化補齊、修正連結覆蓋所有 code
+- 匯出 / 推播：三通道單位、幣別、方向一致
+- 觸發器：所有 raise 皆帶 row_id + 允許值 + 中文 HINT
+- 顯示：teaching / currency / asset_class 殘留查詢
 
-## 驗證範圍
+## Step 9｜回歸驗證（窮舉）
+**Vitest（既有 1745 + 新增）**
+- `positionQuantity` × 4 資產 × 邊界（0、非整千、負值、極大值）
+- `sanitizeAssetQuantityUnit` × 每個錯誤單位輸入
+- `resolvePdfQuantityUnit / resolveLinePushQuantityUnit` 對照矩陣
+**Playwright E2E**
+- `journal-authoring-full-flow.spec.ts`：確認 4×4 矩陣仍全綠
+- `journal-authoring-boundary.spec.ts`：目標價 0 / 股數 0 / 賣超 / 資金爆表 / UNIT_CONFLICT
+- 新增：「發布失敗 → 通知連結可點 → 落到修正頁」
+- 新增：「4 資產 × publish → PDF → LINE payload」單位一致
+**Edge function Deno tests**
+- `publish-weekly-journals` 每個 error code ≥ 1 case
+**資料稽核腳本**重跑：全類別歸零
 
-完成後我會驗證：
-- 週記後台目前持倉表格顯示
-- 帶入加碼 / 減碼 / 出場 / 停損
-- 台股 `張`、台股 `股`、美股 `股`、期貨 / 選擇權 `口`
-- 資金模擬、送出前驗證、publish payload
-- SQL drift test、unit tests、相關 E2E
+## Step 10｜收斂與交付
+- 產出 `docs/qa/journal-authoring-audit.md`：Step 1–4 清單 + Step 8 修法對照表 + Step 9 測試清單
+- CI 加掛：`audit-journal-authoring.mjs` 作為 nightly job（發現新錯即告警）
+- 更新 `mem://features/mentor-publishing-workflow` 與 core memory：「單位單一來源 + 發布 error code 中文化」正式列為憲法
+- 回報你：稽核歸零 + 全綠測試截圖 + 修法檔案清單
+
+---
+
+## 執行節奏
+Step 1–4 純讀，先完成一次「完整缺陷清單」交你過目再進入 Step 5–10 動刀，避免又是「改一半還有剩」。同意後我在 build 模式一次跑完。
