@@ -162,7 +162,7 @@ const handler = withLogging("reconcile-warrant-quantities", async (req, log) => 
         alert_type: 'warrant_ratio_missing',
         severity: 'warning',
         title: `權證 ${code} 找不到行使比例`,
-        detail: { symbol: code, source_attempts: ['twse_daily', 'twse_single'] },
+        detail: { symbol: code, source_attempts: ['warrant_expiry', 'twse_t187ap37_L'] },
       })),
     ).select().maybeSingle().then(() => {}, () => {});
   }
@@ -173,7 +173,7 @@ const handler = withLogging("reconcile-warrant-quantities", async (req, log) => 
     checked: warrantTrades.length,
     fixed,
     missing_ratio: missingRatio,
-    fallback_filled: Object.entries(fallbackResults).filter(([, v]) => v !== null).length,
+    refreshed_from_twse: refreshed,
     details,
   });
 });
