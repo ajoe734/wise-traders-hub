@@ -21,7 +21,9 @@
 
 import { readFileSync, writeFileSync, existsSync, mkdirSync } from 'node:fs';
 import { dirname, resolve } from 'node:path';
+import { fileURLToPath } from 'node:url';
 import { test, expect, type Page, type Locator } from '@playwright/test';
+
 
 import { gotoWithRetry } from './helpers/navigation';
 import { drawerStep, registerDrawerFailureReport } from './helpers/drawer-failure-report';
