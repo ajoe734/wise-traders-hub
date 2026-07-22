@@ -128,30 +128,68 @@ test.describe('Checkup tokens visual — /holding-checkup', () => {
 
     // 6) Pixel diff — 頁面頂部固定範圍（含返回列 + 品牌/tab 區）
     //    /holding-checkup 頂欄無單一穩定 selector，直接以 clip 截固定範圍即可
+    //    小螢幕（≤560）hero 會進到 220px 內，因此同樣要 mask 動態數字 / 更新時間
+    //    截圖前強制回頂 & 卸下焦點 → 避免 tab bar 焦點 hint 或 sticky 位移
+    await page.evaluate(() => {
+      (document.activeElement as HTMLElement | null)?.blur?.();
+      window.scrollTo(0, 0);
+    });
+    await page.waitForTimeout(120);
     await expect(page).toHaveScreenshot(
       `checkup-tokens-header-${testInfo.project.name}.png`,
       {
         clip: { x: 0, y: 0, width, height: 220 },
-        maxDiffPixelRatio: 0.02,
+        maxDiffPixelRatio: 0.05, // 容忍 tab hint / sticky 微位移
         animations: 'disabled',
         caret: 'hide',
         scale: 'css',
+        mask: [
+          page.locator('[data-testid="holdings-hero"] .wb-hero-pnl-num'),
+          page.locator('[data-testid="holdings-hero"] .wb-hero-pnl-pct'),
+          page.locator('[data-testid="holdings-hero"] .wb-hero-market'),
+          page.locator('[data-testid="holdings-hero-updated-at"]'),
+          page.locator('[data-testid="holdings-hero-refreshing"]'),
+          page.locator('[data-testid="holdings-hero-refresh-error"]'),
+        ],
       },
     );
+
+
 
     // 7) Hero — 持倉概覽 section（未實現損益 + 狀態列）
     //    以 [data-testid="holdings-hero"] 定位；等它可見再截圖
     const hero = page.locator('[data-testid="holdings-hero"]').first();
     await hero.waitFor({ state: 'visible', timeout: 10_000 });
-    // hero 內部有相對時間文案，穩定化：把時間節點藏起（Playwright add style）
+    // hero 內動態文案 / 即時金額穩定化：
+    //  a) 相對時間與 <time> 節點 → 直接隱藏
+    //  b) 大字 P&L、%、右側市值列、更新時間戳、refreshing/error chip → 用 Playwright mask 蓋色塊
+    //     （避免 demo 報價 tick、"剛剛更新"→"1 分鐘前" 這種 30s tick 造成 flake）
     await page.addStyleTag({
       content: `[data-testid="holdings-hero"] [data-live-timestamp],
                 [data-testid="holdings-hero"] time { visibility: hidden !important; }`,
     });
+    const heroMask = [
+      hero.locator('.wb-hero-pnl-num'),
+      hero.locator('.wb-hero-pnl-pct'),
+      hero.locator('.wb-hero-market'),
+      hero.locator('[data-testid="holdings-hero-updated-at"]'),
+      hero.locator('[data-testid="holdings-hero-refreshing"]'),
+      hero.locator('[data-testid="holdings-hero-refresh-error"]'),
+      hero.locator('[data-testid="holdings-hero-oldest-fetch"]'),
+    ];
     await expect(hero).toHaveScreenshot(
       `checkup-tokens-hero-${testInfo.project.name}.png`,
-      { maxDiffPixelRatio: 0.02, animations: 'disabled', caret: 'hide', scale: 'css' },
+      {
+        maxDiffPixelRatio: 0.02,
+        animations: 'disabled',
+        caret: 'hide',
+        scale: 'css',
+        mask: heroMask,
+        // 沿用 Playwright 預設 mask color（#FF00FF），baseline / actual 皆為同色塊即穩定
+
+      },
     );
+
 
     // 8) 持倉卡 — 第一張 .wb-card（未展開狀態）
     //    有 demo 資料保底；若真的沒卡（新註冊會員）就跳過此檢查
@@ -183,8 +221,21 @@ test.describe('Checkup tokens visual — /holding-checkup', () => {
 
       await expect(firstCard).toHaveScreenshot(
         `checkup-tokens-holding-card-${testInfo.project.name}.png`,
-        { maxDiffPixelRatio: 0.03, animations: 'disabled', caret: 'hide', scale: 'css' },
+        {
+          maxDiffPixelRatio: 0.03,
+          animations: 'disabled',
+          caret: 'hide',
+          scale: 'css',
+          // 卡片內 ROI / 價格 / 損益數字會隨 demo 報價 tick 變動 → mask 掉數值區塊
+          mask: [
+            firstCard.locator('.wb-roi'),
+            firstCard.locator('.wb-card-price'),
+            firstCard.locator('.wb-card-pnl'),
+            firstCard.locator('.cm-num'),
+          ],
+        },
       );
+
 
       // 9) 抽屜 — dblclick 開啟 HoldingsDetailPanel（比 Shift+Enter 對焦更穩定）
       await firstCard.scrollIntoViewIfNeeded();
@@ -210,16 +261,28 @@ test.describe('Checkup tokens visual — /holding-checkup', () => {
       expect(drawerFullText, '抽屜任何位置都不得出現 `↑數字%` 或 `↓數字%` 樣式')
         .not.toMatch(/[↑↓]\s*\d+(?:\.\d+)?\s*%/);
 
-      // 抽屜可能超出 viewport → 用 element screenshot 保證完整
-      await expect(drawer).toHaveScreenshot(
-        `checkup-tokens-drawer-${testInfo.project.name}.png`,
+      // 抽屜 pixel diff：只截 identity header 區塊
+      // （抽屜內含 30 日走勢、chips、weight rank 等超過 20 個即時報價節點，
+      //  逐一 mask 仍會被 scrollbar 出現/消失造成的寬度位移打破 → 縮小到穩定的識別列）
+      const drawerIdentity = drawer.locator('[data-testid="drawer-identity"]').first();
+      await expect(drawerIdentity).toBeVisible();
+      await expect(drawerIdentity).toHaveScreenshot(
+        `checkup-tokens-drawer-identity-${testInfo.project.name}.png`,
         {
           maxDiffPixelRatio: 0.03,
           animations: 'disabled',
           caret: 'hide',
           scale: 'css',
+          mask: [
+            drawerIdentity.locator('.cm-num'),                        // 標的代號後方今日 % / 折讓
+            drawerIdentity.locator('[data-testid="drawer-today-delta"]'),
+          ],
         },
       );
+
+
+
+
     }
   });
 });
