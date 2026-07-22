@@ -328,8 +328,9 @@ Deno.serve(withLogging('publish-weekly-journals', async (req) => {
     }
 
 
-    log(`Published ${publishedIds.length}/${pendingSignals.length} signals (failed=${publishFailures.length})`, {
+    log(`Published ${publishedIds.length}/${pendingSignals.length} signals (failed=${publishFailures.length}, retries=${retryStats.totalRetries}, recovered=${retryStats.transientRecovered})`, {
       failedByKind: publishFailures.reduce((acc: Record<string, number>, f) => { acc[f.kind] = (acc[f.kind] || 0) + 1; return acc }, {}),
+      retryStats,
     })
 
     // 只保留成功發布的 signals 進入後續 trade_signals sync / LINE push，避免對失敗案例做副作用
