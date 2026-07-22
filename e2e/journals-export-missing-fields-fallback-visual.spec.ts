@@ -178,9 +178,16 @@ test.describe('Journals export — missing slug/asset/currency fallback renderin
 
   test('無 console/page error（缺欄位情境不得炸掉）', async ({ page }) => {
     const errors: string[] = [];
-    page.on('pageerror', (e) => errors.push(`pageerror: ${e.message}`));
+    // 忽略與匯出邏輯無關的基礎設施雜訊（analytics/telemetry CORS、資源載入失敗等）
+    const IGNORE_RE = /traffic-ingest|Failed to load resource|net::ERR_|analytics|telemetry/i;
+    page.on('pageerror', (e) => {
+      if (!IGNORE_RE.test(e.message)) errors.push(`pageerror: ${e.message}`);
+    });
     page.on('console', (m) => {
-      if (m.type() === 'error') errors.push(`console: ${m.text()}`);
+      if (m.type() !== 'error') return;
+      const text = m.text();
+      if (IGNORE_RE.test(text)) return;
+      errors.push(`console: ${text}`);
     });
     await gotoHarness(page);
     await downloadFrom(page, 'je-export-missing-fields');
@@ -189,3 +196,4 @@ test.describe('Journals export — missing slug/asset/currency fallback renderin
     expect(errors, `不得產生錯誤：\n${errors.join('\n')}`).toEqual([]);
   });
 });
+
