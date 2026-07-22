@@ -31,7 +31,7 @@ function parseTitle(title: string | null) {
 }
 
 async function readCard(card: Locator) {
-  const chip = card.locator('span[title*="現價"]').first()
+  const chip = card.locator('[title*="現價"]').first()
   const title = await chip.getAttribute('title')
   const { price, yesterday } = parseTitle(title)
   const todayText = (await card.locator('.wb-bottom-val').first().textContent())?.trim() || ''
@@ -58,7 +58,7 @@ async function clickSync(page: Page) {
 
 async function snapshotCards(page: Page, limit = 5) {
   const cards = page.locator('.wb-card').filter({
-    has: page.locator('span[title*="現價"]'),
+    has: page.locator('[title*="現價"]'),
   })
   const n = Math.min(await cards.count(), limit)
   const snaps: Array<{ idx: number; price: number; yesterday: number; today: string }> = []
@@ -80,7 +80,7 @@ test.describe('overridePrice 情境覆蓋', () => {
     await expect(page.locator('[data-testid="holdings-hero"]').first()).toBeVisible({ timeout: 20000 })
     await scrollThroughCards(page)
     await clickSync(page)
-    await expect(page.locator('.wb-card span[title*="現價"]').first())
+    await expect(page.locator('.wb-card [title*="現價"]').first())
       .toBeVisible({ timeout: 20000 })
 
     const before = await snapshotCards(page)
@@ -165,7 +165,7 @@ test.describe('overridePrice 情境覆蓋', () => {
 
     // ?demoSyncError=1 消耗後應恢復 → banner 消失、卡片開始有現價 chip
     await expect(banner).toBeHidden({ timeout: 15000 })
-    await expect(page.locator('.wb-card span[title*="現價"]').first())
+    await expect(page.locator('.wb-card [title*="現價"]').first())
       .toBeVisible({ timeout: 20000 })
   })
 })

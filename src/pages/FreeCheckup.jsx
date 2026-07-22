@@ -3502,8 +3502,8 @@ ${JSON.stringify(strategyBrain || { rules: [], lessons: [], commonMistakes: [], 
               MAX_HOLDINGS={MAX_HOLDINGS}
               rtConnected={rtConnected}
               lastUpdate={lastUpdate}
-              refreshing={refreshing}
-              onRefreshPrices={refreshPrices}
+              refreshing={refreshing || serverSyncing}
+              onRefreshPrices={triggerServerSync}
               refreshError={syncError ? (syncError.exhausted ? `連續失敗 ${syncError.attempts || ''} 次：${syncError.message || '報價同步失敗'}` : (syncError.message || '報價同步失敗')) : null}
 
               uploadSummary={uploadSummary}

@@ -60,7 +60,7 @@ test.describe('HoldingCard aria-live 螢幕閱讀器狀態', () => {
 
     // 第一次同步：先讓 priceUpdatedAt 有值
     await clickSync(page)
-    await expect(page.locator('.wb-card span[title*="現價"]').first())
+    await expect(page.locator('.wb-card [title*="現價"]').first())
       .toBeVisible({ timeout: 20000 })
 
     // 首張帶 status 的卡
