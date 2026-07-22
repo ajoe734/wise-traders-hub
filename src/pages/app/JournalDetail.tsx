@@ -19,7 +19,8 @@ import { toast } from 'sonner';
 import { exportJournalPdf } from '@/lib/exportJournalPdf';
 import { FxHint } from '@/components/FxHint';
 import { InstrumentTooltip } from '@/components/InstrumentTooltip';
-import { CURRENCY_SYMBOL, normalizeCurrency, sanitizeQuantityUnit, type Currency } from '@/lib/currency';
+import { CURRENCY_SYMBOL, normalizeCurrency, type Currency } from '@/lib/currency';
+import { sanitizeAssetQuantityUnit } from '@/lib/asset';
 import { SubscriptionTimeline } from '@/components/SubscriptionTimeline';
 import { useSubscriptionTimeline } from '@/hooks/useSubscriptionTimeline';
 import { useEffectiveUserId } from '@/hooks/useEffectiveUserId';
@@ -48,6 +49,7 @@ interface SignalDetail {
     role: string;
     avatar_url: string | null;
     currency?: string | null;
+    asset_class?: string | null;
   };
 }
 
@@ -98,7 +100,8 @@ const TradeItem = ({ signal, nameMap, showDebug }: { signal: SignalDetail; nameM
   const [expanded, setExpanded] = useState(isTeaching || hasDetails);
   const cur: Currency = normalizeCurrency(signal.currency ?? signal.experts?.currency);
   const sym = CURRENCY_SYMBOL[cur];
-  const unit = sanitizeQuantityUnit(signal.quantity_unit, cur);
+  const assetClassForUnit = signal.experts?.asset_class ?? (cur === 'USD' ? 'us_stock' : 'tw_stock');
+  const unit = sanitizeAssetQuantityUnit(signal.quantity_unit, assetClassForUnit);
   const showTrade = !isTeaching && (signal.price_hint != null || signal.quantity != null);
   const total = !isTeaching && signal.price_hint != null && signal.quantity != null
     ? Number(signal.price_hint) * Number(signal.quantity)
