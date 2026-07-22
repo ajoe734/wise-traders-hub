@@ -702,12 +702,17 @@ export default defineConfig({
 
     // HoldingsDetailPanel 抽屜 · 視覺快照回歸（多斷點）— pixel diff 防溢出/佈局跳動
     // 失敗產物落點：test-results/holdings-drawer/visual-snapshot-<w>/
-    ...([320, 375, 390, 414, 560, 768, 863, 1024, 1280] as const).map((w) => ({
+    // 斷點分佈：
+    //   極小 320/360/375/390/414/430  → iPhone SE ~ 15 Pro Max、Android baseline
+    //   中段 480/560/640/768/863      → phablet / iPad mini / iPad
+    //   大   1024/1280/1440/1920      → laptop / desktop / QHD
+    ...([320, 360, 375, 390, 414, 430, 480, 560, 640, 768, 863, 1024, 1280, 1440, 1920] as const).map((w) => ({
       name: `holdings-detail-visual-snapshot-${w}`,
       testMatch: /holdings-detail-panel-visual-snapshot\.spec\.ts/,
       outputDir: `test-results/holdings-drawer/visual-snapshot-${w}`,
       use: { ...devices['Desktop Chrome'], viewport: { width: w, height: 900 } },
     })),
+
 
     // HoldingsDetailPanel 抽屜 · 互動守門（ESC / 遮罩 / Tab 焦點循環 / 焦點陷阱）
     // 失敗產物落點：test-results/holdings-drawer/interaction-<w>/

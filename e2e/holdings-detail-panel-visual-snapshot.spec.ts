@@ -1,8 +1,8 @@
 /**
  * E2E 視覺快照回歸 — HoldingsDetailPanel 抽屜
  *
- * 涵蓋 320 / 375 / 390 / 414 / 560 / 768 / 863 / 1024 / 1280 九個斷點，
- * 針對整個抽屜面板做 pixel diff 快照，防止：
+ * 涵蓋 15 個斷點（320 / 360 / 375 / 390 / 414 / 430 / 480 / 560 / 640 /
+ * 768 / 863 / 1024 / 1280 / 1440 / 1920），針對整個抽屜面板做 pixel diff 快照，防止：
  *   - 溢出（overflow） / 換行跳動
  *   - 佈局 shift（間距、對齊、標題排列改動）
  *   - 字級 / 字重 / letter-spacing 漂移
@@ -10,9 +10,21 @@
  * 動態內容（價格、百分比、日期、SVG walk、rank bar）以 mask 遮蔽，
  * 只驗證結構與排版是否穩定。
  *
+ * 另附「同套 mock 下的跨斷點結構一致性」測試：
+ *   由 `/holding-checkup-demo` 提供的固定 demo seed，在所有斷點下解出
+ *   同一份結構指紋（標的、tab 名稱、關鍵 testid 集合、tab 數量），
+ *   對照 `e2e/fixtures/holdings-detail-panel-fingerprint.json` 唯一 baseline。
+ *   任一斷點與其它斷點不同 → 立即失敗（不是 pixel 差異，是結構 drift）。
+ *
  * baseline 存放於 `holdings-detail-panel-visual-snapshot.spec.ts-snapshots/`。
  */
+
+import { readFileSync, writeFileSync, existsSync, mkdirSync } from 'node:fs';
+import { dirname, resolve } from 'node:path';
+import { fileURLToPath } from 'node:url';
 import { test, expect, type Page, type Locator } from '@playwright/test';
+
+
 import { gotoWithRetry } from './helpers/navigation';
 import { drawerStep, registerDrawerFailureReport } from './helpers/drawer-failure-report';
 
@@ -90,5 +102,98 @@ test.describe('HoldingsDetailPanel · 視覺快照回歸（多斷點）', () => 
         maxDiffPixelRatio: 0.02,
       }),
     );
+});
+
+// ─────────────────────────────────────────────────────────────
+// 跨斷點結構一致性
+// ─────────────────────────────────────────────────────────────
+// 同一份 demo mock 在 15 個斷點下必須渲染出「相同的結構指紋」：
+//   - 首檔標的識別列文字（symbol/name 完全一致）
+//   - 抽屜內出現的關鍵 testid 集合（排序後）
+//   - 決策戳與範圍帶等區塊的存在性
+// 任一斷點不同 → 表示 responsive 分支意外隱藏/新增了結構元素。
+const FINGERPRINT_PATH = resolve(
+  dirname(fileURLToPath(import.meta.url)),
+  'fixtures/holdings-detail-panel-fingerprint.json',
+);
+
+const CANONICAL_TESTIDS = [
+  'drawer-identity',
+  'drawer-return-tower',
+  'drawer-roi-main',
+  'decision-stamp',
+  'holdings-price-axis',
+  'holdings-range-band',
+  'holdings-weight-rank',
+  'holdings-thesis-history',
+  'holdings-export-menu',
+] as const;
+
+type Fingerprint = {
+  identityText: string;
+  presentTestids: string[];
+};
+
+test.describe('HoldingsDetailPanel · 跨斷點結構一致性（同套 mock）', () => {
+  test('抽屜結構指紋在所有斷點皆與 baseline 相同', async ({ page }, testInfo) => {
+    const width = testInfo.project.use.viewport?.width ?? 1280;
+
+    await drawerStep('prime demo storage', () => primeDemo(page));
+    await drawerStep(`goto /holding-checkup-demo @ ${width}px`, () =>
+      gotoWithRetry(page, '/holding-checkup-demo', { waitUntil: 'domcontentloaded' }),
+    );
+    await drawerStep('open drawer', async () => {
+      const firstCard = page.locator('.wb-card').first();
+      await firstCard.waitFor({ state: 'visible', timeout: 15_000 });
+      await firstCard.scrollIntoViewIfNeeded();
+      await firstCard.click();
+      const panel0 = page.locator('[data-testid="holdings-detail-panel"]').first();
+      await panel0.waitFor({ state: 'visible', timeout: 15_000 });
+      await stabilize(page);
+    });
+
+    const panel = page.locator('[data-testid="holdings-detail-panel"]').first();
+
+    // 標的識別列僅取 symbol 段（避開含即時 %/價 的 sibling）
+    const identityText = (
+      await panel
+        .locator('[data-testid="drawer-identity"]')
+        .first()
+        .innerText()
+    )
+      .split('\n')
+      .map((s) => s.trim())
+      .filter(Boolean)
+      // 過濾任何含數字+% 或 +/- 的即時報價行
+      .filter((line) => !/[+\-−]?\d+(?:\.\d+)?%/.test(line) && !/^[+\-−]?\$?\d/.test(line))
+      .join(' | ');
+
+    const presentTestids: string[] = [];
+    for (const id of CANONICAL_TESTIDS) {
+      const count = await panel.locator(`[data-testid="${id}"]`).count();
+      if (count > 0) presentTestids.push(id);
+    }
+    presentTestids.sort();
+
+    const current: Fingerprint = { identityText, presentTestids };
+
+    // 首次執行或 UPDATE_FINGERPRINT=1 → 寫入 baseline
+    if (!existsSync(FINGERPRINT_PATH) || process.env.UPDATE_FINGERPRINT === '1') {
+      mkdirSync(dirname(FINGERPRINT_PATH), { recursive: true });
+      writeFileSync(FINGERPRINT_PATH, JSON.stringify(current, null, 2) + '\n', 'utf8');
+      testInfo.annotations.push({
+        type: 'fingerprint',
+        description: `wrote baseline @ ${width}px`,
+      });
+      return;
+    }
+
+    const baseline: Fingerprint = JSON.parse(readFileSync(FINGERPRINT_PATH, 'utf8'));
+    expect(
+      current,
+      `結構指紋在 ${width}px 與 baseline 不同（同套 demo mock 應完全一致）`,
+    ).toEqual(baseline);
   });
+});
+
 });
