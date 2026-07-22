@@ -715,13 +715,15 @@ export default defineConfig({
 
 
     // HoldingsDetailPanel 抽屜 · 互動守門（ESC / 遮罩 / Tab 焦點循環 / 焦點陷阱）
+    // 覆蓋全 15 斷點（wide + narrow 皆納入）—— 與 visual-snapshot 一致
     // 失敗產物落點：test-results/holdings-drawer/interaction-<w>/
-    ...([390, 863, 1280] as const).map((w) => ({
+    ...([320, 360, 375, 390, 414, 430, 480, 560, 640, 768, 863, 1024, 1280, 1440, 1920] as const).map((w) => ({
       name: `holdings-detail-interaction-${w}`,
       testMatch: /holdings-detail-panel-interaction\.spec\.ts/,
       outputDir: `test-results/holdings-drawer/interaction-${w}`,
       use: { ...devices['Desktop Chrome'], viewport: { width: w, height: 900 } },
     })),
+
 
     // HoldingsDetailPanel 抽屜 · 多資料量 RWD 溢出守門
     // count ∈ {1,10,50} × viewport ∈ {320,390,768,1280}（共 12 組合）
