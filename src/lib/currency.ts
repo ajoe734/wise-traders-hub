@@ -120,10 +120,11 @@ export function defaultQuantityUnit(c: Currency): '張' | '股' {
 }
 
 /**
- * 強制修正單位標籤，避免週記/訊號顯示錯誤單位：
- * - USD：一律回傳「股」（美股沒有「張」的概念）
- * - TWD：若 raw 不是 張/股 一律預設「張」
- * 僅影響顯示標籤，不會改動 quantity 數值。
+ * @deprecated 顯示層請改用 `sanitizeAssetQuantityUnit(raw, asset_class)`（來自 `@/lib/asset`）。
+ * 此函式只能輸出「張/股」，無法正確處理期貨（口）/選擇權（口）/加密（顆），
+ * 已在 SignalDetail / JournalDetail 全數移除。保留僅供向後相容，未來版本會刪除。
+ * - USD：一律回傳「股」
+ * - TWD：raw 非張/股 一律預設「張」
  */
 export function sanitizeQuantityUnit(raw: string | null | undefined, c: Currency): '張' | '股' {
   if (c === 'USD') return '股';
