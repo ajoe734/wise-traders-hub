@@ -29,7 +29,7 @@ WITH unified AS (
     instrument,
     quantity_unit,
     quantity,
-    status,
+    status::text          AS status,
     created_at
   FROM public.trade_records
   WHERE status = 'open'
@@ -44,7 +44,7 @@ WITH unified AS (
     instrument,
     quantity_unit,
     quantity,
-    status,
+    status::text,
     created_at
   FROM public.expert_signals
   WHERE status = 'pending'
