@@ -17,6 +17,8 @@ import {
 import {
   classifyPublishError,
   buildMentorFailureNotification,
+  isTransientError,
+  retryTransient,
   type PublishErrorInfo,
 } from './classifyPublishError.ts';
 
