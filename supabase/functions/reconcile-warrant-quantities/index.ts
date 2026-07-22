@@ -22,32 +22,16 @@ import { withLogging } from "../_shared/edgeLogger.ts";
  * 補不到才降級為 system_alert 告警管理員（不是預設路徑）。
  */
 
-const TWSE_SINGLE = 'https://www.twse.com.tw/zh/warrant/warrantByStockNo';
-
-// 提取 HTML 中 "行使比例" 對應值。TWSE 頁面用 <td> 排版，抓 "行使比例" 之後第一個數字 cell。
-function parseRatioFromHtml(html: string): number | null {
-  // 相容 "行使比例 (行使比率)" / 空白 / <br>
-  const idx = html.search(/行使比[例率]/);
-  if (idx < 0) return null;
-  const tail = html.slice(idx, idx + 800);
-  const m = tail.match(/(\d+(?:\.\d+)?)/);
-  if (!m) return null;
-  const n = Number(m[1]);
-  return Number.isFinite(n) && n > 0 ? n : null;
-}
-
-async function fetchRatioFallback(symbol: string): Promise<number | null> {
+// 若 warrant_expiry 沒有 ratio，觸發 `checkup-warrant-sync` 補抓 TWSE openapi
+// t187ap37_L，然後重新讀。仍缺才降級為 system_alert 告警。
+async function refreshWarrantSync(supabase: ReturnType<typeof serviceClient>) {
   try {
-    const res = await fetch(`${TWSE_SINGLE}?stkNo=${symbol}`, {
-      headers: { 'User-Agent': 'Mozilla/5.0 legendflow-reconcile/1.0' },
-    });
-    if (!res.ok) return null;
-    const html = await res.text();
-    return parseRatioFromHtml(html);
+    await supabase.functions.invoke('checkup-warrant-sync', { body: {} });
   } catch {
-    return null;
+    // 忽略：後續 system_alert 會兜底
   }
 }
+
 
 // 從 instrument 前綴取 6 碼權證代號
 function warrantCode(instrument: string): string | null {
