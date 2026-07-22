@@ -561,43 +561,75 @@ export function SignalCreateDialog({
                 </Select>
               </div>
               {lockedUnit && (
-                <div className="flex flex-wrap items-center gap-2">
-                  <p
-                    data-testid="unit-locked-hint"
-                    className="text-[11px] text-muted-foreground leading-relaxed"
-                    aria-live="polite"
-                  >
-                    此代碼目前有{lockedUnitSource === 'trade' ? '未平倉部位' : '待處理訊號'}，單位需與之相同：
-                    <span className="mx-1 font-medium text-foreground">「{lockedUnit}」</span>
-                    （允許 {spec.units.join(' / ')}）
-                  </p>
-                  {spec.units.length > 1 && (
-                    <Select
-                      value=""
-                      onValueChange={(nextUnit) => {
-                        if (!nextUnit || nextUnit === lockedUnit) return;
-                        const trimmed = stockCode.trim();
-                        if (!trimmed || !expert?.id) return;
-                        if (!spec.units.includes(nextUnit as QuantityUnit)) {
-                          toast.error(
-                            `無法切換：${spec.label}不支援單位「${nextUnit}」（僅允許 ${spec.units.join(' / ')}）`,
-                          );
-                          return;
-                        }
-                        setRealignPreview({ toUnit: nextUnit as QuantityUnit });
-                      }}
+                <div className="flex flex-col gap-1.5" data-testid="unit-locked-block">
+                  <div className="flex flex-wrap items-center gap-2">
+                    <p
+                      data-testid="unit-locked-hint"
+                      className="text-[11px] text-muted-foreground leading-relaxed"
+                      aria-live="polite"
                     >
-                      <SelectTrigger className="h-6 w-[110px] text-[11px]" data-testid="unit-realign-select">
-                        <SelectValue placeholder="改單位…" />
-                      </SelectTrigger>
-                      <SelectContent>
-                        {spec.units.filter((u) => u !== lockedUnit).map((u) => (
-                          <SelectItem key={u} value={u} className="text-xs">改為 {u}</SelectItem>
-                        ))}
-                      </SelectContent>
-                    </Select>
+                      此代碼目前有{lockedUnitSource === 'trade' ? '未平倉部位' : '待處理訊號'}，單位需與之相同：
+                      <span className="mx-1 font-medium text-foreground">「{lockedUnit}」</span>
+                      （允許 {spec.units.join(' / ')}）
+                    </p>
+                    {spec.units.length > 1 && (
+                      <Select
+                        value=""
+                        onValueChange={(nextUnit) => {
+                          if (!nextUnit || nextUnit === lockedUnit) return;
+                          const trimmed = stockCode.trim();
+                          if (!trimmed || !expert?.id) return;
+                          if (!spec.units.includes(nextUnit as QuantityUnit)) {
+                            toast.error(
+                              `無法切換：${spec.label}不支援單位「${nextUnit}」（僅允許 ${spec.units.join(' / ')}）`,
+                            );
+                            return;
+                          }
+                          setRealignPreview({ toUnit: nextUnit as QuantityUnit });
+                        }}
+                      >
+                        <SelectTrigger className="h-6 w-[110px] text-[11px]" data-testid="unit-realign-select">
+                          <SelectValue placeholder="改單位…" />
+                        </SelectTrigger>
+                        <SelectContent>
+                          {spec.units.filter((u) => u !== lockedUnit).map((u) => (
+                            <SelectItem key={u} value={u} className="text-xs">改為 {u}</SelectItem>
+                          ))}
+                        </SelectContent>
+                      </Select>
+                    )}
+                  </div>
+                  {lockedRow && (
+                    <div
+                      data-testid="unit-locked-source"
+                      className="text-[11px] text-muted-foreground/90 leading-relaxed rounded border border-border/60 bg-muted/40 px-2 py-1.5 font-mono"
+                    >
+                      <div className="flex flex-wrap items-center gap-x-2 gap-y-0.5">
+                        <span className="text-foreground/80">
+                          來源：{lockedUnitSource === 'trade' ? 'trade_records' : 'expert_signals'}
+                        </span>
+                        <span>row_id：<span className="text-foreground">{lockedRow.id.slice(0, 8)}…</span></span>
+                        {lockedRow.instrument && (
+                          <span>標的：<span className="text-foreground">{lockedRow.instrument}</span></span>
+                        )}
+                        <span>
+                          數量：
+                          <span className="text-foreground">
+                            {lockedRow.quantity ?? '—'} {lockedRow.quantity_unit || '—'}
+                          </span>
+                        </span>
+                        {lockedRow.created_at && (
+                          <span>
+                            建立：
+                            <span className="text-foreground">
+                              {new Date(lockedRow.created_at).toLocaleString('zh-TW', { hour12: false })}
+                            </span>
+                          </span>
+                        )}
+                        <span>允許單位：<span className="text-foreground">{spec.units.join(' / ')}</span></span>
+                      </div>
+                    </div>
                   )}
-
                 </div>
               )}
             </div>
