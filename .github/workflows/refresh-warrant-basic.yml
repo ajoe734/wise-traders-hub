@@ -1,0 +1,93 @@
+name: refresh-warrant-basic
+
+# 主排程：抓 TWSE t187ap37_L 上市權證基本資料 → warrant_expiry → 觸發 reconcile
+# 從 GitHub Actions runner 執行以繞開 TWSE 對 Supabase edge function 出口 IP 的節流。
+
+on:
+  schedule:
+    # 22:15 Asia/Taipei（UTC 14:15），週一到週五
+    - cron: '15 14 * * 1-5'
+  workflow_dispatch:
+    inputs:
+      dry_run:
+        description: 'Dry run (no DB write, no reconcile chain)'
+        required: false
+        default: 'false'
+
+concurrency:
+  group: refresh-warrant-basic
+  cancel-in-progress: false
+
+jobs:
+  sync:
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    env:
+      SUPABASE_URL: ${{ secrets.SUPABASE_URL || 'https://yqacmrgdjlenbijclngi.supabase.co' }}
+      SUPABASE_SERVICE_ROLE_KEY: ${{ secrets.SUPABASE_SERVICE_ROLE_KEY }}
+      SUPABASE_ANON_KEY: ${{ secrets.SUPABASE_ANON_KEY }}
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+
+      - name: Preflight secrets
+        run: |
+          if [ "${{ github.event.inputs.dry_run }}" = "true" ]; then
+            echo "dry mode; service key not required"
+            exit 0
+          fi
+          if [ -z "$SUPABASE_SERVICE_ROLE_KEY" ]; then
+            echo "::error::SUPABASE_SERVICE_ROLE_KEY is not set in repo secrets"
+            exit 1
+          fi
+
+      - name: Install dependencies
+        run: |
+          # 只需 @supabase/supabase-js — 用最小安裝加速
+          npm install --no-audit --no-fund --omit=dev --ignore-scripts @supabase/supabase-js@^2.97.0
+
+      - name: Sync warrant_expiry
+        id: sync
+        run: |
+          set -o pipefail
+          if [ "${{ github.event.inputs.dry_run }}" = "true" ]; then
+            node scripts/refresh-warrant-basic.mjs --dry | tee /tmp/summary.json
+          else
+            node scripts/refresh-warrant-basic.mjs | tee /tmp/summary.json
+          fi
+
+      - name: Publish job summary
+        if: always()
+        run: |
+          echo "## refresh-warrant-basic" >> "$GITHUB_STEP_SUMMARY"
+          echo '```json' >> "$GITHUB_STEP_SUMMARY"
+          tail -n 50 /tmp/summary.json 2>/dev/null | tail -n 1 >> "$GITHUB_STEP_SUMMARY" || echo "(no summary)" >> "$GITHUB_STEP_SUMMARY"
+          echo '```' >> "$GITHUB_STEP_SUMMARY"
+
+      - name: Chain-trigger reconcile-warrant-quantities
+        if: success() && github.event.inputs.dry_run != 'true'
+        run: |
+          if [ -z "$SUPABASE_ANON_KEY" ]; then
+            echo "::warning::SUPABASE_ANON_KEY not set — skipping reconcile chain"
+            exit 0
+          fi
+          echo "Calling reconcile-warrant-quantities …"
+          http_code=$(curl -sS -o /tmp/reconcile.json -w "%{http_code}" \
+            -X POST "$SUPABASE_URL/functions/v1/reconcile-warrant-quantities" \
+            -H "Authorization: Bearer $SUPABASE_ANON_KEY" \
+            -H "Content-Type: application/json" \
+            -d '{"source":"github-actions-refresh-warrant-basic"}')
+          echo "reconcile http=$http_code"
+          cat /tmp/reconcile.json || true
+          echo "" >> "$GITHUB_STEP_SUMMARY"
+          echo "### reconcile-warrant-quantities (HTTP $http_code)" >> "$GITHUB_STEP_SUMMARY"
+          echo '```json' >> "$GITHUB_STEP_SUMMARY"
+          cat /tmp/reconcile.json >> "$GITHUB_STEP_SUMMARY" 2>/dev/null || echo "(no body)" >> "$GITHUB_STEP_SUMMARY"
+          echo '```' >> "$GITHUB_STEP_SUMMARY"
+          if [ "$http_code" -ge 400 ]; then
+            echo "::error::reconcile chain call failed"
+            exit 1
+          fi

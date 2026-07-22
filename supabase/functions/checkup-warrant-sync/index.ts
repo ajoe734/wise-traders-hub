@@ -5,23 +5,20 @@ import { serviceClient } from "../_shared/supabaseClients.ts";
 import { withLogging } from "../_shared/edgeLogger.ts";
 
 /**
- * checkup-warrant-sync
- * ---------------------
- * 從 TWSE openapi `/v1/opendata/t187ap37_L`（上市權證基本資料彙總表）拉每日
- * 完整權證清單，upsert 進 `public.warrant_expiry`：
+ * checkup-warrant-sync  (ON-DEMAND FALLBACK)
+ * -------------------------------------------
+ * ⚠ 主排程已改走 GitHub Actions: `.github/workflows/refresh-warrant-basic.yml`
+ *   （腳本 `scripts/refresh-warrant-basic.mjs`）。TWSE openapi 對 Supabase edge
+ *   function 出口 IP 有節流，25MB JSON 常被中間 gateway 截斷；Actions runner
+ *   IP 不在被擋名單，能穩定拿到完整檔。
  *
- *   - symbol            = 權證代號 (6 位)
- *   - name              = 權證簡稱
- *   - parent_code       = 由 stock_names 反查（欄位存的是「標的證券/指數」名稱）
- *   - expire_date       = 履約截止日 (ROC → ISO)
- *   - exercise_ratio    = 最新標的履約配發數量(每仟單位權證) / 1000
- *                         → 1 張 (1000 單位) 權證 × ratio = 對應標的股數
- *   - strike_price      = 最新履約價格
- *   - call_put          = 權證類型（認購/認售）
- *   - ratio_source      = 'twse_t187ap37_L'
+ * 本 edge function 保留為 on-demand fallback：`reconcile-warrant-quantities`
+ * 若發現某檔 exercise_ratio 為 NULL，會呼叫這裡做單檔補抓。邏輯與 Actions
+ * 版本相同（regex per-record 抽取、ratio = 官方欄位 / 1000）。
  *
- * 舊 URL `www.twse.com.tw/rwd/zh/warrant/dailyResult?response=csv` 已下線
- * （回傳 200 但內容是 SPA 404 頁），改用官方 openapi 才能穩定拿到 ratio。
+ * 從 TWSE openapi `/v1/opendata/t187ap37_L`（上市權證基本資料彙總表）拉：
+ *   - symbol / name / parent_code / expire_date / exercise_ratio /
+ *     strike_price / call_put / ratio_source='twse_t187ap37_L'
  */
 const TWSE_LISTED = "https://openapi.twse.com.tw/v1/opendata/t187ap37_L";
 
