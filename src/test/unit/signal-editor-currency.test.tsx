@@ -102,7 +102,8 @@ describe('CapitalPanel currency 行為', () => {
     expect(screen.getByText(/美元 \(USD\)/)).toBeInTheDocument();
     expect(screen.getByText('US$50,000')).toBeInTheDocument();
     expect(screen.getByText('-US$1,200')).toBeInTheDocument();
-    expect(screen.getByText('Shares')).toBeInTheDocument();
+    // 表頭統一繁中「數量」，不再有英文 Shares（憲法：全站繁體）
+    expect(screen.getAllByText('數量').length).toBeGreaterThan(0);
   });
 
   it('currency 未指定時 fallback 用 capital.currency', () => {
