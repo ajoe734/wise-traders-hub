@@ -1,0 +1,42 @@
+name: Journal Authoring Audit (nightly)
+
+# Step 10 交付：週記撰寫零錯誤深掃 — 資料稽核 nightly job
+# 對齊 mem://features/mentor-publishing-workflow「單位單一來源 + 發布 error code 中文化」憲法。
+
+on:
+  schedule:
+    # 每天 UTC 20:00 = 台北 04:00（避開 08–20 交易/發布時段）
+    - cron: '0 20 * * *'
+  workflow_dispatch:
+
+jobs:
+  audit:
+    name: audit-journal-authoring.mjs (全 6 類須歸零)
+    runs-on: ubuntu-latest
+    env:
+      PGHOST: ${{ secrets.SUPABASE_DB_HOST }}
+      PGPORT: ${{ secrets.SUPABASE_DB_PORT }}
+      PGUSER: ${{ secrets.SUPABASE_DB_USER }}
+      PGPASSWORD: ${{ secrets.SUPABASE_DB_PASSWORD }}
+      PGDATABASE: ${{ secrets.SUPABASE_DB_NAME }}
+      PGSSLMODE: require
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+      - name: Install psql client
+        run: sudo apt-get update && sudo apt-get install -y postgresql-client
+      - name: Run journal authoring audit (JSON)
+        id: audit
+        run: |
+          node scripts/audit-journal-authoring.mjs --json > audit.json
+          echo "---- summary ----"
+          node -e "const d=require('./audit.json');console.log(JSON.stringify(d.summary,null,2))"
+      - name: Upload audit artifact
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: journal-authoring-audit
+          path: audit.json
+          retention-days: 30
