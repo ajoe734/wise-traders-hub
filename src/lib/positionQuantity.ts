@@ -106,3 +106,32 @@ export function resolveMaxBuyDraftQuantity(
   }
   return { quantity: String(base), quantityUnit: unit };
 }
+
+/**
+ * C9：對應「全部賣出／減碼上限」按鈕。
+ *
+ * 與 `resolveMaxBuyDraftQuantity` 對稱，但更嚴格：
+ *   - 台股「張」若持倉非 1000 倍數（例如零股 800），一律 fallback 到「股」單位，
+ *     避免使用者被 UI 誘導填 0 張後 trigger 賣不出而報 OVERSELL。
+ *   - 美股/期權/crypto 直接回傳 base 數 + 該資產預設單位。
+ */
+export function resolveMaxSellDraftQuantity(
+  availableBaseQuantity: unknown,
+  preferredUnit: string | null | undefined,
+  assetClass: AssetClass | string | null | undefined = 'tw_stock',
+): { quantity: string; quantityUnit: QuantityUnit } {
+  const base = cleanBaseQuantity(availableBaseQuantity);
+  const spec = getAssetSpec(assetClass);
+  const unit = sanitizeAssetQuantityUnit(preferredUnit, assetClass);
+
+  if (base <= 0) return { quantity: '0', quantityUnit: unit };
+
+  if (unit === '張') {
+    if (base % 1000 === 0) {
+      return { quantity: String(base / 1000), quantityUnit: '張' };
+    }
+    // 零股殘量：改用「股」，數量 = base
+    if (spec.units.includes('股')) return { quantity: String(base), quantityUnit: '股' };
+  }
+  return { quantity: String(base), quantityUnit: unit };
+}

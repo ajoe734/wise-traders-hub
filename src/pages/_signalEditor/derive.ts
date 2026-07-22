@@ -179,8 +179,10 @@ export function buildSimulatedPositions(
 
 /**
  * 整批 trades 的硬性檢查；任何一條失敗就回傳第一個錯誤訊息。
- * 以**執行語意順序**逐筆套用模擬狀態，但錯誤訊息中的「第 N 檔」沿用**原始 UI index**，
- * 讓分析師能在卡片上找到對應那張。
+ *
+ * C8：本函式**不再**自行維護模擬狀態，一律呼叫 `buildStepStates`
+ * 與 `computeCashSim`，避免三份模擬各走各的。錯誤訊息中的「第 N 檔」
+ * 沿用**原始 UI index**，讓分析師能在卡片上找到對應那張。
  */
 export function validateSignalBatch(args: {
   expert: any;
@@ -218,35 +220,29 @@ export function validateSignalBatch(args: {
     if (!price || price <= 0) return `${tag}：請填參考價格`;
   }
 
-  // ── 依執行語意順序跑 sequential simulation ──
-  const state = new Map<string, SimState>();
-  (capital?.open_positions || []).forEach((p) => {
-    state.set(p.symbol, { qty: p.quantity_shares || 0, avg: p.entry_price || 0 });
-  });
-
-  let remaining = capital?.available_cash || 0;
-  const toShares = (qty: number, unit: string) =>
-    normalizeSignalQuantityToShares(qty, unit);
-
+  // ── C8：統一模擬狀態源 ──
+  const { perTradeBefore } = buildStepStates(trades, capital);
+  const { perTrade: cashBefore } = computeCashSim(trades, capital);
   const order = executionOrder(trades);
+
   for (const i of order) {
     const t = trades[i];
     const tag = `第 ${i + 1} 檔（${actionLabels[t.action] || t.action}）`;
-    const qty = parseInt(t.quantity || '0', 10);
     const price = parseFloat(t.priceHint || '0');
-    const code = t.stockCode.trim();
-    const shares = toShares(qty, t.quantityUnit);
-    const cur = state.get(code) || { qty: 0, avg: 0 };
-
+    const shares = normalizeSignalQuantityToShares(
+      parseInt(t.quantity || '0', 10) || 0,
+      t.quantityUnit,
+    );
+    const cur = perTradeBefore[i] || { qty: 0, avg: 0 };
+    const remaining = cashBefore[i] ?? (capital?.available_cash || 0);
     const fmtQty = (sh: number, unit = t.quantityUnit) =>
       formatBaseQuantity(sh, unit, assetClass);
 
     if (t.action === 'hold') {
-      // 觀察：必須有既有持倉才能寫，避免「觀察根本不存在的部位」
       if (cur.qty <= 0) {
-        return `${tag}：尚無 ${code} 的未平倉部位，無法寫「觀察」週記（請改用「買進」或選其他既有持倉）`;
+        return `${tag}：尚無 ${t.stockCode.trim()} 的未平倉部位，無法寫「觀察」週記（請改用「買進」或選其他既有持倉）`;
       }
-      continue; // 不動現金、不動模擬庫存
+      continue;
     }
 
     if (t.action === 'trim' || t.action === 'sell' || t.action === 'exit') {
@@ -263,19 +259,6 @@ export function validateSignalBatch(args: {
       if (required > remaining) {
         return `${tag}：本筆需 ${fmt(required)}，扣除同批減碼／平倉釋放的資金後可用現金僅 ${fmt(remaining)}，已超過操作金額上限`;
       }
-      remaining -= required;
-      const newQty = cur.qty + shares;
-      const newAvg = cur.qty > 0
-        ? calcWeightedAvgPrice(cur.qty, cur.avg, shares, price)
-        : price;
-      state.set(code, { qty: newQty, avg: newAvg });
-    } else if (t.action === 'sell' || t.action === 'trim') {
-      remaining += price * shares;
-      const remain = cur.qty - shares;
-      state.set(code, { qty: remain, avg: remain > 0 ? cur.avg : 0 });
-    } else if (t.action === 'exit') {
-      remaining += (cur.avg || price) * cur.qty;
-      state.set(code, { qty: 0, avg: 0 });
     }
   }
   return null;

@@ -20,7 +20,7 @@ import {
   type AssetClass,
   type QuantityUnit,
 } from '@/lib/asset';
-import { resolveMaxBuyDraftQuantity } from '@/lib/positionQuantity';
+import { formatBaseQuantity, resolveMaxBuyDraftQuantity, resolveMaxSellDraftQuantity } from '@/lib/positionQuantity';
 
 interface Props {
   idx: number;
@@ -29,6 +29,8 @@ interface Props {
   signalTemplates: any[];
   capital: CapitalStatus | null;
   cashSim: { remaining: number; perTrade: number[] };
+  /** C9：買/賣「最大值」按鈕要用的模擬持倉表（每檔 base 股數）。 */
+  simulatedPositions?: Map<string, number>;
   expertId?: string;
   /** 從 expert.currency 帶下來；預設 TWD */
   currency?: Currency;
@@ -44,7 +46,7 @@ interface Props {
 }
 
 export function TradeCard({
-  idx, trade: t, totalTrades, signalTemplates, capital, cashSim,
+  idx, trade: t, totalTrades, signalTemplates, capital, cashSim, simulatedPositions,
   expertId, currency: currencyProp, assetClass: assetClassProp, allowHold,
   updateTrade, removeTrade, moveTrade, fetchStockInfo, callAIAssist,
 }: Props) {
@@ -134,6 +136,18 @@ export function TradeCard({
                   }}
                 >最大可買</button>
               )}
+              {(t.action === 'sell' || t.action === 'trim' || t.action === 'exit') && (() => {
+                const code = t.stockCode.trim();
+                const availBase = code ? (simulatedPositions?.get(code) ?? 0) : 0;
+                if (availBase <= 0) return null;
+                return (
+                  <button
+                    type="button"
+                    className="text-[10px] text-primary hover:underline"
+                    onClick={() => updateTrade(idx, resolveMaxSellDraftQuantity(availBase, safeUnit, assetClass))}
+                  >全部持有（{formatBaseQuantity(availBase, safeUnit, assetClass)}）</button>
+                );
+              })()}
             </Label>
             <div className="flex gap-2">
               <Input

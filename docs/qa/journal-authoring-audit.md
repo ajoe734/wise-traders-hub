@@ -89,3 +89,16 @@ Exit code：`0` 全部歸零，`2` 有髒資料。
 
 - `mem://features/mentor-publishing-workflow`：加入「單位單一來源 + 發布 error code 中文化」正式列為憲法
 - Core memory：所有寫入 quantity_unit 的入口一律經 `sanitizeAssetQuantityUnit(assetClass)`；顯示層一律經 `formatBaseQuantity`；台股「張→股 ×1000」只在 `handle_signal_trade` 做一次
+
+---
+
+## 6. P2 邏輯統合（2026-07-22）
+
+| 代號 | 議題 | 處置 |
+|---|---|---|
+| C7 | teaching 訊號被誤判為單位缺失 | `scripts/audit-journal-authoring.mjs` Q1 unified CTE 顯式 `AND action <> 'teaching'`；Q2 原本已按 action 分流，不再重複 |
+| C8 | `buildStepStates` / `computeCashSim` / `validateSignalBatch` 三份 sequential 模擬各走各的 | `validateSignalBatch` 改成薄殼：先呼叫 `buildStepStates` 取 `perTradeBefore`，再呼叫 `computeCashSim` 取 `cashBefore`，最後只做驗證判斷；模擬邏輯**單一來源** |
+| C9 | 賣/減碼/平倉沒有「最大值」按鈕，使用者自行填單位容易踩 OVERSELL | `src/lib/positionQuantity.ts` 新增 `resolveMaxSellDraftQuantity`（張非 1000 倍數自動 fallback「股」）；`TradeCard` 於 sell/trim/exit 顯示「全部持有（xxx）」按鈕，帶入 `simulatedPositions[symbol]` |
+| B4 | admin bypass 是否有 audit_log | `admin_reset_expert_asset_class` 已寫 `public.audit_logs`（`actor_id=auth.uid()`、`action='admin_reset_expert_asset_class'`、`meta={new_asset_class, archived_signals}`）；全庫僅此一條 bypass 路徑，無其他缺口 |
+
+驗證：`bunx vitest run src/test/unit/signal-editor-currency.test.tsx src/test/unit/signal-editor-mixed-batch.test.ts` 全綠 (17/17)；`audit-journal-authoring.mjs` 6 類仍 0 筆。
