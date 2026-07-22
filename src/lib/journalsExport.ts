@@ -173,7 +173,7 @@ export function buildMentorMarkdown(mentorRows: JournalRowExport[], range: WeekR
     const isTrade = isEntry || isExit;
 
     if (r.quantity !== null && r.quantity !== undefined && r.quantity !== 0) {
-      const unit = (r.quantity_unit ?? '').trim() || '股';
+      const unit = resolveExportUnit(r);
       const zhAction = ACTION_ZH[actionRaw] ?? '數量';
       meta.push(`${zhAction}數量：${r.quantity} ${unit}`);
       if (isEntry) {
