@@ -4533,24 +4533,39 @@ export type Database = {
       }
       warrant_expiry: {
         Row: {
+          call_put: string | null
+          exercise_ratio: number | null
           expire_date: string | null
           fetched_at: string
           name: string | null
           parent_code: string | null
+          ratio_source: string | null
+          ratio_updated_at: string | null
+          strike_price: number | null
           symbol: string
         }
         Insert: {
+          call_put?: string | null
+          exercise_ratio?: number | null
           expire_date?: string | null
           fetched_at?: string
           name?: string | null
           parent_code?: string | null
+          ratio_source?: string | null
+          ratio_updated_at?: string | null
+          strike_price?: number | null
           symbol: string
         }
         Update: {
+          call_put?: string | null
+          exercise_ratio?: number | null
           expire_date?: string | null
           fetched_at?: string
           name?: string | null
           parent_code?: string | null
+          ratio_source?: string | null
+          ratio_updated_at?: string | null
+          strike_price?: number | null
           symbol?: string
         }
         Relationships: []
