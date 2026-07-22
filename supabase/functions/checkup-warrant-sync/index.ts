@@ -5,78 +5,160 @@ import { serviceClient } from "../_shared/supabaseClients.ts";
 import { withLogging } from "../_shared/edgeLogger.ts";
 
 /**
- * Pulls TWSE listed warrants daily-results CSV, parses out
- * (symbol, name, parent_code, expire_date), and upserts into
- * public.warrant_expiry. Idempotent — safe to call multiple times.
+ * checkup-warrant-sync
+ * ---------------------
+ * 從 TWSE openapi `/v1/opendata/t187ap37_L`（上市權證基本資料彙總表）拉每日
+ * 完整權證清單，upsert 進 `public.warrant_expiry`：
+ *
+ *   - symbol            = 權證代號 (6 位)
+ *   - name              = 權證簡稱
+ *   - parent_code       = 由 stock_names 反查（欄位存的是「標的證券/指數」名稱）
+ *   - expire_date       = 履約截止日 (ROC → ISO)
+ *   - exercise_ratio    = 最新標的履約配發數量(每仟單位權證) / 1000
+ *                         → 1 張 (1000 單位) 權證 × ratio = 對應標的股數
+ *   - strike_price      = 最新履約價格
+ *   - call_put          = 權證類型（認購/認售）
+ *   - ratio_source      = 'twse_t187ap37_L'
+ *
+ * 舊 URL `www.twse.com.tw/rwd/zh/warrant/dailyResult?response=csv` 已下線
+ * （回傳 200 但內容是 SPA 404 頁），改用官方 openapi 才能穩定拿到 ratio。
  */
+const TWSE_LISTED = "https://openapi.twse.com.tw/v1/opendata/t187ap37_L";
+
+interface TwseWarrantRow {
+  出表日期?: string;
+  權證代號?: string;
+  權證簡稱?: string;
+  權證類型?: string;
+  "標的證券/指數"?: string;
+  "最後交易日"?: string;
+  "履約截止日"?: string;
+  "最新標的履約配發數量(每仟單位權證)"?: string;
+  "最新履約價格(元)/履約指數"?: string;
+}
+
+function rocToIso(s?: string): string | null {
+  if (!s) return null;
+  const m = s.match(/^(\d{3,4})(\d{2})(\d{2})$/);
+  if (!m) return null;
+  const y = Number(m[1]);
+  const gy = y < 1911 ? y + 1911 : y;
+  return `${gy}-${m[2]}-${m[3]}`;
+}
+
+function parseRow(r: TwseWarrantRow) {
+  const symbol = String(r["權證代號"] ?? "").trim();
+  if (!/^\d{6}$/.test(symbol)) return null;
+
+  const name = String(r["權證簡稱"] ?? "").trim();
+  const expire_date = rocToIso(r["履約截止日"]);
+
+  const rawRatio = String(r["最新標的履約配發數量(每仟單位權證)"] ?? "").replace(/,/g, "").trim();
+  let exercise_ratio: number | null = null;
+  if (rawRatio) {
+    const n = Number(rawRatio);
+    // 這個欄位是「每 1000 單位權證換取的標的股數」，需除以 1000 才是每單位的 ratio。
+    if (Number.isFinite(n) && n > 0) exercise_ratio = n / 1000;
+  }
+
+  const rawStrike = String(r["最新履約價格(元)/履約指數"] ?? "").replace(/,/g, "").trim();
+  const strikeN = Number(rawStrike);
+  const strike_price = Number.isFinite(strikeN) && strikeN > 0 ? strikeN : null;
+
+  const typ = String(r["權證類型"] ?? "").trim();
+  const call_put: "call" | "put" | null =
+    /認購/.test(typ) ? "call" : /認售/.test(typ) ? "put" : null;
+
+  const parentName = String(r["標的證券/指數"] ?? "").trim() || null;
+
+  return {
+    symbol,
+    name,
+    parent_name: parentName,
+    expire_date,
+    exercise_ratio,
+    strike_price,
+    call_put,
+  };
+}
+
 const handler = withLogging("checkup-warrant-sync", async (_req, log) => {
-  const url = "https://www.twse.com.tw/rwd/zh/warrant/dailyResult?response=csv";
-  let csv = "";
+  let rows: TwseWarrantRow[] = [];
   try {
-    const res = await fetch(url, {
-      headers: { "User-Agent": "Mozilla/5.0 portfolio-dashboard/1.0", "Accept": "text/csv,*/*" },
+    // TWSE openapi 這隻回 25MB+，Deno 預設 fetch 常會被中間 Cloudflare/gateway
+    // 提早關閉；我們允許最長 55 秒（edge 60s 上限保留餘裕），並改用 regex-per-record
+    // 抽取，容忍尾端截斷。
+    const res = await fetch(TWSE_LISTED, {
+      signal: AbortSignal.timeout(55000),
+      headers: {
+        "User-Agent": "Mozilla/5.0 legendflow-warrant-sync/2.0",
+        Accept: "application/json",
+      },
     });
     if (!res.ok) return jsonResponse({ ok: false, error: `TWSE ${res.status}` }, { status: 502 });
-    csv = await res.text();
+    const text = await res.text();
+    // 直接走寬容抽取（不 JSON.parse 全檔，避免尾端 unterminated string 全掛）
+    const re = /\{[^{}]*"權證代號":"\d{6}"[^{}]*\}/g;
+    let m: RegExpExecArray | null;
+    while ((m = re.exec(text))) {
+      try {
+        rows.push(JSON.parse(m[0]) as TwseWarrantRow);
+      } catch { /* skip malformed record */ }
+    }
+    log.info("fetched", { bytes: text.length, records: rows.length });
   } catch (err) {
     return jsonResponse({ ok: false, error: String(err) }, { status: 502 });
   }
 
-  const rows: string[][] = [];
-  for (const rawLine of csv.split(/\r?\n/)) {
-    const line = rawLine.replace(/^\uFEFF/, "").trim();
-    if (!line) continue;
-    const cells = line.split('","').map((c) => c.replace(/^"|"$/g, "").trim());
-    if (cells.length < 4) continue;
-    rows.push(cells);
+
+  const parsed = rows.map(parseRow).filter((x): x is NonNullable<ReturnType<typeof parseRow>> => x !== null);
+  if (parsed.length === 0) {
+    return jsonResponse({ ok: false, parsed: 0, hint: "TWSE openapi returned 0 warrants — endpoint may have changed" });
   }
 
-  let header: string[] | null = null;
-  const records: Array<{ symbol: string; name: string; parent_code: string | null; expire_date: string | null }> = [];
-
-  for (const row of rows) {
-    if (row.some((c) => c.includes("代號")) && row.some((c) => c.includes("到期"))) {
-      header = row;
-      continue;
-    }
-    if (!header) continue;
-
-    const get = (...keys: string[]) => {
-      for (const k of keys) {
-        const idx = header!.findIndex((h) => h.includes(k));
-        if (idx >= 0 && row[idx] != null) return String(row[idx]).trim();
+  // parent_code：由 stock_names 用 parent_name 反查（best-effort，找不到不擋）
+  const supabase = serviceClient();
+  const names = [...new Set(parsed.map((p) => p.parent_name).filter(Boolean) as string[])];
+  const parentMap = new Map<string, string>();
+  if (names.length) {
+    // chunk 到 200 避免 URL 過長
+    for (let i = 0; i < names.length; i += 200) {
+      const chunk = names.slice(i, i + 200);
+      const { data } = await supabase
+        .from("stock_names")
+        .select("symbol,name")
+        .in("name", chunk);
+      for (const s of data ?? []) {
+        if ((s as any).name && (s as any).symbol) parentMap.set((s as any).name, (s as any).symbol);
       }
-      return "";
-    };
-
-    const symbol = get("權證代號", "證券代號").replace(/[^0-9A-Z]/gi, "");
-    if (!/^\d{6}$/.test(symbol)) continue;
-
-    const name = get("權證名稱", "證券名稱");
-    const parent = get("標的證券代號", "標的代號").toUpperCase();
-    const parent_code = /^\d{4,6}[A-Z]?$/.test(parent) ? parent : null;
-
-    const rawDate = get("到期日");
-    let expire_date: string | null = null;
-    const m = rawDate.match(/^(\d{4})\/?(\d{2})\/?(\d{2})$/) || rawDate.match(/^(\d{4})-(\d{2})-(\d{2})$/);
-    if (m) expire_date = `${m[1]}-${m[2]}-${m[3]}`;
-
-    records.push({ symbol, name, parent_code, expire_date });
+    }
   }
 
-  const dedup = new Map<string, typeof records[number]>();
-  for (const r of records) dedup.set(r.symbol, r);
+  const dedup = new Map<string, Record<string, unknown>>();
+  for (const p of parsed) {
+    const parent_code = p.parent_name ? parentMap.get(p.parent_name) ?? null : null;
+    const row: Record<string, unknown> = {
+      symbol: p.symbol,
+      name: p.name,
+      parent_code,
+      expire_date: p.expire_date,
+      fetched_at: new Date().toISOString(),
+    };
+    if (p.exercise_ratio !== null) {
+      row.exercise_ratio = p.exercise_ratio;
+      row.ratio_source = "twse_t187ap37_L";
+      row.ratio_updated_at = new Date().toISOString();
+    }
+    if (p.strike_price !== null) row.strike_price = p.strike_price;
+    if (p.call_put !== null) row.call_put = p.call_put;
+    dedup.set(p.symbol, row);
+  }
   const finalRows = [...dedup.values()];
 
-  if (finalRows.length === 0) {
-    return jsonResponse({ ok: false, parsed: 0, hint: "No warrant rows parsed — TWSE format may have changed" });
-  }
-
-  const supabase = serviceClient();
   const CHUNK = 500;
   let written = 0;
   for (let i = 0; i < finalRows.length; i += CHUNK) {
-    const slice = finalRows.slice(i, i + CHUNK).map((r) => ({ ...r, fetched_at: new Date().toISOString() }));
+    const slice = finalRows.slice(i, i + CHUNK);
     const { error } = await supabase.from("warrant_expiry").upsert(slice, { onConflict: "symbol" });
     if (error) {
       log.error("upsert_error", { message: error.message });
@@ -85,7 +167,7 @@ const handler = withLogging("checkup-warrant-sync", async (_req, log) => {
     written += slice.length;
   }
 
-  return jsonResponse({ ok: true, parsed: finalRows.length, written });
+  return jsonResponse({ ok: true, parsed: finalRows.length, written, source: "twse_t187ap37_L" });
 });
 
 Deno.serve(handler);

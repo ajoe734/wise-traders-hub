@@ -1,94 +1,76 @@
 ## 目標
-建立一套「窮舉式」bug 掃描 → 根因分類 → 一次收斂修法 → 回歸鎖死的流程，把持倉看板（HoldingsPanel / HoldingsTable / HoldingsWorkbench / HoldingsDetailPanel / HoldingMetaReportModal / ChipsSection）殘留的所有 bug 一次清光，並用測試防止復發。不再挑一兩個樣本交差。
 
-## 範圍（強制窮舉）
+把「062787 貿聯群益5A購02：signal 20 張 vs trade 50029 股，行使比例 ≠ 1000，需人工核對」這條殘留，改成**外部資料自動對帳**。責任不推給人工。
 
-**前端元件（8 個）**
-- `HoldingsPanel.tsx`、`HoldingsTable.jsx`、`HoldingsWorkbench.tsx`
-- `HoldingsDetailPanel.tsx`、`HoldingMetaReportModal.tsx`、`ChipsSection.tsx`
-- `TargetPriceHistorySection.tsx`、`HoldingsIntroVideo.jsx`
+## 現況根因（已驗證）
 
-**Hook / 資料源（單一資料源憲法）**
-- `useExpertHoldingsBundle`（capital / openPositions / total_return / avg_pnl 唯一入口）
-- `useHoldingsSync`、`useHoldingMetaOverrides`、`useTargetPriceHistory`
-- 相關 RPC：`get_expert_holdings_bundle`、`admin_holdings_*`
+- `checkup-warrant-sync` 目前只抓 `symbol / name / parent_code / expire_date`，**沒抓「行使比例」**，所以下游沒有權威來源可驗算「N 張 = M 股」。
+- `warrant_expiry` 表沒有 `exercise_ratio` 欄位。
+- `handle_signal_trade` trigger 對權證仍套用「1 張 = 1000 股」預設，遇到非 1000 行使比例（如 062787 = 2500 或 1250 等）就會出現 signal 20 張 → trade 50029 股這種偏差。
+- 目前處理方式是「標記待人工覆核」——這就是偷懶的地方。
 
-**Edge Functions（8 支）**
-- `tw-bsr-finmind-sync`、`tw-bsr-worker-tier1-catchup`、`tw-bsr-worker-trading`、`tw-institutional-daily-sync`
-- `checkup-price-refresh`、`holdings-meta-override`、`holdings-fix-proposal-*`
-- `publish-weekly-journals`（透過持倉帶入邏輯）
+## 計劃（4 步，全自動）
 
-**DB / 資料表**
-- `trade_records`、`holding_meta_overrides`、`holding_meta_override_history`、`holdings_fix_proposals`
-- `tw_bsr_daily`、`tw_chips_rollup`、`tw_institutional_daily`、`current_prices`、`daily_price_snapshots`
-- `target_price_history`、`checkup_trade_memos`
+### 1. 擴充權證主檔：加入行使比例
+- migration：`warrant_expiry` 增加欄位
+  - `exercise_ratio numeric(10,4)`（每 1 張權證可換多少股標的）
+  - `strike_price numeric(12,4)`（順手補，未來履約價事件會用到）
+  - `call_put text`（購/售）
+- 保留 `service_role` 寫入、`authenticated` 讀取的既有 grants；不動 RLS 語意。
 
-**E2E（34 支現有）**：必須逐支跑一次，統計 pass/fail/flaky，不能只挑通過的展示。
+### 2. 擴充抓取器：TWSE 權證每日結果 CSV 補欄位
+- `supabase/functions/checkup-warrant-sync/index.ts`
+  - parser 增加 `get("行使比例")`、`get("履約價")`、`get("認購/認售", "型態")`。
+  - TWSE `dailyResult` 這支 CSV 已含這幾欄，不用新 endpoint。
+  - upsert 一併寫入新欄位；欄位缺失時保留舊值（`onConflict:'symbol'` + `ignoreDuplicates:false`，缺欄用 `null` 只在首次寫入時填）。
+- 加一支 fallback：對「dailyResult 抓不到、但持倉裡有」的權證，改打 TWSE `zh/warrant/singleWarrant?stkNo=<code>` 補行使比例（單檔查詢，不打爆）。
 
----
+### 3. 自動對帳 job：`reconcile-warrant-quantities`（新 edge function）
+- 觸發：`checkup-warrant-sync` 成功後 chain 呼叫；同時排一支 daily cron（收盤後 15:00 Asia/Taipei）。
+- 邏輯：
+  1. 撈所有 `trade_records`，`instrument` 代號為 6 碼權證且 `expert_signals.quantity_unit='張'`。
+  2. 對每筆 join `warrant_expiry.exercise_ratio`。
+  3. 計算 `expected_shares = signal.quantity * exercise_ratio`。
+  4. 若 `trade.quantity != expected_shares`（容差 ±1 股）→ 自動修正 `trade_records.quantity`，並寫 `audit_log`（reason: `warrant_ratio_reconcile`, before/after）。
+  5. 若 `warrant_expiry.exercise_ratio IS NULL` → 觸發 singleWarrant fallback 補抓；補不到才降級為「告警通知管理員」（不是預設路徑）。
+- 062787 這筆會在第一次跑就自動修正到與 signal 20 張一致。
 
-## 執行步驟
+### 4. Trigger 強化：發佈時擋掉偏差
+- `handle_signal_trade` 補：權證代號（6 碼且 `warrant_expiry` 有紀錄）發佈時強制用 `exercise_ratio` 算 shares，不再假設 1000。
+- 若 `exercise_ratio` 尚未同步 → raise notice + fallback 1000，但同時 enqueue 一筆 `warrant_expiry` sync 任務，等 reconcile job 收尾。
 
-### Phase 1 — 窮舉掃描（唯讀，產出 bug 清單）
+## 技術細節
 
-1. **靜態掃描**
-   - 硬編碼單位/顏色/字級：`grep -rn "張\|#\|fontSize.*[0-9]{2,}"` in holdings 目錄
-   - 憲法違反：任何直接讀 `trade_records` 取持倉、任何跳過 `useEffectiveUserId`、任何 alpha hex 未走 tokens、任何 `expert_signals.currency` 殘留
-   - 資料源分裂：搜 `.from('trade_records')` / `.rpc('get_expert_holdings` 交叉比對
-   - `<style>` fontSize ≥ 32 缺 media query 的清單（違反 Core 規則）
+**新 schema：**
+```sql
+ALTER TABLE public.warrant_expiry
+  ADD COLUMN IF NOT EXISTS exercise_ratio numeric(10,4),
+  ADD COLUMN IF NOT EXISTS strike_price numeric(12,4),
+  ADD COLUMN IF NOT EXISTS call_put text CHECK (call_put IN ('call','put') OR call_put IS NULL);
+CREATE INDEX IF NOT EXISTS idx_warrant_expiry_ratio_null
+  ON public.warrant_expiry(symbol) WHERE exercise_ratio IS NULL;
+```
 
-2. **Runtime 掃描**
-   - 跑滿 34 支 E2E（含 visual snapshot），輸出 `drawer-extreme-html-reporter` 完整報告
-   - Playwright 手動走 4 條路徑（TW/US/Crypto/US Future）× 3 斷點（380/560/1280）× 4 動作（開抽屜/切標的/編 override/滾動到底）截圖
-   - 讀 dev-server log + supabase edge function logs（近 24 小時錯誤）
+**新增檔案：**
+- `supabase/functions/reconcile-warrant-quantities/index.ts`
+- `supabase/functions/reconcile-warrant-quantities/index_test.ts`（Deno 單元測試：ratio=2500 / 1250 / null 三情境）
+- `e2e/warrant-ratio-reconcile.spec.ts`（走 062787 端到端）
 
-3. **DB 深掃**
-   - `trade_records` 單位漂移：us_stock 出現「張」、tw_stock 出現「股」、crypto 非「顆」、future 非「口」
-   - `holding_meta_overrides` orphan（對應 signal 已刪）、重複 (user_id, symbol) 未清
-   - `target_price_history` target=0 是否正確保留（不能被當 null 過濾）
-   - `tw_bsr_daily` / `tw_chips_rollup` 對熱門持倉的新鮮度缺口
-   - `notifications` 內部連結是否仍有殘存絕對 URL
+**修改檔案：**
+- `supabase/functions/checkup-warrant-sync/index.ts`（parser + fallback）
+- `supabase/migrations/<new>.sql`（欄位 + trigger 更新）
+- `supabase/config.toml`（新增 cron `15 15 * * 1-5`）
 
-4. **輸出**：`/tmp/holdings-audit/bug-list.md`，每筆含 `檔案:行號 / 症狀 / 重現步驟 / 根因假設 / 影響面`。回報前自問「這份清單漏了什麼」，補到窮舉為止。
+**驗收：**
+1. 跑一次 `reconcile-warrant-quantities` → 062787 trade quantity 自動對齊 signal，`audit_log` 有一筆 `warrant_ratio_reconcile`。
+2. Deno test 三情境全綠。
+3. E2E：模擬一筆 ratio=2500 的權證訊號 → publish 後 trade quantity = 張數 × 2500，無需人工介入。
+4. `warrant_expiry` 表 `exercise_ratio IS NULL` 的筆數 = 0（或僅剩 TWSE CSV 也未提供的異常檔）。
 
-### Phase 2 — 根因分類
+## 影響範圍
 
-依症狀→根因歸類（不修表象）：
-1. **資料源分裂**（違反 expert holdings 單一資料源憲法）
-2. **單位/幣別漂移**（憲法：由 asset_class 推導，禁止字面 fallback）
-3. **RWD 溢出**（fontSize / grid / overflow-x / dvh 缺失）
-4. **滾動陷阱**（sheet.tsx / Workbench visibility-key useEffect / dvh）
-5. **快取與同步**（React Query invalidate 缺、realtime 未 reset、backoff 錯）
-6. **RLS / 權限**（view-as、owner 讀不到自己資料、trigger service_role bypass）
-7. **邊界值**（target=0、quantity=0、賣超、資金爆表）
-8. **可觀測性缺口**（分點抓取失敗未 surface、override 衝突未告警）
+- 純後端 + 資料層。前端不動。
+- 現有 `handle_signal_trade` 對非權證（4 碼台股 / 美股 / 期貨）行為完全不變。
+- Reconcile job 只寫 `trade_records.quantity`，不動 `signal.quantity`（單一資料源仍是 signal 的張數）。
 
-### Phase 3 — 收斂修法（同類一次修完）
-
-- 每一類**修「類別」不修「個案」**：找同分類的所有姊妹路徑一次改。
-- 每個修法必須帶：
-  - 對應回歸測試（unit / integration / e2e 至少一層）
-  - Playwright 視覺快照更新（若涉 UI）
-  - 憲法備忘更新（若動到單一資料源、單位、色票、字級）
-
-### Phase 4 — 驗證（不准偷懶）
-
-1. 34 支 E2E 全綠 + 新增測試全綠
-2. `tsgo` 全綠、`bunx vitest run` 全綠
-3. 4×3×4 = 48 個手動情境 Playwright 截圖存檔於 `/mnt/documents/holdings-audit/`
-4. DB 深掃 SQL 二次執行，確認 0 筆漂移
-5. Edge function logs 24h 無新錯誤類別
-6. 回報格式：**bug 清單全表** + **每筆 before/after** + **測試覆蓋對照表**，缺一補完再回
-
----
-
-## 交付物
-- `/tmp/holdings-audit/bug-list.md`（Phase 1 產出）
-- `/tmp/holdings-audit/root-cause-matrix.md`（Phase 2 分類）
-- 一次性 PR 合輯：程式碼修法 + migrations + 測試 + 快照
-- `mem://qa/holdings/holdings-board-full-audit-2026-07` 記錄本輪掃描邊界與新增憲法
-
-## 需要你確認
-1. **範圍是否要納入「後台週記撰寫→持倉帶入」那條線**（跨 `SignalEditor` / `publish-weekly-journals`）？我建議納入，因為 benny/彥愷案例都源自那裡。
-2. **是否允許我在 Phase 1 直接跑 34 支 E2E**（會消耗較多時間，但唯讀）？
-3. **視覺快照是否要重新 baseline**（若舊 baseline 已含 bug 狀態，會遮蔽問題）？
+準備好就開工。
