@@ -1971,7 +1971,7 @@ export type Database = {
           instrument: string
           learning_points: string | null
           line_pushed_at: string | null
-          market: string | null
+          market: string
           overall_summary: string | null
           plan_id: string | null
           price_hint: number | null
@@ -1996,7 +1996,7 @@ export type Database = {
           instrument: string
           learning_points?: string | null
           line_pushed_at?: string | null
-          market?: string | null
+          market: string
           overall_summary?: string | null
           plan_id?: string | null
           price_hint?: number | null
@@ -2021,7 +2021,7 @@ export type Database = {
           instrument?: string
           learning_points?: string | null
           line_pushed_at?: string | null
-          market?: string | null
+          market?: string
           overall_summary?: string | null
           plan_id?: string | null
           price_hint?: number | null
