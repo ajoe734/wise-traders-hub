@@ -113,9 +113,10 @@ test.describe('HoldingsDetailPanel · 視覺快照回歸（多斷點）', () => 
 //   - 決策戳與範圍帶等區塊的存在性
 // 任一斷點不同 → 表示 responsive 分支意外隱藏/新增了結構元素。
 const FINGERPRINT_PATH = resolve(
-  __dirname,
+  dirname(fileURLToPath(import.meta.url)),
   'fixtures/holdings-detail-panel-fingerprint.json',
 );
+
 const CANONICAL_TESTIDS = [
   'drawer-identity',
   'drawer-return-tower',
