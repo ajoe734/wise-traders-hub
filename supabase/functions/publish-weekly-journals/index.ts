@@ -3,6 +3,7 @@ import { serviceClient } from '../_shared/supabaseClients.ts';
 import { withLogging } from '../_shared/edgeLogger.ts';
 import { createClient } from 'https://esm.sh/@supabase/supabase-js@2.49.1'
 import { classifyPublishError, buildMentorFailureNotification } from './classifyPublishError.ts'
+import { parseUnitLockError } from '../_shared/parseUnitLockError.ts'
 
 
 const LINE_MULTICAST_URL = 'https://api.line.me/v2/bot/message/multicast'
