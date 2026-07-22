@@ -14,6 +14,8 @@ async function primeDemo(page: Page) {
   await page.addInitScript(() => {
     try {
       window.localStorage.removeItem('holdings-intro-video-seen-v2')
+      window.localStorage.setItem('lf.checkup.onboarded', '1')
+      window.localStorage.setItem('checkup-onboarding-tour-v1', 'done')
       window.sessionStorage.setItem('holdings-intro-video-dismissed-session', '1')
     } catch {}
   })
@@ -30,7 +32,7 @@ function parseTitle(title: string | null) {
 }
 
 async function readCard(card: Locator) {
-  const chip = card.locator('span[title*="現價"]').first()
+  const chip = card.locator('[title*="現價"]').first()
   const title = await chip.getAttribute('title')
   const { price, yesterday } = parseTitle(title)
   const todayText = (await card.locator('.wb-bottom-val').first().textContent())?.trim() || ''
@@ -59,11 +61,11 @@ test.describe('overridePrice → HoldingCard recompute safeguard', () => {
 
     // 先點一次同步：demo 分支會把 priceSource 設為 'live'，chip 一定會渲染
     await clickSync(page)
-    await expect(page.locator('.wb-card span[title*="現價"]').first())
+    await expect(page.locator('.wb-card [title*="現價"]').first())
       .toBeVisible({ timeout: 20000 })
 
     const cardsWithChip = page.locator('.wb-card').filter({
-      has: page.locator('span[title*="現價"]'),
+      has: page.locator('[title*="現價"]'),
     })
     const sampleN = Math.min(await cardsWithChip.count(), 5)
     expect(sampleN).toBeGreaterThanOrEqual(2)

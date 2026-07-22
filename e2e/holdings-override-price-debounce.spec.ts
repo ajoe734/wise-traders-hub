@@ -87,7 +87,7 @@ test.describe('overridePrice debounce / partial-fail / per-card loading', () => 
     expect(errCount).toBeGreaterThanOrEqual(1)
 
     // 至少一張卡片仍有現價 chip（成功 recompute）
-    const okChips = page.locator('.wb-card span[title*="現價"]')
+    const okChips = page.locator('.wb-card [title*="現價"]')
     await expect(okChips.first()).toBeVisible()
     const okCount = await okChips.count()
     expect(okCount).toBeGreaterThanOrEqual(1)
