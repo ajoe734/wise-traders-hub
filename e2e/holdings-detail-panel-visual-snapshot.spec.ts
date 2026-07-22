@@ -19,7 +19,10 @@
  * baseline 存放於 `holdings-detail-panel-visual-snapshot.spec.ts-snapshots/`。
  */
 
+import { readFileSync, writeFileSync, existsSync, mkdirSync } from 'node:fs';
+import { dirname, resolve } from 'node:path';
 import { test, expect, type Page, type Locator } from '@playwright/test';
+
 import { gotoWithRetry } from './helpers/navigation';
 import { drawerStep, registerDrawerFailureReport } from './helpers/drawer-failure-report';
 
