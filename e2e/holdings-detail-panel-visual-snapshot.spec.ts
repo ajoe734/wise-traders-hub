@@ -1,8 +1,8 @@
 /**
  * E2E 視覺快照回歸 — HoldingsDetailPanel 抽屜
  *
- * 涵蓋 320 / 375 / 390 / 414 / 560 / 768 / 863 / 1024 / 1280 九個斷點，
- * 針對整個抽屜面板做 pixel diff 快照，防止：
+ * 涵蓋 15 個斷點（320 / 360 / 375 / 390 / 414 / 430 / 480 / 560 / 640 /
+ * 768 / 863 / 1024 / 1280 / 1440 / 1920），針對整個抽屜面板做 pixel diff 快照，防止：
  *   - 溢出（overflow） / 換行跳動
  *   - 佈局 shift（間距、對齊、標題排列改動）
  *   - 字級 / 字重 / letter-spacing 漂移
@@ -10,8 +10,15 @@
  * 動態內容（價格、百分比、日期、SVG walk、rank bar）以 mask 遮蔽，
  * 只驗證結構與排版是否穩定。
  *
+ * 另附「同套 mock 下的跨斷點結構一致性」測試：
+ *   由 `/holding-checkup-demo` 提供的固定 demo seed，在所有斷點下解出
+ *   同一份結構指紋（標的、tab 名稱、關鍵 testid 集合、tab 數量），
+ *   對照 `e2e/fixtures/holdings-detail-panel-fingerprint.json` 唯一 baseline。
+ *   任一斷點與其它斷點不同 → 立即失敗（不是 pixel 差異，是結構 drift）。
+ *
  * baseline 存放於 `holdings-detail-panel-visual-snapshot.spec.ts-snapshots/`。
  */
+
 import { test, expect, type Page, type Locator } from '@playwright/test';
 import { gotoWithRetry } from './helpers/navigation';
 import { drawerStep, registerDrawerFailureReport } from './helpers/drawer-failure-report';
