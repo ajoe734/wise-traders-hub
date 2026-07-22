@@ -113,41 +113,47 @@ export function SignalCreateDialog({
     discardDraft();
   }, [FORM_KEY, discardDraft, spec.defaultUnit]);
 
-  // 單位鎖定：若此代碼在 expert_signals 或 trade_records 已有既有單位，鎖定為該單位，
-  // 防止未來出現 UNIT_MIX / UNIT_A_NE_B 資料漂移
+  // 單位鎖定：**只鎖定「尚未平倉」的部位**。台股 tw_stock 允許張/股並存（零股），
+  // 一旦部位平倉就結束，下次同代碼重新建倉可以自由選單位。過去的 bug 是拿最近一次
+  // 歷史（包含已賣掉的 sell 訊號用「股」表達）當鎖，導致下次買回同代碼被強制成「股」。
   const lookupExistingUnit = useCallback(async (code: string) => {
     if (!expert?.id || !code) { setLockedUnit(null); setLockedUnitSource(null); return; }
     try {
-      const { data: sig } = await supabase
-        .from('expert_signals')
-        .select('quantity_unit, created_at')
-        .eq('expert_id', expert.id)
-        .ilike('instrument', `${code}%`)
-        .not('quantity_unit', 'is', null)
-        .order('created_at', { ascending: false })
-        .limit(1)
-        .maybeSingle();
-      if (sig?.quantity_unit && spec.units.includes(sig.quantity_unit as any)) {
-        setLockedUnit(sig.quantity_unit as QuantityUnit);
-        setLockedUnitSource('signal');
-        setQuantityUnit(sig.quantity_unit as QuantityUnit);
-        return;
-      }
-      const { data: tr } = await supabase
+      // 1) 只看還開著的 trade_record
+      const { data: openTrade } = await supabase
         .from('trade_records')
         .select('quantity_unit, created_at')
         .eq('expert_id', expert.id)
         .ilike('instrument', `${code}%`)
+        .eq('status', 'open')
+        .not('quantity_unit', 'is', null)
+        .order('created_at', { ascending: true })
+        .limit(1)
+        .maybeSingle();
+      if (openTrade?.quantity_unit && spec.units.includes(openTrade.quantity_unit as any)) {
+        setLockedUnit(openTrade.quantity_unit as QuantityUnit);
+        setLockedUnitSource('trade');
+        setQuantityUnit(openTrade.quantity_unit as QuantityUnit);
+        return;
+      }
+      // 2) 沒有 open trade，但有 pending signal 尚未落成 trade，鎖住那筆
+      const { data: pendingSig } = await supabase
+        .from('expert_signals')
+        .select('quantity_unit, created_at')
+        .eq('expert_id', expert.id)
+        .ilike('instrument', `${code}%`)
+        .in('status', ['pending'])
         .not('quantity_unit', 'is', null)
         .order('created_at', { ascending: false })
         .limit(1)
         .maybeSingle();
-      if (tr?.quantity_unit && spec.units.includes(tr.quantity_unit as any)) {
-        setLockedUnit(tr.quantity_unit as QuantityUnit);
-        setLockedUnitSource('trade');
-        setQuantityUnit(tr.quantity_unit as QuantityUnit);
+      if (pendingSig?.quantity_unit && spec.units.includes(pendingSig.quantity_unit as any)) {
+        setLockedUnit(pendingSig.quantity_unit as QuantityUnit);
+        setLockedUnitSource('signal');
+        setQuantityUnit(pendingSig.quantity_unit as QuantityUnit);
         return;
       }
+      // 3) 全數已平倉 → 不鎖，讓分析師自由選張/股
       setLockedUnit(null); setLockedUnitSource(null);
     } catch (e) {
       console.warn('lookupExistingUnit failed', e);
