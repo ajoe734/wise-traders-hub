@@ -20,6 +20,7 @@ import {
   type AssetClass,
   type QuantityUnit,
 } from '@/lib/asset';
+import { resolveMaxBuyDraftQuantity } from '@/lib/positionQuantity';
 
 interface Props {
   idx: number;
@@ -128,8 +129,8 @@ export function TradeCard({
                     if (!price || price <= 0) { toast.error('請先填參考價位'); return; }
                     const remainingBefore =
                       cashSim.perTrade[idx] ?? (capital.available_cash || 0);
-                    const maxShares = Math.max(0, Math.floor(remainingBefore / price));
-                    updateTrade(idx, { quantity: String(maxShares), quantityUnit: spec.defaultUnit });
+                    const maxBaseQty = Math.max(0, Math.floor(remainingBefore / price));
+                    updateTrade(idx, resolveMaxBuyDraftQuantity(maxBaseQty, spec.defaultUnit, assetClass));
                   }}
                 >最大可買</button>
               )}

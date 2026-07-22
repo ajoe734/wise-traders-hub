@@ -19,6 +19,7 @@ import {
   sanitizeAssetQuantityUnit,
   type AssetClass,
 } from '@/lib/asset';
+import { formatBaseQuantity } from '@/lib/positionQuantity';
 
 interface SimState {
   /** 模擬剩餘股數 */
@@ -237,8 +238,8 @@ export function validateSignalBatch(args: {
     const shares = toShares(qty, t.quantityUnit);
     const cur = state.get(code) || { qty: 0, avg: 0 };
 
-    const fmtQty = (sh: number) =>
-      t.quantityUnit === '張' ? `${(sh / 1000).toLocaleString()} 張` : `${sh.toLocaleString()} 股`;
+    const fmtQty = (sh: number, unit = t.quantityUnit) =>
+      formatBaseQuantity(sh, unit, assetClass);
 
     if (t.action === 'hold') {
       // 觀察：必須有既有持倉才能寫，避免「觀察根本不存在的部位」

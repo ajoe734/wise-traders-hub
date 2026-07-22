@@ -6,6 +6,7 @@ import { cn } from '@/lib/utils';
 import type { TradeAction } from '@/lib/simulatePositions';
 import { formatMoneyByCurrency, normalizeCurrency, type Currency } from '@/lib/currency';
 import { getAssetSpec, normalizeAssetClass, type AssetClass } from '@/lib/asset';
+import { formatBaseQuantity, resolvePositionQuantityDisplay } from '@/lib/positionQuantity';
 import type { CapitalStatus, TradeDraft } from './types';
 
 interface Props {
@@ -32,7 +33,6 @@ export function CapitalPanel({
   const assetClass = assetClassProp ? normalizeAssetClass(assetClassProp) : (currency === 'USD' ? 'us_stock' : 'tw_stock');
   const defaultUnit = getAssetSpec(assetClass).defaultUnit;
   const fmt = (n: number) => formatMoneyByCurrency(n, currency);
-  const sharesLabel = currency === 'USD' ? 'Shares' : '股數';
 
   return (
     <Card>
@@ -84,7 +84,7 @@ export function CapitalPanel({
                 <thead>
                   <tr className="border-b text-muted-foreground">
                     <th className="text-left py-1.5 font-normal">股票</th>
-                    <th className="text-right font-normal">{sharesLabel}</th>
+                    <th className="text-right font-normal">數量</th>
                     <th className="text-right font-normal">送出後</th>
                     <th className="text-right font-normal">均價</th>
                     <th className="text-right font-normal">現價</th>
@@ -95,6 +95,12 @@ export function CapitalPanel({
                 </thead>
                 <tbody>
                   {capital.open_positions.map((p) => {
+                    const rowAssetClass = p.asset_class ? normalizeAssetClass(p.asset_class) : assetClass;
+                    const currentQty = resolvePositionQuantityDisplay(
+                      p.quantity_shares,
+                      p.quantity_unit || defaultUnit,
+                      rowAssetClass,
+                    );
                     const simQty = simulatedPositions.get(p.symbol);
                     const hasSim = simQty !== undefined && simQty !== p.quantity_shares;
                     const isCleared = hasSim && simQty === 0;
@@ -103,7 +109,7 @@ export function CapitalPanel({
                     return (
                       <tr key={p.symbol} className="border-b last:border-0">
                         <td className="py-1.5">{p.instrument}</td>
-                        <td className="text-right">{p.quantity_shares.toLocaleString()}</td>
+                        <td className="text-right">{currentQty.label}</td>
                         <td className="text-right">
                           {!hasSim ? (
                             <span className="text-muted-foreground">—</span>
@@ -111,7 +117,7 @@ export function CapitalPanel({
                             <span className="text-muted-foreground">全數出清</span>
                           ) : (
                             <span className={cn(isDecreased && 'text-success', isIncreased && 'text-destructive')}>
-                              {simQty!.toLocaleString()} {isDecreased ? '▾' : '▴'}
+                              {formatBaseQuantity(simQty, currentQty.unit, rowAssetClass)} {isDecreased ? '▾' : '▴'}
                             </span>
                           )}
                         </td>
@@ -147,8 +153,8 @@ export function CapitalPanel({
                                       stockName: p.instrument.replace(p.symbol, '').trim(),
                                       action: opt.key as TradeAction,
                                       priceHint: p.current_price ? String(p.current_price) : '',
-                                      quantityUnit: defaultUnit,
-                                      quantity: opt.full ? String(p.quantity_shares) : '',
+                                      quantityUnit: currentQty.unit,
+                                      quantity: opt.full ? String(currentQty.inputQuantity) : '',
                                     };
                                     if (opt.reason) patch.reasonSummary = opt.reason;
                                     setTimeout(() => updateTrade(targetIdx, patch), 0);
@@ -184,7 +190,7 @@ export function CapitalPanel({
                     <th className="text-left py-1.5 font-normal">日期</th>
                     <th className="text-left font-normal">股票</th>
                     <th className="text-left font-normal">狀態</th>
-                    <th className="text-right font-normal">{sharesLabel}</th>
+                    <th className="text-right font-normal">數量</th>
                     <th className="text-right font-normal">進價</th>
                     <th className="text-right font-normal">出價</th>
                     <th className="text-right font-normal">損益%</th>
@@ -196,7 +202,13 @@ export function CapitalPanel({
                       <td className="py-1.5">{new Date(r.created_at).toLocaleDateString('en-CA').replace(/-/g, '/')}</td>
                       <td>{r.instrument}</td>
                       <td>{r.status}</td>
-                      <td className="text-right">{(r.quantity_shares || 0).toLocaleString()}</td>
+                      <td className="text-right">
+                        {formatBaseQuantity(
+                          r.quantity_shares || 0,
+                          r.quantity_unit || defaultUnit,
+                          r.asset_class || assetClass,
+                        )}
+                      </td>
                       <td className="text-right">{r.entry_price != null ? Number(r.entry_price).toFixed(2) : '—'}</td>
                       <td className="text-right">{r.exit_price != null ? Number(r.exit_price).toFixed(2) : '—'}</td>
                       <td className={cn('text-right', (r.pnl_percent || 0) >= 0 ? 'text-success' : 'text-destructive')}>

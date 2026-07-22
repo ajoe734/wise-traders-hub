@@ -63,7 +63,7 @@ export function mapOpenPositionToRow(p: any, currency: Currency = 'TWD', assetCl
     pnl,
     pnl_percent: pnlPct,
     quantity: shares,
-    quantity_unit: '股',
+    quantity_unit: p.quantity_unit || (rowAsset === 'tw_stock' ? '股' : undefined),
     status: 'open',
     currency: normalizeCurrency(p.currency) || currency,
     asset_class: rowAsset,
@@ -91,16 +91,18 @@ export function useExpertHoldingsBundle(
       ]);
       const cap = (capRes.data as unknown as CapitalStatus) || null;
       const perf = (perfRes.data as unknown as ExpertPerformance) || null;
+      const bundleCurrency = normalizeCurrency(cap?.currency ?? currency);
+      const bundleAssetClass = normalizeAssetClass(cap?.asset_class ?? assetClass);
       const rawOpen: OpenPosition[] = Array.isArray(cap?.open_positions) ? cap!.open_positions : [];
       return {
         capital: cap,
         rawOpenPositions: rawOpen,
-        openPositions: rawOpen.map((p) => mapOpenPositionToRow(p, currency, assetClass)),
+        openPositions: rawOpen.map((p) => mapOpenPositionToRow(p, bundleCurrency, bundleAssetClass)),
         performance: perf,
         totalPnlPercent: perf?.total_return_pct != null ? Number(perf.total_return_pct) : null,
         avgPnlPercent: perf?.avg_pnl_pct != null ? Number((perf as any).avg_pnl_pct) : null,
-        currency,
-        assetClass,
+        currency: bundleCurrency,
+        assetClass: bundleAssetClass,
       };
     },
   });

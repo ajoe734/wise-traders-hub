@@ -240,7 +240,7 @@ describe('D. DB trigger drift-detection：enforce_unit_consistency + handle_sign
       'utf-8',
     );
     tradeSrc = readFileSync(
-      resolve(process.cwd(), 'supabase/migrations/20260721135623_756e2515-caa3-477f-8533-40018aa90184.sql'),
+      resolve(process.cwd(), 'supabase/migrations/20260722050021_f188faf1-ff79-4812-a252-bf97740d982e.sql'),
       'utf-8',
     );
     capSrc = readFileSync(
@@ -277,9 +277,9 @@ describe('D. DB trigger drift-detection：enforce_unit_consistency + handle_sign
   });
 
   it('handle_signal_trade：quantity 正規化只在 tw_stock+「張」時 ×1000，其他資產維持原值', () => {
-    expect(unitSrc).toMatch(
-      /v_asset_class[^)]*\)\s*=\s*'tw_stock'\s+AND\s+COALESCE\(NEW\.quantity_unit,\s*'張'\)\s*=\s*'張'[^*]*\*\s*1000/,
-    );
+    expect(tradeSrc).toMatch(/WHEN v_asset_class = 'tw_stock' AND v_unit = '張' THEN COALESCE\(NEW\.quantity, 1\) \* 1000/);
+    expect(tradeSrc).toMatch(/ELSE COALESCE\(NEW\.quantity, 1\)/);
+    expect(tradeSrc).toContain('trade_records.quantity stores actual base units');
   });
 
   it('enforce_signal_capital_limit：資金硬擋公式仍然存在（避免 unit 修 fix 誤動資金 trigger）', () => {
