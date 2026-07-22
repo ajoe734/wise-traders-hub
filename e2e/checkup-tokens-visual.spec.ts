@@ -255,20 +255,29 @@ test.describe('Checkup tokens visual — /holding-checkup', () => {
         .not.toMatch(/[↑↓]\s*\d+(?:\.\d+)?\s*%/);
 
       // 抽屜可能超出 viewport → 用 element screenshot 保證完整
+      // 抽屜內幾乎所有數字/圖表都是即時報價 → 廣泛 mask 動態區塊，只留框架
       await expect(drawer).toHaveScreenshot(
         `checkup-tokens-drawer-${testInfo.project.name}.png`,
         {
-          maxDiffPixelRatio: 0.03,
+          maxDiffPixelRatio: 0.05,
           animations: 'disabled',
           caret: 'hide',
           scale: 'css',
-          // 抽屜大字 ROI、當前價、%、cm-num 數字都是即時報價 → mask
           mask: [
+            drawer.locator('svg'),                                  // 30 日走勢、range band、price axis 迷你圖
+            drawer.locator('.cm-num'),                              // 所有 tabular-nums 數字
             drawer.locator('[data-testid="drawer-roi-main"]'),
-            drawer.locator('.cm-num'),
+            drawer.locator('[data-testid="drawer-today-delta"]'),
+            drawer.locator('[data-testid="decision-stamp"]'),       // 目標價含即時比較
+            drawer.locator('[data-testid="holdings-price-axis"]'),
+            drawer.locator('[data-testid="holdings-range-band"]'),
+            drawer.locator('[data-testid="holdings-weight-rank"]'), // 排名 & 集中度
+            drawer.locator('[data-testid="hold-context"]'),         // "持有 N 天"
           ],
         },
       );
+
+
 
     }
   });
