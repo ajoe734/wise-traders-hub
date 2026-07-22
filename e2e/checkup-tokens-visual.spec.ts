@@ -143,15 +143,35 @@ test.describe('Checkup tokens visual — /holding-checkup', () => {
     //    以 [data-testid="holdings-hero"] 定位；等它可見再截圖
     const hero = page.locator('[data-testid="holdings-hero"]').first();
     await hero.waitFor({ state: 'visible', timeout: 10_000 });
-    // hero 內部有相對時間文案，穩定化：把時間節點藏起（Playwright add style）
+    // hero 內動態文案 / 即時金額穩定化：
+    //  a) 相對時間與 <time> 節點 → 直接隱藏
+    //  b) 大字 P&L、%、右側市值列、更新時間戳、refreshing/error chip → 用 Playwright mask 蓋色塊
+    //     （避免 demo 報價 tick、"剛剛更新"→"1 分鐘前" 這種 30s tick 造成 flake）
     await page.addStyleTag({
       content: `[data-testid="holdings-hero"] [data-live-timestamp],
                 [data-testid="holdings-hero"] time { visibility: hidden !important; }`,
     });
+    const heroMask = [
+      hero.locator('.wb-hero-pnl-num'),
+      hero.locator('.wb-hero-pnl-pct'),
+      hero.locator('.wb-hero-market'),
+      hero.locator('[data-testid="holdings-hero-updated-at"]'),
+      hero.locator('[data-testid="holdings-hero-refreshing"]'),
+      hero.locator('[data-testid="holdings-hero-refresh-error"]'),
+      hero.locator('[data-testid="holdings-hero-oldest-fetch"]'),
+    ];
     await expect(hero).toHaveScreenshot(
       `checkup-tokens-hero-${testInfo.project.name}.png`,
-      { maxDiffPixelRatio: 0.02, animations: 'disabled', caret: 'hide', scale: 'css' },
+      {
+        maxDiffPixelRatio: 0.02,
+        animations: 'disabled',
+        caret: 'hide',
+        scale: 'css',
+        mask: heroMask,
+        maskColor: '#00000000', // 透明 mask：只穩定內容，不改變版面比對
+      },
     );
+
 
     // 8) 持倉卡 — 第一張 .wb-card（未展開狀態）
     //    有 demo 資料保底；若真的沒卡（新註冊會員）就跳過此檢查
