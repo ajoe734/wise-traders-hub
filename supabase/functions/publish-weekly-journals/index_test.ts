@@ -17,6 +17,8 @@ import {
 import {
   classifyPublishError,
   buildMentorFailureNotification,
+  isTransientError,
+  retryTransient,
   type PublishErrorInfo,
 } from './classifyPublishError.ts';
 
@@ -164,4 +166,100 @@ Deno.test('batch: 失敗的 signal 不會意外污染 publishedIds（模擬 filt
   const failedIds = new Set(['s2']);
   const published = pending.filter((s) => !failedIds.has(s.id));
   assertEquals(published.map((s) => s.id), ['s1', 's3']);
+});
+
+// ── 4. 擴充錯誤分類：OVERSELL / SYMBOL_INVALID / TRANSIENT ─────────────────
+Deno.test('classify: OVERSELL 賣出超過持倉', () => {
+  const info = classifyPublishError({ message: 'OVERSELL: sell qty exceeds open position' }, '2330');
+  assertEquals(info.kind, 'OVERSELL');
+  assertEquals(info.retryable, false);
+  assertStringIncludes(info.body, '賣出');
+});
+
+Deno.test('classify: SYMBOL_INVALID', () => {
+  const info = classifyPublishError({ message: 'invalid_symbol: unknown_asset foo' }, 'FOO');
+  assertEquals(info.kind, 'SYMBOL_INVALID');
+  assertStringIncludes(info.body, '代碼');
+});
+
+Deno.test('classify: TRANSIENT via PG serialization_failure (40001)', () => {
+  const info = classifyPublishError({ code: '40001', message: 'could not serialize access' }, 'AAPL');
+  assertEquals(info.kind, 'TRANSIENT');
+  assertEquals(info.retryable, true);
+});
+
+Deno.test('classify: TRANSIENT via deadlock_detected (40P01)', () => {
+  const info = classifyPublishError({ code: '40P01', message: 'deadlock detected' }, 'AAPL');
+  assertEquals(info.kind, 'TRANSIENT');
+  assertEquals(info.retryable, true);
+});
+
+Deno.test('classify: TRANSIENT via fetch failure message', () => {
+  const info = classifyPublishError({ message: 'fetch failed: ETIMEDOUT' }, 'AAPL');
+  assertEquals(info.kind, 'TRANSIENT');
+});
+
+Deno.test('classify: non-transient P0001 CAPITAL_EXCEEDED stays non-retryable', () => {
+  const info = classifyPublishError({ code: 'P0001', message: 'CAPITAL_EXCEEDED: over cap' }, 'AAPL');
+  assertEquals(info.kind, 'CAPITAL_EXCEEDED');
+  assertEquals(info.retryable, false);
+});
+
+Deno.test('isTransientError: recognizes lock_not_available / too_many_connections', () => {
+  assert(isTransientError({ code: '55P03' }));
+  assert(isTransientError({ code: '53300' }));
+  assert(!isTransientError({ code: 'P0001', message: 'CAPITAL_EXCEEDED' }));
+  assert(!isTransientError({ message: 'unit_conflict' }));
+});
+
+// ── 5. retryTransient：只重試 transient，非 transient 立即拋 ───────────────
+Deno.test('retryTransient: 第 2 次成功 → attempts=2', async () => {
+  let calls = 0;
+  const { result, attempts } = await retryTransient(async () => {
+    calls++;
+    if (calls < 2) throw { code: '40P01', message: 'deadlock detected' };
+    return 'ok';
+  }, { baseDelayMs: 1 });
+  assertEquals(result, 'ok');
+  assertEquals(attempts, 2);
+});
+
+Deno.test('retryTransient: 非 transient 立即拋、不重試', async () => {
+  let calls = 0;
+  try {
+    await retryTransient(async () => {
+      calls++;
+      throw { code: 'P0001', message: 'CAPITAL_EXCEEDED' };
+    }, { baseDelayMs: 1 });
+    assert(false, 'should have thrown');
+  } catch (e: any) {
+    assertEquals(e.code, 'P0001');
+  }
+  assertEquals(calls, 1);
+});
+
+Deno.test('retryTransient: 耗盡 maxAttempts 後拋最後一次錯誤', async () => {
+  let calls = 0;
+  try {
+    await retryTransient(async () => {
+      calls++;
+      throw { code: '40001', message: `attempt ${calls}` };
+    }, { maxAttempts: 3, baseDelayMs: 1 });
+    assert(false);
+  } catch (e: any) {
+    assertEquals(e.message, 'attempt 3');
+  }
+  assertEquals(calls, 3);
+});
+
+Deno.test('retryTransient: onRetry 每次 transient 都會呼叫（不含最終拋出）', async () => {
+  const retries: number[] = [];
+  try {
+    await retryTransient(async () => { throw { code: '40001', message: 'x' }; }, {
+      maxAttempts: 3,
+      baseDelayMs: 1,
+      onRetry: (n) => retries.push(n),
+    });
+  } catch {/* ignore */}
+  assertEquals(retries, [1, 2]);
 });

@@ -2,7 +2,7 @@ import { corsHeaders } from '../_shared/cors.ts';
 import { serviceClient } from '../_shared/supabaseClients.ts';
 import { withLogging } from '../_shared/edgeLogger.ts';
 import { createClient } from 'https://esm.sh/@supabase/supabase-js@2.49.1'
-import { classifyPublishError, buildMentorFailureNotification } from './classifyPublishError.ts'
+import { classifyPublishError, buildMentorFailureNotification, isTransientError, retryTransient } from './classifyPublishError.ts'
 import { parseUnitLockError } from '../_shared/parseUnitLockError.ts'
 
 
@@ -243,22 +243,54 @@ Deno.serve(withLogging('publish-weekly-journals', async (req) => {
     // 將 DB 例外分類為可讀原因 + 修正路徑 → 抽出到 classifyPublishError.ts 以便單元測試
 
 
-    const publishFailures: Array<{ signal_id: string; expert_id: string; kind: string; message: string }> = []
+    const publishFailures: Array<{ signal_id: string; expert_id: string; kind: string; message: string; attempts: number }> = []
     const publishedIds: string[] = []
+    const retryStats = { totalRetries: 0, transientRecovered: 0 }
     for (const s of pendingSignals) {
       const detected = detectMarket((s as any).instrument)
       const market = isDerivativeMarket(detected) ? 'US' : detected
-      const { error } = await supabaseAdmin
-        .from('expert_signals')
-        .update({ status: 'published', market })
-        .eq('id', s.id)
-      if (error) {
-        const info = classifyPublishError(error, (s as any).instrument)
-        publishFailures.push({ signal_id: s.id, expert_id: s.expert_id, kind: info.kind, message: error.message })
-        logErr('mark_published_iter', error, { signalId: s.id, expertId: s.expert_id, kind: info.kind })
+      let attempts = 0
+      let updateErr: any = null
+      try {
+        const { attempts: n } = await retryTransient(
+          async () => {
+            const { error } = await supabaseAdmin
+              .from('expert_signals')
+              .update({ status: 'published', market })
+              .eq('id', s.id)
+            if (error) throw error
+            return true
+          },
+          {
+            maxAttempts: 3,
+            baseDelayMs: 200,
+            onRetry: (attempt, err) => {
+              retryStats.totalRetries++
+              emit('warn', `Transient publish error, retrying`, {
+                stage: 'mark_published_retry',
+                signalId: s.id,
+                expertId: s.expert_id,
+                attempt,
+                errCode: (err as any)?.code,
+                errMsg: (err as any)?.message,
+              })
+            },
+          },
+        )
+        attempts = n
+        if (n > 1) retryStats.transientRecovered++
+      } catch (err) {
+        updateErr = err
+        attempts = 3
+      }
+
+      if (updateErr) {
+        const info = classifyPublishError(updateErr, (s as any).instrument)
+        publishFailures.push({ signal_id: s.id, expert_id: s.expert_id, kind: info.kind, message: (updateErr as any)?.message ?? String(updateErr), attempts })
+        logErr('mark_published_iter', updateErr, { signalId: s.id, expertId: s.expert_id, kind: info.kind, attempts, transient: isTransientError(updateErr) })
 
         // 若是單位鎖被擋下，非同步寫入審計 + 系統告警（新交易，不受本次 rollback 影響）
-        const unitLock = parseUnitLockError(error)
+        const unitLock = parseUnitLockError(updateErr)
         if (unitLock) {
           try {
             await supabaseAdmin.rpc('log_unit_lock_violation', {
@@ -287,7 +319,6 @@ Deno.serve(withLogging('publish-weekly-journals', async (req) => {
               }),
             )
           } catch (nErr) {
-
             logErr('notify_mentor_failed', nErr, { signalId: s.id, expertId: s.expert_id })
           }
         }
@@ -296,8 +327,10 @@ Deno.serve(withLogging('publish-weekly-journals', async (req) => {
       publishedIds.push(s.id)
     }
 
-    log(`Published ${publishedIds.length}/${pendingSignals.length} signals (failed=${publishFailures.length})`, {
+
+    log(`Published ${publishedIds.length}/${pendingSignals.length} signals (failed=${publishFailures.length}, retries=${retryStats.totalRetries}, recovered=${retryStats.transientRecovered})`, {
       failedByKind: publishFailures.reduce((acc: Record<string, number>, f) => { acc[f.kind] = (acc[f.kind] || 0) + 1; return acc }, {}),
+      retryStats,
     })
 
     // 只保留成功發布的 signals 進入後續 trade_signals sync / LINE push，避免對失敗案例做副作用
@@ -642,6 +675,7 @@ Deno.serve(withLogging('publish-weekly-journals', async (req) => {
       pushFail,
       syncOk,
       syncFail,
+      retryStats,
       elapsedMs,
     }), {
       headers: { ...corsHeaders, 'Content-Type': 'application/json' },
