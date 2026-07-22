@@ -15,6 +15,8 @@ async function primeDemo(page: Page) {
   await page.addInitScript(() => {
     try {
       window.localStorage.removeItem('holdings-intro-video-seen-v2')
+      window.localStorage.setItem('lf.checkup.onboarded', '1')
+      window.localStorage.setItem('checkup-onboarding-tour-v1', 'done')
       window.sessionStorage.setItem('holdings-intro-video-dismissed-session', '1')
     } catch {}
   })
