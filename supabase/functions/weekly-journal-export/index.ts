@@ -43,8 +43,47 @@ function fmtTaipei(iso?: string | null): string {
 const ASSET_LABEL: Record<string, string> = {
   tw_stock: "台股",
   us_stock: "美股",
+  tw_future: "台指期",
+  tw_option: "台指選",
+  us_future: "美期",
+  us_option: "美選",
   crypto: "加密",
 };
+
+// 由 asset_class 決定合法單位；quantity_unit 缺值或不合法時，回退到該資產類別預設。
+// 絕不因缺值退回硬編「股」或「張」。
+const UNIT_ALLOWED: Record<string, string[]> = {
+  tw_stock: ["張", "股"],
+  us_stock: ["股"],
+  tw_future: ["口"],
+  tw_option: ["口"],
+  us_future: ["口"],
+  us_option: ["口"],
+  crypto: ["顆"],
+};
+const UNIT_DEFAULT: Record<string, string> = {
+  tw_stock: "張",
+  us_stock: "股",
+  tw_future: "口",
+  tw_option: "口",
+  us_future: "口",
+  us_option: "口",
+  crypto: "顆",
+};
+function resolveDisplayUnit(row: any): string {
+  const cls = String(row?.experts?.asset_class ?? "").trim();
+  const raw = String(row?.quantity_unit ?? "").trim();
+  const allowed = UNIT_ALLOWED[cls];
+  if (allowed) {
+    if (raw && allowed.includes(raw)) return raw;
+    return UNIT_DEFAULT[cls];
+  }
+  // 未知 asset_class：不硬編「股」，若原始值可用就用原始值，否則以 currency=USD 推 us_stock。
+  if (raw) return raw;
+  const currency = String(row?.experts?.currency ?? "").toUpperCase();
+  if (currency === "USD") return "股";
+  return "張";
+}
 
 // ── Markdown helpers ─────────────────────────────────────
 function stripHtml(html: string): string {
