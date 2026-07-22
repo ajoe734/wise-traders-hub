@@ -252,8 +252,14 @@ test.describe('Checkup tokens visual — /holding-checkup', () => {
           animations: 'disabled',
           caret: 'hide',
           scale: 'css',
+          // 抽屜大字 ROI、當前價、%、cm-num 數字都是即時報價 → mask
+          mask: [
+            drawer.locator('[data-testid="drawer-roi-main"]'),
+            drawer.locator('.cm-num'),
+          ],
         },
       );
+
     }
   });
 });
