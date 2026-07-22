@@ -168,7 +168,8 @@ test.describe('Checkup tokens visual — /holding-checkup', () => {
         caret: 'hide',
         scale: 'css',
         mask: heroMask,
-        maskColor: '#00000000', // 透明 mask：只穩定內容，不改變版面比對
+        // 沿用 Playwright 預設 mask color（#FF00FF），baseline / actual 皆為同色塊即穩定
+
       },
     );
 
