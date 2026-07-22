@@ -132,12 +132,17 @@ const AdminSignals = () => {
 
           if (!otherSignals || otherSignals.length === 0) {
             await Promise.all([
-              supabase.from('trade_records').delete().eq('expert_id', expert.id).ilike('instrument', `${symbol}%`),
+              supabase.rpc('admin_delete_trade_records_by_symbol', {
+                _expert_id: expert.id,
+                _symbol_prefix: symbol,
+              }),
               supabase.from('trade_signals').delete().eq('user_id', expert.user_id).eq('symbol', symbol),
               supabase.from('user_performances').delete().eq('user_id', expert.user_id).eq('symbol', symbol),
             ]);
           } else {
-            await supabase.from('trade_records').delete().eq('signal_id', sig.id);
+            await supabase.rpc('admin_delete_trade_records_by_signal_ids', {
+              _signal_ids: [sig.id],
+            });
           }
         }
       }

@@ -252,12 +252,14 @@ const SignalEditor = () => {
 
       if (isEditing) {
         // 先刪舊 trade_records → 再刪舊 expert_signals（FK 依賴順序）
-        await supabase.from('trade_records').delete().eq('expert_id', expert.id).in(
-          'signal_id',
-          (
-            await supabase.from('expert_signals').select('id').eq('batch_id', batchId)
-          ).data?.map((r: any) => r.id) || [],
-        );
+        const { data: oldSigs } = await supabase
+          .from('expert_signals').select('id').eq('batch_id', batchId);
+        const oldIds = (oldSigs || []).map((r: any) => r.id);
+        if (oldIds.length > 0) {
+          await supabase.rpc('admin_delete_trade_records_by_signal_ids', {
+            _signal_ids: oldIds,
+          });
+        }
         await supabase.from('expert_signals').delete().eq('batch_id', batchId);
       }
 
