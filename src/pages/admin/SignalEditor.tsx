@@ -412,6 +412,7 @@ const SignalEditor = () => {
             signalTemplates={signalTemplates}
             capital={capital}
             cashSim={cashSim}
+            simulatedPositions={simulatedPositions}
             expertId={expert?.id}
             currency={currency}
             assetClass={assetClass}
