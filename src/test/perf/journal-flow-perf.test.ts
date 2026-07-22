@@ -19,7 +19,6 @@
  */
 import { describe, it, expect } from 'vitest';
 import {
-  buildStepStates,
   computeCashSim,
   validateSignalBatch,
   buildPublishRows,
@@ -199,12 +198,16 @@ describe('週記端到端效能回歸', () => {
   it(`Stage A 撰寫驗證：avg < ${BUDGET.authoring.avgMs}ms / p95 < ${BUDGET.authoring.p95Ms}ms`, async () => {
     const trades = makeTrades();
     const s = await measure('authoring', () => {
-      buildStepStates(trades, capital);
+      // computeCashSim 內部會呼叫 buildStepStates，等於同時 exercise 兩者
       computeCashSim(trades, capital);
       validateSignalBatch({ expert, trades, openPositions, capital });
       buildPublishRows({
         expertId: 'e1', batchId: 'batch-perf', status: 'published',
         assetClass: 'tw_stock', trades,
+        isMentor: true,
+        teachingTopic: '本週市場結構',
+        overallSummary: '<p>整體維持偏多。</p>',
+        learningPoints: '<p>操作紀律優先於預測。</p>',
       });
     });
     expect(s.avg, `authoring avg 超標 ${fmt(s)}`).toBeLessThan(BUDGET.authoring.avgMs);
@@ -242,12 +245,12 @@ describe('週記端到端效能回歸', () => {
     const rows = makeExportRows();
     const err = { message: 'UNIT_MIX detected', code: 'P0001' };
     const s = await measure('e2e-sum', async () => {
-      buildStepStates(trades, capital);
       computeCashSim(trades, capital);
       validateSignalBatch({ expert, trades, openPositions, capital });
       buildPublishRows({
         expertId: 'e1', batchId: 'batch-perf', status: 'published',
         assetClass: 'tw_stock', trades,
+        isMentor: true, teachingTopic: 'x', overallSummary: '<p>x</p>', learningPoints: '<p>x</p>',
       });
       classifyPublishError(err, '2330 台積電');
       detectExportRisks(rows, { publishedOnly: true });
