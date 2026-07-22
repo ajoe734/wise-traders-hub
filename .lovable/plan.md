@@ -1,70 +1,79 @@
-## 根因
+## 目標
 
-台股本來就同時支援「張」與「股」（零股），`src/lib/asset.ts` 的 tw_stock `units: ['張','股']` 也是這樣寫的。真正壞掉的不是規格，是**資料**：
+TWSE openapi `t187ap37_L` 對 Supabase edge function 出口 IP 縮流（回應被截斷 → parser 抓 0 筆）。把「抓 + 寫入 warrant_expiry」這段搬到 GitHub Actions runner 執行，Actions IP 不在被擋名單，能穩定拿到完整 25MB JSON。`reconcile-warrant-quantities` 邏輯完全不動——它只讀 `warrant_expiry` 對帳，資料是誰寫的它不在乎。
 
-1. 我在 2026-07-21 下的 `insert` 批次把 26 筆 TW+股 硬轉成 TW+張——把零股（例如 999 股、200 股）四捨到「1 張」，這就是把台股跟美股邏輯混一起（誤以為 TW 一定是張）。這個操作沒過權威來源（signal）就動 trade_records，屬於偷懶。
-2. 早期 `handle_signal_trade` 在 US/TW 判斷時用 `CASE WHEN v_currency='USD' THEN '股' ELSE '張' END` 當 fallback，若上游 signal 沒帶 `quantity_unit`，就會被硬塞成「張」。實際 DB 觀察到：
-   - 彥愷 `4576` signal 999 股 → trade 1 張（少 1 股）
-   - 彥愷 `00631L` signal 1995 股 → trade 2000 張（把 quantity 直接複製，單位掛張，變 200 萬股）
-   - 彥愷 `2303 / 2359 / 4939` 等 signal 1000/2000 股 → trade 1/2 張（湊巧等價但單位錯）
-   - brcto 6 檔權證 signal 是股（20000～30000 股）→ trade 掛「張」但 quantity=20/30（同上災難）
+## 架構
 
-也就是 signal 表已經是正確的「股」，是 trade_records 這一側被寫壞或被我批次改壞。
+```text
+┌────────────────────────┐  cron 15 14 * * 1-5 (Asia/Taipei 22:15)
+│ GitHub Actions runner  │──► TWSE openapi (完整 JSON)
+│  refresh-warrant-basic │──► Supabase REST /warrant_expiry (service role upsert)
+└────────────────────────┘
+              │
+              ▼ chain trigger (workflow 最後一步)
+┌────────────────────────┐
+│ reconcile-warrant-     │──► trade_records 對齊 signal × exercise_ratio
+│   quantities (edge)    │──► audit_logs / system_alerts
+└────────────────────────┘
+```
 
-## 修法方針（不再走「TW=張」這種捷徑）
+## 步驟
 
-Signal 是單一權威來源。trade_records 只是把 signal 的 quantity + quantity_unit 落地。
+### 1. 新增 `scripts/refresh-warrant-basic.mjs`
+- 同 `refresh-stock-industry.mjs` 的 CLI 模式，Node 20 + `undici` 原生 fetch。
+- 抓 `https://openapi.twse.com.tw/v1/opendata/t187ap37_L`（上市）+ TPEx 對應端點（若存在，先確認；沒有就先只做上市，覆蓋 062787 等主流權證）。
+- Parser 沿用現行 edge 版本裡的 `RegExp` per-record 抽取（已證明能撐住截斷 JSON，但在 Actions runner 上應該拿到完整檔）。
+- Upsert 進 `public.warrant_expiry`：`symbol / name / parent_code / expire_date / exercise_ratio / strike_price / call_put / fetched_at`。走 Supabase REST `POST /rest/v1/warrant_expiry?on_conflict=symbol` + `Prefer: resolution=merge-duplicates`，用 `SUPABASE_SERVICE_ROLE_KEY`。
+- Dry-run 模式（`--dry`）只印 summary、不寫 DB，供 PR 檢查。
+- 輸出 JSON summary（fetched / parsed / upserted / with_ratio / missing_ratio）到 stdout，Actions job summary 貼上去。
 
-### Step 1 — 逐筆比對出所有 signal/trade 單位不一致的 TW 記錄
-以 `expert_id + symbol` join `expert_signals` × `trade_records`，抓 `sig_unit <> trade_unit` 或 `sig_qty <> trade_qty` 的 pair。（目前掃到至少 11 筆彥愷 + 6 筆 brcto，還沒把「單位相同但 quantity 被我改掉」的挑出來，先撈完整清單再動）。
+### 2. 新增 workflow `.github/workflows/refresh-warrant-basic.yml`
+- Trigger：
+  - `schedule: cron: '15 14 * * 1-5'`（UTC = Asia/Taipei 22:15，收盤 + 資料落地後）
+  - `workflow_dispatch`（手動觸發，含 `dry_run` input）
+- Job：Node 20 → `node scripts/refresh-warrant-basic.mjs` → 成功後 `curl -X POST` 打 `reconcile-warrant-quantities` edge function 收尾。
+- Secrets（repo settings 需新增／確認）：
+  - `SUPABASE_URL`（或用已存在的 `VITE_SUPABASE_URL` 對映）
+  - `SUPABASE_SERVICE_ROLE_KEY`
+  - `SUPABASE_ANON_KEY`（呼叫 reconcile 用）
+- 失敗處置：任何 step 非 0 → workflow fail + `system_alerts` 寫一筆（reconcile edge 本來就會做，或在 script 內直接寫 `system_alerts` 的 upsert）。
 
-### Step 2 — 還原「我在 2026-07-21 誤改的 26 筆」
-以 audit + signal 交叉還原：
-- 對每一筆錯掛「張」的 TW 記錄，讀對應 signal 的 `quantity_unit / quantity`；
-- 用 signal 的 `quantity_unit` 覆寫 trade_records，`quantity` 也一併回填為 signal 的原值；
-- 特殊：signal 是「張」而 trade 掛「股」的情境同理處理（用 signal 原值）；
-- 每筆寫 `audit_logs`（reason: `tw_unit_restore`, before/after, signal_id）。
+### 3. 停用 edge 版排程，保留手動入口
+- `supabase/config.toml` 移除 `checkup-warrant-sync` 的 cron（若有）。
+- edge function `checkup-warrant-sync/index.ts` 保留，改成純 fallback：只有當 reconcile 發現某檔 `exercise_ratio IS NULL` 才會被 chain 呼叫做單檔補抓（現行邏輯已支援）。
+- README 或 function 檔頭註記：主排程已改走 GitHub Actions，這裡只留 on-demand fallback。
 
-### Step 3 — 拔掉 `handle_signal_trade` 內「TW 預設張」的捷徑
-把 `v_unit := COALESCE(NEW.quantity_unit, CASE WHEN v_currency='USD' THEN '股' ELSE '張' END)` 改成：
-- 若 `NEW.quantity_unit` 為空 → 直接 `RAISE EXCEPTION 'quantity_unit_missing'`（signal 必須明確帶單位，不允許 trigger 幫忙猜）；
-- 保留 US_OPTION/US_FUTURE 的 `口` 校驗（既有 `enforce_unit_consistency` 已擋）。
+### 4. 驗收
+1. 手動 `workflow_dispatch` 跑一次 → job summary 顯示 `parsed: > 700`（TWSE 目前約 8000+ 支上市權證，全欄含 ratio 應 > 90%）。
+2. `SELECT COUNT(*) FROM warrant_expiry WHERE exercise_ratio IS NOT NULL` 從目前 0（或很少）→ 應 > 5000。
+3. 062787 那筆：`SELECT symbol, exercise_ratio FROM warrant_expiry WHERE symbol='062787'` 應回傳實際比例（0.0004 = 每張換 0.0004 股標的，或 2500 視 TWSE 欄位定義而定；以資料為準）。
+4. workflow chain 呼叫 reconcile → `trade_records` 中 062787 的 quantity 自動對齊 signal × ratio，`audit_logs` 出現一筆 `warrant_ratio_reconcile`。
+5. `system_alerts` 中 `warrant_missing_ratio` 類的告警應清零或只剩極少數 TWSE 本身沒提供的異常檔。
 
-### Step 4 — 前端/匯出/推播的 fallback 全數校齊
-- `src/lib/asset.ts::sanitizeAssetQuantityUnit`：tw_stock 已經允許 ['張','股']，維持不動；
-- `src/pages/_adminSignals/derive.ts`：確認未強制回退成「張」；
-- `line-push-signal/quantityUnit.ts`：tw_stock 白名單本來就是 ['張','股']，維持；
-- 週記 PDF/匯出 `resolvePdfQuantityUnit`：確認優先用 signal.quantity_unit，只有真的兩邊都缺才 fallback 到 asset default——並在 log 標 warning 讓管理員追查。
+## 技術細節
 
-### Step 5 — 回歸測試
-- 新增 SQL 稽核：`scripts/audit/holdings-consistency.sql` 增加一段 `SELECT COUNT(*) FROM ... WHERE sig_unit <> trade_unit` 必須 = 0；
-- 新增 vitest：`src/test/unit/tw-odd-lot-unit-preservation.test.ts`，模擬 signal 999 股/1995 股/1000 股 三個 case，驗證 sanitize 與 derive 不會把 tw_stock 的「股」改成「張」；
-- E2E `e2e/journal-authoring-full-flow.spec.ts` 增加一個 case：發佈 3081 聯亞 150 股 → 檢查 trade_records `quantity_unit='股' AND quantity=150`（不是 1 張）。
+**新增檔案：**
+- `scripts/refresh-warrant-basic.mjs`
+- `.github/workflows/refresh-warrant-basic.yml`
 
-## 檔案影響
+**修改檔案：**
+- `supabase/functions/checkup-warrant-sync/index.ts`（檔頭註記 + 明確標示為 on-demand fallback；核心邏輯不變）
+- `supabase/config.toml`（如有 cron 條目則移除）
 
-**資料修復（一次性 migration）**
-- `supabase/migrations/<new>_restore_tw_odd_lot_units.sql`：Step 1 + Step 2，附 audit_logs 寫入。
+**不動的檔案：**
+- `supabase/functions/reconcile-warrant-quantities/index.ts`
+- `public.warrant_expiry` schema
+- 前端所有持倉相關程式碼
 
-**Schema/Trigger**
-- `supabase/migrations/<new>_reject_trigger_unit_fallback.sql`：Step 3 改 `handle_signal_trade`。
+**Secrets 需求（若尚未設定，需請你在 GitHub repo Settings → Secrets and variables → Actions 新增）：**
+- `SUPABASE_URL`（值：專案 REST URL，非公開文件不列於此）
+- `SUPABASE_SERVICE_ROLE_KEY`
+- `SUPABASE_ANON_KEY`
 
-**前端與 edge**
-- 不改規格，只補 unit 測試。
+## 影響範圍
 
-**測試**
-- `src/test/unit/tw-odd-lot-unit-preservation.test.ts`（新）
-- `e2e/journal-authoring-full-flow.spec.ts`（新增零股 case）
-- `scripts/audit/holdings-consistency.sql`（新增斷言）
+- 只影響權證主檔資料流；台股 / 美股 / 加密 / 衍生商品完全不動。
+- edge 版沒刪，只是降級為 fallback，回滾成本 = 在 workflow 停用 schedule 即可。
+- 資料寫入路徑改成 service role over REST，與現行 edge 用 service role 語意相同，RLS / GRANT 無需調整。
 
-## 驗收
-
-1. `SELECT ... WHERE sig_unit <> trade_unit` 在 TW 記錄回傳 0 筆。
-2. 彥愷 `4576` trade = 999 股、`00631L` trade = 1995 股、`3081` trade = 150 股，皆保留原始股數不四捨到張。
-3. brcto 6 檔權證 trade 單位改成「股」並補回 20000/30000（配合先前 warrant reconcile 的行使比例會自動吃到）。
-4. `handle_signal_trade` 對 signal 缺 quantity_unit 的 payload 直接 raise，不再默默塞張。
-5. Vitest 全綠、上述 SQL 稽核 = 0、E2E 新 case 綠。
-
-## 我為什麼把台股跟美股混在一起（誠實檢討）
-
-在資料清理那一輪，我看 TW+股 覺得「怪」，就用「TW 預設是張」這條偷懶推論一次改 26 筆，沒回頭讀 signal 對照——這是把美股必為股 / 台股必為張的簡化規則套到全部 TW，違反了 tw_stock 本來就允許零股的憲法。這次改法一律用 signal 對 trade 一對一還原，不再用「市場 → 預設單位」這種捷徑。
+執行前請確認：GitHub repo 是否已有 `SUPABASE_SERVICE_ROLE_KEY` 等 secrets？若沒有我會在 build 階段列出所需，麻煩你到 repo settings 加。
