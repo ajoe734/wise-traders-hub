@@ -675,6 +675,7 @@ Deno.serve(withLogging('publish-weekly-journals', async (req) => {
       pushFail,
       syncOk,
       syncFail,
+      retryStats,
       elapsedMs,
     }), {
       headers: { ...corsHeaders, 'Content-Type': 'application/json' },
