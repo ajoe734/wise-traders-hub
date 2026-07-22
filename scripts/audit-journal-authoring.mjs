@@ -47,9 +47,12 @@ WITH unified AS (
          tr.instrument, tr.quantity, tr.quantity_unit, tr.status::text
     FROM public.trade_records tr WHERE tr.status = 'open'
   UNION ALL
+  -- C7: teaching signals 無交易語意，quantity/quantity_unit 一律為 null，
+  -- 顯式排除避免假陽性。
   SELECT 'expert_signals', es.id::text, es.expert_id,
          es.instrument, es.quantity, es.quantity_unit, es.status::text
-    FROM public.expert_signals es WHERE es.status = 'pending'
+    FROM public.expert_signals es
+   WHERE es.status = 'pending' AND es.action <> 'teaching'
 )
 SELECT COALESCE(jsonb_agg(jsonb_build_object(
   'source', u.src, 'row_id', u.row_id, 'expert_id', u.expert_id::text,
