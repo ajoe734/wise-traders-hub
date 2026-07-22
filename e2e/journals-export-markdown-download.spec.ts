@@ -47,10 +47,10 @@ test.describe('Journals export — Markdown download', () => {
     expect(md).toContain('> 訊號 ID：`sig-a-2`');
 
     // quantities must match fixture exactly (buy 2 張 / sell 1 張)
-    expect(md).toContain('買進股數：2 張');
-    expect(md).toContain('賣出股數：1 張');
-    expect(md).not.toContain('數量：'); // action known → verb, never fallback
-    expect(md).not.toContain('股數：50'); // Wendy's qty must not leak
+    expect(md).toContain('買進數量：2 張');
+    expect(md).toContain('賣出數量：1 張');
+    expect(md).not.toMatch(/(^|\n)- 數量：/); // action known → verb, never bare fallback
+    expect(md).not.toContain('數量：50'); // Wendy's qty must not leak
 
     // must NOT contain the other mentor's data
     expect(md).not.toContain('Wendy');
@@ -86,8 +86,8 @@ test.describe('Journals export — Markdown download', () => {
     expect(mdA).toContain('- 則數：2');
     expect(mdA).toContain('> 訊號 ID：`sig-a-1`');
     expect(mdA).toContain('> 訊號 ID：`sig-a-2`');
-    expect(mdA).toContain('買進股數：2 張');
-    expect(mdA).toContain('賣出股數：1 張');
+    expect(mdA).toContain('買進數量：2 張');
+    expect(mdA).toContain('賣出數量：1 張');
     expect(mdA).not.toContain('50 股'); // Wendy's qty must not leak
     // must not leak Wendy content into 老周's file
     expect(mdA).not.toContain('Wendy');
@@ -101,8 +101,8 @@ test.describe('Journals export — Markdown download', () => {
     expect(mdB).toContain('標的：AAPL');
     expect(mdB).toContain('B-detail-alpha');
     expect(mdB).toContain('> 訊號 ID：`sig-b-1`');
-    expect(mdB).toContain('買進股數：50 股');
-    expect(mdB).not.toContain('張'); // 老周's unit must not leak
+    expect(mdB).toContain('買進數量：50 股');
+    expect(mdB).not.toMatch(/\d+\s*張/); // 老周's unit must not leak into quantities
     // must not leak 老周 content into Wendy's file
     expect(mdB).not.toContain('老周');
     expect(mdB).not.toContain('2330');

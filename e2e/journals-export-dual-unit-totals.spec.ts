@@ -23,29 +23,26 @@ test('雙單位老師的本週總計 → 依單位分列顯示', async ({ page }
   const fs = await import('node:fs/promises');
   const md = await fs.readFile(p!, 'utf8');
 
-  // 檔名 slug
   expect(dl.suggestedFilename()).toContain('dual-unit-master');
 
-  // 本週總計段落只有一份
   expect(md.match(/## 本週總計/g)?.length).toBe(1);
 
   const totalsBlock = md.slice(md.indexOf('## 本週總計'));
 
-  // 買進段：分列標題 + 兩個子項目（順序不斷言，只要求兩者皆存在且不合併成一行）
-  expect(totalsBlock).toContain('- 總買進股數（依單位分列）：');
-  expect(totalsBlock).toContain('  - 股：500 股');
-  expect(totalsBlock).toContain('  - 張：2 張');
+  // 新格式：`- 進場側合計 (buy + add)(...)（依單位分列，未換算）：` + 兩個子項目
+  expect(totalsBlock).toMatch(/- 進場側合計 \(buy \+ add\)（[^）]*）（依單位分列，未換算）：/);
+  expect(totalsBlock).toContain('  - 500 股');
+  expect(totalsBlock).toContain('  - 2 張');
 
-  // 賣出段：同上
-  expect(totalsBlock).toContain('- 總賣出股數（依單位分列）：');
-  expect(totalsBlock).toContain('  - 股：300 股');
-  expect(totalsBlock).toContain('  - 張：1 張');
+  expect(totalsBlock).toMatch(/- 出場側合計 \(sell \+ trim \+ exit\)（[^）]*）（依單位分列，未換算）：/);
+  expect(totalsBlock).toContain('  - 300 股');
+  expect(totalsBlock).toContain('  - 1 張');
 
-  // 禁止舊格式：不得把兩種單位合併成「2 張、500 股」一行
-  expect(totalsBlock).not.toMatch(/總買進股數：\s*2 張、500 股/);
-  expect(totalsBlock).not.toMatch(/總買進股數：\s*500 股、2 張/);
-  expect(totalsBlock).not.toMatch(/總賣出股數：\s*1 張、300 股/);
-  expect(totalsBlock).not.toMatch(/總賣出股數：\s*300 股、1 張/);
+  // 禁止把兩種單位合併成一行
+  expect(totalsBlock).not.toMatch(/進場側合計[^\n]*：\s*2 張、500 股/);
+  expect(totalsBlock).not.toMatch(/進場側合計[^\n]*：\s*500 股、2 張/);
+  expect(totalsBlock).not.toMatch(/出場側合計[^\n]*：\s*1 張、300 股/);
+  expect(totalsBlock).not.toMatch(/出場側合計[^\n]*：\s*300 股、1 張/);
 
   await expect(page.getByTestId('je-status'))
     .toHaveText(/^dual-unit:single:legendflow-journal-dual-unit-master-/);
@@ -62,7 +59,7 @@ test('單一單位（老周只有張）→ 維持一行格式，不觸發分列'
   const md = await fs.readFile(p!, 'utf8');
   const totalsBlock = md.slice(md.indexOf('## 本週總計'));
 
-  expect(totalsBlock).toContain('- 總買進股數：2 張');
-  expect(totalsBlock).toContain('- 總賣出股數：1 張');
+  expect(totalsBlock).toMatch(/- 進場側合計 \(buy \+ add\)（[^）]*）：2 張/);
+  expect(totalsBlock).toMatch(/- 出場側合計 \(sell \+ trim \+ exit\)（[^）]*）：1 張/);
   expect(totalsBlock).not.toContain('依單位分列');
 });
