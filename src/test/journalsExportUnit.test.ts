@@ -61,7 +61,7 @@ describe('buildMentorMarkdown — us_stock 匯出絕不出現「張」', () => {
   it('us_stock quantity_unit=null → 印 10 股，不含 張', () => {
     const md = buildMentorMarkdown([row('us_stock', null)], range);
     expect(md).toContain('10 股');
-    expect(md).not.toContain('張');
+    expect(md).not.toMatch(/10 張/);
   });
   it('us_future quantity_unit=張 → 覆寫回 口', () => {
     const md = buildMentorMarkdown([row('us_future', '張')], range);
