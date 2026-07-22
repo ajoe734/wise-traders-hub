@@ -5160,6 +5160,7 @@ export type Database = {
       }
       is_tester: { Args: { _user_id: string }; Returns: boolean }
       is_tw_trading_hours: { Args: never; Returns: boolean }
+      log_unit_lock_violation: { Args: { payload: Json }; Returns: string }
       match_expert_knowledge:
         | {
             Args: {

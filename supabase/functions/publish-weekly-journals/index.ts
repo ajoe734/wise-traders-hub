@@ -3,6 +3,7 @@ import { serviceClient } from '../_shared/supabaseClients.ts';
 import { withLogging } from '../_shared/edgeLogger.ts';
 import { createClient } from 'https://esm.sh/@supabase/supabase-js@2.49.1'
 import { classifyPublishError, buildMentorFailureNotification } from './classifyPublishError.ts'
+import { parseUnitLockError } from '../_shared/parseUnitLockError.ts'
 
 
 const LINE_MULTICAST_URL = 'https://api.line.me/v2/bot/message/multicast'
@@ -255,6 +256,24 @@ Deno.serve(withLogging('publish-weekly-journals', async (req) => {
         const info = classifyPublishError(error, (s as any).instrument)
         publishFailures.push({ signal_id: s.id, expert_id: s.expert_id, kind: info.kind, message: error.message })
         logErr('mark_published_iter', error, { signalId: s.id, expertId: s.expert_id, kind: info.kind })
+
+        // 若是單位鎖被擋下，非同步寫入審計 + 系統告警（新交易，不受本次 rollback 影響）
+        const unitLock = parseUnitLockError(error)
+        if (unitLock) {
+          try {
+            await supabaseAdmin.rpc('log_unit_lock_violation', {
+              payload: {
+                ...unitLock,
+                expert_id: unitLock.expert_id || s.expert_id,
+                signal_id: s.id,
+                attempted_row_id: s.id,
+                caller: 'publish-weekly-journals',
+              },
+            })
+          } catch (auditErr) {
+            logErr('log_unit_lock_violation_failed', auditErr, { signalId: s.id, expertId: s.expert_id })
+          }
+        }
 
         // 通知導師本人（可點擊連結直達修正入口）
         const mentor = expertMap.get(s.expert_id)
