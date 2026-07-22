@@ -174,7 +174,7 @@ function buildMentorMarkdown(opts: {
   });
   const pushTotals = (label: string, m: Map<string, number>) => {
     if (m.size === 0) {
-      lines.push(`- ${label}：0 股`);
+      lines.push(`- ${label}：0`);
       return;
     }
     if (m.size === 1) {
@@ -190,8 +190,8 @@ function buildMentorMarkdown(opts: {
   };
   lines.push("## 本週總計");
   lines.push("");
-  pushTotals("總買進股數", buyTotals);
-  pushTotals("總賣出股數", sellTotals);
+  pushTotals("總買進", buyTotals);
+  pushTotals("總賣出", sellTotals);
   lines.push("");
 
   return lines.join("\n").replace(/\n{3,}/g, "\n\n");
