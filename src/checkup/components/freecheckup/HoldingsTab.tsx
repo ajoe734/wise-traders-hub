@@ -188,6 +188,9 @@ function HoldingsTab(props) {
     orderedDisplayed,
     firstFeatureCode,
     actionPriorityItems,
+    remainingItems,
+    uniqueHoldings,
+    topActionableCount,
     strategyOptions,
   } = useHoldingsDerivations({
     sorted,
