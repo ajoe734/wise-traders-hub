@@ -205,7 +205,7 @@ export async function fetchWithRateLimit(
       console.warn(`[rateLimit] 429 backoff ${waitMs}ms (attempt ${attempt}/${maxRetries}) cid=${cid ?? '-'}`);
       await new Promise((r) => setTimeout(r, waitMs));
 
-      const next = await reserveQuota(supa, limit, lease, cid);
+      const next = await reserveQuota(supa, limit, lease, cid, tier);
       if (!next) {
         throw new RateLimitExhaustedError({ used: limit, limit });
       }
