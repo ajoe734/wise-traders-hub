@@ -106,14 +106,30 @@ END $cb$;
 -- ---------------------------------------------------------------------
 DO $cc$
 DECLARE
-  v_stock text := current_setting('test.stock');
+  v_stock text;
   v_today date := (now() AT TIME ZONE 'Asia/Taipei')::date;
   v_res jsonb;
   v_pending int;
+  v_exists boolean;
 BEGIN
-  UPDATE public.tw_bsr_sync_queue
-     SET status = 'done', finished_at = now(), updated_at = now()
-   WHERE stock_id = v_stock AND trade_date = v_today;
+  -- 用一個獨立的乾淨代號，直接 INSERT 一筆 done 紀錄（psql 有 INSERT 權限，
+  -- 但無 UPDATE 權限；改用「新代號 + 直接寫 done 列」的方式驗證行為）。
+  FOR i IN 1..50 LOOP
+    v_stock := (1000 + floor(random() * 8999))::int::text;
+    SELECT EXISTS (
+      SELECT 1 FROM public.tw_bsr_sync_queue
+       WHERE stock_id = v_stock AND trade_date = v_today
+    ) INTO v_exists;
+    EXIT WHEN NOT v_exists;
+  END LOOP;
+  IF v_exists THEN
+    RAISE EXCEPTION 'CASE C fixture failed: no free 4-digit code';
+  END IF;
+
+  INSERT INTO public.tw_bsr_sync_queue
+    (stock_id, trade_date, priority, status, next_run_at, enqueued_by, correlation_id, post_close_only)
+  VALUES
+    (v_stock, v_today, 1, 'done', now(), 'test_case_c', gen_random_uuid(), false);
 
   v_res := public.ensure_bsr_queued(v_stock);
   IF (v_res->>'status') <> 'completed' THEN
