@@ -1,137 +1,58 @@
-## 目前已確認的根因
+## 問題根因
 
-這不是單一 `3443` 的前端顯示問題，而是同步流程的全域狀態錯判。
+目前 `ChipsSection.tsx` L153 在使用者「打開持倉抽屜」的當下才呼叫 `ensure_bsr_queued(stock_id)`，把單檔股票塞進 FinMind queue。這是把「排程」跟「渲染」耦合的初階做法，導致：
 
-已查資料庫：
+- 使用者要看到分點，得先等 queue → worker → FinMind → rollup 一整條跑完
+- 沒打開抽屜的股票永遠不會被同步
+- 每次抽屜開關都在多打 RPC / edge function
 
-- `status = done` 的台股個股工作中：
-  - `331` 筆是 `done` 但 `tw_bsr_daily` raw rows = `0`
-  - `0` 筆是 partial done（raw rows 1–4）
-  - `1385` 筆是真正完成（raw rows >= 5）
-- `3443` 屬於這 331 筆之一：queue 被標成完成，但實際沒有任何分點 raw data，也沒有 rollup。
-- 因為 `ensure_bsr_queued()` 只看「今天已有 done」就停止排隊，所以這些股票會永久卡住：前端等不到 fallback，後端也不再補抓。
+雖然已經有 `tw-bsr-enqueue-post-close`（每日 15:30）與 `tw-bsr-worker-trading`（14:00–20:59 每 10 分鐘），但排程覆蓋不完整、且不會反應「新加入的持倉」，所以使用者實際體感就是「打開抽屜才開始跑」。
 
-## 根因定義
+## 目標
 
-目前 worker 把 FinMind 空結果當成成功；收盤後空結果會被寫成 `done`。但 `done` 沒有對應 raw rows，等於「假完成」。
+**BSR 對前端而言必須是唯讀的**。使用者打開抽屜只讀 `tw-chips-detail`（純查詢），任何 enqueue 動作全部搬到後端排程與寫入事件觸發。
 
-後續自動排隊函式看到 `done` 就不再排入，造成所有同類股票卡死。
+## 修改範圍
 
-## 修復範圍：不是只修 3443，是掃全股票
+### 1. 前端徹底去除 lazy enqueue
+- `src/checkup/components/freecheckup/ChipsSection.tsx`
+  - 移除 L153 `supabase.rpc('ensure_bsr_queued', ...)` 的所有呼叫路徑
+  - `bsr_freshness_status = 'not_queued'` 時 UI 直接顯示「等待每日同步」，不再自動觸發
+  - 保留手動「立即同步」按鈕（走 `mode=manual`），維持使用者主動 override 的能力
+- `src/checkup/hooks/useTwChipsDetail.ts`：移除 not_queued 相關的自動重試 / 補排程副作用，只做讀取
 
-會以全量口徑修：
+### 2. 後端 `tw-chips-detail` 改為純唯讀
+- `supabase/functions/tw-chips-detail/index.ts`
+  - 移除任何隱含的 `ensure_bsr_queued` 呼叫（若有）
+  - 只做資料查詢與 freshness 判斷，不做寫入
 
-1. 所有 `tw_bsr_sync_queue` 裡台股個股代號 `[1-9][0-9]{3}`
-2. 所有 `done` 但 raw rows `< 5` 的 job
-3. 所有持倉中需要 BSR 的台股個股
-4. 所有有 raw data 但缺 rollup 的股票
-5. 所有最新 queue 狀態與前端 `tw-chips-detail` 回傳不一致的股票
+### 3. 補齊主動排程覆蓋率
+- 新增 `tw-bsr-enqueue-holdings-delta` edge function（或擴充現有 enqueue mode）：
+  - 每 15 分鐘（14:00–20:59 台北時間）掃描 `trade_records` 內 `exit_date IS NULL` 的台股，比對 `tw_bsr_sync_queue` 今日 pending/running/done 名單，把新加入且尚未排程的持倉補入 tier1
+  - 這樣使用者今天新開的倉，最多 15 分鐘內會自動排入，不需要打開抽屜
+- 對應 cron：`*/15 6-12 * * 1-5`
 
-不只挑 `3443`。
+### 4. 開倉即排程（事件驅動補強）
+- 新增 DB trigger `on_trade_record_insert_enqueue_bsr`：
+  - `AFTER INSERT ON trade_records`，若 `market IN ('TW','TWSE','TPEX')` 且 stock_id 符合白名單，直接呼叫 `ensure_bsr_queued(stock_id)`
+  - 使用 `SECURITY DEFINER` 走 service role，繞過 RLS
+  - 讓「新增持倉」的當下就把 FinMind 排入，不用等下一輪 cron 也不用等使用者打開抽屜
 
-## 修復計畫
+### 5. 回歸測試
+- `e2e/chips-section.spec.ts`：新增斷言「開啟抽屜時不得發出 `ensure_bsr_queued` 的 RPC 請求」（透過 `page.on('request')` 白名單）
+- 新增 `supabase/tests/enqueue_on_trade_insert_test.sql`：驗證新增台股 trade_record 後，`tw_bsr_sync_queue` 立刻有對應 pending 記錄
+- 擴充 `supabase/functions/tw-bsr-finmind-sync/manual_and_source_test.ts`：驗證 delta enqueue 不會重複排入已 done 的股票
 
-### 1. 修正完成狀態的定義
+### 6. 驗收口徑
 
-`done` 不再只是 queue 狀態，而必須同時滿足：
-
-- `tw_bsr_sync_queue.status = done`
-- 同股票、同交易日 `tw_bsr_daily` raw broker rows `>= 5`
-
-否則一律視為「空完成 / 假完成」。
-
-### 2. 修正 `ensure_bsr_queued()`
-
-目前邏輯：
-
-```text
-今天有 done → 不排隊
-```
-
-改成：
-
-```text
-今天有 done 且 raw rows >= 5 → completed
-今天有 done 但 raw rows < 5 → 重新排 pending
-已有 pending/running → 不重複排
-不支援標的 → 不排
-```
-
-### 3. 修正 worker 空結果處理
-
-目前空結果會在收盤後變成 `done`。
-
-改成：
-
-```text
-FinMind empty / aggregated empty
-→ 未達 max_attempts：pending + backoff retry
-→ 達 max_attempts：skipped / no_chip_data，不可標 done
-```
-
-這會防止未來再產生新的假完成。
-
-### 4. 一次性清理現有 331 筆假完成
-
-把所有：
-
-```text
-台股個股 + status=done + raw rows=0
-```
-
-改回：
-
-```text
-status=pending
-next_run_at=now()
-last_error=retry_after_empty_done
-started_at=null
-finished_at=null
-last_success_at=null
-```
-
-這會包含 `3443`，但不只修 `3443`。
-
-### 5. 補資料一致性審計 SQL
-
-新增或整理一組可重跑的診斷查詢，輸出：
-
-- fake done 數量
-- partial done 數量
-- pending/running/dead/skipped 分布
-- 有 raw 但缺 rollup 的股票
-- 有持倉但沒有任何 BSR raw / rollup 的股票
-- 最近錯誤原因 top list
-
-### 6. 補回歸測試
-
-擴充既有測試：
-
-- `ensure_bsr_queued_test.sql`
-  - 新增 Case：`done` 但 raw rows = 0 → 必須重新排 `pending`
-  - 新增 Case：`done` 且 raw rows >= 5 → 才能回 `completed`
-- `tw-bsr-finmind-sync` 純邏輯測試
-  - `finmind_empty` 不得轉 `done`
-  - `aggregated_empty` 不得轉 `done`
-  - retry 次數達上限後才可 `skipped/no_chip_data`
-
-### 7. 實際驗收，不只回測試通過
-
-修完後會回報具體數字：
-
-1. 修復前 fake done：目前已知 `331`
-2. 修復後 fake done 應為 `0`
-3. `3443` 的 queue 狀態應從 fake `done` 變成 `pending/running/done/skipped` 其中之一，但不能再是假 `done`
-4. worker 跑完後檢查：
-   - `tw_bsr_daily` 是否寫入 rows
-   - `tw_chips_rollup` 是否產生 d5/d20/d60
-   - `tw-chips-detail` 是否回 `bsr_as_of` / `bsr.d5`
-5. 若 FinMind 對某股票真的回空，UI 應顯示真實 pending/skipped/error，而不是假完成或永遠「未同步」。
+修完後回報：
+1. 打開抽屜的網路請求清單，不再出現 `ensure_bsr_queued`
+2. 新增一筆台股 trade_record，10 秒內 `tw_bsr_sync_queue` 出現對應 pending 記錄
+3. Delta cron 執行一次後，所有 open 持倉都有今日 queue 記錄（pending/running/done 三態擇一）
+4. `bsr_freshness_status = 'not_queued'` 的股票數為 0（在盤後時段）
 
 ## 不做的事
 
-- 不改 UI
-- 不新增功能
-- 不改持倉抽屜設計
-- 不把 ETF / 權證硬塞進 BSR
-- 不只針對 `3443` 特判
+- 不改抽屜 UI 版型
+- 不動 rollup 演算法與 5-row 門檻
+- 不動已完成的 fake-done 修復與降級狀態機

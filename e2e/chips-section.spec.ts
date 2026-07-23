@@ -308,4 +308,18 @@ test.describe('ChipsSection · 全覆蓋', () => {
       .evaluate((el) => getComputedStyle(el).color);
     expect(negColor).toMatch(/46,\s*122,\s*75/);
   });
+
+  test('N. 開抽屜不得觸發 ensure_bsr_queued（BSR 對前端唯讀）', async ({ page }) => {
+    const enqueueCalls: string[] = [];
+    page.on('request', (req) => {
+      const url = req.url();
+      if (/\/rpc\/ensure_bsr_queued/.test(url)) enqueueCalls.push(url);
+    });
+    await mockChips(page, (r) => fulfill(r, fullPayload()));
+    await page.goto(`/e2e/chips-section?code=${STOCK}`);
+    await page.getByTestId('chips-section').waitFor();
+    // 給 useEffect / SWR 一點時間去做副作用
+    await page.waitForTimeout(1500);
+    expect(enqueueCalls, `不應該有 ensure_bsr_queued 請求: ${enqueueCalls.join(',')}`).toEqual([]);
+  });
 });
