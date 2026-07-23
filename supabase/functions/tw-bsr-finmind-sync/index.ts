@@ -228,7 +228,7 @@ async function enqueueTier1Holdings(date: string, cid: string): Promise<number> 
     })
     .map((r: any) => {
       const raw = String(r.instrument || '').trim();
-      const match = raw.match(/^([0-9]{4,6}[A-Z]?)\b/);
+      const match = raw.match(/^([1-9][0-9]{3})(?:\s|$)/);
       return match ? match[1] : '';
     })
     .filter(isChipEligible)));
@@ -287,7 +287,7 @@ async function enqueueTier3Backfill(endDate: string, days: number, cid: string):
     })
     .map((r: any) => {
       const raw = String(r.instrument || '').trim();
-      const match = raw.match(/^([0-9]{4,6}[A-Z]?)\b/);
+      const match = raw.match(/^([1-9][0-9]{3})(?:\s|$)/);
       return match ? match[1] : '';
     })
     .filter(isChipEligible)));

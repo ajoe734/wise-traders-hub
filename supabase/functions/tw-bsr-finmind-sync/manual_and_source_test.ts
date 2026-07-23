@@ -84,3 +84,10 @@ Deno.test('worker 不得把 FinMind 空資料或 partial raw 標成 done', async
   assert(/status:\s*'pending'/.test(incompleteBranch[0]), '未達 max_attempts 的 incomplete 應回 pending');
   assert(/status:\s*'skipped'/.test(incompleteBranch[0]), '達 max_attempts 的 incomplete 應 skipped');
 });
+
+Deno.test('持倉代號解析不得把 6 碼權證截成 4 碼入隊', async () => {
+  const src = await readFile(INDEX_PATH);
+  assert(!/raw\.match\(\/\^\(\[0-9\]\{4,6\}/.test(src), '不得使用 4~6 碼寬鬆解析後再截碼');
+  const strictMatches = src.match(/raw\.match\(\/\^\(\[1-9\]\[0-9\]\{3\}\)\(\?:\\s\|\$\)\//g) ?? [];
+  assertEquals(strictMatches.length, 2, 'tier1/tier3 都必須只接受「4 碼 + 空白或結尾」');
+});
