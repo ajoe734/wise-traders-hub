@@ -78,8 +78,10 @@ export function pickWindowDates(uniqueDatesDesc: string[], windowSize: number): 
 
 /**
  * 從候選 trade_date（{date, rowCount}）中挑「最新且已 complete」的日期。
- * complete = (queue.status='done' for that (stock, date)) OR rowCount >= DONE_BROKER_THRESHOLD
+ * complete = rowCount >= DONE_BROKER_THRESHOLD。
  *
+ * queue.status='done' 只可作為診斷輔助，不能單獨證明 raw 完整；歷史上曾出現
+ * 「done 但 0 rows」的 fake-done 狀態，這裡必須以原始分點列數作最後防線。
  * 這是本次修訂的核心：只要今日 raw 尚未 complete，就不該把 fallbackAsOf 推到今日，
  * 避免用不完整的今日 partial data 覆蓋昨日完整的 rollup。
  */
@@ -92,7 +94,7 @@ export function pickCompleteFallbackDate(
   if (candidates.length === 0) return null;
   const sorted = [...candidates].sort((a, b) => (a.date < b.date ? 1 : a.date > b.date ? -1 : 0));
   for (const c of sorted) {
-    if (doneDateSet.has(c.date) || c.rowCount >= DONE_BROKER_THRESHOLD) return c.date;
+    if (c.rowCount >= DONE_BROKER_THRESHOLD) return c.date;
   }
   return null;
 }

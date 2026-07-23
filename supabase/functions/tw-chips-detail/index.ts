@@ -8,7 +8,8 @@
 //     計算近 5 日視窗（d20/d60 保留 null，因為 rollup 才有那些欄位）。
 //   - `bsr_source`、`bsr_freshness_status`、`bsr_lag_weekdays`、`bsr_expected_date`
 //     為前端顯示「顯示昨天的、今日同步中」提示的唯一依據。
-//   - completeness 定義：queue.status='done' 或該日 raw broker rows >= 5。
+//   - completeness 定義：該日 raw broker rows >= 5。queue.status='done' 只作診斷輔助，
+//     不可單獨證明完整，避免歷史 fake-done 狀態讓畫面誤顯示今日空資料。
 //     未 complete 的今日 partial data 不會被推為 fallbackAsOf，避免覆蓋昨日完整結果。
 import "jsr:@supabase/functions-js/edge-runtime.d.ts";
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2.45.4";

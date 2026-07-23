@@ -72,3 +72,22 @@ Deno.test('worker 收到 RateLimitExhausted 應停手不再處理剩餘 job', as
   assert(/rateLimitedStop/.test(src), 'worker 應該有 rateLimitedStop flag');
   assert(/if \(r\.rateLimited\)/.test(src), 'worker 應根據 rateLimited 停手');
 });
+
+Deno.test('worker 不得把 FinMind 空資料或 partial raw 標成 done', async () => {
+  const src = await readFile(INDEX_PATH);
+  assert(/aggregated_partial/.test(src), 'worker 應辨識 aggregated_partial');
+  assert(/const isIncomplete = r\.note === 'finmind_empty' \|\| r\.note === 'aggregated_empty' \|\| r\.note === 'aggregated_partial'/.test(src),
+    'empty / partial 結果必須歸類為 incomplete');
+  const incompleteBranch = src.match(/if \(isIncomplete[\s\S]*?\}\s*else \{/);
+  assert(incompleteBranch, '找不到 incomplete 分支');
+  assert(!/status:\s*'done'/.test(incompleteBranch[0]), 'incomplete 分支不得設定 status=done');
+  assert(/status:\s*'pending'/.test(incompleteBranch[0]), '未達 max_attempts 的 incomplete 應回 pending');
+  assert(/status:\s*'skipped'/.test(incompleteBranch[0]), '達 max_attempts 的 incomplete 應 skipped');
+});
+
+Deno.test('持倉代號解析不得把 6 碼權證截成 4 碼入隊', async () => {
+  const src = await readFile(INDEX_PATH);
+  assert(!/raw\.match\(\/\^\(\[0-9\]\{4,6\}/.test(src), '不得使用 4~6 碼寬鬆解析後再截碼');
+  const strictMatches = src.match(/raw\.match\(\/\^\(\[1-9\]\[0-9\]\{3\}\)\(\?:\\s\|\$\)\//g) ?? [];
+  assertEquals(strictMatches.length, 2, 'tier1/tier3 都必須只接受「4 碼 + 空白或結尾」');
+});

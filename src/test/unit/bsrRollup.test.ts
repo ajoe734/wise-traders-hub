@@ -66,12 +66,12 @@ describe('bsrRollup.pickCompleteFallbackDate', () => {
     );
     expect(picked).toBe('2026-07-21');
   });
-  it('doneDateSet 中的日期即使 rowCount 少也視為 complete', () => {
+  it('doneDateSet 中的日期若 rowCount 少仍不視為 complete，避免 fake-done', () => {
     const picked = pickCompleteFallbackDate(
-      [c('2026-07-22', 1)],
+      [c('2026-07-22', 1), c('2026-07-21', 7)],
       new Set(['2026-07-22']),
     );
-    expect(picked).toBe('2026-07-22');
+    expect(picked).toBe('2026-07-21');
   });
   it('今日 partial data (< 5) 且不在 done set → 不會被推為 fallback', () => {
     const picked = pickCompleteFallbackDate(
