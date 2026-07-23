@@ -134,8 +134,8 @@ export function useHoldingsDerivations({
 
     const rest = uniqueHoldings.filter((h) => !topKeys.has(uniqKey(h)));
 
-    // Dev invariant
-    if (typeof process !== 'undefined' && process.env && process.env.NODE_ENV !== 'production') {
+    // Dev invariant + TEMP audit diagnostic (remove after verification)
+    if (typeof window !== 'undefined') {
       const sum = items.length + rest.length;
       if (sum !== uniqueHoldings.length) {
         // eslint-disable-next-line no-console
@@ -143,7 +143,6 @@ export function useHoldingsDerivations({
           top: items.length, rest: rest.length, unique: uniqueHoldings.length,
         });
       }
-      // TEMP DIAGNOSTIC (holdings-grouping-audit) — remove after verification
       const _topKeys = new Set(items.map((i) => `${i.market || 'TW'}:${i.code}`));
       let _fourth = null;
       for (const h of uniqueHoldings) {
