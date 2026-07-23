@@ -108,6 +108,7 @@ describe('SignalsTable × currency fallback（缺 signal.currency）', () => {
     );
     expect(screen.getByText(/NT\$/)).toBeTruthy();
     expect(screen.queryByText(/US\$/)).toBeNull();
+  });
 
   describe('幣別來源標示 (data-testid="admin-signal-currency-source")', () => {
     it('signal.currency 明確 → data-source=explicit，文案「明確」', () => {
