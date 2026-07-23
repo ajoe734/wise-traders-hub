@@ -7,7 +7,7 @@ import { PermissionTooltip } from '@/components/admin/PermissionTooltip';
 import { SafeRichHtml, richHtmlPreview, PREVIEW_LIMITS } from '@/components/SafeRichHtml';
 import { canRecallSignal } from '@/lib/publishingWindow';
 import { actionLabels } from './actionLabels';
-import { CURRENCY_SYMBOL, normalizeCurrency, type Currency } from '@/lib/currency';
+import { CURRENCY_SYMBOL, inferCurrencyFromInstrument, type Currency } from '@/lib/currency';
 import { getAssetSpec, normalizeAssetClass, type AssetClass } from '@/lib/asset';
 import { assetBadge } from '@/pages/_adminPerformance/types';
 import { FxHint } from '@/components/FxHint';
