@@ -29,11 +29,21 @@ DECLARE
   v_stock text;
   v_etf   text := 'ETEST' || substr(md5(random()::text), 1, 4);
   v_today date := (now() AT TIME ZONE 'Asia/Taipei')::date;
+  v_exists boolean;
 BEGIN
-  -- 隨機挑一個 4 位數字（首位 1-9）的假代號，並清乾淨今日 queue 以避免與線上資料衝突
-  v_stock := (1000 + floor(random() * 8999))::int::text;
-  DELETE FROM public.tw_bsr_sync_queue
-   WHERE stock_id = v_stock AND trade_date = v_today;
+  -- 隨機找一個「今日 queue 尚無 active/done 紀錄」的 4 位數字代號，避免與線上資料衝突。
+  -- 為避免修改既有資料（psql 可能無 DELETE 權限），改用「找空位」策略。
+  FOR i IN 1..50 LOOP
+    v_stock := (1000 + floor(random() * 8999))::int::text;
+    SELECT EXISTS (
+      SELECT 1 FROM public.tw_bsr_sync_queue
+       WHERE stock_id = v_stock AND trade_date = v_today
+    ) INTO v_exists;
+    EXIT WHEN NOT v_exists;
+  END LOOP;
+  IF v_exists THEN
+    RAISE EXCEPTION 'fixture failed: could not find a free 4-digit test code';
+  END IF;
 
   -- 假的非 tw_stock 代號（觸發 unsupported_asset_type）
   INSERT INTO public.stock_names (symbol, name, asset_class, currency)
