@@ -13,6 +13,27 @@ import { assetBadge } from '@/pages/_adminPerformance/types';
 import { FxHint } from '@/components/FxHint';
 import { InstrumentTooltip } from '@/components/InstrumentTooltip';
 
+/**
+ * 判定 signal 顯示幣別，優先序：
+ * 1. signal.currency 明確 USD/TWD
+ * 2. asset_class 導出的 spec.currency（美股/美選/美期 → USD）
+ * 3. instrument 代號推斷
+ * 4. defaultCurrency
+ * 修 bug：舊 `normalizeCurrency() || spec.currency` 永不 fallback。
+ */
+function pickSignalCurrency(
+  signal: any,
+  specCurrency: Currency,
+  defaultCurrency: Currency = 'TWD',
+): Currency {
+  if (signal?.currency === 'USD' || signal?.currency === 'TWD') return signal.currency;
+  if (specCurrency === 'USD') return 'USD';
+  const inferred = inferCurrencyFromInstrument(signal?.instrument);
+  if (inferred) return inferred;
+  return defaultCurrency;
+}
+
+
 interface Props {
   signal: any;
   isMentor: boolean;
