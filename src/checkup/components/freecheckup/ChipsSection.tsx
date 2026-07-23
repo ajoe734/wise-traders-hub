@@ -137,11 +137,26 @@ export default function ChipsSection({ WB, stockCode }: { WB: any; stockCode: st
   );
 
   const bsrLatest = data?.bsr?.d5 || data?.bsr?.d20 || data?.bsr?.d60 || null;
+  const syncStatus = data?.bsr_sync_status;
 
-  // 自動輪詢（帶指數退避）：僅在 BSR 尚未同步且沒有明確失敗時輪詢；
-  // 一旦同步完成或伺服器回報失敗（避免無效重試），立即停止。
-  // 間隔：60s → 120s → 240s → 480s → 900s（上限 15 分鐘），與 Tier 1 catch-up cron 對齊。
-  const bsrPending = !!data && !data.bsr_as_of && !(data as any)?.bsr_last_failure;
+  // 主動 ensure：眼下 eligible、未 queued 且無 BSR 資料 → 呼叫幂等 RPC
+  // React Strict Mode / remount 可能觸發多次，靠 DB 端 partial unique index + advisory lock 兜底
+  const ensuredRef = useRef<string | null>(null);
+  useEffect(() => {
+    if (!syncStatus) return;
+    if (!syncStatus.eligible) return;
+    if (syncStatus.queued) return;
+    if (data?.bsr_as_of) return;
+    const key = `${stockCode}:${syncStatus.status}`;
+    if (ensuredRef.current === key) return;
+    ensuredRef.current = key;
+    supabase.rpc('ensure_bsr_queued', { p_stock_id: stockCode })
+      .then(() => setTimeout(() => refetch(), 2000))
+      .catch(() => { /* 靜默；下輪自然重試 */ });
+  }, [syncStatus?.eligible, syncStatus?.queued, syncStatus?.status, data?.bsr_as_of, stockCode, refetch]);
+
+  // 自動輪詢（退避）：僅在 status ∈ {pending, running} 時輪詢；一旦轉出立即停止
+  const bsrPending = syncStatus?.status === 'pending' || syncStatus?.status === 'running';
   const attemptsRef = useRef(0);
   useEffect(() => {
     if (!bsrPending) { attemptsRef.current = 0; return; }
@@ -185,6 +200,39 @@ export default function ChipsSection({ WB, stockCode }: { WB: any; stockCode: st
       setBackfilling(false);
     }
   };
+
+  // 依真實 status 渲染 BSR 標頭文案
+  function fmtNextRun(iso: string | null | undefined): string {
+    if (!iso) return '';
+    return new Date(iso).toLocaleString('zh-TW', {
+      timeZone: 'Asia/Taipei', month: '2-digit', day: '2-digit',
+      hour: '2-digit', minute: '2-digit', hour12: false,
+    });
+  }
+  function bsrHeaderLabel(): { text: string; tone: 'mute' | 'warn' | 'error' } | null {
+    if (data?.bsr_as_of) return null; // 由 AS OF 顯示
+    if (!syncStatus) return null;
+    if (!syncStatus.eligible) {
+      const reason = syncStatus.ineligible_reason;
+      if (reason === 'unsupported_asset_type') return { text: 'ETF／權證無分點資料', tone: 'mute' };
+      if (reason === 'missing_instrument') return { text: '尚無此代號 metadata', tone: 'mute' };
+      return { text: '此代號不支援分點', tone: 'mute' };
+    }
+    if (syncStatus.status === 'running') return { text: 'BSR 同步進行中', tone: 'warn' };
+    if (syncStatus.status === 'pending') {
+      const t = fmtNextRun(syncStatus.next_run_at);
+      return { text: t ? `已排入，${t} 起執行` : '已排入佇列', tone: 'warn' };
+    }
+    if (syncStatus.status === 'failed') {
+      const t = fmtNextRun(syncStatus.next_run_at);
+      return { text: t ? `暫時失敗，${t} 自動重試` : '暫時失敗，將自動重試', tone: 'warn' };
+    }
+    if (syncStatus.status === 'dead') return { text: '多次失敗，請聯繫管理員', tone: 'error' };
+    if (syncStatus.status === 'not_queued') return { text: '尚未排入佇列（自動處理中）', tone: 'mute' };
+    return null;
+  }
+  const headerLabel = bsrHeaderLabel();
+
 
   return (
     <section
@@ -382,22 +430,28 @@ export default function ChipsSection({ WB, stockCode }: { WB: any; stockCode: st
         <div style={{ display: 'flex', alignItems: 'baseline', justifyContent: 'space-between', marginBottom: 8, gap: 8, flexWrap: 'wrap' }}>
           <div style={{ fontSize: 11, color: WB.inkMute, letterSpacing: '0.14em' }}>關鍵分點（近 5 日）</div>
           {data?.bsr_as_of ? (
-            <div style={{ fontSize: 10, color: WB.inkMute, textAlign: 'right' }}>
+            <div style={{ fontSize: 10, color: WB.inkMute, textAlign: 'right' }} data-testid="chips-bsr-as-of">
               BSR {data.bsr_as_of.replaceAll('-', '/')}
               {data.bsr_as_of_lag_days && data.bsr_as_of_lag_days >= 1
                 ? `（前 ${data.bsr_as_of_lag_days} 個交易日）`
                 : ''}
             </div>
-          ) : data?.bsr_last_failure ? (
-            <div style={{ fontSize: 10, color: '#8a5a1e' }}>BSR 同步進行中</div>
-          ) : hasInst ? (
-            <div style={{ fontSize: 10, color: WB.inkMute, textAlign: 'right' }}>
-              BSR 自動同步中
-              <div style={{ fontSize: 9, color: WB.inkMute, marginTop: 2 }}>收盤後 14:00–21:00 每 10 分鐘一輪</div>
+          ) : headerLabel ? (
+            <div
+              data-testid="chips-bsr-status"
+              data-bsr-status={syncStatus?.status || 'unknown'}
+              style={{
+                fontSize: 10,
+                color: headerLabel.tone === 'error' ? '#b04a4a' : headerLabel.tone === 'warn' ? '#8a5a1e' : WB.inkMute,
+                textAlign: 'right',
+              }}
+            >
+              {headerLabel.text}
             </div>
           ) : null}
 
         </div>
+
 
         {/* 有失敗紀錄就顯示診斷 banner；不再要求同時要有 bsr_as_of，
             因為首次同步尚未成功時 bsr_as_of 會是 null，此時最需要向使用者說明狀態 */}
@@ -442,21 +496,21 @@ export default function ChipsSection({ WB, stockCode }: { WB: any; stockCode: st
             </div>
             <div>
               失敗原因：
-              {data.bsr_last_failure.reason === 'captcha_retry_exhausted'
+              {data.bsr_last_failure.error_code === 'captcha_retry_exhausted'
                 ? '舊 TWSE 驗證碼路徑失敗（已停用），已改由 FinMind 官方 API 抓取'
-                : data.bsr_last_failure.reason === 'finmind_error'
+                : data.bsr_last_failure.error_code === 'finmind_error'
                 ? 'FinMind API 呼叫失敗（rate limit 或暫時性錯誤），下輪自動重試'
-                : data.bsr_last_failure.reason === 'http_block'
+                : data.bsr_last_failure.error_code === 'http_block'
                 ? '上游暫時封鎖請求'
-                : data.bsr_last_failure.reason === 'no_chip_data'
+                : data.bsr_last_failure.error_code === 'no_chip_data'
                 ? 'FinMind 尚無此代號分點（多為新上市或非常規個股）'
-                : data.bsr_last_failure.reason === 'not_chip_eligible'
+                : data.bsr_last_failure.error_code === 'not_chip_eligible'
                 ? 'ETF／權證／受益憑證無分點資料'
-                : data.bsr_last_failure.reason === 'rate_limited'
+                : data.bsr_last_failure.error_code === 'rate_limited'
                 ? 'API 額度已用完，將於下輪自動重試'
-                : data.bsr_last_failure.reason === 'empty_rows'
+                : data.bsr_last_failure.error_code === 'empty_rows'
                 ? '當日無成交或上游回空'
-                : data.bsr_last_failure.reason}
+                : '同步暫時失敗，將自動重試'}
               {typeof data.bsr_last_failure.consecutive_failures === 'number' && data.bsr_last_failure.consecutive_failures > 1
                 ? `（已連續失敗 ${data.bsr_last_failure.consecutive_failures} 次）`
                 : ''}

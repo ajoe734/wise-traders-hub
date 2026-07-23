@@ -57,8 +57,7 @@ export interface TwChipsPayload {
   bsr_as_of_lag_days?: number | null;
   bsr_last_failure?: {
     trade_date: string;
-    reason: string;
-    last_error: string | null;
+    error_code: string;
     attempts: number;
     next_retry_at?: string | null;
     backoff_seconds?: number | null;
@@ -68,6 +67,18 @@ export interface TwChipsPayload {
     lookback_to?: string | null;
     lookback_days?: number | null;
   } | null;
+  bsr_sync_status?: {
+    eligible: boolean;
+    ineligible_reason: 'invalid_stock_id' | 'missing_instrument' | 'unsupported_asset_type' | null;
+    asset_class?: string | null;
+    queued: boolean;
+    status: 'pending' | 'running' | 'failed' | 'dead' | 'not_queued' | 'ineligible';
+    next_run_at: string | null;
+    attempts: number;
+    max_attempts: number;
+    error_code: string | null;
+    retryable: boolean;
+  };
   series?: {
     institutional_daily: InstitutionalDailyPoint[];
     bsr_concentration: BsrConcentrationPoint[];

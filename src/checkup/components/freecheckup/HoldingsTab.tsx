@@ -188,6 +188,9 @@ function HoldingsTab(props) {
     orderedDisplayed,
     firstFeatureCode,
     actionPriorityItems,
+    remainingItems,
+    uniqueHoldings,
+    topActionableCount,
     strategyOptions,
   } = useHoldingsDerivations({
     sorted,
@@ -292,8 +295,8 @@ function HoldingsTab(props) {
       {/* ══════════ Action Priority（單行 inline 文字流） ══════════
           B-P5: items 在 parent 已預先含 tag/desc，元件不再吃 decisionsMap/stockMeta */}
       <HoldingsActionPriority
-        items={actionPriorityItems || globalPriorityList}
-        holdCount={Math.max(0, (H?.length || 0) - ((exitListCount || 0) + (reviewListCount || 0)))}
+        items={actionPriorityItems}
+        holdCount={remainingItems.length}
         WB={WB}
         onPick={setExpandedDecision}
       />

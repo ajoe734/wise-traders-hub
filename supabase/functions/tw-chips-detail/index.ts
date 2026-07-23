@@ -124,32 +124,50 @@ Deno.serve(async (req) => {
     const asOfLagDays = lagDays(asOfDate);
     const bsrAsOfLagDays = lagDays(latestAsOf);
 
-    // 最近一次 BSR 抓取失敗（未 resolved），若時間新於 latestAsOf 代表「今日同步失敗、正在顯示前次成功資料」
-    let bsrLastFailure: {
-      trade_date: string;
-      reason: string;
-      last_error: string | null;
-      attempts: number;
-      next_retry_at: string | null;
-      backoff_seconds: number | null;
-      consecutive_failures: number | null;
-      last_successful_as_of: string | null;
-      lookback_from: string | null;
-      lookback_to: string | null;
-      lookback_days: number | null;
-    } | null = null;
-    // 撈最近幾筆未 resolved 的失敗紀錄，用來組出「嘗試回推的日期範圍」
+    // ==== Eligibility + Queue status（純讀取，不寫入）====
+    const { data: eligData } = await supa.rpc("tw_bsr_eligibility", { p_stock_id: stockId });
+    const eligible = !!(eligData && (eligData as any).eligible);
+    const ineligibleReason = eligible ? null : ((eligData as any)?.ineligible_reason ?? null);
+
+    const { data: queueRows } = await supa
+      .from("tw_bsr_sync_queue")
+      .select("status, attempts, max_attempts, next_run_at, last_error, updated_at")
+      .eq("stock_id", stockId)
+      .order("updated_at", { ascending: false })
+      .limit(1);
+    const q = (queueRows && queueRows[0]) || null;
+
+    // 錯誤原文映射為對外安全 error_code（白名單）
+    const SAFE_REASON_CODES = new Set([
+      "captcha_retry_exhausted", "finmind_error", "http_block",
+      "no_chip_data", "not_chip_eligible", "rate_limited", "empty_rows",
+    ]);
+    // 最近一次 BSR 抓取失敗（未 resolved）
     const { data: failRows } = await supa
       .from("tw_bsr_fetch_failures")
-      .select("trade_date, reason, last_error, attempts, resolved_at, next_retry_at, backoff_seconds, consecutive_failures")
+      .select("trade_date, reason, attempts, resolved_at, next_retry_at, backoff_seconds, consecutive_failures")
       .eq("stock_id", stockId)
       .is("resolved_at", null)
       .order("trade_date", { ascending: false })
       .limit(10);
+
+    let bsrLastFailure:
+      | {
+          trade_date: string;
+          error_code: string;
+          attempts: number;
+          next_retry_at: string | null;
+          backoff_seconds: number | null;
+          consecutive_failures: number | null;
+          last_successful_as_of: string | null;
+          lookback_from: string | null;
+          lookback_to: string | null;
+          lookback_days: number | null;
+        }
+      | null = null;
     if (failRows && failRows[0]) {
       const f: any = failRows[0];
       if (!latestAsOf || String(f.trade_date) > String(latestAsOf)) {
-        // 這批連續失敗中最舊的日期：即最深回推點
         const dates = (failRows as any[])
           .map((r) => String(r.trade_date))
           .filter((d) => !latestAsOf || d > String(latestAsOf))
@@ -158,17 +176,12 @@ Deno.serve(async (req) => {
         const lookbackFrom = String(f.trade_date);
         const spanDays =
           lookbackFrom && lookbackTo
-            ? Math.max(
-                1,
-                Math.round(
-                  (new Date(lookbackFrom).getTime() - new Date(lookbackTo).getTime()) / 86400000,
-                ) + 1,
-              )
+            ? Math.max(1, Math.round((new Date(lookbackFrom).getTime() - new Date(lookbackTo).getTime()) / 86400000) + 1)
             : null;
+        const code = SAFE_REASON_CODES.has(String(f.reason)) ? String(f.reason) : "sync_failed";
         bsrLastFailure = {
           trade_date: f.trade_date,
-          reason: f.reason || "sync_failed",
-          last_error: f.last_error || null,
+          error_code: code,
           attempts: Number(f.attempts || 0),
           next_retry_at: f.next_retry_at || null,
           backoff_seconds: f.backoff_seconds ?? null,
@@ -181,6 +194,29 @@ Deno.serve(async (req) => {
       }
     }
 
+    // 決定對外 status
+    type BsrStatus = "pending" | "running" | "failed" | "dead" | "not_queued" | "ineligible";
+    let status: BsrStatus;
+    if (!eligible) status = "ineligible";
+    else if (!q) status = "not_queued";
+    else if (q.status === "pending" || q.status === "running") status = q.status;
+    else if (q.status === "failed") {
+      status = Number(q.attempts || 0) >= Number(q.max_attempts || 5) ? "dead" : "failed";
+    } else status = "not_queued"; // done / skipped
+
+    const bsrSyncStatus = {
+      eligible,
+      ineligible_reason: ineligibleReason,
+      asset_class: (eligData as any)?.asset_class ?? null,
+      queued: !!q && (q.status === "pending" || q.status === "running"),
+      status,
+      next_run_at: q?.next_run_at ?? null,
+      attempts: Number(q?.attempts ?? 0),
+      max_attempts: Number(q?.max_attempts ?? 5),
+      error_code: bsrLastFailure?.error_code ?? null,
+      retryable: status === "pending" || status === "running" || status === "failed",
+    };
+
     const payload = {
       stock_id: stockId,
       as_of: asOfDate,
@@ -190,6 +226,7 @@ Deno.serve(async (req) => {
       bsr_as_of: latestAsOf,
       bsr_as_of_lag_days: bsrAsOfLagDays,
       bsr_last_failure: bsrLastFailure,
+      bsr_sync_status: bsrSyncStatus,
       series: {
         institutional_daily: instAsc,
         bsr_concentration: bsrConcentration.slice(-60),
