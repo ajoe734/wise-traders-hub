@@ -322,14 +322,27 @@ Deno.serve(async (req) => {
     const bsrValidDatesAsc = bsrConcentration
       .filter((p) => (rowCountByDate.get(p.date) ?? 0) >= DONE_BROKER_THRESHOLD)
       .map((p) => p.date);
+
+    // M2：讀 upstream_probe 判斷是否上游窮竭
+    let upstreamExhausted = false;
+    try {
+      const { data: probe } = await supa
+        .from("tw_bsr_upstream_probe")
+        .select("exhausted")
+        .eq("stock_id", stockId)
+        .maybeSingle();
+      upstreamExhausted = !!probe?.exhausted;
+    } catch (_e) { /* 非致命 */ }
+
     const instReadiness = resolveAllWindows({
       validDatesAsc: instValidDatesAsc,
-      upstreamExhausted: false,
+      upstreamExhausted: false, // 三大法人由 TWSE 直供，不用 finmind 探測
     });
     const bsrReadiness = resolveAllWindows({
       validDatesAsc: bsrValidDatesAsc,
-      upstreamExhausted: false,
+      upstreamExhausted,
     });
+
 
     const payload = {
       stock_id: stockId,
