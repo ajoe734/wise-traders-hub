@@ -326,7 +326,7 @@ Deno.serve(async (req) => {
     // M2：讀 upstream_probe 判斷是否上游窮竭
     let upstreamExhausted = false;
     try {
-      const { data: probe } = await supabase
+      const { data: probe } = await supa
         .from("tw_bsr_upstream_probe")
         .select("exhausted")
         .eq("stock_id", stockId)
