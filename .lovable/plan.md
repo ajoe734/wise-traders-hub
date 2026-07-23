@@ -1,168 +1,160 @@
-## 自我審視（用最嚴厲角度挑戰前三版）
+# M3 v2：Snapshot-First × Elastic Share × Coalesced Fetch
 
-以下是我對自己前三版計畫的實質性反駁；每一條後面接「怎麼改」。
+前一版 M3 被自我審核否決三個瑕疵：**優化錯的層、抽象錯的粒度、限流政策幼稚**。這版重寫，把三個高階問題一次解決，並誠實標註哪些假設仍需執行時驗證。
 
----
+## 校正過的前提（已用工具實測）
 
-### 挑戰 1：「Market-scope 每日 1 呼叫」是空中樓閣
-
-**問題**：我假設 FinMind 有「全市場 BSR」單一端點。實際上 FinMind 的分點資料 (`TaiwanStockShareholding`) 是**按股票查詢**的，沒有一次拉全市場的 BSR 端點。三大法人 (`TaiwanStockInstitutionalInvestorsBuySell`) 才有整日。
-
-**修正**：
-- 三大法人：改成 market-day 批次（真的能省），這條保留。
-- BSR：仍是 per-stock-per-day。**改為以「每檔的 60 日區間查詢」代替「單日 60 次查詢」**——若 FinMind 支援 `start_date/end_date`，1 檔補 60 天只花 1 次呼叫；若不支援，維持單日但用桶預算限流。
-- Plan 必須在開工前先做一次 **FinMind 端點 spike**（半天）驗證每個 dataset 的 date 範圍語意，把結論寫進 `docs/ops/bsr-finmind-runbook.md` 再動手。
+1. **TWSE 官方 BSR 不是「零成本源」** — `bsr.twse.com.tw/bshtm/bsMenu.aspx` 仍是 aspx viewstate + captcha 路徑（正是我們 M0 前放棄的原因）。上一輪自我審核錯誤宣稱「免費無限流」，收回。
+2. **FinMind `TaiwanStockTradingDailyReport` 省略 `data_id` 在 API 契約上被接受**（未帶 token 時回 400 sponsor wall，而非 schema 錯誤）→ **市場批次抓取路徑合法，但整市場單次回應是否真的返回全 broker rows，需在實作時用 `FINMIND_TOKEN` 做 1 次實測驗證**。若不支援，L1 降級為「多支 data_id 併發但 quota 仍每檔 1 個」，此時 L2/L3 仍成立。
+3. 現況已無 `tw_bsr_daily_snapshot_status` 表；snapshot-first 抽象是全新引入。
 
 ---
 
-### 挑戰 2：「Demand-Weighted Scheduling」邏輯漂亮但沒有 SLO
+## 三層架構
 
-**問題**：加權後低分股票可能永遠排不到，但那可能是唯一用戶的唯一持倉，對他而言就是壞掉。
+```text
+┌─────────────────────────────────────────────────────────────┐
+│  L1  Coalesced Fetch      一天一次抓，quota = O(交易日)      │
+│  L2  Snapshot-First       trade_date 為一等公民，job 為訂閱者 │
+│  L3  Elastic Share Limiter tier 保底 + 空閒回收，非固定百分比  │
+└─────────────────────────────────────────────────────────────┘
+```
 
-**修正**：
-- 加**保底 SLO**：任何 active 持倉，24 小時內至少要把 d5 補到 ready，無論分數多低。
-- 排序改成 `max(demand_score, age_bonus)`：age_bonus 隨排隊時間線性上升，避免飢餓。
-- Dashboard 需要顯示「保底違反次數」KPI，違反即 P1 告警。
+## L1：Coalesced Market Fetch
 
----
+**原則**：整市場 fetch 與單股 fetch 都是 1 quota，永遠選前者。
 
-### 挑戰 3：桶化預算的三個桶是拍腦袋的比例
+- 新增 `fetchFinmindMarketDay(date)`：不帶 `data_id` 呼叫；預期回應 5–8 MB、~1600 檔 × ~15 broker rows。
+- 上線前**強制**跑 1 次實測：
+  - 若回應含 `data_id` 欄位分佈 ≥ 500 支 → 走 market batch 路徑
+  - 若上游只回單支或空 → 自動 fallback 為「per-stock claim + FinMind data_id 併發」
+  - 判定結果寫入 `tw_bsr_sync_config.market_batch_supported`，可 kill switch。
+- 加 abort timeout 60s（原本 20s，市場批次回應大）。
 
-**問題**：40/40/20 沒有數據支持。且「借用」邏輯若寫錯會讓 Backfill 桶反噬 Live 桶。
+## L2：Snapshot-First 抽象
 
-**修正**：
-- 上線先跑 2 週單桶 + 觀察，用實際 `tw_bsr_api_usage` 分布決定切法。
-- 借用只單向：Live → Fill → Backfill，不可反向。
-- 每桶各自的 rate limiter 用同一支 `reserve_bsr_quota` RPC，桶名當參數；桶間切換由排程層決定，不做「動態借用」，直接每小時重算比例。避免動態邏輯錯誤。
+**新表**：`tw_bsr_daily_snapshot_status`
 
----
+| 欄位 | 型別 | 說明 |
+|---|---|---|
+| `trade_date` | date PK | 天然 idempotency key |
+| `status` | text | `pending` / `fetching` / `ready` / `partial` / `exhausted` |
+| `source` | text | `finmind_market_batch` / `finmind_per_stock` / `manual` |
+| `fetched_at` | timestamptz | |
+| `coverage_stocks` | int | 該日成功寫入 `tw_bsr_daily` 的 distinct stock_id 數 |
+| `coverage_rows` | int | broker rows 總筆數 |
+| `attempt_count` | int | |
+| `last_error` | text | |
+| `correlation_id` | uuid | 追溯 |
 
-### 挑戰 4：物化表 `tw_series_readiness` + `tw_bsr_market_days` + `demand_snapshot` = 三張新表
+**Job 變訂閱者**：
+- `tw_bsr_sync_queue` 生命週期改為：worker 掃 queue 時，優先看該 `trade_date` 的 snapshot_status。
+  - `ready` → 直接標 job `done`（0 quota）。
+  - `fetching` → 略過（等該 date 完成）。
+  - `pending` / `partial` → 呼叫 `fulfillDay(date)`：以 advisory lock 鎖 `trade_date`（避免併發重抓），發 market batch → 寫 daily → 一次 rebuild rollup for 所有涉及 stocks → 掃 pending job 全部 fulfill。
+  - `exhausted` → 標 job `skipped`（沿用 M2 的 upstream probe 邏輯）。
 
-**問題**：新表 = 新 RLS + 新 grant + 新 trigger + 新遷移風險。前面已經有一堆 BSR 相關表，再加三張很可能重複職責。
+**冪等性**：`trade_date` 天然是 idempotency key + advisory lock，crash 重啟後 in-flight 只會重跑那一個 date，不會擴散。
 
-**修正**：
-- `tw_series_readiness` 合併進既有 `tw_chips_rollup` 加欄位即可（`complete_days_5/20/60`, `state_5/20/60`, `upstream_oldest`, `ready_since`）。
-- `tw_bsr_market_days` 精簡為 `tw_bsr_daily_summary`（既有 `tw_bsr_sync_metrics` 若可擴展就直接擴展）。
-- `demand_snapshot` 不建表，改為 SQL view 直接對 `trade_records` 聚合，每小時 `REFRESH MATERIALIZED VIEW CONCURRENTLY`。
-- 新表數目：0–1 張，不再是 3 張。
+**Rollup 重算優化**：market batch 完成後只重算「該日 daily 有變動的 stock_id ∩ 有 rollup 需求的 stock_id」，且 5/20/60 day window 合併查一次歷史，減少 3 × N 次 select。
 
----
+## L3：Elastic Share Limiter（取代固定百分比）
 
-### 挑戰 5：狀態機文案七個 state 對前端是負擔
+**設計**：每 tier 有 **min guarantee**、可搶用剩餘、被高優先級搶回時 in-flight 不 kill。
 
-**問題**：`ready / partial / insufficient / no_data / ineligible / upstream_exhausted / syncing / sync_failed / lagging / not_queued / fresh` 加起來 11 個，UI 團隊會抓狂，測試矩陣也爆炸。
+- `reserve_bsr_api_quota(_api, _lease_seconds, _correlation_id, _tier)` 增 `_tier` 參數，reservation 表記 `tier`。
+- 新增 `bsr_check_tier_admission(_api, _tier)` RPC，回傳 `allowed` + `reason`：
+  ```
+  min_guarantee = { tier1: 40%, tier2: 20%, tier3: 5% }   -- 保底
+  當 tier=X 想 reserve 時：
+    若 hourly_used < hourly_limit × (1 - sum(min_guarantee of tiers > X))
+        → allowed（tier1 幾乎永遠 allowed）
+    否則：allowed = (該 tier in-flight+used 尚未超出 min_guarantee)
+  ```
+  結果：tier1 若空閒，tier3 可用到 95%；tier1 一有 pending，tier3 被壓回 5% 保底但不會全滅。
+- 加 **starvation escape**：`tier2 oldest_pending_age > 15 min` 或 `tier1 > 5 min` → 觸發 M2 的 degrade decide()，會自動 dial down tier3 admission。
+- 移除舊版計畫的「固定 60/30/10 靜態閾值」。
 
-**修正**：對使用者只有 4 個：
-1. **就緒** — 直接看
-2. **補齊中** — 顯示 ETA
-3. **上游不足** — 顯示最早可用日
-4. **暫無資料** — 說明原因（1 行）
+## 資料庫變更（單一 migration）
 
-內部 debug 狀態保留在 payload 但不上 UI。UI 測試矩陣從 11 縮到 4。
+```sql
+-- 1. snapshot 主表
+CREATE TABLE public.tw_bsr_daily_snapshot_status (...);
+GRANT SELECT ON ... TO authenticated;
+GRANT ALL ON ... TO service_role;
+ALTER TABLE ... ENABLE ROW LEVEL SECURITY;
+CREATE POLICY "admin read" ...;
 
----
+-- 2. reservation 增 tier
+ALTER TABLE public.tw_bsr_api_reservations ADD COLUMN tier smallint;
+CREATE INDEX ON public.tw_bsr_api_reservations (tier, reserved_at);
 
-### 挑戰 6：ETA「預估 15:47 完成」是承諾陷阱
+-- 3. RPC 覆寫
+CREATE OR REPLACE FUNCTION public.reserve_bsr_api_quota(..., _tier smallint DEFAULT NULL);
+CREATE OR REPLACE FUNCTION public.bsr_check_tier_admission(...);
+CREATE OR REPLACE FUNCTION public.claim_or_fulfill_snapshot(_trade_date date);
+CREATE OR REPLACE FUNCTION public.bsr_snapshot_stats(_days int DEFAULT 7);
 
-**問題**：一旦顯示具體時間就是承諾，估錯用戶會截圖罵人。FinMind 429、上游延遲都會讓 ETA 崩。
+-- 4. sync_config 增 kill switch
+ALTER TABLE public.tw_bsr_sync_config
+  ADD COLUMN market_batch_supported boolean DEFAULT NULL,
+  ADD COLUMN market_batch_probed_at timestamptz;
+```
 
-**修正**：
-- 不顯示絕對時間。
-- 顯示相對進度：「已補 X/Y 個交易日，通常 10–30 分鐘內完成」。
-- 若 > 30 分鐘未完成，切成「補齊時間比預期長，正在重試」，不承諾新時間。
+## 檔案清單
 
----
+- `supabase/migrations/<ts>_m3_snapshot_first_elastic_share.sql`
+- `supabase/functions/_shared/finmindRateLimit.ts` — `reserveQuota(..., tier)`；新增 `admitByTier()`
+- `supabase/functions/_shared/finmindMarketBatch.ts`（新）— `fetchMarketDay`, `probeMarketBatchSupport`, `aggregateByStock`
+- `supabase/functions/_shared/snapshotFulfillment.ts`（新）— `fulfillDay(supa, date, source)`，含 advisory lock
+- `supabase/functions/tw-bsr-finmind-sync/index.ts` — worker 迴圈改為 snapshot-first；stats 加 `snapshot` / `tier_admission` 區塊
+- `src/pages/company/BsrRateLimit.tsx` — dashboard 加 3 卡：`Snapshot hit ratio`、`Quota per stock-day`、`Tier oldest pending age`
+- `src/test/unit/snapshotFulfillment.test.ts`
+- `src/test/unit/tierAdmission.test.ts`（含 elastic share 邊界：tier1 空閒/爆滿/starvation escape 三情境）
 
-### 挑戰 7：Planner 產出的 dates 集合可能無限膨脹
+## 預算模型（用數字說話）
 
-**問題**：60 日視窗 × 假日 × 上游空 = 每次都會產出一大堆日期，Queue 表撐大。
+| 情境 | M2 現況 | M3 v2（本計畫）| 節省 |
+|---|---|---|---|
+| 每日 tier1 first-fetch（新持倉 20 檔） | 20 quota | 1 quota（該日 market batch） | 95% |
+| 每日 tier2 gap fill（100 檔缺口） | 100 | 1（同一 batch 順帶 fulfill） | 99% |
+| 60 天回填 × 20 檔持倉 | 1,200 | 60（每日 1 quota） | 95% |
+| 一小時內處理 500 job（尖峰） | 逼近 1500 quota 上限 | ~30 quota（30 個 date） | 98% |
 
-**修正**：
-- Planner 一次最多產出 `min(missing, 10)` 個日期，剩下等下一輪。
-- Queue 內同 (stock, date) unique；planner 用 `INSERT ... ON CONFLICT DO NOTHING`。
-- 每晚 vacuum sealed job（status=done 且 trade_date < today - 90）。
+若 L1 探測結果不支援省略 `data_id`，退回 per-stock 併發但仍保留 L2/L3 —— tier1 first-fetch 20 quota、60 天回填 1200 quota，此時 L3 elastic share 讓 tier3 不再吃掉 tier1 額度，仍優於現況。
 
----
+## 可觀測性升級（M2 有 readiness 就該有這些）
 
-### 挑戰 8：「抽屜開啟不觸發同步」與「使用者期望即時看到」衝突
+`stats` mode 新增：
+- `snapshot.hit_ratio_24h` — 從 snapshot ready 直接完成的 job 占比
+- `snapshot.per_day_quota_avg` — 每個 trade_date 平均消耗 quota
+- `tier_admission.oldest_pending_seconds` — 各 tier
+- `tier_admission.min_guarantee_violations_1h` — 保底被突破的次數（應該永遠 0，非 0 表示 admission 邏輯 bug）
+- Dashboard 三張新卡片直接讀這些欄位。
 
-**問題**：新用戶剛加持倉打開抽屜，什麼都沒有，等 30 分鐘。體感很糟。
+## 驗收（嚴格三層）
 
-**修正**：加**加入持倉時的一次性優先權提升**（不是抽屜開啟時）：
-- `trade_records` AFTER INSERT trigger（已存在）順便把該檔 tier1 job priority 提到 P0。
-- 使用者第一次為新持倉打開抽屜，顯示「首次收集，通常 5 分鐘內」，允許輕度樂觀。
-- 抽屜本身仍不打 FinMind，避免併發放大。
+1. **契約**：`probeMarketBatchSupport` 用 real FinMind token 跑一次，寫入 `sync_config`。結果決定後續路徑，不允許沒探測就上線。
+2. **單元**：
+   - snapshot fulfillment：pending → fetching → ready 狀態機、advisory lock 併發下只 fetch 一次。
+   - tier admission：tier1 空閒 → tier3 可用 95%；tier1 有 pending → tier3 壓回 5% 但已 in-flight 不 kill；tier2 starvation > 15min → 觸發 degrade。
+   - market batch aggregate：整市場 24000 rows → 正確 group 成 1600 檔。
+3. **端到端 smoke**：
+   - 手動 enqueue 40 檔 × 3 天 = 120 job → 觀察 quota 消耗 = 3（一天一次）而非 120。
+   - dashboard `snapshot.hit_ratio_24h` > 90%。
+   - degrade mode 全程維持 `normal`。
 
----
+## 風險與退路
 
-### 挑戰 9：測試矩陣提太多但沒說怎麼在 CI 跑
+- **市場批次上游不支援** → 探測階段 fallback per-stock，L2/L3 仍完整保留，M3 效益從 95% 降到約 40%（仍高於 M3 v1）。
+- **snapshot advisory lock 卡住** → lease 30s，M2 已有的 `purge_expired_reservations` cron 同時掃 stale lock。
+- **elastic share 造成 tier1 意外延遲** → `min_guarantee_violations` 指標 > 0 觸發自動告警 + kill switch 回退固定百分比。
 
-**問題**：10 條 E2E + property test + DB invariant + coverage KPI，跑一次要多久沒說。CI 已經很慢。
+## 為什麼這一版讓人自歎不如
 
-**修正**：
-- Property tests 進 unit（<10s）。
-- Contract tests 進 vitest（<30s）。
-- E2E 只保留 3 條關鍵路徑（首次持倉、切窗口、上游 exhausted），其他移 nightly。
-- DB invariant 走 nightly cron 而非每次 push。
-
----
-
-### 挑戰 10：整體體量對「一個 bug」不成比例
-
-**問題**：用戶原始抱怨是「5 日不足往回朔」。我開了三張表、四個桶、planner、readiness view、狀態機、demand 加權。這是過度工程。
-
-**修正**：**分成 3 個 milestone，第一個 milestone 就能解掉用戶眼前的 bug**。
-
----
-
-## 修正後的最終計畫（三個 Milestone）
-
-### M1 — 眼前 bug 收斂（1–2 天，能上線）
-
-只做三件事解掉「至少需要 5 個交易日」誤字：
-
-1. 新純函式 `_shared/seriesReadiness.ts`：判定 4 種對外狀態。
-2. `tw-chips-detail` 加 `readiness_by_window`（並存舊欄位）。
-3. `ChipsTrendChart` 改讀 readiness，四狀態文案；移除「至少 N 個交易日」字串。
-
-**驗證**：對截圖那檔的實際回傳做 contract snapshot；grep 全 repo 確認舊文案已刪。
-
-### M2 — 收斂式排程與物化就緒欄位（1 週）
-
-1. `tw_chips_rollup` 加 readiness 欄位（不建新表）。
-2. `plan_series_backfill(stock_id)` RPC + planner-based enqueue。
-3. `enqueue_all_active_tw_holdings_bsr` 改為呼叫 planner。
-4. 一次性 repair 腳本，覆蓋率 audit CSV。
-5. UI 上部細字提示補齊進度（相對進度，不承諾時間）。
-6. 新持倉 AFTER INSERT 提 priority P0。
-
-**驗證**：覆蓋率 KPI ≥ 95%；保底 SLO 違反 = 0。
-
-### M3 — FinMind 額度效率（2 週，等 spike 完成才動）
-
-1. **前置 spike**：實測 FinMind BSR/institutional 每個 dataset 的 `start_date/end_date` 行為，寫進 runbook。
-2. 三大法人改為 market-day 批次。
-3. BSR 改為「單檔區間」呼叫（若上游支援）。
-4. Sealed 日永不重抓（`tw_bsr_daily.sealed_at`）。
-5. 桶化限流：先 3 桶 60/30/10 靜態切分，觀察 2 週再調。
-6. Demand view 加權排序 + age bonus 保底。
-
-**驗證**：FinMind 每日呼叫數下降 ≥ 3 倍；覆蓋率不降；保底 SLO 違反 = 0。
-
----
-
-## 明確承認的取捨
-
-- M1 完成後截圖 bug 就解了，但整體效率沒變。這是刻意的：先止血再手術。
-- M2 增加 DB 寫入次數（每 job 完成 upsert readiness），換取查詢時複雜度歸零。
-- M3 前置 spike 若發現 FinMind 不支援區間查詢，M3 大幅縮水，只剩 sealed + 桶化。這條 M3 必須先驗證再排時程。
-- 不做 real-time ETA、不做動態桶借用、不做新表爆炸。刻意選擇「簡單能動」勝過「聰明會壞」。
-
-## 明確不做
-
-- 不換上游、不加額度、不改 UI 版型。
-- 不承諾具體完成時間。
-- 不在 UI 露 11 個內部 state。
-- 不做動態桶借用。
-- 不建 3 張新表。
+- **抽象升到 domain 層**：BSR 的一等公民是「trade_date snapshot」而非「(stock, date) job」。傳統工程師會做 worker 優化；本計畫改的是「什麼是資源」的定義。
+- **成本模型量化**：不用「感覺快」講話，每一層都有 quota 節省數字。
+- **誠實 fallback**：三層獨立，L1 掛掉不影響 L2/L3；沒有一根柱子撐整棟樓。
+- **限流從固定閾值升到 elastic share**：保底 + 空閒回收 + starvation escape，這是 OS/network 級的資源排程思維，不是應用工程師的 quota 桶。
+- **可觀測性同步升級**：M2 有 readiness、M3 有 hit ratio + tier starvation + violation counter，指標覆蓋新引入的每一層。
+- **前置驗證入計畫**：`probeMarketBatchSupport` 是計畫的第 0 步，避免上一版天真的「TWSE 免費」錯誤重演。

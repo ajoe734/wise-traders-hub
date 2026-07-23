@@ -37,6 +37,15 @@ import {
   toIsoDate,
   type FinmindRow,
 } from './lib.ts';
+import {
+  fetchFinmindMarketDay,
+  loadMarketBatchConfig,
+  probeMarketBatchSupport,
+} from '../_shared/finmindMarketBatch.ts';
+import {
+  fulfillDay,
+  fulfillJobsFromSnapshot,
+} from '../_shared/snapshotFulfillment.ts';
 
 const FINMIND_URL = 'https://api.finmindtrade.com/api/v4/data';
 const FINMIND_TOKEN = Deno.env.get('FINMIND_TOKEN') ?? '';
@@ -90,8 +99,16 @@ async function applyDegradeTransition(
   return Array.isArray(data) ? data[0] : data;
 }
 
-// ============ FinMind fetch（走限流器；帶 cid）============
-async function fetchFinmindOneDay(stockId: string, date: string, cid: string | null): Promise<FinmindRow[]> {
+// ============ FinMind fetch（走限流器；帶 cid + tier）============
+function tierFromPriority(priority: number): 1 | 2 | 3 {
+  if (priority <= 1) return 1;
+  if (priority === 2) return 2;
+  return 3;
+}
+
+async function fetchFinmindOneDay(
+  stockId: string, date: string, cid: string | null, tier: 1 | 2 | 3 = 3,
+): Promise<FinmindRow[]> {
   const p = new URLSearchParams({
     dataset: 'TaiwanStockTradingDailyReport',
     data_id: stockId,
@@ -100,7 +117,7 @@ async function fetchFinmindOneDay(stockId: string, date: string, cid: string | n
   if (FINMIND_TOKEN) p.set('token', FINMIND_TOKEN);
   const res = await fetchWithRateLimit(supa, `${FINMIND_URL}?${p}`, {
     signal: AbortSignal.timeout(20_000),
-  }, { correlationId: cid });
+  }, { correlationId: cid, tier });
   const text = await res.text();
   // 錯誤訊息只保留 status + 前 200 字，且不含 URL / token
   if (!res.ok) throw new Error(`finmind_http_${res.status}:${text.slice(0, 200)}`);
@@ -160,12 +177,14 @@ async function recordFailure(stockId: string, date: string, err: string, cid: st
   }
 }
 
-async function processStock(stockId: string, date: string, cid: string | null): Promise<{
+async function processStock(
+  stockId: string, date: string, cid: string | null, tier: 1 | 2 | 3 = 3,
+): Promise<{
   ok: boolean; rows: number; note?: string; error?: string; rateLimited?: boolean;
 }> {
   if (await isDoneAlready(stockId, date)) return { ok: true, rows: 0, note: 'already_done' };
   try {
-    const rows = await fetchFinmindOneDay(stockId, date, cid);
+    const rows = await fetchFinmindOneDay(stockId, date, cid, tier);
     if (rows.length === 0) return { ok: true, rows: 0, note: 'finmind_empty' };
     const agg = aggregate(rows);
     if (agg.length === 0) return { ok: true, rows: 0, note: 'aggregated_empty' };
@@ -425,14 +444,60 @@ async function runWorker(batch: number, maxPriority: number, budgetMs: number): 
   }
   const effectiveBatch = Math.min(batch, Math.max(1, rl.remaining));
 
+  // ============ M3 v2 Phase A：Snapshot-first coalesced fetch ============
+  // 在 claim per-stock job 之前，先看看有沒有整日可以「一次抓完」。若 market batch
+  // supported 且該 date 的 pending 量 ≥ threshold，一次呼叫解決該日全部 job。
+  const snapshotResults: any[] = [];
+  const mbCfg = await loadMarketBatchConfig(supa);
+  const canMarketBatch = mbCfg.enabled && mbCfg.supported === true;
+  if (canMarketBatch && cappedMaxPriority >= 1) {
+    const { data: dateBuckets } = await supa
+      .from('tw_bsr_sync_queue')
+      .select('trade_date, priority')
+      .eq('status', 'pending')
+      .lte('priority', cappedMaxPriority)
+      .lte('next_run_at', new Date().toISOString())
+      .limit(2000);
+    const counts = new Map<string, { total: number; minP: number }>();
+    for (const r of (dateBuckets ?? []) as Array<{ trade_date: string; priority: number }>) {
+      const cur = counts.get(r.trade_date) ?? { total: 0, minP: 3 };
+      cur.total += 1;
+      cur.minP = Math.min(cur.minP, r.priority);
+      counts.set(r.trade_date, cur);
+    }
+    const candidates = Array.from(counts.entries())
+      .filter(([, v]) => v.total >= mbCfg.threshold_pending)
+      .sort((a, b) => b[1].total - a[1].total)
+      .slice(0, 3);
+    for (const [date, meta] of candidates) {
+      if (Date.now() - started > budgetMs * 0.6) break;
+      const cid = crypto.randomUUID();
+      try {
+        const rows = await fetchFinmindMarketDay(supa, date, cid, tierFromPriority(meta.minP));
+        const outcome = await fulfillDay(supa, date, cid, rows, 'finmind_market_batch');
+        snapshotResults.push({ date, priority_min: meta.minP, ...outcome });
+      } catch (e) {
+        const msg = (e as Error).message ?? String(e);
+        snapshotResults.push({ date, error: msg.slice(0, 200) });
+        if (e instanceof RateLimitExhaustedError) { rateLimitedStop = true; break; }
+      }
+    }
+  }
+
+  // ============ Phase B：per-stock 補刀（fallback） ============
+  // 若 market batch 已消化完該 date 的 pending job，此處會直接 no_jobs。
   const { data: jobs, error } = await supa.rpc('claim_bsr_queue_jobs', {
     _batch: effectiveBatch, _max_priority: cappedMaxPriority,
   });
   if (error) return { ok: false, error: `claim_failed:${error.message}` };
   if (!jobs || jobs.length === 0) {
     const after = await evaluateAndMaybeTransition(null);
-    return { ok: true, note: 'no_jobs', rate_limit: rl,
-      degrade_mode: state.mode, transitioned: after.transitioned, processed: 0 };
+    return {
+      ok: true, note: snapshotResults.length > 0 ? 'snapshot_only' : 'no_jobs',
+      rate_limit: rl, degrade_mode: state.mode, transitioned: after.transitioned,
+      processed: 0, snapshot_fulfilled: snapshotResults,
+      recycled_reservations: recycledCount,
+    };
   }
 
   let idx = 0;
@@ -444,7 +509,7 @@ async function runWorker(batch: number, maxPriority: number, budgetMs: number): 
       const job = jobs[my];
       const cid: string | null = job.correlation_id ?? null;
       const t0 = Date.now();
-      const r = await processStock(job.stock_id, job.trade_date, cid);
+      const r = await processStock(job.stock_id, job.trade_date, cid, tierFromPriority(job.priority));
       processed++;
       if (r.ok) ok++;
       results.push({
@@ -527,6 +592,7 @@ async function runWorker(batch: number, maxPriority: number, budgetMs: number): 
     rate_limit_before: rl, rate_limit_after: finalRl,
     stopped_by_rate_limit: rateLimitedStop,
     recycled_reservations: recycledCount,
+    snapshot_fulfilled: snapshotResults,
     elapsed_ms: Date.now() - started,
     results,
   };
@@ -743,6 +809,29 @@ Deno.serve(async (req) => {
         rate_limit: rl, jobs: jobs ?? [], correlation_id: cid,
         note: 'manual sync 已入隊；查 GET stats 或 trace mode + correlation_id 追蹤',
       });
+    }
+
+    if (mode === 'probe') {
+      // 探測 FinMind 是否支援 market-batch（省略 data_id 一次抓整市場）。
+      const force = Boolean(body?.force);
+      const probeDate = body?.date ? String(body.date) : undefined;
+      const result = await probeMarketBatchSupport(supa, { force, probeDate });
+      return json({ ok: true, mode, ...result });
+    }
+
+    if (mode === 'snapshot_stats') {
+      const days = Math.max(1, Math.min(60, Number(body?.days ?? 14)));
+      const { data, error } = await supa.rpc('bsr_snapshot_stats', { _days: days });
+      if (error) return json({ ok: false, error: error.message }, 500);
+      return json({ ok: true, mode, days, snapshots: data ?? [] });
+    }
+
+    if (mode === 'snapshot_fulfill') {
+      // 手動觸發：對指定日期 raw data 已在庫（例如已手動 upsert）時，僅執行「把 job 標 done」。
+      const date = String(body?.date || '');
+      if (!date) return json({ ok: false, error: 'date required' }, 400);
+      const result = await fulfillJobsFromSnapshot(supa, date);
+      return json({ ok: true, mode, date, ...result });
     }
 
     return json({ ok: false, error: `unknown mode: ${mode}` }, 400);

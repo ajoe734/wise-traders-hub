@@ -62,18 +62,45 @@ export class RateLimitExhaustedError extends Error {
   }
 }
 
-/** 嘗試原子預留一格額度；失敗時回傳 null。可選帶入 correlation_id 串聯同一次同步工作。 */
+/**
+ * 嘗試原子預留一格額度；失敗時回傳 null。
+ * @param tier tier1 = 最高優先（持倉即時），tier2 = 缺口，tier3 = 歷史回填。
+ *             DB 端 `bsr_check_tier_admission` 會依據 tier 保底做 elastic share 准入。
+ *             當 admission 拒絕時，本函式回傳 null（與額度耗盡等價，caller 走 fallback）。
+ */
 export async function reserveQuota(
   supa: SupabaseClient,
   limit: number = FINMIND_HOURLY_LIMIT,
   leaseSeconds: number = DEFAULT_LEASE_SECONDS,
   correlationId?: string | null,
+  tier?: 1 | 2 | 3 | null,
 ): Promise<Reservation | null> {
+  // Elastic-share admission：先問「這個 tier 現在准不准」，被高層擠壓時不 reserve。
+  if (tier != null) {
+    const { data: adm, error: admErr } = await supa.rpc('bsr_check_tier_admission', {
+      _api: FINMIND_API_NAME,
+      _tier: tier,
+      _limit: limit,
+    });
+    if (admErr) {
+      console.warn('[rateLimit] tier admission check failed, allow-through:', admErr.message);
+    } else {
+      const row = Array.isArray(adm) ? adm[0] : adm;
+      if (row && !row.allowed) {
+        console.warn(
+          `[rateLimit] tier${tier} denied (${row.reason}) used=${row.hourly_used}/${limit}`,
+        );
+        return null;
+      }
+    }
+  }
+
   const { data, error } = await supa.rpc('reserve_bsr_api_quota', {
     _limit: limit,
     _api: FINMIND_API_NAME,
     _lease_seconds: leaseSeconds,
     _correlation_id: correlationId ?? null,
+    _tier: tier ?? null,
   });
   if (error) {
     // Fail-CLOSED：DB 出問題時寧可擋下也不冒著超額被 FinMind 封鎖的風險。
@@ -126,6 +153,7 @@ export async function fetchWithRateLimit(
     limit?: number;
     leaseSeconds?: number;
     correlationId?: string | null;
+    tier?: 1 | 2 | 3 | null;
   } = {},
 ): Promise<Response> {
   const maxRetries = opts.maxRetries ?? 3;
@@ -133,8 +161,9 @@ export async function fetchWithRateLimit(
   const limit = opts.limit ?? FINMIND_HOURLY_LIMIT;
   const lease = opts.leaseSeconds ?? DEFAULT_LEASE_SECONDS;
   const cid = opts.correlationId ?? null;
+  const tier = opts.tier ?? null;
 
-  let reservation = await reserveQuota(supa, limit, lease, cid);
+  let reservation = await reserveQuota(supa, limit, lease, cid, tier);
   if (!reservation) {
     throw new RateLimitExhaustedError({ used: limit, limit });
   }
@@ -176,7 +205,7 @@ export async function fetchWithRateLimit(
       console.warn(`[rateLimit] 429 backoff ${waitMs}ms (attempt ${attempt}/${maxRetries}) cid=${cid ?? '-'}`);
       await new Promise((r) => setTimeout(r, waitMs));
 
-      const next = await reserveQuota(supa, limit, lease, cid);
+      const next = await reserveQuota(supa, limit, lease, cid, tier);
       if (!next) {
         throw new RateLimitExhaustedError({ used: limit, limit });
       }
