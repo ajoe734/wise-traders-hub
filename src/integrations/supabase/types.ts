@@ -3934,6 +3934,7 @@ export type Database = {
           reserved_at: string
           settled_at: string | null
           success: boolean | null
+          tier: number | null
         }
         Insert: {
           api_name?: string
@@ -3946,6 +3947,7 @@ export type Database = {
           reserved_at?: string
           settled_at?: string | null
           success?: boolean | null
+          tier?: number | null
         }
         Update: {
           api_name?: string
@@ -3958,6 +3960,7 @@ export type Database = {
           reserved_at?: string
           settled_at?: string | null
           success?: boolean | null
+          tier?: number | null
         }
         Relationships: []
       }
@@ -4108,6 +4111,51 @@ export type Database = {
           sell_shares?: number
           stock_id?: string
           trade_date?: string
+        }
+        Relationships: []
+      }
+      tw_bsr_daily_snapshot_status: {
+        Row: {
+          attempt_count: number
+          correlation_id: string | null
+          coverage_rows: number
+          coverage_stocks: number
+          created_at: string
+          fetched_at: string | null
+          last_error: string | null
+          lock_expires_at: string | null
+          source: string | null
+          status: string
+          trade_date: string
+          updated_at: string
+        }
+        Insert: {
+          attempt_count?: number
+          correlation_id?: string | null
+          coverage_rows?: number
+          coverage_stocks?: number
+          created_at?: string
+          fetched_at?: string | null
+          last_error?: string | null
+          lock_expires_at?: string | null
+          source?: string | null
+          status?: string
+          trade_date: string
+          updated_at?: string
+        }
+        Update: {
+          attempt_count?: number
+          correlation_id?: string | null
+          coverage_rows?: number
+          coverage_stocks?: number
+          created_at?: string
+          fetched_at?: string | null
+          last_error?: string | null
+          lock_expires_at?: string | null
+          source?: string | null
+          status?: string
+          trade_date?: string
+          updated_at?: string
         }
         Relationships: []
       }
@@ -4928,6 +4976,17 @@ export type Database = {
           to_mode: string
         }[]
       }
+      bsr_check_tier_admission: {
+        Args: { _api?: string; _limit?: number; _tier?: number }
+        Returns: {
+          allowed: boolean
+          available_for_tier: number
+          hourly_used: number
+          reason: string
+          tier_guarantee: number
+          tier_used: number
+        }[]
+      }
       bsr_force_recycle_reservation: {
         Args: { _reason?: string; _reservation_id: number }
         Returns: boolean
@@ -4977,6 +5036,48 @@ export type Database = {
           oldest_in_flight_age_seconds: number
           rate_limited_last_hour: number
           settled_last_hour: number
+        }[]
+      }
+      bsr_snapshot_claim: {
+        Args: {
+          _correlation_id: string
+          _lease_seconds?: number
+          _trade_date: string
+        }
+        Returns: {
+          attempt_count: number
+          claimed: boolean
+          prev_status: string
+        }[]
+      }
+      bsr_snapshot_fulfill_jobs: {
+        Args: { _threshold?: number; _trade_date: string }
+        Returns: {
+          fulfilled: number
+          still_pending: number
+        }[]
+      }
+      bsr_snapshot_mark: {
+        Args: {
+          _coverage_rows: number
+          _coverage_stocks: number
+          _last_error?: string
+          _source: string
+          _status: string
+          _trade_date: string
+        }
+        Returns: undefined
+      }
+      bsr_snapshot_stats: {
+        Args: { _days?: number }
+        Returns: {
+          exhausted_days: number
+          hit_ratio_24h: number
+          oldest_pending_days: number
+          partial_days: number
+          quota_per_day_avg: number
+          ready_days: number
+          total_days: number
         }[]
       }
       bsr_trace_by_correlation: { Args: { _cid: string }; Returns: Json }
@@ -5274,20 +5375,36 @@ export type Database = {
         Args: { _reservation_id: number }
         Returns: undefined
       }
-      reserve_bsr_api_quota: {
-        Args: {
-          _api: string
-          _correlation_id?: string
-          _lease_seconds: number
-          _limit: number
-        }
-        Returns: {
-          granted: boolean
-          remaining: number
-          reservation_id: number
-          used: number
-        }[]
-      }
+      reserve_bsr_api_quota:
+        | {
+            Args: {
+              _api: string
+              _correlation_id?: string
+              _lease_seconds: number
+              _limit: number
+            }
+            Returns: {
+              granted: boolean
+              remaining: number
+              reservation_id: number
+              used: number
+            }[]
+          }
+        | {
+            Args: {
+              _api: string
+              _correlation_id?: string
+              _lease_seconds: number
+              _limit: number
+              _tier?: number
+            }
+            Returns: {
+              granted: boolean
+              remaining: number
+              reservation_id: number
+              used: number
+            }[]
+          }
       run_rls_subscription_tests: {
         Args: never
         Returns: {
