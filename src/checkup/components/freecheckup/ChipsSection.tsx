@@ -216,7 +216,7 @@ export default function ChipsSection({ WB, stockCode }: { WB: any; stockCode: st
       return { text: t ? `暫時失敗，${t} 自動重試` : '暫時失敗，將自動重試', tone: 'warn' };
     }
     if (syncStatus.status === 'dead') return { text: '多次失敗，請聯繫管理員', tone: 'error' };
-    if (syncStatus.status === 'not_queued') return { text: '尚未排入佇列（自動處理中）', tone: 'mute' };
+    if (syncStatus.status === 'not_queued') return { text: '等待每日排程（盤後 15:30 起自動同步）', tone: 'mute' };
     return null;
   }
   const headerLabel = bsrHeaderLabel();
