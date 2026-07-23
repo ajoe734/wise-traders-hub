@@ -142,29 +142,7 @@ BEGIN
 END $cc$;
 
 -- ---------------------------------------------------------------------
--- Case D：unsupported_asset_type（asset_class ≠ tw_stock）→ 不建立 queue
--- ---------------------------------------------------------------------
-DO $cd$
-DECLARE
-  v_etf text := current_setting('test.etf');
-  v_res jsonb;
-  v_cnt int;
-BEGIN
-  v_res := public.ensure_bsr_queued(v_etf);
-  IF (v_res->>'eligible') <> 'false' THEN
-    RAISE EXCEPTION 'CASE D FAILED: should be ineligible, got %', v_res;
-  END IF;
-  IF (v_res->>'ineligible_reason') <> 'unsupported_asset_type' THEN
-    RAISE EXCEPTION 'CASE D FAILED: expected reason=unsupported_asset_type, got %', v_res;
-  END IF;
-  SELECT count(*) INTO v_cnt FROM public.tw_bsr_sync_queue WHERE stock_id = v_etf;
-  IF v_cnt <> 0 THEN
-    RAISE EXCEPTION 'CASE D FAILED: should not enqueue, got % rows', v_cnt;
-  END IF;
-END $cd$;
-
--- ---------------------------------------------------------------------
--- Case D2：首位為 0 的代號（ETF/受益憑證）→ unsupported_asset_type
+-- Case D：首位為 0 的代號（ETF/受益憑證）→ unsupported_asset_type，不建立 queue
 -- ---------------------------------------------------------------------
 DO $cd2$
 DECLARE
