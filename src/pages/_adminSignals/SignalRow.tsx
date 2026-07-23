@@ -152,7 +152,25 @@ export function SignalRow({
         <td className="p-3 text-sm whitespace-nowrap tabular-nums align-top">
           {signal.price_hint ? (
             <>
-              {priceSymbol}{Number(signal.price_hint).toLocaleString(undefined, { minimumFractionDigits: spec.priceDigits >= 4 ? 2 : (currency === 'USD' ? 2 : 0), maximumFractionDigits: spec.priceDigits })}
+              <span className="inline-flex items-baseline gap-1">
+                <span>
+                  {priceSymbol}{Number(signal.price_hint).toLocaleString(undefined, { minimumFractionDigits: spec.priceDigits >= 4 ? 2 : (currency === 'USD' ? 2 : 0), maximumFractionDigits: spec.priceDigits })}
+                </span>
+                <span
+                  data-testid="admin-signal-currency-source"
+                  data-currency={currency}
+                  data-source={currencySource}
+                  title={`幣別 ${currency}（來源：${currencySourceLabel}）`}
+                  className={cn(
+                    'text-[10px] px-1 py-0 rounded border align-middle leading-none',
+                    isCurrencyInferred
+                      ? 'border-amber-300/60 bg-amber-50 text-amber-700 dark:bg-amber-900/20 dark:text-amber-300 dark:border-amber-700/60'
+                      : 'border-border bg-muted text-muted-foreground',
+                  )}
+                >
+                  {isCurrencyInferred ? `推斷·${currencySourceLabel}` : '明確'}
+                </span>
+              </span>
               {signal.quantity && (
                 <span className="text-muted-foreground">（{signal.quantity}{qtyUnit}）</span>
               )}
