@@ -496,21 +496,21 @@ export default function ChipsSection({ WB, stockCode }: { WB: any; stockCode: st
             </div>
             <div>
               失敗原因：
-              {data.bsr_last_failure.reason === 'captcha_retry_exhausted'
+              {data.bsr_last_failure.error_code === 'captcha_retry_exhausted'
                 ? '舊 TWSE 驗證碼路徑失敗（已停用），已改由 FinMind 官方 API 抓取'
-                : data.bsr_last_failure.reason === 'finmind_error'
+                : data.bsr_last_failure.error_code === 'finmind_error'
                 ? 'FinMind API 呼叫失敗（rate limit 或暫時性錯誤），下輪自動重試'
-                : data.bsr_last_failure.reason === 'http_block'
+                : data.bsr_last_failure.error_code === 'http_block'
                 ? '上游暫時封鎖請求'
-                : data.bsr_last_failure.reason === 'no_chip_data'
+                : data.bsr_last_failure.error_code === 'no_chip_data'
                 ? 'FinMind 尚無此代號分點（多為新上市或非常規個股）'
-                : data.bsr_last_failure.reason === 'not_chip_eligible'
+                : data.bsr_last_failure.error_code === 'not_chip_eligible'
                 ? 'ETF／權證／受益憑證無分點資料'
-                : data.bsr_last_failure.reason === 'rate_limited'
+                : data.bsr_last_failure.error_code === 'rate_limited'
                 ? 'API 額度已用完，將於下輪自動重試'
-                : data.bsr_last_failure.reason === 'empty_rows'
+                : data.bsr_last_failure.error_code === 'empty_rows'
                 ? '當日無成交或上游回空'
-                : data.bsr_last_failure.reason}
+                : '同步暫時失敗，將自動重試'}
               {typeof data.bsr_last_failure.consecutive_failures === 'number' && data.bsr_last_failure.consecutive_failures > 1
                 ? `（已連續失敗 ${data.bsr_last_failure.consecutive_failures} 次）`
                 : ''}
