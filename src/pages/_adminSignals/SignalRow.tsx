@@ -93,8 +93,10 @@ export function SignalRow({
   const recall = canRecallSignal((signal as any).published_at);
   const assetClass: AssetClass = normalizeAssetClass(signal.asset_class ?? defaultAssetClass);
   const spec = getAssetSpec(assetClass);
-  const currency: Currency = pickSignalCurrency(signal, spec.currency, defaultCurrency);
+  const { currency, source: currencySource } = pickSignalCurrencyWithSource(signal, spec.currency, defaultCurrency);
   const priceSymbol = CURRENCY_SYMBOL[currency];
+  const isCurrencyInferred = currencySource !== 'explicit';
+  const currencySourceLabel = SIGNAL_CURRENCY_SOURCE_LABEL[currencySource];
   const qtyUnit = signal.quantity_unit || spec.defaultUnit;
   const badge = assetBadge(assetClass);
 
