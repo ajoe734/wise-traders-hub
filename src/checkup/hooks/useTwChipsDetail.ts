@@ -55,6 +55,31 @@ export interface TwChipsPayload {
   };
   bsr_as_of: string | null;
   bsr_as_of_lag_days?: number | null;
+  /** rollup = 正式 5/20/60 日窗；raw_fallback = 只有 d5，來自 raw complete data；null = 無資料 */
+  bsr_source?: 'rollup' | 'raw_fallback' | null;
+  /** 收盤後預期最新可用 BSR 交易日（Asia/Taipei；不含國定假日） */
+  bsr_expected_date?: string | null;
+  /** chosen as_of 與 expected_date 的 weekday 差；越大表示越延遲 */
+  bsr_lag_weekdays?: number | null;
+  /**
+   * 前端渲染唯一語意來源：
+   *   fresh        = 資料日期 >= 預期日期
+   *   syncing      = 尚未 fresh、queue pending/running
+   *   sync_failed  = 尚未 fresh、queue failed/dead
+   *   lagging      = 有資料但落後預期（用來顯示「顯示 MM/DD 資料」）
+   *   not_queued   = 未 queue 且無資料（會由 ensure_bsr_queued 補上）
+   *   no_data      = 完全沒資料
+   *   ineligible   = ETF／權證等不支援
+   */
+  bsr_freshness_status?:
+    | 'ineligible'
+    | 'fresh'
+    | 'syncing'
+    | 'sync_failed'
+    | 'lagging'
+    | 'not_queued'
+    | 'no_data';
+  bsr_completeness_threshold?: number;
   bsr_last_failure?: {
     trade_date: string;
     error_code: string;

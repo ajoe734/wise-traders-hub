@@ -1,63 +1,18 @@
 // tw-bsr-finmind-sync/lib.ts
 // 純邏輯（無 side effect），從 index.ts 抽出以便 unit test。
 // 這些函式一律不能依賴 supa/env/Date.now() 以外的全域狀態。
-
-// ============ 日期／交易日工具 ============
-export function taipeiNowFrom(nowMs: number): Date {
-  return new Date(nowMs + 8 * 3600 * 1000);
-}
-
-export function toIsoDate(d: Date): string {
-  return d.toISOString().slice(0, 10);
-}
-
-export function addDays(iso: string, n: number): string {
-  const d = new Date(iso + 'T00:00:00Z');
-  d.setUTCDate(d.getUTCDate() + n);
-  return d.toISOString().slice(0, 10);
-}
-
-export function isWeekday(iso: string): boolean {
-  const dow = new Date(iso + 'T00:00:00Z').getUTCDay();
-  return dow !== 0 && dow !== 6;
-}
-
-export function rollBackToWeekday(iso: string): string {
-  const d = new Date(iso + 'T00:00:00Z');
-  for (let i = 0; i < 7; i++) {
-    const dow = d.getUTCDay();
-    if (dow !== 0 && dow !== 6) break;
-    d.setUTCDate(d.getUTCDate() - 1);
-  }
-  return d.toISOString().slice(0, 10);
-}
-
-/** 台北時間是否已收盤（14:00 後 BSR 才有意義） */
-export function isAfterCloseAt(nowMs: number): boolean {
-  return taipeiNowFrom(nowMs).getUTCHours() >= 14;
-}
-
-/**
- * enqueue 模式的實際日期決策：
- *   - 使用者沒指定日期且收盤前 → 回到「昨天 → 上一個交易日」
- *   - 使用者有指定 → 保留但 roll back 到最近交易日
- */
-export function decideEffectiveDate(
-  nowMs: number,
-  requestedDate: string | null,
-  taipeiTodayIso: string,
-): { effective: string; rolled: boolean } {
-  if (!requestedDate) {
-    if (!isAfterCloseAt(nowMs)) {
-      const effective = rollBackToWeekday(addDays(taipeiTodayIso, -1));
-      return { effective, rolled: effective !== taipeiTodayIso };
-    }
-    const effective = rollBackToWeekday(taipeiTodayIso);
-    return { effective, rolled: effective !== taipeiTodayIso };
-  }
-  const effective = rollBackToWeekday(requestedDate);
-  return { effective, rolled: effective !== requestedDate };
-}
+//
+// 日期／交易日 helpers 已遷至 _shared/tradingDate.ts，讓 tw-chips-detail 共用。
+// 這裡 re-export 保相容（lib_test.ts 與 index.ts 皆從本檔匯入）。
+export {
+  taipeiNowFrom,
+  toIsoDate,
+  addDays,
+  isWeekday,
+  rollBackToWeekday,
+  isAfterCloseAt,
+  decideEffectiveDate,
+} from '../_shared/tradingDate.ts';
 
 // ============ FinMind rows 聚合 ============
 export type FinmindRow = {

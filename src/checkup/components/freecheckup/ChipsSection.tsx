@@ -452,6 +452,27 @@ export default function ChipsSection({ WB, stockCode }: { WB: any; stockCode: st
 
         </div>
 
+        {/* 昨日 fallback 提示：有資料但落後預期交易日，或今日同步進行中但先顯示昨日資料 */}
+        {data?.bsr_as_of && (data.bsr_freshness_status === 'lagging' || (data.bsr_freshness_status === 'syncing' && data.bsr_source === 'raw_fallback')) && (
+          <div
+            data-testid="chips-bsr-fallback-note"
+            data-bsr-source={data.bsr_source || 'unknown'}
+            data-bsr-freshness={data.bsr_freshness_status}
+            style={{
+              fontSize: 10,
+              color: '#8a5a1e',
+              marginBottom: 8,
+              letterSpacing: '0.06em',
+            }}
+          >
+            {data.bsr_freshness_status === 'syncing'
+              ? `今日資料同步中，先顯示 ${data.bsr_as_of.replaceAll('-', '/')} 的關鍵分點`
+              : `顯示 ${data.bsr_as_of.replaceAll('-', '/')} 資料（較預期日期落後 ${data.bsr_lag_weekdays ?? 1} 個交易日）`}
+          </div>
+        )}
+
+
+
 
         {/* 有失敗紀錄就顯示診斷 banner；不再要求同時要有 bsr_as_of，
             因為首次同步尚未成功時 bsr_as_of 會是 null，此時最需要向使用者說明狀態 */}

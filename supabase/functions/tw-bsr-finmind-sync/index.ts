@@ -120,33 +120,19 @@ async function rebuildRollup(stockId: string, asOf: string) {
     .select('trade_date, broker_id, broker_name, net_shares, buy_shares, sell_shares')
     .eq('stock_id', stockId).gte('trade_date', since).lte('trade_date', asOf)
     .order('trade_date', { ascending: false });
-  const uniqueDates = Array.from(new Set((bsrRows || []).map((r: any) => r.trade_date)))
+  const rows = bsrRows || [];
+  const uniqueDates = Array.from(new Set(rows.map((r: any) => r.trade_date)))
     .sort((a, b) => (a < b ? 1 : -1));
+  const { computeBsrWindow, pickWindowDates } = await import('../_shared/bsrRollup.ts');
   for (const win of [5, 20, 60] as const) {
-    const dates = new Set(uniqueDates.slice(0, win));
-    const slice = (bsrRows || []).filter((r: any) => dates.has(r.trade_date));
-    if (slice.length === 0) continue;
-    const agg = new Map<string, { name: string; net: number; buy: number; sell: number }>();
-    for (const r of slice) {
-      const cur = agg.get(r.broker_id) || { name: r.broker_name, net: 0, buy: 0, sell: 0 };
-      cur.net += Number(r.net_shares || 0);
-      cur.buy += Number(r.buy_shares || 0);
-      cur.sell += Number(r.sell_shares || 0);
-      agg.set(r.broker_id, cur);
-    }
-    const list = Array.from(agg.entries()).map(([broker_id, v]) => ({ broker_id, ...v }));
-    const topBuy = [...list].sort((a, b) => b.net - a.net).slice(0, 3)
-      .map((b) => ({ broker_id: b.broker_id, name: b.name, net: b.net }));
-    const topSell = [...list].sort((a, b) => a.net - b.net).slice(0, 3)
-      .map((b) => ({ broker_id: b.broker_id, name: b.name, net: b.net }));
-    const totalBuy = list.reduce((s, b) => s + b.buy, 0);
-    const top15Buy = [...list].sort((a, b) => b.buy - a.buy).slice(0, 15).reduce((s, b) => s + b.buy, 0);
-    const concentration = totalBuy > 0 ? (top15Buy / totalBuy) * 100 : null;
+    const dates = pickWindowDates(uniqueDates, win);
+    const w = computeBsrWindow(rows as any, dates);
+    if (!w) continue;
     await supa.from('tw_chips_rollup').upsert({
       stock_id: stockId, as_of_date: asOf, window_days: win,
       foreign_net: 0, trust_net: 0, dealer_net: 0,
-      top_buy_brokers: topBuy, top_sell_brokers: topSell,
-      concentration_ratio: concentration, bsr_available: true,
+      top_buy_brokers: w.top_buy, top_sell_brokers: w.top_sell,
+      concentration_ratio: w.concentration_ratio, bsr_available: true,
       updated_at: new Date().toISOString(),
     }, { onConflict: 'stock_id,as_of_date,window_days' });
   }
