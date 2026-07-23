@@ -16,22 +16,9 @@ function HoldingsActionPriorityImpl({
   WB, // eslint-disable-line no-unused-vars
   onPick,
 }) {
-  // 資料補丁：fallback 對舊呼叫（HoldingsTab 已預先組好 items，本區塊多用第一路徑）
-  const rows = (items || []).map((it) => {
-    let tag = it.tag;
-    let desc = it.desc;
-    if (!tag || !desc) {
-      const dec = decisionsMap ? decisionsMap[it.code] : null;
-      tag = tag || (dec?.actionType === 'exit' ? 'EXIT'
-        : dec?.actionType === 'review' ? 'REVIEW' : 'WATCH');
-      desc = desc || (dec?.actionText
-        ? (dec.actionText.length > 32 ? dec.actionText.slice(0, 30) + '…' : dec.actionText)
-        : (stockMeta?.[it.code]?.strategy || '持續監控'));
-    }
-    return { ...it, tag, desc };
-  });
-
-  const actionable = rows.filter((r) => r.tag === 'EXIT' || r.tag === 'REVIEW');
+  // items 由 useHoldingsDerivations 預先組裝：已限定 tag ∈ {EXIT, REVIEW}、最多 3 檔、含 desc。
+  // 舊版 fallback（從 decisionsMap/stockMeta 就地推導）已下線 —— 分組計算必須集中在 hook 內以確保守恒。
+  const actionable = (items || []).filter((it) => it.tag === 'EXIT' || it.tag === 'REVIEW');
 
   if (actionable.length === 0) {
     return (
