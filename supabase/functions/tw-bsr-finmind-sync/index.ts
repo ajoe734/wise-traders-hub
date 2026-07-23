@@ -99,8 +99,16 @@ async function applyDegradeTransition(
   return Array.isArray(data) ? data[0] : data;
 }
 
-// ============ FinMind fetch（走限流器；帶 cid）============
-async function fetchFinmindOneDay(stockId: string, date: string, cid: string | null): Promise<FinmindRow[]> {
+// ============ FinMind fetch（走限流器；帶 cid + tier）============
+function tierFromPriority(priority: number): 1 | 2 | 3 {
+  if (priority <= 1) return 1;
+  if (priority === 2) return 2;
+  return 3;
+}
+
+async function fetchFinmindOneDay(
+  stockId: string, date: string, cid: string | null, tier: 1 | 2 | 3 = 3,
+): Promise<FinmindRow[]> {
   const p = new URLSearchParams({
     dataset: 'TaiwanStockTradingDailyReport',
     data_id: stockId,
@@ -109,7 +117,7 @@ async function fetchFinmindOneDay(stockId: string, date: string, cid: string | n
   if (FINMIND_TOKEN) p.set('token', FINMIND_TOKEN);
   const res = await fetchWithRateLimit(supa, `${FINMIND_URL}?${p}`, {
     signal: AbortSignal.timeout(20_000),
-  }, { correlationId: cid });
+  }, { correlationId: cid, tier });
   const text = await res.text();
   // 錯誤訊息只保留 status + 前 200 字，且不含 URL / token
   if (!res.ok) throw new Error(`finmind_http_${res.status}:${text.slice(0, 200)}`);
