@@ -149,18 +149,21 @@ Deno.serve(async (req) => {
     } else if (fallbackNewer) {
       bsrSource = "raw_fallback";
       chosenAsOf = fallbackAsOf;
-      // 取「以 fallbackAsOf 為最新、往前 5 個已收錄 raw 交易日」聚合
+      // 取「以 fallbackAsOf 為最新、往前 N 個已收錄 raw 交易日」聚合
+      // 三個窗口一致由 computeBsrWindow 現算，保證 concentration 永遠有值可顯示。
       const idx = rawUniqueDatesDesc.indexOf(fallbackAsOf!);
-      const windowDates = pickWindowDates(rawUniqueDatesDesc.slice(idx), 5);
-      const w5 = computeBsrWindow(bsrRawRows, windowDates);
-      if (w5) {
-        bsr.d5 = {
-          top_buy: w5.top_buy,
-          top_sell: w5.top_sell,
-          concentration_ratio: w5.concentration_ratio,
-        };
+      const tail = rawUniqueDatesDesc.slice(idx);
+      for (const win of [5, 20, 60] as const) {
+        const windowDates = pickWindowDates(tail, win);
+        const w = computeBsrWindow(bsrRawRows, windowDates);
+        if (w) {
+          bsr[`d${win}`] = {
+            top_buy: w.top_buy,
+            top_sell: w.top_sell,
+            concentration_ratio: w.concentration_ratio,
+          };
+        }
       }
-      // d20 / d60 仍需 rollup 才有，這裡刻意保留 null（前端不會顯示；trend chart 走 series）
     }
 
     // ==== 三大法人序列 ====

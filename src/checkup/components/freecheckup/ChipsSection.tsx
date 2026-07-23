@@ -548,10 +548,10 @@ export default function ChipsSection({ WB, stockCode }: { WB: any; stockCode: st
           >
             <BrokerCol WB={WB} title="買超前 3" rows={bsrLatest.top_buy?.slice(0, 3) || []} positive />
             <BrokerCol WB={WB} title="賣超前 3" rows={bsrLatest.top_sell?.slice(0, 3) || []} />
-            {bsrLatest.concentration_ratio != null && (
+            {bsrLatest.concentration_ratio != null && Number.isFinite(Number(bsrLatest.concentration_ratio)) && (
               <div style={{ gridColumn: '1 / -1', marginTop: 6, fontSize: 11, color: WB.inkSub }}>
-                集中度：買超前 15 大占 {bsrLatest.concentration_ratio.toFixed(0)}%{' '}
-                {bsrLatest.concentration_ratio > 70 ? '· 高（籌碼集中，跟隨風險升高）' : ''}
+                集中度：買超前 15 大占 {Number(bsrLatest.concentration_ratio).toFixed(0)}%{' '}
+                {Number(bsrLatest.concentration_ratio) > 70 ? '· 高（籌碼集中，跟隨風險升高）' : ''}
               </div>
             )}
           </div>

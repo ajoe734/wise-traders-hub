@@ -5025,6 +5025,10 @@ export type Database = {
         }
         Returns: string
       }
+      enqueue_all_active_tw_holdings_bsr: {
+        Args: { p_lookback_days?: number }
+        Returns: Json
+      }
       enqueue_bsr_backfill: {
         Args: { p_days?: number; p_stock_id: string }
         Returns: number
