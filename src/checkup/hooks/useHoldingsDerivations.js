@@ -134,8 +134,8 @@ export function useHoldingsDerivations({
 
     const rest = uniqueHoldings.filter((h) => !topKeys.has(uniqKey(h)));
 
-    // Dev invariant + TEMP audit diagnostic (remove after verification)
-    if (typeof window !== 'undefined') {
+    // Dev invariant
+    if (typeof process !== 'undefined' && process.env && process.env.NODE_ENV !== 'production') {
       const sum = items.length + rest.length;
       if (sum !== uniqueHoldings.length) {
         // eslint-disable-next-line no-console
@@ -143,26 +143,6 @@ export function useHoldingsDerivations({
           top: items.length, rest: rest.length, unique: uniqueHoldings.length,
         });
       }
-      const _topKeys = new Set(items.map((i) => `${i.market || 'TW'}:${i.code}`));
-      let _fourth = null;
-      for (const h of uniqueHoldings) {
-        const k = `${h.market || 'TW'}:${h.code}`;
-        if (_topKeys.has(k)) continue;
-        const dec = safeDecisionsMap[h.code];
-        if (dec?.actionType === 'exit' || dec?.actionType === 'review') {
-          _fourth = `${k}[${dec.actionType.toUpperCase()}]`;
-          break;
-        }
-      }
-      // eslint-disable-next-line no-console
-      console.log('[HOLDINGS_AUDIT]', JSON.stringify({
-        unique: uniqueHoldings.length,
-        top: items.length,
-        remaining: rest.length,
-        topCodes: items.map((i) => `${i.market || 'TW'}:${i.code}[${i.tag}]`),
-        remainingCodes: rest.map((h) => `${h.market || 'TW'}:${h.code}`),
-        fourthExitReview: _fourth,
-      }));
     }
 
     return { actionPriorityItems: items, remainingItems: rest, topActionableCount: items.length };
