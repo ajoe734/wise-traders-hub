@@ -811,6 +811,29 @@ Deno.serve(async (req) => {
       });
     }
 
+    if (mode === 'probe') {
+      // 探測 FinMind 是否支援 market-batch（省略 data_id 一次抓整市場）。
+      const force = Boolean(body?.force);
+      const probeDate = body?.date ? String(body.date) : undefined;
+      const result = await probeMarketBatchSupport(supa, { force, probeDate });
+      return json({ ok: true, mode, ...result });
+    }
+
+    if (mode === 'snapshot_stats') {
+      const days = Math.max(1, Math.min(60, Number(body?.days ?? 14)));
+      const { data, error } = await supa.rpc('bsr_snapshot_stats', { _days: days });
+      if (error) return json({ ok: false, error: error.message }, 500);
+      return json({ ok: true, mode, days, snapshots: data ?? [] });
+    }
+
+    if (mode === 'snapshot_fulfill') {
+      // 手動觸發：對指定日期 raw data 已在庫（例如已手動 upsert）時，僅執行「把 job 標 done」。
+      const date = String(body?.date || '');
+      if (!date) return json({ ok: false, error: 'date required' }, 400);
+      const result = await fulfillJobsFromSnapshot(supa, date);
+      return json({ ok: true, mode, date, ...result });
+    }
+
     return json({ ok: false, error: `unknown mode: ${mode}` }, 400);
   } catch (e) {
     const msg = e instanceof Error ? e.message : String(e);
