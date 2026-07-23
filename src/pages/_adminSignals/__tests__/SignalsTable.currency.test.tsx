@@ -166,7 +166,6 @@ describe('SignalsTable × currency fallback（缺 signal.currency）', () => {
       const chip = screen.getByTestId('admin-signal-currency-source');
       expect(chip.getAttribute('data-source')).toBe('default-fallback');
       expect(chip.textContent).toContain('預設');
-    });
   });
 });
-});
+
