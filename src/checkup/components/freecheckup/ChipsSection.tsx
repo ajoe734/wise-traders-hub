@@ -430,22 +430,28 @@ export default function ChipsSection({ WB, stockCode }: { WB: any; stockCode: st
         <div style={{ display: 'flex', alignItems: 'baseline', justifyContent: 'space-between', marginBottom: 8, gap: 8, flexWrap: 'wrap' }}>
           <div style={{ fontSize: 11, color: WB.inkMute, letterSpacing: '0.14em' }}>關鍵分點（近 5 日）</div>
           {data?.bsr_as_of ? (
-            <div style={{ fontSize: 10, color: WB.inkMute, textAlign: 'right' }}>
+            <div style={{ fontSize: 10, color: WB.inkMute, textAlign: 'right' }} data-testid="chips-bsr-as-of">
               BSR {data.bsr_as_of.replaceAll('-', '/')}
               {data.bsr_as_of_lag_days && data.bsr_as_of_lag_days >= 1
                 ? `（前 ${data.bsr_as_of_lag_days} 個交易日）`
                 : ''}
             </div>
-          ) : data?.bsr_last_failure ? (
-            <div style={{ fontSize: 10, color: '#8a5a1e' }}>BSR 同步進行中</div>
-          ) : hasInst ? (
-            <div style={{ fontSize: 10, color: WB.inkMute, textAlign: 'right' }}>
-              BSR 自動同步中
-              <div style={{ fontSize: 9, color: WB.inkMute, marginTop: 2 }}>收盤後 14:00–21:00 每 10 分鐘一輪</div>
+          ) : headerLabel ? (
+            <div
+              data-testid="chips-bsr-status"
+              data-bsr-status={syncStatus?.status || 'unknown'}
+              style={{
+                fontSize: 10,
+                color: headerLabel.tone === 'error' ? '#b04a4a' : headerLabel.tone === 'warn' ? '#8a5a1e' : WB.inkMute,
+                textAlign: 'right',
+              }}
+            >
+              {headerLabel.text}
             </div>
           ) : null}
 
         </div>
+
 
         {/* 有失敗紀錄就顯示診斷 banner；不再要求同時要有 bsr_as_of，
             因為首次同步尚未成功時 bsr_as_of 會是 null，此時最需要向使用者說明狀態 */}
