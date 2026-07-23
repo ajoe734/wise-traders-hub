@@ -26,6 +26,7 @@ const { data: trs } = await supa
   .ilike('market', 'TW');
 const stockSet = new Set();
 for (const r of trs || []) {
+  // 嚴格 4 碼 + 空白/EOL，避免把 6 碼權證截成 4 碼
   const m = String(r.instrument || '').match(/^([1-9][0-9]{3})(?:\s|$)/);
   if (m) stockSet.add(m[1]);
 }
