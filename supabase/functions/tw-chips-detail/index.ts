@@ -23,6 +23,7 @@ import {
   DONE_BROKER_THRESHOLD,
 } from "../_shared/bsrRollup.ts";
 import { expectedLatestBsrDate, weekdayDiff } from "../_shared/tradingDate.ts";
+import { resolveAllWindows, type WindowReadiness } from "../_shared/seriesReadiness.ts";
 
 const SUPABASE_URL = Deno.env.get("SUPABASE_URL")!;
 const SERVICE_ROLE_KEY = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!;
@@ -314,6 +315,22 @@ Deno.serve(async (req) => {
       retryable: status === "pending" || status === "running" || status === "failed",
     };
 
+    // ==== Readiness（M1：讓 UI 有唯一真相判斷 5/20/60 日視窗是否夠畫線）====
+    // 三大法人 valid = 有 trade_date 的日期即為 valid（單日就是一個資料點）。
+    const instValidDatesAsc = instAsc.map((r) => r.date);
+    // BSR 集中度 valid = 該日 raw broker rows >= DONE_BROKER_THRESHOLD。
+    const bsrValidDatesAsc = bsrConcentration
+      .filter((p) => (rowCountByDate.get(p.date) ?? 0) >= DONE_BROKER_THRESHOLD)
+      .map((p) => p.date);
+    const instReadiness = resolveAllWindows({
+      validDatesAsc: instValidDatesAsc,
+      upstreamExhausted: false,
+    });
+    const bsrReadiness = resolveAllWindows({
+      validDatesAsc: bsrValidDatesAsc,
+      upstreamExhausted: false,
+    });
+
     const payload = {
       stock_id: stockId,
       as_of: asOfDate,
@@ -332,6 +349,10 @@ Deno.serve(async (req) => {
       series: {
         institutional_daily: instAsc,
         bsr_concentration: bsrConcentration.slice(-60),
+      },
+      readiness: {
+        institutional: instReadiness,
+        bsr_concentration: bsrReadiness,
       },
       source: "TWSE",
       fetched_at: new Date().toISOString(),

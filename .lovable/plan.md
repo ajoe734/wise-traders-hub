@@ -1,62 +1,168 @@
-## 目標
+## 自我審視（用最嚴厲角度挑戰前三版）
 
-讓「所有活躍持倉 TW 個股」在抽屜的 BSR 區塊都能穩定顯示「集中度：買超前 15 大占 X%」，並且每一種資料狀態都有明確、被驗證的根因修法。不是「哪隻沒出來修哪隻」，而是把每一種會導致「沒出來」的路徑一次補上。
+以下是我對自己前三版計畫的實質性反駁；每一條後面接「怎麼改」。
 
-## 現況（已核實）
+---
 
-- `tw_chips_rollup`：211 檔已有 rollup，4623 筆 `concentration_ratio` 全部 non-null；`bsr_available=true`。
-- Edge `tw-chips-detail`：對 2313 / 4576 / 2881 實測回傳 `bsr.d5.concentration_ratio = 58.35`（數字型別，非字串），資料鏈路 OK。
-- Queue：P1 pending 48、P2 pending 68；324 檔 `never_done`（多為 020xxx／030xxx 權證，已 `skipped`，合預期）。
-- Frontend：`ChipsSection` 讀 `data?.bsr?.d5 || d20 || d60`，直接 `.toFixed(0)`。
+### 挑戰 1：「Market-scope 每日 1 呼叫」是空中樓閣
 
-換句話說：**已有資料的個股「集中度」實際會顯示**；用戶說「全部個股都沒出來」的最合理解釋是他抽的個股落在「rollup 尚未產出／raw 有但 rollup 沒 rebuild／queue 卡 pending」這幾個坑上。**根因分類修法** 覆蓋這些坑，才是符合最高行為準則的做法。
+**問題**：我假設 FinMind 有「全市場 BSR」單一端點。實際上 FinMind 的分點資料 (`TaiwanStockShareholding`) 是**按股票查詢**的，沒有一次拉全市場的 BSR 端點。三大法人 (`TaiwanStockInstitutionalInvestorsBuySell`) 才有整日。
 
-## 待辦（照類別修，不照個股修）
+**修正**：
+- 三大法人：改成 market-day 批次（真的能省），這條保留。
+- BSR：仍是 per-stock-per-day。**改為以「每檔的 60 日區間查詢」代替「單日 60 次查詢」**——若 FinMind 支援 `start_date/end_date`，1 檔補 60 天只花 1 次呼叫；若不支援，維持單日但用桶預算限流。
+- Plan 必須在開工前先做一次 **FinMind 端點 spike**（半天）驗證每個 dataset 的 date 範圍語意，把結論寫進 `docs/ops/bsr-finmind-runbook.md` 再動手。
 
-### 1. 全域審計腳本（先量再修）
+---
 
-新增 `scripts/audit-bsr-concentration.mjs`：
-- 掃全站活躍 TW 4 碼持倉（`trade_records` 未清倉 + `checkup_storage.holdings`）。
-- 對每檔輸出 `{stock_id, has_rollup, rollup_as_of, bsr_available, concentration_ratio, raw_days, queue_state, ineligible_reason}`。
-- 分桶統計並落 `/tmp/bsr-audit-*.csv`；納入 nightly CI。
-- 這份是後續每一步的驗收基準。
+### 挑戰 2：「Demand-Weighted Scheduling」邏輯漂亮但沒有 SLO
 
-### 2. Backend 根因修法（`supabase/functions`）
+**問題**：加權後低分股票可能永遠排不到，但那可能是唯一用戶的唯一持倉，對他而言就是壞掉。
 
-- **`tw-bsr-finmind-sync` worker**：`rebuildRollup` 完成後，若 `computeBsrWindow` 為 null（raw < 5 rows）→ 保持 `pending/skipped` 不寫 rollup（現行行為，確認保留）；若非 null → 必須 upsert **三筆**（w=5/20/60）並強制 `bsr_available=true` 與 `concentration_ratio=computeBsrWindow().concentration_ratio`。今日抽查同一份 helper，兩邊數字必一致。
-- **`tw-chips-detail` 自癒**：若 `rollupRows` 為空、但 `bsrRawRows` 有 ≥ 5 rows 的日期（fallback complete）→ 直接以 `computeBsrWindow` 現算三窗回傳 `bsr_source='raw_fallback'`（目前只算 d5，擴到 d20/d60 供前端全部窗口都能顯示集中度）。同時背景送 `pg_notify` 或直接呼叫 `rebuildRollup`，讓下次不用即算。
-- **Queue 排隊完整性**：新增 DB function `public.enqueue_all_active_tw_holdings_bsr()`，掃 `trade_records` 未清倉 + `checkup_storage.holdings` 中 `^[1-9][0-9]{3}$` 個股，補 P1 pending（含今日）與最近 5 個交易日 P2 缺口。目前 `tw-bsr-enqueue-holdings-delta` 只補 tier1 今日；擴充成 tier1 + tier2 缺口。
+**修正**：
+- 加**保底 SLO**：任何 active 持倉，24 小時內至少要把 d5 補到 ready，無論分數多低。
+- 排序改成 `max(demand_score, age_bonus)`：age_bonus 隨排隊時間線性上升，避免飢餓。
+- Dashboard 需要顯示「保底違反次數」KPI，違反即 P1 告警。
 
-### 3. Frontend 防禦（`ChipsSection.tsx`）
+---
 
-- `bsrLatest.concentration_ratio` 一律 `Number(...)` 後再 `.toFixed(0)`；PostgREST 未來若改回 string 也不會壞。
-- `bsrLatest` fallback 順序：`d5 || d20 || d60`（現況）；並在 `top_buy/top_sell` 空但 `concentration_ratio` 有值時仍渲染集中度那一行。
-- 若後端回 `bsr_source=null`，明示區分「尚未排入」「排隊中」「上游無資料（權證/ETF）」三種文案，用 `data.bsr_freshness_status` / `ineligible_reason` 驅動。
+### 挑戰 3：桶化預算的三個桶是拍腦袋的比例
 
-### 4. 一次性資料修復
+**問題**：40/40/20 沒有數據支持。且「借用」邏輯若寫錯會讓 Backfill 桶反噬 Live 桶。
 
-- 對現有 211 檔以外、屬「活躍持倉」且未 `skipped/ineligible` 的個股：
-  - 用新 RPC 一次入隊 tier1（今日）+ tier2（近 5 日）。
-  - 用 `mode=worker, max_priority=1, budget_ms=45000` 手動燒完 P1；不動全域降級狀態（現在是 normal）。
-- 對 rollup 存在但 `bsr_available=false` 或 `concentration_ratio IS NULL` 的舊列：`DELETE` 後由下一輪 worker 重寫（避免 upsert 帶入舊壞值）。
+**修正**：
+- 上線先跑 2 週單桶 + 觀察，用實際 `tw_bsr_api_usage` 分布決定切法。
+- 借用只單向：Live → Fill → Backfill，不可反向。
+- 每桶各自的 rate limiter 用同一支 `reserve_bsr_quota` RPC，桶名當參數；桶間切換由排程層決定，不做「動態借用」，直接每小時重算比例。避免動態邏輯錯誤。
 
-### 5. 回歸測試與監控
+---
 
-- 單元：`bsrRollup.test.ts` 加「computeBsrWindow → rebuildRollup 必寫 concentration_ratio 且與 helper 完全相等」。
-- 整合：`tw-chips-detail` 對「無 rollup、有 raw ≥ 5 rows」個股必回 `raw_fallback` 且 `concentration_ratio` 非 null（d5/d20/d60 至少 d5）。
-- E2E：`e2e/chips-section.spec.ts` 新增「mock d5 concentration_ratio=58.35 → 畫面必出現 `集中度：買超前 15 大占 58%`」。
-- Ops：`/company/bsr-rate-limit` 新增一列「活躍持倉集中度覆蓋率 = has_concentration / active_tw_holdings」，低於 95% 觸 `system_alerts.kind='bsr_concentration_coverage_low'`。
+### 挑戰 4：物化表 `tw_series_readiness` + `tw_bsr_market_days` + `demand_snapshot` = 三張新表
 
-### 驗收
+**問題**：新表 = 新 RLS + 新 grant + 新 trigger + 新遷移風險。前面已經有一堆 BSR 相關表，再加三張很可能重複職責。
 
-1. `scripts/audit-bsr-concentration.mjs` 覆蓋率 ≥ 99%（扣除權證/ETF/新上市 ineligible）。
-2. 隨機抽 20 檔活躍 TW 持倉，抽屜 BSR 區塊「集中度」那一行必渲染，數字與 `computeBsrWindow` 一致。
-3. 新增的單元 / 整合 / E2E 全綠。
-4. 監控儀表板顯示覆蓋率 ≥ 95%，24h 內無 `bsr_concentration_coverage_low` 告警。
+**修正**：
+- `tw_series_readiness` 合併進既有 `tw_chips_rollup` 加欄位即可（`complete_days_5/20/60`, `state_5/20/60`, `upstream_oldest`, `ready_since`）。
+- `tw_bsr_market_days` 精簡為 `tw_bsr_daily_summary`（既有 `tw_bsr_sync_metrics` 若可擴展就直接擴展）。
+- `demand_snapshot` 不建表，改為 SQL view 直接對 `trade_records` 聚合，每小時 `REFRESH MATERIALIZED VIEW CONCURRENTLY`。
+- 新表數目：0–1 張，不再是 3 張。
 
-## 技術細節（給工程審閱）
+---
 
-- `numeric(5,2)` 經 PostgREST 目前回傳 number（實測），但 `Number()` 包裹是零成本保險。
-- `computeBsrWindow` 已是 rollup 與 raw_fallback 共用；rebuildRollup 那條路徑若歷史上曾直接寫 DB 而不走 helper，需改成呼叫 helper 保證一致。要在 `tw-bsr-finmind-sync/index.ts` 內確認並修正。
-- 一次性資料修復用 SQL migration 執行 DELETE + RPC enqueue；worker 燒完 P1 走 edge function invoke，不放進 migration。
-- `enqueue_all_active_tw_holdings_bsr` 需 `SECURITY DEFINER` + 嚴格 regex `^[1-9][0-9]{3}$`（延用先前修法），避免權證 6 碼被截。
+### 挑戰 5：狀態機文案七個 state 對前端是負擔
+
+**問題**：`ready / partial / insufficient / no_data / ineligible / upstream_exhausted / syncing / sync_failed / lagging / not_queued / fresh` 加起來 11 個，UI 團隊會抓狂，測試矩陣也爆炸。
+
+**修正**：對使用者只有 4 個：
+1. **就緒** — 直接看
+2. **補齊中** — 顯示 ETA
+3. **上游不足** — 顯示最早可用日
+4. **暫無資料** — 說明原因（1 行）
+
+內部 debug 狀態保留在 payload 但不上 UI。UI 測試矩陣從 11 縮到 4。
+
+---
+
+### 挑戰 6：ETA「預估 15:47 完成」是承諾陷阱
+
+**問題**：一旦顯示具體時間就是承諾，估錯用戶會截圖罵人。FinMind 429、上游延遲都會讓 ETA 崩。
+
+**修正**：
+- 不顯示絕對時間。
+- 顯示相對進度：「已補 X/Y 個交易日，通常 10–30 分鐘內完成」。
+- 若 > 30 分鐘未完成，切成「補齊時間比預期長，正在重試」，不承諾新時間。
+
+---
+
+### 挑戰 7：Planner 產出的 dates 集合可能無限膨脹
+
+**問題**：60 日視窗 × 假日 × 上游空 = 每次都會產出一大堆日期，Queue 表撐大。
+
+**修正**：
+- Planner 一次最多產出 `min(missing, 10)` 個日期，剩下等下一輪。
+- Queue 內同 (stock, date) unique；planner 用 `INSERT ... ON CONFLICT DO NOTHING`。
+- 每晚 vacuum sealed job（status=done 且 trade_date < today - 90）。
+
+---
+
+### 挑戰 8：「抽屜開啟不觸發同步」與「使用者期望即時看到」衝突
+
+**問題**：新用戶剛加持倉打開抽屜，什麼都沒有，等 30 分鐘。體感很糟。
+
+**修正**：加**加入持倉時的一次性優先權提升**（不是抽屜開啟時）：
+- `trade_records` AFTER INSERT trigger（已存在）順便把該檔 tier1 job priority 提到 P0。
+- 使用者第一次為新持倉打開抽屜，顯示「首次收集，通常 5 分鐘內」，允許輕度樂觀。
+- 抽屜本身仍不打 FinMind，避免併發放大。
+
+---
+
+### 挑戰 9：測試矩陣提太多但沒說怎麼在 CI 跑
+
+**問題**：10 條 E2E + property test + DB invariant + coverage KPI，跑一次要多久沒說。CI 已經很慢。
+
+**修正**：
+- Property tests 進 unit（<10s）。
+- Contract tests 進 vitest（<30s）。
+- E2E 只保留 3 條關鍵路徑（首次持倉、切窗口、上游 exhausted），其他移 nightly。
+- DB invariant 走 nightly cron 而非每次 push。
+
+---
+
+### 挑戰 10：整體體量對「一個 bug」不成比例
+
+**問題**：用戶原始抱怨是「5 日不足往回朔」。我開了三張表、四個桶、planner、readiness view、狀態機、demand 加權。這是過度工程。
+
+**修正**：**分成 3 個 milestone，第一個 milestone 就能解掉用戶眼前的 bug**。
+
+---
+
+## 修正後的最終計畫（三個 Milestone）
+
+### M1 — 眼前 bug 收斂（1–2 天，能上線）
+
+只做三件事解掉「至少需要 5 個交易日」誤字：
+
+1. 新純函式 `_shared/seriesReadiness.ts`：判定 4 種對外狀態。
+2. `tw-chips-detail` 加 `readiness_by_window`（並存舊欄位）。
+3. `ChipsTrendChart` 改讀 readiness，四狀態文案；移除「至少 N 個交易日」字串。
+
+**驗證**：對截圖那檔的實際回傳做 contract snapshot；grep 全 repo 確認舊文案已刪。
+
+### M2 — 收斂式排程與物化就緒欄位（1 週）
+
+1. `tw_chips_rollup` 加 readiness 欄位（不建新表）。
+2. `plan_series_backfill(stock_id)` RPC + planner-based enqueue。
+3. `enqueue_all_active_tw_holdings_bsr` 改為呼叫 planner。
+4. 一次性 repair 腳本，覆蓋率 audit CSV。
+5. UI 上部細字提示補齊進度（相對進度，不承諾時間）。
+6. 新持倉 AFTER INSERT 提 priority P0。
+
+**驗證**：覆蓋率 KPI ≥ 95%；保底 SLO 違反 = 0。
+
+### M3 — FinMind 額度效率（2 週，等 spike 完成才動）
+
+1. **前置 spike**：實測 FinMind BSR/institutional 每個 dataset 的 `start_date/end_date` 行為，寫進 runbook。
+2. 三大法人改為 market-day 批次。
+3. BSR 改為「單檔區間」呼叫（若上游支援）。
+4. Sealed 日永不重抓（`tw_bsr_daily.sealed_at`）。
+5. 桶化限流：先 3 桶 60/30/10 靜態切分，觀察 2 週再調。
+6. Demand view 加權排序 + age bonus 保底。
+
+**驗證**：FinMind 每日呼叫數下降 ≥ 3 倍；覆蓋率不降；保底 SLO 違反 = 0。
+
+---
+
+## 明確承認的取捨
+
+- M1 完成後截圖 bug 就解了，但整體效率沒變。這是刻意的：先止血再手術。
+- M2 增加 DB 寫入次數（每 job 完成 upsert readiness），換取查詢時複雜度歸零。
+- M3 前置 spike 若發現 FinMind 不支援區間查詢，M3 大幅縮水，只剩 sealed + 桶化。這條 M3 必須先驗證再排時程。
+- 不做 real-time ETA、不做動態桶借用、不做新表爆炸。刻意選擇「簡單能動」勝過「聰明會壞」。
+
+## 明確不做
+
+- 不換上游、不加額度、不改 UI 版型。
+- 不承諾具體完成時間。
+- 不在 UI 露 11 個內部 state。
+- 不做動態桶借用。
+- 不建 3 張新表。

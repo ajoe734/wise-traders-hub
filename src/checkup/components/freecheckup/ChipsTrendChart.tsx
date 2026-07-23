@@ -9,6 +9,8 @@ import type {
   InstitutionalDailyPoint,
   BsrConcentrationPoint,
   TwChipsPayload,
+  WindowReadinessPayload,
+  ReadinessState,
 } from '@/checkup/hooks/useTwChipsDetail';
 
 const SERIF = '"Source Serif 4", "Noto Serif TC", Georgia, serif';
@@ -237,45 +239,52 @@ export default function ChipsTrendChart({
             />
           )}
 
-          {/* 資料點不足以繪出線／bar 的 fallback */}
-          {validPts.length === 0 && (
-            <text
-              x={w / 2}
-              y={HEIGHT / 2}
-              fontSize={11}
-              fill={WB.inkMute}
-              textAnchor="middle"
-              fontFamily={SERIF}
-              data-testid="chips-trend-empty-hint"
-            >
-              — 尚無有效資料 —
-            </text>
-          )}
-          {validPts.length === 1 && (() => {
+          {/* M1: readiness-driven fallback — 移除「至少 N 個交易日」誤導文案 */}
+          {validPts.length < 2 && (() => {
+            const rd: WindowReadinessPayload | null =
+              mode === 'inst'
+                ? (data?.readiness?.institutional?.[String(win) as '5' | '20' | '60'] ?? null)
+                : (data?.readiness?.bsr_concentration?.['5'] ?? null);
+            const state: ReadinessState = rd?.state
+              ?? (validPts.length === 0 ? 'no_data' : 'filling');
+            const have = rd?.have ?? validPts.length;
+            const need = rd?.need ?? (mode === 'inst' ? win : 5);
+            const oldest = rd?.oldest_available ?? null;
+            const hint =
+              state === 'ready'
+                ? ''
+                : state === 'filling'
+                  ? `補齊中：已 ${have}/${need} 個交易日`
+                  : state === 'upstream_exhausted'
+                    ? (oldest
+                        ? `此檔歷史自 ${oldest.replaceAll('-', '/')} 起，${need} 日視窗資料不足`
+                        : `此檔上游歷史不足 ${need} 個交易日`)
+                    : '暫無資料，正在收集';
             const only = validPts[0];
-            const i = series.indexOf(only);
-            const v = only.value as number;
-            const hint = mode === 'inst'
-              ? `資料點不足以繪出 ${win} 日滾動線，至少需要 ${win} 個交易日`
-              : '僅 1 個交易日資料，暫無法繪出趨勢';
+            const i = only ? series.indexOf(only) : -1;
+            const v = only?.value as number | undefined;
             return (
-              <g data-testid="chips-trend-empty-hint">
-                <circle
-                  cx={xs(i)}
-                  cy={ys(v)}
-                  r={4}
-                  fill={mode === 'bsr' ? WB.ink : v >= 0 ? UP : DOWN}
-                />
-                <text
-                  x={w / 2}
-                  y={HEIGHT / 2}
-                  fontSize={10}
-                  fill={WB.inkMute}
-                  textAnchor="middle"
-                  fontFamily={SERIF}
-                >
-                  {hint}
-                </text>
+              <g data-testid="chips-trend-empty-hint" data-readiness-state={state}>
+                {only && i >= 0 && v != null && !Number.isNaN(v) && (
+                  <circle
+                    cx={xs(i)}
+                    cy={ys(v)}
+                    r={4}
+                    fill={mode === 'bsr' ? WB.ink : v >= 0 ? UP : DOWN}
+                  />
+                )}
+                {hint && (
+                  <text
+                    x={w / 2}
+                    y={HEIGHT / 2}
+                    fontSize={10}
+                    fill={WB.inkMute}
+                    textAnchor="middle"
+                    fontFamily={SERIF}
+                  >
+                    {hint}
+                  </text>
+                )}
               </g>
             );
           })()}
