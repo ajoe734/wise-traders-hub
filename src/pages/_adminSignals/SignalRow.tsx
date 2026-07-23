@@ -21,7 +21,7 @@ import { InstrumentTooltip } from '@/components/InstrumentTooltip';
  * 4. defaultCurrency
  * 修 bug：舊 `normalizeCurrency() || spec.currency` 永不 fallback。
  */
-function pickSignalCurrency(
+export function pickSignalCurrency(
   signal: any,
   specCurrency: Currency,
   defaultCurrency: Currency = 'TWD',
