@@ -27,11 +27,10 @@ BEGIN;
 DO $fx$
 DECLARE
   v_stock text;
-  v_etf   text := 'ETEST' || substr(md5(random()::text), 1, 4);
   v_today date := (now() AT TIME ZONE 'Asia/Taipei')::date;
   v_exists boolean;
 BEGIN
-  -- 隨機找一個「今日 queue 尚無 active/done 紀錄」的 4 位數字代號，避免與線上資料衝突。
+  -- 隨機找一個「今日 queue 尚無紀錄」的 4 位數字代號，避免與線上資料衝突。
   -- 為避免修改既有資料（psql 可能無 DELETE 權限），改用「找空位」策略。
   FOR i IN 1..50 LOOP
     v_stock := (1000 + floor(random() * 8999))::int::text;
@@ -45,13 +44,7 @@ BEGIN
     RAISE EXCEPTION 'fixture failed: could not find a free 4-digit test code';
   END IF;
 
-  -- 假的非 tw_stock 代號（觸發 unsupported_asset_type）
-  INSERT INTO public.stock_names (symbol, name, asset_class, currency)
-  VALUES (v_etf, 'BSR Test Non-TW', 'us_stock', 'USD')
-  ON CONFLICT (symbol) DO UPDATE SET asset_class = 'us_stock';
-
   PERFORM set_config('test.stock', v_stock, false);
-  PERFORM set_config('test.etf',   v_etf,   false);
 END $fx$;
 
 -- ---------------------------------------------------------------------
