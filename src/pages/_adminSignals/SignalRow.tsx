@@ -49,7 +49,7 @@ export function SignalRow({
   const recall = canRecallSignal((signal as any).published_at);
   const assetClass: AssetClass = normalizeAssetClass(signal.asset_class ?? defaultAssetClass);
   const spec = getAssetSpec(assetClass);
-  const currency: Currency = normalizeCurrency(signal.currency) || spec.currency || defaultCurrency;
+  const currency: Currency = pickSignalCurrency(signal, spec.currency, defaultCurrency);
   const priceSymbol = CURRENCY_SYMBOL[currency];
   const qtyUnit = signal.quantity_unit || spec.defaultUnit;
   const badge = assetBadge(assetClass);
