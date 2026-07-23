@@ -4372,6 +4372,33 @@ export type Database = {
         }
         Relationships: []
       }
+      tw_bsr_upstream_probe: {
+        Row: {
+          earliest_data: string | null
+          empty_streak: number
+          exhausted: boolean
+          probed_back_to: string | null
+          stock_id: string
+          updated_at: string
+        }
+        Insert: {
+          earliest_data?: string | null
+          empty_streak?: number
+          exhausted?: boolean
+          probed_back_to?: string | null
+          stock_id: string
+          updated_at?: string
+        }
+        Update: {
+          earliest_data?: string | null
+          empty_streak?: number
+          exhausted?: boolean
+          probed_back_to?: string | null
+          stock_id?: string
+          updated_at?: string
+        }
+        Relationships: []
+      }
       tw_chips_rollup: {
         Row: {
           as_of_date: string
@@ -5011,8 +5038,20 @@ export type Database = {
       cleanup_old_perf_metrics: { Args: never; Returns: undefined }
       cleanup_old_traffic: { Args: never; Returns: undefined }
       cleanup_processed_webhook_events: { Args: never; Returns: number }
+      compute_bsr_series_readiness: {
+        Args: { p_stock_id: string }
+        Returns: Json
+      }
       consume_checkup_quota: {
         Args: { _kind?: string; _user_id: string }
+        Returns: Json
+      }
+      converge_bsr_windows: {
+        Args: {
+          p_chunk_dates?: number
+          p_horizon_days?: number
+          p_max_stocks?: number
+        }
         Returns: Json
       }
       delete_expired_binding_codes: { Args: never; Returns: undefined }
@@ -5174,6 +5213,10 @@ export type Database = {
       is_tester: { Args: { _user_id: string }; Returns: boolean }
       is_tw_trading_hours: { Args: never; Returns: boolean }
       log_unit_lock_violation: { Args: { payload: Json }; Returns: string }
+      mark_bsr_upstream_probe: {
+        Args: { p_had_data: boolean; p_probed_date: string; p_stock_id: string }
+        Returns: undefined
+      }
       match_expert_knowledge:
         | {
             Args: {
