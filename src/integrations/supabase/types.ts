@@ -5029,6 +5029,7 @@ export type Database = {
         Args: { p_days?: number; p_stock_id: string }
         Returns: number
       }
+      ensure_bsr_queued: { Args: { p_stock_id: string }; Returns: Json }
       get_analyst_subscriber_profiles: {
         Args: never
         Returns: {
@@ -5269,6 +5270,7 @@ export type Database = {
       }
       strip_referrer_query: { Args: { ref: string }; Returns: string }
       trade_dedupe_sweep: { Args: { p_dry_run?: boolean }; Returns: Json }
+      tw_bsr_eligibility: { Args: { p_stock_id: string }; Returns: Json }
     }
     Enums: {
       announcement_status: "draft" | "published"
