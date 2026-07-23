@@ -37,6 +37,15 @@ import {
   toIsoDate,
   type FinmindRow,
 } from './lib.ts';
+import {
+  fetchFinmindMarketDay,
+  loadMarketBatchConfig,
+  probeMarketBatchSupport,
+} from '../_shared/finmindMarketBatch.ts';
+import {
+  fulfillDay,
+  fulfillJobsFromSnapshot,
+} from '../_shared/snapshotFulfillment.ts';
 
 const FINMIND_URL = 'https://api.finmindtrade.com/api/v4/data';
 const FINMIND_TOKEN = Deno.env.get('FINMIND_TOKEN') ?? '';
