@@ -108,8 +108,27 @@ export interface TwChipsPayload {
     institutional_daily: InstitutionalDailyPoint[];
     bsr_concentration: BsrConcentrationPoint[];
   };
+  /**
+   * M1 readiness：每個視窗（5/20/60）的顯示狀態，由後端 seriesReadiness.ts 單一判定。
+   * UI 只讀這裡決定「畫線 / 補齊中 / 上游不足 / 暫無資料」，不再自行 count 有效點。
+   */
+  readiness?: {
+    institutional: Record<'5' | '20' | '60', WindowReadinessPayload>;
+    bsr_concentration: Record<'5' | '20' | '60', WindowReadinessPayload>;
+  };
   source: string;
   fetched_at: string;
+}
+
+export type ReadinessState = 'ready' | 'filling' | 'upstream_exhausted' | 'no_data';
+export interface WindowReadinessPayload {
+  window_days: 5 | 20 | 60;
+  state: ReadinessState;
+  have: number;
+  need: number;
+  oldest_available: string | null;
+  newest_available: string | null;
+  detail: string;
 }
 
 const CACHE = new Map<string, { data: TwChipsPayload; ts: number }>();
