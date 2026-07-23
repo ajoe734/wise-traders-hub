@@ -153,6 +153,7 @@ export async function fetchWithRateLimit(
     limit?: number;
     leaseSeconds?: number;
     correlationId?: string | null;
+    tier?: 1 | 2 | 3 | null;
   } = {},
 ): Promise<Response> {
   const maxRetries = opts.maxRetries ?? 3;
@@ -160,8 +161,9 @@ export async function fetchWithRateLimit(
   const limit = opts.limit ?? FINMIND_HOURLY_LIMIT;
   const lease = opts.leaseSeconds ?? DEFAULT_LEASE_SECONDS;
   const cid = opts.correlationId ?? null;
+  const tier = opts.tier ?? null;
 
-  let reservation = await reserveQuota(supa, limit, lease, cid);
+  let reservation = await reserveQuota(supa, limit, lease, cid, tier);
   if (!reservation) {
     throw new RateLimitExhaustedError({ used: limit, limit });
   }
