@@ -592,6 +592,7 @@ async function runWorker(batch: number, maxPriority: number, budgetMs: number): 
     rate_limit_before: rl, rate_limit_after: finalRl,
     stopped_by_rate_limit: rateLimitedStop,
     recycled_reservations: recycledCount,
+    snapshot_fulfilled: snapshotResults,
     elapsed_ms: Date.now() - started,
     results,
   };
