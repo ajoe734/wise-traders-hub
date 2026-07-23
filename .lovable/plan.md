@@ -1,58 +1,62 @@
-## 問題根因
-
-目前 `ChipsSection.tsx` L153 在使用者「打開持倉抽屜」的當下才呼叫 `ensure_bsr_queued(stock_id)`，把單檔股票塞進 FinMind queue。這是把「排程」跟「渲染」耦合的初階做法，導致：
-
-- 使用者要看到分點，得先等 queue → worker → FinMind → rollup 一整條跑完
-- 沒打開抽屜的股票永遠不會被同步
-- 每次抽屜開關都在多打 RPC / edge function
-
-雖然已經有 `tw-bsr-enqueue-post-close`（每日 15:30）與 `tw-bsr-worker-trading`（14:00–20:59 每 10 分鐘），但排程覆蓋不完整、且不會反應「新加入的持倉」，所以使用者實際體感就是「打開抽屜才開始跑」。
-
 ## 目標
 
-**BSR 對前端而言必須是唯讀的**。使用者打開抽屜只讀 `tw-chips-detail`（純查詢），任何 enqueue 動作全部搬到後端排程與寫入事件觸發。
+讓「所有活躍持倉 TW 個股」在抽屜的 BSR 區塊都能穩定顯示「集中度：買超前 15 大占 X%」，並且每一種資料狀態都有明確、被驗證的根因修法。不是「哪隻沒出來修哪隻」，而是把每一種會導致「沒出來」的路徑一次補上。
 
-## 修改範圍
+## 現況（已核實）
 
-### 1. 前端徹底去除 lazy enqueue
-- `src/checkup/components/freecheckup/ChipsSection.tsx`
-  - 移除 L153 `supabase.rpc('ensure_bsr_queued', ...)` 的所有呼叫路徑
-  - `bsr_freshness_status = 'not_queued'` 時 UI 直接顯示「等待每日同步」，不再自動觸發
-  - 保留手動「立即同步」按鈕（走 `mode=manual`），維持使用者主動 override 的能力
-- `src/checkup/hooks/useTwChipsDetail.ts`：移除 not_queued 相關的自動重試 / 補排程副作用，只做讀取
+- `tw_chips_rollup`：211 檔已有 rollup，4623 筆 `concentration_ratio` 全部 non-null；`bsr_available=true`。
+- Edge `tw-chips-detail`：對 2313 / 4576 / 2881 實測回傳 `bsr.d5.concentration_ratio = 58.35`（數字型別，非字串），資料鏈路 OK。
+- Queue：P1 pending 48、P2 pending 68；324 檔 `never_done`（多為 020xxx／030xxx 權證，已 `skipped`，合預期）。
+- Frontend：`ChipsSection` 讀 `data?.bsr?.d5 || d20 || d60`，直接 `.toFixed(0)`。
 
-### 2. 後端 `tw-chips-detail` 改為純唯讀
-- `supabase/functions/tw-chips-detail/index.ts`
-  - 移除任何隱含的 `ensure_bsr_queued` 呼叫（若有）
-  - 只做資料查詢與 freshness 判斷，不做寫入
+換句話說：**已有資料的個股「集中度」實際會顯示**；用戶說「全部個股都沒出來」的最合理解釋是他抽的個股落在「rollup 尚未產出／raw 有但 rollup 沒 rebuild／queue 卡 pending」這幾個坑上。**根因分類修法** 覆蓋這些坑，才是符合最高行為準則的做法。
 
-### 3. 補齊主動排程覆蓋率
-- 新增 `tw-bsr-enqueue-holdings-delta` edge function（或擴充現有 enqueue mode）：
-  - 每 15 分鐘（14:00–20:59 台北時間）掃描 `trade_records` 內 `exit_date IS NULL` 的台股，比對 `tw_bsr_sync_queue` 今日 pending/running/done 名單，把新加入且尚未排程的持倉補入 tier1
-  - 這樣使用者今天新開的倉，最多 15 分鐘內會自動排入，不需要打開抽屜
-- 對應 cron：`*/15 6-12 * * 1-5`
+## 待辦（照類別修，不照個股修）
 
-### 4. 開倉即排程（事件驅動補強）
-- 新增 DB trigger `on_trade_record_insert_enqueue_bsr`：
-  - `AFTER INSERT ON trade_records`，若 `market IN ('TW','TWSE','TPEX')` 且 stock_id 符合白名單，直接呼叫 `ensure_bsr_queued(stock_id)`
-  - 使用 `SECURITY DEFINER` 走 service role，繞過 RLS
-  - 讓「新增持倉」的當下就把 FinMind 排入，不用等下一輪 cron 也不用等使用者打開抽屜
+### 1. 全域審計腳本（先量再修）
 
-### 5. 回歸測試
-- `e2e/chips-section.spec.ts`：新增斷言「開啟抽屜時不得發出 `ensure_bsr_queued` 的 RPC 請求」（透過 `page.on('request')` 白名單）
-- 新增 `supabase/tests/enqueue_on_trade_insert_test.sql`：驗證新增台股 trade_record 後，`tw_bsr_sync_queue` 立刻有對應 pending 記錄
-- 擴充 `supabase/functions/tw-bsr-finmind-sync/manual_and_source_test.ts`：驗證 delta enqueue 不會重複排入已 done 的股票
+新增 `scripts/audit-bsr-concentration.mjs`：
+- 掃全站活躍 TW 4 碼持倉（`trade_records` 未清倉 + `checkup_storage.holdings`）。
+- 對每檔輸出 `{stock_id, has_rollup, rollup_as_of, bsr_available, concentration_ratio, raw_days, queue_state, ineligible_reason}`。
+- 分桶統計並落 `/tmp/bsr-audit-*.csv`；納入 nightly CI。
+- 這份是後續每一步的驗收基準。
 
-### 6. 驗收口徑
+### 2. Backend 根因修法（`supabase/functions`）
 
-修完後回報：
-1. 打開抽屜的網路請求清單，不再出現 `ensure_bsr_queued`
-2. 新增一筆台股 trade_record，10 秒內 `tw_bsr_sync_queue` 出現對應 pending 記錄
-3. Delta cron 執行一次後，所有 open 持倉都有今日 queue 記錄（pending/running/done 三態擇一）
-4. `bsr_freshness_status = 'not_queued'` 的股票數為 0（在盤後時段）
+- **`tw-bsr-finmind-sync` worker**：`rebuildRollup` 完成後，若 `computeBsrWindow` 為 null（raw < 5 rows）→ 保持 `pending/skipped` 不寫 rollup（現行行為，確認保留）；若非 null → 必須 upsert **三筆**（w=5/20/60）並強制 `bsr_available=true` 與 `concentration_ratio=computeBsrWindow().concentration_ratio`。今日抽查同一份 helper，兩邊數字必一致。
+- **`tw-chips-detail` 自癒**：若 `rollupRows` 為空、但 `bsrRawRows` 有 ≥ 5 rows 的日期（fallback complete）→ 直接以 `computeBsrWindow` 現算三窗回傳 `bsr_source='raw_fallback'`（目前只算 d5，擴到 d20/d60 供前端全部窗口都能顯示集中度）。同時背景送 `pg_notify` 或直接呼叫 `rebuildRollup`，讓下次不用即算。
+- **Queue 排隊完整性**：新增 DB function `public.enqueue_all_active_tw_holdings_bsr()`，掃 `trade_records` 未清倉 + `checkup_storage.holdings` 中 `^[1-9][0-9]{3}$` 個股，補 P1 pending（含今日）與最近 5 個交易日 P2 缺口。目前 `tw-bsr-enqueue-holdings-delta` 只補 tier1 今日；擴充成 tier1 + tier2 缺口。
 
-## 不做的事
+### 3. Frontend 防禦（`ChipsSection.tsx`）
 
-- 不改抽屜 UI 版型
-- 不動 rollup 演算法與 5-row 門檻
-- 不動已完成的 fake-done 修復與降級狀態機
+- `bsrLatest.concentration_ratio` 一律 `Number(...)` 後再 `.toFixed(0)`；PostgREST 未來若改回 string 也不會壞。
+- `bsrLatest` fallback 順序：`d5 || d20 || d60`（現況）；並在 `top_buy/top_sell` 空但 `concentration_ratio` 有值時仍渲染集中度那一行。
+- 若後端回 `bsr_source=null`，明示區分「尚未排入」「排隊中」「上游無資料（權證/ETF）」三種文案，用 `data.bsr_freshness_status` / `ineligible_reason` 驅動。
+
+### 4. 一次性資料修復
+
+- 對現有 211 檔以外、屬「活躍持倉」且未 `skipped/ineligible` 的個股：
+  - 用新 RPC 一次入隊 tier1（今日）+ tier2（近 5 日）。
+  - 用 `mode=worker, max_priority=1, budget_ms=45000` 手動燒完 P1；不動全域降級狀態（現在是 normal）。
+- 對 rollup 存在但 `bsr_available=false` 或 `concentration_ratio IS NULL` 的舊列：`DELETE` 後由下一輪 worker 重寫（避免 upsert 帶入舊壞值）。
+
+### 5. 回歸測試與監控
+
+- 單元：`bsrRollup.test.ts` 加「computeBsrWindow → rebuildRollup 必寫 concentration_ratio 且與 helper 完全相等」。
+- 整合：`tw-chips-detail` 對「無 rollup、有 raw ≥ 5 rows」個股必回 `raw_fallback` 且 `concentration_ratio` 非 null（d5/d20/d60 至少 d5）。
+- E2E：`e2e/chips-section.spec.ts` 新增「mock d5 concentration_ratio=58.35 → 畫面必出現 `集中度：買超前 15 大占 58%`」。
+- Ops：`/company/bsr-rate-limit` 新增一列「活躍持倉集中度覆蓋率 = has_concentration / active_tw_holdings」，低於 95% 觸 `system_alerts.kind='bsr_concentration_coverage_low'`。
+
+### 驗收
+
+1. `scripts/audit-bsr-concentration.mjs` 覆蓋率 ≥ 99%（扣除權證/ETF/新上市 ineligible）。
+2. 隨機抽 20 檔活躍 TW 持倉，抽屜 BSR 區塊「集中度」那一行必渲染，數字與 `computeBsrWindow` 一致。
+3. 新增的單元 / 整合 / E2E 全綠。
+4. 監控儀表板顯示覆蓋率 ≥ 95%，24h 內無 `bsr_concentration_coverage_low` 告警。
+
+## 技術細節（給工程審閱）
+
+- `numeric(5,2)` 經 PostgREST 目前回傳 number（實測），但 `Number()` 包裹是零成本保險。
+- `computeBsrWindow` 已是 rollup 與 raw_fallback 共用；rebuildRollup 那條路徑若歷史上曾直接寫 DB 而不走 helper，需改成呼叫 helper 保證一致。要在 `tw-bsr-finmind-sync/index.ts` 內確認並修正。
+- 一次性資料修復用 SQL migration 執行 DELETE + RPC enqueue；worker 燒完 P1 走 edge function invoke，不放進 migration。
+- `enqueue_all_active_tw_holdings_bsr` 需 `SECURITY DEFINER` + 嚴格 regex `^[1-9][0-9]{3}$`（延用先前修法），避免權證 6 碼被截。

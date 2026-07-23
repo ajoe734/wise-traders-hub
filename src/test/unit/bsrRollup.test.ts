@@ -86,6 +86,21 @@ describe('bsrRollup.pickCompleteFallbackDate', () => {
   });
 });
 
+describe('bsrRollup fallback covers all windows', () => {
+  it('對 5/20/60 三窗都能算出 concentration_ratio（raw_fallback 路徑不再只回 d5）', () => {
+    const rows = Array.from({ length: 10 }, (_, i) =>
+      row(`2026-07-${String(13 + i).padStart(2, '0')}`, `B${i % 6}`, 100 + i * 5, 50 + i * 3, `券商${i}`),
+    );
+    const dates = Array.from(new Set(rows.map((r) => r.trade_date))).sort().reverse();
+    for (const win of [5, 20, 60] as const) {
+      const w = computeBsrWindow(rows, dates.slice(0, win));
+      expect(w, `window=${win} should compute`).not.toBeNull();
+      expect(w!.concentration_ratio).not.toBeNull();
+      expect(w!.top_buy.length).toBeGreaterThan(0);
+    }
+  });
+});
+
 describe('bsrRollup helpers', () => {
   it('countRowsByDate', () => {
     const m = countRowsByDate([row('a', '1', 1, 1), row('a', '2', 1, 1), row('b', '1', 1, 1)] as any);
