@@ -444,14 +444,60 @@ async function runWorker(batch: number, maxPriority: number, budgetMs: number): 
   }
   const effectiveBatch = Math.min(batch, Math.max(1, rl.remaining));
 
+  // ============ M3 v2 Phase A：Snapshot-first coalesced fetch ============
+  // 在 claim per-stock job 之前，先看看有沒有整日可以「一次抓完」。若 market batch
+  // supported 且該 date 的 pending 量 ≥ threshold，一次呼叫解決該日全部 job。
+  const snapshotResults: any[] = [];
+  const mbCfg = await loadMarketBatchConfig(supa);
+  const canMarketBatch = mbCfg.enabled && mbCfg.supported === true;
+  if (canMarketBatch && cappedMaxPriority >= 1) {
+    const { data: dateBuckets } = await supa
+      .from('tw_bsr_sync_queue')
+      .select('trade_date, priority')
+      .eq('status', 'pending')
+      .lte('priority', cappedMaxPriority)
+      .lte('next_run_at', new Date().toISOString())
+      .limit(2000);
+    const counts = new Map<string, { total: number; minP: number }>();
+    for (const r of (dateBuckets ?? []) as Array<{ trade_date: string; priority: number }>) {
+      const cur = counts.get(r.trade_date) ?? { total: 0, minP: 3 };
+      cur.total += 1;
+      cur.minP = Math.min(cur.minP, r.priority);
+      counts.set(r.trade_date, cur);
+    }
+    const candidates = Array.from(counts.entries())
+      .filter(([, v]) => v.total >= mbCfg.threshold_pending)
+      .sort((a, b) => b[1].total - a[1].total)
+      .slice(0, 3);
+    for (const [date, meta] of candidates) {
+      if (Date.now() - started > budgetMs * 0.6) break;
+      const cid = crypto.randomUUID();
+      try {
+        const rows = await fetchFinmindMarketDay(supa, date, cid, tierFromPriority(meta.minP));
+        const outcome = await fulfillDay(supa, date, cid, rows, 'finmind_market_batch');
+        snapshotResults.push({ date, priority_min: meta.minP, ...outcome });
+      } catch (e) {
+        const msg = (e as Error).message ?? String(e);
+        snapshotResults.push({ date, error: msg.slice(0, 200) });
+        if (e instanceof RateLimitExhaustedError) { rateLimitedStop = true; break; }
+      }
+    }
+  }
+
+  // ============ Phase B：per-stock 補刀（fallback） ============
+  // 若 market batch 已消化完該 date 的 pending job，此處會直接 no_jobs。
   const { data: jobs, error } = await supa.rpc('claim_bsr_queue_jobs', {
     _batch: effectiveBatch, _max_priority: cappedMaxPriority,
   });
   if (error) return { ok: false, error: `claim_failed:${error.message}` };
   if (!jobs || jobs.length === 0) {
     const after = await evaluateAndMaybeTransition(null);
-    return { ok: true, note: 'no_jobs', rate_limit: rl,
-      degrade_mode: state.mode, transitioned: after.transitioned, processed: 0 };
+    return {
+      ok: true, note: snapshotResults.length > 0 ? 'snapshot_only' : 'no_jobs',
+      rate_limit: rl, degrade_mode: state.mode, transitioned: after.transitioned,
+      processed: 0, snapshot_fulfilled: snapshotResults,
+      recycled_reservations: recycledCount,
+    };
   }
 
   let idx = 0;
@@ -463,7 +509,7 @@ async function runWorker(batch: number, maxPriority: number, budgetMs: number): 
       const job = jobs[my];
       const cid: string | null = job.correlation_id ?? null;
       const t0 = Date.now();
-      const r = await processStock(job.stock_id, job.trade_date, cid);
+      const r = await processStock(job.stock_id, job.trade_date, cid, tierFromPriority(job.priority));
       processed++;
       if (r.ok) ok++;
       results.push({
