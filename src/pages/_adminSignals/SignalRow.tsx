@@ -21,16 +21,39 @@ import { InstrumentTooltip } from '@/components/InstrumentTooltip';
  * 4. defaultCurrency
  * 修 bug：舊 `normalizeCurrency() || spec.currency` 永不 fallback。
  */
+export type SignalCurrencySource =
+  | 'explicit'          // signal.currency 明確
+  | 'asset-class'       // 由 asset_class 的 spec.currency 導出
+  | 'inferred-instrument' // 由代號規則推斷
+  | 'default-fallback'; // 掉到 defaultCurrency
+
+export const SIGNAL_CURRENCY_SOURCE_LABEL: Record<SignalCurrencySource, string> = {
+  'explicit': '明確設定',
+  'asset-class': '資產類別',
+  'inferred-instrument': '代號推斷',
+  'default-fallback': '預設',
+};
+
+export function pickSignalCurrencyWithSource(
+  signal: any,
+  specCurrency: Currency,
+  defaultCurrency: Currency = 'TWD',
+): { currency: Currency; source: SignalCurrencySource } {
+  if (signal?.currency === 'USD' || signal?.currency === 'TWD') {
+    return { currency: signal.currency, source: 'explicit' };
+  }
+  if (specCurrency === 'USD') return { currency: 'USD', source: 'asset-class' };
+  const inferred = inferCurrencyFromInstrument(signal?.instrument);
+  if (inferred) return { currency: inferred, source: 'inferred-instrument' };
+  return { currency: defaultCurrency, source: 'default-fallback' };
+}
+
 export function pickSignalCurrency(
   signal: any,
   specCurrency: Currency,
   defaultCurrency: Currency = 'TWD',
 ): Currency {
-  if (signal?.currency === 'USD' || signal?.currency === 'TWD') return signal.currency;
-  if (specCurrency === 'USD') return 'USD';
-  const inferred = inferCurrencyFromInstrument(signal?.instrument);
-  if (inferred) return inferred;
-  return defaultCurrency;
+  return pickSignalCurrencyWithSource(signal, specCurrency, defaultCurrency).currency;
 }
 
 
@@ -70,8 +93,10 @@ export function SignalRow({
   const recall = canRecallSignal((signal as any).published_at);
   const assetClass: AssetClass = normalizeAssetClass(signal.asset_class ?? defaultAssetClass);
   const spec = getAssetSpec(assetClass);
-  const currency: Currency = pickSignalCurrency(signal, spec.currency, defaultCurrency);
+  const { currency, source: currencySource } = pickSignalCurrencyWithSource(signal, spec.currency, defaultCurrency);
   const priceSymbol = CURRENCY_SYMBOL[currency];
+  const isCurrencyInferred = currencySource !== 'explicit';
+  const currencySourceLabel = SIGNAL_CURRENCY_SOURCE_LABEL[currencySource];
   const qtyUnit = signal.quantity_unit || spec.defaultUnit;
   const badge = assetBadge(assetClass);
 
@@ -127,7 +152,25 @@ export function SignalRow({
         <td className="p-3 text-sm whitespace-nowrap tabular-nums align-top">
           {signal.price_hint ? (
             <>
-              {priceSymbol}{Number(signal.price_hint).toLocaleString(undefined, { minimumFractionDigits: spec.priceDigits >= 4 ? 2 : (currency === 'USD' ? 2 : 0), maximumFractionDigits: spec.priceDigits })}
+              <span className="inline-flex items-baseline gap-1">
+                <span>
+                  {priceSymbol}{Number(signal.price_hint).toLocaleString(undefined, { minimumFractionDigits: spec.priceDigits >= 4 ? 2 : (currency === 'USD' ? 2 : 0), maximumFractionDigits: spec.priceDigits })}
+                </span>
+                <span
+                  data-testid="admin-signal-currency-source"
+                  data-currency={currency}
+                  data-source={currencySource}
+                  title={`幣別 ${currency}（來源：${currencySourceLabel}）`}
+                  className={cn(
+                    'text-[10px] px-1 py-0 rounded border align-middle leading-none',
+                    isCurrencyInferred
+                      ? 'border-amber-300/60 bg-amber-50 text-amber-700 dark:bg-amber-900/20 dark:text-amber-300 dark:border-amber-700/60'
+                      : 'border-border bg-muted text-muted-foreground',
+                  )}
+                >
+                  {isCurrencyInferred ? `推斷·${currencySourceLabel}` : '明確'}
+                </span>
+              </span>
               {signal.quantity && (
                 <span className="text-muted-foreground">（{signal.quantity}{qtyUnit}）</span>
               )}
