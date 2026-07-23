@@ -21,16 +21,39 @@ import { InstrumentTooltip } from '@/components/InstrumentTooltip';
  * 4. defaultCurrency
  * 修 bug：舊 `normalizeCurrency() || spec.currency` 永不 fallback。
  */
+export type SignalCurrencySource =
+  | 'explicit'          // signal.currency 明確
+  | 'asset-class'       // 由 asset_class 的 spec.currency 導出
+  | 'inferred-instrument' // 由代號規則推斷
+  | 'default-fallback'; // 掉到 defaultCurrency
+
+export const SIGNAL_CURRENCY_SOURCE_LABEL: Record<SignalCurrencySource, string> = {
+  'explicit': '明確設定',
+  'asset-class': '資產類別',
+  'inferred-instrument': '代號推斷',
+  'default-fallback': '預設',
+};
+
+export function pickSignalCurrencyWithSource(
+  signal: any,
+  specCurrency: Currency,
+  defaultCurrency: Currency = 'TWD',
+): { currency: Currency; source: SignalCurrencySource } {
+  if (signal?.currency === 'USD' || signal?.currency === 'TWD') {
+    return { currency: signal.currency, source: 'explicit' };
+  }
+  if (specCurrency === 'USD') return { currency: 'USD', source: 'asset-class' };
+  const inferred = inferCurrencyFromInstrument(signal?.instrument);
+  if (inferred) return { currency: inferred, source: 'inferred-instrument' };
+  return { currency: defaultCurrency, source: 'default-fallback' };
+}
+
 export function pickSignalCurrency(
   signal: any,
   specCurrency: Currency,
   defaultCurrency: Currency = 'TWD',
 ): Currency {
-  if (signal?.currency === 'USD' || signal?.currency === 'TWD') return signal.currency;
-  if (specCurrency === 'USD') return 'USD';
-  const inferred = inferCurrencyFromInstrument(signal?.instrument);
-  if (inferred) return inferred;
-  return defaultCurrency;
+  return pickSignalCurrencyWithSource(signal, specCurrency, defaultCurrency).currency;
 }
 
 
