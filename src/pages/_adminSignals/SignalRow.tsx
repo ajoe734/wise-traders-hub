@@ -7,11 +7,32 @@ import { PermissionTooltip } from '@/components/admin/PermissionTooltip';
 import { SafeRichHtml, richHtmlPreview, PREVIEW_LIMITS } from '@/components/SafeRichHtml';
 import { canRecallSignal } from '@/lib/publishingWindow';
 import { actionLabels } from './actionLabels';
-import { CURRENCY_SYMBOL, normalizeCurrency, type Currency } from '@/lib/currency';
+import { CURRENCY_SYMBOL, inferCurrencyFromInstrument, type Currency } from '@/lib/currency';
 import { getAssetSpec, normalizeAssetClass, type AssetClass } from '@/lib/asset';
 import { assetBadge } from '@/pages/_adminPerformance/types';
 import { FxHint } from '@/components/FxHint';
 import { InstrumentTooltip } from '@/components/InstrumentTooltip';
+
+/**
+ * 判定 signal 顯示幣別，優先序：
+ * 1. signal.currency 明確 USD/TWD
+ * 2. asset_class 導出的 spec.currency（美股/美選/美期 → USD）
+ * 3. instrument 代號推斷
+ * 4. defaultCurrency
+ * 修 bug：舊 `normalizeCurrency() || spec.currency` 永不 fallback。
+ */
+export function pickSignalCurrency(
+  signal: any,
+  specCurrency: Currency,
+  defaultCurrency: Currency = 'TWD',
+): Currency {
+  if (signal?.currency === 'USD' || signal?.currency === 'TWD') return signal.currency;
+  if (specCurrency === 'USD') return 'USD';
+  const inferred = inferCurrencyFromInstrument(signal?.instrument);
+  if (inferred) return inferred;
+  return defaultCurrency;
+}
+
 
 interface Props {
   signal: any;
@@ -49,7 +70,7 @@ export function SignalRow({
   const recall = canRecallSignal((signal as any).published_at);
   const assetClass: AssetClass = normalizeAssetClass(signal.asset_class ?? defaultAssetClass);
   const spec = getAssetSpec(assetClass);
-  const currency: Currency = normalizeCurrency(signal.currency) || spec.currency || defaultCurrency;
+  const currency: Currency = pickSignalCurrency(signal, spec.currency, defaultCurrency);
   const priceSymbol = CURRENCY_SYMBOL[currency];
   const qtyUnit = signal.quantity_unit || spec.defaultUnit;
   const badge = assetBadge(assetClass);
