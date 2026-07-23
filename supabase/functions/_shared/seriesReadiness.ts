@@ -100,7 +100,7 @@ export function readinessCopy(r: WindowReadiness): string {
       return `補齊中：已 ${r.have}/${r.need} 個交易日`;
     case 'upstream_exhausted':
       return r.oldest_available
-        ? `此檔歷史自 ${r.oldest_available.replaceAll('-', '/')} 起，${r.need} 日視窗資料不足`
+        ? `此檔歷史自 ${r.oldest_available.split('-').join('/')} 起，${r.need} 日視窗資料不足`
         : `此檔上游歷史不足 ${r.need} 個交易日`;
     case 'no_data':
       return '暫無資料，正在收集';
