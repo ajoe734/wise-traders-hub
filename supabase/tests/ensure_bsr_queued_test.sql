@@ -37,7 +37,8 @@ BEGIN
     v_stock := (1000 + floor(random() * 8999))::int::text;
     SELECT EXISTS (
       SELECT 1 FROM public.tw_bsr_sync_queue
-       WHERE stock_id = v_stock AND trade_date = v_today
+       WHERE stock_id = v_stock
+         AND (trade_date = v_today OR status IN ('pending','running'))
     ) INTO v_exists;
     EXIT WHEN NOT v_exists;
   END LOOP;
@@ -119,7 +120,8 @@ BEGIN
     v_stock := (1000 + floor(random() * 8999))::int::text;
     SELECT EXISTS (
       SELECT 1 FROM public.tw_bsr_sync_queue
-       WHERE stock_id = v_stock AND trade_date = v_today
+       WHERE stock_id = v_stock
+         AND (trade_date = v_today OR status IN ('pending','running'))
     ) INTO v_exists;
     EXIT WHEN NOT v_exists;
   END LOOP;
@@ -178,7 +180,8 @@ BEGIN
     v_stock := (1000 + floor(random() * 8999))::int::text;
     SELECT EXISTS (
       SELECT 1 FROM public.tw_bsr_sync_queue
-       WHERE stock_id = v_stock AND trade_date = v_today
+       WHERE stock_id = v_stock
+         AND (trade_date = v_today OR status IN ('pending','running'))
     ) INTO v_exists;
     EXIT WHEN NOT v_exists;
   END LOOP;
