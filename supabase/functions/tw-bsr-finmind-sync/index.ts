@@ -177,12 +177,14 @@ async function recordFailure(stockId: string, date: string, err: string, cid: st
   }
 }
 
-async function processStock(stockId: string, date: string, cid: string | null): Promise<{
+async function processStock(
+  stockId: string, date: string, cid: string | null, tier: 1 | 2 | 3 = 3,
+): Promise<{
   ok: boolean; rows: number; note?: string; error?: string; rateLimited?: boolean;
 }> {
   if (await isDoneAlready(stockId, date)) return { ok: true, rows: 0, note: 'already_done' };
   try {
-    const rows = await fetchFinmindOneDay(stockId, date, cid);
+    const rows = await fetchFinmindOneDay(stockId, date, cid, tier);
     if (rows.length === 0) return { ok: true, rows: 0, note: 'finmind_empty' };
     const agg = aggregate(rows);
     if (agg.length === 0) return { ok: true, rows: 0, note: 'aggregated_empty' };
