@@ -6,7 +6,8 @@
 -- 涵蓋驗收：
 --   Case A: 未排隊 → 建立 pending 一筆（created=true）
 --   Case B: 已 pending 時重複呼叫 → created=false，active job 仍只有一筆
---   Case C: 今日已 done → status=completed, created=false, 不新增 pending
+--   Case C: 今日已 done 且 raw rows >= 5 → status=completed, created=false, 不新增 pending
+--   Case C2: 今日 fake-done（done 但 raw rows < 5）→ 重新建立 pending
 --   Case D: unsupported_asset_type（stock_names.asset_class ≠ tw_stock）→ 不建立 queue
 --   Case D2: 首位為 0 的 4~6 位代號（ETF）→ unsupported_asset_type，不建立 queue
 --   Case E: 未知代號 → invalid_stock_id，不建立 queue
@@ -102,7 +103,7 @@ BEGIN
 END $cb$;
 
 -- ---------------------------------------------------------------------
--- Case C：今日已 done → status=completed, created=false, 不新增 pending
+-- Case C：今日已 done 且 raw rows >= 5 → status=completed, created=false, 不新增 pending
 -- ---------------------------------------------------------------------
 DO $cc$
 DECLARE
@@ -131,6 +132,11 @@ BEGIN
   VALUES
     (v_stock, v_today, 1, 'done', now(), 'test_case_c', gen_random_uuid(), false);
 
+  INSERT INTO public.tw_bsr_daily
+    (stock_id, trade_date, broker_id, broker_name, buy_shares, sell_shares, net_shares)
+  SELECT v_stock, v_today, 'T' || gs::text, '測試券商' || gs::text, 1000 * gs, 100 * gs, 900 * gs
+  FROM generate_series(1, 5) AS gs;
+
   v_res := public.ensure_bsr_queued(v_stock);
   IF (v_res->>'status') <> 'completed' THEN
     RAISE EXCEPTION 'CASE C FAILED: expected status=completed, got %', v_res;
@@ -156,6 +162,53 @@ BEGIN
     RAISE EXCEPTION 'CASE C FAILED (repeat): expected 0 pending, got %', v_pending;
   END IF;
 END $cc$;
+
+-- ---------------------------------------------------------------------
+-- Case C2：今日 fake-done（done 但 raw rows < 5）→ 重新建立 pending
+-- ---------------------------------------------------------------------
+DO $cc2$
+DECLARE
+  v_stock text;
+  v_today date := (now() AT TIME ZONE 'Asia/Taipei')::date;
+  v_res jsonb;
+  v_pending int;
+  v_exists boolean;
+BEGIN
+  FOR i IN 1..50 LOOP
+    v_stock := (1000 + floor(random() * 8999))::int::text;
+    SELECT EXISTS (
+      SELECT 1 FROM public.tw_bsr_sync_queue
+       WHERE stock_id = v_stock AND trade_date = v_today
+    ) INTO v_exists;
+    EXIT WHEN NOT v_exists;
+  END LOOP;
+  IF v_exists THEN
+    RAISE EXCEPTION 'CASE C2 fixture failed: no free 4-digit code';
+  END IF;
+
+  INSERT INTO public.tw_bsr_sync_queue
+    (stock_id, trade_date, priority, status, next_run_at, enqueued_by, correlation_id, post_close_only)
+  VALUES
+    (v_stock, v_today, 1, 'done', now(), 'test_case_c2_fake_done', gen_random_uuid(), false);
+
+  v_res := public.ensure_bsr_queued(v_stock);
+  IF (v_res->>'status') <> 'pending' THEN
+    RAISE EXCEPTION 'CASE C2 FAILED: expected status=pending, got %', v_res;
+  END IF;
+  IF (v_res->>'created') <> 'true' THEN
+    RAISE EXCEPTION 'CASE C2 FAILED: expected created=true, got %', v_res;
+  END IF;
+  IF (v_res->>'requeued_fake_done') <> 'true' THEN
+    RAISE EXCEPTION 'CASE C2 FAILED: expected requeued_fake_done=true, got %', v_res;
+  END IF;
+
+  SELECT count(*) INTO v_pending FROM public.tw_bsr_sync_queue
+   WHERE stock_id = v_stock AND trade_date = v_today
+     AND status IN ('pending','running');
+  IF v_pending <> 1 THEN
+    RAISE EXCEPTION 'CASE C2 FAILED: expected 1 pending after fake-done, got %', v_pending;
+  END IF;
+END $cc2$;
 
 -- ---------------------------------------------------------------------
 -- Case D：首位為 0 的代號（ETF/受益憑證）→ unsupported_asset_type，不建立 queue

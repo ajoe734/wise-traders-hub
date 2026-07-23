@@ -29,6 +29,7 @@ import {
 import {
   addDays,
   aggregate as libAggregate,
+  DONE_BROKER_THRESHOLD,
   isAfterCloseAt,
   isWeekday,
   rollBackToWeekday,
@@ -173,6 +174,9 @@ async function processStock(stockId: string, date: string, cid: string | null): 
       const { error } = await supa.from('tw_bsr_daily')
         .upsert(agg.slice(i, i + CHUNK), { onConflict: 'stock_id,trade_date,broker_id' });
       if (error) throw new Error(`upsert_failed:${error.message}`);
+    }
+    if (agg.length < DONE_BROKER_THRESHOLD) {
+      return { ok: true, rows: agg.length, note: 'aggregated_partial' };
     }
     await supa.from('tw_bsr_fetch_failures')
       .update({ resolved_at: new Date().toISOString(), last_error_message: null })
@@ -448,23 +452,26 @@ async function runWorker(batch: number, maxPriority: number, budgetMs: number): 
         priority: job.priority, ms: Date.now() - t0, ...r,
       });
       if (r.ok) {
-        // finmind_empty：FinMind 回空。個股需重試（可能當日資料尚未發佈），
-        // 但連續 3 次仍空 → 標記 skipped/no_chip_data，避免佇列永遠回推
-        const isEmpty = r.note === 'finmind_empty' || r.note === 'aggregated_empty';
+        // finmind_empty / aggregated_empty / aggregated_partial：都不是完整完成。
+        // 只能重試或在達上限後 skipped，絕不可標 done，避免所有股票卡在「假完成」。
+        const isIncomplete = r.note === 'finmind_empty' || r.note === 'aggregated_empty' || r.note === 'aggregated_partial';
         const nextAttempts = (job.attempts ?? 1);
-        if (isEmpty && nextAttempts >= 3) {
+        if (isIncomplete && nextAttempts >= (job.max_attempts ?? 5)) {
           await supa.from('tw_bsr_sync_queue').update({
             status: 'skipped',
             finished_at: new Date().toISOString(),
-            last_error: 'no_chip_data',
+            last_error: r.note === 'aggregated_partial' ? 'partial_chip_data' : 'no_chip_data',
             next_run_at: null,
+            started_at: null,
           }).eq('id', job.id);
-        } else if (isEmpty && !isAfterClose()) {
+        } else if (isIncomplete) {
+          const backoffMin = !isAfterClose() ? 30 : Math.min(120, Math.pow(2, nextAttempts) * 5);
           await supa.from('tw_bsr_sync_queue').update({
             status: 'pending',
-            finished_at: new Date().toISOString(),
-            last_error: 'finmind_empty',
-            next_run_at: new Date(Date.now() + 30 * 60_000).toISOString(),
+            finished_at: null,
+            started_at: null,
+            last_error: r.note ?? 'incomplete_chip_data',
+            next_run_at: new Date(Date.now() + backoffMin * 60_000).toISOString(),
           }).eq('id', job.id);
         } else {
           await supa.from('tw_bsr_sync_queue').update({
