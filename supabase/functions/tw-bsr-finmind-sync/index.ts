@@ -456,6 +456,23 @@ async function runWorker(batch: number, maxPriority: number, budgetMs: number): 
         // 只能重試或在達上限後 skipped，絕不可標 done，避免所有股票卡在「假完成」。
         const isIncomplete = r.note === 'finmind_empty' || r.note === 'aggregated_empty' || r.note === 'aggregated_partial';
         const nextAttempts = (job.attempts ?? 1);
+
+        // 上游窮竭探測：對「非今日 & 空回應」記錄一次 probe；
+        // mark_bsr_upstream_probe 內部會累積 empty_streak 並於 20 連空時標 exhausted。
+        try {
+          const today = new Date().toISOString().slice(0, 10);
+          const isEmpty = r.note === 'finmind_empty' || r.note === 'aggregated_empty' || (r.rows ?? 0) === 0;
+          if (job.trade_date && job.trade_date < today) {
+            await supa.rpc('mark_bsr_upstream_probe', {
+              p_stock_id: job.stock_id,
+              p_probed_date: job.trade_date,
+              p_had_data: !isEmpty && (r.rows ?? 0) > 0,
+            });
+          }
+        } catch (probeErr) {
+          console.warn(`[${cid}] mark_bsr_upstream_probe failed:`, (probeErr as Error).message);
+        }
+
         if (isIncomplete && nextAttempts >= (job.max_attempts ?? 5)) {
           await supa.from('tw_bsr_sync_queue').update({
             status: 'skipped',
