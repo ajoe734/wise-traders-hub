@@ -139,21 +139,9 @@ export default function ChipsSection({ WB, stockCode }: { WB: any; stockCode: st
   const bsrLatest = data?.bsr?.d5 || data?.bsr?.d20 || data?.bsr?.d60 || null;
   const syncStatus = data?.bsr_sync_status;
 
-  // 主動 ensure：眼下 eligible、未 queued 且無 BSR 資料 → 呼叫幂等 RPC
-  // React Strict Mode / remount 可能觸發多次，靠 DB 端 partial unique index + advisory lock 兜底
-  const ensuredRef = useRef<string | null>(null);
-  useEffect(() => {
-    if (!syncStatus) return;
-    if (!syncStatus.eligible) return;
-    if (syncStatus.queued) return;
-    if (data?.bsr_as_of) return;
-    const key = `${stockCode}:${syncStatus.status}`;
-    if (ensuredRef.current === key) return;
-    ensuredRef.current = key;
-    supabase.rpc('ensure_bsr_queued', { p_stock_id: stockCode })
-      .then(() => setTimeout(() => refetch(), 2000))
-      .catch(() => { /* 靜默；下輪自然重試 */ });
-  }, [syncStatus?.eligible, syncStatus?.queued, syncStatus?.status, data?.bsr_as_of, stockCode, refetch]);
+  // BSR 對前端是唯讀的：排程一律由後端 cron（每日 15:30 + 盤後每 15 分鐘 delta）與
+  // trade_records AFTER INSERT trigger 負責。開抽屜不再觸發 ensure_bsr_queued，
+  // 避免使用者體感「打開才開始跑」。若使用者要強制立即同步，請用手動按鈕（走 mode=manual）。
 
   // 自動輪詢（退避）：僅在 status ∈ {pending, running} 時輪詢；一旦轉出立即停止
   const bsrPending = syncStatus?.status === 'pending' || syncStatus?.status === 'running';
