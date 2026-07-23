@@ -81,26 +81,72 @@ export function useHoldingsDerivations({
     [orderedDisplayed, variantsMap]
   );
 
-  // 5. actionPriorityItems — 預先組裝（含 tag/desc），避免子元件接 decisionsMap+stockMeta 全表
-  const actionPriorityItems = useMemo(
-    () =>
-      safeGlobalPriorityList.map((h) => {
-        const dec = safeDecisionsMap[h.code];
-        const tag =
-          dec?.actionType === 'exit'
-            ? 'EXIT'
-            : dec?.actionType === 'review'
-            ? 'REVIEW'
-            : 'WATCH';
-        const desc = dec?.actionText
-          ? dec.actionText.length > 32
-            ? dec.actionText.slice(0, 30) + '…'
-            : dec.actionText
-          : safeStockMeta[h.code]?.strategy || '持續監控';
-        return { code: h.code, name: h.name, pct: h.pct ?? 0, tag, desc };
-      }),
-    [safeGlobalPriorityList, safeDecisionsMap, safeStockMeta]
-  );
+  // 5. actionPriorityItems / remainingItems — 互斥且完整的持倉分組
+  //    - topKeys 從「原始 holding」計算，避免 buildActionItem 後遺失 market/code
+  //    - uniqKey = market + code，防同代號重複
+  //    - 上方渲染 topActionableItems，下方摘要與其他區塊使用 remainingItems
+  //    - invariant: topActionableItems.length + remainingItems.length === uniqueHoldings.length
+  const uniqKey = (h) => `${h?.market || 'TW'}:${h?.code}`;
+  const uniqueHoldings = useMemo(() => {
+    const seen = new Set();
+    const out = [];
+    for (const h of holdings || []) {
+      const k = uniqKey(h);
+      if (seen.has(k)) continue;
+      seen.add(k);
+      out.push(h);
+    }
+    return out;
+  }, [holdings]);
+
+  const { actionPriorityItems, remainingItems, topActionableCount } = useMemo(() => {
+    // 全域優先排序（不受 filter 影響）— 直接沿用 safeGlobalPriorityList 順序，
+    // 若不足 3 檔就從 uniqueHoldings 補齊 EXIT/REVIEW
+    const seed = safeGlobalPriorityList.length ? safeGlobalPriorityList : uniqueHoldings;
+    const seedKeys = new Set(seed.map(uniqKey));
+    const augmented = seed.concat(uniqueHoldings.filter((h) => !seedKeys.has(uniqKey(h))));
+
+    const topRaw = [];
+    for (const h of augmented) {
+      if (topRaw.length >= 3) break;
+      const dec = safeDecisionsMap[h.code];
+      const tag =
+        dec?.actionType === 'exit' ? 'EXIT'
+        : dec?.actionType === 'review' ? 'REVIEW'
+        : null;
+      if (tag !== 'EXIT' && tag !== 'REVIEW') continue;
+      // 唯一性：以原始 holding 的 uniqKey 去重
+      if (topRaw.some((r) => uniqKey(r.h) === uniqKey(h))) continue;
+      topRaw.push({ h, tag });
+    }
+
+    const topKeys = new Set(topRaw.map(({ h }) => uniqKey(h)));
+
+    const items = topRaw.map(({ h, tag }) => {
+      const dec = safeDecisionsMap[h.code];
+      const desc = dec?.actionText
+        ? dec.actionText.length > 32
+          ? dec.actionText.slice(0, 30) + '…'
+          : dec.actionText
+        : safeStockMeta[h.code]?.strategy || '持續監控';
+      return { code: h.code, name: h.name, market: h.market, pct: h.pct ?? 0, tag, desc };
+    });
+
+    const rest = uniqueHoldings.filter((h) => !topKeys.has(uniqKey(h)));
+
+    // Dev invariant
+    if (typeof process !== 'undefined' && process.env && process.env.NODE_ENV !== 'production') {
+      const sum = items.length + rest.length;
+      if (sum !== uniqueHoldings.length) {
+        // eslint-disable-next-line no-console
+        console.warn('[useHoldingsDerivations] grouping invariant broken', {
+          top: items.length, rest: rest.length, unique: uniqueHoldings.length,
+        });
+      }
+    }
+
+    return { actionPriorityItems: items, remainingItems: rest, topActionableCount: items.length };
+  }, [safeGlobalPriorityList, uniqueHoldings, safeDecisionsMap, safeStockMeta]);
 
   // 6. strategyOptions — 篩選器的動態題材選項
   const strategyOptions = useMemo(() => {
@@ -118,6 +164,10 @@ export function useHoldingsDerivations({
     orderedDisplayed,
     firstFeatureCode,
     actionPriorityItems,
+    remainingItems,
+    uniqueHoldings,
+    topActionableCount,
     strategyOptions,
   };
 }
+
