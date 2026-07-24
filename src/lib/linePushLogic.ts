@@ -80,7 +80,6 @@ export function buildFlexMessage(
 ): object {
   const label = getActionMeta(signal.action).label;
 
-
   if (type === 'takedown') {
     const bodyContents: object[] = [
       {
