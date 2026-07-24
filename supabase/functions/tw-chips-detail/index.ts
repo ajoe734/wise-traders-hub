@@ -187,14 +187,21 @@ Deno.serve(async (req) => {
       arr.push({ broker_id: r.broker_id, buy: Number(r.buy_shares || 0), net: Number(r.net_shares || 0) });
       byDate.set(d, arr);
     }
-    const bsrConcentration: Array<{ date: string; concentration_ratio: number | null; top_net: number }> = [];
+    const bsrConcentration: Array<{ date: string; concentration_ratio: number | null; top_net: number; broker_count: number; low_quality: boolean }> = [];
     for (const [d, arr] of byDate) {
       const totalBuy = arr.reduce((s, x) => s + x.buy, 0);
       const top15 = [...arr].sort((a, b) => b.net - a.net).slice(0, 15);
       const top15Buy = top15.reduce((s, x) => s + Math.max(x.net, 0), 0);
       const ratio = totalBuy > 0 ? (top15Buy / totalBuy) * 100 : null;
       const topNet = top15.reduce((s, x) => s + x.net, 0);
-      bsrConcentration.push({ date: d, concentration_ratio: ratio, top_net: topNet });
+      const brokerCount = arr.length;
+      bsrConcentration.push({
+        date: d,
+        concentration_ratio: ratio,
+        top_net: topNet,
+        broker_count: brokerCount,
+        low_quality: brokerCount < LOW_QUALITY_BROKER_THRESHOLD,
+      });
     }
     bsrConcentration.sort((a, b) => a.date.localeCompare(b.date));
 
