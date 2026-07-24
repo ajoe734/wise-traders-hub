@@ -49,13 +49,25 @@ Deno.serve(async (req) => {
       return errorResponse("stock_id required", 400, { code: "BAD_REQUEST" });
     }
 
-    const cacheKey = `chips:${stockId}`;
-    const cached = cacheGet<any>(cacheKey);
-    if (cached) return jsonResponse({ ...cached, cached: true });
-
     const supa = createClient(SUPABASE_URL, SERVICE_ROLE_KEY, {
       auth: { persistSession: false },
     });
+
+    // Cache key includes latest rollup as_of_date so any new fulfillment auto-busts.
+    // Fetch that stamp cheaply first; if unavailable, fall back to a version-less key
+    // and rely on TTL alone.
+    const { data: stampRow } = await supa
+      .from("tw_chips_rollup")
+      .select("as_of_date, updated_at")
+      .eq("stock_id", stockId)
+      .eq("window_days", 5)
+      .order("as_of_date", { ascending: false })
+      .limit(1)
+      .maybeSingle();
+    const stampVer = stampRow ? `${stampRow.as_of_date}:${stampRow.updated_at}` : "v0";
+    const cacheKey = `chips:${stockId}:${stampVer}`;
+    const cached = cacheGet<any>(cacheKey);
+    if (cached) return jsonResponse({ ...cached, cached: true });
 
     // ==== 三大法人 1/5/20/60 日 ====
     const { data: instRows, error: instErr } = await supa
