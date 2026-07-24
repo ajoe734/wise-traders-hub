@@ -64,13 +64,7 @@ export interface SignalMessage {
   learning_points?: string | null;
 }
 
-const ACTION_LABEL: Record<string, string> = {
-  buy: '買進',
-  sell: '賣出',
-  add: '加碼',
-  trim: '減碼',
-  exit: '平損',
-};
+import { getActionMeta } from '@/lib/signalAction';
 
 /**
  * Build a LINE Flex Message for signal push notifications.
@@ -83,7 +77,8 @@ export function buildFlexMessage(
   signal: SignalMessage,
   type: 'publish' | 'takedown' = 'publish',
 ): object {
-  const label = ACTION_LABEL[signal.action] || signal.action;
+  const label = getActionMeta(signal.action).label;
+
 
   if (type === 'takedown') {
     const bodyContents: object[] = [
