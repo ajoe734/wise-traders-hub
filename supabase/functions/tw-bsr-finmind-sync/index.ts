@@ -195,9 +195,8 @@ async function processStock(
         .upsert(agg.slice(i, i + CHUNK), { onConflict: 'stock_id,trade_date,broker_id' });
       if (error) throw new Error(`upsert_failed:${error.message}`);
     }
-    if (agg.length < DONE_BROKER_THRESHOLD) {
-      return { ok: true, rows: agg.length, note: 'aggregated_partial' };
-    }
+    // M4: 有任何一筆分點就標記完成；<5 由 tw-chips-detail / UI 加「低品質」標記。
+    const isLowQuality = agg.length < 5;
     await supa.from('tw_bsr_fetch_failures')
       .update({ resolved_at: new Date().toISOString(), last_error_message: null })
       .eq('stock_id', stockId).eq('trade_date', date).is('resolved_at', null);
