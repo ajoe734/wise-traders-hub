@@ -103,13 +103,17 @@ Deno.serve(async (req) => {
       .limit(12);
     const rollupLatestAsOf: string | null = rollupRows?.[0]?.as_of_date || null;
 
-    // ==== BSR raw daily（同時給 fallback 與集中度序列用）====
+    // ==== BSR raw daily（僅供 fallback 聚合 top_buy/top_sell 使用）====
+    // 序列與 readiness 不再走 raw：改讀 get_bsr_daily_series RPC，避免 PostgREST row cap 截斷。
+    // 窗口固定近 14 天：14 × ~750 brokers ≈ 10.5k rows，遠低於任何 cap，且足以覆蓋 fallback 判斷。
+    const rawSince = new Date(Date.now() - 14 * 86400_000).toISOString().slice(0, 10);
     const { data: bsrDaily } = await supa
       .from("tw_bsr_daily")
       .select("trade_date, broker_id, broker_name, buy_shares, sell_shares, net_shares")
       .eq("stock_id", stockId)
+      .gte("trade_date", rawSince)
       .order("trade_date", { ascending: false })
-      .limit(30000);
+      .limit(15000);
     const bsrRawRows = (bsrDaily || []) as any[];
 
     // ==== queue done set（判定 completeness 用）====
