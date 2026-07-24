@@ -62,17 +62,24 @@ const COLORS = {
   line: '#E4DFD6',
 };
 
-// ActionBadge 螢幕 config 完整鏡像（含中文 label 與台股顏色）
-// src/components/ActionBadge.tsx actionConfig 為單一真源
+// PDF 專用色票（hex，用於 html2canvas 匯出）— label 一律走 @/lib/signalAction 單一真源
+// 若 SIGNAL_ACTION_META 新增 action，這裡未定義色 → 用中性灰底，label 仍會顯示原文。
+import { getActionMeta as _getActionMeta } from '@/lib/signalAction';
+const PDF_ACTION_COLOR: Record<string, { bg: string; fg: string }> = {
+  buy:      { bg: '#D94848', fg: '#FFFFFF' },
+  sell:     { bg: '#2E8B57', fg: '#FFFFFF' },
+  add:      { bg: '#3B82F6', fg: '#FFFFFF' },
+  trim:     { bg: '#F59E0B', fg: '#FFFFFF' },
+  exit:     { bg: '#64748B', fg: '#FFFFFF' },
+  hold:     { bg: '#8A857C', fg: '#FFFFFF' },
+  teaching: { bg: '#3B82F6', fg: '#FFFFFF' },
+};
 export const actionMeta = (action: string) => {
   const raw = (action || '').trim();
   const key = raw.toLowerCase();
-  if (key === 'buy' || raw === '買進') return { label: '買進', bg: '#D94848', fg: '#FFFFFF' };
-  if (key === 'sell' || raw === '賣出') return { label: '賣出', bg: '#2E8B57', fg: '#FFFFFF' };
-  if (key === 'add' || raw === '加碼') return { label: '加碼', bg: '#3B82F6', fg: '#FFFFFF' };
-  if (key === 'trim' || raw === '減碼') return { label: '減碼', bg: '#F59E0B', fg: '#FFFFFF' };
-  if (key === 'exit' || raw === '平損') return { label: '平損', bg: '#64748B', fg: '#FFFFFF' };
-  return { label: raw || 'HOLD', bg: COLORS.gray, fg: '#FFFFFF' };
+  const label = _getActionMeta(key || null).label;
+  const color = PDF_ACTION_COLOR[key] ?? { bg: COLORS.gray, fg: '#FFFFFF' };
+  return { label, bg: color.bg, fg: color.fg };
 };
 
 const escapeHtml = (s: string) =>
