@@ -134,6 +134,31 @@ export default function ChipsTrendChart({
     setPlaying(true);
   };
 
+  // 當前模式/視窗對應的 readiness（供 caption / placeholder 使用）
+  const currentReadiness: WindowReadinessPayload | null =
+    mode === 'inst'
+      ? (data?.readiness?.institutional?.[String(win) as '5' | '20' | '60'] ?? null)
+      : (data?.readiness?.bsr_concentration?.['5'] ?? null);
+  const currentNeed = currentReadiness?.need ?? (mode === 'inst' ? win : 5);
+  const currentHave = currentReadiness?.have ?? validPts.length;
+  const currentState: ReadinessState =
+    currentReadiness?.state ??
+    (validPts.length === 0
+      ? 'no_data'
+      : validPts.length >= currentNeed
+        ? 'ready'
+        : 'filling');
+  const captionText =
+    currentState === 'ready'
+      ? ''
+      : currentState === 'filling'
+        ? `補齊中：已 ${currentHave}/${currentNeed} 個交易日`
+        : currentState === 'upstream_exhausted'
+          ? (currentReadiness?.oldest_available
+              ? `此檔歷史自 ${currentReadiness.oldest_available.replaceAll('-', '/')} 起，${currentNeed} 日視窗資料不足`
+              : `此檔上游歷史不足 ${currentNeed} 個交易日`)
+          : '暫無資料，正在收集';
+
   if (!series.length) {
     return (
       <div style={{ fontSize: 12, color: WB.inkMute, padding: '10px 0' }} data-testid="chips-trend-empty">
@@ -170,7 +195,7 @@ export default function ChipsTrendChart({
     .join(' ');
 
   return (
-    <div style={{ marginTop: 14 }} data-testid="chips-trend-chart">
+    <div style={{ marginTop: 14 }} data-testid="chips-trend-chart" data-readiness-state={currentState} data-readiness-have={currentHave} data-readiness-need={currentNeed}>
       <div
         style={{
           display: 'flex',
@@ -351,6 +376,46 @@ export default function ChipsTrendChart({
           </text>
         </svg>
       </div>
+
+      {/* Readiness caption：filling / exhausted / no_data 都揭露；ready 不打擾 */}
+      {captionText && (
+        <div
+          data-testid="chips-trend-readiness-caption"
+          data-readiness-state={currentState}
+          style={{
+            marginTop: 6,
+            fontSize: 11,
+            fontFamily: SERIF,
+            color: currentState === 'filling' ? WB.inkSub : WB.inkMute,
+            display: 'flex',
+            alignItems: 'center',
+            gap: 8,
+          }}
+        >
+          <span>{captionText}</span>
+          {currentState === 'filling' && currentNeed > currentHave && (
+            <span
+              aria-hidden
+              style={{ display: 'inline-flex', gap: 3 }}
+            >
+              {Array.from({ length: currentNeed }).map((_, i) => (
+                <span
+                  key={i}
+                  data-testid={i < currentHave ? 'chips-trend-slot-filled' : 'chips-trend-slot-empty'}
+                  style={{
+                    width: 6,
+                    height: 6,
+                    borderRadius: 999,
+                    background: i < currentHave ? WB.ink : 'transparent',
+                    border: `1px solid ${i < currentHave ? WB.ink : WB.hair}`,
+                    opacity: i < currentHave ? 0.85 : 0.5,
+                  }}
+                />
+              ))}
+            </span>
+          )}
+        </div>
+      )}
 
       {/* Scrubber */}
       <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginTop: 8 }}>
