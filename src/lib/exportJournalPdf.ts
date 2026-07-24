@@ -62,17 +62,33 @@ const COLORS = {
   line: '#E4DFD6',
 };
 
-// ActionBadge 螢幕 config 完整鏡像（含中文 label 與台股顏色）
-// src/components/ActionBadge.tsx actionConfig 為單一真源
+// PDF 專用色票（hex，html2canvas 匯出用）— label 走 @/lib/signalAction 單一真源
+// 若 SIGNAL_ACTION_META 新增 action，這裡未定義色 → 用中性灰底 (COLORS.gray)。
+import { SIGNAL_ACTION_META, type SignalActionKey } from '@/lib/signalAction';
+const PDF_ACTION_COLOR: Record<SignalActionKey, { bg: string; fg: string }> = {
+  buy:      { bg: '#D94848', fg: '#FFFFFF' },
+  sell:     { bg: '#2E8B57', fg: '#FFFFFF' },
+  add:      { bg: '#3B82F6', fg: '#FFFFFF' },
+  trim:     { bg: '#F59E0B', fg: '#FFFFFF' },
+  exit:     { bg: '#64748B', fg: '#FFFFFF' },
+  hold:     { bg: '#8A857C', fg: '#FFFFFF' },
+  teaching: { bg: '#3B82F6', fg: '#FFFFFF' },
+};
+// 反向查表：接受 DB 內 action key 或前台顯示的中文 label
+const LABEL_TO_KEY = Object.entries(SIGNAL_ACTION_META).reduce<Record<string, SignalActionKey>>(
+  (acc, [k, v]) => { acc[v.label] = k as SignalActionKey; return acc; },
+  {},
+);
 export const actionMeta = (action: string) => {
   const raw = (action || '').trim();
-  const key = raw.toLowerCase();
-  if (key === 'buy' || raw === '買進') return { label: '買進', bg: '#D94848', fg: '#FFFFFF' };
-  if (key === 'sell' || raw === '賣出') return { label: '賣出', bg: '#2E8B57', fg: '#FFFFFF' };
-  if (key === 'add' || raw === '加碼') return { label: '加碼', bg: '#3B82F6', fg: '#FFFFFF' };
-  if (key === 'trim' || raw === '減碼') return { label: '減碼', bg: '#F59E0B', fg: '#FFFFFF' };
-  if (key === 'exit' || raw === '平損') return { label: '平損', bg: '#64748B', fg: '#FFFFFF' };
-  return { label: raw || 'HOLD', bg: COLORS.gray, fg: '#FFFFFF' };
+  if (!raw) return { label: 'HOLD', bg: COLORS.gray, fg: '#FFFFFF' };
+  const lower = raw.toLowerCase();
+  const key: SignalActionKey | undefined =
+    (SIGNAL_ACTION_META as Record<string, unknown>)[lower] ? (lower as SignalActionKey) : LABEL_TO_KEY[raw];
+  if (key) {
+    return { label: SIGNAL_ACTION_META[key].label, ...PDF_ACTION_COLOR[key] };
+  }
+  return { label: raw, bg: COLORS.gray, fg: '#FFFFFF' };
 };
 
 const escapeHtml = (s: string) =>

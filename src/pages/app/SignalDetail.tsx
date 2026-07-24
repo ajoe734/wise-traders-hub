@@ -30,14 +30,7 @@ import {
   INSTRUMENT_SOURCE_LABEL,
   NUMERIC_SOURCE_LABEL,
 } from '@/lib/signalFieldResolvers';
-
-const actionConfig: Record<string, { label: string; className: string }> = {
-  buy: { label: '買進', className: 'bg-success text-white border-success' },
-  sell: { label: '賣出', className: 'bg-destructive text-white border-destructive' },
-  add: { label: '加碼', className: 'bg-blue-500 text-blue-50 border-blue-500' },
-  trim: { label: '減碼', className: 'bg-amber-500 text-amber-50 border-amber-500' },
-  exit: { label: '平損', className: 'bg-slate-500 text-slate-50 border-slate-500' },
-};
+import { getActionMeta, getSignalDisplayInstrument } from '@/lib/signalAction';
 
 interface DbSignal {
   id: string;
@@ -137,7 +130,7 @@ const SignalDetail = () => {
     return <UnifiedAppLayout><UnavailableContent kind="signal" /></UnifiedAppLayout>;
   }
 
-  const ac = actionConfig[signal.action] || actionConfig.buy;
+  const ac = getActionMeta(signal.action);
   const publishedAt = signal.published_at ? new Date(signal.published_at) : null;
   // 韌性解析：instrument / price / quantity 一律走 resolver，避免 NaN、undefined、null 進畫面
   const inst = resolveInstrument(signal?.instrument);

@@ -33,16 +33,17 @@ interface SignalTemplate {
   sort_order: number;
 }
 
-const actionOptions = [
-  { value: 'buy', label: '買進', className: 'bg-success text-white' },
-  { value: 'sell', label: '賣出', className: 'bg-destructive text-white' },
-  { value: 'add', label: '加碼', className: 'bg-blue-500 text-white' },
-  { value: 'trim', label: '減碼', className: 'bg-amber-500 text-white' },
-  { value: 'exit', label: '平損', className: 'bg-slate-500 text-white' },
-];
+import { SIGNAL_ACTION_META, getActionMeta, type SignalActionKey } from '@/lib/signalAction';
 
-const getActionLabel = (val: string) => actionOptions.find(o => o.value === val)?.label ?? val;
-const getActionClass = (val: string) => actionOptions.find(o => o.value === val)?.className ?? '';
+const TEMPLATE_ACTION_KEYS: SignalActionKey[] = ['buy', 'sell', 'add', 'trim', 'exit'];
+const actionOptions = TEMPLATE_ACTION_KEYS.map((value) => ({
+  value,
+  label: SIGNAL_ACTION_META[value].label,
+  className: SIGNAL_ACTION_META[value].className,
+}));
+
+const getActionLabel = (val: string) => getActionMeta(val).label;
+const getActionClass = (val: string) => getActionMeta(val).className;
 
 const emptyForm = { title: '', action: 'buy', reason: '', risk_note: '', strategy_note: '' };
 

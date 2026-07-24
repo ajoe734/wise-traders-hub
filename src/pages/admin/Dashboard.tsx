@@ -10,11 +10,7 @@ import { supabase } from '@/integrations/supabase/client';
 import { cn } from '@/lib/utils';
 import { Users, Radio, TrendingUp, DollarSign, BookOpen, ArrowRight, Wallet } from 'lucide-react';
 import { AnimatedNumber } from '@/components/AnimatedNumber';
-
-const actionLabels: Record<string, { label: string; className: string }> = {
-  buy: { label: '買進', className: 'bg-success text-white border-success' },
-  sell: { label: '賣出', className: 'bg-destructive text-white border-destructive' },
-};
+import { getActionMeta, getSignalDisplayInstrument } from '@/lib/signalAction';
 
 const AdminDashboard = () => {
   const { expertSlug } = useParams<{ expertSlug: string }>();
@@ -219,13 +215,14 @@ const AdminDashboard = () => {
                 <p className="text-sm text-muted-foreground text-center py-4">尚無{isAdvisor ? '訊號' : '週記'}</p>
               ) : (
                 agg!.recentSignals.map((signal: any) => {
-                  const ai = actionLabels[signal.action] || actionLabels.buy;
+                  const ai = getActionMeta(signal.action);
+                  const displayName = getSignalDisplayInstrument(signal);
                   return (
                     <div key={signal.id} className="flex items-center justify-between py-2 border-b last:border-0">
                       <div className="flex items-center gap-3">
-                        <Badge className={`${ai.className} w-12 justify-center text-xs`}>{ai.label}</Badge>
+                        <Badge className={cn(ai.className, 'w-12 justify-center text-xs')}>{ai.label}</Badge>
                         <div>
-                          <p className="font-medium text-sm">{signal.instrument}</p>
+                          <p className="font-medium text-sm">{displayName}</p>
                           <p className="text-xs text-muted-foreground">
                             {signal.created_at ? new Date(signal.created_at).toLocaleString('zh-TW', { year: 'numeric', month: '2-digit', day: '2-digit', hour: '2-digit', minute: '2-digit' }) : '-'}
                           </p>

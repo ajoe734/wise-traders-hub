@@ -1,36 +1,25 @@
 import { SignalAction } from '@/types';
 import { Badge } from '@/components/ui/badge';
 import { cn } from '@/lib/utils';
+import { getActionMeta } from '@/lib/signalAction';
 
 type ExtendedAction = SignalAction | 'teaching' | 'hold';
 
 interface ActionBadgeProps {
-  action: ExtendedAction;
+  action: ExtendedAction | string | null | undefined;
   size?: 'sm' | 'default';
 }
 
-const actionConfig: Record<ExtendedAction, { label: string; className: string }> = {
-  buy: { label: '買進', className: 'bg-success text-white border-success' },
-  sell: { label: '賣出', className: 'bg-destructive text-white border-destructive' },
-  add: { label: '加碼', className: 'bg-blue-500 text-blue-50 border-blue-500' },
-  trim: { label: '減碼', className: 'bg-amber-500 text-amber-50 border-amber-500' },
-  exit: { label: '平損', className: 'bg-slate-500 text-slate-50 border-slate-500' },
-  teaching: { label: '教學', className: 'bg-mentor text-white border-mentor' },
-  hold: { label: '觀察', className: 'bg-muted text-foreground border-border' },
-};
-
 export function ActionBadge({ action, size = 'default' }: ActionBadgeProps) {
-  const config = actionConfig[action];
-
+  const meta = getActionMeta(action ?? undefined);
   return (
     <Badge
       className={cn(
-        config?.className,
+        meta.className,
         size === 'sm' ? 'text-[10px] px-1.5 py-0' : 'text-xs px-2 py-0.5'
       )}
     >
-      {config?.label ?? action}
+      {meta.label}
     </Badge>
   );
 }
-

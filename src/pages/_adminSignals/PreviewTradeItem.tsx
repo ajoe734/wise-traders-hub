@@ -2,7 +2,7 @@ import { useState } from 'react';
 import { Badge } from '@/components/ui/badge';
 import { cn } from '@/lib/utils';
 import { ChevronDown, ChevronUp, Lightbulb, Target, AlertTriangle } from 'lucide-react';
-import { actionLabels } from './actionLabels';
+import { getActionMeta } from '@/lib/signalAction';
 
 interface Props {
   action: string;
@@ -23,7 +23,7 @@ export const PreviewTradeItem = ({
 }: Props) => {
   const [expanded, setExpanded] = useState(false);
   const hasDetails = reasonSummary || reasonDetail || riskNotes;
-  const ai = actionLabels[action] || actionLabels.buy;
+  const ai = getActionMeta(action);
   return (
     <div className="px-4 py-3">
       <div
