@@ -123,17 +123,27 @@ export async function persistAggregated(
     const rows = histRows || [];
     const uniqueDates = Array.from(new Set(rows.map((r: any) => r.trade_date)))
       .sort((a, b) => (a < b ? 1 : -1));
+    // 當日 broker count (distinct broker_id) — 寫入 window_days=5 那列，作為日粒度事實。
+    const todayBrokers = new Set(
+      rows.filter((r: any) => r.trade_date === tradeDate).map((r: any) => r.broker_id),
+    );
+    const todayBrokerCount = todayBrokers.size;
     for (const win of [5, 20, 60] as const) {
       const dates = pickWindowDates(uniqueDates as string[], win);
       const w = computeBsrWindow(rows as any, dates);
       if (!w) continue;
-      upserts.push({
+      const row: any = {
         stock_id: sid, as_of_date: tradeDate, window_days: win,
         foreign_net: 0, trust_net: 0, dealer_net: 0,
         top_buy_brokers: w.top_buy, top_sell_brokers: w.top_sell,
         concentration_ratio: w.concentration_ratio, bsr_available: true,
         updated_at: new Date().toISOString(),
-      });
+      };
+      if (win === 5) {
+        row.broker_count = todayBrokerCount;
+        row.low_quality = todayBrokerCount > 0 && todayBrokerCount < 5;
+      }
+      upserts.push(row);
     }
   }
   if (upserts.length > 0) {
