@@ -283,6 +283,130 @@ export default function BsrRateLimit() {
           </p>
         </Card>
 
+        {/* M3 v2: Snapshot-First 命中率 */}
+        <Card className="p-4">
+          <div className="flex items-center justify-between mb-3">
+            <div>
+              <div className="text-sm font-medium">Snapshot-First 命中率（L2 Coalesced Fetch）</div>
+              <div className="text-[11px] text-muted-foreground mt-0.5">
+                每個 trade_date 是原子單位；同日多檔 job 由單次 market-batch 抓取後批量 fulfill。
+              </div>
+            </div>
+            <Button size="sm" variant="outline" disabled={!!busy} className="gap-2"
+              onClick={() => runAction('探測 market-batch 支援', { mode: 'probe', force: true })}>
+              <PlayCircle className="h-4 w-4" /> Probe
+            </Button>
+          </div>
+          <div className="grid grid-cols-2 md:grid-cols-6 gap-3 text-xs">
+            <div>
+              <div className="text-muted-foreground">24h 命中率</div>
+              <div className={`text-lg font-semibold font-mono ${
+                (data?.snapshot?.hit_ratio_24h ?? 0) >= 80 ? 'text-emerald-600' :
+                (data?.snapshot?.hit_ratio_24h ?? 0) >= 50 ? 'text-amber-600' :
+                data?.snapshot?.hit_ratio_24h != null ? 'text-destructive' : ''
+              }`}>
+                {data?.snapshot?.hit_ratio_24h != null ? `${data.snapshot.hit_ratio_24h}%` : '—'}
+              </div>
+            </div>
+            <div>
+              <div className="text-muted-foreground">{data?.snapshot?.window_days ?? 14}d Ready</div>
+              <div className="text-lg font-semibold font-mono text-emerald-700">
+                {data?.snapshot?.ready_days ?? '—'}
+                <span className="text-xs text-muted-foreground ml-1">/ {data?.snapshot?.total_days ?? '—'}</span>
+              </div>
+            </div>
+            <div>
+              <div className="text-muted-foreground">Partial</div>
+              <div className="text-lg font-semibold font-mono text-amber-600">
+                {data?.snapshot?.partial_days ?? '—'}
+              </div>
+            </div>
+            <div>
+              <div className="text-muted-foreground">Exhausted</div>
+              <div className="text-lg font-semibold font-mono text-muted-foreground">
+                {data?.snapshot?.exhausted_days ?? '—'}
+              </div>
+            </div>
+            <div>
+              <div className="text-muted-foreground">平均 quota/日</div>
+              <div className={`text-lg font-semibold font-mono ${
+                (data?.snapshot?.quota_per_day_avg ?? 0) > 100 ? 'text-amber-600' : ''
+              }`}>
+                {data?.snapshot?.quota_per_day_avg ?? '—'}
+              </div>
+            </div>
+            <div>
+              <div className="text-muted-foreground">最舊 pending</div>
+              <div className={`text-lg font-semibold font-mono ${
+                (data?.snapshot?.oldest_pending_days ?? 0) >= 3 ? 'text-destructive' : ''
+              }`}>
+                {data?.snapshot?.oldest_pending_days ?? 0} 天
+              </div>
+            </div>
+          </div>
+          <p className="text-[11px] text-muted-foreground mt-3">
+            命中率 = 24h 內完成的 job 中，透過共用 daily snapshot（fetched_at ±5s）批量 fulfill 的比例；
+            越接近 100% 代表 coalesced fetch 越有效，quota 消耗越低。目標 ≥80%。
+          </p>
+        </Card>
+
+        {/* M3 v2: Tier Admission Elastic Share */}
+        <Card className="p-4">
+          <div className="text-sm font-medium mb-3">
+            Tier Admission（L3 Elastic Share Limiter）
+          </div>
+          <div className="overflow-x-auto">
+            <table className="w-full text-xs">
+              <thead className="text-muted-foreground">
+                <tr className="border-b">
+                  <th className="text-left py-2 pr-3">Tier</th>
+                  <th className="text-left py-2 pr-3">用途</th>
+                  <th className="text-right py-2 pr-3">保底</th>
+                  <th className="text-right py-2 pr-3">已用</th>
+                  <th className="text-right py-2 pr-3">可用</th>
+                  <th className="text-left py-2 pr-3">狀態</th>
+                  <th className="text-left py-2 pr-3">原因</th>
+                </tr>
+              </thead>
+              <tbody>
+                {([
+                  { key: 'tier1', label: 'T1 · 持倉即時', g: '40%' },
+                  { key: 'tier2', label: 'T2 · 缺口補齊', g: '20%' },
+                  { key: 'tier3', label: 'T3 · 歷史回填', g: '5%' },
+                ] as const).map(({ key, label, g }) => {
+                  const row = data?.tier_admission?.[key];
+                  const tone =
+                    !row ? '' :
+                    row.allowed && row.reason === 'ok' ? 'text-emerald-700' :
+                    row.allowed ? 'text-amber-600' :
+                    'text-destructive';
+                  return (
+                    <tr key={key} className="border-t">
+                      <td className="py-2 pr-3 font-mono">{key.toUpperCase()}</td>
+                      <td className="py-2 pr-3">{label}</td>
+                      <td className="py-2 pr-3 text-right font-mono">
+                        {row?.tier_guarantee ?? '—'} <span className="text-muted-foreground">({g})</span>
+                      </td>
+                      <td className="py-2 pr-3 text-right font-mono">{row?.tier_used ?? '—'}</td>
+                      <td className="py-2 pr-3 text-right font-mono">{row?.available_for_tier ?? '—'}</td>
+                      <td className={`py-2 pr-3 font-mono ${tone}`}>
+                        {row ? (row.allowed ? '✓ 允許' : '✗ 拒絕') : '—'}
+                      </td>
+                      <td className="py-2 pr-3 font-mono text-muted-foreground">{row?.reason ?? '—'}</td>
+                    </tr>
+                  );
+                })}
+              </tbody>
+            </table>
+          </div>
+          <p className="text-[11px] text-muted-foreground mt-3">
+            Elastic share：高階 tier 未用完的保底可被低階 tier 借用；一旦高階需要，低階即被 squeezed。
+            當 reason = <span className="font-mono">min_guarantee</span> 代表已進入保底區、
+            <span className="font-mono"> squeezed_by_higher_tier</span> 代表被高階擠壓禁止入場。
+            全域 hourly 用量：<span className="font-mono">{data?.tier_admission?.tier1?.hourly_used ?? '—'}</span> / {data?.rate_limit.limit ?? 1500}。
+          </p>
+        </Card>
+
         {/* Stuck reservations（≥30s in-flight）：任何 worker crash/timeout 都會在這裡浮現 */}
         <Card className="p-4">
           <div className="flex items-center justify-between mb-2">
