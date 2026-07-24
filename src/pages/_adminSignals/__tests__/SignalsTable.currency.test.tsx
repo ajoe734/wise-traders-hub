@@ -110,8 +110,8 @@ describe('SignalsTable × currency fallback（缺 signal.currency）', () => {
     expect(screen.queryByText(/US\$/)).toBeNull();
   });
 
-  describe('幣別來源標示 (data-testid="admin-signal-currency-source")', () => {
-    it('signal.currency 明確 → data-source=explicit，文案「明確」', () => {
+  describe('幣別來源標示 (data-testid="admin-signal-currency-source" / CurrencyDot)', () => {
+    it('signal.currency 明確 → 不渲染指示器（回歸「異常標示」語意）', () => {
       renderWithProviders(
         <SignalsTable
           {...baseProps}
@@ -120,13 +120,10 @@ describe('SignalsTable × currency fallback（缺 signal.currency）', () => {
           defaultAssetClass="us_stock"
         />,
       );
-      const chip = screen.getByTestId('admin-signal-currency-source');
-      expect(chip.getAttribute('data-source')).toBe('explicit');
-      expect(chip.getAttribute('data-currency')).toBe('USD');
-      expect(chip.textContent).toContain('明確');
+      expect(screen.queryByTestId('admin-signal-currency-source')).toBeNull();
     });
 
-    it('由 asset_class 推斷 → data-source=asset-class，文案含「資產類別」', () => {
+    it('由 asset_class 推斷 → data-source=asset-class，tooltip 含「資產類別」', () => {
       renderWithProviders(
         <SignalsTable
           {...baseProps}
@@ -137,10 +134,10 @@ describe('SignalsTable × currency fallback（缺 signal.currency）', () => {
       );
       const chip = screen.getByTestId('admin-signal-currency-source');
       expect(chip.getAttribute('data-source')).toBe('asset-class');
-      expect(chip.textContent).toContain('資產類別');
+      expect(chip.getAttribute('title')).toContain('資產類別');
     });
 
-    it('由代號推斷 → data-source=inferred-instrument，文案含「代號推斷」', () => {
+    it('由代號推斷 → data-source=inferred-instrument，tooltip 含「代號推斷」', () => {
       renderWithProviders(
         <SignalsTable
           {...baseProps}
@@ -151,10 +148,10 @@ describe('SignalsTable × currency fallback（缺 signal.currency）', () => {
       );
       const chip = screen.getByTestId('admin-signal-currency-source');
       expect(chip.getAttribute('data-source')).toBe('inferred-instrument');
-      expect(chip.textContent).toContain('代號推斷');
+      expect(chip.getAttribute('title')).toContain('代號推斷');
     });
 
-    it('無法推斷 → data-source=default-fallback，文案含「預設」', () => {
+    it('無法推斷 → data-source=default-fallback，tooltip 含「預設」', () => {
       renderWithProviders(
         <SignalsTable
           {...baseProps}
@@ -165,9 +162,10 @@ describe('SignalsTable × currency fallback（缺 signal.currency）', () => {
       );
       const chip = screen.getByTestId('admin-signal-currency-source');
       expect(chip.getAttribute('data-source')).toBe('default-fallback');
-      expect(chip.textContent).toContain('預設');
+      expect(chip.getAttribute('title')).toContain('預設');
     });
   });
 });
+
 
 
