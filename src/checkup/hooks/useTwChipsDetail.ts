@@ -2,6 +2,7 @@
 // 使用 supabase.functions.invoke('tw-chips-detail')；SWR 5 分鐘快取。
 import { useEffect, useRef, useState } from 'react';
 import { supabase } from '@/integrations/supabase/client';
+import { trackEvent } from '@/lib/trafficTracker';
 
 export interface InstitutionalWindow {
   foreign_net: number;
