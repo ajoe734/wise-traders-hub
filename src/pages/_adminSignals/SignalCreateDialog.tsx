@@ -13,8 +13,9 @@ import { cn } from '@/lib/utils';
 import { supabase } from '@/integrations/supabase/client';
 import { useFormDraft } from '@/hooks/useFormDraft';
 import { avatarUrl } from '@/lib/imageTransform';
-import { actionLabels } from './actionLabels';
+import { getActionMeta } from '@/lib/signalAction';
 import { PreviewTradeItem } from './PreviewTradeItem';
+
 import { UnitRealignPreviewDialog } from './UnitRealignPreviewDialog';
 import { isMarketClosed } from './derive';
 import { getAssetSpec, resolveAssetClass, isValidAssetSymbol, type QuantityUnit } from '@/lib/asset';

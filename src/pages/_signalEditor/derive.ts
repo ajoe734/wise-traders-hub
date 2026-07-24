@@ -4,9 +4,9 @@ import {
   calcWeightedAvgPrice,
 } from '@/lib/signalTradeLogic';
 import {
-  actionLabels,
   type CapitalStatus, type OpenPosition, type TradeDraft,
 } from './types';
+import { getActionMeta } from '@/lib/signalAction';
 import { sanitizeRichHtml } from '@/lib/sanitizeHtml';
 import {
   formatMoneyByCurrency,
@@ -20,6 +20,7 @@ import {
   type AssetClass,
 } from '@/lib/asset';
 import { formatBaseQuantity } from '@/lib/positionQuantity';
+
 
 interface SimState {
   /** 模擬剩餘股數 */

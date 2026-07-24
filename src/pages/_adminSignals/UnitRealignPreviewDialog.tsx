@@ -4,7 +4,8 @@ import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
 import { Loader2, ArrowRight } from 'lucide-react';
 import { supabase } from '@/integrations/supabase/client';
-import { actionLabels } from './actionLabels';
+import { getActionMeta } from '@/lib/signalAction';
+
 
 interface Props {
   open: boolean;
