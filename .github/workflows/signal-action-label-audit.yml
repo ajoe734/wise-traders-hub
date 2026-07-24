@@ -1,0 +1,26 @@
+name: Signal Action Label Audit
+
+# 阻擋任何回歸：全站禁止重複的 actionLabels map / `|| actionLabels.buy` fallback
+# 憲法：所有 signal action badge 必須走 @/lib/signalAction getActionMeta()
+
+on:
+  pull_request:
+    paths:
+      - 'src/**'
+      - 'scripts/audit-signal-action-labels.mjs'
+      - '.github/workflows/signal-action-label-audit.yml'
+  push:
+    branches: [main]
+
+jobs:
+  audit:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+      - name: Install ripgrep
+        run: sudo apt-get update && sudo apt-get install -y ripgrep
+      - name: Run signal action label audit
+        run: node scripts/audit-signal-action-labels.mjs
