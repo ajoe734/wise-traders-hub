@@ -106,7 +106,7 @@ const Signals = () => {
         ) : filteredSignals.length > 0 ? (
           <div className="space-y-3">
             {filteredSignals.map(signal => {
-              const ac = actionConfig[signal.action] || actionConfig.buy;
+              const ac = getActionMeta(signal.action);
               const publishedAt = signal.published_at ? new Date(signal.published_at) : new Date();
               const isRecent = differenceInHours(new Date(), publishedAt) < 24;
 
@@ -128,7 +128,7 @@ const Signals = () => {
 
                       <div className="flex items-center gap-2 mb-3 flex-wrap">
                         <Badge className={cn(ac.className, 'text-xs px-2 py-0.5')}>{ac.label}</Badge>
-                        <span className="font-semibold text-lg">{signal.instrument}</span>
+                        <span className="font-semibold text-lg">{getSignalDisplayInstrument(signal)}</span>
                         <AssetBadge source={signal.experts} />
                       </div>
 
