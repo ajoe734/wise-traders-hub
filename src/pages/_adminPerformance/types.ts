@@ -15,8 +15,12 @@ export interface PerfRow {
   current_price: number | null;
   pnl: number | null;
   pnl_percent: number | null;
+  /** UI 顯示用的數量（已由 base_quantity 換算成 quantity_unit 對應的單位；例如 1000 股 → 顯示 1 張）。 */
   quantity: number;
+  /** UI 顯示用的單位（張/股/口/顆），已依 asset_class 與零股情況正規化。 */
   quantity_unit: string;
+  /** trade_records.quantity 的原始 base 數量（台股恆為股數；期權/期貨為口；crypto 為顆）。 */
+  base_quantity?: number | null;
   status: string;
   /** 該持倉的計價幣別（TWD / USD），由 expert.currency 帶入 */
   currency?: Currency;
