@@ -50,6 +50,21 @@ type Stats = {
       created_at: string;
     }>;
   };
+  snapshot?: {
+    window_days: number;
+    total_days: number;
+    ready_days: number;
+    partial_days: number;
+    exhausted_days: number;
+    hit_ratio_24h: number | null;
+    quota_per_day_avg: number | null;
+    oldest_pending_days: number;
+  } | null;
+  tier_admission?: Record<string, {
+    allowed: boolean; reason: string;
+    hourly_used: number; tier_used: number;
+    tier_guarantee: number; available_for_tier: number;
+  }>;
 };
 
 const MODE_LABEL: Record<DegradeMode, { label: string; tone: string }> = {
