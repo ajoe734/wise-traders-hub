@@ -6,6 +6,7 @@ import type { PerfRow } from '@/pages/_adminPerformance/types';
 import type { ExpertPerformance } from '@/hooks/usePerformance';
 import { normalizeCurrency, type Currency } from '@/lib/currency';
 import { normalizeAssetClass, type AssetClass } from '@/lib/asset';
+import { resolvePositionQuantityDisplay } from '@/lib/positionQuantity';
 
 /**
  * 單一資料源：所有 expert 的 capital / holdings / performance / currency
@@ -41,18 +42,23 @@ export function mapOpenPositionToRow(p: any, currency: Currency = 'TWD', assetCl
   const parts = String(p.instrument || p.symbol || '').split(' ');
   const symbol = p.symbol || parts[0] || '';
   const name = parts.slice(1).join(' ') || null;
-  const shares = Number(p.quantity_shares ?? 0);
+  const baseShares = Number(p.quantity_shares ?? 0);
   const entryPrice = p.entry_price != null ? Number(p.entry_price) : null;
   const curPrice = p.current_price != null ? Number(p.current_price) : null;
+  // pnl 用 base shares 算，不受顯示單位影響
   const pnl = p.unrealized_pnl != null
     ? Number(p.unrealized_pnl)
-    : (curPrice != null && entryPrice != null ? Math.round((curPrice - entryPrice) * shares) : null);
+    : (curPrice != null && entryPrice != null ? Math.round((curPrice - entryPrice) * baseShares) : null);
   const pnlPct = p.unrealized_pct != null
     ? Number(p.unrealized_pct)
     : (curPrice != null && entryPrice != null && entryPrice > 0
         ? Math.round(((curPrice - entryPrice) / entryPrice) * 10000) / 100
         : null);
   const rowAsset: AssetClass = p.asset_class ? normalizeAssetClass(p.asset_class) : assetClass;
+  // 契約：quantity_shares 一律是 base 數量；quantity_unit 是偏好顯示單位。
+  // 透過 resolvePositionQuantityDisplay 換算成 UI 該顯示的數字＋單位（張/股/口/顆），
+  // 零股（例如 500 base + 張）會自動 fallback 成「股」，避免出現「1000 張」這種災難。
+  const display = resolvePositionQuantityDisplay(baseShares, p.quantity_unit, rowAsset);
   return {
     id: `pos-${symbol}`,
     instrument: p.instrument || `${symbol} ${name || ''}`.trim(),
@@ -62,8 +68,9 @@ export function mapOpenPositionToRow(p: any, currency: Currency = 'TWD', assetCl
     current_price: curPrice,
     pnl,
     pnl_percent: pnlPct,
-    quantity: shares,
-    quantity_unit: p.quantity_unit || (rowAsset === 'tw_stock' ? '股' : undefined),
+    quantity: display.inputQuantity,
+    quantity_unit: display.unit,
+    base_quantity: baseShares,
     status: 'open',
     currency: normalizeCurrency(p.currency) || currency,
     asset_class: rowAsset,

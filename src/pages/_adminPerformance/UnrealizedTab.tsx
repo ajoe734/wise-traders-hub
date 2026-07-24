@@ -4,7 +4,7 @@ import { Loader2 } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { AnimatedNumber } from '@/components/AnimatedNumber';
 import { pnlColor, fmtPnl, fmtPct, fmtPrice, assetBadge, type PerfRow } from '@/pages/_adminPerformance/types';
-import { getAssetSpec } from '@/lib/asset';
+import { formatBaseQuantity } from '@/lib/positionQuantity';
 import { FxHint } from '@/components/FxHint';
 
 interface Props {
@@ -76,9 +76,14 @@ export default function UnrealizedTab({ rows, loading, totalPnlPercent, avgPnlPe
                   </tr>
                 ) : (
                   rows.map(row => {
-                    const spec = row.asset_class ? getAssetSpec(row.asset_class) : null;
                     const badge = assetBadge(row.asset_class);
-                    const unit = row.quantity_unit || spec?.defaultUnit || '股';
+                    // 一律走 formatBaseQuantity（吃 base_quantity + preferred unit + asset_class），
+                    // 禁止手動拼 `${quantity} ${unit}`，避免「1000 股 → 印成 1000 張」這種契約破口。
+                    const qtyLabel = formatBaseQuantity(
+                      row.base_quantity ?? row.quantity,
+                      row.quantity_unit,
+                      row.asset_class,
+                    );
                     return (
                     <tr key={row.id} className="border-b last:border-0">
                       <td className="p-3">
@@ -95,7 +100,7 @@ export default function UnrealizedTab({ rows, loading, totalPnlPercent, avgPnlPe
                         </div>
                       </td>
                       <td className="text-right p-3 text-sm tabular-nums">
-                        {row.quantity} {unit}
+                        {qtyLabel}
                       </td>
                       <td className="text-right p-3 text-sm tabular-nums">
                         {fmtPrice(row.entry_price, row.currency, row.asset_class)}
