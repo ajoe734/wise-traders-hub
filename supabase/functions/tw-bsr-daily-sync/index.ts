@@ -1244,6 +1244,12 @@ async function rebuildRollup(supa: any, stockId: string, asOf: string) {
 
   const uniqueDates = Array.from(new Set((bsrRows || []).map((r: any) => r.trade_date))).sort((a, b) => (a < b ? 1 : -1));
 
+  // 當日 broker count 供 chips-detail 序列讀取（寫在 window_days=5 那列）。
+  const todayBrokers = new Set(
+    (bsrRows || []).filter((r: any) => r.trade_date === asOf).map((r: any) => r.broker_id),
+  );
+  const todayBrokerCount = todayBrokers.size;
+
   for (const win of [5, 20, 60] as const) {
     const dates = new Set(uniqueDates.slice(0, win));
     const slice = (bsrRows || []).filter((r: any) => dates.has(r.trade_date));
@@ -1266,12 +1272,17 @@ async function rebuildRollup(supa: any, stockId: string, asOf: string) {
     const top15Buy = [...list].sort((a, b) => b.buy - a.buy).slice(0, 15).reduce((s, b) => s + b.buy, 0);
     const concentration = totalBuy > 0 ? (top15Buy / totalBuy) * 100 : null;
 
-    await supa.from("tw_chips_rollup").upsert({
+    const row: any = {
       stock_id: stockId, as_of_date: asOf, window_days: win,
       foreign_net: 0, trust_net: 0, dealer_net: 0,
       top_buy_brokers: topBuy, top_sell_brokers: topSell,
       concentration_ratio: concentration, bsr_available: true,
       updated_at: new Date().toISOString(),
-    }, { onConflict: "stock_id,as_of_date,window_days" });
+    };
+    if (win === 5) {
+      row.broker_count = todayBrokerCount;
+      row.low_quality = todayBrokerCount > 0 && todayBrokerCount < 5;
+    }
+    await supa.from("tw_chips_rollup").upsert(row, { onConflict: "stock_id,as_of_date,window_days" });
   }
 }

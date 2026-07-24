@@ -49,13 +49,25 @@ Deno.serve(async (req) => {
       return errorResponse("stock_id required", 400, { code: "BAD_REQUEST" });
     }
 
-    const cacheKey = `chips:${stockId}`;
-    const cached = cacheGet<any>(cacheKey);
-    if (cached) return jsonResponse({ ...cached, cached: true });
-
     const supa = createClient(SUPABASE_URL, SERVICE_ROLE_KEY, {
       auth: { persistSession: false },
     });
+
+    // Cache key includes latest rollup as_of_date so any new fulfillment auto-busts.
+    // Fetch that stamp cheaply first; if unavailable, fall back to a version-less key
+    // and rely on TTL alone.
+    const { data: stampRow } = await supa
+      .from("tw_chips_rollup")
+      .select("as_of_date, updated_at")
+      .eq("stock_id", stockId)
+      .eq("window_days", 5)
+      .order("as_of_date", { ascending: false })
+      .limit(1)
+      .maybeSingle();
+    const stampVer = stampRow ? `${stampRow.as_of_date}:${stampRow.updated_at}` : "v0";
+    const cacheKey = `chips:${stockId}:${stampVer}`;
+    const cached = cacheGet<any>(cacheKey);
+    if (cached) return jsonResponse({ ...cached, cached: true });
 
     // ==== 三大法人 1/5/20/60 日 ====
     const { data: instRows, error: instErr } = await supa
@@ -91,13 +103,17 @@ Deno.serve(async (req) => {
       .limit(12);
     const rollupLatestAsOf: string | null = rollupRows?.[0]?.as_of_date || null;
 
-    // ==== BSR raw daily（同時給 fallback 與集中度序列用）====
+    // ==== BSR raw daily（僅供 fallback 聚合 top_buy/top_sell 使用）====
+    // 序列與 readiness 不再走 raw：改讀 get_bsr_daily_series RPC，避免 PostgREST row cap 截斷。
+    // 窗口固定近 14 天：14 × ~750 brokers ≈ 10.5k rows，遠低於任何 cap，且足以覆蓋 fallback 判斷。
+    const rawSince = new Date(Date.now() - 14 * 86400_000).toISOString().slice(0, 10);
     const { data: bsrDaily } = await supa
       .from("tw_bsr_daily")
       .select("trade_date, broker_id, broker_name, buy_shares, sell_shares, net_shares")
       .eq("stock_id", stockId)
+      .gte("trade_date", rawSince)
       .order("trade_date", { ascending: false })
-      .limit(30000);
+      .limit(15000);
     const bsrRawRows = (bsrDaily || []) as any[];
 
     // ==== queue done set（判定 completeness 用）====
@@ -177,33 +193,31 @@ Deno.serve(async (req) => {
       total_net: Number(r.total_net || 0),
     }));
 
-    // ==== BSR 每日集中度序列（Top15 by net desc → sum(max(net,0)) / totalBuy）====
-    // 說明：這條序列僅供 trend chart。集中度定義沿用歷史行為（不改），
-    //      避免影響 UI 面板數字；rollup / raw_fallback 的 concentration_ratio 由 computeBsrWindow 保證一致。
-    const byDate = new Map<string, Array<{ broker_id: string; buy: number; net: number }>>();
-    for (const r of bsrRawRows) {
-      const d = r.trade_date as string;
-      const arr = byDate.get(d) || [];
-      arr.push({ broker_id: r.broker_id, buy: Number(r.buy_shares || 0), net: Number(r.net_shares || 0) });
-      byDate.set(d, arr);
-    }
-    const bsrConcentration: Array<{ date: string; concentration_ratio: number | null; top_net: number; broker_count: number; low_quality: boolean }> = [];
-    for (const [d, arr] of byDate) {
-      const totalBuy = arr.reduce((s, x) => s + x.buy, 0);
-      const top15 = [...arr].sort((a, b) => b.net - a.net).slice(0, 15);
-      const top15Buy = top15.reduce((s, x) => s + Math.max(x.net, 0), 0);
-      const ratio = totalBuy > 0 ? (top15Buy / totalBuy) * 100 : null;
-      const topNet = top15.reduce((s, x) => s + x.net, 0);
-      const brokerCount = arr.length;
-      bsrConcentration.push({
-        date: d,
-        concentration_ratio: ratio,
-        top_net: topNet,
-        broker_count: brokerCount,
-        low_quality: brokerCount < LOW_QUALITY_BROKER_THRESHOLD,
-      });
-    }
-    bsrConcentration.sort((a, b) => a.date.localeCompare(b.date));
+    // ==== BSR 每日集中度序列（改由 rollup RPC 供給，讀取成本 O(days)）====
+    // 過去用 raw broker rows 現算，會被 PostgREST row cap 截斷（熱門股一天 700+ 分點，
+    // 60 天 4 萬列 → cap 只保留前 1000 列 = 前 1~2 天，前端誤顯示「補齊中 2/5」）。
+    // 現在直接讀 tw_chips_rollup(window_days=5) 的 concentration_ratio + broker_count，
+    // 一日一列、60 列以內，與寫入端（persistAggregated）單一來源。
+    type DailySeriesRow = {
+      trade_date: string;
+      concentration_ratio: number | null;
+      broker_count: number | null;
+      low_quality: boolean | null;
+    };
+    const { data: dailySeries, error: seriesErr } = await supa.rpc(
+      "get_bsr_daily_series",
+      { _stock_id: stockId, _days: 60 },
+    );
+    if (seriesErr) console.warn("[chips-detail] get_bsr_daily_series failed:", seriesErr.message);
+    const bsrConcentration = ((dailySeries || []) as DailySeriesRow[])
+      .map((r) => ({
+        date: String(r.trade_date),
+        concentration_ratio: r.concentration_ratio != null ? Number(r.concentration_ratio) : null,
+        top_net: 0, // 保留欄位（舊消費者），實際值僅 fallback 需要，已由 bsr.d5.top_buy 覆蓋
+        broker_count: Number(r.broker_count ?? 0),
+        low_quality: !!r.low_quality,
+      }))
+      .sort((a, b) => a.date.localeCompare(b.date));
 
     const asOfDate = instAll[0]?.trade_date || null;
     // 三大法人的 lag 沿用日曆日；BSR 的 lag 改用 weekday。
@@ -326,18 +340,13 @@ Deno.serve(async (req) => {
     // ==== Readiness（M1：讓 UI 有唯一真相判斷 5/20/60 日視窗是否夠畫線）====
     // 三大法人 valid = 有 trade_date 的日期即為 valid（單日就是一個資料點）。
     const instValidDatesAsc = instAsc.map((r) => r.date);
-    // M4：BSR valid = 該日 raw broker rows >= DONE_BROKER_THRESHOLD（=1）；
-    // 低於 LOW_QUALITY_BROKER_THRESHOLD 仍算 valid，但由前端顯示低品質標記。
+    // M4：BSR valid dates 直接來自 bsrConcentration（源自 rollup），與序列同源，
+    // 徹底消除「series 有 N 天但 readiness.have=M」的 split-brain。
     const bsrValidDatesAsc = bsrConcentration
-      .filter((p) => (rowCountByDate.get(p.date) ?? 0) >= DONE_BROKER_THRESHOLD)
+      .filter((p) => (p.broker_count ?? 0) >= DONE_BROKER_THRESHOLD)
       .map((p) => p.date);
     const bsrLowQualityDates = new Set(
-      bsrConcentration
-        .filter((p) => {
-          const c = rowCountByDate.get(p.date) ?? 0;
-          return c >= DONE_BROKER_THRESHOLD && c < LOW_QUALITY_BROKER_THRESHOLD;
-        })
-        .map((p) => p.date),
+      bsrConcentration.filter((p) => p.low_quality).map((p) => p.date),
     );
 
     // M2：讀 upstream_probe 判斷是否上游窮竭
@@ -360,9 +369,21 @@ Deno.serve(async (req) => {
       upstreamExhausted,
     });
 
-    // M4：頂層低品質旗標 = 目前顯示的 chosenAsOf 該日 broker rows < LOW_QUALITY 門檻
-    const chosenBrokerCount = chosenAsOf ? (rowCountByDate.get(chosenAsOf) ?? 0) : 0;
+    // M4：頂層低品質旗標 = 目前顯示的 chosenAsOf 該日 broker count（源自 rollup）< 門檻
+    const chosenSeriesPoint = chosenAsOf ? bsrConcentration.find((p) => p.date === chosenAsOf) : null;
+    const chosenBrokerCount = chosenSeriesPoint?.broker_count ?? (chosenAsOf ? (rowCountByDate.get(chosenAsOf) ?? 0) : 0);
     const bsrLowQuality = !!chosenAsOf && chosenBrokerCount > 0 && chosenBrokerCount < LOW_QUALITY_BROKER_THRESHOLD;
+
+    // 契約 invariant：readiness.have 必須等於 series 中有效點數；不相等即為 bug，寫警告日誌。
+    const seriesValidCount = bsrValidDatesAsc.length;
+    if (bsrReadiness["5"].have !== seriesValidCount) {
+      console.error("[chips-detail] READINESS_SERIES_MISMATCH", {
+        stockId,
+        readiness_have: bsrReadiness["5"].have,
+        series_valid: seriesValidCount,
+        series_len: bsrConcentration.length,
+      });
+    }
 
     const payload = {
       stock_id: stockId,

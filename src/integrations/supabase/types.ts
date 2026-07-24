@@ -4450,11 +4450,13 @@ export type Database = {
       tw_chips_rollup: {
         Row: {
           as_of_date: string
+          broker_count: number | null
           bsr_available: boolean
           concentration_ratio: number | null
           dealer_net: number
           foreign_net: number
           id: number
+          low_quality: boolean | null
           stock_id: string
           top_buy_brokers: Json
           top_sell_brokers: Json
@@ -4464,11 +4466,13 @@ export type Database = {
         }
         Insert: {
           as_of_date: string
+          broker_count?: number | null
           bsr_available?: boolean
           concentration_ratio?: number | null
           dealer_net?: number
           foreign_net?: number
           id?: number
+          low_quality?: boolean | null
           stock_id: string
           top_buy_brokers?: Json
           top_sell_brokers?: Json
@@ -4478,11 +4482,13 @@ export type Database = {
         }
         Update: {
           as_of_date?: string
+          broker_count?: number | null
           bsr_available?: boolean
           concentration_ratio?: number | null
           dealer_net?: number
           foreign_net?: number
           id?: number
+          low_quality?: boolean | null
           stock_id?: string
           top_buy_brokers?: Json
           top_sell_brokers?: Json
@@ -5190,6 +5196,16 @@ export type Database = {
           user_id: string
         }[]
       }
+      get_bsr_daily_series: {
+        Args: { _days?: number; _stock_id: string }
+        Returns: {
+          broker_count: number
+          concentration_ratio: number
+          low_quality: boolean
+          trade_date: string
+        }[]
+      }
+      get_bsr_readiness_v2: { Args: { _stock_id: string }; Returns: Json }
       get_event_heatmap: {
         Args: { _from: string; _to: string }
         Returns: {
