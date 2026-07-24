@@ -130,7 +130,7 @@ const SignalDetail = () => {
     return <UnifiedAppLayout><UnavailableContent kind="signal" /></UnifiedAppLayout>;
   }
 
-  const ac = actionConfig[signal.action] || actionConfig.buy;
+  const ac = getActionMeta(signal.action);
   const publishedAt = signal.published_at ? new Date(signal.published_at) : null;
   // 韌性解析：instrument / price / quantity 一律走 resolver，避免 NaN、undefined、null 進畫面
   const inst = resolveInstrument(signal?.instrument);
