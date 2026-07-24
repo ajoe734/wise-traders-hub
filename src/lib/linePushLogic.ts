@@ -5,7 +5,10 @@
  * the Deno function is drift-detected.
  */
 
+import { getActionMeta } from '@/lib/signalAction';
+
 const LINE_MULTICAST_URL = 'https://api.line.me/v2/bot/message/multicast';
+
 
 type FetchLike = (
   url: string,
@@ -63,8 +66,6 @@ export interface SignalMessage {
   risk_notes?: string | null;
   learning_points?: string | null;
 }
-
-import { getActionMeta } from '@/lib/signalAction';
 
 /**
  * Build a LINE Flex Message for signal push notifications.
