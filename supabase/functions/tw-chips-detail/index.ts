@@ -193,33 +193,31 @@ Deno.serve(async (req) => {
       total_net: Number(r.total_net || 0),
     }));
 
-    // ==== BSR 每日集中度序列（Top15 by net desc → sum(max(net,0)) / totalBuy）====
-    // 說明：這條序列僅供 trend chart。集中度定義沿用歷史行為（不改），
-    //      避免影響 UI 面板數字；rollup / raw_fallback 的 concentration_ratio 由 computeBsrWindow 保證一致。
-    const byDate = new Map<string, Array<{ broker_id: string; buy: number; net: number }>>();
-    for (const r of bsrRawRows) {
-      const d = r.trade_date as string;
-      const arr = byDate.get(d) || [];
-      arr.push({ broker_id: r.broker_id, buy: Number(r.buy_shares || 0), net: Number(r.net_shares || 0) });
-      byDate.set(d, arr);
-    }
-    const bsrConcentration: Array<{ date: string; concentration_ratio: number | null; top_net: number; broker_count: number; low_quality: boolean }> = [];
-    for (const [d, arr] of byDate) {
-      const totalBuy = arr.reduce((s, x) => s + x.buy, 0);
-      const top15 = [...arr].sort((a, b) => b.net - a.net).slice(0, 15);
-      const top15Buy = top15.reduce((s, x) => s + Math.max(x.net, 0), 0);
-      const ratio = totalBuy > 0 ? (top15Buy / totalBuy) * 100 : null;
-      const topNet = top15.reduce((s, x) => s + x.net, 0);
-      const brokerCount = arr.length;
-      bsrConcentration.push({
-        date: d,
-        concentration_ratio: ratio,
-        top_net: topNet,
-        broker_count: brokerCount,
-        low_quality: brokerCount < LOW_QUALITY_BROKER_THRESHOLD,
-      });
-    }
-    bsrConcentration.sort((a, b) => a.date.localeCompare(b.date));
+    // ==== BSR 每日集中度序列（改由 rollup RPC 供給，讀取成本 O(days)）====
+    // 過去用 raw broker rows 現算，會被 PostgREST row cap 截斷（熱門股一天 700+ 分點，
+    // 60 天 4 萬列 → cap 只保留前 1000 列 = 前 1~2 天，前端誤顯示「補齊中 2/5」）。
+    // 現在直接讀 tw_chips_rollup(window_days=5) 的 concentration_ratio + broker_count，
+    // 一日一列、60 列以內，與寫入端（persistAggregated）單一來源。
+    type DailySeriesRow = {
+      trade_date: string;
+      concentration_ratio: number | null;
+      broker_count: number | null;
+      low_quality: boolean | null;
+    };
+    const { data: dailySeries, error: seriesErr } = await supa.rpc(
+      "get_bsr_daily_series",
+      { _stock_id: stockId, _days: 60 },
+    );
+    if (seriesErr) console.warn("[chips-detail] get_bsr_daily_series failed:", seriesErr.message);
+    const bsrConcentration = ((dailySeries || []) as DailySeriesRow[])
+      .map((r) => ({
+        date: String(r.trade_date),
+        concentration_ratio: r.concentration_ratio != null ? Number(r.concentration_ratio) : null,
+        top_net: 0, // 保留欄位（舊消費者），實際值僅 fallback 需要，已由 bsr.d5.top_buy 覆蓋
+        broker_count: Number(r.broker_count ?? 0),
+        low_quality: !!r.low_quality,
+      }))
+      .sort((a, b) => a.date.localeCompare(b.date));
 
     const asOfDate = instAll[0]?.trade_date || null;
     // 三大法人的 lag 沿用日曆日；BSR 的 lag 改用 weekday。
