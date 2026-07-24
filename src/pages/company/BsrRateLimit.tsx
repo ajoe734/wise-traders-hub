@@ -554,6 +554,8 @@ export default function BsrRateLimit() {
             })}
           </div>
         </Card>
+
+        <ChipsCacheTelemetryCard />
       </div>
     </CompanyLayout>
   );
