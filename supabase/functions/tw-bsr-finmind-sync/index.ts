@@ -720,6 +720,56 @@ async function runStats() {
       },
       recent_transitions: dgRecent ?? [],
     },
+    snapshot: await (async () => {
+      try {
+        const { data } = await supa.rpc('bsr_snapshot_stats', { _days: 14 });
+        const row = Array.isArray(data) ? data[0] : data;
+        return row
+          ? {
+              window_days: 14,
+              total_days: Number(row.total_days ?? 0),
+              ready_days: Number(row.ready_days ?? 0),
+              partial_days: Number(row.partial_days ?? 0),
+              exhausted_days: Number(row.exhausted_days ?? 0),
+              hit_ratio_24h: row.hit_ratio_24h == null ? null : Number(row.hit_ratio_24h),
+              quota_per_day_avg: row.quota_per_day_avg == null ? null : Number(row.quota_per_day_avg),
+              oldest_pending_days: Number(row.oldest_pending_days ?? 0),
+            }
+          : null;
+      } catch (e) {
+        console.warn('[stats] snapshot_stats failed:', (e as Error).message);
+        return null;
+      }
+    })(),
+    tier_admission: await (async () => {
+      const tiers: Array<1 | 2 | 3> = [1, 2, 3];
+      const out: Record<string, {
+        allowed: boolean; reason: string;
+        hourly_used: number; tier_used: number;
+        tier_guarantee: number; available_for_tier: number;
+      }> = {};
+      for (const t of tiers) {
+        try {
+          const { data } = await supa.rpc('bsr_check_tier_admission', {
+            _api: 'finmind', _tier: t, _limit: 1500,
+          });
+          const row = Array.isArray(data) ? data[0] : data;
+          if (row) {
+            out[`tier${t}`] = {
+              allowed: Boolean(row.allowed),
+              reason: String(row.reason ?? '—'),
+              hourly_used: Number(row.hourly_used ?? 0),
+              tier_used: Number(row.tier_used ?? 0),
+              tier_guarantee: Number(row.tier_guarantee ?? 0),
+              available_for_tier: Number(row.available_for_tier ?? 0),
+            };
+          }
+        } catch (e) {
+          console.warn(`[stats] tier${t} admission failed:`, (e as Error).message);
+        }
+      }
+      return out;
+    })(),
   };
 }
 
