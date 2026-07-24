@@ -326,10 +326,19 @@ Deno.serve(async (req) => {
     // ==== Readiness（M1：讓 UI 有唯一真相判斷 5/20/60 日視窗是否夠畫線）====
     // 三大法人 valid = 有 trade_date 的日期即為 valid（單日就是一個資料點）。
     const instValidDatesAsc = instAsc.map((r) => r.date);
-    // BSR 集中度 valid = 該日 raw broker rows >= DONE_BROKER_THRESHOLD。
+    // M4：BSR valid = 該日 raw broker rows >= DONE_BROKER_THRESHOLD（=1）；
+    // 低於 LOW_QUALITY_BROKER_THRESHOLD 仍算 valid，但由前端顯示低品質標記。
     const bsrValidDatesAsc = bsrConcentration
       .filter((p) => (rowCountByDate.get(p.date) ?? 0) >= DONE_BROKER_THRESHOLD)
       .map((p) => p.date);
+    const bsrLowQualityDates = new Set(
+      bsrConcentration
+        .filter((p) => {
+          const c = rowCountByDate.get(p.date) ?? 0;
+          return c >= DONE_BROKER_THRESHOLD && c < LOW_QUALITY_BROKER_THRESHOLD;
+        })
+        .map((p) => p.date),
+    );
 
     // M2：讀 upstream_probe 判斷是否上游窮竭
     let upstreamExhausted = false;
@@ -351,6 +360,9 @@ Deno.serve(async (req) => {
       upstreamExhausted,
     });
 
+    // M4：頂層低品質旗標 = 目前顯示的 chosenAsOf 該日 broker rows < LOW_QUALITY 門檻
+    const chosenBrokerCount = chosenAsOf ? (rowCountByDate.get(chosenAsOf) ?? 0) : 0;
+    const bsrLowQuality = !!chosenAsOf && chosenBrokerCount > 0 && chosenBrokerCount < LOW_QUALITY_BROKER_THRESHOLD;
 
     const payload = {
       stock_id: stockId,
@@ -365,6 +377,10 @@ Deno.serve(async (req) => {
       bsr_lag_weekdays: bsrLagWeekdays,
       bsr_freshness_status: freshness,
       bsr_completeness_threshold: DONE_BROKER_THRESHOLD,
+      bsr_low_quality_threshold: LOW_QUALITY_BROKER_THRESHOLD,
+      bsr_low_quality: bsrLowQuality,
+      bsr_broker_count: chosenBrokerCount,
+      bsr_low_quality_dates: Array.from(bsrLowQualityDates),
       bsr_last_failure: bsrLastFailure,
       bsr_sync_status: bsrSyncStatus,
       series: {
