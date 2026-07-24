@@ -134,6 +134,31 @@ export default function ChipsTrendChart({
     setPlaying(true);
   };
 
+  // 當前模式/視窗對應的 readiness（供 caption / placeholder 使用）
+  const currentReadiness: WindowReadinessPayload | null =
+    mode === 'inst'
+      ? (data?.readiness?.institutional?.[String(win) as '5' | '20' | '60'] ?? null)
+      : (data?.readiness?.bsr_concentration?.['5'] ?? null);
+  const currentNeed = currentReadiness?.need ?? (mode === 'inst' ? win : 5);
+  const currentHave = currentReadiness?.have ?? validPts.length;
+  const currentState: ReadinessState =
+    currentReadiness?.state ??
+    (validPts.length === 0
+      ? 'no_data'
+      : validPts.length >= currentNeed
+        ? 'ready'
+        : 'filling');
+  const captionText =
+    currentState === 'ready'
+      ? ''
+      : currentState === 'filling'
+        ? `補齊中：已 ${currentHave}/${currentNeed} 個交易日`
+        : currentState === 'upstream_exhausted'
+          ? (currentReadiness?.oldest_available
+              ? `此檔歷史自 ${currentReadiness.oldest_available.replaceAll('-', '/')} 起，${currentNeed} 日視窗資料不足`
+              : `此檔上游歷史不足 ${currentNeed} 個交易日`)
+          : '暫無資料，正在收集';
+
   if (!series.length) {
     return (
       <div style={{ fontSize: 12, color: WB.inkMute, padding: '10px 0' }} data-testid="chips-trend-empty">
