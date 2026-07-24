@@ -1,0 +1,28 @@
+name: Admin Signals Audit
+
+# 阻擋兩類回歸：
+# 1. _adminSignals 五檔核心加總 LOC > 850 → fail
+# 2. 除 useSignalRowViewModel.ts 外的 _adminSignals/*.tsx 直讀
+#    signal.action/currency/price_hint/status/asset_class → fail
+#
+# 憲法：所有欄位存取必須經過 useSignalRowViewModel 的 view model。
+
+on:
+  pull_request:
+    paths:
+      - 'src/pages/_adminSignals/**'
+      - 'scripts/audit-admin-signals.mjs'
+      - '.github/workflows/admin-signals-audit.yml'
+  push:
+    branches: [main]
+
+jobs:
+  audit:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+      - name: Run admin-signals audit
+        run: node scripts/audit-admin-signals.mjs
