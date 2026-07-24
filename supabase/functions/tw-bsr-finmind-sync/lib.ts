@@ -64,8 +64,9 @@ export function aggregate(rows: FinmindRow[]): Aggregated[] {
 }
 
 // ============ 失敗退避決策 ============
-/** 完整完成即視為 done，門檻對齊 index.ts 的 isDoneAlready */
-export const DONE_BROKER_THRESHOLD = 5;
+/** M4：門檻降至 1，只要有一筆分點即視為 done；<5 由前端加「低品質」標記。 */
+export const DONE_BROKER_THRESHOLD = 1;
+export const LOW_QUALITY_BROKER_THRESHOLD = 5;
 
 /**
  * 失敗後 next_run 與 status：對齊 index.ts 中 worker 失敗分支。
