@@ -18,6 +18,7 @@ const ALLOWLIST = new Set([
   'src/lib/signalAction.ts',
   'src/pages/_adminSignals/actionLabels.ts',
   'src/test/unit/signalActionLabel.test.ts',
+  'src/test/exportJournalPdfActionMeta.test.ts', // contract test — expected to contain literals
   'scripts/audit-signal-action-labels.mjs',
 ]);
 

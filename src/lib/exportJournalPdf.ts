@@ -62,10 +62,10 @@ const COLORS = {
   line: '#E4DFD6',
 };
 
-// PDF 專用色票（hex，用於 html2canvas 匯出）— label 一律走 @/lib/signalAction 單一真源
-// 若 SIGNAL_ACTION_META 新增 action，這裡未定義色 → 用中性灰底，label 仍會顯示原文。
-import { getActionMeta as _getActionMeta } from '@/lib/signalAction';
-const PDF_ACTION_COLOR: Record<string, { bg: string; fg: string }> = {
+// PDF 專用色票（hex，html2canvas 匯出用）— label 走 @/lib/signalAction 單一真源
+// 若 SIGNAL_ACTION_META 新增 action，這裡未定義色 → 用中性灰底 (COLORS.gray)。
+import { SIGNAL_ACTION_META, type SignalActionKey } from '@/lib/signalAction';
+const PDF_ACTION_COLOR: Record<SignalActionKey, { bg: string; fg: string }> = {
   buy:      { bg: '#D94848', fg: '#FFFFFF' },
   sell:     { bg: '#2E8B57', fg: '#FFFFFF' },
   add:      { bg: '#3B82F6', fg: '#FFFFFF' },
@@ -74,12 +74,21 @@ const PDF_ACTION_COLOR: Record<string, { bg: string; fg: string }> = {
   hold:     { bg: '#8A857C', fg: '#FFFFFF' },
   teaching: { bg: '#3B82F6', fg: '#FFFFFF' },
 };
+// 反向查表：接受 DB 內 action key 或前台顯示的中文 label
+const LABEL_TO_KEY = Object.entries(SIGNAL_ACTION_META).reduce<Record<string, SignalActionKey>>(
+  (acc, [k, v]) => { acc[v.label] = k as SignalActionKey; return acc; },
+  {},
+);
 export const actionMeta = (action: string) => {
   const raw = (action || '').trim();
-  const key = raw.toLowerCase();
-  const label = _getActionMeta(key || null).label;
-  const color = PDF_ACTION_COLOR[key] ?? { bg: COLORS.gray, fg: '#FFFFFF' };
-  return { label, bg: color.bg, fg: color.fg };
+  if (!raw) return { label: 'HOLD', bg: COLORS.gray, fg: '#FFFFFF' };
+  const lower = raw.toLowerCase();
+  const key: SignalActionKey | undefined =
+    (SIGNAL_ACTION_META as Record<string, unknown>)[lower] ? (lower as SignalActionKey) : LABEL_TO_KEY[raw];
+  if (key) {
+    return { label: SIGNAL_ACTION_META[key].label, ...PDF_ACTION_COLOR[key] };
+  }
+  return { label: raw, bg: COLORS.gray, fg: '#FFFFFF' };
 };
 
 const escapeHtml = (s: string) =>
