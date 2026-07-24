@@ -201,7 +201,7 @@ async function processStock(
       .update({ resolved_at: new Date().toISOString(), last_error_message: null })
       .eq('stock_id', stockId).eq('trade_date', date).is('resolved_at', null);
     await rebuildRollup(stockId, date);
-    return { ok: true, rows: agg.length };
+    return { ok: true, rows: agg.length, note: isLowQuality ? 'low_quality' : undefined };
   } catch (e) {
     if (e instanceof RateLimitExhaustedError) {
       return { ok: false, rows: 0, error: e.message, rateLimited: true };
