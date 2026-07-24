@@ -423,7 +423,10 @@ Deno.serve(async (req) => {
     };
 
     cacheSet(cacheKey, payload, CACHE_TTL_MS);
-    return jsonResponse(payload);
+    return jsonResponse({
+      ...payload,
+      _cache_meta: { cache: 'miss', stamp_ver: stampVer, served_at: new Date().toISOString() },
+    });
   } catch (err) {
     return errorResponse((err as Error).message, 500, { code: "INTERNAL_ERROR" });
   }
