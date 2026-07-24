@@ -338,6 +338,27 @@ export default function ChipsTrendChart({
               <path d={linePath} fill="none" stroke={mode === 'bsr' ? WB.ink : UP} strokeWidth={1.4} />
             ))}
 
+          {/* M4：BSR 低品質日（broker_count < 5）→ 空心圓標記 */}
+          {mode === 'bsr' && series.map((p, i) => {
+            const raw = (p as any).raw as { low_quality?: boolean; broker_count?: number } | undefined;
+            const v = p.value;
+            if (!raw?.low_quality || v == null || Number.isNaN(v)) return null;
+            return (
+              <circle
+                key={`lq-${i}`}
+                data-testid="chips-trend-low-quality-dot"
+                cx={xs(i)}
+                cy={ys(v as number)}
+                r={3}
+                fill="#fff"
+                stroke={WB.ink}
+                strokeWidth={1.2}
+              >
+                <title>{`分點列數 ${raw.broker_count ?? '?'}（<5，僅供參考）`}</title>
+              </circle>
+            );
+          })}
+
 
           {/* 播放游標 */}
           {activePt && activeVal != null && !Number.isNaN(activeVal) && (
