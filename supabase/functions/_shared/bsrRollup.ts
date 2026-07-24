@@ -80,21 +80,23 @@ export function pickWindowDates(uniqueDatesDesc: string[], windowSize: number): 
  * 從候選 trade_date（{date, rowCount}）中挑「最新且已 complete」的日期。
  * complete = rowCount >= DONE_BROKER_THRESHOLD。
  *
- * queue.status='done' 只可作為診斷輔助，不能單獨證明 raw 完整；歷史上曾出現
- * 「done 但 0 rows」的 fake-done 狀態，這裡必須以原始分點列數作最後防線。
- * 這是本次修訂的核心：只要今日 raw 尚未 complete，就不該把 fallbackAsOf 推到今日，
- * 避免用不完整的今日 partial data 覆蓋昨日完整的 rollup。
+ * M4：門檻由 5 降到 1（只要 FinMind 回一筆分點就視為「有資料」），
+ * 避免今日 partial 一直被卡在昨日；低於 LOW_QUALITY_BROKER_THRESHOLD
+ * 的日子由前端加上「低品質」標記提醒使用者。
  */
-export const DONE_BROKER_THRESHOLD = 5;
+export const DONE_BROKER_THRESHOLD = 1;
+/** 低於此門檻的日子仍算「有資料」，但需在 UI 打「低品質」提醒。 */
+export const LOW_QUALITY_BROKER_THRESHOLD = 5;
 
 export function pickCompleteFallbackDate(
   candidates: Array<{ date: string; rowCount: number }>,
-  doneDateSet: Set<string>,
+  _doneDateSet: Set<string>,
+  threshold: number = DONE_BROKER_THRESHOLD,
 ): string | null {
   if (candidates.length === 0) return null;
   const sorted = [...candidates].sort((a, b) => (a.date < b.date ? 1 : a.date > b.date ? -1 : 0));
   for (const c of sorted) {
-    if (c.rowCount >= DONE_BROKER_THRESHOLD) return c.date;
+    if (c.rowCount >= threshold) return c.date;
   }
   return null;
 }
