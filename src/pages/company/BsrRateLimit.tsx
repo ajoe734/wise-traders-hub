@@ -9,6 +9,9 @@ import { RefreshCw, PlayCircle, ListPlus } from 'lucide-react';
 import { useMemo, useState } from 'react';
 import { toast } from 'sonner';
 import { Input } from '@/components/ui/input';
+import { ChipsCacheTelemetryCard } from './_bsr/ChipsCacheTelemetryCard';
+
+
 
 
 type DegradeMode = 'normal' | 'tier3_paused' | 'tier2_paused' | 'p1_only' | 'claim_halt';
