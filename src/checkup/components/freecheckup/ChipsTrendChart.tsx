@@ -377,6 +377,46 @@ export default function ChipsTrendChart({
         </svg>
       </div>
 
+      {/* Readiness caption：filling / exhausted / no_data 都揭露；ready 不打擾 */}
+      {captionText && (
+        <div
+          data-testid="chips-trend-readiness-caption"
+          data-readiness-state={currentState}
+          style={{
+            marginTop: 6,
+            fontSize: 11,
+            fontFamily: SERIF,
+            color: currentState === 'filling' ? WB.inkSub : WB.inkMute,
+            display: 'flex',
+            alignItems: 'center',
+            gap: 8,
+          }}
+        >
+          <span>{captionText}</span>
+          {currentState === 'filling' && currentNeed > currentHave && (
+            <span
+              aria-hidden
+              style={{ display: 'inline-flex', gap: 3 }}
+            >
+              {Array.from({ length: currentNeed }).map((_, i) => (
+                <span
+                  key={i}
+                  data-testid={i < currentHave ? 'chips-trend-slot-filled' : 'chips-trend-slot-empty'}
+                  style={{
+                    width: 6,
+                    height: 6,
+                    borderRadius: 999,
+                    background: i < currentHave ? WB.ink : 'transparent',
+                    border: `1px solid ${i < currentHave ? WB.ink : WB.hair}`,
+                    opacity: i < currentHave ? 0.85 : 0.5,
+                  }}
+                />
+              ))}
+            </span>
+          )}
+        </div>
+      )}
+
       {/* Scrubber */}
       <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginTop: 8 }}>
         <button
