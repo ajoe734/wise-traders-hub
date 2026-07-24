@@ -142,17 +142,29 @@ async function rebuildRollup(stockId: string, asOf: string) {
   const uniqueDates = Array.from(new Set(rows.map((r: any) => r.trade_date)))
     .sort((a, b) => (a < b ? 1 : -1));
   const { computeBsrWindow, pickWindowDates } = await import('../_shared/bsrRollup.ts');
+  // 當日 broker count → 寫入 window_days=5 那列，作為日粒度事實供 chips-detail 序列讀取。
+  const todayBrokers = new Set(
+    rows.filter((r: any) => r.trade_date === asOf).map((r: any) => r.broker_id),
+  );
+  const todayBrokerCount = todayBrokers.size;
   for (const win of [5, 20, 60] as const) {
     const dates = pickWindowDates(uniqueDates, win);
     const w = computeBsrWindow(rows as any, dates);
     if (!w) continue;
-    await supa.from('tw_chips_rollup').upsert({
+    const row: any = {
       stock_id: stockId, as_of_date: asOf, window_days: win,
       foreign_net: 0, trust_net: 0, dealer_net: 0,
       top_buy_brokers: w.top_buy, top_sell_brokers: w.top_sell,
       concentration_ratio: w.concentration_ratio, bsr_available: true,
       updated_at: new Date().toISOString(),
-    }, { onConflict: 'stock_id,as_of_date,window_days' });
+    };
+    if (win === 5) {
+      row.broker_count = todayBrokerCount;
+      row.low_quality = todayBrokerCount > 0 && todayBrokerCount < 5;
+    }
+    await supa.from('tw_chips_rollup').upsert(row, {
+      onConflict: 'stock_id,as_of_date,window_days',
+    });
   }
 }
 
