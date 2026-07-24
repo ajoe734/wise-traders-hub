@@ -67,7 +67,13 @@ Deno.serve(async (req) => {
     const stampVer = stampRow ? `${stampRow.as_of_date}:${stampRow.updated_at}` : "v0";
     const cacheKey = `chips:${stockId}:${stampVer}`;
     const cached = cacheGet<any>(cacheKey);
-    if (cached) return jsonResponse({ ...cached, cached: true });
+    if (cached) {
+      return jsonResponse({
+        ...cached,
+        cached: true,
+        _cache_meta: { cache: 'hit', stamp_ver: stampVer, served_at: new Date().toISOString() },
+      });
+    }
 
     // ==== 三大法人 1/5/20/60 日 ====
     const { data: instRows, error: instErr } = await supa
@@ -417,7 +423,10 @@ Deno.serve(async (req) => {
     };
 
     cacheSet(cacheKey, payload, CACHE_TTL_MS);
-    return jsonResponse(payload);
+    return jsonResponse({
+      ...payload,
+      _cache_meta: { cache: 'miss', stamp_ver: stampVer, served_at: new Date().toISOString() },
+    });
   } catch (err) {
     return errorResponse((err as Error).message, 500, { code: "INTERNAL_ERROR" });
   }

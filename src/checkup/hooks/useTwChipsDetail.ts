@@ -2,6 +2,7 @@
 // 使用 supabase.functions.invoke('tw-chips-detail')；SWR 5 分鐘快取。
 import { useEffect, useRef, useState } from 'react';
 import { supabase } from '@/integrations/supabase/client';
+import { trackEvent } from '@/lib/trafficTracker';
 
 export interface InstitutionalWindow {
   foreign_net: number;
@@ -134,6 +135,13 @@ export interface WindowReadinessPayload {
 const CACHE = new Map<string, { data: TwChipsPayload; ts: number }>();
 const TTL_MS = 5 * 60 * 1000;
 
+function isViewAsActive(): boolean {
+  try {
+    return !!sessionStorage.getItem('view-as-session-v1');
+  } catch { return false; }
+}
+
+
 // 台股代碼判定：4-6 位純數字（2330、00878、911616 等）
 export function isTaiwanStockCode(code: string | undefined | null): boolean {
   if (!code) return false;
@@ -218,6 +226,9 @@ export function useTwChipsDetail(stockCode: string | undefined | null, enabled =
     };
   }, []);
 
+  // Track stockCode transitions for telemetry `reason` classification.
+  const prevStockRef = useRef<string | null | undefined>(null);
+
   useEffect(() => {
     if (!enabled) return;
     if (!stockCode || !isTaiwanStockCode(stockCode)) {
@@ -226,6 +237,14 @@ export function useTwChipsDetail(stockCode: string | undefined | null, enabled =
       setLoading(false);
       return;
     }
+
+    const isViewAs = isViewAsActive();
+    const prevStock = prevStockRef.current;
+    prevStockRef.current = stockCode;
+    const source: 'drawer_open' | 'manual_refetch' | 'reconnect' =
+      attempt > 0 ? 'manual_refetch'
+      : manualBump > 0 ? 'reconnect'
+      : 'drawer_open';
 
     // 離線時：若有 cache 就顯示 cache + offline error；否則 offline error
     if (typeof navigator !== 'undefined' && !navigator.onLine) {
@@ -236,18 +255,40 @@ export function useTwChipsDetail(stockCode: string | undefined | null, enabled =
       }
       setError({ kind: 'offline', message: 'offline', reason: '目前離線，恢復連線後將自動重試' });
       setLoading(false);
+      trackEvent('chips_fetch_error', {
+        stock_code: stockCode, source, error_code: 'offline',
+        had_cache: !!cached, is_view_as: isViewAs,
+      });
       return;
     }
 
     // 讀快取
     const cached = CACHE.get(stockCode);
-    if (cached && Date.now() - cached.ts < TTL_MS && manualBump === 0) {
+    const cacheAge = cached ? Date.now() - cached.ts : null;
+    if (cached && cacheAge !== null && cacheAge < TTL_MS && manualBump === 0 && attempt === 0) {
       setData(cached.data);
       setFetchedAt(cached.ts);
       setError(null);
       setLoading(false);
+      trackEvent('chips_memory_hit', {
+        stock_code: stockCode, source, age_ms: cacheAge, is_view_as: isViewAs,
+      });
       return;
     }
+
+    const missReason: string = !cached ? 'no_entry'
+      : (attempt > 0 || manualBump > 0) ? 'manual_refetch'
+      : (cacheAge !== null && cacheAge >= TTL_MS) ? 'ttl_expired'
+      : (prevStock && prevStock !== stockCode) ? 'stock_switch'
+      : 'unknown';
+
+    trackEvent('chips_memory_miss', {
+      stock_code: stockCode, source, reason: missReason,
+      age_ms: cacheAge, is_view_as: isViewAs,
+    });
+    trackEvent('chips_fetch_start', {
+      stock_code: stockCode, source, is_view_as: isViewAs,
+    });
 
     inflight.current?.abort();
     const ctrl = new AbortController();
@@ -256,6 +297,7 @@ export function useTwChipsDetail(stockCode: string | undefined | null, enabled =
     setError(null);
 
     const timeoutId = window.setTimeout(() => ctrl.abort(), 15000);
+    const startedAt = Date.now();
 
     (async () => {
       let status: number | undefined;
@@ -273,17 +315,31 @@ export function useTwChipsDetail(stockCode: string | undefined | null, enabled =
           },
         });
         status = resp.status;
+        const rawText = await resp.text();
         if (!resp.ok) {
-          const t = await resp.text();
-          throw new Error(`chips ${resp.status}: ${t.slice(0, 120)}`);
+          throw new Error(`chips ${resp.status}: ${rawText.slice(0, 120)}`);
         }
-        const json = (await resp.json()) as TwChipsPayload;
+        const json = JSON.parse(rawText) as TwChipsPayload & {
+          _cache_meta?: { cache?: string; stamp_ver?: string };
+        };
+        // Race guard: ignore stale response if stockCode changed while inflight.
+        if (prevStockRef.current !== stockCode) return;
         const now = Date.now();
         CACHE.set(stockCode, { data: json, ts: now });
         setData(json);
         setFetchedAt(now);
         setError(null);
         setAttempt(0);
+        trackEvent('chips_fetch_done', {
+          stock_code: stockCode, source,
+          duration_ms: now - startedAt,
+          payload_bytes: rawText.length,
+          bsr_freshness_status: (json as any)?.bsr_freshness_status ?? null,
+          edge_cache: (json as any)?._cache_meta?.cache ?? null,
+          stamp_ver: (json as any)?._cache_meta?.stamp_ver ?? null,
+          bsr_source: (json as any)?.bsr_source ?? null,
+          is_view_as: isViewAs,
+        });
       } catch (err) {
         if ((err as any).name === 'AbortError' && !ctrl.signal.aborted) return;
         // 保留舊 cache 資料當降級顯示
@@ -292,7 +348,14 @@ export function useTwChipsDetail(stockCode: string | undefined | null, enabled =
           setData(cached2.data);
           setFetchedAt(cached2.ts);
         }
-        setError(classifyError(err, status));
+        const classified = classifyError(err, status);
+        setError(classified);
+        trackEvent('chips_fetch_error', {
+          stock_code: stockCode, source,
+          error_code: classified.kind, status: status ?? null,
+          duration_ms: Date.now() - startedAt,
+          had_cache: !!cached2, is_view_as: isViewAs,
+        });
       } finally {
         window.clearTimeout(timeoutId);
         if (inflight.current === ctrl) inflight.current = null;
