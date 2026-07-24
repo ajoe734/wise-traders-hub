@@ -1,4 +1,4 @@
-import { getActionMeta, type SignalActionMeta } from '@/lib/signalAction';
+import { getSignalActionMeta, type SignalSignalActionMeta } from '@/lib/signalAction';
 import { canRecallSignal } from '@/lib/publishingWindow';
 import { getAssetSpec, normalizeAssetClass, type AssetClass } from '@/lib/asset';
 import { CURRENCY_SYMBOL, inferCurrencyFromInstrument, type Currency } from '@/lib/currency';
@@ -80,7 +80,7 @@ export interface SignalRowViewModel {
   displayInstrument: { text: string; tooltipFull: string } | null;
   assetBadge: { label: string; className: string } | null;
   batchBadge: { count: number; collapsed: boolean } | null;
-  actionMeta: ActionMeta;
+  actionMeta: SignalActionMeta;
   price: {
     symbol: string;
     formatted: string;
@@ -177,7 +177,7 @@ export function buildSignalRowViewModel(input: ViewModelInput): SignalRowViewMod
     displayInstrument,
     assetBadge: !isTeaching && badge ? badge : null,
     batchBadge: signal.batch_id && batch && batch.count > 1 ? { count: batch.count, collapsed: isBatchCollapsed } : null,
-    actionMeta: getActionMeta(signal.action),
+    actionMeta: getSignalActionMeta(signal.action),
     price,
     currency: {
       code: currency,
