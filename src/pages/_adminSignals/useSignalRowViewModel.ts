@@ -1,4 +1,4 @@
-import { getActionMeta, type ActionMeta } from '@/lib/signalAction';
+import { getActionMeta, type SignalActionMeta } from '@/lib/signalAction';
 import { canRecallSignal } from '@/lib/publishingWindow';
 import { getAssetSpec, normalizeAssetClass, type AssetClass } from '@/lib/asset';
 import { CURRENCY_SYMBOL, inferCurrencyFromInstrument, type Currency } from '@/lib/currency';
