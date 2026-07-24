@@ -4,7 +4,7 @@ import { Loader2 } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { AnimatedNumber } from '@/components/AnimatedNumber';
 import { pnlColor, fmtPnl, fmtPct, fmtPrice, assetBadge, type PerfRow } from '@/pages/_adminPerformance/types';
-import { getAssetSpec } from '@/lib/asset';
+import { formatBaseQuantity } from '@/lib/positionQuantity';
 import { FxHint } from '@/components/FxHint';
 
 interface Props {
