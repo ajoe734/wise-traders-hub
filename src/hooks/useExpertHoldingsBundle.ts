@@ -6,6 +6,7 @@ import type { PerfRow } from '@/pages/_adminPerformance/types';
 import type { ExpertPerformance } from '@/hooks/usePerformance';
 import { normalizeCurrency, type Currency } from '@/lib/currency';
 import { normalizeAssetClass, type AssetClass } from '@/lib/asset';
+import { resolvePositionQuantityDisplay } from '@/lib/positionQuantity';
 
 /**
  * 單一資料源：所有 expert 的 capital / holdings / performance / currency
