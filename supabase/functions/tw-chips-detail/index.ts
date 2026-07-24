@@ -340,18 +340,13 @@ Deno.serve(async (req) => {
     // ==== Readiness（M1：讓 UI 有唯一真相判斷 5/20/60 日視窗是否夠畫線）====
     // 三大法人 valid = 有 trade_date 的日期即為 valid（單日就是一個資料點）。
     const instValidDatesAsc = instAsc.map((r) => r.date);
-    // M4：BSR valid = 該日 raw broker rows >= DONE_BROKER_THRESHOLD（=1）；
-    // 低於 LOW_QUALITY_BROKER_THRESHOLD 仍算 valid，但由前端顯示低品質標記。
+    // M4：BSR valid dates 直接來自 bsrConcentration（源自 rollup），與序列同源，
+    // 徹底消除「series 有 N 天但 readiness.have=M」的 split-brain。
     const bsrValidDatesAsc = bsrConcentration
-      .filter((p) => (rowCountByDate.get(p.date) ?? 0) >= DONE_BROKER_THRESHOLD)
+      .filter((p) => (p.broker_count ?? 0) >= DONE_BROKER_THRESHOLD)
       .map((p) => p.date);
     const bsrLowQualityDates = new Set(
-      bsrConcentration
-        .filter((p) => {
-          const c = rowCountByDate.get(p.date) ?? 0;
-          return c >= DONE_BROKER_THRESHOLD && c < LOW_QUALITY_BROKER_THRESHOLD;
-        })
-        .map((p) => p.date),
+      bsrConcentration.filter((p) => p.low_quality).map((p) => p.date),
     );
 
     // M2：讀 upstream_probe 判斷是否上游窮竭
@@ -374,9 +369,21 @@ Deno.serve(async (req) => {
       upstreamExhausted,
     });
 
-    // M4：頂層低品質旗標 = 目前顯示的 chosenAsOf 該日 broker rows < LOW_QUALITY 門檻
-    const chosenBrokerCount = chosenAsOf ? (rowCountByDate.get(chosenAsOf) ?? 0) : 0;
+    // M4：頂層低品質旗標 = 目前顯示的 chosenAsOf 該日 broker count（源自 rollup）< 門檻
+    const chosenSeriesPoint = chosenAsOf ? bsrConcentration.find((p) => p.date === chosenAsOf) : null;
+    const chosenBrokerCount = chosenSeriesPoint?.broker_count ?? (chosenAsOf ? (rowCountByDate.get(chosenAsOf) ?? 0) : 0);
     const bsrLowQuality = !!chosenAsOf && chosenBrokerCount > 0 && chosenBrokerCount < LOW_QUALITY_BROKER_THRESHOLD;
+
+    // 契約 invariant：readiness.have 必須等於 series 中有效點數；不相等即為 bug，寫警告日誌。
+    const seriesValidCount = bsrValidDatesAsc.length;
+    if (bsrReadiness["5"].have !== seriesValidCount) {
+      console.error("[chips-detail] READINESS_SERIES_MISMATCH", {
+        stockId,
+        readiness_have: bsrReadiness["5"].have,
+        series_valid: seriesValidCount,
+        series_len: bsrConcentration.length,
+      });
+    }
 
     const payload = {
       stock_id: stockId,
