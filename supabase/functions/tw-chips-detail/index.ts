@@ -67,7 +67,13 @@ Deno.serve(async (req) => {
     const stampVer = stampRow ? `${stampRow.as_of_date}:${stampRow.updated_at}` : "v0";
     const cacheKey = `chips:${stockId}:${stampVer}`;
     const cached = cacheGet<any>(cacheKey);
-    if (cached) return jsonResponse({ ...cached, cached: true });
+    if (cached) {
+      return jsonResponse({
+        ...cached,
+        cached: true,
+        _cache_meta: { cache: 'hit', stamp_ver: stampVer, served_at: new Date().toISOString() },
+      });
+    }
 
     // ==== 三大法人 1/5/20/60 日 ====
     const { data: instRows, error: instErr } = await supa
