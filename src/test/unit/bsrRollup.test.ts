@@ -57,32 +57,33 @@ describe('bsrRollup.computeBsrWindow', () => {
   });
 });
 
-describe('bsrRollup.pickCompleteFallbackDate', () => {
+describe('bsrRollup.pickCompleteFallbackDate (M4: threshold=1)', () => {
   const c = (date: string, rowCount: number) => ({ date, rowCount });
-  it('挑最新且 rowCount >= 5 的日期', () => {
+  it('挑最新且 rowCount >= 1 的日期（門檻已降至 1）', () => {
     const picked = pickCompleteFallbackDate(
       [c('2026-07-22', 2), c('2026-07-21', 8), c('2026-07-18', 6)],
       new Set(),
     );
-    expect(picked).toBe('2026-07-21');
+    expect(picked).toBe('2026-07-22');
   });
-  it('doneDateSet 中的日期若 rowCount 少仍不視為 complete，避免 fake-done', () => {
+  it('今日 partial data (rowCount=1) 也視為可用 → 由 UI 打低品質標記', () => {
     const picked = pickCompleteFallbackDate(
-      [c('2026-07-22', 1), c('2026-07-21', 7)],
-      new Set(['2026-07-22']),
-    );
-    expect(picked).toBe('2026-07-21');
-  });
-  it('今日 partial data (< 5) 且不在 done set → 不會被推為 fallback', () => {
-    const picked = pickCompleteFallbackDate(
-      [c('2026-07-22', 3), c('2026-07-21', 12)],
+      [c('2026-07-22', 1), c('2026-07-21', 12)],
       new Set(),
     );
-    expect(picked).toBe('2026-07-21');
+    expect(picked).toBe('2026-07-22');
   });
-  it('全都不 complete → null', () => {
-    expect(pickCompleteFallbackDate([c('2026-07-22', 1)], new Set())).toBeNull();
+  it('全為 0（沒任何分點）→ null', () => {
+    expect(pickCompleteFallbackDate([c('2026-07-22', 0)], new Set())).toBeNull();
     expect(pickCompleteFallbackDate([], new Set())).toBeNull();
+  });
+  it('顯式傳入 threshold=5（模擬舊行為）仍受支援', () => {
+    const picked = pickCompleteFallbackDate(
+      [c('2026-07-22', 2), c('2026-07-21', 8)],
+      new Set(),
+      5,
+    );
+    expect(picked).toBe('2026-07-21');
   });
 });
 

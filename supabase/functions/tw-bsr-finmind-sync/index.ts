@@ -157,10 +157,11 @@ async function rebuildRollup(stockId: string, asOf: string) {
 }
 
 async function isDoneAlready(stockId: string, date: string): Promise<boolean> {
+  // M4: 門檻由 5 降至 1；只要有任何一筆分點就視為 done，避免同一日期反覆重跑。
   const { count } = await supa.from('tw_bsr_daily')
     .select('id', { count: 'exact', head: true })
     .eq('stock_id', stockId).eq('trade_date', date);
-  return (count ?? 0) >= 5;
+  return (count ?? 0) >= DONE_BROKER_THRESHOLD;
 }
 
 async function recordFailure(stockId: string, date: string, err: string, cid: string | null) {
@@ -194,14 +195,13 @@ async function processStock(
         .upsert(agg.slice(i, i + CHUNK), { onConflict: 'stock_id,trade_date,broker_id' });
       if (error) throw new Error(`upsert_failed:${error.message}`);
     }
-    if (agg.length < DONE_BROKER_THRESHOLD) {
-      return { ok: true, rows: agg.length, note: 'aggregated_partial' };
-    }
+    // M4: 有任何一筆分點就標記完成；<5 由 tw-chips-detail / UI 加「低品質」標記。
+    const isLowQuality = agg.length < 5;
     await supa.from('tw_bsr_fetch_failures')
       .update({ resolved_at: new Date().toISOString(), last_error_message: null })
       .eq('stock_id', stockId).eq('trade_date', date).is('resolved_at', null);
     await rebuildRollup(stockId, date);
-    return { ok: true, rows: agg.length };
+    return { ok: true, rows: agg.length, note: isLowQuality ? 'low_quality' : undefined };
   } catch (e) {
     if (e instanceof RateLimitExhaustedError) {
       return { ok: false, rows: 0, error: e.message, rateLimited: true };

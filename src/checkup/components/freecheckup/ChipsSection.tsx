@@ -569,14 +569,32 @@ export default function ChipsSection({ WB, stockCode }: { WB: any; stockCode: st
         {bsrLatest ? (
           <div
             data-testid="chips-bsr"
+            data-bsr-low-quality={data?.bsr_low_quality ? 'true' : 'false'}
             style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 12, fontSize: 12, fontFamily: SERIF }}
           >
             <BrokerCol WB={WB} title="買超前 3" rows={bsrLatest.top_buy?.slice(0, 3) || []} positive />
             <BrokerCol WB={WB} title="賣超前 3" rows={bsrLatest.top_sell?.slice(0, 3) || []} />
             {bsrLatest.concentration_ratio != null && Number.isFinite(Number(bsrLatest.concentration_ratio)) && (
-              <div style={{ gridColumn: '1 / -1', marginTop: 6, fontSize: 11, color: WB.inkSub }}>
-                集中度：買超前 15 大占 {Number(bsrLatest.concentration_ratio).toFixed(0)}%{' '}
-                {Number(bsrLatest.concentration_ratio) > 70 ? '· 高（籌碼集中，跟隨風險升高）' : ''}
+              <div style={{ gridColumn: '1 / -1', marginTop: 6, fontSize: 11, color: WB.inkSub, display: 'flex', alignItems: 'center', gap: 8, flexWrap: 'wrap' }}>
+                <span>
+                  集中度：買超前 15 大占 {Number(bsrLatest.concentration_ratio).toFixed(0)}%{' '}
+                  {Number(bsrLatest.concentration_ratio) > 70 ? '· 高（籌碼集中，跟隨風險升高）' : ''}
+                </span>
+                {data?.bsr_low_quality && (
+                  <span
+                    data-testid="chips-bsr-low-quality-badge"
+                    title={`FinMind 當日僅回 ${Number(data?.bsr_broker_count ?? 0)} 筆分點（<${Number(data?.bsr_low_quality_threshold ?? 5)}），資料稀疏僅供參考`}
+                    style={{
+                      display: 'inline-flex', alignItems: 'center', gap: 4,
+                      padding: '1px 6px', borderRadius: 4,
+                      border: `1px solid ${WB.hair}`,
+                      fontSize: 10, color: WB.inkSub, background: 'transparent',
+                      letterSpacing: '0.05em',
+                    }}
+                  >
+                    低品質・{Number(data?.bsr_broker_count ?? 0)}/5 分點
+                  </span>
+                )}
               </div>
             )}
           </div>
