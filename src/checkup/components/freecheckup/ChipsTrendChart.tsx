@@ -195,7 +195,7 @@ export default function ChipsTrendChart({
     .join(' ');
 
   return (
-    <div style={{ marginTop: 14 }} data-testid="chips-trend-chart">
+    <div style={{ marginTop: 14 }} data-testid="chips-trend-chart" data-readiness-state={currentState} data-readiness-have={currentHave} data-readiness-need={currentNeed}>
       <div
         style={{
           display: 'flex',
