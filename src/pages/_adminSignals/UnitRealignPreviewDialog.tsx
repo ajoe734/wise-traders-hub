@@ -125,7 +125,7 @@ export function UnitRealignPreviewDialog({
                     <span className="truncate flex-1">{r.instrument}</span>
                     {r.action && (
                       <Badge variant="outline" className="text-[10px]">
-                        {actionLabels?.[r.action]?.label || r.action}
+                        {getActionMeta(r.action).label}
                       </Badge>
                     )}
                     <span className="tabular-nums">
