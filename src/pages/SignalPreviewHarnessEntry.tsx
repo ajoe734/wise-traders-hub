@@ -12,7 +12,7 @@
 import { Badge } from '@/components/ui/badge';
 import { InstrumentTooltip } from '@/components/InstrumentTooltip';
 import { PreviewTradeItem } from '@/pages/_adminSignals/PreviewTradeItem';
-import { actionLabels } from '@/pages/_adminSignals/actionLabels';
+import { getActionMeta } from '@/lib/signalAction';
 
 function isPreviewEnv() {
   try {
@@ -66,7 +66,7 @@ export default function SignalPreviewHarnessEntry() {
             className="flex items-start gap-2 flex-wrap"
           >
             <Badge variant="secondary" className="text-xs shrink-0">
-              {actionLabels[action]?.label || action}
+              {getActionMeta(action).label}
             </Badge>
             <InstrumentTooltip
               full={stockName ? `${stockCode} ${stockName}` : stockCode}

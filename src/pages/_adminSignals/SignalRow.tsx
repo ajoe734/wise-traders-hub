@@ -7,6 +7,7 @@ import { PermissionTooltip } from '@/components/admin/PermissionTooltip';
 import { SafeRichHtml, richHtmlPreview, PREVIEW_LIMITS } from '@/components/SafeRichHtml';
 import { canRecallSignal } from '@/lib/publishingWindow';
 import { actionLabels } from './actionLabels';
+import { getActionMeta } from '@/lib/signalAction';
 import { CURRENCY_SYMBOL, inferCurrencyFromInstrument, type Currency } from '@/lib/currency';
 import { getAssetSpec, normalizeAssetClass, type AssetClass } from '@/lib/asset';
 import { assetBadge } from '@/pages/_adminPerformance/types';
@@ -87,7 +88,7 @@ export function SignalRow({
   recalling, repushingId, onRepush, onRecall, onEdit,
   defaultCurrency = 'TWD', defaultAssetClass,
 }: Props) {
-  const ai = actionLabels[signal.action] || actionLabels.buy;
+  const ai = getActionMeta(signal.action);
   const hasDetail = signal.reason_detail || signal.risk_notes || signal.reason_summary || signal.learning_points;
   const isBatchCollapsed = signal.batch_id && collapsedBatches.has(signal.batch_id) && (batchInfo.get(signal.batch_id)?.count || 0) > 1;
   const recall = canRecallSignal((signal as any).published_at);
