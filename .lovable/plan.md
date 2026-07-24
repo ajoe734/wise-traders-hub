@@ -1,85 +1,50 @@
-## 執行順序：先方案 B 止血，再方案 C 契約歸位
 
----
+## 根因
 
-## Phase B — 顯示層契約統一（1 個 PR，可立刻上線）
+`/admin/[expertSlug]`（導師後台首頁「最近發布的週記」）與其他兩三個角落，**各自維護一份 actionLabels，且用 `|| actionLabels.buy` 當 fallback**。任何非 buy/sell 的 action（`exit`、`teaching`、`add`、`trim`、`hold`…）通通掉進 fallback → 全部印成「買進」+ 綠色 badge。
 
-### B1. `src/hooks/useExpertHoldingsBundle.ts` — `mapOpenPositionToRow`
-- `shares = normalizeQuantityToBaseUnits(p.quantity_shares, p.quantity_unit)`（若上游已是 base 就吃 base；`張` 才 ×1000）。實際上 `open_positions` 來自 `get_expert_capital_status` RPC，`quantity_shares` 已是 base 股數，這裡改為：
-  - `const display = resolvePositionQuantityDisplay(baseShares, p.quantity_unit, rowAsset)`
-  - `quantity: display.inputQuantity`（給 UI 顯示用）
-  - `quantity_unit: display.unit`
-  - 另外新增 `base_quantity: baseShares` 欄位，保留給後端計算（pnl / 成本 / 匯出）用。
-- pnl / pnl_percent 用 `baseShares` 算，不受顯示單位影響。
+已用資料庫確認兩筆記錄本身是對的：
+- `4755 三福化` → `action='exit'`（應顯示「平損」）
+- 純教學週記 → `action='teaching'`（應顯示「教學」+ 標的名「純教學週記」）
 
-### B2. `src/pages/_adminPerformance/types.ts`（`PerfRow`）
-- 新增 `base_quantity?: number | null`；`quantity` 註記為「顯示單位下的數量」。
+亂象出處清單（一次盤點完）：
 
-### B3. 顯示層防呆（`UnrealizedTab.tsx` / `SignalsTable.tsx` / `CapitalPanel.tsx` 等所有 render `PerfRow` 的地方）
-- 統一改走 `formatBaseQuantity(row.base_quantity ?? row.quantity, row.quantity_unit, row.asset_class)`，禁止手動拼 `${quantity} ${unit}`。
-- 找 call sites：`rg -n "quantity_unit" src/pages src/components`，逐一遷移。
+| 檔案 | 問題 |
+|---|---|
+| `src/pages/admin/Dashboard.tsx` L14-17, L222 | 自建 map 只有 `buy`/`sell`，且 `|| actionLabels.buy` — **這就是使用者看到的那頁** |
+| `src/pages/_adminSignals/SignalRow.tsx` L90 | 用共用 map，但仍 `|| actionLabels.buy` — 未來新增 action 會再爆 |
+| `src/pages/_adminSignals/PreviewTradeItem.tsx` L26 | 同上 `|| actionLabels.buy` |
+| `src/pages/SignalPreviewHarnessEntry.tsx` L69 | 相同 fallback 模式 |
+| `src/components/ActionBadge.tsx` | 第 3 份重複 map（自訂 config） |
+| `src/pages/admin/SignalTemplates.tsx` L37 | 第 4 份重複（只列 buy） |
 
-### B4. Signals 頁 admin footer `computeHoldingSummary`（`src/pages/_adminSignals/derive.ts`）
-- 目前手算 `qty * 1000`；改為呼叫 `normalizeQuantityToBaseUnits`，並用 `resolvePositionQuantityDisplay` 產出摘要文字。
+除了 label 錯誤，`admin/Dashboard.tsx` 對 `teaching` 也沒有像 SignalRow 那樣把空 `instrument` 換成「純教學週記」。
 
-### B5. 測試鎖契約（`src/test/unit/`）
-- `mapOpenPositionToRow.test.ts`（新增）：
-  - `quantity_shares=1000, quantity_unit='張', tw_stock` → `quantity=1, unit='張'`
-  - `quantity_shares=500, quantity_unit='張', tw_stock` → `quantity=500, unit='股'`（零股回退）
-  - `quantity_shares=10, quantity_unit='股', us_stock` → `quantity=10, unit='股'`
-  - `quantity_shares=2, quantity_unit='口', us_future` → `quantity=2, unit='口'`
-- render test：`UnrealizedTab` 用 mock row `{quantity_shares:1000, quantity_unit:'張'}` 螢幕上是 `1 張`。
+## 修法（單一資料源 + 消滅 fallback）
 
-### B6. 驗證
-- `tsgo`、`bunx vitest run` positionQuantity / mapOpenPositionToRow / UnrealizedTab render。
-- Playwright 對 `/admin/{slug}/performance` 4576、2356 截圖，肉眼確認顯示為 `1 張` 而非 `1000 張`。
+### 1. 建立唯一真相 `src/lib/signalAction.ts`
+- `SIGNAL_ACTION_META`：包含 `buy / sell / add / trim / exit / hold / teaching` 完整 7 種，欄位 `{ label, className, badgeVariant }`。
+- `getActionMeta(action)`：查不到回傳 `{ label: action ?? '—', className: 'bg-muted text-muted-foreground border-border' }`（**灰色未知**，不再偷偷變買進）。
+- `isTeachingSignal(signal)`、`getSignalDisplayInstrument(signal)`：把「教學顯示成純教學週記」的邏輯集中。
 
----
+### 2. 全站替換
+- 刪除 `src/pages/_adminSignals/actionLabels.ts`、`ActionBadge` 內建 map、`admin/Dashboard.tsx` 內建 map、`SignalTemplates.tsx` 內建 map。
+- 全部改 import `getActionMeta` / `SIGNAL_ACTION_META`。
+- 移除所有 `|| actionLabels.buy` fallback。
+- `admin/Dashboard.tsx` 的最近週記卡片：`teaching` 顯示「純教學週記」+ 教學 badge；其他顯示 `signal.instrument`。
 
-## Phase C — 資料層契約歸位（獨立 PR，Phase B 上線後啟動）
+### 3. 護欄
+- 單元測試 `src/test/unit/signalActionLabel.test.ts`：斷言 7 種 action + `null` + 未知字串各自的 label / className，明確禁止未知 action 落到「買進」。
+- 加入 `scripts/audit-signal-action-labels.mjs`（複用 audit-journal-authoring 模式）：`rg` 掃描專案，出現 `actionLabels.buy` 當 fallback、或 `Record<..., { label ... }>` 定義 buy label 於 `signalAction.ts` 之外 → CI 失敗。
+- 掛進 `.github/workflows/ci.yml` 既有 audit job。
 
-### C1. 資料稽核（read-only）
-- 用 `supabase--read_query` 跑：
-  ```sql
-  SELECT expert_id, symbol, quantity, quantity_unit, asset_class
-  FROM trade_records
-  WHERE status='open' AND asset_class='tw_stock'
-    AND quantity_unit='張' AND quantity % 1000 <> 0;
-  ```
-- 產出「異常清單」與影響專家清單，附在 migration description。
+### 4. 驗證
+- `bunx vitest run src/test/unit/signalActionLabel.test.ts`
+- Playwright：以 view-as 身份開 `/admin/[mentor-slug]`，斷言最近週記區塊有 `4755 三福化` + `平損` badge、`純教學週記` + `教學` badge，且**不存在**帶「買進」文字的元素對到這兩筆 id。
+- `bun run tsgo` 型別檢查。
 
-### C2. Migration：契約明文化
-- `trade_records` 新增 `CHECK`：
-  - `asset_class='tw_stock' AND quantity_unit='張' → quantity % 1000 = 0`
-  - `asset_class='us_stock' → quantity_unit IN ('股')`
-  - `asset_class IN ('us_future','us_option','tw_future','tw_option') → quantity_unit='口'`
-  - `asset_class='crypto' → quantity_unit='顆'`
-- 先跑「資料修復」再加 CHECK：把 C1 抓到的 `張 + 非 1000 倍數` 一律改成 `股`（不動 quantity 值）。
-- 註解：`quantity` 一律是 base 單位；`quantity_unit` 是偏好顯示單位。
+## 影響
 
-### C3. `handle_signal_trade()` 契約強化
-- 每次 upsert 前：
-  - `v_base = normalize_to_base(input.quantity, input.quantity_unit, expert_class)`（SQL helper）
-  - `NEW.quantity = existing.quantity ± v_base`
-  - `NEW.quantity_unit = sanitize_asset_unit(preferred_unit, expert_class)`（比照 `src/lib/asset.ts::sanitizeAssetQuantityUnit`）
-- 移除目前 `COALESCE(existing.quantity_unit, v_unit)` 這條卡住第一次單位就永不改的邏輯 —— 改成用資產類別的預設單位重算。
-
-### C4. RPC `get_expert_capital_status` 輸出契約
-- 每筆 open position 補一個 `display_quantity` / `display_unit` 欄位（server 端 sanitize），前端 fallback 少一段。
-
-### C5. 測試 & 稽核
-- pgTAP：CHECK 拒收 `張+999`；`handle_signal_trade` 混單位（先 1 張、後加 999 股）→ 落成 `1999 股, unit='股'`。
-- Node script：新增 `scripts/audit-holding-unit-contract.mjs`，CI 跑，任何違反 CHECK 的 row 直接紅燈。
-- Playwright 回歸：4576 / 2356 / benny us_stock / benny us_future 四情境快照。
-
-### C6. 上線
-- Migration → 部署 → 觸發 `converge` 全量重算 → 稽核腳本綠燈 → 移除 Phase B 中 `mapOpenPositionToRow` 的 fallback（因為契約已強制），保留 formatter。
-
----
-
-## 交付順序
-1. Phase B（B1–B6）一次 PR，優先合入止血。
-2. B 上線並肉眼確認 4576/2356 顯示正確後，開 Phase C。
-3. C 分兩個 migration：資料修復（可 rollback）→ 加 CHECK（不可 rollback，需 B 已穩定）。
-
-批准後我按 B → C 順序執行，中間會回報 B 完成再啟動 C。
+- 使用者立即看到 4755 顯示「平損」、7/23 那筆顯示「教學 / 純教學週記」。
+- 之後再加任何 action（例：`stop_win`、`observe_close`），只要在 `signalAction.ts` 補一筆就全站生效，忘了補也只會顯示灰色未知，不會誤導成「買進」。
+- CI 擋住未來任何人再新增一份區域 actionLabels 或 fallback 到 buy。
