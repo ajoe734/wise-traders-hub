@@ -38,8 +38,6 @@ const EMPTY: ExpertHoldingsBundle = {
   assetClass: 'tw_stock',
 };
 
-import { resolvePositionQuantityDisplay } from '@/lib/positionQuantity';
-
 export function mapOpenPositionToRow(p: any, currency: Currency = 'TWD', assetClass: AssetClass = 'tw_stock'): PerfRow {
   const parts = String(p.instrument || p.symbol || '').split(' ');
   const symbol = p.symbol || parts[0] || '';
