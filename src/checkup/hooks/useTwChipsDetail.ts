@@ -135,6 +135,13 @@ export interface WindowReadinessPayload {
 const CACHE = new Map<string, { data: TwChipsPayload; ts: number }>();
 const TTL_MS = 5 * 60 * 1000;
 
+function isViewAsActive(): boolean {
+  try {
+    return !!sessionStorage.getItem('view-as-session-v1');
+  } catch { return false; }
+}
+
+
 // 台股代碼判定：4-6 位純數字（2330、00878、911616 等）
 export function isTaiwanStockCode(code: string | undefined | null): boolean {
   if (!code) return false;
