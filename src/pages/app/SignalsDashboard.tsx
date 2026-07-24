@@ -61,12 +61,14 @@ export function SignalsDashboard({ subscriptions, userName }: SignalsDashboardPr
   }, [holdings.length]);
 
   const getActionColor = (action: string) => {
-    switch (action) {
-      case 'buy': case 'add': return 'text-success';
-      case 'sell': case 'trim': case 'exit': return 'text-destructive';
-      default: return 'text-foreground';
-    }
+    const meta = getActionMeta(action);
+    if (meta.className.includes('success')) return 'text-success';
+    if (meta.className.includes('destructive')) return 'text-destructive';
+    if (meta.className.includes('blue-500')) return 'text-blue-500';
+    if (meta.className.includes('amber-500')) return 'text-amber-500';
+    return 'text-foreground';
   };
+
 
   const getActionLabel = (action: string) => getActionMeta(action).label;
 
