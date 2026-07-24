@@ -6,13 +6,13 @@ import { cn } from '@/lib/utils';
 import { PermissionTooltip } from '@/components/admin/PermissionTooltip';
 import { SafeRichHtml, richHtmlPreview, PREVIEW_LIMITS } from '@/components/SafeRichHtml';
 import { canRecallSignal } from '@/lib/publishingWindow';
-import { actionLabels } from './actionLabels';
 import { getActionMeta } from '@/lib/signalAction';
 import { CURRENCY_SYMBOL, inferCurrencyFromInstrument, type Currency } from '@/lib/currency';
 import { getAssetSpec, normalizeAssetClass, type AssetClass } from '@/lib/asset';
 import { assetBadge } from '@/pages/_adminPerformance/types';
 import { FxHint } from '@/components/FxHint';
 import { InstrumentTooltip } from '@/components/InstrumentTooltip';
+
 
 /**
  * 判定 signal 顯示幣別，優先序：

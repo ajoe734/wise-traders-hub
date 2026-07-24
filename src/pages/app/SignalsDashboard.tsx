@@ -16,8 +16,10 @@ import {
 } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { format, isToday, differenceInMinutes } from 'date-fns';
+import { getActionMeta } from '@/lib/signalAction';
 // C1 (audit 2026-06): useMyHoldings removed — see note below.
 import { richHtmlPreview, PREVIEW_LIMITS } from '@/components/SafeRichHtml';
+
 import { avatarUrl } from '@/lib/imageTransform';
 import { useEffect } from 'react';
 import { track } from '@/lib/analytics/events';
@@ -59,19 +61,17 @@ export function SignalsDashboard({ subscriptions, userName }: SignalsDashboardPr
   }, [holdings.length]);
 
   const getActionColor = (action: string) => {
-    switch (action) {
-      case 'buy': case 'add': return 'text-success';
-      case 'sell': case 'trim': case 'exit': return 'text-destructive';
-      default: return 'text-foreground';
-    }
+    const meta = getActionMeta(action);
+    if (meta.className.includes('success')) return 'text-success';
+    if (meta.className.includes('destructive')) return 'text-destructive';
+    if (meta.className.includes('blue-500')) return 'text-blue-500';
+    if (meta.className.includes('amber-500')) return 'text-amber-500';
+    return 'text-foreground';
   };
 
-  const getActionLabel = (action: string) => {
-    switch (action) {
-      case 'buy': return '買進'; case 'add': return '加碼'; case 'sell': return '賣出'; case 'trim': return '減碼'; case 'exit': return '平損';
-      default: return action;
-    }
-  };
+
+  const getActionLabel = (action: string) => getActionMeta(action).label;
+
 
   const getTimeLabel = (dateStr: string) => {
     const date = new Date(dateStr);

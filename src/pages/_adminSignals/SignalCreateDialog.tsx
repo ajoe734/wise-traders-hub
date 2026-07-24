@@ -13,8 +13,9 @@ import { cn } from '@/lib/utils';
 import { supabase } from '@/integrations/supabase/client';
 import { useFormDraft } from '@/hooks/useFormDraft';
 import { avatarUrl } from '@/lib/imageTransform';
-import { actionLabels } from './actionLabels';
+import { getActionMeta } from '@/lib/signalAction';
 import { PreviewTradeItem } from './PreviewTradeItem';
+
 import { UnitRealignPreviewDialog } from './UnitRealignPreviewDialog';
 import { isMarketClosed } from './derive';
 import { getAssetSpec, resolveAssetClass, isValidAssetSymbol, type QuantityUnit } from '@/lib/asset';
@@ -852,7 +853,7 @@ export function SignalCreateDialog({
             <Card className="bg-muted/50"><CardContent className="p-4 space-y-2">
               <p className="text-xs font-medium text-muted-foreground">📋 訂閱者預覽</p>
               <div className="flex items-start gap-2 flex-wrap">
-                <Badge variant="secondary" className="text-xs shrink-0">{actionLabels[action]?.label || action}</Badge>
+                <Badge variant="secondary" className="text-xs shrink-0">{getActionMeta(action).label}</Badge>
                 <InstrumentTooltip
                   full={stockName ? `${stockCode} ${stockName}` : stockCode}
                   data-testid="advisor-preview-instrument"

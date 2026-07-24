@@ -4,7 +4,8 @@ import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
 import { Loader2, ArrowRight } from 'lucide-react';
 import { supabase } from '@/integrations/supabase/client';
-import { actionLabels } from './actionLabels';
+import { getActionMeta } from '@/lib/signalAction';
+
 
 interface Props {
   open: boolean;
@@ -124,7 +125,7 @@ export function UnitRealignPreviewDialog({
                     <span className="truncate flex-1">{r.instrument}</span>
                     {r.action && (
                       <Badge variant="outline" className="text-[10px]">
-                        {actionLabels?.[r.action]?.label || r.action}
+                        {getActionMeta(r.action).label}
                       </Badge>
                     )}
                     <span className="tabular-nums">

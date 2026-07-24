@@ -4,9 +4,9 @@ import {
   calcWeightedAvgPrice,
 } from '@/lib/signalTradeLogic';
 import {
-  actionLabels,
   type CapitalStatus, type OpenPosition, type TradeDraft,
 } from './types';
+import { getActionMeta } from '@/lib/signalAction';
 import { sanitizeRichHtml } from '@/lib/sanitizeHtml';
 import {
   formatMoneyByCurrency,
@@ -20,6 +20,7 @@ import {
   type AssetClass,
 } from '@/lib/asset';
 import { formatBaseQuantity } from '@/lib/positionQuantity';
+
 
 interface SimState {
   /** 模擬剩餘股數 */
@@ -227,7 +228,7 @@ export function validateSignalBatch(args: {
 
   for (const i of order) {
     const t = trades[i];
-    const tag = `第 ${i + 1} 檔（${actionLabels[t.action] || t.action}）`;
+    const tag = `第 ${i + 1} 檔（${getActionMeta(t.action).label}）`;
     const price = parseFloat(t.priceHint || '0');
     const shares = normalizeSignalQuantityToShares(
       parseInt(t.quantity || '0', 10) || 0,
@@ -247,12 +248,13 @@ export function validateSignalBatch(args: {
 
     if (t.action === 'trim' || t.action === 'sell' || t.action === 'exit') {
       if (cur.qty <= 0) {
-        return `${tag}：目前模擬持倉為 0，無法執行${actionLabels[t.action]}（請改用「買進」或調整前面幾筆）`;
+        return `${tag}：目前模擬持倉為 0，無法執行${getActionMeta(t.action).label}（請改用「買進」或調整前面幾筆）`;
       }
       if ((t.action === 'trim' || t.action === 'sell') && shares > cur.qty) {
-        return `${tag}：${actionLabels[t.action]}數量 (${fmtQty(shares)}) 超過目前模擬持倉 (${fmtQty(cur.qty)})`;
+        return `${tag}：${getActionMeta(t.action).label}數量 (${fmtQty(shares)}) 超過目前模擬持倉 (${fmtQty(cur.qty)})`;
       }
     }
+
 
     if (t.action === 'buy' || t.action === 'add') {
       const required = price * shares;
