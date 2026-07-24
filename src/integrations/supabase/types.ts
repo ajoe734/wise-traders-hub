@@ -5174,6 +5174,14 @@ export type Database = {
         Returns: number
       }
       ensure_bsr_queued: { Args: { p_stock_id: string }; Returns: Json }
+      ensure_bsr_window: {
+        Args: {
+          p_horizon_days?: number
+          p_stock_id: string
+          p_window_days?: number
+        }
+        Returns: Json
+      }
       get_analyst_subscriber_profiles: {
         Args: never
         Returns: {
