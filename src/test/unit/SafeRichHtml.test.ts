@@ -149,8 +149,8 @@ describe('呼叫端規則對齊（靜態原始碼掃描）', () => {
       must: [/richHtmlPreview\([^,]+reason_summary[^,]*,\s*PREVIEW_LIMITS\.dashboardRow\)/],
     },
     {
-      label: 'SignalRow: reason_summary=cardTitle',
-      file: 'src/pages/_adminSignals/SignalRow.tsx',
+      label: 'SignalRow VM: reason_summary=cardTitle',
+      file: 'src/pages/_adminSignals/useSignalRowViewModel.ts',
       must: [/richHtmlPreview\([^,]+reason_summary[^,]*,\s*PREVIEW_LIMITS\.cardTitle\)/],
     },
   ];

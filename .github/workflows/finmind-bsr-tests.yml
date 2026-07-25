@@ -15,14 +15,26 @@ on:
     paths:
       - 'supabase/functions/tw-bsr-finmind-sync/**'
       - 'supabase/functions/refresh-data-source/**'
+      - 'supabase/functions/tw-chips-detail/**'
+      - 'supabase/functions/chips-guardian/**'
       - 'supabase/functions/_shared/finmindRateLimit*.ts'
+      - 'supabase/functions/_shared/requestCoalescer*.ts'
+      - 'supabase/functions/_shared/coalesceDbHook*.ts'
+      - 'supabase/functions/_shared/guardianRules*.ts'
+      - 'supabase/functions/_shared/finmindAdmission*.ts'
       - '.github/workflows/finmind-bsr-tests.yml'
   pull_request:
     branches: [main]
     paths:
       - 'supabase/functions/tw-bsr-finmind-sync/**'
       - 'supabase/functions/refresh-data-source/**'
+      - 'supabase/functions/tw-chips-detail/**'
+      - 'supabase/functions/chips-guardian/**'
       - 'supabase/functions/_shared/finmindRateLimit*.ts'
+      - 'supabase/functions/_shared/requestCoalescer*.ts'
+      - 'supabase/functions/_shared/coalesceDbHook*.ts'
+      - 'supabase/functions/_shared/guardianRules*.ts'
+      - 'supabase/functions/_shared/finmindAdmission*.ts'
       - '.github/workflows/finmind-bsr-tests.yml'
   workflow_dispatch:
 
@@ -50,3 +62,5 @@ jobs:
         run: deno test --allow-env --allow-read --no-check supabase/functions/tw-bsr-finmind-sync/manual_and_source_test.ts
       - name: Degrade state machine — bsrDegrade_test.ts
         run: deno test --allow-env --allow-read --no-check supabase/functions/_shared/bsrDegrade_test.ts
+      - name: Request coalescer — requestCoalescer_test.ts
+        run: deno test --allow-env --allow-read --no-check supabase/functions/_shared/requestCoalescer_test.ts

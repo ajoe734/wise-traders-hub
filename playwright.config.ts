@@ -223,6 +223,12 @@ export default defineConfig({
       testMatch: /chips-section-visual\.spec\.ts/,
       use: { ...devices['Desktop Chrome'], viewport: { width: 900, height: 1400 } },
     },
+    {
+      // PR-10: ChipsSection coalesced 徽章 UI 驗證（mock API 回傳 coalesced=true）
+      name: 'desktop-chips-coalesce',
+      testMatch: /chips-coalesce\.spec\.ts/,
+      use: { ...devices['Desktop Chrome'], viewport: { width: 1280, height: 900 } },
+    },
 
 
 
