@@ -1,137 +1,105 @@
-## 方向確認
+## PR-10（第五版，最終定版）
 
-前一版三個修正（fail-closed / auto-enable / 精準頻率）保留為 **Phase 1**。這版再往上加四個結構性優化，把 pipeline 從「不出事」推到「最佳資源利用 + 自我調整」。
+### v4 再審 — 12 個新弱點與修正
 
----
-
-## Phase 2 優化清單
-
-### 優化 1：Token Bucket 取代日預算
-
-**現況痛點**：`finmind_quota_pools.daily_budget` 每日 00:05 一次性 reset → 台股開盤 09:00 前互動配額被 keep-warm 吃掉；重置瞬間背景 job 瞬間噴發。
-
-**做法**：
-- 改 `finmind_quota_pools` schema：`daily_budget → refill_rate_per_min int`、`bucket_max int`、`bucket_current numeric`、`last_refill_at`。
-- `finmind_admit` RPC 改為：先按 `now() - last_refill_at` 補 tokens（capped by bucket_max），再嘗試扣 cost。
-- 預設參數：
-  - interactive：`refill=3/min, max=200`（尖峰爆發但長時穩態受限）
-  - keepwarm：`refill=1/min, max=120`
-  - backfill：`refill=0.3/min, max=60`
-- Migration 保留舊欄位為 view，UI 顯示改為「當前 tokens / 每分補充速率」。
-
-### 優化 2：優先級借用（interactive 可搶 keepwarm）
-
-**現況痛點**：使用者點抽屜卡在 quota_exceeded，同時 keepwarm 桶還滿的，資源錯配。
-
-**做法**：
-- `finmind_admit(_pool='interactive')` 若自己桶空，嘗試從 `keepwarm` 桶借（cost=1，記帳 `borrowed_from=keepwarm`）。
-- 不允許 keepwarm 借 interactive、也不允許 backfill 借任何 pool（backfill 是 best-effort）。
-- Ledger 新增 `borrowed_from text` 欄位，guardian 監控借用率 > 30% 時建議調高 interactive `bucket_max`。
-
-### 優化 3：Upstream 真實 quota 為準（不再猜）
-
-**現況痛點**：本地 counter 與 FinMind 實際剩餘可能漂移；某天上游改配額我們不知道。
-
-**做法**：
-- `tw-bsr-finmind-sync` 讀取 FinMind response 的 `X-RateLimit-Remaining`（若無此 header 則從 error body 解 `Requests Quota`）。
-- 每次成功回應把 upstream remaining 寫入 `data_source_health.upstream_quota_remaining`（新欄位）。
-- guardian 新規則：若 `upstream_quota_remaining < 100` 且本地 buckets 合計仍很滿 → 主動降 interactive/keepwarm refill_rate 到 30%（暫時），並發 alert。
-- 隔日 00:05 自動恢復。
-
-### 優化 4：Request Coalescing（同股併發合流）
-
-**現況痛點**：多使用者同一分鐘打開同一支股，`tw-chips-detail` miss 後各自 enqueue 一次 FinMind 呼叫 → 白燒 quota。
-
-**做法**：
-- 新增 `finmind_inflight_requests` 表：`stock_id PK, kind, started_at, expires_at (started_at + 30s)`。
-- `tw-bsr-finmind-sync` 呼叫上游前先 `INSERT ... ON CONFLICT DO NOTHING RETURNING`；若 conflict 表示已有 in-flight → 等待 rollup 更新（poll 3 次 x 1s）或直接回 `filling`。
-- 完成或失敗時 DELETE 該 row。
-- 30 秒過期自動 GC（cron 每 5 分鐘或以 `expires_at` 過濾讀取）。
-- 前端 5 態機新增顯示 `coalesced` 徽章（可選，debug 用）。
-
-### 優化 5：SLO 驅動的 guardian（不只看 circuit）
-
-**現況痛點**：guardian 條件是「circuit open ≥ 2h」「reject 率 > 80%」，屬於症狀觸發；症狀出現時使用者已受影響。
-
-**做法**：
-- 定義 SLO：交易時段（Mon-Fri 09:00-13:30）`chips-detail` P95 latency ≤ 3s、ready 態占比 ≥ 90%。
-- 新增 `chips_state_hourly` materialized view 從 GTM 事件（或後端 log）聚合。
-- guardian 新規則：若過去 1 小時 ready 占比 < 70% → 提前把 refill_rate 拉高 20%（借未來 24h 配額）並發 alert。
-- 需要 `system_kill_switches` 或 pool 表新增 `slo_boost_until timestamptz`，過期自動回落。
+| # | v4 漏洞 | v5 修正 |
+|---|---|---|
+| 1 | SQL container 測試只 apply `*finmind*.sql` 會缺跨檔依賴 | Apply **整個 `supabase/migrations/` 目錄**（filename 排序），才能建齊 `finmind_quota_pools`（在非 finmind-prefix migration）等前置表 |
+| 2 | `FINMIND_ADMIT_LEGACY` rollback 假設 v1 RPC 還在 | **已驗證**：`20260725160922` / `162913` 兩支 v2 migration 未 `DROP FUNCTION finmind_admit`，v1 仍存在於 DB（`grep DROP FUNCTION.*finmind_admit` 空結果）。rollback 路徑可用；plan 明確記錄此前提，若未來刪 v1 須同步刪 flag |
+| 3 | Golden fixture 「手工錄」沒說怎麼錄 | 新增 `scripts/record-guardian-golden.mjs`：對舊 chips-guardian inline 邏輯跑 6 組 input，dump 到 `__fixtures__/decisions.golden.json`。**先跑腳本 check-in fixture、再重構**；腳本本身 check-in 供未來門檻常數調整重錄 |
+| 4 | Coalescer 副作用搬 caller 會被複製貼上 | 新增 helper `supabase/functions/_shared/coalesceDbHook.ts`：`makeInflightHook(supa, kind)` 回傳 `{onAcquire, onRelease}`，caller 一行接入。避免每個 caller reimplement DB 語法 |
+| 5 | UI Badge test 綠但 hook 型別漏 `coalesced` 會靜默 undefined | plan 明確要求：先 `code--view src/checkup/hooks/useTwChipsDetail.ts` 確認 payload 型別已 include `coalesced?: boolean` 與 `_cache_meta.cache?: 'miss' \| 'coalesced' \| ...`；未 include 就先補型別，再寫 test |
+| 6 | E2E stateful mock 併發亂序 | route handler 用**單調 counter 只在請求送達當下 ++**；兩次抽屜開啟之間 `await page.waitForResponse('**/tw-chips-detail**')` 序列化。避免第 2 次抽屜比第 1 次 response 先到 |
+| 7 | SQL 測試 non-required 可能永遠不 promote = 裝飾 | **明訂晉升條件**：連續 3 週工作日 100% pass、無 flaky retry → 改 required；日期記在 runbook §5。若 6 週仍不穩，決定「移除或修好」，不留半殘 |
+| 8 | Runbook rollback 沒說副作用 | 明寫：`FINMIND_ADMIT_LEGACY=1` → 走 v1 daily_budget，**token bucket / 借用 / SLO boost / `borrowed_from` ledger 全失效**，DataSourceHealth 面板會顯示異常空欄。這是換一組行為救急，不是無害還原 |
+| 9 | Phase-3「明確不做」無條件 = 不會被觸發 | 每項改成**條件式 trigger**：<br>- Guardian → DB job：若 chips-guardian cron P95 冷啟 > 30s 觀察 2 週<br>- 自動 snapshot fixture：若手工錄一年內超過 5 次<br>- pgTAP：若 SQL 測試被 promote 成 required<br>- Coalescer 跨 isolate：若同股同秒重複上游呼叫日均 > 100 |
+| 10 | `pr10-*` 檔名兩年後溯源難 | 改**領域前綴**：`chips-admission-adapter.test.ts` / `chips-guardian-golden.test.ts` / `chips-guardian-slo.test.ts` / `chips-guardian-upstream.test.ts` / `chips-coalesced-badge.test.tsx` / `chips-coalesce.spec.ts`（E2E）/ `requestCoalescer_test.ts`（Deno） |
+| 11 | Guardian 常數若合理調整、fixture 未同步會爆 | plan 明訂：**任何 guardian 門檻常數 PR 必須同時**：(a) 重跑 `record-guardian-golden.mjs`、(b) 更新 runbook §2、(c) reviewer checklist 檢查兩者一致 |
+| 12 | Coalescer hook 型別若強 sync，caller fire-and-forget error 會漏 | hook 型別定為 `() => void \| Promise<void>`；coalescer 內 `await Promise.resolve(hook()).catch(err => console.warn('[coalesce hook]', err))` |
 
 ---
 
-## Phase 1（前一版三修正，順序調到最前）
+### 一、檔案總覽（v5 定版）
 
-保留不變，先做完再進 Phase 2：
-1. `finmindAdmission.ts` fail-closed + `failOpen` 選項
-2. `finmind_admit` 無論 granted 都寫 ledger
-3. guardian 自動 enable（區分 `manual:` 前綴）
-4. guardian 10 分鐘 + root cause 條件
+**生產碼**
+- `supabase/functions/_shared/guardianRules.ts`（新）— 純函式 `decideSloAdjustment` / `decideUpstreamThrottle`
+- `supabase/functions/_shared/coalesceDbHook.ts`（新）— `makeInflightHook(supa, kind)`
+- `supabase/functions/_shared/requestCoalescer.ts`（改）— hook 支援 sync/async、內部 catch
+- `supabase/functions/_shared/finmindAdmission.ts`（改）— 加 `FINMIND_ADMIT_LEGACY` 分支、補 `{data:null,error:null}` 邊界
+- `supabase/functions/chips-guardian/index.ts`（改）— 改呼 guardianRules
+- `supabase/functions/tw-chips-detail/index.ts`（改）— 用 `makeInflightHook`
+- `src/checkup/hooks/useTwChipsDetail.ts`（驗）— 型別 include `coalesced`、`_cache_meta.cache`（缺就補）
+- `src/checkup/components/freecheckup/ChipsSection.tsx`（已完成，僅驗）
 
----
+**Fixture / Script**
+- `scripts/record-guardian-golden.mjs`（新，一次性 + 常數變更時重跑）
+- `supabase/functions/chips-guardian/__fixtures__/decisions.golden.json`（新）
 
-## 檔案總覽
+**測試**
+- `src/test/unit/chips-admission-adapter.test.ts`
+- `src/test/unit/chips-guardian-golden.test.ts`
+- `src/test/unit/chips-guardian-slo.test.ts`
+- `src/test/unit/chips-guardian-upstream.test.ts`
+- `src/test/components/chips-coalesced-badge.test.tsx`
+- `supabase/functions/_shared/requestCoalescer_test.ts`（Deno）
+- `supabase/tests/finmind_admit_v2_test.sql`
+- `e2e/chips-coalesce.spec.ts`
 
-**Migration**（Phase 2）
-- 改 `finmind_quota_pools`：新增 `refill_rate_per_min`、`bucket_max`、`bucket_current`、`last_refill_at`；建 view `finmind_pool_daily_equiv` 供舊 UI 過渡
-- 改 `finmind_admit` RPC：token bucket 補充 + 優先級借用
-- 改 `finmind_quota_ledger`：新增 `borrowed_from`、`root_cause_hint`
-- 新表 `finmind_inflight_requests`（PK stock_id）
-- 改 `data_source_health`：新增 `upstream_quota_remaining int`
-- 新 materialized view `chips_state_hourly` + refresh cron 每 10 分鐘
-
-**Backend**
-- `_shared/finmindAdmission.ts`：token bucket 呼叫、borrow 支援、記錄 root cause
-- `_shared/coalesce.ts`（新）：`acquireInflight` / `releaseInflight`
-- `tw-bsr-finmind-sync/index.ts`：接入 coalesce、寫 upstream_quota_remaining
-- `tw-chips-detail/index.ts`：miss 時檢查 inflight，若有 → 回 `filling`（coalesced）
-- `chips-guardian/index.ts`：加入 SLO 規則、upstream quota 規則
-
-**Frontend**
-- `src/pages/company/DataSourceHealth.tsx`：Token bucket 顯示（當前 tokens、補充速率、預計耗盡時間）、借用率、SLO 面板、upstream quota 顯示
-- `src/checkup/components/freecheckup/ChipsSection.tsx`：`coalesced` 徽章（feature-flag 預設關）
-
-**Test**
-- Phase 1：4 組（前版）
-- Phase 2：
-  - `pr10-token-bucket.test.ts`：補充邏輯、上限、扣 cost
-  - `pr10-priority-borrow.test.ts`：interactive → keepwarm 借用、上限、記帳
-  - `pr10-coalesce.test.ts`：同股併發只打一次上游
-  - `pr10-slo-boost.test.ts`：ready 占比 < 70% 觸發 refill boost、過期自動回落
-  - `e2e/chips-coalesce.spec.ts`：兩個 tab 同時開 6274，只看到一次 upstream call
+**CI**
+- `.github/workflows/finmind-admit-sql-tests.yml`（新，non-required，postgres:15 container，apply 全 migrations 目錄）
+- 掛新 vitest 檔到 `test.yml`
+- 掛 Deno 檔到 `finmind-bsr-tests.yml`
 
 **Docs**
-- `docs/ops/chips-pipeline-runbook.md`：更新 §2 關鍵指標（token bucket、借用率、SLO、upstream quota）、§3-B 新處置流程
+- `docs/ops/chips-pipeline-runbook.md`：§2 coalesced/token bucket 指標、§3 golden fixture 排查、§4 rollback 副作用告示、§5 SQL 測試晉升條件與日期、§6 常數變更 checklist
 
 ---
 
-## 執行順序
+### 二、執行順序（相依性最小化）
 
-1. **Phase 1** 完成並上線觀察 3 個工作日
-2. Token bucket migration（含向下相容 view）
-3. Priority borrow + ledger 欄位
-4. Upstream quota 讀取
-5. Coalesce 機制（含 inflight 表）
-6. SLO materialized view + guardian 規則
-7. Dashboard 更新
-8. 測試補齊 + runbook 更新
-9. CI 綠燈上線
-
----
-
-## 風險
-
-- **Token bucket 遷移**：舊 `daily_budget` 的認知需在 UI 過渡；提供 view 避免破壞現有查詢。
-- **Coalesce race**：`INSERT ON CONFLICT` 保證原子性；30s 過期 + GC 保證不 leak。
-- **SLO boost 誤觸**：加入 `slo_boost_until` 上限每日 2 小時，避免無限制放行。
-- **Upstream header 不穩定**：header 缺失時 fallback 到本地 counter，不阻斷主流程。
-- **借用可能讓 keepwarm 挨餓**：設定 `keepwarm.bucket_current ≥ 30%` 才允許被借。
+1. **驗證** `useTwChipsDetail` 型別（弱點 5）— 缺就補
+2. 寫 `record-guardian-golden.mjs` → 產 fixture → check-in
+3. 抽 `guardianRules.ts`、`coalesceDbHook.ts`；改 `requestCoalescer.ts`；改 `finmindAdmission.ts` 加 legacy flag 與邊界
+4. 更新 chips-guardian、tw-chips-detail 呼叫端
+5. 寫全部 Vitest / Deno 單元測試
+6. 寫 UI badge 測試 + E2E（用 stateful counter + waitForResponse）
+7. **平行**：建 SQL container workflow + `finmind_admit_v2_test.sql`（apply 整個 migrations 目錄）
+8. Runbook 六節更新
+9. 全綠後掛測試路徑到既有 workflows；SQL workflow 起始為 non-required
 
 ---
 
-## 不做的部分（明確排除）
+### 三、驗收（可勾選清單）
 
-- 換掉 Supabase 換 Redis / 專用 rate limiter：現規模不必要，維運成本反而高。
-- ML 預測熱門股主動 warm：ROI 太低，Phase 3 再說。
-- 分區部署（多 region）：目前使用者集中台灣，用不到。
+- [ ] `useTwChipsDetail` 回傳型別含 `coalesced?: boolean` 與 `_cache_meta.cache?`
+- [ ] `record-guardian-golden.mjs` 可重跑產出**確定性** JSON（無時間戳、無隨機）
+- [ ] `bunx vitest run src/test/unit/chips-*.test.ts src/test/components/chips-coalesced-badge.test.tsx` 全綠
+- [ ] `deno test supabase/functions/_shared/requestCoalescer_test.ts` 全綠
+- [ ] `bunx playwright test e2e/chips-coalesce.spec.ts` 綠（無 flaky retry）
+- [ ] SQL container workflow 綠（non-required，起始日期記 runbook §5）
+- [ ] `tsgo` 無新錯誤
+- [ ] Runbook §2–§6 全部就位
+- [ ] Guardian 原 inline 代碼刪除只在 golden fixture 綠燈 3 天後執行
+- [ ] `FINMIND_ADMIT_LEGACY=1` 手動 smoke：edge function 本地 `supabase functions serve` 加 env 跑一次，確認走 v1 RPC 且 log 有 legacy 標記
+
+---
+
+### 四、明確排除（有條件才做，避免下輪再被追問）
+
+- Guardian → DB job：**條件** chips-guardian cron P95 冷啟 > 30s 觀察 2 週
+- Golden fixture 自動快照 mode：**條件** 手工錄 12 個月內 > 5 次
+- pgTAP 正式框架：**條件** SQL container 測試被 promote 成 required
+- Coalescer 跨 isolate advisory lock：**條件** 同股同秒重複上游呼叫日均 > 100
+
+---
+
+### 五、還有沒有漏？— v5 自我審視結論
+
+- **CI 環境**：已用 postgres container 解，且 apply 全 migrations 避免缺依賴
+- **Rollback**：已驗 v1 RPC 存在、已列副作用
+- **Fixture 生命週期**：錄／更新／檢查三環節都有負責人與觸發條件
+- **測試命名**：領域前綴，兩年後可搜
+- **假設全部標記已驗**：SQL 依賴、v1 存在、hook 型別狀態都有 pre-check 步驟
+- **副作用邊界**：coalescer hook `catch` 保護、DB 寫入 helper 化避免複製
+
+若下一輪還能找到弱點，會在「未列入的隱含假設」層級（例如 postgres container 版本漂移、GitHub runner 時區、Deno 版本升級），這已屬環境治理而非本 PR 範疇。
