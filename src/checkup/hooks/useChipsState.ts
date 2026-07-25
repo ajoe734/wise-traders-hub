@@ -141,7 +141,7 @@ export function deriveChipsState(
   if (d1 && payload) {
     return {
       state: 'd1_fallback',
-      reason: `顯示 ${(payload.bsr_as_of || payload.as_of || '').replaceAll('-', '/')} 資料（前 ${payload.as_of_lag_days ?? 1} 個交易日）`,
+      reason: `顯示 ${String(payload.bsr_as_of || payload.as_of || '').split('-').join('/')} 資料（前 ${payload.as_of_lag_days ?? 1} 個交易日）`,
       subState: {
         bsr_freshness: bsrFresh, bsr_queue_status: queueStatus,
         inst_d5_state: instRd, error_kind: errKind, ineligible_reason: null,
