@@ -41,7 +41,9 @@ import {
   fetchFinmindMarketDay,
   loadMarketBatchConfig,
   probeMarketBatchSupport,
+  updateMarketBatchConfig,
 } from '../_shared/finmindMarketBatch.ts';
+
 import {
   fulfillDay,
   fulfillJobsFromSnapshot,
@@ -782,8 +784,40 @@ async function runStats() {
       }
       return out;
     })(),
+    market_batch: await (async () => {
+      try {
+        const cfg = await loadMarketBatchConfig(supa);
+        // 最近 24h Phase A 觸發次數：從 tw_bsr_daily_snapshot_status 觀察 source
+        const since = new Date(Date.now() - 24 * 3600_000).toISOString();
+        const { data: recent } = await supa
+          .from('tw_bsr_daily_snapshot_status')
+          .select('trade_date, source, status, coverage_stocks, coverage_rows, updated_at')
+          .gte('updated_at', since)
+          .order('updated_at', { ascending: false })
+          .limit(20);
+        const batchDays = (recent ?? []).filter((r: any) => r.source === 'finmind_market_batch').length;
+        const perStockDays = (recent ?? []).filter((r: any) => r.source === 'finmind_per_stock').length;
+        return {
+          enabled: cfg.enabled,
+          supported: cfg.supported,
+          probed_at: cfg.probed_at,
+          min_stocks_in_response: cfg.min_stocks_in_response,
+          threshold_pending: cfg.threshold_pending,
+          effective: cfg.enabled && cfg.supported === true,
+          last_24h: {
+            batch_days: batchDays,
+            per_stock_days: perStockDays,
+            recent_snapshots: recent ?? [],
+          },
+        };
+      } catch (e) {
+        console.warn('[stats] market_batch failed:', (e as Error).message);
+        return null;
+      }
+    })(),
   };
 }
+
 
 // ============ HTTP entry ============
 Deno.serve(async (req) => {
@@ -880,6 +914,15 @@ Deno.serve(async (req) => {
       const result = await probeMarketBatchSupport(supa, { force, probeDate });
       return json({ ok: true, mode, ...result });
     }
+
+    if (mode === 'market_batch_toggle') {
+      // Kill switch：管理員手動關/開 Phase A（不動 supported 探測結果）
+      if (typeof body?.enabled !== 'boolean') return json({ ok: false, error: 'enabled(boolean) required' }, 400);
+      await updateMarketBatchConfig(supa, { enabled: body.enabled });
+      const cfg = await loadMarketBatchConfig(supa);
+      return json({ ok: true, mode, config: cfg });
+    }
+
 
     if (mode === 'snapshot_stats') {
       const days = Math.max(1, Math.min(60, Number(body?.days ?? 14)));
