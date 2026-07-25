@@ -471,7 +471,7 @@ Deno.serve(async (req) => {
 
       cacheSet(cacheKey, result, CACHE_TTL_MS);
       return result;
-    }, { supa, kind: 'chips_detail', stockId });
+    }, { onAcquire: inflightHook.onAcquire, onRelease: inflightHook.onRelease });
 
     return jsonResponse({
       ...payload,
