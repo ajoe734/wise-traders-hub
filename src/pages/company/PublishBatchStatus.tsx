@@ -424,3 +424,23 @@ function StatCard({
     </Card>
   );
 }
+
+function attemptStatusTone(s: AttemptRow['status']) {
+  switch (s) {
+    case 'succeeded': return 'bg-emerald-500/10 text-emerald-700 border-emerald-500/30';
+    case 'running': return 'bg-blue-500/10 text-blue-700 border-blue-500/30';
+    case 'pending_retry': return 'bg-amber-500/10 text-amber-700 border-amber-500/30';
+    case 'failed': return 'bg-red-500/10 text-red-700 border-red-500/30';
+    case 'exhausted': return 'bg-red-600/15 text-red-800 border-red-600/40';
+    default: return 'bg-muted text-muted-foreground border-border';
+  }
+}
+function attemptStatusLabel(s: AttemptRow['status']) {
+  return ({
+    succeeded: '成功',
+    running: '執行中',
+    pending_retry: '排入重試',
+    failed: '失敗',
+    exhausted: '重試耗盡',
+  } as Record<string, string>)[s] || s;
+}
