@@ -650,12 +650,8 @@ Deno.serve(async (req) => {
         return jsonResponse({ ok: true, status });
       }
 
-      // === Mode: keep_warm ===（PR-3 三波 cron 觸發；service_role 或管理員）
+      // === Mode: keep_warm ===（PR-3 三波 cron 觸發；anon 可呼叫，靠 flag/短路節流）
       if (body?.mode === "keep_warm") {
-        const admin = await isAdminCaller(req);
-        if (!admin.ok) {
-          return errorResponse(`admin required: ${admin.reason ?? "unauthorized"}`, 403, { code: "FORBIDDEN" });
-        }
         const wave = String(body.wave || "manual").slice(0, 32);
         const force = body.force === true;
         const lookback = Math.min(Math.max(Number(body.lookback) || 3, 0), 7);
