@@ -15,6 +15,7 @@ import { PermissionTooltip } from '@/components/admin/PermissionTooltip';
 import { useAdminSignals } from '@/hooks/useAdminSignals';
 import { SignalsTable } from '@/pages/_adminSignals/SignalsTable';
 import { SignalCreateDialog } from '@/pages/_adminSignals/SignalCreateDialog';
+import { EarlyPublishDialog } from '@/pages/_adminSignals/EarlyPublishDialog';
 import {
   computeAddBuySignalIds, computeBatchInfo, computeHoldingSummary, filterSignals,
 } from '@/pages/_adminSignals/derive';
