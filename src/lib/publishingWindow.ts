@@ -38,10 +38,10 @@ export function isPublishingWindowOpen(
   if (market === 'US') {
     // 美股：週日全天 & 週六 08:00 後鎖定
     if (day === 0) {
-      return { open: false, reason: '週日不開放發布，下週一 08:00 再開放' };
+      return { open: false, reason: '週日不開放發布，本週一 08:00 再開放' };
     }
     if (day === 6 && hhmm >= 800) {
-      return { open: false, reason: '週六 08:00 後不開放發布，下週六 08:00 統一開放' };
+      return { open: false, reason: '週六 08:00 後不開放發布，本週六 08:00 統一開放' };
     }
     return { open: true };
   }
