@@ -28,6 +28,7 @@ export function setCoalesceObserver(cb: CoalesceObserver | null): void {
 export async function coalesce<T>(
   key: string,
   factory: () => Promise<T>,
+  opts?: { supa?: any; kind?: string; stockId?: string | null },
 ): Promise<T> {
   const now = Date.now();
   const existing = inflight.get(key);
@@ -36,12 +37,26 @@ export async function coalesce<T>(
     return existing.promise as Promise<T>;
   }
 
+  // Phase-2: 跨 isolate 觀測性 — 寫入 finmind_inflight_requests（fire-and-forget）
+  if (opts?.supa) {
+    opts.supa.from('finmind_inflight_requests')
+      .upsert({
+        key,
+        kind: opts.kind ?? 'chips',
+        stock_id: opts.stockId ?? null,
+        acquired_at: new Date().toISOString(),
+      }, { onConflict: 'key' })
+      .then(() => {}, () => {});
+  }
+
   const promise = (async () => {
     try {
       return await factory();
     } finally {
-      // 保證清除，避免記憶體洩漏 & 過期資料被重用
       inflight.delete(key);
+      if (opts?.supa) {
+        opts.supa.from('finmind_inflight_requests').delete().eq('key', key).then(() => {}, () => {});
+      }
     }
   })();
 
