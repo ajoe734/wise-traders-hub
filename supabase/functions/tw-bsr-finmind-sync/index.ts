@@ -784,8 +784,40 @@ async function runStats() {
       }
       return out;
     })(),
+    market_batch: await (async () => {
+      try {
+        const cfg = await loadMarketBatchConfig(supa);
+        // 最近 24h Phase A 觸發次數：從 tw_bsr_daily_snapshot_status 觀察 source
+        const since = new Date(Date.now() - 24 * 3600_000).toISOString();
+        const { data: recent } = await supa
+          .from('tw_bsr_daily_snapshot_status')
+          .select('trade_date, source, status, coverage_stocks, coverage_rows, updated_at')
+          .gte('updated_at', since)
+          .order('updated_at', { ascending: false })
+          .limit(20);
+        const batchDays = (recent ?? []).filter((r: any) => r.source === 'finmind_market_batch').length;
+        const perStockDays = (recent ?? []).filter((r: any) => r.source === 'finmind_per_stock').length;
+        return {
+          enabled: cfg.enabled,
+          supported: cfg.supported,
+          probed_at: cfg.probed_at,
+          min_stocks_in_response: cfg.min_stocks_in_response,
+          threshold_pending: cfg.threshold_pending,
+          effective: cfg.enabled && cfg.supported === true,
+          last_24h: {
+            batch_days: batchDays,
+            per_stock_days: perStockDays,
+            recent_snapshots: recent ?? [],
+          },
+        };
+      } catch (e) {
+        console.warn('[stats] market_batch failed:', (e as Error).message);
+        return null;
+      }
+    })(),
   };
 }
+
 
 // ============ HTTP entry ============
 Deno.serve(async (req) => {
