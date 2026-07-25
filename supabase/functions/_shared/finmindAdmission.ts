@@ -109,7 +109,7 @@ export async function admitFinmind(supa: any, input: AdmitInput): Promise<AdmitR
     };
   } catch (e) {
     console.warn('[admission] exception:', (e as Error).message, 'failOpen=', failOpen);
-    await writeRejectLedger(supa, pool, input.kind, input.stockId, 'admission_exception');
+    await writeRejectLedger(supa, pool, input.kind, input.stockId, 'admission_exception', `exception:${(e as Error).message?.slice(0, 80)}`);
     return { granted: failOpen, reason: 'admission_exception' };
   }
 }
