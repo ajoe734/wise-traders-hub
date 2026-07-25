@@ -67,6 +67,7 @@ const SignalPreviewHarnessEntry = lazy(() => import("./pages/SignalPreviewHarnes
 const SignalFocusHarnessEntry = lazy(() => import("./pages/SignalFocusHarnessEntry"));
 const JournalPdfHarnessEntry = lazy(() => import("./pages/JournalPdfHarnessEntry"));
 const NotificationLinkHarnessEntry = lazy(() => import("./pages/NotificationLinkHarnessEntry"));
+const EarlyPublishCopyHarnessEntry = lazy(() => import("./pages/EarlyPublishCopyHarnessEntry"));
 const JournalsExportHarnessEntry = lazy(() => import("./pages/JournalsExportHarnessEntry"));
 const JournalsExportUIHarnessEntry = lazy(() => import("./pages/JournalsExportUIHarnessEntry"));
 const JournalsExportHeaderDomHarnessEntry = lazy(() => import("./pages/JournalsExportHeaderDomHarnessEntry"));
@@ -290,6 +291,7 @@ const AppShell = () => (
             <Route path="/e2e/signal-focus-harness" element={<SignalFocusHarnessEntry />} />
             <Route path="/e2e/journal-pdf-harness" element={<JournalPdfHarnessEntry />} />
             <Route path="/e2e/notification-link-harness" element={<NotificationLinkHarnessEntry />} />
+            <Route path="/e2e/early-publish-copy-harness" element={<EarlyPublishCopyHarnessEntry />} />
             <Route path="/e2e/journals-export-harness" element={<JournalsExportHarnessEntry />} />
             <Route path="/e2e/journals-export-ui-harness" element={<JournalsExportUIHarnessEntry />} />
             <Route path="/e2e/journals-export-header-dom" element={<JournalsExportHeaderDomHarnessEntry />} />
