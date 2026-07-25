@@ -298,9 +298,9 @@ test.describe('ChipsSection · 全覆蓋', () => {
     ]) {
       await expect(section).toContainText(label);
     }
-    // 資料來源文案：同時含 FinMind（分點）與 TWSE（三大法人），格式寬鬆比對
+    // 資料來源文案：同時含 FinMind（分點）與 TWSE/TPEx（三大法人），格式寬鬆比對
     await expect(page.getByTestId('chips-data-source')).toHaveText(
-      /資料來源[:：].*FinMind.*TWSE.*三大法人|資料來源[:：].*TWSE.*FinMind/,
+      /資料來源[:：].*FinMind.*TWSE.*三大法人|資料來源[:：].*TWSE.*TPEx.*FinMind/,
     );
     // 負值 (d60 total 是負) → 綠色
     const negColor = await page
