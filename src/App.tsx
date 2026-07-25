@@ -142,6 +142,7 @@ const CompanyAuditLogs = lazy(() => import("./pages/company/AuditLogs"));
 const CompanyAccountMerges = lazy(() => import("./pages/company/AccountMerges"));
 const CompanySystemJobs = lazy(() => import("./pages/company/SystemJobs"));
 const CompanyFunctionLogs = lazy(() => import("./pages/company/FunctionLogs"));
+const CompanyPublishBatchStatus = lazy(() => import("./pages/company/PublishBatchStatus"));
 const CompanyBsrFailures = lazy(() => import("./pages/company/BsrFailureDashboard"));
 const CompanyBsrEffect = lazy(() => import("./pages/company/BsrEffectAnalysis"));
 const CompanyBsrTimeline = lazy(() => import("./pages/company/BsrStockTimeline"));
