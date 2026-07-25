@@ -150,6 +150,7 @@ const CompanyBsrBackfill = lazy(() => import("./pages/company/BsrBackfillProgres
 const CompanyBsrConfig = lazy(() => import("./pages/company/BsrSyncConfig"));
 const CompanyBsrOcrMetrics = lazy(() => import("./pages/company/BsrOcrMetrics"));
 const CompanyBsrRateLimit = lazy(() => import("./pages/company/BsrRateLimit"));
+const CompanyDataSourceHealth = lazy(() => import("./pages/company/DataSourceHealth"));
 const CompanyKnowledgeBase = lazy(() => import("./pages/company/KnowledgeBase"));
 const CompanyKnowledgeAudit = lazy(() => import("./pages/company/knowledge-base/KnowledgeAudit"));
 const CompanyKnowledgeScheduler = lazy(() => import("./pages/company/knowledge-base/KnowledgeScheduler"));
