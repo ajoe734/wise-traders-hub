@@ -61,14 +61,24 @@ describe('PR-8 admitFinmind', () => {
     expect(supa.rpc).not.toHaveBeenCalled();
   });
 
-  it('fails open when RPC errors (does NOT block traffic on infra glitch)', async () => {
+  it('fails closed by default when RPC errors (Phase-2 fail-closed)', async () => {
     const supa = {
       rpc: vi.fn().mockResolvedValue({ data: null, error: { message: 'rpc down' } }),
       from: vi.fn(),
     };
     const r = await admitFinmind(supa, { pool: 'interactive', kind: 'on_demand' });
+    expect(r.granted).toBe(false);
+    expect(r.reason).toBe('admission_rpc_error');
+  });
+
+  it('failOpen=true allows granted=true on RPC error for sacrificial background tasks', async () => {
+    const supa = {
+      rpc: vi.fn().mockResolvedValue({ data: null, error: { message: 'rpc down' } }),
+      from: vi.fn(),
+    };
+    const r = await admitFinmind(supa, { pool: 'interactive', kind: 'on_demand', failOpen: true });
     expect(r.granted).toBe(true);
-    expect(r.reason).toBe('admission_error');
+    expect(r.reason).toBe('admission_rpc_error');
   });
 
   it('honors skipCircuit=true (guardian mode)', async () => {
