@@ -93,15 +93,38 @@ export default function PublishBatchStatusPage() {
     },
   });
 
+  const attemptsQ = useQuery({
+    queryKey: ['company', 'publish-batch', 'attempts'],
+    staleTime: 10_000,
+    refetchInterval: 30_000,
+    queryFn: async () => {
+      const { data, error } = await (supabase as any).rpc('get_publish_batch_attempts', { _limit: 80 });
+      if (error) throw error;
+      return (data || []) as AttemptRow[];
+    },
+  });
+
   const triggerM = useMutation({
     mutationFn: async (market: 'TW' | 'US') => {
-      const { data, error } = await supabase.functions.invoke('publish-weekly-journals', { body: { market } });
+      const { data, error } = await supabase.functions.invoke('publish-weekly-journals-runner', {
+        body: { market, trigger_source: 'manual' },
+      });
       if (error) throw error;
       return data;
     },
     onSuccess: (data: any, market) => {
+      const resp = (data && (data.response || data)) as any;
+      const published = resp?.published ?? 0;
+      const failed = resp?.failed ?? 0;
       toast.success(
-        `${market} 批次執行完成：發布 ${data?.published ?? 0}、失敗 ${data?.failed ?? 0}`,
+        `${market} 批次執行完成：發布 ${published}、失敗 ${failed}` +
+          (data?.will_retry ? `（將於 ${data?.next_attempt_no} 次重試）` : ''),
+        { description: data?.run_id ? `runId ${data.run_id}` : undefined },
+      );
+      qc.invalidateQueries({ queryKey: ['company', 'publish-batch'] });
+    },
+    onError: (e: any) => toast.error(`觸發失敗：${e?.message || e}`),
+  });
         { description: data?.runId ? `runId ${data.runId}` : undefined },
       );
       qc.invalidateQueries({ queryKey: ['company', 'publish-batch'] });
