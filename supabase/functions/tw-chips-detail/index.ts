@@ -377,6 +377,33 @@ Deno.serve(async (req) => {
       upstreamExhausted = !!probe?.exhausted;
     } catch (_e) { /* 非致命 */ }
 
+    // PR-8：上游熔斷狀態帶入 payload，讓前端 5 態機能提早顯示 upstream_outage 與冷卻時間
+    let upstreamCircuit: {
+      any_open: boolean;
+      sources: Record<string, {
+        state: 'closed' | 'open' | 'half_open';
+        disabled_until: string | null;
+        consecutive_failures: number;
+        last_error_code: string | null;
+      }>;
+    } = { any_open: false, sources: {} };
+    try {
+      const { data: healthRows } = await supa
+        .from('data_source_health')
+        .select('source, circuit_state, disabled_until, consecutive_failures, last_error_code')
+        .in('source', ['finmind_bsr', 'twse_t86']);
+      for (const r of (healthRows || []) as any[]) {
+        const st = (r.circuit_state ?? 'closed') as 'closed' | 'open' | 'half_open';
+        upstreamCircuit.sources[String(r.source)] = {
+          state: st,
+          disabled_until: r.disabled_until ?? null,
+          consecutive_failures: Number(r.consecutive_failures ?? 0),
+          last_error_code: r.last_error_code ?? null,
+        };
+        if (st === 'open') upstreamCircuit.any_open = true;
+      }
+    } catch (_e) { /* 非致命 */ }
+
     const instReadiness = resolveAllWindows({
       validDatesAsc: instValidDatesAsc,
       upstreamExhausted: false, // 三大法人由 TWSE 直供，不用 finmind 探測
@@ -385,6 +412,7 @@ Deno.serve(async (req) => {
       validDatesAsc: bsrValidDatesAsc,
       upstreamExhausted,
     });
+
 
     // M4：頂層低品質旗標 = 目前顯示的 chosenAsOf 該日 broker count（源自 rollup）< 門檻
     const chosenSeriesPoint = chosenAsOf ? bsrConcentration.find((p) => p.date === chosenAsOf) : null;
