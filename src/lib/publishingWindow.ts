@@ -48,10 +48,10 @@ export function isPublishingWindowOpen(
 
   // 台股（預設）
   if (day === 0 || day === 6) {
-    return { open: false, reason: '週末不開放發布，下週五 20:00 統一開放' };
+    return { open: false, reason: '週末不開放發布，本週五 20:00 統一開放' };
   }
   if (day === 5 && hhmm >= 2000) {
-    return { open: false, reason: '週五 20:00 後不開放發布，下週五 20:00 統一開放' };
+    return { open: false, reason: '週五 20:00 後不開放發布，本週五 20:00 統一開放' };
   }
   return { open: true };
 }
