@@ -73,6 +73,13 @@ export async function recordUpstreamQuota(
         status: res.status,
       },
     });
+
+    // Phase-2: 同步到 data_source_health，讓 guardian 與儀表板一次讀完
+    await supa.from('data_source_health').update({
+      upstream_quota_remaining: remaining,
+      upstream_quota_limit: limit,
+      upstream_quota_reset_at: reset,
+    }).eq('source', source);
   } catch (e) {
     console.warn('[upstreamQuota] record failed:', (e as Error).message);
   }
