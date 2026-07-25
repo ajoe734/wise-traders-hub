@@ -5350,6 +5350,38 @@ export type Database = {
         Returns: Json
       }
       get_public_experts_list: { Args: never; Returns: Json }
+      get_publish_batch_runs: {
+        Args: { _limit?: number }
+        Returns: {
+          ended_at: string
+          failed: number
+          market: string
+          pending_found: number
+          published: number
+          push_fail: number
+          pushed: number
+          run_id: string
+          started_at: string
+        }[]
+      }
+      get_publish_batch_status: {
+        Args: never
+        Returns: {
+          asset_class: string
+          expert_id: string
+          expert_name: string
+          expert_slug: string
+          failed_pending_count: number
+          last_attempt_at: string
+          last_error_kind: string
+          last_error_msg: string
+          last_error_signal_id: string
+          last_run_id: string
+          market: string
+          pending_count: number
+          published_this_week: number
+        }[]
+      }
       get_roas_ltv_by_campaign: {
         Args: { _from: string; _to: string }
         Returns: {
