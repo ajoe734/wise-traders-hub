@@ -411,10 +411,16 @@ Deno.serve(withLogging('stock-price-sync', async (req) => {
     }
 
     if (priceRows.length > 0) {
-      const { error: upsertErr } = await supabase
-        .from('current_prices')
-        .upsert(priceRows, { onConflict: 'symbol' })
-      if (upsertErr) console.error('current_prices upsert error:', upsertErr)
+      const rpcRows = priceRows.map((r) => ({
+        ...r,
+        asset_class: r.market === 'US' ? 'us_stock' : 'tw_stock',
+        updated_at: now,
+      }))
+      const { error: upsertErr } = await supabase.rpc('upsert_current_price', {
+        p_writer: 'stock-price-sync',
+        p_rows: rpcRows,
+      })
+      if (upsertErr) console.error('upsert_current_price error:', upsertErr)
     }
 
     // 兼容原 priceMap 名稱：後續 user_performances 只走 trade_signals（TW-centric）
