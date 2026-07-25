@@ -143,11 +143,12 @@ Deno.serve(async (req) => {
     }
 
     if (records.length > 0) {
-      const { error: upErr } = await supabase
-        .from('current_prices')
-        .upsert(records as any, { onConflict: 'symbol' });
+      const { error: upErr, data: rpcWritten } = await supabase.rpc('upsert_current_price', {
+        p_writer: 'crypto-price-sync',
+        p_rows: records,
+      });
       if (upErr) throw upErr;
-      written = records.length;
+      written = typeof rpcWritten === 'number' ? rpcWritten : records.length;
     }
   } catch (e) {
     console.error('crypto-price-sync error', e);

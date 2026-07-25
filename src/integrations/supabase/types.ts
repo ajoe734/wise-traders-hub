@@ -1098,8 +1098,9 @@ export type Database = {
           pushed_at: string | null
           symbol: string
           tick_volume: number | null
-          updated_at: string | null
+          updated_at: string
           volume: number | null
+          writer: string | null
           yesterday_close: number | null
         }
         Insert: {
@@ -1120,8 +1121,9 @@ export type Database = {
           pushed_at?: string | null
           symbol: string
           tick_volume?: number | null
-          updated_at?: string | null
+          updated_at?: string
           volume?: number | null
+          writer?: string | null
           yesterday_close?: number | null
         }
         Update: {
@@ -1142,8 +1144,9 @@ export type Database = {
           pushed_at?: string | null
           symbol?: string
           tick_volume?: number | null
-          updated_at?: string | null
+          updated_at?: string
           volume?: number | null
+          writer?: string | null
           yesterday_close?: number | null
         }
         Relationships: []
@@ -3526,6 +3529,69 @@ export type Database = {
           },
         ]
       }
+      price_quota_ledger: {
+        Row: {
+          admitted: number
+          created_at: string
+          id: number
+          market: string
+          requested: number
+          tokens_after: number
+          writer: string | null
+        }
+        Insert: {
+          admitted: number
+          created_at?: string
+          id?: number
+          market: string
+          requested: number
+          tokens_after: number
+          writer?: string | null
+        }
+        Update: {
+          admitted?: number
+          created_at?: string
+          id?: number
+          market?: string
+          requested?: number
+          tokens_after?: number
+          writer?: string | null
+        }
+        Relationships: []
+      }
+      price_quota_pools: {
+        Row: {
+          api_name: string
+          created_at: string
+          last_refill: string
+          market: string
+          per_day_cap: number | null
+          per_min_cap: number
+          tokens: number
+          updated_at: string
+        }
+        Insert: {
+          api_name: string
+          created_at?: string
+          last_refill?: string
+          market: string
+          per_day_cap?: number | null
+          per_min_cap: number
+          tokens?: number
+          updated_at?: string
+        }
+        Update: {
+          api_name?: string
+          created_at?: string
+          last_refill?: string
+          market?: string
+          per_day_cap?: number | null
+          per_min_cap?: number
+          tokens?: number
+          updated_at?: string
+        }
+        Relationships: []
+      }
       processed_webhook_events: {
         Row: {
           delivery_id: string
@@ -5279,6 +5345,28 @@ export type Database = {
         }
         Relationships: []
       }
+      v_price_freshness: {
+        Row: {
+          coverage_ratio: number | null
+          covered_count: number | null
+          market: string | null
+          max_age_s: number | null
+          newest_updated_at: string | null
+          oldest_updated_at: string | null
+          p50_age_s: number | null
+          p95_age_s: number | null
+          universe_count: number | null
+        }
+        Relationships: []
+      }
+      v_price_sync_universe: {
+        Row: {
+          market: string | null
+          priority: number | null
+          symbol: string | null
+        }
+        Relationships: []
+      }
     }
     Functions: {
       admin_apply_fix_proposal: {
@@ -5918,6 +6006,10 @@ export type Database = {
               source_type: string
             }[]
           }
+      price_admit: {
+        Args: { p_market: string; p_requested: number; p_writer?: string }
+        Returns: number
+      }
       prune_bsr_sync_queue: { Args: never; Returns: number }
       prune_cron_dispatch_log: { Args: never; Returns: undefined }
       purge_expired_bsr_reservations: {
@@ -6033,6 +6125,10 @@ export type Database = {
       }
       trade_dedupe_sweep: { Args: { p_dry_run?: boolean }; Returns: Json }
       tw_bsr_eligibility: { Args: { p_stock_id: string }; Returns: Json }
+      upsert_current_price: {
+        Args: { p_rows: Json; p_writer: string }
+        Returns: number
+      }
     }
     Enums: {
       announcement_status: "draft" | "published"
