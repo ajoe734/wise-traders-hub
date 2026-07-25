@@ -19,6 +19,7 @@ import { PreviewTradeItem } from './PreviewTradeItem';
 import { UnitRealignPreviewDialog } from './UnitRealignPreviewDialog';
 import { isMarketClosed } from './derive';
 import { getAssetSpec, resolveAssetClass, isValidAssetSymbol, type QuantityUnit } from '@/lib/asset';
+import { nextPublishMomentLabel } from '@/lib/publishingWindow';
 import { normalizeQuantityToBaseUnits, formatBaseQuantity } from '@/lib/positionQuantity';
 import { InstrumentTooltip } from '@/components/InstrumentTooltip';
 import { mapPublishError, type MappedPublishError } from './publishErrorMapper';
