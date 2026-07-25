@@ -108,7 +108,7 @@ const SignalEditor = () => {
   }, [expert, assetClass]);
 
   const isMentor = expert?.role === 'mentor';
-  const publishWindow = isPublishingWindowOpen();
+  const publishWindow = isPublishingWindowOpen(assetClass);
   const stockCacheRef = useRef<Map<string, string>>(new Map());
 
   // ── Draft persistence ────────────────────────────────────────────────

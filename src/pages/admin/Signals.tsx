@@ -10,7 +10,7 @@ import { cn } from '@/lib/utils';
 import { Plus, Search } from 'lucide-react';
 import { toast } from 'sonner';
 import { useAuth } from '@/contexts/AuthContext';
-import { isPublishingWindowOpen, canRecallSignal } from '@/lib/publishingWindow';
+import { isPublishingWindowOpen, canRecallSignal, marketOfAssetClass, nextPublishMomentLabel } from '@/lib/publishingWindow';
 import { PermissionTooltip } from '@/components/admin/PermissionTooltip';
 import { useAdminSignals } from '@/hooks/useAdminSignals';
 import { SignalsTable } from '@/pages/_adminSignals/SignalsTable';
@@ -47,7 +47,14 @@ const AdminSignals = () => {
   const isAdvisor = expert?.role === 'advisor';
   const isMentor = expert?.role === 'mentor';
   const contentLabel = isMentor ? '週記' : '訊號';
-  const publishWindow = isPublishingWindowOpen();
+  const assetClass = (expert as any)?.asset_class ?? null;
+  const market = marketOfAssetClass(assetClass);
+  const publishWindow = isPublishingWindowOpen(assetClass);
+  const publishMomentLabel = nextPublishMomentLabel(assetClass);
+  const authoringWindowLabel = market === 'US' ? '週一~週六 08:00 前撰寫' : '週一~五撰寫';
+
+  const [earlyPublishOpen, setEarlyPublishOpen] = useState(false);
+  const [earlyPublishing, setEarlyPublishing] = useState(false);
 
   const pendingCount = useMemo(
     () => (isMentor ? signals.filter((s) => s.status === 'pending').length : 0),
