@@ -93,7 +93,7 @@ export async function admitFinmind(supa: any, input: AdmitInput): Promise<AdmitR
     });
     if (error) {
       console.warn('[admission] rpc v2 error:', error.message, 'failOpen=', failOpen);
-      await writeRejectLedger(supa, pool, input.kind, input.stockId, 'admission_rpc_error');
+      await writeRejectLedger(supa, pool, input.kind, input.stockId, 'admission_rpc_error', `rpc:${error.message?.slice(0, 80)}`);
       return { granted: failOpen, reason: 'admission_rpc_error' };
     }
     const obj = (data ?? {}) as Record<string, unknown>;
