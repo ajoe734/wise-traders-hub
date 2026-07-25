@@ -432,7 +432,7 @@ Deno.serve(async (req) => {
       });
     }
 
-    const payload = {
+    const result = {
       stock_id: stockId,
       as_of: asOfDate,
       as_of_lag_days: asOfLagDays,
