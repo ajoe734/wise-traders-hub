@@ -4531,12 +4531,19 @@ export type Database = {
         Row: {
           attempt_count: number
           correlation_id: string | null
+          coverage_brokers: number
           coverage_rows: number
           coverage_stocks: number
           created_at: string
           fetched_at: string | null
+          lane_a_status: string
+          lane_b_status: string
+          lane_c_status: string
           last_error: string | null
           lock_expires_at: string | null
+          partial_lanes: string[]
+          sealed_at: string | null
+          sealed_by_lane: string | null
           source: string | null
           status: string
           trade_date: string
@@ -4545,12 +4552,19 @@ export type Database = {
         Insert: {
           attempt_count?: number
           correlation_id?: string | null
+          coverage_brokers?: number
           coverage_rows?: number
           coverage_stocks?: number
           created_at?: string
           fetched_at?: string | null
+          lane_a_status?: string
+          lane_b_status?: string
+          lane_c_status?: string
           last_error?: string | null
           lock_expires_at?: string | null
+          partial_lanes?: string[]
+          sealed_at?: string | null
+          sealed_by_lane?: string | null
           source?: string | null
           status?: string
           trade_date: string
@@ -4559,12 +4573,19 @@ export type Database = {
         Update: {
           attempt_count?: number
           correlation_id?: string | null
+          coverage_brokers?: number
           coverage_rows?: number
           coverage_stocks?: number
           created_at?: string
           fetched_at?: string | null
+          lane_a_status?: string
+          lane_b_status?: string
+          lane_c_status?: string
           last_error?: string | null
           lock_expires_at?: string | null
+          partial_lanes?: string[]
+          sealed_at?: string | null
+          sealed_by_lane?: string | null
           source?: string | null
           status?: string
           trade_date?: string
@@ -4857,6 +4878,54 @@ export type Database = {
           probed_back_to?: string | null
           stock_id?: string
           updated_at?: string
+        }
+        Relationships: []
+      }
+      tw_chip_fact: {
+        Row: {
+          avg_buy_price: number | null
+          avg_sell_price: number | null
+          broker_id: string
+          broker_name: string | null
+          buy_shares: number
+          id: number
+          ingested_at: string
+          net_shares: number | null
+          raw: Json | null
+          sell_shares: number
+          source: string
+          stock_id: string
+          trade_date: string
+        }
+        Insert: {
+          avg_buy_price?: number | null
+          avg_sell_price?: number | null
+          broker_id: string
+          broker_name?: string | null
+          buy_shares?: number
+          id?: number
+          ingested_at?: string
+          net_shares?: number | null
+          raw?: Json | null
+          sell_shares?: number
+          source: string
+          stock_id: string
+          trade_date: string
+        }
+        Update: {
+          avg_buy_price?: number | null
+          avg_sell_price?: number | null
+          broker_id?: string
+          broker_name?: string | null
+          buy_shares?: number
+          id?: number
+          ingested_at?: string
+          net_shares?: number | null
+          raw?: Json | null
+          sell_shares?: number
+          source?: string
+          stock_id?: string
+          trade_date?: string
         }
         Relationships: []
       }
@@ -5963,6 +6032,7 @@ export type Database = {
         Returns: boolean
       }
       is_backtestable_trigger: { Args: { _cond: Json }; Returns: boolean }
+      is_snapshot_sealed: { Args: { _trade_date: string }; Returns: boolean }
       is_subscribed_to_plan: {
         Args: { _plan_id: string; _user_id: string }
         Returns: boolean
