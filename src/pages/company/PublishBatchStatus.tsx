@@ -39,6 +39,26 @@ type RunRow = {
   push_fail: number;
 };
 
+type AttemptRow = {
+  id: string;
+  market: 'TW' | 'US';
+  attempt_no: number;
+  max_attempts: number;
+  status: 'pending_retry' | 'running' | 'succeeded' | 'failed' | 'exhausted';
+  scheduled_at: string | null;
+  next_retry_at: string | null;
+  started_at: string | null;
+  finished_at: string | null;
+  duration_ms: number | null;
+  run_id: string | null;
+  parent_attempt_id: string | null;
+  root_attempt_id: string | null;
+  error_message: string | null;
+  response: any;
+  trigger_source: string | null;
+  created_at: string;
+};
+
 const fmtDateTime = (iso: string | null) => {
   if (!iso) return '—';
   const d = new Date(iso);
