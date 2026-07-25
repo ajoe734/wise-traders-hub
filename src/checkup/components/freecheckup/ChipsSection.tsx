@@ -120,7 +120,7 @@ export default function ChipsSection({ WB, stockCode }: { WB: any; stockCode: st
           <div style={{ fontSize: 10, color: WB.inkMute, letterSpacing: '0.14em' }}>NOT APPLICABLE</div>
         </div>
         <div data-testid="chips-not-eligible" style={{ fontSize: 12, color: WB.inkMute, lineHeight: 1.7 }}>
-          — 此代號為 ETF／權證／受益憑證，FinMind 未提供分點資料
+          — 此代號為 ETF／權證／受益憑證，無分點資料
           <div style={{ fontSize: 10, color: WB.inkMute, marginTop: 2 }}>
             （僅一般個股 4 碼、首位 1–9 之代號會納入分點同步）
           </div>
