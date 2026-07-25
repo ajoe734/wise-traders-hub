@@ -115,12 +115,14 @@ export default function DataSourceHealth() {
   }
 
   async function toggleSwitch(key: string, next: boolean) {
-    const reason = next ? '' : (prompt(`關閉 ${key} 的理由？（會寫入 disabled_reason）`, '手動關閉') ?? '');
-    if (!next && !reason) return;
+    const rawReason = next ? '' : (prompt(`關閉 ${key} 的理由？（會寫入 disabled_reason）`, '手動關閉') ?? '');
+    if (!next && !rawReason) return;
+    // `manual:` 前綴讓 chips-guardian 知道這是人為關閉、不要自動 re-enable
+    const reason = next ? null : `manual:${rawReason}`;
     setToggling(key);
     try {
       const { error } = await supabase.rpc('toggle_kill_switch', {
-        _key: key, _enabled: next, _reason: next ? null : reason,
+        _key: key, _enabled: next, _reason: reason,
       });
       if (error) throw error;
       toast.success(`${key} 已 ${next ? '啟用' : '停用'}`);

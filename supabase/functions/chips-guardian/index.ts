@@ -1,12 +1,17 @@
-// PR-9: Chips Pipeline Guardian
-// 每 5 分鐘 cron 呼叫，自動偵測異常並拉下對應 kill-switch，避免半夜燒 quota。
+// PR-9 / Phase-1: Chips Pipeline Guardian
+// 每 10 分鐘 cron 呼叫。
 //
 // 觸發規則：
-//   1. finmind_bsr circuit 連續 open ≥ 2 小時 → 關閉 chips_keepwarm（保留 interactive）
-//   2. 當日 finmind_quota_ledger 拒絕率 > 80% 且樣本 ≥ 50 → 關閉 chips_backfill
-//   3. 任一 pool 連續 3 小時 100% quota_exceeded → 寫入 system_alerts 但不自動關（人工判斷）
+//   1. finmind_bsr circuit 連續 open ≥ 2 小時 → 關閉 chips_keepwarm
+//   2. 過去 1 小時 backfill pool 拒絕率 > 80% 且樣本 ≥ 50 → 關閉 chips_backfill
+//   3. 任一 pool 連續 3 小時 100% quota_exceeded → 寫 alert（不自動關）
 //
-// 每次觸發前先看 system_alerts 5 分鐘冷卻，避免 flap。
+// 自動 re-enable：
+//   - 只有 guardian 自己關的（disabled_reason 不含 `manual:` 前綴）才會在條件解除時自動打開
+//   - keepwarm：circuit 恢復 closed 至少 30 分鐘
+//   - backfill：過去 30 分鐘拒絕率 < 30%（樣本 ≥ 20）
+//
+// Alert cooldown 5 分鐘、每次觸發都記錄 root cause 於 meta。
 
 import { createClient } from 'https://esm.sh/@supabase/supabase-js@2';
 import { corsHeaders } from 'npm:@supabase/supabase-js@2/cors';
@@ -20,11 +25,15 @@ const REJECT_RATE_TO_KILL_BACKFILL = 0.8;
 const REJECT_SAMPLE_MIN = 50;
 const ALERT_COOLDOWN_MIN = 5;
 
+const RE_ENABLE_KEEPWARM_CIRCUIT_STABLE_MIN = 30;
+const RE_ENABLE_BACKFILL_REJECT_MAX = 0.3;
+const RE_ENABLE_BACKFILL_SAMPLE_MIN = 20;
+
 interface Action {
-  kind: 'disabled_switch' | 'alert';
+  kind: 'disabled_switch' | 'enabled_switch' | 'alert';
   key?: string;
   reason: string;
-  metric?: string;
+  root_cause?: string;
 }
 
 async function alreadyAlerted(supa: any, code: string): Promise<boolean> {
@@ -40,11 +49,39 @@ async function alreadyAlerted(supa: any, code: string): Promise<boolean> {
 
 async function writeAlert(supa: any, code: string, severity: string, message: string, meta: any) {
   try {
-    await supa.from('system_alerts').insert({
-      code, severity, message, meta,
-    });
+    await supa.from('system_alerts').insert({ code, severity, message, meta });
   } catch (e) {
     console.warn('[guardian] write alert failed:', (e as Error).message);
+  }
+}
+
+async function getSwitch(supa: any, key: string) {
+  const { data } = await supa
+    .from('system_kill_switches')
+    .select('key, enabled, disabled_reason, disabled_at, auto_trigger_metric')
+    .eq('key', key)
+    .maybeSingle();
+  return data;
+}
+
+function isAutoDisabled(sw: any): boolean {
+  if (!sw || sw.enabled) return false;
+  const reason = String(sw.disabled_reason ?? '');
+  return !reason.startsWith('manual:');
+}
+
+async function autoEnable(supa: any, key: string, note: string): Promise<void> {
+  try {
+    await supa.from('system_kill_switches').update({
+      enabled: true,
+      disabled_reason: null,
+      auto_trigger_metric: `auto_reenabled:${note}`,
+      disabled_at: null,
+      updated_at: new Date().toISOString(),
+    }).eq('key', key);
+    console.log(`[guardian] auto-enabled ${key}: ${note}`);
+  } catch (e) {
+    console.warn(`[guardian] auto-enable failed for ${key}:`, (e as Error).message);
   }
 }
 
@@ -52,58 +89,106 @@ async function ruleCircuitLongOpen(supa: any): Promise<Action[]> {
   const actions: Action[] = [];
   const { data } = await supa
     .from('data_source_health')
-    .select('source, circuit_state, disabled_until, last_failure_at')
+    .select('source, circuit_state, disabled_until, last_failure_at, last_success_at')
     .in('source', ['finmind_bsr', 'twse_t86']);
-  for (const row of (data ?? []) as any[]) {
-    if (row.circuit_state !== 'open') continue;
-    const failedAt = row.last_failure_at ? new Date(row.last_failure_at).getTime() : 0;
+  const rows = (data ?? []) as any[];
+  const finmind = rows.find((r) => r.source === 'finmind_bsr');
+  const kwSwitch = await getSwitch(supa, 'chips_keepwarm');
+
+  // Disable path
+  if (finmind && finmind.circuit_state === 'open') {
+    const failedAt = finmind.last_failure_at ? new Date(finmind.last_failure_at).getTime() : 0;
     const openHours = failedAt ? (Date.now() - failedAt) / 3_600_000 : 0;
-    if (openHours >= OPEN_HOURS_TO_KILL_KEEPWARM && row.source === 'finmind_bsr') {
+    if (openHours >= OPEN_HOURS_TO_KILL_KEEPWARM && (kwSwitch?.enabled ?? true)) {
       const code = 'guardian_kill_keepwarm_circuit_open';
       if (!(await alreadyAlerted(supa, code))) {
+        const rootCause = `finmind_bsr_circuit_open_${openHours.toFixed(1)}h`;
         await forceDisable(supa, 'chips_keepwarm',
           `finmind_bsr circuit open ≥ ${OPEN_HOURS_TO_KILL_KEEPWARM}h`,
-          `circuit_open_hours=${openHours.toFixed(1)}`);
+          `root_cause=${rootCause}`);
         await writeAlert(supa, code, 'warning',
           `已自動停用 chips_keepwarm：finmind_bsr 熔斷已 ${openHours.toFixed(1)} 小時`,
-          { source: row.source, disabled_until: row.disabled_until });
-        actions.push({ kind: 'disabled_switch', key: 'chips_keepwarm', reason: 'circuit_long_open' });
+          { source: 'finmind_bsr', disabled_until: finmind.disabled_until, root_cause: rootCause });
+        actions.push({ kind: 'disabled_switch', key: 'chips_keepwarm', reason: 'circuit_long_open', root_cause: rootCause });
       }
     }
   }
+
+  // Re-enable path
+  if (finmind && finmind.circuit_state === 'closed' && isAutoDisabled(kwSwitch)) {
+    const successAt = finmind.last_success_at ? new Date(finmind.last_success_at).getTime() : 0;
+    const stableMin = successAt ? (Date.now() - successAt) / 60_000 : 0;
+    // 註：last_success_at 是最後成功時間，如果它比現在早很多說明剛恢復；
+    // 我們要求「circuit closed 且最近 30 分鐘內至少有一次成功」，故 stableMin ≤ 30
+    if (successAt > 0 && stableMin <= RE_ENABLE_KEEPWARM_CIRCUIT_STABLE_MIN) {
+      // 額外檢查：確保 disabled 已經超過 stable 窗（避免剛關又開）
+      const disabledAt = kwSwitch?.disabled_at ? new Date(kwSwitch.disabled_at).getTime() : 0;
+      const disabledMin = disabledAt ? (Date.now() - disabledAt) / 60_000 : 999;
+      if (disabledMin >= RE_ENABLE_KEEPWARM_CIRCUIT_STABLE_MIN) {
+        await autoEnable(supa, 'chips_keepwarm', 'circuit_closed_stable');
+        actions.push({ kind: 'enabled_switch', key: 'chips_keepwarm', reason: 'circuit_recovered' });
+      }
+    }
+  }
+
   return actions;
+}
+
+async function fetchRejectStats(supa: any, pool: string, windowMin: number) {
+  const since = new Date(Date.now() - windowMin * 60_000).toISOString();
+  const { data } = await supa
+    .from('finmind_quota_ledger')
+    .select('granted, reason')
+    .eq('pool_name', pool)
+    .gte('created_at', since);
+  const rows = (data ?? []) as { granted: boolean; reason: string | null }[];
+  const total = rows.length;
+  const rejected = rows.filter((r) => !r.granted).length;
+  const topReason = (() => {
+    const map = new Map<string, number>();
+    for (const r of rows) if (!r.granted) map.set(r.reason ?? 'unknown', (map.get(r.reason ?? 'unknown') ?? 0) + 1);
+    let best: [string, number] = ['unknown', 0];
+    for (const [k, v] of map) if (v > best[1]) best = [k, v];
+    return best[0];
+  })();
+  return { total, rejected, rate: total ? rejected / total : 0, topReason };
 }
 
 async function ruleQuotaRejectRate(supa: any): Promise<Action[]> {
   const actions: Action[] = [];
-  const since = new Date(Date.now() - 60 * 60_000).toISOString(); // 過去 1 小時
-  const { data } = await supa
-    .from('finmind_quota_ledger')
-    .select('pool_name, granted')
-    .gte('created_at', since);
-  const rows = (data ?? []) as { pool_name: string; granted: boolean }[];
-  const byPool = new Map<string, { total: number; rejected: number }>();
-  for (const r of rows) {
-    const b = byPool.get(r.pool_name) ?? { total: 0, rejected: 0 };
-    b.total += 1;
-    if (!r.granted) b.rejected += 1;
-    byPool.set(r.pool_name, b);
+  const bfSwitch = await getSwitch(supa, 'chips_backfill');
+
+  // Disable path
+  if (bfSwitch?.enabled ?? true) {
+    const stat = await fetchRejectStats(supa, 'backfill', 60);
+    if (stat.total >= REJECT_SAMPLE_MIN && stat.rate >= REJECT_RATE_TO_KILL_BACKFILL) {
+      const code = 'guardian_kill_backfill_high_reject';
+      if (!(await alreadyAlerted(supa, code))) {
+        const rootCause = `backfill_reject_${(stat.rate * 100).toFixed(0)}pct_by_${stat.topReason}`;
+        await forceDisable(supa, 'chips_backfill',
+          `backfill reject ${(stat.rate * 100).toFixed(0)}% (${stat.rejected}/${stat.total})`,
+          `root_cause=${rootCause}`);
+        await writeAlert(supa, code, 'warning',
+          `已自動停用 chips_backfill：過去 1 小時拒絕率 ${(stat.rate * 100).toFixed(0)}%（主因 ${stat.topReason}）`,
+          { pool: 'backfill', total: stat.total, rejected: stat.rejected, top_reason: stat.topReason, root_cause: rootCause });
+        actions.push({ kind: 'disabled_switch', key: 'chips_backfill', reason: 'high_reject_rate', root_cause: rootCause });
+      }
+    }
   }
-  for (const [pool, stat] of byPool) {
-    if (pool !== 'backfill') continue;
-    if (stat.total < REJECT_SAMPLE_MIN) continue;
-    const rate = stat.rejected / stat.total;
-    if (rate < REJECT_RATE_TO_KILL_BACKFILL) continue;
-    const code = 'guardian_kill_backfill_high_reject';
-    if (await alreadyAlerted(supa, code)) continue;
-    await forceDisable(supa, 'chips_backfill',
-      `backfill pool reject rate ${(rate * 100).toFixed(0)}% (${stat.rejected}/${stat.total})`,
-      `reject_rate=${rate.toFixed(2)}`);
-    await writeAlert(supa, code, 'warning',
-      `已自動停用 chips_backfill：過去 1 小時拒絕率 ${(rate * 100).toFixed(0)}%`,
-      { pool, total: stat.total, rejected: stat.rejected });
-    actions.push({ kind: 'disabled_switch', key: 'chips_backfill', reason: 'high_reject_rate' });
+
+  // Re-enable path
+  if (isAutoDisabled(bfSwitch)) {
+    const disabledAt = bfSwitch?.disabled_at ? new Date(bfSwitch.disabled_at).getTime() : 0;
+    const disabledMin = disabledAt ? (Date.now() - disabledAt) / 60_000 : 0;
+    if (disabledMin >= 30) {
+      const recent = await fetchRejectStats(supa, 'backfill', 30);
+      if (recent.total >= RE_ENABLE_BACKFILL_SAMPLE_MIN && recent.rate < RE_ENABLE_BACKFILL_REJECT_MAX) {
+        await autoEnable(supa, 'chips_backfill', `reject_rate_${(recent.rate * 100).toFixed(0)}pct`);
+        actions.push({ kind: 'enabled_switch', key: 'chips_backfill', reason: 'reject_rate_recovered' });
+      }
+    }
   }
+
   return actions;
 }
 
