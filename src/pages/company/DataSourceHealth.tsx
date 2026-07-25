@@ -208,7 +208,7 @@ export default function DataSourceHealth() {
                   <div className="h-2 rounded bg-muted overflow-hidden">
                     <div className={`h-full ${barColor}`} style={{ width: `${pct}%` }} />
                   </div>
-                  <div className="text-xs text-muted-foreground">視窗自 {fmtTime(p.window_start_at)}</div>
+                  <div className="text-xs text-muted-foreground">上次重置 {fmtTime(p.reset_at ?? null)}</div>
                   <div className="flex justify-end">
                     <Button size="sm" variant="outline" disabled={budgetEditing === p.pool_name} onClick={() => updateBudget(p.pool_name, p.daily_budget)}>
                       調整配額
