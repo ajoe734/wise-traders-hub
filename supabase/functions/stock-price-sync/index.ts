@@ -247,28 +247,32 @@ Deno.serve(withLogging('stock-price-sync', async (req) => {
         const changeValue = yClose ? Math.round((price - yClose) * 100) / 100 : null
         const changePct = yClose && yClose > 0 ? Math.round(((price - yClose) / yClose) * 10000) / 100 : null
         return {
-          symbol, name: name || null, price, market: 'TW', currency: 'TWD',
+          symbol, name: name || null, price, market: 'TW', currency: 'TWD', asset_class: 'tw_stock',
           open_price: parsePrice(raw.o), high_price: parsePrice(raw.h), low_price: parsePrice(raw.l),
           yesterday_close: yClose, change_value: changeValue, change_percent: changePct,
           volume: parseInt(raw.v || '0', 10) || null,
           best_ask: parsePrice(raw.a?.split('_')?.[0]),
           best_bid: parsePrice(raw.b?.split('_')?.[0]),
           limit_up: parsePrice(raw.u), limit_down: parsePrice(raw.w),
-          pushed_at: now,
+          updated_at: now,
         }
       })
       const usRows = Array.from(usMap.values()).map((q: any) => ({
-        symbol: q.symbol, name: q.name, price: q.price, market: 'US', currency: 'USD',
+        symbol: q.symbol, name: q.name, price: q.price, market: 'US', currency: 'USD', asset_class: 'us_stock',
         open_price: q.open_price, high_price: q.high_price, low_price: q.low_price,
         yesterday_close: q.yesterday_close, change_value: q.change_value, change_percent: q.change_percent,
         volume: q.volume,
         best_ask: null, best_bid: null,
         limit_up: null, limit_down: null,
-        pushed_at: now,
+        updated_at: now,
       }))
       const priceRows = [...twRows, ...usRows]
       if (priceRows.length > 0) {
-        await supabase.from('current_prices').upsert(priceRows, { onConflict: 'symbol' })
+        const { error: upErr } = await supabase.rpc('upsert_current_price', {
+          p_writer: 'stock-price-sync',
+          p_rows: priceRows,
+        })
+        if (upErr) console.error('upsert_current_price error:', upErr)
       }
 
       for (const sym of twSyms) {
