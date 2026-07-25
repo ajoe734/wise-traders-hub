@@ -219,7 +219,7 @@ Deno.serve(withLogging('publish-weekly-journals', async (req) => {
 
     // 手動 force 模式：驗證呼叫者為該 expert.user_id 或 company_admin
     let filterExpertIds: string[] | null = null
-    let restrictToMarket: 'TW' | 'US' | null = null
+    // (market batch mode: filterExpertIds carries the resolved list)
     if (body.force && body.expert_id) {
       stage = 'authorize_force'
       const { data: authUser } = await supabaseAdmin.auth.getUser(
@@ -258,7 +258,7 @@ Deno.serve(withLogging('publish-weekly-journals', async (req) => {
         return body.market === 'US' ? isUs : !isUs
       }).map((e: any) => e.id)
       filterExpertIds = matched
-      restrictToMarket = body.market
+      // market-scoped batch: publish only pending signals for this cohort
       log(`Market batch: ${body.market} experts=${matched.length}`)
       if (matched.length === 0) {
         await flushLogs()
