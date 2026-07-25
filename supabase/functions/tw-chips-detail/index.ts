@@ -465,7 +465,10 @@ Deno.serve(async (req) => {
       fetched_at: new Date().toISOString(),
     };
 
-    cacheSet(cacheKey, payload, CACHE_TTL_MS);
+      cacheSet(cacheKey, result, CACHE_TTL_MS);
+      return result;
+    });
+
     return jsonResponse({
       ...payload,
       _cache_meta: { cache: 'miss', stamp_ver: stampVer, served_at: new Date().toISOString() },
