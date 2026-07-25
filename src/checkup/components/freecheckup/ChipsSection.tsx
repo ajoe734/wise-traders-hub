@@ -103,7 +103,7 @@ function nextWorkerWindow(now = new Date()): { inWindow: boolean; label: string 
 export default function ChipsSection({ WB, stockCode }: { WB: any; stockCode: string }) {
   if (!isTaiwanStockCode(stockCode)) return null;
 
-  // ETF / 權證 / 受益憑證 / DR：FinMind 無分點資料，直接顯示提示（不進 sync 佇列）
+  // ETF / 權證 / 受益憑證 / DR：無分點資料，直接顯示提示（不進 sync 佇列）
   if (!isTaiwanChipEligible(stockCode)) {
     return (
       <section
