@@ -5308,6 +5308,14 @@ export type Database = {
           isSetofReturn: true
         }
       }
+      claim_institutional_new_stock: {
+        Args: { _lease_seconds?: number }
+        Returns: {
+          attempts: number
+          id: string
+          stock_id: string
+        }[]
+      }
       cleanup_account_link_codes: { Args: never; Returns: undefined }
       cleanup_line_oauth_states: { Args: never; Returns: undefined }
       cleanup_old_announcements: { Args: never; Returns: undefined }
@@ -5348,6 +5356,13 @@ export type Database = {
       enqueue_bsr_backfill: {
         Args: { p_days?: number; p_stock_id: string }
         Returns: number
+      }
+      enqueue_institutional_new_stock: {
+        Args: { _stock_id: string }
+        Returns: {
+          enqueued: boolean
+          reason: string
+        }[]
       }
       ensure_bsr_queued: { Args: { p_stock_id: string }; Returns: Json }
       ensure_bsr_window: {
@@ -5439,6 +5454,7 @@ export type Database = {
           unique_buyers: number
         }[]
       }
+      get_fastlane_stats: { Args: never; Returns: Json }
       get_funnel_overview: {
         Args: { _from: string; _steps: string[]; _to: string }
         Returns: Json
