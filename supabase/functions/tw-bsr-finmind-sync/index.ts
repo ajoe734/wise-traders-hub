@@ -915,6 +915,15 @@ Deno.serve(async (req) => {
       return json({ ok: true, mode, ...result });
     }
 
+    if (mode === 'market_batch_toggle') {
+      // Kill switch：管理員手動關/開 Phase A（不動 supported 探測結果）
+      if (typeof body?.enabled !== 'boolean') return json({ ok: false, error: 'enabled(boolean) required' }, 400);
+      await updateMarketBatchConfig(supa, { enabled: body.enabled });
+      const cfg = await loadMarketBatchConfig(supa);
+      return json({ ok: true, mode, config: cfg });
+    }
+
+
     if (mode === 'snapshot_stats') {
       const days = Math.max(1, Math.min(60, Number(body?.days ?? 14)));
       const { data, error } = await supa.rpc('bsr_snapshot_stats', { _days: days });
