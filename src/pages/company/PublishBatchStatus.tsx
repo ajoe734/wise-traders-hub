@@ -331,6 +331,77 @@ export default function PublishBatchStatusPage() {
             </CardContent>
           </Card>
         </section>
+
+        {/* Retry attempts */}
+        <section>
+          <div className="flex items-end justify-between mb-2">
+            <div>
+              <h2 className="text-sm font-semibold text-foreground/80">自動重試佇列與歷史</h2>
+              <p className="text-xs text-muted-foreground mt-1">
+                每次批次呼叫都會在此留下紀錄。失敗或 timeout 會依 1/2/4/8/16 分鐘退避自動重試（最多 5 次，由每分鐘 watchdog 觸發）。
+              </p>
+            </div>
+            <Button size="sm" variant="ghost" onClick={() => attemptsQ.refetch()}>
+              <RefreshCw className="w-4 h-4 mr-1" /> 重新整理
+            </Button>
+          </div>
+          <Card>
+            <CardContent className="p-0">
+              <div className="overflow-x-auto">
+                <table className="w-full text-sm">
+                  <thead className="bg-muted/40 text-foreground/70">
+                    <tr>
+                      <th className="text-left px-3 py-2 font-medium">建立時間</th>
+                      <th className="text-left px-3 py-2 font-medium">市場</th>
+                      <th className="text-left px-3 py-2 font-medium">狀態</th>
+                      <th className="text-right px-3 py-2 font-medium">嘗試</th>
+                      <th className="text-left px-3 py-2 font-medium">觸發</th>
+                      <th className="text-left px-3 py-2 font-medium">下次重試</th>
+                      <th className="text-right px-3 py-2 font-medium">耗時</th>
+                      <th className="text-left px-3 py-2 font-medium">Run ID</th>
+                      <th className="text-left px-3 py-2 font-medium">錯誤</th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {attemptsQ.isLoading && (
+                      <tr><td colSpan={9} className="px-3 py-6 text-center text-muted-foreground">載入中…</td></tr>
+                    )}
+                    {!attemptsQ.isLoading && (attemptsQ.data ?? []).length === 0 && (
+                      <tr><td colSpan={9} className="px-3 py-6 text-center text-muted-foreground">尚無重試紀錄。</td></tr>
+                    )}
+                    {(attemptsQ.data ?? []).map((a) => (
+                      <tr key={a.id} className="border-t border-border/60 align-top">
+                        <td className="px-3 py-2 whitespace-nowrap text-muted-foreground">{fmtDateTime(a.created_at)}</td>
+                        <td className="px-3 py-2">
+                          <Badge variant="outline" className={marketTone(a.market)}>{a.market}</Badge>
+                        </td>
+                        <td className="px-3 py-2">
+                          <Badge variant="outline" className={attemptStatusTone(a.status)}>{attemptStatusLabel(a.status)}</Badge>
+                        </td>
+                        <td className="px-3 py-2 text-right tabular-nums">
+                          {a.attempt_no}<span className="text-muted-foreground">/{a.max_attempts}</span>
+                        </td>
+                        <td className="px-3 py-2 text-xs text-muted-foreground">{a.trigger_source || '—'}</td>
+                        <td className="px-3 py-2 text-xs text-muted-foreground whitespace-nowrap">
+                          {a.status === 'pending_retry' ? fmtDateTime(a.next_retry_at) : '—'}
+                        </td>
+                        <td className="px-3 py-2 text-right tabular-nums text-muted-foreground">
+                          {a.duration_ms != null ? `${(a.duration_ms / 1000).toFixed(1)}s` : '—'}
+                        </td>
+                        <td className="px-3 py-2 font-mono text-xs">{a.run_id ? a.run_id.slice(0, 8) : '—'}</td>
+                        <td className="px-3 py-2 max-w-[380px]">
+                          {a.error_message ? (
+                            <div className="text-xs text-red-700 line-clamp-2 break-words">{a.error_message}</div>
+                          ) : (<span className="text-xs text-muted-foreground">—</span>)}
+                        </td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+              </div>
+            </CardContent>
+          </Card>
+        </section>
       </div>
     </CompanyLayout>
   );
