@@ -37,6 +37,57 @@ function sweepStaleLocalIfOwnerMismatch(userId) {
   } catch {}
 }
 
+// Demo 收盤價 hydrate：從 current_prices 拉最新收盤價，套用到 DEMO_HOLDINGS。
+// 讓訪客看到的價格永遠等於「上一個交易日收盤」，而不是寫死在 demoData 的舊值。
+// 失敗即回傳原本的 DEMO_HOLDINGS（保底），不會擋住 demo 流程。
+async function hydrateDemoHoldingsWithClosePrices(demoHoldings) {
+  try {
+    const codes = Array.from(
+      new Set((demoHoldings || []).map((h) => String(h?.code || "").trim()).filter(Boolean))
+    );
+    if (codes.length === 0) return demoHoldings;
+    const { data, error } = await supabase
+      .from("current_prices")
+      .select("symbol, price, change_percent, updated_at")
+      .in("symbol", codes);
+    if (error || !Array.isArray(data) || data.length === 0) return demoHoldings;
+    const priceMap = new Map();
+    data.forEach((row) => {
+      const price = Number(row?.price);
+      if (!Number.isFinite(price) || price <= 0) return;
+      priceMap.set(String(row.symbol), {
+        price,
+        changePct: Number(row?.change_percent) || 0,
+        updatedAt: row?.updated_at || null,
+      });
+    });
+    if (priceMap.size === 0) return demoHoldings;
+    return demoHoldings.map((h) => {
+      const q = priceMap.get(String(h?.code || "").trim());
+      if (!q) return h;
+      const qty = Number(h?.qty) || 0;
+      const yesterday = q.changePct !== 0
+        ? Math.round((q.price / (1 + q.changePct / 100)) * 100) / 100
+        : q.price;
+      const change = Math.round((q.price - yesterday) * 100) / 100;
+      const todayPnl = Math.round((q.price - yesterday) * qty);
+      return {
+        ...h,
+        price: q.price,
+        yesterday,
+        change,
+        changePct: q.changePct,
+        todayPnl,
+        todayPct: q.changePct,
+        priceSource: "close",
+        priceUpdatedAt: q.updatedAt,
+      };
+    });
+  } catch {
+    return demoHoldings;
+  }
+}
+
 /**
  * One-time localStorage migration（pf-holdings-v2 schema bump）
  */
