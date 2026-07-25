@@ -1,22 +1,11 @@
-// PR-8: FinMind Quota Admission Control
+// PR-8 / Phase-1: FinMind Quota Admission Control
 // 三 pool 隔離：interactive / keepwarm / backfill
-// admit() 呼叫前先檢查 kill-switch + circuit，再原子扣配額。
 //
-// 使用方式：
-//   const gate = await admitFinmind(supa, {
-//     pool: 'keepwarm',
-//     kind: 'keepwarm_wave1',
-//     stockId: '2330',
-//   });
-//   if (!gate.granted) { /* skip this call, log reason */ }
-//
-// reason 可能值：
-//   - 'quota_exceeded'    → 當日配額用完
-//   - 'kill_switch_off'   → 對應 pool 的 kill-switch 已關閉
-//   - 'circuit_open'      → 上游熔斷中
-//   - 'unknown_pool'      → pool 名稱錯誤
-//   - 'admission_error'   → RPC 呼叫失敗（放行 fail-open，避免變 SPOF）
-//   - 'ok'                → 允許
+// Phase-1 修正：
+//   - 預設 fail-CLOSED（RPC 錯誤或例外時拒絕），避免上游熔斷時 admission 反而失守
+//   - 保留 opt-in `failOpen` 給明確可容忍的呼叫端使用
+//   - kill-switch / circuit 拒絕時也寫 ledger，讓 guardian 能歸因
+//   - ledger 加寫 root cause hint（放在 reason 欄位，Phase-2 遷到獨立欄）
 
 import { checkCircuit } from './circuitBreaker.ts';
 import { checkKillSwitch } from './killSwitch.ts';
@@ -36,6 +25,8 @@ export interface AdmitInput {
   cost?: number;
   circuitSource?: string; // 預設 finmind_bsr
   skipCircuit?: boolean;
+  /** 預設 false（fail-closed）；只有可犧牲、非關鍵背景任務才傳 true。 */
+  failOpen?: boolean;
 }
 
 export interface AdmitResult {
@@ -45,25 +36,48 @@ export interface AdmitResult {
   reset_at?: string;
 }
 
+async function writeRejectLedger(
+  supa: any,
+  pool: FinmindPool,
+  kind: string,
+  stockId: string | null | undefined,
+  reason: string,
+): Promise<void> {
+  try {
+    await supa.from('finmind_quota_ledger').insert({
+      pool_name: pool,
+      request_kind: kind,
+      stock_id: stockId ?? null,
+      granted: false,
+      reason,
+    });
+  } catch {
+    /* swallow — ledger 是輔助訊號，不能反過來阻斷主流程 */
+  }
+}
+
 export async function admitFinmind(supa: any, input: AdmitInput): Promise<AdmitResult> {
   const pool = input.pool;
   const switchKey = POOL_TO_SWITCH[pool];
+  const failOpen = input.failOpen === true;
 
-  // 1. Kill-switch 檢查（含 chips_all）
+  // 1. Kill-switch
   const enabled = await checkKillSwitch(supa, switchKey);
   if (!enabled) {
+    await writeRejectLedger(supa, pool, input.kind, input.stockId, 'kill_switch_off');
     return { granted: false, reason: 'kill_switch_off' };
   }
 
-  // 2. Circuit 檢查（除非明確 skip；guardian 自己判斷時會 skip）
+  // 2. Circuit
   if (!input.skipCircuit) {
     const gate = await checkCircuit(supa, input.circuitSource ?? 'finmind_bsr');
     if (!gate.allowed) {
+      await writeRejectLedger(supa, pool, input.kind, input.stockId, 'circuit_open');
       return { granted: false, reason: 'circuit_open' };
     }
   }
 
-  // 3. Quota admission（RPC）
+  // 3. Quota admission RPC
   try {
     const { data, error } = await supa.rpc('finmind_admit', {
       _pool: pool,
@@ -72,8 +86,9 @@ export async function admitFinmind(supa: any, input: AdmitInput): Promise<AdmitR
       _cost: input.cost ?? 1,
     });
     if (error) {
-      console.warn('[admission] rpc error, fail-open:', error.message);
-      return { granted: true, reason: 'admission_error' };
+      console.warn('[admission] rpc error:', error.message, 'failOpen=', failOpen);
+      await writeRejectLedger(supa, pool, input.kind, input.stockId, 'admission_rpc_error');
+      return { granted: failOpen, reason: 'admission_rpc_error' };
     }
     const obj = (data ?? {}) as Record<string, unknown>;
     return {
@@ -83,12 +98,13 @@ export async function admitFinmind(supa: any, input: AdmitInput): Promise<AdmitR
       reset_at: typeof obj.reset_at === 'string' ? obj.reset_at : undefined,
     };
   } catch (e) {
-    console.warn('[admission] exception, fail-open:', (e as Error).message);
-    return { granted: true, reason: 'admission_error' };
+    console.warn('[admission] exception:', (e as Error).message, 'failOpen=', failOpen);
+    await writeRejectLedger(supa, pool, input.kind, input.stockId, 'admission_exception');
+    return { granted: failOpen, reason: 'admission_exception' };
   }
 }
 
-/** 僅記帳（不做決策）：kill-switch 或 circuit 已拒時，寫一筆 rejected ledger 便於歸因。 */
+/** 相容舊呼叫 — 現已於 admitFinmind 內自動寫入 reject ledger。 */
 export async function logAdmissionRejection(
   supa: any,
   pool: FinmindPool,
@@ -96,15 +112,5 @@ export async function logAdmissionRejection(
   stockId: string | null,
   reason: string,
 ): Promise<void> {
-  try {
-    await supa.from('finmind_quota_ledger').insert({
-      pool_name: pool,
-      request_kind: kind,
-      stock_id: stockId,
-      granted: false,
-      reason,
-    });
-  } catch {
-    /* swallow */
-  }
+  await writeRejectLedger(supa, pool, kind, stockId, reason);
 }
