@@ -619,7 +619,7 @@ export default function ChipsSection({ WB, stockCode }: { WB: any; stockCode: st
         data-testid="chips-data-source"
         style={{ marginTop: 10, fontSize: 10, color: WB.inkMute, letterSpacing: '0.06em' }}
       >
-        資料來源：FinMind（分點買賣超）・臺灣證券交易所 TWSE（三大法人）
+        資料來源：臺灣證券交易所 TWSE・證券櫃檯買賣中心 TPEx
       </div>
 
     </section>
