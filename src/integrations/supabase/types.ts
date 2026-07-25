@@ -1181,6 +1181,48 @@ export type Database = {
         }
         Relationships: []
       }
+      data_source_health: {
+        Row: {
+          circuit_state: string
+          consecutive_failures: number
+          disabled_until: string | null
+          fail_count_10m: number
+          last_error_code: string | null
+          last_failure_at: string | null
+          last_success_at: string | null
+          ok_count_10m: number
+          p95_latency_ms: number | null
+          source: string
+          updated_at: string
+        }
+        Insert: {
+          circuit_state?: string
+          consecutive_failures?: number
+          disabled_until?: string | null
+          fail_count_10m?: number
+          last_error_code?: string | null
+          last_failure_at?: string | null
+          last_success_at?: string | null
+          ok_count_10m?: number
+          p95_latency_ms?: number | null
+          source: string
+          updated_at?: string
+        }
+        Update: {
+          circuit_state?: string
+          consecutive_failures?: number
+          disabled_until?: string | null
+          fail_count_10m?: number
+          last_error_code?: string | null
+          last_failure_at?: string | null
+          last_success_at?: string | null
+          ok_count_10m?: number
+          p95_latency_ms?: number | null
+          source?: string
+          updated_at?: string
+        }
+        Relationships: []
+      }
       data_source_refresh_logs: {
         Row: {
           created_at: string
@@ -2395,6 +2437,39 @@ export type Database = {
             referencedColumns: ["id"]
           },
         ]
+      }
+      institutional_new_stock_queue: {
+        Row: {
+          attempts: number
+          id: string
+          last_error: string | null
+          next_attempt_at: string
+          requested_at: string
+          status: string
+          stock_id: string
+          updated_at: string
+        }
+        Insert: {
+          attempts?: number
+          id?: string
+          last_error?: string | null
+          next_attempt_at?: string
+          requested_at?: string
+          status?: string
+          stock_id: string
+          updated_at?: string
+        }
+        Update: {
+          attempts?: number
+          id?: string
+          last_error?: string | null
+          next_attempt_at?: string
+          requested_at?: string
+          status?: string
+          stock_id?: string
+          updated_at?: string
+        }
+        Relationships: []
       }
       knowledge_auto_rules: {
         Row: {
@@ -4872,6 +4947,12 @@ export type Database = {
         }
         Relationships: []
       }
+      v_active_tw_holdings: {
+        Row: {
+          stock_id: string | null
+        }
+        Relationships: []
+      }
     }
     Functions: {
       admin_apply_fix_proposal: {
@@ -5206,6 +5287,16 @@ export type Database = {
         }[]
       }
       get_bsr_readiness_v2: { Args: { _stock_id: string }; Returns: Json }
+      get_coverage_stats: {
+        Args: { _scope?: string; _window_days?: number }
+        Returns: {
+          filling: number
+          missing: number
+          ready: number
+          total_stocks: number
+          updated_at: string
+        }[]
+      }
       get_event_heatmap: {
         Args: { _from: string; _to: string }
         Returns: {
