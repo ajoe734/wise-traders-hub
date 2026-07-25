@@ -73,6 +73,7 @@ const HOLDINGS_TAB_PROP_SCHEMA = {
   normalizedEvents: _opt('any'), openHoldingDrawer: _opt('any'),
   showAll: _opt('any'), setShowAll: _opt('any'),
   holdingSyncStates: _opt('any'), // { [code]: { syncing?: bool, error?: string } }
+  tradeLog: _opt('array'),        // A2: 抽屜資料源，傳給 HoldingsDetailPanel
 };
 
 // C8 (audit 2026-07)：HoldingsDetailPanel 的 lazy import 已下沉到 HoldingsWorkbench
