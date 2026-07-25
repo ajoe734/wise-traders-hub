@@ -44,6 +44,13 @@ import {
   updateMarketBatchConfig,
 } from '../_shared/finmindMarketBatch.ts';
 import { checkCircuit, recordCircuit } from '../_shared/circuitBreaker.ts';
+import { admitFinmind, type FinmindPool } from '../_shared/finmindAdmission.ts';
+
+function poolFromTier(tier: 1 | 2 | 3): FinmindPool {
+  if (tier === 1) return 'interactive';
+  if (tier === 2) return 'keepwarm';
+  return 'backfill';
+}
 
 import {
   fulfillDay,
@@ -112,10 +119,17 @@ function tierFromPriority(priority: number): 1 | 2 | 3 {
 async function fetchFinmindOneDay(
   stockId: string, date: string, cid: string | null, tier: 1 | 2 | 3 = 3,
 ): Promise<FinmindRow[]> {
-  // PR-7 circuit gate：finmind_bsr 熔斷開啟時直接丟錯，跳過 20s HTTP 等待。
-  const gate = await checkCircuit(supa, 'finmind_bsr');
-  if (!gate.allowed) {
-    throw new Error(`finmind_circuit_open:disabled_until=${gate.disabled_until ?? ''}`);
+  // PR-8 admission gate：kill-switch + circuit + quota pool 三合一。
+  // admitFinmind 內部已檢查 circuit，所以不再重複呼叫 checkCircuit。
+  const pool = poolFromTier(tier);
+  const admit = await admitFinmind(supa, {
+    pool,
+    kind: `bsr_sync_tier${tier}`,
+    stockId,
+    circuitSource: 'finmind_bsr',
+  });
+  if (!admit.granted) {
+    throw new Error(`finmind_admission_${admit.reason}:pool=${pool}`);
   }
   const p = new URLSearchParams({
     dataset: 'TaiwanStockTradingDailyReport',
@@ -147,7 +161,7 @@ async function fetchFinmindOneDay(
   } catch (e) {
     // 網路層例外（timeout/abort）也計入失敗
     const msg = (e as Error).message || '';
-    if (!msg.startsWith('finmind_http_') && !msg.startsWith('finmind_bad_json') && !msg.startsWith('finmind_api_') && !msg.startsWith('finmind_circuit_open')) {
+    if (!msg.startsWith('finmind_http_') && !msg.startsWith('finmind_bad_json') && !msg.startsWith('finmind_api_') && !msg.startsWith('finmind_circuit_open') && !msg.startsWith('finmind_admission_')) {
       await recordCircuit(supa, 'finmind_bsr', false, Date.now() - t0, 'network');
     }
     throw e;

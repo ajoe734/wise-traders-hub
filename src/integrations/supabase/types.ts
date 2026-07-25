@@ -2201,6 +2201,69 @@ export type Database = {
         }
         Relationships: []
       }
+      finmind_quota_ledger: {
+        Row: {
+          created_at: string
+          granted: boolean
+          id: number
+          pool_name: string
+          reason: string | null
+          request_kind: string
+          stock_id: string | null
+        }
+        Insert: {
+          created_at?: string
+          granted: boolean
+          id?: number
+          pool_name: string
+          reason?: string | null
+          request_kind: string
+          stock_id?: string | null
+        }
+        Update: {
+          created_at?: string
+          granted?: boolean
+          id?: number
+          pool_name?: string
+          reason?: string | null
+          request_kind?: string
+          stock_id?: string | null
+        }
+        Relationships: []
+      }
+      finmind_quota_pools: {
+        Row: {
+          daily_budget: number
+          last_reject_at: string | null
+          last_reject_reason: string | null
+          pool_name: string
+          priority: number
+          reset_at: string
+          updated_at: string
+          used_today: number
+        }
+        Insert: {
+          daily_budget?: number
+          last_reject_at?: string | null
+          last_reject_reason?: string | null
+          pool_name: string
+          priority?: number
+          reset_at?: string
+          updated_at?: string
+          used_today?: number
+        }
+        Update: {
+          daily_budget?: number
+          last_reject_at?: string | null
+          last_reject_reason?: string | null
+          pool_name?: string
+          priority?: number
+          reset_at?: string
+          updated_at?: string
+          used_today?: number
+        }
+        Relationships: []
+      }
       function_run_logs: {
         Row: {
           created_at: string
@@ -3815,6 +3878,36 @@ export type Database = {
         }
         Relationships: []
       }
+      system_kill_switches: {
+        Row: {
+          auto_trigger_metric: string | null
+          disabled_at: string | null
+          disabled_by: string | null
+          disabled_reason: string | null
+          enabled: boolean
+          key: string
+          updated_at: string
+        }
+        Insert: {
+          auto_trigger_metric?: string | null
+          disabled_at?: string | null
+          disabled_by?: string | null
+          disabled_reason?: string | null
+          enabled?: boolean
+          key: string
+          updated_at?: string
+        }
+        Update: {
+          auto_trigger_metric?: string | null
+          disabled_at?: string | null
+          disabled_by?: string | null
+          disabled_reason?: string | null
+          enabled?: boolean
+          key?: string
+          updated_at?: string
+        }
+        Relationships: []
+      }
       target_price_history: {
         Row: {
           batch_id: string | null
@@ -5270,6 +5363,7 @@ export type Database = {
         }[]
       }
       check_checkup_quota: { Args: { _user_id: string }; Returns: Json }
+      check_kill_switch: { Args: { _key: string }; Returns: boolean }
       check_knowledge_title_similarity: {
         Args: { _category: string; _threshold?: number; _title: string }
         Returns: {
@@ -5371,6 +5465,20 @@ export type Database = {
           p_stock_id: string
           p_window_days?: number
         }
+        Returns: Json
+      }
+      finmind_admit: {
+        Args: {
+          _cost?: number
+          _kind?: string
+          _pool: string
+          _stock_id?: string
+        }
+        Returns: Json
+      }
+      finmind_pool_reset: { Args: never; Returns: Json }
+      finmind_pool_set_budget: {
+        Args: { _budget: number; _pool: string }
         Returns: Json
       }
       get_analyst_subscriber_profiles: {
@@ -5756,6 +5864,10 @@ export type Database = {
         Returns: boolean
       }
       strip_referrer_query: { Args: { ref: string }; Returns: string }
+      toggle_kill_switch: {
+        Args: { _enabled: boolean; _key: string; _reason?: string }
+        Returns: Json
+      }
       trade_dedupe_sweep: { Args: { p_dry_run?: boolean }; Returns: Json }
       tw_bsr_eligibility: { Args: { p_stock_id: string }; Returns: Json }
     }

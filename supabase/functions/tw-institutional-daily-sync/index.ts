@@ -9,6 +9,7 @@ import "jsr:@supabase/functions-js/edge-runtime.d.ts";
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2.45.4";
 import { corsHeaders, corsPreflight, jsonResponse, errorResponse } from "../_shared/cors.ts";
 import { checkCircuit, recordCircuit } from "../_shared/circuitBreaker.ts";
+import { checkKillSwitch } from "../_shared/killSwitch.ts";
 
 const SUPABASE_URL = Deno.env.get("SUPABASE_URL")!;
 const SERVICE_ROLE_KEY = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!;
@@ -479,6 +480,22 @@ async function runKeepWarm(
       ok: true, mode: "keep_warm", skipped: true, reason: "already_present",
       wave: opts.wave, date: iso, existing: existingCount,
     };
+  }
+
+  // PR-9 kill-switch：整個 chips 或 keepwarm 被關就直接跳過
+  const swAll = await checkKillSwitch(supa, "chips_all");
+  const swKeepwarm = await checkKillSwitch(supa, "chips_keepwarm");
+  if (!swAll || !swKeepwarm) {
+    await supa.from("data_source_refresh_logs").insert({
+      source_key: "tw_keep_warm",
+      status: "skipped",
+      started_at: startedAt,
+      finished_at: new Date().toISOString(),
+      duration_ms: 0,
+      row_count: 0,
+      metadata: { run_id: runId, wave: opts.wave, reason: "kill_switch_off", switch: !swAll ? "chips_all" : "chips_keepwarm", date: iso },
+    });
+    return { ok: false, mode: "keep_warm", skipped: true, reason: "kill_switch_off", wave: opts.wave };
   }
 
   // PR-7 circuit gate：熔斷開啟且冷卻未過 → 直接放棄 keep-warm，等冷卻結束的下一輪再試
