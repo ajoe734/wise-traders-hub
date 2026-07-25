@@ -119,6 +119,20 @@ export default function DataSourceHealth() {
     refetchInterval: 15_000,
   });
 
+  const { data: sloHours } = useQuery({
+    queryKey: ['company', 'chips-state-hourly'],
+    queryFn: async () => {
+      const { data, error } = await (supabase as any)
+        .from('chips_state_hourly')
+        .select('*')
+        .order('hour', { ascending: false })
+        .limit(24);
+      if (error) return [] as SloHourRow[];
+      return (data ?? []) as SloHourRow[];
+    },
+    refetchInterval: 60_000,
+  });
+
   async function handleReset(source: string) {
     if (!confirm(`確定要重置 ${source} 的熔斷狀態嗎？此動作會立刻允許呼叫。`)) return;
     setResetting(source);
