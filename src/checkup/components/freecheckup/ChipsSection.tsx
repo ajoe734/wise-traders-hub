@@ -131,6 +131,12 @@ export default function ChipsSection({ WB, stockCode }: { WB: any; stockCode: st
   }
 
   const { data, loading, error, fetchedAt, online, stale, refetch } = useTwChipsDetail(stockCode, true);
+  const uiState = useChipsState({
+    stockCode,
+    payload: data,
+    error,
+    chipEligible: isTaiwanChipEligible(stockCode),
+  });
 
   const hasInst = useMemo(
     () => data && Object.values(data.institutional || {}).some((w) => w),
