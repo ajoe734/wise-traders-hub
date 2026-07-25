@@ -200,7 +200,7 @@ const AdminSignals = () => {
             <h1 className="text-2xl font-bold">{contentLabel}管理</h1>
             <p className="text-muted-foreground text-sm mt-1">
               {isMentor
-                ? `週一~五撰寫，週五 20:00 統一開放發布${pendingCount > 0 ? `（本週待發布 ${pendingCount} 筆）` : ''}`
+                ? `${authoringWindowLabel}，${publishMomentLabel}${pendingCount > 0 ? `（本週待發布 ${pendingCount} 筆）` : ''}`
                 : '發布即上線，可自行收回'}
             </p>
           </div>
@@ -208,15 +208,27 @@ const AdminSignals = () => {
             {!publishWindow.open && !isReadOnly && (
               <p className="text-xs text-destructive">{publishWindow.reason}</p>
             )}
-            <PermissionTooltip disabled={isReadOnly}>
-              <Button
-                disabled={!publishWindow.open || isReadOnly}
-                className={cn(isAdvisor ? 'bg-advisor hover:bg-advisor/90' : 'bg-mentor hover:bg-mentor/90')}
-                onClick={() => navigate(`/admin/${expertSlug}/signals/new`)}
-              >
-                <Plus className="h-4 w-4 mr-2" />發布新{contentLabel}
-              </Button>
-            </PermissionTooltip>
+            <div className="flex gap-2">
+              {isMentor && pendingCount > 0 && !isReadOnly && (
+                <Button
+                  variant="outline"
+                  disabled={earlyPublishing}
+                  onClick={() => setEarlyPublishOpen(true)}
+                  title={`繞過 ${publishMomentLabel} 排程，立即公開本週 ${pendingCount} 筆待發布週記`}
+                >
+                  ⚡ 提前開放本週發布
+                </Button>
+              )}
+              <PermissionTooltip disabled={isReadOnly}>
+                <Button
+                  disabled={!publishWindow.open || isReadOnly}
+                  className={cn(isAdvisor ? 'bg-advisor hover:bg-advisor/90' : 'bg-mentor hover:bg-mentor/90')}
+                  onClick={() => navigate(`/admin/${expertSlug}/signals/new`)}
+                >
+                  <Plus className="h-4 w-4 mr-2" />發布新{contentLabel}
+                </Button>
+              </PermissionTooltip>
+            </div>
             <SignalCreateDialog
               expert={expert}
               signalTemplates={signalTemplates}
@@ -229,6 +241,33 @@ const AdminSignals = () => {
             />
           </div>
         </div>
+
+        <EarlyPublishDialog
+          open={earlyPublishOpen}
+          onOpenChange={setEarlyPublishOpen}
+          pendingCount={pendingCount}
+          publishMomentLabel={publishMomentLabel}
+          submitting={earlyPublishing}
+          onConfirm={async () => {
+            if (!expert?.id) return;
+            setEarlyPublishing(true);
+            try {
+              const { data, error } = await supabase.functions.invoke('publish-weekly-journals', {
+                body: { expert_id: expert.id, force: true },
+              });
+              if (error) throw error;
+              const published = (data as any)?.published ?? 0;
+              toast.success(`已提前發布 ${published} 筆週記`);
+              setEarlyPublishOpen(false);
+              refetchAdminSignals();
+            } catch (e: any) {
+              console.error('Early publish failed:', e);
+              toast.error(`提前發布失敗：${e?.message || '請重試'}`);
+            } finally {
+              setEarlyPublishing(false);
+            }
+          }}
+        />
 
         <div className="flex gap-3">
           <div className="relative flex-1">
