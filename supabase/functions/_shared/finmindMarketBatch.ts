@@ -77,6 +77,11 @@ export async function fetchFinmindMarketDay(
     { signal: AbortSignal.timeout(60_000) },
     { correlationId, tier, leaseSeconds: 70 },
   );
+  // Phase-2: 記錄上游配額 header（若有）
+  try {
+    const { recordUpstreamQuota } = await import('./finmindUpstreamQuota.ts');
+    await recordUpstreamQuota(supa, 'finmind_market_batch', res);
+  } catch { /* non-fatal */ }
   const text = await res.text();
   if (!res.ok) throw new Error(`finmind_http_${res.status}:${text.slice(0, 200)}`);
   let j: any;
