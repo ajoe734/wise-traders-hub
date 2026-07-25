@@ -1,7 +1,7 @@
 # Chips Pipeline Runbook
 
 > 適用範圍：`tw-chips-detail`、`tw-bsr-finmind-sync`、`tw-institutional-daily-sync`、`chips-guardian`
-> 上次審閱：2026-07-25（Phase 2 交付版）
+> 上次審閱：2026-07-25（PR-10 交付版：admission adapter 測試 + guardian golden fixture + legacy rollback flag）
 
 半夜被叫起來時，先看「三步應急」；有時間再看完整章節。
 
@@ -146,8 +146,42 @@ select finmind_pool_reset();
 ## 6. Runbook 一致性檢查
 
 CI 會確認以下名稱都真的存在（`.github/workflows/full-tests.yml` 內）：
-- Tables：`finmind_quota_pools`, `finmind_quota_ledger`, `system_kill_switches`, `data_source_health`, `tw_chips_rollup`
-- RPCs：`finmind_admit`, `finmind_pool_set_budget`, `finmind_pool_reset`, `check_kill_switch`, `toggle_kill_switch`, `reset_data_source_circuit`
+- Tables：`finmind_quota_pools`, `finmind_quota_ledger`, `finmind_inflight_requests`, `system_kill_switches`, `data_source_health`, `tw_chips_rollup`
+- RPCs：`finmind_admit`（legacy）、`finmind_admit_v2`、`finmind_pool_set_budget`, `finmind_pool_reset`, `check_kill_switch`, `toggle_kill_switch`, `reset_data_source_circuit`
 - Edge Functions：`tw-chips-detail`, `tw-bsr-finmind-sync`, `tw-institutional-daily-sync`, `chips-guardian`
 
 Runbook 修改後請跑：`node scripts/verify-runbook-refs.mjs`（如缺失請補）。
+
+---
+
+## 7. PR-10 應急切換：admission legacy 回滾
+
+**時機**：`finmind_admit_v2` 出致命 bug（例：所有 pool 一律 granted=false、borrow 邏輯錯誤）。
+
+**動作**：
+1. 到 Edge Functions secrets 面板加 `FINMIND_ADMIT_LEGACY=1`（或用 CLI）。
+2. 觸發任一 chips 請求，確認 `[admission] LEGACY mode` 出現在 function log。
+3. `/company/data-source-health` 面板的「Token Bucket」欄位會停止更新（v1 無此概念），屬預期。
+
+**副作用**：
+- Token bucket 補充、priority borrowing、SLO boost 全失效。
+- ledger 的 `borrowed_from` 永遠是 null。
+- guardian 的 `slo_*` 動作仍會執行，但實際上不會影響 v1 的判定。
+
+**移除**：v2 修好且觀察 3 天無告警後，刪除 secret 並重新部署 `tw-chips-detail`。
+
+---
+
+## 8. PR-10 Guardian 決策驗證
+
+任何調整以下常數都必須重跑 golden：
+- `decideSloAdjustment` 相關：`SLO_TIGHTEN_THRESHOLD`、`SLO_RELAX_THRESHOLD`、`SLO_BOOST_MULTIPLIER`、`SLO_BOOST_MS`
+- `decideUpstreamThrottle` 相關：`UPSTREAM_QUOTA_LOW`、`UPSTREAM_REFILL_MULTIPLIER`、`UPSTREAM_MIN_REFILL`
+
+```bash
+node scripts/record-guardian-golden.mjs        # 檢查
+node scripts/record-guardian-golden.mjs --write # 更新 fixture
+```
+
+`src/test/unit/chips-guardian-golden.test.ts` 會鎖 fixture；沒重跑就送 PR 會紅。
+
