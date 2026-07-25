@@ -106,17 +106,50 @@ Deno.serve(async (req) => {
     let body: any = {};
     try { body = await req.json(); } catch { body = {}; }
 
-    const rawSymbols = Array.isArray(body?.symbols) ? body.symbols : [];
-    const persist = body?.persist === true;
+    const supabase = createClient(
+      Deno.env.get('SUPABASE_URL')!,
+      Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')!,
+    );
+
+    const mode: string = String(body?.mode || 'symbols');
+    const persist = body?.persist === true || mode === 'universe';
     const includeNames = body?.includeNames === true;
 
-    const symbols: string[] = [...new Set(
+    let rawSymbols: string[] = Array.isArray(body?.symbols) ? body.symbols : [];
+
+    // mode=universe → 自動從 v_price_sync_universe 取全部美股
+    if (mode === 'universe' || (rawSymbols.length === 0 && persist)) {
+      const { data: uni, error: uniErr } = await supabase
+        .from('v_price_sync_universe')
+        .select('symbol')
+        .eq('market', 'US');
+      if (uniErr) console.warn('universe fetch error:', uniErr);
+      rawSymbols = (uni || []).map((r: any) => String(r.symbol));
+    }
+
+    let symbols: string[] = [...new Set(
       rawSymbols
         .map((s: unknown) => String(s || '').trim().toUpperCase())
         .filter((s: string) => s && isUsSymbol(s)),
-    )].slice(0, 50); // 免費方案 60 req/min，每次最多 50 個
+    )];
 
     if (symbols.length === 0) return ok({ quotes: {}, names: {} });
+
+    // 額度守門
+    if (persist) {
+      const { data: admitted } = await supabase.rpc('price_admit', {
+        p_market: 'US',
+        p_requested: symbols.length,
+        p_writer: 'us-stock-quote',
+      });
+      const cap = typeof admitted === 'number' ? admitted : symbols.length;
+      symbols = symbols.slice(0, Math.max(0, Math.min(cap, 50)));
+      if (symbols.length === 0) {
+        return ok({ quotes: {}, names: {}, throttled: true });
+      }
+    } else {
+      symbols = symbols.slice(0, 50);
+    }
 
     // 並行抓報價（Finnhub 沒 batch endpoint）
     const results = await Promise.all(symbols.map((s) => finnhubQuote(s, apiKey)));
@@ -131,30 +164,30 @@ Deno.serve(async (req) => {
       for (const [s, n] of nameResults) if (n) names[s] = n;
     }
 
-    // 持久化到 current_prices（給 holdings 取用）
+    // 持久化到 current_prices（走 canonical writer RPC）
     if (persist) {
-      const supabase = createClient(
-        Deno.env.get('SUPABASE_URL')!,
-        Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')!,
-      );
-
       const rows = results
         .filter((r) => r.price != null && r.price > 0)
         .map((r) => ({
           symbol: r.symbol,
+          name: names[r.symbol] ?? null,
           price: r.price,
-          change: r.change ?? 0,
-          change_pct: r.change_pct ?? 0,
-          prev_close: r.prev_close,
+          change_value: r.change,
+          change_percent: r.change_pct,
+          yesterday_close: r.prev_close,
           currency: 'USD',
+          market: 'US',
+          asset_class: 'us_stock',
           updated_at: r.fetched_at,
         }));
 
       if (rows.length > 0) {
-        const { error } = await supabase
-          .from('current_prices')
-          .upsert(rows as any, { onConflict: 'symbol' });
-        if (error) console.warn('current_prices upsert error:', error);
+        const { error, data: written } = await supabase.rpc('upsert_current_price', {
+          p_writer: 'us-stock-quote',
+          p_rows: rows,
+        });
+        if (error) console.warn('upsert_current_price error:', error);
+        else console.log(`us-stock-quote wrote ${written} rows`);
       }
 
       // 順手寫 stock_names（如果有抓到名字）
