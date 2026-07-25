@@ -281,6 +281,22 @@ export default function ChipsSection({ WB, stockCode }: { WB: any; stockCode: st
               OFFLINE
             </span>
           )}
+          {(uiState.state === 'd1_fallback' || uiState.state === 'filling_new_stock' || uiState.state === 'upstream_outage') && (
+            <span
+              data-testid="chips-state-badge"
+              data-state={uiState.state}
+              style={{
+                fontSize: 10,
+                letterSpacing: '0.14em',
+                padding: '1px 6px',
+                border: `1px solid ${uiState.state === 'upstream_outage' ? '#b04a4a' : uiState.state === 'filling_new_stock' ? '#8a5a1e' : WB.hair}`,
+                color: uiState.state === 'upstream_outage' ? '#b04a4a' : uiState.state === 'filling_new_stock' ? '#8a5a1e' : WB.inkSub,
+              }}
+              title={uiState.reason}
+            >
+              {uiState.state === 'd1_fallback' ? 'D-1' : uiState.state === 'filling_new_stock' ? 'FILLING' : 'OUTAGE'}
+            </span>
+          )}
         </div>
         <div style={{ fontSize: 10, color: WB.inkMute, letterSpacing: '0.14em', textAlign: 'right' }}>
           {data?.as_of
