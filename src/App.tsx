@@ -67,6 +67,7 @@ const SignalPreviewHarnessEntry = lazy(() => import("./pages/SignalPreviewHarnes
 const SignalFocusHarnessEntry = lazy(() => import("./pages/SignalFocusHarnessEntry"));
 const JournalPdfHarnessEntry = lazy(() => import("./pages/JournalPdfHarnessEntry"));
 const NotificationLinkHarnessEntry = lazy(() => import("./pages/NotificationLinkHarnessEntry"));
+const EarlyPublishCopyHarnessEntry = lazy(() => import("./pages/EarlyPublishCopyHarnessEntry"));
 const JournalsExportHarnessEntry = lazy(() => import("./pages/JournalsExportHarnessEntry"));
 const JournalsExportUIHarnessEntry = lazy(() => import("./pages/JournalsExportUIHarnessEntry"));
 const JournalsExportHeaderDomHarnessEntry = lazy(() => import("./pages/JournalsExportHeaderDomHarnessEntry"));
