@@ -34,6 +34,8 @@ export interface AdmitResult {
   reason: string;
   remaining?: number;
   reset_at?: string;
+  /** Phase-2: 若本次為向低優先權借額度，填入來源 pool。 */
+  borrowed_from?: FinmindPool;
 }
 
 async function writeRejectLedger(
