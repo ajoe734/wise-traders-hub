@@ -291,6 +291,7 @@ const AppShell = () => (
             <Route path="/e2e/signal-focus-harness" element={<SignalFocusHarnessEntry />} />
             <Route path="/e2e/journal-pdf-harness" element={<JournalPdfHarnessEntry />} />
             <Route path="/e2e/notification-link-harness" element={<NotificationLinkHarnessEntry />} />
+            <Route path="/e2e/early-publish-copy-harness" element={<EarlyPublishCopyHarnessEntry />} />
             <Route path="/e2e/journals-export-harness" element={<JournalsExportHarnessEntry />} />
             <Route path="/e2e/journals-export-ui-harness" element={<JournalsExportUIHarnessEntry />} />
             <Route path="/e2e/journals-export-header-dom" element={<JournalsExportHeaderDomHarnessEntry />} />
