@@ -366,6 +366,17 @@ export default function DataSourceHealth() {
                       <span className="text-xs">{fmtTime(row.last_failure_at)}</span>
                     </div>
 
+                    {(row.upstream_quota_remaining != null || row.upstream_quota_limit != null) && (
+                      <div className="rounded-md bg-muted/40 px-3 py-2 text-xs flex items-center justify-between">
+                        <span className="text-muted-foreground">上游剩餘配額</span>
+                        <span className="font-mono">
+                          {row.upstream_quota_remaining ?? '—'}
+                          {row.upstream_quota_limit != null && <span className="text-muted-foreground"> / {row.upstream_quota_limit}</span>}
+                          {row.upstream_quota_reset_at && <span className="text-muted-foreground ml-2">reset {fmtTime(row.upstream_quota_reset_at).split('（')[0]}</span>}
+                        </span>
+                      </div>
+                    )}
+
                     {cooling && (
                       <div className="rounded-md bg-red-500/10 px-3 py-2 text-xs text-red-700 dark:text-red-300">
                         冷卻至 <span className="font-mono">{fmtTime(row.disabled_until)}</span>
