@@ -44,6 +44,7 @@ async function writeRejectLedger(
   kind: string,
   stockId: string | null | undefined,
   reason: string,
+  rootCauseHint?: string,
 ): Promise<void> {
   try {
     await supa.from('finmind_quota_ledger').insert({
@@ -52,6 +53,7 @@ async function writeRejectLedger(
       stock_id: stockId ?? null,
       granted: false,
       reason,
+      root_cause_hint: rootCauseHint ?? reason,
     });
   } catch {
     /* swallow — ledger 是輔助訊號，不能反過來阻斷主流程 */
@@ -66,15 +68,16 @@ export async function admitFinmind(supa: any, input: AdmitInput): Promise<AdmitR
   // 1. Kill-switch
   const enabled = await checkKillSwitch(supa, switchKey);
   if (!enabled) {
-    await writeRejectLedger(supa, pool, input.kind, input.stockId, 'kill_switch_off');
+    await writeRejectLedger(supa, pool, input.kind, input.stockId, 'kill_switch_off', `killswitch:${switchKey}`);
     return { granted: false, reason: 'kill_switch_off' };
   }
 
   // 2. Circuit
   if (!input.skipCircuit) {
-    const gate = await checkCircuit(supa, input.circuitSource ?? 'finmind_bsr');
+    const source = input.circuitSource ?? 'finmind_bsr';
+    const gate = await checkCircuit(supa, source);
     if (!gate.allowed) {
-      await writeRejectLedger(supa, pool, input.kind, input.stockId, 'circuit_open');
+      await writeRejectLedger(supa, pool, input.kind, input.stockId, 'circuit_open', `circuit:${source}`);
       return { granted: false, reason: 'circuit_open' };
     }
   }
@@ -90,7 +93,7 @@ export async function admitFinmind(supa: any, input: AdmitInput): Promise<AdmitR
     });
     if (error) {
       console.warn('[admission] rpc v2 error:', error.message, 'failOpen=', failOpen);
-      await writeRejectLedger(supa, pool, input.kind, input.stockId, 'admission_rpc_error');
+      await writeRejectLedger(supa, pool, input.kind, input.stockId, 'admission_rpc_error', `rpc:${error.message?.slice(0, 80)}`);
       return { granted: failOpen, reason: 'admission_rpc_error' };
     }
     const obj = (data ?? {}) as Record<string, unknown>;
@@ -106,7 +109,7 @@ export async function admitFinmind(supa: any, input: AdmitInput): Promise<AdmitR
     };
   } catch (e) {
     console.warn('[admission] exception:', (e as Error).message, 'failOpen=', failOpen);
-    await writeRejectLedger(supa, pool, input.kind, input.stockId, 'admission_exception');
+    await writeRejectLedger(supa, pool, input.kind, input.stockId, 'admission_exception', `exception:${(e as Error).message?.slice(0, 80)}`);
     return { granted: failOpen, reason: 'admission_exception' };
   }
 }

@@ -1215,6 +1215,9 @@ export type Database = {
           p95_latency_ms: number | null
           source: string
           updated_at: string
+          upstream_quota_limit: number | null
+          upstream_quota_remaining: number | null
+          upstream_quota_reset_at: string | null
         }
         Insert: {
           circuit_state?: string
@@ -1228,6 +1231,9 @@ export type Database = {
           p95_latency_ms?: number | null
           source: string
           updated_at?: string
+          upstream_quota_limit?: number | null
+          upstream_quota_remaining?: number | null
+          upstream_quota_reset_at?: string | null
         }
         Update: {
           circuit_state?: string
@@ -1241,6 +1247,9 @@ export type Database = {
           p95_latency_ms?: number | null
           source?: string
           updated_at?: string
+          upstream_quota_limit?: number | null
+          upstream_quota_remaining?: number | null
+          upstream_quota_reset_at?: string | null
         }
         Relationships: []
       }
@@ -2201,78 +2210,117 @@ export type Database = {
         }
         Relationships: []
       }
+      finmind_inflight_requests: {
+        Row: {
+          expires_at: string
+          key: string
+          kind: string
+          started_at: string
+          stock_id: string | null
+        }
+        Insert: {
+          expires_at?: string
+          key: string
+          kind: string
+          started_at?: string
+          stock_id?: string | null
+        }
+        Update: {
+          expires_at?: string
+          key?: string
+          kind?: string
+          started_at?: string
+          stock_id?: string | null
+        }
+        Relationships: []
+      }
       finmind_quota_ledger: {
         Row: {
+          borrowed_from: string | null
           created_at: string
           granted: boolean
           id: number
           pool_name: string
           reason: string | null
           request_kind: string
+          root_cause_hint: string | null
           stock_id: string | null
         }
         Insert: {
+          borrowed_from?: string | null
           created_at?: string
           granted: boolean
           id?: number
           pool_name: string
           reason?: string | null
           request_kind: string
+          root_cause_hint?: string | null
           stock_id?: string | null
         }
         Update: {
+          borrowed_from?: string | null
           created_at?: string
           granted?: boolean
           id?: number
           pool_name?: string
           reason?: string | null
           request_kind?: string
+          root_cause_hint?: string | null
           stock_id?: string | null
         }
         Relationships: []
       }
       finmind_quota_pools: {
         Row: {
+          base_daily_budget: number | null
           borrow_enabled: boolean
           capacity: number | null
           daily_budget: number
           last_refill_at: string
           last_reject_at: string | null
           last_reject_reason: string | null
+          manual_override: boolean
           pool_name: string
           priority: number
           refill_per_min: number
           reset_at: string
+          slo_boost_until: string | null
           tokens: number | null
           updated_at: string
           used_today: number
         }
         Insert: {
+          base_daily_budget?: number | null
           borrow_enabled?: boolean
           capacity?: number | null
           daily_budget?: number
           last_refill_at?: string
           last_reject_at?: string | null
           last_reject_reason?: string | null
+          manual_override?: boolean
           pool_name: string
           priority?: number
           refill_per_min?: number
           reset_at?: string
+          slo_boost_until?: string | null
           tokens?: number | null
           updated_at?: string
           used_today?: number
         }
         Update: {
+          base_daily_budget?: number | null
           borrow_enabled?: boolean
           capacity?: number | null
           daily_budget?: number
           last_refill_at?: string
           last_reject_at?: string | null
           last_reject_reason?: string | null
+          manual_override?: boolean
           pool_name?: string
           priority?: number
           refill_per_min?: number
           reset_at?: string
+          slo_boost_until?: string | null
           tokens?: number | null
           updated_at?: string
           used_today?: number
@@ -4961,6 +5009,18 @@ export type Database = {
         }
         Relationships: []
       }
+      chips_state_hourly: {
+        Row: {
+          borrowed: number | null
+          granted: number | null
+          hour: string | null
+          pool_name: string | null
+          ready_ratio: number | null
+          rejected: number | null
+          total: number | null
+        }
+        Relationships: []
+      }
       expert_line_channels_public: {
         Row: {
           channel_id: string | null
@@ -5051,6 +5111,48 @@ export type Database = {
           slug?: string | null
           status?: string | null
           style_tags?: string[] | null
+        }
+        Relationships: []
+      }
+      finmind_pool_daily_equiv: {
+        Row: {
+          capacity: number | null
+          daily_budget: number | null
+          estimated_full_at: string | null
+          manual_override: boolean | null
+          pool_name: string | null
+          refill_per_hour: number | null
+          refill_per_min: number | null
+          remaining_today: number | null
+          slo_boost_until: string | null
+          tokens: number | null
+          used_today: number | null
+        }
+        Insert: {
+          capacity?: number | null
+          daily_budget?: number | null
+          estimated_full_at?: never
+          manual_override?: boolean | null
+          pool_name?: string | null
+          refill_per_hour?: never
+          refill_per_min?: number | null
+          remaining_today?: never
+          slo_boost_until?: string | null
+          tokens?: number | null
+          used_today?: number | null
+        }
+        Update: {
+          capacity?: number | null
+          daily_budget?: number | null
+          estimated_full_at?: never
+          manual_override?: boolean | null
+          pool_name?: string | null
+          refill_per_hour?: never
+          refill_per_min?: number | null
+          remaining_today?: never
+          slo_boost_until?: string | null
+          tokens?: number | null
+          used_today?: number | null
         }
         Relationships: []
       }
@@ -5528,6 +5630,11 @@ export type Database = {
         }
         Returns: Json
       }
+      finmind_inflight_acquire: {
+        Args: { _key: string; _kind: string; _stock_id: string }
+        Returns: boolean
+      }
+      finmind_inflight_release: { Args: { _key: string }; Returns: undefined }
       finmind_pool_reset: { Args: never; Returns: Json }
       finmind_pool_set_budget: {
         Args: { _budget: number; _pool: string }
@@ -5880,6 +5987,9 @@ export type Database = {
           p95_latency_ms: number | null
           source: string
           updated_at: string
+          upstream_quota_limit: number | null
+          upstream_quota_remaining: number | null
+          upstream_quota_reset_at: string | null
         }
         SetofOptions: {
           from: "*"

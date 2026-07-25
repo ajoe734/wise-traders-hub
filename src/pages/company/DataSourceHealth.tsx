@@ -24,6 +24,9 @@ type Row = {
   last_error_code: string | null;
   p95_latency_ms: number | null;
   updated_at: string;
+  upstream_quota_remaining?: number | null;
+  upstream_quota_limit?: number | null;
+  upstream_quota_reset_at?: string | null;
 };
 
 type PoolRow = {
@@ -33,6 +36,23 @@ type PoolRow = {
   reset_at?: string | null;
   updated_at?: string | null;
   last_reject_reason?: string | null;
+  tokens?: number | null;
+  capacity?: number | null;
+  refill_per_min?: number | null;
+  base_daily_budget?: number | null;
+  slo_boost_until?: string | null;
+  manual_override?: boolean | null;
+  borrow_enabled?: boolean | null;
+};
+
+type SloHourRow = {
+  hour: string;
+  pool_name: string;
+  total: number;
+  granted: number;
+  rejected: number;
+  ready_ratio: number | null;
+  borrowed: number;
 };
 
 type SwitchRow = {
@@ -97,6 +117,20 @@ export default function DataSourceHealth() {
       return (data ?? []) as SwitchRow[];
     },
     refetchInterval: 15_000,
+  });
+
+  const { data: sloHours } = useQuery({
+    queryKey: ['company', 'chips-state-hourly'],
+    queryFn: async () => {
+      const { data, error } = await (supabase as any)
+        .from('chips_state_hourly')
+        .select('*')
+        .order('hour', { ascending: false })
+        .limit(24);
+      if (error) return [] as SloHourRow[];
+      return (data ?? []) as SloHourRow[];
+    },
+    refetchInterval: 60_000,
   });
 
   async function handleReset(source: string) {
@@ -210,6 +244,37 @@ export default function DataSourceHealth() {
                   <div className="h-2 rounded bg-muted overflow-hidden">
                     <div className={`h-full ${barColor}`} style={{ width: `${pct}%` }} />
                   </div>
+                  {(p.tokens != null || p.refill_per_min != null) && (
+                    <div className="grid grid-cols-2 gap-x-3 gap-y-0.5 text-xs text-muted-foreground pt-1 border-t">
+                      <span>Tokens</span>
+                      <span className="font-mono text-foreground">{p.tokens ?? '—'} / {p.capacity ?? '—'}</span>
+                      <span>補充速率</span>
+                      <span className="font-mono text-foreground">{p.refill_per_min ?? '—'}/min</span>
+                      {p.base_daily_budget != null && (
+                        <>
+                          <span>Base</span>
+                          <span className="font-mono text-foreground">{p.base_daily_budget}</span>
+                        </>
+                      )}
+                      {p.borrow_enabled === false && (
+                        <>
+                          <span>Borrow</span>
+                          <span className="text-amber-600">關閉</span>
+                        </>
+                      )}
+                    </div>
+                  )}
+                  <div className="flex flex-wrap gap-1">
+                    {p.slo_boost_until && new Date(p.slo_boost_until).getTime() > Date.now() && (
+                      <Badge className="bg-emerald-500/15 text-emerald-700 text-xs">SLO Boost 至 {fmtTime(p.slo_boost_until).split('（')[0]}</Badge>
+                    )}
+                    {p.manual_override && (
+                      <Badge className="bg-amber-500/15 text-amber-700 text-xs">Manual Override</Badge>
+                    )}
+                    {p.last_reject_reason && (
+                      <Badge variant="outline" className="text-xs font-mono">last reject: {p.last_reject_reason}</Badge>
+                    )}
+                  </div>
                   <div className="text-xs text-muted-foreground">上次重置 {fmtTime(p.reset_at ?? null)}</div>
                   <div className="flex justify-end">
                     <Button size="sm" variant="outline" disabled={budgetEditing === p.pool_name} onClick={() => updateBudget(p.pool_name, p.daily_budget)}>
@@ -301,6 +366,17 @@ export default function DataSourceHealth() {
                       <span className="text-xs">{fmtTime(row.last_failure_at)}</span>
                     </div>
 
+                    {(row.upstream_quota_remaining != null || row.upstream_quota_limit != null) && (
+                      <div className="rounded-md bg-muted/40 px-3 py-2 text-xs flex items-center justify-between">
+                        <span className="text-muted-foreground">上游剩餘配額</span>
+                        <span className="font-mono">
+                          {row.upstream_quota_remaining ?? '—'}
+                          {row.upstream_quota_limit != null && <span className="text-muted-foreground"> / {row.upstream_quota_limit}</span>}
+                          {row.upstream_quota_reset_at && <span className="text-muted-foreground ml-2">reset {fmtTime(row.upstream_quota_reset_at).split('（')[0]}</span>}
+                        </span>
+                      </div>
+                    )}
+
                     {cooling && (
                       <div className="rounded-md bg-red-500/10 px-3 py-2 text-xs text-red-700 dark:text-red-300">
                         冷卻至 <span className="font-mono">{fmtTime(row.disabled_until)}</span>
@@ -324,6 +400,46 @@ export default function DataSourceHealth() {
           </div>
         )}
       </section>
+
+      {/* SLO 小時滾動 */}
+      {sloHours && sloHours.length > 0 && (
+        <section className="space-y-2">
+          <h2 className="text-lg font-semibold flex items-center gap-2"><Gauge className="h-4 w-4" />SLO 小時滾動（近 24h）</h2>
+          <Card>
+            <CardContent className="p-0 overflow-x-auto">
+              <table className="w-full text-xs">
+                <thead className="bg-muted/40 text-muted-foreground">
+                  <tr>
+                    <th className="text-left px-3 py-2">Hour</th>
+                    <th className="text-left px-3 py-2">Pool</th>
+                    <th className="text-right px-3 py-2">Total</th>
+                    <th className="text-right px-3 py-2">Granted</th>
+                    <th className="text-right px-3 py-2">Rejected</th>
+                    <th className="text-right px-3 py-2">Ready %</th>
+                    <th className="text-right px-3 py-2">Borrowed</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {sloHours.map((r, i) => {
+                    const rejPct = r.total > 0 ? (r.rejected / r.total) * 100 : 0;
+                    return (
+                      <tr key={`${r.hour}-${r.pool_name}-${i}`} className="border-t">
+                        <td className="px-3 py-1.5 font-mono">{new Date(r.hour).toLocaleString('zh-TW', { hour12: false, month: '2-digit', day: '2-digit', hour: '2-digit', minute: '2-digit' })}</td>
+                        <td className="px-3 py-1.5 font-mono">{r.pool_name}</td>
+                        <td className="px-3 py-1.5 text-right font-mono">{r.total}</td>
+                        <td className="px-3 py-1.5 text-right font-mono text-emerald-600">{r.granted}</td>
+                        <td className={`px-3 py-1.5 text-right font-mono ${rejPct >= 20 ? 'text-red-600' : rejPct >= 10 ? 'text-amber-600' : ''}`}>{r.rejected}</td>
+                        <td className="px-3 py-1.5 text-right font-mono">{r.ready_ratio != null ? `${(r.ready_ratio * 100).toFixed(0)}%` : '—'}</td>
+                        <td className="px-3 py-1.5 text-right font-mono">{r.borrowed}</td>
+                      </tr>
+                    );
+                  })}
+                </tbody>
+              </table>
+            </CardContent>
+          </Card>
+        </section>
+      )}
     </div>
   );
 }
