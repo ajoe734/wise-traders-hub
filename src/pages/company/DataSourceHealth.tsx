@@ -24,6 +24,9 @@ type Row = {
   last_error_code: string | null;
   p95_latency_ms: number | null;
   updated_at: string;
+  upstream_quota_remaining?: number | null;
+  upstream_quota_limit?: number | null;
+  upstream_quota_reset_at?: string | null;
 };
 
 type PoolRow = {
@@ -33,6 +36,23 @@ type PoolRow = {
   reset_at?: string | null;
   updated_at?: string | null;
   last_reject_reason?: string | null;
+  tokens?: number | null;
+  capacity?: number | null;
+  refill_per_min?: number | null;
+  base_daily_budget?: number | null;
+  slo_boost_until?: string | null;
+  manual_override?: boolean | null;
+  borrow_enabled?: boolean | null;
+};
+
+type SloHourRow = {
+  hour: string;
+  pool_name: string;
+  total: number;
+  granted: number;
+  rejected: number;
+  ready_ratio: number | null;
+  borrowed: number;
 };
 
 type SwitchRow = {
