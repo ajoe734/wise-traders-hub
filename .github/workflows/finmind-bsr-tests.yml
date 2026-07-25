@@ -50,3 +50,5 @@ jobs:
         run: deno test --allow-env --allow-read --no-check supabase/functions/tw-bsr-finmind-sync/manual_and_source_test.ts
       - name: Degrade state machine — bsrDegrade_test.ts
         run: deno test --allow-env --allow-read --no-check supabase/functions/_shared/bsrDegrade_test.ts
+      - name: Request coalescer — requestCoalescer_test.ts
+        run: deno test --allow-env --allow-read --no-check supabase/functions/_shared/requestCoalescer_test.ts
