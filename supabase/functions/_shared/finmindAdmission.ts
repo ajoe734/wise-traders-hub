@@ -60,10 +60,26 @@ async function writeRejectLedger(
   }
 }
 
+/**
+ * PR-10 rollback flag：`FINMIND_ADMIT_LEGACY=1` 時走舊 v1 RPC `finmind_admit`。
+ * 副作用：token bucket / 借用 / SLO boost / borrowed_from ledger 全失效，
+ *         DataSourceHealth 面板 Token Bucket 欄位會顯示異常。
+ * 使用場景：v2 出致命 bug 時應急切換；上線後 3 天綠燈可移除。
+ * v1 RPC 存在確認：20260725160922 / 162913 兩支 v2 migration 均未 DROP `finmind_admit`。
+ */
+function useLegacyAdmit(): boolean {
+  try {
+    return Deno.env.get('FINMIND_ADMIT_LEGACY') === '1';
+  } catch {
+    return false;
+  }
+}
+
 export async function admitFinmind(supa: any, input: AdmitInput): Promise<AdmitResult> {
   const pool = input.pool;
   const switchKey = POOL_TO_SWITCH[pool];
   const failOpen = input.failOpen === true;
+  const legacy = useLegacyAdmit();
 
   // 1. Kill-switch
   const enabled = await checkKillSwitch(supa, switchKey);
@@ -82,21 +98,37 @@ export async function admitFinmind(supa: any, input: AdmitInput): Promise<AdmitR
     }
   }
 
-  // 3. Quota admission RPC — Phase-2 使用 token bucket + 借用邏輯的 v2
+  // 3. Quota admission RPC — 預設 v2（token bucket + 借用）；LEGACY flag → v1。
+  const rpcName = legacy ? 'finmind_admit' : 'finmind_admit_v2';
+  const rpcArgs: Record<string, unknown> = legacy
+    ? {
+        _pool: pool,
+        _kind: input.kind,
+        _stock_id: input.stockId ?? null,
+        _cost: input.cost ?? 1,
+      }
+    : {
+        _pool: pool,
+        _kind: input.kind,
+        _stock_id: input.stockId ?? null,
+        _cost: input.cost ?? 1,
+        _allow_borrow: pool === 'interactive',
+      };
+
   try {
-    const { data, error } = await supa.rpc('finmind_admit_v2', {
-      _pool: pool,
-      _kind: input.kind,
-      _stock_id: input.stockId ?? null,
-      _cost: input.cost ?? 1,
-      _allow_borrow: pool === 'interactive',
-    });
+    if (legacy) console.warn('[admission] LEGACY mode: FINMIND_ADMIT_LEGACY=1');
+    const { data, error } = await supa.rpc(rpcName, rpcArgs);
     if (error) {
-      console.warn('[admission] rpc v2 error:', error.message, 'failOpen=', failOpen);
+      console.warn(`[admission] ${rpcName} error:`, error.message, 'failOpen=', failOpen);
       await writeRejectLedger(supa, pool, input.kind, input.stockId, 'admission_rpc_error', `rpc:${error.message?.slice(0, 80)}`);
       return { granted: failOpen, reason: 'admission_rpc_error' };
     }
-    const obj = (data ?? {}) as Record<string, unknown>;
+    // Edge case：RPC 回 { data: null, error: null } — 視為未知，走 fail-closed
+    if (data == null) {
+      await writeRejectLedger(supa, pool, input.kind, input.stockId, 'admission_null_payload', `rpc:${rpcName}:null`);
+      return { granted: failOpen, reason: 'admission_null_payload' };
+    }
+    const obj = data as Record<string, unknown>;
     const borrowedFrom = typeof obj.borrowed_from === 'string'
       ? (obj.borrowed_from as FinmindPool)
       : undefined;
@@ -108,7 +140,7 @@ export async function admitFinmind(supa: any, input: AdmitInput): Promise<AdmitR
       borrowed_from: borrowedFrom,
     };
   } catch (e) {
-    console.warn('[admission] exception:', (e as Error).message, 'failOpen=', failOpen);
+    console.warn(`[admission] ${rpcName} exception:`, (e as Error).message, 'failOpen=', failOpen);
     await writeRejectLedger(supa, pool, input.kind, input.stockId, 'admission_exception', `exception:${(e as Error).message?.slice(0, 80)}`);
     return { granted: failOpen, reason: 'admission_exception' };
   }

@@ -25,10 +25,22 @@ export function setCoalesceObserver(cb: CoalesceObserver | null): void {
   observer = cb;
 }
 
+/** onAcquire / onRelease 可為 sync 或 async；coalescer 內部會 await + catch，不會反過來拋。 */
+export type CoalesceSideEffect = () => void | Promise<void>;
+
+async function runHook(hook: CoalesceSideEffect | undefined, label: string): Promise<void> {
+  if (!hook) return;
+  try {
+    await Promise.resolve(hook());
+  } catch (err) {
+    console.warn(`[coalesce hook:${label}]`, (err as Error).message);
+  }
+}
+
 export async function coalesce<T>(
   key: string,
   factory: () => Promise<T>,
-  opts?: { supa?: any; kind?: string; stockId?: string | null },
+  opts?: { onAcquire?: CoalesceSideEffect; onRelease?: CoalesceSideEffect },
 ): Promise<T> {
   const now = Date.now();
   const existing = inflight.get(key);
@@ -37,26 +49,15 @@ export async function coalesce<T>(
     return existing.promise as Promise<T>;
   }
 
-  // Phase-2: 跨 isolate 觀測性 — 寫入 finmind_inflight_requests（fire-and-forget）
-  if (opts?.supa) {
-    opts.supa.from('finmind_inflight_requests')
-      .upsert({
-        key,
-        kind: opts.kind ?? 'chips',
-        stock_id: opts.stockId ?? null,
-        acquired_at: new Date().toISOString(),
-      }, { onConflict: 'key' })
-      .then(() => {}, () => {});
-  }
+  // Fire-and-forget side effect on first acquire; failures never block the main flow.
+  void runHook(opts?.onAcquire, 'onAcquire');
 
   const promise = (async () => {
     try {
       return await factory();
     } finally {
       inflight.delete(key);
-      if (opts?.supa) {
-        opts.supa.from('finmind_inflight_requests').delete().eq('key', key).then(() => {}, () => {});
-      }
+      void runHook(opts?.onRelease, 'onRelease');
     }
   })();
 
