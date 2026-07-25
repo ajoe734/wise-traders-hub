@@ -297,6 +297,21 @@ export default function ChipsSection({ WB, stockCode }: { WB: any; stockCode: st
               {uiState.state === 'd1_fallback' ? 'D-1' : uiState.state === 'filling_new_stock' ? 'FILLING' : 'OUTAGE'}
             </span>
           )}
+          {data?.coalesced && (
+            <span
+              data-testid="chips-coalesced-badge"
+              title="本次回應與其他併發請求共用同一次上游 fetch"
+              style={{
+                fontSize: 10,
+                letterSpacing: '0.14em',
+                padding: '1px 6px',
+                border: `1px solid ${WB.hair}`,
+                color: WB.inkMute,
+              }}
+            >
+              COALESCED
+            </span>
+          )}
         </div>
         <div style={{ fontSize: 10, color: WB.inkMute, letterSpacing: '0.14em', textAlign: 'right' }}>
           {data?.as_of

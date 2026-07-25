@@ -129,6 +129,8 @@ export interface TwChipsPayload {
   };
   source: string;
   fetched_at: string;
+  /** Phase-2: 本次回應是否命中 request coalescing（同 isolate 併發去重） */
+  coalesced?: boolean;
 }
 
 
