@@ -531,13 +531,13 @@ export default function ChipsSection({ WB, stockCode }: { WB: any; stockCode: st
             <div>
               失敗原因：
               {data.bsr_last_failure.error_code === 'captcha_retry_exhausted'
-                ? '舊 TWSE 驗證碼路徑失敗（已停用），已改由 FinMind 官方 API 抓取'
+                ? '舊資料路徑失敗（已停用），改由官方 API 抓取'
                 : data.bsr_last_failure.error_code === 'finmind_error'
-                ? 'FinMind API 呼叫失敗（rate limit 或暫時性錯誤），下輪自動重試'
+                ? '上游 API 呼叫失敗（額度或暫時性錯誤），下輪自動重試'
                 : data.bsr_last_failure.error_code === 'http_block'
                 ? '上游暫時封鎖請求'
                 : data.bsr_last_failure.error_code === 'no_chip_data'
-                ? 'FinMind 尚無此代號分點（多為新上市或非常規個股）'
+                ? '尚無此代號分點（多為新上市或非常規個股）'
                 : data.bsr_last_failure.error_code === 'not_chip_eligible'
                 ? 'ETF／權證／受益憑證無分點資料'
                 : data.bsr_last_failure.error_code === 'rate_limited'
