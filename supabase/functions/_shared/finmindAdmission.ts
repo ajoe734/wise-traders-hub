@@ -10,6 +10,9 @@
 import { checkCircuit } from './circuitBreaker.ts';
 import { checkKillSwitch } from './killSwitch.ts';
 
+// Deno global 在 edge runtime 才存在；tsgo/vitest 環境靠這行讓型別過。
+declare const Deno: { env: { get(k: string): string | undefined } };
+
 export type FinmindPool = 'interactive' | 'keepwarm' | 'backfill';
 
 const POOL_TO_SWITCH: Record<FinmindPool, string> = {
