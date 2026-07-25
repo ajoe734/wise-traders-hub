@@ -12,16 +12,16 @@ export function isPublishingWindowOpen(): { open: boolean; reason?: string } {
   const hhmm = tw.getHours() * 100 + tw.getMinutes();
 
   if (day === 0) {
-    return { open: false, reason: '週末不開放發布，下週一 08:00 再開放' };
+    return { open: false, reason: '週末不開放發布，下週五 20:00 統一開放' };
   }
   if (day === 6) {
-    return { open: false, reason: '週末不開放發布，下週一 08:00 再開放' };
+    return { open: false, reason: '週末不開放發布，下週五 20:00 統一開放' };
   }
   if (day === 1 && hhmm < 800) {
     return { open: false, reason: '週一 08:00 前不開放發布' };
   }
   if (day === 5 && hhmm >= 2000) {
-    return { open: false, reason: '週五 20:00 後不開放發布，下週一 08:00 再開放' };
+    return { open: false, reason: '週五 20:00 後不開放發布，下週五 20:00 統一開放' };
   }
   // Tue-Thu all day, Mon after 8AM, Fri before 8PM
   return { open: true };
