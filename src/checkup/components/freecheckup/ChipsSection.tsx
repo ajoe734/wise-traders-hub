@@ -3,6 +3,7 @@
 // 三大法人 1/5/20/60 日 + BSR 前 3 買/賣 + 集中度
 import React, { useEffect, useMemo, useRef, useState } from 'react';
 import { useTwChipsDetail, isTaiwanStockCode, isTaiwanChipEligible, type TwChipsPayload } from '@/checkup/hooks/useTwChipsDetail';
+import { useChipsState } from '@/checkup/hooks/useChipsState';
 import ChipsTrendChart from './ChipsTrendChart';
 import { supabase } from '@/integrations/supabase/client';
 import { toast } from 'sonner';
@@ -130,6 +131,12 @@ export default function ChipsSection({ WB, stockCode }: { WB: any; stockCode: st
   }
 
   const { data, loading, error, fetchedAt, online, stale, refetch } = useTwChipsDetail(stockCode, true);
+  const uiState = useChipsState({
+    stockCode,
+    payload: data,
+    error,
+    chipEligible: isTaiwanChipEligible(stockCode),
+  });
 
   const hasInst = useMemo(
     () => data && Object.values(data.institutional || {}).some((w) => w),
@@ -272,6 +279,22 @@ export default function ChipsSection({ WB, stockCode }: { WB: any; stockCode: st
           {!online && (
             <span data-testid="chips-offline-badge" style={{ fontSize: 10, color: '#8a5a1e', border: '1px solid #8a5a1e', padding: '1px 6px', letterSpacing: '0.1em' }}>
               OFFLINE
+            </span>
+          )}
+          {(uiState.state === 'd1_fallback' || uiState.state === 'filling_new_stock' || uiState.state === 'upstream_outage') && (
+            <span
+              data-testid="chips-state-badge"
+              data-state={uiState.state}
+              style={{
+                fontSize: 10,
+                letterSpacing: '0.14em',
+                padding: '1px 6px',
+                border: `1px solid ${uiState.state === 'upstream_outage' ? '#b04a4a' : uiState.state === 'filling_new_stock' ? '#8a5a1e' : WB.hair}`,
+                color: uiState.state === 'upstream_outage' ? '#b04a4a' : uiState.state === 'filling_new_stock' ? '#8a5a1e' : WB.inkSub,
+              }}
+              title={uiState.reason}
+            >
+              {uiState.state === 'd1_fallback' ? 'D-1' : uiState.state === 'filling_new_stock' ? 'FILLING' : 'OUTAGE'}
             </span>
           )}
         </div>
