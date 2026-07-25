@@ -1,7 +1,7 @@
 # Chips Pipeline Runbook
 
 > 適用範圍：`tw-chips-detail`、`tw-bsr-finmind-sync`、`tw-institutional-daily-sync`、`chips-guardian`
-> 上次審閱：2026-07-25（PR-9 交付版）
+> 上次審閱：2026-07-25（Phase 2 交付版）
 
 半夜被叫起來時，先看「三步應急」；有時間再看完整章節。
 
@@ -11,10 +11,17 @@
 
 1. **打開後台**：`/company/data-source-health`
    - 若 `finmind_bsr` 或 `twse_t86` 為 `open` → 進入 §3-A
-   - 若 `interactive / keepwarm / backfill` 任一 pool `remaining=0` → §3-B
-   - 若任何 kill-switch 為 `disabled` → §3-C
+   - 若 `interactive / keepwarm / backfill` 任一 pool `tokens=0` 且 `remaining=0` → §3-B
+   - 若任何 kill-switch 為 `disabled` 且 reason 不是 `manual:` → guardian 自動觸發，看告警面板
+   - 若 pool 顯示 `SLO Boost` → 表示 guardian 已放寬預算，通常不用處理
+   - 若上游剩餘配額 `< 100` → guardian 已自動降 keepwarm/backfill 補充速率 30%
 2. **看告警**：`/company/alerts`，找 code 開頭 `guardian_*` 的最新事件
+   - `guardian_upstream_quota_low`：上游配額低，等 reset_at 自動恢復
+   - `guardian_circuit_open_long`：熔斷卡住，手動 reset 或等 half_open 探測
+   - `guardian_reject_rate_high`：拒絕率飆高，看是不是 backfill 打太兇
 3. **看 cron**：`/company/publish-batch-status` → `pg_cron 執行紀錄`
+4. **看 SLO 小時滾動**：`/company/data-source-health` 底部表格，觀察 ready% / borrowed 走勢
+
 
 ---
 
