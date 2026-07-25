@@ -59,6 +59,21 @@ type AttemptRow = {
   created_at: string;
 };
 
+type CronRunRow = {
+  jobname: string;
+  runid: number;
+  cron_status: string;
+  return_message: string | null;
+  start_time: string;
+  end_time: string;
+  sql_duration_ms: number | null;
+  request_id: number | null;
+  http_status: number | null;
+  http_error: string | null;
+  http_response_snippet: string | null;
+  http_duration_ms: number | null;
+};
+
 const fmtDateTime = (iso: string | null) => {
   if (!iso) return '—';
   const d = new Date(iso);
