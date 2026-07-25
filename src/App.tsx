@@ -366,6 +366,7 @@ const AppShell = () => (
             <Route path="/company/account-merges" element={<ProtectedRoute requiredRole="company_admin"><CompanyAccountMerges /></ProtectedRoute>} />
             <Route path="/company/system-jobs" element={<ProtectedRoute requiredRole="company_admin"><CompanySystemJobs /></ProtectedRoute>} />
             <Route path="/company/function-logs" element={<ProtectedRoute requiredRole="company_admin"><CompanyFunctionLogs /></ProtectedRoute>} />
+            <Route path="/company/publish-batch-status" element={<ProtectedRoute requiredRole="company_admin"><CompanyPublishBatchStatus /></ProtectedRoute>} />
             <Route path="/company/knowledge-base" element={<ProtectedRoute requiredRole="company_admin"><CompanyKnowledgeBase /></ProtectedRoute>} />
             <Route path="/company/knowledge-audit" element={<ProtectedRoute requiredRole="company_admin"><CompanyKnowledgeAudit /></ProtectedRoute>} />
             <Route path="/company/knowledge-scheduler" element={<ProtectedRoute requiredRole="company_admin"><CompanyKnowledgeScheduler /></ProtectedRoute>} />
