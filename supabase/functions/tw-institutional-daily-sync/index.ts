@@ -433,6 +433,192 @@ async function runColdStart(
   };
 }
 
+// ============================================================================
+// PR-3: 三波 keep-warm — 交易日 15:30 / 17:30 / 19:30（台北）由 pg_cron 觸發
+// 讀 flag → 若當日已有 T86 全市場（>100 筆）→ 短路；否則走 T86 bulk lookback。
+// ============================================================================
+
+const KEEP_WARM_CONFIG_KEY = "keep_warm_schedule";
+
+type KeepWarmConfig = { enabled?: boolean; waves?: string[] };
+
+async function runKeepWarm(
+  supa: any,
+  opts: { wave: string; force: boolean; lookback: number },
+): Promise<Record<string, unknown>> {
+  const runId = crypto.randomUUID();
+  const startedAt = new Date().toISOString();
+
+  // 讀 flag
+  const { data: cfgRow } = await supa
+    .from("tw_bsr_sync_config")
+    .select("config")
+    .eq("key", KEEP_WARM_CONFIG_KEY)
+    .maybeSingle();
+  const cfg = (cfgRow?.config ?? {}) as KeepWarmConfig;
+  const enabled = cfg.enabled === true || opts.force;
+
+  const today = taipeiToday();
+  const iso = toISODate(today);
+  const weekend = isWeekend(today);
+
+  // flag 關閉或週末 → 短路（仍留 log 便於觀測）
+  if (!enabled || weekend) {
+    const reason = weekend ? "weekend" : "flag_disabled";
+    await supa.from("data_source_refresh_logs").insert({
+      source_key: "tw_keep_warm",
+      status: "skipped",
+      started_at: startedAt,
+      finished_at: new Date().toISOString(),
+      duration_ms: 0,
+      row_count: 0,
+      metadata: { run_id: runId, wave: opts.wave, reason, date: iso },
+    });
+    return { ok: true, mode: "keep_warm", skipped: true, reason, wave: opts.wave, date: iso };
+  }
+
+  // 短路：若當日已寫過 >100 筆，代表這波不需要再打 TWSE
+  const { count: existingCount } = await supa
+    .from("tw_institutional_daily")
+    .select("stock_id", { count: "exact", head: true })
+    .eq("trade_date", iso);
+  if ((existingCount ?? 0) > 100 && !opts.force) {
+    await supa.from("data_source_refresh_logs").insert({
+      source_key: "tw_keep_warm",
+      status: "skipped",
+      started_at: startedAt,
+      finished_at: new Date().toISOString(),
+      duration_ms: 0,
+      row_count: existingCount ?? 0,
+      metadata: { run_id: runId, wave: opts.wave, reason: "already_present", date: iso },
+    });
+    return {
+      ok: true, mode: "keep_warm", skipped: true, reason: "already_present",
+      wave: opts.wave, date: iso, existing: existingCount,
+    };
+  }
+
+  // T86 bulk lookback（含週末自動跳過）
+  const attempts: Array<{ date: string; ok: boolean; rows: number; reason?: string }> = [];
+  let raw: any = null;
+  let resolvedYmd = today;
+  const t0 = Date.now();
+  for (let i = 0; i <= opts.lookback; i++) {
+    const tryDate = shiftYmd(today, -i);
+    if (isWeekend(tryDate)) {
+      attempts.push({ date: tryDate, ok: false, rows: 0, reason: "weekend" });
+      continue;
+    }
+    try {
+      const r = await fetchTwseT86(tryDate);
+      const rowCount = (r?.data || []).length;
+      if (rowCount > 0) {
+        raw = r; resolvedYmd = tryDate;
+        attempts.push({ date: tryDate, ok: true, rows: rowCount });
+        break;
+      }
+      attempts.push({ date: tryDate, ok: false, rows: 0, reason: r?.stat || "no_data" });
+    } catch (err) {
+      attempts.push({ date: tryDate, ok: false, rows: 0, reason: (err as Error).message.slice(0, 80) });
+    }
+  }
+  const fetchLatency = Date.now() - t0;
+
+  if (!raw) {
+    await recordSourceHealth(supa, "twse_t86", false, fetchLatency, "no_data_in_lookback");
+    await supa.from("data_source_refresh_logs").insert({
+      source_key: "tw_keep_warm",
+      status: "failed",
+      started_at: startedAt,
+      finished_at: new Date().toISOString(),
+      duration_ms: Date.now() - Date.parse(startedAt),
+      row_count: 0,
+      error_message: "no_data_in_lookback",
+      metadata: { run_id: runId, wave: opts.wave, date: iso, attempts },
+    });
+    return { ok: false, mode: "keep_warm", wave: opts.wave, reason: "no_data_in_lookback", attempts };
+  }
+
+  const fields: string[] = raw?.fields || [];
+  const rows: any[][] = raw?.data || [];
+  const idxOf = (kw: string) => fields.findIndex((f) => f && f.includes(kw));
+  const iStock = idxOf("證券代號");
+  const iForeignMain = idxOf("外陸資買賣超股數");
+  const iForeignDealer = idxOf("外資自營商買賣超股數");
+  const iTrust = idxOf("投信買賣超");
+  const iDealer = fields.findIndex((f) => f === "自營商買賣超股數");
+  const iDealerSelf = idxOf("自營商買賣超股數(自行買賣)");
+  const iDealerHedge = idxOf("自營商買賣超股數(避險)");
+  const iTotal = idxOf("三大法人買賣超");
+  if (iStock < 0 || iForeignMain < 0 || iTrust < 0 || (iDealer < 0 && iDealerSelf < 0)) {
+    await recordSourceHealth(supa, "twse_t86", false, fetchLatency, "schema_drift");
+    await supa.from("data_source_refresh_logs").insert({
+      source_key: "tw_keep_warm",
+      status: "failed",
+      started_at: startedAt,
+      finished_at: new Date().toISOString(),
+      duration_ms: Date.now() - Date.parse(startedAt),
+      row_count: 0,
+      error_message: "schema_drift",
+      metadata: { run_id: runId, wave: opts.wave, date: iso, fields },
+    });
+    return { ok: false, mode: "keep_warm", wave: opts.wave, reason: "schema_drift" };
+  }
+
+  const tradeDate = toISODate(resolvedYmd);
+  const BATCH = 500;
+  let inserted = 0;
+  for (let i = 0; i < rows.length; i += BATCH) {
+    const chunk = rows.slice(i, i + BATCH).map((r) => {
+      const stock_id = String(r[iStock] || "").trim();
+      const foreign_net = parseNum(r[iForeignMain]) + (iForeignDealer >= 0 ? parseNum(r[iForeignDealer]) : 0);
+      const trust_net = parseNum(r[iTrust]);
+      const dealer_net = iDealer >= 0
+        ? parseNum(r[iDealer])
+        : parseNum(r[iDealerSelf]) + (iDealerHedge >= 0 ? parseNum(r[iDealerHedge]) : 0);
+      const total_net = iTotal >= 0 ? parseNum(r[iTotal]) : foreign_net + trust_net + dealer_net;
+      return {
+        stock_id, trade_date: tradeDate, foreign_net, trust_net, dealer_net, total_net,
+        raw: { source: `keep_warm:${opts.wave}` },
+      };
+    }).filter((x) => x.stock_id);
+    const { error } = await supa
+      .from("tw_institutional_daily")
+      .upsert(chunk, { onConflict: "stock_id,trade_date" });
+    if (error) {
+      await recordSourceHealth(supa, "twse_t86", false, fetchLatency, "db_error");
+      await supa.from("data_source_refresh_logs").insert({
+        source_key: "tw_keep_warm",
+        status: "failed",
+        started_at: startedAt,
+        finished_at: new Date().toISOString(),
+        duration_ms: Date.now() - Date.parse(startedAt),
+        row_count: inserted,
+        error_message: `upsert_failed:${error.message}`,
+        metadata: { run_id: runId, wave: opts.wave, date: tradeDate },
+      });
+      return { ok: false, mode: "keep_warm", wave: opts.wave, reason: `upsert_failed:${error.message}` };
+    }
+    inserted += chunk.length;
+  }
+
+  await recordSourceHealth(supa, "twse_t86", true, fetchLatency);
+  await supa.from("data_source_refresh_logs").insert({
+    source_key: "tw_keep_warm",
+    status: "success",
+    started_at: startedAt,
+    finished_at: new Date().toISOString(),
+    duration_ms: Date.now() - Date.parse(startedAt),
+    row_count: inserted,
+    metadata: { run_id: runId, wave: opts.wave, requested_date: iso, resolved_date: tradeDate, attempts },
+  });
+
+  return {
+    ok: true, mode: "keep_warm", wave: opts.wave,
+    requested_date: iso, resolved_date: tradeDate, inserted, attempts,
+  };
+}
+
 Deno.serve(async (req) => {
   if (req.method === "OPTIONS") return corsPreflight();
   try {
@@ -462,6 +648,20 @@ Deno.serve(async (req) => {
         const supa = createClient(SUPABASE_URL, SERVICE_ROLE_KEY, { auth: { persistSession: false } });
         const status = await readColdStartStatus(supa);
         return jsonResponse({ ok: true, status });
+      }
+
+      // === Mode: keep_warm ===（PR-3 三波 cron 觸發；service_role 或管理員）
+      if (body?.mode === "keep_warm") {
+        const admin = await isAdminCaller(req);
+        if (!admin.ok) {
+          return errorResponse(`admin required: ${admin.reason ?? "unauthorized"}`, 403, { code: "FORBIDDEN" });
+        }
+        const wave = String(body.wave || "manual").slice(0, 32);
+        const force = body.force === true;
+        const lookback = Math.min(Math.max(Number(body.lookback) || 3, 0), 7);
+        const supa = createClient(SUPABASE_URL, SERVICE_ROLE_KEY, { auth: { persistSession: false } });
+        const result = await runKeepWarm(supa, { wave, force, lookback });
+        return jsonResponse(result);
       }
 
       // === Mode: backfill_stock ===（per-stock 60 天歷史回補）
