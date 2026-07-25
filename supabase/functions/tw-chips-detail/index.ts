@@ -15,7 +15,8 @@ import "jsr:@supabase/functions-js/edge-runtime.d.ts";
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2.45.4";
 import { corsPreflight, jsonResponse, errorResponse } from "../_shared/cors.ts";
 import { cacheGet, cacheSet } from "../_shared/memoryCache.ts";
-import { coalesce } from "../_shared/requestCoalescer.ts";
+import { coalesce, setCoalesceObserver } from "../_shared/requestCoalescer.ts";
+import { makeInflightHook } from "../_shared/coalesceDbHook.ts";
 import {
   computeBsrWindow,
   countRowsByDate,
@@ -75,10 +76,10 @@ Deno.serve(async (req) => {
         _cache_meta: { cache: 'hit', stamp_ver: stampVer, served_at: new Date().toISOString() },
       });
     }
-    // Phase-2: Request Coalescing — 同 isolate 記憶體去重 + DB 觀測
+    // Phase-2 / PR-10: Request Coalescing — 同 isolate 記憶體去重 + DB 觀測（helper 化）
     let coalescedHit = false;
-    const { setCoalesceObserver } = await import("../_shared/requestCoalescer.ts");
     setCoalesceObserver((m) => { if (m.key === cacheKey && m.hit) coalescedHit = true; });
+    const inflightHook = makeInflightHook(supa, { key: cacheKey, kind: 'chips', stockId });
     const payload = await coalesce(cacheKey, async () => {
     // ==== 三大法人 1/5/20/60 日 ====
     const { data: instRows, error: instErr } = await supa
@@ -470,7 +471,7 @@ Deno.serve(async (req) => {
 
       cacheSet(cacheKey, result, CACHE_TTL_MS);
       return result;
-    }, { supa, kind: 'chips_detail', stockId });
+    }, { onAcquire: inflightHook.onAcquire, onRelease: inflightHook.onRelease });
 
     return jsonResponse({
       ...payload,

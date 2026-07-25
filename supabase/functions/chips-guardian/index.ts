@@ -13,9 +13,17 @@
 //
 // Alert cooldown 5 分鐘、每次觸發都記錄 root cause 於 meta。
 
+// PR-10: SLO / upstream 決策抽出到 _shared/guardianRules.ts（純函式 + golden test）；
+//        本檔只做 DB 讀寫與副作用；常數搬移後對齊 rules。
+
 import { createClient } from 'https://esm.sh/@supabase/supabase-js@2';
 import { corsHeaders } from 'npm:@supabase/supabase-js@2/cors';
 import { forceDisable } from '../_shared/killSwitch.ts';
+import {
+  decideSloAdjustment,
+  decideUpstreamThrottle,
+  computeThrottledRefill,
+} from '../_shared/guardianRules.ts';
 
 const SUPABASE_URL = Deno.env.get('SUPABASE_URL')!;
 const SERVICE_KEY = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')!;
@@ -192,96 +200,79 @@ async function ruleQuotaRejectRate(supa: any): Promise<Action[]> {
   return actions;
 }
 
-// Phase-2: SLO-driven budget adjustment
-// 依過去 30 分鐘拒絕率動態調整 daily_budget（在 [50%, 200%] 之間），
-// 讓 keepwarm/backfill 遇到冷門時段自動放寬、遇到打太重時自動收斂。
+// Phase-2 / PR-10: SLO-driven budget adjustment（決策交給 guardianRules.decideSloAdjustment）
 const SLO_ADJUST_WINDOW_MIN = 30;
-const SLO_SAMPLE_MIN = 30;
-const SLO_TIGHTEN_THRESHOLD = 0.5;   // reject > 50% → 收
-const SLO_RELAX_THRESHOLD = 0.05;    // reject < 5% → 放
-const SLO_MIN_MULTIPLIER = 0.5;
-const SLO_MAX_MULTIPLIER = 2.0;
 
 async function ruleSloBudgetAdjust(supa: any): Promise<Action[]> {
   const actions: Action[] = [];
   const { data: pools } = await supa
     .from('finmind_quota_pools')
     .select('pool_name, daily_budget, capacity, base_daily_budget, slo_boost_until, manual_override');
-  const nowIso = new Date().toISOString();
+  const nowMs = Date.now();
   for (const pool of (pools ?? []) as any[]) {
-    // interactive 永遠優先，不動它
-    if (pool.pool_name === 'interactive') continue;
-    if (pool.manual_override) continue; // 尊重人工鎖定
     const stat = await fetchRejectStats(supa, pool.pool_name, SLO_ADJUST_WINDOW_MIN);
-    if (stat.total < SLO_SAMPLE_MIN) continue;
-
     const baseCapacity = Number(pool.base_daily_budget ?? pool.capacity ?? pool.daily_budget);
-    let targetBudget = pool.daily_budget;
-    let boostUntil = pool.slo_boost_until;
+    const decision = decideSloAdjustment({
+      poolName: pool.pool_name,
+      currentBudget: Number(pool.daily_budget),
+      baseCapacity,
+      boostUntilMs: pool.slo_boost_until ? new Date(pool.slo_boost_until).getTime() : null,
+      manualOverride: Boolean(pool.manual_override),
+      totalSamples: stat.total,
+      rejectRate: stat.rate,
+      nowMs,
+    });
 
-    if (stat.rate >= SLO_TIGHTEN_THRESHOLD) {
-      targetBudget = Math.max(Math.floor(baseCapacity * SLO_MIN_MULTIPLIER), Math.floor(pool.daily_budget * 0.8));
-      boostUntil = null; // 收斂時清除 boost
-    } else if (stat.rate <= SLO_RELAX_THRESHOLD) {
-      targetBudget = Math.min(Math.floor(baseCapacity * SLO_MAX_MULTIPLIER), Math.floor(pool.daily_budget * 1.25));
-      // 放寬時，若拉到 base 之上，設 2 小時 boost 期限，避免永久放行
-      if (targetBudget > baseCapacity) {
-        boostUntil = new Date(Date.now() + 2 * 3600 * 1000).toISOString();
-      }
-    }
+    if (!decision.changed) continue;
 
-    // Boost 到期自動回落到 base
-    if (pool.slo_boost_until && new Date(pool.slo_boost_until).getTime() < Date.now()
-        && pool.daily_budget > baseCapacity) {
-      targetBudget = baseCapacity;
-      boostUntil = null;
+    const updatePayload: Record<string, unknown> = {
+      daily_budget: decision.targetBudget,
+      updated_at: new Date(nowMs).toISOString(),
+    };
+    if (decision.newBoostUntilMs !== undefined) {
+      updatePayload.slo_boost_until = decision.newBoostUntilMs === null
+        ? null
+        : new Date(decision.newBoostUntilMs).toISOString();
     }
-
-    if (targetBudget !== pool.daily_budget || boostUntil !== pool.slo_boost_until) {
-      await supa.from('finmind_quota_pools')
-        .update({ daily_budget: targetBudget, slo_boost_until: boostUntil, updated_at: nowIso })
-        .eq('pool_name', pool.pool_name);
-      actions.push({
-        kind: 'alert',
-        reason: `slo_adjust_${pool.pool_name}_${pool.daily_budget}->${targetBudget}`,
-        root_cause: `reject_${(stat.rate * 100).toFixed(0)}pct_over_${stat.total}`,
-      });
-    }
+    await supa.from('finmind_quota_pools')
+      .update(updatePayload)
+      .eq('pool_name', pool.pool_name);
+    actions.push({
+      kind: 'alert',
+      reason: `slo_${decision.reason}_${pool.pool_name}_${pool.daily_budget}->${decision.targetBudget}`,
+      root_cause: `reject_${(stat.rate * 100).toFixed(0)}pct_over_${stat.total}`,
+    });
   }
   return actions;
 }
 
-// Phase-2: 上游配額低於門檻時主動降 keepwarm/backfill 速率
-const UPSTREAM_LOW_THRESHOLD = 100;
+// Phase-2 / PR-10: 上游配額低時 throttle keepwarm/backfill（決策 pure 化）
 async function ruleUpstreamQuotaLow(supa: any): Promise<Action[]> {
   const actions: Action[] = [];
   const { data } = await supa
     .from('data_source_health')
     .select('source, upstream_quota_remaining')
     .in('source', ['finmind_bsr', 'finmind_institutional']);
-  const low = (data ?? []).find((r: any) =>
-    r.upstream_quota_remaining != null && r.upstream_quota_remaining < UPSTREAM_LOW_THRESHOLD
-  );
-  if (!low) return actions;
+  const decision = decideUpstreamThrottle({ sources: (data ?? []) as any[] });
+  if (!decision.throttle) return actions;
 
   const code = 'guardian_upstream_quota_low';
   if (await alreadyAlerted(supa, code)) return actions;
 
-  // 把 keepwarm/backfill 的 refill_per_min 降到 30%
   const { data: pools } = await supa
     .from('finmind_quota_pools')
     .select('pool_name, refill_per_min')
     .in('pool_name', ['keepwarm', 'backfill']);
   for (const p of (pools ?? []) as any[]) {
-    const throttled = Math.max(0.1, Number(p.refill_per_min) * 0.3);
+    const throttled = computeThrottledRefill(Number(p.refill_per_min), decision.refillMultiplier);
     await supa.from('finmind_quota_pools')
       .update({ refill_per_min: throttled, updated_at: new Date().toISOString() })
       .eq('pool_name', p.pool_name);
   }
   await writeAlert(supa, code, 'warning',
-    `上游 ${low.source} 剩餘配額 ${low.upstream_quota_remaining}，keepwarm/backfill 補充速率暫降 30%`,
-    { source: low.source, remaining: low.upstream_quota_remaining });
-  actions.push({ kind: 'alert', reason: 'upstream_quota_low', root_cause: `remaining_${low.upstream_quota_remaining}` });
+    `上游 ${decision.lowSource} 剩餘配額 ${decision.remaining}，keepwarm/backfill 補充速率暫降 ${Math.round((1 - decision.refillMultiplier) * 100)}%`,
+    { source: decision.lowSource, remaining: decision.remaining });
+  actions.push({ kind: 'alert', reason: 'upstream_quota_low', root_cause: `remaining_${decision.remaining}` });
   return actions;
 }
 
