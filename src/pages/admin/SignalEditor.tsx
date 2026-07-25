@@ -8,7 +8,7 @@ import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { supabase } from '@/integrations/supabase/client';
 import { useAuth } from '@/contexts/AuthContext';
-import { isPublishingWindowOpen } from '@/lib/publishingWindow';
+import { isPublishingWindowOpen, nextPublishMomentLabel } from '@/lib/publishingWindow';
 import { useFormDraft } from '@/hooks/useFormDraft';
 import { LazyRichTextEditor as RichTextEditor } from '@/components/admin/LazyRichTextEditor';
 import { sanitizeRichHtml, htmlToPlainText } from '@/lib/sanitizeHtml';
