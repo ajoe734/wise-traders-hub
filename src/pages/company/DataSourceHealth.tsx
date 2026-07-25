@@ -400,6 +400,46 @@ export default function DataSourceHealth() {
           </div>
         )}
       </section>
+
+      {/* SLO 小時滾動 */}
+      {sloHours && sloHours.length > 0 && (
+        <section className="space-y-2">
+          <h2 className="text-lg font-semibold flex items-center gap-2"><Gauge className="h-4 w-4" />SLO 小時滾動（近 24h）</h2>
+          <Card>
+            <CardContent className="p-0 overflow-x-auto">
+              <table className="w-full text-xs">
+                <thead className="bg-muted/40 text-muted-foreground">
+                  <tr>
+                    <th className="text-left px-3 py-2">Hour</th>
+                    <th className="text-left px-3 py-2">Pool</th>
+                    <th className="text-right px-3 py-2">Total</th>
+                    <th className="text-right px-3 py-2">Granted</th>
+                    <th className="text-right px-3 py-2">Rejected</th>
+                    <th className="text-right px-3 py-2">Ready %</th>
+                    <th className="text-right px-3 py-2">Borrowed</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {sloHours.map((r, i) => {
+                    const rejPct = r.total > 0 ? (r.rejected / r.total) * 100 : 0;
+                    return (
+                      <tr key={`${r.hour}-${r.pool_name}-${i}`} className="border-t">
+                        <td className="px-3 py-1.5 font-mono">{new Date(r.hour).toLocaleString('zh-TW', { hour12: false, month: '2-digit', day: '2-digit', hour: '2-digit', minute: '2-digit' })}</td>
+                        <td className="px-3 py-1.5 font-mono">{r.pool_name}</td>
+                        <td className="px-3 py-1.5 text-right font-mono">{r.total}</td>
+                        <td className="px-3 py-1.5 text-right font-mono text-emerald-600">{r.granted}</td>
+                        <td className={`px-3 py-1.5 text-right font-mono ${rejPct >= 20 ? 'text-red-600' : rejPct >= 10 ? 'text-amber-600' : ''}`}>{r.rejected}</td>
+                        <td className="px-3 py-1.5 text-right font-mono">{r.ready_ratio != null ? `${(r.ready_ratio * 100).toFixed(0)}%` : '—'}</td>
+                        <td className="px-3 py-1.5 text-right font-mono">{r.borrowed}</td>
+                      </tr>
+                    );
+                  })}
+                </tbody>
+              </table>
+            </CardContent>
+          </Card>
+        </section>
+      )}
     </div>
   );
 }
