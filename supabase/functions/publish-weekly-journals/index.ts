@@ -201,13 +201,80 @@ Deno.serve(withLogging('publish-weekly-journals', async (req) => {
     }
     log('Function start')
 
-    // (replaced by stage-tracked block below)
+    // ── Parse body: 支援手動觸發（提前發布）與市場批次過濾 ─────────────
+    // body 形態：
+    //   {} 或 {}                             → cron 完整批次（歷史行為）
+    //   { market: 'TW' | 'US' }              → 只發布指定市場老師的 pending
+    //   { expert_id: uuid, force: true }     → 老師手動提前發布本人本週 pending
+    stage = 'parse_body'
+    let body: { expert_id?: string; market?: 'TW' | 'US'; force?: boolean } = {}
+    if (req.method === 'POST') {
+      try {
+        const raw = await req.text()
+        if (raw.trim()) body = JSON.parse(raw)
+      } catch {
+        body = {}
+      }
+    }
+
+    // 手動 force 模式：驗證呼叫者為該 expert.user_id 或 company_admin
+    let filterExpertIds: string[] | null = null
+    // (market batch mode: filterExpertIds carries the resolved list)
+    if (body.force && body.expert_id) {
+      stage = 'authorize_force'
+      const { data: authUser } = await supabaseAdmin.auth.getUser(
+        (req.headers.get('Authorization') || '').replace(/^Bearer\s+/i, ''),
+      )
+      const callerId = authUser?.user?.id || null
+      if (!callerId) {
+        await flushLogs()
+        return new Response(JSON.stringify({ error: 'unauthorized', runId }), {
+          status: 401, headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+        })
+      }
+      const { data: expertRow } = await supabaseAdmin
+        .from('experts').select('id, user_id').eq('id', body.expert_id).maybeSingle()
+      const { data: roleRow } = await supabaseAdmin
+        .from('user_roles').select('role').eq('user_id', callerId).eq('role', 'company_admin').maybeSingle()
+      const isOwner = expertRow?.user_id === callerId
+      const isAdmin = !!roleRow
+      if (!isOwner && !isAdmin) {
+        await flushLogs()
+        return new Response(JSON.stringify({ error: 'forbidden', runId }), {
+          status: 403, headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+        })
+      }
+      filterExpertIds = [body.expert_id]
+      log('Force publish authorized', { expertId: body.expert_id, isOwner, isAdmin })
+    } else if (body.market === 'TW' || body.market === 'US') {
+      stage = 'filter_by_market'
+      // 依 experts.asset_class 決定 TW / US 老師 id 清單
+      const usClasses = ['us_stock', 'us_futures', 'crypto']
+      const query = supabaseAdmin.from('experts').select('id, asset_class')
+      const { data: allExperts } = await query
+      const matched = (allExperts || []).filter((e: any) => {
+        const c = (e.asset_class || '').toLowerCase()
+        const isUs = usClasses.includes(c)
+        return body.market === 'US' ? isUs : !isUs
+      }).map((e: any) => e.id)
+      filterExpertIds = matched
+      // market-scoped batch: publish only pending signals for this cohort
+      log(`Market batch: ${body.market} experts=${matched.length}`)
+      if (matched.length === 0) {
+        await flushLogs()
+        return new Response(JSON.stringify({ published: 0, pushed: 0, runId, market: body.market }), {
+          headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+        })
+      }
+    }
 
     stage = 'fetch_pending_signals'
-    const { data: pendingSignals, error: fetchErr } = await supabaseAdmin
+    let pendingQuery = supabaseAdmin
       .from('expert_signals')
       .select('id, expert_id, instrument, action, price_hint, quantity, quantity_unit, reason_summary, reason_detail, risk_notes, learning_points, teaching_topic, overall_summary, published_at, batch_id, executed_at')
       .eq('status', 'pending')
+    if (filterExpertIds) pendingQuery = pendingQuery.in('expert_id', filterExpertIds)
+    const { data: pendingSignals, error: fetchErr } = await pendingQuery
 
     if (fetchErr) {
       logErr(stage, fetchErr)
