@@ -244,6 +244,37 @@ export default function DataSourceHealth() {
                   <div className="h-2 rounded bg-muted overflow-hidden">
                     <div className={`h-full ${barColor}`} style={{ width: `${pct}%` }} />
                   </div>
+                  {(p.tokens != null || p.refill_per_min != null) && (
+                    <div className="grid grid-cols-2 gap-x-3 gap-y-0.5 text-xs text-muted-foreground pt-1 border-t">
+                      <span>Tokens</span>
+                      <span className="font-mono text-foreground">{p.tokens ?? '—'} / {p.capacity ?? '—'}</span>
+                      <span>補充速率</span>
+                      <span className="font-mono text-foreground">{p.refill_per_min ?? '—'}/min</span>
+                      {p.base_daily_budget != null && (
+                        <>
+                          <span>Base</span>
+                          <span className="font-mono text-foreground">{p.base_daily_budget}</span>
+                        </>
+                      )}
+                      {p.borrow_enabled === false && (
+                        <>
+                          <span>Borrow</span>
+                          <span className="text-amber-600">關閉</span>
+                        </>
+                      )}
+                    </div>
+                  )}
+                  <div className="flex flex-wrap gap-1">
+                    {p.slo_boost_until && new Date(p.slo_boost_until).getTime() > Date.now() && (
+                      <Badge className="bg-emerald-500/15 text-emerald-700 text-xs">SLO Boost 至 {fmtTime(p.slo_boost_until).split('（')[0]}</Badge>
+                    )}
+                    {p.manual_override && (
+                      <Badge className="bg-amber-500/15 text-amber-700 text-xs">Manual Override</Badge>
+                    )}
+                    {p.last_reject_reason && (
+                      <Badge variant="outline" className="text-xs font-mono">last reject: {p.last_reject_reason}</Badge>
+                    )}
+                  </div>
                   <div className="text-xs text-muted-foreground">上次重置 {fmtTime(p.reset_at ?? null)}</div>
                   <div className="flex justify-end">
                     <Button size="sm" variant="outline" disabled={budgetEditing === p.pool_name} onClick={() => updateBudget(p.pool_name, p.daily_budget)}>
