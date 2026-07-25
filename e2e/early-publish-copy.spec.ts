@@ -34,7 +34,8 @@ for (const market of ['tw', 'us'] as const) {
 
       // 1) header 提示：包含本市場的統一開放時刻，且不得含「下週」
       const headerHint = page.getByTestId(`signals-header-hint-${market}`);
-      await expect(headerHint).toContainText(`本${expectedMomentLabel}`);
+      await expect(headerHint).toContainText(expectedMomentLabel);
+      await expect(headerHint).toContainText('本週待發布');
       await expect(headerHint).not.toContainText('下週');
 
       // 2) AdminLayout side-nav hint — 統一為「本週五 20:00 統一開放發布」
@@ -51,7 +52,8 @@ for (const market of ['tw', 'us'] as const) {
       const btn = page.getByTestId(`early-publish-btn-${market}`);
       await expect(btn).toHaveText(/⚡\s*提前開放本週發布/);
       const title = await btn.getAttribute('title');
-      expect(title).toContain(`繞過 本${expectedMomentLabel}`);
+      expect(title).toContain(`繞過 ${expectedMomentLabel}`);
+      expect(title).toContain('本週');
       expect(title).not.toContain('下週');
 
       // 5) 點擊開啟實際 EarlyPublishDialog（來自 production 組件）
