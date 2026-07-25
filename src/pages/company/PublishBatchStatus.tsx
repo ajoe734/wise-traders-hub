@@ -39,6 +39,26 @@ type RunRow = {
   push_fail: number;
 };
 
+type AttemptRow = {
+  id: string;
+  market: 'TW' | 'US';
+  attempt_no: number;
+  max_attempts: number;
+  status: 'pending_retry' | 'running' | 'succeeded' | 'failed' | 'exhausted';
+  scheduled_at: string | null;
+  next_retry_at: string | null;
+  started_at: string | null;
+  finished_at: string | null;
+  duration_ms: number | null;
+  run_id: string | null;
+  parent_attempt_id: string | null;
+  root_attempt_id: string | null;
+  error_message: string | null;
+  response: any;
+  trigger_source: string | null;
+  created_at: string;
+};
+
 const fmtDateTime = (iso: string | null) => {
   if (!iso) return '—';
   const d = new Date(iso);
@@ -73,16 +93,33 @@ export default function PublishBatchStatusPage() {
     },
   });
 
+  const attemptsQ = useQuery({
+    queryKey: ['company', 'publish-batch', 'attempts'],
+    staleTime: 10_000,
+    refetchInterval: 30_000,
+    queryFn: async () => {
+      const { data, error } = await (supabase as any).rpc('get_publish_batch_attempts', { _limit: 80 });
+      if (error) throw error;
+      return (data || []) as AttemptRow[];
+    },
+  });
+
   const triggerM = useMutation({
     mutationFn: async (market: 'TW' | 'US') => {
-      const { data, error } = await supabase.functions.invoke('publish-weekly-journals', { body: { market } });
+      const { data, error } = await supabase.functions.invoke('publish-weekly-journals-runner', {
+        body: { market, trigger_source: 'manual' },
+      });
       if (error) throw error;
       return data;
     },
     onSuccess: (data: any, market) => {
+      const resp = (data && (data.response || data)) as any;
+      const published = resp?.published ?? 0;
+      const failed = resp?.failed ?? 0;
       toast.success(
-        `${market} 批次執行完成：發布 ${data?.published ?? 0}、失敗 ${data?.failed ?? 0}`,
-        { description: data?.runId ? `runId ${data.runId}` : undefined },
+        `${market} 批次執行完成：發布 ${published}、失敗 ${failed}` +
+          (data?.will_retry ? `（將於 ${data?.next_attempt_no} 次重試）` : ''),
+        { description: data?.run_id ? `runId ${data.run_id}` : undefined },
       );
       qc.invalidateQueries({ queryKey: ['company', 'publish-batch'] });
     },
@@ -294,6 +331,77 @@ export default function PublishBatchStatusPage() {
             </CardContent>
           </Card>
         </section>
+
+        {/* Retry attempts */}
+        <section>
+          <div className="flex items-end justify-between mb-2">
+            <div>
+              <h2 className="text-sm font-semibold text-foreground/80">自動重試佇列與歷史</h2>
+              <p className="text-xs text-muted-foreground mt-1">
+                每次批次呼叫都會在此留下紀錄。失敗或 timeout 會依 1/2/4/8/16 分鐘退避自動重試（最多 5 次，由每分鐘 watchdog 觸發）。
+              </p>
+            </div>
+            <Button size="sm" variant="ghost" onClick={() => attemptsQ.refetch()}>
+              <RefreshCw className="w-4 h-4 mr-1" /> 重新整理
+            </Button>
+          </div>
+          <Card>
+            <CardContent className="p-0">
+              <div className="overflow-x-auto">
+                <table className="w-full text-sm">
+                  <thead className="bg-muted/40 text-foreground/70">
+                    <tr>
+                      <th className="text-left px-3 py-2 font-medium">建立時間</th>
+                      <th className="text-left px-3 py-2 font-medium">市場</th>
+                      <th className="text-left px-3 py-2 font-medium">狀態</th>
+                      <th className="text-right px-3 py-2 font-medium">嘗試</th>
+                      <th className="text-left px-3 py-2 font-medium">觸發</th>
+                      <th className="text-left px-3 py-2 font-medium">下次重試</th>
+                      <th className="text-right px-3 py-2 font-medium">耗時</th>
+                      <th className="text-left px-3 py-2 font-medium">Run ID</th>
+                      <th className="text-left px-3 py-2 font-medium">錯誤</th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {attemptsQ.isLoading && (
+                      <tr><td colSpan={9} className="px-3 py-6 text-center text-muted-foreground">載入中…</td></tr>
+                    )}
+                    {!attemptsQ.isLoading && (attemptsQ.data ?? []).length === 0 && (
+                      <tr><td colSpan={9} className="px-3 py-6 text-center text-muted-foreground">尚無重試紀錄。</td></tr>
+                    )}
+                    {(attemptsQ.data ?? []).map((a) => (
+                      <tr key={a.id} className="border-t border-border/60 align-top">
+                        <td className="px-3 py-2 whitespace-nowrap text-muted-foreground">{fmtDateTime(a.created_at)}</td>
+                        <td className="px-3 py-2">
+                          <Badge variant="outline" className={marketTone(a.market)}>{a.market}</Badge>
+                        </td>
+                        <td className="px-3 py-2">
+                          <Badge variant="outline" className={attemptStatusTone(a.status)}>{attemptStatusLabel(a.status)}</Badge>
+                        </td>
+                        <td className="px-3 py-2 text-right tabular-nums">
+                          {a.attempt_no}<span className="text-muted-foreground">/{a.max_attempts}</span>
+                        </td>
+                        <td className="px-3 py-2 text-xs text-muted-foreground">{a.trigger_source || '—'}</td>
+                        <td className="px-3 py-2 text-xs text-muted-foreground whitespace-nowrap">
+                          {a.status === 'pending_retry' ? fmtDateTime(a.next_retry_at) : '—'}
+                        </td>
+                        <td className="px-3 py-2 text-right tabular-nums text-muted-foreground">
+                          {a.duration_ms != null ? `${(a.duration_ms / 1000).toFixed(1)}s` : '—'}
+                        </td>
+                        <td className="px-3 py-2 font-mono text-xs">{a.run_id ? a.run_id.slice(0, 8) : '—'}</td>
+                        <td className="px-3 py-2 max-w-[380px]">
+                          {a.error_message ? (
+                            <div className="text-xs text-red-700 line-clamp-2 break-words">{a.error_message}</div>
+                          ) : (<span className="text-xs text-muted-foreground">—</span>)}
+                        </td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+              </div>
+            </CardContent>
+          </Card>
+        </section>
       </div>
     </CompanyLayout>
   );
@@ -315,4 +423,24 @@ function StatCard({
       </CardContent>
     </Card>
   );
+}
+
+function attemptStatusTone(s: AttemptRow['status']) {
+  switch (s) {
+    case 'succeeded': return 'bg-emerald-500/10 text-emerald-700 border-emerald-500/30';
+    case 'running': return 'bg-blue-500/10 text-blue-700 border-blue-500/30';
+    case 'pending_retry': return 'bg-amber-500/10 text-amber-700 border-amber-500/30';
+    case 'failed': return 'bg-red-500/10 text-red-700 border-red-500/30';
+    case 'exhausted': return 'bg-red-600/15 text-red-800 border-red-600/40';
+    default: return 'bg-muted text-muted-foreground border-border';
+  }
+}
+function attemptStatusLabel(s: AttemptRow['status']) {
+  return ({
+    succeeded: '成功',
+    running: '執行中',
+    pending_retry: '排入重試',
+    failed: '失敗',
+    exhausted: '重試耗盡',
+  } as Record<string, string>)[s] || s;
 }

@@ -3415,6 +3415,74 @@ export type Database = {
         }
         Relationships: []
       }
+      publish_batch_attempts: {
+        Row: {
+          attempt_no: number
+          created_at: string
+          error_message: string | null
+          finished_at: string | null
+          id: string
+          market: string
+          max_attempts: number
+          next_retry_at: string | null
+          parent_attempt_id: string | null
+          response: Json | null
+          root_attempt_id: string | null
+          run_id: string | null
+          scheduled_at: string
+          started_at: string | null
+          status: string
+          trigger_source: string
+          updated_at: string
+        }
+        Insert: {
+          attempt_no?: number
+          created_at?: string
+          error_message?: string | null
+          finished_at?: string | null
+          id?: string
+          market: string
+          max_attempts?: number
+          next_retry_at?: string | null
+          parent_attempt_id?: string | null
+          response?: Json | null
+          root_attempt_id?: string | null
+          run_id?: string | null
+          scheduled_at?: string
+          started_at?: string | null
+          status?: string
+          trigger_source?: string
+          updated_at?: string
+        }
+        Update: {
+          attempt_no?: number
+          created_at?: string
+          error_message?: string | null
+          finished_at?: string | null
+          id?: string
+          market?: string
+          max_attempts?: number
+          next_retry_at?: string | null
+          parent_attempt_id?: string | null
+          response?: Json | null
+          root_attempt_id?: string | null
+          run_id?: string | null
+          scheduled_at?: string
+          started_at?: string | null
+          status?: string
+          trigger_source?: string
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "publish_batch_attempts_parent_attempt_id_fkey"
+            columns: ["parent_attempt_id"]
+            isOneToOne: false
+            referencedRelation: "publish_batch_attempts"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       referral_attributions: {
         Row: {
           created_at: string
@@ -5350,6 +5418,28 @@ export type Database = {
         Returns: Json
       }
       get_public_experts_list: { Args: never; Returns: Json }
+      get_publish_batch_attempts: {
+        Args: { _limit?: number }
+        Returns: {
+          attempt_no: number
+          created_at: string
+          duration_ms: number
+          error_message: string
+          finished_at: string
+          id: string
+          market: string
+          max_attempts: number
+          next_retry_at: string
+          parent_attempt_id: string
+          response: Json
+          root_attempt_id: string
+          run_id: string
+          scheduled_at: string
+          started_at: string
+          status: string
+          trigger_source: string
+        }[]
+      }
       get_publish_batch_runs: {
         Args: { _limit?: number }
         Returns: {
