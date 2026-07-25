@@ -125,12 +125,6 @@ export default function PublishBatchStatusPage() {
     },
     onError: (e: any) => toast.error(`觸發失敗：${e?.message || e}`),
   });
-        { description: data?.runId ? `runId ${data.runId}` : undefined },
-      );
-      qc.invalidateQueries({ queryKey: ['company', 'publish-batch'] });
-    },
-    onError: (e: any) => toast.error(`觸發失敗：${e?.message || e}`),
-  });
 
   const rows = useMemo(() => {
     const all = statusQ.data ?? [];
