@@ -1028,6 +1028,27 @@ export type Database = {
         }
         Relationships: []
       }
+      cron_dispatch_log: {
+        Row: {
+          dispatched_at: string
+          id: number
+          jobname: string
+          request_id: number | null
+        }
+        Insert: {
+          dispatched_at?: string
+          id?: number
+          jobname: string
+          request_id?: number | null
+        }
+        Update: {
+          dispatched_at?: string
+          id?: number
+          jobname?: string
+          request_id?: number | null
+        }
+        Relationships: []
+      }
       crypto_symbol_map: {
         Row: {
           binance_pair: string | null
@@ -5365,6 +5386,32 @@ export type Database = {
           updated_at: string
         }[]
       }
+      get_cron_job_runs: {
+        Args: { _jobnames?: string[]; _limit?: number }
+        Returns: {
+          cron_status: string
+          end_time: string
+          http_duration_ms: number
+          http_error: string
+          http_response_snippet: string
+          http_status: number
+          jobname: string
+          request_id: number
+          return_message: string
+          runid: number
+          sql_duration_ms: number
+          start_time: string
+        }[]
+      }
+      get_cron_jobs: {
+        Args: never
+        Returns: {
+          active: boolean
+          jobid: number
+          jobname: string
+          schedule: string
+        }[]
+      }
       get_event_heatmap: {
         Args: { _from: string; _to: string }
         Returns: {
@@ -5588,6 +5635,7 @@ export type Database = {
             }[]
           }
       prune_bsr_sync_queue: { Args: never; Returns: number }
+      prune_cron_dispatch_log: { Args: never; Returns: undefined }
       purge_expired_bsr_reservations: {
         Args: { _api?: string }
         Returns: {

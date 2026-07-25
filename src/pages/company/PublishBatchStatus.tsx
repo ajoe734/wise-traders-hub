@@ -59,6 +59,21 @@ type AttemptRow = {
   created_at: string;
 };
 
+type CronRunRow = {
+  jobname: string;
+  runid: number;
+  cron_status: string;
+  return_message: string | null;
+  start_time: string;
+  end_time: string;
+  sql_duration_ms: number | null;
+  request_id: number | null;
+  http_status: number | null;
+  http_error: string | null;
+  http_response_snippet: string | null;
+  http_duration_ms: number | null;
+};
+
 const fmtDateTime = (iso: string | null) => {
   if (!iso) return '—';
   const d = new Date(iso);
@@ -101,6 +116,17 @@ export default function PublishBatchStatusPage() {
       const { data, error } = await (supabase as any).rpc('get_publish_batch_attempts', { _limit: 80 });
       if (error) throw error;
       return (data || []) as AttemptRow[];
+    },
+  });
+
+  const cronQ = useQuery({
+    queryKey: ['company', 'publish-batch', 'cron-runs'],
+    staleTime: 10_000,
+    refetchInterval: 30_000,
+    queryFn: async () => {
+      const { data, error } = await (supabase as any).rpc('get_cron_job_runs', { _limit: 60 });
+      if (error) throw error;
+      return (data || []) as CronRunRow[];
     },
   });
 
@@ -396,6 +422,98 @@ export default function PublishBatchStatusPage() {
                         </td>
                       </tr>
                     ))}
+                  </tbody>
+                </table>
+              </div>
+            </CardContent>
+          </Card>
+        </section>
+
+        {/* pg_cron job_run_details */}
+        <section>
+          <div className="flex items-end justify-between mb-2">
+            <div>
+              <h2 className="text-sm font-semibold text-foreground/80">pg_cron 排程執行紀錄</h2>
+              <p className="text-xs text-muted-foreground mt-1">
+                來自 <code>cron.job_run_details</code>，並串接 <code>net._http_response</code> 顯示實際 HTTP 狀態與耗時。
+                cron_status 是 SQL 本身結果；http_status 才是 Edge Function 真正回應。
+              </p>
+            </div>
+            <Button size="sm" variant="ghost" onClick={() => cronQ.refetch()}>
+              <RefreshCw className="w-4 h-4 mr-1" /> 重新整理
+            </Button>
+          </div>
+          <Card>
+            <CardContent className="p-0">
+              <div className="overflow-x-auto">
+                <table className="w-full text-sm">
+                  <thead className="bg-muted/40 text-foreground/70">
+                    <tr>
+                      <th className="text-left px-3 py-2 font-medium">開始時間</th>
+                      <th className="text-left px-3 py-2 font-medium">Job</th>
+                      <th className="text-left px-3 py-2 font-medium">cron</th>
+                      <th className="text-right px-3 py-2 font-medium">SQL 耗時</th>
+                      <th className="text-left px-3 py-2 font-medium">HTTP</th>
+                      <th className="text-right px-3 py-2 font-medium">HTTP 耗時</th>
+                      <th className="text-left px-3 py-2 font-medium">回應 / 錯誤</th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {cronQ.isLoading && (
+                      <tr><td colSpan={7} className="px-3 py-6 text-center text-muted-foreground">載入中…</td></tr>
+                    )}
+                    {!cronQ.isLoading && (cronQ.data ?? []).length === 0 && (
+                      <tr><td colSpan={7} className="px-3 py-6 text-center text-muted-foreground">尚無執行紀錄。</td></tr>
+                    )}
+                    {(cronQ.data ?? []).map((r) => {
+                      const httpOk = r.http_status != null && r.http_status >= 200 && r.http_status < 300;
+                      const httpTone =
+                        r.http_status == null && r.http_error == null
+                          ? 'bg-amber-500/10 text-amber-700 border-amber-500/30'
+                          : httpOk
+                          ? 'bg-emerald-500/10 text-emerald-700 border-emerald-500/30'
+                          : 'bg-red-500/10 text-red-700 border-red-500/30';
+                      const httpLabel =
+                        r.http_error ? `err` : r.http_status != null ? String(r.http_status) : '等待中';
+                      return (
+                        <tr key={`${r.jobname}-${r.runid}`} className="border-t border-border/60 align-top">
+                          <td className="px-3 py-2 whitespace-nowrap text-muted-foreground">{fmtDateTime(r.start_time)}</td>
+                          <td className="px-3 py-2 font-mono text-xs">{r.jobname}</td>
+                          <td className="px-3 py-2">
+                            <Badge
+                              variant="outline"
+                              className={
+                                r.cron_status === 'succeeded'
+                                  ? 'bg-emerald-500/10 text-emerald-700 border-emerald-500/30'
+                                  : 'bg-red-500/10 text-red-700 border-red-500/30'
+                              }
+                            >
+                              {r.cron_status}
+                            </Badge>
+                          </td>
+                          <td className="px-3 py-2 text-right tabular-nums text-muted-foreground">
+                            {r.sql_duration_ms != null ? `${r.sql_duration_ms} ms` : '—'}
+                          </td>
+                          <td className="px-3 py-2">
+                            <Badge variant="outline" className={httpTone}>{httpLabel}</Badge>
+                          </td>
+                          <td className="px-3 py-2 text-right tabular-nums text-muted-foreground">
+                            {r.http_duration_ms != null ? `${(r.http_duration_ms / 1000).toFixed(2)}s` : '—'}
+                          </td>
+                          <td className="px-3 py-2 max-w-[420px]">
+                            {r.http_error ? (
+                              <div className="text-xs text-red-700 line-clamp-2 break-words">{r.http_error}</div>
+                            ) : r.http_response_snippet ? (
+                              <div className="text-xs text-foreground/70 line-clamp-2 break-words font-mono">
+                                {r.http_response_snippet}
+                              </div>
+                            ) : (
+                              <span className="text-xs text-muted-foreground">—</span>
+                            )}
+                          </td>
+                        </tr>
+                      );
+                    })}
                   </tbody>
                 </table>
               </div>
