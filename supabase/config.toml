@@ -158,3 +158,9 @@ verify_jwt = false
 
 [functions.tw-ocr-replay]
 verify_jwt = false
+
+[functions.publish-weekly-journals-runner]
+verify_jwt = false
+
+[functions.publish-weekly-journals-watchdog]
+verify_jwt = false
