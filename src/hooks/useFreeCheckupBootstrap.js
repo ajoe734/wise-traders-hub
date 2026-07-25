@@ -114,7 +114,10 @@ export function useFreeCheckupBootstrap({
         setLocalStorageOwner("demo");
         // DEMO_HOLDINGS 已經在 demoData.js 補上 yesterday / todayPnl / todayPct / priceSource='demo'，
         // 使用它而不是 SEED_HOLDINGS，才能確保 HoldingCard 一開始就能顯示 TODAY 欄位與 chip title 的「昨收 X」。
-        setHoldings(DEMO_HOLDINGS);
+        // 用最新收盤價 hydrate demo（讓訪客看到的持倉價與真實收盤一致）
+        const hydratedHoldings = await hydrateDemoHoldingsWithClosePrices(DEMO_HOLDINGS);
+        if (cancelled) return;
+        setHoldings(hydratedHoldings);
         setTradeLog(DEMO_TRADE_LOG);
         setTargets(INIT_TARGETS);
         setNewsEvents(DEMO_EVENTS);
