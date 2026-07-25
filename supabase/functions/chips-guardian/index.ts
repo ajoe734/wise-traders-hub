@@ -206,23 +206,40 @@ async function ruleSloBudgetAdjust(supa: any): Promise<Action[]> {
   const actions: Action[] = [];
   const { data: pools } = await supa
     .from('finmind_quota_pools')
-    .select('pool_name, daily_budget, capacity');
+    .select('pool_name, daily_budget, capacity, base_daily_budget, slo_boost_until, manual_override');
+  const nowIso = new Date().toISOString();
   for (const pool of (pools ?? []) as any[]) {
     // interactive 永遠優先，不動它
     if (pool.pool_name === 'interactive') continue;
+    if (pool.manual_override) continue; // 尊重人工鎖定
     const stat = await fetchRejectStats(supa, pool.pool_name, SLO_ADJUST_WINDOW_MIN);
     if (stat.total < SLO_SAMPLE_MIN) continue;
 
-    const baseCapacity = Number(pool.capacity ?? pool.daily_budget);
+    const baseCapacity = Number(pool.base_daily_budget ?? pool.capacity ?? pool.daily_budget);
     let targetBudget = pool.daily_budget;
+    let boostUntil = pool.slo_boost_until;
+
     if (stat.rate >= SLO_TIGHTEN_THRESHOLD) {
       targetBudget = Math.max(Math.floor(baseCapacity * SLO_MIN_MULTIPLIER), Math.floor(pool.daily_budget * 0.8));
+      boostUntil = null; // 收斂時清除 boost
     } else if (stat.rate <= SLO_RELAX_THRESHOLD) {
       targetBudget = Math.min(Math.floor(baseCapacity * SLO_MAX_MULTIPLIER), Math.floor(pool.daily_budget * 1.25));
+      // 放寬時，若拉到 base 之上，設 2 小時 boost 期限，避免永久放行
+      if (targetBudget > baseCapacity) {
+        boostUntil = new Date(Date.now() + 2 * 3600 * 1000).toISOString();
+      }
     }
-    if (targetBudget !== pool.daily_budget) {
+
+    // Boost 到期自動回落到 base
+    if (pool.slo_boost_until && new Date(pool.slo_boost_until).getTime() < Date.now()
+        && pool.daily_budget > baseCapacity) {
+      targetBudget = baseCapacity;
+      boostUntil = null;
+    }
+
+    if (targetBudget !== pool.daily_budget || boostUntil !== pool.slo_boost_until) {
       await supa.from('finmind_quota_pools')
-        .update({ daily_budget: targetBudget, updated_at: new Date().toISOString() })
+        .update({ daily_budget: targetBudget, slo_boost_until: boostUntil, updated_at: nowIso })
         .eq('pool_name', pool.pool_name);
       actions.push({
         kind: 'alert',
@@ -234,18 +251,53 @@ async function ruleSloBudgetAdjust(supa: any): Promise<Action[]> {
   return actions;
 }
 
+// Phase-2: 上游配額低於門檻時主動降 keepwarm/backfill 速率
+const UPSTREAM_LOW_THRESHOLD = 100;
+async function ruleUpstreamQuotaLow(supa: any): Promise<Action[]> {
+  const actions: Action[] = [];
+  const { data } = await supa
+    .from('data_source_health')
+    .select('source, upstream_quota_remaining')
+    .in('source', ['finmind_bsr', 'finmind_institutional']);
+  const low = (data ?? []).find((r: any) =>
+    r.upstream_quota_remaining != null && r.upstream_quota_remaining < UPSTREAM_LOW_THRESHOLD
+  );
+  if (!low) return actions;
+
+  const code = 'guardian_upstream_quota_low';
+  if (await alreadyAlerted(supa, code)) return actions;
+
+  // 把 keepwarm/backfill 的 refill_per_min 降到 30%
+  const { data: pools } = await supa
+    .from('finmind_quota_pools')
+    .select('pool_name, refill_per_min')
+    .in('pool_name', ['keepwarm', 'backfill']);
+  for (const p of (pools ?? []) as any[]) {
+    const throttled = Math.max(0.1, Number(p.refill_per_min) * 0.3);
+    await supa.from('finmind_quota_pools')
+      .update({ refill_per_min: throttled, updated_at: new Date().toISOString() })
+      .eq('pool_name', p.pool_name);
+  }
+  await writeAlert(supa, code, 'warning',
+    `上游 ${low.source} 剩餘配額 ${low.upstream_quota_remaining}，keepwarm/backfill 補充速率暫降 30%`,
+    { source: low.source, remaining: low.upstream_quota_remaining });
+  actions.push({ kind: 'alert', reason: 'upstream_quota_low', root_cause: `remaining_${low.upstream_quota_remaining}` });
+  return actions;
+}
+
 Deno.serve(async (req) => {
   if (req.method === 'OPTIONS') return new Response('ok', { headers: corsHeaders });
   const supa = createClient(SUPABASE_URL, SERVICE_KEY, {
     auth: { persistSession: false, autoRefreshToken: false },
   });
   try {
-    const [a1, a2, a3] = await Promise.all([
+    const [a1, a2, a3, a4] = await Promise.all([
       ruleCircuitLongOpen(supa),
       ruleQuotaRejectRate(supa),
       ruleSloBudgetAdjust(supa),
+      ruleUpstreamQuotaLow(supa),
     ]);
-    const actions = [...a1, ...a2, ...a3];
+    const actions = [...a1, ...a2, ...a3, ...a4];
     return new Response(JSON.stringify({ ok: true, actions, ran_at: new Date().toISOString() }),
       { headers: { ...corsHeaders, 'Content-Type': 'application/json' } });
   } catch (e) {
@@ -254,3 +306,4 @@ Deno.serve(async (req) => {
       { status: 500, headers: { ...corsHeaders, 'Content-Type': 'application/json' } });
   }
 });
+
