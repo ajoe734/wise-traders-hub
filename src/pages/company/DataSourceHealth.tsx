@@ -30,14 +30,15 @@ type PoolRow = {
   pool_name: string;
   daily_budget: number;
   used_today: number;
-  window_start_at: string;
-  updated_at: string;
+  reset_at?: string | null;
+  updated_at?: string | null;
+  last_reject_reason?: string | null;
 };
 
 type SwitchRow = {
   key: string;
   enabled: boolean;
-  description: string | null;
+  description?: string | null;
   disabled_reason: string | null;
   disabled_at: string | null;
   auto_trigger_metric: string | null;
