@@ -2233,34 +2233,76 @@ export type Database = {
       }
       finmind_quota_pools: {
         Row: {
+          borrow_enabled: boolean
+          capacity: number | null
           daily_budget: number
+          last_refill_at: string
           last_reject_at: string | null
           last_reject_reason: string | null
           pool_name: string
           priority: number
+          refill_per_min: number
           reset_at: string
+          tokens: number | null
           updated_at: string
           used_today: number
         }
         Insert: {
+          borrow_enabled?: boolean
+          capacity?: number | null
           daily_budget?: number
+          last_refill_at?: string
           last_reject_at?: string | null
           last_reject_reason?: string | null
           pool_name: string
           priority?: number
+          refill_per_min?: number
           reset_at?: string
+          tokens?: number | null
           updated_at?: string
           used_today?: number
         }
         Update: {
+          borrow_enabled?: boolean
+          capacity?: number | null
           daily_budget?: number
+          last_refill_at?: string
           last_reject_at?: string | null
           last_reject_reason?: string | null
           pool_name?: string
           priority?: number
+          refill_per_min?: number
           reset_at?: string
+          tokens?: number | null
           updated_at?: string
           used_today?: number
+        }
+        Relationships: []
+      }
+      finmind_upstream_quota: {
+        Row: {
+          observed_at: string
+          quota_limit: number | null
+          raw: Json | null
+          remaining: number | null
+          reset_at: string | null
+          source: string
+        }
+        Insert: {
+          observed_at?: string
+          quota_limit?: number | null
+          raw?: Json | null
+          remaining?: number | null
+          reset_at?: string | null
+          source: string
+        }
+        Update: {
+          observed_at?: string
+          quota_limit?: number | null
+          raw?: Json | null
+          remaining?: number | null
+          reset_at?: string | null
+          source?: string
         }
         Relationships: []
       }
@@ -5471,6 +5513,16 @@ export type Database = {
         Args: {
           _cost?: number
           _kind?: string
+          _pool: string
+          _stock_id?: string
+        }
+        Returns: Json
+      }
+      finmind_admit_v2: {
+        Args: {
+          _allow_borrow?: boolean
+          _cost?: number
+          _kind: string
           _pool: string
           _stock_id?: string
         }

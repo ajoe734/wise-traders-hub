@@ -34,6 +34,8 @@ export interface AdmitResult {
   reason: string;
   remaining?: number;
   reset_at?: string;
+  /** Phase-2: 若本次為向低優先權借額度，填入來源 pool。 */
+  borrowed_from?: FinmindPool;
 }
 
 async function writeRejectLedger(
@@ -77,25 +79,30 @@ export async function admitFinmind(supa: any, input: AdmitInput): Promise<AdmitR
     }
   }
 
-  // 3. Quota admission RPC
+  // 3. Quota admission RPC — Phase-2 使用 token bucket + 借用邏輯的 v2
   try {
-    const { data, error } = await supa.rpc('finmind_admit', {
+    const { data, error } = await supa.rpc('finmind_admit_v2', {
       _pool: pool,
       _kind: input.kind,
       _stock_id: input.stockId ?? null,
       _cost: input.cost ?? 1,
+      _allow_borrow: pool === 'interactive',
     });
     if (error) {
-      console.warn('[admission] rpc error:', error.message, 'failOpen=', failOpen);
+      console.warn('[admission] rpc v2 error:', error.message, 'failOpen=', failOpen);
       await writeRejectLedger(supa, pool, input.kind, input.stockId, 'admission_rpc_error');
       return { granted: failOpen, reason: 'admission_rpc_error' };
     }
     const obj = (data ?? {}) as Record<string, unknown>;
+    const borrowedFrom = typeof obj.borrowed_from === 'string'
+      ? (obj.borrowed_from as FinmindPool)
+      : undefined;
     return {
       granted: Boolean(obj.granted),
       reason: String(obj.reason ?? 'unknown'),
       remaining: typeof obj.remaining === 'number' ? obj.remaining : undefined,
       reset_at: typeof obj.reset_at === 'string' ? obj.reset_at : undefined,
+      borrowed_from: borrowedFrom,
     };
   } catch (e) {
     console.warn('[admission] exception:', (e as Error).message, 'failOpen=', failOpen);

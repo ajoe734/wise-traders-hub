@@ -192,17 +192,60 @@ async function ruleQuotaRejectRate(supa: any): Promise<Action[]> {
   return actions;
 }
 
+// Phase-2: SLO-driven budget adjustment
+// 依過去 30 分鐘拒絕率動態調整 daily_budget（在 [50%, 200%] 之間），
+// 讓 keepwarm/backfill 遇到冷門時段自動放寬、遇到打太重時自動收斂。
+const SLO_ADJUST_WINDOW_MIN = 30;
+const SLO_SAMPLE_MIN = 30;
+const SLO_TIGHTEN_THRESHOLD = 0.5;   // reject > 50% → 收
+const SLO_RELAX_THRESHOLD = 0.05;    // reject < 5% → 放
+const SLO_MIN_MULTIPLIER = 0.5;
+const SLO_MAX_MULTIPLIER = 2.0;
+
+async function ruleSloBudgetAdjust(supa: any): Promise<Action[]> {
+  const actions: Action[] = [];
+  const { data: pools } = await supa
+    .from('finmind_quota_pools')
+    .select('pool_name, daily_budget, capacity');
+  for (const pool of (pools ?? []) as any[]) {
+    // interactive 永遠優先，不動它
+    if (pool.pool_name === 'interactive') continue;
+    const stat = await fetchRejectStats(supa, pool.pool_name, SLO_ADJUST_WINDOW_MIN);
+    if (stat.total < SLO_SAMPLE_MIN) continue;
+
+    const baseCapacity = Number(pool.capacity ?? pool.daily_budget);
+    let targetBudget = pool.daily_budget;
+    if (stat.rate >= SLO_TIGHTEN_THRESHOLD) {
+      targetBudget = Math.max(Math.floor(baseCapacity * SLO_MIN_MULTIPLIER), Math.floor(pool.daily_budget * 0.8));
+    } else if (stat.rate <= SLO_RELAX_THRESHOLD) {
+      targetBudget = Math.min(Math.floor(baseCapacity * SLO_MAX_MULTIPLIER), Math.floor(pool.daily_budget * 1.25));
+    }
+    if (targetBudget !== pool.daily_budget) {
+      await supa.from('finmind_quota_pools')
+        .update({ daily_budget: targetBudget, updated_at: new Date().toISOString() })
+        .eq('pool_name', pool.pool_name);
+      actions.push({
+        kind: 'alert',
+        reason: `slo_adjust_${pool.pool_name}_${pool.daily_budget}->${targetBudget}`,
+        root_cause: `reject_${(stat.rate * 100).toFixed(0)}pct_over_${stat.total}`,
+      });
+    }
+  }
+  return actions;
+}
+
 Deno.serve(async (req) => {
   if (req.method === 'OPTIONS') return new Response('ok', { headers: corsHeaders });
   const supa = createClient(SUPABASE_URL, SERVICE_KEY, {
     auth: { persistSession: false, autoRefreshToken: false },
   });
   try {
-    const [a1, a2] = await Promise.all([
+    const [a1, a2, a3] = await Promise.all([
       ruleCircuitLongOpen(supa),
       ruleQuotaRejectRate(supa),
+      ruleSloBudgetAdjust(supa),
     ]);
-    const actions = [...a1, ...a2];
+    const actions = [...a1, ...a2, ...a3];
     return new Response(JSON.stringify({ ok: true, actions, ran_at: new Date().toISOString() }),
       { headers: { ...corsHeaders, 'Content-Type': 'application/json' } });
   } catch (e) {

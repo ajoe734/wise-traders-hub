@@ -15,6 +15,7 @@ import "jsr:@supabase/functions-js/edge-runtime.d.ts";
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2.45.4";
 import { corsPreflight, jsonResponse, errorResponse } from "../_shared/cors.ts";
 import { cacheGet, cacheSet } from "../_shared/memoryCache.ts";
+import { coalesce } from "../_shared/requestCoalescer.ts";
 import {
   computeBsrWindow,
   countRowsByDate,
@@ -74,7 +75,8 @@ Deno.serve(async (req) => {
         _cache_meta: { cache: 'hit', stamp_ver: stampVer, served_at: new Date().toISOString() },
       });
     }
-
+    // Phase-2: Request Coalescing — 同 isolate 內同 key 的並發只算一次
+    const payload = await coalesce(cacheKey, async () => {
     // ==== 三大法人 1/5/20/60 日 ====
     const { data: instRows, error: instErr } = await supa
       .from("tw_institutional_daily")
@@ -430,7 +432,7 @@ Deno.serve(async (req) => {
       });
     }
 
-    const payload = {
+    const result = {
       stock_id: stockId,
       as_of: asOfDate,
       as_of_lag_days: asOfLagDays,
@@ -463,7 +465,10 @@ Deno.serve(async (req) => {
       fetched_at: new Date().toISOString(),
     };
 
-    cacheSet(cacheKey, payload, CACHE_TTL_MS);
+      cacheSet(cacheKey, result, CACHE_TTL_MS);
+      return result;
+    });
+
     return jsonResponse({
       ...payload,
       _cache_meta: { cache: 'miss', stamp_ver: stampVer, served_at: new Date().toISOString() },

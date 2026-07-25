@@ -142,6 +142,11 @@ async function fetchFinmindOneDay(
     const res = await fetchWithRateLimit(supa, `${FINMIND_URL}?${p}`, {
       signal: AbortSignal.timeout(20_000),
     }, { correlationId: cid, tier });
+    // Phase-2: 上游配額 header 觀察
+    try {
+      const { recordUpstreamQuota } = await import('../_shared/finmindUpstreamQuota.ts');
+      await recordUpstreamQuota(supa, 'finmind_bsr', res);
+    } catch { /* non-fatal */ }
     const text = await res.text();
     if (!res.ok) {
       await recordCircuit(supa, 'finmind_bsr', false, Date.now() - t0, `http_${res.status}`);
