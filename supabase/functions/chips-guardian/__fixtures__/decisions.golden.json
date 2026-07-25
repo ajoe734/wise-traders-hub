@@ -19,7 +19,6 @@
       "expected": {
         "changed": false,
         "targetBudget": 5000,
-        "newBoostUntilMs": null,
         "reason": "skipped_interactive"
       }
     },
@@ -38,7 +37,6 @@
       "expected": {
         "changed": false,
         "targetBudget": 1000,
-        "newBoostUntilMs": null,
         "reason": "skipped_manual_override"
       }
     },
@@ -57,7 +55,6 @@
       "expected": {
         "changed": false,
         "targetBudget": 1000,
-        "newBoostUntilMs": null,
         "reason": "skipped_undersampled"
       }
     },
@@ -95,7 +92,6 @@
       "expected": {
         "changed": false,
         "targetBudget": 500,
-        "newBoostUntilMs": null,
         "reason": "noop"
       }
     },
@@ -114,7 +110,6 @@
       "expected": {
         "changed": true,
         "targetBudget": 750,
-        "newBoostUntilMs": null,
         "reason": "relax_within_base"
       }
     },
@@ -162,8 +157,14 @@
       "name": "all_above_threshold",
       "input": {
         "sources": [
-          { "source": "finmind_bsr", "upstream_quota_remaining": 500 },
-          { "source": "finmind_institutional", "upstream_quota_remaining": 200 }
+          {
+            "source": "finmind_bsr",
+            "upstream_quota_remaining": 500
+          },
+          {
+            "source": "finmind_institutional",
+            "upstream_quota_remaining": 200
+          }
         ]
       },
       "expected": {
@@ -176,8 +177,14 @@
       "name": "null_remaining_ignored",
       "input": {
         "sources": [
-          { "source": "finmind_bsr", "upstream_quota_remaining": null },
-          { "source": "finmind_institutional", "upstream_quota_remaining": 300 }
+          {
+            "source": "finmind_bsr",
+            "upstream_quota_remaining": null
+          },
+          {
+            "source": "finmind_institutional",
+            "upstream_quota_remaining": 300
+          }
         ]
       },
       "expected": {
@@ -190,8 +197,14 @@
       "name": "one_below_default_threshold",
       "input": {
         "sources": [
-          { "source": "finmind_bsr", "upstream_quota_remaining": 50 },
-          { "source": "finmind_institutional", "upstream_quota_remaining": 300 }
+          {
+            "source": "finmind_bsr",
+            "upstream_quota_remaining": 50
+          },
+          {
+            "source": "finmind_institutional",
+            "upstream_quota_remaining": 300
+          }
         ]
       },
       "expected": {
@@ -206,7 +219,10 @@
       "name": "custom_threshold_triggers",
       "input": {
         "sources": [
-          { "source": "finmind_bsr", "upstream_quota_remaining": 150 }
+          {
+            "source": "finmind_bsr",
+            "upstream_quota_remaining": 150
+          }
         ],
         "threshold": 200
       },
