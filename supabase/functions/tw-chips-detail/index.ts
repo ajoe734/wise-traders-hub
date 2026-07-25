@@ -226,6 +226,17 @@ Deno.serve(async (req) => {
       .sort((a, b) => a.date.localeCompare(b.date));
 
     const asOfDate = instAll[0]?.trade_date || null;
+
+    // PR-5：新股 fast-lane — 若三大法人完全無資料（可能是新掛牌或觀察名單新股），
+    // 且 stock_id 是 4 位純數字（排除權證/ETF+字母後綴），best-effort 觸發入列。
+    // 入列 RPC 內部會檢查 fastlane flag 與每日上限，這裡不做二次守門。
+    if (!asOfDate && /^[1-9]\d{3}$/.test(stockId)) {
+      supa.rpc("enqueue_institutional_new_stock", { _stock_id: stockId })
+        .then(({ error }) => {
+          if (error) console.warn("[chips-detail] fastlane enqueue failed:", error.message);
+        });
+    }
+
     // 三大法人的 lag 沿用日曆日；BSR 的 lag 改用 weekday。
     const todayTPE = new Date(
       new Intl.DateTimeFormat("en-CA", {

@@ -675,6 +675,64 @@ Deno.serve(async (req) => {
           return errorResponse((err as Error).message, 502, { code: "FINMIND_ERROR" });
         }
       }
+
+      // === Mode: fastlane ===（PR-5 新股 fast-lane worker；每次批次處理 pending，最多 N 檔）
+      if (body?.mode === "fastlane") {
+        const batch = Math.min(Math.max(Number(body.batch) || 5, 1), 20);
+        const days = Math.min(Math.max(Number(body.days) || 60, 1), 90);
+        const budgetMs = Math.min(Math.max(Number(body.time_budget_ms) || 45000, 5000), 60000);
+        const supa = createClient(SUPABASE_URL, SERVICE_ROLE_KEY, { auth: { persistSession: false } });
+
+        // 讀 flag 短路
+        const { data: cfgRow } = await supa
+          .from("tw_bsr_sync_config").select("config").eq("key", "fastlane_enabled").maybeSingle();
+        const cfg = (cfgRow?.config ?? {}) as { enabled?: boolean };
+        if (cfg.enabled !== true && body.force !== true) {
+          return jsonResponse({ ok: true, mode: "fastlane", skipped: true, reason: "flag_disabled" });
+        }
+
+        const start = Date.now();
+        const results: Array<Record<string, unknown>> = [];
+        for (let i = 0; i < batch; i++) {
+          if (Date.now() - start > budgetMs) break;
+          const { data: claimRows, error: claimErr } = await supa
+            .rpc("claim_institutional_new_stock", { _lease_seconds: 90 });
+          if (claimErr) {
+            results.push({ ok: false, reason: `claim_error:${claimErr.message}` });
+            break;
+          }
+          const claim = Array.isArray(claimRows) ? claimRows[0] : claimRows;
+          if (!claim) break; // no more pending
+          const stockId = String(claim.stock_id);
+          const attempts = Number(claim.attempts);
+          const t0 = Date.now();
+          try {
+            const res = await backfillStockViaFinmind(supa, stockId, days);
+            await supa.from("institutional_new_stock_queue").update({
+              status: "done", last_error: null, updated_at: new Date().toISOString(),
+            }).eq("id", claim.id);
+            await recordSourceHealth(supa, "finmind", true, Date.now() - t0);
+            results.push({ ok: true, stock_id: stockId, attempts, ...res });
+          } catch (err) {
+            const msg = (err as Error).message.slice(0, 200);
+            const isDead = attempts >= 4;
+            // 退避：1st→5min, 2nd→15min, 3rd→60min, 4th→dead
+            const backoffMin = attempts <= 1 ? 5 : attempts === 2 ? 15 : 60;
+            await supa.from("institutional_new_stock_queue").update({
+              status: isDead ? "dead" : "pending",
+              last_error: msg,
+              next_attempt_at: isDead ? null : new Date(Date.now() + backoffMin * 60_000).toISOString(),
+              updated_at: new Date().toISOString(),
+            }).eq("id", claim.id);
+            await recordSourceHealth(supa, "finmind", false, Date.now() - t0, "backfill_error");
+            results.push({ ok: false, stock_id: stockId, attempts, error: msg, next_in_min: isDead ? null : backoffMin });
+          }
+        }
+        return jsonResponse({
+          ok: true, mode: "fastlane", processed: results.length,
+          elapsed_ms: Date.now() - start, results,
+        });
+      }
     }
 
     const requestedDate = url.searchParams.get("date") || taipeiToday();
