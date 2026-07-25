@@ -1,0 +1,75 @@
+name: FinMind Admit SQL Contract (non-required)
+
+# PR-10: SQL 契約測試 — apply 整個 migrations 目錄，然後跑 supabase/tests/*.sql
+# 起始為 non-required；晉升條件：連續 3 週工作日 100% pass 且無 flaky retry。
+# 詳見 docs/ops/chips-pipeline-runbook.md §5。
+
+on:
+  push:
+    branches: [main, 'feat/**', 'fix/**']
+    paths:
+      - 'supabase/migrations/**'
+      - 'supabase/tests/finmind_admit_v2_test.sql'
+      - '.github/workflows/finmind-admit-sql-tests.yml'
+  pull_request:
+    branches: [main]
+    paths:
+      - 'supabase/migrations/**'
+      - 'supabase/tests/finmind_admit_v2_test.sql'
+      - '.github/workflows/finmind-admit-sql-tests.yml'
+  workflow_dispatch:
+
+concurrency:
+  group: finmind-admit-sql-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  sql-contract:
+    name: finmind_admit_v2 contract
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    services:
+      postgres:
+        image: postgres:15
+        env:
+          POSTGRES_PASSWORD: postgres
+          POSTGRES_DB: test
+        ports:
+          - 5432:5432
+        options: >-
+          --health-cmd "pg_isready -U postgres"
+          --health-interval 5s
+          --health-timeout 5s
+          --health-retries 10
+    env:
+      PGHOST: localhost
+      PGPORT: 5432
+      PGUSER: postgres
+      PGPASSWORD: postgres
+      PGDATABASE: test
+    steps:
+      - uses: actions/checkout@v4
+      - name: Install psql client
+        run: sudo apt-get update && sudo apt-get install -y postgresql-client
+      - name: Bootstrap extensions & auth stub
+        run: |
+          psql -c "CREATE EXTENSION IF NOT EXISTS pgcrypto;"
+          psql -c "CREATE EXTENSION IF NOT EXISTS pg_trgm;"
+          psql -c "CREATE SCHEMA IF NOT EXISTS auth;"
+          # 最小 auth.users 表，避免 migration 中的 FK 失敗
+          psql -c "CREATE TABLE IF NOT EXISTS auth.users (id uuid PRIMARY KEY DEFAULT gen_random_uuid(), email text);"
+          psql -c "CREATE OR REPLACE FUNCTION auth.uid() RETURNS uuid LANGUAGE sql STABLE AS \$\$ SELECT NULL::uuid \$\$;"
+          # 三大 role 建立（RLS policies 引用）
+          psql -c "DO \$\$ BEGIN IF NOT EXISTS (SELECT 1 FROM pg_roles WHERE rolname = 'anon') THEN CREATE ROLE anon NOLOGIN; END IF; END \$\$;"
+          psql -c "DO \$\$ BEGIN IF NOT EXISTS (SELECT 1 FROM pg_roles WHERE rolname = 'authenticated') THEN CREATE ROLE authenticated NOLOGIN; END IF; END \$\$;"
+          psql -c "DO \$\$ BEGIN IF NOT EXISTS (SELECT 1 FROM pg_roles WHERE rolname = 'service_role') THEN CREATE ROLE service_role NOLOGIN BYPASSRLS; END IF; END \$\$;"
+      - name: Apply all migrations in filename order
+        run: |
+          # 依 filename 排序 apply；container test 環境接受部分 migration 對 auth/storage 的引用可能 skip。
+          # ON_ERROR_STOP=1 遇錯即停；缺依賴會立刻暴露。
+          for f in $(ls supabase/migrations/*.sql | sort); do
+            echo "==> $f"
+            psql -v ON_ERROR_STOP=1 -f "$f" || { echo "MIGRATION FAILED: $f"; exit 1; }
+          done
+      - name: Run finmind_admit_v2 contract tests
+        run: psql -v ON_ERROR_STOP=1 -f supabase/tests/finmind_admit_v2_test.sql

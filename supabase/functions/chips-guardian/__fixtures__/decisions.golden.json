@@ -1,0 +1,222 @@
+{
+  "_meta": {
+    "generator": "scripts/record-guardian-golden.mjs",
+    "note": "任何 guardianRules.ts 門檻常數變動 PR 必須重跑腳本並同步 runbook §2 / §6。"
+  },
+  "slo": [
+    {
+      "name": "skip_interactive_pool",
+      "input": {
+        "poolName": "interactive",
+        "currentBudget": 5000,
+        "baseCapacity": 5000,
+        "boostUntilMs": null,
+        "manualOverride": false,
+        "totalSamples": 500,
+        "rejectRate": 0.9,
+        "nowMs": 1737936000000
+      },
+      "expected": {
+        "changed": false,
+        "targetBudget": 5000,
+        "newBoostUntilMs": null,
+        "reason": "skipped_interactive"
+      }
+    },
+    {
+      "name": "skip_manual_override",
+      "input": {
+        "poolName": "keepwarm",
+        "currentBudget": 1000,
+        "baseCapacity": 1000,
+        "boostUntilMs": null,
+        "manualOverride": true,
+        "totalSamples": 300,
+        "rejectRate": 0.9,
+        "nowMs": 1737936000000
+      },
+      "expected": {
+        "changed": false,
+        "targetBudget": 1000,
+        "newBoostUntilMs": null,
+        "reason": "skipped_manual_override"
+      }
+    },
+    {
+      "name": "skip_undersampled",
+      "input": {
+        "poolName": "keepwarm",
+        "currentBudget": 1000,
+        "baseCapacity": 1000,
+        "boostUntilMs": null,
+        "manualOverride": false,
+        "totalSamples": 10,
+        "rejectRate": 0.9,
+        "nowMs": 1737936000000
+      },
+      "expected": {
+        "changed": false,
+        "targetBudget": 1000,
+        "newBoostUntilMs": null,
+        "reason": "skipped_undersampled"
+      }
+    },
+    {
+      "name": "tighten_from_base",
+      "input": {
+        "poolName": "backfill",
+        "currentBudget": 1000,
+        "baseCapacity": 1000,
+        "boostUntilMs": null,
+        "manualOverride": false,
+        "totalSamples": 100,
+        "rejectRate": 0.6,
+        "nowMs": 1737936000000
+      },
+      "expected": {
+        "changed": true,
+        "targetBudget": 800,
+        "newBoostUntilMs": null,
+        "reason": "tighten"
+      }
+    },
+    {
+      "name": "tighten_floor_min_multiplier",
+      "input": {
+        "poolName": "backfill",
+        "currentBudget": 500,
+        "baseCapacity": 1000,
+        "boostUntilMs": null,
+        "manualOverride": false,
+        "totalSamples": 100,
+        "rejectRate": 0.9,
+        "nowMs": 1737936000000
+      },
+      "expected": {
+        "changed": false,
+        "targetBudget": 500,
+        "newBoostUntilMs": null,
+        "reason": "noop"
+      }
+    },
+    {
+      "name": "relax_within_base_from_tightened",
+      "input": {
+        "poolName": "keepwarm",
+        "currentBudget": 600,
+        "baseCapacity": 1000,
+        "boostUntilMs": null,
+        "manualOverride": false,
+        "totalSamples": 200,
+        "rejectRate": 0.02,
+        "nowMs": 1737936000000
+      },
+      "expected": {
+        "changed": true,
+        "targetBudget": 750,
+        "newBoostUntilMs": null,
+        "reason": "relax_within_base"
+      }
+    },
+    {
+      "name": "relax_boost_above_base",
+      "input": {
+        "poolName": "keepwarm",
+        "currentBudget": 1000,
+        "baseCapacity": 1000,
+        "boostUntilMs": null,
+        "manualOverride": false,
+        "totalSamples": 200,
+        "rejectRate": 0.01,
+        "nowMs": 1737936000000
+      },
+      "expected": {
+        "changed": true,
+        "targetBudget": 1250,
+        "newBoostUntilMs": 1737943200000,
+        "reason": "relax_boost"
+      }
+    },
+    {
+      "name": "boost_expired_reset_to_base",
+      "input": {
+        "poolName": "keepwarm",
+        "currentBudget": 1500,
+        "baseCapacity": 1000,
+        "boostUntilMs": 1737900000000,
+        "manualOverride": false,
+        "totalSamples": 200,
+        "rejectRate": 0.2,
+        "nowMs": 1737936000000
+      },
+      "expected": {
+        "changed": true,
+        "targetBudget": 1000,
+        "newBoostUntilMs": null,
+        "reason": "boost_expired_reset"
+      }
+    }
+  ],
+  "upstream": [
+    {
+      "name": "all_above_threshold",
+      "input": {
+        "sources": [
+          { "source": "finmind_bsr", "upstream_quota_remaining": 500 },
+          { "source": "finmind_institutional", "upstream_quota_remaining": 200 }
+        ]
+      },
+      "expected": {
+        "throttle": false,
+        "refillMultiplier": 1,
+        "minRefill": 0.1
+      }
+    },
+    {
+      "name": "null_remaining_ignored",
+      "input": {
+        "sources": [
+          { "source": "finmind_bsr", "upstream_quota_remaining": null },
+          { "source": "finmind_institutional", "upstream_quota_remaining": 300 }
+        ]
+      },
+      "expected": {
+        "throttle": false,
+        "refillMultiplier": 1,
+        "minRefill": 0.1
+      }
+    },
+    {
+      "name": "one_below_default_threshold",
+      "input": {
+        "sources": [
+          { "source": "finmind_bsr", "upstream_quota_remaining": 50 },
+          { "source": "finmind_institutional", "upstream_quota_remaining": 300 }
+        ]
+      },
+      "expected": {
+        "throttle": true,
+        "lowSource": "finmind_bsr",
+        "remaining": 50,
+        "refillMultiplier": 0.3,
+        "minRefill": 0.1
+      }
+    },
+    {
+      "name": "custom_threshold_triggers",
+      "input": {
+        "sources": [
+          { "source": "finmind_bsr", "upstream_quota_remaining": 150 }
+        ],
+        "threshold": 200
+      },
+      "expected": {
+        "throttle": true,
+        "lowSource": "finmind_bsr",
+        "remaining": 150,
+        "refillMultiplier": 0.3,
+        "minRefill": 0.1
+      }
+    }
+  ]
+}
