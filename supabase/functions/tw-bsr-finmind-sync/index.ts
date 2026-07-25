@@ -43,6 +43,7 @@ import {
   probeMarketBatchSupport,
   updateMarketBatchConfig,
 } from '../_shared/finmindMarketBatch.ts';
+import { checkCircuit, recordCircuit } from '../_shared/circuitBreaker.ts';
 
 import {
   fulfillDay,
