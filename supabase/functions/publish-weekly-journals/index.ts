@@ -541,10 +541,10 @@ Deno.serve(withLogging('publish-weekly-journals', async (req) => {
         continue
       }
 
-      // Get expert name
+      // Get expert name + slug（slug 用於通知深連結）
       const { data: expert } = await supabaseAdmin
         .from('experts')
-        .select('name')
+        .select('name, slug')
         .eq('id', expertId)
         .single()
 
