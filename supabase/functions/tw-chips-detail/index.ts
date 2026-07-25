@@ -75,7 +75,8 @@ Deno.serve(async (req) => {
         _cache_meta: { cache: 'hit', stamp_ver: stampVer, served_at: new Date().toISOString() },
       });
     }
-
+    // Phase-2: Request Coalescing — 同 isolate 內同 key 的並發只算一次
+    const payload = await coalesce(cacheKey, async () => {
     // ==== 三大法人 1/5/20/60 日 ====
     const { data: instRows, error: instErr } = await supa
       .from("tw_institutional_daily")
