@@ -2,28 +2,66 @@
 // 目標：透過 mock API 回傳 coalesced=true，確認 ChipsSection header 有 COALESCED 徽章。
 import { test, expect } from '@playwright/test';
 
+const CHIPS_ROUTE = '**/tw-chips-detail**';
+
+function coalescedPayload() {
+  return {
+    stock_id: '2330',
+    as_of: '2026-07-25',
+    institutional: {
+      d1: { foreign_net: 250_000, trust_net: 40_000, dealer_net: -5_000, total_net: 285_000, days_covered: 1 },
+      d5: { foreign_net: 1_200_000, trust_net: 180_000, dealer_net: -20_000, total_net: 1_360_000, days_covered: 5 },
+      d20: { foreign_net: 3_500_000, trust_net: 400_000, dealer_net: -80_000, total_net: 3_820_000, days_covered: 20 },
+      d60: { foreign_net: -1_800_000, trust_net: 600_000, dealer_net: 100_000, total_net: -1_100_000, days_covered: 60 },
+    },
+    bsr: {
+      d5: {
+        top_buy: [{ broker_id: '9800', name: '元大-台北', net: 1_500_000 }],
+        top_sell: [{ broker_id: '8560', name: '新光-城中', net: -1_200_000 }],
+        concentration_ratio: 78,
+      },
+      d20: null,
+      d60: null,
+    },
+    bsr_as_of: '2026-07-24',
+    source: 'TWSE',
+    fetched_at: new Date().toISOString(),
+    coalesced: true,
+  };
+}
+
+function plainPayload() {
+  return { ...coalescedPayload(), coalesced: false };
+}
+
 test.describe('ChipsSection coalesced 徽章', () => {
-  test('coalesced=true 顯示徽章、false/undefined 不顯示', async ({ page }) => {
-    // 這支 spec 依賴 chips demo harness 頁面。若專案未建 harness，
-    // 也可以直接對 /app/checkup 路徑套 route mock；此處採 harness 模式。
-    await page.route('**/functions/v1/tw-chips-detail**', async (route) => {
-      const body = {
-        coalesced: true,
-        state: 'ready',
-        stock_id: '2330',
-        as_of: '2026-07-25',
-        institutional: null,
-        bsr: null,
-        source: 'TWSE',
-        fetched_at: new Date().toISOString(),
-      };
-      await route.fulfill({ status: 200, contentType: 'application/json', body: JSON.stringify(body) });
+  test('coalesced=true 顯示 COALESCED 徽章', async ({ page }) => {
+    await page.route(CHIPS_ROUTE, async (route) => {
+      await route.fulfill({
+        status: 200,
+        contentType: 'application/json',
+        headers: { 'access-control-allow-origin': '*' },
+        body: JSON.stringify(coalescedPayload()),
+      });
     });
 
-    await page.goto('/app/checkup?stock=2330');
-    const badge = page.getByTestId('chips-coalesced-badge');
-    // harness 或實頁尚未接完時，允許 badge 不存在 → 跳過（PR-10 覆蓋條件觸發）
-    if (await badge.count() === 0) test.skip(true, 'ChipsSection 尚未整合 coalesced 徽章 UI（待實頁掛 data-testid）');
-    await expect(badge).toHaveText(/COALESCED/i);
+    await page.goto('/e2e/chips-section?code=2330');
+    await page.getByTestId('chips-section').waitFor();
+    await expect(page.getByTestId('chips-coalesced-badge')).toHaveText(/COALESCED/i);
+  });
+
+  test('coalesced=false 不顯示徽章', async ({ page }) => {
+    await page.route(CHIPS_ROUTE, async (route) => {
+      await route.fulfill({
+        status: 200,
+        contentType: 'application/json',
+        headers: { 'access-control-allow-origin': '*' },
+        body: JSON.stringify(plainPayload()),
+      });
+    });
+
+    await page.goto('/e2e/chips-section?code=2330');
+    await page.getByTestId('chips-section').waitFor();
+    await expect(page.getByTestId('chips-coalesced-badge')).toHaveCount(0);
   });
 });
