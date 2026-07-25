@@ -25,7 +25,7 @@ const SCHEMA = {
   isDemo: 'boolean',
   WB: 'object',
   wbTone: 'function',
-  holdings: { type: 'object', optional: true }, // Array<Holding>，用來彙總價格來源與最舊抓取時間
+  holdings: { type: 'array', optional: true }, // Array<Holding>，用來彙總價格來源與最舊抓取時間
 };
 
 // 對齊 stockPriceWaterfall 的 label 映射，讓 hero 顯示與卡片/抽屜一致
