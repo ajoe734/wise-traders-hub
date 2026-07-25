@@ -148,15 +148,323 @@ async function backfillStockViaFinmind(
   return { inserted: chunk.length, from: startDate, to: endDate, rows: raw.length };
 }
 
+// ============================================================================
+// PR-1: Cold-Start（一次性 60 日全市場回補；TWSE T86 bulk per-day，節流 1.2s/call）
+// ============================================================================
+
+const COLD_START_CONFIG_KEY = "cold_start_status";
+const COLD_START_HEARTBEAT_MS = 30 * 60 * 1000; // 30 分鐘視為卡死可搶鎖
+const COLD_START_SLEEP_MS = 1200; // 每次 TWSE 呼叫間隔
+const COLD_START_MAX_DAYS = 90;
+
+type ColdStartStatus = {
+  state: "idle" | "running" | "done" | "error";
+  days_done: number;
+  days_total: number;
+  cursor_date: string | null;
+  started_at: string | null;
+  finished_at: string | null;
+  source: string | null;
+  last_error?: string | null;
+  attempts?: Array<{ date: string; ok: boolean; rows: number; reason?: string }>;
+};
+
+async function readColdStartStatus(supa: any): Promise<ColdStartStatus> {
+  const { data, error } = await supa
+    .from("tw_bsr_sync_config")
+    .select("config, updated_at")
+    .eq("key", COLD_START_CONFIG_KEY)
+    .maybeSingle();
+  if (error) throw new Error(`read_config_failed:${error.message}`);
+  const cfg = (data?.config ?? {}) as ColdStartStatus;
+  return {
+    state: cfg.state ?? "idle",
+    days_done: cfg.days_done ?? 0,
+    days_total: cfg.days_total ?? 60,
+    cursor_date: cfg.cursor_date ?? null,
+    started_at: cfg.started_at ?? null,
+    finished_at: cfg.finished_at ?? null,
+    source: cfg.source ?? null,
+    last_error: cfg.last_error ?? null,
+    attempts: Array.isArray(cfg.attempts) ? cfg.attempts.slice(-20) : [],
+  };
+}
+
+async function writeColdStartStatus(supa: any, patch: Partial<ColdStartStatus>) {
+  const cur = await readColdStartStatus(supa);
+  const next = { ...cur, ...patch } as ColdStartStatus;
+  const { error } = await supa
+    .from("tw_bsr_sync_config")
+    .update({ config: next, updated_at: new Date().toISOString() })
+    .eq("key", COLD_START_CONFIG_KEY);
+  if (error) throw new Error(`write_config_failed:${error.message}`);
+}
+
+async function recordSourceHealth(
+  supa: any,
+  source: string,
+  ok: boolean,
+  latencyMs: number,
+  errCode?: string,
+) {
+  // 讀-改-寫，失敗不阻擋主流程
+  try {
+    const { data } = await supa
+      .from("data_source_health")
+      .select("*")
+      .eq("source", source)
+      .maybeSingle();
+    const now = new Date().toISOString();
+    const cur = data ?? { ok_count_10m: 0, fail_count_10m: 0, consecutive_failures: 0 };
+    const patch: Record<string, unknown> = {
+      ok_count_10m: (cur.ok_count_10m ?? 0) + (ok ? 1 : 0),
+      fail_count_10m: (cur.fail_count_10m ?? 0) + (ok ? 0 : 1),
+      p95_latency_ms: latencyMs, // 簡化：以最近一次代表；後續 PR-7 會做真正 rolling
+      consecutive_failures: ok ? 0 : (cur.consecutive_failures ?? 0) + 1,
+      last_error_code: ok ? cur.last_error_code : (errCode ?? "unknown"),
+      last_success_at: ok ? now : cur.last_success_at,
+      last_failure_at: ok ? cur.last_failure_at : now,
+      updated_at: now,
+    };
+    await supa.from("data_source_health").update(patch).eq("source", source);
+  } catch { /* swallow — 觀測失敗不影響資料回補 */ }
+}
+
+// 從 ymd 往前列出 N 個工作日（跳過週末）
+function planBusinessDates(startYmd: string, days: number): string[] {
+  const out: string[] = [];
+  let cur = startYmd;
+  let guard = days * 3; // 保險上限
+  while (out.length < days && guard-- > 0) {
+    if (!isWeekend(cur)) out.push(cur);
+    cur = shiftYmd(cur, -1);
+  }
+  return out;
+}
+
+const sleep = (ms: number) => new Promise((r) => setTimeout(r, ms));
+
+async function isAdminCaller(req: Request): Promise<{ ok: boolean; reason?: string }> {
+  const auth = req.headers.get("authorization") ?? "";
+  const token = auth.replace(/^Bearer\s+/i, "").trim();
+  if (!token) return { ok: false, reason: "missing_authorization" };
+  // service_role token 允許（edge-to-edge / cron）
+  if (token === SERVICE_ROLE_KEY) return { ok: true };
+  // 否則以使用者身份呼叫 has_role
+  try {
+    const userClient = createClient(SUPABASE_URL, token, {
+      auth: { persistSession: false },
+      global: { headers: { Authorization: `Bearer ${token}` } },
+    });
+    const { data: u } = await userClient.auth.getUser();
+    if (!u?.user?.id) return { ok: false, reason: "invalid_jwt" };
+    const admin = createClient(SUPABASE_URL, SERVICE_ROLE_KEY, { auth: { persistSession: false } });
+    const { data: hr, error } = await admin.rpc("has_role", {
+      _user_id: u.user.id,
+      _role: "company_admin",
+    });
+    if (error) return { ok: false, reason: `has_role_error:${error.message}` };
+    return hr === true ? { ok: true } : { ok: false, reason: "not_admin" };
+  } catch (err) {
+    return { ok: false, reason: (err as Error).message.slice(0, 120) };
+  }
+}
+
+async function runColdStart(
+  supa: any,
+  opts: { days: number; dryRun: boolean; resume: boolean; timeBudgetMs: number },
+): Promise<Record<string, unknown>> {
+  const status = await readColdStartStatus(supa);
+
+  // 並行守衛：若 running 且心跳未逾時，拒絕；逾時視為卡死可搶
+  if (status.state === "running" && status.started_at) {
+    const age = Date.now() - new Date(status.started_at).getTime();
+    if (age < COLD_START_HEARTBEAT_MS) {
+      return {
+        ok: false,
+        code: "ALREADY_RUNNING",
+        message: "cold-start 正在執行中，請稍候或等 30 分鐘心跳過期",
+        status,
+      };
+    }
+  }
+
+  const today = taipeiToday();
+  // 從昨日往前列 N 個工作日；resume 時若有 cursor 就從 cursor 起繼續
+  const startFrom = opts.resume && status.cursor_date
+    ? shiftYmd(status.cursor_date.replaceAll("-", ""), -1)
+    : shiftYmd(today, -1);
+  const plan = planBusinessDates(startFrom, opts.days);
+
+  if (opts.dryRun) {
+    return {
+      ok: true,
+      mode: "cold_start",
+      dry_run: true,
+      planned_dates: plan.map(toISODate),
+      total: plan.length,
+      throttle_ms: COLD_START_SLEEP_MS,
+      estimated_seconds: Math.ceil((plan.length * COLD_START_SLEEP_MS) / 1000),
+    };
+  }
+
+  const startedAt = new Date().toISOString();
+  await writeColdStartStatus(supa, {
+    state: "running",
+    days_total: plan.length,
+    days_done: opts.resume ? status.days_done : 0,
+    cursor_date: null,
+    started_at: startedAt,
+    finished_at: null,
+    source: "twse_t86",
+    last_error: null,
+    attempts: [],
+  });
+
+  const startWall = Date.now();
+  const attempts: Array<{ date: string; ok: boolean; rows: number; reason?: string }> = [];
+  let done = opts.resume ? status.days_done : 0;
+  let stoppedReason: string | null = null;
+
+  for (const ymd of plan) {
+    if (Date.now() - startWall > opts.timeBudgetMs) {
+      stoppedReason = "time_budget_exceeded";
+      break;
+    }
+    const iso = toISODate(ymd);
+    const t0 = Date.now();
+    try {
+      // 已有該日資料就跳過（idempotent）
+      const { count } = await supa
+        .from("tw_institutional_daily")
+        .select("stock_id", { count: "exact", head: true })
+        .eq("trade_date", iso);
+      if ((count ?? 0) > 100) {
+        attempts.push({ date: iso, ok: true, rows: count ?? 0, reason: "already_present" });
+        done += 1;
+        await writeColdStartStatus(supa, { days_done: done, cursor_date: iso, attempts });
+        continue;
+      }
+
+      const raw = await fetchTwseT86(ymd);
+      const latency = Date.now() - t0;
+      const rows: any[][] = raw?.data ?? [];
+      if (rows.length === 0) {
+        attempts.push({ date: iso, ok: false, rows: 0, reason: raw?.stat || "no_data" });
+        await recordSourceHealth(supa, "twse_t86", false, latency, "no_data");
+      } else {
+        // 直接使用主流程相同的欄位解析邏輯（複製自下方主分支，維持單一實作）
+        const fields: string[] = raw?.fields || [];
+        const idxOf = (kw: string) => fields.findIndex((f) => f && f.includes(kw));
+        const iStock = idxOf("證券代號");
+        const iForeignMain = idxOf("外陸資買賣超股數");
+        const iForeignDealer = idxOf("外資自營商買賣超股數");
+        const iTrust = idxOf("投信買賣超");
+        const iDealer = fields.findIndex((f) => f === "自營商買賣超股數");
+        const iDealerSelf = idxOf("自營商買賣超股數(自行買賣)");
+        const iDealerHedge = idxOf("自營商買賣超股數(避險)");
+        const iTotal = idxOf("三大法人買賣超");
+        if (iStock < 0 || iForeignMain < 0 || iTrust < 0 || (iDealer < 0 && iDealerSelf < 0)) {
+          attempts.push({ date: iso, ok: false, rows: rows.length, reason: "schema_drift" });
+          await recordSourceHealth(supa, "twse_t86", false, latency, "schema_drift");
+        } else {
+          const BATCH = 500;
+          let inserted = 0;
+          for (let i = 0; i < rows.length; i += BATCH) {
+            const chunk = rows.slice(i, i + BATCH).map((r) => {
+              const stock_id = String(r[iStock] || "").trim();
+              const foreign_net = parseNum(r[iForeignMain]) + (iForeignDealer >= 0 ? parseNum(r[iForeignDealer]) : 0);
+              const trust_net = parseNum(r[iTrust]);
+              const dealer_net = iDealer >= 0
+                ? parseNum(r[iDealer])
+                : parseNum(r[iDealerSelf]) + (iDealerHedge >= 0 ? parseNum(r[iDealerHedge]) : 0);
+              const total_net = iTotal >= 0 ? parseNum(r[iTotal]) : foreign_net + trust_net + dealer_net;
+              return {
+                stock_id, trade_date: iso, foreign_net, trust_net, dealer_net, total_net,
+                raw: { source: "twse_t86_cold_start" },
+              };
+            }).filter((x) => x.stock_id);
+            const { error } = await supa
+              .from("tw_institutional_daily")
+              .upsert(chunk, { onConflict: "stock_id,trade_date" });
+            if (error) throw new Error(`upsert_failed:${error.message}`);
+            inserted += chunk.length;
+          }
+          attempts.push({ date: iso, ok: true, rows: inserted });
+          done += 1;
+          await recordSourceHealth(supa, "twse_t86", true, latency);
+        }
+      }
+    } catch (err) {
+      const latency = Date.now() - t0;
+      attempts.push({ date: iso, ok: false, rows: 0, reason: (err as Error).message.slice(0, 120) });
+      await recordSourceHealth(supa, "twse_t86", false, latency, "fetch_error");
+    }
+    await writeColdStartStatus(supa, {
+      days_done: done,
+      cursor_date: iso,
+      attempts: attempts.slice(-20),
+      // heartbeat：refresh started_at 讓長跑期間不會被誤判卡死
+      started_at: new Date().toISOString(),
+    });
+    await sleep(COLD_START_SLEEP_MS);
+  }
+
+  const finishedAt = new Date().toISOString();
+  const finalState: ColdStartStatus["state"] = stoppedReason ? "running" : "done";
+  await writeColdStartStatus(supa, {
+    state: finalState,
+    days_done: done,
+    finished_at: stoppedReason ? null : finishedAt,
+    // running 保留 started_at 心跳；done 才清空
+    started_at: finalState === "done" ? startedAt : new Date().toISOString(),
+    last_error: null,
+  });
+
+  return {
+    ok: true,
+    mode: "cold_start",
+    dry_run: false,
+    planned: plan.length,
+    done,
+    stopped_reason: stoppedReason,
+    elapsed_ms: Date.now() - startWall,
+    attempts: attempts.slice(-20),
+  };
+}
+
 Deno.serve(async (req) => {
   if (req.method === "OPTIONS") return corsPreflight();
   try {
     const url = new URL(req.url);
 
-    // === Mode: backfill_stock ===（per-stock 60 天歷史回補）
     if (req.method === "POST") {
       let body: any = null;
       try { body = await req.json(); } catch { /* ignore */ }
+
+      // === Mode: cold_start ===
+      if (body?.mode === "cold_start") {
+        const admin = await isAdminCaller(req);
+        if (!admin.ok) {
+          return errorResponse(`admin required: ${admin.reason ?? "unauthorized"}`, 403, { code: "FORBIDDEN" });
+        }
+        const days = Math.min(Math.max(Number(body.days) || 60, 1), COLD_START_MAX_DAYS);
+        const dryRun = body.dry_run === true;
+        const resume = body.resume === true;
+        const timeBudgetMs = Math.min(Math.max(Number(body.time_budget_ms) || 240000, 30000), 300000);
+        const supa = createClient(SUPABASE_URL, SERVICE_ROLE_KEY, { auth: { persistSession: false } });
+        const result = await runColdStart(supa, { days, dryRun, resume, timeBudgetMs });
+        return jsonResponse(result);
+      }
+
+      // === Mode: cold_start_status ===（純讀取，供 UI 輪詢）
+      if (body?.mode === "cold_start_status") {
+        const supa = createClient(SUPABASE_URL, SERVICE_ROLE_KEY, { auth: { persistSession: false } });
+        const status = await readColdStartStatus(supa);
+        return jsonResponse({ ok: true, status });
+      }
+
+      // === Mode: backfill_stock ===（per-stock 60 天歷史回補）
       if (body?.mode === "backfill_stock") {
         const stockId = String(body.stock_id || "").trim();
         const days = Math.min(Math.max(Number(body.days) || 60, 1), 120);
