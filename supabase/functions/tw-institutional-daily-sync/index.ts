@@ -481,6 +481,21 @@ async function runKeepWarm(
     };
   }
 
+  // PR-7 circuit gate：熔斷開啟且冷卻未過 → 直接放棄 keep-warm，等冷卻結束的下一輪再試
+  const gate = await checkCircuit(supa, "twse_t86");
+  if (!gate.allowed) {
+    await supa.from("data_source_refresh_logs").insert({
+      source_key: "tw_keep_warm",
+      status: "skipped",
+      started_at: startedAt,
+      finished_at: new Date().toISOString(),
+      duration_ms: 0,
+      row_count: 0,
+      metadata: { run_id: runId, wave: opts.wave, reason: "circuit_open", disabled_until: gate.disabled_until, date: iso },
+    });
+    return { ok: false, mode: "keep_warm", skipped: true, reason: "circuit_open", disabled_until: gate.disabled_until, wave: opts.wave };
+  }
+
   // T86 bulk lookback（含週末自動跳過）
   const attempts: Array<{ date: string; ok: boolean; rows: number; reason?: string }> = [];
   let raw: any = null;
