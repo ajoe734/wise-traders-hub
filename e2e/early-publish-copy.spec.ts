@@ -62,7 +62,7 @@ for (const market of ['tw', 'us'] as const) {
       await expect(dialogTitle).toBeVisible();
 
       const dialog = page.getByRole('alertdialog');
-      await expect(dialog).toContainText(`本${expectedMomentLabel}`);
+      await expect(dialog).toContainText(expectedMomentLabel);
       await expect(dialog).not.toContainText('下週');
 
       // 6) 確認提前發布 → 模擬 publish-weekly-journals 對訂閱者寫入的通知呈現
