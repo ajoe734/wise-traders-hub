@@ -5595,6 +5595,7 @@ export type Database = {
         Args: { p_days?: number; p_stock_id: string }
         Returns: number
       }
+      enqueue_institutional_backfill_universe: { Args: never; Returns: number }
       enqueue_institutional_new_stock: {
         Args: { _stock_id: string }
         Returns: {
