@@ -19,7 +19,7 @@ import { execSync } from 'node:child_process';
 import { resolve } from 'node:path';
 
 const ROOT = process.cwd();
-const NEEDLE = /FinMind/i;
+const NEEDLE = /FinMind/;
 
 const ALLOWLIST = new Set([
   'src/pages/DataSources.tsx',
