@@ -1,9 +1,10 @@
-name: ChipsSection E2E (desktop + mobile + visual)
+name: ChipsSection E2E (desktop + mobile + visual + coalesce)
 
-# 每次 PR 都自動跑 ChipsSection 三個 Playwright 專案：
+# 每次 PR 都自動跑 ChipsSection 四個 Playwright 專案：
 #   - desktop-chips-section : e2e/chips-section.spec.ts         (11 案例 · 1280x900)
 #   - mobile-chips-section  : e2e/chips-section-mobile.spec.ts  (18 案例 · 6 個手機斷點)
 #   - visual-chips-section  : e2e/chips-section-visual.spec.ts  (8 個 screenshot diff 快照)
+#   - desktop-chips-coalesce: e2e/chips-coalesce.spec.ts        (2 案例 · 1280x900)
 # retries=2 由 playwright.config.ts 的 CI 分支提供。
 # 視覺回歸失敗時，Playwright 會把 -expected / -actual / -diff.png 寫進 test-results/，
 # 上傳為 chips-section-traces-visual-chips-section artifact 供 PR 直接下載比對。
@@ -15,6 +16,7 @@ on:
       - 'e2e/chips-section.spec.ts'
       - 'e2e/chips-section-mobile.spec.ts'
       - 'e2e/chips-section-visual.spec.ts'
+      - 'e2e/chips-coalesce.spec.ts'
       - 'e2e/chips-section-visual.spec.ts-snapshots/**'
       - 'e2e/helpers/**'
       - 'src/checkup/components/freecheckup/ChipsSection.tsx'
@@ -29,6 +31,7 @@ on:
       - 'e2e/chips-section.spec.ts'
       - 'e2e/chips-section-mobile.spec.ts'
       - 'e2e/chips-section-visual.spec.ts'
+      - 'e2e/chips-coalesce.spec.ts'
       - 'e2e/chips-section-visual.spec.ts-snapshots/**'
       - 'e2e/helpers/**'
       - 'src/checkup/components/freecheckup/ChipsSection.tsx'
@@ -56,7 +59,7 @@ jobs:
     strategy:
       fail-fast: false
       matrix:
-        project: [desktop-chips-section, mobile-chips-section, visual-chips-section]
+        project: [desktop-chips-section, mobile-chips-section, visual-chips-section, desktop-chips-coalesce]
 
     steps:
       - uses: actions/checkout@v4
@@ -273,5 +276,5 @@ jobs:
             echo "chips-section matrix result=${{ needs.chips-section.result }}"
             exit 1
           fi
-          echo "desktop + mobile + visual chips-section all passed."
+          echo "desktop + mobile + visual + coalesce chips-section all passed."
 
