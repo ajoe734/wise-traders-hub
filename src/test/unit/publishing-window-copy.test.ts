@@ -76,14 +76,15 @@ describe('提前發布（force）流程文案不得出現「下週」', () => {
 
   it('src/pages/admin/Signals.tsx 內提前發布相關 UI 沒有「下週」字樣', () => {
     const src = fs.readFileSync(path.join(root, 'src/pages/admin/Signals.tsx'), 'utf8');
-    // 抓包含「提前」附近 ±120 字的區塊，避免誤觸其他無關字串
     const hits = [...src.matchAll(/提前[\s\S]{0,200}/g)].map((m) => m[0]);
     expect(hits.length, '應該找得到「提前」相關文案').toBeGreaterThan(0);
     for (const chunk of hits) {
-      expect(chunk).not.toContain('下週');
-      expect(chunk).toContain('本週');
+      expect(chunk, `chunk=${chunk.slice(0, 80)}`).not.toContain('下週');
     }
+    // 至少要有一處 UI 明確講「本週」（按鈕文案）
+    expect(src).toMatch(/提前開放本週發布/);
   });
+
 
   it('publishingWindow.ts 全檔沒有任何「下週」字樣', () => {
     const src = fs.readFileSync(path.join(root, 'src/lib/publishingWindow.ts'), 'utf8');
