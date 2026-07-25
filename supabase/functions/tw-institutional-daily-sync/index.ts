@@ -8,6 +8,7 @@
 import "jsr:@supabase/functions-js/edge-runtime.d.ts";
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2.45.4";
 import { corsHeaders, corsPreflight, jsonResponse, errorResponse } from "../_shared/cors.ts";
+import { checkCircuit, recordCircuit } from "../_shared/circuitBreaker.ts";
 
 const SUPABASE_URL = Deno.env.get("SUPABASE_URL")!;
 const SERVICE_ROLE_KEY = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!;
@@ -207,27 +208,9 @@ async function recordSourceHealth(
   latencyMs: number,
   errCode?: string,
 ) {
-  // 讀-改-寫，失敗不阻擋主流程
-  try {
-    const { data } = await supa
-      .from("data_source_health")
-      .select("*")
-      .eq("source", source)
-      .maybeSingle();
-    const now = new Date().toISOString();
-    const cur = data ?? { ok_count_10m: 0, fail_count_10m: 0, consecutive_failures: 0 };
-    const patch: Record<string, unknown> = {
-      ok_count_10m: (cur.ok_count_10m ?? 0) + (ok ? 1 : 0),
-      fail_count_10m: (cur.fail_count_10m ?? 0) + (ok ? 0 : 1),
-      p95_latency_ms: latencyMs, // 簡化：以最近一次代表；後續 PR-7 會做真正 rolling
-      consecutive_failures: ok ? 0 : (cur.consecutive_failures ?? 0) + 1,
-      last_error_code: ok ? cur.last_error_code : (errCode ?? "unknown"),
-      last_success_at: ok ? now : cur.last_success_at,
-      last_failure_at: ok ? cur.last_failure_at : now,
-      updated_at: now,
-    };
-    await supa.from("data_source_health").update(patch).eq("source", source);
-  } catch { /* swallow — 觀測失敗不影響資料回補 */ }
+  // PR-7：委派給共用熔斷器（closed→open→half_open→closed 狀態機）。
+  // 失敗不阻擋主流程（recordCircuit 內已 swallow）。
+  await recordCircuit(supa, source, ok, latencyMs, errCode);
 }
 
 // 從 ymd 往前列出 N 個工作日（跳過週末）
@@ -496,6 +479,21 @@ async function runKeepWarm(
       ok: true, mode: "keep_warm", skipped: true, reason: "already_present",
       wave: opts.wave, date: iso, existing: existingCount,
     };
+  }
+
+  // PR-7 circuit gate：熔斷開啟且冷卻未過 → 直接放棄 keep-warm，等冷卻結束的下一輪再試
+  const gate = await checkCircuit(supa, "twse_t86");
+  if (!gate.allowed) {
+    await supa.from("data_source_refresh_logs").insert({
+      source_key: "tw_keep_warm",
+      status: "skipped",
+      started_at: startedAt,
+      finished_at: new Date().toISOString(),
+      duration_ms: 0,
+      row_count: 0,
+      metadata: { run_id: runId, wave: opts.wave, reason: "circuit_open", disabled_until: gate.disabled_until, date: iso },
+    });
+    return { ok: false, mode: "keep_warm", skipped: true, reason: "circuit_open", disabled_until: gate.disabled_until, wave: opts.wave };
   }
 
   // T86 bulk lookback（含週末自動跳過）

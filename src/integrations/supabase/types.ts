@@ -5706,6 +5706,28 @@ export type Database = {
               used: number
             }[]
           }
+      reset_data_source_circuit: {
+        Args: { _source: string }
+        Returns: {
+          circuit_state: string
+          consecutive_failures: number
+          disabled_until: string | null
+          fail_count_10m: number
+          last_error_code: string | null
+          last_failure_at: string | null
+          last_success_at: string | null
+          ok_count_10m: number
+          p95_latency_ms: number | null
+          source: string
+          updated_at: string
+        }
+        SetofOptions: {
+          from: "*"
+          to: "data_source_health"
+          isOneToOne: true
+          isSetofReturn: false
+        }
+      }
       run_rls_subscription_tests: {
         Args: never
         Returns: {

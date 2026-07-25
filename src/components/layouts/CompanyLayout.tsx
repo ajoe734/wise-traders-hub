@@ -68,6 +68,7 @@ const navGroups: NavGroup[] = [
       { path: '/company/stream-health', icon: Activity, label: '串流健康度' },
       { path: '/company/traffic', icon: Activity, label: '流量監控' },
       { path: '/company/ops-health', icon: Gauge, label: '後端健康/成本' },
+      { path: '/company/data-source-health', icon: ShieldAlert, label: '上游熔斷監控' },
       { path: '/company/bsr-failures', icon: ShieldAlert, label: 'BSR OCR 失敗' },
       { path: '/company/bsr-ocr-metrics', icon: Gauge, label: 'BSR OCR 指標' },
       { path: '/company/bsr-effect', icon: Activity, label: 'BSR 效果分析' },

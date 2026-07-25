@@ -43,6 +43,7 @@ import {
   probeMarketBatchSupport,
   updateMarketBatchConfig,
 } from '../_shared/finmindMarketBatch.ts';
+import { checkCircuit, recordCircuit } from '../_shared/circuitBreaker.ts';
 
 import {
   fulfillDay,
@@ -111,24 +112,46 @@ function tierFromPriority(priority: number): 1 | 2 | 3 {
 async function fetchFinmindOneDay(
   stockId: string, date: string, cid: string | null, tier: 1 | 2 | 3 = 3,
 ): Promise<FinmindRow[]> {
+  // PR-7 circuit gate：finmind_bsr 熔斷開啟時直接丟錯，跳過 20s HTTP 等待。
+  const gate = await checkCircuit(supa, 'finmind_bsr');
+  if (!gate.allowed) {
+    throw new Error(`finmind_circuit_open:disabled_until=${gate.disabled_until ?? ''}`);
+  }
   const p = new URLSearchParams({
     dataset: 'TaiwanStockTradingDailyReport',
     data_id: stockId,
     start_date: date,
   });
   if (FINMIND_TOKEN) p.set('token', FINMIND_TOKEN);
-  const res = await fetchWithRateLimit(supa, `${FINMIND_URL}?${p}`, {
-    signal: AbortSignal.timeout(20_000),
-  }, { correlationId: cid, tier });
-  const text = await res.text();
-  // 錯誤訊息只保留 status + 前 200 字，且不含 URL / token
-  if (!res.ok) throw new Error(`finmind_http_${res.status}:${text.slice(0, 200)}`);
-  let j: any;
-  try { j = JSON.parse(text); } catch { throw new Error(`finmind_bad_json:${text.slice(0, 200)}`); }
-  if (j?.status !== 200 && !Array.isArray(j?.data)) {
-    throw new Error(`finmind_api_${j?.status ?? 'unknown'}:${String(j?.msg ?? '').slice(0, 200)}`);
+  const t0 = Date.now();
+  try {
+    const res = await fetchWithRateLimit(supa, `${FINMIND_URL}?${p}`, {
+      signal: AbortSignal.timeout(20_000),
+    }, { correlationId: cid, tier });
+    const text = await res.text();
+    if (!res.ok) {
+      await recordCircuit(supa, 'finmind_bsr', false, Date.now() - t0, `http_${res.status}`);
+      throw new Error(`finmind_http_${res.status}:${text.slice(0, 200)}`);
+    }
+    let j: any;
+    try { j = JSON.parse(text); } catch {
+      await recordCircuit(supa, 'finmind_bsr', false, Date.now() - t0, 'bad_json');
+      throw new Error(`finmind_bad_json:${text.slice(0, 200)}`);
+    }
+    if (j?.status !== 200 && !Array.isArray(j?.data)) {
+      await recordCircuit(supa, 'finmind_bsr', false, Date.now() - t0, `api_${j?.status ?? 'unknown'}`);
+      throw new Error(`finmind_api_${j?.status ?? 'unknown'}:${String(j?.msg ?? '').slice(0, 200)}`);
+    }
+    await recordCircuit(supa, 'finmind_bsr', true, Date.now() - t0);
+    return Array.isArray(j.data) ? j.data : [];
+  } catch (e) {
+    // 網路層例外（timeout/abort）也計入失敗
+    const msg = (e as Error).message || '';
+    if (!msg.startsWith('finmind_http_') && !msg.startsWith('finmind_bad_json') && !msg.startsWith('finmind_api_') && !msg.startsWith('finmind_circuit_open')) {
+      await recordCircuit(supa, 'finmind_bsr', false, Date.now() - t0, 'network');
+    }
+    throw e;
   }
-  return Array.isArray(j.data) ? j.data : [];
 }
 
 const aggregate = libAggregate;
