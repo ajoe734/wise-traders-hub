@@ -1,87 +1,147 @@
-## 根因盤點（已用 DB / 檔案讀取核實）
 
-| # | 根因 | 現況證據 | 為何前一版沒治本 |
+## 完善版：Snapshot-First 全市場籌碼資料庫
+
+新增缺漏：**Canonical Schema、寫入契約、跨源仲裁規則、備援機制、法遵、階段閘門、觀測、DR**。
+
+## 1. Canonical Schema（單一事實表 + 派生表）
+
+```
+── 事實層（immutable append） ──────────────
+tw_chip_fact(stock_id, trade_date, source, broker_id,
+             buy_shares, sell_shares, ingested_at, PK(所有))
+   ⌙ append-only；三 Lane 各自寫，同 key 不覆蓋
+
+── Canonical 層（1 stock × 1 day = 1 row）──
+tw_bsr_daily(stock_id, trade_date, broker_id, ...)
+   ⌙ 由仲裁器從 tw_chip_fact 產出，UPSERT with sealed guard
+tw_institutional_daily(stock_id, trade_date, foreign/inv/dealer_net, ...)
+   ⌙ 三大法人 canonical
+
+── 派生層（讀優化） ────────────────────────
+tw_chips_rollup(stock_id, trade_date, window=5|20, top5_net_ratio,
+                sealed_at, source_lane)
+   ⌙ 純聚合，讀延遲 < 50ms
+
+── 狀態層 ─────────────────────────────────
+tw_bsr_daily_snapshot_status(trade_date, sealed_at, sealed_by_lane,
+                             coverage_stocks, coverage_brokers,
+                             lane_a_status, lane_b_status, lane_c_status)
+data_source_health(lane, last_success_at, consecutive_fail, p95_latency)
+```
+
+**Immutability 契約**：DB trigger 攔 `UPDATE`；`sealed_at IS NOT NULL` 的日期 canonical 只讀。Admin 需 `force_reseal_reason`。
+
+## 2. 三 Lane 寫入契約
+
+| Lane | 寫入路徑 | Idempotency Key | 失敗處理 |
 |---|---|---|---|
-| R1 | `current_prices.updated_at TEXT`、`pushed_at` 用途不明 | `\d current_prices` 顯示 `updated_at text`；一列 `2317` 停在 4/8 仍被讀出 | 只加 cron 不改 schema，freshness 判斷永遠不準 |
-| R2 | 讀取端無 TTL 守門 | `useMarketData` 直接吐 DB 值 | 只補寫入端，過期值仍會顯示 |
-| R3 | market×writer 沒有合約測試 | `us-stock-quote` 從未被任何 cron 呼叫（US 列 = 0） | 手動再加一條 cron，下次還是會重演 |
-| R4 | 雙寫入路徑，無 canonical writer | `stock-price-sync` / `us-stock-quote` 各自 upsert | 無法保證「新值不被舊值蓋掉」 |
-| R5 | 無 API 配額守門（Finnhub / TWSE / Binance） | 對比 BSR 走 `finmind_admit_v2`，價格路徑裸奔 | 5 分鐘 cron 上線立即會撞額度 |
-| R6 | Sync universe 是 function 參數/硬編 | 4/8 起 2317 沒再更新，因為掉出清單 | universe 改成 view 才是唯一真相源 |
-| R7 | Watchdog 只監控「cron 有沒有跑」 | crypto cron 掛 11 天無人知 | 需監控寫入結果 SLO |
-| R8 | 沒有失敗即降級的視覺契約 | 過期價當現價顯示 | UI 需明示 "unavailable"，才會早期被抓 |
+| A FinMind batch | `tw_chip_fact`（source='finmind_batch'）| (stock,date,broker,source) | quota 用盡 → skip，不 fail whole |
+| B TWSE BFI82U | `tw_institutional_daily` | (stock,date,inst_type) | 官方 5xx → 30 分退避重試 |
+| C TPEx bulk | 同上 | 同上 | 同上 |
+| D T86 | 同上 | 同上 | 交叉驗證用 |
+| E Broker scraper | `tw_chip_fact`（source='broker_XXX'）| 同 A | 尊重 robots；失敗 alert 不重試 |
 
-## 根治計畫（治 R1–R8）
+**所有 Lane 都是無狀態 producer**，Orchestrator 是唯一 consumer 決定 seal。
 
-### 1. Schema 收斂為單一時間欄位（治 R1）
-Migration：
-- `current_prices.updated_at` → `timestamptz NOT NULL DEFAULT now()`（就地轉型，先 backfill 從 `pushed_at`／文字解析）。
-- 移除語義重疊的 `pushed_at`，或保留但改成 `GENERATED ALWAYS AS (updated_at) STORED` 過渡期。
-- 加 `stale_seconds int GENERATED ALWAYS AS (EXTRACT(EPOCH FROM (now() - updated_at))::int) STORED` 供索引。
-- 加 partial index：`(market, updated_at DESC)`。
+## 3. 仲裁與異常偵測（Reconciliation）
 
-### 2. 唯一寫入通道：`upsert_current_price` RPC（治 R4）
-- SECURITY DEFINER，只接受服務端呼叫。
-- 內含 guard：`ON CONFLICT DO UPDATE ... WHERE EXCLUDED.updated_at > current_prices.updated_at`——**舊值不得覆蓋新值**。
-- 記錄 writer 名稱到 `current_prices.writer text`（增欄）便於稽核。
-- 三個 sync function 全部改走這條 RPC；直接 `upsert to table` 的舊路徑刪除。
+**Seal 條件（AND）**：
+- `coverage_brokers >= 5`（分點）
+- `sum(buy_shares) - sum(sell_shares)` 誤差 < 1%（買賣平衡）
+- Lane A 分點合計 vs Lane B/C/D 三大法人合計，差異 < 5%
+- 上述通過 → `snapshot_status.sealed_at = now(), sealed_by_lane = 'A'`
 
-### 3. Universe = View，不是參數（治 R6）
-- 新增 `public.v_price_sync_universe(market, symbol, priority)`：聯集 `trade_records.instrument`（open）、`expert_signals.instrument`（180 天）、`crypto_symbol_map`、`checkup_storage` 使用者持倉快照。
-- 依市場正則拆 TW / US / CRYPTO，權證單獨標 priority。
-- 三個 sync function 唯一資料來源 = 這個 view。**沒有任何硬編清單允許存在**（PR 檢查會 grep 阻擋）。
+**Anomaly 分級**：
+- L1（自動修）：某 Lane 缺、其他 Lane 全 OK → 直接 seal，記錄 `partial_lanes`
+- L2（延後 seal）：Lane 間差異 5-15% → 觸發 Lane E broker scraper 補驗
+- L3（人工）：差異 > 15% 或全 Lane fail → 寫 `system_alerts`、Line 通知 admin、UI 顯示「當日整備中」
 
-### 4. 配額守門：`price_admit(market, symbols[])`（治 R5）
-- 仿 `finmind_admit_v2` 建 `price_quota_pools`（Finnhub 60 req/min / TWSE 每分鐘上限 / Binance 1200/min）+ `price_quota_ledger`。
-- 每次 sync 先 admit，超額回退到「下一波」而不是打爆上游。
-- 熔斷復用 `chips-guardian`：連續失敗率 > 30% 自動 kill-switch。
+## 4. 三種管線 × 完全分離
 
-### 5. Cron 三市補齊（不再空市場）（治 R3）
-- **TW**：Mon–Fri 台北 08:55–13:35 每 5 分鐘 + 13:35 收盤 + 20:00 修正檔。
-- **US**：Mon–Fri 美東 09:25–16:05 每 5 分鐘（含盤前盤後可選）。
-- **CRYPTO**：24×7 每 5 分鐘。
-- 所有 cron 寫入 `cron_dispatch_log`。
+| 管線 | 觸發 | Pool | 用途 |
+|---|---|---|---|
+| **Live**（每交易日 3 波）| cron 15:30/17:30/19:30 | interactive/keepwarm | 當日 seal |
+| **Backfill**（20 日窗口）| daily 00:00 UTC + 手動 | backfill | 補缺日 |
+| **Reconcile**（週日）| weekly | backfill | 20 日窗口一致性掃描 + 重跑 L2 |
 
-### 6. 合約測試（治 R3 從此不再重演）
-- Vitest：`price-writer-contract.test.ts` 直接查 DB，assert 每個 market 在合理窗口內都有 rows with `updated_at > now() - <SLO>`，違反即 CI fail。
-- Vitest：檢查 `cron.job` 至少各有一條 job 涵蓋 TW/US/CRYPTO；缺一 fail。
-- Playwright：模擬付費會員 → 每張持倉卡片現價 vs `current_prices` 一致；差異或缺失即 fail。
+三者用不同 quota pool，互不搶配額。UI 有 kill switch 個別關閉。
 
-### 7. 讀取端 SLO 守門（治 R2、R8）
-- 新增 `src/checkup/lib/priceFreshnessPolicy.ts`：依 market + 現在是否盤中回傳 `maxAgeMs`。
-- `useMarketData`：對每筆讀到的價格計算 age，超過 `maxAgeMs` 就：
-  1. 前端立即降級：顯示 `—` + tooltip「即時價暫時無法取得」，不再拿舊值魚目混珠。
-  2. 觸發新的 `price-fill-on-demand` edge function（走 `price_admit` + 唯一 writer RPC）補齊，成功後 realtime 重繪。
-- Realtime 訂閱 `current_prices` 讓補齊後 UI 自動刷新。
+## 5. 讀路徑契約（前台永不觸發外部）
 
-### 8. Freshness Watchdog（治 R7）
-- `v_price_freshness`：`market, universe_count, covered_count, p50_age_s, p95_age_s, max_age_s`。
-- `chips-guardian` 每 10 分鐘檢查：
-  - 盤中 p95 age > SLO → 中等告警。
-  - `max_age_s` > 6h 且應在盤中 → 高告警 + notification 給 admin。
-  - `covered_count / universe_count < 0.95` → 觸發 `price-fill-on-demand` 批量補齊。
-- 後台 `/company/data-source-health` 增加 Price Freshness 卡（三 market 三行）。
+- Frontend → `tw-chips-detail`（Edge）→ 只 SELECT canonical 三表 + `snapshot_status`。
+- 狀態映射：
+  - `sealed`：正常顯示
+  - `partial`：顯示已有 Lane 資料 + 「⚠ 分點資料整備中」小標
+  - `missing`（非交易日）：顯示「休市」
+  - `stale`（>2 交易日未 seal）：顯示紅色警示 + 上一交易日資料
+- **移除**所有前台 `ensure_bsr_window` / `enqueue` 觸發路徑；改由 Orchestrator 單向 push。
 
-## 交付順序（每步都要能單獨驗證）
+## 6. 成本 & Quota 治理
 
-1. Migration：`updated_at` → timestamptz + `writer` + 索引 + `v_price_sync_universe` + `v_price_freshness` + `upsert_current_price` RPC + `price_quota_pools/ledger` + `price_admit` RPC。
-2. Edge：三個 sync function 改走 RPC + admit；新增 `price-fill-on-demand`；修 `crypto-price-sync` boot。
-3. Cron 三市重排 + dispatch log。
-4. 前端：`priceFreshnessPolicy` + `useMarketData` 降級與補齊 + Realtime。
-5. Watchdog + Health 卡 + 告警。
-6. 合約測試（Vitest + Playwright）併入 CI。
-7. 驗證：手動觸發三 sync → freshness p95、云云帳號實測、Playwright 全綠。
+| Guardrail | 值 | 動作 |
+|---|---|---|
+| FinMind 月度上限 | 100 calls | 超過 → Lane A 自動熔斷至月末 |
+| Broker scraper 日上限 | 200 pages | 超過 → Lane E 熔斷 24h |
+| Lane 連續失敗 | 3 次 | 降級到 secondary Lane + alert |
+| Snapshot lag | > 2 交易日 | Sev1 alert，Line + Email |
 
-## 技術細節
+所有 threshold 存 `system_kill_switches`，UI 可調。
 
-- `updated_at` 型別轉換用兩步 migration：新增 `updated_at_ts timestamptz`，backfill，再 rename，避免 downtime。
-- `upsert_current_price` 需 `SECURITY DEFINER` + `set search_path = public`；只 grant 給 `service_role`。
-- `price_quota_pools` 每個 market 一列，欄位對齊 `finmind_quota_pools`。
-- 前端 SLO：TW/US 盤中 15 min、盤外 24 h；CRYPTO 10 min 24×7。
-- `price-fill-on-demand` 需 request coalescing（沿用 `requestCoalescer.ts`）避免同秒多次觸發。
-- 合約測試白名單假日（TW 國定假日 + 美股 NYSE calendar）避免誤報。
+## 7. 法遵 / ToS
 
-## 不做的事
-- 不動 `/holding-checkup` demo（訪客）路徑的 in-memory 價格。
-- 不新增付費會員以外的 API 消耗。
-- 不改 `signals` 記錄的歷史成交價（那是交易紀錄，不是現價）。
+- **FinMind**：sponsor plan ToS 明確允許 batch，OK。
+- **TWSE/TPEx 官方**：公開資料無授權疑慮，但**必須加 User-Agent 標識** + 遵守請求間隔（>1s）。
+- **Broker 官網 scraper**：只抓公開分點頁、尊重 robots.txt、每域名 3s 間隔、每日上限 200 頁、有 kill switch。實作前 review 三家目標網站 ToS，任一禁止則移除該來源。
+
+## 8. 觀測 / SLO
+
+**`/company/data-source-health` 儀表板新增**：
+- 三 Lane 狀態燈 + 過去 30 天 uptime%
+- 20 日窗口熱圖（每日 × 每 Lane 是否 sealed）
+- 月度呼叫用量計數（FinMind quota / scraper pages）
+- p95 讀延遲（前台 → DB）
+- Reconciliation 差異 histogram
+
+**SLO**：
+- 讀 p95 < 400ms
+- 交易日 T+3h（17:30）之前 seal 率 ≥ 95%
+- Lane A 月度呼叫 ≤ 30
+
+## 9. 災難復原（DR）
+
+- FinMind 全掛 → 分點 24h 不更新；三大法人由 Lane B/C/D 頂上；UI 顯示 partial。
+- TWSE 全掛 → 三大法人 24h 不更新；分點由 Lane A/E 提供；UI 顯示 partial。
+- DB 資料損毀 → `tw_chip_fact` 是 SoT，可重跑 Reconcile 重建 canonical。
+- 全部外部掛 → 前台仍能顯示 20 日 sealed snapshot（因為是 immutable DB 讀）。
+
+## 10. Rollout 階段閘門
+
+| 階段 | 交付 | 閘門 |
+|---|---|---|
+| **P1** 基座 | Canonical schema + immutability trigger + `tw_chip_fact` + 遷移現有資料 | schema 遷移不掉資料 |
+| **P2** Orchestrator + Lane A/B/C/D 灌水 | 3 波 cron + 仲裁器 | 連續 3 交易日 seal 成功 |
+| **P3** 前台契約收斂 | 移除所有前台觸發、改純 DB 讀 | 10k concurrent 壓測通過 |
+| **P4** Lane E scraper | broker 官網 fallback + kill switch | 法遵 review 通過 |
+| **P5** Reconcile + 觀測 | 週日對帳 + 儀表板 + SLO alert | 一週實測 SLO 達標 |
+
+每個階段可獨立 rollback（feature flag）。
+
+## 11. 測試矩陣
+
+- **Unit**：仲裁器邊界（誤差=4.99% seal / =5.01% partial）、immutability trigger 阻擋、Lane E robots 遵守。
+- **Integration**：模擬 Lane A 掛，驗 seal 走 B/C/D 且 UI 標 partial。
+- **E2E**：抽屜對 5 檔任意股（活躍/冷門/新上市/警示/停牌）都能秒開。
+- **Load**：k6 10k concurrent → 外部呼叫增量 = 0、DB p95 < 400ms。
+- **Chaos**：kill FinMind token / kill TWSE endpoint，驗 DR 行為。
+
+## 前置決策（一項就好）
+
+FinMind sponsor token 是否已升級？沒升級的話 P2 Lane A 只能靠 date-range 首發 1 次 + Lane E scraper 補當日，成本結構會不同（scraper 負載增加）。
+
+## 交付定義
+
+- 20 日 × 全市場 sealed 覆蓋 ≥ 98%
+- 前台讀 p95 < 400ms、10k 並發外部呼叫增量 = 0
+- 任一單 Lane 停擺 24h 前台不 fail
+- 月度付費 quota ≤ 30
+- 每一階段可獨立回滾
