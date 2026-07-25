@@ -130,7 +130,7 @@ export default function EarlyPublishCopyHarnessEntry() {
   return (
     <main style={{ padding: 24, fontFamily: 'system-ui' }}>
       <h1>Early-publish copy harness</h1>
-      <p>驗證 TW / US 兩市場，從 signals 早發布入口到 /app/ 通知呈現，皆不得出現「下週」。</p>
+      {/* 這裡刻意不放中文描述，避免 harness 自身文字混入「零下週」全文掃描。 */}
 
       <MarketPanel
         market="TW"
