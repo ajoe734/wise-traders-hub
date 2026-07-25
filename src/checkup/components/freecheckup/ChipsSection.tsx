@@ -583,7 +583,7 @@ export default function ChipsSection({ WB, stockCode }: { WB: any; stockCode: st
                 {data?.bsr_low_quality && (
                   <span
                     data-testid="chips-bsr-low-quality-badge"
-                    title={`FinMind 當日僅回 ${Number(data?.bsr_broker_count ?? 0)} 筆分點（<${Number(data?.bsr_low_quality_threshold ?? 5)}），資料稀疏僅供參考`}
+                    title={`當日僅回 ${Number(data?.bsr_broker_count ?? 0)} 筆分點（<${Number(data?.bsr_low_quality_threshold ?? 5)}），資料稀疏僅供參考`}
                     style={{
                       display: 'inline-flex', alignItems: 'center', gap: 4,
                       padding: '1px 6px', borderRadius: 4,
