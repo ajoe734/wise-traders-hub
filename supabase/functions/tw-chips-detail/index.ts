@@ -470,11 +470,12 @@ Deno.serve(async (req) => {
 
       cacheSet(cacheKey, result, CACHE_TTL_MS);
       return result;
-    });
+    }, { supa, kind: 'chips_detail', stockId });
 
     return jsonResponse({
       ...payload,
-      _cache_meta: { cache: 'miss', stamp_ver: stampVer, served_at: new Date().toISOString() },
+      coalesced: coalescedHit,
+      _cache_meta: { cache: coalescedHit ? 'coalesced' : 'miss', stamp_ver: stampVer, served_at: new Date().toISOString() },
     });
   } catch (err) {
     return errorResponse((err as Error).message, 500, { code: "INTERNAL_ERROR" });
