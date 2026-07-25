@@ -86,20 +86,38 @@ export function deriveChipsState(
     };
   }
 
-  // 3. Upstream outage：server 5xx、queue dead、readiness upstream_exhausted
+  // 3. Upstream outage：server 5xx、queue dead、readiness upstream_exhausted、上游熔斷 open
+  const circuit = payload?.upstream_circuit;
+  const circuitOpen = !!circuit?.any_open;
+  const openSource = circuitOpen
+    ? Object.entries(circuit!.sources).find(([, v]) => v.state === 'open')?.[0] ?? null
+    : null;
+  const openUntil = openSource ? circuit!.sources[openSource]?.disabled_until ?? null : null;
   const outage =
+    circuitOpen ||
     errKind === 'server' ||
     queueStatus === 'dead' ||
     instRd === 'upstream_exhausted' ||
     bsrFresh === 'sync_failed';
   if (outage) {
+    let reason: string;
+    if (circuitOpen) {
+      const untilTxt = openUntil
+        ? new Date(openUntil).toLocaleTimeString('zh-TW', { hour: '2-digit', minute: '2-digit', timeZone: 'Asia/Taipei' })
+        : null;
+      reason = untilTxt
+        ? `上游 ${openSource === 'twse_t86' ? '三大法人' : '分點'} API 熔斷中，預計 ${untilTxt} 後自動重試`
+        : '上游資料來源熔斷中，暫停呼叫以保護系統';
+    } else if (queueStatus === 'dead') {
+      reason = '多次同步失敗，請聯繫管理員';
+    } else if (errKind === 'server') {
+      reason = '上游 API 暫時無法回應，請稍後重試';
+    } else {
+      reason = '上游資料暫時無法取得，稍後將自動重試';
+    }
     return {
       state: 'upstream_outage',
-      reason: queueStatus === 'dead'
-        ? '多次同步失敗，請聯繫管理員'
-        : errKind === 'server'
-          ? '上游 API 暫時無法回應，請稍後重試'
-          : '上游資料暫時無法取得，稍後將自動重試',
+      reason,
       subState: {
         bsr_freshness: bsrFresh, bsr_queue_status: queueStatus,
         inst_d5_state: instRd, error_kind: errKind, ineligible_reason: null,
@@ -107,6 +125,7 @@ export function deriveChipsState(
       isPolling: false, isD1Fallback: false,
     };
   }
+
 
   // 4. Filling：佇列 pending/running/not_queued 中且尚無最新資料
   const filling =

@@ -117,9 +117,20 @@ export interface TwChipsPayload {
     institutional: Record<'5' | '20' | '60', WindowReadinessPayload>;
     bsr_concentration: Record<'5' | '20' | '60', WindowReadinessPayload>;
   };
+  /** PR-8：上游熔斷狀態。any_open=true → 前端 5 態機直接進 upstream_outage */
+  upstream_circuit?: {
+    any_open: boolean;
+    sources: Record<string, {
+      state: 'closed' | 'open' | 'half_open';
+      disabled_until: string | null;
+      consecutive_failures: number;
+      last_error_code: string | null;
+    }>;
+  };
   source: string;
   fetched_at: string;
 }
+
 
 export type ReadinessState = 'ready' | 'filling' | 'upstream_exhausted' | 'no_data';
 export interface WindowReadinessPayload {
