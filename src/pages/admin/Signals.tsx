@@ -193,7 +193,7 @@ const AdminSignals = () => {
             <h1 className="text-2xl font-bold">{contentLabel}管理</h1>
             <p className="text-muted-foreground text-sm mt-1">
               {isMentor
-                ? `週一~五發布，週五 20:00 統一推播${pendingCount > 0 ? `（本週待發布 ${pendingCount} 筆）` : ''}`
+                ? `週一~五撰寫，週五 20:00 統一開放發布${pendingCount > 0 ? `（本週待發布 ${pendingCount} 筆）` : ''}`
                 : '發布即上線，可自行收回'}
             </p>
           </div>
