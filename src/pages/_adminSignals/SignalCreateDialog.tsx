@@ -406,10 +406,10 @@ export function SignalCreateDialog({
       if (skipLog) {
         toast.info('偵測到既有 trade_record，本次觸發已被系統安全略過（防重複），未新增持倉列。', { duration: 7000 });
       } else {
-        toast.success(isMentor ? '週記已儲存，將於本週五 20:00 統一發布' : '訊號已發布');
+        toast.success(isMentor ? `週記已儲存，將於本${nextPublishMomentLabel(assetClass)}` : '訊號已發布');
       }
     } catch {
-      toast.success(isMentor ? '週記已儲存，將於本週五 20:00 統一發布' : '訊號已發布');
+      toast.success(isMentor ? `週記已儲存，將於本${nextPublishMomentLabel(assetClass)}` : '訊號已發布');
     }
     setIsCreateOpen(false);
     clearForm();
