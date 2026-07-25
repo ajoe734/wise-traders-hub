@@ -8,7 +8,7 @@ import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { supabase } from '@/integrations/supabase/client';
 import { useAuth } from '@/contexts/AuthContext';
-import { isPublishingWindowOpen } from '@/lib/publishingWindow';
+import { isPublishingWindowOpen, nextPublishMomentLabel } from '@/lib/publishingWindow';
 import { useFormDraft } from '@/hooks/useFormDraft';
 import { LazyRichTextEditor as RichTextEditor } from '@/components/admin/LazyRichTextEditor';
 import { sanitizeRichHtml, htmlToPlainText } from '@/lib/sanitizeHtml';
@@ -281,7 +281,7 @@ const SignalEditor = () => {
       toast.success(
         isEditing
           ? `已更新 ${rows.length} 檔${isMentor ? '週記' : '訊號'}`
-          : isMentor ? '週記已儲存，將於本週五 20:00 統一發布' : `已發布 ${rows.length} 檔訊號`,
+          : isMentor ? `週記已儲存，將於本${nextPublishMomentLabel(assetClass)}` : `已發布 ${rows.length} 檔訊號`,
       );
       discardDraft();
       if (expert?.id) reloadCapital();

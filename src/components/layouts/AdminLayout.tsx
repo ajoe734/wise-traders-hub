@@ -71,7 +71,7 @@ export function AdminLayout({ children }: AdminLayoutProps) {
   const navItems = [
     { path: basePath, icon: LayoutDashboard, label: '總覽', exact: true },
     { path: `${basePath}/signals`, icon: Radio, label: isAdvisor ? '訊號管理' : '週記管理',
-      hint: isAdvisor ? undefined : '週記於每週五 20:00 自動發布' },
+      hint: isAdvisor ? undefined : '週記於每週五 20:00 統一開放發布' },
     { path: `${basePath}/plans`, icon: Wallet, label: '訂閱方案' },
     { path: `${basePath}/subscribers`, icon: Users, label: '訂閱者' },
     { path: `${basePath}/signal-templates`, icon: FileText, label: '訊號模板' },

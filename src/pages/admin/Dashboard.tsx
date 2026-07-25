@@ -194,7 +194,7 @@ const AdminDashboard = () => {
                 <div>
                   <h3 className="font-semibold">📓 撰寫本週週記</h3>
                   <p className="text-xs text-muted-foreground mt-0.5">
-                    週記儲存後狀態為「待發布」，週五 20:00 由系統自動上線
+                    週記儲存後狀態為「待發布」，本週五 20:00 統一開放發布
                   </p>
                 </div>
               </div>

@@ -41,17 +41,17 @@ export function isPublishingWindowOpen(
       return { open: false, reason: '週日不開放發布，本週一 08:00 再開放' };
     }
     if (day === 6 && hhmm >= 800) {
-      return { open: false, reason: '週六 08:00 後不開放發布，本週六 08:00 統一開放' };
+      return { open: false, reason: '週六 08:00 後不開放發布，本週六 08:00 統一開放發布' };
     }
     return { open: true };
   }
 
   // 台股（預設）
   if (day === 0 || day === 6) {
-    return { open: false, reason: '週末不開放發布，本週五 20:00 統一開放' };
+    return { open: false, reason: '週末不開放發布，本週五 20:00 統一開放發布' };
   }
   if (day === 5 && hhmm >= 2000) {
-    return { open: false, reason: '週五 20:00 後不開放發布，本週五 20:00 統一開放' };
+    return { open: false, reason: '週五 20:00 後不開放發布，本週五 20:00 統一開放發布' };
   }
   return { open: true };
 }
