@@ -581,6 +581,31 @@ Deno.serve(withLogging('publish-weekly-journals', async (req) => {
       const subscribedTargets = bindings.filter((b: any) => subscribedUserIds.has(b.user_id)).map((b: any) => b.line_user_id)
       const canceledTargets = bindings.filter((b: any) => canceledUserIds.has(b.user_id)).map((b: any) => b.line_user_id)
 
+      // 提前發布：對訂閱者發站內通知「本週週記已提前開放」
+      if (body.force === true && subscribedUserIds.size > 0) {
+        const expertName = expert?.name || '導師'
+        const slug = (expert as any)?.slug || null
+        const link = slug ? `/app/expert/${slug}` : '/account/notifications'
+        const notifRows = Array.from(subscribedUserIds).map((uid) => ({
+          user_id: uid,
+          title: `${expertName} 本週週記已提前開放`,
+          body: `${expertName} 老師提前公開本週 ${signals.length} 筆操作紀錄，點此立即查看。`,
+          type: 'info',
+          link,
+        }))
+        try {
+          const { error: notifErr } = await supabaseAdmin.from('notifications').insert(notifRows)
+          if (notifErr) {
+            emit('warn', 'insert early-publish notifications failed', { stage: 'notify_subscribers_early', expertId, count: notifRows.length, err: notifErr.message })
+          } else {
+            emit('info', 'Early-publish notifications sent', { stage: 'notify_subscribers_early', expertId, count: notifRows.length })
+          }
+        } catch (nErr) {
+          logErr('notify_subscribers_early', nErr, { expertId, count: notifRows.length })
+        }
+      }
+
+
       // batch grouping below
 
       // 依 batch_id 分組（同一篇週記 = 一個 bubble）；無 batch_id 的視為自身一組
