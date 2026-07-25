@@ -103,7 +103,7 @@ function nextWorkerWindow(now = new Date()): { inWindow: boolean; label: string 
 export default function ChipsSection({ WB, stockCode }: { WB: any; stockCode: string }) {
   if (!isTaiwanStockCode(stockCode)) return null;
 
-  // ETF / 權證 / 受益憑證 / DR：FinMind 無分點資料，直接顯示提示（不進 sync 佇列）
+  // ETF / 權證 / 受益憑證 / DR：無分點資料，直接顯示提示（不進 sync 佇列）
   if (!isTaiwanChipEligible(stockCode)) {
     return (
       <section
@@ -120,7 +120,7 @@ export default function ChipsSection({ WB, stockCode }: { WB: any; stockCode: st
           <div style={{ fontSize: 10, color: WB.inkMute, letterSpacing: '0.14em' }}>NOT APPLICABLE</div>
         </div>
         <div data-testid="chips-not-eligible" style={{ fontSize: 12, color: WB.inkMute, lineHeight: 1.7 }}>
-          — 此代號為 ETF／權證／受益憑證，FinMind 未提供分點資料
+          — 此代號為 ETF／權證／受益憑證，無分點資料
           <div style={{ fontSize: 10, color: WB.inkMute, marginTop: 2 }}>
             （僅一般個股 4 碼、首位 1–9 之代號會納入分點同步）
           </div>
@@ -531,13 +531,13 @@ export default function ChipsSection({ WB, stockCode }: { WB: any; stockCode: st
             <div>
               失敗原因：
               {data.bsr_last_failure.error_code === 'captcha_retry_exhausted'
-                ? '舊 TWSE 驗證碼路徑失敗（已停用），已改由 FinMind 官方 API 抓取'
+                ? '舊資料路徑失敗（已停用），改由官方 API 抓取'
                 : data.bsr_last_failure.error_code === 'finmind_error'
-                ? 'FinMind API 呼叫失敗（rate limit 或暫時性錯誤），下輪自動重試'
+                ? '上游 API 呼叫失敗（額度或暫時性錯誤），下輪自動重試'
                 : data.bsr_last_failure.error_code === 'http_block'
                 ? '上游暫時封鎖請求'
                 : data.bsr_last_failure.error_code === 'no_chip_data'
-                ? 'FinMind 尚無此代號分點（多為新上市或非常規個股）'
+                ? '尚無此代號分點（多為新上市或非常規個股）'
                 : data.bsr_last_failure.error_code === 'not_chip_eligible'
                 ? 'ETF／權證／受益憑證無分點資料'
                 : data.bsr_last_failure.error_code === 'rate_limited'
@@ -583,7 +583,7 @@ export default function ChipsSection({ WB, stockCode }: { WB: any; stockCode: st
                 {data?.bsr_low_quality && (
                   <span
                     data-testid="chips-bsr-low-quality-badge"
-                    title={`FinMind 當日僅回 ${Number(data?.bsr_broker_count ?? 0)} 筆分點（<${Number(data?.bsr_low_quality_threshold ?? 5)}），資料稀疏僅供參考`}
+                    title={`當日僅回 ${Number(data?.bsr_broker_count ?? 0)} 筆分點（<${Number(data?.bsr_low_quality_threshold ?? 5)}），資料稀疏僅供參考`}
                     style={{
                       display: 'inline-flex', alignItems: 'center', gap: 4,
                       padding: '1px 6px', borderRadius: 4,
@@ -602,7 +602,7 @@ export default function ChipsSection({ WB, stockCode }: { WB: any; stockCode: st
           <div data-testid="chips-bsr-missing" style={{ fontSize: 12, color: WB.inkMute, lineHeight: 1.6 }}>
             — 分點資料尚未同步（BSR 未同步）
             <div style={{ fontSize: 10, color: WB.inkMute }}>
-              （FinMind 官方 API；每交易日 18:15 起排程自動抓取，14:00–21:00 每 10 分鐘一輪，取得後畫面自動刷新）
+              （每交易日 18:15 起排程自動抓取，14:00–21:00 每 10 分鐘一輪，取得後畫面自動刷新）
             </div>
           </div>
 
@@ -619,7 +619,7 @@ export default function ChipsSection({ WB, stockCode }: { WB: any; stockCode: st
         data-testid="chips-data-source"
         style={{ marginTop: 10, fontSize: 10, color: WB.inkMute, letterSpacing: '0.06em' }}
       >
-        資料來源：FinMind（分點買賣超）・臺灣證券交易所 TWSE（三大法人）
+        資料來源：臺灣證券交易所 TWSE・證券櫃檯買賣中心 TPEx
       </div>
 
     </section>

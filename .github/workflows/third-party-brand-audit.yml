@@ -1,0 +1,24 @@
+name: Third-Party Brand Audit
+
+# 阻擋回歸：使用者可見產品 UI 禁止曝光 FinMind 商標
+# 允許：/data-sources 透明頁、/company/* admin ops、內部 hook/lib 註解
+
+on:
+  pull_request:
+    paths:
+      - 'src/**'
+      - 'scripts/audit-third-party-brand.mjs'
+      - '.github/workflows/third-party-brand-audit.yml'
+  push:
+    branches: [main]
+
+jobs:
+  audit:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+      - name: Run brand audit
+        run: node scripts/audit-third-party-brand.mjs
