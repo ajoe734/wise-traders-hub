@@ -41,7 +41,9 @@ import {
   fetchFinmindMarketDay,
   loadMarketBatchConfig,
   probeMarketBatchSupport,
+  updateMarketBatchConfig,
 } from '../_shared/finmindMarketBatch.ts';
+
 import {
   fulfillDay,
   fulfillJobsFromSnapshot,
