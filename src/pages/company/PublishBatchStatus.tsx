@@ -119,6 +119,17 @@ export default function PublishBatchStatusPage() {
     },
   });
 
+  const cronQ = useQuery({
+    queryKey: ['company', 'publish-batch', 'cron-runs'],
+    staleTime: 10_000,
+    refetchInterval: 30_000,
+    queryFn: async () => {
+      const { data, error } = await (supabase as any).rpc('get_cron_job_runs', { _limit: 60 });
+      if (error) throw error;
+      return (data || []) as CronRunRow[];
+    },
+  });
+
   const triggerM = useMutation({
     mutationFn: async (market: 'TW' | 'US') => {
       const { data, error } = await supabase.functions.invoke('publish-weekly-journals-runner', {
