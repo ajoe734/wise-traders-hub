@@ -457,6 +457,8 @@ Deno.serve(async (req) => {
         institutional: instReadiness,
         bsr_concentration: bsrReadiness,
       },
+      upstream_circuit: upstreamCircuit,
+
       source: "TWSE",
       fetched_at: new Date().toISOString(),
     };
