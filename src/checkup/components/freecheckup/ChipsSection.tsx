@@ -7,6 +7,7 @@ import { useChipsState } from '@/checkup/hooks/useChipsState';
 import ChipsTrendChart from './ChipsTrendChart';
 import { supabase } from '@/integrations/supabase/client';
 import { toast } from 'sonner';
+import { trackEvent } from '@/lib/trafficTracker';
 
 const SERIF = '"Source Serif 4", "Noto Serif TC", Georgia, serif';
 
@@ -58,6 +59,37 @@ function fmtClock(ts: number | null): string {
   const d = new Date(ts);
   const pad = (n: number) => String(n).padStart(2, '0');
   return `${d.getFullYear()}/${pad(d.getMonth() + 1)}/${pad(d.getDate())} ${pad(d.getHours())}:${pad(d.getMinutes())}`;
+}
+
+/**
+ * 單一事實：摘要格子該怎麼顯示，由後端 readiness + 本地 days_covered 決定。
+ * 不要讓 6 天資料看起來像 60 日完成。
+ */
+export function getInstReadiness(data: TwChipsPayload | null, key: 'd1' | 'd5' | 'd20' | 'd60') {
+  const cell = data?.institutional?.[key];
+  if (!cell) {
+    return {
+      state: 'no_data' as const,
+      have: 0,
+      need: key === 'd1' ? 1 : Number(key.replace('d', '')),
+      partial: false,
+    };
+  }
+  const need = key === 'd1' ? 1 : Number(key.replace('d', ''));
+  if (key !== 'd1') {
+    const rd = data?.readiness?.institutional?.[String(need) as '5' | '20' | '60'];
+    if (rd) {
+      return {
+        state: rd.state,
+        have: rd.have,
+        need: rd.need,
+        partial: rd.have < rd.need && rd.state !== 'ready',
+      };
+    }
+  }
+  const have = cell.days_covered ?? 0;
+  const ready = have >= need;
+  return { state: ready ? 'ready' : ('filling' as const), have, need, partial: !ready };
 }
 
 /**
@@ -200,6 +232,58 @@ export default function ChipsSection({ WB, stockCode }: { WB: any; stockCode: st
     }
   };
 
+  // 自動回補：資料稀疏時開抽屜自動排入一次，並追蹤 30 分鐘內是否補滿
+  const [autoBackfill, setAutoBackfill] = useState<{
+    state: 'idle' | 'triggered' | 'ready' | 'timeout';
+    startedAt: number;
+    stockCode: string;
+  } | null>(null);
+  const autoBackfillFiredRef = useRef<Set<string>>(new Set());
+
+  useEffect(() => {
+    setAutoBackfill(null);
+  }, [stockCode]);
+
+  useEffect(() => {
+    if (!data || !stockCode || !sparse) return;
+    if (autoBackfillFiredRef.current.has(stockCode)) return;
+    if (syncStatus?.eligible === false) return;
+    if (syncStatus?.status === 'running' || syncStatus?.status === 'pending') return;
+    if (autoBackfill?.state === 'triggered') return;
+
+    autoBackfillFiredRef.current.add(stockCode);
+    setAutoBackfill({ state: 'triggered', startedAt: Date.now(), stockCode });
+    handleBackfill();
+  }, [data, sparse, stockCode, syncStatus?.eligible, syncStatus?.status, autoBackfill?.state, handleBackfill]);
+
+  useEffect(() => {
+    if (!autoBackfill || autoBackfill.stockCode !== stockCode || autoBackfill.state !== 'triggered') return;
+    const isReady =
+      data?.readiness?.institutional?.['60']?.state === 'ready' ||
+      data?.readiness?.institutional?.['20']?.state === 'ready' ||
+      instDays >= 20;
+    if (isReady) {
+      setAutoBackfill({ ...autoBackfill, state: 'ready' });
+    }
+  }, [data, autoBackfill, stockCode, instDays]);
+
+  useEffect(() => {
+    if (!autoBackfill || autoBackfill.stockCode !== stockCode || autoBackfill.state !== 'triggered') return;
+    const timer = window.setTimeout(() => {
+      setAutoBackfill((prev) => {
+        if (!prev || prev.stockCode !== stockCode || prev.state !== 'triggered') return prev;
+        trackEvent('chips_auto_backfill_timeout', {
+          stock_code: stockCode,
+          elapsed_ms: Date.now() - prev.startedAt,
+          inst_days: instDays,
+          bsr_days: bsrDays,
+        });
+        return { ...prev, state: 'timeout' };
+      });
+    }, 30 * 60 * 1000);
+    return () => window.clearTimeout(timer);
+  }, [autoBackfill, stockCode, instDays, bsrDays]);
+
   // 依真實 status 渲染 BSR 標頭文案
   function fmtNextRun(iso: string | null | undefined): string {
     if (!iso) return '';
@@ -338,7 +422,26 @@ export default function ChipsSection({ WB, stockCode }: { WB: any; stockCode: st
         </div>
       )}
 
-
+      {/* 自動回補逾時通知：資料已進入佇列，但 30 分鐘內仍未補滿 */}
+      {autoBackfill?.state === 'timeout' && !error && (
+        <div
+          data-testid="chips-backfill-timeout"
+          style={{
+            display: 'flex', alignItems: 'center', gap: 8,
+            padding: '8px 10px', marginBottom: 10,
+            border: `1px dashed #8a5a1e`, background: 'rgba(138,90,30,0.04)',
+            fontSize: 11, color: '#8a5a1e', fontFamily: SERIF,
+          }}
+        >
+          <span style={{ fontSize: 12 }}>⏳</span>
+          <div>
+            歷史資料補齊中，預計 5–15 分鐘後完成。
+            <div style={{ fontSize: 10, opacity: 0.8, marginTop: 2 }}>
+              已將此狀況回報後台；稍後重新打開抽屜即可查看最新資料。
+            </div>
+          </div>
+        </div>
+      )}
 
       {/* 錯誤 / 離線橫幅 */}
       {error && (
@@ -432,14 +535,24 @@ export default function ChipsSection({ WB, stockCode }: { WB: any; stockCode: st
             <React.Fragment key={row.k}>
               <div style={{ color: WB.inkSub }}>{row.label}</div>
               {WINDOWS.map((w) => {
-                const val = data?.institutional?.[w.key]?.[row.k as 'foreign_net'];
+                const cell = data?.institutional?.[w.key];
+                const val = cell?.[row.k as 'foreign_net'];
+                const rd = getInstReadiness(data, w.key);
+                const isReady = rd.state === 'ready';
+                const isPartial = rd.partial && cell != null;
                 return (
                   <div
                     key={w.key}
                     data-testid={`chips-inst-${row.k}-${w.key}`}
-                    style={{ textAlign: 'right', color: tone(WB, val ?? null), fontVariantNumeric: 'tabular-nums' }}
+                    data-readiness-state={rd.state}
+                    title={isPartial ? `僅 ${rd.have}/${rd.need} 個交易日` : undefined}
+                    style={{
+                      textAlign: 'right',
+                      color: isReady ? tone(WB, val ?? null) : WB.inkMute,
+                      fontVariantNumeric: 'tabular-nums',
+                    }}
                   >
-                    {fmtNet(val ?? null)}
+                    {isReady ? fmtNet(val ?? null) : isPartial ? `${fmtNet(val ?? null)} (${rd.have}/${rd.need})` : '—'}
                   </div>
                 );
               })}

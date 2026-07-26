@@ -322,4 +322,66 @@ test.describe('ChipsSection · 全覆蓋', () => {
     await page.waitForTimeout(1500);
     expect(enqueueCalls, `不應該有 ensure_bsr_queued 請求: ${enqueueCalls.join(',')}`).toEqual([]);
   });
+
+  test('O. 資料稀疏時：摘要與趨勢圖都顯示相同的覆蓋比例，不自動重複補齊', async ({ page }) => {
+    const dates = Array.from({ length: 60 }, (_, i) => {
+      const d = new Date(2026, 5, 1 + i);
+      return d.toISOString().slice(0, 10);
+    });
+    const inst_daily = dates.map((date, i) => ({
+      date,
+      foreign_net: -10_000 - i * 1_000,
+      trust_net: 5_000 + i * 500,
+      dealer_net: 1_000,
+      total_net: -4_000,
+    }));
+    const payload = fullPayload({
+      institutional: {
+        d1: null, d5: null, d20: null,
+        d60: { foreign_net: -9_388_000, trust_net: 1_200_000, dealer_net: 500_000, total_net: -7_688_000, days_covered: 6 },
+      },
+      bsr: { d5: null, d20: null, d60: null },
+      bsr_as_of: null,
+      series: {
+        institutional_daily: inst_daily,
+        bsr_concentration: [],
+      },
+      readiness: {
+        institutional: {
+          '5': { state: 'filling', have: 3, need: 5 },
+          '20': { state: 'filling', have: 6, need: 20 },
+          '60': { state: 'filling', have: 6, need: 60 },
+        },
+        bsr_concentration: {},
+      },
+    });
+    let backfillCount = 0;
+    await page.route('**/tw-institutional-daily-sync', (route) => {
+      backfillCount += 1;
+      return route.fulfill({ status: 200, contentType: 'application/json', body: JSON.stringify({}) });
+    });
+    await page.route('**/enqueue_bsr_backfill', (route) => route.fulfill({ status: 200, contentType: 'application/json', body: JSON.stringify({}) }));
+    await mockChips(page, (r) => fulfill(r, payload));
+    await page.goto(`/e2e/chips-section?code=${STOCK}`);
+    await page.getByTestId('chips-section').waitFor();
+
+    // 摘要顯示 partial 值與覆蓋標記
+    const cell = page.getByTestId('chips-inst-foreign_net-d60');
+    await expect(cell).toContainText('-9,388');
+    await expect(cell).toContainText('(6/60)');
+    await expect(cell).toHaveAttribute('data-readiness-state', 'filling');
+
+    // 趨勢圖：切到 60 日後 caption 與摘要格子的覆蓋比例一致
+    await page.getByTestId('chips-trend-chart').getByRole('button', { name: '60 日' }).click();
+    const caption = page.getByTestId('chips-trend-readiness-caption');
+    await expect(caption).toContainText('6');
+    await expect(caption).toContainText('60');
+    await expect(page.getByTestId('chips-trend-chart')).toHaveAttribute('data-readiness-state', 'filling');
+    await expect(page.getByTestId('chips-trend-chart')).toHaveAttribute('data-readiness-have', '6');
+    await expect(page.getByTestId('chips-trend-chart')).toHaveAttribute('data-readiness-need', '60');
+
+    // 等待一下，自動回補只應該觸發一次
+    await page.waitForTimeout(1500);
+    expect(backfillCount).toBeLessThanOrEqual(1);
+  });
 });
