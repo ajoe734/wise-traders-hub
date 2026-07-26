@@ -145,6 +145,18 @@ describe('L2 · M3 useRouteEventsPage', () => {
     act(() => result.current.setFilterType('財報'))
     expect(result.current.filteredEvents).toHaveLength(2)
   })
+
+  it('契約：暴露 reloadNewsEvents callback 且能被 EventsPage 調用（Shell Bus §8 follow-up）', async () => {
+    const reloadNewsEventsMock = vi.fn().mockResolvedValue([{ id: 'ev-r', type: '財報' }])
+    mockContext.reloadNewsEvents = reloadNewsEventsMock
+    const { useRouteEventsPage } = await import('@/checkup/modules/events')
+    const { result } = renderHook(() => useRouteEventsPage(), { wrapper })
+    expect(typeof result.current.reloadNewsEvents).toBe('function')
+    await act(async () => {
+      await result.current.reloadNewsEvents()
+    })
+    expect(reloadNewsEventsMock).toHaveBeenCalledTimes(1)
+  })
 })
 
 describe('L2 · M4 useRouteTradePage / useRouteLogPage', () => {
