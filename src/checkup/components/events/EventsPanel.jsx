@@ -637,7 +637,30 @@ export function EventCard({ event, isPredicting }) {
                 { style: { fontSize: 9, color: C.textSec, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', maxWidth: 200 } },
                 event.predReason
               )
-            )
+            ),
+        researchCode && h(
+          'button',
+          {
+            type: 'button',
+            onClick: (e) => {
+              e.stopPropagation()
+              emitResearchPrefill(researchCode, event.label || event.type)
+            },
+            'data-testid': `event-research-${event.id || researchCode}`,
+            style: {
+              marginTop: 6,
+              background: 'transparent',
+              border: `1px solid ${alpha(C.textMute, '20')}`,
+              borderRadius: 4,
+              color: C.textSec,
+              cursor: 'pointer',
+              fontSize: 9,
+              padding: '3px 7px',
+              letterSpacing: '0.06em',
+            },
+          },
+          '→ 帶入研究',
+        )
       )
     )
   )
