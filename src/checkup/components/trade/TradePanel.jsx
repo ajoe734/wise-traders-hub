@@ -1282,7 +1282,7 @@ export function TradePanel({
       memoIn,
       setMemoIn,
       memoStep,
-      submitMemo,
+      submitMemo: wrappedSubmitMemo,
       uploadCount,
       activeUploadIndex,
     }),
