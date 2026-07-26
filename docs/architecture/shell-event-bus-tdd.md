@@ -27,20 +27,17 @@
 
 ## 2. 事件契約
 
-### 本輪落地
-| 事件名 | Payload | 發送方 | 接收方（Shell listener 行為） |
+| 事件名 | Payload | 發送方 (barrel helper) | Shell / 目標行為 |
 | --- | --- | --- | --- |
-| `holdings:focus` | `{ stockCode: string; source: 'closing' \| 'events' }` | M2 / M3 | `navigate('/portfolio/:id/holdings?expand=<stockCode>')` |
-
-### TODO（未來事件）
-| 事件名 | Payload（草案） | 用途 |
-| --- | --- | --- |
-| `events:refresh` | `{ reason: string }` | M4 交易寫入後要求 M3 重整 |
-| `closing:openStock` | `{ stockCode; date }` | M1 → M2 開啟某日收盤 |
-| `research:prefill` | `{ stockCode; topic }` | M2/M3 → M5 帶入研究主題 |
+| `holdings:focus` | `{ stockCode: string; source: 'closing' \| 'events' }` | M2 `useEmitHoldingsFocus` / M3 `useEmitHoldingsFocus` | Shell `useHoldingsFocusNavigation`：`navigate('/portfolio/:id/holdings?expand=<code>')` |
+| `closing:openStock` | `{ stockCode: string; date?: string; source: 'holdings' }` | M1 `useEmitClosingOpenStock` | Shell `useClosingOpenStockNavigation`：`navigate('/portfolio/:id/daily?stock=<code>[&date=<YYYY-MM-DD>]')` |
+| `research:prefill` | `{ stockCode: string; topic?: string; source: 'closing' \| 'events' }` | M2 / M3 `useEmitResearchPrefill` | Shell `useResearchPrefillNavigation`：`navigate('/portfolio/:id/research?stock=<code>[&topic=<topic>]')` |
+| `events:refresh` | `{ reason: 'trade-import' \| 'trade-manual' \| 'ocr' \| string; source: 'tradeIO' }` | M4 `useEmitEventsRefresh` | M3 `useOnEventsRefresh(cb)` 訂閱後執行 re-fetch；不做 route 導航 |
 
 ### 型別放哪
 `src/checkup/shell/eventBus.ts` 匯出 `ShellEvents` 型別；擴充事件時只改這裡與本表。
+
+
 
 ---
 
