@@ -50,17 +50,11 @@ export function BackfillQueueCard() {
   async function handleScan() {
     setScanning(true);
     try {
-      const resp = await fetch('https://yqacmrgdjlenbijclngi.supabase.co/functions/v1/backfill-gap-orchestrator', {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-          Authorization: `Bearer ${process.env.SUPABASE_ANON_KEY || 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InlxYWNtcmdkamxlbmJpamNsbmdpIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzE4MjIyODcsImV4cCI6MjA4NzM5ODI4N30.tK-z5GHxqDycc9ArFkvhCPrMU2P7vd6q7CHUIq_0Yfo'}`,
-        },
-        body: JSON.stringify({ mode: 'scan_only', lookback_days: 60 }),
+      const { data, error } = await supabase.functions.invoke('backfill-gap-orchestrator', {
+        body: { mode: 'scan_only', lookback_days: 60 },
       });
-      const json = await resp.json();
-      if (!resp.ok) throw new Error(json?.message || 'scan failed');
-      setScanResult(json);
+      if (error) throw new Error(error.message || 'scan failed');
+      setScanResult(data as Record<string, unknown>);
       toast.success('缺口掃描完成');
     } catch (e) {
       toast.error(`掃描失敗：${(e as Error).message}`);
@@ -73,18 +67,12 @@ export function BackfillQueueCard() {
     if (!confirm('確定要將掃描到的缺口入列回填？此動作會消耗 FinMind quota。')) return;
     setRunning(true);
     try {
-      const resp = await fetch('https://yqacmrgdjlenbijclngi.supabase.co/functions/v1/backfill-gap-orchestrator', {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-          Authorization: `Bearer ${process.env.SUPABASE_ANON_KEY || 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InlxYWNtcmdkamxlbmJpamNsbmdpIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzE4MjIyODcsImV4cCI6MjA4NzM5ODI4N30.tK-z5GHxqDycc9ArFkvhCPrMU2P7vd6q7CHUIq_0Yfo'}`,
-        },
-        body: JSON.stringify({ mode: 'run', max_scan_jobs: 500, max_dispatch_jobs: 200, lookback_days: 60 }),
+      const { data, error } = await supabase.functions.invoke('backfill-gap-orchestrator', {
+        body: { mode: 'run', max_scan_jobs: 500, max_dispatch_jobs: 200, lookback_days: 60 },
       });
-      const json = await resp.json();
-      if (!resp.ok) throw new Error(json?.message || 'run failed');
-      setScanResult(json);
-      toast.success(`已入列 ${json.inserted ?? 0} 個回填 job`);
+      if (error) throw new Error(error.message || 'run failed');
+      setScanResult(data as Record<string, unknown>);
+      toast.success(`已入列 ${(data as Record<string, number>)?.inserted ?? 0} 個回填 job`);
       await refetch();
     } catch (e) {
       toast.error(`入列失敗：${(e as Error).message}`);
