@@ -2,6 +2,8 @@ import { createElement as h } from 'react'
 import { C, alpha } from '../../theme.js'
 import { Card, Button } from '../common'
 import { RELAY_PLAN } from '../../seedData.js'
+// M3 → M5 主動跳轉：走 Shell event bus。
+import { useEmitResearchPrefill } from '../../modules/events/useEmitResearchPrefill'
 
 const TYPE_COLOR = {
   法說: C.up,
