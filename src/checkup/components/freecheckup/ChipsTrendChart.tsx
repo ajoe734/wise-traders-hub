@@ -66,7 +66,7 @@ export default function ChipsTrendChart({
   useEffect(() => {
     if (mode !== 'inst') return;
     if (instLen > 0 && win > instLen) {
-      const fallback = ([60, 20, 5] as Window[]).find((w2) => w2 <= instLen) ?? 5;
+      const fallback = ([60, 20, 5, 1] as Window[]).find((w2) => w2 <= instLen) ?? 1;
       setWin(fallback);
     }
   }, [mode, win, instLen]);
