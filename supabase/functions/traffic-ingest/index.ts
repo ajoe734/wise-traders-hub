@@ -8,7 +8,7 @@
 // and returns 200 even on partial errors so the client never retries indefinitely.
 
 import 'jsr:@supabase/functions-js/edge-runtime.d.ts';
-import { corsHeaders, jsonResponse, corsPreflight } from '../_shared/cors.ts';
+import { jsonResponse, corsPreflight } from '../_shared/cors.ts';
 import { serviceClient, getCallerUserId } from '../_shared/supabaseClients.ts';
 
 import { withLogging } from '../_shared/edgeLogger.ts';
@@ -34,9 +34,12 @@ function isInternalRoute(path: string): boolean {
 }
 
 Deno.serve(withLogging('traffic-ingest', async (req) => {
-  if (req.method === 'OPTIONS') return corsPreflight();
+  // traffic-ingest is called via navigator.sendBeacon which forces credentials
+  // → we must echo the request origin instead of using wildcard `*`.
+  const CORS_OPTS = { credentials: true } as const;
+  if (req.method === 'OPTIONS') return corsPreflight(req, CORS_OPTS);
   if (req.method !== 'POST') {
-    return jsonResponse({ ok: false }, { status: 405 });
+    return jsonResponse({ ok: false }, { status: 405 }, req, CORS_OPTS);
   }
 
   let body: Record<string, unknown> = {};
@@ -107,7 +110,7 @@ Deno.serve(withLogging('traffic-ingest', async (req) => {
         });
       }
 
-      return jsonResponse({ ok: true, channel });
+      return jsonResponse({ ok: true, channel }, {}, req, CORS_OPTS);
     }
 
     if (kind === 'event') {
@@ -151,13 +154,13 @@ Deno.serve(withLogging('traffic-ingest', async (req) => {
         user_id: userId || undefined,
       }).eq('visitor_id', visitor_id).then(() => {});
 
-      return jsonResponse({ ok: true, count: rows.length });
+      return jsonResponse({ ok: true, count: rows.length }, {}, req, CORS_OPTS);
     }
 
 
-    return jsonResponse({ ok: false, error: 'unknown_kind' });
+    return jsonResponse({ ok: false, error: 'unknown_kind' }, {}, req, CORS_OPTS);
   } catch (e) {
     console.error('[traffic-ingest] error', (e as Error).message);
-    return jsonResponse({ ok: false }, { status: 200, headers: corsHeaders });
+    return jsonResponse({ ok: false }, { status: 200 }, req, CORS_OPTS);
   }
 }));
