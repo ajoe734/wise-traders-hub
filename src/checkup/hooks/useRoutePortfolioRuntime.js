@@ -35,6 +35,7 @@ import {
   save,
   savePortfolioData,
 } from '../lib/portfolioUtils.js'
+import { syncEngine } from '../lib/syncEngine.js'
 import {
   normalizeAnalysisHistoryEntries,
   normalizeAnalystReportsStore,
