@@ -7,6 +7,7 @@ import { useChipsState } from '@/checkup/hooks/useChipsState';
 import ChipsTrendChart from './ChipsTrendChart';
 import { supabase } from '@/integrations/supabase/client';
 import { toast } from 'sonner';
+import { trackEvent } from '@/lib/trafficTracker';
 
 const SERIF = '"Source Serif 4", "Noto Serif TC", Georgia, serif';
 
