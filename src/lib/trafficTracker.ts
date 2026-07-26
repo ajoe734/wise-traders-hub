@@ -61,6 +61,9 @@ const INGEST_URL = `${SUPABASE_URL}/functions/v1/traffic-ingest`;
 
 async function post(payload: Record<string, unknown>): Promise<void> {
   const body = JSON.stringify(payload);
+  // NOTE: traffic-ingest is one of the few endpoints that receives credentials
+  // (sendBeacon always includes cookies; fetch fallback opts in explicitly).
+  // The edge function echoes Origin + sets Allow-Credentials to match.
   try {
     if (typeof navigator !== 'undefined' && 'sendBeacon' in navigator) {
       const blob = new Blob([body], { type: 'application/json' });
@@ -74,6 +77,7 @@ async function post(payload: Record<string, unknown>): Promise<void> {
       headers: { 'Content-Type': 'application/json', apikey: ANON_KEY },
       body,
       keepalive: true,
+      credentials: 'include',
     });
   } catch { /* swallow */ }
 }
