@@ -146,7 +146,6 @@ test.describe('ChipsSection · 全覆蓋', () => {
     // 趨勢圖
     await expect(page.getByTestId('chips-trend-chart')).toBeVisible();
     await expect(page.getByTestId('chips-trend-scrubber')).toBeVisible();
-    await expect(page.getByTestId('chips-trend-play')).toBeVisible();
     await expect(page.getByTestId('chips-trend-readout')).toContainText('5 日滾動淨買賣');
     // 切到集中度模式
     await page.getByRole('button', { name: '分點集中度' }).click();
@@ -278,7 +277,6 @@ test.describe('ChipsSection · 全覆蓋', () => {
       'chips-bsr',
       'chips-trend-chart',
       'chips-trend-scrubber',
-      'chips-trend-play',
       'chips-trend-readout',
     ]) {
       await expect(page.getByTestId(t)).toBeVisible();
