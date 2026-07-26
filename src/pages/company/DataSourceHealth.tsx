@@ -1,4 +1,6 @@
-// PR-8/PR-9: 上游熔斷 + Quota Pools + Kill-Switches 監控頁
+// PR-8/PR-9/P5: 上游熔斷 + Quota Pools + Kill-Switches + Fact-log 健康
+import { FactLogHealthCard } from '@/components/company/FactLogHealthCard';
+
 import { useState } from 'react';
 import { useQuery, useQueryClient } from '@tanstack/react-query';
 import { supabase } from '@/integrations/supabase/client';
