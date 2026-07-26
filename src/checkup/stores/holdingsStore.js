@@ -5,7 +5,7 @@
  *
  * IMPORTANT: holdings/tradeLog/targets/... default to `null` (not [] / {}).
  * `null` is the "not yet hydrated" sentinel used by usePortfolioPersistence
- * and useAppRuntimeCoreLifecycle to distinguish "no data loaded" from
+ * to distinguish "no data loaded" from
  * "loaded empty". Do NOT change without auditing those hooks.
  */
 

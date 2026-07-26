@@ -3,7 +3,7 @@
 本目錄保留會員版 `/checkup` 路由所需的兩支持倉元件。
 
 ## 元件
-- `HoldingsPanel.tsx` — 列表式持倉面板（由 `src/checkup/pages/HoldingsPage.jsx`、`AppPanels.jsx` 引用）
+- `HoldingsPanel.tsx` — 列表式持倉面板（由 `src/checkup/pages/HoldingsPage.jsx`）
 - `HoldingsTable.jsx` / `HoldingRow` — 表格式持倉（同上）
 - `holdingsTokens.js` — 設計 token（單色橘紅憲法，見 `mem://style/holdings/monochrome-orange-pnl`）
 
