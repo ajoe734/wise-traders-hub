@@ -44,7 +44,7 @@ export default function ChipsTrendChart({
   data: TwChipsPayload | null;
 }) {
   const [mode, setMode] = useState<Mode>('inst');
-  const [win, setWin] = useState<Window>(5);
+  const [win, setWin] = useState<Window>(1);
   const [idx, setIdx] = useState<number>(-1); // -1 = latest
   const wrapRef = useRef<HTMLDivElement | null>(null);
   const [w, setW] = useState(WIDTH);
