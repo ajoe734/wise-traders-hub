@@ -267,7 +267,24 @@ export default function ChipsTrendChart({
             );
           })()}
 
-          {/* 每日長條 — 恆定型態 */}
+          {/* 視窗高亮背景 */}
+          {validPts.length >= 2 && windowActualLen > 0 && (() => {
+            const halfBar = barW / 2 + 1;
+            const x1 = Math.max(PAD_L, xs(windowStart) - halfBar);
+            const x2 = Math.min(w - PAD_R, xs(windowEnd) + halfBar);
+            return (
+              <rect
+                data-testid="chips-trend-window-band"
+                x={x1}
+                y={PAD_T}
+                width={Math.max(1, x2 - x1)}
+                height={HEIGHT - PAD_T - PAD_B}
+                fill="rgba(0,0,0,0.04)"
+              />
+            );
+          })()}
+
+          {/* 每日長條 — 視窗內飽和,視窗外淡化 */}
           {validPts.length >= 2 && series.map((p, i) => {
             const v = p.value as number;
             if (v == null || Number.isNaN(v)) return null;
@@ -277,15 +294,17 @@ export default function ChipsTrendChart({
               mode === 'bsr'
                 ? (v > 70 ? UP : WB.ink)
                 : v >= 0 ? UP : DOWN;
+            const inWindow = i >= windowStart && i <= windowEnd;
             return (
               <rect
                 key={i}
+                data-window-active={inWindow ? 'true' : 'false'}
                 x={xs(i) - barW / 2}
                 y={Math.min(y1, base)}
                 width={barW}
                 height={Math.max(1, Math.abs(y1 - base))}
                 fill={fill}
-                opacity={0.75}
+                opacity={inWindow ? 0.85 : 0.2}
               />
             );
           })}
