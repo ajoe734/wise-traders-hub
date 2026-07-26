@@ -206,7 +206,7 @@ async function processFundamentals(supa: ReturnType<typeof createClient>, job: J
         revenue_year?: number;
       }
       const rows = await fetchFinmind<RawRev>(supa, {
-        dataset: "TaiwanStockRevenue",
+        dataset: "TaiwanStockMonthRevenue",
         data_id: job.stock_id,
         start_date: job.start_date,
         end_date: job.end_date,
