@@ -1,41 +1,47 @@
+# M3 events:refresh 真實 re-fetch（Shell Bus §8 Follow-up）
+
 ## 目標
-建立一份長效參考文件 `docs/architecture/shell-event-bus-tdd.md`，作為 Shell Event Bus 實作的**唯一事實來源**。之後每次動工前先 `code--view` 這份 doc，避免記憶漂移或重複討論。
+把 `events:refresh` 從「僅 bump tick + analytics」升級為「真正重新拉雲端事件並寫回 store」，讓 M4 TradeIO 寫入後 M3 Events 顯示的資料是最新的。
 
-## 文件位置與命名
-- 路徑：`docs/architecture/shell-event-bus-tdd.md`
-- 與既有 `docs/architecture/holdings-modules.md` 同層，方便交叉參照。
-- 完成後在 `holdings-modules.md` TODO 區塊加一行 `→ 詳見 shell-event-bus-tdd.md`。
+## 文件策略（TDD 模式）
+- 新增：`docs/architecture/events-refresh-tdd.md`（本次 follow-up 專屬 TDD 文件，含 §1 需求 / §2 契約 / §3 測試策略 / §4 實作步驟 / §5 執行日誌 / §6 完成標記）。
+- 刪除：舊 `docs/architecture/shell-event-bus-tdd.md`（原始 bus TDD 已完成、進維護模式），改由 index 或 README 指向新 doc。
+- 新 doc 完成合併後才刪舊 doc，避免 CI docs link 檢查斷鏈。
 
-## 文件結構（章節）
-1. **背景與非目標** — 為何需要 event bus、本輪不做什麼（legacy 清理、ESLint boundary 另立 PR）。
-2. **事件契約** — 初版只有 `holdings:focus { stockCode, source }`；未來事件放 TODO 表格。
-3. **檔案清單** — 新增／修改的每個檔案與職責：
-   - `src/checkup/shell/eventBus.ts`（純 pub/sub）
-   - `src/checkup/shell/ShellEventBusProvider.tsx`（Context + hook）
-   - `src/checkup/pages/PortfolioLayout.jsx`（掛 Provider + 註冊 `holdings:focus` listener）
-   - `src/checkup/hooks/useRouteHoldingsPage.js`（讀 `?expand=`）
-   - `src/checkup/modules/closing/index.ts` / `events/index.ts`（export `useEmitHoldingsFocus`）
-   - `src/pages/ShellEventBusHarnessEntry.tsx`（dev/test harness）
-4. **TDD 五步節奏** — 每步的紅／綠／重構具體動作與檔案：
-   - S1 契約測試 `src/test/unit/shell-event-bus.test.ts`
-   - S2 bus 實作
-   - S3 Provider + hook 測試 `shell-event-bus-provider.test.tsx`
-   - S4 M2/M3 barrel emit helper + 靜態掃描測試（`rg` 驗證沒有跨模組深 import）
-   - S5 E2E `e2e/shell-event-bus-navigation.spec.ts`
-5. **跨模組互動契約檢查表** — 對應 `holdings-modules.md`「只允許 3 條路」，本 PR 落實第 3 條。
-6. **驗收清單** — vitest 全綠、playwright 全綠、`portfolio-modules-smoke` / `module-cross-nav` 不退化。
-7. **執行日誌區** — 預留 checkbox 讓每一步完成後我勾選，並記錄 commit / 測試輸出摘要。
-8. **後續 TODO** — 事件擴充清單、legacy 清理、ESLint boundary rule。
+## 現況（已讀檔確認）
+- `usePortfolioBootstrap.js` L155-197：初次 hydration 才呼叫 `POST /brain {action:'load-events'}`，之後不會重跑；`setNewsEvents` 是 EventStore 的 setter。
+- `useRouteEventsPage.js`：目前只從 `usePortfolioRouteContext()` 取 `newsEvents`，未回傳任何 reload。
+- `EventsPage.jsx` L13-18：`handleRefresh` 只 `setRefreshTick(n+1)` 與 analytics，未觸發網路重抓。
+- `usePortfolioRouteContext.js`：純 `useOutletContext()`，代表 reload callback 需由 `PortfolioLayout` 注入 context。
 
-## 使用約定
-- 每次進場先 `code--view docs/architecture/shell-event-bus-tdd.md`。
-- 每完成一個 TDD step 立刻更新「執行日誌區」的 checkbox 與測試結果。
-- 契約若變動（新增事件、改 payload）先改這份 doc 再改 code。
+## 實作步驟
 
-## 執行順序
-1. 批准此計畫後，切 build mode → 只建立這一份 md 檔（本輪不寫任何 code）。
-2. 你確認 doc 內容 OK → 我再依 doc 進入 TDD S1（開始寫紅測試）。
+1. **抽 `reloadNewsEvents` callback**
+   - 在 `usePortfolioBootstrap.js` 把「load-events fetch + normalize + setNewsEvents + savePortfolioData」封成獨立函式，供初次 hydration 與 refresh 共用。
+   - 從 hook 回傳 `reloadNewsEvents(pid?)`；預設用當前 `activePortfolioId`。
+   - 加 in-flight guard（`useRef`）避免併發重複請求；失敗 silent + `console.warn`（維持與現行 offline fallback 一致）。
 
-## 非目標
-- 本 PR 不含實作 code、不含測試檔；只產出 doc。
-- 不動 legacy dead code、不加 ESLint rule。
+2. **透過 Layout 注入 route context**
+   - `PortfolioLayout.jsx` 的 `<Outlet context={...}>` 加入 `reloadNewsEvents`。
+   - `useRouteEventsPage.js` 從 context 取出並回傳。
+
+3. **EventsPage 串接**
+   - `handleRefresh` 改為 `async (payload) => { await reloadNewsEvents(); setRefreshTick(n+1); track(...) }`。
+   - tick 仍在 refetch 完成後 bump，維持 E2E 觀測點語意（tick 增加 = refetch 已完成）。
+
+4. **測試（TDD 先行）**
+   - **Unit**：`useRouteEventsPage` 契約測試 → 斷言回傳含 `reloadNewsEvents: Function`。
+   - **Unit**：mock fetch，emit `events:refresh` 後 `setNewsEvents` 被以最新 payload 呼叫一次。
+   - **E2E**：擴充 `e2e/shell-event-bus-nav-v2.spec.ts` 的 `events:refresh` 案例 → 透過 route intercept 斷言 `POST /brain {action:'load-events'}` 在 emit 後真的被呼叫，且 tick 也 +1。
+
+5. **文件與清理**
+   - 寫 `events-refresh-tdd.md`（含上述 §1-§6，執行日誌記 unit + e2e 綠燈次數）。
+   - 更新 memory index / 其他引用點指向新 doc。
+   - 刪除 `docs/architecture/shell-event-bus-tdd.md`。
+   - `rg` 確認無 dead link。
+
+## 驗收
+- `bunx vitest run` 相關 unit 全綠。
+- `bunx playwright test e2e/shell-event-bus-nav-v2.spec.ts` 全綠，且新 assertion 覆蓋 network call。
+- 手動：在 `?bus_test=1` beacon 觸發 emit → Network 面板可見 `load-events` 請求 → EventsPanel 顯示雲端最新資料。
+- `rg "shell-event-bus-tdd"` 無殘留引用。

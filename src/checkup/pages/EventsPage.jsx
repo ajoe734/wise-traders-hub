@@ -8,12 +8,19 @@ import { track } from '@/lib/analytics/events'
 
 export function EventsPage() {
   const panelProps = useRouteEventsPage()
+  const { reloadNewsEvents } = panelProps
   const [refreshTick, setRefreshTick] = useState(0)
 
-  const handleRefresh = useCallback((payload) => {
+  const handleRefresh = useCallback(async (payload) => {
+    // Shell Bus §8 follow-up：先真的重拉事件，再 bump tick，讓 tick 增加 = refetch 已完成。
+    try {
+      if (typeof reloadNewsEvents === 'function') {
+        await reloadNewsEvents()
+      }
+    } catch { /* silent；reloadNewsEvents 內部已 console.warn */ }
     setRefreshTick((n) => n + 1)
     try { track('shell_bus_events_refresh', { source: payload?.source || 'unknown' }) } catch { /* noop */ }
-  }, [])
+  }, [reloadNewsEvents])
 
   useOnEventsRefresh(handleRefresh)
 

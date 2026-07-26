@@ -28,7 +28,7 @@ const siblingBoundaryConfigs = CHECKUP_MODULES.map((self) => ({
               `@/checkup/modules/${other}`,
               `@/checkup/modules/${other}/*`,
             ],
-            message: `禁止跨模組 import：${self} 不得直接依賴手足模組 ${other}。請走 URL params / store selector / shell event bus（見 docs/architecture/holdings-modules.md 與 shell-event-bus-tdd.md）。`,
+            message: `禁止跨模組 import：${self} 不得直接依賴手足模組 ${other}。請走 URL params / store selector / shell event bus（見 docs/architecture/holdings-modules.md 與 events-refresh-tdd.md）。`,
           },
         ]),
       },

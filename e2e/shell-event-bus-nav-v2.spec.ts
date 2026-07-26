@@ -73,8 +73,27 @@ test.describe('L5 · Shell Event Bus v2', () => {
     )
   })
 
-  test('events:refresh → EventsPage 的 refreshTick 遞增', async ({ page }) => {
-    // 進入 EventsPage 並開啟 bus_test beacon
+  test('events:refresh → EventsPage 的 refreshTick 遞增 + load-events 真的被打', async ({ page }) => {
+    // Shell Bus §8 follow-up：驗證 emit 後 syncEngine.fetchCloudSlice('newsEvents')
+    // 真的送出 POST /checkup-brain {action:'load-events'}，並保序 bump tick。
+    const loadEventsCalls: number[] = []
+    await page.route(/\/functions\/v1\/checkup-brain(\?|$)/, async (route) => {
+      const req = route.request()
+      if (req.method() === 'POST') {
+        try {
+          const body = req.postDataJSON() as { action?: string } | null
+          if (body?.action === 'load-events') {
+            loadEventsCalls.push(Date.now())
+          }
+        } catch { /* ignore */ }
+      }
+      await route.fulfill({
+        status: 200,
+        contentType: 'application/json',
+        body: JSON.stringify({ events: [] }),
+      })
+    })
+
     await gotoWithRetry(page, `/portfolio/${PORTFOLIO_ID}/events?bus_test=1`, {
       waitUntil: 'domcontentloaded',
     })
@@ -84,12 +103,17 @@ test.describe('L5 · Shell Event Bus v2', () => {
 
     const beacon = page.getByTestId('events-bus-test-emit-refresh')
     await expect(beacon).toBeVisible()
+    const before = loadEventsCalls.length
     await beacon.click()
     await expect(tickHost).toHaveAttribute('data-events-refresh-tick', '1')
+    // tick 增加 = handleRefresh 已 await 完 reloadNewsEvents；此時 network 記錄必已抓到。
+    expect(loadEventsCalls.length).toBeGreaterThan(before)
 
     // 二次 emit 必須繼續遞增（保序）
+    const mid = loadEventsCalls.length
     await beacon.click()
     await expect(tickHost).toHaveAttribute('data-events-refresh-tick', '2')
+    expect(loadEventsCalls.length).toBeGreaterThan(mid)
 
     // Shell 沒被 unmount
     expect(await page.locator('.checkup-root').count()).toBeGreaterThan(0)
