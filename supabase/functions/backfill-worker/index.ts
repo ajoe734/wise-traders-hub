@@ -291,7 +291,7 @@ export default async function handler(req: Request): Promise<Response> {
   try {
     const killSwitch = await checkKillSwitch(supa, "backfill_worker");
     if (!killSwitch) {
-      return json({ ok: true, skipped: true, reason: "kill_switch_off" });
+      return jsonResponse({ ok: true, skipped: true, reason: "kill_switch_off" });
     }
 
     const mode = body.mode ?? "worker";
@@ -305,7 +305,7 @@ export default async function handler(req: Request): Promise<Response> {
         .eq("id", body.job_id)
         .maybeSingle();
       if (error) throw error;
-      if (!data) return json({ ok: false, error: "job_not_found" }, 404);
+      if (!data) return jsonResponse({ ok: false, error: "job_not_found" }, 404);
       jobs = [data as unknown as Job];
     } else {
       const { data, error } = await supa.rpc("claim_backfill_jobs", {
@@ -316,7 +316,7 @@ export default async function handler(req: Request): Promise<Response> {
     }
 
     if (jobs.length === 0) {
-      return json({ ok: true, mode, processed: 0, run_id: runId });
+      return jsonResponse({ ok: true, mode, processed: 0, run_id: runId });
     }
 
     const results: Array<{ job_id: number; status: string; result: unknown }> = [];
@@ -345,7 +345,7 @@ export default async function handler(req: Request): Promise<Response> {
       metadata: { run_id: runId, trigger_source: body.trigger_source ?? "manual", results: results.map((r) => ({ job_id: r.job_id, status: r.status })) },
     });
 
-    return json({
+    return jsonResponse({
       ok: true,
       mode,
       run_id: runId,
