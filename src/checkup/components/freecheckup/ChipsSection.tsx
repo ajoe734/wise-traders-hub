@@ -161,30 +161,9 @@ export default function ChipsSection({ WB, stockCode }: { WB: any; stockCode: st
     return () => clearTimeout(t);
   }, [bsrPending, fetchedAt, refetch]);
 
-  // 需求驅動的近 5 日視窗補齊：當 BSR 有效日數 < 5 且非上游枯竭時，
-  // 主動請 DB 把缺失的近 5 個工作日以 priority=1 排入，讓 worker 立即補上。
-  // 每個 (stockCode) 只在抽屜開啟時觸發一次，避免濫發。
-  const ensureRequestedRef = useRef<string | null>(null);
-  useEffect(() => {
-    if (!data) return;
-    if (ensureRequestedRef.current === stockCode) return;
-    const rd = (data as any)?.readiness?.bsr_concentration?.['5'];
-    const state = rd?.state as ('ready' | 'filling' | 'upstream_exhausted' | 'no_data' | undefined);
-    if (state === 'ready' || state === 'upstream_exhausted') return;
-    ensureRequestedRef.current = stockCode;
-    (async () => {
-      try {
-        const { data: res, error } = await supabase.rpc('ensure_bsr_window', {
-          p_stock_id: stockCode, p_window_days: 5, p_horizon_days: 10,
-        });
-        const payload = res as { newly_queued?: string[]; promoted?: string[] } | null;
-        const total = (payload?.newly_queued?.length ?? 0) + (payload?.promoted?.length ?? 0);
-        if (!error && total > 0) {
-          setTimeout(() => refetch(), 8000);
-        }
-      } catch { /* 靜默：這是最佳努力補齊 */ }
-    })();
-  }, [data, stockCode, refetch]);
+  // P3：契約收斂 — 前台不再於抽屜開啟時觸發 ensure_bsr_window。
+  // 窗口補齊統一由 Orchestrator（三波 cron 15:35/17:35/19:35）+ trade_records
+  // AFTER INSERT trigger 決定；使用者可用下方「回補歷史」手動按鈕強制。
 
   // 手動回補歷史（三大法人 + BSR 佇列）
   const instDays = data?.series?.institutional_daily?.length ?? 0;
