@@ -14,11 +14,8 @@ type Bank = {
 };
 
 async function fetchRemittanceAccount(): Promise<Bank | null> {
-  const { data } = await (supabase.from as any)("payment_settings_safe")
-    .select("value")
-    .eq("key", "remittance_account")
-    .maybeSingle();
-  const v = data?.value as any;
+  const { data } = await (supabase.rpc as any)("get_remittance_account");
+  const v = data as any;
   if (!v) return null;
   return {
     bank_name: v.bank_name ?? v.bank ?? "",
