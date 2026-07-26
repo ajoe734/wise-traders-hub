@@ -7,7 +7,7 @@ import { createClient } from "https://esm.sh/@supabase/supabase-js@2.45.4";
 import { corsHeaders, corsPreflight, jsonResponse, errorResponse } from "../_shared/cors.ts";
 import { checkKillSwitch } from "../_shared/killSwitch.ts";
 import { admitFinmind } from "../_shared/finmindAdmission.ts";
-import { aggregate as aggregateBsr, type FinmindRow } from "../tw-bsr-finmind-sync/lib.ts";
+import { aggregate as aggregateBsr, type FinmindRow } from "../_shared/finmindBsrAggregate.ts";
 
 const SUPABASE_URL = Deno.env.get("SUPABASE_URL")!;
 const SERVICE_ROLE_KEY = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!;
@@ -112,7 +112,6 @@ async function processChipFact(supa: ReturnType<typeof createClient>, job: Job) 
     source: "finmind_per_stock",
     buy_shares: r.buy_shares,
     sell_shares: r.sell_shares,
-    net_shares: r.net_shares,
     avg_buy_price: r.avg_buy_price,
     avg_sell_price: r.avg_sell_price,
     ingested_at: nowIso,
@@ -207,7 +206,7 @@ async function processFundamentals(supa: ReturnType<typeof createClient>, job: J
         revenue_year?: number;
       }
       const rows = await fetchFinmind<RawRev>(supa, {
-        dataset: "TaiwanStockRevenue",
+        dataset: "TaiwanStockMonthRevenue",
         data_id: job.stock_id,
         start_date: job.start_date,
         end_date: job.end_date,
