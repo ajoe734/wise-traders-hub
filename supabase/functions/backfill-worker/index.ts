@@ -32,13 +32,6 @@ interface Job {
   payload: Record<string, unknown>;
 }
 
-function json(b: unknown, s = 200) {
-  return new Response(JSON.stringify(b), {
-    status: s,
-    headers: { ...corsHeaders, "Content-Type": "application/json" },
-  });
-}
-
 async function fetchFinmind<T = unknown>(
   supa: ReturnType<typeof createClient>,
   params: Record<string, string>,
