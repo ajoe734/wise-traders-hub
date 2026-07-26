@@ -85,7 +85,7 @@ export default function ChipsTrendChart({
   // Readiness
   const currentReadiness: WindowReadinessPayload | null =
     mode === 'inst'
-      ? (data?.readiness?.institutional?.[String(win) as '5' | '20' | '60'] ?? null)
+      ? (win === 1 ? null : (data?.readiness?.institutional?.[String(win) as '5' | '20' | '60'] ?? null))
       : (data?.readiness?.bsr_concentration?.['5'] ?? null);
   const currentNeed = currentReadiness?.need ?? (mode === 'inst' ? win : 5);
   const currentHave = currentReadiness?.have ?? validPts.length;
