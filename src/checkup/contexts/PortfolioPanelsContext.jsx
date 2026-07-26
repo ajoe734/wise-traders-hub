@@ -1,3 +1,8 @@
+/**
+ * @deprecated Legacy 巨型 domain context — 未在 runtime 使用。
+ * 現行每個模組用自己的 useRoute*Page hook 直接讀 store / usePortfolioRouteContext。
+ * 詳見 docs/architecture/holdings-modules.md。
+ */
 import { createContext, useContext } from 'react'
 
 const PortfolioPanelsDataContext = createContext(null)

@@ -11,6 +11,7 @@ import { useAppShellUiState } from './useAppShellUiState.js'
 import { useCanonicalLocalhostRedirect } from './useCanonicalLocalhostRedirect.js'
 import {
   pickPnlTone,
+  // @deprecated 對應 legacy AppShellFrame，未在 runtime 使用。詳見 docs/architecture/holdings-modules.md
   composeAppShellFrameRuntime,
   composeAppRuntimeWorkflowInput,
   composeAppRuntimeHeaderInput,
