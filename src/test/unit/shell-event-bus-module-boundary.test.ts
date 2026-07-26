@@ -61,7 +61,7 @@ describe('S4 · barrel emit helper + 邊界靜態掃描', () => {
     const handler = vi.fn()
     bus.on('holdings:focus', handler)
     const wrapper = ({ children }: { children: React.ReactNode }) =>
-      React.createElement(ShellEventBusProvider, { bus }, children)
+      React.createElement(ShellEventBusProvider, { bus, children })
     const { result } = renderHook(() => useEmitHoldingsFocus(), { wrapper })
     act(() => result.current('2330'))
     expect(handler).toHaveBeenCalledWith({ stockCode: '2330', source: 'closing' })
@@ -75,7 +75,7 @@ describe('S4 · barrel emit helper + 邊界靜態掃描', () => {
     const handler = vi.fn()
     bus.on('holdings:focus', handler)
     const wrapper = ({ children }: { children: React.ReactNode }) =>
-      React.createElement(ShellEventBusProvider, { bus }, children)
+      React.createElement(ShellEventBusProvider, { bus, children })
     const { result } = renderHook(() => useEmitHoldingsFocus(), { wrapper })
     act(() => result.current('AAPL'))
     expect(handler).toHaveBeenCalledWith({ stockCode: 'AAPL', source: 'events' })
