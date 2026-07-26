@@ -6,12 +6,16 @@ import { useRoutePortfolioRuntime } from '../hooks/useRoutePortfolioRuntime.js'
 import {
   ShellEventBusProvider,
   useHoldingsFocusNavigation,
+  useClosingOpenStockNavigation,
+  useResearchPrefillNavigation,
 } from '../shell/ShellEventBusProvider'
 
 function PortfolioLayoutInner() {
   const { portfolioId } = useParams()
-  // Shell listener：M2/M3 emit('holdings:focus') → navigate 到 M1 並展開股票。
-  useHoldingsFocusNavigation(portfolioId)
+  // Shell listeners：跨模組主動跳轉一律走 event bus。
+  useHoldingsFocusNavigation(portfolioId)        // M2/M3 → M1
+  useClosingOpenStockNavigation(portfolioId)      // M1 → M2
+  useResearchPrefillNavigation(portfolioId)       // M2/M3 → M5
   const { headerProps, outletContext } = useRoutePortfolioRuntime()
 
   return h(
