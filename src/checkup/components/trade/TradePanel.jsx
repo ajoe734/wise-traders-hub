@@ -1,7 +1,9 @@
-import { createElement as h, useEffect, useState } from 'react'
+import { createElement as h, useCallback, useEffect, useState } from 'react'
 import { C, alpha } from '../../theme.js'
 import { Card, Button, TextFieldDialog } from '../common'
 import { assessTradeParseQuality, summarizeTradeBatch } from '../../lib/tradeParseUtils.js'
+// M4 → M3 事件廣播：交易提交後通知事件面板刷新。
+import { useEmitEventsRefresh } from '../../modules/tradeIO/useEmitEventsRefresh'
 
 /**
  * ImageLightbox — fullscreen zoom for OCR verification.
