@@ -516,14 +516,24 @@ export default function ChipsSection({ WB, stockCode }: { WB: any; stockCode: st
             <React.Fragment key={row.k}>
               <div style={{ color: WB.inkSub }}>{row.label}</div>
               {WINDOWS.map((w) => {
-                const val = data?.institutional?.[w.key]?.[row.k as 'foreign_net'];
+                const cell = data?.institutional?.[w.key];
+                const val = cell?.[row.k as 'foreign_net'];
+                const rd = getInstReadiness(data, w.key);
+                const isReady = rd.state === 'ready';
+                const isPartial = rd.partial && cell != null;
                 return (
                   <div
                     key={w.key}
                     data-testid={`chips-inst-${row.k}-${w.key}`}
-                    style={{ textAlign: 'right', color: tone(WB, val ?? null), fontVariantNumeric: 'tabular-nums' }}
+                    data-readiness-state={rd.state}
+                    title={isPartial ? `僅 ${rd.have}/${rd.need} 個交易日` : undefined}
+                    style={{
+                      textAlign: 'right',
+                      color: isReady ? tone(WB, val ?? null) : WB.inkMute,
+                      fontVariantNumeric: 'tabular-nums',
+                    }}
                   >
-                    {fmtNet(val ?? null)}
+                    {isReady ? fmtNet(val ?? null) : isPartial ? `${fmtNet(val ?? null)} (${rd.have}/${rd.need})` : '—'}
                   </div>
                 );
               })}
