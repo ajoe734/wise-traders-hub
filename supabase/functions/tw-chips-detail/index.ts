@@ -429,6 +429,35 @@ Deno.serve(async (req) => {
       });
     }
 
+    // P3：讀 snapshot_status 產出 5 態 (sealed | partial | stale | missing | ineligible)
+    //   - sealed    : 該日 sealed_at 已寫入 → 前台正常顯示
+    //   - partial   : status 存在但未 sealed → Lane 覆蓋度未達門檻，仍顯示已有資料 + 整備中提示
+    //   - stale     : 距預期最新交易日 > 2 個工作日仍未 sealed → 紅色警示，改顯示上一交易日
+    //   - missing   : 非交易日或無 status row → 顯示「休市」
+    //   - ineligible: 該 stock 不符合資格（權證/ETF 等）→ 靠 eligibility 判定
+    let snapshotState: 'sealed' | 'partial' | 'stale' | 'missing' | 'ineligible' = 'missing';
+    let snapshotStatus: any = null;
+    if (!eligible) {
+      snapshotState = 'ineligible';
+    } else if (chosenAsOf) {
+      try {
+        const { data: snap } = await supa
+          .from('tw_bsr_daily_snapshot_status')
+          .select('trade_date, status, sealed_at, sealed_by_lane, lane_a_status, lane_b_status, lane_c_status, coverage_stocks, coverage_brokers, updated_at')
+          .eq('trade_date', chosenAsOf)
+          .maybeSingle();
+        snapshotStatus = snap ?? null;
+        if (snap?.sealed_at) {
+          snapshotState = 'sealed';
+        } else if (snap) {
+          const lagWd = bsrLagWeekdays ?? 0;
+          snapshotState = lagWd > 2 ? 'stale' : 'partial';
+        } else {
+          snapshotState = 'missing';
+        }
+      } catch (_e) { /* 非致命：snapshot_status 讀失敗保留 default */ }
+    }
+
     const result = {
       stock_id: stockId,
       as_of: asOfDate,
@@ -457,6 +486,8 @@ Deno.serve(async (req) => {
         bsr_concentration: bsrReadiness,
       },
       upstream_circuit: upstreamCircuit,
+      snapshot_state: snapshotState,
+      snapshot_status: snapshotStatus,
 
       source: "TWSE",
       fetched_at: new Date().toISOString(),
