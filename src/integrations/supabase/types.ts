@@ -6177,6 +6177,7 @@ export type Database = {
           published_this_week: number
         }[]
       }
+      get_remittance_account: { Args: never; Returns: Json }
       get_roas_ltv_by_campaign: {
         Args: { _from: string; _to: string }
         Returns: {
