@@ -142,7 +142,7 @@
 | Step | 狀態 | Commit / 測試摘要 |
 | --- | --- | --- |
 | S1 契約測試（red） | ✅ | `src/test/unit/shell-event-bus.test.ts`；vitest & tsgo 皆因 `@/checkup/shell/eventBus` 尚未存在而紅（預期）。7 個 case：emit 廣播、off、unsub 回傳、保序、handler 拋錯隔離、Set 去重、無 handler 安全。 |
-| S2 bus 實作（green） | ⬜ | |
+| S2 bus 實作（green） | ✅ | `src/checkup/shell/eventBus.ts`：Map&lt;Event, Set&lt;Handler&gt;&gt;、`on` 回傳 unsubscribe、`emit` 快照迭代 + try/catch 隔離。vitest 7/7 綠。 |
 | S3 Provider + Shell listener | ⬜ | |
 | S4 barrel emit + 邊界掃描 | ⬜ | |
 | S5 E2E harness | ⬜ | |
