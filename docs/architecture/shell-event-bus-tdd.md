@@ -127,13 +127,13 @@
 
 ## 6. 驗收清單
 
-- [ ] `bunx vitest run src/test/unit/shell-event-bus.test.ts` 全綠。
-- [ ] `bunx vitest run src/test/unit/shell-event-bus-provider.test.tsx` 全綠。
-- [ ] `bunx vitest run src/test/unit/shell-event-bus-module-boundary.test.ts` 全綠。
-- [ ] `bunx playwright test e2e/shell-event-bus-navigation.spec.ts` 全綠。
-- [ ] `bunx playwright test e2e/portfolio-modules-smoke.spec.ts` 不退化。
-- [ ] `bunx playwright test e2e/module-cross-nav.spec.ts` 不退化。
-- [ ] `tsgo` 對新增檔案無 error。
+- [x] `bunx vitest run src/test/unit/shell-event-bus.test.ts` 全綠。
+- [x] `bunx vitest run src/test/unit/shell-event-bus-provider.test.tsx` 全綠。
+- [x] `bunx vitest run src/test/unit/shell-event-bus-module-boundary.test.ts` 全綠。
+- [x] `bunx playwright test e2e/shell-event-bus-navigation.spec.ts` 全綠。
+- [x] `bunx playwright test e2e/portfolio-modules-smoke.spec.ts` 不退化。
+- [x] `bunx playwright test e2e/module-cross-nav.spec.ts` 不退化。
+- [x] `tsgo` 對新增檔案無 error。
 
 ---
 
@@ -146,7 +146,8 @@
 | S3 Provider + Shell listener | ✅ | `src/checkup/shell/ShellEventBusProvider.tsx`（Provider / `useShellEventBus` / `useShellEventListener` / `useHoldingsFocusNavigation`）+ `src/checkup/pages/PortfolioLayout.jsx` 掛 Provider 並註冊 listener。`shell-event-bus-provider.test.tsx` 5/5 綠（同一實例、Provider 外拋錯、listener 收/卸、單次與連續 emit → `/portfolio/:id/holdings?expand=<code>`）。 |
 | S4 barrel emit + 邊界掃描 | ✅ | `src/checkup/modules/{closing,events}/useEmitHoldingsFocus.ts` + barrel re-export；`src/test/unit/shell-event-bus-module-boundary.test.ts` 6/6 綠：兩模組 tree 內禁止深 import `../holdings`／`components/holdings`、barrel 有 export、emit 實際發出 `holdings:focus` 且 source 正確。 |
 | S5 E2E harness | ✅ | `src/pages/ShellEventBusHarnessEntry.tsx` + `/portfolio/:portfolioId/__shell-bus` 子路由（`src/App.tsx`） + `e2e/shell-event-bus-navigation.spec.ts` + `playwright.config.ts` project `shell-event-bus-navigation`。3/3 綠：M2 closing emit → `?expand=2330`、M3 events emit → `?expand=2454`、自訂 `BRK.B` 經 encodeURIComponent。Shell（`.checkup-root`）跨模組跳轉保持 mount。 |
-| 收工：更新 `holdings-modules.md` TODO | ⬜ | |
+| 收工：驗收清單全綠 | ✅ | 2026-07-26 執行：vitest 3 檔 18/18 綠（`shell-event-bus.test.ts` 7、`shell-event-bus-provider.test.tsx` 5、`shell-event-bus-module-boundary.test.ts` 6）；playwright 3 檔 11/11 綠（`shell-event-bus-navigation` 3、`portfolio-modules-smoke` 7、`module-cross-nav` 1），總 44.5s；`bun run typecheck`（tsc --noEmit）exit 0。無退化。 |
+| 收工：更新 `holdings-modules.md` TODO | ✅ | 前一輪已在 `docs/architecture/holdings-modules.md` L38 標 ✅ 並註記本 doc，TODO 區同步劃掉。 |
 
 ---
 
