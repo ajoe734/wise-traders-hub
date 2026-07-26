@@ -55,6 +55,7 @@ function poolFromTier(tier: 1 | 2 | 3): FinmindPool {
 import {
   fulfillDay,
   fulfillJobsFromSnapshot,
+  persistAggregated,
 } from '../_shared/snapshotFulfillment.ts';
 
 const FINMIND_URL = 'https://api.finmindtrade.com/api/v4/data';
