@@ -145,7 +145,7 @@
 | S2 bus 實作（green） | ✅ | `src/checkup/shell/eventBus.ts`：Map&lt;Event, Set&lt;Handler&gt;&gt;、`on` 回傳 unsubscribe、`emit` 快照迭代 + try/catch 隔離。vitest 7/7 綠。 |
 | S3 Provider + Shell listener | ✅ | `src/checkup/shell/ShellEventBusProvider.tsx`（Provider / `useShellEventBus` / `useShellEventListener` / `useHoldingsFocusNavigation`）+ `src/checkup/pages/PortfolioLayout.jsx` 掛 Provider 並註冊 listener。`shell-event-bus-provider.test.tsx` 5/5 綠（同一實例、Provider 外拋錯、listener 收/卸、單次與連續 emit → `/portfolio/:id/holdings?expand=<code>`）。 |
 | S4 barrel emit + 邊界掃描 | ✅ | `src/checkup/modules/{closing,events}/useEmitHoldingsFocus.ts` + barrel re-export；`src/test/unit/shell-event-bus-module-boundary.test.ts` 6/6 綠：兩模組 tree 內禁止深 import `../holdings`／`components/holdings`、barrel 有 export、emit 實際發出 `holdings:focus` 且 source 正確。 |
-| S5 E2E harness | ⬜ | |
+| S5 E2E harness | ✅ | `src/pages/ShellEventBusHarnessEntry.tsx` + `/portfolio/:portfolioId/__shell-bus` 子路由（`src/App.tsx`） + `e2e/shell-event-bus-navigation.spec.ts` + `playwright.config.ts` project `shell-event-bus-navigation`。3/3 綠：M2 closing emit → `?expand=2330`、M3 events emit → `?expand=2454`、自訂 `BRK.B` 經 encodeURIComponent。Shell（`.checkup-root`）跨模組跳轉保持 mount。 |
 | 收工：更新 `holdings-modules.md` TODO | ⬜ | |
 
 ---
