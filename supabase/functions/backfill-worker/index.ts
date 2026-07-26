@@ -112,7 +112,6 @@ async function processChipFact(supa: ReturnType<typeof createClient>, job: Job) 
     source: "finmind_per_stock",
     buy_shares: r.buy_shares,
     sell_shares: r.sell_shares,
-    net_shares: r.net_shares,
     avg_buy_price: r.avg_buy_price,
     avg_sell_price: r.avg_sell_price,
     ingested_at: nowIso,
