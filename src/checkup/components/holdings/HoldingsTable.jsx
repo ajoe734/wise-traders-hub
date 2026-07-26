@@ -55,6 +55,15 @@ function HoldingRowImpl({
   onUpdateAlert = () => {},
 }) {
   const handleToggle = useCallback(() => onToggle(holding.code), [onToggle, holding.code])
+  const emitClosingOpenStock = useEmitClosingOpenStock()
+  const handleOpenInClosing = useCallback(
+    (e) => {
+      e.stopPropagation()
+      emitClosingOpenStock(holding.code)
+      try { track('shell_bus_emit', { event: 'closing:openStock', source: 'holdings', code: holding.code }) } catch {}
+    },
+    [emitClosingOpenStock, holding.code],
+  )
   const handleUpdateTarget = useCallback(
     (e) => {
       onUpdateTarget(holding.code, e.target.value ? Number(e.target.value) : null)
