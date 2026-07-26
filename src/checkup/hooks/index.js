@@ -22,18 +22,10 @@ export { useTransientUiActions } from './useTransientUiActions.js'
 export { useSavedToast } from './useSavedToast.js'
 export { useAppShellUiState } from './useAppShellUiState.js'
 export { useCanonicalLocalhostRedirect } from './useCanonicalLocalhostRedirect.js'
-export { useAppRuntimeSyncRefs } from './useAppRuntimeSyncRefs.js'
 export { useAppCallbackRefs } from './useAppCallbackRefs.js'
-export {
-  useAppBootRuntimeComposer,
-  useAppLifecycleRuntimeComposer,
-  usePortfolioManagementComposer,
-} from './useAppRuntimeComposer.js'
-export { useAppRuntimeCoreLifecycle } from './useAppRuntimeCoreLifecycle.js'
-export { useAppRuntimeCoreArgs, useAppRuntimeWorkflowArgs } from './useAppRuntimeArgs.js'
-export { useAppRuntimePortfolioDerivedData } from './useAppRuntimePortfolioDerivedData.js'
-export { useAppRuntimeHeaderProps } from './useAppRuntimeHeaderProps.js'
-export { usePortfolioPanelsContextComposer } from './usePortfolioPanelsContextComposer.js'
+// 2026-07 legacy 清理：useAppRuntime* / AppShellFrame / AppPanels / PortfolioPanelsContext
+// 全數移除（詳見 docs/architecture/shell-event-bus-tdd.md §8 步驟 2）。
+// 目前活躍的路由 runtime 由 useRoute*Page 系列 hooks 承接。
 export { usePortfolioSnapshotRuntime } from './usePortfolioSnapshotRuntime.js'
 export { useDailyAnalysisWorkflow } from './useDailyAnalysisWorkflow.js'
 export { useResearchWorkflow } from './useResearchWorkflow.js'
@@ -42,7 +34,6 @@ export { useEventReviewWorkflow } from './useEventReviewWorkflow.js'
 export { useEventLifecycleSync } from './useEventLifecycleSync.js'
 export { useReportRefreshWorkflow } from './useReportRefreshWorkflow.js'
 export { useLocalBackupWorkflow } from './useLocalBackupWorkflow.js'
-export { useAppRuntime } from './useAppRuntime.js'
 export { useRoutePortfolioRuntime } from './useRoutePortfolioRuntime.js'
 export { useRouteHoldingsPage } from './useRouteHoldingsPage.js'
 

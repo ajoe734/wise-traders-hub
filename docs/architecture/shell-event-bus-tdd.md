@@ -155,5 +155,5 @@
 ## 8. 後續 TODO（獨立 PR）
 
 1. 事件擴充：`events:refresh` / `closing:openStock` / `research:prefill`。
-2. Legacy dead code 清理（見 `holdings-modules.md` 對應段落）。
+2. ~~Legacy dead code 清理~~ ✅ 2026-07-26 完成：刪除 `AppShellFrame.jsx` / `AppPanels.jsx` / `PortfolioPanelsContext.jsx` + 9 個 `useAppRuntime*.js` + `usePortfolioPanelsContextComposer.js` + `runtimeArgs.types.js`（共 14 檔）。連同 2 個僅覆蓋 legacy 的單元測試（`checkup-store-backed-hooks.test.tsx` / `checkup-helper-catalog.test.ts`）一併移除，`src/checkup/hooks/index.js` barrel 清空對應 export，`src/checkup/contexts/` 只剩 `CheckupModeContext.jsx`。驗證：`tsgo --noEmit` exit 0；shell-event-bus 3 檔 18 tests 全綠。
 3. ESLint boundary rule：禁止 `src/checkup/modules/A` deep import `modules/B` 內部檔案。

@@ -30,7 +30,7 @@
   --cm-page-py: 10px;
 }
 
-/* 全域頁面內距 utility（不需 .checkup-mono scope，供 AppShellFrame/PortfolioLayout/Header 共用） */
+/* 全域頁面內距 utility（不需 .checkup-mono scope，供 PortfolioLayout/Header 共用） */
 .cm-page-content { padding: 14px var(--cm-page-px); }
 .cm-shell-inner  { padding: var(--cm-page-py) var(--cm-page-px); }
 .cm-header-inner { padding: var(--cm-page-py) var(--cm-page-px) 0; }
