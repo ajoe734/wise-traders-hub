@@ -3,3 +3,4 @@
 export { HoldingsPanel, HoldingsTable } from '../../components/holdings/index.js'
 export { useRouteHoldingsPage } from '../../hooks/useRouteHoldingsPage.js'
 export { HoldingsPage } from '../../pages/HoldingsPage.jsx'
+export { useEmitClosingOpenStock } from './useEmitClosingOpenStock'
