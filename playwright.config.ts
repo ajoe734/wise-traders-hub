@@ -990,6 +990,12 @@ export default defineConfig({
       testMatch: /module-cross-nav\.spec\.ts/,
       use: { ...devices['Desktop Chrome'], viewport: { width: 1280, height: 900 } },
     },
+    {
+      // Shell Event Bus E2E harness（docs/architecture/shell-event-bus-tdd.md §5）
+      name: 'shell-event-bus-navigation',
+      testMatch: /shell-event-bus-navigation\.spec\.ts/,
+      use: { ...devices['Desktop Chrome'], viewport: { width: 1280, height: 900 } },
+    },
   ],
 
   webServer: {
