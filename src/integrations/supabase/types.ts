@@ -4987,6 +4987,7 @@ export type Database = {
           foreign_net: number
           id: number
           raw: Json | null
+          source: string
           stock_id: string
           total_net: number
           trade_date: string
@@ -4999,6 +5000,7 @@ export type Database = {
           foreign_net?: number
           id?: number
           raw?: Json | null
+          source?: string
           stock_id: string
           total_net?: number
           trade_date: string
@@ -5011,6 +5013,7 @@ export type Database = {
           foreign_net?: number
           id?: number
           raw?: Json | null
+          source?: string
           stock_id?: string
           total_net?: number
           trade_date?: string
@@ -6076,6 +6079,13 @@ export type Database = {
               source_type: string
             }[]
           }
+      materialize_bsr_daily_from_fact: {
+        Args: { _trade_date: string }
+        Returns: {
+          materialized_rows: number
+          skipped_sealed: boolean
+        }[]
+      }
       price_admit: {
         Args: { p_market: string; p_requested: number; p_writer?: string }
         Returns: number
@@ -6098,6 +6108,22 @@ export type Database = {
         Returns: Json
       }
       reconcile_line_free_quota: { Args: { _user_id: string }; Returns: Json }
+      reconcile_snapshot: {
+        Args: { _trade_date: string }
+        Returns: {
+          bsr_stocks: number
+          coverage_brokers: number
+          coverage_stocks: number
+          inst_stocks: number
+          lane_a_status: string
+          lane_b_status: string
+          lane_c_status: string
+          notes: string
+          sealed_at: string
+          sealed_by_lane: string
+          trade_date: string
+        }[]
+      }
       record_bsr_api_call: {
         Args: { _api?: string; _rate_limited?: boolean; _success?: boolean }
         Returns: undefined
