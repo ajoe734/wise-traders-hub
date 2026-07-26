@@ -55,9 +55,8 @@ describe('L3 · store selector shape 契約', () => {
   })
 
   it('eventStore 提供 newsEvents + review form 預設值 (null 為 not-hydrated 哨兵)', () => {
-    const s = useEventStore.getState()
+    const s = useEventStore.getState() as any
     expect(s).toHaveProperty('newsEvents')
-    // newsEvents 預設為 null（哨兵值），不是空陣列
     expect(s.newsEvents === null || Array.isArray(s.newsEvents)).toBe(true)
     expect(typeof s.setNewsEvents).toBe('function')
   })

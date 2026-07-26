@@ -152,7 +152,7 @@ describe('L2 · M4 useRouteTradePage / useRouteLogPage', () => {
     const { useRouteTradePage } = await import('@/checkup/modules/tradeIO')
     const { result } = renderHook(() => useRouteTradePage(), { wrapper })
     expect(result.current).toBeDefined()
-    expect(result.current.tradeCapture).toBeDefined()
+    expect((result.current as any).tradeCapture).toBeDefined()
   })
 
   it('log hook：暴露 setTradeLog / setHoldings 給 LogPanel', async () => {
