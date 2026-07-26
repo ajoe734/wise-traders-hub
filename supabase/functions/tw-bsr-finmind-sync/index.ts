@@ -55,6 +55,7 @@ function poolFromTier(tier: 1 | 2 | 3): FinmindPool {
 import {
   fulfillDay,
   fulfillJobsFromSnapshot,
+  persistAggregated,
 } from '../_shared/snapshotFulfillment.ts';
 
 const FINMIND_URL = 'https://api.finmindtrade.com/api/v4/data';
@@ -245,18 +246,14 @@ async function processStock(
     if (rows.length === 0) return { ok: true, rows: 0, note: 'finmind_empty' };
     const agg = aggregate(rows);
     if (agg.length === 0) return { ok: true, rows: 0, note: 'aggregated_empty' };
-    const CHUNK = 500;
-    for (let i = 0; i < agg.length; i += CHUNK) {
-      const { error } = await supa.from('tw_bsr_daily')
-        .upsert(agg.slice(i, i + CHUNK), { onConflict: 'stock_id,trade_date,broker_id' });
-      if (error) throw new Error(`upsert_failed:${error.message}`);
-    }
+    // P4: 寫入 tw_chip_fact（append-only）+ 觸發 materializer；不再直接寫 tw_bsr_daily。
+    const laneSource = tier === 1 ? 'finmind_batch' : 'finmind_per_stock';
+    await persistAggregated(supa, date, agg, laneSource);
     // M4: 有任何一筆分點就標記完成；<5 由 tw-chips-detail / UI 加「低品質」標記。
     const isLowQuality = agg.length < 5;
     await supa.from('tw_bsr_fetch_failures')
       .update({ resolved_at: new Date().toISOString(), last_error_message: null })
       .eq('stock_id', stockId).eq('trade_date', date).is('resolved_at', null);
-    await rebuildRollup(stockId, date);
     return { ok: true, rows: agg.length, note: isLowQuality ? 'low_quality' : undefined };
   } catch (e) {
     if (e instanceof RateLimitExhaustedError) {
