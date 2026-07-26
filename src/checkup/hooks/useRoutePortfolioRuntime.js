@@ -741,6 +741,7 @@ export function useRoutePortfolioRuntime() {
       upsertWatchlist,
       removeWatchlist,
       updateEvent,
+      reloadNewsEvents,
       refreshPrices,
       reloadRuntime,
       flashSaved,
