@@ -149,22 +149,47 @@ function HoldingRowImpl({
           }, holding.code)
         ),
         h(
-          'button',
-          {
-            onClick: handleToggle,
-            style: {
-              background: 'transparent',
-              border: 'none',
-              color: C.textMute,
-              cursor: 'pointer',
-              fontSize: 10,
-              padding: '4px 6px',
-              opacity: 0.5,
-              transition: 'opacity 0.2s',
-              letterSpacing: '0.08em',
+          'div',
+          { style: { display: 'flex', gap: 4, alignItems: 'center' } },
+          h(
+            'button',
+            {
+              type: 'button',
+              onClick: handleOpenInClosing,
+              'data-testid': `holding-open-closing-${holding.code}`,
+              title: '在收盤分析中打開',
+              style: {
+                background: 'transparent',
+                border: 'none',
+                color: C.textMute,
+                cursor: 'pointer',
+                fontSize: 10,
+                padding: '4px 6px',
+                opacity: 0.5,
+                transition: 'opacity 0.2s',
+                letterSpacing: '0.08em',
+              },
             },
-          },
-          expanded ? '收起' : '展開'
+            '→ 收盤',
+          ),
+          h(
+            'button',
+            {
+              onClick: handleToggle,
+              style: {
+                background: 'transparent',
+                border: 'none',
+                color: C.textMute,
+                cursor: 'pointer',
+                fontSize: 10,
+                padding: '4px 6px',
+                opacity: 0.5,
+                transition: 'opacity 0.2s',
+                letterSpacing: '0.08em',
+              },
+            },
+            expanded ? '收起' : '展開'
+          )
         )
       ),
 
