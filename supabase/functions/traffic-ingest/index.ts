@@ -164,4 +164,4 @@ Deno.serve(withLogging('traffic-ingest', async (req) => {
     console.error('[traffic-ingest] error', (e as Error).message);
     return jsonResponse({ ok: false }, { status: 200 }, req, CORS_OPTS);
   }
-}));
+}, CORS_OPTS));
