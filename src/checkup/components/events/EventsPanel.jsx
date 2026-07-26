@@ -535,6 +535,8 @@ export function AccuracyDashboard({ stats }) {
  */
 export function EventCard({ event, isPredicting }) {
   const tc = TYPE_COLOR[event.type] || C.textMute
+  const emitResearchPrefill = useEmitResearchPrefill()
+  const researchCode = event?.code || (Array.isArray(event?.relatedCodes) ? event.relatedCodes[0] : null)
 
   return h(
     Card,
