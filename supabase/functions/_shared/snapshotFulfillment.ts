@@ -191,7 +191,7 @@ export async function persistAggregated(
           { onConflict: 'stock_id,as_of_date,window_days' });
     }
   }
-  return { stocks: stocks.length, rows: agg.length };
+  return { stocks: stocks.length, rows: agg.length, materialized, skipped_sealed: skippedSealed };
 }
 
 /**
