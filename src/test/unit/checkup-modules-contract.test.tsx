@@ -99,37 +99,37 @@ import { useRouteResearchPage } from '@/checkup/hooks/useRouteResearchPage.js'
 
 describe('深模組 route hook 契約', () => {
   it('M2 useRouteDailyPage 回傳物件（daily panel props）', () => {
-    const { result } = renderHook(() => useRouteDailyPage())
+    const { result } = renderHook(() => useRouteDailyPage(), { wrapper })
     expect(result.current).toBeTypeOf('object')
     expect(result.current).not.toBeNull()
   })
 
   it('M2 useRouteNewsPage 回傳物件（news panel props）', () => {
-    const { result } = renderHook(() => useRouteNewsPage())
+    const { result } = renderHook(() => useRouteNewsPage(), { wrapper })
     expect(result.current).toBeTypeOf('object')
     expect(result.current).not.toBeNull()
   })
 
   it('M3 useRouteEventsPage 回傳物件（events panel props）', () => {
-    const { result } = renderHook(() => useRouteEventsPage())
+    const { result } = renderHook(() => useRouteEventsPage(), { wrapper })
     expect(result.current).toBeTypeOf('object')
     expect(result.current).not.toBeNull()
   })
 
   it('M4 useRouteLogPage 回傳物件（log panel props）', () => {
-    const { result } = renderHook(() => useRouteLogPage())
+    const { result } = renderHook(() => useRouteLogPage(), { wrapper })
     expect(result.current).toBeTypeOf('object')
     expect(result.current).not.toBeNull()
   })
 
   it('M4 useRouteTradePage 回傳物件（trade panel props）', () => {
-    const { result } = renderHook(() => useRouteTradePage())
+    const { result } = renderHook(() => useRouteTradePage(), { wrapper })
     expect(result.current).toBeTypeOf('object')
     expect(result.current).not.toBeNull()
   })
 
   it('M5 useRouteResearchPage 回傳物件（research panel props）', () => {
-    const { result } = renderHook(() => useRouteResearchPage())
+    const { result } = renderHook(() => useRouteResearchPage(), { wrapper })
     expect(result.current).toBeTypeOf('object')
     expect(result.current).not.toBeNull()
   })
