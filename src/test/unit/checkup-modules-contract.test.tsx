@@ -4,7 +4,14 @@
  * 詳見 docs/architecture/holdings-modules.md。
  */
 import { describe, it, expect, vi } from 'vitest'
+import React from 'react'
 import { renderHook } from '@testing-library/react'
+import { QueryClient, QueryClientProvider } from '@tanstack/react-query'
+
+const qc = new QueryClient({ defaultOptions: { queries: { retry: false } } })
+const wrapper = ({ children }: { children: React.ReactNode }) =>
+  React.createElement(QueryClientProvider, { client: qc }, children)
+
 
 vi.mock('@/checkup/pages/usePortfolioRouteContext.js', () => ({
   usePortfolioRouteContext: () => ({
