@@ -65,7 +65,7 @@ function fmtClock(ts: number | null): string {
  * 單一事實：摘要格子該怎麼顯示，由後端 readiness + 本地 days_covered 決定。
  * 不要讓 6 天資料看起來像 60 日完成。
  */
-function getInstReadiness(data: TwChipsPayload | null, key: 'd1' | 'd5' | 'd20' | 'd60') {
+export function getInstReadiness(data: TwChipsPayload | null, key: 'd1' | 'd5' | 'd20' | 'd60') {
   const cell = data?.institutional?.[key];
   if (!cell) {
     return {
