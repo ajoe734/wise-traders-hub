@@ -74,7 +74,7 @@ export function createLogger(fn: string, requestId?: string, base?: Meta): EdgeL
  * fires a fire-and-forget INSERT into `edge_boot_events` so ops-health can
  * show cold-start frequency per function.
  */
-import { corsHeaders, corsPreflight, errorResponse } from './cors.ts';
+import { corsHeaders, corsPreflight, errorResponse, buildCorsHeaders, type CorsOpts } from './cors.ts';
 
 export type LoggedHandler = (req: Request, log: EdgeLogger) => Promise<Response>;
 
@@ -107,9 +107,13 @@ async function reportBootEvent(fn: string, log: EdgeLogger) {
   }
 }
 
-export function withLogging(fn: string, handler: LoggedHandler): (req: Request) => Promise<Response> {
+export function withLogging(
+  fn: string,
+  handler: LoggedHandler,
+  corsOpts: CorsOpts = {},
+): (req: Request) => Promise<Response> {
   return async (req) => {
-    if (req.method === 'OPTIONS') return corsPreflight();
+    if (req.method === 'OPTIONS') return corsPreflight(req, corsOpts);
     // 追蹤鏈：
     //   - correlationId（== logger.requestId）：跨 function 貫穿的 join key，
     //     優先取 client x-correlation-id，缺就自動生一個。
@@ -135,6 +139,7 @@ export function withLogging(fn: string, handler: LoggedHandler): (req: Request) 
       // Don't await — never block the request on telemetry.
       reportBootEvent(fn, log).catch(() => {});
     }
+    const injectCors = () => buildCorsHeaders(req, corsOpts);
     try {
       const res = await handler(req, log);
       const ms = Math.round(performance.now() - startedAt);
@@ -143,7 +148,7 @@ export function withLogging(fn: string, handler: LoggedHandler): (req: Request) 
       const headers = new Headers(res.headers);
       if (!headers.has('x-correlation-id')) headers.set('x-correlation-id', log.requestId);
       if (clientRequestId && !headers.has('x-request-id')) headers.set('x-request-id', clientRequestId);
-      for (const [k, v] of Object.entries(corsHeaders)) if (!headers.has(k)) headers.set(k, v);
+      for (const [k, v] of Object.entries(injectCors())) if (!headers.has(k)) headers.set(k, v);
       return new Response(res.body, { status: res.status, headers });
     } catch (err) {
       const ms = Math.round(performance.now() - startedAt);
@@ -151,11 +156,14 @@ export function withLogging(fn: string, handler: LoggedHandler): (req: Request) 
       const stack = err instanceof Error ? err.stack : undefined;
       log.error('uncaught', { ms, message, stack, invocation });
       const res = errorResponse(message, 500, { requestId: log.requestId });
-      // 錯誤路徑也要帶追蹤鏈欄位。
+      // 錯誤路徑也要帶追蹤鏈欄位 + CORS。
       const headers = new Headers(res.headers);
       headers.set('x-correlation-id', log.requestId);
       if (clientRequestId) headers.set('x-request-id', clientRequestId);
+      for (const [k, v] of Object.entries(injectCors())) headers.set(k, v);
       return new Response(res.body, { status: res.status, headers });
     }
   };
 }
+// Silence unused-import lint: corsHeaders retained for external re-exports.
+void corsHeaders;
