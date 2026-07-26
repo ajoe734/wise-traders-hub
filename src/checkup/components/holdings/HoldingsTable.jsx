@@ -8,6 +8,8 @@ import {
 } from '../../lib/holdings.js'
 // @analytics-required: checkup_holding_target_update, checkup_holding_alert_update
 import { track } from '@/lib/analytics/events'
+// M1 → M2 主動跳轉：走 Shell event bus，禁止 deep import M2。
+import { useEmitClosingOpenStock } from '../../modules/holdings/useEmitClosingOpenStock'
 
 /* ── 是枝裕和《小偷家族》×《海街日記》美學 ──
  * - 移除 mini 色條，損益只用文字顏色
