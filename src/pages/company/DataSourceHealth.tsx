@@ -442,6 +442,9 @@ export default function DataSourceHealth() {
           </Card>
         </section>
       )}
+
+      <FactLogHealthCard />
     </div>
+
   );
 }
