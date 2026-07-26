@@ -1,3 +1,8 @@
+/**
+ * @deprecated 對應已停用的 PortfolioPanelsContext 巨型組合器。
+ * 現行以 per-module useRoute*Page hook 取代（見 docs/architecture/holdings-modules.md）。
+ * 僅存於 useAppRuntimeWorkflows 這條 legacy 鏈路，未被 route 引用。
+ */
 import { useMemo } from 'react'
 
 export function usePortfolioPanelsContextComposer({

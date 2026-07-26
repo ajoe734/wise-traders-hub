@@ -1,3 +1,8 @@
+/**
+ * @deprecated Legacy shell — 未在 runtime 路由中使用。
+ * 現行架構走 PortfolioLayout + per-route pages（見 docs/architecture/holdings-modules.md）。
+ * 請勿在此檔新增功能；清理排程於同文件「Legacy Dead Code」章節。
+ */
 import { C } from '../theme.js'
 import AppPanels from './AppPanels.jsx'
 import { ConfirmDialog } from './common/index.js'

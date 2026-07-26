@@ -1,3 +1,8 @@
+/**
+ * @deprecated Legacy tab renderer — 未在 runtime 路由中使用。
+ * 現行架構每個 tab 各自為 route page（見 docs/architecture/holdings-modules.md）。
+ * 請勿新增 panel 到 panelRegistry；改在對應 pages/<Name>Page.jsx。
+ */
 import { ErrorBoundary } from './ErrorBoundary.jsx'
 import { HoldingsPanel, HoldingsTable } from './holdings/index.js'
 
