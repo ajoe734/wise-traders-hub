@@ -62,6 +62,37 @@ function fmtClock(ts: number | null): string {
 }
 
 /**
+ * 單一事實：摘要格子該怎麼顯示，由後端 readiness + 本地 days_covered 決定。
+ * 不要讓 6 天資料看起來像 60 日完成。
+ */
+function getInstReadiness(data: TwChipsPayload | null, key: 'd1' | 'd5' | 'd20' | 'd60') {
+  const cell = data?.institutional?.[key];
+  if (!cell) {
+    return {
+      state: 'no_data' as const,
+      have: 0,
+      need: key === 'd1' ? 1 : Number(key.replace('d', '')),
+      partial: false,
+    };
+  }
+  const need = key === 'd1' ? 1 : Number(key.replace('d', ''));
+  if (key !== 'd1') {
+    const rd = data?.readiness?.institutional?.[String(need) as '5' | '20' | '60'];
+    if (rd) {
+      return {
+        state: rd.state,
+        have: rd.have,
+        need: rd.need,
+        partial: rd.have < rd.need && rd.state !== 'ready',
+      };
+    }
+  }
+  const have = cell.days_covered ?? 0;
+  const ready = have >= need;
+  return { state: ready ? 'ready' : ('filling' as const), have, need, partial: !ready };
+}
+
+/**
  * 回傳「下一次 BSR worker 執行」的 Taipei 時鐘描述。
  * 排程窗口：Taipei 週一至週五 14:00–20:59（cron: 0/10 6-12 * * 1-5，UTC 06-12 → Taipei 14-20）。
  * - 若現在在窗口內 → { inWindow: true, label: '每 10 分鐘處理一輪' }
