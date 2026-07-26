@@ -60,6 +60,16 @@ Deno.serve(async (req) => {
     if (dryRun) {
       report.status = 'skipped_dry_run';
     } else {
+      // P4: 先 materialize（將 tw_chip_fact 提拔到 tw_bsr_daily），再 reconcile。
+      // 這是防禦性一步 — ingestion 端已經會呼叫，但收斂到編排器可保證所有
+      // lane 補寫完成後有一次終局 materialization。
+      const { data: mat, error: matErr } = await supa.rpc(
+        'materialize_bsr_daily_from_fact',
+        { _trade_date: tradeDate },
+      );
+      if (matErr) throw new Error(`materialize_snapshot: ${matErr.message}`);
+      report.materialize = Array.isArray(mat) ? mat[0] : mat;
+
       const { data, error } = await supa.rpc('reconcile_snapshot', {
         _trade_date: tradeDate,
       });
