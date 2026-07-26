@@ -422,7 +422,26 @@ export default function ChipsSection({ WB, stockCode }: { WB: any; stockCode: st
         </div>
       )}
 
-
+      {/* 自動回補逾時通知：資料已進入佇列，但 30 分鐘內仍未補滿 */}
+      {autoBackfill?.state === 'timeout' && !error && (
+        <div
+          data-testid="chips-backfill-timeout"
+          style={{
+            display: 'flex', alignItems: 'center', gap: 8,
+            padding: '8px 10px', marginBottom: 10,
+            border: `1px dashed #8a5a1e`, background: 'rgba(138,90,30,0.04)',
+            fontSize: 11, color: '#8a5a1e', fontFamily: SERIF,
+          }}
+        >
+          <span style={{ fontSize: 12 }}>⏳</span>
+          <div>
+            歷史資料補齊中，預計 5–15 分鐘後完成。
+            <div style={{ fontSize: 10, opacity: 0.8, marginTop: 2 }}>
+              已將此狀況回報後台；稍後重新打開抽屜即可查看最新資料。
+            </div>
+          </div>
+        </div>
+      )}
 
       {/* 錯誤 / 離線橫幅 */}
       {error && (
