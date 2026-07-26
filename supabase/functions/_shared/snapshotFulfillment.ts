@@ -17,6 +17,14 @@ import { groupByStock } from './finmindMarketBatch.ts';
 
 export type SnapshotSource = 'finmind_market_batch' | 'finmind_per_stock' | 'manual';
 
+/** tw_chip_fact.source labels (matches materializer priority order). */
+export type LaneSource = 'broker_scraper' | 'finmind_batch' | 'finmind_per_stock';
+
+export function snapshotSourceToLane(src: SnapshotSource): LaneSource {
+  if (src === 'finmind_market_batch') return 'finmind_batch';
+  return 'finmind_per_stock';
+}
+
 export interface SnapshotClaim {
   claimed: boolean;
   prev_status: string;
