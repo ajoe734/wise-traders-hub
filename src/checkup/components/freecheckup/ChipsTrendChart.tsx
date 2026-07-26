@@ -17,16 +17,6 @@ const DOWN = '#2E7A4B';
 type Mode = 'inst' | 'bsr';
 type Window = 5 | 20 | 60;
 
-function rollingSum(arr: number[], w: number): number[] {
-  const out: number[] = new Array(arr.length).fill(0);
-  let acc = 0;
-  for (let i = 0; i < arr.length; i++) {
-    acc += arr[i];
-    if (i >= w) acc -= arr[i - w];
-    out[i] = i >= w - 1 ? acc : NaN;
-  }
-  return out;
-}
 
 function fmtLots(n: number | null | undefined) {
   if (n == null || Number.isNaN(n)) return '—';
