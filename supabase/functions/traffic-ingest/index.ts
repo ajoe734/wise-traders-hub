@@ -33,10 +33,11 @@ function isInternalRoute(path: string): boolean {
   return path.startsWith('/company') || path.startsWith('/admin');
 }
 
+// traffic-ingest is called via navigator.sendBeacon which forces credentials
+// → we must echo the request origin instead of using wildcard `*`.
+const CORS_OPTS = { credentials: true } as const;
+
 Deno.serve(withLogging('traffic-ingest', async (req) => {
-  // traffic-ingest is called via navigator.sendBeacon which forces credentials
-  // → we must echo the request origin instead of using wildcard `*`.
-  const CORS_OPTS = { credentials: true } as const;
   if (req.method === 'OPTIONS') return corsPreflight(req, CORS_OPTS);
   if (req.method !== 'POST') {
     return jsonResponse({ ok: false }, { status: 405 }, req, CORS_OPTS);
@@ -163,4 +164,4 @@ Deno.serve(withLogging('traffic-ingest', async (req) => {
     console.error('[traffic-ingest] error', (e as Error).message);
     return jsonResponse({ ok: false }, { status: 200 }, req, CORS_OPTS);
   }
-}));
+}, CORS_OPTS));
