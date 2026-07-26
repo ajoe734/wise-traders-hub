@@ -4,6 +4,64 @@ import reactHooks from "eslint-plugin-react-hooks";
 import reactRefresh from "eslint-plugin-react-refresh";
 import tseslint from "typescript-eslint";
 
+// Checkup 深模組清單。新增模組時務必同步更新，並在 docs/architecture/holdings-modules.md
+// 補上「跨模組互動 3 條路」對應說明。
+const CHECKUP_MODULES = ["holdings", "closing", "events", "tradeIO", "research"];
+
+// 手足模組 deep import 阻擋：模組 A 內部不得直接 import 模組 B 的內部檔案或 barrel 深路徑。
+// 允許的三條路：URL params / 唯讀 store selector / shell event bus。
+const siblingBoundaryConfigs = CHECKUP_MODULES.map((self) => ({
+  files: [`src/checkup/modules/${self}/**/*.{ts,tsx,js,jsx}`],
+  rules: {
+    "no-restricted-imports": [
+      "error",
+      {
+        patterns: CHECKUP_MODULES.filter((m) => m !== self).flatMap((other) => [
+          {
+            group: [
+              `../${other}`,
+              `../${other}/*`,
+              `../../${other}`,
+              `../../${other}/*`,
+              `../../modules/${other}`,
+              `../../modules/${other}/*`,
+              `@/checkup/modules/${other}`,
+              `@/checkup/modules/${other}/*`,
+            ],
+            message: `禁止跨模組 import：${self} 不得直接依賴手足模組 ${other}。請走 URL params / store selector / shell event bus（見 docs/architecture/holdings-modules.md 與 shell-event-bus-tdd.md）。`,
+          },
+        ]),
+      },
+    ],
+  },
+}));
+
+// 對「模組外部」的呼叫端：只允許 `@/checkup/modules/<name>` barrel 入口，禁止深挖內部檔案。
+const externalBarrelOnlyConfig = {
+  files: ["src/**/*.{ts,tsx,js,jsx}"],
+  ignores: [
+    ...CHECKUP_MODULES.map((m) => `src/checkup/modules/${m}/**`),
+    // 允許測試檔以 fs 掃描或 dynamic import 校驗 barrel 結構
+    "src/test/**",
+  ],
+  rules: {
+    "no-restricted-imports": [
+      "error",
+      {
+        patterns: CHECKUP_MODULES.flatMap((m) => [
+          {
+            group: [
+              `@/checkup/modules/${m}/*`,
+              `**/checkup/modules/${m}/*`,
+            ],
+            message: `深模組 ${m} 只能從 barrel（@/checkup/modules/${m}）進入，禁止 deep import 內部檔案。`,
+          },
+        ]),
+      },
+    ],
+  },
+};
+
 export default tseslint.config(
   { ignores: ["dist"] },
   {
@@ -40,4 +98,7 @@ export default tseslint.config(
       ],
     },
   },
+  // Checkup 深模組邊界規則（見 docs/architecture/holdings-modules.md）
+  ...siblingBoundaryConfigs,
+  externalBarrelOnlyConfig,
 );
