@@ -80,3 +80,59 @@ describe('PR-8 useChipsState: upstream circuit propagation', () => {
     expect(r.state).toBe('ready');
   });
 });
+
+describe('ChipsSection summary: readiness-driven partial display', () => {
+  it('shows value with coverage when readiness is filling (6/60)', () => {
+    const p = basePayload({
+      institutional: {
+        d1: null, d5: null, d20: null,
+        d60: { foreign_net: -9388, trust_net: 1200, dealer_net: 500, days_covered: 6 },
+      },
+      readiness: {
+        institutional: {
+          '5': { state: 'filling', have: 3, need: 5 },
+          '20': { state: 'filling', have: 6, need: 20 },
+          '60': { state: 'filling', have: 6, need: 60 },
+        },
+        bsr_concentration: {
+          '5': { state: 'ready', have: 5, need: 5 },
+        },
+      },
+    } as TwChipsPayload);
+    const rd = getInstReadiness(p, 'd60');
+    expect(rd.state).toBe('filling');
+    expect(rd.have).toBe(6);
+    expect(rd.need).toBe(60);
+    expect(rd.partial).toBe(true);
+  });
+
+  it('trusts readiness state over days_covered when ready', () => {
+    const p = basePayload({
+      institutional: {
+        d1: null, d5: null, d20: null,
+        d60: { foreign_net: -1000, trust_net: 0, dealer_net: 0, days_covered: 45 },
+      },
+      readiness: {
+        institutional: {
+          '5': { state: 'ready', have: 5, need: 5 },
+          '20': { state: 'ready', have: 20, need: 20 },
+          '60': { state: 'ready', have: 60, need: 60 },
+        },
+        bsr_concentration: { '5': { state: 'ready', have: 5, need: 5 } },
+      },
+    } as TwChipsPayload);
+    const rd = getInstReadiness(p, 'd60');
+    expect(rd.state).toBe('ready');
+    expect(rd.partial).toBe(false);
+  });
+
+  it('d1 window uses local days_covered fallback', () => {
+    const p = basePayload({
+      institutional: {
+        d5: null, d20: null, d60: null,
+        d1: { foreign_net: 100, trust_net: 0, dealer_net: 0, days_covered: 1 },
+      },
+    } as TwChipsPayload);
+    expect(getInstReadiness(p, 'd1')).toMatchObject({ state: 'ready', have: 1, need: 1 });
+  });
+});
