@@ -27,20 +27,17 @@
 
 ## 2. 事件契約
 
-### 本輪落地
-| 事件名 | Payload | 發送方 | 接收方（Shell listener 行為） |
+| 事件名 | Payload | 發送方 (barrel helper) | Shell / 目標行為 |
 | --- | --- | --- | --- |
-| `holdings:focus` | `{ stockCode: string; source: 'closing' \| 'events' }` | M2 / M3 | `navigate('/portfolio/:id/holdings?expand=<stockCode>')` |
-
-### TODO（未來事件）
-| 事件名 | Payload（草案） | 用途 |
-| --- | --- | --- |
-| `events:refresh` | `{ reason: string }` | M4 交易寫入後要求 M3 重整 |
-| `closing:openStock` | `{ stockCode; date }` | M1 → M2 開啟某日收盤 |
-| `research:prefill` | `{ stockCode; topic }` | M2/M3 → M5 帶入研究主題 |
+| `holdings:focus` | `{ stockCode: string; source: 'closing' \| 'events' }` | M2 `useEmitHoldingsFocus` / M3 `useEmitHoldingsFocus` | Shell `useHoldingsFocusNavigation`：`navigate('/portfolio/:id/holdings?expand=<code>')` |
+| `closing:openStock` | `{ stockCode: string; date?: string; source: 'holdings' }` | M1 `useEmitClosingOpenStock` | Shell `useClosingOpenStockNavigation`：`navigate('/portfolio/:id/daily?stock=<code>[&date=<YYYY-MM-DD>]')` |
+| `research:prefill` | `{ stockCode: string; topic?: string; source: 'closing' \| 'events' }` | M2 / M3 `useEmitResearchPrefill` | Shell `useResearchPrefillNavigation`：`navigate('/portfolio/:id/research?stock=<code>[&topic=<topic>]')` |
+| `events:refresh` | `{ reason: 'trade-import' \| 'trade-manual' \| 'ocr' \| string; source: 'tradeIO' }` | M4 `useEmitEventsRefresh` | M3 `useOnEventsRefresh(cb)` 訂閱後執行 re-fetch；不做 route 導航 |
 
 ### 型別放哪
 `src/checkup/shell/eventBus.ts` 匯出 `ShellEvents` 型別；擴充事件時只改這裡與本表。
+
+
 
 ---
 
@@ -143,17 +140,19 @@
 | --- | --- | --- |
 | S1 契約測試（red） | ✅ | `src/test/unit/shell-event-bus.test.ts`；vitest & tsgo 皆因 `@/checkup/shell/eventBus` 尚未存在而紅（預期）。7 個 case：emit 廣播、off、unsub 回傳、保序、handler 拋錯隔離、Set 去重、無 handler 安全。 |
 | S2 bus 實作（green） | ✅ | `src/checkup/shell/eventBus.ts`：Map&lt;Event, Set&lt;Handler&gt;&gt;、`on` 回傳 unsubscribe、`emit` 快照迭代 + try/catch 隔離。vitest 7/7 綠。 |
-| S3 Provider + Shell listener | ✅ | `src/checkup/shell/ShellEventBusProvider.tsx`（Provider / `useShellEventBus` / `useShellEventListener` / `useHoldingsFocusNavigation`）+ `src/checkup/pages/PortfolioLayout.jsx` 掛 Provider 並註冊 listener。`shell-event-bus-provider.test.tsx` 5/5 綠（同一實例、Provider 外拋錯、listener 收/卸、單次與連續 emit → `/portfolio/:id/holdings?expand=<code>`）。 |
-| S4 barrel emit + 邊界掃描 | ✅ | `src/checkup/modules/{closing,events}/useEmitHoldingsFocus.ts` + barrel re-export；`src/test/unit/shell-event-bus-module-boundary.test.ts` 6/6 綠：兩模組 tree 內禁止深 import `../holdings`／`components/holdings`、barrel 有 export、emit 實際發出 `holdings:focus` 且 source 正確。 |
-| S5 E2E harness | ✅ | `src/pages/ShellEventBusHarnessEntry.tsx` + `/portfolio/:portfolioId/__shell-bus` 子路由（`src/App.tsx`） + `e2e/shell-event-bus-navigation.spec.ts` + `playwright.config.ts` project `shell-event-bus-navigation`。3/3 綠：M2 closing emit → `?expand=2330`、M3 events emit → `?expand=2454`、自訂 `BRK.B` 經 encodeURIComponent。Shell（`.checkup-root`）跨模組跳轉保持 mount。 |
-| 收工：驗收清單全綠 | ✅ | 2026-07-26 執行：vitest 3 檔 18/18 綠（`shell-event-bus.test.ts` 7、`shell-event-bus-provider.test.tsx` 5、`shell-event-bus-module-boundary.test.ts` 6）；playwright 3 檔 11/11 綠（`shell-event-bus-navigation` 3、`portfolio-modules-smoke` 7、`module-cross-nav` 1），總 44.5s；`bun run typecheck`（tsc --noEmit）exit 0。無退化。 |
-| 收工：更新 `holdings-modules.md` TODO | ✅ | 前一輪已在 `docs/architecture/holdings-modules.md` L38 標 ✅ 並註記本 doc，TODO 區同步劃掉。 |
-| 收工：CI 綁定 | ✅ | 2026-07-26 把 `portfolio-modules-smoke` / `module-cross-nav` / `shell-event-bus-navigation` 三個 Playwright project 加進 `.github/workflows/ci-build-e2e.yml` matrix。`bunx playwright test --list --project=...` 三者皆解析成功（3 + 7 + 1 = 11 tests）。往後 shell 相關 regression 會在 push / PR 自動被擋下。 |
+| S3 Provider + Shell listener | ✅ | `src/checkup/shell/ShellEventBusProvider.tsx`（Provider / `useShellEventBus` / `useShellEventListener` / `useHoldingsFocusNavigation`）+ `src/checkup/pages/PortfolioLayout.jsx` 掛 Provider 並註冊 listener。`shell-event-bus-provider.test.tsx` 5/5 綠。 |
+| S4 barrel emit + 邊界掃描 | ✅ | `src/checkup/modules/{closing,events}/useEmitHoldingsFocus.ts` + barrel re-export；`shell-event-bus-module-boundary.test.ts` 6/6 綠。 |
+| S5 E2E harness | ✅ | `src/pages/ShellEventBusHarnessEntry.tsx` + `/portfolio/:portfolioId/__shell-bus` + `e2e/shell-event-bus-navigation.spec.ts` + playwright project。3/3 綠。 |
+| 收工：驗收清單全綠 | ✅ | 2026-07-26 vitest 3 檔 18/18 綠；playwright 3 檔 11/11 綠；`tsc --noEmit` exit 0。 |
+| 收工：更新 `holdings-modules.md` TODO | ✅ | `docs/architecture/holdings-modules.md` L38 標 ✅ 並註記本 doc。 |
+| 收工：CI 綁定 | ✅ | 2026-07-26 三個 Playwright project 加進 `.github/workflows/ci-build-e2e.yml` matrix。 |
+| S8-1 事件擴充：`closing:openStock` / `research:prefill` / `events:refresh` | ✅ | 2026-07-26 `eventBus.ts` `ShellEvents` 加 3 事件；`ShellEventBusProvider` 新增 `useClosingOpenStockNavigation` / `useResearchPrefillNavigation`；`PortfolioLayout` 掛上兩條 Shell nav listener。Barrel helper：M1 `useEmitClosingOpenStock`、M2/M3 `useEmitResearchPrefill`、M4 `useEmitEventsRefresh`、M3 訂閱 `useOnEventsRefresh`。新測試 `src/test/unit/shell-event-bus-events-v2.test.tsx` 11/11 綠（bus 契約 3、Shell nav 3、barrel helper 5），4 檔合計 29/29 綠。既有 shell-event-bus 測試無退化。 |
+
 
 ---
 
 ## 8. 後續 TODO（獨立 PR）
 
-1. 事件擴充：`events:refresh` / `closing:openStock` / `research:prefill`。
-2. ~~Legacy dead code 清理~~ ✅ 2026-07-26 完成：刪除 `AppShellFrame.jsx` / `AppPanels.jsx` / `PortfolioPanelsContext.jsx` + 9 個 `useAppRuntime*.js` + `usePortfolioPanelsContextComposer.js` + `runtimeArgs.types.js`（共 14 檔）。連同 2 個僅覆蓋 legacy 的單元測試（`checkup-store-backed-hooks.test.tsx` / `checkup-helper-catalog.test.ts`）一併移除，`src/checkup/hooks/index.js` barrel 清空對應 export，`src/checkup/contexts/` 只剩 `CheckupModeContext.jsx`。驗證：`tsgo --noEmit` exit 0；shell-event-bus 3 檔 18 tests 全綠。
-3. ESLint boundary rule：禁止 `src/checkup/modules/A` deep import `modules/B` 內部檔案。
+1. ~~事件擴充：`events:refresh` / `closing:openStock` / `research:prefill`~~ ✅ 2026-07-26 完成（見 §7 S8-1）。**下一步**：把 helper 實際串進 UI 呼叫點（M1 持倉「開收盤」按鈕 → `useEmitClosingOpenStock`；M4 交易寫入完成 → `useEmitEventsRefresh`；M2/M3「深研」入口 → `useEmitResearchPrefill`），並補一個 E2E harness `shell-event-bus-nav-v2.spec.ts` 覆蓋這三條新導航／refresh。
+2. ~~Legacy dead code 清理~~ ✅ 2026-07-26 完成。
+3. ~~ESLint boundary rule~~ ✅ 2026-07-26 完成。

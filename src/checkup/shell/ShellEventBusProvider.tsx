@@ -86,4 +86,32 @@ export function useHoldingsFocusNavigation(portfolioId: string | undefined | nul
   })
 }
 
+/**
+ * Shell 側裝配：`closing:openStock` → 跳到收盤分析並鎖定股票。
+ * URL 契約：/portfolio/:id/daily?stock=<code>[&date=<YYYY-MM-DD>]
+ */
+export function useClosingOpenStockNavigation(portfolioId: string | undefined | null): void {
+  const navigate = useNavigate()
+  useShellEventListener('closing:openStock', (payload) => {
+    if (!portfolioId) return
+    const params = new URLSearchParams({ stock: payload.stockCode })
+    if (payload.date) params.set('date', payload.date)
+    navigate(`/portfolio/${portfolioId}/daily?${params.toString()}`)
+  })
+}
+
+/**
+ * Shell 側裝配：`research:prefill` → 跳到研究工作台並預填股票／主題。
+ * URL 契約：/portfolio/:id/research?stock=<code>[&topic=<topic>]
+ */
+export function useResearchPrefillNavigation(portfolioId: string | undefined | null): void {
+  const navigate = useNavigate()
+  useShellEventListener('research:prefill', (payload) => {
+    if (!portfolioId) return
+    const params = new URLSearchParams({ stock: payload.stockCode })
+    if (payload.topic) params.set('topic', payload.topic)
+    navigate(`/portfolio/${portfolioId}/research?${params.toString()}`)
+  })
+}
+
 export type { ShellEventBus, ShellEventHandler, ShellEventName, ShellEvents } from './eventBus'

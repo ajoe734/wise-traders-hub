@@ -3,3 +3,5 @@ export { EventsPanel, EventCard, RelayPlanCard, EventsFilter } from '../../compo
 export { useRouteEventsPage } from '../../hooks/useRouteEventsPage.js'
 export { EventsPage } from '../../pages/EventsPage.jsx'
 export { useEmitHoldingsFocus } from './useEmitHoldingsFocus'
+export { useEmitResearchPrefill } from './useEmitResearchPrefill'
+export { useOnEventsRefresh } from './useOnEventsRefresh'

@@ -1,18 +1,36 @@
 /**
  * Shell Event Bus — pure pub/sub, no React.
  *
- * 契約與使用約定：docs/architecture/shell-event-bus-tdd.md
+ * 契約與使用約定：docs/architecture/shell-event-bus-tdd.md §2
  *
  * 深模組（M1 Holdings / M2 Closing / M3 Events / M4 TradeIO / M5 Research）
- * 之間唯一允許的「主動跳轉」通道。模組只 emit，Shell 層 listen 並執行副作用
- * （例：navigate）。
+ * 之間唯一允許的「主動跳轉」/「跨模組通知」通道。模組只 emit，Shell 層或
+ * 目標模組 listen 並執行副作用（例：navigate / re-fetch）。
  */
 
 /** 事件名 → payload 型別對應。擴充新事件時只改這裡與 doc §2 表格。 */
 export interface ShellEvents {
+  /** M2 Closing / M3 Events → M1 Holdings：跳到持倉並展開個股 */
   'holdings:focus': {
     stockCode: string
     source: 'closing' | 'events'
+  }
+  /** M1 Holdings → M2 Closing：跳到收盤分析並鎖定股票（可選鎖定日期） */
+  'closing:openStock': {
+    stockCode: string
+    date?: string
+    source: 'holdings'
+  }
+  /** M2 Closing / M3 Events → M5 Research：跳到研究工作台並預填股票／主題 */
+  'research:prefill': {
+    stockCode: string
+    topic?: string
+    source: 'closing' | 'events'
+  }
+  /** M4 TradeIO → M3 Events：交易寫入完成後要求事件面板重新拉資料 */
+  'events:refresh': {
+    reason: 'trade-import' | 'trade-manual' | 'ocr' | string
+    source: 'tradeIO'
   }
 }
 
