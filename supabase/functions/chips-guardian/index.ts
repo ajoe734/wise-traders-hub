@@ -276,19 +276,43 @@ async function ruleUpstreamQuotaLow(supa: any): Promise<Action[]> {
   return actions;
 }
 
+// P5: Fact-log staleness — 若 tw_chip_fact 24h 內零寫入，寫入高優先告警
+const FACT_STALE_HOURS = 26;
+async function ruleFactLogStale(supa: any): Promise<Action[]> {
+  const actions: Action[] = [];
+  const { data } = await supa
+    .from('tw_chip_fact')
+    .select('ingested_at')
+    .order('ingested_at', { ascending: false })
+    .limit(1);
+  const last = Array.isArray(data) && data[0]?.ingested_at ? new Date(data[0].ingested_at).getTime() : 0;
+  const ageHours = (Date.now() - last) / 3_600_000;
+  if (!last || ageHours < FACT_STALE_HOURS) return actions;
+
+  const code = 'guardian_fact_log_stale';
+  if (await alreadyAlerted(supa, code)) return actions;
+  await writeAlert(supa, code, 'critical',
+    `tw_chip_fact 已 ${ageHours.toFixed(1)}h 無新資料寫入（門檻 ${FACT_STALE_HOURS}h）`,
+    { last_ingested_at: last ? new Date(last).toISOString() : null, age_hours: Number(ageHours.toFixed(2)) });
+  actions.push({ kind: 'alert', reason: 'fact_log_stale', root_cause: `age_${ageHours.toFixed(1)}h` });
+  return actions;
+}
+
 Deno.serve(async (req) => {
   if (req.method === 'OPTIONS') return new Response('ok', { headers: corsHeaders });
   const supa = createClient(SUPABASE_URL, SERVICE_KEY, {
     auth: { persistSession: false, autoRefreshToken: false },
   });
   try {
-    const [a1, a2, a3, a4] = await Promise.all([
+    const [a1, a2, a3, a4, a5] = await Promise.all([
       ruleCircuitLongOpen(supa),
       ruleQuotaRejectRate(supa),
       ruleSloBudgetAdjust(supa),
       ruleUpstreamQuotaLow(supa),
+      ruleFactLogStale(supa),
     ]);
-    const actions = [...a1, ...a2, ...a3, ...a4];
+    const actions = [...a1, ...a2, ...a3, ...a4, ...a5];
+
     return new Response(JSON.stringify({ ok: true, actions, ran_at: new Date().toISOString() }),
       { headers: { ...corsHeaders, 'Content-Type': 'application/json' } });
   } catch (e) {

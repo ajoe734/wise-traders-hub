@@ -5147,6 +5147,32 @@ export type Database = {
         }
         Relationships: []
       }
+      chip_fact_conflicts: {
+        Row: {
+          broker_id: string | null
+          lane_count: number | null
+          lanes: string[] | null
+          max_net: number | null
+          min_net: number | null
+          net_diff: number | null
+          stock_id: string | null
+          trade_date: string | null
+        }
+        Relationships: []
+      }
+      chip_fact_health: {
+        Row: {
+          broker_count: number | null
+          lane: string | null
+          last_ingested_at: string | null
+          row_count: number | null
+          sealed: boolean | null
+          sealed_by_lane: string | null
+          stock_count: number | null
+          trade_date: string | null
+        }
+        Relationships: []
+      }
       chips_state_hourly: {
         Row: {
           borrowed: number | null
@@ -5532,6 +5558,13 @@ export type Database = {
         }
         Returns: string
       }
+      backfill_legacy_bsr_to_fact: {
+        Args: { _from: string; _to: string }
+        Returns: {
+          inserted_rows: number
+          skipped_rows: number
+        }[]
+      }
       bsr_apply_degrade_transition: {
         Args: {
           _api: string
@@ -5675,6 +5708,21 @@ export type Database = {
           item_id: string
           sim: number
           title: string
+        }[]
+      }
+      chip_fact_summary: {
+        Args: { _days?: number }
+        Returns: {
+          broker_scraper_rows: number
+          distinct_days: number
+          distinct_stocks: number
+          eligible_days: number
+          finmind_batch_rows: number
+          finmind_per_stock_rows: number
+          last_fact_at: string
+          legacy_migration_rows: number
+          sealed_days: number
+          total_rows: number
         }[]
       }
       claim_bsr_queue_jobs: {
