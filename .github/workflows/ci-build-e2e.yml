@@ -70,6 +70,10 @@ jobs:
           - desktop-freecheckup-single-parse
           - desktop-freecheckup-upload-modal
           - mobile-freecheckup-actions-sheet
+          # 深模組健檢 + Shell Event Bus（docs/architecture/shell-event-bus-tdd.md §7）
+          - portfolio-modules-smoke
+          - module-cross-nav
+          - shell-event-bus-navigation
     steps:
       - uses: actions/checkout@v4
       - uses: oven-sh/setup-bun@v2
