@@ -338,7 +338,7 @@ test.describe('ChipsSection · 全覆蓋', () => {
     const payload = fullPayload({
       institutional: {
         d1: null, d5: null, d20: null,
-        d60: { foreign_net: -9388, trust_net: 1200, dealer_net: 500, total_net: -7688, days_covered: 6 },
+        d60: { foreign_net: -9_388_000, trust_net: 1_200_000, dealer_net: 500_000, total_net: -7_688_000, days_covered: 6 },
       },
       bsr: { d5: null, d20: null, d60: null },
       bsr_as_of: null,
