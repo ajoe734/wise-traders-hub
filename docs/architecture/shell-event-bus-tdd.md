@@ -156,8 +156,13 @@
 
 ---
 
-## 8. 後續 TODO（獨立 PR）
+## 8. 後續 TODO
+
+本輪所有後續事項已於 2026-07-26 完成，本節保留為歷史記錄：
 
 1. ~~事件擴充：`events:refresh` / `closing:openStock` / `research:prefill` + UI 串接 + E2E harness + CI~~ ✅ 2026-07-26 完成（見 §7 S8-1、S8-2）。
-2. ~~Legacy dead code 清理~~ ✅ 2026-07-26 完成。
-3. ~~ESLint boundary rule~~ ✅ 2026-07-26 完成。
+2. ~~Legacy dead code 清理（`AppShellFrame` / `AppPanels` / `PortfolioPanelsContext` / `useAppRuntime`）~~ ✅ 2026-07-26 完成（見 §7 S8-3）。
+3. ~~ESLint boundary rule（深模組禁止 cross deep import）~~ ✅ 2026-07-26 完成（見 §7 S8-4）。
+
+現階段 Shell Event Bus 已進入維護模式；未來新增跨模組事件須先更新 §2 事件契約表與本 doc 日誌，再依 TDD 節奏實作。
+
