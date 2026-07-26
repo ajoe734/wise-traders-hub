@@ -324,8 +324,8 @@ test.describe('ChipsSection · 全覆蓋', () => {
   });
 
   test('O. 資料稀疏時：摘要與趨勢圖都顯示相同的覆蓋比例，不自動重複補齊', async ({ page }) => {
-    const dates = Array.from({ length: 6 }, (_, i) => {
-      const d = new Date(2026, 6, 1 + i);
+    const dates = Array.from({ length: 60 }, (_, i) => {
+      const d = new Date(2026, 5, 1 + i);
       return d.toISOString().slice(0, 10);
     });
     const inst_daily = dates.map((date, i) => ({
