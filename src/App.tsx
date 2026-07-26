@@ -316,6 +316,7 @@ const AppShell = () => (
               <Route path="research" element={<ResearchPage />} />
               <Route path="trade" element={<TradePage />} />
               <Route path="log" element={<LogPage />} />
+              <Route path="__shell-bus" element={<ShellEventBusHarnessEntry />} />
             </Route>
             <Route path="/overview" element={<PortfolioLayout />}>
               <Route index element={<OverviewPage />} />
