@@ -78,6 +78,6 @@
 
 ## TODO（本次未做，另立 PR）
 
-- Shell event bus 實作 + M2→M1 跳轉改走 bus。
+- ~~Shell event bus 實作 + M2/M3→M1 跳轉改走 bus。~~ ✅ 已完成，詳見 `docs/architecture/shell-event-bus-tdd.md`。
 - ESLint boundary rule 禁止 M1 ↔ M3 內部檔案互 import。
 - 清理 legacy dead code（見上）。
