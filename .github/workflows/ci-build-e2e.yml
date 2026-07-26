@@ -74,7 +74,8 @@ jobs:
           - portfolio-modules-smoke
           - module-cross-nav
           - shell-event-bus-navigation
-    steps:
+          - shell-event-bus-nav-v2
+     steps:
       - uses: actions/checkout@v4
       - uses: oven-sh/setup-bun@v2
         with:
