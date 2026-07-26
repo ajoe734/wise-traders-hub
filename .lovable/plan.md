@@ -1,86 +1,102 @@
-# 持倉看板深模組拆分規劃
 
-目標：把「持倉／收盤分析／事件／紀錄」四大功能拆成邊界清楚的深模組，讓 debug 時能定位到單一模組、跨模組互動走明確契約，避免現在 `PortfolioPanelsContext` 一包 8 個 domain props 的耦合。
+# 深模組活體檢查計畫
 
-## 拆分結果：5 個深模組 + 1 個協調層
+上一輪只做了「契約鎖形狀」的 unit test（`checkup-modules-contract.test.tsx` 只驗 hook return 的 key 存在），**沒有驗證任何一顆模組能在真實 route 下 render、能觸發 store、能打 edge function**。本計畫要回答一個問題：**這 5 顆深模組是活的還是紙糊的？**
 
-```text
-┌─────────────────────────────────────────────────────────┐
-│  M0 Shell（協調層：路由、Header、跨模組事件匯流排）      │
-├──────────┬──────────┬──────────┬──────────┬────────────┤
-│ M1       │ M2       │ M3       │ M4       │ M5         │
-│ Holdings │ Closing  │ Events   │ Trade    │ Research   │
-│ 持倉     │ 收盤分析 │ 行事曆   │ 上傳+日誌│ 深度研究   │
-│          │ +事件分析│          │          │            │
-└──────────┴──────────┴──────────┴──────────┴────────────┘
-        ↓ 共用底層 ↓
-┌─────────────────────────────────────────────────────────┐
-│  Core: stores (holdings/market/reports/brain) · lib     │
-│  · edge functions · sync workers                         │
-└─────────────────────────────────────────────────────────┘
+## 現況盤點（已確認）
+
+- **5 個 barrel**：`src/checkup/modules/{holdings,closing,events,tradeIO,research}/index.ts` 都已建立，各 export 1-3 個 `useRouteXxxPage` hook + Page + Panel。
+- **7 條 route pages**：`HoldingsPage / DailyPage / NewsPage / EventsPage / TradePage / LogPage / ResearchPage`，全部掛在 `PortfolioLayout` 下。
+- **5 個 store**：`holdingsStore / marketStore / reportsStore / eventStore / brainStore`。
+- **既有測試**：只有 `checkup-modules-contract.test.tsx`（mock 光 `usePortfolioRouteContext`）+ 一堆 `holdings-*.spec.ts` e2e，其他模組 **零 e2e**。→ M2/M3/M4/M5 目前**沒有任何 runtime 證據**。
+
+## 驗證流程圖
+
+```mermaid
+flowchart TB
+  Start([針對 M1-M5 每個模組]) --> L1
+
+  subgraph L1["Layer 1｜Barrel 煙霧 (vitest)"]
+    B1[只從 modules/xxx 匯入<br/>驗 export 齊全、型別對得上]
+  end
+
+  subgraph L2["Layer 2｜Route Hook 單元 (vitest+RTL)"]
+    H1[renderHook useRouteXxxPage<br/>mock usePortfolioRouteContext<br/>驗 props 契約鎖 + 事件回呼可呼叫]
+  end
+
+  subgraph L3["Layer 3｜Store 契約 (vitest)"]
+    S1[對應 store 的 selector shape<br/>要對得上 hook 消費端]
+  end
+
+  subgraph L4["Layer 4｜Route E2E (playwright)"]
+    E1[goto 每條 route<br/>驗真的 render + 點得動 + 網路有回]
+  end
+
+  subgraph L5["Layer 5｜跨模組契約"]
+    C1[URL param ?expand=2330 跳轉]
+    C2[共用 store 唯讀 selector]
+    C3[Shell event bus 佔位失敗測試]
+  end
+
+  L1 --> L2 --> L3 --> L4 --> L5
+  L5 --> Report([模組健康表<br/>綠=活 / 黃=部分活 / 紅=廢物])
 ```
 
-## 每個模組的職責與邊界
+## 5 層測試金字塔（每顆模組都要跑一遍）
 
-### M1 Holdings（持倉）
-- **UI 範圍**：`HoldingsPanel`、`HoldingsTable`、`HoldingsDetailPanel`、`ChipsSection`、`HoldingsHero`
-- **狀態**：`holdingsStore` + `marketStore`（現價、籌碼）
-- **對外契約**：`useRouteHoldingsPage()` → `{ panelProps, tableProps }`（已存在，作為邊界）
-- **debug 入口**：`/app/holdings`、`useHoldingsBundle`、`tw_chip_fact`、`price_admit`
+| 層 | 工具 | 產出檔 | 抓什麼 bug |
+|---|---|---|---|
+| L1 Barrel 煙霧 | vitest | `src/test/unit/checkup-module-barrel.test.ts` | barrel 忘記 re-export、路徑打錯 |
+| L2 Route Hook 單元 | vitest + RTL | 每模組一支 `useRouteXxxPage.test.tsx` | hook 內部拿 undefined、setter 沒接、useMemo 依賴漏抓 |
+| L3 Store 契約 | vitest | `src/test/unit/checkup-stores-contract.test.ts` | store selector 改名、hook 拿不到欄位 |
+| L4 Route E2E | playwright | `e2e/portfolio-modules-smoke.spec.ts`（7 個 route × 1 describe 各自） | route 掛不上、Panel 白畫面、console error、fetch 500 |
+| L5 跨模組 | vitest + playwright | `src/test/unit/module-cross-contract.test.ts` + `e2e/module-cross-nav.spec.ts` | M2→M1 跳轉走非法路徑、模組互相偷 import |
 
-### M2 Closing Analysis（收盤分析 + 事件分析合併）
-- 這兩個 tab 共用 `dailyReport` / `newsEvents` / `strategyBrain`，本來就是同一個「AI 收盤解讀」領域，硬拆反而讓 `reportsStore` 兩邊被讀
-- **UI 範圍**：`DailyReportPanel`、`NewsAnalysisPanel`、`StrategyBrainSection`
-- **狀態**：`reportsStore`
-- **對外契約**：`useClosingAnalysis()` → `{ daily, news, stress }`
+## 每個模組要跑的具體檢查
 
-### M3 Events（行事曆）
-- **UI 範圍**：`EventsPanel`、`RelayPlanCard`、`EventsFilter`
-- **狀態**：`eventStore` + 從 M1 borrow `holdings`（唯讀）
-- **對外契約**：`useEventsFeed()` → `{ filteredEvents, relayPlan, urgentCount }`
-- 對外只吐 `urgentCount` 給 Header tab badge
+| 模組 | L4 路由 | 必須驗到的 runtime 訊號 |
+|---|---|---|
+| **M1 Holdings** | `/portfolio/demo/holdings` | Panel render、`holdingsStore` 有列、點列開 detail drawer、`current_prices` fetch |
+| **M2 Closing** | `/portfolio/demo/daily` + `/news` | `reportsStore.dailyReport` 有值、觸發「重新分析」→ edge function `daily-analysis` 有回 |
+| **M3 Events** | `/portfolio/demo/events` | `eventStore` 有事件卡、篩選 chip 切換、`EventCard` 點擊能展開 |
+| **M4 TradeIO** | `/portfolio/demo/trade` + `/log` | Trade 頁 OCR 上傳按鈕在、Log 頁列表可切排序 |
+| **M5 Research** | `/portfolio/demo/research` | Panel render、輸入 code → `runResearch` 呼叫、history 出現一筆 |
 
-### M4 Trade Capture + Log（上傳成交 + 交易日誌）
-- OCR 上傳的最終產物就是 `tradeLog`，兩者強耦合，合成一個模組
-- **UI 範圍**：`TradePanel`、`LogPanel`
-- **狀態**：`useTradeCapture()` hook（現存）+ `tradeLog` selector
-- **對外契約**：`useTradeIO()` → `{ capture, log }`
+## 跨模組契約（L5 三條合法路）
 
-### M5 Research（深度研究）
-- **UI 範圍**：`ResearchPanel`
-- **狀態**：`researchResults` / `researchHistory` / `analystReports`
-- **對外契約**：`useResearchWorkbench()`
+1. **URL 跳轉**：E2E 從 `/events` 點事件卡的持倉 chip → 網址變 `/holdings?expand=2330` → M1 自動展開該股。
+2. **共用 store 唯讀 selector**：unit test 用 `import { useHoldingsStore }`，assert 只能拿 selector，不能拿 `setState`（透過 mock 攔截失敗）。
+3. **Shell event bus**：目前 TODO。先寫**一支預期失敗的 skip test** 佔位，實作 PR 再拿掉 skip。
 
-### M0 Shell（協調層）
-- `PortfolioLayout` + `Header` + 路由 + tab badge 匯總
-- **不再持有 domain state**：拆掉 `PortfolioPanelsContext` 一包 8 domain 的巨型 context，改成每個模組自己的 hook（M1~M5 的 `useRoute*Page`）
-- Shell 只做：路由切換、Header props（含各模組吐出的 badge count）、跨模組跳轉（例如「事件分析」點卡片跳到「持倉」展開該檔）
+## 產出物
 
-## 跨模組互動契約（避免耦合擴散）
+執行完 5 層後，**產一份「模組健康表」寫進 `docs/architecture/holdings-modules.md` 底部**，欄位：
 
-只允許 3 種跨模組互動，其他一律禁止：
+```text
+| 模組 | L1 | L2 | L3 | L4 | L5 | 狀態 | 備註 |
+```
 
-1. **URL / route params**：跳 tab、展開特定 stock code → 走 `?expand=2330`，不共用 in-memory state
-2. **共用 store 唯讀 selector**：M3 需要 holdings → `useHoldingsSnapshot()`（唯讀），不能拿 setter
-3. **Shell-level event bus**：M2 「點事件跳持倉」→ `shellBus.emit('focus-holding', code)`，M1 訂閱
+狀態三色：**綠**=五層全綠；**黃**=L4 render 但互動壞；**紅**=L4 白畫面或掛不上（=廢物）。
 
-## 重構落地順序（每步可獨立驗證）
+## 執行順序（進 build mode 後）
 
-1. **Step 1**：拆 `PortfolioPanelsContext` → 5 個模組各自的 `useRoute*Page` hook（M1 已完成，作為範本）
-2. **Step 2**：把 `AppPanels.jsx` 的 `panelRegistry` 改成 lazy import 5 個模組 barrel
-3. **Step 3**：每個模組加 `__tests__/contract.test.ts` 鎖住對外 hook 的返回形狀
-4. **Step 4**：Shell 新增 `shellBus`，把現有 `setTab` / `setExpandedStock` 跨模組呼叫改走 bus
-5. **Step 5**：`docs/architecture/holdings-modules.md` 記錄 5 模組邊界與契約，CI 加 lint 規則禁止 M1 直接 import M3 內部檔案
-
-## Debug 效益
-
-- 出 bug → 先定位到哪個模組（看路由或 tab）→ 只讀該模組的 hook + store + edge function
-- 跨模組互動只有 3 條路，容易追（bus event log / URL params / selector）
-- 每個模組獨立 lazy chunk，效能問題也能按模組看 bundle 分析
+1. 先寫 L1 + L3（快速、無 Playwright 依賴）→ 抓出 barrel / store 名字對不齊的低垂果實。
+2. 補 L2 五支 hook 測試 → 補完 unit 層。
+3. 寫 L4 一支 `portfolio-modules-smoke.spec.ts`（7 個 describe 塞同一檔），先用 demo portfolio route 掃一輪。
+4. 寫 L5（URL 跳轉 e2e + store 唯讀 unit + event bus skip）。
+5. 收集紅黃綠、更新架構文件、如遇紅色模組**當場開 fix PR**（不留待辦）。
 
 ## 技術細節
 
-- `AppPanels.jsx` 目前 89 行、`usePortfolioPanelsContextComposer.js` 350 行 90+ props：這兩個是拆分的核心目標，拆完後 Composer 應該消失
-- 現有 `useRouteHoldingsPage.js` 已經是 M1 標竿，其他 4 個模組照抄結構
-- `holdings-page.test.tsx` 已示範 contract test 寫法，其他模組沿用
-- 不動 store 檔案結構（`holdingsStore` / `marketStore` / `reportsStore` / `eventStore` 已經按 domain 分好），只動 UI 層與 context 層
+- Demo portfolio route：復用既有 `useFreeCheckupBootstrap` demo data 建 `demo` id，避免依賴登入。若 route 需要真 auth，用既有 e2e 的 `LOVABLE_BROWSER_SUPABASE_*` session 注入。
+- L2 hook 測試沿用 `checkup-modules-contract.test.tsx` 的 `QueryClientProvider` wrapper 與 mock 集，但 **assert 從 key 存在升級成「呼叫 setter → 對應 mock 被叫」**。
+- L4 每個 describe 都要 `page.on('console', ...)` 收 error，跑完 fail if any `console.error`。
+- 不改 runtime code，只加測試；除非 L4 抓出紅色 → 才進 fix。
+
+## 不做
+
+- 不做 visual regression（已由 `holdings-*.spec.ts` 覆蓋）。
+- 不清理 legacy dead code（獨立 PR，見架構文件 TODO）。
+- 不實作 event bus（另立 PR）。
+
+按下 Implement Plan 後我會照 1→5 順序執行並邊跑邊回報紅黃綠。
