@@ -972,10 +972,26 @@ export default defineConfig({
       use: { ...devices['Desktop Chrome'], viewport: { width: w, height: h } },
     })),
 
-
-
-
+    {
+      // traffic-ingest CORS 合約：白名單 echo origin + Allow-Credentials + Vary
+      name: 'traffic-ingest-cors',
+      testMatch: /traffic-ingest-cors\.spec\.ts/,
+      use: { ...devices['Desktop Chrome'] },
+    },
+    {
+      // 深模組 route smoke（7 條 /portfolio/me/*）
+      name: 'portfolio-modules-smoke',
+      testMatch: /portfolio-modules-smoke\.spec\.ts/,
+      use: { ...devices['Desktop Chrome'], viewport: { width: 1280, height: 900 } },
+    },
+    {
+      // 跨模組導覽
+      name: 'module-cross-nav',
+      testMatch: /module-cross-nav\.spec\.ts/,
+      use: { ...devices['Desktop Chrome'], viewport: { width: 1280, height: 900 } },
+    },
   ],
+
   webServer: {
     command: 'bun run dev',
     url: 'http://localhost:8080',
