@@ -148,6 +148,7 @@
 | S5 E2E harness | ✅ | `src/pages/ShellEventBusHarnessEntry.tsx` + `/portfolio/:portfolioId/__shell-bus` 子路由（`src/App.tsx`） + `e2e/shell-event-bus-navigation.spec.ts` + `playwright.config.ts` project `shell-event-bus-navigation`。3/3 綠：M2 closing emit → `?expand=2330`、M3 events emit → `?expand=2454`、自訂 `BRK.B` 經 encodeURIComponent。Shell（`.checkup-root`）跨模組跳轉保持 mount。 |
 | 收工：驗收清單全綠 | ✅ | 2026-07-26 執行：vitest 3 檔 18/18 綠（`shell-event-bus.test.ts` 7、`shell-event-bus-provider.test.tsx` 5、`shell-event-bus-module-boundary.test.ts` 6）；playwright 3 檔 11/11 綠（`shell-event-bus-navigation` 3、`portfolio-modules-smoke` 7、`module-cross-nav` 1），總 44.5s；`bun run typecheck`（tsc --noEmit）exit 0。無退化。 |
 | 收工：更新 `holdings-modules.md` TODO | ✅ | 前一輪已在 `docs/architecture/holdings-modules.md` L38 標 ✅ 並註記本 doc，TODO 區同步劃掉。 |
+| 收工：CI 綁定 | ✅ | 2026-07-26 把 `portfolio-modules-smoke` / `module-cross-nav` / `shell-event-bus-navigation` 三個 Playwright project 加進 `.github/workflows/ci-build-e2e.yml` matrix。`bunx playwright test --list --project=...` 三者皆解析成功（3 + 7 + 1 = 11 tests）。往後 shell 相關 regression 會在 push / PR 自動被擋下。 |
 
 ---
 
