@@ -221,6 +221,29 @@ export function RelayPlanCard({ expanded, onToggle }) {
             `觸發：${leg.trigger}`,
             h('br'),
             `防守：${leg.stop}`
+          ),
+          h(
+            'button',
+            {
+              type: 'button',
+              onClick: (e) => {
+                e.stopPropagation()
+                emitResearchPrefill(leg.code, leg.name)
+              },
+              'data-testid': `relay-leg-research-${leg.code}`,
+              style: {
+                marginTop: 8,
+                background: 'transparent',
+                border: `1px solid ${alpha(C.textMute, '20')}`,
+                borderRadius: 4,
+                color: C.textSec,
+                cursor: 'pointer',
+                fontSize: 9,
+                padding: '3px 7px',
+                letterSpacing: '0.06em',
+              },
+            },
+            '→ 帶入研究',
           )
         )
       )
