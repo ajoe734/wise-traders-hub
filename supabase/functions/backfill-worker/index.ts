@@ -305,7 +305,7 @@ export default async function handler(req: Request): Promise<Response> {
         .eq("id", body.job_id)
         .maybeSingle();
       if (error) throw error;
-      if (!data) return jsonResponse({ ok: false, error: "job_not_found" }, 404);
+      if (!data) return jsonResponse({ ok: false, error: "job_not_found" }, { status: 404 });
       jobs = [data as unknown as Job];
     } else {
       const { data, error } = await supa.rpc("claim_backfill_jobs", {
