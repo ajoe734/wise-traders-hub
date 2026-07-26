@@ -155,6 +155,6 @@
 
 ## 8. 後續 TODO（獨立 PR）
 
-1. ~~事件擴充：`events:refresh` / `closing:openStock` / `research:prefill`~~ ✅ 2026-07-26 完成（見 §7 S8-1）。**下一步**：把 helper 實際串進 UI 呼叫點（M1 持倉「開收盤」按鈕 → `useEmitClosingOpenStock`；M4 交易寫入完成 → `useEmitEventsRefresh`；M2/M3「深研」入口 → `useEmitResearchPrefill`），並補一個 E2E harness `shell-event-bus-nav-v2.spec.ts` 覆蓋這三條新導航／refresh。
+1. ~~事件擴充：`events:refresh` / `closing:openStock` / `research:prefill` + UI 串接 + E2E harness + CI~~ ✅ 2026-07-26 完成（見 §7 S8-1、S8-2）。
 2. ~~Legacy dead code 清理~~ ✅ 2026-07-26 完成。
 3. ~~ESLint boundary rule~~ ✅ 2026-07-26 完成。
