@@ -146,10 +146,16 @@ test.describe('ChipsSection · 全覆蓋', () => {
     // 趨勢圖
     await expect(page.getByTestId('chips-trend-chart')).toBeVisible();
     await expect(page.getByTestId('chips-trend-scrubber')).toBeVisible();
-    await expect(page.getByTestId('chips-trend-readout')).toContainText('5 日滾動淨買賣');
+    await expect(page.getByTestId('chips-trend-readout')).toContainText('5 日累計淨買賣');
+    // 切換 5→20:高亮柱數應由 5 變 20
+    const activeBars5 = await page.locator('[data-window-active="true"]').count();
+    await page.getByTestId('chips-trend-chart').getByRole('button', { name: '20 日' }).click();
+    await expect(page.getByTestId('chips-trend-readout')).toContainText('20 日累計淨買賣');
+    const activeBars20 = await page.locator('[data-window-active="true"]').count();
+    expect(activeBars20).toBeGreaterThan(activeBars5);
     // 切到集中度模式
     await page.getByRole('button', { name: '分點集中度' }).click();
-    await expect(page.getByTestId('chips-trend-readout')).toContainText('Top15 買超集中度');
+    await expect(page.getByTestId('chips-trend-readout')).toContainText('平均集中度');
     await expect(page.getByTestId('chips-trend-readout')).toContainText(/%$/);
   });
 

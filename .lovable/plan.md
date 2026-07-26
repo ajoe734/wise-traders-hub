@@ -1,55 +1,41 @@
+## 問題
 
-## 目標
-改 `src/checkup/components/freecheckup/ChipsTrendChart.tsx`：
-1. 刪除「播放／暫停」按鈕與 raf 播放邏輯（scrubber 拖曳保留）。
-2. 刪除「1 日」視窗按鈕；視窗只留 5／20／60，預設 5。
-3. **柱體恆為每日淨買賣**（紅正／綠負，跟截圖一致）；視窗切換只改變右下讀值（`N 日滾動淨買賣 ±X 張`）與 readiness caption，柱形不變。
-4. 「分點集中度」模式同樣改為每日柱狀圖（值域 0–100，>70% 紅色），保留 70% 警戒虛線。
-5. 保留 scrubber 圓點對齊柱體 + 當日 tooltip 讀值。
+`ChipsTrendChart` 目前柱體恆為每日淨買賣，5/20/60 只改右下讀值。切換視窗時圖完全沒變，但數字跳動，使用者無法理解「這個數字從哪來」。
 
-## 變更細節（單檔）
+## 修法（選項 A：高亮視窗區間）
 
-### A. 移除播放
-- 刪 `playing / setPlaying / rafRef / handlePlay` 與播放 `useEffect`。
-- 刪 render 中的 `<button data-testid="chips-trend-play">`。
-- Scrubber `<input type="range">` 保留、`onChange` 直接 `setIdx(Number(...))`。
+改動集中在 `src/checkup/components/freecheckup/ChipsTrendChart.tsx`：
 
-### B. 移除 1 日
-- `type Window = 5 | 20 | 60`；`useState<Window>(5)`。
-- 視窗按鈕陣列 `[5, 20, 60]`；auto-clamp fallback `[60, 20, 5]`，資料 < 5 時按鈕 disabled 並由 readiness caption 提示。
+1. **視覺高亮**：以 scrubber 選取日（預設最新日）為終點，往前 W 根柱子為「視窗區間」。
+   - 區間內柱子維持原本紅/綠飽和色。
+   - 區間外柱子降至低透明度（約 `opacity 0.25`），讓「這段被加總」一眼可辨。
+   - 區間背景加一層極淡底色 rect（`fill: rgba(0,0,0,0.03)`），強化邊界。
 
-### C. 柱體恆為每日淨（方案 A）
-- 新增 `daily = inst.map(r => ({ date: r.date, value: r.total_net, raw: r }))` —— **柱體資料源，與 `win` 無關**。
-- `series`（供讀值／scrubber 用）：
-  - inst：`value = rollingSum(totals, win)[i]`（跟現在一樣，但只用於右下讀值與 activePt tooltip）。
-  - bsr：`value = concentration_ratio`，`daily` 與 `series` 相同。
-- Render：
-  - inst：對 `daily` map `<rect>`，`fill = v >= 0 ? UP : DOWN`，基準線 `yZero`。
-  - bsr：對 `series` map `<rect>`，值域強制 0–100，`fill = v > 70 ? UP : WB.ink`。
-  - 柱寬 `Math.max(1, (w - PAD_L - PAD_R) / N - 1)`。
-  - 刪掉 `linePath` 與 `<path>` 折線區塊。
-- Y 軸域：inst 用 `daily` 的 min/max（含 0）計算 `vMin/vMax`；讀值顯示的 rolling sum 只用在文字，不影響 Y 軸。
-- 保留 bsr 70% 警戒虛線、`chips-trend-low-quality-dot` 空心圓（疊在對應日柱頂端）。
+2. **讀值語意對齊**：右下 `readoutVal` 明確改為「視窗內加總」——即高亮 W 根柱子的總和，而非全序列的滾動加總結果。這樣圖與數字 1:1 對應。
+   - `inst` 模式：顯示 `W 日累計淨買賣 = ±X 張`。
+   - `bsr` 模式：因每根柱子是「當日集中度 %」不宜加總，改顯示 `W 日平均集中度 = X%`（區間內平均），保持與圖對稱。
 
-### D. Scrubber 游標
-- `activeIdx` 沿用 `series.length` 為長度（每日一格）；虛線 + 圓點畫在 `xs(activeIdx), ys(daily[activeIdx].value)`（inst）或 `ys(series[activeIdx].value)`（bsr）。
-- 右下讀值：
-  - inst：左「`${win} 日滾動淨買賣`」、右 `fmtLots(series[activeIdx].value)`（rolling sum）。
-  - bsr：左「Top15 買超集中度」、右 `${value.toFixed(1)}%`。
+3. **Scrubber 互動**：拖曳 scrubber 時，高亮區間跟著移動（終點 = scrubber 日、起點 = 終點往前 W-1 天），讀值同步更新。若 scrubber 位置不足 W 天（例如選到第 3 天但視窗 20 日），區間截斷到序列起點，讀值標註「（僅 N 日）」。
 
-### E. Readiness / 空資料
-- `currentReadiness` 保持原本查表（`institutional[String(win)]` / `bsr_concentration['5']`）。
-- `validPts.length < 2` fallback：改成畫單一 `<rect>` 而非圓點，樣式與正式柱一致。
+4. **視窗按鈕 disabled 條件保留**：資料不足 W 天時該按鈕仍 disabled。
 
-## 不變
-- Hook / edge function / readiness payload schema 一律不動。
-- testid：保留 `chips-trend-chart / -empty / -empty-hint / -readout / -scrubber / -low-quality-dot / -readiness-caption / -slot-filled / -slot-empty`。**刪除**：`chips-trend-play`。
+## 技術細節
 
-## 測試調整
-- `rg -l "chips-trend-play|1 日|windowDays.*1|win === 1" e2e src/test` → 修正斷言（移除播放鍵斷言、1 日按鈕斷言；rolling 讀值仍可斷言）。
-- 現有 `e2e/holdings-range-band-*` 等與本檔無關者不動。
+- 新增 `windowStart = max(0, scrubberIdx - W + 1)`、`windowEnd = scrubberIdx`。
+- 柱子 render 時依 `i >= windowStart && i <= windowEnd` 決定 `opacity`。
+- 移除現有 `rollingSum` 對讀值的使用；讀值改為 `sum(daily.slice(windowStart, windowEnd+1))`。
+- Bsr 讀值改為 `avg(bsr.slice(windowStart, windowEnd+1))`。
+- 保留 scrubber 黑點與虛線（對齊終點柱頂）。
 
-## 驗證
-1. `tsgo` 過型別。
-2. /holding-checkup 點卡片 → 籌碼面：確認無播放鍵、無 1 日、5/20/60 柱狀圖紅綠交錯、切「分點集中度」也是柱狀且 70% 警戒線在、拖 scrubber 圓點對齊柱頂、右下讀值同步變化。
-3. 跑步驟 1 找到的受影響 spec。
+## 測試
+
+- 更新 `e2e/chips-section.spec.ts`：
+  - 斷言切換 5→20 時，高亮柱數從 5 變 20（用 `data-window-active="true"` 屬性計數）。
+  - 斷言讀值文字前綴由「5 日」變「20 日」，且數值改變。
+- 視覺回歸 `e2e/chips-section-visual.spec.ts` 補一張 20 日高亮的 baseline。
+
+## 不動的部分
+
+- 播放鍵、1 日按鈕維持已移除。
+- 柱體顏色規則（inst 紅正綠負、bsr >70% 紅）不變。
+- 資料源與 `useTwChipsDetail` 不動。

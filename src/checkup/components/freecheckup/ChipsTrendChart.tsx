@@ -17,16 +17,6 @@ const DOWN = '#2E7A4B';
 type Mode = 'inst' | 'bsr';
 type Window = 5 | 20 | 60;
 
-function rollingSum(arr: number[], w: number): number[] {
-  const out: number[] = new Array(arr.length).fill(0);
-  let acc = 0;
-  for (let i = 0; i < arr.length; i++) {
-    acc += arr[i];
-    if (i >= w) acc -= arr[i - w];
-    out[i] = i >= w - 1 ? acc : NaN;
-  }
-  return out;
-}
 
 function fmtLots(n: number | null | undefined) {
   if (n == null || Number.isNaN(n)) return '—';
@@ -89,12 +79,6 @@ export default function ChipsTrendChart({
     return bsr.map((r) => ({ date: r.date, value: r.concentration_ratio, raw: r }));
   }, [mode, inst, bsr]);
 
-  // rolling（僅供 inst 讀值使用，不影響柱體）
-  const rolled = useMemo(() => {
-    if (mode !== 'inst') return [];
-    return rollingSum(inst.map((r) => r.total_net), win);
-  }, [mode, inst, win]);
-
   const validPts = series.filter((p) => p.value != null && !Number.isNaN(p.value));
   const activeIdx = idx < 0 || idx >= series.length ? series.length - 1 : idx;
 
@@ -119,9 +103,9 @@ export default function ChipsTrendChart({
         ? `補齊中：已 ${currentHave}/${currentNeed} 個交易日`
         : currentState === 'upstream_exhausted'
           ? (currentReadiness?.oldest_available
-              ? `此檔歷史自 ${currentReadiness.oldest_available.replaceAll('-', '/')} 起，${currentNeed} 日視窗資料不足`
+              ? `此檔歷史自 ${currentReadiness.oldest_available.replaceAll('-', '/')} 起,${currentNeed} 日視窗資料不足`
               : `此檔上游歷史不足 ${currentNeed} 個交易日`)
-          : '暫無資料，正在收集';
+          : '暫無資料,正在收集';
 
   if (!series.length) {
     return (
@@ -146,11 +130,27 @@ export default function ChipsTrendChart({
 
   const activePt = series[activeIdx];
   const activeVal = activePt?.value as number | null;
-  // inst 右下讀值：rolling sum；bsr：當日集中度
+
+  // 高亮視窗：以 activeIdx 為終點,往前 W-1 天
+  const windowSize = mode === 'inst' ? win : 5;
+  const windowEnd = activeIdx;
+  const windowStart = Math.max(0, windowEnd - windowSize + 1);
+  const windowActualLen = windowEnd - windowStart + 1;
+  const windowTruncated = windowActualLen < windowSize;
+
+  // 讀值:視窗內加總/平均(對應高亮柱)
+  const windowSlice = series.slice(windowStart, windowEnd + 1);
+  const windowValidVals = windowSlice
+    .map((p) => p.value)
+    .filter((v): v is number => v != null && !Number.isNaN(v));
   const readoutVal =
     mode === 'inst'
-      ? (rolled[activeIdx] as number | undefined)
-      : (activeVal as number | null);
+      ? (windowValidVals.length
+          ? windowValidVals.reduce((a, b) => a + b, 0)
+          : undefined)
+      : (windowValidVals.length
+          ? windowValidVals.reduce((a, b) => a + b, 0) / windowValidVals.length
+          : null);
 
   const barW = Math.max(1, (w - PAD_L - PAD_R) / series.length - 1);
 
@@ -257,7 +257,24 @@ export default function ChipsTrendChart({
             );
           })()}
 
-          {/* 每日長條 — 恆定型態 */}
+          {/* 視窗高亮背景 */}
+          {validPts.length >= 2 && windowActualLen > 0 && (() => {
+            const halfBar = barW / 2 + 1;
+            const x1 = Math.max(PAD_L, xs(windowStart) - halfBar);
+            const x2 = Math.min(w - PAD_R, xs(windowEnd) + halfBar);
+            return (
+              <rect
+                data-testid="chips-trend-window-band"
+                x={x1}
+                y={PAD_T}
+                width={Math.max(1, x2 - x1)}
+                height={HEIGHT - PAD_T - PAD_B}
+                fill="rgba(0,0,0,0.04)"
+              />
+            );
+          })()}
+
+          {/* 每日長條 — 視窗內飽和,視窗外淡化 */}
           {validPts.length >= 2 && series.map((p, i) => {
             const v = p.value as number;
             if (v == null || Number.isNaN(v)) return null;
@@ -267,15 +284,17 @@ export default function ChipsTrendChart({
               mode === 'bsr'
                 ? (v > 70 ? UP : WB.ink)
                 : v >= 0 ? UP : DOWN;
+            const inWindow = i >= windowStart && i <= windowEnd;
             return (
               <rect
                 key={i}
+                data-window-active={inWindow ? 'true' : 'false'}
                 x={xs(i) - barW / 2}
                 y={Math.min(y1, base)}
                 width={barW}
                 height={Math.max(1, Math.abs(y1 - base))}
                 fill={fill}
-                opacity={0.75}
+                opacity={inWindow ? 0.85 : 0.2}
               />
             );
           })}
@@ -416,8 +435,11 @@ export default function ChipsTrendChart({
       >
         {mode === 'inst' ? (
           <>
-            <span>{`${win} 日滾動淨買賣`}</span>
+            <span data-testid="chips-trend-readout-label">
+              {`${win} 日累計淨買賣${windowTruncated ? `(僅 ${windowActualLen} 日)` : ''}`}
+            </span>
             <span
+              data-testid="chips-trend-readout-value"
               style={{
                 color: readoutVal == null || Number.isNaN(readoutVal)
                   ? WB.inkMute
@@ -430,18 +452,21 @@ export default function ChipsTrendChart({
           </>
         ) : (
           <>
-            <span>Top15 買超集中度</span>
+            <span data-testid="chips-trend-readout-label">
+              {`${windowSize} 日平均集中度${windowTruncated ? `(僅 ${windowActualLen} 日)` : ''}`}
+            </span>
             <span
+              data-testid="chips-trend-readout-value"
               style={{
-                color: activeVal == null || Number.isNaN(activeVal)
+                color: readoutVal == null || Number.isNaN(readoutVal)
                   ? WB.inkMute
-                  : (activeVal as number) > 70 ? UP : WB.ink,
+                  : (readoutVal as number) > 70 ? UP : WB.ink,
                 fontVariantNumeric: 'tabular-nums',
               }}
             >
-              {activeVal == null || Number.isNaN(activeVal)
+              {readoutVal == null || Number.isNaN(readoutVal)
                 ? '—'
-                : `${(activeVal as number).toFixed(1)}%`}
+                : `${(readoutVal as number).toFixed(1)}%`}
             </span>
           </>
         )}
