@@ -371,7 +371,8 @@ test.describe('ChipsSection · 全覆蓋', () => {
     await expect(cell).toContainText('(6/60)');
     await expect(cell).toHaveAttribute('data-readiness-state', 'filling');
 
-    // 趨勢圖 caption 與摘要格子的覆蓋比例一致
+    // 趨勢圖：切到 60 日後 caption 與摘要格子的覆蓋比例一致
+    await page.getByRole('button', { name: '60 日' }).click();
     const caption = page.getByTestId('chips-trend-readiness-caption');
     await expect(caption).toContainText('6');
     await expect(caption).toContainText('60');
