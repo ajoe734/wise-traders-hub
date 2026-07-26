@@ -436,7 +436,9 @@ export default function ChipsTrendChart({
         {mode === 'inst' ? (
           <>
             <span data-testid="chips-trend-readout-label">
-              {`${win} 日累計淨買賣${windowTruncated ? `(僅 ${windowActualLen} 日)` : ''}`}
+              {win === 1
+                ? '當日淨買賣'
+                : `${win} 日累計淨買賣${windowTruncated ? `(僅 ${windowActualLen} 日)` : ''}`}
             </span>
             <span
               data-testid="chips-trend-readout-value"
