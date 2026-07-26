@@ -41,6 +41,7 @@ const IMPACT_COLOR = {
  * Relay Plan Card
  */
 export function RelayPlanCard({ expanded, onToggle }) {
+  const emitResearchPrefill = useEmitResearchPrefill()
   return h(
     Card,
     {
