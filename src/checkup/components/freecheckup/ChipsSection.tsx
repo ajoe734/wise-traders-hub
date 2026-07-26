@@ -232,6 +232,58 @@ export default function ChipsSection({ WB, stockCode }: { WB: any; stockCode: st
     }
   };
 
+  // 自動回補：資料稀疏時開抽屜自動排入一次，並追蹤 30 分鐘內是否補滿
+  const [autoBackfill, setAutoBackfill] = useState<{
+    state: 'idle' | 'triggered' | 'ready' | 'timeout';
+    startedAt: number;
+    stockCode: string;
+  } | null>(null);
+  const autoBackfillFiredRef = useRef<Set<string>>(new Set());
+
+  useEffect(() => {
+    setAutoBackfill(null);
+  }, [stockCode]);
+
+  useEffect(() => {
+    if (!data || !stockCode || !sparse) return;
+    if (autoBackfillFiredRef.current.has(stockCode)) return;
+    if (syncStatus?.eligible === false) return;
+    if (syncStatus?.status === 'running' || syncStatus?.status === 'pending') return;
+    if (autoBackfill?.state === 'triggered') return;
+
+    autoBackfillFiredRef.current.add(stockCode);
+    setAutoBackfill({ state: 'triggered', startedAt: Date.now(), stockCode });
+    handleBackfill();
+  }, [data, sparse, stockCode, syncStatus?.eligible, syncStatus?.status, autoBackfill?.state, handleBackfill]);
+
+  useEffect(() => {
+    if (!autoBackfill || autoBackfill.stockCode !== stockCode || autoBackfill.state !== 'triggered') return;
+    const isReady =
+      data?.readiness?.institutional?.['60']?.state === 'ready' ||
+      data?.readiness?.institutional?.['20']?.state === 'ready' ||
+      instDays >= 20;
+    if (isReady) {
+      setAutoBackfill({ ...autoBackfill, state: 'ready' });
+    }
+  }, [data, autoBackfill, stockCode, instDays]);
+
+  useEffect(() => {
+    if (!autoBackfill || autoBackfill.stockCode !== stockCode || autoBackfill.state !== 'triggered') return;
+    const timer = window.setTimeout(() => {
+      setAutoBackfill((prev) => {
+        if (!prev || prev.stockCode !== stockCode || prev.state !== 'triggered') return prev;
+        trackEvent('chips_auto_backfill_timeout', {
+          stock_code: stockCode,
+          elapsed_ms: Date.now() - prev.startedAt,
+          inst_days: instDays,
+          bsr_days: bsrDays,
+        });
+        return { ...prev, state: 'timeout' };
+      });
+    }, 30 * 60 * 1000);
+    return () => window.clearTimeout(timer);
+  }, [autoBackfill, stockCode, instDays, bsrDays]);
+
   // 依真實 status 渲染 BSR 標頭文案
   function fmtNextRun(iso: string | null | undefined): string {
     if (!iso) return '';
