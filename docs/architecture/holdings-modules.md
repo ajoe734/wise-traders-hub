@@ -35,7 +35,7 @@
 
 1. **URL / route params** — 跳 tab 或展開特定 stock code 走 query string (`?expand=2330`)，禁止 cross-module in-memory state。
 2. **共用 store 唯讀 selector** — 例：M3 需要 holdings 走 `useHoldingsStore(s => s.holdings)`，只讀，不能改 setter。
-3. **Shell event bus** ✅ — M2/M3 主動跳轉至 M1 持倉，由 Shell 層統一轉發；模組間不直接 import。詳見 `docs/architecture/shell-event-bus-tdd.md`。
+3. **Shell event bus** ✅ — M2/M3 主動跳轉至 M1 持倉，由 Shell 層統一轉發；模組間不直接 import。事件與 slice re-fetch 契約詳見 `docs/architecture/events-refresh-tdd.md`。
 
 其他一律禁止：模組 A 不得 `import` 模組 B 的內部檔案（只能透過 barrel 對外 API）。
 
