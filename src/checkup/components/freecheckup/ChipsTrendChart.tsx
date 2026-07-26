@@ -181,7 +181,7 @@ export default function ChipsTrendChart({
 
       {mode === 'inst' && (
         <div style={{ display: 'flex', gap: 4, marginBottom: 8 }}>
-          {([5, 20, 60] as Window[]).map((wv) => {
+          {([1, 5, 20, 60] as Window[]).map((wv) => {
             const disabled = wv > instLen;
             return (
               <SegBtn
