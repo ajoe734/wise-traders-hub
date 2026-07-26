@@ -228,7 +228,7 @@ export async function fulfillDay(
   }
   try {
     const agg = aggregate(rawRows);
-    const coverage = await persistAggregated(supa, tradeDate, agg);
+    const coverage = await persistAggregated(supa, tradeDate, agg, snapshotSourceToLane(source));
     const finalStatus: 'ready' | 'partial' = coverage.stocks > 0 ? 'ready' : 'partial';
     await markSnapshot(supa, tradeDate, finalStatus, source, coverage.stocks, coverage.rows);
     const fulfill = await fulfillJobsFromSnapshot(supa, tradeDate);
