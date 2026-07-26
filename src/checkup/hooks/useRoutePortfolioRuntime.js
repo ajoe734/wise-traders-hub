@@ -363,6 +363,30 @@ export function useRoutePortfolioRuntime() {
     [setNewsEvents]
   )
 
+  // Shell Bus §8 follow-up：events:refresh 觸發時真正重拉雲端事件並寫回 store。
+  // 走 syncEngine.fetchCloudSlice('newsEvents') 對應 POST /checkup-brain {action:'load-events'}。
+  // in-flight guard 避免併發連點；失敗 silent（維持與 bootstrap 一致的 offline fallback 行為）。
+  const reloadingNewsEventsRef = useRef(false)
+  const reloadNewsEvents = useCallback(async () => {
+    if (reloadingNewsEventsRef.current) return null
+    reloadingNewsEventsRef.current = true
+    try {
+      const payload = await syncEngine.fetchCloudSlice('newsEvents')
+      if (Array.isArray(payload)) {
+        setNewsEvents(payload)
+        return payload
+      }
+      return null
+    } catch (err) {
+      if (typeof console !== 'undefined') {
+        console.warn('[useRoutePortfolioRuntime] reloadNewsEvents failed:', err)
+      }
+      return null
+    } finally {
+      reloadingNewsEventsRef.current = false
+    }
+  }, [setNewsEvents])
+
   const refreshPrices = useCallback(() => {
     setRefreshing(true)
     reloadRuntime()
