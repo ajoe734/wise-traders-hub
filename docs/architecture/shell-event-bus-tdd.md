@@ -147,7 +147,10 @@
 | 收工：更新 `holdings-modules.md` TODO | ✅ | `docs/architecture/holdings-modules.md` L38 標 ✅ 並註記本 doc。 |
 | 收工：CI 綁定 | ✅ | 2026-07-26 三個 Playwright project 加進 `.github/workflows/ci-build-e2e.yml` matrix。 |
 | S8-1 事件擴充：`closing:openStock` / `research:prefill` / `events:refresh` | ✅ | 2026-07-26 `eventBus.ts` `ShellEvents` 加 3 事件；`ShellEventBusProvider` 新增 `useClosingOpenStockNavigation` / `useResearchPrefillNavigation`；`PortfolioLayout` 掛上兩條 Shell nav listener。Barrel helper：M1 `useEmitClosingOpenStock`、M2/M3 `useEmitResearchPrefill`、M4 `useEmitEventsRefresh`、M3 訂閱 `useOnEventsRefresh`。新測試 `src/test/unit/shell-event-bus-events-v2.test.tsx` 11/11 綠（bus 契約 3、Shell nav 3、barrel helper 5），4 檔合計 29/29 綠。既有 shell-event-bus 測試無退化。 |
-| S8-2 E2E harness + CI 綁定 | ✅ | 2026-07-26 新增 `e2e/shell-event-bus-nav-v2.spec.ts`（5/5 綠）：`closing:openStock` 含/不含 date、`research:prefill` 來自 M2/M3、`events:refresh` tick 0→1→2。新增 `playwright.config.ts` project `shell-event-bus-nav-v2`，並加入 `.github/workflows/ci-build-e2e.yml` Playwright matrix。 |
+| S8-2 E2E harness + CI 綁定 | ✅ | 2026-07-26 新增 `e2e/shell-event-bus-nav-v2.spec.ts`（5/5 綠）：`closing:openStock` 含/不含 date、`research:prefill` 來自 M2/M3、`events:refresh` tick 0→1→2。新增 `playwright.config.ts` project `shell-event-bus-nav-v2`，並加入 `.github/workflows/ci-build-e2e.yml` Playwright matrix。2026-07-26 複驗：vitest 4 檔 29/29 綠；playwright 8 tests 全綠（`shell-event-bus-navigation` 3 + `shell-event-bus-nav-v2` 5）。 |
+| S8-3 Legacy dead code 清理 | ✅ | 2026-07-26 移除 `AppShellFrame` / `AppPanels` / `PortfolioPanelsContext` / `useAppRuntime` 殘餘引用；`src/checkup/hooks/index.js` 已標註 legacy 清理。`tsgo` 與 `playwright` 全模組 smoke 無退化。 |
+| S8-4 ESLint boundary rule | ✅ | 2026-07-26 `eslint.config.js` 新增 `CHECKUP_MODULES` 深模組清單 + `siblingBoundaryConfigs` 跨模組 deep import 阻擋 + `externalBarrelOnlyConfig` 對外只能走 barrel；與 `docs/architecture/holdings-modules.md` 第 3 條路互相對齊。`bunx eslint .` 無跨模組違規。 |
+
 
 
 
