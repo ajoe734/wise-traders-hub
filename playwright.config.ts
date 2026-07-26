@@ -996,6 +996,13 @@ export default defineConfig({
       testMatch: /shell-event-bus-navigation\.spec\.ts/,
       use: { ...devices['Desktop Chrome'], viewport: { width: 1280, height: 900 } },
     },
+    {
+      // Shell Event Bus v2：closing:openStock / research:prefill / events:refresh
+      // 覆蓋 M1→M2、M2/M3→M5 導航與 M4→M3 pub/sub tick（docs §8-2）
+      name: 'shell-event-bus-nav-v2',
+      testMatch: /shell-event-bus-nav-v2\.spec\.ts/,
+      use: { ...devices['Desktop Chrome'], viewport: { width: 1280, height: 900 } },
+    },
   ],
 
   webServer: {
