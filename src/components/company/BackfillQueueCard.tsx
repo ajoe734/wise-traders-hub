@@ -40,7 +40,7 @@ export function BackfillQueueCard() {
   const { data, isLoading, refetch, isFetching } = useQuery({
     queryKey: ['company', 'backfill-queue-stats'],
     queryFn: async () => {
-      const { data: stats, error } = await (supabase as any).rpc('backfill_queue_stats');
+      const { data: stats, error } = await supabase.rpc('backfill_queue_stats');
       if (error) throw error;
       return (stats ?? []) as StatRow[];
     },
