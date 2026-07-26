@@ -960,16 +960,24 @@ Deno.serve(async (req) => {
             const rows = await fetchBsrForStock(stockId, ctx, cfg, { consecBefore });
             if (rows.length === 0) throw new Error("empty_rows");
 
-            await supa.from("tw_bsr_daily").delete().eq("stock_id", stockId).eq("trade_date", cursor);
-            const payload = rows.map((r) => ({
+            // P4: 寫入 tw_chip_fact（append-only, source='broker_scraper'）→ 觸發 materializer。
+            const nowIso = new Date().toISOString();
+            const factPayload = rows.map((r) => ({
               stock_id: stockId, trade_date: cursor,
               broker_id: r.broker_id, broker_name: r.broker_name,
+              source: 'broker_scraper',
               buy_shares: r.buy_shares, sell_shares: r.sell_shares,
               net_shares: r.buy_shares - r.sell_shares,
               avg_buy_price: r.avg_buy_price, avg_sell_price: r.avg_sell_price,
+              ingested_at: nowIso,
             }));
-            const { error: insErr } = await supa.from("tw_bsr_daily").insert(payload);
+            const { error: insErr } = await supa.from("tw_chip_fact")
+              .upsert(factPayload, { onConflict: "stock_id,trade_date,broker_id,source" });
             if (insErr) throw new Error(`db_insert:${insErr.message}`);
+            const { error: matErr } = await supa.rpc('materialize_bsr_daily_from_fact', {
+              _trade_date: cursor,
+            });
+            if (matErr) throw new Error(`materialize_failed:${matErr.message}`);
 
             await rebuildRollup(supa, stockId, cursor);
 
