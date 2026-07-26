@@ -1,5 +1,6 @@
 import { describe, it, expect } from 'vitest';
 import { deriveChipsState } from '@/checkup/hooks/useChipsState';
+import { getInstReadiness } from '@/checkup/components/freecheckup/ChipsSection';
 import type { TwChipsPayload } from '@/checkup/hooks/useTwChipsDetail';
 
 function basePayload(overrides: Partial<TwChipsPayload> = {}): TwChipsPayload {
