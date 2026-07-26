@@ -1200,6 +1200,15 @@ export function TradePanel({
   toSlashDate,
 }) {
   const [previewSrc, setPreviewSrc] = useState(null)
+  const emitEventsRefresh = useEmitEventsRefresh()
+  const wrappedSubmitMemo = useCallback(
+    async (...args) => {
+      const result = await Promise.resolve(submitMemo?.(...args))
+      try { emitEventsRefresh('trade-manual') } catch { /* noop */ }
+      return result
+    },
+    [submitMemo, emitEventsRefresh],
+  )
   return h(
     'div',
     null,
