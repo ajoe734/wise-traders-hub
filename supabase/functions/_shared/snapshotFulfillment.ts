@@ -105,20 +105,50 @@ export async function persistAggregated(
   supa: SupabaseClient,
   tradeDate: string,
   agg: Aggregated[],
-): Promise<{ stocks: number; rows: number }> {
+  laneSource: LaneSource = 'finmind_per_stock',
+): Promise<{ stocks: number; rows: number; materialized: number; skipped_sealed: boolean }> {
   const CHUNK = 500;
-  for (let i = 0; i < agg.length; i += CHUNK) {
-    const { error } = await supa.from('tw_bsr_daily')
-      .upsert(agg.slice(i, i + CHUNK), { onConflict: 'stock_id,trade_date,broker_id' });
-    if (error) throw new Error(`upsert_failed:${error.message}`);
+  const nowIso = new Date().toISOString();
+  // 1. Append (upsert on unique lane) into tw_chip_fact — the immutable
+  //    per-lane fact log. Materializer will promote winners to tw_bsr_daily.
+  const factRows = agg.map((r) => ({
+    stock_id: r.stock_id,
+    trade_date: r.trade_date,
+    broker_id: r.broker_id,
+    broker_name: r.broker_name,
+    source: laneSource,
+    buy_shares: r.buy_shares,
+    sell_shares: r.sell_shares,
+    net_shares: r.net_shares,
+    avg_buy_price: r.avg_buy_price,
+    avg_sell_price: r.avg_sell_price,
+    ingested_at: nowIso,
+  }));
+  for (let i = 0; i < factRows.length; i += CHUNK) {
+    const { error } = await supa.from('tw_chip_fact')
+      .upsert(factRows.slice(i, i + CHUNK), {
+        onConflict: 'stock_id,trade_date,broker_id,source',
+      });
+    if (error) throw new Error(`chip_fact_upsert_failed:${error.message}`);
   }
+
+  // 2. Materialize to tw_bsr_daily (no-op if snapshot already sealed).
+  const { data: mat, error: matErr } = await supa.rpc(
+    'materialize_bsr_daily_from_fact',
+    { _trade_date: tradeDate },
+  );
+  if (matErr) throw new Error(`materialize_failed:${matErr.message}`);
+  const matRow = Array.isArray(mat) ? mat[0] : mat;
+  const materialized = Number(matRow?.materialized_rows ?? 0);
+  const skippedSealed = Boolean(matRow?.skipped_sealed ?? false);
 
   const byStock = groupByStock(agg);
   const stocks = Array.from(byStock.keys()).filter((sid) =>
     (byStock.get(sid)?.length ?? 0) >= DONE_BROKER_THRESHOLD
   );
 
-  // Rebuild rollup (5/20/60) for every fulfilled stock. Uses last-90-day history.
+  // 3. Rebuild rollup (5/20/60) for every fulfilled stock. Uses last-90-day history
+  //    read from the newly-materialized tw_bsr_daily.
   const since = new Date(new Date(tradeDate).getTime() - 90 * 86400_000)
     .toISOString().slice(0, 10);
   const upserts: any[] = [];
