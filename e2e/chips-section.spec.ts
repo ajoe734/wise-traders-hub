@@ -371,11 +371,13 @@ test.describe('ChipsSection · 全覆蓋', () => {
     await expect(cell).toContainText('(6/60)');
     await expect(cell).toHaveAttribute('data-readiness-state', 'filling');
 
-    // 趨勢圖按鈕 disabled + 提示一致
-    const d60Btn = page.getByTestId('chips-trend-btn-d60');
-    await expect(d60Btn).toBeDisabled();
-    await expect(page.getByTestId('chips-trend-caption')).toContainText('6');
-    await expect(page.getByTestId('chips-trend-caption')).toContainText('60');
+    // 趨勢圖 caption 與摘要格子的覆蓋比例一致
+    const caption = page.getByTestId('chips-trend-readiness-caption');
+    await expect(caption).toContainText('6');
+    await expect(caption).toContainText('60');
+    await expect(page.getByTestId('chips-trend-chart')).toHaveAttribute('data-readiness-state', 'filling');
+    await expect(page.getByTestId('chips-trend-chart')).toHaveAttribute('data-readiness-have', '6');
+    await expect(page.getByTestId('chips-trend-chart')).toHaveAttribute('data-readiness-need', '60');
 
     // 等待一下，自動回補只應該觸發一次
     await page.waitForTimeout(1500);
