@@ -287,6 +287,66 @@ export type Database = {
         }
         Relationships: []
       }
+      backfill_job_queue: {
+        Row: {
+          attempts: number
+          correlation_id: string | null
+          created_at: string
+          dataset: string
+          end_date: string
+          fulfilled_at: string | null
+          id: number
+          last_error: string | null
+          max_attempts: number
+          next_run_at: string
+          payload: Json | null
+          priority_score: number
+          source_hint: string
+          start_date: string
+          status: string
+          stock_id: string
+          updated_at: string
+        }
+        Insert: {
+          attempts?: number
+          correlation_id?: string | null
+          created_at?: string
+          dataset: string
+          end_date: string
+          fulfilled_at?: string | null
+          id?: number
+          last_error?: string | null
+          max_attempts?: number
+          next_run_at?: string
+          payload?: Json | null
+          priority_score?: number
+          source_hint?: string
+          start_date: string
+          status?: string
+          stock_id: string
+          updated_at?: string
+        }
+        Update: {
+          attempts?: number
+          correlation_id?: string | null
+          created_at?: string
+          dataset?: string
+          end_date?: string
+          fulfilled_at?: string | null
+          id?: number
+          last_error?: string | null
+          max_attempts?: number
+          next_run_at?: string
+          payload?: Json | null
+          priority_score?: number
+          source_hint?: string
+          start_date?: string
+          status?: string
+          stock_id?: string
+          updated_at?: string
+        }
+        Relationships: []
+      }
       checkup_analysis_jobs: {
         Row: {
           created_at: string
@@ -3935,6 +3995,36 @@ export type Database = {
         }
         Relationships: []
       }
+      stock_fundamentals: {
+        Row: {
+          data: Json
+          dataset: string
+          fetched_at: string
+          id: number
+          report_date: string
+          source: string
+          stock_id: string
+        }
+        Insert: {
+          data: Json
+          dataset: string
+          fetched_at?: string
+          id?: number
+          report_date: string
+          source: string
+          stock_id: string
+        }
+        Update: {
+          data?: Json
+          dataset?: string
+          fetched_at?: string
+          id?: number
+          report_date?: string
+          source?: string
+          stock_id?: string
+        }
+        Relationships: []
+      }
       stock_names: {
         Row: {
           asset_class: string
@@ -5558,11 +5648,31 @@ export type Database = {
         }
         Returns: string
       }
+      backfill_job_set_done: {
+        Args: { _id: number; _status: string }
+        Returns: undefined
+      }
+      backfill_job_set_failed: {
+        Args: { _error: string; _id: number; _retry_at?: string }
+        Returns: undefined
+      }
       backfill_legacy_bsr_to_fact: {
         Args: { _from: string; _to: string }
         Returns: {
           inserted_rows: number
           skipped_rows: number
+        }[]
+      }
+      backfill_queue_stats: {
+        Args: never
+        Returns: {
+          dataset: string
+          done: number
+          failed: number
+          oldest_pending: string
+          pending: number
+          running: number
+          skipped: number
         }[]
       }
       bsr_apply_degrade_transition: {
@@ -5725,6 +5835,19 @@ export type Database = {
           total_rows: number
         }[]
       }
+      claim_backfill_jobs: {
+        Args: { _batch_size?: number; _max_priority_score?: number }
+        Returns: {
+          attempts: number
+          dataset: string
+          end_date: string
+          id: number
+          payload: Json
+          source_hint: string
+          start_date: string
+          stock_id: string
+        }[]
+      }
       claim_bsr_queue_jobs: {
         Args: { _batch?: number; _max_priority?: number }
         Returns: {
@@ -5795,9 +5918,52 @@ export type Database = {
         }
         Returns: string
       }
+      detect_chip_gap_jobs: {
+        Args: {
+          _lookback_days?: number
+          _max_jobs?: number
+          _target_date?: string
+        }
+        Returns: {
+          end_date: string
+          gap_count: number
+          start_date: string
+          stock_id: string
+        }[]
+      }
+      detect_fundamental_gap_jobs: {
+        Args: { _max_jobs?: number; _target_date?: string }
+        Returns: {
+          end_date: string
+          gap_count: number
+          missing_datasets: string[]
+          start_date: string
+          stock_id: string
+        }[]
+      }
+      detect_institutional_gap_jobs: {
+        Args: {
+          _lookback_days?: number
+          _max_jobs?: number
+          _target_date?: string
+        }
+        Returns: {
+          end_date: string
+          gap_count: number
+          start_date: string
+          stock_id: string
+        }[]
+      }
       enqueue_all_active_tw_holdings_bsr: {
         Args: { p_lookback_days?: number }
         Returns: Json
+      }
+      enqueue_backfill_jobs: {
+        Args: { _jobs: Json }
+        Returns: {
+          inserted: number
+          skipped: number
+        }[]
       }
       enqueue_bsr_backfill: {
         Args: { p_days?: number; p_stock_id: string }
@@ -6138,6 +6304,7 @@ export type Database = {
         Args: { p_market: string; p_requested: number; p_writer?: string }
         Returns: number
       }
+      prune_backfill_job_queue: { Args: never; Returns: undefined }
       prune_bsr_sync_queue: { Args: never; Returns: number }
       prune_cron_dispatch_log: { Args: never; Returns: undefined }
       purge_expired_bsr_reservations: {

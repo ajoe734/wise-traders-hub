@@ -1,5 +1,6 @@
-// PR-8/PR-9/P5: 上游熔斷 + Quota Pools + Kill-Switches + Fact-log 健康
+// PR-8/PR-9/P5: 上游熔斷 + Quota Pools + Kill-Switches + Fact-log 健康 + Backfill
 import { FactLogHealthCard } from '@/components/company/FactLogHealthCard';
+import { BackfillQueueCard } from '@/components/company/BackfillQueueCard';
 
 import { useState } from 'react';
 import { useQuery, useQueryClient } from '@tanstack/react-query';
@@ -443,6 +444,7 @@ export default function DataSourceHealth() {
         </section>
       )}
 
+      <BackfillQueueCard />
       <FactLogHealthCard />
     </div>
 
