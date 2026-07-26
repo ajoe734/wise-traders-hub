@@ -133,18 +133,8 @@ test.describe('ChipsSection · visual regression', () => {
     });
   });
 
-  test('2. trend 1 日 → 每日雙色長條', async ({ page }) => {
-    await page.route(CHIPS_ROUTE, (r) => fulfill(r, fullPayload()));
-    await page.goto(`/e2e/chips-section?code=${STOCK}&freezeTime=1`);
-    await page.getByTestId('chips-trend-chart').waitFor();
-    await page.getByRole('button', { name: '1 日' }).click();
-    await page.evaluate(() => (document as any).fonts?.ready);
+  // 「1 日」視窗已移除；柱體恆為每日淨買賣，改由 baseline 與其他斷點涵蓋
 
-    await expect(page.getByTestId('chips-trend-chart')).toHaveScreenshot(
-      'chips-trend-1day-bars.png',
-      { mask: [page.getByTestId('chips-trend-scrubber')] },
-    );
-  });
 
   test('3. trend 分點集中度 → 70% 警戒虛線', async ({ page }) => {
     await page.route(CHIPS_ROUTE, (r) => fulfill(r, fullPayload()));

@@ -277,7 +277,6 @@ test.describe('ChipsSection · 全覆蓋', () => {
       'chips-bsr',
       'chips-trend-chart',
       'chips-trend-scrubber',
-      'chips-trend-play',
       'chips-trend-readout',
     ]) {
       await expect(page.getByTestId(t)).toBeVisible();
