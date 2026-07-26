@@ -146,9 +146,16 @@ test.describe('ChipsSection · 全覆蓋', () => {
     // 趨勢圖
     await expect(page.getByTestId('chips-trend-chart')).toBeVisible();
     await expect(page.getByTestId('chips-trend-scrubber')).toBeVisible();
+    // 預設 1 日:讀值顯示「當日淨買賣」,只有 1 根高亮柱
+    await expect(page.getByTestId('chips-trend-readout')).toContainText('當日淨買賣');
+    const activeBars1 = await page.locator('[data-window-active="true"]').count();
+    expect(activeBars1).toBe(1);
+    // 切到 5 日
+    await page.getByTestId('chips-trend-chart').getByRole('button', { name: '5 日' }).click();
     await expect(page.getByTestId('chips-trend-readout')).toContainText('5 日累計淨買賣');
-    // 切換 5→20:高亮柱數應由 5 變 20
     const activeBars5 = await page.locator('[data-window-active="true"]').count();
+    expect(activeBars5).toBeGreaterThan(activeBars1);
+    // 切換 5→20:高亮柱數應繼續擴張
     await page.getByTestId('chips-trend-chart').getByRole('button', { name: '20 日' }).click();
     await expect(page.getByTestId('chips-trend-readout')).toContainText('20 日累計淨買賣');
     const activeBars20 = await page.locator('[data-window-active="true"]').count();

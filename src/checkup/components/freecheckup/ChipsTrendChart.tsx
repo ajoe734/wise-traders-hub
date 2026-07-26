@@ -15,7 +15,7 @@ const UP = '#C43D3D';
 const DOWN = '#2E7A4B';
 
 type Mode = 'inst' | 'bsr';
-type Window = 5 | 20 | 60;
+type Window = 1 | 5 | 20 | 60;
 
 
 function fmtLots(n: number | null | undefined) {
@@ -44,7 +44,7 @@ export default function ChipsTrendChart({
   data: TwChipsPayload | null;
 }) {
   const [mode, setMode] = useState<Mode>('inst');
-  const [win, setWin] = useState<Window>(5);
+  const [win, setWin] = useState<Window>(1);
   const [idx, setIdx] = useState<number>(-1); // -1 = latest
   const wrapRef = useRef<HTMLDivElement | null>(null);
   const [w, setW] = useState(WIDTH);
@@ -66,7 +66,7 @@ export default function ChipsTrendChart({
   useEffect(() => {
     if (mode !== 'inst') return;
     if (instLen > 0 && win > instLen) {
-      const fallback = ([60, 20, 5] as Window[]).find((w2) => w2 <= instLen) ?? 5;
+      const fallback = ([60, 20, 5, 1] as Window[]).find((w2) => w2 <= instLen) ?? 1;
       setWin(fallback);
     }
   }, [mode, win, instLen]);
@@ -85,7 +85,7 @@ export default function ChipsTrendChart({
   // Readiness
   const currentReadiness: WindowReadinessPayload | null =
     mode === 'inst'
-      ? (data?.readiness?.institutional?.[String(win) as '5' | '20' | '60'] ?? null)
+      ? (win === 1 ? null : (data?.readiness?.institutional?.[String(win) as '5' | '20' | '60'] ?? null))
       : (data?.readiness?.bsr_concentration?.['5'] ?? null);
   const currentNeed = currentReadiness?.need ?? (mode === 'inst' ? win : 5);
   const currentHave = currentReadiness?.have ?? validPts.length;
@@ -181,7 +181,7 @@ export default function ChipsTrendChart({
 
       {mode === 'inst' && (
         <div style={{ display: 'flex', gap: 4, marginBottom: 8 }}>
-          {([5, 20, 60] as Window[]).map((wv) => {
+          {([1, 5, 20, 60] as Window[]).map((wv) => {
             const disabled = wv > instLen;
             return (
               <SegBtn
@@ -436,7 +436,9 @@ export default function ChipsTrendChart({
         {mode === 'inst' ? (
           <>
             <span data-testid="chips-trend-readout-label">
-              {`${win} 日累計淨買賣${windowTruncated ? `(僅 ${windowActualLen} 日)` : ''}`}
+              {win === 1
+                ? '當日淨買賣'
+                : `${win} 日累計淨買賣${windowTruncated ? `(僅 ${windowActualLen} 日)` : ''}`}
             </span>
             <span
               data-testid="chips-trend-readout-value"
