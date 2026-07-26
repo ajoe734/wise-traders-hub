@@ -1,7 +1,9 @@
-import { createElement as h, useEffect, useState } from 'react'
+import { createElement as h, useCallback, useEffect, useState } from 'react'
 import { C, alpha } from '../../theme.js'
 import { Card, Button, TextFieldDialog } from '../common'
 import { assessTradeParseQuality, summarizeTradeBatch } from '../../lib/tradeParseUtils.js'
+// M4 → M3 事件廣播：交易提交後通知事件面板刷新。
+import { useEmitEventsRefresh } from '../../modules/tradeIO/useEmitEventsRefresh'
 
 /**
  * ImageLightbox — fullscreen zoom for OCR verification.
@@ -1198,6 +1200,15 @@ export function TradePanel({
   toSlashDate,
 }) {
   const [previewSrc, setPreviewSrc] = useState(null)
+  const emitEventsRefresh = useEmitEventsRefresh()
+  const wrappedSubmitMemo = useCallback(
+    async (...args) => {
+      const result = await Promise.resolve(submitMemo?.(...args))
+      try { emitEventsRefresh('trade-manual') } catch { /* noop */ }
+      return result
+    },
+    [submitMemo, emitEventsRefresh],
+  )
   return h(
     'div',
     null,
@@ -1271,7 +1282,7 @@ export function TradePanel({
       memoIn,
       setMemoIn,
       memoStep,
-      submitMemo,
+      submitMemo: wrappedSubmitMemo,
       uploadCount,
       activeUploadIndex,
     }),

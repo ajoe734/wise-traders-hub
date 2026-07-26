@@ -8,6 +8,8 @@ import {
 } from '../../lib/holdings.js'
 // @analytics-required: checkup_holding_target_update, checkup_holding_alert_update
 import { track } from '@/lib/analytics/events'
+// M1 → M2 主動跳轉：走 Shell event bus，禁止 deep import M2。
+import { useEmitClosingOpenStock } from '../../modules/holdings/useEmitClosingOpenStock'
 
 /* ── 是枝裕和《小偷家族》×《海街日記》美學 ──
  * - 移除 mini 色條，損益只用文字顏色
@@ -53,6 +55,15 @@ function HoldingRowImpl({
   onUpdateAlert = () => {},
 }) {
   const handleToggle = useCallback(() => onToggle(holding.code), [onToggle, holding.code])
+  const emitClosingOpenStock = useEmitClosingOpenStock()
+  const handleOpenInClosing = useCallback(
+    (e) => {
+      e.stopPropagation()
+      emitClosingOpenStock(holding.code)
+      try { track('shell_bus_emit', { event: 'closing:openStock', source: 'holdings', code: holding.code }) } catch {}
+    },
+    [emitClosingOpenStock, holding.code],
+  )
   const handleUpdateTarget = useCallback(
     (e) => {
       onUpdateTarget(holding.code, e.target.value ? Number(e.target.value) : null)
@@ -138,22 +149,47 @@ function HoldingRowImpl({
           }, holding.code)
         ),
         h(
-          'button',
-          {
-            onClick: handleToggle,
-            style: {
-              background: 'transparent',
-              border: 'none',
-              color: C.textMute,
-              cursor: 'pointer',
-              fontSize: 10,
-              padding: '4px 6px',
-              opacity: 0.5,
-              transition: 'opacity 0.2s',
-              letterSpacing: '0.08em',
+          'div',
+          { style: { display: 'flex', gap: 4, alignItems: 'center' } },
+          h(
+            'button',
+            {
+              type: 'button',
+              onClick: handleOpenInClosing,
+              'data-testid': `holding-open-closing-${holding.code}`,
+              title: '在收盤分析中打開',
+              style: {
+                background: 'transparent',
+                border: 'none',
+                color: C.textMute,
+                cursor: 'pointer',
+                fontSize: 10,
+                padding: '4px 6px',
+                opacity: 0.5,
+                transition: 'opacity 0.2s',
+                letterSpacing: '0.08em',
+              },
             },
-          },
-          expanded ? '收起' : '展開'
+            '→ 收盤',
+          ),
+          h(
+            'button',
+            {
+              onClick: handleToggle,
+              style: {
+                background: 'transparent',
+                border: 'none',
+                color: C.textMute,
+                cursor: 'pointer',
+                fontSize: 10,
+                padding: '4px 6px',
+                opacity: 0.5,
+                transition: 'opacity 0.2s',
+                letterSpacing: '0.08em',
+              },
+            },
+            expanded ? '收起' : '展開'
+          )
         )
       ),
 

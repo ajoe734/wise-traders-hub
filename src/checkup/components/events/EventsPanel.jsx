@@ -2,6 +2,8 @@ import { createElement as h } from 'react'
 import { C, alpha } from '../../theme.js'
 import { Card, Button } from '../common'
 import { RELAY_PLAN } from '../../seedData.js'
+// M3 → M5 主動跳轉：走 Shell event bus。
+import { useEmitResearchPrefill } from '../../modules/events/useEmitResearchPrefill'
 
 const TYPE_COLOR = {
   法說: C.up,
@@ -39,6 +41,7 @@ const IMPACT_COLOR = {
  * Relay Plan Card
  */
 export function RelayPlanCard({ expanded, onToggle }) {
+  const emitResearchPrefill = useEmitResearchPrefill()
   return h(
     Card,
     {
@@ -218,6 +221,29 @@ export function RelayPlanCard({ expanded, onToggle }) {
             `觸發：${leg.trigger}`,
             h('br'),
             `防守：${leg.stop}`
+          ),
+          h(
+            'button',
+            {
+              type: 'button',
+              onClick: (e) => {
+                e.stopPropagation()
+                emitResearchPrefill(leg.code, leg.name)
+              },
+              'data-testid': `relay-leg-research-${leg.code}`,
+              style: {
+                marginTop: 8,
+                background: 'transparent',
+                border: `1px solid ${alpha(C.textMute, '20')}`,
+                borderRadius: 4,
+                color: C.textSec,
+                cursor: 'pointer',
+                fontSize: 9,
+                padding: '3px 7px',
+                letterSpacing: '0.06em',
+              },
+            },
+            '→ 帶入研究',
           )
         )
       )
@@ -509,6 +535,8 @@ export function AccuracyDashboard({ stats }) {
  */
 export function EventCard({ event, isPredicting }) {
   const tc = TYPE_COLOR[event.type] || C.textMute
+  const emitResearchPrefill = useEmitResearchPrefill()
+  const researchCode = event?.code || (Array.isArray(event?.relatedCodes) ? event.relatedCodes[0] : null)
 
   return h(
     Card,
@@ -609,7 +637,30 @@ export function EventCard({ event, isPredicting }) {
                 { style: { fontSize: 9, color: C.textSec, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', maxWidth: 200 } },
                 event.predReason
               )
-            )
+            ),
+        researchCode && h(
+          'button',
+          {
+            type: 'button',
+            onClick: (e) => {
+              e.stopPropagation()
+              emitResearchPrefill(researchCode, event.label || event.type)
+            },
+            'data-testid': `event-research-${event.id || researchCode}`,
+            style: {
+              marginTop: 6,
+              background: 'transparent',
+              border: `1px solid ${alpha(C.textMute, '20')}`,
+              borderRadius: 4,
+              color: C.textSec,
+              cursor: 'pointer',
+              fontSize: 9,
+              padding: '3px 7px',
+              letterSpacing: '0.06em',
+            },
+          },
+          '→ 帶入研究',
+        )
       )
     )
   )
