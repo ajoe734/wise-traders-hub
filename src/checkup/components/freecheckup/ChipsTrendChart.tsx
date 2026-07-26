@@ -15,7 +15,7 @@ const UP = '#C43D3D';
 const DOWN = '#2E7A4B';
 
 type Mode = 'inst' | 'bsr';
-type Window = 5 | 20 | 60;
+type Window = 1 | 5 | 20 | 60;
 
 
 function fmtLots(n: number | null | undefined) {
