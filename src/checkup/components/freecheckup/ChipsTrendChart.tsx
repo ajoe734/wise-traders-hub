@@ -445,8 +445,11 @@ export default function ChipsTrendChart({
       >
         {mode === 'inst' ? (
           <>
-            <span>{`${win} 日滾動淨買賣`}</span>
+            <span data-testid="chips-trend-readout-label">
+              {`${win} 日累計淨買賣${windowTruncated ? `(僅 ${windowActualLen} 日)` : ''}`}
+            </span>
             <span
+              data-testid="chips-trend-readout-value"
               style={{
                 color: readoutVal == null || Number.isNaN(readoutVal)
                   ? WB.inkMute
@@ -459,18 +462,21 @@ export default function ChipsTrendChart({
           </>
         ) : (
           <>
-            <span>Top15 買超集中度</span>
+            <span data-testid="chips-trend-readout-label">
+              {`${windowSize} 日平均集中度${windowTruncated ? `(僅 ${windowActualLen} 日)` : ''}`}
+            </span>
             <span
+              data-testid="chips-trend-readout-value"
               style={{
-                color: activeVal == null || Number.isNaN(activeVal)
+                color: readoutVal == null || Number.isNaN(readoutVal)
                   ? WB.inkMute
-                  : (activeVal as number) > 70 ? UP : WB.ink,
+                  : (readoutVal as number) > 70 ? UP : WB.ink,
                 fontVariantNumeric: 'tabular-nums',
               }}
             >
-              {activeVal == null || Number.isNaN(activeVal)
+              {readoutVal == null || Number.isNaN(readoutVal)
                 ? '—'
-                : `${(activeVal as number).toFixed(1)}%`}
+                : `${(readoutVal as number).toFixed(1)}%`}
             </span>
           </>
         )}
