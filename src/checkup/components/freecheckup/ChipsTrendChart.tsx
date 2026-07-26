@@ -89,12 +89,6 @@ export default function ChipsTrendChart({
     return bsr.map((r) => ({ date: r.date, value: r.concentration_ratio, raw: r }));
   }, [mode, inst, bsr]);
 
-  // rolling（僅供 inst 讀值使用，不影響柱體）
-  const rolled = useMemo(() => {
-    if (mode !== 'inst') return [];
-    return rollingSum(inst.map((r) => r.total_net), win);
-  }, [mode, inst, win]);
-
   const validPts = series.filter((p) => p.value != null && !Number.isNaN(p.value));
   const activeIdx = idx < 0 || idx >= series.length ? series.length - 1 : idx;
 
@@ -119,9 +113,9 @@ export default function ChipsTrendChart({
         ? `補齊中：已 ${currentHave}/${currentNeed} 個交易日`
         : currentState === 'upstream_exhausted'
           ? (currentReadiness?.oldest_available
-              ? `此檔歷史自 ${currentReadiness.oldest_available.replaceAll('-', '/')} 起，${currentNeed} 日視窗資料不足`
+              ? `此檔歷史自 ${currentReadiness.oldest_available.replaceAll('-', '/')} 起,${currentNeed} 日視窗資料不足`
               : `此檔上游歷史不足 ${currentNeed} 個交易日`)
-          : '暫無資料，正在收集';
+          : '暫無資料,正在收集';
 
   if (!series.length) {
     return (
@@ -146,11 +140,27 @@ export default function ChipsTrendChart({
 
   const activePt = series[activeIdx];
   const activeVal = activePt?.value as number | null;
-  // inst 右下讀值：rolling sum；bsr：當日集中度
+
+  // 高亮視窗：以 activeIdx 為終點,往前 W-1 天
+  const windowSize = mode === 'inst' ? win : 5;
+  const windowEnd = activeIdx;
+  const windowStart = Math.max(0, windowEnd - windowSize + 1);
+  const windowActualLen = windowEnd - windowStart + 1;
+  const windowTruncated = windowActualLen < windowSize;
+
+  // 讀值:視窗內加總/平均(對應高亮柱)
+  const windowSlice = series.slice(windowStart, windowEnd + 1);
+  const windowValidVals = windowSlice
+    .map((p) => p.value)
+    .filter((v): v is number => v != null && !Number.isNaN(v));
   const readoutVal =
     mode === 'inst'
-      ? (rolled[activeIdx] as number | undefined)
-      : (activeVal as number | null);
+      ? (windowValidVals.length
+          ? windowValidVals.reduce((a, b) => a + b, 0)
+          : undefined)
+      : (windowValidVals.length
+          ? windowValidVals.reduce((a, b) => a + b, 0) / windowValidVals.length
+          : null);
 
   const barW = Math.max(1, (w - PAD_L - PAD_R) / series.length - 1);
 
