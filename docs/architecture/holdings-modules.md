@@ -76,8 +76,29 @@
 3. **循 hook 進 store**：hook 內只讀 store selector 與 usePortfolioRouteContext。
 4. **循 store 進 edge function / worker**：例如籌碼 → `tw_chip_fact` + `tw-chips-detail`；價格 → `price_admit` + `upsert_current_price`。
 
+## Deep-link 契約（已完成，2026-07-27）
+
+跨模組深連結的唯一來源為 URL query，各 route hook 於 mount 時同步 store：
+
+| Route                              | Query          | Hook                    | 副作用                                    |
+| ---------------------------------- | -------------- | ----------------------- | ----------------------------------------- |
+| `/portfolio/:id/holdings`          | `?expand=CODE` | `useRouteHoldingsPage`  | `brainStore.setExpandedStock(code)`       |
+| `/portfolio/:id/daily`             | `?stock=CODE`  | `useRouteDailyPage`     | `brainStore.setExpandedStock(code)`       |
+| `/portfolio/:id/research`          | `?stock&topic` | `useRouteResearchPage`  | 回傳 `prefillStockCode` / `prefillTopic` |
+
+E2E 觀測 selector：`HoldingRow` 帶 `data-testid="holding-row"` + `data-expanded={bool}`。
+
+## Skeleton 一致性（已完成，2026-07-27）
+
+- 統一元件：`src/checkup/components/common/CheckupSkeleton.tsx`（variant: `page` / `card` / `row` / `inline`）
+- 統一動畫：`@keyframes shimmer`（`src/index.css`），遵守 `prefers-reduced-motion`
+- `holdingsSkeletonShimmer` 舊 keyframes 已刪除
+- 已收斂：`HoldingsPage` Suspense fallback
+- 刻意保留原樣（有註解說明）：`ChipsSection` badge、`EventsPanel PredictionSkeleton`
+
 ## TODO（歷史記錄，全部完成）
 
 - ~~Shell event bus 實作 + M2/M3→M1 跳轉改走 bus~~ ✅ 已完成；bus 契約見 `docs/architecture/shell-event-bus.md`，events:refresh 真實 re-fetch 契約見 `docs/architecture/events-refresh-tdd.md`。
 - ~~ESLint boundary rule 禁止 M1 ↔ M3 內部檔案互 import~~ ✅ 已完成（見 `docs/architecture/shell-event-bus.md` §7 S8-4）。
 - ~~清理 legacy dead code~~ ✅ 已完成（見 `docs/architecture/shell-event-bus.md` §7 S8-3）。
+- ~~Deep-link 消費 + Skeleton 一致性~~ ✅ 已完成（2026-07-27），契約回寫本檔上方兩節。
