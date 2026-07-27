@@ -497,6 +497,95 @@ async function checkBsrSealingParity(admin: any) {
   return { ok: true, fired, summary, sealed_dates: dates };
 }
 
+// Phase L1 — BSR 分點覆蓋率審計。分開告警 daily_snapshot_volume_missing / bsr_broker_coverage_low。
+// deno-lint-ignore no-explicit-any
+async function checkBsrCoverage(admin: any) {
+  const start = new Date();
+  start.setDate(start.getDate() - 10);
+  const startDate = start.toISOString().slice(0, 10);
+
+  // 取近 10 天有 broker rows 的 (stock, date)
+  const { data: brokerRaw } = await admin
+    .from('tw_bsr_daily')
+    .select('stock_id,trade_date,buy_shares')
+    .gte('trade_date', startDate)
+    .limit(30000);
+  const brokers = (brokerRaw ?? []) as Array<{ stock_id: string; trade_date: string; buy_shares: number }>;
+  if (!brokers.length) return { skipped: 'no_broker_rows' };
+
+  // aggregate per (stock, date)
+  const agg = new Map<string, { stock_id: string; trade_date: string; sum: number; cnt: number }>();
+  for (const r of brokers) {
+    const key = `${r.stock_id}|${r.trade_date}`;
+    const cur = agg.get(key) ?? { stock_id: r.stock_id, trade_date: r.trade_date, sum: 0, cnt: 0 };
+    cur.sum += Number(r.buy_shares || 0);
+    cur.cnt += 1;
+    agg.set(key, cur);
+  }
+  const symbols = Array.from(new Set(brokers.map((r) => r.stock_id)));
+  const dates = Array.from(new Set(brokers.map((r) => r.trade_date)));
+
+  // fetch snapshots
+  const { data: snapsRaw } = await admin
+    .from('daily_price_snapshots')
+    .select('symbol,trade_date,volume')
+    .in('symbol', symbols)
+    .in('trade_date', dates)
+    .limit(30000);
+  const snapMap = new Map<string, number | null>();
+  for (const s of (snapsRaw ?? []) as Array<{ symbol: string; trade_date: string; volume: number | null }>) {
+    snapMap.set(`${s.symbol}|${s.trade_date}`, s.volume);
+  }
+
+  const inputs: CoverageInput[] = Array.from(agg.values()).map((a) => ({
+    stock_id: a.stock_id,
+    trade_date: a.trade_date,
+    broker_sum_shares: a.sum,
+    broker_count: a.cnt,
+    snapshot_volume_lots: snapMap.has(`${a.stock_id}|${a.trade_date}`)
+      ? snapMap.get(`${a.stock_id}|${a.trade_date}`) ?? null
+      : null,
+  }));
+
+  const summary = auditCoverage(inputs);
+  const decisions = decideCoverageAlerts(summary);
+  const fired: Array<{ kind: string; deduped?: boolean; id?: string; error?: string }> = [];
+
+  for (const d of decisions) {
+    if (!d.triggered || !d.kind) continue;
+    const worstList = summary.worst
+      .slice(0, 5)
+      .map((w) => `${w.stock_id}@${w.trade_date}(${w.coverage_pct}%)`)
+      .join('、');
+    const title =
+      d.kind === 'daily_snapshot_volume_missing'
+        ? `每日成交量快照缺漏 ${summary.missingRate}%`
+        : `BSR 分點覆蓋率過低 ${summary.underRate}%`;
+    const message =
+      d.kind === 'daily_snapshot_volume_missing'
+        ? `近 10 天樣本 ${summary.sampleSize} 檔，${summary.missingSnapshot} 檔沒有 daily_price_snapshots.volume，另有 ${summary.staleSnapshot} 檔連續 ≥3 日未更新。需回補 refresh-data-source 或 TWSE snapshot pipeline。`
+        : `近 10 天樣本 ${summary.sampleSize} 檔，${summary.underCover} 檔分點總和 < 成交量 60%。最低：${worstList}。可能是 FinMind 分點抓取被 rate limit 截斷。`;
+    const r = await fire(admin, {
+      kind: d.kind,
+      level: d.level ?? 'warning',
+      title,
+      message,
+      metric_value: d.kind === 'daily_snapshot_volume_missing' ? summary.missingRate : summary.underRate,
+      threshold: d.kind === 'daily_snapshot_volume_missing' ? 30 : 20,
+      detail: {
+        sample_size: summary.sampleSize,
+        missing_snapshot: summary.missingSnapshot,
+        stale_snapshot: summary.staleSnapshot,
+        under_cover: summary.underCover,
+        over_cover: summary.overCover,
+        worst: summary.worst.slice(0, 10),
+      },
+    });
+    fired.push(r);
+  }
+  return { ok: true, summary, fired, decisions };
+}
+
 
 // Push pending system_alerts to admin LINE bindings (dedup via notified_at).
 // deno-lint-ignore no-explicit-any
