@@ -315,11 +315,13 @@ async function checkChipsFallbackPersistence(admin: any) {
         ...d.detail,
       },
     }));
+  }
+  return { ok: true, evaluated: decisions.length, fired: fired.length, decisions };
 }
 
 // Phase I — Keep-warm SLO 告警。
 // 讀 tw_bsr_keepwarm_metrics 近 24h，依 wave 分組套 evaluateAllWaveSlo。
-// 預期波次間隔採 240 分鐘（三波 08:30 / 14:30 / 20:30，每波 4~6h）。
+// 預期波次間隔採 360 分鐘（三波約每 6 小時一次；> 30 分遲到 warning、> 120 分 critical）。
 // deno-lint-ignore no-explicit-any
 async function checkKeepWarmSlo(admin: any) {
   const since = new Date(Date.now() - 24 * 3600_000).toISOString();
@@ -357,7 +359,6 @@ async function checkKeepWarmSlo(admin: any) {
       },
     }));
   }
-  return { ok: true, evaluated: decisions.length, fired: fired.length, decisions };
   return { ok: true, evaluated: decisions.length, fired: fired.length, decisions };
 }
 
