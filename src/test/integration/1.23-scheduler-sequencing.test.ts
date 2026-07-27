@@ -194,9 +194,11 @@ describe('drift-detection: stock-price-sync Edge Function 股價同步', () => {
     );
   });
 
-  it("upsert current_prices 以 'symbol' 保冪等（stock-price-sync 是 daily-snapshot 的上游，5.7-1）", () => {
-    expect(priceSyncSrc).toContain("from('current_prices')");
-    expect(priceSyncSrc).toContain("onConflict: 'symbol'");
+  it("透過 upsert_current_price RPC 寫入（帶 writer tag 'stock-price-sync'，統一 current_prices 冪等寫入路徑，5.7-1）", () => {
+    // 2026-06 起 current_prices 寫入統一走 upsert_current_price RPC（server-side onConflict='symbol'），
+    // stock-price-sync 不再直接 upsert current_prices 表。
+    expect(priceSyncSrc).toContain("rpc('upsert_current_price'");
+    expect(priceSyncSrc).toContain("p_writer: 'stock-price-sync'");
   });
 
   it('import _shared/stockPriceWaterfall.ts 重用 4 層瀑布取價邏輯（5.7-1）', () => {
