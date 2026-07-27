@@ -10,6 +10,7 @@ import { useMemo, useState } from 'react';
 import { toast } from 'sonner';
 import { Input } from '@/components/ui/input';
 import { ChipsCacheTelemetryCard } from './_bsr/ChipsCacheTelemetryCard';
+import { KeepWarmWavesCard } from './_bsr/KeepWarmWavesCard';
 import { InstitutionalColdStartCard } from './_bsr/InstitutionalColdStartCard';
 
 
@@ -557,6 +558,7 @@ export default function BsrRateLimit() {
         </Card>
 
         <ChipsCacheTelemetryCard />
+        <KeepWarmWavesCard />
         <InstitutionalColdStartCard />
       </div>
     </CompanyLayout>

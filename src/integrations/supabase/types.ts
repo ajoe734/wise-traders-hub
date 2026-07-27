@@ -4776,6 +4776,54 @@ export type Database = {
         }
         Relationships: []
       }
+      tw_bsr_keepwarm_metrics: {
+        Row: {
+          coverage_brokers: number
+          coverage_stocks: number
+          created_at: string
+          duration_ms: number
+          error: string | null
+          fallback_used_count: number
+          id: string
+          sealed: boolean
+          sealed_by_lane: string | null
+          started_at: string
+          status: string
+          trade_date: string
+          wave: number
+        }
+        Insert: {
+          coverage_brokers?: number
+          coverage_stocks?: number
+          created_at?: string
+          duration_ms?: number
+          error?: string | null
+          fallback_used_count?: number
+          id?: string
+          sealed?: boolean
+          sealed_by_lane?: string | null
+          started_at?: string
+          status: string
+          trade_date: string
+          wave?: number
+        }
+        Update: {
+          coverage_brokers?: number
+          coverage_stocks?: number
+          created_at?: string
+          duration_ms?: number
+          error?: string | null
+          fallback_used_count?: number
+          id?: string
+          sealed?: boolean
+          sealed_by_lane?: string | null
+          started_at?: string
+          status?: string
+          trade_date?: string
+          wave?: number
+        }
+        Relationships: []
+      }
       tw_bsr_sync_config: {
         Row: {
           config: Json

@@ -88,7 +88,38 @@ Deno.serve(async (req) => {
       .maybeSingle();
     report.snapshot_status = status;
 
+    // Fallback quantification: how many stocks used D-1 fallback today
+    let fallbackUsedCount = 0;
+    try {
+      const { count } = await supa
+        .from('tw_chips_rollup')
+        .select('stock_id', { count: 'exact', head: true })
+        .eq('trade_date', tradeDate)
+        .eq('fallback_used', true);
+      fallbackUsedCount = count ?? 0;
+    } catch { /* ignore */ }
+    report.fallback_used_count = fallbackUsedCount;
+
     report.duration_ms = Date.now() - started;
+
+    // Wave-level observability: persist for keep-warm dashboard
+    try {
+      await supa.from('tw_bsr_keepwarm_metrics').insert({
+        trade_date: tradeDate,
+        wave,
+        status: report.status ?? 'unknown',
+        sealed: Boolean(status?.sealed_at),
+        sealed_by_lane: status?.sealed_by_lane ?? null,
+        coverage_stocks: Number(status?.coverage_stocks ?? 0),
+        coverage_brokers: Number(status?.coverage_brokers ?? 0),
+        fallback_used_count: fallbackUsedCount,
+        duration_ms: report.duration_ms,
+        error: null,
+        started_at: report.started_at,
+      });
+    } catch (e) {
+      console.warn('[orchestrator] keepwarm metrics insert failed:', (e as Error).message);
+    }
 
     // Best-effort audit log (never blocks response)
     try {
@@ -111,6 +142,17 @@ Deno.serve(async (req) => {
     report.error = msg;
     report.duration_ms = Date.now() - started;
     console.error('[orchestrator] failed:', msg);
+    try {
+      await supa.from('tw_bsr_keepwarm_metrics').insert({
+        trade_date: tradeDate,
+        wave,
+        status: 'error',
+        sealed: false,
+        duration_ms: report.duration_ms,
+        error: msg.slice(0, 500),
+        started_at: report.started_at,
+      });
+    } catch { /* ignore */ }
     return new Response(JSON.stringify(report), {
       status: 500,
       headers: { ...corsHeaders, 'Content-Type': 'application/json' },
