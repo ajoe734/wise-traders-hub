@@ -9,6 +9,7 @@ import {
   type CoverageInput,
 } from './bsrCoverageAudit.ts';
 
+// helper: `lots` 是張數（人類直覺輸入），內部換算為 shares 對齊新欄位 snapshot_volume_shares
 function mk(
   stock: string,
   date: string,
@@ -21,7 +22,7 @@ function mk(
     trade_date: date,
     broker_sum_shares: shares,
     broker_count: brokers,
-    snapshot_volume_lots: lots,
+    snapshot_volume_shares: lots == null ? null : lots * 1000,
   };
 }
 
