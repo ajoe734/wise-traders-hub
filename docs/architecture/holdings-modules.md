@@ -76,8 +76,8 @@
 3. **循 hook 進 store**：hook 內只讀 store selector 與 usePortfolioRouteContext。
 4. **循 store 進 edge function / worker**：例如籌碼 → `tw_chip_fact` + `tw-chips-detail`；價格 → `price_admit` + `upsert_current_price`。
 
-## TODO（本次未做，另立 PR）
+## TODO（歷史記錄，全部完成）
 
-- ~~Shell event bus 實作 + M2/M3→M1 跳轉改走 bus。~~ ✅ 已完成，events:refresh 真實 re-fetch 契約見 `docs/architecture/events-refresh-tdd.md`。
-- ESLint boundary rule 禁止 M1 ↔ M3 內部檔案互 import。
-- 清理 legacy dead code（見上）。
+- ~~Shell event bus 實作 + M2/M3→M1 跳轉改走 bus~~ ✅ 已完成；bus 契約見 `docs/architecture/shell-event-bus.md`，events:refresh 真實 re-fetch 契約見 `docs/architecture/events-refresh-tdd.md`。
+- ~~ESLint boundary rule 禁止 M1 ↔ M3 內部檔案互 import~~ ✅ 已完成（見 `docs/architecture/shell-event-bus.md` §7 S8-4）。
+- ~~清理 legacy dead code~~ ✅ 已完成（見 `docs/architecture/shell-event-bus.md` §7 S8-3）。
