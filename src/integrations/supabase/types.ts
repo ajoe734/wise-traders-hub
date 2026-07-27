@@ -5026,9 +5026,11 @@ export type Database = {
           bsr_available: boolean
           concentration_ratio: number | null
           dealer_net: number
+          fallback_used: boolean
           foreign_net: number
           id: number
           low_quality: boolean | null
+          source_date: string
           stock_id: string
           top_buy_brokers: Json
           top_sell_brokers: Json
@@ -5042,9 +5044,11 @@ export type Database = {
           bsr_available?: boolean
           concentration_ratio?: number | null
           dealer_net?: number
+          fallback_used?: boolean
           foreign_net?: number
           id?: number
           low_quality?: boolean | null
+          source_date?: string
           stock_id: string
           top_buy_brokers?: Json
           top_sell_brokers?: Json
@@ -5058,9 +5062,11 @@ export type Database = {
           bsr_available?: boolean
           concentration_ratio?: number | null
           dealer_net?: number
+          fallback_used?: boolean
           foreign_net?: number
           id?: number
           low_quality?: boolean | null
+          source_date?: string
           stock_id?: string
           top_buy_brokers?: Json
           top_sell_brokers?: Json
@@ -5773,17 +5779,30 @@ export type Database = {
           still_pending: number
         }[]
       }
-      bsr_snapshot_mark: {
-        Args: {
-          _coverage_rows: number
-          _coverage_stocks: number
-          _last_error?: string
-          _source: string
-          _status: string
-          _trade_date: string
-        }
-        Returns: undefined
-      }
+      bsr_snapshot_mark:
+        | {
+            Args: {
+              _coverage_rows: number
+              _coverage_stocks: number
+              _last_error?: string
+              _source: string
+              _status: string
+              _trade_date: string
+            }
+            Returns: undefined
+          }
+        | {
+            Args: {
+              _coverage_rows: number
+              _coverage_stocks: number
+              _last_error?: string
+              _sealed_by_lane?: string
+              _source: string
+              _status: string
+              _trade_date: string
+            }
+            Returns: undefined
+          }
       bsr_snapshot_stats: {
         Args: { _days?: number }
         Returns: {

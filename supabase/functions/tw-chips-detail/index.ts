@@ -458,6 +458,13 @@ Deno.serve(async (req) => {
       } catch (_e) { /* 非致命：snapshot_status 讀失敗保留 default */ }
     }
 
+    // P4：決定 BSR 是否使用 fallback 與來源日期
+    // 若 rollup 無法覆蓋 expectedDate 且我們從過去日期補齊，則標記 fallback_used=true
+    const bsrSourceDate = chosenAsOf ?? null;
+    const bsrFallbackUsed = bsrSource === 'raw_fallback' ||
+      (chosenAsOf && expectedDate && chosenAsOf < expectedDate) ||
+      false;
+
     const result = {
       stock_id: stockId,
       as_of: asOfDate,
@@ -467,6 +474,8 @@ Deno.serve(async (req) => {
       bsr_as_of: chosenAsOf,
       bsr_as_of_lag_days: bsrAsOfLagDays,
       bsr_source: bsrSource,
+      bsr_source_date: bsrSourceDate,
+      bsr_fallback_used: bsrFallbackUsed,
       bsr_expected_date: expectedDate,
       bsr_lag_weekdays: bsrLagWeekdays,
       bsr_freshness_status: freshness,
@@ -484,6 +493,9 @@ Deno.serve(async (req) => {
       readiness: {
         institutional: instReadiness,
         bsr_concentration: bsrReadiness,
+        sealed: !!snapshotStatus?.sealed_at,
+        sealed_at: snapshotStatus?.sealed_at ?? null,
+        sealed_by_lane: snapshotStatus?.sealed_by_lane ?? null,
       },
       upstream_circuit: upstreamCircuit,
       snapshot_state: snapshotState,
