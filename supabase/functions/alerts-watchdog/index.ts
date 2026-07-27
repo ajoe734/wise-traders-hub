@@ -367,6 +367,49 @@ async function checkKeepWarmSlo(admin: any) {
   return { ok: true, evaluated: decisions.length, fired: fired.length, decisions };
 }
 
+// Phase J — 三大法人 5 日快取一致性審計。
+// 掃描近 5 天 tw_institutional_daily：total_net vs 三分項總和是否一致。
+// 攔截 T86 bulk / TWSE BFI82U / TPEX bulk 解析錯誤（parser bug、湊整錯位等）。
+// deno-lint-ignore no-explicit-any
+async function checkInstitutionalConsistency(admin: any) {
+  const start = new Date();
+  start.setDate(start.getDate() - 7); // 近 7 天涵蓋 5 個交易日
+  const startDate = start.toISOString().slice(0, 10);
+  const { data, error } = await admin
+    .from('tw_institutional_daily')
+    .select('stock_id,trade_date,foreign_net,trust_net,dealer_net,total_net,source')
+    .gte('trade_date', startDate)
+    .limit(2000);
+  if (error) return { skipped: 'query_failed', error: error.message };
+  const rows = (data ?? []) as InstRow[];
+  const summary = auditBatch(rows);
+  const decision = decideInstAlert(summary);
+  if (!decision.triggered) {
+    return { ok: true, reason: decision.reason, summary };
+  }
+  const worstList = summary.worstDeltas
+    .map((w) => `${w.stock_id}@${w.trade_date} Δ${w.delta}`)
+    .join('、');
+  const bySrc = Object.entries(summary.bySource)
+    .map(([s, v]) => `${s} ${v.mismatched}/${v.total}`)
+    .join('，');
+  const fired = await fire(admin, {
+    kind: 'institutional_bulk_parity',
+    level: decision.level ?? 'warning',
+    title: `三大法人資料一致性異常 ${summary.mismatchRate}%`,
+    message: `近 5 個交易日樣本 ${summary.sampleSize}，${summary.mismatched} 筆 total 與分項總和不符（${bySrc}）。最嚴重：${worstList}`,
+    metric_value: summary.mismatchRate,
+    threshold: 5,
+    detail: {
+      sample_size: summary.sampleSize,
+      mismatched: summary.mismatched,
+      by_source: summary.bySource,
+      worst: summary.worstDeltas,
+    },
+  });
+  return { ok: true, fired, summary };
+}
+
 // Push pending system_alerts to admin LINE bindings (dedup via notified_at).
 // deno-lint-ignore no-explicit-any
 async function pushPendingAlertsToLine(admin: any) {
