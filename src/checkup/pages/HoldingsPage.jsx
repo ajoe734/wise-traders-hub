@@ -2,17 +2,13 @@ import { createElement as h, Suspense } from 'react'
 import { HoldingsPanel, HoldingsTable } from '../components/holdings/index.js'
 import { useRouteHoldingsPage } from '../hooks/useRouteHoldingsPage.js'
 import { ErrorBoundary } from '../components/ErrorBoundary.jsx'
-import { C } from '../theme.js'
+import { CheckupSkeleton } from '../components/common/CheckupSkeleton'
 
-// H10 (audit 2026-06)：
+// H10 (audit 2026-06) / Phase B2 (holdings-consistency-tdd.md)：
 //   render 期錯誤由 ErrorBoundary 接住，async 失敗統一在 App 層的 unhandledrejection 上報。
-//   Suspense 為未來 lazy 子節點（HoldingsDetailPanel 等）預留 fallback，避免白屏。
+//   Suspense fallback 改用 CheckupSkeleton，跟 HoldingCard shimmer 視覺一致。
 function HoldingsFallback() {
-  return h(
-    'div',
-    { style: { padding: 16, color: C.textMute, fontSize: 12, letterSpacing: '0.08em' } },
-    '持倉載入中…'
-  )
+  return h('div', { style: { padding: 16 } }, h(CheckupSkeleton, { variant: 'page', label: '持倉載入中' }))
 }
 
 function HoldingsPageInner() {

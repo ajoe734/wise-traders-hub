@@ -364,6 +364,7 @@
   gap: 10px;
   min-height: 118px;
 }
+/* Phase B2 (holdings-consistency-tdd.md)：改用 src/index.css 的統一 `shimmer` keyframe。 */
 .holdings-skeleton-line {
   height: 10px;
   border-radius: 2px;
@@ -374,16 +375,12 @@
     var(--cm-hair, #e4dfd5) 100%
   );
   background-size: 200% 100%;
-  animation: holdingsSkeletonShimmer 1.4s ease-in-out infinite;
+  animation: shimmer 1.4s ease-in-out infinite;
 }
 .holdings-skeleton-line.sk-w-40 { width: 40%; }
 .holdings-skeleton-line.sk-w-60 { width: 60%; }
 .holdings-skeleton-line.sk-w-80 { width: 80%; }
 .holdings-skeleton-line.sk-h-16 { height: 16px; }
-@keyframes holdingsSkeletonShimmer {
-  0%   { background-position: 200% 0; }
-  100% { background-position: -200% 0; }
-}
 
 @media (prefers-reduced-motion: reduce) {
   .holdings-refresh-progress::before,

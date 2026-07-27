@@ -27,10 +27,12 @@ vi.mock('@/checkup/pages/usePortfolioRouteContext.js', () => ({
   usePortfolioRouteContext: () => mockContext,
 }))
 
+let mockSearch = new URLSearchParams()
 vi.mock('react-router-dom', () => ({
   useNavigate: () => vi.fn(),
   useLocation: () => ({ pathname: '/', search: '' }),
   useParams: () => ({ portfolioId: 'me' }),
+  useSearchParams: () => [mockSearch, vi.fn()] as const,
 }))
 
 vi.mock('@/checkup/hooks/api/useAnalysis.js', () => ({
@@ -56,6 +58,7 @@ vi.mock('@/checkup/contexts/CheckupModeContext.jsx', () => ({
 }))
 
 beforeEach(() => {
+  mockSearch = new URLSearchParams()
   updateEventMock.mockClear()
   setResearchHistoryMock.mockClear()
   setTradeLogMock.mockClear()
@@ -184,3 +187,46 @@ describe('L2 · M5 useRouteResearchPage', () => {
     expect(Array.isArray(result.current.researchHistory)).toBe(true)
   })
 })
+
+/**
+ * Phase A (holdings-consistency-tdd.md)：Shell Bus §5 deep-link 消費驗證。
+ * 這組測試守護「內部深連結 → route hook 還原 UI 狀態」的契約。
+ */
+describe('L2 · Deep-link consumption (Phase A)', () => {
+  it('A1 · holdings ?expand=2330 掛載即 setExpandedStock(2330)', async () => {
+    mockSearch = new URLSearchParams('expand=2330')
+    const { useBrainStore } = await import('@/checkup/stores/brainStore.js')
+    const spy = vi.fn()
+    useBrainStore.setState({ setExpandedStock: spy, expandedStock: null } as any)
+    const { useRouteHoldingsPage } = await import('@/checkup/modules/holdings')
+    renderHook(() => useRouteHoldingsPage(), { wrapper })
+    expect(spy).toHaveBeenCalledWith('2330')
+  })
+
+  it('A2 · daily ?stock=2330 掛載即 setExpandedStock(2330)', async () => {
+    mockSearch = new URLSearchParams('stock=2330')
+    const { useBrainStore } = await import('@/checkup/stores/brainStore.js')
+    const spy = vi.fn()
+    useBrainStore.setState({ setExpandedStock: spy, expandedStock: null } as any)
+    const { useRouteDailyPage } = await import('@/checkup/modules/closing')
+    renderHook(() => useRouteDailyPage(), { wrapper })
+    expect(spy).toHaveBeenCalledWith('2330')
+  })
+
+  it('A3 · research ?stock=2330&topic=chips 暴露 prefillStockCode / prefillTopic', async () => {
+    mockSearch = new URLSearchParams('stock=2330&topic=chips')
+    const { useRouteResearchPage } = await import('@/checkup/modules/research')
+    const { result } = renderHook(() => useRouteResearchPage(), { wrapper })
+    expect(result.current.prefillStockCode).toBe('2330')
+    expect(result.current.prefillTopic).toBe('chips')
+  })
+
+  it('A3 · research 無 query 時 prefill* 為 null', async () => {
+    mockSearch = new URLSearchParams()
+    const { useRouteResearchPage } = await import('@/checkup/modules/research')
+    const { result } = renderHook(() => useRouteResearchPage(), { wrapper })
+    expect(result.current.prefillStockCode).toBeNull()
+    expect(result.current.prefillTopic).toBeNull()
+  })
+})
+
