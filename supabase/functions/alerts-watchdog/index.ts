@@ -15,6 +15,11 @@ import {
   evaluateAllWaveSlo,
   type SloRow,
 } from '../_shared/keepWarmSlo.ts';
+import {
+  auditBatch,
+  decideAlert as decideInstAlert,
+  type InstRow,
+} from '../_shared/institutionalConsistency.ts';
 
 const WINDOW_MIN = 30;
 const DEDUPE_MIN = 60;
