@@ -1,6 +1,6 @@
 /**
  * L5 · Shell Event Bus E2E harness
- * docs/architecture/shell-event-bus-tdd.md §4 S5 / §6
+ * docs/architecture/shell-event-bus.md §4 S5 / §6
  *
  * 驗證：
  *   1. 從 M2 (closing) barrel 的 useEmitHoldingsFocus 觸發 → 導頁到

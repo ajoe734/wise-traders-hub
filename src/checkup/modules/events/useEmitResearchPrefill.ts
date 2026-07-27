@@ -1,6 +1,6 @@
 /**
  * M3 Events → Shell bus emit helper（research:prefill）。
- * 契約：docs/architecture/shell-event-bus-tdd.md §2
+ * 契約：docs/architecture/shell-event-bus.md §2
  */
 import { useCallback } from 'react'
 import { useShellEventBus } from '../../shell/ShellEventBusProvider'

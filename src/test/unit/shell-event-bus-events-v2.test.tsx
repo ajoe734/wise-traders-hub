@@ -1,6 +1,6 @@
 /**
  * S8 · 事件擴充：closing:openStock / research:prefill / events:refresh
- * 契約：docs/architecture/shell-event-bus-tdd.md §2、§8 步驟 1
+ * 契約：docs/architecture/shell-event-bus.md §2、§8 步驟 1
  *
  * 涵蓋：
  *   - eventBus 三個新事件的 emit / on 契約

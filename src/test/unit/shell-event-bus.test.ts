@@ -1,7 +1,7 @@
 /**
  * TDD S1 — Shell Event Bus 契約測試
  *
- * 依 docs/architecture/shell-event-bus-tdd.md §4 S1：
+ * 依 docs/architecture/shell-event-bus.md §4 S1：
  *   - emit → 所有 on handler 被呼叫，payload 深比對相等
  *   - off 之後不再收事件
  *   - 多次 emit 保序

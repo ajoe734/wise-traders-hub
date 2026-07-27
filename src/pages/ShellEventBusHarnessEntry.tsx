@@ -1,5 +1,5 @@
 /**
- * E2E harness — Shell Event Bus (docs/architecture/shell-event-bus-tdd.md §4 S5 / §8-2)
+ * E2E harness — Shell Event Bus (docs/architecture/shell-event-bus.md §4 S5 / §8-2)
  *
  * 掛在 `/portfolio/:portfolioId/__shell-bus` 之下，因此天然位於 PortfolioLayout
  * 的 ShellEventBusProvider Context 內。點按鈕會透過各模組 barrel 的 emit helper
