@@ -99,7 +99,13 @@ function HoldingRowImpl({
 
   return h(
     'div',
-    { style: { marginBottom: 14 } },
+    {
+      style: { marginBottom: 14 },
+      'data-testid': 'holding-row',
+      'data-holding-code': holding.code,
+      'data-expanded': String(!!expanded),
+    },
+
 
     h(
       'div',
