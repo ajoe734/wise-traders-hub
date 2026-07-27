@@ -5,7 +5,7 @@
 > 2. 契約變動（新增 payload 欄位、改 slice source）**先改本 doc 再改 code**。
 > 3. 每完成一個步驟，立刻更新第 5 章「執行日誌」的 checkbox 與測試輸出摘要。
 
-前作：舊 `shell-event-bus-tdd.md` 已完成並下架（bus 已進維護模式）；本 doc 專責 §8 follow-up「events:refresh 真正 re-fetch」的收尾。
+前作：原始 Shell Event Bus TDD 文件已轉為維護模式文件 [`docs/architecture/shell-event-bus.md`](./shell-event-bus.md)（bus 已進維護模式）；本 doc 專責 §8 follow-up「events:refresh 真正 re-fetch」的收尾。
 
 ---
 
@@ -71,7 +71,7 @@ Shell Event Bus v2 上線後，`events:refresh` 由 M4 TradeIO emit，M3 EventsP
    - E2E：`shell-event-bus-nav-v2.spec.ts` `events:refresh` case 內加 `page.route` 攔截與次數斷言。
 
 5. 文件
-   - 建立本 doc；刪除 `docs/architecture/shell-event-bus.md`。
+   - 建立本 doc；原始 Shell Event Bus TDD 文件下架，改以維護模式文件 `docs/architecture/shell-event-bus.md` 承接原始契約與日誌。
    - `docs/architecture/holdings-modules.md` 的 `shell-event-bus-tdd.md` 引用改指本 doc。
 
 ---
@@ -83,11 +83,12 @@ Shell Event Bus v2 上線後，`events:refresh` 由 M4 TradeIO emit，M3 EventsP
 - [x] S3 · `EventsPage.handleRefresh` 串接 await
 - [x] S4 · L2 unit 契約測試新增
 - [x] S5 · L5 E2E 加 network intercept + 次數斷言
-- [x] S6 · 舊 `shell-event-bus-tdd.md` 刪除、`holdings-modules.md` 引用改指本 doc
+- [x] S6 · 原始 Shell Event Bus TDD 文件下架、轉為維護模式 `shell-event-bus.md`、`holdings-modules.md` 引用改指本 doc
 
 測試複驗（本地）：
-- `bunx vitest run src/test/unit/checkup-route-hooks.test.tsx` — 待跑
-- `bunx playwright test e2e/shell-event-bus-nav-v2.spec.ts` — 待跑
+- [x] `bunx vitest run src/test/unit/checkup-route-hooks.test.tsx` — 綠燈 (8/8)
+- [x] `bunx playwright test e2e/shell-event-bus-nav-v2.spec.ts` — 綠燈 (5/5)
+- [x] `bunx vitest run` 完整 suite — 綠燈 (2047 passed / 7 skipped)
 
 ---
 
@@ -95,6 +96,6 @@ Shell Event Bus v2 上線後，`events:refresh` 由 M4 TradeIO emit，M3 EventsP
 
 - ✅ 契約條列完成
 - ✅ 實作步驟 S1–S6 全數落地
-- ⏳ 測試複驗（見 §5）
+- ✅ 測試複驗（見 §5）
 
 進維護模式後，新的事件或 slice 若需要類似 re-fetch 行為，複製本文件套版即可（把 slice 名、`syncEngine` cloud action、E2E 攔截 pattern 換掉）。
