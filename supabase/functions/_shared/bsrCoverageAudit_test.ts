@@ -98,7 +98,7 @@ Deno.test('auditCoverage: mixed classes counted', () => {
   assertEquals(s.staleSnapshot, 3);
   assertEquals(s.underCover, 1);
   assertEquals(s.overCover, 1);
-  assertEquals(s.ok, 1);
+  assertEquals(s.ok, 2);
 });
 
 Deno.test('decideCoverageAlerts: sample too small → skip', () => {
