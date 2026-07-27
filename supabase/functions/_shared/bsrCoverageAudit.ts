@@ -22,7 +22,8 @@ export type CoverageInput = {
   trade_date: string;
   broker_sum_shares: number;
   broker_count: number;
-  snapshot_volume_lots: number | null;
+  // Phase L2: 已由 DB 統一成「股」(daily_price_snapshots.volume_shares)。
+  snapshot_volume_shares: number | null;
 };
 
 export type CoverageClass =
