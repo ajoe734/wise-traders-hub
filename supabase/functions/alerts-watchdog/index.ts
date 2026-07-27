@@ -421,19 +421,20 @@ Deno.serve(async (req) => {
   if (req.method === 'OPTIONS') return corsPreflight();
   try {
     const admin = serviceClient();
-    const [a, b, c, d, e, f] = await Promise.allSettled([
+    const [a, b, c, d, e, f, g] = await Promise.allSettled([
       checkCheckoutFailureRate(admin),
       checkPaywallDrop(admin),
       checkFunctionFailures(admin),
       checkStreamAborts(admin),
       checkBsrRateLimiter(admin),
       checkChipsFallbackPersistence(admin),
+      checkKeepWarmSlo(admin),
     ]);
     const notify = await pushPendingAlertsToLine(admin).catch((e) => ({ error: e instanceof Error ? e.message : String(e) }));
     return jsonResponse({
       ok: true,
       ran_at: new Date().toISOString(),
-      results: { checkout: a, paywall: b, functions: c, stream_aborts: d, bsr: e, chips_fallback: f },
+      results: { checkout: a, paywall: b, functions: c, stream_aborts: d, bsr: e, chips_fallback: f, keepwarm_slo: g },
       notify,
     });
   } catch (e) {
