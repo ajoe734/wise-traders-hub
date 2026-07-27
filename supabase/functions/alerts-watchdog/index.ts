@@ -270,6 +270,51 @@ async function checkBsrRateLimiter(admin: any) {
   return { ok: true, ran: results.length, results };
 }
 
+// Phase E — Chips fallback / sealing 持續性告警。
+// 讀取近 6 小時 tw_bsr_keepwarm_metrics，按 wave 取最新 3 波，
+// 全部未封盤或 fallback_rate > 30% 就寫 system_alerts（per-wave 60 分鐘去重）。
+// deno-lint-ignore no-explicit-any
+async function checkChipsFallbackPersistence(admin: any) {
+  const since = new Date(Date.now() - 6 * 3600_000).toISOString();
+  const { data, error } = await admin
+    .from('tw_bsr_keepwarm_metrics')
+    .select('wave,trade_date,status,sealed,sealed_by_lane,coverage_stocks,coverage_brokers,fallback_used_count,duration_ms,error,started_at')
+    .gte('started_at', since)
+    .order('started_at', { ascending: false })
+    .limit(200);
+  if (error) return { skipped: 'query_failed', error: error.message };
+  const rows = (data ?? []) as KeepwarmMetric[];
+  if (rows.length === 0) return { skipped: 'no_metrics', rows: 0 };
+  const decisions = evaluateAllWaves(rows);
+  const fired: unknown[] = [];
+  for (const d of decisions) {
+    if (!d.triggered) continue;
+    const pct = Math.round(d.fallback_rate_avg * 100);
+    const reasonZh = d.reason === 'sealed_false'
+      ? '連續 3 波未封盤'
+      : d.reason === 'fallback_high'
+        ? `連續 3 波 fallback 命中率 ${pct}%（門檻 ${Math.round(FALLBACK_RATE_THRESHOLD * 100)}%）`
+        : `連續 3 波未封盤且 fallback 命中率 ${pct}%`;
+    fired.push(await fire(admin, {
+      kind: `chips_fallback_persistent_w${d.wave}`,
+      level: d.reason === 'mixed' ? 'critical' : 'warning',
+      title: `籌碼面 Wave ${d.wave} 持續異常 — ${reasonZh}`,
+      message: `Wave ${d.wave} 最近 ${d.samples} 波（最新 ${d.latest_started_at}）：sealed ${d.sealed_count}/${d.samples}、fallback 平均 ${pct}%。`,
+      metric_value: pct,
+      threshold: Math.round(FALLBACK_RATE_THRESHOLD * 100),
+      detail: {
+        wave: d.wave,
+        reason: d.reason,
+        sealed_count: d.sealed_count,
+        fallback_rate_avg: d.fallback_rate_avg,
+        latest_started_at: d.latest_started_at,
+        ...d.detail,
+      },
+    }));
+  }
+  return { ok: true, evaluated: decisions.length, fired: fired.length, decisions };
+}
+
 // Push pending system_alerts to admin LINE bindings (dedup via notified_at).
 // deno-lint-ignore no-explicit-any
 async function pushPendingAlertsToLine(admin: any) {
