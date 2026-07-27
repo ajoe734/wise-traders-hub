@@ -196,9 +196,8 @@ describe('L2 · Deep-link consumption (Phase A)', () => {
   it('A1 · holdings ?expand=2330 掛載即 setExpandedStock(2330)', async () => {
     mockSearch = new URLSearchParams('expand=2330')
     const { useBrainStore } = await import('@/checkup/stores/brainStore.js')
-    const spy = vi.spyOn(useBrainStore.getState(), 'setExpandedStock')
-    // brainStore 是 zustand，setter 是穩定 reference；用 setState 直接注入 spy
-    useBrainStore.setState({ setExpandedStock: spy as any })
+    const spy = vi.fn()
+    useBrainStore.setState({ setExpandedStock: spy, expandedStock: null } as any)
     const { useRouteHoldingsPage } = await import('@/checkup/modules/holdings')
     renderHook(() => useRouteHoldingsPage(), { wrapper })
     expect(spy).toHaveBeenCalledWith('2330')
