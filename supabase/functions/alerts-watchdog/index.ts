@@ -20,6 +20,12 @@ import {
   decideAlert as decideInstAlert,
   type InstRow,
 } from '../_shared/institutionalConsistency.ts';
+import {
+  auditParityBatch,
+  decideParityAlert,
+  type BrokerRow,
+  type VolumeRow,
+} from '../_shared/bsrSealingParity.ts';
 
 const WINDOW_MIN = 30;
 const DEDUPE_MIN = 60;
