@@ -10,6 +10,7 @@ import { useMemo, useState } from 'react';
 import { toast } from 'sonner';
 import { Input } from '@/components/ui/input';
 import { ChipsCacheTelemetryCard } from './_bsr/ChipsCacheTelemetryCard';
+import { KeepWarmWavesCard } from './_bsr/KeepWarmWavesCard';
 import { InstitutionalColdStartCard } from './_bsr/InstitutionalColdStartCard';
 
 
