@@ -416,6 +416,75 @@ async function checkInstitutionalConsistency(admin: any) {
   return { ok: true, fired, summary };
 }
 
+// Phase K — BSR sealing 反向驗證。
+// 對近 5 個 sealed 交易日：sum(broker.buy) ≈ sum(broker.sell) ≈ daily_volume。
+// 攔截 FinMind 拉取不完整、分點被覆寫、湊整錯位等資料完整性問題。
+// deno-lint-ignore no-explicit-any
+async function checkBsrSealingParity(admin: any) {
+  const start = new Date();
+  start.setDate(start.getDate() - 7);
+  const startDate = start.toISOString().slice(0, 10);
+
+  // 1) 只取 sealed 日期
+  const { data: sealed, error: sErr } = await admin
+    .from('tw_bsr_daily_snapshot_status')
+    .select('trade_date')
+    .not('sealed_at', 'is', null)
+    .gte('trade_date', startDate)
+    .order('trade_date', { ascending: false })
+    .limit(5);
+  if (sErr) return { skipped: 'seal_query_failed', error: sErr.message };
+  const dates = (sealed ?? []).map((r: { trade_date: string }) => r.trade_date);
+  if (!dates.length) return { skipped: 'no_sealed_dates' };
+
+  // 2) 撈分點資料（限 8000 列，超過表示 lane 覆蓋過廣、下輪再處理）
+  const { data: brokers, error: bErr } = await admin
+    .from('tw_bsr_daily')
+    .select('stock_id,trade_date,buy_shares,sell_shares,net_shares')
+    .in('trade_date', dates)
+    .limit(8000);
+  if (bErr) return { skipped: 'broker_query_failed', error: bErr.message };
+  const brokerRows = (brokers ?? []) as BrokerRow[];
+
+  // 3) 撈對應成交量
+  const symbols = Array.from(new Set(brokerRows.map((r) => r.stock_id)));
+  const { data: vols, error: vErr } = await admin
+    .from('daily_price_snapshots')
+    .select('symbol,trade_date,volume')
+    .in('trade_date', dates)
+    .in('symbol', symbols)
+    .limit(5000);
+  if (vErr) return { skipped: 'volume_query_failed', error: vErr.message };
+  const volRows = (vols ?? []) as VolumeRow[];
+
+  const summary = auditParityBatch(brokerRows, volRows);
+  const decision = decideParityAlert(summary);
+  if (!decision.triggered) {
+    return { ok: true, reason: decision.reason, summary, sealed_dates: dates };
+  }
+  const worst = summary.worstDeltas
+    .map((w) => `${w.stock_id}@${w.trade_date} B${w.buy_delta}/S${w.sell_delta}`)
+    .join('、');
+  const fired = await fire(admin, {
+    kind: 'bsr_sealing_parity',
+    level: decision.level ?? 'warning',
+    title: `BSR 分點總和與成交量落差 ${summary.mismatchRate}%`,
+    message: `已封存 ${dates.length} 個交易日、${summary.sampleSize} 檔樣本，${summary.mismatched} 檔分點總和 ≠ 成交量。最嚴重：${worst}`,
+    metric_value: summary.mismatchRate,
+    threshold: 5,
+    detail: {
+      sealed_dates: dates,
+      sample_size: summary.sampleSize,
+      mismatched: summary.mismatched,
+      missing_volume: summary.missingVolume,
+      issue_counts: summary.issueCounts,
+      worst: summary.worstDeltas,
+    },
+  });
+  return { ok: true, fired, summary, sealed_dates: dates };
+}
+
+
 // Push pending system_alerts to admin LINE bindings (dedup via notified_at).
 // deno-lint-ignore no-explicit-any
 async function pushPendingAlertsToLine(admin: any) {
