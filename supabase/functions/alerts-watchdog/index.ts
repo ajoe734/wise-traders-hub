@@ -26,6 +26,11 @@ import {
   type BrokerRow,
   type VolumeRow,
 } from '../_shared/bsrSealingParity.ts';
+import {
+  auditCoverage,
+  decideCoverageAlerts,
+  type CoverageInput,
+} from '../_shared/bsrCoverageAudit.ts';
 
 const WINDOW_MIN = 30;
 const DEDUPE_MIN = 60;
