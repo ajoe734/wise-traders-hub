@@ -40,6 +40,12 @@ Deno.serve(withLogging('daily-snapshot', async (req) => {
         const market = p.market === 'US' ? 'US' : 'TW'
         const isLimitUp =
           market === 'TW' && p.limit_up != null && p.price != null && p.price >= p.limit_up
+        // current_prices.volume 對台股是「張」(lots)，美股/加密是「股」(shares)。
+        // 明確標記 volume_unit，讓 DB trigger 統一算出 volume_shares，BSR 覆蓋率下游只讀 volume_shares。
+        const volumeUnit = market === 'TW' ? 'lots' : 'shares'
+        const rawVolume = p.volume == null ? null : Number(p.volume)
+        const volumeShares =
+          rawVolume == null ? null : volumeUnit === 'lots' ? rawVolume * 1000 : rawVolume
         return {
           symbol: p.symbol,
           trade_date: market === 'US' ? usTradeDate : twTradeDate,
@@ -48,7 +54,9 @@ Deno.serve(withLogging('daily-snapshot', async (req) => {
           change_percent: p.change_percent,
           is_limit_up: isLimitUp,
           limit_up_price: market === 'TW' ? p.limit_up : null,
-          volume: p.volume,
+          volume: rawVolume,
+          volume_unit: volumeUnit,
+          volume_shares: volumeShares,
           market,
         }
       })
