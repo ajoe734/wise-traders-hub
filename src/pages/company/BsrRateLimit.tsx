@@ -558,6 +558,7 @@ export default function BsrRateLimit() {
         </Card>
 
         <ChipsCacheTelemetryCard />
+        <KeepWarmWavesCard />
         <InstitutionalColdStartCard />
       </div>
     </CompanyLayout>
