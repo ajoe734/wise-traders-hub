@@ -496,54 +496,41 @@ async function checkBsrSealingParity(admin: any) {
   return { ok: true, fired, summary, sealed_dates: dates };
 }
 
-// Phase L1 — BSR 分點覆蓋率審計。分開告警 daily_snapshot_volume_missing / bsr_broker_coverage_low。
+// Phase L2-2 — BSR 分點覆蓋率審計改讀 bsr_coverage_daily 聚合表，先觸發 refresh_bsr_coverage_daily RPC 再讀最新結果。
 // deno-lint-ignore no-explicit-any
 async function checkBsrCoverage(admin: any) {
+  // 1. 先觸發聚合刷新（近 10 天）
+  const refresh = await admin.rpc('refresh_bsr_coverage_daily', { days: 10 });
+  if (refresh.error) {
+    return { skipped: 'refresh_failed', error: String(refresh.error?.message ?? refresh.error) };
+  }
+
   const start = new Date();
   start.setDate(start.getDate() - 10);
   const startDate = start.toISOString().slice(0, 10);
 
-  // 取近 10 天有 broker rows 的 (stock, date)
-  const { data: brokerRaw } = await admin
-    .from('tw_bsr_daily')
-    .select('stock_id,trade_date,buy_shares')
+  // 2. 讀聚合表（不再受 30k broker rows 上限限制）
+  const { data: aggRows, error: aggErr } = await admin
+    .from('bsr_coverage_daily')
+    .select('stock_id,trade_date,broker_count,broker_sum_shares,snapshot_volume_shares')
     .gte('trade_date', startDate)
-    .limit(30000);
-  const brokers = (brokerRaw ?? []) as Array<{ stock_id: string; trade_date: string; buy_shares: number }>;
-  if (!brokers.length) return { skipped: 'no_broker_rows' };
+    .limit(50000);
+  if (aggErr) return { skipped: 'agg_read_failed', error: String(aggErr.message) };
+  const rows = (aggRows ?? []) as Array<{
+    stock_id: string;
+    trade_date: string;
+    broker_count: number;
+    broker_sum_shares: number;
+    snapshot_volume_shares: number | null;
+  }>;
+  if (!rows.length) return { skipped: 'no_coverage_rows', refresh: refresh.data };
 
-  // aggregate per (stock, date)
-  const agg = new Map<string, { stock_id: string; trade_date: string; sum: number; cnt: number }>();
-  for (const r of brokers) {
-    const key = `${r.stock_id}|${r.trade_date}`;
-    const cur = agg.get(key) ?? { stock_id: r.stock_id, trade_date: r.trade_date, sum: 0, cnt: 0 };
-    cur.sum += Number(r.buy_shares || 0);
-    cur.cnt += 1;
-    agg.set(key, cur);
-  }
-  const symbols = Array.from(new Set(brokers.map((r) => r.stock_id)));
-  const dates = Array.from(new Set(brokers.map((r) => r.trade_date)));
-
-  // fetch snapshots
-  const { data: snapsRaw } = await admin
-    .from('daily_price_snapshots')
-    .select('symbol,trade_date,volume_shares')
-    .in('symbol', symbols)
-    .in('trade_date', dates)
-    .limit(30000);
-  const snapMap = new Map<string, number | null>();
-  for (const s of (snapsRaw ?? []) as Array<{ symbol: string; trade_date: string; volume_shares: number | null }>) {
-    snapMap.set(`${s.symbol}|${s.trade_date}`, s.volume_shares);
-  }
-
-  const inputs: CoverageInput[] = Array.from(agg.values()).map((a) => ({
-    stock_id: a.stock_id,
-    trade_date: a.trade_date,
-    broker_sum_shares: a.sum,
-    broker_count: a.cnt,
-    snapshot_volume_shares: snapMap.has(`${a.stock_id}|${a.trade_date}`)
-      ? snapMap.get(`${a.stock_id}|${a.trade_date}`) ?? null
-      : null,
+  const inputs: CoverageInput[] = rows.map((r) => ({
+    stock_id: r.stock_id,
+    trade_date: r.trade_date,
+    broker_sum_shares: Number(r.broker_sum_shares || 0),
+    broker_count: Number(r.broker_count || 0),
+    snapshot_volume_shares: r.snapshot_volume_shares === null ? null : Number(r.snapshot_volume_shares),
   }));
 
   const summary = auditCoverage(inputs);
