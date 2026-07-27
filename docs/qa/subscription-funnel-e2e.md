@@ -58,10 +58,47 @@ OpsHealth 顯示 `Failed to send a request to the Edge Function` 屬於另一種
 edge function 部署狀態 / CORS。修這條走「reproduce → deploy → recheck」，不在
 本 doc 範圍，後續會於 `docs/qa/admin-internal-pages.md`（live smoke 一起做）補上。
 
-## TODO（live smoke 後續強化）
+## Route B live smoke — 已可執行
 
-- 加入 sandbox 付款 → 真的觸發 `purchase` 事件並回打 funnel API 斷言數字 > 0。
-- 寫 `e2e/live/cleanup.ts`：清除測試 subscription / 標記 events 為 test。
-- workflow secrets：`E2E_TEST_EMAIL`、`E2E_TEST_PASSWORD` 已存；
-  另需 GitHub Actions 端設 `VITE_SUPABASE_URL` / `VITE_SUPABASE_PUBLISHABLE_KEY` /
-  `VITE_SUPABASE_PROJECT_ID` 三個 repo secret 才會在 cron 跑得起來。
+實作在 `e2e/live/subscription-end-to-end.spec.ts` + `e2e/live/cleanup.ts` +
+edge function `supabase/functions/e2e-simulate-purchase/`。
+
+流程：
+1. tester 帳號登入 → 檢查 `/app`、`/pricing` 真實載入。
+2. 呼叫 `e2e-simulate-purchase`（action=purchase）在真實後端寫入
+   `member_subscriptions` + `payment_transactions` + `traffic_events.checkout_success`
+   （provider_tx_id 前綴 `E2E_SIMULATED_`）。
+3. spec 用同一 tester JWT 讀 `traffic_events` 驗證事件已進 DB。
+4. `afterAll` 呼叫 `action=cleanup` 用前綴刪回本輪 tx / sub / event。
+
+三層安全鎖（缺一 403）：
+- edge fn 讀 env `E2E_ALLOW_SIMULATED_PURCHASE=1`（生產環境**不設**）
+- 呼叫者 JWT 必須解得出 user_id
+- `profiles.is_tester = true`
+
+### 必備 secrets
+
+GitHub Actions repo secrets（`.github/workflows/live-smoke.yml`）：
+- `E2E_TEST_EMAIL` / `E2E_TEST_PASSWORD` — tester 帳號
+- `E2E_TEST_PLAN_ID`（可選）— 指定 plan；未設則挑第一個 active plan
+- `VITE_SUPABASE_URL` / `VITE_SUPABASE_PUBLISHABLE_KEY` / `VITE_SUPABASE_PROJECT_ID`
+
+Lovable Cloud 後端 secret（Backend → Secrets）：
+- `E2E_ALLOW_SIMULATED_PURCHASE=1` — **只在 dev / sandbox 環境設**，正式 prod 千萬不要設
+
+### 本機跑法
+
+```bash
+E2E_LIVE=1 \
+E2E_TEST_EMAIL=... E2E_TEST_PASSWORD=... \
+VITE_SUPABASE_URL=... VITE_SUPABASE_PUBLISHABLE_KEY=... VITE_SUPABASE_PROJECT_ID=... \
+bunx playwright test --project=desktop-live-smoke
+```
+
+### 後續強化（非阻塞）
+
+- 觸發真正的 `create-ecpay-order` sandbox 流程（含 CheckMacValue 簽章），
+  比目前 short-circuit 更接近真實 callback 路徑。
+- `traffic_events` 對 tester 若 RLS 唯讀關閉，spec 目前只 warning 不 fail；
+  加一個 `get_funnel_snapshot` RPC (SECURITY DEFINER) 讓 tester 明確拿聚合數。
+
