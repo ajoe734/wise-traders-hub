@@ -65,7 +65,7 @@ export function detectStaleSnapshots(
 ): Set<string> {
   const byStock = new Map<string, CoverageInput[]>();
   for (const r of inputs) {
-    if (r.snapshot_volume_lots == null) continue;
+    if (r.snapshot_volume_shares == null) continue;
     const arr = byStock.get(r.stock_id) ?? [];
     arr.push(r);
     byStock.set(r.stock_id, arr);
@@ -77,13 +77,12 @@ export function detectStaleSnapshots(
     let prev = sorted[0];
     for (let i = 1; i < sorted.length; i++) {
       const cur = sorted[i];
-      if (cur.snapshot_volume_lots === prev.snapshot_volume_lots) {
+      if (cur.snapshot_volume_shares === prev.snapshot_volume_shares) {
         streak++;
       } else {
         streak = 1;
       }
       if (streak >= minStreak) {
-        // mark whole streak stale (walk back)
         for (let j = i - streak + 1; j <= i; j++) {
           stale.add(`${sorted[j].stock_id}|${sorted[j].trade_date}`);
         }
@@ -99,13 +98,13 @@ export function classifyCoverage(
   staleKeys: Set<string>,
 ): CoverageRow {
   const key = `${input.stock_id}|${input.trade_date}`;
-  if (input.snapshot_volume_lots == null) {
+  if (input.snapshot_volume_shares == null) {
     return { ...input, coverage_pct: null, class: 'missing_snapshot' };
   }
   if (staleKeys.has(key)) {
     return { ...input, coverage_pct: null, class: 'stale_snapshot' };
   }
-  const denom = input.snapshot_volume_lots * 1000;
+  const denom = input.snapshot_volume_shares;
   const pct = denom > 0 ? +((input.broker_sum_shares / denom) * 100).toFixed(1) : 0;
   let cls: CoverageClass = 'ok';
   if (pct < UNDER_COVER_PCT) cls = 'broker_under_cover';
