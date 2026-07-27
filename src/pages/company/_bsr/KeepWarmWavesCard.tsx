@@ -174,7 +174,7 @@ export function KeepWarmWavesCard() {
               )[0] ?? null;
               return (
                 <tr key={date} className="border-b last:border-0 align-top">
-                  <td className="py-2 pr-3 font-mono">{date.replaceAll('-', '/')}</td>
+                  <td className="py-2 pr-3 font-mono">{date.replace(/-/g, '/')}</td>
                   {perWave.map((row, i) => (
                     <td key={i} className="py-2 px-2">
                       <div className="flex flex-col gap-0.5">
