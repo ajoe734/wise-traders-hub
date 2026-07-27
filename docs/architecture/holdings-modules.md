@@ -56,18 +56,20 @@
 
 每個 Page 只做一件事：呼叫對應的 `useRoute*Page()` hook 拿到 props，交給對應 Panel 渲染。
 
-## 已識別的 Legacy Dead Code（follow-up 清理）
+## Legacy Dead Code 清理（已完成，2026-07）
 
-下列檔案在 runtime 路由中**未被引用**（只有 `useAppRuntime` 的 unit test 還會 render），已在檔頭加 `@deprecated` banner。清理是獨立 PR：
+以下檔案與 export 已全數移除，runtime 由 `useRoute*Page` 系列承接：
 
-- `src/checkup/components/AppShellFrame.jsx`
-- `src/checkup/components/AppPanels.jsx`
-- `src/checkup/contexts/PortfolioPanelsContext.jsx`
-- `src/checkup/hooks/usePortfolioPanelsContextComposer.js`
-- `src/checkup/hooks/useAppRuntime.js`（僅剩測試用）
-- `src/checkup/hooks/useAppRuntimeComposer.js` 中 `composeAppShellFrameRuntime` export
+- ~~`src/checkup/components/AppShellFrame.jsx`~~ ✅ 刪除
+- ~~`src/checkup/components/AppPanels.jsx`~~ ✅ 刪除
+- ~~`src/checkup/contexts/PortfolioPanelsContext.jsx`~~ ✅ 刪除
+- ~~`src/checkup/hooks/usePortfolioPanelsContextComposer.js`~~ ✅ 刪除
+- ~~`src/checkup/hooks/useAppRuntime.js`~~ ✅ 刪除
+- ~~`src/checkup/hooks/useAppRuntimeComposer.js` 中 `composeAppShellFrameRuntime`~~ ✅ 移除
+- `src/checkup/hooks/index.js` re-export ✅ 清空（見 L26 註記）
+- `src/test/unit/checkup-store-backed-hooks.test.tsx` ✅ 刪除
 
-清理範圍：刪除以上 + 移除 `hooks/index.js` 中對應 re-export + 移除 `src/test/unit/checkup-store-backed-hooks.test.tsx` 中 `describe('useAppRuntime')` block。
+驗證：`rg "AppShellFrame|AppPanels|PortfolioPanelsContext|useAppRuntime|composeAppShellFrameRuntime" src/` 無 code 引用。
 
 ## Debug 起手式
 
