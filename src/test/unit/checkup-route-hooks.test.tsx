@@ -58,6 +58,7 @@ vi.mock('@/checkup/contexts/CheckupModeContext.jsx', () => ({
 }))
 
 beforeEach(() => {
+  mockSearch = new URLSearchParams()
   updateEventMock.mockClear()
   setResearchHistoryMock.mockClear()
   setTradeLogMock.mockClear()
