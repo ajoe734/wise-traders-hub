@@ -11,6 +11,10 @@ import {
   FALLBACK_RATE_THRESHOLD,
   type KeepwarmMetric,
 } from '../_shared/chipsFallbackAlert.ts';
+import {
+  evaluateAllWaveSlo,
+  type SloRow,
+} from '../_shared/keepWarmSlo.ts';
 
 const WINDOW_MIN = 30;
 const DEDUPE_MIN = 60;
