@@ -315,7 +315,49 @@ async function checkChipsFallbackPersistence(admin: any) {
         ...d.detail,
       },
     }));
+}
+
+// Phase I — Keep-warm SLO 告警。
+// 讀 tw_bsr_keepwarm_metrics 近 24h，依 wave 分組套 evaluateAllWaveSlo。
+// 預期波次間隔採 240 分鐘（三波 08:30 / 14:30 / 20:30，每波 4~6h）。
+// deno-lint-ignore no-explicit-any
+async function checkKeepWarmSlo(admin: any) {
+  const since = new Date(Date.now() - 24 * 3600_000).toISOString();
+  const { data, error } = await admin
+    .from('tw_bsr_keepwarm_metrics')
+    .select('wave,started_at,status')
+    .gte('started_at', since)
+    .order('started_at', { ascending: false })
+    .limit(300);
+  if (error) return { skipped: 'query_failed', error: error.message };
+  const rows = (data ?? []) as SloRow[];
+  const expected = { 1: 360, 2: 360, 3: 360 } as Record<number, number>;
+  const decisions = evaluateAllWaveSlo(rows, Date.now(), expected);
+  const fired: unknown[] = [];
+  for (const d of decisions) {
+    if (!d.triggered) continue;
+    const reasonZh = d.reason === 'missing'
+      ? '近 24 小時無任何運行紀錄'
+      : d.reason === 'consecutive_failed'
+        ? `最近 2 次運行皆失敗（${d.detail.recent_statuses.slice(0, 2).join(' / ')}）`
+        : `最新運行距今 ${d.age_min} 分鐘（預期間隔 ${d.expected_interval_min} 分鐘）`;
+    fired.push(await fire(admin, {
+      kind: `keepwarm_slo_w${d.wave}`,
+      level: d.level ?? 'warning',
+      title: `Keep-warm Wave ${d.wave} SLO 異常 — ${d.reason}`,
+      message: `Wave ${d.wave}：${reasonZh}。`,
+      metric_value: d.age_min ?? 0,
+      threshold: d.expected_interval_min,
+      detail: {
+        wave: d.wave,
+        reason: d.reason,
+        latest_started_at: d.latest_started_at,
+        latest_status: d.latest_status,
+        ...d.detail,
+      },
+    }));
   }
+  return { ok: true, evaluated: decisions.length, fired: fired.length, decisions };
   return { ok: true, evaluated: decisions.length, fired: fired.length, decisions };
 }
 
