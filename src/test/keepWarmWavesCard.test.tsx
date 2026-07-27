@@ -37,22 +37,16 @@ describe('KeepWarmWavesCard', () => {
   });
 
   it('每個 trade_date × wave 取最新一筆並顯示封盤 badge', async () => {
-    const older = new Date(Date.now() - 3600_000).toISOString();
-    const newer = new Date().toISOString();
+    const t1 = new Date(Date.now() - 3600_000).toISOString();
+    const t2 = new Date(Date.now() - 1800_000).toISOString();
+    const t3 = new Date(Date.now() - 600_000).toISOString();
     mockRows.push(
       {
         id: '1', trade_date: '2026-07-25', wave: 1, status: 'partial',
         sealed: false, sealed_by_lane: null,
         coverage_stocks: 100, coverage_brokers: 20,
         fallback_used_count: 3, duration_ms: 1200, error: null,
-        started_at: older,
-      },
-      {
-        id: '2', trade_date: '2026-07-25', wave: 1, status: 'sealed',
-        sealed: true, sealed_by_lane: 'A',
-        coverage_stocks: 500, coverage_brokers: 90,
-        fallback_used_count: 7, duration_ms: 2500, error: null,
-        started_at: newer,
+        started_at: t1,
       },
       {
         id: '3', trade_date: '2026-07-25', wave: 2, status: 'error',
@@ -60,7 +54,14 @@ describe('KeepWarmWavesCard', () => {
         coverage_stocks: 0, coverage_brokers: 0,
         fallback_used_count: 0, duration_ms: 900,
         error: 'reconcile timeout',
-        started_at: newer,
+        started_at: t2,
+      },
+      {
+        id: '2', trade_date: '2026-07-25', wave: 1, status: 'sealed',
+        sealed: true, sealed_by_lane: 'A',
+        coverage_stocks: 500, coverage_brokers: 90,
+        fallback_used_count: 7, duration_ms: 2500, error: null,
+        started_at: t3,
       },
     );
     wrap(<KeepWarmWavesCard />);
