@@ -206,11 +206,80 @@ export function ChipsCacheTelemetryCard() {
         </div>
       </div>
 
-      <div className="mt-3 flex flex-wrap gap-1.5">
-        <Badge variant="outline" className="text-[10px]">Step 0：量測</Badge>
-        <Badge variant="outline" className="text-[10px]">來源：traffic_events</Badge>
-        <Badge variant="outline" className="text-[10px]">事件：chips_memory_hit/miss、chips_fetch_start/done/error</Badge>
+      {/* Phase F：端到端漏斗 —— 只算 source='drawer_open' */}
+      <div className="mt-5 rounded border p-3">
+        <div className="flex items-center justify-between mb-2">
+          <div className="text-sm font-medium">端到端漏斗（drawer_open）</div>
+          <div className="text-[11px] text-muted-foreground">
+            分母 = {stats.funnel.drawer_open} 次開抽屜
+          </div>
+        </div>
+        <div className="grid grid-cols-2 md:grid-cols-4 gap-3 text-xs">
+          <div className="rounded border p-2">
+            <div className="text-muted-foreground">有效命中率（不觸 DB）</div>
+            <div className="text-lg font-semibold">{formatPct(stats.funnel.effective_hit_ratio)}</div>
+            <div className="text-muted-foreground mt-0.5 font-mono">
+              L1 {stats.funnel.l1_hit} + L2 {stats.funnel.l2_hit} + coalesced {stats.funnel.coalesced}
+            </div>
+          </div>
+          <div className="rounded border p-2">
+            <div className="text-muted-foreground">L1 瀏覽器命中率</div>
+            <div className="text-lg font-semibold">{formatPct(stats.funnel.l1_hit_ratio)}</div>
+            <div className="text-muted-foreground mt-0.5 font-mono">
+              {stats.funnel.l1_hit} / {stats.funnel.drawer_open}
+            </div>
+          </div>
+          <div className="rounded border p-2">
+            <div className="text-muted-foreground">L2 Edge 命中率（送 fetch 中）</div>
+            <div className="text-lg font-semibold">{formatPct(stats.funnel.l2_hit_ratio)}</div>
+            <div className="text-muted-foreground mt-0.5 font-mono">
+              {stats.funnel.l2_hit} / {stats.funnel.fetch_start}
+            </div>
+          </div>
+          <div className="rounded border p-2">
+            <div className="text-muted-foreground">L3 DB 計算率（送 fetch 中）</div>
+            <div className="text-lg font-semibold">{formatPct(stats.funnel.db_compute_ratio)}</div>
+            <div className="text-muted-foreground mt-0.5 font-mono">
+              {stats.funnel.db_compute} / {stats.funnel.fetch_start}
+            </div>
+          </div>
+        </div>
+
+        <div className="mt-3 grid grid-cols-1 md:grid-cols-2 gap-3 text-xs">
+          <div className="rounded border p-2">
+            <div className="text-muted-foreground mb-1">DB 計算結果分佈</div>
+            <div className="space-y-0.5 font-mono">
+              <div className="flex justify-between"><span>rollup（正式 5/20/60）</span><span>{stats.funnel.db_rollup}</span></div>
+              <div className="flex justify-between"><span>raw_fallback（僅 D1）</span><span>{stats.funnel.db_raw_fallback}</span></div>
+              <div className="flex justify-between"><span>no_data</span><span>{stats.funnel.db_no_data}</span></div>
+              <div className="flex justify-between text-muted-foreground mt-1">
+                <span>rollup 占比</span><span>{formatPct(stats.funnel.rollup_ratio)}</span>
+              </div>
+            </div>
+          </div>
+          <div className="rounded border p-2">
+            <div className="text-muted-foreground mb-1">漏斗流量（drawer_open → …）</div>
+            <div className="space-y-0.5 font-mono">
+              <div className="flex justify-between"><span>drawer_open</span><span>{stats.funnel.drawer_open}</span></div>
+              <div className="flex justify-between"><span>→ L1 hit（停）</span><span>{stats.funnel.l1_hit}</span></div>
+              <div className="flex justify-between"><span>→ fetch → L2 hit（停）</span><span>{stats.funnel.l2_hit}</span></div>
+              <div className="flex justify-between"><span>→ fetch → coalesced（停）</span><span>{stats.funnel.coalesced}</span></div>
+              <div className="flex justify-between"><span>→ fetch → DB compute</span><span>{stats.funnel.db_compute}</span></div>
+              <div className="flex justify-between text-muted-foreground"><span>error</span><span>{stats.funnel.errors}</span></div>
+              {stats.funnel.edge_unknown > 0 && (
+                <div className="flex justify-between text-muted-foreground"><span>edge_unknown</span><span>{stats.funnel.edge_unknown}</span></div>
+              )}
+            </div>
+          </div>
+        </div>
       </div>
+
+      <div className="mt-3 flex flex-wrap gap-1.5">
+        <Badge variant="outline" className="text-[10px]">Phase F：端到端命中率</Badge>
+        <Badge variant="outline" className="text-[10px]">來源：traffic_events</Badge>
+        <Badge variant="outline" className="text-[10px]">分層：L1 memory / L2 edge / L3 DB</Badge>
+      </div>
+
     </Card>
   );
 }
