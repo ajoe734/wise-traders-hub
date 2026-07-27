@@ -27,10 +27,12 @@ vi.mock('@/checkup/pages/usePortfolioRouteContext.js', () => ({
   usePortfolioRouteContext: () => mockContext,
 }))
 
+let mockSearch = new URLSearchParams()
 vi.mock('react-router-dom', () => ({
   useNavigate: () => vi.fn(),
   useLocation: () => ({ pathname: '/', search: '' }),
   useParams: () => ({ portfolioId: 'me' }),
+  useSearchParams: () => [mockSearch, vi.fn()] as const,
 }))
 
 vi.mock('@/checkup/hooks/api/useAnalysis.js', () => ({
