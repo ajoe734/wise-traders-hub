@@ -455,7 +455,15 @@ async function checkBsrSealingParity(admin: any) {
     .in('symbol', symbols)
     .limit(5000);
   if (vErr) return { skipped: 'volume_query_failed', error: vErr.message };
-  const volRows = (vols ?? []) as VolumeRow[];
+  // daily_price_snapshots.volume 對台股是「張」，broker 資料是「股」。
+  // 這裡統一換算成股，pure logic 只認股。
+  const volRows: VolumeRow[] = (vols ?? []).map(
+    (v: { symbol: string; trade_date: string; volume: number | null }) => ({
+      symbol: v.symbol,
+      trade_date: v.trade_date,
+      volume: Number(v.volume ?? 0) * 1000,
+    }),
+  );
 
   const summary = auditParityBatch(brokerRows, volRows);
   const decision = decideParityAlert(summary);
