@@ -347,6 +347,39 @@ export type Database = {
         }
         Relationships: []
       }
+      bsr_coverage_daily: {
+        Row: {
+          broker_count: number
+          broker_sum_shares: number
+          computed_at: string
+          coverage_class: string
+          coverage_pct: number | null
+          snapshot_volume_shares: number | null
+          stock_id: string
+          trade_date: string
+        }
+        Insert: {
+          broker_count?: number
+          broker_sum_shares?: number
+          computed_at?: string
+          coverage_class?: string
+          coverage_pct?: number | null
+          snapshot_volume_shares?: number | null
+          stock_id: string
+          trade_date: string
+        }
+        Update: {
+          broker_count?: number
+          broker_sum_shares?: number
+          computed_at?: string
+          coverage_class?: string
+          coverage_pct?: number | null
+          snapshot_volume_shares?: number | null
+          stock_id?: string
+          trade_date?: string
+        }
+        Relationships: []
+      }
       checkup_analysis_jobs: {
         Row: {
           created_at: string
@@ -6423,6 +6456,14 @@ export type Database = {
       record_bsr_api_call: {
         Args: { _api?: string; _rate_limited?: boolean; _success?: boolean }
         Returns: undefined
+      }
+      refresh_bsr_coverage_daily: {
+        Args: { days?: number }
+        Returns: {
+          date_from: string
+          date_to: string
+          rows_upserted: number
+        }[]
       }
       release_bsr_reservation: {
         Args: { _reservation_id: number }
