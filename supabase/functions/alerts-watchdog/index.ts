@@ -11,6 +11,10 @@ import {
   FALLBACK_RATE_THRESHOLD,
   type KeepwarmMetric,
 } from '../_shared/chipsFallbackAlert.ts';
+import {
+  evaluateAllWaveSlo,
+  type SloRow,
+} from '../_shared/keepWarmSlo.ts';
 
 const WINDOW_MIN = 30;
 const DEDUPE_MIN = 60;
@@ -315,6 +319,49 @@ async function checkChipsFallbackPersistence(admin: any) {
   return { ok: true, evaluated: decisions.length, fired: fired.length, decisions };
 }
 
+// Phase I — Keep-warm SLO 告警。
+// 讀 tw_bsr_keepwarm_metrics 近 24h，依 wave 分組套 evaluateAllWaveSlo。
+// 預期波次間隔採 360 分鐘（三波約每 6 小時一次；> 30 分遲到 warning、> 120 分 critical）。
+// deno-lint-ignore no-explicit-any
+async function checkKeepWarmSlo(admin: any) {
+  const since = new Date(Date.now() - 24 * 3600_000).toISOString();
+  const { data, error } = await admin
+    .from('tw_bsr_keepwarm_metrics')
+    .select('wave,started_at,status')
+    .gte('started_at', since)
+    .order('started_at', { ascending: false })
+    .limit(300);
+  if (error) return { skipped: 'query_failed', error: error.message };
+  const rows = (data ?? []) as SloRow[];
+  const expected = { 1: 360, 2: 360, 3: 360 } as Record<number, number>;
+  const decisions = evaluateAllWaveSlo(rows, Date.now(), expected);
+  const fired: unknown[] = [];
+  for (const d of decisions) {
+    if (!d.triggered) continue;
+    const reasonZh = d.reason === 'missing'
+      ? '近 24 小時無任何運行紀錄'
+      : d.reason === 'consecutive_failed'
+        ? `最近 2 次運行皆失敗（${d.detail.recent_statuses.slice(0, 2).join(' / ')}）`
+        : `最新運行距今 ${d.age_min} 分鐘（預期間隔 ${d.expected_interval_min} 分鐘）`;
+    fired.push(await fire(admin, {
+      kind: `keepwarm_slo_w${d.wave}`,
+      level: d.level ?? 'warning',
+      title: `Keep-warm Wave ${d.wave} SLO 異常 — ${d.reason}`,
+      message: `Wave ${d.wave}：${reasonZh}。`,
+      metric_value: d.age_min ?? 0,
+      threshold: d.expected_interval_min,
+      detail: {
+        wave: d.wave,
+        reason: d.reason,
+        latest_started_at: d.latest_started_at,
+        latest_status: d.latest_status,
+        ...d.detail,
+      },
+    }));
+  }
+  return { ok: true, evaluated: decisions.length, fired: fired.length, decisions };
+}
+
 // Push pending system_alerts to admin LINE bindings (dedup via notified_at).
 // deno-lint-ignore no-explicit-any
 async function pushPendingAlertsToLine(admin: any) {
@@ -374,19 +421,20 @@ Deno.serve(async (req) => {
   if (req.method === 'OPTIONS') return corsPreflight();
   try {
     const admin = serviceClient();
-    const [a, b, c, d, e, f] = await Promise.allSettled([
+    const [a, b, c, d, e, f, g] = await Promise.allSettled([
       checkCheckoutFailureRate(admin),
       checkPaywallDrop(admin),
       checkFunctionFailures(admin),
       checkStreamAborts(admin),
       checkBsrRateLimiter(admin),
       checkChipsFallbackPersistence(admin),
+      checkKeepWarmSlo(admin),
     ]);
     const notify = await pushPendingAlertsToLine(admin).catch((e) => ({ error: e instanceof Error ? e.message : String(e) }));
     return jsonResponse({
       ok: true,
       ran_at: new Date().toISOString(),
-      results: { checkout: a, paywall: b, functions: c, stream_aborts: d, bsr: e, chips_fallback: f },
+      results: { checkout: a, paywall: b, functions: c, stream_aborts: d, bsr: e, chips_fallback: f, keepwarm_slo: g },
       notify,
     });
   } catch (e) {
