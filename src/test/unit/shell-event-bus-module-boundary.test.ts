@@ -1,6 +1,6 @@
 /**
  * S4 · M2/M3 barrel emit helper + 邊界靜態掃描
- * 契約：docs/architecture/shell-event-bus-tdd.md §4 S4
+ * 契約：docs/architecture/shell-event-bus.md §4 S4
  *
  * 規則：
  *   - M2 (closing) / M3 (events) 模組內任何檔案不得深 import M1 (holdings)。

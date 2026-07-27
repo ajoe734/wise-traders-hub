@@ -1,7 +1,7 @@
 /**
  * Shell Event Bus — pure pub/sub, no React.
  *
- * 契約與使用約定：docs/architecture/shell-event-bus-tdd.md §2
+ * 契約與使用約定：docs/architecture/shell-event-bus.md §2
  *
  * 深模組（M1 Holdings / M2 Closing / M3 Events / M4 TradeIO / M5 Research）
  * 之間唯一允許的「主動跳轉」/「跨模組通知」通道。模組只 emit，Shell 層或

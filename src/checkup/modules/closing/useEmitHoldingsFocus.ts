@@ -1,6 +1,6 @@
 /**
  * M2 Closing → Shell bus emit helper.
- * 契約：docs/architecture/shell-event-bus-tdd.md §2
+ * 契約：docs/architecture/shell-event-bus.md §2
  *
  * 使用：
  *   const emitFocus = useEmitHoldingsFocus();

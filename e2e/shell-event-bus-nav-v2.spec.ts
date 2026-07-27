@@ -1,6 +1,6 @@
 /**
  * L5 · Shell Event Bus v2 — closing:openStock / research:prefill / events:refresh
- * docs/architecture/shell-event-bus-tdd.md §8-2
+ * docs/architecture/shell-event-bus.md §8-2
  *
  * 走通契約：
  *   1. M1 → M2   closing:openStock   → /portfolio/:id/daily?stock=<code>[&date=YYYY-MM-DD]

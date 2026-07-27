@@ -1,7 +1,7 @@
 /**
  * TDD S3 — ShellEventBusProvider + hook 契約
  *
- * 依 docs/architecture/shell-event-bus-tdd.md §4 S3。
+ * 依 docs/architecture/shell-event-bus.md §4 S3。
  *
  * 涵蓋：
  *   - Provider 內 useShellEventBus() 拿到穩定同一實例（多次 render 同 ref）

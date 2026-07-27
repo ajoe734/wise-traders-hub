@@ -71,7 +71,7 @@ Shell Event Bus v2 上線後，`events:refresh` 由 M4 TradeIO emit，M3 EventsP
    - E2E：`shell-event-bus-nav-v2.spec.ts` `events:refresh` case 內加 `page.route` 攔截與次數斷言。
 
 5. 文件
-   - 建立本 doc；刪除 `docs/architecture/shell-event-bus-tdd.md`。
+   - 建立本 doc；刪除 `docs/architecture/shell-event-bus.md`。
    - `docs/architecture/holdings-modules.md` 的 `shell-event-bus-tdd.md` 引用改指本 doc。
 
 ---

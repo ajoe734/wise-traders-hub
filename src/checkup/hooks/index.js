@@ -24,7 +24,7 @@ export { useAppShellUiState } from './useAppShellUiState.js'
 export { useCanonicalLocalhostRedirect } from './useCanonicalLocalhostRedirect.js'
 export { useAppCallbackRefs } from './useAppCallbackRefs.js'
 // 2026-07 legacy 清理：useAppRuntime* / AppShellFrame / AppPanels / PortfolioPanelsContext
-// 全數移除（詳見 docs/architecture/shell-event-bus-tdd.md §8 步驟 2）。
+// 全數移除（詳見 docs/architecture/shell-event-bus.md §8 步驟 2）。
 // 目前活躍的路由 runtime 由 useRoute*Page 系列 hooks 承接。
 export { usePortfolioSnapshotRuntime } from './usePortfolioSnapshotRuntime.js'
 export { useDailyAnalysisWorkflow } from './useDailyAnalysisWorkflow.js'

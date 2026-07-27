@@ -1,7 +1,7 @@
 /**
  * ShellEventBusProvider — React binding for the shell event bus.
  *
- * 契約：docs/architecture/shell-event-bus-tdd.md
+ * 契約：docs/architecture/shell-event-bus.md
  *
  * Usage:
  *   <ShellEventBusProvider>

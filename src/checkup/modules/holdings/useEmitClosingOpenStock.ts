@@ -1,6 +1,6 @@
 /**
  * M1 Holdings → Shell bus emit helper（closing:openStock）。
- * 契約：docs/architecture/shell-event-bus-tdd.md §2
+ * 契約：docs/architecture/shell-event-bus.md §2
  *
  * 禁止 M1 直接 import M2 內部檔案；跨模組跳轉一律走 shell bus。
  */
