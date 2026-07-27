@@ -149,10 +149,13 @@ Deno.serve(withLogging('backfill-daily-snapshots', async (req) => {
           }).eq('id', job.id)
           continue
         }
+        // TWSE STOCK_DAY row[1]=成交股數（股）；明確標記 volume_unit='shares'，trigger 會補 volume_shares。
         const upsertRows = rows.map(r => ({
-          symbol: job.symbol, trade_date: r.date,
+          symbol: job.symbol, trade_date: r.date, market: 'TW',
           open_price: r.open, high_price: r.high, low_price: r.low,
-          close_price: r.close, volume: r.volume, is_limit_up: false,
+          close_price: r.close, volume: r.volume,
+          volume_unit: 'shares', volume_shares: r.volume,
+          is_limit_up: false,
         }))
         const { error } = await sb.from('daily_price_snapshots')
           .upsert(upsertRows, { onConflict: 'symbol,trade_date', ignoreDuplicates: false })

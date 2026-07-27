@@ -455,18 +455,17 @@ async function checkBsrSealingParity(admin: any) {
   const symbols = Array.from(new Set(brokerRows.map((r) => r.stock_id)));
   const { data: vols, error: vErr } = await admin
     .from('daily_price_snapshots')
-    .select('symbol,trade_date,volume')
+    .select('symbol,trade_date,volume_shares')
     .in('trade_date', dates)
     .in('symbol', symbols)
     .limit(5000);
   if (vErr) return { skipped: 'volume_query_failed', error: vErr.message };
-  // daily_price_snapshots.volume 對台股是「張」，broker 資料是「股」。
-  // 這裡統一換算成股，pure logic 只認股。
+  // Phase L2：DB 已統一成股，這裡直接讀 volume_shares，不再手動 ×1000。
   const volRows: VolumeRow[] = (vols ?? []).map(
-    (v: { symbol: string; trade_date: string; volume: number | null }) => ({
+    (v: { symbol: string; trade_date: string; volume_shares: number | null }) => ({
       symbol: v.symbol,
       trade_date: v.trade_date,
-      volume: Number(v.volume ?? 0) * 1000,
+      volume: Number(v.volume_shares ?? 0),
     }),
   );
 
@@ -528,13 +527,13 @@ async function checkBsrCoverage(admin: any) {
   // fetch snapshots
   const { data: snapsRaw } = await admin
     .from('daily_price_snapshots')
-    .select('symbol,trade_date,volume')
+    .select('symbol,trade_date,volume_shares')
     .in('symbol', symbols)
     .in('trade_date', dates)
     .limit(30000);
   const snapMap = new Map<string, number | null>();
-  for (const s of (snapsRaw ?? []) as Array<{ symbol: string; trade_date: string; volume: number | null }>) {
-    snapMap.set(`${s.symbol}|${s.trade_date}`, s.volume);
+  for (const s of (snapsRaw ?? []) as Array<{ symbol: string; trade_date: string; volume_shares: number | null }>) {
+    snapMap.set(`${s.symbol}|${s.trade_date}`, s.volume_shares);
   }
 
   const inputs: CoverageInput[] = Array.from(agg.values()).map((a) => ({
@@ -542,7 +541,7 @@ async function checkBsrCoverage(admin: any) {
     trade_date: a.trade_date,
     broker_sum_shares: a.sum,
     broker_count: a.cnt,
-    snapshot_volume_lots: snapMap.has(`${a.stock_id}|${a.trade_date}`)
+    snapshot_volume_shares: snapMap.has(`${a.stock_id}|${a.trade_date}`)
       ? snapMap.get(`${a.stock_id}|${a.trade_date}`) ?? null
       : null,
   }));

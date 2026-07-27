@@ -1227,6 +1227,8 @@ export type Database = {
           trade_date: string
           volume: number | null
           volume_ma5: number | null
+          volume_shares: number | null
+          volume_unit: string | null
           yesterday_close: number | null
         }
         Insert: {
@@ -1244,6 +1246,8 @@ export type Database = {
           trade_date: string
           volume?: number | null
           volume_ma5?: number | null
+          volume_shares?: number | null
+          volume_unit?: string | null
           yesterday_close?: number | null
         }
         Update: {
@@ -1261,6 +1265,8 @@ export type Database = {
           trade_date?: string
           volume?: number | null
           volume_ma5?: number | null
+          volume_shares?: number | null
+          volume_unit?: string | null
           yesterday_close?: number | null
         }
         Relationships: []
@@ -6366,6 +6372,13 @@ export type Database = {
         Returns: {
           materialized_rows: number
           skipped_sealed: boolean
+        }[]
+      }
+      normalize_snapshot_volume_shares: {
+        Args: { p_hint_unit?: string; p_market: string; p_volume: number }
+        Returns: {
+          shares: number
+          unit: string
         }[]
       }
       price_admit: {
