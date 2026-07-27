@@ -1,7 +1,7 @@
 # Shell Event Bus — 維護模式事實來源
 
 > **維護模式宣告**  
-> 前身為 `docs/architecture/shell-event-bus.md`；原始 TDD 階段已完成，本文件進入維護模式。  
+> 前身為原始 Shell Event Bus TDD 文件；原始 TDD 階段已完成，本文件進入維護模式。  
 > M3 `events:refresh` 的後續真正 re-fetch 實作詳見 [`docs/architecture/events-refresh-tdd.md`](./events-refresh-tdd.md)。
 
 > **使用約定**
