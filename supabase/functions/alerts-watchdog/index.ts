@@ -6,6 +6,11 @@
 
 import { corsPreflight, jsonResponse, errorResponse } from '../_shared/cors.ts';
 import { serviceClient } from '../_shared/supabaseClients.ts';
+import {
+  evaluateAllWaves,
+  FALLBACK_RATE_THRESHOLD,
+  type KeepwarmMetric,
+} from '../_shared/chipsFallbackAlert.ts';
 
 const WINDOW_MIN = 30;
 const DEDUPE_MIN = 60;
