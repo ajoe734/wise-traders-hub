@@ -14,11 +14,17 @@ jobs:
     timeout-minutes: 15
     env:
       E2E_LIVE: '1'
+      # tester 帳號 (profiles.is_tester=true)
       E2E_TEST_EMAIL: ${{ secrets.E2E_TEST_EMAIL }}
       E2E_TEST_PASSWORD: ${{ secrets.E2E_TEST_PASSWORD }}
+      # 可選：指定要 simulate 的 plan_id；未設則挑第一個 active plan
+      E2E_TEST_PLAN_ID: ${{ secrets.E2E_TEST_PLAN_ID }}
+      # Supabase 前端連線 (VITE_ 前綴以便 dev server & spec 讀到)
       VITE_SUPABASE_URL: ${{ secrets.VITE_SUPABASE_URL }}
       VITE_SUPABASE_PUBLISHABLE_KEY: ${{ secrets.VITE_SUPABASE_PUBLISHABLE_KEY }}
       VITE_SUPABASE_PROJECT_ID: ${{ secrets.VITE_SUPABASE_PROJECT_ID }}
+      # 後端 e2e-simulate-purchase edge function 亦需 E2E_ALLOW_SIMULATED_PURCHASE=1
+      # （設定在 Lovable Cloud → Secrets，不在 GitHub Actions；生產環境切勿設）
     steps:
       - uses: actions/checkout@v4
 
