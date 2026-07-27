@@ -1,8 +1,10 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
-import { useNavigate } from 'react-router-dom'
+import { useNavigate, useSearchParams } from 'react-router-dom'
 import { useRunDailyAnalysis, useRunStressTest } from './api/useAnalysis.js'
 import { useBrainStore } from '../stores/brainStore.js'
 import { usePortfolioRouteContext } from '../pages/usePortfolioRouteContext.js'
+
+
 
 export function useRouteDailyPage() {
   const navigate = useNavigate()
@@ -24,6 +26,16 @@ export function useRouteDailyPage() {
   const [expandedNews, setExpandedNews] = useState(() => new Set())
   const expandedStock = useBrainStore((state) => state.expandedStock)
   const setExpandedStock = useBrainStore((state) => state.setExpandedStock)
+
+  // Phase A2 (holdings-consistency-tdd.md)：Shell Bus §5 closing:openStock deep-link 還原。
+  const [searchParams] = useSearchParams()
+  const stockParam = searchParams.get('stock')
+  useEffect(() => {
+    if (stockParam && stockParam !== expandedStock) {
+      setExpandedStock(stockParam)
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [stockParam])
 
   const runDailyAnalysisMutation = useRunDailyAnalysis()
   const runStressTestMutation = useRunStressTest()

@@ -1,4 +1,5 @@
 import { useCallback, useMemo, useState } from 'react'
+import { useSearchParams } from 'react-router-dom'
 import { STATUS_MESSAGE_TIMEOUT_MS } from '../constants.js'
 import { mergeBrainPreservingCoachLessons } from '../lib/brainRuntime.js'
 import {
@@ -35,6 +36,12 @@ export function useRouteResearchPage() {
   const [enrichingResearchCode, setEnrichingResearchCode] = useState(null)
   const [reportRefreshing, setReportRefreshing] = useState(false)
   const [reportRefreshStatus, setReportRefreshStatus] = useState('')
+
+  // Phase A3 (holdings-consistency-tdd.md)：Shell Bus §5 research:prefill deep-link。
+  // 只 pipe 出去，由 ResearchPanel 自行決定是否 auto-run，避免掛載即 double-fire。
+  const [searchParams] = useSearchParams()
+  const prefillStockCode = searchParams.get('stock') || null
+  const prefillTopic = searchParams.get('topic') || null
 
   const enrichResearchToDossierMutation = useEnrichResearchToDossier()
   const refreshAnalystReportsMutation = useRefreshAnalystReports()
@@ -132,6 +139,8 @@ export function useRouteResearchPage() {
       enrichingResearchCode,
       STOCK_META,
       IND_COLOR,
+      prefillStockCode,
+      prefillTopic,
       onEvolve: () => runResearch('evolve'),
       onRefresh: refreshAnalystReports,
       onResearch: runResearch,
@@ -143,6 +152,8 @@ export function useRouteResearchPage() {
       enrichResearchToDossier,
       enrichingResearchCode,
       holdings,
+      prefillStockCode,
+      prefillTopic,
       refreshAnalystReports,
       reportRefreshing,
       reportRefreshStatus,

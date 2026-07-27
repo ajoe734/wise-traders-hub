@@ -1,7 +1,10 @@
-import { useMemo, useRef } from 'react'
+import { useEffect, useMemo, useRef } from 'react'
+import { useSearchParams } from 'react-router-dom'
 import { useBrainStore } from '../stores/brainStore.js'
 import { usePortfolioRouteContext } from '../pages/usePortfolioRouteContext.js'
 import { holdingsValueKeyFull } from '../lib/holdingsSort'
+
+
 
 const EMPTY_HOLDINGS = Object.freeze([])
 
@@ -16,6 +19,19 @@ export function useRouteHoldingsPage() {
 
   const expandedStock = useBrainStore((state) => state.expandedStock)
   const setExpandedStock = useBrainStore((state) => state.setExpandedStock)
+
+  // Phase A1 (holdings-consistency-tdd.md)：Shell Bus §5 deep-link 消費。
+  // 進入 /portfolio/:id/holdings?expand=2330 時，還原展開狀態。
+  const [searchParams] = useSearchParams()
+  const expandParam = searchParams.get('expand')
+  useEffect(() => {
+    if (expandParam && expandParam !== expandedStock) {
+      setExpandedStock(expandParam)
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [expandParam])
+
+
 
   // D-Perf-R6 / H11 (audit 2026-06)：
   //   store 每次 push 都會 spread 新陣列，holdingsRaw reference 每 tick 都變。
