@@ -45,3 +45,11 @@
 - `bunx playwright test e2e/shell-event-bus-nav-v2.spec.ts` 全綠，且新 assertion 覆蓋 network call。
 - 手動：在 `?bus_test=1` beacon 觸發 emit → Network 面板可見 `load-events` 請求 → EventsPanel 顯示雲端最新資料。
 - `rg "shell-event-bus-tdd"` 無殘留引用。
+
+## 狀態
+
+2026-07-27 已驗收完成：
+- S1–S3 落地，`events:refresh` 觸發真正 POST `/checkup-brain {action:'load-events'}` 並更新 store。
+- Unit 8/8、E2E 5/5 全綠，完整 vitest suite 2047 passed / 7 skipped。
+- 舊 `shell-event-bus-tdd.md` 已下架；原始契約轉為維護模式文件 `docs/architecture/shell-event-bus.md`，程式碼引用全部更新，無 dead link。
+- 一併修復 1.23 scheduler drift 與 1.35 RLS security drift。

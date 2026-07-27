@@ -154,7 +154,7 @@
 | S8-2 E2E harness + CI 綁定 | ✅ | 2026-07-26 新增 `e2e/shell-event-bus-nav-v2.spec.ts`（5/5 綠）：`closing:openStock` 含/不含 date、`research:prefill` 來自 M2/M3、`events:refresh` tick 0→1→2。新增 `playwright.config.ts` project `shell-event-bus-nav-v2`，並加入 `.github/workflows/ci-build-e2e.yml` Playwright matrix。2026-07-26 複驗：vitest 4 檔 29/29 綠；playwright 8 tests 全綠（`shell-event-bus-navigation` 3 + `shell-event-bus-nav-v2` 5）。 |
 | S8-3 Legacy dead code 清理 | ✅ | 2026-07-26 移除 `AppShellFrame` / `AppPanels` / `PortfolioPanelsContext` / `useAppRuntime` 殘餘引用；`src/checkup/hooks/index.js` 已標註 legacy 清理。`tsgo` 與 `playwright` 全模組 smoke 無退化。 |
 | S8-4 ESLint boundary rule | ✅ | 2026-07-26 `eslint.config.js` 新增 `CHECKUP_MODULES` 深模組清單 + `siblingBoundaryConfigs` 跨模組 deep import 阻擋 + `externalBarrelOnlyConfig` 對外只能走 barrel；與 `docs/architecture/holdings-modules.md` 第 3 條路互相對齊。`bunx eslint .` 無跨模組違規。 |
-| 維護模式封存 | ✅ | 2026-07-27 原始 `shell-event-bus-tdd.md` 下架，內容轉為本維護模式文件；所有程式碼引用同步改指 `docs/architecture/shell-event-bus.md`。M3 `events:refresh` 的 re-fetch 後續實作另見 `events-refresh-tdd.md`。 |
+| 維護模式封存 | ✅ | 2026-07-27 原始 Shell Event Bus TDD 文件下架，內容轉為本維護模式文件；所有程式碼引用同步改指 `docs/architecture/shell-event-bus.md`。M3 `events:refresh` 的 re-fetch 後續實作另見 `events-refresh-tdd.md`。 |
 
 
 

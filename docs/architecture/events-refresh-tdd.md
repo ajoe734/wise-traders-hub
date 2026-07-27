@@ -72,7 +72,7 @@ Shell Event Bus v2 上線後，`events:refresh` 由 M4 TradeIO emit，M3 EventsP
 
 5. 文件
    - 建立本 doc；原始 Shell Event Bus TDD 文件下架，改以維護模式文件 `docs/architecture/shell-event-bus.md` 承接原始契約與日誌。
-   - `docs/architecture/holdings-modules.md` 的 `shell-event-bus-tdd.md` 引用改指本 doc。
+   - `docs/architecture/holdings-modules.md` 的 bus 契約說明改指 `docs/architecture/shell-event-bus.md`，`events:refresh` 相關說明改指本 doc。
 
 ---
 
