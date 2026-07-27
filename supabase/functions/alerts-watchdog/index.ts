@@ -527,13 +527,13 @@ async function checkBsrCoverage(admin: any) {
   // fetch snapshots
   const { data: snapsRaw } = await admin
     .from('daily_price_snapshots')
-    .select('symbol,trade_date,volume')
+    .select('symbol,trade_date,volume_shares')
     .in('symbol', symbols)
     .in('trade_date', dates)
     .limit(30000);
   const snapMap = new Map<string, number | null>();
-  for (const s of (snapsRaw ?? []) as Array<{ symbol: string; trade_date: string; volume: number | null }>) {
-    snapMap.set(`${s.symbol}|${s.trade_date}`, s.volume);
+  for (const s of (snapsRaw ?? []) as Array<{ symbol: string; trade_date: string; volume_shares: number | null }>) {
+    snapMap.set(`${s.symbol}|${s.trade_date}`, s.volume_shares);
   }
 
   const inputs: CoverageInput[] = Array.from(agg.values()).map((a) => ({
@@ -541,7 +541,7 @@ async function checkBsrCoverage(admin: any) {
     trade_date: a.trade_date,
     broker_sum_shares: a.sum,
     broker_count: a.cnt,
-    snapshot_volume_lots: snapMap.has(`${a.stock_id}|${a.trade_date}`)
+    snapshot_volume_shares: snapMap.has(`${a.stock_id}|${a.trade_date}`)
       ? snapMap.get(`${a.stock_id}|${a.trade_date}`) ?? null
       : null,
   }));
