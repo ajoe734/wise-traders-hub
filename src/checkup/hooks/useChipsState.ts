@@ -65,6 +65,9 @@ export function deriveChipsState(
   const bsrFresh = payload?.bsr_freshness_status ?? null;
   const queueStatus = payload?.bsr_sync_status?.status ?? null;
   const instRd = payload?.readiness?.institutional?.['5']?.state ?? null;
+  const bsrSealed = payload?.readiness?.sealed === true;
+  const bsrSealedOrUnknown = bsrSealed || payload?.readiness?.sealed == null;
+  const fallbackUsed = payload?.bsr_fallback_used === true;
   const errKind = err?.kind ?? null;
 
   // 2. Ineligible（後端判定 asset_class 不支援）
@@ -152,8 +155,9 @@ export function deriveChipsState(
     };
   }
 
-  // 5. D-1 fallback：有資料但落後預期或只有 raw d5
+  // 5. D-1 fallback：有資料但落後預期、只有 raw d5，或後端明確標記 fallback_used
   const d1 =
+    fallbackUsed ||
     bsrFresh === 'lagging' ||
     payload?.bsr_source === 'raw_fallback' ||
     ((payload?.as_of_lag_days ?? 0) >= 1);
@@ -169,15 +173,28 @@ export function deriveChipsState(
     };
   }
 
-  // 6. Ready
+  // 6. Ready：BSR 已封存（或舊資料未帶 sealed 欄位）且不是 fallback，才稱為「最新交易日」
+  if (bsrSealedOrUnknown && !fallbackUsed) {
+    return {
+      state: 'ready',
+      reason: '資料已為最新交易日',
+      subState: {
+        bsr_freshness: bsrFresh, bsr_queue_status: queueStatus,
+        inst_d5_state: instRd, error_kind: errKind, ineligible_reason: null,
+      },
+      isPolling: false, isD1Fallback: false,
+    };
+  }
+
+  // 6b. 資料已接近最新但後端明確回傳 sealed=false → 仍顯示「補齊中」提示，而非 ready
   return {
-    state: 'ready',
-    reason: '資料已為最新交易日',
+    state: 'filling_new_stock',
+    reason: '資料接近最新，等待最後分點封存確認',
     subState: {
       bsr_freshness: bsrFresh, bsr_queue_status: queueStatus,
       inst_d5_state: instRd, error_kind: errKind, ineligible_reason: null,
     },
-    isPolling: false, isD1Fallback: false,
+    isPolling: true, isD1Fallback: false,
   };
 }
 
@@ -199,7 +216,7 @@ export function useChipsState(params: {
   const lastKeyRef = useRef<string | null>(null);
   useEffect(() => {
     if (!stockCode) return;
-    const key = `${stockCode}::${result.state}::${result.subState.bsr_freshness ?? ''}::${result.subState.bsr_queue_status ?? ''}::${result.subState.inst_d5_state ?? ''}`;
+    const key = `${stockCode}::${result.state}::${result.subState.bsr_freshness ?? ''}::${result.subState.bsr_queue_status ?? ''}::${result.subState.inst_d5_state ?? ''}::${payload?.readiness?.sealed ?? ''}::${payload?.bsr_fallback_used ?? ''}`;
     if (lastKeyRef.current === key) return;
     lastKeyRef.current = key;
     trackEvent('chips_state_resolved', {
@@ -211,8 +228,10 @@ export function useChipsState(params: {
       error_kind: result.subState.error_kind,
       is_polling: result.isPolling,
       is_d1_fallback: result.isD1Fallback,
+      bsr_sealed: payload?.readiness?.sealed ?? false,
+      fallback_used: payload?.bsr_fallback_used ?? false,
     });
-  }, [stockCode, result]);
+  }, [stockCode, result, payload?.readiness?.sealed, payload?.bsr_fallback_used]);
 
   return result;
 }

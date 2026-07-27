@@ -107,3 +107,18 @@ export function countRowsByDate(rows: BsrDailyRow[]): Map<string, number> {
   for (const r of rows) m.set(r.trade_date, (m.get(r.trade_date) ?? 0) + 1);
   return m;
 }
+
+/**
+ * P4：計算 rollup 列的 source_date 與 fallback_used。
+ * source_date = 該視窗中使用的最新交易日
+ * fallback_used = 該最新交易日早於 as_of_date（表示發生回溯）
+ */
+export function rollupSourceMeta(
+  dates: string[],
+  asOfDate: string,
+): { source_date: string; fallback_used: boolean } {
+  if (dates.length === 0) return { source_date: asOfDate, fallback_used: true };
+  const sortedDesc = [...dates].sort((a, b) => (a < b ? 1 : a > b ? -1 : 0));
+  const sourceDate = sortedDesc[0];
+  return { source_date: sourceDate, fallback_used: sourceDate < asOfDate };
+}

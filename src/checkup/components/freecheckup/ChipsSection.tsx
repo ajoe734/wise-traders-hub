@@ -5,6 +5,7 @@ import React, { useEffect, useMemo, useRef, useState } from 'react';
 import { useTwChipsDetail, isTaiwanStockCode, isTaiwanChipEligible, type TwChipsPayload } from '@/checkup/hooks/useTwChipsDetail';
 import { useChipsState } from '@/checkup/hooks/useChipsState';
 import ChipsTrendChart from './ChipsTrendChart';
+import { bsrHeaderLabel } from './bsrHeaderLabel';
 import { supabase } from '@/integrations/supabase/client';
 import { toast } from 'sonner';
 import { trackEvent } from '@/lib/trafficTracker';
@@ -284,37 +285,8 @@ export default function ChipsSection({ WB, stockCode }: { WB: any; stockCode: st
     return () => window.clearTimeout(timer);
   }, [autoBackfill, stockCode, instDays, bsrDays]);
 
-  // 依真實 status 渲染 BSR 標頭文案
-  function fmtNextRun(iso: string | null | undefined): string {
-    if (!iso) return '';
-    return new Date(iso).toLocaleString('zh-TW', {
-      timeZone: 'Asia/Taipei', month: '2-digit', day: '2-digit',
-      hour: '2-digit', minute: '2-digit', hour12: false,
-    });
-  }
-  function bsrHeaderLabel(): { text: string; tone: 'mute' | 'warn' | 'error' } | null {
-    if (data?.bsr_as_of) return null; // 由 AS OF 顯示
-    if (!syncStatus) return null;
-    if (!syncStatus.eligible) {
-      const reason = syncStatus.ineligible_reason;
-      if (reason === 'unsupported_asset_type') return { text: 'ETF／權證無分點資料', tone: 'mute' };
-      if (reason === 'missing_instrument') return { text: '尚無此代號 metadata', tone: 'mute' };
-      return { text: '此代號不支援分點', tone: 'mute' };
-    }
-    if (syncStatus.status === 'running') return { text: 'BSR 同步進行中', tone: 'warn' };
-    if (syncStatus.status === 'pending') {
-      const t = fmtNextRun(syncStatus.next_run_at);
-      return { text: t ? `已排入，${t} 起執行` : '已排入佇列', tone: 'warn' };
-    }
-    if (syncStatus.status === 'failed') {
-      const t = fmtNextRun(syncStatus.next_run_at);
-      return { text: t ? `暫時失敗，${t} 自動重試` : '暫時失敗，將自動重試', tone: 'warn' };
-    }
-    if (syncStatus.status === 'dead') return { text: '多次失敗，請聯繫管理員', tone: 'error' };
-    if (syncStatus.status === 'not_queued') return { text: '等待每日排程（盤後 15:30 起自動同步）', tone: 'mute' };
-    return null;
-  }
-  const headerLabel = bsrHeaderLabel();
+  // 依真實 status 渲染 BSR 標頭文案（單一來源：bsrHeaderLabel.ts）
+  const headerLabel = bsrHeaderLabel(syncStatus, !!data?.bsr_as_of);
 
 
   return (

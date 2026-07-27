@@ -12,7 +12,7 @@ import {
   type Aggregated,
   type FinmindRow,
 } from '../tw-bsr-finmind-sync/lib.ts';
-import { computeBsrWindow, pickWindowDates } from './bsrRollup.ts';
+import { computeBsrWindow, pickWindowDates, rollupSourceMeta } from './bsrRollup.ts';
 import { groupByStock } from './finmindMarketBatch.ts';
 
 export type SnapshotSource = 'finmind_market_batch' | 'finmind_per_stock' | 'manual';
@@ -64,6 +64,7 @@ export async function markSnapshot(
   coverageStocks: number,
   coverageRows: number,
   lastError: string | null = null,
+  sealedByLane: LaneSource | null = null,
 ): Promise<void> {
   const { error } = await supa.rpc('bsr_snapshot_mark', {
     _trade_date: tradeDate,
@@ -72,6 +73,7 @@ export async function markSnapshot(
     _coverage_stocks: coverageStocks,
     _coverage_rows: coverageRows,
     _last_error: lastError,
+    _sealed_by_lane: sealedByLane,
   });
   if (error) console.warn('[snapshot] mark failed:', error.message);
 }
@@ -170,8 +172,10 @@ export async function persistAggregated(
       const dates = pickWindowDates(uniqueDates as string[], win);
       const w = computeBsrWindow(rows as any, dates);
       if (!w) continue;
+      const { source_date, fallback_used } = rollupSourceMeta(dates as string[], tradeDate);
       const row: any = {
         stock_id: sid, as_of_date: tradeDate, window_days: win,
+        source_date, fallback_used,
         foreign_net: 0, trust_net: 0, dealer_net: 0,
         top_buy_brokers: w.top_buy, top_sell_brokers: w.top_sell,
         concentration_ratio: w.concentration_ratio, bsr_available: true,

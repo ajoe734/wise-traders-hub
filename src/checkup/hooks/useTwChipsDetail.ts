@@ -58,6 +58,10 @@ export interface TwChipsPayload {
   bsr_as_of_lag_days?: number | null;
   /** rollup = 正式 5/20/60 日窗；raw_fallback = 只有 d5，來自 raw complete data；null = 無資料 */
   bsr_source?: 'rollup' | 'raw_fallback' | null;
+  /** P4：本次使用的 BSR 資料來源日期（可能因回溯而早於 bsr_as_of） */
+  bsr_source_date?: string | null;
+  /** P4：true 表示 BSR 至少有一個視窗是從過去日期回溯補齊 */
+  bsr_fallback_used?: boolean;
   /** 收盤後預期最新可用 BSR 交易日（Asia/Taipei；不含國定假日） */
   bsr_expected_date?: string | null;
   /** chosen as_of 與 expected_date 的 weekday 差；越大表示越延遲 */
@@ -116,6 +120,10 @@ export interface TwChipsPayload {
   readiness?: {
     institutional: Record<'5' | '20' | '60', WindowReadinessPayload>;
     bsr_concentration: Record<'5' | '20' | '60', WindowReadinessPayload>;
+    /** P3：BSR 快照是否已封存；sealed_at 存在時為 true */
+    sealed?: boolean;
+    sealed_at?: string | null;
+    sealed_by_lane?: string | null;
   };
   /** PR-8：上游熔斷狀態。any_open=true → 前端 5 態機直接進 upstream_outage */
   upstream_circuit?: {
@@ -127,6 +135,20 @@ export interface TwChipsPayload {
       last_error_code: string | null;
     }>;
   };
+  /** P3：後端快照狀態（sealed / partial / stale / missing / ineligible） */
+  snapshot_state?: 'sealed' | 'partial' | 'stale' | 'missing' | 'ineligible';
+  snapshot_status?: {
+    trade_date: string;
+    status: string;
+    sealed_at: string | null;
+    sealed_by_lane: string | null;
+    lane_a_status: string | null;
+    lane_b_status: string | null;
+    lane_c_status: string | null;
+    coverage_stocks: number;
+    coverage_brokers: number;
+    updated_at: string;
+  } | null;
   source: string;
   fetched_at: string;
   /** Phase-2: 本次回應是否命中 request coalescing（同 isolate 併發去重） */
