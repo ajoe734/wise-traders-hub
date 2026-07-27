@@ -3,6 +3,8 @@ import { Badge } from '@/components/ui/badge';
 import { supabase } from '@/integrations/supabase/client';
 import { useQuery } from '@tanstack/react-query';
 import { useMemo } from 'react';
+import { computeChipsFunnel, formatPct } from '@/lib/chipsCacheFunnel';
+
 
 /**
  * Chips Cache Telemetry — Step 0 量測卡片
@@ -94,6 +96,11 @@ export function ChipsCacheTelemetryCard() {
     const openCount = sourceDist['drawer_open'] ?? 0;
     const requestsPerOpen = openCount > 0 ? (starts / openCount) : null;
 
+    // Phase F：端到端漏斗（只算 source='drawer_open'）
+    const funnel = computeChipsFunnel(
+      rows.map((r) => ({ event_name: r.event_name, event_props: r.event_props })),
+    );
+
     return {
       hits, misses, total, errors, starts,
       memoryHitRatio: pct(hits, total),
@@ -102,8 +109,10 @@ export function ChipsCacheTelemetryCard() {
       p95: percentile(durations, 95),
       missReasons, edgeCacheDist, freshnessDist, sourceDist,
       requestsPerOpen,
+      funnel,
     };
   }, [data]);
+
 
   return (
     <Card className="p-5">
