@@ -93,7 +93,7 @@ Deno.test('auditCoverage: mixed classes counted', () => {
   inputs.push(mk('2330', '2026-07-27', 30_100_000, 21505)); // over
 
   const s = auditCoverage(inputs);
-  assertEquals(s.sampleSize, 11);
+  assertEquals(s.sampleSize, 12);
   assertEquals(s.missingSnapshot, 5);
   assertEquals(s.staleSnapshot, 3);
   assertEquals(s.underCover, 1);
