@@ -133,7 +133,7 @@ verify_jwt = false
 verify_jwt = false
 
 [functions.tw-chips-detail]
-verify_jwt = true
+verify_jwt = false
 
 [functions.tw-institutional-daily-sync]
 verify_jwt = false
