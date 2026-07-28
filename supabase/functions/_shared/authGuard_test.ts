@@ -9,6 +9,10 @@
 // bearer without hitting Supabase.
 
 import { assertEquals, assertRejects, assertThrows } from 'https://deno.land/std@0.224.0/assert/mod.ts';
+
+// Disable auth event logging in tests (no DB, no service role key here)
+Deno.env.set('AUTH_EVENT_LOGGING', '0');
+
 import { AuthError, requireCaller, requireCronKey } from './authGuard.ts';
 
 Deno.test('requireCaller: missing Authorization → 401', async () => {
