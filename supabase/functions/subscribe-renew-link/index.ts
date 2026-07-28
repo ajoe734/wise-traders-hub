@@ -5,6 +5,7 @@ import { corsHeaders } from '../_shared/cors.ts';
 import { serviceClient } from '../_shared/supabaseClients.ts';
 import { withLogging } from '../_shared/edgeLogger.ts';
 import { validateInput, validationJsonResponse } from '../_shared/inputValidator.ts';
+import { requireCaller, AuthError } from '../_shared/authGuard.ts';
 // 手動續訂短連結：以 HMAC token 驗證 → 302 重導到正確 checkout 頁。
 // 用於 LINE / Email 提醒，避免直接洩漏 plan_id 與 user_id 組合。
 //
