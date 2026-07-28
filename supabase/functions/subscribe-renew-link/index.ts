@@ -70,6 +70,17 @@ Deno.serve(withLogging('subscribe-renew-link', async (req) => {
 
   // POST /sign  → return signed token (admin/edge use only; checks JWT)
   if (req.method === "POST") {
+    // AUTH: user — POST /sign requires authenticated caller (M-3c contract)
+    try { await requireCaller(req); }
+    catch (e) {
+      if (e instanceof AuthError) {
+        return new Response(JSON.stringify({ error: e.message, code: e.code }), {
+          status: e.status,
+          headers: { ...corsHeaders, "Content-Type": "application/json" },
+        });
+      }
+      throw e;
+    }
     try {
       const body = await req.json();
       const issues = validateInput({
