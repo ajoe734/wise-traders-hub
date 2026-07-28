@@ -59,6 +59,17 @@ async function callAI(messages: any[], temperature = 0.1, maxTokens = 900): Prom
 
 const handler = withLogging('checkup-research-extract', async (req, log) => {
   if (req.method === 'OPTIONS') return new Response(null, { headers: corsHeaders });
+  // AUTH: user — enforce before body parsing (M-3c contract)
+  try { await requireCaller(req); }
+  catch (e) {
+    if (e instanceof AuthError) {
+      return new Response(JSON.stringify({ error: e.message, code: e.code }), {
+        status: e.status,
+        headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+      });
+    }
+    throw e;
+  }
   if (req.method !== 'POST') {
     return codedErrorResponse('METHOD_NOT_ALLOWED', '不支援的 HTTP 方法');
   }
