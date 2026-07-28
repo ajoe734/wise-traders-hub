@@ -337,10 +337,8 @@ export function useTwChipsDetail(stockCode: string | undefined | null, enabled =
     (async () => {
       let status: number | undefined;
       try {
-        const session = await supabase.auth.getSession();
-        const token = session.data.session?.access_token;
         const url = `${(supabase as any).functionsUrl || (import.meta.env.VITE_SUPABASE_URL + '/functions/v1')}/tw-chips-detail?stock_id=${encodeURIComponent(stockCode)}`;
-        const resp = await fetch(url, {
+        const doFetch = async (token: string | undefined) => fetch(url, {
           signal: ctrl.signal,
           headers: {
             apikey: (import.meta.env.VITE_SUPABASE_PUBLISHABLE_KEY as string) || '',
@@ -349,11 +347,25 @@ export function useTwChipsDetail(stockCode: string | undefined | null, enabled =
               : `Bearer ${import.meta.env.VITE_SUPABASE_PUBLISHABLE_KEY}`,
           },
         });
+        const session = await supabase.auth.getSession();
+        let token = session.data.session?.access_token;
+        let resp = await doFetch(token);
+        // Stale JWT recovery: signing-key rotation leaves cached tokens with
+        // "missing sub claim". Refresh once and retry before surfacing 401.
+        if (resp.status === 401 && token) {
+          const { data: refreshed } = await supabase.auth.refreshSession();
+          const newToken = refreshed.session?.access_token;
+          if (newToken && newToken !== token) {
+            token = newToken;
+            resp = await doFetch(token);
+          }
+        }
         status = resp.status;
         const rawText = await resp.text();
         if (!resp.ok) {
           throw new Error(`chips ${resp.status}: ${rawText.slice(0, 120)}`);
         }
+
         const json = JSON.parse(rawText) as TwChipsPayload & {
           _cache_meta?: { cache?: string; stamp_ver?: string };
         };
