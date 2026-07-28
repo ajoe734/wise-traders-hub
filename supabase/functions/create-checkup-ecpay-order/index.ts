@@ -26,6 +26,16 @@ async function generateCheckMacValueAsync(
 }
 
 const handler = withLogging("create-checkup-ecpay-order", async (req, log) => {
+  // AUTH: user — enforce before body parsing (M-3c contract)
+  if (req.method !== 'OPTIONS') {
+    try { await requireCaller(req); }
+    catch (e) {
+      if (e instanceof AuthError) {
+        return jsonResponse({ error: e.message, code: e.code }, { status: e.status });
+      }
+      throw e;
+    }
+  }
   const body = await req.json();
   const { checkupPlanId, billingCycle, amount, planName, origin, userId,
     originalAmount, discountAmount, discountReason, attribution } = body;
