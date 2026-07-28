@@ -81,7 +81,7 @@ export function recordAuthEvent(input: {
       caller_ip: extractCallerIp(input.req),
       correlation_id: extractCorrelationId(input.req),
     };
-    admin.from('edge_function_auth_events').insert(row).then(() => {}).catch(() => {});
+    Promise.resolve(admin.from('edge_function_auth_events').insert(row)).catch(() => {});
   } catch {
     // never surface logging failures to callers
   }
