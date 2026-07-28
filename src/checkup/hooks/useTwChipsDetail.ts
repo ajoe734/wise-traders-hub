@@ -1,5 +1,5 @@
 // useTwChipsDetail — 抽屜私有查詢：台股籌碼面（三大法人 + BSR）
-// 使用 supabase.functions.invoke('tw-chips-detail')；SWR 5 分鐘快取。
+// 呼叫公開市場資料 endpoint `tw-chips-detail`；SWR 5 分鐘快取。
 import { useEffect, useRef, useState } from 'react';
 import { supabase } from '@/integrations/supabase/client';
 import { trackEvent } from '@/lib/trafficTracker';
@@ -338,32 +338,17 @@ export function useTwChipsDetail(stockCode: string | undefined | null, enabled =
       let status: number | undefined;
       try {
         const url = `${(supabase as any).functionsUrl || (import.meta.env.VITE_SUPABASE_URL + '/functions/v1')}/tw-chips-detail?stock_id=${encodeURIComponent(stockCode)}`;
-        const doFetch = async (token: string | undefined) => fetch(url, {
+        // tw-chips-detail 只回公開市場籌碼資料，不依賴使用者身份。
+        // 固定用 publishable anon JWT，避免 demo/匿名模式或瀏覽器殘留 stale user JWT
+        // 觸發後端 auth.getUser() 的「missing sub claim」401，造成抽屜白屏。
+        const doFetch = async () => fetch(url, {
           signal: ctrl.signal,
           headers: {
             apikey: (import.meta.env.VITE_SUPABASE_PUBLISHABLE_KEY as string) || '',
-            Authorization: token
-              ? `Bearer ${token}`
-              : `Bearer ${import.meta.env.VITE_SUPABASE_PUBLISHABLE_KEY}`,
+            Authorization: `Bearer ${import.meta.env.VITE_SUPABASE_PUBLISHABLE_KEY}`,
           },
         });
-        const session = await supabase.auth.getSession();
-        let token = session.data.session?.access_token;
-        let resp = await doFetch(token);
-        // Stale JWT recovery: signing-key rotation leaves cached tokens with
-        // "missing sub claim". Refresh once and retry before surfacing 401.
-        if (resp.status === 401 && token) {
-          const { data: refreshed, error: refreshErr } = await supabase.auth.refreshSession();
-          const newToken = refreshed.session?.access_token;
-          if (newToken && newToken !== token) {
-            token = newToken;
-            resp = await doFetch(token);
-          } else if (refreshErr) {
-            // Refresh token itself is stale/invalid → force sign out so the
-            // next mount re-authenticates instead of looping 401 forever.
-            await supabase.auth.signOut().catch(() => {});
-          }
-        }
+        const resp = await doFetch();
         status = resp.status;
         const rawText = await resp.text();
         if (!resp.ok) {

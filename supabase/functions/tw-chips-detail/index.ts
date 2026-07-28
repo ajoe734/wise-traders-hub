@@ -1,7 +1,8 @@
-// AUTH: user  (auto-annotated 2026-07-27, see docs/security/edge-function-auth-matrix.md)
+// AUTH: public
 // deno-lint-ignore-file no-explicit-any
 // tw-chips-detail
 // 前端唯一查詢入口：回傳單一 stock_id 的籌碼摘要（三大法人 1/5/20/60 日 + BSR top brokers + 集中度）。
+// 僅讀公開市場資料表；不需要使用者身份，避免 demo/匿名模式因 anon JWT 無 sub 被誤擋。
 //
 // 本次修訂（S11「昨日 fallback」）：
 //   - BSR 來源不再只看 tw_chips_rollup。若最新 rollup 已落後預期交易日，
@@ -13,7 +14,6 @@
 //     不可單獨證明完整，避免歷史 fake-done 狀態讓畫面誤顯示今日空資料。
 //     未 complete 的今日 partial data 不會被推為 fallbackAsOf，避免覆蓋昨日完整結果。
 import "jsr:@supabase/functions-js/edge-runtime.d.ts";
-import { requireCaller, AuthError } from '../_shared/authGuard.ts';
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2.45.4";
 import { corsPreflight, jsonResponse, errorResponse } from "../_shared/cors.ts";
 import { cacheGet, cacheSet } from "../_shared/memoryCache.ts";
@@ -45,20 +45,6 @@ type BsrFreshness =
   | "no_data";
 
 Deno.serve(async (req) => {
-  // AUTH: user (Phase M-2 runtime enforcement)
-  if (req.method !== 'OPTIONS') {
-    try { await requireCaller(req); }
-    catch (e) {
-      if (e instanceof AuthError) {
-        return new Response(JSON.stringify({ error: e.message, code: e.code }), {
-          status: e.status,
-          headers: { 'Content-Type': 'application/json', 'Access-Control-Allow-Origin': '*' },
-        });
-      }
-      throw e;
-    }
-  }
-
   if (req.method === "OPTIONS") return corsPreflight();
   try {
     const url = new URL(req.url);
