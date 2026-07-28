@@ -293,9 +293,10 @@ describe('drift-detection: derive.ts hold action 在驗證與模擬中的處理'
 
   it('validateSignalBatch：hold 跳過 quantity/price 必填檢查（continue）', () => {
     expect(src).toMatch(
-      /if \(t\.action === 'hold'\) continue;[\s\S]{0,200}qty[\s\S]{0,100}請填數量/,
+      /if \(t\.action === 'hold'\) continue;[\s\S]{0,200}qty[\s\S]{0,150}請填\$\{t\.isCombo \? '組數' : '數量'\}/,
     );
   });
+
 
   it('validateSignalBatch：hold 需既有持倉，否則拋錯阻擋送出', () => {
     expect(src).toContain('尚無');
