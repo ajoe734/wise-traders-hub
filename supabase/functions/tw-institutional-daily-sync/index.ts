@@ -15,6 +15,7 @@ import { checkKillSwitch } from "../_shared/killSwitch.ts";
 
 const SUPABASE_URL = Deno.env.get("SUPABASE_URL")!;
 const SERVICE_ROLE_KEY = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!;
+const ANON_KEY = Deno.env.get("SUPABASE_ANON_KEY") ?? "";
 
 // 台北時區 YYYYMMDD
 function taipeiToday(): string {
@@ -238,7 +239,7 @@ async function isAdminCaller(req: Request): Promise<{ ok: boolean; reason?: stri
   if (token === SERVICE_ROLE_KEY) return { ok: true };
   // 否則以使用者身份呼叫 has_role
   try {
-    const userClient = createClient(SUPABASE_URL, token, {
+    const userClient = createClient(SUPABASE_URL, ANON_KEY, {
       auth: { persistSession: false },
       global: { headers: { Authorization: `Bearer ${token}` } },
     });
@@ -644,10 +645,12 @@ Deno.serve(async (req) => {
   catch (cronErr) {
     const admin = await isAdminCaller(req);
     if (!admin.ok) {
-      if (cronErr instanceof AuthError) {
-        return errorResponse(cronErr.message, cronErr.status, { code: cronErr.code });
-      }
-      throw cronErr;
+      // 兩條路徑都失敗：優先回傳 admin 檢查失敗原因（cron 排程本來就不會經過瀏覽器）
+      return errorResponse(
+        `unauthorized: not cron and not admin (${admin.reason ?? "unknown"})`,
+        403,
+        { code: "FORBIDDEN" },
+      );
     }
   }
   try {
