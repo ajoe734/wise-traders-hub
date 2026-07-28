@@ -20,6 +20,39 @@ import {
   type AssetClass,
 } from '@/lib/asset';
 import { formatBaseQuantity } from '@/lib/positionQuantity';
+import {
+  analyzeCombo,
+  buildOccSymbol,
+  detectComboStrategy,
+  formatComboLabel,
+  validateCombo,
+  OPTION_CONTRACT_MULTIPLIER,
+  type ComboLeg,
+} from '@/lib/optionCombo';
+
+/**
+ * 一「單位」部位所佔用的資金（以 base quantity 為 1 計）。
+ *
+ * - 一般標的：參考價
+ * - 美股單腿選擇權：參考價 × 100（合約乘數）
+ * - 美股組合單：每組最大損失（風險即佔用資金），與 DB trigger
+ *   `enforce_signal_capital_limit` 的 combo 分支完全一致。
+ */
+export function effectiveUnitCost(
+  t: TradeDraft,
+  assetClass: AssetClass | string | null | undefined,
+): number {
+  if (t.isCombo && (t.legs?.length || 0) >= 2) {
+    const m = analyzeCombo(t.legs as ComboLeg[]);
+    return m.maxLossPerUnit ?? 0;
+  }
+  const price = parseFloat(t.priceHint || '0') || 0;
+  return String(assetClass) === 'us_option' ? price * OPTION_CONTRACT_MULTIPLIER : price;
+}
+
+function capitalAssetClass(capital: CapitalStatus | null): AssetClass | string {
+  return (capital?.asset_class as string) || 'tw_stock';
+}
 
 
 interface SimState {
@@ -83,7 +116,7 @@ function buildStepStates(
       parseInt(t.quantity || '0', 10) || 0,
       t.quantityUnit,
     );
-    const price = parseFloat(t.priceHint || '0') || 0;
+    const price = effectiveUnitCost(t, capitalAssetClass(capital));
     const cur = state.get(code) || { qty: 0, avg: 0 };
 
     if (t.action === 'buy') {
@@ -138,7 +171,7 @@ export function computeCashSim(
       parseInt(t.quantity || '0', 10) || 0,
       t.quantityUnit,
     );
-    const price = parseFloat(t.priceHint || '0') || 0;
+    const price = effectiveUnitCost(t, capitalAssetClass(capital));
     const before = perTradeBefore[idx];
 
     if (t.action === 'buy' || t.action === 'add') {
@@ -204,9 +237,15 @@ export function validateSignalBatch(args: {
   for (let i = 0; i < trades.length; i++) {
     const t = trades[i];
     const tag = `第 ${i + 1} 檔`;
-    if (!t.stockCode.trim()) return `${tag}：請填股票代碼`;
-    if (!isValidAssetSymbol(t.stockCode.trim().toUpperCase(), assetClass)) {
-      return `${tag}：標的代碼格式錯誤（${spec.symbolPlaceholder}）`;
+    if (t.isCombo) {
+      if (assetClass !== 'us_option') return `${tag}：只有美股選擇權可以使用組合單`;
+      const r = validateCombo((t.legs || []) as ComboLeg[]);
+      if (!r.ok) return `${tag}：${r.error}`;
+    } else {
+      if (!t.stockCode.trim()) return `${tag}：請填股票代碼`;
+      if (!isValidAssetSymbol(t.stockCode.trim().toUpperCase(), assetClass)) {
+        return `${tag}：標的代碼格式錯誤（${spec.symbolPlaceholder}）`;
+      }
     }
     if (!spec.units.includes(t.quantityUnit as any)) {
       return `${tag}：${spec.label}單位只能用「${spec.units.join(' / ')}」，不能使用「${t.quantityUnit}」`;
@@ -216,9 +255,11 @@ export function validateSignalBatch(args: {
     // hold = 本週只觀察既有持倉，不進出場：數量/價格可省略
     if (t.action === 'hold') continue;
     const qty = parseInt(t.quantity || '0', 10);
-    if (!qty || qty <= 0) return `${tag}：請填數量`;
-    const price = parseFloat(t.priceHint || '0');
-    if (!price || price <= 0) return `${tag}：請填參考價格`;
+    if (!qty || qty <= 0) return `${tag}：請填${t.isCombo ? '組數' : '數量'}`;
+    if (!t.isCombo) {
+      const price = parseFloat(t.priceHint || '0');
+      if (!price || price <= 0) return `${tag}：請填參考價格`;
+    }
   }
 
   // ── C8：統一模擬狀態源 ──
@@ -229,7 +270,7 @@ export function validateSignalBatch(args: {
   for (const i of order) {
     const t = trades[i];
     const tag = `第 ${i + 1} 檔（${getActionMeta(t.action).label}）`;
-    const price = parseFloat(t.priceHint || '0');
+    const price = effectiveUnitCost(t, assetClass);
     const shares = normalizeSignalQuantityToShares(
       parseInt(t.quantity || '0', 10) || 0,
       t.quantityUnit,
@@ -291,20 +332,36 @@ export function buildPublishRows(args: {
   const order = executionOrder(trades);
   return order.map((origIdx) => {
     const t = trades[origIdx];
-    const quantityUnit = sanitizeAssetQuantityUnit(t.quantityUnit, safeAssetClass);
-    const instrument = t.stockName.trim()
-      ? `${t.stockCode.trim()} ${t.stockName.trim()}`
-      : t.stockCode.trim();
+    const isCombo = !!t.isCombo && (t.legs?.length || 0) >= 2;
+    const comboMetrics = isCombo ? analyzeCombo(t.legs as ComboLeg[]) : null;
+    const quantityUnit = isCombo
+      ? ('組' as const)
+      : sanitizeAssetQuantityUnit(t.quantityUnit, safeAssetClass);
+    const instrument = isCombo
+      ? formatComboLabel(t.legs as ComboLeg[])
+      : (t.stockName.trim()
+        ? `${t.stockCode.trim()} ${t.stockName.trim()}`
+        : t.stockCode.trim());
     const isHold = t.action === 'hold';
     const priceHint = t.priceHint && parseFloat(t.priceHint) > 0 ? parseFloat(t.priceHint) : null;
     const quantity = t.quantity && parseInt(t.quantity, 10) > 0 ? parseInt(t.quantity, 10) : null;
+    // 組合單：price_hint 存「每股等值成本」＝ 每組最大損失 / 100，
+    // 讓下游 price × 口數 × 100 的成本計算與佔用資金一致。
+    const comboPriceHint = comboMetrics
+      ? Math.round(((comboMetrics.maxLossPerUnit || 0) / OPTION_CONTRACT_MULTIPLIER) * 10000) / 10000
+      : null;
     return {
+      id: (globalThis.crypto?.randomUUID?.() ?? undefined) as any,
       expert_id: expertId,
       plan_id: null,
       batch_id: batchId,
       instrument,
       action: t.action as any,
-      price_hint: isHold ? priceHint : parseFloat(t.priceHint),
+      price_hint: isCombo ? comboPriceHint : (isHold ? priceHint : parseFloat(t.priceHint)),
+      is_combo: isCombo,
+      combo_strategy: isCombo ? (t.comboStrategy || detectComboStrategy(t.legs as ComboLeg[])) : null,
+      net_premium: comboMetrics ? comboMetrics.netPremium : null,
+      max_loss_per_unit: comboMetrics ? comboMetrics.maxLossPerUnit : null,
       quantity: isHold ? quantity : parseInt(t.quantity, 10),
       quantity_unit: isHold && !quantity ? null : quantityUnit,
       executed_at: new Date(t.executedAt).toISOString(),
@@ -350,6 +407,40 @@ export function buildTeachingOnlyRow(args: {
     learning_points: sanitizeRichHtml(learningPoints) || null,
     status: status as any,
   } as any];
+}
+
+/**
+ * 把 combo trades 轉成 expert_signal_legs insert payload。
+ * rows 需與 `buildPublishRows` 的輸出對齊（同樣帶著 client 生成的 id）。
+ */
+export function buildComboLegRows(rows: any[], trades: TradeDraft[]) {
+  const byInstrument = new Map<string, TradeDraft>();
+  trades.forEach((t) => {
+    if (t.isCombo && (t.legs?.length || 0) >= 2) {
+      byInstrument.set(formatComboLabel(t.legs as ComboLeg[]), t);
+    }
+  });
+  const out: any[] = [];
+  rows.forEach((r) => {
+    if (!r?.is_combo) return;
+    const t = byInstrument.get(r.instrument);
+    if (!t) return;
+    (t.legs as ComboLeg[]).forEach((l, i) => {
+      out.push({
+        signal_id: r.id,
+        leg_index: i,
+        occ_symbol: buildOccSymbol(l),
+        underlying: String(l.underlying || '').trim().toUpperCase(),
+        expiry: l.expiry,
+        right_type: l.right,
+        strike: Number(l.strike),
+        side: l.side,
+        ratio: Math.max(1, Number(l.ratio || 1)),
+        leg_price: Number(l.price),
+      });
+    });
+  });
+  return out;
 }
 
 // 保留 OpenPosition 型別引用以避免未使用警告
