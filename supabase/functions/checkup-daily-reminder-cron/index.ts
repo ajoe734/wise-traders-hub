@@ -31,7 +31,7 @@ const handler = withLogging('checkup-daily-reminder-cron', async (req, log) => {
     }
   }
 
-  if (_req.method === 'OPTIONS') return corsPreflight();
+  if (req.method === 'OPTIONS') return corsPreflight();
 
   const SUPABASE_URL = Deno.env.get('SUPABASE_URL')!;
   const SERVICE_ROLE_KEY = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')!;
