@@ -5,6 +5,7 @@ import { corsHeaders } from '../_shared/cors.ts';
 import { serviceClient } from '../_shared/supabaseClients.ts';
 import { withLogging } from '../_shared/edgeLogger.ts';
 import { validateInput, validationJsonResponse } from '../_shared/inputValidator.ts';
+import { requireCaller, AuthError } from '../_shared/authGuard.ts';
 // 手動續訂短連結：以 HMAC token 驗證 → 302 重導到正確 checkout 頁。
 // 用於 LINE / Email 提醒，避免直接洩漏 plan_id 與 user_id 組合。
 //
@@ -70,6 +71,17 @@ Deno.serve(withLogging('subscribe-renew-link', async (req) => {
 
   // POST /sign  → return signed token (admin/edge use only; checks JWT)
   if (req.method === "POST") {
+    // AUTH: user — POST /sign requires authenticated caller (M-3c contract)
+    try { await requireCaller(req); }
+    catch (e) {
+      if (e instanceof AuthError) {
+        return new Response(JSON.stringify({ error: e.message, code: e.code }), {
+          status: e.status,
+          headers: { ...corsHeaders, "Content-Type": "application/json" },
+        });
+      }
+      throw e;
+    }
     try {
       const body = await req.json();
       const issues = validateInput({

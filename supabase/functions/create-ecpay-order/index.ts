@@ -5,6 +5,7 @@ import { withLogging } from "../_shared/edgeLogger.ts";
 import { loadEcpayCreds } from "../_shared/ecpayCredentials.ts";
 import { validateExpertOrderAmount } from "../_shared/orderAmountValidator.ts";
 import { validateInput, validationJsonResponse } from "../_shared/inputValidator.ts";
+import { requireCaller, AuthError } from "../_shared/authGuard.ts";
 
 async function generateCheckMacValueAsync(
   params: Record<string, string>, hashKey: string, hashIV: string,
@@ -24,6 +25,16 @@ async function generateCheckMacValueAsync(
 }
 
 const handler = withLogging("create-ecpay-order", async (req, log) => {
+  // AUTH: user — enforce before body parsing (M-3c contract)
+  if (req.method !== 'OPTIONS') {
+    try { await requireCaller(req); }
+    catch (e) {
+      if (e instanceof AuthError) {
+        return jsonResponse({ error: e.message, code: e.code }, { status: e.status });
+      }
+      throw e;
+    }
+  }
   const body = await req.json();
   const {
     planId, billingCycle, slug, amount, planName, expertName, origin, userId,
