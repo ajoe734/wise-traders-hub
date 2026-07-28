@@ -33,6 +33,11 @@ import {
   decideCoverageAlerts,
   type CoverageInput,
 } from '../_shared/bsrCoverageAudit.ts';
+import {
+  DEFAULT_SPIKE_THRESHOLDS,
+  evaluateSpikes,
+  type AuthEventRow,
+} from '../_shared/authFailureSpike.ts';
 
 const WINDOW_MIN = 30;
 const DEDUPE_MIN = 60;
