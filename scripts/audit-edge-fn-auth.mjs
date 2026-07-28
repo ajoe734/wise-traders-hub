@@ -61,11 +61,16 @@ function main() {
   for (const fn of fns) {
     const src = readFileSync(fn.path, 'utf8');
     const { cls, reason } = classify(src);
-    rows.push({ name: fn.name, cls, reason });
+    const hasRuntimeGuard = RUNTIME_GUARD.test(src);
+    rows.push({ name: fn.name, cls, reason, hasRuntimeGuard });
     if (!cls) unclassified.push(fn.name);
   }
 
   rows.sort((a, b) => a.name.localeCompare(b.name));
+
+  const pending = rows.filter(
+    (r) => (r.cls === 'user' || r.cls === 'cron') && !r.hasRuntimeGuard,
+  );
 
   if (write) {
     const lines = [
@@ -75,14 +80,21 @@ function main() {
       '> 分類憲法見 `supabase/functions/_shared/authGuard.ts`。',
       '',
       `覆蓋率：${rows.length - unclassified.length} / ${rows.length}`,
+      `Runtime guard 已上：${rows.length - pending.length - unclassified.length} / ${rows.length - unclassified.length}`,
       '',
-      '| Function | Auth Class |',
-      '| --- | --- |',
-      ...rows.map((r) => `| \`${r.name}\` | ${r.cls ?? '❌ **UNCLASSIFIED**'} |`),
+      '| Function | Auth Class | Runtime Guard |',
+      '| --- | --- | --- |',
+      ...rows.map((r) => {
+        const cls = r.cls ?? '❌ **UNCLASSIFIED**';
+        const rg = r.cls === 'webhook' || r.cls === 'public'
+          ? '—'
+          : (r.hasRuntimeGuard ? '✅' : '⏳ pending');
+        return `| \`${r.name}\` | ${cls} | ${rg} |`;
+      }),
       '',
     ];
     writeFileSync(MATRIX_DOC, lines.join('\n'));
-    console.log(`wrote ${MATRIX_DOC} (${rows.length} functions)`);
+    console.log(`wrote ${MATRIX_DOC} (${rows.length} functions, ${pending.length} pending guard)`);
   }
 
   if (unclassified.length > 0) {
