@@ -17,26 +17,41 @@ Shared helper：`supabase/functions/_shared/authGuard.ts`。
 
 見 [`edge-function-auth-matrix.md`](./edge-function-auth-matrix.md)（由 `node scripts/audit-edge-fn-auth.mjs --write` 自動生成）。
 
-## 兩階段收斂
+## 收斂進度
 
-**Phase M-1（已完成）**：所有 126 支 edge functions 全數分類，CI gate 上線。
+- **M-1（完成）**：126 支 edge functions 全數分類，CI marker gate 上線。
+- **M-2（完成）**：71 支 pending 全數換成 runtime guard；`CRON_SHARED_SECRET` + `public.internal_cron_secrets` + `public.cron_edge_call()` 就位。
+- **M-3a（完成）**：`edge_function_auth_events` + `alerts-watchdog` spike 監控。
+- **M-3b（完成）**：所有 pg_cron job 從裸 `net.http_post` 遷移到 `public.cron_edge_call(fn, body)`，`scripts/audit-pg-cron-commands.mjs` + CI job `pg-cron-command-gate` 阻擋 regression。
+- **M-3c（待辦）**：E2E Auth Contract 覆蓋。
 
-**Phase M-2（burn-down，待辦）**：矩陣中「Runtime Guard = ⏳ pending」的 71 支需要把註解 marker 換成實際 `requireCaller(req)` / `requireCronKey(req)` 呼叫。前置條件：
+## pg_cron 排程規範（M-3b）
 
-- Cron 類：先在 Lovable Cloud 設 `CRON_SHARED_SECRET`，並讓所有 pg_cron `net.http_post` 帶 `X-Cron-Key` header。切換前跑一次 cron dry-run 驗證。
-- User 類：確認呼叫端已帶 Supabase JWT；ECPay 訂單建立類（`create-*-order`）需先確認 checkout 流程是登入後才走。
+新排程 job 一律用：
 
-Burn-down 進度追蹤方式：`node scripts/audit-edge-fn-auth.mjs --write` 後 diff `docs/security/edge-function-auth-matrix.md` 的 pending 數。
+```sql
+SELECT cron.schedule(
+  'job-name',
+  '*/5 * * * *',
+  $$SELECT public.cron_edge_call('edge-fn-name', '{"foo":"bar"}'::jsonb);$$
+);
+```
+
+**禁止**在 `cron.job.command` 內直接寫 `net.http_post(...)`——會把 anon key 與 `X-Cron-Key` 塞進 `cron.job.command`，且 secret rotation 需逐條改。CI `pg-cron-command-gate` 會 fail。
+
+純 SQL 維護 job（如 `SELECT public.cleanup_*()`）不受此規範限制。
 
 ## 新增 edge function checklist
 
 1. 決定 class（見上表）
 2. 在 `index.ts` 最上方加對應 marker/呼叫
-3. 若是 user 類，在 handler 內 `try { await requireCaller(req) } catch (e) { if (e instanceof AuthError) return errorResponse(e.message, e.status, { code: e.code }); throw e; }`
-4. 執行 `node scripts/audit-edge-fn-auth.mjs` 確認綠
+3. 若是 user 類：`try { await requireCaller(req) } catch (e) { if (e instanceof AuthError) return errorResponse(e.message, e.status, { code: e.code }); throw e; }`
+4. 若排程觸發：透過 `public.cron_edge_call('fn-name', body)` 呼叫，不要自己寫 `net.http_post`。
+5. 執行 `node scripts/audit-edge-fn-auth.mjs` 與 `node scripts/audit-pg-cron-commands.mjs`。
 
 ## 驗收
 
-- `node scripts/audit-edge-fn-auth.mjs` 綠 → 100% 分類
-- `deno test supabase/functions/_shared/authGuard_test.ts` 5/5 綠
-- `.github/workflows/security-audit.yml` 的 `edge-fn-auth-matrix` job 綠
+- `node scripts/audit-edge-fn-auth.mjs` 綠
+- `node scripts/audit-pg-cron-commands.mjs` 綠（legacy=0）
+- `deno test supabase/functions/_shared/authGuard_test.ts supabase/functions/_shared/authFailureSpike_test.ts` 綠
+- `.github/workflows/security-audit.yml` 的 `edge-fn-auth-matrix` 與 `pg-cron-command-gate` job 綠
