@@ -3,8 +3,8 @@
 > 由 `scripts/audit-edge-fn-auth.mjs --write` 自動產生，勿手動編輯。
 > 分類憲法見 `supabase/functions/_shared/authGuard.ts`。
 
-覆蓋率：126 / 126
-Runtime guard 已上：55 / 126
+覆蓋率：125 / 125
+Runtime guard 已上：60 / 125
 
 | Function | Auth Class | Runtime Guard |
 | --- | --- | --- |
@@ -29,10 +29,10 @@ Runtime guard 已上：55 / 126
 | `backfill-snapshots-twse-bulk` | cron | ⏳ pending |
 | `backfill-worker` | cron | ⏳ pending |
 | `checkup-analyst-reports` | cron | ⏳ pending |
-| `checkup-analyze` | user | ⏳ pending |
+| `checkup-analyze` | user | ✅ |
 | `checkup-analyze-enqueue` | user | ⏳ pending |
 | `checkup-analyze-worker` | cron | ⏳ pending |
-| `checkup-brain` | user | ⏳ pending |
+| `checkup-brain` | user | ✅ |
 | `checkup-calendar` | user | ⏳ pending |
 | `checkup-calendar-cron` | cron | ⏳ pending |
 | `checkup-daily-reminder-cron` | cron | ⏳ pending |
@@ -42,8 +42,8 @@ Runtime guard 已上：55 / 126
 | `checkup-mops-announcements` | cron | ⏳ pending |
 | `checkup-mops-revenue` | cron | ⏳ pending |
 | `checkup-notify-complete` | cron | ⏳ pending |
-| `checkup-parse` | cron | ⏳ pending |
-| `checkup-predict-events` | cron | ⏳ pending |
+| `checkup-parse` | cron | ✅ |
+| `checkup-predict-events` | cron | ✅ |
 | `checkup-quota-audit` | cron | ⏳ pending |
 | `checkup-report` | user | ✅ |
 | `checkup-research` | user | ✅ |
@@ -67,7 +67,7 @@ Runtime guard 已上：55 / 126
 | `crypto-price-sync` | cron | ⏳ pending |
 | `daily-performance` | cron | ⏳ pending |
 | `daily-snapshot` | cron | ⏳ pending |
-| `data-upsert` | user | ⏳ pending |
+| `data-upsert` | user | ✅ |
 | `e2e-simulate-purchase` | user | ✅ |
 | `ecpay-callback` | webhook | — |
 | `email-push-renewal-reminder` | cron | ⏳ pending |
@@ -92,7 +92,6 @@ Runtime guard 已上：55 / 126
 | `line-push-renewal-reminder` | cron | ⏳ pending |
 | `line-push-signal` | user | ✅ |
 | `line-webhook` | webhook | — |
-| `mcp` | public | — |
 | `notify-backtest-result` | cron | ⏳ pending |
 | `notify-payment-failure` | cron | ⏳ pending |
 | `og-card` | public | — |
@@ -114,7 +113,7 @@ Runtime guard 已上：55 / 126
 | `stock-price-sync` | public | — |
 | `stream-metrics-report` | cron | ⏳ pending |
 | `submit-remittance-info` | user | ✅ |
-| `subscribe-renew-link` | user | ⏳ pending |
+| `subscribe-renew-link` | user | ✅ |
 | `tpex-proxy` | public | — |
 | `traffic-cleanup` | cron | ⏳ pending |
 | `traffic-ingest` | public | — |
