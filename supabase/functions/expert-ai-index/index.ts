@@ -38,14 +38,7 @@ Deno.serve(withLogging('expert-ai-index', async (req, log) => {
     return errorResponse('missing env', 500);
   }
 
-  const body = await req.json().catch(() => ({}));
-  const expertId = body.expert_id as string | undefined;
-  const triggerSource = (body.trigger_source as string | undefined) || 'manual';
-  if (!expertId) return errorResponse('expert_id required', 400);
-
-  const admin = createClient(SUPABASE_URL, SERVICE_KEY);
-
-  // AUTH: user — Authorization header is REQUIRED (M-3c contract)
+  // AUTH: user — enforce BEFORE body parsing (M-3c contract)
   const authHeader = req.headers.get('Authorization');
   if (!authHeader) return errorResponse('unauthorized', 401);
   const userClient = createClient(SUPABASE_URL, Deno.env.get('SUPABASE_ANON_KEY') || '', {
@@ -54,6 +47,13 @@ Deno.serve(withLogging('expert-ai-index', async (req, log) => {
   const { data: userData } = await userClient.auth.getUser();
   const uid = userData?.user?.id;
   if (!uid) return errorResponse('unauthorized', 401);
+
+  const body = await req.json().catch(() => ({}));
+  const expertId = body.expert_id as string | undefined;
+  const triggerSource = (body.trigger_source as string | undefined) || 'manual';
+  if (!expertId) return errorResponse('expert_id required', 400);
+
+  const admin = createClient(SUPABASE_URL, SERVICE_KEY);
   const { data: exp } = await admin.from('experts').select('user_id').eq('id', expertId).maybeSingle();
   const { data: role } = await admin.from('user_roles').select('role').eq('user_id', uid).in('role', ['company_admin']).maybeSingle();
   if (exp?.user_id !== uid && !role) return errorResponse('forbidden', 403);
