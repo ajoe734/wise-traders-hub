@@ -5,6 +5,7 @@ import {
   normalizeCurrency,
 } from '@/lib/currency';
 import { getAssetSpec, normalizeAssetClass, type AssetClass, type QuantityUnit } from '@/lib/asset';
+import type { ComboLeg, ComboStrategy } from '@/lib/optionCombo';
 
 export interface OpenPosition {
   id?: string;
@@ -70,6 +71,10 @@ export interface TradeDraft {
   reasonSummary: string;
   reasonDetail: string;
   riskNotes: string;
+  /** 美股選擇權原生組合單：一張訊號 = 多腿，quantityUnit 用「組」 */
+  isCombo?: boolean;
+  comboStrategy?: ComboStrategy;
+  legs?: ComboLeg[];
 }
 
 export const newUid = () => Math.random().toString(36).slice(2, 10);
@@ -99,6 +104,9 @@ export const emptyTrade = (assetOrCurrency: Currency | AssetClass = 'TWD'): Trad
   reasonSummary: '',
   reasonDetail: '',
   riskNotes: '',
+  isCombo: false,
+  comboStrategy: 'custom',
+  legs: [],
   };
 };
 
