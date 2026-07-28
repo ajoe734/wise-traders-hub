@@ -1,3 +1,4 @@
+// AUTH: user  (auto-annotated 2026-07-27, see docs/security/edge-function-auth-matrix.md)
 // 週五訓練對話台：讀該週已發佈週記→AI 提補完題→老師回覆→AI 產出候選知識條目與週記建議
 // Actions: list_weeks | get_session | start_session | save_answers | generate_suggestions | accept_knowledge | discard_session | complete_session
 import { createClient } from 'npm:@supabase/supabase-js@2';

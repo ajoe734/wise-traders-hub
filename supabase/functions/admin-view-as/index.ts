@@ -1,3 +1,4 @@
+// AUTH: user  (auto-annotated 2026-07-27, see docs/security/edge-function-auth-matrix.md)
 // admin-view-as: issue + resolve short-lived view-as tokens for company admins.
 // - action=issue:   admin requests a token for target_user_id (15 min TTL, one-shot)
 // - action=resolve: viewer page exchanges token → { admin_id, target_user_id, target_email }

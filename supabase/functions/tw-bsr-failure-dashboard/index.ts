@@ -1,3 +1,4 @@
+// AUTH: cron  (auto-annotated 2026-07-27, see docs/security/edge-function-auth-matrix.md)
 // deno-lint-ignore-file no-explicit-any
 // tw-bsr-failure-dashboard
 // 後台 BSR OCR 失敗看板：

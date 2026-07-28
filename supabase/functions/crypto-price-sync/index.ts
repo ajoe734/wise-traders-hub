@@ -1,3 +1,4 @@
+// AUTH: cron  (auto-annotated 2026-07-27, see docs/security/edge-function-auth-matrix.md)
 // crypto-price-sync
 // 每 5 分鐘同步 crypto_symbol_map 內所有 is_active=true 的幣別現價
 // 資料源優先順序：Binance /api/v3/ticker/24hr → Coingecko simple/price fallback

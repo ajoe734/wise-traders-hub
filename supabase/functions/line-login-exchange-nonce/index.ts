@@ -1,3 +1,4 @@
+// AUTH: public  (auto-annotated 2026-07-27, see docs/security/edge-function-auth-matrix.md)
 // Exchange a one-time LINE login nonce for a real Supabase session.
 //
 // Why this exists:

@@ -1,3 +1,4 @@
+// AUTH: cron  (auto-annotated 2026-07-27, see docs/security/edge-function-auth-matrix.md)
 // W4-1: Email 續訂提醒
 // 每日 09:10 (UTC+8)：T-7 / T-3 / T-1 active 訂閱 + T+1 expired 訂閱（24h 內回購保留資料）
 // Idempotency: audit_logs action='subscription.renewal_email_sent' + detail.days_left

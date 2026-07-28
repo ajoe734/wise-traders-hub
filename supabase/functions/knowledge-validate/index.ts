@@ -1,3 +1,4 @@
+// AUTH: cron  (auto-annotated 2026-07-27, see docs/security/edge-function-auth-matrix.md)
 // deno-lint-ignore-file
 // 知識庫盲測回填 + 自動降權
 // 由 pg_cron 每週日 03:00 UTC+8 觸發

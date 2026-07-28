@@ -1,3 +1,4 @@
+// AUTH: cron  (auto-annotated 2026-07-27, see docs/security/edge-function-auth-matrix.md)
 // deno-lint-ignore-file no-explicit-any
 // tw-bsr-daily-sync
 // 抓 TWSE BSR（分點買賣超）→ 落地 tw_bsr_daily → 重算 tw_chips_rollup

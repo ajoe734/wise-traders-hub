@@ -1,3 +1,4 @@
+// AUTH: cron  (auto-annotated 2026-07-27, see docs/security/edge-function-auth-matrix.md)
 // backfill-worker
 // P5: Gap-Driven Opportunistic Backfill worker — 從 backfill_job_queue 領取 job，
 // 使用 FinMind date-range API（1 call = 1 stock 的一段日期）回填籌碼面、三大法人、基本面。

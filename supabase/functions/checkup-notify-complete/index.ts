@@ -1,3 +1,4 @@
+// AUTH: cron  (auto-annotated 2026-07-27, see docs/security/edge-function-auth-matrix.md)
 // 收盤分析完成 → 同時推 Line / Email / 站內通知
 // Input: { job_id: string }
 // 由前端在 useDailyAnalysisWorkflow 完成時呼叫；也可由背景 worker 呼叫。

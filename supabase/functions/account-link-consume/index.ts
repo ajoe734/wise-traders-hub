@@ -1,3 +1,4 @@
+// AUTH: user  (auto-annotated 2026-07-27, see docs/security/edge-function-auth-matrix.md)
 // Consume a 6-digit account-link code.
 // The CURRENT caller becomes the SECONDARY; the code initiator is the PRIMARY.
 // All of the secondary's data is moved to the primary; the secondary auth user is disabled.

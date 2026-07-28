@@ -1,3 +1,4 @@
+// AUTH: cron  (auto-annotated 2026-07-27, see docs/security/edge-function-auth-matrix.md)
 import { corsHeaders } from '../_shared/cors.ts';
 import { withLogging } from '../_shared/edgeLogger.ts';
 // DEPRECATED: 平台改採「手動續訂」模型，所有金流（ECPay/LINE Pay/匯款）皆為單筆扣款，

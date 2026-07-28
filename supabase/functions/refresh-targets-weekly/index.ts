@@ -1,3 +1,4 @@
+// AUTH: cron  (auto-annotated 2026-07-27, see docs/security/edge-function-auth-matrix.md)
 // deno-lint-ignore-file
 // supabase/functions/refresh-targets-weekly/index.ts
 // 每週自動刷新「過去 30 天有登入」用戶的持股目標價，

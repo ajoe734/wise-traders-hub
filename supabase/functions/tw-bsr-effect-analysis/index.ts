@@ -1,3 +1,4 @@
+// AUTH: cron  (auto-annotated 2026-07-27, see docs/security/edge-function-auth-matrix.md)
 // deno-lint-ignore-file no-explicit-any
 // tw-bsr-effect-analysis
 // UA 池 / backoff / 連續失敗次數 對成功率影響的分析。

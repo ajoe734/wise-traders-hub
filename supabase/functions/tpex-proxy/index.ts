@@ -1,3 +1,4 @@
+// AUTH: public  (auto-annotated 2026-07-27, see docs/security/edge-function-auth-matrix.md)
 // deno-lint-ignore-file
 import "jsr:@supabase/functions-js/edge-runtime.d.ts";
 import { cacheGet, cacheSet } from '../_shared/memoryCache.ts';

@@ -1,3 +1,4 @@
+// AUTH: cron  (auto-annotated 2026-07-27, see docs/security/edge-function-auth-matrix.md)
 // 背景 worker：讀 job.prompts_payload，依序呼叫 checkup-analyze 三次
 // 保存 raw_responses + 簡易 result_summary，最後觸發 checkup-notify-complete
 // 僅接受 service_role 觸發

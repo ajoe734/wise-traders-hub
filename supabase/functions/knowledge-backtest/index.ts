@@ -1,3 +1,4 @@
+// AUTH: cron  (auto-annotated 2026-07-27, see docs/security/edge-function-auth-matrix.md)
 // 知識庫歷史回測引擎
 // 模式:
 //   - mode=single: 對單一 knowledge item 用其當前 trigger_condition 跑回測

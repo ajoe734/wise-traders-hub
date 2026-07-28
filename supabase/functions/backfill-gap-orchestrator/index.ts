@@ -1,3 +1,4 @@
+// AUTH: cron  (auto-annotated 2026-07-27, see docs/security/edge-function-auth-matrix.md)
 // backfill-gap-orchestrator
 // P5: Gap-Driven Opportunistic Backfill — 缺口掃描 + 通用回填佇列入列。
 //

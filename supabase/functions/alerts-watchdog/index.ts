@@ -1,3 +1,4 @@
+// AUTH: cron  (auto-annotated 2026-07-27, see docs/security/edge-function-auth-matrix.md)
 // Real-time guardrail watchdog. Cron every 5 minutes.
 // Computes checkout failure rate, paywall drop, function failure spike for the
 // last 30-minute window and writes deduped rows into public.system_alerts.

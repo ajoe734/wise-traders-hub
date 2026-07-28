@@ -1,3 +1,4 @@
+// AUTH: cron  (auto-annotated 2026-07-27, see docs/security/edge-function-auth-matrix.md)
 // deno-lint-ignore-file
 // 自動排程器：把每個 category 的候選池 + 主表補到目標 100 條
 // - 由 pg_cron 每 2 分鐘呼叫一次

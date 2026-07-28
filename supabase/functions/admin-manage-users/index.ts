@@ -1,3 +1,4 @@
+// AUTH: user  (auto-annotated 2026-07-27, see docs/security/edge-function-auth-matrix.md)
 import { createClient } from 'https://esm.sh/@supabase/supabase-js@2.57.4';
 
 import { corsHeaders } from '../_shared/cors.ts';

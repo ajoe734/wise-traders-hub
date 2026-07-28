@@ -1,3 +1,4 @@
+// AUTH: cron  (auto-annotated 2026-07-27, see docs/security/edge-function-auth-matrix.md)
 // 串流可觀察性上報端點
 //
 // 接收 parseAndValidateUiStream（或 client 端 useExpertAiChat）的終止資訊：

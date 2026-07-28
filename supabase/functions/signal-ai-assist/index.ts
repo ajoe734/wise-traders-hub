@@ -1,3 +1,4 @@
+// AUTH: cron  (auto-annotated 2026-07-27, see docs/security/edge-function-auth-matrix.md)
 // 訊號／週記富文字欄位的 AI 助寫
 // 使用 Lovable AI Gateway，回傳一段 HTML 字串供 TipTap 直接 setContent。
 

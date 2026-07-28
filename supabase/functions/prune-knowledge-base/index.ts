@@ -1,3 +1,4 @@
+// AUTH: cron  (auto-annotated 2026-07-27, see docs/security/edge-function-auth-matrix.md)
 // deno-lint-ignore-file
 // 知識庫清理：自動把死庫存 / 實戰打臉的條目降級為 archived。
 // 規則（兩條獨立，符合任一即降級）：

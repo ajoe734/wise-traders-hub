@@ -1,3 +1,4 @@
+// AUTH: user  (auto-annotated 2026-07-27, see docs/security/edge-function-auth-matrix.md)
 // Admin-only: force-merge secondary_user_id INTO primary_user_id without a code.
 // Used by /company/subscribers "代客綁定" when the member can't run the flow himself.
 // Same data-movement semantics as account-link-consume.

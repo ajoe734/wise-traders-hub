@@ -1,3 +1,4 @@
+// AUTH: cron  (auto-annotated 2026-07-27, see docs/security/edge-function-auth-matrix.md)
 // deno-lint-ignore-file no-explicit-any
 // tw-institutional-daily-sync
 // 抓 TWSE T86（全市場三大法人買賣超日報）並落地到 tw_institutional_daily

@@ -1,3 +1,4 @@
+// AUTH: cron  (auto-annotated 2026-07-27, see docs/security/edge-function-auth-matrix.md)
 // deno-lint-ignore-file
 // 知識庫候選晉升：從盲測案例中發現「跨多檔股票連續應驗」的 trigger pattern，
 // 由 Claude 總結成新知識條目骨架 → 寫進 checkup_knowledge_candidates 等管理員審核。

@@ -1,3 +1,4 @@
+// AUTH: cron  (auto-annotated 2026-07-27, see docs/security/edge-function-auth-matrix.md)
 // publish-weekly-journals-runner
 //
 // 執行「本週週記批次」的一次嘗試，並在失敗/timeout 時，於 publish_batch_attempts

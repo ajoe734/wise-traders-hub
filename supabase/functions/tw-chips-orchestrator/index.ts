@@ -1,3 +1,4 @@
+// AUTH: cron  (auto-annotated 2026-07-27, see docs/security/edge-function-auth-matrix.md)
 // tw-chips-orchestrator (P2)
 //
 // Single-responsibility orchestrator:
