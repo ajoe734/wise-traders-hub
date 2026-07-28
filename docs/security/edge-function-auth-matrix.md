@@ -98,7 +98,7 @@ Runtime guard 已上：125 / 125
 | `ops-health` | user | ✅ |
 | `process-refund` | user | ✅ |
 | `prune-knowledge-base` | cron | ✅ |
-| `publish-weekly-journals` | user | ✅ |
+| `publish-weekly-journals` | cron | ✅ |
 | `publish-weekly-journals-runner` | cron | ✅ |
 | `publish-weekly-journals-watchdog` | cron | ✅ |
 | `reconcile-warrant-quantities` | cron | ✅ |
