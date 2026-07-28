@@ -6,6 +6,7 @@ import { validateInput, validationResponse } from "../_shared/inputValidator.ts"
 import { consumeCheckupQuota, quotaErrorResponse } from "../_shared/checkupQuota.ts";
 import { corsHeaders, jsonResponse } from "../_shared/cors.ts";
 import { withLogging } from "../_shared/edgeLogger.ts";
+import { requireCaller, AuthError } from '../_shared/authGuard.ts';
 
 const GATEWAY_URL = 'https://ai.gateway.lovable.dev/v1/chat/completions';
 const ANTHROPIC_URL = 'https://api.anthropic.com/v1/messages';
