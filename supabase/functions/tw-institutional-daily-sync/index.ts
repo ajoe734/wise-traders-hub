@@ -9,6 +9,7 @@
 import "jsr:@supabase/functions-js/edge-runtime.d.ts";
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2.45.4";
 import { corsHeaders, corsPreflight, jsonResponse, errorResponse } from "../_shared/cors.ts";
+import { requireCronKey, AuthError } from "../_shared/authGuard.ts";
 import { checkCircuit, recordCircuit } from "../_shared/circuitBreaker.ts";
 import { checkKillSwitch } from "../_shared/killSwitch.ts";
 
