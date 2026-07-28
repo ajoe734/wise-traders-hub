@@ -70,6 +70,18 @@ Deno.serve(withLogging('checkup-parse', async (req) => {
     return codedErrorResponse('METHOD_NOT_ALLOWED', '不支援的 HTTP 方法');
   }
 
+  // M-4: 401 contract — reject missing bearer before body parse / quota check
+  try { await requireCaller(req); }
+  catch (e) {
+    if (e instanceof AuthError) {
+      return new Response(JSON.stringify({ error: e.message, code: e.code }), {
+        status: e.status, headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+      });
+    }
+    throw e;
+  }
+
+
   const apiKey = Deno.env.get('LOVABLE_API_KEY');
   if (!apiKey) {
     return new Response(JSON.stringify({ error: 'LOVABLE_API_KEY 未設定' }), {
