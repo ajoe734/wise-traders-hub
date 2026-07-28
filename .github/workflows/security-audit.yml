@@ -49,4 +49,16 @@ jobs:
       - name: Scan repo for forbidden demo identifiers / CSS tokens
         run: npm run check:no-demo-artifacts
 
+  edge-fn-auth-matrix:
+    name: Edge Function auth marker gate
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+      - name: Every edge function must declare an AUTH class
+        run: node scripts/audit-edge-fn-auth.mjs
+
+
 

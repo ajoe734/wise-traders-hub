@@ -1,3 +1,4 @@
+// AUTH: cron  (auto-annotated 2026-07-27, see docs/security/edge-function-auth-matrix.md)
 // publish-weekly-journals-watchdog
 //
 // 每分鐘 pg_cron 呼叫一次；掃描 publish_batch_attempts 中 status='pending_retry'

@@ -1,3 +1,4 @@
+// AUTH: user  (auto-annotated 2026-07-27, see docs/security/edge-function-auth-matrix.md)
 // 建立／更新指定導師的知識庫向量索引。
 // 輸入: { expert_id, trigger_source? } — 需 service role 或 company_admin 或該導師本人身份呼叫。
 // 步驟: 1) 開一筆 run（status=running）

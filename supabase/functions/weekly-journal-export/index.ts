@@ -1,3 +1,4 @@
+// AUTH: user  (auto-annotated 2026-07-27, see docs/security/edge-function-auth-matrix.md)
 // Weekly journal export — 每週五 23:30 Asia/Taipei 自動執行
 // 抓當週 (Mon 00:00 ~ next Mon 00:00) 所有 mentor 已發布週記
 // → 每位老師產出獨立 Markdown 檔（<週別>/<slug>.md）

@@ -1,3 +1,4 @@
+// AUTH: public  (auto-annotated 2026-07-27, see docs/security/edge-function-auth-matrix.md)
 // Ingest anonymous + authenticated traffic events.
 //
 // Two payload kinds:

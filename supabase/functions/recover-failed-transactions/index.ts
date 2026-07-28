@@ -1,3 +1,4 @@
+// AUTH: cron  (auto-annotated 2026-07-27, see docs/security/edge-function-auth-matrix.md)
 // W4-3: T+24h 失敗 / 棄單 最後一次回收
 // 每日 10:00 UTC+8（02:00 UTC）執行：掃 payment_intents pending 且
 // created_at 落在 [now-26h, now-22h]、final_recovery_notified_at IS NULL 的訂單，

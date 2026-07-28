@@ -1,3 +1,4 @@
+// AUTH: cron  (auto-annotated 2026-07-27, see docs/security/edge-function-auth-matrix.md)
 // tw-ocr-replay/index.ts
 // On-demand HTTP 端點：從伺服端 fixtures 目錄跑 replay，回傳結構化 report。
 // 僅 company_admin 可存取；生產不會主動呼叫，供後台/CI dispatch 手動觸發。

@@ -1,3 +1,4 @@
+// AUTH: cron  (auto-annotated 2026-07-27, see docs/security/edge-function-auth-matrix.md)
 // W4-2: 棄單回收
 // 每 30 分鐘執行：掃 payment_intents pending 且 created_at 落在 [now-2h, now-30min]，
 // 透過 LINE（有綁定）或 Email（無綁定但有可寄信信箱）一次性提醒繼續付款。

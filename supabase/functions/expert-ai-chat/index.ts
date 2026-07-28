@@ -1,3 +1,4 @@
+// AUTH: user  (auto-annotated 2026-07-27, see docs/security/edge-function-auth-matrix.md)
 // 主對話端點: AI 分身回覆 (streaming)
 // POST body: { expert_id, messages: UIMessage[] }
 // 權限: 必須為該導師的 active 訂閱者 (或該導師本人 / company_admin 預覽)

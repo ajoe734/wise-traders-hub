@@ -1,3 +1,4 @@
+// AUTH: cron  (auto-annotated 2026-07-27, see docs/security/edge-function-auth-matrix.md)
 // tw-bsr-finmind-sync
 // 分層佇列 + 全域限流 + 自動降級狀態機的 FinMind BSR 抓取器。
 //

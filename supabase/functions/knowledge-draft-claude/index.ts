@@ -1,3 +1,4 @@
+// AUTH: user  (auto-annotated 2026-07-27, see docs/security/edge-function-auth-matrix.md)
 // deno-lint-ignore-file
 // 知識庫 AI 草稿引擎（Claude）
 // - 由公司管理員觸發

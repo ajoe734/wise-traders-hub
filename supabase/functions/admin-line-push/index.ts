@@ -1,3 +1,4 @@
+// AUTH: user  (auto-annotated 2026-07-27, see docs/security/edge-function-auth-matrix.md)
 // Admin-only Line push: process a job in line_push_jobs (immediate or invoked by cron).
 // Body: { job_id: string }
 // Auth: requires company_admin (verified via has_role).

@@ -1,3 +1,4 @@
+// AUTH: webhook-signature  (auto-annotated 2026-07-27, see docs/security/edge-function-auth-matrix.md)
 // P4 D-12：line-webhook 由 LINE 平台 server 直接 POST，無瀏覽器情境，
 // 不應回 `Access-Control-Allow-Origin: *`。鎖死成 LINE 官方來源即可。
 import { createClient } from 'https://esm.sh/@supabase/supabase-js@2.49.1'

@@ -1,3 +1,4 @@
+// AUTH: user  (auto-annotated 2026-07-27, see docs/security/edge-function-auth-matrix.md)
 import { corsHeaders } from '../_shared/cors.ts';
 import { withLogging } from '../_shared/edgeLogger.ts';
 import { validateInput, validationResponse } from '../_shared/inputValidator.ts';

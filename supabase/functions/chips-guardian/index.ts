@@ -1,3 +1,4 @@
+// AUTH: cron  (auto-annotated 2026-07-27, see docs/security/edge-function-auth-matrix.md)
 // PR-9 / Phase-1: Chips Pipeline Guardian
 // 每 10 分鐘 cron 呼叫。
 //

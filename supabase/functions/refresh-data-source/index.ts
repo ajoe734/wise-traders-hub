@@ -1,3 +1,4 @@
+// AUTH: user  (auto-annotated 2026-07-27, see docs/security/edge-function-auth-matrix.md)
 // refresh-data-source: 立即重新抓取指定的免費資料源，回傳最新筆數並寫入 refresh log
 //
 // 支援的 source_key：

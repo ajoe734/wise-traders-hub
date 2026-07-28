@@ -1,3 +1,4 @@
+// AUTH: user  (auto-annotated 2026-07-27, see docs/security/edge-function-auth-matrix.md)
 // Generate a 6-digit account-link code for the current authenticated user.
 // The user who calls this becomes the PRIMARY (canonical) account after merge.
 import { createClient } from 'https://esm.sh/@supabase/supabase-js@2.45.0';

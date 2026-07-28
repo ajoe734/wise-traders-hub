@@ -1,3 +1,4 @@
+// AUTH: user  (auto-annotated 2026-07-27, see docs/security/edge-function-auth-matrix.md)
 // e2e-simulate-purchase — test-only endpoint used by Route B live smoke.
 //
 // 目的：讓 daily cron 可以在真實後端跑完整 purchase 漏斗（member_subscriptions

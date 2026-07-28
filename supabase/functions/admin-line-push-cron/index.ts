@@ -1,3 +1,4 @@
+// AUTH: cron  (auto-annotated 2026-07-27, see docs/security/edge-function-auth-matrix.md)
 // Cron: scan line_push_jobs for pending+scheduled and process them.
 // Invoked by pg_cron every minute. No auth (relies on service role + scheduled URL).
 import { corsPreflight, jsonResponse, errorResponse } from '../_shared/cors.ts';

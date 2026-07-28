@@ -1,3 +1,4 @@
+// AUTH: webhook-signature  (auto-annotated 2026-07-27, see docs/security/edge-function-auth-matrix.md)
 import { serviceClient } from "../_shared/supabaseClients.ts";
 import { withLogging } from "../_shared/edgeLogger.ts";
 import { acpayDeriveKeyAndIv as deriveKeyAndIv, acpayAesDecrypt as aesDecrypt, acpayRecurringExtractTxId, isDuplicatePaymentTx } from "../_shared/paymentVerify.ts";

@@ -1,3 +1,4 @@
+// AUTH: user  (auto-annotated 2026-07-27, see docs/security/edge-function-auth-matrix.md)
 // 收盤分析背景化入口：建立 job + fire-and-forget 觸發 worker
 // 前端送 { prompts: { blind, main, brain }, holdings_snapshot } —— 前端負責組 prompt
 // 回傳 { job_id }，使用者可立即關閉頁面。

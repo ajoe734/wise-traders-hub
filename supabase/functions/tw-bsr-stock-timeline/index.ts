@@ -1,3 +1,4 @@
+// AUTH: cron  (auto-annotated 2026-07-27, see docs/security/edge-function-auth-matrix.md)
 // 逐檔 BSR 時間軸：回傳指定股票近 N 天的所有 attempt 記錄
 // 內含實際抓取時間、HTTP 狀態碼、outcome、latency、UA、backoff/consecutive 狀態、
 // fallback as_of_date、next_retry_at 及其推算來源。

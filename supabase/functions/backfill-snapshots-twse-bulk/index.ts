@@ -1,3 +1,4 @@
+// AUTH: cron  (auto-annotated 2026-07-27, see docs/security/edge-function-auth-matrix.md)
 // Phase L2-3 — TWSE STOCK_DAY_ALL bulk 回填 daily_price_snapshots
 // 補齊 current_prices 沒涵蓋的大盤股（BSR 有分點但 snapshot missing 的那 487 檔）
 // volume_shares 由 TradeVolume 直接取得（shares），避免張/股單位再次錯亂

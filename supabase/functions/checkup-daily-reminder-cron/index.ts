@@ -1,3 +1,4 @@
+// AUTH: cron  (auto-annotated 2026-07-27, see docs/security/edge-function-auth-matrix.md)
 // 每日 14:00 (UTC+8) cron：找出「有效訂閱 + 有持倉」的用戶，推播「今日可跑收盤分析」
 // Line（若 profile.line_user_id 存在）+ 站內通知；Email 視為次要管道（暫不發）
 // 用 checkup_daily_reminders UNIQUE(user_id, reminded_on) 防重複。

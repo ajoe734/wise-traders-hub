@@ -1,3 +1,4 @@
+// AUTH: user  (auto-annotated 2026-07-27, see docs/security/edge-function-auth-matrix.md)
 import { jsonResponse } from "../_shared/cors.ts";
 import { codedErrorResponse } from "../_shared/errorCodes.ts";
 import { serviceClient } from "../_shared/supabaseClients.ts";

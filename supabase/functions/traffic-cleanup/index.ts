@@ -1,3 +1,4 @@
+// AUTH: cron  (auto-annotated 2026-07-27, see docs/security/edge-function-auth-matrix.md)
 // Daily cron: prune old traffic_events (>90d) and anonymous traffic_visits (>365d).
 import 'jsr:@supabase/functions-js/edge-runtime.d.ts';
 import { jsonResponse, corsPreflight } from '../_shared/cors.ts';

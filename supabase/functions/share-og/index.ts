@@ -1,3 +1,4 @@
+// AUTH: public  (auto-annotated 2026-07-27, see docs/security/edge-function-auth-matrix.md)
 /**
  * share-og — Open Graph 友善的公開 HTML 預覽端點
  *

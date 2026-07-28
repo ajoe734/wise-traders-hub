@@ -1,3 +1,4 @@
+// AUTH: user  (auto-annotated 2026-07-27, see docs/security/edge-function-auth-matrix.md)
 // GET  ?expert_id=... → 取或建 conversation, 回歷史訊息
 // DELETE ?expert_id=... → 清空該 conversation 的所有 messages
 import { createClient } from 'npm:@supabase/supabase-js@2';

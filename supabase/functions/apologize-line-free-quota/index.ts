@@ -1,3 +1,4 @@
+// AUTH: cron  (auto-annotated 2026-07-27, see docs/security/edge-function-auth-matrix.md)
 // apologize-line-free-quota — 對先前免費收盤分析被誤扣的 LINE 登入用戶送出道歉通知。
 // 流程：
 //   1. 僅 company_admin 可呼叫

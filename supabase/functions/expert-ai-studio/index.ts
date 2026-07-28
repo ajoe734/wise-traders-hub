@@ -1,3 +1,4 @@
+// AUTH: user  (auto-annotated 2026-07-27, see docs/security/edge-function-auth-matrix.md)
 // AI 訓練台後端：Persona / Few-shot / 手動知識條目 CRUD
 // 所有動作要求：呼叫者是該 expert 的 user 或 company_admin
 // POST body: { action, expert_id, ... }
