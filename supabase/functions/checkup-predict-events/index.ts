@@ -4,6 +4,7 @@ import "jsr:@supabase/functions-js/edge-runtime.d.ts";
 import { codedErrorResponse } from '../_shared/errorCodes.ts';
 import { validateInput, validationResponse } from "../_shared/inputValidator.ts";
 import { requireCheckupAuth, quotaErrorResponse } from "../_shared/checkupQuota.ts";
+import { requireCaller, AuthError } from "../_shared/authGuard.ts";
 import { corsHeaders, jsonResponse } from "../_shared/cors.ts";
 import { serviceClient } from "../_shared/supabaseClients.ts";
 import { withLogging } from "../_shared/edgeLogger.ts";
