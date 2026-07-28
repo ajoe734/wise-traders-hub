@@ -4,6 +4,7 @@ import { resolve } from 'node:path';
 const FN_FILE = resolve(__dirname, '../../../supabase/functions/tw-chips-detail/index.ts');
 const HOOK_FILE = resolve(__dirname, '../../../src/checkup/hooks/useTwChipsDetail.ts');
 const MATRIX_FILE = resolve(__dirname, '../../../docs/security/edge-function-auth-matrix.md');
+const CONFIG_FILE = resolve(__dirname, '../../../supabase/config.toml');
 
 describe('tw-chips-detail public market-data contract', () => {
   it('Edge Function 必須維持 public，不能要求 caller user session', () => {
@@ -28,5 +29,10 @@ describe('tw-chips-detail public market-data contract', () => {
   it('Auth matrix 必須標示 tw-chips-detail 為 public', () => {
     const matrix = readFileSync(MATRIX_FILE, 'utf8');
     expect(matrix).toMatch(/\| `tw-chips-detail` \| public \| — \|/);
+  });
+
+  it('平台層 JWT 驗證必須關閉，讓公開市場資料 endpoint 可由匿名/demo 使用', () => {
+    const config = readFileSync(CONFIG_FILE, 'utf8');
+    expect(config).toMatch(/\[functions\.tw-chips-detail\]\s*\nverify_jwt\s*=\s*false/);
   });
 });

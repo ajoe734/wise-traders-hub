@@ -28,7 +28,7 @@ Shared helper：`supabase/functions/_shared/authGuard.ts`。
 - **M-5（完成 2026-07-28）**：全套驗收 + 殘留違反者修復 + doc 同步。
   - `checkup-parse` / `checkup-predict-events`：前置 `requireCaller`（method check 後、body parse 前）→ 401 契約通過。
   - `publish-weekly-journals`：改分類為 `cron`（hybrid），前置 `requireCronKey` OR `requireCaller`，scheduler 與老師提前發布分別走各自 credential，兩者皆缺 → 403。
-  - 125/125 classified、Runtime guard 125/125、pending=0；user + cron + webhook 契約皆綠。
+  - 125/125 classified、protected runtime guard pending=0；user + cron + webhook 契約皆綠。
   - `tw-chips-detail`：2026-07-28 改回 `public`；此 endpoint 僅讀公開市場籌碼資料，前端固定用 anon JWT，避免 demo/匿名或 stale session 觸發 `UNAUTHENTICATED`。
 
 
