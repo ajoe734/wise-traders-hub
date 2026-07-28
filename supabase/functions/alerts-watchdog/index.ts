@@ -580,6 +580,54 @@ async function checkBsrCoverage(admin: any) {
 }
 
 
+// Phase M-3a — Edge function auth failure spike.
+// 15 分鐘視窗，每支 fn 分開計數；>=10 warning、>=30 critical。
+// deno-lint-ignore no-explicit-any
+async function checkAuthFailureSpike(admin: any) {
+  const windowMin = DEFAULT_SPIKE_THRESHOLDS.windowMin;
+  const since = new Date(Date.now() - windowMin * 60_000).toISOString();
+  const { data, error } = await admin
+    .from('edge_function_auth_events')
+    .select('fn_name,auth_class,outcome,code,caller_ip,created_at')
+    .gte('created_at', since)
+    .gte('outcome', 400)
+    .limit(2000);
+  if (error) return { skipped: 'query_failed', error: error.message };
+  const rows = (data ?? []) as Array<AuthEventRow & { caller_ip: string | null }>;
+  if (rows.length === 0) return { ok: true, rows: 0 };
+  const ipByFn = new Map<string, Set<string>>();
+  for (const r of rows) {
+    if (!r.caller_ip) continue;
+    const s = ipByFn.get(r.fn_name) ?? new Set<string>();
+    s.add(r.caller_ip);
+    ipByFn.set(r.fn_name, s);
+  }
+  const decisions = evaluateSpikes(rows, DEFAULT_SPIKE_THRESHOLDS, ipByFn);
+  const fired: unknown[] = [];
+  for (const d of decisions) {
+    if (!d.triggered) continue;
+    const breakdown = Object.entries(d.outcome_breakdown)
+      .map(([k, v]) => `${k}×${v}`).join('、');
+    fired.push(await fire(admin, {
+      kind: `auth_failure_spike:${d.fn_name}`,
+      level: d.level ?? 'warning',
+      title: `邊緣函式驗證失敗激增 ${d.fn_name} — ${d.total} 次/${windowMin} 分鐘`,
+      message: `類別 ${d.auth_class}；細分 ${breakdown}；來源 IP ${d.distinct_ips} 個。可能為 token 過期、cron 密鑰遺失、或掃描/攻擊。`,
+      metric_value: d.total,
+      threshold: DEFAULT_SPIKE_THRESHOLDS.warnMin,
+      detail: {
+        fn_name: d.fn_name,
+        auth_class: d.auth_class,
+        outcome_breakdown: d.outcome_breakdown,
+        distinct_ips: d.distinct_ips,
+        window_min: windowMin,
+      },
+    }));
+  }
+  return { ok: true, evaluated: decisions.length, fired: fired.length };
+}
+
+
 // Push pending system_alerts to admin LINE bindings (dedup via notified_at).
 // deno-lint-ignore no-explicit-any
 async function pushPendingAlertsToLine(admin: any) {
