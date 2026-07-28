@@ -114,6 +114,24 @@ Deno.serve(withLogging('publish-weekly-journals', async (req) => {
     return new Response(null, { headers: corsHeaders })
   }
 
+  // M-4: cron-or-user hybrid guard. Scheduler passes X-Cron-Key; mentor
+  // force-publish path passes a user bearer (verified deeper via authorize_force).
+  // Reject upfront when neither credential is present.
+  const hasBearer = /^bearer\s+/i.test(req.headers.get('Authorization') ?? '');
+  if (!hasBearer) {
+    try { requireCronKey(req); }
+    catch (e) {
+      if (e instanceof AuthError) {
+        return new Response(JSON.stringify({ error: e.message, code: e.code }), {
+          status: e.status, headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+        });
+      }
+      throw e;
+    }
+  }
+
+
+
   const runId = crypto.randomUUID().slice(0, 8)
   const t0 = Date.now()
   const fn = 'publish-weekly-journals'
