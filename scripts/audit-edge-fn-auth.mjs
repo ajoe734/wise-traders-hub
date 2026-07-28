@@ -57,8 +57,38 @@ function classify(src) {
   return { cls: hits[0], reason: null };
 }
 
+function writeStepSummary(rows, unclassified, pending) {
+  const p = process.env.GITHUB_STEP_SUMMARY;
+  if (!p) return;
+  const byClass = rows.reduce((acc, r) => {
+    const k = r.cls ?? 'unclassified';
+    acc[k] = (acc[k] ?? 0) + 1;
+    return acc;
+  }, {});
+  const lines = [
+    '## Edge Function Auth Gate',
+    '',
+    `- Total functions: **${rows.length}**`,
+    `- Classified: **${rows.length - unclassified.length} / ${rows.length}**`,
+    `- Runtime guard on user/cron: **${rows.filter((r) => (r.cls === 'user' || r.cls === 'cron') && r.hasRuntimeGuard).length} / ${rows.filter((r) => r.cls === 'user' || r.cls === 'cron').length}**`,
+    `- Pending (marker only, no runtime guard): **${pending.length}**`,
+    '',
+    '### Class breakdown',
+    Object.entries(byClass).sort().map(([k, v]) => `- \`${k}\`: ${v}`).join('\n'),
+    '',
+  ];
+  if (pending.length > 0) {
+    lines.push('### ⏳ Pending runtime guard', ...pending.map((p) => `- \`${p.name}\` (${p.cls})`), '');
+  }
+  if (unclassified.length > 0) {
+    lines.push('### ❌ Unclassified', ...unclassified.map((n) => `- \`${n}\``), '');
+  }
+  try { writeFileSync(p, lines.join('\n'), { flag: 'a' }); } catch { /* noop */ }
+}
+
 function main() {
   const write = process.argv.includes('--write');
+  const strict = process.argv.includes('--strict');
   const fns = listFunctions();
   const rows = [];
   const unclassified = [];
@@ -102,6 +132,8 @@ function main() {
     console.log(`wrote ${MATRIX_DOC} (${rows.length} functions, ${pending.length} pending guard)`);
   }
 
+  writeStepSummary(rows, unclassified, pending);
+
   if (unclassified.length > 0) {
     console.error(`\n❌ ${unclassified.length} edge function(s) missing auth marker:`);
     for (const n of unclassified) console.error(`  - ${n}`);
@@ -113,7 +145,17 @@ function main() {
     process.exit(1);
   }
 
-  console.log(`✅ all ${rows.length} edge functions classified`);
+  if (strict && pending.length > 0) {
+    console.error(`\n❌ --strict: ${pending.length} user/cron function(s) declare a marker but ship no runtime guard:`);
+    for (const p of pending) console.error(`  - ${p.name} (${p.cls})`);
+    console.error('\nReplace the // AUTH: comment with a real guard call:');
+    console.error('  await requireCaller(req);   // user class');
+    console.error('  requireCronKey(req);        // cron class');
+    process.exit(1);
+  }
+
+  console.log(`✅ all ${rows.length} edge functions classified (pending guard: ${pending.length})`);
 }
 
 main();
+
