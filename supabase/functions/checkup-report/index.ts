@@ -10,23 +10,26 @@ function esc(s: string) { return String(s).replace(/&/g, '&amp;').replace(/</g, 
 
 const handler = withLogging('checkup-report', async (req, log) => {
   if (req.method === 'OPTIONS') return new Response(null, { headers: corsHeaders });
+
+  // AUTH: user — validate before method check so unauth POST/GET both get 401 (M-3c contract)
+  const supabase = serviceClient();
+  const authHeader = req.headers.get('authorization') || '';
+  const token = authHeader.replace(/^Bearer\s+/i, '');
+  let userId: string | null = null;
+  if (token) {
+    try {
+      const { data: { user } } = await supabase.auth.getUser(token);
+      userId = user?.id || null;
+    } catch {}
+  }
+  if (!userId) {
+    return new Response('未認證', { status: 401, headers: corsHeaders });
+  }
+
   if (req.method !== 'GET') {
     return codedErrorResponse('METHOD_NOT_ALLOWED', '不支援的 HTTP 方法');
   }
 
-  const supabase = serviceClient();
-
-  // Extract user_id from JWT
-  const authHeader = req.headers.get('authorization') || '';
-  const token = authHeader.replace('Bearer ', '');
-  let userId: string | null = null;
-  try {
-    const { data: { user } } = await supabase.auth.getUser(token);
-    userId = user?.id || null;
-  } catch {}
-  if (!userId) {
-    return new Response('未認證', { status: 401, headers: corsHeaders });
-  }
 
   try {
     const keys = ['strategy-brain', 'analysis-history', 'events', 'pf-holdings-v2'];
