@@ -11,6 +11,7 @@
 //   6. 整批結果寫入 audit_logs，回傳統計
 // 支援 ?dry_run=1 — 只列出將要嘗試的 (user, OA) 組合，不實際呼叫 LINE / 不寫 notifications。
 import { corsHeaders } from '../_shared/cors.ts';
+import { requireCronKey, AuthError } from '../_shared/authGuard.ts';
 
 import { withLogging } from '../_shared/edgeLogger.ts';
 const SUPABASE_URL = Deno.env.get('SUPABASE_URL') || '';
@@ -36,6 +37,20 @@ const APOLOGY_BODY = [
 ].join('\n');
 
 Deno.serve(withLogging('apologize-line-free-quota', async (req: Request) => {
+  // AUTH: cron (Phase M-2 runtime enforcement)
+  if (req.method !== 'OPTIONS') {
+    try { requireCronKey(req); }
+    catch (e) {
+      if (e instanceof AuthError) {
+        return new Response(JSON.stringify({ error: e.message, code: e.code }), {
+          status: e.status,
+          headers: { 'Content-Type': 'application/json', 'Access-Control-Allow-Origin': '*' },
+        });
+      }
+      throw e;
+    }
+  }
+
   // OPTIONS preflight handled by withLogging.
   if (req.method !== 'POST' && req.method !== 'GET') {
     return json({ error: 'METHOD_NOT_ALLOWED' }, 405);

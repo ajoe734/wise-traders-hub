@@ -7,6 +7,7 @@
 //   { dryRun?: boolean, refreshCoverage?: boolean, onlyCodes?: string[] }
 // 預設會在寫入後呼叫 refresh_bsr_coverage_daily(10)
 import { corsHeaders } from '../_shared/cors.ts';
+import { requireCronKey, AuthError } from '../_shared/authGuard.ts';
 import { withLogging } from '../_shared/edgeLogger.ts';
 import { createClient } from 'https://esm.sh/@supabase/supabase-js@2.49.1';
 
@@ -39,6 +40,20 @@ type TwseRow = {
 };
 
 Deno.serve(withLogging('backfill-snapshots-twse-bulk', async (req) => {
+  // AUTH: cron (Phase M-2 runtime enforcement)
+  if (req.method !== 'OPTIONS') {
+    try { requireCronKey(req); }
+    catch (e) {
+      if (e instanceof AuthError) {
+        return new Response(JSON.stringify({ error: e.message, code: e.code }), {
+          status: e.status,
+          headers: { 'Content-Type': 'application/json', 'Access-Control-Allow-Origin': '*' },
+        });
+      }
+      throw e;
+    }
+  }
+
   if (req.method === 'OPTIONS') return new Response(null, { headers: corsHeaders });
 
   const admin = createClient(

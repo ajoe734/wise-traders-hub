@@ -14,6 +14,7 @@
 //   }
 
 import { corsHeaders, jsonResponse, errorResponse, corsPreflight } from '../_shared/cors.ts';
+import { requireCronKey, AuthError } from '../_shared/authGuard.ts';
 import { createClient } from 'https://esm.sh/@supabase/supabase-js@2.49.1';
 
 const SUPABASE_URL = Deno.env.get('SUPABASE_URL')!;
@@ -67,6 +68,20 @@ async function callPublishWithTimeout(market: 'TW' | 'US') {
 }
 
 Deno.serve(async (req) => {
+  // AUTH: cron (Phase M-2 runtime enforcement)
+  if (req.method !== 'OPTIONS') {
+    try { requireCronKey(req); }
+    catch (e) {
+      if (e instanceof AuthError) {
+        return new Response(JSON.stringify({ error: e.message, code: e.code }), {
+          status: e.status,
+          headers: { 'Content-Type': 'application/json', 'Access-Control-Allow-Origin': '*' },
+        });
+      }
+      throw e;
+    }
+  }
+
   if (req.method === 'OPTIONS') return corsPreflight();
   if (req.method !== 'POST') return errorResponse('method_not_allowed', 405);
 

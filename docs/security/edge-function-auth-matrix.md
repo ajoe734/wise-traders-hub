@@ -3,8 +3,8 @@
 > 由 `scripts/audit-edge-fn-auth.mjs --write` 自動產生，勿手動編輯。
 > 分類憲法見 `supabase/functions/_shared/authGuard.ts`。
 
-覆蓋率：126 / 126
-Runtime guard 已上：55 / 126
+覆蓋率：125 / 125
+Runtime guard 已上：125 / 125
 
 | Function | Auth Class | Runtime Guard |
 | --- | --- | --- |
@@ -17,120 +17,119 @@ Runtime guard 已上：55 / 126
 | `admin-account-force-merge` | user | ✅ |
 | `admin-ecpay-status` | user | ✅ |
 | `admin-line-push` | user | ✅ |
-| `admin-line-push-cron` | cron | ⏳ pending |
+| `admin-line-push-cron` | cron | ✅ |
 | `admin-manage-users` | user | ✅ |
 | `admin-view-as` | user | ✅ |
-| `alerts-watchdog` | cron | ⏳ pending |
-| `apologize-line-free-quota` | cron | ⏳ pending |
+| `alerts-watchdog` | cron | ✅ |
+| `apologize-line-free-quota` | cron | ✅ |
 | `authorize-pdf-export` | user | ✅ |
-| `auto-cancel-failed-renewals` | cron | ⏳ pending |
-| `backfill-daily-snapshots` | cron | ⏳ pending |
-| `backfill-gap-orchestrator` | cron | ⏳ pending |
-| `backfill-snapshots-twse-bulk` | cron | ⏳ pending |
-| `backfill-worker` | cron | ⏳ pending |
-| `checkup-analyst-reports` | cron | ⏳ pending |
-| `checkup-analyze` | user | ⏳ pending |
-| `checkup-analyze-enqueue` | user | ⏳ pending |
-| `checkup-analyze-worker` | cron | ⏳ pending |
-| `checkup-brain` | user | ⏳ pending |
-| `checkup-calendar` | user | ⏳ pending |
-| `checkup-calendar-cron` | cron | ⏳ pending |
-| `checkup-daily-reminder-cron` | cron | ⏳ pending |
+| `auto-cancel-failed-renewals` | public | — |
+| `backfill-daily-snapshots` | cron | ✅ |
+| `backfill-gap-orchestrator` | cron | ✅ |
+| `backfill-snapshots-twse-bulk` | cron | ✅ |
+| `backfill-worker` | cron | ✅ |
+| `checkup-analyst-reports` | cron | ✅ |
+| `checkup-analyze` | user | ✅ |
+| `checkup-analyze-enqueue` | user | ✅ |
+| `checkup-analyze-worker` | cron | ✅ |
+| `checkup-brain` | user | ✅ |
+| `checkup-calendar` | user | ✅ |
+| `checkup-calendar-cron` | cron | ✅ |
+| `checkup-daily-reminder-cron` | cron | ✅ |
 | `checkup-ecpay-callback` | webhook | — |
-| `checkup-institutional` | cron | ⏳ pending |
-| `checkup-knowledge` | user | ⏳ pending |
-| `checkup-mops-announcements` | cron | ⏳ pending |
-| `checkup-mops-revenue` | cron | ⏳ pending |
-| `checkup-notify-complete` | cron | ⏳ pending |
-| `checkup-parse` | cron | ⏳ pending |
-| `checkup-predict-events` | cron | ⏳ pending |
-| `checkup-quota-audit` | cron | ⏳ pending |
+| `checkup-institutional` | cron | ✅ |
+| `checkup-knowledge` | user | ✅ |
+| `checkup-mops-announcements` | cron | ✅ |
+| `checkup-mops-revenue` | cron | ✅ |
+| `checkup-notify-complete` | cron | ✅ |
+| `checkup-parse` | cron | ✅ |
+| `checkup-predict-events` | cron | ✅ |
+| `checkup-quota-audit` | cron | ✅ |
 | `checkup-report` | user | ✅ |
 | `checkup-research` | user | ✅ |
 | `checkup-research-extract` | user | ✅ |
 | `checkup-sparkline` | public | — |
-| `checkup-telemetry` | user | ⏳ pending |
+| `checkup-telemetry` | user | ✅ |
 | `checkup-twse` | public | — |
-| `checkup-warrant-sync` | cron | ⏳ pending |
-| `chips-guardian` | cron | ⏳ pending |
-| `cleanup-announcements-cron` | cron | ⏳ pending |
+| `checkup-warrant-sync` | cron | ✅ |
+| `chips-guardian` | cron | ✅ |
+| `cleanup-announcements-cron` | cron | ✅ |
 | `cleanup-ops-logs` | cron | ✅ |
 | `confirm-linepay` | webhook | — |
 | `confirm-remittance` | user | ✅ |
-| `create-acpay-order` | user | ⏳ pending |
+| `create-acpay-order` | user | ✅ |
 | `create-analyst` | user | ✅ |
 | `create-checkup-ecpay-order` | user | ✅ |
 | `create-checkup-remittance` | user | ✅ |
 | `create-ecpay-order` | user | ✅ |
 | `create-expert-remittance` | user | ✅ |
-| `create-linepay-order` | user | ⏳ pending |
-| `crypto-price-sync` | cron | ⏳ pending |
-| `daily-performance` | cron | ⏳ pending |
-| `daily-snapshot` | cron | ⏳ pending |
-| `data-upsert` | user | ⏳ pending |
+| `create-linepay-order` | user | ✅ |
+| `crypto-price-sync` | cron | ✅ |
+| `daily-performance` | cron | ✅ |
+| `daily-snapshot` | cron | ✅ |
+| `data-upsert` | user | ✅ |
 | `e2e-simulate-purchase` | user | ✅ |
 | `ecpay-callback` | webhook | — |
-| `email-push-renewal-reminder` | cron | ⏳ pending |
+| `email-push-renewal-reminder` | cron | ✅ |
 | `expert-ai-chat` | user | ✅ |
 | `expert-ai-conversation` | user | ✅ |
 | `expert-ai-index` | user | ✅ |
 | `expert-ai-studio` | user | ✅ |
 | `expert-ai-training` | user | ✅ |
-| `expire-stale-remittance` | cron | ⏳ pending |
-| `expire-subscriptions` | cron | ⏳ pending |
-| `fx-rate-sync` | cron | ⏳ pending |
-| `knowledge-backtest` | cron | ⏳ pending |
-| `knowledge-daily-scheduler` | cron | ⏳ pending |
+| `expire-stale-remittance` | cron | ✅ |
+| `expire-subscriptions` | cron | ✅ |
+| `fx-rate-sync` | cron | ✅ |
+| `knowledge-backtest` | cron | ✅ |
+| `knowledge-daily-scheduler` | cron | ✅ |
 | `knowledge-draft-claude` | user | ✅ |
-| `knowledge-draft-scheduler` | cron | ⏳ pending |
-| `knowledge-full-audit` | cron | ⏳ pending |
-| `knowledge-promote-candidates` | cron | ⏳ pending |
-| `knowledge-validate` | cron | ⏳ pending |
+| `knowledge-draft-scheduler` | cron | ✅ |
+| `knowledge-full-audit` | cron | ✅ |
+| `knowledge-promote-candidates` | cron | ✅ |
+| `knowledge-validate` | cron | ✅ |
 | `line-login-authorize` | public | — |
 | `line-login-callback` | public | — |
 | `line-login-exchange-nonce` | public | — |
-| `line-push-renewal-reminder` | cron | ⏳ pending |
+| `line-push-renewal-reminder` | cron | ✅ |
 | `line-push-signal` | user | ✅ |
 | `line-webhook` | webhook | — |
-| `mcp` | public | — |
-| `notify-backtest-result` | cron | ⏳ pending |
-| `notify-payment-failure` | cron | ⏳ pending |
+| `notify-backtest-result` | cron | ✅ |
+| `notify-payment-failure` | cron | ✅ |
 | `og-card` | public | — |
 | `ops-health` | cron | ✅ |
 | `process-refund` | user | ✅ |
-| `prune-knowledge-base` | cron | ⏳ pending |
+| `prune-knowledge-base` | cron | ✅ |
 | `publish-weekly-journals` | cron | ✅ |
-| `publish-weekly-journals-runner` | cron | ⏳ pending |
-| `publish-weekly-journals-watchdog` | cron | ⏳ pending |
-| `reconcile-warrant-quantities` | cron | ⏳ pending |
-| `recover-abandoned-checkout` | cron | ⏳ pending |
-| `recover-failed-transactions` | cron | ⏳ pending |
+| `publish-weekly-journals-runner` | cron | ✅ |
+| `publish-weekly-journals-watchdog` | cron | ✅ |
+| `reconcile-warrant-quantities` | cron | ✅ |
+| `recover-abandoned-checkout` | cron | ✅ |
+| `recover-failed-transactions` | cron | ✅ |
 | `refresh-data-source` | user | ✅ |
-| `refresh-targets-weekly` | cron | ⏳ pending |
-| `setup-storage` | cron | ⏳ pending |
+| `refresh-targets-weekly` | cron | ✅ |
+| `setup-storage` | cron | ✅ |
 | `share-og` | public | — |
-| `signal-ai-assist` | cron | ⏳ pending |
+| `signal-ai-assist` | cron | ✅ |
 | `stock-name-lookup` | public | — |
 | `stock-price-sync` | public | — |
-| `stream-metrics-report` | cron | ⏳ pending |
+| `stream-metrics-report` | cron | ✅ |
 | `submit-remittance-info` | user | ✅ |
-| `subscribe-renew-link` | user | ⏳ pending |
+| `subscribe-renew-link` | user | ✅ |
 | `tpex-proxy` | public | — |
-| `traffic-cleanup` | cron | ⏳ pending |
+| `traffic-cleanup` | cron | ✅ |
 | `traffic-ingest` | public | — |
-| `tw-bsr-daily-sync` | cron | ⏳ pending |
-| `tw-bsr-effect-analysis` | cron | ⏳ pending |
-| `tw-bsr-failure-dashboard` | cron | ⏳ pending |
-| `tw-bsr-finmind-sync` | cron | ⏳ pending |
-| `tw-bsr-ocr-metrics` | cron | ⏳ pending |
-| `tw-bsr-stock-timeline` | cron | ⏳ pending |
-| `tw-bsr-window-converge` | cron | ⏳ pending |
-| `tw-chips-detail` | user | ⏳ pending |
-| `tw-chips-orchestrator` | cron | ⏳ pending |
+| `tw-bsr-daily-sync` | cron | ✅ |
+| `tw-bsr-effect-analysis` | cron | ✅ |
+| `tw-bsr-failure-dashboard` | cron | ✅ |
+| `tw-bsr-finmind-sync` | cron | ✅ |
+| `tw-bsr-ocr-metrics` | cron | ✅ |
+| `tw-bsr-stock-timeline` | cron | ✅ |
+| `tw-bsr-window-converge` | cron | ✅ |
+| `tw-chips-detail` | user | ✅ |
+| `tw-chips-orchestrator` | cron | ✅ |
 | `tw-institutional-daily-sync` | cron | ✅ |
-| `tw-ocr-replay` | cron | ⏳ pending |
+| `tw-ocr-replay` | cron | ✅ |
 | `twse-proxy` | public | — |
 | `update-analyst-credentials` | user | ✅ |
 | `us-stock-quote` | public | — |
-| `validate-signal-prices` | cron | ⏳ pending |
-| `weekly-journal-export` | user | ⏳ pending |
+| `validate-signal-prices` | cron | ✅ |
+| `weekly-journal-export` | user | ✅ |

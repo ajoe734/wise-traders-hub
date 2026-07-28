@@ -3,6 +3,7 @@
 // Input: { job_id: string }
 // 由前端在 useDailyAnalysisWorkflow 完成時呼叫；也可由背景 worker 呼叫。
 import { corsHeaders, jsonResponse, corsPreflight } from '../_shared/cors.ts';
+import { requireCronKey, AuthError } from '../_shared/authGuard.ts';
 import { withLogging } from '../_shared/edgeLogger.ts';
 import { createClient } from 'https://esm.sh/@supabase/supabase-js@2.49.1';
 
@@ -64,6 +65,20 @@ function buildEmail(summary: JobSummary, deepLink: string, displayName: string) 
 }
 
 const handler = withLogging('checkup-notify-complete', async (req, log) => {
+  // AUTH: cron (Phase M-2 runtime enforcement)
+  if (req.method !== 'OPTIONS') {
+    try { requireCronKey(req); }
+    catch (e) {
+      if (e instanceof AuthError) {
+        return new Response(JSON.stringify({ error: e.message, code: e.code }), {
+          status: e.status,
+          headers: { 'Content-Type': 'application/json', 'Access-Control-Allow-Origin': '*' },
+        });
+      }
+      throw e;
+    }
+  }
+
   if (req.method === 'OPTIONS') return corsPreflight();
   if (req.method !== 'POST') return jsonResponse({ error: 'METHOD_NOT_ALLOWED' }, { status: 405 });
 

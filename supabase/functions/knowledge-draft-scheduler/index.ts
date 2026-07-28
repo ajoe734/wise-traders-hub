@@ -6,6 +6,7 @@
 // - 每次處理「最缺的那一類」一個 batch（20 條），跑完就 return
 // - 達標後回 { done: true }，可手動 unschedule cron
 import "jsr:@supabase/functions-js/edge-runtime.d.ts";
+import { requireCronKey, AuthError } from '../_shared/authGuard.ts';
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2.49.1";
 
 import { corsHeaders } from '../_shared/cors.ts';
@@ -23,6 +24,20 @@ const PREFIX: Record<string, string> = {
 };
 
 Deno.serve(withLogging('knowledge-draft-scheduler', async (req) => {
+  // AUTH: cron (Phase M-2 runtime enforcement)
+  if (req.method !== 'OPTIONS') {
+    try { requireCronKey(req); }
+    catch (e) {
+      if (e instanceof AuthError) {
+        return new Response(JSON.stringify({ error: e.message, code: e.code }), {
+          status: e.status,
+          headers: { 'Content-Type': 'application/json', 'Access-Control-Allow-Origin': '*' },
+        });
+      }
+      throw e;
+    }
+  }
+
   if (req.method === 'OPTIONS') return new Response(null, { headers: corsHeaders });
 
   try {

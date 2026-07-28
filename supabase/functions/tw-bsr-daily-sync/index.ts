@@ -21,6 +21,7 @@
 //   6. 每輪彙總指標到 tw_bsr_sync_metrics（15 分鐘桶）
 
 import "jsr:@supabase/functions-js/edge-runtime.d.ts";
+import { requireCronKey, AuthError } from '../_shared/authGuard.ts';
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2.45.4";
 import { corsPreflight, jsonResponse, errorResponse } from "../_shared/cors.ts";
 import { ocrTwseCaptchaDetailed, planWithPriority, type OcrResult, type OcrVariantName } from "../_shared/twOcr.ts";
@@ -756,6 +757,20 @@ async function logAttempt(supa: any, p: {
 }
 
 Deno.serve(async (req) => {
+  // AUTH: cron (Phase M-2 runtime enforcement)
+  if (req.method !== 'OPTIONS') {
+    try { requireCronKey(req); }
+    catch (e) {
+      if (e instanceof AuthError) {
+        return new Response(JSON.stringify({ error: e.message, code: e.code }), {
+          status: e.status,
+          headers: { 'Content-Type': 'application/json', 'Access-Control-Allow-Origin': '*' },
+        });
+      }
+      throw e;
+    }
+  }
+
   if (req.method === "OPTIONS") return corsPreflight();
   try {
     const body = req.method === "POST" ? await req.json().catch(() => ({})) : {};

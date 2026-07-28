@@ -66,9 +66,23 @@ function cors(req: Request): Response | null {
   return null;
 }
 
+import { requireCronKey, AuthError } from '../_shared/authGuard.ts';
+
 export default async function handler(req: Request): Promise<Response> {
   const c = cors(req);
   if (c) return c;
+
+  // AUTH: cron (Phase M-2 runtime enforcement)
+  try { requireCronKey(req); }
+  catch (e) {
+    if (e instanceof AuthError) {
+      return new Response(JSON.stringify({ error: e.message, code: e.code }), {
+        status: e.status,
+        headers: { 'Content-Type': 'application/json', 'Access-Control-Allow-Origin': '*' },
+      });
+    }
+    throw e;
+  }
 
   const body: Body = await req.json().catch(() => ({} as Body));
   const mode = body.mode ?? "scan_only";

@@ -34,11 +34,16 @@ const CLASSIFIERS = [
 // A function has a "real" runtime guard when it calls the helper (or an
 // established webhook/public pattern). Comment-only markers count as
 // documented-but-pending — surfaced separately so we can burn them down.
-const RUNTIME_GUARD = /requireCaller\s*\(|requireCronKey\s*\(|CheckMacValue|verifyLinepaySignature|verifyAcpaySignature|X-Line-Signature|getCallerUserId|auth\.getUser|getClaims\(/;
+const RUNTIME_GUARD = /requireCaller\s*\(|requireCronKey\s*\(|CheckMacValue|verifyLinepaySignature|verifyAcpaySignature|X-Line-Signature|getCallerUserId|auth\.getUser|getClaims\(|consumeCheckupQuota\s*\(|requireCheckupAuth\s*\(|verifyToken\s*\(|extractApiKey\s*\(|defineMcp\s*\(/;
+
+// `mcp` is a fully-auto-generated file owned by @lovable.dev/mcp-js — it uses
+// OAuth via `defineMcp({ auth })` from that package, and the plugin refuses to
+// let us prepend a marker comment. Treat it as an implicit `public` (OAuth-guarded).
+const AUTO_GENERATED_SKIP = new Set(['mcp']);
 
 function listFunctions() {
   return readdirSync(FN_ROOT)
-    .filter((d) => d !== '_shared')
+    .filter((d) => d !== '_shared' && !AUTO_GENERATED_SKIP.has(d))
     .map((d) => ({ name: d, path: join(FN_ROOT, d, 'index.ts') }))
     .filter((f) => {
       try { return statSync(f.path).isFile(); } catch { return false; }

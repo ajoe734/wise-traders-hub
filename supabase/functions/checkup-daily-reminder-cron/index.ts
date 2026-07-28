@@ -3,6 +3,7 @@
 // Line（若 profile.line_user_id 存在）+ 站內通知；Email 視為次要管道（暫不發）
 // 用 checkup_daily_reminders UNIQUE(user_id, reminded_on) 防重複。
 import { corsHeaders, jsonResponse, corsPreflight } from '../_shared/cors.ts';
+import { requireCronKey, AuthError } from '../_shared/authGuard.ts';
 import { withLogging } from '../_shared/edgeLogger.ts';
 import { createClient } from 'https://esm.sh/@supabase/supabase-js@2.49.1';
 
@@ -16,6 +17,20 @@ function todayTaipei(): string {
 }
 
 const handler = withLogging('checkup-daily-reminder-cron', async (_req, log) => {
+  // AUTH: cron (Phase M-2 runtime enforcement)
+  if (req.method !== 'OPTIONS') {
+    try { requireCronKey(req); }
+    catch (e) {
+      if (e instanceof AuthError) {
+        return new Response(JSON.stringify({ error: e.message, code: e.code }), {
+          status: e.status,
+          headers: { 'Content-Type': 'application/json', 'Access-Control-Allow-Origin': '*' },
+        });
+      }
+      throw e;
+    }
+  }
+
   if (_req.method === 'OPTIONS') return corsPreflight();
 
   const SUPABASE_URL = Deno.env.get('SUPABASE_URL')!;

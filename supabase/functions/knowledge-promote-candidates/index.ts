@@ -4,6 +4,7 @@
 // 由 Claude 總結成新知識條目骨架 → 寫進 checkup_knowledge_candidates 等管理員審核。
 // 由 pg_cron 每週日 04:00 UTC+8 觸發。
 import "jsr:@supabase/functions-js/edge-runtime.d.ts";
+import { requireCronKey, AuthError } from '../_shared/authGuard.ts';
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2.49.1";
 
 import { corsHeaders } from '../_shared/cors.ts';
@@ -32,6 +33,20 @@ async function callClaude(systemPrompt: string, userPrompt: string) {
 }
 
 Deno.serve(withLogging('knowledge-promote-candidates', async (req) => {
+  // AUTH: cron (Phase M-2 runtime enforcement)
+  if (req.method !== 'OPTIONS') {
+    try { requireCronKey(req); }
+    catch (e) {
+      if (e instanceof AuthError) {
+        return new Response(JSON.stringify({ error: e.message, code: e.code }), {
+          status: e.status,
+          headers: { 'Content-Type': 'application/json', 'Access-Control-Allow-Origin': '*' },
+        });
+      }
+      throw e;
+    }
+  }
+
   if (req.method === 'OPTIONS') return new Response(null, { headers: corsHeaders });
 
   try {

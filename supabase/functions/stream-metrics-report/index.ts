@@ -13,6 +13,7 @@
 //   - terminatedBy 僅允許 finish/abort/timeout/eof/error，其他一律標記為 "invalid"。
 
 import { corsHeaders, corsPreflight, errorResponse } from '../_shared/cors.ts';
+import { requireCronKey, AuthError } from '../_shared/authGuard.ts';
 import { withLogging } from '../_shared/edgeLogger.ts';
 import { serviceClient } from '../_shared/supabaseClients.ts';
 
@@ -47,6 +48,20 @@ function sanitizeExtra(extra: unknown): Record<string, string | number | boolean
 }
 
 Deno.serve(withLogging('stream-metrics-report', async (req, log) => {
+  // AUTH: cron (Phase M-2 runtime enforcement)
+  if (req.method !== 'OPTIONS') {
+    try { requireCronKey(req); }
+    catch (e) {
+      if (e instanceof AuthError) {
+        return new Response(JSON.stringify({ error: e.message, code: e.code }), {
+          status: e.status,
+          headers: { 'Content-Type': 'application/json', 'Access-Control-Allow-Origin': '*' },
+        });
+      }
+      throw e;
+    }
+  }
+
   if (req.method === 'OPTIONS') return corsPreflight();
   if (req.method !== 'POST') return errorResponse('method not allowed', 405);
 
