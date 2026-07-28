@@ -239,7 +239,7 @@ async function isAdminCaller(req: Request): Promise<{ ok: boolean; reason?: stri
   if (token === SERVICE_ROLE_KEY) return { ok: true };
   // 否則以使用者身份呼叫 has_role
   try {
-    const userClient = createClient(SUPABASE_URL, token, {
+    const userClient = createClient(SUPABASE_URL, ANON_KEY, {
       auth: { persistSession: false },
       global: { headers: { Authorization: `Bearer ${token}` } },
     });
