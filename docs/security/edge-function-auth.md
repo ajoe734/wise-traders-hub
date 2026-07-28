@@ -23,13 +23,13 @@ Shared helper：`supabase/functions/_shared/authGuard.ts`。
 - **M-2（完成）**：71 支 pending 全數換成 runtime guard；`CRON_SHARED_SECRET` + `public.internal_cron_secrets` + `public.cron_edge_call()` 就位。
 - **M-3a（完成）**：`edge_function_auth_events` + `alerts-watchdog` spike 監控。
 - **M-3b（完成）**：所有 pg_cron job 從裸 `net.http_post` 遷移到 `public.cron_edge_call(fn, body)`，`scripts/audit-pg-cron-commands.mjs` + CI job `pg-cron-command-gate` 阻擋 regression。
-- **M-3c（完成）**：End-to-end Auth Contract 覆蓋。
-  - `_shared/authContract_e2e_test.ts` 讀 matrix 逐支驗證 401/403 契約。
-  - **M-3c-2（完成 2026-07-28）**：cron class 57 支全數 live 契約通過（403/503）。
-    - Guard 前置修正：`checkup-calendar-cron` / `checkup-daily-reminder-cron` / `checkup-warrant-sync` / `cleanup-announcements-cron` / `expire-stale-remittance` 修 `_req` → `req` 誤植 + 補回 `Deno.serve(withLogging(...))` 遺漏的 `))`。
-    - `knowledge-full-audit` / `refresh-targets-weekly` 補回結尾 `))` 並部署。
-    - `tw-institutional-daily-sync` 加 cron-or-admin guard（cold_start 允許 admin fallthrough）。
-    - 誤標 cron 但實為 user 的 5 支重新分類為 `AUTH: user`：`checkup-parse` / `checkup-predict-events` / `publish-weekly-journals` / `cleanup-ops-logs` / `ops-health`（皆已具備 requireCheckupAuth / admin JWT 檢查作為 runtime guard）。
+- **M-3c（完成）**：End-to-end Auth Contract 覆蓋（user + cron + webhook 三軌）。
+- **M-4（完成 2026-07-28）**：`--strict` gate + 聚合 workflow `edge-fn-auth-gate.yml`（static + live）成為 main branch required check。
+- **M-5（完成 2026-07-28）**：全套驗收 + 殘留違反者修復 + doc 同步。
+  - `checkup-parse` / `checkup-predict-events`：前置 `requireCaller`（method check 後、body parse 前）→ 401 契約通過。
+  - `publish-weekly-journals`：改分類為 `cron`（hybrid），前置 `requireCronKey` OR `requireCaller`，scheduler 與老師提前發布分別走各自 credential，兩者皆缺 → 403。
+  - 125/125 classified、Runtime guard 125/125、pending=0；user + cron + webhook 契約皆綠。
+
 
 ## pg_cron 排程規範（M-3b）
 
