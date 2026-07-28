@@ -1,67 +1,71 @@
-# Phase M — Edge Function Auth Guard 收斂
+## 目標
 
-## M-1（完成 2026-07-27）
-- `_shared/authGuard.ts`：`requireCaller` / `requireCronKey` / `AuthError`。
-- 126 支 edge functions 全分類、`scripts/audit-edge-fn-auth.mjs` 掛入 CI。
-- 憲法：`docs/security/edge-function-auth.md`；矩陣：`docs/security/edge-function-auth-matrix.md`。
+讓 `ray.tsai@cctech-support.com`（expert `阿基米德投資學` / slug `master-lever`）能用「組」為單位，直接記錄圖中那種多腿選擇權組合單（垂直價差、鐵兀鷹等），系統原生理解 legs、權利金淨額與最大損失。
 
-## M-2（完成）
-- `CRON_SHARED_SECRET` 部署，`public.internal_cron_secrets` + `public.cron_edge_call()` 建置。
-- 50+ pg_cron jobs 透過 `cron.alter_job` 注入 `X-Cron-Key`。
-- 65 支 pending 函式批次注入 `requireCaller` / `requireCronKey`；125/125 全綠。
+## 已核實現況
 
-## M-3a（完成 2026-07-28）— Auth 失敗監控 + 告警
-- 新增 `public.edge_function_auth_events`（service_role only、7 天保留、`cleanup_old_auth_events()`）。
-- `_shared/authGuard.ts` 於每次 401/403/503 fire-and-forget 寫入事件（`AUTH_EVENT_LOGGING=0` 可關閉，測試預設關閉）。
-- 純函式 `_shared/authFailureSpike.ts` + Deno 測試 7/7 綠：15 分鐘視窗，per-fn 分組，>=10 warning、>=30 critical。
-- `alerts-watchdog` 新增 `checkAuthFailureSpike`（並聯至 `Promise.allSettled`），觸發時寫 `system_alerts` 並經 LINE push。
-- Webhook 類函式可用 `recordWebhookRejection(req, provider, reason)` 匯入同一監控管線。
+- `master-lever` 目前 `asset_class = tw_stock`、`currency = TWD`、`starting_capital = 10000`、`id = 1dfe0420-…`。
+- `src/lib/asset.ts` 的 `us_option` 只允許單位 `['口']`，symbol 必須符合 OCC 21 碼（`US_OPTION_RE`），乘數固定 1（檔頭註明「方案 A：只做部位紀錄」）。
+- DB 觸發器 `enforce_unit_consistency` 用 `v_allowed` 白名單依 asset_class 擋單位，`組` 會被擋。
+- `expert_signals` / `trade_records` 目前皆無 legs、max_loss、net_premium 等欄位，組合單無處可存。
 
-## M-3b（完成 2026-07-28）— pg_cron 命令徹底清理
-- `public.admin_list_cron_jobs()` 唯讀函式（PUBLIC 可執行、僅回排程 metadata）供稽核使用。
-- Migration DO block 掃描 `cron.job`，自動把所有 `net.http_post(...)` 命令重排為 `SELECT public.cron_edge_call(fn, body::jsonb);`，anon key / X-Cron-Key 完全撤出 `cron.job.command`。
-- 執行結果：59 個 cron job → 50 個走 `cron_edge_call`、9 個為純 SQL 清理任務（無 HTTP）、0 個裸 `net.http_post`。
-- `scripts/audit-pg-cron-commands.mjs` 呼叫 `admin_list_cron_jobs` RPC 逐條檢核，命中任何裸 `net.http_post` 立即 exit 1。
-- `.github/workflows/security-audit.yml` 新增 `pg-cron-command-gate` job，PR/推送皆阻擋 regression。
+## 資料模型（原生組合單）
 
-## M-3c（完成 2026-07-28）— E2E Auth Contract 覆蓋
-- `_shared/authContract_e2e_test.ts`：讀 matrix，user class 全數斷言 401 / cron class 全數斷言 403|503（含 bogus X-Cron-Key）。
-- **M-3c-2（完成）**：cron class 57/57 live 契約通過；guard 前置修正 8 支、reclassify 5 支為 user。
-- **M-3c-3（完成 2026-07-28）**：`_shared/webhookContract_e2e_test.ts` 覆蓋 6 支 webhook（acpay-notify / acpay-recurring-notify / checkup-ecpay-callback / ecpay-callback / confirm-linepay / line-webhook），以 provider-specific rejection sentinel（`^FAIL` / `err_code:"1"` / `^0|` / 4xx）斷言未簽章請求被拒。6/6 live 綠。
-- CI：`.github/workflows/edge-fn-auth-contract.yml` 每次 push/PR 跑 user+cron+webhook 三個契約 job；`supabase/functions/**` 或 matrix 變動觸發。
+### 1. `expert_signals` 增欄
 
-## 驗收指令
-```bash
-node scripts/audit-edge-fn-auth.mjs
-node scripts/audit-pg-cron-commands.mjs
-deno test supabase/functions/_shared/authGuard_test.ts supabase/functions/_shared/authFailureSpike_test.ts --allow-env --allow-net
-deno test --allow-net --allow-env --allow-read --no-check supabase/functions/_shared/authContract_e2e_test.ts
-deno test --allow-net --allow-env --allow-read --no-check supabase/functions/_shared/webhookContract_e2e_test.ts
-```
+- `is_combo boolean default false`
+- `combo_strategy text`（`vertical_call` / `vertical_put` / `iron_condor` / `custom`…）
+- `net_premium numeric`（每組淨權利金，正=收權利金 credit，負=付出 debit）
+- `max_loss_per_unit numeric`（每組最大損失，USD）
+- `max_profit_per_unit numeric` nullable
+- `quantity` = 組數，`quantity_unit = '組'`
 
-## Phase M — 收斂完成
-M-1 到 M-3c 全數關閉；125 支 edge functions 皆有 auth marker + runtime guard + live 契約覆蓋；pg_cron 全走 `cron_edge_call`；auth 失敗有 spike 監控 + LINE 告警。
+### 2. 新表 `public.expert_signal_legs`
 
-## M4（完成 2026-07-28）— CI Gate 鎖定
-- `scripts/audit-edge-fn-auth.mjs` 新增 `--strict`：user/cron class 若只有 `// AUTH:` marker、沒有 runtime guard 直接失敗（目前 pending=0 已鎖）。腳本同時輸出 `GITHUB_STEP_SUMMARY`（class breakdown + pending/unclassified 清單）。
-- 新 workflow `.github/workflows/edge-fn-auth-gate.yml` 聚合三段門檻：
-  1. `static-gate`：`audit-edge-fn-auth --strict` + `audit-pg-cron-commands`
-  2. `live-contract`：`authContract_e2e_test.ts` + `webhookContract_e2e_test.ts`
-- 舊 `edge-fn-auth-contract.yml` 併入新 gate 後刪除。兩個 job 均為 main branch required check；任何 unclassified fn / marker-only guard / 生 `net.http_post` / 契約破損都會擋 PR。
+欄位：`signal_id`（FK，on delete cascade）、`leg_index`、`occ_symbol`、`underlying`、`expiry date`、`right`（C/P）、`strike numeric`、`side`（long/short）、`ratio int default 1`、`leg_price numeric`。
 
-## M5（完成 2026-07-28）— Doc 同步並驗收
-- 執行 M-4 gate 全套：strict marker + pg_cron + user/cron/webhook live 契約，一次抓出 3 支殘留違反者並修好：
-  - `checkup-parse` / `checkup-predict-events`：`requireCheckupAuth` 之外多加 `requireCaller` 前置，讓 method check 後、body parse 前就回 401。
-  - `publish-weekly-journals`：由 `user` 改分類為 `cron`（hybrid），前置 `requireCronKey` 或 `requireCaller`——scheduler 走 X-Cron-Key、老師提前發布走 bearer；兩者都缺 → 403。
-- `docs/security/edge-function-auth-matrix.md` 由 `--write` 重生：125/125 classified、Runtime guard 125/125、pending=0。
-- 驗收結果：
-  - `node scripts/audit-edge-fn-auth.mjs --strict` ✅ pending=0
-  - `node scripts/audit-pg-cron-commands.mjs` ✅ total=59 / cron_edge_call=50 / sql-only=9 / legacy=0
-  - `authGuard_test.ts` + `authFailureSpike_test.ts` ✅ 12/12
-  - `authContract_e2e_test.ts` ✅ user + cron + bogus-key 3/3
-  - `webhookContract_e2e_test.ts` ✅ 6/6
+含完整 GRANT（authenticated / service_role；public 讀取沿用訂閱可見規則）、RLS：擁有者與已訂閱者可讀，擁有者可寫。
 
-## Phase M — 全部關閉
-M-1 到 M-5 全數關閉。125 支 edge functions 皆有 marker + runtime guard + live 契約覆蓋；pg_cron 全走 `cron_edge_call`；auth 失敗有 spike 監控 + LINE 告警；CI gate 阻擋任何 regression。
+### 3. `trade_records` 對應
 
+同樣加 `is_combo` / `combo_strategy` / `max_loss_per_unit` / `net_premium`，legs 用 `trade_record_legs` 或共用 `expert_signal_legs`（以 signal_id 關聯）；持倉以「組」為部位單位，避免拆腿後 oversell 誤判。
 
+## 風控與計算
+
+- `us_option` 乘數改為 100（單腿仍 `price × qty × 100`）。
+- 組合單資金佔用 = `組數 × max_loss_per_unit`（credit spread 用寬度差×100−權利金；debit spread 用付出的權利金）。
+- `enforce_unit_consistency`：`us_option` 白名單改 `['口','組']`。
+- `enforce_signal_capital_limit`：若 `is_combo`，改用 `quantity × max_loss_per_unit`；否則 `price_hint × quantity × 100`。
+- oversell / 平倉檢查：組合單以 `combo key`（strategy + legs 指紋）比對庫存，不與單腿混算。
+
+## 前端
+
+1. **SignalEditor 新增「組合單」模式**（只在 `us_option` 出現）
+   - 策略選擇：Bull Put / Bear Call / Bull Call / Bear Put / Iron Condor / 自訂
+   - 逐腿輸入：標的、到期日、C/P、履約價、買/賣、口數比
+   - 自動組出每腿 OCC 21 碼、自動算 `net_premium`、`max_loss_per_unit`、`max_profit_per_unit`（自訂策略可手動覆寫）
+   - 數量欄位標為「組」，即時顯示「本單最大損失 = 組數 × 每組最大損失」
+2. **展示層**：週記詳情、訊號列表、持倉看板顯示 `SNDK 950/925P + 1600/1625C ×1 組`，展開可看四腿明細與最大損失。
+3. **Markdown 匯出**：組合單輸出策略名稱、legs 表格、每組最大損失、總最大損失，不再拆成四筆看似獨立的交易。
+4. `src/lib/asset.ts`：`us_option.units = ['口','組']`、`multiplier = 100`、新增 `buildOccSymbol()` 與 combo 型別。
+
+## 帳號切換
+
+- 用既有 `admin_reset_expert_asset_class` 將 `master-lever` 由 `tw_stock` 改為 `us_option`，`currency → USD`。
+- `starting_capital` 保留 10000，改視為 10000 USD（不清空、不改數字），留 audit log。
+
+## TDD
+
+先寫測試再實作：
+
+- `src/lib/asset` 單元測試：`us_option` 允許 `組`、乘數 100、OCC builder（履約價 padding、小數、C/P、日期）。
+- combo 計算單元測試：Bull Put credit spread、Bear Call、Iron Condor 的 `net_premium` / `max_loss` / `max_profit` 標準案例，含圖中 `SNDK 950/925P + 1600/1625C`（總最大損失 $1,725 為驗收基準）。
+- DB 觸發器測試：`組` 通過、`張` 被擋、combo 資金上限用 max_loss 計算。
+- `e2e/journal-authoring-full-flow.spec.ts` 矩陣加入 `us_option` 單腿與組合單兩列。
+- 新增 `e2e/journal-combo-spread.spec.ts`：以 `master-lever` 建立圖中兩個方案 → pending → 預覽 → Markdown 匯出，不觸發風險攔截。
+
+## 不做
+
+- 不接選擇權自動行情（維持 manual override 報價）。
+- 不做希臘值 / IV 計算。
+- 台股與加密不引入「組」。

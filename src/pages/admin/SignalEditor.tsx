@@ -24,6 +24,7 @@ import { CapitalPanel } from '@/pages/_signalEditor/CapitalPanel';
 import { TradeCard } from '@/pages/_signalEditor/TradeCard';
 import {
   buildPublishRows, buildTeachingOnlyRow, buildSimulatedPositions, computeCashSim, validateSignalBatch,
+  buildComboLegRows,
 } from '@/pages/_signalEditor/derive';
 import { useSignalEditorData } from '@/hooks/admin/useSignalEditorData';
 import { getAssetSpec, resolveAssetClass, sanitizeAssetQuantityUnit } from '@/lib/asset';
@@ -265,6 +266,16 @@ const SignalEditor = () => {
 
       const { error } = await supabase.from('expert_signals').insert(rows as any);
       if (error) { toast.error(error.message); return; }
+
+      // 組合單的多腿明細
+      const legRows = isTeachingOnly ? [] : buildComboLegRows(rows as any[], trades);
+      if (legRows.length > 0) {
+        const { error: legErr } = await supabase.from('expert_signal_legs').insert(legRows as any);
+        if (legErr) {
+          toast.error(`組合單腿別寫入失敗：${legErr.message}`);
+          return;
+        }
+      }
 
       if (!isMentor) {
         try {

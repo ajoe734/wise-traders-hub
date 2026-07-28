@@ -18,7 +18,7 @@
 import type { Currency } from './currency';
 
 export type AssetClass = 'tw_stock' | 'us_stock' | 'crypto' | 'us_option' | 'us_future';
-export type QuantityUnit = '張' | '股' | '顆' | '口';
+export type QuantityUnit = '張' | '股' | '顆' | '口' | '組';
 export type MarketHours = 'tw' | 'us' | 'us_ext' | 'us_future_5x24' | '24x7';
 export type PriceSource = 'twse' | 'us' | 'crypto' | 'manual';
 
@@ -113,7 +113,7 @@ const SPECS: Record<AssetClass, AssetSpec> = {
     symbolPlaceholder: '例：AAPL240119C00150000（OCC 21 字元）',
     minSymbolLen: 15,
     uppercaseSymbol: true,
-    units: ['口'],
+    units: ['口', '組'],
     defaultUnit: '口',
     priceDigits: 2,
     quantityAllowsDecimal: false,

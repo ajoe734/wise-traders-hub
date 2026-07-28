@@ -2119,6 +2119,62 @@ export type Database = {
           },
         ]
       }
+      expert_signal_legs: {
+        Row: {
+          created_at: string
+          expiry: string | null
+          id: string
+          leg_index: number
+          leg_price: number | null
+          occ_symbol: string | null
+          ratio: number
+          right_type: string | null
+          side: string
+          signal_id: string
+          strike: number | null
+          underlying: string
+          updated_at: string
+        }
+        Insert: {
+          created_at?: string
+          expiry?: string | null
+          id?: string
+          leg_index?: number
+          leg_price?: number | null
+          occ_symbol?: string | null
+          ratio?: number
+          right_type?: string | null
+          side?: string
+          signal_id: string
+          strike?: number | null
+          underlying: string
+          updated_at?: string
+        }
+        Update: {
+          created_at?: string
+          expiry?: string | null
+          id?: string
+          leg_index?: number
+          leg_price?: number | null
+          occ_symbol?: string | null
+          ratio?: number
+          right_type?: string | null
+          side?: string
+          signal_id?: string
+          strike?: number | null
+          underlying?: string
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "expert_signal_legs_signal_id_fkey"
+            columns: ["signal_id"]
+            isOneToOne: false
+            referencedRelation: "expert_signals"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       expert_signal_templates: {
         Row: {
           action: string
@@ -2174,14 +2230,19 @@ export type Database = {
         Row: {
           action: Database["public"]["Enums"]["signal_action"]
           batch_id: string | null
+          combo_strategy: string | null
           created_at: string
           executed_at: string | null
           expert_id: string
           id: string
           instrument: string
+          is_combo: boolean
           learning_points: string | null
           line_pushed_at: string | null
           market: string
+          max_loss_per_unit: number | null
+          max_profit_per_unit: number | null
+          net_premium: number | null
           overall_summary: string | null
           plan_id: string | null
           price_hint: number | null
@@ -2199,14 +2260,19 @@ export type Database = {
         Insert: {
           action: Database["public"]["Enums"]["signal_action"]
           batch_id?: string | null
+          combo_strategy?: string | null
           created_at?: string
           executed_at?: string | null
           expert_id: string
           id?: string
           instrument: string
+          is_combo?: boolean
           learning_points?: string | null
           line_pushed_at?: string | null
           market: string
+          max_loss_per_unit?: number | null
+          max_profit_per_unit?: number | null
+          net_premium?: number | null
           overall_summary?: string | null
           plan_id?: string | null
           price_hint?: number | null
@@ -2224,14 +2290,19 @@ export type Database = {
         Update: {
           action?: Database["public"]["Enums"]["signal_action"]
           batch_id?: string | null
+          combo_strategy?: string | null
           created_at?: string
           executed_at?: string | null
           expert_id?: string
           id?: string
           instrument?: string
+          is_combo?: boolean
           learning_points?: string | null
           line_pushed_at?: string | null
           market?: string
+          max_loss_per_unit?: number | null
+          max_profit_per_unit?: number | null
+          net_premium?: number | null
           overall_summary?: string | null
           plan_id?: string | null
           price_hint?: number | null
@@ -4294,6 +4365,7 @@ export type Database = {
       }
       trade_records: {
         Row: {
+          combo_strategy: string | null
           created_at: string
           currency: string | null
           current_price: number | null
@@ -4304,7 +4376,11 @@ export type Database = {
           expert_id: string
           id: string
           instrument: string
+          is_combo: boolean
           market: string | null
+          max_loss_per_unit: number | null
+          max_profit_per_unit: number | null
+          net_premium: number | null
           pnl_percent: number | null
           price_updated_at: string | null
           quantity: number
@@ -4313,6 +4389,7 @@ export type Database = {
           status: Database["public"]["Enums"]["trade_status"]
         }
         Insert: {
+          combo_strategy?: string | null
           created_at?: string
           currency?: string | null
           current_price?: number | null
@@ -4323,7 +4400,11 @@ export type Database = {
           expert_id: string
           id?: string
           instrument: string
+          is_combo?: boolean
           market?: string | null
+          max_loss_per_unit?: number | null
+          max_profit_per_unit?: number | null
+          net_premium?: number | null
           pnl_percent?: number | null
           price_updated_at?: string | null
           quantity?: number
@@ -4332,6 +4413,7 @@ export type Database = {
           status?: Database["public"]["Enums"]["trade_status"]
         }
         Update: {
+          combo_strategy?: string | null
           created_at?: string
           currency?: string | null
           current_price?: number | null
@@ -4342,7 +4424,11 @@ export type Database = {
           expert_id?: string
           id?: string
           instrument?: string
+          is_combo?: boolean
           market?: string | null
+          max_loss_per_unit?: number | null
+          max_profit_per_unit?: number | null
+          net_premium?: number | null
           pnl_percent?: number | null
           price_updated_at?: string | null
           quantity?: number

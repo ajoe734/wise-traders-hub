@@ -21,6 +21,9 @@ import {
   type QuantityUnit,
 } from '@/lib/asset';
 import { formatBaseQuantity, resolveMaxBuyDraftQuantity, resolveMaxSellDraftQuantity } from '@/lib/positionQuantity';
+import { ComboBuilder } from './ComboBuilder';
+import { emptyComboLeg } from '@/lib/optionCombo';
+import { Switch } from '@/components/ui/switch';
 
 interface Props {
   idx: number;
@@ -57,6 +60,8 @@ export function TradeCard({
   const isUsd = spec.currency === 'USD';
   const isHold = t.action === 'hold';
   const safeUnit = sanitizeAssetQuantityUnit(t.quantityUnit, assetClass);
+  const canCombo = assetClass === 'us_option';
+  const isCombo = !!t.isCombo && canCombo;
   return (
     <Card>
       <CardContent className="p-4 space-y-4">
@@ -75,6 +80,37 @@ export function TradeCard({
           </div>
         </div>
 
+        {canCombo && (
+          <div className="flex items-center justify-between rounded-md border px-3 py-2">
+            <div>
+              <div className="text-xs font-medium">原生組合單（多腿價差）</div>
+              <div className="text-[10px] text-muted-foreground">開啟後以「組」為單位，資金佔用＝每組最大損失</div>
+            </div>
+            <Switch
+              checked={isCombo}
+              onCheckedChange={(v) => updateTrade(idx, {
+                isCombo: v,
+                quantityUnit: (v ? '組' : '口') as QuantityUnit,
+                legs: v && !(t.legs?.length) ? [emptyComboLeg(), emptyComboLeg()] : t.legs,
+              })}
+            />
+          </div>
+        )}
+
+        {isCombo && (
+          <ComboBuilder
+            legs={t.legs || []}
+            strategy={t.comboStrategy}
+            onChange={({ legs, comboStrategy, label }) => updateTrade(idx, {
+              legs,
+              comboStrategy,
+              stockCode: label,
+              stockName: '',
+              quantityUnit: '組' as QuantityUnit,
+            })}
+          />
+        )}
+
         <div className="grid grid-cols-1 md:grid-cols-3 gap-3">
           <div className="space-y-1.5">
             <Label className="text-xs">操作時間</Label>
@@ -84,7 +120,7 @@ export function TradeCard({
               onChange={(e) => updateTrade(idx, { executedAt: e.target.value })}
             />
           </div>
-          <div className="space-y-1.5">
+          {!isCombo && <div className="space-y-1.5">
             <Label className="text-xs">股票代碼</Label>
             <Input
               value={t.stockCode}
@@ -97,11 +133,11 @@ export function TradeCard({
               }}
               placeholder={spec.symbolPlaceholder}
             />
-          </div>
-          <div className="space-y-1.5">
+          </div>}
+          {!isCombo && <div className="space-y-1.5">
             <Label className="text-xs">股票名稱</Label>
             <Input value={t.stockName} onChange={(e) => updateTrade(idx, { stockName: e.target.value })} />
-          </div>
+          </div>}
         </div>
 
         <div className="grid grid-cols-1 md:grid-cols-3 gap-3">
@@ -121,7 +157,7 @@ export function TradeCard({
           </div>
           <div className="space-y-1.5">
             <Label className="text-xs flex items-center justify-between">
-              <span>數量{isHold && <span className="text-muted-foreground ml-1">（選填）</span>}</span>
+              <span>{isCombo ? '組數' : '數量'}{isHold && <span className="text-muted-foreground ml-1">（選填）</span>}</span>
               {(t.action === 'buy' || t.action === 'add') && capital && (
                 <button
                   type="button"
@@ -170,10 +206,10 @@ export function TradeCard({
               </Select>
             </div>
           </div>
-          <div className="space-y-1.5">
+          {!isCombo && <div className="space-y-1.5">
             <Label className="text-xs">參考價位{isHold && <span className="text-muted-foreground ml-1">（選填）</span>}</Label>
             <Input type="number" value={t.priceHint} onChange={(e) => updateTrade(idx, { priceHint: e.target.value })} placeholder={isHold ? '可不填' : '890'} />
-          </div>
+          </div>}
         </div>
 
         {signalTemplates.length > 0 && (
