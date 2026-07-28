@@ -1,7 +1,8 @@
-// AUTH: user  (reclassified M-3c-2: 2026-07-27, see docs/security/edge-function-auth-matrix.md)
+// AUTH: cron  (M-4 reclassified: hybrid cron-or-user; scheduler uses X-Cron-Key, mentor force-publish uses bearer)
 import { corsHeaders } from '../_shared/cors.ts';
 import { serviceClient } from '../_shared/supabaseClients.ts';
 import { withLogging } from '../_shared/edgeLogger.ts';
+import { requireCronKey, requireCaller, AuthError } from '../_shared/authGuard.ts';
 import { createClient } from 'https://esm.sh/@supabase/supabase-js@2.49.1'
 import { classifyPublishError, buildMentorFailureNotification, isTransientError, retryTransient } from './classifyPublishError.ts'
 import { parseUnitLockError } from '../_shared/parseUnitLockError.ts'
@@ -112,6 +113,28 @@ Deno.serve(withLogging('publish-weekly-journals', async (req) => {
   if (req.method === 'OPTIONS') {
     return new Response(null, { headers: corsHeaders })
   }
+
+  // M-4: cron-or-user hybrid guard. Accept either a valid X-Cron-Key
+  // (scheduler / market batch) OR a valid user bearer (mentor force-publish,
+  // deeper-checked in authorize_force). Reject with 403 when neither is valid.
+  let cronOk = false;
+  try { requireCronKey(req); cronOk = true; } catch { /* try user path */ }
+  if (!cronOk) {
+    try { await requireCaller(req); }
+    catch (e) {
+      const err = e instanceof AuthError
+        ? e
+        : new AuthError(403, 'FORBIDDEN', 'requires X-Cron-Key or user bearer');
+      // Normalise 401 → 403 so cron contract passes (this fn is classified cron).
+      const status = err.status === 401 ? 403 : err.status;
+      return new Response(JSON.stringify({ error: err.message, code: err.code }), {
+        status, headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+      });
+    }
+  }
+
+
+
 
   const runId = crypto.randomUUID().slice(0, 8)
   const t0 = Date.now()

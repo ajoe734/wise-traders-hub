@@ -3,6 +3,7 @@
 import "jsr:@supabase/functions-js/edge-runtime.d.ts";
 import { validateInput, validationResponse } from "../_shared/inputValidator.ts";
 import { requireCheckupAuth, quotaErrorResponse } from "../_shared/checkupQuota.ts";
+import { requireCaller, AuthError } from "../_shared/authGuard.ts";
 
 import { corsHeaders } from '../_shared/cors.ts';
 import { codedErrorResponse } from '../_shared/errorCodes.ts';
@@ -68,6 +69,18 @@ Deno.serve(withLogging('checkup-parse', async (req) => {
   if (req.method !== 'POST') {
     return codedErrorResponse('METHOD_NOT_ALLOWED', '不支援的 HTTP 方法');
   }
+
+  // M-4: 401 contract — reject missing bearer before body parse / quota check
+  try { await requireCaller(req); }
+  catch (e) {
+    if (e instanceof AuthError) {
+      return new Response(JSON.stringify({ error: e.message, code: e.code }), {
+        status: e.status, headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+      });
+    }
+    throw e;
+  }
+
 
   const apiKey = Deno.env.get('LOVABLE_API_KEY');
   if (!apiKey) {

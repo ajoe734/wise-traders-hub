@@ -4,6 +4,7 @@ import "jsr:@supabase/functions-js/edge-runtime.d.ts";
 import { codedErrorResponse } from '../_shared/errorCodes.ts';
 import { validateInput, validationResponse } from "../_shared/inputValidator.ts";
 import { requireCheckupAuth, quotaErrorResponse } from "../_shared/checkupQuota.ts";
+import { requireCaller, AuthError } from "../_shared/authGuard.ts";
 import { corsHeaders, jsonResponse } from "../_shared/cors.ts";
 import { serviceClient } from "../_shared/supabaseClients.ts";
 import { withLogging } from "../_shared/edgeLogger.ts";
@@ -391,6 +392,18 @@ const handler = withLogging('checkup-predict-events', async (req, log) => {
   if (req.method !== 'POST') {
     return codedErrorResponse('METHOD_NOT_ALLOWED', '不支援的 HTTP 方法');
   }
+
+  // M-4: 401 contract — reject missing bearer before body parse / quota check
+  try { await requireCaller(req); }
+  catch (e) {
+    if (e instanceof AuthError) {
+      return new Response(JSON.stringify({ error: e.message, code: e.code }), {
+        status: e.status, headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+      });
+    }
+    throw e;
+  }
+
 
   if (!Deno.env.get('LOVABLE_API_KEY') && !Deno.env.get('GOOGLE_GEMINI_API_KEY')) {
     return new Response(JSON.stringify({ error: 'AI API key 未設定' }), {

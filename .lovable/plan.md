@@ -49,3 +49,19 @@ M-1 到 M-3c 全數關閉；125 支 edge functions 皆有 auth marker + runtime 
   2. `live-contract`：`authContract_e2e_test.ts` + `webhookContract_e2e_test.ts`
 - 舊 `edge-fn-auth-contract.yml` 併入新 gate 後刪除。兩個 job 均為 main branch required check；任何 unclassified fn / marker-only guard / 生 `net.http_post` / 契約破損都會擋 PR。
 
+## M5（完成 2026-07-28）— Doc 同步並驗收
+- 執行 M-4 gate 全套：strict marker + pg_cron + user/cron/webhook live 契約，一次抓出 3 支殘留違反者並修好：
+  - `checkup-parse` / `checkup-predict-events`：`requireCheckupAuth` 之外多加 `requireCaller` 前置，讓 method check 後、body parse 前就回 401。
+  - `publish-weekly-journals`：由 `user` 改分類為 `cron`（hybrid），前置 `requireCronKey` 或 `requireCaller`——scheduler 走 X-Cron-Key、老師提前發布走 bearer；兩者都缺 → 403。
+- `docs/security/edge-function-auth-matrix.md` 由 `--write` 重生：125/125 classified、Runtime guard 125/125、pending=0。
+- 驗收結果：
+  - `node scripts/audit-edge-fn-auth.mjs --strict` ✅ pending=0
+  - `node scripts/audit-pg-cron-commands.mjs` ✅ total=59 / cron_edge_call=50 / sql-only=9 / legacy=0
+  - `authGuard_test.ts` + `authFailureSpike_test.ts` ✅ 12/12
+  - `authContract_e2e_test.ts` ✅ user + cron + bogus-key 3/3
+  - `webhookContract_e2e_test.ts` ✅ 6/6
+
+## Phase M — 全部關閉
+M-1 到 M-5 全數關閉。125 支 edge functions 皆有 marker + runtime guard + live 契約覆蓋；pg_cron 全走 `cron_edge_call`；auth 失敗有 spike 監控 + LINE 告警；CI gate 阻擋任何 regression。
+
+
