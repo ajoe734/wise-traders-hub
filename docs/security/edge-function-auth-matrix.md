@@ -124,7 +124,7 @@ Runtime guard 已上：125 / 125
 | `tw-bsr-ocr-metrics` | cron | ✅ |
 | `tw-bsr-stock-timeline` | cron | ✅ |
 | `tw-bsr-window-converge` | cron | ✅ |
-| `tw-chips-detail` | user | ✅ |
+| `tw-chips-detail` | public | — |
 | `tw-chips-orchestrator` | cron | ✅ |
 | `tw-institutional-daily-sync` | cron | ✅ |
 | `tw-ocr-replay` | cron | ✅ |
