@@ -1,0 +1,45 @@
+name: Edge Function Auth Contract (M-3c)
+
+# End-to-end contract check for classified edge functions:
+#   - user  → 401 UNAUTHENTICATED when caller is missing bearer
+#   - cron  → 403 FORBIDDEN_CRON / 503 CRON_SECRET_MISSING when X-Cron-Key absent
+#   - webhook → provider-specific rejection sentinel (see webhookContract_e2e_test.ts)
+#
+# Hits deployed functions on the shared Lovable Cloud project.
+
+on:
+  push:
+    branches: [main, 'feat/**', 'fix/**']
+    paths:
+      - 'supabase/functions/**'
+      - 'docs/security/edge-function-auth-matrix.md'
+      - '.github/workflows/edge-fn-auth-contract.yml'
+  pull_request:
+    branches: [main]
+    paths:
+      - 'supabase/functions/**'
+      - 'docs/security/edge-function-auth-matrix.md'
+      - '.github/workflows/edge-fn-auth-contract.yml'
+  workflow_dispatch:
+
+concurrency:
+  group: edge-fn-auth-contract-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  contract:
+    name: user + cron + webhook contract
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    env:
+      VITE_SUPABASE_URL: https://yqacmrgdjlenbijclngi.supabase.co
+      VITE_SUPABASE_PUBLISHABLE_KEY: ${{ secrets.VITE_SUPABASE_PUBLISHABLE_KEY }}
+    steps:
+      - uses: actions/checkout@v4
+      - uses: denoland/setup-deno@v2
+        with:
+          deno-version: v2.x
+      - name: user + cron class contract
+        run: deno test --allow-net --allow-env --allow-read --no-check supabase/functions/_shared/authContract_e2e_test.ts
+      - name: webhook class contract
+        run: deno test --allow-net --allow-env --allow-read --no-check supabase/functions/_shared/webhookContract_e2e_test.ts
