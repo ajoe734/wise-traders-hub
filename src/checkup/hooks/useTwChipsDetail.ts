@@ -353,11 +353,15 @@ export function useTwChipsDetail(stockCode: string | undefined | null, enabled =
         // Stale JWT recovery: signing-key rotation leaves cached tokens with
         // "missing sub claim". Refresh once and retry before surfacing 401.
         if (resp.status === 401 && token) {
-          const { data: refreshed } = await supabase.auth.refreshSession();
+          const { data: refreshed, error: refreshErr } = await supabase.auth.refreshSession();
           const newToken = refreshed.session?.access_token;
           if (newToken && newToken !== token) {
             token = newToken;
             resp = await doFetch(token);
+          } else if (refreshErr) {
+            // Refresh token itself is stale/invalid → force sign out so the
+            // next mount re-authenticates instead of looping 401 forever.
+            await supabase.auth.signOut().catch(() => {});
           }
         }
         status = resp.status;
