@@ -6,6 +6,7 @@
 // Auth: relies on SUPABASE_SERVICE_ROLE_KEY. Callable manually for testing.
 
 import { corsPreflight, jsonResponse, errorResponse } from '../_shared/cors.ts';
+import { requireCronKey, AuthError } from '../_shared/authGuard.ts';
 import { serviceClient } from '../_shared/supabaseClients.ts';
 import {
   evaluateAllWaves,
@@ -630,6 +631,20 @@ async function pushPendingAlertsToLine(admin: any) {
 }
 
 Deno.serve(async (req) => {
+  // AUTH: cron (Phase M-2 runtime enforcement)
+  if (req.method !== 'OPTIONS') {
+    try { requireCronKey(req); }
+    catch (e) {
+      if (e instanceof AuthError) {
+        return new Response(JSON.stringify({ error: e.message, code: e.code }), {
+          status: e.status,
+          headers: { 'Content-Type': 'application/json', 'Access-Control-Allow-Origin': '*' },
+        });
+      }
+      throw e;
+    }
+  }
+
   if (req.method === 'OPTIONS') return corsPreflight();
   try {
     const admin = serviceClient();

@@ -1,5 +1,6 @@
 // AUTH: cron  (auto-annotated 2026-07-27, see docs/security/edge-function-auth-matrix.md)
 import { corsHeaders } from '../_shared/cors.ts';
+import { requireCronKey, AuthError } from '../_shared/authGuard.ts';
 import { withLogging } from '../_shared/edgeLogger.ts';
 import { createClient } from 'https://esm.sh/@supabase/supabase-js@2.49.1'
 
@@ -95,6 +96,20 @@ function buildRenewalFlexMessage(
 }
 
 Deno.serve(withLogging('line-push-renewal-reminder', async (req) => {
+  // AUTH: cron (Phase M-2 runtime enforcement)
+  if (req.method !== 'OPTIONS') {
+    try { requireCronKey(req); }
+    catch (e) {
+      if (e instanceof AuthError) {
+        return new Response(JSON.stringify({ error: e.message, code: e.code }), {
+          status: e.status,
+          headers: { 'Content-Type': 'application/json', 'Access-Control-Allow-Origin': '*' },
+        });
+      }
+      throw e;
+    }
+  }
+
   if (req.method === 'OPTIONS') return new Response(null, { headers: corsHeaders })
 
   try {

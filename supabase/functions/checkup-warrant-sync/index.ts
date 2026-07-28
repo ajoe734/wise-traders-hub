@@ -1,6 +1,7 @@
 // AUTH: cron  (auto-annotated 2026-07-27, see docs/security/edge-function-auth-matrix.md)
 // deno-lint-ignore-file
 import "jsr:@supabase/functions-js/edge-runtime.d.ts";
+import { requireCronKey, AuthError } from '../_shared/authGuard.ts';
 import { jsonResponse } from "../_shared/cors.ts";
 import { serviceClient } from "../_shared/supabaseClients.ts";
 import { withLogging } from "../_shared/edgeLogger.ts";
@@ -81,6 +82,20 @@ function parseRow(r: TwseWarrantRow) {
 }
 
 const handler = withLogging("checkup-warrant-sync", async (_req, log) => {
+  // AUTH: cron (Phase M-2 runtime enforcement)
+  if (req.method !== 'OPTIONS') {
+    try { requireCronKey(req); }
+    catch (e) {
+      if (e instanceof AuthError) {
+        return new Response(JSON.stringify({ error: e.message, code: e.code }), {
+          status: e.status,
+          headers: { 'Content-Type': 'application/json', 'Access-Control-Allow-Origin': '*' },
+        });
+      }
+      throw e;
+    }
+  }
+
   let rows: TwseWarrantRow[] = [];
   try {
     // TWSE openapi 這隻回 25MB+，Deno 預設 fetch 常會被中間 Cloudflare/gateway

@@ -4,6 +4,7 @@
 // 資料源優先順序：Binance /api/v3/ticker/24hr → Coingecko simple/price fallback
 // 寫入 public.current_prices（asset_class='crypto', currency='USD', market='CRYPTO'）
 import { corsHeaders } from 'npm:@supabase/supabase-js@2/cors';
+import { requireCronKey, AuthError } from '../_shared/authGuard.ts';
 import { createClient } from 'npm:@supabase/supabase-js@2';
 
 interface SymbolRow {
@@ -59,6 +60,20 @@ async function fetchCoingeckoBatch(ids: string[]): Promise<Map<string, any>> {
 }
 
 Deno.serve(async (req) => {
+  // AUTH: cron (Phase M-2 runtime enforcement)
+  if (req.method !== 'OPTIONS') {
+    try { requireCronKey(req); }
+    catch (e) {
+      if (e instanceof AuthError) {
+        return new Response(JSON.stringify({ error: e.message, code: e.code }), {
+          status: e.status,
+          headers: { 'Content-Type': 'application/json', 'Access-Control-Allow-Origin': '*' },
+        });
+      }
+      throw e;
+    }
+  }
+
   if (req.method === 'OPTIONS') return new Response('ok', { headers: corsHeaders });
 
   const supabase = createClient(

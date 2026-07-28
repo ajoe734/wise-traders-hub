@@ -14,6 +14,7 @@
 //   { trade_date?: 'YYYY-MM-DD', wave?: 1|2|3, dry_run?: boolean }
 
 import { createClient } from 'npm:@supabase/supabase-js@2';
+import { requireCronKey, AuthError } from '../_shared/authGuard.ts';
 import { corsHeaders } from 'npm:@supabase/supabase-js@2/cors';
 
 const SUPABASE_URL = Deno.env.get('SUPABASE_URL')!;
@@ -27,6 +28,20 @@ function taipeiToday(): string {
 }
 
 Deno.serve(async (req) => {
+  // AUTH: cron (Phase M-2 runtime enforcement)
+  if (req.method !== 'OPTIONS') {
+    try { requireCronKey(req); }
+    catch (e) {
+      if (e instanceof AuthError) {
+        return new Response(JSON.stringify({ error: e.message, code: e.code }), {
+          status: e.status,
+          headers: { 'Content-Type': 'application/json', 'Access-Control-Allow-Origin': '*' },
+        });
+      }
+      throw e;
+    }
+  }
+
   if (req.method === 'OPTIONS') {
     return new Response('ok', { headers: corsHeaders });
   }

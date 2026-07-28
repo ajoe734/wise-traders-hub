@@ -9,6 +9,7 @@
 // 本函式是「24h 都沒回來」最後一次嘗試，並結束生命週期。
 
 import { corsHeaders } from '../_shared/cors.ts';
+import { requireCronKey, AuthError } from '../_shared/authGuard.ts';
 import { withLogging } from '../_shared/edgeLogger.ts';
 import { createClient } from 'https://esm.sh/@supabase/supabase-js@2.49.1';
 
@@ -86,6 +87,20 @@ function buildFinalEmail(productName: string, amount: number, urls: { ecpay: str
 }
 
 Deno.serve(withLogging('recover-failed-transactions', async (req) => {
+  // AUTH: cron (Phase M-2 runtime enforcement)
+  if (req.method !== 'OPTIONS') {
+    try { requireCronKey(req); }
+    catch (e) {
+      if (e instanceof AuthError) {
+        return new Response(JSON.stringify({ error: e.message, code: e.code }), {
+          status: e.status,
+          headers: { 'Content-Type': 'application/json', 'Access-Control-Allow-Origin': '*' },
+        });
+      }
+      throw e;
+    }
+  }
+
   if (req.method === 'OPTIONS') return new Response(null, { headers: corsHeaders });
 
   const supabaseAdmin = createClient(

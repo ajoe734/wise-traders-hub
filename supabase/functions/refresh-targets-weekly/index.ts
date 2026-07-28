@@ -4,6 +4,7 @@
 // 每週自動刷新「過去 30 天有登入」用戶的持股目標價，
 // 將變動寫入 target_price_history，並在有變動時發 notification + function_run_logs。
 import "jsr:@supabase/functions-js/edge-runtime.d.ts";
+import { requireCronKey, AuthError } from '../_shared/authGuard.ts';
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2.49.1";
 import { corsHeaders } from '../_shared/cors.ts';
 
@@ -59,6 +60,20 @@ async function logRun(supabase: any, runId: string, stage: string, msg: string, 
 }
 
 Deno.serve(withLogging('refresh-targets-weekly', async (req) => {
+  // AUTH: cron (Phase M-2 runtime enforcement)
+  if (req.method !== 'OPTIONS') {
+    try { requireCronKey(req); }
+    catch (e) {
+      if (e instanceof AuthError) {
+        return new Response(JSON.stringify({ error: e.message, code: e.code }), {
+          status: e.status,
+          headers: { 'Content-Type': 'application/json', 'Access-Control-Allow-Origin': '*' },
+        });
+      }
+      throw e;
+    }
+  }
+
   if (req.method === 'OPTIONS') return new Response(null, { headers: corsHeaders });
 
   const supabaseUrl = Deno.env.get('SUPABASE_URL')!;

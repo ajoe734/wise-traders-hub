@@ -1,5 +1,6 @@
 // AUTH: cron  (auto-annotated 2026-07-27, see docs/security/edge-function-auth-matrix.md)
 import { jsonResponse } from "../_shared/cors.ts";
+import { requireCronKey, AuthError } from '../_shared/authGuard.ts';
 import { serviceClient } from "../_shared/supabaseClients.ts";
 import { withLogging } from "../_shared/edgeLogger.ts";
 
@@ -7,6 +8,20 @@ import { withLogging } from "../_shared/edgeLogger.ts";
 // - awaiting_info > 3 days  => user never completed bank transfer / never filled info
 // - pending      > 14 days  => admin never reconciled (assume the user did not actually pay)
 const handler = withLogging("expire-stale-remittance", async (_req, log) => {
+  // AUTH: cron (Phase M-2 runtime enforcement)
+  if (req.method !== 'OPTIONS') {
+    try { requireCronKey(req); }
+    catch (e) {
+      if (e instanceof AuthError) {
+        return new Response(JSON.stringify({ error: e.message, code: e.code }), {
+          status: e.status,
+          headers: { 'Content-Type': 'application/json', 'Access-Control-Allow-Origin': '*' },
+        });
+      }
+      throw e;
+    }
+  }
+
   const admin = serviceClient();
   const now = new Date();
   const cutAwaiting = new Date(now.getTime() - 3 * 86400000).toISOString();

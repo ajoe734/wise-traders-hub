@@ -3,6 +3,7 @@
 // 使用 Lovable AI Gateway，回傳一段 HTML 字串供 TipTap 直接 setContent。
 
 import { corsHeaders } from "../_shared/cors.ts";
+import { requireCronKey, AuthError } from '../_shared/authGuard.ts';
 import { sanitizeUserContent } from "../_shared/promptInjectionGuard.ts";
 import { validateInput, validationResponse } from '../_shared/inputValidator.ts';
 
@@ -45,6 +46,20 @@ function escapeHtml(s: string): string {
 }
 
 Deno.serve(withLogging('signal-ai-assist', async (req) => {
+  // AUTH: cron (Phase M-2 runtime enforcement)
+  if (req.method !== 'OPTIONS') {
+    try { requireCronKey(req); }
+    catch (e) {
+      if (e instanceof AuthError) {
+        return new Response(JSON.stringify({ error: e.message, code: e.code }), {
+          status: e.status,
+          headers: { 'Content-Type': 'application/json', 'Access-Control-Allow-Origin': '*' },
+        });
+      }
+      throw e;
+    }
+  }
+
   // OPTIONS preflight handled by withLogging via _shared/cors corsPreflight().
   try {
     const LOVABLE_API_KEY = Deno.env.get('LOVABLE_API_KEY');

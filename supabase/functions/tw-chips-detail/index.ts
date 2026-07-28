@@ -13,6 +13,7 @@
 //     不可單獨證明完整，避免歷史 fake-done 狀態讓畫面誤顯示今日空資料。
 //     未 complete 的今日 partial data 不會被推為 fallbackAsOf，避免覆蓋昨日完整結果。
 import "jsr:@supabase/functions-js/edge-runtime.d.ts";
+import { requireCaller, AuthError } from '../_shared/authGuard.ts';
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2.45.4";
 import { corsPreflight, jsonResponse, errorResponse } from "../_shared/cors.ts";
 import { cacheGet, cacheSet } from "../_shared/memoryCache.ts";
@@ -44,6 +45,20 @@ type BsrFreshness =
   | "no_data";
 
 Deno.serve(async (req) => {
+  // AUTH: user (Phase M-2 runtime enforcement)
+  if (req.method !== 'OPTIONS') {
+    try { await requireCaller(req); }
+    catch (e) {
+      if (e instanceof AuthError) {
+        return new Response(JSON.stringify({ error: e.message, code: e.code }), {
+          status: e.status,
+          headers: { 'Content-Type': 'application/json', 'Access-Control-Allow-Origin': '*' },
+        });
+      }
+      throw e;
+    }
+  }
+
   if (req.method === "OPTIONS") return corsPreflight();
   try {
     const url = new URL(req.url);

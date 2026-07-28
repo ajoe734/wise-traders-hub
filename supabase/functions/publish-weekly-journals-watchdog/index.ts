@@ -7,6 +7,7 @@
 // 用 UPDATE ... RETURNING 搶佔（樂觀鎖）避免同一 attempt 被觸發兩次。
 
 import { corsHeaders, jsonResponse, corsPreflight } from '../_shared/cors.ts';
+import { requireCronKey, AuthError } from '../_shared/authGuard.ts';
 import { createClient } from 'https://esm.sh/@supabase/supabase-js@2.49.1';
 
 const SUPABASE_URL = Deno.env.get('SUPABASE_URL')!;
@@ -16,6 +17,20 @@ const ANON_KEY = Deno.env.get('SUPABASE_ANON_KEY') ?? '';
 const MAX_DISPATCH_PER_TICK = 10;
 
 Deno.serve(async (req) => {
+  // AUTH: cron (Phase M-2 runtime enforcement)
+  if (req.method !== 'OPTIONS') {
+    try { requireCronKey(req); }
+    catch (e) {
+      if (e instanceof AuthError) {
+        return new Response(JSON.stringify({ error: e.message, code: e.code }), {
+          status: e.status,
+          headers: { 'Content-Type': 'application/json', 'Access-Control-Allow-Origin': '*' },
+        });
+      }
+      throw e;
+    }
+  }
+
   if (req.method === 'OPTIONS') return corsPreflight();
 
   const admin = createClient(SUPABASE_URL, SERVICE_ROLE_KEY);

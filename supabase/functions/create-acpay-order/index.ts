@@ -1,5 +1,6 @@
 // AUTH: user  (auto-annotated 2026-07-27, see docs/security/edge-function-auth-matrix.md)
 import { jsonResponse } from "../_shared/cors.ts";
+import { requireCaller, AuthError } from '../_shared/authGuard.ts';
 import { serviceClient } from "../_shared/supabaseClients.ts";
 import { withLogging } from "../_shared/edgeLogger.ts";
 import { validateExpertOrderAmount } from "../_shared/orderAmountValidator.ts";
@@ -40,6 +41,20 @@ function generateOutTradeNo(): string {
 }
 
 const handler = withLogging("create-acpay-order", async (req, log) => {
+  // AUTH: user (Phase M-2 runtime enforcement)
+  if (req.method !== 'OPTIONS') {
+    try { await requireCaller(req); }
+    catch (e) {
+      if (e instanceof AuthError) {
+        return new Response(JSON.stringify({ error: e.message, code: e.code }), {
+          status: e.status,
+          headers: { 'Content-Type': 'application/json', 'Access-Control-Allow-Origin': '*' },
+        });
+      }
+      throw e;
+    }
+  }
+
   const body = await req.json();
   const {
     prime, amount, phone, countryCode, cardHolderName, cardHolderEmail,

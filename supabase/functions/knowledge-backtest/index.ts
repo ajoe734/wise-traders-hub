@@ -16,6 +16,7 @@
 //   - knowledge_grid_search_results: 網格每格結果（grid_search mode）
 
 import { jsonResponse, errorResponse } from '../_shared/cors.ts'
+import { requireCronKey, AuthError } from '../_shared/authGuard.ts';
 import { withLogging } from '../_shared/edgeLogger.ts'
 import { serviceClient } from '../_shared/supabaseClients.ts'
 
@@ -403,6 +404,20 @@ function buildGrid(triggerType: string, base: any): any[] {
 }
 
 Deno.serve(withLogging('knowledge-backtest', async (req, log) => {
+  // AUTH: cron (Phase M-2 runtime enforcement)
+  if (req.method !== 'OPTIONS') {
+    try { requireCronKey(req); }
+    catch (e) {
+      if (e instanceof AuthError) {
+        return new Response(JSON.stringify({ error: e.message, code: e.code }), {
+          status: e.status,
+          headers: { 'Content-Type': 'application/json', 'Access-Control-Allow-Origin': '*' },
+        });
+      }
+      throw e;
+    }
+  }
+
   try {
     const body = await req.json().catch(() => ({}))
     const mode: string = body.mode ?? 'single'

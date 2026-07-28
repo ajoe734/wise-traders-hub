@@ -13,6 +13,7 @@
 // 處理完後蒐集訊號 → decide() → 若需轉移就寫入 tw_bsr_degrade_events 並更新 config。
 
 import { createClient } from 'npm:@supabase/supabase-js@2';
+import { requireCronKey, AuthError } from '../_shared/authGuard.ts';
 import { corsHeaders } from 'npm:@supabase/supabase-js@2/cors';
 import {
   checkRateLimit,
@@ -861,6 +862,20 @@ async function runStats() {
 
 // ============ HTTP entry ============
 Deno.serve(async (req) => {
+  // AUTH: cron (Phase M-2 runtime enforcement)
+  if (req.method !== 'OPTIONS') {
+    try { requireCronKey(req); }
+    catch (e) {
+      if (e instanceof AuthError) {
+        return new Response(JSON.stringify({ error: e.message, code: e.code }), {
+          status: e.status,
+          headers: { 'Content-Type': 'application/json', 'Access-Control-Allow-Origin': '*' },
+        });
+      }
+      throw e;
+    }
+  }
+
   if (req.method === 'OPTIONS') return new Response('ok', { headers: corsHeaders });
   try {
     const body = req.method === 'POST' ? await req.json().catch(() => ({})) : {};

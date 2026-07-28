@@ -1,6 +1,7 @@
 // AUTH: user  (auto-annotated 2026-07-27, see docs/security/edge-function-auth-matrix.md)
 // deno-lint-ignore-file
 import "jsr:@supabase/functions-js/edge-runtime.d.ts";
+import { requireCaller, AuthError } from '../_shared/authGuard.ts';
 import { validateInput, validationResponse } from "../_shared/inputValidator.ts";
 import { corsHeaders, jsonResponse } from "../_shared/cors.ts";
 import { serviceClient } from "../_shared/supabaseClients.ts";
@@ -8,6 +9,20 @@ import { withLogging } from "../_shared/edgeLogger.ts";
 
 // Knowledge stored in checkup_storage with key prefix 'knowledge-'
 const handler = withLogging('checkup-knowledge', async (req, log) => {
+  // AUTH: user (Phase M-2 runtime enforcement)
+  if (req.method !== 'OPTIONS') {
+    try { await requireCaller(req); }
+    catch (e) {
+      if (e instanceof AuthError) {
+        return new Response(JSON.stringify({ error: e.message, code: e.code }), {
+          status: e.status,
+          headers: { 'Content-Type': 'application/json', 'Access-Control-Allow-Origin': '*' },
+        });
+      }
+      throw e;
+    }
+  }
+
   if (req.method === 'OPTIONS') return new Response(null, { headers: corsHeaders });
 
   const supabase = serviceClient();

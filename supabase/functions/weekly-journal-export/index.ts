@@ -9,6 +9,7 @@
 // 觸發：pg_cron（詳見同批 SQL）。也可帶 body { weekStart: "YYYY-MM-DD" } 手動補跑。
 
 import { createClient } from "npm:@supabase/supabase-js@2.57.4";
+import { requireCaller, AuthError } from '../_shared/authGuard.ts';
 
 const corsHeaders = {
   "Access-Control-Allow-Origin": "*",
@@ -372,6 +373,20 @@ async function loadOpeningBalances(supabase: any, rows: any[], startIso: string)
 }
 
 Deno.serve(async (req) => {
+  // AUTH: user (Phase M-2 runtime enforcement)
+  if (req.method !== 'OPTIONS') {
+    try { await requireCaller(req); }
+    catch (e) {
+      if (e instanceof AuthError) {
+        return new Response(JSON.stringify({ error: e.message, code: e.code }), {
+          status: e.status,
+          headers: { 'Content-Type': 'application/json', 'Access-Control-Allow-Origin': '*' },
+        });
+      }
+      throw e;
+    }
+  }
+
   if (req.method === "OPTIONS") return new Response("ok", { headers: corsHeaders });
 
   const supabase = createClient(

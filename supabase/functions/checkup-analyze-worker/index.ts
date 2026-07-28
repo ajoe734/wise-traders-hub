@@ -3,6 +3,7 @@
 // 保存 raw_responses + 簡易 result_summary，最後觸發 checkup-notify-complete
 // 僅接受 service_role 觸發
 import { corsPreflight, jsonResponse } from '../_shared/cors.ts';
+import { requireCronKey, AuthError } from '../_shared/authGuard.ts';
 import { withLogging } from '../_shared/edgeLogger.ts';
 import { createClient } from 'https://esm.sh/@supabase/supabase-js@2.49.1';
 
@@ -100,6 +101,20 @@ function computeSummary(holdings: any[], mainText: string) {
 
 
 const handler = withLogging('checkup-analyze-worker', async (req, log) => {
+  // AUTH: cron (Phase M-2 runtime enforcement)
+  if (req.method !== 'OPTIONS') {
+    try { requireCronKey(req); }
+    catch (e) {
+      if (e instanceof AuthError) {
+        return new Response(JSON.stringify({ error: e.message, code: e.code }), {
+          status: e.status,
+          headers: { 'Content-Type': 'application/json', 'Access-Control-Allow-Origin': '*' },
+        });
+      }
+      throw e;
+    }
+  }
+
   if (req.method === 'OPTIONS') return corsPreflight();
   if (req.method !== 'POST') return jsonResponse({ error: 'METHOD_NOT_ALLOWED' }, { status: 405 });
 
