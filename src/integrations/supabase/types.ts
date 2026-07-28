@@ -2747,6 +2747,24 @@ export type Database = {
         }
         Relationships: []
       }
+      internal_cron_secrets: {
+        Row: {
+          cron_key: string
+          id: number
+          rotated_at: string
+        }
+        Insert: {
+          cron_key: string
+          id?: number
+          rotated_at?: string
+        }
+        Update: {
+          cron_key?: string
+          id?: number
+          rotated_at?: string
+        }
+        Relationships: []
+      }
       knowledge_auto_rules: {
         Row: {
           archive_below_win_rate: number
@@ -6014,6 +6032,10 @@ export type Database = {
         }
         Returns: Json
       }
+      cron_edge_call: {
+        Args: { body?: Json; fn_name: string }
+        Returns: number
+      }
       delete_expired_binding_codes: { Args: never; Returns: undefined }
       delete_old_prices: { Args: never; Returns: undefined }
       derive_traffic_channel: {
@@ -6175,6 +6197,7 @@ export type Database = {
           schedule: string
         }[]
       }
+      get_cron_key: { Args: never; Returns: string }
       get_event_heatmap: {
         Args: { _from: string; _to: string }
         Returns: {
