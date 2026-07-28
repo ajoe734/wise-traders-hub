@@ -24,13 +24,20 @@
 - `scripts/audit-pg-cron-commands.mjs` 呼叫 `admin_list_cron_jobs` RPC 逐條檢核，命中任何裸 `net.http_post` 立即 exit 1。
 - `.github/workflows/security-audit.yml` 新增 `pg-cron-command-gate` job，PR/推送皆阻擋 regression。
 
-## M-3c（待開）— E2E Auth Contract 覆蓋
-- user / cron / webhook 各取樣一支代表函式，於 CI 打 401/403/成功路徑，斷言 status + code。
-- 交付：`e2e/edge-fn-auth-contract.spec.ts`。
+## M-3c（完成 2026-07-28）— E2E Auth Contract 覆蓋
+- `_shared/authContract_e2e_test.ts`：讀 matrix，user class 全數斷言 401 / cron class 全數斷言 403|503（含 bogus X-Cron-Key）。
+- **M-3c-2（完成）**：cron class 57/57 live 契約通過；guard 前置修正 8 支、reclassify 5 支為 user。
+- **M-3c-3（完成 2026-07-28）**：`_shared/webhookContract_e2e_test.ts` 覆蓋 6 支 webhook（acpay-notify / acpay-recurring-notify / checkup-ecpay-callback / ecpay-callback / confirm-linepay / line-webhook），以 provider-specific rejection sentinel（`^FAIL` / `err_code:"1"` / `^0|` / 4xx）斷言未簽章請求被拒。6/6 live 綠。
+- CI：`.github/workflows/edge-fn-auth-contract.yml` 每次 push/PR 跑 user+cron+webhook 三個契約 job；`supabase/functions/**` 或 matrix 變動觸發。
 
 ## 驗收指令
 ```bash
 node scripts/audit-edge-fn-auth.mjs
 node scripts/audit-pg-cron-commands.mjs
 deno test supabase/functions/_shared/authGuard_test.ts supabase/functions/_shared/authFailureSpike_test.ts --allow-env --allow-net
+deno test --allow-net --allow-env --allow-read --no-check supabase/functions/_shared/authContract_e2e_test.ts
+deno test --allow-net --allow-env --allow-read --no-check supabase/functions/_shared/webhookContract_e2e_test.ts
 ```
+
+## Phase M — 收斂完成
+M-1 到 M-3c 全數關閉；125 支 edge functions 皆有 auth marker + runtime guard + live 契約覆蓋；pg_cron 全走 `cron_edge_call`；auth 失敗有 spike 監控 + LINE 告警。下一波若要繼續，建議切到新 Phase（例：webhook 反重放 nonce / 速率限制）。
