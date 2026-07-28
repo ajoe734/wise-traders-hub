@@ -138,6 +138,17 @@ async function callAI(messages: any[], temperature = 0.3, maxTokens = 8192, pref
 
 const handler = withLogging('checkup-analyze', async (req, log) => {
   if (req.method === 'OPTIONS') return new Response(null, { headers: corsHeaders });
+  // AUTH: user — enforce before body parsing so anonymous callers get 401 (M-3c contract)
+  try { await requireCaller(req); }
+  catch (e) {
+    if (e instanceof AuthError) {
+      return new Response(JSON.stringify({ error: e.message, code: e.code }), {
+        status: e.status,
+        headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+      });
+    }
+    throw e;
+  }
   if (req.method !== 'POST') {
     return codedErrorResponse('METHOD_NOT_ALLOWED', '不支援的 HTTP 方法');
   }
