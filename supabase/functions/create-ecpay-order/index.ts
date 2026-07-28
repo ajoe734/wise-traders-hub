@@ -5,6 +5,7 @@ import { withLogging } from "../_shared/edgeLogger.ts";
 import { loadEcpayCreds } from "../_shared/ecpayCredentials.ts";
 import { validateExpertOrderAmount } from "../_shared/orderAmountValidator.ts";
 import { validateInput, validationJsonResponse } from "../_shared/inputValidator.ts";
+import { requireCaller, AuthError } from "../_shared/authGuard.ts";
 
 async function generateCheckMacValueAsync(
   params: Record<string, string>, hashKey: string, hashIV: string,
