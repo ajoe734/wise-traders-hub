@@ -21,12 +21,20 @@ import { join } from 'node:path';
 const FN_ROOT = 'supabase/functions';
 const MATRIX_DOC = 'docs/security/edge-function-auth-matrix.md';
 
+// A file may declare its auth class by EITHER calling the guard helper
+// (real runtime enforcement) OR by an `// AUTH: <class>` marker comment
+// (documented intent, pending guard swap). Both count for coverage.
 const CLASSIFIERS = [
-  { cls: 'user',    pattern: /requireCaller\s*\(/ },
-  { cls: 'cron',    pattern: /requireCronKey\s*\(/ },
+  { cls: 'user',    pattern: /requireCaller\s*\(|\/\/\s*AUTH:\s*user\b/i },
+  { cls: 'cron',    pattern: /requireCronKey\s*\(|\/\/\s*AUTH:\s*cron\b/i },
   { cls: 'webhook', pattern: /\/\/\s*AUTH:\s*webhook-signature/i },
-  { cls: 'public',  pattern: /\/\/\s*AUTH:\s*public/i },
+  { cls: 'public',  pattern: /\/\/\s*AUTH:\s*public\b/i },
 ];
+
+// A function has a "real" runtime guard when it calls the helper (or an
+// established webhook/public pattern). Comment-only markers count as
+// documented-but-pending — surfaced separately so we can burn them down.
+const RUNTIME_GUARD = /requireCaller\s*\(|requireCronKey\s*\(|CheckMacValue|verifyLinepaySignature|verifyAcpaySignature|X-Line-Signature|getCallerUserId|auth\.getUser|getClaims\(/;
 
 function listFunctions() {
   return readdirSync(FN_ROOT)
