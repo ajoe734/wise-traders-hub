@@ -5753,6 +5753,18 @@ export type Database = {
           symbol: string
         }[]
       }
+      admin_list_cron_jobs: {
+        Args: never
+        Returns: {
+          active: boolean
+          command: string
+          database: string
+          jobid: number
+          jobname: string
+          schedule: string
+          username: string
+        }[]
+      }
       admin_reject_fix_proposal: {
         Args: { p_id: string; p_note?: string }
         Returns: undefined
