@@ -130,7 +130,7 @@ function classifyHoldings(stocks: string): { stockList: string; warrantList: str
   return { stockList: stockItems.join("、"), warrantList: warrantItems.join("、"), parentStocks: [...new Set(parentStocks)] };
 }
 
-const handler = withLogging("checkup-calendar-cron", async (_req, log) => {
+const handler = withLogging("checkup-calendar-cron", async (req, log) => {
   // AUTH: cron (Phase M-2 runtime enforcement)
   if (req.method !== 'OPTIONS') {
     try { requireCronKey(req); }

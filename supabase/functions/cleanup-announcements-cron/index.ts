@@ -4,7 +4,7 @@ import { requireCronKey, AuthError } from '../_shared/authGuard.ts';
 import { withLogging } from '../_shared/edgeLogger.ts';
 import { jsonResponse } from '../_shared/cors.ts';
 
-Deno.serve(withLogging('cleanup-announcements-cron', async (_req) => {
+Deno.serve(withLogging('cleanup-announcements-cron', async (req) => {
   // AUTH: cron (Phase M-2 runtime enforcement)
   if (req.method !== 'OPTIONS') {
     try { requireCronKey(req); }

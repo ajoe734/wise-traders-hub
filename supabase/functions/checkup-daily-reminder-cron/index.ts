@@ -16,7 +16,7 @@ function todayTaipei(): string {
   return new Date(ms).toISOString().slice(0, 10);
 }
 
-const handler = withLogging('checkup-daily-reminder-cron', async (_req, log) => {
+const handler = withLogging('checkup-daily-reminder-cron', async (req, log) => {
   // AUTH: cron (Phase M-2 runtime enforcement)
   if (req.method !== 'OPTIONS') {
     try { requireCronKey(req); }
