@@ -7,7 +7,7 @@ import { withLogging } from "../_shared/edgeLogger.ts";
 // Mark stale remittance orders as expired:
 // - awaiting_info > 3 days  => user never completed bank transfer / never filled info
 // - pending      > 14 days  => admin never reconciled (assume the user did not actually pay)
-const handler = withLogging("expire-stale-remittance", async (_req, log) => {
+const handler = withLogging("expire-stale-remittance", async (req, log) => {
   // AUTH: cron (Phase M-2 runtime enforcement)
   if (req.method !== 'OPTIONS') {
     try { requireCronKey(req); }

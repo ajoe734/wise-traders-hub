@@ -81,7 +81,7 @@ function parseRow(r: TwseWarrantRow) {
   };
 }
 
-const handler = withLogging("checkup-warrant-sync", async (_req, log) => {
+const handler = withLogging("checkup-warrant-sync", async (req, log) => {
   // AUTH: cron (Phase M-2 runtime enforcement)
   if (req.method !== 'OPTIONS') {
     try { requireCronKey(req); }

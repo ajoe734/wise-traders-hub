@@ -42,8 +42,8 @@ Runtime guard 已上：125 / 125
 | `checkup-mops-announcements` | cron | ✅ |
 | `checkup-mops-revenue` | cron | ✅ |
 | `checkup-notify-complete` | cron | ✅ |
-| `checkup-parse` | cron | ✅ |
-| `checkup-predict-events` | cron | ✅ |
+| `checkup-parse` | user | ✅ |
+| `checkup-predict-events` | user | ✅ |
 | `checkup-quota-audit` | cron | ✅ |
 | `checkup-report` | user | ✅ |
 | `checkup-research` | user | ✅ |
@@ -54,7 +54,7 @@ Runtime guard 已上：125 / 125
 | `checkup-warrant-sync` | cron | ✅ |
 | `chips-guardian` | cron | ✅ |
 | `cleanup-announcements-cron` | cron | ✅ |
-| `cleanup-ops-logs` | cron | ✅ |
+| `cleanup-ops-logs` | user | ✅ |
 | `confirm-linepay` | webhook | — |
 | `confirm-remittance` | user | ✅ |
 | `create-acpay-order` | user | ✅ |
@@ -95,10 +95,10 @@ Runtime guard 已上：125 / 125
 | `notify-backtest-result` | cron | ✅ |
 | `notify-payment-failure` | cron | ✅ |
 | `og-card` | public | — |
-| `ops-health` | cron | ✅ |
+| `ops-health` | user | ✅ |
 | `process-refund` | user | ✅ |
 | `prune-knowledge-base` | cron | ✅ |
-| `publish-weekly-journals` | cron | ✅ |
+| `publish-weekly-journals` | user | ✅ |
 | `publish-weekly-journals-runner` | cron | ✅ |
 | `publish-weekly-journals-watchdog` | cron | ✅ |
 | `reconcile-warrant-quantities` | cron | ✅ |

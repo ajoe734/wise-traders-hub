@@ -9,6 +9,7 @@
 import "jsr:@supabase/functions-js/edge-runtime.d.ts";
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2.45.4";
 import { corsHeaders, corsPreflight, jsonResponse, errorResponse } from "../_shared/cors.ts";
+import { requireCronKey, AuthError } from "../_shared/authGuard.ts";
 import { checkCircuit, recordCircuit } from "../_shared/circuitBreaker.ts";
 import { checkKillSwitch } from "../_shared/killSwitch.ts";
 
@@ -637,6 +638,18 @@ async function runKeepWarm(
 
 Deno.serve(async (req) => {
   if (req.method === "OPTIONS") return corsPreflight();
+  // M-3c-2: cron-or-admin guard. Cron key required for scheduler; admin cold_start falls through.
+  let cronAuthed = false;
+  try { requireCronKey(req); cronAuthed = true; }
+  catch (cronErr) {
+    const admin = await isAdminCaller(req);
+    if (!admin.ok) {
+      if (cronErr instanceof AuthError) {
+        return errorResponse(cronErr.message, cronErr.status, { code: cronErr.code });
+      }
+      throw cronErr;
+    }
+  }
   try {
     const url = new URL(req.url);
 

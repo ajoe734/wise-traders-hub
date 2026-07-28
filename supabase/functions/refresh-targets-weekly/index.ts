@@ -215,4 +215,4 @@ Deno.serve(withLogging('refresh-targets-weekly', async (req) => {
       status: 500, headers: { ...corsHeaders, 'Content-Type': 'application/json' },
     });
   }
-});
+}));
