@@ -1421,6 +1421,42 @@ export type Database = {
         }
         Relationships: []
       }
+      edge_function_auth_events: {
+        Row: {
+          auth_class: string
+          caller_ip: string | null
+          code: string | null
+          correlation_id: string | null
+          created_at: string
+          fn_name: string
+          id: number
+          outcome: number
+          reason: string | null
+        }
+        Insert: {
+          auth_class: string
+          caller_ip?: string | null
+          code?: string | null
+          correlation_id?: string | null
+          created_at?: string
+          fn_name: string
+          id?: number
+          outcome: number
+          reason?: string | null
+        }
+        Update: {
+          auth_class?: string
+          caller_ip?: string | null
+          code?: string | null
+          correlation_id?: string | null
+          created_at?: string
+          fn_name?: string
+          id?: number
+          outcome?: number
+          reason?: string | null
+        }
+        Relationships: []
+      }
       expert_ai_access_logs: {
         Row: {
           created_at: string
@@ -6012,6 +6048,7 @@ export type Database = {
       cleanup_account_link_codes: { Args: never; Returns: undefined }
       cleanup_line_oauth_states: { Args: never; Returns: undefined }
       cleanup_old_announcements: { Args: never; Returns: undefined }
+      cleanup_old_auth_events: { Args: never; Returns: number }
       cleanup_old_expert_ai_access_logs: { Args: never; Returns: undefined }
       cleanup_old_perf_metrics: { Args: never; Returns: undefined }
       cleanup_old_traffic: { Args: never; Returns: undefined }
