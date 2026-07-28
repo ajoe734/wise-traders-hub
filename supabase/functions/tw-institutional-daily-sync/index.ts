@@ -645,10 +645,12 @@ Deno.serve(async (req) => {
   catch (cronErr) {
     const admin = await isAdminCaller(req);
     if (!admin.ok) {
-      if (cronErr instanceof AuthError) {
-        return errorResponse(cronErr.message, cronErr.status, { code: cronErr.code });
-      }
-      throw cronErr;
+      // 兩條路徑都失敗：優先回傳 admin 檢查失敗原因（cron 排程本來就不會經過瀏覽器）
+      return errorResponse(
+        `unauthorized: not cron and not admin (${admin.reason ?? "unknown"})`,
+        403,
+        { code: "FORBIDDEN" },
+      );
     }
   }
   try {
