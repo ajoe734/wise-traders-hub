@@ -7,6 +7,7 @@ import { requireCheckupAuth, quotaErrorResponse } from "../_shared/checkupQuota.
 import { corsHeaders, jsonResponse } from "../_shared/cors.ts";
 import { serviceClient } from "../_shared/supabaseClients.ts";
 import { withLogging } from "../_shared/edgeLogger.ts";
+import { requireCaller, AuthError } from '../_shared/authGuard.ts';
 
 const GATEWAY_URL = 'https://ai.gateway.lovable.dev/v1/chat/completions';
 const GATEWAY_MODELS = ['google/gemini-3-flash-preview', 'google/gemini-2.5-flash', 'google/gemini-2.5-flash-lite'];
