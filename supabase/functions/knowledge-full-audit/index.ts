@@ -263,4 +263,4 @@ Deno.serve(withLogging('knowledge-full-audit', async (req) => {
       headers: { ...corsHeaders, 'Content-Type': 'application/json' },
     })
   }
-})
+}))
