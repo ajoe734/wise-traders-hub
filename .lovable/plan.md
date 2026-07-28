@@ -40,4 +40,12 @@ deno test --allow-net --allow-env --allow-read --no-check supabase/functions/_sh
 ```
 
 ## Phase M — 收斂完成
-M-1 到 M-3c 全數關閉；125 支 edge functions 皆有 auth marker + runtime guard + live 契約覆蓋；pg_cron 全走 `cron_edge_call`；auth 失敗有 spike 監控 + LINE 告警。下一波若要繼續，建議切到新 Phase（例：webhook 反重放 nonce / 速率限制）。
+M-1 到 M-3c 全數關閉；125 支 edge functions 皆有 auth marker + runtime guard + live 契約覆蓋；pg_cron 全走 `cron_edge_call`；auth 失敗有 spike 監控 + LINE 告警。
+
+## M4（完成 2026-07-28）— CI Gate 鎖定
+- `scripts/audit-edge-fn-auth.mjs` 新增 `--strict`：user/cron class 若只有 `// AUTH:` marker、沒有 runtime guard 直接失敗（目前 pending=0 已鎖）。腳本同時輸出 `GITHUB_STEP_SUMMARY`（class breakdown + pending/unclassified 清單）。
+- 新 workflow `.github/workflows/edge-fn-auth-gate.yml` 聚合三段門檻：
+  1. `static-gate`：`audit-edge-fn-auth --strict` + `audit-pg-cron-commands`
+  2. `live-contract`：`authContract_e2e_test.ts` + `webhookContract_e2e_test.ts`
+- 舊 `edge-fn-auth-contract.yml` 併入新 gate 後刪除。兩個 job 均為 main branch required check；任何 unclassified fn / marker-only guard / 生 `net.http_post` / 契約破損都會擋 PR。
+

@@ -1,0 +1,68 @@
+name: Edge Function Auth Gate (M4)
+
+# Single blocking gate for edge function auth posture:
+#   1. Marker + runtime guard (strict — 0 pending allowed)
+#   2. pg_cron routes exclusively through cron_edge_call
+#   3. User / cron / webhook live contract tests
+#
+# All jobs are required checks on main. Any regression (unclassified fn,
+# marker-only guard, raw net.http_post, or a broken 401/403/webhook sentinel)
+# blocks the PR.
+
+on:
+  push:
+    branches: [main, 'feat/**', 'fix/**']
+    paths:
+      - 'supabase/functions/**'
+      - 'scripts/audit-edge-fn-auth.mjs'
+      - 'scripts/audit-pg-cron-commands.mjs'
+      - 'docs/security/edge-function-auth*.md'
+      - '.github/workflows/edge-fn-auth-gate.yml'
+  pull_request:
+    branches: [main]
+    paths:
+      - 'supabase/functions/**'
+      - 'scripts/audit-edge-fn-auth.mjs'
+      - 'scripts/audit-pg-cron-commands.mjs'
+      - 'docs/security/edge-function-auth*.md'
+      - '.github/workflows/edge-fn-auth-gate.yml'
+  workflow_dispatch:
+
+concurrency:
+  group: edge-fn-auth-gate-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  static-gate:
+    name: Static — marker + runtime guard (strict) + pg_cron
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+      - name: Marker + runtime guard (strict, 0 pending)
+        run: node scripts/audit-edge-fn-auth.mjs --strict
+      - name: pg_cron commands must route via cron_edge_call
+        env:
+          SUPABASE_URL: ${{ secrets.SUPABASE_URL }}
+          SUPABASE_ANON_KEY: ${{ secrets.SUPABASE_ANON_KEY }}
+        run: node scripts/audit-pg-cron-commands.mjs
+
+  live-contract:
+    name: Live — user + cron + webhook contract
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    env:
+      VITE_SUPABASE_URL: https://yqacmrgdjlenbijclngi.supabase.co
+      VITE_SUPABASE_PUBLISHABLE_KEY: ${{ secrets.VITE_SUPABASE_PUBLISHABLE_KEY }}
+    steps:
+      - uses: actions/checkout@v4
+      - uses: denoland/setup-deno@v2
+        with:
+          deno-version: v2.x
+      - name: user + cron class contract
+        run: deno test --allow-net --allow-env --allow-read --no-check supabase/functions/_shared/authContract_e2e_test.ts
+      - name: webhook class contract
+        run: deno test --allow-net --allow-env --allow-read --no-check supabase/functions/_shared/webhookContract_e2e_test.ts
