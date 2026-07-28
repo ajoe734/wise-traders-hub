@@ -3,6 +3,7 @@
 import "jsr:@supabase/functions-js/edge-runtime.d.ts";
 import { validateInput, validationResponse } from "../_shared/inputValidator.ts";
 import { requireCheckupAuth, quotaErrorResponse } from "../_shared/checkupQuota.ts";
+import { requireCaller, AuthError } from "../_shared/authGuard.ts";
 
 import { corsHeaders } from '../_shared/cors.ts';
 import { codedErrorResponse } from '../_shared/errorCodes.ts';
