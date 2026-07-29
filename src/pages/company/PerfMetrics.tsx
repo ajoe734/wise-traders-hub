@@ -142,7 +142,10 @@ export default function PerfMetricsPage() {
         </CardContent>
       </Card>
 
-      <PriceParityCard days={days} />
+      <Suspense fallback={<div className="h-[120px]" />}>
+        <PriceParityCard days={days} />
+      </Suspense>
+
 
 
 
