@@ -145,8 +145,9 @@ Deno.serve(withLogging('stock-price-sync', async (req) => {
     const dow = tw.getUTCDay()
     const minutes = tw.getUTCHours() * 60 + tw.getUTCMinutes()
     const isWeekday = dow >= 1 && dow <= 5
-    // TW: 09:00-13:33 Taipei；US: 21:30-04:00 Taipei（美東 09:30-16:00 標準 / 08:30-15:00 DST 期間放寬）
-    const twInWindow = minutes >= 9 * 60 && minutes <= 13 * 60 + 33
+    // TW: 09:00-14:10 Taipei（含 13:35 收盤 tail 與 14:05 官方收盤定價 correction cron）
+    // US: 21:30-04:30 Taipei（美東 09:30-16:00 標準 / 08:30-15:00 DST 期間放寬）
+    const twInWindow = minutes >= 9 * 60 && minutes <= 14 * 60 + 10
     const usInWindow = (minutes >= 21 * 60) || (minutes <= 4 * 60 + 30)
     const anyWindow =
       (marketGate === 'TW' && twInWindow) ||
