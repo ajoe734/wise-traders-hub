@@ -116,5 +116,5 @@ export function mergeAuthoritativeIntoPriceCache<
     };
   }
 
-  return { ...(cache || {}), prices } as T;
+  return { ...base, prices } as T;
 }
