@@ -20,6 +20,11 @@ import {
 } from './holdings.js'
 import { normalizeMarketPriceCache, normalizeMarketPriceSync } from './market.js'
 import {
+  AUTHORITATIVE_PRICE_KEY,
+  mergeAuthoritativeIntoPriceCache,
+} from './authoritativePriceMirror'
+
+import {
   buildPortfoliosFromStorage,
   clonePortfolioNotes,
   collectPortfolioBackupStorage,
