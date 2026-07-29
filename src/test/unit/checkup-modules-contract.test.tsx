@@ -63,6 +63,9 @@ vi.mock('@/checkup/pages/usePortfolioRouteContext.js', () => ({
 
 vi.mock('react-router-dom', () => ({
   useNavigate: () => vi.fn(),
+  // deep-link 消費（?expand= / ?stock=）後，route hooks 也會用到 search params。
+  useSearchParams: () => [new URLSearchParams(''), vi.fn()],
+  useLocation: () => ({ pathname: '/', search: '', hash: '', state: null, key: 'test' }),
 }))
 
 vi.mock('@/checkup/hooks/api/useAnalysis.js', () => ({
