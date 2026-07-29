@@ -18,7 +18,9 @@ import {
   readRouteMarketState,
   invalidateRouteRuntimeCache,
 } from '@/checkup/lib/routeRuntime.js';
-import { useMarketDataStore } from '@/checkup/stores/marketStore.js';
+import { useMarketDataStore as rawStore } from '@/checkup/stores/marketStore.js';
+
+const useMarketDataStore = rawStore as unknown as { getState: () => any };
 
 const LEGACY_CACHE = {
   marketDate: '2026-07-28',
@@ -40,7 +42,7 @@ beforeEach(() => {
 
 describe('mergeAuthoritativeIntoPriceCache', () => {
   it('overrides legacy price and recomputes change from legacy yesterday', () => {
-    const merged = mergeAuthoritativeIntoPriceCache(LEGACY_CACHE, {
+    const merged: any = mergeAuthoritativeIntoPriceCache(LEGACY_CACHE as any, {
       2330: { price: 1000, source: 'snapshot', updatedAt: '2026-07-29' },
     });
     expect(merged.prices['2330'].price).toBe(1000);
@@ -51,11 +53,11 @@ describe('mergeAuthoritativeIntoPriceCache', () => {
   });
 
   it('returns cache untouched when mirror empty', () => {
-    expect(mergeAuthoritativeIntoPriceCache(LEGACY_CACHE, {})).toBe(LEGACY_CACHE);
+    expect(mergeAuthoritativeIntoPriceCache(LEGACY_CACHE as any, {})).toBe(LEGACY_CACHE);
   });
 
   it('works when there is no legacy cache at all', () => {
-    const merged = mergeAuthoritativeIntoPriceCache(null, {
+    const merged: any = mergeAuthoritativeIntoPriceCache(null as any, {
       NVDA: { price: 55, source: 'current', updatedAt: null },
     });
     expect(merged.prices.NVDA.price).toBe(55);
