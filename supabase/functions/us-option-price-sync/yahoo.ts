@@ -17,25 +17,76 @@ export interface YahooOptionChain {
   byOcc: Map<string, YahooOptionQuote>;
 }
 
-const UA = 'Mozilla/5.0 (compatible; LovableCheckup/1.0)';
+const UA =
+  'Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/125.0.0.0 Safari/537.36';
+
+// Yahoo 從 2023 起對 /v7/finance/options 要求 cookie + crumb，缺了就回 401。
+// 這裡做一次性 handshake 並在同一次 function 執行內快取。
+let cachedAuth: { cookie: string; crumb: string } | null = null;
+
+async function getYahooAuth(): Promise<{ cookie: string; crumb: string } | null> {
+  if (cachedAuth) return cachedAuth;
+  try {
+    const res = await fetch('https://fc.yahoo.com', {
+      headers: { 'User-Agent': UA, Accept: 'text/html' },
+      redirect: 'manual',
+    });
+    await res.text().catch(() => '');
+    const raw = res.headers.get('set-cookie') || '';
+    const cookie = raw
+      .split(/,(?=[^;]+=)/)
+      .map((c) => c.split(';')[0].trim())
+      .filter(Boolean)
+      .join('; ');
+    if (!cookie) return null;
+    const cr = await fetch('https://query1.finance.yahoo.com/v1/test/getcrumb', {
+      headers: { 'User-Agent': UA, Accept: '*/*', Cookie: cookie },
+    });
+    const crumb = (await cr.text()).trim();
+    if (!cr.ok || !crumb || crumb.length > 32 || crumb.includes('<')) return null;
+    cachedAuth = { cookie, crumb };
+    return cachedAuth;
+  } catch {
+    return null;
+  }
+}
 
 export async function fetchYahooOptionQuote(
   underlying: string,
   expiry: string,
 ): Promise<YahooOptionChain> {
   const epoch = expiryToUtcEpoch(expiry);
-  const url = `https://query2.finance.yahoo.com/v7/finance/options/${encodeURIComponent(
-    underlying,
-  )}?date=${epoch}`;
-  const res = await fetch(url, { headers: { 'User-Agent': UA, Accept: 'application/json' } });
-  if (!res.ok) {
-    // Ensure the body is consumed to avoid Deno resource leaks.
-    await res.text().catch(() => '');
-    throw new Error(`yahoo_status_${res.status}`);
+  const base = (host: string, crumb?: string) =>
+    `https://${host}/v7/finance/options/${encodeURIComponent(underlying)}?date=${epoch}` +
+    (crumb ? `&crumb=${encodeURIComponent(crumb)}` : '');
+
+  const attempts: Array<{ url: string; cookie?: string }> = [{ url: base('query2.finance.yahoo.com') }];
+  const auth = await getYahooAuth();
+  if (auth) {
+    attempts.unshift({ url: base('query1.finance.yahoo.com', auth.crumb), cookie: auth.cookie });
   }
-  const payload = await res.json();
-  return parseYahooOptionPayload(payload, underlying, expiry);
+
+  let lastStatus = 0;
+  for (const attempt of attempts) {
+    const res = await fetch(attempt.url, {
+      headers: {
+        'User-Agent': UA,
+        Accept: 'application/json',
+        ...(attempt.cookie ? { Cookie: attempt.cookie } : {}),
+      },
+    });
+    if (!res.ok) {
+      await res.text().catch(() => '');
+      lastStatus = res.status;
+      cachedAuth = null; // 下次重新 handshake
+      continue;
+    }
+    const payload = await res.json();
+    return parseYahooOptionPayload(payload, underlying, expiry);
+  }
+  throw new Error(`yahoo_status_${lastStatus || 0}`);
 }
+
 
 /** Pure — used by tests without network. */
 export function parseYahooOptionPayload(
