@@ -15,7 +15,7 @@
 | 3     | 拔除 MIS 主路徑；HoldingsWorkbench/ClosingAnalysis 改用新 hook  | 🚧 待實作         | `useMarketData.js`（僅保留 offline fallback）、components 改 hook                                            |
 | 4     | TW `tw-price-sync-close-correction` 移到 14:05 TPE              | ✅ 完成 2026-07-29 | Migration（`cron.schedule` id 89）                                                                           |
 | 5     | `price_source_mismatch` telemetry + Perf-metrics 卡片           | ✅ 完成 2026-07-29 | `price_parity_events` 表、`get_price_parity_summary` RPC、`PriceParityCard.tsx`、hook 內 `reportParityMismatches` |
-| 6     | E2E 回歸 `e2e/holdings-price-parity.spec.ts` + CI               | 🚧 待實作         | `e2e/`、`.github/workflows/holdings.yml`                                                                     |
+| 6     | E2E 回歸 `e2e/holdings-price-parity.spec.ts` + CI               | ✅ 完成 2026-07-29 | `e2e/holdings-price-parity.spec.ts`、`playwright.config.ts`（project）、`.github/workflows/holdings-price-parity.yml` |
 
 ## Phase 2b 規格（下一步）
 
