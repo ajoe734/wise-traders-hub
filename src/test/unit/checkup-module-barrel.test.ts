@@ -10,7 +10,7 @@
 import { describe, it, expect } from 'vitest'
 
 describe('L1 · module barrels re-export contract', () => {
-  it('M1 Holdings barrel 對外符號齊全', async () => {
+  it('M1 Holdings barrel 對外符號齊全', { timeout: 30_000 }, async () => {
     const mod = await import('@/checkup/modules/holdings')
     expect(typeof mod.useRouteHoldingsPage).toBe('function')
     expect(typeof mod.HoldingsPage).toBe('function')

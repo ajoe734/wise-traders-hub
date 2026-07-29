@@ -100,7 +100,8 @@ describe('A. 草稿載入 sanitizeAssetQuantityUnit：us_stock / us_future / us_
   it('AssetSpec.units 白名單：us_stock=[股]、us_future=[口]、us_option=[口]', () => {
     expect(getAssetSpec('us_stock').units).toEqual(['股']);
     expect(getAssetSpec('us_future').units).toEqual(['口']);
-    expect(getAssetSpec('us_option').units).toEqual(['口']);
+    // 組 = 多腿 combo 價差單位（Phase combo 支援後新增）
+    expect(getAssetSpec('us_option').units).toEqual(['口', '組']);
   });
 
   it('resolveAssetClass：asset_class 優先於 currency，避免舊 USD 誤判為 us_stock 蓋掉 us_future', () => {
