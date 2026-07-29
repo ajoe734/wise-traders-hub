@@ -64,3 +64,22 @@ Phase 3 只把 DB-first 覆蓋層（`useAuthoritativePrices`）套在 `useRouteP
 ## 不可觸碰
 
 `src/integrations/supabase/{client,types}.ts`、`.env`、`supabase/config.toml`；`FreeCheckup.jsx` Hero 與 RWD 斷點（僅換價格來源，改動時須跑手機回歸清單）。
+
+
+## Phase 7 — 單一價格真相收斂（2026-07-29 完成）
+
+根因：Phase 3 只覆蓋 holdings 陣列，**同步**消費端（總覽頁、投組摘要、marketStore selector）
+仍讀 LocalStorage 舊價 → 同畫面兩個數字。
+
+| Step | 內容 | 交付 |
+|------|------|------|
+| 1 | 統一解析器（combo > snapshot > current > offline > stale） | `src/checkup/lib/priceResolver.ts`（10 tests） |
+| 2 | 權威價鏡像（upsert、只存 DB 來源） | `src/checkup/lib/authoritativePriceMirror.ts` |
+| 3 | 同步消費端收斂：`readRouteMarketState` / `marketStore` 一律 merge 鏡像 | `routeRuntime.js`、`marketStore.js`（7 tests） |
+| 4 | `useMarketData` 取價路由：線上 DB、離線才打 TWSE MIS | `authoritativeQuotes.ts`、`useMarketData.js`（4 tests） |
+| 5 | 未定價腿留痕 → `checkup_price_misses`（系統級 user_id=null，成功後 resolved） | `us-option-price-sync/index.ts`（Deno 11 綠） |
+
+回歸結果：`src/checkup` + `src/test/unit` 共 **1110 passed / 92 files**（含修復 4 個先前紅燈檔：
+Phase A deep-link 讓 `useRouteHoldingsPage` 需要 Router context，測試改用 `MemoryRouter` wrapper、
+`checkup-modules-contract` 補 `useSearchParams` mock、hook 移除 `eslint-disable`）；
+`--project=holdings-price-parity` 2 passed。
