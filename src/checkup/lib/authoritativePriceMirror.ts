@@ -88,7 +88,15 @@ export function mergeAuthoritativeIntoPriceCache<
   const symbols = Object.keys(mirror || {});
   if (!symbols.length) return cache;
 
-  const basePrices = (cache && cache.prices) || {};
+  const base: any = cache || {
+    marketDate: null,
+    syncedAt: null,
+    source: 'authoritative',
+    status: 'fresh',
+    prices: {},
+  };
+  const basePrices = base.prices || {};
+
   const prices: Record<string, any> = { ...basePrices };
   for (const symbol of symbols) {
     const quote = mirror[symbol];
