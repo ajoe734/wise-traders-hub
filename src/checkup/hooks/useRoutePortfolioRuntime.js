@@ -713,6 +713,7 @@ export function useRoutePortfolioRuntime() {
     () => ({
       portfolioId: routePortfolioId,
       ...routeData,
+      holdings: enrichedHoldings,
       setHoldings,
       setWatchlist,
       setTargets,
