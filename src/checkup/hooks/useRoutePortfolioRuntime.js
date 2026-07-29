@@ -422,17 +422,17 @@ export function useRoutePortfolioRuntime() {
 
   const copyWeeklyReport = useCallback(async () => {
     const activePortfolio = portfolios.find((portfolio) => portfolio.id === routePortfolioId)
-    const totalValue = routeData.holdings.reduce((sum, item) => sum + (item.value || 0), 0)
-    const totalCost = routeData.holdings.reduce(
+    const totalValue = enrichedHoldings.reduce((sum, item) => sum + (item.value || 0), 0)
+    const totalCost = enrichedHoldings.reduce(
       (sum, item) => sum + (Number(item.cost) || 0) * (Number(item.qty) || 0),
       0
     )
     const totalPnl = totalValue - totalCost
     const retPct = totalCost > 0 ? (totalPnl / totalCost) * 100 : 0
-    const { todayAlertSummary } = buildHoldingAlertSummary(routeData.holdings)
+    const { todayAlertSummary } = buildHoldingAlertSummary(enrichedHoldings)
     const text = buildClipboardReport({
       portfolioName: activePortfolio?.name || routePortfolioId,
-      holdings: routeData.holdings,
+      holdings: enrichedHoldings,
       totalValue,
       totalPnl,
       retPct,
@@ -446,7 +446,8 @@ export function useRoutePortfolioRuntime() {
       console.error('copyWeeklyReport failed:', error)
       flashSaved('❌ 週報複製失敗')
     }
-  }, [flashSaved, portfolios, routePortfolioId, routeData.holdings])
+  }, [flashSaved, portfolios, routePortfolioId, enrichedHoldings])
+
 
   const exportLocalBackup = useCallback(() => {
     downloadJson(`portfolio-backup-${routePortfolioId}-${toSlashDate().replace(/\//g, '-')}.json`, {
