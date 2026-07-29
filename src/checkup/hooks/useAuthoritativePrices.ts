@@ -299,6 +299,11 @@ export function useAuthoritativePrices(
       });
       setPrices(next);
       setLoading(false);
+
+      // Phase 5 telemetry: log DB vs offline-cache mismatches (> 0.5%).
+      if (online) {
+        void reportParityMismatches(next, offlineCache);
+      }
     }
 
     run().catch(() => {
