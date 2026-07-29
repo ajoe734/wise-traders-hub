@@ -676,14 +676,14 @@ export function useRoutePortfolioRuntime() {
     () => buildPortfolioSummariesFromStorage({ portfolios, marketPriceCache }),
     [marketPriceCache, portfolios]
   )
-  const totalValue = routeData.holdings.reduce((sum, item) => sum + (item.value || 0), 0)
-  const totalCost = routeData.holdings.reduce(
+  const totalValue = enrichedHoldings.reduce((sum, item) => sum + (item.value || 0), 0)
+  const totalCost = enrichedHoldings.reduce(
     (sum, item) => sum + (Number(item.cost) || 0) * (Number(item.qty) || 0),
     0
   )
   const displayedTotalPnl = totalValue - totalCost
   const displayedRetPct = totalCost > 0 ? (displayedTotalPnl / totalCost) * 100 : 0
-  const { urgentCount, todayAlertSummary } = buildHoldingAlertSummary(routeData.holdings)
+  const { urgentCount, todayAlertSummary } = buildHoldingAlertSummary(enrichedHoldings)
   const tabs = buildPortfolioTabs({ urgentCount })
   const overviewTotalValue = portfolioSummaries.reduce(
     (sum, portfolio) => sum + portfolio.totalValue,
