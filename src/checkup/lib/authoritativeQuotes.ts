@@ -53,13 +53,13 @@ export async function fetchAuthoritativeQuotes(
       if (phase.hasSettledSnapshot) {
         const { data } = await supabase
           .from('daily_price_snapshots')
-          .select('symbol, close_price, prev_close, trade_date')
+          .select('symbol, close_price, yesterday_close, trade_date')
           .in('symbol', list)
           .eq('trade_date', phase.marketDate);
         for (const row of (data as any[]) || []) {
           const price = Number(row.close_price);
           if (!Number.isFinite(price) || price <= 0) continue;
-          const yesterday = Number(row.prev_close);
+          const yesterday = Number(row.yesterday_close);
           const hasY = Number.isFinite(yesterday) && yesterday > 0;
           out[String(row.symbol)] = {
             price,
@@ -76,12 +76,12 @@ export async function fetchAuthoritativeQuotes(
       if (!missing.length) return;
       const { data } = await supabase
         .from('current_prices')
-        .select('symbol, price, previous_close, updated_at')
+        .select('symbol, price, yesterday_close, updated_at')
         .in('symbol', missing);
       for (const row of (data as any[]) || []) {
         const price = Number(row.price);
         if (!Number.isFinite(price) || price <= 0) continue;
-        const yesterday = Number(row.previous_close);
+        const yesterday = Number(row.yesterday_close);
         const hasY = Number.isFinite(yesterday) && yesterday > 0;
         out[String(row.symbol)] = {
           price,

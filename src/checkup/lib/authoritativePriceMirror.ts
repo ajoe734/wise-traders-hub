@@ -30,7 +30,8 @@ export function isAuthoritativeSource(source: unknown): boolean {
 export function writeAuthoritativePrices(
   entries: Record<string, { price: number | null; source: string; updatedAt: string | null }>,
 ): MirrorMap {
-  const next: MirrorMap = {};
+  // Upsert 語意：部分寫入者（fetchAuthoritativeQuotes）不得清掉其他 symbol。
+  const next: MirrorMap = { ...readAuthoritativePrices() };
   for (const [symbol, entry] of Object.entries(entries || {})) {
     const price = Number(entry?.price);
     if (!isAuthoritativeSource(entry?.source)) continue;
