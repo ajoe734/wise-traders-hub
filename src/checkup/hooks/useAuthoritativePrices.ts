@@ -175,30 +175,39 @@ async function fetchCurrentPrices(
   return out;
 }
 
+/** DB row (public.expert_signal_legs) → ComboLeg. Column names are authoritative:
+ *  `right_type` (not `right`) and `leg_price` (not `price`). */
+export function mapLegRow(row: Record<string, unknown>): ComboLeg {
+  return {
+    underlying: String(row.underlying || ''),
+    expiry: String(row.expiry || ''),
+    right: (row.right_type === 'P' ? 'P' : 'C'),
+    strike: Number(row.strike || 0),
+    side: row.side === 'short' ? 'short' : 'long',
+    ratio: Math.max(1, Number(row.ratio || 1)),
+    price: Number(row.leg_price || 0),
+  };
+}
+
+export const COMBO_LEG_SELECT =
+  'signal_id, underlying, expiry, right_type, strike, side, ratio, leg_price';
+
 async function fetchComboLegs(signalIds: string[]): Promise<Map<string, ComboLeg[]>> {
   const grouped = new Map<string, ComboLeg[]>();
   if (!signalIds.length) return grouped;
   const { data, error } = await supabase
     .from('expert_signal_legs')
-    .select('signal_id, underlying, expiry, right_type, strike, side, ratio, leg_price')
+    .select(COMBO_LEG_SELECT)
     .in('signal_id', signalIds);
   if (error || !data) return grouped;
   for (const row of data as any[]) {
-    const leg: ComboLeg = {
-      underlying: String(row.underlying || ''),
-      expiry: String(row.expiry || ''),
-      right: (row.right_type === 'P' ? 'P' : 'C'),
-      strike: Number(row.strike || 0),
-      side: row.side === 'short' ? 'short' : 'long',
-      ratio: Math.max(1, Number(row.ratio || 1)),
-      price: Number(row.leg_price || 0),
-    };
     const key = String(row.signal_id);
     if (!grouped.has(key)) grouped.set(key, []);
-    grouped.get(key)!.push(leg);
+    grouped.get(key)!.push(mapLegRow(row));
   }
   return grouped;
 }
+
 
 /** Rebuild per-row prices from the fetched maps + offline fallback. */
 export function combineAuthoritativePrices(params: {
