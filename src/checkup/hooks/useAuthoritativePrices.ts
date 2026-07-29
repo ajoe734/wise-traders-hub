@@ -180,18 +180,18 @@ async function fetchComboLegs(signalIds: string[]): Promise<Map<string, ComboLeg
   if (!signalIds.length) return grouped;
   const { data, error } = await supabase
     .from('expert_signal_legs')
-    .select('signal_id, underlying, expiry, right, strike, side, ratio, price')
+    .select('signal_id, underlying, expiry, right_type, strike, side, ratio, leg_price')
     .in('signal_id', signalIds);
   if (error || !data) return grouped;
   for (const row of data as any[]) {
     const leg: ComboLeg = {
       underlying: String(row.underlying || ''),
       expiry: String(row.expiry || ''),
-      right: (row.right === 'P' ? 'P' : 'C'),
+      right: (row.right_type === 'P' ? 'P' : 'C'),
       strike: Number(row.strike || 0),
       side: row.side === 'short' ? 'short' : 'long',
       ratio: Math.max(1, Number(row.ratio || 1)),
-      price: Number(row.price || 0),
+      price: Number(row.leg_price || 0),
     };
     const key = String(row.signal_id);
     if (!grouped.has(key)) grouped.set(key, []);
