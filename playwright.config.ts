@@ -1011,6 +1011,15 @@ export default defineConfig({
       testMatch: /shell-event-bus-nav-v2\.spec\.ts/,
       use: { ...devices['Desktop Chrome'], viewport: { width: 1280, height: 900 } },
     },
+    {
+      // Phase 6 — 持倉看板價格權威 E2E（docs/architecture/price-authority.md）
+      //   驗證 daily_price_snapshots / current_prices / expert_signal_legs 三條 API
+      //   contract + navigator.onLine=false 離線 fallback 不 crash。
+      name: 'holdings-price-parity',
+      testMatch: /holdings-price-parity\.spec\.ts/,
+      use: { ...devices['Desktop Chrome'], viewport: { width: 1280, height: 900 } },
+    },
+
   ],
 
   webServer: {
