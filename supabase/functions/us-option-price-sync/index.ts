@@ -18,6 +18,8 @@ type LegRow = {
   strike: number;
 };
 
+function r_ok(n: number) { return Number.isFinite(n) && n > 0; }
+
 Deno.serve(withLogging('us-option-price-sync', async (req) => {
   if (req.method === 'OPTIONS') return new Response(null, { headers: corsHeaders });
 
@@ -53,7 +55,8 @@ Deno.serve(withLogging('us-option-price-sync', async (req) => {
     .from('expert_signals')
     .select('id')
     .eq('is_combo', true)
-    .eq('status', 'published');
+    // pending（尚未到發布窗）也是實際持倉，需要收盤 mark price。
+    .in('status', ['published', 'pending']);
   if (sigErr) throw sigErr;
   const signalIds = (signals ?? []).map((s: { id: string }) => s.id);
   if (signalIds.length === 0) {
@@ -62,12 +65,18 @@ Deno.serve(withLogging('us-option-price-sync', async (req) => {
 
   const { data: legsRaw, error: legErr } = await supabase
     .from('expert_signal_legs')
-    .select('signal_id, underlying, expiry, right, strike')
+    .select('signal_id, underlying, expiry, right_type, strike')
     .in('signal_id', signalIds);
   if (legErr) throw legErr;
-  const legs: LegRow[] = (legsRaw ?? []).filter(
-    (l: LegRow) => l.underlying && l.expiry && (l.right === 'C' || l.right === 'P') && l.strike > 0,
-  );
+  const legs: LegRow[] = (legsRaw ?? [])
+    .map((r: Record<string, unknown>) => ({
+      signal_id: String(r.signal_id),
+      underlying: String(r.underlying ?? ''),
+      expiry: String(r.expiry ?? ''),
+      right: (r.right_type === 'P' ? 'P' : 'C') as OptionRight,
+      strike: Number(r.strike ?? 0),
+    }))
+    .filter((l) => l.underlying && l.expiry && r_ok(l.strike));
   if (legs.length === 0) return jsonOk({ message: 'no legs', legs: 0, written: 0 });
 
   // Group legs by underlying → single Yahoo call per underlying.

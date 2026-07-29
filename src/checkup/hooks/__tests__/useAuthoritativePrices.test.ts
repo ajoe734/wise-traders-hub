@@ -9,7 +9,7 @@
  *   - DB miss while online → source='stale'
  */
 import { describe, it, expect } from 'vitest';
-import { combineAuthoritativePrices } from '../useAuthoritativePrices';
+import { combineAuthoritativePrices, mapLegRow, COMBO_LEG_SELECT } from '../useAuthoritativePrices';
 import { calcNetPremium, buildOccSymbol, type ComboLeg } from '@/lib/optionCombo';
 
 describe('combineAuthoritativePrices', () => {
@@ -127,5 +127,33 @@ describe('combineAuthoritativePrices', () => {
       online: true,
     });
     expect(out['00631L'].price).toBe(200);
+  });
+});
+
+/**
+ * Regression: expert_signal_legs 真實欄位是 `right_type` / `leg_price`。
+ * 曾經誤用 `right` / `price`，導致 combo 部位在正式環境永遠取不到腿別（unit test 因直接餵
+ * ComboLeg 而未攔截）。此組測試鎖住 DB row → ComboLeg 的映射契約。
+ */
+describe('mapLegRow / COMBO_LEG_SELECT (DB schema contract)', () => {
+  it('maps right_type and leg_price from a real DB row shape', () => {
+    const leg = mapLegRow({
+      signal_id: 's1', underlying: 'sndk', expiry: '2026-08-15',
+      right_type: 'P', strike: '950', side: 'short', ratio: 2, leg_price: '5.25',
+    });
+    expect(leg).toEqual({
+      underlying: 'sndk', expiry: '2026-08-15', right: 'P',
+      strike: 950, side: 'short', ratio: 2, price: 5.25,
+    });
+  });
+
+  it('select list only references columns that exist on expert_signal_legs', () => {
+    const allowed = new Set([
+      'id', 'signal_id', 'leg_index', 'occ_symbol', 'underlying', 'expiry',
+      'right_type', 'strike', 'side', 'ratio', 'leg_price', 'created_at', 'updated_at',
+    ]);
+    for (const col of COMBO_LEG_SELECT.split(',').map((c) => c.trim())) {
+      expect(allowed.has(col), `unknown column: ${col}`).toBe(true);
+    }
   });
 });

@@ -103,12 +103,31 @@ Client 端寫入邏輯（`useAuthoritativePrices::reportParityMismatches`）：
 | 1     | `us-option-price-sync` + tests + cron     | ✅ 已上線      |
 | 2     | `marketClock.ts` + tests                  | ✅ 已上線      |
 | 2     | `useAuthoritativePrices` hook             | ✅ 已上線      |
-| 3     | 拔除 MIS 主路徑、component 改用新 hook    | 🚧 待實作      |
+| 3     | 拔除 MIS 主路徑、component 改用新 hook    | ✅ 已上線      |
 | 4     | TW cron 14:05                             | ✅ 已上線      |
 | 5     | `price_parity_events` + Perf-metrics 卡片 | ✅ 已上線      |
-| 6     | `e2e/holdings-price-parity.spec.ts` + CI  | 🚧 待實作      |
+| 6     | `e2e/holdings-price-parity.spec.ts` + CI  | ✅ 已上線      |
 
 ## 不可觸碰
 
 - `src/integrations/supabase/client.ts`、`types.ts`、`.env`
 - `mis.twse.com.tw` 直接呼叫已下架，禁止在新的 checkup 檔案重新引入
+
+
+## 交易時窗守則（2026-07-29 修）
+
+`stock-price-sync` 內部的 `twInWindow` **必須覆蓋所有台股 cron 的觸發時間**。
+目前為 `09:00–14:10 TPE`，理由：13:35 tail + 14:05 官方收盤定價 correction。
+> 新增任何台股價格 cron 時間點時，先確認它落在此窗內，否則會被 `outside_trading_hours` 靜默略過。
+
+## expert_signal_legs 欄位契約
+
+實際欄位是 `right_type`（'C' | 'P'）與 `leg_price`，**不是** `right` / `price`。
+所有查詢一律走 `COMBO_LEG_SELECT` + `mapLegRow`（`src/checkup/hooks/useAuthoritativePrices.ts`），
+edge function 端亦同步映射。單元測試 `mapLegRow / COMBO_LEG_SELECT (DB schema contract)` 鎖住此契約。
+
+## Yahoo option chain 存取
+
+`/v7/finance/options` 需 cookie（`fc.yahoo.com`）+ crumb（`/v1/test/getcrumb`），否則 401。
+`yahoo.ts::getYahooAuth()` 做一次性 handshake 並在單次執行內快取，失敗時退回 query2 無 crumb 路徑。
+`us-option-price-sync` 取 `is_combo=true` 且 `status IN ('published','pending')` 的部位。
