@@ -178,14 +178,16 @@ Deno.serve(withLogging('us-option-price-sync', async (req) => {
   }
 
 
-  // 已定價的腿若先前被記為 miss，標記為已解決。
+  // 已定價的腿若先前被記為 miss，標記為已解決（只碰系統級列）。
   if (rows.length > 0) {
     await supabase
       .from('checkup_price_misses')
       .update({ resolved_at: now })
+      .is('user_id', null)
       .in('symbol', rows.map((r) => r.symbol as string))
       .is('resolved_at', null);
   }
+
 
 
   return jsonOk({
