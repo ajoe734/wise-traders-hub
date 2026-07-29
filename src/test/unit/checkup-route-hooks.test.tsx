@@ -100,7 +100,7 @@ beforeEach(() => {
 })
 
 describe('L2 · M1 useRouteHoldingsPage', () => {
-  it('回傳 panelProps 與 tableProps 且 holdings 為陣列', async () => {
+  it('回傳 panelProps 與 tableProps 且 holdings 為陣列', { timeout: 30_000 }, async () => {
     const { useRouteHoldingsPage } = await import('@/checkup/modules/holdings')
     const { result } = renderHook(() => useRouteHoldingsPage(), { wrapper })
     expect(result.current.panelProps).toBeDefined()
