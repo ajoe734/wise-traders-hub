@@ -137,6 +137,10 @@ export default function PerfMetricsPage() {
         </CardContent>
       </Card>
 
+      <PriceParityCard days={days} />
+
+
+
       <Card>
         <CardHeader>
           <CardTitle className="text-[14px] font-medium">路徑排行</CardTitle>
