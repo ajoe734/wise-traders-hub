@@ -15,7 +15,8 @@ import {
 } from '../constants.js'
 import { normalizeStrategyBrain } from '../lib/brainRuntime.js'
 import { createDefaultReviewForm, normalizeNewsEvents, toSlashDate } from '../lib/eventUtils.js'
-import { applyTradeEntryToHoldings, normalizeHoldings } from '../lib/holdings.js'
+import { applyMarketQuotesToHoldings, applyTradeEntryToHoldings, normalizeHoldings } from '../lib/holdings.js'
+import { useAuthoritativePrices } from './useAuthoritativePrices'
 import { buildPortfolioTabs } from '../lib/navigationTabs.js'
 import {
   buildPortfolioSummariesFromStorage,
@@ -149,6 +150,31 @@ export function useRoutePortfolioRuntime() {
     setPortfolios(readRuntimePortfolios())
     setRouteData(readPortfolioRuntimeSnapshot(routePortfolioId, { marketPriceCache }))
   }, [routePortfolioId, marketPriceCache])
+
+  // Phase 3 — DB-first price authority overlay (docs/architecture/price-authority.md).
+  //   useAuthoritativePrices 走 daily_price_snapshots → current_prices → offline fallback，
+  //   結果覆蓋在原本 marketPriceCache 之上，讓收盤後 UI 永遠優先顯示 DB 官方定價。
+  //   MIS/LocalStorage 保留為離線最後底線（useAuthoritativePrices 內部處理）。
+  const { prices: authoritativePrices } = useAuthoritativePrices(routeData.holdings || [])
+  const enrichedHoldings = useMemo(() => {
+    const rows = routeData.holdings || []
+    if (!rows.length) return rows
+    const quotes = {}
+    let anyHit = false
+    for (const row of rows) {
+      const key = String(row.symbol || row.code || '').trim()
+      if (!key) continue
+      const hit = authoritativePrices[key]
+      if (!hit || !Number.isFinite(hit.price) || hit.price <= 0) continue
+      anyHit = true
+      quotes[key] = {
+        price: hit.price,
+        source: hit.source,
+        updatedAt: hit.updatedAt,
+      }
+    }
+    return anyHit ? applyMarketQuotesToHoldings(rows, quotes) : rows
+  }, [routeData.holdings, authoritativePrices])
 
   const persistRouteField = useCallback(
     (field, suffix, valueOrUpdater, normalize = (value) => value) => {
@@ -396,17 +422,17 @@ export function useRoutePortfolioRuntime() {
 
   const copyWeeklyReport = useCallback(async () => {
     const activePortfolio = portfolios.find((portfolio) => portfolio.id === routePortfolioId)
-    const totalValue = routeData.holdings.reduce((sum, item) => sum + (item.value || 0), 0)
-    const totalCost = routeData.holdings.reduce(
+    const totalValue = enrichedHoldings.reduce((sum, item) => sum + (item.value || 0), 0)
+    const totalCost = enrichedHoldings.reduce(
       (sum, item) => sum + (Number(item.cost) || 0) * (Number(item.qty) || 0),
       0
     )
     const totalPnl = totalValue - totalCost
     const retPct = totalCost > 0 ? (totalPnl / totalCost) * 100 : 0
-    const { todayAlertSummary } = buildHoldingAlertSummary(routeData.holdings)
+    const { todayAlertSummary } = buildHoldingAlertSummary(enrichedHoldings)
     const text = buildClipboardReport({
       portfolioName: activePortfolio?.name || routePortfolioId,
-      holdings: routeData.holdings,
+      holdings: enrichedHoldings,
       totalValue,
       totalPnl,
       retPct,
@@ -420,7 +446,8 @@ export function useRoutePortfolioRuntime() {
       console.error('copyWeeklyReport failed:', error)
       flashSaved('❌ 週報複製失敗')
     }
-  }, [flashSaved, portfolios, routePortfolioId, routeData.holdings])
+  }, [flashSaved, portfolios, routePortfolioId, enrichedHoldings])
+
 
   const exportLocalBackup = useCallback(() => {
     downloadJson(`portfolio-backup-${routePortfolioId}-${toSlashDate().replace(/\//g, '-')}.json`, {
@@ -649,14 +676,14 @@ export function useRoutePortfolioRuntime() {
     () => buildPortfolioSummariesFromStorage({ portfolios, marketPriceCache }),
     [marketPriceCache, portfolios]
   )
-  const totalValue = routeData.holdings.reduce((sum, item) => sum + (item.value || 0), 0)
-  const totalCost = routeData.holdings.reduce(
+  const totalValue = enrichedHoldings.reduce((sum, item) => sum + (item.value || 0), 0)
+  const totalCost = enrichedHoldings.reduce(
     (sum, item) => sum + (Number(item.cost) || 0) * (Number(item.qty) || 0),
     0
   )
   const displayedTotalPnl = totalValue - totalCost
   const displayedRetPct = totalCost > 0 ? (displayedTotalPnl / totalCost) * 100 : 0
-  const { urgentCount, todayAlertSummary } = buildHoldingAlertSummary(routeData.holdings)
+  const { urgentCount, todayAlertSummary } = buildHoldingAlertSummary(enrichedHoldings)
   const tabs = buildPortfolioTabs({ urgentCount })
   const overviewTotalValue = portfolioSummaries.reduce(
     (sum, portfolio) => sum + portfolio.totalValue,
@@ -686,6 +713,7 @@ export function useRoutePortfolioRuntime() {
     () => ({
       portfolioId: routePortfolioId,
       ...routeData,
+      holdings: enrichedHoldings,
       setHoldings,
       setWatchlist,
       setTargets,
@@ -719,6 +747,7 @@ export function useRoutePortfolioRuntime() {
     [
       routePortfolioId,
       routeData,
+      enrichedHoldings,
       setHoldings,
       setWatchlist,
       setTargets,
