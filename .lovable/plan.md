@@ -67,7 +67,7 @@ CI：加入 `.github/workflows/holdings.yml`。
 - [x] Phase 2b useAuthoritativePrices（7/7 tests green）
 - [ ] Phase 3 components 改用新 hook
 - [x] Phase 5 telemetry（`price_parity_events` + `/company/perf-metrics` 卡片）
-- [ ] Phase 6 E2E CI 綠燈
+- [x] Phase 6 E2E CI 綠燈（`holdings-price-parity` project：DB-first + offline，2 tests pass）
 
 ## 不可觸碰
 `src/integrations/supabase/{client,types}.ts`、`.env`、`supabase/config.toml`（project 層設定）。
