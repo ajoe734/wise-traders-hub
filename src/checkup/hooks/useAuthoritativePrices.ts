@@ -377,6 +377,9 @@ export function useAuthoritativePrices(
         online,
       });
       setPrices(next);
+      // Phase 7 — 同步鏡像：所有非 React 的同步消費端（總覽頁 / 摘要 / store）由此讀取權威價。
+      writeAuthoritativePrices(next);
+
       setLoading(false);
 
       // Phase 5 telemetry: log DB vs offline-cache mismatches (> 0.5%).
