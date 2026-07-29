@@ -55,7 +55,8 @@ Deno.serve(withLogging('us-option-price-sync', async (req) => {
     .from('expert_signals')
     .select('id')
     .eq('is_combo', true)
-    .eq('status', 'published');
+    // pending（尚未到發布窗）也是實際持倉，需要收盤 mark price。
+    .in('status', ['published', 'pending']);
   if (sigErr) throw sigErr;
   const signalIds = (signals ?? []).map((s: { id: string }) => s.id);
   if (signalIds.length === 0) {
