@@ -151,6 +151,31 @@ export function useRoutePortfolioRuntime() {
     setRouteData(readPortfolioRuntimeSnapshot(routePortfolioId, { marketPriceCache }))
   }, [routePortfolioId, marketPriceCache])
 
+  // Phase 3 — DB-first price authority overlay (docs/architecture/price-authority.md).
+  //   useAuthoritativePrices 走 daily_price_snapshots → current_prices → offline fallback，
+  //   結果覆蓋在原本 marketPriceCache 之上，讓收盤後 UI 永遠優先顯示 DB 官方定價。
+  //   MIS/LocalStorage 保留為離線最後底線（useAuthoritativePrices 內部處理）。
+  const { prices: authoritativePrices } = useAuthoritativePrices(routeData.holdings || [])
+  const enrichedHoldings = useMemo(() => {
+    const rows = routeData.holdings || []
+    if (!rows.length) return rows
+    const quotes = {}
+    let anyHit = false
+    for (const row of rows) {
+      const key = String(row.symbol || row.code || '').trim()
+      if (!key) continue
+      const hit = authoritativePrices[key]
+      if (!hit || !Number.isFinite(hit.price) || hit.price <= 0) continue
+      anyHit = true
+      quotes[key] = {
+        price: hit.price,
+        source: hit.source,
+        updatedAt: hit.updatedAt,
+      }
+    }
+    return anyHit ? applyMarketQuotesToHoldings(rows, quotes) : rows
+  }, [routeData.holdings, authoritativePrices])
+
   const persistRouteField = useCallback(
     (field, suffix, valueOrUpdater, normalize = (value) => value) => {
       const currentValue = routeData[field]
