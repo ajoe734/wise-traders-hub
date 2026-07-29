@@ -11,6 +11,11 @@ import { Gauge, RefreshCw } from 'lucide-react';
 const PerfDailyChart = lazy(() =>
   import('@/components/company/PerfMetricsChart').then((m) => ({ default: m.PerfDailyChart }))
 );
+const PriceParityCard = lazy(() =>
+  import('@/components/company/PriceParityCard').then((m) => ({ default: m.PriceParityCard }))
+);
+
+
 
 interface RouteRow {
   route: string;
@@ -136,6 +141,13 @@ export default function PerfMetricsPage() {
           )}
         </CardContent>
       </Card>
+
+      <Suspense fallback={<div className="h-[120px]" />}>
+        <PriceParityCard days={days} />
+      </Suspense>
+
+
+
 
       <Card>
         <CardHeader>

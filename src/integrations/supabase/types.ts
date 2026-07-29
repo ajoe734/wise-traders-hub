@@ -3753,6 +3753,42 @@ export type Database = {
           },
         ]
       }
+      price_parity_events: {
+        Row: {
+          cache_price: number | null
+          created_at: string
+          db_price: number | null
+          diff_pct: number
+          id: string
+          market: string
+          source: string
+          symbol: string
+          user_id: string | null
+        }
+        Insert: {
+          cache_price?: number | null
+          created_at?: string
+          db_price?: number | null
+          diff_pct: number
+          id?: string
+          market: string
+          source: string
+          symbol: string
+          user_id?: string | null
+        }
+        Update: {
+          cache_price?: number | null
+          created_at?: string
+          db_price?: number | null
+          diff_pct?: number
+          id?: string
+          market?: string
+          source?: string
+          symbol?: string
+          user_id?: string | null
+        }
+        Relationships: []
+      }
       price_quota_ledger: {
         Row: {
           admitted: number
@@ -6381,6 +6417,7 @@ export type Database = {
           expert_status: string
         }[]
       }
+      get_price_parity_summary: { Args: { _days?: number }; Returns: Json }
       get_pricing_bundle: { Args: { _user_id?: string }; Returns: Json }
       get_product_breakdown: {
         Args: { _from: string; _to: string }

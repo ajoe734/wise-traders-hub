@@ -14,7 +14,7 @@
 | 2b    | `useAuthoritativePrices` hook（DB → Realtime → offline cache）  | ✅ 完成 2026-07-29 | `src/checkup/hooks/useAuthoritativePrices.ts` + `__tests__/useAuthoritativePrices.test.ts`（7 綠燈）           |
 | 3     | 拔除 MIS 主路徑；HoldingsWorkbench/ClosingAnalysis 改用新 hook  | 🚧 待實作         | `useMarketData.js`（僅保留 offline fallback）、components 改 hook                                            |
 | 4     | TW `tw-price-sync-close-correction` 移到 14:05 TPE              | ✅ 完成 2026-07-29 | Migration（`cron.schedule` id 89）                                                                           |
-| 5     | `price_source_mismatch` telemetry + Perf-metrics 卡片           | 🚧 待實作         | Hook 內寫入 `perf_metrics`、`/company/perf-metrics` 加卡片                                                    |
+| 5     | `price_source_mismatch` telemetry + Perf-metrics 卡片           | ✅ 完成 2026-07-29 | `price_parity_events` 表、`get_price_parity_summary` RPC、`PriceParityCard.tsx`、hook 內 `reportParityMismatches` |
 | 6     | E2E 回歸 `e2e/holdings-price-parity.spec.ts` + CI               | 🚧 待實作         | `e2e/`、`.github/workflows/holdings.yml`                                                                     |
 
 ## Phase 2b 規格（下一步）
@@ -66,7 +66,7 @@ CI：加入 `.github/workflows/holdings.yml`。
 - [x] `docs/architecture/price-authority.md` 建立
 - [x] Phase 2b useAuthoritativePrices（7/7 tests green）
 - [ ] Phase 3 components 改用新 hook
-- [ ] Phase 5 telemetry
+- [x] Phase 5 telemetry（`price_parity_events` + `/company/perf-metrics` 卡片）
 - [ ] Phase 6 E2E CI 綠燈
 
 ## 不可觸碰

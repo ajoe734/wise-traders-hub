@@ -57,6 +57,76 @@ type Result = Record<string, AuthoritativePrice>;
 
 const rowKey = (r: HoldingRowInput): string => String(r.symbol || r.code || '').trim();
 
+const PARITY_THRESHOLD_PCT = 0.5;
+const PARITY_DEDUPE_KEY = 'lf.price_parity.reported.v1';
+const PARITY_DEDUPE_TTL_MS = 6 * 60 * 60 * 1000;
+
+async function reportParityMismatches(
+  results: Result,
+  offlineCache: Record<string, { price?: number; syncedAt?: string } | undefined>,
+): Promise<void> {
+  try {
+    const events: Array<{
+      symbol: string;
+      market: string;
+      db_price: number;
+      cache_price: number;
+      diff_pct: number;
+      source: string;
+    }> = [];
+    let dedupe: Record<string, number> = {};
+    try {
+      const raw = typeof localStorage !== 'undefined' ? localStorage.getItem(PARITY_DEDUPE_KEY) : null;
+      if (raw) dedupe = JSON.parse(raw) || {};
+    } catch {
+      dedupe = {};
+    }
+    const now = Date.now();
+    for (const key of Object.keys(dedupe)) {
+      if (now - Number(dedupe[key] || 0) > PARITY_DEDUPE_TTL_MS) delete dedupe[key];
+    }
+
+    for (const [symbol, entry] of Object.entries(results)) {
+      const dbPrice = Number(entry?.price);
+      const cache = offlineCache[symbol];
+      const cachePrice = Number(cache?.price);
+      if (!Number.isFinite(dbPrice) || dbPrice <= 0) continue;
+      if (!Number.isFinite(cachePrice) || cachePrice <= 0) continue;
+      if (entry.source !== 'snapshot' && entry.source !== 'current') continue;
+      const diffPct = Math.abs((dbPrice - cachePrice) / dbPrice) * 100;
+      if (diffPct <= PARITY_THRESHOLD_PCT) continue;
+      const dedupeKey = `${symbol}|${entry.source}`;
+      if (dedupe[dedupeKey]) continue;
+      dedupe[dedupeKey] = now;
+      events.push({
+        symbol,
+        market: entry.market,
+        db_price: Number(dbPrice.toFixed(4)),
+        cache_price: Number(cachePrice.toFixed(4)),
+        diff_pct: Number(diffPct.toFixed(3)),
+        source: entry.source,
+      });
+    }
+    if (!events.length) return;
+
+    try {
+      const { data: userRes } = await supabase.auth.getUser();
+      const userId = userRes?.user?.id ?? null;
+      const rows = events.map((e) => ({ ...e, user_id: userId }));
+      await supabase.from('price_parity_events').insert(rows);
+      try {
+        localStorage.setItem(PARITY_DEDUPE_KEY, JSON.stringify(dedupe));
+      } catch {
+        /* ignore */
+      }
+    } catch {
+      /* swallow — telemetry must never block UI */
+    }
+  } catch {
+    /* ignore */
+  }
+}
+
 const isOnline = (): boolean => {
   try {
     return typeof navigator === 'undefined' ? true : navigator.onLine !== false;
@@ -299,6 +369,11 @@ export function useAuthoritativePrices(
       });
       setPrices(next);
       setLoading(false);
+
+      // Phase 5 telemetry: log DB vs offline-cache mismatches (> 0.5%).
+      if (online) {
+        void reportParityMismatches(next, offlineCache);
+      }
     }
 
     run().catch(() => {
