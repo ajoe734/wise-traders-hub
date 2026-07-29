@@ -28,8 +28,7 @@ export function useRouteHoldingsPage() {
     if (expandParam && expandParam !== expandedStock) {
       setExpandedStock(expandParam)
     }
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [expandParam])
+  }, [expandParam, expandedStock, setExpandedStock])
 
 
 
