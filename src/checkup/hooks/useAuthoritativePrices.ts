@@ -226,47 +226,44 @@ export function combineAuthoritativePrices(params: {
     if (!key) continue;
     const market = detectHoldingMarket(row);
 
-    // Combo path
+    // Combo path — 聚合 legs 後交給 resolver 判定。
     if (row.is_combo && row.signal_id) {
       const legs = comboLegs.get(String(row.signal_id)) || [];
       const priced = legs.map((l) => ({ ...l, price: legPrices.get(buildOccSymbol(l)) ?? NaN }));
       const anyMissing = priced.some((l) => !Number.isFinite(l.price));
-      if (!anyMissing && priced.length > 0) {
-        result[key] = {
-          price: calcNetPremium(priced),
-          source: 'combo',
-          updatedAt: null,
-          market,
-        };
-      } else {
-        result[key] = { price: null, source: 'stale', updatedAt: null, market };
-      }
+      const netPremium = !anyMissing && priced.length > 0 ? calcNetPremium(priced) : null;
+      const resolved = resolvePrice({
+        market,
+        combo: { price: netPremium, legCount: priced.length },
+        online,
+      });
+      result[key] = {
+        price: resolved.price,
+        source: resolved.source,
+        updatedAt: resolved.updatedAt,
+        market,
+      };
       continue;
     }
 
     const hit = bySymbol.get(key);
-    if (hit) {
-      result[key] = { price: hit.price, source: hit.source, updatedAt: hit.updatedAt, market };
-      continue;
-    }
-
-    // Offline fallback
-    if (!online) {
-      const cached = offlineCache[key];
-      const p = Number(cached?.price);
-      if (Number.isFinite(p) && p > 0) {
-        result[key] = { price: p, source: 'offline', updatedAt: cached?.syncedAt ?? null, market };
-        continue;
-      }
-    }
-
+    const resolved = resolvePrice({
+      market,
+      authoritative:
+        hit && (hit.source === 'snapshot' || hit.source === 'current')
+          ? { price: hit.price, updatedAt: hit.updatedAt, source: hit.source }
+          : null,
+      offline: offlineCache[key] ?? null,
+      online,
+    });
     result[key] = {
-      price: null,
-      source: online ? 'stale' : 'unknown',
-      updatedAt: null,
+      price: resolved.price,
+      source: resolved.source,
+      updatedAt: resolved.updatedAt,
       market,
     };
   }
+
 
   return result;
 }
