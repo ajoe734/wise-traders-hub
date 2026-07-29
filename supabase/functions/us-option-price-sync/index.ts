@@ -1,0 +1,175 @@
+// AUTH: cron  (X-Cron-Key or service role)
+// Phase 1 — US Option daily close mark-price snapshot.
+// Reads all open combo signals from expert_signals + expert_signal_legs,
+// resolves each leg to its OCC symbol, fetches Yahoo Finance option chain
+// mark price, writes rows into public.current_prices (asset_class=us_option).
+import { corsHeaders } from '../_shared/cors.ts';
+import { withLogging } from '../_shared/edgeLogger.ts';
+import { requireCronKey } from '../_shared/authGuard.ts';
+import { createClient } from 'https://esm.sh/@supabase/supabase-js@2.49.1';
+import { buildOccSymbol, type OptionRight } from './occ.ts';
+import { fetchYahooOptionQuote } from './yahoo.ts';
+
+type LegRow = {
+  signal_id: string;
+  underlying: string;
+  expiry: string; // YYYY-MM-DD
+  right: OptionRight;
+  strike: number;
+};
+
+Deno.serve(withLogging('us-option-price-sync', async (req) => {
+  if (req.method === 'OPTIONS') return new Response(null, { headers: corsHeaders });
+
+  // Only cron / service role may invoke.
+  try {
+    requireCronKey(req);
+  } catch (e) {
+    const err = e as { status?: number; code?: string; message?: string };
+    return new Response(
+      JSON.stringify({ error: err.message ?? 'forbidden', code: err.code ?? 'FORBIDDEN' }),
+      { status: err.status ?? 403, headers: { ...corsHeaders, 'Content-Type': 'application/json' } },
+    );
+  }
+
+  // Skip if it is not ~market close in US-East. The scheduler fires twice
+  // (EDT + EST), so exactly one call per day should proceed.
+  const nowNy = nyClock(new Date());
+  const forced = new URL(req.url).searchParams.get('force') === '1';
+  if (!forced && !isPostCloseNY(nowNy)) {
+    return new Response(
+      JSON.stringify({ skipped: true, reason: 'outside_us_close_window', ny: nowNy }),
+      { headers: { ...corsHeaders, 'Content-Type': 'application/json' } },
+    );
+  }
+
+  const supabase = createClient(
+    Deno.env.get('SUPABASE_URL')!,
+    Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')!,
+  );
+
+  // Pull open combo signals + their legs.
+  const { data: signals, error: sigErr } = await supabase
+    .from('expert_signals')
+    .select('id')
+    .eq('is_combo', true)
+    .eq('status', 'published');
+  if (sigErr) throw sigErr;
+  const signalIds = (signals ?? []).map((s: { id: string }) => s.id);
+  if (signalIds.length === 0) {
+    return jsonOk({ message: 'no combos', legs: 0, written: 0 });
+  }
+
+  const { data: legsRaw, error: legErr } = await supabase
+    .from('expert_signal_legs')
+    .select('signal_id, underlying, expiry, right, strike')
+    .in('signal_id', signalIds);
+  if (legErr) throw legErr;
+  const legs: LegRow[] = (legsRaw ?? []).filter(
+    (l: LegRow) => l.underlying && l.expiry && (l.right === 'C' || l.right === 'P') && l.strike > 0,
+  );
+  if (legs.length === 0) return jsonOk({ message: 'no legs', legs: 0, written: 0 });
+
+  // Group legs by underlying → single Yahoo call per underlying.
+  const byUnderlying = new Map<string, LegRow[]>();
+  for (const l of legs) {
+    const k = l.underlying.toUpperCase();
+    byUnderlying.set(k, [...(byUnderlying.get(k) ?? []), l]);
+  }
+
+  const now = new Date().toISOString();
+  const rows: Record<string, unknown>[] = [];
+  const misses: { occ: string; reason: string }[] = [];
+
+  for (const [underlying, group] of byUnderlying) {
+    // Deduplicate expiry to minimise upstream requests.
+    const expiries = Array.from(new Set(group.map((g) => g.expiry)));
+    for (const expiry of expiries) {
+      let chain;
+      try {
+        chain = await fetchYahooOptionQuote(underlying, expiry);
+      } catch (e) {
+        for (const l of group.filter((g) => g.expiry === expiry)) {
+          const occ = buildOccSymbol(l);
+          if (occ) misses.push({ occ, reason: `yahoo_error:${(e as Error).message}` });
+        }
+        continue;
+      }
+      for (const l of group.filter((g) => g.expiry === expiry)) {
+        const occ = buildOccSymbol(l);
+        if (!occ) continue;
+        const quote = chain.byOcc.get(occ);
+        if (!quote || !(quote.mark > 0)) {
+          misses.push({ occ, reason: 'not_in_chain' });
+          continue;
+        }
+        rows.push({
+          symbol: occ,
+          name: `${underlying} ${expiry} ${l.strike}${l.right}`,
+          price: quote.mark,
+          market: 'US',
+          currency: 'USD',
+          asset_class: 'us_option',
+          open_price: null,
+          high_price: null,
+          low_price: null,
+          yesterday_close: quote.yesterday_close ?? null,
+          change_value: null,
+          change_percent: null,
+          volume: quote.volume ?? null,
+          best_ask: quote.ask ?? null,
+          best_bid: quote.bid ?? null,
+          limit_up: null,
+          limit_down: null,
+          updated_at: now,
+        });
+      }
+    }
+  }
+
+  if (rows.length > 0) {
+    const { error: upErr } = await supabase.rpc('upsert_current_price', {
+      p_writer: 'us-option-price-sync',
+      p_rows: rows,
+    });
+    if (upErr) console.error('upsert_current_price error:', upErr);
+  }
+
+  return jsonOk({
+    legs: legs.length,
+    written: rows.length,
+    missed: misses.length,
+    missSample: misses.slice(0, 10),
+  });
+}));
+
+function jsonOk(body: unknown): Response {
+  return new Response(JSON.stringify(body), {
+    headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+  });
+}
+
+/** Return America/New_York clock parts (H,M,dow) from UTC. Handles DST via Intl. */
+export function nyClock(now: Date): { hour: number; minute: number; dow: number } {
+  const parts = new Intl.DateTimeFormat('en-US', {
+    timeZone: 'America/New_York',
+    hour: '2-digit',
+    minute: '2-digit',
+    weekday: 'short',
+    hour12: false,
+  }).formatToParts(now);
+  const hour = Number(parts.find((p) => p.type === 'hour')?.value ?? 0);
+  const minute = Number(parts.find((p) => p.type === 'minute')?.value ?? 0);
+  const wdMap: Record<string, number> = {
+    Sun: 0, Mon: 1, Tue: 2, Wed: 3, Thu: 4, Fri: 5, Sat: 6,
+  };
+  const dow = wdMap[parts.find((p) => p.type === 'weekday')?.value ?? 'Sun'] ?? 0;
+  return { hour, minute, dow };
+}
+
+/** Post-close = weekday, between 16:05 and 16:30 NY local. */
+export function isPostCloseNY({ hour, minute, dow }: { hour: number; minute: number; dow: number }): boolean {
+  if (dow < 1 || dow > 5) return false;
+  const m = hour * 60 + minute;
+  return m >= 16 * 60 + 5 && m <= 16 * 60 + 30;
+}
