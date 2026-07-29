@@ -1,79 +1,73 @@
 # 持倉看板收盤價根因修復 — 完整實作計畫（TDD + Doc）
 
+> 詳細架構與規則見 [`docs/architecture/price-authority.md`](../docs/architecture/price-authority.md)。本檔只追蹤 Phase 進度。
+
 ## 目標
 持倉看板顯示的股價與收盤後官方價格 100% 對齊，涵蓋 TW / US / Crypto / **US Option（新增）**，並建立可觀測性與回歸測試防護。
 
-## 現況盤點（已確認）
-- 前端 `src/checkup` 走 client-side MIS + LocalStorage，忽略 DB 權威來源。
-- Cron 覆蓋：TW ✅、US ✅、Crypto ✅、**US Option ❌**（`current_prices` 無 `us_option` 資料）。
-- TW 13:35 過早、快取語意混淆、無 mismatch 監控。
+## 進度總覽
 
-## 實作階段（TDD，逐階段紅→綠→重構）
+| Phase | 內容                                                            | 狀態             | 交付檔                                                                                                       |
+|-------|-----------------------------------------------------------------|------------------|--------------------------------------------------------------------------------------------------------------|
+| 1     | US Option 收盤 Snapshot Edge Function + Yahoo + cron            | ✅ 完成 2026-07-29 | `supabase/functions/us-option-price-sync/{index,occ,yahoo,index_test}.ts` + migration 89                     |
+| 2a    | `marketClock.ts`（DB-first 判定基礎）+ 單元測試                 | ✅ 完成 2026-07-29 | `src/checkup/lib/marketClock.ts`、`src/checkup/lib/__tests__/marketClock.test.ts`                            |
+| 2b    | `useAuthoritativePrices` hook（DB → Realtime → offline cache）  | 🚧 待實作         | `src/checkup/hooks/useAuthoritativePrices.ts` + `__tests__`                                                  |
+| 3     | 拔除 MIS 主路徑；HoldingsWorkbench/ClosingAnalysis 改用新 hook  | 🚧 待實作         | `useMarketData.js`（僅保留 offline fallback）、components 改 hook                                            |
+| 4     | TW `tw-price-sync-close-correction` 移到 14:05 TPE              | ✅ 完成 2026-07-29 | Migration（`cron.schedule` id 89）                                                                           |
+| 5     | `price_source_mismatch` telemetry + Perf-metrics 卡片           | 🚧 待實作         | Hook 內寫入 `perf_metrics`、`/company/perf-metrics` 加卡片                                                    |
+| 6     | E2E 回歸 `e2e/holdings-price-parity.spec.ts` + CI               | 🚧 待實作         | `e2e/`、`.github/workflows/holdings.yml`                                                                     |
 
-### Phase 1 — US Option 收盤 Snapshot（補齊缺口）
-- **測試先行**：
-  - `supabase/functions/us-option-price-sync/*.test.ts`：mock 上游 → 驗證寫入 `current_prices` / `daily_price_snapshots`（`asset_class=us_option`, `currency=USD`）、combo 淨值計算、失敗 retry。
-- **實作**：
-  - 新 Edge Function `us-option-price-sync`（單腿 mark price；combo 由 `optionCombo.ts` 聚合）。
-  - Cron：EDT 16:10 / EST 16:10（沿用現有 US 時區切換模式）。
-  - Auth：`requireCronKey`（依 Phase M 契約）。
+## Phase 2b 規格（下一步）
 
-### Phase 2 — 權威價 Hook（DB-first）
-- **測試先行**：
-  - `src/checkup/hooks/__tests__/useAuthoritativePrices.test.ts`：
-    - 收盤後 → 讀 `daily_price_snapshots`。
-    - 盤中 → 讀 `current_prices` + Realtime subscribe。
-    - DB miss → 標記 `stale`，LocalStorage 僅作 offline fallback。
-    - Market clock：TW / US / Crypto / Option 各自視窗判定。
-- **實作**：
-  - 新 `useAuthoritativePrices.ts`（取代 MIS 主路徑）。
-  - `src/checkup/lib/marketClock.ts`：市場別收盤判定。
-  - Combo 部位透過 `optionCombo.ts` 計算 net value。
+`useAuthoritativePrices(rows: HoldingRow[])`：
+1. 用 `detectHoldingMarket` 分組後查 `marketPhase(m, now)`。
+2. `hasSettledSnapshot=true` → `daily_price_snapshots WHERE market_date=marketDate AND symbol=ANY(...)`。
+3. 否則 → `current_prices WHERE symbol=ANY(...)` + supabase Realtime subscribe（單一 channel、useEffect cleanup）。
+4. Combo（`is_combo=true`）→ 讀 `expert_signal_legs`，用 `optionCombo.calcNetPremium` 聚合。
+5. Miss 且 `navigator.onLine` → 標記 `stale`；`false` 才讀 LocalStorage。
+6. 回傳 `{ price, source: 'snapshot'|'current'|'combo'|'offline'|'stale', updatedAt }`。
 
-### Phase 3 — 移除 MIS 主路徑 + 快取語意收斂
-- **測試**：
-  - 整合測試：LocalStorage 只在 `navigator.onLine === false` 時使用。
-  - UI 快照：`stale` badge 呈現。
-- **實作**：
-  - 拔除 `src/checkup` 內 MIS 呼叫；保留 `mis*.ts` 為 offline-only fallback。
-  - `HoldingsWorkbench` / `ClosingAnalysis` / `HoldingsDetailPanel` 改用新 hook。
+測試（`__tests__/useAuthoritativePrices.test.ts`）：
+- Mock `supabase.from` → snapshot vs current 分支。
+- Combo 部位 net value 對得起 legs 加總。
+- Offline 模式讀 LocalStorage。
+- 每次 Realtime subscribe 都在 unmount 時 removeChannel。
 
-### Phase 4 — TW 同步時機修正
-- **實作**：
-  - `tw-price-sync-close` cron 從 13:35 → **14:05 TPE**（保留 13:35 為 intraday snapshot、14:05 為官方收盤）。
-  - Migration 更新 `cron.schedule`。
+## Phase 3 影響面
 
-### Phase 5 — 可觀測性
-- **測試**：
-  - `price_source_mismatch` telemetry 寫入 `perf_metrics`。
-- **實作**：
-  - Hook 內比對 DB vs LocalStorage，落差 > 0.5% 記錄事件。
-  - `/company/perf-metrics` 新增 Price Parity 卡片（sample rate、mismatch 次數、TW/US/Option 分組）。
+拔除位置：
+- `src/checkup/hooks/useMarketData.js`：`fetchPostCloseQuotes` 改為 fallback-only。
+- `src/checkup/lib/marketSyncRuntime.js`：`buildTwseBatchQueries` 只在 offline 呼叫。
+- `HoldingsWorkbench` / `HoldingsPanel` / `ClosingAnalysis` / `HoldingsDetailPanel`：改 `useAuthoritativePrices`。
+- `FreeCheckup.jsx`（**RWD 憲法**：不改 hero，只換價格 source）。
 
-### Phase 6 — E2E 回歸
-- `e2e/holdings-price-parity.spec.ts`：
-  - Seed DB snapshot → 開啟持倉看板 → 斷言價格 === DB。
-  - Combo 部位：net value === legs 加總。
-  - 離線模式：顯示 `stale` badge。
-- 納入 CI `holdings.yml` workflow。
+## Phase 5 telemetry
 
-## 文件（同步產出）
-- **新增** `docs/architecture/price-authority.md`：資料源優先順序、市場時鐘、快取語意、Combo 計價、監控指標、故障排除。
-- **更新** `docs/architecture/holdings-modules.md`：Closing / Holdings 模組改為 DB-first。
-- **更新** `.lovable/plan.md`：加入本階段 TODO 與完成標記。
-- **更新** `docs/qa/holdings-dashboard-checklist.md`：新增 price parity 手動驗證項目。
-- **移除** 過期段落：MIS-first 描述、13:35 TW cron 說明。
+寫入 `perf_metrics`（現有表）：
+```ts
+{ metric_name: 'price_source_mismatch', metric_value: diffPct, metadata: { symbol, market, db_price, cache_price } }
+```
+儀表板：`src/pages/company/PerfMetrics.tsx` 新增卡片。
 
-## 技術細節
-- **DB schemas 已存在**：`current_prices` (21 cols)、`daily_price_snapshots` (17 cols) 直接使用。
-- **Combo 定價**：`is_combo=true` 時，`useAuthoritativePrices` 讀取 `expert_signal_legs` → 逐腿抓 mark price → net = Σ(sign × price × multiplier)。
-- **Realtime**：`current_prices` 已有 RLS，subscribe filter by `symbol IN (...)`。
-- **Auth**：新 Edge Function 遵循 Phase M 契約（`requireCronKey`）。
-- **不可觸碰**：`src/integrations/supabase/client.ts`、`types.ts`、`.env`。
+## Phase 6 E2E
+
+`e2e/holdings-price-parity.spec.ts`：
+1. Seed `daily_price_snapshots` (符合 marketClock settled)。
+2. Playwright 開持倉抽屜 → 讀 DOM 價格 === seed 值。
+3. Combo 部位 net value === legs 加總。
+4. `navigator.offline` 模擬 → 顯示 `stale` badge。
+CI：加入 `.github/workflows/holdings.yml`。
 
 ## 交付檢核
-- [ ] 6 個 Phase 全綠（unit + integration + E2E）。
-- [ ] US Option `current_prices` 有資料（cron 跑過一次）。
-- [ ] 持倉看板 3 個市場（TW/US/Option）收盤後與 DB 完全一致。
-- [ ] `docs/architecture/price-authority.md` 已建立。
-- [ ] `.lovable/plan.md` 標記本任務完成。
+
+- [x] Phase 1 US Option cron 已啟用（EDT 20:10 UTC / EST 21:10 UTC）
+- [x] Phase 2a marketClock + 10 綠色測試
+- [x] Phase 4 TW 14:05 cron
+- [x] `docs/architecture/price-authority.md` 建立
+- [ ] Phase 2b useAuthoritativePrices
+- [ ] Phase 3 components 改用新 hook
+- [ ] Phase 5 telemetry
+- [ ] Phase 6 E2E CI 綠燈
+
+## 不可觸碰
+`src/integrations/supabase/{client,types}.ts`、`.env`、`supabase/config.toml`（project 層設定）。
