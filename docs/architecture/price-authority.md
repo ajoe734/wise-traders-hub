@@ -94,7 +94,7 @@ Function 內部會用 `nyClock()` / `getTaipeiClock()` 二次判定，EDT/EST �
 |-------|-------------------------------------------|---------------|
 | 1     | `us-option-price-sync` + tests + cron     | ✅ 已上線      |
 | 2     | `marketClock.ts` + tests                  | ✅ 已上線      |
-| 2     | `useAuthoritativePrices` hook             | 🚧 待實作      |
+| 2     | `useAuthoritativePrices` hook             | ✅ 已上線      |
 | 3     | 拔除 MIS 主路徑、component 改用新 hook    | 🚧 待實作      |
 | 4     | TW cron 14:05                             | ✅ 已上線      |
 | 5     | `price_source_mismatch` telemetry + card  | 🚧 待實作      |
