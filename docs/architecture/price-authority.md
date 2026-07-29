@@ -131,3 +131,47 @@ edge function 端亦同步映射。單元測試 `mapLegRow / COMBO_LEG_SELECT (D
 `/v7/finance/options` 需 cookie（`fc.yahoo.com`）+ crumb（`/v1/test/getcrumb`），否則 401。
 `yahoo.ts::getYahooAuth()` 做一次性 handshake 並在單次執行內快取，失敗時退回 query2 無 crumb 路徑。
 `us-option-price-sync` 取 `is_combo=true` 且 `status IN ('published','pending')` 的部位。
+
+## Phase 7 — 單一價格真相收斂（2026-07-29）
+
+### 為什麼還要 Phase 7
+Phase 3 只把 `useRoutePortfolioRuntime.holdings` 換成 DB 權威價，但**同步**消費端
+（總覽頁 `useRouteOverviewPage`、`buildPortfolioSummariesFromStorage`、`marketStore` selector）
+仍直接讀 LocalStorage 的 `marketPriceCache`，導致同一畫面兩個數字。
+
+### 架構
+
+```text
+DB (daily_price_snapshots / current_prices / expert_signal_legs)
+   │
+   ├─ useAuthoritativePrices (async, React)  ─┐
+   └─ fetchAuthoritativeQuotes (async, 任何流程) ─┤ 兩者皆 writeAuthoritativePrices()
+                                                  ▼
+                                     authoritativePriceMirror (LocalStorage)
+                                                  │ mergeAuthoritativeIntoPriceCache()
+                     ┌────────────────────────────┼───────────────────────────┐
+                     ▼                            ▼                           ▼
+            readRouteMarketState()        marketStore selectors       legacy marketPriceCache
+            （總覽 / 摘要 / normalize）     getPriceForCode/Status        （offline fallback）
+```
+
+規則：
+1. 解析順序唯一實作在 `src/checkup/lib/priceResolver.ts`：`combo > snapshot > current > offline(僅離線) > stale`。
+2. 鏡像 `src/checkup/lib/authoritativePriceMirror.ts` **只**寫 DB 權威來源（snapshot/current/combo），
+   `offline`/`stale` 一律不寫，避免變成第二套快取。寫入為 upsert 語意。
+3. 任何同步取價點禁止直接讀 `MARKET_PRICE_CACHE_KEY`，一律經 `readRouteMarketState()`
+   或 `mergeAuthoritativeIntoPriceCache()`。
+4. `useMarketData.syncPostClosePrices` 線上走 `fetchAuthoritativeQuotes`（DB），
+   **只有 `navigator.onLine === false` 才**降級直打 TWSE MIS；DB 路徑不受交易時窗守門。
+5. `us-option-price-sync` 的未定價腿（`not_in_chain` / `yahoo_error`）寫入
+   `checkup_price_misses`（`user_id = null` 為系統級列），成功定價後標記 `resolved_at`。
+
+### 測試
+
+| 檔案 | 覆蓋 |
+|------|------|
+| `src/checkup/lib/__tests__/priceResolver.test.ts` | 解析順序 10 例 |
+| `src/test/unit/overview-price-authority.test.ts` | 鏡像 merge、readRouteMarketState、marketStore selector（7） |
+| `src/test/unit/authoritative-quotes.test.ts` | DB 欄位契約（`close_price`/`yesterday_close`）、snapshot→current fallback、鏡像寫入（4） |
+| `src/checkup/hooks/__tests__/useAuthoritativePrices.test.ts` | hook combiner + legs schema（9） |
+| `e2e/holdings-price-parity.spec.ts` | DB-first / offline（2） |
