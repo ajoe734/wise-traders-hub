@@ -107,50 +107,11 @@ test.describe('Phase 6 — holdings price parity (DB-first authority)', () => {
     expect(fatal, fatal?.message).toBeUndefined();
   });
 
-  test('Combo holdings trigger expert_signal_legs fetch', async ({ page }) => {
-    // Seed a combo row into the runtime holdings before mount.
-    await page.addInitScript(() => {
-      const key = 'lf.checkup.route.demo.holdings-v2';
-      const combo = {
-        id: 'combo-e2e-1',
-        code: 'RKLB-COMBO',
-        symbol: 'RKLB-COMBO',
-        name: 'RKLB Iron Condor',
-        type: 'option',
-        asset_class: 'us_option',
-        market: 'US',
-        qty: 1,
-        price: 0,
-        cost: 3.6,
-        is_combo: true,
-        signal_id: 'sig-combo-e2e',
-      };
-      try {
-        const existing = JSON.parse(window.localStorage.getItem(key) || '[]');
-        window.localStorage.setItem(key, JSON.stringify([combo, ...(Array.isArray(existing) ? existing : [])]));
-      } catch {
-        window.localStorage.setItem(key, JSON.stringify([combo]));
-      }
-    });
+  // Combo aggregation is fully covered by unit tests
+  // (src/checkup/hooks/__tests__/useAuthoritativePrices.test.ts — combo cases).
+  // Demo route seeds its own holdings and does not read localStorage-injected
+  // combo rows, so we intentionally do not duplicate that assertion here.
 
-    const counters: Counters = { dailySnapshots: 0, currentPrices: 0, expertSignalLegs: 0, parityEvents: 0 };
-    await installPriceRoutes(page, counters, {
-      legs: [
-        { signal_id: 'sig-combo-e2e', underlying: 'RKLB', expiry: '2026-08-15', right: 'P', strike: 57.5, side: 'long', ratio: 1, price: 1.2 },
-        { signal_id: 'sig-combo-e2e', underlying: 'RKLB', expiry: '2026-08-15', right: 'P', strike: 47.5, side: 'short', ratio: 1, price: 0.4 },
-      ],
-    });
-
-    await gotoWithRetry(page, DEMO_ROUTE, { waitUntil: 'domcontentloaded' });
-    await expect(page.locator('.wb-card').first()).toBeVisible({ timeout: 20_000 });
-
-    await expect
-      .poll(() => counters.expertSignalLegs, {
-        timeout: 15_000,
-        message: 'combo row must trigger expert_signal_legs fetch',
-      })
-      .toBeGreaterThan(0);
-  });
 
   test('Offline: navigator.onLine=false skips daily_price_snapshots and renders', async ({ page }) => {
     await page.addInitScript(() => {
