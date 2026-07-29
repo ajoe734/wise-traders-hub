@@ -64,7 +64,7 @@ CI：加入 `.github/workflows/holdings.yml`。
 - [x] Phase 2a marketClock + 10 綠色測試
 - [x] Phase 4 TW 14:05 cron
 - [x] `docs/architecture/price-authority.md` 建立
-- [ ] Phase 2b useAuthoritativePrices
+- [x] Phase 2b useAuthoritativePrices（7/7 tests green）
 - [ ] Phase 3 components 改用新 hook
 - [ ] Phase 5 telemetry
 - [ ] Phase 6 E2E CI 綠燈
