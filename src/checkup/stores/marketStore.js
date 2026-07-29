@@ -6,6 +6,8 @@
 
 import { create } from 'zustand';
 import { createEmptyMarketPriceCache } from '../lib/market.js';
+import { mergeAuthoritativeIntoPriceCache } from '../lib/authoritativePriceMirror';
+
 
 // Initial state
 const createInitialState = () => ({
