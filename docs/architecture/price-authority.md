@@ -68,16 +68,24 @@ Function 內部會用 `nyClock()` / `getTaipeiClock()` 二次判定，EDT/EST �
 3. 依照 `optionCombo.ts::calcNetPremium` 邏輯計算 net value：`Σ sign(side) × price × ratio × 100`。
 4. 缺任一腿 → 整組標為 `stale`。
 
-## 監控指標（Phase 5）
+## 監控指標（Phase 5 — 已上線）
 
-| Metric key                | 來源                       | 意義                                    |
-|---------------------------|----------------------------|-----------------------------------------|
-| `price_source_mismatch`   | `useAuthoritativePrices`   | LocalStorage vs DB 落差 > 0.5%          |
-| `price_db_miss`           | `useAuthoritativePrices`   | DB 沒有該 symbol，退回 stale/offline    |
-| `us_option_sync_written`  | `us-option-price-sync` log | 每次 cron 寫入的 leg 數                 |
-| `us_option_sync_missed`   | `us-option-price-sync` log | Yahoo chain 找不到的 OCC 數             |
+寫入 `price_parity_events`（RLS：使用者只能 insert 自己的、僅 `company_admin` 可讀）：
 
-儀表板：`/company/perf-metrics` → Price Parity 卡片。
+| 欄位 | 意義 |
+|------|------|
+| `symbol` / `market` | 觸發標的與市場 |
+| `db_price` / `cache_price` | DB 權威價 vs LocalStorage 快取價 |
+| `diff_pct` | 落差百分比（門檻 > 0.5%） |
+| `source` | `snapshot` 或 `current`（哪一種 DB 來源命中） |
+
+Client 端寫入邏輯（`useAuthoritativePrices::reportParityMismatches`）：
+- 僅在 `navigator.onLine === true` 且同時取得 DB 與 cache 價格時比對
+- 每個 `symbol|source` 6 小時內只回報一次（LocalStorage dedupe）
+- 寫入失敗一律吞掉，不影響 UI
+
+儀表板：`/company/perf-metrics` → **價格一致性事件** 卡片，呼叫 `get_price_parity_summary(_days)` RPC 匯總 events / 涉及個股數 / avg & max diff，並列前 20 名高頻標的。
+
 
 ## 故障排除
 
