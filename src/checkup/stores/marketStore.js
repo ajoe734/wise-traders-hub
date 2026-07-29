@@ -29,21 +29,24 @@ export const useMarketDataStore = create((set, get) => ({
   setRefreshing: (refreshing) => set({ refreshing }),
   setLastUpdate: (lastUpdate) => set({ lastUpdate }),
   
-  // Selectors
+  // Selectors — Phase 7：一律先讀 DB 權威價鏡像，legacy 快取只當 fallback。
   getPriceForCode: (code) => {
     const { marketPriceCache } = get();
-    return marketPriceCache?.prices?.[code]?.price || null;
+    const merged = mergeAuthoritativeIntoPriceCache(marketPriceCache);
+    return merged?.prices?.[code]?.price || null;
   },
-  
+
   getPriceStatus: (code) => {
     const { marketPriceCache } = get();
-    const quote = marketPriceCache?.prices?.[code];
+    const merged = mergeAuthoritativeIntoPriceCache(marketPriceCache);
+    const quote = merged?.prices?.[code];
     if (!quote) return 'flat';
     const change = quote.change || 0;
     if (change > 0) return 'up';
     if (change < 0) return 'down';
     return 'flat';
   },
+
   
   getSyncStatus: () => {
     const { marketPriceSync } = get();
