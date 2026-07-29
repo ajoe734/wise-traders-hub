@@ -145,22 +145,38 @@ Deno.serve(withLogging('us-option-price-sync', async (req) => {
   }
 
   // Phase 7 Step 5 — observability: 未定價的腿必須留痕，否則 combo 永遠 stale 而沒人知道。
+  // 本表其他列為 user-scoped；系統級（cron）紀錄一律 user_id = null，兩者互不干擾。
   if (misses.length > 0) {
     const seenAt = now;
-    const { error: missErr } = await supabase
+    const symbols = misses.map((m) => m.occ);
+    const { data: existing } = await supabase
       .from('checkup_price_misses')
-      .upsert(
-        misses.map((m) => ({
-          symbol: m.occ,
-          reason: m.reason.startsWith('yahoo_error') ? 'yahoo_error' : m.reason,
-          last_error: m.reason,
-          last_seen_at: seenAt,
-          resolved_at: null,
-        })),
-        { onConflict: 'symbol' },
-      );
-    if (missErr) console.error('price miss log error:', missErr);
+      .select('id, symbol, attempts')
+      .is('user_id', null)
+      .in('symbol', symbols);
+    const bySymbol = new Map((existing ?? []).map((r) => [r.symbol as string, r]));
+
+    for (const m of misses) {
+      const reason = m.reason.startsWith('yahoo_error') ? 'yahoo_error' : m.reason;
+      const prev = bySymbol.get(m.occ);
+      const payload = {
+        reason,
+        last_error: m.reason.slice(0, 500),
+        last_seen_at: seenAt,
+        resolved_at: null,
+      };
+      const { error } = prev
+        ? await supabase
+            .from('checkup_price_misses')
+            .update({ ...payload, attempts: Number(prev.attempts ?? 0) + 1 })
+            .eq('id', prev.id)
+        : await supabase
+            .from('checkup_price_misses')
+            .insert({ ...payload, symbol: m.occ, user_id: null, attempts: 1 });
+      if (error) console.error('price miss log error:', m.occ, error.message);
+    }
   }
+
 
   // 已定價的腿若先前被記為 miss，標記為已解決。
   if (rows.length > 0) {
