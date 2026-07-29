@@ -144,6 +144,34 @@ Deno.serve(withLogging('us-option-price-sync', async (req) => {
     if (upErr) console.error('upsert_current_price error:', upErr);
   }
 
+  // Phase 7 Step 5 — observability: 未定價的腿必須留痕，否則 combo 永遠 stale 而沒人知道。
+  if (misses.length > 0) {
+    const seenAt = now;
+    const { error: missErr } = await supabase
+      .from('checkup_price_misses')
+      .upsert(
+        misses.map((m) => ({
+          symbol: m.occ,
+          reason: m.reason.startsWith('yahoo_error') ? 'yahoo_error' : m.reason,
+          last_error: m.reason,
+          last_seen_at: seenAt,
+          resolved_at: null,
+        })),
+        { onConflict: 'symbol' },
+      );
+    if (missErr) console.error('price miss log error:', missErr);
+  }
+
+  // 已定價的腿若先前被記為 miss，標記為已解決。
+  if (rows.length > 0) {
+    await supabase
+      .from('checkup_price_misses')
+      .update({ resolved_at: now })
+      .in('symbol', rows.map((r) => r.symbol as string))
+      .is('resolved_at', null);
+  }
+
+
   return jsonOk({
     legs: legs.length,
     written: rows.length,
