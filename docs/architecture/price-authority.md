@@ -105,7 +105,7 @@ Client 端寫入邏輯（`useAuthoritativePrices::reportParityMismatches`）：
 | 2     | `useAuthoritativePrices` hook             | ✅ 已上線      |
 | 3     | 拔除 MIS 主路徑、component 改用新 hook    | 🚧 待實作      |
 | 4     | TW cron 14:05                             | ✅ 已上線      |
-| 5     | `price_source_mismatch` telemetry + card  | 🚧 待實作      |
+| 5     | `price_parity_events` + Perf-metrics 卡片 | ✅ 已上線      |
 | 6     | `e2e/holdings-price-parity.spec.ts` + CI  | 🚧 待實作      |
 
 ## 不可觸碰
