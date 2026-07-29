@@ -21,6 +21,9 @@ import { useEffect, useMemo, useRef, useState } from 'react';
 import { supabase } from '@/integrations/supabase/client';
 import { calcNetPremium, buildOccSymbol, type ComboLeg } from '@/lib/optionCombo';
 import { detectHoldingMarket, marketPhase, type Market } from '../lib/marketClock';
+import { resolvePrice } from '../lib/priceResolver';
+import { writeAuthoritativePrices } from '../lib/authoritativePriceMirror';
+
 import {
   getCachedQuotesForCodes,
   normalizeMarketPriceCache,
