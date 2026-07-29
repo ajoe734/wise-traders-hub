@@ -1,0 +1,62 @@
+name: Holdings — Price Parity (Phase 6)
+
+# 針對 docs/architecture/price-authority.md 的端到端回歸：
+# 驗證 useAuthoritativePrices 對 daily_price_snapshots / current_prices /
+# expert_signal_legs 的 DB-first 契約，以及 navigator.onLine=false 離線 fallback
+# 不 crash。使用 supabase-mock helper（不打 real backend）。
+
+on:
+  push:
+    branches: [main, 'feat/**', 'fix/**']
+    paths:
+      - 'src/checkup/hooks/useAuthoritativePrices.ts'
+      - 'src/checkup/hooks/useRoutePortfolioRuntime.js'
+      - 'src/checkup/lib/marketClock.ts'
+      - 'src/checkup/components/freecheckup/HoldingsDetailPanel.tsx'
+      - 'src/checkup/components/freecheckup/HoldingsWorkbench.tsx'
+      - 'e2e/holdings-price-parity.spec.ts'
+      - '.github/workflows/holdings-price-parity.yml'
+  pull_request:
+    branches: [main]
+
+concurrency:
+  group: holdings-price-parity-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  e2e:
+    name: Playwright — holdings-price-parity
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    steps:
+      - uses: actions/checkout@v4
+      - uses: oven-sh/setup-bun@v2
+        with:
+          bun-version: latest
+      - name: Install deps
+        run: bun install --frozen-lockfile
+      - name: Install Playwright Chromium
+        run: bunx playwright install --with-deps chromium
+      - name: Run holdings-price-parity project
+        run: bunx playwright test --project=holdings-price-parity
+        env:
+          CI: 'true'
+          VITE_SUPABASE_URL: https://yqacmrgdjlenbijclngi.supabase.co
+          VITE_SUPABASE_PUBLISHABLE_KEY: ${{ secrets.VITE_SUPABASE_PUBLISHABLE_KEY || 'placeholder' }}
+          VITE_SUPABASE_PROJECT_ID: yqacmrgdjlenbijclngi
+      - name: Upload Playwright report (on failure)
+        if: failure()
+        uses: actions/upload-artifact@v4
+        with:
+          name: playwright-report-holdings-price-parity
+          path: playwright-report
+          retention-days: 14
+          if-no-files-found: ignore
+      - name: Upload traces (on failure)
+        if: failure()
+        uses: actions/upload-artifact@v4
+        with:
+          name: playwright-traces-holdings-price-parity
+          path: test-results
+          retention-days: 14
+          if-no-files-found: ignore
