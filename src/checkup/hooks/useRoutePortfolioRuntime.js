@@ -747,6 +747,7 @@ export function useRoutePortfolioRuntime() {
     [
       routePortfolioId,
       routeData,
+      enrichedHoldings,
       setHoldings,
       setWatchlist,
       setTargets,
