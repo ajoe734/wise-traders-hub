@@ -95,21 +95,27 @@ const __portfolioNotesNormalize = (v) => ({ ...clonePortfolioNotes(), ...(v || {
 let __cachedMarketState = null
 let __cachedMarketRawCache = null
 let __cachedMarketRawSync = null
+let __cachedMarketRawAuthoritative = null
 
 export function readRouteMarketState() {
   const rawCache = readRawString(MARKET_PRICE_CACHE_KEY)
   const rawSync = readRawString(MARKET_PRICE_SYNC_KEY)
+  const rawAuthoritative = readRawString(AUTHORITATIVE_PRICE_KEY)
   if (
     __cachedMarketState &&
     rawCache === __cachedMarketRawCache &&
-    rawSync === __cachedMarketRawSync
+    rawSync === __cachedMarketRawSync &&
+    rawAuthoritative === __cachedMarketRawAuthoritative
   ) {
     return __cachedMarketState
   }
-  const marketPriceCache = readCachedField(MARKET_PRICE_CACHE_KEY, normalizeMarketPriceCache)
+  const legacyCache = readCachedField(MARKET_PRICE_CACHE_KEY, normalizeMarketPriceCache)
   const marketPriceSync = readCachedField(MARKET_PRICE_SYNC_KEY, normalizeMarketPriceSync)
+  // Phase 7 — DB 權威價覆蓋 legacy TWSE/LocalStorage 快取（單一價格真相）。
+  const marketPriceCache = mergeAuthoritativeIntoPriceCache(legacyCache)
   __cachedMarketRawCache = rawCache
   __cachedMarketRawSync = rawSync
+  __cachedMarketRawAuthoritative = rawAuthoritative
   __cachedMarketState = {
     marketPriceCache,
     marketPriceSync,
@@ -117,6 +123,7 @@ export function readRouteMarketState() {
   }
   return __cachedMarketState
 }
+
 
 export function readRuntimePortfolios() {
   const storedPortfolios = readCachedField(PORTFOLIOS_KEY, __identity)
