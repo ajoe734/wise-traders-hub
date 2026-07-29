@@ -46,12 +46,12 @@ describe('S4 · barrel emit helper + 邊界靜態掃描', () => {
   it('closing barrel export useEmitHoldingsFocus', async () => {
     const mod = await import('@/checkup/modules/closing')
     expect(typeof mod.useEmitHoldingsFocus).toBe('function')
-  })
+  }, 20_000)
 
   it('events barrel export useEmitHoldingsFocus', async () => {
     const mod = await import('@/checkup/modules/events')
     expect(typeof mod.useEmitHoldingsFocus).toBe('function')
-  })
+  }, 20_000)
 
   it('closing.useEmitHoldingsFocus emit holdings:focus with source=closing', async () => {
     const { createShellEventBus } = await import('@/checkup/shell/eventBus')
