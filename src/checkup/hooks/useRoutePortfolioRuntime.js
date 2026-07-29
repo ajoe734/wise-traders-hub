@@ -15,7 +15,8 @@ import {
 } from '../constants.js'
 import { normalizeStrategyBrain } from '../lib/brainRuntime.js'
 import { createDefaultReviewForm, normalizeNewsEvents, toSlashDate } from '../lib/eventUtils.js'
-import { applyTradeEntryToHoldings, normalizeHoldings } from '../lib/holdings.js'
+import { applyMarketQuotesToHoldings, applyTradeEntryToHoldings, normalizeHoldings } from '../lib/holdings.js'
+import { useAuthoritativePrices } from './useAuthoritativePrices'
 import { buildPortfolioTabs } from '../lib/navigationTabs.js'
 import {
   buildPortfolioSummariesFromStorage,
