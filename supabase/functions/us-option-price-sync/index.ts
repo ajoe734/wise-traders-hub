@@ -22,12 +22,14 @@ Deno.serve(withLogging('us-option-price-sync', async (req) => {
   if (req.method === 'OPTIONS') return new Response(null, { headers: corsHeaders });
 
   // Only cron / service role may invoke.
-  const guard = await requireCronKey(req);
-  if (!guard.ok) {
-    return new Response(JSON.stringify({ error: guard.error }), {
-      status: 401,
-      headers: { ...corsHeaders, 'Content-Type': 'application/json' },
-    });
+  try {
+    requireCronKey(req);
+  } catch (e) {
+    const err = e as { status?: number; code?: string; message?: string };
+    return new Response(
+      JSON.stringify({ error: err.message ?? 'forbidden', code: err.code ?? 'FORBIDDEN' }),
+      { status: err.status ?? 403, headers: { ...corsHeaders, 'Content-Type': 'application/json' } },
+    );
   }
 
   // Skip if it is not ~market close in US-East. The scheduler fires twice
