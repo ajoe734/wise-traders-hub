@@ -135,6 +135,24 @@ export function useMarketData({
     }
   }, [])
 
+  /**
+   * Phase 7 Step 3/4 — 取價路由。
+   * 線上：一律走 DB 權威來源（daily_price_snapshots → current_prices），
+   * 離線：才降級為 TWSE MIS 直打（fallback-only）。
+   */
+  const fetchQuotesForSync = useCallback(
+    async (codes) => {
+      if (!isOnline()) {
+        const legacy = await fetchPostCloseQuotes(codes)
+        return { ...legacy, source: 'twse' }
+      }
+      const quotes = await fetchAuthoritativeQuotes(codes)
+      const failedCodes = codes.filter((code) => !quotes[String(code)])
+      return { quotes, failedCodes, marketDate: null, source: 'db' }
+    },
+    [fetchPostCloseQuotes]
+  )
+
   const syncPostClosePrices = useCallback(
     async ({ silent = false, force = false } = {}) => {
       if (priceSyncInFlightRef.current) return priceSyncInFlightRef.current
@@ -148,8 +166,10 @@ export function useMarketData({
         const gate = canRunPostClosePriceSync(new Date(), cachedSync)
         const trackedCodes = collectTrackedCodes()
         const allowForcedRetry = force && trackedCodes.length > 0
+        // DB 取價沒有交易時段限制（權威表本身已由 cron 定版），只有離線 MIS 路徑需要守門。
+        const dbFirst = isOnline()
 
-        if (!gate.allowed && !allowForcedRetry) {
+        if (!gate.allowed && !allowForcedRetry && !dbFirst) {
           if (!silent) {
             if (gate.reason === 'before-close') {
               flashSaved(APP_TOAST_MESSAGES.priceSyncBeforeClose)
@@ -177,7 +197,8 @@ export function useMarketData({
           quotes,
           failedCodes,
           marketDate: observedMarketDate,
-        } = await fetchPostCloseQuotes(trackedCodes)
+          source: quoteSource,
+        } = await fetchQuotesForSync(trackedCodes)
         const resolvedMarketDate = observedMarketDate || gate.clock.marketDate
 
         if (Object.keys(quotes).length === 0) {
@@ -197,13 +218,14 @@ export function useMarketData({
           ...(cachedPrice || createEmptyMarketPriceCache()),
           marketDate: resolvedMarketDate,
           syncedAt,
-          source: 'twse',
+          source: quoteSource || 'db',
           status: failedCodes.length > 0 ? 'partial' : 'fresh',
           prices: {
             ...((cachedPrice && cachedPrice.prices) || {}),
             ...quotes,
           },
         }
+
         const nextSync = {
           marketDate: resolvedMarketDate,
           syncedAt,
