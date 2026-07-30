@@ -35,27 +35,16 @@ import {
 } from '@/lib/journalsExport';
 import { ExportRiskDialog } from '@/components/company/ExportRiskDialog';
 import { trackRaw } from '@/lib/analytics/events';
+import { taipeiMondayOf, taipeiWeekRangeUtc, taipeiWeekSundayIso } from '@/lib/taipeiWeek';
 
-// ── Taipei week helpers ────────────────────────────────────
-const TZ_OFFSET_MS = 8 * 60 * 60 * 1000;
-const MS_DAY = 86_400_000;
-
-function taipeiMondayOf(d: Date): string {
-  const shifted = new Date(d.getTime() + TZ_OFFSET_MS);
-  const day = shifted.getUTCDay();
-  const diff = (day + 6) % 7;
-  const monday = new Date(Date.UTC(shifted.getUTCFullYear(), shifted.getUTCMonth(), shifted.getUTCDate() - diff));
-  return monday.toISOString().slice(0, 10);
-}
-
+// ── Taipei week helpers（單一資料源：@/lib/taipeiWeek）───────
 function weekRangeUtc(weekStart: string) {
-  const start = new Date(`${weekStart}T00:00:00+08:00`);
-  const end = new Date(start.getTime() + 7 * MS_DAY);
+  const { startIso, endIso } = taipeiWeekRangeUtc(weekStart);
   return {
-    startIso: start.toISOString(),
-    endIso: end.toISOString(),
+    startIso,
+    endIso,
     startLabel: weekStart,
-    endLabel: new Date(end.getTime() - MS_DAY).toISOString().slice(0, 10),
+    endLabel: taipeiWeekSundayIso(weekStart),
   };
 }
 
