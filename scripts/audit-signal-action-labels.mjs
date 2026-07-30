@@ -21,7 +21,7 @@ const ALLOWLIST = new Set([
   'src/test/unit/signalActionLabel.test.ts',
   'src/test/exportJournalPdfActionMeta.test.ts', // contract test — expected to contain literals
   'scripts/audit-signal-action-labels.mjs',
-  'supabase/functions/_shared/signalAction.ts', // Deno 鏡像單一資料源
+  'supabase/functions/_shared/signalActionLabels.ts', // Deno 鏡像單一資料源
   // 持倉看板「決策標籤」與訊號 action 是不同領域（exit/review/hold 決策建議），不受此稽核管轄
   'src/checkup/components/freecheckup/HoldingsDetailPanel.tsx',
 ]);

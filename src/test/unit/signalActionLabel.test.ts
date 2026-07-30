@@ -71,7 +71,7 @@ describe('signalAction — single source of truth', () => {
 describe('signalAction — Deno 鏡像 parity 與靜態守衛', () => {
   const root = resolve(__dirname, '../../..');
   const denoSrc = readFileSync(
-    resolve(root, 'supabase/functions/_shared/signalAction.ts'),
+    resolve(root, 'supabase/functions/_shared/signalActionLabels.ts'),
     'utf-8',
   );
 
@@ -101,7 +101,7 @@ describe('signalAction — Deno 鏡像 parity 與靜態守衛', () => {
     )
       .split('\n')
       .filter(Boolean)
-      .filter((l) => !l.startsWith('supabase/functions/_shared/signalAction.ts'))
+      .filter((l) => !l.startsWith('supabase/functions/_shared/signalActionLabels.ts'))
       .filter((l) => !l.startsWith('src/lib/signalAction.ts'))
       .filter((l) => !l.startsWith('src/pages/_adminSignals/actionLabels.ts'))
       .filter((l) => !l.startsWith('src/test/'))
