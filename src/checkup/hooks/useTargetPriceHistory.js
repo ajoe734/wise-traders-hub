@@ -1,5 +1,5 @@
 import { useEffect, useState, useCallback, useRef } from 'react'
-import { supabase } from '@/integrations/supabase/client'
+import { getCheckupGateway } from '../lib/gateway'
 
 /**
  * Per-(userId, code) cache for target_price_history.
@@ -18,7 +18,7 @@ async function fetchHistory(userId, code, limit, force = false) {
   if (fresh && !force) return cached.rows
 
   const inflight = (async () => {
-    const { data, error } = await supabase
+    const { data, error } = await getCheckupGateway().db
       .from('target_price_history')
       .select('id, firm, target, prev_target, report_date, change_type, source, batch_id, created_at, detail')
       .eq('user_id', userId)
@@ -46,16 +46,16 @@ export function useTargetPriceHistory(code, { limit = 30, enabled = true } = {})
 
   const reload = useCallback(async (force = false) => {
     if (!code || !enabled) { setRows([]); return }
-    const { data: { user } } = await supabase.auth.getUser()
-    if (!user) { setRows([]); return }
+    const userId = await getCheckupGateway().auth.getUserId()
+    if (!userId) { setRows([]); return }
     // Show cached immediately if present
-    const key = makeKey(user.id, code)
+    const key = makeKey(userId, code)
     const cached = CACHE.get(key)
     if (cached?.rows) setRows(cached.rows)
     if (!force && cached && Date.now() - cached.fetchedAt < TTL_MS) return
     setLoading(true)
     try {
-      const data = await fetchHistory(user.id, code, limit, force)
+      const data = await fetchHistory(userId, code, limit, force)
       if (mounted.current) setRows(data)
     } catch (e) {
       console.error('useTargetPriceHistory load failed:', e)
@@ -76,13 +76,13 @@ export function useTargetPriceHistory(code, { limit = 30, enabled = true } = {})
 
 export async function recordTargetPriceBatch(code, entries, source = 'refresh-reports') {
   try {
-    const { data: { user } } = await supabase.auth.getUser()
-    if (!user || !code || !Array.isArray(entries) || entries.length === 0) return { inserted: 0, batchId: null }
+    const userId = await getCheckupGateway().auth.getUserId()
+    if (!userId || !code || !Array.isArray(entries) || entries.length === 0) return { inserted: 0, batchId: null }
 
-    const { data: latest } = await supabase
+    const { data: latest } = await getCheckupGateway().db
       .from('target_price_history')
       .select('firm, target, created_at')
-      .eq('user_id', user.id)
+      .eq('user_id', userId)
       .eq('code', code)
       .order('created_at', { ascending: false })
       .limit(200)
@@ -105,7 +105,7 @@ export async function recordTargetPriceBatch(code, entries, source = 'refresh-re
         changeType = 'updated'
       }
       rows.push({
-        user_id: user.id,
+        user_id: userId,
         code,
         firm,
         target,
@@ -117,16 +117,16 @@ export async function recordTargetPriceBatch(code, entries, source = 'refresh-re
       })
     }
     if (rows.length === 0) return { inserted: 0, batchId }
-    const { error } = await supabase.from('target_price_history').insert(rows)
+    const { error } = await getCheckupGateway().db.from('target_price_history').insert(rows)
     if (error) throw error
     invalidateTargetPriceHistoryCache(code)
 
     // 依使用者偏好寫入 in-app 通知
     try {
-      const { data: prefs } = await supabase
+      const { data: prefs } = await getCheckupGateway().db
         .from('notification_preferences')
         .select('target_price_new, target_price_updated')
-        .eq('user_id', user.id)
+        .eq('user_id', userId)
         .maybeSingle()
       const wantNew = prefs?.target_price_new !== false
       const wantUpd = prefs?.target_price_updated !== false
@@ -134,8 +134,8 @@ export async function recordTargetPriceBatch(code, entries, source = 'refresh-re
       const updCount = rows.filter(r => r.change_type === 'updated').length
       const shouldNotify = (wantNew && newCount > 0) || (wantUpd && updCount > 0)
       if (shouldNotify) {
-        await supabase.from('notifications').insert({
-          user_id: user.id,
+        await getCheckupGateway().db.from('notifications').insert({
+          user_id: userId,
           title: `${code} 目標價更新`,
           body: `新增 ${newCount} 筆 / 修改 ${updCount} 筆（來源：${source}）`,
           type: 'info',
