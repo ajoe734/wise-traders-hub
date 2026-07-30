@@ -26,6 +26,7 @@
 | **Authoritative Price（權威價）** | 由 DB 同步任務落地的收盤／即時價，前台唯一可信價源。見 ADR-0002。 |
 | **Publishing Window（發布視窗）** | 台股週五 20:00（台北）、美股週六 08:00（台北）統一開放；提前發布需按鈕明示。 |
 | **Taipei Week（台北週）** | 週界線 = Asia/Taipei 週一 00:00（含）～下週一 00:00（不含）。唯一實作：前台 `src/lib/taipeiWeek.ts`、Deno `supabase/functions/_shared/weekBoundary.ts`，兩者由 parity 測試鎖住。禁用 `date-fns` 的 `startOfWeek`（那是瀏覽器本地時區）。 |
+| **Journal Repository（週記讀取倉庫）** | `expert_signals` 的週記讀取四場景（訂閱者列表、擁有者預覽、匯出、LINE 推播）的 select 契約與可見性規則唯一實作：Deno `supabase/functions/_shared/journalRepository.ts`、前台鏡像 `src/lib/journalRepository.ts`（由 `scripts/gen-journal-repository-mirror.mjs` 產生）。呼叫端禁止自刻 `.from('expert_signals').select(...)`。 |
 
 ## 持倉看板（Checkup）
 
