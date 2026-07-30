@@ -1,5 +1,6 @@
 import { API_ENDPOINTS } from '../constants.js'
 import { useEffect } from 'react'
+import { getCheckupGateway } from '../lib/gateway'
 import { CLOUD_SYNC_TTL, OWNER_PORTFOLIO_ID } from '../constants.js'
 import { runWhenIdle } from '../../lib/idleSchedule'
 // Phase 3A.4 Step 1: store-backed setters 由 hook 內部直接從 store 取，
@@ -109,11 +110,11 @@ export function usePortfolioBootstrap({
 
       if (!shouldSyncCloud) {
         try {
-          const cloudHoldings = await fetch(API_ENDPOINTS.BRAIN, {
+          const cloudHoldings = await getCheckupGateway().http.json(API_ENDPOINTS.BRAIN, {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
             body: JSON.stringify({ action: 'load-holdings' }),
-          }).then((res) => res.json())
+          })
 
           const cloudRows = cloudHoldings?.holdings
           if (
@@ -152,31 +153,26 @@ export function usePortfolioBootstrap({
       }
 
       try {
+        const gw = getCheckupGateway()
         const [cloudBrain, cloudEvents, cloudHoldings, cloudHistory, cloudResearch] =
           await Promise.all([
-            fetch(`${API_ENDPOINTS.BRAIN}?action=brain`)
-              .then((res) => res.json())
-              .catch(() => ({ brain: null })),
-            fetch(API_ENDPOINTS.BRAIN, {
-              method: 'POST',
-              headers: { 'Content-Type': 'application/json' },
-              body: JSON.stringify({ action: 'load-events' }),
-            })
-              .then((res) => res.json())
-              .catch(() => ({ events: null })),
-            fetch(API_ENDPOINTS.BRAIN, {
-              method: 'POST',
-              headers: { 'Content-Type': 'application/json' },
-              body: JSON.stringify({ action: 'load-holdings' }),
-            })
-              .then((res) => res.json())
-              .catch(() => ({ holdings: null })),
-            fetch(`${API_ENDPOINTS.BRAIN}?action=history`)
-              .then((res) => res.json())
-              .catch(() => ({ history: null })),
-            fetch(API_ENDPOINTS.RESEARCH)
-              .then((res) => res.json())
-              .catch(() => ({ reports: null })),
+            gw.http.tryJson(`${API_ENDPOINTS.BRAIN}?action=brain`).then((r) => r || { brain: null }),
+            gw.http
+              .tryJson(API_ENDPOINTS.BRAIN, {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ action: 'load-events' }),
+              })
+              .then((r) => r || { events: null }),
+            gw.http
+              .tryJson(API_ENDPOINTS.BRAIN, {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ action: 'load-holdings' }),
+              })
+              .then((r) => r || { holdings: null }),
+            gw.http.tryJson(`${API_ENDPOINTS.BRAIN}?action=history`).then((r) => r || { history: null }),
+            gw.http.tryJson(API_ENDPOINTS.RESEARCH).then((r) => r || { reports: null }),
           ])
         if (cancelled) return
 
