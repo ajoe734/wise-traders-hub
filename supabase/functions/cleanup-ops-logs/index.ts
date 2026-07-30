@@ -1,5 +1,6 @@
 // AUTH: user  (reclassified M-3c-2: 2026-07-27, see docs/security/edge-function-auth-matrix.md)
 import { serviceClient, userClient } from '../_shared/supabaseClients.ts';
+import { requireCompanyAdmin } from '../_shared/adminGuard.ts';
 import { withLogging } from '../_shared/edgeLogger.ts';
 import { jsonResponse, corsHeaders } from '../_shared/cors.ts';
 

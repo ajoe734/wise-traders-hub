@@ -1,6 +1,7 @@
 // AUTH: user  (auto-annotated 2026-07-27, see docs/security/edge-function-auth-matrix.md)
 
 import { corsHeaders } from '../_shared/cors.ts';
+import { requireCompanyAdmin } from '../_shared/adminGuard.ts';
 import { serviceClient, userClient } from '../_shared/supabaseClients.ts';
 import { withLogging, type EdgeLogger } from '../_shared/edgeLogger.ts';
 import { validateInput, validationJsonResponse } from '../_shared/inputValidator.ts';

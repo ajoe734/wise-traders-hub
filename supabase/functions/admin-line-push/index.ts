@@ -3,6 +3,7 @@
 // Body: { job_id: string }
 // Auth: requires company_admin (verified via has_role).
 import { serviceClient, userClient } from '../_shared/supabaseClients.ts';
+import { requireCompanyAdmin, authErrorResponse } from '../_shared/adminGuard.ts';
 import { corsHeaders, corsPreflight, jsonResponse, errorResponse } from '../_shared/cors.ts';
 
 const LINE_MULTICAST_URL = 'https://api.line.me/v2/bot/message/multicast';

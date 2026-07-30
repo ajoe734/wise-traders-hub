@@ -11,6 +11,7 @@
 //   6. 整批結果寫入 audit_logs，回傳統計
 // 支援 ?dry_run=1 — 只列出將要嘗試的 (user, OA) 組合，不實際呼叫 LINE / 不寫 notifications。
 import { corsHeaders } from '../_shared/cors.ts';
+import { requireCompanyAdmin, authErrorResponse } from '../_shared/adminGuard.ts';
 import { requireCronKey, AuthError } from '../_shared/authGuard.ts';
 
 import { withLogging } from '../_shared/edgeLogger.ts';

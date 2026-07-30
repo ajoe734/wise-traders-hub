@@ -4,6 +4,7 @@
 // Same data-movement semantics as account-link-consume.
 
 import { serviceClient, userClient } from '../_shared/supabaseClients.ts';
+import { requireCompanyAdmin, authErrorResponse } from '../_shared/adminGuard.ts';
 const corsHeaders = {
   'Access-Control-Allow-Origin': '*',
   'Access-Control-Allow-Headers': 'authorization, x-client-info, apikey, content-type',

@@ -5,6 +5,7 @@
 //                   token is marked consumed_at and revoked after first resolve.
 
 import { serviceClient, userClient } from '../_shared/supabaseClients.ts';
+import { requireCompanyAdmin, authErrorResponse } from '../_shared/adminGuard.ts';
 const corsHeaders = {
   'Access-Control-Allow-Origin': '*',
   'Access-Control-Allow-Headers': 'authorization, x-client-info, apikey, content-type',

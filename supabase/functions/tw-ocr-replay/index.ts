@@ -3,6 +3,7 @@
 // On-demand HTTP 端點：從伺服端 fixtures 目錄跑 replay，回傳結構化 report。
 // 僅 company_admin 可存取；生產不會主動呼叫，供後台/CI dispatch 手動觸發。
 import { corsHeaders } from "../_shared/cors.ts";
+import { requireCompanyAdmin, authErrorResponse } from '../_shared/adminGuard.ts';
 import { requireCronKey, AuthError } from '../_shared/authGuard.ts';
 import { runReplay, loadFixturesFromDir, type ReplayReport } from "./replay.ts";
 

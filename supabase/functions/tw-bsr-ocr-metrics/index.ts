@@ -10,6 +10,7 @@
 //  - postOutcomeDaily: 逐日 accepted / mismatch / empty 分布
 // 僅 company_admin 可存取。
 import { corsHeaders } from "../_shared/cors.ts";
+import { requireCompanyAdmin, authErrorResponse } from '../_shared/adminGuard.ts';
 import { requireCronKey, AuthError } from '../_shared/authGuard.ts';
 
 const SUPABASE_URL = Deno.env.get("SUPABASE_URL") || "";

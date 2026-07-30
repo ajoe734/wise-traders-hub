@@ -10,6 +10,7 @@
 //
 // 只有 company_admin 可觸發。回傳 { ok, source_key, row_count, duration_ms, log_id }。
 import { serviceClient, userClient } from '../_shared/supabaseClients.ts';
+import { requireCompanyAdmin, authErrorResponse } from '../_shared/adminGuard.ts';
 import { fetchWithRateLimit } from '../_shared/finmindRateLimit.ts';
 
 // service role client for rate-limit RPCs (RLS-safe)

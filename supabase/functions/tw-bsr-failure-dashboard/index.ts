@@ -7,6 +7,7 @@
 //   - topOffenders: 近 N 日 captcha 率最高的檔
 // 僅 company_admin 可存取。
 import { corsHeaders } from "../_shared/cors.ts";
+import { requireCompanyAdmin, authErrorResponse } from '../_shared/adminGuard.ts';
 import { requireCronKey, AuthError } from '../_shared/authGuard.ts';
 
 const SUPABASE_URL = Deno.env.get("SUPABASE_URL") || "";
