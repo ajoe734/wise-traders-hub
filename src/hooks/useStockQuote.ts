@@ -1,5 +1,11 @@
+/**
+ * 單檔即時報價 — 一律經過 price-authority seam（`fetchAuthoritativeQuote`），
+ * 收盤後回傳當日 snapshot 收盤價，盤中才回 current_prices，避免與收盤價對不上。
+ * Realtime 只作為「有新價寫入」的觸發器，實際數值仍重新走 seam 取得。
+ */
 import { useState, useEffect, useCallback } from 'react';
 import { supabase } from '@/integrations/supabase/client';
+import { fetchAuthoritativeQuote } from '@/checkup/lib/authoritativeQuotes';
 
 interface StockQuote {
   symbol: string;
@@ -26,29 +32,18 @@ export function useStockQuote(symbol: string = '2330', refreshInterval: number =
     }
     try {
       setError(null);
-      const { data, error: dbError } = await supabase
-        .from('current_prices')
-        .select('*')
-        .eq('symbol', code)
-        .maybeSingle();
-
-      if (dbError) throw new Error(dbError.message);
-      if (!data) {
+      const q = await fetchAuthoritativeQuote(code);
+      if (!q) {
         setQuote(null);
         return;
       }
-
-      const price = Number(data.price);
-      const changePercent = Number(data.change_percent || 0);
-      const change = changePercent !== 0 ? price * changePercent / (100 + changePercent) : 0;
-
       setQuote({
-        symbol: data.symbol,
-        price,
-        changePercent,
-        change: Number(change.toFixed(2)),
-        volume: data.volume ? Number(data.volume) : null,
-        updatedAt: data.updated_at,
+        symbol: code,
+        price: q.price,
+        changePercent: q.changePct,
+        change: Number(q.change.toFixed(2)),
+        volume: null,
+        updatedAt: q.updatedAt,
       });
     } catch (err) {
       console.error('Failed to fetch stock quote:', err);
@@ -61,7 +56,7 @@ export function useStockQuote(symbol: string = '2330', refreshInterval: number =
   useEffect(() => {
     fetchQuote();
 
-    // Subscribe to Realtime updates for this symbol
+    // Realtime：只當作 invalidation 訊號，價格權威順序仍由 seam 決定。
     const channel = supabase
       .channel(`current-price-${code}`)
       .on(
@@ -72,19 +67,8 @@ export function useStockQuote(symbol: string = '2330', refreshInterval: number =
           table: 'current_prices',
           filter: `symbol=eq.${code}`,
         },
-        (payload) => {
-          const row = payload.new as any;
-          const price = Number(row.price);
-          const changePercent = Number(row.change_percent || 0);
-          const change = changePercent !== 0 ? price * changePercent / (100 + changePercent) : 0;
-          setQuote({
-            symbol: row.symbol,
-            price,
-            changePercent,
-            change: Number(change.toFixed(2)),
-            volume: row.volume ? Number(row.volume) : null,
-            updatedAt: row.updated_at,
-          });
+        () => {
+          fetchQuote();
         }
       )
       .subscribe();
