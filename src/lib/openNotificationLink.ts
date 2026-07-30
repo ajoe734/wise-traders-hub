@@ -10,6 +10,8 @@
  *     而不真的開新分頁（避免使用者跳到一頁「JWT expired」XML）。
  *   - `window.open` 被瀏覽器擋（回傳 null）→ 回報 popup_blocked 讓 UI 顯示 toast。
  */
+import { normalizeNotificationPath } from './legacyRoutes';
+
 export type NotificationLinkKind = 'none' | 'external' | 'internal';
 
 export type NotificationLinkError =
@@ -84,11 +86,15 @@ const ERROR_MESSAGES: Record<NotificationLinkError, string> = {
 };
 
 export function openNotificationLink(
-  link: string | null | undefined,
+  rawLink: string | null | undefined,
   { navigate, openExternal, onError, onOpen, navigateState, now }: OpenNotificationLinkDeps,
 ): NotificationLinkResult {
+  // A6：歷史通知可能存了同站絕對網址或 legacy `/me/*` 路徑，
+  // 先正規化成相對路徑再分流，避免整頁重載或落到 404。
+  const link = normalizeNotificationPath(rawLink);
   const kind = classifyNotificationLink(link);
   if (kind === 'none') return { kind };
+
 
   if (kind === 'external') {
     const url = link as string;
