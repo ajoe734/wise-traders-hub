@@ -110,7 +110,19 @@ export function auditEdgeContracts() {
         });
       }
     }
+
+    // --- contract 3: CORS single source --------------------------------
+    if (!CORS_OWNERS.has(rel) && !CORS_EXEMPT.has(rel) && !rel.endsWith('_test.ts')) {
+      if (/^\s*(const|let|var)\s+corsHeaders\s*[:=]/m.test(src)) {
+        violations.push({
+          file: rel,
+          rule: 'no-inline-cors-headers',
+          hint: "import { corsHeaders } from '../_shared/cors.ts'",
+        });
+      }
+    }
   }
+
   return violations;
 }
 
