@@ -104,3 +104,14 @@ export async function fetchAuthoritativeQuotes(
 
   return out;
 }
+
+/** 單一代號版本；找不到權威價時回傳 null（呼叫端不得改讀 legacy 快取）。 */
+export async function fetchAuthoritativeQuote(
+  symbol: string,
+  now: Date = new Date(),
+): Promise<AuthoritativeQuote | null> {
+  const code = String(symbol || '').trim();
+  if (!code) return null;
+  const out = await fetchAuthoritativeQuotes([code], now);
+  return out[code] ?? null;
+}
