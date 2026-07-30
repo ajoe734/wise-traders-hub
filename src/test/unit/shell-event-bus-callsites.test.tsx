@@ -76,3 +76,36 @@ describe('M3 Events 呼叫端 — EventsPanel.EventCard', () => {
     expect(screen.queryByTestId(/events-focus-holding-/)).toBeNull()
   })
 })
+
+// ---- 靜態守衛：每個 emit helper 都必須有真實元件呼叫端 ----------------------
+import fs from 'node:fs'
+import path from 'node:path'
+
+function walk(dir: string, out: string[] = []) {
+  for (const e of fs.readdirSync(dir, { withFileTypes: true })) {
+    const p = path.join(dir, e.name)
+    if (e.isDirectory()) walk(p, out)
+    else if (/\.(t|j)sx?$/.test(e.name)) out.push(p)
+  }
+  return out
+}
+
+describe('emit helper 不得成為孤兒（無呼叫端）', () => {
+  const modulesDir = path.resolve(process.cwd(), 'src/checkup/modules')
+  const componentFiles = walk(path.resolve(process.cwd(), 'src/checkup/components'))
+  const sources = componentFiles.map((f) => fs.readFileSync(f, 'utf8'))
+
+  const helpers = fs
+    .readdirSync(modulesDir)
+    .flatMap((m) =>
+      fs
+        .readdirSync(path.join(modulesDir, m))
+        .filter((f) => /^useEmit.*\.tsx?$/.test(f))
+        .map((f) => ({ module: m, name: f.replace(/\.tsx?$/, '') })),
+    )
+
+  it.each(helpers)('$module/$name 至少被一個 checkup 元件呼叫', ({ module, name }) => {
+    const used = sources.some((s) => s.includes(`modules/${module}/${name}`) && s.includes(`${name}()`))
+    expect(used, `${module}/${name} 沒有任何元件呼叫端`).toBe(true)
+  })
+})
