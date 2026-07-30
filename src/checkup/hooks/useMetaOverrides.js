@@ -1,5 +1,5 @@
 import { useEffect, useState, useCallback, useRef } from 'react'
-import { supabase } from '@/integrations/supabase/client'
+import { getCheckupGateway } from '../lib/gateway'
 
 /**
  * Module-level cache for holding_meta_overrides keyed by user_id.
@@ -23,7 +23,7 @@ async function fetchOverrides(userId, force = false) {
   if (fresh && !force) return cached.data
 
   const inflight = (async () => {
-    const { data, error } = await supabase
+    const { data, error } = await getCheckupGateway().db
       .from('holding_meta_overrides')
       .select('code, industry, industries, themes, revenue_mix, strategy, leader, position, source, updated_at')
       .eq('user_id', userId)
@@ -51,14 +51,14 @@ export function useMetaOverrides() {
   const reload = useCallback(async (force = false) => {
     setLoading(true)
     try {
-      const { data: { user } } = await supabase.auth.getUser()
-      if (!user) {
+      const uid = await getCheckupGateway().auth.getUserId()
+      if (!uid) {
         userIdRef.current = null
         setOverrides({})
         return
       }
-      userIdRef.current = user.id
-      const map = await fetchOverrides(user.id, force)
+      userIdRef.current = uid
+      const map = await fetchOverrides(uid, force)
       setOverrides(map)
     } catch (e) {
       console.error('useMetaOverrides load failed:', e)
@@ -79,9 +79,8 @@ export function useMetaOverrides() {
     SUBSCRIBERS.add(onChange)
 
     // C14 (audit 2026-07)：跨帳號隔離。
-    const { data: authSub } = supabase.auth.onAuthStateChange((event, session) => {
-      const newUid = session?.user?.id || null
-      if (event === 'SIGNED_OUT' || !newUid) {
+    const offAuth = getCheckupGateway().auth.onAuthStateChange((newUid) => {
+      if (!newUid) {
         CACHE.clear()
         userIdRef.current = null
         setOverrides({})
@@ -100,48 +99,44 @@ export function useMetaOverrides() {
     //   時，主動 invalidate cache + reload，不必等 60s TTL 過期。
     //   channel filter 已鎖 user_id，RLS 也只放行本 user，雙保險。
     //   channel 名稱含 uid 避免 hot-reload / 多 hook 實例重複訂閱衝突。
-    let realtimeChannel = null
+    let offRealtime = null
     let cancelled = false
     ;(async () => {
-      const { data: { user } } = await supabase.auth.getUser()
-      if (cancelled || !user) return
-      realtimeChannel = supabase
-        .channel(`hmo-${user.id}`)
-        .on(
-          'postgres_changes',
-          {
-            event: '*',
-            schema: 'public',
-            table: 'holding_meta_overrides',
-            filter: `user_id=eq.${user.id}`,
-          },
-          () => {
-            CACHE.delete(user.id)
-            reload(true)
-          },
-        )
-        .subscribe()
+      const gw = getCheckupGateway()
+      const uid = await gw.auth.getUserId()
+      if (cancelled || !uid) return
+      offRealtime = gw.realtime.subscribe(
+        {
+          name: `hmo-${uid}`,
+          table: 'holding_meta_overrides',
+          filter: `user_id=eq.${uid}`,
+        },
+        () => {
+          CACHE.delete(uid)
+          reload(true)
+        },
+      )
     })()
 
     return () => {
       cancelled = true
       SUBSCRIBERS.delete(onChange)
-      authSub?.subscription?.unsubscribe()
-      if (realtimeChannel) supabase.removeChannel(realtimeChannel)
+      offAuth?.()
+      offRealtime?.()
     }
   }, [reload])
 
   const upsert = useCallback(async (code, patch) => {
-    const { data: { user } } = await supabase.auth.getUser()
-    if (!user) throw new Error('must sign in')
+    const uid = await getCheckupGateway().auth.getUserId()
+    if (!uid) throw new Error('must sign in')
     const row = {
-      user_id: user.id,
+      user_id: uid,
       code: String(code),
       source: 'user_report',
       updated_at: new Date().toISOString(),
       ...patch,
     }
-    const { error } = await supabase
+    const { error } = await getCheckupGateway().db
       .from('holding_meta_overrides')
       .upsert(row, { onConflict: 'user_id,code' })
     if (error) throw error
