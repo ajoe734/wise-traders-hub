@@ -5,7 +5,8 @@ import { ActionBadge } from '@/components/ActionBadge';
 import { SafeRichHtml, richHtmlToPlain } from '@/components/SafeRichHtml';
 import { avatarUrl } from '@/lib/imageTransform';
 import { Calendar, BookOpen, Shield, Lightbulb, Target, AlertTriangle, Eye } from 'lucide-react';
-import { format, startOfWeek, addDays } from 'date-fns';
+import { format } from 'date-fns';
+import { taipeiMondayOf, taipeiWeekRangeLabelMD } from '@/lib/taipeiWeek';
 import { zhTW } from 'date-fns/locale';
 import type { TradeDraft } from '@/pages/_signalEditor/types';
 import { sanitizeRichHtml, isHtmlEmpty } from '@/lib/sanitizeHtml';
@@ -32,9 +33,8 @@ export function JournalPreviewDialog({
   open, onOpenChange, expert, isTeachingOnly,
   teachingTopic, overallSummary, learningPoints, trades,
 }: Props) {
-  const now = new Date();
-  const ws = startOfWeek(now, { weekStartsOn: 1 });
-  const we = addDays(ws, 4);
+  const weekStartIso = taipeiMondayOf(new Date());
+  const weekRangeLabel = taipeiWeekRangeLabelMD(weekStartIso);
   const assetClass = resolveAssetClass(expert);
 
   const displayTrades = isTeachingOnly ? [] : trades.filter(t => t.stockCode || t.stockName || t.action);
@@ -84,7 +84,7 @@ export function JournalPreviewDialog({
           <div className="flex items-center gap-2">
             <Calendar className="h-4 w-4 text-muted-foreground" />
             <span className="text-sm">
-              {format(ws, 'MM/dd', { locale: zhTW })} ~ {format(we, 'MM/dd', { locale: zhTW })}
+              {weekRangeLabel}
             </span>
             <Badge variant="secondary" className="text-[10px]">T+7 歷史</Badge>
           </div>
