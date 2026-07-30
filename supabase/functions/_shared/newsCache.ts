@@ -1,5 +1,5 @@
 // deno-lint-ignore-file
-import { serviceClient } from '../_shared/supabaseClients.ts';
+import { serviceClient, type SupabaseClient } from './supabaseClients.ts';
 /**
  * Shared Google News RSS cache.
  * Used by checkup-calendar and checkup-predict-events to avoid duplicate

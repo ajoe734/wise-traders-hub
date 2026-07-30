@@ -3,7 +3,7 @@
 // P5: Gap-Driven Opportunistic Backfill worker — 從 backfill_job_queue 領取 job，
 // 使用 FinMind date-range API（1 call = 1 stock 的一段日期）回填籌碼面、三大法人、基本面。
 
-import { serviceClient } from '../_shared/supabaseClients.ts';
+import { serviceClient, type SupabaseClient } from '../_shared/supabaseClients.ts';
 import "jsr:@supabase/functions-js/edge-runtime.d.ts";
 import { corsHeaders, corsPreflight, jsonResponse, errorResponse } from "../_shared/cors.ts";
 import { checkKillSwitch } from "../_shared/killSwitch.ts";
