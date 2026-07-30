@@ -238,99 +238,11 @@ const TradeItem = ({ signal, nameMap, showDebug }: { signal: SignalDetail; nameM
 };
 
 
-export type JournalFetchSource = 'rls' | 'owner_rpc' | 'none';
+export type { JournalFetchSource, JournalFetchDiagnostics } from '@/lib/journalRepository';
 
-export interface JournalFetchDiagnostics {
-  source: JournalFetchSource;
-  rlsError: string | null;
-  rlsHitRow: boolean;
-  ownerRpcAttempted: boolean;
-  ownerRpcError: string | null;
-  forceOwner: boolean;
-  signalId: string;
-  ownerExpertId: string | null;
-  fetchedAt: string;
-}
+const fetchJournalBundle = (signalId: string, forceOwner: boolean) =>
+  journalRepo.forOwnerPreview<SignalDetail>(supabase as any, { signalId, forceOwner });
 
-const fetchJournalBundle = async (signalId: string, forceOwner: boolean) => {
-  const diagnostics: JournalFetchDiagnostics = {
-    source: 'none',
-    rlsError: null,
-    rlsHitRow: false,
-    ownerRpcAttempted: false,
-    ownerRpcError: null,
-    forceOwner,
-    signalId,
-    ownerExpertId: null,
-    fetchedAt: new Date().toISOString(),
-  };
-
-  const { data, error } = await supabase
-    .from('expert_signals')
-    .select('id, instrument, action, price_hint, quantity, quantity_unit, reason_summary, reason_detail, risk_notes, learning_points, published_at, expert_id, experts(name, slug, role, avatar_url, currency, asset_class)')
-    .eq('id', signalId)
-    .maybeSingle();
-
-  let signal: SignalDetail | null = (data as any) ?? null;
-  diagnostics.rlsError = error?.message ?? null;
-  diagnostics.rlsHitRow = !!signal;
-  let fetchError: string | null = error?.message ?? null;
-
-  // Owner fallback：直接 RLS 拉不到，改走 SECURITY DEFINER RPC（僅 owner 有效）
-  if (!signal && forceOwner) {
-    diagnostics.ownerRpcAttempted = true;
-    const { data: rpcData, error: rpcErr } = await supabase
-      .rpc('get_owned_journal_bundle', { _signal_id: signalId });
-    if (rpcErr) {
-      diagnostics.ownerRpcError = rpcErr.message;
-      fetchError = rpcErr.message;
-    }
-    if (rpcData && (rpcData as any).signal) {
-      const bundle = rpcData as any;
-      diagnostics.source = 'owner_rpc';
-      diagnostics.ownerExpertId = bundle.signal?.expert_id ?? null;
-      return {
-        signal: bundle.signal as SignalDetail,
-        weekSignals: (bundle.weekSignals ?? []) as SignalDetail[],
-        error: null as string | null,
-        diagnostics,
-      };
-    }
-  }
-
-  if (!signal) {
-    return {
-      signal: null,
-      weekSignals: [] as SignalDetail[],
-      error: fetchError ?? 'not_found_or_forbidden',
-      diagnostics,
-    };
-  }
-
-  diagnostics.source = 'rls';
-  diagnostics.ownerExpertId = signal.expert_id ?? null;
-
-  const s = signal;
-  const pubDate = new Date(s.published_at);
-  const weekStartIso = taipeiMondayOf(pubDate);
-  const { startIso, endIso } = taipeiWeekRangeUtc(weekStartIso);
-
-  const { data: weekData } = await supabase
-    .from('expert_signals')
-    .select('id, instrument, action, price_hint, quantity, quantity_unit, reason_summary, reason_detail, risk_notes, learning_points, published_at, expert_id, experts(name, slug, role, avatar_url, currency, asset_class)')
-    .eq('expert_id', s.expert_id)
-    .eq('status', 'published')
-    .gte('published_at', startIso)
-    .lt('published_at', endIso)
-    .order('published_at', { ascending: false });
-
-  return {
-    signal: s,
-    weekSignals: ((weekData as any) || []) as SignalDetail[],
-    error: null as string | null,
-    diagnostics,
-  };
-};
 
 const PreviewDiagnosticsBlock = ({
   diagnostics,
