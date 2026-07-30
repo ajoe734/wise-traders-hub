@@ -1,5 +1,6 @@
 // AUTH: public  (auto-annotated 2026-07-27, see docs/security/edge-function-auth-matrix.md)
 import { serviceClient } from '../_shared/supabaseClients.ts';
+import { getActionLabel } from '../_shared/signalActionLabels.ts';
 /**
  * share-og — Open Graph 友善的公開 HTML 預覽端點
  *
@@ -53,9 +54,8 @@ function escapeHtml(s: string): string {
   );
 }
 
-const ACTION_LABEL: Record<string, string> = {
-  buy: "買進", sell: "賣出", add: "加碼", reduce: "減碼", hold: "續抱",
-};
+// 標籤一律來自 _shared/signalActionLabels.ts（單一資料源）
+
 
 async function resolveSignal(id: string): Promise<OgData> {
   const { data } = await supabase
@@ -66,7 +66,7 @@ async function resolveSignal(id: string): Promise<OgData> {
     .maybeSingle();
   if (!data) return defaultData(`/app/signal/${id}`);
   const exp: any = data.experts;
-  const act = ACTION_LABEL[String(data.action)] || "";
+  const act = data.action ? getActionLabel(String(data.action)) : "";
   const title = `${data.instrument} ${act}｜${exp?.name || "策略訊號"} | legendflow`;
   return {
     title,

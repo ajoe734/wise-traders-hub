@@ -6,6 +6,7 @@ import { withLogging } from '../_shared/edgeLogger.ts';
 import { requireCronKey, requireCaller, AuthError } from '../_shared/authGuard.ts';
 import { classifyPublishError, buildMentorFailureNotification, isTransientError, retryTransient } from './classifyPublishError.ts'
 import { parseUnitLockError } from '../_shared/parseUnitLockError.ts'
+import { getActionLabel } from '../_shared/signalActionLabels.ts'
 
 
 const LINE_MULTICAST_URL = 'https://api.line.me/v2/bot/message/multicast'
@@ -640,9 +641,6 @@ Deno.serve(withLogging('publish-weekly-journals', async (req) => {
       }
 
       const expertName = expert?.name || '導師'
-      const actionLabel: Record<string, string> = {
-        buy: '買進', sell: '賣出', add: '加碼', trim: '減碼', exit: '平損',
-      }
 
       const buildBubble = (group: typeof signals) => {
         const first = group[0] as any
@@ -668,7 +666,7 @@ Deno.serve(withLogging('publish-weekly-journals', async (req) => {
         bodyContents.push({ type: 'separator', margin: 'lg' })
 
         for (const s of group) {
-          const label = actionLabel[s.action] || s.action
+          const label = getActionLabel(s.action)
           const isBullish = ['buy', 'add'].includes(s.action)
           const color = isBullish ? '#DC3545' : '#00B900' // 台股慣例：紅漲綠跌
           bodyContents.push({ type: 'text', text: `${label} ${s.instrument}`, size: 'md', color, margin: 'lg', weight: 'bold' })
@@ -690,7 +688,7 @@ Deno.serve(withLogging('publish-weekly-journals', async (req) => {
         if (overallSummary) copyLines.push(`📝 整體摘要：${overallSummary}`)
         copyLines.push(`本週共 ${group.length} 筆操作紀錄`, '')
         for (const s of group) {
-          const label = actionLabel[s.action] || s.action
+          const label = getActionLabel(s.action)
           copyLines.push(`【${label} ${s.instrument}】`)
           const rs = htmlToText((s as any).reason_summary)
           const rd = htmlToText((s as any).reason_detail)

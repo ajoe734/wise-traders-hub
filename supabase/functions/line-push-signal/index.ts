@@ -4,6 +4,7 @@ import { isCompanyAdmin } from '../_shared/adminGuard.ts'
 import { corsHeaders } from '../_shared/cors.ts';
 import { withLogging } from '../_shared/edgeLogger.ts';
 import { resolveLinePushQuantityUnit, type LinePushExpertHint } from './quantityUnit.ts'
+import { getActionLabel } from '../_shared/signalActionLabels.ts'
 
 const LINE_MULTICAST_URL = 'https://api.line.me/v2/bot/message/multicast'
 
@@ -46,10 +47,8 @@ function plainifySignal(signal: any) {
 
 export function buildFlexMessage(rawSignal: any, type: 'publish' | 'takedown' | 'update' = 'publish', expertHint?: LinePushExpertHint | null) {
   const signal = plainifySignal(rawSignal)
-  const actionLabel: Record<string, string> = {
-    buy: '買進', sell: '賣出', add: '加碼', trim: '減碼', exit: '平損',
-  }
-  const label = actionLabel[signal.action] || signal.action
+  const label = getActionLabel(signal.action)
+
 
   if (type === 'takedown') {
     const bodyContents: any[] = [
