@@ -25,6 +25,7 @@
 | **Combo（組合單）** | 美股選擇權價差單，`is_combo = true`，腿位在 `expert_signal_legs`，單位為「組」，風險以最大損失計。 |
 | **Authoritative Price（權威價）** | 由 DB 同步任務落地的收盤／即時價，前台唯一可信價源。見 ADR-0002。 |
 | **Publishing Window（發布視窗）** | 台股週五 20:00（台北）、美股週六 08:00（台北）統一開放；提前發布需按鈕明示。 |
+| **Taipei Week（台北週）** | 週界線 = Asia/Taipei 週一 00:00（含）～下週一 00:00（不含）。唯一實作：前台 `src/lib/taipeiWeek.ts`、Deno `supabase/functions/_shared/weekBoundary.ts`，兩者由 parity 測試鎖住。禁用 `date-fns` 的 `startOfWeek`（那是瀏覽器本地時區）。 |
 
 ## 持倉看板（Checkup）
 
