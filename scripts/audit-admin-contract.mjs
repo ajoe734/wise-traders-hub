@@ -16,7 +16,11 @@ import { readdirSync, readFileSync, statSync } from 'node:fs';
 import { join, relative } from 'node:path';
 import { fileURLToPath } from 'node:url';
 
-const ROOT = fileURLToPath(new URL('..', import.meta.url));
+// Vitest can transform this module with a non-file import.meta.url, so fall
+// back to the process cwd (repo root) when the URL isn't a file: URL.
+const ROOT = import.meta.url?.startsWith('file:')
+  ? fileURLToPath(new URL('..', import.meta.url))
+  : process.cwd();
 const FN_DIR = join(ROOT, 'supabase/functions');
 
 // Files that legitimately own the primitives being audited.
