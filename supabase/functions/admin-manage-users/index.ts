@@ -53,19 +53,13 @@ Deno.serve(withLogging('admin-manage-users', async (req) => {
   if (req.method === 'OPTIONS') return new Response(null, { headers: corsHeaders });
 
   try {
-    const authHeader = req.headers.get('Authorization') || '';
-    if (!authHeader.startsWith('Bearer ')) return json({ error: 'unauthorized' }, 401);
-
-    const callerClient = userClient(req);
-    const { data: userData, error: userErr } = await callerClient.auth.getUser();
-    if (userErr || !userData.user) return json({ error: 'unauthorized' }, 401);
-    const callerId = userData.user.id;
-
-    const { data: isAdmin, error: roleErr } = await callerClient.rpc('has_role', {
-      _user_id: callerId,
-      _role: 'company_admin',
-    });
-    if (roleErr || !isAdmin) return json({ error: 'forbidden' }, 403);
+    // AUTH: company_admin (unified contract — see _shared/adminGuard.ts)
+    let callerId: string;
+    try {
+      callerId = await requireCompanyAdmin(req);
+    } catch (e) {
+      return authErrorResponse(e, req);
+    }
 
     const admin = serviceClient();
     const body = await req.json().catch(() => ({}));

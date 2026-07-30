@@ -95,18 +95,14 @@ Deno.serve(async (req) => {
     const url = Deno.env.get('SUPABASE_URL')!;
     const anon = Deno.env.get('SUPABASE_ANON_KEY')!;
     const service = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')!;
-    const authHeader = req.headers.get('Authorization') ?? '';
-    if (!authHeader.startsWith('Bearer ')) return json({ error: 'AUTH_REQUIRED' }, 401);
-
-    const uc = userClient(req);
+    // AUTH: company_admin (unified contract — see _shared/adminGuard.ts)
     const admin = serviceClient();
-
-    const { data: authData } = await uc.auth.getUser();
-    const callerId = authData?.user?.id;
-    if (!callerId) return json({ error: 'AUTH_REQUIRED' }, 401);
-
-    const { data: hasRole } = await admin.rpc('has_role', { _user_id: callerId, _role: 'company_admin' });
-    if (!hasRole) return json({ error: 'FORBIDDEN' }, 403);
+    let callerId: string;
+    try {
+      callerId = await requireCompanyAdmin(req);
+    } catch (e) {
+      return authErrorResponse(e, req);
+    }
 
     const body = await req.json().catch(() => ({}));
     const primaryUid = String(body?.primary_user_id ?? '').trim();

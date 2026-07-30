@@ -43,9 +43,12 @@ Deno.serve(async (req) => {
     const action = body?.action;
 
     if (action === 'issue') {
-      // Verify caller is company_admin
-      const { data: hasRole } = await admin.rpc('has_role', { _user_id: callerId, _role: 'company_admin' });
-      if (!hasRole) return json({ error: 'forbidden' }, 403);
+      // AUTH: company_admin (unified contract — see _shared/adminGuard.ts)
+      try {
+        await requireCompanyAdmin(req);
+      } catch (e) {
+        return authErrorResponse(e, req);
+      }
 
       const targetUserId = String(body?.target_user_id || '');
       if (!targetUserId) return json({ error: 'missing_target' }, 400);

@@ -107,16 +107,15 @@ Deno.serve(async (req) => {
     const authHeader = req.headers.get('Authorization');
     if (!authHeader?.startsWith('Bearer ')) return json({ error: 'unauthorized' }, 401);
 
-    const uc = userClient(req);
     const admin = serviceClient();
 
-    const token = authHeader.replace('Bearer ', '');
-    const { data: claims, error: claimsErr } = await uc.auth.getClaims(token);
-    if (claimsErr || !claims?.claims?.sub) return json({ error: 'unauthorized' }, 401);
-    const callerId = claims.claims.sub as string;
-
-    const { data: isAdmin } = await admin.rpc('has_role', { _user_id: callerId, _role: 'company_admin' });
-    if (!isAdmin) return json({ error: 'forbidden', message: '僅 company_admin 可觸發' }, 403);
+    // AUTH: company_admin (unified contract — see _shared/adminGuard.ts)
+    let callerId: string;
+    try {
+      callerId = await requireCompanyAdmin(req);
+    } catch (e) {
+      return authErrorResponse(e, req);
+    }
 
     const body = await req.json().catch(() => ({}));
     const sourceKey = String(body?.source_key || '');

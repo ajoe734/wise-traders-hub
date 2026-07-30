@@ -21,15 +21,12 @@ Deno.serve(withLogging('update-analyst-credentials', async (req, log) => {
       return fail('MISSING_AUTHORIZATION', '缺少登入憑證，請重新登入後再試', 401, log);
     }
 
-    const callerClient = userClient(req);
-    const { data: { user: caller } } = await callerClient.auth.getUser();
-    if (!caller) return fail('UNAUTHORIZED', '登入憑證無效，請重新登入後再試', 401, log);
-
-    const { data: roleCheck } = await callerClient.rpc('has_role', {
-      _user_id: caller.id,
-      _role: 'company_admin',
-    });
-    if (!roleCheck) return fail('FORBIDDEN', '權限不足，僅公司管理員可操作分析師帳號', 403, log);
+    // AUTH: company_admin (unified contract — see _shared/adminGuard.ts)
+    try {
+      await requireCompanyAdmin(req);
+    } catch (_e) {
+      return fail('FORBIDDEN', '權限不足，僅公司管理員可操作分析師帳號', 403, log);
+    }
 
     const body = await req.json();
     const issues = validateInput({

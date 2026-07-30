@@ -20,21 +20,11 @@ Deno.serve(withLogging('create-analyst', async (req) => {
       })
     }
 
-    const callerClient = userClient(req)
-    const { data: { user: caller } } = await callerClient.auth.getUser()
-    if (!caller) {
-      return new Response(JSON.stringify({ error: 'Unauthorized' }), {
-        status: 401, headers: { ...corsHeaders, 'Content-Type': 'application/json' }
-      })
-    }
-
-    const { data: roleCheck } = await callerClient.rpc('has_role', {
-      _user_id: caller.id, _role: 'company_admin'
-    })
-    if (!roleCheck) {
-      return new Response(JSON.stringify({ error: 'Forbidden: company_admin required' }), {
-        status: 403, headers: { ...corsHeaders, 'Content-Type': 'application/json' }
-      })
+    // AUTH: company_admin (unified contract — see _shared/adminGuard.ts)
+    try {
+      await requireCompanyAdmin(req)
+    } catch (e) {
+      return authErrorResponse(e, req)
     }
 
     const reqBody = await req.json()

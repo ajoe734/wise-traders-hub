@@ -153,12 +153,12 @@ Deno.serve(async (req) => {
     const anonKey = Deno.env.get('SUPABASE_ANON_KEY')!;
     const authHeader = req.headers.get('Authorization') || '';
 
-    // Verify caller is company_admin
-    const callerClient = userClient(req);
-    const { data: { user } } = await callerClient.auth.getUser();
-    if (!user) return errorResponse('AUTH_REQUIRED', 401);
-    const { data: isAdmin } = await callerClient.rpc('has_role', { _user_id: user.id, _role: 'company_admin' });
-    if (!isAdmin) return errorResponse('FORBIDDEN', 403);
+    // AUTH: company_admin (unified contract — see _shared/adminGuard.ts)
+    try {
+      await requireCompanyAdmin(req);
+    } catch (e) {
+      return authErrorResponse(e, req);
+    }
 
     const body = await req.json().catch(() => ({}));
     const jobId = String(body.job_id || '');

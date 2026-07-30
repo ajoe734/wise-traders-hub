@@ -56,15 +56,12 @@ async function authorize(req: Request): Promise<{ ok: boolean; trigger: 'cron' |
   if (!authHeader.startsWith('Bearer ')) {
     return { ok: false, trigger: null, error: 'missing authorization' };
   }
-  const supabase = userClient(req);
-  const { data: claims, error } = await supabase.auth.getClaims(authHeader.replace('Bearer ', ''));
-  if (error || !claims?.claims?.sub) {
-    return { ok: false, trigger: null, error: 'invalid token' };
+  // AUTH: company_admin (unified contract — see _shared/adminGuard.ts)
+  try {
+    await requireCompanyAdmin(req);
+  } catch (_e) {
+    return { ok: false, trigger: null, error: 'forbidden' };
   }
-  const userId = claims.claims.sub;
-  const svc = serviceClient();
-  const { data: hasRole } = await svc.rpc('has_role', { _user_id: userId, _role: 'company_admin' });
-  if (!hasRole) return { ok: false, trigger: null, error: 'forbidden' };
   return { ok: true, trigger: 'admin' };
 }
 
