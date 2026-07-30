@@ -9,6 +9,7 @@
 //   - generatedAt
 
 import { serviceClient } from '../_shared/supabaseClients.ts';
+import { corsHeaders } from '../_shared/cors.ts';
 import { requireCompanyAdmin, authErrorResponse } from '../_shared/adminGuard.ts';
 interface FnRow { fn: string; runs: number; errors: number; warns: number; last_seen: string | null; }
 interface JobRow { job_name: string; runs: number; success: number; fail: number; p95_ms: number | null; last_status: string | null; last_ran_at: string | null; }

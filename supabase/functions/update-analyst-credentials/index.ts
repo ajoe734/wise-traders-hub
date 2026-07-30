@@ -23,8 +23,9 @@ Deno.serve(withLogging('update-analyst-credentials', async (req, log) => {
     }
 
     // AUTH: company_admin (unified contract — see _shared/adminGuard.ts)
+    let callerId: string;
     try {
-      await requireCompanyAdmin(req);
+      callerId = await requireCompanyAdmin(req);
     } catch (_e) {
       return fail('FORBIDDEN', '權限不足，僅公司管理員可操作分析師帳號', 403, log);
     }
@@ -54,7 +55,7 @@ Deno.serve(withLogging('update-analyst-credentials', async (req, log) => {
     const targetUserId: string = expert.user_id;
 
     // Prevent admin from operating on themselves via this endpoint
-    if (targetUserId === caller.id) {
+    if (targetUserId === callerId) {
       return fail('SELF_OPERATION_BLOCKED', '不可對自己的帳號操作，請至「個人設定」修改', 400, log, { expert_id: expertId });
     }
 
@@ -99,7 +100,7 @@ Deno.serve(withLogging('update-analyst-credentials', async (req, log) => {
       }
 
       await adminClient.from('audit_logs').insert({
-        actor_id: caller.id,
+        actor_id: callerId,
         action: 'update_analyst_credentials',
         target_type: 'auth_user',
         target_id: targetUserId,
@@ -129,7 +130,7 @@ Deno.serve(withLogging('update-analyst-credentials', async (req, log) => {
       }
 
       await adminClient.from('audit_logs').insert({
-        actor_id: caller.id,
+        actor_id: callerId,
         action: 'update_analyst_credentials',
         target_type: 'auth_user',
         target_id: targetUserId,
@@ -153,7 +154,7 @@ Deno.serve(withLogging('update-analyst-credentials', async (req, log) => {
       if (resetErr) return fail('RESET_EMAIL_SEND_FAILED', translateAuthError(resetErr.message), 400, log, { expert_id: expertId, target_user_id: targetUserId, auth_error: resetErr.message });
 
       await adminClient.from('audit_logs').insert({
-        actor_id: caller.id,
+        actor_id: callerId,
         action: 'update_analyst_credentials',
         target_type: 'auth_user',
         target_id: targetUserId,
