@@ -4,6 +4,7 @@
 // Idempotency: audit_logs action='subscription.renewal_email_sent' + detail.days_left
 
 import { corsHeaders } from '../_shared/cors.ts';
+import { renewalUrl } from '../_shared/routes.ts';
 import { requireCronKey, AuthError } from '../_shared/authGuard.ts';
 import { withLogging } from '../_shared/edgeLogger.ts';
 import { createClient } from 'https://esm.sh/@supabase/supabase-js@2.49.1';
@@ -190,7 +191,15 @@ Deno.serve(withLogging('email-push-renewal-reminder', async (req) => {
     }
 
     const cycle = (t.sub as any).billing_cycle === 'yearly' ? 'yearly' : 'monthly';
-    const renewUrl = `${siteUrl}/${t.expertSlug}/checkout?plan=${t.planId}&cycle=${cycle}&utm_source=email&utm_medium=renewal&utm_campaign=d${t.daysLeft}`;
+    const renewUrl = renewalUrl(t.expertSlug, t.planId, {
+      baseUrl: siteUrl,
+      query: {
+        cycle,
+        utm_source: 'email',
+        utm_medium: 'renewal',
+        utm_campaign: `d${t.daysLeft}`,
+      },
+    });
     const { subject, html } = buildEmail({
       expertName: t.expertName, planName: t.planName,
       daysLeft: t.daysLeft, expiresAt: t.sub.expires_at, amount: t.amount,

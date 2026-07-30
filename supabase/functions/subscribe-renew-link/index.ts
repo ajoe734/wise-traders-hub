@@ -2,6 +2,7 @@
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2.49.1";
 
 import { corsHeaders } from '../_shared/cors.ts';
+import { checkupRenewalUrl, renewalUrl } from '../_shared/routes.ts';
 import { serviceClient } from '../_shared/supabaseClients.ts';
 import { withLogging } from '../_shared/edgeLogger.ts';
 import { validateInput, validationJsonResponse } from '../_shared/inputValidator.ts';
@@ -134,7 +135,10 @@ Deno.serve(withLogging('subscribe-renew-link', async (req) => {
     const planId = memberSub.plan_id;
     const cycle = (memberSub as any).billing_cycle === "yearly" ? "yearly" : "monthly";
     if (slug && planId) {
-      const target = `${siteUrl}/${slug}/checkout?plan=${planId}&cycle=${cycle}&utm_source=renewal_link`;
+      const target = renewalUrl(slug, planId, {
+        baseUrl: siteUrl,
+        query: { cycle, utm_source: "renewal_link" },
+      });
       return new Response(null, { status: 302, headers: { ...corsHeaders, Location: target } });
     }
   }
@@ -148,7 +152,10 @@ Deno.serve(withLogging('subscribe-renew-link', async (req) => {
 
   if (checkupSub) {
     const cycle = (checkupSub as any).billing_cycle === "yearly" ? "yearly" : "monthly";
-    const target = `${siteUrl}/checkup/checkout?plan=${checkupSub.plan_id}&cycle=${cycle}&utm_source=renewal_link`;
+    const target = checkupRenewalUrl(checkupSub.plan_id, {
+      baseUrl: siteUrl,
+      query: { cycle, utm_source: "renewal_link" },
+    });
     return new Response(null, { status: 302, headers: { ...corsHeaders, Location: target } });
   }
 

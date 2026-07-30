@@ -5,6 +5,7 @@
 // Idempotency: payment_intents.recovery_notified_at IS NULL，發送後寫入時間戳。
 
 import { corsHeaders } from '../_shared/cors.ts';
+import { checkupRenewalUrl, renewalUrl } from '../_shared/routes.ts';
 import { requireCronKey, AuthError } from '../_shared/authGuard.ts';
 import { withLogging } from '../_shared/edgeLogger.ts';
 import { createClient } from 'https://esm.sh/@supabase/supabase-js@2.49.1';
@@ -146,17 +147,21 @@ Deno.serve(withLogging('recover-abandoned-checkout', async (req) => {
     if (i.product_kind === 'expert_plan') {
       const plan = expertPlanMap.get(i.plan_id);
       const expert = plan?.experts;
-      if (plan) {
+      if (plan && expert?.slug) {
         productName = `${expert?.name || ''} — ${plan?.name || ''}`;
-        const cycle = i.billing_cycle ? `&cycle=${i.billing_cycle}` : '';
-        resumeUrl = `${siteUrl}/${expert?.slug}/checkout?plan=${i.plan_id}${cycle}&utm_source=recovery&utm_campaign=abandoned`;
+        resumeUrl = renewalUrl(expert.slug, i.plan_id, {
+          baseUrl: siteUrl,
+          query: { cycle: i.billing_cycle, utm_source: 'recovery', utm_campaign: 'abandoned' },
+        });
       }
     } else if (i.product_kind === 'checkup') {
       const plan = checkupPlanMap.get(i.checkup_plan_id);
       if (plan) {
         productName = `健檢 — ${plan?.name || ''}`;
-        const cycle = i.billing_cycle ? `&cycle=${i.billing_cycle}` : '';
-        resumeUrl = `${siteUrl}/checkup/checkout?plan=${i.checkup_plan_id}${cycle}&utm_source=recovery&utm_campaign=abandoned`;
+        resumeUrl = checkupRenewalUrl(i.checkup_plan_id, {
+          baseUrl: siteUrl,
+          query: { cycle: i.billing_cycle, utm_source: 'recovery', utm_campaign: 'abandoned' },
+        });
       }
     }
 

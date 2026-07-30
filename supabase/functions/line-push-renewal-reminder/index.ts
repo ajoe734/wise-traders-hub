@@ -1,11 +1,12 @@
 // AUTH: cron  (auto-annotated 2026-07-27, see docs/security/edge-function-auth-matrix.md)
 import { corsHeaders } from '../_shared/cors.ts';
+import { renewalUrl } from '../_shared/routes.ts';
 import { requireCronKey, AuthError } from '../_shared/authGuard.ts';
 import { withLogging } from '../_shared/edgeLogger.ts';
 import { createClient } from 'https://esm.sh/@supabase/supabase-js@2.49.1'
 
 // 手動續訂模型：每日 09:00 (UTC+8) 推播到期前 7 / 3 / 1 天的訂閱者，
-// 帶一鍵續訂連結（/{slug}/checkout?plan={plan_id}）。
+// 帶一鍵續訂連結（/checkout/{slug}/{plan_id}）。
 // 平台不會自動扣款，過期即斷權，無寬限期。
 
 // W4-1: 擴充 T-0（當日到期）與 T+1（已過期 24h 內召回）
@@ -203,7 +204,15 @@ Deno.serve(withLogging('line-push-renewal-reminder', async (req) => {
       if (!token) continue
 
       const cycle = (t.sub as any).billing_cycle === 'yearly' ? 'yearly' : 'monthly'
-      const renewUrl = `${siteUrl}/${t.expertSlug}/checkout?plan=${t.planId}&cycle=${cycle}&utm_source=line&utm_medium=renewal&utm_campaign=d${t.daysLeft}`
+      const renewUrl = renewalUrl(t.expertSlug, t.planId, {
+        baseUrl: siteUrl,
+        query: {
+          cycle,
+          utm_source: 'line',
+          utm_medium: 'renewal',
+          utm_campaign: `d${t.daysLeft}`,
+        },
+      })
 
       const message = buildRenewalFlexMessage(
         t.expertName, t.planName, t.daysLeft,
