@@ -76,3 +76,17 @@ export interface CheckupGateway {
   /** Edge Functions 的 base URL（少數需要自組 URL 直連的場景）。 */
   functionsUrl(): string;
 }
+
+/**
+ * 從 CheckupGatewayError 取回 JSON body（後端錯誤細節），
+ * 解析失敗回 null —— 讓呼叫端能沿用 `detail || error || fallback` 的訊息組法。
+ */
+export function parseGatewayErrorBody(err: any): any | null {
+  const body = err?.body;
+  if (!body || typeof body !== 'string') return null;
+  try {
+    return JSON.parse(body);
+  } catch {
+    return null;
+  }
+}
