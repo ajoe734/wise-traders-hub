@@ -16,11 +16,7 @@ import { fetchWithRateLimit } from '../_shared/finmindRateLimit.ts';
 // service role client for rate-limit RPCs (RLS-safe)
 const _rlClient = serviceClient();
 
-const corsHeaders = {
-  'Access-Control-Allow-Origin': '*',
-  'Access-Control-Allow-Headers': 'authorization, x-client-info, apikey, content-type',
-  'Access-Control-Allow-Methods': 'POST, OPTIONS',
-};
+import { corsHeaders } from '../_shared/cors.ts';
 
 const json = (body: unknown, status = 200) =>
   new Response(JSON.stringify(body), {
