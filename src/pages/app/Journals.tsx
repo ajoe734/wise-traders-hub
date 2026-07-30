@@ -16,6 +16,7 @@ import { Button } from '@/components/ui/button';
 import { useQuery } from '@tanstack/react-query';
 import { usePreviewMode } from '@/hooks/usePreviewMode';
 import { intentHandlers } from '@/lib/routePrefetch';
+import * as journalRepo from '@/lib/journalRepository';
 import { AssetFilterChips } from '@/components/AssetFilterChips';
 import { resolveAssetClass, type AssetClass } from '@/lib/asset';
 import { SubscriptionTimeline } from '@/components/SubscriptionTimeline';
@@ -134,7 +135,7 @@ const fetchJournalsData = async (userId: string | undefined, isTester: boolean, 
   }
 
 
-  const signals = ((data as any) || []) as JournalSignal[];
+  const signals = fetched;
   const countMap = new Map<string, number>();
   signals.forEach(s => countMap.set(s.expert_id, (countMap.get(s.expert_id) || 0) + 1));
   diag.subscribedExperts.forEach(s => { if (s.included) s.published_count = countMap.get(s.expert_id) || 0; });
