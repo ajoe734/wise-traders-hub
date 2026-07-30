@@ -257,9 +257,21 @@ export function SignalCreateDialog({
     }
   };
 
+  // B2：輸入當下就檢查賣超（不必等送出才由 DB 打槍）
+  const liveQuantityIssue = (() => {
+    if (!action || !['trim', 'sell'].includes(action)) return null;
+    if (lockedUnitSource !== 'trade') return null;
+    const openBase = Number(lockedRow?.quantity ?? 0);
+    if (!Number.isFinite(openBase) || openBase <= 0) return null;
+    const requestedBase = normalizeQuantityToBaseUnits(parseFloat(quantity) || 0, quantityUnit);
+    if (requestedBase <= 0 || requestedBase <= openBase) return null;
+    return `${action === 'trim' ? '減碼' : '賣出'}數量 (${quantity} ${quantityUnit}) 超過持倉量 (${formatBaseQuantity(openBase, lockedRow?.quantity_unit, assetClass)})`;
+  })();
+
   const canPublish = isMentor
     ? !!expert && !!stockCode.trim() && !!action && !!teachingTopic.trim()
     : !!expert && !!stockCode.trim() && !!action;
+  const publishBlocked = !!liveQuantityIssue;
 
   const handlePublish = async () => {
     setPublishError(null);
@@ -569,6 +581,11 @@ export function SignalCreateDialog({
                   </SelectContent>
                 </Select>
               </div>
+              {liveQuantityIssue && (
+                <p role="alert" data-testid="live-quantity-issue" className="text-[11px] text-destructive">
+                  {liveQuantityIssue}
+                </p>
+              )}
               {lockedUnit && (
                 <div className="flex flex-col gap-1.5" data-testid="unit-locked-block">
                   <div className="flex flex-wrap items-center gap-2">
