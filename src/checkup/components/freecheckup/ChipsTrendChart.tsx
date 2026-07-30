@@ -4,8 +4,8 @@
 // 2) 分點集中度：每日柱狀（Top15 買超集中度 %），>70% 紅色，保留 70% 警戒虛線
 // 3) Scrubber：拖曳選日，圓點對齊柱頂
 import React, { useEffect, useMemo, useRef, useState } from 'react';
-import type {
 import { formatSharesAsLots, sharesToLots, SHARES_PER_LOT } from '@/lib/lotSize';
+import type {
   TwChipsPayload,
   WindowReadinessPayload,
   ReadinessState,

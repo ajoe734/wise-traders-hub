@@ -20,8 +20,8 @@
  *  - notional / capital breach / target price 0 preservation / oversell block
  */
 import { useMemo } from 'react';
-import {
 import { SHARES_PER_LOT } from '@/lib/lotSize';
+import {
   getAssetSpec,
   normalizeAssetClass,
   resolveAssetClass,
