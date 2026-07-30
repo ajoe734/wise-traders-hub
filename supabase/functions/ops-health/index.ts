@@ -8,7 +8,7 @@
 //   - recentErrors: 近 24h 最後 50 筆 error level log
 //   - generatedAt
 
-import { serviceClient, userClient } from '../_shared/supabaseClients.ts';
+import { serviceClient } from '../_shared/supabaseClients.ts';
 import { requireCompanyAdmin, authErrorResponse } from '../_shared/adminGuard.ts';
 interface FnRow { fn: string; runs: number; errors: number; warns: number; last_seen: string | null; }
 interface JobRow { job_name: string; runs: number; success: number; fail: number; p95_ms: number | null; last_status: string | null; last_ran_at: string | null; }

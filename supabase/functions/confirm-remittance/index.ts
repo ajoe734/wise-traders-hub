@@ -1,7 +1,7 @@
 // AUTH: user  (auto-annotated 2026-07-27, see docs/security/edge-function-auth-matrix.md)
 import { jsonResponse } from "../_shared/cors.ts";
 import { requireCompanyAdmin, authErrorResponse } from "../_shared/adminGuard.ts";
-import { serviceClient, userClient } from "../_shared/supabaseClients.ts";
+import { serviceClient } from "../_shared/supabaseClients.ts";
 import { withLogging } from "../_shared/edgeLogger.ts";
 import { writeRevenueSplit } from "../_shared/paymentProcessor.ts";
 import { validateInput, validationJsonResponse } from "../_shared/inputValidator.ts";
