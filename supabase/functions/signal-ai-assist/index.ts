@@ -24,7 +24,11 @@ const MODE_HINTS: Record<string, string> = {
   custom: '請依下方使用者指令處理。',
 };
 
-function htmlToText(html: string): string {
+/**
+ * 注意：這不是 LINE 用的 htmlToText（那份住在 _shared/linePushCore.ts）。
+ * 這裡只是把 HTML 壓成單行給 AI prompt 用，會丟掉換行語意。
+ */
+function flattenHtmlForPrompt(html: string): string {
   return (html || '').replace(/<[^>]+>/g, ' ').replace(/\s+/g, ' ').trim();
 }
 
