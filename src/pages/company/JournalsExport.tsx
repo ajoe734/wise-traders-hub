@@ -18,6 +18,7 @@ import {
   AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle,
 } from '@/components/ui/alert-dialog';
 import { supabase } from '@/integrations/supabase/client';
+import * as journalRepo from '@/lib/journalRepository';
 import { toast } from 'sonner';
 import { AlertTriangle, Download, FileText, Filter, RotateCw, X } from 'lucide-react';
 import { useQuery } from '@tanstack/react-query';
@@ -353,30 +354,13 @@ const JournalsExport = () => {
   const { data, isLoading, refetch, isFetching } = useQuery({
     queryKey: ['company-journals-export', weekStart, statusFilter],
     queryFn: async (): Promise<JournalRow[]> => {
-      let q = supabase
-        .from('expert_signals')
-        .select('id, status, instrument, action, price_hint, quantity, quantity_unit, reason_summary, reason_detail, risk_notes, learning_points, published_at, created_at, expert_id, experts!inner(name, slug, role, asset_class, currency)')
-        .eq('experts.role', 'mentor');
-
-      if (publishedOnly) {
-        q = q
-          .eq('status', 'published')
-          .gte('published_at', range.startIso)
-          .lt('published_at', range.endIso)
-          .order('expert_id', { ascending: true })
-          .order('published_at', { ascending: true });
-      } else {
-        // 含草稿/撤回：以 created_at 落在該週為準
-        q = q
-          .gte('created_at', range.startIso)
-          .lt('created_at', range.endIso)
-          .order('expert_id', { ascending: true })
-          .order('created_at', { ascending: true });
-      }
-
-      const { data, error } = await q;
-      if (error) throw error;
-      return (data ?? []) as any as JournalRow[];
+      const { rows, error } = await journalRepo.forExport<JournalRow>(supabase as any, {
+        startIso: range.startIso,
+        endIso: range.endIso,
+        publishedOnly,
+      });
+      if (error) throw new Error(error);
+      return rows;
     },
     staleTime: 30_000,
   });
