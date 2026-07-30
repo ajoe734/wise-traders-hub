@@ -6,6 +6,7 @@
 import JSZip from 'jszip';
 import { lotsToShares, SHARES_PER_LOT } from '@/lib/lotSize';
 import { getActionMeta } from '@/lib/signalAction';
+import { formatTaipeiYMDHM } from '@/checkup/utils/formatTaipeiDate';
 
 
 export interface JournalRowExport {
@@ -81,8 +82,6 @@ export function resolveExportUnit(row: JournalRowExport): string {
   return '張';
 }
 
-const TZ_OFFSET_MS = 8 * 60 * 60 * 1000;
-
 export function stripHtml(html: string): string {
   return html
     .replace(/<\s*(br|BR)\s*\/?>/g, '\n')
@@ -111,16 +110,9 @@ export function safeSlug(s: string, fallback: string): string {
   return cleaned || fallback;
 }
 
+// Taipei 日期時間格式化唯一來源：@/checkup/utils/formatTaipeiDate
 export function fmtTaipei(iso?: string | null): string {
-  if (!iso) return '';
-  const d = new Date(iso);
-  const shifted = new Date(d.getTime() + TZ_OFFSET_MS);
-  const yyyy = shifted.getUTCFullYear();
-  const mm = String(shifted.getUTCMonth() + 1).padStart(2, '0');
-  const dd = String(shifted.getUTCDate()).padStart(2, '0');
-  const hh = String(shifted.getUTCHours()).padStart(2, '0');
-  const mi = String(shifted.getUTCMinutes()).padStart(2, '0');
-  return `${yyyy}/${mm}/${dd} ${hh}:${mi}`;
+  return formatTaipeiYMDHM(iso);
 }
 
 // 本週總計採「掛出量」口徑：加總本次匯出範圍內、有列出的所有進出場動作。

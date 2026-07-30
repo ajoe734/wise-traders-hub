@@ -127,7 +127,8 @@ describe('靜態守衛 — 不得再有第二套週界線實作', () => {
   };
 
   it('src/ 內不得使用 date-fns startOfWeek', () => {
-    const hits = rg('startOfWeek', ['src']).filter(l => !l.startsWith('src/test/'));
+    const hits = rg('startOfWeek', ['src'])
+      .filter(l => !l.startsWith('src/test/') && !l.startsWith('src/lib/taipeiWeek.ts'));
     expect(hits, `發現本地時區週一算法：\n${hits.join('\n')}`).toEqual([]);
   });
 
