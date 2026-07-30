@@ -1,0 +1,13 @@
+# 09 — 持倉看板核心：價格權威與收盤分析
+
+**What to build:** 使用者在持倉看板看到的每一個價格與損益，在同一畫面內完全一致，且收盤後與官方收盤價對得上；收盤分析區塊呈現當日結論與變化。
+
+**Blocked by:** 08
+
+**Status:** ready-for-agent
+
+- [ ] 所有消費端（看板、總覽、投組摘要、selector）一律走 `priceResolver`，禁止直接讀 `marketPriceCache`
+- [ ] 台股收盤後同步（14:05 TPE）與美股／選擇權價格同步皆有排程與失敗告警
+- [ ] 價格落差 > 0.5% 會在 PriceParity 監控卡片被標示
+- [ ] 損益配色遵守單色橘規範與台股紅漲綠跌慣例
+- [ ] `e2e/holdings-price-parity.spec.ts` 綠燈

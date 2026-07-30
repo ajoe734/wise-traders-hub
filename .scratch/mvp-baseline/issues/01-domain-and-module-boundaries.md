@@ -1,0 +1,12 @@
+# 01 — Prefactor：領域詞彙與模組邊界對齊
+
+**What to build:** 任何人（人或 agent）進到 repo，能從單一文件讀懂核心名詞（專家 expert／導師 mentor、方案 plan、訂閱 subscription、訊號 signal、週記 weekly journal、持倉看板 holdings checkup、籌碼面 chips），並且五個深模組（Holdings / Closing / Events / TradeIO / Research）各自只透過 barrel 對外曝光，跨模組互動一律走 shell event bus。
+
+**Blocked by:** None — can start immediately.
+
+**Status:** ready-for-agent
+
+- [ ] 根目錄 `CONTEXT.md` 存在，含完整領域詞彙表與台股單位規範（1 張 = 1000 股，DB 以股為基準單位）
+- [ ] 五個模組皆有 barrel，跨模組深層 import 為零（以 lint 或測試守住）
+- [ ] 事件契約（含 `events:refresh`、`closing:openStock`、`research:prefill`）集中定義且有型別
+- [ ] 既有行為不變：現有測試全綠

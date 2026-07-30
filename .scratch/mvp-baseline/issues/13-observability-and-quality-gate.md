@@ -1,0 +1,13 @@
+# 13 — 觀測與品質閘
+
+**What to build:** 任一環節（排程、Edge Function、權限、前台效能）出問題時，團隊在使用者回報之前就看得到；且所有關鍵流程的 E2E 測試在 PR 上自動執行，壞掉就擋下合併。
+
+**Blocked by:** 05, 06, 07, 08, 09, 10, 11, 12
+
+**Status:** ready-for-agent
+
+- [ ] 所有 Edge Function 具備一致的驗證守衛，異常會告警至 LINE
+- [ ] Cron／keep-warm／同步任務健康度可於後台儀表板查看（含失敗重試）
+- [ ] RLS 與 GRANT 覆蓋所有 public 資料表，安全掃描無高風險項目
+- [ ] E2E（籌碼面、價格一致性、持倉卡片、通知連結、訂閱漏斗 live smoke）在 GitHub Actions 執行
+- [ ] 前台 FCP/LCP RUM 持續蒐集並於 `/company/perf-metrics` 呈現
