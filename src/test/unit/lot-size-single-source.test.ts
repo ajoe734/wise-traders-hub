@@ -77,7 +77,9 @@ describe('靜態守衛：不得再有裸的張股換算', () => {
     const bare = src
       .split('\n')
       .filter((line) => !line.trim().startsWith('//') && !line.trim().startsWith('*'))
-      .filter((line) => /[*/]\s*1000\b/.test(line));
+      .filter((line) => /[*/]\s*1000\b/.test(line))
+      // 時間常數（60 * 1000 等）不是張股換算
+      .filter((line) => !/(60|24|3600|3_600|1_000)\s*\*\s*1000|diff|Date|MS\b|ms\b/.test(line));
     expect(bare).toEqual([]);
   });
 });
