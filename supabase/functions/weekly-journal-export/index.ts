@@ -12,7 +12,7 @@ import { serviceClient } from '../_shared/supabaseClients.ts';
 import { listCompanyAdminIds } from "../_shared/adminGuard.ts";
 import { requireCaller, AuthError } from '../_shared/authGuard.ts';
 import { lotsToShares, SHARES_PER_LOT } from "../_shared/lotSize.ts";
-import { getActionLabel } from "../_shared/signalAction.ts";
+import { getActionLabel } from "../_shared/signalActionLabels.ts";
 
 import { corsHeaders } from '../_shared/cors.ts';
 

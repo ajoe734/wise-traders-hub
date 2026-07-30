@@ -1,6 +1,6 @@
 // AUTH: public  (auto-annotated 2026-07-27, see docs/security/edge-function-auth-matrix.md)
 import { serviceClient } from '../_shared/supabaseClients.ts';
-import { getActionLabel } from '../_shared/signalAction.ts';
+import { getActionLabel } from '../_shared/signalActionLabels.ts';
 /**
  * share-og — Open Graph 友善的公開 HTML 預覽端點
  *
@@ -54,7 +54,7 @@ function escapeHtml(s: string): string {
   );
 }
 
-// 標籤一律來自 _shared/signalAction.ts（單一資料源）
+// 標籤一律來自 _shared/signalActionLabels.ts（單一資料源）
 
 
 async function resolveSignal(id: string): Promise<OgData> {

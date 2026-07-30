@@ -6,7 +6,7 @@ import { withLogging } from '../_shared/edgeLogger.ts';
 import { requireCronKey, requireCaller, AuthError } from '../_shared/authGuard.ts';
 import { classifyPublishError, buildMentorFailureNotification, isTransientError, retryTransient } from './classifyPublishError.ts'
 import { parseUnitLockError } from '../_shared/parseUnitLockError.ts'
-import { getActionLabel } from '../_shared/signalAction.ts'
+import { getActionLabel } from '../_shared/signalActionLabels.ts'
 
 
 const LINE_MULTICAST_URL = 'https://api.line.me/v2/bot/message/multicast'

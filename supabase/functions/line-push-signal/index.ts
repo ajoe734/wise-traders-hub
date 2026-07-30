@@ -4,7 +4,7 @@ import { isCompanyAdmin } from '../_shared/adminGuard.ts'
 import { corsHeaders } from '../_shared/cors.ts';
 import { withLogging } from '../_shared/edgeLogger.ts';
 import { resolveLinePushQuantityUnit, type LinePushExpertHint } from './quantityUnit.ts'
-import { getActionLabel } from '../_shared/signalAction.ts'
+import { getActionLabel } from '../_shared/signalActionLabels.ts'
 
 const LINE_MULTICAST_URL = 'https://api.line.me/v2/bot/message/multicast'
 
