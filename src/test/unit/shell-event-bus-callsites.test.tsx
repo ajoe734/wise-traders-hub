@@ -96,7 +96,9 @@ describe('emit helper 不得成為孤兒（無呼叫端）', () => {
   const sources = componentFiles.map((f) => fs.readFileSync(f, 'utf8'))
 
   const helpers = fs
-    .readdirSync(modulesDir)
+    .readdirSync(modulesDir, { withFileTypes: true })
+    .filter((d) => d.isDirectory())
+    .map((d) => d.name)
     .flatMap((m) =>
       fs
         .readdirSync(path.join(modulesDir, m))
