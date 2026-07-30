@@ -4,6 +4,8 @@ import { Card, Button } from '../common'
 import { RELAY_PLAN } from '../../seedData.js'
 // M3 → M5 主動跳轉：走 Shell event bus。
 import { useEmitResearchPrefill } from '../../modules/events/useEmitResearchPrefill'
+// M3 → M1 主動跳轉：走 Shell event bus。
+import { useEmitHoldingsFocus } from '../../modules/events/useEmitHoldingsFocus'
 
 const TYPE_COLOR = {
   法說: C.up,
@@ -536,6 +538,7 @@ export function AccuracyDashboard({ stats }) {
 export function EventCard({ event, isPredicting }) {
   const tc = TYPE_COLOR[event.type] || C.textMute
   const emitResearchPrefill = useEmitResearchPrefill()
+  const emitHoldingsFocus = useEmitHoldingsFocus()
   const researchCode = event?.code || (Array.isArray(event?.relatedCodes) ? event.relatedCodes[0] : null)
 
   return h(
@@ -660,6 +663,31 @@ export function EventCard({ event, isPredicting }) {
             },
           },
           '→ 帶入研究',
+        ),
+        researchCode && h(
+          'button',
+          {
+            type: 'button',
+            onClick: (e) => {
+              e.stopPropagation()
+              emitHoldingsFocus(researchCode)
+            },
+            'data-testid': `events-focus-holding-${researchCode}`,
+            title: '在持倉中檢視',
+            style: {
+              marginTop: 6,
+              marginLeft: 6,
+              background: 'transparent',
+              border: `1px solid ${alpha(C.textMute, '20')}`,
+              borderRadius: 4,
+              color: C.textSec,
+              cursor: 'pointer',
+              fontSize: 9,
+              padding: '3px 7px',
+              letterSpacing: '0.06em',
+            },
+          },
+          '→ 持倉',
         )
       )
     )
