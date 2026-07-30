@@ -6,6 +6,7 @@ import { withLogging } from '../_shared/edgeLogger.ts';
 import { resolveLinePushQuantityUnit, type LinePushExpertHint } from './quantityUnit.ts'
 import { getActionLabel } from '../_shared/signalActionLabels.ts'
 import { JOURNAL_PUSH_SELECT } from '../_shared/journalRepository.ts'
+import { htmlToText, plainifySignal, buildPromoMessage, classifyLineTargets } from '../_shared/linePushCore.ts'
 
 const LINE_MULTICAST_URL = 'https://api.line.me/v2/bot/message/multicast'
 
@@ -13,38 +14,6 @@ const LINE_MULTICAST_URL = 'https://api.line.me/v2/bot/message/multicast'
 const SHARE_OG_BASE = `${Deno.env.get('SUPABASE_URL') || ''}/functions/v1/share-og`
 const buildSignalShareUrl = (id: string) => `${SHARE_OG_BASE}/signal/${encodeURIComponent(id)}`
 const buildJournalShareUrl = (id: string) => `${SHARE_OG_BASE}/journal/${encodeURIComponent(id)}`
-
-// 把 TipTap HTML 轉純文字（LINE Flex text 節點不接受 HTML 標籤）
-function htmlToText(s: any): string {
-  if (s == null) return ''
-  const str = String(s)
-  if (!/<[^>]+>/.test(str)) return str
-  return str
-    .replace(/<\s*br\s*\/?>/gi, '\n')
-    .replace(/<\s*\/(p|div|li|h[1-6]|blockquote)\s*>/gi, '\n')
-    .replace(/<\s*li[^>]*>/gi, '• ')
-    .replace(/<img[^>]*>/gi, '[圖片] ')
-    .replace(/<[^>]+>/g, '')
-    .replace(/&nbsp;/g, ' ')
-    .replace(/&amp;/g, '&')
-    .replace(/&lt;/g, '<')
-    .replace(/&gt;/g, '>')
-    .replace(/&quot;/g, '"')
-    .replace(/&#39;/g, "'")
-    .replace(/\n{3,}/g, '\n\n')
-    .trim()
-}
-
-// 對 signal 物件中的富文字欄位做 HTML→純文字
-function plainifySignal(signal: any) {
-  if (!signal) return signal
-  const fields = ['reason_summary', 'reason_detail', 'risk_notes', 'learning_points', 'overall_summary', 'teaching_topic']
-  const out: any = { ...signal }
-  for (const f of fields) {
-    if (out[f]) out[f] = htmlToText(out[f])
-  }
-  return out
-}
 
 export function buildFlexMessage(rawSignal: any, type: 'publish' | 'takedown' | 'update' = 'publish', expertHint?: LinePushExpertHint | null) {
   const signal = plainifySignal(rawSignal)
@@ -230,84 +199,6 @@ export function buildFlexMessage(rawSignal: any, type: 'publish' | 'takedown' | 
   }
 }
 
-// Build a performance marketing message for canceled subscribers
-function buildPromoMessage(expertName: string, performance: any) {
-  const bodyContents: any[] = [
-    {
-      type: 'text',
-      text: `📊 ${expertName} 最新績效`,
-      weight: 'bold',
-      size: 'lg',
-      color: '#333333',
-    },
-    {
-      type: 'text',
-      text: '分析師剛發布了新的操作訊號，以下是最新績效表現：',
-      size: 'sm',
-      color: '#666666',
-      margin: 'md',
-      wrap: true,
-    },
-    { type: 'separator', margin: 'lg' },
-  ]
-
-  if (performance) {
-    const winRate = performance.win_rate != null ? `${Number(performance.win_rate).toFixed(1)}%` : '-'
-    const cumReturn = performance.total_return_pct != null ? `${Number(performance.total_return_pct).toFixed(1)}%` : '-'
-    const return1y = performance.return_1y != null ? `${Number(performance.return_1y).toFixed(1)}%` : '-'
-    const totalTrades = performance.total_trades ?? 0
-
-    bodyContents.push(
-      {
-        type: 'box', layout: 'horizontal', margin: 'lg', contents: [
-          { type: 'text', text: '📈 累計報酬', size: 'sm', color: '#333', flex: 1 },
-          { type: 'text', text: cumReturn, size: 'sm', color: '#00B900', align: 'end', weight: 'bold', flex: 1 },
-        ],
-      },
-      {
-        type: 'box', layout: 'horizontal', margin: 'sm', contents: [
-          { type: 'text', text: '📅 近一年報酬', size: 'sm', color: '#333', flex: 1 },
-          { type: 'text', text: return1y, size: 'sm', color: '#00B900', align: 'end', weight: 'bold', flex: 1 },
-        ],
-      },
-      {
-        type: 'box', layout: 'horizontal', margin: 'sm', contents: [
-          { type: 'text', text: '🎯 勝率', size: 'sm', color: '#333', flex: 1 },
-          { type: 'text', text: winRate, size: 'sm', color: '#333', align: 'end', weight: 'bold', flex: 1 },
-        ],
-      },
-      {
-        type: 'box', layout: 'horizontal', margin: 'sm', contents: [
-          { type: 'text', text: '📊 總交易數', size: 'sm', color: '#333', flex: 1 },
-          { type: 'text', text: `${totalTrades}`, size: 'sm', color: '#333', align: 'end', weight: 'bold', flex: 1 },
-        ],
-      },
-    )
-  }
-
-  bodyContents.push(
-    { type: 'separator', margin: 'lg' },
-    {
-      type: 'text',
-      text: '想跟上最新操作？立即重新訂閱！',
-      size: 'sm',
-      color: '#FF6B00',
-      margin: 'lg',
-      weight: 'bold',
-      wrap: true,
-    },
-  )
-
-  return {
-    type: 'flex',
-    altText: `📊 ${expertName} 最新績效更新 — 立即重新訂閱跟上操作！`,
-    contents: {
-      type: 'bubble',
-      body: { type: 'box', layout: 'vertical', contents: bodyContents },
-    },
-  }
-}
-
 async function getTargets(supabaseAdmin: any, expert_id: string) {
   const { data: bindings } = await supabaseAdmin
     .from('member_line_bindings')
@@ -334,26 +225,13 @@ async function getTargets(supabaseAdmin: any, expert_id: string) {
     .eq('expert_id', expert_id)
 
   const expertPlanIds = new Set((expertPlans || []).map((p: any) => p.id))
-  const now = new Date().toISOString()
 
-  // Filter: must belong to this expert's plans AND not expired
-  const relevantSubs = (activeSubs || []).filter((s: any) => {
-    if (!expertPlanIds.has(s.plan_id)) return false
-    // ISSUE-011: Check expires_at — if set, must be in the future
-    if (s.expires_at && s.expires_at < now) return false
-    return true
-  })
-
-  const subscribedUserIds = new Set(relevantSubs.filter((s: any) => !s.canceled_at).map((s: any) => s.user_id))
-  const canceledUserIds = new Set(relevantSubs.filter((s: any) => s.canceled_at).map((s: any) => s.user_id))
-
-  const subscribedTargets = bindings
-    .filter((b: any) => subscribedUserIds.has(b.user_id))
-    .map((b: any) => b.line_user_id)
-
-  const canceledTargets = bindings
-    .filter((b: any) => canceledUserIds.has(b.user_id))
-    .map((b: any) => b.line_user_id)
+  // ISSUE-011: expires_at 過期者兩組名單都不收（判定住在 linePushCore）
+  const { subscribedTargets, canceledTargets } = classifyLineTargets(
+    bindings as any,
+    (activeSubs || []) as any,
+    expertPlanIds as Set<string>,
+  )
 
   return { subscribedTargets, canceledTargets, reason: subscribedTargets.length === 0 && canceledTargets.length === 0 ? 'no_active_subscribers' : null }
 }

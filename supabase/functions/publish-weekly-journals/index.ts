@@ -7,108 +7,10 @@ import { requireCronKey, requireCaller, AuthError } from '../_shared/authGuard.t
 import { classifyPublishError, buildMentorFailureNotification, isTransientError, retryTransient } from './classifyPublishError.ts'
 import { parseUnitLockError } from '../_shared/parseUnitLockError.ts'
 import { getActionLabel } from '../_shared/signalActionLabels.ts'
+import { htmlToText, buildPromoMessage, classifyLineTargets } from '../_shared/linePushCore.ts'
 
 
 const LINE_MULTICAST_URL = 'https://api.line.me/v2/bot/message/multicast'
-
-// 將 TipTap HTML 拍平成 LINE 純文字（保留段落/列表的換行）
-function htmlToText(s: any): string {
-  if (s == null) return ''
-  const str = String(s)
-  if (!/<[a-z][^>]*>/i.test(str)) return str
-  return str
-    .replace(/<\s*br\s*\/?\s*>/gi, '\n')
-    .replace(/<\/(p|div|li|h[1-6]|blockquote)\s*>/gi, '\n')
-    .replace(/<li[^>]*>/gi, '• ')
-    .replace(/<img[^>]*>/gi, '[圖片] ')
-    .replace(/<[^>]+>/g, '')
-    .replace(/&nbsp;/g, ' ')
-    .replace(/&amp;/g, '&')
-    .replace(/&lt;/g, '<')
-    .replace(/&gt;/g, '>')
-    .replace(/&quot;/g, '"')
-    .replace(/&#39;/g, "'")
-    .replace(/\n{3,}/g, '\n\n')
-    .trim()
-}
-
-// Build promo message for canceled subscribers
-function buildPromoMessage(expertName: string, performance: any, signalCount: number) {
-  const bodyContents: any[] = [
-    {
-      type: 'text',
-      text: `📊 ${expertName} 最新績效`,
-      weight: 'bold',
-      size: 'lg',
-      color: '#333333',
-    },
-    {
-      type: 'text',
-      text: `本週發布了 ${signalCount} 筆操作紀錄，以下是最新績效表現：`,
-      size: 'sm',
-      color: '#666666',
-      margin: 'md',
-      wrap: true,
-    },
-    { type: 'separator', margin: 'lg' },
-  ]
-
-  if (performance) {
-    const winRate = performance.win_rate != null ? `${Number(performance.win_rate).toFixed(1)}%` : '-'
-    const cumReturn = performance.total_return_pct != null ? `${Number(performance.total_return_pct).toFixed(1)}%` : '-'
-    const return1y = performance.return_1y != null ? `${Number(performance.return_1y).toFixed(1)}%` : '-'
-    const totalTrades = performance.total_trades ?? 0
-
-    bodyContents.push(
-      {
-        type: 'box', layout: 'horizontal', margin: 'lg', contents: [
-          { type: 'text', text: '📈 累計報酬', size: 'sm', color: '#333', flex: 1 },
-          { type: 'text', text: cumReturn, size: 'sm', color: '#00B900', align: 'end', weight: 'bold', flex: 1 },
-        ],
-      },
-      {
-        type: 'box', layout: 'horizontal', margin: 'sm', contents: [
-          { type: 'text', text: '📅 近一年報酬', size: 'sm', color: '#333', flex: 1 },
-          { type: 'text', text: return1y, size: 'sm', color: '#00B900', align: 'end', weight: 'bold', flex: 1 },
-        ],
-      },
-      {
-        type: 'box', layout: 'horizontal', margin: 'sm', contents: [
-          { type: 'text', text: '🎯 勝率', size: 'sm', color: '#333', flex: 1 },
-          { type: 'text', text: winRate, size: 'sm', color: '#333', align: 'end', weight: 'bold', flex: 1 },
-        ],
-      },
-      {
-        type: 'box', layout: 'horizontal', margin: 'sm', contents: [
-          { type: 'text', text: '📊 總交易數', size: 'sm', color: '#333', flex: 1 },
-          { type: 'text', text: `${totalTrades}`, size: 'sm', color: '#333', align: 'end', weight: 'bold', flex: 1 },
-        ],
-      },
-    )
-  }
-
-  bodyContents.push(
-    { type: 'separator', margin: 'lg' },
-    {
-      type: 'text',
-      text: '想跟上最新操作？立即重新訂閱！',
-      size: 'sm',
-      color: '#FF6B00',
-      margin: 'lg',
-      weight: 'bold',
-      wrap: true,
-    },
-  )
-
-  return {
-    type: 'flex',
-    altText: `📊 ${expertName} 本週發布 ${signalCount} 筆操作 — 立即重新訂閱！`,
-    contents: {
-      type: 'bubble',
-      body: { type: 'box', layout: 'vertical', contents: bodyContents },
-    },
-  }
-}
 
 Deno.serve(withLogging('publish-weekly-journals', async (req) => {
   if (req.method === 'OPTIONS') {
@@ -597,19 +499,23 @@ Deno.serve(withLogging('publish-weekly-journals', async (req) => {
         .eq('expert_id', expertId)
 
       const expertPlanIds = new Set((expertPlans || []).map((p: any) => p.id))
-      const relevantSubs = (activeSubs || []).filter((s: any) => expertPlanIds.has(s.plan_id))
-      const subscribedUserIds = new Set(relevantSubs.filter((s: any) => !s.canceled_at).map((s: any) => s.user_id))
-      const canceledUserIds = new Set(relevantSubs.filter((s: any) => s.canceled_at).map((s: any) => s.user_id))
-
-      const subscribedTargets = bindings.filter((b: any) => subscribedUserIds.has(b.user_id)).map((b: any) => b.line_user_id)
-      const canceledTargets = bindings.filter((b: any) => canceledUserIds.has(b.user_id)).map((b: any) => b.line_user_id)
+      const { subscribedTargets, canceledTargets } = classifyLineTargets(
+        bindings as any,
+        (activeSubs || []) as any,
+        expertPlanIds as Set<string>,
+      )
+      const subscribedBindingUserIds = new Set(
+        (bindings as any[])
+          .filter((b: any) => subscribedTargets.includes(b.line_user_id))
+          .map((b: any) => b.user_id),
+      )
 
       // 提前發布：對訂閱者發站內通知「本週週記已提前開放」
-      if (body.force === true && subscribedUserIds.size > 0) {
+      if (body.force === true && subscribedBindingUserIds.size > 0) {
         const expertName = expert?.name || '導師'
         const slug = (expert as any)?.slug || null
         const link = slug ? `/app/expert/${slug}` : '/account/notifications'
-        const notifRows = Array.from(subscribedUserIds).map((uid) => ({
+        const notifRows = Array.from(subscribedBindingUserIds).map((uid) => ({
           user_id: uid,
           title: `${expertName} 本週週記已提前開放`,
           body: `${expertName} 老師提前公開本週 ${signals.length} 筆操作紀錄，點此立即查看。`,
