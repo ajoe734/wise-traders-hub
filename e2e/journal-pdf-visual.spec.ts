@@ -130,8 +130,13 @@ test.describe('journal-pdf-visual', () => {
       { maxDiffPixelRatio: 0.02 },
     );
 
-    // 第 3 頁：本週成交明細 —— 必須有 5 列且 5 種 action badge 各出現一次
-    const tradeTable = page.locator('[data-pdf-page="3"] table[data-pdf-trade-detail]');
+    // 成交明細頁 —— 頁序會因「操作回顧」內容長度而分頁位移，改以內容定位。
+    const tradeDetailPage = page
+      .locator('[data-pdf-page]')
+      .filter({ has: page.locator('table[data-pdf-trade-detail]') })
+      .first();
+    await expect(tradeDetailPage, '成交明細頁').toBeVisible();
+    const tradeTable = tradeDetailPage.locator('table[data-pdf-trade-detail]');
     await expect(tradeTable, '成交明細 table').toBeVisible();
     const bodyRows = tradeTable.locator('tbody tr');
     expect(await bodyRows.count(), '成交明細列數').toBe(5);
@@ -143,13 +148,18 @@ test.describe('journal-pdf-visual', () => {
       const bg = await cell.evaluate((n) => getComputedStyle(n).backgroundColor);
       expect(bg, `成交明細 ${label} badge bg`).toBe(expectedBg);
     }
-    await expect(page.locator('[data-pdf-page="3"]')).toHaveScreenshot(
+    await expect(tradeDetailPage).toHaveScreenshot(
       `journal-pdf-trade-detail-${testInfo.project.name}.png`,
       { maxDiffPixelRatio: 0.02 },
     );
 
-    // 第 4 頁：本週產業分佈 —— 3 類（半導體 / 電子零組件 / 航運），bar 為品牌橘
-    const sectorBlock = page.locator('[data-pdf-page="4"] [data-pdf-sector-distribution]');
+    // 產業分佈頁 —— 3 類（半導體 / 電子零組件 / 航運），bar 為品牌橘
+    const sectorPage = page
+      .locator('[data-pdf-page]')
+      .filter({ has: page.locator('[data-pdf-sector-distribution]') })
+      .first();
+    await expect(sectorPage, '產業分佈頁').toBeVisible();
+    const sectorBlock = sectorPage.locator('[data-pdf-sector-distribution]');
     await expect(sectorBlock, '產業分佈 block').toBeVisible();
     for (const sectorName of ['半導體', '電子零組件', '航運']) {
       await expect(
@@ -163,9 +173,10 @@ test.describe('journal-pdf-visual', () => {
       return nodes.filter((n) => getComputedStyle(n as HTMLElement).backgroundColor === expected).length;
     }, ACCENT);
     expect(orangeBars, '產業分佈品牌橘 bar 數').toBeGreaterThanOrEqual(3);
-    await expect(page.locator('[data-pdf-page="4"]')).toHaveScreenshot(
+    await expect(sectorPage).toHaveScreenshot(
       `journal-pdf-sector-distribution-${testInfo.project.name}.png`,
       { maxDiffPixelRatio: 0.02 },
     );
+
   });
 });
