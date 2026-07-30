@@ -1,4 +1,5 @@
 import { useEffect, useState, useMemo, useCallback, useRef } from 'react'
+import { mergeAuthoritativeIntoPriceCache } from '../lib/authoritativePriceMirror'
 import { usePortfolioStore } from '../stores/portfolioStore.js'
 import {
   OWNER_PORTFOLIO_ID,
@@ -170,7 +171,7 @@ export const usePortfolioManagement = ({
           Array.isArray(holdingsValue)
             ? holdingsValue
             : getPortfolioFallback(portfolioId, 'holdings-v2'),
-          marketPriceCache?.prices
+          mergeAuthoritativeIntoPriceCache(marketPriceCache)?.prices
         ),
         newsEvents: normalizeNewsEvents(
           Array.isArray(eventsValue)

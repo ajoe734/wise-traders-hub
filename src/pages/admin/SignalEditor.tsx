@@ -24,6 +24,7 @@ import { CapitalPanel } from '@/pages/_signalEditor/CapitalPanel';
 import { TradeCard } from '@/pages/_signalEditor/TradeCard';
 import {
   buildPublishRows, buildTeachingOnlyRow, buildSimulatedPositions, computeCashSim, validateSignalBatch,
+  collectTradeIssues,
   buildComboLegRows,
 } from '@/pages/_signalEditor/derive';
 import { useSignalEditorData } from '@/hooks/admin/useSignalEditorData';
@@ -211,6 +212,12 @@ const SignalEditor = () => {
   const simulatedPositions = useMemo(
     () => buildSimulatedPositions(trades, capital),
     [trades, capital],
+  );
+
+  // B2：輸入當下就回報單位／方向／資金問題（送出前不必先存檔）
+  const tradeIssues = useMemo(
+    () => collectTradeIssues({ expert, trades, capital }),
+    [expert, trades, capital],
   );
 
   // ── Publish ──────────────────────────────────────────────────────────
@@ -430,6 +437,7 @@ const SignalEditor = () => {
             currency={currency}
             assetClass={assetClass}
             allowHold={isMentor}
+            issues={tradeIssues.filter((i) => i.index === idx)}
             updateTrade={updateTrade}
             removeTrade={removeTrade}
             moveTrade={moveTrade}

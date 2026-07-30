@@ -307,6 +307,126 @@ export function validateSignalBatch(args: {
   return null;
 }
 
+// ─────────────────────────────────────────────────────────────
+// B2 — 輸入當下的單位／方向／資金檢查（非送出後）
+// ─────────────────────────────────────────────────────────────
+
+export type TradeIssueCode =
+  | 'UNIT_MIX'
+  | 'DIRECTION_OVERSELL'
+  | 'DIRECTION_NO_POSITION'
+  | 'CAPITAL_EXCEEDED';
+
+export interface TradeIssue {
+  /** 對齊原始 UI 的 trades index */
+  index: number;
+  field: 'quantity' | 'quantityUnit' | 'action' | 'priceHint';
+  code: TradeIssueCode;
+  message: string;
+}
+
+/**
+ * 即時（輸入當下）逐筆檢查，**只回報已經填夠資料才能判定的問題**：
+ * 單位不合資產類別、賣超模擬持倉、無持倉卻要減碼／平倉、超過可用現金。
+ *
+ * 欄位缺漏（沒填代碼／價格等）不在此回報，避免打字途中就滿江紅；
+ * 那些仍由送出時的 `validateSignalBatch` 負責。
+ */
+export function collectTradeIssues(args: {
+  expert: any;
+  trades: TradeDraft[];
+  capital: CapitalStatus | null;
+}): TradeIssue[] {
+  const { expert, trades, capital } = args;
+  if (!expert || !Array.isArray(trades) || trades.length === 0) return [];
+
+  const assetClass = resolveAssetClass(expert);
+  const spec = getAssetSpec(assetClass);
+  const currency: Currency = spec.currency;
+  const fmt = (n: number) => formatMoneyByCurrency(n, currency);
+
+  const issues: TradeIssue[] = [];
+
+  // 單位檢查與其他狀態無關，逐筆立即可判
+  trades.forEach((t, index) => {
+    if (!t.quantityUnit) return;
+    if (t.isCombo) {
+      if (t.quantityUnit !== '組') {
+        issues.push({
+          index,
+          field: 'quantityUnit',
+          code: 'UNIT_MIX',
+          message: `組合單只能用「組」為單位，不能使用「${t.quantityUnit}」`,
+        });
+      }
+      return;
+    }
+    if (!spec.units.includes(t.quantityUnit as any)) {
+      issues.push({
+        index,
+        field: 'quantityUnit',
+        code: 'UNIT_MIX',
+        message: `${spec.label}單位只能用「${spec.units.join(' / ')}」，不能使用「${t.quantityUnit}」`,
+      });
+    }
+  });
+
+  const { perTradeBefore } = buildStepStates(trades, capital);
+  const { perTrade: cashBefore } = computeCashSim(trades, capital);
+
+  for (const i of executionOrder(trades)) {
+    const t = trades[i];
+    const code = (t.stockCode || '').trim();
+    const qtyInput = parseInt(t.quantity || '0', 10) || 0;
+    if (!code || !t.action || t.action === 'hold' || t.action === 'teaching') continue;
+    if (qtyInput <= 0) continue;
+
+    const shares = normalizeSignalQuantityToShares(qtyInput, t.quantityUnit);
+    const cur = perTradeBefore[i] || { qty: 0, avg: 0 };
+    const fmtQty = (sh: number) => formatBaseQuantity(sh, t.quantityUnit, assetClass);
+
+    if (t.action === 'trim' || t.action === 'sell' || t.action === 'exit') {
+      if (cur.qty <= 0) {
+        issues.push({
+          index: i,
+          field: 'action',
+          code: 'DIRECTION_NO_POSITION',
+          message: `目前模擬持倉為 0，無法執行${getActionMeta(t.action).label}`,
+        });
+        continue;
+      }
+      if ((t.action === 'trim' || t.action === 'sell') && shares > cur.qty) {
+        issues.push({
+          index: i,
+          field: 'quantity',
+          code: 'DIRECTION_OVERSELL',
+          message: `${getActionMeta(t.action).label}數量 (${fmtQty(shares)}) 超過目前模擬持倉 (${fmtQty(cur.qty)})`,
+        });
+      }
+      continue;
+    }
+
+    if (t.action === 'buy' || t.action === 'add') {
+      const unitCost = effectiveUnitCost(t, assetClass);
+      if (unitCost <= 0) continue;
+      const required = unitCost * shares;
+      const remaining = cashBefore[i] ?? (capital?.available_cash || 0);
+      if (required > remaining) {
+        issues.push({
+          index: i,
+          field: 'quantity',
+          code: 'CAPITAL_EXCEEDED',
+          message: `本筆需 ${fmt(required)}，可用現金僅 ${fmt(remaining)}`,
+        });
+      }
+    }
+  }
+
+  return issues.sort((a, b) => a.index - b.index);
+}
+
+
+
 /**
  * 把 trades 轉成 expert_signals insert payload 陣列。
  * **依執行語意順序**排出，這樣 DB 的 BEFORE INSERT trigger（enforce_signal_capital_limit）

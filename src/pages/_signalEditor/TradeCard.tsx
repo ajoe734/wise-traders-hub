@@ -9,6 +9,7 @@ import { LazyRichTextEditor as RichTextEditor } from '@/components/admin/LazyRic
 import { htmlToPlainText } from '@/lib/sanitizeHtml';
 import type { TradeAction } from '@/lib/simulatePositions';
 import type { TradeDraft, CapitalStatus, AIAssistFn } from './types';
+import type { TradeIssue } from './derive';
 import {
   normalizeCurrency,
   type Currency,
@@ -41,6 +42,8 @@ interface Props {
   assetClass?: AssetClass | string | null;
   /** mentor 才會看到「觀察 hold」選項 */
   allowHold?: boolean;
+  /** B2：輸入當下的單位／方向／資金問題（已依本卡片過濾） */
+  issues?: TradeIssue[];
   updateTrade: (idx: number, patch: Partial<TradeDraft>) => void;
   removeTrade: (idx: number) => void;
   moveTrade: (idx: number, dir: -1 | 1) => void;
@@ -50,7 +53,7 @@ interface Props {
 
 export function TradeCard({
   idx, trade: t, totalTrades, signalTemplates, capital, cashSim, simulatedPositions,
-  expertId, currency: currencyProp, assetClass: assetClassProp, allowHold,
+  expertId, currency: currencyProp, assetClass: assetClassProp, allowHold, issues = [],
   updateTrade, removeTrade, moveTrade, fetchStockInfo, callAIAssist,
 }: Props) {
   const currency: Currency = normalizeCurrency(currencyProp);
@@ -62,6 +65,13 @@ export function TradeCard({
   const safeUnit = sanitizeAssetQuantityUnit(t.quantityUnit, assetClass);
   const canCombo = assetClass === 'us_option';
   const isCombo = !!t.isCombo && canCombo;
+  const issueFor = (field: TradeIssue['field']) => issues.find((i) => i.field === field);
+  const actionIssue = issueFor('action');
+  const quantityIssue = issueFor('quantity');
+  const unitIssue = issueFor('quantityUnit');
+  const issueClass = 'border-destructive focus-visible:ring-destructive';
+  const IssueText = ({ issue }: { issue?: TradeIssue }) =>
+    issue ? <p role="alert" className="text-[11px] text-destructive">{issue.message}</p> : null;
   return (
     <Card>
       <CardContent className="p-4 space-y-4">
@@ -154,6 +164,7 @@ export function TradeCard({
                 {allowHold && <SelectItem value="hold">觀察（不進出場）</SelectItem>}
               </SelectContent>
             </Select>
+            <IssueText issue={actionIssue} />
           </div>
           <div className="space-y-1.5">
             <Label className="text-xs flex items-center justify-between">
@@ -191,7 +202,7 @@ export function TradeCard({
                 min={0}
                 value={t.quantity}
                 onChange={(e) => updateTrade(idx, { quantity: e.target.value })}
-                className="flex-1"
+                className={`flex-1 ${quantityIssue ? issueClass : ''}`}
                 placeholder={isHold ? '可不填' : ''}
               />
               <Select
@@ -199,12 +210,14 @@ export function TradeCard({
                 onValueChange={(v) => updateTrade(idx, { quantityUnit: v as QuantityUnit })}
                 disabled={units.length === 1}
               >
-                <SelectTrigger className="w-20"><SelectValue /></SelectTrigger>
+                <SelectTrigger className={`w-20 ${unitIssue ? issueClass : ''}`}><SelectValue /></SelectTrigger>
                 <SelectContent>
                   {units.map((u) => <SelectItem key={u} value={u}>{u}</SelectItem>)}
                 </SelectContent>
               </Select>
             </div>
+            <IssueText issue={quantityIssue} />
+            <IssueText issue={unitIssue} />
           </div>
           {!isCombo && <div className="space-y-1.5">
             <Label className="text-xs">參考價位{isHold && <span className="text-muted-foreground ml-1">（選填）</span>}</Label>

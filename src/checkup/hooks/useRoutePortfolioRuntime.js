@@ -1,4 +1,5 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
+import { mergeAuthoritativeIntoPriceCache } from '../lib/authoritativePriceMirror'
 import { useLocation, useNavigate, useParams } from 'react-router-dom'
 import { useSavedToast } from './useSavedToast.js'
 import { useTransientUiActions } from './useTransientUiActions.js'
@@ -192,7 +193,7 @@ export function useRoutePortfolioRuntime() {
   const setHoldings = useCallback(
     (valueOrUpdater) =>
       persistRouteField('holdings', 'holdings-v2', valueOrUpdater, (value) =>
-        normalizeHoldings(value, marketPriceCache?.prices)
+        normalizeHoldings(value, mergeAuthoritativeIntoPriceCache(marketPriceCache)?.prices)
       ),
     [persistRouteField, marketPriceCache]
   )

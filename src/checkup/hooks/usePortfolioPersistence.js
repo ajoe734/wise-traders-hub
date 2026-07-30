@@ -1,4 +1,5 @@
 import { useCallback, useEffect } from 'react'
+import { mergeAuthoritativeIntoPriceCache } from '../lib/authoritativePriceMirror'
 import {
   CLOUD_SYNC_TTL,
   HISTORY_ENTRY_LIMIT,
@@ -95,7 +96,7 @@ export function usePortfolioPersistence({
 
   useEffect(() => {
     if (!canPersistPortfolioData || !holdings) return
-    const normalized = normalizeHoldings(holdings, marketPriceCache?.prices)
+    const normalized = normalizeHoldings(holdings, mergeAuthoritativeIntoPriceCache(marketPriceCache)?.prices)
     syncEngine.persistSlice('holdings', normalized, { flashSaved })
   }, [canPersistPortfolioData, holdings, marketPriceCache, normalizeHoldings, flashSaved])
 
@@ -139,7 +140,7 @@ export function usePortfolioPersistence({
     if (!canPersistPortfolioData || !holdings) return
 
     const nextDossiers = buildHoldingDossiers({
-      holdings: applyMarketQuotesToHoldings(holdings, marketPriceCache?.prices),
+      holdings: applyMarketQuotesToHoldings(holdings, mergeAuthoritativeIntoPriceCache(marketPriceCache)?.prices),
       watchlist,
       targets,
       fundamentals,

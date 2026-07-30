@@ -1,4 +1,5 @@
 import { useCallback, useMemo } from 'react'
+import { mergeAuthoritativeIntoPriceCache } from '../lib/authoritativePriceMirror'
 import {
   ACTIVE_PORTFOLIO_KEY,
   OWNER_PORTFOLIO_ID,
@@ -71,7 +72,7 @@ export function usePortfolioSnapshotRuntime({
   const applyPortfolioSnapshot = useCallback(
     (snapshot) => {
       const normalizedAnalysisHistory = normalizeAnalysisHistoryEntries(snapshot.analysisHistory)
-      setHoldings(applyMarketQuotesToHoldings(snapshot.holdings, marketPriceCache?.prices))
+      setHoldings(applyMarketQuotesToHoldings(snapshot.holdings, mergeAuthoritativeIntoPriceCache(marketPriceCache)?.prices))
       setTradeLog(snapshot.tradeLog)
       setTargets(snapshot.targets)
       setFundamentals(normalizeFundamentalsStore(snapshot.fundamentals))

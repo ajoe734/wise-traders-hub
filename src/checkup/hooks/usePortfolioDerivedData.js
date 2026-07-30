@@ -1,4 +1,6 @@
 import { useMemo } from 'react'
+import { mergeAuthoritativeIntoPriceCache } from '@/checkup/lib/authoritativePriceMirror'
+import { applyQuotesToWatchlist } from '@/checkup/lib/watchlistQuotes'
 
 export function usePortfolioDerivedData({
   holdings,
@@ -58,27 +60,16 @@ export function usePortfolioDerivedData({
     [newsEvents]
   )
 
-  const W = useMemo(() => {
-    const watchlistRows = Array.isArray(watchlist) ? watchlist : []
-    if (!marketPriceCache?.prices || watchlistRows.length === 0) return watchlistRows
+  // B1：所有同步取價一律經過權威鏡像，禁止直接讀 legacy marketPriceCache.prices
+  const authoritativeCache = useMemo(
+    () => mergeAuthoritativeIntoPriceCache(marketPriceCache),
+    [marketPriceCache]
+  )
 
-    return watchlistRows.map((item) => {
-      const quote = marketPriceCache.prices[item.code]
-      if (!quote?.price) return item
-
-      const newPrice = quote.price
-      const newTarget = item.target || null
-      const newUpside = newTarget && newPrice > 0 ? ((newTarget - newPrice) / newPrice) * 100 : null
-
-      return {
-        ...item,
-        price: newPrice,
-        change: quote.change || 0,
-        changePct: quote.changePct || 0,
-        upside: newUpside,
-      }
-    })
-  }, [watchlist, marketPriceCache])
+  const W = useMemo(
+    () => applyQuotesToWatchlist(watchlist, authoritativeCache),
+    [watchlist, authoritativeCache]
+  )
 
   const D = useMemo(() => {
     const normalized = normalizeHoldingDossiers(holdingDossiers)
@@ -92,7 +83,7 @@ export function usePortfolioDerivedData({
       newsEvents: currentNewsEvents,
       researchHistory,
       strategyBrain,
-      marketPriceCache,
+      marketPriceCache: authoritativeCache,
       marketPriceSync,
     })
   }, [
@@ -105,7 +96,7 @@ export function usePortfolioDerivedData({
     currentNewsEvents,
     researchHistory,
     strategyBrain,
-    marketPriceCache,
+    authoritativeCache,
     marketPriceSync,
     normalizeHoldingDossiers,
     buildHoldingDossiers,
@@ -123,9 +114,9 @@ export function usePortfolioDerivedData({
   const totalPnl = totalVal - totalCost
   const retPct = totalCost > 0 ? (totalPnl / totalCost) * 100 : 0
   const todayMarketClock = getTaipeiClock(new Date())
-  const activeMarketDate = marketPriceSync?.marketDate || marketPriceCache?.marketDate || null
+  const activeMarketDate = marketPriceSync?.marketDate || authoritativeCache?.marketDate || null
   const activePriceSyncAt = parseStoredDate(
-    marketPriceSync?.syncedAt || marketPriceCache?.syncedAt || null
+    marketPriceSync?.syncedAt || authoritativeCache?.syncedAt || null
   )
   const priceSyncStatusLabel = !activeMarketDate
     ? '收盤價未同步'
@@ -170,7 +161,7 @@ export function usePortfolioDerivedData({
           Array.isArray(holdingsValue)
             ? holdingsValue
             : getPortfolioFallback(portfolioId, 'holdings-v2'),
-          marketPriceCache?.prices
+          authoritativeCache?.prices
         ),
         newsEvents: normalizeNewsEvents(
           Array.isArray(eventsValue)
@@ -203,7 +194,7 @@ export function usePortfolioDerivedData({
     H,
     currentNewsEvents,
     portfolioNotes,
-    marketPriceCache,
+    authoritativeCache,
     applyMarketQuotesToHoldings,
     normalizeNewsEvents,
     clonePortfolioNotes,
