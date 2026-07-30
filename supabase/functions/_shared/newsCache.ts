@@ -45,7 +45,7 @@ function parseRssItems(xml: string): NewsItem[] {
     .filter(it => it.title);
 }
 
-let _admin: ReturnType<typeof createClient> | null = null;
+let _admin: SupabaseClient | null = null;
 function getAdmin() {
   if (_admin) return _admin;
   _admin = serviceClient();

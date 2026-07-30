@@ -34,7 +34,7 @@ interface Job {
 }
 
 async function fetchFinmind<T = unknown>(
-  supa: ReturnType<typeof createClient>,
+  supa: SupabaseClient,
   params: Record<string, string>,
   job: Job,
   kind: string,
@@ -71,7 +71,7 @@ async function fetchFinmind<T = unknown>(
 
 /** Materialize every date in the range after facts were written. */
 async function materializeRange(
-  supa: ReturnType<typeof createClient>,
+  supa: SupabaseClient,
   start: string,
   end: string,
 ): Promise<{ materialized: number; errors: string[] }> {
@@ -91,7 +91,7 @@ async function materializeRange(
   return { materialized, errors };
 }
 
-async function processChipFact(supa: ReturnType<typeof createClient>, job: Job) {
+async function processChipFact(supa: SupabaseClient, job: Job) {
   const rows = await fetchFinmind<FinmindRow>(supa, {
     dataset: "TaiwanStockTradingDailyReport",
     data_id: job.stock_id,
@@ -133,7 +133,7 @@ async function processChipFact(supa: ReturnType<typeof createClient>, job: Job) 
   return { ok: true, rows: rows.length, facts: facts.length, materialized };
 }
 
-async function processInstitutional(supa: ReturnType<typeof createClient>, job: Job) {
+async function processInstitutional(supa: SupabaseClient, job: Job) {
   interface RawInst {
     date: string;
     name: string;
@@ -191,7 +191,7 @@ async function processInstitutional(supa: ReturnType<typeof createClient>, job: 
   return { ok: true, rows: upserts.length, raw_rows: rows.length };
 }
 
-async function processFundamentals(supa: ReturnType<typeof createClient>, job: Job) {
+async function processFundamentals(supa: SupabaseClient, job: Job) {
   const missingDatasets = Array.isArray(job.payload?.missing_datasets)
     ? (job.payload.missing_datasets as string[])
     : ["monthly_revenue"];
@@ -259,7 +259,7 @@ async function processFundamentals(supa: ReturnType<typeof createClient>, job: J
   return { ok: true, results };
 }
 
-async function processOne(supa: ReturnType<typeof createClient>, job: Job) {
+async function processOne(supa: SupabaseClient, job: Job) {
   console.log(`[backfill-worker] processing job ${job.id}: ${job.dataset} ${job.stock_id} ${job.start_date}..${job.end_date}`);
   try {
     if (job.dataset === "chip_fact") {
