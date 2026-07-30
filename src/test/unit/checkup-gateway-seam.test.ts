@@ -115,7 +115,7 @@ describe('gateway seam · hook 整合', () => {
     const { result } = renderHook(() => useSaveHoldingsToCloud(), { wrapper: QueryWrapper });
 
     await act(async () => {
-      await result.current.mutateAsync({ portfolioId: 'me', holdings: [{ code: '2330' }] });
+      await (result.current.mutateAsync as any)({ portfolioId: 'me', holdings: [{ code: '2330' }] });
     });
 
     expect(fake.calls.http).toHaveLength(1);
@@ -132,7 +132,7 @@ describe('gateway seam · hook 整合', () => {
 
     await expect(
       act(async () => {
-        await result.current.mutateAsync({ portfolioId: 'me', holdings: [] });
+        await (result.current.mutateAsync as any)({ portfolioId: 'me', holdings: [] });
       }),
     ).rejects.toMatchObject({ name: 'CheckupGatewayError' });
   });
