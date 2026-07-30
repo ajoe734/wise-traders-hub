@@ -5,6 +5,8 @@
 // inline 憲法：本 hook 不渲染任何 JSX，純副作用 + state hydration，可安全外移。
 import { useEffect, useRef } from "react";
 import { supabase } from "@/integrations/supabase/client";
+import { fetchAuthoritativeQuotes } from "@/checkup/lib/authoritativeQuotes";
+
 // P0-3: demoData lazy — 15.3 KB chunk only loads when isDemo branch hits
 import { INIT_HOLDINGS as SEED_HOLDINGS } from "@/checkup/seedData";
 import {
