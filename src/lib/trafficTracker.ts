@@ -190,7 +190,7 @@ export function initTrafficTracker() {
   }
 
   const flushNow = () => {
-    if (flushTimer != null) { clearTimeout(flushTimer); flushTimer = null; }
+    if (flushTimer != null) { clearTimeout(flushTimer); flushTimer = null; flushDueAt = Infinity; }
     flushEvents();
   };
   document.addEventListener('visibilitychange', () => {

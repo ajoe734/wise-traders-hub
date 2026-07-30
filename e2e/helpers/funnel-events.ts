@@ -63,7 +63,7 @@ export async function installFunnelCollector(page: Page) {
 
 export async function readFunnelEvents(page: Page): Promise<FunnelEvent[]> {
   // Force any queued setTimeout flush to run (`scheduleFlush` is 500ms).
-  await page.waitForTimeout(2600);
+  await page.waitForTimeout(900);
   return page.evaluate(() => (window as any).__funnelEvents as FunnelEvent[]);
 }
 
