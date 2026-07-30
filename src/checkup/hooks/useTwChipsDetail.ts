@@ -1,7 +1,7 @@
 // useTwChipsDetail — 抽屜私有查詢：台股籌碼面（三大法人 + BSR）
 // 呼叫公開市場資料 endpoint `tw-chips-detail`；SWR 5 分鐘快取。
 import { useEffect, useRef, useState } from 'react';
-import { getCheckupGateway, parseGatewayErrorBody } from '../lib/gateway';
+import { getCheckupGateway } from '../lib/gateway';
 import { trackEvent } from '@/lib/trafficTracker';
 
 export interface InstitutionalWindow {
