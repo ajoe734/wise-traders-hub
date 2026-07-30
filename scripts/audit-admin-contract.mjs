@@ -23,6 +23,16 @@ const FN_DIR = join(ROOT, 'supabase/functions');
 const CLIENT_OWNERS = new Set(['_shared/supabaseClients.ts']);
 const ADMIN_OWNERS = new Set(['_shared/adminGuard.ts', '_shared/adminGuard_test.ts']);
 
+// Role *administration* (granting/revoking/listing a target user's roles) is a
+// legitimate write against user_roles — it is not a caller gate. These files
+// still must use requireCompanyAdmin() to gate the caller, which the has_role
+// rule keeps enforcing; only the table rule is waived.
+const ROLE_ADMIN_CRUD = new Set([
+  'admin-manage-users/index.ts',
+  'admin-view-as/index.ts',
+  'create-analyst/index.ts',
+]);
+
 // mcp/ runs on a Node-flavoured runtime with its own client bootstrap.
 const CLIENT_EXEMPT = new Set(['mcp/index.ts']);
 
@@ -71,7 +81,8 @@ export function auditEdgeContracts() {
           hint: "use requireCompanyAdmin(req) from '../_shared/adminGuard.ts'",
         });
       }
-      const adhocTable = /from\(\s*['"]user_roles['"]\s*\)/.test(src)
+      const adhocTable = !ROLE_ADMIN_CRUD.has(rel)
+        && /from\(\s*['"]user_roles['"]\s*\)/.test(src)
         && /company_admin/.test(src);
       if (adhocTable) {
         violations.push({
