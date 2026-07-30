@@ -24,8 +24,8 @@ export default defineConfig({
   forbidOnly: !!process.env.CI,
   // CI 適度重試以吸收偶發 flake；本地不重試以便快速看到真實錯誤
   retries: process.env.CI ? 2 : 0,
-  // CI 開啟並行 workers（每個 project 內 / 跨檔案）；本地維持序列避免互相干擾
-  workers: process.env.CI ? 4 : 1,
+  // 一律 4 workers：本地序列跑會使 mobile 全套逾時（56→12 tests 後仍需並行）
+  workers: 4,
   reporter: process.env.CI
     ? [
         ['line'],
