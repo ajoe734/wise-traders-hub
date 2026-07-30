@@ -23,7 +23,7 @@
     "check:ai-sdk-versions": "node scripts/check-ai-sdk-versions.mjs",
     "check:rls-audit": "vitest run src/test/integration/1.35-rls-security-audit.test.ts",
     "check:prod-debug": "node scripts/check-prod-debug-bundle.mjs",
-    "lint:modules": "eslint src/checkup --rule '{}' --no-eslintrc-off || eslint src/checkup",
+    "lint:modules": "eslint src/checkup/modules src/checkup/shell",
     "check:module-boundaries": "node scripts/check-module-boundaries.mjs",
     "check:no-demo-artifacts": "node scripts/check-no-demo-artifacts.mjs",
     "check:security:all": "npm run check:rls-audit && npm run check:prod-debug",
