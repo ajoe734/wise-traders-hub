@@ -1,8 +1,8 @@
 // AUTH: cron  (auto-annotated 2026-07-27, see docs/security/edge-function-auth-matrix.md)
+import { serviceClient } from '../_shared/supabaseClients.ts';
 import { corsHeaders } from '../_shared/cors.ts';
 import { requireCronKey, AuthError } from '../_shared/authGuard.ts';
 import { withLogging } from '../_shared/edgeLogger.ts';
-import { createClient } from 'https://esm.sh/@supabase/supabase-js@2.49.1'
 import { nyTradeDate, extractSymbol } from '../_shared/marketDetect.ts'
 
 Deno.serve(withLogging('daily-snapshot', async (req) => {
@@ -25,10 +25,7 @@ Deno.serve(withLogging('daily-snapshot', async (req) => {
   }
 
   try {
-    const supabase = createClient(
-      Deno.env.get('SUPABASE_URL')!,
-      Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')!
-    )
+    const supabase = serviceClient()
 
     // TW trade_date：Asia/Taipei 曆日
     const now = new Date()

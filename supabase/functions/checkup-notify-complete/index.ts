@@ -2,10 +2,10 @@
 // 收盤分析完成 → 同時推 Line / Email / 站內通知
 // Input: { job_id: string }
 // 由前端在 useDailyAnalysisWorkflow 完成時呼叫；也可由背景 worker 呼叫。
+import { serviceClient } from '../_shared/supabaseClients.ts';
 import { corsHeaders, jsonResponse, corsPreflight } from '../_shared/cors.ts';
 import { requireCronKey, AuthError } from '../_shared/authGuard.ts';
 import { withLogging } from '../_shared/edgeLogger.ts';
-import { createClient } from 'https://esm.sh/@supabase/supabase-js@2.49.1';
 
 const LINE_PUSH_URL = 'https://api.line.me/v2/bot/message/push';
 const RESEND_API_URL = 'https://api.resend.com/emails';
@@ -96,7 +96,7 @@ const handler = withLogging('checkup-notify-complete', async (req, log) => {
   const jobId = String(body?.job_id || '').trim();
   if (!jobId) return jsonResponse({ error: 'job_id is required' }, { status: 400 });
 
-  const admin = createClient(SUPABASE_URL, SERVICE_ROLE_KEY);
+  const admin = serviceClient();
 
   // 取得 job + 驗使用者
   const { data: job, error: jobErr } = await admin

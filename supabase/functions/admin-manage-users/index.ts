@@ -1,8 +1,7 @@
 // AUTH: user  (auto-annotated 2026-07-27, see docs/security/edge-function-auth-matrix.md)
-import { createClient } from 'https://esm.sh/@supabase/supabase-js@2.57.4';
 
 import { corsHeaders } from '../_shared/cors.ts';
-import { serviceClient } from '../_shared/supabaseClients.ts';
+import { serviceClient, userClient } from '../_shared/supabaseClients.ts';
 import { withLogging } from '../_shared/edgeLogger.ts';
 import { validateInput, validationResponse } from '../_shared/inputValidator.ts';
 const SUPABASE_URL = Deno.env.get('SUPABASE_URL')!;
@@ -57,9 +56,7 @@ Deno.serve(withLogging('admin-manage-users', async (req) => {
     const authHeader = req.headers.get('Authorization') || '';
     if (!authHeader.startsWith('Bearer ')) return json({ error: 'unauthorized' }, 401);
 
-    const callerClient = createClient(SUPABASE_URL, ANON_KEY, {
-      global: { headers: { Authorization: authHeader } },
-    });
+    const callerClient = userClient(req);
     const { data: userData, error: userErr } = await callerClient.auth.getUser();
     if (userErr || !userData.user) return json({ error: 'unauthorized' }, 401);
     const callerId = userData.user.id;

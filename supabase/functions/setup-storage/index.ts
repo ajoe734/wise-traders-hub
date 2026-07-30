@@ -1,7 +1,7 @@
 // AUTH: cron  (auto-annotated 2026-07-27, see docs/security/edge-function-auth-matrix.md)
+import { serviceClient } from '../_shared/supabaseClients.ts';
 import { serve } from "https://deno.land/std@0.168.0/http/server.ts";
 import { requireCronKey, AuthError } from '../_shared/authGuard.ts';
-import { createClient } from "https://esm.sh/@supabase/supabase-js@2.49.1";
 
 import { corsHeaders } from '../_shared/cors.ts';
 import { withLogging } from '../_shared/edgeLogger.ts';
@@ -25,10 +25,7 @@ serve(withLogging('setup-storage', async (req) => {
   }
 
   try {
-    const supabase = createClient(
-      Deno.env.get('SUPABASE_URL')!,
-      Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')!
-    );
+    const supabase = serviceClient();
 
     // Create avatars bucket if it doesn't exist
     const { data: buckets } = await supabase.storage.listBuckets();

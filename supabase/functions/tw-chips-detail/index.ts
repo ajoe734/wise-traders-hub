@@ -13,8 +13,8 @@
 //   - completeness 定義：該日 raw broker rows >= 5。queue.status='done' 只作診斷輔助，
 //     不可單獨證明完整，避免歷史 fake-done 狀態讓畫面誤顯示今日空資料。
 //     未 complete 的今日 partial data 不會被推為 fallbackAsOf，避免覆蓋昨日完整結果。
+import { serviceClient } from '../_shared/supabaseClients.ts';
 import "jsr:@supabase/functions-js/edge-runtime.d.ts";
-import { createClient } from "https://esm.sh/@supabase/supabase-js@2.45.4";
 import { corsPreflight, jsonResponse, errorResponse } from "../_shared/cors.ts";
 import { cacheGet, cacheSet } from "../_shared/memoryCache.ts";
 import { coalesce, setCoalesceObserver } from "../_shared/requestCoalescer.ts";
@@ -53,9 +53,7 @@ Deno.serve(async (req) => {
       return errorResponse("stock_id required", 400, { code: "BAD_REQUEST" });
     }
 
-    const supa = createClient(SUPABASE_URL, SERVICE_ROLE_KEY, {
-      auth: { persistSession: false },
-    });
+    const supa = serviceClient();
 
     // Cache key includes latest rollup as_of_date so any new fulfillment auto-busts.
     // Fetch that stamp cheaply first; if unavailable, fall back to a version-less key

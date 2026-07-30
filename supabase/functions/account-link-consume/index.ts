@@ -2,8 +2,8 @@
 // Consume a 6-digit account-link code.
 // The CURRENT caller becomes the SECONDARY; the code initiator is the PRIMARY.
 // All of the secondary's data is moved to the primary; the secondary auth user is disabled.
-import { createClient } from 'https://esm.sh/@supabase/supabase-js@2.45.0';
 
+import { serviceClient, userClient } from '../_shared/supabaseClients.ts';
 const corsHeaders = {
   'Access-Control-Allow-Origin': '*',
   'Access-Control-Allow-Headers': 'authorization, x-client-info, apikey, content-type',
@@ -100,8 +100,8 @@ Deno.serve(async (req) => {
     const service = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')!;
     const authHeader = req.headers.get('Authorization') ?? '';
 
-    const userClient = createClient(url, anon, { global: { headers: { Authorization: authHeader } } });
-    const admin = createClient(url, service);
+    const userClient = userClient(req);
+    const admin = serviceClient();
 
     const { data: authData, error: authErr } = await userClient.auth.getUser();
     if (authErr || !authData.user) {

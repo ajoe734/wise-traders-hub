@@ -1,4 +1,5 @@
 // AUTH: public  (auto-annotated 2026-07-27, see docs/security/edge-function-auth-matrix.md)
+import { serviceClient } from '../_shared/supabaseClients.ts';
 /**
  * us-stock-quote
  *
@@ -25,7 +26,6 @@
  */
 
 import { corsHeaders } from '../_shared/cors.ts';
-import { createClient } from 'https://esm.sh/@supabase/supabase-js@2.49.1';
 
 const FINNHUB_BASE = 'https://finnhub.io/api/v1';
 
@@ -107,10 +107,7 @@ Deno.serve(async (req) => {
     let body: any = {};
     try { body = await req.json(); } catch { body = {}; }
 
-    const supabase = createClient(
-      Deno.env.get('SUPABASE_URL')!,
-      Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')!,
-    );
+    const supabase = serviceClient();
 
     const mode: string = String(body?.mode || 'symbols');
     const persist = body?.persist === true || mode === 'universe';

@@ -9,15 +9,11 @@
 //   - data-gov-tw      data.gov.tw 上市公司資料集
 //
 // 只有 company_admin 可觸發。回傳 { ok, source_key, row_count, duration_ms, log_id }。
-import { createClient } from 'npm:@supabase/supabase-js@2';
+import { serviceClient, userClient } from '../_shared/supabaseClients.ts';
 import { fetchWithRateLimit } from '../_shared/finmindRateLimit.ts';
 
 // service role client for rate-limit RPCs (RLS-safe)
-const _rlClient = createClient(
-  Deno.env.get('SUPABASE_URL')!,
-  Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')!,
-  { auth: { persistSession: false, autoRefreshToken: false } },
-);
+const _rlClient = serviceClient();
 
 const corsHeaders = {
   'Access-Control-Allow-Origin': '*',
@@ -111,8 +107,8 @@ Deno.serve(async (req) => {
     const authHeader = req.headers.get('Authorization');
     if (!authHeader?.startsWith('Bearer ')) return json({ error: 'unauthorized' }, 401);
 
-    const userClient = createClient(url, anon, { global: { headers: { Authorization: authHeader } } });
-    const admin = createClient(url, service);
+    const userClient = userClient(req);
+    const admin = serviceClient();
 
     const token = authHeader.replace('Bearer ', '');
     const { data: claims, error: claimsErr } = await userClient.auth.getClaims(token);

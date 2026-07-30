@@ -2,10 +2,10 @@
 // 背景 worker：讀 job.prompts_payload，依序呼叫 checkup-analyze 三次
 // 保存 raw_responses + 簡易 result_summary，最後觸發 checkup-notify-complete
 // 僅接受 service_role 觸發
+import { serviceClient } from '../_shared/supabaseClients.ts';
 import { corsPreflight, jsonResponse } from '../_shared/cors.ts';
 import { requireCronKey, AuthError } from '../_shared/authGuard.ts';
 import { withLogging } from '../_shared/edgeLogger.ts';
-import { createClient } from 'https://esm.sh/@supabase/supabase-js@2.49.1';
 
 const HARD_TIMEOUT_MS = 5 * 60 * 1000;
 
@@ -132,7 +132,7 @@ const handler = withLogging('checkup-analyze-worker', async (req, log) => {
   const jobId = String(body?.job_id || '').trim();
   if (!jobId) return jsonResponse({ error: 'job_id is required' }, { status: 400 });
 
-  const admin = createClient(SUPABASE_URL, SERVICE_ROLE_KEY);
+  const admin = serviceClient();
 
   const { data: job, error: jobErr } = await admin
     .from('checkup_analysis_jobs').select('*').eq('id', jobId).maybeSingle();

@@ -3,8 +3,8 @@
 // - action=issue:   admin requests a token for target_user_id (15 min TTL, one-shot)
 // - action=resolve: viewer page exchanges token → { admin_id, target_user_id, target_email }
 //                   token is marked consumed_at and revoked after first resolve.
-import { createClient } from 'npm:@supabase/supabase-js@2';
 
+import { serviceClient, userClient } from '../_shared/supabaseClients.ts';
 const corsHeaders = {
   'Access-Control-Allow-Origin': '*',
   'Access-Control-Allow-Headers': 'authorization, x-client-info, apikey, content-type',
@@ -31,10 +31,8 @@ Deno.serve(async (req) => {
     const anon = Deno.env.get('SUPABASE_ANON_KEY')!;
     const service = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')!;
 
-    const userClient = createClient(url, anon, {
-      global: { headers: { Authorization: authHeader } },
-    });
-    const admin = createClient(url, service);
+    const userClient = userClient(req);
+    const admin = serviceClient();
 
     const token = authHeader.replace('Bearer ', '');
     const { data: claims, error: claimsErr } = await userClient.auth.getClaims(token);

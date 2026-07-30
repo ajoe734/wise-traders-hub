@@ -1,9 +1,8 @@
 // AUTH: user  (auto-annotated 2026-07-27, see docs/security/edge-function-auth-matrix.md)
 import { corsHeaders } from '../_shared/cors.ts';
-import { serviceClient } from '../_shared/supabaseClients.ts';
+import { serviceClient, userClient } from '../_shared/supabaseClients.ts';
 import { withLogging } from '../_shared/edgeLogger.ts';
 import { validateInput, validationJsonResponse } from '../_shared/inputValidator.ts';
-import { createClient } from 'https://esm.sh/@supabase/supabase-js@2.49.1'
 
 Deno.serve(withLogging('create-analyst', async (req) => {
   if (req.method === 'OPTIONS') {
@@ -21,9 +20,7 @@ Deno.serve(withLogging('create-analyst', async (req) => {
       })
     }
 
-    const callerClient = createClient(supabaseUrl, anonKey, {
-      global: { headers: { Authorization: authHeader } }
-    })
+    const callerClient = userClient(req)
     const { data: { user: caller } } = await callerClient.auth.getUser()
     if (!caller) {
       return new Response(JSON.stringify({ error: 'Unauthorized' }), {

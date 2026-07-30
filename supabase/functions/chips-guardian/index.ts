@@ -17,9 +17,8 @@
 // PR-10: SLO / upstream 決策抽出到 _shared/guardianRules.ts（純函式 + golden test）；
 //        本檔只做 DB 讀寫與副作用；常數搬移後對齊 rules。
 
-import { createClient } from 'https://esm.sh/@supabase/supabase-js@2';
+import { serviceClient } from '../_shared/supabaseClients.ts';
 import { requireCronKey, AuthError } from '../_shared/authGuard.ts';
-import { corsHeaders } from 'npm:@supabase/supabase-js@2/cors';
 import { forceDisable } from '../_shared/killSwitch.ts';
 import {
   decideSloAdjustment,
@@ -316,9 +315,7 @@ Deno.serve(async (req) => {
   }
 
   if (req.method === 'OPTIONS') return new Response('ok', { headers: corsHeaders });
-  const supa = createClient(SUPABASE_URL, SERVICE_KEY, {
-    auth: { persistSession: false, autoRefreshToken: false },
-  });
+  const supa = serviceClient();
   try {
     const [a1, a2, a3, a4, a5] = await Promise.all([
       ruleCircuitLongOpen(supa),

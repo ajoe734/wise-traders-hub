@@ -1,4 +1,5 @@
 // deno-lint-ignore-file
+import { serviceClient } from '../_shared/supabaseClients.ts';
 /**
  * Shared Google News RSS cache.
  * Used by checkup-calendar and checkup-predict-events to avoid duplicate
@@ -8,7 +9,6 @@
  * TTL: default 5 minutes.
  */
 
-import { createClient } from "https://esm.sh/@supabase/supabase-js@2.49.1";
 
 export type NewsItem = {
   title: string;
@@ -48,10 +48,7 @@ function parseRssItems(xml: string): NewsItem[] {
 let _admin: ReturnType<typeof createClient> | null = null;
 function getAdmin() {
   if (_admin) return _admin;
-  _admin = createClient(
-    Deno.env.get('SUPABASE_URL')!,
-    Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')!,
-  );
+  _admin = serviceClient();
   return _admin;
 }
 

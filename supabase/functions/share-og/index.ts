@@ -1,4 +1,5 @@
 // AUTH: public  (auto-annotated 2026-07-27, see docs/security/edge-function-auth-matrix.md)
+import { serviceClient } from '../_shared/supabaseClients.ts';
 /**
  * share-og — Open Graph 友善的公開 HTML 預覽端點
  *
@@ -27,7 +28,6 @@
  *   - 僅輸出 instrument 名/週次/專家公開資料，不含 entry/stop/target/週記內文。
  *   - 找不到資料 → 200 + 預設 OG（避免社群顯示 404 預覽崩壞）。
  */
-import { createClient } from "https://esm.sh/@supabase/supabase-js@2.39.0";
 
 const SITE = "https://legendflow.tw";
 const SUPABASE_URL = Deno.env.get("SUPABASE_URL")!;
@@ -36,10 +36,7 @@ const DEFAULT_OG_IMAGE = `${SITE}/og-image.svg`;
 const DEFAULT_TITLE = "legendflow · 投顧分析師與實戰導師訂閱平台";
 const DEFAULT_DESC = "legendflow（智富股市實戰學院）— 專業投顧分析師即時策略訂閱與實戰導師週記教學。";
 
-const supabase = createClient(
-  Deno.env.get("SUPABASE_URL")!,
-  Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!,
-);
+const supabase = serviceClient();
 
 interface OgData {
   title: string;

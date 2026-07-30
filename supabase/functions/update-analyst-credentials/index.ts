@@ -1,8 +1,7 @@
 // AUTH: user  (auto-annotated 2026-07-27, see docs/security/edge-function-auth-matrix.md)
-import { createClient } from 'https://esm.sh/@supabase/supabase-js@2.49.1';
 
 import { corsHeaders } from '../_shared/cors.ts';
-import { serviceClient } from '../_shared/supabaseClients.ts';
+import { serviceClient, userClient } from '../_shared/supabaseClients.ts';
 import { withLogging, type EdgeLogger } from '../_shared/edgeLogger.ts';
 import { validateInput, validationJsonResponse } from '../_shared/inputValidator.ts';
 type Action = 'fetch_email' | 'update_email' | 'reset_password' | 'send_reset_email';
@@ -22,9 +21,7 @@ Deno.serve(withLogging('update-analyst-credentials', async (req, log) => {
       return fail('MISSING_AUTHORIZATION', '缺少登入憑證，請重新登入後再試', 401, log);
     }
 
-    const callerClient = createClient(supabaseUrl, anonKey, {
-      global: { headers: { Authorization: authHeader } },
-    });
+    const callerClient = userClient(req);
     const { data: { user: caller } } = await callerClient.auth.getUser();
     if (!caller) return fail('UNAUTHORIZED', '登入憑證無效，請重新登入後再試', 401, log);
 
@@ -151,9 +148,7 @@ Deno.serve(withLogging('update-analyst-credentials', async (req, log) => {
       }
       if (!targetEmail) return fail('TARGET_EMAIL_EMPTY', '帳號無 Email 無法寄送', 400, log, { expert_id: expertId });
 
-      const mailClient = createClient(supabaseUrl, anonKey, {
-        auth: { persistSession: false, autoRefreshToken: false },
-      });
+      const mailClient = userClient(req);
       const { error: resetErr } = await mailClient.auth.resetPasswordForEmail(targetEmail, {
         options: { redirectTo: `${siteUrl}/reset-password` },
       });

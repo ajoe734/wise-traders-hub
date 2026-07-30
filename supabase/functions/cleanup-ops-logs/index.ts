@@ -1,6 +1,5 @@
 // AUTH: user  (reclassified M-3c-2: 2026-07-27, see docs/security/edge-function-auth-matrix.md)
-import { createClient } from 'npm:@supabase/supabase-js@2';
-import { serviceClient } from '../_shared/supabaseClients.ts';
+import { serviceClient, userClient } from '../_shared/supabaseClients.ts';
 import { withLogging } from '../_shared/edgeLogger.ts';
 import { jsonResponse, corsHeaders } from '../_shared/cors.ts';
 
@@ -57,11 +56,7 @@ async function authorize(req: Request): Promise<{ ok: boolean; trigger: 'cron' |
   if (!authHeader.startsWith('Bearer ')) {
     return { ok: false, trigger: null, error: 'missing authorization' };
   }
-  const supabase = createClient(
-    Deno.env.get('SUPABASE_URL')!,
-    Deno.env.get('SUPABASE_ANON_KEY')!,
-    { global: { headers: { Authorization: authHeader } } },
-  );
+  const supabase = userClient(req);
   const { data: claims, error } = await supabase.auth.getClaims(authHeader.replace('Bearer ', ''));
   if (error || !claims?.claims?.sub) {
     return { ok: false, trigger: null, error: 'invalid token' };

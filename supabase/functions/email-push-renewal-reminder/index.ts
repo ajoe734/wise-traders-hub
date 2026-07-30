@@ -3,11 +3,11 @@
 // 每日 09:10 (UTC+8)：T-7 / T-3 / T-1 active 訂閱 + T+1 expired 訂閱（24h 內回購保留資料）
 // Idempotency: audit_logs action='subscription.renewal_email_sent' + detail.days_left
 
+import { serviceClient } from '../_shared/supabaseClients.ts';
 import { corsHeaders } from '../_shared/cors.ts';
 import { renewalUrl } from '../_shared/routes.ts';
 import { requireCronKey, AuthError } from '../_shared/authGuard.ts';
 import { withLogging } from '../_shared/edgeLogger.ts';
-import { createClient } from 'https://esm.sh/@supabase/supabase-js@2.49.1';
 
 const REMINDER_DAYS = [7, 3, 1, -1] as const;
 const RESEND_API_URL = 'https://api.resend.com/emails';
@@ -78,10 +78,7 @@ Deno.serve(withLogging('email-push-renewal-reminder', async (req) => {
 
   if (req.method === 'OPTIONS') return new Response(null, { headers: corsHeaders });
 
-  const supabaseAdmin = createClient(
-    Deno.env.get('SUPABASE_URL')!,
-    Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')!,
-  );
+  const supabaseAdmin = serviceClient();
   const resendKey = Deno.env.get('RESEND_API_KEY');
   if (!resendKey) {
     return new Response(JSON.stringify({ error: 'RESEND_API_KEY missing' }), {

@@ -1,6 +1,4 @@
 // AUTH: user  (reclassified M-3c-2: 2026-07-27, see docs/security/edge-function-auth-matrix.md)
-import { createClient } from 'npm:@supabase/supabase-js@2';
-import { corsHeaders } from 'npm:@supabase/supabase-js@2/cors';
 
 // S13 Observability & Cost — 統一後端健康 / 成本一覽
 // 回傳：
@@ -10,6 +8,7 @@ import { corsHeaders } from 'npm:@supabase/supabase-js@2/cors';
 //   - recentErrors: 近 24h 最後 50 筆 error level log
 //   - generatedAt
 
+import { serviceClient, userClient } from '../_shared/supabaseClients.ts';
 interface FnRow { fn: string; runs: number; errors: number; warns: number; last_seen: string | null; }
 interface JobRow { job_name: string; runs: number; success: number; fail: number; p95_ms: number | null; last_status: string | null; last_ran_at: string | null; }
 interface TableRow { table: string; total: number; older_than_7d: number; older_than_30d: number; }
@@ -22,11 +21,7 @@ Deno.serve(async (req) => {
     if (!authHeader?.startsWith('Bearer ')) {
       return json({ error: 'Unauthorized' }, 401);
     }
-    const authClient = createClient(
-      Deno.env.get('SUPABASE_URL')!,
-      Deno.env.get('SUPABASE_ANON_KEY')!,
-      { global: { headers: { Authorization: authHeader } } }
-    );
+    const authClient = userClient(req);
     const token = authHeader.replace('Bearer ', '');
     const { data: claims, error: claimErr } = await authClient.auth.getClaims(token);
     if (claimErr || !claims?.claims?.sub) return json({ error: 'Unauthorized' }, 401);
@@ -41,10 +36,7 @@ Deno.serve(async (req) => {
       .maybeSingle();
     if (!roleData) return json({ error: 'Forbidden' }, 403);
 
-    const admin = createClient(
-      Deno.env.get('SUPABASE_URL')!,
-      Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')!,
-    );
+    const admin = serviceClient();
 
     const now = Date.now();
     const since7d = new Date(now - 7 * 86400_000).toISOString();

@@ -10,9 +10,9 @@
 //   - dryRun=false → 真的把 lifecycle_status 設為 'archived'
 //
 // 由 pg_cron 每週日 03:00 (UTC+8) 觸發 dryRun=false。
+import { serviceClient } from '../_shared/supabaseClients.ts';
 import "jsr:@supabase/functions-js/edge-runtime.d.ts";
 import { requireCronKey, AuthError } from '../_shared/authGuard.ts';
-import { createClient } from "https://esm.sh/@supabase/supabase-js@2.49.1";
 
 import { corsHeaders } from '../_shared/cors.ts';
 import { withLogging } from '../_shared/edgeLogger.ts';
@@ -42,10 +42,7 @@ Deno.serve(withLogging('prune-knowledge-base', async (req) => {
     const body = await req.json().catch(() => ({}));
     const dryRun = body.dryRun !== false;
 
-    const supabase = createClient(
-      Deno.env.get('SUPABASE_URL')!,
-      Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')!,
-    );
+    const supabase = serviceClient();
 
     const now = Date.now();
     const staleSince = new Date(now - STALE_DAYS * 86400000).toISOString();

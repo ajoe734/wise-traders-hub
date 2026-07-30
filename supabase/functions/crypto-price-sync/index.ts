@@ -3,9 +3,8 @@
 // 每 5 分鐘同步 crypto_symbol_map 內所有 is_active=true 的幣別現價
 // 資料源優先順序：Binance /api/v3/ticker/24hr → Coingecko simple/price fallback
 // 寫入 public.current_prices（asset_class='crypto', currency='USD', market='CRYPTO'）
-import { corsHeaders } from 'npm:@supabase/supabase-js@2/cors';
+import { serviceClient } from '../_shared/supabaseClients.ts';
 import { requireCronKey, AuthError } from '../_shared/authGuard.ts';
-import { createClient } from 'npm:@supabase/supabase-js@2';
 
 interface SymbolRow {
   symbol: string;
@@ -76,11 +75,7 @@ Deno.serve(async (req) => {
 
   if (req.method === 'OPTIONS') return new Response('ok', { headers: corsHeaders });
 
-  const supabase = createClient(
-    Deno.env.get('SUPABASE_URL')!,
-    Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')!,
-    { auth: { persistSession: false } },
-  );
+  const supabase = serviceClient();
 
   const startedAt = Date.now();
   const errors: string[] = [];

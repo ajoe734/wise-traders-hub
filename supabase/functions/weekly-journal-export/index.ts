@@ -8,7 +8,7 @@
 //
 // 觸發：pg_cron（詳見同批 SQL）。也可帶 body { weekStart: "YYYY-MM-DD" } 手動補跑。
 
-import { createClient } from "npm:@supabase/supabase-js@2.57.4";
+import { serviceClient } from '../_shared/supabaseClients.ts';
 import { requireCaller, AuthError } from '../_shared/authGuard.ts';
 
 const corsHeaders = {
@@ -389,10 +389,7 @@ Deno.serve(async (req) => {
 
   if (req.method === "OPTIONS") return new Response("ok", { headers: corsHeaders });
 
-  const supabase = createClient(
-    Deno.env.get("SUPABASE_URL")!,
-    Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!,
-  );
+  const supabase = serviceClient();
 
   try {
     let weekStart: string | null = null;

@@ -13,9 +13,9 @@
 //     trigger_source?: 'cron'|'watchdog'|'manual'
 //   }
 
+import { serviceClient } from '../_shared/supabaseClients.ts';
 import { corsHeaders, jsonResponse, errorResponse, corsPreflight } from '../_shared/cors.ts';
 import { requireCronKey, AuthError } from '../_shared/authGuard.ts';
-import { createClient } from 'https://esm.sh/@supabase/supabase-js@2.49.1';
 
 const SUPABASE_URL = Deno.env.get('SUPABASE_URL')!;
 const SERVICE_ROLE_KEY = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')!;
@@ -85,7 +85,7 @@ Deno.serve(async (req) => {
   if (req.method === 'OPTIONS') return corsPreflight();
   if (req.method !== 'POST') return errorResponse('method_not_allowed', 405);
 
-  const admin = createClient(SUPABASE_URL, SERVICE_ROLE_KEY);
+  const admin = serviceClient();
 
   let body: any = {};
   try { body = await req.json(); } catch { body = {}; }

@@ -1,7 +1,7 @@
 // AUTH: user  (auto-annotated 2026-07-27, see docs/security/edge-function-auth-matrix.md)
+import { serviceClient, userClient } from '../_shared/supabaseClients.ts';
 import { corsHeaders } from '../_shared/cors.ts';
 import { withLogging } from '../_shared/edgeLogger.ts';
-import { createClient } from 'https://esm.sh/@supabase/supabase-js@2.49.1'
 import { resolveLinePushQuantityUnit, type LinePushExpertHint } from './quantityUnit.ts'
 
 const LINE_MULTICAST_URL = 'https://api.line.me/v2/bot/message/multicast'
@@ -396,16 +396,9 @@ Deno.serve(withLogging('line-push-signal', async (req) => {
       })
     }
 
-    const supabaseAdmin = createClient(
-      Deno.env.get('SUPABASE_URL')!,
-      Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')!,
-    )
+    const supabaseAdmin = serviceClient()
 
-    const supabaseUser = createClient(
-      Deno.env.get('SUPABASE_URL')!,
-      Deno.env.get('SUPABASE_ANON_KEY')!,
-      { global: { headers: { Authorization: authHeader } } },
-    )
+    const supabaseUser = userClient(req)
 
     const token = authHeader.replace('Bearer ', '')
     const { data: userData, error: userError } = await supabaseUser.auth.getUser(token)

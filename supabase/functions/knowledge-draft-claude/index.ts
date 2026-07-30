@@ -5,10 +5,9 @@
 // - 用 ANTHROPIC_API_KEY 呼叫 Claude，產出 N 條結構化知識條目
 // - 寫入 checkup_knowledge_candidates（status=pending）等管理員審核
 import "jsr:@supabase/functions-js/edge-runtime.d.ts";
-import { createClient } from "https://esm.sh/@supabase/supabase-js@2.49.1";
 
 import { corsHeaders } from '../_shared/cors.ts';
-import { serviceClient } from '../_shared/supabaseClients.ts';
+import { serviceClient, userClient } from '../_shared/supabaseClients.ts';
 import { withLogging } from '../_shared/edgeLogger.ts';
 const VALID_CATEGORIES = ['chip_analysis', 'technical_analysis', 'industry_trends', 'strategy_cases', 'news_correlation'] as const;
 type Category = typeof VALID_CATEGORIES[number];
@@ -122,9 +121,7 @@ Deno.serve(withLogging('knowledge-draft-claude', async (req) => {
           status: 401, headers: { ...corsHeaders, 'Content-Type': 'application/json' },
         });
       }
-      const userClient = createClient(supabaseUrl, Deno.env.get('SUPABASE_ANON_KEY')!, {
-        global: { headers: { Authorization: authHeader } },
-      });
+      const userClient = userClient(req);
       const { data: { user: u }, error: userErr } = await userClient.auth.getUser();
       if (userErr || !u) {
         return new Response(JSON.stringify({ error: 'Invalid token' }), {

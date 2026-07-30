@@ -13,9 +13,8 @@
 // Payload:
 //   { trade_date?: 'YYYY-MM-DD', wave?: 1|2|3, dry_run?: boolean }
 
-import { createClient } from 'npm:@supabase/supabase-js@2';
+import { serviceClient } from '../_shared/supabaseClients.ts';
 import { requireCronKey, AuthError } from '../_shared/authGuard.ts';
-import { corsHeaders } from 'npm:@supabase/supabase-js@2/cors';
 
 const SUPABASE_URL = Deno.env.get('SUPABASE_URL')!;
 const SUPABASE_SERVICE_ROLE_KEY = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')!;
@@ -61,9 +60,7 @@ Deno.serve(async (req) => {
   const wave: number = Number(payload.wave ?? 0) || 0;
   const dryRun: boolean = Boolean(payload.dry_run);
 
-  const supa = createClient(SUPABASE_URL, SUPABASE_SERVICE_ROLE_KEY, {
-    auth: { persistSession: false },
-  });
+  const supa = serviceClient();
 
   const report: any = {
     trade_date: tradeDate,

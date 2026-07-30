@@ -12,9 +12,8 @@
 // 每次 worker 呼叫都會：先讀 degrade state、cap 掉超出 policy 的 batch/priority/concurrency、
 // 處理完後蒐集訊號 → decide() → 若需轉移就寫入 tw_bsr_degrade_events 並更新 config。
 
-import { createClient } from 'npm:@supabase/supabase-js@2';
+import { serviceClient } from '../_shared/supabaseClients.ts';
 import { requireCronKey, AuthError } from '../_shared/authGuard.ts';
-import { corsHeaders } from 'npm:@supabase/supabase-js@2/cors';
 import {
   checkRateLimit,
   fetchWithRateLimit,
@@ -63,11 +62,7 @@ import {
 const FINMIND_URL = 'https://api.finmindtrade.com/api/v4/data';
 const FINMIND_TOKEN = Deno.env.get('FINMIND_TOKEN') ?? '';
 
-const supa = createClient(
-  Deno.env.get('SUPABASE_URL')!,
-  Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')!,
-  { auth: { persistSession: false, autoRefreshToken: false } },
-);
+const supa = serviceClient();
 
 const json = (b: unknown, s = 200) =>
   new Response(JSON.stringify(b), { status: s, headers: { ...corsHeaders, 'Content-Type': 'application/json' } });

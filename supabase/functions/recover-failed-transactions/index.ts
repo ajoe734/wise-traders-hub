@@ -8,10 +8,10 @@
 // 與 W4-2 (recover-abandoned-checkout, 30m–2h) 互補：W4-2 是「還在猶豫」窗口、
 // 本函式是「24h 都沒回來」最後一次嘗試，並結束生命週期。
 
+import { serviceClient } from '../_shared/supabaseClients.ts';
 import { corsHeaders } from '../_shared/cors.ts';
 import { requireCronKey, AuthError } from '../_shared/authGuard.ts';
 import { withLogging } from '../_shared/edgeLogger.ts';
-import { createClient } from 'https://esm.sh/@supabase/supabase-js@2.49.1';
 
 const LINE_PUSH_URL = 'https://api.line.me/v2/bot/message/push';
 const RESEND_API_URL = 'https://api.resend.com/emails';
@@ -103,10 +103,7 @@ Deno.serve(withLogging('recover-failed-transactions', async (req) => {
 
   if (req.method === 'OPTIONS') return new Response(null, { headers: corsHeaders });
 
-  const supabaseAdmin = createClient(
-    Deno.env.get('SUPABASE_URL')!,
-    Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')!,
-  );
+  const supabaseAdmin = serviceClient();
   const siteUrl = (Deno.env.get('SITE_URL') || 'https://legendflow.tw').replace(/\/$/, '');
   const resendKey = Deno.env.get('RESEND_API_KEY');
 

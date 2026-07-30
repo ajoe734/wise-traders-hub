@@ -1,7 +1,7 @@
 // AUTH: user  (auto-annotated 2026-07-27, see docs/security/edge-function-auth-matrix.md)
 // GET  ?expert_id=... → 取或建 conversation, 回歷史訊息
 // DELETE ?expert_id=... → 清空該 conversation 的所有 messages
-import { createClient } from 'npm:@supabase/supabase-js@2';
+import { serviceClient, userClient } from '../_shared/supabaseClients.ts';
 import { jsonResponse, errorResponse } from '../_shared/cors.ts';
 import { withLogging } from '../_shared/edgeLogger.ts';
 import { getExpertAiQuota } from '../_shared/expert-ai-quota.ts';
@@ -18,14 +18,12 @@ Deno.serve(withLogging('expert-ai-conversation', async (req, _log) => {
   const expertId = url.searchParams.get('expert_id');
   if (!expertId) return errorResponse('expert_id required', 400);
 
-  const userClient = createClient(SUPABASE_URL, ANON_KEY, {
-    global: { headers: { Authorization: authHeader } },
-  });
+  const userClient = userClient(req);
   const { data: userData } = await userClient.auth.getUser();
   const uid = userData?.user?.id;
   if (!uid) return errorResponse('unauthorized', 401);
 
-  const admin = createClient(SUPABASE_URL, SERVICE_KEY);
+  const admin = serviceClient();
 
   if (req.method === 'GET') {
     let { data: conv } = await admin
