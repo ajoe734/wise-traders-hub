@@ -100,7 +100,6 @@ import {
   useFreeCheckupBootstrap,
   useFetchCalendarEventsRef,
 } from "@/hooks/useFreeCheckupBootstrap";
-import HoldingsIntroVideo from "@/checkup/components/HoldingsIntroVideo";
 import { fetchAuthoritativeQuotes } from "@/checkup/lib/authoritativeQuotes";
 
 import { Logomark } from "@/components/brand";
