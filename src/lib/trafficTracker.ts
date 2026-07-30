@@ -86,6 +86,7 @@ let inited = false;
 type QueuedItem = { kind: 'pv'; route: string } | { kind: 'ev'; name: string; props?: Record<string, unknown>; route: string };
 let queue: QueuedItem[] = [];
 let flushTimer: number | null = null;
+let flushDueAt = Infinity;
 const visitor_id = (() => {
   try { return getOrCreateVisitorId(); } catch { return ''; }
 })();
@@ -115,9 +116,18 @@ function flushEvents() {
 }
 
 function scheduleFlush(delay = 2000) {
-  if (flushTimer != null) return;
+  const dueAt = Date.now() + delay;
+  if (flushTimer != null) {
+    // 已排程但更晚才會送 → 縮短到較急的那一個（具名事件 500ms 不該被
+    // page-view 的 2000ms 批次卡住）。
+    if (dueAt >= flushDueAt) return;
+    clearTimeout(flushTimer);
+    flushTimer = null;
+  }
+  flushDueAt = dueAt;
   flushTimer = window.setTimeout(() => {
     flushTimer = null;
+    flushDueAt = Infinity;
     flushEvents();
   }, delay);
 }
@@ -180,7 +190,7 @@ export function initTrafficTracker() {
   }
 
   const flushNow = () => {
-    if (flushTimer != null) { clearTimeout(flushTimer); flushTimer = null; }
+    if (flushTimer != null) { clearTimeout(flushTimer); flushTimer = null; flushDueAt = Infinity; }
     flushEvents();
   };
   document.addEventListener('visibilitychange', () => {

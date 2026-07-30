@@ -98,7 +98,7 @@ test.describe('F3 訂閱取消 / 續訂事件', () => {
   test('過期但 status 仍為 active 時，「立即續訂」導向 App checkout 且帳號頁不顯示有效訂閱卡', async ({ page }) => {
     await seedSession(page, USER);
     await installFunnelCollector(page);
-    await installRoutes(page, baseRoutes({ billing: 'monthly', expiresInDays: -2 }));
+    await installRoutes(page, baseRoutes({ billing: 'monthly', expiresInDays: -0.5 }));
 
     await page.goto('/app/account');
     await expect(page.getByRole('link', { name: /立即續訂/ })).toBeVisible({ timeout: 8_000 });
