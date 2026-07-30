@@ -162,6 +162,8 @@ export interface ActiveSubscription {
   user_id: string;
   plan_id: string;
   canceled_at: string | null;
+  /** 有值且早於 nowIso 者視為已過期，兩組名單都不收。 */
+  expires_at?: string | null;
 }
 
 /**
@@ -170,13 +172,19 @@ export interface ActiveSubscription {
  * subscribedTargets：有效且未取消的訂閱 → 收完整週記／訊號
  * canceledTargets  ：有效但已標記 canceled_at → 收績效招回訊息
  * 兩者皆非（無相關有效訂閱）→ 不推播
+ *
+ * 過期判定：`expires_at` 有值且早於 `nowIso`（預設現在）者一律剔除；
+ * `expires_at` 為 null 視為無到期日，保留。
  */
 export function classifyLineTargets(
   bindings: LineBinding[],
   activeSubs: ActiveSubscription[],
   expertPlanIds: Set<string>,
+  nowIso: string = new Date().toISOString(),
 ): { subscribedTargets: string[]; canceledTargets: string[] } {
-  const relevantSubs = activeSubs.filter((s) => expertPlanIds.has(s.plan_id));
+  const relevantSubs = activeSubs.filter(
+    (s) => expertPlanIds.has(s.plan_id) && !(s.expires_at && s.expires_at < nowIso),
+  );
   const subscribedUserIds = new Set(
     relevantSubs.filter((s) => !s.canceled_at).map((s) => s.user_id),
   );
