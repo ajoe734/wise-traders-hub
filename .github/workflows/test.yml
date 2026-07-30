@@ -23,6 +23,12 @@ jobs:
       - name: Run tests
         run: npx vitest run
 
+      - name: Checkup 深模組邊界守衛 (ADR-0001)
+        run: npm run check:module-boundaries
+
+      - name: ESLint
+        run: npm run lint
+
       - name: Sitemap ↔ route consistency
         run: npx tsx scripts/sitemap-consistency-check.ts
 
