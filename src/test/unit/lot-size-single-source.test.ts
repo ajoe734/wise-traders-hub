@@ -60,16 +60,30 @@ describe('前後端鏡像 parity', () => {
 
 const GUARDED_FILES = [
   'src/lib/positionQuantity.ts',
-  'src/lib/journalsExport.ts',
   'src/pages/_adminSignals/derive.ts',
   'src/pages/JournalAuthoringHarnessEntry.tsx',
   'src/checkup/components/freecheckup/ChipsTrendChart.tsx',
   'src/checkup/components/freecheckup/ChipsSection.tsx',
-  'supabase/functions/weekly-journal-export/index.ts',
   'supabase/functions/daily-snapshot/index.ts',
   'supabase/functions/_shared/bsrSealingParity.ts',
   'supabase/functions/reconcile-warrant-quantities/index.ts',
 ];
+
+// A3 後：週記匯出的張股換算集中在匯出核心，改用 import 守衛
+describe('靜態守衛：週記匯出核心只能透過 lotSize 換算', () => {
+  it.each([
+    'supabase/functions/_shared/journalExportCore.ts',
+    'src/lib/journalExportCore.ts',
+  ])('%s import lotSize 且無裸的 1000 換算', (file) => {
+    const src = readFileSync(resolve(process.cwd(), file), 'utf-8');
+    expect(src).toMatch(/lotsToShares/);
+    expect(src).toMatch(/lotSize/);
+    const bare = src
+      .split('\n')
+      .filter((l) => /(\*|\/)\s*1000\b/.test(l) && !l.trim().startsWith('*'));
+    expect(bare, `裸換算：${bare.join(' | ')}`).toEqual([]);
+  });
+});
 
 describe('靜態守衛：不得再有裸的張股換算', () => {
   it.each(GUARDED_FILES)('%s 使用 lotSize 單一資料源', (file) => {
