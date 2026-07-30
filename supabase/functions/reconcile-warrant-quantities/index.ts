@@ -5,6 +5,7 @@ import { requireCronKey, AuthError } from '../_shared/authGuard.ts';
 import { jsonResponse } from "../_shared/cors.ts";
 import { serviceClient } from "../_shared/supabaseClients.ts";
 import { withLogging } from "../_shared/edgeLogger.ts";
+import { lotsToShares, SHARES_PER_LOT } from '../_shared/lotSize.ts';
 
 /**
  * reconcile-warrant-quantities
@@ -12,7 +13,7 @@ import { withLogging } from "../_shared/edgeLogger.ts";
  * 用 warrant_expiry.exercise_ratio 自動修正 trade_records.quantity。
  *
  * 規則（張 → 股）：
- *   權證張數固定 = 1000 個單位
+ *   權證張數固定 = SHARES_PER_LOT 個單位
  *   股數 = signal.quantity(張) × 1000 × exercise_ratio
  *
  *   例：
@@ -129,7 +130,7 @@ const handler = withLogging("reconcile-warrant-quantities", async (req, log) => 
     }
     if (signalUnit !== '張' || !signalQty) continue;
 
-    const expected = Math.round(signalQty * 1000 * ratio);
+    const expected = Math.round(lotsToShares(signalQty) * ratio);
     const current = Number(t.quantity ?? 0);
     if (Math.abs(current - expected) <= 1) continue;
 

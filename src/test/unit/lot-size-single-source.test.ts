@@ -68,6 +68,7 @@ const GUARDED_FILES = [
   'supabase/functions/weekly-journal-export/index.ts',
   'supabase/functions/daily-snapshot/index.ts',
   'supabase/functions/_shared/bsrSealingParity.ts',
+  'supabase/functions/reconcile-warrant-quantities/index.ts',
 ];
 
 describe('靜態守衛：不得再有裸的張股換算', () => {
