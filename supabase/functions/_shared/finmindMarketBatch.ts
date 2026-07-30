@@ -11,7 +11,7 @@
 // 結果寫入 tw_bsr_sync_config[key='market_batch'].config.supported，
 // 也提供 kill switch（config.enabled=false 立刻降回 per-stock）。
 
-import type { SupabaseClient } from 'npm:@supabase/supabase-js@2';
+import type { SupabaseClient } from './supabaseClients.ts';
 import { fetchWithRateLimit } from './finmindRateLimit.ts';
 import type { FinmindRow } from '../tw-bsr-finmind-sync/lib.ts';
 
