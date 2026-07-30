@@ -1,6 +1,8 @@
 // 共用: Expert AI 對話每日配額檢查
 // 依 Asia/Taipei 每日 00:00 重置；跨所有導師合計。
 import type { SupabaseClient } from './supabaseClients.ts';
+import { isCompanyAdminWith } from './adminGuard.ts';
+
 
 export const EXPERT_AI_DAILY_LIMIT = 30;
 
