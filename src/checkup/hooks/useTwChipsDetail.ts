@@ -1,7 +1,7 @@
 // useTwChipsDetail — 抽屜私有查詢：台股籌碼面（三大法人 + BSR）
 // 呼叫公開市場資料 endpoint `tw-chips-detail`；SWR 5 分鐘快取。
 import { useEffect, useRef, useState } from 'react';
-import { supabase } from '@/integrations/supabase/client';
+import { getCheckupGateway, parseGatewayErrorBody } from '../lib/gateway';
 import { trackEvent } from '@/lib/trafficTracker';
 
 export interface InstitutionalWindow {
@@ -337,22 +337,24 @@ export function useTwChipsDetail(stockCode: string | undefined | null, enabled =
     (async () => {
       let status: number | undefined;
       try {
-        const url = `${(supabase as any).functionsUrl || (import.meta.env.VITE_SUPABASE_URL + '/functions/v1')}/tw-chips-detail?stock_id=${encodeURIComponent(stockCode)}`;
+        const gw = getCheckupGateway();
+        const url = `${gw.functionsUrl()}/tw-chips-detail?stock_id=${encodeURIComponent(stockCode)}`;
         // tw-chips-detail 只回公開市場籌碼資料，不依賴使用者身份。
         // 固定用 publishable anon JWT，避免 demo/匿名模式或瀏覽器殘留 stale user JWT
         // 觸發後端 auth.getUser() 的「missing sub claim」401，造成抽屜白屏。
-        const doFetch = async () => fetch(url, {
-          signal: ctrl.signal,
-          headers: {
-            apikey: (import.meta.env.VITE_SUPABASE_PUBLISHABLE_KEY as string) || '',
-            Authorization: `Bearer ${import.meta.env.VITE_SUPABASE_PUBLISHABLE_KEY}`,
-          },
-        });
-        const resp = await doFetch();
-        status = resp.status;
-        const rawText = await resp.text();
-        if (!resp.ok) {
-          throw new Error(`chips ${resp.status}: ${rawText.slice(0, 120)}`);
+        let rawText: string;
+        try {
+          rawText = await gw.http.text(url, {
+            signal: ctrl.signal,
+            headers: {
+              apikey: (import.meta.env.VITE_SUPABASE_PUBLISHABLE_KEY as string) || '',
+              Authorization: `Bearer ${import.meta.env.VITE_SUPABASE_PUBLISHABLE_KEY}`,
+            },
+          });
+          status = 200;
+        } catch (err: any) {
+          status = err?.status;
+          throw new Error(`chips ${err?.status ?? 0}: ${String(err?.body ?? err?.message ?? '').slice(0, 120)}`);
         }
 
         const json = JSON.parse(rawText) as TwChipsPayload & {
