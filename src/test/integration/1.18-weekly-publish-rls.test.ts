@@ -222,13 +222,22 @@ describe('drift-detection: Journals.tsx / JournalDetail.tsx 週記瀏覽路徑',
     expect(journalsSrc).toContain('has_active_subscription');
   });
 
-  it('Journals.tsx 查詢 expert_signals 時以 status=published 過濾（4.5-3）', () => {
-    expect(journalsSrc).toContain('expert_signals');
-    expect(journalsSrc).toContain("'published'");
+  // A4：expert_signals 讀取已收斂到 journalRepository，頁面不得再自刻查詢；
+  // status=published 過濾改由倉庫保證（見 journal-repository-parity.test.ts）。
+  it('Journals.tsx 透過 journalRepository 讀取，且倉庫鎖住 status=published（4.5-3）', () => {
+    expect(journalsSrc).toContain('journalRepository');
+    expect(journalsSrc).toContain('forSubscriber');
+    const repoSrc = readFileSync(
+      resolve(process.cwd(), 'src/lib/journalRepository.ts'),
+      'utf-8',
+    );
+    expect(repoSrc).toContain('expert_signals');
+    expect(repoSrc).toContain("'published'");
   });
 
-  it('JournalDetail.tsx 查詢 expert_signals 取得週記詳情（4.5-3/4.5-4）', () => {
-    expect(detailSrc).toContain('expert_signals');
+  it('JournalDetail.tsx 透過 journalRepository.forOwnerPreview 取得週記詳情（4.5-3/4.5-4）', () => {
+    expect(detailSrc).toContain('journalRepository');
+    expect(detailSrc).toContain('forOwnerPreview');
   });
 
   it('Journals.tsx 與 JournalDetail.tsx 均掛上 SubscriptionTimeline（訂閱有效期間視覺化）', () => {
