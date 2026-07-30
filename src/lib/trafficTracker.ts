@@ -86,6 +86,7 @@ let inited = false;
 type QueuedItem = { kind: 'pv'; route: string } | { kind: 'ev'; name: string; props?: Record<string, unknown>; route: string };
 let queue: QueuedItem[] = [];
 let flushTimer: number | null = null;
+let flushDueAt = Infinity;
 const visitor_id = (() => {
   try { return getOrCreateVisitorId(); } catch { return ''; }
 })();
