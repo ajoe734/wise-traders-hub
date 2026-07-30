@@ -5,6 +5,7 @@ import { corsHeaders } from '../_shared/cors.ts';
 import { withLogging } from '../_shared/edgeLogger.ts';
 import { resolveLinePushQuantityUnit, type LinePushExpertHint } from './quantityUnit.ts'
 import { getActionLabel } from '../_shared/signalActionLabels.ts'
+import { JOURNAL_PUSH_SELECT } from '../_shared/journalRepository.ts'
 
 const LINE_MULTICAST_URL = 'https://api.line.me/v2/bot/message/multicast'
 
@@ -506,7 +507,7 @@ Deno.serve(withLogging('line-push-signal', async (req) => {
       console.log('Batch mode for batch_id:', batch_id)
       const { data: batchSignals } = await supabaseAdmin
         .from('expert_signals')
-        .select('*')
+        .select(JOURNAL_PUSH_SELECT)
         .eq('expert_id', expert_id)
         .eq('batch_id', batch_id)
         .order('executed_at', { ascending: true, nullsFirst: false })
@@ -565,7 +566,7 @@ Deno.serve(withLogging('line-push-signal', async (req) => {
 
     const { data: signal } = await supabaseAdmin
       .from('expert_signals')
-      .select('*')
+      .select(JOURNAL_PUSH_SELECT)
       .eq('id', signal_id)
       .single()
 

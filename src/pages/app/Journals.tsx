@@ -16,6 +16,7 @@ import { Button } from '@/components/ui/button';
 import { useQuery } from '@tanstack/react-query';
 import { usePreviewMode } from '@/hooks/usePreviewMode';
 import { intentHandlers } from '@/lib/routePrefetch';
+import * as journalRepo from '@/lib/journalRepository';
 import { AssetFilterChips } from '@/components/AssetFilterChips';
 import { resolveAssetClass, type AssetClass } from '@/lib/asset';
 import { SubscriptionTimeline } from '@/components/SubscriptionTimeline';
@@ -124,19 +125,17 @@ const fetchJournalsData = async (userId: string | undefined, isTester: boolean, 
     return { signals: [] as JournalSignal[], hasSubscription: true, diag };
   }
 
-  const { data, error } = await supabase
-    .from('expert_signals')
-    .select('id, instrument, action, price_hint, reason_summary, reason_detail, risk_notes, learning_points, published_at, expert_id, experts(name, slug, role, avatar_url, asset_class, currency)')
-    .eq('status', 'published')
-    .in('expert_id', mentorIds)
-    .order('published_at', { ascending: false })
-    .limit(100);
+  const { signals: fetched, error } = await journalRepo.forSubscriber<JournalSignal>(
+    supabase as any,
+    { mentorIds, limit: 100 },
+  );
 
   if (error) {
     console.error('Error fetching journals:', error);
   }
 
-  const signals = ((data as any) || []) as JournalSignal[];
+
+  const signals = fetched;
   const countMap = new Map<string, number>();
   signals.forEach(s => countMap.set(s.expert_id, (countMap.get(s.expert_id) || 0) + 1));
   diag.subscribedExperts.forEach(s => { if (s.included) s.published_count = countMap.get(s.expert_id) || 0; });
