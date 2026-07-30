@@ -12,5 +12,10 @@ Allow: /
 
 User-agent: *
 Allow: /
+Disallow: /e2e/
+Disallow: /app/
+Disallow: /company/
+Disallow: /admin/
+Disallow: /account/
 
 Sitemap: https://legendflow.tw/sitemap.xml
