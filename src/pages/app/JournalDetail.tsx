@@ -35,6 +35,9 @@ import { UnavailableContent } from '@/components/UnavailableContent';
 import { parseInstrument } from '@/lib/instrument';
 import { resolveStockNames } from '@/lib/stockNameResolver';
 import { usePreviewMode } from '@/hooks/usePreviewMode';
+import * as journalRepo from '@/lib/journalRepository';
+import type { JournalFetchDiagnostics } from '@/lib/journalRepository';
+
 
 interface SignalDetail {
   id: string;
