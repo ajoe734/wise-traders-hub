@@ -25,16 +25,16 @@ function taipeiDayBoundaries(now = new Date()) {
 
 /**
  * 是否豁免（company_admin / 導師本人在自己頁面預覽時另外處理）。
+ * 走 adminGuard 單一契約，避免直接查 user_roles 被 RLS 擋成偽 false。
  */
 async function isAdmin(admin: SupabaseClient, uid: string): Promise<boolean> {
-  const { data } = await admin
-    .from('user_roles')
-    .select('role')
-    .eq('user_id', uid)
-    .eq('role', 'company_admin')
-    .maybeSingle();
-  return !!data;
+  try {
+    return await isCompanyAdminWith(admin as never, uid);
+  } catch {
+    return false;
+  }
 }
+
 
 export async function getExpertAiQuota(
   admin: SupabaseClient,
