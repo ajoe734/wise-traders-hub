@@ -18,9 +18,14 @@ import { fileURLToPath } from 'node:url';
 
 // Vitest can transform this module with a non-file import.meta.url, so fall
 // back to the process cwd (repo root) when the URL isn't a file: URL.
-const ROOT = import.meta.url?.startsWith('file:')
-  ? fileURLToPath(new URL('..', import.meta.url))
-  : process.cwd();
+function resolveRoot() {
+  try {
+    return fileURLToPath(new URL('..', import.meta.url));
+  } catch {
+    return process.cwd();
+  }
+}
+const ROOT = resolveRoot();
 const FN_DIR = join(ROOT, 'supabase/functions');
 
 // Files that legitimately own the primitives being audited.
