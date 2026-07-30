@@ -7,6 +7,7 @@
 //   GET /tw-institutional-daily-sync                          // 預設今日（台北）
 // 由 pg_cron 每交易日 17:45 排程呼叫。
 import { serviceClient, userClient } from '../_shared/supabaseClients.ts';
+import { isCompanyAdmin } from "../_shared/adminGuard.ts";
 import "jsr:@supabase/functions-js/edge-runtime.d.ts";
 import { corsHeaders, corsPreflight, jsonResponse, errorResponse } from "../_shared/cors.ts";
 import { requireCronKey, AuthError } from "../_shared/authGuard.ts";
@@ -242,13 +243,8 @@ async function isAdminCaller(req: Request): Promise<{ ok: boolean; reason?: stri
     const uc = userClient(req);
     const { data: u } = await uc.auth.getUser();
     if (!u?.user?.id) return { ok: false, reason: "invalid_jwt" };
-    const admin = serviceClient();
-    const { data: hr, error } = await admin.rpc("has_role", {
-      _user_id: u.user.id,
-      _role: "company_admin",
-    });
-    if (error) return { ok: false, reason: `has_role_error:${error.message}` };
-    return hr === true ? { ok: true } : { ok: false, reason: "not_admin" };
+    const ok = await isCompanyAdmin(u.user.id);
+    return ok ? { ok: true } : { ok: false, reason: "not_admin" };
   } catch (err) {
     return { ok: false, reason: (err as Error).message.slice(0, 120) };
   }

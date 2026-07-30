@@ -6,6 +6,7 @@
 // Auth: relies on SUPABASE_SERVICE_ROLE_KEY. Callable manually for testing.
 
 import { corsPreflight, jsonResponse, errorResponse } from '../_shared/cors.ts';
+import { listCompanyAdminIds } from '../_shared/adminGuard.ts';
 import { requireCronKey, AuthError } from '../_shared/authGuard.ts';
 import { serviceClient } from '../_shared/supabaseClients.ts';
 import {
@@ -641,11 +642,7 @@ async function pushPendingAlertsToLine(admin: any) {
   const rows = (pending ?? []) as Array<{ id: string; level: string; title: string; message: string | null }>;
   if (!rows.length) return { pushed: 0 };
 
-  const { data: adminRoles } = await admin
-    .from('user_roles')
-    .select('user_id')
-    .eq('role', 'company_admin');
-  const adminIds = Array.from(new Set((adminRoles ?? []).map((r: { user_id: string }) => r.user_id))).filter(Boolean) as string[];
+  const adminIds = Array.from(new Set(await listCompanyAdminIds())).filter(Boolean);
   if (!adminIds.length) return { pushed: 0, reason: 'no_admins' };
 
   // Find admin user — used as created_by for the push job

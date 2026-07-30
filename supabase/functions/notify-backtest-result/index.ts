@@ -1,5 +1,6 @@
 // AUTH: cron  (auto-annotated 2026-07-27, see docs/security/edge-function-auth-matrix.md)
 import { corsHeaders } from '../_shared/cors.ts';
+import { listCompanyAdminIds } from '../_shared/adminGuard.ts'
 import { requireCronKey, AuthError } from '../_shared/authGuard.ts';
 import { serviceClient } from '../_shared/supabaseClients.ts';
 import { withLogging } from '../_shared/edgeLogger.ts';
@@ -192,9 +193,7 @@ Deno.serve(withLogging('notify-backtest-result', async (req) => {
       }))
 
     // 收件人：所有 company_admin 的 email
-    const { data: adminRoles } = await sb
-      .from('user_roles').select('user_id').eq('role', 'company_admin')
-    const adminIds = (adminRoles ?? []).map((r: any) => r.user_id)
+    const adminIds = await listCompanyAdminIds()
 
     const recipients: string[] = []
     for (const uid of adminIds) {

@@ -1,5 +1,6 @@
 // AUTH: user  (auto-annotated 2026-07-27, see docs/security/edge-function-auth-matrix.md)
 import { serviceClient, userClient } from '../_shared/supabaseClients.ts';
+import { isCompanyAdmin } from '../_shared/adminGuard.ts'
 import { corsHeaders } from '../_shared/cors.ts';
 import { withLogging } from '../_shared/edgeLogger.ts';
 import { resolveLinePushQuantityUnit, type LinePushExpertHint } from './quantityUnit.ts'
@@ -445,9 +446,7 @@ Deno.serve(withLogging('line-push-signal', async (req) => {
       })
     }
 
-    const { data: isAdmin } = await supabaseAdmin.rpc('has_role', {
-      _user_id: userId, _role: 'company_admin',
-    })
+    const isAdmin = await isCompanyAdmin(userId)
 
     if (expertRow.user_id !== userId && !isAdmin) {
       console.error('Forbidden: caller is not expert owner or admin')

@@ -3,6 +3,7 @@
 // 所有動作要求：呼叫者是該 expert 的 user 或 company_admin
 // POST body: { action, expert_id, ... }
 import { serviceClient, userClient } from '../_shared/supabaseClients.ts';
+import { isCompanyAdmin } from '../_shared/adminGuard.ts';
 import { corsHeaders, jsonResponse, errorResponse } from '../_shared/cors.ts';
 import { withLogging } from '../_shared/edgeLogger.ts';
 import { embedText } from '../_shared/ai-gateway.ts';
@@ -35,9 +36,8 @@ Deno.serve(withLogging('expert-ai-studio', async (req, log) => {
   // 授權檢查
   const { data: expert } = await admin.from('experts').select('id, user_id, name').eq('id', expertId).maybeSingle();
   if (!expert) return errorResponse('expert not found', 404);
-  const { data: role } = await admin.from('user_roles').select('role').eq('user_id', uid).eq('role', 'company_admin').maybeSingle();
   const isOwner = expert.user_id === uid;
-  const isAdmin = !!role;
+  const isAdmin = await isCompanyAdmin(uid);
   if (!isOwner && !isAdmin) return errorResponse('forbidden', 403);
 
   try {

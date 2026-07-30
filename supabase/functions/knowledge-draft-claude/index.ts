@@ -5,6 +5,7 @@
 // - 用 ANTHROPIC_API_KEY 呼叫 Claude，產出 N 條結構化知識條目
 // - 寫入 checkup_knowledge_candidates（status=pending）等管理員審核
 import "jsr:@supabase/functions-js/edge-runtime.d.ts";
+import { isCompanyAdmin } from '../_shared/adminGuard.ts';
 
 import { corsHeaders } from '../_shared/cors.ts';
 import { serviceClient, userClient } from '../_shared/supabaseClients.ts';
@@ -128,9 +129,8 @@ Deno.serve(withLogging('knowledge-draft-claude', async (req) => {
           status: 401, headers: { ...corsHeaders, 'Content-Type': 'application/json' },
         });
       }
-      const { data: roleRow } = await admin
-        .from('user_roles').select('role').eq('user_id', u.id).eq('role', 'company_admin').maybeSingle();
-      if (!roleRow) {
+      const callerIsAdmin = await isCompanyAdmin(u.id);
+      if (!callerIsAdmin) {
         return new Response(JSON.stringify({ error: 'Forbidden: company_admin only' }), {
           status: 403, headers: { ...corsHeaders, 'Content-Type': 'application/json' },
         });

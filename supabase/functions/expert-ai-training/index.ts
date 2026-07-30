@@ -2,6 +2,7 @@
 // 週五訓練對話台：讀該週已發佈週記→AI 提補完題→老師回覆→AI 產出候選知識條目與週記建議
 // Actions: list_weeks | get_session | start_session | save_answers | generate_suggestions | accept_knowledge | discard_session | complete_session
 import { serviceClient, userClient } from '../_shared/supabaseClients.ts';
+import { isCompanyAdmin } from '../_shared/adminGuard.ts';
 import { corsHeaders, jsonResponse, errorResponse } from '../_shared/cors.ts';
 import { withLogging } from '../_shared/edgeLogger.ts';
 import { embedText, createLovableAiGatewayProvider } from '../_shared/ai-gateway.ts';
@@ -47,9 +48,8 @@ Deno.serve(withLogging('expert-ai-training', async (req, log) => {
   const admin = serviceClient();
   const { data: expert } = await admin.from('experts').select('id, user_id, name').eq('id', expertId).maybeSingle();
   if (!expert) return errorResponse('expert not found', 404);
-  const { data: role } = await admin.from('user_roles').select('role').eq('user_id', uid).eq('role', 'company_admin').maybeSingle();
   const isOwner = expert.user_id === uid;
-  const isAdmin = !!role;
+  const isAdmin = await isCompanyAdmin(uid);
   if (!isOwner && !isAdmin) return errorResponse('forbidden', 403);
 
   const getModel = async () => {
