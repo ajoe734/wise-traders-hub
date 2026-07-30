@@ -8,8 +8,9 @@ import { validateInput, validationJsonResponse } from "../_shared/inputValidator
 
 const handler = withLogging("confirm-remittance", async (req, log) => {
   // AUTH: company_admin (unified contract — see _shared/adminGuard.ts)
+  let callerId: string;
   try {
-    await requireCompanyAdmin(req);
+    callerId = await requireCompanyAdmin(req);
   } catch (e) {
     return authErrorResponse(e, req);
   }
@@ -109,12 +110,12 @@ const handler = withLogging("confirm-remittance", async (req, log) => {
   await admin.from("remittance_orders").update({
     status: "confirmed",
     confirmed_at: now.toISOString(),
-    confirmed_by: u.user.id,
+    confirmed_by: callerId,
     subscription_id: subscriptionId,
   }).eq("id", orderId);
 
   await admin.from("audit_logs").insert({
-    actor_id: u.user.id,
+    actor_id: callerId,
     action: "remittance.confirm",
     target_type: "remittance_orders",
     target_id: orderId,

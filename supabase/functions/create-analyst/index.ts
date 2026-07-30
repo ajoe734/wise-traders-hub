@@ -22,8 +22,9 @@ Deno.serve(withLogging('create-analyst', async (req) => {
     }
 
     // AUTH: company_admin (unified contract — see _shared/adminGuard.ts)
+    let callerId: string
     try {
-      await requireCompanyAdmin(req)
+      callerId = await requireCompanyAdmin(req)
     } catch (e) {
       return authErrorResponse(e, req)
     }
@@ -131,7 +132,7 @@ Deno.serve(withLogging('create-analyst', async (req) => {
           role,
           bio: bio || null,
           status: 'suspended',
-          created_by: caller.id,
+          created_by: callerId,
         }).eq('id', existingExpert.id).select().single()
         if (updErr) throw updErr
         expert = updated
@@ -143,7 +144,7 @@ Deno.serve(withLogging('create-analyst', async (req) => {
           name,
           role,
           bio: bio || null,
-          created_by: caller.id,
+          created_by: callerId,
           status: 'suspended',
         }).select().single()
         if (expertError) throw expertError
@@ -181,7 +182,7 @@ Deno.serve(withLogging('create-analyst', async (req) => {
       }
 
       await adminClient.from('audit_logs').insert({
-        actor_id: caller.id,
+        actor_id: callerId,
         action: adopted ? 'adopt_analyst' : 'create_analyst',
         target_type: 'expert',
         target_id: expert.id,
