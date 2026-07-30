@@ -104,7 +104,8 @@ for (const p of realRoutes) {
 // 動態頁至少要有一筆代表性 URL，否則 /expert/:slug 這類頁面完全不會被索引
 for (const { pattern, re } of dynamicMatchers) {
   if (isNonIndexable(pattern)) continue;
-  if (pattern.startsWith("/checkout") || pattern.startsWith("/plan/")) continue; // 交易頁不索引
+  // 交易頁與個人投組頁不索引
+  if (/^\/(checkout|plan|portfolio|s)\//.test(pattern)) continue;
   if ([...sitemapPaths].some((p) => re.test(p))) continue;
   console.error(`✗ 動態公開路由在 sitemap 沒有任何實例: ${pattern}`);
   problems++;
