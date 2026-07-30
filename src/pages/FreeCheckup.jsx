@@ -102,6 +102,8 @@ import {
   useFetchCalendarEventsRef,
 } from "@/hooks/useFreeCheckupBootstrap";
 import HoldingsIntroVideo from "@/checkup/components/HoldingsIntroVideo";
+import { fetchAuthoritativeQuotes } from "@/checkup/lib/authoritativeQuotes";
+
 import { Logomark } from "@/components/brand";
 
 // #region App() — 主元件（state、effects、JSX 全部 inline；遵守 inline 憲法）
@@ -1807,20 +1809,20 @@ export default function App() {
         }).catch(() => {});
       } catch {}
 
-      // Step 2: 立即讀 current_prices（確保畫面馬上有資料；之後 Realtime 還會再刷一次）
-      const { data: rows, error } = await supabase
-        .from('current_prices')
-        .select('symbol, price, name, pushed_at')
-        .in('symbol', codes);
-
-      if (error) throw error;
+      // Step 2: 立即走 price-authority seam 取價（收盤後 snapshot 優先，盤中才 current_prices）
+      const quotes = await fetchAuthoritativeQuotes(codes);
 
       const priceMap = {};
-      (rows || []).forEach(r => {
-        if (r.symbol && Number(r.price) > 0) {
-          priceMap[r.symbol] = { price: Number(r.price), source: 'db', updatedAt: r.pushed_at };
+      Object.entries(quotes || {}).forEach(([symbol, q]) => {
+        if (Number(q?.price) > 0) {
+          priceMap[symbol] = {
+            price: Number(q.price),
+            source: q.source === 'snapshot' ? 'close' : 'db',
+            updatedAt: q.updatedAt,
+          };
         }
       });
+
 
       const nowIso = new Date().toISOString();
       setHoldings(prev => (prev || []).map(h => {

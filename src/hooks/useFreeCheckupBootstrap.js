@@ -5,6 +5,8 @@
 // inline 憲法：本 hook 不渲染任何 JSX，純副作用 + state hydration，可安全外移。
 import { useEffect, useRef } from "react";
 import { supabase } from "@/integrations/supabase/client";
+import { fetchAuthoritativeQuotes } from "@/checkup/lib/authoritativeQuotes";
+
 // P0-3: demoData lazy — 15.3 KB chunk only loads when isDemo branch hits
 import { INIT_HOLDINGS as SEED_HOLDINGS } from "@/checkup/seedData";
 import {
@@ -37,38 +39,25 @@ function sweepStaleLocalIfOwnerMismatch(userId) {
   } catch {}
 }
 
-// Demo 收盤價 hydrate：從 current_prices 拉最新收盤價，套用到 DEMO_HOLDINGS。
-// 讓訪客看到的價格永遠等於「上一個交易日收盤」，而不是寫死在 demoData 的舊值。
+// Demo 收盤價 hydrate：一律經過 price-authority seam（收盤後為當日 snapshot，
+// 盤中才是 current_prices），讓訪客看到的價格與看板／收盤分析完全一致。
 // 失敗即回傳原本的 DEMO_HOLDINGS（保底），不會擋住 demo 流程。
-async function hydrateDemoHoldingsWithClosePrices(demoHoldings) {
+export async function hydrateDemoHoldingsWithClosePrices(demoHoldings) {
   try {
     const codes = Array.from(
       new Set((demoHoldings || []).map((h) => String(h?.code || "").trim()).filter(Boolean))
     );
     if (codes.length === 0) return demoHoldings;
-    const { data, error } = await supabase
-      .from("current_prices")
-      .select("symbol, price, change_percent, updated_at")
-      .in("symbol", codes);
-    if (error || !Array.isArray(data) || data.length === 0) return demoHoldings;
-    const priceMap = new Map();
-    data.forEach((row) => {
-      const price = Number(row?.price);
-      if (!Number.isFinite(price) || price <= 0) return;
-      priceMap.set(String(row.symbol), {
-        price,
-        changePct: Number(row?.change_percent) || 0,
-        updatedAt: row?.updated_at || null,
-      });
-    });
-    if (priceMap.size === 0) return demoHoldings;
+    const quotes = await fetchAuthoritativeQuotes(codes);
+    if (!quotes || Object.keys(quotes).length === 0) return demoHoldings;
     return demoHoldings.map((h) => {
-      const q = priceMap.get(String(h?.code || "").trim());
+      const q = quotes[String(h?.code || "").trim()];
       if (!q) return h;
       const qty = Number(h?.qty) || 0;
-      const yesterday = q.changePct !== 0
-        ? Math.round((q.price / (1 + q.changePct / 100)) * 100) / 100
-        : q.price;
+      const changePct = Number(q.changePct) || 0;
+      const yesterday = Number.isFinite(q.yesterday) && q.yesterday > 0
+        ? q.yesterday
+        : (changePct !== 0 ? Math.round((q.price / (1 + changePct / 100)) * 100) / 100 : q.price);
       const change = Math.round((q.price - yesterday) * 100) / 100;
       const todayPnl = Math.round((q.price - yesterday) * qty);
       return {
@@ -76,10 +65,10 @@ async function hydrateDemoHoldingsWithClosePrices(demoHoldings) {
         price: q.price,
         yesterday,
         change,
-        changePct: q.changePct,
+        changePct,
         todayPnl,
-        todayPct: q.changePct,
-        priceSource: "close",
+        todayPct: changePct,
+        priceSource: q.source === "snapshot" ? "close" : "db",
         priceUpdatedAt: q.updatedAt,
       };
     });
@@ -87,6 +76,7 @@ async function hydrateDemoHoldingsWithClosePrices(demoHoldings) {
     return demoHoldings;
   }
 }
+
 
 /**
  * One-time localStorage migration（pf-holdings-v2 schema bump）

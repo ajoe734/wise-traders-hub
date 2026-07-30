@@ -175,3 +175,21 @@ DB (daily_price_snapshots / current_prices / expert_signal_legs)
 | `src/test/unit/authoritative-quotes.test.ts` | DB 欄位契約（`close_price`/`yesterday_close`）、snapshot→current fallback、鏡像寫入（4） |
 | `src/checkup/hooks/__tests__/useAuthoritativePrices.test.ts` | hook combiner + legs schema（9） |
 | `e2e/holdings-price-parity.spec.ts` | DB-first / offline（2） |
+
+## Seam 擴張（2026-07-30）
+
+「當下要顯示的價格」只有一個入口：
+
+| 情境 | 入口 |
+|---|---|
+| React 持倉／看板 | `useAuthoritativePrices` |
+| 非 React／批次流程 | `fetchAuthoritativeQuotes(codes)` |
+| 單一代號 | `fetchAuthoritativeQuote(symbol)` |
+| 同步讀 legacy 快取 | `mergeAuthoritativeIntoPriceCache(cache)` |
+
+已收斂的繞過端：`src/hooks/useStockQuote.ts`（Realtime 改為 invalidation 訊號，數值重走 seam）、
+`src/hooks/useFreeCheckupBootstrap.js` 的 demo hydrate、`src/pages/FreeCheckup.jsx` 手動刷新 Step 2。
+
+守則由 `src/test/unit/price-authority-seam.test.ts` 機械化強制：
+`src/**` 內任何檔案 `.from('current_prices' | 'daily_price_snapshots')` 都會紅燈，
+allowlist 僅有 seam 本身與兩個「指定歷史日期」的消費端（`usePeriodPerformance`、`useBacktestMonitor`）。
