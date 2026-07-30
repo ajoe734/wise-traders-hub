@@ -24,6 +24,7 @@ import {
 } from "../_shared/journalExportCore.ts";
 
 import { corsHeaders } from '../_shared/cors.ts';
+import { forExport } from "../_shared/journalRepository.ts";
 
 const MS_DAY = 86_400_000;
 
@@ -109,19 +110,13 @@ Deno.serve(async (req) => {
     console.log(`[weekly-journal-export] week=${weekStart} (${range.startIso} ~ ${range.endIso}) force=${force}`);
 
     // 1. 查詢當週已發布週記
-    const { data: rows, error: qErr } = await supabase
-      .from("expert_signals")
-      .select(
-        "id, status, instrument, action, price_hint, quantity, quantity_unit, reason_summary, reason_detail, risk_notes, learning_points, published_at, created_at, expert_id, experts!inner(name, slug, role, asset_class, currency)",
-      )
-      .eq("status", "published")
-      .eq("experts.role", "mentor")
-      .gte("published_at", range.startIso)
-      .lt("published_at", range.endIso)
-      .order("expert_id", { ascending: true })
-      .order("published_at", { ascending: true });
+    const { rows, error: qErr } = await forExport(supabase, {
+      startIso: range.startIso,
+      endIso: range.endIso,
+      publishedOnly: true,
+    });
 
-    if (qErr) throw new Error(`query expert_signals failed: ${qErr.message}`);
+    if (qErr) throw new Error(`query expert_signals failed: ${qErr}`);
     const list = (rows ?? []) as any[];
 
     // 1b. 風險守門（server-side backstop）
