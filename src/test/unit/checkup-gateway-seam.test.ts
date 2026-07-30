@@ -65,9 +65,9 @@ describe('gateway seam · hook 整合', () => {
   beforeEach(() => {
     fake = createFakeGateway({
       http: {
-        '/api/analyze': { content: [{ text: '[]' }] },
-        '/api/brain': { content: [] },
-        '/api/research': { reports: [] },
+        'checkup-analyze': { content: [{ text: '[]' }] },
+        'checkup-brain': { content: [] },
+        'checkup-research': { reports: [] },
       },
       tables: {
         holding_meta_overrides: [{ code: '2330', industry: '半導體' }],
