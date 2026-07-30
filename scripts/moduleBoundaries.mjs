@@ -60,6 +60,42 @@ function resolveModuleTarget(spec, modules) {
   return null;
 }
 
+/**
+ * 從 barrel 的相對 re-export 推導「模組擁有的實作檔」。
+ * 例：holdings barrel export 自 '../../components/holdings/index.js'
+ *     → src/checkup/components/holdings/** 屬於 holdings 模組實作。
+ * 自動推導避免另建一份會漂移的手寫清單。
+ */
+export function deriveOwnership(srcDir, modules) {
+  const owners = new Map(); // 'src/checkup/...' prefix -> module
+  const modulesDir = join(srcDir, 'checkup', 'modules');
+  for (const m of modules) {
+    const barrel = ['index.ts', 'index.tsx', 'index.js', 'index.jsx']
+      .map((f) => join(modulesDir, m, f))
+      .find((f) => existsSync(f));
+    if (!barrel) continue;
+    for (const spec of extractSpecifiers(readFileSync(barrel, 'utf-8'))) {
+      if (!spec.startsWith('.')) continue;
+      if (/^\.\/(?!\.)/.test(spec)) continue; // 模組自身檔案
+      const abs = join(modulesDir, m, spec);
+      let owned = relative(srcDir, abs).split(sep).join('/');
+      owned = owned.replace(/\/index\.(t|j)sx?$/, '');
+      owned = owned.replace(/\.(t|j)sx?$/, '');
+      if (!owned || owned.startsWith('..')) continue;
+      owners.set(`src/${owned}`, m);
+    }
+  }
+  return owners;
+}
+
+function ownerOf(relPath, owners) {
+  const stripped = relPath.replace(/\.(t|j)sx?$/, '');
+  for (const [prefix, m] of owners) {
+    if (stripped === prefix || stripped.startsWith(`${prefix}/`)) return m;
+  }
+  return null;
+}
+
 function componentTarget(spec, modules) {
   const norm = spec.replace(/\\/g, '/');
   for (const m of modules) {
@@ -99,15 +135,15 @@ export function checkModuleBoundaries(opts = {}) {
     }
   }
 
+  const owners = deriveOwnership(srcDir, modules);
   const allFiles = walk(srcDir);
   for (const file of allFiles) {
     const r = rel(file);
     if (ignore.some((re) => re.test(relative(root, file)))) continue;
     const src = readFileSync(file, 'utf-8');
     const specs = extractSpecifiers(src);
-    const insideModule = modules.find((m) =>
-      r.startsWith(`src/checkup/modules/${m}/`),
-    );
+    const insideModule =
+      modules.find((m) => r.startsWith(`src/checkup/modules/${m}/`)) ?? ownerOf(r, owners);
 
     for (const spec of specs) {
       const target = resolveModuleTarget(spec, modules);
