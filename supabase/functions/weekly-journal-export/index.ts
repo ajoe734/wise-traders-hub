@@ -13,10 +13,7 @@ import { listCompanyAdminIds } from "../_shared/adminGuard.ts";
 import { requireCaller, AuthError } from '../_shared/authGuard.ts';
 import { lotsToShares, SHARES_PER_LOT } from "../_shared/lotSize.ts";
 
-const corsHeaders = {
-  "Access-Control-Allow-Origin": "*",
-  "Access-Control-Allow-Headers": "authorization, x-client-info, apikey, content-type",
-};
+import { corsHeaders } from '../_shared/cors.ts';
 
 const MS_DAY = 86_400_000;
 const TZ_OFFSET_MS = 8 * 60 * 60 * 1000;
