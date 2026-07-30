@@ -1,4 +1,5 @@
 import { API_ENDPOINTS } from '../../constants.js'
+import { getCheckupGateway } from '../../lib/gateway'
 /**
  * Analysis API Hooks
  *
@@ -14,7 +15,7 @@ export function useDailyAnalysis(portfolioId, enabled = true) {
   return useQuery({
     queryKey: ['analysis', 'daily', portfolioId],
     queryFn: async () => {
-      const res = await fetch(API_ENDPOINTS.ANALYZE, {
+      const payload = await getCheckupGateway().http.json(API_ENDPOINTS.ANALYZE, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
@@ -22,8 +23,7 @@ export function useDailyAnalysis(portfolioId, enabled = true) {
           portfolioId,
         }),
       })
-      if (!res.ok) throw new Error('Analysis failed')
-      return res.json()
+      return payload;
     },
     enabled,
     staleTime: 10 * 60 * 1000, // 10 minutes
@@ -39,7 +39,7 @@ export function useRunDailyAnalysis() {
 
   return useMutation({
     mutationFn: async ({ portfolioId, data }) => {
-      const res = await fetch(API_ENDPOINTS.ANALYZE, {
+      const payload = await getCheckupGateway().http.json(API_ENDPOINTS.ANALYZE, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
@@ -48,8 +48,7 @@ export function useRunDailyAnalysis() {
           ...data,
         }),
       })
-      if (!res.ok) throw new Error(await res.text())
-      return res.json()
+      return payload;
     },
     onSuccess: (data, { portfolioId }) => {
       queryClient.setQueryData(['analysis', 'daily', portfolioId], data)
@@ -64,7 +63,7 @@ export function useRunDailyAnalysis() {
 export function useRunStressTest() {
   return useMutation({
     mutationFn: async ({ portfolioId }) => {
-      const res = await fetch(API_ENDPOINTS.ANALYZE, {
+      const payload = await getCheckupGateway().http.json(API_ENDPOINTS.ANALYZE, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
@@ -72,8 +71,7 @@ export function useRunStressTest() {
           portfolioId,
         }),
       })
-      if (!res.ok) throw new Error(await res.text())
-      return res.json()
+      return payload;
     },
   })
 }
@@ -86,7 +84,7 @@ export function useDeleteAnalysis() {
 
   return useMutation({
     mutationFn: async ({ portfolioId: _portfolioId, reportId, date }) => {
-      const res = await fetch(API_ENDPOINTS.BRAIN, {
+      const payload = await getCheckupGateway().http.json(API_ENDPOINTS.BRAIN, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
@@ -94,8 +92,7 @@ export function useDeleteAnalysis() {
           data: { id: reportId, date },
         }),
       })
-      if (!res.ok) throw new Error(await res.text())
-      return res.json()
+      return payload;
     },
     onSuccess: (_, { portfolioId }) => {
       queryClient.invalidateQueries({ queryKey: ['analysis', 'history', portfolioId] })
