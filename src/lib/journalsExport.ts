@@ -5,6 +5,8 @@
  */
 import JSZip from 'jszip';
 import { lotsToShares, SHARES_PER_LOT } from '@/lib/lotSize';
+import { getActionMeta } from '@/lib/signalAction';
+
 
 export interface JournalRowExport {
   id: string;
@@ -125,11 +127,8 @@ export function fmtTaipei(iso?: string | null): string {
 // 進場側 = buy + add；出場側 = sell + trim + exit。非交易動作（如 hold / 教學筆記）不列入。
 const ENTRY_ACTIONS_MD = new Set(['buy', 'add']);
 const EXIT_ACTIONS_MD = new Set(['sell', 'trim', 'exit']);
-const ACTION_ZH: Record<string, string> = {
-  buy: '買進', add: '加碼',
-  sell: '賣出', trim: '減碼', exit: '出場',
-  hold: '續抱',
-};
+// 標籤唯一真源：@/lib/signalAction（禁止在此重宣告地圖，見 scripts/audit-signal-action-labels.mjs）
+const ACTION_ZH = (action: string): string => getActionMeta(action).label;
 
 export function buildMentorMarkdown(mentorRows: JournalRowExport[], range: WeekRangeLabels): string {
   const first = mentorRows[0];
@@ -166,7 +165,7 @@ export function buildMentorMarkdown(mentorRows: JournalRowExport[], range: WeekR
     if (r.status) meta.push(`狀態：${r.status}`);
     if (r.instrument) meta.push(`標的：${r.instrument}`);
     const actionRaw = String(r.action ?? '').toLowerCase();
-    if (r.action) meta.push(`動作：${ACTION_ZH[actionRaw] ?? r.action}`);
+    if (r.action) meta.push(`動作：${ACTION_ZH(actionRaw)}`);
     if (r.price_hint !== null && r.price_hint !== undefined) meta.push(`參考價：${r.price_hint}`);
 
     const isEntry = ENTRY_ACTIONS_MD.has(actionRaw);
@@ -175,7 +174,7 @@ export function buildMentorMarkdown(mentorRows: JournalRowExport[], range: WeekR
 
     if (r.quantity !== null && r.quantity !== undefined && r.quantity !== 0) {
       const unit = resolveExportUnit(r);
-      const zhAction = ACTION_ZH[actionRaw] ?? '數量';
+      const zhAction = (actionRaw ? ACTION_ZH(actionRaw) : '數量');
       meta.push(`${zhAction}數量：${r.quantity} ${unit}`);
       if (isEntry) {
         entryTotals.set(unit, (entryTotals.get(unit) ?? 0) + Number(r.quantity));
@@ -204,7 +203,7 @@ export function buildMentorMarkdown(mentorRows: JournalRowExport[], range: WeekR
     if (m.size === 0) return '';
     return Array.from(m.entries())
       .sort(([a], [b]) => a.localeCompare(b))
-      .map(([act, n]) => `${ACTION_ZH[act] ?? act} ${n} 筆`)
+      .map(([act, n]) => `${ACTION_ZH(act)} ${n} 筆`)
       .join('、');
   };
 

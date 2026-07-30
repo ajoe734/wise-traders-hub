@@ -12,6 +12,7 @@ import { serviceClient } from '../_shared/supabaseClients.ts';
 import { listCompanyAdminIds } from "../_shared/adminGuard.ts";
 import { requireCaller, AuthError } from '../_shared/authGuard.ts';
 import { lotsToShares, SHARES_PER_LOT } from "../_shared/lotSize.ts";
+import { getActionLabel } from "../_shared/signalAction.ts";
 
 import { corsHeaders } from '../_shared/cors.ts';
 
@@ -154,7 +155,7 @@ function buildMentorMarkdown(opts: {
     }
     if (r.quantity !== null && r.quantity !== undefined && r.quantity !== "" && Number(r.quantity) !== 0) {
       const unit = resolveDisplayUnit(r);
-      const verb = r.action === "sell" ? "賣出" : r.action === "buy" ? "買進" : "數量";
+      const verb = r.action === "sell" || r.action === "buy" ? getActionLabel(r.action) : "數量";
       meta.push(`${verb}數量：${r.quantity} ${unit}`);
       const qty = Number(r.quantity);
       if (r.action === "buy") buyTotals.set(unit, (buyTotals.get(unit) ?? 0) + qty);

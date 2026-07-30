@@ -21,19 +21,27 @@ const ALLOWLIST = new Set([
   'src/test/unit/signalActionLabel.test.ts',
   'src/test/exportJournalPdfActionMeta.test.ts', // contract test — expected to contain literals
   'scripts/audit-signal-action-labels.mjs',
+  'supabase/functions/_shared/signalAction.ts', // Deno 鏡像單一資料源
+  // 持倉看板「決策標籤」與訊號 action 是不同領域（exit/review/hold 決策建議），不受此稽核管轄
+  'src/checkup/components/freecheckup/HoldingsDetailPanel.tsx',
 ]);
+
+// 掃描範圍必須包含 edge functions —— 標籤漂移（'續抱' / 缺 teaching）就是從這裡長出來的。
+const SCAN_DIRS = 'src scripts supabase/functions';
 
 function rg(pattern) {
   try {
-    return execSync(`rg -n --no-heading -S ${JSON.stringify(pattern)} src scripts 2>/dev/null || true`, {
-      encoding: 'utf8',
-    })
+    return execSync(
+      `rg -n --no-heading -S ${JSON.stringify(pattern)} ${SCAN_DIRS} 2>/dev/null || true`,
+      { encoding: 'utf8' },
+    )
       .split('\n')
       .filter(Boolean);
   } catch {
     return [];
   }
 }
+
 
 const violations = [];
 
@@ -58,6 +66,14 @@ for (const line of rg('actionLabels\\.(buy|sell|add|trim|exit|hold|teaching)')) 
   if (/actionLabels\[[^\]]+\]\s*(\|\||\?\?)\s*actionLabels\./.test(line)) {
     violations.push(`[fallback-to-buy] ${line}`);
   }
+}
+
+// Rule 4: map-shaped literal like `buy: '買進'` / `buy: "買進"` anywhere
+// (含 edge functions) — 這正是 share-og / line-push / publish 漂移的來源。
+for (const line of rg(`(buy|sell|add|trim|exit|hold|teaching)\\s*:\\s*['"](買進|賣出|加碼|減碼|平損|觀察|教學|續抱)['"]`)) {
+  const file = line.split(':', 1)[0];
+  if (ALLOWLIST.has(file)) continue;
+  violations.push(`[duplicate-action-map] ${line}`);
 }
 
 if (violations.length) {
