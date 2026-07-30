@@ -64,7 +64,6 @@ const GUARDED_FILES = [
   'src/pages/JournalAuthoringHarnessEntry.tsx',
   'src/checkup/components/freecheckup/ChipsTrendChart.tsx',
   'src/checkup/components/freecheckup/ChipsSection.tsx',
-  'supabase/functions/weekly-journal-export/index.ts',
   'supabase/functions/daily-snapshot/index.ts',
   'supabase/functions/_shared/bsrSealingParity.ts',
   'supabase/functions/reconcile-warrant-quantities/index.ts',
