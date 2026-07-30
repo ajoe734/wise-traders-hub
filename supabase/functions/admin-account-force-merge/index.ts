@@ -2,8 +2,9 @@
 // Admin-only: force-merge secondary_user_id INTO primary_user_id without a code.
 // Used by /company/subscribers "代客綁定" when the member can't run the flow himself.
 // Same data-movement semantics as account-link-consume.
-import { createClient } from 'npm:@supabase/supabase-js@2';
 
+import { serviceClient, userClient } from '../_shared/supabaseClients.ts';
+import { requireCompanyAdmin, authErrorResponse } from '../_shared/adminGuard.ts';
 const corsHeaders = {
   'Access-Control-Allow-Origin': '*',
   'Access-Control-Allow-Headers': 'authorization, x-client-info, apikey, content-type',
@@ -95,18 +96,14 @@ Deno.serve(async (req) => {
     const url = Deno.env.get('SUPABASE_URL')!;
     const anon = Deno.env.get('SUPABASE_ANON_KEY')!;
     const service = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')!;
-    const authHeader = req.headers.get('Authorization') ?? '';
-    if (!authHeader.startsWith('Bearer ')) return json({ error: 'AUTH_REQUIRED' }, 401);
-
-    const userClient = createClient(url, anon, { global: { headers: { Authorization: authHeader } } });
-    const admin = createClient(url, service);
-
-    const { data: authData } = await userClient.auth.getUser();
-    const callerId = authData?.user?.id;
-    if (!callerId) return json({ error: 'AUTH_REQUIRED' }, 401);
-
-    const { data: hasRole } = await admin.rpc('has_role', { _user_id: callerId, _role: 'company_admin' });
-    if (!hasRole) return json({ error: 'FORBIDDEN' }, 403);
+    // AUTH: company_admin (unified contract — see _shared/adminGuard.ts)
+    const admin = serviceClient();
+    let callerId: string;
+    try {
+      callerId = await requireCompanyAdmin(req);
+    } catch (e) {
+      return authErrorResponse(e, req);
+    }
 
     const body = await req.json().catch(() => ({}));
     const primaryUid = String(body?.primary_user_id ?? '').trim();

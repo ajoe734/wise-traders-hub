@@ -1,8 +1,8 @@
 // AUTH: user  (auto-annotated 2026-07-27, see docs/security/edge-function-auth-matrix.md)
-import { createClient } from 'https://esm.sh/@supabase/supabase-js@2.49.1';
 
 import { corsHeaders } from '../_shared/cors.ts';
-import { serviceClient } from '../_shared/supabaseClients.ts';
+import { requireCompanyAdmin } from '../_shared/adminGuard.ts';
+import { serviceClient, userClient } from '../_shared/supabaseClients.ts';
 import { withLogging, type EdgeLogger } from '../_shared/edgeLogger.ts';
 import { validateInput, validationJsonResponse } from '../_shared/inputValidator.ts';
 type Action = 'fetch_email' | 'update_email' | 'reset_password' | 'send_reset_email';
@@ -22,17 +22,13 @@ Deno.serve(withLogging('update-analyst-credentials', async (req, log) => {
       return fail('MISSING_AUTHORIZATION', '缺少登入憑證，請重新登入後再試', 401, log);
     }
 
-    const callerClient = createClient(supabaseUrl, anonKey, {
-      global: { headers: { Authorization: authHeader } },
-    });
-    const { data: { user: caller } } = await callerClient.auth.getUser();
-    if (!caller) return fail('UNAUTHORIZED', '登入憑證無效，請重新登入後再試', 401, log);
-
-    const { data: roleCheck } = await callerClient.rpc('has_role', {
-      _user_id: caller.id,
-      _role: 'company_admin',
-    });
-    if (!roleCheck) return fail('FORBIDDEN', '權限不足，僅公司管理員可操作分析師帳號', 403, log);
+    // AUTH: company_admin (unified contract — see _shared/adminGuard.ts)
+    let callerId: string;
+    try {
+      callerId = await requireCompanyAdmin(req);
+    } catch (_e) {
+      return fail('FORBIDDEN', '權限不足，僅公司管理員可操作分析師帳號', 403, log);
+    }
 
     const body = await req.json();
     const issues = validateInput({
@@ -59,7 +55,7 @@ Deno.serve(withLogging('update-analyst-credentials', async (req, log) => {
     const targetUserId: string = expert.user_id;
 
     // Prevent admin from operating on themselves via this endpoint
-    if (targetUserId === caller.id) {
+    if (targetUserId === callerId) {
       return fail('SELF_OPERATION_BLOCKED', '不可對自己的帳號操作，請至「個人設定」修改', 400, log, { expert_id: expertId });
     }
 
@@ -104,7 +100,7 @@ Deno.serve(withLogging('update-analyst-credentials', async (req, log) => {
       }
 
       await adminClient.from('audit_logs').insert({
-        actor_id: caller.id,
+        actor_id: callerId,
         action: 'update_analyst_credentials',
         target_type: 'auth_user',
         target_id: targetUserId,
@@ -134,7 +130,7 @@ Deno.serve(withLogging('update-analyst-credentials', async (req, log) => {
       }
 
       await adminClient.from('audit_logs').insert({
-        actor_id: caller.id,
+        actor_id: callerId,
         action: 'update_analyst_credentials',
         target_type: 'auth_user',
         target_id: targetUserId,
@@ -151,16 +147,14 @@ Deno.serve(withLogging('update-analyst-credentials', async (req, log) => {
       }
       if (!targetEmail) return fail('TARGET_EMAIL_EMPTY', '帳號無 Email 無法寄送', 400, log, { expert_id: expertId });
 
-      const mailClient = createClient(supabaseUrl, anonKey, {
-        auth: { persistSession: false, autoRefreshToken: false },
-      });
+      const mailClient = userClient(req);
       const { error: resetErr } = await mailClient.auth.resetPasswordForEmail(targetEmail, {
         options: { redirectTo: `${siteUrl}/reset-password` },
       });
       if (resetErr) return fail('RESET_EMAIL_SEND_FAILED', translateAuthError(resetErr.message), 400, log, { expert_id: expertId, target_user_id: targetUserId, auth_error: resetErr.message });
 
       await adminClient.from('audit_logs').insert({
-        actor_id: caller.id,
+        actor_id: callerId,
         action: 'update_analyst_credentials',
         target_type: 'auth_user',
         target_id: targetUserId,

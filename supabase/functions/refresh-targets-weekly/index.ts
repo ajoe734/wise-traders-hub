@@ -5,7 +5,6 @@
 // 將變動寫入 target_price_history，並在有變動時發 notification + function_run_logs。
 import "jsr:@supabase/functions-js/edge-runtime.d.ts";
 import { requireCronKey, AuthError } from '../_shared/authGuard.ts';
-import { createClient } from "https://esm.sh/@supabase/supabase-js@2.49.1";
 import { corsHeaders } from '../_shared/cors.ts';
 
 import { serviceClient } from '../_shared/supabaseClients.ts';

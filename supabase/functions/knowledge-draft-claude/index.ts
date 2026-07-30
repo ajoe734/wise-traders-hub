@@ -5,10 +5,10 @@
 // - 用 ANTHROPIC_API_KEY 呼叫 Claude，產出 N 條結構化知識條目
 // - 寫入 checkup_knowledge_candidates（status=pending）等管理員審核
 import "jsr:@supabase/functions-js/edge-runtime.d.ts";
-import { createClient } from "https://esm.sh/@supabase/supabase-js@2.49.1";
+import { isCompanyAdmin } from '../_shared/adminGuard.ts';
 
 import { corsHeaders } from '../_shared/cors.ts';
-import { serviceClient } from '../_shared/supabaseClients.ts';
+import { serviceClient, userClient } from '../_shared/supabaseClients.ts';
 import { withLogging } from '../_shared/edgeLogger.ts';
 const VALID_CATEGORIES = ['chip_analysis', 'technical_analysis', 'industry_trends', 'strategy_cases', 'news_correlation'] as const;
 type Category = typeof VALID_CATEGORIES[number];
@@ -122,18 +122,15 @@ Deno.serve(withLogging('knowledge-draft-claude', async (req) => {
           status: 401, headers: { ...corsHeaders, 'Content-Type': 'application/json' },
         });
       }
-      const userClient = createClient(supabaseUrl, Deno.env.get('SUPABASE_ANON_KEY')!, {
-        global: { headers: { Authorization: authHeader } },
-      });
-      const { data: { user: u }, error: userErr } = await userClient.auth.getUser();
+      const uc = userClient(req);
+      const { data: { user: u }, error: userErr } = await uc.auth.getUser();
       if (userErr || !u) {
         return new Response(JSON.stringify({ error: 'Invalid token' }), {
           status: 401, headers: { ...corsHeaders, 'Content-Type': 'application/json' },
         });
       }
-      const { data: roleRow } = await admin
-        .from('user_roles').select('role').eq('user_id', u.id).eq('role', 'company_admin').maybeSingle();
-      if (!roleRow) {
+      const callerIsAdmin = await isCompanyAdmin(u.id);
+      if (!callerIsAdmin) {
         return new Response(JSON.stringify({ error: 'Forbidden: company_admin only' }), {
           status: 403, headers: { ...corsHeaders, 'Content-Type': 'application/json' },
         });

@@ -8,7 +8,8 @@
 //
 // 觸發：pg_cron（詳見同批 SQL）。也可帶 body { weekStart: "YYYY-MM-DD" } 手動補跑。
 
-import { createClient } from "npm:@supabase/supabase-js@2.57.4";
+import { serviceClient } from '../_shared/supabaseClients.ts';
+import { listCompanyAdminIds } from "../_shared/adminGuard.ts";
 import { requireCaller, AuthError } from '../_shared/authGuard.ts';
 
 const corsHeaders = {
@@ -389,10 +390,7 @@ Deno.serve(async (req) => {
 
   if (req.method === "OPTIONS") return new Response("ok", { headers: corsHeaders });
 
-  const supabase = createClient(
-    Deno.env.get("SUPABASE_URL")!,
-    Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!,
-  );
+  const supabase = serviceClient();
 
   try {
     let weekStart: string | null = null;
@@ -494,13 +492,7 @@ Deno.serve(async (req) => {
     }
 
     // 4. 通知 company_admin（一律連到歷史列表，讓管理員自行下載各老師檔案）
-    const { data: admins, error: adminErr } = await supabase
-      .from("user_roles")
-      .select("user_id")
-      .eq("role", "company_admin");
-    if (adminErr) throw new Error(`fetch admins failed: ${adminErr.message}`);
-
-    const adminIds = (admins ?? []).map((a: any) => a.user_id);
+    const adminIds = await listCompanyAdminIds();
     const title = list.length > 0
       ? `週記匯出完成：${range.startLabel} 週共 ${list.length} 則 / ${uploaded.length} 位老師（Markdown）`
       : `週記匯出：${range.startLabel} 週目前無任何已發布週記`;

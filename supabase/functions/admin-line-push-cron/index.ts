@@ -1,9 +1,9 @@
 // AUTH: cron  (auto-annotated 2026-07-27, see docs/security/edge-function-auth-matrix.md)
 // Cron: scan line_push_jobs for pending+scheduled and process them.
 // Invoked by pg_cron every minute. No auth (relies on service role + scheduled URL).
+import { serviceClient } from '../_shared/supabaseClients.ts';
 import { corsPreflight, jsonResponse, errorResponse } from '../_shared/cors.ts';
 import { requireCronKey, AuthError } from '../_shared/authGuard.ts';
-import { createClient } from 'https://esm.sh/@supabase/supabase-js@2.49.1';
 
 const LINE_MULTICAST_URL = 'https://api.line.me/v2/bot/message/multicast';
 const MULTICAST_BATCH = 150;
@@ -123,7 +123,7 @@ Deno.serve(async (req) => {
     const serviceKey = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')!;
     const token = Deno.env.get('PLATFORM_LINE_CHANNEL_TOKEN') || '';
     if (!token) return errorResponse('PLATFORM_LINE_CHANNEL_TOKEN not set', 500);
-    const admin = createClient(supabaseUrl, serviceKey);
+    const admin = serviceClient();
     const nowIso = new Date().toISOString();
     const { data: due } = await admin
       .from('line_push_jobs')

@@ -12,7 +12,7 @@
 // Lease / expiry：reservation 有 _lease_seconds（預設 30 秒），超過即由後續 reserve
 // 或 purge_expired_bsr_reservations 自動回收，防止 worker crash 造成永久占用。
 
-import type { SupabaseClient } from 'npm:@supabase/supabase-js@2';
+import type { SupabaseClient } from './supabaseClients.ts';
 
 export const FINMIND_HOURLY_LIMIT = Number(Deno.env.get('FINMIND_HOURLY_LIMIT') ?? 1500);
 export const FINMIND_API_NAME = 'finmind';

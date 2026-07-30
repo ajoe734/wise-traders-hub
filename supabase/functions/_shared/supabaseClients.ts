@@ -47,3 +47,5 @@ export async function getCallerUserId(req: Request): Promise<string | null> {
     return null;
   }
 }
+
+export type { SupabaseClient };

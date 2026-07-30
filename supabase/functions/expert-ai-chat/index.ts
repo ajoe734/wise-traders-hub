@@ -2,7 +2,8 @@
 // 主對話端點: AI 分身回覆 (streaming)
 // POST body: { expert_id, messages: UIMessage[] }
 // 權限: 必須為該導師的 active 訂閱者 (或該導師本人 / company_admin 預覽)
-import { createClient } from 'npm:@supabase/supabase-js@2';
+import { serviceClient, userClient } from '../_shared/supabaseClients.ts';
+import { isCompanyAdmin } from '../_shared/adminGuard.ts';
 import { streamText, convertToModelMessages, type UIMessage } from 'npm:ai@^5.0.0';
 import { corsHeaders, errorResponse, generateErrorId } from '../_shared/cors.ts';
 import { formatStreamErrorMessage } from '../_shared/stream-error.ts';
@@ -45,10 +46,8 @@ Deno.serve(withLogging('expert-ai-chat', async (req, log) => {
     return errorResponse('expert_id and messages required', 400);
   }
 
-  const userClient = createClient(SUPABASE_URL, ANON_KEY, {
-    global: { headers: { Authorization: authHeader } },
-  });
-  const { data: userData, error: authErr } = await userClient.auth.getUser();
+  const uc = userClient(req);
+  const { data: userData, error: authErr } = await uc.auth.getUser();
   if (authErr) {
     log.warn('auth_get_user_failed', { message: authErr.message });
   }
@@ -61,7 +60,7 @@ Deno.serve(withLogging('expert-ai-chat', async (req, log) => {
     return errorResponse('unauthorized', 401, { code: 'AUTH_REQUIRED' });
   }
 
-  const admin = createClient(SUPABASE_URL, SERVICE_KEY);
+  const admin = serviceClient();
 
   // access log helper — 記錄每次決策（不阻塞主流程；失敗只 warn）
   // 關鍵：必須 catch，否則 unhandled rejection 會讓 Deno isolate 被 kill，
@@ -129,13 +128,8 @@ Deno.serve(withLogging('expert-ai-chat', async (req, log) => {
   let subscriptionStatus: string | null = allowed ? 'exempt_owner' : null;
 
   if (!allowed) {
-    const { data: role } = await admin
-      .from('user_roles')
-      .select('role')
-      .eq('user_id', uid)
-      .eq('role', 'company_admin')
-      .maybeSingle();
-    if (role) {
+    const isAdmin = await isCompanyAdmin(uid);
+    if (isAdmin) {
       allowed = true;
       hitRule = 'company_admin';
       subscriptionStatus = 'exempt_admin';

@@ -3,6 +3,7 @@
 // On-demand HTTP 端點：從伺服端 fixtures 目錄跑 replay，回傳結構化 report。
 // 僅 company_admin 可存取；生產不會主動呼叫，供後台/CI dispatch 手動觸發。
 import { corsHeaders } from "../_shared/cors.ts";
+import { requireCompanyAdmin, authErrorResponse } from '../_shared/adminGuard.ts';
 import { requireCronKey, AuthError } from '../_shared/authGuard.ts';
 import { runReplay, loadFixturesFromDir, type ReplayReport } from "./replay.ts";
 
@@ -28,30 +29,12 @@ Deno.serve(async (req) => {
   if (req.method === "OPTIONS") return new Response("ok", { headers: corsHeaders });
   if (req.method !== "POST" && req.method !== "GET") return json({ error: "METHOD_NOT_ALLOWED" }, 405);
 
-  const jwt = (req.headers.get("Authorization") || "").replace(/^Bearer\s+/i, "").trim();
-  if (!jwt) return json({ error: "AUTH_REQUIRED" }, 401);
-
-  let callerId = "";
+  // AUTH: company_admin (unified contract — see _shared/adminGuard.ts)
   try {
-    const ur = await fetch(`${SUPABASE_URL}/auth/v1/user`, {
-      headers: { Authorization: `Bearer ${jwt}`, apikey: SERVICE_ROLE_KEY },
-    });
-    if (!ur.ok) return json({ error: "AUTH_FAILED" }, 401);
-    callerId = (await ur.json())?.id || "";
-  } catch { return json({ error: "AUTH_FAILED" }, 401); }
-  if (!callerId) return json({ error: "AUTH_FAILED" }, 401);
-
-  const roleRes = await fetch(`${SUPABASE_URL}/rest/v1/rpc/has_role`, {
-    method: "POST",
-    headers: {
-      "Content-Type": "application/json",
-      apikey: SERVICE_ROLE_KEY,
-      Authorization: `Bearer ${SERVICE_ROLE_KEY}`,
-    },
-    body: JSON.stringify({ _user_id: callerId, _role: "company_admin" }),
-  });
-  if (!roleRes.ok) return json({ error: "ROLE_CHECK_FAILED" }, 500);
-  if ((await roleRes.json()) !== true) return json({ error: "FORBIDDEN" }, 403);
+    await requireCompanyAdmin(req);
+  } catch (e) {
+    return authErrorResponse(e, req);
+  }
 
   let samples;
   try {

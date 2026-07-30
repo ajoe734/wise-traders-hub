@@ -6,8 +6,9 @@
 //   GET /tw-institutional-daily-sync?date=YYYYMMDD           // 指定日
 //   GET /tw-institutional-daily-sync                          // 預設今日（台北）
 // 由 pg_cron 每交易日 17:45 排程呼叫。
+import { serviceClient, userClient } from '../_shared/supabaseClients.ts';
+import { isCompanyAdmin } from "../_shared/adminGuard.ts";
 import "jsr:@supabase/functions-js/edge-runtime.d.ts";
-import { createClient } from "https://esm.sh/@supabase/supabase-js@2.45.4";
 import { corsHeaders, corsPreflight, jsonResponse, errorResponse } from "../_shared/cors.ts";
 import { requireCronKey, AuthError } from "../_shared/authGuard.ts";
 import { checkCircuit, recordCircuit } from "../_shared/circuitBreaker.ts";
@@ -239,19 +240,11 @@ async function isAdminCaller(req: Request): Promise<{ ok: boolean; reason?: stri
   if (token === SERVICE_ROLE_KEY) return { ok: true };
   // 否則以使用者身份呼叫 has_role
   try {
-    const userClient = createClient(SUPABASE_URL, ANON_KEY, {
-      auth: { persistSession: false },
-      global: { headers: { Authorization: `Bearer ${token}` } },
-    });
-    const { data: u } = await userClient.auth.getUser();
+    const uc = userClient(req);
+    const { data: u } = await uc.auth.getUser();
     if (!u?.user?.id) return { ok: false, reason: "invalid_jwt" };
-    const admin = createClient(SUPABASE_URL, SERVICE_ROLE_KEY, { auth: { persistSession: false } });
-    const { data: hr, error } = await admin.rpc("has_role", {
-      _user_id: u.user.id,
-      _role: "company_admin",
-    });
-    if (error) return { ok: false, reason: `has_role_error:${error.message}` };
-    return hr === true ? { ok: true } : { ok: false, reason: "not_admin" };
+    const ok = await isCompanyAdmin(u.user.id);
+    return ok ? { ok: true } : { ok: false, reason: "not_admin" };
   } catch (err) {
     return { ok: false, reason: (err as Error).message.slice(0, 120) };
   }
@@ -670,14 +663,14 @@ Deno.serve(async (req) => {
         const dryRun = body.dry_run === true;
         const resume = body.resume === true;
         const timeBudgetMs = Math.min(Math.max(Number(body.time_budget_ms) || 240000, 30000), 300000);
-        const supa = createClient(SUPABASE_URL, SERVICE_ROLE_KEY, { auth: { persistSession: false } });
+        const supa = serviceClient();
         const result = await runColdStart(supa, { days, dryRun, resume, timeBudgetMs });
         return jsonResponse(result);
       }
 
       // === Mode: cold_start_status ===（純讀取，供 UI 輪詢）
       if (body?.mode === "cold_start_status") {
-        const supa = createClient(SUPABASE_URL, SERVICE_ROLE_KEY, { auth: { persistSession: false } });
+        const supa = serviceClient();
         const status = await readColdStartStatus(supa);
         return jsonResponse({ ok: true, status });
       }
@@ -687,7 +680,7 @@ Deno.serve(async (req) => {
         const wave = String(body.wave || "manual").slice(0, 32);
         const force = body.force === true;
         const lookback = Math.min(Math.max(Number(body.lookback) || 3, 0), 7);
-        const supa = createClient(SUPABASE_URL, SERVICE_ROLE_KEY, { auth: { persistSession: false } });
+        const supa = serviceClient();
         const result = await runKeepWarm(supa, { wave, force, lookback });
         return jsonResponse(result);
       }
@@ -699,7 +692,7 @@ Deno.serve(async (req) => {
         if (!/^[1-9]\d{3}$/.test(stockId)) {
           return errorResponse("stock_id must be 4-digit code starting 1-9", 400, { code: "BAD_REQUEST" });
         }
-        const supa = createClient(SUPABASE_URL, SERVICE_ROLE_KEY, { auth: { persistSession: false } });
+        const supa = serviceClient();
         try {
           const result = await backfillStockViaFinmind(supa, stockId, days);
           return jsonResponse({ mode: "backfill_stock", stock_id: stockId, ...result });
@@ -713,7 +706,7 @@ Deno.serve(async (req) => {
         const batch = Math.min(Math.max(Number(body.batch) || 5, 1), 20);
         const days = Math.min(Math.max(Number(body.days) || 60, 1), 90);
         const budgetMs = Math.min(Math.max(Number(body.time_budget_ms) || 45000, 5000), 60000);
-        const supa = createClient(SUPABASE_URL, SERVICE_ROLE_KEY, { auth: { persistSession: false } });
+        const supa = serviceClient();
 
         // 讀 flag 短路
         const { data: cfgRow } = await supa
@@ -834,9 +827,7 @@ Deno.serve(async (req) => {
 
 
     const tradeDate = toISODate(resolvedDate);
-    const supa = createClient(SUPABASE_URL, SERVICE_ROLE_KEY, {
-      auth: { persistSession: false },
-    });
+    const supa = serviceClient();
 
     const BATCH = 500;
     let inserted = 0;

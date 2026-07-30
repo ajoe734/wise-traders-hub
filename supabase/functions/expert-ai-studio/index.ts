@@ -2,7 +2,8 @@
 // AI 訓練台後端：Persona / Few-shot / 手動知識條目 CRUD
 // 所有動作要求：呼叫者是該 expert 的 user 或 company_admin
 // POST body: { action, expert_id, ... }
-import { createClient } from 'npm:@supabase/supabase-js@2';
+import { serviceClient, userClient } from '../_shared/supabaseClients.ts';
+import { isCompanyAdmin } from '../_shared/adminGuard.ts';
 import { corsHeaders, jsonResponse, errorResponse } from '../_shared/cors.ts';
 import { withLogging } from '../_shared/edgeLogger.ts';
 import { embedText } from '../_shared/ai-gateway.ts';
@@ -20,8 +21,8 @@ Deno.serve(withLogging('expert-ai-studio', async (req, log) => {
   const authHeader = req.headers.get('Authorization');
   if (!authHeader) return errorResponse('unauthorized', 401);
 
-  const userClient = createClient(SUPABASE_URL, ANON_KEY, { global: { headers: { Authorization: authHeader } } });
-  const { data: userData } = await userClient.auth.getUser();
+  const uc = userClient(req);
+  const { data: userData } = await uc.auth.getUser();
   const uid = userData?.user?.id;
   if (!uid) return errorResponse('unauthorized', 401);
 
@@ -30,14 +31,13 @@ Deno.serve(withLogging('expert-ai-studio', async (req, log) => {
   const expertId = body.expert_id as string | undefined;
   if (!action || !expertId) return errorResponse('action and expert_id required', 400);
 
-  const admin = createClient(SUPABASE_URL, SERVICE_KEY);
+  const admin = serviceClient();
 
   // 授權檢查
   const { data: expert } = await admin.from('experts').select('id, user_id, name').eq('id', expertId).maybeSingle();
   if (!expert) return errorResponse('expert not found', 404);
-  const { data: role } = await admin.from('user_roles').select('role').eq('user_id', uid).eq('role', 'company_admin').maybeSingle();
   const isOwner = expert.user_id === uid;
-  const isAdmin = !!role;
+  const isAdmin = await isCompanyAdmin(uid);
   if (!isOwner && !isAdmin) return errorResponse('forbidden', 403);
 
   try {

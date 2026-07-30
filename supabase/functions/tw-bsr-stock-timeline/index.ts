@@ -2,9 +2,8 @@
 // 逐檔 BSR 時間軸：回傳指定股票近 N 天的所有 attempt 記錄
 // 內含實際抓取時間、HTTP 狀態碼、outcome、latency、UA、backoff/consecutive 狀態、
 // fallback as_of_date、next_retry_at 及其推算來源。
-import { corsHeaders } from "npm:@supabase/supabase-js@2/cors";
+import { serviceClient } from '../_shared/supabaseClients.ts';
 import { requireCronKey, AuthError } from '../_shared/authGuard.ts';
-import { createClient } from "https://esm.sh/@supabase/supabase-js@2.45.4";
 
 const SUPABASE_URL = Deno.env.get("SUPABASE_URL")!;
 const SERVICE_ROLE_KEY = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!;
@@ -39,7 +38,7 @@ Deno.serve(async (req) => {
       });
     }
 
-    const supa = createClient(SUPABASE_URL, SERVICE_ROLE_KEY, { auth: { persistSession: false } });
+    const supa = serviceClient();
 
     const sinceIso = new Date(Date.now() - days * 86400_000).toISOString();
 

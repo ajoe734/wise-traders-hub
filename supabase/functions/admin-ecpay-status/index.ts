@@ -1,6 +1,7 @@
 // AUTH: user  (auto-annotated 2026-07-27, see docs/security/edge-function-auth-matrix.md)
 import { jsonResponse } from "../_shared/cors.ts";
-import { serviceClient, userClient } from "../_shared/supabaseClients.ts";
+import { requireCompanyAdmin, authErrorResponse } from "../_shared/adminGuard.ts";
+import { serviceClient } from "../_shared/supabaseClients.ts";
 import { withLogging } from "../_shared/edgeLogger.ts";
 
 function maskId(id: string) {
@@ -10,17 +11,12 @@ function maskId(id: string) {
 }
 
 const handler = withLogging("admin-ecpay-status", async (req) => {
-  const authHeader = req.headers.get("Authorization");
-  if (!authHeader) return jsonResponse({ error: "Unauthorized" }, { status: 401 });
-
-  const supabase = userClient(req);
-  const { data: u } = await supabase.auth.getUser();
-  if (!u?.user) return jsonResponse({ error: "Unauthorized" }, { status: 401 });
-
-  const { data: roleRow } = await supabase
-    .from("user_roles").select("role")
-    .eq("user_id", u.user.id).eq("role", "company_admin").maybeSingle();
-  if (!roleRow) return jsonResponse({ error: "Forbidden" }, { status: 403 });
+  // AUTH: company_admin (unified contract — see _shared/adminGuard.ts)
+  try {
+    await requireCompanyAdmin(req);
+  } catch (e) {
+    return authErrorResponse(e, req);
+  }
 
   const admin = serviceClient();
   const { data: row } = await admin

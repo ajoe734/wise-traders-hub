@@ -9,15 +9,12 @@
 //   - data-gov-tw      data.gov.tw 上市公司資料集
 //
 // 只有 company_admin 可觸發。回傳 { ok, source_key, row_count, duration_ms, log_id }。
-import { createClient } from 'npm:@supabase/supabase-js@2';
+import { serviceClient, userClient } from '../_shared/supabaseClients.ts';
+import { requireCompanyAdmin, authErrorResponse } from '../_shared/adminGuard.ts';
 import { fetchWithRateLimit } from '../_shared/finmindRateLimit.ts';
 
 // service role client for rate-limit RPCs (RLS-safe)
-const _rlClient = createClient(
-  Deno.env.get('SUPABASE_URL')!,
-  Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')!,
-  { auth: { persistSession: false, autoRefreshToken: false } },
-);
+const _rlClient = serviceClient();
 
 const corsHeaders = {
   'Access-Control-Allow-Origin': '*',
@@ -111,16 +108,15 @@ Deno.serve(async (req) => {
     const authHeader = req.headers.get('Authorization');
     if (!authHeader?.startsWith('Bearer ')) return json({ error: 'unauthorized' }, 401);
 
-    const userClient = createClient(url, anon, { global: { headers: { Authorization: authHeader } } });
-    const admin = createClient(url, service);
+    const admin = serviceClient();
 
-    const token = authHeader.replace('Bearer ', '');
-    const { data: claims, error: claimsErr } = await userClient.auth.getClaims(token);
-    if (claimsErr || !claims?.claims?.sub) return json({ error: 'unauthorized' }, 401);
-    const callerId = claims.claims.sub as string;
-
-    const { data: isAdmin } = await admin.rpc('has_role', { _user_id: callerId, _role: 'company_admin' });
-    if (!isAdmin) return json({ error: 'forbidden', message: '僅 company_admin 可觸發' }, 403);
+    // AUTH: company_admin (unified contract — see _shared/adminGuard.ts)
+    let callerId: string;
+    try {
+      callerId = await requireCompanyAdmin(req);
+    } catch (e) {
+      return authErrorResponse(e, req);
+    }
 
     const body = await req.json().catch(() => ({}));
     const sourceKey = String(body?.source_key || '');

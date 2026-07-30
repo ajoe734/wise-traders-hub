@@ -2,10 +2,10 @@
 // 收盤分析背景化入口：建立 job + fire-and-forget 觸發 worker
 // 前端送 { prompts: { blind, main, brain }, holdings_snapshot } —— 前端負責組 prompt
 // 回傳 { job_id }，使用者可立即關閉頁面。
+import { serviceClient } from '../_shared/supabaseClients.ts';
 import { corsPreflight, jsonResponse } from '../_shared/cors.ts';
 import { requireCaller, AuthError } from '../_shared/authGuard.ts';
 import { withLogging } from '../_shared/edgeLogger.ts';
-import { createClient } from 'https://esm.sh/@supabase/supabase-js@2.49.1';
 
 const handler = withLogging('checkup-analyze-enqueue', async (req, log) => {
   // AUTH: user (Phase M-2 runtime enforcement)
@@ -48,7 +48,7 @@ const handler = withLogging('checkup-analyze-enqueue', async (req, log) => {
     return jsonResponse({ error: 'prompts.main is required' }, { status: 400 });
   }
 
-  const admin = createClient(SUPABASE_URL, SERVICE_ROLE_KEY);
+  const admin = serviceClient();
 
   // 去重：當日已有 queued/running job 就回傳該 job_id
   const todayTw = new Date(new Date().toLocaleString('en-US', { timeZone: 'Asia/Taipei' }));

@@ -1,9 +1,9 @@
 // AUTH: user  (auto-annotated 2026-07-27, see docs/security/edge-function-auth-matrix.md)
 import { corsHeaders } from '../_shared/cors.ts';
-import { serviceClient } from '../_shared/supabaseClients.ts';
+import { requireCompanyAdmin, authErrorResponse } from '../_shared/adminGuard.ts';
+import { serviceClient, userClient } from '../_shared/supabaseClients.ts';
 import { withLogging } from '../_shared/edgeLogger.ts';
 import { validateInput, validationJsonResponse } from '../_shared/inputValidator.ts';
-import { createClient } from 'https://esm.sh/@supabase/supabase-js@2.49.1'
 
 Deno.serve(withLogging('create-analyst', async (req) => {
   if (req.method === 'OPTIONS') {
@@ -21,23 +21,12 @@ Deno.serve(withLogging('create-analyst', async (req) => {
       })
     }
 
-    const callerClient = createClient(supabaseUrl, anonKey, {
-      global: { headers: { Authorization: authHeader } }
-    })
-    const { data: { user: caller } } = await callerClient.auth.getUser()
-    if (!caller) {
-      return new Response(JSON.stringify({ error: 'Unauthorized' }), {
-        status: 401, headers: { ...corsHeaders, 'Content-Type': 'application/json' }
-      })
-    }
-
-    const { data: roleCheck } = await callerClient.rpc('has_role', {
-      _user_id: caller.id, _role: 'company_admin'
-    })
-    if (!roleCheck) {
-      return new Response(JSON.stringify({ error: 'Forbidden: company_admin required' }), {
-        status: 403, headers: { ...corsHeaders, 'Content-Type': 'application/json' }
-      })
+    // AUTH: company_admin (unified contract — see _shared/adminGuard.ts)
+    let callerId: string
+    try {
+      callerId = await requireCompanyAdmin(req)
+    } catch (e) {
+      return authErrorResponse(e, req)
     }
 
     const reqBody = await req.json()
@@ -143,7 +132,7 @@ Deno.serve(withLogging('create-analyst', async (req) => {
           role,
           bio: bio || null,
           status: 'suspended',
-          created_by: caller.id,
+          created_by: callerId,
         }).eq('id', existingExpert.id).select().single()
         if (updErr) throw updErr
         expert = updated
@@ -155,7 +144,7 @@ Deno.serve(withLogging('create-analyst', async (req) => {
           name,
           role,
           bio: bio || null,
-          created_by: caller.id,
+          created_by: callerId,
           status: 'suspended',
         }).select().single()
         if (expertError) throw expertError
@@ -193,7 +182,7 @@ Deno.serve(withLogging('create-analyst', async (req) => {
       }
 
       await adminClient.from('audit_logs').insert({
-        actor_id: caller.id,
+        actor_id: callerId,
         action: adopted ? 'adopt_analyst' : 'create_analyst',
         target_type: 'expert',
         target_id: expert.id,

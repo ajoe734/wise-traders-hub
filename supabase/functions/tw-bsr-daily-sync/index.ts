@@ -20,9 +20,9 @@
 //   5. 指數退避：失敗寫 next_retry_at，下次 cron 才會再抓
 //   6. 每輪彙總指標到 tw_bsr_sync_metrics（15 分鐘桶）
 
+import { serviceClient } from '../_shared/supabaseClients.ts';
 import "jsr:@supabase/functions-js/edge-runtime.d.ts";
 import { requireCronKey, AuthError } from '../_shared/authGuard.ts';
-import { createClient } from "https://esm.sh/@supabase/supabase-js@2.45.4";
 import { corsPreflight, jsonResponse, errorResponse } from "../_shared/cors.ts";
 import { ocrTwseCaptchaDetailed, planWithPriority, type OcrResult, type OcrVariantName } from "../_shared/twOcr.ts";
 
@@ -780,7 +780,7 @@ Deno.serve(async (req) => {
     const tradeDate = rollBackToWeekday(rawDate);
     const offHours = String(body?.window || "") === "off_hours";
 
-    const supa = createClient(SUPABASE_URL, SERVICE_ROLE_KEY, { auth: { persistSession: false } });
+    const supa = serviceClient();
     const { cfg, version: configVersion } = await loadConfig(supa);
 
     // 動態預設：backfill 模式吃 cfg.backfill；其他模式維持既有硬預設但仍受 cfg 上限保護

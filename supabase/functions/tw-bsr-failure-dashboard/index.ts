@@ -7,6 +7,7 @@
 //   - topOffenders: 近 N 日 captcha 率最高的檔
 // 僅 company_admin 可存取。
 import { corsHeaders } from "../_shared/cors.ts";
+import { requireCompanyAdmin, authErrorResponse } from '../_shared/adminGuard.ts';
 import { requireCronKey, AuthError } from '../_shared/authGuard.ts';
 
 const SUPABASE_URL = Deno.env.get("SUPABASE_URL") || "";
@@ -31,28 +32,12 @@ Deno.serve(async (req) => {
   if (req.method !== "GET") return json({ error: "METHOD_NOT_ALLOWED" }, 405);
 
   // --- auth ---
-  const jwt = (req.headers.get("Authorization") || "").replace(/^Bearer\s+/i, "").trim();
-  if (!jwt) return json({ error: "AUTH_REQUIRED" }, 401);
-
-  let callerId = "";
+  // AUTH: company_admin (unified contract — see _shared/adminGuard.ts)
   try {
-    const ur = await fetch(`${SUPABASE_URL}/auth/v1/user`, {
-      headers: { Authorization: `Bearer ${jwt}`, apikey: SERVICE_ROLE_KEY },
-    });
-    if (!ur.ok) return json({ error: "AUTH_FAILED" }, 401);
-    callerId = (await ur.json())?.id || "";
-  } catch {
-    return json({ error: "AUTH_FAILED" }, 401);
+    await requireCompanyAdmin(req);
+  } catch (e) {
+    return authErrorResponse(e, req);
   }
-  if (!callerId) return json({ error: "AUTH_FAILED" }, 401);
-
-  const roleRes = await fetch(`${SUPABASE_URL}/rest/v1/rpc/has_role`, {
-    method: "POST",
-    headers: srHeaders(),
-    body: JSON.stringify({ _user_id: callerId, _role: "company_admin" }),
-  });
-  if (!roleRes.ok) return json({ error: "ROLE_CHECK_FAILED" }, 500);
-  if ((await roleRes.json()) !== true) return json({ error: "FORBIDDEN" }, 403);
 
   // --- params ---
   const url = new URL(req.url);

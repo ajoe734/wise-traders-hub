@@ -3,8 +3,8 @@
 // P5: Gap-Driven Opportunistic Backfill worker — 從 backfill_job_queue 領取 job，
 // 使用 FinMind date-range API（1 call = 1 stock 的一段日期）回填籌碼面、三大法人、基本面。
 
+import { serviceClient, type SupabaseClient } from '../_shared/supabaseClients.ts';
 import "jsr:@supabase/functions-js/edge-runtime.d.ts";
-import { createClient } from "https://esm.sh/@supabase/supabase-js@2.45.4";
 import { corsHeaders, corsPreflight, jsonResponse, errorResponse } from "../_shared/cors.ts";
 import { checkKillSwitch } from "../_shared/killSwitch.ts";
 import { admitFinmind } from "../_shared/finmindAdmission.ts";
@@ -34,7 +34,7 @@ interface Job {
 }
 
 async function fetchFinmind<T = unknown>(
-  supa: ReturnType<typeof createClient>,
+  supa: SupabaseClient,
   params: Record<string, string>,
   job: Job,
   kind: string,
@@ -71,7 +71,7 @@ async function fetchFinmind<T = unknown>(
 
 /** Materialize every date in the range after facts were written. */
 async function materializeRange(
-  supa: ReturnType<typeof createClient>,
+  supa: SupabaseClient,
   start: string,
   end: string,
 ): Promise<{ materialized: number; errors: string[] }> {
@@ -91,7 +91,7 @@ async function materializeRange(
   return { materialized, errors };
 }
 
-async function processChipFact(supa: ReturnType<typeof createClient>, job: Job) {
+async function processChipFact(supa: SupabaseClient, job: Job) {
   const rows = await fetchFinmind<FinmindRow>(supa, {
     dataset: "TaiwanStockTradingDailyReport",
     data_id: job.stock_id,
@@ -133,7 +133,7 @@ async function processChipFact(supa: ReturnType<typeof createClient>, job: Job) 
   return { ok: true, rows: rows.length, facts: facts.length, materialized };
 }
 
-async function processInstitutional(supa: ReturnType<typeof createClient>, job: Job) {
+async function processInstitutional(supa: SupabaseClient, job: Job) {
   interface RawInst {
     date: string;
     name: string;
@@ -191,7 +191,7 @@ async function processInstitutional(supa: ReturnType<typeof createClient>, job: 
   return { ok: true, rows: upserts.length, raw_rows: rows.length };
 }
 
-async function processFundamentals(supa: ReturnType<typeof createClient>, job: Job) {
+async function processFundamentals(supa: SupabaseClient, job: Job) {
   const missingDatasets = Array.isArray(job.payload?.missing_datasets)
     ? (job.payload.missing_datasets as string[])
     : ["monthly_revenue"];
@@ -259,7 +259,7 @@ async function processFundamentals(supa: ReturnType<typeof createClient>, job: J
   return { ok: true, results };
 }
 
-async function processOne(supa: ReturnType<typeof createClient>, job: Job) {
+async function processOne(supa: SupabaseClient, job: Job) {
   console.log(`[backfill-worker] processing job ${job.id}: ${job.dataset} ${job.stock_id} ${job.start_date}..${job.end_date}`);
   try {
     if (job.dataset === "chip_fact") {
@@ -297,9 +297,7 @@ export default async function handler(req: Request): Promise<Response> {
 
 
   const body: Body = await req.json().catch(() => ({} as Body));
-  const supa = createClient(SUPABASE_URL, SERVICE_ROLE_KEY, {
-    auth: { persistSession: false, autoRefreshToken: false },
-  });
+  const supa = serviceClient();
   const runId = crypto.randomUUID();
   const startedAt = new Date().toISOString();
 

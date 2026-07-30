@@ -1,8 +1,8 @@
 // AUTH: user  (auto-annotated 2026-07-27, see docs/security/edge-function-auth-matrix.md)
-import { createClient } from 'https://esm.sh/@supabase/supabase-js@2.57.4';
 
 import { corsHeaders } from '../_shared/cors.ts';
-import { serviceClient } from '../_shared/supabaseClients.ts';
+import { requireCompanyAdmin, authErrorResponse } from '../_shared/adminGuard.ts';
+import { serviceClient, userClient } from '../_shared/supabaseClients.ts';
 import { withLogging } from '../_shared/edgeLogger.ts';
 import { validateInput, validationResponse } from '../_shared/inputValidator.ts';
 const SUPABASE_URL = Deno.env.get('SUPABASE_URL')!;
@@ -54,21 +54,13 @@ Deno.serve(withLogging('admin-manage-users', async (req) => {
   if (req.method === 'OPTIONS') return new Response(null, { headers: corsHeaders });
 
   try {
-    const authHeader = req.headers.get('Authorization') || '';
-    if (!authHeader.startsWith('Bearer ')) return json({ error: 'unauthorized' }, 401);
-
-    const callerClient = createClient(SUPABASE_URL, ANON_KEY, {
-      global: { headers: { Authorization: authHeader } },
-    });
-    const { data: userData, error: userErr } = await callerClient.auth.getUser();
-    if (userErr || !userData.user) return json({ error: 'unauthorized' }, 401);
-    const callerId = userData.user.id;
-
-    const { data: isAdmin, error: roleErr } = await callerClient.rpc('has_role', {
-      _user_id: callerId,
-      _role: 'company_admin',
-    });
-    if (roleErr || !isAdmin) return json({ error: 'forbidden' }, 403);
+    // AUTH: company_admin (unified contract — see _shared/adminGuard.ts)
+    let callerId: string;
+    try {
+      callerId = await requireCompanyAdmin(req);
+    } catch (e) {
+      return authErrorResponse(e, req);
+    }
 
     const admin = serviceClient();
     const body = await req.json().catch(() => ({}));

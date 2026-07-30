@@ -1,6 +1,6 @@
 // AUTH: user  (reclassified M-3c-2: 2026-07-27, see docs/security/edge-function-auth-matrix.md)
-import { createClient } from 'npm:@supabase/supabase-js@2';
-import { serviceClient } from '../_shared/supabaseClients.ts';
+import { serviceClient, userClient } from '../_shared/supabaseClients.ts';
+import { requireCompanyAdmin } from '../_shared/adminGuard.ts';
 import { withLogging } from '../_shared/edgeLogger.ts';
 import { jsonResponse, corsHeaders } from '../_shared/cors.ts';
 
@@ -57,19 +57,12 @@ async function authorize(req: Request): Promise<{ ok: boolean; trigger: 'cron' |
   if (!authHeader.startsWith('Bearer ')) {
     return { ok: false, trigger: null, error: 'missing authorization' };
   }
-  const supabase = createClient(
-    Deno.env.get('SUPABASE_URL')!,
-    Deno.env.get('SUPABASE_ANON_KEY')!,
-    { global: { headers: { Authorization: authHeader } } },
-  );
-  const { data: claims, error } = await supabase.auth.getClaims(authHeader.replace('Bearer ', ''));
-  if (error || !claims?.claims?.sub) {
-    return { ok: false, trigger: null, error: 'invalid token' };
+  // AUTH: company_admin (unified contract — see _shared/adminGuard.ts)
+  try {
+    await requireCompanyAdmin(req);
+  } catch (_e) {
+    return { ok: false, trigger: null, error: 'forbidden' };
   }
-  const userId = claims.claims.sub;
-  const svc = serviceClient();
-  const { data: hasRole } = await svc.rpc('has_role', { _user_id: userId, _role: 'company_admin' });
-  if (!hasRole) return { ok: false, trigger: null, error: 'forbidden' };
   return { ok: true, trigger: 'admin' };
 }
 

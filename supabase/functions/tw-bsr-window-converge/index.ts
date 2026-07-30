@@ -3,9 +3,8 @@
 // 收斂式排程：每次呼叫掃描 active TW 持倉，為未達 60 日視窗的個股補齊工作。
 // 由 pg_cron 每日盤後多次觸發，直到所有持倉的視窗皆 ready 或 upstream_exhausted。
 
-import { createClient } from 'https://esm.sh/@supabase/supabase-js@2.45.0';
+import { serviceClient } from '../_shared/supabaseClients.ts';
 import { requireCronKey, AuthError } from '../_shared/authGuard.ts';
-import { corsHeaders } from 'npm:@supabase/supabase-js@2/cors';
 
 const SUPABASE_URL = Deno.env.get('SUPABASE_URL')!;
 const SERVICE_KEY = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')!;
@@ -40,9 +39,7 @@ Deno.serve(async (req) => {
     const horizonDays = Math.max(20, Math.min(180,
       Number(body?.horizon_days ?? url.searchParams.get('horizon_days') ?? 110)));
 
-    const supa = createClient(SUPABASE_URL, SERVICE_KEY, {
-      auth: { persistSession: false, autoRefreshToken: false },
-    });
+    const supa = serviceClient();
 
     const t0 = Date.now();
     const { data, error } = await supa.rpc('converge_bsr_windows', {

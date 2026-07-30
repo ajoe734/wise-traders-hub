@@ -3,10 +3,10 @@
 // Reads all open combo signals from expert_signals + expert_signal_legs,
 // resolves each leg to its OCC symbol, fetches Yahoo Finance option chain
 // mark price, writes rows into public.current_prices (asset_class=us_option).
+import { serviceClient } from '../_shared/supabaseClients.ts';
 import { corsHeaders } from '../_shared/cors.ts';
 import { withLogging } from '../_shared/edgeLogger.ts';
 import { requireCronKey } from '../_shared/authGuard.ts';
-import { createClient } from 'https://esm.sh/@supabase/supabase-js@2.49.1';
 import { buildOccSymbol, type OptionRight } from './occ.ts';
 import { fetchYahooOptionQuote } from './yahoo.ts';
 
@@ -45,10 +45,7 @@ Deno.serve(withLogging('us-option-price-sync', async (req) => {
     );
   }
 
-  const supabase = createClient(
-    Deno.env.get('SUPABASE_URL')!,
-    Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')!,
-  );
+  const supabase = serviceClient();
 
   // Pull open combo signals + their legs.
   const { data: signals, error: sigErr } = await supabase

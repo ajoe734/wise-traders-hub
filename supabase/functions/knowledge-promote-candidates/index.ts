@@ -3,9 +3,9 @@
 // 知識庫候選晉升：從盲測案例中發現「跨多檔股票連續應驗」的 trigger pattern，
 // 由 Claude 總結成新知識條目骨架 → 寫進 checkup_knowledge_candidates 等管理員審核。
 // 由 pg_cron 每週日 04:00 UTC+8 觸發。
+import { serviceClient } from '../_shared/supabaseClients.ts';
 import "jsr:@supabase/functions-js/edge-runtime.d.ts";
 import { requireCronKey, AuthError } from '../_shared/authGuard.ts';
-import { createClient } from "https://esm.sh/@supabase/supabase-js@2.49.1";
 
 import { corsHeaders } from '../_shared/cors.ts';
 import { withLogging } from '../_shared/edgeLogger.ts';
@@ -50,10 +50,7 @@ Deno.serve(withLogging('knowledge-promote-candidates', async (req) => {
   if (req.method === 'OPTIONS') return new Response(null, { headers: corsHeaders });
 
   try {
-    const supabase = createClient(
-      Deno.env.get('SUPABASE_URL')!,
-      Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')!,
-    );
+    const supabase = serviceClient();
 
     const since = new Date(Date.now() - LOOKBACK_DAYS * 86400000).toISOString();
 

@@ -1,4 +1,5 @@
 // AUTH: public  (auto-annotated 2026-07-27, see docs/security/edge-function-auth-matrix.md)
+import { serviceClient } from '../_shared/supabaseClients.ts';
 /**
  * og-card — 動態品牌化 OG 預覽卡（SVG）。
  *
@@ -14,7 +15,6 @@
  *
  * 公開無 JWT；找不到專家時回預設 legendflow 卡（避免 404 破壞預覽）。
  */
-import { createClient } from "https://esm.sh/@supabase/supabase-js@2.39.0";
 
 const W = 1200;
 const H = 630;
@@ -23,10 +23,7 @@ const BG = "#FAF8F4";
 const INK = "#0B120E";
 const SUB = "#5A5550";
 
-const supabase = createClient(
-  Deno.env.get("SUPABASE_URL")!,
-  Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!,
-);
+const supabase = serviceClient();
 
 function escapeXml(s: string): string {
   return String(s ?? "").replace(/[&<>"']/g, (c) =>

@@ -2,10 +2,10 @@
 // 每日 14:00 (UTC+8) cron：找出「有效訂閱 + 有持倉」的用戶，推播「今日可跑收盤分析」
 // Line（若 profile.line_user_id 存在）+ 站內通知；Email 視為次要管道（暫不發）
 // 用 checkup_daily_reminders UNIQUE(user_id, reminded_on) 防重複。
+import { serviceClient } from '../_shared/supabaseClients.ts';
 import { corsHeaders, jsonResponse, corsPreflight } from '../_shared/cors.ts';
 import { requireCronKey, AuthError } from '../_shared/authGuard.ts';
 import { withLogging } from '../_shared/edgeLogger.ts';
-import { createClient } from 'https://esm.sh/@supabase/supabase-js@2.49.1';
 
 const LINE_PUSH_URL = 'https://api.line.me/v2/bot/message/push';
 const SITE_URL = 'https://legendflow.tw';
@@ -35,7 +35,7 @@ const handler = withLogging('checkup-daily-reminder-cron', async (req, log) => {
 
   const SUPABASE_URL = Deno.env.get('SUPABASE_URL')!;
   const SERVICE_ROLE_KEY = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')!;
-  const admin = createClient(SUPABASE_URL, SERVICE_ROLE_KEY);
+  const admin = serviceClient();
 
   const today = todayTaipei();
   const nowIso = new Date().toISOString();

@@ -4,11 +4,11 @@
 // 透過 LINE（有綁定）或 Email（無綁定但有可寄信信箱）一次性提醒繼續付款。
 // Idempotency: payment_intents.recovery_notified_at IS NULL，發送後寫入時間戳。
 
+import { serviceClient } from '../_shared/supabaseClients.ts';
 import { corsHeaders } from '../_shared/cors.ts';
 import { checkupRenewalUrl, renewalUrl } from '../_shared/routes.ts';
 import { requireCronKey, AuthError } from '../_shared/authGuard.ts';
 import { withLogging } from '../_shared/edgeLogger.ts';
-import { createClient } from 'https://esm.sh/@supabase/supabase-js@2.49.1';
 
 const LINE_PUSH_URL = 'https://api.line.me/v2/bot/message/push';
 const RESEND_API_URL = 'https://api.resend.com/emails';
@@ -94,10 +94,7 @@ Deno.serve(withLogging('recover-abandoned-checkout', async (req) => {
 
   if (req.method === 'OPTIONS') return new Response(null, { headers: corsHeaders });
 
-  const supabaseAdmin = createClient(
-    Deno.env.get('SUPABASE_URL')!,
-    Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')!,
-  );
+  const supabaseAdmin = serviceClient();
   const siteUrl = (Deno.env.get('SITE_URL') || 'https://legendflow.tw').replace(/\/$/, '');
   const resendKey = Deno.env.get('RESEND_API_KEY');
 

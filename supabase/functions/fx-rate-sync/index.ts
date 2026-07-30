@@ -1,7 +1,7 @@
 // AUTH: cron  (auto-annotated 2026-07-27, see docs/security/edge-function-auth-matrix.md)
+import { serviceClient } from '../_shared/supabaseClients.ts';
 import { corsHeaders } from '../_shared/cors.ts';
 import { requireCronKey, AuthError } from '../_shared/authGuard.ts';
-import { createClient } from 'https://esm.sh/@supabase/supabase-js@2.49.1';
 
 /**
  * fx-rate-sync
@@ -63,10 +63,7 @@ Deno.serve(async (req) => {
 
   if (req.method === 'OPTIONS') return new Response('ok', { headers: corsHeaders });
 
-  const supabase = createClient(
-    Deno.env.get('SUPABASE_URL')!,
-    Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')!,
-  );
+  const supabase = serviceClient();
 
   const result = (await fetchYahoo()) ?? (await fetchFallback());
   if (!result) {

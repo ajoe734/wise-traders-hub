@@ -5,7 +5,7 @@
 // 目前 FinMind 已知的 header 名稱因端點而異，故做寬鬆匹配。
 // 找不到任何線索時就 no-op（不寫）。
 
-import type { SupabaseClient } from 'npm:@supabase/supabase-js@2';
+import type { SupabaseClient } from './supabaseClients.ts';
 
 const HEADER_HINTS_REMAINING = [
   'x-ratelimit-remaining',

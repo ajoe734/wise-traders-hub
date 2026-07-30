@@ -1,8 +1,8 @@
 // AUTH: user  (auto-annotated 2026-07-27, see docs/security/edge-function-auth-matrix.md)
 // Generate a 6-digit account-link code for the current authenticated user.
 // The user who calls this becomes the PRIMARY (canonical) account after merge.
-import { createClient } from 'https://esm.sh/@supabase/supabase-js@2.45.0';
 
+import { serviceClient, userClient } from '../_shared/supabaseClients.ts';
 const corsHeaders = {
   'Access-Control-Allow-Origin': '*',
   'Access-Control-Allow-Headers': 'authorization, x-client-info, apikey, content-type',
@@ -22,10 +22,10 @@ Deno.serve(async (req) => {
     const service = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')!;
     const authHeader = req.headers.get('Authorization') ?? '';
 
-    const userClient = createClient(url, anon, { global: { headers: { Authorization: authHeader } } });
-    const admin = createClient(url, service);
+    const uc = userClient(req);
+    const admin = serviceClient();
 
-    const { data: authData, error: authErr } = await userClient.auth.getUser();
+    const { data: authData, error: authErr } = await uc.auth.getUser();
     if (authErr || !authData.user) {
       return new Response(JSON.stringify({ error: 'AUTH_REQUIRED' }), { status: 401, headers: { ...corsHeaders, 'Content-Type': 'application/json' } });
     }

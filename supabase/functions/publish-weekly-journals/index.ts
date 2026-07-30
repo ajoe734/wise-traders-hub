@@ -1,9 +1,9 @@
 // AUTH: cron  (M-4 reclassified: hybrid cron-or-user; scheduler uses X-Cron-Key, mentor force-publish uses bearer)
 import { corsHeaders } from '../_shared/cors.ts';
+import { isCompanyAdmin } from '../_shared/adminGuard.ts'
 import { serviceClient } from '../_shared/supabaseClients.ts';
 import { withLogging } from '../_shared/edgeLogger.ts';
 import { requireCronKey, requireCaller, AuthError } from '../_shared/authGuard.ts';
-import { createClient } from 'https://esm.sh/@supabase/supabase-js@2.49.1'
 import { classifyPublishError, buildMentorFailureNotification, isTransientError, retryTransient } from './classifyPublishError.ts'
 import { parseUnitLockError } from '../_shared/parseUnitLockError.ts'
 
@@ -258,10 +258,8 @@ Deno.serve(withLogging('publish-weekly-journals', async (req) => {
       }
       const { data: expertRow } = await supabaseAdmin
         .from('experts').select('id, user_id').eq('id', body.expert_id).maybeSingle()
-      const { data: roleRow } = await supabaseAdmin
-        .from('user_roles').select('role').eq('user_id', callerId).eq('role', 'company_admin').maybeSingle()
       const isOwner = expertRow?.user_id === callerId
-      const isAdmin = !!roleRow
+      const isAdmin = await isCompanyAdmin(callerId)
       if (!isOwner && !isAdmin) {
         await flushLogs()
         return new Response(JSON.stringify({ error: 'forbidden', runId }), {

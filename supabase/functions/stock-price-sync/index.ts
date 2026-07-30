@@ -1,7 +1,7 @@
 // AUTH: public  (auto-annotated 2026-07-27, see docs/security/edge-function-auth-matrix.md)
+import { serviceClient } from '../_shared/supabaseClients.ts';
 import { corsHeaders } from '../_shared/cors.ts';
 import { withLogging } from '../_shared/edgeLogger.ts';
-import { createClient } from 'https://esm.sh/@supabase/supabase-js@2.49.1'
 import { parsePrice, extractPrice, shouldWritePrice, type MsgItem } from '../_shared/stockPriceWaterfall.ts'
 import { detectMarket, isDerivativeMarket, type Market } from '../_shared/marketDetect.ts'
 import { fetchUsQuotes } from '../_shared/usStockPriceWaterfall.ts'
@@ -159,10 +159,7 @@ Deno.serve(withLogging('stock-price-sync', async (req) => {
       })
     }
 
-    const supabase = createClient(
-      Deno.env.get('SUPABASE_URL')!,
-      Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')!
-    )
+    const supabase = serviceClient()
 
     // ── Resolve caller user_id (for miss logging in symbols mode) ──
     let callerUserId: string | null = null

@@ -5,7 +5,8 @@
 //       2) 拉 experts.bio/description/style/strategy/signals → chunk → embed
 //       3) 先 DELETE 舊 chunks 再 INSERT 新的
 //       4) 更新 run（status=success/failed + 統計）
-import { createClient } from 'npm:@supabase/supabase-js@2';
+import { serviceClient, userClient } from '../_shared/supabaseClients.ts';
+import { isCompanyAdmin } from '../_shared/adminGuard.ts';
 import { corsHeaders, jsonResponse, errorResponse } from '../_shared/cors.ts';
 import { withLogging } from '../_shared/edgeLogger.ts';
 import { embedText } from '../_shared/ai-gateway.ts';
@@ -41,10 +42,8 @@ Deno.serve(withLogging('expert-ai-index', async (req, log) => {
   // AUTH: user — enforce BEFORE body parsing (M-3c contract)
   const authHeader = req.headers.get('Authorization');
   if (!authHeader) return errorResponse('unauthorized', 401);
-  const userClient = createClient(SUPABASE_URL, Deno.env.get('SUPABASE_ANON_KEY') || '', {
-    global: { headers: { Authorization: authHeader } },
-  });
-  const { data: userData } = await userClient.auth.getUser();
+  const uc = userClient(req);
+  const { data: userData } = await uc.auth.getUser();
   const uid = userData?.user?.id;
   if (!uid) return errorResponse('unauthorized', 401);
 
@@ -53,10 +52,10 @@ Deno.serve(withLogging('expert-ai-index', async (req, log) => {
   const triggerSource = (body.trigger_source as string | undefined) || 'manual';
   if (!expertId) return errorResponse('expert_id required', 400);
 
-  const admin = createClient(SUPABASE_URL, SERVICE_KEY);
+  const admin = serviceClient();
   const { data: exp } = await admin.from('experts').select('user_id').eq('id', expertId).maybeSingle();
-  const { data: role } = await admin.from('user_roles').select('role').eq('user_id', uid).in('role', ['company_admin']).maybeSingle();
-  if (exp?.user_id !== uid && !role) return errorResponse('forbidden', 403);
+  const isAdmin = await isCompanyAdmin(uid);
+  if (exp?.user_id !== uid && !isAdmin) return errorResponse('forbidden', 403);
 
   // 開一筆 run
   const startedAt = new Date();

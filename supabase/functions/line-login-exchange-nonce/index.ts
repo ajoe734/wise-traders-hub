@@ -12,8 +12,8 @@
 //   the nonce here, we atomically delete the row (so a second call 410s),
 //   and return the durable session tokens for `supabase.auth.setSession`.
 
+import { serviceClient } from '../_shared/supabaseClients.ts';
 import { serve } from 'https://deno.land/std@0.168.0/http/server.ts';
-import { createClient } from 'https://esm.sh/@supabase/supabase-js@2.49.1';
 
 import { corsHeaders } from '../_shared/cors.ts';
 import { withLogging } from '../_shared/edgeLogger.ts';
@@ -38,10 +38,7 @@ serve(withLogging('line-login-exchange-nonce', async (req) => {
   if (issues.length) return validationJsonResponse(issues);
   const nonce = trimmed;
 
-  const supabaseAdmin = createClient(
-    Deno.env.get('SUPABASE_URL')!,
-    Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')!,
-  );
+  const supabaseAdmin = serviceClient();
 
   // Atomic single-use consume: delete-and-return.
   // If row missing or already expired (we check via expires_at), no row returns.

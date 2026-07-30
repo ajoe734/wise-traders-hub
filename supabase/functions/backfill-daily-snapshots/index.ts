@@ -8,7 +8,6 @@ import { withLogging } from '../_shared/edgeLogger.ts';
 //   POST { months?: 36, symbols?: string[], dryRun?: boolean, resume?: true }
 //   resume=true: 只跑 progress 表中 status != 'done' 的 (symbol, yyyymm)
 // 進度寫入 knowledge_backfill_progress
-import { createClient } from 'https://esm.sh/@supabase/supabase-js@2.45.0'
 
 const SUPABASE_URL = Deno.env.get('SUPABASE_URL')!
 const SERVICE_KEY = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')!

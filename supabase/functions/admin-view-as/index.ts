@@ -3,8 +3,9 @@
 // - action=issue:   admin requests a token for target_user_id (15 min TTL, one-shot)
 // - action=resolve: viewer page exchanges token → { admin_id, target_user_id, target_email }
 //                   token is marked consumed_at and revoked after first resolve.
-import { createClient } from 'npm:@supabase/supabase-js@2';
 
+import { serviceClient, userClient } from '../_shared/supabaseClients.ts';
+import { requireCompanyAdmin, authErrorResponse } from '../_shared/adminGuard.ts';
 const corsHeaders = {
   'Access-Control-Allow-Origin': '*',
   'Access-Control-Allow-Headers': 'authorization, x-client-info, apikey, content-type',
@@ -31,13 +32,11 @@ Deno.serve(async (req) => {
     const anon = Deno.env.get('SUPABASE_ANON_KEY')!;
     const service = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')!;
 
-    const userClient = createClient(url, anon, {
-      global: { headers: { Authorization: authHeader } },
-    });
-    const admin = createClient(url, service);
+    const uc = userClient(req);
+    const admin = serviceClient();
 
     const token = authHeader.replace('Bearer ', '');
-    const { data: claims, error: claimsErr } = await userClient.auth.getClaims(token);
+    const { data: claims, error: claimsErr } = await uc.auth.getClaims(token);
     if (claimsErr || !claims?.claims?.sub) return json({ error: 'unauthorized' }, 401);
     const callerId = claims.claims.sub as string;
 
@@ -45,9 +44,12 @@ Deno.serve(async (req) => {
     const action = body?.action;
 
     if (action === 'issue') {
-      // Verify caller is company_admin
-      const { data: hasRole } = await admin.rpc('has_role', { _user_id: callerId, _role: 'company_admin' });
-      if (!hasRole) return json({ error: 'forbidden' }, 403);
+      // AUTH: company_admin (unified contract — see _shared/adminGuard.ts)
+      try {
+        await requireCompanyAdmin(req);
+      } catch (e) {
+        return authErrorResponse(e, req);
+      }
 
       const targetUserId = String(body?.target_user_id || '');
       if (!targetUserId) return json({ error: 'missing_target' }, 400);

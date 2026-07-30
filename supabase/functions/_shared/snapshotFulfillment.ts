@@ -5,7 +5,7 @@
 // machine (bsr_snapshot_claim → fetch → write → bsr_snapshot_mark → fulfill jobs)
 // and guarantees exactly-one in-flight fetch per date via the DB-side row lock.
 
-import type { SupabaseClient } from 'npm:@supabase/supabase-js@2';
+import type { SupabaseClient } from './supabaseClients.ts';
 import {
   aggregate,
   DONE_BROKER_THRESHOLD,

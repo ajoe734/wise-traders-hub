@@ -2,8 +2,9 @@
 // Admin-only Line push: process a job in line_push_jobs (immediate or invoked by cron).
 // Body: { job_id: string }
 // Auth: requires company_admin (verified via has_role).
+import { serviceClient, userClient } from '../_shared/supabaseClients.ts';
+import { requireCompanyAdmin, authErrorResponse } from '../_shared/adminGuard.ts';
 import { corsHeaders, corsPreflight, jsonResponse, errorResponse } from '../_shared/cors.ts';
-import { createClient } from 'https://esm.sh/@supabase/supabase-js@2.49.1';
 
 const LINE_MULTICAST_URL = 'https://api.line.me/v2/bot/message/multicast';
 const LINE_PUSH_URL = 'https://api.line.me/v2/bot/message/push';
@@ -153,20 +154,18 @@ Deno.serve(async (req) => {
     const anonKey = Deno.env.get('SUPABASE_ANON_KEY')!;
     const authHeader = req.headers.get('Authorization') || '';
 
-    // Verify caller is company_admin
-    const callerClient = createClient(supabaseUrl, anonKey, {
-      global: { headers: { Authorization: authHeader } },
-    });
-    const { data: { user } } = await callerClient.auth.getUser();
-    if (!user) return errorResponse('AUTH_REQUIRED', 401);
-    const { data: isAdmin } = await callerClient.rpc('has_role', { _user_id: user.id, _role: 'company_admin' });
-    if (!isAdmin) return errorResponse('FORBIDDEN', 403);
+    // AUTH: company_admin (unified contract — see _shared/adminGuard.ts)
+    try {
+      await requireCompanyAdmin(req);
+    } catch (e) {
+      return authErrorResponse(e, req);
+    }
 
     const body = await req.json().catch(() => ({}));
     const jobId = String(body.job_id || '');
     if (!jobId) return errorResponse('job_id required', 400);
 
-    const admin = createClient(supabaseUrl, serviceKey);
+    const admin = serviceClient();
     const out = await processJob(admin, jobId);
     return jsonResponse(out);
   } catch (e) {

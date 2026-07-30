@@ -6,10 +6,10 @@
 // POST body 選填：
 //   { dryRun?: boolean, refreshCoverage?: boolean, onlyCodes?: string[] }
 // 預設會在寫入後呼叫 refresh_bsr_coverage_daily(10)
+import { serviceClient } from '../_shared/supabaseClients.ts';
 import { corsHeaders } from '../_shared/cors.ts';
 import { requireCronKey, AuthError } from '../_shared/authGuard.ts';
 import { withLogging } from '../_shared/edgeLogger.ts';
-import { createClient } from 'https://esm.sh/@supabase/supabase-js@2.49.1';
 
 const TWSE_URL = 'https://openapi.twse.com.tw/v1/exchangeReport/STOCK_DAY_ALL';
 
@@ -56,10 +56,7 @@ Deno.serve(withLogging('backfill-snapshots-twse-bulk', async (req) => {
 
   if (req.method === 'OPTIONS') return new Response(null, { headers: corsHeaders });
 
-  const admin = createClient(
-    Deno.env.get('SUPABASE_URL')!,
-    Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')!,
-  );
+  const admin = serviceClient();
 
   let body: { dryRun?: boolean; refreshCoverage?: boolean; onlyCodes?: string[] } = {};
   if (req.method === 'POST') {

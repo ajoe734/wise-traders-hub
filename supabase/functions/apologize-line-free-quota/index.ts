@@ -11,6 +11,7 @@
 //   6. 整批結果寫入 audit_logs，回傳統計
 // 支援 ?dry_run=1 — 只列出將要嘗試的 (user, OA) 組合，不實際呼叫 LINE / 不寫 notifications。
 import { corsHeaders } from '../_shared/cors.ts';
+import { requireCompanyAdmin, authErrorResponse } from '../_shared/adminGuard.ts';
 import { requireCronKey, AuthError } from '../_shared/authGuard.ts';
 
 import { withLogging } from '../_shared/edgeLogger.ts';
@@ -56,31 +57,12 @@ Deno.serve(withLogging('apologize-line-free-quota', async (req: Request) => {
     return json({ error: 'METHOD_NOT_ALLOWED' }, 405);
   }
 
-  const jwt = (req.headers.get('Authorization') || '').replace(/^Bearer\s+/i, '').trim();
-  if (!jwt) return json({ error: 'AUTH_REQUIRED' }, 401);
-
-  // verify caller
-  let callerId = '';
+  // AUTH: company_admin (unified contract — see _shared/adminGuard.ts)
+  let callerId: string;
   try {
-    const ur = await fetch(`${SUPABASE_URL}/auth/v1/user`, {
-      headers: { Authorization: `Bearer ${jwt}`, apikey: SERVICE_ROLE_KEY },
-    });
-    if (!ur.ok) return json({ error: 'AUTH_FAILED' }, 401);
-    callerId = (await ur.json())?.id || '';
+    callerId = await requireCompanyAdmin(req);
   } catch (e) {
-    console.error('[apologize] getUser failed', e);
-    return json({ error: 'AUTH_FAILED' }, 401);
-  }
-  if (!callerId) return json({ error: 'AUTH_FAILED' }, 401);
-
-  const roleRes = await fetch(`${SUPABASE_URL}/rest/v1/rpc/has_role`, {
-    method: 'POST',
-    headers: jsonHeaders(),
-    body: JSON.stringify({ _user_id: callerId, _role: 'company_admin' }),
-  });
-  if (!roleRes.ok) return json({ error: 'ROLE_CHECK_FAILED' }, 500);
-  if ((await roleRes.json()) !== true) {
-    return json({ error: 'FORBIDDEN', message: '僅限公司管理員存取' }, 403);
+    return authErrorResponse(e, req);
   }
 
   const url = new URL(req.url);

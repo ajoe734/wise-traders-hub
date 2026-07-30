@@ -1,5 +1,6 @@
 // AUTH: cron  (auto-annotated 2026-07-27, see docs/security/edge-function-auth-matrix.md)
 import { corsHeaders } from '../_shared/cors.ts';
+import { listCompanyAdminIds } from '../_shared/adminGuard.ts'
 import { requireCronKey, AuthError } from '../_shared/authGuard.ts';
 import { serviceClient } from '../_shared/supabaseClients.ts';
 import { withLogging } from '../_shared/edgeLogger.ts';
@@ -8,7 +9,6 @@ import { validateInput, validationJsonResponse } from '../_shared/inputValidator
 // 透過 Resend 寄信給所有 company_admin。
 // Body: { hours?: number = 2, trigger?: 'cron' | 'manual' | 'auto_after_backfill' | 'auto' }
 
-import { createClient } from 'https://esm.sh/@supabase/supabase-js@2.49.1'
 
 const SUPABASE_URL = Deno.env.get('SUPABASE_URL')!
 const SERVICE_KEY = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')!
@@ -193,9 +193,7 @@ Deno.serve(withLogging('notify-backtest-result', async (req) => {
       }))
 
     // 收件人：所有 company_admin 的 email
-    const { data: adminRoles } = await sb
-      .from('user_roles').select('user_id').eq('role', 'company_admin')
-    const adminIds = (adminRoles ?? []).map((r: any) => r.user_id)
+    const adminIds = await listCompanyAdminIds()
 
     const recipients: string[] = []
     for (const uid of adminIds) {
