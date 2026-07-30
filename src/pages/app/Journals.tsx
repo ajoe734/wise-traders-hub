@@ -124,17 +124,15 @@ const fetchJournalsData = async (userId: string | undefined, isTester: boolean, 
     return { signals: [] as JournalSignal[], hasSubscription: true, diag };
   }
 
-  const { data, error } = await supabase
-    .from('expert_signals')
-    .select('id, instrument, action, price_hint, reason_summary, reason_detail, risk_notes, learning_points, published_at, expert_id, experts(name, slug, role, avatar_url, asset_class, currency)')
-    .eq('status', 'published')
-    .in('expert_id', mentorIds)
-    .order('published_at', { ascending: false })
-    .limit(100);
+  const { signals: fetched, error } = await journalRepo.forSubscriber<JournalSignal>(
+    supabase as any,
+    { mentorIds, limit: 100 },
+  );
 
   if (error) {
     console.error('Error fetching journals:', error);
   }
+
 
   const signals = ((data as any) || []) as JournalSignal[];
   const countMap = new Map<string, number>();
