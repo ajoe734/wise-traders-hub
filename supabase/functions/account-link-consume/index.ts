@@ -4,11 +4,7 @@
 // All of the secondary's data is moved to the primary; the secondary auth user is disabled.
 
 import { serviceClient, userClient } from '../_shared/supabaseClients.ts';
-const corsHeaders = {
-  'Access-Control-Allow-Origin': '*',
-  'Access-Control-Allow-Headers': 'authorization, x-client-info, apikey, content-type',
-  'Access-Control-Allow-Methods': 'POST, OPTIONS',
-};
+import { corsHeaders } from '../_shared/cors.ts';
 
 const USER_ID_TABLES = [
   'member_subscriptions',

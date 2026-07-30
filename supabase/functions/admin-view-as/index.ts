@@ -6,11 +6,7 @@
 
 import { serviceClient, userClient } from '../_shared/supabaseClients.ts';
 import { requireCompanyAdmin, authErrorResponse } from '../_shared/adminGuard.ts';
-const corsHeaders = {
-  'Access-Control-Allow-Origin': '*',
-  'Access-Control-Allow-Headers': 'authorization, x-client-info, apikey, content-type',
-  'Access-Control-Allow-Methods': 'POST, OPTIONS',
-};
+import { corsHeaders } from '../_shared/cors.ts';
 
 const TTL_MS = 15 * 60 * 1000;
 

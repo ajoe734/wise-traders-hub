@@ -13,10 +13,7 @@ import { listCompanyAdminIds } from "../_shared/adminGuard.ts";
 import { requireCaller, AuthError } from '../_shared/authGuard.ts';
 import { lotsToShares, SHARES_PER_LOT } from "../_shared/lotSize.ts";
 
-const corsHeaders = {
-  "Access-Control-Allow-Origin": "*",
-  "Access-Control-Allow-Headers": "authorization, x-client-info, apikey, content-type",
-};
+import { corsHeaders } from '../_shared/cors.ts';
 
 const MS_DAY = 86_400_000;
 const TZ_OFFSET_MS = 8 * 60 * 60 * 1000;
@@ -238,7 +235,7 @@ function detectRisks(rows: any[], openingBalances: Map<string, number>) {
   for (const r of rows) {
     const key = `${r.expert_id}::${r.instrument ?? ""}`;
     const g = byKey.get(key) ?? {
-      rows: [],
+      rows: [] as any[],
       expertId: r.expert_id,
       expertName: r.experts?.name ?? null,
       instrument: r.instrument,
@@ -456,7 +453,7 @@ Deno.serve(async (req) => {
         slug: r.experts?.slug ?? key,
         asset: ASSET_LABEL[r.experts?.asset_class ?? ""] ?? (r.experts?.asset_class ?? ""),
         currency: r.experts?.currency ?? "",
-        rows: [],
+        rows: [] as any[],
       };
       g.rows.push(r);
       byMentor.set(key, g);
