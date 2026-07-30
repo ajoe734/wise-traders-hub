@@ -39,9 +39,8 @@ Deno.serve(async (req) => {
   if (req.method !== "GET") return json({ error: "METHOD_NOT_ALLOWED" }, 405);
 
   // AUTH: company_admin (unified contract — see _shared/adminGuard.ts)
-  let callerId: string;
   try {
-    callerId = await requireCompanyAdmin(req);
+    await requireCompanyAdmin(req);
   } catch (e) {
     return authErrorResponse(e, req);
   }

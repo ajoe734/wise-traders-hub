@@ -32,9 +32,8 @@ Deno.serve(async (req) => {
 
   // --- auth ---
   // AUTH: company_admin (unified contract — see _shared/adminGuard.ts)
-  let callerId: string;
   try {
-    callerId = await requireCompanyAdmin(req);
+    await requireCompanyAdmin(req);
   } catch (e) {
     return authErrorResponse(e, req);
   }
