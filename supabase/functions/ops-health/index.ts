@@ -9,6 +9,7 @@
 //   - generatedAt
 
 import { serviceClient, userClient } from '../_shared/supabaseClients.ts';
+import { requireCompanyAdmin, authErrorResponse } from '../_shared/adminGuard.ts';
 interface FnRow { fn: string; runs: number; errors: number; warns: number; last_seen: string | null; }
 interface JobRow { job_name: string; runs: number; success: number; fail: number; p95_ms: number | null; last_status: string | null; last_ran_at: string | null; }
 interface TableRow { table: string; total: number; older_than_7d: number; older_than_30d: number; }
@@ -17,24 +18,12 @@ Deno.serve(async (req) => {
   if (req.method === 'OPTIONS') return new Response('ok', { headers: corsHeaders });
 
   try {
-    const authHeader = req.headers.get('Authorization');
-    if (!authHeader?.startsWith('Bearer ')) {
-      return json({ error: 'Unauthorized' }, 401);
+    // AUTH: company_admin (unified contract — see _shared/adminGuard.ts)
+    try {
+      await requireCompanyAdmin(req);
+    } catch (e) {
+      return authErrorResponse(e, req);
     }
-    const authClient = userClient(req);
-    const token = authHeader.replace('Bearer ', '');
-    const { data: claims, error: claimErr } = await authClient.auth.getClaims(token);
-    if (claimErr || !claims?.claims?.sub) return json({ error: 'Unauthorized' }, 401);
-    const userId = claims.claims.sub as string;
-
-    // role check
-    const { data: roleData } = await authClient
-      .from('user_roles')
-      .select('role')
-      .eq('user_id', userId)
-      .eq('role', 'company_admin')
-      .maybeSingle();
-    if (!roleData) return json({ error: 'Forbidden' }, 403);
 
     const admin = serviceClient();
 

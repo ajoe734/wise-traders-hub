@@ -1,21 +1,18 @@
 // AUTH: user  (auto-annotated 2026-07-27, see docs/security/edge-function-auth-matrix.md)
 import { jsonResponse } from "../_shared/cors.ts";
+import { requireCompanyAdmin, authErrorResponse } from "../_shared/adminGuard.ts";
 import { serviceClient, userClient } from "../_shared/supabaseClients.ts";
 import { withLogging } from "../_shared/edgeLogger.ts";
 import { writeRevenueSplit } from "../_shared/paymentProcessor.ts";
 import { validateInput, validationJsonResponse } from "../_shared/inputValidator.ts";
 
 const handler = withLogging("confirm-remittance", async (req, log) => {
-  const authHeader = req.headers.get("Authorization");
-  if (!authHeader) return jsonResponse({ error: "Unauthorized" }, { status: 401 });
-
-  const uc = userClient(req);
-  const { data: u } = await uc.auth.getUser();
-  if (!u?.user) return jsonResponse({ error: "Unauthorized" }, { status: 401 });
-
-  const { data: roleRow } = await uc
-    .from("user_roles").select("role").eq("user_id", u.user.id).eq("role", "company_admin").maybeSingle();
-  if (!roleRow) return jsonResponse({ error: "Forbidden" }, { status: 403 });
+  // AUTH: company_admin (unified contract — see _shared/adminGuard.ts)
+  try {
+    await requireCompanyAdmin(req);
+  } catch (e) {
+    return authErrorResponse(e, req);
+  }
 
   const body = await req.json();
   const issues = validateInput({
