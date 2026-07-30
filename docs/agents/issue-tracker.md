@@ -29,6 +29,11 @@ Used by `/wayfinder`. The **map** is a file with one **child** file per ticket.
 - **Claim**: set `Status: claimed` and save before any work.
 - **Resolve**: append the answer under an `## Answer` heading, set `Status: resolved`, then append a context pointer (gist + link) to the map's Decisions-so-far in `map.md`.
 
+## New-feature issue template
+
+新功能 issue 一律用 `docs/agents/issue-template.md` 起草。該範本強制三個區塊：**驗收標準**、**頁面／路由清單**、**資料來源**（含讀寫表／RPC／Edge Function 與權限）。三者未填齊者標 `needs-info`，不得標 `ready-for-agent`。
+
 ## This repo
 
 Effort/feature slug 用 kebab-case（例：`holdings-price-parity`）。Issue 檔開頭固定含 `Status:`、必要時 `Blocked by:`。
+
