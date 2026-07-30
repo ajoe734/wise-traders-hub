@@ -138,10 +138,10 @@ describe('demo holdings hydration goes through the seam', () => {
 describe('fetchAuthoritativeQuote (single symbol)', () => {
   it('returns the snapshot quote for one symbol', async () => {
     rows.daily_price_snapshots = [
-      { symbol: 'AAPL', close_price: 220, yesterday_close: 200, trade_date: '2026-07-29' },
+      { symbol: '2454', close_price: 220, yesterday_close: 200, trade_date: '2026-07-29' },
     ];
     const { fetchAuthoritativeQuote } = await import('@/checkup/lib/authoritativeQuotes');
-    const q = await fetchAuthoritativeQuote('AAPL', SETTLED_TW);
+    const q = await fetchAuthoritativeQuote('2454', SETTLED_TW);
     expect(q).toMatchObject({ price: 220, source: 'snapshot' });
   });
 
