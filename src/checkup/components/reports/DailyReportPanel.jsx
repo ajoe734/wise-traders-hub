@@ -2,6 +2,19 @@ import { createElement as h } from 'react'
 import { C, alpha } from '../../theme.js'
 import { Card, Button, Badge } from '../common'
 import Md from '../Md.jsx'
+// M2 → M1 / M5 主動跳轉：一律走 Shell event bus，禁止直接 import 其他模組內部檔案。
+import { useEmitHoldingsFocus } from '../../modules/closing/useEmitHoldingsFocus'
+import { useEmitResearchPrefill } from '../../modules/closing/useEmitResearchPrefill'
+
+const crossModuleBtnStyle = {
+  background: 'transparent',
+  border: 'none',
+  color: C.textMute,
+  cursor: 'pointer',
+  fontSize: 10,
+  padding: '2px 4px',
+  letterSpacing: '0.06em',
+}
 
 const lbl = {
   fontSize: 10,
@@ -269,6 +282,8 @@ export function DailyReportSummary({ report, expanded, onToggle }) {
  * Holdings Changes Table
  */
 export function HoldingsChanges({ changes }) {
+  const emitHoldingsFocus = useEmitHoldingsFocus()
+  const emitResearchPrefill = useEmitResearchPrefill()
   return h(
     Card,
     { style: { marginBottom: 8 } },
@@ -331,6 +346,34 @@ export function HoldingsChanges({ changes }) {
               },
             },
             `${c.todayPnl >= 0 ? '+' : ''}${c.todayPnl.toLocaleString()}`
+          ),
+          h(
+            'button',
+            {
+              type: 'button',
+              onClick: (e) => {
+                e.stopPropagation()
+                emitHoldingsFocus(c.code)
+              },
+              'data-testid': `closing-focus-holding-${c.code}`,
+              title: '在持倉中檢視',
+              style: crossModuleBtnStyle,
+            },
+            '→ 持倉',
+          ),
+          h(
+            'button',
+            {
+              type: 'button',
+              onClick: (e) => {
+                e.stopPropagation()
+                emitResearchPrefill(c.code, '收盤分析')
+              },
+              'data-testid': `closing-research-${c.code}`,
+              title: '帶入研究工作台',
+              style: crossModuleBtnStyle,
+            },
+            '→ 研究',
           )
         )
       )
