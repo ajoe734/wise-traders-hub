@@ -9,7 +9,14 @@ import { ActionBadge } from '@/components/ActionBadge';
 import { supabase } from '@/integrations/supabase/client';
 import { useAuth } from '@/contexts/AuthContext';
 import { Button } from '@/components/ui/button';
-import { format, startOfWeek, addDays } from 'date-fns';
+import { format } from 'date-fns';
+import {
+  taipeiMondayOf,
+  taipeiWeekRangeUtc,
+  taipeiWeekRangeLabelMD,
+  taipeiWeekFridayIso,
+  taipeiIsoToDisplayDate,
+} from '@/lib/taipeiWeek';
 import { zhTW } from 'date-fns/locale';
 import { Calendar, BookOpen, Shield, Loader2, ChevronDown, ChevronUp, Lightbulb, Target, AlertTriangle, Eye, Download, MessageCircle, ArrowLeft } from 'lucide-react';
 import { useQuery } from '@tanstack/react-query';
@@ -305,16 +312,16 @@ const fetchJournalBundle = async (signalId: string, forceOwner: boolean) => {
 
   const s = signal;
   const pubDate = new Date(s.published_at);
-  const ws = startOfWeek(pubDate, { weekStartsOn: 1 });
-  const we = addDays(ws, 4);
+  const weekStartIso = taipeiMondayOf(pubDate);
+  const { startIso, endIso } = taipeiWeekRangeUtc(weekStartIso);
 
   const { data: weekData } = await supabase
     .from('expert_signals')
     .select('id, instrument, action, price_hint, quantity, quantity_unit, reason_summary, reason_detail, risk_notes, learning_points, published_at, expert_id, experts(name, slug, role, avatar_url, currency, asset_class)')
     .eq('expert_id', s.expert_id)
     .eq('status', 'published')
-    .gte('published_at', ws.toISOString())
-    .lte('published_at', new Date(we.getFullYear(), we.getMonth(), we.getDate(), 23, 59, 59).toISOString())
+    .gte('published_at', startIso)
+    .lt('published_at', endIso)
     .order('published_at', { ascending: false });
 
   return {
@@ -500,8 +507,8 @@ const JournalDetail = () => {
   }
 
   const pubDate = new Date(signal.published_at);
-  const ws = startOfWeek(pubDate, { weekStartsOn: 1 });
-  const we = addDays(ws, 4);
+  const weekStartIso = taipeiMondayOf(pubDate);
+  const weekRangeLabel = taipeiWeekRangeLabelMD(weekStartIso);
 
   const weekTitle = richHtmlToPlain(signal.reason_summary) || '本週操作回顧';
   const TITLE_COLLAPSE_THRESHOLD = 80;
@@ -538,8 +545,8 @@ const JournalDetail = () => {
       await exportJournalPdf({
         headSignal: signal as any,
         weekSignals: weekSignals as any,
-        weekStart: ws,
-        weekEnd: we,
+        weekStart: taipeiIsoToDisplayDate(weekStartIso),
+        weekEnd: taipeiIsoToDisplayDate(taipeiWeekFridayIso(weekStartIso)),
         weekTitle,
         learningPoints: allLearningPoints,
         avatarSrc: avatarUrl(signal.experts.avatar_url, 240),
@@ -630,7 +637,7 @@ const JournalDetail = () => {
 
         <div className="flex items-center gap-2">
           <Calendar className="h-4 w-4 text-muted-foreground" />
-          <span className="text-sm">{format(ws, 'MM/dd', { locale: zhTW })} ~ {format(we, 'MM/dd', { locale: zhTW })}</span>
+          <span className="text-sm">{weekRangeLabel}</span>
           <Badge variant="mentor-light" className="text-[10px]">T+7 歷史</Badge>
         </div>
 
