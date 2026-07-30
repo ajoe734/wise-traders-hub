@@ -51,7 +51,7 @@ export const PLAINIFY_FIELDS = [
 ] as const;
 
 export function plainifySignal<T extends Record<string, any>>(signal: T | null | undefined): T {
-  if (!signal) return signal as T;
+  if (!signal) return signal as unknown as T;
   const out: Record<string, any> = { ...signal };
   for (const f of PLAINIFY_FIELDS) {
     if (out[f]) out[f] = htmlToText(out[f]);
