@@ -17,4 +17,10 @@ describe('edge function caller contracts', () => {
     );
     expect(bad.map((v) => `${v.file} [${v.rule}]`)).toEqual([]);
   });
+
+  it('no edge function declares its own corsHeaders map', () => {
+    const bad = violations.filter((v) => v.rule === 'no-inline-cors-headers');
+    expect(bad.map((v) => `${v.file} [${v.rule}]`)).toEqual([]);
+  });
 });
+
