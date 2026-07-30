@@ -920,7 +920,7 @@ export function SignalCreateDialog({
             <Button variant="outline" onClick={() => { setIsCreateOpen(false); clearForm(); }}>取消</Button>
             <Button
               onClick={handlePublish}
-              disabled={!canPublish}
+              disabled={!canPublish || publishBlocked}
               className={cn(isAdvisor ? 'bg-advisor hover:bg-advisor/90' : 'bg-mentor hover:bg-mentor/90')}
             >
               立即發布
