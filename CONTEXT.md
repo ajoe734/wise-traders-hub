@@ -44,4 +44,5 @@
 | --- | --- |
 | **Manual Renewal（手動續訂）** | 單次扣款模型，無自動扣款；到期即斷、無寬限期。 |
 | **Active Subscription（有效訂閱）** | 依 `logic/subscription/active-status-definition` 判定，續訂路徑不得被 `subscriberOnly` 守衛擋下。 |
+| **Journal Export Core（週記匯出核心）** | Markdown 生成、單位解析、風險偵測的唯一實作：`supabase/functions/_shared/journalExportCore.ts`，前台鏡像 `src/lib/journalExportCore.ts` 由 `scripts/gen-journal-export-core-mirror.mjs` 產生。後台下載檔與 cron 上傳檔逐字相同。 |
 | **Checkout Path（結帳路徑）** | 唯一產生方式為 `renewalUrl()` / `checkupRenewalUrl()`（前後端各一份 `routes.ts`）。 |

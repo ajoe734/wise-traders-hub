@@ -14,7 +14,9 @@ import { embedText } from '../_shared/ai-gateway.ts';
 const CHUNK_SIZE = 800;
 const CHUNK_OVERLAP = 100;
 
-function stripHtml(s: string | null | undefined): string {
+// 註：這不是週記匯出的 stripHtml（那份在 _shared/journalExportCore.ts，會保留段落換行）。
+// 這裡是 embedding 前的「壓平」：所有空白收斂成單一空格。
+function flattenHtmlForEmbedding(s: string | null | undefined): string {
   if (!s) return '';
   return s.replace(/<[^>]+>/g, ' ').replace(/\s+/g, ' ').trim();
 }
@@ -100,10 +102,10 @@ Deno.serve(withLogging('expert-ai-index', async (req, log) => {
 
     const bioParts = [
       expert.name && `導師：${expert.name}`,
-      expert.bio && `個人簡介：${stripHtml(expert.bio)}`,
-      expert.description && `描述：${stripHtml(expert.description)}`,
+      expert.bio && `個人簡介：${flattenHtmlForEmbedding(expert.bio)}`,
+      expert.description && `描述：${flattenHtmlForEmbedding(expert.description)}`,
       expert.strategy_name && `策略名稱：${expert.strategy_name}`,
-      expert.strategy_summary && `策略摘要：${stripHtml(expert.strategy_summary)}`,
+      expert.strategy_summary && `策略摘要：${flattenHtmlForEmbedding(expert.strategy_summary)}`,
       expert.risk_preference && `風險偏好：${expert.risk_preference}`,
       expert.operation_cycle && `操作週期：${expert.operation_cycle}`,
       expert.style_tags?.length && `風格標籤：${expert.style_tags.join('、')}`,
@@ -117,11 +119,11 @@ Deno.serve(withLogging('expert-ai-index', async (req, log) => {
     for (const s of signals || []) {
       const parts = [
         `【${s.published_at?.slice(0, 10) || ''}】${s.instrument} ${s.action}`,
-        s.reason_summary && `為什麼這樣操作：${stripHtml(s.reason_summary)}`,
-        s.reason_detail && `部位控管想法：${stripHtml(s.reason_detail)}`,
-        s.risk_notes && `風險提醒：${stripHtml(s.risk_notes)}`,
-        s.learning_points && `教學重點：${stripHtml(s.learning_points)}`,
-        s.overall_summary && `整體摘要：${stripHtml(s.overall_summary)}`,
+        s.reason_summary && `為什麼這樣操作：${flattenHtmlForEmbedding(s.reason_summary)}`,
+        s.reason_detail && `部位控管想法：${flattenHtmlForEmbedding(s.reason_detail)}`,
+        s.risk_notes && `風險提醒：${flattenHtmlForEmbedding(s.risk_notes)}`,
+        s.learning_points && `教學重點：${flattenHtmlForEmbedding(s.learning_points)}`,
+        s.overall_summary && `整體摘要：${flattenHtmlForEmbedding(s.overall_summary)}`,
       ].filter(Boolean).join('\n');
       if (!parts) continue;
       for (const c of chunkText(parts)) {

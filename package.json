@@ -29,7 +29,9 @@
     "check:security:all": "npm run check:rls-audit && npm run check:prod-debug",
     "refresh:twse-industry": "node scripts/refresh-stock-industry.mjs",
     "refresh:finmind-industry": "node scripts/refresh-finmind-industry.mjs",
-    "refresh:mops-revenue": "node scripts/refresh-mops-revenue-mix.mjs"
+    "refresh:mops-revenue": "node scripts/refresh-mops-revenue-mix.mjs",
+    "gen:journal-export-mirror": "node scripts/gen-journal-export-core-mirror.mjs",
+    "check:journal-export-mirror": "node scripts/gen-journal-export-core-mirror.mjs --check"
   },
   "dependencies": {
     "@ai-sdk/openai-compatible": "^1.0.0",
