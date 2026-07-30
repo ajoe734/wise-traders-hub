@@ -18,7 +18,7 @@
  * unmount to avoid leaks (see <cloud-realtime> in workspace instructions).
  */
 import { useEffect, useMemo, useRef, useState } from 'react';
-import { supabase } from '@/integrations/supabase/client';
+import { getCheckupGateway } from '../lib/gateway';
 import { calcNetPremium, buildOccSymbol, type ComboLeg } from '@/lib/optionCombo';
 import { detectHoldingMarket, marketPhase, type Market } from '../lib/marketClock';
 import { resolvePrice } from '../lib/priceResolver';
@@ -113,10 +113,10 @@ async function reportParityMismatches(
     if (!events.length) return;
 
     try {
-      const { data: userRes } = await supabase.auth.getUser();
-      const userId = userRes?.user?.id ?? null;
+      const gw = getCheckupGateway();
+      const userId = await gw.auth.getUserId();
       const rows = events.map((e) => ({ ...e, user_id: userId }));
-      await supabase.from('price_parity_events').insert(rows);
+      await gw.db.from('price_parity_events').insert(rows);
       try {
         localStorage.setItem(PARITY_DEDUPE_KEY, JSON.stringify(dedupe));
       } catch {
@@ -144,7 +144,7 @@ async function fetchSnapshotPrices(
 ): Promise<Map<string, { price: number; updatedAt: string | null }>> {
   const out = new Map<string, { price: number; updatedAt: string | null }>();
   if (!symbols.length) return out;
-  const { data, error } = await supabase
+  const { data, error } = await getCheckupGateway().db
     .from('daily_price_snapshots')
     .select('symbol, close_price, trade_date')
     .in('symbol', symbols)
@@ -164,7 +164,7 @@ async function fetchCurrentPrices(
 ): Promise<Map<string, { price: number; updatedAt: string | null }>> {
   const out = new Map<string, { price: number; updatedAt: string | null }>();
   if (!symbols.length) return out;
-  const { data, error } = await supabase
+  const { data, error } = await getCheckupGateway().db
     .from('current_prices')
     .select('symbol, price, updated_at')
     .in('symbol', symbols);
@@ -198,7 +198,7 @@ export const COMBO_LEG_SELECT =
 async function fetchComboLegs(signalIds: string[]): Promise<Map<string, ComboLeg[]>> {
   const grouped = new Map<string, ComboLeg[]>();
   if (!signalIds.length) return grouped;
-  const { data, error } = await supabase
+  const { data, error } = await getCheckupGateway().db
     .from('expert_signal_legs')
     .select(COMBO_LEG_SELECT)
     .in('signal_id', signalIds);
@@ -403,12 +403,13 @@ export function useAuthoritativePrices(
     if (!realtime) return;
     const symbols = Array.from(new Set(rowsRef.current.map(rowKey).filter(Boolean)));
     if (!symbols.length) return;
-    const channel = supabase
-      .channel(`authoritative-prices-${symbols.slice(0, 3).join('-')}-${symbols.length}`)
-      .on(
-        'postgres_changes',
-        { event: 'UPDATE', schema: 'public', table: 'current_prices' },
-        (payload) => {
+    const off = getCheckupGateway().realtime.subscribe(
+      {
+        name: `authoritative-prices-${symbols.slice(0, 3).join('-')}-${symbols.length}`,
+        table: 'current_prices',
+        event: 'UPDATE',
+      },
+      (payload) => {
           const row = payload.new as any;
           const sym = String(row?.symbol || '');
           if (!sym || !symbols.includes(sym)) return;
@@ -427,13 +428,10 @@ export function useAuthoritativePrices(
               },
             };
           });
-        },
-      )
-      .subscribe();
+      },
+    );
 
-    return () => {
-      supabase.removeChannel(channel);
-    };
+    return off;
   }, [fingerprint, realtime]);
 
   return { prices, loading };
