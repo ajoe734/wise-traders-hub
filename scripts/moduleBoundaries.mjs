@@ -11,7 +11,7 @@
  * 空陣列 = 通過。eslint / vitest / CI 三處共用同一份判定，避免規則漂移。
  */
 import { readFileSync, readdirSync, statSync, existsSync } from 'node:fs';
-import { join, relative, sep } from 'node:path';
+import { join, relative, sep, dirname } from 'node:path';
 
 export const CHECKUP_MODULES = ['holdings', 'closing', 'events', 'tradeIO', 'research'];
 
@@ -159,8 +159,20 @@ export function checkModuleBoundaries(opts = {}) {
             message: `${insideModule} 不得依賴手足模組 ${target.module}；請走 URL params / store selector / shell event bus。`,
           });
         }
-        // R4 元件層
-        if (compTarget && compTarget !== insideModule) {
+        // R4 元件層：相對路徑先解析成實體檔，再查擁有權（抓 '../closing/index.js' 這種寫法）
+        let resolvedOwner = null;
+        if (spec.startsWith('.')) {
+          const abs = join(dirname(file), spec);
+          resolvedOwner = ownerOf(rel(abs), owners);
+        }
+        if (resolvedOwner && resolvedOwner !== insideModule) {
+          violations.push({
+            rule: 'R4_SIBLING_COMPONENTS',
+            file: r,
+            specifier: spec,
+            message: `${insideModule} 不得 import 手足模組 ${resolvedOwner} 的實作檔（元件／頁面／hook）。`,
+          });
+        } else if (compTarget && compTarget !== insideModule) {
           violations.push({
             rule: 'R4_SIBLING_COMPONENTS',
             file: r,
