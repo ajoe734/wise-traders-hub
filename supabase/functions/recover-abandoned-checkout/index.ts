@@ -5,6 +5,7 @@
 // Idempotency: payment_intents.recovery_notified_at IS NULL，發送後寫入時間戳。
 
 import { corsHeaders } from '../_shared/cors.ts';
+import { checkupRenewalUrl, renewalUrl } from '../_shared/routes.ts';
 import { requireCronKey, AuthError } from '../_shared/authGuard.ts';
 import { withLogging } from '../_shared/edgeLogger.ts';
 import { createClient } from 'https://esm.sh/@supabase/supabase-js@2.49.1';

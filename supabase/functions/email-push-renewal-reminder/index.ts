@@ -4,6 +4,7 @@
 // Idempotency: audit_logs action='subscription.renewal_email_sent' + detail.days_left
 
 import { corsHeaders } from '../_shared/cors.ts';
+import { renewalUrl } from '../_shared/routes.ts';
 import { requireCronKey, AuthError } from '../_shared/authGuard.ts';
 import { withLogging } from '../_shared/edgeLogger.ts';
 import { createClient } from 'https://esm.sh/@supabase/supabase-js@2.49.1';
