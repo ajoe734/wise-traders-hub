@@ -203,7 +203,15 @@ Deno.serve(withLogging('line-push-renewal-reminder', async (req) => {
       if (!token) continue
 
       const cycle = (t.sub as any).billing_cycle === 'yearly' ? 'yearly' : 'monthly'
-      const renewUrl = `${siteUrl}/${t.expertSlug}/checkout?plan=${t.planId}&cycle=${cycle}&utm_source=line&utm_medium=renewal&utm_campaign=d${t.daysLeft}`
+      const renewUrl = renewalUrl(t.expertSlug, t.planId, {
+        baseUrl: siteUrl,
+        query: {
+          cycle,
+          utm_source: 'line',
+          utm_medium: 'renewal',
+          utm_campaign: `d${t.daysLeft}`,
+        },
+      })
 
       const message = buildRenewalFlexMessage(
         t.expertName, t.planName, t.daysLeft,

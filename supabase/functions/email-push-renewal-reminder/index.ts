@@ -190,7 +190,15 @@ Deno.serve(withLogging('email-push-renewal-reminder', async (req) => {
     }
 
     const cycle = (t.sub as any).billing_cycle === 'yearly' ? 'yearly' : 'monthly';
-    const renewUrl = `${siteUrl}/${t.expertSlug}/checkout?plan=${t.planId}&cycle=${cycle}&utm_source=email&utm_medium=renewal&utm_campaign=d${t.daysLeft}`;
+    const renewUrl = renewalUrl(t.expertSlug, t.planId, {
+      baseUrl: siteUrl,
+      query: {
+        cycle,
+        utm_source: 'email',
+        utm_medium: 'renewal',
+        utm_campaign: `d${t.daysLeft}`,
+      },
+    });
     const { subject, html } = buildEmail({
       expertName: t.expertName, planName: t.planName,
       daysLeft: t.daysLeft, expiresAt: t.sub.expires_at, amount: t.amount,

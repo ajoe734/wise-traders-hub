@@ -146,17 +146,21 @@ Deno.serve(withLogging('recover-abandoned-checkout', async (req) => {
     if (i.product_kind === 'expert_plan') {
       const plan = expertPlanMap.get(i.plan_id);
       const expert = plan?.experts;
-      if (plan) {
+      if (plan && expert?.slug) {
         productName = `${expert?.name || ''} — ${plan?.name || ''}`;
-        const cycle = i.billing_cycle ? `&cycle=${i.billing_cycle}` : '';
-        resumeUrl = `${siteUrl}/${expert?.slug}/checkout?plan=${i.plan_id}${cycle}&utm_source=recovery&utm_campaign=abandoned`;
+        resumeUrl = renewalUrl(expert.slug, i.plan_id, {
+          baseUrl: siteUrl,
+          query: { cycle: i.billing_cycle, utm_source: 'recovery', utm_campaign: 'abandoned' },
+        });
       }
     } else if (i.product_kind === 'checkup') {
       const plan = checkupPlanMap.get(i.checkup_plan_id);
       if (plan) {
         productName = `健檢 — ${plan?.name || ''}`;
-        const cycle = i.billing_cycle ? `&cycle=${i.billing_cycle}` : '';
-        resumeUrl = `${siteUrl}/checkup/checkout?plan=${i.checkup_plan_id}${cycle}&utm_source=recovery&utm_campaign=abandoned`;
+        resumeUrl = checkupRenewalUrl(i.checkup_plan_id, {
+          baseUrl: siteUrl,
+          query: { cycle: i.billing_cycle, utm_source: 'recovery', utm_campaign: 'abandoned' },
+        });
       }
     }
 
