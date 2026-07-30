@@ -106,7 +106,8 @@ for (const role of ['admin', 'company_admin'] as const) {
       await expect(page.getByTestId('journal-detail-instrument').first())
         .toBeVisible({ timeout: 10_000 });
       await expect(page.getByText('AAPL')).toBeVisible();
-      await expect(page.getByText('管理員預覽用內容')).toBeVisible();
+      // 標題與操作列表都會渲染 reason_summary，鎖定 h1 避免 strict mode 撞名
+      await expect(page.getByRole('heading', { name: '管理員預覽用內容' })).toBeVisible();
 
       // 不應該出現 UnavailableContent
       await expect(page.getByText('這篇週記目前無法顯示')).toHaveCount(0);

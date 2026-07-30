@@ -31,7 +31,7 @@
  */
 
 import { describe, it, expect, beforeAll } from 'vitest';
-import { readFileSync } from 'fs';
+import { readFileSync, readdirSync } from 'fs';
 import { resolve } from 'path';
 import {
   buildPromoMessage,
@@ -212,10 +212,12 @@ describe('drift-detection: Journals.tsx / JournalDetail.tsx 週記瀏覽路徑',
       resolve(process.cwd(), 'src/pages/app/Journals.tsx'),
       'utf-8',
     );
-    detailSrc = readFileSync(
-      resolve(process.cwd(), 'src/pages/app/JournalDetail.tsx'),
-      'utf-8',
-    );
+    // A6：JournalDetail 已拆成 `_journalDetail/` 深模組，守衛需掃整個模組資料夾。
+    const detailDir = resolve(process.cwd(), 'src/pages/app/_journalDetail');
+    detailSrc = [
+      readFileSync(resolve(process.cwd(), 'src/pages/app/JournalDetail.tsx'), 'utf-8'),
+      ...readdirSync(detailDir).map((f) => readFileSync(resolve(detailDir, f), 'utf-8')),
+    ].join('\n');
   });
 
   it('Journals.tsx 訂閱前置檢查使用 has_active_subscription RPC（4.5-3）', () => {
