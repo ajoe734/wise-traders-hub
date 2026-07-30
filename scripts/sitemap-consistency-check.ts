@@ -16,27 +16,51 @@ const SITE_URL = "https://legendflow.tw";
 const appTsx = readFileSync(resolve("src/App.tsx"), "utf8");
 const sitemap = readFileSync(resolve("public/sitemap.xml"), "utf8");
 
+/** 不該被索引的路徑前綴（測試 harness、平台保留、會員區）。 */
+const NON_INDEXABLE_PREFIXES = [
+  "/e2e/",
+  "/.lovable/",
+  "/auth/",
+  "/app",
+  "/me",
+  "/account/",
+  "/company/",
+  "/admin/",
+  "/holding-checkup-demo",
+];
+
+const isNonIndexable = (p: string) => NON_INDEXABLE_PREFIXES.some((x) => p.startsWith(x));
+
 const routeRegex = /<Route\s+path=(?:"|')([^"']+)(?:"|')\s+element=\{([^}]+)\}/g;
 const realRoutes = new Set<string>();
+const dynamicRoutes = new Set<string>(); // e.g. /expert/:slug
 const redirectRoutes = new Set<string>();
 let m: RegExpExecArray | null;
 while ((m = routeRegex.exec(appTsx)) !== null) {
   const path = m[1];
   const element = m[2];
-  if (path.startsWith("*") || path.includes(":")) continue; // skip wildcards + dynamic
+  if (path.startsWith("*")) continue;
   if (!path.startsWith("/")) continue; // skip nested children
-  // 純導向 component：<Navigate /> 或已知的 redirect 包裝（LegacyFreeCheckupRedirect 等）
-  const KNOWN_REDIRECT_WRAPPERS = /(?:^|<)\s*(?:Navigate|LegacyFreeCheckupRedirect)\b/;
+  const KNOWN_REDIRECT_WRAPPERS =
+    /(?:^|<)\s*(?:Navigate|LegacyFreeCheckupRedirect|LegacyMeRedirect|LegacyCheckoutRedirect|ShortExpertRedirect)\b/;
   if (KNOWN_REDIRECT_WRAPPERS.test(element)) {
     redirectRoutes.add(path);
     continue;
   }
-  // gated routes — not for sitemap
   if (/ProtectedRoute/.test(element)) continue;
-  // layout-only shells (no own indexable content) — explicit excludes
-  if (path === "/overview") continue;
+  if (path === "/overview") continue; // layout-only shell
+  if (path.includes(":")) {
+    dynamicRoutes.add(path);
+    continue;
+  }
   realRoutes.add(path);
 }
+
+/** 動態 route pattern（/expert/:slug）→ 可比對的正規表示式。 */
+const dynamicMatchers = [...dynamicRoutes].map((pattern) => ({
+  pattern,
+  re: new RegExp(`^${pattern.replace(/:[^/]+/g, "[^/]+")}$`),
+}));
 
 const locRegex = /<loc>([^<]+)<\/loc>/g;
 const sitemapPaths = new Set<string>();
@@ -58,22 +82,39 @@ for (const p of sitemapPaths) {
     problems++;
     continue;
   }
-  if (!realRoutes.has(p)) {
-    console.error(`✗ sitemap 列出不存在或受保護的路由: ${p}`);
+  if (isNonIndexable(p)) {
+    console.error(`✗ sitemap 列出不該索引的路由: ${p}`);
     problems++;
+    continue;
   }
+  if (realRoutes.has(p)) continue;
+  if (dynamicMatchers.some((d) => d.re.test(p))) continue; // 動態頁（/expert/:slug）
+  console.error(`✗ sitemap 列出不存在或受保護的路由: ${p}`);
+  problems++;
 }
 
-// 反向：建議公開且非 redirect 的 route 是否漏寫
+// 反向：公開且非 redirect 的靜態 route 必須列在 sitemap（A8 guard）
 for (const p of realRoutes) {
   if (sitemapPaths.has(p)) continue;
-  // /auth/* 不該被索引（會員登入頁），靜默略過
-  if (p.startsWith("/auth/")) continue;
-  console.warn(`⚠ 公開路由未列在 sitemap: ${p}`);
+  if (isNonIndexable(p)) continue;
+  console.error(`✗ 公開路由未列在 sitemap: ${p}`);
+  problems++;
+}
+
+// 動態頁至少要有一筆代表性 URL，否則 /expert/:slug 這類頁面完全不會被索引
+for (const { pattern, re } of dynamicMatchers) {
+  if (isNonIndexable(pattern)) continue;
+  if (pattern.startsWith("/checkout") || pattern.startsWith("/plan/")) continue; // 交易頁不索引
+  if ([...sitemapPaths].some((p) => re.test(p))) continue;
+  console.error(`✗ 動態公開路由在 sitemap 沒有任何實例: ${pattern}`);
+  problems++;
 }
 
 if (problems > 0) {
   console.error(`\nFAIL: sitemap 一致性檢查發現 ${problems} 個問題。`);
   process.exit(1);
 }
-console.log(`✓ sitemap 一致性 OK（${sitemapPaths.size} entries vs ${realRoutes.size} routes）`);
+console.log(
+  `✓ sitemap 一致性 OK（${sitemapPaths.size} entries / ${realRoutes.size} 靜態公開路由 / ${dynamicMatchers.length} 動態 pattern）`,
+);
+
