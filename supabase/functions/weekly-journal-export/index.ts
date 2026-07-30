@@ -235,7 +235,7 @@ function detectRisks(rows: any[], openingBalances: Map<string, number>) {
   for (const r of rows) {
     const key = `${r.expert_id}::${r.instrument ?? ""}`;
     const g = byKey.get(key) ?? {
-      rows: [],
+      rows: [] as any[],
       expertId: r.expert_id,
       expertName: r.experts?.name ?? null,
       instrument: r.instrument,
@@ -453,7 +453,7 @@ Deno.serve(async (req) => {
         slug: r.experts?.slug ?? key,
         asset: ASSET_LABEL[r.experts?.asset_class ?? ""] ?? (r.experts?.asset_class ?? ""),
         currency: r.experts?.currency ?? "",
-        rows: [],
+        rows: [] as any[],
       };
       g.rows.push(r);
       byMentor.set(key, g);
