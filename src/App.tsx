@@ -13,6 +13,8 @@ const ShortExpertRedirect = () => {
 import { ThemeProvider } from "next-themes";
 import { lazy, Suspense, useEffect } from "react";
 import { prefetchHighTrafficRoutes } from "@/lib/routePrefetch";
+import { resolveLegacyPath } from "@/lib/legacyRoutes";
+
 import { AuthProvider } from "@/contexts/AuthContext";
 import { DisplayCurrencyProvider } from "@/contexts/DisplayCurrencyContext";
 import { ViewAsProvider } from "@/contexts/ViewAsContext";
@@ -226,6 +228,17 @@ const LegacyFreeCheckupRedirect = () => {
   return <Navigate to={`/holding-checkup${location.search}${location.hash}`} replace />;
 };
 
+const LegacyMeRedirect = () => {
+  const location = useLocation();
+  return (
+    <Navigate
+      to={resolveLegacyPath(location.pathname, location.search, location.hash)}
+      replace
+    />
+  );
+};
+
+
 const LegacyCheckoutRedirect = () => {
   const { slug } = useParams<{ slug: string }>();
   const location = useLocation();
@@ -426,9 +439,10 @@ const AppShell = () => (
             <Route path="/admin/:expertSlug/announcements" element={<ProtectedRoute><AdminAnnouncements /></ProtectedRoute>} />
             <Route path="/admin/:expertSlug/ai-studio" element={<ProtectedRoute><AdminAiStudio /></ProtectedRoute>} />
 
-            {/* Legacy /me routes */}
-            <Route path="/me" element={<Navigate to="/app/account" replace />} />
-            <Route path="/me/*" element={<Navigate to="/app/account" replace />} />
+            {/* Legacy /me routes — 保留子路徑 / query / hash（A5） */}
+            <Route path="/me" element={<LegacyMeRedirect />} />
+            <Route path="/me/*" element={<LegacyMeRedirect />} />
+
 
             {/* Catch-all */}
             <Route path="*" element={<NotFound />} />
