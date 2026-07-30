@@ -1,4 +1,5 @@
 import { API_ENDPOINTS } from '../../constants.js'
+import { getCheckupGateway } from '../../lib/gateway'
 /**
  * Research API Hooks
  * 
@@ -15,7 +16,7 @@ export function useRunResearch() {
   
   return useMutation({
     mutationFn: async ({ portfolioId, target, mode }) => {
-      const res = await fetch(API_ENDPOINTS.RESEARCH, {
+      const payload = await getCheckupGateway().http.json(API_ENDPOINTS.RESEARCH, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ 
@@ -24,8 +25,7 @@ export function useRunResearch() {
           mode,
         }),
       });
-      if (!res.ok) throw new Error(await res.text());
-      return res.json();
+      return payload;
     },
     onSuccess: (data, { portfolioId }) => {
       queryClient.invalidateQueries({ queryKey: ['research', 'history', portfolioId] });
@@ -40,13 +40,12 @@ export function useResearchHistory(portfolioId, enabled = true) {
   return useQuery({
     queryKey: ['research', 'history', portfolioId],
     queryFn: async () => {
-      const res = await fetch(API_ENDPOINTS.BRAIN, {
+      const payload = await getCheckupGateway().http.json(API_ENDPOINTS.BRAIN, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ action: 'get-research-history' }),
       });
-      if (!res.ok) throw new Error('Failed to fetch research history');
-      const data = await res.json();
+      const data = payload;
       return data.content || [];
     },
     enabled,
@@ -61,7 +60,7 @@ export function useResearchHistory(portfolioId, enabled = true) {
 export function useEnrichResearchToDossier() {
   return useMutation({
     mutationFn: async ({ portfolioId, code, researchResults }) => {
-      const res = await fetch(API_ENDPOINTS.RESEARCH, {
+      const payload = await getCheckupGateway().http.json(API_ENDPOINTS.RESEARCH, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ 
@@ -71,8 +70,7 @@ export function useEnrichResearchToDossier() {
           researchResults,
         }),
       });
-      if (!res.ok) throw new Error(await res.text());
-      return res.json();
+      return payload;
     },
   });
 }
@@ -85,7 +83,7 @@ export function useRefreshAnalystReports() {
   
   return useMutation({
     mutationFn: async ({ portfolioId, force = false }) => {
-      const res = await fetch(API_ENDPOINTS.RESEARCH, {
+      const payload = await getCheckupGateway().http.json(API_ENDPOINTS.RESEARCH, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ 
@@ -94,8 +92,7 @@ export function useRefreshAnalystReports() {
           force,
         }),
       });
-      if (!res.ok) throw new Error(await res.text());
-      return res.json();
+      return payload;
     },
     onSuccess: (_, { portfolioId }) => {
       queryClient.invalidateQueries({ queryKey: ['analyst-reports', portfolioId] });

@@ -11,6 +11,7 @@ import { useCallback, useState } from 'react';
 import { toPng } from 'html-to-image';
 import { jsPDF } from 'jspdf';
 import { toast } from 'sonner';
+import { getCheckupGateway } from '../lib/gateway';
 
 export type ExportRatio = 'square' | 'wide';
 
@@ -100,8 +101,7 @@ export function useHoldingShareExport(opts: UseHoldingShareExportOptions = {}) {
     try {
       const dataUrl = await render(node, o);
       if (!dataUrl) return;
-      const res = await fetch(dataUrl);
-      const blob = await res.blob();
+      const blob = await getCheckupGateway().http.blob(dataUrl);
       if (typeof ClipboardItem === 'undefined' || !navigator.clipboard?.write) {
         const a = document.createElement('a');
         a.href = dataUrl;

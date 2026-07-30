@@ -35,6 +35,7 @@
 | **Chips（籌碼面）** | 台股分點與三大法人買賣超資料，來源 TWSE T86 / BSR，落地為 `tw_chips_rollup` 快照。 |
 | **Closing Analysis（收盤分析）** | 盤後針對個股產生的分析報告（M2 Closing 模組）。 |
 | **Catalyst Event（催化事件）** | 影響持股的行事曆事件與新聞事件（M3 Events 模組）。 |
+| **Checkup Gateway（對外握手接縫）** | `src/checkup/lib/gateway`；checkup hooks 對 HTTP／DB／Auth／Realtime／Edge Function 的唯一入口，測試以 fake gateway 取代。見 ADR-0004。 |
 
 ## 訂閱與金流
 

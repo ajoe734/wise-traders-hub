@@ -1,4 +1,5 @@
 import { useCallback } from 'react'
+import { getCheckupGateway, parseGatewayErrorBody } from '../lib/gateway'
 import { API_ENDPOINTS } from '../constants.js'
 import { APP_STATUS_MESSAGES } from '../lib/appMessages.js'
 import {
@@ -13,16 +14,16 @@ import {
 import { flushKnowledgeHits } from '../lib/knowledgeBase.js'
 
 async function defaultRunStressTestRequest(body) {
-  const response = await fetch(API_ENDPOINTS.ANALYZE, {
-    method: 'POST',
-    headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify(body),
-  })
-  const data = await response.json().catch(() => null)
-  if (!response.ok) {
-    throw new Error(data?.detail || data?.error || `壓力測試失敗 (${response.status})`)
+  try {
+    return await getCheckupGateway().http.json(API_ENDPOINTS.ANALYZE, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(body),
+    })
+  } catch (err) {
+    const detail = parseGatewayErrorBody(err)
+    throw new Error(detail?.detail || detail?.error || `壓力測試失敗 (${err?.status || 0})`)
   }
-  return data
 }
 
 export function useStressTestWorkflow({

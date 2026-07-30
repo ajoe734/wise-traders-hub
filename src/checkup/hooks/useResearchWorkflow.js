@@ -1,4 +1,5 @@
 import { useCallback } from 'react'
+import { getCheckupGateway } from '../lib/gateway'
 import { API_ENDPOINTS, STATUS_MESSAGE_TIMEOUT_MS } from '../constants.js'
 import {
   buildResearchDossiers,
@@ -13,13 +14,11 @@ import { useReportsStore } from '../stores/reportsStore.js'
 import { useBrainStore } from '../stores/brainStore.js'
 
 async function defaultRunResearchRequest(body) {
-  const res = await fetch(API_ENDPOINTS.RESEARCH, {
+  return getCheckupGateway().http.json(API_ENDPOINTS.RESEARCH, {
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },
     body: JSON.stringify(body),
   })
-  if (!res.ok) throw new Error(await res.text())
-  return res.json()
 }
 
 export function useResearchWorkflow({

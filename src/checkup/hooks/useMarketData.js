@@ -1,4 +1,5 @@
 import { useCallback, useMemo, useRef, useState } from 'react'
+import { getCheckupGateway, parseGatewayErrorBody } from '../lib/gateway'
 import {
   API_ENDPOINTS,
   MARKET_PRICE_CACHE_KEY,
@@ -108,12 +109,15 @@ export function useMarketData({
         const timer = setTimeout(() => controller.abort(), timeoutMs)
 
         try {
-          const response = await fetch(`${API_ENDPOINTS.TWSE}?ex_ch=${encodeURIComponent(exCh)}`, {
-            signal: controller.signal,
-          })
-          const data = await response.json()
-          if (!response.ok) {
-            throw new Error(data?.detail || data?.error || `TWSE 請求失敗 (${response.status})`)
+          let data
+          try {
+            data = await getCheckupGateway().http.json(
+              `${API_ENDPOINTS.TWSE}?ex_ch=${encodeURIComponent(exCh)}`,
+              { signal: controller.signal },
+            )
+          } catch (err) {
+            const detail = parseGatewayErrorBody(err)
+            throw new Error(detail?.detail || detail?.error || `TWSE 請求失敗 (${err?.status || 0})`)
           }
           const extracted = extractQuotesFromTwsePayload(data, {
             extractBestPrice,

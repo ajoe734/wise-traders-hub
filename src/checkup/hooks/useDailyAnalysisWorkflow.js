@@ -25,19 +25,20 @@ import { flushKnowledgeHits } from '../lib/knowledgeBase.js'
 import { useHoldingsStore } from '../stores/holdingsStore.js'
 import { useReportsStore } from '../stores/reportsStore.js'
 import { useBrainStore } from '../stores/brainStore.js'
-import { supabase } from '@/integrations/supabase/client'
+import { getCheckupGateway, parseGatewayErrorBody } from '../lib/gateway'
 
 // ── 背景收盤分析 job：開始時建立 row，結束時更新 + 觸發 notify-complete ──
 async function createAnalysisJob(holdings) {
   try {
-    const { data: { user } } = await supabase.auth.getUser()
-    if (!user) return null
+    const gw = getCheckupGateway()
+    const uid = await gw.auth.getUserId()
+    if (!uid) return null
     const snapshot = (holdings || []).map((h) => ({
       code: h.code, name: h.name, qty: h.qty, cost: h.cost, price: h.price,
     }))
-    const { data, error } = await supabase
+    const { data, error } = await gw.db
       .from('checkup_analysis_jobs')
-      .insert({ user_id: user.id, status: 'running', holdings_snapshot: snapshot, started_at: new Date().toISOString() })
+      .insert({ user_id: uid, status: 'running', holdings_snapshot: snapshot, started_at: new Date().toISOString() })
       .select('id')
       .maybeSingle()
     if (error) { console.warn('[analysis-job] create failed', error); return null }
@@ -48,7 +49,8 @@ async function createAnalysisJob(holdings) {
 async function finishAnalysisJob(jobId, { status, summary, errorText } = {}) {
   if (!jobId) return
   try {
-    await supabase
+    const gw = getCheckupGateway()
+    await gw.db
       .from('checkup_analysis_jobs')
       .update({
         status,
@@ -58,7 +60,7 @@ async function finishAnalysisJob(jobId, { status, summary, errorText } = {}) {
       })
       .eq('id', jobId)
     // fire-and-forget notify
-    supabase.functions.invoke('checkup-notify-complete', { body: { job_id: jobId } })
+    gw.invoke('checkup-notify-complete', { job_id: jobId })
       .catch((e) => console.warn('[analysis-job] notify failed', e))
   } catch (e) { console.warn('[analysis-job] finish exception', e) }
 }
@@ -152,8 +154,9 @@ export function useDailyAnalysisWorkflow({
 
       let marketContext = ''
       try {
-        const indexResponse = await fetch(`${API_ENDPOINTS.TWSE}?ex_ch=tse_t00.tw|tse_t01.tw`)
-        const indexData = await indexResponse.json()
+        const indexData = await getCheckupGateway().http.json(
+          `${API_ENDPOINTS.TWSE}?ex_ch=tse_t00.tw|tse_t01.tw`,
+        )
         marketContext = buildMarketContextFromIndexData(indexData)
       } catch (indexError) {
         console.warn('大盤指數取得失敗（不影響分析）:', indexError)
@@ -294,7 +297,7 @@ ${losers
 
         blindPredictions = []
         try {
-          const blindResponse = await fetch(API_ENDPOINTS.ANALYZE, {
+          const blindData = await getCheckupGateway().http.tryJson(API_ENDPOINTS.ANALYZE, {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
             body: JSON.stringify(
@@ -307,10 +310,9 @@ ${losers
               })
             ),
           })
-          if (!blindResponse.ok) {
+          if (!blindData) {
             blindStatus = 'failed'
           } else {
-            const blindData = await blindResponse.json()
             const blindText = blindData.content?.[0]?.text || ''
             const parsed = parseJsonArray(blindText)
             if (parsed === null) {
@@ -335,7 +337,9 @@ ${losers
         const historicalEvents = (newsEvents || defaultNewsEvents).filter(isClosedEvent)
         const hits = historicalEvents.filter((event) => event.correct === true).length
         const total = historicalEvents.filter((event) => event.correct !== null).length
-        const analysisResponse = await fetch(API_ENDPOINTS.ANALYZE, {
+        let analysisData
+        try {
+          analysisData = await getCheckupGateway().http.json(API_ENDPOINTS.ANALYZE, {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify(
@@ -356,12 +360,10 @@ ${losers
             })
           ),
         })
-        const analysisData = await analysisResponse.json()
-        if (!analysisResponse.ok) {
+        } catch (err) {
+          const detail = parseGatewayErrorBody(err)
           throw new Error(
-            analysisData?.detail ||
-              analysisData?.error ||
-              `AI 分析失敗 (${analysisResponse.status})`
+            detail?.detail || detail?.error || `AI 分析失敗 (${err?.status || 0})`
           )
         }
         const rawInsight = analysisData.content?.[0]?.text || null
@@ -437,7 +439,7 @@ ${losers
           const hits = historicalEvents.filter((event) => event.correct === true).length
           const total = historicalEvents.filter((event) => event.correct !== null).length
 
-          const brainResponse = await fetch(API_ENDPOINTS.ANALYZE, {
+          const brainData = await getCheckupGateway().http.json(API_ENDPOINTS.ANALYZE, {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
             body: JSON.stringify(
@@ -450,7 +452,6 @@ ${losers
               })
             ),
           })
-          const brainData = await brainResponse.json()
           const brainText = brainData.content?.[0]?.text || ''
           const cleanBrain = brainText.replace(/```json|```/g, '').trim()
           const rawBrain = JSON.parse(cleanBrain)
@@ -599,8 +600,10 @@ ${losers
 
       let marketContext = ''
       try {
-        const r = await fetch(`${API_ENDPOINTS.TWSE}?ex_ch=tse_t00.tw|tse_t01.tw`)
-        marketContext = buildMarketContextFromIndexData(await r.json())
+        const r = await getCheckupGateway().http.json(
+          `${API_ENDPOINTS.TWSE}?ex_ch=tse_t00.tw|tse_t01.tw`,
+        )
+        marketContext = buildMarketContextFromIndexData(r)
       } catch { /* */ }
 
       const today = toSlashDate()
@@ -664,12 +667,15 @@ ${losers
         code: h.code, name: h.name, qty: h.qty, cost: h.cost, price: h.price,
       }))
 
-      const { data, error } = await supabase.functions.invoke('checkup-analyze-enqueue', {
-        body: { prompts: { main: mainReq, brain: brainReq }, holdings_snapshot: snapshot },
-      })
-      if (error || !data?.ok) {
+      const data = await getCheckupGateway()
+        .invoke('checkup-analyze-enqueue', {
+          prompts: { main: mainReq, brain: brainReq },
+          holdings_snapshot: snapshot,
+        })
+        .catch((err) => ({ ok: false, __error: err }))
+      if (!data?.ok) {
         emitSaved('❌ 背景分析啟動失敗', 4000)
-        return { ok: false, reason: error?.message || 'enqueue_failed' }
+        return { ok: false, reason: data?.__error?.message || 'enqueue_failed' }
       }
       emitSaved('🔔 分析已送背景，可關閉網頁，完成後將通知您', 6000)
       return { ok: true, job_id: data.job_id, reused: !!data.reused }

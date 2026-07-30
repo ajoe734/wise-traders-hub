@@ -16,19 +16,19 @@ const SRC = readFileSync(
 );
 
 describe('checkup-quota-audit edge function — 安全/稽核合約', () => {
-  it('必定驗證 Authorization Bearer token', () => {
-    expect(SRC).toMatch(/Authorization[^\n]*Bearer/);
-    expect(SRC).toMatch(/AUTH_REQUIRED/);
-    expect(SRC).toMatch(/AUTH_FAILED/);
+  it('必定走統一 admin 契約（requireCompanyAdmin + authErrorResponse）', () => {
+    expect(SRC).toMatch(/from '\.\.\/_shared\/adminGuard\.ts'/);
+    expect(SRC).toMatch(/requireCompanyAdmin\(req\)/);
+    expect(SRC).toMatch(/authErrorResponse\(/);
   });
 
-  it('必定呼叫 has_role 驗 company_admin（在分流到 list/single 之前）', () => {
-    const idx = SRC.indexOf("'company_admin'");
+  it('admin 驗證發生在分流到 list/single 之前', () => {
+    const idx = SRC.search(/requireCompanyAdmin\(req\)/);
     const modeIdx = SRC.search(/mode\s*===\s*'list'/);
     expect(idx).toBeGreaterThan(0);
     expect(modeIdx).toBeGreaterThan(idx);
-    expect(SRC).toMatch(/FORBIDDEN/);
   });
+
 
   it('每次呼叫都寫入 audit_logs（action=checkup_quota.audit_query）', () => {
     expect(SRC).toMatch(/writeAuditLog/);

@@ -1,4 +1,5 @@
 import { API_ENDPOINTS } from '../../constants.js'
+import { getCheckupGateway } from '../../lib/gateway'
 /**
  * Cloud Sync API Hooks
  *
@@ -14,13 +15,12 @@ export function useSyncHoldingsFromCloud(portfolioId, enabled = true) {
   return useQuery({
     queryKey: ['cloud', 'holdings', portfolioId],
     queryFn: async () => {
-      const res = await fetch(API_ENDPOINTS.BRAIN, {
+      const payload = await getCheckupGateway().http.json(API_ENDPOINTS.BRAIN, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ action: 'get-holdings' }),
       })
-      if (!res.ok) throw new Error('Failed to sync holdings')
-      const data = await res.json()
+      const data = payload;
       return data.content || []
     },
     enabled: enabled && portfolioId === 'me', // Only for owner portfolio
@@ -35,7 +35,7 @@ export function useSyncHoldingsFromCloud(portfolioId, enabled = true) {
 export function useSaveHoldingsToCloud() {
   return useMutation({
     mutationFn: async ({ portfolioId: _portfolioId, holdings }) => {
-      const res = await fetch(API_ENDPOINTS.BRAIN, {
+      const payload = await getCheckupGateway().http.json(API_ENDPOINTS.BRAIN, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
@@ -43,8 +43,7 @@ export function useSaveHoldingsToCloud() {
           data: { holdings },
         }),
       })
-      if (!res.ok) throw new Error(await res.text())
-      return res.json()
+      return payload;
     },
   })
 }
@@ -56,13 +55,12 @@ export function useSyncBrainFromCloud(enabled = true) {
   return useQuery({
     queryKey: ['cloud', 'brain'],
     queryFn: async () => {
-      const res = await fetch(API_ENDPOINTS.BRAIN, {
+      const payload = await getCheckupGateway().http.json(API_ENDPOINTS.BRAIN, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ action: 'get-brain' }),
       })
-      if (!res.ok) throw new Error('Failed to sync brain')
-      const data = await res.json()
+      const data = payload;
       return data.content
     },
     enabled,
@@ -77,7 +75,7 @@ export function useSyncBrainFromCloud(enabled = true) {
 export function useSaveBrainToCloud() {
   return useMutation({
     mutationFn: async ({ brainData }) => {
-      const res = await fetch(API_ENDPOINTS.BRAIN, {
+      const payload = await getCheckupGateway().http.json(API_ENDPOINTS.BRAIN, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
@@ -85,8 +83,7 @@ export function useSaveBrainToCloud() {
           data: brainData,
         }),
       })
-      if (!res.ok) throw new Error(await res.text())
-      return res.json()
+      return payload;
     },
   })
 }
@@ -98,13 +95,12 @@ export function useSyncAnalysisFromCloud(portfolioId, enabled = true) {
   return useQuery({
     queryKey: ['cloud', 'analysis', portfolioId],
     queryFn: async () => {
-      const res = await fetch(API_ENDPOINTS.BRAIN, {
+      const payload = await getCheckupGateway().http.json(API_ENDPOINTS.BRAIN, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ action: 'get-analysis-history' }),
       })
-      if (!res.ok) throw new Error('Failed to sync analysis')
-      const data = await res.json()
+      const data = payload;
       return data.content || []
     },
     enabled: enabled && portfolioId === 'me',
@@ -120,13 +116,12 @@ export function useSyncResearchFromCloud(enabled = true) {
   return useQuery({
     queryKey: ['cloud', 'research'],
     queryFn: async () => {
-      const res = await fetch(API_ENDPOINTS.BRAIN, {
+      const payload = await getCheckupGateway().http.json(API_ENDPOINTS.BRAIN, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ action: 'get-research-history' }),
       })
-      if (!res.ok) throw new Error('Failed to sync research')
-      const data = await res.json()
+      const data = payload;
       return data.content || []
     },
     enabled,
