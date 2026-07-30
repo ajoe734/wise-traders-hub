@@ -2,7 +2,7 @@ import { createElement as h, useCallback, useState } from 'react'
 import { EventsPanel } from '../components/events/index.js'
 import { useRouteEventsPage } from '../hooks/useRouteEventsPage.js'
 import { useOnEventsRefresh } from '../modules/events/useOnEventsRefresh'
-import { useEmitEventsRefresh } from '../modules/tradeIO'
+import { useShellEventBus } from '../shell/ShellEventBusProvider'
 // @analytics-required: shell_bus_events_refresh
 import { track } from '@/lib/analytics/events'
 
@@ -27,7 +27,9 @@ export function EventsPage() {
   // 測試用 beacon：僅在 `?bus_test=1` 時渲染，讓 E2E 能在 EventsPage 已掛載後
   // emit `events:refresh` 走完 M4→M3 pub/sub 契約。生產介面不受影響。
   const isBusTest = typeof window !== 'undefined' && new URLSearchParams(window.location.search).get('bus_test') === '1'
-  const emitRefresh = useEmitEventsRefresh()
+  // 直接走 shell bus（模組邊界：M3 不得依賴 M4 的 emit helper），
+  // 以 source='tradeIO' 模擬 M4 的發送端。
+  const bus = useShellEventBus()
 
   return h(
     'div',
@@ -38,7 +40,7 @@ export function EventsPage() {
           {
             type: 'button',
             'data-testid': 'events-bus-test-emit-refresh',
-            onClick: () => emitRefresh('trade-manual'),
+            onClick: () => bus.emit('events:refresh', { reason: 'trade-manual', source: 'tradeIO' }),
             style: { position: 'fixed', top: 8, right: 8, zIndex: 9999 },
           },
           'Emit events:refresh',
