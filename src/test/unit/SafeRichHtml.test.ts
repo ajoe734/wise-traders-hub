@@ -169,7 +169,13 @@ describe('呼叫端規則對齊（靜態原始碼掃描）', () => {
   }
 
   it('JournalDetail 詳情頁不得再使用 richHtmlPreview（一律 richHtmlToPlain）', () => {
-    const src = read('src/pages/app/JournalDetail.tsx');
+    // A6：詳情頁已拆成 `_journalDetail/`，守衛需涵蓋整個模組。
+    const src = [
+      'src/pages/app/JournalDetail.tsx',
+      'src/pages/app/_journalDetail/richHtml.ts',
+      'src/pages/app/_journalDetail/TradeItem.tsx',
+      'src/pages/app/_journalDetail/TeachingDebugBadge.tsx',
+    ].map(read).join('\n');
     expect(src).not.toMatch(/richHtmlPreview\s*\(/);
     expect(src).toMatch(/richHtmlToPlain\s*\(/);
   });

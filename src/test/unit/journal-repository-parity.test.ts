@@ -167,6 +167,7 @@ describe('週記讀取單一資料源守衛', () => {
     const callers = [
       'src/pages/app/Journals.tsx',
       'src/pages/app/JournalDetail.tsx',
+      'src/pages/app/_journalDetail/useJournalDetail.ts',
       'src/pages/company/JournalsExport.tsx',
       'supabase/functions/weekly-journal-export/index.ts',
     ];
