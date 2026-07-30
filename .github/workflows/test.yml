@@ -22,3 +22,7 @@ jobs:
 
       - name: Run tests
         run: npx vitest run
+
+      - name: Sitemap ↔ route consistency
+        run: npx tsx scripts/sitemap-consistency-check.ts
+
