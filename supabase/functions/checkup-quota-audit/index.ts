@@ -31,32 +31,12 @@ Deno.serve(withLogging('checkup-quota-audit', async (req: Request) => {
     return json({ error: 'METHOD_NOT_ALLOWED' }, 405);
   }
 
-  const jwt = (req.headers.get('Authorization') || '').replace(/^Bearer\s+/i, '').trim();
-  if (!jwt) return json({ error: 'AUTH_REQUIRED' }, 401);
-
-  // verify caller
-  let callerId = '';
+  // AUTH: company_admin (unified contract — see _shared/adminGuard.ts)
+  let callerId: string;
   try {
-    const ur = await fetch(`${SUPABASE_URL}/auth/v1/user`, {
-      headers: { Authorization: `Bearer ${jwt}`, apikey: SERVICE_ROLE_KEY },
-    });
-    if (!ur.ok) return json({ error: 'AUTH_FAILED' }, 401);
-    callerId = (await ur.json())?.id || '';
+    callerId = await requireCompanyAdmin(req);
   } catch (e) {
-    console.error('[quota-audit] getUser failed', e);
-    return json({ error: 'AUTH_FAILED' }, 401);
-  }
-  if (!callerId) return json({ error: 'AUTH_FAILED' }, 401);
-
-  // company_admin only
-  const roleRes = await fetch(`${SUPABASE_URL}/rest/v1/rpc/has_role`, {
-    method: 'POST',
-    headers: jsonHeaders(),
-    body: JSON.stringify({ _user_id: callerId, _role: 'company_admin' }),
-  });
-  if (!roleRes.ok) return json({ error: 'ROLE_CHECK_FAILED' }, 500);
-  if ((await roleRes.json()) !== true) {
-    return json({ error: 'FORBIDDEN', message: '僅限公司管理員存取' }, 403);
+    return authErrorResponse(e, req);
   }
 
   const url = new URL(req.url);
