@@ -173,7 +173,7 @@ export async function fetchWithRateLimit(
   // 都不會讓 reservation 永遠占著額度。
   let settled = false;
   const safeSettle = async (opts: { success: boolean; rateLimited?: boolean }) => {
-    try { await settleReservation(supa, reservation.id, opts); }
+    try { await settleReservation(supa, reservation!.id, opts); }
     finally { settled = true; }
   };
 
@@ -215,7 +215,7 @@ export async function fetchWithRateLimit(
   } finally {
     // 任何未 settle 的殘留 reservation 一律 release，避免額度洩漏
     if (!settled) {
-      try { await releaseReservation(supa, reservation.id); }
+      try { await releaseReservation(supa, reservation!.id); }
       catch (e) { console.warn('[rateLimit] finally release failed:', (e as Error).message); }
     }
   }
