@@ -8,7 +8,8 @@ import { useEffectiveUserId } from '@/hooks/useEffectiveUserId';
 import { supabase } from '@/integrations/supabase/client';
 import { Card, CardContent } from '@/components/ui/card';
 import { BookOpen, CalendarDays, Loader2 } from 'lucide-react';
-import { format, startOfWeek, addDays } from 'date-fns';
+import { format } from 'date-fns';
+import { taipeiMondayOf } from '@/lib/taipeiWeek';
 import { zhTW } from 'date-fns/locale';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Button } from '@/components/ui/button';
@@ -42,8 +43,8 @@ interface JournalSignal {
 }
 
 interface WeekGroup {
-  weekStart: Date;
-  weekEnd: Date;
+  /** Taipei 週一 YYYY-MM-DD */
+  weekStart: string;
   signals: JournalSignal[];
   expert: JournalSignal['experts'];
 }
@@ -178,22 +179,21 @@ const Journals = () => {
     const groups: Map<string, WeekGroup> = new Map();
     signals.forEach(signal => {
       const pubDate = new Date(signal.published_at);
-      const ws = startOfWeek(pubDate, { weekStartsOn: 1 });
-      const we = addDays(ws, 4); // Friday
-      const key = `${signal.expert_id}-${format(ws, 'yyyy-MM-dd')}`;
+      const ws = taipeiMondayOf(pubDate);
+      const key = `${signal.expert_id}-${ws}`;
       if (!groups.has(key)) {
-        groups.set(key, { weekStart: ws, weekEnd: we, signals: [], expert: signal.experts });
+        groups.set(key, { weekStart: ws, signals: [], expert: signal.experts });
       }
       groups.get(key)!.signals.push(signal);
     });
-    return Array.from(groups.values()).sort((a, b) => b.weekStart.getTime() - a.weekStart.getTime());
+    return Array.from(groups.values()).sort((a, b) => b.weekStart.localeCompare(a.weekStart));
   }, [signals]);
 
   // Available months
   const availableMonths = useMemo(() => {
     const monthSet = new Set<string>();
     weekGroups.forEach(g => {
-      monthSet.add(format(g.weekStart, 'yyyy-MM'));
+      monthSet.add(g.weekStart.slice(0, 7));
     });
     return Array.from(monthSet).sort().reverse();
   }, [weekGroups]);
@@ -202,7 +202,7 @@ const Journals = () => {
   const filteredGroups = useMemo(() => {
     let list = weekGroups;
     if (selectedMonth !== 'all') {
-      list = list.filter(g => format(g.weekStart, 'yyyy-MM') === selectedMonth);
+      list = list.filter(g => g.weekStart.slice(0, 7) === selectedMonth);
     }
     if (assetFilter) {
       list = list.filter(g => resolveAssetClass(g.expert as any) === assetFilter);
@@ -281,9 +281,8 @@ const Journals = () => {
             <div className="space-y-3">
               {filteredGroups.map(group => (
                 <JournalCard
-                  key={`${group.expert.slug}-${format(group.weekStart, 'yyyy-MM-dd')}`}
+                  key={`${group.expert.slug}-${group.weekStart}`}
                   weekStart={group.weekStart}
-                  weekEnd={group.weekEnd}
                   signals={group.signals}
                   expert={group.expert}
                   to={`/app/journal/${group.signals[0].id}${previewExpertId ? '?preview=1' : ''}`}
