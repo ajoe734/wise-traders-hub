@@ -11,6 +11,7 @@
 import { serviceClient } from '../_shared/supabaseClients.ts';
 import { listCompanyAdminIds } from "../_shared/adminGuard.ts";
 import { requireCaller, AuthError } from '../_shared/authGuard.ts';
+import { lotsToShares, SHARES_PER_LOT } from "../_shared/lotSize.ts";
 
 const corsHeaders = {
   "Access-Control-Allow-Origin": "*",
@@ -216,7 +217,7 @@ function normalizeUnit(u: any): "lot" | "share" | "contract" | "other" | "missin
   return "other";
 }
 function toSharesSrv(qty: number, u: ReturnType<typeof normalizeUnit>): number {
-  if (u === "lot") return qty * 1000;
+  if (u === "lot") return lotsToShares(qty);
   if (u === "share" || u === "missing") return qty;
   return NaN;
 }

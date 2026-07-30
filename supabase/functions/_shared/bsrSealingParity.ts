@@ -9,13 +9,15 @@
 //   sum(broker.sell_shares) ≈ daily_volume
 //   sum(broker.net_shares)  ≈ 0
 //
-// 容忍：max(1 張=1000 股, 1% of volume) — 覆蓋湊整與極少數未上報分點。
+// 容忍：max(1 張, 1% of volume) — 覆蓋湊整與極少數未上報分點。
 //
 // 只在 sealed 日執行；非 sealed 交由 Phase E 的 fallback watchdog 負責。
 
-export const TOLERANCE_SHARES = 1000;         // 1 張
+import { SHARES_PER_LOT } from './lotSize.ts';
+
+export const TOLERANCE_SHARES = SHARES_PER_LOT; // 1 張
 export const TOLERANCE_PCT = 0.01;             // 1%
-export const NET_TOLERANCE_SHARES = 1000;
+export const NET_TOLERANCE_SHARES = SHARES_PER_LOT;
 export const MIN_SAMPLE = 20;
 export const WARN_MISMATCH_PCT = 5;
 export const CRIT_MISMATCH_PCT = 15;

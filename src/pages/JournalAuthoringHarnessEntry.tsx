@@ -21,6 +21,7 @@
  */
 import { useMemo } from 'react';
 import {
+import { SHARES_PER_LOT } from '@/lib/lotSize';
   getAssetSpec,
   normalizeAssetClass,
   resolveAssetClass,
@@ -52,9 +53,9 @@ const DEFAULT_SYMBOL: Record<string, string> = {
 };
 
 // Notional multiplier by unit (mirror handle_signal_trade in DB):
-//   張 = 1000 shares, 股/顆/口 = 1 unit
+//   張 = SHARES_PER_LOT shares, 股/顆/口 = 1 unit
 function notionalOf(qty: number, price: number, unit: string) {
-  const mult = unit === '張' ? 1000 : 1;
+  const mult = unit === '張' ? SHARES_PER_LOT : 1;
   return qty * price * mult;
 }
 

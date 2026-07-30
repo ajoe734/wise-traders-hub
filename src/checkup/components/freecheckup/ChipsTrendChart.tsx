@@ -5,6 +5,7 @@
 // 3) Scrubber：拖曳選日，圓點對齊柱頂
 import React, { useEffect, useMemo, useRef, useState } from 'react';
 import type {
+import { formatSharesAsLots, sharesToLots, SHARES_PER_LOT } from '@/lib/lotSize';
   TwChipsPayload,
   WindowReadinessPayload,
   ReadinessState,
@@ -19,10 +20,7 @@ type Window = 1 | 5 | 20 | 60;
 
 
 function fmtLots(n: number | null | undefined) {
-  if (n == null || Number.isNaN(n)) return '—';
-  const lots = Math.round(n / 1000);
-  const sign = lots > 0 ? '+' : '';
-  return `${sign}${lots.toLocaleString('zh-TW')} 張`;
+  return formatSharesAsLots(n, { signed: true, subLotLabel: '0 張' });
 }
 
 function fmtDate(d: string) {
