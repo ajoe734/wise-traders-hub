@@ -60,7 +60,9 @@ describe('前後端鏡像 parity', () => {
 
 const GUARDED_FILES = [
   'src/lib/positionQuantity.ts',
-  'src/lib/journalsExport.ts',
+  // A3 後：週記匯出的張股換算移到匯出核心（Deno 唯一資料源 + 前台鏡像）
+  'src/lib/journalExportCore.ts',
+  'supabase/functions/_shared/journalExportCore.ts',
   'src/pages/_adminSignals/derive.ts',
   'src/pages/JournalAuthoringHarnessEntry.tsx',
   'src/checkup/components/freecheckup/ChipsTrendChart.tsx',
