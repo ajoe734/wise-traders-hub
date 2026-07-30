@@ -171,3 +171,21 @@
 4. ~~`events:refresh` 真正 re-fetch（M3 資料同步）~~ ✅ 2026-07-27 完成，詳見 [`events-refresh-tdd.md`](./events-refresh-tdd.md)。
 
 現階段 Shell Event Bus 已進入維護模式；未來新增跨模組事件須先更新 §2 事件契約表與本 doc 日誌，再依 TDD 節奏實作。
+
+---
+
+## 9. 呼叫端補齊（2026-07-30）
+
+emit helper 存在 ≠ 事件會被觸發。本輪補齊 M2 / M3 真實 UI 呼叫端：
+
+| 元件 | 按鈕 | 事件 | source |
+| --- | --- | --- | --- |
+| `reports/DailyReportPanel.jsx` · `HoldingsChanges` | `→ 持倉` (`closing-focus-holding-<code>`) | `holdings:focus` | `closing` |
+| `reports/DailyReportPanel.jsx` · `HoldingsChanges` | `→ 研究` (`closing-research-<code>`) | `research:prefill`（topic=`收盤分析`） | `closing` |
+| `events/EventsPanel.jsx` · `EventCard` | `→ 持倉` (`events-focus-holding-<code>`) | `holdings:focus` | `events` |
+
+導航消費端已存在：`useRouteHoldingsPage`（`?expand=`）、`useRouteDailyPage`（`?stock=`）、`useRouteResearchPage`（`?stock=&topic=`）。
+
+**回歸守衛**：`src/test/unit/shell-event-bus-callsites.test.tsx`
+- 對真實元件 render + click，斷言 bus 收到事件與 source。
+- 靜態守衛：`src/checkup/modules/*/useEmit*.ts` 每支 helper 都必須至少有一個 `src/checkup/components/**` 呼叫端，否則紅燈（防止孤兒 helper 再次出現）。

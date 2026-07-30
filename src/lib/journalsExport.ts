@@ -4,6 +4,7 @@
  * and E2E harness can share the same generation logic.
  */
 import JSZip from 'jszip';
+import { lotsToShares, SHARES_PER_LOT } from '@/lib/lotSize';
 
 export interface JournalRowExport {
   id: string;
@@ -295,7 +296,7 @@ export function normalizeQuantityUnit(unit: string | null | undefined): 'lot' | 
 
 /** 折算為「股」；未知單位以 NaN 表達（呼叫端自行決定是否忽略） */
 function toShares(qty: number, unit: ReturnType<typeof normalizeQuantityUnit>): number {
-  if (unit === 'lot') return qty * 1000;
+  if (unit === 'lot') return lotsToShares(qty);
   if (unit === 'share' || unit === 'missing') return qty;
   return Number.NaN;
 }

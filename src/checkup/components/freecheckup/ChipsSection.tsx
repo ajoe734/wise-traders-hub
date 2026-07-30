@@ -9,6 +9,7 @@ import { bsrHeaderLabel } from './bsrHeaderLabel';
 import { supabase } from '@/integrations/supabase/client';
 import { toast } from 'sonner';
 import { trackEvent } from '@/lib/trafficTracker';
+import { formatSharesAsLots, SHARES_PER_LOT } from '@/lib/lotSize';
 
 const SERIF = '"Source Serif 4", "Noto Serif TC", Georgia, serif';
 
@@ -19,21 +20,12 @@ function tone(WB: any, n: number | null | undefined) {
 }
 
 function fmtShares(n: number | null | undefined) {
-  if (n == null || Number.isNaN(n)) return '—';
-  const abs = Math.abs(n);
-  if (abs >= 1_000_000) return `${(n / 10_000).toLocaleString('zh-TW', { maximumFractionDigits: 0 })} 張`;
-  // 股數 → 張（1 張 = 1000 股）
-  const lots = Math.round(n / 1000);
-  if (lots === 0) return n > 0 ? '<1 張' : n < 0 ? '<1 張' : '0';
-  const sign = lots > 0 ? '+' : '';
-  return `${sign}${lots.toLocaleString('zh-TW')} 張`;
+  // 張股換算單一資料源：@/lib/lotSize（1 張 = SHARES_PER_LOT 股）
+  return formatSharesAsLots(n, { signed: true });
 }
 
 function fmtNet(n: number | null | undefined) {
-  if (n == null || Number.isNaN(n)) return '—';
-  const lots = Math.round(n / 1000);
-  const sign = lots > 0 ? '+' : '';
-  return `${sign}${lots.toLocaleString('zh-TW')}`;
+  return formatSharesAsLots(n, { signed: true, suffix: '', subLotLabel: '0' });
 }
 
 const WINDOWS = [

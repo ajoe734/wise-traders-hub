@@ -4,6 +4,7 @@ import { corsHeaders } from '../_shared/cors.ts';
 import { requireCronKey, AuthError } from '../_shared/authGuard.ts';
 import { withLogging } from '../_shared/edgeLogger.ts';
 import { nyTradeDate, extractSymbol } from '../_shared/marketDetect.ts'
+import { lotsToShares, SHARES_PER_LOT } from '../_shared/lotSize.ts'
 
 Deno.serve(withLogging('daily-snapshot', async (req) => {
   // AUTH: cron (Phase M-2 runtime enforcement)
@@ -58,7 +59,7 @@ Deno.serve(withLogging('daily-snapshot', async (req) => {
         const volumeUnit = market === 'TW' ? 'lots' : 'shares'
         const rawVolume = p.volume == null ? null : Number(p.volume)
         const volumeShares =
-          rawVolume == null ? null : volumeUnit === 'lots' ? rawVolume * 1000 : rawVolume
+          rawVolume == null ? null : volumeUnit === 'lots' ? lotsToShares(rawVolume) : rawVolume
         return {
           symbol: p.symbol,
           trade_date: market === 'US' ? usTradeDate : twTradeDate,

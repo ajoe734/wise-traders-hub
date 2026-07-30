@@ -1,6 +1,7 @@
 // Pure helpers extracted from admin/Signals.tsx
 import { isMarketClosedFor, sanitizeAssetQuantityUnit, type MarketHours } from '@/lib/asset';
 import { SIGNAL_ACTION_META } from '@/lib/signalAction';
+import { lotsToShares, SHARES_PER_LOT } from '@/lib/lotSize';
 
 export const actionLabelMap: Record<string, string> = Object.fromEntries(
   Object.entries(SIGNAL_ACTION_META).map(([key, meta]) => [meta.label, key]),
@@ -114,13 +115,13 @@ export function computeHoldingSummary(
   for (const s of sorted) {
     const inst = s.instrument;
     const qty = s.quantity || 1;
-    // 依 asset_class 決定合法單位；不再一律 fallback 成「張」（美股/加密幣會誤算 ×1000）
+    // 依 asset_class 決定合法單位；不再一律 fallback 成「張」（美股/加密幣會誤算成張）
     const assetClass = s.asset_class || (s.currency === 'USD' ? 'us_stock' : 'tw_stock');
     const unit = sanitizeAssetQuantityUnit(s.quantity_unit, assetClass);
     const price = s.price_hint || 0;
     const current = instrumentMap.get(inst) || { zhangQty: 0, guQty: 0, zhangCost: 0, guCost: 0 };
     const isLot = unit === '張';
-    const lineCost = isLot ? price * qty * 1000 : price * qty;
+    const lineCost = isLot ? price * lotsToShares(qty) : price * qty;
 
     if (s.action === 'buy' || s.action === 'add') {
       if (isLot) { current.zhangQty += qty; current.zhangCost += lineCost; }
