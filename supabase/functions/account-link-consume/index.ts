@@ -100,10 +100,10 @@ Deno.serve(async (req) => {
     const service = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')!;
     const authHeader = req.headers.get('Authorization') ?? '';
 
-    const userClient = userClient(req);
+    const uc = userClient(req);
     const admin = serviceClient();
 
-    const { data: authData, error: authErr } = await userClient.auth.getUser();
+    const { data: authData, error: authErr } = await uc.auth.getUser();
     if (authErr || !authData.user) {
       return new Response(JSON.stringify({ error: 'AUTH_REQUIRED' }), { status: 401, headers: { ...corsHeaders, 'Content-Type': 'application/json' } });
     }

@@ -121,8 +121,8 @@ Deno.serve(withLogging('knowledge-draft-claude', async (req) => {
           status: 401, headers: { ...corsHeaders, 'Content-Type': 'application/json' },
         });
       }
-      const userClient = userClient(req);
-      const { data: { user: u }, error: userErr } = await userClient.auth.getUser();
+      const uc = userClient(req);
+      const { data: { user: u }, error: userErr } = await uc.auth.getUser();
       if (userErr || !u) {
         return new Response(JSON.stringify({ error: 'Invalid token' }), {
           status: 401, headers: { ...corsHeaders, 'Content-Type': 'application/json' },

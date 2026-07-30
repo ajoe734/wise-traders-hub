@@ -45,8 +45,8 @@ Deno.serve(withLogging('expert-ai-chat', async (req, log) => {
     return errorResponse('expert_id and messages required', 400);
   }
 
-  const userClient = userClient(req);
-  const { data: userData, error: authErr } = await userClient.auth.getUser();
+  const uc = userClient(req);
+  const { data: userData, error: authErr } = await uc.auth.getUser();
   if (authErr) {
     log.warn('auth_get_user_failed', { message: authErr.message });
   }

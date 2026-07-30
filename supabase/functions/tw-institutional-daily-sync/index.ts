@@ -239,8 +239,8 @@ async function isAdminCaller(req: Request): Promise<{ ok: boolean; reason?: stri
   if (token === SERVICE_ROLE_KEY) return { ok: true };
   // 否則以使用者身份呼叫 has_role
   try {
-    const userClient = userClient(req);
-    const { data: u } = await userClient.auth.getUser();
+    const uc = userClient(req);
+    const { data: u } = await uc.auth.getUser();
     if (!u?.user?.id) return { ok: false, reason: "invalid_jwt" };
     const admin = serviceClient();
     const { data: hr, error } = await admin.rpc("has_role", {

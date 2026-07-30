@@ -98,10 +98,10 @@ Deno.serve(async (req) => {
     const authHeader = req.headers.get('Authorization') ?? '';
     if (!authHeader.startsWith('Bearer ')) return json({ error: 'AUTH_REQUIRED' }, 401);
 
-    const userClient = userClient(req);
+    const uc = userClient(req);
     const admin = serviceClient();
 
-    const { data: authData } = await userClient.auth.getUser();
+    const { data: authData } = await uc.auth.getUser();
     const callerId = authData?.user?.id;
     if (!callerId) return json({ error: 'AUTH_REQUIRED' }, 401);
 

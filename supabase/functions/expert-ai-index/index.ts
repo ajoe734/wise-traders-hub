@@ -41,8 +41,8 @@ Deno.serve(withLogging('expert-ai-index', async (req, log) => {
   // AUTH: user — enforce BEFORE body parsing (M-3c contract)
   const authHeader = req.headers.get('Authorization');
   if (!authHeader) return errorResponse('unauthorized', 401);
-  const userClient = userClient(req);
-  const { data: userData } = await userClient.auth.getUser();
+  const uc = userClient(req);
+  const { data: userData } = await uc.auth.getUser();
   const uid = userData?.user?.id;
   if (!uid) return errorResponse('unauthorized', 401);
 

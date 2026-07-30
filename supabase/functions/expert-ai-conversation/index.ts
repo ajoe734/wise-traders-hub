@@ -18,8 +18,8 @@ Deno.serve(withLogging('expert-ai-conversation', async (req, _log) => {
   const expertId = url.searchParams.get('expert_id');
   if (!expertId) return errorResponse('expert_id required', 400);
 
-  const userClient = userClient(req);
-  const { data: userData } = await userClient.auth.getUser();
+  const uc = userClient(req);
+  const { data: userData } = await uc.auth.getUser();
   const uid = userData?.user?.id;
   if (!uid) return errorResponse('unauthorized', 401);
 

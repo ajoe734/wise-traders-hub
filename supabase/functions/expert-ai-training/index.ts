@@ -34,8 +34,8 @@ Deno.serve(withLogging('expert-ai-training', async (req, log) => {
 
   const authHeader = req.headers.get('Authorization');
   if (!authHeader) return errorResponse('unauthorized', 401);
-  const userClient = userClient(req);
-  const { data: userData } = await userClient.auth.getUser();
+  const uc = userClient(req);
+  const { data: userData } = await uc.auth.getUser();
   const uid = userData?.user?.id;
   if (!uid) return errorResponse('unauthorized', 401);
 
