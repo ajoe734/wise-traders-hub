@@ -5,7 +5,7 @@ import {
   API_ENDPOINTS,
   STATUS_MESSAGE_TIMEOUT_MS,
 } from '../constants.js'
-import { supabase } from '../../integrations/supabase/client.js'
+import { getCheckupGateway, parseGatewayErrorBody } from '../lib/gateway'
 import { APP_TOAST_MESSAGES } from '../lib/appMessages.js'
 import {
   attachEvidenceRefsToBrainAudit,
@@ -44,16 +44,16 @@ import { useEventStore } from '../stores/eventStore.js'
 import { useBrainStore } from '../stores/brainStore.js'
 
 async function defaultRunReviewBrainRequest(body) {
-  const response = await fetch(API_ENDPOINTS.ANALYZE, {
-    method: 'POST',
-    headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify(body),
-  })
-  const data = await response.json().catch(() => null)
-  if (!response.ok) {
-    throw new Error(data?.detail || data?.error || `復盤整合失敗 (${response.status})`)
+  try {
+    return await getCheckupGateway().http.json(API_ENDPOINTS.ANALYZE, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(body),
+    })
+  } catch (err) {
+    const detail = parseGatewayErrorBody(err)
+    throw new Error(detail?.detail || detail?.error || `復盤整合失敗 (${err?.status || 0})`)
   }
-  return data
 }
 
 export function useEventReviewWorkflow({
@@ -152,10 +152,10 @@ export function useEventReviewWorkflow({
       // ── Write prediction accuracy record (user-scoped) ──
       if (event.pred && submittedForm.actual) {
         const wasCorrect = event.pred === submittedForm.actual
-        supabase.auth.getUser().then(({ data }) => {
-          const uid = data?.user?.id
+        const gw = getCheckupGateway()
+        gw.auth.getUserId().then((uid) => {
           if (!uid) return // 未登入訪客（demo 模式）不寫入
-          supabase.from('checkup_prediction_accuracy').insert({
+          gw.db.from('checkup_prediction_accuracy').insert({
             user_id: uid,
             event_id: String(eventId),
             event_type: event.type || event.category || null,
