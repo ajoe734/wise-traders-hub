@@ -9,6 +9,7 @@ import { corsHeaders } from '../_shared/cors.ts';
 
 import { serviceClient } from '../_shared/supabaseClients.ts';
 import { withLogging } from '../_shared/edgeLogger.ts';
+import { accountNotificationsUrl, buildNotificationRow } from '../_shared/routes.ts';
 const FN_NAME = 'refresh-targets-weekly';
 
 interface AnalystItem {
@@ -182,13 +183,13 @@ Deno.serve(withLogging('refresh-targets-weekly', async (req) => {
             .maybeSingle();
           const wantNotify = prefs?.target_price_weekly !== false;
           if (wantNotify) {
-            await supabase.from('notifications').insert({
-              user_id: userId,
+            await supabase.from('notifications').insert(buildNotificationRow({
+              userId,
               title: `每週目標價更新：${codesChanged.length} 檔有異動`,
               body: `共 ${insertRows.length} 筆變動。\n${sample}${userChanges.length > 5 ? `\n…另 ${userChanges.length - 5} 筆` : ''}`,
               type: 'info',
-              link: '/account/notifications',
-            });
+              link: accountNotificationsUrl(),
+            }));
             stats.notifiedUsers += 1;
           }
 

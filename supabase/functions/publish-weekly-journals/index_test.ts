@@ -21,15 +21,16 @@ import {
   retryTransient,
   type PublishErrorInfo,
 } from './classifyPublishError.ts';
+import { validateNotificationLink } from '../_shared/routes.ts';
 
 const MENTOR_USER_ID = '11111111-2222-3333-4444-555555555555';
 const SIGNAL_ID = 'aaaaaaaa-bbbb-cccc-dddd-eeeeeeeeeeee';
 
 // ── 1. classifyPublishError — kind × copy × link 對應表 ────────────────────
 Deno.test('classify: CAPITAL_EXCEEDED via message', () => {
-  const info = classifyPublishError({ message: 'CAPITAL_EXCEEDED: over cap' }, 'AAPL');
+  const info = classifyPublishError({ message: 'CAPITAL_EXCEEDED: over cap' }, 'AAPL', 'benny');
   assertEquals(info.kind, 'CAPITAL_EXCEEDED');
-  assertEquals(info.link, '/admin/profile#capital');
+  assertEquals(info.link, '/admin/benny/profile#capital');
   assertStringIncludes(info.title, 'AAPL');
   assertStringIncludes(info.title, '初始資金不足');
 });
@@ -43,9 +44,10 @@ Deno.test('classify: INCOMPATIBLE_UNIT (美股寫「張」)', () => {
   const info = classifyPublishError(
     { message: 'incompatible_unit_for_asset_class: us_stock 張' },
     'TSLA',
+    'benny',
   );
   assertEquals(info.kind, 'INCOMPATIBLE_UNIT');
-  assertEquals(info.link, '/admin/signals');
+  assertEquals(info.link, '/admin/benny/signals');
   assertStringIncludes(info.body, '美股僅能用「股」');
 });
 
@@ -60,9 +62,9 @@ Deno.test('classify: UNIT_CONFLICT via UNIT_MIX (export dialog symbol)', () => {
 });
 
 Deno.test('classify: UNKNOWN fallback keeps mentor unblocked', () => {
-  const info = classifyPublishError({ message: 'random RLS boom' }, 'BTC');
+  const info = classifyPublishError({ message: 'random RLS boom' }, 'BTC', 'benny');
   assertEquals(info.kind, 'UNKNOWN');
-  assertEquals(info.link, '/admin/signals');
+  assertEquals(info.link, '/admin/benny/signals');
   assertStringIncludes(info.body, 'random RLS boom');
 });
 
@@ -106,15 +108,22 @@ Deno.test('payload: body appends [Signal ID] for mentor traceability', () => {
 
 Deno.test('payload: link is always relative /admin path (no absolute URL leak)', () => {
   const kinds: PublishErrorInfo[] = [
-    classifyPublishError({ message: 'CAPITAL_EXCEEDED' }, 'X'),
-    classifyPublishError({ message: 'incompatible_unit_for_asset_class' }, 'X'),
-    classifyPublishError({ message: 'unit_conflict' }, 'X'),
-    classifyPublishError({ message: 'boom' }, 'X'),
+    classifyPublishError({ message: 'CAPITAL_EXCEEDED' }, 'X', 'benny'),
+    classifyPublishError({ message: 'incompatible_unit_for_asset_class' }, 'X', 'benny'),
+    classifyPublishError({ message: 'unit_conflict' }, 'X', 'benny'),
+    classifyPublishError({ message: 'boom' }, 'X', 'benny'),
   ];
   for (const info of kinds) {
-    assert(info.link.startsWith('/admin/'), `bad link: ${info.link}`);
+    assert(info.link.startsWith('/admin/benny/'), `bad link: ${info.link}`);
     assert(!info.link.startsWith('http'), 'must be relative');
+    assertEquals(validateNotificationLink(info.link), null);
   }
+});
+
+Deno.test('classify: 沒有 expertSlug 時退回通知中心，不產生會 404 的 /admin/signals', () => {
+  const info = classifyPublishError({ message: 'boom' }, 'X');
+  assertEquals(info.link, '/account/notifications');
+  assertEquals(validateNotificationLink(info.link), null);
 });
 
 // ── 3. Aggregate-level contract：模擬批次部分失敗 ───────────────────────────

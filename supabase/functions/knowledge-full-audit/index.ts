@@ -3,6 +3,7 @@ import { corsHeaders } from '../_shared/cors.ts';
 import { requireCronKey, AuthError } from '../_shared/authGuard.ts';
 import { serviceClient } from '../_shared/supabaseClients.ts';
 import { withLogging } from '../_shared/edgeLogger.ts';
+import { buildNotificationRow, companyUrl } from '../_shared/routes.ts';
 // 全庫知識審計 — 一次性掃 482 筆過舊條目並自動處置
 //
 // 兩層審計：
@@ -193,12 +194,12 @@ Deno.serve(withLogging('knowledge-full-audit', async (req) => {
       const notifyIds = (settings?.notify_user_ids ?? []) as string[]
       if (settings?.notify_on_success && notifyIds.length > 0) {
         // 站內信
-        const notifs = notifyIds.map(uid => ({
-          user_id: uid,
+        const notifs = notifyIds.map(uid => buildNotificationRow({
+          userId: uid,
           title: '📚 全庫知識審計完成',
           body: `共 ${summary.total_items} 筆條目：${summary.stale_rescued} 筆內容過時轉入 rescue 觀察、${summary.fresh_revalidated} 筆重新驗證通過。量化回測已背景啟動。`,
           type: 'info',
-          link: '/company/knowledge-base',
+          link: companyUrl('knowledge-base'),
         }))
         await sb.from('notifications').insert(notifs)
 
