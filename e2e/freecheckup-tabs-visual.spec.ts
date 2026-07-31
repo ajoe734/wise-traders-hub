@@ -1,7 +1,12 @@
-// FreeCheckup 主要分頁視覺回歸：Holdings / News / Daily / Events / Log / Research
+// FreeCheckup 主要分頁視覺回歸：Holdings / Daily / Events / Log
 //
-// 目的：在清理 DemoBanner / DemoCTA / DEMO_TAB_NOTICE_COPY 等未使用資產後，
-// 為 6 個核心 tab 建立像素級 baseline，未來任何 tab 內視覺漂移都會被 CI 抓到。
+// 為什麼只有 4 個 tab：`/holding-checkup` 的 Monocle 版頂欄只暴露
+// 持倉／收盤分析／事件／記錄 四個入口（見 FreeCheckup.jsx `TABS`）。
+// 'news' / 'research' / 'trade' 仍是內部 tab 值，沒有 UI 入口，
+// 因此不是可測的 seam，已從本 spec 移除（舊版對它們的按鈕點擊必定 timeout）。
+//
+// 決定性：demo 模式的價格與日期會隨載入時間浮動，會讓像素基準無限漂移。
+// 這裡以「凍結時鐘 + 決定性 Math.random」把 demo 資料釘死，不改產品程式。
 //
 // 首次執行請帶 --update-snapshots 產生 baseline：
 //   bunx playwright test e2e/freecheckup-tabs-visual.spec.ts --update-snapshots
@@ -11,17 +16,18 @@ import { test, expect, type Page } from '@playwright/test';
 import { gotoWithRetry } from './helpers/navigation';
 
 const ROUTE = '/holding-checkup?demo=1';
+/** 釘死的展示時間（台北 2026/07/31 12:00），確保 demo 日期與相對天數穩定。 */
+const FIXED_NOW = new Date('2026-07-31T04:00:00.000Z');
 
 const TABS = [
-  { key: 'holdings',  label: '持倉' },
-  { key: 'events',    label: /^行事曆/ },
-  { key: 'news',      label: '事件分析' },
-  { key: 'daily',     label: /^(收盤分析|分析中)/ },
-  { key: 'research',  label: /^(深度研究|研究中)/ },
-  { key: 'log',       label: '交易日誌' },
+  { key: 'holdings', desktop: /^持倉/, mobile: '持倉' },
+  { key: 'daily', desktop: /^(收盤分析|分析中)/, mobile: '收盤' },
+  { key: 'events', desktop: /^事件/, mobile: '事件' },
+  { key: 'log', desktop: /^記錄/, mobile: '記錄' },
 ] as const;
 
 async function prime(page: Page) {
+  await page.clock.setFixedTime(FIXED_NOW);
   await page.addInitScript(() => {
     try {
       // 關掉會擋 first-fold 的 coach / intro modal
@@ -31,6 +37,12 @@ async function prime(page: Page) {
       window.localStorage.setItem('checkup-onboarding-tour-v1', 'done');
       window.sessionStorage.setItem('holdings-intro-video-dismissed-session', '1');
     } catch {}
+    // 決定性亂數：demo 價格浮動 ±1.5% 會讓損益數字每次載入都不同
+    let seed = 0x2f6e2b1;
+    Math.random = () => {
+      seed = (seed * 1664525 + 1013904223) >>> 0;
+      return seed / 0x100000000;
+    };
   });
 }
 
@@ -81,48 +93,42 @@ async function stabilize(page: Page) {
   );
 }
 
-async function switchToTab(page: Page, label: string | RegExp) {
-  // 桌面 tab 為文字按鈕，手機底欄僅 4 格（不含 news/research/log）；
-  // 這裡優先鎖桌面 header (.cm-desktop-tabs) 內的按鈕，若手機寬度找不到就退回全域搜尋。
-  const desktopScope = page.locator('.cm-desktop-tabs');
-  const desktopBtn = desktopScope.getByRole('button', { name: label });
-  if (await desktopBtn.count()) {
-    await desktopBtn.first().click();
+/**
+ * 切換分頁。桌面（>=768）走 `.cm-desktop-tabs`；手機（375）該列 `display:none`，
+ * 改走底欄 `.cm-mobile-tabbar`（持倉／收盤／＋／事件／記錄）。
+ */
+async function switchToTab(page: Page, tab: (typeof TABS)[number]) {
+  const desktopTabs = page.locator('.cm-desktop-tabs');
+  if (await desktopTabs.isVisible().catch(() => false)) {
+    await desktopTabs.getByRole('button', { name: tab.desktop }).first().click();
     return;
   }
-  await page.getByRole('button', { name: label }).first().click();
+  const mobileBar = page.locator('.cm-mobile-tabbar');
+  await expect(mobileBar).toBeVisible();
+  await mobileBar.getByRole('button', { name: tab.mobile, exact: true }).first().click();
 }
 
 test.describe('FreeCheckup — 主要分頁視覺回歸', () => {
   test.beforeEach(async ({ page }) => {
     await prime(page);
     await gotoWithRetry(page, ROUTE, { waitUntil: 'domcontentloaded' });
-    await page.waitForSelector('.wb-hero-pnl-num, [data-testid="holdings-workbench"], .cm-desktop-tabs', {
-      state: 'visible',
-      timeout: 30_000,
-    });
+    // 注意：不可用逗號 OR selector — Playwright 只判斷第一個命中元素，
+    // 而 `.cm-desktop-tabs` 在 375 是 display:none，會讓等待必定 timeout。
+    await page.waitForSelector('.wb-hero-pnl-num', { state: 'visible', timeout: 30_000 });
     await page.waitForLoadState('networkidle', { timeout: 8_000 }).catch(() => {});
   });
 
-  for (const { key, label } of TABS) {
-    test(`tab screenshot — ${key}`, async ({ page }, testInfo) => {
-      // 手機寬度沒有 header tabs 時，也不強制切換（holdings/daily 由底欄；其餘由 ⋯ 更多），
-      // 但 test 目的是「這個 tab 的內容視覺」，所以強制透過桌面 tab bar；
-      // 若桌面 tab bar 隱藏（手機寬度），跳過該 project 執行。
-      const desktopVisible = await page.locator('.cm-desktop-tabs').isVisible().catch(() => false);
-      if (!desktopVisible && key !== 'holdings') {
-        test.skip(true, '手機寬度不顯示桌面 tab bar，跳過非 holdings 分頁快照');
-      }
-
-      if (key !== 'holdings') {
-        await switchToTab(page, label);
-        await page.waitForTimeout(200);
+  for (const tab of TABS) {
+    test(`tab screenshot — ${tab.key}`, async ({ page }, testInfo) => {
+      if (tab.key !== 'holdings') {
+        await switchToTab(page, tab);
+        await page.waitForTimeout(300);
       }
       await stabilize(page);
       await page.waitForTimeout(200);
 
       await expect(page).toHaveScreenshot(
-        `freecheckup-${key}-${testInfo.project.name}.png`,
+        `freecheckup-${tab.key}-${testInfo.project.name}.png`,
         {
           fullPage: false,
           maxDiffPixelRatio: 0.02,
