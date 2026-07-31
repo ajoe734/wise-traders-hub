@@ -96,7 +96,11 @@ export default function FunctionLogs() {
           <div className="flex flex-wrap gap-2 items-end">
             <div className="flex-1 min-w-[200px]">
               <label className="text-xs text-muted-foreground">函式名稱</label>
-              <Input value={fnFilter} onChange={e => setFnFilter(e.target.value)} placeholder="publish-weekly-journals" />
+              <Input list="fn-presets" value={fnFilter} onChange={e => setFnFilter(e.target.value)} placeholder="publish-weekly-journals" />
+              <datalist id="fn-presets">
+                <option value="publish-weekly-journals" />
+                <option value="backfill-worker" />
+              </datalist>
             </div>
             <div className="flex-1 min-w-[200px]">
               <label className="text-xs text-muted-foreground">Run ID</label>
