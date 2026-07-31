@@ -69,4 +69,25 @@ describe('notification link contract', () => {
       expect(src, `missing export: ${name}`).toContain(name);
     }
   });
+
+  it('週記發布通知的連結在 App.tsx 有對應路由（可打開，不 404）', () => {
+    const app = readFileSync(join(process.cwd(), 'src/App.tsx'), 'utf8');
+    const routes = Array.from(app.matchAll(/<Route\s+path="([^"]+)"/g)).map((m) => m[1]);
+    const matches = (link: string) =>
+      routes.some((r) => {
+        const re = new RegExp(
+          '^' + r.replace(/:[^/]+/g, '[^/]+').replace(/\*/g, '.*') + '$',
+        );
+        return re.test(link.split('#')[0].split('?')[0]);
+      });
+    for (const link of [
+      '/app/expert/zhou',
+      '/account/notifications',
+      '/admin/zhou/signals',
+      '/admin/zhou/profile#capital',
+      '/holding-checkup',
+    ]) {
+      expect(matches(link), `App.tsx 沒有可匹配的路由：${link}`).toBe(true);
+    }
+  });
 });
