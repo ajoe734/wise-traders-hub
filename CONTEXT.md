@@ -39,6 +39,7 @@
 | **Closing Analysis（收盤分析）** | 盤後針對個股產生的分析報告（M2 Closing 模組）。 |
 | **Catalyst Event（催化事件）** | 影響持股的行事曆事件與新聞事件（M3 Events 模組）。 |
 | **Checkup Gateway（對外握手接縫）** | `src/checkup/lib/gateway`；checkup hooks 對 HTTP／DB／Auth／Realtime／Edge Function 的唯一入口，測試以 fake gateway 取代。見 ADR-0004。 |
+| **Prefs Store（偏好儲存）** | `src/checkup/lib/prefsStore.ts` 的 `createPrefsStore(key, defaults, version)`；所有使用者偏好（抽屜顯示、匯出設定、去重設定）寫入 localStorage 的唯一抽象，內建版本欄位、壞資料降級與 subscribe。UI 不得直接碰 localStorage。 |
 
 ## 訂閱與金流
 
