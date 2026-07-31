@@ -338,9 +338,11 @@ export async function pushExpertJournals(
   const { subscribedTargets, canceledTargets } = classifyLineTargets(
     bindings as any, activeSubs as any, expertPlanIds,
   );
-  const subscribedUserIds = new Set(
+  // 由 classifyLineTargets 的結果反查 user_id（不是另一套分流邏輯）
+  const notifyUserIds = new Set(
     bindings.filter((b) => subscribedTargets.includes(b.line_user_id)).map((b) => b.user_id),
   );
+
 
   const expertName = expert?.name || '導師';
 
