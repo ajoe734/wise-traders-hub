@@ -795,7 +795,8 @@ function PriceAxis({ WB, price, cost, target, baseTarget, upside, tpHistory }) {
              data-testid={`holdings-price-axis-label-${p.label === '成本' ? 'cost' : p.label === '目標' ? 'target' : 'price'}`}
             style={{
               position: 'absolute',
-              left: `${p.lx}%`,
+              /* 夾住中心點：標籤最大寬 92px → 半寬 46px，任何 lx 都不會越界（280px 亦成立） */
+              left: `clamp(46px, ${p.lx}%, calc(100% - 46px))`,
                top: p.side === 'top' ? 3 + (laneByLabel.get(p.label) ?? 0) * 18 : y + 10,
               transform: 'translateX(-50%)',
                maxWidth: 92,

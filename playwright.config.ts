@@ -392,6 +392,12 @@ export default defineConfig({
       use: { ...devices['Desktop Chrome'] },
     },
     {
+      // 價格軸標籤 + 現價圓點 280–2560px 全斷點幾何回歸（spec 內自行 setViewportSize）
+      name: 'holdings-price-axis-label-layout',
+      testMatch: /holdings-price-axis-label-layout\.spec\.ts/,
+      use: { ...devices['Desktop Chrome'] },
+    },
+    {
       // overridePrice 換價後 HoldingCard 必須重算 todayPnl / todayPct / 保留 yesterday
       name: 'desktop-holdings-override-price',
       testMatch: /holdings-override-price-recompute\.spec\.ts/,
