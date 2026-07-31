@@ -20,7 +20,6 @@ import { useMetaOverrides } from "@/checkup/hooks/useMetaOverrides";
 import { getMultiMeta } from "@/checkup/lib/stockMetaMulti.js";
 import { matchSectorCodes } from "@/checkup/lib/holdingUtils";
 import HoldingsUploadSummary from "@/checkup/components/freecheckup/HoldingsUploadSummary";
-import BatchParsePanel from "@/checkup/components/freecheckup/BatchParsePanel";
 import HoldingsFooterBar from "@/checkup/components/freecheckup/HoldingsFooterBar";
 import "@/checkup/styles/holdingsTab.css";
 
@@ -53,8 +52,8 @@ const HOLDINGS_TAB_PROP_SCHEMA = {
   refreshing: _opt('any'), onRefreshPrices: _opt('any'), refreshError: _opt('any'),
 
   uploadSummary: _opt('any'), setUploadSummary: _opt('any'),
-  batchState: _opt('any'), cancelBatch: _opt('any'),
-  retryBatchFailures: _opt('any'), restoreBatchItemPreview: _opt('any'),
+  batchParseSlot: _opt('any'),
+
   // R6：setTab 已於 L37 宣告為 required 'function'，此處不再重覆宣告以免 schema 覆蓋
   losers: _opt('any'), reversalConditions: _opt('any'),
   reviewingEvent: _opt('any'), setReviewingEvent: _opt('any'), updateReversal: _opt('any'),
@@ -102,7 +101,7 @@ function HoldingsTab(props) {
 
     // upload summary
     uploadSummary, setUploadSummary,
-    batchState, cancelBatch, retryBatchFailures, restoreBatchItemPreview,
+    batchParseSlot,
     // reversal
     losers, reversalConditions, reviewingEvent, setReviewingEvent, updateReversal,
     // action priority + decisions
@@ -241,15 +240,9 @@ function HoldingsTab(props) {
         formatResetCountdown={formatResetCountdown}
         isLineBound={!!_mode.lineProfile?.lineUserId}
       />
-      {/* 批次解析狀態：成功/失敗清單、進度、取消、重試 */}
-      <BatchParsePanel
-        C={C}
-        batchState={batchState}
-        cancelBatch={cancelBatch}
-        retryBatchFailures={retryBatchFailures}
-        restoreBatchItemPreview={restoreBatchItemPreview}
-        variant="holdings"
-      />
+      {/* 批次解析狀態：ADR-0005 §5 槽位注入，由 shell 決定放哪個模組的元件（M4 BatchParsePanel） */}
+      {batchParseSlot}
+
       {/* 上傳摘要：剛從上傳成交頁回來時顯示新增/更新項目（B1） */}
       <HoldingsUploadSummary
         uploadSummary={uploadSummary}

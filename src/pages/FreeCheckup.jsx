@@ -44,6 +44,8 @@ const TradeTab = lazy(() => import("@/checkup/modules/tradeIO/free").then((m) =>
 const ResearchTab = lazy(() => import("@/checkup/modules/research/free").then((m) => ({ default: m.ResearchTab })));
 // Batch C §6.3 / §6.5：上傳 modal + 一次性引導 + 頁腳 demo hint
 const TradeUploadModal = lazy(() => import("@/checkup/modules/tradeIO/free").then((m) => ({ default: m.TradeUploadModal })));
+// ADR-0005 §5：BatchParsePanel 屬 M4 TradeIO，由 shell 以槽位注入 HoldingsTab（M1），避免手足模組直連
+const BatchParsePanel = lazy(() => import("@/checkup/modules/tradeIO/free").then((m) => ({ default: m.BatchParsePanel })));
 // OnboardingOverlay / DemoFooterHint 屬 shell 自己的 UI，不歸任何模組（ADR-0005 §2）
 const OnboardingOverlay = lazy(() => import("@/checkup/components/freecheckup/OnboardingOverlay"));
 const DemoFooterHint = lazy(() => import("@/checkup/components/freecheckup/DemoFooterHint"));
@@ -2342,6 +2344,21 @@ ${JSON.stringify(strategyBrain || { rules: [], lessons: [], commonMistakes: [], 
     await runBatch(targets);
   };
 
+  // ADR-0005 §5：批次解析面板槽位——HoldingsTab（M1）不再直連 M4 的 BatchParsePanel，
+  // 由 shell 決定放什麼；沒有批次項目時回傳 null，tradeIO chunk 也就不會被載入。
+  const batchParseSlot = batchState?.items?.length ? (
+    <Suspense fallback={null}>
+      <BatchParsePanel
+        C={C}
+        batchState={batchState}
+        cancelBatch={cancelBatch}
+        retryBatchFailures={retryBatchFailures}
+        restoreBatchItemPreview={restoreBatchItemPreview}
+        variant="holdings"
+      />
+    </Suspense>
+  ) : null;
+
   // 多圖批次上傳：依序自動解析每張截圖
   // - 單張 → 沿用原本「預覽 + 手動點解析」UX
   // - 多張 → 自動排隊逐張解析 + 進度條 + 取消 + 重試
@@ -3223,10 +3240,7 @@ ${JSON.stringify(strategyBrain || { rules: [], lessons: [], commonMistakes: [], 
 
               uploadSummary={uploadSummary}
               setUploadSummary={setUploadSummary}
-              batchState={batchState}
-              cancelBatch={cancelBatch}
-              retryBatchFailures={retryBatchFailures}
-              restoreBatchItemPreview={restoreBatchItemPreview}
+              batchParseSlot={batchParseSlot}
               losers={losers}
               reversalConditions={reversalConditions}
               reviewingEvent={reviewingEvent}
