@@ -73,6 +73,8 @@ export interface CheckupGateway {
   realtime: GatewayRealtime;
   /** 呼叫 Edge Function；error 一律轉成 CheckupGatewayError。 */
   invoke<T = any>(name: string, body?: unknown): Promise<T>;
+  /** 呼叫 Postgres RPC；error 一律轉成 CheckupGatewayError。 */
+  rpc<T = any>(fn: string, args?: Record<string, unknown>): Promise<T>;
   /** Edge Functions 的 base URL（少數需要自組 URL 直連的場景）。 */
   functionsUrl(): string;
 }
