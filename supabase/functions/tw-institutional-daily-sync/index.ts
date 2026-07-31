@@ -708,7 +708,17 @@ Deno.serve(async (req) => {
         if (!/^[1-9]\d{3}$/.test(stockId)) {
           return errorResponse("stock_id must be 4-digit code starting 1-9", 400, { code: "BAD_REQUEST" });
         }
+        // 限流：同一檔 60 秒內重複觸發直接視為已排入，避免公開端點打爆 FinMind
+        const last = backfillCooldown.get(stockId) ?? 0;
+        if (Date.now() - last < BACKFILL_COOLDOWN_MS) {
+          return jsonResponse({
+            ok: true, mode: "backfill_stock", stock_id: stockId,
+            skipped: true, reason: "cooldown", inserted: 0, rows: 0,
+          });
+        }
+        backfillCooldown.set(stockId, Date.now());
         const supa = serviceClient();
+
         try {
           const result = await backfillStockViaFinmind(supa, stockId, days);
           return jsonResponse({ mode: "backfill_stock", stock_id: stockId, ...result });
