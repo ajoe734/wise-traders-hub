@@ -6727,6 +6727,16 @@ export type Database = {
           test_name: string
         }[]
       }
+      save_signal_batch: {
+        Args: {
+          _batch_id: string
+          _expert_id: string
+          _is_editing?: boolean
+          _legs?: Json
+          _signals: Json
+        }
+        Returns: number
+      }
       settle_bsr_reservation: {
         Args: {
           _rate_limited?: boolean
