@@ -206,13 +206,12 @@ const handler = withLogging('checkup-sparkline', async (req, log) => {
       const map = new Map<string, { ohlc: OHLC[]; closes: number[] }>();
       (cached || []).forEach((row: any) => {
         const d = row?.data || {};
-        // 新快取：ohlc + closes；舊快取：僅 closes
+        // 只認「有 OHLC」的新快取；舊的 closes-only 快取視為 miss，強制重抓成 K 棒資料
         const ohlc = Array.isArray(d.ohlc) ? d.ohlc : [];
         const closes = Array.isArray(d.closes) ? d.closes : (Array.isArray(d) ? d : []);
-        if (ohlc.length >= 2 || closes.length >= 2) {
-          map.set(row.key, { ohlc: ohlc.length >= 2 ? ohlc : [], closes });
-        }
+        if (ohlc.length >= 2) map.set(row.key, { ohlc, closes });
       });
+
       for (const c of codes) {
         const k = `sparkline_${c}_${day}`;
         if (map.has(k)) result[c] = map.get(k)!;
