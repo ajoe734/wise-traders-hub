@@ -13,6 +13,7 @@ import HoldingExportCard from './HoldingExportCard';
 import ChipsSection from './ChipsSection';
 import { Tooltip, TooltipTrigger, TooltipContent } from '@/components/ui/tooltip';
 import '@/checkup/styles/holdingsDetailPanel.css';
+import { holdingPanelPrefs, holdingExportPrefs } from '@/checkup/lib/drawerPrefs';
 
 /**
  * HoldingsDetailPanel — 決策書抽屜（Handoff 2026-07-15 §4，3a 定案）
@@ -35,37 +36,14 @@ import '@/checkup/styles/holdingsDetailPanel.css';
  *   功能、鍵盤快捷鍵、離屏匯出。
  */
 
-const PREFS_KEY = 'holdingPanel.prefs.v1';
-const DEFAULT_PREFS = {
-  showThesis: true,
-  showNextEvent: true,
-  showRange: true,
-  showCost: true,
-  showTargetBar: true,
-  showCharts: true,
-  showSandbox: false,
-};
-const EXPORT_PREFS_KEY = 'holdingPanel.export.v1';
-const DEFAULT_EXPORT_PREFS = { format: 'png', ratio: 'square', resolution: 'high' };
 const RES_TO_PR = { std: 2, high: 3, print: 4 };
 const RES_LABEL = { std: '標準 2x', high: '高 3x', print: '印刷 4x' };
 
-function loadPrefs() {
-  try {
-    const raw = typeof window !== 'undefined' && window.localStorage.getItem(PREFS_KEY);
-    if (!raw) return DEFAULT_PREFS;
-    return { ...DEFAULT_PREFS, ...JSON.parse(raw) };
-  } catch { return DEFAULT_PREFS; }
-}
-function savePrefs(p) { try { window.localStorage.setItem(PREFS_KEY, JSON.stringify(p)); } catch {} }
-function loadExportPrefs() {
-  try {
-    const raw = typeof window !== 'undefined' && window.localStorage.getItem(EXPORT_PREFS_KEY);
-    if (!raw) return DEFAULT_EXPORT_PREFS;
-    return { ...DEFAULT_EXPORT_PREFS, ...JSON.parse(raw) };
-  } catch { return DEFAULT_EXPORT_PREFS; }
-}
-function saveExportPrefs(p) { try { window.localStorage.setItem(EXPORT_PREFS_KEY, JSON.stringify(p)); } catch {} }
+const loadPrefs = () => holdingPanelPrefs.load();
+const savePrefs = (p) => holdingPanelPrefs.save(p);
+const loadExportPrefs = () => holdingExportPrefs.load();
+const saveExportPrefs = (p) => holdingExportPrefs.save(p);
+
 
 const SERIF = '"Source Serif 4", "Noto Serif TC", Georgia, serif';
 const URGENCY_LABEL = { now: '立即', soon: '儘快', monitor: '觀察', low: '低' };

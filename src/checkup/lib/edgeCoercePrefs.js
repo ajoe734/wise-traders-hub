@@ -6,58 +6,44 @@
 // normalizeWidth:  boolean                    — true 時把全形英數/標點轉半形再比對與輸出
 //
 // 預設值刻意保守：跟舊行為相容（keepFirst、保留空白、不轉全半形）。
+// 儲存與版本控制一律走 prefsStore（C5 單一抽象）。
 
-const KEY = 'edge.coerce.prefs.v1'
+import { createPrefsStore } from './prefsStore'
 
+/** @typedef {{ strategy: 'keepFirst'|'keepLast', ignoreWhitespace: boolean, normalizeWidth: boolean }} CoercePrefs */
+
+/** @type {Readonly<CoercePrefs>} */
 const DEFAULTS = Object.freeze({
   strategy: 'keepFirst',
   ignoreWhitespace: false,
   normalizeWidth: false,
 })
 
-let cache = null
-const listeners = new Set()
-
-function readFromStorage() {
-  if (typeof localStorage === 'undefined') return { ...DEFAULTS }
-  try {
-    const raw = localStorage.getItem(KEY)
-    if (!raw) return { ...DEFAULTS }
-    const parsed = JSON.parse(raw)
-    return {
-      strategy: parsed.strategy === 'keepLast' ? 'keepLast' : 'keepFirst',
-      ignoreWhitespace: !!parsed.ignoreWhitespace,
-      normalizeWidth: !!parsed.normalizeWidth,
-    }
-  } catch {
-    return { ...DEFAULTS }
-  }
-}
+/** @type {import('./prefsStore').PrefsStore<CoercePrefs>} */
+const store = createPrefsStore({
+  key: 'edge.coerce.prefs.v1',
+  defaults: { ...DEFAULTS },
+  sanitize: (v) => ({
+    strategy: v.strategy === 'keepLast' ? 'keepLast' : 'keepFirst',
+    ignoreWhitespace: !!v.ignoreWhitespace,
+    normalizeWidth: !!v.normalizeWidth,
+  }),
+})
 
 export function getCoercePrefs() {
-  if (!cache) cache = readFromStorage()
-  return { ...cache }
+  return store.load()
 }
 
 export function setCoercePrefs(patch) {
-  const next = { ...getCoercePrefs(), ...patch }
-  cache = next
-  if (typeof localStorage !== 'undefined') {
-    try { localStorage.setItem(KEY, JSON.stringify(next)) } catch { /* noop */ }
-  }
-  for (const fn of listeners) {
-    try { fn(next) } catch { /* noop */ }
-  }
-  return next
+  return store.update(patch)
 }
 
 export function resetCoercePrefs() {
-  return setCoercePrefs({ ...DEFAULTS })
+  return store.reset()
 }
 
 export function subscribeCoercePrefs(fn) {
-  listeners.add(fn)
-  return () => listeners.delete(fn)
+  return store.subscribe(fn)
 }
 
 export const COERCE_PREF_DEFAULTS = DEFAULTS
