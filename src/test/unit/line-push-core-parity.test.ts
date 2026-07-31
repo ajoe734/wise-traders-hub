@@ -1,5 +1,5 @@
 import { describe, it, expect } from 'vitest';
-import { readFileSync } from 'node:fs';
+import { existsSync, readFileSync, readdirSync } from 'node:fs';
 import { resolve } from 'node:path';
 import { toMirror, readDeno, MIRROR_PATH, DENO_PATH } from '../../../scripts/gen-line-push-core-mirror.mjs';
 import {
@@ -8,7 +8,6 @@ import {
   buildPromoMessage,
   classifyLineTargets,
 } from '@/lib/linePushCore';
-import * as legacy from '@/lib/weeklyPublishLogic';
 
 const root = resolve(__dirname, '../../..');
 const read = (p: string) => readFileSync(resolve(root, p), 'utf-8');
@@ -18,26 +17,29 @@ describe('linePushCore mirror parity', () => {
     expect(read(MIRROR_PATH)).toBe(toMirror(readDeno()));
   });
 
-  it('weeklyPublishLogic 只是相容出口，不含實作', () => {
-    const src = read('src/lib/weeklyPublishLogic.ts');
-    expect(src).not.toMatch(/bodyContents/);
-    expect(src).not.toMatch(/replace\(/);
-    expect(legacy.buildPromoMessage).toBe(buildPromoMessage);
-    expect(legacy.classifyLineTargets).toBe(classifyLineTargets);
+  it('相容出口 src/lib/weeklyPublishLogic.ts 已刪除', () => {
+    expect(existsSync(resolve(root, 'src/lib/weeklyPublishLogic.ts'))).toBe(false);
   });
 
   it('三支 edge function 不得再自刻 htmlToText / buildPromoMessage / 分流邏輯', () => {
-    const files = [
-      'supabase/functions/publish-weekly-journals/index.ts',
-      'supabase/functions/line-push-signal/index.ts',
+    // publish-weekly-journals 已拆成多檔（P1），整個目錄一起檢查
+    const groups: Array<{ label: string; files: string[] }> = [
+      {
+        label: 'publish-weekly-journals',
+        files: readdirSync(resolve(root, 'supabase/functions/publish-weekly-journals'))
+          .filter((f) => f.endsWith('.ts'))
+          .map((f) => `supabase/functions/publish-weekly-journals/${f}`),
+      },
+      { label: 'line-push-signal', files: ['supabase/functions/line-push-signal/index.ts'] },
     ];
-    for (const f of files) {
-      const src = read(f);
-      expect(src, `${f} 仍自刻 htmlToText`).not.toMatch(/function htmlToText/);
-      expect(src, `${f} 仍自刻 buildPromoMessage`).not.toMatch(/function buildPromoMessage/);
-      expect(src, `${f} 仍自刻名單分流`).not.toMatch(/const subscribedUserIds = new Set/);
-      expect(src).toContain("_shared/linePushCore.ts");
+    for (const g of groups) {
+      const src = g.files.map(read).join('\n');
+      expect(src, `${g.label} 仍自刻 htmlToText`).not.toMatch(/function htmlToText/);
+      expect(src, `${g.label} 仍自刻 buildPromoMessage`).not.toMatch(/function buildPromoMessage/);
+      expect(src, `${g.label} 仍自刻名單分流`).not.toMatch(/const subscribedUserIds = new Set/);
+      expect(src, `${g.label} 未引用唯一資料源`).toContain('_shared/linePushCore.ts');
     }
+
     // signal-ai-assist 的是語意不同的 prompt 壓平器，必須改名避免誤認同源
     const ai = read('supabase/functions/signal-ai-assist/index.ts');
     expect(ai).not.toMatch(/function htmlToText/);

@@ -11,15 +11,18 @@
  */
 
 import { describe, it, expect, beforeAll } from 'vitest';
-import { readFileSync } from 'fs';
+import { readFileSync, readdirSync } from 'fs';
 import { resolve } from 'path';
 
+/** 讀整個 edge function 目錄（函式已拆檔時 drift 檢查才不會漏看）。 */
 function readFn(name: string) {
-  return readFileSync(
-    resolve(process.cwd(), `supabase/functions/${name}/index.ts`),
-    'utf-8',
-  );
+  const dir = resolve(process.cwd(), `supabase/functions/${name}`);
+  return readdirSync(dir)
+    .filter((f) => f.endsWith('.ts'))
+    .map((f) => readFileSync(resolve(dir, f), 'utf-8'))
+    .join('\n');
 }
+
 function readShared(name: string) {
   return readFileSync(
     resolve(process.cwd(), `supabase/functions/_shared/${name}.ts`),

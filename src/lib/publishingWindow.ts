@@ -3,7 +3,12 @@
  *   - 台股 (tw_stock / tw_futures)：週一 08:00 ~ 週五 20:00
  *   - 美股 (us_stock / us_futures / crypto)：週一 08:00 ~ 週六 08:00
  * 未知 asset_class 一律退回台股規則（多數老師）。
+ *
+ * 台北時鐘一律取自 `@/lib/taipeiWeek`（全站唯一資料源），
+ * 本檔不得再自行手刻 `+8 小時` 位移。
  */
+
+import { taipeiClockOf, taipeiDateIso } from '@/lib/taipeiWeek';
 
 export type MarketKind = 'TW' | 'US';
 
@@ -11,13 +16,6 @@ export function marketOfAssetClass(assetClass?: string | null): MarketKind {
   const c = (assetClass || '').toLowerCase();
   if (c.startsWith('us_') || c === 'crypto') return 'US';
   return 'TW';
-}
-
-function nowInTaiwan(now = new Date()): { day: number; hhmm: number } {
-  const twOffset = 8 * 60;
-  const utcMs = now.getTime() + now.getTimezoneOffset() * 60000;
-  const tw = new Date(utcMs + twOffset * 60000);
-  return { day: tw.getDay(), hhmm: tw.getHours() * 100 + tw.getMinutes() };
 }
 
 /**
@@ -28,7 +26,8 @@ export function isPublishingWindowOpen(
   assetClass?: string | null,
 ): { open: boolean; reason?: string } {
   const market = marketOfAssetClass(assetClass);
-  const { day, hhmm } = nowInTaiwan();
+  const { day, hhmm } = taipeiClockOf();
+
 
   // 週一 08:00 前一律鎖定
   if (day === 1 && hhmm < 800) {
@@ -63,16 +62,6 @@ export function nextPublishMomentLabel(assetClass?: string | null): string {
     : '週五 20:00 統一開放發布';
 }
 
-/** 取得指定時刻的台灣自然日（YYYY-MM-DD） */
-function taiwanDateStr(d: Date): string {
-  const utcMs = d.getTime() + d.getTimezoneOffset() * 60000;
-  const tw = new Date(utcMs + 8 * 60 * 60000);
-  const y = tw.getFullYear();
-  const m = String(tw.getMonth() + 1).padStart(2, '0');
-  const day = String(tw.getDate()).padStart(2, '0');
-  return `${y}-${m}-${day}`;
-}
-
 /**
  * 訊號／週記是否仍可被分析師收回（rollback）。
  * 規則：必須在「發布當日（台灣時間 Asia/Taipei）」內；跨自然日後即不可收回。
@@ -85,6 +74,7 @@ export function canRecallSignal(publishedAt: string | Date | null | undefined): 
   if (!publishedAt) return { ok: true };
   const pub = typeof publishedAt === 'string' ? new Date(publishedAt) : publishedAt;
   if (Number.isNaN(pub.getTime())) return { ok: true };
-  if (taiwanDateStr(pub) === taiwanDateStr(new Date())) return { ok: true };
+  if (taipeiDateIso(pub) === taipeiDateIso()) return { ok: true };
+
   return { ok: false, reason: '已過發布當日（台灣時間），不可收回；如需修正請聯絡管理員' };
 }

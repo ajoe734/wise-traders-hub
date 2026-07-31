@@ -338,17 +338,19 @@ export async function pushExpertJournals(
   const { subscribedTargets, canceledTargets } = classifyLineTargets(
     bindings as any, activeSubs as any, expertPlanIds,
   );
-  const subscribedUserIds = new Set(
+  // 由 classifyLineTargets 的結果反查 user_id（不是另一套分流邏輯）
+  const notifyUserIds = new Set(
     bindings.filter((b) => subscribedTargets.includes(b.line_user_id)).map((b) => b.user_id),
   );
+
 
   const expertName = expert?.name || '導師';
 
   // 提前發布：對訂閱者發站內通知
-  if (force && subscribedUserIds.size > 0) {
+  if (force && notifyUserIds.size > 0) {
     const slug = expert?.slug || null;
     const link = slug ? `/app/expert/${slug}` : '/account/notifications';
-    const notifRows = Array.from(subscribedUserIds).map((uid) => ({
+    const notifRows = Array.from(notifyUserIds).map((uid) => ({
       user_id: uid,
       title: `${expertName} 本週週記已提前開放`,
       body: `${expertName} 老師提前公開本週 ${signals.length} 筆操作紀錄，點此立即查看。`,
