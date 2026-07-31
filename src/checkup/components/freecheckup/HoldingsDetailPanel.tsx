@@ -963,6 +963,31 @@ export function RangeBand({ WB, price, low, high, spark, ohlc, symbol, priceSour
     });
   })() : null;
 
+  // ── hover / touch tooltip：顯示該根 K 棒的日期與 OHLC ──
+  const wrapRef = useRef<HTMLDivElement | null>(null);
+  const [hoverIdx, setHoverIdx] = useState<number | null>(null);
+  const hoverBar = useKline && hoverIdx != null ? cleanOhlc[hoverIdx] : null;
+
+  const pickIndex = (clientX) => {
+    const el = wrapRef.current;
+    if (!el || !useKline) return;
+    const rect = el.getBoundingClientRect();
+    if (!(rect.width > 0)) return;
+    const ratio = Math.min(Math.max((clientX - rect.left) / rect.width, 0), 1);
+    setHoverIdx(Math.round(ratio * (cleanOhlc.length - 1)));
+  };
+
+  const fmtDate = (d) => {
+    if (!d) return '—';
+    const s = String(d);
+    const m = s.match(/^(\d{4})-(\d{2})-(\d{2})/);
+    return m ? `${m[1]}/${m[2]}/${m[3]}` : s.replace(/-/g, '/');
+  };
+  const fmtN = (v) => (Number.isFinite(v) ? Number(v).toFixed(2) : '—');
+
+  const hoverX = hoverIdx != null && cleanOhlc.length > 1
+    ? (hoverIdx / (cleanOhlc.length - 1)) * 100
+    : null;
 
   return (
     <div
@@ -997,7 +1022,14 @@ export function RangeBand({ WB, price, low, high, spark, ohlc, symbol, priceSour
         </span>
       </div>
       {hasSpark && (
-        <div style={{ position: 'relative', width: '100%', height: svgH }}>
+        <div
+          ref={wrapRef}
+          style={{ position: 'relative', width: '100%', height: svgH, touchAction: useKline ? 'pan-y' : undefined }}
+          onPointerMove={useKline ? (e) => pickIndex(e.clientX) : undefined}
+          onPointerDown={useKline ? (e) => pickIndex(e.clientX) : undefined}
+          onPointerLeave={useKline ? () => setHoverIdx(null) : undefined}
+          onPointerCancel={useKline ? () => setHoverIdx(null) : undefined}
+        >
           <svg viewBox="0 0 100 30" preserveAspectRatio="none"
             style={{ width: '100%', height: svgH, display: 'block', position: 'absolute', inset: 0 }}>
             {useKline ? (
@@ -1009,6 +1041,14 @@ export function RangeBand({ WB, price, low, high, spark, ohlc, symbol, priceSour
                   const yy = range > 0 ? 30 - ((v - lo) / range) * 30 : 15;
                   return `${x.toFixed(2)},${yy.toFixed(2)}`;
                 }).join(' ')} />
+            )}
+            {hoverX != null && (
+              <line
+                data-testid="kline-crosshair"
+                x1={hoverX.toFixed(2)} x2={hoverX.toFixed(2)} y1="0" y2="30"
+                stroke={WB.inkMute} strokeWidth="1" strokeDasharray="2 2"
+                vectorEffect="non-scaling-stroke"
+              />
             )}
           </svg>
           {/* HTML overlay：現價圓點（真實 px 正圓）— 固定貼齊時間軸末端 */}
@@ -1027,11 +1067,40 @@ export function RangeBand({ WB, price, low, high, spark, ohlc, symbol, priceSour
               pointerEvents: 'none',
             }}
           />
+          {hoverBar && (
+            <div
+              data-testid="kline-tooltip"
+              role="tooltip"
+              style={{
+                position: 'absolute',
+                left: `${hoverX}%`,
+                top: 0,
+                transform: `translate(${hoverX > 60 ? '-100%' : '0'}, -4px)`,
+                pointerEvents: 'none',
+                background: WB.surface,
+                border: `1px solid ${WB.hair}`,
+                padding: '6px 8px',
+                fontSize: 11,
+                lineHeight: 1.5,
+                color: WB.ink,
+                fontVariantNumeric: 'tabular-nums',
+                whiteSpace: 'nowrap',
+                zIndex: 2,
+              }}
+            >
+              <div data-testid="kline-tooltip-date" style={{ color: WB.inkSub, marginBottom: 2 }}>
+                {fmtDate(hoverBar.date)}
+              </div>
+              <div>開 {fmtN(hoverBar.open)}　高 {fmtN(hoverBar.high)}</div>
+              <div>低 {fmtN(hoverBar.low)}　收 {fmtN(hoverBar.close)}</div>
+            </div>
+          )}
         </div>
       )}
     </div>
   );
 }
+
 
 // ──────────────────── §4.7 佔比排名 ────────────────────
 
