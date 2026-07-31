@@ -193,11 +193,13 @@ describe('drift-detection: publish-weekly-journals 對 teaching / hold 的 skip 
   let src: string;
 
   beforeAll(() => {
-    src = readFileSync(
-      resolve(process.cwd(), 'supabase/functions/publish-weekly-journals/index.ts'),
-      'utf-8',
-    );
+    // 發布流程已拆成 index（認證/scope）+ pipeline（階段實作）
+    const dir = resolve(process.cwd(), 'supabase/functions/publish-weekly-journals');
+    src = ['index.ts', 'pipeline.ts']
+      .map((f) => readFileSync(resolve(dir, f), 'utf-8'))
+      .join('\n');
   });
+
 
   it('sync_trade_signals 階段第一個守門：teaching / hold 直接 continue（不打 trade_signals / user_performances）', () => {
     // 必要關鍵字
