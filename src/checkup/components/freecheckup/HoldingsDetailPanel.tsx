@@ -128,11 +128,12 @@ function HoldingsDetailPanelImpl({
     holding: h, decision: dec, meta,
     scenario: dirty ? { simTarget: displayTarget, upsidePct: displayUpside } : null,
     baseTarget, pctVal: displayPnlPct, pnlVal: displayPnlAbs,
-    weightPct: displayWeight, rangeLow, rangeHigh,
+    weightPct: exportPrefs.includeWeightRank === false ? null : displayWeight,
+    rangeLow, rangeHigh,
     thesis: prefs.showThesis ? thesisSentence : null,
     nextEvent: prefs.showNextEvent ? nextEvent : null,
     stamp, WB, showSimulated: dirty,
-  }), [h, dec, meta, dirty, displayTarget, displayUpside, baseTarget, displayPnlPct, displayPnlAbs, displayWeight, rangeLow, rangeHigh, prefs.showThesis, prefs.showNextEvent, thesisSentence, nextEvent, stamp, WB]);
+  }), [h, dec, meta, dirty, displayTarget, displayUpside, baseTarget, displayPnlPct, displayPnlAbs, displayWeight, exportPrefs.includeWeightRank, rangeLow, rangeHigh, prefs.showThesis, prefs.showNextEvent, thesisSentence, nextEvent, stamp, WB]);
 
   const runExport = async (variant, kind, opts: { pixelRatio?: number } = {}) => {
     setExportNode({ variant });
@@ -405,13 +406,9 @@ function HoldingsDetailPanelImpl({
           />
         )}
 
-        {/* 7) 佔比排名表（甜甜圈已刪） */}
-        <WeightRank
-          WB={WB}
-          h={h}
-          orderedDisplayed={orderedDisplayed}
-          totalPortfolioValue={totalPortfolioValue}
-        />
+        {/* 7) 佔比排名已移到內容最下方（可摺疊） */}
+
+
 
         {/* 8) 決策履歷 */}
         {thesisRows && <ThesisHistory WB={WB} rows={thesisRows} />}
@@ -443,6 +440,16 @@ function HoldingsDetailPanelImpl({
             )}
           </div>
         )}
+
+        {/* 11) 佔比排名表（內容最下方、可摺疊） */}
+        <WeightRank
+          WB={WB}
+          h={h}
+          orderedDisplayed={orderedDisplayed}
+          totalPortfolioValue={totalPortfolioValue}
+          open={!!prefs.weightRankOpen}
+          onToggle={() => setPrefs((p) => ({ ...p, weightRankOpen: !p.weightRankOpen }))}
+        />
       </div>
 
       {/* 頁腳 nav */}
@@ -654,6 +661,22 @@ function ExportMenu({ WB, prefs, setPrefs, onExport, onCopy, busy }) {
                 { value: 'high', label: '高 3x' },
                 { value: 'print', label: '印刷 4x' },
               ]} />
+          </div>
+          <div style={{ padding: '10px 10px 0' }}>
+            <DropdownMenu.CheckboxItem
+              data-testid="export-toggle-weight-rank"
+              checked={prefs.includeWeightRank !== false}
+              onCheckedChange={(v) => setPrefs((p) => ({ ...p, includeWeightRank: !!v }))}
+              onSelect={(e) => e.preventDefault()}
+              style={menuItemStyle(WB, prefs.includeWeightRank !== false)}
+            >
+              <span style={{
+                width: 12, height: 12, border: `1px solid ${WB.hair}`, borderRadius: 0,
+                display: 'inline-flex', alignItems: 'center', justifyContent: 'center',
+                background: prefs.includeWeightRank !== false ? WB.ink : 'transparent',
+              }}>{prefs.includeWeightRank !== false && <Check size={9} color={WB.surface} />}</span>
+              包含佔比排名
+            </DropdownMenu.CheckboxItem>
           </div>
           <div style={{ padding: '10px 10px 8px', marginTop: 4, borderTop: `1px solid ${WB.hair}` }}>
             <DropdownMenu.Item asChild onSelect={(e) => { if (busy) e.preventDefault(); else onExport(); }}>
@@ -954,7 +977,7 @@ export function RangeBand({ WB, price, low, high, spark, symbol, priceSource, pr
 
 // ──────────────────── §4.7 佔比排名 ────────────────────
 
-function WeightRank({ WB, h, orderedDisplayed, totalPortfolioValue }) {
+function WeightRank({ WB, h, orderedDisplayed, totalPortfolioValue, open = false, onToggle }) {
   const list = Array.isArray(orderedDisplayed) ? orderedDisplayed : [];
   if (!list.length || !(totalPortfolioValue > 0)) return null;
   const items = list.map((x) => {
@@ -968,14 +991,32 @@ function WeightRank({ WB, h, orderedDisplayed, totalPortfolioValue }) {
     .slice(0, 6);
   const maxPct = Math.max(...items.map((r) => r.pct), 1);
   return (
-    <div data-testid="holdings-weight-rank" style={{ margin: '0 0 20px', minWidth: 0 }}>
-      <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: 8 }}>
-        <span style={{ fontSize: 12, color: WB.inkMute, letterSpacing: '0.14em' }}>佔比</span>
+    <div data-testid="holdings-weight-rank" style={{ margin: '18px 0 20px', paddingTop: 14, borderTop: `1px solid ${WB.hair}`, minWidth: 0 }}>
+      <button
+        type="button"
+        data-testid="holdings-weight-rank-toggle"
+        aria-expanded={open}
+        onClick={() => onToggle?.()}
+        style={{
+          width: '100%', background: 'transparent', border: 'none', padding: 0,
+          marginBottom: open ? 8 : 0, cursor: 'pointer', fontFamily: 'inherit',
+          display: 'flex', justifyContent: 'space-between', alignItems: 'center', gap: 12,
+        }}
+      >
+        <span style={{ fontSize: 12, color: WB.inkMute, letterSpacing: '0.14em', display: 'inline-flex', alignItems: 'center', gap: 6 }}>
+          佔比
+          <ChevronDown
+            size={11}
+            style={{ transform: open ? 'rotate(180deg)' : 'none', transition: 'transform 120ms ease' }}
+          />
+        </span>
         <span style={{ fontSize: 12, color: WB.inkSub, fontVariantNumeric: 'tabular-nums' }}>
           排名 #{meIdx + 1} ／ {items.length}
         </span>
-      </div>
-      <div style={{ display: 'flex', flexDirection: 'column', gap: 4 }}>
+      </button>
+      {open && (
+      <div data-testid="holdings-weight-rank-bars" style={{ display: 'flex', flexDirection: 'column', gap: 4 }}>
+
         {shown.map((idx) => {
           const r = items[idx];
           const isMe = r.code === h.code;
@@ -1001,6 +1042,7 @@ function WeightRank({ WB, h, orderedDisplayed, totalPortfolioValue }) {
           );
         })}
       </div>
+      )}
     </div>
   );
 }
