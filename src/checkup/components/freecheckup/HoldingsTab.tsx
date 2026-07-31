@@ -20,7 +20,6 @@ import { useMetaOverrides } from "@/checkup/hooks/useMetaOverrides";
 import { getMultiMeta } from "@/checkup/lib/stockMetaMulti.js";
 import { matchSectorCodes } from "@/checkup/lib/holdingUtils";
 import HoldingsUploadSummary from "@/checkup/components/freecheckup/HoldingsUploadSummary";
-import BatchParsePanel from "@/checkup/components/freecheckup/BatchParsePanel";
 import HoldingsFooterBar from "@/checkup/components/freecheckup/HoldingsFooterBar";
 import "@/checkup/styles/holdingsTab.css";
 
@@ -102,7 +101,7 @@ function HoldingsTab(props) {
 
     // upload summary
     uploadSummary, setUploadSummary,
-    batchState, cancelBatch, retryBatchFailures, restoreBatchItemPreview,
+    batchParseSlot,
     // reversal
     losers, reversalConditions, reviewingEvent, setReviewingEvent, updateReversal,
     // action priority + decisions
