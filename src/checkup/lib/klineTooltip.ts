@@ -14,12 +14,21 @@ export function barIndexFromX(clientX: number, rect: BarRect, count: number): nu
   return Math.round(ratio * (count - 1));
 }
 
-/** 索引 → 十字線／tooltip 的 X 百分比（0-100）；根數 < 2 或無索引回 null。 */
-export function barCenterPct(idx: number | null | undefined, count: number): number | null {
+/**
+ * 索引 → 十字線／tooltip 的 X 百分比（0-100）；根數 < 2 或無索引回 null。
+ * padPct：繪圖區左右內縮的百分比（與 RangeBand 的 PAD_X 對齊），預設 0。
+ */
+export function barCenterPct(
+  idx: number | null | undefined,
+  count: number,
+  padPct = 0,
+): number | null {
   if (idx == null || !Number.isFinite(idx)) return null;
   if (!Number.isFinite(count) || count < 2) return null;
-  return (idx / (count - 1)) * 100;
+  const pad = Number.isFinite(padPct) ? Math.min(Math.max(padPct, 0), 40) : 0;
+  return pad + (idx / (count - 1)) * (100 - pad * 2);
 }
+
 
 /** tooltip 是否要往左翻（避免超出右緣）。 */
 export function shouldFlipTooltip(pct: number | null | undefined): boolean {
