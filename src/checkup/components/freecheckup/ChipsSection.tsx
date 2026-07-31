@@ -6,7 +6,7 @@ import { useTwChipsDetail, isTaiwanStockCode, isTaiwanChipEligible, type TwChips
 import { useChipsState } from '@/checkup/hooks/useChipsState';
 import ChipsTrendChart from './ChipsTrendChart';
 import { bsrHeaderLabel } from './bsrHeaderLabel';
-import { supabase } from '@/integrations/supabase/client';
+import { useChipsBackfill } from '@/checkup/hooks/useChipsBackfill';
 import { toast } from 'sonner';
 import { trackEvent } from '@/lib/trafficTracker';
 import { formatSharesAsLots, SHARES_PER_LOT } from '@/lib/lotSize';
@@ -194,36 +194,19 @@ export default function ChipsSection({ WB, stockCode }: { WB: any; stockCode: st
   const instDays = data?.series?.institutional_daily?.length ?? 0;
   const bsrDays = data?.series?.bsr_concentration?.length ?? 0;
   const sparse = !!data && (instDays < 20 || bsrDays < 5);
-  const [backfilling, setBackfilling] = useState(false);
-  const handleBackfill = async () => {
-    if (backfilling) return;
-    setBackfilling(true);
-    try {
-      const [instRes, bsrRes] = await Promise.allSettled([
-        supabase.functions.invoke('tw-institutional-daily-sync', {
-          body: { mode: 'backfill_stock', stock_id: stockCode, days: 60 },
-        }),
-        supabase.rpc('enqueue_bsr_backfill', { p_stock_id: stockCode, p_days: 60 }),
-      ]);
-      const instOk = instRes.status === 'fulfilled' && !(instRes.value as any)?.error;
-      const bsrOk = bsrRes.status === 'fulfilled' && !(bsrRes.value as any)?.error;
-      if (instOk || bsrOk) {
-        const bsrCount = bsrOk ? (bsrRes as any).value?.data ?? 0 : 0;
-        toast.success(
-          `已排入歷史回補${bsrCount ? `（BSR ${bsrCount} 個交易日）` : ''}，三大法人約 10 秒、分點約 5–15 分鐘內完成`,
-        );
-        setTimeout(() => refetch(), 3000);
-      } else {
-        const msg =
-          (instRes.status === 'rejected' ? String(instRes.reason) : (instRes.value as any)?.error?.message) ||
-          (bsrRes.status === 'rejected' ? String(bsrRes.reason) : (bsrRes.value as any)?.error?.message) ||
-          '未知錯誤';
-        toast.error(`回補失敗：${msg.slice(0, 80)}`);
-      }
-    } finally {
-      setBackfilling(false);
+  const { backfilling, requestBackfill } = useChipsBackfill(stockCode);
+  const handleBackfill = React.useCallback(async () => {
+    const result = await requestBackfill();
+    if (!result) return;
+    if (result.ok) {
+      toast.success(
+        `已排入歷史回補${result.bsrCount ? `（BSR ${result.bsrCount} 個交易日）` : ''}，三大法人約 10 秒、分點約 5–15 分鐘內完成`,
+      );
+      setTimeout(() => refetch(), 3000);
+    } else {
+      toast.error(`回補失敗：${String(result.error || '未知錯誤').slice(0, 80)}`);
     }
-  };
+  }, [requestBackfill, refetch]);
 
   // 自動回補：資料稀疏時開抽屜自動排入一次，並追蹤 30 分鐘內是否補滿
   const [autoBackfill, setAutoBackfill] = useState<{
