@@ -6,7 +6,7 @@
 import { memo, useEffect, useState } from 'react';
 import { RefreshCw } from 'lucide-react';
 import { fmtSigned, fmtSignedInt, fmtWan } from '@/checkup/lib/checkupFormat';
-import { validateProps } from './_validateProps.js';
+import { validateProps } from '@/checkup/lib/validateProps.js';
 import { AUTO_REFRESH_OPTIONS, useAutoRefreshMinutes } from '@/checkup/lib/autoRefreshInterval';
 
 const SCHEMA = {

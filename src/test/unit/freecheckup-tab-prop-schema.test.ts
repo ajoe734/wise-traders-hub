@@ -89,7 +89,7 @@ describe('FreeCheckup tab prop schemas', () => {
 
 describe('validateProps runtime helper', () => {
   it('warns once on missing required prop and accepts null for optional/required', async () => {
-    const mod = await import('../../checkup/components/freecheckup/_validateProps.js');
+    const mod = await import('../../checkup/lib/validateProps.js');
     const { validateProps, _resetValidationWarnings } = mod as any;
     _resetValidationWarnings();
     const errs: string[] = [];

@@ -4,7 +4,7 @@ import { useBrainStore } from "@/checkup/stores/brainStore";
 import { useViewportWidth } from "@/hooks/useViewportWidth";
 import { useCheckupMode } from "@/checkup/contexts/CheckupModeContext";
 import { useHoldingsDerivations } from "@/checkup/hooks/useHoldingsDerivations";
-import { validateProps } from "@/checkup/components/freecheckup/_validateProps.js";
+import { validateProps } from "@/checkup/lib/validateProps.js";
 // @analytics-required: checkup_holdings_sort_change
 import { track } from "@/lib/analytics/events";
 import HoldingsActionPriority from "@/checkup/components/freecheckup/HoldingsActionPriority";

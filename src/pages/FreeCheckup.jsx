@@ -30,22 +30,24 @@ import { getAutoRefreshMinutes } from "@/checkup/lib/autoRefreshInterval";
 import { readLastUpdate, writeLastUpdate } from "@/checkup/lib/holdingsLastUpdate";
 import { preloadKnowledgeBase } from "@/checkup/lib/knowledgeBase";
 import { mergeCalendarToNewsEvents } from "@/checkup/lib/calendarSync";
-import { NewsEventRow } from "@/checkup/components/freecheckup/NewsEventRow";
 import { trackRaw } from "@/lib/analytics/events";
 import { useHoldingsSync } from "@/pages/_freeCheckup/useHoldingsSync";
 
-// P3-perf: HoldingsTab 整段抽出並 lazy-load，首屏不再為持倉牆付出解析成本
-const HoldingsTab = lazy(() => import("@/checkup/components/freecheckup/HoldingsTab"));
-const NewsTab = lazy(() => import("@/checkup/components/freecheckup/NewsTab"));
-const EventsTab = lazy(() => import("@/checkup/components/freecheckup/EventsTab"));
-const DailyTab = lazy(() => import("@/checkup/components/freecheckup/DailyTab"));
-const LogTab = lazy(() => import("@/checkup/components/freecheckup/LogTab"));
-const TradeTab = lazy(() => import("@/checkup/components/freecheckup/TradeTab"));
-const ResearchTab = lazy(() => import("@/checkup/components/freecheckup/ResearchTab"));
+// ADR-0005：shell 只吃模組 free surface barrel，不再深挖 freecheckup 實作檔。
+// 一律 lazy import，保住七個 tab 的 code splitting。
+const HoldingsTab = lazy(() => import("@/checkup/modules/holdings/free").then((m) => ({ default: m.HoldingsTab })));
+const NewsTab = lazy(() => import("@/checkup/modules/closing/free").then((m) => ({ default: m.NewsTab })));
+const EventsTab = lazy(() => import("@/checkup/modules/events/free").then((m) => ({ default: m.EventsTab })));
+const DailyTab = lazy(() => import("@/checkup/modules/closing/free").then((m) => ({ default: m.DailyTab })));
+const LogTab = lazy(() => import("@/checkup/modules/tradeIO/free").then((m) => ({ default: m.LogTab })));
+const TradeTab = lazy(() => import("@/checkup/modules/tradeIO/free").then((m) => ({ default: m.TradeTab })));
+const ResearchTab = lazy(() => import("@/checkup/modules/research/free").then((m) => ({ default: m.ResearchTab })));
 // Batch C §6.3 / §6.5：上傳 modal + 一次性引導 + 頁腳 demo hint
-const TradeUploadModal = lazy(() => import("@/checkup/components/freecheckup/TradeUploadModal"));
+const TradeUploadModal = lazy(() => import("@/checkup/modules/tradeIO/free").then((m) => ({ default: m.TradeUploadModal })));
+// OnboardingOverlay / DemoFooterHint 屬 shell 自己的 UI，不歸任何模組（ADR-0005 §2）
 const OnboardingOverlay = lazy(() => import("@/checkup/components/freecheckup/OnboardingOverlay"));
 const DemoFooterHint = lazy(() => import("@/checkup/components/freecheckup/DemoFooterHint"));
+
 
 // Phase 3 A1: lazy-load heavy/conditional UI to shrink initial bundle
 const Md = lazy(() => import("@/checkup/components/Md"));

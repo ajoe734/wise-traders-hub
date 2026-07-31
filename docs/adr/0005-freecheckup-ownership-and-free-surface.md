@@ -1,6 +1,6 @@
 # ADR-0005：freecheckup 的治外法權收編——每個深模組多一個 free surface
 
-- 狀態：Proposed（介面已定案，遷移分三階段執行）
+- 狀態：Accepted（S1 已完成 2026-07-31；S2 / S3 待執行）
 - 日期：2026-07-31
 - 相關：ADR-0001（五個深模組）、ADR-0004（Checkup Gateway seam）
 
@@ -118,7 +118,7 @@ export { HoldingsDetailPanel } from '../../components/freecheckup/HoldingsDetail
 
 | 階段 | 內容 | 驗收 |
 | --- | --- | --- |
-| S1 | 建立五個 `free.ts` 次級 barrel + 共享層 `validateProps`；shell 改用 barrel lazy import | 既有 e2e 全綠、bundle 切包數不變 |
+| S1 | ✅ 完成（2026-07-31）建立五個 `free.ts` 次級 barrel + 共享層 `src/checkup/lib/validateProps.js`；shell 改用 barrel lazy import | 單元測試全綠、build 通過、首屏不含任何 tab |
 | S2 | `HoldingsTab` 的 `BatchParsePanel` 改槽位注入 | 新增 R1 反向測試不再需要例外 |
 | S3 | 守衛加上 R5 + 合成違規反向測試，CI 硬擋 | `npm run check:module-boundaries` 對 freecheckup 有輸出能力 |
 
@@ -136,3 +136,15 @@ export { HoldingsDetailPanel } from '../../components/freecheckup/HoldingsDetail
 - 五模組各多一個對外入口，模組介面從「一個 barrel」變成「兩個 barrel」——這是為了 code splitting 付的明確代價，寫進本 ADR 以免下次有人「順手合併」。
 - shell 變成明確的編排層，往後 free/paid 差異只能在 shell 或 props 上表達，不能在 tab 內偷偷分叉。
 - freecheckup 內任何新檔若沒被 barrel 認領，CI 會直接紅燈，治外法權關閉。
+
+## S1 實測後記（2026-07-31）
+
+- `_validateProps.js` 上升為 `src/checkup/lib/validateProps.js`，12 個 import 點與 1 支測試同步改寫，freecheckup 內已無此檔。
+- shell（`FreeCheckup.jsx`）對 freecheckup 的深挖從 11 次降到 2 次，剩下的 `OnboardingOverlay` / `DemoFooterHint` 是 shell 自有 UI（§2 明列不歸模組）。
+  `freecheckup-tab-perf.test.tsx` 加了一條「除這兩個之外不得深挖」的守門，等 S3 的 R5 上線前先擋住回頭路。
+- **切包數 7 → 5，與原驗收條件不同，這是可接受的代價**：`closing/free` 併了 DailyTab+NewsTab（38 KB）、
+  `tradeIO/free` 併了 TradeTab+LogTab+TradeUploadModal（25 KB）。關鍵性質仍成立——**首屏 chunk 不含任何 tab**，
+  且 Holdings（102 KB）、Events（21 KB）、Research（4 KB）維持獨立。要拆回七包就得允許深挖 `free/` 底下的檔，
+  與 §7 的 R5 直接衝突，因此選擇維持邊界、接受同領域兩 tab 同包。
+- `BatchParsePanel` 目前同時出現在 holdings 與 tradeIO 兩個 chunk（HoldingsTab 直接 import），S2 槽位注入後消除。
+- 新增 `src/test/unit/checkup-free-surface-barrel.test.ts`：五個 free barrel 的 re-export 契約煙霧測試。

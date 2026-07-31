@@ -3,7 +3,7 @@
 // P3-perf 改動：移除 document.getElementById('rv-*') uncontrolled pattern，改 controlled
 // useState（每列自己一個 ReversalRow，draft 隨打字 setState；行為等價，但避免 DOM probe）。
 import { memo, useState, useEffect } from 'react';
-import { validateProps } from './_validateProps.js';
+import { validateProps } from '@/checkup/lib/validateProps.js';
 
 const SCHEMA = {
   losers: 'array',
