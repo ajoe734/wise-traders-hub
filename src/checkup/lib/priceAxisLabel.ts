@@ -155,3 +155,54 @@ export function laneTopOffset(lane: 0 | 1, anyWrapped: boolean): number {
   const laneHeight = anyWrapped ? LABEL_LINE_HEIGHT * 2 + 2 : LABEL_LINE_HEIGHT + 4;
   return lane * laneHeight;
 }
+
+// ─────────────────────────────────────────────────────────────
+// 小螢幕簡化排版（compact）
+// ─────────────────────────────────────────────────────────────
+/**
+ * 窄軌道（抽屜貼齊手機寬時 track 常只有 ~250–300px）下，三個浮動標籤即使
+ * 兩行 + 換 lane 仍會擠成一團、字級被壓縮到難讀。此時改成「堆疊列」排版：
+ * 軸只留刻度與現價圓點，成本／現價／目標各自一列在軸下方靠左對齊，
+ * 文字完全不截斷、不重疊，成本與目標一定讀得到。
+ */
+export const PRICE_AXIS_COMPACT_MAX_TRACK = 360;
+/** compact 模式下軌道高度（無浮動標籤，不需要上下 lane 空間） */
+export const PRICE_AXIS_COMPACT_TRACK_HEIGHT = 34;
+export const PRICE_AXIS_FULL_TRACK_HEIGHT = 82;
+
+/** 軌道寬 ≤ PRICE_AXIS_COMPACT_MAX_TRACK 時採用簡化排版。 */
+export function isCompactPriceAxis(trackWidth: number): boolean {
+  const w = Number.isFinite(trackWidth) && trackWidth > 0 ? trackWidth : 320;
+  return w <= PRICE_AXIS_COMPACT_MAX_TRACK;
+}
+
+/** 依模式回傳軌道高度與軸線 y。 */
+export function resolveTrackMetrics(trackWidth: number): { compact: boolean; height: number; axisY: number } {
+  const compact = isCompactPriceAxis(trackWidth);
+  const height = compact ? PRICE_AXIS_COMPACT_TRACK_HEIGHT : PRICE_AXIS_FULL_TRACK_HEIGHT;
+  return { compact, height, axisY: compact ? Math.round(height / 2) : 52 };
+}
+
+export interface CompactRow {
+  label: string;
+  /** 標籤（成本／現價／目標） */
+  name: string;
+  /** 數值字串 */
+  value: string;
+  /** 附註（例如目標價修正 ↓12%），可為 null */
+  note: string | null;
+}
+
+/**
+ * 把 marker 文字拆成「名稱 / 數值 / 附註」三段，供堆疊列以 tabular-nums 對齊，
+ * 密度比一行長字串低、可讀性高。輸入沿用 `${label} ${value}` 的既有文字契約。
+ */
+export function toCompactRow(input: { label: string; text: string; note?: string | null }): CompactRow {
+  const raw = String(input.text ?? '').trim();
+  const name = String(input.label ?? '').trim();
+  const rest = raw.startsWith(name) ? raw.slice(name.length).trim() : raw;
+  const [value, ...noteParts] = rest.split(/\s+/);
+  const inlineNote = noteParts.join(' ').trim();
+  const note = (input.note ?? '').toString().trim() || inlineNote || null;
+  return { label: name, name, value: value ?? '', note };
+}

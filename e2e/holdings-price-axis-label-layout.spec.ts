@@ -34,7 +34,8 @@ async function openFirstDrawer(page: Page, width: number) {
 type Geometry = {
   container: { left: number; right: number; top: number; bottom: number };
   track: { left: number; right: number; top: number; bottom: number } | null;
-  labels: Array<{ id: string; left: number; right: number; top: number; bottom: number; clipped: boolean }>;
+  trackWidth: number;
+  labels: Array<{ id: string; left: number; right: number; top: number; bottom: number; clipped: boolean; mode: string; text: string }>;
   dots: Array<{ left: number; right: number; top: number; bottom: number; width: number; height: number }>;
 };
 
@@ -48,12 +49,15 @@ async function readGeometry(page: Page): Promise<Geometry> {
     return {
       container: rect(root),
       track: track ? rect(track) : null,
+      trackWidth: track ? track.getBoundingClientRect().width : 0,
       labels: Array.from(
         root.querySelectorAll<HTMLElement>('[data-testid^="holdings-price-axis-label-"]'),
       ).map((el) => ({
         id: el.dataset.testid as string,
         ...rect(el),
         clipped: el.scrollWidth - el.clientWidth > 1,
+        mode: el.dataset.labelMode as string,
+        text: (el.textContent ?? '').replace(/\s+/g, ' ').trim(),
       })),
       dots: Array.from(
         root.querySelectorAll<HTMLElement>('[data-testid="holdings-price-axis-dot"]'),
@@ -102,6 +106,14 @@ for (const width of BREAKPOINTS) {
     for (const l of geo.labels) {
       expect(l.clipped, `${l.id} 文字被截斷 @${width}`).toBe(false);
     }
+    }
+
+    // 3b) 小螢幕簡化排版：窄軌道（≤360px）改成堆疊列，寬軌道維持浮動標籤；
+    //     兩種模式下成本／目標都必須帶得到可讀數值（不得只剩標題）
+    const expectedMode = geo.trackWidth <= 360 ? 'stacked' : 'float';
+    for (const l of geo.labels) {
+      expect(l.mode, `${l.id} 排版模式錯誤 @${width}（track=${Math.round(geo.trackWidth)}）`).toBe(expectedMode);
+      expect(l.text, `${l.id} 沒有數值 @${width}`).toMatch(/\d/);
     }
 
     // 4) 現價圓點：正圓、尺寸固定、完整落在軌道內

@@ -7,6 +7,10 @@ import {
   laneTopOffset,
   LABEL_MIN_MAX_WIDTH,
   LABEL_MAX_MAX_WIDTH,
+  isCompactPriceAxis,
+  resolveTrackMetrics,
+  toCompactRow,
+  PRICE_AXIS_COMPACT_MAX_TRACK,
 } from './priceAxisLabel';
 
 describe('estimateLabelWidth', () => {
@@ -146,5 +150,44 @@ describe('laneTopOffset', () => {
   });
   it('有換行時 lane 1 需要更大位移', () => {
     expect(laneTopOffset(1, true)).toBeGreaterThan(laneTopOffset(1, false));
+  });
+});
+
+describe('小螢幕簡化排版（compact）', () => {
+  it('窄軌道啟用 compact，寬軌道不啟用', () => {
+    expect(isCompactPriceAxis(240)).toBe(true);
+    expect(isCompactPriceAxis(PRICE_AXIS_COMPACT_MAX_TRACK)).toBe(true);
+    expect(isCompactPriceAxis(PRICE_AXIS_COMPACT_MAX_TRACK + 1)).toBe(false);
+    expect(isCompactPriceAxis(560)).toBe(false);
+  });
+
+  it('非法寬度退回預設 320（視為 compact 邊界內）', () => {
+    expect(isCompactPriceAxis(NaN)).toBe(true);
+    expect(isCompactPriceAxis(0)).toBe(true);
+  });
+
+  it('compact 軌道較矮且軸線置中', () => {
+    const narrow = resolveTrackMetrics(260);
+    const wide = resolveTrackMetrics(600);
+    expect(narrow.compact).toBe(true);
+    expect(narrow.height).toBeLessThan(wide.height);
+    expect(narrow.axisY).toBe(Math.round(narrow.height / 2));
+    expect(wide.compact).toBe(false);
+    expect(wide.height).toBe(82);
+    expect(wide.axisY).toBe(52);
+  });
+
+  it('toCompactRow 拆出名稱／數值／附註', () => {
+    expect(toCompactRow({ label: '成本', text: '成本 507.00' })).toEqual({
+      label: '成本', name: '成本', value: '507.00', note: null,
+    });
+    expect(toCompactRow({ label: '目標', text: '目標 1,280.00 ↓12%' })).toEqual({
+      label: '目標', name: '目標', value: '1,280.00', note: '↓12%',
+    });
+  });
+
+  it('toCompactRow 保留外部 note 並容忍缺前綴', () => {
+    expect(toCompactRow({ label: '現價', text: '712.00', note: '延遲' }).value).toBe('712.00');
+    expect(toCompactRow({ label: '現價', text: '現價 712.00', note: '延遲' }).note).toBe('延遲');
   });
 });
