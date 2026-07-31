@@ -776,7 +776,7 @@ function PriceAxis({ WB, price, cost, target, baseTarget, upside, tpHistory }) {
           }}>{tpLabel}</span>
         )}
       </div>
-      <div style={{ position: 'relative', height: H, minWidth: 0, overflow: 'hidden' }}>
+      <div ref={trackRef} style={{ position: 'relative', height: H, minWidth: 0, overflow: 'hidden' }}>
         {/* ⚠️ 禁止在 preserveAspectRatio="none" 的 SVG 內使用 <circle>/<rect> 等填色幾何形狀：
             X/Y 非等比縮放會把「圓」拉成扁橢圓（越寬螢幕越扁）。
             解法：只有 stroke 幾何（line、polyline）能留在 SVG 內（配 vector-effect="non-scaling-stroke"），
