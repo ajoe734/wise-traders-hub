@@ -21,6 +21,7 @@ import {
   isTransientError,
   retryTransient,
 } from './classifyPublishError.ts';
+import { accountNotificationsUrl, expertDetailUrl } from '../_shared/routes.ts';
 import type { EmitFn, PendingSignal, PublishPort } from './port.ts';
 
 const US_ASSET_CLASSES = ['us_stock', 'us_futures', 'crypto'];
@@ -104,7 +105,7 @@ export async function markSignalsPublished(
 
     if (!updateErr) { publishedIds.push(s.id); continue; }
 
-    const info = classifyPublishError(updateErr, s.instrument);
+    const info = classifyPublishError(updateErr, s.instrument, expertMap.get(s.expert_id)?.slug ?? null);
     failures.push({
       signal_id: s.id,
       expert_id: s.expert_id,
@@ -415,7 +416,7 @@ export async function pushExpertJournals(
   // 提前發布：對訂閱者發站內通知（同樣走收據，避免重跑重複通知）
   if (force && notifyUserIds.size > 0) {
     const slug = expert?.slug || null;
-    const link = slug ? `/app/expert/${slug}` : '/account/notifications';
+    const link = slug ? expertDetailUrl(slug) : accountNotificationsUrl();
     const notifyKey = computePushDedupeKey(expertId, 'notify_early', signals);
     try {
       const claimed = await port.claimPushRecipients({

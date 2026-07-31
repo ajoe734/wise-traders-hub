@@ -7,6 +7,8 @@
  * keeps the contract single-sourced so the partial-failure notification
  * payload cannot silently drift.
  */
+import { adminCapitalUrl, adminSignalsUrl, buildNotificationRow } from '../_shared/routes.ts';
+
 export type PublishErrorKind =
   | 'CAPITAL_EXCEEDED'
   | 'INCOMPATIBLE_UNIT'
@@ -59,7 +61,14 @@ export function isTransientError(err: any): boolean {
   return TRANSIENT_MSG_PATTERNS.some((r) => r.test(msg));
 }
 
-export function classifyPublishError(err: any, instrument: string): PublishErrorInfo {
+export function classifyPublishError(
+  err: any,
+  instrument: string,
+  /** 導師 slug：/admin/* route 是 /admin/:expertSlug/...，缺 slug 會 404。 */
+  expertSlug?: string | null,
+): PublishErrorInfo {
+  const signalsLink = adminSignalsUrl(expertSlug);
+  const capitalLink = adminCapitalUrl(expertSlug);
   const raw =
     String(err?.message || '') +
     ' ' +
@@ -74,7 +83,7 @@ export function classifyPublishError(err: any, instrument: string): PublishError
       kind: 'TRANSIENT',
       title: `週記發布暫時失敗：連線／資料庫忙碌（${instrument}）`,
       body: '系統當下連線或鎖資源忙碌，已自動重試但仍未成功。稍等 1–2 分鐘後再嘗試送出，若持續失敗請通知管理員。',
-      link: '/admin/signals',
+      link: signalsLink,
       retryable: true,
     };
   }
@@ -84,7 +93,7 @@ export function classifyPublishError(err: any, instrument: string): PublishError
       kind: 'CAPITAL_EXCEEDED',
       title: `週記發布失敗：初始資金不足（${instrument}）`,
       body: '本次發布累計金額超過分析師設定的初始資金。請前往「分析師設定」上調初始資金，或調整此筆持倉的張數/價位後再送出。',
-      link: '/admin/profile#capital',
+      link: capitalLink,
       retryable: false,
     };
   }
@@ -93,7 +102,7 @@ export function classifyPublishError(err: any, instrument: string): PublishError
       kind: 'INCOMPATIBLE_UNIT',
       title: `週記發布失敗：單位與資產類別不符（${instrument}）`,
       body: '該資產類別不允許此單位（例：美股僅能用「股」）。請至週記編輯頁選擇正確單位後重新送審。',
-      link: '/admin/signals',
+      link: signalsLink,
       retryable: false,
     };
   }
@@ -102,7 +111,7 @@ export function classifyPublishError(err: any, instrument: string): PublishError
       kind: 'UNIT_CONFLICT',
       title: `週記發布失敗：單位與歷史紀錄衝突（${instrument}）`,
       body: '此標的歷史紀錄與本次送出的單位不一致。請於編輯頁使用「改單位…」批次校齊後再送審。',
-      link: '/admin/signals',
+      link: signalsLink,
       retryable: false,
     };
   }
@@ -111,7 +120,7 @@ export function classifyPublishError(err: any, instrument: string): PublishError
       kind: 'OVERSELL',
       title: `週記發布失敗：賣出數量超過持倉（${instrument}）`,
       body: '此標的賣出/平損的數量超過目前未平倉部位。請至週記編輯頁修正數量或改為「平倉全部」後重新送審。',
-      link: '/admin/signals',
+      link: signalsLink,
       retryable: false,
     };
   }
@@ -120,7 +129,7 @@ export function classifyPublishError(err: any, instrument: string): PublishError
       kind: 'SYMBOL_INVALID',
       title: `週記發布失敗：標的代碼無效（${instrument}）`,
       body: '此代碼無法對應到任何合法資產（例如：美股缺英文代碼、台股缺 4 位數字）。請於編輯頁修正代碼後再送審。',
-      link: '/admin/signals',
+      link: signalsLink,
       retryable: false,
     };
   }
@@ -128,7 +137,7 @@ export function classifyPublishError(err: any, instrument: string): PublishError
     kind: 'UNKNOWN',
     title: `週記發布失敗（${instrument}）`,
     body: `系統錯誤：${err?.message || '未知原因'}。請聯絡管理員或於編輯頁重試。`,
-    link: '/admin/signals',
+    link: signalsLink,
     retryable: false,
   };
 }
@@ -142,15 +151,15 @@ export function buildMentorFailureNotification(params: {
   signalId: string;
   info: PublishErrorInfo;
 }) {
-  return {
-    user_id: params.mentorUserId,
+  return buildNotificationRow({
+    userId: params.mentorUserId,
     title: params.info.title,
     body: `${params.info.body}
 
 [Signal ID] ${params.signalId}`,
-    type: 'error' as const,
+    type: 'error',
     link: params.info.link,
-  };
+  });
 }
 
 /**
