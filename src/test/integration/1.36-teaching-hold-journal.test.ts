@@ -195,7 +195,7 @@ describe('drift-detection: publish-weekly-journals 對 teaching / hold 的 skip 
   beforeAll(() => {
     // 發布流程已拆成 index（認證/scope）+ pipeline（階段實作）
     const dir = resolve(process.cwd(), 'supabase/functions/publish-weekly-journals');
-    src = ['index.ts', 'pipeline.ts']
+    src = ['index.ts', 'pipeline.ts', 'supabasePort.ts']
       .map((f) => readFileSync(resolve(dir, f), 'utf-8'))
       .join('\n');
   });
