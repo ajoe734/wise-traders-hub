@@ -13,6 +13,7 @@ import HoldingExportCard from './HoldingExportCard';
 import ChipsSection from './ChipsSection';
 import { Tooltip, TooltipTrigger, TooltipContent } from '@/components/ui/tooltip';
 import '@/checkup/styles/holdingsDetailPanel.css';
+import { holdingPanelPrefs, holdingExportPrefs, DEFAULT_PREFS, DEFAULT_EXPORT_PREFS } from '@/checkup/lib/drawerPrefs';
 
 /**
  * HoldingsDetailPanel — 決策書抽屜（Handoff 2026-07-15 §4，3a 定案）
