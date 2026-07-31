@@ -10,6 +10,12 @@ import { checkKillSwitch } from "../_shared/killSwitch.ts";
 import { admitFinmind } from "../_shared/finmindAdmission.ts";
 import { aggregate as aggregateBsr, type FinmindRow } from "../_shared/finmindBsrAggregate.ts";
 import { enumerateTradingDates } from "../_shared/backfillDates.ts";
+import {
+  classifyBackfillError,
+  createRunLogger,
+  type BackfillImpact,
+  type RunLogger,
+} from "../_shared/backfillErrors.ts";
 
 const SUPABASE_URL = Deno.env.get("SUPABASE_URL")!;
 const SERVICE_ROLE_KEY = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!;
@@ -92,11 +98,13 @@ async function materializeRange(
   return { materialized, errors };
 }
 
-async function processChipFact(supa: SupabaseClient, job: Job) {
+async function processChipFact(supa: SupabaseClient, job: Job, log: RunLogger) {
   // BSR 只吃單日（帶 end_date 上游直接 400），因此逐日展開查詢。
   const dates = enumerateTradingDates(job.start_date, job.end_date);
   const rows: FinmindRow[] = [];
+  const failedDates: string[] = [];
   const dayErrors: string[] = [];
+  const codeTally: Record<string, number> = {};
   for (const date of dates) {
     try {
       const dayRows = await fetchFinmind<FinmindRow>(supa, {
@@ -106,19 +114,55 @@ async function processChipFact(supa: SupabaseClient, job: Job) {
       }, job, "bsr_backfill_day");
       rows.push(...dayRows);
     } catch (e) {
-      dayErrors.push(`${date}:${(e as Error).message.slice(0, 120)}`);
+      const c = classifyBackfillError(e);
+      codeTally[c.code] = (codeTally[c.code] ?? 0) + 1;
+      failedDates.push(date);
+      dayErrors.push(`${date}:${c.code}:${c.detail.slice(0, 120)}`);
+      log.log("warn", "chip_fact_day_failed", `${job.stock_id} ${date} ${c.code}`, {
+        job_id: job.id,
+        stock_id: job.stock_id,
+        trade_date: date,
+        code: c.code,
+        retryable: c.retryable,
+        upstream_status: c.upstreamStatus ?? null,
+        detail: c.detail,
+      });
     }
   }
+
+  const impact: BackfillImpact = {
+    dataset: job.dataset,
+    stock_id: job.stock_id,
+    start_date: job.start_date,
+    end_date: job.end_date,
+    days_total: dates.length,
+    days_ok: dates.length - failedDates.length,
+    days_failed: failedDates.length,
+    failed_dates: failedDates.slice(0, 20),
+    rows_fetched: rows.length,
+  };
+
   if (dayErrors.length > 0) {
-    console.warn(`[backfill-worker] chip_fact day errors ${job.stock_id}:`, dayErrors.slice(0, 5));
     // 全數失敗才算 job 失敗，避免單日缺料把整段區間標成 failed
-    if (rows.length === 0) throw new Error(`chip_fact_all_days_failed:${dayErrors[0]}`);
+    if (rows.length === 0) {
+      log.log("error", "chip_fact_all_days_failed", `${job.stock_id} 0/${dates.length} days`, {
+        job_id: job.id,
+        impact,
+        code_tally: codeTally,
+      });
+      throw new Error(`chip_fact_all_days_failed:${dayErrors[0].split(":").slice(1).join(":")}`);
+    }
+    log.log("warn", "chip_fact_partial", `${job.stock_id} ${impact.days_ok}/${dates.length} days`, {
+      job_id: job.id,
+      impact,
+      code_tally: codeTally,
+    });
   }
 
   if (rows.length === 0) {
-    return { ok: true, rows: 0, stocks: 0, materialized: 0, days: dates.length, note: "empty_response" };
+    log.log("info", "chip_fact_empty", `${job.stock_id} empty_response`, { job_id: job.id, impact });
+    return { ok: true, rows: 0, stocks: 0, materialized: 0, days: dates.length, note: "empty_response", impact };
   }
-
 
   const agg = aggregateBsr(rows);
   const nowIso = new Date().toISOString();
@@ -141,16 +185,23 @@ async function processChipFact(supa: SupabaseClient, job: Job) {
       .upsert(facts.slice(i, i + CHUNK), { onConflict: "stock_id,trade_date,broker_id,source" });
     if (error) throw new Error(`chip_fact_upsert:${error.message}`);
   }
+  impact.rows_written = facts.length;
 
   const { materialized, errors } = await materializeRange(supa, job.start_date, job.end_date);
+  impact.materialized_dates = materialized;
   if (errors.length > 0) {
-    console.warn(`[backfill-worker] materialize errors for ${job.stock_id}:`, errors.slice(0, 5));
+    impact.materialize_failed_dates = errors.slice(0, 20);
+    log.log("warn", "materialize_partial", `${job.stock_id} ${errors.length} dates failed`, {
+      job_id: job.id,
+      impact,
+    });
+    if (materialized === 0) throw new Error(`materialize_failed:${errors[0]}`);
   }
 
-  return { ok: true, rows: rows.length, facts: facts.length, materialized };
+  return { ok: true, rows: rows.length, facts: facts.length, materialized, impact };
 }
 
-async function processInstitutional(supa: SupabaseClient, job: Job) {
+async function processInstitutional(supa: SupabaseClient, job: Job, log: RunLogger) {
   interface RawInst {
     date: string;
     name: string;
@@ -197,18 +248,28 @@ async function processInstitutional(supa: SupabaseClient, job: Job) {
     };
   });
 
+  const impact: BackfillImpact = {
+    dataset: job.dataset,
+    stock_id: job.stock_id,
+    start_date: job.start_date,
+    end_date: job.end_date,
+    rows_fetched: rows.length,
+    rows_written: upserts.length,
+  };
+
   if (upserts.length === 0) {
-    return { ok: true, rows: 0, note: "empty_response" };
+    log.log("info", "institutional_empty", `${job.stock_id} empty_response`, { job_id: job.id, impact });
+    return { ok: true, rows: 0, note: "empty_response", impact };
   }
 
   const { error } = await supa.from("tw_institutional_daily")
     .upsert(upserts, { onConflict: "stock_id,trade_date" });
   if (error) throw new Error(`institutional_upsert:${error.message}`);
 
-  return { ok: true, rows: upserts.length, raw_rows: rows.length };
+  return { ok: true, rows: upserts.length, raw_rows: rows.length, impact };
 }
 
-async function processFundamentals(supa: SupabaseClient, job: Job) {
+async function processFundamentals(supa: SupabaseClient, job: Job, log: RunLogger) {
   const missingDatasets = Array.isArray(job.payload?.missing_datasets)
     ? (job.payload.missing_datasets as string[])
     : ["monthly_revenue"];
@@ -273,25 +334,66 @@ async function processFundamentals(supa: SupabaseClient, job: Job) {
     }
   }
 
-  return { ok: true, results };
+  const impact: BackfillImpact = {
+    dataset: job.dataset,
+    stock_id: job.stock_id,
+    start_date: job.start_date,
+    end_date: job.end_date,
+    rows_written: results.reduce((n, r) => n + r.inserted, 0),
+  };
+  log.log("info", "fundamentals_done", `${job.stock_id} ${impact.rows_written} rows`, {
+    job_id: job.id,
+    impact,
+    results,
+  });
+  return { ok: true, results, impact };
 }
 
-async function processOne(supa: SupabaseClient, job: Job) {
-  console.log(`[backfill-worker] processing job ${job.id}: ${job.dataset} ${job.stock_id} ${job.start_date}..${job.end_date}`);
+async function processOne(supa: SupabaseClient, job: Job, log: RunLogger) {
+  const t0 = Date.now();
+  log.log("info", "job_start", `${job.dataset} ${job.stock_id} ${job.start_date}..${job.end_date}`, {
+    job_id: job.id,
+    dataset: job.dataset,
+    stock_id: job.stock_id,
+    start_date: job.start_date,
+    end_date: job.end_date,
+    attempts: job.attempts,
+    source_hint: job.source_hint,
+  });
   try {
+    let out;
     if (job.dataset === "chip_fact") {
-      return await processChipFact(supa, job);
+      out = await processChipFact(supa, job, log);
     } else if (job.dataset === "institutional_daily") {
-      return await processInstitutional(supa, job);
+      out = await processInstitutional(supa, job, log);
     } else if (job.dataset === "fundamentals") {
-      return await processFundamentals(supa, job);
+      out = await processFundamentals(supa, job, log);
     } else {
       throw new Error(`unknown_dataset:${job.dataset}`);
     }
+    log.log("info", "job_done", `${job.dataset} ${job.stock_id}`, {
+      job_id: job.id,
+      ms: Date.now() - t0,
+      impact: (out as { impact?: BackfillImpact }).impact ?? null,
+    });
+    return out as Record<string, unknown> & { ok: true };
   } catch (err) {
-    const msg = (err as Error).message ?? String(err);
-    console.warn(`[backfill-worker] job ${job.id} failed:`, msg);
-    return { ok: false, error: msg.slice(0, 500) };
+    const c = classifyBackfillError(err);
+    log.log("error", "job_failed", `${job.dataset} ${job.stock_id} ${c.code}`, {
+      job_id: job.id,
+      ms: Date.now() - t0,
+      code: c.code,
+      retryable: c.retryable,
+      upstream_status: c.upstreamStatus ?? null,
+      detail: c.detail,
+      impact: {
+        dataset: job.dataset,
+        stock_id: job.stock_id,
+        start_date: job.start_date,
+        end_date: job.end_date,
+      } satisfies BackfillImpact,
+    });
+    return { ok: false as const, error: c.detail.slice(0, 500), code: c.code, retryable: c.retryable };
   }
 }
 
@@ -317,11 +419,17 @@ export default async function handler(req: Request): Promise<Response> {
   const supa = serviceClient();
   const runId = crypto.randomUUID();
   const startedAt = new Date().toISOString();
+  const log = createRunLogger(supa as never, "backfill-worker", runId, {
+    trigger_source: body.trigger_source ?? "manual",
+    mode: body.mode ?? "worker",
+  });
 
   try {
     const killSwitch = await checkKillSwitch(supa, "backfill_worker");
     if (!killSwitch) {
-      return jsonResponse({ ok: true, skipped: true, reason: "kill_switch_off" });
+      log.log("warn", "kill_switch", "backfill_worker disabled", {});
+      await log.flush();
+      return jsonResponse({ ok: true, skipped: true, reason: "kill_switch_off", run_id: runId });
     }
 
     const mode = body.mode ?? "worker";
@@ -335,7 +443,11 @@ export default async function handler(req: Request): Promise<Response> {
         .eq("id", body.job_id)
         .maybeSingle();
       if (error) throw error;
-      if (!data) return jsonResponse({ ok: false, error: "job_not_found" }, { status: 404 });
+      if (!data) {
+        log.log("error", "job_not_found", `job ${body.job_id}`, { job_id: body.job_id, code: "JOB_NOT_FOUND" });
+        await log.flush();
+        return jsonResponse({ ok: false, error: "job_not_found", code: "JOB_NOT_FOUND", run_id: runId }, { status: 404 });
+      }
       jobs = [data as unknown as Job];
     } else {
       const { data, error } = await supa.rpc("claim_backfill_jobs", {
@@ -346,25 +458,41 @@ export default async function handler(req: Request): Promise<Response> {
     }
 
     if (jobs.length === 0) {
+      log.log("info", "no_jobs", "queue empty", {});
+      await log.flush();
       return jsonResponse({ ok: true, mode, processed: 0, run_id: runId });
     }
 
-    const results: Array<{ job_id: number; status: string; result: unknown }> = [];
+    const results: Array<{ job_id: number; status: string; code?: string; result: unknown }> = [];
+    const codeTally: Record<string, number> = {};
     for (const job of jobs) {
-      const outcome = await processOne(supa, job);
+      const outcome = await processOne(supa, job, log);
       let status: string;
+      let code: string | undefined;
       if (outcome.ok) {
         status = "done";
         await supa.rpc("backfill_job_set_done", { _id: job.id, _status: "done" });
       } else {
-        status = outcome.error?.startsWith("admission_rejected") ? "pending" : "failed";
+        code = (outcome as { code?: string }).code;
+        // retryable → 放回 pending 由下一輪重試；不可重試才標 failed
+        status = (outcome as { retryable?: boolean }).retryable ? "pending" : "failed";
+        codeTally[code ?? "INTERNAL"] = (codeTally[code ?? "INTERNAL"] ?? 0) + 1;
         await supa.rpc("backfill_job_set_failed", {
           _id: job.id,
-          _error: outcome.error ?? "unknown",
+          _error: `${code ?? "INTERNAL"}:${(outcome as { error?: string }).error ?? "unknown"}`.slice(0, 500),
         });
       }
-      results.push({ job_id: job.id, status, result: outcome });
+      results.push({ job_id: job.id, status, code, result: outcome });
     }
+
+    const failed = results.filter((r) => r.status !== "done");
+    log.log(failed.length ? "warn" : "info", "run_summary", `${jobs.length - failed.length}/${jobs.length} done`, {
+      processed: jobs.length,
+      done: jobs.length - failed.length,
+      failed: failed.length,
+      code_tally: codeTally,
+      affected: results.map((r) => ({ job_id: r.job_id, status: r.status, code: r.code ?? null })),
+    });
 
     await supa.from("data_source_refresh_logs").insert({
       source_key: "backfill_worker",
@@ -372,29 +500,40 @@ export default async function handler(req: Request): Promise<Response> {
       started_at: startedAt,
       finished_at: new Date().toISOString(),
       row_count: jobs.length,
-      metadata: { run_id: runId, trigger_source: body.trigger_source ?? "manual", results: results.map((r) => ({ job_id: r.job_id, status: r.status })) },
+      metadata: {
+        run_id: runId,
+        trigger_source: body.trigger_source ?? "manual",
+        code_tally: codeTally,
+        results: results.map((r) => ({ job_id: r.job_id, status: r.status, code: r.code ?? null })),
+      },
     });
+
+    await log.flush();
 
     return jsonResponse({
       ok: true,
       mode,
       run_id: runId,
       processed: jobs.length,
+      failed: failed.length,
+      code_tally: codeTally,
       results,
     });
   } catch (err) {
+    const c = classifyBackfillError(err);
     const msg = (err as Error).message ?? String(err);
-    console.error("[backfill-worker] error:", msg);
+    log.log("error", "run_failed", c.code, { code: c.code, retryable: c.retryable, detail: c.detail });
+    await log.flush();
     try {
       await supa.from("data_source_refresh_logs").insert({
         source_key: "backfill_worker",
         status: "error",
         started_at: startedAt,
         finished_at: new Date().toISOString(),
-        metadata: { run_id: runId, error: msg.slice(0, 500) },
+        metadata: { run_id: runId, error: msg.slice(0, 500), code: c.code, retryable: c.retryable },
       });
     } catch { /* noop */ }
-    return errorResponse(msg, 500);
+    return errorResponse(`${c.code}:${msg}`, 500);
   }
 }
 
