@@ -122,209 +122,31 @@ function HoldingsDetailPanelImpl({
   const meta = stockMeta[h.code] || null;
   const baseTarget = targets && avgTarget && h.code ? avgTarget(h.code) : null;
 
-  // A2 資料通線：若父層未注入，自帶 hooks 取 target_price_history / thesisTracking。
-  // 只在有 selected 時啟用，避免抽屜關閉仍持續 fetch。
-  const { rows: tpHistoryRows } = useTargetPriceHistory(h.code, {
-    limit: 30,
-    enabled: !targetPriceHistoryProp && !!h.code,
+  // C2：所有推導收斂到 useHoldingDetailViewModel（純函式在 lib/holdingDetailViewModel.ts）。
+  const vm = useHoldingDetailViewModel({
+    holding: h,
+    decision: dec,
+    meta,
+    baseTarget,
+    totalPortfolioValue,
+    sparkData30D,
+    normalizedEvents,
+    orderedDisplayed,
+    tradeLog,
+    targetPriceHistory: targetPriceHistoryProp,
+    thesisTracking: thesisTrackingProp,
   });
-  const { theses } = useThesisTracking();
-  const targetPriceHistory = useMemo(() => {
-    if (targetPriceHistoryProp) return targetPriceHistoryProp;
-    if (!h.code || !Array.isArray(tpHistoryRows) || tpHistoryRows.length === 0) return null;
-    const shaped = tpHistoryRows
-      .map((r: any) => ({
-        date: r?.report_date || (r?.created_at ? String(r.created_at).slice(0, 10) : null),
-        target: Number(r?.target),
-      }))
-      .filter((r) => r.date && Number.isFinite(r.target) && r.target > 0);
-    return shaped.length ? { [h.code]: shaped } : null;
-  }, [targetPriceHistoryProp, tpHistoryRows, h.code]);
-  const thesisTracking = useMemo(() => {
-    if (thesisTrackingProp) return thesisTrackingProp;
-    if (!h.code || !Array.isArray(theses) || theses.length === 0) return null;
-    const forCode = theses.filter(
-      (t: any) => t?.stockId === h.code || t?.code === h.code,
-    );
-    if (!forCode.length) return null;
-    const rows: any[] = [];
-    for (const t of forCode) {
-      const history = Array.isArray(t?.reviewHistory) ? t.reviewHistory : [];
-      for (const r of history) {
-        const rawDate = r?.timestamp || r?.date || r?.createdAt;
-        if (!rawDate) continue;
-        rows.push({
-          date: String(rawDate).slice(0, 10),
-          suggestion: r?.suggestion || r?.action || r?.decision || '—',
-          myAction: r?.myAction || r?.userAction || '—',
-          afterPct: Number.isFinite(Number(r?.afterPct)) ? Number(r.afterPct) : null,
-        });
-      }
-    }
-    if (!rows.length) return null;
-    rows.sort((a, b) => (a.date < b.date ? -1 : a.date > b.date ? 1 : 0));
-    return { [h.code]: rows };
-  }, [thesisTrackingProp, theses, h.code]);
 
-  const pctVal = h.pct ?? h.totalPct ?? 0;
-  const pnlVal = Number(h.pnl ?? h.totalPnl ?? 0);
-  const todayPct = Number.isFinite(Number(h.changePct)) ? Number(h.changePct) : null;
-  const todayPnl = Number.isFinite(Number(h.todayPnl)) ? Number(h.todayPnl) : null;
-  const _valueRaw = Number(h.value);
-  const _priceN = Number(h.price);
-  const _qtyN = Number(h.qty);
-  const valueNum = Number.isFinite(_valueRaw)
-    ? _valueRaw
-    : (Number.isFinite(_priceN) && Number.isFinite(_qtyN) ? _priceN * _qtyN : 0);
-  const weightPct = totalPortfolioValue > 0 && valueNum > 0 ? (valueNum / totalPortfolioValue) * 100 : null;
-
-  const sparkArrRaw = useMemo(
-    () => (Array.isArray(sparkData30D) ? sparkData30D.filter((n) => Number.isFinite(n)) : []),
-    [sparkData30D]
-  );
-  const sparkArr = useMemo(() => {
-    if (sparkArrRaw.length >= 2) return sparkArrRaw;
-    const c = Number(h.cost); const p = Number(h.price);
-    if (!Number.isFinite(c) || !Number.isFinite(p) || c <= 0 || p <= 0) return sparkArrRaw;
-    const N = 30;
-    const arr: number[] = [];
-    const seed = String(h.code || 'x').split('').reduce((a, ch) => a + ch.charCodeAt(0), 0);
-    const rand = (i) => {
-      const x = Math.sin((seed + i) * 9973) * 10000;
-      return x - Math.floor(x);
-    };
-    const amp = Math.max(Math.abs(p - c) * 0.35, p * 0.015);
-    for (let i = 0; i < N; i++) {
-      const t = i / (N - 1);
-      const base = c + (p - c) * t;
-      arr.push(Number((base + (rand(i) - 0.5) * 2 * amp).toFixed(2)));
-    }
-    arr[N - 1] = p;
-    return arr;
-  }, [sparkArrRaw, h.cost, h.price, h.code]);
-
-  const rangeLow = sparkArr.length ? Math.min(...sparkArr) : null;
-  const rangeHigh = sparkArr.length ? Math.max(...sparkArr) : null;
-
-  // B7 fix：deps 改為 primitive，避免父層 render 帶新 dec/meta reference 使 memo 失效。
-  const thesisSentence = useMemo(() => {
-    const raw = dec?.actionText || meta?.strategy || '';
-    if (!raw) return '';
-    const m = String(raw).match(/^(.*?[。.!?！？])/);
-    return (m ? m[1] : raw).slice(0, 90);
-  }, [dec?.actionText, meta?.strategy]);
-  const relatedEvents = (normalizedEvents || [])
-    .filter((e) => (e.relatedCodes || []).includes(h.code) && e.source !== 'demo')
-    .slice(0, 5);
-  const nextEvent = relatedEvents[0];
-
-  // §4.3 持有脈絡（tradeLog 推導）— 資料未通時整區隱藏
-  // B9 fix：預先計算 timestamp、過濾 NaN，避免 sort 遇 invalid date 亂序。
-  const holdContext = useMemo(() => {
-    const logs = Array.isArray(tradeLog)
-      ? tradeLog.filter((r) => r?.code === h.code || r?.stockCode === h.code)
-      : [];
-    if (!logs.length) return null;
-    const withTs = logs
-      .map((r) => {
-        const ts = new Date(r?.date || r?.tradeDate || r?.createdAt || 0).getTime();
-        return { r, ts: Number.isFinite(ts) && ts > 0 ? ts : 0 };
-      })
-      .filter((x) => x.ts > 0);
-    if (!withTs.length) return null;
-    const firstBuy = Math.min(...withTs.map((x) => x.ts));
-    const heldDays = Math.max(0, Math.round((Date.now() - firstBuy) / 86400000));
-    const addCount = logs.filter((r) => /add|buy|加碼|買/i.test(String(r.action || r.actionType || ''))).length - 1;
-    const lastEntry = [...withTs].sort((a, b) => b.ts - a.ts)[0];
-    const lastAction = lastEntry?.r;
-    const lastDate = new Date(lastEntry.ts);
-    const lastLabel = !Number.isNaN(lastDate.getTime())
-      ? `${lastDate.getMonth() + 1}/${lastDate.getDate()} ${String(lastAction.action || '').replace(/add|buy/i, '加碼').replace(/reduce|sell/i, '減碼')}`
-      : null;
-    return { heldDays, addCount: Math.max(0, addCount), lastLabel };
-  }, [tradeLog, h.code]);
-
-  // §4.5 目標價修正方向
-  const tpHistory = useMemo(() => {
-    const list = Array.isArray(targetPriceHistory?.[h.code]) ? targetPriceHistory[h.code] : null;
-    if (!list || list.length < 2) return null;
-    const sorted = [...list].sort((a, b) => new Date(a.date).getTime() - new Date(b.date).getTime());
-    const first = Number(sorted[0]?.target);
-    const last = Number(sorted[sorted.length - 1]?.target);
-    if (!Number.isFinite(first) || !Number.isFinite(last) || first <= 0) return null;
-    const deltaPct = ((last - first) / first) * 100;
-    if (Math.abs(deltaPct) < 1) return null;
-    return {
-      last, deltaPct,
-      arrow: deltaPct > 0 ? '↑' : '↓',
-      from: first,
-      spanDays: Math.round((new Date(sorted[sorted.length - 1].date).getTime() - new Date(sorted[0].date).getTime()) / 86400000),
-    };
-  }, [targetPriceHistory, h.code]);
-
-  // §4.8 決策履歷
-  const thesisRows = useMemo(() => {
-    const list = Array.isArray(thesisTracking?.[h.code]) ? thesisTracking[h.code] : null;
-    if (!list?.length) return null;
-    return list.slice(-8).map((r) => ({
-      date: r.date, suggestion: r.suggestion || r.action, myAction: r.myAction || r.userAction || '—',
-      afterPct: Number.isFinite(Number(r.afterPct)) ? Number(r.afterPct) : null,
-    }));
-  }, [thesisTracking, h.code]);
-
-  // ── 情境模擬 ──
-  const simHistory = useSimHistory({ target: '', deltaQty: 0, buyMorePrice: '', stopPrice: '' });
-  const sim = simHistory.state;
-  const setSim = simHistory.set;
-  useEffect(() => {
-    simHistory.clear({ target: baseTarget ?? '', deltaQty: 0, buyMorePrice: '', stopPrice: '' });
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [h.code, baseTarget]);
-  const simInput = useMemo(() => ({
-    cost: Number(h.cost) || 0,
-    qty: Number(h.qty) || 0,
-    price: Number(h.price) || 0,
-    target: sim.target === '' ? baseTarget : Number(sim.target),
-    deltaQty: Number(sim.deltaQty) || 0,
-    buyMorePrice: sim.buyMorePrice === '' ? null : Number(sim.buyMorePrice),
-    stopPrice: sim.stopPrice === '' ? null : Number(sim.stopPrice),
-  }), [h.cost, h.qty, h.price, sim, baseTarget]);
-  const scenario = useMemo(() => computeScenario(simInput), [simInput]);
-  const dirty = useMemo(() => isDirty(simInput, baseTarget), [simInput, baseTarget]);
-
-  const displayTarget = dirty && sim.target !== '' ? Number(sim.target) : baseTarget;
-  const displayUpside = displayTarget && h.price ? ((displayTarget - h.price) / h.price * 100) : null;
-  const displayPnlPct = dirty ? (scenario.simPnlPct ?? pctVal) : pctVal;
-  const displayPnlAbs = dirty ? (scenario.simPnlAbs ?? pnlVal) : pnlVal;
-  const displayQty = dirty ? scenario.simQty : Number(h.qty || 0);
-  const displayValue = dirty ? scenario.simValue : valueNum;
-  const displayWeight = displayValue && totalPortfolioValue ? (displayValue / totalPortfolioValue) * 100 : weightPct;
-
-  const visibleList = orderedDisplayed;
-  const curIdx = visibleList.findIndex((x) => x.code === h.code);
-  const prev = curIdx > 0 ? visibleList[curIdx - 1] : null;
-  const next = curIdx < visibleList.length - 1 ? visibleList[curIdx + 1] : null;
-
-  const actionKind = dec?.actionType === 'exit' ? 'exit'
-    : dec?.actionType === 'review' ? 'review' : 'hold';
-  const actionLabel = ACTION_LABEL[actionKind];
-  const urgencyKind = dec?.urgency === 'now' ? 'now'
-    : dec?.urgency === 'soon' ? 'soon'
-    : dec?.urgency === 'monitor' ? 'monitor' : 'low';
-  const urgencyLabel = URGENCY_LABEL[urgencyKind];
-  const urgencyAccent = urgencyKind === 'now' || urgencyKind === 'soon';
+  const { pctVal, pnlVal, todayPct, todayPnl, valueNum, weightPct } = vm.valuation;
+  const { sparkArr, rangeLow, rangeHigh, thesisSentence, relatedEvents, nextEvent,
+    holdContext, tpHistory, thesisRows, stamp, todayLabel } = vm;
+  const { actionKind, actionLabel, urgencyLabel, urgencyAccent } = vm.decisionStamp;
+  const { prev, next } = vm.neighbors;
+  const { displayTarget, displayUpside, displayPnlPct, displayPnlAbs,
+    displayQty, displayValue, displayWeight } = vm.display;
+  const { sim, setSim, simHistory, scenario, dirty } = vm;
   const pnlColor = displayPnlPct > 0 ? WB.accent : displayPnlPct < 0 ? '#8A857F' : WB.inkMute;
 
-  const stamp = (() => {
-    const d = new Date();
-    const pad = (n) => String(n).padStart(2, '0');
-    return `${d.getFullYear()}/${pad(d.getMonth() + 1)}/${pad(d.getDate())} ${pad(d.getHours())}:${pad(d.getMinutes())}`;
-  })();
-  const todayLabel = (() => {
-    const d = new Date();
-    const pad = (n) => String(n).padStart(2, '0');
-    return `${pad(d.getMonth() + 1)}／${pad(d.getDate())}`;
-  })();
 
   // ── 匯出 ──
   const exportCardProps = useMemo(() => ({
