@@ -201,6 +201,9 @@ export default function HoldingMetaReportModal({ holding, currentMeta, onClose, 
       style={{
         position: 'fixed',
         inset: 0,
+        // 窄螢幕抽屜是 Radix Sheet（modal），會把 body 設成 pointer-events:none。
+        // 本 modal portal 到 body，必須自行恢復可點擊，否則 backdrop 點擊關閉會失效。
+        pointerEvents: 'auto',
         background: 'rgba(0,0,0,0.35)',
         zIndex: 1000,
         display: 'flex',
