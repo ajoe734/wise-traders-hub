@@ -15,6 +15,10 @@ import { Tooltip, TooltipTrigger, TooltipContent } from '@/components/ui/tooltip
 import '@/checkup/styles/holdingsDetailPanel.css';
 import { holdingPanelPrefs, holdingExportPrefs } from '@/checkup/lib/drawerPrefs';
 import { barIndexFromX, barCenterPct, shouldFlipTooltip, fmtKlineDate, fmtKlineNum } from '@/checkup/lib/klineTooltip';
+import {
+  resolveLabelBox, assignLanes, laneTopOffset,
+  LABEL_FONT_SIZE, LABEL_LINE_HEIGHT,
+} from '@/checkup/lib/priceAxisLabel';
 
 
 /**
@@ -711,6 +715,19 @@ function ExportMenu({ WB, prefs, setPrefs, onExport, onCopy, busy }) {
 // ──────────────────── §4.5 價格軸 ────────────────────
 
 function PriceAxis({ WB, price, cost, target, baseTarget, upside, tpHistory }) {
+  // 量測軌道實寬 → 標籤字寬 / 換行 / 錨定規則的唯一輸入（見 lib/priceAxisLabel.ts）
+  const trackRef = useRef(null);
+  const [trackWidth, setTrackWidth] = useState(320);
+  useEffect(() => {
+    const el = trackRef.current;
+    if (!el) return undefined;
+    const measure = () => setTrackWidth(Math.round(el.getBoundingClientRect().width) || 320);
+    measure();
+    if (typeof ResizeObserver === 'undefined') return undefined;
+    const ro = new ResizeObserver(measure);
+    ro.observe(el);
+    return () => ro.disconnect();
+  }, []);
   const pts = [cost, price, target].filter((v) => Number.isFinite(Number(v)) && Number(v) > 0).map(Number);
   if (pts.length < 2) return null;
   const lo = Math.min(...pts) * 0.95;
@@ -732,18 +749,22 @@ function PriceAxis({ WB, price, cost, target, baseTarget, upside, tpHistory }) {
     { v: cost, color: WB.inkLight, label: '成本', shape: 'tick', side: 'top' },
     { v: target, color: WB.accent, label: '目標', shape: 'tick', side: 'top' },
     { v: price, color: WB.ink, label: '現價', shape: 'dot', side: 'bottom' },
-  ].map((p) => ({ ...p, x: pos(p.v), lx: labelPos(p.v) })).filter((p) => p.x != null);
-  // 上方標籤在抽屜寬度下容易互撞（例如成本 507、目標 710）。
-  // 以最多兩列做確定性避讓；26% 約等於 448px 抽屜內 92px 的安全文字寬度。
-  const topMarkers = markers
-    .filter((p) => p.side === 'top')
-    .sort((a, b) => Number(a.lx) - Number(b.lx));
-  const laneByLabel = new Map();
-  topMarkers.forEach((marker, index) => {
-    const previous = topMarkers[index - 1];
-    const collides = previous && Number(marker.lx) - Number(previous.lx) < 26;
-    laneByLabel.set(marker.label, collides ? 1 - (laneByLabel.get(previous.label) ?? 0) : 0);
-  });
+  ]
+    .map((p) => ({ ...p, x: pos(p.v), lx: labelPos(p.v) }))
+    .filter((p) => p.x != null)
+    .map((p) => {
+      const text = `${p.label} ${Number(p.v).toFixed(2)}`;
+      return { ...p, text, box: resolveLabelBox({ text, lxPct: Number(p.lx), containerWidth: trackWidth, fontSize: LABEL_FONT_SIZE }) };
+    });
+  // 上方標籤在抽屜寬度下容易互撞（例如成本 507、目標 710），且字串長度會變
+  // （「目標 1,234.56 ↓12%」比「目標 90」寬得多）。lane 分配改由估算字寬決定，
+  // 不再用固定 26% 門檻，因此不同字串長度不會造成錯位或誤判不碰撞。
+  const laneByLabel = assignLanes(
+    markers.filter((p) => p.side === 'top').map((p) => ({ label: p.label, text: p.text, lxPct: Number(p.lx) })),
+    trackWidth,
+    LABEL_FONT_SIZE,
+  );
+  const anyWrapped = markers.some((p) => p.side === 'top' && p.box.wrap);
   return (
     <div data-testid="holdings-price-axis" style={{ margin: '0 0 20px', minWidth: 0 }}>
       <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'baseline', marginBottom: 8 }}>
@@ -755,7 +776,7 @@ function PriceAxis({ WB, price, cost, target, baseTarget, upside, tpHistory }) {
           }}>{tpLabel}</span>
         )}
       </div>
-      <div style={{ position: 'relative', height: H, minWidth: 0, overflow: 'hidden' }}>
+      <div ref={trackRef} style={{ position: 'relative', height: H, minWidth: 0, overflow: 'hidden' }}>
         {/* ⚠️ 禁止在 preserveAspectRatio="none" 的 SVG 內使用 <circle>/<rect> 等填色幾何形狀：
             X/Y 非等比縮放會把「圓」拉成扁橢圓（越寬螢幕越扁）。
             解法：只有 stroke 幾何（line、polyline）能留在 SVG 內（配 vector-effect="non-scaling-stroke"），
@@ -793,24 +814,34 @@ function PriceAxis({ WB, price, cost, target, baseTarget, upside, tpHistory }) {
           <span
             key={`label-${i}`}
              data-testid={`holdings-price-axis-label-${p.label === '成本' ? 'cost' : p.label === '目標' ? 'target' : 'price'}`}
+            data-label-anchor={p.box.anchor}
+            data-label-lines={p.box.lines}
             style={{
               position: 'absolute',
-              /* 夾住中心點：標籤最大寬 92px → 半寬 46px，任何 lx 都不會越界（280px 亦成立） */
-              left: `clamp(46px, ${p.lx}%, calc(100% - 46px))`,
-               top: p.side === 'top' ? 3 + (laneByLabel.get(p.label) ?? 0) * 18 : y + 10,
-              transform: 'translateX(-50%)',
-               maxWidth: 92,
+              /* 字寬規則單一資料源：resolveLabelBox 依估算字寬決定貼左／置中／貼右，
+                 短字串能真正對準刻度，長字串改為兩行而非被截斷，皆不會越界。 */
+              left: p.box.left,
+              top: p.side === 'top'
+                ? 3 + laneTopOffset(laneByLabel.get(p.label) ?? 0, anyWrapped)
+                : y + 10,
+              transform: p.box.transform,
+              maxWidth: p.box.maxWidth,
+              display: '-webkit-box',
+              WebkitBoxOrient: 'vertical',
+              WebkitLineClamp: p.box.lines,
               overflow: 'hidden',
               textOverflow: 'ellipsis',
-              whiteSpace: 'nowrap',
-              fontSize: 10,
+              whiteSpace: p.box.wrap ? 'normal' : 'nowrap',
+              overflowWrap: 'anywhere',
+              textAlign: p.box.anchor === 'end' ? 'right' : 'left',
+              fontSize: LABEL_FONT_SIZE,
               color: WB.inkSub,
               letterSpacing: '0.02em',
               fontVariantNumeric: 'tabular-nums',
-              lineHeight: '14px',
+              lineHeight: `${LABEL_LINE_HEIGHT}px`,
               pointerEvents: 'none',
             }}
-          >{p.label} {Number(p.v).toFixed(2)}</span>
+          >{p.text}</span>
         ))}
       </div>
       {note && (
