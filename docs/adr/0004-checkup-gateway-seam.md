@@ -28,6 +28,7 @@ db   { from }                        // query builder 直通
 auth { getUserId, onAuthStateChange, getAccessToken }
 realtime { subscribe }               // 回傳退訂函式，內部管 channel 生命週期
 invoke(name, body)                   // edge function，error 正規化
+rpc(fn, args)                        // Postgres RPC，error 正規化
 functionsUrl()
 ```
 
@@ -35,7 +36,19 @@ functionsUrl()
 換成 fake，並用 `fake.calls.{http,db,invoke,realtime}` 斷言握手內容。
 
 機制強制（非自律）：`src/test/unit/checkup-gateway-seam.test.ts` 靜態掃描
-`src/checkup/hooks/**`，出現直接 `fetch(` 或 import supabase client 即失敗。
+`src/checkup/hooks/**` **與 `src/checkup/components/**`（含持倉抽屜 `freecheckup/`）**，
+出現下列任一即失敗：
+
+- import supabase client
+- 直接 `fetch(`
+- 直接 `functions.invoke(`
+- 直接 `supabase.rpc(` / `client.rpc(`
+
+`src/checkup/lib|contexts/**` 仍有既存直連檔，以 `LEGACY_DIRECT_CLIENTS` 白名單凍結：
+只能變少，不能變多；修好後必須從白名單移除（有「白名單沒有殘留已修好的項目」測試把關）。
+
+持倉抽屜的籌碼回補（`tw-institutional-daily-sync` + `enqueue_bsr_backfill`）
+已下沉為 `src/checkup/hooks/useChipsBackfill.ts`，元件層只做 UI 與 toast。
 
 ## 取捨
 

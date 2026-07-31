@@ -117,6 +117,17 @@ export function createSupabaseGateway(): CheckupGateway {
       },
     },
 
+    async rpc<T>(fn: string, args?: Record<string, unknown>): Promise<T> {
+      const { data, error } = await (supabase as any).rpc(fn, args ?? {});
+      if (error) {
+        throw new CheckupGatewayError(error.message || `RPC ${fn} failed`, {
+          status: (error as any)?.status ?? 0,
+          url: fn,
+        });
+      }
+      return data as T;
+    },
+
     async invoke<T>(name: string, body?: unknown): Promise<T> {
       const { data, error } = await supabase.functions.invoke(name, body === undefined ? {} : { body });
       if (error) {

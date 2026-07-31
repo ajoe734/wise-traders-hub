@@ -31,6 +31,11 @@ export interface InvokeCall {
   body: unknown;
 }
 
+export interface RpcCall {
+  fn: string;
+  args: Record<string, unknown> | undefined;
+}
+
 export interface FakeGatewayOptions {
   /** url（完全相符或子字串）→ 回應內容；值為 Error 時視為失敗。 */
   http?: Record<string, any>;
@@ -38,6 +43,8 @@ export interface FakeGatewayOptions {
   tables?: Record<string, any[]>;
   /** edge function 名 → 回傳值。 */
   functions?: Record<string, any>;
+  /** RPC 名 → 回傳值；值為 Error 時視為失敗。 */
+  rpcs?: Record<string, any>;
   userId?: string | null;
   accessToken?: string | null;
   functionsUrl?: string;
@@ -48,6 +55,7 @@ export interface FakeGateway extends CheckupGateway {
     http: HttpCall[];
     db: DbCall[];
     invoke: InvokeCall[];
+    rpc: RpcCall[];
     realtime: RealtimeSpec[];
     authSubscriptions: number;
   };
@@ -71,11 +79,13 @@ export function createFakeGateway(options: FakeGatewayOptions = {}): FakeGateway
   const httpMap = options.http ?? {};
   const tables = options.tables ?? {};
   const functions = options.functions ?? {};
+  const rpcs = options.rpcs ?? {};
 
   const calls: FakeGateway['calls'] = {
     http: [],
     db: [],
     invoke: [],
+    rpc: [],
     realtime: [],
     authSubscriptions: 0,
   };
@@ -220,6 +230,16 @@ export function createFakeGateway(options: FakeGatewayOptions = {}): FakeGateway
         throw new CheckupGatewayError(`No fake edge function registered for ${name}`, { url: name });
       }
       const value = functions[name];
+      if (value instanceof Error) throw value;
+      return value;
+    },
+
+    async rpc(fn, args) {
+      calls.rpc.push({ fn, args });
+      if (!Object.prototype.hasOwnProperty.call(rpcs, fn)) {
+        throw new CheckupGatewayError(`No fake rpc registered for ${fn}`, { url: fn });
+      }
+      const value = rpcs[fn];
       if (value instanceof Error) throw value;
       return value;
     },
