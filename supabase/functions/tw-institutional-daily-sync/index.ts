@@ -630,28 +630,44 @@ async function runKeepWarm(
   };
 }
 
+// 公開模式：只讀公開市場資料 / 觸發公開資料回補，不需 cron key 也不需 admin。
+// 之所以公開：持倉抽屜（含 FreeCheckup 免登入表面）任何訪客都可能觸發「回補 60 日」，
+// 內容全是 TWSE/FinMind 公開日報，並以 stock_id 白名單 + 冷卻時間限流。
+const PUBLIC_MODES = new Set(["backfill_stock", "cold_start_status"]);
+const BACKFILL_COOLDOWN_MS = 60_000;
+const backfillCooldown = new Map<string, number>();
+
 Deno.serve(async (req) => {
   if (req.method === "OPTIONS") return corsPreflight();
+
+  // 先解析 body（Request body 只能讀一次），才能判斷是否為公開模式
+  let body: any = null;
+  if (req.method === "POST") {
+    try { body = await req.json(); } catch { /* ignore */ }
+  }
+  const isPublicMode = PUBLIC_MODES.has(String(body?.mode ?? ""));
+
   // M-3c-2: cron-or-admin guard. Cron key required for scheduler; admin cold_start falls through.
   let cronAuthed = false;
-  try { requireCronKey(req); cronAuthed = true; }
-  catch (cronErr) {
-    const admin = await isAdminCaller(req);
-    if (!admin.ok) {
-      // 兩條路徑都失敗：優先回傳 admin 檢查失敗原因（cron 排程本來就不會經過瀏覽器）
-      return errorResponse(
-        `unauthorized: not cron and not admin (${admin.reason ?? "unknown"})`,
-        403,
-        { code: "FORBIDDEN" },
-      );
+  if (!isPublicMode) {
+    try { requireCronKey(req); cronAuthed = true; }
+    catch (cronErr) {
+      const admin = await isAdminCaller(req);
+      if (!admin.ok) {
+        // 兩條路徑都失敗：優先回傳 admin 檢查失敗原因（cron 排程本來就不會經過瀏覽器）
+        return errorResponse(
+          `unauthorized: not cron and not admin (${admin.reason ?? "unknown"})`,
+          403,
+          { code: "FORBIDDEN" },
+        );
+      }
     }
   }
   try {
     const url = new URL(req.url);
 
     if (req.method === "POST") {
-      let body: any = null;
-      try { body = await req.json(); } catch { /* ignore */ }
+
 
       // === Mode: cold_start ===
       if (body?.mode === "cold_start") {
