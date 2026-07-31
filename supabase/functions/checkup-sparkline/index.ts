@@ -45,14 +45,25 @@ async function fetchWithTimeout(url: string, ms = 7000): Promise<Response | null
 
 type OHLC = { date?: string; open: number; high: number; low: number; close: number };
 
+/** 民國日期 "115/07/30" → ISO "2026-07-30"；西元格式直接正規化 */
+function rocToIso(raw: unknown): string | undefined {
+  const s = String(raw ?? "").trim().replace(/\s+/g, "");
+  const m = s.match(/^(\d{2,4})[/-](\d{1,2})[/-](\d{1,2})$/);
+  if (!m) return undefined;
+  let y = Number(m[1]);
+  if (y < 1911) y += 1911;
+  return `${y}-${String(Number(m[2])).padStart(2, "0")}-${String(Number(m[3])).padStart(2, "0")}`;
+}
+
 function parseOhlcRow(r: any[]): OHLC | null {
   const o = Number(String(r[3]).replace(/,/g, ""));
   const h = Number(String(r[4]).replace(/,/g, ""));
   const l = Number(String(r[5]).replace(/,/g, ""));
   const c = Number(String(r[6]).replace(/,/g, ""));
   if (![o, h, l, c].every((n) => Number.isFinite(n) && n > 0)) return null;
-  return { open: o, high: h, low: l, close: c };
+  return { date: rocToIso(r[0]), open: o, high: h, low: l, close: c };
 }
+
 
 // TWSE 一個月的 OHLC；月初若無資料退回上一個月
 async function twseMonth(code: string, d: Date): Promise<OHLC[]> {
@@ -195,13 +206,12 @@ const handler = withLogging('checkup-sparkline', async (req, log) => {
       const map = new Map<string, { ohlc: OHLC[]; closes: number[] }>();
       (cached || []).forEach((row: any) => {
         const d = row?.data || {};
-        // 新快取：ohlc + closes；舊快取：僅 closes
+        // 只認「有 OHLC」的新快取；舊的 closes-only 快取視為 miss，強制重抓成 K 棒資料
         const ohlc = Array.isArray(d.ohlc) ? d.ohlc : [];
         const closes = Array.isArray(d.closes) ? d.closes : (Array.isArray(d) ? d : []);
-        if (ohlc.length >= 2 || closes.length >= 2) {
-          map.set(row.key, { ohlc: ohlc.length >= 2 ? ohlc : [], closes });
-        }
+        if (ohlc.length >= 2) map.set(row.key, { ohlc, closes });
       });
+
       for (const c of codes) {
         const k = `sparkline_${c}_${day}`;
         if (map.has(k)) result[c] = map.get(k)!;
