@@ -62,6 +62,27 @@ const externalBarrelOnlyConfig = {
   },
 };
 
+// Checkup Gateway seam（ADR-0004）：hooks / 元件層不得直接 import supabase client，
+// 一律走 getCheckupGateway()。gateway adapter 自身是唯一例外。
+const checkupGatewaySeamConfig = {
+  files: ["src/checkup/hooks/**/*.{ts,tsx,js,jsx}", "src/checkup/components/**/*.{ts,tsx,js,jsx}"],
+  ignores: ["**/__tests__/**", "**/*.test.*"],
+  rules: {
+    "no-restricted-imports": [
+      "error",
+      {
+        patterns: [
+          {
+            group: ["@/integrations/supabase/client", "**/integrations/supabase/client"],
+            message:
+              "Checkup Gateway seam（ADR-0004）：hooks / 元件不得直接 import supabase client，請改用 getCheckupGateway()（http / db / auth / realtime / invoke / rpc）。",
+          },
+        ],
+      },
+    ],
+  },
+};
+
 export default tseslint.config(
   { ignores: ["dist"] },
   {
@@ -101,4 +122,5 @@ export default tseslint.config(
   // Checkup 深模組邊界規則（見 docs/architecture/holdings-modules.md）
   ...siblingBoundaryConfigs,
   externalBarrelOnlyConfig,
+  checkupGatewaySeamConfig,
 );
