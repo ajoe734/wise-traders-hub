@@ -1,41 +1,102 @@
-import { assertEquals, assertThrows } from "https://deno.land/std@0.224.0/assert/mod.ts";
-import { checkupRenewalUrl, renewalUrl } from "./routes.ts";
+import { assertEquals, assertThrows } from "https://deno.land/std@0.208.0/assert/mod.ts";
+import {
+  accountNotificationsUrl,
+  accountUrl,
+  adminCapitalUrl,
+  adminSignalsUrl,
+  assertNotificationLink,
+  buildNotificationRow,
+  checkupRenewalUrl,
+  checkupUrl,
+  companyUrl,
+  expertDetailUrl,
+  renewalUrl,
+  validateNotificationLink,
+} from "./routes.ts";
 
-Deno.test("renewalUrl 產出公開結帳路徑", () => {
-  assertEquals(renewalUrl("foo", "bar"), "/checkout/foo/bar");
+// ── renewal ────────────────────────────────────────────────────────────────
+Deno.test("renewalUrl 指向公開結帳路徑", () => {
+  assertEquals(renewalUrl("foo", "p1"), "/checkout/foo/p1");
+  assertEquals(checkupRenewalUrl("p1"), "/checkout/checkup/p1");
 });
 
-Deno.test("renewalUrl 絕不產出 /app/ 路徑", () => {
-  assertEquals(renewalUrl("foo", "bar").includes("/app/"), false);
+// ── notification link builders ─────────────────────────────────────────────
+Deno.test("expertDetailUrl 無 slug 時退回通知中心", () => {
+  assertEquals(expertDetailUrl("laozhou"), "/app/expert/laozhou");
+  assertEquals(expertDetailUrl(null), "/account/notifications");
+  assertEquals(expertDetailUrl(""), "/account/notifications");
 });
 
-Deno.test("renewalUrl 支援 baseUrl 且不重複斜線", () => {
-  assertEquals(
-    renewalUrl("foo", "bar", { baseUrl: "https://legendflow.tw/" }),
-    "https://legendflow.tw/checkout/foo/bar",
-  );
+Deno.test("checkupUrl 組出 job / autorun query", () => {
+  assertEquals(checkupUrl(), "/holding-checkup");
+  assertEquals(checkupUrl({ autorun: true }), "/holding-checkup?autorun=1");
+  assertEquals(checkupUrl({ jobId: "abc" }), "/holding-checkup?job=abc");
 });
 
-Deno.test("renewalUrl 附加 query 並略過空值", () => {
-  assertEquals(
-    renewalUrl("foo", "bar", { query: { cycle: "yearly", utm_source: "line", x: "" } }),
-    "/checkout/foo/bar?cycle=yearly&utm_source=line",
-  );
+Deno.test("admin 連結一定帶 expertSlug（route 是 /admin/:expertSlug/...）", () => {
+  assertEquals(adminSignalsUrl("benny"), "/admin/benny/signals");
+  assertEquals(adminCapitalUrl("benny"), "/admin/benny/profile#capital");
+  // 無 slug 不可產生會 404 的 /admin/signals
+  assertEquals(adminSignalsUrl(null), "/account/notifications");
+  assertEquals(adminCapitalUrl(undefined), "/account/notifications");
 });
 
-Deno.test("renewalUrl 對 slug / planId 編碼", () => {
-  assertEquals(renewalUrl("a b", "p/1"), "/checkout/a%20b/p%2F1");
+Deno.test("companyUrl 只接受白名單頁面", () => {
+  assertEquals(companyUrl("journals-export"), "/company/journals-export");
+  assertThrows(() => companyUrl("nope" as never));
 });
 
-Deno.test("renewalUrl 缺參數丟錯", () => {
-  assertThrows(() => renewalUrl("", "bar"));
-  assertThrows(() => renewalUrl("foo", ""));
+Deno.test("accountUrl / accountNotificationsUrl 為既有 route", () => {
+  assertEquals(accountUrl(), "/app/account");
+  assertEquals(accountNotificationsUrl(), "/account/notifications");
 });
 
-Deno.test("checkupRenewalUrl 產出 /checkout/checkup/:planId", () => {
-  assertEquals(
-    checkupRenewalUrl("p1", { baseUrl: "https://legendflow.tw", query: { cycle: "monthly" } }),
-    "https://legendflow.tw/checkout/checkup/p1?cycle=monthly",
-  );
-  assertThrows(() => checkupRenewalUrl(""));
+// ── validation ─────────────────────────────────────────────────────────────
+Deno.test("validateNotificationLink 擋掉所有已知 404 樣式", () => {
+  assertEquals(validateNotificationLink("/app/expert/x"), null);
+  assertEquals(validateNotificationLink(""), "empty");
+  assertEquals(validateNotificationLink("https://x.co/file.md"), "absolute_url");
+  assertEquals(validateNotificationLink("app/account"), "not_relative");
+  assertEquals(validateNotificationLink("//evil.com"), "double_slash");
+  assertEquals(validateNotificationLink("/me/signals"), "legacy_me_path");
+  assertEquals(validateNotificationLink("/admin/signals"), "admin_missing_slug");
+  assertEquals(validateNotificationLink("/admin/profile#capital"), "admin_missing_slug");
+  // 帶 slug 的 admin 路徑合法
+  assertEquals(validateNotificationLink("/admin/benny/signals"), null);
+});
+
+Deno.test("assertNotificationLink 對非法連結丟錯", () => {
+  assertEquals(assertNotificationLink("/holding-checkup?autorun=1"), "/holding-checkup?autorun=1");
+  assertThrows(() => assertNotificationLink("/admin/signals"));
+  assertThrows(() => assertNotificationLink("https://example.com/a.zip"));
+});
+
+// ── payload builder ────────────────────────────────────────────────────────
+Deno.test("buildNotificationRow 產生驗證過的 payload", () => {
+  const row = buildNotificationRow({
+    userId: "u1", title: "t", body: "b", type: "warning", link: adminSignalsUrl("benny"),
+  });
+  assertEquals(row, {
+    user_id: "u1", title: "t", body: "b", type: "warning", link: "/admin/benny/signals",
+  });
+});
+
+Deno.test("buildNotificationRow 預設 type=info、link 可為空", () => {
+  const row = buildNotificationRow({ userId: "u1", title: "t", body: "b" });
+  assertEquals(row.type, "info");
+  assertEquals(row.link, null);
+});
+
+Deno.test("signed URL 只能放 downloadUrl，不可放 link", () => {
+  const signed = "https://x.supabase.co/storage/v1/object/sign/a.md?token=t";
+  const row = buildNotificationRow({
+    userId: "u1", title: "t", body: "b", link: companyUrl("journals-export"), downloadUrl: signed,
+  });
+  assertEquals(row.link, "/company/journals-export");
+  assertEquals(row.download_url, signed);
+  assertThrows(() => buildNotificationRow({ userId: "u1", title: "t", body: "b", link: signed }));
+});
+
+Deno.test("buildNotificationRow 需要 userId", () => {
+  assertThrows(() => buildNotificationRow({ userId: "", title: "t", body: "b" }));
 });
