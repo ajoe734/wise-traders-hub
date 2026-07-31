@@ -4,7 +4,7 @@
  * 元件只要餵入攤平後的事實，拿回 `phase`；何時排入回補、何時計時、何時送 analytics
  * 全由 machine 決定。原本散在 ChipsSection 的 4 個 useEffect 收斂為 2 個（觀測 + 計時）。
  */
-import { useCallback, useEffect, useMemo, useReducer, useRef } from 'react';
+import { useEffect, useMemo, useReducer, useRef } from 'react';
 import {
   AUTO_BACKFILL_TIMEOUT_MS,
   chipsBackfillReducer,
