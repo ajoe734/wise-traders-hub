@@ -25,7 +25,7 @@ import {
 
 import { corsHeaders } from '../_shared/cors.ts';
 import { forExport } from "../_shared/journalRepository.ts";
-import { buildNotificationRow, companyUrl } from "../_shared/routes.ts";
+import { buildJournalExportNotification } from "../_shared/notificationTemplates.ts";
 
 const MS_DAY = 86_400_000;
 
