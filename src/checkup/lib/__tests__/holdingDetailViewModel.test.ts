@@ -289,3 +289,32 @@ describe('deriveHoldingDetailViewModel', () => {
     expect(vm.decisionStamp.actionLabel).toBe('續抱');
   });
 });
+
+describe('deriveOhlc 偽 K 棒回退（demo／回補失敗）', () => {
+  it('無真實 OHLC 時，用 close 序列合成 K 棒且確定性一致', () => {
+    const closes = [100, 102, 101, 105, 108];
+    const h = { code: '2330', cost: 100, price: 108 };
+    const a = deriveOhlc(null, h, closes);
+    const b = deriveOhlc(null, h, closes);
+    expect(a).toHaveLength(5);
+    expect(a).toEqual(b);
+    a.forEach((bar) => {
+      expect(bar.high).toBeGreaterThanOrEqual(Math.max(bar.open, bar.close));
+      expect(bar.low).toBeLessThanOrEqual(Math.min(bar.open, bar.close));
+      expect(bar.date).toMatch(/^\d{4}-\d{2}-\d{2}$/);
+    });
+    expect(a[4].close).toBe(108);
+  });
+
+  it('有真實 OHLC 時優先採用真實資料', () => {
+    const real = { ohlc: [
+      { open: 1, high: 2, low: 0.5, close: 1.5 },
+      { open: 1.5, high: 2.5, low: 1, close: 2 },
+    ], closes: [1.5, 2] };
+    expect(deriveOhlc(real, { code: '2330' }, [1.5, 2])).toHaveLength(2);
+  });
+
+  it('close 少於 2 點時回空陣列', () => {
+    expect(deriveOhlc(null, { code: '2330' }, [100])).toEqual([]);
+  });
+});
