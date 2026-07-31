@@ -106,7 +106,8 @@ describe('signalAction — Deno 鏡像 parity 與靜態守衛', () => {
       .filter((l) => !l.startsWith('src/pages/_adminSignals/actionLabels.ts'))
       .filter((l) => !l.startsWith('src/test/'))
       // 持倉決策標籤（exit/review/hold）非訊號 action 領域
-      .filter((l) => !l.startsWith('src/checkup/components/freecheckup/HoldingsDetailPanel.tsx'));
+      .filter((l) => !l.startsWith('src/checkup/components/freecheckup/HoldingsDetailPanel.tsx'))
+      .filter((l) => !l.startsWith('src/checkup/lib/holdingDetailViewModel.ts'));
     expect(out, `發現重複的 action 標籤地圖：\n${out.join('\n')}`).toEqual([]);
   });
 });
