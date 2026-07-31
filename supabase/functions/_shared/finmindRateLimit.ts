@@ -13,6 +13,7 @@
 // 或 purge_expired_bsr_reservations 自動回收，防止 worker crash 造成永久占用。
 
 import type { SupabaseClient } from './supabaseClients.ts';
+import { computeBackoffDelay, DEFAULT_RETRY_POLICY, isRetryableNetworkError, isRetryableStatus, parseRetryAfter } from './retryFetch.ts';
 
 export const FINMIND_HOURLY_LIMIT = Number(Deno.env.get('FINMIND_HOURLY_LIMIT') ?? 1500);
 export const FINMIND_API_NAME = 'finmind';
@@ -180,29 +181,44 @@ export async function fetchWithRateLimit(
   try {
     let attempt = 0;
     while (true) {
-      let res: Response;
+      let res: Response | null = null;
+      let netErr: unknown = null;
       try {
         res = await fetch(url, init);
       } catch (e) {
-        await safeSettle({ success: false, rateLimited: false });
-        throw e;
+        netErr = e;
       }
 
-      if (res.status !== 429) {
+      if (res && !isRetryableStatus(res.status)) {
         await safeSettle({ success: res.ok, rateLimited: false });
         return res;
       }
 
-      await safeSettle({ success: false, rateLimited: true });
-      attempt += 1;
-      if (attempt > maxRetries) return res;
+      if (!res && !isRetryableNetworkError(netErr)) {
+        // client 端非暫時性錯誤（URL 格式等）→ 不重試
+        await safeSettle({ success: false, rateLimited: false });
+        throw netErr;
+      }
 
-      const retryAfterHeader = res.headers.get('retry-after');
-      const retrySec = retryAfterHeader ? Number(retryAfterHeader) : NaN;
-      const waitMs = Number.isFinite(retrySec) && retrySec > 0
-        ? retrySec * 1000
-        : baseBackoff * Math.pow(2, attempt - 1) + Math.floor(Math.random() * 500);
-      console.warn(`[rateLimit] 429 backoff ${waitMs}ms (attempt ${attempt}/${maxRetries}) cid=${cid ?? '-'}`);
+      await safeSettle({ success: false, rateLimited: res?.status === 429 });
+      attempt += 1;
+      if (attempt > maxRetries) {
+        if (res) return res;
+        throw netErr;
+      }
+
+      // 統一退避策略（指數 + 抖動 + Retry-After），見 _shared/retryFetch.ts
+      const retryAfterMs = res ? parseRetryAfter(res.headers.get('retry-after')) : null;
+      const waitMs = computeBackoffDelay(
+        attempt,
+        { ...DEFAULT_RETRY_POLICY, baseDelayMs: baseBackoff, maxDelayMs: 30_000, jitterRatio: 0.25 },
+        retryAfterMs,
+      );
+      console.warn(
+        `[rateLimit] ${res ? `http_${res.status}` : 'network_error'} backoff ${waitMs}ms ` +
+          `(attempt ${attempt}/${maxRetries}) cid=${cid ?? '-'}`,
+      );
+      if (res) { try { await res.body?.cancel(); } catch { /* ignore */ } }
       await new Promise((r) => setTimeout(r, waitMs));
 
       const next = await reserveQuota(supa, limit, lease, cid, tier);

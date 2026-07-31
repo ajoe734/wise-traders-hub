@@ -69,3 +69,16 @@ Deno.test("flush never throws when insert fails", async () => {
   log.log("info", "x", "y");
   await log.flush();
 });
+
+Deno.test('classifyBackfillError: retry_exhausted → UPSTREAM_RETRY_EXHAUSTED（可重跑）', () => {
+  const c = classifyBackfillError(
+    new Error('finmind_retry_exhausted:retry_exhausted:finmind_bsr:attempts=3:status=502:boom'),
+  );
+  assertEquals(c.code, 'UPSTREAM_RETRY_EXHAUSTED');
+  assertEquals(c.retryable, true);
+  assertEquals(c.upstreamStatus, 502);
+
+  const net = classifyBackfillError('twse_retry_exhausted:retry_exhausted:twse_t86:attempts=3:status=network:reset');
+  assertEquals(net.code, 'UPSTREAM_RETRY_EXHAUSTED');
+  assertEquals(net.upstreamStatus, undefined);
+});

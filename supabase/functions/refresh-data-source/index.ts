@@ -12,6 +12,7 @@
 import { serviceClient, userClient } from '../_shared/supabaseClients.ts';
 import { requireCompanyAdmin, authErrorResponse } from '../_shared/adminGuard.ts';
 import { fetchWithRateLimit } from '../_shared/finmindRateLimit.ts';
+import { fetchWithRetry, isRetryExhausted, recordRetryFailure } from '../_shared/retryFetch.ts';
 
 // service role client for rate-limit RPCs (RLS-safe)
 const _rlClient = serviceClient();
@@ -31,7 +32,11 @@ async function fetchTwseIsin(): Promise<{ rowCount: number; meta: Record<string,
   let total = 0;
   const per: Record<string, number> = {};
   for (const m of modes) {
-    const res = await fetch(`https://isin.twse.com.tw/isin/C_public.jsp?strMode=${m}`);
+    const res = await fetchWithRetry(
+      `https://isin.twse.com.tw/isin/C_public.jsp?strMode=${m}`,
+      {},
+      { source: 'twse_isin', policy: { timeoutMs: 20_000 } },
+    );
     if (!res.ok) throw new Error(`TWSE mode=${m} status ${res.status}`);
     const buf = new Uint8Array(await res.arrayBuffer());
     // Big5 → utf8：粗略計算 <tr> 數即可，不需精確 decode
@@ -63,7 +68,11 @@ async function fetchFinmind(): Promise<{ rowCount: number; meta: Record<string, 
 
 
 async function fetchTwseOpenapi(): Promise<{ rowCount: number; meta: Record<string, unknown> }> {
-  const res = await fetch('https://openapi.twse.com.tw/v1/opendata/t187ap03_L');
+  const res = await fetchWithRetry(
+    'https://openapi.twse.com.tw/v1/opendata/t187ap03_L',
+    {},
+    { source: 'twse_openapi' },
+  );
   if (!res.ok) throw new Error(`TWSE OpenAPI status ${res.status}`);
   const arr = await res.json();
   return { rowCount: Array.isArray(arr) ? arr.length : 0, meta: { endpoint: 't187ap03_L' } };
@@ -71,7 +80,11 @@ async function fetchTwseOpenapi(): Promise<{ rowCount: number; meta: Record<stri
 
 async function fetchTpexOpenapi(): Promise<{ rowCount: number; meta: Record<string, unknown> }> {
   // 上櫃股票每日行情
-  const res = await fetch('https://www.tpex.org.tw/openapi/v1/tpex_mainboard_daily_close_quotes');
+  const res = await fetchWithRetry(
+    'https://www.tpex.org.tw/openapi/v1/tpex_mainboard_daily_close_quotes',
+    {},
+    { source: 'tpex_openapi' },
+  );
   if (!res.ok) throw new Error(`TPEx OpenAPI status ${res.status}`);
   const arr = await res.json();
   return { rowCount: Array.isArray(arr) ? arr.length : 0, meta: { endpoint: 'daily_close_quotes' } };
@@ -79,7 +92,11 @@ async function fetchTpexOpenapi(): Promise<{ rowCount: number; meta: Record<stri
 
 async function fetchDataGovTw(): Promise<{ rowCount: number; meta: Record<string, unknown> }> {
   // 上市公司基本資料 dataset ID 10454（同 TWSE OpenAPI t187ap03_L 內容源）
-  const res = await fetch('https://openapi.twse.com.tw/v1/opendata/t187ap03_L');
+  const res = await fetchWithRetry(
+    'https://openapi.twse.com.tw/v1/opendata/t187ap03_L',
+    {},
+    { source: 'data_gov_tw' },
+  );
   if (!res.ok) throw new Error(`data.gov.tw upstream status ${res.status}`);
   const arr = await res.json();
   return { rowCount: Array.isArray(arr) ? arr.length : 0, meta: { via: 'twse-openapi (data.gov.tw 上市公司 mirror)' } };
@@ -152,6 +169,15 @@ Deno.serve(async (req) => {
     } catch (e) {
       const duration = Date.now() - t0;
       const msg = e instanceof Error ? e.message : String(e);
+      // 重試用盡 → 落地可追溯狀態（run log + circuit breaker + refresh log metadata）
+      const retryTrace = isRetryExhausted(e) ? (e as any).toTrace() : null;
+      if (retryTrace) {
+        await recordRetryFailure(admin as any, e as any, {
+          fn: 'refresh-data-source',
+          runId: String(logRow.id),
+          extra: { source_key: sourceKey, log_id: logRow.id },
+        });
+      }
       await admin
         .from('data_source_refresh_logs')
         .update({
@@ -159,9 +185,18 @@ Deno.serve(async (req) => {
           finished_at: new Date().toISOString(),
           duration_ms: duration,
           error_message: msg,
+          metadata: retryTrace ? { retry: retryTrace } : null,
         })
         .eq('id', logRow.id);
-      return json({ ok: false, source_key: sourceKey, error: msg, log_id: logRow.id, duration_ms: duration }, 502);
+      return json({
+        ok: false,
+        source_key: sourceKey,
+        error: msg,
+        code: retryTrace ? 'UPSTREAM_RETRY_EXHAUSTED' : undefined,
+        retry: retryTrace,
+        log_id: logRow.id,
+        duration_ms: duration,
+      }, 502);
     }
   } catch (e) {
     return json({ error: 'internal', detail: e instanceof Error ? e.message : String(e) }, 500);
