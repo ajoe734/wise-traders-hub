@@ -14,6 +14,7 @@ export type HoldingPanelPrefs = {
   showTargetBar: boolean;
   showCharts: boolean;
   showSandbox: boolean;
+  weightRankOpen: boolean;
 };
 
 export const DEFAULT_PREFS: HoldingPanelPrefs = {
@@ -24,6 +25,7 @@ export const DEFAULT_PREFS: HoldingPanelPrefs = {
   showTargetBar: true,
   showCharts: true,
   showSandbox: false,
+  weightRankOpen: false,
 };
 
 export const holdingPanelPrefs = createPrefsStore<HoldingPanelPrefs>({
@@ -39,12 +41,14 @@ export type HoldingExportPrefs = {
   format: 'png' | 'jpeg' | 'pdf';
   ratio: 'square' | 'story' | 'wide';
   resolution: 'std' | 'high' | 'print';
+  includeWeightRank: boolean;
 };
 
 export const DEFAULT_EXPORT_PREFS: HoldingExportPrefs = {
   format: 'png',
   ratio: 'square',
   resolution: 'high',
+  includeWeightRank: true,
 };
 
 const FORMATS = ['png', 'jpeg', 'pdf'] as const;
@@ -60,5 +64,8 @@ export const holdingExportPrefs = createPrefsStore<HoldingExportPrefs>({
     resolution: (RESOLUTIONS as readonly string[]).includes(v.resolution)
       ? v.resolution
       : DEFAULT_EXPORT_PREFS.resolution,
+    // 舊資料沒有這個欄位 → 維持既有行為（包含）
+    includeWeightRank: v.includeWeightRank === undefined ? true : !!v.includeWeightRank,
   }),
 });
+
