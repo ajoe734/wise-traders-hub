@@ -174,24 +174,18 @@ Deno.serve(async (req) => {
 
     // 4. 通知 company_admin（一律連到歷史列表，讓管理員自行下載各老師檔案）
     const adminIds = await listCompanyAdminIds();
-    const title = list.length > 0
-      ? `週記匯出完成：${range.startLabel} 週共 ${list.length} 則 / ${uploaded.length} 位老師（Markdown）`
-      : `週記匯出：${range.startLabel} 週目前無任何已發布週記`;
-    const bodyText = list.length > 0
-      ? `已為 ${uploaded.length} 位老師各產出一份 Markdown 檔，請至「週記匯出」頁面下載。`
-      : `本週尚無 mentor 發布週記，未產生任何檔案。`;
 
     if (adminIds.length > 0) {
-      const notifRows = adminIds.map((uid: string) => buildNotificationRow({
+      const notifRows = adminIds.map((uid: string) => buildJournalExportNotification({
         userId: uid,
-        title,
-        body: bodyText,
-        type: "journal_export",
-        link: companyUrl("journals-export"),
+        weekLabel: range.startLabel,
+        journalCount: list.length,
+        mentorCount: uploaded.length,
       }));
       const { error: notifErr } = await supabase.from("notifications").insert(notifRows);
       if (notifErr) console.error(`insert notifications failed: ${notifErr.message}`);
     }
+
 
     // 5. 清理超過 30 天的舊檔
     let deletedCount = 0;
