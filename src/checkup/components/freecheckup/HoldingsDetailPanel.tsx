@@ -14,6 +14,8 @@ import ChipsSection from './ChipsSection';
 import { Tooltip, TooltipTrigger, TooltipContent } from '@/components/ui/tooltip';
 import '@/checkup/styles/holdingsDetailPanel.css';
 import { holdingPanelPrefs, holdingExportPrefs } from '@/checkup/lib/drawerPrefs';
+import { barIndexFromX, barCenterPct, shouldFlipTooltip, fmtKlineDate, fmtKlineNum } from '@/checkup/lib/klineTooltip';
+
 
 /**
  * HoldingsDetailPanel — 決策書抽屜（Handoff 2026-07-15 §4，3a 定案）
@@ -963,7 +965,7 @@ export function RangeBand({ WB, price, low, high, spark, ohlc, symbol, priceSour
     });
   })() : null;
 
-  // ── hover / touch tooltip：顯示該根 K 棒的日期與 OHLC ──
+  // ── hover / touch tooltip：顯示該根 K 棒的日期與 OHLC（座標與格式邏輯在 @/checkup/lib/klineTooltip） ──
   const wrapRef = useRef<HTMLDivElement | null>(null);
   const [hoverIdx, setHoverIdx] = useState<number | null>(null);
   const hoverBar = useKline && hoverIdx != null ? cleanOhlc[hoverIdx] : null;
@@ -971,23 +973,16 @@ export function RangeBand({ WB, price, low, high, spark, ohlc, symbol, priceSour
   const pickIndex = (clientX) => {
     const el = wrapRef.current;
     if (!el || !useKline) return;
-    const rect = el.getBoundingClientRect();
-    if (!(rect.width > 0)) return;
-    const ratio = Math.min(Math.max((clientX - rect.left) / rect.width, 0), 1);
-    setHoverIdx(Math.round(ratio * (cleanOhlc.length - 1)));
+    const r = el.getBoundingClientRect();
+    const idx = barIndexFromX(clientX, { left: r.left, width: r.width }, cleanOhlc.length);
+    if (idx != null) setHoverIdx(idx);
   };
 
-  const fmtDate = (d) => {
-    if (!d) return '—';
-    const s = String(d);
-    const m = s.match(/^(\d{4})-(\d{2})-(\d{2})/);
-    return m ? `${m[1]}/${m[2]}/${m[3]}` : s.replace(/-/g, '/');
-  };
-  const fmtN = (v) => (Number.isFinite(v) ? Number(v).toFixed(2) : '—');
+  const fmtDate = fmtKlineDate;
+  const fmtN = fmtKlineNum;
 
-  const hoverX = hoverIdx != null && cleanOhlc.length > 1
-    ? (hoverIdx / (cleanOhlc.length - 1)) * 100
-    : null;
+  const hoverX = barCenterPct(hoverIdx, cleanOhlc.length);
+
 
   return (
     <div
@@ -1075,7 +1070,7 @@ export function RangeBand({ WB, price, low, high, spark, ohlc, symbol, priceSour
                 position: 'absolute',
                 left: `${hoverX}%`,
                 top: 0,
-                transform: `translate(${hoverX > 60 ? '-100%' : '0'}, -4px)`,
+                transform: `translate(${shouldFlipTooltip(hoverX) ? '-100%' : '0'}, -4px)`,
                 pointerEvents: 'none',
                 background: WB.surface,
                 border: `1px solid ${WB.hair}`,
