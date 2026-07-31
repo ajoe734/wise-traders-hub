@@ -27,6 +27,8 @@ import {
   collectTradeIssues,
   buildComboLegRows,
 } from '@/pages/_signalEditor/derive';
+import { evaluatePublishGate } from '@/pages/_signalEditor/publishGate';
+
 import { useSignalEditorData } from '@/hooks/admin/useSignalEditorData';
 import { getAssetSpec, resolveAssetClass, sanitizeAssetQuantityUnit } from '@/lib/asset';
 
