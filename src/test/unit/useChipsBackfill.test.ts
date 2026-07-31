@@ -31,7 +31,7 @@ describe('useChipsBackfill', () => {
 
   it('兩條回補路徑都只透過 gateway 握手', async () => {
     const { result } = mount(fake);
-    let res: any;
+    let res: Awaited<ReturnType<ReturnType<typeof useChipsBackfill>["requestBackfill"]>>;
     await act(async () => {
       res = await result.current.requestBackfill();
     });
@@ -49,7 +49,7 @@ describe('useChipsBackfill', () => {
   it('只要一條成功就算成功（BSR 失敗時 bsrCount 為 0）', async () => {
     fake = createFakeGateway({ functions: { 'tw-institutional-daily-sync': { ok: true } } }); // rpc 未註冊 → 失敗
     const { result } = mount(fake);
-    let res: any;
+    let res: Awaited<ReturnType<ReturnType<typeof useChipsBackfill>["requestBackfill"]>>;
     await act(async () => {
       res = await result.current.requestBackfill();
     });
@@ -62,7 +62,7 @@ describe('useChipsBackfill', () => {
       rpcs: { enqueue_bsr_backfill: new CheckupGatewayError('bsr boom') },
     });
     const { result } = mount(fake);
-    let res: any;
+    let res: Awaited<ReturnType<ReturnType<typeof useChipsBackfill>["requestBackfill"]>>;
     await act(async () => {
       res = await result.current.requestBackfill();
     });
@@ -71,7 +71,7 @@ describe('useChipsBackfill', () => {
 
   it('沒有股票代號時不握手', async () => {
     const { result } = mount(fake, null);
-    let res: any;
+    let res: Awaited<ReturnType<ReturnType<typeof useChipsBackfill>["requestBackfill"]>>;
     await act(async () => {
       res = await result.current.requestBackfill();
     });
