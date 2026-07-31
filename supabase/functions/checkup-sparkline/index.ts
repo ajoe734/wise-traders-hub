@@ -43,8 +43,19 @@ async function fetchWithTimeout(url: string, ms = 7000): Promise<Response | null
   }
 }
 
-// TWSE 一個月的收盤；月初若無資料退回上一個月
-async function twseMonth(code: string, d: Date): Promise<number[]> {
+type OHLC = { date?: string; open: number; high: number; low: number; close: number };
+
+function parseOhlcRow(r: any[]): OHLC | null {
+  const o = Number(String(r[3]).replace(/,/g, ""));
+  const h = Number(String(r[4]).replace(/,/g, ""));
+  const l = Number(String(r[5]).replace(/,/g, ""));
+  const c = Number(String(r[6]).replace(/,/g, ""));
+  if (![o, h, l, c].every((n) => Number.isFinite(n) && n > 0)) return null;
+  return { open: o, high: h, low: l, close: c };
+}
+
+// TWSE 一個月的 OHLC；月初若無資料退回上一個月
+async function twseMonth(code: string, d: Date): Promise<OHLC[]> {
   const date = ymd(d);
   const url = `${TWSE_DAY}?response=json&date=${date}&stockNo=${encodeURIComponent(code)}`;
   const res = await fetchWithTimeout(url);
@@ -53,26 +64,24 @@ async function twseMonth(code: string, d: Date): Promise<number[]> {
   try { json = await res.json(); } catch { return []; }
   const rows: any[] = json?.data || [];
   if (!rows.length) return [];
-  return rows
-    .map((r) => Number(String(r[6]).replace(/,/g, "")))
-    .filter((n) => Number.isFinite(n) && n > 0);
+  return rows.map(parseOhlcRow).filter((x): x is OHLC => !!x);
 }
 
-async function twseRecent(code: string): Promise<number[]> {
+async function twseRecent(code: string): Promise<OHLC[]> {
   const now = new Date();
-  let closes = await twseMonth(code, now);
+  let bars = await twseMonth(code, now);
   // 月初不足 2 筆 → 退回上一個月補
-  if (closes.length < 2) {
+  if (bars.length < 2) {
     const prev = new Date(now.getFullYear(), now.getMonth() - 1, 1);
-    const prevCloses = await twseMonth(code, prev);
-    closes = [...prevCloses, ...closes];
+    const prevBars = await twseMonth(code, prev);
+    bars = [...prevBars, ...bars];
   }
-  return closes.slice(-5);
+  return bars.slice(-30);
 }
 
 // TPEX 新版 (2024 改版後)：tradingStock?monthDate=ROC/MM&code=XXXX&response=json
 // 注意：是 monthDate（民國年/月），不是 date；date 會回「參數輸入錯誤」
-async function tpexMonth(code: string, d: Date): Promise<number[]> {
+async function tpexMonth(code: string, d: Date): Promise<OHLC[]> {
   const roc = `${d.getFullYear() - 1911}/${String(d.getMonth() + 1).padStart(2, "0")}`;
   const url = `${TPEX_DAY}?monthDate=${encodeURIComponent(roc)}&code=${encodeURIComponent(code)}&id=&response=json&_=${Date.now()}`;
   const res = await fetchWithTimeout(url);
@@ -94,25 +103,23 @@ async function tpexMonth(code: string, d: Date): Promise<number[]> {
     console.log(`[tpex] ${code} ${roc} no rows; keys=`, Object.keys(json || {}), 'stat=', json?.stat);
     return [];
   }
-  const closes = rows
-    .map((r) => Number(String(r[6]).replace(/,/g, "")))
-    .filter((n) => Number.isFinite(n) && n > 0);
-  console.log(`[tpex] ${code} ${roc} got ${closes.length} closes`);
-  return closes;
+  const bars = rows.map(parseOhlcRow).filter((x): x is OHLC => !!x);
+  console.log(`[tpex] ${code} ${roc} got ${bars.length} bars`);
+  return bars;
 }
 
-async function tpexRecent(code: string): Promise<number[]> {
+async function tpexRecent(code: string): Promise<OHLC[]> {
   const now = new Date();
-  let closes = await tpexMonth(code, now);
-  if (closes.length < 2) {
+  let bars = await tpexMonth(code, now);
+  if (bars.length < 2) {
     const prev = new Date(now.getFullYear(), now.getMonth() - 1, 1);
-    const prevCloses = await tpexMonth(code, prev);
-    closes = [...prevCloses, ...closes];
+    const prevBars = await tpexMonth(code, prev);
+    bars = [...prevBars, ...bars];
   }
-  return closes.slice(-5);
+  return bars.slice(-30);
 }
 
-async function fetchSparkline(code: string): Promise<number[]> {
+async function fetchSparkline(code: string): Promise<OHLC[]> {
   const c = String(code).trim();
   if (!c) return [];
   const a = await twseRecent(c);
@@ -175,7 +182,7 @@ const handler = withLogging('checkup-sparkline', async (req, log) => {
     const sb = serviceClient();
 
     const day = todayKey();
-    const result: Record<string, number[]> = {};
+    const result: Record<string, { ohlc: OHLC[]; closes: number[] }> = {};
     const toFetch: string[] = [];
 
     const cacheKeys = codes.map((c) => `sparkline_${c}_${day}`);
@@ -185,10 +192,15 @@ const handler = withLogging('checkup-sparkline', async (req, log) => {
         .select("key,data")
         .eq("user_id", "00000000-0000-0000-0000-000000000000")
         .in("key", cacheKeys);
-      const map = new Map<string, number[]>();
+      const map = new Map<string, { ohlc: OHLC[]; closes: number[] }>();
       (cached || []).forEach((row: any) => {
-        const arr = Array.isArray(row?.data?.closes) ? row.data.closes : [];
-        if (arr.length >= 2) map.set(row.key, arr);
+        const d = row?.data || {};
+        // 新快取：ohlc + closes；舊快取：僅 closes
+        const ohlc = Array.isArray(d.ohlc) ? d.ohlc : [];
+        const closes = Array.isArray(d.closes) ? d.closes : (Array.isArray(d) ? d : []);
+        if (ohlc.length >= 2 || closes.length >= 2) {
+          map.set(row.key, { ohlc: ohlc.length >= 2 ? ohlc : [], closes });
+        }
       });
       for (const c of codes) {
         const k = `sparkline_${c}_${day}`;
@@ -204,13 +216,14 @@ const handler = withLogging('checkup-sparkline', async (req, log) => {
       const results = await Promise.all(batch.map((c) => fetchSparkline(c)));
       const upserts: any[] = [];
       batch.forEach((c, idx) => {
-        const closes = results[idx] || [];
-        result[c] = closes;
-        if (closes.length >= 2) {
+        const ohlc = results[idx] || [];
+        const closes = ohlc.map((b) => b.close);
+        result[c] = { ohlc, closes };
+        if (ohlc.length >= 2) {
           upserts.push({
             user_id: "00000000-0000-0000-0000-000000000000",
             key: `sparkline_${c}_${day}`,
-            data: { closes, fetched_at: new Date().toISOString() },
+            data: { ohlc, closes, fetched_at: new Date().toISOString() },
           });
         }
       });

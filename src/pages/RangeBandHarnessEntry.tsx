@@ -7,7 +7,9 @@
  *
  * Fixture shape:
  *   { price?: number, low?: number, high?: number, spark?: number[],
- *     symbol?: string, priceSource?: string, priceUpdatedAt?: string }
+ *     ohlc?: { open, high, low, close, date? }[], symbol?: string,
+ *     priceSource?: string, priceUpdatedAt?: string }
+
  *
  * SECURITY: gated to preview envs only; returns null in production.
  */
@@ -58,7 +60,10 @@ const WB = {
   accent: '#EC662D',
   surface: '#F5F3EF',
   hair: '#e6e2dc',
+  klineUp: '#D93025',
+  klineDown: '#1E8E3E',
 };
+
 
 export default function RangeBandHarnessEntry() {
   if (!isPreviewEnv()) return null;
@@ -92,10 +97,12 @@ export default function RangeBandHarnessEntry() {
           low={fx.low}
           high={fx.high}
           spark={fx.spark}
+          ohlc={fx.ohlc}
           symbol={fx.symbol}
           priceSource={fx.priceSource}
           priceUpdatedAt={fx.priceUpdatedAt}
         />
+
       </Suspense>
     </div>
   );

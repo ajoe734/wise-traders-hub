@@ -392,14 +392,16 @@ function HoldingsDetailPanelImpl({
           tpHistory={tpHistory}
         />
 
-        {/* 6) 30D 走勢帶 */}
-        {rangeLow != null && rangeHigh != null && rangeHigh > rangeLow && (
+        {/* 6) 30D 走勢帶（K 線；OHLC 不足時退回折線） */}
+        {((vm.ohlcArr.length >= 2 && vm.ohlcRangeLow != null && vm.ohlcRangeHigh != null) ||
+          (rangeLow != null && rangeHigh != null && rangeHigh > rangeLow)) && (
           <RangeBand
             WB={WB}
             price={Number(h.price)}
-            low={rangeLow}
-            high={rangeHigh}
+            low={vm.ohlcRangeLow ?? rangeLow}
+            high={vm.ohlcRangeHigh ?? rangeHigh}
             spark={sparkArr}
+            ohlc={vm.ohlcArr}
             symbol={h?.code || h?.symbol || h?.instrument}
             priceSource={meta?.priceSource || h?.priceSource}
             priceUpdatedAt={h?.priceUpdatedAt}
@@ -807,28 +809,32 @@ function PriceAxis({ WB, price, cost, target, baseTarget, upside, tpHistory }) {
 
 // ──────────────────── §4.6 30D 走勢帶 ────────────────────
 
-export function RangeBand({ WB, price, low, high, spark, symbol, priceSource, priceUpdatedAt }) {
-  // 顯示高度（px）：header 迷你 sparkline 移除後，把 30D 走勢帶拉高填補視覺空缺，
-  // 讓唯一保留的折線圖能承接原本的縱向重量、與 PriceAxis / WeightRank 對齊。
+export function RangeBand({ WB, price, low, high, spark, ohlc, symbol, priceSource, priceUpdatedAt }) {
+  // 顯示高度（px）：header 迷你 sparkline 移除後，把 30D 走勢帶拉高填補視覺空缺
   const svgH = 72;
-  // 淨化輸入：過濾 NaN / 非數值 spark；lo/hi 必須是有限數
   const lo = Number.isFinite(low) ? Number(low) : NaN;
   const hi = Number.isFinite(high) ? Number(high) : NaN;
+  const hasHiLo = Number.isFinite(lo) && Number.isFinite(hi);
+  const range = hasHiLo ? hi - lo : 0;
+
+  // 淨化 OHLC 與 legacy spark
+  const cleanOhlc = (Array.isArray(ohlc) ? ohlc : []).filter(
+    (b) => b && Number.isFinite(b.open) && Number.isFinite(b.high) && Number.isFinite(b.low) && Number.isFinite(b.close) && b.high > 0
+  );
   const cleanSpark = Array.isArray(spark)
     ? spark.map((v) => Number(v)).filter((v) => Number.isFinite(v))
     : [];
-  const hasHiLo = Number.isFinite(lo) && Number.isFinite(hi);
-  const range = hasHiLo ? hi - lo : 0;
-  // 允許 range === 0（平盤）：仍畫水平線 + 紅點置中；只需 spark 至少 2 點且 hi/lo 可用
-  const hasSpark = hasHiLo && cleanSpark.length >= 2;
-  // 紅點 y：range>0 用 spark 末值換算；range=0 或 spark 缺失 → 置中，永不 NaN
-  const lastV = hasSpark ? cleanSpark[cleanSpark.length - 1] : Number(price);
+  const useKline = cleanOhlc.length >= 2;
+  const hasSpark = hasHiLo && (useKline ? cleanOhlc.length >= 2 : cleanSpark.length >= 2);
+
+  const lastV = useKline
+    ? cleanOhlc[cleanOhlc.length - 1]?.close
+    : (hasSpark ? cleanSpark[cleanSpark.length - 1] : Number(price));
   const rawY =
     range > 0 && Number.isFinite(lastV)
       ? svgH - ((lastV - lo) / range) * svgH
       : svgH / 2;
   const dotY = Number.isFinite(rawY) ? Math.min(Math.max(rawY, 0), svgH) : svgH / 2;
-  // hi/lo label 需要 fallback，避免 toFixed 對 NaN 拋出 "NaN"
   const loLabel = Number.isFinite(lo) ? lo.toFixed(2) : '—';
   const hiLabel = Number.isFinite(hi) ? hi.toFixed(2) : '—';
 
@@ -873,7 +879,6 @@ export function RangeBand({ WB, price, low, high, spark, symbol, priceSource, pr
   useEffect(() => {
     if (!diagnostics.length) return;
     const sym = symbol || 'unknown';
-    // Session-scope 去重：同 symbol + code 只 fire 一次，避免刷屏
     const g = (typeof window !== 'undefined' ? window : globalThis);
     g.__hRangeBandDiagFired ||= new Set();
     diagnostics.forEach((d) => {
@@ -887,7 +892,6 @@ export function RangeBand({ WB, price, low, high, spark, symbol, priceSource, pr
         priceUpdatedAt: priceUpdatedAt || null,
         ...d,
       };
-      // 測試觀測面：無條件推進 window array（E2E harness 讀取用；prod 亦保留，體積可忽略）
       try {
         g.__rangeBandDiagnostics ||= [];
         g.__rangeBandDiagnostics.push(payload);
@@ -909,11 +913,63 @@ export function RangeBand({ WB, price, low, high, spark, symbol, priceSource, pr
     ? `資料源不一致：${diagnostics.map((d) => d.code).join(', ')}`
     : undefined;
 
+  // K 線 helpers：在 SVG 100×30 座標系內定位
+  const yFor = (v) => {
+    if (!hasHiLo || range <= 0) return 15;
+    return 30 - Math.min(Math.max((v - lo) / range, 0), 1) * 30;
+  };
+
+  const klineElements = useKline ? (() => {
+    const N = cleanOhlc.length;
+    const gap = 100 / (N - 1);
+    const bodyW = Math.max(0.8, Math.min(4, gap * 0.55));
+    return cleanOhlc.map((b, i) => {
+      const x = (i / (N - 1)) * 100;
+      const yHigh = yFor(b.high);
+      const yLow = yFor(b.low);
+      const yOpen = yFor(b.open);
+      const yClose = yFor(b.close);
+      const isUp = b.close > b.open;
+      const isDown = b.close < b.open;
+      const color = isUp ? WB.klineUp || '#E53E3E' : isDown ? WB.klineDown || '#38A169' : WB.inkSub;
+      const yTop = Math.min(yOpen, yClose);
+      const yBottom = Math.max(yOpen, yClose);
+      const bodyH = Math.max(0.35, yBottom - yTop);
+      return (
+        <g key={i} data-testid="kline-bar">
+          <line
+            data-testid="kline-wick"
+            x1={x.toFixed(2)}
+            x2={x.toFixed(2)}
+            y1={yHigh.toFixed(2)}
+            y2={yLow.toFixed(2)}
+            stroke={color}
+            strokeWidth="1"
+            vectorEffect="non-scaling-stroke"
+          />
+          <rect
+            data-testid="kline-candle"
+            x={(x - bodyW / 2).toFixed(2)}
+            y={yTop.toFixed(2)}
+            width={bodyW.toFixed(2)}
+            height={bodyH.toFixed(2)}
+            fill={color}
+            stroke={color}
+            strokeWidth="0.5"
+            vectorEffect="non-scaling-stroke"
+          />
+        </g>
+      );
+    });
+  })() : null;
+
+
   return (
     <div
       data-testid="holdings-range-band"
       data-inconsistent={hasIssue ? '1' : undefined}
       data-inconsistent-codes={hasIssue ? diagnostics.map((d) => d.code).join(',') : undefined}
+      data-chart-mode={useKline ? 'kline' : 'line'}
       style={{ margin: '0 0 20px', minWidth: 0 }}
     >
       <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: 6 }}>
@@ -942,16 +998,18 @@ export function RangeBand({ WB, price, low, high, spark, symbol, priceSource, pr
       </div>
       {hasSpark && (
         <div style={{ position: 'relative', width: '100%', height: svgH }}>
-          {/* preserveAspectRatio="none" SVG 只放 stroke polyline；圓點禁止進 SVG（會被壓成橢圓） */}
           <svg viewBox="0 0 100 30" preserveAspectRatio="none"
             style={{ width: '100%', height: svgH, display: 'block', position: 'absolute', inset: 0 }}>
-            <polyline fill="none" stroke={WB.inkSub} strokeWidth="1" vectorEffect="non-scaling-stroke"
-              points={cleanSpark.map((v, i) => {
-                const x = (i / (cleanSpark.length - 1)) * 100;
-                // range===0（平盤）→ 全部 y 置中，避免除零 NaN
-                const yy = range > 0 ? 30 - ((v - lo) / range) * 30 : 15;
-                return `${x.toFixed(2)},${yy.toFixed(2)}`;
-              }).join(' ')} />
+            {useKline ? (
+              klineElements
+            ) : (
+              <polyline fill="none" stroke={WB.inkSub} strokeWidth="1" vectorEffect="non-scaling-stroke"
+                points={cleanSpark.map((v, i) => {
+                  const x = (i / (cleanSpark.length - 1)) * 100;
+                  const yy = range > 0 ? 30 - ((v - lo) / range) * 30 : 15;
+                  return `${x.toFixed(2)},${yy.toFixed(2)}`;
+                }).join(' ')} />
+            )}
           </svg>
           {/* HTML overlay：現價圓點（真實 px 正圓）— 固定貼齊時間軸末端 */}
           <span

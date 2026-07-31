@@ -388,7 +388,8 @@ export default function App() {
   const [userOverrides] = useState({});
   // A2-lite: expandedDecision 已內化為 HoldingsTab local state（卡片選取不再污染 parent）
   const [debugMode, setDebugMode] = useState(false);
-  const [sparklines, setSparklines] = useState({}); // { [code]: number[] }
+  const [sparklines, setSparklines] = useState({}); // { [code]: { ohlc: OHLC[], closes: number[] } }
+
   const [sparklineErrors, setSparklineErrors] = useState({}); // P3: { [code]: true } 同步失敗的代碼
 
   // ── 持倉資料庫（Notion 模式）：搜尋 / 篩選 / 排序方向 / Drawer ──

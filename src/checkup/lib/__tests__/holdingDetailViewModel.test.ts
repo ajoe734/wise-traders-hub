@@ -4,8 +4,9 @@ import {
   deriveRelatedEvents, deriveHoldContext, deriveTargetPriceTrend, deriveThesisRows,
   deriveDecisionStamp, deriveNeighbors, buildSimInput, deriveDisplayNumbers,
   shapeTargetPriceHistory, shapeThesisTracking, formatStamp, formatTodayLabel,
-  deriveHoldingDetailViewModel,
+  deriveHoldingDetailViewModel, getSparkCloses, getSparkOhlc,
 } from '../holdingDetailViewModel';
+
 
 const H = { code: '2330', name: '台積電', cost: 900, price: 1000, qty: 2000, pct: 11.11, pnl: 200000 };
 
@@ -42,6 +43,9 @@ describe('deriveSparkline', () => {
   it('真實資料 ≥2 點時原樣使用', () => {
     expect(deriveSparkline([1, 2, 3], H)).toEqual([1, 2, 3]);
   });
+  it('接受 { closes } 物件並取收盤序列', () => {
+    expect(deriveSparkline({ closes: [1, 2, 3], ohlc: [] }, H)).toEqual([1, 2, 3]);
+  });
   it('資料不足時以成本→現價補 30 點且尾端等於現價', () => {
     const arr = deriveSparkline([], H);
     expect(arr).toHaveLength(30);
@@ -54,6 +58,31 @@ describe('deriveSparkline', () => {
     expect(deriveSparkline([], { code: 'X', cost: 0, price: 0 })).toEqual([]);
   });
 });
+
+
+describe('getSparkCloses / getSparkOhlc', () => {
+  it('向下相容純數字陣列', () => {
+    expect(getSparkCloses([1, 2, null as any, 4])).toEqual([1, 2, 4]);
+    expect(getSparkOhlc([1, 2, 3])).toEqual([]);
+  });
+  it('從 { closes, ohlc } 物件各取陣列', () => {
+    const data = {
+      closes: [100, 101, null, 103],
+      ohlc: [
+        { open: 100, high: 105, low: 99, close: 101 },
+        { open: 101, high: 0, low: 0, close: 0 }, // high=0 過濾掉
+      ],
+    };
+    expect(getSparkCloses(data)).toEqual([100, 101, 103]);
+    expect(getSparkOhlc(data)).toEqual([{ open: 100, high: 105, low: 99, close: 101 }]);
+  });
+  it('空 / null 安全', () => {
+    expect(getSparkCloses(null)).toEqual([]);
+    expect(getSparkCloses(undefined)).toEqual([]);
+    expect(getSparkOhlc(null)).toEqual([]);
+  });
+});
+
 
 describe('deriveThesisSentence', () => {
   it('取第一個句子', () => {

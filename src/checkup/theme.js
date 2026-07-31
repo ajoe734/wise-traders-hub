@@ -30,6 +30,10 @@ export const C = {
   upBg:      "rgba(236,102,45,0.07)",
   down:      "#8B8680",
   downBg:    "rgba(139,134,128,0.06)",
+  // ── K 線：依台股慣例紅漲綠跌（獨立於損益色） ──
+  klineUp:   "#E53E3E",
+  klineDown: "#38A169",
+
 
   // ── 功能色：低飽和度柔和色系 ──
   blue:      "#6B9FD4",
@@ -103,6 +107,10 @@ export const L = {
   upBg:      "rgba(236,102,45,0.06)",
   down:      "#403A34",
   downBg:    "rgba(138,133,127,0.05)",
+  // ── K 線：依台股慣例紅漲綠跌（獨立於損益色） ──
+  klineUp:   "#D93025",
+  klineDown: "#1E8E3E",
+
   blue:      "#5A7A98",
   blueBg:    "rgba(90,122,152,0.06)",
   cyan:      "#4A7888",

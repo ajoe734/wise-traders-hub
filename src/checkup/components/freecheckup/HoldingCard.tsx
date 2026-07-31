@@ -26,6 +26,7 @@ import { memo } from 'react';
 import { validateProps } from '@/checkup/lib/validateProps.js';
 import { useInView } from '@/checkup/hooks/useInView.js';
 import { WB } from '@/pages/_freeCheckup/constants.jsx';
+import { getSparkCloses } from '@/checkup/lib/holdingDetailViewModel';
 import { trackRaw } from '@/lib/analytics/events';
 import HoldingCardHeader from './_ui/holdingCard/HoldingCardHeader';
 import HoldingCardReturn from './_ui/holdingCard/HoldingCardReturn';
@@ -33,13 +34,14 @@ import HoldingCardPriceTrack from './_ui/holdingCard/HoldingCardPriceTrack';
 import HoldingCardFooter from './_ui/holdingCard/HoldingCardFooter';
 import HoldingCardSkeleton from './_ui/holdingCard/HoldingCardSkeleton';
 
+
 const HOLDING_CARD_PROP_SCHEMA = {
   holding: 'object',
   decision: { type: 'object', optional: true },
   target: { type: 'object', optional: true },
   avgTargetPrice: { type: 'number', optional: true },
   meta: { type: 'object', optional: true },
-  sparkData: 'array',
+  sparkData: { type: 'any', optional: true }, // number[] | { ohlc, closes }
   sparkFailed: 'boolean',
   variant: 'string',
   isFeatureSlot: 'boolean',
@@ -49,6 +51,7 @@ const HOLDING_CARD_PROP_SCHEMA = {
   onOpenDrawer: 'function',
   onReportMeta: { type: 'function', optional: true },
 };
+
 
 function HoldingCardImpl(props) {
   validateProps('HoldingCard', props, HOLDING_CARD_PROP_SCHEMA);
@@ -72,9 +75,12 @@ function HoldingCardImpl(props) {
     onReportMeta,
   } = props;
 
+  const sparkCloses = getSparkCloses(sparkData);
+
   const actionLabel = dec?.actionType === 'exit'
     ? 'EXIT'
     : dec?.actionType === 'review' ? 'REVIEW' : 'HOLD';
+
 
   // 大字 ROI：現價 vs 成本
   const _costNum = Number(h.cost);
@@ -237,7 +243,7 @@ function HoldingCardImpl(props) {
             variant={variantForChildren}
             cardColor={cardColor}
             muteColor={muteColor}
-            sparkData={sparkData}
+            sparkData={sparkCloses}
             sparkFailed={sparkFailed}
             actionLabel={actionLabel}
             pctVal={pctVal}
