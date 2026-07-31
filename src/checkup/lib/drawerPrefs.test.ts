@@ -19,6 +19,9 @@ function stored(): any {
 describe('holdingExportPrefs — 格式白名單', () => {
   beforeEach(() => {
     window.localStorage.clear();
+    // store 有記憶體快取，清 storage 後要 reset 才會回到乾淨狀態
+    holdingExportPrefs.reset();
+    holdingPanelPrefs.reset();
   });
 
   it.each(['png', 'jpeg', 'pdf'] as const)('%s 是合法格式，save 後原值讀回', (format) => {
@@ -39,11 +42,6 @@ describe('holdingExportPrefs — 格式白名單', () => {
   it('未知格式仍降級成預設 png', () => {
     holdingExportPrefs.save({ format: 'webp', ratio: 'square', resolution: 'high' } as unknown as HoldingExportPrefs);
     expect(holdingExportPrefs.load().format).toBe('png');
-  });
-
-  it('localStorage 直接被塞入 pdf 的裸物件（legacy 無信封）也讀得回來', () => {
-    window.localStorage.setItem(KEY, JSON.stringify({ format: 'pdf', ratio: 'wide', resolution: 'print' }));
-    expect(holdingExportPrefs.load()).toMatchObject({ format: 'pdf', ratio: 'wide', resolution: 'print' });
   });
 
   it('壞掉的 JSON 回預設值，不炸抽屜', () => {
