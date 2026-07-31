@@ -69,24 +69,29 @@ function resolveModuleTarget(spec, modules) {
 export function deriveOwnership(srcDir, modules) {
   const owners = new Map(); // 'src/checkup/...' prefix -> module
   const modulesDir = join(srcDir, 'checkup', 'modules');
+  const BARREL_NAMES = ['index', 'free'];
   for (const m of modules) {
-    const barrel = ['index.ts', 'index.tsx', 'index.js', 'index.jsx']
-      .map((f) => join(modulesDir, m, f))
-      .find((f) => existsSync(f));
-    if (!barrel) continue;
-    for (const spec of extractSpecifiers(readFileSync(barrel, 'utf-8'))) {
-      if (!spec.startsWith('.')) continue;
-      if (/^\.\/(?!\.)/.test(spec)) continue; // 模組自身檔案
-      const abs = join(modulesDir, m, spec);
-      let owned = relative(srcDir, abs).split(sep).join('/');
-      owned = owned.replace(/\/index\.(t|j)sx?$/, '');
-      owned = owned.replace(/\.(t|j)sx?$/, '');
-      if (!owned || owned.startsWith('..')) continue;
-      owners.set(`src/${owned}`, m);
+    const barrels = BARREL_NAMES.flatMap((base) =>
+      ['ts', 'tsx', 'js', 'jsx']
+        .map((ext) => join(modulesDir, m, `${base}.${ext}`))
+        .filter((f) => existsSync(f)),
+    );
+    for (const barrel of barrels) {
+      for (const spec of extractSpecifiers(readFileSync(barrel, 'utf-8'))) {
+        if (!spec.startsWith('.')) continue;
+        if (/^\.\/(?!\.)/.test(spec)) continue; // 模組自身檔案
+        const abs = join(modulesDir, m, spec);
+        let owned = relative(srcDir, abs).split(sep).join('/');
+        owned = owned.replace(/\/index\.(t|j)sx?$/, '');
+        owned = owned.replace(/\.(t|j)sx?$/, '');
+        if (!owned || owned.startsWith('..')) continue;
+        owners.set(`src/${owned}`, m);
+      }
     }
   }
   return owners;
 }
+
 
 function ownerOf(relPath, owners) {
   const stripped = relPath.replace(/\.(t|j)sx?$/, '');
