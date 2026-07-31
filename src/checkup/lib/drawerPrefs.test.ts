@@ -1,0 +1,75 @@
+// 回歸測試：匯出偏好白名單必須含 pdf。
+// 事故背景（C5 收斂）：drawerPrefs 的 FORMATS 只有 ['png','jpeg']，
+// UI 卻提供 PNG/PDF 兩顆按鈕 → 選 PDF 會被 sanitize 回 png，偏好無法持久化。
+import { describe, it, expect, beforeEach } from 'vitest';
+import {
+  holdingExportPrefs,
+  holdingPanelPrefs,
+  DEFAULT_EXPORT_PREFS,
+  type HoldingExportPrefs,
+} from './drawerPrefs';
+
+const KEY = 'holdingPanel.export.v1';
+
+function stored(): any {
+  const raw = JSON.parse(window.localStorage.getItem(KEY) || '{}');
+  return raw && typeof raw === 'object' && raw.data ? raw.data : raw;
+}
+
+describe('holdingExportPrefs — 格式白名單', () => {
+  beforeEach(() => {
+    window.localStorage.clear();
+  });
+
+  it.each(['png', 'jpeg', 'pdf'] as const)('%s 是合法格式，save 後原值讀回', (format) => {
+    holdingExportPrefs.save({ ...DEFAULT_EXPORT_PREFS, format });
+    expect(holdingExportPrefs.load().format).toBe(format);
+    expect(stored().format).toBe(format);
+  });
+
+  it('選 pdf 不會被 sanitize 成 png（本次回歸點）', () => {
+    holdingExportPrefs.save({ format: 'pdf', ratio: 'wide', resolution: 'high' });
+    expect(holdingExportPrefs.load()).toMatchObject({
+      format: 'pdf',
+      ratio: 'wide',
+      resolution: 'high',
+    });
+  });
+
+  it('未知格式仍降級成預設 png', () => {
+    holdingExportPrefs.save({ format: 'webp', ratio: 'square', resolution: 'high' } as unknown as HoldingExportPrefs);
+    expect(holdingExportPrefs.load().format).toBe('png');
+  });
+
+  it('localStorage 直接被塞入 pdf 的裸物件（legacy 無信封）也讀得回來', () => {
+    window.localStorage.setItem(KEY, JSON.stringify({ format: 'pdf', ratio: 'wide', resolution: 'print' }));
+    expect(holdingExportPrefs.load()).toMatchObject({ format: 'pdf', ratio: 'wide', resolution: 'print' });
+  });
+
+  it('壞掉的 JSON 回預設值，不炸抽屜', () => {
+    window.localStorage.setItem(KEY, '{oops');
+    expect(holdingExportPrefs.load()).toEqual(DEFAULT_EXPORT_PREFS);
+  });
+
+  it('面板偏好與匯出偏好使用不同 key，互不污染', () => {
+    holdingExportPrefs.save({ format: 'pdf', ratio: 'wide', resolution: 'std' });
+    holdingPanelPrefs.save({ ...holdingPanelPrefs.load(), showSandbox: true });
+    expect(holdingExportPrefs.load().format).toBe('pdf');
+    expect(holdingPanelPrefs.load().showSandbox).toBe(true);
+  });
+});
+
+describe('UI 選項與白名單契約', () => {
+  it('HoldingsDetailPanel 的格式按鈕值必須全部落在白名單內', async () => {
+    const src = await import('fs').then((fs) =>
+      fs.readFileSync('src/checkup/components/freecheckup/HoldingsDetailPanel.tsx', 'utf8'),
+    );
+    const seg = src.split("data-testid=\"export-seg-format\"")[1]?.slice(0, 400) ?? '';
+    const values = [...seg.matchAll(/value:\s*'([a-z]+)'/g)].map((m) => m[1]);
+    expect(values.length).toBeGreaterThan(0);
+    for (const v of values) {
+      holdingExportPrefs.save({ ...DEFAULT_EXPORT_PREFS, format: v as HoldingExportPrefs['format'] });
+      expect(holdingExportPrefs.load().format, `UI 提供 ${v} 但白名單不接受`).toBe(v);
+    }
+  });
+});
