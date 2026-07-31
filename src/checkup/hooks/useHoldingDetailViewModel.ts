@@ -38,7 +38,7 @@ export function useHoldingDetailViewModel({
     limit: 30,
     enabled: !targetPriceHistoryProp && !!code,
   });
-  const { theses } = useThesisTracking();
+  const { theses } = useThesisTracking() as any;
 
   const targetPriceHistory = useMemo(
     () => targetPriceHistoryProp ?? shapeTargetPriceHistory(tpHistoryRows, code),
