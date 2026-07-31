@@ -1,6 +1,6 @@
 # ADR-0005：freecheckup 的治外法權收編——每個深模組多一個 free surface
 
-- 狀態：Accepted（S1、S2 已完成 2026-07-31；S3 待執行）
+- 狀態：Accepted（S1、S2、S3 已完成 2026-07-31）
 - 日期：2026-07-31
 - 相關：ADR-0001（五個深模組）、ADR-0004（Checkup Gateway seam）
 
@@ -120,7 +120,7 @@ export { HoldingsDetailPanel } from '../../components/freecheckup/HoldingsDetail
 | --- | --- | --- |
 | S1 | ✅ 完成（2026-07-31）建立五個 `free.ts` 次級 barrel + 共享層 `src/checkup/lib/validateProps.js`；shell 改用 barrel lazy import | 單元測試全綠、build 通過、首屏不含任何 tab |
 | S2 | ✅ 完成（2026-07-31）`HoldingsTab` 的 `BatchParsePanel` 改槽位注入 | `holdings-batch-parse-slot.test.ts` 守住；邊界檢查 0 violations |
-| S3 | 守衛加上 R5 + 合成違規反向測試，CI 硬擋 | `npm run check:module-boundaries` 對 freecheckup 有輸出能力 |
+| S3 | ✅ 完成（2026-07-31）守衛加上 R5 + 合成違規反向測試，CI 硬擋 | `npm run check:module-boundaries` 對 freecheckup 有輸出能力 |
 
 ## 替代方案
 
@@ -160,3 +160,13 @@ export { HoldingsDetailPanel } from '../../components/freecheckup/HoldingsDetail
 - `node scripts/check-module-boundaries.mjs` 0 violations；`freecheckup-tab-perf` 與 free surface barrel 測試全綠。
 - `e2e/freecheckup-batch-parse.spec.ts`（3 條）與 `batch-parse-quota` 在改動**前後皆紅**（`#fi` 逾時，
   與槽位無關的既有問題），已用 HEAD 版本對照確認為既存失敗，不列為 S2 迴歸。
+
+## S3 實測後記（2026-07-31）
+
+- `deriveOwnership` 同時讀 `index.*` 與 `free.*` barrel，freecheckup 的擁有權因此**自動**納入 R1/R4；不維護第二份清單。
+- 新增兩條判定（`scripts/moduleBoundaries.mjs`）：
+  - `R5_UNOWNED_FREE_FILE`：`src/checkup/components/freecheckup/**` 任一實作檔沒被 barrel 認領即紅燈（`__tests__`、`*.test.*` 與 shell 自有 UI `OnboardingOverlay` / `DemoFooterHint` 除外）。
+  - `R5_FREE_DEEP_IMPORT`：模組外部深挖 freecheckup 實作檔即紅燈；例外只有 `src/pages/*HarnessEntry.tsx` 與 `src/test/**`。
+- 首跑抓到 1 筆真實違規：`src/checkup/hooks/useHoldingDetailViewModel.ts` → `holdingScenario`。依 §6 由 `holdings/free.ts` re-export 收編為 M1，現況 0 violations。
+- ESLint 對應規則 `freeSurfaceConfig`（僅 `.ts/.tsx` 生效，`.jsx` shell 由 mjs 守衛覆蓋），CI 兩個步驟（`check:module-boundaries` + `lint:modules`）皆已涵蓋。
+- 反向測試：`src/test/unit/module-boundary-guard.test.ts` 新增 6 條（真實 repo 0 違規、擁有權映射、合成 R5a/R5b、白名單與 harness 不誤判）。
