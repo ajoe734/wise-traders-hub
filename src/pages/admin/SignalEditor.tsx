@@ -258,31 +258,26 @@ const SignalEditor = () => {
             teachingTopic, overallSummary, learningPoints, trades,
           });
 
-      if (isEditing) {
-        // 先刪舊 trade_records → 再刪舊 expert_signals（FK 依賴順序）
-        const { data: oldSigs } = await supabase
-          .from('expert_signals').select('id').eq('batch_id', batchId);
-        const oldIds = (oldSigs || []).map((r: any) => r.id);
-        if (oldIds.length > 0) {
-          await supabase.rpc('admin_delete_trade_records_by_signal_ids', {
-            _signal_ids: oldIds,
-          });
-        }
-        await supabase.from('expert_signals').delete().eq('batch_id', batchId);
-      }
-
-      const { error } = await supabase.from('expert_signals').insert(rows as any);
-      if (error) { toast.error(error.message); return; }
-
-      // 組合單的多腿明細
+      // 原子化寫入：刪舊 trade_records / legs / signals + 插入新資料在同一交易內完成，
+      // 任一步失敗整批 rollback，不會出現「舊資料已刪、新資料沒寫進去」的整週遺失。
       const legRows = isTeachingOnly ? [] : buildComboLegRows(rows as any[], trades);
-      if (legRows.length > 0) {
-        const { error: legErr } = await supabase.from('expert_signal_legs').insert(legRows as any);
-        if (legErr) {
-          toast.error(`組合單腿別寫入失敗：${legErr.message}`);
-          return;
-        }
+      const { error } = await supabase.rpc('save_signal_batch', {
+        _expert_id: expert.id,
+        _batch_id: batchId,
+        _signals: rows as any,
+        _legs: legRows as any,
+        _is_editing: isEditing,
+      });
+      if (error) {
+        const msg = error.message || '';
+        toast.error(
+          msg.includes('forbidden') ? '沒有權限儲存此分析師的資料'
+            : msg.includes('empty_signals') ? '沒有可儲存的內容'
+            : msg,
+        );
+        return;
       }
+
 
       if (!isMentor) {
         try {
