@@ -110,24 +110,19 @@ Deno.serve(withLogging('publish-weekly-journals', async (req) => {
     let filterExpertIds: string[] | null = null;
     if (body.force && body.expert_id) {
       stage = 'authorize_force';
-      const { data: authUser } = await supabaseAdmin.auth.getUser(
-        (req.headers.get('Authorization') || '').replace(/^Bearer\s+/i, ''),
-      );
-      const callerId = authUser?.user?.id || null;
-      if (!callerId) {
+      // P3: 統一走 _shared/adminGuard 的 owner-or-admin 契約，
+      // 不再在本檔手刻 getUser + experts.user_id 比對。
+      try {
+        const { isOwner, isAdmin } = await requireExpertOwnerOrAdmin(req, body.expert_id);
+        log('Force publish authorized', { expertId: body.expert_id, isOwner, isAdmin });
+      } catch (e) {
+        logErr('authorize_force', e, { expertId: body.expert_id });
         await flushLogs();
-        return json({ error: 'unauthorized', runId }, 401);
-      }
-      const expertRow = await port.getExpert(body.expert_id);
-      const isOwner = expertRow?.user_id === callerId;
-      const isAdmin = await isCompanyAdmin(callerId);
-      if (!isOwner && !isAdmin) {
-        await flushLogs();
-        return json({ error: 'forbidden', runId }, 403);
+        return authErrorResponse(e, req);
       }
       filterExpertIds = [body.expert_id];
-      log('Force publish authorized', { expertId: body.expert_id, isOwner, isAdmin });
     } else if (body.market === 'TW' || body.market === 'US') {
+
       stage = 'filter_by_market';
       filterExpertIds = await resolveMarketScope(port, body.market);
       log(`Market batch: ${body.market} experts=${filterExpertIds.length}`);
