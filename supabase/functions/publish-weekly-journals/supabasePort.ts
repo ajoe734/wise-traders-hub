@@ -2,8 +2,8 @@
  * Supabase + LINE adapter for PublishPort（真實外部世界那一側）。
  */
 import { serviceClient } from '../_shared/supabaseClients.ts';
-import type {
 import { buildNotificationRow } from '../_shared/routes.ts';
+import type {
   ActiveSubscription, ExpertRow, LineBinding, LineChannel,
   MulticastResult, NotificationRow, PendingSignal, PublishPort,
 } from './port.ts';
