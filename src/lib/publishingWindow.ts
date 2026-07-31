@@ -62,16 +62,6 @@ export function nextPublishMomentLabel(assetClass?: string | null): string {
     : '週五 20:00 統一開放發布';
 }
 
-/** 取得指定時刻的台灣自然日（YYYY-MM-DD） */
-function taiwanDateStr(d: Date): string {
-  const utcMs = d.getTime() + d.getTimezoneOffset() * 60000;
-  const tw = new Date(utcMs + 8 * 60 * 60000);
-  const y = tw.getFullYear();
-  const m = String(tw.getMonth() + 1).padStart(2, '0');
-  const day = String(tw.getDate()).padStart(2, '0');
-  return `${y}-${m}-${day}`;
-}
-
 /**
  * 訊號／週記是否仍可被分析師收回（rollback）。
  * 規則：必須在「發布當日（台灣時間 Asia/Taipei）」內；跨自然日後即不可收回。
@@ -84,6 +74,7 @@ export function canRecallSignal(publishedAt: string | Date | null | undefined): 
   if (!publishedAt) return { ok: true };
   const pub = typeof publishedAt === 'string' ? new Date(publishedAt) : publishedAt;
   if (Number.isNaN(pub.getTime())) return { ok: true };
-  if (taiwanDateStr(pub) === taiwanDateStr(new Date())) return { ok: true };
+  if (taipeiDateIso(pub) === taipeiDateIso()) return { ok: true };
+
   return { ok: false, reason: '已過發布當日（台灣時間），不可收回；如需修正請聯絡管理員' };
 }
