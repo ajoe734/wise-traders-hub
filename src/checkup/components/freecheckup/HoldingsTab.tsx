@@ -53,8 +53,8 @@ const HOLDINGS_TAB_PROP_SCHEMA = {
   refreshing: _opt('any'), onRefreshPrices: _opt('any'), refreshError: _opt('any'),
 
   uploadSummary: _opt('any'), setUploadSummary: _opt('any'),
-  batchState: _opt('any'), cancelBatch: _opt('any'),
-  retryBatchFailures: _opt('any'), restoreBatchItemPreview: _opt('any'),
+  batchParseSlot: _opt('any'),
+
   // R6：setTab 已於 L37 宣告為 required 'function'，此處不再重覆宣告以免 schema 覆蓋
   losers: _opt('any'), reversalConditions: _opt('any'),
   reviewingEvent: _opt('any'), setReviewingEvent: _opt('any'), updateReversal: _opt('any'),
