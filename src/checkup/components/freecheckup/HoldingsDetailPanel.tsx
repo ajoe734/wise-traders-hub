@@ -715,6 +715,19 @@ function ExportMenu({ WB, prefs, setPrefs, onExport, onCopy, busy }) {
 // ──────────────────── §4.5 價格軸 ────────────────────
 
 function PriceAxis({ WB, price, cost, target, baseTarget, upside, tpHistory }) {
+  // 量測軌道實寬 → 標籤字寬 / 換行 / 錨定規則的唯一輸入（見 lib/priceAxisLabel.ts）
+  const trackRef = useRef(null);
+  const [trackWidth, setTrackWidth] = useState(320);
+  useEffect(() => {
+    const el = trackRef.current;
+    if (!el) return undefined;
+    const measure = () => setTrackWidth(Math.round(el.getBoundingClientRect().width) || 320);
+    measure();
+    if (typeof ResizeObserver === 'undefined') return undefined;
+    const ro = new ResizeObserver(measure);
+    ro.observe(el);
+    return () => ro.disconnect();
+  }, []);
   const pts = [cost, price, target].filter((v) => Number.isFinite(Number(v)) && Number(v) > 0).map(Number);
   if (pts.length < 2) return null;
   const lo = Math.min(...pts) * 0.95;
