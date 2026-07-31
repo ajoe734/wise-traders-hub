@@ -358,7 +358,7 @@ export function deriveHoldingDetailViewModel(input: {
   const code = holding?.code ?? null;
   const valuation = deriveValuation(holding, totalPortfolioValue);
   const sparkArr = deriveSparkline(sparkData30D, holding);
-  const ohlcArr = deriveOhlc(sparkData30D);
+  const ohlcArr = deriveOhlc(sparkData30D, holding, sparkArr);
   const relatedEvents = deriveRelatedEvents(normalizedEvents, code);
   const display = deriveDisplayNumbers({
     holding, sim, scenario, dirty, baseTarget, valuation, totalPortfolioValue,
