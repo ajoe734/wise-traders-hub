@@ -27,6 +27,8 @@ import {
   collectTradeIssues,
   buildComboLegRows,
 } from '@/pages/_signalEditor/derive';
+import { evaluatePublishGate } from '@/pages/_signalEditor/publishGate';
+
 import { useSignalEditorData } from '@/hooks/admin/useSignalEditorData';
 import { getAssetSpec, resolveAssetClass, sanitizeAssetQuantityUnit } from '@/lib/asset';
 
@@ -224,24 +226,21 @@ const SignalEditor = () => {
   const isTeachingOnly = isMentor && weekType === 'teaching';
 
   const handlePublish = async () => {
-    if (!canEdit) return;
-    if (!publishWindow.open) {
-      toast.error(publishWindow.reason || '目前不在發布時段');
+    // P8：守門順序由 evaluatePublishGate 這個純函式決定（可單測），元件只負責顯示。
+    const gate = evaluatePublishGate({
+      canEdit,
+      publishWindow,
+      assetClass: expert?.asset_class,
+      isTeachingOnly,
+      teachingTopic,
+      validateBatch: () => validateSignalBatch({ expert, trades, openPositions, capital }),
+    });
+    if (gate.blocked) {
+      if (!gate.silent && gate.reason) toast.error(gate.reason);
       return;
     }
-    if (!expert?.asset_class) {
-      toast.error('請先到「分析師設定」選擇主打資產類別（台股 / 美股 / 加密），才能發布訊號或週記');
-      return;
-    }
-    if (isTeachingOnly) {
-      if (!teachingTopic.trim()) {
-        toast.error('純教學週記至少要填教學主題');
-        return;
-      }
-    } else {
-      const err = validateSignalBatch({ expert, trades, openPositions, capital });
-      if (err) { toast.error(err); return; }
-    }
+    if (!expert) return;
+
 
     setSubmitting(true);
     try {
