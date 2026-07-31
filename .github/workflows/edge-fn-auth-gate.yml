@@ -44,6 +44,9 @@ jobs:
           node-version: '20'
       - name: Marker + runtime guard (strict, 0 pending)
         run: node scripts/audit-edge-fn-auth.mjs --strict
+      - name: 共用符號未定義守衛（corsHeaders 等）
+        run: node scripts/audit-edge-fn-undefined-symbols.mjs
+
       - name: pg_cron commands must route via cron_edge_call
         env:
           SUPABASE_URL: ${{ secrets.SUPABASE_URL }}

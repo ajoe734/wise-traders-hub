@@ -2,6 +2,7 @@
 // 逐檔 BSR 時間軸：回傳指定股票近 N 天的所有 attempt 記錄
 // 內含實際抓取時間、HTTP 狀態碼、outcome、latency、UA、backoff/consecutive 狀態、
 // fallback as_of_date、next_retry_at 及其推算來源。
+import { corsHeaders } from '../_shared/cors.ts';
 import { serviceClient } from '../_shared/supabaseClients.ts';
 import { requireCronKey, AuthError } from '../_shared/authGuard.ts';
 
