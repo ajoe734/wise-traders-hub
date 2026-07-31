@@ -38,6 +38,42 @@ export function taipeiMondayOf(d: Date | string | number): string {
   return monday.toISOString().slice(0, 10);
 }
 
+export interface TaipeiClock {
+  /** 台北曆日 `YYYY-MM-DD` */
+  date: string;
+  /** 0=週日 … 6=週六（台北曆法） */
+  day: number;
+  hour: number;
+  minute: number;
+  /** `hour * 100 + minute`，方便做時刻比較 */
+  hhmm: number;
+}
+
+/**
+ * 取得指定時刻在 Asia/Taipei 的「牆上時鐘」資訊。
+ * 全站唯一的台北時鐘來源：發布視窗、收回判定等都必須用它，
+ * 不得再自行手刻 `+8 小時` 位移。
+ */
+export function taipeiClockOf(d: Date | string | number = new Date()): TaipeiClock {
+  const date = d instanceof Date ? d : new Date(d);
+  if (Number.isNaN(date.getTime())) throw new Error(`invalid date: ${String(d)}`);
+  const tw = toTaipeiClock(date);
+  const hour = tw.getUTCHours();
+  const minute = tw.getUTCMinutes();
+  return {
+    date: tw.toISOString().slice(0, 10),
+    day: tw.getUTCDay(),
+    hour,
+    minute,
+    hhmm: hour * 100 + minute,
+  };
+}
+
+/** 指定時刻的台北曆日 `YYYY-MM-DD`。 */
+export function taipeiDateIso(d: Date | string | number = new Date()): string {
+  return taipeiClockOf(d).date;
+}
+
 export interface TaipeiWeekRange {
   /** Taipei 週一 00:00 對應的 UTC ISO 字串 */
   startIso: string;
