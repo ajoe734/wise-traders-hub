@@ -1,5 +1,5 @@
 import { describe, it, expect } from 'vitest';
-import { readFileSync } from 'node:fs';
+import { existsSync, readFileSync } from 'node:fs';
 import { resolve } from 'node:path';
 import { toMirror, readDeno, MIRROR_PATH, DENO_PATH } from '../../../scripts/gen-line-push-core-mirror.mjs';
 import {
@@ -8,7 +8,6 @@ import {
   buildPromoMessage,
   classifyLineTargets,
 } from '@/lib/linePushCore';
-import * as legacy from '@/lib/weeklyPublishLogic';
 
 const root = resolve(__dirname, '../../..');
 const read = (p: string) => readFileSync(resolve(root, p), 'utf-8');
@@ -18,12 +17,8 @@ describe('linePushCore mirror parity', () => {
     expect(read(MIRROR_PATH)).toBe(toMirror(readDeno()));
   });
 
-  it('weeklyPublishLogic 只是相容出口，不含實作', () => {
-    const src = read('src/lib/weeklyPublishLogic.ts');
-    expect(src).not.toMatch(/bodyContents/);
-    expect(src).not.toMatch(/replace\(/);
-    expect(legacy.buildPromoMessage).toBe(buildPromoMessage);
-    expect(legacy.classifyLineTargets).toBe(classifyLineTargets);
+  it('相容出口 src/lib/weeklyPublishLogic.ts 已刪除', () => {
+    expect(existsSync(resolve(root, 'src/lib/weeklyPublishLogic.ts'))).toBe(false);
   });
 
   it('三支 edge function 不得再自刻 htmlToText / buildPromoMessage / 分流邏輯', () => {

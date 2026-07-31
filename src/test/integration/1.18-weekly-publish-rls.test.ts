@@ -3,13 +3,13 @@
  *
  * 測試範圍：
  *
- *   A. buildPromoMessage（src/lib/weeklyPublishLogic.ts）：
+ *   A. buildPromoMessage（src/lib/linePushCore.ts）：
  *      為已取消訂閱者建立推廣 Flex Message 的純函數。
  *        4.5-1 promo：有 performance 資料 → type=flex、altText 含 signalCount、body 含績效欄位
  *        邊界：performance = null → 仍回傳合法 flex message 含「立即重新訂閱！」
  *        邊界：signalCount 與 expertName 正確反映在 altText 中
  *
- *   B. classifyLineTargets（src/lib/weeklyPublishLogic.ts）：
+ *   B. classifyLineTargets（src/lib/linePushCore.ts）：
  *      依訂閱狀態分類 LINE 推播目標（subscribedTargets / canceledTargets）。
  *        4.5-3：無 canceled_at 的有效訂閱者 → subscribedTargets
  *        4.5-4 promo：有 canceled_at 的有效訂閱者 → canceledTargets
@@ -37,7 +37,7 @@ import {
   buildPromoMessage,
   classifyLineTargets,
   type ActiveSubscription,
-} from '@/lib/weeklyPublishLogic';
+} from '@/lib/linePushCore';
 
 // ── buildPromoMessage（推廣 Flex Message 建構）────────────────────────────────
 
