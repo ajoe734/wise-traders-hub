@@ -749,18 +749,22 @@ function PriceAxis({ WB, price, cost, target, baseTarget, upside, tpHistory }) {
     { v: cost, color: WB.inkLight, label: '成本', shape: 'tick', side: 'top' },
     { v: target, color: WB.accent, label: '目標', shape: 'tick', side: 'top' },
     { v: price, color: WB.ink, label: '現價', shape: 'dot', side: 'bottom' },
-  ].map((p) => ({ ...p, x: pos(p.v), lx: labelPos(p.v) })).filter((p) => p.x != null);
-  // 上方標籤在抽屜寬度下容易互撞（例如成本 507、目標 710）。
-  // 以最多兩列做確定性避讓；26% 約等於 448px 抽屜內 92px 的安全文字寬度。
-  const topMarkers = markers
-    .filter((p) => p.side === 'top')
-    .sort((a, b) => Number(a.lx) - Number(b.lx));
-  const laneByLabel = new Map();
-  topMarkers.forEach((marker, index) => {
-    const previous = topMarkers[index - 1];
-    const collides = previous && Number(marker.lx) - Number(previous.lx) < 26;
-    laneByLabel.set(marker.label, collides ? 1 - (laneByLabel.get(previous.label) ?? 0) : 0);
-  });
+  ]
+    .map((p) => ({ ...p, x: pos(p.v), lx: labelPos(p.v) }))
+    .filter((p) => p.x != null)
+    .map((p) => {
+      const text = `${p.label} ${Number(p.v).toFixed(2)}`;
+      return { ...p, text, box: resolveLabelBox({ text, lxPct: Number(p.lx), containerWidth: trackWidth, fontSize: LABEL_FONT_SIZE }) };
+    });
+  // 上方標籤在抽屜寬度下容易互撞（例如成本 507、目標 710），且字串長度會變
+  // （「目標 1,234.56 ↓12%」比「目標 90」寬得多）。lane 分配改由估算字寬決定，
+  // 不再用固定 26% 門檻，因此不同字串長度不會造成錯位或誤判不碰撞。
+  const laneByLabel = assignLanes(
+    markers.filter((p) => p.side === 'top').map((p) => ({ label: p.label, text: p.text, lxPct: Number(p.lx) })),
+    trackWidth,
+    LABEL_FONT_SIZE,
+  );
+  const anyWrapped = markers.some((p) => p.side === 'top' && p.box.wrap);
   return (
     <div data-testid="holdings-price-axis" style={{ margin: '0 0 20px', minWidth: 0 }}>
       <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'baseline', marginBottom: 8 }}>
