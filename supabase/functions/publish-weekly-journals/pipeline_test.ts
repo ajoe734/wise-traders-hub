@@ -7,6 +7,7 @@ import { assertEquals, assert } from 'https://deno.land/std@0.224.0/assert/mod.t
 import {
   resolveMarketScope, markSignalsPublished, syncTradeSignals,
   buildJournalMessages, groupByBatch, pushExpertJournals, runPublishPipeline,
+  computePushDedupeKey,
 } from './pipeline.ts';
 import type { PendingSignal, PublishPort } from './port.ts';
 
@@ -47,6 +48,7 @@ interface FakeState {
   planIds: string[];
   multicasts: Array<{ to: string[]; messages: any[] }>;
   multicastOk: boolean;
+  receipts: Set<string>;
 }
 
 function fakePort(over: Partial<FakeState> = {}): { port: PublishPort; state: FakeState } {
@@ -57,6 +59,7 @@ function fakePort(over: Partial<FakeState> = {}): { port: PublishPort; state: Fa
     openTradeRecords: new Set(), openTradeSignals: new Set(),
     channel: { channel_access_token: 'tok', is_active: true },
     bindings: [], subs: [], planIds: ['p1'], multicasts: [], multicastOk: true,
+    receipts: new Set<string>(),
     ...over,
   };
   const port: PublishPort = {
@@ -86,6 +89,20 @@ function fakePort(over: Partial<FakeState> = {}): { port: PublishPort; state: Fa
     sendLineMulticast: (_t, to, messages) => {
       state.multicasts.push({ to, messages });
       return Promise.resolve(state.multicastOk ? { ok: true, status: 200 } : { ok: false, status: 400, body: 'bad' });
+    },
+    claimPushRecipients: ({ dedupeKey, recipients }) => {
+      const claimed: string[] = [];
+      for (const r of recipients) {
+        const k = `${dedupeKey}|${r}`;
+        if (state.receipts.has(k)) continue;
+        state.receipts.add(k);
+        claimed.push(r);
+      }
+      return Promise.resolve(claimed);
+    },
+    releasePushClaims: (dedupeKey, recipients) => {
+      for (const r of recipients) state.receipts.delete(`${dedupeKey}|${r}`);
+      return Promise.resolve();
     },
     now: () => new Date('2026-07-31T00:00:00Z'),
   };
@@ -309,4 +326,72 @@ Deno.test('runPublishPipeline: 某位老師推播炸掉只計 pushFail', async (
   const r = await runPublishPipeline(port, { filterExpertIds: null });
   assertEquals(r.published, 1);
   assertEquals(r.pushFail, 1);
+});
+
+
+// ── 8. LINE 推播冪等 ───────────────────────────────────────────────────────
+const idemFake = () => fakePort({
+  bindings: [
+    { line_user_id: 'L1', user_id: 'u1' },
+    { line_user_id: 'L2', user_id: 'u2' },
+  ],
+  subs: [
+    { user_id: 'u1', plan_id: 'p1', canceled_at: null, expires_at: '2099-01-01' },
+    { user_id: 'u2', plan_id: 'p1', canceled_at: '2026-01-01', expires_at: '2099-01-01' },
+  ],
+});
+
+Deno.test('computePushDedupeKey: 與 id 排序無關、內容不同則鍵不同', () => {
+  const a = computePushDedupeKey('e1', 'journal', [{ id: 's1' }, { id: 's2' }] as any);
+  const b = computePushDedupeKey('e1', 'journal', [{ id: 's2' }, { id: 's1' }] as any);
+  const c = computePushDedupeKey('e1', 'journal', [{ id: 's3' }] as any);
+  const d = computePushDedupeKey('e1', 'promo', [{ id: 's1' }, { id: 's2' }] as any);
+  assertEquals(a, b);
+  assert(a !== c);
+  assert(a !== d);
+});
+
+Deno.test('pushExpertJournals: 重跑同一批訊號不會重複推播', async () => {
+  const { port, state } = idemFake();
+  const signals = [sig({ id: 's1' })];
+  const r1 = await pushExpertJournals(port, { expertId: 'e1', signals, force: false });
+  assertEquals(r1.pushed, 2); // L1 週記 + L2 促購
+  assertEquals(state.multicasts.length, 2);
+
+  const r2 = await pushExpertJournals(port, { expertId: 'e1', signals, force: false });
+  assertEquals(r2.pushed, 0);
+  assertEquals(state.multicasts.length, 2); // 沒有再送任何一則
+});
+
+Deno.test('pushExpertJournals: 推播失敗會釋放佔位，下一次重跑補送', async () => {
+  const { port, state } = idemFake();
+  state.multicastOk = false;
+  const signals = [sig({ id: 's1' })];
+  const r1 = await pushExpertJournals(port, { expertId: 'e1', signals, force: false });
+  assertEquals(r1.pushed, 0);
+  assertEquals(state.receipts.size, 0);
+
+  state.multicastOk = true;
+  const r2 = await pushExpertJournals(port, { expertId: 'e1', signals, force: false });
+  assertEquals(r2.pushed, 2);
+});
+
+Deno.test('pushExpertJournals: 新增訊號後鍵改變，會重新推播全部收件人', async () => {
+  const { port, state } = idemFake();
+  await pushExpertJournals(port, { expertId: 'e1', signals: [sig({ id: 's1' })], force: false });
+  const before = state.multicasts.length;
+  const r = await pushExpertJournals(port, {
+    expertId: 'e1', signals: [sig({ id: 's1' }), sig({ id: 's2' })], force: false,
+  });
+  assertEquals(r.pushed, 2);
+  assert(state.multicasts.length > before);
+});
+
+Deno.test('pushExpertJournals: 提前發布站內通知同樣冪等', async () => {
+  const { port, state } = idemFake();
+  const signals = [sig({ id: 's1' })];
+  await pushExpertJournals(port, { expertId: 'e1', signals, force: true });
+  assertEquals(state.notifications.length, 1);
+  await pushExpertJournals(port, { expertId: 'e1', signals, force: true });
+  assertEquals(state.notifications.length, 1);
 });

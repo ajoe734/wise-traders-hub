@@ -3266,6 +3266,36 @@ export type Database = {
         }
         Relationships: []
       }
+      line_push_receipts: {
+        Row: {
+          created_at: string
+          dedupe_key: string
+          expert_id: string | null
+          id: string
+          kind: string
+          recipient: string
+          sent_at: string
+        }
+        Insert: {
+          created_at?: string
+          dedupe_key: string
+          expert_id?: string | null
+          id?: string
+          kind: string
+          recipient: string
+          sent_at?: string
+        }
+        Update: {
+          created_at?: string
+          dedupe_key?: string
+          expert_id?: string | null
+          id?: string
+          kind?: string
+          recipient?: string
+          sent_at?: string
+        }
+        Relationships: []
+      }
       member_line_bindings: {
         Row: {
           bound_at: string

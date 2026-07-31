@@ -122,6 +122,25 @@ export function createSupabasePublishPort(
       return { ok: false, status: res.status, body: await res.text() };
     },
 
+    async claimPushRecipients({ dedupeKey, kind, expertId, recipients }) {
+      if (recipients.length === 0) return [];
+      const rows = recipients.map((recipient) => ({
+        dedupe_key: dedupeKey, recipient, kind, expert_id: expertId,
+      }));
+      const { data, error } = await admin
+        .from('line_push_receipts')
+        .upsert(rows as any, { onConflict: 'dedupe_key,recipient', ignoreDuplicates: true })
+        .select('recipient');
+      if (error) throw error;
+      return (data || []).map((r: any) => r.recipient as string);
+    },
+    async releasePushClaims(dedupeKey: string, recipients: string[]) {
+      if (recipients.length === 0) return;
+      await admin.from('line_push_receipts')
+        .delete().eq('dedupe_key', dedupeKey).in('recipient', recipients);
+    },
+
+
     now: () => new Date(),
   };
 }
