@@ -4,7 +4,7 @@ import {
   deriveRelatedEvents, deriveHoldContext, deriveTargetPriceTrend, deriveThesisRows,
   deriveDecisionStamp, deriveNeighbors, buildSimInput, deriveDisplayNumbers,
   shapeTargetPriceHistory, shapeThesisTracking, formatStamp, formatTodayLabel,
-  deriveHoldingDetailViewModel, getSparkCloses, getSparkOhlc,
+  deriveHoldingDetailViewModel, getSparkCloses, getSparkOhlc, deriveOhlc,
 } from '../holdingDetailViewModel';
 
 
