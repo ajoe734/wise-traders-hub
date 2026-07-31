@@ -101,10 +101,47 @@ export function deriveSparkline(sparkData30D: SparklineData | undefined | null, 
   return arr;
 }
 
-/** 30 日 OHLC 序列；資料不足時回空（抽屜 K 線不畫偽序列） */
-export function deriveOhlc(sparkData30D: SparklineData | undefined | null): OHLC[] {
-  return getSparkOhlc(sparkData30D);
+/** 由 close 序列產生確定性的偽 OHLC（demo／回補失敗時，抽屜仍以 K 棒呈現）。
+ * seed 取自 code，同一檔股票每次 render 得到同一組 K 棒。 */
+export function synthesizeOhlc(closes: number[], holding: any): OHLC[] {
+  const arr = (Array.isArray(closes) ? closes : []).filter((n) => Number.isFinite(n));
+  if (arr.length < 2) return [];
+  const seed = String(holding?.code || 'x').split('').reduce((a, ch) => a + ch.charCodeAt(0), 0);
+  const rand = (i: number) => {
+    const x = Math.sin((seed + i * 7.13) * 4177) * 10000;
+    return x - Math.floor(x);
+  };
+  const today = new Date();
+  const n = arr.length;
+  return arr.map((close, i) => {
+    const open = i === 0 ? close * (1 + (rand(i) - 0.5) * 0.01) : arr[i - 1];
+    const spread = Math.max(Math.abs(close - open), close * 0.004);
+    const high = Math.max(open, close) + spread * (0.3 + rand(i + 100) * 0.7);
+    const low = Math.min(open, close) - spread * (0.3 + rand(i + 200) * 0.7);
+    const d = new Date(today);
+    d.setDate(today.getDate() - (n - 1 - i));
+    return {
+      open: Number(open.toFixed(2)),
+      high: Number(high.toFixed(2)),
+      low: Number(Math.max(low, 0.01).toFixed(2)),
+      close: Number(close.toFixed(2)),
+      date: d.toISOString().slice(0, 10),
+    };
+  });
 }
+
+/** 30 日 OHLC 序列；真實資料不足時，用 close 序列合成確定性 K 棒。 */
+export function deriveOhlc(
+  sparkData30D: SparklineData | undefined | null,
+  holding?: any,
+  closesFallback?: number[],
+): OHLC[] {
+  const real = getSparkOhlc(sparkData30D);
+  if (real.length >= 2) return real;
+  if (!holding) return [];
+  return synthesizeOhlc(closesFallback ?? getSparkCloses(sparkData30D), holding);
+}
+
 
 /** 論點引文：取第一個句子、上限 90 字。 */
 export function deriveThesisSentence(dec: any, meta: any): string {
@@ -321,7 +358,7 @@ export function deriveHoldingDetailViewModel(input: {
   const code = holding?.code ?? null;
   const valuation = deriveValuation(holding, totalPortfolioValue);
   const sparkArr = deriveSparkline(sparkData30D, holding);
-  const ohlcArr = deriveOhlc(sparkData30D);
+  const ohlcArr = deriveOhlc(sparkData30D, holding, sparkArr);
   const relatedEvents = deriveRelatedEvents(normalizedEvents, code);
   const display = deriveDisplayNumbers({
     holding, sim, scenario, dirty, baseTarget, valuation, totalPortfolioValue,
