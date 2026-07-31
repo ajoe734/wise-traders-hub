@@ -145,24 +145,18 @@ export function classifyPublishError(
 }
 
 /**
- * Build the exact `notifications` row inserted for a mentor when publish fails.
- * Mirrors the payload written in index.ts so tests assert against a shared shape.
+ * Build the mentor failure notification row.
+ * 實作在 `_shared/notificationTemplates.ts`（三種通知 payload 的單一資料源），
+ * 這裡只保留既有 import 路徑的相容轉出。
  */
 export function buildMentorFailureNotification(params: {
   mentorUserId: string;
   signalId: string;
   info: PublishErrorInfo;
 }) {
-  return buildNotificationRow({
-    userId: params.mentorUserId,
-    title: params.info.title,
-    body: `${params.info.body}
-
-[Signal ID] ${params.signalId}`,
-    type: 'error',
-    link: params.info.link,
-  });
+  return buildMentorFailureNotificationTemplate(params);
 }
+
 
 /**
  * Retry an async op with exponential backoff on transient errors.
