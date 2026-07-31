@@ -1,5 +1,5 @@
 import React from 'react';
-import { validateProps } from './_validateProps';
+import { validateProps } from '@/checkup/lib/validateProps.js';
 
 /**
  * Props schema 守門：增刪同步 freecheckup-tab-prop-schema.test.ts。

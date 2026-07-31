@@ -1,5 +1,5 @@
 import React from 'react';
-import { validateProps } from './_validateProps';
+import { validateProps } from '@/checkup/lib/validateProps.js';
 
 const RESEARCH_TAB_PROP_SCHEMA = {
   isDemo: 'boolean',

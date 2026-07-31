@@ -202,9 +202,13 @@ describe('FreeCheckup tab — lazy & memo wiring', () => {
     expect(src).toMatch(/\{tab==="daily" && \(\s*<Suspense fallback=\{null\}>\s*<DailyTab/);
     expect(src).toMatch(/\{tab==="holdings" && \(\s*<Suspense fallback=\{null\}>\s*<HoldingsTab/);
     // 確認用的是 lazy() 動態 import
-    expect(src).toMatch(/const EventsTab = lazy\(\(\) => import\("@\/checkup\/components\/freecheckup\/EventsTab"\)\)/);
-    expect(src).toMatch(/const DailyTab = lazy\(\(\) => import\("@\/checkup\/components\/freecheckup\/DailyTab"\)\)/);
-    expect(src).toMatch(/const HoldingsTab = lazy\(\(\) => import\("@\/checkup\/components\/freecheckup\/HoldingsTab"\)\)/);
+    // ADR-0005 S1：shell 改吃模組 free surface barrel，仍必須是 lazy() 動態 import
+    expect(src).toMatch(/const EventsTab = lazy\(\(\) => import\("@\/checkup\/modules\/events\/free"\)\.then\(\(m\) => \(\{ default: m\.EventsTab \}\)\)\)/);
+    expect(src).toMatch(/const DailyTab = lazy\(\(\) => import\("@\/checkup\/modules\/closing\/free"\)\.then\(\(m\) => \(\{ default: m\.DailyTab \}\)\)\)/);
+    expect(src).toMatch(/const HoldingsTab = lazy\(\(\) => import\("@\/checkup\/modules\/holdings\/free"\)\.then\(\(m\) => \(\{ default: m\.HoldingsTab \}\)\)\)/);
+    // shell 不得再深挖 freecheckup 實作檔（OnboardingOverlay / DemoFooterHint 是 shell 自有 UI，例外）
+    const deep = [...src.matchAll(/@\/checkup\/components\/freecheckup\/([A-Za-z]+)/g)].map((m) => m[1]);
+    expect(deep.filter((n) => n !== 'OnboardingOverlay' && n !== 'DemoFooterHint')).toEqual([]);
   });
 });
 

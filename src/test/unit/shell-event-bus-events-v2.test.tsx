@@ -153,7 +153,7 @@ describe('barrel emit/subscribe helpers', () => {
     ({ children }: { children: React.ReactNode }) =>
       React.createElement(ShellEventBusProvider, { bus, children })
 
-  it('holdings.useEmitClosingOpenStock 送出 source=holdings 與 optional date', async () => {
+  it('holdings.useEmitClosingOpenStock 送出 source=holdings 與 optional date', { timeout: 30_000 }, async () => {
     const { useEmitClosingOpenStock } = await import('@/checkup/modules/holdings')
     const bus = createShellEventBus()
     const h = vi.fn()

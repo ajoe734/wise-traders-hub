@@ -3,7 +3,7 @@
 // React.memo 保護：父層每秒 quote tick 不會 re-render filter bar，但 Set props 變動時仍會更新。
 // @analytics-required: checkup_holdings_filter_change
 import { memo } from 'react';
-import { validateProps } from './_validateProps.js';
+import { validateProps } from '@/checkup/lib/validateProps.js';
 import { track } from '@/lib/analytics/events';
 
 // Bug B7 fix：原本的 `trackFilter` helper 未被任何呼叫者使用，且與下方 inline 版本邏輯重複。

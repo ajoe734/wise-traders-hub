@@ -23,7 +23,7 @@
  *   - 行為對等：不新增、不刪除任何互動與 aria hook
  */
 import { memo } from 'react';
-import { validateProps } from './_validateProps.js';
+import { validateProps } from '@/checkup/lib/validateProps.js';
 import { useInView } from '@/checkup/hooks/useInView.js';
 import { WB } from '@/pages/_freeCheckup/constants.jsx';
 import { trackRaw } from '@/lib/analytics/events';

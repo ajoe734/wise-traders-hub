@@ -3,7 +3,7 @@
 // React.memo 於父層每秒 quote tick 時可跳過 re-render（quota 物件 reference 穩定）。
 // W4-4: 加入 paywall_events 埋點（view / hit_limit / click_upgrade）+ A/B 變體文案。
 import { memo, useEffect } from 'react';
-import { validateProps } from './_validateProps.js';
+import { validateProps } from '@/checkup/lib/validateProps.js';
 import { formatTaipeiYMD } from '@/checkup/utils/formatTaipeiDate';
 import { trackPaywall, getPaywallVariant, PAYWALL_COPY } from '@/lib/paywallTracking';
 

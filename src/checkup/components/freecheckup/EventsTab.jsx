@@ -1,5 +1,5 @@
 import React, { useState, useMemo } from 'react';
-import { validateProps } from './_validateProps';
+import { validateProps } from '@/checkup/lib/validateProps.js';
 
 /**
  * EventsTab — Free Checkup「事件追蹤」tab。

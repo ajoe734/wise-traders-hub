@@ -1,5 +1,5 @@
 import React, { Suspense, lazy } from 'react';
-import { validateProps } from './_validateProps';
+import { validateProps } from '@/checkup/lib/validateProps.js';
 import { formatTaipeiYMD } from '@/checkup/utils/formatTaipeiDate';
 import { trackPaywall } from '@/lib/paywallTracking';
 
