@@ -147,12 +147,40 @@ async function backfillStockViaFinmind(
 
   if (chunk.length === 0) return { inserted: 0, from: startDate, to: endDate, rows: 0 };
 
+  // 已封存（sealed）的交易日是權威快照，禁止改寫；直接跳過，避免整批 upsert 被 trigger 擋掉
+  const { data: sealedRows } = await supa
+    .from("tw_bsr_daily_snapshot_status")
+    .select("trade_date")
+    .gte("trade_date", startDate)
+    .lte("trade_date", endDate)
+    .not("sealed_at", "is", null);
+  const sealed = new Set((sealedRows ?? []).map((r: any) => String(r.trade_date)));
+
+  // 只有「已存在且封存」的列會被 trigger 擋（trigger 走 OLD），不存在的日期仍可 insert
+  let existing = new Set<string>();
+  if (sealed.size > 0) {
+    const { data: existRows } = await supa
+      .from("tw_institutional_daily")
+      .select("trade_date")
+      .eq("stock_id", stockId)
+      .gte("trade_date", startDate)
+      .lte("trade_date", endDate);
+    existing = new Set((existRows ?? []).map((r: any) => String(r.trade_date)));
+  }
+
+  const writable = chunk.filter((r) => !(sealed.has(r.trade_date) && existing.has(r.trade_date)));
+  const skipped = chunk.length - writable.length;
+  if (writable.length === 0) {
+    return { inserted: 0, from: startDate, to: endDate, rows: raw.length, skipped_sealed: skipped } as any;
+  }
+
   const { error } = await supa
     .from("tw_institutional_daily")
-    .upsert(chunk, { onConflict: "stock_id,trade_date" });
+    .upsert(writable, { onConflict: "stock_id,trade_date" });
   if (error) throw new Error(`upsert_failed:${error.message}`);
-  return { inserted: chunk.length, from: startDate, to: endDate, rows: raw.length };
+  return { inserted: writable.length, from: startDate, to: endDate, rows: raw.length, skipped_sealed: skipped } as any;
 }
+
 
 // ============================================================================
 // PR-1: Cold-Start（一次性 60 日全市場回補；TWSE T86 bulk per-day，節流 1.2s/call）
@@ -630,28 +658,44 @@ async function runKeepWarm(
   };
 }
 
+// 公開模式：只讀公開市場資料 / 觸發公開資料回補，不需 cron key 也不需 admin。
+// 之所以公開：持倉抽屜（含 FreeCheckup 免登入表面）任何訪客都可能觸發「回補 60 日」，
+// 內容全是 TWSE/FinMind 公開日報，並以 stock_id 白名單 + 冷卻時間限流。
+const PUBLIC_MODES = new Set(["backfill_stock", "cold_start_status"]);
+const BACKFILL_COOLDOWN_MS = 60_000;
+const backfillCooldown = new Map<string, number>();
+
 Deno.serve(async (req) => {
   if (req.method === "OPTIONS") return corsPreflight();
+
+  // 先解析 body（Request body 只能讀一次），才能判斷是否為公開模式
+  let body: any = null;
+  if (req.method === "POST") {
+    try { body = await req.json(); } catch { /* ignore */ }
+  }
+  const isPublicMode = PUBLIC_MODES.has(String(body?.mode ?? ""));
+
   // M-3c-2: cron-or-admin guard. Cron key required for scheduler; admin cold_start falls through.
   let cronAuthed = false;
-  try { requireCronKey(req); cronAuthed = true; }
-  catch (cronErr) {
-    const admin = await isAdminCaller(req);
-    if (!admin.ok) {
-      // 兩條路徑都失敗：優先回傳 admin 檢查失敗原因（cron 排程本來就不會經過瀏覽器）
-      return errorResponse(
-        `unauthorized: not cron and not admin (${admin.reason ?? "unknown"})`,
-        403,
-        { code: "FORBIDDEN" },
-      );
+  if (!isPublicMode) {
+    try { requireCronKey(req); cronAuthed = true; }
+    catch (cronErr) {
+      const admin = await isAdminCaller(req);
+      if (!admin.ok) {
+        // 兩條路徑都失敗：優先回傳 admin 檢查失敗原因（cron 排程本來就不會經過瀏覽器）
+        return errorResponse(
+          `unauthorized: not cron and not admin (${admin.reason ?? "unknown"})`,
+          403,
+          { code: "FORBIDDEN" },
+        );
+      }
     }
   }
   try {
     const url = new URL(req.url);
 
     if (req.method === "POST") {
-      let body: any = null;
-      try { body = await req.json(); } catch { /* ignore */ }
+
 
       // === Mode: cold_start ===
       if (body?.mode === "cold_start") {
@@ -692,7 +736,17 @@ Deno.serve(async (req) => {
         if (!/^[1-9]\d{3}$/.test(stockId)) {
           return errorResponse("stock_id must be 4-digit code starting 1-9", 400, { code: "BAD_REQUEST" });
         }
+        // 限流：同一檔 60 秒內重複觸發直接視為已排入，避免公開端點打爆 FinMind
+        const last = backfillCooldown.get(stockId) ?? 0;
+        if (Date.now() - last < BACKFILL_COOLDOWN_MS) {
+          return jsonResponse({
+            ok: true, mode: "backfill_stock", stock_id: stockId,
+            skipped: true, reason: "cooldown", inserted: 0, rows: 0,
+          });
+        }
+        backfillCooldown.set(stockId, Date.now());
         const supa = serviceClient();
+
         try {
           const result = await backfillStockViaFinmind(supa, stockId, days);
           return jsonResponse({ mode: "backfill_stock", stock_id: stockId, ...result });
