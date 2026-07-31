@@ -310,6 +310,72 @@ export function buildJournalMessages(expertName: string, signals: PendingSignal[
 }
 
 // ── 6. LINE push ──────────────────────────────────────────────────────────
+
+/**
+ * 推播冪等鍵：同一位老師 + 同一種訊息 + 同一組訊號 = 同一把鍵。
+ * 只要內容不變，runner 重跑或 90s abort 後重跑都會算出相同鍵，
+ * 已寫入收據的收件人就不會再收到第二次。
+ */
+export function computePushDedupeKey(
+  expertId: string,
+  kind: string,
+  signals: Pick<PendingSignal, 'id'>[],
+): string {
+  const ids = signals.map((s) => s.id).sort();
+  // FNV-1a：同步、無依賴、對「相同 id 集合」穩定
+  let h = 0x811c9dc5;
+  for (const ch of ids.join(',')) {
+    h ^= ch.charCodeAt(0);
+    h = Math.imul(h, 0x01000193) >>> 0;
+  }
+  return `${expertId}:${kind}:${ids.length}:${h.toString(16)}`;
+}
+
+/**
+ * 佔位 → 送出 → 失敗釋放。
+ * 佔位先寫入收據，因此送出後即使 runner 被 abort、收據也已存在，重跑不會重送；
+ * 送出失敗才釋放佔位，讓下一次重跑補送。
+ */
+async function pushWithIdempotency(
+  port: PublishPort,
+  args: {
+    dedupeKey: string; kind: string; expertId: string; token: string;
+    recipients: string[]; messages: unknown[]; label: string;
+  },
+  emit: EmitFn,
+): Promise<number> {
+  const { dedupeKey, kind, expertId, token, recipients, messages, label } = args;
+  if (recipients.length === 0 || messages.length === 0) return 0;
+  const stage = 'line_push';
+  let pushed = 0;
+
+  for (let i = 0; i < recipients.length; i += 500) {
+    const batch = recipients.slice(i, i + 500);
+    const claimed = await port.claimPushRecipients({ dedupeKey, kind, expertId, recipients: batch });
+    const skipped = batch.length - claimed.length;
+    if (skipped > 0) {
+      emit('info', `LINE push skipped (already sent, ${label})`, { stage, expertId, dedupeKey, skipped });
+    }
+    if (claimed.length === 0) continue;
+
+    let res;
+    try {
+      res = await port.sendLineMulticast(token, claimed, messages);
+    } catch (err) {
+      await port.releasePushClaims(dedupeKey, claimed);
+      throw err;
+    }
+    if (res.ok) {
+      pushed += claimed.length;
+      emit('info', `LINE push ok (${label})`, { stage, expertId, count: claimed.length, dedupeKey });
+    } else {
+      await port.releasePushClaims(dedupeKey, claimed);
+      emit('error', `LINE push failed (${label})`, { stage, expertId, status: res.status, body: res.body, dedupeKey });
+    }
+  }
+  return pushed;
+}
+
 export async function pushExpertJournals(
   port: PublishPort,
   args: { expertId: string; signals: PendingSignal[]; force: boolean },
@@ -346,23 +412,39 @@ export async function pushExpertJournals(
 
   const expertName = expert?.name || '導師';
 
-  // 提前發布：對訂閱者發站內通知
+  // 提前發布：對訂閱者發站內通知（同樣走收據，避免重跑重複通知）
   if (force && notifyUserIds.size > 0) {
     const slug = expert?.slug || null;
     const link = slug ? `/app/expert/${slug}` : '/account/notifications';
-    const notifRows = Array.from(notifyUserIds).map((uid) => ({
-      user_id: uid,
-      title: `${expertName} 本週週記已提前開放`,
-      body: `${expertName} 老師提前公開本週 ${signals.length} 筆操作紀錄，點此立即查看。`,
-      type: 'info',
-      link,
-    }));
+    const notifyKey = computePushDedupeKey(expertId, 'notify_early', signals);
     try {
-      await port.insertNotifications(notifRows);
-      emit('info', 'Early-publish notifications sent', { stage: 'notify_subscribers_early', expertId, count: notifRows.length });
+      const claimed = await port.claimPushRecipients({
+        dedupeKey: notifyKey, kind: 'notify_early', expertId,
+        recipients: Array.from(notifyUserIds),
+      });
+      if (claimed.length > 0) {
+        const notifRows = claimed.map((uid) => ({
+          user_id: uid,
+          title: `${expertName} 本週週記已提前開放`,
+          body: `${expertName} 老師提前公開本週 ${signals.length} 筆操作紀錄，點此立即查看。`,
+          type: 'info',
+          link,
+        }));
+        try {
+          await port.insertNotifications(notifRows);
+          emit('info', 'Early-publish notifications sent', { stage: 'notify_subscribers_early', expertId, count: notifRows.length });
+        } catch (nErr) {
+          await port.releasePushClaims(notifyKey, claimed);
+          throw nErr;
+        }
+      } else {
+        emit('info', 'Early-publish notifications skipped (already sent)', {
+          stage: 'notify_subscribers_early', expertId,
+        });
+      }
     } catch (nErr) {
       emit('warn', 'insert early-publish notifications failed', {
-        stage: 'notify_subscribers_early', expertId, count: notifRows.length,
+        stage: 'notify_subscribers_early', expertId, count: notifyUserIds.size,
         err: (nErr as any)?.message ?? String(nErr),
       });
     }
@@ -370,36 +452,29 @@ export async function pushExpertJournals(
 
   const messages = buildJournalMessages(expertName, signals);
 
-  if (subscribedTargets.length > 0 && messages.length > 0) {
-    for (let i = 0; i < subscribedTargets.length; i += 500) {
-      const batch = subscribedTargets.slice(i, i + 500);
-      const res = await port.sendLineMulticast(token, batch, messages.slice(0, 5)); // LINE 一次最多 5 則
-      if (res.ok) {
-        pushed += batch.length;
-        emit('info', 'LINE push ok (subscribed)', { stage, expertId, count: batch.length });
-      } else {
-        emit('error', 'LINE push failed (subscribed)', { stage, expertId, status: res.status, body: res.body });
-      }
-    }
-  }
+  pushed += await pushWithIdempotency(port, {
+    dedupeKey: computePushDedupeKey(expertId, 'journal', signals),
+    kind: 'journal', expertId, token,
+    recipients: subscribedTargets,
+    messages: messages.slice(0, 5), // LINE 一次最多 5 則
+    label: 'subscribed',
+  }, emit);
 
   if (canceledTargets.length > 0) {
     const perfData = await port.calcExpertPerformance(expertId);
     const promoMsg = buildPromoMessage(expertName, perfData as any, signals.length);
-    for (let i = 0; i < canceledTargets.length; i += 500) {
-      const batch = canceledTargets.slice(i, i + 500);
-      const res = await port.sendLineMulticast(token, batch, [promoMsg]);
-      if (res.ok) {
-        pushed += batch.length;
-        emit('info', 'LINE promo push ok (canceled)', { stage, expertId, count: batch.length });
-      } else {
-        emit('error', 'LINE promo push failed (canceled)', { stage, expertId, status: res.status, body: res.body });
-      }
-    }
+    pushed += await pushWithIdempotency(port, {
+      dedupeKey: computePushDedupeKey(expertId, 'promo', signals),
+      kind: 'promo', expertId, token,
+      recipients: canceledTargets,
+      messages: [promoMsg],
+      label: 'canceled',
+    }, emit);
   }
 
   return { pushed };
 }
+
 
 // ── 7. orchestrator ───────────────────────────────────────────────────────
 export interface PipelineResult {
