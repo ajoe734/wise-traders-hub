@@ -160,11 +160,14 @@ describe('drift-detection: publish-weekly-journals 週記發布排程', () => {
   let src: string;
 
   beforeAll(() => {
-    src = readFileSync(
-      resolve(process.cwd(), 'supabase/functions/publish-weekly-journals/index.ts'),
-      'utf-8',
-    );
+    // P1 後流程已拆成 index/pipeline/supabasePort，drift 檢查整個模組目錄
+    const dir = resolve(process.cwd(), 'supabase/functions/publish-weekly-journals');
+    src = readdirSync(dir)
+      .filter((f) => f.endsWith('.ts'))
+      .map((f) => readFileSync(resolve(dir, f), 'utf-8'))
+      .join('\n');
   });
+
 
   it('從 expert_signals 查詢 status=pending 的待發布訊號（4.5-1）', () => {
     expect(src).toContain('expert_signals');
