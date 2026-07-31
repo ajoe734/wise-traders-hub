@@ -51,7 +51,8 @@ test.describe('K 棒 tooltip 互動', () => {
     // 垂直線寬度為 0，Playwright 視為 hidden → 以存在性與座標斷言
     const crosshair = page.locator('[data-testid="kline-crosshair"]');
     await expect(crosshair).toHaveCount(1);
-    expect(Number(await crosshair.getAttribute('x1'))).toBeCloseTo((9 / 29) * 100, 1);
+    // 繪圖區左右各內縮 PAD_X=2.4（避免首尾 K 棒被切）→ 中心 = 2.4 + ratio * 95.2
+    expect(Number(await crosshair.getAttribute('x1'))).toBeCloseTo(2.4 + (9 / 29) * 95.2, 1);
 
     await expect(page.locator('[data-testid="kline-tooltip-date"]')).toHaveText('2026/07/10');
     await expect(tooltip).toContainText('開 109.00');
