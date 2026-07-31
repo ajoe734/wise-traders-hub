@@ -36,7 +36,7 @@ export const holdingPanelPrefs = createPrefsStore<HoldingPanelPrefs>({
 });
 
 export type HoldingExportPrefs = {
-  format: 'png' | 'jpeg';
+  format: 'png' | 'jpeg' | 'pdf';
   ratio: 'square' | 'story' | 'wide';
   resolution: 'std' | 'high' | 'print';
 };
@@ -47,7 +47,7 @@ export const DEFAULT_EXPORT_PREFS: HoldingExportPrefs = {
   resolution: 'high',
 };
 
-const FORMATS = ['png', 'jpeg'] as const;
+const FORMATS = ['png', 'jpeg', 'pdf'] as const;
 const RATIOS = ['square', 'story', 'wide'] as const;
 const RESOLUTIONS = ['std', 'high', 'print'] as const;
 

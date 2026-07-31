@@ -74,10 +74,13 @@ test.describe('Holdings detail panel @ 863px (narrow viewport)', () => {
     await page.locator('[data-testid="export-seg-resolution"]')
       .getByRole('button', { name: /高\s*3x/ }).click();
 
+    // C5：偏好以版本信封 { __v, data } 儲存（prefsStore），舊版裸物件仍相容。
     await expect.poll(async () => {
       return await page.evaluate((k) => {
-        try { return JSON.parse(window.localStorage.getItem(k) || '{}'); }
-        catch { return {}; }
+        try {
+          const raw = JSON.parse(window.localStorage.getItem(k) || '{}');
+          return raw && typeof raw === 'object' && raw.data ? raw.data : raw;
+        } catch { return {}; }
       }, EXPORT_PREFS_KEY);
     }, { timeout: 5_000 }).toMatchObject({ ratio: 'wide', format: 'pdf', resolution: 'high' });
 
