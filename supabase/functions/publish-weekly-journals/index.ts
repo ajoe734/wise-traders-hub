@@ -3,7 +3,7 @@
 // 這支函式只負責：認證 → 解析 scope → 建 port/logger → 交給 pipeline.ts → 回應。
 // 所有發布邏輯都在 pipeline.ts（可用 fake port 單元測試）。
 import { corsHeaders } from '../_shared/cors.ts';
-import { isCompanyAdmin } from '../_shared/adminGuard.ts';
+import { authErrorResponse, requireExpertOwnerOrAdmin } from '../_shared/adminGuard.ts';
 import { serviceClient } from '../_shared/supabaseClients.ts';
 import { withLogging } from '../_shared/edgeLogger.ts';
 import { requireCronKey, requireCaller, AuthError } from '../_shared/authGuard.ts';
