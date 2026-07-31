@@ -7,9 +7,6 @@ import {
   RotateCcw, FileText, Image as ImageIcon, Undo2, Redo2, Check, Info,
 } from 'lucide-react';
 import { useHoldingShareExport } from '@/checkup/hooks/useHoldingShareExport';
-import { useSimHistory } from '@/checkup/hooks/useSimHistory';
-import { useTargetPriceHistory } from '@/checkup/hooks/useTargetPriceHistory';
-import { useThesisTracking } from '@/checkup/hooks/useThesisTracking';
 // Sparkline removed: header 迷你折線與 §6 RangeBand 資訊重複，僅保留 RangeBand。
 import { useHoldingDetailViewModel } from '@/checkup/hooks/useHoldingDetailViewModel';
 import HoldingExportCard from './HoldingExportCard';
