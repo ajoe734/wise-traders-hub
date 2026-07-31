@@ -7,6 +7,8 @@ import { useChipsState } from '@/checkup/hooks/useChipsState';
 import ChipsTrendChart from './ChipsTrendChart';
 import { bsrHeaderLabel } from './bsrHeaderLabel';
 import { useChipsBackfill } from '@/checkup/hooks/useChipsBackfill';
+import { useChipsAutoBackfill } from '@/checkup/hooks/useChipsAutoBackfill';
+import { isBackfillSatisfied, nextPollDelay } from '@/checkup/lib/chipsBackfillMachine';
 import { toast } from 'sonner';
 import { trackEvent } from '@/lib/trafficTracker';
 import { formatSharesAsLots, SHARES_PER_LOT } from '@/lib/lotSize';
@@ -180,8 +182,7 @@ export default function ChipsSection({ WB, stockCode }: { WB: any; stockCode: st
   const attemptsRef = useRef(0);
   useEffect(() => {
     if (!bsrPending) { attemptsRef.current = 0; return; }
-    const delays = [60_000, 120_000, 240_000, 480_000, 900_000];
-    const delay = delays[Math.min(attemptsRef.current, delays.length - 1)];
+    const delay = nextPollDelay(attemptsRef.current);
     const t = setTimeout(() => { attemptsRef.current += 1; refetch(); }, delay);
     return () => clearTimeout(t);
   }, [bsrPending, fetchedAt, refetch]);
@@ -343,7 +344,7 @@ export default function ChipsSection({ WB, stockCode }: { WB: any; stockCode: st
       )}
 
       {/* 自動回補逾時通知：資料已進入佇列，但 30 分鐘內仍未補滿 */}
-      {autoBackfill?.state === 'timeout' && !error && (
+      {autoBackfillPhase === 'timeout' && !error && (
         <div
           data-testid="chips-backfill-timeout"
           style={{
