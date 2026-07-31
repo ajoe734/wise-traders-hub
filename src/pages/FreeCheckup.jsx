@@ -2234,6 +2234,21 @@ ${JSON.stringify(strategyBrain || { rules: [], lessons: [], commonMistakes: [], 
     setParseErr(item.status === 'failed' ? (item.error || '解析失敗') : null);
   };
 
+  // ADR-0005 §5：批次解析面板槽位——HoldingsTab（M1）不再直連 M4 的 BatchParsePanel，
+  // 由 shell 決定放什麼；沒有批次項目時回傳 null，tradeIO chunk 也就不會被載入。
+  const batchParseSlot = batchState?.items?.length ? (
+    <Suspense fallback={null}>
+      <BatchParsePanel
+        C={C}
+        batchState={batchState}
+        cancelBatch={cancelBatch}
+        retryBatchFailures={retryBatchFailures}
+        restoreBatchItemPreview={restoreBatchItemPreview}
+        variant="holdings"
+      />
+    </Suspense>
+  ) : null;
+
   // 取消整批：標記後續未處理為 cancelled，當前那張會跑完再停
   const cancelBatch = () => {
     batchCancelRef.current = true;
