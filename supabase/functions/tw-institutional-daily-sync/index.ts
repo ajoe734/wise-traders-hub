@@ -147,12 +147,40 @@ async function backfillStockViaFinmind(
 
   if (chunk.length === 0) return { inserted: 0, from: startDate, to: endDate, rows: 0 };
 
+  // 已封存（sealed）的交易日是權威快照，禁止改寫；直接跳過，避免整批 upsert 被 trigger 擋掉
+  const { data: sealedRows } = await supa
+    .from("tw_bsr_daily_snapshot_status")
+    .select("trade_date")
+    .gte("trade_date", startDate)
+    .lte("trade_date", endDate)
+    .not("sealed_at", "is", null);
+  const sealed = new Set((sealedRows ?? []).map((r: any) => String(r.trade_date)));
+
+  // 只有「已存在且封存」的列會被 trigger 擋（trigger 走 OLD），不存在的日期仍可 insert
+  let existing = new Set<string>();
+  if (sealed.size > 0) {
+    const { data: existRows } = await supa
+      .from("tw_institutional_daily")
+      .select("trade_date")
+      .eq("stock_id", stockId)
+      .gte("trade_date", startDate)
+      .lte("trade_date", endDate);
+    existing = new Set((existRows ?? []).map((r: any) => String(r.trade_date)));
+  }
+
+  const writable = chunk.filter((r) => !(sealed.has(r.trade_date) && existing.has(r.trade_date)));
+  const skipped = chunk.length - writable.length;
+  if (writable.length === 0) {
+    return { inserted: 0, from: startDate, to: endDate, rows: raw.length, skipped_sealed: skipped } as any;
+  }
+
   const { error } = await supa
     .from("tw_institutional_daily")
-    .upsert(chunk, { onConflict: "stock_id,trade_date" });
+    .upsert(writable, { onConflict: "stock_id,trade_date" });
   if (error) throw new Error(`upsert_failed:${error.message}`);
-  return { inserted: chunk.length, from: startDate, to: endDate, rows: raw.length };
+  return { inserted: writable.length, from: startDate, to: endDate, rows: raw.length, skipped_sealed: skipped } as any;
 }
+
 
 // ============================================================================
 // PR-1: Cold-Start（一次性 60 日全市場回補；TWSE T86 bulk per-day，節流 1.2s/call）
