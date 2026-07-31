@@ -114,6 +114,7 @@ export function createSupabaseGateway(): CheckupGateway {
             /* ignore */
           }
         };
+      },
     },
 
     async rpc<T>(fn: string, args?: Record<string, unknown>): Promise<T> {
