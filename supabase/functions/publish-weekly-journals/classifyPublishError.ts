@@ -7,7 +7,9 @@
  * keeps the contract single-sourced so the partial-failure notification
  * payload cannot silently drift.
  */
-import { adminCapitalUrl, adminSignalsUrl, buildNotificationRow } from '../_shared/routes.ts';
+import { adminCapitalUrl, adminSignalsUrl } from '../_shared/routes.ts';
+import { buildMentorFailureNotification as buildMentorFailureNotificationTemplate } from '../_shared/notificationTemplates.ts';
+
 
 export type PublishErrorKind =
   | 'CAPITAL_EXCEEDED'
