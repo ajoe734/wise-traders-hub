@@ -15,6 +15,10 @@ import { Tooltip, TooltipTrigger, TooltipContent } from '@/components/ui/tooltip
 import '@/checkup/styles/holdingsDetailPanel.css';
 import { holdingPanelPrefs, holdingExportPrefs } from '@/checkup/lib/drawerPrefs';
 import { barIndexFromX, barCenterPct, shouldFlipTooltip, fmtKlineDate, fmtKlineNum } from '@/checkup/lib/klineTooltip';
+import {
+  resolveLabelBox, assignLanes, laneTopOffset,
+  LABEL_FONT_SIZE, LABEL_LINE_HEIGHT,
+} from '@/checkup/lib/priceAxisLabel';
 
 
 /**
