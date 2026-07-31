@@ -84,5 +84,19 @@ export interface PublishPort {
   calcExpertPerformance(expertId: string): Promise<unknown>;
   sendLineMulticast(token: string, to: string[], messages: unknown[]): Promise<MulticastResult>;
 
+  // ── idempotency（推播冪等）────────────────────────────────────────────
+  /**
+   * 先佔位再送出：回傳「這次真的佔到、尚未送過」的收件人。
+   * 已存在收據者不會回傳 → 重跑或 90s abort 後不會重複推播。
+   */
+  claimPushRecipients(args: {
+    dedupeKey: string;
+    kind: string;
+    expertId: string;
+    recipients: string[];
+  }): Promise<string[]>;
+  /** 送出失敗時釋放佔位，讓下一次重跑可以補送。 */
+  releasePushClaims(dedupeKey: string, recipients: string[]): Promise<void>;
+
   now(): Date;
 }
