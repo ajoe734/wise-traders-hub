@@ -11,7 +11,7 @@ import { useSimHistory } from '@/checkup/hooks/useSimHistory';
 import { useTargetPriceHistory } from '@/checkup/hooks/useTargetPriceHistory';
 import { useThesisTracking } from '@/checkup/hooks/useThesisTracking';
 // Sparkline removed: header 迷你折線與 §6 RangeBand 資訊重複，僅保留 RangeBand。
-import { computeScenario, isDirty } from './holdingScenario';
+import { useHoldingDetailViewModel } from '@/checkup/hooks/useHoldingDetailViewModel';
 import HoldingExportCard from './HoldingExportCard';
 import ChipsSection from './ChipsSection';
 import { Tooltip, TooltipTrigger, TooltipContent } from '@/components/ui/tooltip';
