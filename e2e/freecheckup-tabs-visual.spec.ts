@@ -63,11 +63,12 @@ async function stabilize(page: Page) {
       .wb-spark, video, canvas[data-animated],
       [data-testid="live-quote"], [data-realtime],
       [data-skeleton], .animate-pulse, .animate-spin,
-      /* 報價同步提示是計時性的（demo 開場自動抓價），出現/消失會整頁位移 */
-      [data-testid="refresh-status-banner"],
       [role="status"], [data-sonner-toaster], [data-radix-toast-root] {
         visibility: hidden !important;
       }
+      /* 報價同步提示是計時性的（demo 開場自動抓價），存在與否會讓整頁位移，
+         必須 display:none 才能真正抽離版面。 */
+      [data-testid="refresh-status-banner"] { display: none !important; }
     `,
   });
   await page.evaluate(async () => {
