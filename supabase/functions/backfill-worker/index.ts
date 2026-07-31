@@ -10,6 +10,7 @@ import { checkKillSwitch } from "../_shared/killSwitch.ts";
 import { admitFinmind } from "../_shared/finmindAdmission.ts";
 import { aggregate as aggregateBsr, type FinmindRow } from "../_shared/finmindBsrAggregate.ts";
 import { enumerateTradingDates } from "../_shared/backfillDates.ts";
+import { fetchWithRetry, isRetryExhausted, recordRetryFailure } from "../_shared/retryFetch.ts";
 import {
   classifyBackfillError,
   createRunLogger,
@@ -62,10 +63,26 @@ async function fetchFinmind<T = unknown>(
 
   const p = new URLSearchParams(params);
   if (FINMIND_TOKEN) p.set("token", FINMIND_TOKEN);
-  const res = await fetch(`${FINMIND_URL}?${p}`, {
-    signal: AbortSignal.timeout(30_000),
-    headers: { Accept: "application/json" },
-  });
+  let res: Response;
+  try {
+    res = await fetchWithRetry(`${FINMIND_URL}?${p}`, {
+      headers: { Accept: "application/json" },
+    }, {
+      source: "finmind_bsr",
+      policy: { maxAttempts: 3, baseDelayMs: 1000, timeoutMs: 30_000 },
+    });
+  } catch (e) {
+    if (isRetryExhausted(e)) {
+      // 重試上限用盡：落地可追溯狀態後，以 canonical 前綴往上拋給 classifyBackfillError
+      await recordRetryFailure(supa as any, e as any, {
+        fn: "backfill-worker",
+        stage: "upstream_retry_exhausted",
+        extra: { job_id: job.id, dataset: job.dataset, stock_id: job.stock_id, kind },
+      });
+      throw new Error(`finmind_retry_exhausted:${(e as Error).message}`);
+    }
+    throw e;
+  }
   const text = await res.text();
   if (!res.ok) throw new Error(`finmind_http_${res.status}:${text.slice(0, 200)}`);
   let j: any;

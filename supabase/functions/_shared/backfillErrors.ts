@@ -12,6 +12,7 @@ export type BackfillErrorCode =
   | 'UPSTREAM_BAD_JSON'    // FinMind returned non-JSON
   | 'UPSTREAM_API'         // FinMind 200 with error status payload
   | 'UPSTREAM_TIMEOUT'     // fetch aborted / timed out
+  | 'UPSTREAM_RETRY_EXHAUSTED' // 自動重試 + 指數退避後仍失敗（見 _shared/retryFetch.ts）
   | 'UPSTREAM_EMPTY'       // no rows for the whole requested range
   | 'DB_UPSERT'            // writing facts/rollups failed
   | 'MATERIALIZE_FAILED'   // materialize_bsr_daily_from_fact failed for every date
@@ -39,6 +40,11 @@ export function classifyBackfillError(input: unknown): ClassifiedBackfillError {
     ({ code, retryable, detail, ...(upstreamStatus ? { upstreamStatus } : {}) }) as ClassifiedBackfillError;
 
   if (raw.startsWith('admission_rejected')) return mk('ADMISSION_REJECTED', true);
+  if (raw.includes('retry_exhausted')) {
+    // 重試已在下層做過；job 仍可在下一輪排程重跑，故視為 retryable。
+    const st = raw.match(/status=(\d{3})/);
+    return mk('UPSTREAM_RETRY_EXHAUSTED', true, st ? Number(st[1]) : undefined);
+  }
   const http = raw.match(/finmind_http_(\d{3})/);
   if (http) {
     const status = Number(http[1]);

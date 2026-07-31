@@ -12,6 +12,7 @@ import "jsr:@supabase/functions-js/edge-runtime.d.ts";
 import { corsHeaders, corsPreflight, jsonResponse, errorResponse } from "../_shared/cors.ts";
 import { requireCronKey, AuthError } from "../_shared/authGuard.ts";
 import { checkCircuit, recordCircuit } from "../_shared/circuitBreaker.ts";
+import { fetchWithRetry, isRetryExhausted, recordRetryFailure } from "../_shared/retryFetch.ts";
 import { checkKillSwitch } from "../_shared/killSwitch.ts";
 import {
   isPublicSyncMode,
@@ -71,13 +72,29 @@ function isWeekend(ymd: string): boolean {
 
 async function fetchTwseT86(date: string) {
   const twseUrl = `https://www.twse.com.tw/rwd/zh/fund/T86?date=${date}&selectType=ALL&response=json`;
-  const resp = await fetch(twseUrl, {
-    signal: AbortSignal.timeout(15000),
-    headers: {
-      "User-Agent": "Mozilla/5.0 (compatible; LegendflowBot/1.0)",
-      Accept: "application/json",
-    },
-  });
+  let resp: Response;
+  try {
+    resp = await fetchWithRetry(twseUrl, {
+      headers: {
+        "User-Agent": "Mozilla/5.0 (compatible; LegendflowBot/1.0)",
+        Accept: "application/json",
+      },
+    }, {
+      source: "twse_t86",
+      policy: { maxAttempts: 3, baseDelayMs: 800, timeoutMs: 15_000 },
+    });
+  } catch (e) {
+    if (isRetryExhausted(e)) {
+      // 重試上限用盡 → 寫入可追溯狀態（function_run_logs + data_source_health）
+      await recordRetryFailure(serviceClient() as any, e as any, {
+        fn: "tw-institutional-daily-sync",
+        healthSource: "twse_t86",
+        extra: { trade_date: date },
+      });
+      throw new Error(`twse_retry_exhausted:${(e as Error).message}`);
+    }
+    throw e;
+  }
   if (!resp.ok) throw new Error(`TWSE ${resp.status}`);
   const raw = await resp.json();
   return raw;
@@ -107,10 +124,25 @@ async function backfillStockViaFinmind(
   });
   if (FINMIND_TOKEN) p.set("token", FINMIND_TOKEN);
 
-  const res = await fetch(`${FINMIND_URL}?${p}`, {
-    signal: AbortSignal.timeout(25000),
-    headers: { Accept: "application/json" },
-  });
+  let res: Response;
+  try {
+    res = await fetchWithRetry(`${FINMIND_URL}?${p}`, {
+      headers: { Accept: "application/json" },
+    }, {
+      source: "finmind_institutional",
+      policy: { maxAttempts: 3, baseDelayMs: 1000, timeoutMs: 25_000 },
+    });
+  } catch (e) {
+    if (isRetryExhausted(e)) {
+      await recordRetryFailure(supa, e as any, {
+        fn: "tw-institutional-daily-sync",
+        healthSource: "finmind",
+        extra: { stock_id: stockId, start_date: startDate, end_date: endDate },
+      });
+      throw new Error(`finmind_retry_exhausted:${(e as Error).message}`);
+    }
+    throw e;
+  }
   const text = await res.text();
   if (!res.ok) throw new Error(`finmind_http_${res.status}:${text.slice(0, 200)}`);
   const j = JSON.parse(text);

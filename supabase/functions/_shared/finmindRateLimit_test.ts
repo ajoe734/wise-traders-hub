@@ -194,15 +194,50 @@ Deno.test('fetchWithRateLimit：429 走 Retry-After 重試（每次獨立 reserv
   } finally { restore(); }
 });
 
-Deno.test('fetchWithRateLimit：fetch 拋錯時以 error 結算，不會遺留占用', async () => {
+Deno.test('fetchWithRateLimit：暫時性網路錯誤會退避重試，每次都獨立結算', async () => {
   const supa = makeFakeSupa(5);
-  const restore = stubFetch(() => { throw new Error('network down'); });
+  const restore = stubFetch(() => { throw new Error('connection reset by peer'); });
   try {
-    await assertRejects(() => fetchWithRateLimit(supa, 'https://x', {}, { limit: 5 }));
+    await assertRejects(() =>
+      fetchWithRateLimit(supa, 'https://x', {}, { limit: 5, maxRetries: 2, baseBackoffMs: 1 })
+    );
+    // 1 次原始 + 2 次重試 = 3 個 reservation，全部結算為失敗（不遺留占用）
+    assertEquals(supa._state.reservations.length, 3);
+    for (const r of supa._state.reservations) {
+      assert(r.settled_at);
+      assertEquals(r.success, false);
+    }
+    assertEquals(supa._state.usage.length, 3);
+  } finally { restore(); }
+});
+
+Deno.test('fetchWithRateLimit：非暫時性錯誤不重試，立即結算', async () => {
+  const supa = makeFakeSupa(5);
+  const restore = stubFetch(() => { throw new TypeError('Invalid URL'); });
+  try {
+    await assertRejects(() =>
+      fetchWithRateLimit(supa, 'https://x', {}, { limit: 5, maxRetries: 3, baseBackoffMs: 1 })
+    );
     assertEquals(supa._state.reservations.length, 1);
-    assert(supa._state.reservations[0].settled_at); // 已結算為失敗
+    assert(supa._state.reservations[0].settled_at);
     assertEquals(supa._state.reservations[0].success, false);
-    assertEquals(supa._state.usage.length, 1);
+  } finally { restore(); }
+});
+
+Deno.test('fetchWithRateLimit：5xx 也會退避重試後回傳最後一個 response', async () => {
+  const supa = makeFakeSupa(5);
+  let n = 0;
+  const restore = stubFetch(() => { n += 1; return new Response('boom', { status: 502 }); });
+  try {
+    const res = await fetchWithRateLimit(
+      supa,
+      'https://x',
+      {},
+      { limit: 5, maxRetries: 2, baseBackoffMs: 1 },
+    );
+    assertEquals(res.status, 502);
+    assertEquals(n, 3);
+    assertEquals(supa._state.reservations.filter((r) => !r.settled_at).length, 0);
   } finally { restore(); }
 });
 
