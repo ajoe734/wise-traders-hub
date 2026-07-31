@@ -37,7 +37,7 @@ describe('notification link contract', () => {
     expect(offenders, `硬寫連結請改用 _shared/routes.ts builder：\n${offenders.join('\n')}`).toEqual([]);
   });
 
-  it('所有寫 notifications 的 function 都經過 buildNotificationRow', () => {
+  it('所有寫 notifications 的 function 都經過 buildNotificationRow 或 notificationTemplates', () => {
     const offenders: string[] = [];
     for (const file of FILES) {
       const src = readFileSync(file, 'utf8');
@@ -45,12 +45,16 @@ describe('notification link contract', () => {
         /from\(['"]notifications['"]\)\s*\.\s*insert/.test(src) ||
         /rest\/v1\/notifications/.test(src);
       if (!writesNotifications) continue;
-      if (!src.includes('buildNotificationRow')) {
+      const usesBuilder =
+        src.includes('buildNotificationRow') ||
+        /_shared\/notificationTemplates\.ts/.test(src);
+      if (!usesBuilder) {
         offenders.push(file.replace(FN_ROOT, ''));
       }
     }
-    expect(offenders, `未使用 buildNotificationRow：\n${offenders.join('\n')}`).toEqual([]);
+    expect(offenders, `未使用 buildNotificationRow / notificationTemplates：\n${offenders.join('\n')}`).toEqual([]);
   });
+
 
   it('_shared/routes.ts 匯出通知連結 builder 與驗證器', () => {
     const src = readFileSync(join(FN_ROOT, '_shared/routes.ts'), 'utf8');
