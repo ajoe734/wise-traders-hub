@@ -96,7 +96,12 @@ for (const width of BREAKPOINTS) {
         const a = geo.labels[i];
         const b = geo.labels[j];
         expect(overlaps(a, b), `${a.id} 與 ${b.id} 重疊 @${width}`).toBe(false);
-      }
+    }
+
+    // 2b) 字寬規則：標籤不得被水平截斷（長字串應改成兩行而非 ellipsis 吃字）
+    for (const l of geo.labels) {
+      expect(l.clipped, `${l.id} 文字被截斷 @${width}`).toBe(false);
+    }
     }
 
     // 4) 現價圓點：正圓、尺寸固定、完整落在軌道內
