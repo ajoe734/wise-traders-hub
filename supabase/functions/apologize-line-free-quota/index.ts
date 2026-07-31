@@ -15,6 +15,7 @@ import { requireCompanyAdmin, authErrorResponse } from '../_shared/adminGuard.ts
 import { requireCronKey, AuthError } from '../_shared/authGuard.ts';
 
 import { withLogging } from '../_shared/edgeLogger.ts';
+import { accountUrl, buildNotificationRow } from '../_shared/routes.ts';
 const SUPABASE_URL = Deno.env.get('SUPABASE_URL') || '';
 const SERVICE_ROLE_KEY = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY') || '';
 
@@ -166,13 +167,13 @@ Deno.serve(withLogging('apologize-line-free-quota', async (req: Request) => {
         const ins = await fetch(`${SUPABASE_URL}/rest/v1/notifications`, {
           method: 'POST',
           headers: { ...jsonHeaders(), Prefer: 'return=representation' },
-          body: JSON.stringify({
-            user_id: t.user_id,
+          body: JSON.stringify(buildNotificationRow({
+            userId: t.user_id,
             title: APOLOGY_TITLE,
             body: APOLOGY_BODY,
             type: 'system_apology',
-            link: '/app/account',
-          }),
+            link: accountUrl(),
+          })),
         });
         if (ins.ok) {
           const arr = await ins.json().catch(() => []);

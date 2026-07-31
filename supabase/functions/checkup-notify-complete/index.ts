@@ -6,6 +6,7 @@ import { serviceClient } from '../_shared/supabaseClients.ts';
 import { corsHeaders, jsonResponse, corsPreflight } from '../_shared/cors.ts';
 import { requireCronKey, AuthError } from '../_shared/authGuard.ts';
 import { withLogging } from '../_shared/edgeLogger.ts';
+import { buildNotificationRow, checkupUrl } from '../_shared/routes.ts';
 
 const LINE_PUSH_URL = 'https://api.line.me/v2/bot/message/push';
 const RESEND_API_URL = 'https://api.resend.com/emails';
@@ -145,13 +146,13 @@ const handler = withLogging('checkup-notify-complete', async (req, log) => {
     const noteBody = job.status === 'failed'
       ? (job.error_text || '分析失敗，請重新嘗試。')
       : `今日損益 NT$ ${pnlStr}，分析 ${summary.total_holdings ?? 0} 檔持股。`;
-    const { data: note } = await admin.from('notifications').insert({
-      user_id: job.user_id,
+    const { data: note } = await admin.from('notifications').insert(buildNotificationRow({
+      userId: job.user_id,
       title: noteTitle,
       body: noteBody,
       type: job.status === 'failed' ? 'warning' : 'info',
-      link: `/holding-checkup?job=${job.id}`,
-    }).select('id').maybeSingle();
+      link: checkupUrl({ jobId: job.id }),
+    })).select('id').maybeSingle();
     channels.in_app = { ok: true, notification_id: note?.id || null };
   } catch (e) {
     channels.in_app = { ok: false, error: String(e).slice(0, 200) };

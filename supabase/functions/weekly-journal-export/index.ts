@@ -25,6 +25,7 @@ import {
 
 import { corsHeaders } from '../_shared/cors.ts';
 import { forExport } from "../_shared/journalRepository.ts";
+import { buildNotificationRow, companyUrl } from "../_shared/routes.ts";
 
 const MS_DAY = 86_400_000;
 
@@ -181,12 +182,12 @@ Deno.serve(async (req) => {
       : `本週尚無 mentor 發布週記，未產生任何檔案。`;
 
     if (adminIds.length > 0) {
-      const notifRows = adminIds.map((uid: string) => ({
-        user_id: uid,
+      const notifRows = adminIds.map((uid: string) => buildNotificationRow({
+        userId: uid,
         title,
         body: bodyText,
         type: "journal_export",
-        link: "/company/journals-export",
+        link: companyUrl("journals-export"),
       }));
       const { error: notifErr } = await supabase.from("notifications").insert(notifRows);
       if (notifErr) console.error(`insert notifications failed: ${notifErr.message}`);

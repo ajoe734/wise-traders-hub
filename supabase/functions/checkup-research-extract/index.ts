@@ -8,6 +8,7 @@ import { corsHeaders, jsonResponse } from "../_shared/cors.ts";
 import { serviceClient } from "../_shared/supabaseClients.ts";
 import { withLogging } from "../_shared/edgeLogger.ts";
 import { requireCaller, AuthError } from '../_shared/authGuard.ts';
+import { accountNotificationsUrl, buildNotificationRow } from '../_shared/routes.ts';
 
 const GATEWAY_URL = 'https://ai.gateway.lovable.dev/v1/chat/completions';
 const GATEWAY_MODELS = ['google/gemini-3-flash-preview', 'google/gemini-2.5-flash', 'google/gemini-2.5-flash-lite'];
@@ -202,13 +203,13 @@ ${safeReportText}
             .eq('user_id', userId)
             .maybeSingle();
           if (prefs?.meta_override_changed !== false) {
-            await supabase.from('notifications').insert({
-              user_id: userId,
+            await supabase.from('notifications').insert(buildNotificationRow({
+              userId,
               title: `${code} 研究覆蓋已更新`,
               body: `AI 已更新產業/策略/領頭欄位（${[meta.industry, meta.strategy, meta.leader, meta.position].filter(Boolean).join(' · ')}）`,
               type: 'info',
-              link: '/account/notifications',
-            });
+              link: accountNotificationsUrl(),
+            }));
           }
         }
 

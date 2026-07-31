@@ -6,6 +6,7 @@ import { serviceClient } from '../_shared/supabaseClients.ts';
 import { corsHeaders, jsonResponse, corsPreflight } from '../_shared/cors.ts';
 import { requireCronKey, AuthError } from '../_shared/authGuard.ts';
 import { withLogging } from '../_shared/edgeLogger.ts';
+import { buildNotificationRow, checkupUrl } from '../_shared/routes.ts';
 
 const LINE_PUSH_URL = 'https://api.line.me/v2/bot/message/push';
 const SITE_URL = 'https://legendflow.tw';
@@ -90,13 +91,13 @@ const handler = withLogging('checkup-daily-reminder-cron', async (req, log) => {
     }
 
     // 站內通知
-    await admin.from('notifications').insert({
-      user_id: uid,
+    await admin.from('notifications').insert(buildNotificationRow({
+      userId: uid,
       title: '今日可跑收盤分析',
       body: '台股已收盤，點此進入收盤分析，分析會在背景進行，完成後通知您。',
       type: 'info',
-      link: '/holding-checkup?autorun=1',
-    });
+      link: checkupUrl({ autorun: true }),
+    }));
 
     // Line（若有 line_user_id）
     const { data: profile } = await admin
