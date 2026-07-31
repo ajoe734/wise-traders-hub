@@ -23,8 +23,9 @@ const DEFAULT_DAYS = 60;
 
 function reasonOf(settled: PromiseSettledResult<unknown>): string | null {
   if (settled.status !== 'rejected') return null;
-  const reason: any = settled.reason;
-  return reason?.message ? String(reason.message) : String(reason);
+  const reason = settled.reason as { message?: unknown } | undefined;
+  if (reason && typeof reason.message === 'string') return reason.message;
+  return String(settled.reason);
 }
 
 export function useChipsBackfill(stockCode?: string | null, days: number = DEFAULT_DAYS) {
