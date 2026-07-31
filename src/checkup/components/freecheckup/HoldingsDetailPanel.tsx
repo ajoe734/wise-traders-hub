@@ -829,14 +829,20 @@ export function RangeBand({ WB, price, low, high, spark, ohlc, symbol, priceSour
   const useKline = cleanOhlc.length >= 2;
   const hasSpark = hasHiLo && (useKline ? cleanOhlc.length >= 2 : cleanSpark.length >= 2);
 
+  // 繪圖區內縮（viewBox 100×30 單位）：避免首尾 K 棒與最高/最低影線被邊界切掉
+  const PAD_X = useKline ? 2.4 : 0;
+  const PAD_Y = useKline ? 2 : 0;
+  const PLOT_H = 30 - PAD_Y * 2;
+
   const lastV = useKline
     ? cleanOhlc[cleanOhlc.length - 1]?.close
     : (hasSpark ? cleanSpark[cleanSpark.length - 1] : Number(price));
   const rawY =
     range > 0 && Number.isFinite(lastV)
-      ? svgH - ((lastV - lo) / range) * svgH
+      ? ((30 - PAD_Y - ((lastV - lo) / range) * PLOT_H) / 30) * svgH
       : svgH / 2;
   const dotY = Number.isFinite(rawY) ? Math.min(Math.max(rawY, 0), svgH) : svgH / 2;
+
   const loLabel = Number.isFinite(lo) ? lo.toFixed(2) : '—';
   const hiLabel = Number.isFinite(hi) ? hi.toFixed(2) : '—';
 
@@ -915,18 +921,20 @@ export function RangeBand({ WB, price, low, high, spark, ohlc, symbol, priceSour
     ? `資料源不一致：${diagnostics.map((d) => d.code).join(', ')}`
     : undefined;
 
-  // K 線 helpers：在 SVG 100×30 座標系內定位
+  // K 線 helpers：在 SVG 100×30 座標系內定位（PAD_X / PAD_Y 於上方定義）
   const yFor = (v) => {
     if (!hasHiLo || range <= 0) return 15;
-    return 30 - Math.min(Math.max((v - lo) / range, 0), 1) * 30;
+    return 30 - PAD_Y - Math.min(Math.max((v - lo) / range, 0), 1) * PLOT_H;
   };
+
 
   const klineElements = useKline ? (() => {
     const N = cleanOhlc.length;
-    const gap = 100 / (N - 1);
-    const bodyW = Math.max(0.8, Math.min(4, gap * 0.55));
+    const plotW = 100 - PAD_X * 2;
+    const gap = plotW / (N - 1);
+    const bodyW = Math.max(0.8, Math.min(3.2, gap * 0.6));
     return cleanOhlc.map((b, i) => {
-      const x = (i / (N - 1)) * 100;
+      const x = PAD_X + (i / (N - 1)) * plotW;
       const yHigh = yFor(b.high);
       const yLow = yFor(b.low);
       const yOpen = yFor(b.open);
@@ -965,6 +973,7 @@ export function RangeBand({ WB, price, low, high, spark, ohlc, symbol, priceSour
     });
   })() : null;
 
+
   // ── hover / touch tooltip：顯示該根 K 棒的日期與 OHLC（座標與格式邏輯在 @/checkup/lib/klineTooltip） ──
   const wrapRef = useRef<HTMLDivElement | null>(null);
   const [hoverIdx, setHoverIdx] = useState<number | null>(null);
@@ -981,7 +990,7 @@ export function RangeBand({ WB, price, low, high, spark, ohlc, symbol, priceSour
   const fmtDate = fmtKlineDate;
   const fmtN = fmtKlineNum;
 
-  const hoverX = barCenterPct(hoverIdx, cleanOhlc.length);
+  const hoverX = barCenterPct(hoverIdx, cleanOhlc.length, PAD_X);
 
 
   return (
@@ -1052,13 +1061,13 @@ export function RangeBand({ WB, price, low, high, spark, ohlc, symbol, priceSour
             aria-hidden="true"
             style={{
               position: 'absolute',
-              left: '100%',
+              left: `${100 - PAD_X}%`,
               top: dotY,
               width: 6,
               height: 6,
               borderRadius: '50%',
               background: WB.accent,
-              transform: 'translate(-100%, -50%)',
+              transform: useKline ? 'translate(-50%, -50%)' : 'translate(-100%, -50%)',
               pointerEvents: 'none',
             }}
           />
