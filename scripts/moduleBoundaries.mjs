@@ -289,8 +289,20 @@ export function checkModuleBoundaries(opts = {}) {
     }
   }
 
+  // R5 free surface 收斂（ADR-0005 §7）
+  violations.push(
+    ...checkFreeSurface({
+      srcDir,
+      root,
+      owners,
+      rel,
+      files: allFiles.filter((f) => !ignore.some((re) => re.test(relative(root, f)))),
+    }),
+  );
+
   return violations;
 }
+
 
 export function formatViolations(violations) {
   if (violations.length === 0) return '✓ Checkup 深模組邊界：0 violations';
