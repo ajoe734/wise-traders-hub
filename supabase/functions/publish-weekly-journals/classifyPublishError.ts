@@ -7,7 +7,9 @@
  * keeps the contract single-sourced so the partial-failure notification
  * payload cannot silently drift.
  */
-import { adminCapitalUrl, adminSignalsUrl, buildNotificationRow } from '../_shared/routes.ts';
+import { adminCapitalUrl, adminSignalsUrl } from '../_shared/routes.ts';
+import { buildMentorFailureNotification as buildMentorFailureNotificationTemplate } from '../_shared/notificationTemplates.ts';
+
 
 export type PublishErrorKind =
   | 'CAPITAL_EXCEEDED'
@@ -143,24 +145,18 @@ export function classifyPublishError(
 }
 
 /**
- * Build the exact `notifications` row inserted for a mentor when publish fails.
- * Mirrors the payload written in index.ts so tests assert against a shared shape.
+ * Build the mentor failure notification row.
+ * 實作在 `_shared/notificationTemplates.ts`（三種通知 payload 的單一資料源），
+ * 這裡只保留既有 import 路徑的相容轉出。
  */
 export function buildMentorFailureNotification(params: {
   mentorUserId: string;
   signalId: string;
   info: PublishErrorInfo;
 }) {
-  return buildNotificationRow({
-    userId: params.mentorUserId,
-    title: params.info.title,
-    body: `${params.info.body}
-
-[Signal ID] ${params.signalId}`,
-    type: 'error',
-    link: params.info.link,
-  });
+  return buildMentorFailureNotificationTemplate(params);
 }
+
 
 /**
  * Retry an async op with exponential backoff on transient errors.

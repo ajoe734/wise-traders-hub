@@ -21,7 +21,7 @@ import {
   isTransientError,
   retryTransient,
 } from './classifyPublishError.ts';
-import { accountNotificationsUrl, expertDetailUrl } from '../_shared/routes.ts';
+import { buildEarlyPublishNotification } from '../_shared/notificationTemplates.ts';
 import type { EmitFn, PendingSignal, PublishPort } from './port.ts';
 
 const US_ASSET_CLASSES = ['us_stock', 'us_futures', 'crypto'];
@@ -416,7 +416,6 @@ export async function pushExpertJournals(
   // 提前發布：對訂閱者發站內通知（同樣走收據，避免重跑重複通知）
   if (force && notifyUserIds.size > 0) {
     const slug = expert?.slug || null;
-    const link = slug ? expertDetailUrl(slug) : accountNotificationsUrl();
     const notifyKey = computePushDedupeKey(expertId, 'notify_early', signals);
     try {
       const claimed = await port.claimPushRecipients({
@@ -424,13 +423,13 @@ export async function pushExpertJournals(
         recipients: Array.from(notifyUserIds),
       });
       if (claimed.length > 0) {
-        const notifRows = claimed.map((uid) => ({
-          user_id: uid,
-          title: `${expertName} 本週週記已提前開放`,
-          body: `${expertName} 老師提前公開本週 ${signals.length} 筆操作紀錄，點此立即查看。`,
-          type: 'info',
-          link,
+        const notifRows = claimed.map((uid) => buildEarlyPublishNotification({
+          userId: uid,
+          expertName,
+          expertSlug: slug,
+          signalCount: signals.length,
         }));
+
         try {
           await port.insertNotifications(notifRows);
           emit('info', 'Early-publish notifications sent', { stage: 'notify_subscribers_early', expertId, count: notifRows.length });

@@ -40,7 +40,9 @@ export interface NotificationRow {
   title: string;
   body: string;
   type: string;
-  link: string;
+  link: string | null;
+  download_url?: string;
+
 }
 
 export interface MulticastResult { ok: boolean; status: number; body?: string }
