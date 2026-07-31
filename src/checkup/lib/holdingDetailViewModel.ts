@@ -50,13 +50,37 @@ export function deriveValuation(holding: any, totalPortfolioValue: number) {
   return { pctVal, pnlVal, todayPct, todayPnl, valueNum, weightPct };
 }
 
-/**
- * 30 日走勢序列。真實資料不足 2 點時，以成本→現價的確定性偽序列補齊，
- * 保證同一檔股票每次 render 得到同一條線（seed 來自 code）。
- */
-export function deriveSparkline(sparkData30D: any, holding: any): number[] {
+export interface OHLC {
+  open: number;
+  high: number;
+  low: number;
+  close: number;
+  date?: string;
+}
+
+export type SparklineData = number[] | { ohlc: OHLC[]; closes: number[] };
+
+/** 從後端/快取格式取得 closes 陣列（向下相容 legacy number[]） */
+export function getSparkCloses(data: SparklineData | undefined | null): number[] {
+  if (Array.isArray(data)) return data.filter((n) => Number.isFinite(n));
+  if (!data) return [];
+  return Array.isArray(data.closes) ? data.closes.filter((n) => Number.isFinite(n)) : [];
+}
+
+/** 從後端/快取格式取得 OHLC 陣列（若無則回空） */
+export function getSparkOhlc(data: SparklineData | undefined | null): OHLC[] {
+  if (!data || Array.isArray(data)) return [];
+  return Array.isArray(data.ohlc) ? data.ohlc.filter((b) =>
+    Number.isFinite(b.open) && Number.isFinite(b.high) &&
+    Number.isFinite(b.low) && Number.isFinite(b.close) && b.high > 0
+  ) : [];
+}
+
+/** 30 日走勢 close 序列。真實資料不足 2 點時，以成本→現價的確定性偽序列補齊，
+ * 保證同一檔股票每次 render 得到同一條線（seed 來自 code）。 */
+export function deriveSparkline(sparkData30D: SparklineData | undefined | null, holding: any): number[] {
   const h = holding || {};
-  const raw = Array.isArray(sparkData30D) ? sparkData30D.filter((n: any) => Number.isFinite(n)) : [];
+  const raw = getSparkCloses(sparkData30D);
   if (raw.length >= 2) return raw;
   const c = num(h.cost); const p = num(h.price);
   if (!Number.isFinite(c) || !Number.isFinite(p) || c <= 0 || p <= 0) return raw;
@@ -75,6 +99,11 @@ export function deriveSparkline(sparkData30D: any, holding: any): number[] {
   }
   arr[N - 1] = p;
   return arr;
+}
+
+/** 30 日 OHLC 序列；資料不足時回空（抽屜 K 線不畫偽序列） */
+export function deriveOhlc(sparkData30D: SparklineData | undefined | null): OHLC[] {
+  return getSparkOhlc(sparkData30D);
 }
 
 /** 論點引文：取第一個句子、上限 90 字。 */
@@ -272,7 +301,7 @@ export function deriveHoldingDetailViewModel(input: {
   meta?: any;
   baseTarget?: any;
   totalPortfolioValue?: number;
-  sparkData30D?: any;
+  sparkData30D?: SparklineData;
   normalizedEvents?: any;
   orderedDisplayed?: any;
   tradeLog?: any;
@@ -292,6 +321,7 @@ export function deriveHoldingDetailViewModel(input: {
   const code = holding?.code ?? null;
   const valuation = deriveValuation(holding, totalPortfolioValue);
   const sparkArr = deriveSparkline(sparkData30D, holding);
+  const ohlcArr = deriveOhlc(sparkData30D);
   const relatedEvents = deriveRelatedEvents(normalizedEvents, code);
   const display = deriveDisplayNumbers({
     holding, sim, scenario, dirty, baseTarget, valuation, totalPortfolioValue,
@@ -300,8 +330,11 @@ export function deriveHoldingDetailViewModel(input: {
     identity: deriveIdentity(holding, meta),
     valuation,
     sparkArr,
+    ohlcArr,
     rangeLow: sparkArr.length ? Math.min(...sparkArr) : null,
     rangeHigh: sparkArr.length ? Math.max(...sparkArr) : null,
+    ohlcRangeLow: ohlcArr.length ? Math.min(...ohlcArr.map((b) => b.low)) : null,
+    ohlcRangeHigh: ohlcArr.length ? Math.max(...ohlcArr.map((b) => b.high)) : null,
     thesisSentence: deriveThesisSentence(decision, meta),
     relatedEvents,
     nextEvent: relatedEvents[0] ?? null,

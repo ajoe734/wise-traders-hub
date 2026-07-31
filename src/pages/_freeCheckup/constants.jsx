@@ -169,7 +169,11 @@ export const WB = {
   hairStrong: '#D4D1C9',
   accent: '#FF4D1F',
   accentSoft: 'rgba(255,77,31,0.06)',
+  // K 線：依台股慣例紅漲綠跌（獨立於損益色）
+  klineUp: '#D93025',
+  klineDown: '#1E8E3E',
 };
+
 export const wbTone = (n) => (Number(n) >= 0 ? WB.accent : WB.ink);
 // P3-perf: 空 sparkline 共用 reference，避免 HoldingCard memo 因每次新陣列而失效
 export const EMPTY_SPARK = Object.freeze([]);

@@ -18,10 +18,12 @@ type Fixture = {
   low?: number;
   high?: number;
   spark?: number[];
+  ohlc?: { open: number; high: number; low: number; close: number; date?: string }[];
   symbol?: string;
   priceSource?: string;
   priceUpdatedAt?: string;
 };
+
 
 function encodeFixture(fx: Fixture): string {
   const json = JSON.stringify(fx);
@@ -233,4 +235,45 @@ test.describe('RangeBand 資料源一致性偵測 (mock 分歧)', () => {
       expect(d.priceSource).toBe('twse');
     }
   });
+
+  test('OHLC 優先：提供 ohlc 時以 K 線蠟燭渲染，並以末根 close 做一致性偵測', async ({ page }) => {
+    await gotoFixture(page, {
+      symbol: 'TEST-KLINE',
+      price: 95,
+      low: 90,
+      high: 110,
+      ohlc: [
+        { open: 100, high: 105, low: 98, close: 102 },
+        { open: 102, high: 104, low: 97, close: 98 },
+        { open: 98, high: 100, low: 94, close: 96 },
+      ],
+      priceSource: 'twse',
+    });
+
+    const band = page.locator('[data-testid="holdings-range-band"]');
+    // K 線模式：應有蠟燭 rect（實體）+ 上下影線 line
+    await expect(band.locator('[data-testid="kline-candle"]')).toHaveCount(3);
+    await expect(band.locator('[data-testid="kline-wick"]')).toHaveCount(3);
+    // 末根 close 96 對比現價 95 → 差距 ≈1%，不應觸發 drift
+    const attr = await band.getAttribute('data-inconsistent');
+    expect(attr).toBeNull();
+  });
+
+  test('OHLC 不足時退回折線圖（polyline）維持原有一致性行為', async ({ page }) => {
+    await gotoFixture(page, {
+      symbol: 'TEST-FALLBACK',
+      price: 95,
+      low: 90,
+      high: 110,
+      spark: [98, 99, 100, 100, 96],
+      ohlc: [],
+      priceSource: 'twse',
+    });
+
+    const band = page.locator('[data-testid="holdings-range-band"]');
+    // 折線模式：應有 polyline 而無蠟燭
+    await expect(band.locator('svg > polyline')).toHaveCount(1);
+    await expect(band.locator('[data-testid="kline-candle"]')).toHaveCount(0);
+  });
 });
+

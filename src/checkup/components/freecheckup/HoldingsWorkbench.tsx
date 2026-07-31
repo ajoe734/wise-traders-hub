@@ -4,7 +4,9 @@
 // —— 遮罩點擊關閉、Esc 關閉、焦點陷阱、aria-modal 皆由 Radix 提供。
 import { Suspense, lazy, memo, useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState } from 'react';
 import { ArrowUp } from 'lucide-react';
+import { getSparkCloses } from '@/checkup/lib/holdingDetailViewModel';
 import HoldingCard from '@/checkup/components/freecheckup/HoldingCard';
+
 import HoldingsEmptyState from '@/checkup/components/freecheckup/HoldingsEmptyState';
 import HoldingsNoMatchState from '@/checkup/components/freecheckup/HoldingsNoMatchState';
 import {
@@ -243,7 +245,7 @@ function HoldingsWorkbench(props) {
             target={targets?.[h.code]}
             avgTargetPrice={targets?.[h.code] ? avgTarget(h.code) : null}
             meta={getMultiMeta(h.code, STOCK_META, overrides?.[h.code])}
-            sparkData={sparklines[h.code] || EMPTY_SPARK}
+            sparkData={getSparkCloses(sparklines[h.code]) || EMPTY_SPARK}
             sparkFailed={!!sparklineErrors[h.code]}
             variant={variantsMap.get(h.code) || 'plain'}
             isFeatureSlot={h.code === firstFeatureCode}
