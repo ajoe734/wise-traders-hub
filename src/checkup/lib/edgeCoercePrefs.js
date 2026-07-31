@@ -10,12 +10,16 @@
 
 import { createPrefsStore } from './prefsStore'
 
+/** @typedef {{ strategy: 'keepFirst'|'keepLast', ignoreWhitespace: boolean, normalizeWidth: boolean }} CoercePrefs */
+
+/** @type {Readonly<CoercePrefs>} */
 const DEFAULTS = Object.freeze({
   strategy: 'keepFirst',
   ignoreWhitespace: false,
   normalizeWidth: false,
 })
 
+/** @type {import('./prefsStore').PrefsStore<CoercePrefs>} */
 const store = createPrefsStore({
   key: 'edge.coerce.prefs.v1',
   defaults: { ...DEFAULTS },
