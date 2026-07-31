@@ -726,13 +726,24 @@ function PriceAxis({ WB, price, cost, target, baseTarget, upside, tpHistory }) {
   const note = tpHistory && upside != null
     ? `共識 ${tpHistory.spanDays} 日內由 ${tpHistory.from.toLocaleString()} ${tpHistory.arrow === '↓' ? '下修' : '上修'}至 ${tpHistory.last.toLocaleString()}，${upside >= 0 ? '仍高於' : '低於'}現價 ${Math.abs(upside).toFixed(1)}%${upside < 0 ? '——已超漲' : ''}`
     : null;
-  const H = 70;
-  const y = H * 0.55;
+  const H = 82;
+  const y = 52;
   const markers = [
     { v: cost, color: WB.inkLight, label: '成本', shape: 'tick', side: 'top' },
     { v: target, color: WB.accent, label: '目標', shape: 'tick', side: 'top' },
     { v: price, color: WB.ink, label: '現價', shape: 'dot', side: 'bottom' },
   ].map((p) => ({ ...p, x: pos(p.v), lx: labelPos(p.v) })).filter((p) => p.x != null);
+  // 上方標籤在抽屜寬度下容易互撞（例如成本 507、目標 710）。
+  // 以最多兩列做確定性避讓；26% 約等於 448px 抽屜內 92px 的安全文字寬度。
+  const topMarkers = markers
+    .filter((p) => p.side === 'top')
+    .sort((a, b) => Number(a.lx) - Number(b.lx));
+  const laneByLabel = new Map();
+  topMarkers.forEach((marker, index) => {
+    const previous = topMarkers[index - 1];
+    const collides = previous && Number(marker.lx) - Number(previous.lx) < 26;
+    laneByLabel.set(marker.label, collides ? 1 - (laneByLabel.get(previous.label) ?? 0) : 0);
+  });
   return (
     <div data-testid="holdings-price-axis" style={{ margin: '0 0 20px', minWidth: 0 }}>
       <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'baseline', marginBottom: 8 }}>
@@ -781,12 +792,13 @@ function PriceAxis({ WB, price, cost, target, baseTarget, upside, tpHistory }) {
         {markers.map((p, i) => (
           <span
             key={`label-${i}`}
+             data-testid={`holdings-price-axis-label-${p.label === '成本' ? 'cost' : p.label === '目標' ? 'target' : 'price'}`}
             style={{
               position: 'absolute',
               left: `${p.lx}%`,
-              top: p.side === 'top' ? y - 28 : y + 9,
+               top: p.side === 'top' ? 3 + (laneByLabel.get(p.label) ?? 0) * 18 : y + 10,
               transform: 'translateX(-50%)',
-              maxWidth: 82,
+               maxWidth: 92,
               overflow: 'hidden',
               textOverflow: 'ellipsis',
               whiteSpace: 'nowrap',
