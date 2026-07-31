@@ -2989,7 +2989,7 @@ ${JSON.stringify(strategyBrain || { rules: [], lessons: [], commonMistakes: [], 
 
         {/* 報價同步狀態 — 顯示成功/失敗檔數與卡關標的 */}
         {refreshStatus && (
-          <div style={{
+          <div data-testid="refresh-status-banner" style={{
             margin:'10px 0 4px', padding:'8px 12px',
             borderRadius:6,
             border:`1px solid ${refreshStatus.phase==='error'?alpha(C.down,'44'):refreshStatus.phase==='done' && refreshStatus.fail===0?alpha(C.olive,'44'):C.border}`,
