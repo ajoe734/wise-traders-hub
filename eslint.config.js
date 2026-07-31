@@ -158,4 +158,6 @@ export default tseslint.config(
   ...siblingBoundaryConfigs,
   externalBarrelOnlyConfig,
   checkupGatewaySeamConfig,
+  freeSurfaceConfig,
+
 );
