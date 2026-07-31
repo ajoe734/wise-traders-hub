@@ -13,6 +13,7 @@
 // Payload:
 //   { trade_date?: 'YYYY-MM-DD', wave?: 1|2|3, dry_run?: boolean }
 
+import { corsHeaders } from '../_shared/cors.ts';
 import { serviceClient } from '../_shared/supabaseClients.ts';
 import { requireCronKey, AuthError } from '../_shared/authGuard.ts';
 

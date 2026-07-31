@@ -3,6 +3,7 @@
 // 收斂式排程：每次呼叫掃描 active TW 持倉，為未達 60 日視窗的個股補齊工作。
 // 由 pg_cron 每日盤後多次觸發，直到所有持倉的視窗皆 ready 或 upstream_exhausted。
 
+import { corsHeaders } from '../_shared/cors.ts';
 import { serviceClient } from '../_shared/supabaseClients.ts';
 import { requireCronKey, AuthError } from '../_shared/authGuard.ts';
 

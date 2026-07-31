@@ -17,6 +17,7 @@
 // PR-10: SLO / upstream 決策抽出到 _shared/guardianRules.ts（純函式 + golden test）；
 //        本檔只做 DB 讀寫與副作用；常數搬移後對齊 rules。
 
+import { corsHeaders } from '../_shared/cors.ts';
 import { serviceClient } from '../_shared/supabaseClients.ts';
 import { requireCronKey, AuthError } from '../_shared/authGuard.ts';
 import { forceDisable } from '../_shared/killSwitch.ts';

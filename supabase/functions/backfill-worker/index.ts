@@ -9,6 +9,7 @@ import { corsHeaders, corsPreflight, jsonResponse, errorResponse } from "../_sha
 import { checkKillSwitch } from "../_shared/killSwitch.ts";
 import { admitFinmind } from "../_shared/finmindAdmission.ts";
 import { aggregate as aggregateBsr, type FinmindRow } from "../_shared/finmindBsrAggregate.ts";
+import { enumerateTradingDates } from "../_shared/backfillDates.ts";
 
 const SUPABASE_URL = Deno.env.get("SUPABASE_URL")!;
 const SERVICE_ROLE_KEY = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!;
@@ -92,16 +93,32 @@ async function materializeRange(
 }
 
 async function processChipFact(supa: SupabaseClient, job: Job) {
-  const rows = await fetchFinmind<FinmindRow>(supa, {
-    dataset: "TaiwanStockTradingDailyReport",
-    data_id: job.stock_id,
-    start_date: job.start_date,
-    end_date: job.end_date,
-  }, job, "bsr_backfill_range");
+  // BSR 只吃單日（帶 end_date 上游直接 400），因此逐日展開查詢。
+  const dates = enumerateTradingDates(job.start_date, job.end_date);
+  const rows: FinmindRow[] = [];
+  const dayErrors: string[] = [];
+  for (const date of dates) {
+    try {
+      const dayRows = await fetchFinmind<FinmindRow>(supa, {
+        dataset: "TaiwanStockTradingDailyReport",
+        data_id: job.stock_id,
+        start_date: date,
+      }, job, "bsr_backfill_day");
+      rows.push(...dayRows);
+    } catch (e) {
+      dayErrors.push(`${date}:${(e as Error).message.slice(0, 120)}`);
+    }
+  }
+  if (dayErrors.length > 0) {
+    console.warn(`[backfill-worker] chip_fact day errors ${job.stock_id}:`, dayErrors.slice(0, 5));
+    // 全數失敗才算 job 失敗，避免單日缺料把整段區間標成 failed
+    if (rows.length === 0) throw new Error(`chip_fact_all_days_failed:${dayErrors[0]}`);
+  }
 
   if (rows.length === 0) {
-    return { ok: true, rows: 0, stocks: 0, materialized: 0, note: "empty_response" };
+    return { ok: true, rows: 0, stocks: 0, materialized: 0, days: dates.length, note: "empty_response" };
   }
+
 
   const agg = aggregateBsr(rows);
   const nowIso = new Date().toISOString();

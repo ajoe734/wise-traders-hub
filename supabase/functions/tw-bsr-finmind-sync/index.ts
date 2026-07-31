@@ -12,6 +12,7 @@
 // 每次 worker 呼叫都會：先讀 degrade state、cap 掉超出 policy 的 batch/priority/concurrency、
 // 處理完後蒐集訊號 → decide() → 若需轉移就寫入 tw_bsr_degrade_events 並更新 config。
 
+import { corsHeaders } from '../_shared/cors.ts';
 import { serviceClient } from '../_shared/supabaseClients.ts';
 import { requireCronKey, AuthError } from '../_shared/authGuard.ts';
 import {
