@@ -310,7 +310,10 @@ function HoldingsWorkbench(props) {
           //     在窄寬度／折疊機出現 sub-pixel 漂移導致 panel-right 越過 viewport
           //   ≥ sm：!left-auto 切回右側 docked，!max-w-* 用 !important 蓋 base sm:max-w-sm
           //   全部強制 box-border + max-w-[100vw]（extreme 硬上限保險絲）
-          className="holdings-sheet-content box-border !left-0 !right-0 !w-auto sm:!left-auto sm:!w-auto sm:!max-w-md md:!max-w-lg lg:!max-w-xl xl:!max-w-2xl !h-[100dvh] !max-h-[100dvh] overflow-y-auto p-0"
+          // ≥sm 用「固定寬度」而非 w-auto：w-auto 會 shrink-to-fit，寬度隨當日
+          // 價格/文案長度浮動（同斷點出現 543/576/605 三種寬），視覺快照永遠對不齊。
+          // 固定成各斷點的 max-w 值後，寬度只由斷點決定，快照可重現。
+          className="holdings-sheet-content box-border !left-0 !right-0 !w-auto sm:!left-auto sm:!w-[28rem] md:!w-[32rem] lg:!w-[36rem] xl:!w-[42rem] sm:!max-w-md md:!max-w-lg lg:!max-w-xl xl:!max-w-2xl !h-[100dvh] !max-h-[100dvh] overflow-y-auto p-0"
           style={{
             background: WB.surface,
             borderColor: WB.hairStrong,
