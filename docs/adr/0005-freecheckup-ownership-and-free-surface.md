@@ -1,6 +1,6 @@
 # ADR-0005：freecheckup 的治外法權收編——每個深模組多一個 free surface
 
-- 狀態：Accepted（S1 已完成 2026-07-31；S2 / S3 待執行）
+- 狀態：Accepted（S1、S2 已完成 2026-07-31；S3 待執行）
 - 日期：2026-07-31
 - 相關：ADR-0001（五個深模組）、ADR-0004（Checkup Gateway seam）
 
@@ -119,7 +119,7 @@ export { HoldingsDetailPanel } from '../../components/freecheckup/HoldingsDetail
 | 階段 | 內容 | 驗收 |
 | --- | --- | --- |
 | S1 | ✅ 完成（2026-07-31）建立五個 `free.ts` 次級 barrel + 共享層 `src/checkup/lib/validateProps.js`；shell 改用 barrel lazy import | 單元測試全綠、build 通過、首屏不含任何 tab |
-| S2 | `HoldingsTab` 的 `BatchParsePanel` 改槽位注入 | 新增 R1 反向測試不再需要例外 |
+| S2 | ✅ 完成（2026-07-31）`HoldingsTab` 的 `BatchParsePanel` 改槽位注入 | `holdings-batch-parse-slot.test.ts` 守住；邊界檢查 0 violations |
 | S3 | 守衛加上 R5 + 合成違規反向測試，CI 硬擋 | `npm run check:module-boundaries` 對 freecheckup 有輸出能力 |
 
 ## 替代方案
@@ -148,3 +148,15 @@ export { HoldingsDetailPanel } from '../../components/freecheckup/HoldingsDetail
   與 §7 的 R5 直接衝突，因此選擇維持邊界、接受同領域兩 tab 同包。
 - `BatchParsePanel` 目前同時出現在 holdings 與 tradeIO 兩個 chunk（HoldingsTab 直接 import），S2 槽位注入後消除。
 - 新增 `src/test/unit/checkup-free-surface-barrel.test.ts`：五個 free barrel 的 re-export 契約煙霧測試。
+
+## S2 實測後記（2026-07-31）
+
+- `HoldingsTab`（M1）移除 `BatchParsePanel` import 與 `batchState / cancelBatch / retryBatchFailures /
+  restoreBatchItemPreview` 四個 prop，改為單一 `batchParseSlot: ReactNode`——介面從四個回呼縮成一個槽位。
+- shell（`FreeCheckup.jsx`）改由 `@/checkup/modules/tradeIO/free` lazy 載入 `BatchParsePanel`，
+  並以 `batchState?.items?.length` 為條件渲染：沒有批次項目時槽位為 `null`，**holdings tab 不會拉進 tradeIO chunk**
+  （S1 後記提到的「同一元件出現在兩個 chunk」問題消除）。
+- 新增 `src/test/unit/holdings-batch-parse-slot.test.ts`（5 條）：禁止手足直連、槽位存在、shell 走 barrel、shell 不深挖實作檔。
+- `node scripts/check-module-boundaries.mjs` 0 violations；`freecheckup-tab-perf` 與 free surface barrel 測試全綠。
+- `e2e/freecheckup-batch-parse.spec.ts`（3 條）與 `batch-parse-quota` 在改動**前後皆紅**（`#fi` 逾時，
+  與槽位無關的既有問題），已用 HEAD 版本對照確認為既存失敗，不列為 S2 迴歸。
