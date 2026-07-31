@@ -814,24 +814,34 @@ function PriceAxis({ WB, price, cost, target, baseTarget, upside, tpHistory }) {
           <span
             key={`label-${i}`}
              data-testid={`holdings-price-axis-label-${p.label === '成本' ? 'cost' : p.label === '目標' ? 'target' : 'price'}`}
+            data-label-anchor={p.box.anchor}
+            data-label-lines={p.box.lines}
             style={{
               position: 'absolute',
-              /* 夾住中心點：標籤最大寬 92px → 半寬 46px，任何 lx 都不會越界（280px 亦成立） */
-              left: `clamp(46px, ${p.lx}%, calc(100% - 46px))`,
-               top: p.side === 'top' ? 3 + (laneByLabel.get(p.label) ?? 0) * 18 : y + 10,
-              transform: 'translateX(-50%)',
-               maxWidth: 92,
+              /* 字寬規則單一資料源：resolveLabelBox 依估算字寬決定貼左／置中／貼右，
+                 短字串能真正對準刻度，長字串改為兩行而非被截斷，皆不會越界。 */
+              left: p.box.left,
+              top: p.side === 'top'
+                ? 3 + laneTopOffset(laneByLabel.get(p.label) ?? 0, anyWrapped)
+                : y + 10,
+              transform: p.box.transform,
+              maxWidth: p.box.maxWidth,
+              display: '-webkit-box',
+              WebkitBoxOrient: 'vertical',
+              WebkitLineClamp: p.box.lines,
               overflow: 'hidden',
               textOverflow: 'ellipsis',
-              whiteSpace: 'nowrap',
-              fontSize: 10,
+              whiteSpace: p.box.wrap ? 'normal' : 'nowrap',
+              overflowWrap: 'anywhere',
+              textAlign: p.box.anchor === 'end' ? 'right' : 'left',
+              fontSize: LABEL_FONT_SIZE,
               color: WB.inkSub,
               letterSpacing: '0.02em',
               fontVariantNumeric: 'tabular-nums',
-              lineHeight: '14px',
+              lineHeight: `${LABEL_LINE_HEIGHT}px`,
               pointerEvents: 'none',
             }}
-          >{p.label} {Number(p.v).toFixed(2)}</span>
+          >{p.text}</span>
         ))}
       </div>
       {note && (
