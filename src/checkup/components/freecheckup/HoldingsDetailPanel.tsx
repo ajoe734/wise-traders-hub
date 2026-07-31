@@ -383,7 +383,7 @@ function HoldingsDetailPanelImpl({
         {/* 5) 一條價格軸（目標 accent／成本 灰／現價 ink 圓點，同一尺 ±5%）+ 目標價修正方向 */}
         <PriceAxis
           WB={WB}
-          price={_priceN}
+          price={Number(h.price)}
           cost={Number(h.cost)}
           target={displayTarget}
           baseTarget={baseTarget}
@@ -395,7 +395,7 @@ function HoldingsDetailPanelImpl({
         {rangeLow != null && rangeHigh != null && rangeHigh > rangeLow && (
           <RangeBand
             WB={WB}
-            price={_priceN}
+            price={Number(h.price)}
             low={rangeLow}
             high={rangeHigh}
             spark={sparkArr}
