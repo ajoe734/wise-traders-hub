@@ -18,6 +18,8 @@ import { readFileSync } from 'fs';
 import { resolve } from 'path';
 import { buildTeachingOnlyRow, buildPublishRows } from '@/pages/_signalEditor/derive';
 import type { TradeDraft } from '@/pages/_signalEditor/types';
+import { evaluatePublishGate } from '@/pages/_signalEditor/publishGate';
+
 
 // ── A. derive.ts 純函數 ─────────────────────────────────────────────
 
