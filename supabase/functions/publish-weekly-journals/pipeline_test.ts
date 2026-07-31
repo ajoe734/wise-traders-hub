@@ -25,7 +25,7 @@ const sig = (over: Partial<PendingSignal> = {}): PendingSignal => ({
   teaching_topic: over.teaching_topic ?? null,
   overall_summary: over.overall_summary ?? null,
   published_at: null,
-  batch_id: over.batch_id ?? 'b1',
+  batch_id: 'batch_id' in over ? (over.batch_id ?? null) : 'b1',
   executed_at: null,
 });
 
@@ -226,7 +226,10 @@ Deno.test('pushExpertJournals: 訂閱者收週記、已取消者收促購訊息'
       { line_user_id: 'L1', user_id: 'm1' },
       { line_user_id: 'L2', user_id: 'm2' },
     ],
-    subs: [{ user_id: 'm1', plan_id: 'p1', canceled_at: null, expires_at: '2099-01-01T00:00:00Z' }],
+    subs: [
+      { user_id: 'm1', plan_id: 'p1', canceled_at: null, expires_at: '2099-01-01T00:00:00Z' },
+      { user_id: 'm2', plan_id: 'p1', canceled_at: '2026-07-01T00:00:00Z', expires_at: '2099-01-01T00:00:00Z' },
+    ],
   });
   const r = await pushExpertJournals(port, { expertId: 'e1', signals: [sig()], force: false });
   assertEquals(state.multicasts.length, 2);
