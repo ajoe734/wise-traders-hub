@@ -1,85 +1,34 @@
-# Phase 7 — 價格權威單一化（TDD 根因修復）
-
-## 為什麼還沒真的修完
-
-Phase 3 只把 DB-first 覆蓋層（`useAuthoritativePrices`）套在 `useRoutePortfolioRuntime` 的 `holdings` 上。經檢查，仍有多個消費端**直接讀 legacy TWSE / LocalStorage 快取 `marketPriceCache`**，因此同一畫面會出現兩套價格：
-
-| 消費端 | 檔案 | 目前取價來源 |
-|---|---|---|
-| 總覽頁（多組合彙總） | `src/checkup/hooks/useRouteOverviewPage.js:16-23` | `readRouteMarketState().marketPriceCache` |
-| 投組摘要卡 | `src/checkup/hooks/useRoutePortfolioRuntime.js:676` | `buildPortfolioSummariesFromStorage({ marketPriceCache })` |
-| 持倉正規化 | `useRoutePortfolioRuntime.js:195` | `normalizeHoldings(value, marketPriceCache?.prices)` |
-| 壓力測試 | `useStressTestWorkflow.js:52` | `getMarketQuotesForCodes`（TWSE 抓取） |
-| 事件生命週期 | `useEventLifecycleSync.js:39` | 同上 |
-| 每日分析／收盤分析 | `useDailyAnalysisWorkflow.js:142,594` | 同上 |
-| Store selector | `marketStore.js:34-40` | `marketPriceCache.prices[code]` |
-
-`useMarketData.js` 的 `fetchPostCloseQuotes` 目前仍是**線上主路徑**（`syncPostClosePrices` 直打 TWSE MIS 並寫回 holdings），與計畫書寫的「fallback-only」不符——這是收盤價對不上的殘留根因。
-
-另有一項待處理：`us-option-price-sync` 有 7 腿 `not_in_chain`，目前靜默略過，UI 只會顯示 `stale` 而無原因。
+# 持倉抽屜：佔比排名區塊改為「最下方 + 可摺疊 + 可排除匯出」
 
 ## 目標
 
-**單一取價入口**：全部走 `useAuthoritativePrices`／同一個 resolver，legacy TWSE 快取降級為純離線 fallback，且任何路徑都不得再寫回 holdings 價格。
+抽屜裡的「佔比／排名 #x ／ N」條狀圖：
 
-## 作法（TDD，先紅後綠）
+1. 移到抽屜內容最下面（在情境模擬、論點引文之後），不再夾在走勢帶與決策履歷中間。
+2. 預設摺疊，只顯示一行標題列（`佔比　排名 #3 ／ 12`），點一下展開條狀圖，展開狀態會記住。
+3. 匯出選單多一個「包含佔比排名」開關，關掉時匯出卡不輸出佔比資料。
 
-### Step 1 — 建立唯一 resolver（先寫測試）
-新增 `src/checkup/lib/priceResolver.ts` + `__tests__/priceResolver.test.ts`：
-- `resolvePrice(row, { authoritative, offlineCache, online })`，優先序 snapshot > current > combo > offline > stale。
-- 測試鎖：online 時**永遠不得**回傳 LocalStorage 值；stale 需帶 `reason`。
-- `useAuthoritativePrices` 的 `combineAuthoritativePrices` 改為呼叫此 resolver（行為不變，既有 9 條測試須維持綠燈）。
+## 行為細節
 
-### Step 2 — 總覽頁與摘要卡改走權威價（先寫測試）
-- 新增 `src/test/unit/overview-price-authority.test.ts`：給定 snapshot 價 ≠ LocalStorage 價，`buildOverviewRuntimeData` / `buildPortfolioSummariesFromStorage` 必須輸出 snapshot 價。
-- 改 `useRouteOverviewPage.js`、`useRoutePortfolioRuntime.js:676`：以權威價 map 取代 `marketPriceCache.prices`，離線時才回退。
+- 摺疊標題列本身就帶排名資訊，收起時仍看得到自己排第幾。
+- 展開／收合狀態存在抽屜偏好裡，下次開抽屜維持上次選擇（預設收合）。
+- 匯出開關預設「包含」，關閉後匯出卡的「部位佔比」欄位不出現（1:1 與 16:9 兩種版型都一致）。
+- 匯出開關與現有比例／格式／解析度一樣存在匯出偏好，重開仍保留。
 
-### Step 3 — 拔除 TWSE 主路徑（先寫測試）
-- 新增 `src/test/unit/useMarketData-fallback-only.test.ts`：`navigator.onLine=true` 時呼叫 `syncPostClosePrices` **不得** fetch `API_ENDPOINTS.TWSE`；offline 才允許。
-- 改 `useMarketData.js`：`syncPostClosePrices` 加線上閘門，改為觸發權威層重抓；`fetchPostCloseQuotes` 僅離線使用。
-- `getMarketQuotesForCodes` 改為讀 `daily_price_snapshots` / `current_prices`，讓壓力測試、事件同步、每日分析三個 workflow 自動吃到權威價（不改它們的呼叫簽名）。
+## 技術做法
 
-### Step 4 — Store selector 收斂
-`marketStore.js` 的 `getPrice/getQuote` 加上權威層優先，並補 store contract 測試（沿用 `src/test/unit/checkup-stores-contract.test.ts`）。
+- `src/checkup/components/freecheckup/HoldingsDetailPanel.tsx`
+  - 將 `<WeightRank>` 從區塊 7 移到區塊 10（論點引文）之後，成為內容區最後一段。
+  - `WeightRank` 改為可摺疊：標題列做成 `button`（`aria-expanded`），下方條狀圖依狀態渲染；沿用 `data-testid="holdings-weight-rank"`，標題列加 `data-testid="holdings-weight-rank-toggle"`。
+  - 傳入 `weightPct` 給匯出卡時，依匯出偏好決定是否傳 `null`。
+- `src/checkup/lib/drawerPrefs.ts`
+  - `HoldingPanelPrefs` 新增 `weightRankOpen: boolean`（預設 `false`）；sanitize 已是布林轉換，無需改結構。
+  - `HoldingExportPrefs` 新增 `includeWeightRank: boolean`（預設 `true`），並在 sanitize 中做布林正規化與舊資料 fallback（缺欄位時視為 `true`）。
+- `ExportMenu` 在「解析度」之後、匯出按鈕之前，新增一個 checkbox 列「包含佔比排名」，`data-testid="export-toggle-weight-rank"`。
+- `HoldingExportCard.tsx` 不需改邏輯（`weightPct == null` 時本來就不渲染該列）。
 
-### Step 5 — `not_in_chain` 可觀測化
-- Deno 測試：不在鏈上的腿必須寫入 `price_parity_events`（`kind='option_leg_not_in_chain'`），而非靜默略過。
-- `us-option-price-sync/index.ts` 回傳 `skipped` 明細；`PriceParityCard.tsx` 增列該類事件計數。
+## 測試
 
-### Step 6 — E2E 擴充
-`e2e/holdings-price-parity.spec.ts` 追加：
-- 總覽頁情境：mock snapshot 價，斷言畫面顯示的是 snapshot 而非 seeded LocalStorage 價。
-- 線上情境：斷言**沒有**對 TWSE MIS proxy 的請求。
-
-### Step 7 — 文件同步
-更新 `docs/architecture/price-authority.md`（新增「單一 resolver 契約」與「禁止直接讀 marketPriceCache」守則）與 `.lovable/plan.md`（Phase 7 表格），刪除已過期的 Phase 2b/3 規格草稿段落。
-
-## 驗收標準
-
-- 全域搜尋：`src/` 中除 `useMarketData.js`（offline 分支）與測試外，不得再有 `marketPriceCache?.prices` 直接取價。
-- `bunx vitest run`：既有 19 條價格測試 + 新增 Step 1–4 測試全綠。
-- `bunx playwright test --project=holdings-price-parity`：4 tests pass。
-- Deno：`us-option-price-sync` 測試全綠（含新 skipped 契約）。
-
-## 不可觸碰
-
-`src/integrations/supabase/{client,types}.ts`、`.env`、`supabase/config.toml`；`FreeCheckup.jsx` Hero 與 RWD 斷點（僅換價格來源，改動時須跑手機回歸清單）。
-
-
-## Phase 7 — 單一價格真相收斂（2026-07-29 完成）
-
-根因：Phase 3 只覆蓋 holdings 陣列，**同步**消費端（總覽頁、投組摘要、marketStore selector）
-仍讀 LocalStorage 舊價 → 同畫面兩個數字。
-
-| Step | 內容 | 交付 |
-|------|------|------|
-| 1 | 統一解析器（combo > snapshot > current > offline > stale） | `src/checkup/lib/priceResolver.ts`（10 tests） |
-| 2 | 權威價鏡像（upsert、只存 DB 來源） | `src/checkup/lib/authoritativePriceMirror.ts` |
-| 3 | 同步消費端收斂：`readRouteMarketState` / `marketStore` 一律 merge 鏡像 | `routeRuntime.js`、`marketStore.js`（7 tests） |
-| 4 | `useMarketData` 取價路由：線上 DB、離線才打 TWSE MIS | `authoritativeQuotes.ts`、`useMarketData.js`（4 tests） |
-| 5 | 未定價腿留痕 → `checkup_price_misses`（系統級 user_id=null，成功後 resolved） | `us-option-price-sync/index.ts`（Deno 11 綠） |
-
-回歸結果：`src/checkup` + `src/test/unit` 共 **1110 passed / 92 files**（含修復 4 個先前紅燈檔：
-Phase A deep-link 讓 `useRouteHoldingsPage` 需要 Router context，測試改用 `MemoryRouter` wrapper、
-`checkup-modules-contract` 補 `useSearchParams` mock、hook 移除 `eslint-disable`）；
-`--project=holdings-price-parity` 2 passed。
+- `src/checkup/lib/drawerPrefs.test.ts`：新增 `includeWeightRank` 預設值、舊 localStorage 缺欄位 fallback 為 true、非布林值被正規化的案例。
+- 單元／E2E：抽屜開啟後佔比區塊預設收合、點擊展開、位置位於抽屜內容末段；匯出開關關閉後匯出卡不含「部位佔比」。
+- 既有抽屜回歸：`bunx playwright test e2e/holdings-detail-panel-narrow.spec.ts` 與 checkup 相關單元測試。
