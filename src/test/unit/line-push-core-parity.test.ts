@@ -1,5 +1,5 @@
 import { describe, it, expect } from 'vitest';
-import { existsSync, readFileSync } from 'node:fs';
+import { existsSync, readFileSync, readdirSync } from 'node:fs';
 import { resolve } from 'node:path';
 import { toMirror, readDeno, MIRROR_PATH, DENO_PATH } from '../../../scripts/gen-line-push-core-mirror.mjs';
 import {
