@@ -18,6 +18,7 @@ import { barIndexFromX, barCenterPct, shouldFlipTooltip, fmtKlineDate, fmtKlineN
 import {
   resolveLabelBox, assignLanes, laneTopOffset,
   LABEL_FONT_SIZE, LABEL_LINE_HEIGHT,
+  resolveTrackMetrics, toCompactRow,
 } from '@/checkup/lib/priceAxisLabel';
 
 
@@ -743,8 +744,8 @@ function PriceAxis({ WB, price, cost, target, baseTarget, upside, tpHistory }) {
   const note = tpHistory && upside != null
     ? `共識 ${tpHistory.spanDays} 日內由 ${tpHistory.from.toLocaleString()} ${tpHistory.arrow === '↓' ? '下修' : '上修'}至 ${tpHistory.last.toLocaleString()}，${upside >= 0 ? '仍高於' : '低於'}現價 ${Math.abs(upside).toFixed(1)}%${upside < 0 ? '——已超漲' : ''}`
     : null;
-  const H = 82;
-  const y = 52;
+  // 小螢幕（窄軌道）→ 簡化排版：軌道變矮、標籤改成軸下方堆疊列（見 lib/priceAxisLabel.ts）
+  const { compact, height: H, axisY: y } = resolveTrackMetrics(trackWidth);
   const markers = [
     { v: cost, color: WB.inkLight, label: '成本', shape: 'tick', side: 'top' },
     { v: target, color: WB.accent, label: '目標', shape: 'tick', side: 'top' },
@@ -810,12 +811,13 @@ function PriceAxis({ WB, price, cost, target, baseTarget, upside, tpHistory }) {
             }}
           />
         ))}
-        {markers.map((p, i) => (
+        {!compact && markers.map((p, i) => (
           <span
             key={`label-${i}`}
              data-testid={`holdings-price-axis-label-${p.label === '成本' ? 'cost' : p.label === '目標' ? 'target' : 'price'}`}
             data-label-anchor={p.box.anchor}
             data-label-lines={p.box.lines}
+            data-label-mode="float"
             style={{
               position: 'absolute',
               /* 字寬規則單一資料源：resolveLabelBox 依估算字寬決定貼左／置中／貼右，
@@ -844,6 +846,42 @@ function PriceAxis({ WB, price, cost, target, baseTarget, upside, tpHistory }) {
           >{p.text}</span>
         ))}
       </div>
+      {/* compact：軸下方堆疊列。名稱／數值分欄對齊，數值用 tabular-nums，
+          不截斷、不重疊，窄螢幕仍能明確讀到成本與目標價。 */}
+      {compact && (
+        <div
+          data-testid="holdings-price-axis-compact"
+          style={{ display: 'flex', flexDirection: 'column', gap: 4, marginTop: 6, minWidth: 0 }}
+        >
+          {markers.map((p, i) => {
+            const row = toCompactRow({ label: p.label, text: p.text });
+            return (
+              <div
+                key={`row-${i}`}
+                data-testid={`holdings-price-axis-label-${p.label === '成本' ? 'cost' : p.label === '目標' ? 'target' : 'price'}`}
+                data-label-mode="stacked"
+                style={{
+                  display: 'flex', alignItems: 'baseline', gap: 8, minWidth: 0,
+                  fontSize: 12, lineHeight: '16px', color: WB.inkSub, letterSpacing: '0.02em',
+                }}
+              >
+                <span aria-hidden="true" style={{
+                  width: 6, height: 6, borderRadius: '50%', background: p.color, flex: '0 0 auto',
+                  alignSelf: 'center',
+                }} />
+                <span style={{ flex: '0 0 auto', color: WB.inkMute }}>{row.name}</span>
+                <span style={{
+                  flex: '1 1 auto', textAlign: 'right', color: WB.ink, fontWeight: 500,
+                  fontVariantNumeric: 'tabular-nums', overflowWrap: 'anywhere',
+                }}>
+                  {row.value}
+                  {row.note ? <span style={{ marginLeft: 6, color: WB.accent }}>{row.note}</span> : null}
+                </span>
+              </div>
+            );
+          })}
+        </div>
+      )}
       {note && (
         <div style={{ marginTop: 8, fontFamily: SERIF, fontSize: 13, color: WB.inkSub, lineHeight: 1.65 }}>
           {note}
