@@ -238,9 +238,65 @@ describe('drift-detection: publish-weekly-journals 對 teaching / hold 的 skip 
   });
 });
 
-// ── C. drift-detection: SignalEditor weekType toggle + canPublish ─
+// ── C. 行為級測試：發布守門（P8，取代原字串比對 drift-detection） ──
+//
+// 守門順序改由純函式 evaluatePublishGate 決定，行為在 publishGate.test.ts 完整覆蓋。
+// 這裡只保留兩件事：
+//   (1) SignalEditor 真的走 evaluatePublishGate（不再自己 inline 判斷）
+//   (2) teaching / trades 兩條路徑的行為結果（用純函式驗，不比對原始碼字串）
 
-describe('drift-detection: SignalEditor weekType toggle + canPublish 守門', () => {
+describe('發布守門（evaluatePublishGate）在 teaching / trades 兩條路徑的行為', () => {
+  const gateBase = {
+    canEdit: true,
+    publishWindow: { open: true },
+    assetClass: 'tw_stock',
+    teachingTopic: '',
+    validateBatch: () => null as string | null,
+  };
+
+  it('純教學週記：缺教學主題 → 阻擋且不觸發交易驗證', () => {
+    let validated = false;
+    const r = evaluatePublishGate({
+      ...gateBase,
+      isTeachingOnly: true,
+      validateBatch: () => { validated = true; return null; },
+    });
+    expect(r.blocked).toBe(true);
+    expect(r.code).toBe('TEACHING_TOPIC_REQUIRED');
+    expect(validated).toBe(false);
+  });
+
+  it('純教學週記：有主題 → 放行，交易驗證錯誤不影響', () => {
+    const r = evaluatePublishGate({
+      ...gateBase,
+      isTeachingOnly: true,
+      teachingTopic: '本週主題',
+      validateBatch: () => '交易資料有誤',
+    });
+    expect(r.blocked).toBe(false);
+  });
+
+  it('交易週記：走 validateSignalBatch，錯誤訊息原樣回傳', () => {
+    const r = evaluatePublishGate({
+      ...gateBase,
+      isTeachingOnly: false,
+      validateBatch: () => '第 1 筆缺少股票代號',
+    });
+    expect(r).toMatchObject({ blocked: true, code: 'BATCH_INVALID', reason: '第 1 筆缺少股票代號' });
+  });
+
+  it('發布時段未開先於資產類別與內容檢查', () => {
+    const r = evaluatePublishGate({
+      ...gateBase,
+      publishWindow: { open: false, reason: '台股需等到週五 20:00' },
+      assetClass: null,
+      isTeachingOnly: true,
+    });
+    expect(r.code).toBe('WINDOW_CLOSED');
+  });
+});
+
+describe('SignalEditor 接線：weekType toggle 與守門委派', () => {
   let src: string;
 
   beforeAll(() => {
@@ -250,27 +306,19 @@ describe('drift-detection: SignalEditor weekType toggle + canPublish 守門', ()
     );
   });
 
-  it('保留 weekType state（trades / teaching）', () => {
-    expect(src).toContain("'trades'");
-    expect(src).toContain("'teaching'");
+  it('保留 weekType state 與 isTeachingOnly（mentor + teaching）', () => {
     expect(src).toMatch(/weekType,\s*setWeekType/);
-  });
-
-  it('isTeachingOnly 守門：mentor + weekType=teaching', () => {
-    expect(src).toContain('isTeachingOnly');
-    expect(src).toMatch(/weekType === 'teaching'/);
     expect(src).toMatch(/isMentor && weekType === 'teaching'/);
   });
 
-  it('teachingTopic 空字串時阻擋送出（toast.error 提示填教學主題）', () => {
-    expect(src).toMatch(/teachingTopic\.trim\(\)/);
-    expect(src).toMatch(/純教學週記至少要填教學主題/);
+  it('handlePublish 委派給 evaluatePublishGate，不再 inline 手刻守門', () => {
+    expect(src).toContain('evaluatePublishGate');
+    // 舊的 inline 判斷必須已移除，避免兩套守門並存
+    expect(src).not.toMatch(/純教學週記至少要填教學主題/);
+    expect(src).not.toMatch(/if \(!publishWindow\.open\) \{/);
   });
 
   it('isTeachingOnly 時使用 buildTeachingOnlyRow 而非 buildPublishRows', () => {
-    expect(src).toContain('buildTeachingOnlyRow');
-    expect(src).toContain('buildPublishRows');
-    // isTeachingOnly ? buildTeachingOnlyRow(...) : buildPublishRows(...)
     expect(src).toMatch(
       /isTeachingOnly[\s\S]{0,80}buildTeachingOnlyRow[\s\S]{0,400}buildPublishRows/,
     );
@@ -280,6 +328,7 @@ describe('drift-detection: SignalEditor weekType toggle + canPublish 守門', ()
     expect(src).toContain('純教學週記（無交易）');
   });
 });
+
 
 // ── D. drift-detection: derive.ts hold 在 validate / 模擬中正確處理 ──
 
