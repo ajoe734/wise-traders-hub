@@ -75,6 +75,9 @@ jobs:
           - module-cross-nav
           - shell-event-bus-navigation
           - shell-event-bus-nav-v2
+          # 持倉抽屜價格軸 280–2560px 幾何回歸（標籤 + 現價圓點）
+          - holdings-price-axis-label-layout
+          - holdings-price-axis-dot-shape
     steps:
       - uses: actions/checkout@v4
       - uses: oven-sh/setup-bun@v2
