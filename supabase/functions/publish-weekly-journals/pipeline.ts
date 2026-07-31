@@ -21,7 +21,7 @@ import {
   isTransientError,
   retryTransient,
 } from './classifyPublishError.ts';
-import { accountNotificationsUrl, expertDetailUrl } from '../_shared/routes.ts';
+import { buildEarlyPublishNotification } from '../_shared/notificationTemplates.ts';
 import type { EmitFn, PendingSignal, PublishPort } from './port.ts';
 
 const US_ASSET_CLASSES = ['us_stock', 'us_futures', 'crypto'];
