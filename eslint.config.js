@@ -83,7 +83,42 @@ const checkupGatewaySeamConfig = {
   },
 };
 
+// R5 free surface 收斂（ADR-0005 §7）：模組外部（含 shell）不得深挖
+// src/checkup/components/freecheckup/** 實作檔，只能走 @/checkup/modules/<m>/free。
+// 例外：freecheckup 自身、五模組內部、harness 入口與測試，外加 shell 自有 UI 兩個檔。
+const freeSurfaceConfig = {
+  files: ["src/**/*.{ts,tsx,js,jsx}"],
+  ignores: [
+    "src/checkup/components/freecheckup/**",
+    "src/checkup/modules/**",
+    "src/test/**",
+    "src/pages/*HarnessEntry.tsx",
+    "**/__tests__/**",
+    "**/*.test.*",
+  ],
+  rules: {
+    "no-restricted-imports": [
+      "error",
+      {
+        patterns: [
+          {
+            group: [
+              "@/checkup/components/freecheckup/*",
+              "**/checkup/components/freecheckup/*",
+              "!@/checkup/components/freecheckup/OnboardingOverlay",
+              "!@/checkup/components/freecheckup/DemoFooterHint",
+            ],
+            message:
+              "R5（ADR-0005 §7）：freecheckup 實作檔只能透過 @/checkup/modules/<m>/free 進入，禁止深挖。",
+          },
+        ],
+      },
+    ],
+  },
+};
+
 export default tseslint.config(
+
   { ignores: ["dist"] },
   {
     extends: [js.configs.recommended, ...tseslint.configs.recommended],
@@ -123,4 +158,6 @@ export default tseslint.config(
   ...siblingBoundaryConfigs,
   externalBarrelOnlyConfig,
   checkupGatewaySeamConfig,
+  freeSurfaceConfig,
+
 );

@@ -23,10 +23,10 @@ jobs:
       - name: Run tests
         run: npx vitest run
 
-      - name: Checkup 深模組邊界守衛 (ADR-0001)
+      - name: Checkup 深模組邊界守衛 R1-R5 (ADR-0001 / ADR-0005)
         run: npm run check:module-boundaries
 
-      - name: ESLint — 深模組邊界規則 (ADR-0001)
+      - name: ESLint — 深模組邊界 + free surface 規則 (ADR-0001 / ADR-0005)
         run: npm run lint:modules
 
       - name: Sitemap ↔ route consistency

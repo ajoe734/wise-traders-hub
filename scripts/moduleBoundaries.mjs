@@ -69,24 +69,29 @@ function resolveModuleTarget(spec, modules) {
 export function deriveOwnership(srcDir, modules) {
   const owners = new Map(); // 'src/checkup/...' prefix -> module
   const modulesDir = join(srcDir, 'checkup', 'modules');
+  const BARREL_NAMES = ['index', 'free'];
   for (const m of modules) {
-    const barrel = ['index.ts', 'index.tsx', 'index.js', 'index.jsx']
-      .map((f) => join(modulesDir, m, f))
-      .find((f) => existsSync(f));
-    if (!barrel) continue;
-    for (const spec of extractSpecifiers(readFileSync(barrel, 'utf-8'))) {
-      if (!spec.startsWith('.')) continue;
-      if (/^\.\/(?!\.)/.test(spec)) continue; // 模組自身檔案
-      const abs = join(modulesDir, m, spec);
-      let owned = relative(srcDir, abs).split(sep).join('/');
-      owned = owned.replace(/\/index\.(t|j)sx?$/, '');
-      owned = owned.replace(/\.(t|j)sx?$/, '');
-      if (!owned || owned.startsWith('..')) continue;
-      owners.set(`src/${owned}`, m);
+    const barrels = BARREL_NAMES.flatMap((base) =>
+      ['ts', 'tsx', 'js', 'jsx']
+        .map((ext) => join(modulesDir, m, `${base}.${ext}`))
+        .filter((f) => existsSync(f)),
+    );
+    for (const barrel of barrels) {
+      for (const spec of extractSpecifiers(readFileSync(barrel, 'utf-8'))) {
+        if (!spec.startsWith('.')) continue;
+        if (/^\.\/(?!\.)/.test(spec)) continue; // 模組自身檔案
+        const abs = join(modulesDir, m, spec);
+        let owned = relative(srcDir, abs).split(sep).join('/');
+        owned = owned.replace(/\/index\.(t|j)sx?$/, '');
+        owned = owned.replace(/\.(t|j)sx?$/, '');
+        if (!owned || owned.startsWith('..')) continue;
+        owners.set(`src/${owned}`, m);
+      }
     }
   }
   return owners;
 }
+
 
 function ownerOf(relPath, owners) {
   const stripped = relPath.replace(/\.(t|j)sx?$/, '');
@@ -103,6 +108,98 @@ function componentTarget(spec, modules) {
   }
   return null;
 }
+
+/* ---------------------------------------------------------------------------
+ * R5 free surface 收斂（ADR-0005 §7）
+ * R5a：src/checkup/components/freecheckup/** 的每個實作檔都必須被某個模組 barrel
+ *      （index 或 free）擁有，否則就是新的治外法權檔案。
+ * R5b：模組外部不得深挖 freecheckup 實作檔，只能走 @/checkup/modules/<m>/free。
+ * 例外只有兩類（ADR-0005 §7 寫死）：shell 自有 UI、harness 入口／測試。
+ * ------------------------------------------------------------------------- */
+export const FREE_DIR = 'src/checkup/components/freecheckup';
+
+/** shell 自有 UI（ADR-0005 §2）：不歸任何模組，shell 可直接 import。 */
+export const FREE_SHELL_OWNED = [
+  `${FREE_DIR}/OnboardingOverlay`,
+  `${FREE_DIR}/DemoFooterHint`,
+];
+
+/** 允許深挖 freecheckup 的呼叫端（ADR-0005 §7 例外清單）。 */
+const FREE_DEEP_IMPORT_ALLOW = [
+  /^src\/pages\/[A-Za-z0-9_]*HarnessEntry\.tsx$/,
+  /^src\/test\//,
+];
+
+const isTestFile = (p) => /(^|\/)__tests__\//.test(p) || /\.(test|spec)\.[jt]sx?$/.test(p);
+
+const stripExt = (p) => p.replace(/\.(t|j)sx?$/, '').replace(/\/index$/, '');
+
+/** specifier（相對或 alias）解析成 repo 相對路徑；非指向 freecheckup 則回 null。 */
+function resolveFreeTarget(spec, fileRel) {
+  const norm = spec.replace(/\\/g, '/');
+  if (/^(@\/|~\/)?checkup\/components\/freecheckup(\/|$)/.test(norm.replace(/^@\//, ''))) {
+    return stripExt(norm.replace(/^[@~]\//, 'src/'));
+  }
+  if (norm.startsWith('.')) {
+    const abs = join(dirname(fileRel), norm).split(sep).join('/');
+    if (abs.startsWith(FREE_DIR)) return stripExt(abs);
+  }
+  return null;
+}
+
+/**
+ * @param {{srcDir: string, root: string, owners: Map<string,string>, files: string[], rel: (p:string)=>string}} ctx
+ */
+function checkFreeSurface(ctx) {
+  const { owners, files, rel } = ctx;
+  const violations = [];
+  const shellOwned = new Set(FREE_SHELL_OWNED);
+
+  for (const abs of files) {
+    const r = rel(abs);
+    if (!r.startsWith(`${FREE_DIR}/`)) continue;
+    if (isTestFile(r)) continue;
+    const key = stripExt(r);
+    if (shellOwned.has(key)) continue;
+    if (!ownerOf(r, owners)) {
+      violations.push({
+        rule: 'R5_UNOWNED_FREE_FILE',
+        file: r,
+        specifier: '',
+        message:
+          `freecheckup 檔案 ${r} 未被任何模組 barrel 認領。請在 src/checkup/modules/<m>/free.ts ` +
+          `re-export（ADR-0005 §1），或列入 shell 自有 UI 清單。`,
+      });
+    }
+  }
+
+  for (const abs of files) {
+    const r = rel(abs);
+    if (r.startsWith(`${FREE_DIR}/`)) continue; // 模組實作彼此互引由 R1/R4 管
+    if (FREE_DEEP_IMPORT_ALLOW.some((re) => re.test(r))) continue;
+    if (isTestFile(r)) continue;
+    const src = readFileSync(abs, 'utf-8');
+    for (const spec of extractSpecifiers(src)) {
+      const target = resolveFreeTarget(spec, r);
+      if (!target) continue;
+      if (shellOwned.has(target)) continue;
+      // 模組自身（含 free barrel）當然可以 re-export 自己擁有的檔案
+      const importerModule = ownerOf(r, owners) ?? (r.match(/^src\/checkup\/modules\/([^/]+)\//)?.[1]);
+      const targetModule = ownerOf(`${target}.ts`, owners) ?? ownerOf(target, owners);
+      if (importerModule && importerModule === targetModule) continue;
+      violations.push({
+        rule: 'R5_FREE_DEEP_IMPORT',
+        file: r,
+        specifier: spec,
+        message:
+          `禁止深挖 free surface 實作檔；請改走 @/checkup/modules/${targetModule ?? '<m>'}/free（ADR-0005 §7）。`,
+      });
+    }
+  }
+
+  return violations;
+}
+
 
 /**
  * @param {{root?: string, modules?: string[], srcDir?: string, ignore?: RegExp[]}} [opts]
@@ -192,8 +289,20 @@ export function checkModuleBoundaries(opts = {}) {
     }
   }
 
+  // R5 free surface 收斂（ADR-0005 §7）
+  violations.push(
+    ...checkFreeSurface({
+      srcDir,
+      root,
+      owners,
+      rel,
+      files: allFiles.filter((f) => !ignore.some((re) => re.test(relative(root, f)))),
+    }),
+  );
+
   return violations;
 }
+
 
 export function formatViolations(violations) {
   if (violations.length === 0) return '✓ Checkup 深模組邊界：0 violations';

@@ -109,3 +109,95 @@ describe('C1 · 深模組邊界守衛 — 合成違規必須被抓到', () => {
     expect(run().some((v) => v.file.endsWith('Ok.tsx'))).toBe(false)
   })
 })
+
+describe('C1 · R5 free surface 守衛（ADR-0005 §7）', () => {
+  it('真實 repo 現況 0 筆 R5 違規', () => {
+    const v = checkModuleBoundaries().filter((x) => x.rule.startsWith('R5_'))
+    expect(v.map((x) => `${x.rule} ${x.file} → ${x.specifier}`)).toEqual([])
+  })
+
+  it('每個 freecheckup 實作檔都被 barrel 認領（shell 自有 UI 除外）', () => {
+    const owners = deriveOwnership(join(process.cwd(), 'src'), MODULES)
+    expect(owners.get('src/checkup/components/freecheckup/HoldingsTab')).toBe('holdings')
+    expect(owners.get('src/checkup/components/freecheckup/DailyTab')).toBe('closing')
+    expect(owners.get('src/checkup/components/freecheckup/EventsTab')).toBe('events')
+    expect(owners.get('src/checkup/components/freecheckup/TradeTab')).toBe('tradeIO')
+    expect(owners.get('src/checkup/components/freecheckup/ResearchTab')).toBe('research')
+    // shell 自有 UI 不歸任何模組
+    expect(owners.get('src/checkup/components/freecheckup/OnboardingOverlay')).toBeUndefined()
+  })
+
+  describe('合成違規', () => {
+    let root: string
+    const write = (rel: string, body: string) => {
+      const abs = join(root, rel)
+      mkdirSync(join(abs, '..'), { recursive: true })
+      writeFileSync(abs, body, 'utf-8')
+    }
+
+    beforeAll(() => {
+      root = mkdtempSync(join(tmpdir(), 'r5-boundary-'))
+      write(
+        'src/checkup/modules/holdings/index.ts',
+        `export { Panel } from '../../components/holdings/index.js'\n`,
+      )
+      write('src/checkup/components/holdings/index.js', `export const Panel = () => null\n`)
+      write(
+        'src/checkup/modules/holdings/free.ts',
+        `export { default as HoldingsTab } from '../../components/freecheckup/HoldingsTab';\n`,
+      )
+      write('src/checkup/components/freecheckup/HoldingsTab.tsx', `export default () => null\n`)
+      // R5a：新檔沒被任何 barrel 認領
+      write('src/checkup/components/freecheckup/OrphanTab.tsx', `export default () => null\n`)
+      // shell 自有 UI（白名單）
+      write('src/checkup/components/freecheckup/OnboardingOverlay.jsx', `export default () => null\n`)
+      // R5b：shell 深挖實作檔
+      write(
+        'src/pages/FreeCheckup.jsx',
+        `import HoldingsTab from '@/checkup/components/freecheckup/HoldingsTab'\n` +
+          `import Overlay from '@/checkup/components/freecheckup/OnboardingOverlay'\n` +
+          `export const A = [HoldingsTab, Overlay]\n`,
+      )
+      // 合法：走 free barrel
+      write(
+        'src/pages/Ok.tsx',
+        `import { HoldingsTab } from '@/checkup/modules/holdings/free'\nexport const B = HoldingsTab\n`,
+      )
+      // 例外：harness 入口允許深挖
+      write(
+        'src/pages/HoldingCardHarnessEntry.tsx',
+        `import T from '@/checkup/components/freecheckup/HoldingsTab'\nexport const C = T\n`,
+      )
+    })
+
+    afterAll(() => rmSync(root, { recursive: true, force: true }))
+
+    const run = () => checkModuleBoundaries({ root, modules: MODULES })
+
+    it('抓到 R5a 未被認領的 freecheckup 檔', () => {
+      const v = run().filter((x) => x.rule === 'R5_UNOWNED_FREE_FILE').map((x) => x.file)
+      expect(v).toContain('src/checkup/components/freecheckup/OrphanTab.tsx')
+    })
+
+    it('shell 自有 UI（OnboardingOverlay）不算未認領', () => {
+      const v = run().filter((x) => x.rule === 'R5_UNOWNED_FREE_FILE').map((x) => x.file)
+      expect(v).not.toContain('src/checkup/components/freecheckup/OnboardingOverlay.jsx')
+    })
+
+    it('抓到 R5b shell 深挖實作檔', () => {
+      const v = run().filter((x) => x.rule === 'R5_FREE_DEEP_IMPORT')
+      expect(v.some((x) => x.file === 'src/pages/FreeCheckup.jsx' && x.specifier.endsWith('HoldingsTab'))).toBe(true)
+    })
+
+    it('shell 自有 UI 的 import 不被誤判', () => {
+      const v = run().filter((x) => x.rule === 'R5_FREE_DEEP_IMPORT')
+      expect(v.some((x) => x.specifier.endsWith('OnboardingOverlay'))).toBe(false)
+    })
+
+    it('走 free barrel 與 harness 入口不被誤判', () => {
+      const v = run().filter((x) => x.rule === 'R5_FREE_DEEP_IMPORT').map((x) => x.file)
+      expect(v).not.toContain('src/pages/Ok.tsx')
+      expect(v).not.toContain('src/pages/HoldingCardHarnessEntry.tsx')
+    })
+  })
+})
