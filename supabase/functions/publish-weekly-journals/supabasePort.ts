@@ -3,6 +3,7 @@
  */
 import { serviceClient } from '../_shared/supabaseClients.ts';
 import type {
+import { buildNotificationRow } from '../_shared/routes.ts';
   ActiveSubscription, ExpertRow, LineBinding, LineChannel,
   MulticastResult, NotificationRow, PendingSignal, PublishPort,
 } from './port.ts';
@@ -48,7 +49,13 @@ export function createSupabasePublishPort(
     },
     async insertNotifications(rows: NotificationRow[]) {
       if (rows.length === 0) return;
-      const { error } = await admin.from('notifications').insert(rows as any);
+      // 最後一道防線：link 一律走 _shared/routes.ts builder，任何硬寫的 404 路徑在此擋下
+      const safeRows = rows.map((r) =>
+        buildNotificationRow({
+          userId: r.user_id, title: r.title, body: r.body, type: r.type, link: r.link,
+        })
+      );
+      const { error } = await admin.from('notifications').insert(safeRows as any);
       if (error) throw error;
     },
 
