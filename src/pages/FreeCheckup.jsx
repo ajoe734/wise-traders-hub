@@ -44,6 +44,8 @@ const TradeTab = lazy(() => import("@/checkup/modules/tradeIO/free").then((m) =>
 const ResearchTab = lazy(() => import("@/checkup/modules/research/free").then((m) => ({ default: m.ResearchTab })));
 // Batch C §6.3 / §6.5：上傳 modal + 一次性引導 + 頁腳 demo hint
 const TradeUploadModal = lazy(() => import("@/checkup/modules/tradeIO/free").then((m) => ({ default: m.TradeUploadModal })));
+// ADR-0005 §5：BatchParsePanel 屬 M4 TradeIO，由 shell 以槽位注入 HoldingsTab（M1），避免手足模組直連
+const BatchParsePanel = lazy(() => import("@/checkup/modules/tradeIO/free").then((m) => ({ default: m.BatchParsePanel })));
 // OnboardingOverlay / DemoFooterHint 屬 shell 自己的 UI，不歸任何模組（ADR-0005 §2）
 const OnboardingOverlay = lazy(() => import("@/checkup/components/freecheckup/OnboardingOverlay"));
 const DemoFooterHint = lazy(() => import("@/checkup/components/freecheckup/DemoFooterHint"));
@@ -3223,10 +3225,7 @@ ${JSON.stringify(strategyBrain || { rules: [], lessons: [], commonMistakes: [], 
 
               uploadSummary={uploadSummary}
               setUploadSummary={setUploadSummary}
-              batchState={batchState}
-              cancelBatch={cancelBatch}
-              retryBatchFailures={retryBatchFailures}
-              restoreBatchItemPreview={restoreBatchItemPreview}
+              batchParseSlot={batchParseSlot}
               losers={losers}
               reversalConditions={reversalConditions}
               reviewingEvent={reviewingEvent}
