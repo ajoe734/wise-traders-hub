@@ -13,6 +13,14 @@ import { corsHeaders, corsPreflight, jsonResponse, errorResponse } from "../_sha
 import { requireCronKey, AuthError } from "../_shared/authGuard.ts";
 import { checkCircuit, recordCircuit } from "../_shared/circuitBreaker.ts";
 import { checkKillSwitch } from "../_shared/killSwitch.ts";
+import {
+  isPublicSyncMode,
+  isValidStockId,
+  clampBackfillDays,
+  takeCooldownSlot,
+  aggregateInstitutionalRows,
+  partitionWritableRows,
+} from "../_shared/institutionalBackfill.ts";
 
 const SUPABASE_URL = Deno.env.get("SUPABASE_URL")!;
 const SERVICE_ROLE_KEY = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!;
@@ -111,39 +119,8 @@ async function backfillStockViaFinmind(
   }
   const raw: any[] = Array.isArray(j.data) ? j.data : [];
 
-  // FinMind 每天每個投資者類型一列 → 依 date 聚合
-  const byDate = new Map<string, { fBuy: number; fSell: number; tBuy: number; tSell: number; dBuy: number; dSell: number }>();
-  for (const r of raw) {
-    const d = String(r.date || "");
-    if (!d) continue;
-    const cur = byDate.get(d) || { fBuy: 0, fSell: 0, tBuy: 0, tSell: 0, dBuy: 0, dSell: 0 };
-    const name = String(r.name || "");
-    const buy = Number(r.buy || 0);
-    const sell = Number(r.sell || 0);
-    if (name.startsWith("Foreign_Investor") || name === "Foreign_Investor" || name === "Foreign_Dealer_Self") {
-      cur.fBuy += buy; cur.fSell += sell;
-    } else if (name === "Investment_Trust") {
-      cur.tBuy += buy; cur.tSell += sell;
-    } else if (name.startsWith("Dealer")) {
-      cur.dBuy += buy; cur.dSell += sell;
-    }
-    byDate.set(d, cur);
-  }
-
-  const chunk = Array.from(byDate.entries()).map(([date, v]) => {
-    const foreign_net = v.fBuy - v.fSell;
-    const trust_net = v.tBuy - v.tSell;
-    const dealer_net = v.dBuy - v.dSell;
-    return {
-      stock_id: stockId,
-      trade_date: date,
-      foreign_net,
-      trust_net,
-      dealer_net,
-      total_net: foreign_net + trust_net + dealer_net,
-      raw: { source: "finmind_backfill" },
-    };
-  });
+  // FinMind 每天每個投資者類型一列 → 依 date 聚合（純邏輯見 _shared/institutionalBackfill.ts）
+  const chunk = aggregateInstitutionalRows(raw, stockId);
 
   if (chunk.length === 0) return { inserted: 0, from: startDate, to: endDate, rows: 0 };
 
@@ -168,8 +145,7 @@ async function backfillStockViaFinmind(
     existing = new Set((existRows ?? []).map((r: any) => String(r.trade_date)));
   }
 
-  const writable = chunk.filter((r) => !(sealed.has(r.trade_date) && existing.has(r.trade_date)));
-  const skipped = chunk.length - writable.length;
+  const { writable, skipped } = partitionWritableRows(chunk, sealed, existing);
   if (writable.length === 0) {
     return { inserted: 0, from: startDate, to: endDate, rows: raw.length, skipped_sealed: skipped } as any;
   }
@@ -661,8 +637,6 @@ async function runKeepWarm(
 // 公開模式：只讀公開市場資料 / 觸發公開資料回補，不需 cron key 也不需 admin。
 // 之所以公開：持倉抽屜（含 FreeCheckup 免登入表面）任何訪客都可能觸發「回補 60 日」，
 // 內容全是 TWSE/FinMind 公開日報，並以 stock_id 白名單 + 冷卻時間限流。
-const PUBLIC_MODES = new Set(["backfill_stock", "cold_start_status"]);
-const BACKFILL_COOLDOWN_MS = 60_000;
 const backfillCooldown = new Map<string, number>();
 
 Deno.serve(async (req) => {
@@ -673,7 +647,7 @@ Deno.serve(async (req) => {
   if (req.method === "POST") {
     try { body = await req.json(); } catch { /* ignore */ }
   }
-  const isPublicMode = PUBLIC_MODES.has(String(body?.mode ?? ""));
+  const isPublicMode = isPublicSyncMode(body?.mode);
 
   // M-3c-2: cron-or-admin guard. Cron key required for scheduler; admin cold_start falls through.
   let cronAuthed = false;
@@ -732,19 +706,17 @@ Deno.serve(async (req) => {
       // === Mode: backfill_stock ===（per-stock 60 天歷史回補）
       if (body?.mode === "backfill_stock") {
         const stockId = String(body.stock_id || "").trim();
-        const days = Math.min(Math.max(Number(body.days) || 60, 1), 120);
-        if (!/^[1-9]\d{3}$/.test(stockId)) {
+        const days = clampBackfillDays(body.days);
+        if (!isValidStockId(stockId)) {
           return errorResponse("stock_id must be 4-digit code starting 1-9", 400, { code: "BAD_REQUEST" });
         }
         // 限流：同一檔 60 秒內重複觸發直接視為已排入，避免公開端點打爆 FinMind
-        const last = backfillCooldown.get(stockId) ?? 0;
-        if (Date.now() - last < BACKFILL_COOLDOWN_MS) {
+        if (!takeCooldownSlot(backfillCooldown, stockId)) {
           return jsonResponse({
             ok: true, mode: "backfill_stock", stock_id: stockId,
             skipped: true, reason: "cooldown", inserted: 0, rows: 0,
           });
         }
-        backfillCooldown.set(stockId, Date.now());
         const supa = serviceClient();
 
         try {
