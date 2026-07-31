@@ -1,12 +1,14 @@
 // @ts-nocheck
 // ChipsSection — 抽屜「§4.6 籌碼面」（僅台股渲染）
 // 三大法人 1/5/20/60 日 + BSR 前 3 買/賣 + 集中度
-import React, { useEffect, useMemo, useRef, useState } from 'react';
+import React, { useEffect, useMemo, useRef } from 'react';
 import { useTwChipsDetail, isTaiwanStockCode, isTaiwanChipEligible, type TwChipsPayload } from '@/checkup/hooks/useTwChipsDetail';
 import { useChipsState } from '@/checkup/hooks/useChipsState';
 import ChipsTrendChart from './ChipsTrendChart';
 import { bsrHeaderLabel } from './bsrHeaderLabel';
 import { useChipsBackfill } from '@/checkup/hooks/useChipsBackfill';
+import { useChipsAutoBackfill } from '@/checkup/hooks/useChipsAutoBackfill';
+import { isBackfillSatisfied, nextPollDelay } from '@/checkup/lib/chipsBackfillMachine';
 import { toast } from 'sonner';
 import { trackEvent } from '@/lib/trafficTracker';
 import { formatSharesAsLots, SHARES_PER_LOT } from '@/lib/lotSize';
@@ -180,8 +182,7 @@ export default function ChipsSection({ WB, stockCode }: { WB: any; stockCode: st
   const attemptsRef = useRef(0);
   useEffect(() => {
     if (!bsrPending) { attemptsRef.current = 0; return; }
-    const delays = [60_000, 120_000, 240_000, 480_000, 900_000];
-    const delay = delays[Math.min(attemptsRef.current, delays.length - 1)];
+    const delay = nextPollDelay(attemptsRef.current);
     const t = setTimeout(() => { attemptsRef.current += 1; refetch(); }, delay);
     return () => clearTimeout(t);
   }, [bsrPending, fetchedAt, refetch]);
@@ -208,57 +209,30 @@ export default function ChipsSection({ WB, stockCode }: { WB: any; stockCode: st
     }
   }, [requestBackfill, refetch]);
 
-  // 自動回補：資料稀疏時開抽屜自動排入一次，並追蹤 30 分鐘內是否補滿
-  const [autoBackfill, setAutoBackfill] = useState<{
-    state: 'idle' | 'triggered' | 'ready' | 'timeout';
-    startedAt: number;
-    stockCode: string;
-  } | null>(null);
-  const autoBackfillFiredRef = useRef<Set<string>>(new Set());
+  // 自動回補：資料稀疏時開抽屜自動排入一次，並追蹤 30 分鐘內是否補滿。
+  // 狀態轉移全部下沉到純 reducer（chipsBackfillMachine），這裡只餵事實、收 phase。
+  const satisfied = isBackfillSatisfied({
+    readiness60: data?.readiness?.institutional?.['60']?.state,
+    readiness20: data?.readiness?.institutional?.['20']?.state,
+    instDays,
+  });
+  const { phase: autoBackfillPhase } = useChipsAutoBackfill({
+    stockCode,
+    hasData: !!data,
+    sparse,
+    eligible: syncStatus?.eligible,
+    syncStatus: syncStatus?.status,
+    satisfied,
+    requestBackfill: handleBackfill,
+    onTimeout: ({ stockCode: code, elapsedMs }) =>
+      trackEvent('chips_auto_backfill_timeout', {
+        stock_code: code,
+        elapsed_ms: elapsedMs,
+        inst_days: instDays,
+        bsr_days: bsrDays,
+      }),
+  });
 
-  useEffect(() => {
-    setAutoBackfill(null);
-  }, [stockCode]);
-
-  useEffect(() => {
-    if (!data || !stockCode || !sparse) return;
-    if (autoBackfillFiredRef.current.has(stockCode)) return;
-    if (syncStatus?.eligible === false) return;
-    if (syncStatus?.status === 'running' || syncStatus?.status === 'pending') return;
-    if (autoBackfill?.state === 'triggered') return;
-
-    autoBackfillFiredRef.current.add(stockCode);
-    setAutoBackfill({ state: 'triggered', startedAt: Date.now(), stockCode });
-    handleBackfill();
-  }, [data, sparse, stockCode, syncStatus?.eligible, syncStatus?.status, autoBackfill?.state, handleBackfill]);
-
-  useEffect(() => {
-    if (!autoBackfill || autoBackfill.stockCode !== stockCode || autoBackfill.state !== 'triggered') return;
-    const isReady =
-      data?.readiness?.institutional?.['60']?.state === 'ready' ||
-      data?.readiness?.institutional?.['20']?.state === 'ready' ||
-      instDays >= 20;
-    if (isReady) {
-      setAutoBackfill({ ...autoBackfill, state: 'ready' });
-    }
-  }, [data, autoBackfill, stockCode, instDays]);
-
-  useEffect(() => {
-    if (!autoBackfill || autoBackfill.stockCode !== stockCode || autoBackfill.state !== 'triggered') return;
-    const timer = window.setTimeout(() => {
-      setAutoBackfill((prev) => {
-        if (!prev || prev.stockCode !== stockCode || prev.state !== 'triggered') return prev;
-        trackEvent('chips_auto_backfill_timeout', {
-          stock_code: stockCode,
-          elapsed_ms: Date.now() - prev.startedAt,
-          inst_days: instDays,
-          bsr_days: bsrDays,
-        });
-        return { ...prev, state: 'timeout' };
-      });
-    }, 30 * 60 * 1000);
-    return () => window.clearTimeout(timer);
-  }, [autoBackfill, stockCode, instDays, bsrDays]);
 
   // 依真實 status 渲染 BSR 標頭文案（單一來源：bsrHeaderLabel.ts）
   const headerLabel = bsrHeaderLabel(syncStatus, !!data?.bsr_as_of);
@@ -370,7 +344,7 @@ export default function ChipsSection({ WB, stockCode }: { WB: any; stockCode: st
       )}
 
       {/* 自動回補逾時通知：資料已進入佇列，但 30 分鐘內仍未補滿 */}
-      {autoBackfill?.state === 'timeout' && !error && (
+      {autoBackfillPhase === 'timeout' && !error && (
         <div
           data-testid="chips-backfill-timeout"
           style={{
