@@ -116,7 +116,13 @@ test.describe('抽屜佔比排名：摺疊 + 匯出開關', () => {
     await expect.poll(() => readPrefs(page, EXPORT_PREFS_KEY), { timeout: 5_000 })
       .toMatchObject({ includeWeightRank: false });
 
-    await panel.locator('[data-testid="holdings-export-menu"]').click();
+    // checkbox item 不會關掉選單；只有在被關掉時才需要重開
+    const trigger = page.locator('[data-testid="holding-export-trigger"]');
+    if (!(await trigger.isVisible())) {
+      await panel.locator('[data-testid="holdings-export-menu"]').click();
+      await expect(trigger).toBeVisible();
+    }
+
     expect(await exportOnceAndCapture(page)).not.toContain('部位佔比');
   });
 });
