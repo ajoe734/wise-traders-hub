@@ -177,3 +177,25 @@ export async function loadTwHolidays(
     return [];
   }
 }
+
+/** 以 6 小時 TTL 快取 DB 假日（含自動偵測的臨時休市），避免每個 job 都打一次 DB。 */
+let _cache: { at: number; days: string[] } | null = null;
+const CACHE_TTL_MS = 6 * 3600_000;
+
+export async function getTwHolidaysCached(
+  // deno-lint-ignore no-explicit-any
+  supa: any,
+  nowMs: number = Date.now(),
+): Promise<string[]> {
+  if (_cache && nowMs - _cache.at < CACHE_TTL_MS) return _cache.days;
+  const from = new Date(nowMs - 400 * 86_400_000).toISOString().slice(0, 10);
+  const to = new Date(nowMs + 400 * 86_400_000).toISOString().slice(0, 10);
+  const days = await loadTwHolidays(supa, from, to);
+  _cache = { at: nowMs, days };
+  return days;
+}
+
+/** 測試用：清掉假日快取。 */
+export function __resetTwHolidayCache() {
+  _cache = null;
+}
