@@ -40,7 +40,11 @@ export function createSupabasePublishPort(
     },
     async markSignalPublished(signalId: string, market: string) {
       const { error } = await admin
-        .from('expert_signals').update({ status: 'published', market }).eq('id', signalId);
+        .from('expert_signals').update({
+          status: 'published',
+          market,
+          published_at: new Date().toISOString(),
+        }).eq('id', signalId);
       if (error) throw error;
     },
     async logUnitLockViolation(payload: Record<string, unknown>) {

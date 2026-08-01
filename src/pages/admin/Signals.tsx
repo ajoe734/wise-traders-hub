@@ -1,5 +1,5 @@
 import { SEO } from '@/components/SEO';
-import { useMemo, useState } from 'react';
+import { useEffect, useMemo, useRef, useState } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
 import { AdminLayout } from '@/components/layouts/AdminLayout';
 import { Card, CardContent } from '@/components/ui/card';
@@ -10,7 +10,7 @@ import { cn } from '@/lib/utils';
 import { Plus, Search } from 'lucide-react';
 import { toast } from 'sonner';
 import { useAuth } from '@/contexts/AuthContext';
-import { isPublishingWindowOpen, canRecallSignal, marketOfAssetClass, nextPublishMomentLabel } from '@/lib/publishingWindow';
+import { isPublishingWindowOpen, canRecallSignal, marketOfAssetClass, nextPublishMomentLabel, shouldPromptPendingJournalPublish } from '@/lib/publishingWindow';
 import { PermissionTooltip } from '@/components/admin/PermissionTooltip';
 import { useAdminSignals } from '@/hooks/useAdminSignals';
 import { SignalsTable } from '@/pages/_adminSignals/SignalsTable';
@@ -56,11 +56,19 @@ const AdminSignals = () => {
 
   const [earlyPublishOpen, setEarlyPublishOpen] = useState(false);
   const [earlyPublishing, setEarlyPublishing] = useState(false);
+  const promptedPendingRef = useRef(false);
 
   const pendingCount = useMemo(
     () => (isMentor ? signals.filter((s) => s.status === 'pending').length : 0),
     [signals, isMentor],
   );
+
+  useEffect(() => {
+    if (promptedPendingRef.current || isReadOnly || !isMentor) return;
+    if (!shouldPromptPendingJournalPublish(assetClass, pendingCount)) return;
+    promptedPendingRef.current = true;
+    setEarlyPublishOpen(true);
+  }, [assetClass, isMentor, isReadOnly, pendingCount]);
 
   const addBuySignalIds = useMemo(
     () => computeAddBuySignalIds(signals, openInstruments),
@@ -207,7 +215,9 @@ const AdminSignals = () => {
           </div>
           <div className="flex flex-col items-end gap-1">
             {!publishWindow.open && !isReadOnly && (
-              <p className="text-xs text-destructive">{publishWindow.reason}</p>
+              <p className={cn('text-xs', isMentor ? 'text-muted-foreground' : 'text-destructive')}>
+                {isMentor ? '目前可繼續撰寫，儲存後會列為待發布' : publishWindow.reason}
+              </p>
             )}
             <div className="flex gap-2">
               {isMentor && pendingCount > 0 && !isReadOnly && (
@@ -222,7 +232,7 @@ const AdminSignals = () => {
               )}
               <PermissionTooltip disabled={isReadOnly}>
                 <Button
-                  disabled={!publishWindow.open || isReadOnly}
+                  disabled={isReadOnly || (!isMentor && !publishWindow.open)}
                   className={cn(isAdvisor ? 'bg-advisor hover:bg-advisor/90' : 'bg-mentor hover:bg-mentor/90')}
                   onClick={() => navigate(`/admin/${expertSlug}/signals/new`)}
                 >

@@ -6,15 +6,15 @@
  *
  * 守門順序（短路，先命中先回）：
  *   1. NOT_EDITABLE      — 沒有編輯權限
- *   2. WINDOW_CLOSED     — 不在發布時段
- *   3. NO_ASSET_CLASS    — expert 未設定主打資產類別
- *   4. TEACHING_TOPIC_REQUIRED — 純教學週記未填教學主題
- *   5. BATCH_INVALID     — validateSignalBatch 回傳錯誤（僅交易週記）
+ *   2. NO_ASSET_CLASS    — expert 未設定主打資產類別
+ *   3. TEACHING_TOPIC_REQUIRED — 純教學週記未填教學主題
+ *   4. BATCH_INVALID     — validateSignalBatch 回傳錯誤（僅交易週記）
+ *
+ * 發布視窗只決定 mentor 週記何時公開，不得阻止週記先保存為 pending。
  */
 
 export type PublishGateCode =
   | 'NOT_EDITABLE'
-  | 'WINDOW_CLOSED'
   | 'NO_ASSET_CLASS'
   | 'TEACHING_TOPIC_REQUIRED'
   | 'BATCH_INVALID';
@@ -26,8 +26,6 @@ export type PublishGateResult =
 
 export interface PublishGateInput {
   canEdit: boolean;
-  /** isPublishingWindowOpen(assetClass) 的回傳 */
-  publishWindow: { open: boolean; reason?: string | null };
   /** expert?.asset_class */
   assetClass: string | null | undefined;
   isTeachingOnly: boolean;
@@ -37,7 +35,6 @@ export interface PublishGateInput {
 }
 
 export const PUBLISH_GATE_MESSAGES = {
-  WINDOW_CLOSED: '目前不在發布時段',
   NO_ASSET_CLASS:
     '請先到「分析師設定」選擇主打資產類別（台股 / 美股 / 加密），才能發布訊號或週記',
   TEACHING_TOPIC_REQUIRED: '純教學週記至少要填教學主題',
@@ -53,10 +50,6 @@ const block = (
 
 export function evaluatePublishGate(input: PublishGateInput): PublishGateResult {
   if (!input.canEdit) return block('NOT_EDITABLE', null, true);
-
-  if (!input.publishWindow?.open) {
-    return block('WINDOW_CLOSED', input.publishWindow?.reason || PUBLISH_GATE_MESSAGES.WINDOW_CLOSED);
-  }
 
   if (!input.assetClass) return block('NO_ASSET_CLASS', PUBLISH_GATE_MESSAGES.NO_ASSET_CLASS);
 

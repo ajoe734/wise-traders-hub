@@ -18,8 +18,8 @@ import { corsHeaders, jsonResponse, errorResponse, corsPreflight } from '../_sha
 import { requireCronKey, AuthError } from '../_shared/authGuard.ts';
 
 const SUPABASE_URL = Deno.env.get('SUPABASE_URL')!;
-const SERVICE_ROLE_KEY = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')!;
 const ANON_KEY = Deno.env.get('SUPABASE_ANON_KEY') ?? '';
+const CRON_SHARED_SECRET = Deno.env.get('CRON_SHARED_SECRET') ?? '';
 
 const CALL_TIMEOUT_MS = 90_000; // publish-weekly-journals 通常 <30s；90s 足夠 + 安全邊界
 const DEFAULT_MAX_ATTEMPTS = 5;
@@ -40,8 +40,8 @@ async function callPublishWithTimeout(market: 'TW' | 'US') {
       method: 'POST',
       headers: {
         'Content-Type': 'application/json',
-        Authorization: `Bearer ${SERVICE_ROLE_KEY}`,
         apikey: ANON_KEY,
+        'X-Cron-Key': CRON_SHARED_SECRET,
       },
       body: JSON.stringify({ market }),
       signal: ctrl.signal,

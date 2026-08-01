@@ -110,15 +110,17 @@ function fakePort(over: Partial<FakeState> = {}): { port: PublishPort; state: Fa
 }
 
 // ── 1. scope ──────────────────────────────────────────────────────────────
-Deno.test('resolveMarketScope: US 涵蓋 us_stock / us_futures / crypto，TW 取其餘', async () => {
+Deno.test('resolveMarketScope: US 涵蓋股票、期貨、選擇權與 crypto，TW 取其餘', async () => {
   const { port } = fakePort({
     experts: [
       { id: 'a', asset_class: 'tw_stock' }, { id: 'b', asset_class: 'us_stock' },
       { id: 'c', asset_class: 'crypto' }, { id: 'd', asset_class: null },
       { id: 'e', asset_class: 'us_futures' },
+      { id: 'f', asset_class: 'us_future' },
+      { id: 'g', asset_class: 'us_option' },
     ],
   });
-  assertEquals(await resolveMarketScope(port, 'US'), ['b', 'c', 'e']);
+  assertEquals(await resolveMarketScope(port, 'US'), ['b', 'c', 'e', 'f', 'g']);
   assertEquals(await resolveMarketScope(port, 'TW'), ['a', 'd']);
 });
 
@@ -318,6 +320,12 @@ Deno.test('runPublishPipeline: filterExpertIds 只處理指定老師', async () 
   });
   const r = await runPublishPipeline(port, { filterExpertIds: ['e2'] });
   assertEquals(r.published, 1);
+});
+
+Deno.test('發布 adapter 契約：正式資料必須同時寫 status 與 published_at', async () => {
+  const source = await Deno.readTextFile(new URL('./supabasePort.ts', import.meta.url));
+  assert(source.includes("status: 'published'"));
+  assert(source.includes('published_at: new Date().toISOString()'));
 });
 
 Deno.test('runPublishPipeline: 某位老師推播炸掉只計 pushFail', async () => {

@@ -229,7 +229,6 @@ const SignalEditor = () => {
     // P8：守門順序由 evaluatePublishGate 這個純函式決定（可單測），元件只負責顯示。
     const gate = evaluatePublishGate({
       canEdit,
-      publishWindow,
       assetClass: expert?.asset_class,
       isTeachingOnly,
       teachingTopic,
@@ -326,7 +325,9 @@ const SignalEditor = () => {
           </div>
           <div className="flex items-center gap-2">
             {!publishWindow.open && (
-              <span className="text-xs text-destructive">{publishWindow.reason}</span>
+              <span className={cn('text-xs', isMentor ? 'text-muted-foreground' : 'text-destructive')}>
+                {isMentor ? '目前先存為待發布，仍可完成週記' : publishWindow.reason}
+              </span>
             )}
             <Button variant="outline" onClick={() => navigate(`/admin/${expertSlug}/signals`)}>取消</Button>
             {isMentor && (
@@ -341,7 +342,7 @@ const SignalEditor = () => {
             )}
             <Button
               onClick={handlePublish}
-              disabled={submitting || !publishWindow.open}
+              disabled={submitting || (!isMentor && !publishWindow.open)}
               className={cn(isMentor ? 'bg-mentor hover:bg-mentor/90' : 'bg-primary hover:bg-primary/90')}
             >
               {submitting ? <Loader2 className="h-4 w-4 animate-spin mr-2" /> : null}
@@ -472,7 +473,7 @@ const SignalEditor = () => {
           )}
           <Button
             onClick={handlePublish}
-            disabled={submitting || !publishWindow.open}
+            disabled={submitting || (!isMentor && !publishWindow.open)}
             className={cn(isMentor ? 'bg-mentor hover:bg-mentor/90' : 'bg-primary hover:bg-primary/90')}
           >
             {submitting ? <Loader2 className="h-4 w-4 animate-spin mr-2" /> : null}

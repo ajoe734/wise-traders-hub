@@ -14,6 +14,7 @@ import {
   accountNotificationsUrl,
   buildNotificationRow,
   companyUrl,
+  adminSignalsUrl,
   expertDetailUrl,
 } from './routes.ts';
 
@@ -48,6 +49,23 @@ export function buildEarlyPublishNotification(params: {
     body: `${name} 老師提前公開本週 ${params.signalCount} 筆操作紀錄，點此立即查看。`,
     type: 'info',
     link: params.expertSlug ? expertDetailUrl(params.expertSlug) : accountNotificationsUrl(),
+  });
+}
+
+/** 排程已過但週一開市前仍有 pending：主動詢問導師是否立即發布。 */
+export function buildPendingJournalPublishReminder(params: {
+  mentorUserId: string;
+  expertName?: string | null;
+  expertSlug?: string | null;
+  signalCount: number;
+}): NotificationRow {
+  const name = params.expertName || '導師';
+  return buildNotificationRow({
+    userId: params.mentorUserId,
+    title: `${name} 本週週記尚未發布`,
+    body: `偵測到 ${params.signalCount} 筆待發布內容；目前仍在週一開市前補發期間，請確認後決定是否立即發布。`,
+    type: 'journal_publish_reminder',
+    link: adminSignalsUrl(params.expertSlug),
   });
 }
 
