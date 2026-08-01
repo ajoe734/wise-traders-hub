@@ -1,0 +1,2 @@
+SELECT public.cron_edge_call('publish-weekly-journals-runner', '{"market": "TW", "trigger_source": "manual_fix"}'::jsonb);
+SELECT public.cron_edge_call('publish-weekly-journals-runner', '{"market": "US", "trigger_source": "manual_fix"}'::jsonb);

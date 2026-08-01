@@ -22,7 +22,8 @@ export function createSupabasePublishPort(
       return (data || []) as ExpertRow[];
     },
     async listExpertsByIds(ids: string[]) {
-      const { data } = await admin.from('experts').select('id, user_id, name').in('id', ids);
+      // slug 必須帶上：失敗通知的 link 需要 /admin/:slug/...，少了會退回 /account/notifications
+      const { data } = await admin.from('experts').select('id, user_id, name, slug').in('id', ids);
       return (data || []) as ExpertRow[];
     },
     async getExpert(id: string) {
