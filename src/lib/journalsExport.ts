@@ -19,6 +19,7 @@ import {
 export {
   ASSET_LABEL,
   buildMentorMarkdown,
+  deriveOpeningBalances,
   detectExportRisks,
   EXPORT_RISK_LABEL,
   fmtTaipei,
@@ -37,6 +38,7 @@ export type {
   ExportRiskReport,
   ExportRiskSeverity,
   JournalRowExport,
+  OpeningBalanceTradeRecord,
   WeekRangeLabels,
 } from '@/lib/journalExportCore';
 
