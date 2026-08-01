@@ -241,7 +241,7 @@ export default function MyRemittanceOrders() {
                           <p className="text-xs text-muted-foreground">建立於 {formatDate(o.created_at)} · 訂單 {o.id.slice(0, 8)}</p>
                         </div>
                         <div className="text-right">
-                          <Badge variant={meta.tone}>{meta.label}</Badge>
+                          <Badge variant={meta.tone} data-testid="remittance-status-badge">{meta.label}</Badge>
                           <p className="text-lg font-bold mt-1">NT$ {o.amount.toLocaleString()}</p>
                         </div>
                       </div>
