@@ -53,7 +53,11 @@ Deno.serve(async (req) => {
 
   const supa = serviceClient();
   const report: Record<string, unknown> = { run_id: runId, started_at: startedAt, dry_run: dryRun };
+  // pg_net 的預設 timeout 只有 5 秒，掃描 + 收斂遠超過；改為背景執行，
+  // 立即回 202，結果一律落在 data_source_refresh_logs（source_key=tw_trading_calendar_catchup）。
+  const background = body?.background !== false;
 
+  const run = async (): Promise<Response> => {
   try {
     // kill switch 只擋「入列回填 / 收斂視窗」這種會打上游的動作；
     // 日曆維護與缺口盤點永遠要跑，否則熔斷期間假日表會停止更新。
@@ -193,4 +197,14 @@ Deno.serve(async (req) => {
       status: 500, headers: { ...corsHeaders, 'Content-Type': 'application/json' },
     });
   }
+  };
+
+  if (background) {
+    // @ts-ignore EdgeRuntime 由 Supabase Edge Runtime 注入
+    EdgeRuntime.waitUntil(run());
+    return new Response(JSON.stringify({ ok: true, accepted: true, run_id: runId }), {
+      status: 202, headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+    });
+  }
+  return await run();
 });
