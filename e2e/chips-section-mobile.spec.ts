@@ -258,7 +258,7 @@ for (const dev of MOBILES) {
       expect(rBox?.height ?? 0).toBeGreaterThanOrEqual(18);
     });
 
-    test('空資料：排程提示 17:45 / 18:15 完整可讀且不截斷', async ({ page }) => {
+    test('空資料：排程提示 17:45 / 14:00–21:00 完整可讀且不截斷', async ({ page }) => {
       await page.route(CHIPS_ROUTE, (r) => fulfill(r, emptyPayload()));
       await page.goto(`/e2e/chips-section?code=${STOCK}`);
 
@@ -278,7 +278,7 @@ for (const dev of MOBILES) {
 
       const bsrMissing = page.getByTestId('chips-bsr-missing');
       await expect(bsrMissing).toBeVisible();
-      await expect(bsrMissing).toContainText('18:15');
+      await expect(bsrMissing).toContainText('14:00–21:00');
       await assertWithinViewport(bsrMissing, dev.width, 'bsr-missing');
     });
   });
