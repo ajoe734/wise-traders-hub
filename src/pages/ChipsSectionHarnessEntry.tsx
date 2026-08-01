@@ -98,6 +98,20 @@ function useHarnessClock(force: string | null, freezeTime: boolean, setTick: (fn
   }, [force, freezeTime]);
 }
 
+export default function ChipsSectionHarnessEntry() {
+  if (!isPreviewEnv()) return null;
+  const params = new URLSearchParams(
+    typeof window !== 'undefined' ? window.location.search : '',
+  );
+  const code = params.get('code') || '2330';
+  const force = params.get('force'); // offline | stale | null
+  const freezeTime = params.get('freezeTime') === '1';
+
+  // force=offline 必須在第一次 render 前生效
+  if (force === 'offline') applyForceOffline();
+
+  const [tick, setTick] = useState(0);
+  useHarnessClock(force, freezeTime, setTick);
 
   return (
     <div
