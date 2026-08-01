@@ -3,7 +3,7 @@
  * 覆蓋所有 asset_class × (缺值 / 誤寫「張」 / 合法值) 分支，含 buildMentorMarkdown 整合驗證。
  */
 import { describe, it, expect } from 'vitest';
-import { resolveExportUnit, buildMentorMarkdown, type JournalRowExport } from '@/lib/journalsExport';
+import { resolveExportUnit, buildMentorMarkdown, deriveCostBasis, type JournalRowExport } from '@/lib/journalsExport';
 
 const baseExpert = (asset_class: string, currency = '') => ({
   name: 'T', slug: 't', role: 'mentor', asset_class, currency,
