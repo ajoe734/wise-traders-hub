@@ -1,6 +1,6 @@
 // useTwChipsDetail — 抽屜私有查詢：台股籌碼面（三大法人 + BSR）
 // 呼叫公開市場資料 endpoint `tw-chips-detail`；SWR 5 分鐘快取。
-import { useEffect, useRef, useState } from 'react';
+import { useCallback, useEffect, useRef, useState } from 'react';
 import { getCheckupGateway } from '../lib/gateway';
 import { useFreshness } from '../lib/freshness';
 import { trackEvent } from '@/lib/trafficTracker';
@@ -172,6 +172,20 @@ export interface WindowReadinessPayload {
 const CACHE = new Map<string, { data: TwChipsPayload; ts: number }>();
 const TTL_MS = 5 * 60 * 1000;
 
+/** 過期自動重抓的節流參數 */
+export const AUTO_BASE_BACKOFF_MS = 30_000;
+export const AUTO_MAX_BACKOFF_MS = 5 * 60_000;
+export const AUTO_MAX_FAILURES = 4;
+
+/**
+ * idle       = 新鮮，無動作
+ * refreshing = 偵測到過期，正在自動重抓
+ * failed     = 自動重抓失敗，退避中會再試
+ * exhausted  = 連續失敗達上限，停手改由使用者手動
+ * paused     = 分頁在背景，暫停自動重抓（回前景立即補抓）
+ */
+export type AutoRefreshState = 'idle' | 'refreshing' | 'failed' | 'exhausted' | 'paused';
+
 function isViewAsActive(): boolean {
   try {
     return !!sessionStorage.getItem('view-as-session-v1');
@@ -245,6 +259,7 @@ export function useTwChipsDetail(stockCode: string | undefined | null, enabled =
     typeof navigator !== 'undefined' ? navigator.onLine : true,
   );
   const inflight = useRef<AbortController | null>(null);
+  const autoSourceRef = useRef(false);
   const [manualBump, setManualBump] = useState(0);
 
   // 離線 / 上線監聽（上線時自動重試）
@@ -370,6 +385,7 @@ export function useTwChipsDetail(stockCode: string | undefined | null, enabled =
         setFetchedAt(now);
         setError(null);
         setAttempt(0);
+        autoSourceRef.current = false;
         trackEvent('chips_fetch_done', {
           stock_code: stockCode, source,
           duration_ms: now - startedAt,
@@ -479,7 +495,7 @@ export function useTwChipsDetail(stockCode: string | undefined | null, enabled =
   // 自動重抓失敗 → 記一次失敗、進入退避
   const lastErrorRef = useRef<ChipsError | null>(null);
   useEffect(() => {
-    if (error && error !== lastErrorRef.current && autoSourceRef.current === false && autoState === 'refreshing') {
+    if (error && error !== lastErrorRef.current && autoState === 'refreshing') {
       autoFailuresRef.current += 1;
       setAutoState(autoFailuresRef.current >= AUTO_MAX_FAILURES ? 'exhausted' : 'failed');
     }
