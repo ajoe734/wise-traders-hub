@@ -259,4 +259,26 @@ test.describe('ChipsSection · visual regression', () => {
       mask: dynamicMasks(page),
     });
   });
+
+
+  /**
+   * 9. force=fresh 的權重驗證（非快照，純行為）：
+   * fresh > stale — 兩者同時給時時鐘不得位移，STALE badge 永遠不出現。
+   * 規格見 docs/qa/harness-clock-injection.md。
+   */
+  test('9. force=fresh 權重高於 stale — 徽章不得亮起', async ({ page }) => {
+    await page.route(CHIPS_ROUTE, (r) => fulfill(r, fullPayload()));
+    const nowMs = Date.parse(FROZEN_FETCHED_AT);
+    await page.goto(
+      `/e2e/chips-section?code=${STOCK}&force=stale,fresh&now=${nowMs}&staleAfter=200`,
+    );
+    await page.getByTestId('chips-section').waitFor();
+    const root = page.getByTestId('chips-harness-root');
+    await expect(root).toHaveAttribute('data-fixed-now', '1');
+    await page.waitForTimeout(1_500); // 遠超過 staleAfter 與壓縮後的 ticker
+    await expect(root).toHaveAttribute('data-stale-shifted', '0');
+    await expect(page.getByTestId('chips-stale-badge')).toHaveCount(0);
+    await expect(page.locator('text=/^更新於/')).toContainText('剛剛更新');
+  });
 });
+
