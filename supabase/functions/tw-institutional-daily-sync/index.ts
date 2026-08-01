@@ -444,6 +444,49 @@ const KEEP_WARM_CONFIG_KEY = "keep_warm_schedule";
 
 type KeepWarmConfig = { enabled?: boolean; waves?: string[] };
 
+/**
+ * OTC（上櫃）補洞 lane。
+ *
+ * 為什麼需要：TWSE T86 只涵蓋「上市」，上櫃個股（4966、8299、6274、3081…）
+ * 永遠不會出現在 T86 全市場檔裡。過去這些股票只靠 per-stock FinMind 回補
+ * 偶然補到，一旦沒人觸發就整批停在舊日期（2026/07/24 事故）。
+ * 這裡在 T86 落地後，用「FinMind 全市場單日」一次補齊當日缺席的代號，
+ * 每個 wave 只多打 1 次 FinMind。
+ */
+async function fillOtcGap(
+  supa: any,
+  tradeDate: string,
+  wave: string,
+): Promise<{ fetched: number; inserted: number; reason?: string }> {
+  const rows = await fetchFinmindDay(tradeDate, { supa });
+  if (!rows || rows.length === 0) return { fetched: 0, inserted: 0, reason: "finmind_no_data" };
+
+  const { data: existing } = await supa
+    .from("tw_institutional_daily")
+    .select("stock_id")
+    .eq("trade_date", tradeDate)
+    .limit(20000);
+  const have = new Set((existing || []).map((r: any) => String(r.stock_id)));
+  const missing = rows.filter((r: any) => !have.has(String(r.stock_id)));
+  if (missing.length === 0) return { fetched: rows.length, inserted: 0, reason: "no_gap" };
+
+  const BATCH = 500;
+  let inserted = 0;
+  for (let i = 0; i < missing.length; i += BATCH) {
+    const chunk = missing.slice(i, i + BATCH).map((r: any) => ({
+      ...r,
+      raw: { source: `otc_gap_fill:${wave}` },
+    }));
+    const { error } = await supa
+      .from("tw_institutional_daily")
+      .upsert(chunk, { onConflict: "stock_id,trade_date" });
+    if (error) return { fetched: rows.length, inserted, reason: `upsert_failed:${error.message}` };
+    inserted += chunk.length;
+  }
+  return { fetched: rows.length, inserted };
+}
+
+
 async function runKeepWarm(
   supa: any,
   opts: { wave: string; force: boolean; lookback: number },
