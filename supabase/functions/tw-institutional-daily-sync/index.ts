@@ -236,12 +236,23 @@ async function readColdStartStatus(supa: any): Promise<ColdStartStatus> {
 async function writeColdStartStatus(supa: any, patch: Partial<ColdStartStatus>) {
   const cur = await readColdStartStatus(supa);
   const next = { ...cur, ...patch } as ColdStartStatus;
-  const { error } = await supa
+  // 先 update；若列不存在（0 rows）才 insert。
+  // 不能用 upsert：tw_bsr_sync_config 的歷史版本觸發器會在 insert 路徑撞 unique(key,version)。
+  const { data, error } = await supa
     .from("tw_bsr_sync_config")
     .update({ config: next, updated_at: new Date().toISOString() })
-    .eq("key", COLD_START_CONFIG_KEY);
+    .eq("key", COLD_START_CONFIG_KEY)
+    .select("key");
   if (error) throw new Error(`write_config_failed:${error.message}`);
+  if (!data || data.length === 0) {
+    const { error: insErr } = await supa
+      .from("tw_bsr_sync_config")
+      .insert({ key: COLD_START_CONFIG_KEY, config: next });
+    if (insErr) throw new Error(`write_config_failed:${insErr.message}`);
+  }
 }
+
+
 
 async function recordSourceHealth(
   supa: any,
@@ -307,11 +318,16 @@ async function runColdStart(
   }
 
   const today = taipeiToday();
+  // resume 模式下若已完成，直接跳過，避免排程每次重跑 60 天 already_present 空轉。
+  if (opts.resume && status.state === "done") {
+    return { ok: true, mode: "cold_start", skipped: true, reason: "already_done", status };
+  }
   // 從昨日往前列 N 個工作日；resume 時若有 cursor 就從 cursor 起繼續
   const startFrom = opts.resume && status.cursor_date
     ? shiftYmd(status.cursor_date.replaceAll("-", ""), -1)
     : shiftYmd(today, -1);
   const plan = planBusinessDates(startFrom, opts.days);
+
 
   if (opts.dryRun) {
     return {
@@ -724,11 +740,16 @@ Deno.serve(async (req) => {
 
 
       // === Mode: cold_start ===
+      // cron key 或 admin 皆可觸發：先前只認 admin，導致排程永遠補不了歷史深度，
+      // 三大法人序列長年卡在啟用日（47/60）。
       if (body?.mode === "cold_start") {
-        const admin = await isAdminCaller(req);
-        if (!admin.ok) {
-          return errorResponse(`admin required: ${admin.reason ?? "unauthorized"}`, 403, { code: "FORBIDDEN" });
+        if (!cronAuthed) {
+          const admin = await isAdminCaller(req);
+          if (!admin.ok) {
+            return errorResponse(`admin required: ${admin.reason ?? "unauthorized"}`, 403, { code: "FORBIDDEN" });
+          }
         }
+
         const days = Math.min(Math.max(Number(body.days) || 60, 1), COLD_START_MAX_DAYS);
         const dryRun = body.dry_run === true;
         const resume = body.resume === true;
