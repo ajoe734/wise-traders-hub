@@ -18,7 +18,6 @@ import { corsHeaders, jsonResponse, errorResponse, corsPreflight } from '../_sha
 import { requireCronKey, AuthError } from '../_shared/authGuard.ts';
 
 const SUPABASE_URL = Deno.env.get('SUPABASE_URL')!;
-const SERVICE_ROLE_KEY = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')!;
 const ANON_KEY = Deno.env.get('SUPABASE_ANON_KEY') ?? '';
 const CRON_SHARED_SECRET = Deno.env.get('CRON_SHARED_SECRET') ?? '';
 

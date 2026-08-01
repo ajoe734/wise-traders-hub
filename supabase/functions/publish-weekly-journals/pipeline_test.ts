@@ -322,6 +322,12 @@ Deno.test('runPublishPipeline: filterExpertIds 只處理指定老師', async () 
   assertEquals(r.published, 1);
 });
 
+Deno.test('發布 adapter 契約：正式資料必須同時寫 status 與 published_at', async () => {
+  const source = await Deno.readTextFile(new URL('./supabasePort.ts', import.meta.url));
+  assert(source.includes("status: 'published'"));
+  assert(source.includes('published_at: new Date().toISOString()'));
+});
+
 Deno.test('runPublishPipeline: 某位老師推播炸掉只計 pushFail', async () => {
   const { port } = fakePort({ pending: [sig({ id: 's1' })] });
   port.getLineChannel = () => Promise.reject(new Error('line down'));
