@@ -13,12 +13,14 @@ import {
   safeSlug,
   uniqueMentorFilename,
   type JournalRowExport,
+  type MentorMarkdownCtx,
   type WeekRangeLabels,
 } from '@/lib/journalExportCore';
 
 export {
   ASSET_LABEL,
   buildMentorMarkdown,
+  deriveCostBasis,
   deriveOpeningBalances,
   detectExportRisks,
   EXPORT_RISK_LABEL,
@@ -38,6 +40,7 @@ export type {
   ExportRiskReport,
   ExportRiskSeverity,
   JournalRowExport,
+  MentorMarkdownCtx,
   OpeningBalanceTradeRecord,
   WeekRangeLabels,
 } from '@/lib/journalExportCore';
@@ -55,6 +58,7 @@ export async function buildJournalExport(
   rows: JournalRowExport[],
   range: WeekRangeLabels,
   publishedOnly: boolean,
+  ctx: MentorMarkdownCtx = {},
 ): Promise<ExportBuildResult | null> {
   if (rows.length === 0) return null;
   const byMentor = groupRowsByMentor(rows);
@@ -62,7 +66,7 @@ export async function buildJournalExport(
 
   if (byMentor.size === 1) {
     const [[expertId, mentorRows]] = Array.from(byMentor);
-    const md = buildMentorMarkdown(mentorRows, range);
+    const md = buildMentorMarkdown(mentorRows, range, ctx);
     const slug = safeSlug(mentorRows[0].experts?.slug ?? expertId, expertId);
     return {
       kind: 'single',
@@ -77,7 +81,7 @@ export async function buildJournalExport(
   const files: string[] = [];
   const usedNames = new Set<string>();
   for (const [expertId, mentorRows] of byMentor) {
-    const md = buildMentorMarkdown(mentorRows, range);
+    const md = buildMentorMarkdown(mentorRows, range, ctx);
     const rawSlug = safeSlug(mentorRows[0].experts?.slug ?? expertId, expertId);
     const name = uniqueMentorFilename(usedNames, rawSlug, expertId);
     zip.file(name, md);

@@ -3,7 +3,7 @@
  * 覆蓋所有 asset_class × (缺值 / 誤寫「張」 / 合法值) 分支，含 buildMentorMarkdown 整合驗證。
  */
 import { describe, it, expect } from 'vitest';
-import { resolveExportUnit, buildMentorMarkdown, type JournalRowExport } from '@/lib/journalsExport';
+import { resolveExportUnit, buildMentorMarkdown, deriveCostBasis, type JournalRowExport } from '@/lib/journalsExport';
 
 const baseExpert = (asset_class: string, currency = '') => ({
   name: 'T', slug: 't', role: 'mentor', asset_class, currency,
@@ -75,5 +75,53 @@ describe('buildMentorMarkdown — us_stock 匯出絕不出現「張」', () => {
     );
     // hold 動作不會納入 totals → 應顯示「無」而非「0 股」
     expect(md).not.toMatch(/：0 股/);
+  });
+});
+
+describe('deriveCostBasis / 出場成本價', () => {
+  const recs = [
+    { expert_id: 'e1', instrument: 'NVDA', quantity: 50, quantity_unit: '股', entry_date: '2026-06-18T00:00:00Z', exit_date: null, entry_price: 100 },
+    { expert_id: 'e1', instrument: 'NVDA', quantity: 50, quantity_unit: '股', entry_date: '2026-06-20T00:00:00Z', exit_date: null, entry_price: 120 },
+    { expert_id: 'e1', instrument: 'OLD', quantity: 10, quantity_unit: '股', entry_date: '2026-06-01T00:00:00Z', exit_date: '2026-06-05T00:00:00Z', entry_price: 9 },
+  ];
+  const keys = new Set(['e1::NVDA', 'e1::OLD']);
+  const startIso = '2026-07-27T00:00:00Z';
+
+  it('以股數加權平均計算成本價', () => {
+    const m = deriveCostBasis(recs as any, keys, startIso);
+    expect(m.get('e1::NVDA')).toBe(110);
+  });
+
+  it('週初前已平倉的紀錄不計入', () => {
+    const m = deriveCostBasis(recs as any, keys, startIso);
+    expect(m.has('e1::OLD')).toBe(false);
+  });
+
+  it('賣出訊號的 Markdown 會列出當時成本價與報酬率', () => {
+    const md = buildMentorMarkdown(
+      [{ id: 's1', expert_id: 'e1', instrument: 'NVDA', action: 'sell', quantity: 50, quantity_unit: '股', price_hint: 132, experts: { name: '老周', slug: 'zhou', asset_class: 'us_stock', currency: 'USD' } } as any],
+      { startLabel: '2026-07-27', endLabel: '2026-08-02' },
+      { costBasis: deriveCostBasis(recs as any, keys, startIso) },
+    );
+    expect(md).toContain('當時成本價：110');
+    expect(md).toContain('對成本報酬率：+20.00%');
+  });
+
+  it('買進訊號不會列出成本價', () => {
+    const md = buildMentorMarkdown(
+      [{ id: 's2', expert_id: 'e1', instrument: 'NVDA', action: 'buy', quantity: 50, quantity_unit: '股', price_hint: 132, experts: { name: '老周', asset_class: 'us_stock' } } as any],
+      { startLabel: '2026-07-27', endLabel: '2026-08-02' },
+      { costBasis: deriveCostBasis(recs as any, keys, startIso) },
+    );
+    expect(md).not.toContain('當時成本價');
+  });
+
+  it('查無歷史持倉時標示「無歷史持倉紀錄」', () => {
+    const md = buildMentorMarkdown(
+      [{ id: 's3', expert_id: 'e1', instrument: 'TSLA', action: 'exit', quantity: 5, quantity_unit: '股', price_hint: 200, experts: { name: '老周', asset_class: 'us_stock' } } as any],
+      { startLabel: '2026-07-27', endLabel: '2026-08-02' },
+      {},
+    );
+    expect(md).toContain('當時成本價：無歷史持倉紀錄');
   });
 });

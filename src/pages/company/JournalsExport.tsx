@@ -26,6 +26,7 @@ import {
   ASSET_LABEL,
   buildJournalExport,
   buildMentorMarkdown,
+  deriveCostBasis,
   deriveOpeningBalances,
   detectExportRisks,
   downloadBlob,
@@ -369,6 +370,30 @@ const JournalsExport = () => {
 
   const allRows = data ?? [];
 
+  // ── 期初成本價（出場側訊號要標「當時成本價」）──────────
+  const costKeySig = useMemo(
+    () => [...new Set(allRows.filter((r) => r.instrument).map((r) => `${r.expert_id}::${r.instrument}`))].sort().join('|'),
+    [allRows],
+  );
+  const { data: costBasis } = useQuery({
+    queryKey: ['company-journals-export', 'cost-basis', range.startIso, costKeySig],
+    enabled: costKeySig.length > 0,
+    queryFn: async (): Promise<Map<string, number>> => {
+      const keys = new Set(costKeySig.split('|'));
+      const expertIds = [...new Set([...keys].map((k) => k.split('::')[0]))];
+      const { data: recs, error } = await supabase
+        .from('trade_records')
+        .select('expert_id, instrument, quantity, quantity_unit, entry_date, exit_date, entry_price')
+        .in('expert_id', expertIds)
+        .lt('entry_date', range.startIso)
+        .or(`exit_date.is.null,exit_date.gte.${range.startIso}`);
+      if (error) throw error;
+      return deriveCostBasis((recs ?? []) as OpeningBalanceTradeRecord[], keys, range.startIso);
+    },
+    staleTime: 60_000,
+  });
+  const costBasisMap = costBasis ?? new Map<string, number>();
+
   // ── Client-side 篩選 ────────────────────────────────────
   const rows = useMemo(() => {
     return allRows.filter((r) => {
@@ -404,7 +429,7 @@ const JournalsExport = () => {
     const suffix = publishedOnly ? 'published' : 'all';
     const list: { expertId: string; mentorName: string; slug: string; filename: string; md: string; rowCount: number }[] = [];
     for (const [expertId, mentorRows] of byMentor) {
-      const md = buildMentorMarkdown(mentorRows, { startLabel: range.startLabel, endLabel: range.endLabel });
+      const md = buildMentorMarkdown(mentorRows, { startLabel: range.startLabel, endLabel: range.endLabel }, { costBasis: costBasisMap });
       const slug = safeSlug(mentorRows[0].experts?.slug ?? expertId, expertId);
       const filename = singleMentor
         ? `legendflow-journal-${slug}-${range.startLabel}_to_${range.endLabel}_${suffix}.md`
@@ -419,7 +444,7 @@ const JournalsExport = () => {
       });
     }
     return list.sort((a, b) => a.mentorName.localeCompare(b.mentorName, 'zh-Hant'));
-  }, [rows, range.startLabel, range.endLabel, publishedOnly]);
+  }, [rows, range.startLabel, range.endLabel, publishedOnly, costBasisMap]);
 
   const activePreview = useMemo(() => {
     if (previews.length === 0) return null;
@@ -530,6 +555,7 @@ const JournalsExport = () => {
         scoped as unknown as JournalRowExport[],
         { startLabel: range.startLabel, endLabel: range.endLabel },
         publishedOnly,
+        { costBasis: costBasisMap },
       );
       if (!result) {
         const info: ExportFailure = {

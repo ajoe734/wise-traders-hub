@@ -15,6 +15,7 @@ import { taipeiMondayOf, taipeiWeekRangeUtc } from "../_shared/weekBoundary.ts";
 import {
   buildMentorMarkdown,
   deriveOpeningBalances,
+  deriveCostBasis,
   detectExportRisks,
   safeSlug,
   type JournalRowExport,
@@ -36,25 +37,33 @@ function weekRangeUtc(weekStart: string) {
   };
 }
 
-async function loadOpeningBalances(supabase: any, rows: any[], startIso: string): Promise<Map<string, number>> {
+async function loadHistory(
+  supabase: any,
+  rows: any[],
+  startIso: string,
+): Promise<{ openingBalances: Map<string, number>; costBasis: Map<string, number> }> {
   const pairs = new Map<string, { expert_id: string; instrument: string }>();
   for (const r of rows) {
     if (!r.instrument) continue;
     const key = `${r.expert_id}::${r.instrument}`;
     if (!pairs.has(key)) pairs.set(key, { expert_id: r.expert_id, instrument: r.instrument });
   }
-  if (pairs.size === 0) return new Map();
+  if (pairs.size === 0) return { openingBalances: new Map(), costBasis: new Map() };
   const expertIds = [...new Set([...pairs.values()].map((p) => p.expert_id))];
   const { data, error } = await supabase
     .from("trade_records")
-    .select("expert_id, instrument, quantity, quantity_unit, entry_date, exit_date")
+    .select("expert_id, instrument, quantity, quantity_unit, entry_date, exit_date, entry_price")
     .in("expert_id", expertIds)
     .lt("entry_date", startIso)
     .or(`exit_date.is.null,exit_date.gte.${startIso}`);
   if (error) {
     throw new Error(`load opening balances failed: ${error.message}`);
   }
-  return deriveOpeningBalances(data ?? [], new Set(pairs.keys()), startIso);
+  const keys = new Set(pairs.keys());
+  return {
+    openingBalances: deriveOpeningBalances(data ?? [], keys, startIso),
+    costBasis: deriveCostBasis(data ?? [], keys, startIso),
+  };
 }
 
 Deno.serve(async (req) => {
@@ -105,9 +114,11 @@ Deno.serve(async (req) => {
 
     // 1b. 風險守門（server-side backstop）
     let riskReport: ReturnType<typeof detectExportRisks> | null = null;
+    let costBasis = new Map<string, number>();
     if (list.length > 0) {
-      const openings = await loadOpeningBalances(supabase, list, range.startIso);
-      riskReport = detectExportRisks(list, { openingBalances: openings, publishedOnly: true });
+      const history = await loadHistory(supabase, list, range.startIso);
+      costBasis = history.costBasis;
+      riskReport = detectExportRisks(list, { openingBalances: history.openingBalances, publishedOnly: true });
       if (riskReport.blocked && !force) {
         console.warn(`[weekly-journal-export] blocked: ${riskReport.summary.block} block / ${riskReport.summary.warn} warn`);
         return new Response(
@@ -137,7 +148,7 @@ Deno.serve(async (req) => {
     // 3. 每位老師產一份 Markdown 上傳（與後台頁面下載的檔案逐字相同）
     const uploaded: { path: string; mentor: string; slug: string; rows: number }[] = [];
     for (const [mentorId, mentorRows] of byMentor) {
-      const md = buildMentorMarkdown(mentorRows, { startLabel: range.startLabel, endLabel: range.endLabel });
+      const md = buildMentorMarkdown(mentorRows, { startLabel: range.startLabel, endLabel: range.endLabel }, { costBasis });
       const mentorName = mentorRows[0].experts?.name ?? "(未命名)";
       const rawSlug = mentorRows[0].experts?.slug ?? mentorId;
       const filename = `${safeSlug(rawSlug, mentorId)}.md`;
