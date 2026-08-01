@@ -47,6 +47,22 @@ function applyForceOffline() {
 }
 
 /**
+ * force=stale 時把分頁標成 hidden。
+ * useTwChipsDetail 的 planAutoRefresh 在 !visible 時回 'paused' 不排程，
+ * 否則 stale 一亮起就立刻自動重抓 → fetchedAt 被刷新 → badge 瞬間消失，
+ * 快照永遠抓不到。stamp 探針同樣靠 visible 關掉，畫面才穩定。
+ */
+function applyHiddenTab() {
+  try {
+    Object.defineProperty(document, 'visibilityState', {
+      value: 'hidden',
+      configurable: true,
+    });
+    Object.defineProperty(document, 'hidden', { value: true, configurable: true });
+  } catch {}
+}
+
+/**
  * 統一的時間控制器（force=stale / freezeTime 共用同一個 Date.now 覆寫）。
  *
  * 舊版問題：force=stale 與 freezeTime 各自覆寫 Date.now，後者會把前者蓋掉；
@@ -57,8 +73,8 @@ function applyForceOffline() {
  * 現在：
  *   - freezeTime → now 凍結在 mount 當下的 anchor（相對時間文字穩定）
  *   - force=stale → 800ms 後把 offset 加上 TTL+1 分鐘
- *   - force=stale 時同時把「長 setTimeout」壓縮成 120ms，
- *     讓 useFreshness 的 ticker 立刻重算 → STALE badge 準時亮起
+ *   - force=stale 時把 freshness ticker 的長 setTimeout 壓成 120ms，
+ *     讓時間前推後立刻重算 → STALE badge 準時亮起
  */
 function useHarnessClock(force: string | null, freezeTime: boolean, setTick: (fn: (n: number) => number) => void) {
   useEffect(() => {
@@ -72,11 +88,11 @@ function useHarnessClock(force: string | null, freezeTime: boolean, setTick: (fn
     const originalNow = Date.now;
     Date.now = () => base() + offset;
 
-    // 壓縮 useFreshness 的 ticker，讓時間前推後立刻反映到畫面
     const originalSetTimeout = window.setTimeout;
     if (wantStale) {
       window.setTimeout = ((fn: any, delay?: number, ...args: any[]) => {
-        const d = typeof delay === 'number' && delay >= 1_000 && delay <= 120_000 ? 120 : delay;
+        // useFreshness 的 ticker 只會用 5s / 30s 兩種間隔
+        const d = delay === 5_000 || delay === 30_000 ? 120 : delay;
         return originalSetTimeout(fn, d as any, ...args);
       }) as typeof window.setTimeout;
     }
@@ -97,6 +113,7 @@ function useHarnessClock(force: string | null, freezeTime: boolean, setTick: (fn
     };
   }, [force, freezeTime]);
 }
+
 
 export default function ChipsSectionHarnessEntry() {
   if (!isPreviewEnv()) return null;
