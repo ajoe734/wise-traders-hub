@@ -121,7 +121,8 @@ export async function persistAggregated(
     source: laneSource,
     buy_shares: r.buy_shares,
     sell_shares: r.sell_shares,
-    net_shares: r.net_shares,
+    // net_shares 是 GENERATED ALWAYS（buy-sell），不可寫入，否則整批 upsert 失敗
+
     avg_buy_price: r.avg_buy_price,
     avg_sell_price: r.avg_sell_price,
     ingested_at: nowIso,
