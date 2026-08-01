@@ -6257,10 +6257,12 @@ export type Database = {
         }
         Returns: Json
       }
-      cron_edge_call: {
-        Args: { body?: Json; fn_name: string }
-        Returns: number
-      }
+      cron_edge_call:
+        | { Args: { body?: Json; fn_name: string }; Returns: number }
+        | {
+            Args: { body?: Json; fn_name: string; timeout_ms?: number }
+            Returns: number
+          }
       delete_expired_binding_codes: { Args: never; Returns: undefined }
       delete_old_prices: { Args: never; Returns: undefined }
       derive_traffic_channel: {
@@ -6339,6 +6341,7 @@ export type Database = {
         }
         Returns: Json
       }
+      expected_latest_bsr_date: { Args: never; Returns: string }
       finmind_admit: {
         Args: {
           _cost?: number
@@ -6692,6 +6695,10 @@ export type Database = {
           reaped_jobs: number
           released_locks: number
         }[]
+      }
+      rebuild_bsr_rollup: {
+        Args: { _as_of: string; _max_stocks?: number; _stock_ids?: string[] }
+        Returns: Json
       }
       reconcile_line_free_quota: { Args: { _user_id: string }; Returns: Json }
       reconcile_snapshot: {

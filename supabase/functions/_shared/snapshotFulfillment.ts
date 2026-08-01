@@ -191,9 +191,12 @@ export async function persistAggregated(
   }
   if (upserts.length > 0) {
     for (let i = 0; i < upserts.length; i += CHUNK) {
-      await supa.from('tw_chips_rollup')
+      // 絕不吞錯：2026-07-27 起 rollup 整批被 window_days=10 的 CHECK 擋掉，
+      // 因為這裡沒有檢查 error，前台 AS OF 就靜靜地凍結了五天。
+      const { error } = await supa.from('tw_chips_rollup')
         .upsert(upserts.slice(i, i + CHUNK),
           { onConflict: 'stock_id,as_of_date,window_days' });
+      if (error) throw new Error(`chips_rollup_upsert_failed:${error.message}`);
     }
   }
   return { stocks: stocks.length, rows: agg.length, materialized, skipped_sealed: skippedSealed };
