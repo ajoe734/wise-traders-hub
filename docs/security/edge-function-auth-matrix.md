@@ -3,8 +3,8 @@
 > 由 `scripts/audit-edge-fn-auth.mjs --write` 自動產生，勿手動編輯。
 > 分類憲法見 `supabase/functions/_shared/authGuard.ts`。
 
-覆蓋率：125 / 125
-Runtime guard 已上：125 / 125
+覆蓋率：129 / 129
+Runtime guard 已上：118 / 129
 
 | Function | Auth Class | Runtime Guard |
 | --- | --- | --- |
@@ -14,15 +14,15 @@ Runtime guard 已上：125 / 125
 | `acpay-recurring-manage` | user | ✅ |
 | `acpay-recurring-notify` | webhook | — |
 | `acpay-refund` | user | ✅ |
-| `admin-account-force-merge` | user | ✅ |
-| `admin-ecpay-status` | user | ✅ |
-| `admin-line-push` | user | ✅ |
+| `admin-account-force-merge` | user | ⏳ pending |
+| `admin-ecpay-status` | user | ⏳ pending |
+| `admin-line-push` | user | ⏳ pending |
 | `admin-line-push-cron` | cron | ✅ |
-| `admin-manage-users` | user | ✅ |
+| `admin-manage-users` | user | ⏳ pending |
 | `admin-view-as` | user | ✅ |
 | `alerts-watchdog` | cron | ✅ |
 | `apologize-line-free-quota` | cron | ✅ |
-| `authorize-pdf-export` | user | ✅ |
+| `authorize-pdf-export` | user | ⏳ pending |
 | `auto-cancel-failed-renewals` | public | — |
 | `backfill-daily-snapshots` | cron | ✅ |
 | `backfill-gap-orchestrator` | cron | ✅ |
@@ -54,11 +54,11 @@ Runtime guard 已上：125 / 125
 | `checkup-warrant-sync` | cron | ✅ |
 | `chips-guardian` | cron | ✅ |
 | `cleanup-announcements-cron` | cron | ✅ |
-| `cleanup-ops-logs` | user | ✅ |
+| `cleanup-ops-logs` | user | ⏳ pending |
 | `confirm-linepay` | webhook | — |
-| `confirm-remittance` | user | ✅ |
+| `confirm-remittance` | user | ⏳ pending |
 | `create-acpay-order` | user | ✅ |
-| `create-analyst` | user | ✅ |
+| `create-analyst` | user | ⏳ pending |
 | `create-checkup-ecpay-order` | user | ✅ |
 | `create-checkup-remittance` | user | ✅ |
 | `create-ecpay-order` | user | ✅ |
@@ -95,16 +95,17 @@ Runtime guard 已上：125 / 125
 | `notify-backtest-result` | cron | ✅ |
 | `notify-payment-failure` | cron | ✅ |
 | `og-card` | public | — |
-| `ops-health` | user | ✅ |
+| `ops-health` | user | ⏳ pending |
+| `pending-journal-publish-reminder` | cron | ✅ |
 | `process-refund` | user | ✅ |
 | `prune-knowledge-base` | cron | ✅ |
-| `publish-weekly-journals` | cron | ✅ |
+| `publish-weekly-journals` | user+cron | ✅ |
 | `publish-weekly-journals-runner` | cron | ✅ |
 | `publish-weekly-journals-watchdog` | cron | ✅ |
 | `reconcile-warrant-quantities` | cron | ✅ |
 | `recover-abandoned-checkout` | cron | ✅ |
 | `recover-failed-transactions` | cron | ✅ |
-| `refresh-data-source` | user | ✅ |
+| `refresh-data-source` | user | ⏳ pending |
 | `refresh-targets-weekly` | cron | ✅ |
 | `setup-storage` | cron | ✅ |
 | `share-og` | public | — |
@@ -124,12 +125,15 @@ Runtime guard 已上：125 / 125
 | `tw-bsr-ocr-metrics` | cron | ✅ |
 | `tw-bsr-stock-timeline` | cron | ✅ |
 | `tw-bsr-window-converge` | cron | ✅ |
+| `tw-chips-batch` | public | — |
 | `tw-chips-detail` | public | — |
 | `tw-chips-orchestrator` | cron | ✅ |
 | `tw-institutional-daily-sync` | cron | ✅ |
 | `tw-ocr-replay` | cron | ✅ |
+| `tw-trading-calendar-catchup` | cron | ✅ |
 | `twse-proxy` | public | — |
-| `update-analyst-credentials` | user | ✅ |
+| `update-analyst-credentials` | user | ⏳ pending |
+| `us-option-price-sync` | cron | ✅ |
 | `us-stock-quote` | public | — |
 | `validate-signal-prices` | cron | ✅ |
 | `weekly-journal-export` | user | ✅ |

@@ -5,6 +5,10 @@
 import { Suspense, lazy, memo, useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState } from 'react';
 import { ArrowUp } from 'lucide-react';
 import { getSparkCloses } from '@/checkup/lib/holdingDetailViewModel';
+import { useSparklines } from '@/checkup/hooks/useSparklines';
+import { useChipsBatch } from '@/checkup/hooks/useChipsBatch';
+import { useCheckupMode } from '@/checkup/contexts/CheckupModeContext';
+import { EMPTY_SPARK } from '@/pages/_freeCheckup/constants.jsx';
 import HoldingCard from '@/checkup/components/freecheckup/HoldingCard';
 
 import HoldingsEmptyState from '@/checkup/components/freecheckup/HoldingsEmptyState';
@@ -41,9 +45,6 @@ function HoldingsWorkbench(props) {
     avgTarget,
     STOCK_META,
     overrides,
-    sparklines,
-    sparklineErrors,
-    EMPTY_SPARK,
     holdingSyncStates,
     handleHoldingCardSelect,
     handleHoldingCardOpenDrawer,
@@ -83,6 +84,16 @@ function HoldingsWorkbench(props) {
   }, [expandedDecision, displayed, sorted]);
 
   const showPanel = !!selected;
+
+  const { isDemo } = useCheckupMode();
+
+  // 候選 D/F：走勢與籌碼資料在 workbench 層統一取得，不再由 FreeCheckup 父層 prop 透傳。
+  const sparklineCodes = useMemo(
+    () => orderedDisplayed.map((h) => String(h.code).trim()).filter(Boolean),
+    [orderedDisplayed],
+  );
+  const { sparklines, sparklineErrors } = useSparklines(sparklineCodes, { enabled: !isDemo });
+  const { prefetch } = useChipsBatch({ codes: sparklineCodes, enabled: !isDemo });
 
   const sheetRef = useRef<HTMLDivElement | null>(null);
   const onScrollRef = useRef<(() => void) | null>(null);
@@ -254,6 +265,7 @@ function HoldingsWorkbench(props) {
             onSelect={handleHoldingCardSelect}
             onOpenDrawer={handleHoldingCardOpenDrawer || openNewDetailPanel}
             onReportMeta={handleReportMeta}
+            onPrefetch={prefetch}
           />
         ))}
 
