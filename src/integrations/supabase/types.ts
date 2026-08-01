@@ -6821,8 +6821,8 @@ export type Database = {
       tw_detect_market_holidays: {
         Args: { _from?: string; _to?: string }
         Returns: {
-          inserted: boolean
-          trade_date: string
+          holiday_date: string
+          was_inserted: boolean
         }[]
       }
       tw_missing_trading_days: {
