@@ -1,0 +1,1 @@
+SELECT public.cron_edge_call('tw-bsr-finmind-sync', '{"mode": "worker", "batch": 30, "budget_ms": 45000, "max_priority": 1, "ignore_window": true}'::jsonb);
