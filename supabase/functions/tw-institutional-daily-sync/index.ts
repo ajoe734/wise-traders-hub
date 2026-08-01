@@ -14,7 +14,7 @@ import { requireCronKey, AuthError } from "../_shared/authGuard.ts";
 import { checkCircuit, recordCircuit } from "../_shared/circuitBreaker.ts";
 import { fetchWithRetry, isRetryExhausted, recordRetryFailure } from "../_shared/retryFetch.ts";
 import { checkKillSwitch } from "../_shared/killSwitch.ts";
-import { parseT86 } from "../_shared/institutionalDay.ts";
+import { fetchFinmindDay, parseT86 } from "../_shared/institutionalDay.ts";
 import {
   isPublicSyncMode,
   isValidStockId,
