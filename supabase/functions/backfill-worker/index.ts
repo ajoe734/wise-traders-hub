@@ -10,6 +10,7 @@ import { checkKillSwitch } from "../_shared/killSwitch.ts";
 import { admitFinmind } from "../_shared/finmindAdmission.ts";
 import { aggregate as aggregateBsr, type FinmindRow } from "../_shared/finmindBsrAggregate.ts";
 import { enumerateTradingDates } from "../_shared/backfillDates.ts";
+import { getTwHolidaysCached } from "../_shared/twTradingCalendar.ts";
 import { fetchWithRetry, isRetryExhausted, recordRetryFailure } from "../_shared/retryFetch.ts";
 import {
   classifyBackfillError,
