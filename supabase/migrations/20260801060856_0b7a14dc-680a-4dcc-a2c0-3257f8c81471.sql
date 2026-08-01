@@ -1,0 +1,1 @@
+SELECT public.cron_edge_call('tw-bsr-window-converge', '{"max_stocks": 40}'::jsonb);
