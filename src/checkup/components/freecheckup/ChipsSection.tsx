@@ -37,25 +37,6 @@ const WINDOWS = [
   { key: 'd60', label: '60日' },
 ] as const;
 
-function relTime(ts: number | null): string {
-  if (!ts) return '—';
-  const diff = Date.now() - ts;
-  const s = Math.round(diff / 1000);
-  if (s < 60) return `${s} 秒前`;
-  const m = Math.round(s / 60);
-  if (m < 60) return `${m} 分鐘前`;
-  const h = Math.round(m / 60);
-  if (h < 24) return `${h} 小時前`;
-  return `${Math.round(h / 24)} 天前`;
-}
-
-function fmtClock(ts: number | null): string {
-  if (!ts) return '';
-  const d = new Date(ts);
-  const pad = (n: number) => String(n).padStart(2, '0');
-  return `${d.getFullYear()}/${pad(d.getMonth() + 1)}/${pad(d.getDate())} ${pad(d.getHours())}:${pad(d.getMinutes())}`;
-}
-
 /**
  * 單一事實：摘要格子該怎麼顯示，由後端 readiness + 本地 days_covered 決定。
  * 不要讓 6 天資料看起來像 60 日完成。
@@ -157,7 +138,7 @@ export default function ChipsSection({ WB, stockCode }: { WB: any; stockCode: st
     );
   }
 
-  const { data, loading, error, fetchedAt, online, stale, refetch } = useTwChipsDetail(stockCode, true);
+  const { data, loading, error, fetchedAt, ageLabel, fetchedAtClock, online, stale, refetch } = useTwChipsDetail(stockCode, true);
   const uiState = useChipsState({
     stockCode,
     payload: data,
@@ -302,8 +283,8 @@ export default function ChipsSection({ WB, stockCode }: { WB: any; stockCode: st
             ? `AS OF ${data.as_of.replaceAll('-', '/')}${data.as_of_lag_days && data.as_of_lag_days >= 1 ? `（前 ${data.as_of_lag_days} 個交易日）` : ''}`
             : loading ? '' : '尚未同步'}
           {fetchedAt && (
-            <div title={fmtClock(fetchedAt)} style={{ fontSize: 9, letterSpacing: '0.08em', color: WB.inkMute, marginTop: 1 }}>
-              更新於 {relTime(fetchedAt)}
+            <div data-testid="chips-fetched-age" title={fetchedAtClock} style={{ fontSize: 9, letterSpacing: '0.08em', color: WB.inkMute, marginTop: 1 }}>
+              更新於 {ageLabel}
             </div>
           )}
         </div>
@@ -403,7 +384,7 @@ export default function ChipsSection({ WB, stockCode }: { WB: any; stockCode: st
             <span style={{ overflow: 'hidden', textOverflow: 'ellipsis' }}>{error.reason}</span>
             {data && (
               <span style={{ fontSize: 10, color: WB.inkMute, marginTop: 2 }}>
-                目前顯示的是 {fetchedAt ? relTime(fetchedAt) : '較早'}的快取資料
+                目前顯示的是 {fetchedAt ? ageLabel : '較早'}的快取資料
               </span>
             )}
           </div>
