@@ -6257,10 +6257,12 @@ export type Database = {
         }
         Returns: Json
       }
-      cron_edge_call: {
-        Args: { body?: Json; fn_name: string }
-        Returns: number
-      }
+      cron_edge_call:
+        | { Args: { body?: Json; fn_name: string }; Returns: number }
+        | {
+            Args: { body?: Json; fn_name: string; timeout_ms?: number }
+            Returns: number
+          }
       delete_expired_binding_codes: { Args: never; Returns: undefined }
       delete_old_prices: { Args: never; Returns: undefined }
       derive_traffic_channel: {
