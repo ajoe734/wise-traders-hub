@@ -47,6 +47,9 @@ jobs:
       - name: 共用符號未定義守衛（corsHeaders 等）
         run: node scripts/audit-edge-fn-undefined-symbols.mjs
 
+      - name: 外部 API 裸 fetch 守衛（必須走 fetchWithRetry）
+        run: node scripts/audit-raw-fetch.mjs
+
       - name: pg_cron commands must route via cron_edge_call
         env:
           SUPABASE_URL: ${{ secrets.SUPABASE_URL }}
