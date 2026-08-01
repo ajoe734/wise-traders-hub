@@ -2,7 +2,7 @@ import { readFileSync } from 'node:fs';
 import { resolve } from 'node:path';
 
 const FN_FILE = resolve(__dirname, '../../../supabase/functions/tw-chips-detail/index.ts');
-const HOOK_FILE = resolve(__dirname, '../../../src/checkup/hooks/useTwChipsDetail.ts');
+const HOOK_FILE = resolve(__dirname, '../../../src/checkup/lib/chipsRepository.ts');
 const MATRIX_FILE = resolve(__dirname, '../../../docs/security/edge-function-auth-matrix.md');
 const CONFIG_FILE = resolve(__dirname, '../../../supabase/config.toml');
 

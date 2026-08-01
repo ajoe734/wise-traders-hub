@@ -17,7 +17,7 @@ import { resolve } from 'path';
 const ROLLUP_FILE = resolve(__dirname, '../../../supabase/functions/_shared/bsrRollup.ts');
 const DETAIL_FILE = resolve(__dirname, '../../../supabase/functions/tw-chips-detail/index.ts');
 const STATE_FILE = resolve(__dirname, '../../../src/checkup/hooks/useChipsState.ts');
-const PAYLOAD_FILE = resolve(__dirname, '../../../src/checkup/hooks/useTwChipsDetail.ts');
+const PAYLOAD_FILE = resolve(__dirname, '../../../src/checkup/lib/chipsRepository.ts');
 
 function load(p: string) {
   return readFileSync(p, 'utf-8');
