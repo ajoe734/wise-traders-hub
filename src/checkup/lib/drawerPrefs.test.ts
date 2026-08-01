@@ -124,23 +124,28 @@ describe('holdingPanelPrefs — 佔比排名摺疊狀態', () => {
 
 
 describe('chipsPrefs — 關鍵分點視窗', () => {
-  beforeEach(() => localStorage.clear());
+  beforeEach(() => {
+    window.localStorage.clear();
+    chipsPrefs.reset();
+  });
 
   it('預設為 5 日', () => {
-    expect(chipsPrefs.get().bsrWindow).toBe('d5');
+    expect(chipsPrefs.load().bsrWindow).toBe('d5');
   });
 
   it('可存取 1／5／10 日並在重讀後保留', () => {
     for (const w of ['d1', 'd5', 'd10'] as const) {
-      chipsPrefs.set({ bsrWindow: w });
-      expect(chipsPrefs.get().bsrWindow).toBe(w);
+      chipsPrefs.update({ bsrWindow: w });
+      expect(chipsPrefs.load().bsrWindow).toBe(w);
     }
   });
 
-  it('非法值 sanitize 回 5 日（不會讓抽屜讀到不存在的視窗）', () => {
-    localStorage.setItem('holdingPanel.chips.v1', JSON.stringify({ v: 1, data: { bsrWindow: 'd20' } }));
-    expect(chipsPrefs.get().bsrWindow).toBe('d5');
-    localStorage.setItem('holdingPanel.chips.v1', 'not-json');
-    expect(chipsPrefs.get().bsrWindow).toBe('d5');
+  it('非法視窗 sanitize 回 5 日（不會讓抽屜讀到不存在的視窗）', () => {
+    chipsPrefs.save({ bsrWindow: 'd20' } as never);
+    expect(chipsPrefs.load().bsrWindow).toBe('d5');
+    window.localStorage.setItem('holdingPanel.chips.v1', '{oops');
+    chipsPrefs.reset();
+    window.localStorage.setItem('holdingPanel.chips.v1', '{oops');
+    expect(chipsPrefs.load().bsrWindow).toBe('d5');
   });
 });

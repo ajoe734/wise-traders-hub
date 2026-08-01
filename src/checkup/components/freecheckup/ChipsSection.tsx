@@ -174,10 +174,10 @@ export default function ChipsSection({ WB, stockCode }: { WB: any; stockCode: st
   );
 
   // 關鍵分點視窗（1／5／10 日）：使用者選擇記在 drawerPrefs，抽屜再開沿用。
-  const [bsrWin, setBsrWin] = React.useState<BsrWindowKey>(() => chipsPrefs.get().bsrWindow);
+  const [bsrWin, setBsrWin] = React.useState<BsrWindowKey>(() => chipsPrefs.load().bsrWindow);
   const selectBsrWin = React.useCallback((key: BsrWindowKey) => {
     setBsrWin(key);
-    chipsPrefs.set({ bsrWindow: key });
+    chipsPrefs.update({ bsrWindow: key });
   }, []);
   const bsrSelected = data?.bsr?.[bsrWin] ?? null;
   // 舊 payload／舊快取只有 d5/d20/d60；選 5 日時仍沿用既有降級鏈，避免回歸。
