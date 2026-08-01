@@ -831,53 +831,29 @@ Deno.serve(async (req) => {
     }
 
     const fields: string[] = raw?.fields || [];
-    const rows: any[][] = raw?.data || [];
+    const rawRows: any[][] = raw?.data || [];
+    const tradeDate = toISODate(resolvedDate);
 
-    // 依 fields 動態找欄位 index（TWSE 偶爾調整名稱）
-    const idxOf = (kw: string) => fields.findIndex((f) => f && f.includes(kw));
-    const iStock = idxOf("證券代號");
-    // 外資 = 外陸資買賣超（不含外資自營商） + 外資自營商買賣超
-    const iForeignMain = idxOf("外陸資買賣超股數");
-    const iForeignDealer = idxOf("外資自營商買賣超股數");
-    const iTrust = idxOf("投信買賣超");
-    // 自營商合計欄位（不含「自行買賣」「避險」細分）
-    const iDealer = fields.findIndex((f) => f === "自營商買賣超股數");
-    const iDealerSelf = idxOf("自營商買賣超股數(自行買賣)");
-    const iDealerHedge = idxOf("自營商買賣超股數(避險)");
-    const iTotal = idxOf("三大法人買賣超");
-
-    if (iStock < 0 || iForeignMain < 0 || iTrust < 0 || (iDealer < 0 && iDealerSelf < 0)) {
+    // F4：解析走 _shared/institutionalDay.ts 的單一實作
+    let parsedRows: ReturnType<typeof parseT86>;
+    try {
+      parsedRows = parseT86(raw, tradeDate);
+    } catch (_e) {
       return errorResponse("fields layout unrecognized", 502, {
         code: "SCHEMA_DRIFT",
         fields,
       });
     }
 
-
-    const tradeDate = toISODate(resolvedDate);
     const supa = serviceClient();
 
     const BATCH = 500;
     let inserted = 0;
-    for (let i = 0; i < rows.length; i += BATCH) {
-      const chunk = rows.slice(i, i + BATCH).map((r) => {
-        const stock_id = String(r[iStock] || "").trim();
-        const foreign_net = parseNum(r[iForeignMain]) + (iForeignDealer >= 0 ? parseNum(r[iForeignDealer]) : 0);
-        const trust_net = parseNum(r[iTrust]);
-        const dealer_net = iDealer >= 0
-          ? parseNum(r[iDealer])
-          : parseNum(r[iDealerSelf]) + (iDealerHedge >= 0 ? parseNum(r[iDealerHedge]) : 0);
-        const total_net = iTotal >= 0 ? parseNum(r[iTotal]) : foreign_net + trust_net + dealer_net;
-        return {
-          stock_id,
-          trade_date: tradeDate,
-          foreign_net,
-          trust_net,
-          dealer_net,
-          total_net,
-          raw: { fields, row: r },
-        };
-      }).filter((x) => x.stock_id);
+    for (let i = 0; i < parsedRows.length; i += BATCH) {
+      const chunk = parsedRows.slice(i, i + BATCH).map((r, j) => ({
+        ...r,
+        raw: { fields, row: rawRows[i + j] },
+      }));
 
 
       const { error } = await supa
