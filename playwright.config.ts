@@ -230,25 +230,17 @@ export default defineConfig({
       use: { ...devices['Desktop Chrome'], viewport: { width: 1280, height: 900 } },
     },
     {
+      // PR-11: fetchChipsBatch 統一端點整合驗證（POST /tw-chips-detail）
+      name: 'desktop-chips-batch',
+      testMatch: /chips-batch\.spec\.ts/,
+      use: { ...devices['Desktop Chrome'], viewport: { width: 1280, height: 900 } },
+    },
+    {
       // Phase G: chips 端到端事件契約（鎖 Phase F 漏斗依賴的 traffic-ingest 事件）
       name: 'desktop-chips-telemetry-contract',
       testMatch: /chips-telemetry-contract\.spec\.ts/,
       use: { ...devices['Desktop Chrome'], viewport: { width: 1280, height: 900 } },
     },
-
-
-
-
-
-
-
-
-
-
-
-
-
-
     {
       // 週記 / 訊號編輯器：ETF 英文字尾（00631L / 00878B）代號+名稱顯示 parity
       name: 'desktop-signal-editor-etf-suffix',

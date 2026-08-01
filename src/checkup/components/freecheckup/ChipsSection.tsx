@@ -2,7 +2,7 @@
 // ChipsSection — 抽屜「§4.6 籌碼面」（僅台股渲染）
 // 三大法人 1/5/20/60 日 + BSR 前 3 買/賣 + 集中度
 import React, { useMemo } from 'react';
-import { isTaiwanStockCode, type TwChipsPayload } from '@/checkup/hooks/useTwChipsDetail';
+import { isTaiwanStockCode, isTaiwanChipEligible, type TwChipsPayload } from '@/checkup/hooks/useTwChipsDetail';
 import { useChipsLifecycle } from '@/checkup/hooks/useChipsLifecycle';
 import ChipsTrendChart from './ChipsTrendChart';
 import { bsrHeaderLabel } from './bsrHeaderLabel';

@@ -3,8 +3,8 @@
 > 由 `scripts/audit-edge-fn-auth.mjs --write` 自動產生，勿手動編輯。
 > 分類憲法見 `supabase/functions/_shared/authGuard.ts`。
 
-覆蓋率：129 / 129
-Runtime guard 已上：118 / 129
+覆蓋率：128 / 128
+Runtime guard 已上：117 / 128
 
 | Function | Auth Class | Runtime Guard |
 | --- | --- | --- |
@@ -125,7 +125,6 @@ Runtime guard 已上：118 / 129
 | `tw-bsr-ocr-metrics` | cron | ✅ |
 | `tw-bsr-stock-timeline` | cron | ✅ |
 | `tw-bsr-window-converge` | cron | ✅ |
-| `tw-chips-batch` | public | — |
 | `tw-chips-detail` | public | — |
 | `tw-chips-orchestrator` | cron | ✅ |
 | `tw-institutional-daily-sync` | cron | ✅ |
