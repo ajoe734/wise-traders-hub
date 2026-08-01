@@ -151,10 +151,19 @@ export default function ChipsSectionHarnessEntry() {
   const staleShiftMs =
     Number(params.get('staleShift')) > 0 ? Number(params.get('staleShift')) : STALE_SHIFT_DEFAULT_MS;
 
+  // visibility=hidden|visible 顯式覆寫；未給時沿用歷史預設（stale → hidden）
+  const visibilityParam = params.get('visibility');
+  const visibility: 'hidden' | 'visible' =
+    visibilityParam === 'hidden' || visibilityParam === 'visible'
+      ? visibilityParam
+      : mode === 'stale'
+        ? 'hidden'
+        : 'visible';
+
   // force=offline 必須在第一次 render 前生效
   if (force?.includes('offline')) applyForceOffline();
-  // 只有 stale 需要凍住自動重抓；fresh 讓頁面照常可見
-  if (mode === 'stale') applyHiddenTab();
+  installVisibilityOverride(visibility);
+
 
 
   const [tick, setTick] = useState(0);
