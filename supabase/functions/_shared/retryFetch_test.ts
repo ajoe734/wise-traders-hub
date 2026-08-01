@@ -208,3 +208,56 @@ Deno.test('recordRetryFailure: supa 為 null 時不 throw', async () => {
   const err = new RetryExhaustedError('x', [], null, 'net', 'https://x.test');
   await recordRetryFailure(null, err, { fn: 'unit' });
 });
+
+// ===== F3：fetchWithRetry 自動記錄 data_source_health =====
+Deno.test('F3: 成功時記錄 ok=true 到熔斷器', async () => {
+  const events: Array<[string, boolean, string | undefined]> = [];
+  await fetchWithRetry('https://x.test/a', {}, {
+    source: 'unit_source',
+    sleep: () => Promise.resolve(),
+    fetchImpl: (() => Promise.resolve(new Response('{}', { status: 200 }))) as unknown as typeof fetch,
+    health: { supa: null, record: (s, ok, _l, code) => { events.push([s, ok, code]); return Promise.resolve(); } },
+  });
+  assertEquals(events, [['unit_source', true, undefined]]);
+});
+
+Deno.test('F3: 不可重試的 4xx 記錄 ok=false 與狀態碼', async () => {
+  const events: Array<[string, boolean, string | undefined]> = [];
+  await fetchWithRetry('https://x.test/a', {}, {
+    source: 'unit_source',
+    healthSourceUnused: undefined,
+    sleep: () => Promise.resolve(),
+    fetchImpl: (() => Promise.resolve(new Response('nope', { status: 404 }))) as unknown as typeof fetch,
+    health: { supa: null, record: (s, ok, _l, code) => { events.push([s, ok, code]); return Promise.resolve(); } },
+  } as any);
+  assertEquals(events, [['unit_source', false, 'http_404']]);
+});
+
+Deno.test('F3: 重試用盡記錄 UPSTREAM_RETRY_EXHAUSTED 並可改名 healthSource', async () => {
+  const events: Array<[string, boolean, string | undefined]> = [];
+  let threw = false;
+  try {
+    await fetchWithRetry('https://x.test/a', {}, {
+      source: 'unit_source',
+      policy: { maxAttempts: 2, baseDelayMs: 1 },
+      sleep: () => Promise.resolve(),
+      fetchImpl: (() => Promise.resolve(new Response('err', { status: 503 }))) as unknown as typeof fetch,
+      health: {
+        supa: null,
+        healthSource: 'renamed_source',
+        record: (s, ok, _l, code) => { events.push([s, ok, code]); return Promise.resolve(); },
+      },
+    });
+  } catch (_e) { threw = true; }
+  assertEquals(threw, true);
+  assertEquals(events, [['renamed_source', false, 'UPSTREAM_RETRY_EXHAUSTED']]);
+});
+
+Deno.test('F3: 未提供 health 時不做任何記錄（向後相容）', async () => {
+  const res = await fetchWithRetry('https://x.test/a', {}, {
+    source: 'unit_source',
+    sleep: () => Promise.resolve(),
+    fetchImpl: (() => Promise.resolve(new Response('{}', { status: 200 }))) as unknown as typeof fetch,
+  });
+  assertEquals(res.status, 200);
+});
