@@ -13,6 +13,7 @@
  */
 import { memo, useMemo } from 'react';
 import { WB } from '@/pages/_freeCheckup/constants.jsx';
+import { formatAge, formatClock } from '@/checkup/lib/freshness';
 
 // 對齊 supabase/functions/_shared/stockPriceWaterfall.ts 的 label 映射，保留 data-price-src 以供抽屜使用
 const SRC_LABEL = {
@@ -50,7 +51,7 @@ function HoldingCardFooterImpl({
     return [
       srcLabel ? `來源：${srcLabel}（${h.priceSource}）` : '尚未同步即時報價',
       h.priceUpdatedAt
-        ? `更新於 ${new Date(h.priceUpdatedAt).toLocaleTimeString('zh-TW', { hour: '2-digit', minute: '2-digit' })}`
+        ? `更新於 ${formatClock(new Date(h.priceUpdatedAt).getTime())}（${formatAge(Date.now() - new Date(h.priceUpdatedAt).getTime())}）`
         : null,
       h.yesterday != null ? `昨收 ${Number(h.yesterday).toFixed(2)}` : null,
       Number.isFinite(Number(h.price)) ? `現價 ${Number(h.price).toFixed(2)}` : null,
