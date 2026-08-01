@@ -73,9 +73,11 @@ export const TICK_COMPRESS_DEFAULT_MS = 120;
 export function parseEpoch(raw: string | null | undefined): number | null {
   if (!raw) return null;
   const n = Number(raw);
-  if (Number.isFinite(n) && n > 0) return n;
+  // 純數字一律當 epoch ms 處理（不可再落到 Date.parse，'0' 會被解成 2000 年）
+  if (!Number.isNaN(n)) return Number.isFinite(n) && n > 0 ? n : null;
   const t = Date.parse(raw);
   return Number.isFinite(t) ? t : null;
+
 }
 
 /** fresh > stale：兩者同時出現時以 fresh 為準。 */
