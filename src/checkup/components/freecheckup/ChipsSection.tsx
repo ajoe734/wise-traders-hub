@@ -526,7 +526,7 @@ export default function ChipsSection({ WB, stockCode }: { WB: any; stockCode: st
         <div data-testid="chips-inst-missing" style={{ fontSize: 12, color: WB.inkMute, marginBottom: 14, lineHeight: 1.6 }}>
           — 三大法人資料尚未同步
           <div style={{ fontSize: 10, color: WB.inkMute }}>
-            （每交易日 17:45 收盤後同步；非交易日或新上市代號可能無資料）
+            （僅交易日有新資料：每交易日 17:45 收盤後同步；週末與國定假日休市不更新，新上市代號可能尚無資料）
           </div>
         </div>
       )}
@@ -727,7 +727,8 @@ export default function ChipsSection({ WB, stockCode }: { WB: any; stockCode: st
               ? `— 近 ${bsrWinDays} 日分點補齊中（已 ${bsrWinReadiness.have}/${bsrWinDays} 個交易日）`
               : '— 分點資料尚未同步（BSR 未同步）'}
             <div style={{ fontSize: 10, color: WB.inkMute }}>
-              （每交易日 18:15 起排程自動抓取，14:00–21:00 每 10 分鐘一輪，取得後畫面自動刷新）
+              （僅交易日有新資料：週一～五 14:00–21:00 每 10 分鐘一輪自動抓取；
+              週末與國定假日休市不更新，週日排程會自動補齊本週漏抓的交易日）
             </div>
           </div>
 
