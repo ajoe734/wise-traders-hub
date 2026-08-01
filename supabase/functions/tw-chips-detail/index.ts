@@ -112,7 +112,7 @@ Deno.serve(async (req) => {
       .select("as_of_date, window_days, top_buy_brokers, top_sell_brokers, concentration_ratio, bsr_available")
       .eq("stock_id", stockId)
       .order("as_of_date", { ascending: false })
-      .limit(12);
+      .limit(20);
     const rollupLatestAsOf: string | null = rollupRows?.[0]?.as_of_date || null;
 
     // ==== BSR raw daily（僅供 fallback 聚合 top_buy/top_sell 使用）====
@@ -156,7 +156,7 @@ Deno.serve(async (req) => {
 
     let bsrSource: BsrSource = null;
     let chosenAsOf: string | null = null;
-    const bsr: Record<string, any> = { d5: null, d20: null, d60: null };
+    const bsr: Record<string, any> = { d1: null, d5: null, d10: null, d20: null, d60: null };
 
     // rollup 已經是最新期望日 → 直接用 rollup
     // 否則若 fallbackAsOf 存在且比 rollup 新 → 用 raw_fallback
@@ -176,6 +176,24 @@ Deno.serve(async (req) => {
           concentration_ratio: r.concentration_ratio,
         };
       }
+      // 1／10 日視窗是後加的：舊 rollup 只有 5/20/60，歷史列不會有 d1/d10。
+      // 用同一份 raw（近 14 個交易日，足以覆蓋 1 與 10）現算補上，
+      // 演算法與寫入端共用 computeBsrWindow，結果與之後 rollup 寫入完全一致。
+      if (chosenAsOf) {
+        const idxR = rawUniqueDatesDesc.indexOf(chosenAsOf);
+        const tailR = idxR >= 0 ? rawUniqueDatesDesc.slice(idxR) : [];
+        for (const win of [1, 10] as const) {
+          if (bsr[`d${win}`] || tailR.length === 0) continue;
+          const w = computeBsrWindow(bsrRawRows as any, pickWindowDates(tailR, win));
+          if (w) {
+            bsr[`d${win}`] = {
+              top_buy: w.top_buy,
+              top_sell: w.top_sell,
+              concentration_ratio: w.concentration_ratio,
+            };
+          }
+        }
+      }
     } else if (fallbackNewer) {
       bsrSource = "raw_fallback";
       chosenAsOf = fallbackAsOf;
@@ -183,7 +201,7 @@ Deno.serve(async (req) => {
       // 三個窗口一致由 computeBsrWindow 現算，保證 concentration 永遠有值可顯示。
       const idx = rawUniqueDatesDesc.indexOf(fallbackAsOf!);
       const tail = rawUniqueDatesDesc.slice(idx);
-      for (const win of [5, 20, 60] as const) {
+      for (const win of [1, 5, 10, 20, 60] as const) {
         const windowDates = pickWindowDates(tail, win);
         const w = computeBsrWindow(bsrRawRows, windowDates);
         if (w) {
