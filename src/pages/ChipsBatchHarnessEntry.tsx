@@ -62,7 +62,11 @@ export default function ChipsBatchHarnessEntry() {
   const keys = result ? Object.keys(result.results) : [];
   const first = keys[0] ? result.results[keys[0]] : null;
   const hasBsr = first && Object.keys(first?.bsr || {}).length > 0;
-  const hasInst = first && Array.isArray(first?.institutional) && first.institutional.length > 0;
+  const hasInst =
+    first &&
+    Object.values(first?.institutional || {}).some(
+      (v) => v !== null && v !== undefined,
+    );
 
   return (
     <div className="p-6 font-sans" data-testid="chips-batch-harness">
