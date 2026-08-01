@@ -263,8 +263,10 @@ export const CHIPS_STAMP_TIMEOUT_MS = 8_000;
 
 /** 公開市場資料 endpoint 一律用 publishable anon JWT，避免殘留 user JWT 造成 401。 */
 function anonHeaders(): Record<string, string> {
-  const key = (import.meta.env.VITE_SUPABASE_PUBLISHABLE_KEY as string) || '';
-  return { apikey: key, Authorization: `Bearer ${key}` };
+  return {
+    apikey: (import.meta.env.VITE_SUPABASE_PUBLISHABLE_KEY as string) || '',
+    Authorization: `Bearer ${import.meta.env.VITE_SUPABASE_PUBLISHABLE_KEY}`,
+  };
 }
 
 async function requestText(
