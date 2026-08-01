@@ -52,7 +52,10 @@ export interface TwChipsPayload {
     d60: InstitutionalWindow | null;
   };
   bsr: {
+    /** 1／10 日為後加視窗；舊快取／舊 payload 可能沒有這兩個 key。 */
+    d1?: BsrWindow | null;
     d5: BsrWindow | null;
+    d10?: BsrWindow | null;
     d20: BsrWindow | null;
     d60: BsrWindow | null;
   };
@@ -116,12 +119,12 @@ export interface TwChipsPayload {
     bsr_concentration: BsrConcentrationPoint[];
   };
   /**
-   * M1 readiness：每個視窗（5/20/60）的顯示狀態，由後端 seriesReadiness.ts 單一判定。
+   * M1 readiness：每個視窗（1/5/10/20/60）的顯示狀態，由後端 seriesReadiness.ts 單一判定。
    * UI 只讀這裡決定「畫線 / 補齊中 / 上游不足 / 暫無資料」，不再自行 count 有效點。
    */
   readiness?: {
-    institutional: Record<'5' | '20' | '60', WindowReadinessPayload>;
-    bsr_concentration: Record<'5' | '20' | '60', WindowReadinessPayload>;
+    institutional: Partial<Record<'1' | '5' | '10' | '20' | '60', WindowReadinessPayload>>;
+    bsr_concentration: Partial<Record<'1' | '5' | '10' | '20' | '60', WindowReadinessPayload>>;
     /** P3：BSR 快照是否已封存；sealed_at 存在時為 true */
     sealed?: boolean;
     sealed_at?: string | null;
@@ -160,7 +163,7 @@ export interface TwChipsPayload {
 
 export type ReadinessState = 'ready' | 'filling' | 'upstream_exhausted' | 'no_data';
 export interface WindowReadinessPayload {
-  window_days: 5 | 20 | 60;
+  window_days: 1 | 5 | 10 | 20 | 60;
   state: ReadinessState;
   have: number;
   need: number;
