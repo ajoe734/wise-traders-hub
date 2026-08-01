@@ -1,6 +1,6 @@
 // useTwChipsDetail — 抽屜私有查詢：台股籌碼面（三大法人 + BSR）
 // 呼叫公開市場資料 endpoint `tw-chips-detail`；SWR 5 分鐘快取。
-import { useEffect, useRef, useState } from 'react';
+import { useCallback, useEffect, useRef, useState } from 'react';
 import { getCheckupGateway } from '../lib/gateway';
 import { useFreshness } from '../lib/freshness';
 import { trackEvent } from '@/lib/trafficTracker';
@@ -172,6 +172,20 @@ export interface WindowReadinessPayload {
 const CACHE = new Map<string, { data: TwChipsPayload; ts: number }>();
 const TTL_MS = 5 * 60 * 1000;
 
+/** 過期自動重抓的節流參數 */
+export const AUTO_BASE_BACKOFF_MS = 30_000;
+export const AUTO_MAX_BACKOFF_MS = 5 * 60_000;
+export const AUTO_MAX_FAILURES = 4;
+
+/**
+ * idle       = 新鮮，無動作
+ * refreshing = 偵測到過期，正在自動重抓
+ * failed     = 自動重抓失敗，退避中會再試
+ * exhausted  = 連續失敗達上限，停手改由使用者手動
+ * paused     = 分頁在背景，暫停自動重抓（回前景立即補抓）
+ */
+export type AutoRefreshState = 'idle' | 'refreshing' | 'failed' | 'exhausted' | 'paused';
+
 function isViewAsActive(): boolean {
   try {
     return !!sessionStorage.getItem('view-as-session-v1');
@@ -245,7 +259,9 @@ export function useTwChipsDetail(stockCode: string | undefined | null, enabled =
     typeof navigator !== 'undefined' ? navigator.onLine : true,
   );
   const inflight = useRef<AbortController | null>(null);
+  const autoSourceRef = useRef(false);
   const [manualBump, setManualBump] = useState(0);
+  const [successTick, setSuccessTick] = useState(0);
 
   // 離線 / 上線監聽（上線時自動重試）
   useEffect(() => {
@@ -278,8 +294,9 @@ export function useTwChipsDetail(stockCode: string | undefined | null, enabled =
     const isViewAs = isViewAsActive();
     const prevStock = prevStockRef.current;
     prevStockRef.current = stockCode;
-    const source: 'drawer_open' | 'manual_refetch' | 'reconnect' =
-      attempt > 0 ? 'manual_refetch'
+    const source: 'drawer_open' | 'manual_refetch' | 'reconnect' | 'auto_stale' =
+      autoSourceRef.current ? 'auto_stale'
+      : attempt > 0 ? 'manual_refetch'
       : manualBump > 0 ? 'reconnect'
       : 'drawer_open';
 
@@ -370,6 +387,8 @@ export function useTwChipsDetail(stockCode: string | undefined | null, enabled =
         setFetchedAt(now);
         setError(null);
         setAttempt(0);
+        autoSourceRef.current = false;
+        setSuccessTick((n) => n + 1);
         trackEvent('chips_fetch_done', {
           stock_code: stockCode, source,
           duration_ms: now - startedAt,
@@ -409,16 +428,88 @@ export function useTwChipsDetail(stockCode: string | undefined | null, enabled =
     };
   }, [stockCode, enabled, manualBump, attempt]);
 
-  const refetch = () => {
+  const refetch = useCallback((opts?: { auto?: boolean }) => {
+    if (opts?.auto) autoSourceRef.current = true;
     if (stockCode) CACHE.delete(stockCode);
     setAttempt((n) => n + 1);
-  };
+  }, [stockCode]);
 
   // 新鮮度單一資料源（src/checkup/lib/freshness.ts）：內建 ticker，
   // 抽屜開著不動也會隨時鐘把 stale / ageMs 推進，不再凍在打開那一刻。
   const { ageMs, label: ageLabel, clock: fetchedAtClock, stale } = useFreshness(fetchedAt, TTL_MS);
 
-  return { data, loading, error, fetchedAt, ageMs, ageLabel, fetchedAtClock, online, stale, refetch };
+  // ── 過期自動重抓 ─────────────────────────────────────────────
+  // 規則（避免打爆 edge function）：
+  //   1. 只在 stale（> TTL）且已有一次成功結果、線上、分頁可見時觸發。
+  //   2. 失敗以指數退避（30s → 60s → 120s → 上限 5 分鐘），連續 4 次失敗後停手改由使用者手動。
+  //   3. 分頁隱藏時暫停（顯示 PAUSED），切回前景若已過期立即補抓一次。
+  const [autoState, setAutoState] = useState<AutoRefreshState>('idle');
+  const [nextAutoAt, setNextAutoAt] = useState<number | null>(null);
+  const autoFailuresRef = useRef(0);
+  const lastAutoAtRef = useRef(0);
+  const [visible, setVisible] = useState(
+    typeof document === 'undefined' ? true : document.visibilityState !== 'hidden',
+  );
+
+  useEffect(() => {
+    if (typeof document === 'undefined') return;
+    const onVis = () => setVisible(document.visibilityState !== 'hidden');
+    document.addEventListener('visibilitychange', onVis);
+    return () => document.removeEventListener('visibilitychange', onVis);
+  }, []);
+
+  // 只有「成功拿到新資料」才重置退避（setError(null) 不算成功，
+  // 否則每次重試開頭都會把失敗次數清掉 → 永遠不會 exhausted）。
+  useEffect(() => {
+    if (successTick === 0) return;
+    autoFailuresRef.current = 0;
+    setNextAutoAt(null);
+    setAutoState('idle');
+  }, [successTick]);
+
+  useEffect(() => {
+    if (!enabled || !stockCode || !isTaiwanStockCode(stockCode)) return;
+    if (!stale || loading || !fetchedAt) return;
+    if (!online) return;
+    if (autoFailuresRef.current >= AUTO_MAX_FAILURES) { setAutoState('exhausted'); return; }
+    if (!visible) { setAutoState('paused'); return; }
+
+    const backoff = autoFailuresRef.current === 0
+      ? 0
+      : Math.min(AUTO_BASE_BACKOFF_MS * 2 ** (autoFailuresRef.current - 1), AUTO_MAX_BACKOFF_MS);
+    const dueAt = Math.max(lastAutoAtRef.current + backoff, Date.now());
+    setNextAutoAt(backoff > 0 ? dueAt : null);
+
+    const delay = Math.max(0, dueAt - Date.now());
+    const t = setTimeout(() => {
+      lastAutoAtRef.current = Date.now();
+      setAutoState('refreshing');
+      trackEvent('chips_auto_refetch', {
+        stock_code: stockCode,
+        age_ms: ageMs,
+        failures: autoFailuresRef.current,
+        is_view_as: isViewAsActive(),
+      });
+      refetch({ auto: true });
+    }, delay);
+    return () => clearTimeout(t);
+  }, [stale, loading, fetchedAt, online, visible, enabled, stockCode, ageMs, refetch]);
+
+  // 自動重抓失敗 → 記一次失敗、進入退避
+  const lastErrorRef = useRef<ChipsError | null>(null);
+  useEffect(() => {
+    if (error && error !== lastErrorRef.current && autoState === 'refreshing') {
+      autoFailuresRef.current += 1;
+      setAutoState(autoFailuresRef.current >= AUTO_MAX_FAILURES ? 'exhausted' : 'failed');
+    }
+    lastErrorRef.current = error;
+  }, [error, autoState]);
+
+  return {
+    data, loading, error, fetchedAt, ageMs, ageLabel, fetchedAtClock, online, stale, refetch,
+    autoState, nextAutoAt, autoFailures: autoFailuresRef.current,
+  };
 }
+
 
 
