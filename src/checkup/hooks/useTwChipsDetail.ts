@@ -261,6 +261,7 @@ export function useTwChipsDetail(stockCode: string | undefined | null, enabled =
   const inflight = useRef<AbortController | null>(null);
   const autoSourceRef = useRef(false);
   const [manualBump, setManualBump] = useState(0);
+  const [successTick, setSuccessTick] = useState(0);
 
   // 離線 / 上線監聽（上線時自動重試）
   useEffect(() => {
@@ -387,6 +388,7 @@ export function useTwChipsDetail(stockCode: string | undefined | null, enabled =
         setError(null);
         setAttempt(0);
         autoSourceRef.current = false;
+        setSuccessTick((n) => n + 1);
         trackEvent('chips_fetch_done', {
           stock_code: stockCode, source,
           duration_ms: now - startedAt,
@@ -456,14 +458,14 @@ export function useTwChipsDetail(stockCode: string | undefined | null, enabled =
     return () => document.removeEventListener('visibilitychange', onVis);
   }, []);
 
-  // 每次成功抓到新資料 → 重置退避
+  // 只有「成功拿到新資料」才重置退避（setError(null) 不算成功，
+  // 否則每次重試開頭都會把失敗次數清掉 → 永遠不會 exhausted）。
   useEffect(() => {
-    if (fetchedAt && !error) {
-      autoFailuresRef.current = 0;
-      setNextAutoAt(null);
-      setAutoState('idle');
-    }
-  }, [fetchedAt, error]);
+    if (successTick === 0) return;
+    autoFailuresRef.current = 0;
+    setNextAutoAt(null);
+    setAutoState('idle');
+  }, [successTick]);
 
   useEffect(() => {
     if (!enabled || !stockCode || !isTaiwanStockCode(stockCode)) return;
