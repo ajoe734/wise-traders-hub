@@ -218,6 +218,12 @@ export async function fetchWithRetry(
     if (res && !retryOnStatus(res.status)) {
       attempts.push({ attempt, status: res.status, elapsedMs: now() - started });
       opts.onAttempt?.(attempts[attempts.length - 1]);
+      await recordHealthOutcome(
+        opts,
+        res.ok,
+        now() - started,
+        res.ok ? undefined : `http_${res.status}`,
+      );
       return res;
     }
 
@@ -227,6 +233,7 @@ export async function fetchWithRetry(
     } else {
       if (!isRetryableNetworkError(netErr)) {
         // 非暫時性的 client 端錯誤（例如 URL 格式錯）→ 不重試，原樣往上拋
+        await recordHealthOutcome(opts, false, now() - started, 'NON_RETRYABLE_ERROR');
         throw netErr;
       }
       lastStatus = null;
@@ -257,6 +264,7 @@ export async function fetchWithRetry(
     await sleep(waitedMs);
   }
 
+  await recordHealthOutcome(opts, false, now() - started, RETRY_EXHAUSTED_CODE);
   throw new RetryExhaustedError(opts.source, attempts, lastStatus, lastDetail, url);
 }
 
