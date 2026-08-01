@@ -69,3 +69,21 @@ export const holdingExportPrefs = createPrefsStore<HoldingExportPrefs>({
   }),
 });
 
+
+/** 關鍵分點視窗（1／5／10 日）。抽屜關掉再開會沿用上次選擇。 */
+export type BsrWindowKey = 'd1' | 'd5' | 'd10';
+export type ChipsPrefs = { bsrWindow: BsrWindowKey };
+
+export const DEFAULT_CHIPS_PREFS: ChipsPrefs = { bsrWindow: 'd5' };
+
+const BSR_WINDOWS = ['d1', 'd5', 'd10'] as const;
+
+export const chipsPrefs = createPrefsStore<ChipsPrefs>({
+  key: 'holdingPanel.chips.v1',
+  defaults: DEFAULT_CHIPS_PREFS,
+  sanitize: (v) => ({
+    bsrWindow: (BSR_WINDOWS as readonly string[]).includes(v.bsrWindow as string)
+      ? (v.bsrWindow as BsrWindowKey)
+      : DEFAULT_CHIPS_PREFS.bsrWindow,
+  }),
+});

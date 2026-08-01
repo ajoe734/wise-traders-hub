@@ -5,6 +5,7 @@ import { describe, it, expect, beforeEach } from 'vitest';
 import {
   holdingExportPrefs,
   holdingPanelPrefs,
+  chipsPrefs,
   DEFAULT_EXPORT_PREFS,
   type HoldingExportPrefs,
 } from './drawerPrefs';
@@ -118,5 +119,33 @@ describe('holdingPanelPrefs — 佔比排名摺疊狀態', () => {
   it('展開狀態可持久化', () => {
     holdingPanelPrefs.save({ ...holdingPanelPrefs.load(), weightRankOpen: true });
     expect(holdingPanelPrefs.load().weightRankOpen).toBe(true);
+  });
+});
+
+
+describe('chipsPrefs — 關鍵分點視窗', () => {
+  beforeEach(() => {
+    window.localStorage.clear();
+    chipsPrefs.reset();
+  });
+
+  it('預設為 5 日', () => {
+    expect(chipsPrefs.load().bsrWindow).toBe('d5');
+  });
+
+  it('可存取 1／5／10 日並在重讀後保留', () => {
+    for (const w of ['d1', 'd5', 'd10'] as const) {
+      chipsPrefs.update({ bsrWindow: w });
+      expect(chipsPrefs.load().bsrWindow).toBe(w);
+    }
+  });
+
+  it('非法視窗 sanitize 回 5 日（不會讓抽屜讀到不存在的視窗）', () => {
+    chipsPrefs.save({ bsrWindow: 'd20' } as never);
+    expect(chipsPrefs.load().bsrWindow).toBe('d5');
+    window.localStorage.setItem('holdingPanel.chips.v1', '{oops');
+    chipsPrefs.reset();
+    window.localStorage.setItem('holdingPanel.chips.v1', '{oops');
+    expect(chipsPrefs.load().bsrWindow).toBe('d5');
   });
 });

@@ -12,6 +12,7 @@ import { isBackfillSatisfied, nextPollDelay } from '@/checkup/lib/chipsBackfillM
 import { toast } from 'sonner';
 import { trackEvent } from '@/lib/trafficTracker';
 import { formatSharesAsLots, SHARES_PER_LOT } from '@/lib/lotSize';
+import { chipsPrefs, type BsrWindowKey } from '@/checkup/lib/drawerPrefs';
 
 // 過期自動重抓的狀態文案（單一資料源：useTwChipsDetail 的 AutoRefreshState）
 const AUTO_STATE_BADGE: Record<string, string> = {
@@ -43,6 +44,13 @@ function fmtShares(n: number | null | undefined) {
 function fmtNet(n: number | null | undefined) {
   return formatSharesAsLots(n, { signed: true, suffix: '', subLotLabel: '0' });
 }
+
+/** 關鍵分點可切換的視窗（單一資料源，UI 與偏好共用）。 */
+export const BSR_WINDOWS = [
+  { key: 'd1', label: '1日', days: 1 },
+  { key: 'd5', label: '5日', days: 5 },
+  { key: 'd10', label: '10日', days: 10 },
+] as const;
 
 const WINDOWS = [
   { key: 'd1', label: '1日' },
@@ -165,7 +173,19 @@ export default function ChipsSection({ WB, stockCode }: { WB: any; stockCode: st
     [data],
   );
 
-  const bsrLatest = data?.bsr?.d5 || data?.bsr?.d20 || data?.bsr?.d60 || null;
+  // 關鍵分點視窗（1／5／10 日）：使用者選擇記在 drawerPrefs，抽屜再開沿用。
+  const [bsrWin, setBsrWin] = React.useState<BsrWindowKey>(() => chipsPrefs.load().bsrWindow);
+  const selectBsrWin = React.useCallback((key: BsrWindowKey) => {
+    setBsrWin(key);
+    chipsPrefs.update({ bsrWindow: key });
+  }, []);
+  const bsrSelected = data?.bsr?.[bsrWin] ?? null;
+  // 舊 payload／舊快取只有 d5/d20/d60；選 5 日時仍沿用既有降級鏈，避免回歸。
+  const bsrLatest =
+    bsrSelected || (bsrWin === 'd5' ? data?.bsr?.d20 || data?.bsr?.d60 || null : null);
+  const bsrWinDays = BSR_WINDOWS.find((w) => w.key === bsrWin)?.days ?? 5;
+  const bsrWinReadiness =
+    data?.readiness?.bsr_concentration?.[String(bsrWinDays) as '1' | '5' | '10'] ?? null;
   const syncStatus = data?.bsr_sync_status;
 
   // BSR 對前端是唯讀的：排程一律由後端 cron（每日 15:30 + 盤後每 15 分鐘 delta）與
@@ -506,7 +526,7 @@ export default function ChipsSection({ WB, stockCode }: { WB: any; stockCode: st
         <div data-testid="chips-inst-missing" style={{ fontSize: 12, color: WB.inkMute, marginBottom: 14, lineHeight: 1.6 }}>
           — 三大法人資料尚未同步
           <div style={{ fontSize: 10, color: WB.inkMute }}>
-            （每交易日 17:45 收盤後同步；非交易日或新上市代號可能無資料）
+            （僅交易日有新資料：每交易日 17:45 收盤後同步；週末與國定假日休市不更新，新上市代號可能尚無資料）
           </div>
         </div>
       )}
@@ -514,7 +534,37 @@ export default function ChipsSection({ WB, stockCode }: { WB: any; stockCode: st
       {/* BSR 分點 */}
       <div style={{ borderTop: `1px dashed ${WB.hair}`, paddingTop: 12 }}>
         <div style={{ display: 'flex', alignItems: 'baseline', justifyContent: 'space-between', marginBottom: 8, gap: 8, flexWrap: 'wrap' }}>
-          <div style={{ fontSize: 11, color: WB.inkMute, letterSpacing: '0.14em' }}>關鍵分點（近 5 日）</div>
+          <div style={{ display: 'flex', alignItems: 'center', gap: 8, flexWrap: 'wrap' }}>
+            <div style={{ fontSize: 11, color: WB.inkMute, letterSpacing: '0.14em' }}>
+              關鍵分點（近 {bsrWinDays} 日）
+            </div>
+            <div data-testid="chips-bsr-window-switch" style={{ display: 'inline-flex', border: `1px solid ${WB.hair}` }}>
+              {BSR_WINDOWS.map((w) => (
+                <button
+                  key={w.key}
+                  type="button"
+                  data-testid={`chips-bsr-window-${w.key}`}
+                  data-active={bsrWin === w.key ? 'true' : 'false'}
+                  aria-pressed={bsrWin === w.key}
+                  onClick={() => selectBsrWin(w.key)}
+                  style={{
+                    fontSize: 10,
+                    letterSpacing: '0.08em',
+                    padding: '2px 8px',
+                    border: 'none',
+                    borderRight: w.key === 'd10' ? 'none' : `1px solid ${WB.hair}`,
+                    background: bsrWin === w.key ? WB.ink : 'transparent',
+                    color: bsrWin === w.key ? WB.paper : WB.inkSub,
+                    cursor: 'pointer',
+                    fontFamily: SERIF,
+                    lineHeight: 1.6,
+                  }}
+                >
+                  {w.label}
+                </button>
+              ))}
+            </div>
+          </div>
           {data?.bsr_as_of ? (
             <div style={{ fontSize: 10, color: WB.inkMute, textAlign: 'right' }} data-testid="chips-bsr-as-of">
               BSR {data.bsr_as_of.replaceAll('-', '/')}
@@ -672,10 +722,13 @@ export default function ChipsSection({ WB, stockCode }: { WB: any; stockCode: st
             )}
           </div>
         ) : (
-          <div data-testid="chips-bsr-missing" style={{ fontSize: 12, color: WB.inkMute, lineHeight: 1.6 }}>
-            — 分點資料尚未同步（BSR 未同步）
+          <div data-testid="chips-bsr-missing" data-bsr-window={bsrWin} style={{ fontSize: 12, color: WB.inkMute, lineHeight: 1.6 }}>
+            {bsrWinReadiness && bsrWinReadiness.have > 0
+              ? `— 近 ${bsrWinDays} 日分點補齊中（已 ${bsrWinReadiness.have}/${bsrWinDays} 個交易日）`
+              : '— 分點資料尚未同步（BSR 未同步）'}
             <div style={{ fontSize: 10, color: WB.inkMute }}>
-              （每交易日 18:15 起排程自動抓取，14:00–21:00 每 10 分鐘一輪，取得後畫面自動刷新）
+              （僅交易日有新資料：週一～五 14:00–21:00 每 10 分鐘一輪自動抓取；
+              週末與國定假日休市不更新，週日排程會自動補齊本週漏抓的交易日）
             </div>
           </div>
 

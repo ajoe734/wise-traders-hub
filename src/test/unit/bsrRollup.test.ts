@@ -88,17 +88,33 @@ describe('bsrRollup.pickCompleteFallbackDate (M4: threshold=1)', () => {
 });
 
 describe('bsrRollup fallback covers all windows', () => {
-  it('對 5/20/60 三窗都能算出 concentration_ratio（raw_fallback 路徑不再只回 d5）', () => {
+  it('對 1/5/10/20/60 各窗都能算出 concentration_ratio（raw_fallback 路徑不再只回 d5）', () => {
     const rows = Array.from({ length: 10 }, (_, i) =>
       row(`2026-07-${String(13 + i).padStart(2, '0')}`, `B${i % 6}`, 100 + i * 5, 50 + i * 3, `券商${i}`),
     );
     const dates = Array.from(new Set(rows.map((r) => r.trade_date))).sort().reverse();
-    for (const win of [5, 20, 60] as const) {
+    for (const win of [1, 5, 10, 20, 60] as const) {
       const w = computeBsrWindow(rows, dates.slice(0, win));
       expect(w, `window=${win} should compute`).not.toBeNull();
       expect(w!.concentration_ratio).not.toBeNull();
       expect(w!.top_buy.length).toBeGreaterThan(0);
     }
+  });
+});
+
+describe('bsrRollup 1／10 日視窗語意', () => {
+  it('1 日窗只涵蓋最新一個交易日、10 日窗涵蓋最多 10 個交易日', () => {
+    const rows = Array.from({ length: 12 }, (_, i) =>
+      row(`2026-07-${String(1 + i).padStart(2, '0')}`, `B${i % 4}`, 100 + i, 20, `券商${i % 4}`),
+    );
+    const datesDesc = Array.from(new Set(rows.map((r) => r.trade_date))).sort().reverse();
+    const d1 = computeBsrWindow(rows, pickWindowDates(datesDesc, 1))!;
+    const d10 = computeBsrWindow(rows, pickWindowDates(datesDesc, 10))!;
+    expect(d1.days_covered).toBe(1);
+    expect(d10.days_covered).toBe(10);
+    // 窗口越長累積淨額越大（同一批 rows），確保不是同一份資料重複回傳
+    const sum = (w: typeof d1) => w.top_buy.reduce((s, b) => s + b.net, 0);
+    expect(sum(d10)).toBeGreaterThan(sum(d1));
   });
 });
 

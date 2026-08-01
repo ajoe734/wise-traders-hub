@@ -177,7 +177,9 @@ test.describe('ChipsSection · 全覆蓋', () => {
 
     await expect(page.getByTestId('chips-bsr-missing')).toBeVisible();
     await expect(page.getByTestId('chips-bsr-missing')).toContainText('分點資料尚未同步');
-    await expect(page.getByTestId('chips-bsr-missing')).toContainText('18:15');
+    // 排程文案已改為「僅交易日 14:00–21:00 每 10 分鐘一輪」＋週末休市說明
+    await expect(page.getByTestId('chips-bsr-missing')).toContainText('僅交易日有新資料');
+    await expect(page.getByTestId('chips-bsr-missing')).toContainText('週末與國定假日休市不更新');
 
     await expect(page.getByTestId('chips-trend-chart')).toHaveCount(0);
     await expect(page.getByText('尚無歷史序列資料')).toBeVisible();
@@ -394,5 +396,103 @@ test.describe('ChipsSection · 全覆蓋', () => {
     // 等待一下，自動回補只應該觸發一次
     await page.waitForTimeout(1500);
     expect(backfillCount).toBeLessThanOrEqual(1);
+  });
+});
+
+test.describe('ChipsSection · 關鍵分點 1／5／10 日視窗', () => {
+  function winPayload() {
+    return fullPayload({
+      bsr: {
+        d1: {
+          top_buy: [{ broker_id: '1111', name: '一日買超券商', net: 100_000 }],
+          top_sell: [{ broker_id: '2222', name: '一日賣超券商', net: -90_000 }],
+          concentration_ratio: 51,
+        },
+        d5: {
+          top_buy: [{ broker_id: '3333', name: '五日買超券商', net: 500_000 }],
+          top_sell: [{ broker_id: '4444', name: '五日賣超券商', net: -400_000 }],
+          concentration_ratio: 62,
+        },
+        d10: {
+          top_buy: [{ broker_id: '5555', name: '十日買超券商', net: 900_000 }],
+          top_sell: [{ broker_id: '6666', name: '十日賣超券商', net: -800_000 }],
+          concentration_ratio: 73,
+        },
+        d20: null,
+        d60: null,
+      },
+      readiness: {
+        institutional: {},
+        bsr_concentration: {
+          '1': { window_days: 1, state: 'ready', have: 7, need: 1, oldest_available: null, newest_available: null, detail: 'ready' },
+          '5': { window_days: 5, state: 'ready', have: 7, need: 5, oldest_available: null, newest_available: null, detail: 'ready' },
+          '10': { window_days: 10, state: 'filling', have: 7, need: 10, oldest_available: null, newest_available: null, detail: 'partial_filling' },
+        },
+      },
+    });
+  }
+
+  test('預設 5 日，切到 1／10 日後買賣超與集中度都會換', async ({ page }) => {
+    await mockChips(page, (r) => fulfill(r, winPayload()));
+    await page.goto(`/e2e/chips-section?code=${STOCK}`);
+    const section = page.getByTestId('chips-section');
+    await section.waitFor();
+
+    // 預設 5 日
+    await expect(page.getByTestId('chips-bsr-window-d5')).toHaveAttribute('data-active', 'true');
+    await expect(section).toContainText('關鍵分點（近 5 日）');
+    const bsr = page.getByTestId('chips-bsr');
+    await expect(bsr).toContainText('五日買超券商');
+    await expect(bsr).toContainText('集中度：買超前 15 大占 62%');
+
+    // 1 日
+    await page.getByTestId('chips-bsr-window-d1').click();
+    await expect(section).toContainText('關鍵分點（近 1 日）');
+    await expect(bsr).toContainText('一日買超券商');
+    await expect(bsr).toContainText('一日賣超券商');
+    await expect(bsr).toContainText('集中度：買超前 15 大占 51%');
+    await expect(bsr).not.toContainText('五日買超券商');
+
+    // 10 日
+    await page.getByTestId('chips-bsr-window-d10').click();
+    await expect(section).toContainText('關鍵分點（近 10 日）');
+    await expect(bsr).toContainText('十日買超券商');
+    await expect(bsr).toContainText('集中度：買超前 15 大占 73%');
+
+    // as-of 標籤不重複
+    await expect(page.getByTestId('chips-bsr-as-of')).toHaveCount(1);
+  });
+
+  test('視窗選擇會被記住（重新載入後仍是 10 日）', async ({ page }) => {
+    await mockChips(page, (r) => fulfill(r, winPayload()));
+    await page.goto(`/e2e/chips-section?code=${STOCK}`);
+    await page.getByTestId('chips-bsr-window-d10').click();
+    await expect(page.getByTestId('chips-bsr-window-d10')).toHaveAttribute('data-active', 'true');
+
+    await page.reload();
+    await page.getByTestId('chips-section').waitFor();
+    await expect(page.getByTestId('chips-bsr-window-d10')).toHaveAttribute('data-active', 'true');
+    await expect(page.getByTestId('chips-bsr')).toContainText('十日買超券商');
+  });
+
+  test('該視窗尚未補齊 → 顯示補齊中 N/10 而不是空白', async ({ page }) => {
+    await mockChips(page, (r) =>
+      fulfill(r, fullPayload({
+        bsr: { d1: null, d5: null, d10: null, d20: null, d60: null },
+        readiness: {
+          institutional: {},
+          bsr_concentration: {
+            '10': { window_days: 10, state: 'filling', have: 3, need: 10, oldest_available: null, newest_available: null, detail: 'partial_filling' },
+          },
+        },
+      })),
+    );
+    await page.goto(`/e2e/chips-section?code=${STOCK}`);
+    await page.getByTestId('chips-section').waitFor();
+    await page.getByTestId('chips-bsr-window-d10').click();
+    const missing = page.getByTestId('chips-bsr-missing');
+    await expect(missing).toHaveAttribute('data-bsr-window', 'd10');
+    await expect(missing).toContainText('近 10 日分點補齊中（已 3/10 個交易日）');
+    await expect(missing).toContainText('週末與國定假日休市不更新');
   });
 });

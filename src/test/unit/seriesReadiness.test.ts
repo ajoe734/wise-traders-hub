@@ -43,6 +43,21 @@ describe('seriesReadiness', () => {
     expect(all['60'].state).toBe('filling');
   });
 
+  it('resolveAllWindows 含 1／10 日視窗（關鍵分點切換用）', () => {
+    const all = resolveAllWindows({ validDatesAsc: days(7) });
+    expect(Object.keys(all).sort()).toEqual(['1', '10', '20', '5', '60']);
+    expect(all['1'].state).toBe('ready');
+    expect(all['5'].state).toBe('ready');
+    expect(all['10'].state).toBe('filling');
+    expect(all['10'].have).toBe(7);
+    expect(all['10'].need).toBe(10);
+  });
+
+  it('1 日視窗：無資料為 no_data，一天即 ready', () => {
+    expect(resolveWindow({ validDatesAsc: [] }, 1).state).toBe('no_data');
+    expect(resolveWindow({ validDatesAsc: days(1) }, 1).state).toBe('ready');
+  });
+
   it('copy: ready 無文案，filling 顯示進度，exhausted 顯示最早日期', () => {
     expect(readinessCopy(resolveWindow({ validDatesAsc: days(5) }, 5))).toBe('');
     expect(readinessCopy(resolveWindow({ validDatesAsc: days(2) }, 5))).toContain('2/5');
@@ -54,8 +69,8 @@ describe('seriesReadiness', () => {
   });
 
   it('絕不吐出「至少需要 N 個交易日」字樣', () => {
-    for (const w of [5, 20, 60] as const) {
-      for (const have of [0, 1, 4, 5, 20, 60]) {
+    for (const w of [1, 5, 10, 20, 60] as const) {
+      for (const have of [0, 1, 4, 5, 10, 20, 60]) {
         for (const exh of [false, true]) {
           const r = resolveWindow(
             { validDatesAsc: days(have), upstreamExhausted: exh },
