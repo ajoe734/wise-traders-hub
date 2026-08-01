@@ -127,6 +127,10 @@ export function fmtTaipei(iso?: string | null): string {
   return TAIPEI_YMDHM.format(d).replace(/-/g, '/').replace(', ', ' ');
 }
 
+export function roundPrice(v: number): number {
+  return Math.round(v * 10000) / 10000;
+}
+
 // 本週總計採「掛出量」口徑：加總本次匯出範圍內、有列出的所有進出場動作。
 // 進場側 = buy + add；出場側 = sell + trim + exit。非交易動作（如 hold / 教學筆記）不列入。
 const ENTRY_ACTIONS_MD = new Set(['buy', 'add']);
@@ -134,7 +138,16 @@ const EXIT_ACTIONS_MD = new Set(['sell', 'trim', 'exit']);
 // 標籤唯一真源：_shared/signalActionLabels.ts
 const ACTION_ZH = (action: string): string => getActionLabel(action);
 
-export function buildMentorMarkdown(mentorRows: JournalRowExport[], range: WeekRangeLabels): string {
+export interface MentorMarkdownCtx {
+  /** key = `${expert_id}::${instrument}`；value = 該標的當時（週初）加權平均成本價 */
+  costBasis?: Map<string, number>;
+}
+
+export function buildMentorMarkdown(
+  mentorRows: JournalRowExport[],
+  range: WeekRangeLabels,
+  ctx: MentorMarkdownCtx = {},
+): string {
   const first = mentorRows[0];
   const name = first.experts?.name ?? '(未命名)';
   const slug = first.experts?.slug ?? first.expert_id;
@@ -176,6 +189,21 @@ export function buildMentorMarkdown(mentorRows: JournalRowExport[], range: WeekR
 
     const isEntry = ENTRY_ACTIONS_MD.has(actionRaw);
     const isExit = EXIT_ACTIONS_MD.has(actionRaw);
+    // 出場側（賣出 / 減碼 / 出場）必須附上當時的持倉成本價，讓讀者能對照損益。
+    if (isExit && r.instrument) {
+      const cost = ctx.costBasis?.get(`${r.expert_id}::${r.instrument}`);
+      if (cost !== undefined && Number.isFinite(cost) && cost > 0) {
+        meta.push(`當時成本價：${roundPrice(cost)}`);
+        const exitPrice = Number(r.price_hint);
+        if (Number.isFinite(exitPrice) && exitPrice > 0) {
+          const pct = ((exitPrice - cost) / cost) * 100;
+          const sign = pct >= 0 ? '+' : '';
+          meta.push(`對成本報酬率：${sign}${(Math.round(pct * 100) / 100).toFixed(2)}%`);
+        }
+      } else {
+        meta.push('當時成本價：無歷史持倉紀錄');
+      }
+    }
     const isTrade = isEntry || isExit;
 
     if (r.quantity !== null && r.quantity !== undefined && r.quantity !== 0) {
@@ -292,6 +320,7 @@ export interface OpeningBalanceTradeRecord {
   quantity_unit: string | null;
   entry_date: string | null;
   exit_date: string | null;
+  entry_price?: number | null;
 }
 
 export const BUY_ACTIONS = new Set(['buy', 'add']);
@@ -345,6 +374,45 @@ export function deriveOpeningBalances(
     balances.set(key, (balances.get(key) ?? 0) + baseQuantity);
   }
   return balances;
+}
+
+/**
+ * 由 trade_records 還原「週初持倉的加權平均成本價」。
+ * 資格條件與 deriveOpeningBalances 完全一致（週初前建倉、週初仍未平倉），
+ * 權重採折算後股數；無有效 entry_price 的紀錄不列入。
+ */
+export function deriveCostBasis(
+  records: OpeningBalanceTradeRecord[],
+  relevantKeys: ReadonlySet<string>,
+  startIso: string,
+): Map<string, number> {
+  const acc = new Map<string, { cost: number; qty: number }>();
+  const startMs = new Date(startIso).getTime();
+  const out = new Map<string, number>();
+  if (!Number.isFinite(startMs)) return out;
+
+  for (const record of records) {
+    const key = `${record.expert_id}::${record.instrument}`;
+    if (!relevantKeys.has(key)) continue;
+    const entryMs = record.entry_date ? new Date(record.entry_date).getTime() : Number.NaN;
+    const exitMs = record.exit_date ? new Date(record.exit_date).getTime() : null;
+    if (!Number.isFinite(entryMs) || entryMs >= startMs) continue;
+    if (exitMs !== null && Number.isFinite(exitMs) && exitMs < startMs) continue;
+
+    const price = Number(record.entry_price);
+    if (!Number.isFinite(price) || price <= 0) continue;
+    const quantity = Number(record.quantity);
+    if (!Number.isFinite(quantity) || quantity <= 0) continue;
+    const shares = toShares(quantity, normalizeQuantityUnit(record.quantity_unit));
+    if (!Number.isFinite(shares) || shares <= 0) continue;
+
+    const prev = acc.get(key) ?? { cost: 0, qty: 0 };
+    acc.set(key, { cost: prev.cost + price * shares, qty: prev.qty + shares });
+  }
+  for (const [key, v] of acc) {
+    if (v.qty > 0) out.set(key, roundPrice(v.cost / v.qty));
+  }
+  return out;
 }
 
 export function detectExportRisks(
