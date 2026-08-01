@@ -138,7 +138,7 @@ export default function ChipsSection({ WB, stockCode }: { WB: any; stockCode: st
     );
   }
 
-  const { data, loading, error, fetchedAt, ageLabel, fetchedAtClock, online, stale, refetch } = useTwChipsDetail(stockCode, true);
+  const { data, loading, error, fetchedAt, ageLabel, fetchedAtClock, online, stale, refetch, autoState, nextAutoAt } = useTwChipsDetail(stockCode, true);
   const uiState = useChipsState({
     stockCode,
     payload: data,
@@ -241,6 +241,22 @@ export default function ChipsSection({ WB, stockCode }: { WB: any; stockCode: st
               STALE
             </span>
           )}
+          {autoState !== 'idle' && (
+            <span
+              data-testid="chips-auto-refresh-badge"
+              data-auto-state={autoState}
+              title={AUTO_STATE_TEXT[autoState]}
+              style={{
+                fontSize: 10,
+                letterSpacing: '0.1em',
+                padding: '1px 6px',
+                border: `1px solid ${autoState === 'exhausted' ? '#b04a4a' : WB.hair}`,
+                color: autoState === 'exhausted' ? '#b04a4a' : WB.inkMute,
+              }}
+            >
+              {AUTO_STATE_BADGE[autoState]}
+            </span>
+          )}
           {!online && (
             <span data-testid="chips-offline-badge" style={{ fontSize: 10, color: '#8a5a1e', border: '1px solid #8a5a1e', padding: '1px 6px', letterSpacing: '0.1em' }}>
               OFFLINE
@@ -285,6 +301,17 @@ export default function ChipsSection({ WB, stockCode }: { WB: any; stockCode: st
           {fetchedAt && (
             <div data-testid="chips-fetched-age" title={fetchedAtClock} style={{ fontSize: 9, letterSpacing: '0.08em', color: WB.inkMute, marginTop: 1 }}>
               更新於 {ageLabel}
+            </div>
+          )}
+          {autoState !== 'idle' && (
+            <div
+              data-testid="chips-auto-refresh-status"
+              data-auto-state={autoState}
+              aria-live="polite"
+              style={{ fontSize: 9, letterSpacing: '0.04em', color: autoState === 'exhausted' ? '#b04a4a' : WB.inkMute, marginTop: 1 }}
+            >
+              {AUTO_STATE_TEXT[autoState]}
+              {autoState === 'failed' && nextAutoAt ? `（約 ${Math.max(1, Math.round((nextAutoAt - Date.now()) / 1000))} 秒後重試）` : ''}
             </div>
           )}
         </div>
