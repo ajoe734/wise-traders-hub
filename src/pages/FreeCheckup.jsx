@@ -32,6 +32,7 @@ import { preloadKnowledgeBase } from "@/checkup/lib/knowledgeBase";
 import { mergeCalendarToNewsEvents } from "@/checkup/lib/calendarSync";
 import { trackRaw } from "@/lib/analytics/events";
 import { useHoldingsSync } from "@/pages/_freeCheckup/useHoldingsSync";
+import { useSparklines } from "@/checkup/hooks/useSparklines";
 
 // ADR-0005：shell 只吃模組 free surface barrel，不再深挖 freecheckup 實作檔。
 // 一律 lazy import，保住七個 tab 的 code splitting。
@@ -388,9 +389,8 @@ export default function App() {
   const [userOverrides] = useState({});
   // A2-lite: expandedDecision 已內化為 HoldingsTab local state（卡片選取不再污染 parent）
   const [debugMode, setDebugMode] = useState(false);
-  const [sparklines, setSparklines] = useState({}); // { [code]: { ohlc: OHLC[], closes: number[] } }
+  // sparkline 資料與失敗代號已下沉到 useSparklines（快取層 = checkupCacheStore）
 
-  const [sparklineErrors, setSparklineErrors] = useState({}); // P3: { [code]: true } 同步失敗的代碼
 
   // ── 持倉資料庫（Notion 模式）：搜尋 / 篩選 / 排序方向 / Drawer ──
   const [searchQ, setSearchQ] = useState("");
@@ -1231,44 +1231,13 @@ export default function App() {
   const H = useMemo(() => holdings || EMPTY_HOLDINGS, [holdingsValueKey]);
 
 
-  // ── Sparkline 載入：持倉變動時，僅補抓還沒快取的代碼 ──
-  useEffect(() => {
-    if (!H || H.length === 0) return;
-    if (isDemo) return; // DEMO 模式不打 sparkline edge（裝飾用，不影響資料完整性）
-    const codes = H.map((h) => String(h.code).trim()).filter(Boolean);
-    const missing = codes.filter((c) => !sparklines[c] && !sparklineErrors[c]);
-    if (missing.length === 0) return;
-    let cancelled = false;
-    (async () => {
-      try {
-        const data = await callEdge('checkup-sparkline', {
-          body: { codes: missing.slice(0, 30) },
-          silent: true,
-        }).catch(() => null);
-        if (cancelled) return;
-        if (!data?.result) {
-          // P3: 整批失敗，標記這些 code，避免下次又重試導致 UI 抖動
-          setSparklineErrors((prev) => {
-            const next = { ...prev };
-            missing.forEach((c) => { next[c] = true; });
-            return next;
-          });
-          return;
-        }
-        setSparklines((prev) => ({ ...prev, ...data.result }));
-        // 部分成功時，沒拿到資料的 code 標記為失敗（顯示 "~"）
-        setSparklineErrors((prev) => {
-          const next = { ...prev };
-          missing.forEach((c) => { if (!data.result[c]) next[c] = true; });
-          return next;
-        });
-      } catch {
-        /* silent — sparkline 為非關鍵裝飾 */
-      }
-    })();
-    return () => { cancelled = true; };
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [holdingsCodesKey, isDemo]); // D-Perf-R3 (2026-05 第二輪)：改吃已 memo 的 codes key
+  // ── Sparkline：取數 + 快取（記憶體 + localStorage 12h）交給 useSparklines。
+  //    候選 B：本檔不再持有 sparkline state，也不再自行判斷「哪些還沒抓」。
+  const { sparklines, sparklineErrors } = useSparklines(
+    H.map((h) => String(h.code).trim()).filter(Boolean),
+    { enabled: !isDemo },
+  );
+
 
   const totalVal  = H.reduce((s,h)=>s+h.value,0);
   const totalCost = H.reduce((s,h)=> s + (h.totalCost != null ? h.totalCost : h.cost * h.qty), 0);

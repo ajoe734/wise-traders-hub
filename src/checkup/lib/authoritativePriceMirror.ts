@@ -7,7 +7,13 @@
  *
  * 鐵則：本鏡像只存 DB 權威來源（snapshot / current / combo）。
  * `offline` / `stale` / `unknown` 一律不寫入，避免污染成第二套快取。
+ *
+ * 持久化（候選 B）：記憶體 + localStorage 兩層一律交給
+ * `checkupCacheStore` 的 document cache，本檔不再自行 try/catch storage。
+ * storage key 與 JSON 格式維持不變，舊資料可直接沿用。
  */
+import { createDocumentCache } from './checkupCacheStore';
+
 export const AUTHORITATIVE_PRICE_KEY = 'lf.checkup.authoritative-prices.v1';
 
 export interface MirrorQuote {
@@ -20,8 +26,10 @@ export type MirrorMap = Record<string, MirrorQuote>;
 
 const AUTHORITATIVE_SOURCES = new Set(['snapshot', 'current', 'combo']);
 
-let __memory: MirrorMap = {};
-let __raw: string | null = null;
+const doc = createDocumentCache<MirrorMap>({
+  storageKey: AUTHORITATIVE_PRICE_KEY,
+  empty: () => ({}),
+});
 
 export function isAuthoritativeSource(source: unknown): boolean {
   return AUTHORITATIVE_SOURCES.has(String(source));
@@ -42,42 +50,18 @@ export function writeAuthoritativePrices(
       updatedAt: entry.updatedAt ?? null,
     };
   }
-  __memory = next;
-  try {
-    const serialized = JSON.stringify(next);
-    __raw = serialized;
-    if (typeof localStorage !== 'undefined') {
-      localStorage.setItem(AUTHORITATIVE_PRICE_KEY, serialized);
-    }
-  } catch {
-    /* storage full / unavailable — memory copy still serves this session */
-  }
-  return next;
+  return doc.write(next);
 }
 
 export function readAuthoritativePrices(): MirrorMap {
-  try {
-    if (typeof localStorage === 'undefined') return __memory;
-    const raw = localStorage.getItem(AUTHORITATIVE_PRICE_KEY);
-    if (raw === __raw) return __memory;
-    __raw = raw;
-    __memory = raw ? JSON.parse(raw) || {} : {};
-  } catch {
-    __memory = {};
-  }
-  return __memory;
+  return doc.read();
 }
 
 /** 測試用：清空記憶體與 storage。 */
 export function resetAuthoritativePrices(): void {
-  __memory = {};
-  __raw = null;
-  try {
-    if (typeof localStorage !== 'undefined') localStorage.removeItem(AUTHORITATIVE_PRICE_KEY);
-  } catch {
-    /* ignore */
-  }
+  doc.reset();
 }
+
 
 /**
  * 將權威價覆蓋在 legacy `marketPriceCache` 之上。

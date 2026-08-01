@@ -43,19 +43,22 @@ export const TTL_MS = 5 * 60 * 1000;
 /** stamp 探針間隔：新資料最慢 60 秒內就會出現在抽屜。 */
 export const STAMP_POLL_MS = 60_000;
 
-/** 過期自動重抓的節流參數 */
-export const AUTO_BASE_BACKOFF_MS = 30_000;
-export const AUTO_MAX_BACKOFF_MS = 5 * 60_000;
-export const AUTO_MAX_FAILURES = 4;
+// 自動重抓的決策與參數已下沉到 chipsLifecycle（候選 C 的唯一決策處），
+// 此處只再輸出以保持既有 import 路徑相容。
+import {
+  planAutoRefresh,
+  reduceAutoRefreshResult,
+  type AutoRefreshState,
+} from '../lib/chipsLifecycle';
 
-/**
- * idle       = 新鮮，無動作
- * refreshing = 偵測到過期，正在自動重抓
- * failed     = 自動重抓失敗，退避中會再試
- * exhausted  = 連續失敗達上限，停手改由使用者手動
- * paused     = 分頁在背景，暫停自動重抓（回前景立即補抓）
- */
-export type AutoRefreshState = 'idle' | 'refreshing' | 'failed' | 'exhausted' | 'paused';
+export {
+  AUTO_BASE_BACKOFF_MS,
+  AUTO_MAX_BACKOFF_MS,
+  AUTO_MAX_FAILURES,
+} from '../lib/chipsLifecycle';
+export type { AutoRefreshState } from '../lib/chipsLifecycle';
+
+
 
 function isViewAsActive(): boolean {
   try {
@@ -251,28 +254,31 @@ export function useTwChipsDetail(stockCode: string | undefined | null, enabled =
   const { ageMs, label: ageLabel, clock: fetchedAtClock, stale } = useFreshness(fetchedAt, TTL_MS);
 
   // ── 過期自動重抓（保底；stamp 探針才是主力）───────────────────
-  //   1. 只在 stale（> TTL）且已有一次成功結果、線上、分頁可見時觸發。
-  //   2. 失敗以指數退避（30s → 60s → 120s → 上限 5 分鐘），連續 4 次失敗後停手改由使用者手動。
-  //   3. 分頁隱藏時暫停（顯示 PAUSED），切回前景若已過期立即補抓一次。
+  // 決策（要不要排、排多久、UI 顯示哪個狀態）全部由 chipsLifecycle 的純函式
+  // `planAutoRefresh` / `reduceAutoRefreshResult` 決定；本檔只負責計時與回報結果。
   const [autoState, setAutoState] = useState<AutoRefreshState>('idle');
   const [nextAutoAt, setNextAutoAt] = useState<number | null>(null);
   const autoFailuresRef = useRef(0);
   const lastAutoAtRef = useRef(0);
 
   useEffect(() => {
-    if (!valid) return;
-    if (!stale || query.isFetching || !fetchedAt) return;
-    if (!online) return;
-    if (autoFailuresRef.current >= AUTO_MAX_FAILURES) { setAutoState('exhausted'); return; }
-    if (!visible) { setAutoState('paused'); return; }
+    const plan = planAutoRefresh({
+      valid,
+      stale,
+      fetching: query.isFetching,
+      hasResult: !!fetchedAt,
+      online,
+      visible,
+      failures: autoFailuresRef.current,
+      lastAutoAt: lastAutoAtRef.current,
+      now: Date.now(),
+    });
+    if (!plan.schedule) {
+      if (plan.state === 'exhausted' || plan.state === 'paused') setAutoState(plan.state);
+      return;
+    }
+    setNextAutoAt(plan.nextAutoAt);
 
-    const backoff = autoFailuresRef.current === 0
-      ? 0
-      : Math.min(AUTO_BASE_BACKOFF_MS * 2 ** (autoFailuresRef.current - 1), AUTO_MAX_BACKOFF_MS);
-    const dueAt = Math.max(lastAutoAtRef.current + backoff, Date.now());
-    setNextAutoAt(backoff > 0 ? dueAt : null);
-
-    const delay = Math.max(0, dueAt - Date.now());
     const t = setTimeout(() => {
       lastAutoAtRef.current = Date.now();
       setAutoState('refreshing');
@@ -284,19 +290,16 @@ export function useTwChipsDetail(stockCode: string | undefined | null, enabled =
       });
       sourceRef.current = 'auto_stale';
       void revalidate().then((r) => {
-        if (r.ok) {
-          autoFailuresRef.current = 0;
-          setNextAutoAt(null);
-          setAutoState('idle');
-        } else {
-          autoFailuresRef.current += 1;
-          setAutoState(autoFailuresRef.current >= AUTO_MAX_FAILURES ? 'exhausted' : 'failed');
-        }
+        const next = reduceAutoRefreshResult(autoFailuresRef.current, r.ok);
+        autoFailuresRef.current = next.failures;
+        setNextAutoAt(next.nextAutoAt);
+        setAutoState(next.state);
       });
-    }, delay);
+    }, plan.delayMs);
     return () => clearTimeout(t);
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [stale, query.isFetching, fetchedAt, online, visible, valid, code, ageMs, revalidate]);
+
 
   return {
     data,

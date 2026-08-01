@@ -90,13 +90,17 @@ describe('gateway seam · 靜態守衛（hooks + 元件）', () => {
   });
 
   it('持倉抽屜籌碼面的回補握手走 gateway hook', () => {
+    // 候選 C：元件只認 useChipsLifecycle，回補 hook 由生命週期模組持有。
     const src = readFileSync('src/checkup/components/freecheckup/ChipsSection.tsx', 'utf8');
-    expect(src).toContain('useChipsBackfill');
+    expect(src).toContain('useChipsLifecycle');
+    const lifecycle = readFileSync('src/checkup/hooks/useChipsLifecycle.ts', 'utf8');
+    expect(lifecycle).toContain('useChipsBackfill');
     const hook = readFileSync('src/checkup/hooks/useChipsBackfill.ts', 'utf8');
     expect(hook).toContain('getCheckupGateway()');
     expect(hook).toContain("gateway.rpc<number>('enqueue_bsr_backfill'");
     expect(hook).toContain("gateway.invoke('tw-institutional-daily-sync'");
   });
+
 
   it('有握手行為的 hook 都取得 gateway', () => {
     const users = walk(HOOKS_DIR).filter((f) =>
