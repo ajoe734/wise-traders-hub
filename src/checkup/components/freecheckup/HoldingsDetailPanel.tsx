@@ -14,6 +14,7 @@ import ChipsSection from './ChipsSection';
 import { Tooltip, TooltipTrigger, TooltipContent } from '@/components/ui/tooltip';
 import '@/checkup/styles/holdingsDetailPanel.css';
 import { holdingPanelPrefs, holdingExportPrefs } from '@/checkup/lib/drawerPrefs';
+import { useFreshness } from '@/checkup/lib/freshness';
 import { barIndexFromX, barCenterPct, shouldFlipTooltip, fmtKlineDate, fmtKlineNum } from '@/checkup/lib/klineTooltip';
 import {
   resolveLabelBox, assignLanes, laneTopOffset,
@@ -127,6 +128,11 @@ function HoldingsDetailPanelImpl({
   const { displayTarget, displayUpside, displayPnlPct, displayPnlAbs,
     displayQty, displayValue, displayWeight } = vm.display;
   const { sim, setSim, simHistory, scenario, dirty } = vm;
+  // 價格新鮮度：抽屜以往只顯示來源不顯示時間，開著也不會隨時鐘更新。
+  // 統一走 freshness 單一資料源（內建 ticker）。
+  const priceUpdatedMs = h?.priceUpdatedAt ? new Date(h.priceUpdatedAt).getTime() : null;
+  const priceFreshness = useFreshness(Number.isFinite(priceUpdatedMs as number) ? priceUpdatedMs : null);
+
   const pnlColor = displayPnlPct > 0 ? WB.accent : displayPnlPct < 0 ? '#8A857F' : WB.inkMute;
 
 
@@ -255,6 +261,14 @@ function HoldingsDetailPanelImpl({
             {meta?.industry ? <> · {meta.industry}</> : null}
             {meta?.strategy ? <> · {meta.strategy}</> : null}
             {meta?.priceSource ? <span title={`價格來源：${meta.priceSource}`} style={{ marginLeft: 8, opacity: 0.5 }}>· {meta.priceSource}</span> : null}
+            {priceFreshness.ageMs != null ? (
+              <span
+                data-testid="drawer-price-freshness"
+                data-stale={priceFreshness.stale ? 'true' : 'false'}
+                title={`報價更新於 ${priceFreshness.clock}`}
+                style={{ marginLeft: 8, opacity: priceFreshness.stale ? 0.85 : 0.5 }}
+              >· 報價 {priceFreshness.label}</span>
+            ) : null}
           </div>
           <div className="holdings-detail-identity-row">
             <h2 style={{

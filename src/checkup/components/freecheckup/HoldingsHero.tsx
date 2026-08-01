@@ -8,6 +8,7 @@ import { RefreshCw } from 'lucide-react';
 import { fmtSigned, fmtSignedInt, fmtWan } from '@/checkup/lib/checkupFormat';
 import { validateProps } from '@/checkup/lib/validateProps.js';
 import { AUTO_REFRESH_OPTIONS, useAutoRefreshMinutes } from '@/checkup/lib/autoRefreshInterval';
+import { formatAge } from '../../lib/freshness';
 
 const SCHEMA = {
   totalVal: 'number',
@@ -70,17 +71,6 @@ function summarizePriceSources(holdings: any[] | undefined) {
 }
 
 
-function formatRelative(fromMs: number, nowMs: number): string {
-  const diff = Math.max(0, nowMs - fromMs);
-  if (diff < 45 * 1000) return '剛剛更新';
-  const mins = Math.floor(diff / 60000);
-  if (mins < 60) return `${mins} 分鐘前`;
-  const hours = Math.floor(mins / 60);
-  if (hours < 24) return `${hours} 小時前`;
-  const days = Math.floor(hours / 24);
-  return `${days} 天前`;
-}
-
 function HoldingsHeroImpl(props) {
   validateProps('HoldingsHero', props, SCHEMA);
   const {
@@ -107,7 +97,7 @@ function HoldingsHeroImpl(props) {
     const id = setInterval(() => setNowMs(Date.now()), 30 * 1000);
     return () => clearInterval(id);
   }, [lastUpdate]);
-  const relText = lastUpdate ? formatRelative(lastUpdate.getTime(), nowMs) : '';
+  const relText = lastUpdate ? formatAge(nowMs - lastUpdate.getTime()) : '';
   const isStale = lastUpdate ? (nowMs - lastUpdate.getTime()) > 5 * 60 * 1000 : false;
 
   const canRefresh = typeof onRefreshPrices === 'function' && !refreshing;
