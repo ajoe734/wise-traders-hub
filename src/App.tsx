@@ -313,6 +313,7 @@ const AppShell = () => (
             <Route path="/e2e/journals-export-ui-harness" element={<JournalsExportUIHarnessEntry />} />
             <Route path="/e2e/journals-export-header-dom" element={<JournalsExportHeaderDomHarnessEntry />} />
             <Route path="/e2e/chips-section" element={<ChipsSectionHarnessEntry />} />
+            <Route path="/e2e/chips-batch" element={<ChipsBatchHarnessEntry />} />
             <Route path="/e2e/journal-authoring-harness" element={<JournalAuthoringHarnessEntry />} />
             <Route path="/free-checkup" element={<LegacyFreeCheckupRedirect />} />
             <Route path="/legal" element={<Legal />} />
