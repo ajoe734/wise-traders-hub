@@ -257,7 +257,9 @@ test.describe('ChipsSection · visual regression', () => {
 
     await expect(section).toHaveScreenshot('chips-empty-state.png', {
       mask: dynamicMasks(page),
+    });
   });
+
 
   /**
    * 9. force=fresh 的權重驗證（非快照，純行為）：
