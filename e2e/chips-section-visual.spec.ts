@@ -188,19 +188,53 @@ test.describe('ChipsSection · visual regression', () => {
     });
   });
 
-  test('6. badge STALE — 快取 > TTL 徽章', async ({ page }) => {
-    await page.route(CHIPS_ROUTE, (r) => fulfill(r, fullPayload()));
-    await page.goto(`/e2e/chips-section?code=${STOCK}&force=stale&freezeTime=1`);
-    const section = page.getByTestId('chips-section');
-    await section.waitFor();
-    // harness 在 800ms 後把 Date.now 前推 6 分鐘 → STALE 亮起
-    await expect(page.getByTestId('chips-stale-badge')).toBeVisible({ timeout: 5_000 });
-    await page.evaluate(() => (document as any).fonts?.ready);
+  /**
+   * STALE 是唯一有「時間推移」的斷點，過去最容易間歇性失敗。三道保險：
+   *   1. 固定時鐘注入：now=FROZEN_FETCHED_AT → 「更新於 N 分鐘前」完全決定論，
+   *      不再依賴機器時間，也不需要 mask 相對時間文字。
+   *   2. 決定論等待：等 harness 的 data-stale-shifted="1" 訊號，不睡秒數。
+   *   3. 快照鎖定：先斷言 badge 文案與相對時間文案，再截圖；截圖關動畫、
+   *      maxDiffPixelRatio=0（像素級鎖定），並允許本測試重試 2 次。
+   */
+  test.describe('6. badge STALE', () => {
+    test.describe.configure({ retries: 2 });
 
-    await expect(section).toHaveScreenshot('chips-badge-stale.png', {
-      mask: dynamicMasks(page),
+    test('固定時鐘 → STALE 徽章穩定顯示', async ({ page }) => {
+      await page.route(CHIPS_ROUTE, (r) => fulfill(r, fullPayload()));
+      const nowMs = Date.parse(FROZEN_FETCHED_AT);
+      await page.goto(
+        `/e2e/chips-section?code=${STOCK}&force=stale&freezeTime=1` +
+          `&now=${nowMs}&staleAfter=300&staleShift=${6 * 60 * 1000}`,
+      );
+      const section = page.getByTestId('chips-section');
+      await section.waitFor();
+
+      // (2) 等時鐘位移實際套用（而非睡固定秒數）
+      await expect(page.getByTestId('chips-harness-root')).toHaveAttribute(
+        'data-stale-shifted',
+        '1',
+        { timeout: 10_000 },
+      );
+
+      // (3) 快照鎖定：badge 亮起且相對時間為決定論的「6 分鐘前」
+      const badge = page.getByTestId('chips-stale-badge');
+      await expect(badge).toBeVisible({ timeout: 10_000 });
+      await expect(page.locator('text=/^更新於/')).toContainText('6 分鐘前');
+      // badge 不得自己熄滅（自動重抓已被 hidden tab 擋掉）
+      await page.waitForTimeout(500);
+      await expect(badge).toBeVisible();
+
+      await page.evaluate(() => (document as any).fonts?.ready);
+
+      await expect(section).toHaveScreenshot('chips-badge-stale.png', {
+        // 固定時鐘後相對時間不再漂移 → 只 mask native scrubber thumb
+        mask: [page.getByTestId('chips-trend-scrubber')],
+        animations: 'disabled',
+        maxDiffPixelRatio: 0,
+      });
     });
   });
+
 
   test('7. error 500 — 紅框 banner + 重試按鈕', async ({ page }) => {
     await page.route(CHIPS_ROUTE, (r) => fulfill(r, 'boom', 500));
