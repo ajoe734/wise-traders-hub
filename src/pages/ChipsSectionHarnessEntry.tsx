@@ -3,11 +3,21 @@
  * Preview-only E2E harness · ChipsSection
  *
  * URL: /e2e/chips-section?code=2330
- *   - code: 台股代碼；非台股（例：AAPL）用來測非渲染
- *   - force=offline: 進頁面前把 navigator.onLine 覆蓋為 false，觸發 OFFLINE badge
- *   - force=stale:  fetch 完成後把 Date.now 前推 TTL+1 分鐘，觸發 STALE badge
- *   - freezeTime=1: 把「更新於 X 分鐘前」的相對時間文字凍結到 fetchedAt 的當下
- *                   （讓視覺快照免 mask 也能穩定）
+ *   - code=2330        台股代碼；非台股（例：AAPL）用來測非渲染
+ *   - force=offline    進頁面前把 navigator.onLine 覆蓋為 false，觸發 OFFLINE badge
+ *   - force=stale      staleAfter 之後把 Date.now 前推 staleShift，觸發 STALE badge
+ *   - force=fresh      強制新鮮：時鐘釘死、不位移，stale 永遠不亮（權重高於 stale）
+ *   - freezeTime=1     凍結 Date.now 在 mount 當下（相對時間文字穩定）
+ *   - now=<ms|ISO>     固定時鐘注入：把 Date.now 釘在指定時刻（決定論，優於 freezeTime）
+ *   - staleAfter=<ms>  位移延遲，預設 800
+ *   - staleShift=<ms>  位移量，預設 6 分鐘（TTL 5 分 + 1）
+ *   force 可用逗號組合（例 force=stale,fresh → fresh 勝出）。
+ *
+ * 時鐘覆寫規則與權重的**單一實作**在 `@/checkup/lib/harnessClock`
+ * （含單元測試 `__tests__/harnessClock.test.ts`）；規格文件見
+ * `docs/qa/harness-clock-injection.md`。此檔只負責把參數接上去 + 打訊號：
+ *   - data-stale-shifted="1"：位移已套用（spec 等這個，不要睡秒數）
+ *   - data-fixed-now="1"：時鐘已被釘死
  *
  * 網路請求全部由 Playwright `page.route('**\/tw-chips-detail**')` 攔截
  * 這個 harness 只是把 ChipsSection 掛到頁面上，其他都交給 spec。
@@ -16,6 +26,14 @@
  */
 import { Suspense, lazy, useEffect, useState } from 'react';
 import { WB } from '@/pages/_freeCheckup/constants.jsx';
+import {
+  installHarnessClock,
+  parseEpoch,
+  resolveMode,
+  STALE_AFTER_DEFAULT_MS,
+  STALE_SHIFT_DEFAULT_MS,
+} from '@/checkup/lib/harnessClock';
+
 
 const ChipsSection = lazy(
   () => import('@/checkup/components/freecheckup/ChipsSection'),
