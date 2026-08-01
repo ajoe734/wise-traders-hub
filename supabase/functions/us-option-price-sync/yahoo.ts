@@ -3,6 +3,8 @@
 // Returns a map keyed by OCC contractSymbol so the sync function can look up
 // each leg without another API call.
 
+import { fetchWithRetry } from '../_shared/retryFetch.ts';
+
 export interface YahooOptionQuote {
   mark: number; // (bid+ask)/2 if both>0; else lastPrice
   bid: number | null;
@@ -39,8 +41,11 @@ async function getYahooAuth(): Promise<{ cookie: string; crumb: string } | null>
       .filter(Boolean)
       .join('; ');
     if (!cookie) return null;
-    const cr = await fetch('https://query1.finance.yahoo.com/v1/test/getcrumb', {
+    const cr = await fetchWithRetry('https://query1.finance.yahoo.com/v1/test/getcrumb', {
       headers: { 'User-Agent': UA, Accept: '*/*', Cookie: cookie },
+    }, {
+      source: 'yahoo_finance',
+      policy: { maxAttempts: 3, baseDelayMs: 600, timeoutMs: 10_000 },
     });
     const crumb = (await cr.text()).trim();
     if (!cr.ok || !crumb || crumb.length > 32 || crumb.includes('<')) return null;

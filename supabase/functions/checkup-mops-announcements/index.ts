@@ -7,6 +7,7 @@ import { validateInput, validationResponse } from "../_shared/inputValidator.ts"
 import { corsHeaders } from '../_shared/cors.ts';
 import { codedErrorResponse } from '../_shared/errorCodes.ts';
 import { withLogging } from '../_shared/edgeLogger.ts';
+import { fetchWithRetry } from '../_shared/retryFetch.ts';
 
 const ANNOUNCEMENT_TYPES: Record<string, string> = {
   '營收': 'revenue', '股利': 'dividend', '配息': 'dividend', '除權': 'dividend',
