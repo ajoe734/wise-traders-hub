@@ -6339,6 +6339,7 @@ export type Database = {
         }
         Returns: Json
       }
+      expected_latest_bsr_date: { Args: never; Returns: string }
       finmind_admit: {
         Args: {
           _cost?: number
