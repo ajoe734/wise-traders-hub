@@ -102,9 +102,12 @@ describe('gateway seam · 靜態守衛（hooks + 元件）', () => {
     const users = walk(HOOKS_DIR).filter((f) =>
       readFileSync(f, 'utf8').includes('getCheckupGateway()'),
     );
-    // 14 個原本直接握手的 hook + useChipsBackfill
-    expect(users.length).toBeGreaterThanOrEqual(15);
+    // 14 個原本直接握手的 hook + useChipsBackfill；
+    // useTwChipsDetail 的握手已下沉到 lib/chipsRepository.ts（候選 A 的唯一取數 seam）。
+    expect(users.length).toBeGreaterThanOrEqual(14);
+    expect(readFileSync('src/checkup/lib/chipsRepository.ts', 'utf8')).toContain('getCheckupGateway()');
   });
+
 });
 
 describe('gateway seam · legacy 白名單（只能變少）', () => {

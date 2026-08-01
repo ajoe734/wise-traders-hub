@@ -1,179 +1,47 @@
 // useTwChipsDetail — 抽屜私有查詢：台股籌碼面（三大法人 + BSR）
-// 呼叫公開市場資料 endpoint `tw-chips-detail`；SWR 5 分鐘快取。
-import { useCallback, useEffect, useRef, useState } from 'react';
-import { getCheckupGateway } from '../lib/gateway';
+//
+// 架構（候選 A + E）：
+//   - 取數一律經 `src/checkup/lib/chipsRepository.ts`（唯一 seam），本檔不組 URL、不解析、不分類錯誤。
+//   - 快取／去重／跨元件共享交給 TanStack Query，本檔不再自建 Map + TTL。
+//   - 失效語意由後端 `stamp_ver` 決定（候選 E）：每 60 秒打一次極輕量 stamp 探針，
+//     stamp 沒變就完全不下載 payload；stamp 一變立刻重抓。牆鐘 TTL 只保留給
+//     「顯示更新於 N 分鐘前 / stale」與探針失敗時的保底重抓。
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
+import { useQuery, useQueryClient } from '@tanstack/react-query';
 import { useFreshness } from '../lib/freshness';
 import { trackEvent } from '@/lib/trafficTracker';
+import {
+  fetchChipsPayload,
+  fetchChipsStamp,
+  classifyChipsError,
+  isTaiwanStockCode,
+  isTaiwanChipEligible,
+  type ChipsError,
+  type ChipsFetchResult,
+  type TwChipsPayload,
+} from '../lib/chipsRepository';
 
+export {
+  isTaiwanStockCode,
+  isTaiwanChipEligible,
+  classifyChipsError,
+};
+export type {
+  TwChipsPayload,
+  ChipsError,
+  ChipsErrorKind,
+  InstitutionalWindow,
+  InstitutionalDailyPoint,
+  BsrBroker,
+  BsrWindow,
+  BsrConcentrationPoint,
+  ReadinessState,
+  WindowReadinessPayload,
+} from '../lib/chipsRepository';
 
-export interface InstitutionalWindow {
-  foreign_net: number;
-  trust_net: number;
-  dealer_net: number;
-  total_net: number;
-  days_covered: number;
-}
-
-export interface BsrBroker {
-  broker_id: string;
-  name: string;
-  net: number;
-}
-
-export interface BsrWindow {
-  top_buy: BsrBroker[];
-  top_sell: BsrBroker[];
-  concentration_ratio: number | null;
-}
-
-export interface InstitutionalDailyPoint {
-  date: string;
-  foreign_net: number;
-  trust_net: number;
-  dealer_net: number;
-  total_net: number;
-}
-
-export interface BsrConcentrationPoint {
-  date: string;
-  concentration_ratio: number | null;
-  top_net: number;
-}
-
-export interface TwChipsPayload {
-  stock_id: string;
-  as_of: string | null;
-  as_of_lag_days?: number | null;
-
-  institutional: {
-    d1: InstitutionalWindow | null;
-    d5: InstitutionalWindow | null;
-    d20: InstitutionalWindow | null;
-    d60: InstitutionalWindow | null;
-  };
-  bsr: {
-    /** 1／10 日為後加視窗；舊快取／舊 payload 可能沒有這兩個 key。 */
-    d1?: BsrWindow | null;
-    d5: BsrWindow | null;
-    d10?: BsrWindow | null;
-    d20: BsrWindow | null;
-    d60: BsrWindow | null;
-  };
-  bsr_as_of: string | null;
-  bsr_as_of_lag_days?: number | null;
-  /** rollup = 正式 5/20/60 日窗；raw_fallback = 只有 d5，來自 raw complete data；null = 無資料 */
-  bsr_source?: 'rollup' | 'raw_fallback' | null;
-  /** P4：本次使用的 BSR 資料來源日期（可能因回溯而早於 bsr_as_of） */
-  bsr_source_date?: string | null;
-  /** P4：true 表示 BSR 至少有一個視窗是從過去日期回溯補齊 */
-  bsr_fallback_used?: boolean;
-  /** 收盤後預期最新可用 BSR 交易日（Asia/Taipei；不含國定假日） */
-  bsr_expected_date?: string | null;
-  /** chosen as_of 與 expected_date 的 weekday 差；越大表示越延遲 */
-  bsr_lag_weekdays?: number | null;
-  /**
-   * 前端渲染唯一語意來源：
-   *   fresh        = 資料日期 >= 預期日期
-   *   syncing      = 尚未 fresh、queue pending/running
-   *   sync_failed  = 尚未 fresh、queue failed/dead
-   *   lagging      = 有資料但落後預期（用來顯示「顯示 MM/DD 資料」）
-   *   not_queued   = 未 queue 且無資料（會由 ensure_bsr_queued 補上）
-   *   no_data      = 完全沒資料
-   *   ineligible   = ETF／權證等不支援
-   */
-  bsr_freshness_status?:
-    | 'ineligible'
-    | 'fresh'
-    | 'syncing'
-    | 'sync_failed'
-    | 'lagging'
-    | 'not_queued'
-    | 'no_data';
-  bsr_completeness_threshold?: number;
-  bsr_last_failure?: {
-    trade_date: string;
-    error_code: string;
-    attempts: number;
-    next_retry_at?: string | null;
-    backoff_seconds?: number | null;
-    consecutive_failures?: number | null;
-    last_successful_as_of?: string | null;
-    lookback_from?: string | null;
-    lookback_to?: string | null;
-    lookback_days?: number | null;
-  } | null;
-  bsr_sync_status?: {
-    eligible: boolean;
-    ineligible_reason: 'invalid_stock_id' | 'missing_instrument' | 'unsupported_asset_type' | null;
-    asset_class?: string | null;
-    queued: boolean;
-    status: 'pending' | 'running' | 'failed' | 'dead' | 'not_queued' | 'ineligible';
-    next_run_at: string | null;
-    attempts: number;
-    max_attempts: number;
-    error_code: string | null;
-    retryable: boolean;
-  };
-  series?: {
-    institutional_daily: InstitutionalDailyPoint[];
-    bsr_concentration: BsrConcentrationPoint[];
-  };
-  /**
-   * M1 readiness：每個視窗（1/5/10/20/60）的顯示狀態，由後端 seriesReadiness.ts 單一判定。
-   * UI 只讀這裡決定「畫線 / 補齊中 / 上游不足 / 暫無資料」，不再自行 count 有效點。
-   */
-  readiness?: {
-    institutional: Partial<Record<'1' | '5' | '10' | '20' | '60', WindowReadinessPayload>>;
-    bsr_concentration: Partial<Record<'1' | '5' | '10' | '20' | '60', WindowReadinessPayload>>;
-    /** P3：BSR 快照是否已封存；sealed_at 存在時為 true */
-    sealed?: boolean;
-    sealed_at?: string | null;
-    sealed_by_lane?: string | null;
-  };
-  /** PR-8：上游熔斷狀態。any_open=true → 前端 5 態機直接進 upstream_outage */
-  upstream_circuit?: {
-    any_open: boolean;
-    sources: Record<string, {
-      state: 'closed' | 'open' | 'half_open';
-      disabled_until: string | null;
-      consecutive_failures: number;
-      last_error_code: string | null;
-    }>;
-  };
-  /** P3：後端快照狀態（sealed / partial / stale / missing / ineligible） */
-  snapshot_state?: 'sealed' | 'partial' | 'stale' | 'missing' | 'ineligible';
-  snapshot_status?: {
-    trade_date: string;
-    status: string;
-    sealed_at: string | null;
-    sealed_by_lane: string | null;
-    lane_a_status: string | null;
-    lane_b_status: string | null;
-    lane_c_status: string | null;
-    coverage_stocks: number;
-    coverage_brokers: number;
-    updated_at: string;
-  } | null;
-  source: string;
-  fetched_at: string;
-  /** Phase-2: 本次回應是否命中 request coalescing（同 isolate 併發去重） */
-  coalesced?: boolean;
-}
-
-
-export type ReadinessState = 'ready' | 'filling' | 'upstream_exhausted' | 'no_data';
-export interface WindowReadinessPayload {
-  window_days: 1 | 5 | 10 | 20 | 60;
-  state: ReadinessState;
-  have: number;
-  need: number;
-  oldest_available: string | null;
-  newest_available: string | null;
-  detail: string;
-}
-
-const CACHE = new Map<string, { data: TwChipsPayload; ts: number }>();
-const TTL_MS = 5 * 60 * 1000;
+export const TTL_MS = 5 * 60 * 1000;
+/** stamp 探針間隔：新資料最慢 60 秒內就會出現在抽屜。 */
+export const STAMP_POLL_MS = 60_000;
 
 /** 過期自動重抓的節流參數 */
 export const AUTO_BASE_BACKOFF_MS = 30_000;
@@ -195,93 +63,25 @@ function isViewAsActive(): boolean {
   } catch { return false; }
 }
 
-
-// 台股代碼判定：4-6 位純數字（2330、00878、911616 等）
-export function isTaiwanStockCode(code: string | undefined | null): boolean {
-  if (!code) return false;
-  return /^\d{4,6}[A-Z]?$/.test(String(code).trim());
-}
-
-/**
- * 分點（BSR）資料可用性判定。
- * FinMind 的 TaiwanStockTradingDailyReport 僅覆蓋一般個股，
- * ETF / 權證 / 受益憑證 / 可轉債 / DR 皆無分點資料 → 不入 sync 佇列、UI 直接顯示提示。
- * 規則：4 碼、首位為 1-9 之個股（如 1101、2330、6285、9958）才視為 chip-eligible。
- */
-export function isTaiwanChipEligible(code: string | undefined | null): boolean {
-  if (!code) return false;
-  return /^[1-9]\d{3}$/.test(String(code).trim());
-}
-
-export type ChipsErrorKind =
-  | 'network'
-  | 'offline'
-  | 'timeout'
-  | 'auth'
-  | 'server'
-  | 'not_found'
-  | 'unknown';
-
-export interface ChipsError {
-  kind: ChipsErrorKind;
-  status?: number;
-  message: string;
-  reason: string; // 使用者可讀
-}
-
-function classifyError(err: unknown, status?: number): ChipsError {
-  const msg = (err as Error)?.message || String(err);
-  const name = (err as Error)?.name || '';
-  const causeMsg = String(((err as any)?.cause as Error | undefined)?.message ?? '');
-  const hay = `${name} ${msg} ${causeMsg}`.toLowerCase();
-  if (typeof navigator !== 'undefined' && !navigator.onLine) {
-    return { kind: 'offline', message: msg, reason: '目前離線，恢復連線後可自動重試' };
-  }
-  if (name === 'AbortError' || hay.includes('aborterror') || hay.includes('timeout') || hay.includes('timedout')) {
-    return { kind: 'timeout', status, message: msg, reason: '請求逾時，請稍後重試' };
-  }
-  if (status === 401 || status === 403) {
-    return { kind: 'auth', status, message: msg, reason: '登入或權限失效，請重新登入' };
-  }
-  if (status === 404) {
-    return { kind: 'not_found', status, message: msg, reason: '此代號無籌碼資料' };
-  }
-  if (status && status >= 500) {
-    return { kind: 'server', status, message: msg, reason: '伺服器暫時無法回應（TWSE 可能異常）' };
-  }
-  if (
-    hay.includes('failed to fetch') ||
-    hay.includes('networkerror') ||
-    hay.includes('load failed') ||
-    hay.includes('err_') ||
-    !status // 無 HTTP status = 根本沒連上，一律歸類為網路異常而非 unknown
-  ) {
-    return { kind: 'network', message: msg, reason: '網路連線失敗，請重試' };
-  }
-  return { kind: 'unknown', status, message: msg, reason: msg.slice(0, 80) || '未知錯誤' };
-}
+export const chipsQueryKey = (stockCode: string) => ['tw-chips', stockCode] as const;
+const stampQueryKey = (stockCode: string) => ['tw-chips-stamp', stockCode] as const;
 
 export function useTwChipsDetail(stockCode: string | undefined | null, enabled = true) {
-  const [data, setData] = useState<TwChipsPayload | null>(null);
-  const [loading, setLoading] = useState(false);
-  const [error, setError] = useState<ChipsError | null>(null);
-  const [fetchedAt, setFetchedAt] = useState<number | null>(null);
-  const [attempt, setAttempt] = useState(0);
+  const qc = useQueryClient();
+  const code = stockCode ? String(stockCode).trim() : '';
+  const valid = !!enabled && !!code && isTaiwanStockCode(code);
+
   const [online, setOnline] = useState(
     typeof navigator !== 'undefined' ? navigator.onLine : true,
   );
-  const inflight = useRef<AbortController | null>(null);
-  const autoSourceRef = useRef(false);
-  const [manualBump, setManualBump] = useState(0);
-  const [successTick, setSuccessTick] = useState(0);
+  const [visible, setVisible] = useState(
+    typeof document === 'undefined' ? true : document.visibilityState !== 'hidden',
+  );
+  const sourceRef = useRef<'drawer_open' | 'manual_refetch' | 'reconnect' | 'auto_stale'>('drawer_open');
 
-  // 離線 / 上線監聽（上線時自動重試）
   useEffect(() => {
     if (typeof window === 'undefined') return;
-    const on = () => {
-      setOnline(true);
-      setManualBump((n) => n + 1); // 觸發重取
-    };
+    const on = () => setOnline(true);
     const off = () => setOnline(false);
     window.addEventListener('online', on);
     window.addEventListener('offline', off);
@@ -291,185 +91,6 @@ export function useTwChipsDetail(stockCode: string | undefined | null, enabled =
     };
   }, []);
 
-  // Track stockCode transitions for telemetry `reason` classification.
-  const prevStockRef = useRef<string | null | undefined>(null);
-
-  useEffect(() => {
-    if (!enabled) return;
-    if (!stockCode || !isTaiwanStockCode(stockCode)) {
-      setData(null);
-      setError(null);
-      setLoading(false);
-      return;
-    }
-
-    const isViewAs = isViewAsActive();
-    const prevStock = prevStockRef.current;
-    prevStockRef.current = stockCode;
-    const source: 'drawer_open' | 'manual_refetch' | 'reconnect' | 'auto_stale' =
-      autoSourceRef.current ? 'auto_stale'
-      : attempt > 0 ? 'manual_refetch'
-      : manualBump > 0 ? 'reconnect'
-      : 'drawer_open';
-
-    // 離線時：若有 cache 就顯示 cache + offline error；否則 offline error
-    if (typeof navigator !== 'undefined' && !navigator.onLine) {
-      const cached = CACHE.get(stockCode);
-      if (cached) {
-        setData(cached.data);
-        setFetchedAt(cached.ts);
-      }
-      setError({ kind: 'offline', message: 'offline', reason: '目前離線，恢復連線後將自動重試' });
-      setLoading(false);
-      trackEvent('chips_fetch_error', {
-        stock_code: stockCode, source, error_code: 'offline',
-        had_cache: !!cached, is_view_as: isViewAs,
-      });
-      return;
-    }
-
-    // 讀快取
-    const cached = CACHE.get(stockCode);
-    const cacheAge = cached ? Date.now() - cached.ts : null;
-    if (cached && cacheAge !== null && cacheAge < TTL_MS && manualBump === 0 && attempt === 0) {
-      setData(cached.data);
-      setFetchedAt(cached.ts);
-      setError(null);
-      setLoading(false);
-      trackEvent('chips_memory_hit', {
-        stock_code: stockCode, source, age_ms: cacheAge, is_view_as: isViewAs,
-      });
-      return;
-    }
-
-    const missReason: string = !cached ? 'no_entry'
-      : (attempt > 0 || manualBump > 0) ? 'manual_refetch'
-      : (cacheAge !== null && cacheAge >= TTL_MS) ? 'ttl_expired'
-      : (prevStock && prevStock !== stockCode) ? 'stock_switch'
-      : 'unknown';
-
-    trackEvent('chips_memory_miss', {
-      stock_code: stockCode, source, reason: missReason,
-      age_ms: cacheAge, is_view_as: isViewAs,
-    });
-    trackEvent('chips_fetch_start', {
-      stock_code: stockCode, source, is_view_as: isViewAs,
-    });
-
-    inflight.current?.abort();
-    const ctrl = new AbortController();
-    inflight.current = ctrl;
-    setLoading(true);
-    setError(null);
-
-    const timeoutId = window.setTimeout(() => ctrl.abort(), 15000);
-    const startedAt = Date.now();
-
-    (async () => {
-      let status: number | undefined;
-      try {
-        const gw = getCheckupGateway();
-        const url = `${gw.functionsUrl()}/tw-chips-detail?stock_id=${encodeURIComponent(stockCode)}`;
-        // tw-chips-detail 只回公開市場籌碼資料，不依賴使用者身份。
-        // 固定用 publishable anon JWT，避免 demo/匿名模式或瀏覽器殘留 stale user JWT
-        // 觸發後端 auth.getUser() 的「missing sub claim」401，造成抽屜白屏。
-        let rawText: string;
-        try {
-          rawText = await gw.http.text(url, {
-            signal: ctrl.signal,
-            headers: {
-              apikey: (import.meta.env.VITE_SUPABASE_PUBLISHABLE_KEY as string) || '',
-              Authorization: `Bearer ${import.meta.env.VITE_SUPABASE_PUBLISHABLE_KEY}`,
-            },
-          });
-          status = 200;
-        } catch (err: any) {
-          status = err?.status;
-          // 傳輸層失敗（abort／斷線／DNS）沒有 status，也常常沒有 body：
-          // 一定要把原始 message 與 name 帶下去，否則 classifyError 只看到
-          // 「chips 0:」而落到 unknown 分支，使用者看到無意義的錯誤碼。
-          const detail = String(err?.body ?? err?.message ?? err?.name ?? '').slice(0, 120);
-          const wrapped = new Error(`chips ${err?.status ?? 0}: ${detail}`);
-          (wrapped as any).name = err?.name ?? wrapped.name;
-          (wrapped as any).cause = err;
-          throw wrapped;
-        }
-
-        const json = JSON.parse(rawText) as TwChipsPayload & {
-          _cache_meta?: { cache?: string; stamp_ver?: string };
-        };
-        // Race guard: ignore stale response if stockCode changed while inflight.
-        if (prevStockRef.current !== stockCode) return;
-        const now = Date.now();
-        CACHE.set(stockCode, { data: json, ts: now });
-        setData(json);
-        setFetchedAt(now);
-        setError(null);
-        setAttempt(0);
-        autoSourceRef.current = false;
-        setSuccessTick((n) => n + 1);
-        trackEvent('chips_fetch_done', {
-          stock_code: stockCode, source,
-          duration_ms: now - startedAt,
-          payload_bytes: rawText.length,
-          bsr_freshness_status: (json as any)?.bsr_freshness_status ?? null,
-          edge_cache: (json as any)?._cache_meta?.cache ?? null,
-          stamp_ver: (json as any)?._cache_meta?.stamp_ver ?? null,
-          bsr_source: (json as any)?.bsr_source ?? null,
-          is_view_as: isViewAs,
-        });
-      } catch (err) {
-        if ((err as any).name === 'AbortError' && !ctrl.signal.aborted) return;
-        // 保留舊 cache 資料當降級顯示
-        const cached2 = CACHE.get(stockCode);
-        if (cached2) {
-          setData(cached2.data);
-          setFetchedAt(cached2.ts);
-        }
-        const classified = classifyError(err, status);
-        setError(classified);
-        trackEvent('chips_fetch_error', {
-          stock_code: stockCode, source,
-          error_code: classified.kind, status: status ?? null,
-          duration_ms: Date.now() - startedAt,
-          had_cache: !!cached2, is_view_as: isViewAs,
-        });
-      } finally {
-        window.clearTimeout(timeoutId);
-        if (inflight.current === ctrl) inflight.current = null;
-        setLoading(false);
-      }
-    })();
-
-    return () => {
-      window.clearTimeout(timeoutId);
-      ctrl.abort();
-    };
-  }, [stockCode, enabled, manualBump, attempt]);
-
-  const refetch = useCallback((opts?: { auto?: boolean }) => {
-    if (opts?.auto) autoSourceRef.current = true;
-    if (stockCode) CACHE.delete(stockCode);
-    setAttempt((n) => n + 1);
-  }, [stockCode]);
-
-  // 新鮮度單一資料源（src/checkup/lib/freshness.ts）：內建 ticker，
-  // 抽屜開著不動也會隨時鐘把 stale / ageMs 推進，不再凍在打開那一刻。
-  const { ageMs, label: ageLabel, clock: fetchedAtClock, stale } = useFreshness(fetchedAt, TTL_MS);
-
-  // ── 過期自動重抓 ─────────────────────────────────────────────
-  // 規則（避免打爆 edge function）：
-  //   1. 只在 stale（> TTL）且已有一次成功結果、線上、分頁可見時觸發。
-  //   2. 失敗以指數退避（30s → 60s → 120s → 上限 5 分鐘），連續 4 次失敗後停手改由使用者手動。
-  //   3. 分頁隱藏時暫停（顯示 PAUSED），切回前景若已過期立即補抓一次。
-  const [autoState, setAutoState] = useState<AutoRefreshState>('idle');
-  const [nextAutoAt, setNextAutoAt] = useState<number | null>(null);
-  const autoFailuresRef = useRef(0);
-  const lastAutoAtRef = useRef(0);
-  const [visible, setVisible] = useState(
-    typeof document === 'undefined' ? true : document.visibilityState !== 'hidden',
-  );
-
   useEffect(() => {
     if (typeof document === 'undefined') return;
     const onVis = () => setVisible(document.visibilityState !== 'hidden');
@@ -477,18 +98,170 @@ export function useTwChipsDetail(stockCode: string | undefined | null, enabled =
     return () => document.removeEventListener('visibilitychange', onVis);
   }, []);
 
-  // 只有「成功拿到新資料」才重置退避（setError(null) 不算成功，
-  // 否則每次重試開頭都會把失敗次數清掉 → 永遠不會 exhausted）。
+  // ── 主查詢：payload ────────────────────────────────────────────
+  const query = useQuery<ChipsFetchResult, unknown>({
+    queryKey: chipsQueryKey(code),
+    enabled: valid && online,
+    // 失效由 stamp 探針決定，不用牆鐘讓 Query 自行判 stale。
+    staleTime: Infinity,
+    gcTime: 30 * 60 * 1000,
+    retry: false,
+    refetchOnWindowFocus: false,
+    refetchOnReconnect: false,
+    queryFn: ({ signal }) =>
+      fetchChipsPayload(code, {
+        signal,
+        telemetry: { source: sourceRef.current, isViewAs: isViewAsActive() },
+      }),
+  });
+
+  const data = query.data?.payload ?? null;
+  const stampVer = query.data?.stampVer ?? null;
+  const fetchedAt = query.data ? query.dataUpdatedAt || null : null;
+
+  // ── L1 命中／未命中 telemetry（快取漏斗契約，見 src/lib/chipsCacheFunnel.ts）──
+  const prevStockRef = useRef<string | null>(null);
   useEffect(() => {
-    if (successTick === 0) return;
-    autoFailuresRef.current = 0;
-    setNextAutoAt(null);
-    setAutoState('idle');
-  }, [successTick]);
+    if (!valid) return;
+    const prev = prevStockRef.current;
+    prevStockRef.current = code;
+    const state = qc.getQueryState(chipsQueryKey(code));
+    const isViewAs = isViewAsActive();
+    const source = sourceRef.current;
+    if (state?.data) {
+      trackEvent('chips_memory_hit', {
+        stock_code: code, source,
+        age_ms: state.dataUpdatedAt ? Date.now() - state.dataUpdatedAt : null,
+        is_view_as: isViewAs,
+      });
+    } else {
+      trackEvent('chips_memory_miss', {
+        stock_code: code, source,
+        reason: prev && prev !== code ? 'stock_switch' : 'no_entry',
+        age_ms: null, is_view_as: isViewAs,
+      });
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [code, valid]);
+
+  // ── 錯誤：離線優先，其餘由 repository 分類 ─────────────────────
+  const error: ChipsError | null = useMemo(() => {
+    if (!valid) return null;
+    if (!online) {
+      return { kind: 'offline', message: 'offline', reason: '目前離線，恢復連線後將自動重試' };
+    }
+    if (!query.error) return null;
+    return classifyChipsError(query.error, (query.error as any)?.status);
+  }, [valid, online, query.error]);
 
   useEffect(() => {
-    if (!enabled || !stockCode || !isTaiwanStockCode(stockCode)) return;
-    if (!stale || loading || !fetchedAt) return;
+    if (valid && !online) {
+      trackEvent('chips_fetch_error', {
+        stock_code: code, source: sourceRef.current, error_code: 'offline',
+        had_cache: !!data, is_view_as: isViewAsActive(),
+      });
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [online, valid, code]);
+
+  // 上線後補抓一次
+  const wasOfflineRef = useRef(!online);
+  useEffect(() => {
+    if (!valid) return;
+    if (online && wasOfflineRef.current) {
+      sourceRef.current = 'reconnect';
+      query.refetch();
+    }
+    wasOfflineRef.current = !online;
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [online, valid]);
+
+  // ── 候選 E：stamp 探針 ────────────────────────────────────────
+  const stampQuery = useQuery({
+    queryKey: stampQueryKey(code),
+    enabled: valid && online && visible && !!query.data,
+    retry: false,
+    staleTime: STAMP_POLL_MS / 2,
+    gcTime: 10 * 60 * 1000,
+    // 探針一旦失敗就停止輪詢，避免上游異常時每分鐘打一次；
+    // 後續由使用者手動重整或分頁 refocus 重新啟動。
+    refetchInterval: (q: any) => (q?.state?.status === 'error' ? false : STAMP_POLL_MS),
+    refetchOnWindowFocus: true,
+    queryFn: ({ signal }) => fetchChipsStamp(code, { signal }),
+  });
+
+  const probedStamp = stampQuery.data?.stamp_ver ?? null;
+  useEffect(() => {
+    if (!valid || !probedStamp || !stampVer) return;
+    if (probedStamp === stampVer) return;
+    sourceRef.current = 'auto_stale';
+    trackEvent('chips_stamp_changed', {
+      stock_code: code, from: stampVer, to: probedStamp, is_view_as: isViewAsActive(),
+    });
+    query.refetch();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [probedStamp, stampVer, valid, code]);
+
+  /**
+   * 版本化 revalidate：先問 stamp，沒變就只把「更新於」時間往前推，
+   * 完全不下載 payload；變了或探針失敗才抓完整資料。
+   */
+  const revalidate = useCallback(async (): Promise<{ ok: boolean; downloaded: boolean }> => {
+    if (!valid) return { ok: true, downloaded: false };
+    const currentStamp = qc.getQueryData<ChipsFetchResult>(chipsQueryKey(code))?.stampVer ?? null;
+    if (currentStamp) {
+      try {
+        const probe = await fetchChipsStamp(code);
+        qc.setQueryData(stampQueryKey(code), probe);
+        if (probe.stamp_ver && probe.stamp_ver === currentStamp) {
+          // 版本沒變 → 資料仍然是最新的，只需重置新鮮度計時。
+          qc.setQueryData<ChipsFetchResult>(chipsQueryKey(code), (prev) => (prev ? { ...prev } : prev));
+          trackEvent('chips_stamp_unchanged', {
+            stock_code: code, stamp_ver: probe.stamp_ver, is_view_as: isViewAsActive(),
+          });
+          return { ok: true, downloaded: false };
+        }
+      } catch {
+        // 探針失敗 → 保底走完整重抓
+      }
+    }
+    const res = await qc.fetchQuery<ChipsFetchResult>({
+      queryKey: chipsQueryKey(code),
+      queryFn: ({ signal }) =>
+        fetchChipsPayload(code, {
+          signal,
+          telemetry: { source: sourceRef.current, isViewAs: isViewAsActive() },
+        }),
+      staleTime: 0,
+      retry: false,
+    }).then(() => ({ ok: true, downloaded: true }))
+      .catch(() => ({ ok: false, downloaded: true }));
+    return res;
+  }, [qc, code, valid]);
+
+  const refetch = useCallback((opts?: { auto?: boolean }) => {
+    sourceRef.current = opts?.auto ? 'auto_stale' : 'manual_refetch';
+    if (opts?.auto) return revalidate();
+    return query.refetch();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [revalidate, query.refetch]);
+
+  // 新鮮度單一資料源（src/checkup/lib/freshness.ts）：內建 ticker，
+  // 抽屜開著不動也會隨時鐘把 stale / ageMs 推進，不再凍在打開那一刻。
+  const { ageMs, label: ageLabel, clock: fetchedAtClock, stale } = useFreshness(fetchedAt, TTL_MS);
+
+  // ── 過期自動重抓（保底；stamp 探針才是主力）───────────────────
+  //   1. 只在 stale（> TTL）且已有一次成功結果、線上、分頁可見時觸發。
+  //   2. 失敗以指數退避（30s → 60s → 120s → 上限 5 分鐘），連續 4 次失敗後停手改由使用者手動。
+  //   3. 分頁隱藏時暫停（顯示 PAUSED），切回前景若已過期立即補抓一次。
+  const [autoState, setAutoState] = useState<AutoRefreshState>('idle');
+  const [nextAutoAt, setNextAutoAt] = useState<number | null>(null);
+  const autoFailuresRef = useRef(0);
+  const lastAutoAtRef = useRef(0);
+
+  useEffect(() => {
+    if (!valid) return;
+    if (!stale || query.isFetching || !fetchedAt) return;
     if (!online) return;
     if (autoFailuresRef.current >= AUTO_MAX_FAILURES) { setAutoState('exhausted'); return; }
     if (!visible) { setAutoState('paused'); return; }
@@ -504,31 +277,35 @@ export function useTwChipsDetail(stockCode: string | undefined | null, enabled =
       lastAutoAtRef.current = Date.now();
       setAutoState('refreshing');
       trackEvent('chips_auto_refetch', {
-        stock_code: stockCode,
+        stock_code: code,
         age_ms: ageMs,
         failures: autoFailuresRef.current,
         is_view_as: isViewAsActive(),
       });
-      refetch({ auto: true });
+      sourceRef.current = 'auto_stale';
+      void revalidate().then((r) => {
+        if (r.ok) {
+          autoFailuresRef.current = 0;
+          setNextAutoAt(null);
+          setAutoState('idle');
+        } else {
+          autoFailuresRef.current += 1;
+          setAutoState(autoFailuresRef.current >= AUTO_MAX_FAILURES ? 'exhausted' : 'failed');
+        }
+      });
     }, delay);
     return () => clearTimeout(t);
-  }, [stale, loading, fetchedAt, online, visible, enabled, stockCode, ageMs, refetch]);
-
-  // 自動重抓失敗 → 記一次失敗、進入退避
-  const lastErrorRef = useRef<ChipsError | null>(null);
-  useEffect(() => {
-    if (error && error !== lastErrorRef.current && autoState === 'refreshing') {
-      autoFailuresRef.current += 1;
-      setAutoState(autoFailuresRef.current >= AUTO_MAX_FAILURES ? 'exhausted' : 'failed');
-    }
-    lastErrorRef.current = error;
-  }, [error, autoState]);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [stale, query.isFetching, fetchedAt, online, visible, valid, code, ageMs, revalidate]);
 
   return {
-    data, loading, error, fetchedAt, ageMs, ageLabel, fetchedAtClock, online, stale, refetch,
+    data,
+    loading: valid ? query.isFetching && !data : false,
+    error,
+    fetchedAt,
+    ageMs, ageLabel, fetchedAtClock,
+    online, stale, refetch,
+    stampVer,
     autoState, nextAutoAt, autoFailures: autoFailuresRef.current,
   };
 }
-
-
-

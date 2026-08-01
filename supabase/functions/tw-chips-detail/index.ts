@@ -19,6 +19,7 @@ import { corsPreflight, jsonResponse, errorResponse } from "../_shared/cors.ts";
 import { cacheGet, cacheSet } from "../_shared/memoryCache.ts";
 import { coalesce, setCoalesceObserver } from "../_shared/requestCoalescer.ts";
 import { makeInflightHook } from "../_shared/coalesceDbHook.ts";
+import { computeChipsStamp } from "../_shared/chipsStamp.ts";
 import {
   countRowsByDate,
   pickCompleteFallbackDate,
@@ -54,18 +55,22 @@ Deno.serve(async (req) => {
 
     const supa = serviceClient();
 
-    // Cache key includes latest rollup as_of_date so any new fulfillment auto-busts.
-    // Fetch that stamp cheaply first; if unavailable, fall back to a version-less key
-    // and rely on TTL alone.
-    const { data: stampRow } = await supa
-      .from("tw_chips_rollup")
-      .select("as_of_date, updated_at")
-      .eq("stock_id", stockId)
-      .eq("window_days", 5)
-      .order("as_of_date", { ascending: false })
-      .limit(1)
-      .maybeSingle();
-    const stampVer = stampRow ? `${stampRow.as_of_date}:${stampRow.updated_at}` : "v0";
+    // 版本戳單一資料源（_shared/chipsStamp.ts）：涵蓋 BSR rollup 與三大法人兩邊，
+    // 任一邊有新資料就自動 bust edge cache 與前端快取。
+    const stamp = await computeChipsStamp(supa, stockId);
+    const stampVer = stamp.stampVer;
+
+    // 候選 E：極輕量探針。前端拿它比對後決定要不要下載完整 payload。
+    if (url.searchParams.get("stamp_only") === "1") {
+      return jsonResponse({
+        stock_id: stockId,
+        stamp_ver: stampVer,
+        chips_as_of: stamp.chipsAsOf,
+        inst_as_of: stamp.instAsOf,
+        served_at: new Date().toISOString(),
+      });
+    }
+
     const cacheKey = `chips:${stockId}:${stampVer}`;
     const cached = cacheGet<any>(cacheKey);
     if (cached) {
