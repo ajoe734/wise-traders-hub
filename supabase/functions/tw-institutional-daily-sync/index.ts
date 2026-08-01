@@ -755,6 +755,23 @@ Deno.serve(async (req) => {
         return jsonResponse(result);
       }
 
+      // === Mode: otc_gap_fill ===（單日／區間補上櫃缺口；cron 或管理員觸發）
+      // T86 只有上市，這條 lane 用 FinMind 全市場單日把缺席代號補齊。
+      if (body?.mode === "otc_gap_fill") {
+        const supa = serviceClient();
+        const wave = String(body.wave || "manual").slice(0, 32);
+        const dates: string[] = Array.isArray(body.dates) && body.dates.length > 0
+          ? body.dates.map((d: any) => String(d).slice(0, 10))
+          : [toISODate(taipeiToday())];
+        const results: Array<Record<string, unknown>> = [];
+        for (const d of dates.slice(0, 15)) {
+          results.push({ date: d, ...(await fillOtcGap(supa, d, wave)) });
+        }
+        return jsonResponse({ ok: true, mode: "otc_gap_fill", results });
+      }
+
+
+
       // === Mode: backfill_stock ===（per-stock 60 天歷史回補）
       if (body?.mode === "backfill_stock") {
         const stockId = String(body.stock_id || "").trim();
