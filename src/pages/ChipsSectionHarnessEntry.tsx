@@ -11,7 +11,11 @@
  *   - now=<ms|ISO>     固定時鐘注入：把 Date.now 釘在指定時刻（決定論，優於 freezeTime）
  *   - staleAfter=<ms>  位移延遲，預設 800
  *   - staleShift=<ms>  位移量，預設 6 分鐘（TTL 5 分 + 1）
+ *   - visibility=hidden|visible  分頁可見性覆寫（預設：force=stale → hidden，其餘 visible）
+ *     visible 時自動重抓會照常排程，用來驗證 STALE badge 不被 auto revalidate 吃掉。
+ *     spec 可用 window.__harnessSetVisibility('visible'|'hidden') 即時切換。
  *   force 可用逗號組合（例 force=stale,fresh → fresh 勝出）。
+
  *
  * 時鐘覆寫規則與權重的**單一實作**在 `@/checkup/lib/harnessClock`
  * （含單元測試 `__tests__/harnessClock.test.ts`）；規格文件見
