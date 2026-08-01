@@ -430,7 +430,7 @@ export async function fetchChipsBatch(
 
   trackEvent('chips_batch_fetch_start', { count: ids.length, source, is_view_as: isViewAs });
   try {
-    const { text, durationMs } = await requestText('/tw-chips-batch', {
+    const { text, durationMs } = await requestText('/tw-chips-detail', {
       signal: opts?.signal,
       timeoutMs: CHIPS_BATCH_TIMEOUT_MS,
       method: 'POST',
