@@ -832,7 +832,6 @@ Deno.serve(async (req) => {
     }
 
     const fields: string[] = raw?.fields || [];
-    const rawRows: any[][] = raw?.data || [];
     const tradeDate = toISODate(resolvedDate);
 
     // F4：解析走 _shared/institutionalDay.ts 的單一實作
