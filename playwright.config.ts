@@ -236,6 +236,12 @@ export default defineConfig({
       use: { ...devices['Desktop Chrome'], viewport: { width: 1280, height: 900 } },
     },
     {
+      // Phase G: chips 端到端事件契約（鎖 Phase F 漏斗依賴的 traffic-ingest 事件）
+      name: 'desktop-chips-telemetry-contract',
+      testMatch: /chips-telemetry-contract\.spec\.ts/,
+      use: { ...devices['Desktop Chrome'], viewport: { width: 1280, height: 900 } },
+    },
+    {
 
 
 
