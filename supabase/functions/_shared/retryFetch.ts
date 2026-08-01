@@ -148,7 +148,38 @@ export interface FetchWithRetryOptions {
   rand?: () => number;
   now?: () => number;
   onAttempt?: (info: RetryAttemptInfo) => void;
+  /**
+   * F3：給了 supa 就自動把「終局結果」寫進 data_source_health（熔斷器），
+   * 呼叫端不必再各自記錄，避免部分來源有統計、部分沒有。
+   * `healthSource` 預設等於 `source`。
+   */
+  health?: {
+    supa: { from: (t: string) => any } | null;
+    healthSource?: string;
+    /** 測試用覆寫。 */
+    record?: (source: string, ok: boolean, latencyMs: number, code?: string) => Promise<void>;
+  };
 }
+
+async function recordHealthOutcome(
+  opts: FetchWithRetryOptions,
+  ok: boolean,
+  latencyMs: number,
+  code?: string,
+): Promise<void> {
+  const h = opts.health;
+  if (!h) return;
+  const source = h.healthSource ?? opts.source;
+  try {
+    if (h.record) { await h.record(source, ok, latencyMs, code); return; }
+    if (!h.supa) return;
+    const { recordCircuit } = await import('./circuitBreaker.ts');
+    await recordCircuit(h.supa as any, source, ok, latencyMs, code);
+  } catch (e) {
+    console.warn('[retryFetch] health_record_failed', (e as Error).message);
+  }
+}
+
 
 const defaultSleep = (ms: number) => new Promise<void>((r) => setTimeout(r, ms));
 
