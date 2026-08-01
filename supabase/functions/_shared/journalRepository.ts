@@ -24,7 +24,7 @@ export const JOURNAL_DETAIL_SELECT =
 
 /** 匯出：需要 status / created_at，且以 experts!inner 強制 mentor。 */
 export const JOURNAL_EXPORT_SELECT =
-  'id, status, instrument, action, price_hint, quantity, quantity_unit, reason_summary, reason_detail, risk_notes, learning_points, published_at, created_at, expert_id, experts!inner(name, slug, role, asset_class, currency)';
+  'id, status, instrument, action, price_hint, quantity, quantity_unit, reason_summary, reason_detail, risk_notes, learning_points, published_at, created_at, executed_at, expert_id, experts!inner(name, slug, role, asset_class, currency)';
 
 /** 推播：Flex message builder 需要整列（含 batch_id / teaching 欄位）。 */
 export const JOURNAL_PUSH_SELECT = '*';

@@ -28,6 +28,7 @@ export interface JournalRowExport {
   learning_points?: string | null;
   published_at?: string | null;
   created_at?: string | null;
+  executed_at?: string | null;
   expert_id: string;
   experts?: {
     name?: string | null;
@@ -154,12 +155,14 @@ export function buildMentorMarkdown(mentorRows: JournalRowExport[], range: WeekR
   let nonTradeRows = 0;
 
   mentorRows.forEach((r, idx) => {
-    const time = fmtTaipei(r.published_at || r.created_at);
+    const time = fmtTaipei(r.executed_at || r.created_at || r.published_at);
+    const publishedTime = fmtTaipei(r.published_at);
     const title = r.reason_summary ? stripHtml(String(r.reason_summary)).slice(0, 80) : (r.instrument || '教學筆記');
     lines.push(`## ${idx + 1}. ${title}`);
     lines.push('');
     const meta: string[] = [];
     if (time) meta.push(`時間：${time}`);
+    if (publishedTime && publishedTime !== time) meta.push(`發布時間：${publishedTime}`);
     if (r.status) meta.push(`狀態：${r.status}`);
     if (r.instrument) meta.push(`標的：${r.instrument}`);
     const actionRaw = String(r.action ?? '').toLowerCase();
