@@ -412,8 +412,11 @@ export function useTwChipsDetail(stockCode: string | undefined | null, enabled =
     setAttempt((n) => n + 1);
   };
 
-  const stale = !!(data && fetchedAt && Date.now() - fetchedAt > TTL_MS);
+  // 新鮮度單一資料源（src/checkup/lib/freshness.ts）：內建 ticker，
+  // 抽屜開著不動也會隨時鐘把 stale / ageMs 推進，不再凍在打開那一刻。
+  const { ageMs, label: ageLabel, clock: fetchedAtClock, stale } = useFreshness(fetchedAt, TTL_MS);
 
-  return { data, loading, error, fetchedAt, online, stale, refetch };
+  return { data, loading, error, fetchedAt, ageMs, ageLabel, fetchedAtClock, online, stale, refetch };
 }
+
 
