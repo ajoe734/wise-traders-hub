@@ -1,7 +1,17 @@
 // _shared/tradingDate.ts
-// 台北時區交易日 helpers（週末 roll-back；不含國定假日）。
-// 從 tw-bsr-finmind-sync/lib.ts 遷出，讓 tw-chips-detail 與 sync 共用同一份日期邏輯。
-// 日期一律以 ISO YYYY-MM-DD 字串表達；同一時區下的 ISO 字串詞典序 = 時間序，可直接以 `<` `>` 比較。
+// 台北時區交易日 helpers。
+// 非交易日判定（週末＋國定假日）一律委派給 `_shared/twTradingCalendar.ts`，
+// 這裡不再自行只跳週末 —— 連假期間 roll-back 若停在假日，
+// 會導致 BSR/法人查到空資料並讓 1/5/10 日視窗缺一天。
+// 日期一律以 ISO YYYY-MM-DD 字串表達；同一時區下的 ISO 字串詞典序 = 時間序。
+
+import {
+  isTwTradingDay,
+  prevTwTradingDay,
+  addDaysIso,
+  twTradingDayDiff,
+  type HolidayInput,
+} from './twTradingCalendar.ts';
 
 export function taipeiNowFrom(nowMs: number): Date {
   return new Date(nowMs + 8 * 3600 * 1000);
@@ -12,24 +22,17 @@ export function toIsoDate(d: Date): string {
 }
 
 export function addDays(iso: string, n: number): string {
-  const d = new Date(iso + 'T00:00:00Z');
-  d.setUTCDate(d.getUTCDate() + n);
-  return d.toISOString().slice(0, 10);
+  return addDaysIso(iso, n);
 }
 
-export function isWeekday(iso: string): boolean {
-  const dow = new Date(iso + 'T00:00:00Z').getUTCDay();
-  return dow !== 0 && dow !== 6;
+/** 是否為台股交易日（非週末且非國定假日）。名稱沿用歷史，語意已含假日。 */
+export function isWeekday(iso: string, extraHolidays?: HolidayInput): boolean {
+  return isTwTradingDay(iso, extraHolidays);
 }
 
-export function rollBackToWeekday(iso: string): string {
-  const d = new Date(iso + 'T00:00:00Z');
-  for (let i = 0; i < 7; i++) {
-    const dow = d.getUTCDay();
-    if (dow !== 0 && dow !== 6) break;
-    d.setUTCDate(d.getUTCDate() - 1);
-  }
-  return d.toISOString().slice(0, 10);
+/** 往前 roll 到最近的交易日（含當日）。 */
+export function rollBackToWeekday(iso: string, extraHolidays?: HolidayInput): string {
+  return prevTwTradingDay(iso, extraHolidays);
 }
 
 /** 台北時間是否已收盤（14:00 後 BSR 才有意義） */
@@ -41,42 +44,34 @@ export function decideEffectiveDate(
   nowMs: number,
   requestedDate: string | null,
   taipeiTodayIso: string,
+  extraHolidays?: HolidayInput,
 ): { effective: string; rolled: boolean } {
   if (!requestedDate) {
     if (!isAfterCloseAt(nowMs)) {
-      const effective = rollBackToWeekday(addDays(taipeiTodayIso, -1));
+      const effective = rollBackToWeekday(addDays(taipeiTodayIso, -1), extraHolidays);
       return { effective, rolled: effective !== taipeiTodayIso };
     }
-    const effective = rollBackToWeekday(taipeiTodayIso);
+    const effective = rollBackToWeekday(taipeiTodayIso, extraHolidays);
     return { effective, rolled: effective !== taipeiTodayIso };
   }
-  const effective = rollBackToWeekday(requestedDate);
+  const effective = rollBackToWeekday(requestedDate, extraHolidays);
   return { effective, rolled: effective !== requestedDate };
 }
 
 /**
  * 預期最新可用 BSR 交易日：
- *  - 台北時間收盤後（>=14:00） → 今天（若週末則往前 roll）
+ *  - 台北時間收盤後（>=14:00） → 今天（若非交易日則往前 roll）
  *  - 收盤前 → 昨天往前 roll 至最近交易日
- * 已知限制：不含國定假日，因此對外文案避免出現「已落後 N 個交易日」，
- * 只做 weekday 差（`bsr_lag_weekdays`）與資料日期較預期落後的軟提示。
+ * 已含國定假日（內建表 + 可注入的臨時休市）。
  */
-export function expectedLatestBsrDate(nowMs: number): string {
+export function expectedLatestBsrDate(nowMs: number, extraHolidays?: HolidayInput): string {
   const tp = taipeiNowFrom(nowMs);
   const today = toIsoDate(tp);
-  if (isAfterCloseAt(nowMs)) return rollBackToWeekday(today);
-  return rollBackToWeekday(addDays(today, -1));
+  if (isAfterCloseAt(nowMs)) return rollBackToWeekday(today, extraHolidays);
+  return rollBackToWeekday(addDays(today, -1), extraHolidays);
 }
 
-/** 兩個 ISO 日期之間的 weekday 差（不含起點、含終點）。順序無關，回非負整數。 */
-export function weekdayDiff(from: string, to: string): number {
-  if (from === to) return 0;
-  const [lo, hi] = from < to ? [from, to] : [to, from];
-  let d = lo;
-  let n = 0;
-  while (d < hi) {
-    d = addDays(d, 1);
-    if (isWeekday(d)) n += 1;
-  }
-  return n;
+/** 兩個 ISO 日期之間的交易日差（不含起點、含終點）。順序無關，回非負整數。 */
+export function weekdayDiff(from: string, to: string, extraHolidays?: HolidayInput): number {
+  return twTradingDayDiff(from, to, extraHolidays);
 }

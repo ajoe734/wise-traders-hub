@@ -14,7 +14,8 @@ export {
   decideEffectiveDate,
 } from '../_shared/tradingDate.ts';
 
-export { FinmindRow, Aggregated, aggregate } from '../_shared/finmindBsrAggregate.ts';
+export { aggregate } from '../_shared/finmindBsrAggregate.ts';
+export type { FinmindRow, Aggregated } from '../_shared/finmindBsrAggregate.ts';
 
 // ============ 失敗退避決策 ============
 /** M4：門檻降至 1，只要有一筆分點即視為 done；<5 由前端加「低品質」標記。 */

@@ -10,6 +10,7 @@ import { checkKillSwitch } from "../_shared/killSwitch.ts";
 import { admitFinmind } from "../_shared/finmindAdmission.ts";
 import { aggregate as aggregateBsr, type FinmindRow } from "../_shared/finmindBsrAggregate.ts";
 import { enumerateTradingDates } from "../_shared/backfillDates.ts";
+import { getTwHolidaysCached } from "../_shared/twTradingCalendar.ts";
 import { fetchWithRetry, isRetryExhausted, recordRetryFailure } from "../_shared/retryFetch.ts";
 import {
   classifyBackfillError,
@@ -117,7 +118,9 @@ async function materializeRange(
 
 async function processChipFact(supa: SupabaseClient, job: Job, log: RunLogger) {
   // BSR 只吃單日（帶 end_date 上游直接 400），因此逐日展開查詢。
-  const dates = enumerateTradingDates(job.start_date, job.end_date);
+  // 非交易日（週末＋國定假日＋自動偵測的臨時休市）直接跳過，不燒配額。
+  const holidays = await getTwHolidaysCached(supa);
+  const dates = enumerateTradingDates(job.start_date, job.end_date, holidays);
   const rows: FinmindRow[] = [];
   const failedDates: string[] = [];
   const dayErrors: string[] = [];

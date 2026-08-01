@@ -5411,6 +5411,30 @@ export type Database = {
         }
         Relationships: []
       }
+      tw_market_holidays: {
+        Row: {
+          detected_at: string
+          name: string | null
+          note: string | null
+          source: string
+          trade_date: string
+        }
+        Insert: {
+          detected_at?: string
+          name?: string | null
+          note?: string | null
+          source?: string
+          trade_date: string
+        }
+        Update: {
+          detected_at?: string
+          name?: string | null
+          note?: string | null
+          source?: string
+          trade_date?: string
+        }
+        Relationships: []
+      }
       user_performances: {
         Row: {
           current_price: number | null
@@ -6587,6 +6611,7 @@ export type Database = {
         Returns: boolean
       }
       is_tester: { Args: { _user_id: string }; Returns: boolean }
+      is_tw_trading_day: { Args: { _d: string }; Returns: boolean }
       is_tw_trading_hours: { Args: never; Returns: boolean }
       log_unit_lock_violation: { Args: { payload: Json }; Returns: string }
       mark_bsr_upstream_probe: {
@@ -6793,6 +6818,25 @@ export type Database = {
       }
       trade_dedupe_sweep: { Args: { p_dry_run?: boolean }; Returns: Json }
       tw_bsr_eligibility: { Args: { p_stock_id: string }; Returns: Json }
+      tw_detect_market_holidays: {
+        Args: { _from?: string; _to?: string }
+        Returns: {
+          holiday_date: string
+          was_inserted: boolean
+        }[]
+      }
+      tw_missing_trading_days: {
+        Args: { _from?: string; _to?: string }
+        Returns: {
+          bsr_rows: number
+          inst_rows: number
+          trade_date: string
+        }[]
+      }
+      tw_trading_days: {
+        Args: { _from: string; _to: string }
+        Returns: string[]
+      }
       upsert_current_price: {
         Args: { p_rows: Json; p_writer: string }
         Returns: number
