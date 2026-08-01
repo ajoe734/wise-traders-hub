@@ -225,11 +225,10 @@ Deno.test('F3: 不可重試的 4xx 記錄 ok=false 與狀態碼', async () => {
   const events: Array<[string, boolean, string | undefined]> = [];
   await fetchWithRetry('https://x.test/a', {}, {
     source: 'unit_source',
-    healthSourceUnused: undefined,
     sleep: () => Promise.resolve(),
     fetchImpl: (() => Promise.resolve(new Response('nope', { status: 404 }))) as unknown as typeof fetch,
     health: { supa: null, record: (s, ok, _l, code) => { events.push([s, ok, code]); return Promise.resolve(); } },
-  } as any);
+  });
   assertEquals(events, [['unit_source', false, 'http_404']]);
 });
 

@@ -8,6 +8,7 @@ import { corsHeaders } from '../_shared/cors.ts';
 import { codedErrorResponse } from '../_shared/errorCodes.ts';
 import { withLogging } from '../_shared/edgeLogger.ts';
 import { fetchWithRetry } from '../_shared/retryFetch.ts';
+import { serviceClient } from '../_shared/supabaseClients.ts';
 
 const ANNOUNCEMENT_TYPES: Record<string, string> = {
   '營收': 'revenue', '股利': 'dividend', '配息': 'dividend', '除權': 'dividend',
@@ -82,6 +83,7 @@ Deno.serve(withLogging('checkup-mops-announcements', async (req) => {
     }, {
       source: 'mops_twse',
       policy: { maxAttempts: 3, baseDelayMs: 1200, timeoutMs: 10_000 },
+      health: { supa: serviceClient() },
     });
 
     if (!response.ok) {
