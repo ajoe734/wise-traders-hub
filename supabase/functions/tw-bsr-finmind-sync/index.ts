@@ -190,7 +190,7 @@ async function rebuildRollup(stockId: string, asOf: string) {
     rows.filter((r: any) => r.trade_date === asOf).map((r: any) => r.broker_id),
   );
   const todayBrokerCount = todayBrokers.size;
-  for (const win of [5, 20, 60] as const) {
+  for (const win of [1, 5, 10, 20, 60] as const) {
     const dates = pickWindowDates(uniqueDates, win);
     const w = computeBsrWindow(rows as any, dates);
     if (!w) continue;

@@ -1,12 +1,16 @@
 // _shared/seriesReadiness.ts
-// 唯一真相：三大法人 / BSR 集中度 序列在 5/20/60 日視窗的完整度判定。
+// 唯一真相：三大法人 / BSR 集中度 序列在 1/5/10/20/60 日視窗的完整度判定。
 // 對外只暴露 4 個使用者可讀狀態，其餘診斷欄位供 debug。
 // tw-chips-detail 與 ChipsTrendChart 均讀此結果，不再各自 slice。
 
 export type ReadinessState = 'ready' | 'filling' | 'upstream_exhausted' | 'no_data';
 
+/** 支援的視窗天數（1/5/10 供關鍵分點切換，20/60 供既有趨勢判讀）。 */
+export type BsrWindowDays = 1 | 5 | 10 | 20 | 60;
+export type WindowKey = '1' | '5' | '10' | '20' | '60';
+
 export type WindowReadiness = {
-  window_days: 5 | 20 | 60;
+  window_days: BsrWindowDays;
   state: ReadinessState;
   have: number;
   need: number;
@@ -25,11 +29,11 @@ export type ReadinessInput = {
   upstreamExhausted?: boolean;
 };
 
-const WINDOWS: Array<5 | 20 | 60> = [5, 20, 60];
+export const WINDOWS: BsrWindowDays[] = [1, 5, 10, 20, 60];
 
 export function resolveWindow(
   input: ReadinessInput,
-  window_days: 5 | 20 | 60,
+  window_days: BsrWindowDays,
 ): WindowReadiness {
   const have = input.validDatesAsc.length;
   const newest = have ? input.validDatesAsc[have - 1] : null;
@@ -83,12 +87,10 @@ export function resolveWindow(
   };
 }
 
-export function resolveAllWindows(input: ReadinessInput): Record<'5' | '20' | '60', WindowReadiness> {
-  return {
-    '5': resolveWindow(input, 5),
-    '20': resolveWindow(input, 20),
-    '60': resolveWindow(input, 60),
-  };
+export function resolveAllWindows(input: ReadinessInput): Record<WindowKey, WindowReadiness> {
+  const out = {} as Record<WindowKey, WindowReadiness>;
+  for (const w of WINDOWS) out[String(w) as WindowKey] = resolveWindow(input, w);
+  return out;
 }
 
 /** 使用者可讀文案（不承諾具體時間）。 */
