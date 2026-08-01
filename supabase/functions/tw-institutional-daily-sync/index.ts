@@ -667,21 +667,24 @@ async function runKeepWarm(
   }
 
   await recordSourceHealth(supa, "twse_t86", true, fetchLatency);
+  // T86 只有上市；同日再用 FinMind 全市場補上櫃缺口。
+  const otc = await fillOtcGap(supa, tradeDate, opts.wave);
   await supa.from("data_source_refresh_logs").insert({
     source_key: "tw_keep_warm",
     status: "success",
     started_at: startedAt,
     finished_at: new Date().toISOString(),
     duration_ms: Date.now() - Date.parse(startedAt),
-    row_count: inserted,
-    metadata: { run_id: runId, wave: opts.wave, requested_date: iso, resolved_date: tradeDate, attempts },
+    row_count: inserted + otc.inserted,
+    metadata: { run_id: runId, wave: opts.wave, requested_date: iso, resolved_date: tradeDate, attempts, otc },
   });
 
   return {
     ok: true, mode: "keep_warm", wave: opts.wave,
-    requested_date: iso, resolved_date: tradeDate, inserted, attempts,
+    requested_date: iso, resolved_date: tradeDate, inserted, otc, attempts,
   };
 }
+
 
 // 公開模式：只讀公開市場資料 / 觸發公開資料回補，不需 cron key 也不需 admin。
 // 之所以公開：持倉抽屜（含 FreeCheckup 免登入表面）任何訪客都可能觸發「回補 60 日」，
