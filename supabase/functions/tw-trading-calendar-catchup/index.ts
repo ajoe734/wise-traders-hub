@@ -55,12 +55,11 @@ Deno.serve(async (req) => {
   const report: Record<string, unknown> = { run_id: runId, started_at: startedAt, dry_run: dryRun };
 
   try {
-    const alive = await checkKillSwitch(supa, 'chips_backfill');
-    if (!alive) {
-      return new Response(JSON.stringify({ ok: true, skipped: true, reason: 'kill_switch_off' }), {
-        status: 200, headers: { ...corsHeaders, 'Content-Type': 'application/json' },
-      });
-    }
+    // kill switch 只擋「入列回填 / 收斂視窗」這種會打上游的動作；
+    // 日曆維護與缺口盤點永遠要跑，否則熔斷期間假日表會停止更新。
+    const backfillEnabled = await checkKillSwitch(supa, 'chips_backfill');
+    report.backfill_enabled = backfillEnabled;
+
 
     const today = taipeiTodayIso();
     // 只補到「最近一個已收盤的交易日」為止：今天若還在盤中不算缺口。
