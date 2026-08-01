@@ -409,16 +409,88 @@ export function useTwChipsDetail(stockCode: string | undefined | null, enabled =
     };
   }, [stockCode, enabled, manualBump, attempt]);
 
-  const refetch = () => {
+  const refetch = useCallback((opts?: { auto?: boolean }) => {
+    if (opts?.auto) autoSourceRef.current = true;
     if (stockCode) CACHE.delete(stockCode);
     setAttempt((n) => n + 1);
-  };
+  }, [stockCode]);
 
   // 新鮮度單一資料源（src/checkup/lib/freshness.ts）：內建 ticker，
   // 抽屜開著不動也會隨時鐘把 stale / ageMs 推進，不再凍在打開那一刻。
   const { ageMs, label: ageLabel, clock: fetchedAtClock, stale } = useFreshness(fetchedAt, TTL_MS);
 
-  return { data, loading, error, fetchedAt, ageMs, ageLabel, fetchedAtClock, online, stale, refetch };
+  // ── 過期自動重抓 ─────────────────────────────────────────────
+  // 規則（避免打爆 edge function）：
+  //   1. 只在 stale（> TTL）且已有一次成功結果、線上、分頁可見時觸發。
+  //   2. 失敗以指數退避（30s → 60s → 120s → 上限 5 分鐘），連續 4 次失敗後停手改由使用者手動。
+  //   3. 分頁隱藏時暫停（顯示 PAUSED），切回前景若已過期立即補抓一次。
+  const [autoState, setAutoState] = useState<AutoRefreshState>('idle');
+  const [nextAutoAt, setNextAutoAt] = useState<number | null>(null);
+  const autoFailuresRef = useRef(0);
+  const lastAutoAtRef = useRef(0);
+  const [visible, setVisible] = useState(
+    typeof document === 'undefined' ? true : document.visibilityState !== 'hidden',
+  );
+
+  useEffect(() => {
+    if (typeof document === 'undefined') return;
+    const onVis = () => setVisible(document.visibilityState !== 'hidden');
+    document.addEventListener('visibilitychange', onVis);
+    return () => document.removeEventListener('visibilitychange', onVis);
+  }, []);
+
+  // 每次成功抓到新資料 → 重置退避
+  useEffect(() => {
+    if (fetchedAt && !error) {
+      autoFailuresRef.current = 0;
+      setNextAutoAt(null);
+      setAutoState('idle');
+    }
+  }, [fetchedAt, error]);
+
+  useEffect(() => {
+    if (!enabled || !stockCode || !isTaiwanStockCode(stockCode)) return;
+    if (!stale || loading || !fetchedAt) return;
+    if (!online) return;
+    if (autoFailuresRef.current >= AUTO_MAX_FAILURES) { setAutoState('exhausted'); return; }
+    if (!visible) { setAutoState('paused'); return; }
+
+    const backoff = autoFailuresRef.current === 0
+      ? 0
+      : Math.min(AUTO_BASE_BACKOFF_MS * 2 ** (autoFailuresRef.current - 1), AUTO_MAX_BACKOFF_MS);
+    const dueAt = Math.max(lastAutoAtRef.current + backoff, Date.now());
+    setNextAutoAt(backoff > 0 ? dueAt : null);
+
+    const delay = Math.max(0, dueAt - Date.now());
+    const t = setTimeout(() => {
+      lastAutoAtRef.current = Date.now();
+      setAutoState('refreshing');
+      trackEvent('chips_auto_refetch', {
+        stock_code: stockCode,
+        age_ms: ageMs,
+        failures: autoFailuresRef.current,
+        is_view_as: isViewAsActive(),
+      });
+      refetch({ auto: true });
+    }, delay);
+    return () => clearTimeout(t);
+  }, [stale, loading, fetchedAt, online, visible, enabled, stockCode, ageMs, refetch]);
+
+  // 自動重抓失敗 → 記一次失敗、進入退避
+  const lastErrorRef = useRef<ChipsError | null>(null);
+  useEffect(() => {
+    if (error && error !== lastErrorRef.current && autoSourceRef.current === false && autoState === 'refreshing') {
+      autoFailuresRef.current += 1;
+      setAutoState(autoFailuresRef.current >= AUTO_MAX_FAILURES ? 'exhausted' : 'failed');
+    }
+    lastErrorRef.current = error;
+  }, [error, autoState]);
+
+  return {
+    data, loading, error, fetchedAt, ageMs, ageLabel, fetchedAtClock, online, stale, refetch,
+    autoState, nextAutoAt, autoFailures: autoFailuresRef.current,
+  };
 }
+
 
 
