@@ -1,16 +1,12 @@
 // @ts-nocheck
 // ChipsSection — 抽屜「§4.6 籌碼面」（僅台股渲染）
 // 三大法人 1/5/20/60 日 + BSR 前 3 買/賣 + 集中度
-import React, { useEffect, useMemo, useRef } from 'react';
-import { useTwChipsDetail, isTaiwanStockCode, isTaiwanChipEligible, type TwChipsPayload } from '@/checkup/hooks/useTwChipsDetail';
-import { useChipsState } from '@/checkup/hooks/useChipsState';
+import React, { useMemo } from 'react';
+import { isTaiwanStockCode, type TwChipsPayload } from '@/checkup/hooks/useTwChipsDetail';
+import { useChipsLifecycle } from '@/checkup/hooks/useChipsLifecycle';
 import ChipsTrendChart from './ChipsTrendChart';
 import { bsrHeaderLabel } from './bsrHeaderLabel';
-import { useChipsBackfill } from '@/checkup/hooks/useChipsBackfill';
-import { useChipsAutoBackfill } from '@/checkup/hooks/useChipsAutoBackfill';
-import { isBackfillSatisfied, nextPollDelay } from '@/checkup/lib/chipsBackfillMachine';
-import { toast } from 'sonner';
-import { trackEvent } from '@/lib/trafficTracker';
+
 import { formatSharesAsLots, SHARES_PER_LOT } from '@/lib/lotSize';
 import { chipsPrefs, type BsrWindowKey } from '@/checkup/lib/drawerPrefs';
 
@@ -160,13 +156,16 @@ export default function ChipsSection({ WB, stockCode }: { WB: any; stockCode: st
     );
   }
 
-  const { data, loading, error, fetchedAt, ageLabel, fetchedAtClock, online, stale, refetch, autoState, nextAutoAt } = useTwChipsDetail(stockCode, true);
-  const uiState = useChipsState({
-    stockCode,
-    payload: data,
-    error,
-    chipEligible: isTaiwanChipEligible(stockCode),
-  });
+  // 單一生命週期入口（候選 C）：取數／新鮮度／顯示 5 態／佇列輪詢／回補全在這裡。
+  // 元件不再自組四台機器，也不再自己從 payload 挖 instDays / syncStatus。
+  const {
+    data, loading, error, fetchedAt, ageLabel, fetchedAtClock, online, stale, refetch,
+    autoState, nextAutoAt,
+    ui: uiState,
+    facts,
+    backfilling, backfillPhase: autoBackfillPhase, requestBackfill: handleBackfill,
+  } = useChipsLifecycle(stockCode, true);
+  const { instDays, bsrDays, sparse } = facts;
 
   const hasInst = useMemo(
     () => data && Object.values(data.institutional || {}).some((w) => w),
@@ -189,68 +188,12 @@ export default function ChipsSection({ WB, stockCode }: { WB: any; stockCode: st
   const syncStatus = data?.bsr_sync_status;
 
   // BSR 對前端是唯讀的：排程一律由後端 cron（每日 15:30 + 盤後每 15 分鐘 delta）與
-  // trade_records AFTER INSERT trigger 負責。開抽屜不再觸發 ensure_bsr_queued，
-  // 避免使用者體感「打開才開始跑」。若使用者要強制立即同步，請用手動按鈕（走 mode=manual）。
-
-  // 自動輪詢（退避）：僅在 status ∈ {pending, running} 時輪詢；一旦轉出立即停止
-  const bsrPending = syncStatus?.status === 'pending' || syncStatus?.status === 'running';
-  const attemptsRef = useRef(0);
-  useEffect(() => {
-    if (!bsrPending) { attemptsRef.current = 0; return; }
-    const delay = nextPollDelay(attemptsRef.current);
-    const t = setTimeout(() => { attemptsRef.current += 1; refetch(); }, delay);
-    return () => clearTimeout(t);
-  }, [bsrPending, fetchedAt, refetch]);
-
-  // P3：契約收斂 — 前台不再於抽屜開啟時觸發 ensure_bsr_window。
-  // 窗口補齊統一由 Orchestrator（三波 cron 15:35/17:35/19:35）+ trade_records
-  // AFTER INSERT trigger 決定；使用者可用下方「回補歷史」手動按鈕強制。
-
-  // 手動回補歷史（三大法人 + BSR 佇列）
-  const instDays = data?.series?.institutional_daily?.length ?? 0;
-  const bsrDays = data?.series?.bsr_concentration?.length ?? 0;
-  const sparse = !!data && (instDays < 20 || bsrDays < 5);
-  const { backfilling, requestBackfill } = useChipsBackfill(stockCode);
-  const handleBackfill = React.useCallback(async () => {
-    const result = await requestBackfill();
-    if (!result) return;
-    if (result.ok) {
-      toast.success(
-        `已排入歷史回補${result.bsrCount ? `（BSR ${result.bsrCount} 個交易日）` : ''}，三大法人約 10 秒、分點約 5–15 分鐘內完成`,
-      );
-      setTimeout(() => refetch(), 3000);
-    } else {
-      toast.error(`回補失敗：${String(result.error || '未知錯誤').slice(0, 80)}`);
-    }
-  }, [requestBackfill, refetch]);
-
-  // 自動回補：資料稀疏時開抽屜自動排入一次，並追蹤 30 分鐘內是否補滿。
-  // 狀態轉移全部下沉到純 reducer（chipsBackfillMachine），這裡只餵事實、收 phase。
-  const satisfied = isBackfillSatisfied({
-    readiness60: data?.readiness?.institutional?.['60']?.state,
-    readiness20: data?.readiness?.institutional?.['20']?.state,
-    instDays,
-  });
-  const { phase: autoBackfillPhase } = useChipsAutoBackfill({
-    stockCode,
-    hasData: !!data,
-    sparse,
-    eligible: syncStatus?.eligible,
-    syncStatus: syncStatus?.status,
-    satisfied,
-    requestBackfill: handleBackfill,
-    onTimeout: ({ stockCode: code, elapsedMs }) =>
-      trackEvent('chips_auto_backfill_timeout', {
-        stock_code: code,
-        elapsed_ms: elapsedMs,
-        inst_days: instDays,
-        bsr_days: bsrDays,
-      }),
-  });
-
+  // trade_records AFTER INSERT trigger 負責；使用者可用下方「回補歷史」手動按鈕強制。
+  // P3：前台不再於抽屜開啟時觸發 ensure_bsr_window / ensure_bsr_queued。
 
   // 依真實 status 渲染 BSR 標頭文案（單一來源：bsrHeaderLabel.ts）
   const headerLabel = bsrHeaderLabel(syncStatus, !!data?.bsr_as_of);
+
 
 
   return (
