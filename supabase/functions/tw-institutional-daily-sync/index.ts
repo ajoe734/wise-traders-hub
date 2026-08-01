@@ -528,20 +528,23 @@ async function runKeepWarm(
     .select("stock_id", { count: "exact", head: true })
     .eq("trade_date", iso);
   if ((existingCount ?? 0) > 100 && !opts.force) {
+    // T86（上市）已到位，但上櫃仍可能缺；短路前先跑一次 OTC 補洞。
+    const otc = await fillOtcGap(supa, iso, opts.wave);
     await supa.from("data_source_refresh_logs").insert({
       source_key: "tw_keep_warm",
       status: "skipped",
       started_at: startedAt,
       finished_at: new Date().toISOString(),
       duration_ms: 0,
-      row_count: existingCount ?? 0,
-      metadata: { run_id: runId, wave: opts.wave, reason: "already_present", date: iso },
+      row_count: otc.inserted,
+      metadata: { run_id: runId, wave: opts.wave, reason: "already_present", date: iso, otc },
     });
     return {
       ok: true, mode: "keep_warm", skipped: true, reason: "already_present",
-      wave: opts.wave, date: iso, existing: existingCount,
+      wave: opts.wave, date: iso, existing: existingCount, otc,
     };
   }
+
 
   // PR-9 kill-switch：整個 chips 或 keepwarm 被關就直接跳過
   const swAll = await checkKillSwitch(supa, "chips_all");
