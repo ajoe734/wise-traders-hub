@@ -11,7 +11,11 @@
  *   - now=<ms|ISO>     固定時鐘注入：把 Date.now 釘在指定時刻（決定論，優於 freezeTime）
  *   - staleAfter=<ms>  位移延遲，預設 800
  *   - staleShift=<ms>  位移量，預設 6 分鐘（TTL 5 分 + 1）
+ *   - visibility=hidden|visible  分頁可見性覆寫（預設：force=stale → hidden，其餘 visible）
+ *     visible 時自動重抓會照常排程，用來驗證 STALE badge 不被 auto revalidate 吃掉。
+ *     spec 可用 window.__harnessSetVisibility('visible'|'hidden') 即時切換。
  *   force 可用逗號組合（例 force=stale,fresh → fresh 勝出）。
+
  *
  * 時鐘覆寫規則與權重的**單一實作**在 `@/checkup/lib/harnessClock`
  * （含單元測試 `__tests__/harnessClock.test.ts`）；規格文件見
@@ -65,20 +69,38 @@ function applyForceOffline() {
 }
 
 /**
- * force=stale 時把分頁標成 hidden。
- * useTwChipsDetail 的 planAutoRefresh 在 !visible 時回 'paused' 不排程，
- * 否則 stale 一亮起就立刻自動重抓 → fetchedAt 被刷新 → badge 瞬間消失，
- * 快照永遠抓不到。stamp 探針同樣靠 visible 關掉，畫面才穩定。
+ * 分頁可見性覆寫（可切換）。
+ *
+ * useTwChipsDetail 的 planAutoRefresh 在 !visible 時回 'paused' 不排程；
+ * visible 時 stale 一亮就會自動重抓。STALE 快照預設用 hidden 保護，
+ * 但視覺回歸矩陣要能同時驗證 visible（自動重抓不得吃掉 badge），
+ * 所以這裡把可見性做成可讀可寫、可即時切換的覆寫。
+ *
+ * spec 用 `window.__harnessSetVisibility('visible'|'hidden')` 切換，
+ * 切換會 dispatch `visibilitychange`，hook 的 listener 才會跟上。
  */
-function applyHiddenTab() {
+let visibilityOverride: 'hidden' | 'visible' | null = null;
+function installVisibilityOverride(initial: 'hidden' | 'visible') {
+  visibilityOverride = initial;
   try {
-    Object.defineProperty(document, 'visibilityState', {
-      value: 'hidden',
-      configurable: true,
-    });
-    Object.defineProperty(document, 'hidden', { value: true, configurable: true });
+    if (!(window as any).__harnessVisibilityInstalled) {
+      Object.defineProperty(document, 'visibilityState', {
+        get: () => visibilityOverride ?? 'visible',
+        configurable: true,
+      });
+      Object.defineProperty(document, 'hidden', {
+        get: () => (visibilityOverride ?? 'visible') === 'hidden',
+        configurable: true,
+      });
+      (window as any).__harnessVisibilityInstalled = true;
+      (window as any).__harnessSetVisibility = (v: 'hidden' | 'visible') => {
+        visibilityOverride = v;
+        document.dispatchEvent(new Event('visibilitychange'));
+      };
+    }
   } catch {}
 }
+
 
 /**
  * 時間控制器：規則與權重全部委派給 `@/checkup/lib/harnessClock`。
@@ -133,10 +155,19 @@ export default function ChipsSectionHarnessEntry() {
   const staleShiftMs =
     Number(params.get('staleShift')) > 0 ? Number(params.get('staleShift')) : STALE_SHIFT_DEFAULT_MS;
 
+  // visibility=hidden|visible 顯式覆寫；未給時沿用歷史預設（stale → hidden）
+  const visibilityParam = params.get('visibility');
+  const visibility: 'hidden' | 'visible' =
+    visibilityParam === 'hidden' || visibilityParam === 'visible'
+      ? visibilityParam
+      : mode === 'stale'
+        ? 'hidden'
+        : 'visible';
+
   // force=offline 必須在第一次 render 前生效
   if (force?.includes('offline')) applyForceOffline();
-  // 只有 stale 需要凍住自動重抓；fresh 讓頁面照常可見
-  if (mode === 'stale') applyHiddenTab();
+  installVisibilityOverride(visibility);
+
 
 
   const [tick, setTick] = useState(0);
@@ -154,6 +185,8 @@ export default function ChipsSectionHarnessEntry() {
       data-testid="chips-harness-root"
       data-stale-shifted={shifted ? '1' : '0'}
       data-fixed-now={fixedNow != null ? '1' : '0'}
+      data-visibility={visibility}
+
       style={{
 
         background: WB?.bg || '#F5F3EF',

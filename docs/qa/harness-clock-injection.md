@@ -47,6 +47,7 @@
   &now=<epochMs|ISO>              # 固定時鐘注入（優於 freezeTime）
   &staleAfter=<ms>                # 位移延遲，預設 800
   &staleShift=<ms>                # 位移量，預設 360000
+  &visibility=hidden|visible      # 分頁可見性覆寫（預設：force=stale→hidden，其餘 visible）
 ```
 
 Harness 對外訊號（spec 用來取代 `waitForTimeout`）：
@@ -55,10 +56,15 @@ Harness 對外訊號（spec 用來取代 `waitForTimeout`）：
 | --- | --- |
 | `data-stale-shifted="1"` | 位移已實際套用 |
 | `data-fixed-now="1"` | 時鐘已被釘死 |
+| `data-visibility="hidden\|visible"` | 目前的可見性覆寫值 |
 
-另外 `force=stale` 會把分頁標成 `visibilityState: 'hidden'`：`useTwChipsDetail`
-的 `planAutoRefresh` 在 `!visible` 時回 `paused` 不排程，否則 stale 一亮就被自動
-重抓刷新 `fetchedAt`，badge 瞬間消失、快照抓不到。`force=fresh` 不需要這招。
+Spec 可用 `window.__harnessSetVisibility('visible'|'hidden')` 於執行期切換，
+會同步 dispatch `visibilitychange`，`useTwChipsDetail` 的 listener 才跟得上。
+
+`visibility=hidden` 是 STALE 快照的保護傘：`useTwChipsDetail` 的
+`planAutoRefresh` 在 `!visible` 時回 `paused` 不排程；反之 stale 一亮就被自動
+重抓刷新 `fetchedAt`（= `query.dataUpdatedAt`，真實時鐘），badge 會熄滅。
+`force=fresh` 不需要這招。
 
 ## 測試端使用規範（STALE 斷點）
 
@@ -70,6 +76,21 @@ Harness 對外訊號（spec 用來取代 `waitForTimeout`）：
 3. **快照鎖定** — 先斷言 badge 可見 + 文案為固定的「6 分鐘前」+ 500ms 後仍未熄滅，
    再 `toHaveScreenshot({ animations: 'disabled', maxDiffPixelRatio: 0 })`，
    並對該 describe 設 `test.describe.configure({ retries: 2 })`。
+
+### STALE 視覺回歸矩陣（#10）
+
+`visibility` × auto revalidate 回應延遲 兩個變數的完整組合，確保 badge 不會被
+auto revalidate 意外吃掉（或反過來，該熄滅時沒熄滅）：
+
+| 案例 | visibility | 重抓回應延遲 | 期望 | 快照 |
+| --- | --- | --- | --- | --- |
+| A | hidden | 0ms | 不排程（請求數恆為 1），badge 永久亮、文案「6 分鐘前」 | `chips-badge-stale-hidden.png` |
+| B | visible | 3000ms | 重抓飛行中 `fetchedAt` 未更新 → badge 仍亮 | `chips-badge-stale-refreshing.png` |
+| C | visible | 0ms | 重抓完成後 badge 熄滅、文案回「剛剛更新」，請求數 > 1 | —（行為斷言） |
+| D | hidden → visible | 0ms | 切換前恆亮且無請求；切換後才被 revalidate 收掉 | —（行為斷言） |
+
+首發請求一律立即回應，只對第 2 次（含）之後的請求加延遲，避免初次載入被拖慢。
+
 
 ## 復用到其他 harness
 
