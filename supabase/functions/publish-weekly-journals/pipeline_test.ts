@@ -110,15 +110,17 @@ function fakePort(over: Partial<FakeState> = {}): { port: PublishPort; state: Fa
 }
 
 // ── 1. scope ──────────────────────────────────────────────────────────────
-Deno.test('resolveMarketScope: US 涵蓋 us_stock / us_futures / crypto，TW 取其餘', async () => {
+Deno.test('resolveMarketScope: US 涵蓋股票、期貨、選擇權與 crypto，TW 取其餘', async () => {
   const { port } = fakePort({
     experts: [
       { id: 'a', asset_class: 'tw_stock' }, { id: 'b', asset_class: 'us_stock' },
       { id: 'c', asset_class: 'crypto' }, { id: 'd', asset_class: null },
       { id: 'e', asset_class: 'us_futures' },
+      { id: 'f', asset_class: 'us_future' },
+      { id: 'g', asset_class: 'us_option' },
     ],
   });
-  assertEquals(await resolveMarketScope(port, 'US'), ['b', 'c', 'e']);
+  assertEquals(await resolveMarketScope(port, 'US'), ['b', 'c', 'e', 'f', 'g']);
   assertEquals(await resolveMarketScope(port, 'TW'), ['a', 'd']);
 });
 

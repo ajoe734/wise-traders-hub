@@ -13,6 +13,7 @@ import { requireCronKey, AuthError } from '../_shared/authGuard.ts';
 const SUPABASE_URL = Deno.env.get('SUPABASE_URL')!;
 const SERVICE_ROLE_KEY = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')!;
 const ANON_KEY = Deno.env.get('SUPABASE_ANON_KEY') ?? '';
+const CRON_SHARED_SECRET = Deno.env.get('CRON_SHARED_SECRET') ?? '';
 
 const MAX_DISPATCH_PER_TICK = 10;
 
@@ -35,6 +36,18 @@ Deno.serve(async (req) => {
 
   const admin = serviceClient();
   const nowIso = new Date().toISOString();
+
+  // runner dispatch 若在 gateway 層失敗，舊版 watchdog 會把 row 永久留在 running。
+  // 每次 tick 先回收超過 runner timeout 安全邊界的卡死工作。
+  const staleBefore = new Date(Date.now() - 3 * 60_000).toISOString();
+  await admin.from('publish_batch_attempts')
+    .update({
+      status: 'pending_retry',
+      next_retry_at: nowIso,
+      error_message: 'WATCHDOG_RECOVERED_STALE_RUNNING',
+    })
+    .eq('status', 'running')
+    .lt('started_at', staleBefore);
 
   // 1) 找到期的 pending_retry
   const { data: due, error } = await admin
@@ -69,8 +82,8 @@ Deno.serve(async (req) => {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
-          Authorization: `Bearer ${SERVICE_ROLE_KEY}`,
           apikey: ANON_KEY,
+          'X-Cron-Key': CRON_SHARED_SECRET,
         },
         body: JSON.stringify({
           market: row.market,

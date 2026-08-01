@@ -63,6 +63,24 @@ export function nextPublishMomentLabel(assetClass?: string | null): string {
 }
 
 /**
+ * 排程截止後、下一個交易週一 08:00 前仍有待發布週記時，應主動詢問老師是否立即發布。
+ * 這不是一般撰寫視窗；只供既有 pending 週記的遲交／漏發補救提示。
+ */
+export function shouldPromptPendingJournalPublish(
+  assetClass: string | null | undefined,
+  pendingCount: number,
+): boolean {
+  if (pendingCount <= 0) return false;
+  const market = marketOfAssetClass(assetClass);
+  const { day, hhmm } = taipeiClockOf();
+
+  if (day === 0) return true;
+  if (day === 1 && hhmm < 800) return true;
+  if (market === 'US') return day === 6 && hhmm >= 800;
+  return day === 5 && hhmm >= 2000 || day === 6;
+}
+
+/**
  * 訊號／週記是否仍可被分析師收回（rollback）。
  * 規則：必須在「發布當日（台灣時間 Asia/Taipei）」內；跨自然日後即不可收回。
  * pending（尚未發布）視為可收回。

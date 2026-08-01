@@ -24,7 +24,7 @@ import {
 import { buildEarlyPublishNotification } from '../_shared/notificationTemplates.ts';
 import type { EmitFn, PendingSignal, PublishPort } from './port.ts';
 
-const US_ASSET_CLASSES = ['us_stock', 'us_futures', 'crypto'];
+const US_ASSET_CLASSES = ['us_stock', 'us_futures', 'us_future', 'us_option', 'crypto'];
 const noopEmit: EmitFn = () => {};
 
 export interface PublishFailure {

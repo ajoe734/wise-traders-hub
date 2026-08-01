@@ -8,7 +8,7 @@
  *   - 提前發布（force）流程使用的按鈕文案與 toast 訊息
  */
 import { describe, it, expect, afterEach, vi } from 'vitest';
-import { isPublishingWindowOpen, nextPublishMomentLabel } from '@/lib/publishingWindow';
+import { isPublishingWindowOpen, nextPublishMomentLabel, shouldPromptPendingJournalPublish } from '@/lib/publishingWindow';
 import fs from 'node:fs';
 import path from 'node:path';
 
@@ -89,5 +89,31 @@ describe('提前發布（force）流程文案不得出現「下週」', () => {
   it('publishingWindow.ts 全檔沒有任何「下週」字樣', () => {
     const src = fs.readFileSync(path.join(root, 'src/lib/publishingWindow.ts'), 'utf8');
     expect(src).not.toContain('下週');
+  });
+});
+
+describe('排程截止後到週一開市前的待發布提示', () => {
+  const cases = [
+    ['TW 週五 20:00', twDate(2026, 7, 24, 20, 0), 'tw_stock'],
+    ['TW 週六', twDate(2026, 7, 25, 10, 0), 'tw_stock'],
+    ['TW 週日', twDate(2026, 7, 26, 10, 0), 'tw_stock'],
+    ['US 週六 08:00', twDate(2026, 7, 25, 8, 0), 'us_stock'],
+    ['US option 週六', twDate(2026, 7, 25, 10, 0), 'us_option'],
+    ['週一開市前', twDate(2026, 7, 27, 7, 59), 'us_stock'],
+  ] as const;
+
+  for (const [label, now, assetClass] of cases) {
+    it(`${label} 有 pending 時主動詢問`, () => {
+      vi.useFakeTimers();
+      vi.setSystemTime(now);
+      expect(shouldPromptPendingJournalPublish(assetClass, 1)).toBe(true);
+      expect(shouldPromptPendingJournalPublish(assetClass, 0)).toBe(false);
+    });
+  }
+
+  it('週一 08:00 後不再顯示補發詢問', () => {
+    vi.useFakeTimers();
+    vi.setSystemTime(twDate(2026, 7, 27, 8, 0));
+    expect(shouldPromptPendingJournalPublish('us_stock', 1)).toBe(false);
   });
 });
