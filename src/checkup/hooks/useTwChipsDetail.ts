@@ -231,10 +231,13 @@ export interface ChipsError {
 
 function classifyError(err: unknown, status?: number): ChipsError {
   const msg = (err as Error)?.message || String(err);
+  const name = (err as Error)?.name || '';
+  const causeMsg = String(((err as any)?.cause as Error | undefined)?.message ?? '');
+  const hay = `${name} ${msg} ${causeMsg}`.toLowerCase();
   if (typeof navigator !== 'undefined' && !navigator.onLine) {
     return { kind: 'offline', message: msg, reason: '目前離線，恢復連線後可自動重試' };
   }
-  if (msg.includes('AbortError') || msg.includes('timeout')) {
+  if (name === 'AbortError' || hay.includes('aborterror') || hay.includes('timeout') || hay.includes('timedout')) {
     return { kind: 'timeout', status, message: msg, reason: '請求逾時，請稍後重試' };
   }
   if (status === 401 || status === 403) {
@@ -246,7 +249,13 @@ function classifyError(err: unknown, status?: number): ChipsError {
   if (status && status >= 500) {
     return { kind: 'server', status, message: msg, reason: '伺服器暫時無法回應（TWSE 可能異常）' };
   }
-  if (msg.toLowerCase().includes('failed to fetch') || msg.toLowerCase().includes('networkerror')) {
+  if (
+    hay.includes('failed to fetch') ||
+    hay.includes('networkerror') ||
+    hay.includes('load failed') ||
+    hay.includes('err_') ||
+    !status // 無 HTTP status = 根本沒連上，一律歸類為網路異常而非 unknown
+  ) {
     return { kind: 'network', message: msg, reason: '網路連線失敗，請重試' };
   }
   return { kind: 'unknown', status, message: msg, reason: msg.slice(0, 80) || '未知錯誤' };
@@ -376,7 +385,14 @@ export function useTwChipsDetail(stockCode: string | undefined | null, enabled =
           status = 200;
         } catch (err: any) {
           status = err?.status;
-          throw new Error(`chips ${err?.status ?? 0}: ${String(err?.body ?? err?.message ?? '').slice(0, 120)}`);
+          // 傳輸層失敗（abort／斷線／DNS）沒有 status，也常常沒有 body：
+          // 一定要把原始 message 與 name 帶下去，否則 classifyError 只看到
+          // 「chips 0:」而落到 unknown 分支，使用者看到無意義的錯誤碼。
+          const detail = String(err?.body ?? err?.message ?? err?.name ?? '').slice(0, 120);
+          const wrapped = new Error(`chips ${err?.status ?? 0}: ${detail}`);
+          (wrapped as any).name = err?.name ?? wrapped.name;
+          (wrapped as any).cause = err;
+          throw wrapped;
         }
 
         const json = JSON.parse(rawText) as TwChipsPayload & {
