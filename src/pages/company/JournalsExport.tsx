@@ -26,6 +26,7 @@ import {
   ASSET_LABEL,
   buildJournalExport,
   buildMentorMarkdown,
+  deriveOpeningBalances,
   detectExportRisks,
   downloadBlob,
   fmtTaipei,
@@ -33,6 +34,7 @@ import {
   safeSlug,
   type ExportRiskReport,
   type JournalRowExport,
+  type OpeningBalanceTradeRecord,
 } from '@/lib/journalsExport';
 import { ExportRiskDialog } from '@/components/company/ExportRiskDialog';
 import { trackRaw } from '@/lib/analytics/events';
@@ -454,7 +456,32 @@ const JournalsExport = () => {
 
     // 風險守門：偵測單位/方向不一致
     if (!opts?.force) {
-      const report = detectExportRisks(scoped as unknown as JournalRowExport[], { publishedOnly });
+      const relevantKeys = new Set(scoped
+        .filter((row) => !!row.instrument)
+        .map((row) => `${row.expert_id}::${row.instrument}`));
+      const expertIds = [...new Set(scoped.map((row) => row.expert_id))];
+      const { data: openingRows, error: openingError } = await supabase
+        .from('trade_records')
+        .select('expert_id, instrument, quantity, quantity_unit, entry_date, exit_date')
+        .in('expert_id', expertIds)
+        .lt('entry_date', range.startIso)
+        .or(`exit_date.is.null,exit_date.gte.${range.startIso}`);
+      if (openingError) {
+        toast.error('無法核對歷史持倉，已停止匯出', {
+          description: openingError.message,
+          duration: 8000,
+        });
+        return;
+      }
+      const openingBalances = deriveOpeningBalances(
+        (openingRows ?? []) as OpeningBalanceTradeRecord[],
+        relevantKeys,
+        range.startIso,
+      );
+      const report = detectExportRisks(scoped as unknown as JournalRowExport[], {
+        openingBalances,
+        publishedOnly,
+      });
       try {
         trackRaw('journal_export_risk_gate', {
           blocked: report.blocked,

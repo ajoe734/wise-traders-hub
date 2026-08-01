@@ -277,6 +277,15 @@ export interface DetectExportRisksCtx {
   publishedOnly?: boolean;
 }
 
+export interface OpeningBalanceTradeRecord {
+  expert_id: string;
+  instrument: string;
+  quantity: number | null;
+  quantity_unit: string | null;
+  entry_date: string | null;
+  exit_date: string | null;
+}
+
 export const BUY_ACTIONS = new Set(['buy', 'add']);
 export const SELL_ACTIONS = new Set(['sell', 'trim', 'exit']);
 const TRADE_ACTIONS = new Set([...BUY_ACTIONS, ...SELL_ACTIONS]);
@@ -298,6 +307,36 @@ export function toShares(qty: number, unit: ReturnType<typeof normalizeQuantityU
   if (unit === 'lot') return lotsToShares(qty);
   if (unit === 'share' || unit === 'missing') return qty;
   return Number.NaN;
+}
+
+/**
+ * 由 trade_records 的持倉生命週期還原指定週初庫存。
+ * 週初前已建倉，且在週初仍未平倉（或於週初之後才平倉）的紀錄才計入。
+ */
+export function deriveOpeningBalances(
+  records: OpeningBalanceTradeRecord[],
+  relevantKeys: ReadonlySet<string>,
+  startIso: string,
+): Map<string, number> {
+  const balances = new Map<string, number>();
+  const startMs = new Date(startIso).getTime();
+  if (!Number.isFinite(startMs)) return balances;
+
+  for (const record of records) {
+    const key = `${record.expert_id}::${record.instrument}`;
+    if (!relevantKeys.has(key)) continue;
+    const entryMs = record.entry_date ? new Date(record.entry_date).getTime() : Number.NaN;
+    const exitMs = record.exit_date ? new Date(record.exit_date).getTime() : null;
+    if (!Number.isFinite(entryMs) || entryMs >= startMs) continue;
+    if (exitMs !== null && Number.isFinite(exitMs) && exitMs < startMs) continue;
+
+    const quantity = Number(record.quantity);
+    if (!Number.isFinite(quantity) || quantity <= 0) continue;
+    const baseQuantity = toShares(quantity, normalizeQuantityUnit(record.quantity_unit));
+    if (!Number.isFinite(baseQuantity)) continue;
+    balances.set(key, (balances.get(key) ?? 0) + baseQuantity);
+  }
+  return balances;
 }
 
 export function detectExportRisks(

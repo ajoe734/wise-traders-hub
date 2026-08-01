@@ -14,12 +14,9 @@ import { requireCaller, AuthError } from '../_shared/authGuard.ts';
 import { taipeiMondayOf, taipeiWeekRangeUtc } from "../_shared/weekBoundary.ts";
 import {
   buildMentorMarkdown,
+  deriveOpeningBalances,
   detectExportRisks,
-  normalizeQuantityUnit,
   safeSlug,
-  toShares,
-  BUY_ACTIONS,
-  SELL_ACTIONS,
   type JournalRowExport,
 } from "../_shared/journalExportCore.ts";
 
@@ -40,38 +37,24 @@ function weekRangeUtc(weekStart: string) {
 }
 
 async function loadOpeningBalances(supabase: any, rows: any[], startIso: string): Promise<Map<string, number>> {
-  const map = new Map<string, number>();
   const pairs = new Map<string, { expert_id: string; instrument: string }>();
   for (const r of rows) {
     if (!r.instrument) continue;
     const key = `${r.expert_id}::${r.instrument}`;
     if (!pairs.has(key)) pairs.set(key, { expert_id: r.expert_id, instrument: r.instrument });
   }
-  if (pairs.size === 0) return map;
+  if (pairs.size === 0) return new Map();
   const expertIds = [...new Set([...pairs.values()].map((p) => p.expert_id))];
   const { data, error } = await supabase
     .from("trade_records")
-    .select("expert_id, instrument, action, quantity, quantity_unit, occurred_at")
+    .select("expert_id, instrument, quantity, quantity_unit, entry_date, exit_date")
     .in("expert_id", expertIds)
-    .lt("occurred_at", startIso);
+    .lt("entry_date", startIso)
+    .or(`exit_date.is.null,exit_date.gte.${startIso}`);
   if (error) {
-    console.warn(`[weekly-journal-export] loadOpeningBalances failed: ${error.message}`);
-    return map;
+    throw new Error(`load opening balances failed: ${error.message}`);
   }
-  for (const t of (data ?? []) as any[]) {
-    const key = `${t.expert_id}::${t.instrument}`;
-    if (!pairs.has(key)) continue;
-    const qty = Number(t.quantity);
-    if (!Number.isFinite(qty) || qty <= 0) continue;
-    const u = normalizeQuantityUnit(t.quantity_unit);
-    const sh = toShares(qty, u);
-    if (!Number.isFinite(sh)) continue;
-    const action = String(t.action ?? "").toLowerCase();
-    const cur = map.get(key) ?? 0;
-    if (BUY_ACTIONS.has(action)) map.set(key, cur + sh);
-    else if (SELL_ACTIONS.has(action)) map.set(key, cur - sh);
-  }
-  return map;
+  return deriveOpeningBalances(data ?? [], new Set(pairs.keys()), startIso);
 }
 
 Deno.serve(async (req) => {

@@ -112,6 +112,43 @@ describe('journalExportCore — 行為 parity（前台 vs Deno）', () => {
     expect(web.fmtTaipei('2026-06-08T16:00:00Z')).toBe('2026/06/09 00:00');
   });
 
+  it('老周 NVDA：週初前買進、週內平倉應帶入期初 50 股，不得誤判只賣未買', () => {
+    const startIso = '2026-07-26T16:00:00.000Z';
+    const key = 'zhou::NVDA 輝達';
+    const records: web.OpeningBalanceTradeRecord[] = [{
+      expert_id: 'zhou',
+      instrument: 'NVDA 輝達',
+      quantity: 50,
+      quantity_unit: '股',
+      entry_date: '2026-06-18T00:34:31.634Z',
+      exit_date: '2026-07-30T00:27:47.247Z',
+    }];
+    const opening = web.deriveOpeningBalances(records, new Set([key]), startIso);
+    expect(opening.get(key)).toBe(50);
+
+    const report = web.detectExportRisks([row({
+      id: 'nvda-exit',
+      expert_id: 'zhou',
+      instrument: 'NVDA 輝達',
+      action: 'sell',
+      quantity: 50,
+      quantity_unit: '股',
+      experts: { name: '老周', slug: 'master-zhou', role: 'mentor', asset_class: 'us_stock', currency: 'USD' },
+    })], { openingBalances: opening, publishedOnly: true });
+    expect(report.issues.filter((issue) => issue.code.startsWith('DIRECTION_'))).toEqual([]);
+    expect(report.blocked).toBe(false);
+  });
+
+  it('週初前已平倉與週內才買進都不得算入期初庫存', () => {
+    const startIso = '2026-07-26T16:00:00.000Z';
+    const key = 'e1::NVDA 輝達';
+    const records: web.OpeningBalanceTradeRecord[] = [
+      { expert_id: 'e1', instrument: 'NVDA 輝達', quantity: 20, quantity_unit: '股', entry_date: '2026-06-01T00:00:00Z', exit_date: '2026-07-20T00:00:00Z' },
+      { expert_id: 'e1', instrument: 'NVDA 輝達', quantity: 30, quantity_unit: '股', entry_date: '2026-07-28T00:00:00Z', exit_date: null },
+    ];
+    expect(web.deriveOpeningBalances(records, new Set([key]), startIso).get(key)).toBeUndefined();
+  });
+
   it('safeSlug / uniqueMentorFilename 相同（含撞名去重）', () => {
     expect(web.safeSlug('a/b c', 'x')).toBe(deno.safeSlug('a/b c', 'x'));
     const a = new Set<string>();
