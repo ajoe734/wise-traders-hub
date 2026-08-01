@@ -14,6 +14,7 @@ import { requireCronKey, AuthError } from "../_shared/authGuard.ts";
 import { checkCircuit, recordCircuit } from "../_shared/circuitBreaker.ts";
 import { fetchWithRetry, isRetryExhausted, recordRetryFailure } from "../_shared/retryFetch.ts";
 import { checkKillSwitch } from "../_shared/killSwitch.ts";
+import { parseT86 } from "../_shared/institutionalDay.ts";
 import {
   isPublicSyncMode,
   isValidStockId,
@@ -369,37 +370,22 @@ async function runColdStart(
         attempts.push({ date: iso, ok: false, rows: 0, reason: raw?.stat || "no_data" });
         await recordSourceHealth(supa, "twse_t86", false, latency, "no_data");
       } else {
-        // 直接使用主流程相同的欄位解析邏輯（複製自下方主分支，維持單一實作）
-        const fields: string[] = raw?.fields || [];
-        const idxOf = (kw: string) => fields.findIndex((f) => f && f.includes(kw));
-        const iStock = idxOf("證券代號");
-        const iForeignMain = idxOf("外陸資買賣超股數");
-        const iForeignDealer = idxOf("外資自營商買賣超股數");
-        const iTrust = idxOf("投信買賣超");
-        const iDealer = fields.findIndex((f) => f === "自營商買賣超股數");
-        const iDealerSelf = idxOf("自營商買賣超股數(自行買賣)");
-        const iDealerHedge = idxOf("自營商買賣超股數(避險)");
-        const iTotal = idxOf("三大法人買賣超");
-        if (iStock < 0 || iForeignMain < 0 || iTrust < 0 || (iDealer < 0 && iDealerSelf < 0)) {
+        // F4：解析走 _shared/institutionalDay.ts 的單一實作
+        let parsed: ReturnType<typeof parseT86> | null = null;
+        try {
+          parsed = parseT86(raw, iso);
+        } catch (_e) {
           attempts.push({ date: iso, ok: false, rows: rows.length, reason: "schema_drift" });
           await recordSourceHealth(supa, "twse_t86", false, latency, "schema_drift");
-        } else {
+        }
+        if (parsed) {
           const BATCH = 500;
           let inserted = 0;
-          for (let i = 0; i < rows.length; i += BATCH) {
-            const chunk = rows.slice(i, i + BATCH).map((r) => {
-              const stock_id = String(r[iStock] || "").trim();
-              const foreign_net = parseNum(r[iForeignMain]) + (iForeignDealer >= 0 ? parseNum(r[iForeignDealer]) : 0);
-              const trust_net = parseNum(r[iTrust]);
-              const dealer_net = iDealer >= 0
-                ? parseNum(r[iDealer])
-                : parseNum(r[iDealerSelf]) + (iDealerHedge >= 0 ? parseNum(r[iDealerHedge]) : 0);
-              const total_net = iTotal >= 0 ? parseNum(r[iTotal]) : foreign_net + trust_net + dealer_net;
-              return {
-                stock_id, trade_date: iso, foreign_net, trust_net, dealer_net, total_net,
-                raw: { source: "twse_t86_cold_start" },
-              };
-            }).filter((x) => x.stock_id);
+          for (let i = 0; i < parsed.length; i += BATCH) {
+            const chunk = parsed.slice(i, i + BATCH).map((r) => ({
+              ...r,
+              raw: { source: "twse_t86_cold_start" },
+            }));
             const { error } = await supa
               .from("tw_institutional_daily")
               .upsert(chunk, { onConflict: "stock_id,trade_date" });
@@ -587,17 +573,12 @@ async function runKeepWarm(
   }
 
   const fields: string[] = raw?.fields || [];
-  const rows: any[][] = raw?.data || [];
-  const idxOf = (kw: string) => fields.findIndex((f) => f && f.includes(kw));
-  const iStock = idxOf("證券代號");
-  const iForeignMain = idxOf("外陸資買賣超股數");
-  const iForeignDealer = idxOf("外資自營商買賣超股數");
-  const iTrust = idxOf("投信買賣超");
-  const iDealer = fields.findIndex((f) => f === "自營商買賣超股數");
-  const iDealerSelf = idxOf("自營商買賣超股數(自行買賣)");
-  const iDealerHedge = idxOf("自營商買賣超股數(避險)");
-  const iTotal = idxOf("三大法人買賣超");
-  if (iStock < 0 || iForeignMain < 0 || iTrust < 0 || (iDealer < 0 && iDealerSelf < 0)) {
+  const tradeDate = toISODate(resolvedYmd);
+  // F4：解析走 _shared/institutionalDay.ts 的單一實作
+  let parsedRows: ReturnType<typeof parseT86>;
+  try {
+    parsedRows = parseT86(raw, tradeDate);
+  } catch (_e) {
     await recordSourceHealth(supa, "twse_t86", false, fetchLatency, "schema_drift");
     await supa.from("data_source_refresh_logs").insert({
       source_key: "tw_keep_warm",
@@ -612,23 +593,13 @@ async function runKeepWarm(
     return { ok: false, mode: "keep_warm", wave: opts.wave, reason: "schema_drift" };
   }
 
-  const tradeDate = toISODate(resolvedYmd);
   const BATCH = 500;
   let inserted = 0;
-  for (let i = 0; i < rows.length; i += BATCH) {
-    const chunk = rows.slice(i, i + BATCH).map((r) => {
-      const stock_id = String(r[iStock] || "").trim();
-      const foreign_net = parseNum(r[iForeignMain]) + (iForeignDealer >= 0 ? parseNum(r[iForeignDealer]) : 0);
-      const trust_net = parseNum(r[iTrust]);
-      const dealer_net = iDealer >= 0
-        ? parseNum(r[iDealer])
-        : parseNum(r[iDealerSelf]) + (iDealerHedge >= 0 ? parseNum(r[iDealerHedge]) : 0);
-      const total_net = iTotal >= 0 ? parseNum(r[iTotal]) : foreign_net + trust_net + dealer_net;
-      return {
-        stock_id, trade_date: tradeDate, foreign_net, trust_net, dealer_net, total_net,
-        raw: { source: `keep_warm:${opts.wave}` },
-      };
-    }).filter((x) => x.stock_id);
+  for (let i = 0; i < parsedRows.length; i += BATCH) {
+    const chunk = parsedRows.slice(i, i + BATCH).map((r) => ({
+      ...r,
+      raw: { source: `keep_warm:${opts.wave}` },
+    }));
     const { error } = await supa
       .from("tw_institutional_daily")
       .upsert(chunk, { onConflict: "stock_id,trade_date" });
@@ -861,53 +832,28 @@ Deno.serve(async (req) => {
     }
 
     const fields: string[] = raw?.fields || [];
-    const rows: any[][] = raw?.data || [];
+    const tradeDate = toISODate(resolvedDate);
 
-    // 依 fields 動態找欄位 index（TWSE 偶爾調整名稱）
-    const idxOf = (kw: string) => fields.findIndex((f) => f && f.includes(kw));
-    const iStock = idxOf("證券代號");
-    // 外資 = 外陸資買賣超（不含外資自營商） + 外資自營商買賣超
-    const iForeignMain = idxOf("外陸資買賣超股數");
-    const iForeignDealer = idxOf("外資自營商買賣超股數");
-    const iTrust = idxOf("投信買賣超");
-    // 自營商合計欄位（不含「自行買賣」「避險」細分）
-    const iDealer = fields.findIndex((f) => f === "自營商買賣超股數");
-    const iDealerSelf = idxOf("自營商買賣超股數(自行買賣)");
-    const iDealerHedge = idxOf("自營商買賣超股數(避險)");
-    const iTotal = idxOf("三大法人買賣超");
-
-    if (iStock < 0 || iForeignMain < 0 || iTrust < 0 || (iDealer < 0 && iDealerSelf < 0)) {
+    // F4：解析走 _shared/institutionalDay.ts 的單一實作
+    let parsedRows: ReturnType<typeof parseT86>;
+    try {
+      parsedRows = parseT86(raw, tradeDate);
+    } catch (_e) {
       return errorResponse("fields layout unrecognized", 502, {
         code: "SCHEMA_DRIFT",
         fields,
       });
     }
 
-
-    const tradeDate = toISODate(resolvedDate);
     const supa = serviceClient();
 
     const BATCH = 500;
     let inserted = 0;
-    for (let i = 0; i < rows.length; i += BATCH) {
-      const chunk = rows.slice(i, i + BATCH).map((r) => {
-        const stock_id = String(r[iStock] || "").trim();
-        const foreign_net = parseNum(r[iForeignMain]) + (iForeignDealer >= 0 ? parseNum(r[iForeignDealer]) : 0);
-        const trust_net = parseNum(r[iTrust]);
-        const dealer_net = iDealer >= 0
-          ? parseNum(r[iDealer])
-          : parseNum(r[iDealerSelf]) + (iDealerHedge >= 0 ? parseNum(r[iDealerHedge]) : 0);
-        const total_net = iTotal >= 0 ? parseNum(r[iTotal]) : foreign_net + trust_net + dealer_net;
-        return {
-          stock_id,
-          trade_date: tradeDate,
-          foreign_net,
-          trust_net,
-          dealer_net,
-          total_net,
-          raw: { fields, row: r },
-        };
-      }).filter((x) => x.stock_id);
+    for (let i = 0; i < parsedRows.length; i += BATCH) {
+      const chunk = parsedRows.slice(i, i + BATCH).map((r) => ({
+        ...r,
+        raw: { fields, source: "twse_t86" },
+      }));
 
 
       const { error } = await supa

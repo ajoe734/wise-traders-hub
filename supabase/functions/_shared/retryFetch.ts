@@ -1,3 +1,4 @@
+// deno-lint-ignore-file no-explicit-any
 // _shared/retryFetch.ts
 // 外部 API（FinMind / TWSE / TPEx / Yahoo …）統一的自動重試 + 指數退避層。
 //
@@ -148,7 +149,38 @@ export interface FetchWithRetryOptions {
   rand?: () => number;
   now?: () => number;
   onAttempt?: (info: RetryAttemptInfo) => void;
+  /**
+   * F3：給了 supa 就自動把「終局結果」寫進 data_source_health（熔斷器），
+   * 呼叫端不必再各自記錄，避免部分來源有統計、部分沒有。
+   * `healthSource` 預設等於 `source`。
+   */
+  health?: {
+    supa: { from: (t: string) => any } | null;
+    healthSource?: string;
+    /** 測試用覆寫。 */
+    record?: (source: string, ok: boolean, latencyMs: number, code?: string) => Promise<void>;
+  };
 }
+
+async function recordHealthOutcome(
+  opts: FetchWithRetryOptions,
+  ok: boolean,
+  latencyMs: number,
+  code?: string,
+): Promise<void> {
+  const h = opts.health;
+  if (!h) return;
+  const source = h.healthSource ?? opts.source;
+  try {
+    if (h.record) { await h.record(source, ok, latencyMs, code); return; }
+    if (!h.supa) return;
+    const { recordCircuit } = await import('./circuitBreaker.ts');
+    await recordCircuit(h.supa as any, source, ok, latencyMs, code);
+  } catch (e) {
+    console.warn('[retryFetch] health_record_failed', (e as Error).message);
+  }
+}
+
 
 const defaultSleep = (ms: number) => new Promise<void>((r) => setTimeout(r, ms));
 
@@ -187,6 +219,12 @@ export async function fetchWithRetry(
     if (res && !retryOnStatus(res.status)) {
       attempts.push({ attempt, status: res.status, elapsedMs: now() - started });
       opts.onAttempt?.(attempts[attempts.length - 1]);
+      await recordHealthOutcome(
+        opts,
+        res.ok,
+        now() - started,
+        res.ok ? undefined : `http_${res.status}`,
+      );
       return res;
     }
 
@@ -196,6 +234,7 @@ export async function fetchWithRetry(
     } else {
       if (!isRetryableNetworkError(netErr)) {
         // 非暫時性的 client 端錯誤（例如 URL 格式錯）→ 不重試，原樣往上拋
+        await recordHealthOutcome(opts, false, now() - started, 'NON_RETRYABLE_ERROR');
         throw netErr;
       }
       lastStatus = null;
@@ -226,6 +265,7 @@ export async function fetchWithRetry(
     await sleep(waitedMs);
   }
 
+  await recordHealthOutcome(opts, false, now() - started, RETRY_EXHAUSTED_CODE);
   throw new RetryExhaustedError(opts.source, attempts, lastStatus, lastDetail, url);
 }
 

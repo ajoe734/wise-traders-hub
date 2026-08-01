@@ -1,17 +1,31 @@
 // AUTH: cron  (auto-annotated 2026-07-27, see docs/security/edge-function-auth-matrix.md)
 // deno-lint-ignore-file
+//
+// F4：三大法人單日資料一律走 `_shared/institutionalDay.ts`（TWSE T86 → FinMind），
+// 與 tw-institutional-daily-sync 共用同一份解析與雙軌邏輯，不再自行裸 fetch。
 import "jsr:@supabase/functions-js/edge-runtime.d.ts";
 import { requireCronKey, AuthError } from '../_shared/authGuard.ts';
 import { validateInput, validationResponse } from "../_shared/inputValidator.ts";
 import { cacheGet, cacheSet } from '../_shared/memoryCache.ts';
+import { serviceClient } from '../_shared/supabaseClients.ts';
 
 import { corsHeaders } from '../_shared/cors.ts';
 import { codedErrorResponse } from '../_shared/errorCodes.ts';
 import { withLogging } from '../_shared/edgeLogger.ts';
+import { fetchInstitutionalDay, type InstDayResult } from '../_shared/institutionalDay.ts';
 
 const CACHE_TTL_MS = 5 * 60 * 1000;
 
-Deno.serve(withLogging('checkup-institutional', async (req) => {
+type Payload = {
+  available: boolean;
+  rows: InstDayResult['rows'];
+  data: unknown[];
+  fields: unknown[];
+  source: InstDayResult['source'];
+  attempts: InstDayResult['attempts'];
+};
+
+Deno.serve(withLogging('checkup-institutional', async (req, log) => {
   // AUTH: cron (Phase M-2 runtime enforcement)
   if (req.method !== 'OPTIONS') {
     try { requireCronKey(req); }
@@ -44,22 +58,27 @@ Deno.serve(withLogging('checkup-institutional', async (req) => {
     if (issues.length) return validationResponse(issues, corsHeaders);
 
     const cacheKey = `institutional:${date}`;
-    let payload = cacheGet<{ available: boolean; data: unknown[]; fields: unknown[] }>(cacheKey);
+    let payload = cacheGet<Payload>(cacheKey);
     if (!payload) {
-      const twseUrl = `https://www.twse.com.tw/rwd/zh/fund/T86?date=${date}&rt=true`;
-      const response = await fetch(twseUrl, {
-        signal: AbortSignal.timeout(10000),
-        headers: {
-          'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36',
-          'Accept': 'application/json',
-        },
-      });
-      if (!response.ok) throw new Error(`TWSE API 回應錯誤：${response.status}`);
-      const data = await response.json();
+      const result = await fetchInstitutionalDay(date as string, { supa: serviceClient() as any });
+      if (result.source === null) {
+        log.error('institutional_all_sources_failed', { date, attempts: result.attempts });
+        return new Response(JSON.stringify({
+          error: '三大法人數據抓取失敗',
+          code: 'UPSTREAM_UNAVAILABLE',
+          attempts: result.attempts,
+        }), { status: 502, headers: { ...corsHeaders, 'Content-Type': 'application/json' } });
+      }
+      if (result.source !== 'twse_t86') {
+        log.warn('institutional_degraded_source', { date, source: result.source, attempts: result.attempts });
+      }
       payload = {
-        available: !!data?.data,
-        data: data?.data || [],
-        fields: data?.fields || [],
+        available: result.rows.length > 0,
+        rows: result.rows,
+        data: result.raw?.data || [],
+        fields: result.fields,
+        source: result.source,
+        attempts: result.attempts,
       };
       cacheSet(cacheKey, payload, CACHE_TTL_MS);
     }
