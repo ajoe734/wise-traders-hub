@@ -57,7 +57,7 @@ test.describe('/account/remittance', () => {
       },
     ]);
 
-    await expect(page.getByText('待補匯款資料')).toBeVisible();
+    await expect(page.getByTestId('remittance-status-badge')).toHaveText('待補匯款資料');
     await expect(page.getByLabel('匯款人姓名')).toBeVisible();
   });
 
@@ -106,7 +106,7 @@ test.describe('/account/remittance', () => {
     await page.getByRole('button', { name: '送出對帳資料' }).click();
 
     // After mutation: invalidateQueries → status changes from awaiting_info → pending
-    await expect(page.getByText('待對帳')).toBeVisible();
+    await expect(page.getByTestId('remittance-status-badge')).toHaveText('待對帳');
     expect(submitCalled).toBe(true);
     expect(remittanceFetches).toBeGreaterThan(initialFetches);
   });
@@ -164,7 +164,7 @@ test.describe('/account/remittance', () => {
     await expect(submitBtn).toBeEnabled();
 
     // No refetch happened — status still 待補匯款資料
-    await expect(page.getByText('待補匯款資料')).toBeVisible();
+    await expect(page.getByTestId('remittance-status-badge')).toHaveText('待補匯款資料');
     expect(submitCalls).toBe(1);
     expect(remittanceFetches).toBe(fetchesBeforeSubmit);
   });
@@ -373,7 +373,7 @@ test.describe('staleTime: no duplicate network calls within 30s', () => {
     const baseline = expertsGetFetches;
 
     // SPA navigate to a sibling /company/* route via sidebar
-    await page.getByRole('link', { name: '帳號權限' }).first().click();
+    await page.getByRole('link', { name: '註冊帳號' }).first().click();
     await page.waitForURL('**/company/users');
 
     // SPA navigate back
