@@ -70,21 +70,47 @@ function applyHiddenTab() {
  * （最短 5s 才跳一次），只把 Date.now 前推不會立刻 re-render，
  * STALE badge 在 5s timeout 內來不及亮。
  *
- * 現在：
- *   - freezeTime → now 凍結在 mount 當下的 anchor（相對時間文字穩定）
- *   - force=stale → 800ms 後把 offset 加上 TTL+1 分鐘
- *   - force=stale 時把 freshness ticker 的長 setTimeout 壓成 120ms，
- *     讓時間前推後立刻重算 → STALE badge 準時亮起
+ * 現在（固定時鐘注入）：
+ *   - now=<epochMs|ISO> → 直接把 Date.now 釘死在指定時刻（不依賴機器時間），
+ *     搭配 spec 的固定 fetched_at 就能讓「更新於 N 分鐘前」完全決定論、免 mask。
+ *   - freezeTime=1     → 沒給 now 時凍結在 mount 當下的 anchor
+ *   - force=stale      → staleAfter ms（預設 800）後把 offset 加上 staleShift（預設 6 分鐘）
+ *   - force=stale 時把 freshness ticker 的長 setTimeout 壓成 120ms，讓 badge 準時亮
+ *   - 位移套用後在 root 打上 data-stale-shifted="1"，spec 可等這個訊號而非睡秒數
  */
-function useHarnessClock(force: string | null, freezeTime: boolean, setTick: (fn: (n: number) => number) => void) {
+const STALE_SHIFT_DEFAULT_MS = 6 * 60 * 1000; // TTL 5 分鐘 + 1
+
+function parseEpoch(raw: string | null): number | null {
+  if (!raw) return null;
+  const n = Number(raw);
+  if (Number.isFinite(n) && n > 0) return n;
+  const t = Date.parse(raw);
+  return Number.isFinite(t) ? t : null;
+}
+
+interface ClockOpts {
+  force: string | null;
+  freezeTime: boolean;
+  fixedNow: number | null;
+  staleAfterMs: number;
+  staleShiftMs: number;
+}
+
+function useHarnessClock(
+  { force, freezeTime, fixedNow, staleAfterMs, staleShiftMs }: ClockOpts,
+  setTick: (fn: (n: number) => number) => void,
+  onShift: () => void,
+) {
   useEffect(() => {
     const wantStale = force === 'stale';
-    if (!wantStale && !freezeTime) return;
+    const pinned = fixedNow != null;
+    if (!wantStale && !freezeTime && !pinned) return;
 
     const realNow = Date.now.bind(Date);
-    const anchor = realNow();
+    const anchor = fixedNow ?? realNow();
+    const frozen = pinned || freezeTime;
     let offset = 0;
-    const base = () => (freezeTime ? anchor : realNow());
+    const base = () => (frozen ? anchor : realNow());
     const originalNow = Date.now;
     Date.now = () => base() + offset;
 
@@ -99,11 +125,12 @@ function useHarnessClock(force: string | null, freezeTime: boolean, setTick: (fn
 
     let shiftTimer: number | undefined;
     if (wantStale) {
-      // 首 800ms 保留真實時間，讓 fetchedAt 收下 anchor 附近的真值
+      // 首 staleAfterMs 保留原時刻，讓 fetchedAt 收下 anchor 附近的真值
       shiftTimer = originalSetTimeout(() => {
-        offset = 6 * 60 * 1000; // TTL 5 分鐘 + 1
+        offset = staleShiftMs;
         setTick((n) => n + 1);
-      }, 800);
+        onShift();
+      }, staleAfterMs);
     }
 
     return () => {
@@ -111,7 +138,7 @@ function useHarnessClock(force: string | null, freezeTime: boolean, setTick: (fn
       window.setTimeout = originalSetTimeout;
       Date.now = originalNow;
     };
-  }, [force, freezeTime]);
+  }, [force, freezeTime, fixedNow, staleAfterMs, staleShiftMs]);
 }
 
 
@@ -123,6 +150,10 @@ export default function ChipsSectionHarnessEntry() {
   const code = params.get('code') || '2330';
   const force = params.get('force'); // offline | stale | null
   const freezeTime = params.get('freezeTime') === '1';
+  const fixedNow = parseEpoch(params.get('now'));
+  const staleAfterMs = Number(params.get('staleAfter')) > 0 ? Number(params.get('staleAfter')) : 800;
+  const staleShiftMs =
+    Number(params.get('staleShift')) > 0 ? Number(params.get('staleShift')) : STALE_SHIFT_DEFAULT_MS;
 
   // force=offline 必須在第一次 render 前生效
   if (force === 'offline') applyForceOffline();
@@ -130,7 +161,13 @@ export default function ChipsSectionHarnessEntry() {
 
 
   const [tick, setTick] = useState(0);
-  useHarnessClock(force, freezeTime, setTick);
+  const [shifted, setShifted] = useState(false);
+  useHarnessClock(
+    { force, freezeTime, fixedNow, staleAfterMs, staleShiftMs },
+    setTick,
+    () => setShifted(true),
+  );
+
 
   return (
     <div
