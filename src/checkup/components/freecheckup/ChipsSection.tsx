@@ -538,6 +538,16 @@ export default function ChipsSection({ WB, stockCode }: { WB: any; stockCode: st
             <div style={{ fontSize: 11, color: WB.inkMute, letterSpacing: '0.14em' }}>
               關鍵分點（近 {bsrWinDays} 日）
             </div>
+            {bsrSelected && bsrWinReadiness && bsrWinReadiness.have > 0 && bsrWinReadiness.have < bsrWinDays ? (
+              <span
+                data-testid="chips-bsr-partial"
+                data-bsr-have={bsrWinReadiness.have}
+                style={{ fontSize: 10, color: WB.inkMute, border: `1px solid ${WB.hair}`, padding: '1px 6px', fontFamily: SERIF }}
+              >
+                僅 {bsrWinReadiness.have}/{bsrWinDays} 個交易日
+              </span>
+            ) : null}
+
             <div data-testid="chips-bsr-window-switch" style={{ display: 'inline-flex', border: `1px solid ${WB.hair}` }}>
               {BSR_WINDOWS.map((w) => (
                 <button

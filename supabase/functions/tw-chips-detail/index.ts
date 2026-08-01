@@ -20,13 +20,12 @@ import { cacheGet, cacheSet } from "../_shared/memoryCache.ts";
 import { coalesce, setCoalesceObserver } from "../_shared/requestCoalescer.ts";
 import { makeInflightHook } from "../_shared/coalesceDbHook.ts";
 import {
-  computeBsrWindow,
   countRowsByDate,
   pickCompleteFallbackDate,
-  pickWindowDates,
   DONE_BROKER_THRESHOLD,
   LOW_QUALITY_BROKER_THRESHOLD,
 } from "../_shared/bsrRollup.ts";
+
 import { expectedLatestBsrDate, weekdayDiff } from "../_shared/tradingDate.ts";
 import { resolveAllWindows, type WindowReadiness } from "../_shared/seriesReadiness.ts";
 
@@ -164,55 +163,47 @@ Deno.serve(async (req) => {
     const rollupIsCurrent = !!rollupLatestAsOf && rollupLatestAsOf >= expectedDate;
     const fallbackNewer = !!fallbackAsOf && (!rollupLatestAsOf || fallbackAsOf > rollupLatestAsOf);
 
-    if (rollupIsCurrent || (!fallbackNewer && rollupLatestAsOf)) {
-      bsrSource = "rollup";
-      chosenAsOf = rollupLatestAsOf;
-      for (const r of (rollupRows || []).filter(
-        (x: any) => x.as_of_date === rollupLatestAsOf && x.bsr_available,
-      )) {
+    // 視窗聚合一律由 SQL RPC rebuild_bsr_rollup 產生後讀 rollup。
+    // 過去在這裡用 raw rows 現算 d1/d10（以及 fallback 的全部視窗），
+    // 但 raw 讀取會撞 PostgREST 列上限（熱門股 800 分點 × 14 天 ≈ 11k 列），
+    // 實際只拿到 1~2 天 → 5 日與 10 日算出完全一樣的數字。
+    const fillFromRollupRows = (rows: any[], asOf: string) => {
+      for (const r of rows.filter((x: any) => x.as_of_date === asOf && x.bsr_available)) {
         bsr[`d${r.window_days}`] = {
           top_buy: r.top_buy_brokers,
           top_sell: r.top_sell_brokers,
           concentration_ratio: r.concentration_ratio,
         };
       }
-      // 1／10 日視窗是後加的：舊 rollup 只有 5/20/60，歷史列不會有 d1/d10。
-      // 用同一份 raw（近 14 個交易日，足以覆蓋 1 與 10）現算補上，
-      // 演算法與寫入端共用 computeBsrWindow，結果與之後 rollup 寫入完全一致。
-      if (chosenAsOf) {
-        const idxR = rawUniqueDatesDesc.indexOf(chosenAsOf);
-        const tailR = idxR >= 0 ? rawUniqueDatesDesc.slice(idxR) : [];
-        for (const win of [1, 10] as const) {
-          if (bsr[`d${win}`] || tailR.length === 0) continue;
-          const w = computeBsrWindow(bsrRawRows as any, pickWindowDates(tailR, win));
-          if (w) {
-            bsr[`d${win}`] = {
-              top_buy: w.top_buy,
-              top_sell: w.top_sell,
-              concentration_ratio: w.concentration_ratio,
-            };
-          }
-        }
+    };
+    const rebuildAndRead = async (asOf: string) => {
+      await supa.rpc("rebuild_bsr_rollup", {
+        _as_of: asOf,
+        _stock_ids: [stockId],
+        _max_stocks: 1,
+      });
+      const { data: fresh } = await supa
+        .from("tw_chips_rollup")
+        .select("as_of_date, window_days, top_buy_brokers, top_sell_brokers, concentration_ratio, bsr_available")
+        .eq("stock_id", stockId)
+        .eq("as_of_date", asOf);
+      fillFromRollupRows(fresh || [], asOf);
+    };
+
+    if (rollupIsCurrent || (!fallbackNewer && rollupLatestAsOf)) {
+      bsrSource = "rollup";
+      chosenAsOf = rollupLatestAsOf;
+      fillFromRollupRows(rollupRows || [], rollupLatestAsOf!);
+      // 舊 rollup 只有 5/20/60；缺 d1/d10 時就地重算該日全部視窗（DB 端聚合，無列上限）。
+      if (chosenAsOf && (!bsr.d1 || !bsr.d10)) {
+        await rebuildAndRead(chosenAsOf);
       }
     } else if (fallbackNewer) {
       bsrSource = "raw_fallback";
       chosenAsOf = fallbackAsOf;
-      // 取「以 fallbackAsOf 為最新、往前 N 個已收錄 raw 交易日」聚合
-      // 三個窗口一致由 computeBsrWindow 現算，保證 concentration 永遠有值可顯示。
-      const idx = rawUniqueDatesDesc.indexOf(fallbackAsOf!);
-      const tail = rawUniqueDatesDesc.slice(idx);
-      for (const win of [1, 5, 10, 20, 60] as const) {
-        const windowDates = pickWindowDates(tail, win);
-        const w = computeBsrWindow(bsrRawRows, windowDates);
-        if (w) {
-          bsr[`d${win}`] = {
-            top_buy: w.top_buy,
-            top_sell: w.top_sell,
-            concentration_ratio: w.concentration_ratio,
-          };
-        }
-      }
+      await rebuildAndRead(fallbackAsOf!);
     }
+
 
     // ==== 三大法人序列 ====
     const instAsc = [...instAll].reverse().slice(-60).map((r) => ({

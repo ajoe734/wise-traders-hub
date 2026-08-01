@@ -12,8 +12,8 @@ import {
   type Aggregated,
   type FinmindRow,
 } from '../tw-bsr-finmind-sync/lib.ts';
-import { computeBsrWindow, pickWindowDates, rollupSourceMeta } from './bsrRollup.ts';
 import { groupByStock } from './finmindMarketBatch.ts';
+
 
 export type SnapshotSource = 'finmind_market_batch' | 'finmind_per_stock' | 'manual';
 
@@ -150,55 +150,21 @@ export async function persistAggregated(
     (byStock.get(sid)?.length ?? 0) >= DONE_BROKER_THRESHOLD
   );
 
-  // 3. Rebuild rollup (5/20/60) for every fulfilled stock. Uses last-90-day history
-  //    read from the newly-materialized tw_bsr_daily.
-  const since = new Date(new Date(tradeDate).getTime() - 90 * 86400_000)
-    .toISOString().slice(0, 10);
-  const upserts: any[] = [];
-  for (const sid of stocks) {
-    const { data: histRows } = await supa
-      .from('tw_bsr_daily')
-      .select('trade_date, broker_id, broker_name, net_shares, buy_shares, sell_shares')
-      .eq('stock_id', sid).gte('trade_date', since).lte('trade_date', tradeDate)
-      .order('trade_date', { ascending: false });
-    const rows = histRows || [];
-    const uniqueDates = Array.from(new Set(rows.map((r: any) => r.trade_date)))
-      .sort((a, b) => (a < b ? 1 : -1));
-    // 當日 broker count (distinct broker_id) — 寫入 window_days=5 那列，作為日粒度事實。
-    const todayBrokers = new Set(
-      rows.filter((r: any) => r.trade_date === tradeDate).map((r: any) => r.broker_id),
-    );
-    const todayBrokerCount = todayBrokers.size;
-    for (const win of [1, 5, 10, 20, 60] as const) {
-      const dates = pickWindowDates(uniqueDates as string[], win);
-      const w = computeBsrWindow(rows as any, dates);
-      if (!w) continue;
-      const { source_date, fallback_used } = rollupSourceMeta(dates as string[], tradeDate);
-      const row: any = {
-        stock_id: sid, as_of_date: tradeDate, window_days: win,
-        source_date, fallback_used,
-        foreign_net: 0, trust_net: 0, dealer_net: 0,
-        top_buy_brokers: w.top_buy, top_sell_brokers: w.top_sell,
-        concentration_ratio: w.concentration_ratio, bsr_available: true,
-        updated_at: new Date().toISOString(),
-      };
-      if (win === 5) {
-        row.broker_count = todayBrokerCount;
-        row.low_quality = todayBrokerCount > 0 && todayBrokerCount < 5;
-      }
-      upserts.push(row);
-    }
+  // 3. Rebuild rollup (1/5/10/20/60) for every fulfilled stock.
+  //    以前這裡在 TS 端讀 90 天 raw 再現算，但 PostgREST 預設 1000 列上限會把
+  //    「熱門股一天 800 分點」直接截成 1.2 天 → 1/5/10/20/60 全部退化成同一天，
+  //    使用者在抽屜看到 5 日與 10 日數字一模一樣。改為呼叫 SQL RPC
+  //    rebuild_bsr_rollup(_as_of, _stock_ids, _max_stocks)，聚合在 DB 端完成，無列上限。
+  const RPC_CHUNK = 200;
+  for (let i = 0; i < stocks.length; i += RPC_CHUNK) {
+    const { error } = await supa.rpc('rebuild_bsr_rollup', {
+      _as_of: tradeDate,
+      _stock_ids: stocks.slice(i, i + RPC_CHUNK),
+      _max_stocks: RPC_CHUNK,
+    });
+    if (error) throw new Error(`chips_rollup_upsert_failed:${error.message}`);
   }
-  if (upserts.length > 0) {
-    for (let i = 0; i < upserts.length; i += CHUNK) {
-      // 絕不吞錯：2026-07-27 起 rollup 整批被 window_days=10 的 CHECK 擋掉，
-      // 因為這裡沒有檢查 error，前台 AS OF 就靜靜地凍結了五天。
-      const { error } = await supa.from('tw_chips_rollup')
-        .upsert(upserts.slice(i, i + CHUNK),
-          { onConflict: 'stock_id,as_of_date,window_days' });
-      if (error) throw new Error(`chips_rollup_upsert_failed:${error.message}`);
-    }
-  }
+
   return { stocks: stocks.length, rows: agg.length, materialized, skipped_sealed: skippedSealed };
 }
 
