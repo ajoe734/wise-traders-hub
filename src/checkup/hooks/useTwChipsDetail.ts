@@ -293,8 +293,9 @@ export function useTwChipsDetail(stockCode: string | undefined | null, enabled =
     const isViewAs = isViewAsActive();
     const prevStock = prevStockRef.current;
     prevStockRef.current = stockCode;
-    const source: 'drawer_open' | 'manual_refetch' | 'reconnect' =
-      attempt > 0 ? 'manual_refetch'
+    const source: 'drawer_open' | 'manual_refetch' | 'reconnect' | 'auto_stale' =
+      autoSourceRef.current ? 'auto_stale'
+      : attempt > 0 ? 'manual_refetch'
       : manualBump > 0 ? 'reconnect'
       : 'drawer_open';
 
