@@ -59,7 +59,8 @@ test.describe('fetchChipsBatch 統一端點', () => {
     expect(requestBody).toEqual({ stock_ids: ['2330', '2317'] });
 
     await expect(page.getByTestId('batch-returned')).toHaveAttribute('data-count', '2');
-    await expect(page.getByTestId('batch-first-code')).toHaveText('2330');
+    await expect(page.getByTestId('batch-codes')).toHaveText('2330,2317');
+    await expect(page.getByTestId('batch-first-code')).toHaveText(/^(2330|2317)$/);
     await expect(page.getByTestId('batch-has-bsr')).toHaveAttribute('data-value', 'true');
     await expect(page.getByTestId('batch-has-inst')).toHaveAttribute('data-value', 'true');
   });
