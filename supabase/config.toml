@@ -164,3 +164,6 @@ verify_jwt = false
 
 [functions.publish-weekly-journals-watchdog]
 verify_jwt = false
+
+[functions.pending-journal-publish-reminder]
+verify_jwt = false

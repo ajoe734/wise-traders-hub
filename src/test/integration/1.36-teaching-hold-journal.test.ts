@@ -312,7 +312,7 @@ describe('SignalEditor 接線：weekType toggle 與守門委派', () => {
     // 舊的 inline 判斷必須已移除，避免兩套守門並存
     expect(src).not.toMatch(/純教學週記至少要填教學主題/);
     expect(src).not.toMatch(/if \(!publishWindow\.open\) \{/);
-    expect(src).not.toMatch(/disabled=\{submitting \|\| !publishWindow\.open\}/);
+    expect(src).toMatch(/disabled=\{submitting \|\| \(!isMentor && !publishWindow\.open\)\}/);
   });
 
   it('isTeachingOnly 時使用 buildTeachingOnlyRow 而非 buildPublishRows', () => {

@@ -324,8 +324,10 @@ const SignalEditor = () => {
             <h1 className="text-2xl font-bold">{isEditing ? '編輯' : '發布新'}{contentLabel}</h1>
           </div>
           <div className="flex items-center gap-2">
-            {!publishWindow.open && isMentor && (
-              <span className="text-xs text-muted-foreground">目前先存為待發布，仍可完成週記</span>
+            {!publishWindow.open && (
+              <span className={cn('text-xs', isMentor ? 'text-muted-foreground' : 'text-destructive')}>
+                {isMentor ? '目前先存為待發布，仍可完成週記' : publishWindow.reason}
+              </span>
             )}
             <Button variant="outline" onClick={() => navigate(`/admin/${expertSlug}/signals`)}>取消</Button>
             {isMentor && (
@@ -340,7 +342,7 @@ const SignalEditor = () => {
             )}
             <Button
               onClick={handlePublish}
-              disabled={submitting}
+              disabled={submitting || (!isMentor && !publishWindow.open)}
               className={cn(isMentor ? 'bg-mentor hover:bg-mentor/90' : 'bg-primary hover:bg-primary/90')}
             >
               {submitting ? <Loader2 className="h-4 w-4 animate-spin mr-2" /> : null}
@@ -471,7 +473,7 @@ const SignalEditor = () => {
           )}
           <Button
             onClick={handlePublish}
-            disabled={submitting || !publishWindow.open}
+            disabled={submitting || (!isMentor && !publishWindow.open)}
             className={cn(isMentor ? 'bg-mentor hover:bg-mentor/90' : 'bg-primary hover:bg-primary/90')}
           >
             {submitting ? <Loader2 className="h-4 w-4 animate-spin mr-2" /> : null}

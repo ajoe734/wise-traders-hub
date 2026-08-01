@@ -7,6 +7,7 @@ import {
   buildEarlyPublishNotification,
   buildJournalExportNotification,
   buildMentorFailureNotification,
+  buildPendingJournalPublishReminder,
 } from './notificationTemplates.ts';
 import { validateNotificationLink } from './routes.ts';
 
@@ -20,6 +21,7 @@ Deno.test('三種 payload 的 link 都合法且為相對路徑', () => {
     buildEarlyPublishNotification({ userId: 'u1', expertName: '老周', expertSlug: null, signalCount: 3 }),
     buildJournalExportNotification({ userId: 'a1', weekLabel: '2026/07/27', journalCount: 5, mentorCount: 2 }),
     buildJournalExportNotification({ userId: 'a1', weekLabel: '2026/07/27', journalCount: 0, mentorCount: 0 }),
+    buildPendingJournalPublishReminder({ mentorUserId: 'm1', expertName: '老周', expertSlug: 'zhou', signalCount: 2 }),
   ];
   for (const r of rows) {
     assertEquals(validateNotificationLink(r.link), null, `bad link: ${r.link}`);
@@ -27,6 +29,15 @@ Deno.test('三種 payload 的 link 都合法且為相對路徑', () => {
     assert(r.title.length > 0 && r.body.length > 0);
     assert(!!r.user_id);
   }
+});
+
+Deno.test('pending reminder：導師收到後台週記相對路徑與待發布筆數', () => {
+  const row = buildPendingJournalPublishReminder({
+    mentorUserId: 'm1', expertName: '老周', expertSlug: 'zhou', signalCount: 2,
+  });
+  assertEquals(row.link, '/admin/zhou/signals');
+  assertEquals(row.type, 'journal_publish_reminder');
+  assert(row.body.includes('2 筆'));
 });
 
 Deno.test('mentor failure：型別 error、body 帶 Signal ID', () => {

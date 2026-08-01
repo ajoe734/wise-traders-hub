@@ -1,5 +1,5 @@
 import { assertEquals } from 'https://deno.land/std@0.224.0/assert/mod.ts';
-import { reminderWeekStart } from './index.ts';
+import { reminderWeekStart } from './reminderWindow.ts';
 
 Deno.test('Sunday reminder uses current Taipei week', () => {
   assertEquals(reminderWeekStart(new Date('2026-07-26T12:00:00Z')), '2026-07-20');

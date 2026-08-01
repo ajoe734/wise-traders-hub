@@ -215,7 +215,9 @@ const AdminSignals = () => {
           </div>
           <div className="flex flex-col items-end gap-1">
             {!publishWindow.open && !isReadOnly && (
-              <p className="text-xs text-destructive">{publishWindow.reason}</p>
+              <p className={cn('text-xs', isMentor ? 'text-muted-foreground' : 'text-destructive')}>
+                {isMentor ? '目前可繼續撰寫，儲存後會列為待發布' : publishWindow.reason}
+              </p>
             )}
             <div className="flex gap-2">
               {isMentor && pendingCount > 0 && !isReadOnly && (
@@ -230,7 +232,7 @@ const AdminSignals = () => {
               )}
               <PermissionTooltip disabled={isReadOnly}>
                 <Button
-                  disabled={!publishWindow.open || isReadOnly}
+                  disabled={isReadOnly || (!isMentor && !publishWindow.open)}
                   className={cn(isAdvisor ? 'bg-advisor hover:bg-advisor/90' : 'bg-mentor hover:bg-mentor/90')}
                   onClick={() => navigate(`/admin/${expertSlug}/signals/new`)}
                 >
