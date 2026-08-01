@@ -14,6 +14,7 @@ import { requireCronKey, AuthError } from "../_shared/authGuard.ts";
 import { checkCircuit, recordCircuit } from "../_shared/circuitBreaker.ts";
 import { fetchWithRetry, isRetryExhausted, recordRetryFailure } from "../_shared/retryFetch.ts";
 import { checkKillSwitch } from "../_shared/killSwitch.ts";
+import { parseT86 } from "../_shared/institutionalDay.ts";
 import {
   isPublicSyncMode,
   isValidStockId,
@@ -850,9 +851,9 @@ Deno.serve(async (req) => {
     const BATCH = 500;
     let inserted = 0;
     for (let i = 0; i < parsedRows.length; i += BATCH) {
-      const chunk = parsedRows.slice(i, i + BATCH).map((r, j) => ({
+      const chunk = parsedRows.slice(i, i + BATCH).map((r) => ({
         ...r,
-        raw: { fields, row: rawRows[i + j] },
+        raw: { fields, source: "twse_t86" },
       }));
 
 
