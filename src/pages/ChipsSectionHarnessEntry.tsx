@@ -126,6 +126,8 @@ export default function ChipsSectionHarnessEntry() {
 
   // force=offline 必須在第一次 render 前生效
   if (force === 'offline') applyForceOffline();
+  if (force === 'stale') applyHiddenTab();
+
 
   const [tick, setTick] = useState(0);
   useHarnessClock(force, freezeTime, setTick);
