@@ -124,7 +124,7 @@ Deno.serve(async (req) => {
     push('institutional_daily', instGaps);
 
     let inserted = 0, skipped = 0;
-    if (!dryRun && jobs.length > 0) {
+    if (!dryRun && backfillEnabled && jobs.length > 0) {
       const { data, error } = await supa.rpc('enqueue_backfill_jobs', { _jobs: jobs });
       if (error) throw new Error(`enqueue_backfill_jobs: ${error.message}`);
       inserted = (data as { inserted?: number })?.inserted ?? 0;
@@ -147,7 +147,7 @@ Deno.serve(async (req) => {
     report.reconciled = reconciled;
 
     // 5) 收斂視窗，確保每檔持倉的 1/5/10/20/60 日視窗補齊
-    if (!dryRun) {
+    if (!dryRun && backfillEnabled) {
       const { data: conv, error: convErr } = await supa.rpc('converge_bsr_windows', {
         p_max_stocks: 60, p_chunk_dates: 15, p_horizon_days: 110,
       });
