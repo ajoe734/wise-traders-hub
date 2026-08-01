@@ -3,7 +3,7 @@
  *
  * 為什麼存在：持倉牆一次可能顯示 30 檔，若等使用者點開抽屜才個別呼叫
  * tw-chips-detail，會產生 N+1 次 edge handshake。此 hook 在可見代號改變時
- * 發一次 tw-chips-batch，把結果填入 TanStack Query 快取；hover 則觸發單股
+ * 發一次 POST /tw-chips-detail（stock_ids），把結果填入 TanStack Query 快取；hover 則觸發單股
  * 補漏（含 sparkline），讓抽屜開啟幾乎立即有資料。
  */
 import { useCallback, useEffect, useRef, useState } from 'react';
