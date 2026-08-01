@@ -47,54 +47,57 @@ function applyForceOffline() {
 }
 
 /**
- * 讓 STALE badge 觸發：在 fetch 完成之後（約 800ms）把 Date.now 前推 6 分鐘，
- * 並強制 ChipsSection 重新 render，這樣 hook 內 `stale` 會被重算為 true。
+ * 統一的時間控制器（force=stale / freezeTime 共用同一個 Date.now 覆寫）。
+ *
+ * 舊版問題：force=stale 與 freezeTime 各自覆寫 Date.now，後者會把前者蓋掉；
+ * 而且 `stale` 自從 freshness.ts 重構後改由 `useFreshness` 的 ticker 決定
+ * （最短 5s 才跳一次），只把 Date.now 前推不會立刻 re-render，
+ * STALE badge 在 5s timeout 內來不及亮。
+ *
+ * 現在：
+ *   - freezeTime → now 凍結在 mount 當下的 anchor（相對時間文字穩定）
+ *   - force=stale → 800ms 後把 offset 加上 TTL+1 分鐘
+ *   - force=stale 時同時把「長 setTimeout」壓縮成 120ms，
+ *     讓 useFreshness 的 ticker 立刻重算 → STALE badge 準時亮起
  */
-function useForceStale(force: string | null, tick: number, setTick: (fn: (n: number) => number) => void) {
+function useHarnessClock(force: string | null, freezeTime: boolean, setTick: (fn: (n: number) => number) => void) {
   useEffect(() => {
-    if (force !== 'stale') return;
+    const wantStale = force === 'stale';
+    if (!wantStale && !freezeTime) return;
+
     const realNow = Date.now.bind(Date);
-    let shifted = false;
+    const anchor = realNow();
+    let offset = 0;
+    const base = () => (freezeTime ? anchor : realNow());
     const originalNow = Date.now;
-    // 首 800ms 保留真實時間，讓 fetchedAt 收下真值
-    const t = window.setTimeout(() => {
-      shifted = true;
-      // 之後 Date.now 一律 +6 分鐘（TTL 是 5 分鐘）
-      Date.now = () => realNow() + 6 * 60 * 1000;
-      setTick((n) => n + 1);
-    }, 800);
+    Date.now = () => base() + offset;
+
+    // 壓縮 useFreshness 的 ticker，讓時間前推後立刻反映到畫面
+    const originalSetTimeout = window.setTimeout;
+    if (wantStale) {
+      window.setTimeout = ((fn: any, delay?: number, ...args: any[]) => {
+        const d = typeof delay === 'number' && delay >= 1_000 && delay <= 120_000 ? 120 : delay;
+        return originalSetTimeout(fn, d as any, ...args);
+      }) as typeof window.setTimeout;
+    }
+
+    let shiftTimer: number | undefined;
+    if (wantStale) {
+      // 首 800ms 保留真實時間，讓 fetchedAt 收下 anchor 附近的真值
+      shiftTimer = originalSetTimeout(() => {
+        offset = 6 * 60 * 1000; // TTL 5 分鐘 + 1
+        setTick((n) => n + 1);
+      }, 800);
+    }
+
     return () => {
-      window.clearTimeout(t);
+      if (shiftTimer !== undefined) window.clearTimeout(shiftTimer);
+      window.setTimeout = originalSetTimeout;
       Date.now = originalNow;
     };
-  }, [force]);
+  }, [force, freezeTime]);
 }
 
-export default function ChipsSectionHarnessEntry() {
-  if (!isPreviewEnv()) return null;
-  const params = new URLSearchParams(
-    typeof window !== 'undefined' ? window.location.search : '',
-  );
-  const code = params.get('code') || '2330';
-  const force = params.get('force'); // offline | stale | null
-  const freezeTime = params.get('freezeTime') === '1';
-
-  // force=offline 必須在第一次 render 前生效
-  if (force === 'offline') applyForceOffline();
-
-  const [tick, setTick] = useState(0);
-  useForceStale(force, tick, setTick);
-
-  // freezeTime：把 Date.prototype.getTime / Date.now 都當成當前 mount 時間
-  useEffect(() => {
-    if (!freezeTime) return;
-    const anchor = Date.now();
-    const realNow = Date.now.bind(Date);
-    Date.now = () => anchor;
-    return () => {
-      Date.now = realNow;
-    };
-  }, [freezeTime]);
 
   return (
     <div
