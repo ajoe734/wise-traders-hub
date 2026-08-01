@@ -172,7 +172,10 @@ export default function ChipsSectionHarnessEntry() {
   return (
     <div
       data-testid="chips-harness-root"
+      data-stale-shifted={shifted ? '1' : '0'}
+      data-fixed-now={fixedNow != null ? '1' : '0'}
       style={{
+
         background: WB?.bg || '#F5F3EF',
         color: WB?.ink || '#292520',
         padding: 20,
