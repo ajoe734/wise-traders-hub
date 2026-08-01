@@ -13,6 +13,20 @@ import { toast } from 'sonner';
 import { trackEvent } from '@/lib/trafficTracker';
 import { formatSharesAsLots, SHARES_PER_LOT } from '@/lib/lotSize';
 
+// 過期自動重抓的狀態文案（單一資料源：useTwChipsDetail 的 AutoRefreshState）
+const AUTO_STATE_BADGE: Record<string, string> = {
+  refreshing: 'AUTO',
+  failed: 'RETRY',
+  exhausted: 'STOPPED',
+  paused: 'PAUSED',
+};
+const AUTO_STATE_TEXT: Record<string, string> = {
+  refreshing: '資料已過期，自動重新抓取中…',
+  failed: '自動更新失敗，將自動重試',
+  exhausted: '自動更新已停止，請手動重新整理',
+  paused: '分頁在背景，自動更新暫停',
+};
+
 const SERIF = '"Source Serif 4", "Noto Serif TC", Georgia, serif';
 
 // 台灣慣例：正值紅、負值綠
