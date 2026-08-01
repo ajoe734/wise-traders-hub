@@ -50,6 +50,7 @@ const HOLDING_CARD_PROP_SCHEMA = {
   onSelect: 'function',
   onOpenDrawer: 'function',
   onReportMeta: { type: 'function', optional: true },
+  onPrefetch: { type: 'function', optional: true },
 };
 
 
@@ -73,6 +74,7 @@ function HoldingCardImpl(props) {
     onSelect,
     onOpenDrawer,
     onReportMeta,
+    onPrefetch,
   } = props;
 
   const sparkCloses = getSparkCloses(sparkData);
@@ -224,6 +226,8 @@ function HoldingCardImpl(props) {
       onClick={handleClick}
       onDoubleClick={handleDoubleClick}
       onKeyDown={handleKeyDown}
+      onMouseEnter={() => onPrefetch?.(h.code)}
+      onFocus={() => onPrefetch?.(h.code)}
       aria-label={ariaLabel}
       aria-pressed={isActive}
       aria-busy={isCardSyncing || undefined}

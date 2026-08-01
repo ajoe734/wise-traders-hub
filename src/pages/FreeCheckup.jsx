@@ -32,7 +32,6 @@ import { preloadKnowledgeBase } from "@/checkup/lib/knowledgeBase";
 import { mergeCalendarToNewsEvents } from "@/checkup/lib/calendarSync";
 import { trackRaw } from "@/lib/analytics/events";
 import { useHoldingsSync } from "@/pages/_freeCheckup/useHoldingsSync";
-import { useSparklines } from "@/checkup/hooks/useSparklines";
 
 // ADR-0005：shell 只吃模組 free surface barrel，不再深挖 freecheckup 實作檔。
 // 一律 lazy import，保住七個 tab 的 code splitting。
@@ -69,7 +68,6 @@ import {
   C,
   WB,
   wbTone,
-  EMPTY_SPARK,
   EMPTY_HOLDINGS,
   // E-Maint-R6: Sparkline 不再由父層 import — HoldingCard 直接從 constants.jsx 取
   TYPE_COLOR,
@@ -1229,15 +1227,6 @@ export default function App() {
   const holdingsValueKey = useMemo(() => holdingsValueKeyShort(holdings), [holdings]);
   // eslint-disable-next-line react-hooks/exhaustive-deps
   const H = useMemo(() => holdings || EMPTY_HOLDINGS, [holdingsValueKey]);
-
-
-  // ── Sparkline：取數 + 快取（記憶體 + localStorage 12h）交給 useSparklines。
-  //    候選 B：本檔不再持有 sparkline state，也不再自行判斷「哪些還沒抓」。
-  const { sparklines, sparklineErrors } = useSparklines(
-    H.map((h) => String(h.code).trim()).filter(Boolean),
-    { enabled: !isDemo },
-  );
-
 
   const totalVal  = H.reduce((s,h)=>s+h.value,0);
   const totalCost = H.reduce((s,h)=> s + (h.totalCost != null ? h.totalCost : h.cost * h.qty), 0);
@@ -3242,9 +3231,6 @@ ${JSON.stringify(strategyBrain || { rules: [], lessons: [], commonMistakes: [], 
               setSortDir={setSortDir}
               targets={targets}
               avgTarget={avgTarget}
-              sparklines={sparklines}
-              sparklineErrors={sparklineErrors}
-              EMPTY_SPARK={EMPTY_SPARK}
               normalizedEvents={normalizedEvents}
               showAll={showAll}
               setShowAll={setShowAll}

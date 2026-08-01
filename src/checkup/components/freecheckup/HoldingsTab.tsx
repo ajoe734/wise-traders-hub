@@ -68,7 +68,6 @@ const HOLDINGS_TAB_PROP_SCHEMA = {
   toggleSetItem: _opt('any'), clearAllFilters: _opt('any'),
   sortBy: _opt('any'), sortDir: _opt('any'),
   targets: _opt('any'), avgTarget: _opt('any'),
-  sparklines: _opt('any'), sparklineErrors: _opt('any'), EMPTY_SPARK: _opt('any'),
   normalizedEvents: _opt('any'), openHoldingDrawer: _opt('any'),
   showAll: _opt('any'), setShowAll: _opt('any'),
   holdingSyncStates: _opt('any'), // { [code]: { syncing?: bool, error?: string } }
@@ -119,7 +118,7 @@ function HoldingsTab(props) {
     // sorting
     sortBy, setSortBy, sortDir, setSortDir,
     // workbench data
-    targets, avgTarget, sparklines, sparklineErrors, EMPTY_SPARK,
+    targets, avgTarget,
     normalizedEvents, openHoldingDrawer,
     handleHoldingCardOpenDrawer,
     showAll, setShowAll,
@@ -409,9 +408,6 @@ function HoldingsTab(props) {
               avgTarget={avgTarget}
               STOCK_META={STOCK_META}
               overrides={overrides}
-              sparklines={sparklines}
-              sparklineErrors={sparklineErrors}
-              EMPTY_SPARK={EMPTY_SPARK}
               holdingSyncStates={holdingSyncStates}
               handleHoldingCardSelect={handleHoldingCardSelect}
               handleHoldingCardOpenDrawer={handleHoldingCardOpenDrawer}

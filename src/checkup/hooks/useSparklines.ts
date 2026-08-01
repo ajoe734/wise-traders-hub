@@ -136,4 +136,26 @@ export function useSparklines(codes: string[] | null | undefined, opts?: { enabl
   return { sparklines, sparklineErrors };
 }
 
+const sparklineInFlight = new Set<string>();
+
+/** 候選 D/F：hover 時預載單股 30D 走勢。已存在或快取中則不發請求。 */
+export async function prefetchSparkline(code: string): Promise<void> {
+  if (!code || !/^\d{4,6}[A-Z]?$/i.test(code)) return;
+  if (sparklineCache.get(code) || sparklineFailCache.get(code) || sparklineInFlight.has(code)) return;
+  sparklineInFlight.add(code);
+  try {
+    const data = await getCheckupGateway()
+      .invoke<{ result?: SparklineMap }>('checkup-sparkline', { codes: [code] })
+      .catch(() => null);
+    const result = data?.result;
+    if (result?.[code]) sparklineCache.set(code, result[code]);
+    else if (result) sparklineFailCache.set(code, true);
+  } catch {
+    /* silent */
+  } finally {
+    sparklineInFlight.delete(code);
+  }
+}
+
 export default useSparklines;
+

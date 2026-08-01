@@ -260,6 +260,8 @@ export function isTaiwanChipEligible(code: string | undefined | null): boolean {
 
 export const CHIPS_REQUEST_TIMEOUT_MS = 15_000;
 export const CHIPS_STAMP_TIMEOUT_MS = 8_000;
+export const CHIPS_BATCH_TIMEOUT_MS = 30_000;
+export const CHIPS_BATCH_MAX_STOCKS = 30;
 
 /** 公開市場資料 endpoint 一律用 publishable anon JWT，避免殘留 user JWT 造成 401。 */
 function anonHeaders(): Record<string, string> {
@@ -271,7 +273,7 @@ function anonHeaders(): Record<string, string> {
 
 async function requestText(
   path: string,
-  opts?: { signal?: AbortSignal; timeoutMs?: number },
+  opts?: { signal?: AbortSignal; timeoutMs?: number; method?: string; body?: string },
 ): Promise<{ text: string; durationMs: number }> {
   const gw = getCheckupGateway();
   const url = `${gw.functionsUrl()}${path}`;
@@ -280,13 +282,22 @@ async function requestText(
   opts?.signal?.addEventListener('abort', onAbort);
   const timeoutId = setTimeout(() => ctrl.abort(), opts?.timeoutMs ?? CHIPS_REQUEST_TIMEOUT_MS);
   const startedAt = Date.now();
+
+  const init: RequestInit = {
+    signal: ctrl.signal,
+    headers: {
+      ...anonHeaders(),
+      ...(opts?.body ? { 'Content-Type': 'application/json' } : {}),
+    },
+    method: opts?.method ?? 'GET',
+    ...(opts?.body ? { body: opts.body } : {}),
+  };
+
   try {
-    const text = await gw.http.text(url, { signal: ctrl.signal, headers: anonHeaders() });
+    const text = await gw.http.text(url, init);
     return { text, durationMs: Date.now() - startedAt };
   } catch (err: any) {
     const status: number | undefined = err?.status;
-    // 傳輸層失敗（abort／斷線／DNS）沒有 status，也常常沒有 body：
-    // 一定要把原始 message 與 name 帶下去，否則錯誤分類只看到「chips 0:」而落到 unknown。
     const detail = String(err?.body ?? err?.message ?? err?.name ?? '').slice(0, 120);
     const wrapped = new Error(`chips ${status ?? 0}: ${detail}`);
     (wrapped as any).name = err?.name ?? wrapped.name;
@@ -297,6 +308,7 @@ async function requestText(
     opts?.signal?.removeEventListener('abort', onAbort);
   }
 }
+
 
 export interface ChipsFetchResult {
   payload: TwChipsPayload;
@@ -379,3 +391,97 @@ export async function fetchChipsStamp(
     inst_as_of: json.inst_as_of ?? null,
   };
 }
+
+export interface ChipsBatchResult {
+  results: Record<string, TwChipsPayload>;
+  errors: Record<string, string>;
+  count: number;
+  failed: number;
+  servedAt: string;
+}
+
+function normalizeStockCodes(codes: unknown): string[] {
+  if (!Array.isArray(codes)) return [];
+  const out: string[] = [];
+  for (const c of codes) {
+    const code = String(c ?? '').trim();
+    if (code && !out.includes(code)) out.push(code);
+  }
+  return out;
+}
+
+/**
+ * 候選 D：批次取得多檔籌碼 payload。單一響應的形狀與逐檔 tw-chips-detail 完全相同，
+ * 前端可用來預先填滿各股的 TanStack Query 快取，避免抽屜開啟時 N+1 個別握手。
+ */
+export async function fetchChipsBatch(
+  stockIds: string[] | null | undefined,
+  opts?: { signal?: AbortSignal; telemetry?: ChipsTelemetryContext },
+): Promise<ChipsBatchResult> {
+  const source = opts?.telemetry?.source ?? 'unknown';
+  const isViewAs = !!opts?.telemetry?.isViewAs;
+  const ids = normalizeStockCodes(stockIds)
+    .filter((c) => isTaiwanStockCode(c))
+    .slice(0, CHIPS_BATCH_MAX_STOCKS);
+
+  if (!ids.length) {
+    return { results: {}, errors: {}, count: 0, failed: 0, servedAt: '' };
+  }
+
+  trackEvent('chips_batch_fetch_start', { count: ids.length, source, is_view_as: isViewAs });
+  try {
+    const { text, durationMs } = await requestText('/tw-chips-batch', {
+      signal: opts?.signal,
+      timeoutMs: CHIPS_BATCH_TIMEOUT_MS,
+      method: 'POST',
+      body: JSON.stringify({ stock_ids: ids }),
+    });
+    const json = JSON.parse(text) as Partial<ChipsBatchResult> & { served_at?: string };
+    const results = json.results ?? {};
+    const errors = json.errors ?? {};
+    trackEvent('chips_batch_fetch_done', {
+      count: ids.length,
+      returned: Object.keys(results).length,
+      failed: Object.keys(errors).length,
+      source,
+      duration_ms: durationMs,
+      payload_bytes: text.length,
+      is_view_as: isViewAs,
+    });
+    return {
+      results,
+      errors,
+      count: Object.keys(results).length,
+      failed: Object.keys(errors).length,
+      servedAt: json.served_at ?? json.servedAt ?? new Date().toISOString(),
+    };
+  } catch (err) {
+    const chips = classifyChipsError(err, (err as ChipsRequestError)?.status);
+    trackEvent('chips_batch_fetch_error', {
+      count: ids.length,
+      source,
+      error_code: chips.kind,
+      status: chips.status ?? null,
+      is_view_as: isViewAs,
+    });
+    throw err instanceof ChipsRequestError ? err : new ChipsRequestError(chips);
+  }
+}
+
+/** 候選 D：單股預載（hover 用）。失敗靜默，不該打斷使用者操作。 */
+export async function prefetchChipsPayload(
+  stockId: string,
+  opts?: { signal?: AbortSignal; telemetry?: ChipsTelemetryContext },
+): Promise<ChipsFetchResult | null> {
+  if (!isTaiwanStockCode(stockId)) return null;
+  try {
+    const res = await fetchChipsBatch([stockId], { ...opts, telemetry: { source: opts?.telemetry?.source ?? 'hover_prefetch', isViewAs: opts?.telemetry?.isViewAs } });
+    const payload = res.results[stockId];
+    if (!payload) return null;
+    const stampVer = payload?._cache_meta?.stamp_ver ?? null;
+    return { payload, stampVer, bytes: 0, durationMs: 0 };
+  } catch {
+    return null;
+  }
+}
+
