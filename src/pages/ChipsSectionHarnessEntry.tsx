@@ -65,20 +65,38 @@ function applyForceOffline() {
 }
 
 /**
- * force=stale 時把分頁標成 hidden。
- * useTwChipsDetail 的 planAutoRefresh 在 !visible 時回 'paused' 不排程，
- * 否則 stale 一亮起就立刻自動重抓 → fetchedAt 被刷新 → badge 瞬間消失，
- * 快照永遠抓不到。stamp 探針同樣靠 visible 關掉，畫面才穩定。
+ * 分頁可見性覆寫（可切換）。
+ *
+ * useTwChipsDetail 的 planAutoRefresh 在 !visible 時回 'paused' 不排程；
+ * visible 時 stale 一亮就會自動重抓。STALE 快照預設用 hidden 保護，
+ * 但視覺回歸矩陣要能同時驗證 visible（自動重抓不得吃掉 badge），
+ * 所以這裡把可見性做成可讀可寫、可即時切換的覆寫。
+ *
+ * spec 用 `window.__harnessSetVisibility('visible'|'hidden')` 切換，
+ * 切換會 dispatch `visibilitychange`，hook 的 listener 才會跟上。
  */
-function applyHiddenTab() {
+let visibilityOverride: 'hidden' | 'visible' | null = null;
+function installVisibilityOverride(initial: 'hidden' | 'visible') {
+  visibilityOverride = initial;
   try {
-    Object.defineProperty(document, 'visibilityState', {
-      value: 'hidden',
-      configurable: true,
-    });
-    Object.defineProperty(document, 'hidden', { value: true, configurable: true });
+    if (!(window as any).__harnessVisibilityInstalled) {
+      Object.defineProperty(document, 'visibilityState', {
+        get: () => visibilityOverride ?? 'visible',
+        configurable: true,
+      });
+      Object.defineProperty(document, 'hidden', {
+        get: () => (visibilityOverride ?? 'visible') === 'hidden',
+        configurable: true,
+      });
+      (window as any).__harnessVisibilityInstalled = true;
+      (window as any).__harnessSetVisibility = (v: 'hidden' | 'visible') => {
+        visibilityOverride = v;
+        document.dispatchEvent(new Event('visibilitychange'));
+      };
+    }
   } catch {}
 }
+
 
 /**
  * 時間控制器：規則與權重全部委派給 `@/checkup/lib/harnessClock`。
