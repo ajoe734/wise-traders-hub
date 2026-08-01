@@ -280,5 +280,130 @@ test.describe('ChipsSection · visual regression', () => {
     await expect(page.getByTestId('chips-stale-badge')).toHaveCount(0);
     await expect(page.locator('text=/^更新於/')).toContainText('剛剛更新');
   });
+
+  /**
+   * 10. STALE 視覺回歸矩陣 · visibilityState × auto revalidate delay
+   *
+   * 背景：`fetchedAt = query.dataUpdatedAt`（真實時鐘），而自動重抓由
+   * planAutoRefresh 決定（!visible → 'paused'）。所以 STALE badge 的壽命
+   * 完全取決於「分頁可見性」與「重抓回應延遲」兩個變數。過去只覆蓋
+   * hidden 一種組合，任何讓 hidden 失效的改動都會讓快照被 auto revalidate
+   * 吃掉、變成間歇性紅燈。本矩陣把三種組合全部釘死：
+   *
+   *   A. hidden        + 快回應 → 完全不排程，badge 永久亮（快照基準）
+   *   B. visible       + 慢回應 → 重抓進行中 badge 仍亮（快照 refreshing 態）
+   *   C. visible       + 快回應 → 重抓完成後 badge 熄滅、改顯示「剛剛更新」
+   *   D. hidden→visible 切換    → 切換前恆亮，切換後才被 revalidate 收掉
+   *
+   * 三道保險同 #6：固定時鐘（now=）、等 data-stale-shifted、maxDiffPixelRatio=0。
+   */
+  test.describe('10. badge STALE 矩陣 · visibility × refresh delay', () => {
+    test.describe.configure({ retries: 2 });
+
+    const NOW_MS = Date.parse(FROZEN_FETCHED_AT);
+    const SHIFT_MS = 6 * 60 * 1000;
+
+    /** 首發立即回、後續（auto revalidate）延遲 delayMs 才回 */
+    async function routeWithRefreshDelay(
+      page: import('@playwright/test').Page,
+      delayMs: number,
+    ) {
+      const calls = { n: 0 };
+      await page.route(CHIPS_ROUTE, async (r) => {
+        calls.n += 1;
+        if (calls.n > 1 && delayMs > 0) {
+          await new Promise((res) => setTimeout(res, delayMs));
+        }
+        await fulfill(r, fullPayload());
+      });
+      return calls;
+    }
+
+    function harnessUrl(visibility: 'hidden' | 'visible') {
+      return (
+        `/e2e/chips-section?code=${STOCK}&force=stale&freezeTime=1&now=${NOW_MS}` +
+        `&staleAfter=300&staleShift=${SHIFT_MS}&visibility=${visibility}`
+      );
+    }
+
+    async function gotoShifted(
+      page: import('@playwright/test').Page,
+      visibility: 'hidden' | 'visible',
+    ) {
+      await page.goto(harnessUrl(visibility));
+      const section = page.getByTestId('chips-section');
+      await section.waitFor();
+      const root = page.getByTestId('chips-harness-root');
+      await expect(root).toHaveAttribute('data-visibility', visibility);
+      await expect(root).toHaveAttribute('data-stale-shifted', '1', { timeout: 10_000 });
+      return section;
+    }
+
+    test('A. hidden + 快回應 — 不排程重抓，badge 永久亮', async ({ page }) => {
+      const calls = await routeWithRefreshDelay(page, 0);
+      const section = await gotoShifted(page, 'hidden');
+
+      const badge = page.getByTestId('chips-stale-badge');
+      await expect(badge).toBeVisible({ timeout: 10_000 });
+      await page.waitForTimeout(1_200);
+      await expect(badge).toBeVisible();
+      await expect(page.locator('text=/^更新於/')).toContainText('6 分鐘前');
+      expect(calls.n).toBe(1); // paused → 一次都沒有自動重抓
+
+      await page.evaluate(() => (document as any).fonts?.ready);
+      await expect(section).toHaveScreenshot('chips-badge-stale-hidden.png', {
+        mask: [page.getByTestId('chips-trend-scrubber')],
+        animations: 'disabled',
+        maxDiffPixelRatio: 0,
+      });
+    });
+
+    test('B. visible + 慢回應 — 重抓中 badge 仍亮（不被吃掉）', async ({ page }) => {
+      await routeWithRefreshDelay(page, 3_000);
+      const section = await gotoShifted(page, 'visible');
+
+      const badge = page.getByTestId('chips-stale-badge');
+      await expect(badge).toBeVisible({ timeout: 10_000 });
+      // 自動重抓已在飛行中，但 fetchedAt 還沒更新 → badge 不得熄滅
+      await page.waitForTimeout(1_200);
+      await expect(badge).toBeVisible();
+      await expect(page.locator('text=/^更新於/')).toContainText('6 分鐘前');
+
+      await page.evaluate(() => (document as any).fonts?.ready);
+      await expect(section).toHaveScreenshot('chips-badge-stale-refreshing.png', {
+        mask: [page.getByTestId('chips-trend-scrubber')],
+        animations: 'disabled',
+        maxDiffPixelRatio: 0,
+      });
+    });
+
+    test('C. visible + 快回應 — 重抓完成後才熄滅並回到「剛剛更新」', async ({ page }) => {
+      const calls = await routeWithRefreshDelay(page, 0);
+      await gotoShifted(page, 'visible');
+
+      const badge = page.getByTestId('chips-stale-badge');
+      // 熄滅是「重抓完成」的結果，不是 badge 自己不穩
+      await expect(badge).toHaveCount(0, { timeout: 10_000 });
+      await expect(page.locator('text=/^更新於/')).toContainText('剛剛更新');
+      expect(calls.n).toBeGreaterThan(1);
+    });
+
+    test('D. hidden → visible 切換 — 切換前恆亮，切換後才被收掉', async ({ page }) => {
+      const calls = await routeWithRefreshDelay(page, 0);
+      await gotoShifted(page, 'hidden');
+
+      const badge = page.getByTestId('chips-stale-badge');
+      await expect(badge).toBeVisible({ timeout: 10_000 });
+      await page.waitForTimeout(800);
+      await expect(badge).toBeVisible();
+      expect(calls.n).toBe(1);
+
+      await page.evaluate(() => (window as any).__harnessSetVisibility('visible'));
+      await expect(page.getByTestId('chips-harness-root')).toBeVisible();
+      await expect(badge).toHaveCount(0, { timeout: 10_000 });
+      expect(calls.n).toBeGreaterThan(1);
+    });
+  });
 });
+
 
