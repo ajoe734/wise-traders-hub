@@ -1,3 +1,4 @@
+// deno-lint-ignore-file no-explicit-any
 // _shared/retryFetch.ts
 // 外部 API（FinMind / TWSE / TPEx / Yahoo …）統一的自動重試 + 指數退避層。
 //
