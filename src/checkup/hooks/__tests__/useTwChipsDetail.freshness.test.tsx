@@ -46,7 +46,7 @@ describe('抽屜籌碼新鮮度', () => {
   });
 
   it('超過 TTL 會自動重抓，並把 stale 收回 false', async () => {
-    const { result } = renderHook(() => useTwChipsDetail('2330', true));
+    const { result } = renderHook(() => useTwChipsDetail('2317', true));
     await waitFor(() => expect(result.current.data).toBeTruthy());
     expect(textMock).toHaveBeenCalledTimes(1);
 
@@ -58,7 +58,7 @@ describe('抽屜籌碼新鮮度', () => {
   });
 
   it('分頁在背景時暫停自動重抓，回到前景立刻補抓', async () => {
-    const { result } = renderHook(() => useTwChipsDetail('2330', true));
+    const { result } = renderHook(() => useTwChipsDetail('2454', true));
     await waitFor(() => expect(result.current.data).toBeTruthy());
 
     const spy = vi.spyOn(document, 'visibilityState', 'get').mockReturnValue('hidden');
@@ -75,7 +75,7 @@ describe('抽屜籌碼新鮮度', () => {
   });
 
   it('自動重抓連續失敗會退避，達上限後停手改由使用者手動', async () => {
-    const { result } = renderHook(() => useTwChipsDetail('2330', true));
+    const { result } = renderHook(() => useTwChipsDetail('3008', true));
     await waitFor(() => expect(result.current.data).toBeTruthy());
 
     textMock.mockRejectedValue(Object.assign(new Error('boom'), { status: 500 }));
