@@ -13,7 +13,7 @@ vi.mock('../../lib/gateway', () => ({
   }),
 }));
 vi.mock('@/lib/trafficTracker', () => ({ trackEvent: vi.fn() }));
-vi.mock('@/lib/viewAs', () => ({ isViewAsActive: () => false }), { virtual: true } as any);
+
 
 import { useTwChipsDetail } from '../useTwChipsDetail';
 
