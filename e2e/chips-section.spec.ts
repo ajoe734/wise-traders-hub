@@ -177,7 +177,9 @@ test.describe('ChipsSection · 全覆蓋', () => {
 
     await expect(page.getByTestId('chips-bsr-missing')).toBeVisible();
     await expect(page.getByTestId('chips-bsr-missing')).toContainText('分點資料尚未同步');
-    await expect(page.getByTestId('chips-bsr-missing')).toContainText('18:15');
+    // 排程文案已改為「僅交易日 14:00–21:00 每 10 分鐘一輪」＋週末休市說明
+    await expect(page.getByTestId('chips-bsr-missing')).toContainText('僅交易日有新資料');
+    await expect(page.getByTestId('chips-bsr-missing')).toContainText('週末與國定假日休市不更新');
 
     await expect(page.getByTestId('chips-trend-chart')).toHaveCount(0);
     await expect(page.getByText('尚無歷史序列資料')).toBeVisible();
