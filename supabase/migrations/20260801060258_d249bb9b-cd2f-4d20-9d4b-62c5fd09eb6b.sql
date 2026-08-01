@@ -1,0 +1,2 @@
+ALTER TABLE public.tw_chips_rollup DROP CONSTRAINT IF EXISTS tw_chips_rollup_window_days_check;
+ALTER TABLE public.tw_chips_rollup ADD CONSTRAINT tw_chips_rollup_window_days_check CHECK (window_days = ANY (ARRAY[1, 5, 10, 20, 60]));
