@@ -983,7 +983,8 @@ Deno.serve(async (req) => {
               broker_id: r.broker_id, broker_name: r.broker_name,
               source: 'broker_scraper',
               buy_shares: r.buy_shares, sell_shares: r.sell_shares,
-              net_shares: r.buy_shares - r.sell_shares,
+              // net_shares 為 GENERATED ALWAYS 欄位，寫入會被 Postgres 拒絕
+
               avg_buy_price: r.avg_buy_price, avg_sell_price: r.avg_sell_price,
               ingested_at: nowIso,
             }));

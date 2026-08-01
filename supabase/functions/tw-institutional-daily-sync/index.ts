@@ -14,7 +14,7 @@ import { requireCronKey, AuthError } from "../_shared/authGuard.ts";
 import { checkCircuit, recordCircuit } from "../_shared/circuitBreaker.ts";
 import { fetchWithRetry, isRetryExhausted, recordRetryFailure } from "../_shared/retryFetch.ts";
 import { checkKillSwitch } from "../_shared/killSwitch.ts";
-import { parseT86 } from "../_shared/institutionalDay.ts";
+import { fetchFinmindDay, parseT86 } from "../_shared/institutionalDay.ts";
 import {
   isPublicSyncMode,
   isValidStockId,
@@ -444,6 +444,49 @@ const KEEP_WARM_CONFIG_KEY = "keep_warm_schedule";
 
 type KeepWarmConfig = { enabled?: boolean; waves?: string[] };
 
+/**
+ * OTC（上櫃）補洞 lane。
+ *
+ * 為什麼需要：TWSE T86 只涵蓋「上市」，上櫃個股（4966、8299、6274、3081…）
+ * 永遠不會出現在 T86 全市場檔裡。過去這些股票只靠 per-stock FinMind 回補
+ * 偶然補到，一旦沒人觸發就整批停在舊日期（2026/07/24 事故）。
+ * 這裡在 T86 落地後，用「FinMind 全市場單日」一次補齊當日缺席的代號，
+ * 每個 wave 只多打 1 次 FinMind。
+ */
+async function fillOtcGap(
+  supa: any,
+  tradeDate: string,
+  wave: string,
+): Promise<{ fetched: number; inserted: number; reason?: string }> {
+  const rows = await fetchFinmindDay(tradeDate, { supa });
+  if (!rows || rows.length === 0) return { fetched: 0, inserted: 0, reason: "finmind_no_data" };
+
+  const { data: existing } = await supa
+    .from("tw_institutional_daily")
+    .select("stock_id")
+    .eq("trade_date", tradeDate)
+    .limit(20000);
+  const have = new Set((existing || []).map((r: any) => String(r.stock_id)));
+  const missing = rows.filter((r: any) => !have.has(String(r.stock_id)));
+  if (missing.length === 0) return { fetched: rows.length, inserted: 0, reason: "no_gap" };
+
+  const BATCH = 500;
+  let inserted = 0;
+  for (let i = 0; i < missing.length; i += BATCH) {
+    const chunk = missing.slice(i, i + BATCH).map((r: any) => ({
+      ...r,
+      raw: { source: `otc_gap_fill:${wave}` },
+    }));
+    const { error } = await supa
+      .from("tw_institutional_daily")
+      .upsert(chunk, { onConflict: "stock_id,trade_date" });
+    if (error) return { fetched: rows.length, inserted, reason: `upsert_failed:${error.message}` };
+    inserted += chunk.length;
+  }
+  return { fetched: rows.length, inserted };
+}
+
+
 async function runKeepWarm(
   supa: any,
   opts: { wave: string; force: boolean; lookback: number },
@@ -485,20 +528,23 @@ async function runKeepWarm(
     .select("stock_id", { count: "exact", head: true })
     .eq("trade_date", iso);
   if ((existingCount ?? 0) > 100 && !opts.force) {
+    // T86（上市）已到位，但上櫃仍可能缺；短路前先跑一次 OTC 補洞。
+    const otc = await fillOtcGap(supa, iso, opts.wave);
     await supa.from("data_source_refresh_logs").insert({
       source_key: "tw_keep_warm",
       status: "skipped",
       started_at: startedAt,
       finished_at: new Date().toISOString(),
       duration_ms: 0,
-      row_count: existingCount ?? 0,
-      metadata: { run_id: runId, wave: opts.wave, reason: "already_present", date: iso },
+      row_count: otc.inserted,
+      metadata: { run_id: runId, wave: opts.wave, reason: "already_present", date: iso, otc },
     });
     return {
       ok: true, mode: "keep_warm", skipped: true, reason: "already_present",
-      wave: opts.wave, date: iso, existing: existingCount,
+      wave: opts.wave, date: iso, existing: existingCount, otc,
     };
   }
+
 
   // PR-9 kill-switch：整個 chips 或 keepwarm 被關就直接跳過
   const swAll = await checkKillSwitch(supa, "chips_all");
@@ -621,21 +667,24 @@ async function runKeepWarm(
   }
 
   await recordSourceHealth(supa, "twse_t86", true, fetchLatency);
+  // T86 只有上市；同日再用 FinMind 全市場補上櫃缺口。
+  const otc = await fillOtcGap(supa, tradeDate, opts.wave);
   await supa.from("data_source_refresh_logs").insert({
     source_key: "tw_keep_warm",
     status: "success",
     started_at: startedAt,
     finished_at: new Date().toISOString(),
     duration_ms: Date.now() - Date.parse(startedAt),
-    row_count: inserted,
-    metadata: { run_id: runId, wave: opts.wave, requested_date: iso, resolved_date: tradeDate, attempts },
+    row_count: inserted + otc.inserted,
+    metadata: { run_id: runId, wave: opts.wave, requested_date: iso, resolved_date: tradeDate, attempts, otc },
   });
 
   return {
     ok: true, mode: "keep_warm", wave: opts.wave,
-    requested_date: iso, resolved_date: tradeDate, inserted, attempts,
+    requested_date: iso, resolved_date: tradeDate, inserted, otc, attempts,
   };
 }
+
 
 // 公開模式：只讀公開市場資料 / 觸發公開資料回補，不需 cron key 也不需 admin。
 // 之所以公開：持倉抽屜（含 FreeCheckup 免登入表面）任何訪客都可能觸發「回補 60 日」，
@@ -705,6 +754,23 @@ Deno.serve(async (req) => {
         const result = await runKeepWarm(supa, { wave, force, lookback });
         return jsonResponse(result);
       }
+
+      // === Mode: otc_gap_fill ===（單日／區間補上櫃缺口；cron 或管理員觸發）
+      // T86 只有上市，這條 lane 用 FinMind 全市場單日把缺席代號補齊。
+      if (body?.mode === "otc_gap_fill") {
+        const supa = serviceClient();
+        const wave = String(body.wave || "manual").slice(0, 32);
+        const dates: string[] = Array.isArray(body.dates) && body.dates.length > 0
+          ? body.dates.map((d: any) => String(d).slice(0, 10))
+          : [toISODate(taipeiToday())];
+        const results: Array<Record<string, unknown>> = [];
+        for (const d of dates.slice(0, 15)) {
+          results.push({ date: d, ...(await fillOtcGap(supa, d, wave)) });
+        }
+        return jsonResponse({ ok: true, mode: "otc_gap_fill", results });
+      }
+
+
 
       // === Mode: backfill_stock ===（per-stock 60 天歷史回補）
       if (body?.mode === "backfill_stock") {

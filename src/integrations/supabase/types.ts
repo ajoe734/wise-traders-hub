@@ -6686,6 +6686,13 @@ export type Database = {
         }
         Returns: Json
       }
+      reap_stale_bsr_queue_jobs: {
+        Args: { _stale_minutes?: number }
+        Returns: {
+          reaped_jobs: number
+          released_locks: number
+        }[]
+      }
       reconcile_line_free_quota: { Args: { _user_id: string }; Returns: Json }
       reconcile_snapshot: {
         Args: { _trade_date: string }
