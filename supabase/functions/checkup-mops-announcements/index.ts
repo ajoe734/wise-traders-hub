@@ -70,8 +70,7 @@ Deno.serve(withLogging('checkup-mops-announcements', async (req) => {
       keyword3: '',
     });
 
-    const response = await fetch('https://mops.twse.com.tw/mops/web/ajax_t05st01', {
-      signal: AbortSignal.timeout(10000),
+    const response = await fetchWithRetry('https://mops.twse.com.tw/mops/web/ajax_t05st01', {
       method: 'POST',
       headers: {
         'User-Agent': 'Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36',
@@ -79,6 +78,9 @@ Deno.serve(withLogging('checkup-mops-announcements', async (req) => {
         'Referer': 'https://mops.twse.com.tw/mops/web/t05st01',
       },
       body: body.toString(),
+    }, {
+      source: 'mops_twse',
+      policy: { maxAttempts: 3, baseDelayMs: 1200, timeoutMs: 10_000 },
     });
 
     if (!response.ok) {
