@@ -174,42 +174,20 @@ async function fetchFinmindOneDay(
 
 const aggregate = libAggregate;
 
+/**
+ * Rollup 重算一律走 SQL RPC：DB 端聚合，沒有 PostgREST 1000 列上限問題。
+ * （舊版在 TS 端讀 90 天 raw 現算，熱門股一天 800 分點會被截成 1.2 天，
+ *   導致 1/5/10/20/60 全部退化成同一天的數字。）
+ */
 async function rebuildRollup(stockId: string, asOf: string) {
-  const since = addDays(asOf, -90);
-  const { data: bsrRows } = await supa
-    .from('tw_bsr_daily')
-    .select('trade_date, broker_id, broker_name, net_shares, buy_shares, sell_shares')
-    .eq('stock_id', stockId).gte('trade_date', since).lte('trade_date', asOf)
-    .order('trade_date', { ascending: false });
-  const rows = bsrRows || [];
-  const uniqueDates = Array.from(new Set(rows.map((r: any) => r.trade_date)))
-    .sort((a, b) => (a < b ? 1 : -1));
-  const { computeBsrWindow, pickWindowDates } = await import('../_shared/bsrRollup.ts');
-  // 當日 broker count → 寫入 window_days=5 那列，作為日粒度事實供 chips-detail 序列讀取。
-  const todayBrokers = new Set(
-    rows.filter((r: any) => r.trade_date === asOf).map((r: any) => r.broker_id),
-  );
-  const todayBrokerCount = todayBrokers.size;
-  for (const win of [1, 5, 10, 20, 60] as const) {
-    const dates = pickWindowDates(uniqueDates, win);
-    const w = computeBsrWindow(rows as any, dates);
-    if (!w) continue;
-    const row: any = {
-      stock_id: stockId, as_of_date: asOf, window_days: win,
-      foreign_net: 0, trust_net: 0, dealer_net: 0,
-      top_buy_brokers: w.top_buy, top_sell_brokers: w.top_sell,
-      concentration_ratio: w.concentration_ratio, bsr_available: true,
-      updated_at: new Date().toISOString(),
-    };
-    if (win === 5) {
-      row.broker_count = todayBrokerCount;
-      row.low_quality = todayBrokerCount > 0 && todayBrokerCount < 5;
-    }
-    await supa.from('tw_chips_rollup').upsert(row, {
-      onConflict: 'stock_id,as_of_date,window_days',
-    });
-  }
+  const { error } = await supa.rpc('rebuild_bsr_rollup', {
+    _as_of: asOf,
+    _stock_ids: [stockId],
+    _max_stocks: 1,
+  });
+  if (error) throw new Error(`chips_rollup_upsert_failed:${error.message}`);
 }
+
 
 async function isDoneAlready(stockId: string, date: string): Promise<boolean> {
   // M4: 門檻由 5 降至 1；只要有任何一筆分點就視為 done，避免同一日期反覆重跑。

@@ -6696,8 +6696,18 @@ export type Database = {
           released_locks: number
         }[]
       }
-      rebuild_bsr_rollup: {
-        Args: { _as_of: string; _max_stocks?: number; _stock_ids?: string[] }
+      rebuild_bsr_rollup:
+        | {
+            Args: {
+              _as_of: string
+              _max_stocks?: number
+              _stock_ids?: string[]
+            }
+            Returns: Json
+          }
+        | { Args: { p_as_of: string; p_stock_id: string }; Returns: number }
+      rebuild_bsr_rollup_range: {
+        Args: { p_max_stocks?: number; p_since: string; p_until: string }
         Returns: Json
       }
       reconcile_line_free_quota: { Args: { _user_id: string }; Returns: Json }
