@@ -5,6 +5,7 @@ import { describe, it, expect, beforeEach } from 'vitest';
 import {
   holdingExportPrefs,
   holdingPanelPrefs,
+  chipsPrefs,
   DEFAULT_EXPORT_PREFS,
   type HoldingExportPrefs,
 } from './drawerPrefs';
