@@ -241,6 +241,7 @@ export default defineConfig({
       testMatch: /chips-telemetry-contract\.spec\.ts/,
       use: { ...devices['Desktop Chrome'], viewport: { width: 1280, height: 900 } },
     },
+    {
       // 週記 / 訊號編輯器：ETF 英文字尾（00631L / 00878B）代號+名稱顯示 parity
       name: 'desktop-signal-editor-etf-suffix',
       testMatch: /signal-editor-etf-suffix\.spec\.ts/,
