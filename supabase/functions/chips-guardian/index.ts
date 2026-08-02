@@ -26,6 +26,13 @@ import {
   decideUpstreamThrottle,
   computeThrottledRefill,
 } from '../_shared/guardianRules.ts';
+import {
+  decideSwitchReopen,
+  decideDegradeStepDown,
+  decidePoolHeal,
+  taipeiDateString,
+} from '../_shared/autoHealRules.ts';
+
 
 const SUPABASE_URL = Deno.env.get('SUPABASE_URL')!;
 const SERVICE_KEY = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')!;
