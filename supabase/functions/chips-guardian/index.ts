@@ -480,6 +480,12 @@ Deno.serve(async (req) => {
   if (req.method === 'OPTIONS') return new Response('ok', { headers: corsHeaders });
   const supa = serviceClient();
   try {
+    // Auto-heal 先跑（解除死結），再跑偵測型規則，避免同一輪內互相打架。
+    const heals = [
+      ...(await ruleAutoHealQuotaPools(supa)),
+      ...(await ruleAutoHealDegrade(supa)),
+      ...(await ruleAutoHealSwitches(supa)),
+    ];
     const [a1, a2, a3, a4, a5] = await Promise.all([
       ruleCircuitLongOpen(supa),
       ruleQuotaRejectRate(supa),
@@ -487,7 +493,8 @@ Deno.serve(async (req) => {
       ruleUpstreamQuotaLow(supa),
       ruleFactLogStale(supa),
     ]);
-    const actions = [...a1, ...a2, ...a3, ...a4, ...a5];
+    const actions = [...heals, ...a1, ...a2, ...a3, ...a4, ...a5];
+
 
     return new Response(JSON.stringify({ ok: true, actions, ran_at: new Date().toISOString() }),
       { headers: { ...corsHeaders, 'Content-Type': 'application/json' } });
