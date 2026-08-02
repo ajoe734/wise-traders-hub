@@ -194,7 +194,9 @@ export default function CompanyRemittance() {
                     </Badge>
                     <Badge variant="outline">{o.product_kind === 'checkup_plan' ? '健檢' : '專家方案'}</Badge>
                     <Badge variant="outline">{o.billing_cycle === 'yearly' ? '年費' : '月費'}</Badge>
+                    {expertName && <Badge variant="default">老師：{expertName}</Badge>}
                     {planName && <Badge variant="secondary">{planName}</Badge>}
+
                   </div>
                   <div className="font-mono text-xs text-muted-foreground">訂單 ID：{o.id}</div>
                   <div>付款人：<b>{o.payer_name ?? '—'}</b> ・ 末五碼：<b className="font-mono">{o.last5 ?? '—'}</b></div>
