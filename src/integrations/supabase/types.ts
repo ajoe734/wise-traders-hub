@@ -6651,13 +6651,21 @@ export type Database = {
               source_type: string
             }[]
           }
-      materialize_bsr_daily_from_fact: {
-        Args: { _trade_date: string }
-        Returns: {
-          materialized_rows: number
-          skipped_sealed: boolean
-        }[]
-      }
+      materialize_bsr_daily_from_fact:
+        | {
+            Args: { _trade_date: string }
+            Returns: {
+              materialized_rows: number
+              skipped_sealed: boolean
+            }[]
+          }
+        | {
+            Args: { _stock_ids?: string[]; _trade_date: string }
+            Returns: {
+              materialized_rows: number
+              skipped_sealed: boolean
+            }[]
+          }
       normalize_snapshot_volume_shares: {
         Args: { p_hint_unit?: string; p_market: string; p_volume: number }
         Returns: {
