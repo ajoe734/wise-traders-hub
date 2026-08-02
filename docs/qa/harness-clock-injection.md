@@ -91,6 +91,25 @@ auto revalidate 意外吃掉（或反過來，該熄滅時沒熄滅）：
 
 首發請求一律立即回應，只對第 2 次（含）之後的請求加延遲，避免初次載入被拖慢。
 
+### FRESH 視覺回歸矩陣（#11）
+
+`chips-fresh-badge`（`!loading && !stale && !error && online && fetchedAt`）與
+`chips-stale-badge` 條件互為否定，永遠互斥。矩陣用 `force=fresh`（時鐘釘死且
+永不位移，權重高於 stale）跑滿同樣兩個變數，每則都同時斷言
+`chips-stale-badge` 為 0、`data-stale-shifted="0"`、文案「剛剛更新」：
+
+| 案例 | visibility | 重抓回應延遲 | 期望 | 快照 |
+| --- | --- | --- | --- | --- |
+| A | hidden | 0ms | 不排程（請求數恆為 1），FRESH 恆亮 | `chips-badge-fresh-hidden.png` |
+| B | visible | 3000ms | 重抓延遲不得讓 FRESH 掉成 STALE | `chips-badge-fresh-visible.png` |
+| C | visible | 0ms | 重抓完成仍是 FRESH，且無 auto-refresh badge | —（行為斷言） |
+| D | hidden → visible → hidden | 0ms | 可見性來回切換皆不得誤判成 STALE | —（行為斷言） |
+
+註：FRESH badge 上線後，`chips-baseline.png` 與 `chips-empty-state.png` 兩張
+基準快照已重新產生（標題列多一顆 FRESH）；`chips-badge-offline.png` 因
+`online=false` 不受影響。
+
+
 
 ## 復用到其他 harness
 
