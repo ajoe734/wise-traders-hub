@@ -27,11 +27,12 @@ import {
   computeThrottledRefill,
 } from '../_shared/guardianRules.ts';
 import {
-  decideSwitchReopen,
-  decideDegradeStepDown,
-  decidePoolHeal,
-  taipeiDateString,
-} from '../_shared/autoHealRules.ts';
+  healSwitches,
+  healDegrade,
+  healQuotaPools,
+  type HealDeps,
+} from '../_shared/autoHealEffects.ts';
+
 
 
 const SUPABASE_URL = Deno.env.get('SUPABASE_URL')!;
