@@ -404,6 +404,134 @@ test.describe('ChipsSection · visual regression', () => {
       expect(calls.n).toBeGreaterThan(1);
     });
   });
+
+  /**
+   * 11. FRESH 視覺回歸矩陣 · visibilityState × auto revalidate delay
+   *
+   * FRESH 與 STALE 互斥（`!stale` vs `stale`），但兩者共用同一條新鮮度管線
+   * （useFreshness ticker + planAutoRefresh）。過去只釘死 STALE，任何 TTL /
+   * ticker / 可見性改動都可能讓 FRESH 被 stale 規則誤傷（例如 ticker 誤把
+   * 未過期資料判成過期、或背景分頁下 age 停止推進而 badge 抖動）。
+   *
+   * 本矩陣把 FRESH 在四種組合下釘死，且每一則都同時斷言
+   * `chips-stale-badge` 為 0 —— FRESH 亮著時 STALE 永遠不得出現：
+   *
+   *   A. hidden  + 快回應  → 不排程重抓，FRESH 恆亮（快照基準）
+   *   B. visible + 慢回應  → 重抓進行中不得閃成 STALE（快照 refreshing 態）
+   *   C. visible + 快回應  → 重抓完成仍是 FRESH，請求數 > 0 但 badge 不變
+   *   D. hidden→visible 切換 → 切換前後皆 FRESH，不因可見性變化被誤判
+   *
+   * 決定論手段同 #10：固定時鐘 `now=`（force=fresh 讓時鐘釘死且永不位移）、
+   * `data-fixed-now` 訊號、animations disabled + maxDiffPixelRatio=0。
+   */
+  test.describe('11. badge FRESH 矩陣 · visibility × refresh delay', () => {
+    test.describe.configure({ retries: 2 });
+
+    const NOW_MS = Date.parse(FROZEN_FETCHED_AT);
+
+    /** 首發立即回、後續（auto revalidate）延遲 delayMs 才回 */
+    async function routeWithRefreshDelay(
+      page: import('@playwright/test').Page,
+      delayMs: number,
+    ) {
+      const calls = { n: 0 };
+      await page.route(CHIPS_ROUTE, async (r) => {
+        calls.n += 1;
+        if (calls.n > 1 && delayMs > 0) {
+          await new Promise((res) => setTimeout(res, delayMs));
+        }
+        await fulfill(r, fullPayload());
+      });
+      return calls;
+    }
+
+    async function gotoFresh(
+      page: import('@playwright/test').Page,
+      visibility: 'hidden' | 'visible',
+    ) {
+      // force=fresh：時鐘釘死在 now，且權重高於 stale → 永不位移
+      await page.goto(
+        `/e2e/chips-section?code=${STOCK}&force=fresh&now=${NOW_MS}` +
+          `&staleAfter=200&visibility=${visibility}`,
+      );
+      const section = page.getByTestId('chips-section');
+      await section.waitFor();
+      const root = page.getByTestId('chips-harness-root');
+      await expect(root).toHaveAttribute('data-visibility', visibility);
+      await expect(root).toHaveAttribute('data-fixed-now', '1');
+      return section;
+    }
+
+    /** FRESH 亮、STALE 熄、位移未發生、文案為「剛剛更新」 */
+    async function expectFreshOnly(page: import('@playwright/test').Page) {
+      await expect(page.getByTestId('chips-fresh-badge')).toBeVisible({ timeout: 10_000 });
+      await expect(page.getByTestId('chips-stale-badge')).toHaveCount(0);
+      await expect(page.getByTestId('chips-harness-root')).toHaveAttribute(
+        'data-stale-shifted',
+        '0',
+      );
+      await expect(page.locator('text=/^更新於/')).toContainText('剛剛更新');
+    }
+
+    test('A. hidden + 快回應 — 不排程重抓，FRESH 恆亮', async ({ page }) => {
+      const calls = await routeWithRefreshDelay(page, 0);
+      const section = await gotoFresh(page, 'hidden');
+
+      await expectFreshOnly(page);
+      await page.waitForTimeout(1_500); // 遠超過壓縮前的 ticker 與 staleAfter
+      await expectFreshOnly(page);
+      expect(calls.n).toBe(1); // 未過期 → 本來就不該有自動重抓
+
+      await page.evaluate(() => (document as any).fonts?.ready);
+      await expect(section).toHaveScreenshot('chips-badge-fresh-hidden.png', {
+        mask: [page.getByTestId('chips-trend-scrubber')],
+        animations: 'disabled',
+        maxDiffPixelRatio: 0,
+      });
+    });
+
+    test('B. visible + 慢回應 — 重抓延遲不得讓 FRESH 掉成 STALE', async ({ page }) => {
+      await routeWithRefreshDelay(page, 3_000);
+      const section = await gotoFresh(page, 'visible');
+
+      await expectFreshOnly(page);
+      await page.waitForTimeout(1_500);
+      await expectFreshOnly(page);
+
+      await page.evaluate(() => (document as any).fonts?.ready);
+      await expect(section).toHaveScreenshot('chips-badge-fresh-visible.png', {
+        mask: [page.getByTestId('chips-trend-scrubber')],
+        animations: 'disabled',
+        maxDiffPixelRatio: 0,
+      });
+    });
+
+    test('C. visible + 快回應 — 重抓完成後仍是 FRESH', async ({ page }) => {
+      await routeWithRefreshDelay(page, 0);
+      await gotoFresh(page, 'visible');
+
+      await expectFreshOnly(page);
+      await page.waitForTimeout(1_200);
+      await expectFreshOnly(page);
+      // 未過期時 auto revalidate 不該被排程（stamp 探針另計）
+      await expect(page.getByTestId('chips-auto-refresh-badge')).toHaveCount(0);
+    });
+
+    test('D. hidden → visible 切換 — 可見性變化不得誤判成 STALE', async ({ page }) => {
+      await routeWithRefreshDelay(page, 0);
+      await gotoFresh(page, 'hidden');
+      await expectFreshOnly(page);
+
+      await page.evaluate(() => (window as any).__harnessSetVisibility('visible'));
+      await page.waitForTimeout(1_200);
+      await expectFreshOnly(page);
+
+      await page.evaluate(() => (window as any).__harnessSetVisibility('hidden'));
+      await page.waitForTimeout(600);
+      await expectFreshOnly(page);
+    });
+  });
 });
+
 
 
