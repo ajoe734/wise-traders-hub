@@ -48,15 +48,17 @@ export default function CompanyRemittance() {
       const checkupIds = [...new Set(list.map(o => o.checkup_plan_id).filter(Boolean))] as string[];
       const adminIds = [...new Set(list.map(o => o.confirmed_by).filter(Boolean))] as string[];
       const [pRes, cpRes, profRes] = await Promise.all([
-        planIds.length ? supabase.from('expert_plans').select('id, name').in('id', planIds) : Promise.resolve({ data: [] as any }),
+        planIds.length ? supabase.from('expert_plans').select('id, name, experts(name, slug)').in('id', planIds) : Promise.resolve({ data: [] as any }),
         checkupIds.length ? supabase.from('checkup_plans').select('id, name').in('id', checkupIds) : Promise.resolve({ data: [] as any }),
         adminIds.length ? supabase.from('profiles').select('user_id, display_name').in('user_id', adminIds) : Promise.resolve({ data: [] as any }),
       ]);
       return {
         orders: list,
         planMap: Object.fromEntries(((pRes.data as any[]) || []).map(p => [p.id, p.name])) as Record<string, string>,
+        expertMap: Object.fromEntries(((pRes.data as any[]) || []).map(p => [p.id, p.experts?.name || null])) as Record<string, string | null>,
         checkupPlanMap: Object.fromEntries(((cpRes.data as any[]) || []).map(p => [p.id, p.name])) as Record<string, string>,
         adminMap: Object.fromEntries(((profRes.data as any[]) || []).map(p => [p.user_id, p.display_name || p.user_id.slice(0, 8)])) as Record<string, string>,
+
       };
     },
     staleTime: 30_000,
