@@ -48,21 +48,25 @@ export default function CompanyRemittance() {
       const checkupIds = [...new Set(list.map(o => o.checkup_plan_id).filter(Boolean))] as string[];
       const adminIds = [...new Set(list.map(o => o.confirmed_by).filter(Boolean))] as string[];
       const [pRes, cpRes, profRes] = await Promise.all([
-        planIds.length ? supabase.from('expert_plans').select('id, name').in('id', planIds) : Promise.resolve({ data: [] as any }),
+        planIds.length ? supabase.from('expert_plans').select('id, name, experts(name, slug)').in('id', planIds) : Promise.resolve({ data: [] as any }),
         checkupIds.length ? supabase.from('checkup_plans').select('id, name').in('id', checkupIds) : Promise.resolve({ data: [] as any }),
         adminIds.length ? supabase.from('profiles').select('user_id, display_name').in('user_id', adminIds) : Promise.resolve({ data: [] as any }),
       ]);
       return {
         orders: list,
         planMap: Object.fromEntries(((pRes.data as any[]) || []).map(p => [p.id, p.name])) as Record<string, string>,
+        expertMap: Object.fromEntries(((pRes.data as any[]) || []).map(p => [p.id, p.experts?.name || null])) as Record<string, string | null>,
         checkupPlanMap: Object.fromEntries(((cpRes.data as any[]) || []).map(p => [p.id, p.name])) as Record<string, string>,
         adminMap: Object.fromEntries(((profRes.data as any[]) || []).map(p => [p.user_id, p.display_name || p.user_id.slice(0, 8)])) as Record<string, string>,
+
       };
     },
     staleTime: 30_000,
   });
   const orders = data?.orders ?? [];
   const planMap = data?.planMap ?? {};
+  const expertMap = data?.expertMap ?? {};
+
   const checkupPlanMap = data?.checkupPlanMap ?? {};
   const adminMap = data?.adminMap ?? {};
   const loading = isFetching && !data;
@@ -166,6 +170,8 @@ export default function CompanyRemittance() {
           const planName = o.product_kind === 'checkup_plan'
             ? (o.checkup_plan_id ? checkupPlanMap[o.checkup_plan_id] : null)
             : (o.plan_id ? planMap[o.plan_id] : null);
+          const expertName = o.product_kind === 'checkup_plan' ? null : (o.plan_id ? expertMap[o.plan_id] : null);
+
           const hasDiscount = o.original_amount && o.discount_amount && o.discount_amount > 0;
           return (
             <Card key={o.id} className="p-4 space-y-3">
@@ -188,7 +194,9 @@ export default function CompanyRemittance() {
                     </Badge>
                     <Badge variant="outline">{o.product_kind === 'checkup_plan' ? '健檢' : '專家方案'}</Badge>
                     <Badge variant="outline">{o.billing_cycle === 'yearly' ? '年費' : '月費'}</Badge>
+                    {expertName && <Badge variant="default">老師：{expertName}</Badge>}
                     {planName && <Badge variant="secondary">{planName}</Badge>}
+
                   </div>
                   <div className="font-mono text-xs text-muted-foreground">訂單 ID：{o.id}</div>
                   <div>付款人：<b>{o.payer_name ?? '—'}</b> ・ 末五碼：<b className="font-mono">{o.last5 ?? '—'}</b></div>
