@@ -102,10 +102,8 @@ const CompanySubscribers = () => {
     return Math.ceil((new Date(expiresAt).getTime() - Date.now()) / (1000 * 60 * 60 * 24));
   };
 
-  const filtered = rows.filter(s => {
-    if (kindFilter !== 'all' && s.kind !== kindFilter) return false;
-    const matchStatus = statusFilter === 'all' || s.status === statusFilter;
-    if (!search) return matchStatus;
+  const matchesSearch = (s: Row) => {
+    if (!search) return true;
     const q = search.toLowerCase();
     const id = identities[s.user_id];
     const displayName = (id?.display_name || '').toLowerCase();
@@ -119,13 +117,42 @@ const CompanySubscribers = () => {
     const renewStr = s.auto_renew ? '自動' : '手動';
     const kindStr = s.kind === 'checkup' ? '健檢' : '訂閱';
     const loginStr = id?.login_method === 'line' ? 'line' : 'email';
-    const matchSearch = displayName.includes(q) || email.includes(q) || lineId.includes(q)
+    return displayName.includes(q) || email.includes(q) || lineId.includes(q)
       || s.user_id.toLowerCase().includes(q)
       || planName.includes(q) || (s.expert_name || '').toLowerCase().includes(q) || startDate.includes(q)
       || endDate.includes(q) || remainingStr.includes(q) || renewStr.includes(q)
       || kindStr.includes(q) || loginStr.includes(q);
-    return matchStatus && matchSearch;
-  });
+  };
+  const matchesKind = (s: Row) => kindFilter === 'all' || s.kind === kindFilter;
+  const matchesStatus = (s: Row) => statusFilter === 'all' || effStatus(s) === statusFilter;
+  const matchesExpert = (s: Row) =>
+    expertFilter === 'all' || (s.kind === 'expert' && (s.expert_name || '未指派') === expertFilter);
+
+  const filtered = rows.filter(s => matchesKind(s) && matchesStatus(s) && matchesExpert(s) && matchesSearch(s));
+
+  // 聯動：老師清單只列出「目前狀態／類型／搜尋條件下仍有資料」的老師，並附各自筆數
+  const expertOptions = useMemo(() => {
+    const counts = new Map<string, number>();
+    rows.forEach(s => {
+      if (s.kind !== 'expert') return;
+      if (!matchesStatus(s) || !matchesSearch(s)) return;
+      const name = s.expert_name || '未指派';
+      counts.set(name, (counts.get(name) || 0) + 1);
+    });
+    return [...counts.entries()].sort((a, b) => a[0].localeCompare(b[0], 'zh-Hant'));
+  }, [rows, statusFilter, search, identities]);
+
+  // 聯動：狀態按鈕顯示「在目前老師／類型／搜尋條件下」的筆數
+  const statusCounts = useMemo(() => {
+    const base = rows.filter(s => matchesKind(s) && matchesExpert(s) && matchesSearch(s));
+    return {
+      all: base.length,
+      live: base.filter(s => effStatus(s) === 'live').length,
+      expired: base.filter(s => effStatus(s) === 'expired').length,
+      inactive: base.filter(s => effStatus(s) === 'inactive').length,
+    };
+  }, [rows, kindFilter, expertFilter, search, identities]);
+
 
   // B-26：手動續訂模型下，auto_renew 已停用；改以「仍有效（active 且未過期未取消）」當分母分子。
   const nowTs = Date.now();
