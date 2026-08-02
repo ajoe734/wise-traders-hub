@@ -277,19 +277,44 @@ const CompanySubscribers = () => {
           </div>
           <div className="flex items-center bg-muted rounded-lg p-1">
             {[{ key: 'all', label: '全部類型' }, { key: 'expert', label: '訂閱方案' }, { key: 'checkup', label: '健檢方案' }].map(f => (
-              <button key={f.key} onClick={() => setKindFilter(f.key as any)} className={`text-xs px-3 py-1.5 rounded-md transition-colors ${kindFilter === f.key ? 'bg-background text-foreground shadow-sm' : 'text-muted-foreground hover:text-foreground'}`}>
+              <button key={f.key} onClick={() => { setKindFilter(f.key as any); if (f.key === 'checkup') setExpertFilter('all'); }} className={`text-xs px-3 py-1.5 rounded-md transition-colors ${kindFilter === f.key ? 'bg-background text-foreground shadow-sm' : 'text-muted-foreground hover:text-foreground'}`}>
                 {f.label}
               </button>
             ))}
           </div>
           <div className="flex items-center bg-muted rounded-lg p-1">
-            {[{ key: 'all', label: '全部' }, { key: 'active', label: '活躍' }, { key: 'expired', label: '到期' }, { key: 'canceled', label: '取消' }].map(f => (
+            {[
+              { key: 'all', label: '全部', n: statusCounts.all },
+              { key: 'live', label: 'ACTIVE', n: statusCounts.live },
+              { key: 'expired', label: '到期', n: statusCounts.expired },
+              { key: 'inactive', label: '非作用中', n: statusCounts.inactive },
+            ].map(f => (
               <button key={f.key} onClick={() => setStatusFilter(f.key)} className={`text-xs px-3 py-1.5 rounded-md transition-colors ${statusFilter === f.key ? 'bg-background text-foreground shadow-sm' : 'text-muted-foreground hover:text-foreground'}`}>
-                {f.label}
+                {f.label} <span className="opacity-60">({f.n})</span>
               </button>
             ))}
           </div>
+          <Select
+            value={expertFilter}
+            onValueChange={(v) => { setExpertFilter(v); if (v !== 'all' && kindFilter !== 'expert') setKindFilter('expert'); }}
+          >
+            <SelectTrigger className="w-[200px] h-9 text-xs">
+              <SelectValue placeholder="全部老師" />
+            </SelectTrigger>
+            <SelectContent>
+              <SelectItem value="all">全部老師</SelectItem>
+              {expertOptions.map(([name, n]) => (
+                <SelectItem key={name} value={name}>{name}（{n}）</SelectItem>
+              ))}
+            </SelectContent>
+          </Select>
+          {(statusFilter !== 'all' || expertFilter !== 'all' || kindFilter !== 'all' || search) && (
+            <Button variant="ghost" size="sm" className="text-xs" onClick={() => { setStatusFilter('all'); setExpertFilter('all'); setKindFilter('all'); setSearch(''); }}>
+              清除篩選
+            </Button>
+          )}
         </div>
+
 
         <Card>
           <CardContent className="p-0 overflow-x-auto">
