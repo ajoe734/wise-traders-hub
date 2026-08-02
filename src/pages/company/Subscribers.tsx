@@ -180,7 +180,7 @@ const CompanySubscribers = () => {
         s.plan_name,
         formatTaipeiYMD(s.started_at) || '-',
         formatTaipeiYMD(s.expires_at) || '-',
-        s.status === 'active' ? '活躍' : s.status === 'expired' ? '已到期' : '已取消',
+        effStatus(s) === 'live' ? 'ACTIVE' : effStatus(s) === 'expired' ? '已到期' : '非作用中',
         s.auto_renew ? '自動' : '手動',
       ];
     });
