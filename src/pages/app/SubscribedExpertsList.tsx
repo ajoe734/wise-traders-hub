@@ -58,20 +58,34 @@ export default function SubscribedExpertsList() {
         )}
 
         {/* Subscriptions list */}
-        {subscriptions.map((sub: any) => (
-          <FeatureCard key={sub.id} className="p-4">
-            <div className="flex items-center gap-3 mb-4">
-              <div className="flex-1 min-w-0">
-                <div className="flex items-center gap-2">
-                  <span className="font-semibold truncate">方案 #{sub.plan_id?.slice(0, 8)}</span>
-                  <Badge variant="outline" className="text-[10px]">
-                    {sub.status}
-                  </Badge>
+        {subs.map((s) => {
+          const raw = s.raw || {};
+          const planName = raw.expert_plans?.name as string | undefined;
+          return (
+            <FeatureCard key={`${s.expert.id}-${s.plan_id}`} className="p-4">
+              <Link to={`/app/expert/${s.expert.slug}`} className="flex items-center gap-3">
+                <Avatar className="h-11 w-11">
+                  <AvatarImage src={s.expert.avatar_url ?? undefined} alt={s.expert.name} />
+                  <AvatarFallback>{s.expert.name?.slice(0, 1)}</AvatarFallback>
+                </Avatar>
+                <div className="flex-1 min-w-0 space-y-1">
+                  <div className="flex items-center gap-2 flex-wrap">
+                    <span className="font-semibold truncate">{s.expert.name}</span>
+                    <RoleBadge role={s.expert.role === 'advisor' ? 'advisor' : 'mentor'} size="sm" />
+                  </div>
+                  {planName && (
+                    <div className="text-xs text-muted-foreground truncate">方案：{planName}</div>
+                  )}
+                  <div className="text-xs text-muted-foreground">
+                    生效：{fmtDate(raw.started_at)} ・ 到期：{raw.expires_at ? fmtDate(raw.expires_at) : '無期限'}
+                  </div>
                 </div>
-              </div>
-            </div>
-          </FeatureCard>
-        ))}
+                <ChevronRight className="h-4 w-4 text-muted-foreground shrink-0" />
+              </Link>
+            </FeatureCard>
+          );
+        })}
+
 
         {/* 失敗 / 棄單訂閱 — 與 active 列分開呈現，避免被誤判為 ACTIVE */}
         <FailedIntentsCard />
