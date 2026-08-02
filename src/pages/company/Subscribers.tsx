@@ -8,6 +8,7 @@ import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Checkbox } from '@/components/ui/checkbox';
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { supabase } from '@/integrations/supabase/client';
 import { Search, Users, UserCheck, UserX, RefreshCw, Download, Stethoscope, MessageCircle, History, Eye, Link2, Bell } from 'lucide-react';
 import { useUserIdentities, formatIdentitySecondary } from '@/hooks/useUserIdentities';
