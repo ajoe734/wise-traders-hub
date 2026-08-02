@@ -14,6 +14,11 @@
  *   6. badge-stale       — force=stale 觸發 STALE badge（TTL 過期）
  *   7. error-500         — server 錯誤 banner 顏色（紅框粉底）
  *   8. empty-state       — 無資料 fallback 文案 + 排程提示
+ *   9. force=fresh 權重     — fresh > stale（行為斷言）
+ *  10. STALE 矩陣          — visibility(hidden/visible) × refresh delay
+ *  11. FRESH 矩陣          — visibility(hidden/visible) × refresh delay，
+ *                            並斷言 FRESH 與 STALE 互斥（永不被 stale 規則誤傷）
+
  *
  * 為了讓每次 CI 都跑出相同像素：
  *   - dates 用固定 2026/07/01~07/20，AS OF 2026/07/20
