@@ -86,6 +86,12 @@ const CompanySubscribers = () => {
 
   const nowMs = Date.now();
   const isLive = (s: Row) => s.status === 'active' && (!s.expires_at || new Date(s.expires_at).getTime() > nowMs);
+  // 有效狀態：以「到期時間」修正 DB 狀態，避免 active 但已過期被誤判為有效
+  const effStatus = (s: Row): 'live' | 'expired' | 'inactive' => {
+    if (isLive(s)) return 'live';
+    if (s.status === 'expired' || (s.status === 'active' && s.expires_at)) return 'expired';
+    return 'inactive';
+  };
   const activeCount = rows.filter(isLive).length;
   const totalCount = rows.filter(s => s.status !== 'canceled').length;
   const expiredCount = rows.filter(s => s.status === 'expired').length;
