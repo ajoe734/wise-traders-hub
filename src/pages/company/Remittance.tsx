@@ -170,6 +170,8 @@ export default function CompanyRemittance() {
           const planName = o.product_kind === 'checkup_plan'
             ? (o.checkup_plan_id ? checkupPlanMap[o.checkup_plan_id] : null)
             : (o.plan_id ? planMap[o.plan_id] : null);
+          const expertName = o.product_kind === 'checkup_plan' ? null : (o.plan_id ? expertMap[o.plan_id] : null);
+
           const hasDiscount = o.original_amount && o.discount_amount && o.discount_amount > 0;
           return (
             <Card key={o.id} className="p-4 space-y-3">
