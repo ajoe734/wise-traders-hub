@@ -8,6 +8,7 @@ import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Checkbox } from '@/components/ui/checkbox';
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { supabase } from '@/integrations/supabase/client';
 import { Search, Users, UserCheck, UserX, RefreshCw, Download, Stethoscope, MessageCircle, History, Eye, Link2, Bell } from 'lucide-react';
 import { useUserIdentities, formatIdentitySecondary } from '@/hooks/useUserIdentities';
@@ -32,6 +33,7 @@ type Row = {
 const CompanySubscribers = () => {
   const [search, setSearch] = useState('');
   const [statusFilter, setStatusFilter] = useState<string>('all');
+  const [expertFilter, setExpertFilter] = useState<string>('all');
   const [kindFilter, setKindFilter] = useState<'all' | 'expert' | 'checkup'>('all');
   const [selectedUserIds, setSelectedUserIds] = useState<Set<string>>(new Set());
   const [pushOpen, setPushOpen] = useState(false);
@@ -86,6 +88,12 @@ const CompanySubscribers = () => {
 
   const nowMs = Date.now();
   const isLive = (s: Row) => s.status === 'active' && (!s.expires_at || new Date(s.expires_at).getTime() > nowMs);
+  // 有效狀態：以「到期時間」修正 DB 狀態，避免 active 但已過期被誤判為有效
+  const effStatus = (s: Row): 'live' | 'expired' | 'inactive' => {
+    if (isLive(s)) return 'live';
+    if (s.status === 'expired' || (s.status === 'active' && s.expires_at)) return 'expired';
+    return 'inactive';
+  };
   const activeCount = rows.filter(isLive).length;
   const totalCount = rows.filter(s => s.status !== 'canceled').length;
   const expiredCount = rows.filter(s => s.status === 'expired').length;
@@ -96,10 +104,8 @@ const CompanySubscribers = () => {
     return Math.ceil((new Date(expiresAt).getTime() - Date.now()) / (1000 * 60 * 60 * 24));
   };
 
-  const filtered = rows.filter(s => {
-    if (kindFilter !== 'all' && s.kind !== kindFilter) return false;
-    const matchStatus = statusFilter === 'all' || s.status === statusFilter;
-    if (!search) return matchStatus;
+  const matchesSearch = (s: Row) => {
+    if (!search) return true;
     const q = search.toLowerCase();
     const id = identities[s.user_id];
     const displayName = (id?.display_name || '').toLowerCase();
@@ -113,13 +119,42 @@ const CompanySubscribers = () => {
     const renewStr = s.auto_renew ? '自動' : '手動';
     const kindStr = s.kind === 'checkup' ? '健檢' : '訂閱';
     const loginStr = id?.login_method === 'line' ? 'line' : 'email';
-    const matchSearch = displayName.includes(q) || email.includes(q) || lineId.includes(q)
+    return displayName.includes(q) || email.includes(q) || lineId.includes(q)
       || s.user_id.toLowerCase().includes(q)
       || planName.includes(q) || (s.expert_name || '').toLowerCase().includes(q) || startDate.includes(q)
       || endDate.includes(q) || remainingStr.includes(q) || renewStr.includes(q)
       || kindStr.includes(q) || loginStr.includes(q);
-    return matchStatus && matchSearch;
-  });
+  };
+  const matchesKind = (s: Row) => kindFilter === 'all' || s.kind === kindFilter;
+  const matchesStatus = (s: Row) => statusFilter === 'all' || effStatus(s) === statusFilter;
+  const matchesExpert = (s: Row) =>
+    expertFilter === 'all' || (s.kind === 'expert' && (s.expert_name || '未指派') === expertFilter);
+
+  const filtered = rows.filter(s => matchesKind(s) && matchesStatus(s) && matchesExpert(s) && matchesSearch(s));
+
+  // 聯動：老師清單只列出「目前狀態／類型／搜尋條件下仍有資料」的老師，並附各自筆數
+  const expertOptions = useMemo(() => {
+    const counts = new Map<string, number>();
+    rows.forEach(s => {
+      if (s.kind !== 'expert') return;
+      if (!matchesStatus(s) || !matchesSearch(s)) return;
+      const name = s.expert_name || '未指派';
+      counts.set(name, (counts.get(name) || 0) + 1);
+    });
+    return [...counts.entries()].sort((a, b) => a[0].localeCompare(b[0], 'zh-Hant'));
+  }, [rows, statusFilter, search, identities]);
+
+  // 聯動：狀態按鈕顯示「在目前老師／類型／搜尋條件下」的筆數
+  const statusCounts = useMemo(() => {
+    const base = rows.filter(s => matchesKind(s) && matchesExpert(s) && matchesSearch(s));
+    return {
+      all: base.length,
+      live: base.filter(s => effStatus(s) === 'live').length,
+      expired: base.filter(s => effStatus(s) === 'expired').length,
+      inactive: base.filter(s => effStatus(s) === 'inactive').length,
+    };
+  }, [rows, kindFilter, expertFilter, search, identities]);
+
 
   // B-26：手動續訂模型下，auto_renew 已停用；改以「仍有效（active 且未過期未取消）」當分母分子。
   const nowTs = Date.now();
@@ -145,7 +180,7 @@ const CompanySubscribers = () => {
         s.plan_name,
         formatTaipeiYMD(s.started_at) || '-',
         formatTaipeiYMD(s.expires_at) || '-',
-        s.status === 'active' ? '活躍' : s.status === 'expired' ? '已到期' : '已取消',
+        effStatus(s) === 'live' ? 'ACTIVE' : effStatus(s) === 'expired' ? '已到期' : '非作用中',
         s.auto_renew ? '自動' : '手動',
       ];
     });
@@ -243,19 +278,44 @@ const CompanySubscribers = () => {
           </div>
           <div className="flex items-center bg-muted rounded-lg p-1">
             {[{ key: 'all', label: '全部類型' }, { key: 'expert', label: '訂閱方案' }, { key: 'checkup', label: '健檢方案' }].map(f => (
-              <button key={f.key} onClick={() => setKindFilter(f.key as any)} className={`text-xs px-3 py-1.5 rounded-md transition-colors ${kindFilter === f.key ? 'bg-background text-foreground shadow-sm' : 'text-muted-foreground hover:text-foreground'}`}>
+              <button key={f.key} onClick={() => { setKindFilter(f.key as any); if (f.key === 'checkup') setExpertFilter('all'); }} className={`text-xs px-3 py-1.5 rounded-md transition-colors ${kindFilter === f.key ? 'bg-background text-foreground shadow-sm' : 'text-muted-foreground hover:text-foreground'}`}>
                 {f.label}
               </button>
             ))}
           </div>
           <div className="flex items-center bg-muted rounded-lg p-1">
-            {[{ key: 'all', label: '全部' }, { key: 'active', label: '活躍' }, { key: 'expired', label: '到期' }, { key: 'canceled', label: '取消' }].map(f => (
+            {[
+              { key: 'all', label: '全部', n: statusCounts.all },
+              { key: 'live', label: 'ACTIVE', n: statusCounts.live },
+              { key: 'expired', label: '到期', n: statusCounts.expired },
+              { key: 'inactive', label: '非作用中', n: statusCounts.inactive },
+            ].map(f => (
               <button key={f.key} onClick={() => setStatusFilter(f.key)} className={`text-xs px-3 py-1.5 rounded-md transition-colors ${statusFilter === f.key ? 'bg-background text-foreground shadow-sm' : 'text-muted-foreground hover:text-foreground'}`}>
-                {f.label}
+                {f.label} <span className="opacity-60">({f.n})</span>
               </button>
             ))}
           </div>
+          <Select
+            value={expertFilter}
+            onValueChange={(v) => { setExpertFilter(v); if (v !== 'all' && kindFilter !== 'expert') setKindFilter('expert'); }}
+          >
+            <SelectTrigger className="w-[200px] h-9 text-xs">
+              <SelectValue placeholder="全部老師" />
+            </SelectTrigger>
+            <SelectContent>
+              <SelectItem value="all">全部老師</SelectItem>
+              {expertOptions.map(([name, n]) => (
+                <SelectItem key={name} value={name}>{name}（{n}）</SelectItem>
+              ))}
+            </SelectContent>
+          </Select>
+          {(statusFilter !== 'all' || expertFilter !== 'all' || kindFilter !== 'all' || search) && (
+            <Button variant="ghost" size="sm" className="text-xs" onClick={() => { setStatusFilter('all'); setExpertFilter('all'); setKindFilter('all'); setSearch(''); }}>
+              清除篩選
+            </Button>
+          )}
         </div>
+
 
         <Card>
           <CardContent className="p-0 overflow-x-auto">
@@ -336,8 +396,8 @@ const CompanySubscribers = () => {
                           <Badge variant="outline" className="text-xs">手動續訂</Badge>
                         </td>
                         <td className="p-4">
-                          <Badge variant={sub.status === 'active' ? 'default' : sub.status === 'expired' ? 'outline' : 'destructive'} className="text-xs">
-                            {sub.status === 'active' ? '活躍' : sub.status === 'expired' ? '已到期' : '已取消'}
+                          <Badge variant={effStatus(sub) === 'live' ? 'default' : effStatus(sub) === 'expired' ? 'outline' : 'destructive'} className="text-xs">
+                            {effStatus(sub) === 'live' ? 'ACTIVE' : effStatus(sub) === 'expired' ? '已到期' : '非作用中'}
                           </Badge>
                         </td>
                         <td className="p-4 text-right">
