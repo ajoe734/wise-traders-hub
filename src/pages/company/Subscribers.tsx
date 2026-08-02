@@ -22,6 +22,7 @@ type Row = {
   user_id: string;
   kind: 'expert' | 'checkup';
   plan_name: string;
+  expert_name?: string | null;
   status: string;
   auto_renew: boolean;
   started_at: string;
@@ -55,6 +56,7 @@ const CompanySubscribers = () => {
         user_id: s.user_id,
         kind: 'expert',
         plan_name: s.expert_plans?.name || '-',
+        expert_name: s.expert_plans?.experts?.name || null,
         status: s.status,
         auto_renew: !!s.auto_renew,
         started_at: s.started_at,
@@ -113,7 +115,7 @@ const CompanySubscribers = () => {
     const loginStr = id?.login_method === 'line' ? 'line' : 'email';
     const matchSearch = displayName.includes(q) || email.includes(q) || lineId.includes(q)
       || s.user_id.toLowerCase().includes(q)
-      || planName.includes(q) || startDate.includes(q)
+      || planName.includes(q) || (s.expert_name || '').toLowerCase().includes(q) || startDate.includes(q)
       || endDate.includes(q) || remainingStr.includes(q) || renewStr.includes(q)
       || kindStr.includes(q) || loginStr.includes(q);
     return matchStatus && matchSearch;
@@ -129,7 +131,7 @@ const CompanySubscribers = () => {
   const checkupCount = rows.filter(s => s.kind === 'checkup' && s.status === 'active').length;
 
   const handleExport = () => {
-    const headers = ['類型', '訂閱者', '登入方式', 'Email', 'Line ID 末段', 'User ID', '方案', '開始日', '到期日', '狀態', '續訂'];
+    const headers = ['類型', '訂閱者', '登入方式', 'Email', 'Line ID 末段', 'User ID', '老師', '方案', '開始日', '到期日', '狀態', '續訂'];
     const rowsCsv = filtered.map(s => {
       const id = identities[s.user_id];
       return [
@@ -139,6 +141,7 @@ const CompanySubscribers = () => {
         id?.email || '',
         id?.line_user_id ? id.line_user_id.slice(-6) : '',
         s.user_id,
+        s.expert_name || '',
         s.plan_name,
         formatTaipeiYMD(s.started_at) || '-',
         formatTaipeiYMD(s.expires_at) || '-',
@@ -264,6 +267,7 @@ const CompanySubscribers = () => {
                   </th>
                   <th className="p-4">類型</th>
                   <th className="p-4">訂閱者</th>
+                  <th className="p-4">老師</th>
                   <th className="p-4">方案</th>
                   <th className="p-4">開始日</th>
                   <th className="p-4">到期日</th>
@@ -275,9 +279,9 @@ const CompanySubscribers = () => {
               </thead>
               <tbody>
                 {loading ? (
-                  <tr><td colSpan={10} className="p-8 text-center text-muted-foreground text-sm">載入中...</td></tr>
+                  <tr><td colSpan={11} className="p-8 text-center text-muted-foreground text-sm">載入中...</td></tr>
                 ) : filtered.length === 0 ? (
-                  <tr><td colSpan={10} className="p-8 text-center text-muted-foreground text-sm">無訂閱紀錄</td></tr>
+                  <tr><td colSpan={11} className="p-8 text-center text-muted-foreground text-sm">無訂閱紀錄</td></tr>
                 ) : (
                   filtered.map(sub => {
                     const remaining = getRemainingDays(sub.expires_at);
@@ -312,6 +316,11 @@ const CompanySubscribers = () => {
                           <div className="text-xs text-muted-foreground mt-0.5">
                             {formatIdentitySecondary(id, sub.user_id)}
                           </div>
+                        </td>
+                        <td className="p-4 text-sm">
+                          {sub.kind === 'expert'
+                            ? (sub.expert_name || <span className="text-muted-foreground">-</span>)
+                            : <span className="text-muted-foreground">-</span>}
                         </td>
                         <td className="p-4 text-sm">{sub.plan_name}</td>
                         <td className="p-4 text-sm text-muted-foreground">{formatTaipeiYMD(sub.started_at) || '-'}</td>
