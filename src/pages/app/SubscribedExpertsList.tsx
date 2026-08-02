@@ -9,15 +9,26 @@ import {
   TrendingUp,
   Users,
 } from 'lucide-react';
-import { useMySubscriptions } from '@/hooks/useSubscriptions';
+import { useMemberSubscriptions } from '@/hooks/useMemberSubscriptions';
+import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
+import { RoleBadge } from '@/components/RoleBadge';
 import { FailedIntentsCard } from '@/pages/_appSubscriptions/FailedIntentsCard';
 import { SubscriptionConflictNotice } from '@/components/account/SubscriptionConflictNotice';
 import { track } from '@/lib/analytics/events';
 
+function fmtDate(v?: string | null) {
+  if (!v) return '—';
+  const d = new Date(v);
+  if (Number.isNaN(d.getTime())) return '—';
+  const p = (n: number) => String(n).padStart(2, '0');
+  return `${d.getFullYear()}/${p(d.getMonth() + 1)}/${p(d.getDate())}`;
+}
+
 export default function SubscribedExpertsList() {
-  const { data: subscriptions = [] } = useMySubscriptions();
-  const hasAnySubscription = subscriptions.length > 0;
-  useEffect(() => { track('subscribed_experts_view', { count: subscriptions.length }); }, [subscriptions.length]);
+  const { data: subs = [] } = useMemberSubscriptions();
+  const hasAnySubscription = subs.length > 0;
+  useEffect(() => { track('subscribed_experts_view', { count: subs.length }); }, [subs.length]);
+
 
 
   return (
