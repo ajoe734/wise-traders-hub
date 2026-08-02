@@ -218,6 +218,13 @@ export default function ChipsSection({ WB, stockCode }: { WB: any; stockCode: st
               STALE
             </span>
           )}
+          {/* FRESH 與 STALE 互斥：兩者條件互為否定，永遠不會同時出現。 */}
+          {!loading && !stale && !error && online && !!fetchedAt && (
+            <span data-testid="chips-fresh-badge" style={{ fontSize: 10, color: WB.inkSub, border: `1px solid ${WB.hair}`, padding: '1px 6px', letterSpacing: '0.1em' }}>
+              FRESH
+            </span>
+          )}
+
           {autoState !== 'idle' && (
             <span
               data-testid="chips-auto-refresh-badge"
