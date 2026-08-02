@@ -448,6 +448,8 @@ export default function DataSourceHealth() {
 
       <BackfillQueueCard />
       <FactLogHealthCard />
+      <ChaosDrillCard />
+
     </div>
 
   );
