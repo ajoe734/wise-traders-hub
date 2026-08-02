@@ -65,6 +65,8 @@ export default function CompanyRemittance() {
   });
   const orders = data?.orders ?? [];
   const planMap = data?.planMap ?? {};
+  const expertMap = data?.expertMap ?? {};
+
   const checkupPlanMap = data?.checkupPlanMap ?? {};
   const adminMap = data?.adminMap ?? {};
   const loading = isFetching && !data;
