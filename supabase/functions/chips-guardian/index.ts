@@ -27,11 +27,12 @@ import {
   computeThrottledRefill,
 } from '../_shared/guardianRules.ts';
 import {
-  decideSwitchReopen,
-  decideDegradeStepDown,
-  decidePoolHeal,
-  taipeiDateString,
-} from '../_shared/autoHealRules.ts';
+  healSwitches,
+  healDegrade,
+  healQuotaPools,
+  type HealDeps,
+} from '../_shared/autoHealEffects.ts';
+
 
 
 const SUPABASE_URL = Deno.env.get('SUPABASE_URL')!;
@@ -320,37 +321,17 @@ const SWITCH_TO_POOL: Record<string, string> = {
   chips_interactive: 'interactive',
 };
 
+function healDeps(supa: any): HealDeps {
+  return {
+    supa,
+    nowMs: Date.now(),
+    writeAlert: (code, severity, message, meta) => writeAlert(supa, code, severity, message, meta),
+    fetchPoolSamples: async (pool) => (await fetchRejectStats(supa, pool, HEAL_SAMPLE_WINDOW_MIN)).total,
+  };
+}
+
 async function ruleAutoHealSwitches(supa: any): Promise<Action[]> {
-  const actions: Action[] = [];
-  const nowMs = Date.now();
-  const { data } = await supa
-    .from('system_kill_switches')
-    .select('key, enabled, disabled_reason, disabled_at')
-    .in('key', HEAL_SWITCH_KEYS);
-
-  for (const sw of (data ?? []) as any[]) {
-    if (sw.enabled) continue;
-    const pool = SWITCH_TO_POOL[sw.key];
-    const samples = pool
-      ? (await fetchRejectStats(supa, pool, HEAL_SAMPLE_WINDOW_MIN)).total
-      : 0;
-    const decision = decideSwitchReopen({
-      key: sw.key,
-      enabled: Boolean(sw.enabled),
-      disabledReason: sw.disabled_reason ?? null,
-      disabledAtMs: sw.disabled_at ? new Date(sw.disabled_at).getTime() : null,
-      recentSamples: samples,
-      nowMs,
-    });
-    if (!decision.reopen) continue;
-
-    await autoEnable(supa, sw.key, `autoheal_${decision.reason}`);
-    await writeAlert(supa, `guardian_autoheal_switch_${sw.key}`, 'info',
-      `已自動重開 ${sw.key}（${decision.reason}，關閉 ${decision.disabledMinutes.toFixed(0)} 分鐘）`,
-      { key: sw.key, reason: decision.reason, disabled_minutes: Number(decision.disabledMinutes.toFixed(1)), samples });
-    actions.push({ kind: 'enabled_switch', key: sw.key, reason: `autoheal_${decision.reason}` });
-  }
-  return actions;
+  return await healSwitches(healDeps(supa), { keys: HEAL_SWITCH_KEYS, switchToPool: SWITCH_TO_POOL });
 }
 
 async function hasActiveDegradeSignal(supa: any): Promise<boolean> {
@@ -374,92 +355,19 @@ async function hasActiveDegradeSignal(supa: any): Promise<boolean> {
 }
 
 async function ruleAutoHealDegrade(supa: any): Promise<Action[]> {
-  const actions: Action[] = [];
-  const nowMs = Date.now();
-  const { data } = await supa
-    .from('tw_bsr_sync_config')
-    .select('key, config')
-    .eq('key', 'degrade:finmind')
-    .maybeSingle();
-  const cfg = (data?.config ?? {}) as Record<string, any>;
-  const mode = String(cfg.mode ?? 'normal');
-  if (mode === 'normal') return actions;
-
   const signalActive = await hasActiveDegradeSignal(supa);
-  const decision = decideDegradeStepDown({
-    mode,
-    cooldownUntilMs: cfg.cooldown_until ? new Date(cfg.cooldown_until).getTime() : null,
-    lastTransitionAtMs: cfg.last_transition_at
-      ? new Date(cfg.last_transition_at).getTime()
-      : (cfg.since ? new Date(cfg.since).getTime() : null),
-    hasActiveDegradeSignal: signalActive,
-    nowMs,
-  });
-  if (!decision.stepDown) return actions;
-
-  const { error } = await supa.rpc('bsr_apply_degrade_transition', {
-    _api: 'finmind',
-    _to_mode: decision.targetMode,
-    _reason: 'autoheal_stuck_recovery',
-    _trigger_metric: 'stuck_minutes',
-    _trigger_value: Number(decision.stuckMinutes.toFixed(1)),
-    _threshold: 20,
-    _cooldown_seconds: decision.cooldownSeconds,
-  });
-  if (error) {
-    console.warn('[guardian] autoheal degrade transition failed:', error.message);
-    return actions;
-  }
-  await writeAlert(supa, 'guardian_autoheal_degrade', 'info',
-    `degrade:finmind 卡在 ${mode} 已 ${decision.stuckMinutes.toFixed(0)} 分鐘且無降級訊號，自動退回 ${decision.targetMode}`,
-    { from: mode, to: decision.targetMode, stuck_minutes: Number(decision.stuckMinutes.toFixed(1)) });
-  actions.push({ kind: 'alert', reason: `autoheal_degrade_${mode}->${decision.targetMode}`, root_cause: 'stuck_no_signal' });
-  return actions;
+  return await healDegrade(healDeps(supa), { api: 'finmind', hasActiveDegradeSignal: signalActive });
 }
 
 async function ruleAutoHealQuotaPools(supa: any): Promise<Action[]> {
-  const actions: Action[] = [];
-  const nowMs = Date.now();
-  const today = taipeiDateString(nowMs);
-  const { data } = await supa
-    .from('finmind_quota_pools')
-    .select('pool_name, daily_budget, base_daily_budget, used_today, reset_at, manual_override, capacity, tokens');
-
-  for (const p of (data ?? []) as any[]) {
-    const decision = decidePoolHeal({
-      poolName: p.pool_name,
-      dailyBudget: Number(p.daily_budget),
-      baseDailyBudget: p.base_daily_budget == null ? null : Number(p.base_daily_budget),
-      usedToday: Number(p.used_today),
-      resetAt: p.reset_at ? String(p.reset_at).slice(0, 10) : null,
-      todayTaipei: today,
-      manualOverride: Boolean(p.manual_override),
-    });
-    if (decision.action === 'none') continue;
-
-    const payload: Record<string, unknown> = { updated_at: new Date(nowMs).toISOString() };
-    if (decision.resetUsage) {
-      payload.used_today = 0;
-      payload.reset_at = today;
-      if (p.capacity != null) payload.tokens = Number(p.capacity);
-      payload.last_refill_at = new Date(nowMs).toISOString();
-    }
-    if (decision.targetBudget != null) payload.daily_budget = decision.targetBudget;
-
-    const { error } = await supa.from('finmind_quota_pools').update(payload).eq('pool_name', p.pool_name);
-    if (error) {
-      console.warn(`[guardian] autoheal pool ${p.pool_name} failed:`, error.message);
-      continue;
-    }
-    await writeAlert(supa, `guardian_autoheal_pool_${p.pool_name}`, 'info',
-      `配額池 ${p.pool_name} 自動修復（${decision.reason}）`,
-      { pool: p.pool_name, action: decision.action, reason: decision.reason,
-        from_budget: Number(p.daily_budget), to_budget: decision.targetBudget ?? Number(p.daily_budget),
-        used_today: Number(p.used_today), reset_at: p.reset_at });
-    actions.push({ kind: 'alert', reason: `autoheal_pool_${decision.action}_${p.pool_name}`, root_cause: decision.reason });
-  }
-  return actions;
+  // 排除 drill_* 沙箱池（chips-chaos-drill 專用），避免演練狀態干擾正式統計。
+  const { data } = await supa.from('finmind_quota_pools').select('pool_name');
+  const names = ((data ?? []) as any[])
+    .map((p) => String(p.pool_name))
+    .filter((n) => !n.startsWith('drill_'));
+  return await healQuotaPools(healDeps(supa), { poolNames: names });
 }
+
 
 
 Deno.serve(async (req) => {
