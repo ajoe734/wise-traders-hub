@@ -1,7 +1,7 @@
 import { useEffect } from 'react';
 import { Link } from 'react-router-dom';
 import { UnifiedAppLayout } from '@/components/layouts/UnifiedAppLayout';
-import { Badge } from '@/components/ui/badge';
+
 import { FeatureCard } from '@/components/ui/feature-card';
 import { 
   BarChart3, 
