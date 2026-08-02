@@ -279,9 +279,9 @@ const CompanySubscribers = () => {
               </thead>
               <tbody>
                 {loading ? (
-                  <tr><td colSpan={10} className="p-8 text-center text-muted-foreground text-sm">載入中...</td></tr>
+                  <tr><td colSpan={11} className="p-8 text-center text-muted-foreground text-sm">載入中...</td></tr>
                 ) : filtered.length === 0 ? (
-                  <tr><td colSpan={10} className="p-8 text-center text-muted-foreground text-sm">無訂閱紀錄</td></tr>
+                  <tr><td colSpan={11} className="p-8 text-center text-muted-foreground text-sm">無訂閱紀錄</td></tr>
                 ) : (
                   filtered.map(sub => {
                     const remaining = getRemainingDays(sub.expires_at);
