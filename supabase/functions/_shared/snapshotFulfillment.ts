@@ -136,10 +136,14 @@ export async function persistAggregated(
   }
 
   // 2. Materialize to tw_bsr_daily (no-op if snapshot already sealed).
+  //    只針對這批剛寫入的個股 materialize；先前每檔都重算整日全市場 fact，
+  //    造成 statement timeout（materialize_failed），補資料整條卡死。
+  const touchedStockIds = Array.from(new Set(agg.map((r) => r.stock_id)));
   const { data: mat, error: matErr } = await supa.rpc(
     'materialize_bsr_daily_from_fact',
-    { _trade_date: tradeDate },
+    { _trade_date: tradeDate, _stock_ids: touchedStockIds },
   );
+
   if (matErr) throw new Error(`materialize_failed:${matErr.message}`);
   const matRow = Array.isArray(mat) ? mat[0] : mat;
   const materialized = Number(matRow?.materialized_rows ?? 0);

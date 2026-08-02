@@ -1,0 +1,69 @@
+CREATE OR REPLACE FUNCTION public.materialize_bsr_daily_from_fact(_trade_date date, _stock_ids text[] DEFAULT NULL)
+ RETURNS TABLE(materialized_rows integer, skipped_sealed boolean)
+ LANGUAGE plpgsql
+ SECURITY DEFINER
+ SET search_path TO 'public'
+AS $function$
+DECLARE
+  v_is_sealed boolean := false;
+  v_count int := 0;
+BEGIN
+  SELECT (sealed_at IS NOT NULL) INTO v_is_sealed
+  FROM public.tw_bsr_daily_snapshot_status
+  WHERE trade_date = _trade_date;
+
+  IF COALESCE(v_is_sealed, false) THEN
+    RETURN QUERY SELECT 0, true;
+    RETURN;
+  END IF;
+
+  PERFORM set_config('app.force_reseal', 'true', true);
+
+  WITH ranked AS (
+    SELECT
+      stock_id, trade_date, broker_id, broker_name,
+      buy_shares, sell_shares, net_shares,
+      avg_buy_price, avg_sell_price,
+      row_number() OVER (
+        PARTITION BY stock_id, trade_date, broker_id
+        ORDER BY
+          CASE source
+            WHEN 'broker_scraper' THEN 1
+            WHEN 'finmind_batch' THEN 2
+            WHEN 'finmind_per_stock' THEN 3
+            ELSE 9
+          END,
+          ingested_at DESC
+      ) AS rn
+    FROM public.tw_chip_fact
+    WHERE trade_date = _trade_date
+      AND (_stock_ids IS NULL OR stock_id = ANY(_stock_ids))
+  ),
+  ins AS (
+    INSERT INTO public.tw_bsr_daily (
+      stock_id, trade_date, broker_id, broker_name,
+      buy_shares, sell_shares, net_shares,
+      avg_buy_price, avg_sell_price
+    )
+    SELECT
+      stock_id, trade_date, broker_id, broker_name,
+      buy_shares, sell_shares, net_shares,
+      avg_buy_price, avg_sell_price
+    FROM ranked
+    WHERE rn = 1
+    ON CONFLICT (stock_id, trade_date, broker_id) DO UPDATE SET
+      broker_name = EXCLUDED.broker_name,
+      buy_shares = EXCLUDED.buy_shares,
+      sell_shares = EXCLUDED.sell_shares,
+      net_shares = EXCLUDED.net_shares,
+      avg_buy_price = EXCLUDED.avg_buy_price,
+      avg_sell_price = EXCLUDED.avg_sell_price
+    RETURNING 1
+  )
+  SELECT count(*) INTO v_count FROM ins;
+
+  PERFORM set_config('app.force_reseal', 'false', true);
+
+  RETURN QUERY SELECT v_count, false;
+END;
+$function$;
