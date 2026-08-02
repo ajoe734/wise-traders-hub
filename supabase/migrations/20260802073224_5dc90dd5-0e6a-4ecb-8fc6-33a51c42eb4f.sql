@@ -1,0 +1,1 @@
+DROP FUNCTION IF EXISTS public.cron_edge_call(text, jsonb);
