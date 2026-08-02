@@ -396,8 +396,8 @@ const CompanySubscribers = () => {
                           <Badge variant="outline" className="text-xs">手動續訂</Badge>
                         </td>
                         <td className="p-4">
-                          <Badge variant={sub.status === 'active' ? 'default' : sub.status === 'expired' ? 'outline' : 'destructive'} className="text-xs">
-                            {sub.status === 'active' ? '活躍' : sub.status === 'expired' ? '已到期' : '已取消'}
+                          <Badge variant={effStatus(sub) === 'live' ? 'default' : effStatus(sub) === 'expired' ? 'outline' : 'destructive'} className="text-xs">
+                            {effStatus(sub) === 'live' ? 'ACTIVE' : effStatus(sub) === 'expired' ? '已到期' : '非作用中'}
                           </Badge>
                         </td>
                         <td className="p-4 text-right">
