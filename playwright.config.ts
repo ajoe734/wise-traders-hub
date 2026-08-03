@@ -778,6 +778,13 @@ export default defineConfig({
       timeout: 120_000,
       use: { ...devices['Desktop Chrome'], viewport: { width: 390, height: 900 } },
     },
+    {
+      name: 'holdings-reversal-markers',
+      testMatch: /holdings-reversal-markers\.spec\.ts/,
+      outputDir: 'test-results/holdings-drawer/reversal-markers',
+      timeout: 120_000,
+      use: { ...devices['Desktop Chrome'], viewport: { width: 390, height: 1000 } },
+    },
 
     // 真實 /holding-checkup Demo 抽屜 · 成交量資料流回歸（非 harness）
     {

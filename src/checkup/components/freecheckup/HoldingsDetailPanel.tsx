@@ -16,6 +16,8 @@ import '@/checkup/styles/holdingsDetailPanel.css';
 import { holdingPanelPrefs, holdingExportPrefs } from '@/checkup/lib/drawerPrefs';
 import { useFreshness } from '@/checkup/lib/freshness';
 import { buildVolumeAnalysis } from '@/checkup/lib/volumeAnalysis';
+import { buildDailyCloseStatus } from '@/checkup/lib/marketDataStatus';
+import { getSparkOhlc } from '@/checkup/lib/holdingDetailViewModel';
 import { rollingLots, buildTooltipRows, resistanceBadge, buildVolumeMetrics } from '@/checkup/lib/volumeReadout';
 import { barIndexFromX, barCenterPct, shouldFlipTooltip, fmtKlineDate, fmtKlineNum } from '@/checkup/lib/klineTooltip';
 import {
@@ -132,6 +134,13 @@ function HoldingsDetailPanelImpl({
   const priceUpdatedMs = h?.priceUpdatedAt ? new Date(h.priceUpdatedAt).getTime() : null;
   const priceFreshness = useFreshness(Number.isFinite(priceUpdatedMs as number) ? priceUpdatedMs : null);
 
+  // 日 K 收盤確認狀態（與盤中報價時間分開陳述，禁止用 polling 時間冒充收盤）
+  const closeStatus = useMemo(() => buildDailyCloseStatus({
+    bars: getSparkOhlc(sparkData30D as any),
+    source: (sparkData30D as any)?.source ?? null,
+    fetchedAt: (sparkData30D as any)?.fetchedAt ?? null,
+  }), [sparkData30D]);
+
   const pnlColor = displayPnlPct > 0 ? WB.accent : displayPnlPct < 0 ? '#8A857F' : WB.inkMute;
 
 
@@ -142,10 +151,11 @@ function HoldingsDetailPanelImpl({
     baseTarget, pctVal: displayPnlPct, pnlVal: displayPnlAbs,
     rangeLow, rangeHigh,
     reversalLine: vm.volumeAnalysis?.reversal?.line ?? null,
+    closeStatusText: closeStatus?.text ?? null,
     thesis: prefs.showThesis ? thesisSentence : null,
     nextEvent: prefs.showNextEvent ? nextEvent : null,
     stamp, WB,
-  }), [h, dec, meta, baseTarget, displayPnlPct, displayPnlAbs, rangeLow, rangeHigh, vm.volumeAnalysis, prefs.showThesis, prefs.showNextEvent, thesisSentence, nextEvent, stamp, WB]);
+  }), [h, dec, meta, baseTarget, displayPnlPct, displayPnlAbs, rangeLow, rangeHigh, vm.volumeAnalysis, closeStatus, prefs.showThesis, prefs.showNextEvent, thesisSentence, nextEvent, stamp, WB]);
 
   const runExport = async (variant, kind, opts: { pixelRatio?: number } = {}) => {
     setExportNode({ variant });
@@ -246,6 +256,16 @@ function HoldingsDetailPanelImpl({
                 title={`報價更新於 ${priceFreshness.clock}`}
                 style={{ marginLeft: 8, opacity: priceFreshness.stale ? 0.85 : 0.5 }}
               >· 報價 {priceFreshness.label}</span>
+            ) : null}
+            {closeStatus ? (
+              <span
+                data-testid="drawer-close-status"
+                data-final={closeStatus.isFinal ? 'true' : 'false'}
+                data-trade-date={closeStatus.tradeDate || ''}
+                data-source={closeStatus.source || ''}
+                title={closeStatus.fetchedAt ? `資料抓取於 ${closeStatus.fetchedAt}` : undefined}
+                style={{ marginLeft: 8, opacity: closeStatus.isFinal ? 0.5 : 0.9 }}
+              >· {closeStatus.text}</span>
             ) : null}
           </div>
           <div className="holdings-detail-identity-row">
@@ -1131,11 +1151,19 @@ export function RangeBand({ WB, price, low, high, spark, ohlc, va: vaProp = null
 
   const fmtLots = (v) => (v == null ? '—' : `${Math.round(v).toLocaleString('zh-TW')} 張`);
 
+  // ── 歷史轉折標記：只有 displayBars 與畫面 K 棒對齊時才畫，避免索引錯位 ──
+  const reversalMarkers = React.useMemo(() => {
+    const ms = va?.reversal?.markers;
+    if (!Array.isArray(ms) || !ms.length) return [];
+    if (!Array.isArray(va?.displayBars) || va.displayBars.length !== cleanOhlc.length) return [];
+    return ms.filter((m) => m.index >= 0 && m.index < cleanOhlc.length);
+  }, [va, cleanOhlc.length]);
+
   // ── tooltip 內容（hover / keyboard 共用同一份） ──
   const tip = React.useMemo(
     () => (useKline && hoverIdx != null
       ? buildTooltipRows(volBars, hoverIdx, {
-        ma5: ma5Line, ma20: ma20Line, signals: va?.reversal?.byDate,
+        ma5: ma5Line, ma20: ma20Line, signals: va?.reversal?.byDateDetailed ?? va?.reversal?.byDate,
       })
       : null),
     [useKline, hoverIdx, volBars, ma5Line, ma20Line, va],
@@ -1260,6 +1288,48 @@ export function RangeBand({ WB, price, low, high, spark, ohlc, va: vaProp = null
               {badge.label} {badge.rangeText}
             </span>
           )}
+          {/* HTML overlay：歷史轉折標記（多方在棒下、空方在棒上；形狀＋文字區分狀態） */}
+          {useKline && reversalMarkers.map((m) => {
+            const xPct = barCenterPct(m.index, cleanOhlc.length, PAD_X);
+            if (xPct == null) return null;
+            const yPx = Math.min(Math.max((yFor(m.anchorPrice) / 30) * svgH, 0), svgH);
+            const below = m.placement === 'below';
+            const failed = m.state === 'failed';
+            return (
+              <span
+                key={`${m.date}-${m.kind}`}
+                data-testid="reversal-marker"
+                data-reversal-kind={m.kind}
+                data-reversal-state={m.state}
+                data-reversal-date={m.date}
+                data-reversal-active={m.active ? '1' : '0'}
+                data-reversal-trigger={String(m.triggerPrice)}
+                role="button"
+                tabIndex={0}
+                aria-label={m.ariaLabel}
+                title={m.ariaLabel}
+                onFocus={(e) => { e.stopPropagation(); setHoverIdx(m.index); }}
+                onPointerDown={(e) => { e.stopPropagation(); setHoverIdx(m.index); }}
+                onPointerMove={(e) => { e.stopPropagation(); setHoverIdx(m.index); }}
+                onKeyDown={(e) => {
+                  if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); setHoverIdx(m.index); }
+                }}
+                style={{
+                  position: 'absolute',
+                  left: `${xPct}%`,
+                  top: yPx + (below ? 3 : -3),
+                  transform: below ? 'translate(-50%, 0)' : 'translate(-50%, -100%)',
+                  fontSize: 9,
+                  lineHeight: '9px',
+                  color: failed ? WB.inkLight : WB.ink,
+                  opacity: failed ? 0.35 : m.active ? 1 : 0.7,
+                  cursor: 'default',
+                  userSelect: 'none',
+                  zIndex: 1,
+                }}
+              >{m.glyph}</span>
+            );
+          })}
           {/* HTML overlay：現價圓點（真實 px 正圓）— 固定貼齊時間軸末端 */}
           <span
             data-testid="holdings-range-band-dot"

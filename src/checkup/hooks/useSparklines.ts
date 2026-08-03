@@ -14,6 +14,7 @@
 import { useCallback, useEffect, useRef, useState } from 'react';
 import { getCheckupGateway } from '@/checkup/lib/gateway';
 import { createCacheNamespace } from '@/checkup/lib/checkupCacheStore';
+import { sparklineCacheKey } from '@/checkup/lib/marketDataStatus';
 
 export interface SparklineEntry {
   ohlc?: Array<{
@@ -22,6 +23,12 @@ export interface SparklineEntry {
     volume?: number | null;
   }>;
   closes?: number[];
+  /** 上游來源（TWSE / TPEX / FINMIND） */
+  source?: string | null;
+  /** 這批日 K 的抓取時間（ISO） */
+  fetchedAt?: string | null;
+  /** 最後一根日 K 的交易日 */
+  tradeDate?: string | null;
 }
 
 export type SparklineMap = Record<string, SparklineEntry>;
@@ -36,8 +43,8 @@ export const SPARKLINE_BATCH_SIZE = 30;
 export const sparklineCache = createCacheNamespace<SparklineEntry>({
   name: 'sparkline',
   ttlMs: SPARKLINE_TTL_MS,
-  // v2：ohlc 開始帶 volume，舊快取一律失效
-  version: 2,
+  // v3：key 改為 market:symbol:tradeDate，且 value 帶 source/fetchedAt
+  version: 3,
   maxEntries: 300,
 });
 
@@ -64,9 +71,10 @@ function normalizeCodes(codes: unknown): string[] {
  */
 export function planSparklineFetch(codes: string[]): string[] {
   const wanted = normalizeCodes(codes);
-  return sparklineCache
-    .missing(wanted)
-    .filter((c) => !sparklineFailCache.get(c))
+  const missingKeys = new Set(sparklineCache.missing(wanted.map((c) => sparklineCacheKey(c))));
+  return wanted
+    .filter((c) => missingKeys.has(sparklineCacheKey(c)))
+    .filter((c) => !sparklineFailCache.get(sparklineCacheKey(c)))
     .slice(0, SPARKLINE_BATCH_SIZE);
 }
 
@@ -105,14 +113,16 @@ export function useSparklines(codes: string[] | null | undefined, opts?: { enabl
         const result = data?.result;
         if (!result) {
           // 整批失敗 → 全數進負快取，避免下次立刻又重試
-          sparklineFailCache.setMany(Object.fromEntries(missing.map((c) => [c, true as const])));
+          sparklineFailCache.setMany(
+            Object.fromEntries(missing.map((c) => [sparklineCacheKey(c), true as const])),
+          );
           return;
         }
         const good: SparklineMap = {};
         const bad: Record<string, true> = {};
         for (const code of missing) {
-          if (result[code]) good[code] = result[code];
-          else bad[code] = true;
+          if (result[code]) good[sparklineCacheKey(code)] = result[code];
+          else bad[sparklineCacheKey(code)] = true;
         }
         if (Object.keys(good).length) sparklineCache.setMany(good);
         if (Object.keys(bad).length) sparklineFailCache.setMany(bad);
@@ -131,9 +141,10 @@ export function useSparklines(codes: string[] | null | undefined, opts?: { enabl
   const sparklines: SparklineMap = {};
   const sparklineErrors: Record<string, boolean> = {};
   for (const code of wanted) {
-    const entry = sparklineCache.getEntry(code);
+    const key = sparklineCacheKey(code);
+    const entry = sparklineCache.getEntry(key);
     if (entry) sparklines[code] = entry.value;
-    if (sparklineFailCache.get(code)) sparklineErrors[code] = true;
+    if (sparklineFailCache.get(key)) sparklineErrors[code] = true;
   }
   // version 只用來在快取變動時觸發重繪
   void version;
@@ -146,15 +157,16 @@ const sparklineInFlight = new Set<string>();
 /** 候選 D/F：hover 時預載單股 30D 走勢。已存在或快取中則不發請求。 */
 export async function prefetchSparkline(code: string): Promise<void> {
   if (!code || !/^\d{4,6}[A-Z]?$/i.test(code)) return;
-  if (sparklineCache.get(code) || sparklineFailCache.get(code) || sparklineInFlight.has(code)) return;
+  const key = sparklineCacheKey(code);
+  if (sparklineCache.get(key) || sparklineFailCache.get(key) || sparklineInFlight.has(code)) return;
   sparklineInFlight.add(code);
   try {
     const data = await getCheckupGateway()
       .invoke<{ result?: SparklineMap }>('checkup-sparkline', { codes: [code] })
       .catch(() => null);
     const result = data?.result;
-    if (result?.[code]) sparklineCache.set(code, result[code]);
-    else if (result) sparklineFailCache.set(code, true);
+    if (result?.[code]) sparklineCache.set(key, result[code]);
+    else if (result) sparklineFailCache.set(key, true);
   } catch {
     /* silent */
   } finally {

@@ -20,6 +20,7 @@ export default function HoldingExportCard({
   rangeHigh,
   thesis,
   reversalLine = null,
+  closeStatusText = null,
   nextEvent,
   stamp,
   WB,
@@ -118,6 +119,11 @@ export default function HoldingExportCard({
           <Row label="數量 · 市值" value={`${fmtInt(holding.qty)} · ${fmtInt(holding.price * holding.qty)}`} WB={WB} />
           {(rangeLow != null && rangeHigh != null) && (
             <Row label="近 30D 區間" value={`${rangeLow.toFixed(2)} — ${rangeHigh.toFixed(2)}`} WB={WB} />
+          )}
+          {closeStatusText && (
+            <div data-export-close-status style={{ fontSize: 18, color: WB.inkMute, lineHeight: 1.5 }}>
+              {closeStatusText}
+            </div>
           )}
           {/* 轉折觀察：與抽屜同一條文案；無訊號不預留高度 */}
           {reversalLine && (

@@ -168,13 +168,13 @@ function makeEvents(count: number, s: StressFlags) {
 
 // ── 轉折訊號 deterministic fixture（僅供 E2E 驗收四種狀態；非生產路徑） ──
 // 生產 UI 一律使用上游真實 OHLCV，這裡只在 preview harness 內以固定序列驗收狀態機。
-type ReversalFixture = 'none' | 'hammer' | 'hammer-confirmed' | 'shooting' | 'bullish-engulf' | 'bearish-engulf';
+type ReversalFixture = 'none' | 'hammer' | 'hammer-confirmed' | 'hammer-failed' | 'shooting' | 'bullish-engulf' | 'bearish-engulf';
 
 function fixtureBars(kind: ReversalFixture) {
   const day = (i: number) => `2026-06-${String(i + 1).padStart(2, '0')}`;
   const flat = (p: number, vol: number) => ({ open: p, high: p * 1.004, low: p * 0.996, close: p, volume: vol });
   const rows: any[] = [];
-  const trendDown = kind === 'hammer' || kind === 'hammer-confirmed' || kind === 'bullish-engulf';
+  const trendDown = kind === 'hammer' || kind === 'hammer-confirmed' || kind === 'hammer-failed' || kind === 'bullish-engulf';
   for (let i = 0; i < 24; i += 1) {
     const drift = i < 15
       ? 0
@@ -182,11 +182,16 @@ function fixtureBars(kind: ReversalFixture) {
     rows.push(flat(100 * (1 + drift), 1_000_000));
   }
   const last = rows[rows.length - 1].close;
-  if (kind === 'hammer' || kind === 'hammer-confirmed') {
+  if (kind === 'hammer' || kind === 'hammer-confirmed' || kind === 'hammer-failed') {
     rows.push({ open: last * 0.995, high: last * 1.01, low: last * 0.94, close: last * 1.005, volume: 1_600_000 });
     if (kind === 'hammer-confirmed') {
       const t = last * 1.01;
       rows.push({ open: t, high: t * 1.03, low: t * 0.995, close: t * 1.025, volume: 1_300_000 });
+    }
+    if (kind === 'hammer-failed') {
+      // 反向跌破訊號日低點 → failed
+      const t = last * 0.93;
+      rows.push({ open: last * 0.99, high: last * 0.995, low: t * 0.99, close: t, volume: 1_200_000 });
     }
   } else if (kind === 'shooting') {
     rows.push({ open: last * 1.005, high: last * 1.06, low: last * 0.99, close: last * 0.995, volume: 1_600_000 });
@@ -290,7 +295,7 @@ export default function HoldingsDetailPanelVolumeHarnessEntry() {
   const effMeta = liveCode ? makeStockMeta([effSelected.code]) : stockMeta;
   let effSpark: any = liveCode ? (liveEntry || []) : sparkData30D;
 
-  // ?fixture=hammer|hammer-confirmed|shooting|bullish-engulf|bearish-engulf|none
+  // ?fixture=hammer|hammer-confirmed|hammer-failed|shooting|bullish-engulf|bearish-engulf|none
   const fixtureKind = (params.get('fixture') || 'none') as ReversalFixture;
   const fixtureRows = useMemo(
     () => (fixtureKind && fixtureKind !== 'none' ? fixtureBars(fixtureKind) : null),
