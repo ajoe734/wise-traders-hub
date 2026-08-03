@@ -1040,14 +1040,28 @@ export function RangeBand({ WB, price, low, high, spark, ohlc, va: vaProp = null
   const wrapRef = useRef<HTMLDivElement | null>(null);
   const [hoverIdx, setHoverIdx] = useState<number | null>(null);
   const hoverBar = useKline && hoverIdx != null ? cleanOhlc[hoverIdx] : null;
+  // 延遲關閉：讓游標可以從 marker 移到 popover 上而不閃退
+  const closeTimer = useRef<number | null>(null);
+  const cancelClose = useCallback(() => {
+    if (closeTimer.current != null) { clearTimeout(closeTimer.current); closeTimer.current = null; }
+  }, []);
+  const closeTip = useCallback((immediate = false) => {
+    cancelClose();
+    const run = () => { setHoverIdx(null); setMarkerFocus(null); };
+    if (immediate) run();
+    else closeTimer.current = window.setTimeout(run, 140);
+  }, [cancelClose]);
+  useEffect(() => () => cancelClose(), [cancelClose]);
 
   const pickIndex = (clientX) => {
     const el = wrapRef.current;
     if (!el || !useKline) return;
+    cancelClose();
     const r = el.getBoundingClientRect();
     const idx = barIndexFromX(clientX, { left: r.left, width: r.width }, cleanOhlc.length);
-    if (idx != null) setHoverIdx(idx);
+    if (idx != null) { setHoverIdx(idx); setMarkerFocus(null); }
   };
+
 
   const fmtDate = fmtKlineDate;
   const fmtN = fmtKlineNum;
