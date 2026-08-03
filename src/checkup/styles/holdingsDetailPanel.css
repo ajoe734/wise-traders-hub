@@ -156,3 +156,33 @@
 /* Header identity row：h2 佔滿寬度 + delta 獨立右對齊行，避免 flex 撞牆造成不一致 wrap。 */
 .holdings-detail-identity-row { display: block; }
 .holdings-detail-today-delta { text-align: right; }
+
+/* ── 30 日走勢：轉折 marker 聚焦狀態 ─────────────────────────────
+   只用 transform / opacity / filter，不改版面（不得造成 chart reflow）。 */
+.hk-marker {
+  transform: var(--hk-marker-t, translate(-50%, 0));
+  transform-origin: center;
+  transition: transform 140ms ease, opacity 140ms ease;
+  will-change: transform;
+}
+.hk-marker--focus {
+  transform: var(--hk-marker-t, translate(-50%, 0)) translateY(-6px) scale(1.16);
+  filter: drop-shadow(0 1px 2px rgba(41, 37, 32, 0.18));
+}
+.hk-marker:focus-visible {
+  outline: 1px solid rgba(41, 37, 32, 0.45);
+  outline-offset: 2px;
+}
+.hk-bar {
+  transition: opacity 140ms ease, filter 140ms ease;
+}
+.hk-bar--dim {
+  opacity: 0.3;
+  filter: blur(0.8px);
+}
+@media (prefers-reduced-motion: reduce) {
+  .hk-marker, .hk-bar { transition: none; }
+  .hk-marker--focus {
+    transform: var(--hk-marker-t, translate(-50%, 0)) scale(1.16);
+  }
+}
