@@ -261,6 +261,8 @@ export default function HoldingsDetailPanelVolumeHarnessEntry() {
       data-volume-width={widthMode}
       data-volume-stress={stressLabel}
       data-volume-list-count={String(listCount)}
+      data-volume-live={liveCode || ''}
+      data-volume-live-bars={String(liveBars.length)}
       data-drawer-render-state={renderState}
       data-drawer-loading-ms={String(loadingMs)}
       style={containerStyle}
@@ -270,18 +272,18 @@ export default function HoldingsDetailPanelVolumeHarnessEntry() {
       ) : (
         <Suspense fallback={<HoldingsDetailPanelSkeleton />}>
           <HoldingsDetailPanel
-            selected={selected}
-            decisionsMap={decisionsMap}
-            stockMeta={stockMeta}
+            selected={effSelected}
+            decisionsMap={effDecisions}
+            stockMeta={effMeta}
             targets={targets}
             avgTarget={avgTarget}
             normalizedEvents={normalizedEvents}
-            orderedDisplayed={orderedDisplayed}
+            orderedDisplayed={effHoldings}
             WB={WB}
             setExpandedDecision={() => {}}
             openHoldingDrawer={() => {}}
             totalPortfolioValue={totalPortfolioValue}
-            sparkData30D={sparkData30D}
+            sparkData30D={effSpark}
             sortBy="pct"
             sortDir="desc"
             setSortBy={() => {}}
