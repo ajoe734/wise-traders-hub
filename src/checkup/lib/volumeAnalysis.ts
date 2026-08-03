@@ -18,6 +18,7 @@ import {
   shouldShowReversalLine,
   type ReversalSignal,
 } from './reversalSignals';
+import { buildReversalMarkers, reversalTooltipByDate, type ReversalMarker } from './reversalMarkers';
 
 export interface RawBar {
   date?: string | null;
@@ -323,6 +324,10 @@ export interface VolumeAnalysis {
     line: string | null;
     /** tooltip 用：命中日 → 型態文字 */
     byDate: Record<string, string>;
+    /** tooltip 用（含確認條件）：命中日 → 型態 · 狀態 · 條件 */
+    byDateDetailed: Record<string, string>;
+    /** K 棒上的歷史轉折標記（只含顯示區間內的訊號） */
+    markers: ReversalMarker[];
   };
   summary: string;
   emptyVolumeReason: string | null;
@@ -393,7 +398,14 @@ export function buildVolumeAnalysis({
     zone,
     distance,
     breakout,
-    reversal: { signals, active, line, byDate: reversalByDate(signals) },
+    reversal: {
+      signals,
+      active,
+      line,
+      byDate: reversalByDate(signals),
+      byDateDetailed: reversalTooltipByDate(signals),
+      markers: buildReversalMarkers(signals, displayBars, active),
+    },
     summary: `${parts.join('，')}。`,
     emptyVolumeReason: stats.hasVolume ? null : '無成交量資料',
   };

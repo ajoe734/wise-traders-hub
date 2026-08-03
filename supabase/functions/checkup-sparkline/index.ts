@@ -44,7 +44,10 @@ const handler = withLogging('checkup-sparkline', async (req, log) => {
     const sb = serviceClient();
 
     const day = todayKey();
-    const result: Record<string, { ohlc: TwBar[]; closes: number[]; source?: string | null }> = {};
+    const result: Record<string, {
+      ohlc: TwBar[]; closes: number[]; source?: string | null;
+      fetchedAt?: string | null; tradeDate?: string | null;
+    }> = {};
     const toFetch: string[] = [];
 
     const cacheKeys = codes.map((c) => `sparkline_v2_${c}_${day}`);
@@ -54,13 +57,23 @@ const handler = withLogging('checkup-sparkline', async (req, log) => {
         .select("key,data")
         .eq("user_id", "00000000-0000-0000-0000-000000000000")
         .in("key", cacheKeys);
-      const map = new Map<string, { ohlc: TwBar[]; closes: number[]; source?: string | null }>();
+      const map = new Map<string, {
+        ohlc: TwBar[]; closes: number[]; source?: string | null;
+        fetchedAt?: string | null; tradeDate?: string | null;
+      }>();
       (cached || []).forEach((row: any) => {
         const d = row?.data || {};
         // 只認「有 OHLC」的新快取；舊的 closes-only 快取視為 miss，強制重抓成 K 棒資料
         const ohlc = Array.isArray(d.ohlc) ? d.ohlc : [];
         const closes = Array.isArray(d.closes) ? d.closes : (Array.isArray(d) ? d : []);
-        if (ohlc.length >= 2) map.set(row.key, { ohlc, closes, source: d.source ?? null });
+        if (ohlc.length >= 2) {
+          map.set(row.key, {
+            ohlc, closes,
+            source: d.source ?? null,
+            fetchedAt: d.fetched_at ?? null,
+            tradeDate: ohlc[ohlc.length - 1]?.date ?? null,
+          });
+        }
       });
 
       for (const c of codes) {
@@ -80,12 +93,18 @@ const handler = withLogging('checkup-sparkline', async (req, log) => {
         const r = results[idx];
         const ohlc = r?.bars || [];
         const closes = ohlc.map((b) => b.close);
-        result[c] = { ohlc, closes, source: r?.source ?? null };
+        const fetchedAt = new Date().toISOString();
+        result[c] = {
+          ohlc, closes,
+          source: r?.source ?? null,
+          fetchedAt,
+          tradeDate: ohlc[ohlc.length - 1]?.date ?? null,
+        };
         if (ohlc.length >= 2) {
           upserts.push({
             user_id: "00000000-0000-0000-0000-000000000000",
             key: `sparkline_v2_${c}_${day}`,
-            data: { ohlc, closes, source: r?.source ?? null, fetched_at: new Date().toISOString() },
+            data: { ohlc, closes, source: r?.source ?? null, fetched_at: fetchedAt },
           });
         } else {
           log.warn('sparkline_all_sources_failed', { code: c, attempts: r?.attempts });
