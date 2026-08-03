@@ -19,6 +19,7 @@ export default function HoldingExportCard({
   rangeLow,
   rangeHigh,
   thesis,
+  reversalLine = null,
   nextEvent,
   stamp,
   WB,
@@ -117,6 +118,16 @@ export default function HoldingExportCard({
           <Row label="數量 · 市值" value={`${fmtInt(holding.qty)} · ${fmtInt(holding.price * holding.qty)}`} WB={WB} />
           {(rangeLow != null && rangeHigh != null) && (
             <Row label="近 30D 區間" value={`${rangeLow.toFixed(2)} — ${rangeHigh.toFixed(2)}`} WB={WB} />
+          )}
+          {/* 轉折觀察：與抽屜同一條文案；無訊號不預留高度 */}
+          {reversalLine && (
+            <div data-export-reversal style={{ fontSize: 20, color: WB.inkSub, lineHeight: 1.5 }}>
+              <span style={{
+                display: 'inline-block', width: 8, height: 8, borderRadius: '50%',
+                background: WB.inkMute, marginRight: 10, verticalAlign: 'middle',
+              }} />
+              {reversalLine}
+            </div>
           )}
 
           {thesis && (

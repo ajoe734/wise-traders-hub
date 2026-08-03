@@ -55,10 +55,13 @@ test.describe('K 棒 tooltip 互動', () => {
     expect(Number(await crosshair.getAttribute('x1'))).toBeCloseTo(2.4 + (9 / 29) * 95.2, 1);
 
     await expect(page.locator('[data-testid="kline-tooltip-date"]')).toHaveText('2026/07/10');
-    await expect(tooltip).toContainText('開 109.00');
-    await expect(tooltip).toContainText('高 111.00');
-    await expect(tooltip).toContainText('低 107.00');
-    await expect(tooltip).toContainText('收 108.00');
+    // 讀值層改為「開／高」「低／收」兩列（volumeReadout.buildTooltipRows）
+    await expect(tooltip).toContainText('開／高');
+    await expect(tooltip).toContainText('109.00');
+    await expect(tooltip).toContainText('111.00');
+    await expect(tooltip).toContainText('低／收');
+    await expect(tooltip).toContainText('107.00');
+    await expect(tooltip).toContainText('108.00');
 
     // 離開圖表 → tooltip 收掉
     await page.mouse.move(box.x + box.width / 2, box.y + box.height + 120);

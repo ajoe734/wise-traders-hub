@@ -10,6 +10,14 @@
  * 禁止在元件內再除以 1000。缺量一律 null，不補 0、不由價格推估。
  */
 import { sharesToLots } from '@/lib/lotSize';
+import {
+  detectReversalSignals,
+  selectActiveReversal,
+  buildReversalLine,
+  reversalByDate,
+  shouldShowReversalLine,
+  type ReversalSignal,
+} from './reversalSignals';
 
 export interface RawBar {
   date?: string | null;
@@ -307,6 +315,15 @@ export interface VolumeAnalysis {
   zone: ResistanceZone | null;
   distance: { pct: number; state: DistanceState } | null;
   breakout: { state: BreakoutState; label: string };
+  /** 精簡轉折觀察：最多一個 active 訊號；無命中為 null */
+  reversal: {
+    signals: ReversalSignal[];
+    active: ReversalSignal | null;
+    /** 走勢摘要第二行文案；不顯示時為 null（呼叫端整行不渲染） */
+    line: string | null;
+    /** tooltip 用：命中日 → 型態文字 */
+    byDate: Record<string, string>;
+  };
   summary: string;
   emptyVolumeReason: string | null;
 }
@@ -316,10 +333,6 @@ export const NEAR_RESISTANCE_PCT = 0.05;
 
 function pct1(v: number): string {
   return `${(Math.abs(v) * 100).toFixed(1)}%`;
-}
-
-function lots(v: number | null): string {
-  return v == null ? '—' : `${Math.round(v).toLocaleString('zh-TW')} 張`;
 }
 
 export function buildVolumeAnalysis({
@@ -345,26 +358,32 @@ export function buildVolumeAnalysis({
   const distance = resistanceDistance(zone, ref);
   const breakout = breakoutState({ bars, zone, relVolume: stats.relVolume, price: ref });
 
-  // ── 一句話判讀（描述資料狀態，不給買賣建議） ──
+  // ── 一句話判讀（自然語意；數字已在 metrics，不重複複誦） ──
+  const PV_PHRASE: Record<PriceVolumeState, string | null> = {
+    up_vol_up: '量增上漲', up_vol_down: '量縮上漲',
+    down_vol_up: '量增下跌', down_vol_down: '量縮下跌',
+    flat: '價格持平', unknown: null,
+  };
   const parts: string[] = [];
-  if (zone && distance) {
-    const name = zone.basis === 'cluster' ? '壓力區' : '參考壓力';
-    if (distance.state === 'testing') parts.push(`價格進入${name}，測試壓力`);
-    else if (distance.state === 'above') parts.push(`價格站上${name}上緣，${breakout.label}`);
-    else if (Math.abs(distance.pct) <= NEAR_RESISTANCE_PCT) parts.push(`接近${name}，距離 ${pct1(distance.pct)}`);
-    else parts.push(`距離${name} ${pct1(distance.pct)}`);
-  } else {
+  if (!stats.hasVolume) parts.push('無成交量資料，僅提供價格與壓力判讀');
+  else if (stats.intraday) parts.push('盤中尚未收盤，暫不與日均量比較');
+  else if (PV_PHRASE[pv.state]) parts.push(PV_PHRASE[pv.state] as string);
+
+  if (!zone || !distance) {
     parts.push('近 60 日未形成明確壓力區');
-  }
-  if (!stats.hasVolume) {
-    parts.push('無成交量資料');
-  } else if (stats.intraday) {
-    parts.push(`盤中成交量 ${lots(stats.todayLots)}，未收盤不與日均量比較`);
-  } else if (stats.relVolume != null) {
-    parts.push(`成交量為 20 日均量 ${stats.relVolume.toFixed(2)} 倍，${pv.label}`);
   } else {
-    parts.push(`20 日均量${stats.ma20Insufficient ?? '不可得'}，${pv.label}`);
+    const name = zone.basis === 'cluster' ? '壓力區' : '參考壓力';
+    if (distance.state === 'testing') parts.push(`正在測試${name}`);
+    else if (distance.state === 'above') parts.push(`已站上${name}上緣`);
+    else if (Math.abs(distance.pct) <= NEAR_RESISTANCE_PCT) parts.push(`已接近${name}`);
+    else parts.push(`尚未接近${name}`);
   }
+
+  // ── 精簡轉折觀察（只用已完成日 K；盤中最後一根不參與判斷） ──
+  const closedBars = intraday ? bars.slice(0, -1) : bars;
+  const signals = detectReversalSignals(closedBars, { resistanceZone: zone });
+  const active = selectActiveReversal(signals);
+  const line = shouldShowReversalLine(breakout.state) ? buildReversalLine(active) : null;
 
   return {
     displayBars,
@@ -374,7 +393,8 @@ export function buildVolumeAnalysis({
     zone,
     distance,
     breakout,
-    summary: `${parts.join('；')}。`,
+    reversal: { signals, active, line, byDate: reversalByDate(signals) },
+    summary: `${parts.join('，')}。`,
     emptyVolumeReason: stats.hasVolume ? null : '無成交量資料',
   };
 }

@@ -165,6 +165,50 @@ function makeEvents(count: number, s: StressFlags) {
   return arr;
 }
 
+
+// ── 轉折訊號 deterministic fixture（僅供 E2E 驗收四種狀態；非生產路徑） ──
+// 生產 UI 一律使用上游真實 OHLCV，這裡只在 preview harness 內以固定序列驗收狀態機。
+type ReversalFixture = 'none' | 'hammer' | 'hammer-confirmed' | 'shooting' | 'bullish-engulf' | 'bearish-engulf';
+
+function fixtureBars(kind: ReversalFixture) {
+  const day = (i: number) => `2026-06-${String(i + 1).padStart(2, '0')}`;
+  const flat = (p: number, vol: number) => ({ open: p, high: p * 1.004, low: p * 0.996, close: p, volume: vol });
+  const rows: any[] = [];
+  const trendDown = kind === 'hammer' || kind === 'hammer-confirmed' || kind === 'bullish-engulf';
+  for (let i = 0; i < 24; i += 1) {
+    const drift = i < 15
+      ? 0
+      : (trendDown ? -0.012 : 0.012) * (i - 14);
+    rows.push(flat(100 * (1 + drift), 1_000_000));
+  }
+  const last = rows[rows.length - 1].close;
+  if (kind === 'hammer' || kind === 'hammer-confirmed') {
+    rows.push({ open: last * 0.995, high: last * 1.01, low: last * 0.94, close: last * 1.005, volume: 1_600_000 });
+    if (kind === 'hammer-confirmed') {
+      const t = last * 1.01;
+      rows.push({ open: t, high: t * 1.03, low: t * 0.995, close: t * 1.025, volume: 1_300_000 });
+    }
+  } else if (kind === 'shooting') {
+    rows.push({ open: last * 1.005, high: last * 1.06, low: last * 0.99, close: last * 0.995, volume: 1_600_000 });
+  } else if (kind === 'bullish-engulf') {
+    rows.push({ open: last, high: last * 1.002, low: last * 0.975, close: last * 0.98, volume: 1_000_000 });
+    const p = last * 0.98;
+    rows.push({ open: p * 0.995, high: p * 1.03, low: p * 0.993, close: p * 1.025, volume: 1_700_000 });
+  } else if (kind === 'bearish-engulf') {
+    rows.push({ open: last, high: last * 1.025, low: last * 0.998, close: last * 1.02, volume: 1_000_000 });
+    const p = last * 1.02;
+    rows.push({ open: p * 1.005, high: p * 1.007, low: p * 0.97, close: p * 0.975, volume: 1_700_000 });
+  }
+  return rows.map((r, i) => ({
+    date: day(i),
+    open: Number(r.open.toFixed(2)),
+    high: Number(r.high.toFixed(2)),
+    low: Number(r.low.toFixed(2)),
+    close: Number(r.close.toFixed(2)),
+    volume: r.volume,
+  }));
+}
+
 export default function HoldingsDetailPanelVolumeHarnessEntry() {
   if (!isPreviewEnv()) return null;
 
@@ -244,11 +288,29 @@ export default function HoldingsDetailPanelVolumeHarnessEntry() {
   const effHoldings = liveCode && effSelected !== selected ? [effSelected] : holdings;
   const effDecisions = liveCode ? makeDecisionsMap([effSelected.code], stress) : decisionsMap;
   const effMeta = liveCode ? makeStockMeta([effSelected.code]) : stockMeta;
-  const effSpark = liveCode ? (liveEntry || []) : sparkData30D;
+  let effSpark: any = liveCode ? (liveEntry || []) : sparkData30D;
+
+  // ?fixture=hammer|hammer-confirmed|shooting|bullish-engulf|bearish-engulf|none
+  const fixtureKind = (params.get('fixture') || 'none') as ReversalFixture;
+  const fixtureRows = useMemo(
+    () => (fixtureKind && fixtureKind !== 'none' ? fixtureBars(fixtureKind) : null),
+    [fixtureKind],
+  );
+
+  const fxSelected = fixtureRows
+    ? {
+        ...effSelected,
+        code: 'FIXT', name: '轉折 Fixture', qty: 1000,
+        cost: Number((fixtureRows[fixtureRows.length - 1].close * 0.9).toFixed(2)),
+        price: fixtureRows[fixtureRows.length - 1].close,
+        targetPrice: Number((fixtureRows[fixtureRows.length - 1].close * 1.1).toFixed(2)),
+      }
+    : effSelected;
+  if (fixtureRows) effSpark = { ohlc: fixtureRows };
 
   const totalPortfolioValue = effHoldings.reduce((s, h) => s + h.price * h.qty, 0);
-  const targets = () => effSelected.targetPrice;
-  const avgTarget = () => effSelected.targetPrice;
+  const targets = () => fxSelected.targetPrice;
+  const avgTarget = () => fxSelected.targetPrice;
 
   // ?maxw=768 —— 桌機內容寬驗收（預設抽屜寬 512）
   const maxwRaw = Number.parseInt(params.get('maxw') || '0', 10);
@@ -273,6 +335,7 @@ export default function HoldingsDetailPanelVolumeHarnessEntry() {
       data-volume-list-count={String(listCount)}
       data-volume-live={liveCode || ''}
       data-volume-live-bars={String(liveBars.length)}
+      data-volume-fixture={fixtureKind}
       data-drawer-render-state={renderState}
       data-drawer-loading-ms={String(loadingMs)}
       style={containerStyle}
@@ -303,7 +366,7 @@ export default function HoldingsDetailPanelVolumeHarnessEntry() {
       ) : (
         <Suspense fallback={<HoldingsDetailPanelSkeleton />}>
           <HoldingsDetailPanel
-            selected={effSelected}
+            selected={fxSelected}
             decisionsMap={effDecisions}
             stockMeta={effMeta}
             targets={targets}

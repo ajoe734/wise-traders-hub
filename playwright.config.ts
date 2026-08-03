@@ -770,6 +770,15 @@ export default defineConfig({
       use: { ...devices['Desktop Chrome'], viewport: { width: 390, height: 900 } },
     },
 
+    // HoldingsDetailPanel 抽屜 · 精簡轉折觀察（deterministic fixture）
+    {
+      name: 'holdings-reversal-signal',
+      testMatch: /holdings-reversal-signal\.spec\.ts/,
+      outputDir: 'test-results/holdings-drawer/reversal-signal',
+      timeout: 120_000,
+      use: { ...devices['Desktop Chrome'], viewport: { width: 390, height: 900 } },
+    },
+
     // 真實 /holding-checkup Demo 抽屜 · 成交量資料流回歸（非 harness）
     {
       name: 'holdings-demo-volume',
