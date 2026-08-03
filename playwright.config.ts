@@ -792,6 +792,16 @@ export default defineConfig({
       timeout: 120_000,
       use: { ...devices['Desktop Chrome'], viewport: { width: 1280, height: 900 } },
     },
+    {
+      // 30 日 K 線頂端安全區（最高 wick / 壓力標籤 / marker 不碰撞不裁切）
+      name: 'holdings-kline-top-safe-inset',
+      testMatch: /holdings-kline-top-safe-inset\.spec\.ts/,
+      outputDir: 'test-results/holdings-drawer/kline-top-safe-inset',
+      timeout: 120_000,
+      use: { ...devices['Desktop Chrome'], viewport: { width: 1280, height: 1200 } },
+    },
+
+
 
     // 真實 /holding-checkup Demo 抽屜 · 成交量資料流回歸（非 harness）
     {
