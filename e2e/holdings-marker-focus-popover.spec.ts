@@ -65,14 +65,14 @@ test.describe('轉折 marker 聚焦 + popover', () => {
     const st = await readBars();
     expect(st.dim).toBe(st.total - 1);
     expect(st.focusOpacity.every((o) => Number(o) >= 0.95)).toBe(true);
-    const dimStyle = await page.evaluate(() => {
+    const dimStyle = () => page.evaluate(() => {
       const el = document.querySelector('[data-testid="kline-bar"][data-dim="1"]')!;
       const cs = getComputedStyle(el);
       return { opacity: Number(cs.opacity), filter: cs.filter };
     });
-    expect(dimStyle.opacity).toBeGreaterThanOrEqual(0.2);
-    expect(dimStyle.opacity).toBeLessThanOrEqual(0.4);
-    expect(dimStyle.filter).toContain('blur');
+    await expect.poll(async () => (await dimStyle()).opacity).toBeLessThanOrEqual(0.4);
+    expect((await dimStyle()).opacity).toBeGreaterThanOrEqual(0.2);
+    expect((await dimStyle()).filter).toContain('blur');
 
     // marker 以 transform 浮起（不改版面）
     const tf = await marker.evaluate((el) => getComputedStyle(el).transform);
