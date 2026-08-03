@@ -1194,8 +1194,46 @@ export function RangeBand({ WB, price, low, high, spark, ohlc, va: vaProp = null
     [useKline, hoverIdx, volBars, ma5Line, ma20Line, va],
   );
 
-  // 切換標的：清掉上一檔的 hover 殘留（量柱／均量／壓力狀態皆由 props 重新推導）
-  useEffect(() => { setHoverIdx(null); }, [symbol]);
+  // 切換標的：清掉上一檔的 hover / 聚焦殘留（量柱／均量／壓力狀態皆由 props 重新推導）
+  useEffect(() => { closeTip(true); }, [symbol, closeTip]);
+
+  // ── popover 定位：以 marker（或十字線）為錨點，四邊碰撞避讓、夾在圖表容器內 ──
+  const tipRef = useRef<HTMLDivElement | null>(null);
+  const [tipPos, setTipPos] = useState(null);
+  React.useLayoutEffect(() => {
+    if (!tip) { setTipPos(null); return; }
+    const wrap = wrapRef.current;
+    const el = tipRef.current;
+    if (!wrap || !el || typeof window === 'undefined') return;
+    const w = wrap.getBoundingClientRect();
+    const box = el.getBoundingClientRect();
+    const mk = markerFocus
+      ? wrap.querySelector(`[data-testid="reversal-marker"][data-reversal-date="${markerFocus.date}"]`)
+      : null;
+    const mr = mk ? mk.getBoundingClientRect() : null;
+    const anchor = mr
+      ? { x: mr.left + mr.width / 2, top: mr.top, bottom: mr.bottom }
+      : { x: w.left + ((hoverX ?? 50) / 100) * w.width, top: w.top, bottom: w.bottom };
+    const vw = window.innerWidth || w.width;
+    const vh = window.innerHeight || w.height;
+    const bounds = {
+      left: Math.max(8, Math.min(w.left, vw - 8)),
+      right: Math.min(vw - 8, Math.max(w.right, 16)),
+      top: 8,
+      bottom: vh - 8,
+    };
+    const next = placePopover({ anchor, size: { width: box.width, height: box.height }, bounds });
+    setTipPos((prev) => (prev && Math.abs(prev.left - next.left) < 0.5
+      && Math.abs(prev.top - next.top) < 0.5 && prev.placement === next.placement ? prev : next));
+  }, [tip, hoverX, markerFocus]);
+
+  // 鍵盤 focus 於 marker 時，Escape 一律關閉
+  useEffect(() => {
+    if (!markerFocus) return;
+    const onKey = (e) => { if (e.key === 'Escape') closeTip(true); };
+    window.addEventListener('keydown', onKey);
+    return () => window.removeEventListener('keydown', onKey);
+  }, [markerFocus, closeTip]);
 
   const onChartKeyDown = (e) => {
     if (!useKline) return;
@@ -1206,11 +1244,13 @@ export function RangeBand({ WB, price, low, high, spark, ohlc, va: vaProp = null
     else if (e.key === 'ArrowRight') next = Math.min(N - 1, cur + 1);
     else if (e.key === 'Home') next = 0;
     else if (e.key === 'End') next = N - 1;
-    else if (e.key === 'Escape') { setHoverIdx(null); return; }
+    else if (e.key === 'Escape') { closeTip(true); return; }
     if (next == null) return;
     e.preventDefault();
+    cancelClose();
     setHoverIdx(next);
   };
+
 
   return (
     <div
