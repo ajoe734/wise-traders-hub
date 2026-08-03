@@ -157,14 +157,12 @@ export default function LineCallback() {
         {error ? (
           <>
             <p className="text-foreground">{error}</p>
-            <Button
-              onClick={() => window.location.replace('/auth/login')}
-              variant="default"
-            >
-              重新登入
+            <Button onClick={restartLineLogin} variant="default">
+              重新用 LINE 登入
             </Button>
           </>
         ) : (
+
           <>
             <Loader2 className="h-8 w-8 animate-spin mx-auto text-primary" />
             <p className="text-muted-foreground">正在完成 LINE 登入...</p>
