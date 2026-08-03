@@ -26,6 +26,19 @@ export default function LineCallback() {
   const [error, setError] = useState<string | null>(null);
   const startedRef = useRef(false);
 
+  // 失敗時直接重跑一次 LINE 授權（回 /auth/login 只會多一步，使用者常誤以為壞掉）
+  const restartLineLogin = () => {
+    const supabaseUrl = import.meta.env.VITE_SUPABASE_URL;
+    const callbackUrl = `${supabaseUrl}/functions/v1/line-login-callback`;
+    const stored = sessionStorage.getItem('line_login_return_to');
+    const returnTo = stored && stored.startsWith('/') ? stored : '/app';
+    const appOrigin = window.location.origin;
+    window.location.href =
+      `${supabaseUrl}/functions/v1/line-login-authorize?redirect_uri=${encodeURIComponent(callbackUrl)}`
+      + `&return_to=${encodeURIComponent(returnTo)}&app_origin=${encodeURIComponent(appOrigin)}`;
+  };
+
+
   useEffect(() => {
     if (startedRef.current) return;
     startedRef.current = true;
