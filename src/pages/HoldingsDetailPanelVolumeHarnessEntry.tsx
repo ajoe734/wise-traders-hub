@@ -220,7 +220,11 @@ export default function HoldingsDetailPanelVolumeHarnessEntry() {
 
   // ?live=2330 —— 走真實 useSparklines → checkup-sparkline edge function，
   // 量能一律來自上游真資料（禁止 mock volume）。
-  const liveCode = (params.get('live') || '').trim();
+  // ?live=2330 或 ?live=2330,3443（多檔時渲染切換鈕，用於驗證切換標的不殘留）
+  const liveList = (params.get('live') || '')
+    .split(',').map((s) => s.trim()).filter(Boolean);
+  const [liveIdx, setLiveIdx] = useState(0);
+  const liveCode = liveList[Math.min(liveIdx, Math.max(0, liveList.length - 1))] || '';
   const { sparklines } = useSparklines(liveCode ? [liveCode] : [], { enabled: !!liveCode });
   const liveEntry: any = liveCode ? (sparklines as any)[liveCode] : null;
   const liveBars: any[] = Array.isArray(liveEntry?.ohlc) ? liveEntry.ohlc : [];
@@ -244,9 +248,12 @@ export default function HoldingsDetailPanelVolumeHarnessEntry() {
   const targets = () => effSelected.targetPrice;
   const avgTarget = () => effSelected.targetPrice;
 
+  // ?maxw=768 —— 桌機內容寬驗收（預設抽屜寬 512）
+  const maxwRaw = Number.parseInt(params.get('maxw') || '0', 10);
+  const maxw = Number.isFinite(maxwRaw) && maxwRaw > 0 ? Math.min(1440, maxwRaw) : null;
   const containerStyle: React.CSSProperties = {
     width: '100%',
-    maxWidth: widthMode === 'desktop' ? 512 : '100%',
+    maxWidth: maxw ?? (widthMode === 'desktop' ? 512 : '100%'),
     minHeight: '100vh',
     background: (WB as any).surface || '#F5F3EF',
     padding: 0,
@@ -259,6 +266,7 @@ export default function HoldingsDetailPanelVolumeHarnessEntry() {
       data-testid="holdings-detail-panel"
       data-volume-count={String(count)}
       data-volume-width={widthMode}
+      data-volume-maxw={String(maxw ?? (widthMode === 'desktop' ? 512 : 0))}
       data-volume-stress={stressLabel}
       data-volume-list-count={String(listCount)}
       data-volume-live={liveCode || ''}
@@ -267,6 +275,27 @@ export default function HoldingsDetailPanelVolumeHarnessEntry() {
       data-drawer-loading-ms={String(loadingMs)}
       style={containerStyle}
     >
+      {liveList.length > 1 && (
+        <div data-testid="live-symbol-switcher" style={{ display: 'flex', gap: 8, padding: 8 }}>
+          {liveList.map((c, i) => (
+            <button
+              key={c}
+              type="button"
+              data-testid={`live-symbol-${c}`}
+              aria-pressed={i === liveIdx}
+              onClick={() => setLiveIdx(i)}
+              style={{
+                fontSize: 12, padding: '4px 10px',
+                border: `1px solid ${(WB as any).hair}`,
+                background: i === liveIdx ? (WB as any).surfaceSoft : 'transparent',
+              }}
+            >
+              {c}
+            </button>
+          ))}
+        </div>
+      )}
+
       {renderState === 'skeleton' ? (
         <HoldingsDetailPanelSkeleton />
       ) : (
