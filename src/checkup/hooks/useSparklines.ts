@@ -43,8 +43,8 @@ export const SPARKLINE_BATCH_SIZE = 30;
 export const sparklineCache = createCacheNamespace<SparklineEntry>({
   name: 'sparkline',
   ttlMs: SPARKLINE_TTL_MS,
-  // v3：key 改為 market:symbol:tradeDate，且 value 帶 source/fetchedAt
-  version: 3,
+  // v4：key 改為 market:symbol:dataset:tradeDate:schemaVersion（datasetCacheKey）
+  version: 4,
   maxEntries: 300,
 });
 

@@ -50,13 +50,16 @@ function HoldingCardFooterImpl({
     if (h.priceError) return `報價問題：${h.priceError}`;
     return [
       srcLabel ? `來源：${srcLabel}（${h.priceSource}）` : '尚未同步即時報價',
+      h.priceTradeDate
+        ? `收盤交易日 ${String(h.priceTradeDate).replace(/-/g, '/')}${h.priceState === 'pending' ? '（待確認）' : '（已確認）'}`
+        : '尚無已確認收盤（不以盤中報價充當）',
       h.priceUpdatedAt
         ? `更新於 ${formatClock(new Date(h.priceUpdatedAt).getTime())}（${formatAge(Date.now() - new Date(h.priceUpdatedAt).getTime())}）`
         : null,
       h.yesterday != null ? `昨收 ${Number(h.yesterday).toFixed(2)}` : null,
       Number.isFinite(Number(h.price)) ? `現價 ${Number(h.price).toFixed(2)}` : null,
     ].filter(Boolean).join('　');
-  }, [h.priceError, h.priceSource, h.priceUpdatedAt, h.yesterday, h.price, srcLabel]);
+  }, [h.priceError, h.priceSource, h.priceTradeDate, h.priceState, h.priceUpdatedAt, h.yesterday, h.price, srcLabel]);
 
   // pnl 顏色：正 accent / 負 lossColor / 空 muteColor
   const todayPctColor = todayPctNum == null
@@ -112,6 +115,8 @@ function HoldingCardFooterImpl({
       className="wb-bottom"
       data-price-src={h.priceSource || ''}
       data-price-src-label={srcLabel || ''}
+      data-price-trade-date={h.priceTradeDate || ''}
+      data-price-state={h.priceState || (h.priceTradeDate ? 'confirmed' : 'unknown')}
       data-price-error={h.priceError || ''}
       title={srcTitle}
       style={containerStyle}

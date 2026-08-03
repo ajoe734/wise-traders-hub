@@ -10,6 +10,9 @@
  * 這裡只做判定與文案，不碰 DOM、不發網路請求。
  */
 
+import { latestCompletedTradeDate } from './marketCalendar';
+import { datasetCacheKey } from './confirmedClose';
+
 export type MarketCode = 'TW';
 
 export interface DailyBarLike {
@@ -53,12 +56,8 @@ function taipeiParts(now: Date) {
   };
 }
 
-function shiftDate(iso: string, days: number): string {
-  const [y, m, d] = iso.split('-').map(Number);
-  const dt = new Date(Date.UTC(y, m - 1, d));
-  dt.setUTCDate(dt.getUTCDate() + days);
-  return dt.toISOString().slice(0, 10);
-}
+
+
 
 /** 台北當日日期（YYYY-MM-DD）。 */
 export function taipeiDateKey(now: Date = new Date()): string {
@@ -70,23 +69,12 @@ export const TW_SETTLE_MINUTE = 13 * 60 + 30 + 35;
 
 /**
  * 依台北時間推算「目前應該拿得到的最後一個日 K 交易日」。
- * 週末與尚未結算的今天都會往前回推到上一個平日。
- * 註：不含國定假日表；假日時 UI 會退回「待來源確認 + 最後交易日」，不會謊報已確認。
+ *
+ * 實作已下沉到 `marketCalendar.latestCompletedTradeDate`（單一資料源，含
+ * `tw_market_holidays` 休市日）；這裡只保留舊呼叫點的相容出口。
  */
 export function expectedTradeDate(now: Date = new Date()): string {
-  const { date, minutes, dow } = taipeiParts(now);
-  let d = date;
-  let wd = dow;
-  const settledToday = wd >= 1 && wd <= 5 && minutes >= TW_SETTLE_MINUTE;
-  if (!settledToday) {
-    d = shiftDate(d, -1);
-    wd = (wd + 6) % 7;
-  }
-  while (wd === 0 || wd === 6) {
-    d = shiftDate(d, -1);
-    wd = (wd + 6) % 7;
-  }
-  return d;
+  return latestCompletedTradeDate(now, { market: 'TW' });
 }
 
 function isCompleteBar(b: DailyBarLike | undefined | null): boolean {
@@ -147,13 +135,14 @@ export function buildDailyCloseStatus({
 }
 
 /**
- * 走勢快取鍵：symbol + market + tradeDate（+ 命名空間版本由 cache store 管）。
- * 交易日換日即自然失效，切換標的也不會互相汙染。
+ * 走勢快取鍵：market:symbol:dataset:tradeDate:schemaVersion（單一資料源 = `datasetCacheKey`）。
+ * 交易日換日即自然失效；帶 dataset 後不同資料集不會互相汙染。
  */
 export function sparklineCacheKey(
   code: string,
   now: Date = new Date(),
   market: MarketCode = 'TW',
 ): string {
-  return `${market}:${String(code || '').trim().toUpperCase()}:${expectedTradeDate(now)}`;
+  return datasetCacheKey(code, 'daily_ohlc', now, market);
 }
+

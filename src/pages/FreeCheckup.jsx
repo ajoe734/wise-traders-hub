@@ -104,6 +104,9 @@ import {
   useFetchCalendarEventsRef,
 } from "@/hooks/useFreeCheckupBootstrap";
 import { fetchAuthoritativeQuotes } from "@/checkup/lib/authoritativeQuotes";
+import { fetchDailyCloseCards } from "@/checkup/lib/closeAuthority";
+import { confirmedCloseLabel } from "@/checkup/lib/confirmedClose";
+import { latestCompletedTradeDate } from "@/checkup/lib/marketCalendar";
 
 import { Logomark } from "@/components/brand";
 
@@ -1426,18 +1429,32 @@ export default function App() {
 
   const refreshPrices = async () => {
     if (refreshing) return;
-    // ── DEMO 模式：模擬擷取股價，隨機 ±0.5%~±2% 浮動，不打 edge ──
+    // ── DEMO 模式 ────────────────────────────────────────────────
+    // 以前這裡用 ±1.5% 亂數合成「模擬報價」，於是 8/4 午夜看到的 3443 是
+    // 4,239.25，而 8/3 官方收盤是 4,185 —— 假價被當成今日收盤。
+    // 現在 Demo 一律讀公開市場資料（官方日 K），對齊最後一個完整交易日；
+    // 沒有已確認收盤就維持原值並標 pending，不合成、不假裝。
     if (isDemo) {
       setRefreshing(true);
       setRefreshStatus({ phase: 'fetching', total: H.length, ok: 0, fail: H.length, missingNames: [] });
       try {
-        await demoDelay(1500, 2800);
-        const nowIso = new Date().toISOString();
+        const codes = (holdings || []).map(h => String(h.code || '').trim()).filter(Boolean);
+        const cards = await fetchDailyCloseCards(codes);
+        let ok = 0;
         setHoldings(prev => (prev || []).map(h => {
-          const base = h.price || h.cost || 0;
-          if (!base) return h;
-          const delta = (Math.random() * 0.03 - 0.015); // ±1.5%
-          const newPrice = Math.max(0.01, +(base * (1 + delta)).toFixed(2));
+          const cc = cards[String(h.code || '').trim()];
+          if (!cc || cc.state !== 'confirmed' || !(cc.close > 0)) {
+            return {
+              ...h,
+              priceSource: 'pending_close',
+              priceTradeDate: cc?.tradeDate || null,
+              priceState: 'pending',
+              priceReason: cc?.reason || 'no_bars',
+              priceError: cc ? confirmedCloseLabel(cc) : '尚無官方收盤',
+            };
+          }
+          ok += 1;
+          const newPrice = cc.close;
           const value = newPrice * h.qty;
           const totalCost = h.totalCost != null ? h.totalCost : h.cost * h.qty;
           const pnl = value - totalCost;
@@ -1446,14 +1463,20 @@ export default function App() {
             ...h,
             price: newPrice,
             value, pnl, pct,
-            priceSource: 'demo',
-            priceUpdatedAt: nowIso,
+            priceSource: 'close',
+            priceTradeDate: cc.tradeDate,
+            priceState: 'confirmed',
+            priceReason: null,
+            priceUpdatedAt: cc.fetchedAt || new Date().toISOString(),
             priceError: null,
           };
         }));
         setLastUpdate(new Date());
-        setRefreshStatus({ phase: 'done', total: H.length, ok: H.length, fail: 0, missingNames: [] });
-        setSaved('DEMO 模擬報價已更新（登入後使用真實 TWSE 即時行情）');
+        setRefreshStatus({ phase: 'done', total: codes.length, ok, fail: Math.max(0, codes.length - ok), missingNames: [] });
+        const expected = latestCompletedTradeDate().replace(/-/g, '/');
+        setSaved(ok > 0
+          ? `已對齊 ${expected} 官方收盤（${ok}/${codes.length} 檔）`
+          : `尚無 ${expected} 官方收盤，維持前值並標示待確認`);
         setTimeout(() => setSaved(''), 3500);
         setTimeout(() => setRefreshStatus(null), 4000);
       } finally {
@@ -1461,6 +1484,7 @@ export default function App() {
       }
       return;
     }
+
     // 30 秒冷卻（避免按鈕連點打 cron / DB）
     if (lastUpdate && (Date.now() - lastUpdate.getTime()) < 30 * 1000) {
       const remaining = Math.ceil((30 * 1000 - (Date.now() - lastUpdate.getTime())) / 1000);
@@ -1493,6 +1517,8 @@ export default function App() {
             price: Number(q.price),
             source: q.source === 'snapshot' ? 'close' : 'db',
             updatedAt: q.updatedAt,
+            // snapshot 路徑的 updatedAt 就是交易日；quote 路徑沒有收盤身分
+            tradeDate: q.source === 'snapshot' ? (q.updatedAt || null) : null,
           };
         }
       });
@@ -1510,6 +1536,9 @@ export default function App() {
           price: hit.price,
           value, pnl, pct,
           priceSource: hit.source,
+          priceTradeDate: hit.tradeDate,
+          priceState: hit.tradeDate === latestCompletedTradeDate() ? 'confirmed' : 'pending',
+          priceReason: hit.tradeDate === latestCompletedTradeDate() ? null : 'stale_trade_date',
           priceUpdatedAt: hit.updatedAt || nowIso,
           priceError: null,
         };
