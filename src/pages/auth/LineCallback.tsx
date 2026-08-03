@@ -26,6 +26,19 @@ export default function LineCallback() {
   const [error, setError] = useState<string | null>(null);
   const startedRef = useRef(false);
 
+  // 失敗時直接重跑一次 LINE 授權（回 /auth/login 只會多一步，使用者常誤以為壞掉）
+  const restartLineLogin = () => {
+    const supabaseUrl = import.meta.env.VITE_SUPABASE_URL;
+    const callbackUrl = `${supabaseUrl}/functions/v1/line-login-callback`;
+    const stored = sessionStorage.getItem('line_login_return_to');
+    const returnTo = stored && stored.startsWith('/') ? stored : '/app';
+    const appOrigin = window.location.origin;
+    window.location.href =
+      `${supabaseUrl}/functions/v1/line-login-authorize?redirect_uri=${encodeURIComponent(callbackUrl)}`
+      + `&return_to=${encodeURIComponent(returnTo)}&app_origin=${encodeURIComponent(appOrigin)}`;
+  };
+
+
   useEffect(() => {
     if (startedRef.current) return;
     startedRef.current = true;
@@ -84,16 +97,28 @@ export default function LineCallback() {
     const run = async () => {
       try {
         console.log(DBG, 'Exchanging nonce…');
-        const { data, error: invokeError } = await supabase.functions.invoke(
-          'line-login-exchange-nonce',
-          { body: { nonce } },
-        );
+        // 弱網 / LINE in-app browser 冷啟動時第一次 invoke 常直接拋網路錯誤，
+        // 這種「還沒碰到 nonce」的失敗要重試，否則使用者會被誤判為連結過期。
+        let data: any = null;
+        let invokeError: any = null;
+        for (let attempt = 1; attempt <= 3; attempt += 1) {
+          const res = await supabase.functions.invoke('line-login-exchange-nonce', { body: { nonce } });
+          data = res.data;
+          invokeError = res.error;
+          if (!invokeError && data?.access_token && data?.refresh_token) break;
+          // 410（已使用／過期）不重試；只重試傳輸層失敗。
+          const status = (invokeError as any)?.context?.status;
+          if (status === 410 || status === 400) break;
+          console.warn(DBG, `nonce exchange attempt ${attempt} failed`, invokeError);
+          if (attempt < 3) await new Promise((r) => window.setTimeout(r, attempt * 600));
+        }
 
         if (invokeError || !data?.access_token || !data?.refresh_token) {
           console.error(DBG, 'nonce exchange failed:', invokeError, data);
           setError('登入連結已使用或過期，請重新登入。');
           return;
         }
+
 
         const { error: setSessionError } = await supabase.auth.setSession({
           access_token: data.access_token,
@@ -145,14 +170,12 @@ export default function LineCallback() {
         {error ? (
           <>
             <p className="text-foreground">{error}</p>
-            <Button
-              onClick={() => window.location.replace('/auth/login')}
-              variant="default"
-            >
-              重新登入
+            <Button onClick={restartLineLogin} variant="default">
+              重新用 LINE 登入
             </Button>
           </>
         ) : (
+
           <>
             <Loader2 className="h-8 w-8 animate-spin mx-auto text-primary" />
             <p className="text-muted-foreground">正在完成 LINE 登入...</p>
