@@ -864,8 +864,9 @@ function PriceAxis({ WB, price, cost, target, baseTarget, upside, tpHistory }) {
 // ──────────────────── §4.6 30D 走勢帶 ────────────────────
 
 export function RangeBand({ WB, price, low, high, spark, ohlc, va: vaProp = null, symbol, priceSource, priceUpdatedAt }) {
-  // 顯示高度（px）：header 迷你 sparkline 移除後，把 30D 走勢帶拉高填補視覺空缺
-  const svgH = 72;
+  // 顯示高度（px）與 y-scale：全部走 @/checkup/lib/klineLayout 的版面契約，
+  // 確保最高 wick／壓力標籤／marker 都在 safe bounds 內且互相留 ≥6px 間距。
+  const svgH = KLINE_CHART_HEIGHT;
   const lo = Number.isFinite(low) ? Number(low) : NaN;
   const hi = Number.isFinite(high) ? Number(high) : NaN;
   const hasHiLo = Number.isFinite(lo) && Number.isFinite(hi);
