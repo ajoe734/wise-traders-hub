@@ -1361,6 +1361,13 @@ export function RangeBand({ WB, price, low, high, spark, ohlc, va: vaProp = null
             const yPx = Math.min(Math.max((yFor(m.anchorPrice) / 30) * svgH, 0), svgH);
             const below = m.placement === 'below';
             const failed = m.state === 'failed';
+            const focused = markerFocus?.date === m.date;
+            const enter = (e) => {
+              if (e && typeof e.stopPropagation === 'function') e.stopPropagation();
+              cancelClose();
+              setHoverIdx(m.index);
+              setMarkerFocus({ date: m.date, index: m.index });
+            };
             return (
               <span
                 key={`${m.date}-${m.kind}`}
@@ -1370,28 +1377,32 @@ export function RangeBand({ WB, price, low, high, spark, ohlc, va: vaProp = null
                 data-reversal-date={m.date}
                 data-reversal-active={m.active ? '1' : '0'}
                 data-reversal-trigger={String(m.triggerPrice)}
+                data-focused={focused ? '1' : '0'}
+                className={`hk-marker${focused ? ' hk-marker--focus' : ''}`}
                 role="button"
                 tabIndex={0}
                 aria-label={m.ariaLabel}
-                title={m.ariaLabel}
-                onFocus={(e) => { e.stopPropagation(); setHoverIdx(m.index); }}
-                onPointerDown={(e) => { e.stopPropagation(); setHoverIdx(m.index); }}
-                onPointerMove={(e) => { e.stopPropagation(); setHoverIdx(m.index); }}
+                onFocus={enter}
+                onPointerDown={enter}
+                onPointerMove={enter}
+                onPointerEnter={enter}
+                onBlur={() => closeTip()}
                 onKeyDown={(e) => {
-                  if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); setHoverIdx(m.index); }
+                  if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); enter(e); }
+                  else if (e.key === 'Escape') { e.stopPropagation(); closeTip(true); }
                 }}
                 style={{
                   position: 'absolute',
                   left: `${xPct}%`,
                   top: yPx + (below ? 3 : -3),
-                  transform: below ? 'translate(-50%, 0)' : 'translate(-50%, -100%)',
+                  ['--hk-marker-t' as any]: below ? 'translate(-50%, 0)' : 'translate(-50%, -100%)',
                   fontSize: 9,
                   lineHeight: '9px',
                   color: failed ? WB.inkLight : WB.ink,
-                  opacity: failed ? 0.35 : m.active ? 1 : 0.7,
+                  opacity: failed ? 0.35 : (focused || m.active) ? 1 : 0.7,
                   cursor: 'default',
                   userSelect: 'none',
-                  zIndex: 1,
+                  zIndex: focused ? 3 : 1,
                 }}
               >{m.glyph}</span>
             );
@@ -1412,37 +1423,72 @@ export function RangeBand({ WB, price, low, high, spark, ohlc, va: vaProp = null
               pointerEvents: 'none',
             }}
           />
-          {tip && (
-            <div
-              data-testid="kline-tooltip"
-              role="tooltip"
-              style={{
-                position: 'absolute',
-                left: `${hoverX}%`,
-                top: 0,
-                transform: `translate(${shouldFlipTooltip(hoverX) ? '-100%' : '0'}, -4px)`,
-                pointerEvents: 'none',
-                background: WB.surface,
-                border: `1px solid ${WB.hair}`,
-                padding: '6px 8px',
-                fontSize: 11,
-                lineHeight: 1.5,
-                color: WB.ink,
-                fontVariantNumeric: 'tabular-nums',
-                whiteSpace: 'nowrap',
-                zIndex: 2,
-              }}
-            >
-              <div data-testid="kline-tooltip-date" style={{ color: WB.inkSub, marginBottom: 2 }}>
-                {fmtDate(tip.date)}
-              </div>
-              {tip.rows.map((r) => (
-                <div key={r.key} data-testid={`kline-tooltip-${r.key}`}>
-                  <span style={{ color: WB.inkMute }}>{r.label}</span>　{r.value}
+          {tip && typeof document !== 'undefined' && ReactDOM.createPortal(
+            (() => {
+              const byKey = Object.fromEntries(tip.rows.map((r) => [r.key, r]));
+              const cell = (k) => (byKey[k] ? (
+                <span key={k} data-testid={`kline-tooltip-${k}`} style={{ whiteSpace: 'nowrap' }}>
+                  <span style={{ color: WB.inkMute }}>{byKey[k].label}</span>{' '}{byKey[k].value}
+                </span>
+              ) : null);
+              const maxW = popoverMaxWidth(typeof window !== 'undefined' ? window.innerWidth : 240);
+              return (
+                <div
+                  ref={tipRef}
+                  data-testid="kline-tooltip"
+                  data-placement={tipPos?.placement || 'above'}
+                  role="tooltip"
+                  onPointerEnter={cancelClose}
+                  onPointerLeave={() => closeTip()}
+                  style={{
+                    position: 'fixed',
+                    left: tipPos ? tipPos.left : -9999,
+                    top: tipPos ? tipPos.top : -9999,
+                    width: 'max-content',
+                    maxWidth: maxW,
+                    minWidth: 0,
+                    minHeight: 0,
+                    boxSizing: 'border-box',
+                    pointerEvents: 'auto',
+                    background: WB.surface,
+                    border: `1px solid ${WB.hair}`,
+                    borderRadius: 2,
+                    boxShadow: '0 1px 6px rgba(41,37,32,0.08)',
+                    padding: '6px 8px',
+                    fontSize: 11,
+                    lineHeight: 1.45,
+                    color: WB.ink,
+                    fontVariantNumeric: 'tabular-nums',
+                    display: 'grid',
+                    gap: 2,
+                    zIndex: 60,
+                  }}
+                >
+                  <div data-testid="kline-tooltip-date" style={{ color: WB.inkSub }}>
+                    {fmtDate(tip.date)}
+                  </div>
+                  <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', columnGap: 8 }}>
+                    {cell('oh')}
+                    {cell('lc')}
+                  </div>
+                  {cell('chg')}
+                  <div style={{ display: 'flex', flexWrap: 'wrap', columnGap: 8 }}>
+                    {cell('vol')}
+                    {cell('ma5')}
+                    {cell('ma20')}
+                    {cell('rel')}
+                  </div>
+                  {byKey.sig && (
+                    <div data-testid="kline-tooltip-sig" style={{ color: WB.inkSub, whiteSpace: 'normal' }}>
+                      {byKey.sig.value}
+                    </div>
+                  )}
                 </div>
-              ))}
-            </div>
+              );
+            })(),
+            document.body,
           )}
+
         </div>
       )}
 
