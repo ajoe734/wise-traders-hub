@@ -20,6 +20,7 @@ import { buildDailyCloseStatus } from '@/checkup/lib/marketDataStatus';
 import { getSparkOhlc } from '@/checkup/lib/holdingDetailViewModel';
 import { rollingLots, buildTooltipRows, resistanceBadge, buildVolumeMetrics } from '@/checkup/lib/volumeReadout';
 import { barIndexFromX, barCenterPct, shouldFlipTooltip, fmtKlineDate, fmtKlineNum } from '@/checkup/lib/klineTooltip';
+import { placePopover, popoverMaxWidth } from '@/checkup/lib/popoverPlacement';
 import {
   resolveLabelBox, assignLanes, laneTopOffset,
   LABEL_FONT_SIZE, LABEL_LINE_HEIGHT,
