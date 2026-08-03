@@ -348,7 +348,8 @@ export function buildVolumeAnalysis({
     const name = zone.basis === 'cluster' ? '壓力區' : '參考壓力';
     if (distance.state === 'testing') parts.push(`價格進入${name}，測試壓力`);
     else if (distance.state === 'above') parts.push(`價格站上${name}上緣，${breakout.label}`);
-    else parts.push(`接近${name}，距離 ${pct1(distance.pct)}`);
+    else if (Math.abs(distance.pct) <= NEAR_RESISTANCE_PCT) parts.push(`接近${name}，距離 ${pct1(distance.pct)}`);
+    else parts.push(`距離${name} ${pct1(distance.pct)}`);
   } else {
     parts.push('近 60 日未形成明確壓力區');
   }
