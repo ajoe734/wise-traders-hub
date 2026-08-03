@@ -343,7 +343,7 @@ function HoldingsWorkbench(props) {
                 {selected ? `持倉細節 ${selected.code}` : '持倉細節'}
               </SheetTitle>
               <SheetDescription>
-                成本／區間／佔比 + PNG·PDF 匯出。按 Esc 或點擊遮罩可關閉。
+                成本／區間／量價 + PNG·PDF 匯出。按 Esc 或點擊遮罩可關閉。
               </SheetDescription>
             </SheetHeader>
           </VisuallyHidden>

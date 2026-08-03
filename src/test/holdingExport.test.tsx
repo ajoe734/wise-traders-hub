@@ -32,7 +32,7 @@ const baseProps = {
   decision: { actionType: 'hold', urgency: 'monitor', actionText: '續抱' },
   meta: { industry: '半導體', strategy: 'AI 主流' },
   scenario: null, baseTarget: 800, pctVal: 16.67, pnlVal: 10000,
-  weightPct: 25, rangeLow: 650, rangeHigh: 720,
+  rangeLow: 650, rangeHigh: 720,
   thesis: '長線 AI 龍頭', nextEvent: { date: '2026/07/15', title: '法說', summary: 'Q2 法說會' },
   stamp: '2026/06/27 12:34', WB, showSimulated: false,
 };
@@ -58,9 +58,11 @@ describe('HoldingExportCard', () => {
     expect(root.getAttribute('data-variant')).toBe('wide');
   });
 
-  it('showSimulated=true 顯示 SIMULATED 徽章', () => {
-    render(<HoldingExportCard variant="square" {...baseProps} showSimulated />);
-    expect(screen.getByText('SIMULATED')).toBeInTheDocument();
+  it('不再輸出部位佔比與 SIMULATED 徽章', () => {
+    render(<HoldingExportCard variant="square" {...baseProps} />);
+    expect(screen.queryByText('SIMULATED')).toBeNull();
+    expect(screen.queryByText('部位佔比')).toBeNull();
+    expect(screen.getByText('也來檢查你的持倉')).toBeInTheDocument();
   });
 });
 

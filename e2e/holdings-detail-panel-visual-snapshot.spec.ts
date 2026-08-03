@@ -88,7 +88,6 @@ test.describe('HoldingsDetailPanel · 視覺快照回歸（多斷點）', () => 
       page.locator('[data-testid="decision-stamp"]'),
       page.locator('[data-testid="holdings-price-axis"]'),
       page.locator('[data-testid="holdings-range-band"]'),
-      page.locator('[data-testid="holdings-weight-rank"]'),
       page.locator('[data-testid="holdings-thesis-history"]'),
     ];
 
@@ -124,7 +123,6 @@ const CANONICAL_TESTIDS = [
   'decision-stamp',
   'holdings-price-axis',
   'holdings-range-band',
-  'holdings-weight-rank',
   'holdings-thesis-history',
   'holdings-export-menu',
 ] as const;

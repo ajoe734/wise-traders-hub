@@ -161,24 +161,11 @@ test.describe('HoldingsDetailPanel · today-delta wrap + 節奏守門', () => {
     }
   });
 
-  test('佔比排名位於抽屜最下方且預設摺疊', async ({ page }) => {
+  test('佔比排名與情境模擬已完全移除', async ({ page }) => {
     const panel = await openDrawer(page, 390);
-    const rank = panel.locator('[data-testid="holdings-weight-rank"]').first();
-    await expect(rank).toHaveCount(1);
-
-    // 預設收合：只有標題列，沒有條狀圖
-    await expect(panel.locator('[data-testid="holdings-weight-rank-bars"]')).toHaveCount(0);
-
-    // 位置：在價格軸之後（抽屜內容末段）
-    const axis = panel.locator('[data-testid="holdings-price-axis"]').first();
-    if (await axis.count()) {
-      const [rb, ab] = await Promise.all([rank.boundingBox(), axis.boundingBox()]);
-      expect(rb!.y).toBeGreaterThan(ab!.y);
-    }
-
-    // 展開後出現條狀圖
-    await panel.locator('[data-testid="holdings-weight-rank-toggle"]').first().click();
-    await expect(panel.locator('[data-testid="holdings-weight-rank-bars"]')).toHaveCount(1);
+    await expect(panel.locator('[data-testid="holdings-weight-rank"]')).toHaveCount(0);
+    await expect(panel.getByText('情境模擬')).toHaveCount(0);
+    await expect(panel.getByText(/排名 #/)).toHaveCount(0);
   });
 
   test('header 迷你 sparkline 已完全移除', async ({ page }) => {

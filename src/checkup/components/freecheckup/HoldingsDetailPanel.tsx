@@ -4,7 +4,7 @@ import ReactDOM from 'react-dom';
 import * as DropdownMenu from '@radix-ui/react-dropdown-menu';
 import {
   Camera, Download, Copy, X as XIcon, Settings, ChevronDown,
-  RotateCcw, FileText, Image as ImageIcon, Undo2, Redo2, Check, Info,
+  FileText, Image as ImageIcon, Check, Info,
 } from 'lucide-react';
 import { useHoldingShareExport } from '@/checkup/hooks/useHoldingShareExport';
 // Sparkline removed: header 迷你折線與 §6 RangeBand 資訊重複，僅保留 RangeBand。
@@ -35,9 +35,7 @@ import {
  *   4) 建議印章行（上下 1px ink 線、serif「建議 —— …」+ 中文急迫度、手機 sticky）
  *   5) 一條價格軸（目標 accent / 成本 灰 / 現價 ink 圓點，同一尺 ±5%）+ 目標價修正方向
  *   6) 30D 走勢帶（sparkline + 現價 accent 點 + `低 — 高`）
- *   7) 佔比排名表（灰條 + 本檔 accent、`排名 #x / N`；甜甜圈已刪）
  *   8) 決策履歷（thesisTracking 表格；資料未通時顯示 placeholder）
- *   9) 情境模擬（沿用 computeScenario）
  *   10) 論點引文（serif 全形引號）＋ 頁腳 `‹ 上一檔名 ｜ 研究筆記 ｜ 下一檔名 ›`
  *
  * 刪除清單（§4）：甜甜圈、RETURN/TARGET/THESIS/NEXT EVENT 英文小標、黑底 DECISION 盒、
@@ -129,7 +127,6 @@ function HoldingsDetailPanelImpl({
   const { prev, next } = vm.neighbors;
   const { displayTarget, displayUpside, displayPnlPct, displayPnlAbs,
     displayQty, displayValue, displayWeight } = vm.display;
-  const { sim, setSim, simHistory, scenario, dirty } = vm;
   // 價格新鮮度：抽屜以往只顯示來源不顯示時間，開著也不會隨時鐘更新。
   // 統一走 freshness 單一資料源（內建 ticker）。
   const priceUpdatedMs = h?.priceUpdatedAt ? new Date(h.priceUpdatedAt).getTime() : null;
@@ -141,14 +138,13 @@ function HoldingsDetailPanelImpl({
   // ── 匯出 ──
   const exportCardProps = useMemo(() => ({
     holding: h, decision: dec, meta,
-    scenario: dirty ? { simTarget: displayTarget, upsidePct: displayUpside } : null,
+    scenario: null,
     baseTarget, pctVal: displayPnlPct, pnlVal: displayPnlAbs,
-    weightPct: exportPrefs.includeWeightRank === false ? null : displayWeight,
     rangeLow, rangeHigh,
     thesis: prefs.showThesis ? thesisSentence : null,
     nextEvent: prefs.showNextEvent ? nextEvent : null,
-    stamp, WB, showSimulated: dirty,
-  }), [h, dec, meta, dirty, displayTarget, displayUpside, baseTarget, displayPnlPct, displayPnlAbs, displayWeight, exportPrefs.includeWeightRank, rangeLow, rangeHigh, prefs.showThesis, prefs.showNextEvent, thesisSentence, nextEvent, stamp, WB]);
+    stamp, WB,
+  }), [h, dec, meta, baseTarget, displayPnlPct, displayPnlAbs, rangeLow, rangeHigh, prefs.showThesis, prefs.showNextEvent, thesisSentence, nextEvent, stamp, WB]);
 
   const runExport = async (variant, kind, opts: { pixelRatio?: number } = {}) => {
     setExportNode({ variant });
@@ -172,27 +168,6 @@ function HoldingsDetailPanelImpl({
     exportPrefs.ratio, exportPrefs.format,
     { pixelRatio: RES_TO_PR[exportPrefs.resolution] ?? 3 }
   );
-
-  const undoRef = useRef(simHistory.undo);
-  const redoRef = useRef(simHistory.redo);
-  useEffect(() => {
-    undoRef.current = simHistory.undo;
-    redoRef.current = simHistory.redo;
-  });
-  useEffect(() => {
-    if (!selected) return;
-    const onKey = (e: KeyboardEvent) => {
-      const tag = (e.target as HTMLElement)?.tagName;
-      if (tag === 'INPUT' || tag === 'TEXTAREA' || (e.target as HTMLElement)?.isContentEditable) return;
-      const mod = e.metaKey || e.ctrlKey;
-      if (!mod || e.key.toLowerCase() !== 'z') return;
-      e.preventDefault();
-      if (e.shiftKey) redoRef.current();
-      else undoRef.current();
-    };
-    window.addEventListener('keydown', onKey);
-    return () => window.removeEventListener('keydown', onKey);
-  }, [selected]);
 
   if (!selected) return null;
 
@@ -278,7 +253,7 @@ function HoldingsDetailPanelImpl({
               color: WB.ink, letterSpacing: '-0.005em', lineHeight: 1.15,
               whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis',
             }}>{h.name}</h2>
-            {!dirty && todayPct != null && (
+            {todayPct != null && (
               <div
                 data-testid="drawer-today-delta"
                 className="holdings-detail-today-delta"
@@ -356,11 +331,6 @@ function HoldingsDetailPanelImpl({
             </span>
             <span style={{ fontSize: 14, color: WB.inkSub, fontVariantNumeric: 'tabular-nums' }}>
               {displayPnlAbs >= 0 ? '+' : '−'}{Math.abs(Math.round(displayPnlAbs)).toLocaleString()}
-              {dirty && (
-                <span style={{ marginLeft: 10, color: WB.inkLight, textDecoration: 'line-through' }}>
-                  原 {pctVal >= 0 ? '+' : '−'}{Math.abs(Number(pctVal)).toFixed(2)}%
-                </span>
-              )}
             </span>
           </div>
           <div style={{ marginTop: 8, fontSize: 12, color: WB.inkSub, fontVariantNumeric: 'tabular-nums' }}>
@@ -400,7 +370,6 @@ function HoldingsDetailPanelImpl({
             fontFamily: SERIF,
           }}>
             急迫度 · {urgencyLabel}
-            {dirty && <span style={{ marginLeft: 8, fontSize: 10, color: WB.accent, letterSpacing: '0.2em' }}>SIM</span>}
           </span>
         </div>
 
@@ -432,24 +401,12 @@ function HoldingsDetailPanelImpl({
           />
         )}
 
-        {/* 7) 佔比排名已移到內容最下方（可摺疊） */}
-
-
-
         {/* 8) 決策履歷 */}
         {thesisRows && <ThesisHistory WB={WB} rows={thesisRows} />}
 
         {/* 8.5) 籌碼面（僅台股） */}
         <ChipsSection WB={WB} stockCode={h.code} />
 
-        {/* 9) 情境模擬 */}
-        <ScenarioSandbox
-          WB={WB} prefs={prefs} setPrefs={setPrefs}
-          sim={sim} setSim={setSim} baseTarget={baseTarget} h={h} scenario={scenario} dirty={dirty}
-          canUndo={simHistory.canUndo} canRedo={simHistory.canRedo}
-          onUndo={simHistory.undo} onRedo={simHistory.redo}
-          onReset={() => simHistory.reset({ target: baseTarget ?? '', deltaQty: 0, buyMorePrice: '', stopPrice: '' })}
-        />
 
         {/* 10) 論點引文 */}
         {thesisSentence && (
@@ -467,15 +424,6 @@ function HoldingsDetailPanelImpl({
           </div>
         )}
 
-        {/* 11) 佔比排名表（內容最下方、可摺疊） */}
-        <WeightRank
-          WB={WB}
-          h={h}
-          orderedDisplayed={orderedDisplayed}
-          totalPortfolioValue={totalPortfolioValue}
-          open={!!prefs.weightRankOpen}
-          onToggle={() => setPrefs((p) => ({ ...p, weightRankOpen: !p.weightRankOpen }))}
-        />
       </div>
 
       {/* 頁腳 nav */}
@@ -607,7 +555,6 @@ function PrefsMenu({ WB, prefs, setPrefs }) {
   // §4 已刪除獨立區塊（區間/成本/TARGET 進度條/圖表）→ 開關收斂到論點與情境模擬。
   const TOGGLES: [string, string][] = [
     ['showThesis', '論點引文'],
-    ['showSandbox', '情境模擬'],
   ];
   return (
     <DropdownMenu.Root>
@@ -688,23 +635,7 @@ function ExportMenu({ WB, prefs, setPrefs, onExport, onCopy, busy }) {
                 { value: 'print', label: '印刷 4x' },
               ]} />
           </div>
-          <div style={{ padding: '10px 10px 0' }}>
-            <DropdownMenu.CheckboxItem
-              data-testid="export-toggle-weight-rank"
-              checked={prefs.includeWeightRank !== false}
-              onCheckedChange={(v) => setPrefs((p) => ({ ...p, includeWeightRank: !!v }))}
-              onSelect={(e) => e.preventDefault()}
-              style={menuItemStyle(WB, prefs.includeWeightRank !== false)}
-            >
-              <span style={{
-                width: 12, height: 12, border: `1px solid ${WB.hair}`, borderRadius: 0,
-                display: 'inline-flex', alignItems: 'center', justifyContent: 'center',
-                background: prefs.includeWeightRank !== false ? WB.ink : 'transparent',
-              }}>{prefs.includeWeightRank !== false && <Check size={9} color={WB.surface} />}</span>
-              包含佔比排名
-            </DropdownMenu.CheckboxItem>
-          </div>
-          <div style={{ padding: '10px 10px 8px', marginTop: 4, borderTop: `1px solid ${WB.hair}` }}>
+                    <div style={{ padding: '10px 10px 8px', marginTop: 4, borderTop: `1px solid ${WB.hair}` }}>
             <DropdownMenu.Item asChild onSelect={(e) => { if (busy) e.preventDefault(); else onExport(); }}>
               <button type="button" data-testid="holding-export-trigger" disabled={busy}
                 style={{
@@ -1458,79 +1389,6 @@ export function RangeBand({ WB, price, low, high, spark, ohlc, va: vaProp = null
 }
 
 
-
-// ──────────────────── §4.7 佔比排名 ────────────────────
-
-function WeightRank({ WB, h, orderedDisplayed, totalPortfolioValue, open = false, onToggle }) {
-  const list = Array.isArray(orderedDisplayed) ? orderedDisplayed : [];
-  if (!list.length || !(totalPortfolioValue > 0)) return null;
-  const items = list.map((x) => {
-    const v = Number(x.value ?? (Number(x.price) * Number(x.qty)) ?? 0);
-    return { code: x.code, name: x.name, value: v, pct: (v / totalPortfolioValue) * 100 };
-  }).sort((a, b) => b.pct - a.pct);
-  const topIdx = 0;
-  const meIdx = items.findIndex((x) => x.code === h.code);
-  const shown = Array.from(new Set([topIdx, meIdx, ...items.slice(0, 5).map((_, i) => i)]))
-    .filter((i) => i >= 0 && i < items.length)
-    .slice(0, 6);
-  const maxPct = Math.max(...items.map((r) => r.pct), 1);
-  return (
-    <div data-testid="holdings-weight-rank" style={{ margin: '18px 0 20px', paddingTop: 14, borderTop: `1px solid ${WB.hair}`, minWidth: 0 }}>
-      <button
-        type="button"
-        data-testid="holdings-weight-rank-toggle"
-        aria-expanded={open}
-        onClick={() => onToggle?.()}
-        style={{
-          width: '100%', background: 'transparent', border: 'none', padding: 0,
-          marginBottom: open ? 8 : 0, cursor: 'pointer', fontFamily: 'inherit',
-          display: 'flex', justifyContent: 'space-between', alignItems: 'center', gap: 12,
-        }}
-      >
-        <span style={{ fontSize: 12, color: WB.inkMute, letterSpacing: '0.14em', display: 'inline-flex', alignItems: 'center', gap: 6 }}>
-          佔比
-          <ChevronDown
-            size={11}
-            style={{ transform: open ? 'rotate(180deg)' : 'none', transition: 'transform 120ms ease' }}
-          />
-        </span>
-        <span style={{ fontSize: 12, color: WB.inkSub, fontVariantNumeric: 'tabular-nums' }}>
-          排名 #{meIdx + 1} ／ {items.length}
-        </span>
-      </button>
-      {open && (
-      <div data-testid="holdings-weight-rank-bars" style={{ display: 'flex', flexDirection: 'column', gap: 4 }}>
-
-        {shown.map((idx) => {
-          const r = items[idx];
-          const isMe = r.code === h.code;
-          const w = (r.pct / maxPct) * 100;
-          return (
-            <div key={r.code} style={{ display: 'grid', gridTemplateColumns: '24px minmax(0, 1fr) 56px', gap: 6, alignItems: 'center', minWidth: 0 }}>
-              <span style={{ fontSize: 10, color: WB.inkMute, fontVariantNumeric: 'tabular-nums', textAlign: 'right' }}>#{idx + 1}</span>
-              <div style={{ height: 10, background: WB.hair, position: 'relative', overflow: 'hidden' }}>
-                <div style={{
-                  position: 'absolute', left: 0, top: 0, bottom: 0, width: `${Math.max(2, w)}%`,
-                  background: isMe ? WB.accent : WB.inkLight, opacity: isMe ? 1 : 0.9,
-                }} />
-                <span style={{
-                  position: 'absolute', left: 6, top: '50%', transform: 'translateY(-50%)',
-                  maxWidth: 'calc(100% - 12px)', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap',
-                  fontSize: 10, color: WB.surface, letterSpacing: '0.02em', pointerEvents: 'none',
-                }}>{r.code} · {r.name}</span>
-              </div>
-              <span style={{ fontSize: 11, color: isMe ? WB.ink : WB.inkSub, fontVariantNumeric: 'tabular-nums', textAlign: 'right' }}>
-                {r.pct.toFixed(1)}%
-              </span>
-            </div>
-          );
-        })}
-      </div>
-      )}
-    </div>
-  );
-}
-
 // ──────────────────── §4.8 決策履歷 ────────────────────
 
 function ThesisHistory({ WB, rows }) {
@@ -1567,111 +1425,6 @@ function ThesisHistory({ WB, rows }) {
   );
 }
 
-// ──────────────────── Scenario Sandbox ────────────────────
-
-function ScenarioSandbox({ WB, prefs, setPrefs, sim, setSim, baseTarget, h, scenario, dirty, onReset, canUndo, canRedo, onUndo, onRedo }) {
-  const open = !!prefs.showSandbox;
-  return (
-    <div style={{
-      marginTop: 4, marginBottom: 16, border: `1px solid ${WB.hair}`, borderRadius: 0,
-      background: open ? WB.surfaceSoft : 'transparent',
-    }}>
-      <button
-        onClick={() => setPrefs((p) => ({ ...p, showSandbox: !p.showSandbox }))}
-        style={{
-          width: '100%', padding: '10px 14px', display: 'flex', alignItems: 'center', justifyContent: 'space-between',
-          background: 'transparent', border: 'none', cursor: 'pointer', fontFamily: SERIF,
-          color: WB.ink, fontSize: 14, letterSpacing: '0.04em',
-        }}>
-        <span>情境模擬{dirty && <span style={{ marginLeft: 8, fontSize: 10, color: WB.accent, letterSpacing: '0.2em' }}>SIM</span>}</span>
-        <ChevronDown size={14} style={{ transform: open ? 'rotate(180deg)' : 'none', transition: 'transform 0.15s' }} />
-      </button>
-      {open && (
-        <div style={{ padding: '0 14px 14px' }}>
-          <div className="hp-sandbox-fields" style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 10 }}>
-            <Field WB={WB} label="目標價" type="number" step="0.01"
-              value={sim.target} onChange={(v) => setSim((s) => ({ ...s, target: v }), 'target')}
-              placeholder={baseTarget != null ? String(baseTarget) : '—'} />
-            <Field WB={WB} label={`Δ 股數（${sim.deltaQty >= 0 ? '加碼' : '減碼'} ${Math.abs(Number(sim.deltaQty) || 0)}）`}>
-              <input
-                type="range" min={-Math.max(1, h.qty || 1)} max={Math.max(1, h.qty || 1)} step={Math.max(1, Math.floor((h.qty || 20) / 20))}
-                value={Number(sim.deltaQty) || 0}
-                onChange={(e) => setSim((s) => ({ ...s, deltaQty: Number(e.target.value) }), 'deltaQty')}
-                style={{ width: '100%' }} />
-            </Field>
-            <Field WB={WB} label="加碼價" type="number" step="0.01"
-              value={sim.buyMorePrice} onChange={(v) => setSim((s) => ({ ...s, buyMorePrice: v }), 'buyMorePrice')} placeholder="—" />
-            <Field WB={WB} label="停損價" type="number" step="0.01"
-              value={sim.stopPrice} onChange={(v) => setSim((s) => ({ ...s, stopPrice: v }), 'stopPrice')} placeholder="—" />
-          </div>
-          <div className="hp-sandbox-stats" style={{
-            marginTop: 12, padding: '10px 12px', background: WB.surface, borderRadius: 0,
-            display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(72px, 1fr))', gap: 8,
-            border: `1px solid ${WB.hair}`,
-          }}>
-            <Stat WB={WB} label="均價" value={fmt(scenario.simAvgCost)} />
-            <Stat WB={WB} label="損益" value={scenario.simPnlPct != null ? `${scenario.simPnlPct >= 0 ? '+' : '−'}${Math.abs(scenario.simPnlPct).toFixed(2)}%` : '—'}
-              color={scenario.simPnlPct > 0 ? WB.accent : scenario.simPnlPct < 0 ? '#8A857F' : null} />
-            <Stat WB={WB} label="上檔" value={scenario.upsidePct != null ? `${scenario.upsidePct >= 0 ? '+' : '−'}${Math.abs(scenario.upsidePct).toFixed(1)}%` : '—'}
-              color={scenario.upsidePct > 0 ? WB.accent : null} />
-            <Stat WB={WB} label="風報比" value={scenario.riskReward != null ? `1 : ${scenario.riskReward.toFixed(2)}` : '—'} />
-          </div>
-          <div style={{ marginTop: 10, display: 'flex', justifyContent: 'space-between', alignItems: 'center', flexWrap: 'wrap', gap: 8 }}>
-            <span style={{ fontSize: 11, color: WB.inkMute }}>模擬僅供決策參考，不寫回資料庫。</span>
-            <div style={{ display: 'inline-flex', gap: 4 }}>
-              <button onClick={onUndo} disabled={!canUndo} aria-label="Undo" title="Cmd/Ctrl+Z" style={historyBtn(WB, canUndo)}>
-                <Undo2 size={11} /> 上一步
-              </button>
-              <button onClick={onRedo} disabled={!canRedo} aria-label="Redo" title="Cmd/Ctrl+Shift+Z" style={historyBtn(WB, canRedo)}>
-                <Redo2 size={11} /> 下一步
-              </button>
-              <button onClick={onReset} disabled={!dirty} style={historyBtn(WB, dirty)}>
-                <RotateCcw size={11} /> 重設
-              </button>
-            </div>
-          </div>
-        </div>
-      )}
-    </div>
-  );
-}
-
-function historyBtn(WB, enabled) {
-  return {
-    display: 'inline-flex', alignItems: 'center', gap: 4, padding: '5px 10px',
-    background: 'transparent', border: `1px solid ${WB.hair}`, borderRadius: 0,
-    color: enabled ? WB.ink : WB.inkLight, fontSize: 11, cursor: enabled ? 'pointer' : 'not-allowed',
-    fontFamily: 'inherit', letterSpacing: '0.04em',
-  };
-}
-
-function Field({ WB, label, value, onChange, type, step, placeholder, children }) {
-  return (
-    <label style={{ display: 'flex', flexDirection: 'column', gap: 4 }}>
-      <span style={{ fontSize: 10, color: WB.inkLight, letterSpacing: '0.14em' }}>{label}</span>
-      {children ? children : (
-        <input
-          type={type || 'text'} step={step} value={value} placeholder={placeholder}
-          onChange={(e) => onChange(e.target.value)}
-          style={{
-            padding: '7px 10px', border: `1px solid ${WB.hair}`, borderRadius: 0,
-            background: WB.surface, color: WB.ink, fontSize: 13, fontFamily: 'inherit',
-            fontVariantNumeric: 'tabular-nums', outline: 'none',
-          }} />
-      )}
-    </label>
-  );
-}
-function Stat({ WB, label, value, color }) {
-  return (
-    <div>
-      <div style={{ fontSize: 10, color: WB.inkLight, letterSpacing: '0.14em' }}>{label}</div>
-      <div style={{ marginTop: 3, fontSize: 15, fontWeight: 500, color: color || WB.ink, fontVariantNumeric: 'tabular-nums' }}>{value}</div>
-    </div>
-  );
-}
-
-function fmt(v) { return Number.isFinite(Number(v)) ? Number(v).toFixed(2) : '—'; }
 
 const HoldingsDetailPanel = React.memo(HoldingsDetailPanelImpl);
 export default HoldingsDetailPanel;
