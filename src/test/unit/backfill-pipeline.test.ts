@@ -13,6 +13,8 @@ import {
   planChipFactDates,
   resolveCallBudget,
   resolveNextStart,
+  runChipFactDateBatch,
+  summarizeWorkerRun,
 } from '../../../supabase/functions/_shared/backfillWorkerPlan';
 import { fetchWithRetry } from '../../../supabase/functions/_shared/retryFetch';
 
@@ -163,6 +165,39 @@ describe('chip_fact checkpoint / resume', () => {
     expect(WORKER).toMatch(/planChipFactDates/);
     expect(WORKER).toMatch(/checkpoint|resume|next_start/i);
   });
+
+  it('第一日成功、第二日 transient failure：pending 回指失敗日且 refresh 必須 partial', async () => {
+    const calls: string[] = [];
+    const batch = await runChipFactDateBatch(
+      ['2026-07-01', '2026-07-02', '2026-07-03'],
+      async (date) => {
+        calls.push(date);
+        if (date === '2026-07-02') {
+          return { ok: false as const, code: 'UPSTREAM_RETRY_EXHAUSTED', detail: 'status=502' };
+        }
+        return { ok: true as const, rows: [{ trade_date: date }] };
+      },
+    );
+
+    expect(calls).toEqual(['2026-07-01', '2026-07-02']);
+    expect(batch.checkpoint_reason).toBe('date_failure');
+    expect(batch.next_start).toBe('2026-07-02');
+    expect(batch.failed_date).toBe('2026-07-02');
+    expect(batch.error_code).toBe('UPSTREAM_RETRY_EXHAUSTED');
+
+    const persisted = { status: 'pending', start_date: batch.next_start };
+    const summary = summarizeWorkerRun([{
+      job_id: 9001,
+      status: 'checkpoint',
+      checkpoint_reason: batch.checkpoint_reason,
+      code: batch.error_code,
+      failed_date: batch.failed_date,
+    }]);
+    expect(persisted).toEqual({ status: 'pending', start_date: '2026-07-02' });
+    expect(summary.runStatus).toBe('partial');
+    expect(summary.errorMessage).toContain('2026-07-02');
+    expect(summary.errorMessage).toContain('UPSTREAM_RETRY_EXHAUSTED');
+  });
 });
 
 describe('materialize scope', () => {
@@ -260,5 +295,34 @@ describe('data_source_refresh_logs status constraint 相容性', () => {
     expect(allowed!.has('failed')).toBe(true);
     const missing = [...writerStatuses()].filter((s) => !allowed!.has(s));
     expect(missing, `constraint 未涵蓋 writer 使用的 status: ${missing.join(',')}`).toEqual([]);
+  });
+});
+
+describe('stale running recovery', () => {
+  const latestMigration = () => {
+    for (const f of [...MIG_FILES].reverse()) {
+      const sql = fs.readFileSync(path.join(MIG_DIR, f), 'utf8');
+      if (/STALE_RUNNING_RECOVERED/.test(sql)) return { file: f, sql };
+    }
+    return null;
+  };
+
+  it('forward-only migration 必須在 claim 前原子回收 >15m running，且不得 delete/done', () => {
+    const migration = latestMigration();
+    expect(migration, '找不到 stale-running recovery migration').not.toBeNull();
+    const sql = migration!.sql;
+    expect(sql).toMatch(/CREATE OR REPLACE FUNCTION public\.claim_backfill_jobs/i);
+    expect(sql).toMatch(/status\s*=\s*'running'[\s\S]*updated_at\s*<\s*now_ts\s*-\s*interval\s*'15 minutes'/i);
+    expect(sql).toMatch(/status\s*=\s*'pending'/i);
+    expect(sql).toMatch(/last_error\s*=\s*'STALE_RUNNING_RECOVERED'/i);
+    expect(sql).toMatch(/next_run_at\s*=\s*now_ts/i);
+    expect(sql).not.toMatch(/DELETE\s+FROM\s+public\.backfill_job_queue/i);
+    expect(sql).not.toMatch(/status\s*=\s*'done'/i);
+  });
+
+  it('releaseToPending 必須回報 DB error，失敗不得假稱 pending', () => {
+    expect(WORKER).toMatch(/RELEASE_FAILED/);
+    expect(WORKER).toMatch(/CHECKPOINT_RELEASE_FAILED/);
+    expect(WORKER).toMatch(/releaseToPending\([\s\S]*?\.error/);
   });
 });
