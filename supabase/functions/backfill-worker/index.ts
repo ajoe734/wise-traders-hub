@@ -18,6 +18,15 @@ import {
   type BackfillImpact,
   type RunLogger,
 } from "../_shared/backfillErrors.ts";
+import {
+  CallBudget,
+  MAX_FINMIND_CALLS_PER_RUN,
+  deriveRunStatus,
+  isQuotaExhaustion,
+  materializeArgs,
+  planChipFactDates,
+  resolveCallBudget,
+} from "../_shared/backfillWorkerPlan.ts";
 
 const SUPABASE_URL = Deno.env.get("SUPABASE_URL")!;
 const SERVICE_ROLE_KEY = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!;
@@ -26,7 +35,10 @@ const FINMIND_TOKEN = Deno.env.get("FINMIND_TOKEN") ?? "";
 
 interface Body {
   mode?: "worker" | "manual";
+  /** 一次最多領幾個 job（不是 API call 上限）。 */
   batch_size?: number;
+  /** 本次 run 的 FinMind upstream call 硬上限（夾在 1..MAX_FINMIND_CALLS_PER_RUN）。 */
+  call_budget?: number;
   job_id?: number;
   trigger_source?: string;
 }
@@ -94,21 +106,21 @@ async function fetchFinmind<T = unknown>(
   return Array.isArray(j.data) ? (j.data as T[]) : [];
 }
 
-/** Materialize every date in the range after facts were written. */
-async function materializeRange(
+/**
+ * 只 materialize「本次真的抓到資料的日期」，且限定該 stock_id。
+ * 不再對 job 整段區間逐日重算全市場（會 statement timeout 並拖垮 DB）。
+ */
+async function materializeDates(
   supa: SupabaseClient,
-  start: string,
-  end: string,
+  stockId: string,
+  dates: Iterable<string>,
 ): Promise<{ materialized: number; errors: string[] }> {
-  const startD = new Date(start);
-  const endD = new Date(end);
   let materialized = 0;
   const errors: string[] = [];
-  for (let d = new Date(startD); d <= endD; d.setDate(d.getDate() + 1)) {
-    const iso = d.toISOString().slice(0, 10);
-    const { error } = await supa.rpc("materialize_bsr_daily_from_fact", { _trade_date: iso });
+  for (const args of materializeArgs(stockId, dates)) {
+    const { error } = await supa.rpc("materialize_bsr_daily_from_fact", args);
     if (error) {
-      errors.push(`${iso}:${error.message}`);
+      errors.push(`${args._trade_date}:${error.message}`);
     } else {
       materialized += 1;
     }
@@ -116,16 +128,22 @@ async function materializeRange(
   return { materialized, errors };
 }
 
-async function processChipFact(supa: SupabaseClient, job: Job, log: RunLogger) {
+async function processChipFact(supa: SupabaseClient, job: Job, log: RunLogger, budget: CallBudget) {
   // BSR 只吃單日（帶 end_date 上游直接 400），因此逐日展開查詢。
   // 非交易日（週末＋國定假日＋自動偵測的臨時休市）直接跳過，不燒配額。
   const holidays = await getTwHolidaysCached(supa);
-  const dates = enumerateTradingDates(job.start_date, job.end_date, holidays);
+  const allDates = enumerateTradingDates(job.start_date, job.end_date, holidays);
+  // checkpoint/resume：一次只吃 call budget 允許的天數，其餘寫回 job 續跑。
+  const plan = planChipFactDates(allDates, budget.remaining);
+  const dates = plan.take;
   const rows: FinmindRow[] = [];
+  const okDates: string[] = [];
   const failedDates: string[] = [];
   const dayErrors: string[] = [];
   const codeTally: Record<string, number> = {};
+  let quotaStopped = false;
   for (const date of dates) {
+    if (budget.take(1) === 0) { quotaStopped = true; break; }
     try {
       const dayRows = await fetchFinmind<FinmindRow>(supa, {
         dataset: "TaiwanStockTradingDailyReport",
@@ -133,8 +151,17 @@ async function processChipFact(supa: SupabaseClient, job: Job, log: RunLogger) {
         start_date: date,
       }, job, "bsr_backfill_day");
       rows.push(...dayRows);
+      okDates.push(date);
     } catch (e) {
       const c = classifyBackfillError(e);
+      if (isQuotaExhaustion((e as Error)?.message)) {
+        // 配額 / kill-switch / circuit：停手，剩下的日期留給下一輪，不要把整段燒成 failed。
+        quotaStopped = true;
+        log.log("warn", "chip_fact_quota_stop", `${job.stock_id} ${date} ${c.code}`, {
+          job_id: job.id, stock_id: job.stock_id, trade_date: date, code: c.code, detail: c.detail,
+        });
+        break;
+      }
       codeTally[c.code] = (codeTally[c.code] ?? 0) + 1;
       failedDates.push(date);
       dayErrors.push(`${date}:${c.code}:${c.detail.slice(0, 120)}`);
@@ -150,21 +177,29 @@ async function processChipFact(supa: SupabaseClient, job: Job, log: RunLogger) {
     }
   }
 
+  const processed = okDates.length + failedDates.length;
+  const pendingDates = [...dates.slice(processed), ...plan.remaining];
+  // checkpoint：仍有未處理交易日 → 下一輪從 next_start 續跑（resume）。
+  const nextStart: string | null = pendingDates.length > 0 ? pendingDates[0] : null;
+
   const impact: BackfillImpact = {
     dataset: job.dataset,
     stock_id: job.stock_id,
     start_date: job.start_date,
     end_date: job.end_date,
-    days_total: dates.length,
-    days_ok: dates.length - failedDates.length,
+    days_total: allDates.length,
+    days_ok: okDates.length,
     days_failed: failedDates.length,
     failed_dates: failedDates.slice(0, 20),
     rows_fetched: rows.length,
   };
+  (impact as Record<string, unknown>).days_attempted = dates.length;
+  (impact as Record<string, unknown>).next_start = nextStart;
+  (impact as Record<string, unknown>).quota_stopped = quotaStopped;
 
   if (dayErrors.length > 0) {
     // 全數失敗才算 job 失敗，避免單日缺料把整段區間標成 failed
-    if (rows.length === 0) {
+    if (rows.length === 0 && !quotaStopped) {
       log.log("error", "chip_fact_all_days_failed", `${job.stock_id} 0/${dates.length} days`, {
         job_id: job.id,
         impact,
@@ -172,7 +207,7 @@ async function processChipFact(supa: SupabaseClient, job: Job, log: RunLogger) {
       });
       throw new Error(`chip_fact_all_days_failed:${dayErrors[0].split(":").slice(1).join(":")}`);
     }
-    log.log("warn", "chip_fact_partial", `${job.stock_id} ${impact.days_ok}/${dates.length} days`, {
+    log.log("warn", "chip_fact_partial", `${job.stock_id} ${okDates.length}/${dates.length} days`, {
       job_id: job.id,
       impact,
       code_tally: codeTally,
@@ -180,8 +215,12 @@ async function processChipFact(supa: SupabaseClient, job: Job, log: RunLogger) {
   }
 
   if (rows.length === 0) {
-    log.log("info", "chip_fact_empty", `${job.stock_id} empty_response`, { job_id: job.id, impact });
-    return { ok: true, rows: 0, stocks: 0, materialized: 0, days: dates.length, note: "empty_response", impact };
+    log.log("info", "chip_fact_empty", `${job.stock_id} ${quotaStopped ? "quota_stop" : "empty_response"}`, { job_id: job.id, impact });
+    return {
+      ok: true, rows: 0, stocks: 0, materialized: 0, days: dates.length,
+      note: quotaStopped ? "quota_stop" : "empty_response",
+      next_start: nextStart, quota_stopped: quotaStopped, impact,
+    };
   }
 
   const agg = aggregateBsr(rows);
@@ -207,7 +246,9 @@ async function processChipFact(supa: SupabaseClient, job: Job, log: RunLogger) {
   }
   impact.rows_written = facts.length;
 
-  const { materialized, errors } = await materializeRange(supa, job.start_date, job.end_date);
+  // 只 materialize 實際寫入資料的日期（且限定本 stock_id）。
+  const writtenDates = new Set(facts.map((f) => String(f.trade_date)));
+  const { materialized, errors } = await materializeDates(supa, job.stock_id, writtenDates);
   impact.materialized_dates = materialized;
   if (errors.length > 0) {
     impact.materialize_failed_dates = errors.slice(0, 20);
@@ -218,8 +259,12 @@ async function processChipFact(supa: SupabaseClient, job: Job, log: RunLogger) {
     if (materialized === 0) throw new Error(`materialize_failed:${errors[0]}`);
   }
 
-  return { ok: true, rows: rows.length, facts: facts.length, materialized, impact };
+  return {
+    ok: true, rows: rows.length, facts: facts.length, materialized,
+    next_start: nextStart, quota_stopped: quotaStopped, impact,
+  };
 }
+
 
 async function processInstitutional(supa: SupabaseClient, job: Job, log: RunLogger) {
   interface RawInst {
@@ -369,7 +414,7 @@ async function processFundamentals(supa: SupabaseClient, job: Job, log: RunLogge
   return { ok: true, results, impact };
 }
 
-async function processOne(supa: SupabaseClient, job: Job, log: RunLogger) {
+async function processOne(supa: SupabaseClient, job: Job, log: RunLogger, budget: CallBudget) {
   const t0 = Date.now();
   log.log("info", "job_start", `${job.dataset} ${job.stock_id} ${job.start_date}..${job.end_date}`, {
     job_id: job.id,
@@ -379,14 +424,18 @@ async function processOne(supa: SupabaseClient, job: Job, log: RunLogger) {
     end_date: job.end_date,
     attempts: job.attempts,
     source_hint: job.source_hint,
+    budget_remaining: budget.remaining,
   });
   try {
     let out;
     if (job.dataset === "chip_fact") {
-      out = await processChipFact(supa, job, log);
+      out = await processChipFact(supa, job, log, budget);
     } else if (job.dataset === "institutional_daily") {
+      if (budget.take(1) === 0) throw new Error("budget_exhausted:no_call_slot");
       out = await processInstitutional(supa, job, log);
     } else if (job.dataset === "fundamentals") {
+      const need = Array.isArray(job.payload?.missing_datasets) ? (job.payload.missing_datasets as string[]).length : 1;
+      if (budget.take(need) < need) throw new Error("budget_exhausted:no_call_slot");
       out = await processFundamentals(supa, job, log);
     } else {
       throw new Error(`unknown_dataset:${job.dataset}`);
@@ -453,7 +502,10 @@ export default async function handler(req: Request): Promise<Response> {
     }
 
     const mode = body.mode ?? "worker";
-    const batchSize = Math.max(1, Math.min(10, body.batch_size ?? 1));
+    // call budget（不是 batch_size）才是真正的 FinMind upstream 上限。
+    const budget = new CallBudget(resolveCallBudget(body.call_budget));
+    // batch_size 只是「一次最多領幾個 job」，實際跑多少仍由 budget 決定。
+    const maxJobs = Math.max(1, Math.min(10, body.batch_size ?? 3));
     let jobs: Job[] = [];
 
     if (mode === "manual" && body.job_id) {
@@ -471,7 +523,7 @@ export default async function handler(req: Request): Promise<Response> {
       jobs = [data as unknown as Job];
     } else {
       const { data, error } = await supa.rpc("claim_backfill_jobs", {
-        _batch_size: batchSize,
+        _batch_size: maxJobs,
       });
       if (error) throw error;
       jobs = (data ?? []) as Job[];
@@ -480,53 +532,114 @@ export default async function handler(req: Request): Promise<Response> {
     if (jobs.length === 0) {
       log.log("info", "no_jobs", "queue empty", {});
       await log.flush();
-      return jsonResponse({ ok: true, mode, processed: 0, run_id: runId });
+      return jsonResponse({ ok: true, mode, processed: 0, run_id: runId, call_budget: budget.limit });
     }
 
     const results: Array<{ job_id: number; status: string; code?: string; result: unknown }> = [];
     const codeTally: Record<string, number> = {};
+
+    /** 安全釋放：把 job 放回 pending，避免卡在 running。 */
+    const releaseToPending = async (jobId: number, reason: string) => {
+      const { error } = await supa
+        .from("backfill_job_queue")
+        .update({ status: "pending", next_run_at: new Date(Date.now() + 60_000).toISOString(), last_error: reason.slice(0, 500), updated_at: new Date().toISOString() })
+        .eq("id", jobId);
+      if (error) log.log("warn", "release_failed", `${jobId} ${error.message}`, { job_id: jobId });
+    };
+
     for (const job of jobs) {
-      const outcome = await processOne(supa, job, log);
+      if (budget.exhausted) {
+        // budget 用完：其餘已領取的 job 立即釋放回 pending（不可留在 running）。
+        await releaseToPending(job.id, "BUDGET_EXHAUSTED:released_before_start");
+        results.push({ job_id: job.id, status: "pending", code: "BUDGET_EXHAUSTED", result: { skipped: true } });
+        codeTally.BUDGET_EXHAUSTED = (codeTally.BUDGET_EXHAUSTED ?? 0) + 1;
+        continue;
+      }
+      const outcome = await processOne(supa, job, log, budget);
       let status: string;
       let code: string | undefined;
       if (outcome.ok) {
-        status = "done";
-        await supa.rpc("backfill_job_set_done", { _id: job.id, _status: "done" });
+        const nextStart = (outcome as { next_start?: string | null }).next_start ?? null;
+        if (nextStart) {
+          // checkpoint / resume：本段已寫入，剩餘日期改由下一輪從 next_start 續跑。
+          status = "checkpoint";
+          const { error } = await supa
+            .from("backfill_job_queue")
+            .update({
+              status: "pending",
+              start_date: nextStart,
+              attempts: 0,
+              next_run_at: new Date(Date.now() + 60_000).toISOString(),
+              last_error: null,
+              updated_at: new Date().toISOString(),
+            })
+            .eq("id", job.id);
+          if (error) {
+            log.log("warn", "checkpoint_failed", `${job.id} ${error.message}`, { job_id: job.id });
+            await supa.rpc("backfill_job_set_done", { _id: job.id, _status: "done" });
+            status = "done";
+          }
+        } else {
+          status = "done";
+          await supa.rpc("backfill_job_set_done", { _id: job.id, _status: "done" });
+        }
       } else {
         code = (outcome as { code?: string }).code;
-        // retryable → 放回 pending 由下一輪重試；不可重試才標 failed
-        status = (outcome as { retryable?: boolean }).retryable ? "pending" : "failed";
+        const detail = (outcome as { error?: string }).error ?? "unknown";
         codeTally[code ?? "INTERNAL"] = (codeTally[code ?? "INTERNAL"] ?? 0) + 1;
-        await supa.rpc("backfill_job_set_failed", {
-          _id: job.id,
-          _error: `${code ?? "INTERNAL"}:${(outcome as { error?: string }).error ?? "unknown"}`.slice(0, 500),
-        });
+        if (isQuotaExhaustion(`${code}:${detail}`)) {
+          // 配額 / kill-switch / circuit：安全釋放回 pending，不計入 attempts。
+          status = "pending";
+          await releaseToPending(job.id, `${code ?? "QUOTA"}:${detail}`);
+        } else {
+          // retryable → 放回 pending 由下一輪重試；不可重試才標 failed
+          status = (outcome as { retryable?: boolean }).retryable ? "pending" : "failed";
+          await supa.rpc("backfill_job_set_failed", {
+            _id: job.id,
+            _error: `${code ?? "INTERNAL"}:${detail}`.slice(0, 500),
+          });
+        }
       }
       results.push({ job_id: job.id, status, code, result: outcome });
     }
 
-    const failed = results.filter((r) => r.status !== "done");
-    log.log(failed.length ? "warn" : "info", "run_summary", `${jobs.length - failed.length}/${jobs.length} done`, {
+    const okStatuses = new Set(["done", "checkpoint"]);
+    const failed = results.filter((r) => !okStatuses.has(r.status));
+    const runStatus = deriveRunStatus(results.map((r) => ({ status: okStatuses.has(r.status) ? "done" : r.status })));
+    log.log(failed.length ? "warn" : "info", "run_summary", `${jobs.length - failed.length}/${jobs.length} ok`, {
       processed: jobs.length,
       done: jobs.length - failed.length,
       failed: failed.length,
+      run_status: runStatus,
+      calls_spent: budget.spent,
+      call_budget: budget.limit,
       code_tally: codeTally,
       affected: results.map((r) => ({ job_id: r.job_id, status: r.status, code: r.code ?? null })),
     });
 
     await supa.from("data_source_refresh_logs").insert({
       source_key: "backfill_worker",
-      status: "done",
+      // 表格 check constraint 允許 running/success/error/partial/skipped；
+      // 細緻結果同時保留在 metadata.run_status，監控不得因部分失敗假綠。
+      status: runStatus === "done" ? "success" : runStatus,
       started_at: startedAt,
       finished_at: new Date().toISOString(),
       row_count: jobs.length,
+      error_message: failed.length
+        ? `${failed.length}/${jobs.length} jobs failed: ${failed.map((f) => `${f.job_id}:${f.code ?? f.status}`).join(",").slice(0, 400)}`
+        : null,
       metadata: {
         run_id: runId,
+        run_status: runStatus,
         trigger_source: body.trigger_source ?? "manual",
         code_tally: codeTally,
+        calls_spent: budget.spent,
+        call_budget: budget.limit,
+        max_calls_per_run: MAX_FINMIND_CALLS_PER_RUN,
         results: results.map((r) => ({ job_id: r.job_id, status: r.status, code: r.code ?? null })),
       },
     });
+
 
     await log.flush();
 
@@ -534,11 +647,15 @@ export default async function handler(req: Request): Promise<Response> {
       ok: true,
       mode,
       run_id: runId,
+      status: runStatus,
       processed: jobs.length,
       failed: failed.length,
+      calls_spent: budget.spent,
+      call_budget: budget.limit,
       code_tally: codeTally,
       results,
     });
+
   } catch (err) {
     const c = classifyBackfillError(err);
     const msg = (err as Error).message ?? String(err);
