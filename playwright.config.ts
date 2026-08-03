@@ -785,6 +785,13 @@ export default defineConfig({
       timeout: 120_000,
       use: { ...devices['Desktop Chrome'], viewport: { width: 390, height: 1000 } },
     },
+    {
+      name: 'holdings-marker-focus-popover',
+      testMatch: /holdings-marker-focus-popover\.spec\.ts/,
+      outputDir: 'test-results/holdings-drawer/marker-focus-popover',
+      timeout: 120_000,
+      use: { ...devices['Desktop Chrome'], viewport: { width: 1280, height: 900 } },
+    },
 
     // 真實 /holding-checkup Demo 抽屜 · 成交量資料流回歸（非 harness）
     {
