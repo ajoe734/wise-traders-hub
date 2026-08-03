@@ -19,7 +19,7 @@ import { buildVolumeAnalysis } from '@/checkup/lib/volumeAnalysis';
 import { buildDailyCloseStatus } from '@/checkup/lib/marketDataStatus';
 import { getSparkOhlc } from '@/checkup/lib/holdingDetailViewModel';
 import { rollingLots, buildTooltipRows, resistanceBadge, buildVolumeMetrics } from '@/checkup/lib/volumeReadout';
-import { barIndexFromX, barCenterPct, shouldFlipTooltip, fmtKlineDate, fmtKlineNum } from '@/checkup/lib/klineTooltip';
+import { barIndexFromX, barCenterPct, fmtKlineDate, fmtKlineNum } from '@/checkup/lib/klineTooltip';
 import { placePopover, popoverMaxWidth } from '@/checkup/lib/popoverPlacement';
 import {
   resolveLabelBox, assignLanes, laneTopOffset,
@@ -1494,7 +1494,7 @@ export function RangeBand({ WB, price, low, high, spark, ohlc, va: vaProp = null
 
       {/* 量能副圖：與 K 棒同一時間軸，缺量顯示單一空狀態 */}
       {hasSpark && (
-        <div data-testid="holdings-volume-chart" data-has-volume={hasVolume ? '1' : '0'} style={{ marginTop: 6 }}>
+        <div data-testid="holdings-volume-chart" data-has-volume={hasVolume ? '1' : '0'} data-marker-focus={focusIdx != null ? '1' : '0'} style={{ marginTop: 6, opacity: focusIdx != null ? 0.45 : 1, transition: 'opacity 140ms ease' }}>
           {hasVolume ? (
             <svg viewBox="0 0 100 26" preserveAspectRatio="none"
               style={{ width: '100%', height: volH, display: 'block' }}>
