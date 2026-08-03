@@ -28,10 +28,10 @@ export const KLINE_TOP_SAFE_INSET = Math.max(KLINE_LABEL_HEIGHT, KLINE_MARKER_HE
 export const KLINE_BOTTOM_SAFE_INSET = KLINE_MARKER_HEIGHT + 4; // 16
 /**
  * 圖表總高（px）。72 無法同時維持可讀 K 棒與 safe inset：
- * 72 - 22 - 12 = 38px plot 太扁，故小幅拉高到 88（plot 54px，優於原本 62 - 標籤碰撞）。
+ * 72 - 22 - 16 = 34px plot 太扁，故小幅拉高到 92（plot 54px，優於原本 62 但會與標籤碰撞的版本）。
  * 量能副圖高度不變。
  */
-export const KLINE_CHART_HEIGHT = 88;
+export const KLINE_CHART_HEIGHT = 92;
 
 export type KlineLayout = {
   /** 圖表總高（px） */

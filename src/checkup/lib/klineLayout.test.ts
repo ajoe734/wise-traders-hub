@@ -19,6 +19,7 @@ const layout = resolveKlineLayout();
 describe('klineLayout — safe bounds', () => {
   it('plot 高度足夠且 inset 生效', () => {
     expect(layout.height).toBe(KLINE_CHART_HEIGHT);
+    expect(KLINE_CHART_HEIGHT).toBe(92);
     expect(layout.plotTopPx).toBe(KLINE_TOP_SAFE_INSET);
     expect(layout.plotBottomPx).toBe(KLINE_CHART_HEIGHT - KLINE_BOTTOM_SAFE_INSET);
     expect(layout.plotBottomPx - layout.plotTopPx).toBeGreaterThanOrEqual(48);
