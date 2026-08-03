@@ -980,6 +980,10 @@ export function RangeBand({ WB, price, low, high, spark, ohlc, va: vaProp = null
   };
 
 
+  // ── 轉折 marker 聚焦狀態：命中那根 K 棒保持清楚，其餘退焦（只用 opacity/filter，不改版面） ──
+  const [markerFocus, setMarkerFocus] = useState(null); // { date, index } | null
+  const focusIdx = markerFocus?.index ?? null;
+
   const klineElements = useKline ? (() => {
     const N = cleanOhlc.length;
     const plotW = 100 - PAD_X * 2;
@@ -997,8 +1001,14 @@ export function RangeBand({ WB, price, low, high, spark, ohlc, va: vaProp = null
       const yTop = Math.min(yOpen, yClose);
       const yBottom = Math.max(yOpen, yClose);
       const bodyH = Math.max(0.35, yBottom - yTop);
+      const dim = focusIdx != null && i !== focusIdx;
       return (
-        <g key={i} data-testid="kline-bar">
+        <g
+          key={i}
+          data-testid="kline-bar"
+          data-dim={dim ? '1' : '0'}
+          className={dim ? 'hk-bar hk-bar--dim' : 'hk-bar'}
+        >
           <line
             data-testid="kline-wick"
             x1={x.toFixed(2)}
