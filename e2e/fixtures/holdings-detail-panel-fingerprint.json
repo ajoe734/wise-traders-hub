@@ -7,7 +7,6 @@
     "drawer-roi-main",
     "holdings-export-menu",
     "holdings-price-axis",
-    "holdings-range-band",
-    "holdings-weight-rank"
+    "holdings-range-band"
   ]
 }

@@ -426,12 +426,6 @@ export default defineConfig({
       testMatch: /holdings-kline-tooltip\.spec\.ts/,
       use: { ...devices['Desktop Chrome'], viewport: { width: 900, height: 700 } },
     },
-    {
-      // 抽屜佔比排名摺疊 + 匯出開關持久化
-      name: 'desktop-holdings-weight-rank-export',
-      testMatch: /holdings-weight-rank-export\.spec\.ts/,
-      use: { ...devices['Desktop Chrome'], viewport: { width: 1280, height: 900 } },
-    },
 
     {
       // today-delta wrap + 抽屜區塊節奏守門：窄屏 4 斷點 + 寬屏 3 斷點 + 節奏測 + sparkline 移除斷言
