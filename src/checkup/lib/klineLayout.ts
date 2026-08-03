@@ -25,7 +25,7 @@ export const KLINE_SAFE_GAP = 6;
 /** 價格 plot 上方保留（px）：容納標籤或 marker + 安全間距。 */
 export const KLINE_TOP_SAFE_INSET = Math.max(KLINE_LABEL_HEIGHT, KLINE_MARKER_HEIGHT) + KLINE_SAFE_GAP + 4; // 22
 /** 價格 plot 下方保留（px）：容納棒下 marker。 */
-export const KLINE_BOTTOM_SAFE_INSET = 12;
+export const KLINE_BOTTOM_SAFE_INSET = KLINE_MARKER_HEIGHT + 4; // 16
 /**
  * 圖表總高（px）。72 無法同時維持可讀 K 棒與 safe inset：
  * 72 - 22 - 12 = 38px plot 太扁，故小幅拉高到 88（plot 54px，優於原本 62 - 標籤碰撞）。
