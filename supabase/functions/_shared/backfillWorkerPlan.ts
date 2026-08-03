@@ -2,17 +2,27 @@
 //
 // backfill-worker 的純規劃邏輯單一資料源（不碰網路 / DB，方便單元測試）。
 //
-// 設計約束（來自 2026-08-03 FinMind 歷史回填修復）：
-//   1. 一次 worker run 的 FinMind upstream call 數有硬上限，不能用 job 數當 call budget。
-//   2. chip_fact 逐交易日呼叫，長區間必須 checkpoint/resume，不能跑完整 60 天才失敗重來。
+// 設計約束（2026-08-03 FinMind 歷史回填修復 + 二輪 review）：
+//   1. 真正的硬上限是「實際 HTTP attempts」，不是 logical call 數。
+//      fetchWithRetry 每個 logical call 最多打 FINMIND_MAX_ATTEMPTS_PER_CALL 次，
+//      因此 logical 上限 = MAX_FINMIND_HTTP_ATTEMPTS_PER_RUN / FINMIND_MAX_ATTEMPTS_PER_CALL。
+//   2. chip_fact 逐交易日呼叫，長區間必須 checkpoint/resume；遇到失敗日期不得越過。
 //   3. materialize 只針對「實際抓到資料的日期 + 該 stock_id」。
-//   4. 全失敗 / 部分失敗不得記為 done。
+//   4. 全失敗不得記為 done；純 quota/budget 安全釋放記為 skipped（不假綠也不假故障）。
 
-/** 單次 worker run 允許的 FinMind upstream call 硬上限（不可調高超過此值）。 */
-export const MAX_FINMIND_CALLS_PER_RUN = 24;
+/** 每個 logical FinMind call 允許的最大 HTTP attempts（與 fetchWithRetry policy 綁定）。 */
+export const FINMIND_MAX_ATTEMPTS_PER_CALL = 3;
+
+/** 單次 worker run 允許的「實際 HTTP attempts」硬上限。 */
+export const MAX_FINMIND_HTTP_ATTEMPTS_PER_RUN = 30;
+
+/** 由 HTTP attempts 上限推導出的 logical call 硬上限（10）。 */
+export const MAX_FINMIND_CALLS_PER_RUN = Math.floor(
+  MAX_FINMIND_HTTP_ATTEMPTS_PER_RUN / FINMIND_MAX_ATTEMPTS_PER_CALL,
+);
 
 /** 未指定時的預設 call budget（保守值，對應每小時排程）。 */
-export const DEFAULT_FINMIND_CALLS_PER_RUN = 12;
+export const DEFAULT_FINMIND_CALLS_PER_RUN = 8;
 
 /** 把外部輸入的 call budget 夾在 1..MAX_FINMIND_CALLS_PER_RUN。 */
 export function resolveCallBudget(requested?: unknown): number {
@@ -38,25 +48,60 @@ export function planChipFactDates(dates: string[], budget: number): ChipFactPlan
   return { take, remaining, nextStart: remaining.length > 0 ? remaining[0] : null };
 }
 
-/** 追蹤一次 run 的 call 消耗。 */
+/**
+ * 決定 checkpoint 的 next_start：
+ *   - 有失敗日期 → 一律指回「第一個失敗日期」，下一輪從該日重跑（不得越過造成永久漏資料）。
+ *   - 沒有失敗 → 指向第一個尚未處理的日期。
+ *   - 都沒有 → null（job 完成）。
+ */
+export function resolveNextStart(
+  firstFailedDate: string | null,
+  unprocessedDates: string[],
+): string | null {
+  if (firstFailedDate) return firstFailedDate;
+  return unprocessedDates.length > 0 ? unprocessedDates[0] : null;
+}
+
+/** 追蹤一次 run 的 logical call 與實際 HTTP attempt 消耗。 */
 export class CallBudget {
   readonly limit: number;
+  readonly attemptLimit: number;
   private used = 0;
-  constructor(limit: number) {
+  private attempts = 0;
+  constructor(limit: number, attemptLimit: number = MAX_FINMIND_HTTP_ATTEMPTS_PER_RUN) {
     this.limit = Math.min(MAX_FINMIND_CALLS_PER_RUN, Math.max(1, Math.floor(limit)));
+    this.attemptLimit = Math.max(1, Math.floor(attemptLimit));
   }
   get spent(): number { return this.used; }
-  get remaining(): number { return Math.max(0, this.limit - this.used); }
+  /** 實際打出去的 HTTP attempts（含 retry）。 */
+  get httpAttempts(): number { return this.attempts; }
+  get attemptsRemaining(): number { return Math.max(0, this.attemptLimit - this.attempts); }
+  /** 尚可發放的 logical call 名額：同時受 logical 與 attempt 上限限制。 */
+  get remaining(): number {
+    const byLogical = Math.max(0, this.limit - this.used);
+    const byAttempts = Math.floor(this.attemptsRemaining / FINMIND_MAX_ATTEMPTS_PER_CALL);
+    return Math.min(byLogical, byAttempts);
+  }
   get exhausted(): boolean { return this.remaining <= 0; }
-  /** 取用 n 個名額；不足時回傳實際可用數。 */
+  /** 取用 n 個 logical 名額；不足時回傳實際可用數。 */
   take(n = 1): number {
     const got = Math.min(this.remaining, Math.max(0, Math.floor(n)));
     this.used += got;
     return got;
   }
+  /** fetchWithRetry 每一次真實 HTTP attempt 都要回報。 */
+  recordHttpAttempt(): void { this.attempts += 1; }
+  snapshot(): { logical_calls: number; actual_http_attempts: number; call_budget: number; attempt_budget: number } {
+    return {
+      logical_calls: this.used,
+      actual_http_attempts: this.attempts,
+      call_budget: this.limit,
+      attempt_budget: this.attemptLimit,
+    };
+  }
 }
 
-export type JobOutcomeStatus = 'done' | 'pending' | 'failed' | 'partial';
+export type JobOutcomeStatus = 'done' | 'pending' | 'failed' | 'partial' | 'skipped';
 
 /** 把成功抓到資料的日期集合轉成 materialize 呼叫參數（一律帶 _stock_ids）。 */
 export function materializeArgs(stockId: string, dates: Iterable<string>): Array<{ _trade_date: string; _stock_ids: string[] }> {
@@ -64,15 +109,22 @@ export function materializeArgs(stockId: string, dates: Iterable<string>): Array
   return uniq.map((d) => ({ _trade_date: d, _stock_ids: [stockId] }));
 }
 
-/** 整體 run 的 refresh log status：全成功 done、全失敗 failed、其餘 partial。 */
+/**
+ * 整體 run 的 refresh log status：
+ *   - 全成功 → done
+ *   - 有成功也有其他 → partial
+ *   - 沒有成功但全是 pending/skipped（budget/quota 安全釋放）→ skipped
+ *   - 其餘（含任何 failed）→ failed
+ */
 export function deriveRunStatus(
   results: Array<{ status: string }>,
 ): 'done' | 'partial' | 'failed' | 'skipped' {
   if (results.length === 0) return 'skipped';
   const ok = results.filter((r) => r.status === 'done').length;
   if (ok === results.length) return 'done';
-  if (ok === 0) return 'failed';
-  return 'partial';
+  if (ok > 0) return 'partial';
+  const safeRelease = results.every((r) => r.status === 'pending' || r.status === 'skipped');
+  return safeRelease ? 'skipped' : 'failed';
 }
 
 /** admission/quota 用完的錯誤：必須回 pending，不可標 failed、不可卡 running。 */
