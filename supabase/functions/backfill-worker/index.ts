@@ -286,7 +286,7 @@ async function processChipFact(supa: SupabaseClient, job: Job, log: RunLogger, b
 }
 
 
-async function processInstitutional(supa: SupabaseClient, job: Job, log: RunLogger) {
+async function processInstitutional(supa: SupabaseClient, job: Job, log: RunLogger, budget?: CallBudget) {
   interface RawInst {
     date: string;
     name: string;
@@ -298,7 +298,7 @@ async function processInstitutional(supa: SupabaseClient, job: Job, log: RunLogg
     data_id: job.stock_id,
     start_date: job.start_date,
     end_date: job.end_date,
-  }, job, "institutional_backfill_range");
+  }, job, "institutional_backfill_range", budget);
 
   const byDate = new Map<string, { fBuy: number; fSell: number; tBuy: number; tSell: number; dBuy: number; dSell: number }>();
   for (const r of rows) {
@@ -354,7 +354,7 @@ async function processInstitutional(supa: SupabaseClient, job: Job, log: RunLogg
   return { ok: true, rows: upserts.length, raw_rows: rows.length, impact };
 }
 
-async function processFundamentals(supa: SupabaseClient, job: Job, log: RunLogger) {
+async function processFundamentals(supa: SupabaseClient, job: Job, log: RunLogger, budget?: CallBudget) {
   const missingDatasets = Array.isArray(job.payload?.missing_datasets)
     ? (job.payload.missing_datasets as string[])
     : ["monthly_revenue"];
@@ -374,7 +374,7 @@ async function processFundamentals(supa: SupabaseClient, job: Job, log: RunLogge
         data_id: job.stock_id,
         start_date: job.start_date,
         end_date: job.end_date,
-      }, job, "fundamental_revenue_backfill");
+      }, job, "fundamental_revenue_backfill", budget);
 
       const upserts = rows.map((r) => ({
         stock_id: job.stock_id,
@@ -399,7 +399,7 @@ async function processFundamentals(supa: SupabaseClient, job: Job, log: RunLogge
         data_id: job.stock_id,
         start_date: job.start_date,
         end_date: job.end_date,
-      }, job, "fundamental_fs_backfill");
+      }, job, "fundamental_fs_backfill", budget);
 
       const upserts = rows.map((r) => ({
         stock_id: job.stock_id,
@@ -452,11 +452,11 @@ async function processOne(supa: SupabaseClient, job: Job, log: RunLogger, budget
       out = await processChipFact(supa, job, log, budget);
     } else if (job.dataset === "institutional_daily") {
       if (budget.take(1) === 0) throw new Error("budget_exhausted:no_call_slot");
-      out = await processInstitutional(supa, job, log);
+      out = await processInstitutional(supa, job, log, budget);
     } else if (job.dataset === "fundamentals") {
       const need = Array.isArray(job.payload?.missing_datasets) ? (job.payload.missing_datasets as string[]).length : 1;
       if (budget.take(need) < need) throw new Error("budget_exhausted:no_call_slot");
-      out = await processFundamentals(supa, job, log);
+      out = await processFundamentals(supa, job, log, budget);
     } else {
       throw new Error(`unknown_dataset:${job.dataset}`);
     }
