@@ -1175,10 +1175,8 @@ export function RangeBand({ WB, price, low, high, spark, ohlc, va: vaProp = null
         return { y: yTop, h: Math.max(0.4, yBot - yTop) };
       })()
     : null;
-  // 壓力標籤 top（px）：夾在圖內，不出界、不壓到最後一根 K 棒（靠左擺放）
-  const zoneLabelTop = zoneRect
-    ? Math.min(Math.max((zoneRect.y / 30) * svgH - 1, 0), svgH - 14)
-    : null;
+  // 壓力標籤 top（px）：排在壓力帶上緣之上，與最高 wick 至少 KLINE_SAFE_GAP，且不出界
+  const zoneLabelTop = zoneRect ? resistanceLabelTop(zoneRect.y, layout) : null;
 
   const fmtLots = (v) => (v == null ? '—' : `${Math.round(v).toLocaleString('zh-TW')} 張`);
 
