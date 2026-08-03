@@ -87,19 +87,20 @@ export async function runChipFactDateBatch<T>(
   const okDates: string[] = [];
   for (const date of dates) {
     const result = await fetchDate(date);
-    if (result.ok) {
+    if (result.ok === true) {
       rows.push(...result.rows);
       okDates.push(date);
       continue;
     }
+    const failure = result as Extract<DateFetchResult<T>, { ok: false }>;
     return {
       rows,
       ok_dates: okDates,
       next_start: date,
-      checkpoint_reason: result.quota ? 'quota' : 'date_failure',
-      failed_date: result.quota ? null : date,
-      error_code: result.code,
-      error_detail: result.detail,
+      checkpoint_reason: failure.quota ? 'quota' : 'date_failure',
+      failed_date: failure.quota ? null : date,
+      error_code: failure.code,
+      error_detail: failure.detail,
     };
   }
   return {
