@@ -8,6 +8,7 @@ import {
   rocToIso,
   dedupeMsgArray,
   codesFromExCh,
+  MAX_BARS,
 } from './twPriceWaterfall.ts';
 
 const NOW = () => new Date('2026-07-15T00:00:00Z');
@@ -118,13 +119,69 @@ Deno.test('每層成功與失敗都寫入熔斷統計', async () => {
   assertEquals(events.some(([s, ok]) => s === 'tpex_daily' && ok === true), true);
 });
 
-Deno.test('最多回傳 30 根', async () => {
+Deno.test('最多回傳 MAX_BARS 根（顯示 30 日，判讀壓力需 60 日）', async () => {
   const res = await fetchTwDailyOhlc('2330', {
     now: NOW,
     sleep: noSleep,
-    fetchImpl: (() => Promise.resolve(jsonRes({ data: twseRows(45) }))) as unknown as typeof fetch,
+    fetchImpl: ((url: string) => {
+      // 每個月份回傳不同日期，模擬真實跨月資料
+      const m = new URL(url).searchParams.get('date') || '20260715';
+      const mm = m.slice(4, 6);
+      const rows = Array.from({ length: 25 }, (_, i) => [
+        `115/${mm}/${String(i + 1).padStart(2, '0')}`, '1,000', '10,000', '100', '110', '95', '105',
+      ]);
+      return Promise.resolve(jsonRes({ data: rows }));
+    }) as unknown as typeof fetch,
   });
-  assertEquals(res.bars.length, 30);
+  assertEquals(res.bars.length, MAX_BARS);
+});
+
+Deno.test('跨月回補會湊滿 60 日以上並依日期去重排序', async () => {
+  const res = await fetchTwDailyOhlc('2330', {
+    now: NOW,
+    sleep: noSleep,
+    fetchImpl: ((url: string) => {
+      const m = new URL(url).searchParams.get('date') || '20260715';
+      const mm = m.slice(4, 6);
+      const rows = Array.from({ length: 20 }, (_, i) => [
+        `115/${mm}/${String(i + 1).padStart(2, '0')}`, '2,000', '10,000', '100', '110', '95', '105',
+      ]);
+      return Promise.resolve(jsonRes({ data: rows }));
+    }) as unknown as typeof fetch,
+  });
+  const dates = res.bars.map((b) => b.date!);
+  assertEquals(new Set(dates).size, dates.length);
+  assertEquals([...dates].sort().join(',') === dates.join(','), true);
+  assertEquals(res.bars.length >= 60, true);
+});
+
+Deno.test('TWSE 成交股數直接當股；TPEx 成交仟股要 ×1000', () => {
+  assertEquals(parseOhlcRow(['115/07/01', '1,234,000', '1', '100', '110', '95', '105'])?.volume, 1234000);
+  assertEquals(parseOhlcRow(['115/07/01', '1,234', '1', '100', '110', '95', '105'], 'lots')?.volume, 1234000);
+  // 缺量／零量一律 null，不得補 0
+  assertEquals(parseOhlcRow(['115/07/01', '0', '1', '100', '110', '95', '105'])?.volume, null);
+  assertEquals(parseOhlcRow(['115/07/01', '--', '1', '100', '110', '95', '105'])?.volume, null);
+});
+
+Deno.test('FinMind Trading_Volume 帶進 bar.volume', async () => {
+  const res = await fetchTwDailyOhlc('3105', {
+    now: NOW,
+    sleep: noSleep,
+    finmindToken: 'tok',
+    fetchImpl: ((url: string) => {
+      if (new URL(url).hostname === 'api.finmindtrade.com') {
+        return Promise.resolve(jsonRes({
+          data: [
+            { date: '2026-07-01', open: 10, max: 11, min: 9, close: 10.5, Trading_Volume: 500000 },
+            { date: '2026-07-02', open: 10.5, max: 12, min: 10, close: 11, Trading_Volume: 0 },
+          ],
+        }));
+      }
+      return Promise.resolve(jsonRes({ data: [] }));
+    }) as unknown as typeof fetch,
+  });
+  assertEquals(res.bars[0].volume, 500000);
+  assertEquals(res.bars[1].volume, null);
 });
 
 Deno.test('codesFromExCh 解析上市櫃混合', () => {

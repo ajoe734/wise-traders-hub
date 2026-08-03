@@ -47,7 +47,7 @@ const handler = withLogging('checkup-sparkline', async (req, log) => {
     const result: Record<string, { ohlc: TwBar[]; closes: number[]; source?: string | null }> = {};
     const toFetch: string[] = [];
 
-    const cacheKeys = codes.map((c) => `sparkline_${c}_${day}`);
+    const cacheKeys = codes.map((c) => `sparkline_v2_${c}_${day}`);
     if (cacheKeys.length > 0) {
       const { data: cached } = await sb
         .from("checkup_storage")
@@ -64,7 +64,7 @@ const handler = withLogging('checkup-sparkline', async (req, log) => {
       });
 
       for (const c of codes) {
-        const k = `sparkline_${c}_${day}`;
+        const k = `sparkline_v2_${c}_${day}`;
         if (map.has(k)) result[c] = map.get(k)!;
         else toFetch.push(c);
       }
@@ -84,7 +84,7 @@ const handler = withLogging('checkup-sparkline', async (req, log) => {
         if (ohlc.length >= 2) {
           upserts.push({
             user_id: "00000000-0000-0000-0000-000000000000",
-            key: `sparkline_${c}_${day}`,
+            key: `sparkline_v2_${c}_${day}`,
             data: { ohlc, closes, source: r?.source ?? null, fetched_at: new Date().toISOString() },
           });
         } else {

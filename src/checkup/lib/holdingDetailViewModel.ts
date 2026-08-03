@@ -9,6 +9,8 @@
  * 元件與 `useHoldingDetailViewModel` 只負責把資料餵進來、把結果畫出去。
  */
 
+import { buildVolumeAnalysis } from '@/checkup/lib/volumeAnalysis';
+
 export const URGENCY_LABEL: Record<string, string> = {
   now: '立即', soon: '儘快', monitor: '觀察', low: '低',
 };
@@ -56,6 +58,8 @@ export interface OHLC {
   low: number;
   close: number;
   date?: string;
+  /** 成交量（股）；合成或上游缺量為 null，UI 必須顯示空狀態而非零量柱 */
+  volume?: number | null;
 }
 
 export type SparklineData = number[] | { ohlc: OHLC[]; closes: number[] };
@@ -126,6 +130,8 @@ export function synthesizeOhlc(closes: number[], holding: any): OHLC[] {
       low: Number(Math.max(low, 0.01).toFixed(2)),
       close: Number(close.toFixed(2)),
       date: d.toISOString().slice(0, 10),
+      // 合成 K 棒沒有真實量，一律 null（禁止捏造量柱）
+      volume: null,
     };
   });
 }
@@ -357,8 +363,16 @@ export function deriveHoldingDetailViewModel(input: {
   } = input;
   const code = holding?.code ?? null;
   const valuation = deriveValuation(holding, totalPortfolioValue);
-  const sparkArr = deriveSparkline(sparkData30D, holding);
-  const ohlcArr = deriveOhlc(sparkData30D, holding, sparkArr);
+  const sparkAll = deriveSparkline(sparkData30D, holding);
+  const ohlcAll = deriveOhlc(sparkData30D, holding, sparkAll);
+  // 走勢卡只顯示 30 日，但壓力區判讀吃到 60 日（buildVolumeAnalysis 內部處理）
+  const volumeAnalysis = buildVolumeAnalysis({
+    rawBars: ohlcAll as any,
+    price: num(holding?.price),
+    displayCount: 30,
+  });
+  const ohlcArr: OHLC[] = ohlcAll.slice(-30);
+  const sparkArr = sparkAll.slice(-30);
   const relatedEvents = deriveRelatedEvents(normalizedEvents, code);
   const display = deriveDisplayNumbers({
     holding, sim, scenario, dirty, baseTarget, valuation, totalPortfolioValue,
@@ -368,6 +382,7 @@ export function deriveHoldingDetailViewModel(input: {
     valuation,
     sparkArr,
     ohlcArr,
+    volumeAnalysis,
     rangeLow: sparkArr.length ? Math.min(...sparkArr) : null,
     rangeHigh: sparkArr.length ? Math.max(...sparkArr) : null,
     ohlcRangeLow: ohlcArr.length ? Math.min(...ohlcArr.map((b) => b.low)) : null,

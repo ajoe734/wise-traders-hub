@@ -25,6 +25,8 @@ export interface TwBar {
   high: number;
   low: number;
   close: number;
+  /** 成交量，單位一律「股」；上游沒給或為 0 一律 null（不得補 0） */
+  volume?: number | null;
 }
 
 export type TwOhlcSource = 'twse_stock_day' | 'tpex_daily' | 'finmind_price';
@@ -75,7 +77,10 @@ const BROWSER_HEADERS = {
   'X-Requested-With': 'XMLHttpRequest',
 };
 
-export const MAX_BARS = 30;
+/** 顯示 30 日，但壓力區判讀需要 60 個交易日，所以多帶一些。 */
+export const MAX_BARS = 70;
+/** 至少要湊到這麼多根才停止往前翻月份。 */
+export const MIN_BARS = 62;
 
 /** 民國/西元日期 → ISO；無法解析回 undefined。 */
 export function rocToIso(raw: unknown): string | undefined {
@@ -87,15 +92,23 @@ export function rocToIso(raw: unknown): string | undefined {
   return `${y}-${String(Number(m[2])).padStart(2, '0')}-${String(Number(m[3])).padStart(2, '0')}`;
 }
 
-/** TWSE / TPEx 共用列格式：[日期, 量, 額, 開, 高, 低, 收, …] */
-export function parseOhlcRow(r: unknown[]): TwBar | null {
+/**
+ * TWSE / TPEx 共用列格式：[日期, 量, 額, 開, 高, 低, 收, …]
+ * volumeUnit：TWSE STOCK_DAY 的 r[1] 是「成交股數」；
+ *             TPEx tradingStock 的 r[1] 是「成交仟股」(= 張)，需 ×1000 轉成股。
+ */
+export function parseOhlcRow(r: unknown[], volumeUnit: 'shares' | 'lots' = 'shares'): TwBar | null {
   const num = (v: unknown) => Number(String(v).replace(/,/g, ''));
   const o = num(r[3]);
   const h = num(r[4]);
   const l = num(r[5]);
   const c = num(r[6]);
   if (![o, h, l, c].every((n) => Number.isFinite(n) && n > 0)) return null;
-  return { date: rocToIso(r[0]), open: o, high: h, low: l, close: c };
+  const rawVol = num(r[1]);
+  const volume = Number.isFinite(rawVol) && rawVol > 0
+    ? (volumeUnit === 'lots' ? rawVol * 1000 : rawVol)
+    : null;
+  return { date: rocToIso(r[0]), open: o, high: h, low: l, close: c, volume };
 }
 
 async function health(deps: WaterfallDeps, source: string, ok: boolean, latencyMs: number, code?: string) {
@@ -149,7 +162,7 @@ async function twseMonth(code: string, d: Date, deps: WaterfallDeps): Promise<Tw
     `https://www.twse.com.tw/exchangeReport/STOCK_DAY?response=json&date=${ymd(d)}&stockNo=${encodeURIComponent(code)}`;
   const json = await getJson(url, 'twse_stock_day', deps) as any;
   const rows: unknown[][] = json?.data || [];
-  return rows.map(parseOhlcRow).filter((x): x is TwBar => !!x);
+  return rows.map((r) => parseOhlcRow(r, 'shares')).filter((x): x is TwBar => !!x);
 }
 
 // ── L2: TPEx tradingStock ─────────────────────────────────────────────
@@ -163,14 +176,15 @@ async function tpexMonth(code: string, d: Date, deps: WaterfallDeps): Promise<Tw
   if (Array.isArray(json?.tables) && Array.isArray(json.tables[0]?.data)) rows = json.tables[0].data;
   else if (Array.isArray(json?.data)) rows = json.data;
   else if (Array.isArray(json?.aaData)) rows = json.aaData;
-  return rows.map(parseOhlcRow).filter((x): x is TwBar => !!x);
+  // TPEx 個股日成交資訊：成交量欄位單位為「仟股」
+  return rows.map((r) => parseOhlcRow(r, 'lots')).filter((x): x is TwBar => !!x);
 }
 
 // ── L3: FinMind TaiwanStockPrice ──────────────────────────────────────
 async function finmindRecent(code: string, deps: WaterfallDeps): Promise<TwBar[]> {
   const token = deps.finmindToken ?? (globalThis as any).Deno?.env?.get?.('FINMIND_TOKEN') ?? '';
   const now = deps.now?.() ?? new Date();
-  const start = new Date(now.getTime() - 60 * 86400_000);
+  const start = new Date(now.getTime() - 140 * 86400_000);
   const p = new URLSearchParams({
     dataset: 'TaiwanStockPrice',
     data_id: code,
@@ -184,11 +198,30 @@ async function finmindRecent(code: string, deps: WaterfallDeps): Promise<TwBar[]
     .map((r) => {
       const o = Number(r.open), h = Number(r.max), l = Number(r.min), c = Number(r.close);
       if (![o, h, l, c].every((n) => Number.isFinite(n) && n > 0)) return null;
-      return { date: String(r.date ?? '').slice(0, 10) || undefined, open: o, high: h, low: l, close: c };
+      // FinMind Trading_Volume 單位為「股」
+      const v = Number(r.Trading_Volume ?? r.trading_volume);
+      return {
+        date: String(r.date ?? '').slice(0, 10) || undefined,
+        open: o, high: h, low: l, close: c,
+        volume: Number.isFinite(v) && v > 0 ? v : null,
+      };
     })
     .filter((x): x is TwBar => !!x);
 }
 
+/** 同日只留一筆（後到者勝）並依日期排序，避免跨月重疊造成重複 K 棒。 */
+function dedupeBarsByDate(bars: TwBar[]): TwBar[] {
+  const map = new Map<string, TwBar>();
+  const noDate: TwBar[] = [];
+  for (const b of bars) {
+    if (b.date) map.set(b.date, b);
+    else noDate.push(b);
+  }
+  const sorted = Array.from(map.values()).sort((a, b) => (a.date! < b.date! ? -1 : a.date! > b.date! ? 1 : 0));
+  return [...noDate, ...sorted];
+}
+
+/** 往前翻月份直到湊滿 MIN_BARS（壓力區需要 60 個交易日），最多回溯 4 個月。 */
 async function withPrevMonth(
   code: string,
   deps: WaterfallDeps,
@@ -196,9 +229,14 @@ async function withPrevMonth(
 ): Promise<TwBar[]> {
   const now = deps.now?.() ?? new Date();
   let bars = await fn(code, now, deps);
-  if (bars.length < 2) {
-    const prev = new Date(now.getFullYear(), now.getMonth() - 1, 1);
-    bars = [...(await fn(code, prev, deps)), ...bars];
+  if (!bars.length) return bars;
+  for (let back = 1; back <= 4 && bars.length < MIN_BARS; back += 1) {
+    const prev = new Date(now.getFullYear(), now.getMonth() - back, 1);
+    const older = await fn(code, prev, deps);
+    if (!older.length) break;
+    const before = bars.length;
+    bars = dedupeBarsByDate([...older, ...bars]);
+    if (bars.length === before) break; // 上游回同一批資料，別再無謂往前翻
   }
   return bars;
 }
