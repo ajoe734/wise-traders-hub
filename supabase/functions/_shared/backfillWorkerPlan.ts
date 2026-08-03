@@ -62,6 +62,57 @@ export function resolveNextStart(
   return unprocessedDates.length > 0 ? unprocessedDates[0] : null;
 }
 
+export type CheckpointReason = 'budget' | 'quota' | 'date_failure';
+
+export type DateFetchResult<T> =
+  | { ok: true; rows: T[] }
+  | { ok: false; code: string; detail: string; quota?: boolean };
+
+export interface ChipFactDateBatch<T> {
+  rows: T[];
+  ok_dates: string[];
+  next_start: string | null;
+  checkpoint_reason: CheckpointReason | null;
+  failed_date: string | null;
+  error_code: string | null;
+  error_detail: string | null;
+}
+
+/** 逐日執行；任何失敗立刻停止，且不得越過失敗日期。 */
+export async function runChipFactDateBatch<T>(
+  dates: string[],
+  fetchDate: (date: string) => Promise<DateFetchResult<T>>,
+): Promise<ChipFactDateBatch<T>> {
+  const rows: T[] = [];
+  const okDates: string[] = [];
+  for (const date of dates) {
+    const result = await fetchDate(date);
+    if (result.ok) {
+      rows.push(...result.rows);
+      okDates.push(date);
+      continue;
+    }
+    return {
+      rows,
+      ok_dates: okDates,
+      next_start: date,
+      checkpoint_reason: result.quota ? 'quota' : 'date_failure',
+      failed_date: result.quota ? null : date,
+      error_code: result.code,
+      error_detail: result.detail,
+    };
+  }
+  return {
+    rows,
+    ok_dates: okDates,
+    next_start: null,
+    checkpoint_reason: null,
+    failed_date: null,
+    error_code: null,
+    error_detail: null,
+  };
+}
+
 /** 追蹤一次 run 的 logical call 與實際 HTTP attempt 消耗。 */
 export class CallBudget {
   readonly limit: number;
@@ -120,11 +171,46 @@ export function deriveRunStatus(
   results: Array<{ status: string }>,
 ): 'done' | 'partial' | 'failed' | 'skipped' {
   if (results.length === 0) return 'skipped';
+  if (results.some((r) => r.status === 'partial')) return 'partial';
   const ok = results.filter((r) => r.status === 'done').length;
   if (ok === results.length) return 'done';
   if (ok > 0) return 'partial';
   const safeRelease = results.every((r) => r.status === 'pending' || r.status === 'skipped');
   return safeRelease ? 'skipped' : 'failed';
+}
+
+export interface WorkerResultSummaryInput {
+  job_id: number;
+  status: string;
+  checkpoint_reason?: CheckpointReason | null;
+  code?: string | null;
+  failed_date?: string | null;
+}
+
+/** 只有 budget checkpoint 算成功；date failure 必須保持 partial。 */
+export function summarizeWorkerRun(results: WorkerResultSummaryInput[]): {
+  runStatus: 'done' | 'partial' | 'failed' | 'skipped';
+  failed: WorkerResultSummaryInput[];
+  errorMessage: string | null;
+} {
+  const normalized = results.map((r) => {
+    if (r.status === 'done') return { status: 'done' };
+    if (r.status === 'checkpoint') {
+      if (r.checkpoint_reason === 'date_failure') return { status: 'partial' };
+      if (r.checkpoint_reason === 'quota') return { status: 'skipped' };
+      return { status: 'done' };
+    }
+    if (r.status === 'pending' && isQuotaExhaustion(r.code ?? '')) return { status: 'skipped' };
+    return { status: r.status === 'pending' ? 'failed' : r.status };
+  });
+  const runStatus = deriveRunStatus(normalized);
+  const failed = results.filter((_r, i) => normalized[i]?.status !== 'done' && normalized[i]?.status !== 'skipped');
+  const errorMessage = failed.length > 0
+    ? `${failed.length}/${results.length} jobs partial/failed: ${failed.map((r) =>
+      `${r.job_id}:${r.code ?? r.status}${r.failed_date ? `@${r.failed_date}` : ''}`
+    ).join(',').slice(0, 400)}`
+    : null;
+  return { runStatus, failed, errorMessage };
 }
 
 /** admission/quota 用完的錯誤：必須回 pending，不可標 failed、不可卡 running。 */
