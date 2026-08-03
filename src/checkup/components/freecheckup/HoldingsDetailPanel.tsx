@@ -4,7 +4,7 @@ import ReactDOM from 'react-dom';
 import * as DropdownMenu from '@radix-ui/react-dropdown-menu';
 import {
   Camera, Download, Copy, X as XIcon, Settings, ChevronDown,
-  RotateCcw, FileText, Image as ImageIcon, Undo2, Redo2, Check, Info,
+  FileText, Image as ImageIcon, Check, Info,
 } from 'lucide-react';
 import { useHoldingShareExport } from '@/checkup/hooks/useHoldingShareExport';
 // Sparkline removed: header 迷你折線與 §6 RangeBand 資訊重複，僅保留 RangeBand。
@@ -35,9 +35,7 @@ import {
  *   4) 建議印章行（上下 1px ink 線、serif「建議 —— …」+ 中文急迫度、手機 sticky）
  *   5) 一條價格軸（目標 accent / 成本 灰 / 現價 ink 圓點，同一尺 ±5%）+ 目標價修正方向
  *   6) 30D 走勢帶（sparkline + 現價 accent 點 + `低 — 高`）
- *   7) 佔比排名表（灰條 + 本檔 accent、`排名 #x / N`；甜甜圈已刪）
  *   8) 決策履歷（thesisTracking 表格；資料未通時顯示 placeholder）
- *   9) 情境模擬（沿用 computeScenario）
  *   10) 論點引文（serif 全形引號）＋ 頁腳 `‹ 上一檔名 ｜ 研究筆記 ｜ 下一檔名 ›`
  *
  * 刪除清單（§4）：甜甜圈、RETURN/TARGET/THESIS/NEXT EVENT 英文小標、黑底 DECISION 盒、
@@ -129,7 +127,8 @@ function HoldingsDetailPanelImpl({
   const { prev, next } = vm.neighbors;
   const { displayTarget, displayUpside, displayPnlPct, displayPnlAbs,
     displayQty, displayValue, displayWeight } = vm.display;
-  const { sim, setSim, simHistory, scenario, dirty } = vm;
+  // 情境模擬區塊已移除：顯示值一律走實際持倉（dirty 恆為 false）。
+  const dirty = false;
   // 價格新鮮度：抽屜以往只顯示來源不顯示時間，開著也不會隨時鐘更新。
   // 統一走 freshness 單一資料源（內建 ticker）。
   const priceUpdatedMs = h?.priceUpdatedAt ? new Date(h.priceUpdatedAt).getTime() : null;
@@ -141,14 +140,13 @@ function HoldingsDetailPanelImpl({
   // ── 匯出 ──
   const exportCardProps = useMemo(() => ({
     holding: h, decision: dec, meta,
-    scenario: dirty ? { simTarget: displayTarget, upsidePct: displayUpside } : null,
+    scenario: null,
     baseTarget, pctVal: displayPnlPct, pnlVal: displayPnlAbs,
-    weightPct: exportPrefs.includeWeightRank === false ? null : displayWeight,
     rangeLow, rangeHigh,
     thesis: prefs.showThesis ? thesisSentence : null,
     nextEvent: prefs.showNextEvent ? nextEvent : null,
-    stamp, WB, showSimulated: dirty,
-  }), [h, dec, meta, dirty, displayTarget, displayUpside, baseTarget, displayPnlPct, displayPnlAbs, displayWeight, exportPrefs.includeWeightRank, rangeLow, rangeHigh, prefs.showThesis, prefs.showNextEvent, thesisSentence, nextEvent, stamp, WB]);
+    stamp, WB,
+  }), [h, dec, meta, baseTarget, displayPnlPct, displayPnlAbs, rangeLow, rangeHigh, prefs.showThesis, prefs.showNextEvent, thesisSentence, nextEvent, stamp, WB]);
 
   const runExport = async (variant, kind, opts: { pixelRatio?: number } = {}) => {
     setExportNode({ variant });
@@ -172,27 +170,6 @@ function HoldingsDetailPanelImpl({
     exportPrefs.ratio, exportPrefs.format,
     { pixelRatio: RES_TO_PR[exportPrefs.resolution] ?? 3 }
   );
-
-  const undoRef = useRef(simHistory.undo);
-  const redoRef = useRef(simHistory.redo);
-  useEffect(() => {
-    undoRef.current = simHistory.undo;
-    redoRef.current = simHistory.redo;
-  });
-  useEffect(() => {
-    if (!selected) return;
-    const onKey = (e: KeyboardEvent) => {
-      const tag = (e.target as HTMLElement)?.tagName;
-      if (tag === 'INPUT' || tag === 'TEXTAREA' || (e.target as HTMLElement)?.isContentEditable) return;
-      const mod = e.metaKey || e.ctrlKey;
-      if (!mod || e.key.toLowerCase() !== 'z') return;
-      e.preventDefault();
-      if (e.shiftKey) redoRef.current();
-      else undoRef.current();
-    };
-    window.addEventListener('keydown', onKey);
-    return () => window.removeEventListener('keydown', onKey);
-  }, [selected]);
 
   if (!selected) return null;
 
@@ -432,24 +409,12 @@ function HoldingsDetailPanelImpl({
           />
         )}
 
-        {/* 7) 佔比排名已移到內容最下方（可摺疊） */}
-
-
-
         {/* 8) 決策履歷 */}
         {thesisRows && <ThesisHistory WB={WB} rows={thesisRows} />}
 
         {/* 8.5) 籌碼面（僅台股） */}
         <ChipsSection WB={WB} stockCode={h.code} />
 
-        {/* 9) 情境模擬 */}
-        <ScenarioSandbox
-          WB={WB} prefs={prefs} setPrefs={setPrefs}
-          sim={sim} setSim={setSim} baseTarget={baseTarget} h={h} scenario={scenario} dirty={dirty}
-          canUndo={simHistory.canUndo} canRedo={simHistory.canRedo}
-          onUndo={simHistory.undo} onRedo={simHistory.redo}
-          onReset={() => simHistory.reset({ target: baseTarget ?? '', deltaQty: 0, buyMorePrice: '', stopPrice: '' })}
-        />
 
         {/* 10) 論點引文 */}
         {thesisSentence && (
@@ -467,15 +432,6 @@ function HoldingsDetailPanelImpl({
           </div>
         )}
 
-        {/* 11) 佔比排名表（內容最下方、可摺疊） */}
-        <WeightRank
-          WB={WB}
-          h={h}
-          orderedDisplayed={orderedDisplayed}
-          totalPortfolioValue={totalPortfolioValue}
-          open={!!prefs.weightRankOpen}
-          onToggle={() => setPrefs((p) => ({ ...p, weightRankOpen: !p.weightRankOpen }))}
-        />
       </div>
 
       {/* 頁腳 nav */}
@@ -607,7 +563,6 @@ function PrefsMenu({ WB, prefs, setPrefs }) {
   // §4 已刪除獨立區塊（區間/成本/TARGET 進度條/圖表）→ 開關收斂到論點與情境模擬。
   const TOGGLES: [string, string][] = [
     ['showThesis', '論點引文'],
-    ['showSandbox', '情境模擬'],
   ];
   return (
     <DropdownMenu.Root>
@@ -688,23 +643,7 @@ function ExportMenu({ WB, prefs, setPrefs, onExport, onCopy, busy }) {
                 { value: 'print', label: '印刷 4x' },
               ]} />
           </div>
-          <div style={{ padding: '10px 10px 0' }}>
-            <DropdownMenu.CheckboxItem
-              data-testid="export-toggle-weight-rank"
-              checked={prefs.includeWeightRank !== false}
-              onCheckedChange={(v) => setPrefs((p) => ({ ...p, includeWeightRank: !!v }))}
-              onSelect={(e) => e.preventDefault()}
-              style={menuItemStyle(WB, prefs.includeWeightRank !== false)}
-            >
-              <span style={{
-                width: 12, height: 12, border: `1px solid ${WB.hair}`, borderRadius: 0,
-                display: 'inline-flex', alignItems: 'center', justifyContent: 'center',
-                background: prefs.includeWeightRank !== false ? WB.ink : 'transparent',
-              }}>{prefs.includeWeightRank !== false && <Check size={9} color={WB.surface} />}</span>
-              包含佔比排名
-            </DropdownMenu.CheckboxItem>
-          </div>
-          <div style={{ padding: '10px 10px 8px', marginTop: 4, borderTop: `1px solid ${WB.hair}` }}>
+                    <div style={{ padding: '10px 10px 8px', marginTop: 4, borderTop: `1px solid ${WB.hair}` }}>
             <DropdownMenu.Item asChild onSelect={(e) => { if (busy) e.preventDefault(); else onExport(); }}>
               <button type="button" data-testid="holding-export-trigger" disabled={busy}
                 style={{
