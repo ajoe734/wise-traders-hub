@@ -16,14 +16,12 @@ export default function HoldingExportCard({
   baseTarget,
   pctVal,
   pnlVal,
-  weightPct,
   rangeLow,
   rangeHigh,
   thesis,
   nextEvent,
   stamp,
   WB,
-  showSimulated = false,
 }) {
   const isWide = variant === 'wide';
   const W = isWide ? 1920 : 1080;
@@ -58,19 +56,6 @@ export default function HoldingExportCard({
       boxSizing: 'border-box', display: 'flex', flexDirection: 'column',
       position: 'relative', overflow: 'hidden',
     }}>
-      {/* 頂部 brand row */}
-      <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: isWide ? 32 : 28 }}>
-        <span style={{ fontFamily: SERIF, fontSize: 26, fontWeight: 600, letterSpacing: '0.02em' }}>
-          legendflow<span style={{ color: WB.accent }}>.</span>tw
-        </span>
-        {showSimulated && (
-          <span style={{
-            fontSize: 14, color: WB.surface, background: WB.accent,
-            padding: '4px 12px', letterSpacing: '0.22em', fontWeight: 700, borderRadius: 2,
-          }}>SIMULATED</span>
-        )}
-      </div>
-
       {/* 識別 */}
       <div style={{ marginBottom: isWide ? 24 : 28 }}>
         <div style={{ display: 'flex', alignItems: 'baseline', gap: 16 }}>
@@ -130,7 +115,6 @@ export default function HoldingExportCard({
             </>
           } WB={WB} />
           <Row label="數量 · 市值" value={`${fmtInt(holding.qty)} · ${fmtInt(holding.price * holding.qty)}`} WB={WB} />
-          {weightPct != null && <Row label="部位佔比" value={`${weightPct.toFixed(1)}%`} WB={WB} />}
           {(rangeLow != null && rangeHigh != null) && (
             <Row label="近 30D 區間" value={`${rangeLow.toFixed(2)} — ${rangeHigh.toFixed(2)}`} WB={WB} />
           )}
@@ -158,13 +142,20 @@ export default function HoldingExportCard({
         </div>
       </div>
 
-      {/* footer 浮水印 */}
-      <div style={{
-        marginTop: 28, paddingTop: 18, borderTop: `1px solid ${WB.hair}`,
+      {/* 品牌分享落款（唯一一處，≤40px 高） */}
+      <div data-export-footer style={{
+        marginTop: 24, paddingTop: 14, borderTop: `1px solid ${WB.hair}`,
+        height: 36, boxSizing: 'border-box',
         display: 'flex', justifyContent: 'space-between', alignItems: 'center',
-        fontSize: 14, color: WB.inkMute, letterSpacing: '0.08em',
+        fontSize: 14, color: WB.inkMute, letterSpacing: '0.06em',
       }}>
-        <span>持倉決策表</span>
+        <span>
+          <span style={{ fontFamily: SERIF, fontSize: 18, fontWeight: 600, color: WB.ink }}>
+            legendflow<span style={{ color: WB.accent }}>.</span>tw
+          </span>
+          <span style={{ margin: '0 10px', color: WB.inkLight }}>·</span>
+          也來檢查你的持倉
+        </span>
         <span style={{ fontVariantNumeric: 'tabular-nums' }}>{stamp}</span>
       </div>
     </div>
