@@ -92,7 +92,9 @@ function HoldingsWorkbench(props) {
     () => orderedDisplayed.map((h) => String(h.code).trim()).filter(Boolean),
     [orderedDisplayed],
   );
-  const { sparklines, sparklineErrors } = useSparklines(sparklineCodes, { enabled: !isDemo });
+  // 走勢／量能是公開市場資料，不含使用者持倉資訊：Demo 模式同樣走真實
+  // checkup-sparkline（OHLCV）。否則抽屜只剩合成 K 棒，量柱永遠是空狀態。
+  const { sparklines, sparklineErrors } = useSparklines(sparklineCodes, { enabled: true });
   const { prefetch } = useChipsBatch({ codes: sparklineCodes, enabled: !isDemo });
 
   const sheetRef = useRef<HTMLDivElement | null>(null);
