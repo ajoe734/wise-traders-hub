@@ -64,6 +64,8 @@ describe('klineLayout — 壓力標籤與最高 K 棒不碰撞', () => {
       const labelTop = resistanceLabelTop(yUnitsFor(price, domain, layout), layout);
       expect(labelTop).toBeGreaterThanOrEqual(0);
       expect(labelTop + KLINE_LABEL_HEIGHT).toBeLessThanOrEqual(layout.height);
+      // 不論壓力帶落在哪，標籤底緣都必須高於最高 wick 至少 SAFE_GAP
+      expect(highWickTop - (labelTop + KLINE_LABEL_HEIGHT)).toBeGreaterThanOrEqual(KLINE_SAFE_GAP - 1e-6);
     }
   });
 

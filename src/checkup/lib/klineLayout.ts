@@ -104,6 +104,8 @@ export function unitsToPx(yUnits: number, layout: KlineLayout): number {
  */
 export function resistanceLabelTop(zoneTopUnits: number, layout: KlineLayout): number {
   const zoneTopPx = unitsToPx(zoneTopUnits, layout);
-  const raw = zoneTopPx - KLINE_LABEL_HEIGHT - KLINE_SAFE_GAP;
-  return Math.min(Math.max(raw, 0), Math.max(0, layout.height - KLINE_LABEL_HEIGHT));
+  // 同時避開壓力帶上緣與「最高 wick」（最高價一律落在 plotTopPx）：
+  // 取兩者較嚴格者，確保標籤底緣至少高於最高 K 棒 KLINE_SAFE_GAP。
+  const ceiling = Math.min(zoneTopPx, layout.plotTopPx) - KLINE_LABEL_HEIGHT - KLINE_SAFE_GAP;
+  return Math.min(Math.max(ceiling, 0), Math.max(0, layout.height - KLINE_LABEL_HEIGHT));
 }
