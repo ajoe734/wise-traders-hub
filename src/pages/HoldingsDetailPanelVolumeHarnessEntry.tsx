@@ -220,11 +220,13 @@ export default function HoldingsDetailPanelVolumeHarnessEntry() {
 
   // ?live=2330 —— 走真實 useSparklines → checkup-sparkline edge function，
   // 量能一律來自上游真資料（禁止 mock volume）。
-  // ?live=2330 或 ?live=2330,3443（多檔時渲染切換鈕，用於驗證切換標的不殘留）
+  // ?live=2330 或 ?live=2330,mock（多檔時渲染切換鈕，用於驗證切換標的不殘留）
+  // 特殊值 'mock'：切回無成交量的合成資料（禁止 mock volume，故 volume 一律 null）
   const liveList = (params.get('live') || '')
     .split(',').map((s) => s.trim()).filter(Boolean);
   const [liveIdx, setLiveIdx] = useState(0);
-  const liveCode = liveList[Math.min(liveIdx, Math.max(0, liveList.length - 1))] || '';
+  const rawLive = liveList[Math.min(liveIdx, Math.max(0, liveList.length - 1))] || '';
+  const liveCode = rawLive === 'mock' ? '' : rawLive;
   const { sparklines } = useSparklines(liveCode ? [liveCode] : [], { enabled: !!liveCode });
   const liveEntry: any = liveCode ? (sparklines as any)[liveCode] : null;
   const liveBars: any[] = Array.isArray(liveEntry?.ohlc) ? liveEntry.ohlc : [];
