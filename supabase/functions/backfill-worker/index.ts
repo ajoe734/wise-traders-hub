@@ -152,14 +152,17 @@ async function processChipFact(supa: SupabaseClient, job: Job, log: RunLogger, b
   const dayErrors: string[] = [];
   const codeTally: Record<string, number> = {};
   let quotaStopped = false;
-  for (const date of dates) {
-    if (budget.take(1) === 0) { quotaStopped = true; break; }
+  let firstFailedDate: string | null = null;
+  let stoppedIndex = dates.length; // 已「處理過」的日期數（含失敗那一天）
+  for (let i = 0; i < dates.length; i++) {
+    const date = dates[i];
+    if (budget.take(1) === 0) { quotaStopped = true; stoppedIndex = i; break; }
     try {
       const dayRows = await fetchFinmind<FinmindRow>(supa, {
         dataset: "TaiwanStockTradingDailyReport",
         data_id: job.stock_id,
         start_date: date,
-      }, job, "bsr_backfill_day");
+      }, job, "bsr_backfill_day", budget);
       rows.push(...dayRows);
       okDates.push(date);
     } catch (e) {
@@ -167,6 +170,7 @@ async function processChipFact(supa: SupabaseClient, job: Job, log: RunLogger, b
       if (isQuotaExhaustion((e as Error)?.message)) {
         // 配額 / kill-switch / circuit：停手，剩下的日期留給下一輪，不要把整段燒成 failed。
         quotaStopped = true;
+        stoppedIndex = i;
         log.log("warn", "chip_fact_quota_stop", `${job.stock_id} ${date} ${c.code}`, {
           job_id: job.id, stock_id: job.stock_id, trade_date: date, code: c.code, detail: c.detail,
         });
@@ -184,13 +188,19 @@ async function processChipFact(supa: SupabaseClient, job: Job, log: RunLogger, b
         upstream_status: c.upstreamStatus ?? null,
         detail: c.detail,
       });
+      // 非 quota 的單日失敗：立刻停止，next_start 指回這一天，
+      // 否則 checkpoint 會越過失敗日期造成永久漏資料。
+      firstFailedDate = date;
+      stoppedIndex = i;
+      break;
     }
   }
 
-  const processed = okDates.length + failedDates.length;
-  const pendingDates = [...dates.slice(processed), ...plan.remaining];
-  // checkpoint：仍有未處理交易日 → 下一輪從 next_start 續跑（resume）。
-  const nextStart: string | null = pendingDates.length > 0 ? pendingDates[0] : null;
+  const unprocessedDates = [...dates.slice(stoppedIndex), ...plan.remaining]
+    .filter((d) => d !== firstFailedDate);
+  // checkpoint：失敗日期優先；否則指向第一個尚未處理的交易日。
+  const nextStart: string | null = resolveNextStart(firstFailedDate, unprocessedDates);
+
 
   const impact: BackfillImpact = {
     dataset: job.dataset,
