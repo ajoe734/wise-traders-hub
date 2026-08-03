@@ -766,6 +766,16 @@ export default defineConfig({
       use: { ...devices['Desktop Chrome'], viewport: { width: w, height: 1400 } },
     })),
 
+    // HoldingsDetailPanel 抽屜 · 30 日走勢量價分析（真實 API 資料，spec 內自行切換 viewport）
+    // 失敗產物落點：test-results/holdings-drawer/volume-analysis/
+    {
+      name: 'holdings-volume-analysis',
+      testMatch: /holdings-volume-analysis\.spec\.ts/,
+      outputDir: 'test-results/holdings-drawer/volume-analysis',
+      timeout: 120_000,
+      use: { ...devices['Desktop Chrome'], viewport: { width: 390, height: 900 } },
+    },
+
     // HoldingsDetailPanel 抽屜 · 極端內容壓力（長標題 / 多行摘要 / 大量列表）
     // stress ∈ {long-title, multiline, mega-list, all} × viewport ∈ {320,390,768,1280}
     // spec 內部再 × 3 scroll 位置（共 16 test × 3 audit = 48 個實際 audit 點）
