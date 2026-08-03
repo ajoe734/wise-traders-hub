@@ -632,21 +632,29 @@ export default async function handler(req: Request): Promise<Response> {
 
     const okStatuses = new Set(["done", "checkpoint"]);
     const failed = results.filter((r) => !okStatuses.has(r.status));
-    const runStatus = deriveRunStatus(results.map((r) => ({ status: okStatuses.has(r.status) ? "done" : r.status })));
+    // 純 budget/quota 安全釋放 → skipped（不是故障）；其餘 pending/failed 才算失敗。
+    const runStatus = deriveRunStatus(results.map((r) => {
+      if (okStatuses.has(r.status)) return { status: "done" };
+      if (r.status === "pending" && isQuotaExhaustion(`${r.code ?? ""}`)) return { status: "skipped" };
+      return { status: r.status === "pending" ? "failed" : r.status };
+    }));
+    const meter = budget.snapshot();
     log.log(failed.length ? "warn" : "info", "run_summary", `${jobs.length - failed.length}/${jobs.length} ok`, {
       processed: jobs.length,
       done: jobs.length - failed.length,
       failed: failed.length,
       run_status: runStatus,
-      calls_spent: budget.spent,
-      call_budget: budget.limit,
+      logical_calls: meter.logical_calls,
+      actual_http_attempts: meter.actual_http_attempts,
+      call_budget: meter.call_budget,
+      attempt_budget: meter.attempt_budget,
       code_tally: codeTally,
       affected: results.map((r) => ({ job_id: r.job_id, status: r.status, code: r.code ?? null })),
     });
 
     await supa.from("data_source_refresh_logs").insert({
       source_key: "backfill_worker",
-      // 表格 check constraint 允許 running/success/error/partial/skipped；
+      // 表格 check constraint 允許 running/success/error/partial/skipped（並相容 done/failed）；
       // 細緻結果同時保留在 metadata.run_status，監控不得因部分失敗假綠。
       status: runStatus === "done" ? "success" : runStatus,
       started_at: startedAt,
@@ -660,9 +668,13 @@ export default async function handler(req: Request): Promise<Response> {
         run_status: runStatus,
         trigger_source: body.trigger_source ?? "manual",
         code_tally: codeTally,
-        calls_spent: budget.spent,
-        call_budget: budget.limit,
+        logical_calls: meter.logical_calls,
+        actual_http_attempts: meter.actual_http_attempts,
+        calls_spent: meter.logical_calls,
+        call_budget: meter.call_budget,
+        attempt_budget: meter.attempt_budget,
         max_calls_per_run: MAX_FINMIND_CALLS_PER_RUN,
+        max_http_attempts_per_run: MAX_FINMIND_HTTP_ATTEMPTS_PER_RUN,
         results: results.map((r) => ({ job_id: r.job_id, status: r.status, code: r.code ?? null })),
       },
     });
@@ -677,11 +689,16 @@ export default async function handler(req: Request): Promise<Response> {
       status: runStatus,
       processed: jobs.length,
       failed: failed.length,
-      calls_spent: budget.spent,
-      call_budget: budget.limit,
+      logical_calls: meter.logical_calls,
+      actual_http_attempts: meter.actual_http_attempts,
+      calls_spent: meter.logical_calls,
+      call_budget: meter.call_budget,
+      attempt_budget: meter.attempt_budget,
+      max_http_attempts_per_run: MAX_FINMIND_HTTP_ATTEMPTS_PER_RUN,
       code_tally: codeTally,
       results,
     });
+
 
   } catch (err) {
     const c = classifyBackfillError(err);
