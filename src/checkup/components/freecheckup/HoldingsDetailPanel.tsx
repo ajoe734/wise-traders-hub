@@ -22,6 +22,13 @@ import { rollingLots, buildTooltipRows, resistanceBadge, buildVolumeMetrics } fr
 import { barIndexFromX, barCenterPct, fmtKlineDate, fmtKlineNum } from '@/checkup/lib/klineTooltip';
 import { placePopover, popoverMaxWidth } from '@/checkup/lib/popoverPlacement';
 import {
+  resolveKlineLayout,
+  yUnitsFor,
+  unitsToPx,
+  resistanceLabelTop,
+  KLINE_CHART_HEIGHT,
+} from '@/checkup/lib/klineLayout';
+import {
   resolveLabelBox, assignLanes, laneTopOffset,
   LABEL_FONT_SIZE, LABEL_LINE_HEIGHT,
   resolveTrackMetrics, toCompactRow,
