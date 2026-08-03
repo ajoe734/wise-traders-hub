@@ -127,8 +127,6 @@ function HoldingsDetailPanelImpl({
   const { prev, next } = vm.neighbors;
   const { displayTarget, displayUpside, displayPnlPct, displayPnlAbs,
     displayQty, displayValue, displayWeight } = vm.display;
-  // 情境模擬區塊已移除：顯示值一律走實際持倉（dirty 恆為 false）。
-  const dirty = false;
   // 價格新鮮度：抽屜以往只顯示來源不顯示時間，開著也不會隨時鐘更新。
   // 統一走 freshness 單一資料源（內建 ticker）。
   const priceUpdatedMs = h?.priceUpdatedAt ? new Date(h.priceUpdatedAt).getTime() : null;
@@ -255,7 +253,7 @@ function HoldingsDetailPanelImpl({
               color: WB.ink, letterSpacing: '-0.005em', lineHeight: 1.15,
               whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis',
             }}>{h.name}</h2>
-            {!dirty && todayPct != null && (
+            {todayPct != null && (
               <div
                 data-testid="drawer-today-delta"
                 className="holdings-detail-today-delta"
@@ -333,11 +331,6 @@ function HoldingsDetailPanelImpl({
             </span>
             <span style={{ fontSize: 14, color: WB.inkSub, fontVariantNumeric: 'tabular-nums' }}>
               {displayPnlAbs >= 0 ? '+' : '−'}{Math.abs(Math.round(displayPnlAbs)).toLocaleString()}
-              {dirty && (
-                <span style={{ marginLeft: 10, color: WB.inkLight, textDecoration: 'line-through' }}>
-                  原 {pctVal >= 0 ? '+' : '−'}{Math.abs(Number(pctVal)).toFixed(2)}%
-                </span>
-              )}
             </span>
           </div>
           <div style={{ marginTop: 8, fontSize: 12, color: WB.inkSub, fontVariantNumeric: 'tabular-nums' }}>
@@ -377,7 +370,6 @@ function HoldingsDetailPanelImpl({
             fontFamily: SERIF,
           }}>
             急迫度 · {urgencyLabel}
-            {dirty && <span style={{ marginLeft: 8, fontSize: 10, color: WB.accent, letterSpacing: '0.2em' }}>SIM</span>}
           </span>
         </div>
 
