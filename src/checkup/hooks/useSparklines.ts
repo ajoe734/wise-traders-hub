@@ -16,7 +16,11 @@ import { getCheckupGateway } from '@/checkup/lib/gateway';
 import { createCacheNamespace } from '@/checkup/lib/checkupCacheStore';
 
 export interface SparklineEntry {
-  ohlc?: Array<{ date?: string; open?: number; high?: number; low?: number; close?: number }>;
+  ohlc?: Array<{
+    date?: string; open?: number; high?: number; low?: number; close?: number;
+    /** 成交量，單位「股」；上游缺量為 null */
+    volume?: number | null;
+  }>;
   closes?: number[];
 }
 
@@ -32,7 +36,8 @@ export const SPARKLINE_BATCH_SIZE = 30;
 export const sparklineCache = createCacheNamespace<SparklineEntry>({
   name: 'sparkline',
   ttlMs: SPARKLINE_TTL_MS,
-  version: 1,
+  // v2：ohlc 開始帶 volume，舊快取一律失效
+  version: 2,
   maxEntries: 300,
 });
 

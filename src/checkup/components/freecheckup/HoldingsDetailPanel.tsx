@@ -15,6 +15,7 @@ import { Tooltip, TooltipTrigger, TooltipContent } from '@/components/ui/tooltip
 import '@/checkup/styles/holdingsDetailPanel.css';
 import { holdingPanelPrefs, holdingExportPrefs } from '@/checkup/lib/drawerPrefs';
 import { useFreshness } from '@/checkup/lib/freshness';
+import { buildVolumeAnalysis } from '@/checkup/lib/volumeAnalysis';
 import { barIndexFromX, barCenterPct, shouldFlipTooltip, fmtKlineDate, fmtKlineNum } from '@/checkup/lib/klineTooltip';
 import {
   resolveLabelBox, assignLanes, laneTopOffset,
@@ -423,6 +424,7 @@ function HoldingsDetailPanelImpl({
             high={vm.ohlcRangeHigh ?? rangeHigh}
             spark={sparkArr}
             ohlc={vm.ohlcArr}
+            va={vm.volumeAnalysis}
             symbol={h?.code || h?.symbol || h?.instrument}
             priceSource={meta?.priceSource || h?.priceSource}
             priceUpdatedAt={h?.priceUpdatedAt}
@@ -907,7 +909,7 @@ function PriceAxis({ WB, price, cost, target, baseTarget, upside, tpHistory }) {
 
 // ──────────────────── §4.6 30D 走勢帶 ────────────────────
 
-export function RangeBand({ WB, price, low, high, spark, ohlc, symbol, priceSource, priceUpdatedAt }) {
+export function RangeBand({ WB, price, low, high, spark, ohlc, va: vaProp = null, symbol, priceSource, priceUpdatedAt }) {
   // 顯示高度（px）：header 迷你 sparkline 移除後，把 30D 走勢帶拉高填補視覺空缺
   const svgH = 72;
   const lo = Number.isFinite(low) ? Number(low) : NaN;
@@ -1088,6 +1090,81 @@ export function RangeBand({ WB, price, low, high, spark, ohlc, symbol, priceSour
 
   const hoverX = barCenterPct(hoverIdx, cleanOhlc.length, PAD_X);
 
+  // ── 量能副圖 ──────────────────────────────────────────
+  // 契約：量一律「股」進來，顯示一律「張」（@/lib/lotSize）；缺量為 null，
+  // 不畫零量柱、不由價格推估，改顯示明確空狀態。
+  const volH = 26;
+  // 父層沒帶分析結果時自行推導，讓 harness / 其他 caller 也能拿到同一份判讀
+  const va = React.useMemo(() => (
+    vaProp ?? (useKline
+      ? buildVolumeAnalysis({ rawBars: cleanOhlc, price: Number(price), displayCount: cleanOhlc.length })
+      : null)
+  ), [vaProp, useKline, cleanOhlc, price]);
+  const volBars = React.useMemo(() => (
+    Array.isArray(va?.displayBars) && va.displayBars.length === cleanOhlc.length
+      ? va.displayBars
+      : cleanOhlc.map((b) => ({
+          ...b,
+          volumeLots: Number.isFinite(b?.volume) && b.volume > 0 ? Number(b.volume) / 1000 : null,
+        }))
+  ), [va, cleanOhlc]);
+  const hasVolume = volBars.some((b) => b?.volumeLots != null);
+  const maxVol = hasVolume ? Math.max(...volBars.map((b) => b?.volumeLots ?? 0)) : 0;
+  const ma5Line = Array.isArray(va?.displayMa5) && va.displayMa5.length === volBars.length ? va.displayMa5 : null;
+  const stats = va?.stats ?? null;
+  const zone = va?.zone ?? null;
+  const distance = va?.distance ?? null;
+
+  const volElements = hasVolume && maxVol > 0 ? (() => {
+    const N = volBars.length;
+    const plotW = 100 - PAD_X * 2;
+    const gap = N > 1 ? plotW / (N - 1) : plotW;
+    const bodyW = Math.max(0.8, Math.min(3.2, gap * 0.6));
+    return volBars.map((b, i) => {
+      if (b?.volumeLots == null) return null;
+      const x = PAD_X + (N > 1 ? (i / (N - 1)) * plotW : plotW / 2);
+      const hh = Math.max(0.4, (b.volumeLots / maxVol) * 26);
+      const isUp = b.close > b.open;
+      const isDown = b.close < b.open;
+      const color = isUp ? (WB.klineUp || '#E53E3E') : isDown ? (WB.klineDown || '#38A169') : WB.inkLight;
+      return (
+        <rect
+          key={i}
+          data-testid="volume-bar"
+          x={(x - bodyW / 2).toFixed(2)}
+          y={(28 - hh).toFixed(2)}
+          width={bodyW.toFixed(2)}
+          height={hh.toFixed(2)}
+          fill={color}
+          opacity="0.55"
+        />
+      );
+    });
+  })() : null;
+
+  const ma5Points = ma5Line && maxVol > 0
+    ? ma5Line.map((v, i) => {
+        if (v == null) return null;
+        const N = ma5Line.length;
+        const plotW = 100 - PAD_X * 2;
+        const x = PAD_X + (N > 1 ? (i / (N - 1)) * plotW : plotW / 2);
+        const y = 28 - Math.min(v / maxVol, 1) * 26;
+        return `${x.toFixed(2)},${y.toFixed(2)}`;
+      }).filter(Boolean).join(' ')
+    : '';
+
+  // 壓力帶：只有落在目前價格軸範圍內才畫，避免壓縮 K 棒刻度
+  const zoneRect = zone && hasHiLo && range > 0 && zone.lower <= hi && zone.upper >= lo
+    ? (() => {
+        const yTop = yFor(Math.min(zone.upper, hi));
+        const yBot = yFor(Math.max(zone.lower, lo));
+        return { y: yTop, h: Math.max(0.4, yBot - yTop) };
+      })()
+    : null;
+
+  const fmtLots = (v) => (v == null ? '—' : `${Math.round(v).toLocaleString('zh-TW')} 張`);
+  const hoverVol = hoverIdx != null ? volBars[hoverIdx]?.volumeLots ?? null : null;
+
 
   return (
     <div
@@ -1132,6 +1209,13 @@ export function RangeBand({ WB, price, low, high, spark, ohlc, symbol, priceSour
         >
           <svg viewBox="0 0 100 30" preserveAspectRatio="none"
             style={{ width: '100%', height: svgH, display: 'block', position: 'absolute', inset: 0 }}>
+            {zoneRect && (
+              <rect
+                data-testid="resistance-zone"
+                x="0" y={zoneRect.y.toFixed(2)} width="100" height={zoneRect.h.toFixed(2)}
+                fill={WB.inkMute} opacity="0.10"
+              />
+            )}
             {useKline ? (
               klineElements
             ) : (
@@ -1193,8 +1277,71 @@ export function RangeBand({ WB, price, low, high, spark, ohlc, symbol, priceSour
               </div>
               <div>開 {fmtN(hoverBar.open)}　高 {fmtN(hoverBar.high)}</div>
               <div>低 {fmtN(hoverBar.low)}　收 {fmtN(hoverBar.close)}</div>
+              <div data-testid="kline-tooltip-volume" style={{ color: WB.inkSub }}>
+                量 {hoverVol == null ? '—' : fmtLots(hoverVol)}
+              </div>
             </div>
           )}
+        </div>
+      )}
+
+      {/* 量能副圖：與 K 棒同一時間軸，缺量顯示空狀態 */}
+      {hasSpark && (
+        <div data-testid="holdings-volume-chart" data-has-volume={hasVolume ? '1' : '0'} style={{ marginTop: 6 }}>
+          {hasVolume ? (
+            <svg viewBox="0 0 100 28" preserveAspectRatio="none"
+              style={{ width: '100%', height: volH, display: 'block' }}>
+              {volElements}
+              {ma5Points && (
+                <polyline data-testid="volume-ma5" fill="none" stroke={WB.inkMute} strokeWidth="1"
+                  vectorEffect="non-scaling-stroke" points={ma5Points} />
+              )}
+              {hoverX != null && (
+                <line x1={hoverX.toFixed(2)} x2={hoverX.toFixed(2)} y1="0" y2="28"
+                  stroke={WB.inkMute} strokeWidth="1" strokeDasharray="2 2" vectorEffect="non-scaling-stroke" />
+              )}
+            </svg>
+          ) : (
+            <div data-testid="holdings-volume-empty"
+              style={{ height: volH, display: 'flex', alignItems: 'center', fontSize: 11, color: WB.inkLight }}>
+              無成交量資料
+            </div>
+          )}
+        </div>
+      )}
+
+      {/* 量價判讀：最少資訊完成判斷 */}
+      {hasSpark && stats && (
+        <div data-testid="holdings-volume-analysis" style={{ marginTop: 8 }}>
+          <div style={{
+            display: 'flex', flexWrap: 'wrap', gap: '4px 16px',
+            fontSize: 11, color: WB.inkSub, fontVariantNumeric: 'tabular-nums',
+          }}>
+            <span data-testid="vol-today">{stats.todayLabel} {fmtLots(stats.todayLots)}</span>
+            <span data-testid="vol-ma5">5 日均量 {stats.ma5Lots == null ? (stats.ma5Insufficient || '—') : fmtLots(stats.ma5Lots)}</span>
+            <span data-testid="vol-ma20">20 日均量 {stats.ma20Lots == null ? (stats.ma20Insufficient || '—') : fmtLots(stats.ma20Lots)}</span>
+            <span data-testid="vol-rel">
+              相對量能 {stats.relVolume == null ? '—' : `${stats.relVolume.toFixed(2)} 倍`}
+            </span>
+            <span data-testid="vol-resistance">
+              {zone
+                ? `${zone.basis === 'cluster' ? '壓力區' : '參考壓力'} ${zone.lower.toFixed(2)}${zone.upper > zone.lower ? `–${zone.upper.toFixed(2)}` : ''}`
+                : '近 60 日無明確壓力區'}
+              {distance
+                ? distance.state === 'testing'
+                  ? '　測試中'
+                  : `　${distance.state === 'above' ? '已站上' : '距離'} ${(Math.abs(distance.pct) * 100).toFixed(1)}%`
+                : ''}
+            </span>
+          </div>
+          <div data-testid="holdings-volume-summary" style={{
+            marginTop: 6, fontFamily: SERIF, fontSize: 12, lineHeight: 1.7, color: WB.ink,
+          }}>
+            <span data-testid="vol-pv-state" style={{ color: WB.ink, fontWeight: 700 }}>{va?.pv?.label}</span>
+            <span style={{ margin: '0 6px', color: WB.inkLight }}>·</span>
+            <span data-testid="vol-breakout-state">{va?.breakout?.label}</span>
+            <div style={{ color: WB.inkSub, marginTop: 2 }}>{va?.summary}</div>
+          </div>
         </div>
       )}
     </div>
