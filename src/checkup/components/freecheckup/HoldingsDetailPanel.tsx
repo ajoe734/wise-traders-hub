@@ -1305,16 +1305,17 @@ export function RangeBand({ WB, price, low, high, spark, ohlc, va: vaProp = null
           }}
           onPointerMove={useKline ? (e) => pickIndex(e.clientX) : undefined}
           onPointerDown={useKline ? (e) => pickIndex(e.clientX) : undefined}
-          onPointerLeave={useKline ? () => setHoverIdx(null) : undefined}
-          onPointerCancel={useKline ? () => setHoverIdx(null) : undefined}
+          onPointerLeave={useKline ? () => closeTip() : undefined}
+          onPointerCancel={useKline ? () => closeTip() : undefined}
         >
           <svg viewBox="0 0 100 30" preserveAspectRatio="none"
+            data-marker-focus={focusIdx != null ? '1' : '0'}
             style={{ width: '100%', height: svgH, display: 'block', position: 'absolute', inset: 0 }}>
             {zoneRect && (
               <rect
                 data-testid="resistance-zone"
                 x="0" y={zoneRect.y.toFixed(2)} width="100" height={zoneRect.h.toFixed(2)}
-                fill={WB.inkMute} opacity="0.08"
+                fill={WB.inkMute} opacity={focusIdx != null ? '0.04' : '0.08'}
               />
             )}
             {useKline ? (
