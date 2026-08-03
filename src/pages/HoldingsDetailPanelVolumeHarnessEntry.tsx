@@ -18,6 +18,7 @@
  */
 import { Suspense, lazy, useEffect, useMemo, useState } from 'react';
 import { WB } from '@/pages/_freeCheckup/constants.jsx';
+import { useSparklines } from '@/checkup/hooks/useSparklines';
 
 const HoldingsDetailPanel = lazy(
   () => import('@/checkup/components/freecheckup/HoldingsDetailPanel'),
@@ -217,9 +218,31 @@ export default function HoldingsDetailPanelVolumeHarnessEntry() {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [count, listCount, stress.longTitle, stress.multiline, stress.megaList]);
 
-  const totalPortfolioValue = holdings.reduce((s, h) => s + h.price * h.qty, 0);
-  const targets = () => selected.targetPrice;
-  const avgTarget = () => selected.targetPrice;
+  // ?live=2330 —— 走真實 useSparklines → checkup-sparkline edge function，
+  // 量能一律來自上游真資料（禁止 mock volume）。
+  const liveCode = (params.get('live') || '').trim();
+  const { sparklines } = useSparklines(liveCode ? [liveCode] : [], { enabled: !!liveCode });
+  const liveEntry: any = liveCode ? (sparklines as any)[liveCode] : null;
+  const liveBars: any[] = Array.isArray(liveEntry?.ohlc) ? liveEntry.ohlc : [];
+  const liveClose = liveBars.length ? Number(liveBars[liveBars.length - 1]?.close) : null;
+
+  const effSelected = liveCode && Number.isFinite(liveClose as number)
+    ? {
+        code: liveCode, name: liveCode, qty: 1000,
+        cost: Number(((liveClose as number) * 0.9).toFixed(2)),
+        price: liveClose as number,
+        targetPrice: Number(((liveClose as number) * 1.1).toFixed(2)),
+        pnl: 0, pct: 0, changePct: 0, todayPnl: 0,
+      }
+    : selected;
+  const effHoldings = liveCode && effSelected !== selected ? [effSelected] : holdings;
+  const effDecisions = liveCode ? makeDecisionsMap([effSelected.code], stress) : decisionsMap;
+  const effMeta = liveCode ? makeStockMeta([effSelected.code]) : stockMeta;
+  const effSpark = liveCode ? (liveEntry || []) : sparkData30D;
+
+  const totalPortfolioValue = effHoldings.reduce((s, h) => s + h.price * h.qty, 0);
+  const targets = () => effSelected.targetPrice;
+  const avgTarget = () => effSelected.targetPrice;
 
   const containerStyle: React.CSSProperties = {
     width: '100%',
@@ -238,6 +261,8 @@ export default function HoldingsDetailPanelVolumeHarnessEntry() {
       data-volume-width={widthMode}
       data-volume-stress={stressLabel}
       data-volume-list-count={String(listCount)}
+      data-volume-live={liveCode || ''}
+      data-volume-live-bars={String(liveBars.length)}
       data-drawer-render-state={renderState}
       data-drawer-loading-ms={String(loadingMs)}
       style={containerStyle}
@@ -247,18 +272,18 @@ export default function HoldingsDetailPanelVolumeHarnessEntry() {
       ) : (
         <Suspense fallback={<HoldingsDetailPanelSkeleton />}>
           <HoldingsDetailPanel
-            selected={selected}
-            decisionsMap={decisionsMap}
-            stockMeta={stockMeta}
+            selected={effSelected}
+            decisionsMap={effDecisions}
+            stockMeta={effMeta}
             targets={targets}
             avgTarget={avgTarget}
             normalizedEvents={normalizedEvents}
-            orderedDisplayed={orderedDisplayed}
+            orderedDisplayed={effHoldings}
             WB={WB}
             setExpandedDecision={() => {}}
             openHoldingDrawer={() => {}}
             totalPortfolioValue={totalPortfolioValue}
-            sparkData30D={sparkData30D}
+            sparkData30D={effSpark}
             sortBy="pct"
             sortDir="desc"
             setSortBy={() => {}}
