@@ -156,6 +156,37 @@ describe('chip_fact checkpoint / resume', () => {
     expect(WORKER).not.toMatch(/okDates\.length\s*\+\s*failedDates\.length/);
   });
 
+  it('worker 不得再含未宣告的 stoppedIndex', () => {
+    expect(WORKER).not.toMatch(/stoppedIndex/);
+  });
+
+  it('第一日即 quota 拒絕：不 throw、reason=quota、next_start=該日、run summary=skipped', async () => {
+    const calls: string[] = [];
+    const batch = await runChipFactDateBatch(
+      ['2026-07-01', '2026-07-02', '2026-07-03'],
+      async (date) => {
+        calls.push(date);
+        return { ok: false as const, code: 'ADMISSION_REJECTED', detail: 'admission_rejected', quota: true };
+      },
+    );
+
+    expect(calls).toEqual(['2026-07-01']);
+    expect(batch.checkpoint_reason).toBe('quota');
+    expect(batch.next_start).toBe('2026-07-01');
+    expect(batch.failed_date).toBeNull();
+    expect(batch.error_code).toBe('ADMISSION_REJECTED');
+
+    const summary = summarizeWorkerRun([{
+      job_id: 9002,
+      status: 'checkpoint',
+      checkpoint_reason: batch.checkpoint_reason,
+      code: batch.error_code,
+      failed_date: batch.failed_date,
+    }]);
+    expect(summary.runStatus).toBe('skipped');
+    expect(summary.failed).toHaveLength(0);
+  });
+
   it('checkpoint 寫入失敗絕不可 fallback 成 done', () => {
     const region = WORKER.match(/checkpoint_failed[\s\S]{0,400}/)?.[0] ?? '';
     expect(region).not.toMatch(/backfill_job_set_done/);
