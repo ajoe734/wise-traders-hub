@@ -22,6 +22,13 @@ import { rollingLots, buildTooltipRows, resistanceBadge, buildVolumeMetrics } fr
 import { barIndexFromX, barCenterPct, fmtKlineDate, fmtKlineNum } from '@/checkup/lib/klineTooltip';
 import { placePopover, popoverMaxWidth } from '@/checkup/lib/popoverPlacement';
 import {
+  resolveKlineLayout,
+  yUnitsFor,
+  unitsToPx,
+  resistanceLabelTop,
+  KLINE_CHART_HEIGHT,
+} from '@/checkup/lib/klineLayout';
+import {
   resolveLabelBox, assignLanes, laneTopOffset,
   LABEL_FONT_SIZE, LABEL_LINE_HEIGHT,
   resolveTrackMetrics, toCompactRow,
@@ -864,8 +871,9 @@ function PriceAxis({ WB, price, cost, target, baseTarget, upside, tpHistory }) {
 // ──────────────────── §4.6 30D 走勢帶 ────────────────────
 
 export function RangeBand({ WB, price, low, high, spark, ohlc, va: vaProp = null, symbol, priceSource, priceUpdatedAt }) {
-  // 顯示高度（px）：header 迷你 sparkline 移除後，把 30D 走勢帶拉高填補視覺空缺
-  const svgH = 72;
+  // 顯示高度（px）與 y-scale：全部走 @/checkup/lib/klineLayout 的版面契約，
+  // 確保最高 wick／壓力標籤／marker 都在 safe bounds 內且互相留 ≥6px 間距。
+  const svgH = KLINE_CHART_HEIGHT;
   const lo = Number.isFinite(low) ? Number(low) : NaN;
   const hi = Number.isFinite(high) ? Number(high) : NaN;
   const hasHiLo = Number.isFinite(lo) && Number.isFinite(hi);
@@ -881,17 +889,22 @@ export function RangeBand({ WB, price, low, high, spark, ohlc, va: vaProp = null
   const useKline = cleanOhlc.length >= 2;
   const hasSpark = hasHiLo && (useKline ? cleanOhlc.length >= 2 : cleanSpark.length >= 2);
 
-  // 繪圖區內縮（viewBox 100×30 單位）：避免首尾 K 棒與最高/最低影線被邊界切掉
+  // 繪圖區內縮：水平沿用 viewBox 單位；垂直改由 klineLayout 的 px safe inset 換算，
+  // 讓「最高 wick / 壓力標籤 / marker」共用同一組避讓量。
   const PAD_X = useKline ? 2.4 : 0;
-  const PAD_Y = useKline ? 2 : 0;
-  const PLOT_H = 30 - PAD_Y * 2;
+  const layout = React.useMemo(
+    () => (useKline
+      ? resolveKlineLayout({ height: svgH })
+      : resolveKlineLayout({ height: svgH, topInset: 0, bottomInset: 0 })),
+    [useKline, svgH],
+  );
 
   const lastV = useKline
     ? cleanOhlc[cleanOhlc.length - 1]?.close
     : (hasSpark ? cleanSpark[cleanSpark.length - 1] : Number(price));
   const rawY =
     range > 0 && Number.isFinite(lastV)
-      ? ((30 - PAD_Y - ((lastV - lo) / range) * PLOT_H) / 30) * svgH
+      ? unitsToPx(yUnitsFor(Number(lastV), { lo, hi }, layout), layout)
       : svgH / 2;
   const dotY = Number.isFinite(rawY) ? Math.min(Math.max(rawY, 0), svgH) : svgH / 2;
 
@@ -973,10 +986,10 @@ export function RangeBand({ WB, price, low, high, spark, ohlc, va: vaProp = null
     ? `資料源不一致：${diagnostics.map((d) => d.code).join(', ')}`
     : undefined;
 
-  // K 線 helpers：在 SVG 100×30 座標系內定位（PAD_X / PAD_Y 於上方定義）
+  // K 線 helpers：價格 → viewBox y（單位），y-domain 只映射到 safe bounds 內
   const yFor = (v) => {
     if (!hasHiLo || range <= 0) return 15;
-    return 30 - PAD_Y - Math.min(Math.max((v - lo) / range, 0), 1) * PLOT_H;
+    return yUnitsFor(Number(v), { lo, hi }, layout);
   };
 
 
@@ -1169,10 +1182,8 @@ export function RangeBand({ WB, price, low, high, spark, ohlc, va: vaProp = null
         return { y: yTop, h: Math.max(0.4, yBot - yTop) };
       })()
     : null;
-  // 壓力標籤 top（px）：夾在圖內，不出界、不壓到最後一根 K 棒（靠左擺放）
-  const zoneLabelTop = zoneRect
-    ? Math.min(Math.max((zoneRect.y / 30) * svgH - 1, 0), svgH - 14)
-    : null;
+  // 壓力標籤 top（px）：排在壓力帶上緣之上，與最高 wick 至少 KLINE_SAFE_GAP，且不出界
+  const zoneLabelTop = zoneRect ? resistanceLabelTop(zoneRect.y, layout) : null;
 
   const fmtLots = (v) => (v == null ? '—' : `${Math.round(v).toLocaleString('zh-TW')} 張`);
 

@@ -49,11 +49,14 @@ test.describe('走勢卡 · 量價分析', () => {
       // metric 版面：桌機一行、手機 2 欄 grid
       await expect(page.getByTestId('holdings-volume-metrics')).toHaveAttribute('data-layout', c.layout);
 
-      // K 線是主角：量能副圖高度 ≈ 總高 22–25%
+      // K 線是主角：量能副圖高度 ≈ 總高 18–27%
+      // （K 線高度自 72→92px 以容納頂端 safe inset，量圖絕對高度 22px 未被壓縮，故比例下修）
       const kh = (await page.getByTestId('kline-chart-surface').boundingBox())!.height;
       const vh = (await page.getByTestId('holdings-volume-chart').boundingBox())!.height;
-      expect(vh / (kh + vh)).toBeGreaterThan(0.2);
+      expect(vh).toBeGreaterThanOrEqual(22);
+      expect(vh / (kh + vh)).toBeGreaterThan(0.18);
       expect(vh / (kh + vh)).toBeLessThan(0.27);
+
 
       // 短判讀最多兩行
       const sum = page.getByTestId('holdings-volume-summary-text');
