@@ -149,8 +149,9 @@ describe('chip_fact checkpoint / resume', () => {
   });
 
   it('worker 遇到非 quota 單日失敗必須停止並回指該日期', () => {
-    expect(WORKER).toMatch(/firstFailedDate/);
-    expect(WORKER).toMatch(/resolveNextStart\(firstFailedDate/);
+    expect(WORKER).toMatch(/runChipFactDateBatch\(dates/);
+    expect(WORKER).toMatch(/checkpoint_reason/);
+    expect(WORKER).toMatch(/failed_date/);
     // 舊版以 okDates+failedDates 當 processed（會越過失敗日期）已禁止
     expect(WORKER).not.toMatch(/okDates\.length\s*\+\s*failedDates\.length/);
   });
