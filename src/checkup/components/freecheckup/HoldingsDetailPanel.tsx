@@ -19,7 +19,8 @@ import { buildVolumeAnalysis } from '@/checkup/lib/volumeAnalysis';
 import { buildDailyCloseStatus } from '@/checkup/lib/marketDataStatus';
 import { getSparkOhlc } from '@/checkup/lib/holdingDetailViewModel';
 import { rollingLots, buildTooltipRows, resistanceBadge, buildVolumeMetrics } from '@/checkup/lib/volumeReadout';
-import { barIndexFromX, barCenterPct, shouldFlipTooltip, fmtKlineDate, fmtKlineNum } from '@/checkup/lib/klineTooltip';
+import { barIndexFromX, barCenterPct, fmtKlineDate, fmtKlineNum } from '@/checkup/lib/klineTooltip';
+import { placePopover, popoverMaxWidth } from '@/checkup/lib/popoverPlacement';
 import {
   resolveLabelBox, assignLanes, laneTopOffset,
   LABEL_FONT_SIZE, LABEL_LINE_HEIGHT,
@@ -979,6 +980,10 @@ export function RangeBand({ WB, price, low, high, spark, ohlc, va: vaProp = null
   };
 
 
+  // ── 轉折 marker 聚焦狀態：命中那根 K 棒保持清楚，其餘退焦（只用 opacity/filter，不改版面） ──
+  const [markerFocus, setMarkerFocus] = useState(null); // { date, index } | null
+  const focusIdx = markerFocus?.index ?? null;
+
   const klineElements = useKline ? (() => {
     const N = cleanOhlc.length;
     const plotW = 100 - PAD_X * 2;
@@ -996,8 +1001,14 @@ export function RangeBand({ WB, price, low, high, spark, ohlc, va: vaProp = null
       const yTop = Math.min(yOpen, yClose);
       const yBottom = Math.max(yOpen, yClose);
       const bodyH = Math.max(0.35, yBottom - yTop);
+      const dim = focusIdx != null && i !== focusIdx;
       return (
-        <g key={i} data-testid="kline-bar">
+        <g
+          key={i}
+          data-testid="kline-bar"
+          data-dim={dim ? '1' : '0'}
+          className={dim ? 'hk-bar hk-bar--dim' : 'hk-bar'}
+        >
           <line
             data-testid="kline-wick"
             x1={x.toFixed(2)}
@@ -1029,14 +1040,28 @@ export function RangeBand({ WB, price, low, high, spark, ohlc, va: vaProp = null
   const wrapRef = useRef<HTMLDivElement | null>(null);
   const [hoverIdx, setHoverIdx] = useState<number | null>(null);
   const hoverBar = useKline && hoverIdx != null ? cleanOhlc[hoverIdx] : null;
+  // 延遲關閉：讓游標可以從 marker 移到 popover 上而不閃退
+  const closeTimer = useRef<number | null>(null);
+  const cancelClose = useCallback(() => {
+    if (closeTimer.current != null) { clearTimeout(closeTimer.current); closeTimer.current = null; }
+  }, []);
+  const closeTip = useCallback((immediate = false) => {
+    cancelClose();
+    const run = () => { setHoverIdx(null); setMarkerFocus(null); };
+    if (immediate) run();
+    else closeTimer.current = window.setTimeout(run, 140);
+  }, [cancelClose]);
+  useEffect(() => () => cancelClose(), [cancelClose]);
 
   const pickIndex = (clientX) => {
     const el = wrapRef.current;
     if (!el || !useKline) return;
+    cancelClose();
     const r = el.getBoundingClientRect();
     const idx = barIndexFromX(clientX, { left: r.left, width: r.width }, cleanOhlc.length);
-    if (idx != null) setHoverIdx(idx);
+    if (idx != null) { setHoverIdx(idx); setMarkerFocus(null); }
   };
+
 
   const fmtDate = fmtKlineDate;
   const fmtN = fmtKlineNum;
@@ -1169,8 +1194,46 @@ export function RangeBand({ WB, price, low, high, spark, ohlc, va: vaProp = null
     [useKline, hoverIdx, volBars, ma5Line, ma20Line, va],
   );
 
-  // 切換標的：清掉上一檔的 hover 殘留（量柱／均量／壓力狀態皆由 props 重新推導）
-  useEffect(() => { setHoverIdx(null); }, [symbol]);
+  // 切換標的：清掉上一檔的 hover / 聚焦殘留（量柱／均量／壓力狀態皆由 props 重新推導）
+  useEffect(() => { closeTip(true); }, [symbol, closeTip]);
+
+  // ── popover 定位：以 marker（或十字線）為錨點，四邊碰撞避讓、夾在圖表容器內 ──
+  const tipRef = useRef<HTMLDivElement | null>(null);
+  const [tipPos, setTipPos] = useState(null);
+  React.useLayoutEffect(() => {
+    if (!tip) { setTipPos(null); return; }
+    const wrap = wrapRef.current;
+    const el = tipRef.current;
+    if (!wrap || !el || typeof window === 'undefined') return;
+    const w = wrap.getBoundingClientRect();
+    const box = el.getBoundingClientRect();
+    const mk = markerFocus
+      ? wrap.querySelector(`[data-testid="reversal-marker"][data-reversal-date="${markerFocus.date}"]`)
+      : null;
+    const mr = mk ? mk.getBoundingClientRect() : null;
+    const anchor = mr
+      ? { x: mr.left + mr.width / 2, top: mr.top, bottom: mr.bottom }
+      : { x: w.left + ((hoverX ?? 50) / 100) * w.width, top: w.top, bottom: w.bottom };
+    const vw = window.innerWidth || w.width;
+    const vh = window.innerHeight || w.height;
+    const bounds = {
+      left: Math.max(8, Math.min(w.left, vw - 8)),
+      right: Math.min(vw - 8, Math.max(w.right, 16)),
+      top: 8,
+      bottom: vh - 8,
+    };
+    const next = placePopover({ anchor, size: { width: box.width, height: box.height }, bounds });
+    setTipPos((prev) => (prev && Math.abs(prev.left - next.left) < 0.5
+      && Math.abs(prev.top - next.top) < 0.5 && prev.placement === next.placement ? prev : next));
+  }, [tip, hoverX, markerFocus]);
+
+  // 鍵盤 focus 於 marker 時，Escape 一律關閉
+  useEffect(() => {
+    if (!markerFocus) return;
+    const onKey = (e) => { if (e.key === 'Escape') closeTip(true); };
+    window.addEventListener('keydown', onKey);
+    return () => window.removeEventListener('keydown', onKey);
+  }, [markerFocus, closeTip]);
 
   const onChartKeyDown = (e) => {
     if (!useKline) return;
@@ -1181,11 +1244,13 @@ export function RangeBand({ WB, price, low, high, spark, ohlc, va: vaProp = null
     else if (e.key === 'ArrowRight') next = Math.min(N - 1, cur + 1);
     else if (e.key === 'Home') next = 0;
     else if (e.key === 'End') next = N - 1;
-    else if (e.key === 'Escape') { setHoverIdx(null); return; }
+    else if (e.key === 'Escape') { closeTip(true); return; }
     if (next == null) return;
     e.preventDefault();
+    cancelClose();
     setHoverIdx(next);
   };
+
 
   return (
     <div
@@ -1231,8 +1296,8 @@ export function RangeBand({ WB, price, low, high, spark, ohlc, va: vaProp = null
           aria-label={useKline ? '30 日 K 線與量能，可用左右方向鍵逐日檢視' : undefined}
           data-testid="kline-chart-surface"
           onKeyDown={useKline ? onChartKeyDown : undefined}
-          onFocus={useKline ? () => setHoverIdx((v) => (v == null ? cleanOhlc.length - 1 : v)) : undefined}
-          onBlur={useKline ? () => setHoverIdx(null) : undefined}
+          onFocus={useKline ? () => { cancelClose(); setHoverIdx((v) => (v == null ? cleanOhlc.length - 1 : v)); } : undefined}
+          onBlur={useKline ? () => closeTip() : undefined}
           style={{
             position: 'relative', width: '100%', height: svgH,
             touchAction: useKline ? 'pan-y' : undefined,
@@ -1240,16 +1305,17 @@ export function RangeBand({ WB, price, low, high, spark, ohlc, va: vaProp = null
           }}
           onPointerMove={useKline ? (e) => pickIndex(e.clientX) : undefined}
           onPointerDown={useKline ? (e) => pickIndex(e.clientX) : undefined}
-          onPointerLeave={useKline ? () => setHoverIdx(null) : undefined}
-          onPointerCancel={useKline ? () => setHoverIdx(null) : undefined}
+          onPointerLeave={useKline ? () => closeTip() : undefined}
+          onPointerCancel={useKline ? () => closeTip() : undefined}
         >
           <svg viewBox="0 0 100 30" preserveAspectRatio="none"
+            data-marker-focus={focusIdx != null ? '1' : '0'}
             style={{ width: '100%', height: svgH, display: 'block', position: 'absolute', inset: 0 }}>
             {zoneRect && (
               <rect
                 data-testid="resistance-zone"
                 x="0" y={zoneRect.y.toFixed(2)} width="100" height={zoneRect.h.toFixed(2)}
-                fill={WB.inkMute} opacity="0.08"
+                fill={WB.inkMute} opacity={focusIdx != null ? '0.04' : '0.08'}
               />
             )}
             {useKline ? (
@@ -1295,6 +1361,13 @@ export function RangeBand({ WB, price, low, high, spark, ohlc, va: vaProp = null
             const yPx = Math.min(Math.max((yFor(m.anchorPrice) / 30) * svgH, 0), svgH);
             const below = m.placement === 'below';
             const failed = m.state === 'failed';
+            const focused = markerFocus?.date === m.date;
+            const enter = (e) => {
+              if (e && typeof e.stopPropagation === 'function') e.stopPropagation();
+              cancelClose();
+              setHoverIdx(m.index);
+              setMarkerFocus({ date: m.date, index: m.index });
+            };
             return (
               <span
                 key={`${m.date}-${m.kind}`}
@@ -1304,28 +1377,32 @@ export function RangeBand({ WB, price, low, high, spark, ohlc, va: vaProp = null
                 data-reversal-date={m.date}
                 data-reversal-active={m.active ? '1' : '0'}
                 data-reversal-trigger={String(m.triggerPrice)}
+                data-focused={focused ? '1' : '0'}
+                className={`hk-marker${focused ? ' hk-marker--focus' : ''}`}
                 role="button"
                 tabIndex={0}
                 aria-label={m.ariaLabel}
-                title={m.ariaLabel}
-                onFocus={(e) => { e.stopPropagation(); setHoverIdx(m.index); }}
-                onPointerDown={(e) => { e.stopPropagation(); setHoverIdx(m.index); }}
-                onPointerMove={(e) => { e.stopPropagation(); setHoverIdx(m.index); }}
+                onFocus={enter}
+                onPointerDown={enter}
+                onPointerMove={enter}
+                onPointerEnter={enter}
+                onBlur={() => closeTip()}
                 onKeyDown={(e) => {
-                  if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); setHoverIdx(m.index); }
+                  if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); enter(e); }
+                  else if (e.key === 'Escape') { e.stopPropagation(); closeTip(true); }
                 }}
                 style={{
                   position: 'absolute',
                   left: `${xPct}%`,
                   top: yPx + (below ? 3 : -3),
-                  transform: below ? 'translate(-50%, 0)' : 'translate(-50%, -100%)',
+                  ['--hk-marker-t' as any]: below ? 'translate(-50%, 0)' : 'translate(-50%, -100%)',
                   fontSize: 9,
                   lineHeight: '9px',
                   color: failed ? WB.inkLight : WB.ink,
-                  opacity: failed ? 0.35 : m.active ? 1 : 0.7,
+                  opacity: failed ? 0.35 : (focused || m.active) ? 1 : 0.7,
                   cursor: 'default',
                   userSelect: 'none',
-                  zIndex: 1,
+                  zIndex: focused ? 3 : 1,
                 }}
               >{m.glyph}</span>
             );
@@ -1346,43 +1423,78 @@ export function RangeBand({ WB, price, low, high, spark, ohlc, va: vaProp = null
               pointerEvents: 'none',
             }}
           />
-          {tip && (
-            <div
-              data-testid="kline-tooltip"
-              role="tooltip"
-              style={{
-                position: 'absolute',
-                left: `${hoverX}%`,
-                top: 0,
-                transform: `translate(${shouldFlipTooltip(hoverX) ? '-100%' : '0'}, -4px)`,
-                pointerEvents: 'none',
-                background: WB.surface,
-                border: `1px solid ${WB.hair}`,
-                padding: '6px 8px',
-                fontSize: 11,
-                lineHeight: 1.5,
-                color: WB.ink,
-                fontVariantNumeric: 'tabular-nums',
-                whiteSpace: 'nowrap',
-                zIndex: 2,
-              }}
-            >
-              <div data-testid="kline-tooltip-date" style={{ color: WB.inkSub, marginBottom: 2 }}>
-                {fmtDate(tip.date)}
-              </div>
-              {tip.rows.map((r) => (
-                <div key={r.key} data-testid={`kline-tooltip-${r.key}`}>
-                  <span style={{ color: WB.inkMute }}>{r.label}</span>　{r.value}
+          {tip && typeof document !== 'undefined' && ReactDOM.createPortal(
+            (() => {
+              const byKey = Object.fromEntries(tip.rows.map((r) => [r.key, r]));
+              const cell = (k) => (byKey[k] ? (
+                <span key={k} data-testid={`kline-tooltip-${k}`} style={{ whiteSpace: 'nowrap' }}>
+                  <span style={{ color: WB.inkMute }}>{byKey[k].label}</span>{' '}{byKey[k].value}
+                </span>
+              ) : null);
+              const maxW = popoverMaxWidth(typeof window !== 'undefined' ? window.innerWidth : 240);
+              return (
+                <div
+                  ref={tipRef}
+                  data-testid="kline-tooltip"
+                  data-placement={tipPos?.placement || 'above'}
+                  role="tooltip"
+                  onPointerEnter={cancelClose}
+                  onPointerLeave={() => closeTip()}
+                  style={{
+                    position: 'fixed',
+                    left: tipPos ? tipPos.left : -9999,
+                    top: tipPos ? tipPos.top : -9999,
+                    width: 'max-content',
+                    maxWidth: maxW,
+                    minWidth: 0,
+                    minHeight: 0,
+                    boxSizing: 'border-box',
+                    pointerEvents: 'auto',
+                    background: WB.surface,
+                    border: `1px solid ${WB.hair}`,
+                    borderRadius: 2,
+                    boxShadow: '0 1px 6px rgba(41,37,32,0.08)',
+                    padding: '6px 8px',
+                    fontSize: 11,
+                    lineHeight: 1.45,
+                    color: WB.ink,
+                    fontVariantNumeric: 'tabular-nums',
+                    display: 'grid',
+                    gap: 2,
+                    zIndex: 60,
+                  }}
+                >
+                  <div data-testid="kline-tooltip-date" style={{ color: WB.inkSub }}>
+                    {fmtDate(tip.date)}
+                  </div>
+                  <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', columnGap: 8 }}>
+                    {cell('oh')}
+                    {cell('lc')}
+                  </div>
+                  {cell('chg')}
+                  <div style={{ display: 'flex', flexWrap: 'wrap', columnGap: 8 }}>
+                    {cell('vol')}
+                    {cell('ma5')}
+                    {cell('ma20')}
+                    {cell('rel')}
+                  </div>
+                  {byKey.sig && (
+                    <div data-testid="kline-tooltip-sig" style={{ color: WB.inkSub, whiteSpace: 'normal' }}>
+                      {byKey.sig.value}
+                    </div>
+                  )}
                 </div>
-              ))}
-            </div>
+              );
+            })(),
+            document.body,
           )}
+
         </div>
       )}
 
       {/* 量能副圖：與 K 棒同一時間軸，缺量顯示單一空狀態 */}
       {hasSpark && (
-        <div data-testid="holdings-volume-chart" data-has-volume={hasVolume ? '1' : '0'} style={{ marginTop: 6 }}>
+        <div data-testid="holdings-volume-chart" data-has-volume={hasVolume ? '1' : '0'} data-marker-focus={focusIdx != null ? '1' : '0'} style={{ marginTop: 6, opacity: focusIdx != null ? 0.45 : 1, transition: 'opacity 140ms ease' }}>
           {hasVolume ? (
             <svg viewBox="0 0 100 26" preserveAspectRatio="none"
               style={{ width: '100%', height: volH, display: 'block' }}>
