@@ -35,6 +35,7 @@ const baseProps = {
   rangeLow: 650, rangeHigh: 720,
   thesis: '長線 AI 龍頭', nextEvent: { date: '2026/07/15', title: '法說', summary: 'Q2 法說會' },
   stamp: '2026/06/27 12:34', WB, showSimulated: false,
+  reversalLine: null,
 };
 
 describe('HoldingExportCard', () => {
@@ -56,6 +57,20 @@ describe('HoldingExportCard', () => {
     expect(root.style.width).toBe('1920px');
     expect(root.style.height).toBe('1080px');
     expect(root.getAttribute('data-variant')).toBe('wide');
+  });
+
+  it('無轉折訊號時不渲染轉折行（不預留高度）', () => {
+    const { container } = render(<HoldingExportCard variant="square" {...baseProps} />);
+    expect(container.querySelector('[data-export-reversal]')).toBeNull();
+  });
+
+  it('有轉折訊號時帶入同一條精簡文案，footer 不變', () => {
+    const line = '轉折觀察 · 低檔放量長下影，站上 3,685.00 才確認';
+    const { container } = render(
+      <HoldingExportCard variant="square" {...baseProps} reversalLine={line} />,
+    );
+    expect(container.querySelector('[data-export-reversal]')!.textContent).toContain(line);
+    expect(container.querySelector('[data-export-footer]')!.textContent).toContain('也來檢查你的持倉');
   });
 
   it('不再輸出部位佔比與 SIMULATED 徽章', () => {

@@ -45,7 +45,12 @@ function lots(v: number | null | undefined): string {
 export function buildTooltipRows(
   bars: ReadoutBar[],
   idx: number,
-  opts: { ma5?: Array<number | null>; ma20?: Array<number | null> } = {},
+  opts: {
+    ma5?: Array<number | null>;
+    ma20?: Array<number | null>;
+    /** 命中日 → 型態文字；只有命中日才多一列，其他日期不增加資訊 */
+    signals?: Record<string, string>;
+  } = {},
 ): { date: string; rows: TooltipRow[] } | null {
   const b = bars?.[idx];
   if (!b) return null;
@@ -72,6 +77,8 @@ export function buildTooltipRows(
     { key: 'ma20', label: 'MA20 量', value: lots(ma20) },
     { key: 'rel', label: '相對量能', value: rel == null ? '—' : `${rel.toFixed(2)} 倍` },
   ];
+  const sig = opts.signals?.[b.date];
+  if (sig) rows.push({ key: 'sig', label: '型態', value: sig });
   return { date: b.date, rows };
 }
 

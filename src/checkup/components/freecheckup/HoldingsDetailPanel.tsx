@@ -141,10 +141,11 @@ function HoldingsDetailPanelImpl({
     scenario: null,
     baseTarget, pctVal: displayPnlPct, pnlVal: displayPnlAbs,
     rangeLow, rangeHigh,
+    reversalLine: vm.volumeAnalysis?.reversal?.line ?? null,
     thesis: prefs.showThesis ? thesisSentence : null,
     nextEvent: prefs.showNextEvent ? nextEvent : null,
     stamp, WB,
-  }), [h, dec, meta, baseTarget, displayPnlPct, displayPnlAbs, rangeLow, rangeHigh, prefs.showThesis, prefs.showNextEvent, thesisSentence, nextEvent, stamp, WB]);
+  }), [h, dec, meta, baseTarget, displayPnlPct, displayPnlAbs, rangeLow, rangeHigh, vm.volumeAnalysis, prefs.showThesis, prefs.showNextEvent, thesisSentence, nextEvent, stamp, WB]);
 
   const runExport = async (variant, kind, opts: { pixelRatio?: number } = {}) => {
     setExportNode({ variant });
@@ -1133,9 +1134,11 @@ export function RangeBand({ WB, price, low, high, spark, ohlc, va: vaProp = null
   // ── tooltip 內容（hover / keyboard 共用同一份） ──
   const tip = React.useMemo(
     () => (useKline && hoverIdx != null
-      ? buildTooltipRows(volBars, hoverIdx, { ma5: ma5Line, ma20: ma20Line })
+      ? buildTooltipRows(volBars, hoverIdx, {
+        ma5: ma5Line, ma20: ma20Line, signals: va?.reversal?.byDate,
+      })
       : null),
-    [useKline, hoverIdx, volBars, ma5Line, ma20Line],
+    [useKline, hoverIdx, volBars, ma5Line, ma20Line, va],
   );
 
   // 切換標的：清掉上一檔的 hover 殘留（量柱／均量／壓力狀態皆由 props 重新推導）
@@ -1381,6 +1384,24 @@ export function RangeBand({ WB, price, low, high, spark, ohlc, va: vaProp = null
             >
               {va?.summary}
             </div>
+            {va?.reversal?.line && (
+              <div
+                data-testid="holdings-volume-reversal"
+                data-reversal-kind={va.reversal.active?.kind}
+                data-reversal-state={va.reversal.active?.state}
+                style={{
+                  color: WB.inkSub, marginTop: 2,
+                  display: '-webkit-box', WebkitLineClamp: 2, WebkitBoxOrient: 'vertical',
+                  overflow: 'hidden',
+                }}
+              >
+                <span aria-hidden="true" style={{
+                  display: 'inline-block', width: 4, height: 4, borderRadius: '50%',
+                  background: WB.inkMute, verticalAlign: 'middle', marginRight: 6,
+                }} />
+                {va.reversal.line}
+              </div>
+            )}
           </div>
         </div>
       )}

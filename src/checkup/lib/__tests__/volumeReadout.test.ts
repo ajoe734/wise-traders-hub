@@ -52,6 +52,14 @@ describe('buildTooltipRows', () => {
     expect(t.rows.find((r) => r.key === 'rel')!.value).toBe('—');
   });
 
+  it('只有命中日多一列型態，其他日期不增加資訊', () => {
+    const signals = { '2026-07-21': '低檔放量長下影 · 待確認' };
+    const hit = buildTooltipRows(bars, 20, { ma5, ma20, signals })!;
+    expect(hit.rows.find((r) => r.key === 'sig')!.value).toBe('低檔放量長下影 · 待確認');
+    const miss = buildTooltipRows(bars, 19, { ma5, ma20, signals })!;
+    expect(miss.rows.find((r) => r.key === 'sig')).toBeUndefined();
+  });
+
   it('index 越界回 null', () => {
     expect(buildTooltipRows(bars, 999)).toBeNull();
   });

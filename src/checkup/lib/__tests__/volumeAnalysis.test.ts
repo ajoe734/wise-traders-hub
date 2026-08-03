@@ -287,8 +287,10 @@ describe('buildVolumeAnalysis', () => {
     expect(vm.displayBars).toHaveLength(30);
     expect(vm.stats.relVolume).toBeCloseTo(1.42, 2);
     expect(vm.pv.state).toBe('up_vol_up');
-    expect(vm.summary).toContain('價漲量增');
-    expect(vm.summary).toMatch(/1\.42\s*倍/);
+    expect(vm.summary).toContain('量增上漲');
+    // 數字已在 metrics，摘要不再複誦倍數與距離百分比
+    expect(vm.summary).not.toContain('倍');
+    expect(vm.summary).not.toContain('%');
   });
 
   it('無成交量時仍給 K 棒與明確空狀態，不畫零量柱', () => {
@@ -307,6 +309,7 @@ describe('buildVolumeAnalysis', () => {
     expect(vm.stats.relVolume).toBeNull();
     expect(vm.summary).not.toContain('量縮');
     expect(vm.summary).toContain('盤中');
+    expect(vm.reversal.line).toBeNull();
   });
 
   it('日期亂序輸入仍會對齊排序後計算', () => {
@@ -332,13 +335,13 @@ describe('壓力距離文案門檻', () => {
   it('距離 > 5% 時不得宣稱「接近」', () => {
     const va = buildVolumeAnalysis({ rawBars: mk(withPeaks(80)), price: 80 });
     expect(va.zone).not.toBeNull();
-    expect(va.summary).not.toContain('接近');
-    expect(va.summary).toMatch(/距離(壓力區|參考壓力)/);
+    expect(va.summary).not.toContain('已接近');
+    expect(va.summary).toMatch(/尚未接近(壓力區|參考壓力)/);
   });
 
   it('距離 <= 5% 時維持「接近」文案', () => {
     const va = buildVolumeAnalysis({ rawBars: mk(withPeaks(96)), price: 96 });
     expect(va.zone).not.toBeNull();
-    expect(va.summary).toContain('接近');
+    expect(va.summary).toContain('已接近');
   });
 });
