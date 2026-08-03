@@ -320,20 +320,25 @@ describe('buildVolumeAnalysis', () => {
 describe('壓力距離文案門檻', () => {
   const mk = (closes: number[]) => closes.map((c, i) => ({
     date: `2026-06-${String(i + 1).padStart(2, '0')}`,
-    open: c, high: c * 1.01, low: c * 0.99, close: c, volume: 1_000_000,
+    open: c, high: c * 1.002, low: c * 0.998, close: c, volume: 1_000_000,
   }));
+  const withPeaks = (tail: number) => {
+    const arr = Array.from({ length: 30 }, () => 90);
+    arr[5] = 100; arr[15] = 100.2;
+    for (let i = 20; i < 30; i += 1) arr[i] = tail;
+    return arr;
+  };
 
   it('距離 > 5% 時不得宣稱「接近」', () => {
-    // 前段造出 100 附近的壓力群，最後價格砍到 60（距離 ~66%）
-    const closes = [100, 99, 100, 98, 100, 97, ...Array.from({ length: 20 }, () => 60)];
-    const va = buildVolumeAnalysis({ rawBars: mk(closes), price: 60 });
+    const va = buildVolumeAnalysis({ rawBars: mk(withPeaks(80)), price: 80 });
+    expect(va.zone).not.toBeNull();
     expect(va.summary).not.toContain('接近');
     expect(va.summary).toMatch(/距離(壓力區|參考壓力)/);
   });
 
   it('距離 <= 5% 時維持「接近」文案', () => {
-    const closes = [100, 99, 100, 98, 100, 97, ...Array.from({ length: 20 }, () => 97)];
-    const va = buildVolumeAnalysis({ rawBars: mk(closes), price: 97 });
+    const va = buildVolumeAnalysis({ rawBars: mk(withPeaks(96)), price: 96 });
+    expect(va.zone).not.toBeNull();
     expect(va.summary).toContain('接近');
   });
 });
