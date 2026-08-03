@@ -50,6 +50,14 @@ serve(withLogging('line-login-exchange-nonce', async (req) => {
     .select('access_token, refresh_token')
     .maybeSingle();
 
+  // 過期列清理：不論本次兌換成功或失敗都要做，否則失敗路徑會讓過期 nonce 永久殘留。
+  const sweepStale = () =>
+    supabaseAdmin
+      .from('line_login_nonces')
+      .delete()
+      .lt('expires_at', new Date().toISOString())
+      .then(() => {}, () => {});
+
   if (error) {
     console.error('[line-login-exchange-nonce] DB error:', error);
     return new Response(JSON.stringify({ error: 'internal' }), {
@@ -58,17 +66,14 @@ serve(withLogging('line-login-exchange-nonce', async (req) => {
   }
 
   if (!data) {
+    sweepStale();
     return new Response(JSON.stringify({ error: 'nonce_expired_or_used' }), {
       status: 410, headers: { ...corsHeaders, 'Content-Type': 'application/json' },
     });
   }
 
-  // Best-effort cleanup of any stale rows in the same call.
-  supabaseAdmin
-    .from('line_login_nonces')
-    .delete()
-    .lt('expires_at', new Date().toISOString())
-    .then(() => {});
+  sweepStale();
+
 
   return new Response(JSON.stringify({
     access_token: data.access_token,

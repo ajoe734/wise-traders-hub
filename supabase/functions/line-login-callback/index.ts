@@ -367,8 +367,11 @@ serve(withLogging('line-login-callback', async (req) => {
       });
     }
 
-    // Persist nonce (60s TTL). Single-use; client exchanges via line-login-exchange-nonce.
-    const expiresAt = new Date(Date.now() + 60_000).toISOString();
+    // Persist nonce (10 分鐘 TTL）。Single-use；client 以 line-login-exchange-nonce 兌換。
+    // 為什麼不是 60 秒：LINE in-app browser 的跳轉 + 冷啟動 + 弱網常超過一分鐘，
+    // 使用者就會看到「登入連結已使用或過期」。單次使用已足夠防重放，TTL 不需這麼短。
+    const expiresAt = new Date(Date.now() + 10 * 60_000).toISOString();
+
     const { data: nonceRow, error: nonceError } = await supabaseAdmin
       .from('line_login_nonces')
       .insert({
