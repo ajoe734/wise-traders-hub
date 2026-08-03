@@ -18,6 +18,7 @@
  */
 import { Suspense, lazy, useEffect, useMemo, useState } from 'react';
 import { WB } from '@/pages/_freeCheckup/constants.jsx';
+import { useSparklines } from '@/checkup/hooks/useSparklines';
 
 const HoldingsDetailPanel = lazy(
   () => import('@/checkup/components/freecheckup/HoldingsDetailPanel'),
