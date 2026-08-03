@@ -1167,7 +1167,7 @@ export function RangeBand({ WB, price, low, high, spark, ohlc, va: vaProp = null
           width={bodyW.toFixed(2)}
           height={hh.toFixed(2)}
           fill={color}
-          opacity="0.42"
+          opacity="0.5"
         />
       );
     });
