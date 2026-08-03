@@ -979,10 +979,10 @@ export function RangeBand({ WB, price, low, high, spark, ohlc, va: vaProp = null
     ? `資料源不一致：${diagnostics.map((d) => d.code).join(', ')}`
     : undefined;
 
-  // K 線 helpers：在 SVG 100×30 座標系內定位（PAD_X / PAD_Y 於上方定義）
+  // K 線 helpers：價格 → viewBox y（單位），y-domain 只映射到 safe bounds 內
   const yFor = (v) => {
     if (!hasHiLo || range <= 0) return 15;
-    return 30 - PAD_Y - Math.min(Math.max((v - lo) / range, 0), 1) * PLOT_H;
+    return yUnitsFor(Number(v), { lo, hi }, layout);
   };
 
 
