@@ -882,17 +882,22 @@ export function RangeBand({ WB, price, low, high, spark, ohlc, va: vaProp = null
   const useKline = cleanOhlc.length >= 2;
   const hasSpark = hasHiLo && (useKline ? cleanOhlc.length >= 2 : cleanSpark.length >= 2);
 
-  // 繪圖區內縮（viewBox 100×30 單位）：避免首尾 K 棒與最高/最低影線被邊界切掉
+  // 繪圖區內縮：水平沿用 viewBox 單位；垂直改由 klineLayout 的 px safe inset 換算，
+  // 讓「最高 wick / 壓力標籤 / marker」共用同一組避讓量。
   const PAD_X = useKline ? 2.4 : 0;
-  const PAD_Y = useKline ? 2 : 0;
-  const PLOT_H = 30 - PAD_Y * 2;
+  const layout = React.useMemo(
+    () => (useKline
+      ? resolveKlineLayout({ height: svgH })
+      : resolveKlineLayout({ height: svgH, topInset: 0, bottomInset: 0 })),
+    [useKline, svgH],
+  );
 
   const lastV = useKline
     ? cleanOhlc[cleanOhlc.length - 1]?.close
     : (hasSpark ? cleanSpark[cleanSpark.length - 1] : Number(price));
   const rawY =
     range > 0 && Number.isFinite(lastV)
-      ? ((30 - PAD_Y - ((lastV - lo) / range) * PLOT_H) / 30) * svgH
+      ? unitsToPx(yUnitsFor(Number(lastV), { lo, hi }, layout), layout)
       : svgH / 2;
   const dotY = Number.isFinite(rawY) ? Math.min(Math.max(rawY, 0), svgH) : svgH / 2;
 
