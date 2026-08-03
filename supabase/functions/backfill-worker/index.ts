@@ -170,7 +170,6 @@ async function processChipFact(supa: SupabaseClient, job: Job, log: RunLogger, b
       if (isQuotaExhaustion((e as Error)?.message)) {
         // 配額 / kill-switch / circuit：停手，剩下的日期留給下一輪，不要把整段燒成 failed。
         quotaStopped = true;
-        stoppedIndex = i;
         log.log("warn", "chip_fact_quota_stop", `${job.stock_id} ${date} ${c.code}`, {
           job_id: job.id, stock_id: job.stock_id, trade_date: date, code: c.code, detail: c.detail,
         });
