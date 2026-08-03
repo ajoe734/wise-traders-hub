@@ -52,9 +52,9 @@ describe('holdingExportPrefs — 格式白名單', () => {
 
   it('面板偏好與匯出偏好使用不同 key，互不污染', () => {
     holdingExportPrefs.save({ format: 'pdf', ratio: 'wide', resolution: 'std' });
-    holdingPanelPrefs.save({ ...holdingPanelPrefs.load(), showSandbox: true });
+    holdingPanelPrefs.save({ ...holdingPanelPrefs.load(), showThesis: false });
     expect(holdingExportPrefs.load().format).toBe('pdf');
-    expect(holdingPanelPrefs.load().showSandbox).toBe(true);
+    expect(holdingPanelPrefs.load().showThesis).toBe(false);
   });
 });
 
@@ -73,55 +73,12 @@ describe('UI 選項與白名單契約', () => {
   });
 });
 
-describe('holdingExportPrefs — 佔比排名開關', () => {
-  beforeEach(() => {
-    window.localStorage.clear();
-    holdingExportPrefs.reset();
-  });
-
-  it('預設包含佔比排名', () => {
-    expect(holdingExportPrefs.load().includeWeightRank).toBe(true);
-  });
-
-  it('舊資料缺欄位時 fallback 為 true（維持既有行為）', () => {
-    const p = holdingExportPrefs.save(
-      { format: 'pdf', ratio: 'wide', resolution: 'print' } as unknown as HoldingExportPrefs,
-    );
-    expect(p.includeWeightRank).toBe(true);
-    expect(p.format).toBe('pdf');
-  });
-
-  it('非布林值會被正規化', () => {
-    const saved = holdingExportPrefs.save({
-      ...DEFAULT_EXPORT_PREFS,
-      includeWeightRank: 0 as unknown as boolean,
-    });
-    expect(saved.includeWeightRank).toBe(false);
-    expect(stored().includeWeightRank).toBe(false);
-  });
-
-  it('關閉後可持久化', () => {
-    holdingExportPrefs.save({ ...DEFAULT_EXPORT_PREFS, includeWeightRank: false });
-    expect(holdingExportPrefs.load().includeWeightRank).toBe(false);
+describe('佔比排名已下架', () => {
+  it('偏好 schema 不再有 includeWeightRank / weightRankOpen', () => {
+    expect('includeWeightRank' in DEFAULT_EXPORT_PREFS).toBe(false);
+    expect('weightRankOpen' in holdingPanelPrefs.load()).toBe(false);
   });
 });
-
-describe('holdingPanelPrefs — 佔比排名摺疊狀態', () => {
-  beforeEach(() => {
-    window.localStorage.clear();
-    holdingPanelPrefs.reset();
-  });
-
-  it('預設收合', () => {
-    expect(holdingPanelPrefs.load().weightRankOpen).toBe(false);
-  });
-
-  it('展開狀態可持久化', () => {
-    holdingPanelPrefs.save({ ...holdingPanelPrefs.load(), weightRankOpen: true });
-    expect(holdingPanelPrefs.load().weightRankOpen).toBe(true);
-  });
-});
-
 
 describe('chipsPrefs — 關鍵分點視窗', () => {
   beforeEach(() => {
