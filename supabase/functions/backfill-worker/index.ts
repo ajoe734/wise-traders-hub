@@ -595,10 +595,17 @@ export default async function handler(req: Request): Promise<Response> {
             })
             .eq("id", job.id);
           if (error) {
-            log.log("warn", "checkpoint_failed", `${job.id} ${error.message}`, { job_id: job.id });
-            await supa.rpc("backfill_job_set_done", { _id: job.id, _status: "done" });
-            status = "done";
+            // 絕不可 fallback 成 done（會把未完成 job 標完成造成永久漏資料）。
+            // 只能安全釋放回 pending，維持原 start_date 由下一輪重跑。
+            log.log("error", "checkpoint_failed", `${job.id} ${error.message}`, {
+              job_id: job.id, next_start: nextStart, code: "CHECKPOINT_FAILED",
+            });
+            await releaseToPending(job.id, `CHECKPOINT_FAILED:${error.message}`);
+            status = "pending";
+            code = "CHECKPOINT_FAILED";
+            codeTally.CHECKPOINT_FAILED = (codeTally.CHECKPOINT_FAILED ?? 0) + 1;
           }
+
         } else {
           status = "done";
           await supa.rpc("backfill_job_set_done", { _id: job.id, _status: "done" });
