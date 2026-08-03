@@ -6727,6 +6727,10 @@ export type Database = {
         Args: { _api?: string; _rate_limited?: boolean; _success?: boolean }
         Returns: undefined
       }
+      recover_stale_backfill_jobs: {
+        Args: { _stale_after?: string }
+        Returns: number
+      }
       refresh_bsr_coverage_daily: {
         Args: { days?: number }
         Returns: {
