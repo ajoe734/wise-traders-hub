@@ -63,6 +63,7 @@ async function fetchFinmind<T = unknown>(
   params: Record<string, string>,
   job: Job,
   kind: string,
+  budget?: CallBudget,
 ): Promise<T[]> {
   const pool = job.dataset === "chip_fact" || job.dataset === "institutional_daily"
     ? "backfill"
@@ -86,9 +87,14 @@ async function fetchFinmind<T = unknown>(
       headers: { Accept: "application/json" },
     }, {
       source: "finmind_bsr",
-      policy: { maxAttempts: 3, baseDelayMs: 1000, timeoutMs: 30_000 },
+      // maxAttempts 必須與 FINMIND_MAX_ATTEMPTS_PER_CALL 一致，
+      // 否則 CallBudget 推導的 HTTP attempts 上限會失真。
+      policy: { maxAttempts: FINMIND_MAX_ATTEMPTS_PER_CALL, baseDelayMs: 1000, timeoutMs: 30_000 },
+      // 每一次真實 HTTP attempt（含 retry）都計入 run 的硬上限。
+      onAttempt: () => budget?.recordHttpAttempt(),
     });
   } catch (e) {
+
     if (isRetryExhausted(e)) {
       // 重試上限用盡：落地可追溯狀態後，以 canonical 前綴往上拋給 classifyBackfillError
       await recordRetryFailure(supa as any, e as any, {
