@@ -29,6 +29,9 @@ import {
   planChipFactDates,
   resolveCallBudget,
   resolveNextStart,
+  runChipFactDateBatch,
+  summarizeWorkerRun,
+  type CheckpointReason,
 } from "../_shared/backfillWorkerPlan.ts";
 
 
@@ -152,19 +155,18 @@ async function processChipFact(supa: SupabaseClient, job: Job, log: RunLogger, b
   const dayErrors: string[] = [];
   const codeTally: Record<string, number> = {};
   let quotaStopped = false;
-  let firstFailedDate: string | null = null;
-  let stoppedIndex = dates.length; // 已「處理過」的日期數（含失敗那一天）
-  for (let i = 0; i < dates.length; i++) {
-    const date = dates[i];
-    if (budget.take(1) === 0) { quotaStopped = true; stoppedIndex = i; break; }
+  const batch = await runChipFactDateBatch(dates, async (date) => {
+    if (budget.take(1) === 0) {
+      quotaStopped = true;
+      return { ok: false as const, code: "BUDGET_EXHAUSTED", detail: "no_call_slot", quota: true };
+    }
     try {
       const dayRows = await fetchFinmind<FinmindRow>(supa, {
         dataset: "TaiwanStockTradingDailyReport",
         data_id: job.stock_id,
         start_date: date,
       }, job, "bsr_backfill_day", budget);
-      rows.push(...dayRows);
-      okDates.push(date);
+      return { ok: true as const, rows: dayRows };
     } catch (e) {
       const c = classifyBackfillError(e);
       if (isQuotaExhaustion((e as Error)?.message)) {
@@ -174,10 +176,9 @@ async function processChipFact(supa: SupabaseClient, job: Job, log: RunLogger, b
         log.log("warn", "chip_fact_quota_stop", `${job.stock_id} ${date} ${c.code}`, {
           job_id: job.id, stock_id: job.stock_id, trade_date: date, code: c.code, detail: c.detail,
         });
-        break;
+        return { ok: false as const, code: c.code, detail: c.detail, quota: true };
       }
       codeTally[c.code] = (codeTally[c.code] ?? 0) + 1;
-      failedDates.push(date);
       dayErrors.push(`${date}:${c.code}:${c.detail.slice(0, 120)}`);
       log.log("warn", "chip_fact_day_failed", `${job.stock_id} ${date} ${c.code}`, {
         job_id: job.id,
@@ -190,16 +191,14 @@ async function processChipFact(supa: SupabaseClient, job: Job, log: RunLogger, b
       });
       // 非 quota 的單日失敗：立刻停止，next_start 指回這一天，
       // 否則 checkpoint 會越過失敗日期造成永久漏資料。
-      firstFailedDate = date;
-      stoppedIndex = i;
-      break;
+      return { ok: false as const, code: c.code, detail: c.detail };
     }
-  }
-
-  const unprocessedDates = [...dates.slice(stoppedIndex), ...plan.remaining]
-    .filter((d) => d !== firstFailedDate);
-  // checkpoint：失敗日期優先；否則指向第一個尚未處理的交易日。
-  const nextStart: string | null = resolveNextStart(firstFailedDate, unprocessedDates);
+  });
+  rows.push(...batch.rows);
+  okDates.push(...batch.ok_dates);
+  if (batch.failed_date) failedDates.push(batch.failed_date);
+  const nextStart = batch.next_start ?? plan.nextStart;
+  const checkpointReason: CheckpointReason | null = batch.checkpoint_reason ?? (plan.nextStart ? "budget" : null);
 
 
   const impact: BackfillImpact = {
@@ -216,6 +215,9 @@ async function processChipFact(supa: SupabaseClient, job: Job, log: RunLogger, b
   (impact as Record<string, unknown>).days_attempted = dates.length;
   (impact as Record<string, unknown>).next_start = nextStart;
   (impact as Record<string, unknown>).quota_stopped = quotaStopped;
+  (impact as Record<string, unknown>).checkpoint_reason = checkpointReason;
+  (impact as Record<string, unknown>).failed_date = batch.failed_date;
+  (impact as Record<string, unknown>).error_code = batch.error_code;
 
   if (dayErrors.length > 0) {
     // 全數失敗才算 job 失敗，避免單日缺料把整段區間標成 failed
@@ -239,7 +241,9 @@ async function processChipFact(supa: SupabaseClient, job: Job, log: RunLogger, b
     return {
       ok: true, rows: 0, stocks: 0, materialized: 0, days: dates.length,
       note: quotaStopped ? "quota_stop" : "empty_response",
-      next_start: nextStart, quota_stopped: quotaStopped, impact,
+      next_start: nextStart, checkpoint_reason: checkpointReason,
+      failed_date: batch.failed_date, error_code: batch.error_code,
+      error_detail: batch.error_detail, quota_stopped: quotaStopped, impact,
     };
   }
 
@@ -281,7 +285,9 @@ async function processChipFact(supa: SupabaseClient, job: Job, log: RunLogger, b
 
   return {
     ok: true, rows: rows.length, facts: facts.length, materialized,
-    next_start: nextStart, quota_stopped: quotaStopped, impact,
+    next_start: nextStart, checkpoint_reason: checkpointReason,
+    failed_date: batch.failed_date, error_code: batch.error_code,
+    error_detail: batch.error_detail, quota_stopped: quotaStopped, impact,
   };
 }
 
@@ -555,23 +561,32 @@ export default async function handler(req: Request): Promise<Response> {
       return jsonResponse({ ok: true, mode, processed: 0, run_id: runId, call_budget: budget.limit });
     }
 
-    const results: Array<{ job_id: number; status: string; code?: string; result: unknown }> = [];
+    const results: Array<{
+      job_id: number; status: string; code?: string; result: unknown;
+      checkpoint_reason?: CheckpointReason | null; failed_date?: string | null;
+    }> = [];
     const codeTally: Record<string, number> = {};
 
     /** 安全釋放：把 job 放回 pending，避免卡在 running。 */
-    const releaseToPending = async (jobId: number, reason: string) => {
+    const releaseToPending = async (jobId: number, reason: string): Promise<{ ok: true } | { ok: false; error: string }> => {
       const { error } = await supa
         .from("backfill_job_queue")
         .update({ status: "pending", next_run_at: new Date(Date.now() + 60_000).toISOString(), last_error: reason.slice(0, 500), updated_at: new Date().toISOString() })
         .eq("id", jobId);
-      if (error) log.log("warn", "release_failed", `${jobId} ${error.message}`, { job_id: jobId });
+      if (error) {
+        log.log("error", "release_failed", `${jobId} ${error.message}`, { job_id: jobId, code: "RELEASE_FAILED" });
+        return { ok: false, error: error.message };
+      }
+      return { ok: true };
     };
 
     for (const job of jobs) {
       if (budget.exhausted) {
         // budget 用完：其餘已領取的 job 立即釋放回 pending（不可留在 running）。
-        await releaseToPending(job.id, "BUDGET_EXHAUSTED:released_before_start");
-        results.push({ job_id: job.id, status: "pending", code: "BUDGET_EXHAUSTED", result: { skipped: true } });
+        const released = await releaseToPending(job.id, "BUDGET_EXHAUSTED:released_before_start");
+        results.push(released.ok
+          ? { job_id: job.id, status: "pending", code: "BUDGET_EXHAUSTED", result: { skipped: true } }
+          : { job_id: job.id, status: "failed", code: "RELEASE_FAILED", result: released });
         codeTally.BUDGET_EXHAUSTED = (codeTally.BUDGET_EXHAUSTED ?? 0) + 1;
         continue;
       }
@@ -580,6 +595,8 @@ export default async function handler(req: Request): Promise<Response> {
       let code: string | undefined;
       if (outcome.ok) {
         const nextStart = (outcome as { next_start?: string | null }).next_start ?? null;
+        const checkpointReason = (outcome as { checkpoint_reason?: CheckpointReason | null }).checkpoint_reason ?? null;
+        const failedDate = (outcome as { failed_date?: string | null }).failed_date ?? null;
         if (nextStart) {
           // checkpoint / resume：本段已寫入，剩餘日期改由下一輪從 next_start 續跑。
           status = "checkpoint";
@@ -590,7 +607,9 @@ export default async function handler(req: Request): Promise<Response> {
               start_date: nextStart,
               attempts: 0,
               next_run_at: new Date(Date.now() + 60_000).toISOString(),
-              last_error: null,
+              last_error: checkpointReason === "date_failure"
+                ? `${(outcome as { error_code?: string }).error_code ?? "DATE_FAILURE"}:${failedDate ?? nextStart}`
+                : null,
               updated_at: new Date().toISOString(),
             })
             .eq("id", job.id);
@@ -600,10 +619,13 @@ export default async function handler(req: Request): Promise<Response> {
             log.log("error", "checkpoint_failed", `${job.id} ${error.message}`, {
               job_id: job.id, next_start: nextStart, code: "CHECKPOINT_FAILED",
             });
-            await releaseToPending(job.id, `CHECKPOINT_FAILED:${error.message}`);
-            status = "pending";
-            code = "CHECKPOINT_FAILED";
-            codeTally.CHECKPOINT_FAILED = (codeTally.CHECKPOINT_FAILED ?? 0) + 1;
+            const released = await releaseToPending(job.id, `CHECKPOINT_FAILED:${error.message}`);
+            status = released.ok ? "pending" : "failed";
+            code = released.ok ? "CHECKPOINT_FAILED" : "CHECKPOINT_RELEASE_FAILED";
+            codeTally[code] = (codeTally[code] ?? 0) + 1;
+          } else if (checkpointReason === "date_failure") {
+            code = (outcome as { error_code?: string }).error_code ?? "DATE_FAILURE";
+            codeTally[code] = (codeTally[code] ?? 0) + 1;
           }
 
         } else {
@@ -617,7 +639,12 @@ export default async function handler(req: Request): Promise<Response> {
         if (isQuotaExhaustion(`${code}:${detail}`)) {
           // 配額 / kill-switch / circuit：安全釋放回 pending，不計入 attempts。
           status = "pending";
-          await releaseToPending(job.id, `${code ?? "QUOTA"}:${detail}`);
+          const released = await releaseToPending(job.id, `${code ?? "QUOTA"}:${detail}`);
+          if (!released.ok) {
+            status = "failed";
+            code = "RELEASE_FAILED";
+            codeTally.RELEASE_FAILED = (codeTally.RELEASE_FAILED ?? 0) + 1;
+          }
         } else {
           // retryable → 放回 pending 由下一輪重試；不可重試才標 failed
           status = (outcome as { retryable?: boolean }).retryable ? "pending" : "failed";
@@ -627,17 +654,15 @@ export default async function handler(req: Request): Promise<Response> {
           });
         }
       }
-      results.push({ job_id: job.id, status, code, result: outcome });
+      results.push({
+        job_id: job.id, status, code, result: outcome,
+        checkpoint_reason: (outcome as { checkpoint_reason?: CheckpointReason | null }).checkpoint_reason ?? null,
+        failed_date: (outcome as { failed_date?: string | null }).failed_date ?? null,
+      });
     }
 
-    const okStatuses = new Set(["done", "checkpoint"]);
-    const failed = results.filter((r) => !okStatuses.has(r.status));
-    // 純 budget/quota 安全釋放 → skipped（不是故障）；其餘 pending/failed 才算失敗。
-    const runStatus = deriveRunStatus(results.map((r) => {
-      if (okStatuses.has(r.status)) return { status: "done" };
-      if (r.status === "pending" && isQuotaExhaustion(`${r.code ?? ""}`)) return { status: "skipped" };
-      return { status: r.status === "pending" ? "failed" : r.status };
-    }));
+    const summary = summarizeWorkerRun(results);
+    const { runStatus, failed } = summary;
     const meter = budget.snapshot();
     log.log(failed.length ? "warn" : "info", "run_summary", `${jobs.length - failed.length}/${jobs.length} ok`, {
       processed: jobs.length,
@@ -660,9 +685,7 @@ export default async function handler(req: Request): Promise<Response> {
       started_at: startedAt,
       finished_at: new Date().toISOString(),
       row_count: jobs.length,
-      error_message: failed.length
-        ? `${failed.length}/${jobs.length} jobs failed: ${failed.map((f) => `${f.job_id}:${f.code ?? f.status}`).join(",").slice(0, 400)}`
-        : null,
+      error_message: summary.errorMessage,
       metadata: {
         run_id: runId,
         run_status: runStatus,
@@ -675,7 +698,10 @@ export default async function handler(req: Request): Promise<Response> {
         attempt_budget: meter.attempt_budget,
         max_calls_per_run: MAX_FINMIND_CALLS_PER_RUN,
         max_http_attempts_per_run: MAX_FINMIND_HTTP_ATTEMPTS_PER_RUN,
-        results: results.map((r) => ({ job_id: r.job_id, status: r.status, code: r.code ?? null })),
+        results: results.map((r) => ({
+          job_id: r.job_id, status: r.status, code: r.code ?? null,
+          checkpoint_reason: r.checkpoint_reason ?? null, failed_date: r.failed_date ?? null,
+        })),
       },
     });
 
