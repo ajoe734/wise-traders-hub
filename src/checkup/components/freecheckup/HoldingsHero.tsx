@@ -8,6 +8,7 @@ import { RefreshCw } from 'lucide-react';
 import { fmtSigned, fmtSignedInt, fmtWan } from '@/checkup/lib/checkupFormat';
 import { validateProps } from '@/checkup/lib/validateProps.js';
 import { AUTO_REFRESH_OPTIONS, useAutoRefreshMinutes } from '@/checkup/lib/autoRefreshInterval';
+import { summarizeCloseAlignment } from '@/checkup/lib/closeAlignment';
 import { formatAge } from '../../lib/freshness';
 
 const SCHEMA = {
@@ -102,6 +103,9 @@ function HoldingsHeroImpl(props) {
 
   const canRefresh = typeof onRefreshPrices === 'function' && !refreshing;
   const [autoMin, setAutoMin] = useAutoRefreshMinutes();
+
+  // 收盤對齊（最後完整交易日）— 與抓取時間是兩件事，必須分開顯示
+  const closeAlign = summarizeCloseAlignment(holdings as any);
 
   // 價格來源分佈 + 最舊抓取時間（讓使用者判斷是否有個股停留在舊 tick）
   const priceSummary = summarizePriceSources(holdings);
@@ -321,6 +325,22 @@ function HoldingsHeroImpl(props) {
               </select>
             </label>
 
+          </div>
+
+          {/* 收盤對齊：最後完整交易日；與「抓取時間」分開，避免 quote 假裝成收盤 */}
+          <div
+            data-testid="holdings-hero-close-alignment"
+            data-expected-trade-date={closeAlign.expected}
+            data-aligned={closeAlign.aligned ? 'true' : 'false'}
+            title={closeAlign.title}
+            style={{
+              fontSize: 10,
+              letterSpacing: '0.08em',
+              color: closeAlign.aligned ? 'var(--cm-ink-sub)' : '#8a5a1e',
+              fontWeight: 500,
+            }}
+          >
+            {closeAlign.label}
           </div>
 
           {/* 價格來源與最舊抓取時間（Handoff §3.5：資料新鮮度可視化） */}

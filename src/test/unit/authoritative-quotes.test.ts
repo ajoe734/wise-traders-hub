@@ -48,7 +48,8 @@ describe('fetchAuthoritativeQuotes', () => {
     ];
     const out = await fetchAuthoritativeQuotes(['2330'], SETTLED_TW);
     expect(out['2330']).toMatchObject({ price: 1000, yesterday: 800, change: 200, source: 'snapshot' });
-    expect(calls[0].select).toBe('symbol, close_price, yesterday_close, trade_date');
+    const snapCall = calls.find((c) => c.table === 'daily_price_snapshots');
+    expect(snapCall?.select).toBe('symbol, close_price, yesterday_close, trade_date');
   });
 
   it('falls back to current_prices for symbols missing from the snapshot', async () => {

@@ -8,6 +8,7 @@
 import { supabase } from '@/integrations/supabase/client';
 import { detectHoldingMarket, marketPhase, type Market } from './marketClock';
 import { writeAuthoritativePrices, type MirrorQuote } from './authoritativePriceMirror';
+import { fetchConfirmedCloses } from './closeAuthority';
 
 export interface AuthoritativeQuote {
   price: number;
@@ -51,26 +52,52 @@ export async function fetchAuthoritativeQuotes(
     Array.from(byMarket.entries()).map(async ([market, list]) => {
       const phase = marketPhase(market, now);
       if (phase.hasSettledSnapshot) {
-        const { data } = await supabase
-          .from('daily_price_snapshots')
-          .select('symbol, close_price, yesterday_close, trade_date')
-          .in('symbol', list)
-          .eq('trade_date', phase.marketDate);
-        for (const row of (data as any[]) || []) {
-          const price = Number(row.close_price);
-          if (!Number.isFinite(price) || price <= 0) continue;
-          const yesterday = Number(row.yesterday_close);
-          const hasY = Number.isFinite(yesterday) && yesterday > 0;
-          out[String(row.symbol)] = {
-            price,
-            yesterday: hasY ? yesterday : null,
-            change: hasY ? price - yesterday : 0,
-            changePct: hasY ? ((price - yesterday) / yesterday) * 100 : 0,
-            source: 'snapshot',
-            updatedAt: row.trade_date ?? null,
-          };
+        // 0. 官方日 K 優先（唯一「收盤」事實）。`daily_price_snapshots` 只是
+        //    current_prices 的 14:00 鏡像，冷門股會把舊 quote 寫成當日收盤，
+        //    所以它只能當官方日 K 的 fallback，不能當權威。
+        if (market === 'TW') {
+          try {
+            const cards = await fetchConfirmedCloses(list, now);
+            for (const [symbol, cc] of Object.entries(cards)) {
+              const price = Number(cc.close);
+              if (!Number.isFinite(price) || price <= 0) continue;
+              const yesterday = cc.prevClose != null && cc.prevClose > 0 ? cc.prevClose : null;
+              out[symbol] = {
+                price,
+                yesterday,
+                change: yesterday ? price - yesterday : 0,
+                changePct: yesterday ? ((price - yesterday) / yesterday) * 100 : 0,
+                source: 'snapshot',
+                updatedAt: cc.tradeDate,
+              };
+            }
+          } catch { /* 官方日 K 失敗 → 落到既有 snapshot / current 路徑 */ }
+        }
+
+        const needSnapshot = list.filter((s) => !out[s]);
+        if (needSnapshot.length) {
+          const { data } = await supabase
+            .from('daily_price_snapshots')
+            .select('symbol, close_price, yesterday_close, trade_date')
+            .in('symbol', needSnapshot)
+            .eq('trade_date', phase.marketDate);
+          for (const row of (data as any[]) || []) {
+            const price = Number(row.close_price);
+            if (!Number.isFinite(price) || price <= 0) continue;
+            const yesterday = Number(row.yesterday_close);
+            const hasY = Number.isFinite(yesterday) && yesterday > 0;
+            out[String(row.symbol)] = {
+              price,
+              yesterday: hasY ? yesterday : null,
+              change: hasY ? price - yesterday : 0,
+              changePct: hasY ? ((price - yesterday) / yesterday) * 100 : 0,
+              source: 'snapshot',
+              updatedAt: row.trade_date ?? null,
+            };
+          }
         }
       }
+
 
       const missing = list.filter((s) => !out[s]);
       if (!missing.length) return;
