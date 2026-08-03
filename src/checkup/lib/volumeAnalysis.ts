@@ -311,6 +311,9 @@ export interface VolumeAnalysis {
   emptyVolumeReason: string | null;
 }
 
+/** 「接近壓力區」的距離門檻（5%）；超過只陳述距離，不宣稱接近。 */
+export const NEAR_RESISTANCE_PCT = 0.05;
+
 function pct1(v: number): string {
   return `${(Math.abs(v) * 100).toFixed(1)}%`;
 }
