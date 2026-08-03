@@ -313,7 +313,9 @@ describe('stale running recovery', () => {
     expect(migration, '找不到 stale-running recovery migration').not.toBeNull();
     const sql = migration!.sql;
     expect(sql).toMatch(/CREATE OR REPLACE FUNCTION public\.claim_backfill_jobs/i);
-    expect(sql).toMatch(/status\s*=\s*'running'[\s\S]*updated_at\s*<\s*now_ts\s*-\s*interval\s*'15 minutes'/i);
+    expect(sql).toMatch(/CREATE OR REPLACE FUNCTION public\.recover_stale_backfill_jobs/i);
+    expect(sql).toMatch(/updated_at\s*<\s*now_ts\s*-\s*_stale_after/i);
+    expect(sql).toMatch(/PERFORM public\.recover_stale_backfill_jobs\(interval\s*'15 minutes'\)/i);
     expect(sql).toMatch(/status\s*=\s*'pending'/i);
     expect(sql).toMatch(/last_error\s*=\s*'STALE_RUNNING_RECOVERED'/i);
     expect(sql).toMatch(/next_run_at\s*=\s*now_ts/i);
