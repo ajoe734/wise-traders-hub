@@ -160,7 +160,10 @@ const Journals = () => {
     queryFn: () => fetchJournalsData(effectiveUserId ?? undefined, isTester, previewExpertId),
     staleTime: 5 * 60 * 1000,
     gcTime: 24 * 60 * 60 * 1000,
-    refetchOnMount: false,
+    // 訂閱狀態會在本頁之外變動（付款／續訂／到期），而此 key 會被持久化到
+    // localStorage。若不在掛載時重驗，剛付款的會員會在 24h 內持續看到
+    // 「尚未訂閱」。placeholderData 保留舊資料，重驗期間不會閃爍。
+    refetchOnMount: 'always',
     placeholderData: (prev) => prev,
   });
 
