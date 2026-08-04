@@ -26,6 +26,20 @@ export const queryClient = new QueryClient({
 
 const STORAGE_KEY = "lf-app-cache-v1";
 
+/**
+ * 立即移除持久化快取。`queryClient.clear()` 只清記憶體，且 persister 的
+ * throttle（1.5s）可能來不及寫回空快取 —— 登出／切換帳號後若馬上重新載入，
+ * 舊帳號的訂閱狀態會被 rehydrate 回來。
+ */
+export function purgePersistedQueryCache() {
+  if (typeof window === "undefined") return;
+  try {
+    window.localStorage.removeItem(STORAGE_KEY);
+  } catch {
+    /* localStorage 不可用時忽略 */
+  }
+}
+
 export const queryPersister =
   typeof window !== "undefined"
     ? createSyncStoragePersister({
