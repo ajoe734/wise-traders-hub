@@ -28,7 +28,9 @@ export const useJournalDetail = (id: string | undefined, previewFlagFromUrl: boo
     enabled: !!id,
     staleTime: 5 * 60 * 1000,
     gcTime: 24 * 60 * 60 * 1000,
-    refetchOnMount: false,
+    // 詳情頁的可見性同樣由 RLS（訂閱狀態）決定，續訂後必須重驗，
+    // 否則會沿用付款前「查不到」的持久化結果。
+    refetchOnMount: 'always',
     placeholderData: (prev) => prev,
   });
 

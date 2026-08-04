@@ -56,7 +56,8 @@ const Signals = () => {
     queryFn: () => fetchSignalsData(effectiveUserId ?? undefined, isTester, previewExpertId),
     staleTime: 5 * 60 * 1000,
     gcTime: 24 * 60 * 60 * 1000,
-    refetchOnMount: false,
+    // 同 Journals：訂閱門檻結果不可吃持久化快取，否則付款後仍顯示未訂閱。
+    refetchOnMount: 'always',
     placeholderData: (prev) => prev,
   });
 

@@ -89,7 +89,8 @@ const SignalDetail = () => {
     enabled: !!id,
     staleTime: 5 * 60 * 1000,
     gcTime: 24 * 60 * 60 * 1000,
-    refetchOnMount: false,
+    // 訂閱門檻由 RLS 決定，持久化快取需在掛載時重驗。
+    refetchOnMount: 'always',
     placeholderData: (prev) => prev,
   });
 
