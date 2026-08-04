@@ -1,6 +1,6 @@
 import React, { createContext, useContext, useState, useEffect, useCallback, useMemo, ReactNode } from 'react';
 import { supabase } from '@/integrations/supabase/client';
-import { queryClient } from '@/lib/queryClient';
+import { queryClient, purgePersistedQueryCache } from '@/lib/queryClient';
 import type { AuthError, User as SupabaseUser } from '@supabase/supabase-js';
 import { gtmPush } from '@/lib/analytics/gtm';
 import { track } from '@/lib/analytics/events';
@@ -165,6 +165,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     loadingUserRef.current = null;
     inFlightRef.current = null;
     queryClient.clear();
+    purgePersistedQueryCache();
     setSupabaseUser(null);
     setUser(null);
   }, []);
