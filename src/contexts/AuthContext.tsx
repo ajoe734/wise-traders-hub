@@ -183,6 +183,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     // Different user — clear stale state
     if (loadingUserRef.current && loadingUserRef.current !== userId) {
       queryClient.clear();
+      purgePersistedQueryCache();
       setUser(null);
     }
 
