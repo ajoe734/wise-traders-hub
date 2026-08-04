@@ -701,12 +701,6 @@ export default function ChipsSection({ WB, stockCode }: { WB: any; stockCode: st
         <ChipsTrendChart WB={WB} data={data} />
       </div>
 
-      <div
-        data-testid="chips-data-source"
-        style={{ marginTop: 10, fontSize: 10, color: WB.inkMute, letterSpacing: '0.06em' }}
-      >
-        資料來源：臺灣證券交易所 TWSE・證券櫃檯買賣中心 TPEx
-      </div>
 
     </section>
   );

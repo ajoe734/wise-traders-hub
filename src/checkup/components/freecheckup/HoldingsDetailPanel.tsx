@@ -256,7 +256,6 @@ function HoldingsDetailPanelImpl({
             {h.code}
             {meta?.industry ? <> · {meta.industry}</> : null}
             {meta?.strategy ? <> · {meta.strategy}</> : null}
-            {meta?.priceSource ? <span title={`價格來源：${meta.priceSource}`} style={{ marginLeft: 8, opacity: 0.5 }}>· {meta.priceSource}</span> : null}
             {priceFreshness.ageMs != null ? (
               <span
                 data-testid="drawer-price-freshness"
@@ -273,7 +272,7 @@ function HoldingsDetailPanelImpl({
                 data-source={closeStatus.source || ''}
                 title={closeStatus.fetchedAt ? `資料抓取於 ${closeStatus.fetchedAt}` : undefined}
                 style={{ marginLeft: 8, opacity: closeStatus.isFinal ? 0.5 : 0.9 }}
-              >· {closeStatus.text}</span>
+              >· {closeStatus.source ? closeStatus.text.replace(` · ${closeStatus.source}`, '') : closeStatus.text}</span>
             ) : null}
           </div>
           <div className="holdings-detail-identity-row">
