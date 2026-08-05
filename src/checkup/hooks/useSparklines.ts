@@ -146,7 +146,6 @@ export function useSparklines(codes: string[] | null | undefined, opts?: {
 }) {
   const enabled = opts?.enabled !== false;
   const [version, setVersion] = useState(0);
-  const inFlightRef = useRef(false);
   const attemptedRef = useRef(new Set<string>());
   const codesKey = normalizeCodes(codes).sort().join(',');
   const pricesByCode = opts?.pricesByCode ?? {};
@@ -171,11 +170,10 @@ export function useSparklines(codes: string[] | null | undefined, opts?: {
     if (!wanted.length) return;
     const missing = planSparklineFetch(wanted, pricesByCode)
       .filter((code) => !attemptedRef.current.has(`${code}:${sparklineCacheKey(code)}`));
-    if (!missing.length || inFlightRef.current) return;
+    if (!missing.length) return;
     missing.forEach((code) => attemptedRef.current.add(`${code}:${sparklineCacheKey(code)}`));
 
     let cancelled = false;
-    inFlightRef.current = true;
     (async () => {
       try {
         const data = await getCheckupGateway()
@@ -214,8 +212,6 @@ export function useSparklines(codes: string[] | null | undefined, opts?: {
         if (Object.keys(bad).length) sparklineFailCache.setMany(bad);
       } catch {
         /* silent — sparkline 為非關鍵裝飾 */
-      } finally {
-        inFlightRef.current = false;
       }
     })();
     return () => {
