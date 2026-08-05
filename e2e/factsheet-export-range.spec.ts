@@ -7,10 +7,12 @@ import { seedSession, installRoutes } from './helpers/supabase-mock';
  */
 
 const EXPERT = {
-  id: 'exp-1', slug: 'sharkgu', name: '彥愷', role: 'mentor',
+  id: 'exp-1', slug: 'sharkgu', name: '彥愷', role: 'mentor', status: 'active',
+  is_test: false, avatar_url: null, created_at: '2026-01-01T00:00:00Z',
   starting_capital: 1_000_000, currency: 'TWD', asset_class: 'tw_stock',
   strategy_summary: '波段', description: null, style_tags: ['尊重趨勢'], markets: ['台股'],
 };
+
 
 const trade = (i: number, exit: string) => ({
   id: `t${i}`, instrument: `S${i}`, entry_price: 100, exit_price: 110, current_price: null,
