@@ -5,16 +5,19 @@ import {
   Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle, DialogTrigger,
 } from '@/components/ui/dialog';
 import { Button } from '@/components/ui/button';
+import { Input } from '@/components/ui/input';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { supabase } from '@/integrations/supabase/client';
 import { useFactsheetSource } from '@/hooks/admin/useFactsheetSource';
 import {
-  buildFactsheet, fmtOrNA, RANGE_LABEL, type FactsheetRange,
+  buildFactsheet, fmtOrNA, RANGE_LABEL, tradeDateBounds, validateCustomRange,
+  type FactsheetRange,
 } from '@/lib/performance/factsheet';
 
 const money = (n: number) =>
   `${n < 0 ? '−' : ''}NT$${Math.abs(Math.round(n)).toLocaleString('en-US')}`;
 const pct = (n: number) => `${n > 0 ? '+' : n < 0 ? '−' : ''}${Math.abs(n).toFixed(2)}%`;
+const dt = (v: string | null) => (v ? v.replace(/-/g, '/') : '—');
 
 /**
  * 「匯出績效 PDF」入口：先顯示資料口徑預覽（含缺漏揭露），管理員確認後才生成。
@@ -23,13 +26,23 @@ const pct = (n: number) => `${n > 0 ? '+' : n < 0 ? '−' : ''}${Math.abs(n).toF
 export function FactsheetExportDialog({ expertSlug }: { expertSlug: string | undefined }) {
   const [open, setOpen] = useState(false);
   const [range, setRange] = useState<FactsheetRange>('inception');
+  const [custom, setCustom] = useState<{ start: string; end: string }>({ start: '', end: '' });
   const [busy, setBusy] = useState(false);
   const { data, isLoading, error } = useFactsheetSource(open ? expertSlug : undefined);
 
-  const fs = useMemo(
-    () => (data ? buildFactsheet({ expert: data.expert, trades: data.trades, range }) : null),
-    [data, range],
+  const bounds = useMemo(
+    () => (data ? tradeDateBounds(data.trades) : { min: null, max: null }),
+    [data],
   );
+  const customError = range === 'custom' ? validateCustomRange(custom, bounds) : null;
+
+  const fs = useMemo(
+    () => (data && !customError
+      ? buildFactsheet({ expert: data.expert, trades: data.trades, range, custom })
+      : null),
+    [data, range, custom, customError],
+  );
+
 
   const handleExport = async () => {
     if (!fs) return;
@@ -80,8 +93,41 @@ export function FactsheetExportDialog({ expertSlug }: { expertSlug: string | und
             </Select>
           </div>
 
+          {range === 'custom' && (
+            <div className="space-y-2" data-testid="factsheet-custom-range">
+              <div className="flex items-center gap-2">
+                <Input
+                  type="date" className="w-40" value={custom.start}
+                  min={bounds.min ?? undefined} max={bounds.max ?? undefined}
+                  onChange={(e) => setCustom((c) => ({ ...c, start: e.target.value }))}
+                  data-testid="factsheet-custom-start"
+                />
+                <span className="text-muted-foreground">至</span>
+                <Input
+                  type="date" className="w-40" value={custom.end}
+                  min={bounds.min ?? undefined} max={bounds.max ?? undefined}
+                  onChange={(e) => setCustom((c) => ({ ...c, end: e.target.value }))}
+                  data-testid="factsheet-custom-end"
+                />
+              </div>
+              <p className="text-xs text-muted-foreground">
+                資料庫可用日期：{dt(bounds.min)} – {dt(bounds.max)}
+              </p>
+              {customError && (
+                <p className="text-destructive text-xs" data-testid="factsheet-custom-error">{customError}</p>
+              )}
+            </div>
+          )}
+
           {isLoading && <p className="text-muted-foreground">讀取交易紀錄中…</p>}
           {error && <p className="text-destructive">讀取失敗：{(error as Error).message}</p>}
+
+          {fs && (
+            <p className="text-xs text-muted-foreground" data-testid="factsheet-period">
+              期間 {fs.rangeLabel}：{dt(fs.periodStart)} – {dt(fs.periodEnd)}
+            </p>
+          )}
+
 
           {fs && m && (
             <>

@@ -259,27 +259,27 @@ function monthlyTable(doc: Doc, fs: Factsheet, y: number) {
 function contributorTable(
   doc: Doc, y: number, title: string, rows: { instrument: string; amount: number; pct: number | null; trades: number }[],
 ) {
-  doc.font('bold', 8.4, C.ink);
+  doc.font('bold', 9.4, C.ink);
   doc.text(title, PAGE.ml, y);
-  doc.rule(y + 1.8);
+  doc.rule(y + 2);
   if (rows.length === 0) {
-    doc.font('normal', 8, C.sub);
-    doc.text('資料尚不足', PAGE.ml, y + 7.5);
-    return y + 12;
+    doc.font('normal', 9, C.sub);
+    doc.text('資料尚不足', PAGE.ml, y + 8.5);
+    return y + 13;
   }
-  const rowH = 6.4;
+  const rowH = 7.8;
   rows.forEach((r, i) => {
-    const cy = y + 1.8 + rowH * (i + 1) - 1.8;
-    doc.font('normal', 8, C.ink);
+    const cy = y + 2 + rowH * (i + 1) - 2;
+    doc.font('normal', 9.4, C.ink);
     doc.text(r.instrument, PAGE.ml, cy);
-    doc.font('normal', 7, C.sub);
-    doc.text(`${r.trades} 筆`, PAGE.ml + 52, cy, { align: 'right' });
-    doc.font('bold', 8, C.ink);
-    doc.text(signedMoney(r.amount), PAGE.ml + 82, cy, { align: 'right' });
-    doc.font('normal', 7.4, C.sub);
-    doc.text(r.pct == null ? '—' : pct(r.pct), PAGE.ml + 98, cy, { align: 'right' });
+    doc.font('normal', 8.4, C.sub);
+    doc.text(`${r.trades} 筆`, PAGE.ml + 56, cy, { align: 'right' });
+    doc.font('bold', 9.4, C.ink);
+    doc.text(signedMoney(r.amount), PAGE.ml + 92, cy, { align: 'right' });
+    doc.font('normal', 8.6, C.sub);
+    doc.text(r.pct == null ? '—' : pct(r.pct), PAGE.ml + 112, cy, { align: 'right' });
   });
-  return y + 1.8 + rowH * rows.length + 6;
+  return y + 2 + rowH * rows.length + 6;
 }
 
 function ledgerTable(doc: Doc, fs: Factsheet, y: number) {
@@ -288,29 +288,30 @@ function ledgerTable(doc: Doc, fs: Factsheet, y: number) {
     { k: '標的', x: PAGE.ml, a: 'left' as const },
     { k: '進場', x: PAGE.ml + 62, a: 'right' as const },
     { k: '出場', x: PAGE.ml + 88, a: 'right' as const },
-    { k: '持有天數', x: PAGE.ml + 110, a: 'right' as const },
-    { k: '報酬率', x: PAGE.ml + 134, a: 'right' as const },
+    { k: '持有天數', x: PAGE.ml + 112, a: 'right' as const },
+    { k: '報酬率', x: PAGE.ml + 137, a: 'right' as const },
     { k: '損益金額', x: PAGE.w - PAGE.mr, a: 'right' as const },
   ];
-  doc.font('bold', 7, C.sub);
+  doc.font('bold', 8, C.sub);
   cols.forEach((c) => doc.text(c.k, c.x, y, { align: c.a }));
-  doc.rule(y + 1.8);
-  const rowH = 6.2;
+  doc.rule(y + 2);
+  const rowH = 7.8;
   fs.ledger.forEach((r, i) => {
-    const cy = y + 1.8 + rowH * (i + 1) - 1.9;
-    doc.font('normal', 7.6, C.ink);
+    const cy = y + 2 + rowH * (i + 1) - 2.4;
+    doc.font('normal', 9, C.ink);
     doc.text(r.instrument, cols[0].x, cy);
-    doc.font('normal', 7.2, C.sub);
+    doc.font('normal', 8.4, C.sub);
     doc.text(dt(r.entryDate), cols[1].x, cy, { align: 'right' });
     doc.text(dt(r.exitDate), cols[2].x, cy, { align: 'right' });
     doc.text(r.holdDays == null ? '—' : `${r.holdDays}`, cols[3].x, cy, { align: 'right' });
-    doc.font('bold', 7.6, C.ink);
+    doc.font('bold', 9, C.ink);
     doc.text(r.pct == null ? '—' : pct(r.pct), cols[4].x, cy, { align: 'right' });
     doc.text(signedMoney(r.amount), cols[5].x, cy, { align: 'right' });
-    doc.rule(y + 1.8 + rowH * (i + 1), PAGE.ml, PAGE.w - PAGE.mr, C.soft, 0.15);
+    doc.rule(y + 2 + rowH * (i + 1), PAGE.ml, PAGE.w - PAGE.mr, C.soft, 0.15);
   });
-  return y + 1.8 + rowH * fs.ledger.length + 6;
+  return y + 2 + rowH * fs.ledger.length + 6;
 }
+
 
 const PROCESS = [
   { t: '1. 標的篩選', d: '以市場面（趨勢與資金流向）、心理面（市場情緒位置）、技術面（型態與量價）三層交叉篩選，先排除不利環境的標的，再進入觀察名單。' },
@@ -411,13 +412,14 @@ export async function exportFactsheetPdf(opts: ExportFactsheetOptions): Promise<
   const leftEnd = y;
   y = contributorTable(doc, leftEnd, '主要負貢獻（前 5）', fs.detractors);
 
-  y = sectionTitle(doc, y, '近期已結案交易', `最多列示 12 筆，共 ${m.closedTrades} 筆`);
+  y = sectionTitle(doc, y, '近期已結案交易', `共 ${m.closedTrades} 筆，本頁列 ${fs.ledger.length} 筆`);
   y = ledgerTable(doc, fs, y);
   doc.para(
-    '交易明細直接取自平台發佈紀錄，進出場時間為當時發佈時戳，未經事後編修；完整交易清單可依審閱需求另行提供。'
-    + '損益金額為未扣除手續費、證交稅與滑價之毛數。',
-    PAGE.ml, y, CW,
+    '本頁明細依「出場日新→舊、同日以損益絕對值大→小、再依標的名稱」排序，取前 10 筆；完整紀錄留存於平台後台，可依審閱需求逐筆核對。'
+    + '進出場時間為當時發佈時戳，未經事後編修；損益金額為未扣除手續費、證交稅與滑價之毛數。',
+    PAGE.ml, y, CW, 8.5, 4.4,
   );
+
   void halfY;
   footer(doc, fs, TOTAL);
 

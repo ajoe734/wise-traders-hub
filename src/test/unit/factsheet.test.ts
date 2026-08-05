@@ -1,5 +1,5 @@
 import { describe, it, expect } from 'vitest';
-import { buildFactsheet, tradePnlAmount, type FactsheetExpert, type FactsheetTrade } from '@/lib/performance/factsheet';
+import { buildFactsheet, tradePnlAmount, tradeDateBounds, validateCustomRange, LEDGER_MAX_ROWS, type FactsheetExpert, type FactsheetTrade } from '@/lib/performance/factsheet';
 
 /**
  * 口徑鎖定：這些數字取自資料庫中彥愷（sharkgu）的真實交易統計，
@@ -96,5 +96,62 @@ describe('factsheet', () => {
     expect(fs.missing.join()).toMatch(/手續費/);
     expect(fs.missing.join()).toMatch(/基準指數/);
     expect(fs.missing.join()).toMatch(/未含未實現部位的逐日評價/);
+  });
+});
+
+describe('factsheet range 選項', () => {
+  const trades = [
+    t({ exit_date: '2025-11-10T00:00:00Z' }),
+    t({ exit_date: '2026-02-10T00:00:00Z' }),
+    t({ exit_date: '2026-07-10T00:00:00Z' }),
+  ];
+  const asOf = new Date('2026-08-05T00:00:00Z');
+
+  it('今年以來只納入當年出場交易', () => {
+    const fs = buildFactsheet({ expert, trades, range: 'ytd', asOf });
+    expect(fs.metrics.closedTrades).toBe(2);
+    expect(fs.rangeLabel).toBe('今年以來');
+  });
+
+  it('成立以來納入全部', () => {
+    expect(buildFactsheet({ expert, trades, range: 'inception', asOf }).metrics.closedTrades).toBe(3);
+  });
+
+  it('自訂區間依起訖過濾並標記標籤', () => {
+    const fs = buildFactsheet({
+      expert, trades, range: 'custom', asOf,
+      custom: { start: '2026-01-01', end: '2026-03-31' },
+    });
+    expect(fs.metrics.closedTrades).toBe(1);
+    expect(fs.rangeLabel).toBe('自訂區間 2026/01/01–2026/03/31');
+  });
+
+  it('自訂區間驗證：起晚於迄、超出可用日期、缺值', () => {
+    const bounds = tradeDateBounds(trades);
+    expect(bounds.max).toBe('2026-07-10');
+    expect(validateCustomRange({ start: '2026-05-01', end: '2026-06-01' }, bounds)).toBeNull();
+    expect(validateCustomRange({ start: '2026-06-01', end: '2026-05-01' }, bounds)).toMatch(/起日不得晚於迄日/);
+    expect(validateCustomRange({ start: '2026-05-01', end: '2026-12-31' }, bounds)).toMatch(/迄日不得晚於/);
+    expect(validateCustomRange({ start: '2020-01-01', end: '2026-05-01' }, bounds)).toMatch(/起日不得早於/);
+    expect(validateCustomRange({ start: '', end: '' }, bounds)).toMatch(/請選擇/);
+  });
+
+  it('無效自訂區間退回成立以來，不產生誤導期間', () => {
+    const fs = buildFactsheet({ expert, trades, range: 'custom', asOf, custom: { start: '2026-06-01', end: '2026-01-01' } });
+    expect(fs.rangeLabel).toBe('成立以來');
+    expect(fs.metrics.closedTrades).toBe(3);
+  });
+});
+
+describe('P3 ledger', () => {
+  it('最多 10 筆且排序穩定（出場日新→舊）', () => {
+    const many = Array.from({ length: 14 }, (_, i) =>
+      t({ instrument: `S${i}`, exit_date: `2026-06-${String(i + 1).padStart(2, '0')}T00:00:00Z` }));
+    const fs = buildFactsheet({ expert, trades: many, range: 'inception', asOf: new Date('2026-08-05T00:00:00Z') });
+    expect(fs.ledger).toHaveLength(LEDGER_MAX_ROWS);
+    expect(LEDGER_MAX_ROWS).toBe(10);
+    expect(fs.ledger[0].exitDate).toBe('2026-06-14');
+    expect(fs.ledger[9].exitDate).toBe('2026-06-05');
+    expect(fs.metrics.closedTrades).toBe(14);
   });
 });
