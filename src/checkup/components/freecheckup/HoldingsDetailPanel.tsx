@@ -887,8 +887,9 @@ export function RangeBand({ WB, price, low, high, spark, ohlc, va: vaProp = null
   const cleanSpark = Array.isArray(spark)
     ? spark.map((v) => Number(v)).filter((v) => Number.isFinite(v))
     : [];
-  const useKline = cleanOhlc.length >= 2;
-  const hasSpark = hasHiLo && (useKline ? cleanOhlc.length >= 2 : cleanSpark.length >= 2);
+  // 1 根也走 K 線模式（靠右對齊、safe inset 正常）；0 根才回退折線／空狀態
+  const useKline = cleanOhlc.length >= 1;
+  const hasSpark = hasHiLo && (useKline ? cleanOhlc.length >= 1 : cleanSpark.length >= 2);
 
   // 繪圖區內縮：水平沿用 viewBox 單位；垂直改由 klineLayout 的 px safe inset 換算，
   // 讓「最高 wick / 壓力標籤 / marker」共用同一組避讓量。
