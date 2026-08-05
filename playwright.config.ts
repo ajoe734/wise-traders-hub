@@ -800,6 +800,14 @@ export default defineConfig({
       timeout: 120_000,
       use: { ...devices['Desktop Chrome'], viewport: { width: 1280, height: 1200 } },
     },
+    {
+      // 日 K 歷史不足（1–2 根）時的安全版面：固定 30 slot、靠右、單一提示
+      name: 'holdings-kline-partial-series',
+      testMatch: /holdings-kline-partial-series\.spec\.ts/,
+      outputDir: 'test-results/holdings-drawer/kline-partial-series',
+      timeout: 120_000,
+      use: { ...devices['Desktop Chrome'], viewport: { width: 1280, height: 1200 } },
+    },
 
 
 
