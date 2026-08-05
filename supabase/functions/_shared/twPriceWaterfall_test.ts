@@ -18,9 +18,9 @@ function jsonRes(body: unknown, status = 200): Response {
   return new Response(JSON.stringify(body), { status, headers: { 'Content-Type': 'application/json' } });
 }
 
-function twseRows(n: number) {
+function twseRows(n: number, mm = '07') {
   return Array.from({ length: n }, (_, i) => [
-    `115/07/${String(i + 1).padStart(2, '0')}`, '1,000', '10,000', '100', '110', '95', '105',
+    `115/${mm}/${String(i + 1).padStart(2, '0')}`, '1,000', '10,000', '100', '110', '95', '105',
   ]);
 }
 
@@ -42,11 +42,12 @@ Deno.test('L1 TWSE 成功時不打 TPEx / FinMind', async () => {
     sleep: noSleep,
     fetchImpl: ((url: string) => {
       hits.push(new URL(url).hostname);
-      return Promise.resolve(jsonRes({ data: twseRows(5) }));
+      return Promise.resolve(jsonRes({ data: twseRows(25) }));
     }) as unknown as typeof fetch,
   });
   assertEquals(res.source, 'twse_stock_day');
-  assertEquals(res.bars.length, 5);
+  assertEquals(res.complete, true);
+  assertEquals(res.bars.length, 25);
   assertEquals(new Set(hits).size, 1);
   assertEquals(hits[0], 'www.twse.com.tw');
 });
@@ -234,4 +235,85 @@ Deno.test('兩層都掛時回空且 source 為 null', async () => {
   });
   assertEquals(res.source, null);
   assertEquals(res.msgArray.length, 0);
+});
+
+
+// ── 3491 事故回歸：月初只有本月 2 根時必須繼續往前翻月 ─────────────────
+import { tpexMonthParam, MIN_COMPLETE_BARS } from './twPriceWaterfall.ts';
+
+function tpexRows(n: number, mm: string) {
+  return Array.from({ length: n }, (_, i) => [
+    `115/${mm}/${String(i + 1).padStart(2, '0')}`, '1,000', '1,000,000', '100', '110', '95', '105', '1', '10',
+  ]);
+}
+
+Deno.test('TPEx 月參數為西元 YYYY/MM/01（民國 monthDate 會被上游忽略）', () => {
+  assertEquals(tpexMonthParam(new Date(2026, 7, 5)), '2026/08/01');
+  assertEquals(tpexMonthParam(new Date(2026, 0, 31)), '2026/01/01');
+});
+
+Deno.test('月初本月只有 2 根時，會用正確月參數往前翻直到 >= 60 根', async () => {
+  const monthsAsked: string[] = [];
+  const res = await fetchTwDailyOhlc('3491', {
+    now: () => new Date('2026-08-05T00:00:00Z'),
+    sleep: noSleep,
+    fetchImpl: ((url: string) => {
+      const u = new URL(url);
+      if (u.hostname === 'www.twse.com.tw') return Promise.resolve(jsonRes({ stat: '無資料', total: 0 }));
+      const date = u.searchParams.get('date') || '';
+      monthsAsked.push(date);
+      const mm = date.slice(5, 7);
+      const rows = mm === '08' ? tpexRows(2, '08') : tpexRows(22, mm);
+      return Promise.resolve(jsonRes({ tables: [{ data: rows }] }));
+    }) as unknown as typeof fetch,
+  });
+  assertEquals(res.source, 'tpex_daily');
+  assertEquals(res.complete, true);
+  assertEquals(res.bars.length >= 60, true);
+  assertEquals(monthsAsked.slice(0, 4), ['2026/08/01', '2026/07/01', '2026/06/01', '2026/05/01']);
+  // 依日期升冪、無重複
+  const dates = res.bars.map((b) => b.date!);
+  assertEquals([...dates].sort().join(','), dates.join(','));
+  assertEquals(new Set(dates).size, dates.length);
+  assertEquals(dates[dates.length - 1], '2026-08-02');
+});
+
+Deno.test('partial（< MIN_COMPLETE_BARS）不被視為答案，會繼續往下一層找', async () => {
+  const hosts: string[] = [];
+  const res = await fetchTwDailyOhlc('3491', {
+    now: NOW,
+    sleep: noSleep,
+    finmindToken: 'tok',
+    fetchImpl: ((url: string) => {
+      const host = new URL(url).hostname;
+      hosts.push(host);
+      if (host === 'www.twse.com.tw') return Promise.resolve(jsonRes({ data: [] }));
+      if (host === 'www.tpex.org.tw') return Promise.resolve(jsonRes({ tables: [{ data: tpexRows(2, '07') }] }));
+      return Promise.resolve(jsonRes({
+        data: Array.from({ length: 40 }, (_, i) => ({
+          date: `2026-06-${String((i % 28) + 1).padStart(2, '0')}`,
+          open: 100, max: 110, min: 95, close: 105, Trading_Volume: 1000,
+        })),
+      }));
+    }) as unknown as typeof fetch,
+  });
+  assertEquals(hosts.includes('api.finmindtrade.com'), true);
+  assertEquals(res.source, 'finmind_price');
+  assertEquals(res.complete, true);
+  assertEquals(res.bars.length >= MIN_COMPLETE_BARS, true);
+});
+
+Deno.test('所有來源都只有 partial 時，回傳最佳 partial 並標記 complete=false', async () => {
+  const res = await fetchTwDailyOhlc('3491', {
+    now: NOW,
+    sleep: noSleep,
+    fetchImpl: ((url: string) => {
+      const host = new URL(url).hostname;
+      if (host === 'www.twse.com.tw') return Promise.resolve(jsonRes({ data: [] }));
+      return Promise.resolve(jsonRes({ tables: [{ data: tpexRows(2, '07') }] }));
+    }) as unknown as typeof fetch,
+  });
+  assertEquals(res.complete, false);
+  assertEquals(res.bars.length, 2);
+  assertEquals(res.source, 'tpex_daily');
 });
