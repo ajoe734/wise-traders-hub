@@ -11,6 +11,11 @@ import { serviceClient } from "../_shared/supabaseClients.ts";
 import { withLogging } from "../_shared/edgeLogger.ts";
 import { fetchTwDailyOhlc, type TwBar } from "../_shared/twPriceWaterfall.ts";
 
+/** partial（歷史不完整）結果只快取 30 分鐘，讓下一次請求可以再回補。 */
+const PARTIAL_TTL_MS = 30 * 60 * 1000;
+/** 低於這個根數視為 partial。與 waterfall 的 MIN_COMPLETE_BARS 對齊。 */
+const MIN_COMPLETE_BARS = 20;
+
 function todayKey() {
   const d = new Date();
   return `${d.getFullYear()}${String(d.getMonth() + 1).padStart(2, "0")}${String(d.getDate()).padStart(2, "0")}`;
@@ -44,40 +49,47 @@ const handler = withLogging('checkup-sparkline', async (req, log) => {
     const sb = serviceClient();
 
     const day = todayKey();
-    const result: Record<string, {
+    type Entry = {
       ohlc: TwBar[]; closes: number[]; source?: string | null;
       fetchedAt?: string | null; tradeDate?: string | null;
-    }> = {};
+      /** 歷史是否完整（>= MIN_COMPLETE_BARS 根） */
+      complete?: boolean; barCount?: number;
+    };
+    const result: Record<string, Entry> = {};
     const toFetch: string[] = [];
 
-    const cacheKeys = codes.map((c) => `sparkline_v2_${c}_${day}`);
+    const cacheKeys = codes.map((c) => `sparkline_v3_${c}_${day}`);
     if (cacheKeys.length > 0) {
       const { data: cached } = await sb
         .from("checkup_storage")
         .select("key,data")
         .eq("user_id", "00000000-0000-0000-0000-000000000000")
         .in("key", cacheKeys);
-      const map = new Map<string, {
-        ohlc: TwBar[]; closes: number[]; source?: string | null;
-        fetchedAt?: string | null; tradeDate?: string | null;
-      }>();
+      const map = new Map<string, Entry>();
+      const nowMs = Date.now();
       (cached || []).forEach((row: any) => {
         const d = row?.data || {};
         // 只認「有 OHLC」的新快取；舊的 closes-only 快取視為 miss，強制重抓成 K 棒資料
         const ohlc = Array.isArray(d.ohlc) ? d.ohlc : [];
         const closes = Array.isArray(d.closes) ? d.closes : (Array.isArray(d) ? d : []);
-        if (ohlc.length >= 2) {
-          map.set(row.key, {
-            ohlc, closes,
-            source: d.source ?? null,
-            fetchedAt: d.fetched_at ?? null,
-            tradeDate: ohlc[ohlc.length - 1]?.date ?? null,
-          });
+        if (ohlc.length < 2) return;
+        const complete = d.complete === true || ohlc.length >= MIN_COMPLETE_BARS;
+        // partial 不得長效：超過 30 分鐘一律視為 miss，讓回補有機會補齊。
+        if (!complete) {
+          const age = nowMs - Date.parse(String(d.fetched_at ?? '')) ;
+          if (!(age >= 0 && age < PARTIAL_TTL_MS)) return;
         }
+        map.set(row.key, {
+          ohlc, closes,
+          source: d.source ?? null,
+          fetchedAt: d.fetched_at ?? null,
+          tradeDate: ohlc[ohlc.length - 1]?.date ?? null,
+          complete, barCount: ohlc.length,
+        });
       });
 
       for (const c of codes) {
-        const k = `sparkline_v2_${c}_${day}`;
+        const k = `sparkline_v3_${c}_${day}`;
         if (map.has(k)) result[c] = map.get(k)!;
         else toFetch.push(c);
       }
@@ -94,17 +106,27 @@ const handler = withLogging('checkup-sparkline', async (req, log) => {
         const ohlc = r?.bars || [];
         const closes = ohlc.map((b) => b.close);
         const fetchedAt = new Date().toISOString();
+        const complete = r?.complete === true || ohlc.length >= MIN_COMPLETE_BARS;
         result[c] = {
           ohlc, closes,
           source: r?.source ?? null,
           fetchedAt,
           tradeDate: ohlc[ohlc.length - 1]?.date ?? null,
+          complete, barCount: ohlc.length,
         };
         if (ohlc.length >= 2) {
+          if (!complete) {
+            log.warn('sparkline_partial_history', {
+              code: c, bars: ohlc.length, source: r?.source ?? null, attempts: r?.attempts,
+            });
+          }
           upserts.push({
             user_id: "00000000-0000-0000-0000-000000000000",
-            key: `sparkline_v2_${c}_${day}`,
-            data: { ohlc, closes, source: r?.source ?? null, fetched_at: fetchedAt },
+            key: `sparkline_v3_${c}_${day}`,
+            data: {
+              ohlc, closes, source: r?.source ?? null, fetched_at: fetchedAt,
+              complete, bar_count: ohlc.length,
+            },
           });
         } else {
           log.warn('sparkline_all_sources_failed', { code: c, attempts: r?.attempts });
