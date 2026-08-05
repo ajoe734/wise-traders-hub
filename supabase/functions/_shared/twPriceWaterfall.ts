@@ -206,7 +206,7 @@ async function finmindRecent(code: string, deps: WaterfallDeps): Promise<TwBar[]
   const json = await getJson(`https://api.finmindtrade.com/api/v4/data?${p}`, 'finmind_price', deps) as any;
   const rows: any[] = Array.isArray(json?.data) ? json.data : [];
   return rows
-    .map((r) => {
+    .map((r): TwBar | null => {
       const o = Number(r.open), h = Number(r.max), l = Number(r.min), c = Number(r.close);
       if (![o, h, l, c].every((n) => Number.isFinite(n) && n > 0)) return null;
       // FinMind Trading_Volume 單位為「股」
