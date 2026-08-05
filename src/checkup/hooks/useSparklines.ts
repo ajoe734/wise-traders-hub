@@ -29,6 +29,9 @@ export interface SparklineEntry {
   fetchedAt?: string | null;
   /** 最後一根日 K 的交易日 */
   tradeDate?: string | null;
+  /** 歷史是否完整（>= 20 根）。partial 只進短 TTL 快取。 */
+  complete?: boolean;
+  barCount?: number;
 }
 
 export type SparklineMap = Record<string, SparklineEntry>;
@@ -37,16 +40,37 @@ export type SparklineMap = Record<string, SparklineEntry>;
 export const SPARKLINE_TTL_MS = 12 * 60 * 60 * 1000;
 /** 失敗代號的負快取（半小時後可再試一次）。 */
 export const SPARKLINE_FAIL_TTL_MS = 30 * 60 * 1000;
+/** partial（歷史不完整）結果的短 TTL，避免「兩根 K 棒」被當成一天的正解。 */
+export const SPARKLINE_PARTIAL_TTL_MS = 30 * 60 * 1000;
+/** 低於這個根數視為 partial（與 edge 的 MIN_COMPLETE_BARS 對齊）。 */
+export const SPARKLINE_MIN_COMPLETE_BARS = 20;
 /** 單次 edge 請求最多帶幾檔。 */
 export const SPARKLINE_BATCH_SIZE = 30;
 
 export const sparklineCache = createCacheNamespace<SparklineEntry>({
   name: 'sparkline',
   ttlMs: SPARKLINE_TTL_MS,
-  // v4：key 改為 market:symbol:dataset:tradeDate:schemaVersion（datasetCacheKey）
-  version: 4,
+  // v5：只存 complete 結果；partial 改走 sparklinePartialCache（短 TTL）。
+  // 升版同時讓舊的「2 根 K 棒」長效快取整批失效。
+  version: 5,
   maxEntries: 300,
 });
+
+/** partial 結果的短 TTL 快取：仍可先畫出來，但 30 分鐘後會重新回補。 */
+export const sparklinePartialCache = createCacheNamespace<SparklineEntry>({
+  name: 'sparkline-partial',
+  ttlMs: SPARKLINE_PARTIAL_TTL_MS,
+  version: 1,
+  maxEntries: 300,
+});
+
+/** 判定一批 bar 是否算完整歷史。 */
+export function isCompleteSparkline(entry: SparklineEntry | null | undefined): boolean {
+  if (!entry) return false;
+  if (typeof entry.complete === 'boolean') return entry.complete;
+  const n = entry.ohlc?.length ?? entry.closes?.length ?? 0;
+  return n >= SPARKLINE_MIN_COMPLETE_BARS;
+}
 
 export const sparklineFailCache = createCacheNamespace<true>({
   name: 'sparkline-fail',
@@ -73,7 +97,8 @@ export function planSparklineFetch(codes: string[]): string[] {
   const wanted = normalizeCodes(codes);
   const missingKeys = new Set(sparklineCache.missing(wanted.map((c) => sparklineCacheKey(c))));
   return wanted
-    .filter((c) => missingKeys.has(sparklineCacheKey(c)))
+    // partial 在短 TTL 內先不重打；TTL 過期後 partialCache 失效 → 自動重新回補
+    .filter((c) => missingKeys.has(sparklineCacheKey(c)) && !sparklinePartialCache.get(sparklineCacheKey(c)))
     .filter((c) => !sparklineFailCache.get(sparklineCacheKey(c)))
     .slice(0, SPARKLINE_BATCH_SIZE);
 }
@@ -89,9 +114,11 @@ export function useSparklines(codes: string[] | null | undefined, opts?: { enabl
   useEffect(() => {
     const unsubA = sparklineCache.subscribe(bumpVersion);
     const unsubB = sparklineFailCache.subscribe(bumpVersion);
+    const unsubC = sparklinePartialCache.subscribe(bumpVersion);
     return () => {
       unsubA();
       unsubB();
+      unsubC();
     };
   }, [bumpVersion]);
 
@@ -119,12 +146,16 @@ export function useSparklines(codes: string[] | null | undefined, opts?: { enabl
           return;
         }
         const good: SparklineMap = {};
+        const partial: SparklineMap = {};
         const bad: Record<string, true> = {};
         for (const code of missing) {
-          if (result[code]) good[sparklineCacheKey(code)] = result[code];
-          else bad[sparklineCacheKey(code)] = true;
+          const entry = result[code];
+          if (!entry) { bad[sparklineCacheKey(code)] = true; continue; }
+          if (isCompleteSparkline(entry)) good[sparklineCacheKey(code)] = entry;
+          else partial[sparklineCacheKey(code)] = entry;
         }
         if (Object.keys(good).length) sparklineCache.setMany(good);
+        if (Object.keys(partial).length) sparklinePartialCache.setMany(partial);
         if (Object.keys(bad).length) sparklineFailCache.setMany(bad);
       } catch {
         /* silent — sparkline 為非關鍵裝飾 */
@@ -142,7 +173,7 @@ export function useSparklines(codes: string[] | null | undefined, opts?: { enabl
   const sparklineErrors: Record<string, boolean> = {};
   for (const code of wanted) {
     const key = sparklineCacheKey(code);
-    const entry = sparklineCache.getEntry(key);
+    const entry = sparklineCache.getEntry(key) ?? sparklinePartialCache.getEntry(key);
     if (entry) sparklines[code] = entry.value;
     if (sparklineFailCache.get(key)) sparklineErrors[code] = true;
   }
@@ -158,15 +189,18 @@ const sparklineInFlight = new Set<string>();
 export async function prefetchSparkline(code: string): Promise<void> {
   if (!code || !/^\d{4,6}[A-Z]?$/i.test(code)) return;
   const key = sparklineCacheKey(code);
-  if (sparklineCache.get(key) || sparklineFailCache.get(key) || sparklineInFlight.has(code)) return;
+  if (sparklineCache.get(key) || sparklinePartialCache.get(key) || sparklineFailCache.get(key) || sparklineInFlight.has(code)) return;
   sparklineInFlight.add(code);
   try {
     const data = await getCheckupGateway()
       .invoke<{ result?: SparklineMap }>('checkup-sparkline', { codes: [code] })
       .catch(() => null);
     const result = data?.result;
-    if (result?.[code]) sparklineCache.set(key, result[code]);
-    else if (result) sparklineFailCache.set(key, true);
+    const entry = result?.[code];
+    if (entry) {
+      if (isCompleteSparkline(entry)) sparklineCache.set(key, entry);
+      else sparklinePartialCache.set(key, entry);
+    } else if (result) sparklineFailCache.set(key, true);
   } catch {
     /* silent */
   } finally {
