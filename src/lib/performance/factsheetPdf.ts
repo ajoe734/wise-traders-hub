@@ -28,7 +28,7 @@ const nf = (n: number, d = 0) =>
 const money = (n: number) => `${n < 0 ? '−' : ''}NT$${nf(Math.abs(Math.round(n)))}`;
 const signedMoney = (n: number) => `${n > 0 ? '+' : n < 0 ? '−' : ''}NT$${nf(Math.abs(Math.round(n)))}`;
 const pct = (n: number) => `${n > 0 ? '+' : n < 0 ? '−' : ''}${Math.abs(n).toFixed(2)}%`;
-const plainPct = (n: number) => `${n.toFixed(2)}%`;
+const plainPct = (n: number) => `${n < 0 ? '−' : ''}${Math.abs(n).toFixed(2)}%`;
 const dt = (iso: string | null) => (iso ? iso.replace(/-/g, '/') : '—');
 
 class Doc {
@@ -185,7 +185,7 @@ function equityChart(doc: Doc, fs: Factsheet, y: number, h = 46) {
   doc.text(dt(pts[pts.length - 1].date), x1, yBot + 4, { align: 'right' });
   doc.font('normal', 6.4, C.sub);
   doc.text('已實現淨值（新台幣）', x0, yTop - 1.6);
-  return yBot + 9;
+  return yBot + 12;
 }
 
 /** 回撤曲線（往下的區塊圖） */
@@ -211,7 +211,7 @@ function drawdownChart(doc: Doc, fs: Factsheet, y: number, h = 34) {
   }
   doc.font('normal', 6.4, C.sub);
   doc.text('已實現淨值回撤（% of 初始資金）', x0, y - 1.6);
-  return y + h + 8;
+  return y + h + 10;
 }
 
 /** 月度表格 + 條狀 */
