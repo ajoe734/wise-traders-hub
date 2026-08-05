@@ -240,8 +240,9 @@ async function withPrevMonth(
 ): Promise<TwBar[]> {
   const now = deps.now?.() ?? new Date();
   let bars = await fn(code, now, deps);
-  if (!bars.length) return bars;
-  for (let back = 1; back <= 4 && bars.length < MIN_BARS; back += 1) {
+  // 月初（如 8/1–8/5）當月只有 1–2 根，一定要往前翻；即使當月為空也要試前月，
+  // 否則 1 號當天會直接回空。
+  for (let back = 1; back <= 5 && bars.length < MIN_BARS; back += 1) {
     const prev = new Date(now.getFullYear(), now.getMonth() - back, 1);
     const older = await fn(code, prev, deps);
     if (!older.length) break;
