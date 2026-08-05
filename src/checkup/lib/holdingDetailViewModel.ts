@@ -143,7 +143,9 @@ export function deriveOhlc(
   closesFallback?: number[],
 ): OHLC[] {
   const real = getSparkOhlc(sparkData30D);
-  if (real.length >= 2) return real;
+  // 只要有真實 K 棒就用真實的（即使只有 1 根）——上游 partial 時不得用合成 K 棒
+  // 冒充完整歷史，畫面改以 partial 提示表達（見 lib/partialSeries.ts）。
+  if (real.length >= 1) return real;
   if (!holding) return [];
   return synthesizeOhlc(closesFallback ?? getSparkCloses(sparkData30D), holding);
 }
