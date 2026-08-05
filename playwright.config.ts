@@ -808,6 +808,14 @@ export default defineConfig({
       timeout: 120_000,
       use: { ...devices['Desktop Chrome'], viewport: { width: 1280, height: 1200 } },
     },
+    {
+      // 既有使用者日 K localStorage schema 遷移：舊兩根資料必須淘汰並重新抓完整序列
+      name: 'holdings-kline-cache-migration',
+      testMatch: /holdings-kline-cache-migration\.spec\.ts/,
+      outputDir: 'test-results/holdings-drawer/kline-cache-migration',
+      timeout: 120_000,
+      use: { ...devices['Desktop Chrome'], viewport: { width: 1280, height: 1200 } },
+    },
 
 
 
