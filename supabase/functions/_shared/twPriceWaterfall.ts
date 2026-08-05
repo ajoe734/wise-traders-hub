@@ -44,6 +44,8 @@ export interface TwOhlcResult {
   bars: TwBar[];
   source: TwOhlcSource | null;
   attempts: WaterfallAttempt[];
+  /** 是否為「完整歷史」（>= MIN_COMPLETE_BARS 根）。partial 只能短 TTL 快取。 */
+  complete: boolean;
 }
 
 export interface TwQuoteResult {
@@ -81,6 +83,8 @@ const BROWSER_HEADERS = {
 export const MAX_BARS = 70;
 /** 至少要湊到這麼多根才停止往前翻月份。 */
 export const MIN_BARS = 62;
+/** 低於這個根數視為 partial：不接受為本層答案，改往下一層找，且只能短 TTL 快取。 */
+export const MIN_COMPLETE_BARS = 20;
 
 /** 民國/西元日期 → ISO；無法解析回 undefined。 */
 export function rocToIso(raw: unknown): string | undefined {
@@ -166,10 +170,17 @@ async function twseMonth(code: string, d: Date, deps: WaterfallDeps): Promise<Tw
 }
 
 // ── L2: TPEx tradingStock ─────────────────────────────────────────────
+/** TPEx 月查詢參數：西元 `YYYY/MM/01`（民國格式會被回 "參數輸入錯誤"）。 */
+export function tpexMonthParam(d: Date): string {
+  return `${d.getFullYear()}/${String(d.getMonth() + 1).padStart(2, '0')}/01`;
+}
+
 async function tpexMonth(code: string, d: Date, deps: WaterfallDeps): Promise<TwBar[]> {
-  const roc = `${d.getFullYear() - 1911}/${String(d.getMonth() + 1).padStart(2, '0')}`;
+  // ⚠️ 上游只認 `date=西元YYYY/MM/01`。舊版用 `monthDate=民國YYY/MM`，
+  // TPEx 會「忽略該參數並一律回當月」→ 月初回補時前月拿到同一批資料，
+  // 於是 8/3、8/4 兩根就被當成全部歷史（3491 兩根 K 棒事故根因）。
   const url =
-    `https://www.tpex.org.tw/www/zh-tw/afterTrading/tradingStock?monthDate=${encodeURIComponent(roc)}` +
+    `https://www.tpex.org.tw/www/zh-tw/afterTrading/tradingStock?date=${encodeURIComponent(tpexMonthParam(d))}` +
     `&code=${encodeURIComponent(code)}&id=&response=json&_=${(deps.now?.() ?? new Date()).getTime()}`;
   const json = await getJson(url, 'tpex_daily', deps) as any;
   let rows: unknown[][] = [];
@@ -248,7 +259,7 @@ async function withPrevMonth(
 export async function fetchTwDailyOhlc(code: string, deps: WaterfallDeps = {}): Promise<TwOhlcResult> {
   const c = String(code ?? '').trim();
   const attempts: WaterfallAttempt[] = [];
-  if (!c) return { bars: [], source: null, attempts };
+  if (!c) return { bars: [], source: null, attempts, complete: false };
 
   const layers: Array<{ source: TwOhlcSource; run: () => Promise<TwBar[]> }> = [
     { source: 'twse_stock_day', run: () => withPrevMonth(c, deps, twseMonth) },
@@ -259,6 +270,9 @@ export async function fetchTwDailyOhlc(code: string, deps: WaterfallDeps = {}): 
     layers.push({ source: 'finmind_price', run: () => finmindRecent(c, deps) });
   }
 
+  // 「拿到 2 根就收工」曾讓 partial 結果蓋掉完整來源。改成：
+  // 只有 >= MIN_COMPLETE_BARS 才立即採用；否則記下最佳 partial 繼續往下一層找。
+  let best: { bars: TwBar[]; source: TwOhlcSource } | null = null;
   for (const layer of layers) {
     const t0 = Date.now();
     let bars: TwBar[] = [];
@@ -268,10 +282,19 @@ export async function fetchTwDailyOhlc(code: string, deps: WaterfallDeps = {}): 
       attempts.push({ source: layer.source, ok: false, reason: String((e as Error)?.message ?? e).slice(0, 200), latencyMs: Date.now() - t0 });
       continue;
     }
-    attempts.push({ source: layer.source, ok: bars.length >= 2, bars: bars.length, latencyMs: Date.now() - t0 });
-    if (bars.length >= 2) return { bars: bars.slice(-MAX_BARS), source: layer.source, attempts };
+    const complete = bars.length >= MIN_COMPLETE_BARS;
+    attempts.push({
+      source: layer.source,
+      ok: bars.length >= 2,
+      bars: bars.length,
+      reason: bars.length >= 2 && !complete ? 'partial_history' : undefined,
+      latencyMs: Date.now() - t0,
+    });
+    if (complete) return { bars: bars.slice(-MAX_BARS), source: layer.source, attempts, complete: true };
+    if (bars.length >= 2 && (!best || bars.length > best.bars.length)) best = { bars, source: layer.source };
   }
-  return { bars: [], source: null, attempts };
+  if (best) return { bars: best.bars.slice(-MAX_BARS), source: best.source, attempts, complete: false };
+  return { bars: [], source: null, attempts, complete: false };
 }
 
 // ── 即時報價瀑布 ───────────────────────────────────────────────────────
