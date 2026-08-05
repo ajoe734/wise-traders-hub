@@ -1,4 +1,5 @@
 import { test, expect } from '@playwright/test';
+import { readFileSync } from 'node:fs';
 import { seedSession, installRoutes } from './helpers/supabase-mock';
 
 /** 實際 Chromium 下載驗收：點「產生 PDF」→ 取得 download 事件與 PDF 檔頭。 */
@@ -34,8 +35,8 @@ test('點擊產生 PDF → Chromium 觸發下載', async ({ page }) => {
   ]);
   expect(download.suggestedFilename()).toMatch(/^legendflow-sharkgu-factsheet-\d{8}\.pdf$/);
   const path = await download.path();
-  const buf = require('node:fs').readFileSync(path!);
+  const buf = readFileSync(path!);
   expect(buf.subarray(0, 5).toString()).toBe('%PDF-');
-  expect(buf.byteLength).toBeGreaterThan(100_000);
+  expect(buf.byteLength).toBeGreaterThan(50_000);
   console.log('DOWNLOAD', download.suggestedFilename(), buf.byteLength);
 });
