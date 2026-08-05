@@ -393,8 +393,8 @@ export async function exportFactsheetPdf(opts: ExportFactsheetOptions): Promise<
   y = kpiRow(doc, y, [
     { label: '獲利單平均報酬率', value: fmtOrNA(m.avgWinPct, pct) },
     { label: '虧損單平均報酬率', value: fmtOrNA(m.avgLossPct, pct) },
-    { label: '最佳月份', value: m.bestMonth ? `${m.bestMonth.month}　${pct(m.bestMonth.pct)}` : '資料尚不足' },
-    { label: '最差月份', value: m.worstMonth ? `${m.worstMonth.month}　${pct(m.worstMonth.pct)}` : '資料尚不足' },
+    { label: '最佳月份', value: m.bestMonth ? pct(m.bestMonth.pct) : '資料尚不足', note: m.bestMonth?.month },
+    { label: '最差月份', value: m.worstMonth ? pct(m.worstMonth.pct) : '資料尚不足', note: m.worstMonth?.month },
   ]);
   doc.para(
     '風險說明：本頁回撤以「已實現損益」序列計算，未含在倉部位的盤中評價波動，實際盤中回撤可能大於本表數字。'
