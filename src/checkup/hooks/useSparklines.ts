@@ -46,13 +46,36 @@ export const SPARKLINE_PARTIAL_TTL_MS = 30 * 60 * 1000;
 export const SPARKLINE_MIN_COMPLETE_BARS = 20;
 /** 單次 edge 請求最多帶幾檔。 */
 export const SPARKLINE_BATCH_SIZE = 30;
+/** localStorage schema；同時是一次性 migration 與測試可觀察的版本。 */
+export const SPARKLINE_CACHE_VERSION = 6;
+export const SPARKLINE_CACHE_STORAGE_KEY = `lf.checkup.cache.sparkline.v${SPARKLINE_CACHE_VERSION}`;
+export const SPARKLINE_PARTIAL_STORAGE_KEY = 'lf.checkup.cache.sparkline-partial.v2';
+export const SPARKLINE_MIGRATION_KEY = `lf.checkup.sparkline-migrated.v${SPARKLINE_CACHE_VERSION}`;
+
+/** 淘汰舊版長效／partial 日 K；React Query persisted 白名單不含 sparkline。 */
+export function migrateSparklineCacheStorage(storage: Pick<Storage, 'getItem' | 'setItem' | 'removeItem' | 'length' | 'key'> | null =
+  typeof localStorage !== 'undefined' ? localStorage : null): boolean {
+  if (!storage || storage.getItem(SPARKLINE_MIGRATION_KEY) === '1') return false;
+  const staleKeys: string[] = [];
+  for (let i = 0; i < storage.length; i += 1) {
+    const key = storage.key(i);
+    if (!key) continue;
+    if (/^lf\.checkup\.cache\.sparkline(?:-partial|-fail)?\.v\d+$/.test(key)
+      && key !== SPARKLINE_CACHE_STORAGE_KEY
+      && key !== SPARKLINE_PARTIAL_STORAGE_KEY) staleKeys.push(key);
+  }
+  staleKeys.forEach((key) => storage.removeItem(key));
+  storage.setItem(SPARKLINE_MIGRATION_KEY, '1');
+  return staleKeys.length > 0;
+}
+
+migrateSparklineCacheStorage();
 
 export const sparklineCache = createCacheNamespace<SparklineEntry>({
   name: 'sparkline',
   ttlMs: SPARKLINE_TTL_MS,
-  // v5：只存 complete 結果；partial 改走 sparklinePartialCache（短 TTL）。
-  // 升版同時讓舊的「2 根 K 棒」長效快取整批失效。
-  version: 5,
+  // v6：一次性清除 v2–v5 與舊 partial，且完整回應會原子取代 partial。
+  version: SPARKLINE_CACHE_VERSION,
   maxEntries: 300,
 });
 
@@ -60,16 +83,26 @@ export const sparklineCache = createCacheNamespace<SparklineEntry>({
 export const sparklinePartialCache = createCacheNamespace<SparklineEntry>({
   name: 'sparkline-partial',
   ttlMs: SPARKLINE_PARTIAL_TTL_MS,
-  version: 1,
+  version: 2,
   maxEntries: 300,
 });
 
 /** 判定一批 bar 是否算完整歷史。 */
 export function isCompleteSparkline(entry: SparklineEntry | null | undefined): boolean {
   if (!entry) return false;
-  if (typeof entry.complete === 'boolean') return entry.complete;
   const n = entry.ohlc?.length ?? entry.closes?.length ?? 0;
-  return n >= SPARKLINE_MIN_COMPLETE_BARS;
+  return entry.complete === true && n >= SPARKLINE_MIN_COMPLETE_BARS;
+}
+
+export function hasSparklineDrift(entry: SparklineEntry | null | undefined, price: unknown): boolean {
+  const p = Number(price);
+  const bars = entry?.ohlc;
+  const last = Array.isArray(bars) && bars.length
+    ? Number(bars[bars.length - 1]?.close)
+    : Number(entry?.closes?.at(-1));
+  return Number.isFinite(p) && p > 0 && Number.isFinite(last) && last > 0
+    ? Math.abs(p - last) / last > 0.03
+    : false;
 }
 
 export const sparklineFailCache = createCacheNamespace<true>({
@@ -93,21 +126,31 @@ function normalizeCodes(codes: unknown): string[] {
  * 決定「這批代號還缺哪些」：快取有效的不抓，最近失敗過的也不抓。
  * 純函式，可單獨測試。
  */
-export function planSparklineFetch(codes: string[]): string[] {
+export function planSparklineFetch(codes: string[], pricesByCode: Record<string, unknown> = {}): string[] {
   const wanted = normalizeCodes(codes);
-  const missingKeys = new Set(sparklineCache.missing(wanted.map((c) => sparklineCacheKey(c))));
   return wanted
-    // partial 在短 TTL 內先不重打；TTL 過期後 partialCache 失效 → 自動重新回補
-    .filter((c) => missingKeys.has(sparklineCacheKey(c)) && !sparklinePartialCache.get(sparklineCacheKey(c)))
-    .filter((c) => !sparklineFailCache.get(sparklineCacheKey(c)))
+    .filter((c) => {
+      const key = sparklineCacheKey(c);
+      const cached = sparklineCache.get(key);
+      const invalid = !isCompleteSparkline(cached) || hasSparklineDrift(cached, pricesByCode[c]);
+      if (invalid && cached) sparklineCache.delete(key);
+      // partial 僅供失敗 fallback，不得阻擋每個 mount 的第一輪回補。
+      return invalid;
+    })
     .slice(0, SPARKLINE_BATCH_SIZE);
 }
 
-export function useSparklines(codes: string[] | null | undefined, opts?: { enabled?: boolean }) {
+export function useSparklines(codes: string[] | null | undefined, opts?: {
+  enabled?: boolean;
+  pricesByCode?: Record<string, unknown>;
+}) {
   const enabled = opts?.enabled !== false;
   const [version, setVersion] = useState(0);
   const inFlightRef = useRef(false);
+  const attemptedRef = useRef(new Set<string>());
   const codesKey = normalizeCodes(codes).sort().join(',');
+  const pricesByCode = opts?.pricesByCode ?? {};
+  const pricesKey = normalizeCodes(codes).sort().map((c) => `${c}:${Number(pricesByCode[c]) || ''}`).join(',');
 
   const bumpVersion = useCallback(() => setVersion((v) => v + 1), []);
 
@@ -126,8 +169,10 @@ export function useSparklines(codes: string[] | null | undefined, opts?: { enabl
     if (!enabled) return;
     const wanted = codesKey ? codesKey.split(',') : [];
     if (!wanted.length) return;
-    const missing = planSparklineFetch(wanted);
+    const missing = planSparklineFetch(wanted, pricesByCode)
+      .filter((code) => !attemptedRef.current.has(`${code}:${sparklineCacheKey(code)}`));
     if (!missing.length || inFlightRef.current) return;
+    missing.forEach((code) => attemptedRef.current.add(`${code}:${sparklineCacheKey(code)}`));
 
     let cancelled = false;
     inFlightRef.current = true;
@@ -154,8 +199,18 @@ export function useSparklines(codes: string[] | null | undefined, opts?: { enabl
           if (isCompleteSparkline(entry)) good[sparklineCacheKey(code)] = entry;
           else partial[sparklineCacheKey(code)] = entry;
         }
-        if (Object.keys(good).length) sparklineCache.setMany(good);
-        if (Object.keys(partial).length) sparklinePartialCache.setMany(partial);
+        if (Object.keys(good).length) {
+          sparklineCache.setMany(good);
+          Object.keys(good).forEach((key) => {
+            sparklinePartialCache.delete(key);
+            sparklineFailCache.delete(key);
+          });
+        }
+        if (Object.keys(partial).length) {
+          Object.entries(partial).forEach(([key, entry]) => {
+            if (!sparklineCache.get(key)) sparklinePartialCache.set(key, entry);
+          });
+        }
         if (Object.keys(bad).length) sparklineFailCache.setMany(bad);
       } catch {
         /* silent — sparkline 為非關鍵裝飾 */
@@ -166,7 +221,7 @@ export function useSparklines(codes: string[] | null | undefined, opts?: { enabl
     return () => {
       cancelled = true;
     };
-  }, [codesKey, enabled]);
+  }, [codesKey, enabled, pricesKey]);
 
   const wanted = codesKey ? codesKey.split(',') : [];
   const sparklines: SparklineMap = {};
@@ -198,7 +253,11 @@ export async function prefetchSparkline(code: string): Promise<void> {
     const result = data?.result;
     const entry = result?.[code];
     if (entry) {
-      if (isCompleteSparkline(entry)) sparklineCache.set(key, entry);
+      if (isCompleteSparkline(entry)) {
+        sparklineCache.set(key, entry);
+        sparklinePartialCache.delete(key);
+        sparklineFailCache.delete(key);
+      }
       else sparklinePartialCache.set(key, entry);
     } else if (result) sparklineFailCache.set(key, true);
   } catch {

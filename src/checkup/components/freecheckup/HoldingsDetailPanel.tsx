@@ -1317,6 +1317,9 @@ export function RangeBand({ WB, price, low, high, spark, ohlc, va: vaProp = null
           role={useKline ? 'group' : undefined}
           aria-label={useKline ? '30 日 K 線與量能，可用左右方向鍵逐日檢視' : undefined}
           data-testid="kline-chart-surface"
+          data-bar-count={cleanOhlc.length}
+          data-date-start={cleanOhlc[0]?.date ?? ''}
+          data-date-end={cleanOhlc[cleanOhlc.length - 1]?.date ?? ''}
           onKeyDown={useKline ? onChartKeyDown : undefined}
           onFocus={useKline ? () => { cancelClose(); setHoverIdx((v) => (v == null ? cleanOhlc.length - 1 : v)); } : undefined}
           onBlur={useKline ? () => closeTip() : undefined}
