@@ -95,10 +95,10 @@ describe('buildDailyCloseStatus', () => {
 describe('sparklineCacheKey', () => {
   const now = at('2026-08-03T06:10:00Z');
   it('含 market + symbol + tradeDate，切換標的不互相汙染', () => {
-    expect(sparklineCacheKey('3443', now)).toBe('TW:3443:2026-08-03');
-    expect(sparklineCacheKey('3017', now)).toBe('TW:3017:2026-08-03');
+    expect(sparklineCacheKey('3443', now)).toBe('TW:3443:daily_ohlc:2026-08-03:v1');
+    expect(sparklineCacheKey('3017', now)).toBe('TW:3017:daily_ohlc:2026-08-03:v1');
   });
   it('換交易日即自然失效', () => {
-    expect(sparklineCacheKey('3443', at('2026-08-04T06:10:00Z'))).toBe('TW:3443:2026-08-04');
+    expect(sparklineCacheKey('3443', at('2026-08-04T06:10:00Z'))).toBe('TW:3443:daily_ohlc:2026-08-04:v1');
   });
 });
