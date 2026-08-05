@@ -20,6 +20,8 @@ import { buildDailyCloseStatus } from '@/checkup/lib/marketDataStatus';
 import { getSparkOhlc } from '@/checkup/lib/holdingDetailViewModel';
 import { rollingLots, buildTooltipRows, resistanceBadge, buildVolumeMetrics } from '@/checkup/lib/volumeReadout';
 import { barIndexFromX, barCenterPct, fmtKlineDate, fmtKlineNum } from '@/checkup/lib/klineTooltip';
+import { resolveKlineXScale, KLINE_SLOTS } from '@/checkup/lib/klineXScale';
+import { resolvePartialSeries } from '@/checkup/lib/partialSeries';
 import { placePopover, popoverMaxWidth } from '@/checkup/lib/popoverPlacement';
 import {
   resolveKlineLayout,
@@ -992,17 +994,24 @@ export function RangeBand({ WB, price, low, high, spark, ohlc, va: vaProp = null
   };
 
 
+  // ── 水平版面：固定 30 slot、靠右對齊（少量資料不得被拉滿全寬） ──
+  const xScale = React.useMemo(
+    () => resolveKlineXScale({ count: cleanOhlc.length, padX: PAD_X, slots: KLINE_SLOTS }),
+    [cleanOhlc.length, PAD_X],
+  );
+  const partialSeries = React.useMemo(
+    () => resolvePartialSeries(cleanOhlc.length, KLINE_SLOTS),
+    [cleanOhlc.length],
+  );
+
   // ── 轉折 marker 聚焦狀態：命中那根 K 棒保持清楚，其餘退焦（只用 opacity/filter，不改版面） ──
   const [markerFocus, setMarkerFocus] = useState(null); // { date, index } | null
   const focusIdx = markerFocus?.index ?? null;
 
   const klineElements = useKline ? (() => {
-    const N = cleanOhlc.length;
-    const plotW = 100 - PAD_X * 2;
-    const gap = plotW / (N - 1);
-    const bodyW = Math.max(0.8, Math.min(3.2, gap * 0.6));
+    const bodyW = xScale.bodyW;
     return cleanOhlc.map((b, i) => {
-      const x = PAD_X + (i / (N - 1)) * plotW;
+      const x = xScale.xAt(i);
       const yHigh = yFor(b.high);
       const yLow = yFor(b.low);
       const yOpen = yFor(b.open);
@@ -1070,7 +1079,9 @@ export function RangeBand({ WB, price, low, high, spark, ohlc, va: vaProp = null
     if (!el || !useKline) return;
     cancelClose();
     const r = el.getBoundingClientRect();
-    const idx = barIndexFromX(clientX, { left: r.left, width: r.width }, cleanOhlc.length);
+    const idx = r.width > 0
+      ? xScale.indexAtRatio((clientX - r.left) / r.width)
+      : barIndexFromX(clientX, { left: r.left, width: r.width }, cleanOhlc.length);
     if (idx != null) { setHoverIdx(idx); setMarkerFocus(null); }
   };
 
@@ -1078,7 +1089,9 @@ export function RangeBand({ WB, price, low, high, spark, ohlc, va: vaProp = null
   const fmtDate = fmtKlineDate;
   const fmtN = fmtKlineNum;
 
-  const hoverX = barCenterPct(hoverIdx, cleanOhlc.length, PAD_X);
+  const hoverX = (useKline && hoverIdx != null && cleanOhlc.length > 0)
+    ? xScale.xAt(hoverIdx)
+    : barCenterPct(hoverIdx, cleanOhlc.length, PAD_X);
 
   // ── 量能副圖 ──────────────────────────────────────────
   // 契約：量一律「股」進來，顯示一律「張」（@/lib/lotSize）；缺量為 null，
@@ -1135,14 +1148,11 @@ export function RangeBand({ WB, price, low, high, spark, ohlc, va: vaProp = null
   );
 
   const volElements = hasVolume && maxVol > 0 ? (() => {
-    const N = volBars.length;
-    const plotW = 100 - PAD_X * 2;
-    const gap = N > 1 ? plotW / (N - 1) : plotW;
-    // 手機仍要看得出量柱：下限拉到 1.2 單位寬
-    const bodyW = Math.max(1.2, Math.min(3.2, gap * 0.62));
+    // 手機仍要看得出量柱：下限拉到 1.2 單位寬；寬度只由 slot 間距決定
+    const bodyW = Math.max(1.2, Math.min(3.2, xScale.step * 0.62));
     return volBars.map((b, i) => {
       if (b?.volumeLots == null) return null;
-      const x = PAD_X + (N > 1 ? (i / (N - 1)) * plotW : plotW / 2);
+      const x = xScale.xAt(i);
       const hh = Math.max(0.6, (b.volumeLots / maxVol) * 24);
       const isUp = b.close > b.open;
       const isDown = b.close < b.open;
@@ -1165,16 +1175,14 @@ export function RangeBand({ WB, price, low, high, spark, ohlc, va: vaProp = null
   const ma5Points = ma5Line && maxVol > 0
     ? ma5Line.map((v, i) => {
         if (v == null) return null;
-        const N = ma5Line.length;
-        const plotW = 100 - PAD_X * 2;
-        const x = PAD_X + (N > 1 ? (i / (N - 1)) * plotW : plotW / 2);
+        const x = xScale.xAt(i);
         const y = 26 - Math.min(v / maxVol, 1) * 24;
         return `${x.toFixed(2)},${y.toFixed(2)}`;
       }).filter(Boolean).join(' ')
     : '';
 
   // 壓力帶：只有落在目前價格軸範圍內才畫，避免壓縮 K 棒刻度
-  const zoneRect = zone && hasHiLo && range > 0 && zone.lower <= hi && zone.upper >= lo
+  const zoneRect = zone && !partialSeries.partial && hasHiLo && range > 0 && zone.lower <= hi && zone.upper >= lo
     ? (() => {
         const yTop = yFor(Math.min(zone.upper, hi));
         const yBot = yFor(Math.max(zone.lower, lo));
@@ -1188,11 +1196,12 @@ export function RangeBand({ WB, price, low, high, spark, ohlc, va: vaProp = null
 
   // ── 歷史轉折標記：只有 displayBars 與畫面 K 棒對齊時才畫，避免索引錯位 ──
   const reversalMarkers = React.useMemo(() => {
+    if (partialSeries.partial) return [];
     const ms = va?.reversal?.markers;
     if (!Array.isArray(ms) || !ms.length) return [];
     if (!Array.isArray(va?.displayBars) || va.displayBars.length !== cleanOhlc.length) return [];
     return ms.filter((m) => m.index >= 0 && m.index < cleanOhlc.length);
-  }, [va, cleanOhlc.length]);
+  }, [va, cleanOhlc.length, partialSeries.partial]);
 
   // ── tooltip 內容（hover / keyboard 共用同一份） ──
   const tip = React.useMemo(
@@ -1272,6 +1281,8 @@ export function RangeBand({ WB, price, low, high, spark, ohlc, va: vaProp = null
       data-compact={compact ? '1' : '0'}
       data-has-volume={hasVolume ? '1' : '0'}
       data-zone-state={badge.state}
+      data-bar-count={String(cleanOhlc.length)}
+      data-partial={partialSeries.partial ? '1' : '0'}
       style={{ margin: '0 0 20px', minWidth: 0 }}
     >
       <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: 6 }}>
@@ -1351,6 +1362,8 @@ export function RangeBand({ WB, price, low, high, spark, ohlc, va: vaProp = null
             <span
               data-testid="resistance-zone-label"
               data-zone-state={badge.state}
+      data-bar-count={String(cleanOhlc.length)}
+      data-partial={partialSeries.partial ? '1' : '0'}
               aria-hidden="true"
               style={{
                 position: 'absolute', left: 0, top: zoneLabelTop,
@@ -1366,7 +1379,7 @@ export function RangeBand({ WB, price, low, high, spark, ohlc, va: vaProp = null
           )}
           {/* HTML overlay：歷史轉折標記（多方在棒下、空方在棒上；形狀＋文字區分狀態） */}
           {useKline && reversalMarkers.map((m) => {
-            const xPct = barCenterPct(m.index, cleanOhlc.length, PAD_X);
+            const xPct = xScale.xAt(m.index);
             if (xPct == null) return null;
             const yPx = Math.min(Math.max((yFor(m.anchorPrice) / 30) * svgH, 0), svgH);
             const below = m.placement === 'below';
@@ -1529,7 +1542,16 @@ export function RangeBand({ WB, price, low, high, spark, ohlc, va: vaProp = null
       )}
 
       {/* 量價判讀：最少資訊完成判斷；窄版 2 欄 grid，桌機一行 */}
-      {hasSpark && (stats || zone) && (
+      {hasSpark && partialSeries.partial && (
+        <div
+          data-testid="holdings-partial-series-note"
+          data-bar-count={String(partialSeries.count)}
+          style={{ marginTop: 8, fontSize: 12, lineHeight: 1.7, color: WB.inkSub }}
+        >
+          {partialSeries.text}
+        </div>
+      )}
+      {hasSpark && !partialSeries.partial && (stats || zone) && (
         <div data-testid="holdings-volume-analysis" style={{ marginTop: 8 }}>
           <div
             data-testid="holdings-volume-metrics"
