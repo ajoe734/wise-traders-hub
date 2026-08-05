@@ -49,14 +49,53 @@ export interface FactsheetExpert {
   markets: string[] | null;
 }
 
-export type FactsheetRange = 'inception' | 'y1' | 'm6' | 'm3';
+export type FactsheetRange = 'inception' | 'ytd' | 'y1' | 'm6' | 'm3' | 'custom';
 
 export const RANGE_LABEL: Record<FactsheetRange, string> = {
   inception: '成立以來',
+  ytd: '今年以來',
   y1: '近一年',
   m6: '近六個月',
   m3: '近三個月',
+  custom: '自訂區間',
 };
+
+/** 自訂區間輸入（YYYY-MM-DD） */
+export interface CustomRange {
+  start: string;
+  end: string;
+}
+
+/** P3 交易明細最多列示筆數（規格上限） */
+export const LEDGER_MAX_ROWS = 10;
+
+/**
+ * 自訂區間驗證：起訖必填、起日不得晚於迄日、不得超出資料庫真實可用日期。
+ * 回傳 null 表示合法，否則回傳可直接顯示的錯誤訊息。
+ */
+export function validateCustomRange(
+  custom: Partial<CustomRange> | undefined,
+  bounds: { min: string | null; max: string | null },
+): string | null {
+  const start = custom?.start;
+  const end = custom?.end;
+  if (!start || !end) return '請選擇自訂區間的起日與迄日。';
+  if (start > end) return '起日不得晚於迄日。';
+  if (bounds.min && start < bounds.min) return `起日不得早於資料庫最早交易日 ${bounds.min.replace(/-/g, '/')}。`;
+  if (bounds.max && end > bounds.max) return `迄日不得晚於資料庫最後交易日 ${bounds.max.replace(/-/g, '/')}。`;
+  return null;
+}
+
+/** 由交易紀錄推導可選日期邊界（以 entry/exit 的真實日期為準）。 */
+export function tradeDateBounds(trades: FactsheetTrade[]): { min: string | null; max: string | null } {
+  const days = trades
+    .flatMap((t) => [t.entry_date, t.exit_date])
+    .filter((v): v is string => !!v)
+    .map((v) => v.slice(0, 10))
+    .sort();
+  return { min: days[0] ?? null, max: days[days.length - 1] ?? null };
+}
+
 
 /** 單筆已實現損益金額（元）。缺價一律視為 0 貢獻，並在 coverage 中揭露。 */
 export function tradePnlAmount(t: FactsheetTrade): number {
@@ -149,12 +188,34 @@ export interface Factsheet {
 
 const isoDay = (v: string | null): string | null => (v ? v.slice(0, 10) : null);
 
-function rangeStartDate(range: FactsheetRange, asOf: Date): Date | null {
-  const d = new Date(asOf);
-  if (range === 'y1') { d.setFullYear(d.getFullYear() - 1); return d; }
-  if (range === 'm6') { d.setMonth(d.getMonth() - 6); return d; }
-  if (range === 'm3') { d.setMonth(d.getMonth() - 3); return d; }
-  return null;
+/**
+ * 期間視窗：回傳 [from, to]（皆為含端點的日字串，null 代表不設限）與顯示標籤。
+ * 自訂區間若不合法，退回成立以來並在標籤註記，避免產出誤導性 PDF。
+ */
+export function resolveRangeWindow(
+  range: FactsheetRange,
+  asOf: Date,
+  custom?: Partial<CustomRange>,
+): { from: string | null; to: string | null; label: string } {
+  const iso = (d: Date) => d.toISOString().slice(0, 10);
+  const shift = (fn: (d: Date) => void) => { const d = new Date(asOf); fn(d); return iso(d); };
+  switch (range) {
+    case 'ytd':
+      return { from: `${asOf.getUTCFullYear()}-01-01`, to: null, label: RANGE_LABEL.ytd };
+    case 'y1':
+      return { from: shift((d) => d.setFullYear(d.getFullYear() - 1)), to: null, label: RANGE_LABEL.y1 };
+    case 'm6':
+      return { from: shift((d) => d.setMonth(d.getMonth() - 6)), to: null, label: RANGE_LABEL.m6 };
+    case 'm3':
+      return { from: shift((d) => d.setMonth(d.getMonth() - 3)), to: null, label: RANGE_LABEL.m3 };
+    case 'custom': {
+      const s = custom?.start, e = custom?.end;
+      if (!s || !e || s > e) return { from: null, to: null, label: RANGE_LABEL.inception };
+      return { from: s, to: e, label: `自訂區間 ${s.replace(/-/g, '/')}–${e.replace(/-/g, '/')}` };
+    }
+    default:
+      return { from: null, to: null, label: RANGE_LABEL.inception };
+  }
 }
 
 /**
@@ -164,6 +225,7 @@ export function buildFactsheet(args: {
   expert: FactsheetExpert;
   trades: FactsheetTrade[];
   range: FactsheetRange;
+  custom?: Partial<CustomRange>;
   asOf?: Date;
 }): Factsheet {
   const { expert, trades, range } = args;
@@ -178,10 +240,14 @@ export function buildFactsheet(args: {
     .sort((a, b) => (a.exit_date! < b.exit_date! ? -1 : 1));
   const open = trades.filter((t) => t.status === 'open');
 
-  const from = rangeStartDate(range, asOf);
-  const closed = from
-    ? closedAll.filter((t) => new Date(t.exit_date!) >= from)
-    : closedAll;
+  const win = resolveRangeWindow(range, asOf, args.custom);
+  const closed = closedAll.filter((t) => {
+    const d = isoDay(t.exit_date)!;
+    if (win.from && d < win.from) return false;
+    if (win.to && d > win.to) return false;
+    return true;
+  });
+
 
   // ── 已實現淨值序列（基準永遠是 starting_capital，與 RPC 的 MDD 分母一致）──
   const equity: EquityPoint[] = [];
@@ -278,9 +344,17 @@ export function buildFactsheet(args: {
   const contributors = agg.filter((c) => c.amount > 0).sort((a, b) => b.amount - a.amount).slice(0, 5);
   const detractors = agg.filter((c) => c.amount < 0).sort((a, b) => a.amount - b.amount).slice(0, 5);
 
+  // 穩定排序規則：出場日新→舊；同日以損益金額絕對值大→小；再以標的名稱字典序，
+  // 確保同一份資料每次產出的 10 筆完全相同。
   const ledger: LedgerRow[] = [...closed]
-    .sort((a, b) => (a.exit_date! > b.exit_date! ? -1 : 1))
-    .slice(0, 12)
+    .sort((a, b) => {
+      if (a.exit_date !== b.exit_date) return a.exit_date! > b.exit_date! ? -1 : 1;
+      const d = Math.abs(tradePnlAmount(b)) - Math.abs(tradePnlAmount(a));
+      if (d !== 0) return d;
+      return a.instrument < b.instrument ? -1 : a.instrument > b.instrument ? 1 : 0;
+    })
+    .slice(0, LEDGER_MAX_ROWS)
+
     .map((t) => ({
       instrument: t.instrument,
       entryDate: isoDay(t.entry_date),
@@ -305,7 +379,7 @@ export function buildFactsheet(args: {
   return {
     expert,
     range,
-    rangeLabel: RANGE_LABEL[range],
+    rangeLabel: win.label,
     periodStart: closed.length > 0 ? isoDay(closed[0].entry_date ?? closed[0].exit_date) : null,
     periodEnd: closed.length > 0 ? isoDay(closed[closed.length - 1].exit_date) : null,
     asOf: asOf.toISOString().slice(0, 10),

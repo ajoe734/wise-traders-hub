@@ -290,6 +290,13 @@ export default defineConfig({
       testMatch: /account-merges-sort-export\.spec\.ts/,
       use: { ...devices['Desktop Chrome'], viewport: { width: 1280, height: 900 } },
     },
+    {
+      // 匯出績效 PDF — 日期範圍（YTD／自訂有效無效）與資料口徑預覽
+      name: 'desktop-factsheet-export-range',
+      testMatch: /factsheet-export-range\.spec\.ts/,
+      use: { ...devices['Desktop Chrome'], viewport: { width: 1280, height: 900 } },
+    },
+
 
     {
       // /holding-checkup demo 首屏可見性（desktop 1280×800）
