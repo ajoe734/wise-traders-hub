@@ -8,6 +8,7 @@ import CapitalSummaryCard from '@/pages/_adminPerformance/CapitalSummaryCard';
 import UnrealizedTab from '@/pages/_adminPerformance/UnrealizedTab';
 import RealizedTab from '@/pages/_adminPerformance/RealizedTab';
 import { FxRateFootnote } from '@/components/FxHint';
+import { FactsheetExportDialog } from '@/components/admin/FactsheetExportDialog';
 
 const AdminPerformance = () => {
   const { expertSlug } = useParams<{ expertSlug: string }>();
@@ -22,11 +23,14 @@ const AdminPerformance = () => {
     <AdminLayout>
       <SEO title={`${expertSlug || ''} 績效 | legendflow`} description={'歷史績效與績效報表。'} path={`/admin/${expertSlug || ''}/performance`} noindex />
       <div className="space-y-6">
-        <div>
-          <h1 className="text-2xl font-bold">績效總覽</h1>
-          <p className="text-muted-foreground text-sm mt-1">
-            區分未實現與已實現損益，已實現僅計算賣出與減碼
-          </p>
+        <div className="flex flex-wrap items-start justify-between gap-3">
+          <div>
+            <h1 className="text-2xl font-bold">績效總覽</h1>
+            <p className="text-muted-foreground text-sm mt-1">
+              區分未實現與已實現損益，已實現僅計算賣出與減碼
+            </p>
+          </div>
+          <FactsheetExportDialog expertSlug={expertSlug} />
         </div>
 
         {capital && <CapitalSummaryCard capital={capital} currency={expertCurrency} />}
