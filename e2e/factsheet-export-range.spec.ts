@@ -31,7 +31,14 @@ async function openDialog(page: import('@playwright/test').Page) {
     rest: {
       profiles: () => ({ display_name: 'Admin', is_tester: false }),
       user_roles: () => [{ role: 'company_admin' }],
-      experts: () => EXPERT,
+      experts: ({ url }) => {
+        const select = url.searchParams.get('select') ?? '';
+        // useExpert (AdminLayout) 走 select=*,expert_plans(*) 需要陣列；
+        // useFactsheetSource 走 maybeSingle 需要單一物件。
+        return select.includes('expert_plans')
+          ? [{ ...EXPERT, expert_plans: [] }]
+          : EXPERT;
+      },
       trade_records: () => TRADES,
     },
   });
