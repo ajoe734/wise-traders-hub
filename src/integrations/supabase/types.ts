@@ -4225,6 +4225,41 @@ export type Database = {
         }
         Relationships: []
       }
+      signal_trade_applications: {
+        Row: {
+          action: string
+          applied_at: string
+          applied_quantity: number | null
+          expert_id: string
+          signal_id: string
+          tg_op: string | null
+        }
+        Insert: {
+          action: string
+          applied_at?: string
+          applied_quantity?: number | null
+          expert_id: string
+          signal_id: string
+          tg_op?: string | null
+        }
+        Update: {
+          action?: string
+          applied_at?: string
+          applied_quantity?: number | null
+          expert_id?: string
+          signal_id?: string
+          tg_op?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "signal_trade_applications_signal_id_fkey"
+            columns: ["signal_id"]
+            isOneToOne: true
+            referencedRelation: "expert_signals"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       stock_fundamentals: {
         Row: {
           data: Json
