@@ -43,9 +43,11 @@ export function useChipsBatch({ codes, enabled = true, isViewAs = false }: UseCh
   const keyRef = useRef(key);
   const [prefetched, setPrefetched] = useState<Set<string>>(new Set());
 
-  // 可見卡片變動時批次預載
+  // 可見卡片變動時批次預載。
+  // Demo 也要預載：tw-chips-detail 是純讀取端點（不會 enqueue、不寫任何佇列），
+  // 讓 Demo 使用者一開抽屜就有背景 cron 已備妥的資料，而不是靠 lazy 回補。
   useEffect(() => {
-    if (!enabled || isDemo || keyRef.current === key) return;
+    if (!enabled || keyRef.current === key) return;
     keyRef.current = key;
     if (!validCodes.length) return;
 
@@ -55,7 +57,7 @@ export function useChipsBatch({ codes, enabled = true, isViewAs = false }: UseCh
       try {
         const res = await fetchChipsBatch(validCodes, {
           signal: ac.signal,
-          telemetry: { source: 'visible_batch', isViewAs },
+          telemetry: { source: isDemo ? 'visible_batch_demo' : 'visible_batch', isViewAs },
         });
         if (cancelled) return;
         const now = Date.now();
@@ -76,7 +78,8 @@ export function useChipsBatch({ codes, enabled = true, isViewAs = false }: UseCh
 
   const prefetch = useCallback(
     async (code: string) => {
-      if (!isValidCode(code) || isDemo) return;
+      if (!isValidCode(code)) return;
+
       const cached = qc.getQueryData<ChipsFetchResult>(chipsQueryKey(code));
       if (cached) return;
 

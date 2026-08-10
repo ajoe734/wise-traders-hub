@@ -85,6 +85,8 @@ export function useChipsLifecycle(stockCode: string, enabled = true): ChipsLifec
   const handleBackfill = useCallback(async () => {
     const result = await requestBackfill();
     if (!result) return;
+    // 被 module-level 去重／預算擋下：背景 cron 才是主要供給者，這裡靜默即可。
+    if (result.skipped) return;
     if (result.ok) {
       toast.success(
         `已排入歷史回補${result.bsrCount ? `（BSR ${result.bsrCount} 個交易日）` : ''}，三大法人約 10 秒、分點約 5–15 分鐘內完成`,
@@ -94,6 +96,7 @@ export function useChipsLifecycle(stockCode: string, enabled = true): ChipsLifec
       toast.error(`回補失敗：${String(result.error || '未知錯誤').slice(0, 80)}`);
     }
   }, [requestBackfill, refetch]);
+
 
   // ── 自動回補（sparse → triggered → ready / timeout）──
   const { phase: backfillPhase } = useChipsAutoBackfill({

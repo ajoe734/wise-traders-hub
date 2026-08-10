@@ -1064,6 +1064,36 @@ export type Database = {
         }
         Relationships: []
       }
+      chips_prefetch_targets: {
+        Row: {
+          active: boolean
+          code: string
+          created_at: string
+          reason: string | null
+          source: string
+          supported: boolean
+          updated_at: string
+        }
+        Insert: {
+          active?: boolean
+          code: string
+          created_at?: string
+          reason?: string | null
+          source?: string
+          supported?: boolean
+          updated_at?: string
+        }
+        Update: {
+          active?: boolean
+          code?: string
+          created_at?: string
+          reason?: string | null
+          source?: string
+          supported?: boolean
+          updated_at?: string
+        }
+        Relationships: []
+      }
       conversions: {
         Row: {
           channel: string
@@ -6203,6 +6233,15 @@ export type Database = {
           title: string
         }[]
       }
+      checkup_prefetch_universe: {
+        Args: never
+        Returns: {
+          code: string
+          reason: string
+          sources: string[]
+          supported: boolean
+        }[]
+      }
       chip_fact_summary: {
         Args: { _days?: number }
         Returns: {
@@ -6356,6 +6395,10 @@ export type Database = {
       enqueue_bsr_backfill: {
         Args: { p_days?: number; p_stock_id: string }
         Returns: number
+      }
+      enqueue_chips_prefetch_gaps: {
+        Args: { p_lookback_days?: number; p_max_stocks?: number }
+        Returns: Json
       }
       enqueue_institutional_backfill_universe: { Args: never; Returns: number }
       enqueue_institutional_new_stock: {
@@ -6765,6 +6808,10 @@ export type Database = {
       recover_stale_backfill_jobs: {
         Args: { _stale_after?: string }
         Returns: number
+      }
+      recover_stale_bsr_queue_jobs: {
+        Args: { p_max_attempts?: number; p_stale_minutes?: number }
+        Returns: Json
       }
       refresh_bsr_coverage_daily: {
         Args: { days?: number }
