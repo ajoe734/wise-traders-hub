@@ -140,6 +140,7 @@ const ADMIN_RPCS: Array<[string, Record<string, unknown>]> = [
   ['get_traffic_health', {}],
   ['get_user_journey', { _visitor_id: 'x', _from: '2026-01-01T00:00:00Z', _to: '2026-01-02T00:00:00Z' }],
   ['get_analyst_subscriber_profiles', {}],
+  ['get_expert_capital_status', { _expert_id: '00000000-0000-0000-0000-000000000000' }],
   ['get_weekly_limit_up_leaderboard', { _start_date: '2026-01-01', _end_date: '2026-01-07' }],
   ['check_checkup_quota', { _user_id: '00000000-0000-0000-0000-000000000000' }],
   ['check_knowledge_title_similarity', { _category: 'x', _title: 'y' }],
@@ -199,10 +200,15 @@ describe('E. Service-role-only RPCs — anon must be denied', () => {
 const RLS_HELPERS: Array<[string, Record<string, unknown>]> = [
   ['has_role', { _user_id: '00000000-0000-0000-0000-000000000000', _role: 'company_admin' }],
   ['has_active_subscription', { _user_id: '00000000-0000-0000-0000-000000000000' }],
+  ['has_active_subscription_after', {
+    _user_id: '00000000-0000-0000-0000-000000000000',
+    _published_at: '2026-01-01T00:00:00Z',
+  }],
   ['is_subscribed_to_plan', {
     _user_id: '00000000-0000-0000-0000-000000000000',
     _plan_id: '00000000-0000-0000-0000-000000000000',
   }],
+  ['is_tester', { _user_id: '00000000-0000-0000-0000-000000000000' }],
 ];
 
 describe('F. RLS helpers — anon must be denied (authenticated-only by design)', () => {
@@ -211,44 +217,6 @@ describe('F. RLS helpers — anon must be denied (authenticated-only by design)'
       const { error } = await anon.rpc(name as never, args as never);
       expect(error).not.toBeNull();
       expect(isAccessDenied(error)).toBe(true);
-    });
-  }
-});
-
-// ──────────────────────────────────────────────────────────
-// F2. 刻意開放給 anon 的 RPC — 必須「可呼叫」（不得誤收緊）
-//
-// 這三支曾被列在 D / F 的「必須拒絕」清單，但實際 grants 是 anon=EXECUTE，
-// 而且不是漂移，是設計：
-//
-//   has_active_subscription_after / is_tester
-//     被 role=public 的 RLS policy 直接引用：
-//       public.expert_signals「Subscribers can view signals published after subscription start」
-//       public.trade_records 「Anyone can view closed trades for active experts」
-//       public.experts       「Anyone can view active experts」
-//     policy 述詞是以「呼叫者的角色」求值，anon 若沒有 EXECUTE，訪客連公開的
-//     專家列表／已平倉紀錄／週記清單都會直接噴 permission denied。
-//
-//   get_expert_capital_status
-//     `@/hooks/useExpertHoldingsBundle`（公開專家頁的單一資料源）與績效圖表對訪客
-//     開放；回傳內容本來就顯示在公開專家頁上。
-//
-// 收緊前必須先改掉上述 policy / 頁面，否則會直接打爛訪客動線。
-// ──────────────────────────────────────────────────────────
-const INTENTIONAL_ANON_RPCS: Array<[string, Record<string, unknown>]> = [
-  ['has_active_subscription_after', {
-    _user_id: '00000000-0000-0000-0000-000000000000',
-    _published_at: '2026-01-01T00:00:00Z',
-  }],
-  ['is_tester', { _user_id: '00000000-0000-0000-0000-000000000000' }],
-  ['get_expert_capital_status', { _expert_id: '00000000-0000-0000-0000-000000000000' }],
-];
-
-describe('F2. Intentionally anon-callable RPCs — must stay callable', () => {
-  for (const [name, args] of INTENTIONAL_ANON_RPCS) {
-    it(`anon rpc('${name}') → allowed (public surface depends on it)`, async () => {
-      const { error } = await anon.rpc(name as never, args as never);
-      expect(isAccessDenied(error)).toBe(false);
     });
   }
 });
