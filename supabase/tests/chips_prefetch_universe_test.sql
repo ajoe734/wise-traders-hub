@@ -189,13 +189,24 @@ BEGIN
        AND command LIKE '%enqueue_chips_prefetch_gaps%'
   ), 'case8: hourly :02 enqueue job missing/misconfigured';
 
+  -- pg_cron 以 UTC 解讀排程。worker 必須全天每小時跑，否則 13–23 UTC 期間
+  -- enqueue 出來的 job 會滯留到隔日 00 UTC 才有 worker 領取。
+  -- 配額保護由 gap detection 去重 + finmind admission budget 負責，不靠限制時段。
   ASSERT EXISTS (
     SELECT 1 FROM cron.job
      WHERE jobname = 'tw-bsr-worker-hourly'
-       AND schedule = '7 0-12 * * *'
+       AND schedule = '7 * * * *'
        AND active
        AND command LIKE '%tw-bsr-finmind-sync%'
-  ), 'case8: hourly :07 worker job missing/misconfigured';
+  ), 'case8: hourly :07 worker job must run 24h (7 * * * *)';
+
+  -- 明確禁止回退成只跑部分時段
+  ASSERT NOT EXISTS (
+    SELECT 1 FROM cron.job
+     WHERE jobname = 'tw-bsr-worker-hourly'
+       AND schedule LIKE '%0-12%'
+  ), 'case8: worker schedule must not be window-restricted (queue would stall overnight)';
+
 END $$;
 
 ROLLBACK;

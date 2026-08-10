@@ -13,8 +13,7 @@
  */
 import { describe, it, expect, beforeAll } from 'vitest';
 import { render } from '@testing-library/react';
-import { Suspense, createRef, type ReactNode } from 'react';
-import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
+import { Suspense, createRef } from 'react';
 import fs from 'node:fs';
 import path from 'node:path';
 
@@ -261,23 +260,14 @@ describe('FreeCheckup tab — memo skips re-render with stable props', () => {
   });
 });
 
-// HoldingsTab → HoldingsWorkbench → useChipsBatch 需要 QueryClient（籌碼批次預載）。
-// 用 retry:false 的獨立 client，避免測試互相污染或背景重試。
-function QC({ children }: { children: ReactNode }) {
-  const client = new QueryClient({ defaultOptions: { queries: { retry: false, gcTime: 0 } } });
-  return <QueryClientProvider client={client}>{children}</QueryClientProvider>;
-}
-
 describe('FreeCheckup HoldingsTab — lazy + memo + mount budget', () => {
   it('HoldingsTab first render under jsdom-friendly budget (empty持倉)', async () => {
     const Tab = (await import('@/checkup/components/freecheckup/HoldingsTab')).default;
     const t0 = performance.now();
     const { unmount } = render(
-      <QC>
-        <Suspense fallback={null}>
-          <Tab {...holdingsProps} />
-        </Suspense>
-      </QC>
+      <Suspense fallback={null}>
+        <Tab {...holdingsProps} />
+      </Suspense>
     );
     const ms = performance.now() - t0;
     unmount();
@@ -291,13 +281,12 @@ describe('FreeCheckup HoldingsTab — lazy + memo + mount budget', () => {
     const trackedSetTab = (..._args: any[]) => { runs++; };
     const props = { ...holdingsProps, setTab: trackedSetTab };
     const { rerender, unmount } = render(
-      <QC><Suspense fallback={null}><Tab {...props} /></Suspense></QC>
+      <Suspense fallback={null}><Tab {...props} /></Suspense>
     );
-    rerender(<QC><Suspense fallback={null}><Tab {...props} /></Suspense></QC>);
-    rerender(<QC><Suspense fallback={null}><Tab {...props} /></Suspense></QC>);
+    rerender(<Suspense fallback={null}><Tab {...props} /></Suspense>);
+    rerender(<Suspense fallback={null}><Tab {...props} /></Suspense>);
     unmount();
     // setTab 僅由「上傳成交」CTA 點擊觸發，rerender 不該呼叫
     expect(runs).toBe(0);
   });
 });
-

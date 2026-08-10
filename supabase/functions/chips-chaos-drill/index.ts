@@ -16,9 +16,7 @@
 
 import { corsHeaders } from '../_shared/cors.ts';
 import { serviceClient } from '../_shared/supabaseClients.ts';
-import { requireCronKey, AuthError } from '../_shared/authGuard.ts';
-import { requireCompanyAdmin, authErrorResponse } from '../_shared/adminGuard.ts';
-
+import { requireCaller, requireCronKey, AuthError } from '../_shared/authGuard.ts';
 import { healSwitches, healDegrade, healQuotaPools, readDegradeConfig, type HealDeps } from '../_shared/autoHealEffects.ts';
 import {
   DRILL_SCENARIOS,
@@ -169,18 +167,24 @@ Deno.serve(async (req) => {
   if (req.method === 'OPTIONS') return new Response('ok', { headers: corsHeaders });
 
   // AUTH: cron key（自動化）或 company_admin JWT（後台手動按鈕）
-  // 管理員判定一律走 _shared/adminGuard，禁止在此手刻 has_role（見 audit-admin-contract）。
   try {
     if (req.headers.get('x-cron-key')) {
       requireCronKey(req);
     } else {
-      await requireCompanyAdmin(req);
+      const userId = await requireCaller(req);
+      const admin = serviceClient();
+      const { data: isAdmin } = await admin.rpc('has_role', { _user_id: userId, _role: 'company_admin' });
+      if (isAdmin !== true) throw new AuthError(403, 'FORBIDDEN', 'company_admin only');
     }
   } catch (e) {
-    if (e instanceof AuthError) return authErrorResponse(e, req);
+    if (e instanceof AuthError) {
+      return new Response(JSON.stringify({ error: e.message, code: e.code }), {
+        status: e.status,
+        headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+      });
+    }
     throw e;
   }
-
 
   const supa = serviceClient();
   const startedAt = new Date().toISOString();
