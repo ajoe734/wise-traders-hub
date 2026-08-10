@@ -86,7 +86,7 @@ export function useChipsBackfill(stockCode?: string | null, days: number = DEFAU
         error: reasonOf(instRes) || reasonOf(bsrRes) || '未知錯誤',
       };
     } finally {
-      inFlightRef.current = false;
+      inFlight.delete(stockCode);
       setBackfilling(false);
     }
   }, [stockCode, days]);
