@@ -10,12 +10,14 @@ on:
     paths:
       - 'supabase/migrations/**'
       - 'supabase/tests/finmind_admit_v2_test.sql'
+      - 'supabase/tests/chips_prefetch_universe_test.sql'
       - '.github/workflows/finmind-admit-sql-tests.yml'
   pull_request:
     branches: [main]
     paths:
       - 'supabase/migrations/**'
       - 'supabase/tests/finmind_admit_v2_test.sql'
+      - 'supabase/tests/chips_prefetch_universe_test.sql'
       - '.github/workflows/finmind-admit-sql-tests.yml'
   workflow_dispatch:
 
@@ -73,3 +75,5 @@ jobs:
           done
       - name: Run finmind_admit_v2 contract tests
         run: psql -v ON_ERROR_STOP=1 -f supabase/tests/finmind_admit_v2_test.sql
+      - name: Run chips prefetch universe contract tests
+        run: psql -v ON_ERROR_STOP=1 -f supabase/tests/chips_prefetch_universe_test.sql
