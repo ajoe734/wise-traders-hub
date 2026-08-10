@@ -10,7 +10,7 @@ import {
   CheckupGatewayError,
   type FakeGateway,
 } from '@/checkup/lib/gateway';
-import { useChipsBackfill } from '@/checkup/hooks/useChipsBackfill';
+import { useChipsBackfill, __resetChipsBackfillBudget } from '@/checkup/hooks/useChipsBackfill';
 
 function mount(fake: FakeGateway, code: string | null = '2330') {
   setCheckupGateway(fake);
@@ -21,13 +21,18 @@ describe('useChipsBackfill', () => {
   let fake: FakeGateway;
 
   beforeEach(() => {
+    // module-level 去重／預算跨測試共用，必須逐案重置
+    __resetChipsBackfillBudget();
     fake = createFakeGateway({
       functions: { 'tw-institutional-daily-sync': { ok: true } },
       rpcs: { enqueue_bsr_backfill: 42 },
     });
   });
 
-  afterEach(() => resetCheckupGateway());
+  afterEach(() => {
+    resetCheckupGateway();
+    __resetChipsBackfillBudget();
+  });
 
   it('兩條回補路徑都只透過 gateway 握手', async () => {
     const { result } = mount(fake);
