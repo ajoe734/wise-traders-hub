@@ -13,7 +13,8 @@
  */
 import { describe, it, expect, beforeAll } from 'vitest';
 import { render } from '@testing-library/react';
-import { Suspense, createRef } from 'react';
+import { Suspense, createRef, type ReactNode } from 'react';
+import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import fs from 'node:fs';
 import path from 'node:path';
 
@@ -262,7 +263,7 @@ describe('FreeCheckup tab — memo skips re-render with stable props', () => {
 
 // HoldingsTab → HoldingsWorkbench → useChipsBatch 需要 QueryClient（籌碼批次預載）。
 // 用 retry:false 的獨立 client，避免測試互相污染或背景重試。
-function QC({ children }: { children: React.ReactNode }) {
+function QC({ children }: { children: ReactNode }) {
   const client = new QueryClient({ defaultOptions: { queries: { retry: false, gcTime: 0 } } });
   return <QueryClientProvider client={client}>{children}</QueryClientProvider>;
 }
