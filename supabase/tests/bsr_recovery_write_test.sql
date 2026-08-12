@@ -62,8 +62,8 @@ BEGIN
   ASSERT (SELECT count(*) FROM public.tw_bsr_sync_queue) = 0, 'A: residue in queue';
   ASSERT (SELECT count(*) FROM public.tw_chip_fact) = 0, 'A: residue in fact';
 
-  INSERT INTO public.finmind_quota_pools (pool_name, tokens, used_today, daily_budget, reset_at)
-  VALUES ('backfill', 600, 0, 600, 16), ('keepwarm', 0, 400, 400, 16), ('interactive', 0, 240, 240, 16)
+  INSERT INTO public.finmind_quota_pools (pool_name, tokens, used_today, daily_budget)
+  VALUES ('backfill', 600, 0, 600), ('keepwarm', 0, 400, 400), ('interactive', 0, 240, 240)
   ON CONFLICT (pool_name) DO UPDATE
     SET tokens = EXCLUDED.tokens, used_today = EXCLUDED.used_today, daily_budget = EXCLUDED.daily_budget;
 
@@ -132,8 +132,8 @@ BEGIN
   ASSERT (SELECT count(*) FROM public.tw_bsr_sync_queue) = 0, 'B: residue in queue (rollback failed)';
   ASSERT (SELECT count(*) FROM public.tw_chip_fact) = 0, 'B: residue in fact (rollback failed)';
 
-  INSERT INTO public.finmind_quota_pools (pool_name, tokens, used_today, daily_budget, reset_at)
-  VALUES ('backfill', 600, 0, 600, 16), ('keepwarm', 0, 400, 400, 16), ('interactive', 0, 240, 240, 16)
+  INSERT INTO public.finmind_quota_pools (pool_name, tokens, used_today, daily_budget)
+  VALUES ('backfill', 600, 0, 600), ('keepwarm', 0, 400, 400), ('interactive', 0, 240, 240)
   ON CONFLICT (pool_name) DO UPDATE
     SET tokens = EXCLUDED.tokens, used_today = EXCLUDED.used_today, daily_budget = EXCLUDED.daily_budget;
 
@@ -255,8 +255,8 @@ DECLARE v_d date; v_id bigint; v_res jsonb;
 BEGIN
   ASSERT (SELECT count(*) FROM public.tw_bsr_sync_queue) = 0, 'NC: residue in queue';
 
-  INSERT INTO public.finmind_quota_pools (pool_name, tokens, used_today, daily_budget, reset_at)
-  VALUES ('backfill', 600, 0, 600, 16), ('keepwarm', 0, 400, 400, 16), ('interactive', 0, 240, 240, 16)
+  INSERT INTO public.finmind_quota_pools (pool_name, tokens, used_today, daily_budget)
+  VALUES ('backfill', 600, 0, 600), ('keepwarm', 0, 400, 400), ('interactive', 0, 240, 240)
   ON CONFLICT (pool_name) DO UPDATE
     SET tokens = EXCLUDED.tokens, used_today = EXCLUDED.used_today, daily_budget = EXCLUDED.daily_budget;
 
