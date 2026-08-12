@@ -12,6 +12,8 @@ import {
   decideFailureRetry,
   decideQuotaDeferral,
   isQuotaRejection,
+  isRecoveryTokenJob,
+  partitionTokenFirst,
   isAfterCloseAt,
   isWeekday,
   rollBackToWeekday,
@@ -182,4 +184,53 @@ Deno.test('quota 拒絕永不落入 failed（對比一般失敗路徑）', () =>
   assertEquals(decideFailureRetry({ attempts: 5, maxAttempts: 5, nowMs: now }).status, 'failed');
   // quota 拒絕：即使 attempts 已到頂，仍維持 pending
   assertEquals(decideQuotaDeferral({ attempts: 5, nowMs: now }).status, 'pending');
+});
+
+// ============ Build 1f：partitionTokenFirst（stable partition） ============
+// deterministic negative control：
+//   BSR_PARTITION_IMPL=reversed deno test ... → 以刻意錯誤的實作跑同一組斷言，期望 exit != 0。
+// 這個開關只存在於本測試檔（harness 注入點），production source 不含任何分支。
+type PJob = { id: number; last_error?: string | null };
+const reversedPartition = <T extends { last_error?: string | null }>(jobs: T[]): T[] => {
+  const tokens = jobs.filter((j) => j.last_error === 'quota_recovery_token');
+  const rest = jobs.filter((j) => j.last_error !== 'quota_recovery_token');
+  return rest.concat(tokens.reverse());
+};
+const partitionUnderTest: <T extends { last_error?: string | null }>(jobs: T[]) => T[] =
+  Deno.env.get('BSR_PARTITION_IMPL') === 'reversed' ? reversedPartition : partitionTokenFirst;
+
+const tok = (id: number): PJob => ({ id, last_error: 'quota_recovery_token' });
+const nor = (id: number): PJob => ({ id, last_error: null });
+
+Deno.test('partitionTokenFirst - token 在尾端也會被移到第一位', () => {
+  const out = partitionUnderTest([nor(1), nor(2), nor(3), tok(9)]);
+  assertEquals(out.map((j) => j.id), [9, 1, 2, 3]);
+});
+
+Deno.test('partitionTokenFirst - 多個 token：全部前置且保持原相對順序', () => {
+  const out = partitionUnderTest([nor(1), tok(7), nor(2), tok(8), nor(3)]);
+  assertEquals(out.map((j) => j.id), [7, 8, 1, 2, 3]);
+});
+
+Deno.test('partitionTokenFirst - non-token 之間相對順序不變', () => {
+  const out = partitionUnderTest([nor(5), nor(4), tok(1), nor(6)]);
+  assertEquals(out.map((j) => j.id), [1, 5, 4, 6]);
+});
+
+Deno.test('partitionTokenFirst - 無 token 時順序完全不變', () => {
+  const input = [nor(3), nor(1), nor(2)];
+  const out = partitionUnderTest(input);
+  assertEquals(out.map((j) => j.id), [3, 1, 2]);
+});
+
+Deno.test('partitionTokenFirst - 空陣列安全', () => {
+  assertEquals(partitionUnderTest([] as PJob[]).length, 0);
+  assert(Array.isArray(partitionUnderTest([] as PJob[])));
+});
+
+Deno.test('isRecoveryTokenJob - 只認 quota_recovery_token', () => {
+  assertEquals(isRecoveryTokenJob({ last_error: 'quota_recovery_token' }), true);
+  assertEquals(isRecoveryTokenJob({ last_error: 'quota_deferred' }), false);
+  assertEquals(isRecoveryTokenJob({ last_error: null }), false);
+  assertEquals(isRecoveryTokenJob(null), false);
 });
