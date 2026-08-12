@@ -144,22 +144,34 @@ failed(quota 類) ──recovery token（硬 cap）───► pending, max_att
 
 **單位定義**：`candidates_inspected`（掃過代碼數，可 300）、`stocks_selected`、`queue_jobs_inserted`（唯一受 cap 約束者）、`api_calls`。
 
-### Build 2 驗收（三輪自然 :02 / :07）
+### Build 2 驗收（三輪自然 :02 / :07 UTC）
 
-1. 每輪 job 106 回傳含 `lane_a_inserted`、`lane_b_inserted`、`recovered`、`candidates_inspected`、`cursor_from/to`、`backpressure`、`skipped_locked`。
+1. 每輪 job 106 回傳含 `lane_a_inserted`、`lane_b_inserted`、`recovered`、`candidates_inspected`、`cursor_from/to`、`backpressure`、`skipped_locked`、`blocked_by_quota_failed`。
 2. 三輪 `queue_jobs_inserted` 合計 ≤ 72，且 recovery+A+B 每輪 ≤ 24。
 3. 至少 **5 個非持股代碼** 完成 inserted → claimed → `tw_chip_fact` 該 stock/date rows > 0（附 job id 對照表）。
 4. Lane A SLA 二分計：
    - **available & fresh**：`expected_latest_bsr_date()` 前進後 6h 內，63 檔中「上游有資料」者 ≥ 95% 已寫入 `tw_bsr_daily`；
    - **truthfully unavailable/partial**：其餘標記 `skipped(no_chip_data)` 或 `upstream_exhausted`，UI 正確降級顯示，不得補假資料，也不計入成功。
-5. Authenticated `pf-holdings-v2` 路徑：真登入帳號（非 demo），記錄開抽屜前後 `max(id)` 與 `count(*)`——必須不變、且無 enqueue RPC 呼叫；資料在開抽屜前已存在。若無可用登入 session → 標 blocker，不以 demo 代替。
-6. Queue 健康：pending ≤ 200 + 50；最老 ready-pending age ≤ 6h；三輪 `newly_enqueued jobs ≤ jobs_with_fact_rows>0 × 1.2`。
+5. Authenticated Preview（真登入帳號，非 demo）走 `pf-holdings-v2` 路徑，開抽屜前後同時採證：
+   - queue `max(id)` 與 `count(*)` 不變；
+   - **network 面板完整 function 呼叫清單**（before / after 差集），證明沒有任何 lazy enqueue / backfill / prefetch endpoint 被觸發，不只看 queue count；
+   - **console 訊息與 pageerror** 全數擷取，無新增 error；
+   - 資料在開抽屜前已存在。若無可用登入 session → 標 blocker，不以 demo 代替。
+6. Queue 健康：pending ≤ 250；最老 ready-pending age ≤ 6h；三輪 `newly_enqueued jobs ≤ jobs_with_fact_rows>0 × 1.2`。
 7. 落地層雙證：`tw_chip_fact` 增加，且對應日 `tw_bsr_daily` materialized rows 增加或 snapshot_status 誠實 partial。
 8. 不 Publish。
 
-**Build 2 rollback**：`laneB_cursor.config.enabled=false`（立即在 enqueue 前生效，queue 不再成長）；還原 `enqueue_chips_prefetch_gaps` 舊函式體；job 45 payload 還原 `tier2:true`；job 70 重新啟用。
+**Build 2 rollback**：`laneB_cursor.config.enabled=false`（立即在 enqueue 前生效，queue 不再成長）；還原 `enqueue_chips_prefetch_gaps` 舊函式體；job 70 重新啟用。job 45 的 `tier2:false` 屬 Build 1 止血，Build 2 rollback 不動它。
 
 ## 6. Blocker / 待決
 
-- **無待決設計問題。**
-- 唯一潛在 blocker：Build 2 驗收第 5 項需要一組真實登入的 pf-holdings-v2 帳號 session。若屆時無法取得，該項標 blocker，Build 2 不得判 PASS。
+- **無 blocker，Build 1 即可批准。**
+- 唯一潛在 blocker（屬 Build 2）：驗收第 5 項需要一組真實登入的 pf-holdings-v2 帳號 session。若屆時無法取得，該項標 blocker，Build 2 不得判 PASS。
+
+## 7. 批准後的執行約定
+
+- Approve 此計畫 = **只授權 Build 1**（job 45 止血 payload、worker quota transition + per-job 回報、orchestrator RPC disambiguation、bounded recovery、focused tests/CI）。
+- Build 1 實作完成後，等自然排程（`:02` / `:07` UTC worker、`07:35 UTC` orchestrator）產出證據，逐項回報第 4 節驗收結果後**停下**。
+- **絕不自動執行 Build 2**；lane A/B、cursor、job 70 停用等需第二次明確批准。
+- 全程不 Publish、不手動觸發 worker/enqueue。
+
