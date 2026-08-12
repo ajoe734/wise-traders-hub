@@ -5,8 +5,8 @@
 # pre 行 = production read-only 確認值（2026-08-12 21:xx UTC recheck）
 pre	prosrc	9b12fcc4eb311794423ddab603dbff8c
 pre	functiondef	bf25e3deaefe24ee761e95e2e6d75391
-post	prosrc	UNAPPROVED_LOCAL_MEASUREMENT
-post	functiondef	UNAPPROVED_LOCAL_MEASUREMENT
+post	prosrc	c28474cca7be420355edeefd6207104b
+post	functiondef	9180cf172f8f5e7be5af7aa789cfe48d
 # invariant：is_tw_trading_hours 不得被本 build 改動
 inv	is_tw_trading_hours_prosrc	77dc74079c13940c23c46a494bfc0b7a
 inv	is_tw_trading_hours_functiondef	9da38e982089a7da7364219dc5816d2f
