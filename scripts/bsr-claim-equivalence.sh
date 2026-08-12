@@ -146,7 +146,7 @@ SQL
 sig() { # $1 = function name → 一行 tab 分隔簽名資訊
   q "SELECT md5(p.prosrc) || E'\t' || md5(pg_get_functiondef(p.oid)) || E'\t' ||
             pg_get_function_identity_arguments(p.oid) || E'\t' || pg_get_function_result(p.oid) || E'\t' ||
-            p.prosecdef || E'\t' || coalesce(p.proconfig::text,'-') || E'\t' || p.provolatile || E'\t' || l.lanname
+            p.prosecdef::text || E'\t' || coalesce(p.proconfig::text,'-') || E'\t' || p.provolatile::text || E'\t' || l.lanname
        FROM pg_proc p JOIN pg_namespace n ON n.oid=p.pronamespace JOIN pg_language l ON l.oid=p.prolang
       WHERE n.nspname='public' AND p.proname='$1'"
 }
