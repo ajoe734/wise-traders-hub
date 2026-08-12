@@ -22,6 +22,7 @@ BSR_SLICE_FUNCTIONS=(
   checkup_prefetch_universe
   expected_latest_bsr_date
   recover_quota_failed_bsr_jobs
+  tw_bsr_eligibility
   tw_bsr_sync_queue_touch_updated
 )
 BSR_SLICE_RELATIONS=(
@@ -30,15 +31,16 @@ BSR_SLICE_RELATIONS=(
   data_source_refresh_logs
   expert_signals
   finmind_quota_pools
+  stock_names
   system_kill_switches
   trade_records
   tw_bsr_sync_config
-  tw_chip_fact
-  tw_bsr_sync_config
   tw_bsr_sync_queue
+  tw_chip_fact
   tw_market_holidays
 )
 BSR_SLICE_KEPT_TRIGGER='trg_tw_bsr_sync_queue_updated'
+
 
 slice_die() { echo "FATAL: $*" >&2; exit 1; }
 
@@ -182,12 +184,12 @@ SLICE_PSQL="$SLICE_PSQL" bash "${BSR_SLICE_REPO_ROOT}/scripts/bsr-slice-closure-
 
 echo "==> [2/3] drift gate vs pinned baseline"
 if slice_compare_expected slice; then
-  echo "    OK: 8 functions + 11 relations 全部符合 pinned baseline"
+  echo "    OK: 9 functions + 12 relations 全部符合 pinned baseline"
 else
   slice_die "drift detected — behavior tests NOT started"
 fi
 
-echo "==> [3/3] preflight (6 read-only calls + zero-budget smoke in ROLLBACK)"
+echo "==> [3/3] preflight (6 read-only calls + eligibility 語意 + zero-budget smoke in ROLLBACK)"
 slice_psql <<'SQL' || slice_die "preflight failed"
 \set ON_ERROR_STOP on
 DO $$
@@ -205,6 +207,18 @@ SELECT count(*) FROM public.bsr_get_degrade_state('finmind');
 SELECT count(*) FROM public.checkup_prefetch_universe();
 SELECT public.bsr_backlog_metrics();
 SELECT public.bsr_recovery_budget(1);
+
+-- 新增 closure 物件：tw_bsr_eligibility 的語意（唯讀，只讀 stock_names）
+DO $$
+BEGIN
+  IF (public.tw_bsr_eligibility('2330')->>'eligible') <> 'true'
+    THEN RAISE EXCEPTION 'eligibility: 2330 should be eligible'; END IF;
+  IF (public.tw_bsr_eligibility('0050')->>'ineligible_reason') <> 'unsupported_asset_type'
+    THEN RAISE EXCEPTION 'eligibility: 0050 should be unsupported_asset_type'; END IF;
+  IF (public.tw_bsr_eligibility('')->>'ineligible_reason') <> 'invalid_stock_id'
+    THEN RAISE EXCEPTION 'eligibility: empty should be invalid_stock_id'; END IF;
+END $$;
+
 
 BEGIN;
 SELECT public.recover_quota_failed_bsr_jobs(0);
