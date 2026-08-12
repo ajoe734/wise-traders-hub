@@ -65,10 +65,10 @@ BEGIN
   PERFORM public._t_seed_reset();
   INSERT INTO public.tw_bsr_sync_queue (id, stock_id, trade_date, priority, status, next_run_at, last_error)
   VALUES
-    (9001, 'T9001', current_date, 0, 'pending', now() - interval '10 min', 'quota_recovery_token'),
-    (9002, 'T9002', current_date, 0, 'pending', now() - interval '9 min',  'quota_recovery_token');
+    (9001, 'T9001', current_date, 1, 'pending', now() - interval '10 min', 'quota_recovery_token'),
+    (9002, 'T9002', current_date, 1, 'pending', now() - interval '9 min',  'quota_recovery_token');
   INSERT INTO public.tw_bsr_sync_queue (id, stock_id, trade_date, priority, status, next_run_at, last_error)
-  SELECT 9100 + g, 'M' || g, current_date, 2, 'pending', now() - interval '1 min', NULL
+  SELECT 9100 + g, 'M' || g, current_date, 3, 'pending', now() - interval '1 min', NULL
   FROM generate_series(1, 10) g;
 END
 $fn$;
@@ -171,7 +171,7 @@ DECLARE a bigint[]; b bigint[];
 BEGIN
   PERFORM public._t_seed_reset();
   INSERT INTO public.tw_bsr_sync_queue (id, stock_id, trade_date, priority, status, next_run_at, last_error)
-  SELECT 8100 + g, 'N' || g, current_date, (g % 3)::smallint, 'pending', now() - (g || ' min')::interval, NULL
+  SELECT 8100 + g, 'N' || g, current_date, ((g % 3) + 1)::smallint, 'pending', now() - (g || ' min')::interval, NULL
   FROM generate_series(1, 30) g;
   SELECT array_agg(id ORDER BY ord) INTO a
     FROM (SELECT id, row_number() OVER () AS ord FROM public.claim_bsr_queue_jobs_pre(20, 3)) s;
@@ -179,7 +179,7 @@ BEGIN
   -- 還原 fixture 後跑新版
   PERFORM public._t_seed_reset();
   INSERT INTO public.tw_bsr_sync_queue (id, stock_id, trade_date, priority, status, next_run_at, last_error)
-  SELECT 8100 + g, 'N' || g, current_date, (g % 3)::smallint, 'pending', now() - (g || ' min')::interval, NULL
+  SELECT 8100 + g, 'N' || g, current_date, ((g % 3) + 1)::smallint, 'pending', now() - (g || ' min')::interval, NULL
   FROM generate_series(1, 30) g;
   SELECT array_agg(id ORDER BY ord) INTO b
     FROM (SELECT id, row_number() OVER () AS ord FROM public.claim_bsr_queue_jobs(20, 3)) s;
@@ -254,7 +254,7 @@ SELECT public._t_seed_reset();
 INSERT INTO public.tw_bsr_sync_queue (id, stock_id, trade_date, priority, status, next_run_at, last_error)
 VALUES
   (9001, 'T9001', current_date, 3, 'pending', now() - interval '30 min', 'quota_recovery_token'), -- 較老、priority 較大
-  (9002, 'T9002', current_date, 0, 'pending', now() - interval '5 min',  'quota_recovery_token'); -- 較新、priority 較小
+  (9002, 'T9002', current_date, 1, 'pending', now() - interval '5 min',  'quota_recovery_token'); -- 較新、priority 較小
 DO $t6$
 DECLARE picked_id bigint; tok int;
 BEGIN
