@@ -1,6 +1,24 @@
-# Plan v3 — BSR 垂直切片，拆成 Build 1 / Build 2（分開批准）
+# Final Plan — BSR 垂直切片，拆成 Build 1 / Build 2（分開批准）
 
-所有現況皆以 2026-08-12 07:00–07:10Z 的 production catalog 查詢為依據。Build 2 未取得 Build 1 的自然排程證據前不得執行。
+所有現況皆以 2026-08-12 07:00–07:15Z 的 production catalog 查詢為依據。Build 2 未取得 Build 1 的自然排程證據前不得執行。
+
+**批准範圍**：Approve 後**只執行 Build 1**，跑完自然驗收就停下回報，**絕不自動進入 Build 2**；Build 2 需要第二次明確批准。
+
+### Cron 時區對照（pg_cron 一律 UTC）
+
+| Job | cron（UTC） | Asia/Taipei |
+| --- | --- | --- |
+| 45 enqueue tier1+tier2 | `30 7 * * 1-5` | 15:30 |
+| 53 enqueue tier1 | `0,30 7-12 * * 1-5` | 15:00–20:30 |
+| 70 window-converge | `*/30 * * * *` | 每 30 分 |
+| 80 / 81 / 82 orchestrator | `35 7` / `35 9` / `35 11`（1-5） | **15:35 / 17:35 / 19:35** |
+| 96 reap stale | `*/10 * * * *` | 每 10 分 |
+| 106 enqueue_chips_prefetch_gaps | `2 * * * *` | 每小時 :02 |
+| 107 worker | `7 * * * *` | 每小時 :07 |
+| 46 / 51 worker | `*/10 6-12` / `*/15 6-12`（1-5） | 14:00–20:xx |
+
+自然驗收等待時間一律以上表 UTC 為準（例如今天 07:13Z 批准後，最近一輪 orchestrator 為 **07:35Z**，最近一輪 worker 為 **07:07Z 之後的下一個 :07 / :10 倍數**）。
+
 
 ## 1. v2 問題 → v3 修正
 
