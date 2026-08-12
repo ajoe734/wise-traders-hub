@@ -68,13 +68,33 @@ END $cb$;
 
 -- ---------------------------------------------------------------------
 -- Case C + D: reconcile_snapshot 無 trade_date ambiguity，且 OUT 值正確
+-- 註：reconcile_snapshot 只授權給 postgres/anon/authenticated/service_role。
+--     若執行測試的角色沒有 EXECUTE，退回「函式定義守門」（不得再有裸 trade_date
+--     OUT 欄位遮蔽），並印出 SKIP 提示，不得靜默通過。
 -- ---------------------------------------------------------------------
 DO $cc$
 DECLARE
   v_date date := (now() AT TIME ZONE 'Asia/Taipei')::date + 3650;
   v_out date;
   v_lane_a text;
+  v_src text;
 BEGIN
+  IF NOT has_function_privilege(current_user, 'public.reconcile_snapshot(date)', 'execute') THEN
+    SELECT p.prosrc INTO v_src
+      FROM pg_proc p JOIN pg_namespace n ON n.oid = p.pronamespace
+     WHERE n.nspname = 'public' AND p.proname = 'reconcile_snapshot';
+
+    IF v_src IS NULL THEN
+      RAISE EXCEPTION 'CASE C FAILED: reconcile_snapshot not found';
+    END IF;
+    IF position('#variable_conflict use_column' in v_src) = 0 THEN
+      RAISE EXCEPTION
+        'CASE C FAILED: reconcile_snapshot 缺少 #variable_conflict use_column（OUT 欄位會與表欄位撞名）';
+    END IF;
+    RAISE NOTICE 'CASE C/D: EXECUTE 權限不足（%），改以函式定義守門通過（execution 由 09:35 job 81 自然驗證）', current_user;
+    RETURN;
+  END IF;
+
   SELECT r.trade_date, r.lane_a_status
     INTO v_out, v_lane_a
     FROM public.reconcile_snapshot(v_date) r;
