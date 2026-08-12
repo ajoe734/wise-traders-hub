@@ -34,6 +34,15 @@
 | 8 | 兩個開關（laneB_cursor.enabled + laneB_enabled） | 收斂成單一 key `laneB_cursor`，`config.enabled` 為唯一開關 |
 | 9 | 假設 workflow / 測試檔存在 | 已查證：`.github/workflows/finmind-bsr-tests.yml` 存在、`tw-bsr-finmind-sync/lib_test.ts` 存在 |
 | 10 | Lane A 硬性 95% 覆蓋 | 拆成 available-and-fresh vs truthful-unavailable/partial 兩類指標 |
+| 11 | job 45 tier2 留到 Build 2 才關 | **止血提前到 Build 1**：每天 1,300+ 新 T86 gap 會讓 pending gate 永遠到不了；純 cron payload 變更、可逆 |
+| 12 | Build 2 gate 含 `failed(quota) ≤ 300` | 移除該條，改為「近 2 個 worker window 消化量 ≥ 灌入量」等可查門檻 |
+| 13 | cron 時間誤標台北 | pg_cron 為 UTC，已補 UTC↔Taipei 對照表 |
+| 14 | 驗收跑全量 vitest | 改為 focused tests + typecheck + module boundaries；無關 failure 只記錄 |
+| 15 | 預設 claim 已 `attempts+1` | 改為實作前先讀 `claim_bsr_queue_jobs`，原子 update + `GREATEST(...,0)`，測 0/1/max 邊界 |
+| 16 | worker 只回總數 | 改回 per-job 明細，三輪 trace 可逐筆對回 queue |
+| 17 | Preview 只看 queue count | 補 console/pageerror 與抽屜前後 network function 清單差集 |
+
+
 
 ## 2. 合法狀態機與 recovery budget 算式
 
