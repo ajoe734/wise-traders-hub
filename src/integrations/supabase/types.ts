@@ -6092,6 +6092,7 @@ export type Database = {
           to_mode: string
         }[]
       }
+      bsr_backlog_metrics: { Args: never; Returns: Json }
       bsr_check_tier_admission: {
         Args: { _api?: string; _limit?: number; _tier?: number }
         Returns: {
