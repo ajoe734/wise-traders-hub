@@ -91,7 +91,8 @@ $fn$;
 SELECT
   (:'tcase' = 't1')  AS is_t1, (:'tcase' = 't2') AS is_t2, (:'tcase' = 't3') AS is_t3,
   (:'tcase' = 't4')  AS is_t4, (:'tcase' = 't5') AS is_t5, (:'tcase' = 't6') AS is_t6,
-  (:'tcase' = 'nc1') AS is_nc1, (:'tcase' = 'nc2') AS is_nc2, (:'tcase' = 'nc3') AS is_nc3
+  (:'tcase' = 'nc1') AS is_nc1, (:'tcase' = 'nc2') AS is_nc2, (:'tcase' = 'nc3') AS is_nc3,
+  (:'trading' = 'true') AS is_trading
 \gset
 
 \if :is_t1
@@ -216,8 +217,14 @@ $t4$;
 -- ===========================================================================
 \if :is_t5
 BEGIN;
+-- psql 變數不會進入 dollar-quoted body，故兩支 branch 各寫一次常數定義
+\if :is_trading
 CREATE OR REPLACE FUNCTION public.is_tw_trading_hours() RETURNS boolean
-LANGUAGE sql STABLE SET search_path TO 'public' AS $ih$ SELECT :trading ::boolean $ih$;
+LANGUAGE sql STABLE SET search_path TO 'public' AS $ih$ SELECT true $ih$;
+\else
+CREATE OR REPLACE FUNCTION public.is_tw_trading_hours() RETURNS boolean
+LANGUAGE sql STABLE SET search_path TO 'public' AS $ih$ SELECT false $ih$;
+\endif
 SELECT public._t_seed_reset();
 -- 一個 post_close_only token + 一個非 post_close_only normal
 INSERT INTO public.tw_bsr_sync_queue (id, stock_id, trade_date, priority, status, next_run_at, last_error, post_close_only)
