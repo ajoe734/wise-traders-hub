@@ -119,14 +119,23 @@ failed(quota 類) ──recovery token（硬 cap）───► pending, max_att
 
 ## 5. Build 2 — single-owner lane A/B + durable cursor canary
 
-**前置門檻（全部滿足才可開始）**：Build 1 PASS；`pending ≤ 200`；最老 ready-pending age ≤ 6h；`failed(quota 類) ≤ 300`；degrade mode = normal。
+**前置門檻（全部滿足才可開始，已移除 `failed(quota) ≤ 300`）**：
+
+1. Build 1 PASS；
+2. `pending ≤ 200`；
+3. 最老 ready-pending age ≤ 6h；
+4. 最近 2 個自然 worker windows：`jobs_with_fact_rows>0 ≥ newly_enqueued + recovered`（消化量不低於灌入量，代表 queue 穩定收斂）；
+5. quota pool 正常、degrade mode = normal；
+6. quota-failed 數量單調下降，且 recovery 每輪未超 cap。
+
+**Lane B 與 quota-failed 的互動**：lane B 選到的 stock/date 若已存在 quota-failed row（被 partial unique index 擋住），**不得默默 dedupe 跳過**；必須在該輪 recovery budget 內對它發 retry token（`max_attempts+1`、`status='pending'`），budget 用盡則本輪停止，**cursor 只前進到該 blocker 已處理的位置**，不得越過。
 
 ### 變更物件
 
 | 類型 | 物件 / 檔案 | 內容 |
 | --- | --- | --- |
-| Cron | job 45 payload → `{"mode":"enqueue","tier1":true,"tier2":false}` | 停重複 T86 enqueue，保留 tier1 |
-| Cron | job 70 → `active=false`（或 payload `max_stocks:0`） | 純 enqueue，停用不影響落地層 |
+| Cron | job 45 已於 Build 1 設為 `tier2:false` | Build 2 不再變更；lane B 上線後 job 106 才是唯一 T86 owner |
+| Cron | job 70 → `active=false`（或 payload `max_stocks:0`） | 純 enqueue（持股／訊號 converge），停用不影響落地層 |
 | Migration | `enqueue_chips_prefetch_gaps(int,int)` | 加 lane A/B：A = 現有持股 gap（`priority=1`, `post_close_only=false`, `enqueued_by='lane_a_holdings'`）；B = T86 全市場 cursor 輪轉（`priority=3`, `enqueued_by='lane_b_rotation'`）。參數語意：`p_lookback_days`(10) = lane A 回看天數上限；`p_max_stocks`(300) = 每輪 `candidates_inspected` 上限。既有 cron 呼叫不需改。 |
 | Config | `tw_bsr_sync_config` 新 key `laneB_cursor`，`config = {enabled, last_code, universe_date, wraps, inspected_total}` | **唯一開關**即 `config.enabled`；CAS：`UPDATE ... WHERE key='laneB_cursor' AND version=$expected`（實測 `tw_bsr_sync_config_snapshot_trg` 會自動 `version+1` 並寫 history；`relacl` 顯示 `service_role=arwdDxtm`，SECURITY DEFINER 函式可寫） |
 | 原子性 | 單一 transaction 涵蓋掃描→insert→cursor update，外層 `pg_try_advisory_xact_lock`；取不到只回 `{skipped_locked:true}`，不推進 cursor | |
