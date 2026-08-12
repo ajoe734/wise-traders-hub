@@ -1,0 +1,26 @@
+# bsr_slice_expected.tsv  format_version=1  hash_algo=sha256  fn_hash=md5(pg_get_functiondef)
+# pinned_at=2026-08-12T12:41Z (2026-08-12 20:41 Asia/Taipei)  approved_in=Build1e Final Plan v3
+# columns: kind<TAB>name<TAB>detail...
+#   fn  <TAB> name <TAB> identity_args <TAB> returns <TAB> volatility <TAB> secdef <TAB> proconfig <TAB> owner <TAB> md5
+#   rel <TAB> name <TAB> sha256
+# 這個檔案是「已人工審核並批准」的 pinned baseline。
+# gen-bsr-slice-fixture.sh 永遠不得寫入本檔；更新只能是另一次人工審核 + 新批准。
+fn	bsr_backlog_metrics	-	jsonb	s	true	search_path=public	postgres	a419d519ff538c4352831cc0bab13cc0
+fn	bsr_get_degrade_state	_api text	TABLE(mode text, since timestamp with time zone, reason text, trigger_metric text, trigger_value numeric, last_transition_at timestamp with time zone, cooldown_until timestamp with time zone)	s	true	search_path=public	postgres	9e6282f854489a9fae7edfb35982debb
+fn	bsr_recovery_budget	p_full_budget integer	jsonb	s	true	search_path=public	postgres	eb9ee387fb9cbaf2651eaa3e758b5137
+fn	check_kill_switch	_key text	boolean	s	true	search_path=public	postgres	c36021af6c310d08c8978c0d609f4e5b
+fn	checkup_prefetch_universe	-	TABLE(code text, supported boolean, reason text, sources text[])	s	true	search_path=public	postgres	cfcff9272446d21ce7494679be1c2c39
+fn	expected_latest_bsr_date	-	date	s	true	search_path=public	postgres	48ea387eebe223cf04da2462ae668abb
+fn	recover_quota_failed_bsr_jobs	p_max integer	jsonb	v	true	search_path=public	postgres	8a50211b18102cda54bdd99fca991a27
+fn	tw_bsr_sync_queue_touch_updated	-	trigger	v	false	search_path=public	postgres	fe1a2aca674d3a6b88ca2e2deaad7d7b
+rel	checkup_storage	afb42032a3765932cd4607db5ad0dda569b51479f5a9b81d2ccb34e8b3088c3c
+rel	chips_prefetch_targets	7d2899dd8f16da2ef902ba4a4e1b37e5e4b9bd3a4649d9f02baf25b2d57bb609
+rel	data_source_refresh_logs	3cfef98085d26ed9f26450c66bd0c8cdbb58b3bf4f7c09fc2905387f23932543
+rel	expert_signals	867b6167c3559fbb10455dafbcf68ab02fbdb94711e72b6cfc92eda96265977d
+rel	finmind_quota_pools	1a43d033b34d1bcb66dfdbf75c7116edc6affe75707566229076540faa975ca8
+rel	system_kill_switches	ee8ded756d9abf0079fe0c756a5b06ef3f5e7caaf65265e5e3a33b58e1ca0535
+rel	trade_records	f75954554e5b1b2ef939d4292823eae42c10187ec4687e36977ed517fc9b38b3
+rel	tw_bsr_sync_config	0039f6901443ce5f296368953ba26b5e79260f524b0838aa1df8df21204170f7
+rel	tw_bsr_sync_queue	f7358406623859b24d3ce6895f965d140cc5f88f92a787676e1dedf556a2d0dd
+rel	tw_chip_fact	1a51a4fcd4d335cf59a61e928c33447742b944957a0e72f3ae1b9ce98889f7da
+rel	tw_market_holidays	eeb049296da3e71710726d0ca7636a32379ac37e8d3ae3683fb1bec858771ee9
