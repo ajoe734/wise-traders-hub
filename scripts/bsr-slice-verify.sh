@@ -178,11 +178,11 @@ if [ "${BSR_SLICE_LIB:-0}" = "1" ]; then
 fi
 
 # ---------------------------- main（slice 端 verify）--------------------------
-echo "==> [1/3] closure check (slice)"
+echo "==> [1/4] closure check (slice)"
 SLICE_PSQL="$SLICE_PSQL" bash "${BSR_SLICE_REPO_ROOT}/scripts/bsr-slice-closure-check.sh" --scope slice \
   || slice_die "closure check failed"
 
-echo "==> [2/3] drift gate vs pinned baseline"
+echo "==> [2/4] drift gate vs pinned baseline"
 if slice_compare_expected slice; then
   echo "    OK: 9 functions + 12 relations 全部符合 pinned baseline"
 else
@@ -243,6 +243,15 @@ END $$;
 
 
 BEGIN;
+-- trigger function tw_bsr_sync_queue_touch_updated 實際綁定執行（交易內，稍後 ROLLBACK）
+INSERT INTO public.tw_bsr_sync_queue (stock_id, status) VALUES ('__preflight__', 'pending');
+UPDATE public.tw_bsr_sync_queue SET status='pending' WHERE stock_id='__preflight__';
+DO $$
+DECLARE u timestamptz;
+BEGIN
+  SELECT updated_at INTO u FROM public.tw_bsr_sync_queue WHERE stock_id='__preflight__';
+  IF u IS NULL THEN RAISE EXCEPTION 'trigger fn did not set updated_at'; END IF;
+END $$;
 SELECT public.recover_quota_failed_bsr_jobs(0);
 ROLLBACK;
 
