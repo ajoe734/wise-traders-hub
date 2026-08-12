@@ -7,7 +7,7 @@
 #   1) 從三個核心函式出發，遞迴走 pg_depend 取得被引用物件
 #   2) 解析 function source，把 public.<ident> 與 unqualified 物件逐一以
 #      to_regclass / to_regprocedure 解析
-#   3) 對照 pinned baseline 的物件清單（8 functions + 11 relations），
+#   3) 對照 pinned baseline 的物件清單（9 functions + 12 relations），
 #      多、少、無法解析、未預期的 trigger binding 一律 hard fail
 #
 # 只讀 catalog 與 function 定義，不讀任何業務資料列。

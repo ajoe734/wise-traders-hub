@@ -103,8 +103,9 @@ cmd_up() {
 
   echo "==> nix build postgresql_17 + pgvector + pg_cron + pg_net"
   local pgpkg
-  pgpkg="$(nix build --impure --no-link --print-out-paths --expr "$NIX_EXPR")" \
+  pgpkg="$(nix build --impure --no-link --print-out-paths --expr "$NIX_EXPR" | grep -v -- '-man$' | head -1)" \
     || die "nix build failed — Tier B-write stays PENDING (no partial migration fallback)"
+  [ -x "$pgpkg/bin/initdb" ] || die "nix build output has no bin/initdb: $pgpkg"
   echo "    $pgpkg"
 
   local dir="${PREFIX}-$$-pg17"
@@ -212,8 +213,9 @@ cmd_up_slice() {
 
   echo "==> nix build postgresql_17 (slice：不需 pgvector/pg_cron/pg_net)"
   local pgpkg
-  pgpkg="$(nix build --impure --no-link --print-out-paths --expr "$NIX_EXPR_SLICE")" \
+  pgpkg="$(nix build --impure --no-link --print-out-paths --expr "$NIX_EXPR_SLICE" | grep -v -- '-man$' | head -1)" \
     || die "nix build failed — Tier B-write stays PENDING"
+  [ -x "$pgpkg/bin/initdb" ] || die "nix build output has no bin/initdb: $pgpkg"
   echo "    $pgpkg"
 
   local dir="${PREFIX}-$$-pg17"
@@ -290,13 +292,14 @@ cmd_verify() {
 
   case "$control" in
     function)
-      echo "==> drift control: function（期望 exit != 0）"
-      psql_run -c "COMMENT ON FUNCTION public.bsr_recovery_budget(integer) IS 'drift-control';" >/dev/null
+      echo "==> drift control: function（期望 exit != 0；目標為 v4 新增的 tw_bsr_eligibility）"
       psql_run <<'SQL' >/dev/null
-CREATE OR REPLACE FUNCTION public.expected_latest_bsr_date()
-RETURNS date LANGUAGE sql STABLE SECURITY DEFINER SET search_path=public AS $fn$
-  -- drift-control: 語意等價但 md5 不同
-  SELECT public.expected_latest_bsr_date_orig_placeholder();
+CREATE OR REPLACE FUNCTION public.tw_bsr_eligibility(p_stock_id text)
+RETURNS jsonb LANGUAGE plpgsql STABLE SECURITY DEFINER SET search_path=public AS $fn$
+BEGIN
+  -- drift-control: 語意近似但 md5 不同
+  RETURN jsonb_build_object('eligible', true);
+END;
 $fn$;
 SQL
       set +e
@@ -310,14 +313,16 @@ SQL
       return 0
       ;;
     schema)
-      echo "==> drift control: schema（6 子案，每案期望 exit != 0）"
+      echo "==> drift control: schema（8 子案，每案期望 exit != 0；涵蓋 stock_names 必要 shape）"
       local cases=(
-        "ALTER TABLE public.tw_bsr_sync_queue ALTER COLUMN priority TYPE bigint;|column type"
-        "ALTER TABLE public.tw_chip_fact ALTER COLUMN code DROP NOT NULL;|not null"
-        "ALTER TABLE public.tw_bsr_sync_queue ALTER COLUMN attempts SET DEFAULT 7;|default"
-        "ALTER TABLE public.tw_market_holidays ADD CONSTRAINT drift_ck CHECK (true);|constraint"
-        "CREATE UNIQUE INDEX drift_uidx ON public.data_source_refresh_logs (id);|unique index"
-        "DROP TRIGGER trg_tw_bsr_sync_queue_updated ON public.tw_bsr_sync_queue;|trigger binding"
+        "ALTER TABLE public.stock_names DROP COLUMN market;|column drop"
+        "ALTER TABLE public.stock_names ALTER COLUMN name TYPE varchar(200);|column type"
+        "ALTER TABLE public.stock_names ALTER COLUMN asset_class DROP NOT NULL;|not null"
+        "ALTER TABLE public.stock_names ALTER COLUMN currency SET DEFAULT 'USD';|default"
+        "ALTER TABLE public.stock_names DROP CONSTRAINT stock_names_pkey;|pk/unique 移除"
+        "ALTER TABLE public.stock_names DROP CONSTRAINT stock_names_asset_class_check;|check 移除"
+        "CREATE TRIGGER drift_trg BEFORE UPDATE ON public.stock_names FOR EACH ROW EXECUTE FUNCTION public.tw_bsr_sync_queue_touch_updated();|trigger 新增"
+        "DROP TRIGGER trg_tw_bsr_sync_queue_updated ON public.tw_bsr_sync_queue;|trigger binding 移除"
       )
       local c sql label rc allok=0
       for c in "${cases[@]}"; do
@@ -332,9 +337,10 @@ SQL
         [ "$rc" -ne 0 ] || { echo "    FAIL: [$label] 未紅燈"; allok=1; }
       done
       [ "$allok" -eq 0 ] || die "drift-control(schema) 有子案未紅燈 — harness 無效"
-      echo "DRIFT-CONTROL schema OK (6/6 紅燈, slice restored)"
+      echo "DRIFT-CONTROL schema OK (8/8 紅燈, slice restored)"
       return 0
       ;;
+
     *) die "unknown drift control: $control（function|schema）" ;;
   esac
 }
