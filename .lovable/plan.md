@@ -102,13 +102,20 @@ failed(quota 類) ──recovery token（硬 cap）───► pending, max_att
 
 ### Build 1 驗收（自然排程，不手動觸發）
 
-1. 至少 1 輪自然 worker（job 107 :07 或 job 46/51）：HTTP body 有 `rows_written` 與 job IDs；出現 quota 拒絕時該 job 為 `pending` + `last_error='quota_deferred'`，`attempts` 未增加。
-2. 至少 1 輪自然 orchestrator（job 80/81/82 07:35 / 09:35 / 11:35 台北）：無 `materialize_snapshot: Could not choose the best candidate function`；`tw_bsr_daily` 對應日 rows 增加，或 `tw_bsr_daily_snapshot_status` 誠實 partial。
-3. Recovery：三輪 job 106 合計 `recovered ≤ 36`；failed 總數單調下降；無任何一次 UPDATE 超過 cap。
-4. Backlog 改善：pending 不高於 baseline+50；最老 ready-pending age 呈下降趨勢（baseline 現值：`oldest next_run_at = 2026-08-11 07:30Z`，約 23.5h）。
-5. Preview 無回歸：`npx vitest run` + `npm run check:module-boundaries` 綠燈；不動任何 UI 或無關程式。
+1. 至少 1 輪自然 worker（job 107 `:07 UTC` 或 job 46/51）：HTTP body 含 per-job 明細（id / stock_id / trade_date / outcome / rows_written），可逐筆對回 `tw_bsr_sync_queue`；出現 quota 拒絕時該 job 為 `pending` + `last_error='quota_deferred'`，`attempts` 與 claim 前相同。
+2. 至少 1 輪自然 orchestrator（job 80/81/82 = **07:35 / 09:35 / 11:35 UTC**，即台北 15:35 / 17:35 / 19:35）：無 `materialize_snapshot: Could not choose the best candidate function`；`tw_bsr_daily` 對應日 rows 增加，或 `tw_bsr_daily_snapshot_status` 誠實 partial。
+3. Recovery：三輪 job 106（`:02 UTC`）合計 `recovered ≤ 36`；quota-failed 總數單調下降；無任何一次 UPDATE 超過 cap。
+4. 止血生效：job 45 於 07:30 UTC 執行後，當日新增 `enqueued_by` 為 tier2 的 jobs = 0。
+5. Backlog 改善：pending 不高於 baseline+50；最老 ready-pending age 呈下降趨勢（baseline 現值：`oldest next_run_at = 2026-08-11 07:30Z`，約 23.5h）。
+6. 測試範圍（**不跑全量 vitest**）：
+   - `tw-bsr-finmind-sync` quota/transition focused Deno tests；
+   - orchestrator materialize focused regression；
+   - 新增 SQL contracts（`bsr_quota_recovery_test.sql`）；
+   - 既有直接相關的 BSR pipeline regressions；
+   - `tsgo` typecheck + `npm run check:module-boundaries`。
+   - 全量測試中與本切片無關的既有 failure 只記錄、不修改。
 
-**Build 1 rollback**：還原兩支 Edge Function 前一版；`recover_quota_failed_bsr_jobs` 以 `p_max=0` 或還原 `enqueue_chips_prefetch_gaps` 舊函式體即停止未來 recovery。已成功抓回的 fact/daily rows 不倒回（本來就是正確資料）。
+**Build 1 rollback**：job 45 payload 改回 `tier2:true`；還原兩支 Edge Function 前一版；`recover_quota_failed_bsr_jobs` 以 `p_max=0` 或還原 `enqueue_chips_prefetch_gaps` 舊函式體即停止未來 recovery。已成功抓回的 fact/daily rows 不倒回（本來就是正確資料）。
 
 ## 5. Build 2 — single-owner lane A/B + durable cursor canary
 
