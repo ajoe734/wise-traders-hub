@@ -1,115 +1,130 @@
-# Plan v2 — BSR 單一垂直切片：持股新鮮度 + 全市場公平輪轉
+# Plan v3 — BSR 垂直切片，拆成 Build 1 / Build 2（分開批准）
 
-已於 2026-08-12 07:00Z 重新查證 production definitions。以下每個「現況」皆有對應查詢佐證。
+所有現況皆以 2026-08-12 07:00–07:10Z 的 production catalog 查詢為依據。Build 2 未取得 Build 1 的自然排程證據前不得執行。
 
-## v1 問題 → v2 修正
+## 1. v2 問題 → v3 修正
 
-| # | v1 問題 | v2 修正 |
+| # | v2 問題 | v3 修正 |
 | --- | --- | --- |
-| 1 | job 106 宣稱唯一 owner，卻留 job 45 tier2 | 查證 tier2 可由 cron payload 單獨關閉（`body?.tier2 !== false`），canary 期間 job 45 改 `tier2:false`，並停 job 70 converge，達成單一 T86 owner |
-| 2 | 300/hr 上界與實際 ~30 jobs/hr 消化量脫節 | 改用四種單位分開表述；insert cap 以 **queue jobs/hour** 表示（總 24/hr），加 pending/age/quota 三重 backpressure |
-| 3 | 1,728 failed 留待 PASS 後 | 已完成分類（100% quota 類），本切片內含 bounded quota-requeue，且改由 worker 不再把 quota 記成 failed |
-| 4 | 只列 migration，未列 Edge Function | 納入 `tw-bsr-finmind-sync/index.ts`（quota→skipped、回報 rows/materialized）與 focused tests；同時修正 v1 錯誤指控：worker 目前**沒有**把 empty 標 done |
-| 5 | materialize overload 只列 blocker | 已查證 overload 仍在（date / date+text[] 兩個 signature），最小修法：orchestrator 呼叫端明確轉型 `_trade_date::date`＋帶 `_stock_ids: null` |
-| 6 | Lane A 只保證「入列」 | 依實測 63 檔 supported、11 檔缺最新日，訂出可驗證 materialization SLA 與 priority 證明 |
-| 7 | cursor 原子性含糊 | 依實際 `tw_bsr_sync_config` PK(key)+version 欄位設計 CAS；lock 取不到記 `skipped_locked` |
-| 8 | 忽略既有 (10,300) 參數語意 | 明確定義新舊參數對應與相容性 |
-| 9 | 驗收缺門檻 | 全部改為數值門檻，並要求 authenticated pf-holdings-v2 路徑 |
+| 1 | 一次性 requeue 1,728 筆（≈72 jobs/hr） | 取消 mass UPDATE。改為 function-level、每輪硬 cap 的漸進 recovery（預設 12 jobs/hr），與 lane 共用同一 budget 與 backpressure |
+| 2 | 虛構 `skipped_quota` | 查證 CHECK 只允許 `pending/running/done/failed/skipped`。quota transition = `status='pending'`、`next_run_at` 延後、`last_error='quota_deferred'`、**attempts 不加** |
+| 3 | 「attempts 全設 max-1」改資料語意 | 改為 recovery 發「單次 retry token」：`max_attempts = max_attempts + 1`（硬上限 8，等於一生最多 3 次 token），attempts 原值保留可審計 |
+| 4 | worker 回報 materialized_rows | worker 只回 `rows_written` / `jobs_succeeded` / `jobs_partial` / `jobs_quota_deferred` / job IDs；`materialized_rows` 與 `tw_bsr_daily` delta 一律由 orchestrator trace 或 DB 查詢證明 |
+| 5 | `tradeDate::date` TS 語法不成立 | 改為 RPC 傳完整兩參數 object，讓 PostgREST 命中雙參數 signature |
+| 6 | 整支停 job 70 | 查證 job 70 → `tw-bsr-window-converge` **只呼叫 `converge_bsr_windows`（純 enqueue，無 materialize）**，停用不犧牲落地層；且可用 payload `max_stocks` gate |
+| 7 | 6h backpressure 讓 lane B 永不啟動 | 兩級 backpressure（hard stop / micro-budget），且 Build 2 有明確前置門檻，由 Build 1 先把 backlog 降下來 |
+| 8 | 兩個開關（laneB_cursor.enabled + laneB_enabled） | 收斂成單一 key `laneB_cursor`，`config.enabled` 為唯一開關 |
+| 9 | 假設 workflow / 測試檔存在 | 已查證：`.github/workflows/finmind-bsr-tests.yml` 存在、`tw-bsr-finmind-sync/lib_test.ts` 存在 |
+| 10 | Lane A 硬性 95% 覆蓋 | 拆成 available-and-fresh vs truthful-unavailable/partial 兩類指標 |
 
-## A. 現況查證（2026-08-12 07:00Z）
+## 2. 合法狀態機與 recovery budget 算式
 
-- **T86 universe**：最新交易日 4 碼普通股 **2,016** 檔；`tw_bsr_daily` 2026-08-11 覆蓋 **517**（25.6%）；**563 檔從未有任何 BSR**。
-- **Queue**：pending 401、running 11、failed 1,728、done 9,176。
-- **實際消化量**：非交易時段 **30 jobs/hr**（job 107 + batch 30），台北收盤時段峰值 ~210/hr；近 24h 合計約 **500–700 jobs/day**。Quota ledger 24h：granted 1,074、rejected 997（keepwarm daily_exhausted 862）。
-- **失敗分類（全部 1,728 筆）**：`finmind_admission_daily_exhausted` 1,466、`finmind_admission_rate_limited` 235、其他 27——**100% 為 quota 類，0 筆 upstream/empty/date/unsupported**。全部 `attempts ≥ 5`。
-- **飢餓機制證實**：`recover_stale_bsr_queue_jobs` 只復活 `attempts < max_attempts` 且屬持股 universe 者 → 這 1,728 筆永不復活；又因 `tw_bsr_sync_queue_active_uniq`（含 failed）而永遠 dedupe 掉新候選。
-- **T86 寫入者盤點**：
-  - job 45 `tier2:true` → `enqueueTier2Gaps`：T86 全市場 gap，**是**目前唯一全市場 owner。
-  - job 53 已是 `tier2:false`，不衝突。
-  - job 106 `enqueue_chips_prefetch_gaps(10,300)` → `detect_chip_gap_jobs` → universe 只有 `checkup_prefetch_universe()`（持股/訊號/registry），**不是**全市場。
-  - job 70 `converge_bsr_windows`：持股/訊號 universe，會寫同一 stock/date，需納入互斥。
-  - `tw-bsr-daily-sync` priority2 路徑僅在該函式自身流程觸發，非 cron 常態全市場來源。
-- **Lane A 實際規模**：supported 63 檔、缺 08-11 者 11 檔、never-covered 0 檔、pending 64、failed 219。
-- **Materialize**：兩個 overload 同時存在（`(date)`、`(date, text[])`），orchestrator 以具名參數 `_trade_date` 呼叫 → 仍會 ambiguous。`tw_bsr_daily_snapshot_status` 最新僅到 2026-07-27（皆 legacy_migration），代表 orchestrator 自 7/27 起未成功落地任何 sealed 記錄；但 `tw_chip_fact` 08-11 有 156,180 筆 → **fact 有、daily 落後**，正是需修的落地層。
-- **Kill switch**：`chips_all`/`chips_keepwarm`/`chips_interactive`/`chips_backfill` 全 enabled；degrade mode = normal。
+**CHECK 約束（實測）**：`status ∈ (pending, running, done, failed, skipped)`；`priority ∈ (1,2,3)`；`attempts` default 0、`max_attempts` default 5。
 
-## B. 單一 owner（互斥，先做，否則無法歸因）
+```text
+claimed(running) ──成功 rows>0──────────────► done
+                ──empty/partial & attempts<max─► pending (next_run_at 退避)   ← 現況，未壞
+                ──empty/partial & attempts>=max► skipped (last_error=no_chip_data/partial_chip_data)
+                ──quota 拒絕（v3 新）──────────► pending, attempts 不變,
+                                                 last_error='quota_deferred',
+                                                 next_run_at = now()+15~60min
+                ──其他錯誤 & attempts>=max─────► failed
+failed(quota 類) ──recovery token（硬 cap）───► pending, max_attempts+1 (≤8)
+```
 
-1. job 45 payload 改為 `{"mode":"enqueue","tier1":true,"tier2":false}`（`cron.alter_job`，一行可回滾）。tier1 持股保留。
-2. job 70 `tw-bsr-window-converge` canary 期間停用（`cron.alter_job(70, active:=false)`）。
-3. canary 期間全市場 T86 只剩 job 106 一個 owner；所有 insert 以 `enqueued_by` 標記 `lane_a_holdings` / `lane_b_rotation`，作為 attribution 依據。
-4. 若上述任一 cron 無法單獨關閉即為 blocker——已查證可關，非 blocker。
+**現況 empty_response transition（查證，不需修）**：`finmind_empty` / `aggregated_empty` / `aggregated_partial` 走 pending 退避，attempts 達上限後 `skipped`——**沒有假 done**。v2 對此的指控作廢，本切片只修 quota 假 failed 與 `rows_written` 可觀測性。
 
-## C. 量能與 backpressure（四種單位分離）
+**吞吐與 budget（production 數據）**：
 
-定義：`candidates_inspected`（cursor 掃過的代碼數）、`stocks_selected`、`queue_jobs_inserted`、`api_calls`。cap 只綁 **queue_jobs_inserted / hour**。
+- 非交易時段實測 **30 jobs/hr**（job 107 + job 46/51，batch 30）；台北收盤時段峰值 210/hr；近 24h 完成量 500–700 jobs/day。
+- Quota ledger 24h：granted 1,074、rejected 997（keepwarm `daily_exhausted` 862）。keepwarm `daily_budget=960`、`used_today=499`。
+- 保守持續吞吐取 **24 jobs/hr**（30 的 80%）。
+- **Build 1 總 budget = 12 jobs/hr**（= 24 的 50%，另一半留給既有 job 45 tier1 + job 106 持股 gap）。
+  - 1,728 ÷ 12 ≈ **144 小時 ≈ 6 天**清完。
+  - Worst case：recovery 全部落在 priority 3，`claim_bsr_queue_jobs` 的 `ORDER BY priority ASC` 保證 p1 持股先被 claim；job 51（`max_priority:1`）為 A 專用通道，完全不受影響。
+- **Build 2 總 budget = 24 jobs/hr**，切分：recovery ≤ 8、lane A ≤ 12、lane B ≥ 4（A 用不完則補到上限）。三者相加恆 ≤ 24。
 
-- 總 insert cap：**24 jobs/hr**（= 實測 30 jobs/hr 消化量的 80%）。
-  - Lane A：最多 16 jobs/hr（63 檔 × 最多 3 日期，穩態每日新增缺口僅約 11）。
-  - Lane B：保底 8 jobs/hr（A 用不完則補到 24）→ 約 192 jobs/day，與 quota 餘裕相符。
-- Backpressure（enqueue 前評估，任一命中即 B=0）：
-  - `pending > 600`
-  - 最老 pending age > 6h
-  - keepwarm `used_today ≥ 0.8 × daily_budget`
-  - degrade mode ≠ normal
-  - A 仍保留最小 SLA 配額 8 jobs/hr（除非 `chips_all` 關閉）。
-- cursor 掃描上限（`candidates_inspected`）可到 300/輪，但**只要 insert cap 用盡就立即停止**，cursor 只前進到最後一個已處理代碼，不得跨過未 enqueue 的 gap。
+**兩級 backpressure（enqueue 前評估）**：
 
-## D. Failed 1,728 的 bounded 回收
-
-- 分類結論：全部 quota 類 → **retryable**。（若未來出現 upstream/date/unsupported，維持不復活。）
-- 本切片內：
-  - Worker 修正：quota 拒絕不再寫 `failed`，改 `status='skipped_quota'` 語意（沿用既有 `pending` + `next_run_at` 退避，不新增 status 值，`last_error` 標 `quota_deferred`），且**不累加 attempts**。
-  - 一次性 bounded requeue：僅針對 `last_error LIKE 'finmind_admission_%'` 者，將 attempts 重設為 `max_attempts - 1`（單次機會）、`status='pending'`、`next_run_at` 依 stock 雜湊分散 0–24h，避免瞬間洪峰。非 quota 類不動。
-  - 唯一 stale recovery owner：canary 期間 `recover_stale_bsr_queue_jobs`（job 106 內）只處理 `running` 逾時；`reap_stale_bsr_queue_jobs`（job 96）維持不變且不碰 failed，避免兩套 recovery 互踩。
-
-## E. Materialize 落地層修正
-
-- orchestrator 呼叫改為明確 signature：`materialize_bsr_daily_from_fact(_trade_date => tradeDate::date, _stock_ids => null)`，不重構、不刪 overload。
-- 加 focused regression：呼叫成功、回傳 `materialized_rows`，且 `tw_bsr_daily` 該日 rows 增加。
-- PASS 需雙層可說明：`tw_chip_fact` rows 增加 → 對應日 `tw_bsr_daily` materialized（或 snapshot_status 誠實 partial）。
-
-## F. Cursor 原子性
-
-- `tw_bsr_sync_config` PK = `key`，含 `config jsonb` / `version int` / history trigger → 可 CAS：`UPDATE ... SET config=..., version=version+1 WHERE key='laneB_cursor' AND version=$expected`。
-- 單一 transaction 涵蓋「掃描 → insert → cursor update」；以 `pg_try_advisory_xact_lock` 保護，取不到只回 `{skipped_locked:true}`，不算成功、不推進 cursor。
-- wrap：掃到尾端即結束本輪，剩餘 cap 不同輪續掃（避免同輪重複掃描歸因困難），下輪從頭開始。
-- `universe_date` 變更時記錄於 cursor payload；低於 cursor 的新代碼於下一次 wrap（預估 2,016 / 192 ≈ 11 天）內必被掃到；若超過 SLA 則告警。
-
-## G. Lane A SLA 與 priority
-
-- SLA：`expected_latest_bsr_date()` 前進後 **6 小時內**（或次一開盤前，取較早者），Lane A 63 檔中 ≥ 95% 於 `tw_bsr_daily` 有該日資料。依據：每日新增缺口約 11 檔，實測 30 jobs/hr → 理論 <1 小時可清。
-- Priority：Lane A 一律 `priority=1`、`post_close_only=false`；Lane B 一律 `priority=3`。`claim_bsr_queue_jobs` 的 `ORDER BY priority ASC, next_run_at ASC, id ASC` 保證 A 先被 claim；job 51（`max_priority:1`）為 A 專用通道，不受 B 積壓影響。
-- 驗收必須走 authenticated `pf-holdings-v2` 路徑（真實登入帳號的持股），不得用 demo 代替；若無可用登入 session 則標 blocker。
-
-## 變更清單（精確）
-
-| 類型 | 檔案 / 物件 |
+| 條件 | 動作 |
 | --- | --- |
-| Migration | `enqueue_chips_prefetch_gaps(int,int)` 改寫（雙 lane + cursor + backpressure + 回傳 JSON）；新增 `tw_bsr_sync_config` key `laneB_cursor` 初始 row |
-| 資料（一次性） | bounded quota requeue（僅 `finmind_admission_%`） |
-| Cron payload | job 45 → `tier2:false`；job 70 → inactive（canary） |
-| Edge Function | `supabase/functions/tw-bsr-finmind-sync/index.ts`（quota 不記 failed、不加 attempts；HTTP body 增 `rows_written`/`materialized_rows`/`coverage_delta`/`quota_deferred`，既有欄位保留） |
-| Edge Function | `supabase/functions/tw-chips-orchestrator/index.ts`（materialize signature 明確化） |
-| SQL tests | `supabase/tests/bsr_lane_ab_test.sql`（A/B cap、backpressure、cursor CAS、wrap 不漏 gap） |
-| Unit tests | `supabase/functions/tw-bsr-finmind-sync/lib_test.ts` 增 quota-deferred 分支 |
-| CI | `.github/workflows/finmind-bsr-tests.yml` 掛上新 SQL test |
+| `chips_all` 關閉 或 degrade mode ≠ normal | 全停（recovery=0、B=0、A=0） |
+| pending > 600 或 最老 ready-pending age > 12h 或 keepwarm `used_today ≥ 0.8×daily_budget` | hard stop：recovery=0、B=0；A 保留 4 jobs/hr |
+| 最老 ready-pending age 2–12h | micro-budget：recovery ≤ 4、B ≤ 4、A ≤ 12 |
+| 其餘 | 完整 budget |
 
-參數相容性：`enqueue_chips_prefetch_gaps(p_lookback_days=10, p_max_stocks=300)` 語意重新定義為 `p_lookback_days` = Lane A 回看天數上限（沿用 10，實際受 insert cap 限制）、`p_max_stocks` = 每輪 `candidates_inspected` 上限（沿用 300）。既有 cron 呼叫不需改，且不會被默默忽略。
+**Queue 健康比較單位**：`newly_enqueued jobs` vs `jobs_with_fact_rows>0`（以 job id join `tw_chip_fact` 該 stock/date 是否有 rows），不用 materialized rows 數。
 
-Kill switch：`chips_all` 關閉 → 整個 enqueue 提前 return；新增 config key `laneB_enabled` 於 enqueue 前檢查，關閉時 queue 不再成長（不倚賴 worker quota 拒絕）。
+## 3. 責任矩陣（canary 前 / 後）
 
-## 驗收（數值門檻）
+| Job | 目前 command | 職責 | Build 1 | Build 2 |
+| --- | --- | --- | --- | --- |
+| 45 | `tw-bsr-finmind-sync {"mode":"enqueue","tier1":true,"tier2":true}` 07:30 | tier1 持股 + tier2 全市場 T86 gap | 不改（僅準備開關） | payload 改 `tier2:false`，只留 tier1 |
+| 53 | 同上 `tier2:false,tier3:false` | tier1 持股（盤中多次） | 不改 | 不改 |
+| 70 | `tw-bsr-window-converge` */30 | 純 enqueue（`converge_bsr_windows`），**不做 materialize** | 不改 | 停用或 payload `max_stocks:0` gate |
+| 80/81/82 | `tw-chips-orchestrator` | materialize + reconcile（唯一落地層 owner） | 修 RPC signature | 不改 |
+| 96 | `reap_stale_bsr_queue_jobs(60)` | 只回收 running 逾時 | 不改（唯一 running recovery owner） | 不改 |
+| 106 | `enqueue_chips_prefetch_gaps(10,300)` :02 | 持股 gap enqueue + `recover_stale_bsr_queue_jobs` | 加 quota recovery batch（硬 cap） | 接 lane A/B + cursor |
+| 107/46/51/98 | worker | claim + fetch + 寫 fact | 修 quota transition、加 `rows_written` | 不改 |
 
-前置：完成 B（互斥）與 D（failed 分類/回收）後才記 baseline。
+## 4. Build 1 — correctness / observability / backlog safety
 
-1. baseline 快照：pending、oldest pending age、failed by class、coverage(最新日)、`tw_chip_fact` rows、`tw_bsr_daily` rows。
-2. 連續三輪自然 cron（job 106）：
-   - 每輪回傳含 `lane_a_inserted`/`lane_b_inserted`/`candidates_inspected`/`cursor_from`/`cursor_to`/`backpressure`。
-   - 三輪合計 `queue_jobs_inserted ≤ 72`。
-   - 至少 5 檔**非持股**代碼由 worker claim 且 `tw_chip_fact` 實際新增 rows（附 job id 對照），不能只是被掃過。
-3. Queue 健康門檻：pending ≤ baseline + 50；oldest pending age ≤ 6h；三輪期間 `new jobs ≤ materialized jobs × 1.2`。
-4. Lane A：`expected_latest_bsr_date()` 該日 63 檔覆蓋率 ≥ 95%，且透過 authenticated pf-holdings-v2 帳號實際開站確認（不開抽屜亦已有資料）。
-5. Materialize：orchestrator 一次自然執行無 ambiguity 錯誤，`tw_bsr_daily` 對應日 rows 增加或 snapshot_status 誠實 partial。
+### 變更物件
 
-回滾：還原 `enqueue_chips_prefetch_gaps` 舊函式體、`laneB_enabled=false`、job 45 payload 還原 `tier2:true`、job 70 重新啟用、Edge Function 還原前一版。
+| 類型 | 物件 / 檔案 | 內容 |
+| --- | --- | --- |
+| Edge Function | `supabase/functions/tw-bsr-finmind-sync/index.ts` | (a) quota 拒絕分支：`status='pending'`、`attempts` 不加（以 `attempts = job.attempts - 1` 抵銷 claim 時的 +1）、`last_error='quota_deferred'`、`next_run_at=now()+15~60min`；(b) response body 新增 `rows_written`、`jobs_succeeded`、`jobs_partial`、`jobs_quota_deferred`、`job_ids`；既有欄位（`processed`/`success`/`results`/`degrade_mode` 等）全部保留 |
+| Edge Function | `supabase/functions/tw-chips-orchestrator/index.ts` | 最小 diff：`supa.rpc('materialize_bsr_daily_from_fact', { _trade_date: tradeDate })` → `{ _trade_date: tradeDate, _stock_ids: null }`，命中雙參數 signature、消除 ambiguity |
+| Migration | `public.recover_quota_failed_bsr_jobs(p_max int default 12)` 新函式 | 只挑 `status='failed' AND last_error LIKE 'finmind_admission_%' AND max_attempts < 8`，依 `trade_date DESC, stock_id` 決定順序，硬 cap `p_max`；設 `status='pending'`、`next_run_at=now()`、`max_attempts=max_attempts+1`、`last_error='quota_recovery_token'`；回傳 jsonb（`recovered`、`remaining`、`skipped_reason`） |
+| Migration | `public.enqueue_chips_prefetch_gaps(int,int)` | 僅新增一段：先算 backpressure，再呼叫 `recover_quota_failed_bsr_jobs(<budget>)`，並把結果放進回傳 JSON。持股 gap 邏輯不動；**不加 lane B** |
+| SQL test | `supabase/tests/bsr_quota_recovery_test.sql`（新增） | cap 生效、非 quota 類不被復活、`max_attempts` 上限 8、attempts 不被竄改、backpressure 命中時回 0 |
+| Deno test | `supabase/functions/tw-bsr-finmind-sync/lib_test.ts`（既有，擴充） | quota-deferred 分支決策（不算 failed、不加 attempts、退避區間） |
+| CI | `.github/workflows/finmind-bsr-tests.yml`（既有）掛上新 SQL test；不新增 workflow |
+
+### Build 1 驗收（自然排程，不手動觸發）
+
+1. 至少 1 輪自然 worker（job 107 :07 或 job 46/51）：HTTP body 有 `rows_written` 與 job IDs；出現 quota 拒絕時該 job 為 `pending` + `last_error='quota_deferred'`，`attempts` 未增加。
+2. 至少 1 輪自然 orchestrator（job 80/81/82 07:35 / 09:35 / 11:35 台北）：無 `materialize_snapshot: Could not choose the best candidate function`；`tw_bsr_daily` 對應日 rows 增加，或 `tw_bsr_daily_snapshot_status` 誠實 partial。
+3. Recovery：三輪 job 106 合計 `recovered ≤ 36`；failed 總數單調下降；無任何一次 UPDATE 超過 cap。
+4. Backlog 改善：pending 不高於 baseline+50；最老 ready-pending age 呈下降趨勢（baseline 現值：`oldest next_run_at = 2026-08-11 07:30Z`，約 23.5h）。
+5. Preview 無回歸：`npx vitest run` + `npm run check:module-boundaries` 綠燈；不動任何 UI 或無關程式。
+
+**Build 1 rollback**：還原兩支 Edge Function 前一版；`recover_quota_failed_bsr_jobs` 以 `p_max=0` 或還原 `enqueue_chips_prefetch_gaps` 舊函式體即停止未來 recovery。已成功抓回的 fact/daily rows 不倒回（本來就是正確資料）。
+
+## 5. Build 2 — single-owner lane A/B + durable cursor canary
+
+**前置門檻（全部滿足才可開始）**：Build 1 PASS；`pending ≤ 200`；最老 ready-pending age ≤ 6h；`failed(quota 類) ≤ 300`；degrade mode = normal。
+
+### 變更物件
+
+| 類型 | 物件 / 檔案 | 內容 |
+| --- | --- | --- |
+| Cron | job 45 payload → `{"mode":"enqueue","tier1":true,"tier2":false}` | 停重複 T86 enqueue，保留 tier1 |
+| Cron | job 70 → `active=false`（或 payload `max_stocks:0`） | 純 enqueue，停用不影響落地層 |
+| Migration | `enqueue_chips_prefetch_gaps(int,int)` | 加 lane A/B：A = 現有持股 gap（`priority=1`, `post_close_only=false`, `enqueued_by='lane_a_holdings'`）；B = T86 全市場 cursor 輪轉（`priority=3`, `enqueued_by='lane_b_rotation'`）。參數語意：`p_lookback_days`(10) = lane A 回看天數上限；`p_max_stocks`(300) = 每輪 `candidates_inspected` 上限。既有 cron 呼叫不需改。 |
+| Config | `tw_bsr_sync_config` 新 key `laneB_cursor`，`config = {enabled, last_code, universe_date, wraps, inspected_total}` | **唯一開關**即 `config.enabled`；CAS：`UPDATE ... WHERE key='laneB_cursor' AND version=$expected`（實測 `tw_bsr_sync_config_snapshot_trg` 會自動 `version+1` 並寫 history；`relacl` 顯示 `service_role=arwdDxtm`，SECURITY DEFINER 函式可寫） |
+| 原子性 | 單一 transaction 涵蓋掃描→insert→cursor update，外層 `pg_try_advisory_xact_lock`；取不到只回 `{skipped_locked:true}`，不推進 cursor | |
+| SQL test | `supabase/tests/bsr_lane_ab_test.sql`（新增） | A/B/recovery 三者總和 ≤ 24；cap 用盡即停且 cursor 不跨過未 enqueue 的 gap；CAS 版本衝突不覆寫；wrap 後不重複不漏；backpressure 兩級 |
+| CI | 掛到既有 `finmind-bsr-tests.yml` | |
+
+**單位定義**：`candidates_inspected`（掃過代碼數，可 300）、`stocks_selected`、`queue_jobs_inserted`（唯一受 cap 約束者）、`api_calls`。
+
+### Build 2 驗收（三輪自然 :02 / :07）
+
+1. 每輪 job 106 回傳含 `lane_a_inserted`、`lane_b_inserted`、`recovered`、`candidates_inspected`、`cursor_from/to`、`backpressure`、`skipped_locked`。
+2. 三輪 `queue_jobs_inserted` 合計 ≤ 72，且 recovery+A+B 每輪 ≤ 24。
+3. 至少 **5 個非持股代碼** 完成 inserted → claimed → `tw_chip_fact` 該 stock/date rows > 0（附 job id 對照表）。
+4. Lane A SLA 二分計：
+   - **available & fresh**：`expected_latest_bsr_date()` 前進後 6h 內，63 檔中「上游有資料」者 ≥ 95% 已寫入 `tw_bsr_daily`；
+   - **truthfully unavailable/partial**：其餘標記 `skipped(no_chip_data)` 或 `upstream_exhausted`，UI 正確降級顯示，不得補假資料，也不計入成功。
+5. Authenticated `pf-holdings-v2` 路徑：真登入帳號（非 demo），記錄開抽屜前後 `max(id)` 與 `count(*)`——必須不變、且無 enqueue RPC 呼叫；資料在開抽屜前已存在。若無可用登入 session → 標 blocker，不以 demo 代替。
+6. Queue 健康：pending ≤ 200 + 50；最老 ready-pending age ≤ 6h；三輪 `newly_enqueued jobs ≤ jobs_with_fact_rows>0 × 1.2`。
+7. 落地層雙證：`tw_chip_fact` 增加，且對應日 `tw_bsr_daily` materialized rows 增加或 snapshot_status 誠實 partial。
+8. 不 Publish。
+
+**Build 2 rollback**：`laneB_cursor.config.enabled=false`（立即在 enqueue 前生效，queue 不再成長）；還原 `enqueue_chips_prefetch_gaps` 舊函式體；job 45 payload 還原 `tier2:true`；job 70 重新啟用。
+
+## 6. Blocker / 待決
+
+- **無待決設計問題。**
+- 唯一潛在 blocker：Build 2 驗收第 5 項需要一組真實登入的 pf-holdings-v2 帳號 session。若屆時無法取得，該項標 blocker，Build 2 不得判 PASS。
