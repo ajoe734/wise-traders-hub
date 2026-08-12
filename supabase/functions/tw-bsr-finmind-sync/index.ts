@@ -396,11 +396,14 @@ async function collectSignals(rl: { used: number; limit: number }): Promise<Sign
   const usagePct = rl.limit > 0 ? (rl.used / rl.limit) * 100 : 0;
   const { data: rs } = await supa.rpc('bsr_reservation_stats', { _api: 'finmind' });
   const rsRow = Array.isArray(rs) ? rs[0] : rs;
+  // Build 1b: only P1 jobs that are actually claimable (due now) can stall the system.
+  // Quota-deferred P1 rows have next_run_at in the future and must NOT trigger p1_stalled.
   const { data: oldestP1 } = await supa.from('tw_bsr_sync_queue')
-    .select('enqueued_at').eq('priority', 1).eq('status', 'pending')
-    .order('enqueued_at', { ascending: true }).limit(1);
+    .select('next_run_at').eq('priority', 1).eq('status', 'pending')
+    .not('next_run_at', 'is', null).lte('next_run_at', new Date().toISOString())
+    .order('next_run_at', { ascending: true }).limit(1);
   const p1Age = oldestP1?.[0]
-    ? Math.round((Date.now() - new Date(oldestP1[0].enqueued_at).getTime()) / 1000)
+    ? Math.round((Date.now() - new Date(oldestP1[0].next_run_at).getTime()) / 1000)
     : 0;
   const since = new Date(Date.now() - 60 * 60_000).toISOString();
   const { data: usage } = await supa.from('tw_bsr_api_usage')
@@ -729,12 +732,14 @@ async function runStats() {
     _api: 'finmind', _min_age_seconds: 30, _limit: 20,
   });
 
+  // Build 1b: same due-filter as collectSignals — deferred P1 is debt, not a stall.
   const { data: oldestP1 } = await supa.from('tw_bsr_sync_queue')
-    .select('enqueued_at')
+    .select('next_run_at')
     .eq('priority', 1).eq('status', 'pending')
-    .order('enqueued_at', { ascending: true }).limit(1);
+    .not('next_run_at', 'is', null).lte('next_run_at', new Date().toISOString())
+    .order('next_run_at', { ascending: true }).limit(1);
   const p1OldestAgeSec = oldestP1?.[0]
-    ? Math.round((Date.now() - new Date(oldestP1[0].enqueued_at).getTime()) / 1000)
+    ? Math.round((Date.now() - new Date(oldestP1[0].next_run_at).getTime()) / 1000)
     : 0;
 
   const recent = (usage || [])
