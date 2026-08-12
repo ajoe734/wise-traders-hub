@@ -33,6 +33,12 @@ core_in="$(printf "'%s'," "${CORE[@]}" | sed 's/,$//')"
 
 TMP="$(mktemp -d /tmp/bsr-closure-XXXXXX)"
 trap 'rm -rf "$TMP"' EXIT
+# 實際跑 psql 的可能是降權後的 uid 1000（見 ephemeral-pg.sh asuser）。
+# 最小權限：目錄 0755 可 traverse，輸入檔 0644 唯讀可讀。禁止 chmod -R 777。
+chmod 755 "$TMP"
+sqlfile() { # sqlfile <path>：寫檔後設成 0644
+  chmod 644 "$1"
+}
 
 # ---- 1) pg_depend 遞迴 --------------------------------------------------------
 cat > "$TMP/depend.sql" <<SQL
@@ -59,6 +65,7 @@ LEFT JOIN pg_proc p ON w.classid='pg_proc'::regclass::oid AND p.oid=w.objid
 WHERE coalesce(c.relname, p.proname) IS NOT NULL
 ORDER BY 1;
 SQL
+sqlfile "$TMP/depend.sql"
 q -f "$TMP/depend.sql" | sed '/^$/d' | sort -u > "$TMP/depend.txt"
 
 # ---- 2) call graph 交叉檢查 ---------------------------------------------------
@@ -68,6 +75,7 @@ FROM pg_proc p JOIN pg_namespace n ON n.oid=p.pronamespace
 WHERE n.nspname='public' AND p.proname IN ($(printf "'%s'," "${BSR_SLICE_FUNCTIONS[@]}" | sed 's/,$//'))
 ORDER BY p.proname;
 SQL
+sqlfile "$TMP/src.sql"
 q -f "$TMP/src.sql" | sed '/^$/d' > "$TMP/src.tsv"
 
 fail=0

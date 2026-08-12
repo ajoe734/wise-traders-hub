@@ -17,7 +17,20 @@
 --     -f supabase/tests/bsr_recovery_write_test.sql
 
 \set ON_ERROR_STOP on
+\if :{?negative_control}
+\else
 \set negative_control 0
+\endif
+-- phase 切分：Case A/B 需要「無人持有 advisory 771001」，Case C 需要「有人持有」。
+-- 因此 harness 分兩次呼叫本檔（run_ab / run_c），避免 holder 汙染 A/B。
+\if :{?run_ab}
+\else
+\set run_ab 1
+\endif
+\if :{?run_c}
+\else
+\set run_c 1
+\endif
 
 -- ---------------------------------------------------------------------------
 -- Guard：任一不符即中止（hard fail，不 SKIP）
@@ -52,6 +65,7 @@ $guard$;
 -- ---------------------------------------------------------------------------
 -- Case A — terminal reconcile，零 token（獨立 transaction）
 -- ---------------------------------------------------------------------------
+\if :run_ab
 \echo '--- Case A: terminal reconcile ---'
 BEGIN;
 DO $caseA$
@@ -62,8 +76,8 @@ BEGIN
   ASSERT (SELECT count(*) FROM public.tw_bsr_sync_queue) = 0, 'A: residue in queue';
   ASSERT (SELECT count(*) FROM public.tw_chip_fact) = 0, 'A: residue in fact';
 
-  INSERT INTO public.finmind_quota_pools (pool_name, tokens, used_today, daily_budget, reset_at)
-  VALUES ('backfill', 600, 0, 600, 16), ('keepwarm', 0, 400, 400, 16), ('interactive', 0, 240, 240, 16)
+  INSERT INTO public.finmind_quota_pools (pool_name, tokens, used_today, daily_budget)
+  VALUES ('backfill', 600, 0, 600), ('keepwarm', 0, 400, 400), ('interactive', 0, 240, 240)
   ON CONFLICT (pool_name) DO UPDATE
     SET tokens = EXCLUDED.tokens, used_today = EXCLUDED.used_today, daily_budget = EXCLUDED.daily_budget;
 
@@ -132,8 +146,8 @@ BEGIN
   ASSERT (SELECT count(*) FROM public.tw_bsr_sync_queue) = 0, 'B: residue in queue (rollback failed)';
   ASSERT (SELECT count(*) FROM public.tw_chip_fact) = 0, 'B: residue in fact (rollback failed)';
 
-  INSERT INTO public.finmind_quota_pools (pool_name, tokens, used_today, daily_budget, reset_at)
-  VALUES ('backfill', 600, 0, 600, 16), ('keepwarm', 0, 400, 400, 16), ('interactive', 0, 240, 240, 16)
+  INSERT INTO public.finmind_quota_pools (pool_name, tokens, used_today, daily_budget)
+  VALUES ('backfill', 600, 0, 600), ('keepwarm', 0, 400, 400), ('interactive', 0, 240, 240)
   ON CONFLICT (pool_name) DO UPDATE
     SET tokens = EXCLUDED.tokens, used_today = EXCLUDED.used_today, daily_budget = EXCLUDED.daily_budget;
 
@@ -194,6 +208,7 @@ BEGIN
 END
 $caseB$;
 ROLLBACK;
+\endif
 
 -- ---------------------------------------------------------------------------
 -- Case C — advisory lock 競爭下的原子性（背景 session 由 harness 持鎖）
@@ -201,6 +216,7 @@ ROLLBACK;
 -- ---------------------------------------------------------------------------
 \if :negative_control
 \else
+\if :run_c
 \echo '--- Case C: advisory lock contention ---'
 BEGIN;
 SET LOCAL lock_timeout = '5s';
@@ -243,6 +259,7 @@ END
 $caseC$;
 ROLLBACK;
 \endif
+\endif
 
 -- ---------------------------------------------------------------------------
 -- Negative control — 獨立 transaction、獨立 fixture、故意讓斷言不成立
@@ -255,8 +272,8 @@ DECLARE v_d date; v_id bigint; v_res jsonb;
 BEGIN
   ASSERT (SELECT count(*) FROM public.tw_bsr_sync_queue) = 0, 'NC: residue in queue';
 
-  INSERT INTO public.finmind_quota_pools (pool_name, tokens, used_today, daily_budget, reset_at)
-  VALUES ('backfill', 600, 0, 600, 16), ('keepwarm', 0, 400, 400, 16), ('interactive', 0, 240, 240, 16)
+  INSERT INTO public.finmind_quota_pools (pool_name, tokens, used_today, daily_budget)
+  VALUES ('backfill', 600, 0, 600), ('keepwarm', 0, 400, 400), ('interactive', 0, 240, 240)
   ON CONFLICT (pool_name) DO UPDATE
     SET tokens = EXCLUDED.tokens, used_today = EXCLUDED.used_today, daily_budget = EXCLUDED.daily_budget;
 

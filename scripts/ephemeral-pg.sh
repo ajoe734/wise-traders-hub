@@ -171,13 +171,23 @@ cmd_test() {
   if [ "$mode" = "--negative-control" ]; then
     echo "==> negative control (expect NON-ZERO exit)"
     PGOPTIONS='-c bsr.ephemeral=1' asuser "$PGBIN/psql" -h "$SOCKDIR" -U postgres -d "$DBNAME" -X \
-      -v ON_ERROR_STOP=1 -v negative_control=1 \
+      -v ON_ERROR_STOP=1 -v negative_control=1 -v run_ab=0 -v run_c=0 \
       -f "$REPO_ROOT/supabase/tests/bsr_recovery_write_test.sql"
     return $?
   fi
 
-  # Case C 需要一個持有 advisory lock 771001 的背景 session
-  echo "==> starting lock holder (advisory 771001)"
+  # Phase 1：Case A/B —— 必須在「無人持鎖」狀態執行
+  echo "==> phase 1: Case A/B (no lock holder)"
+  set +e
+  PGOPTIONS='-c bsr.ephemeral=1' asuser "$PGBIN/psql" -h "$SOCKDIR" -U postgres -d "$DBNAME" -X \
+    -v ON_ERROR_STOP=1 -v negative_control=0 -v run_ab=1 -v run_c=0 \
+    -f "$REPO_ROOT/supabase/tests/bsr_recovery_write_test.sql"
+  local rc=$?
+  set -e
+  [ "$rc" -eq 0 ] || return $rc
+
+  # Phase 2：Case C —— 需要一個持有 advisory lock 771001 的背景 session
+  echo "==> phase 2: starting lock holder (advisory 771001)"
   asuser "$PGBIN/psql" -h "$SOCKDIR" -U postgres -d "$DBNAME" -X -q \
     -c "BEGIN; SELECT pg_advisory_xact_lock(771001); SELECT pg_sleep(20); ROLLBACK;" >/dev/null 2>&1 &
   local holder=$!
@@ -192,9 +202,9 @@ cmd_test() {
 
   set +e
   PGOPTIONS='-c bsr.ephemeral=1' asuser "$PGBIN/psql" -h "$SOCKDIR" -U postgres -d "$DBNAME" -X \
-    -v ON_ERROR_STOP=1 -v negative_control=0 \
+    -v ON_ERROR_STOP=1 -v negative_control=0 -v run_ab=0 -v run_c=1 \
     -f "$REPO_ROOT/supabase/tests/bsr_recovery_write_test.sql"
-  local rc=$?
+  rc=$?
   set -e
   kill "$holder" 2>/dev/null || true
   wait "$holder" 2>/dev/null || true
