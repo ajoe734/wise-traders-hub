@@ -97,7 +97,7 @@ failed(quota 類) ──recovery token（硬 cap）───► pending, max_att
 | Migration | `public.recover_quota_failed_bsr_jobs(p_max int default 12)` 新函式 | 只挑 `status='failed' AND last_error LIKE 'finmind_admission_%' AND max_attempts < 8`，依 `trade_date DESC, stock_id` 決定順序，硬 cap `p_max`；設 `status='pending'`、`next_run_at=now()`、`max_attempts=max_attempts+1`、`last_error='quota_recovery_token'`；回傳 jsonb（`recovered`、`remaining`、`skipped_reason`） |
 | Migration | `public.enqueue_chips_prefetch_gaps(int,int)` | 僅新增一段：先算 backpressure，再呼叫 `recover_quota_failed_bsr_jobs(<budget>)`，並把結果放進回傳 JSON。持股 gap 邏輯不動；**不加 lane B** |
 | SQL test | `supabase/tests/bsr_quota_recovery_test.sql`（新增） | cap 生效、非 quota 類不被復活、`max_attempts` 上限 8、attempts 不被竄改、backpressure 命中時回 0 |
-| Deno test | `supabase/functions/tw-bsr-finmind-sync/lib_test.ts`（既有，擴充） | quota-deferred 分支決策（不算 failed、不加 attempts、退避區間） |
+| Deno test | `supabase/functions/tw-bsr-finmind-sync/lib_test.ts`（既有，擴充） | quota-deferred 分支決策（不算 failed、退避區間）；**attempts 邊界三例：0 / 1 / max**，驗證抵銷後不為負、不超過原值 |
 | CI | `.github/workflows/finmind-bsr-tests.yml`（既有）掛上新 SQL test；不新增 workflow |
 
 ### Build 1 驗收（自然排程，不手動觸發）
