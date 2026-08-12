@@ -80,3 +80,32 @@ export function decideQuotaDeferral(opts: {
   };
 }
 
+
+// ============ Build 1f：token 優先的 stable partition ============
+/** recovery token job 的辨識標記（由 recover_quota_failed_bsr_jobs 寫入 last_error）。 */
+export const RECOVERY_TOKEN_MARK = 'quota_recovery_token';
+
+export function isRecoveryTokenJob(job: { last_error?: string | null } | null | undefined): boolean {
+  return !!job && job.last_error === RECOVERY_TOKEN_MARK;
+}
+
+/**
+ * Stable partition：所有 recovery token job 移到最前面，token 之間、non-token 之間
+ * 的相對順序都保持不變。
+ *
+ * 為什麼要在 Edge 再做一次：DB 端 claim_bsr_queue_jobs 已用 `ORDER BY bucket` 保證
+ * token 在第一列，但 PostgREST/驅動層對 SETOF 回傳順序不做契約保證。worker 是
+ * 「共享 index 依序取件」，token 若落在陣列尾端且 budgetMs 先到，就會整輪被餓死。
+ * 這裡是防禦性保險；production 每次 invocation 最多 1 個 token 由 DB 保證，
+ * 但本函式對「意外多個 token」仍必須是 stable partition，不是只提前第一個。
+ */
+export function partitionTokenFirst<T extends { last_error?: string | null }>(jobs: T[]): T[] {
+  if (!Array.isArray(jobs) || jobs.length === 0) return [];
+  const tokens: T[] = [];
+  const rest: T[] = [];
+  for (const j of jobs) {
+    if (isRecoveryTokenJob(j)) tokens.push(j);
+    else rest.push(j);
+  }
+  return tokens.concat(rest);
+}

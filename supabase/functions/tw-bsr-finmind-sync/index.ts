@@ -37,6 +37,7 @@ import {
   isQuotaRejection,
   isWeekday,
   rollBackToWeekday,
+  partitionTokenFirst,
   taipeiNowFrom,
   toIsoDate,
   type FinmindRow,
@@ -520,11 +521,11 @@ async function runWorker(batch: number, maxPriority: number, budgetMs: number): 
 
   // ============ Phase B：per-stock 補刀（fallback） ============
   // 若 market batch 已消化完該 date 的 pending job，此處會直接 no_jobs。
-  const { data: jobs, error } = await supa.rpc('claim_bsr_queue_jobs', {
+  const { data: claimedJobs, error } = await supa.rpc('claim_bsr_queue_jobs', {
     _batch: effectiveBatch, _max_priority: cappedMaxPriority,
   });
   if (error) return { ok: false, error: `claim_failed:${error.message}` };
-  if (!jobs || jobs.length === 0) {
+  if (!claimedJobs || claimedJobs.length === 0) {
     const after = await evaluateAndMaybeTransition(null);
     return {
       ok: true, note: snapshotResults.length > 0 ? 'snapshot_only' : 'no_jobs',
@@ -533,6 +534,9 @@ async function runWorker(batch: number, maxPriority: number, budgetMs: number): 
       recycled_reservations: recycledCount,
     };
   }
+
+  // Build 1f：token 優先的 stable partition（DB 已排序，這裡是 driver 順序的防禦性保險）。
+  const jobs = partitionTokenFirst(claimedJobs as Array<{ last_error?: string | null }>) as typeof claimedJobs;
 
   // Build 1 可觀測性：per-job 明細，讓 HTTP body 能逐筆對回 tw_bsr_sync_queue。
   const jobOutcomes: Array<{
