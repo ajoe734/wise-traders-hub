@@ -244,7 +244,7 @@ END $$;
 
 BEGIN;
 -- trigger function tw_bsr_sync_queue_touch_updated 實際綁定執行（交易內，稍後 ROLLBACK）
-INSERT INTO public.tw_bsr_sync_queue (stock_id, trade_date, status) VALUES ('__preflight__', CURRENT_DATE, 'pending');
+INSERT INTO public.tw_bsr_sync_queue (stock_id, trade_date, status, priority) VALUES ('__preflight__', CURRENT_DATE, 'pending', 3);
 UPDATE public.tw_bsr_sync_queue SET status='pending' WHERE stock_id='__preflight__';
 DO $$
 DECLARE u timestamptz;
