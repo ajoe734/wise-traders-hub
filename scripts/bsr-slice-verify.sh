@@ -189,8 +189,30 @@ else
   slice_die "drift detected — behavior tests NOT started"
 fi
 
-echo "==> [3/3] preflight (6 read-only calls + eligibility 語意 + zero-budget smoke in ROLLBACK)"
+echo "==> [3/4] per-function compile gate (check_function_bodies=on，抵銷 fixture load 時的 off)"
+slice_psql <<SQL || slice_die "compile gate failed"
+\set ON_ERROR_STOP on
+SET check_function_bodies = on;
+BEGIN;
+DO \$outer\$
+DECLARE r record; n int := 0;
+BEGIN
+  FOR r IN SELECT p.oid, p.proname FROM pg_proc p JOIN pg_namespace ns ON ns.oid=p.pronamespace
+           WHERE ns.nspname='public' AND p.proname IN ($(_slice_fn_list_sql)) ORDER BY p.proname
+  LOOP
+    EXECUTE pg_get_functiondef(r.oid);   -- 重新編譯：unresolved dependency 會在此炸掉
+    n := n + 1;
+  END LOOP;
+  IF n <> 9 THEN RAISE EXCEPTION 'compile gate: expected 9 functions, got %', n; END IF;
+  RAISE NOTICE 'compile gate: % functions recompiled with check_function_bodies=on', n;
+END
+\$outer\$;
+ROLLBACK;
+SQL
+
+echo "==> [4/4] preflight (9 functions call/read-only + trigger fn + zero-budget smoke in ROLLBACK)"
 slice_psql <<'SQL' || slice_die "preflight failed"
+
 \set ON_ERROR_STOP on
 DO $$
 DECLARE n int;
