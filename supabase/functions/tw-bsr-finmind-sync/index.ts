@@ -31,8 +31,10 @@ import {
 import {
   addDays,
   aggregate as libAggregate,
+  decideQuotaDeferral,
   DONE_BROKER_THRESHOLD,
   isAfterCloseAt,
+  isQuotaRejection,
   isWeekday,
   rollBackToWeekday,
   taipeiNowFrom,
@@ -529,6 +531,19 @@ async function runWorker(batch: number, maxPriority: number, budgetMs: number): 
     };
   }
 
+  // Build 1 可觀測性：per-job 明細，讓 HTTP body 能逐筆對回 tw_bsr_sync_queue。
+  const jobOutcomes: Array<{
+    id: number; stock_id: string; trade_date: string; priority: number;
+    outcome: string; rows_written: number; last_error: string | null;
+  }> = [];
+  function recordOutcome(job: any, outcome: string, rowsWritten: number, lastError: string | null) {
+    jobOutcomes.push({
+      id: job.id, stock_id: job.stock_id, trade_date: job.trade_date,
+      priority: job.priority, outcome, rows_written: rowsWritten,
+      last_error: lastError ? lastError.slice(0, 200) : null,
+    });
+  }
+
   let idx = 0;
   async function worker() {
     while (idx < jobs.length) {
@@ -568,13 +583,15 @@ async function runWorker(batch: number, maxPriority: number, budgetMs: number): 
         }
 
         if (isIncomplete && nextAttempts >= (job.max_attempts ?? 5)) {
+          const lastError = r.note === 'aggregated_partial' ? 'partial_chip_data' : 'no_chip_data';
           await supa.from('tw_bsr_sync_queue').update({
             status: 'skipped',
             finished_at: new Date().toISOString(),
-            last_error: r.note === 'aggregated_partial' ? 'partial_chip_data' : 'no_chip_data',
+            last_error: lastError,
             next_run_at: null,
             started_at: null,
           }).eq('id', job.id);
+          recordOutcome(job, 'skipped', 0, lastError);
         } else if (isIncomplete) {
           const backoffMin = !isAfterClose() ? 30 : Math.min(120, Math.pow(2, nextAttempts) * 5);
           await supa.from('tw_bsr_sync_queue').update({
@@ -584,6 +601,7 @@ async function runWorker(batch: number, maxPriority: number, budgetMs: number): 
             last_error: r.note ?? 'incomplete_chip_data',
             next_run_at: new Date(Date.now() + backoffMin * 60_000).toISOString(),
           }).eq('id', job.id);
+          recordOutcome(job, 'partial', 0, r.note ?? 'incomplete_chip_data');
         } else {
           await supa.from('tw_bsr_sync_queue').update({
             status: 'done',
@@ -591,7 +609,23 @@ async function runWorker(batch: number, maxPriority: number, budgetMs: number): 
             last_success_at: r.rows > 0 ? new Date().toISOString() : undefined,
             last_error: null,
           }).eq('id', job.id);
+          recordOutcome(job, 'done', r.rows ?? 0, null);
         }
+      } else if (isQuotaRejection(r.error)) {
+        // Quota 拒絕：不是資料問題，attempts 抵銷回 claim 前的值，避免 5 輪後
+        // 變成 failed 而被 partial unique index 永久擋住（飢餓）。
+        const deferral = decideQuotaDeferral({
+          attempts: job.attempts ?? 1,
+          nowMs: Date.now(),
+          jitter: Math.random(),
+        });
+        const { error: deferErr } = await supa.rpc('defer_bsr_job_quota', {
+          p_job_id: job.id,
+          p_delay_minutes: deferral.delayMinutes,
+        });
+        if (deferErr) console.warn(`[${cid}] defer_bsr_job_quota failed:`, deferErr.message);
+        recordOutcome(job, 'quota_deferred', 0, 'quota_deferred');
+        if (r.rateLimited) { rateLimitedStop = true; return; }
       } else {
         const nextAttempts = (job.attempts ?? 1);
         const backoffMin = Math.min(120, Math.pow(2, nextAttempts) * 5);
@@ -603,11 +637,13 @@ async function runWorker(batch: number, maxPriority: number, budgetMs: number): 
           next_run_at: shouldFail ? undefined : new Date(Date.now() + backoffMin * 60_000).toISOString(),
           started_at: null,
         }).eq('id', job.id);
+        recordOutcome(job, shouldFail ? 'failed' : 'retry_pending', 0, r.error ?? null);
         if (r.rateLimited) { rateLimitedStop = true; return; }
       }
     }
   }
   await Promise.all(Array.from({ length: Math.min(cappedConcurrency, jobs.length) }, worker));
+
 
   const finalRl = await checkRateLimit(supa);
   // 最後一輪：用最新訊號重新評估狀態轉移；用最後一筆 job 的 cid 作為 audit 關聯
@@ -623,8 +659,17 @@ async function runWorker(batch: number, maxPriority: number, budgetMs: number): 
     recycled_reservations: recycledCount,
     snapshot_fulfilled: snapshotResults,
     elapsed_ms: Date.now() - started,
+    // Build 1 可觀測性（既有欄位全部保留，以下為新增）
+    rows_written: jobOutcomes.reduce((s, j) => s + j.rows_written, 0),
+    jobs_succeeded: jobOutcomes.filter((j) => j.outcome === 'done').length,
+    jobs_partial: jobOutcomes.filter((j) => j.outcome === 'partial' || j.outcome === 'skipped').length,
+    jobs_quota_deferred: jobOutcomes.filter((j) => j.outcome === 'quota_deferred').length,
+    jobs_failed: jobOutcomes.filter((j) => j.outcome === 'failed').length,
+    job_ids: jobOutcomes.map((j) => j.id),
+    jobs: jobOutcomes,
     results,
   };
+
 }
 
 // ============ STATS ============

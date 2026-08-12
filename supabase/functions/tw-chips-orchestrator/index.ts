@@ -77,10 +77,13 @@ Deno.serve(async (req) => {
       // P4: 先 materialize（將 tw_chip_fact 提拔到 tw_bsr_daily），再 reconcile。
       // 這是防禦性一步 — ingestion 端已經會呼叫，但收斂到編排器可保證所有
       // lane 補寫完成後有一次終局 materialization。
+      // 兩個參數都必須明確帶上，PostgREST 才能唯一命中 (date, text[]) signature；
+      // 只帶 _trade_date 會撞到 overload ambiguity（Could not choose the best candidate function）。
       const { data: mat, error: matErr } = await supa.rpc(
         'materialize_bsr_daily_from_fact',
-        { _trade_date: tradeDate },
+        { _trade_date: tradeDate, _stock_ids: null },
       );
+
       if (matErr) throw new Error(`materialize_snapshot: ${matErr.message}`);
       report.materialize = Array.isArray(mat) ? mat[0] : mat;
 

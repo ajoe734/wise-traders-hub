@@ -6143,6 +6143,7 @@ export type Database = {
           trigger_value: number
         }[]
       }
+      bsr_recovery_budget: { Args: { p_full_budget?: number }; Returns: Json }
       bsr_reservation_stats: {
         Args: { _api?: string }
         Returns: {
@@ -6334,6 +6335,10 @@ export type Database = {
       cron_edge_call: {
         Args: { body?: Json; fn_name: string; timeout_ms?: number }
         Returns: number
+      }
+      defer_bsr_job_quota: {
+        Args: { p_delay_minutes?: number; p_job_id: number }
+        Returns: Json
       }
       delete_expired_binding_codes: { Args: never; Returns: undefined }
       delete_old_prices: { Args: never; Returns: undefined }
@@ -6805,6 +6810,7 @@ export type Database = {
         Args: { _api?: string; _rate_limited?: boolean; _success?: boolean }
         Returns: undefined
       }
+      recover_quota_failed_bsr_jobs: { Args: { p_max?: number }; Returns: Json }
       recover_stale_backfill_jobs: {
         Args: { _stale_after?: string }
         Returns: number

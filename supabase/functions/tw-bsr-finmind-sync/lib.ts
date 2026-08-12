@@ -40,3 +40,43 @@ export function decideFailureRetry(opts: {
     backoffMinutes,
   };
 }
+
+// ============ Quota 拒絕（admission gate）專用轉移 ============
+/**
+ * quota 拒絕不是「這檔股票抓不到」，而是「這一輪沒配額」。
+ * 若照一般失敗路徑走，attempts 會被吃掉、五輪後直接 failed，
+ * 而 partial unique index 會讓該 stock/date 永遠無法重新入列（飢餓）。
+ */
+export function isQuotaRejection(error?: string | null): boolean {
+  return typeof error === 'string' && error.startsWith('finmind_admission_');
+}
+
+/**
+ * quota 拒絕的合法轉移：status 回 pending、延後 15~60 分、attempts 抵銷回 claim 前的值。
+ *
+ * claim_bsr_queue_jobs 會在 claim 當下做 `attempts = attempts + 1`，並 RETURNING 更新後的列，
+ * 因此 worker 手上的 job.attempts 已經是「claim 後」的值；抵銷 = attempts - 1，
+ * 並以 GREATEST(...,0) 防負值（真正的扣減在 SQL 端原子完成，此處僅供決策與測試）。
+ */
+export function decideQuotaDeferral(opts: {
+  attempts: number;
+  nowMs: number;
+  jitter?: number;
+}): {
+  status: 'pending';
+  attemptsAfter: number;
+  delayMinutes: number;
+  nextRunAt: string;
+  lastError: 'quota_deferred';
+} {
+  const j = Math.min(Math.max(opts.jitter ?? 0, 0), 1);
+  const delayMinutes = 15 + Math.floor(j * 45); // 15~60 分鐘
+  return {
+    status: 'pending',
+    attemptsAfter: Math.max(0, (opts.attempts ?? 0) - 1),
+    delayMinutes,
+    nextRunAt: new Date(opts.nowMs + delayMinutes * 60_000).toISOString(),
+    lastError: 'quota_deferred',
+  };
+}
+
