@@ -10,6 +10,8 @@ import {
   aggregate,
   decideEffectiveDate,
   decideFailureRetry,
+  decideQuotaDeferral,
+  isQuotaRejection,
   isAfterCloseAt,
   isWeekday,
   rollBackToWeekday,
@@ -137,4 +139,47 @@ Deno.test('decideFailureRetry - 退避上限 120 分', () => {
   const now = Date.parse('2026-07-20T06:00:00Z');
   const r = decideFailureRetry({ attempts: 10, maxAttempts: 999, nowMs: now });
   assertEquals(r.backoffMinutes, 120); // capped
+});
+
+// ============ Build 1：quota 拒絕的轉移語意 ============
+
+Deno.test('isQuotaRejection - 只認 finmind_admission_ 前綴', () => {
+  assert(isQuotaRejection('finmind_admission_daily_exhausted'));
+  assert(isQuotaRejection('finmind_admission_no_token'));
+  assertEquals(isQuotaRejection('finmind_http_429'), false);
+  assertEquals(isQuotaRejection('no_chip_data'), false);
+  assertEquals(isQuotaRejection(null), false);
+  assertEquals(isQuotaRejection(undefined), false);
+});
+
+Deno.test('decideQuotaDeferral - 一律 pending，不吃 attempts', () => {
+  const now = Date.parse('2026-08-12T07:00:00Z');
+  const d = decideQuotaDeferral({ attempts: 3, nowMs: now, jitter: 0 });
+  assertEquals(d.status, 'pending');
+  assertEquals(d.attemptsAfter, 2); // 抵銷 claim 時的 +1
+  assertEquals(d.delayMinutes, 15);
+  assertEquals(d.nextRunAt, new Date(now + 15 * 60_000).toISOString());
+  assertEquals(d.lastError, 'quota_deferred');
+});
+
+Deno.test('decideQuotaDeferral - attempts 抵銷不會變負', () => {
+  const now = Date.now();
+  assertEquals(decideQuotaDeferral({ attempts: 0, nowMs: now }).attemptsAfter, 0);
+  assertEquals(decideQuotaDeferral({ attempts: 1, nowMs: now }).attemptsAfter, 0);
+});
+
+Deno.test('decideQuotaDeferral - jitter 邊界落在 15~60 分', () => {
+  const now = Date.now();
+  for (const j of [-1, 0, 0.5, 1, 2]) {
+    const d = decideQuotaDeferral({ attempts: 5, nowMs: now, jitter: j });
+    assert(d.delayMinutes >= 15 && d.delayMinutes <= 60, `delay=${d.delayMinutes}`);
+  }
+});
+
+Deno.test('quota 拒絕永不落入 failed（對比一般失敗路徑）', () => {
+  const now = Date.now();
+  // 一般失敗：attempts 到頂會 failed（會被 partial unique index 卡死）
+  assertEquals(decideFailureRetry({ attempts: 5, maxAttempts: 5, nowMs: now }).status, 'failed');
+  // quota 拒絕：即使 attempts 已到頂，仍維持 pending
+  assertEquals(decideQuotaDeferral({ attempts: 5, nowMs: now }).status, 'pending');
 });
