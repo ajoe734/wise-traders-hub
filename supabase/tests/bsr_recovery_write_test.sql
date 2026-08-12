@@ -18,6 +18,16 @@
 
 \set ON_ERROR_STOP on
 \set negative_control 0
+-- phase 切分：Case A/B 需要「無人持有 advisory 771001」，Case C 需要「有人持有」。
+-- 因此 harness 分兩次呼叫本檔（run_ab / run_c），避免 holder 汙染 A/B。
+\if :{?run_ab}
+\else
+\set run_ab 1
+\endif
+\if :{?run_c}
+\else
+\set run_c 1
+\endif
 
 -- ---------------------------------------------------------------------------
 -- Guard：任一不符即中止（hard fail，不 SKIP）
@@ -52,6 +62,7 @@ $guard$;
 -- ---------------------------------------------------------------------------
 -- Case A — terminal reconcile，零 token（獨立 transaction）
 -- ---------------------------------------------------------------------------
+\if :run_ab
 \echo '--- Case A: terminal reconcile ---'
 BEGIN;
 DO $caseA$
@@ -194,6 +205,7 @@ BEGIN
 END
 $caseB$;
 ROLLBACK;
+\endif
 
 -- ---------------------------------------------------------------------------
 -- Case C — advisory lock 競爭下的原子性（背景 session 由 harness 持鎖）
@@ -201,6 +213,7 @@ ROLLBACK;
 -- ---------------------------------------------------------------------------
 \if :negative_control
 \else
+\if :run_c
 \echo '--- Case C: advisory lock contention ---'
 BEGIN;
 SET LOCAL lock_timeout = '5s';
@@ -242,6 +255,7 @@ BEGIN
 END
 $caseC$;
 ROLLBACK;
+\endif
 \endif
 
 -- ---------------------------------------------------------------------------
