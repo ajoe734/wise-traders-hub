@@ -77,9 +77,9 @@ failed(quota 類) ──recovery token（硬 cap）───► pending, max_att
 
 | Job | 目前 command | 職責 | Build 1 | Build 2 |
 | --- | --- | --- | --- | --- |
-| 45 | `tw-bsr-finmind-sync {"mode":"enqueue","tier1":true,"tier2":true}` 07:30 | tier1 持股 + tier2 全市場 T86 gap | 不改（僅準備開關） | payload 改 `tier2:false`，只留 tier1 |
+| 45 | `tw-bsr-finmind-sync {"mode":"enqueue","tier1":true,"tier2":true}` 07:30 UTC | tier1 持股 + tier2 全市場 T86 gap | **payload 改 `tier2:false`（止血，納入 Build 1）** | 維持 `tier2:false`；job 106 正式接手唯一 T86 owner |
 | 53 | 同上 `tier2:false,tier3:false` | tier1 持股（盤中多次） | 不改 | 不改 |
-| 70 | `tw-bsr-window-converge` */30 | 純 enqueue（`converge_bsr_windows`），**不做 materialize** | 不改 | 停用或 payload `max_stocks:0` gate |
+| 70 | `tw-bsr-window-converge` */30 | 持股／訊號 window converge 的**純 enqueue**（`converge_bsr_windows`），**不做 materialize** | 暫留（僅確認不妨礙 materialize：orchestrator 為唯一 materialize owner，job 70 不呼叫任何 materialize RPC） | 停用或 payload `max_stocks:0` gate |
 | 80/81/82 | `tw-chips-orchestrator` | materialize + reconcile（唯一落地層 owner） | 修 RPC signature | 不改 |
 | 96 | `reap_stale_bsr_queue_jobs(60)` | 只回收 running 逾時 | 不改（唯一 running recovery owner） | 不改 |
 | 106 | `enqueue_chips_prefetch_gaps(10,300)` :02 | 持股 gap enqueue + `recover_stale_bsr_queue_jobs` | 加 quota recovery batch（硬 cap） | 接 lane A/B + cursor |
