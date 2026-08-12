@@ -17,7 +17,10 @@
 --     -f supabase/tests/bsr_recovery_write_test.sql
 
 \set ON_ERROR_STOP on
+\if :{?negative_control}
+\else
 \set negative_control 0
+\endif
 -- phase 切分：Case A/B 需要「無人持有 advisory 771001」，Case C 需要「有人持有」。
 -- 因此 harness 分兩次呼叫本檔（run_ab / run_c），避免 holder 汙染 A/B。
 \if :{?run_ab}
