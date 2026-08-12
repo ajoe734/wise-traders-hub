@@ -1,245 +1,326 @@
-# Build 1b — Recovery Liveness / Backlog Metric / Degrade 自癒（Plan v2）
+# Build 1b — Recovery Liveness / Backlog Metric / Degrade 自癒（Final Plan v3）
 
-範圍嚴格限定：**recovery liveness**、**backlog 指標誠實化**、**degrade 自癒**。
-不做 Lane A/B、cursor、job70、UI、coverage、其他 pipeline。Build 2 未授權。
+範圍嚴格限定 **recovery liveness、backlog 指標誠實化、degrade 自癒**。
+不做 Lane A/B、cursor、job70、UI、coverage、其他 pipeline。**Build 2 需第二次批准。**
 
 ---
 
-## 0. v2 新增查證（本回合實讀，全部 read-only）
+## 0. v3 新增查證（本回合實讀）
 
-### 0.1 Pool routing 是 priority 的純函式（v1 的 backfill 額度論述作廢）
+### 0.1 現行 signature 與 enqueue 呼叫（回應 #1、#2）
 
-`supabase/functions/tw-bsr-finmind-sync/index.ts:53-57, 114-133`：
-
-```text
-tierFromPriority(p): p<=1 -> 1 ; p==2 -> 2 ; else 3
-poolFromTier(t):     1 -> interactive ; 2 -> keepwarm ; 3 -> backfill
-admitFinmind(pool) -> finmind_admit_v2(_pool,...)；拒絕時 throw `finmind_admission_<reason>:pool=<pool>`
+```sql
+public.bsr_recovery_budget(p_full_budget integer)          -> jsonb   -- 已是 jsonb
+public.recover_quota_failed_bsr_jobs(p_max integer)        -> jsonb
+public.bsr_backlog_metrics                                  -- 不存在
 ```
 
-`finmind_admit_v2` 內只認 `_pool` 參數，daily cap 為該 pool 的 `used_today + cost > daily_budget`；
-唯一跨池行為是 **interactive 可向 keepwarm 借**（且 keepwarm tokens 需 ≥30% capacity），
-**backfill 額度不可能被 p1/p2 使用**。
+`enqueue_chips_prefetch_gaps(p_lookback_days int DEFAULT 10, p_max_stocks int DEFAULT 300)` 實際片段：
 
-### 0.2 歷史 failed cohort 的真實分布（1,728 筆，全部 max_attempts=5）
+```sql
+  v_recover := public.recover_stale_bsr_queue_jobs();
+  v_bp := public.bsr_recovery_budget(12);
+  v_quota_recover := public.recover_quota_failed_bsr_jobs((v_bp->>'budget')::int);
+  RETURN jsonb_build_object(..., 'backpressure', v_bp, 'quota_recovery', v_quota_recover);
+```
 
-| priority | pool（由 last_error 佐證） | 筆數 |
+**兩個結論**：
+1. budget 已回 jsonb、enqueue 已用 `(v_bp->>'budget')::int` 取值 → **型別相容，enqueue 不需改**（v2 的隱憂解除，且已由 read-back 證明而非假設）。
+2. `recover_quota_failed_bsr_jobs` 是 **無條件呼叫**（budget=0 時傳 0，仍然執行）→
+   **零 budget 的 audit 由 recover 自己寫，責任單一，不需擴充 enqueue，也不會重複寫兩筆。**
+   `bsr_recovery_budget` 與新的 `bsr_backlog_metrics` **維持純唯讀，絕不寫 log**。
+
+### 0.2 claim 對 NULL 的真語意（回應 #4，現在就決定）
+
+`claim_bsr_queue_jobs`：
+
+```sql
+WHERE status='pending' AND priority<=_max_priority
+  AND next_run_at <= now()
+  AND (NOT in_hours OR post_close_only = false)
+ORDER BY priority ASC, next_run_at ASC, id ASC
+```
+
+`next_run_at <= now()` → **NULL 永遠不會被 claim**。
+**決定：不使用 COALESCE。** metrics 與 degrade signal 一律採 `next_run_at IS NOT NULL AND next_run_at <= now()`，
+與 claim 位元對齊；NULL pending 另立 `unclaimable_null_count`（**目前實測 0 筆**）當成孤兒告警指標，不當 ready。
+`due_since = next_run_at`（明確 timestamp），`original age = enqueued_at`，兩者分開，不混用。
+
+### 0.3 backfill_worker 既有 metadata 實際樣本（回應 #3）
+
+```json
+{"run_id":"b99620f1-...","run_status":"done","trigger_source":"cron-hourly",
+ "results":[{"job_id":1005,"status":"done","code":null,"failed_date":null,"checkpoint_reason":null}, ...],
+ "code_tally":{},"call_budget":8,"calls_spent":3,"logical_calls":3,
+ "attempt_budget":30,"actual_http_attempts":3,"max_calls_per_run":10,"max_http_attempts_per_run":30}
+```
+
+**results[] 沒有 `rows_written`**。
+→ **本 Build 不改 worker log metadata**（避免擴張範圍）。
+→ 驗收採三段 join：`recovery audit 的 job_ids` → `worker HTTP response 的 jobs[].rows_written` → `tw_chip_fact` 前後 delta。
+**明文禁止**宣稱「DB log 單獨可證明 rows_written」。
+
+### 0.4 `data_source_refresh_logs` 寫入合法性（回應 #2、#9）
+
+- 欄位：`id / source_key / triggered_by / status / started_at / finished_at / duration_ms / row_count / error_message / metadata / created_at`
+- CHECK：`status IN ('running','success','error','partial','skipped','done','failed')`
+- FK：`triggered_by -> auth.users(id)` → **一律留 NULL（系統來源，無 user 資料）**
+- ACL：`service_role` / `postgres` 皆 `arwdDxtm`；RLS 讀取限 company_admin 或本人（`triggered_by` NULL 時等於只有 admin 可讀）
+- 現有 source_key：`backfill_worker`(207)、`tw_keep_warm`(32)、`backfill_gap_orchestrator`(8)、`tw_trading_calendar_catchup`(13)
+
+### 0.5 degrade reason 的真實來源（回應 #8）
+
+`bsr_get_degrade_state()` 實回：
+
+```json
+{"mode":"tier3_paused","reason":"p1_stalled","trigger_metric":"p1_oldest_sec",
+ "trigger_value":4811,"since":"...","cooldown_until":"...","last_transition_at":"..."}
+```
+
+`tw_bsr_degrade_events` 欄位含 `from_mode,to_mode,reason,trigger_metric,trigger_value,threshold,detail`。
+→ **reason 是一級欄位，不是猜的**，gate 可依 reason 分流，不需新增任何 schema。
+
+### 0.6 quota pools 實況（回應 #7）
+
+| pool | tokens | capacity | used_today | daily_budget | last_reject_reason |
+|---|---|---|---|---|---|
+| interactive (p1) | 197.07 | 240 | **240** | 240 | daily_exhausted |
+| keepwarm (p2) | 68.06 | 240 | **702** | 384 | daily_exhausted |
+| backfill (p3) | 237.01 | 240 | 85 | 600 | null |
+
+pool routing 為 priority 純函式：`p<=1→interactive, p=2→keepwarm, else→backfill`；
+唯一跨池是 interactive 可向 keepwarm 借（且需 keepwarm tokens ≥30% capacity）。
+**recovery 不改 priority、不改 routing、不繞配額。**
+
+### 0.7 歷史 failed cohort 分類（回應 #5，決定性資料）
+
+`status='failed' AND last_error LIKE 'finmind_admission_%'` 共 **1,728**：
+
+| 分類 | 判定 | 筆數 |
 |---|---|---|
-| 2 | keepwarm | **1,625**（daily_exhausted 1,390 + rate_limited 235） |
-| 1 | interactive | **103**（daily_exhausted 103） |
-| 3 | backfill | **0** |
+| **A. already_has_fact** | 同 stock/date 已存在 `tw_chip_fact` | **85** |
+| **B. no fact** | 無 fact（`tw_bsr_daily` 亦無，has_daily_no_fact = 0） | **1,643** |
 
-依 trade_date：08-07 = 579、08-05 = 317、08-04 = 270、08-03 = 141、08-06 = 125、07-28 = 59、其餘散布至 2026-04-06。
-enqueued_by 以 `tier2_gaps:*`（1,304）為主，其次 `converge_bsr_windows`（97）、`chips_prefetch_hourly`（53）、`backfill_seed_20260721`（42）。
-
-**結論（回應你的第 1 點）**：recovery 若保持原 priority，**94% 走 keepwarm、6% 走 interactive，0% 走 backfill**。
-今日 keepwarm `used_today 702 / daily_budget 384`、interactive `240/240`，兩者皆 `daily_exhausted`。
-因此 **v1「backfill 尚餘 515 所以今日可發 token」的推論錯誤，本 v2 撤回**。
-本 Build **不改 pool routing、不改 priority、不改任何 API 配額語意**——
-逃避配額等同製造重試風暴。**今日不可能有 liveness 證據，只能等自然 reset。**
-
-### 0.3 Daily reset 的 SoT
-
-`finmind_admit_v2`：`IF p.reset_at < today_tw THEN used_today := 0`，`today_tw = (now() AT TIME ZONE 'Asia/Taipei')::date`；
-`finmind_pool_reset()` 同語意。所有 pool 現值 `reset_at = 2026-08-12`。
-`next_admission_at` 一律由此推導（`reset_at + 1 day` 的台北日界），**不寫死常數**。
-
-### 0.4 p1_stalled 死鎖的精確位置
-
-`collectSignals`（index.ts:399-404）查的欄位是 **`enqueued_at`**（不是 `created_at`），
-且**只過濾 `priority=1 AND status='pending'`，完全不看 `next_run_at`**。
-實證：最舊 p1 pending = id 45208 / 6515，`enqueued_at 07:00:03`、`next_run_at 10:38:04`、`last_error=quota_deferred`。
-→ 一筆被正確 defer 的 p1 讓 `p1_oldest_sec` 無上限成長 → `tier3_paused(p1_stalled)` 永真 → budget 永 0。
-另實讀：`status='pending' AND next_run_at IS NULL` 目前為 **0 筆**，但仍需 NULL-safe 處理。
-
-### 0.5 可沿用的持久 audit（不建新 control plane）
-
-| 表 | 適用性 |
-|---|---|
-| `public.data_source_refresh_logs` | **適合**。既有用途正是「資料源刷新一筆 JSON」：`source_key` 已有 `backfill_worker`(207)、`tw_keep_warm`(32)、`backfill_gap_orchestrator`(8)、`tw_trading_calendar_catchup`(13)，`metadata jsonb` 已裝 `run_id + results[]{job_id,status}`。NOT NULL 僅 `id/source_key/status/started_at/created_at`；`triggered_by` 可空。ACL：`service_role` 與 `postgres` 皆 `arwdDxtm`（RLS 讀取限 company_admin / 本人，**不影響 SECURITY DEFINER 寫入**） |
-| `tw_bsr_attempt_logs` | 每次 fetch attempt 的 outcome/latency，**無 job_id**，不能對回 token |
-| `tw_bsr_fetch_failures` | 只記失敗，無成功 rows_written |
-| `function_run_logs` | 欄位為 `fn/run_id/level/stage/msg/payload`，偏 signal 領域（有 expert_id/signal_id），語意不合 |
-| `finmind_quota_ledger` | 有 pool/granted/reason/stock_id，**無 job_id、7 天清理**，可佐證 admission 但不能當漏斗 SoT |
-| queue 自身 | `last_error` 會被下一次狀態轉移覆寫 → **v1 的 `recovery_tokens_issued_1h` 不可靠，撤回** |
-
-→ 採用 `data_source_refresh_logs`，`source_key='bsr_quota_recovery'`，**不新增表、不新增 endpoint**。
-
----
-
-## 1. Gate 分層（依 0.1/0.2 修正）
-
-| Gate | 分類 | 行為 |
-|---|---|---|
-| `check_kill_switch('chips_all')` = false | **絕對 safety stop** | 禁 API、禁 token |
-| degrade `claim_halt` / `p1_only` | **絕對 stop** | 禁 API、禁 token |
-| degrade `tier2_paused`（usage≥90 / 429 streak） | **禁 token issuance** | 真 upstream 保護，維持 |
-| degrade `tier3_paused` reason `usage_ge_80` | **只降 cap** | 用量高 ≠ 故障 |
-| degrade `tier3_paused` reason **`p1_stalled`** | **不得歸零** | 症狀不能禁止治療（§2） |
-| **selected cohort 對應 pool 的 `used_today >= daily_budget`** | **禁 token issuance**，回 `next_admission_at` | 取代 v1 的 keepwarm ratio 粗判；按 cohort 實際 pool（keepwarm / interactive）逐一判定 |
-| 該 pool `tokens < 1`（rate_limited） | **禁 token issuance**（該輪） | 桶空，下一輪自然重試 |
-| `pending_ready > 600` | **只降 cap** | — |
-| `oldest_due_since_h > 12` | **降至 floor**，不歸零 | 舊 = 更該修 |
-
-**Liveness floor**：非絕對 stop、且該 cohort 的 pool 當日仍有實際額度時，floor = 1。
-
----
-
-## 2. p1_stalled 修法（明確、可測，非「約 1 行」）
-
-`collectSignals` 的 p1 查詢改為：
+B 依 trade_date（`expected_latest_bsr_date() = 2026-08-12`）：
 
 ```text
-priority = 1
-AND status = 'pending'
-AND (next_run_at IS NULL OR next_run_at <= <now ISO>)
+08-11: 3    08-10: 1    08-07: 572  08-06: 124  08-05: 315
+08-04: 267  08-03: 139  07-31: 37   07-28: 59   07-10: 31
+06-29..06-23: 5   06-19: 31   05-01: 30   04-06: 29
+```
+
+彙總：**expected_latest(08-12) = 0 筆**；近 5 個交易日 = 1,015；近 10 個交易日 = 1,458；更舊 = 185。
+priority 分布（B）：p1 = 52、p2 = 1,591、p3 = 0。
+
+**關鍵結論：整個 1,728 沒有任何一筆落在 `expected_latest_bsr_date()`。**
+最新一批 08-07（572 筆）也已距今 3 個交易日。
+
+> 註：本回合一個「cohort 是否落在 `chips_prefetch_targets`」的查詢因欄位名為 `code`（非 `stock_id`）
+> 造成相關子查詢退化，結果 1,643 **無效、不採用**；Build 1b 的分類不依賴該表（僅 20 列 demo 名單）。
+
+---
+
+## 1. still_required 的定義（回應 #5，取代 v2 的 `ORDER BY enqueued_at ASC`）
+
+v2 的「最舊優先」會拿配額去補 4 月的死債，**偏離產品目標，撤回。**
+
+| 分類 | 定義（全用既有函式/表，不新增概念） | 處置 |
+|---|---|---|
+| **satisfied** | 同 stock/date 已有 `tw_chip_fact`（現 85 筆） | **terminal reconcile**：受 cap 每輪最多 1 筆，`status='failed' → 'done'`，`last_error='reconciled_fact_exists'`。**不呼叫 API、不發 token、不算 liveness** |
+| **still_required** | 無 fact **且** `trade_date = expected_latest_bsr_date()`（**現 0 筆**）<br>**或** 無 fact 且 `trade_date` ∈ 近 5 個交易日 **且** 該 stock `compute_bsr_series_readiness(stock_id)->>'ready5' = false`（真實短缺口，非歷史補完） | **唯一**可發 recovery token 的來源 |
+| **obsolete** | 無 fact 且不屬上列（>5 交易日之外，或 ready5 已 true） | **不重試、不 mass 改狀態**。維持 `status='failed'`（UI/readiness 都不讀 queue status，只讀 `tw_bsr_daily`/`tw_chip_fact`，改動無收益且有風險）。僅在 metrics 中歸類為 `obsolete_count` |
+
+排序（類內）：**`trade_date DESC`（最新完整日優先），同日再 `enqueued_at ASC`。**
+
+**誠實聲明**：以現況（08-12 為 0、近 5 日 1,015 筆但多數屬歷史補完）
+**Build 1b 極可能在 open window 也選不出 still_required**。這不是失敗，處置見 §8。
+
+---
+
+## 2. Gate 分層（回應 #8）
+
+| 條件（reason 取自 `bsr_get_degrade_state()`） | 分類 | 行為 |
+|---|---|---|
+| `check_kill_switch('chips_all')` = false | 絕對停 | budget = 0，`budget_reason='kill_switch'` |
+| mode `claim_halt` / `p1_only` | 絕對停 | budget = 0 |
+| mode `tier2_paused`（usage≥90 / 429_streak） | 絕對停（真 upstream 保護） | budget = 0 |
+| `tier3_paused` + reason **`usage_ge_80`** | 降 cap | budget = min(cap, 1) |
+| `tier3_paused` + reason **`p1_stalled`** | **不歸零** | 允許 liveness floor（§3 修根因） |
+| `tier3_paused` + reason `reservation_stuck` | 絕對停 | budget = 0 |
+| pool reserve 未過（§4） | 禁發 token | budget = 0，回 `next_admission_at` |
+| `ready_pending_count > 600` | 降 cap | budget = min(cap, 1) |
+
+**canary：`cap = 1 token / invocation`（非每 pool 各 1）**，job106 每小時一次 → 上限 24/day。
+`terminal reconcile` 另有獨立 cap = 1/invocation，**不佔 token**（不呼叫 API）。
+
+---
+
+## 3. p1_stalled 死鎖修法
+
+`supabase/functions/tw-bsr-finmind-sync/index.ts` 的 `collectSignals` p1 查詢（現查 `enqueued_at`，
+只過濾 `priority=1 AND status='pending'`，**不看 next_run_at**）改為與 claim 對齊：
+
+```text
+priority = 1 AND status = 'pending'
+AND next_run_at <= <now ISO>        -- NULL 不計入（與 claim_bsr_queue_jobs 同語意）
 ORDER BY enqueued_at ASC LIMIT 1
 ```
 
-語意：**p1_oldest_sec = 「現在就可被 claim、卻仍未被處理」的最舊 p1 年齡**。
+語意 = 「已到期可被 claim、卻仍未被處理」的最舊 p1 年齡。
+實證根因：id 45208/6515，`enqueued_at 07:00:03`、`next_run_at 10:38:04`、`last_error=quota_deferred`
+→ 一筆被正確 defer 的 p1 讓訊號無限成長。
+`stepDownTarget('tier3_paused')` 的 `< 600` 閾值、`usage_ge_80/90`、`429_streak` **一律不動**。
 
-- 欄位維持 `enqueued_at`（已查證即為現行欄位，不改成 `created_at`）。
-- `next_run_at IS NULL` 視為**立即可 claim**（與 worker claim 的 `.lte('next_run_at', now)` 語意保持一致需確認；
-  若 worker 的 `lte` 會排除 NULL，則兩處採同一 NULL-safe 條件，**同一 PR 一起改，不留歧義**）。
-- 時區/比較：一律 `new Date().toISOString()`（UTC ISO）對 `timestamptz`，與現行 worker claim 同寫法。
-- `stepDownTarget('tier3_paused')` 的 `p1OldestPendingAgeSec < 600` **閾值不動**，自動因訊號修正而可成立。
-- `usage_ge_80/90`、`429_streak`、`reservation_stuck` 一律不動。
-
-**測試（Deno，純函式 + 查詢建構）**：
-1. future `next_run_at` 的 quota_deferred p1 → 不計入；
-2. ready p1（`next_run_at <= now`）→ 必須計入；
-3. `next_run_at IS NULL` → 計入；
-4. 全部 p1 皆 deferred → `p1OldestPendingAgeSec = 0` → `desiredMode` 不得回 `p1_stalled`；
-5. 真 upstream：`usagePct=92` → 仍回 `tier2_paused`（保護未被弱化）。
+Deno 測試：future defer 不計入 / due 計入 / NULL 不計入 / 全 defer → 訊號 0 且不得回 `p1_stalled` / `usagePct=92` 仍回 `tier2_paused`。
 
 ---
 
-## 3. `bsr_backlog_metrics()`（唯讀函式，命名不再混淆）
+## 4. Pool reserve 與跨 pool 選取（回應 #6、#7）
+
+**reserve 定義**（`used_today < daily_budget` 不足以保護，撤回 v2 寫法）：
 
 ```text
-A ready（現在可 claim）
-  ready_pending_count      pending AND COALESCE(next_run_at,'-infinity') <= now()
-  oldest_due_since_h       now() - min(next_run_at)  → 「到期後等了多久」
-  oldest_ready_original_h  now() - min(enqueued_at)  → 同一集合的原始年齡
-
-B deferred debt（債，未到期但存在）
-  deferred_count           pending AND last_error='quota_deferred' AND next_run_at > now()
-  oldest_original_age_h    now() - min(enqueued_at)   ← 不受 defer 影響
-  next_ready_at            min(next_run_at)
-
-C historical failed cohort
-  historical_quota_failed_remaining  failed AND last_error LIKE 'finmind_admission_%' AND max_attempts < 8
-  cohort_by_pool                     {keepwarm: n, interactive: n}（由 last_error 的 :pool= 後綴解析）
-  oldest_failed_original_h           now() - min(enqueued_at)
-
-D funnel audit（來自 data_source_refresh_logs, source_key='bsr_quota_recovery'）
-  tokens_issued_24h / selected_24h / last_budget_reason / last_next_admission_at
+issue_ok(pool) :=
+     used_today + RECOVERY_COST <= daily_budget - DAILY_RESERVE
+ AND floor(tokens)              >= BURST_RESERVE + RECOVERY_COST
 ```
 
-**`oldest_due_since_h` 與 `oldest_original_age_h` 是兩個名字不同的指標**，v1 的混用已修正。
-`bsr_recovery_budget` 改為呼叫本函式，單一定義來源。
-**不新增欄位**：B/C 的原始年齡用既有 `enqueued_at`（`defer_bsr_job_quota` 不改它，已由 id 45208 實證），
-故 `first_ready_at` 不需要；`created_at` 全程不寫。
+- `RECOVERY_COST = 1`
+- `DAILY_RESERVE = 30`（= worker batch 30，保證整整一輪 worker 的持股/既有 pending 不被吃掉）
+- `BURST_RESERVE = 30`（同上，桶內即時餘量）
+- **interactive（p1，103 筆 failed 中 52 筆無 fact）：canary 期間一律不碰。**
+  理由：`interactive` 是使用者開抽屜的即時路徑，`finmind_quota_ledger` 無 job_id 且 7 天清理，
+  無法可靠歸因 recovery 用量，故 canary 只驗 **keepwarm（p2）**，且 interactive 明確列為 `pool_excluded_canary`。
+- **bounded candidates inspected**：每次 invocation 最多檢視 **200** 筆候選（`LIMIT 200`），
+  依 §1 排序取出後 **按 pool 分組**；某 pool（如 keepwarm）不過 reserve **不阻塞整輪**，
+  繼續評估下一個可用 pool 的候選（canary 期間唯一可用 pool 就是 keepwarm，故實務上等於 0 或 1 筆）。
+  被跳過者 **不改狀態、不做標記**，下輪重新評估 → 不會永久遺忘。
+- **總 token cap 仍為 1/invocation**，跨 pool 合計。
+- reset 後自然順序：`finmind_admit_v2` 於 `reset_at < today_tw` 時歸零 `used_today`；
+  台北日界 00:00 後 interactive/keepwarm 恢復；worker 先消化既有 pending（優先權不變），
+  recovery 因 reserve 需 daily 與 burst 皆有 30 餘量，結構上排在持股與既有 pending 之後。
 
 ---
 
-## 4. Recovery 漏斗與誠實的 liveness 定義
+## 5. `bsr_backlog_metrics()`（回應 #4、#9）
+
+```sql
+CREATE OR REPLACE FUNCTION public.bsr_backlog_metrics()
+RETURNS jsonb LANGUAGE sql STABLE SECURITY DEFINER SET search_path = public AS $$ ... $$;
+REVOKE ALL ON FUNCTION public.bsr_backlog_metrics() FROM PUBLIC;
+GRANT EXECUTE ON FUNCTION public.bsr_backlog_metrics() TO service_role;
+```
+
+（least privilege：**不 GRANT anon / authenticated**；函式只讀 queue/fact/pool，**不觸碰任何 user 表**，
+不繞過任何 user-scoped RLS；測試斷言回傳 JSON 不含 user_id/email 等欄位。）
+
+回傳四區：
 
 ```text
-failed selected → token issued（audit 落地）
-               → claimed after admission opens
-               → done / partial / quota_deferred / unsupported
-               → rows_written > 0（自然 worker response）
+A ready      ready_pending_count      pending AND next_run_at <= now()
+             oldest_due_since_ts      min(next_run_at)                → oldest_due_since_h
+             oldest_ready_enqueued_h  now()-min(enqueued_at) 同一集合
+             unclaimable_null_count   pending AND next_run_at IS NULL   (現 0)
+B deferred   deferred_count / next_ready_at / oldest_enqueued_age_h    (不受 defer 影響)
+C cohort     satisfied_count / still_required_count / obsolete_count
+             still_required_by_date / cohort_by_pool
+D audit      tokens_issued_24h / reconciled_24h / last_budget_reason / last_next_admission_at
+             （來源：data_source_refresh_logs, source_key='bsr_quota_recovery'）
 ```
 
-- **fact EXISTS 只當 readiness，不當成功**（v1 的 `recovered_with_fact_rows_24h` 撤回）。
-  job 45632 即反例：`outcome=done`、`rows_written=0`、fact 早已 799 列存在。
-- **liveness 唯一憑證**：自然 worker HTTP response 的該 job `rows_written > 0`；
-  次佳憑證為同 stock/date 的 `tw_chip_fact` count **前後 delta > 0**（回補前後各讀一次）。
-- token 上限：每 job lifetime ≤3（`max_attempts` 5→8，既有 `< 8` 條件已表達，不改）。
-- 選取：既有 `FOR UPDATE SKIP LOCKED LIMIT cap` + **新增 `pg_advisory_xact_lock`** 防併發重複發。
-- **禁止 mass update**：唯一寫入路徑是受 cap 的 `LIMIT`。
-- 已 read-back 證明 **唯一 caller 是 `enqueue_chips_prefetch_gaps`**（`pg_proc` 全庫掃描，
-  `recover_quota_failed_bsr_jobs` 與 `bsr_recovery_budget` 各只有這一個呼叫者）。
-
-### 4.1 選取排序與公平（回應第 8 點）
-
-現行 `ORDER BY trade_date DESC, priority ASC` 會讓 08-07（579 筆）永遠壓住 04-06 的舊債。
-改為 **`ORDER BY enqueued_at ASC`（最舊優先）**，cap 極小的前提下這是最公平也最能證明 liveness 的順序。
-
-- **不重選**：token 發出後 `status` 變 pending 且 `max_attempts+1`，離開 `status='failed'` 選取集；
-  若之後再因 quota 失敗回到 failed，`max_attempts` 已 6 → 最多再兩次，達 8 後永久退出（防無限回收）。
-- **非 quota 類再次失敗**（如 `no_chip_data`）→ `last_error` 不符 `finmind_admission_%`，
-  自動退出 recovery cohort，**不再被選**（維持既有語意，不改）。
+`bsr_recovery_budget` 改為呼叫本函式，單一定義來源。**不新增表、不新增欄位。**
+測試含 mixed NULL / due / future 集合，確認 A 不被 defer 假性歸零、B 的 original age 不被 defer 改變。
 
 ---
 
-## 5. Cap 算術（修正 v1 的錯誤）
+## 6. Audit 記錄規格（單一責任：只有 `recover_quota_failed_bsr_jobs` 寫）
 
-v1 寫「3/hr ≈ backfill 的 <1%」是錯的：3/hr = 72/day = keepwarm `daily_budget 384` 的 **18.8%**，
-且 recovery 實際走 keepwarm/interactive 而非 backfill。**撤回。**
+- `source_key = 'bsr_quota_recovery'`（新值，不與既有 4 個衝突）
+- `status`（限 CHECK 合法值）：`success`（有 token 或有 reconcile）／`skipped`（budget=0 或 reserve 未過）／`error`
+- `triggered_by = NULL`、`error_message` 僅存 gate 原因字串、`row_count = tokens_issued`
+- `metadata` schema（**不得含任何 user 識別**）：
 
-- 目前**沒有** per-day recovery ledger（`finmind_quota_ledger` 無 job_id、7 天清理，無法精確歸因），
-  因此 **不得聲稱任何 72/day 安全額度**。
-- 採 **canary：`floor = 1`、`cap = 1`（per invocation）**，job106 每小時一次 →
-  理論上限 24/day，但驗收僅跨 **3 輪 → 最多 3 筆**，之後回 Plan 再談是否放寬。
-- **per-day reserve**：token 只在該 cohort pool `used_today < daily_budget` 時發，
-  等同直接沿用既有 quota ledger／pool 帳，不另立帳本；持股／既有 pending 的額度天然優先，
-  因為 worker claim 順序不變且 cap=1 遠小於 batch=30。
-- **p1 starvation**：cap=1 且 worker batch=30、claim 順序不變，結構上不可能排擠 p1。
+```json
+{
+  "invocation_id": "uuid",
+  "budget_reason": "kill_switch|degrade_tier2_paused|degrade_reservation_stuck|pool_reserve_blocked|pool_daily_exhausted|cap_1|ok",
+  "degrade": {"mode":"tier3_paused","reason":"p1_stalled","trigger_metric":"p1_oldest_sec","trigger_value":4811},
+  "pools": [{"pool":"keepwarm","tokens":68,"used_today":702,"daily_budget":384,"issue_ok":false}],
+  "pool_excluded": ["interactive"],
+  "candidates_inspected": 200,
+  "classification": {"satisfied":85,"still_required":0,"obsolete":1643},
+  "selected": [], "tokened_job_ids": [], "reconciled_job_ids": [],
+  "metrics_before": {...A/B/C...}, "metrics_after": {...A/B/C...},
+  "next_admission_at": "2026-08-13T00:00:00+08:00"
+}
+```
+
+每次 job106 **恰寫一筆**（recover 無條件被呼叫，已由 §0.1 read-back 證明）。
 
 ---
 
-## 6. next_admission_at 語意（回應第 4 點）
-
-- pool exhausted → **不發 token**，函式只回 `{tokens_issued: 0, budget_reason:'pool_daily_exhausted', next_admission_at}`。
-- **絕不觸碰 selected cohort 以外的任何 row**；v1 的「把既有 deferred 的 next_run_at 對齊」**整段刪除**。
-- 下一個自然 job106 重新判定，無人工介入。
-
----
-
-## 7. 精確變更清單
+## 7. 精確變更清單（exact diff 形式）
 
 | 物件 / 檔案 | 變更 | Rollback |
 |---|---|---|
-| `public.bsr_backlog_metrics()` → `jsonb` | **新增**唯讀函式（`STABLE`，`SECURITY DEFINER`，`SET search_path=public`），A/B/C/D 四區 | `DROP FUNCTION public.bsr_backlog_metrics();` |
-| `public.bsr_recovery_budget(p_full_budget integer)` → `jsonb` | **改寫**（簽名不變）：gate 分層、floor、per-cohort pool 可用性、改用 §3 指標、回傳 `budget_reason` / `next_admission_at` | 反向 migration，還原舊 body（舊定義已完整存於本 plan 查證紀錄） |
-| `public.recover_quota_failed_bsr_jobs(p_max integer)` → `jsonb` | **改寫**（簽名不變）：advisory lock、`ORDER BY enqueued_at ASC`、exhausted 不發 token、只碰 selected cohort、寫一筆 `data_source_refresh_logs`、回傳漏斗欄位 | 同上 |
-| `public.enqueue_chips_prefetch_gaps(int,int)` | **不改**（cap 由 `bsr_recovery_budget(12)` 回傳值自然收斂到 1） | — |
+| `public.bsr_backlog_metrics()` → jsonb | **新增**（STABLE / SECURITY DEFINER / `SET search_path=public` / REVOKE PUBLIC / GRANT service_role） | `DROP FUNCTION public.bsr_backlog_metrics();` |
+| `public.bsr_recovery_budget(p_full_budget integer)` → **jsonb（簽名與回型皆不變）** | 改寫 body：§2 gate 分層（讀 degrade `reason`）、§4 reserve、改用 §5 指標；回傳 **必須續存 `budget` 鍵**（enqueue 用 `(v_bp->>'budget')::int`），新增 `budget_reason`/`pools`/`next_admission_at` | 反向 migration 還原舊 body |
+| `public.recover_quota_failed_bsr_jobs(p_max integer)` → **jsonb（不變）** | 改寫 body：`pg_advisory_xact_lock`、`LIMIT 200` 候選、§1 分類與排序、terminal reconcile（cap 1）、token（cap 1、只 still_required）、寫一筆 audit | 反向 migration 還原舊 body |
+| `public.enqueue_chips_prefetch_gaps` | **不改**（型別已相容，read-back 證明） | — |
 | `supabase/functions/_shared/bsrDegrade.ts` | **不改** | — |
-| `supabase/functions/tw-bsr-finmind-sync/index.ts` | `collectSignals` p1 查詢 NULL-safe ready 過濾（§2）；如 worker claim 的 NULL 語意不一致，同 PR 對齊 | 還原並重新部署 |
-| `supabase/tests/bsr_quota_recovery_test.sql` | 擴充：gate 矩陣、floor、exhausted 不發 token 且不動他人 row、advisory lock 併發、cap=1、`ORDER BY enqueued_at`、audit 落地一筆 | 檔案還原 |
-| `supabase/tests/bsr_backlog_metrics_test.sql` | **新增**：deferred 不得讓 A 類歸零、B 的 original age 不受 defer 影響、C 依 pool 分組正確 | 刪檔 |
-| `supabase/functions/tw-bsr-finmind-sync/degrade_signal_test.ts` | **新增**：§2 的 5 個案例 | 刪檔 |
+| `supabase/functions/tw-bsr-finmind-sync/index.ts` | `collectSignals` p1 查詢加 `next_run_at <= now`（§3） | 還原並重新部署 |
+| `supabase/tests/bsr_quota_recovery_test.sql` | 擴充：gate 矩陣（依 reason）、reserve 阻擋、cap=1、pool 不阻塞、分類正確、audit 恰一筆且 metadata 無 user 欄位、cohort 外零 row churn | 檔案還原 |
+| `supabase/tests/bsr_backlog_metrics_test.sql` | **新增**：NULL/due/future 混合、defer 不假性歸零、權限（anon/authenticated 無 EXECUTE） | 刪檔 |
+| `supabase/functions/tw-bsr-finmind-sync/degrade_signal_test.ts` | **新增**：§3 五案例 | 刪檔 |
 
-**Read-back 清單**：三個函式的 `pg_get_functiondef`、`enqueue_chips_prefetch_gaps` 未變更、
-`pg_proc` 全庫確認 recovery/budget 仍只有單一 caller、cron job 45/81/106/107 command 未變。
+**SQL contract（測試強制）**：`bsr_recovery_budget(int)->jsonb` 必含 `budget`(int)；
+`recover_quota_failed_bsr_jobs(int)->jsonb` 必含 `tokens_issued`/`reconciled`/`budget_reason`；
+`enqueue_chips_prefetch_gaps(int,int)->jsonb` 的 `backpressure`/`quota_recovery` 鍵不得消失。
 
 **不建立**：dashboard、endpoint、scheduler、control plane、新表、新欄位、新 config key、新 cron。
 
 ---
 
-## 8. 自然驗收（safety 與 liveness 分開）
+## 8. 自然驗收（回應 #10）
 
-### Safety（exhausted window，今日可取得）
-每輪 job106 記錄 `runid / start / end / status`、`budget_reason`、`selected / tokened(=0) / next_admission_at`，
-以及 A/B/C 三類指標。**PASS 條件**：`tokened = 0`、cohort 外無任何 row 被修改（以 `updated_at` 差集證明）、
-kill switch 與真 upstream 保護未被繞過。
+### 8.1 Exhausted window（今日即可，3 輪 job106）
+**PASS**：每輪 audit 存在一筆、`tokens_issued=0`、`budget_reason` 正確反映 pool/degrade、
+selected cohort 外 **零 row churn**（`updated_at` 差集為空）、kill switch 與 tier2 保護未被繞過。
 
-### Liveness（admission open window，須跨 reset，`reset_at` 前進後）
-**PASS 條件**：至少 1 個 token 自然 issued → claimed → 該 job 在 worker response 的 `rows_written > 0`
-（或同 stock/date 的 `tw_chip_fact` 前後 delta > 0），且 `historical_quota_failed_remaining` 由 1,728 真實下降。
+### 8.2 Open window（跨台北日界 reset，3 輪）
+- 3 輪 **總 token ≤ 3**；
+- **Liveness PASS** 需：至少 1 筆 **still_required 且原為 failed** 的 job，
+  自然 token → claim → **worker HTTP response 該 job `rows_written > 0`** → **`tw_chip_fact` 前後 delta > 0**。
+- fact EXISTS **只當 readiness，不當成功**（反例 job 45632：`done` 但 `rows_written=0`、fact 早存 799 列）。
 
-- 上游本來就無該股資料 → 依 `partial` / `unsupported` 誠實分類，**不算成功**。
-- 所有 selected 都已有 fact 且 `rows_written = 0` → **不得宣稱回補 PASS**；
-  繼續自然輪次，直到觀測到真實寫入，或證明整個 cohort 已 fresh 並以「安全結案」明確標示（非 liveness PASS）。
-- 未到自然 reset 前**誠實等待**，不以手動觸發或狀態搬移代替。
+### 8.3 沒有 still_required 時的判定（**現在明確定義**）
+以 §0.7 實況，08-12 為 0 筆，open window 很可能仍選不出 still_required。此時：
 
-每輪一律列：runid、budget_reason、selected / tokened / claimed / done / partial / deferred / rows_written / fact delta、A/B/C/D 指標。
+> **Build 1b 判定為 `PASS (no-op safe)`** — 條件是全部滿足：
+> ① 三輪 exhausted audit 全數存在且 `tokens_issued=0`；
+> ② open window 三輪 audit 也存在，`classification.still_required=0` 有據可查；
+> ③ terminal reconcile 已自然處理 ≥1 筆 satisfied（85 筆之一），且 **未呼叫任何 API**；
+> ④ degrade 不再卡在 `p1_stalled`（§3 生效的自然證據）；
+> ⑤ 零 row churn、零 mass update。
+>
+> 此結果 **明確標示為「未證明資料回補 liveness」**，不得宣稱回補成功；
+> 歷史 failed 逐步封存與「最新資料的持續產生」由 **Build 2 的 lane** 負責。
+> **絕不為了測試而去抓 4 月資料。**
+
+每輪一律列：runid / budget_reason / degrade reason / pools / classification / selected / tokened / reconciled /
+claim 與 worker jobs[] / rows_written / fact delta / A·B·C·D 指標。
 
 ---
 
-## 9. 批准範圍
+## 9. Rollback（回應 #11）
 
-Approve = **只執行 Build 1b**，完成上述「跨 reset 的自然驗收」即停。
-**Build 1b PASS 前禁止進入 Build 2**（Lane A/B、cursor、job70 等一律不動）。
+- 三個函式以反向 migration 還原舊 body；Edge Function 還原並重新部署 → 未來不再產生 audit。
+- **已 terminalize 的 reconcile 與已成功寫入的 fact 不倒回**（那是正確結果）。
+- **不刪除任何既有 `data_source_refresh_logs` 稽核紀錄**。
+
+---
+
+## 10. 批准範圍
+
+Approve = **只執行 Build 1b**，完成 §8 的自然跨 reset 驗收後**停下**。
+**Build 2（Lane A/B、cursor、job70 等）仍需第二次明確批准。**
