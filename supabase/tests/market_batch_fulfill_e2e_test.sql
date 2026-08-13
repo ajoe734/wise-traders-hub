@@ -52,9 +52,9 @@ VALUES (:D::date, 'pending');
 
 -- queue：2330 會被市場整批滿足；9999 沒有資料 → 仍 pending
 INSERT INTO public.tw_bsr_sync_queue(stock_id, trade_date, status, priority)
-VALUES ('2330', :D::date, 'pending', 100),
-       ('2317', :D::date, 'running', 100),
-       ('9999', :D::date, 'pending', 100);
+VALUES ('2330', :D::date, 'pending', 2),
+       ('2317', :D::date, 'running', 2),
+       ('9999', :D::date, 'pending', 2);
 
 -- 市場整批 lane 寫入 fact（finmind_batch）
 INSERT INTO public.tw_chip_fact
