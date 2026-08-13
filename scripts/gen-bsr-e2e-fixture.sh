@@ -54,7 +54,6 @@ DELTA_FUNCS=(
   ensure_bsr_queued
   ensure_bsr_window
   is_tw_trading_day
-  tw_prev_trading_day
   finmind_admit
   finmind_admit_v2
   finmind_pool_reset
