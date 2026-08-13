@@ -35,9 +35,32 @@ BEGIN
   ASSERT (r->>'granted')::boolean = false, format('case2: expect granted=false got %s', r);
 END $$;
 
--- Case 3：interactive 用光 + allow_borrow=true → 從 keepwarm 借（若 keepwarm 有）
-UPDATE public.finmind_quota_pools SET tokens = 0 WHERE pool_name = 'interactive';
-UPDATE public.finmind_quota_pools SET tokens = 10 WHERE pool_name = 'keepwarm';
+-- Case 3：interactive 當日額度用光 + allow_borrow=true → 從 keepwarm 借
+-- production 語意：借用分支只在「日額度耗盡」(used_today + cost > daily_budget) 時進入，
+-- 且要求 keepwarm.tokens - cost >= capacity * 0.3（保留水位）。
+-- 因此前提必須真實重現「過去 24h 已把 interactive 日額度用完」，而不是只把 tokens 歸零
+-- （tokens=0 只會走 token bucket 的 rate_limited 分支，與借用無關）。
+UPDATE public.finmind_quota_pools
+   SET tokens = 0,
+       used_today = daily_budget,          -- 日額度耗盡
+       reset_at = (now() AT TIME ZONE 'Asia/Taipei')::date,
+       last_refill_at = now()
+ WHERE pool_name = 'interactive';
+
+-- 24h ledger seed：與 used_today 對齊的實際扣點紀錄（production 每次 grant 都會落地一列）
+INSERT INTO public.finmind_quota_ledger (pool_name, request_kind, stock_id, granted, reason, created_at)
+SELECT 'interactive', 'test', NULL, true, 'granted',
+       now() - (g * interval '10 minutes')
+  FROM generate_series(1, (SELECT daily_budget FROM public.finmind_quota_pools WHERE pool_name='interactive')) g
+ WHERE now() - (g * interval '10 minutes') > now() - interval '24 hours';
+
+-- keepwarm 必須高於 30% 保留水位才可出借
+UPDATE public.finmind_quota_pools
+   SET tokens = COALESCE(capacity, daily_budget)::numeric,
+       used_today = 0,
+       reset_at = (now() AT TIME ZONE 'Asia/Taipei')::date,
+       last_refill_at = now()
+ WHERE pool_name = 'keepwarm';
 DO $$
 DECLARE r jsonb;
 BEGIN
