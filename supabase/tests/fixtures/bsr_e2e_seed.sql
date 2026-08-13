@@ -32,3 +32,10 @@ ON CONFLICT (code) DO UPDATE
       active    = true,
       supported = EXCLUDED.supported,
       reason    = EXCLUDED.reason;
+
+-- ephemeral-only auth stub：部分契約測試會 INSERT auth.users 以建立 FK 對象。
+CREATE SCHEMA IF NOT EXISTS auth;
+CREATE TABLE IF NOT EXISTS auth.users (
+  id uuid PRIMARY KEY DEFAULT gen_random_uuid(),
+  email text
+);
