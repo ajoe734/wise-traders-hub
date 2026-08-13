@@ -355,6 +355,25 @@ SQL
   esac
 }
 
+# 在 ephemeral cluster 內執行任意 SQL 檔（測試專用；guard 保證不可能連到 production）。
+cmd_run_file() {
+  load_session
+  guard_assert
+  local rc=0 f
+  for f in "$@"; do
+    [ -f "$f" ] || die "no such sql file: $f"
+    echo "==> run-file: $f"
+    set +e
+    PGOPTIONS='-c bsr.ephemeral=1' asuser "$PGBIN/psql" -h "$SOCKDIR" -U postgres -d "$DBNAME" -X \
+      -v ON_ERROR_STOP=1 -f "$f"
+    local one=$?
+    set -e
+    echo "    exit=$one  ($f)"
+    [ "$one" -eq 0 ] || rc=$one
+  done
+  return $rc
+}
+
 case "${1:-}" in
   up)         cmd_up ;;
   up-slice)   cmd_up_slice ;;
@@ -362,6 +381,8 @@ case "${1:-}" in
   verify)     shift; if [ "${1:-}" = "--drift-control" ]; then cmd_verify "${2:-}"; else cmd_verify ""; fi ;;
   diagnose-migrations) cmd_diagnose_migrations ;;
   test)       shift; cmd_test "${1:-normal}" ;;
+  run-file)   shift; cmd_run_file "$@" ;;
   down)       cmd_down ;;
-  *) echo "usage: $0 {up-slice|load-slice|verify [--drift-control function|schema]|test [--negative-control]|up|diagnose-migrations|down}"; exit 2 ;;
+  *) echo "usage: $0 {up-slice|load-slice|verify [--drift-control function|schema]|test [--negative-control]|run-file <sql...>|up|diagnose-migrations|down}"; exit 2 ;;
 esac
+
