@@ -161,10 +161,15 @@ SELECT pg_temp.chk('缺 daily_price_snapshots → missing_snapshot（不可算�
 
 -- ------------------------------------------------- 7) eligibility 過濾
 SELECT pg_temp.chk('tw_bsr_eligibility：4 碼普通股 eligible',
-  public.tw_bsr_eligibility('2330') AND public.tw_bsr_eligibility('2317'));
-SELECT pg_temp.chk('tw_bsr_eligibility：ETF/非 4 碼不 eligible',
-  NOT public.tw_bsr_eligibility('0050') AND NOT public.tw_bsr_eligibility('00878')
-  AND NOT public.tw_bsr_eligibility('2330A'));
+  (public.tw_bsr_eligibility('2330')->>'eligible')::boolean
+  AND (public.tw_bsr_eligibility('2317')->>'eligible')::boolean);
+SELECT pg_temp.chk('tw_bsr_eligibility：ETF 以 unsupported_asset_type 排除',
+  NOT (public.tw_bsr_eligibility('0050')->>'eligible')::boolean
+  AND public.tw_bsr_eligibility('0050')->>'ineligible_reason' = 'unsupported_asset_type'
+  AND NOT (public.tw_bsr_eligibility('00878')->>'eligible')::boolean);
+SELECT pg_temp.chk('tw_bsr_eligibility：非 4 碼以 invalid_stock_id 排除',
+  NOT (public.tw_bsr_eligibility('2330A')->>'eligible')::boolean
+  AND public.tw_bsr_eligibility('2330A')->>'ineligible_reason' = 'invalid_stock_id');
 
 -- ---------------------------------------------------------------- report
 SELECT name, passed, detail FROM _t ORDER BY 1;
