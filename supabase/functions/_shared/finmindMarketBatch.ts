@@ -12,7 +12,7 @@
 // 也提供 kill switch（config.enabled=false 立刻降回 per-stock）。
 
 import type { SupabaseClient } from './supabaseClients.ts';
-import { fetchWithRateLimit } from './finmindRateLimit.ts';
+import { fetchWithRateLimit, RateLimitExhaustedError } from './finmindRateLimit.ts';
 import type { FinmindRow } from '../tw-bsr-finmind-sync/lib.ts';
 
 const FINMIND_URL = 'https://api.finmindtrade.com/api/v4/data';
@@ -24,6 +24,10 @@ export interface MarketBatchConfig {
   probed_at: string | null;
   min_stocks_in_response: number;
   threshold_pending: number;
+  /** 診斷欄位（tri-state probe）；不影響 canMarketBatch 判定。 */
+  last_probe_outcome?: 'supported' | 'unsupported' | 'inconclusive' | null;
+  last_probe_at?: string | null;
+  last_probe_error?: string | null;
 }
 
 const DEFAULT_CONFIG: MarketBatchConfig = {
@@ -32,7 +36,11 @@ const DEFAULT_CONFIG: MarketBatchConfig = {
   probed_at: null,
   min_stocks_in_response: 500,
   threshold_pending: 15,
+  last_probe_outcome: null,
+  last_probe_at: null,
+  last_probe_error: null,
 };
+
 
 export async function loadMarketBatchConfig(supa: SupabaseClient): Promise<MarketBatchConfig> {
   const { data } = await supa.from('tw_bsr_sync_config')
