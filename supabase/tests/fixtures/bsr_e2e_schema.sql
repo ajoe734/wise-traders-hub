@@ -1,8 +1,13 @@
+-- ephemeral-only auth stub：user_roles / experts 具 auth.users FK，載入前必須先存在。
+CREATE SCHEMA IF NOT EXISTS auth;
+CREATE TABLE IF NOT EXISTS auth.users (id uuid PRIMARY KEY DEFAULT gen_random_uuid(), email text);
+CREATE TYPE public.app_role AS ENUM ('company_admin', 'analyst');
+CREATE TYPE public.expert_role AS ENUM ('advisor', 'mentor');
 --
 -- PostgreSQL database dump
 --
 
-\restrict QkMdQN4uCC0eyIxzH6JqUj2Iko7RB33fc2SP66drxRZxqo4AQ3PheS3t22hc6TN
+\restrict EkEP5D14zdCXmx2eHmNXTPfEpKYZeHtzAFCdltDNWbrWkXvuazAnYciybkNE146
 
 -- Dumped from database version 17.6
 -- Dumped by pg_dump version 17.9
@@ -93,6 +98,39 @@ CREATE TABLE public.daily_price_snapshots (
     market text DEFAULT 'TW'::text NOT NULL,
     volume_unit text,
     volume_shares bigint
+);
+
+
+--
+-- Name: experts; Type: TABLE; Schema: public; Owner: -
+--
+
+CREATE TABLE public.experts (
+    id uuid DEFAULT gen_random_uuid() NOT NULL,
+    user_id uuid NOT NULL,
+    slug text NOT NULL,
+    name text NOT NULL,
+    role public.expert_role NOT NULL,
+    bio text,
+    description text,
+    style_tags text[],
+    markets text[],
+    avatar_url text,
+    status text DEFAULT 'active'::text NOT NULL,
+    created_by uuid,
+    created_at timestamp with time zone DEFAULT now() NOT NULL,
+    strategy_summary text,
+    backtest_1y_return numeric,
+    backtest_max_drawdown numeric,
+    backtest_annual_return numeric,
+    starting_capital integer,
+    risk_preference text,
+    operation_cycle text,
+    strategy_name text,
+    currency text DEFAULT 'TWD'::text NOT NULL,
+    asset_class text DEFAULT 'tw_stock'::text NOT NULL,
+    CONSTRAINT experts_asset_class_check CHECK ((asset_class = ANY (ARRAY['tw_stock'::text, 'us_stock'::text, 'crypto'::text, 'us_option'::text, 'us_future'::text]))),
+    CONSTRAINT experts_currency_check CHECK ((currency = ANY (ARRAY['TWD'::text, 'USD'::text])))
 );
 
 
@@ -368,6 +406,17 @@ ALTER SEQUENCE public.tw_institutional_daily_id_seq OWNED BY public.tw_instituti
 
 
 --
+-- Name: user_roles; Type: TABLE; Schema: public; Owner: -
+--
+
+CREATE TABLE public.user_roles (
+    id uuid DEFAULT gen_random_uuid() NOT NULL,
+    user_id uuid NOT NULL,
+    role public.app_role NOT NULL
+);
+
+
+--
 -- Name: finmind_quota_ledger id; Type: DEFAULT; Schema: public; Owner: -
 --
 
@@ -431,6 +480,22 @@ ALTER TABLE ONLY public.daily_price_snapshots
 
 ALTER TABLE ONLY public.daily_price_snapshots
     ADD CONSTRAINT daily_price_snapshots_symbol_trade_date_key UNIQUE (symbol, trade_date);
+
+
+--
+-- Name: experts experts_pkey; Type: CONSTRAINT; Schema: public; Owner: -
+--
+
+ALTER TABLE ONLY public.experts
+    ADD CONSTRAINT experts_pkey PRIMARY KEY (id);
+
+
+--
+-- Name: experts experts_slug_key; Type: CONSTRAINT; Schema: public; Owner: -
+--
+
+ALTER TABLE ONLY public.experts
+    ADD CONSTRAINT experts_slug_key UNIQUE (slug);
 
 
 --
@@ -554,6 +619,22 @@ ALTER TABLE ONLY public.tw_institutional_daily
 
 
 --
+-- Name: user_roles user_roles_pkey; Type: CONSTRAINT; Schema: public; Owner: -
+--
+
+ALTER TABLE ONLY public.user_roles
+    ADD CONSTRAINT user_roles_pkey PRIMARY KEY (id);
+
+
+--
+-- Name: user_roles user_roles_user_id_role_key; Type: CONSTRAINT; Schema: public; Owner: -
+--
+
+ALTER TABLE ONLY public.user_roles
+    ADD CONSTRAINT user_roles_user_id_role_key UNIQUE (user_id, role);
+
+
+--
 -- Name: idx_bsr_coverage_daily_class; Type: INDEX; Schema: public; Owner: -
 --
 
@@ -579,6 +660,13 @@ CREATE INDEX idx_bsr_snapshot_status_status ON public.tw_bsr_daily_snapshot_stat
 --
 
 CREATE INDEX idx_daily_price_snapshots_missing_volume_shares ON public.daily_price_snapshots USING btree (market, trade_date) WHERE (volume_shares IS NULL);
+
+
+--
+-- Name: idx_experts_status_created; Type: INDEX; Schema: public; Owner: -
+--
+
+CREATE INDEX idx_experts_status_created ON public.experts USING btree (status, created_at);
 
 
 --
@@ -727,6 +815,36 @@ CREATE INDEX tw_bsr_fetch_failures_next_retry_idx ON public.tw_bsr_fetch_failure
 
 
 --
+-- Name: experts protect_experts_backtest_fields; Type: TRIGGER; Schema: public; Owner: -
+--
+
+
+
+--
+-- Name: experts trg_enforce_expert_asset_class_lock; Type: TRIGGER; Schema: public; Owner: -
+--
+
+
+
+--
+-- Name: experts trg_enforce_expert_currency_lock; Type: TRIGGER; Schema: public; Owner: -
+--
+
+
+
+--
+-- Name: experts trg_sync_expert_currency; Type: TRIGGER; Schema: public; Owner: -
+--
+
+
+
+--
+-- Name: experts trg_sync_expert_slug_to_profile; Type: TRIGGER; Schema: public; Owner: -
+--
+
+
+
+--
 -- Name: tw_bsr_daily trg_tw_bsr_daily_immutable; Type: TRIGGER; Schema: public; Owner: -
 --
 
@@ -769,7 +887,63 @@ CREATE INDEX tw_bsr_fetch_failures_next_retry_idx ON public.tw_bsr_fetch_failure
 
 
 --
+-- Name: user_roles user_roles_user_id_fkey; Type: FK CONSTRAINT; Schema: public; Owner: -
+--
+
+ALTER TABLE ONLY public.user_roles
+    ADD CONSTRAINT user_roles_user_id_fkey FOREIGN KEY (user_id) REFERENCES auth.users(id) ON DELETE CASCADE;
+
+
+--
+-- Name: experts Analysts can update own expert; Type: POLICY; Schema: public; Owner: -
+--
+
+
+
+--
+-- Name: experts Analysts can view own expert; Type: POLICY; Schema: public; Owner: -
+--
+
+
+
+--
+-- Name: experts Anyone can view active experts; Type: POLICY; Schema: public; Owner: -
+--
+
+
+
+--
 -- Name: daily_price_snapshots Anyone can view snapshots; Type: POLICY; Schema: public; Owner: -
+--
+
+
+
+--
+-- Name: user_roles Company admins can manage roles; Type: POLICY; Schema: public; Owner: -
+--
+
+
+
+--
+-- Name: user_roles Company admins can view all roles; Type: POLICY; Schema: public; Owner: -
+--
+
+
+
+--
+-- Name: experts Company admins full access experts; Type: POLICY; Schema: public; Owner: -
+--
+
+
+
+--
+-- Name: experts Subscribers can view subscribed experts; Type: POLICY; Schema: public; Owner: -
+--
+
+
+
+--
+-- Name: user_roles Users can view own roles; Type: POLICY; Schema: public; Owner: -
 --
 
 
@@ -817,6 +991,11 @@ CREATE INDEX tw_bsr_fetch_failures_next_retry_idx ON public.tw_bsr_fetch_failure
 
 --
 -- Name: daily_price_snapshots; Type: ROW SECURITY; Schema: public; Owner: -
+--
+
+
+--
+-- Name: experts; Type: ROW SECURITY; Schema: public; Owner: -
 --
 
 
@@ -924,8 +1103,13 @@ CREATE INDEX tw_bsr_fetch_failures_next_retry_idx ON public.tw_bsr_fetch_failure
 
 
 --
+-- Name: user_roles; Type: ROW SECURITY; Schema: public; Owner: -
+--
+
+
+--
 -- PostgreSQL database dump complete
 --
 
-\unrestrict QkMdQN4uCC0eyIxzH6JqUj2Iko7RB33fc2SP66drxRZxqo4AQ3PheS3t22hc6TN
+\unrestrict EkEP5D14zdCXmx2eHmNXTPfEpKYZeHtzAFCdltDNWbrWkXvuazAnYciybkNE146
 

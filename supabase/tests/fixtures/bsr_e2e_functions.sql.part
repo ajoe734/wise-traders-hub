@@ -763,3 +763,13 @@ BEGIN
 END;
 $function$
 ;
+CREATE OR REPLACE FUNCTION public.is_tw_trading_day(_d date)
+ RETURNS boolean
+ LANGUAGE sql
+ STABLE SECURITY DEFINER
+ SET search_path TO 'public'
+AS $function$
+  SELECT EXTRACT(DOW FROM _d) NOT IN (0, 6)
+     AND NOT EXISTS (SELECT 1 FROM public.tw_market_holidays h WHERE h.trade_date = _d);
+$function$
+;
