@@ -62,6 +62,7 @@ DELTA_FUNCS=(
   chips_prefetch_targets_touch
   enqueue_chips_prefetch_gaps
   detect_chip_gap_jobs
+  tw_trading_days
 )
 
 echo "==> dumping delta table DDL (schema-only, read-only)"
