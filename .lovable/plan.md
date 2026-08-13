@@ -1,6 +1,6 @@
-# Build 1f — Gate Plan v7.1（討論稿，不執行）
+# Build 1f — Gate Plan v7.2（討論稿，不執行）
 
-第 3 個 literal cycle（Taipei 09:02 / 09:07）為真實 FAIL/N/A 分類問題：token 全數 `post_close_only = true`，09:07 屬盤中，`claim_bsr_queue_jobs` 合法排除 → `no_jobs`。不改寫為 PASS，不關閉盤中保護。
+自然 gate 沿用 v7.1（第 1–7 節原樣）；本版只改寫 remote identity 章節與 Build 2 解鎖條件。
 
 ## 1. 既有實作讀回（read-only 佐證）
 
@@ -8,89 +8,94 @@
 - `claim_bsr_queue_jobs`：token slot 與 normal 兩段皆帶 `(NOT in_hours OR post_close_only = false)`；token slot `LIMIT 1`，排序 `next_run_at ASC, id ASC`。
 - `recover_quota_failed_bsr_jobs`：cap 恆 1，只把 failed job 改回 `pending / last_error='quota_recovery_token'`，**不改寫 `post_close_only`**。
 - 排程：job106 `2 * * * *`；job107 `7 * * * *`（`ignore_window:true` 只作用於 Edge 端，DB claim 仍受盤中保護）。
-- 佇列現況：pending 11、recovery token 8（**8/8 `post_close_only = true`**），最舊 token `next_run_at = 2026-08-12 18:02Z`。
+- 佇列現況：pending 11、recovery token 8（**8/8 `post_close_only = true`**）。
 
-**可 claim 的 `:07` 輪次（Taipei）**：週一～週五 `00:07–08:07`、`14:07–23:07`；`09:07–13:07` 不可（13:07 < 13:30）。週六日全時段可。
+**可 claim 的 `:07` 輪次（Taipei）**：平日 `00:07–08:07`、`14:07–23:07`；`09:07–13:07` 不可。週六日全時段可。
 
-## 2. Streak 語意（嚴格版，取代 v7）
+## 2. Streak 語意（嚴格）
 
-- target class streak **只由時間上連續的 eligible `:07` cycles 組成**。
-- 中斷 streak：出現另一 class、eligible 但 FAIL、MIXED、UNPROVEN。
-- **N/A 僅限盤中 ineligible cycle**：不開始、也不延續 streak（不算中斷，但不接續前段）。實務上等同 streak 必須落在同一段連續 eligible 區塊內。
-- 舊 open 2/3 僅列為行為佐證，正式計數 **open 0/3、exhausted 0/3** 重設。
+- target class streak 只由**時間上連續**的 eligible `:07` cycles 組成。
+- 中斷：另一 class、eligible FAIL、MIXED、UNPROVEN。
+- **N/A 僅限盤中 ineligible cycle**：不開始、不延續 streak。
+- 正式計數重設 **open 0/3、exhausted 0/3**；舊 open 2/3 僅為行為佐證。
 
 ## 3. 兩套 gate（依實際 code 欄位）
 
-Worker 回應欄位實測（`supabase/functions/tw-bsr-finmind-sync/index.ts`）：`claimed`、`rows_written`（總和，L670）、`jobs_quota_deferred`（L673）、`jobs[]`（每筆含 `job_id`、`priority`、`outcome`、`rows_written`、`last_error`，於完成時 push）。Recovery audit 欄位（`data_source_refresh_logs`，source_key `bsr_quota_recovery`）：`budget_reason`、`tokens_issued`、`tokened_job_ids`、`reconciled_job_ids`、`cap`、`pools`、`degrade`。
+Worker 回應欄位（`tw-bsr-finmind-sync/index.ts`）：`claimed`、`rows_written`（總和 L670）、`jobs_quota_deferred`（L673）、`jobs[]`（`job_id`/`priority`/`outcome`/`rows_written`/`last_error`，完成時 push）。Audit（`data_source_refresh_logs`，`bsr_quota_recovery`）：`budget_reason`、`tokens_issued`、`tokened_job_ids`、`reconciled_job_ids`、`cap`、`pools`、`degrade`。
 
-**Open gate（每輪）**
-1. job106 該輪 `bsr_quota_recovery` audit **恰 1 筆**，`tokens_issued = 1`、`tokened_job_ids` 非空。
-2. 其後自然 `:07` job107 有唯一一筆 HTTP 200 回應。
-3. 最舊 eligible recovery token 被 claim（body `jobs[].job_id` 含之）。
-4. 該 token per-job `rows_written > 0`。
-5. `tw_chip_fact` 對應 `stock_id + trade_date` 有 delta。
-6. 無非預期寫入；我方 write delta = 0。
+**Open gate（每輪）**：audit 恰 1 筆且 `tokens_issued = 1`、`tokened_job_ids` 非空 → `:07` 唯一 HTTP 200 → 最舊 eligible token 被 claim → 該 token `rows_written > 0` → `tw_chip_fact` 對應 `stock_id + trade_date` 有 delta → 無非預期寫入、我方 write delta = 0。
 
-**Exhausted gate（每輪）**
-1. job106 該輪 audit **恰 1 筆**，明列 `budget_reason` 與 `tokened_job_ids`（可為空）。
-2. `:07` 唯一 HTTP 200。
-3. `jobs_quota_deferred > 0`。
-4. body `rows_written`（total）= 0。
-5. 無 fact delta、無非預期寫入；我方 write delta = 0。
+**Exhausted gate（每輪）**：audit 恰 1 筆且明列 `budget_reason` / `tokened_job_ids` → `:07` 唯一 HTTP 200 → `jobs_quota_deferred > 0` → total `rows_written = 0` → 無 fact delta、無非預期寫入、我方 write delta = 0。
 
-兩套互斥，同一輪只用其一，依第 5 節 class 判定。
+## 4. token-first 直證不可得
 
-## 4. token-first 直證的可得性
+`jobs[]` 由 `recordOutcome` 於完成時推入 → 為 completion order，非 assignment order；body 無 assignment-order telemetry。**production 直證不可得**，只用 frozen source/hash read-back、最舊 token 被處理、時序推論作佐證，明確標示為推論。不新增 telemetry。非 blocking（v6.2 §8 僅要求 completion order 含該 id）。
 
-`jobs[]` 由 `recordOutcome` 在**完成時**推入（L544–556），是 **completion order 而非 assignment order**；`partitionTokenFirst`（L539）只保證進入 worker pool 的排序，body 沒有任何 assignment-order telemetry。v6.2 §8 亦只要求「`jobs[]`（completion order）含該 id」。
+## 5. Class 判定
 
-結論：**production token-first 直證不可得**。改以三項佐證併列，且明確標示為推論：
-- frozen source / hash read-back（DB `md5(prosrc) = c28474cc…`、Edge `index.ts 01b4f5b9…` / `lib.ts 300a1f29…`）證明 `partitionTokenFirst` 已在線上。
-- 最舊 eligible token 確實被 claim 並處理。
-- `finished_at` / body 順序的時序推論。
+`bsr_recovery_budget` branch：`kill_switch`、`degrade_claim_halt`/`degrade_p1_only`/`degrade_tier2_paused`/`degrade_reservation_stuck`、`pool_reserve_blocked`、`cap_1`、`cap_zero`；另 `lock_contended`。Pool 每日 reset = **Taipei 00:00（UTC 16:00）**，`finmind_quota_ledger.granted=false / reason='daily_exhausted'` 為 exhausted 權威訊號。
 
-不新增 telemetry、不偽稱直證。此項**非 blocking**（v6.2 §8 原始 gate 只要求 completion order 含該 id）。
-
-## 5. Class 判定（不可只靠單一 budget_reason）
-
-`bsr_recovery_budget` 實際 branch：`kill_switch`、`degrade_claim_halt` / `degrade_p1_only` / `degrade_tier2_paused` / `degrade_reservation_stuck`、`pool_reserve_blocked`、`cap_1`、`cap_zero`；另 `recover_quota_failed_bsr_jobs` 有 `lock_contended`。Pool 語意：`finmind_quota_pools` 每日 `daily_budget`，`bsr_recovery_budget` 另留 `DAILY_RESERVE 30` / `BURST_RESERVE 30`，`interactive` 排除；`finmind_quota_ledger.granted = false / reason = 'daily_exhausted'` 為 exhausted 的權威訊號。Reset 為 **Taipei 00:00（UTC 16:00）**。
-
-判定規則（`:02` 與 `:07` 必須一致）：
-- **OPEN**：`:02` audit `budget_reason = cap_1`（quota 可用、`issue_ok` 為真），且 `:07` body `jobs_quota_deferred = 0`，且該輪 ledger 無 `daily_exhausted`。
-- **EXHAUSTED**：`:02` audit `budget_reason = pool_reserve_blocked` 或 `cap_zero`（且 ledger 該時段有 `daily_exhausted`），且 `:07` body `jobs_quota_deferred > 0` 且 total `rows_written = 0`。
-- **MIXED**：`:02` 與 `:07` 訊號矛盾，或期間發生 quota 轉態 → 中斷 streak。
-- **UNPROVEN**：`kill_switch` / `degrade_*` / `lock_contended`，或必要 log 缺失 → 中斷 streak。
+- **OPEN**：`:02` `budget_reason = cap_1` + `:07` `jobs_quota_deferred = 0` + 該時段 ledger 無 `daily_exhausted`。
+- **EXHAUSTED**：`:02` `pool_reserve_blocked` / `cap_zero`（且 ledger 有 `daily_exhausted`）+ `:07` `jobs_quota_deferred > 0` 且 total `rows_written = 0`。
+- **MIXED**：`:02` 與 `:07` 矛盾或期間轉態 → 中斷。
+- **UNPROVEN**：`kill_switch` / `degrade_*` / `lock_contended` 或必要 log 缺失 → 中斷。
 
 ## 6. 結果分類
 
 | 分類 | 條件 |
 | --- | --- |
 | PASS | 該 class 全部條件成立 |
-| FAIL | eligible open 輪次 audit 發了 token 但 worker `no_jobs` / queue empty；eligible 輪次條件明確不成立 → 該 class streak 歸零 |
-| UNPROVEN | eligible 輪次必要 log（cron run、audit、`net._http_response` body）遺失或無法回讀 → 歸零 |
-| MIXED | class 訊號矛盾或期間轉態 → 歸零 |
-| N/A | **僅限盤中 ineligible cycle**（09:07–13:07 平日）；不開始、不延續 streak |
+| FAIL | eligible open 輪次發了 token 但 worker `no_jobs`/queue empty；eligible 輪次條件明確不成立 → streak 歸零 |
+| UNPROVEN | eligible 輪次必要 log 遺失（cron run／audit／`net._http_response` body） → 歸零 |
+| MIXED | class 訊號矛盾或轉態 → 歸零 |
+| N/A | 僅限盤中 ineligible cycle |
 | BLOCKED | 需改 code 或關閉盤中保護才可能通過 |
 
-Exhausted 輪次若無可 defer 的 job：依凍結 gate（要求 `jobs_quota_deferred > 0`）記 **FAIL**（若 claim 成功但零 defer）或 **UNPROVEN**（若 body 遺失），**不得以 N/A 跳過**。
+Eligible exhausted 輪次若 claim 成功但零 defer → **FAIL**；body 遺失 → **UNPROVEN**。不得以 N/A 跳過。
 
-## 7. 校正時間表（自然、不手動觸發）
+## 7. 時間表（自然、不手動觸發）
 
-- **Exhausted 3/3**：今日 2026-08-13（四）**17:07、18:07、19:07**（近 7 日 ledger 顯示每日 16:00–23:59 為 `daily_exhausted`），回讀閘門 **Taipei 19:12**。三輪必須同屬 exhausted class。
-- **Open 3/3**：**2026-08-14（五）00:07、01:07、02:07**（Taipei 00:00 quota reset 後的連續 eligible 區塊），回讀閘門 **Taipei 02:12**。
-- 今日 14:07 / 15:07 雖為 open eligible，但後接 16:07 起的 exhausted 轉態，無法組成 3 連 → 不採計為正式 streak。
+- **Exhausted 3/3**：2026-08-13（四）**17:07、18:07、19:07**，回讀閘門 Taipei 19:12（近 7 日 ledger 顯示每日 16:00–23:59 `daily_exhausted`）。
+- **Open 3/3**：2026-08-14（五）**00:07、01:07、02:07**，回讀閘門 Taipei 02:12。
+- 今日 14:07/15:07 因後接 exhausted 轉態，不構成 3 連，不採計。
 
-## 8. Remote version / deployment identity
+## 8. Remote identity（v6.2 §6）— **UNPROVEN / BLOCKING**
 
-v6.2 原文中 remote version 只出現在 **§6 Edge deploy gate 的 deploy-time read-back**（「remote version 遞增；remote source 對應 local hash」），**不在 §8 自然證據 gate**；§9 另明訂 cron request correlation 維持 UNKNOWN / best-effort。
+**A) Stage B deploy 事實（對話歷史 #8526，2026-08-12 22:15）**
+- 動作：於 **22:13–22:14 UTC** 完成 migration + 「只 deploy `tw-bsr-finmind-sync`」，回報 deploy 成功。
+- 該報告原文：「**remote version/deployment_id 讀回為 PENDING**：管理 API token 不在此環境，`edge_boot_events` 對此 fn 目前 0 筆，最近 boot 為 22:07（部署前）」。
+- 沒有任何 remote version、deployment_id、remote source identifier 被記錄。
 
-既有唯讀 surfaces 盤點（不新增 telemetry）：Lovable 端 repo source hash（frozen artifact）、DB `md5(prosrc)` read-back、`edge_boot_events`、Supabase analytics function logs（有保留期缺口）。
+**B) 三段鏈追溯（本輪唯讀查證）**
+1. deploy action → remote version：**斷**。此環境無 Edge 管理 API surface，deploy 工具回傳未含 version/deployment_id，歷史亦未保存。
+2. remote version → 自然 log：**斷**。`edge_boot_events` 全表**沒有任何 `fn` 含 `bsr`** 的列（該 fn 從未上報 boot event），無法取得 23:07 之後任一輪的 deployment_id。
+3. remote source checksum / bundle identity：**不可讀**。無任何唯讀 surface 提供 remote bundle checksum，因此 frozen `index.ts 01b4f5b9…` / `lib.ts 300a1f29…` 無法與遠端關聯。
+4. Analytics `function_edge_logs` **有** `version` / `deployment_id` 欄位，但實測保留窗僅約 **9–10 分鐘**（本輪查得 t0 01:19Z → t1 01:28Z），22:13 當時與 23:07 首輪自然 log 皆已不可回溯。
+5. 本地 hash 與 DB `md5(prosrc) = c28474cc…` 只能證明 local repo 與 DB 函式，**不能證明遠端 Edge source**。
 
-結論：**per-cycle remote version / deployment_id 找不到即維持 UNKNOWN**；其 blocking 與否**依 v6.2 原文**——deploy-time gate 已於 Stage B 以 source/hash read-back 滿足；自然 gate 未列此項，故不因 UNKNOWN 判 FAIL，但也**不由本計畫自行宣布 non-blocking**，如需升級為 blocking 由你裁示。
+**C) 22:14 之後是否另有 deploy**
+- 對話歷史中無其他 `tw-bsr-finmind-sync` deploy 紀錄；但**沒有任何遠端 deployment history surface 可查**，故只能記為「**無法排除**」，不得假設沒有。
+
+**D) 依 v6.2 §6 逐條判定**
+
+| §6 條款 | 判定 |
+| --- | --- |
+| 只 deploy `tw-bsr-finmind-sync`，不 deploy 其他、不 Publish | PASS（歷史紀錄） |
+| read-back：remote version 遞增 | **UNPROVEN** |
+| read-back：remote source 對應 local `lib.ts 300a1f29…` / `index.ts 01b4f5b9…` | **UNPROVEN** |
+| response JSON 139 keys、added=0/removed=0 | PASS（deploy 當時比對） |
+
+→ **v6.2 §6 deploy identity gate = UNPROVEN，且為 BLOCKING**。不得以「§8 未要求」繞過，也不得以行為推論或「目前 version 311」等替代宣稱滿足。
+
+**最小可行、零 side effect 的補救（僅提案，未執行）**
+- 在自然 `:07`（job107）發生後的 **9 分鐘保留窗內**，純 SELECT `function_edge_logs` 取該 fn 的 `version` / `deployment_id`。此為讀取既有平台 log，無寫入、無 invoke、無 telemetry 新增。
+- 此法可建立「自然 log → 目前 remote version/deployment_id」與後續各輪的**版本連續性**，但**仍無法**回溯連到 22:13 的 deploy action，也無法取得 remote source checksum。
+- 因此：即使補齊，§6 的「remote version 遞增」「remote source 對應 local hash」兩條仍為 **UNPROVEN**，除非你接受「連續性 + 無其他 deploy 紀錄」作為替代證據，或另行提供管理 API 唯讀憑證。
+- 若兩者皆不可行 → 誠實記為 **BLOCKED**；不新增 telemetry、不 deploy、不 manual invoke。
 
 ## 9. Build 2 解鎖條件
 
-scheduler + open 3/3 + exhausted 3/3（皆為嚴格連續 eligible streak）全 PASS 後，才可開 Build 2 Plan。目前 **blocked**。
+需同時 PASS：**scheduler** + **v6.2 §6 deploy identity** + **exhausted 3/3** + **open 3/3**。目前 deploy identity = UNPROVEN/BLOCKING → Build 2 **blocked**。
 
 ## 10. 不做
 
