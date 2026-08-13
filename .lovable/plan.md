@@ -17,18 +17,21 @@
 - repo 內**沒有** Playwright `storageState`、沒有寫死測試帳號、沒有 seed 出來的 auth 使用者。
 - 只有 `e2e/live/*` 用環境變數：`E2E_TEST_EMAIL` / `E2E_TEST_PASSWORD`（subscription live smoke，要求 `profiles.is_tester=true`）、`E2E_ADMIN_EMAIL/PASSWORD`、`E2E_SUPABASE_SERVICE_ROLE_KEY`。
 - 本沙箱現況：`E2E_TEST_EMAIL`／`E2E_TEST_PASSWORD` 已設定；`E2E_ADMIN_*` 與任何 service_role key **未設定**。
-- 安全評估：`E2E_TEST_*` 是專用測試帳號，不是真實使用者，但本輪禁止登入，故不使用。
+- 安全評估：`E2E_TEST_*` 是專用測試帳號，不是真實使用者。**D2 已獲授權**（僅登入 + 唯讀觀測）。
 
-### 不需 impersonation 的替代驗收（擇一，需你授權）
+### D2 帳號唯讀盤點結果（本輪已查，未登入）
 
-- **A. 純 server-side 證明**：用唯讀 SQL（`supabase--read_query`）對指定帳號的 `pf-holdings-v2` 逐檔列 BSR 新鮮度，完全不開瀏覽器。可證明「server 已有最新 BSR」，不能證明「前端 0 enqueue」。
-- **B. 匿名 + demo 前端網路證明**：不登入直接進 `/holding-checkup`，以 demo/local 持倉走完整頁面載入，全程監控 network，證明「頁面載入 0 enqueue」。可證前端行為，持倉集合不是真實使用者的。
-- **C. A + B 合併（建議）**：server 面用 A，前端面用 B，兩邊各自成立即可覆蓋你的驗收命題。
-- **D. 完整 authenticated 端到端**：需要你明確授權其一（我不自行執行、不自行建帳號）：
-  - D1：你在 Preview 自行登入指定帳號（session 會在下一輪注入），並告知該帳號 email 或 user_id；或
-  - D2：授權我使用既有 `E2E_TEST_EMAIL/PASSWORD` 測試帳號登入 Preview（僅登入讀取，不寫入持倉）。
+查法：本地對 `E2E_TEST_EMAIL` 取 md5，僅以雜湊比對 `auth.users`；聊天／查詢／證據皆不出現 email、password、token 或完整 user_id。
 
-**BLOCKED 標記**：在你給出 D1 或 D2 之前，authenticated 驗收保持 BLOCKED；我需要的最小授權就是「一個可用帳號的識別（user_id 或 email）＋登入方式的明示同意」，不猜測、不代建。
+- `user_found = 1`，masked account id = `f2fe…19c1`。
+- `public.checkup_storage` 該帳號 **0 筆列**（`storage_keys = none`），因此**沒有 `pf-holdings-v2`**、持股檔數 0、無代號可列。
+
+**判定：authenticated holdings acceptance = BLOCKED。** 不自行新增持股、不寫入 `checkup_storage`。15:21 後僅能完成：
+
+- S-α：**authenticated page 0-enqueue**（以此帳號登入 Preview，空持倉狀態下觀測 network）。
+- S-β：**market-wide server coverage**（全市場 eligible 個股的 server 端 BSR 新鮮度）。
+- 逐持股 PASS **不會宣稱**。若要覆蓋逐持股，需你另行提供：(a) 一個已有 `pf-holdings-v2` 的帳號識別並由你在 Preview 登入（D1），或 (b) 明示授權為測試帳號寫入持股（本輪明文禁止，預設不做）。
+
 
 ## 3. 前端 call graph（未開抽屜時）
 
