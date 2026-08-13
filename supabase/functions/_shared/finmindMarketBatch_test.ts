@@ -93,7 +93,7 @@ function marketBody(n: number) {
 function withRpc(supa: any) {
   supa.rpc = (name: string) => {
     if (name === 'reserve_bsr_api_quota') {
-      return Promise.resolve({ data: [{ reservation_id: 1, used: 1, remaining: 999, allowed: true }], error: null });
+      return Promise.resolve({ data: [{ granted: true, reservation_id: 1, used: 1, remaining: 999 }], error: null });
     }
     return Promise.resolve({ data: null, error: null });
   };
@@ -168,7 +168,7 @@ Deno.test('probe: RateLimitExhaustedError → inconclusive，不寫 supported', 
   const supa = stubSupa(patches, { supported: true, probed_at: '2026-08-10T00:00:00.000Z' });
   // reserve 失敗 → fetchWithRateLimit 丟 RateLimitExhaustedError
   supa.rpc = (name: string) => {
-    if (name === 'reserve_bsr_api_quota') return Promise.resolve({ data: [{ reservation_id: null }], error: null });
+    if (name === 'reserve_bsr_api_quota') return Promise.resolve({ data: [{ granted: false, reservation_id: null }], error: null });
     return Promise.resolve({ data: null, error: null });
   };
   const r = await probeMarketBatchSupport(supa, { force: true });
