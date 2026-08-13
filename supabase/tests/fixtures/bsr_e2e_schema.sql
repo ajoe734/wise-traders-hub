@@ -2,7 +2,7 @@
 -- PostgreSQL database dump
 --
 
-\restrict 1NIbIZEAxt42GJDhVdyqvYoVLcwhTACx2KntEBqVeRXmFSG2bUlvF4slY3Huw0t
+\restrict YafkLAUnJxoYcASWcBqd0ASATR8QXiw4dVJJvQpWlYpykuZpo9JyRkHjqY34nib
 
 -- Dumped from database version 17.6
 -- Dumped by pg_dump version 17.9
@@ -55,6 +55,23 @@ CREATE TABLE public.tw_bsr_daily_snapshot_status (
 
 
 --
+-- Name: finmind_quota_ledger; Type: TABLE; Schema: public; Owner: -
+--
+
+CREATE TABLE public.finmind_quota_ledger (
+    id bigint NOT NULL,
+    pool_name text NOT NULL,
+    request_kind text NOT NULL,
+    stock_id text,
+    granted boolean NOT NULL,
+    reason text,
+    created_at timestamp with time zone DEFAULT now() NOT NULL,
+    borrowed_from text,
+    root_cause_hint text
+);
+
+
+--
 -- Name: daily_price_snapshots; Type: TABLE; Schema: public; Owner: -
 --
 
@@ -76,6 +93,102 @@ CREATE TABLE public.daily_price_snapshots (
     market text DEFAULT 'TW'::text NOT NULL,
     volume_unit text,
     volume_shares bigint
+);
+
+
+--
+-- Name: finmind_inflight_requests; Type: TABLE; Schema: public; Owner: -
+--
+
+CREATE TABLE public.finmind_inflight_requests (
+    key text NOT NULL,
+    stock_id text,
+    kind text NOT NULL,
+    started_at timestamp with time zone DEFAULT now() NOT NULL,
+    expires_at timestamp with time zone DEFAULT (now() + '00:00:30'::interval) NOT NULL
+);
+
+
+--
+-- Name: finmind_quota_ledger_id_seq; Type: SEQUENCE; Schema: public; Owner: -
+--
+
+CREATE SEQUENCE public.finmind_quota_ledger_id_seq
+    START WITH 1
+    INCREMENT BY 1
+    NO MINVALUE
+    NO MAXVALUE
+    CACHE 1;
+
+
+--
+-- Name: finmind_quota_ledger_id_seq; Type: SEQUENCE OWNED BY; Schema: public; Owner: -
+--
+
+ALTER SEQUENCE public.finmind_quota_ledger_id_seq OWNED BY public.finmind_quota_ledger.id;
+
+
+--
+-- Name: finmind_upstream_quota; Type: TABLE; Schema: public; Owner: -
+--
+
+CREATE TABLE public.finmind_upstream_quota (
+    source text NOT NULL,
+    remaining integer,
+    quota_limit integer,
+    reset_at timestamp with time zone,
+    observed_at timestamp with time zone DEFAULT now() NOT NULL,
+    raw jsonb
+);
+
+
+--
+-- Name: price_quota_ledger; Type: TABLE; Schema: public; Owner: -
+--
+
+CREATE TABLE public.price_quota_ledger (
+    id bigint NOT NULL,
+    market text NOT NULL,
+    requested integer NOT NULL,
+    admitted integer NOT NULL,
+    tokens_after double precision NOT NULL,
+    writer text,
+    created_at timestamp with time zone DEFAULT now() NOT NULL
+);
+
+
+--
+-- Name: price_quota_ledger_id_seq; Type: SEQUENCE; Schema: public; Owner: -
+--
+
+CREATE SEQUENCE public.price_quota_ledger_id_seq
+    START WITH 1
+    INCREMENT BY 1
+    NO MINVALUE
+    NO MAXVALUE
+    CACHE 1;
+
+
+--
+-- Name: price_quota_ledger_id_seq; Type: SEQUENCE OWNED BY; Schema: public; Owner: -
+--
+
+ALTER SEQUENCE public.price_quota_ledger_id_seq OWNED BY public.price_quota_ledger.id;
+
+
+--
+-- Name: price_quota_pools; Type: TABLE; Schema: public; Owner: -
+--
+
+CREATE TABLE public.price_quota_pools (
+    market text NOT NULL,
+    api_name text NOT NULL,
+    per_min_cap integer NOT NULL,
+    per_day_cap integer,
+    tokens double precision DEFAULT 0 NOT NULL,
+    last_refill timestamp with time zone DEFAULT now() NOT NULL,
+    created_at timestamp with time zone DEFAULT now() NOT NULL,
+    updated_at timestamp with time zone DEFAULT now() NOT NULL
 );
 
 
@@ -255,6 +368,20 @@ ALTER SEQUENCE public.tw_institutional_daily_id_seq OWNED BY public.tw_instituti
 
 
 --
+-- Name: finmind_quota_ledger id; Type: DEFAULT; Schema: public; Owner: -
+--
+
+ALTER TABLE ONLY public.finmind_quota_ledger ALTER COLUMN id SET DEFAULT nextval('public.finmind_quota_ledger_id_seq'::regclass);
+
+
+--
+-- Name: price_quota_ledger id; Type: DEFAULT; Schema: public; Owner: -
+--
+
+ALTER TABLE ONLY public.price_quota_ledger ALTER COLUMN id SET DEFAULT nextval('public.price_quota_ledger_id_seq'::regclass);
+
+
+--
 -- Name: tw_bsr_daily id; Type: DEFAULT; Schema: public; Owner: -
 --
 
@@ -304,6 +431,46 @@ ALTER TABLE ONLY public.daily_price_snapshots
 
 ALTER TABLE ONLY public.daily_price_snapshots
     ADD CONSTRAINT daily_price_snapshots_symbol_trade_date_key UNIQUE (symbol, trade_date);
+
+
+--
+-- Name: finmind_inflight_requests finmind_inflight_requests_pkey; Type: CONSTRAINT; Schema: public; Owner: -
+--
+
+ALTER TABLE ONLY public.finmind_inflight_requests
+    ADD CONSTRAINT finmind_inflight_requests_pkey PRIMARY KEY (key);
+
+
+--
+-- Name: finmind_quota_ledger finmind_quota_ledger_pkey; Type: CONSTRAINT; Schema: public; Owner: -
+--
+
+ALTER TABLE ONLY public.finmind_quota_ledger
+    ADD CONSTRAINT finmind_quota_ledger_pkey PRIMARY KEY (id);
+
+
+--
+-- Name: finmind_upstream_quota finmind_upstream_quota_pkey; Type: CONSTRAINT; Schema: public; Owner: -
+--
+
+ALTER TABLE ONLY public.finmind_upstream_quota
+    ADD CONSTRAINT finmind_upstream_quota_pkey PRIMARY KEY (source);
+
+
+--
+-- Name: price_quota_ledger price_quota_ledger_pkey; Type: CONSTRAINT; Schema: public; Owner: -
+--
+
+ALTER TABLE ONLY public.price_quota_ledger
+    ADD CONSTRAINT price_quota_ledger_pkey PRIMARY KEY (id);
+
+
+--
+-- Name: price_quota_pools price_quota_pools_pkey; Type: CONSTRAINT; Schema: public; Owner: -
+--
+
+ALTER TABLE ONLY public.price_quota_pools
+    ADD CONSTRAINT price_quota_pools_pkey PRIMARY KEY (market);
 
 
 --
@@ -412,6 +579,34 @@ CREATE INDEX idx_bsr_snapshot_status_status ON public.tw_bsr_daily_snapshot_stat
 --
 
 CREATE INDEX idx_daily_price_snapshots_missing_volume_shares ON public.daily_price_snapshots USING btree (market, trade_date) WHERE (volume_shares IS NULL);
+
+
+--
+-- Name: idx_finmind_quota_ledger_created; Type: INDEX; Schema: public; Owner: -
+--
+
+CREATE INDEX idx_finmind_quota_ledger_created ON public.finmind_quota_ledger USING btree (created_at DESC);
+
+
+--
+-- Name: idx_finmind_quota_ledger_pool; Type: INDEX; Schema: public; Owner: -
+--
+
+CREATE INDEX idx_finmind_quota_ledger_pool ON public.finmind_quota_ledger USING btree (pool_name, created_at DESC);
+
+
+--
+-- Name: idx_finmind_quota_ledger_pool_time; Type: INDEX; Schema: public; Owner: -
+--
+
+CREATE INDEX idx_finmind_quota_ledger_pool_time ON public.finmind_quota_ledger USING btree (pool_name, created_at DESC);
+
+
+--
+-- Name: idx_price_quota_ledger_market_time; Type: INDEX; Schema: public; Owner: -
+--
+
+CREATE INDEX idx_price_quota_ledger_market_time ON public.price_quota_ledger USING btree (market, created_at DESC);
 
 
 --
@@ -580,6 +775,24 @@ CREATE INDEX tw_bsr_fetch_failures_next_retry_idx ON public.tw_bsr_fetch_failure
 
 
 --
+-- Name: finmind_quota_ledger admin read finmind quota ledger; Type: POLICY; Schema: public; Owner: -
+--
+
+
+
+--
+-- Name: finmind_upstream_quota admin read finmind upstream quota; Type: POLICY; Schema: public; Owner: -
+--
+
+
+
+--
+-- Name: finmind_inflight_requests admin read inflight; Type: POLICY; Schema: public; Owner: -
+--
+
+
+
+--
 -- Name: tw_bsr_daily_snapshot_status admin read snapshot status; Type: POLICY; Schema: public; Owner: -
 --
 
@@ -605,6 +818,61 @@ CREATE INDEX tw_bsr_fetch_failures_next_retry_idx ON public.tw_bsr_fetch_failure
 --
 -- Name: daily_price_snapshots; Type: ROW SECURITY; Schema: public; Owner: -
 --
+
+
+--
+-- Name: finmind_inflight_requests; Type: ROW SECURITY; Schema: public; Owner: -
+--
+
+
+--
+-- Name: finmind_quota_ledger; Type: ROW SECURITY; Schema: public; Owner: -
+--
+
+
+--
+-- Name: finmind_upstream_quota; Type: ROW SECURITY; Schema: public; Owner: -
+--
+
+
+--
+-- Name: price_quota_ledger; Type: ROW SECURITY; Schema: public; Owner: -
+--
+
+
+--
+-- Name: price_quota_pools; Type: ROW SECURITY; Schema: public; Owner: -
+--
+
+
+--
+-- Name: price_quota_ledger quota ledger admin read; Type: POLICY; Schema: public; Owner: -
+--
+
+
+
+--
+-- Name: price_quota_pools quota pools admin read; Type: POLICY; Schema: public; Owner: -
+--
+
+
+
+--
+-- Name: finmind_quota_ledger service write finmind quota ledger; Type: POLICY; Schema: public; Owner: -
+--
+
+
+
+--
+-- Name: finmind_upstream_quota service write finmind upstream quota; Type: POLICY; Schema: public; Owner: -
+--
+
+
+
+--
+-- Name: finmind_inflight_requests service write inflight; Type: POLICY; Schema: public; Owner: -
+--
+
 
 
 --
@@ -659,5 +927,5 @@ CREATE INDEX tw_bsr_fetch_failures_next_retry_idx ON public.tw_bsr_fetch_failure
 -- PostgreSQL database dump complete
 --
 
-\unrestrict 1NIbIZEAxt42GJDhVdyqvYoVLcwhTACx2KntEBqVeRXmFSG2bUlvF4slY3Huw0t
+\unrestrict YafkLAUnJxoYcASWcBqd0ASATR8QXiw4dVJJvQpWlYpykuZpo9JyRkHjqY34nib
 

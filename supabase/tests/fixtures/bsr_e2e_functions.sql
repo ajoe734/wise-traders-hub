@@ -772,3 +772,332 @@ AS $function$
 $function$
 ;
 
+CREATE OR REPLACE FUNCTION public.finmind_admit(_pool text, _kind text DEFAULT 'unknown'::text, _stock_id text DEFAULT NULL::text, _cost integer DEFAULT 1)
+ RETURNS jsonb
+ LANGUAGE plpgsql
+ SECURITY DEFINER
+ SET search_path TO 'public'
+AS $function$
+DECLARE
+  _row public.finmind_quota_pools;
+  _today DATE := (now() AT TIME ZONE 'Asia/Taipei')::date;
+  _granted BOOLEAN;
+  _reason TEXT;
+  _remaining INT;
+BEGIN
+  -- 原子：若 reset_at 過期則重置 + 判斷 + 扣配額
+  UPDATE public.finmind_quota_pools
+     SET used_today = CASE WHEN reset_at < _today THEN 0 ELSE used_today END,
+         reset_at   = CASE WHEN reset_at < _today THEN _today ELSE reset_at END
+   WHERE pool_name = _pool
+  RETURNING * INTO _row;
+
+  IF _row.pool_name IS NULL THEN
+    INSERT INTO public.finmind_quota_ledger(pool_name, request_kind, stock_id, granted, reason)
+    VALUES (_pool, _kind, _stock_id, false, 'unknown_pool');
+    RETURN jsonb_build_object('granted', false, 'reason', 'unknown_pool');
+  END IF;
+
+  IF _row.used_today + _cost > _row.daily_budget THEN
+    _granted := false;
+    _reason := 'quota_exceeded';
+    UPDATE public.finmind_quota_pools
+       SET last_reject_at = now(), last_reject_reason = _reason
+     WHERE pool_name = _pool;
+    _remaining := GREATEST(_row.daily_budget - _row.used_today, 0);
+  ELSE
+    UPDATE public.finmind_quota_pools
+       SET used_today = used_today + _cost, updated_at = now()
+     WHERE pool_name = _pool
+    RETURNING (daily_budget - used_today) INTO _remaining;
+    _granted := true;
+    _reason := 'ok';
+  END IF;
+
+  INSERT INTO public.finmind_quota_ledger(pool_name, request_kind, stock_id, granted, reason)
+  VALUES (_pool, _kind, _stock_id, _granted, _reason);
+
+  RETURN jsonb_build_object(
+    'granted', _granted,
+    'reason', _reason,
+    'remaining', _remaining,
+    'reset_at', _today + 1
+  );
+END;
+$function$
+;
+CREATE OR REPLACE FUNCTION public.finmind_admit_v2(_pool text, _kind text, _stock_id text DEFAULT NULL::text, _cost numeric DEFAULT 1, _allow_borrow boolean DEFAULT true)
+ RETURNS jsonb
+ LANGUAGE plpgsql
+ SECURITY DEFINER
+ SET search_path TO 'public'
+AS $function$
+DECLARE
+  p record;
+  bp record;
+  now_ts timestamptz := now();
+  today_tw date := (now() AT TIME ZONE 'Asia/Taipei')::date;
+  minutes numeric;
+  keepwarm_reserve numeric;
+BEGIN
+  SELECT * INTO p FROM public.finmind_quota_pools WHERE pool_name = _pool FOR UPDATE;
+  IF NOT FOUND THEN
+    RETURN jsonb_build_object('granted', false, 'reason', 'pool_not_found');
+  END IF;
+
+  -- Daily reset
+  IF p.reset_at < today_tw THEN
+    UPDATE public.finmind_quota_pools
+      SET used_today = 0,
+          tokens = COALESCE(capacity, daily_budget)::numeric,
+          reset_at = today_tw,
+          last_refill_at = now_ts
+      WHERE pool_name = _pool
+      RETURNING * INTO p;
+  END IF;
+
+  -- Token refill
+  minutes := GREATEST(0, EXTRACT(EPOCH FROM (now_ts - p.last_refill_at)) / 60.0);
+  IF minutes > 0 AND COALESCE(p.refill_per_min, 0) > 0 THEN
+    UPDATE public.finmind_quota_pools
+      SET tokens = LEAST(COALESCE(capacity, daily_budget)::numeric,
+                         COALESCE(tokens, 0) + minutes * refill_per_min),
+          last_refill_at = now_ts
+      WHERE pool_name = _pool
+      RETURNING * INTO p;
+  END IF;
+
+  -- Daily budget cap
+  IF p.used_today + _cost > p.daily_budget THEN
+    -- 借用：只允許 interactive → keepwarm，且 keepwarm.tokens ≥ 30% capacity
+    IF _allow_borrow AND COALESCE(p.borrow_enabled, true) AND _pool = 'interactive' THEN
+      SELECT * INTO bp FROM public.finmind_quota_pools WHERE pool_name = 'keepwarm' FOR UPDATE;
+      IF FOUND AND COALESCE(bp.borrow_enabled, true) THEN
+        keepwarm_reserve := COALESCE(bp.capacity, bp.daily_budget)::numeric * 0.3;
+        IF bp.used_today + _cost <= bp.daily_budget
+           AND COALESCE(bp.tokens, 0) - _cost >= keepwarm_reserve THEN
+          UPDATE public.finmind_quota_pools
+            SET used_today = used_today + _cost::int,
+                tokens = tokens - _cost,
+                updated_at = now_ts
+            WHERE pool_name = 'keepwarm';
+          INSERT INTO public.finmind_quota_ledger(pool_name, request_kind, stock_id, granted, reason, borrowed_from, root_cause_hint)
+            VALUES (_pool, _kind, _stock_id, true, 'borrowed', 'keepwarm',
+                    'interactive_exhausted_borrow_from_keepwarm');
+          RETURN jsonb_build_object(
+            'granted', true, 'reason', 'borrowed',
+            'borrowed_from', 'keepwarm',
+            'remaining', GREATEST(0, bp.daily_budget - bp.used_today - _cost::int)
+          );
+        END IF;
+      END IF;
+    END IF;
+
+    UPDATE public.finmind_quota_pools
+      SET last_reject_at = now_ts, last_reject_reason = 'daily_exhausted'
+      WHERE pool_name = _pool;
+    INSERT INTO public.finmind_quota_ledger(pool_name, request_kind, stock_id, granted, reason, root_cause_hint)
+      VALUES (_pool, _kind, _stock_id, false, 'daily_exhausted',
+              CASE WHEN _pool = 'interactive' THEN 'interactive_daily_cap_no_borrow_room'
+                   ELSE _pool || '_daily_cap' END);
+    RETURN jsonb_build_object('granted', false, 'reason', 'daily_exhausted');
+  END IF;
+
+  -- Token bucket rate cap
+  IF COALESCE(p.tokens, p.daily_budget::numeric) < _cost THEN
+    UPDATE public.finmind_quota_pools
+      SET last_reject_at = now_ts, last_reject_reason = 'rate_limited'
+      WHERE pool_name = _pool;
+    INSERT INTO public.finmind_quota_ledger(pool_name, request_kind, stock_id, granted, reason, root_cause_hint)
+      VALUES (_pool, _kind, _stock_id, false, 'rate_limited', _pool || '_bucket_empty');
+    RETURN jsonb_build_object(
+      'granted', false, 'reason', 'rate_limited',
+      'reset_at', to_char(now_ts + make_interval(secs => CEIL(60.0 / GREATEST(p.refill_per_min, 0.1))), 'YYYY-MM-DD"T"HH24:MI:SSOF')
+    );
+  END IF;
+
+  UPDATE public.finmind_quota_pools
+    SET used_today = used_today + _cost::int,
+        tokens = tokens - _cost,
+        updated_at = now_ts
+    WHERE pool_name = _pool;
+
+  INSERT INTO public.finmind_quota_ledger(pool_name, request_kind, stock_id, granted, reason)
+    VALUES (_pool, _kind, _stock_id, true, 'ok');
+
+  RETURN jsonb_build_object(
+    'granted', true, 'reason', 'ok',
+    'remaining', GREATEST(0, (p.daily_budget - p.used_today - _cost::int)),
+    'tokens_left', p.tokens - _cost
+  );
+END;
+$function$
+;
+CREATE OR REPLACE FUNCTION public.finmind_pool_reset()
+ RETURNS jsonb
+ LANGUAGE plpgsql
+ SECURITY DEFINER
+ SET search_path TO 'public'
+AS $function$
+DECLARE
+  _today DATE := (now() AT TIME ZONE 'Asia/Taipei')::date;
+BEGIN
+  UPDATE public.finmind_quota_pools
+     SET used_today = 0, reset_at = _today, updated_at = now()
+   WHERE reset_at < _today;
+  DELETE FROM public.finmind_quota_ledger WHERE created_at < now() - INTERVAL '7 days';
+  RETURN jsonb_build_object('ok', true, 'reset_at', _today);
+END;
+$function$
+;
+CREATE OR REPLACE FUNCTION public.finmind_pool_set_budget(_pool text, _budget integer)
+ RETURNS jsonb
+ LANGUAGE plpgsql
+ SECURITY DEFINER
+ SET search_path TO 'public'
+AS $function$
+BEGIN
+  IF NOT public.has_role(auth.uid(), 'company_admin') THEN
+    RAISE EXCEPTION 'unauthorized';
+  END IF;
+  UPDATE public.finmind_quota_pools
+     SET daily_budget = GREATEST(_budget, 0), updated_at = now()
+   WHERE pool_name = _pool;
+  RETURN jsonb_build_object('ok', true);
+END;
+$function$
+;
+CREATE OR REPLACE FUNCTION public.finmind_inflight_acquire(_key text, _stock_id text, _kind text)
+ RETURNS boolean
+ LANGUAGE plpgsql
+ SECURITY DEFINER
+ SET search_path TO 'public'
+AS $function$
+DECLARE
+  inserted boolean := false;
+BEGIN
+  -- GC expired first
+  DELETE FROM public.finmind_inflight_requests WHERE expires_at < now();
+
+  INSERT INTO public.finmind_inflight_requests(key, stock_id, kind)
+    VALUES (_key, _stock_id, _kind)
+    ON CONFLICT (key) DO NOTHING;
+  GET DIAGNOSTICS inserted = ROW_COUNT;
+  RETURN inserted;
+END;
+$function$
+;
+CREATE OR REPLACE FUNCTION public.finmind_inflight_release(_key text)
+ RETURNS void
+ LANGUAGE sql
+ SECURITY DEFINER
+ SET search_path TO 'public'
+AS $function$
+  DELETE FROM public.finmind_inflight_requests WHERE key = _key;
+$function$
+;
+CREATE OR REPLACE FUNCTION public.chips_prefetch_targets_touch()
+ RETURNS trigger
+ LANGUAGE plpgsql
+ SET search_path TO 'public'
+AS $function$
+BEGIN NEW.updated_at := now(); RETURN NEW; END; $function$
+;
+CREATE OR REPLACE FUNCTION public.enqueue_chips_prefetch_gaps(p_lookback_days integer DEFAULT 10, p_max_stocks integer DEFAULT 300)
+ RETURNS jsonb
+ LANGUAGE plpgsql
+ SECURITY DEFINER
+ SET search_path TO 'public'
+AS $function$
+DECLARE
+  v_tpe_now timestamp := (now() AT TIME ZONE 'Asia/Taipei');
+  v_today date := v_tpe_now::date;
+  v_end date;
+  v_inserted int := 0;
+  v_row_ct int;
+  v_gaps int := 0;
+  g record;
+  d date;
+  v_recover jsonb;
+  v_bp jsonb;
+  v_quota_recover jsonb;
+BEGIN
+  v_end := CASE WHEN v_tpe_now::time >= time '15:00' THEN v_today ELSE v_today - 1 END;
+  SELECT max(td) INTO v_end FROM public.tw_trading_days(v_end - 10, v_end) td;
+  IF v_end IS NULL THEN
+    RETURN jsonb_build_object('skipped', 'no_trading_day');
+  END IF;
+
+  FOR g IN
+    SELECT * FROM public.detect_chip_gap_jobs(v_end, p_lookback_days, p_max_stocks)
+  LOOP
+    v_gaps := v_gaps + 1;
+    FOR d IN
+      SELECT td FROM public.tw_trading_days(v_end - (p_lookback_days - 1), v_end) td
+    LOOP
+      IF NOT EXISTS (
+        SELECT 1 FROM public.tw_bsr_daily bd
+         WHERE bd.stock_id = g.stock_id AND bd.trade_date = d
+      ) THEN
+        INSERT INTO public.tw_bsr_sync_queue
+          (stock_id, trade_date, priority, status, next_run_at, enqueued_by, correlation_id, post_close_only)
+        VALUES (g.stock_id, d, CASE WHEN d = v_end THEN 1 ELSE 2 END,
+                'pending', now(), 'chips_prefetch_hourly', gen_random_uuid(), false)
+        ON CONFLICT DO NOTHING;
+        GET DIAGNOSTICS v_row_ct = ROW_COUNT;
+        v_inserted := v_inserted + v_row_ct;
+      END IF;
+    END LOOP;
+  END LOOP;
+
+  v_recover := public.recover_stale_bsr_queue_jobs();
+
+  -- Build 1：quota-failed 的漸進回收，受 backpressure 硬 cap 控制
+  v_bp := public.bsr_recovery_budget(12);
+  v_quota_recover := public.recover_quota_failed_bsr_jobs((v_bp->>'budget')::int);
+
+  RETURN jsonb_build_object(
+    'target_date', v_end,
+    'lookback_days', p_lookback_days,
+    'stocks_with_gaps', v_gaps,
+    'inserted', v_inserted,
+    'recovery', v_recover,
+    'backpressure', v_bp,
+    'quota_recovery', v_quota_recover
+  );
+END;
+$function$
+;
+CREATE OR REPLACE FUNCTION public.detect_chip_gap_jobs(_target_date date DEFAULT CURRENT_DATE, _lookback_days integer DEFAULT 60, _max_jobs integer DEFAULT 5000)
+ RETURNS TABLE(stock_id text, start_date date, end_date date, gap_count integer)
+ LANGUAGE sql
+ STABLE SECURITY DEFINER
+ SET search_path TO 'public'
+AS $function$
+  WITH universe AS (
+    SELECT u.code AS symbol FROM public.checkup_prefetch_universe() u WHERE u.supported
+  ),
+  trade_dates AS (
+    SELECT td AS trade_date
+      FROM public.tw_trading_days(_target_date - (_lookback_days - 1), _target_date) td
+  ),
+  expected AS (SELECT u.symbol, td.trade_date FROM universe u CROSS JOIN trade_dates td),
+  existing AS (
+    SELECT DISTINCT bd.stock_id, bd.trade_date
+      FROM public.tw_bsr_daily bd
+     WHERE bd.trade_date BETWEEN _target_date - (_lookback_days - 1) AND _target_date
+  ),
+  missing AS (
+    SELECT e.symbol, e.trade_date
+      FROM expected e
+      LEFT JOIN existing ex ON ex.stock_id = e.symbol AND ex.trade_date = e.trade_date
+     WHERE ex.stock_id IS NULL
+  ),
+  gaps AS (
+    SELECT m.symbol, MIN(m.trade_date) AS min_date, MAX(m.trade_date) AS max_date, COUNT(*)::integer AS cnt
+      FROM missing m GROUP BY m.symbol
+  )
+  SELECT g.symbol AS stock_id, g.min_date AS start_date, g.max_date AS end_date, g.cnt AS gap_count
+    FROM gaps g ORDER BY g.cnt DESC LIMIT _max_jobs;
+$function$
+;

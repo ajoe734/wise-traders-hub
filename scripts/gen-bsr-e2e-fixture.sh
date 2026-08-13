@@ -31,6 +31,11 @@ DELTA_TABLES=(
   tw_bsr_upstream_probe
   tw_chips_rollup
   tw_institutional_daily
+  finmind_quota_ledger
+  finmind_inflight_requests
+  finmind_upstream_quota
+  price_quota_pools
+  price_quota_ledger
 )
 
 # slice 已含函式：bsr_backlog_metrics bsr_get_degrade_state bsr_recovery_budget check_kill_switch
@@ -48,6 +53,15 @@ DELTA_FUNCS=(
   ensure_bsr_window
   is_tw_trading_day
   tw_prev_trading_day
+  finmind_admit
+  finmind_admit_v2
+  finmind_pool_reset
+  finmind_pool_set_budget
+  finmind_inflight_acquire
+  finmind_inflight_release
+  chips_prefetch_targets_touch
+  enqueue_chips_prefetch_gaps
+  detect_chip_gap_jobs
 )
 
 echo "==> dumping delta table DDL (schema-only, read-only)"
