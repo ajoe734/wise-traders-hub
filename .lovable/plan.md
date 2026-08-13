@@ -1,107 +1,144 @@
-# Build2 Final Plan P1 — 全市場 BSR 覆蓋（Stage P，唯讀查證版）
+# Build2 Final Plan P2 — 市場整批 lane 修復（Stage P，唯讀查證）
 
-狀態：**部分 BLOCKED**（§1 缺 security master、§5 顯示 per-stock 輪轉在數學上不可能達成每日全市場）。以下每一項都附 production 實測，未使用抽象詞。
+**先更正你的前提（有實測反證）**：08-11 的 844 檔**不是** market batch 產生的。
 
----
-
-## 1. Exact active eligible ordinary-stock universe → **BLOCKED（資料缺）**
-
-實測（`psql \d` + count）：
-- `public.stock_names`：欄位僅 `symbol, name, created_at, currency, market, asset_class`。**無上市狀態、無證券類型、無交易所別（market 僅 NULL/US）**。
-- 筆數：**72 列**；`asset_class='tw_stock'` 72 列；其中符合 `^[1-9][0-9]{3}$` 僅 **36 列**。
-- `tw_bsr_eligibility(p_stock_id)` 逐字語意：純字串規則，**不查任何上市清單**
-  - `^[1-9][0-9]{3}$` 才 eligible → 排除 ETF/受益憑證（`0xxx`）、ETN／權證（5–6 碼）、非四碼
-  - 在 `stock_names` 且 `asset_class <> 'tw_stock'` → `unsupported_asset_type`
-  - **無法排除興櫃／已下市／全額交割**（DB 內無此欄位）
-
-結論：**DB 內不存在 exact active universe**。可用的最接近實測母體：
-- `tw_bsr_daily` 近 60 日 distinct stock_id = **1692**，其中四碼普通股 = **1551**
-- `tw_chip_fact` 近 60 日 distinct stock_id = **1658**
-
-→ 兩條路（Stage P 需你選）：
-- **P1-a（不新增資料）**：以「近 60 日曾出現於 `tw_chip_fact`／`tw_bsr_daily` 的四碼代號」＝ observed active universe（1551），語意為「上游近期有分點資料者」。可證明 eventual coverage，但**不等於官方上市清單**，興櫃/下市只能靠「上游連續無資料」自然淘汰。
-- **P1-b（新增資料）**：引入 FinMind `TaiwanStockInfo` 週更市場主檔（新表或擴充 `stock_names`）→ 才可能做到 exact。**這需要新物件，違反 §6 最小面**。
-
-**禁止用 `checkup_prefetch_universe()` 當市場**：實測它由 `trade_records ∪ expert_signals ∪ checkup_storage ∪ chips_prefetch_targets` 組成（持倉導出），現行覆蓋僅約 **59–63 檔／日**（08-13 coverage=63、08-12=63）。這正是目前全市場只有 3–5% 覆蓋的根因。
-
-## 2. chips_prefetch_targets 與新鮮度欄位
-
-`chips_prefetch_targets`：`code(PK), source(chk: demo_seed|manual|ops), active, supported, reason, created_at, updated_at`；index 只有 PK；trigger `chips_prefetch_targets_touch`；RLS：admin 讀、service_role 全權。
-**無 cursor、無 checkpoint、無 last_attempted_at、無 rank —— 明確沒有。** 寫入者：ops/manual（無自動寫入者）；讀取者：`checkup_prefetch_universe()`。
-
-可用新鮮度來源（實測）：
-- `bsr_coverage_daily(stock_id, trade_date)` PK＋`idx_bsr_coverage_daily_date(trade_date DESC)`、`idx_..._class`
-- `tw_bsr_daily`（1692 檔）、`tw_chip_fact`（1658 檔）
-- `tw_bsr_daily_snapshot_status(trade_date PK)`：`status/lane_a_status/lane_b_status/lane_c_status/coverage_stocks/coverage_rows/sealed_at`
-- `expected_latest_bsr_date()` → 實測回 **2026-08-13**
-- `tw_bsr_sync_queue`：`tw_bsr_sync_queue_active_uniq(stock_id,trade_date) WHERE status IN (pending,running,failed,skipped)`、`ready_idx(priority,next_run_at) WHERE pending`、`ready_pc_idx` 同上且 `post_close_only=false`
-
-→ **stale-first 排序所需欄位全部已存在，不需新欄位。**
-
-## 3. 既有元件真正語意（逐字讀 prosrc）
-
-| 元件 | 語意 | side effect | 上限 |
-|---|---|---|---|
-| `enqueue_chips_prefetch_gaps(p_lookback_days, p_max_stocks)` | 用 `detect_chip_gap_jobs` 找缺口 → 對每個 (stock,date) 若 `tw_bsr_daily` 無列則 INSERT queue（priority: 當日=1 其餘=2，`post_close_only=false`）；接著呼叫 `recover_stale_bsr_queue_jobs()`、`bsr_recovery_budget(12)`、`recover_quota_failed_bsr_jobs(budget)` | 寫 queue、寫 recovery token | `p_max_stocks`（job106 傳 300）× lookback 交易日 |
-| `detect_chip_gap_jobs` | **母體＝`checkup_prefetch_universe()` WHERE supported**，非市場 | 純 SELECT | `LIMIT _max_jobs`，`ORDER BY gap_count DESC` |
-| `enqueue_all_active_tw_holdings_bsr(p_lookback_days)` | 同樣以 `checkup_prefetch_universe()` 為母體，逐股回填 N 個工作日 | 寫 queue | 無 stock 上限，`EXIT WHEN v_d < today-30` |
-| `ensure_bsr_queued` / `ensure_bsr_window` | 單股 on-demand 入列（抽屜用） | 寫 queue | 單股 |
-| job106 `2 * * * *` | `SELECT public.enqueue_chips_prefetch_gaps(10, 300);` | — | — |
-| job107 `7 * * * *` | worker `{"mode":"worker","batch":30,"budget_ms":45000,"max_priority":3,"ignore_window":true}` | — | batch 30 |
-| job46 `*/10 6-12 * * 1-5`、job98 `*/10 * * * 6,0` | 同 worker，job46 無 ignore_window | — | batch 30 |
-| quota admission | `finmind_admit_v2(pool,kind,stock_id,cost,allow_borrow)`；pools 見 §5 | 扣 token/日額 | 見 §5 |
-
-## 4. 方案選擇 → **選 B（無狀態 stale-first），但需修正母體**
-
-B 可行的證據：排序所需的 `latest coverage / expected date / queue 去重` 全部已存在索引；`active_uniq` 天然做 dedupe；不需 cursor。A（持久 cursor）需新欄位，被 §6 排除。
-**採 B**：`observed universe LEFT JOIN latest coverage`，`ORDER BY (missing latest expected date) DESC, oldest_covered_date ASC, stock_id`，`WHERE NOT EXISTS (active queue row)`，每輪 `LIMIT N`。
-
-## 5. 真實容量（全部為實測，不是估計拍板）
-
-- 母體：1551（四碼、近 60 日 observed）
-- 最新 expected date `2026-08-13` 覆蓋：**63 檔**（`bsr_coverage_daily`），08-12 = 63、08-11 = 844、08-10 = 603
-- queue 現況：pending **0**、running 3、**failed 1661**、近 24h done **138**
-- failed 原因：`daily_exhausted:pool=keepwarm` 1359、`rate_limited:pool=keepwarm` 235、`daily_exhausted:pool=interactive` 67
-- pools（Taipei 08-14 重置後）：`interactive` daily 240／used 0；`keepwarm` daily 960（base 480）／used 28；`backfill` daily 600／used 46。三池皆 `capacity=240, refill_per_min=1` → **每池每小時上限 60 次呼叫**
-- 每檔每日 1 次 API 呼叫；`tw_chip_fact` 平均 **253.9 列／檔／日**
-- 近 24h 實際完成分佈：多數小時僅 2 筆，08-13 08 時 61 筆 → **實際吞吐 ≈ 138 檔-日／天**
-
-**關鍵數學（必須誠實面對）**：
-- 每日新交易日需要 1551 檔 × 1 call；三池合計 **1800 calls/日**、且 refill 上限 180/hr。
-- 即使把 Lane B 開到每小時 N=30、24 小時不停 → **720 檔-日／天 < 1551**。
-- 結論：**per-stock 輪轉在現有配額下永遠追不上每日新資料**，只能做「歷史補洞」，不可能維持全市場當日新鮮。
-- 但實測 08-11 有 **844 檔**、snapshot `source='finmind_market_batch'` 存在且 Edge 已實作 `fulfillDay`／`bsr_snapshot_fulfill_jobs` → **市場整批（1 次呼叫涵蓋全市場單日）才是唯一能達成全市場新鮮度的路徑。**
-
-→ 因此 SLO 只能這樣定（若你不接受，Build2 就是 BLOCKED）：
-- **Lane A（持倉，現行 universe 59–63 檔）**：expected latest date 覆蓋 ≥ 95%，T+1 09:00 前完成。以現吞吐（138/日）綽綽有餘。
-- **Lane B（全市場 1551 檔）**：
-  - B-1 市場整批：每交易日收盤後嘗試 `fulfillDay`（1–2 calls），成功即當日全市場新鮮；
-  - B-2 per-stock 補洞（stale-first，N=20/hr → 480/日，佔 keepwarm 50%）：**只做歷史缺口收斂**，一圈 1551 檔 ≈ **3.2 天**；SLO 定為「任一 eligible 股票的最舊缺口 ≤ 7 個交易日」。
-
-## 6. 最小變更面（待批准，尚未實作）
-1. `CREATE OR REPLACE FUNCTION public.detect_chip_gap_jobs(...)` — 只換母體：`checkup_prefetch_universe()` → `observed universe ∪ 持倉 universe`，並改為 stale-first 排序（現為 `gap_count DESC`）。簽章不變。
-2. job106 參數：`enqueue_chips_prefetch_gaps(10, 300)` → 需重新定額（Lane A 全量 ＋ Lane B N=20），可能改為 `(3, 80)` 級距，實作前以 §7 測試定值。
-3. **不動**：`claim_bsr_queue_jobs`（frozen）、Edge worker、quota/defer、UI。
-4. 需額外處理但**不需新物件**：1661 筆 `failed` 因 `active_uniq` 佔位使同 (stock,date) 無法重入 → 用既有 `recover_quota_failed_bsr_jobs` / `prune_bsr_sync_queue` 逐步消化。
-5. **若你要 exact universe（排除興櫃/下市）→ 必須新增市場主檔，屬新物件，需另票。**
-
-## 7. 測試與驗收（ephemeral SQL，deterministic）
-- 選取邏輯：full-market selection、ETF(`0050`)／ETN／權證／非四碼排除、missing-first 與 oldest-gap 排序、tie-break `stock_id`
-- 冪等：同輪重跑 inserted=0；queue dedupe 命中 `active_uniq`
-- batch cap：`LIMIT N` 嚴格生效；Lane A 永遠排在 Lane B 之前（priority 1/2）
-- quota stop：`finmind_admit_v2` 拒絕時不得吃 attempts（既有 `decideQuotaDeferral`）
-- failed-date／非交易日／stale recovery 路徑
-- production read-back：函式 `md5(prosrc)`／owner／`proconfig`／ACL 無漂移；`claim_bsr_queue_jobs` hash 必須仍為 `c28474cca7be420355edeefd6207104b`
-- 三輪自然 `:02 → :07`：全市場 coverage 單調上升、Lane A 覆蓋不退化、`daily_exhausted` = 0
-- Preview（authenticated，**不開抽屜**）：該帳號全部持股在 server 端已具最新 expected date 資料、前端 enqueue 次數 = 0
-
-## 8. Rollback / Stop
-- 只還原 `detect_chip_gap_jobs` 舊版本與 job106 參數；不刪任何資料
-- 停 Lane B 條件：queue pending 發散（>3000 且連續 3 輪上升）、Lane A freshness 退化、任一 pool `daily_exhausted`、worker 錯誤率上升
+```
+tw_chip_fact by trade_date（實測）
+date        stocks  rows      finmind_batch  finmind_per_stock
+2026-08-13  63      39,388    39,388         0
+2026-08-12  63      38,241    38,241         0
+2026-08-11  844     214,253   28,094         186,159
+2026-08-10  603     200,862    8,057         192,805
+2026-08-03  1,014   249,966    7,501         242,465
+```
+且 `tw-bsr-finmind-sync/index.ts:229` 為 **per-stock** 路徑：`laneSource = tier === 1 ? 'finmind_batch' : 'finmind_per_stock'` —— 所以 `finmind_batch` 標籤**不代表市場整批**，tier1 的單股抓取也被標成 batch。高覆蓋日全部來自 `tier2_gaps` per-stock 大規模活動（queue `enqueued_by` 實測：tier2_gaps 各批 419–982 筆 done）。
 
 ---
 
-### 待你裁決（缺一即 BLOCKED）
-1. §1 選 **P1-a observed universe（不新增物件）** 還是 **P1-b 市場主檔（需新票）**？
-2. §5 接受「Lane B 只保證歷史缺口收斂（一圈 3.2 天），當日全市場新鮮度改由市場整批負責」嗎？
-3. 若接受，是否授權下一票只改 `detect_chip_gap_jobs` ＋ job106 參數？
+## 1. 鏈路逐字（source 已讀）
+
+```
+runWorker(batch,maxPriority,budgetMs)            index.ts:463
+ ├ mbCfg = loadMarketBatchConfig(supa)           finmindMarketBatch.ts:36  ← tw_bsr_sync_config[key='market_batch']
+ ├ canMarketBatch = mbCfg.enabled && mbCfg.supported === true      index.ts:487
+ ├ if (canMarketBatch && cappedMaxPriority >= 1)                   index.ts:488
+ │   ├ 讀 tw_bsr_sync_queue status='pending' AND priority<=cap AND next_run_at<=now LIMIT 2000
+ │   ├ 依 trade_date 分桶，filter total >= mbCfg.threshold_pending (15)，取 total 最大的前 3 天
+ │   ├ fetchFinmindMarketDay(supa,date,cid,tier)  finmindMarketBatch.ts:63
+ │   │    GET TaiwanStockTradingDailyReport?start_date=date（無 data_id），逾時 60s
+ │   │    quota：fetchWithRateLimit(..., {tier, leaseSeconds:70}) → tier=1 → interactive 池
+ │   └ fulfillDay(supa,date,cid,rows,'finmind_market_batch')  snapshotFulfillment.ts:183
+ │        ├ claimSnapshot → rpc bsr_snapshot_claim(_trade_date,_correlation_id,_lease_seconds=90)
+ │        │    未 claim（他人持有 / ready / exhausted）→ final_status='skipped_not_claimed'，直接返回
+ │        ├ aggregate(rawRows)                    tw-bsr-finmind-sync/lib.ts
+ │        ├ persistAggregated(...,'finmind_batch')  snapshotFulfillment.ts:104
+ │        │    ① upsert tw_chip_fact，CHUNK=500，onConflict stock_id,trade_date,broker_id,source（冪等）
+ │        │    ② rpc materialize_bsr_daily_from_fact(_trade_date, _stock_ids)  ← 只算本批 stock
+ │        │    ③ rpc rebuild_bsr_rollup(_as_of,_stock_ids,_max_stocks=200)，每 200 檔一次
+ │        ├ markSnapshot → rpc bsr_snapshot_mark(_trade_date,_status,_source,_coverage_stocks,_coverage_rows,_last_error,_sealed_by_lane)
+ │        │    coverage.stocks>0 → 'ready'；=0 → 'partial'；throw → 'failed'+last_error
+ │        └ fulfillJobsFromSnapshot → rpc bsr_snapshot_fulfill_jobs(_trade_date,_threshold=DONE_BROKER_THRESHOLD)
+ │             回傳 {fulfilled, still_pending}；把該日 queue 行批次標 done
+ └ Phase B：claim_bsr_queue_jobs（frozen）per-stock 補刀；若 batch 已清空 pending → note='snapshot_only'
+```
+Idempotency：fact upsert 唯一鍵去重；`materialize_bsr_daily_from_fact` 對 sealed 日回 `skipped_sealed`；`bsr_snapshot_claim` 保證同一 date 同時只有一個 fetch。
+Expected date / 交易時段：market batch **不自帶** expected date 判斷，完全跟隨 queue 裡已有的 pending trade_date。
+
+## 2. 觸發此 lane 的排程（實測 cron.job）
+
+| jobid | schedule (UTC) | command |
+|---|---|---|
+| 45 | `30 7 * * 1-5` | `tw-bsr-finmind-sync {"mode":"enqueue","tier1":true,"tier2":false}` |
+| 53 | `0,30 7-12 * * 1-5` | 同上（含 tier3:false） |
+| 46 | `*/10 6-12 * * 1-5` | worker batch30 max_priority3 |
+| 51 | `*/15 6-12 * * 1-5` | worker batch30 max_priority1 ignore_window |
+| 98 | `*/10 * * * 6,0` | worker batch30 max_priority3 ignore_window |
+| 107 | `7 * * * *` | worker batch30 max_priority3 ignore_window |
+| 67 | `0 9 * * *` | `tw-bsr-finmind-sync {}`（預設 mode） |
+| 106 | `2 * * * *` | `enqueue_chips_prefetch_gaps(10,300)` |
+
+**沒有任何 cron 呼叫 `mode:'probe'`、`mode:'snapshot_fulfill'`、`mode:'market_batch_toggle'`。** 市場整批只能經由 worker 的 Phase A 自然觸發，無獨立 orchestrator、無 checkpoint。
+
+## 3. 近 7 交易日狀態（實測）
+
+- `tw_bsr_daily_snapshot_status` **只有 2 列**：08-13 / 08-12，皆 `status=partial`、`source=NULL`、`coverage_rows=0`、`attempt_count=0`、`lane_a=partial`、`lane_b/c=sealed`、`sealed_by_lane='BC_ONLY'`（由 DB 函式 `reconcile_snapshot` 寫，**非** `bsr_snapshot_mark`）。08-03～08-11 **完全沒有 snapshot 列** → `fulfillDay` 從未在這些日期成功執行過。
+- `bsr_coverage_daily`：08-13=63、08-12=63、08-11=844、08-10=603、08-07=550。
+- queue：pending **0**、running 3、failed **1661**（1359 `daily_exhausted:pool=keepwarm`、235 `rate_limited:keepwarm`、67 `daily_exhausted:interactive`）、近 24h done 138。
+- `data_source_refresh_logs`(7d)：只有 `backfill_worker`(93 success/57 partial/18 failed)、`bsr_quota_recovery`(36 success)、`tw_keep_warm`、`tw_trading_calendar_catchup`(4 error)、`backfill_gap_orchestrator`(6 error)。**沒有任何 market batch 的 log**。
+- `finmind_upstream_quota`：**0 列**（`recordUpstreamQuota(supa,'finmind_market_batch',...)` 從未寫入 → 該呼叫從未發生）。
+
+**第一個斷點**：`tw_bsr_sync_config['market_batch'].config = {"enabled":true,"supported":false,"probed_at":"2026-07-25T08:54:27.674Z","threshold_pending":15,"min_stocks_in_response":500}` —— **自 2026-07-25 起 `supported=false`**，`canMarketBatch` 恆為 false。08-03～08-11 的覆蓋全靠 per-stock 大批活動；那批活動在 08-11 後停止（enqueue 母體縮回 `checkup_prefetch_universe` 的 63 檔），覆蓋因此掉到 63。
+
+## 4. 08-13 逐段計數 → **BLOCKED**
+
+| 段 | 實測 |
+|---|---|
+| market batch API 回傳 stocks/rows | **0 次呼叫**（upstream quota 表 0 列、無 log） |
+| normalize (`aggregate`) | 未執行 |
+| fact upsert | 39,388 列 / 63 檔，全部由 **per-stock tier1** 寫入（標籤 finmind_batch 屬誤標） |
+| snapshot fulfill jobs | 未執行（無 snapshot source 記錄） |
+| daily materialize | 39,388 列（per-stock 路徑內呼叫） |
+| coverage refresh | 63 檔 |
+
+→ 依你的規則「缺一步即 BLOCKED」：**08-13 market batch chain = BLOCKED（該 lane 當日完全未啟動）**。
+
+## 5. Freshness universe 新定義（採納）
+
+`FULL_MARKET(d) = { stock_id : 該日 market batch 回傳 且 tw_bsr_eligibility(stock_id).eligible }`，
+missing 檢查 = `OBSERVED_60D_ELIGIBLE(1,551 檔) − FULL_MARKET(d)`。
+不需 security master、不宣稱官方上市清單。
+能否覆蓋任意使用者持股：**能**——只要該股當日在上游回傳中且為四碼普通股；四碼以外（ETF `0050`、ETN、權證）仍走既有 per-stock lane（`tw_bsr_eligibility` 會判 ineligible，此為既有語意，不在本票變更範圍）。
+
+## 6. 最小修正（依根因排序）
+
+**RC-1（主因）**：`market_batch.supported=false` 且無任何排程會重新 probe。`probeMarketBatchSupport` 在**任何例外**下也寫 `supported:false`（finmindMarketBatch.ts:130），因此 07-25 的 false **無法分辨「方案不支援」與「當次呼叫失敗」** → 這是唯一未知數。
+
+修正 M1（唯一必要，最小）：新增 cron 呼叫既有 mode，**不改任何 function source**
+```sql
+-- 每週一 Taipei 09:05 重新探測（1 API call）
+SELECT cron.schedule('bsr-market-batch-probe','5 1 * * 1',
+  $$SELECT public.cron_edge_call('tw-bsr-finmind-sync','{"mode":"probe","force":true}'::jsonb,120000)$$);
+```
+**若 probe 回 supported=true**：**零程式碼變更**即可全鏈打通——job45/53 每交易日 enqueue tier1（63 檔同一 date，pending 63 ≥ threshold 15）→ job46/51/107 worker Phase A 觸發 `fetchFinmindMarketDay` → `fulfillDay` → 全市場單日 1 call 落 fact/daily/coverage，並 `bsr_snapshot_fulfill_jobs` 清空 queue。這正是「修既有 scheduler」而非新建 lane。
+
+**若 probe 回 supported=false**：主路徑不可用 → **Build2 BLOCKED**，須另議兩條備援（本票不實作、也尚未查證）：
+- 既有 `backfill-snapshots-twse-bulk`（job 87 `15 7 * * 1-5`、job 99 `20 7,13 * * 6,0`）為何未產出全市場 BSR — **未查證，列為 P2 待查**；
+- FinMind 方案升級。
+
+**不做**：新表、平行 queue、改 `claim_bsr_queue_jobs`(frozen, md5 `c28474cca7be420355edeefd6207104b`)、改 `runWorker`、改 UI、改 `detect_chip_gap_jobs`/job106。
+per-stock stale-first 依 P1 結論**僅作歷史補洞**，不在本票。
+
+## 7. 容量
+
+- 每交易日：market batch **1 call**（失敗重試上限 3 個候選日 → 最多 3 calls/輪，由 `threshold_pending` 與 pending 桶自然收斂）；probe 每週 1 call。
+- 池預算（實測）：`interactive` 240/日（market batch tier=1 走此池，用量 <1%）、`keepwarm` 960/日（used 28）、`backfill` 600/日（used 46）；三池 capacity 240、refill 1/min。
+- Lane A 不退化：market batch 產出是 Lane A 的超集（63 檔 ⊂ 全市場），且 Phase A 先於 Phase B，per-stock 名額不受擠壓。
+
+## 8. 測試（deterministic，禁 manual invoke 當驗收）
+
+端到端 fixture（合成 rawRows，不打上游）：`market batch rows → aggregate → tw_chip_fact upsert → materialize_bsr_daily_from_fact → bsr_snapshot_mark → bsr_snapshot_fulfill_jobs → bsr_coverage_daily`，逐段斷言列數。
+分支：empty rows（→ partial）、partial（部分股 broker <threshold → still_pending>0）、quota reject、rate-limit（`RateLimitExhaustedError` → `rateLimitedStop`）、duplicate（同批重跑 fact 列數不變）、stale-running（claim 未取得 → `skipped_not_claimed`）、failed-date（throw → status=failed 且 last_error 落地）。
+Negative control：`supported=false` 時斷言 `fetchFinmindMarketDay` 呼叫次數 = 0。
+Production pre/post：`claim_bsr_queue_jobs` md5、`bsr_snapshot_*`／`materialize_*`／`rebuild_bsr_rollup` 的 `md5(prosrc)`/owner/`proconfig`/ACL 皆須不變（本票不改 SQL 函式）；新增 cron job 前後 `cron.job` diff 只多 1 列。
+
+## 9. 驗收
+
+三輪 = **三個自然 scheduled stages**（由現有 schedule 證明可在一日內完成）：
+1. 交易日 UTC 07:30 job45 enqueue → pending ≥ 15
+2. UTC 07:40 job46 worker → Phase A 觸發，HTTP body 含 `snapshot_fulfilled:[{date, coverage_stocks>500, jobs_fulfilled>0, final_status:'ready'}]`
+3. UTC 08:07 job107 worker → 同日 note=`no_jobs`（已清空），`bsr_coverage_daily(該日) > 500`、`tw_bsr_daily_snapshot_status.source='finmind_market_batch'`、`sealed`
+
+每輪均需 cron dispatch log → function edge log(HTTP 200 + version) → fact/daily 列數 → coverage 全鏈對齊。
+Preview（authenticated，**不開抽屜**）：該帳號全部持股於 server 端已具 expected latest date 資料，network 面板 enqueue 呼叫 = 0。
+
+## 10. Rollback / Stop
+
+- Rollback：`SELECT cron.unschedule('bsr-market-batch-probe')`；必要時 `mode:'market_batch_toggle' {enabled:false}` 立即降回 per-stock（既有 kill switch）。不刪任何資料。
+- Stop 條件：任一池 `daily_exhausted`、market batch 連續 2 次 `finmind_http_*`／逾時、`materialize_failed`、Lane A 覆蓋較前一交易日下降。
+
+---
+
+### 待你裁決
+1. 批准 M1（新增 weekly probe cron，1 API call/週）？這是唯一能把「supported=false 是方案限制還是 07-25 當次錯誤」判定出來的自然路徑。
+2. 若你要更快得到答案，可否允許**一次**受控 `mode:"probe"` 呼叫（1 call，唯讀上游、只寫 config）？否則需等下週一自然輪次。
+3. 是否同時授權我下一票**唯讀**查證 `backfill-snapshots-twse-bulk`（job87/99）為何無產出，作為 supported=false 的備援路徑？
