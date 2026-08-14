@@ -143,7 +143,8 @@ function sanitizeText(input: string): string {
     .replace(/(Bearer\s+)\S+/gi, '$1***')
     .replace(/([A-Za-z0-9_-]*token[A-Za-z0-9_-]*\s*[=:]\s*)"?[^"&\s,}]+/gi, '$1***')
     .replace(/https?:\/\/\S*(?:sig|token|X-Amz|Signature)\S*/gi, '***')
-    .replace(/[A-Za-z0-9_-]{20,}/g, '***');
+    // 長 token-like 字串：需同時含字母與數字，避免誤遮罩英文標記（如 unsupported_contract）
+    .replace(/[A-Za-z0-9_-]{20,}/g, (m) => (/[0-9]/.test(m) && /[A-Za-z]/.test(m) ? '***' : m));
   return out;
 }
 
