@@ -59,8 +59,10 @@ Frozen：`claim_bsr_queue_jobs`、`finmind_admit_v2`、quota pools、`snapshotFu
 
 - 200 + `PAR1`，上游忽略 Range 回大 body → 讀取量 ≤ 64 KiB 且 reader 被 cancel。
 - `content-length` = 100 MB → body **未被讀取**，outcome `inconclusive`（oversize）。
-- 200 JSON signed URL → `supported`、`format=signed_url_unverified`、輸出與 config 皆**不含 URL**、無第二次 fetch。
-- 401 → inconclusive 且 `supported` 前值不變；403/plan 字樣 → `unsupported_plan`；400 contract → `unsupported_contract`；404 / 0 bytes / 429 / 5xx / timeout / bad magic → inconclusive 保留前值。
+- 200 JSON signed URL → `supported`、`format=signed_url_unverified`、輸出與 config 皆**不含 URL**、無第二次 fetch；且 JSON 只從 bounded reader 讀（斷言未呼叫 `res.text()`/`res.json()`，讀取量 ≤ 64 KiB）。
+- **401 且 body 含 `permission`/`sponsor` 字樣** → 必須是 `inconclusive`/`auth_failed`，斷言 `supported` 與 `probed_at` **前值不變**（不得落到 `unsupported_plan`）。
+- 403/plan 字樣 → `unsupported_plan`；400 contract → `unsupported_contract`；404 / 0 bytes / 429 / 5xx / timeout / bad magic → inconclusive 保留前值。
+- probe date：mock DB 回傳含國定休市的情境，斷言取到 `tw_trading_days` 的 latest trading date（非單純 weekday roll-back）；DB 查詢失敗 → fallback `resolveProbeDate()` 且 error 含 `calendar_fallback`。
 - success response top-level keys added/removed = 0（快照比對）。
 - 既有 `finmindMarketBatch_test.ts`、`snapshotFulfillment_test.ts`、ephemeral BSR scoped SQL regressions 全綠。
 
