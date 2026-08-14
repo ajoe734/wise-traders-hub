@@ -1,97 +1,58 @@
-# Preview Acceptance Plan A1（authenticated 前置稽核）
+# Natural Acceptance N1 — 唯讀回查結果（Taipei 2026-08-14，17:35 job81 後）
 
-本輪為唯讀稽核結果 + 15:21 後的驗收腳本設計。未修改任何檔案／DB／cron，未 deploy／invoke／Publish，未開任何抽屜。
+判定：**BLOCKED（主路徑 market batch 未啟用）** — probe outcome = `inconclusive`，依 P4 規則立即誠實判定，不重跑、不改方案、不以 per-stock 覆蓋冒充。
 
-## 1. /holding-checkup auth 模型（已查證）
+## S1 probe（job67，Taipei 15:21）
 
-- 路由：`src/App.tsx:298` → `/holding-checkup` → `FreeCheckupPage`（`src/pages/FreeCheckup.jsx`），外層 `CheckupModeProvider`。
-- 匿名可進站：未登入走 local/demo 分支（`src/hooks/useFreeCheckupBootstrap.js`，`sweepStaleLocalIfOwnerMismatch` + `loadScopedLocal`）。
-- 登入後 cloud-first：`useFreeCheckupBootstrap.js:236` 從 `public.checkup_storage` 載入；寫回在 `FreeCheckup.jsx:724 / 2861 / 2863`（`upsert` on conflict `user_id,key`）。
-- 儲存模型：`checkup_storage(user_id, key, data, updated_at)`，持倉鍵為 `pf-holdings-v2`（另有 `pf-calendar-holdings`、`pf-targets-v1` 等）。目前 production 有 35 個 user 具備 `pf-holdings-v2`。
-- RLS（已讀 `pg_policies`）：四條政策全部 `authenticated` 且 `user_id = auth.uid()`；無 anon 讀取。
-- Session persistence：Supabase JS 預設 localStorage（`sb-<ref>-auth-token`）。
-- **目前 Preview session 未登入**：`LOVABLE_BROWSER_AUTH_STATUS=signed_out`。因此**現在沒有任何 production account 可由 Preview session 合法驗證**，authenticated 驗收 **BLOCKED**。
+| 項目 | 值 |
+|---|---|
+| cron job | 67 `tw-bsr-market-batch-probe-daily`，schedule `21 7 * * 1-5`，active=true |
+| run | start 2026-08-14 07:21:00.948811+00，status `succeeded` |
+| net._http_response | id `243732`，created 07:21:07.536121+00，status_code `200` |
+| body（逐字） | `ok:true` / `mode:"probe"` / `supported:false` / `outcome:"inconclusive"` / `stocks:0` / `probe_date:"2026-08-11"` |
+| body error | `finmind_http_400:{"msg":"parameter data_id can't be none on TaiwanStockTradingDailyReport dataset","status":400,"token_tail":"...(遮罩)"}` |
+| tw_bsr_sync_config `market_batch` | `enabled:true`、`supported:false`、`probed_at:2026-07-25T08:54:27Z`、`last_probe_at:2026-08-14T07:21:07.794Z`、`last_probe_outcome:inconclusive`、`last_probe_error` 同上、version 4，updated_at 07:21:07.986892+00 |
 
-## 2. 既有測試帳號／storage state（已查證）
+**P4 remote source 是否生效：PASS（以 response 新 tri-state 欄位為證）** — body 同時含 `mode` / `outcome` / `supported` / `probe_date`（`resolveProbeDate` 回推至 08-11），且 DB 寫入 `last_probe_outcome/last_probe_at/last_probe_error` 三欄，皆為 P4 才有的行為；job67 payload `{"mode":"probe","force":true}`（R4）確實被消費。
 
-- repo 內**沒有** Playwright `storageState`、沒有寫死測試帳號、沒有 seed 出來的 auth 使用者。
-- 只有 `e2e/live/*` 用環境變數：`E2E_TEST_EMAIL` / `E2E_TEST_PASSWORD`（subscription live smoke，要求 `profiles.is_tester=true`）、`E2E_ADMIN_EMAIL/PASSWORD`、`E2E_SUPABASE_SERVICE_ROLE_KEY`。
-- 本沙箱現況：`E2E_TEST_EMAIL`／`E2E_TEST_PASSWORD` 已設定；`E2E_ADMIN_*` 與任何 service_role key **未設定**。
-- 安全評估：`E2E_TEST_*` 是專用測試帳號，不是真實使用者。**D2 已獲授權**（僅登入 + 唯讀觀測）。
+**Edge identity：UNPROVEN** — `function_edge_logs` 保留窗僅約 9 分鐘（現存最舊 09:36:42 UTC），07:21 該次 execution_id / version / deployment_id 已不可得。不沿用 Stage R 的 version 313 冒充。
 
-### D2 帳號唯讀盤點結果（本輪已查，未登入）
+## S2（market batch 實際輪次）
 
-查法：本地對 `E2E_TEST_EMAIL` 取 md5，僅以雜湊比對 `auth.users`；聊天／查詢／證據皆不出現 email、password、token 或完整 user_id。
+**N/A — 未觸發。** outcome ≠ supported 且 `supported=false`，Phase A market batch 不會執行；當日 `tw_chip_fact` 中 `source='finmind_market_batch'` 的 distinct stocks = 0、rows = 0（唯一 source 為 `finmind_batch`，即 per-stock，不得冒充 market batch）。因此不列 job45/53/51/46/107 的 market-batch 輪次判讀。
 
-- `user_found = 1`，masked account id = `f2fe…19c1`。
-- `public.checkup_storage` 該帳號 **0 筆列**（`storage_keys = none`），因此**沒有 `pf-holdings-v2`**、持股檔數 0、無代號可列。
+## S3 落地與收斂
 
-**判定：authenticated holdings acceptance = BLOCKED。** 不自行新增持股、不寫入 `checkup_storage`。15:21 後僅能完成：
+| 指標 | 值 |
+|---|---|
+| tw_chip_fact 2026-08-14 | distinct stocks 61 / rows 37,774；source 僅 `finmind_batch`（market_batch = 0） |
+| tw_bsr_daily 2026-08-14 | distinct stocks 61 |
+| bsr_coverage_daily 2026-08-14 | 61 檔；`ok` 37、`broker_under_cover` 20、`broker_over_cover` 4 |
+| tw_bsr_daily_snapshot_status | status `partial`、lane_a `partial`、lane_b `sealed`、lane_c `sealed`、sealed_by_lane `BC_ONLY`、sealed_at null、coverage_stocks 61 / coverage_brokers 37,774 |
+| job81（wave2，Taipei 17:35） | runid 532582，status succeeded；HTTP body：`materialized_rows 37774`、`skipped_sealed false`、reconcile `lane_a_status partial` / `inst_stocks 20793` / `notes:"Institutional sealed, BSR coverage insufficient"`、`fallback_used_count 0`、`duration_ms 9335` |
+| job33（alerts-watchdog `*/5`） | 07:25–09:40 每輪 succeeded，無 failed |
+| FULL_MARKET(d) | **0**（當次 API 未回傳任何 market batch 資料） |
+| OBSERVED_60D_ELIGIBLE（實算） | 1,553（近 60 日出現過且 `tw_bsr_eligibility.eligible`） |
+| MISSING（eligible 無 08-14） | **1,492**；前 20（以 4 碼普通股樣式近似列示，避免逐檔 RPC 逾時）：1101,1102,1103,1104,1108,1110,1201,1210,1215,1216,1217,1218,1219,1225,1227,1229,1232,1233,1234,1240 |
+| fact vs FULL_MARKET | 61 vs 0（market batch 未產生任何 fact） |
+| daily / fact | 61 / 61 = 100% |
+| coverage / daily | 61 / 61 = 100% |
+| queue（08-14） | done 63、pending 4（現值；window 前值不可回溯，標 UNPROVEN） |
+| Lane A 持股新鮮度 | TW 未平倉 10 檔：4 檔為權證（068003 / 071745 / 078397 / 079052，ineligible）；6 檔普通股中 2478、3163、6138、8299 有 08-14 資料（queue done），**6515、8028 仍 pending，latest=08-13 → Lane A 缺漏 2** |
+| quota pools | interactive tokens 100.15 / used_today 240（= daily_budget 240，本日額度用盡，另有 22 筆 `borrowed`，最後 08:45:10）；keepwarm tokens 239 / used 83；backfill tokens 232 / used 134。本窗 ledger 無 `daily_exhausted` reject（最後一次為 08-12 15:07） |
 
-- S-α：**authenticated page 0-enqueue**（以此帳號登入 Preview，空持倉狀態下觀測 network）。
-- S-β：**market-wide server coverage**（全市場 eligible 個股的 server 端 BSR 新鮮度）。
-- 逐持股 PASS **不會宣稱**。若要覆蓋逐持股，需你另行提供：(a) 一個已有 `pf-holdings-v2` 的帳號識別並由你在 Preview 登入（D1），或 (b) 明示授權為測試帳號寫入持股（本輪明文禁止，預設不做）。
+## 判定（沿用 P4 門檻）
 
+- FULL_MARKET = 0（< 500）、MISSING 1,492（> 150）、Lane A eligible 缺漏 2（> 0）→ 若以主路徑計分即為 **FAIL/STOP** 條件。
+- 但根因為 probe `inconclusive`（FinMind `TaiwanStockTradingDailyReport` 拒絕缺 `data_id` 的全市場查詢），市場批次自始未執行，屬 P4 明列的「probe 非 supported → 主路徑 BLOCKED/PENDING」分支。
 
-## 3. 前端 call graph（未開抽屜時）
+**Natural Acceptance N1 最終判定：BLOCKED**
+- S1 probe 執行與 P4 remote source 生效：PASS
+- Edge identity（version/deployment_id/execution_id）：UNPROVEN（log 保留窗過短）
+- S2 market batch：未觸發（N/A）
+- S3 全市場覆蓋：不達標，惟根因為 S1 BLOCKED，不另計為本次 regression
+- Lane A 缺漏 2 檔（6515、8028，queue pending）：記錄為觀察事實，未授權補跑
 
-頁面載入 → 資料穩定，會發生的請求：
+可稽核原因：FinMind token 對 `TaiwanStockTradingDailyReport` 不支援無 `data_id` 的全市場拉取（HTTP 400）。是否為 token 權限、方案層級或 API 規格變更，需另行授權調查，本輪不動作。
 
-| 檔案 | 觸發 | 請求 | 性質 |
-| --- | --- | --- | --- |
-| `src/integrations/supabase/client.ts` | 掛載 | `POST /auth/v1/token?grant_type=refresh_token`、`GET /auth/v1/user` | 讀 |
-| `src/hooks/useFreeCheckupBootstrap.js:236` | 登入後 hydrate | `GET /rest/v1/checkup_storage?user_id=eq…` | 讀 |
-| `src/checkup/lib/authoritativeQuotes.ts` | 報價 hydrate | `current_prices` / `daily_price_snapshots`（或對應 function） | 讀 |
-| `HoldingsWorkbench.tsx:105` → `useChipsBatch.ts:58` → `chipsRepository.fetchChipsBatch` | 可見持倉 sparkline | `POST /functions/v1/tw-chips-detail`（批次 codes） | 讀 |
-| `useChipsBatch.ts:89` `prefetchChipsPayload` | **hover 才觸發**，不 hover 就沒有 | `POST tw-chips-detail` | 讀 |
-| `PerfMetricsTracker.tsx` | 載入 | `perf_metrics` insert（遙測，非 BSR） | 寫（遙測） |
-
-不會發生（已逐檔確認）：
-
-- `enqueue_bsr_backfill`：唯一呼叫點 `src/checkup/hooks/useChipsBackfill.ts:72`，只被 `useChipsLifecycle.ts:84` 使用，而 `useChipsLifecycle` 唯一使用者是 `ChipsSection.tsx:167`（抽屜內元件）。未開抽屜不掛載。
-- `ensure_bsr_queued` / `ensure_bsr_window`：前端已無呼叫點（`ChipsSection.tsx:192` 註記 P3 已移除），全 repo 僅型別與註解殘留。
-- `tw-bsr-finmind-sync`：前端唯一呼叫點是 `src/pages/company/BsrRateLimit.tsx:84`（管理後台），checkup 前台完全不呼叫。
-- `tw-chips-detail` 本身對佇列**只讀**（`index.ts:100`、`210` 皆為 `select`），不會 insert queue。
-- 自動回補 `useChipsAutoBackfill` 亦掛在 `useChipsLifecycle` 內，同樣只有抽屜開啟才存在。
-
-結論（待 15:21 後以實測確認）：**未開抽屜時理論 enqueue 次數 = 0**，頁面載入不 enqueue。
-
-## 4. Browser network 驗收定義
-
-- 監控自 `browser.new_context()` 起、**導航之前**就註冊 `context.on("request")` 與 `on("response")`，記錄 method + URL + POST body 前 200 字元，落地 JSON。
-- 流程：（登入方式依 §2 授權結果）→ `goto /holding-checkup` → 等待 `networkidle` + 持倉表格 `data-testid` 出現 → 額外靜置 20 秒吸收延遲請求 → 截圖 → 關閉。全程**不點任何個股列、不 hover 個股**（滑鼠固定在頁面空白處）。
-- 禁止清單（出現任一即 FAIL）：
-  - `POST /rest/v1/rpc/enqueue_bsr_backfill`
-  - `POST /rest/v1/rpc/ensure_bsr_queued`、`ensure_bsr_window`
-  - `POST /rest/v1/rpc/enqueue_bsr_first_fetch_on_trade`、`enqueue_all_active_tw_holdings_bsr`、`enqueue_chips_prefetch_gaps`
-  - `POST /functions/v1/tw-bsr-finmind-sync`、`tw-bsr-worker-hourly`、`tw-institutional-daily-sync`、`chips-guardian`
-  - 任何對 `tw_bsr_sync_queue` / `chips_prefetch_targets` 的 `POST`/`PATCH`（REST 寫入）
-- 允許清單：`/auth/v1/*` 讀、`GET /rest/v1/checkup_storage|current_prices|daily_price_snapshots|stock_names|tw_market_holidays`、`POST /functions/v1/tw-chips-detail`（讀取型批次）、靜態資產、`perf_metrics`/`traffic_*` 遙測寫入。
-- 證明 enqueue count = 0：輸出「禁止清單命中數 = 0」的完整計數表 + 全部請求列表（去重後）作為證據，並附 server 端二次證明：驗收前後各查一次 `tw_bsr_sync_queue` 中 `created_at`／`updated_at` 落在觀測視窗內的列數，兩次差值必須為 0。
-
-## 5. Server readiness SQL（唯讀，15:21 後執行）
-
-因測試帳號無持股，逐持股段改為 **market-wide server coverage（S-β）**，以全市場 eligible 個股為母體逐檔輸出：
-
-1. `tw_bsr_eligibility(code)` → `eligible` / `ineligible_reason`（ETF、權證、非 4 碼標 `INELIGIBLE — 不計入 fresh/stale 分母`）。
-2. `expected_latest_bsr_date()` → `expected_trade_date`（含 `tw_market_holidays`）。
-3. `tw_bsr_daily` 該檔 `max(trade_date)` 與該日 row 數。
-4. `bsr_coverage_daily` / `get_bsr_readiness_v2(code)` 的 coverage state 與 sealed 狀態。
-5. 判定：`latest = expected` → FRESH；`latest < expected` → STALE（附落後交易日）；無資料 → MISSING。
-6. 彙總 FRESH／STALE／MISSING／INELIGIBLE 檔數與比率 + coverage %，附 Top-N STALE 明細（僅股票代號，無 PII）。
-
-驗收命題：S-α（authenticated 頁面 0 enqueue）與 S-β（market-batch 後全市場覆蓋率達成）分別成立；**逐持股 PASS 標為 BLOCKED，不宣稱**。
-
-## 執行順序與界線（15:21 之後）
-
-1. **T0 before snapshot（先於登入）**：唯讀記錄 queue observation window 起點 —
-   `select count(*), max(created_at), max(updated_at) from tw_bsr_sync_queue`，並記錄 `now()` 為 `t_start`。
-2. **登入 Preview**：以 D2 測試帳號在 Playwright 內登入（帳密只從 `os.environ` 取，不落 log／不截圖到輸入框內容）。
-3. **S-α network 觀測**：導航前註冊 request/response 監聽 → `goto /holding-checkup` → `networkidle` → 靜置 20 秒 → 截圖（不含帳號列）。全程滑鼠不進入個股列，不 hover、不點、不開抽屜。
-4. **T1 after snapshot**：再查一次 §1 的 queue 指標，並計 `count(*) where created_at > t_start or updated_at > t_start`，**delta 必須 = 0**，否則 FAIL。
-5. **checkup_storage 零變更證明**：`t_start`／`t_end` 各查一次該 masked 帳號的 `checkup_storage` 列數與 `max(updated_at)`；出現任何 mutation 立即 **FAIL/STOP**。
-6. **S-β**：跑 §5 全市場唯讀 SQL。
-7. `perf_metrics` / `traffic_*` 等自動遙測若無法阻擋，記錄為「非 BSR 寫入」並列於報告附註。
-8. 全程不觸碰 cron、不 manual invoke、不 deploy、不 Publish、不改任何檔案與 schema。
-9. 證據一律用 masked account id `f2fe…19c1`；network dump 前先過濾 `Authorization`、`apikey`、`access_token`、`refresh_token`、email 欄位。
-
+停在此處等待審核；未登入 Preview、未 deploy、未 manual invoke、未改任何檔案/DB/cron。
