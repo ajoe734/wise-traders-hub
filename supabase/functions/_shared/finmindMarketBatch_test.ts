@@ -7,6 +7,7 @@ import {
   probeMarketBatchSupport,
   readBoundedBody,
   resolveProbeDate,
+  sanitizeUpstreamError,
 } from './finmindMarketBatch.ts';
 import { RateLimitExhaustedError } from './finmindRateLimit.ts';
 
@@ -334,4 +335,64 @@ Deno.test('probe: 非 force 且 24h 內 → skipped，不打 API', async () => {
 
 Deno.test('RateLimitExhaustedError 型別仍可用（未被 M1 移除）', () => {
   assert(new RateLimitExhaustedError({ used: 1, limit: 1 }) instanceof Error);
+});
+
+// ---------- P6-R1 sanitizeUpstreamError ----------
+
+Deno.test('sanitize: nested token_tail 被遮罩', () => {
+  const s = sanitizeUpstreamError('unsupported_plan:http_400:' + JSON.stringify({ msg: 'Your level is sponsor', detail: { token_tail: 'abc123' } }));
+  assert(!s.includes('abc123'));
+  assert(s.includes('sponsor'));
+});
+
+Deno.test('sanitize: array 內含敏感 key 被遮罩', () => {
+  const s = sanitizeUpstreamError(JSON.stringify({ msg: 'x', detail: [{ access_token: 'zzz999' }] }));
+  assert(!s.includes('zzz999'));
+});
+
+Deno.test('sanitize: mixed case key（Token_Tail / ACCESS_TOKEN / Signed_URL）', () => {
+  const s = sanitizeUpstreamError(JSON.stringify({ Token_Tail: 'aaa111', ACCESS_TOKEN: 'bbb222', Signed_URL: 'https://x/y?sig=ccc333' }));
+  assert(!s.includes('aaa111') && !s.includes('bbb222') && !s.includes('ccc333'));
+});
+
+Deno.test('sanitize: msg 內含 signed URL', () => {
+  const s = sanitizeUpstreamError(JSON.stringify({ msg: 'go to https://s3.example.com/f.parquet?X-Amz-Signature=deadbeefdeadbeef' }));
+  assert(!s.includes('deadbeef'));
+});
+
+Deno.test('sanitize: msg 內含 Bearer', () => {
+  const s = sanitizeUpstreamError(JSON.stringify({ msg: 'auth Bearer supersecrettokenvalue failed' }));
+  assert(!s.includes('supersecrettokenvalue'));
+});
+
+Deno.test('sanitize: msg 內含 token=xxx', () => {
+  const s = sanitizeUpstreamError(JSON.stringify({ msg: 'query token=abcdef12345 rejected' }));
+  assert(!s.includes('abcdef12345'));
+});
+
+Deno.test('sanitize: 長 token-like 字串被遮罩', () => {
+  const s = sanitizeUpstreamError('raw eyJhbGciOiJIUzI1NiJ9abcdefghijklmnop end');
+  assert(!s.includes('eyJhbGciOiJIUzI1NiJ9abcdefghijklmnop'));
+});
+
+Deno.test('sanitize: 循環引用不炸（字串路徑）', () => {
+  const s = sanitizeUpstreamError('plain {not json');
+  assert(typeof s === 'string');
+});
+
+Deno.test('sanitize: 非 JSON 純文字保留可讀資訊', () => {
+  const s = sanitizeUpstreamError('http_500:upstream gateway error');
+  assert(s.includes('upstream gateway error'));
+});
+
+Deno.test('sanitize: 正常 msg/status 保留、未白名單 key 遮罩', () => {
+  const s = sanitizeUpstreamError(JSON.stringify({ msg: 'bad date', status: 400, weird: 'internal-path-info' }));
+  assert(s.includes('bad date'));
+  assert(s.includes('400'));
+  assert(!s.includes('internal-path-info'));
+});
+
+Deno.test('sanitize: 截斷 300 字', () => {
+  const s = sanitizeUpstreamError('x'.repeat(1000));
+  assertEquals(s.length, 300);
 });
