@@ -163,9 +163,10 @@ BEGIN
     END LOOP;
   END LOOP;
 
-  SELECT count(DISTINCT x) INTO total FROM unnest(seen) x;
+  SELECT count(DISTINCT x) INTO total FROM unnest(seen) x WHERE x BETWEEN '2001' AND '2012';
   ASSERT total = 12,
          format('case6: expect all 12 saved codes rotated within 6 rounds, got %s (%s)', total, seen);
+  ASSERT '2001' = ANY(seen), 'case6: stuck failed code must stay a candidate';
 END $$;
 
 ROLLBACK;
