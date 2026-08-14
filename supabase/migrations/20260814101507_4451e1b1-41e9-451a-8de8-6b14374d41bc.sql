@@ -1,0 +1,1 @@
+SELECT cron.alter_job(67, schedule => '30 13 * * 1-5');
