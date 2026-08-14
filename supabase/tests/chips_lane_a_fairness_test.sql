@@ -38,7 +38,7 @@ DELETE FROM public.expert_signals;
 UPDATE public.chips_prefetch_targets SET active = false;
 
 INSERT INTO public.chips_prefetch_targets (code, active, source, supported)
-VALUES ('3017', true, 'test', true)
+VALUES ('3017', true, 'manual', true)
 ON CONFLICT (code) DO UPDATE SET active = true, supported = true;
 
 INSERT INTO public.checkup_storage (user_id, key, data)
