@@ -12,11 +12,19 @@
 // 也提供 kill switch（config.enabled=false 立刻降回 per-stock）。
 
 import type { SupabaseClient } from './supabaseClients.ts';
-import { fetchWithRateLimit, RateLimitExhaustedError } from './finmindRateLimit.ts';
+import { fetchWithRateLimit } from './finmindRateLimit.ts';
 import type { FinmindRow } from '../tw-bsr-finmind-sync/lib.ts';
 
 const FINMIND_URL = 'https://api.finmindtrade.com/api/v4/data';
+/** M1：sponsorpro 專屬整日全市場 parquet 端點（只做 capability probe，不 ingest）。 */
+const FINMIND_STORAGE_OBJECTS_URL = 'https://api.finmindtrade.com/api/v4/storage_objects';
 const FINMIND_TOKEN = Deno.env.get('FINMIND_TOKEN') ?? '';
+/** content-length 超過此值直接放棄，不讀 body。 */
+export const MAX_BULK_BYTES = 80 * 1024 * 1024;
+/** probe 只允許從 body 讀這麼多 bytes（含 JSON / 錯誤訊息）。 */
+export const MAX_PROBE_BYTES = 64 * 1024;
+
+export type ProbeFormat = 'parquet' | 'signed_url_unverified' | null;
 
 export interface MarketBatchConfig {
   enabled: boolean;
@@ -28,6 +36,8 @@ export interface MarketBatchConfig {
   last_probe_outcome?: 'supported' | 'unsupported' | 'inconclusive' | null;
   last_probe_at?: string | null;
   last_probe_error?: string | null;
+  /** M1 診斷：probe 觀察到的回應格式（不含任何 signed URL）。 */
+  last_probe_format?: ProbeFormat;
 }
 
 const DEFAULT_CONFIG: MarketBatchConfig = {
@@ -39,6 +49,7 @@ const DEFAULT_CONFIG: MarketBatchConfig = {
   last_probe_outcome: null,
   last_probe_at: null,
   last_probe_error: null,
+  last_probe_format: null,
 };
 
 
@@ -113,10 +124,73 @@ export function resolveProbeDate(base: Date = new Date(Date.now() - 3 * 86400_00
 export type ProbeOutcome = 'supported' | 'unsupported' | 'inconclusive';
 
 /** 判定錯誤是否為「方案/權限」層級的確定性 capability 失敗。 */
-function isCapabilityFailure(msg: string): boolean {
+export function isCapabilityFailure(msg: string): boolean {
   const m = msg.toLowerCase();
   if (!m.startsWith('finmind_api_')) return false;
   return /permission|level|upgrade|not allowed|unauthor|forbidden|subscription/.test(m);
+}
+
+/** body 是否明示方案/權限限制（僅在 HTTP 401 分支「之後」才可比對）。 */
+function looksPlanRestricted(text: string): boolean {
+  return /sponsor|plan|upgrade|permission|not allowed|forbidden|subscription|level/i.test(text);
+}
+
+/** 遮罩 token 尾碼並截斷。 */
+export function maskProbeError(msg: string): string {
+  let out = msg;
+  if (FINMIND_TOKEN) out = out.split(FINMIND_TOKEN).join('***');
+  out = out.replace(/(token=)[^&\s]+/gi, '$1***').replace(/(Bearer\s+)\S+/gi, '$1***');
+  return out.slice(0, 300);
+}
+
+/**
+ * 從 response body 最多讀 `limit` bytes 後立即 cancel。
+ * 嚴禁 res.text() / res.json() / res.arrayBuffer()（皆無上限）。
+ */
+export async function readBoundedBody(res: Response, limit = MAX_PROBE_BYTES): Promise<Uint8Array> {
+  const body = res.body;
+  if (!body) return new Uint8Array(0);
+  const reader = body.getReader();
+  const chunks: Uint8Array[] = [];
+  let total = 0;
+  try {
+    while (total < limit) {
+      const { done, value } = await reader.read();
+      if (done) break;
+      if (!value || value.byteLength === 0) continue;
+      const take = Math.min(value.byteLength, limit - total);
+      chunks.push(value.subarray(0, take));
+      total += take;
+    }
+  } finally {
+    try { await reader.cancel(); } catch { /* ignore */ }
+  }
+  const out = new Uint8Array(total);
+  let off = 0;
+  for (const c of chunks) { out.set(c, off); off += c.byteLength; }
+  return out;
+}
+
+/**
+ * <= Taipei today 的 latest actual trading date（排除週末與 tw_market_holidays）。
+ * 失敗時回 null，由呼叫端 fallback 既有 resolveProbeDate()。
+ */
+export async function resolveLatestTradingDate(supa: SupabaseClient): Promise<string | null> {
+  try {
+    const today = new Date(Date.now() + 8 * 3600_000).toISOString().slice(0, 10);
+    const from = new Date(Date.now() + 8 * 3600_000 - 10 * 86400_000).toISOString().slice(0, 10);
+    // deno-lint-ignore no-explicit-any
+    const { data, error } = await (supa as any).rpc('tw_trading_days', { _from: from, _to: today });
+    if (error || !Array.isArray(data) || data.length === 0) return null;
+    const days = data
+      .map((d: unknown) => (typeof d === 'string' ? d : (d as { tw_trading_days?: string })?.tw_trading_days))
+      .filter((d: unknown): d is string => typeof d === 'string' && d.length >= 10)
+      .map((d: string) => d.slice(0, 10))
+      .sort();
+    return days.length ? days[days.length - 1] : null;
+  } catch {
+    return null;
+  }
 }
 
 export interface ProbeResult {
@@ -129,10 +203,87 @@ export interface ProbeResult {
   error?: string;
 }
 
+interface StorageProbe {
+  outcome: ProbeOutcome;
+  /** 只有 outcome !== 'inconclusive' 才有意義 */
+  supported?: boolean;
+  format?: ProbeFormat;
+  error?: string;
+}
+
 /**
- * One-shot probe: hit FinMind once without data_id, decide whether the plan
- * supports market batch. Tri-state：只有可判定的 capability 失敗才寫 supported=false；
- * transient（額度、逾時、5xx、壞 JSON、假日 0 rows）維持前值，不動 probed_at。
+ * M1 capability probe：GET /api/v4/storage_objects?dataset=...&date=...
+ * 只判定能力，不解析 parquet、不 ingest、不記錄 signed URL。
+ */
+export async function probeStorageObjectsCapability(probeDate: string): Promise<StorageProbe> {
+  const url = `${FINMIND_STORAGE_OBJECTS_URL}?dataset=TaiwanStockTradingDailyReport&date=${probeDate}`;
+  let res: Response;
+  try {
+    res = await fetch(url, {
+      method: 'GET',
+      headers: {
+        Authorization: `Bearer ${FINMIND_TOKEN}`,
+        // 可送，但不假設上游遵守；一律以 64KiB bounded reader 自保。
+        Range: `bytes=0-${MAX_PROBE_BYTES - 1}`,
+      },
+      signal: AbortSignal.timeout(90_000),
+    });
+  } catch (e) {
+    return { outcome: 'inconclusive', error: maskProbeError(`network_or_timeout:${(e as Error)?.message ?? e}`) };
+  }
+
+  // 1) HTTP 401 永遠先判 auth_failed（不看 body 字樣）
+  if (res.status === 401) {
+    try { await res.body?.cancel(); } catch { /* ignore */ }
+    return { outcome: 'inconclusive', error: 'auth_failed:http_401' };
+  }
+
+  // content-length 過大 → 不讀 body
+  const clRaw = res.headers.get('content-length');
+  const cl = clRaw ? Number(clRaw) : NaN;
+  if (Number.isFinite(cl) && cl > MAX_BULK_BYTES) {
+    try { await res.body?.cancel(); } catch { /* ignore */ }
+    return { outcome: 'inconclusive', error: `inconclusive_oversize:content_length_${cl}` };
+  }
+
+  const bytes = await readBoundedBody(res);
+  const text = new TextDecoder().decode(bytes.subarray(0, Math.min(bytes.byteLength, MAX_PROBE_BYTES)));
+
+  // 2) 403 或 body 明示 plan 限制
+  if (res.status === 403 || (res.status >= 400 && looksPlanRestricted(text))) {
+    return { outcome: 'unsupported', supported: false, error: maskProbeError(`unsupported_plan:http_${res.status}:${text}`) };
+  }
+  // 3) 400 參數契約
+  if (res.status === 400) {
+    return { outcome: 'unsupported', supported: false, error: maskProbeError(`unsupported_contract:http_400:${text}`) };
+  }
+  if (res.status !== 200 && !(res.status === 206)) {
+    return { outcome: 'inconclusive', error: maskProbeError(`http_${res.status}:${text}`) };
+  }
+  if (bytes.byteLength === 0) {
+    return { outcome: 'inconclusive', error: 'empty_body_0_bytes' };
+  }
+  // 4) parquet magic
+  if (bytes.byteLength >= 4 && bytes[0] === 0x50 && bytes[1] === 0x41 && bytes[2] === 0x52 && bytes[3] === 0x31) {
+    return { outcome: 'supported', supported: true, format: 'parquet' };
+  }
+  // 5) bounded JSON signed URL（URL 不記錄、不跟隨）
+  try {
+    const j = JSON.parse(text) as Record<string, unknown>;
+    const hasUrl = ['url', 'signed_url', 'download_url', 'data'].some((k) => typeof j?.[k] === 'string' && /^https?:\/\//.test(String(j[k])));
+    if (hasUrl) return { outcome: 'supported', supported: true, format: 'signed_url_unverified' };
+    if (looksPlanRestricted(String(j?.msg ?? ''))) {
+      return { outcome: 'unsupported', supported: false, error: maskProbeError(`unsupported_plan:${String(j?.msg ?? '')}`) };
+    }
+    return { outcome: 'inconclusive', error: maskProbeError(`json_without_url:${text}`) };
+  } catch {
+    return { outcome: 'inconclusive', error: maskProbeError(`bad_magic_or_body:${text.slice(0, 120)}`) };
+  }
+}
+
+/**
+ * M1：capability probe（storage_objects）。tri-state；
+ * 只有可判定的 plan/contract 失敗才寫 supported=false；401 與所有 transient 保留前值。
  * Idempotent within a 24h window (probed_at is respected unless force=true).
  */
 export async function probeMarketBatchSupport(
@@ -151,70 +302,50 @@ export async function probeMarketBatchSupport(
       };
     }
   }
-  const probeDate = opts.probeDate ?? resolveProbeDate();
+  let calendarFallback = false;
+  let probeDate = opts.probeDate ?? null;
+  if (!probeDate) {
+    probeDate = await resolveLatestTradingDate(supa);
+    if (!probeDate) { probeDate = resolveProbeDate(); calendarFallback = true; }
+  }
   const nowIso = new Date().toISOString();
 
-  const markInconclusive = async (reason: string): Promise<ProbeResult> => {
-    // 不動 supported / probed_at，只記錄診斷資訊。
+  const r = await probeStorageObjectsCapability(probeDate);
+  const err = [calendarFallback ? 'calendar_fallback' : null, r.error ?? null].filter(Boolean).join('|') || null;
+
+  if (r.outcome === 'inconclusive') {
     await updateMarketBatchConfig(supa, {
       last_probe_outcome: 'inconclusive',
       last_probe_at: nowIso,
-      last_probe_error: reason.slice(0, 300),
+      last_probe_error: err ? err.slice(0, 300) : null,
+      last_probe_format: null,
     } as Partial<MarketBatchConfig>);
     return {
       supported: cfg.supported === true,
       outcome: 'inconclusive',
       stocks: 0,
       probe_date: probeDate,
-      skipped: `probe_inconclusive:${reason.slice(0, 200)}`,
-      error: reason.slice(0, 300),
+      skipped: `probe_inconclusive:${(err ?? '').slice(0, 200)}`,
+      error: err ?? undefined,
     };
-  };
-
-  try {
-    const rows = await fetchFinmindMarketDay(supa, probeDate, null, 1);
-    if (rows.length === 0) {
-      // HTTP 200 但 0 rows：極可能是國定假日／尚未結算，不可判定 capability。
-      return await markInconclusive('empty_response_rows_0');
-    }
-    const uniq = new Set(rows.map((r) => String(r.stock_id)));
-    const supported = uniq.size >= cfg.min_stocks_in_response;
-    await updateMarketBatchConfig(supa, {
-      supported,
-      probed_at: nowIso,
-      last_probe_outcome: supported ? 'supported' : 'unsupported',
-      last_probe_at: nowIso,
-      last_probe_error: null,
-    } as Partial<MarketBatchConfig>);
-    return {
-      supported,
-      outcome: supported ? 'supported' : 'unsupported',
-      stocks: uniq.size,
-      probe_date: probeDate,
-      sample: Array.from(uniq).slice(0, 5),
-    };
-  } catch (e) {
-    const msg = (e as Error)?.message ?? String(e);
-    if (e instanceof RateLimitExhaustedError) return await markInconclusive(`rate_limit_exhausted:${msg}`);
-    if (isCapabilityFailure(msg)) {
-      await updateMarketBatchConfig(supa, {
-        supported: false,
-        probed_at: nowIso,
-        last_probe_outcome: 'unsupported',
-        last_probe_at: nowIso,
-        last_probe_error: msg.slice(0, 300),
-      } as Partial<MarketBatchConfig>);
-      return {
-        supported: false,
-        outcome: 'unsupported',
-        stocks: 0,
-        probe_date: probeDate,
-        error: msg.slice(0, 300),
-      };
-    }
-    // network / abort / 5xx / 429 / bad json / 其他 finmind_api_* → transient
-    return await markInconclusive(msg);
   }
+
+  const supported = r.supported === true;
+  await updateMarketBatchConfig(supa, {
+    supported,
+    probed_at: nowIso,
+    last_probe_outcome: supported ? 'supported' : 'unsupported',
+    last_probe_at: nowIso,
+    last_probe_error: err ? err.slice(0, 300) : null,
+    last_probe_format: r.format ?? null,
+  } as Partial<MarketBatchConfig>);
+  return {
+    supported,
+    outcome: supported ? 'supported' : 'unsupported',
+    stocks: 0,
+    probe_date: probeDate,
+    error: err ?? undefined,
+  };
 }
 
 

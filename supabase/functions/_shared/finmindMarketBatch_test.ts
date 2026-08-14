@@ -1,14 +1,18 @@
-// Build2 P4 — probe tri-state / date resolver 回歸測試
+// Build2 M1 — storage_objects capability probe 回歸測試
 // deno test -A supabase/functions/_shared/finmindMarketBatch_test.ts
 
 import { assert, assertEquals } from 'https://deno.land/std@0.224.0/assert/mod.ts';
-import { probeMarketBatchSupport, resolveProbeDate } from './finmindMarketBatch.ts';
+import {
+  MAX_PROBE_BYTES,
+  probeMarketBatchSupport,
+  readBoundedBody,
+  resolveProbeDate,
+} from './finmindMarketBatch.ts';
 import { RateLimitExhaustedError } from './finmindRateLimit.ts';
 
-// ---------- resolveProbeDate ----------
+// ---------- resolveProbeDate（未修改，維持既有語意） ----------
 
 Deno.test('resolveProbeDate: 週六回捲到週五', () => {
-  // 2026-08-15 是週六
   assertEquals(resolveProbeDate(new Date('2026-08-15T00:00:00Z')), '2026-08-14');
 });
 
@@ -22,17 +26,15 @@ Deno.test('resolveProbeDate: 平日不變', () => {
   }
 });
 
-Deno.test('resolveProbeDate: 週二探測(now-3d=週六)回捲到週五', () => {
-  // 週二 2026-08-18 - 3d = 2026-08-15(六) → 2026-08-14(五)
-  const base = new Date(new Date('2026-08-18T00:00:00Z').getTime() - 3 * 86400_000);
-  assertEquals(resolveProbeDate(base), '2026-08-14');
-});
-
 // ---------- stub 基礎建設 ----------
 
 interface Patch { [k: string]: unknown }
 
-function stubSupa(patches: Patch[], cfg: Record<string, unknown> = {}) {
+function stubSupa(
+  patches: Patch[],
+  cfg: Record<string, unknown> = {},
+  tradingDays: string[] | null = ['2026-08-10', '2026-08-11', '2026-08-12'],
+) {
   const baseCfg = {
     enabled: true,
     supported: null,
@@ -58,146 +60,278 @@ function stubSupa(patches: Patch[], cfg: Record<string, unknown> = {}) {
         },
       };
     },
+    rpc(name: string) {
+      if (name === 'tw_trading_days') {
+        if (tradingDays === null) return Promise.resolve({ data: null, error: { message: 'boom' } });
+        return Promise.resolve({ data: tradingDays, error: null });
+      }
+      return Promise.resolve({ data: null, error: null });
+    },
   };
   return supa;
 }
 
-/** 用 fetch stub 驅動 fetchFinmindMarketDay。 */
+interface FetchLog {
+  url: string;
+  read: number;
+  cancelled: boolean;
+  calls: number;
+}
+
+/** 建立可觀測讀取量的 Response stub。 */
+function streamResponse(
+  chunks: Uint8Array[],
+  init: ResponseInit,
+  log: FetchLog,
+): Response {
+  let i = 0;
+  const body = new ReadableStream<Uint8Array>({
+    pull(ctrl) {
+      if (i >= chunks.length) { ctrl.close(); return; }
+      const c = chunks[i++];
+      log.read += c.byteLength;
+      ctrl.enqueue(c);
+    },
+    cancel() { log.cancelled = true; },
+  });
+  return new Response(body, init);
+}
+
 function withFetch(
-  handler: () => Response | Promise<Response> | never,
-  fn: () => Promise<void>,
+  handler: (url: string, log: FetchLog) => Response,
+  fn: (log: FetchLog) => Promise<void>,
 ): () => Promise<void> {
   return async () => {
     const original = globalThis.fetch;
-    // reserve/settle RPC 由 stubSupa 之外的 rpc 呼叫負責 → 直接短路 rateLimit
-    globalThis.fetch = (() => Promise.resolve(handler())) as typeof fetch;
-    try { await fn(); } finally { globalThis.fetch = original; }
+    const log: FetchLog = { url: '', read: 0, cancelled: false, calls: 0 };
+    globalThis.fetch = ((input: string | URL | Request) => {
+      log.calls++;
+      log.url = String(input);
+      return Promise.resolve(handler(log.url, log));
+    }) as typeof fetch;
+    try { await fn(log); } finally { globalThis.fetch = original; }
   };
 }
 
-function marketBody(n: number) {
-  const data = Array.from({ length: n }, (_, i) => ({
-    stock_id: String(1000 + i),
-    securities_trader: 'B',
-    securities_trader_id: 'B01',
-    buy: 1000,
-    sell: 0,
-    price: 10,
-    date: '2026-08-11',
-  }));
-  return new Response(JSON.stringify({ status: 200, data }), { status: 200 });
+const PAR1 = new Uint8Array([0x50, 0x41, 0x52, 0x31]);
+function bigParquet(totalBytes: number): Uint8Array[] {
+  const chunks: Uint8Array[] = [PAR1];
+  let left = totalBytes - 4;
+  while (left > 0) {
+    const n = Math.min(left, 16 * 1024);
+    chunks.push(new Uint8Array(n).fill(0x41));
+    left -= n;
+  }
+  return chunks;
+}
+function textChunks(s: string): Uint8Array[] {
+  return [new TextEncoder().encode(s)];
 }
 
-/** 直接注入 rate-limit stub：reserve 成功、settle no-op。 */
-// deno-lint-ignore no-explicit-any
-function withRpc(supa: any) {
-  supa.rpc = (name: string) => {
-    if (name === 'reserve_bsr_api_quota') {
-      return Promise.resolve({ data: [{ granted: true, reservation_id: 1, used: 1, remaining: 999 }], error: null });
-    }
-    return Promise.resolve({ data: null, error: null });
-  };
-  return supa;
-}
+// ---------- readBoundedBody ----------
 
-// ---------- tri-state ----------
-
-Deno.test('probe: 600 檔 → supported，寫入 supported/probed_at', withFetch(() => marketBody(600), async () => {
-  const patches: Patch[] = [];
-  const supa = withRpc(stubSupa(patches));
-  const r = await probeMarketBatchSupport(supa, { force: true });
-  assertEquals(r.outcome, 'supported');
-  assertEquals(r.supported, true);
-  const last = patches[patches.length - 1];
-  assertEquals(last.supported, true);
-  assert(typeof last.probed_at === 'string');
-}));
-
-Deno.test('probe: 12 檔 → unsupported（capability 判定）', withFetch(() => marketBody(12), async () => {
-  const patches: Patch[] = [];
-  const supa = withRpc(stubSupa(patches));
-  const r = await probeMarketBatchSupport(supa, { force: true });
-  assertEquals(r.outcome, 'unsupported');
-  assertEquals(r.supported, false);
-  const last = patches[patches.length - 1];
-  assertEquals(last.supported, false);
-  assert(typeof last.probed_at === 'string');
-}));
-
-Deno.test('probe: 0 rows → inconclusive，不動 supported/probed_at', withFetch(
-  () => new Response(JSON.stringify({ status: 200, data: [] }), { status: 200 }),
-  async () => {
-    const patches: Patch[] = [];
-    const supa = withRpc(stubSupa(patches, { supported: true, probed_at: '2026-08-10T00:00:00.000Z' }));
-    const r = await probeMarketBatchSupport(supa, { force: true });
-    assertEquals(r.outcome, 'inconclusive');
-    assertEquals(r.supported, true); // 保留前值
-    const last = patches[patches.length - 1];
-    assertEquals(last.supported, true, 'supported 必須維持前值');
-    assertEquals(last.probed_at, '2026-08-10T00:00:00.000Z', 'probed_at 不得被覆寫');
-    assertEquals(last.last_probe_outcome, 'inconclusive');
-  },
-));
-
-Deno.test('probe: HTTP 503 → inconclusive', withFetch(
-  () => new Response('upstream down', { status: 503 }),
-  async () => {
-    const patches: Patch[] = [];
-    const supa = withRpc(stubSupa(patches, { supported: true, probed_at: '2026-08-10T00:00:00.000Z' }));
-    const r = await probeMarketBatchSupport(supa, { force: true });
-    assertEquals(r.outcome, 'inconclusive');
-    const last = patches[patches.length - 1];
-    assertEquals(last.supported, true);
-    assertEquals(last.probed_at, '2026-08-10T00:00:00.000Z');
-  },
-));
-
-Deno.test('probe: bad json → inconclusive', withFetch(
-  () => new Response('<html>nope</html>', { status: 200 }),
-  async () => {
-    const patches: Patch[] = [];
-    const supa = withRpc(stubSupa(patches, { supported: true, probed_at: '2026-08-10T00:00:00.000Z' }));
-    const r = await probeMarketBatchSupport(supa, { force: true });
-    assertEquals(r.outcome, 'inconclusive');
-    assertEquals(patches[patches.length - 1].supported, true);
-  },
-));
-
-Deno.test('probe: RateLimitExhaustedError → inconclusive，不寫 supported', async () => {
-  const patches: Patch[] = [];
-  const supa = stubSupa(patches, { supported: true, probed_at: '2026-08-10T00:00:00.000Z' });
-  // reserve 失敗 → fetchWithRateLimit 丟 RateLimitExhaustedError
-  supa.rpc = (name: string) => {
-    if (name === 'reserve_bsr_api_quota') return Promise.resolve({ data: [{ granted: false, reservation_id: null }], error: null });
-    return Promise.resolve({ data: null, error: null });
-  };
-  const r = await probeMarketBatchSupport(supa, { force: true });
-  assertEquals(r.outcome, 'inconclusive');
-  const last = patches[patches.length - 1];
-  assertEquals(last.supported, true);
-  assertEquals(last.probed_at, '2026-08-10T00:00:00.000Z');
-  assert(String(last.last_probe_error).includes('rate_limit') || String(last.last_probe_error).length > 0);
-  assert(new RateLimitExhaustedError({ used: 1, limit: 1 }) instanceof Error);
+Deno.test('readBoundedBody: 超量 body 只讀 <= 上限並 cancel', async () => {
+  const log: FetchLog = { url: '', read: 0, cancelled: false, calls: 0 };
+  const res = streamResponse(bigParquet(1_000_000), { status: 200 }, log);
+  const bytes = await readBoundedBody(res);
+  assertEquals(bytes.byteLength, MAX_PROBE_BYTES);
+  assert(log.read <= MAX_PROBE_BYTES + 32 * 1024, `read=${log.read}`);
+  assert(log.cancelled, 'reader 必須被 cancel');
 });
 
-Deno.test('probe: finmind_api 權限錯誤 → unsupported', withFetch(
-  () => new Response(JSON.stringify({ status: 402, msg: 'permission denied, please upgrade level' }), { status: 200 }),
+// ---------- probe tri-state ----------
+
+Deno.test('probe: 200 + PAR1（上游忽略 Range 回大 body）→ supported/parquet，讀取 <= 64KiB', withFetch(
+  (_u, log) => streamResponse(bigParquet(5_000_000), { status: 200 }, log),
+  async (log) => {
+    const patches: Patch[] = [];
+    const supa = stubSupa(patches);
+    const r = await probeMarketBatchSupport(supa, { force: true });
+    assertEquals(r.outcome, 'supported');
+    assertEquals(r.supported, true);
+    assertEquals(r.probe_date, '2026-08-12', '必須用 tw_trading_days 的 latest trading date');
+    assert(log.url.includes('/api/v4/storage_objects'));
+    assert(log.url.includes('dataset=TaiwanStockTradingDailyReport'));
+    assert(log.read <= MAX_PROBE_BYTES + 32 * 1024, `read=${log.read}`);
+    assert(log.cancelled);
+    const last = patches[patches.length - 1];
+    assertEquals(last.supported, true);
+    assertEquals(last.last_probe_format, 'parquet');
+    assert(typeof last.probed_at === 'string');
+  },
+));
+
+Deno.test('probe: content-length > 80MB → inconclusive，body 完全未讀', withFetch(
+  (_u, log) => streamResponse(bigParquet(1_000_000), {
+    status: 200,
+    headers: { 'content-length': String(100 * 1024 * 1024) },
+  }, log),
+  async (log) => {
+    const patches: Patch[] = [];
+    const supa = stubSupa(patches, { supported: true, probed_at: '2026-08-10T00:00:00.000Z' });
+    const r = await probeMarketBatchSupport(supa, { force: true });
+    assertEquals(r.outcome, 'inconclusive');
+    // 只允許 stream 自身的 prefetch buffer；不得進入 bounded reader 消費路徑
+    assert(log.read <= 16 * 1024, `body 不得被讀取, read=${log.read}`);
+    const last = patches[patches.length - 1];
+    assertEquals(last.supported, true, 'inconclusive 不得改寫 supported');
+    assertEquals(last.probed_at, '2026-08-10T00:00:00.000Z');
+    assert(String(last.last_probe_error).includes('oversize'));
+  },
+));
+
+Deno.test('probe: 200 JSON signed URL → supported/signed_url_unverified，不輸出 URL、不二次 fetch', withFetch(
+  (_u, log) => streamResponse(
+    textChunks(JSON.stringify({ status: 200, url: 'https://storage.example.com/secret?sig=abc' })),
+    { status: 200 },
+    log,
+  ),
+  async (log) => {
+    const patches: Patch[] = [];
+    const supa = stubSupa(patches);
+    const r = await probeMarketBatchSupport(supa, { force: true });
+    assertEquals(r.outcome, 'supported');
+    const last = patches[patches.length - 1];
+    assertEquals(last.last_probe_format, 'signed_url_unverified');
+    assertEquals(log.calls, 1, '不得跟隨 signed URL');
+    assert(log.read <= MAX_PROBE_BYTES);
+    const dump = JSON.stringify(r) + JSON.stringify(patches);
+    assert(!dump.includes('storage.example.com'), 'URL 不得出現在輸出或 config');
+    assert(!dump.includes('sig=abc'));
+  },
+));
+
+Deno.test('probe: HTTP 401 且 body 含 permission/sponsor → auth_failed/inconclusive，保留前值', withFetch(
+  (_u, log) => streamResponse(
+    textChunks('{"msg":"permission denied, sponsor plan required"}'),
+    { status: 401 },
+    log,
+  ),
   async () => {
     const patches: Patch[] = [];
-    const supa = withRpc(stubSupa(patches, { supported: true, probed_at: '2026-08-10T00:00:00.000Z' }));
+    const supa = stubSupa(patches, { supported: true, probed_at: '2026-08-10T00:00:00.000Z' });
+    const r = await probeMarketBatchSupport(supa, { force: true });
+    assertEquals(r.outcome, 'inconclusive');
+    assertEquals(r.supported, true, 'supported 前值必須保留');
+    const last = patches[patches.length - 1];
+    assertEquals(last.supported, true);
+    assertEquals(last.probed_at, '2026-08-10T00:00:00.000Z', 'probed_at 不得被覆寫');
+    assert(String(last.last_probe_error).includes('auth_failed'));
+  },
+));
+
+Deno.test('probe: HTTP 403 → unsupported_plan', withFetch(
+  (_u, log) => streamResponse(textChunks('forbidden: sponsorpro only'), { status: 403 }, log),
+  async () => {
+    const patches: Patch[] = [];
+    const supa = stubSupa(patches, { supported: true, probed_at: '2026-08-10T00:00:00.000Z' });
     const r = await probeMarketBatchSupport(supa, { force: true });
     assertEquals(r.outcome, 'unsupported');
     assertEquals(r.supported, false);
     const last = patches[patches.length - 1];
     assertEquals(last.supported, false);
-    assert(last.probed_at !== '2026-08-10T00:00:00.000Z');
+    assert(String(last.last_probe_error).includes('unsupported_plan'));
+  },
+));
+
+Deno.test('probe: HTTP 400 參數契約 → unsupported_contract', withFetch(
+  (_u, log) => streamResponse(textChunks('{"msg":"date can not be none"}'), { status: 400 }, log),
+  async () => {
+    const patches: Patch[] = [];
+    const supa = stubSupa(patches);
+    const r = await probeMarketBatchSupport(supa, { force: true });
+    assertEquals(r.outcome, 'unsupported');
+    assert(String(patches[patches.length - 1].last_probe_error).includes('unsupported_contract'));
+  },
+));
+
+for (const [label, init, body] of [
+  ['404', { status: 404 }, 'not found'],
+  ['429', { status: 429 }, 'too many requests'],
+  ['500', { status: 500 }, 'upstream down'],
+  ['bad magic', { status: 200 }, '<html>nope</html>'],
+  ['0 bytes', { status: 200 }, ''],
+] as [string, ResponseInit, string][]) {
+  Deno.test(`probe: ${label} → inconclusive 保留前值`, withFetch(
+    (_u, log) => streamResponse(body ? textChunks(body) : [], init, log),
+    async () => {
+      const patches: Patch[] = [];
+      const supa = stubSupa(patches, { supported: true, probed_at: '2026-08-10T00:00:00.000Z' });
+      const r = await probeMarketBatchSupport(supa, { force: true });
+      assertEquals(r.outcome, 'inconclusive');
+      assertEquals(r.supported, true);
+      const last = patches[patches.length - 1];
+      assertEquals(last.supported, true);
+      assertEquals(last.probed_at, '2026-08-10T00:00:00.000Z');
+    },
+  ));
+}
+
+Deno.test('probe: fetch timeout/abort → inconclusive', async () => {
+  const original = globalThis.fetch;
+  globalThis.fetch = (() => Promise.reject(new DOMException('signal timed out', 'TimeoutError'))) as typeof fetch;
+  try {
+    const patches: Patch[] = [];
+    const supa = stubSupa(patches, { supported: true, probed_at: '2026-08-10T00:00:00.000Z' });
+    const r = await probeMarketBatchSupport(supa, { force: true });
+    assertEquals(r.outcome, 'inconclusive');
+    assertEquals(patches[patches.length - 1].supported, true);
+    assertEquals(patches[patches.length - 1].probed_at, '2026-08-10T00:00:00.000Z');
+  } finally { globalThis.fetch = original; }
+});
+
+// ---------- probe date（交易日曆） ----------
+
+Deno.test('probe date: 國定休市不會被選中（取 tw_trading_days 最後一天）', withFetch(
+  (_u, log) => streamResponse([PAR1], { status: 200 }, log),
+  async () => {
+    const patches: Patch[] = [];
+    // 2026-08-13/14 為休市 → 日曆只回到 08-12
+    const supa = stubSupa(patches, {}, ['2026-08-11', '2026-08-12']);
+    const r = await probeMarketBatchSupport(supa, { force: true });
+    assertEquals(r.probe_date, '2026-08-12');
+    assert(!String(patches[patches.length - 1].last_probe_error ?? '').includes('calendar_fallback'));
+  },
+));
+
+Deno.test('probe date: 日曆查詢失敗 → fallback resolveProbeDate 並標 calendar_fallback', withFetch(
+  (_u, log) => streamResponse([PAR1], { status: 200 }, log),
+  async () => {
+    const patches: Patch[] = [];
+    const supa = stubSupa(patches, {}, null);
+    const r = await probeMarketBatchSupport(supa, { force: true });
+    assertEquals(r.probe_date, resolveProbeDate());
+    assert(String(patches[patches.length - 1].last_probe_error).includes('calendar_fallback'));
+  },
+));
+
+// ---------- top-level shape / idempotency ----------
+
+Deno.test('probe: success response top-level keys 不增不減', withFetch(
+  (_u, log) => streamResponse([PAR1], { status: 200 }, log),
+  async () => {
+    const supa = stubSupa([]);
+    const r = await probeMarketBatchSupport(supa, { force: true });
+    const allowed = new Set(['supported', 'outcome', 'stocks', 'probe_date', 'sample', 'skipped', 'error']);
+    for (const k of Object.keys(r)) assert(allowed.has(k), `unexpected top-level key: ${k}`);
+    assert('supported' in r && 'outcome' in r && 'stocks' in r && 'probe_date' in r);
   },
 ));
 
 Deno.test('probe: 非 force 且 24h 內 → skipped，不打 API', async () => {
   const patches: Patch[] = [];
-  const supa = withRpc(stubSupa(patches, { supported: false, probed_at: new Date().toISOString() }));
-  const r = await probeMarketBatchSupport(supa, {});
-  assert(String(r.skipped).startsWith('probed_'));
-  assertEquals(patches.length, 0);
+  const original = globalThis.fetch;
+  let calls = 0;
+  globalThis.fetch = (() => { calls++; return Promise.resolve(new Response('')); }) as typeof fetch;
+  try {
+    const supa = stubSupa(patches, { supported: false, probed_at: new Date().toISOString() });
+    const r = await probeMarketBatchSupport(supa, {});
+    assert(String(r.skipped).startsWith('probed_'));
+    assertEquals(patches.length, 0);
+    assertEquals(calls, 0);
+  } finally { globalThis.fetch = original; }
+});
+
+Deno.test('RateLimitExhaustedError 型別仍可用（未被 M1 移除）', () => {
+  assert(new RateLimitExhaustedError({ used: 1, limit: 1 }) instanceof Error);
 });
