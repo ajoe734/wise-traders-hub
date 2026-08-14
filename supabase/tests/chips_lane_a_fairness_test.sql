@@ -111,12 +111,12 @@ DO $$
 DECLARE n_before int; n_after int;
         d date := (SELECT max(td) FROM public.tw_trading_days(CURRENT_DATE - 30, CURRENT_DATE) td);
 BEGIN
-  SELECT count(*) INTO n_before FROM public.detect_chip_gap_jobs(d, 20, 100);
+  SELECT count(*) INTO n_before FROM public.detect_chip_gap_jobs(d, 5, 100);
   ASSERT n_before = 0,
          format('case5: all gaps already queued as pending → detect must return 0, got %s', n_before);
 
   UPDATE public.tw_bsr_sync_queue SET status = 'failed';
-  SELECT count(*) INTO n_after FROM public.detect_chip_gap_jobs(d, 20, 100);
+  SELECT count(*) INTO n_after FROM public.detect_chip_gap_jobs(d, 5, 100);
   ASSERT n_after > 0, 'case5: failed jobs must remain visible as candidates';
 END $$;
 
