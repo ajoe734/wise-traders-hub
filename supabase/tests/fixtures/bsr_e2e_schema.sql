@@ -7,7 +7,7 @@ CREATE TYPE public.expert_role AS ENUM ('advisor', 'mentor');
 -- PostgreSQL database dump
 --
 
-\restrict ObjdVmVtf8UAkZuvdTAF0eUAwMfrFthEK0703GVc2vIHVWqdAagKJlIvDM1RE3p
+\restrict Xhxp6Rcc5Uont7dGBikGaLduMxE1vZ6QCUnsuVczZjz5IxLlWANnR3eb6iov3Fc
 
 -- Dumped from database version 17.6
 -- Dumped by pg_dump version 17.9
@@ -1111,5 +1111,5 @@ ALTER TABLE ONLY public.user_roles
 -- PostgreSQL database dump complete
 --
 
-\unrestrict ObjdVmVtf8UAkZuvdTAF0eUAwMfrFthEK0703GVc2vIHVWqdAagKJlIvDM1RE3p
+\unrestrict Xhxp6Rcc5Uont7dGBikGaLduMxE1vZ6QCUnsuVczZjz5IxLlWANnR3eb6iov3Fc
 

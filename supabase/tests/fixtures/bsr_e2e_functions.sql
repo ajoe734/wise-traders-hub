@@ -1019,6 +1019,7 @@ DECLARE
   v_gaps int := 0;
   g record;
   d date;
+  v_rank int;
   v_recover jsonb;
   v_bp jsonb;
   v_quota_recover jsonb;
@@ -1033,6 +1034,24 @@ BEGIN
     SELECT * FROM public.detect_chip_gap_jobs(v_end, p_lookback_days, p_max_stocks)
   LOOP
     v_gaps := v_gaps + 1;
+
+    SELECT CASE
+             WHEN 'checkup_storage' = ANY(u.sources) THEN 1
+             WHEN 'trade_records' = ANY(u.sources) AND EXISTS (
+               SELECT 1 FROM public.trade_records tr
+                WHERE tr.status = 'open'
+                  AND COALESCE(upper(tr.market),'TW') IN ('TW','TWSE','TPEX','')
+                  AND upper(btrim((regexp_match(split_part(tr.instrument,' ',1), '^([0-9A-Z]{4,6})'))[1])) = g.stock_id
+             ) THEN 2
+             ELSE 3
+           END
+      INTO v_rank
+      FROM public.checkup_prefetch_universe() u
+     WHERE u.code = g.stock_id
+     LIMIT 1;
+
+    v_rank := COALESCE(v_rank, 3);
+
     FOR d IN
       SELECT td FROM public.tw_trading_days(v_end - (p_lookback_days - 1), v_end) td
     LOOP
@@ -1042,8 +1061,8 @@ BEGIN
       ) THEN
         INSERT INTO public.tw_bsr_sync_queue
           (stock_id, trade_date, priority, status, next_run_at, enqueued_by, correlation_id, post_close_only)
-        VALUES (g.stock_id, d, CASE WHEN d = v_end THEN 1 ELSE 2 END,
-                'pending', now(), 'chips_prefetch_hourly', gen_random_uuid(), false)
+        VALUES (g.stock_id, d, v_rank,
+                'pending', now(), 'chips_prefetch_hourly:r' || v_rank, gen_random_uuid(), false)
         ON CONFLICT DO NOTHING;
         GET DIAGNOSTICS v_row_ct = ROW_COUNT;
         v_inserted := v_inserted + v_row_ct;
@@ -1053,7 +1072,6 @@ BEGIN
 
   v_recover := public.recover_stale_bsr_queue_jobs();
 
-  -- Build 1：quota-failed 的漸進回收，受 backpressure 硬 cap 控制
   v_bp := public.bsr_recovery_budget(12);
   v_quota_recover := public.recover_quota_failed_bsr_jobs((v_bp->>'budget')::int);
 
@@ -1075,14 +1093,21 @@ CREATE OR REPLACE FUNCTION public.detect_chip_gap_jobs(_target_date date DEFAULT
  STABLE SECURITY DEFINER
  SET search_path TO 'public'
 AS $function$
-  WITH universe AS (
-    SELECT u.code AS symbol FROM public.checkup_prefetch_universe() u WHERE u.supported
+  WITH uni AS (
+    SELECT u.code AS symbol, u.sources FROM public.checkup_prefetch_universe() u WHERE u.supported
+  ),
+  open_tr AS (
+    SELECT DISTINCT upper(btrim((regexp_match(split_part(tr.instrument,' ',1), '^([0-9A-Z]{4,6})'))[1])) AS code
+      FROM public.trade_records tr
+     WHERE tr.status = 'open'
+       AND COALESCE(upper(tr.market),'TW') IN ('TW','TWSE','TPEX','')
+       AND split_part(tr.instrument,' ',1) ~ '^[0-9]'
   ),
   trade_dates AS (
     SELECT td AS trade_date
       FROM public.tw_trading_days(_target_date - (_lookback_days - 1), _target_date) td
   ),
-  expected AS (SELECT u.symbol, td.trade_date FROM universe u CROSS JOIN trade_dates td),
+  expected AS (SELECT u.symbol, td.trade_date FROM uni u CROSS JOIN trade_dates td),
   existing AS (
     SELECT DISTINCT bd.stock_id, bd.trade_date
       FROM public.tw_bsr_daily bd
@@ -1092,14 +1117,31 @@ AS $function$
     SELECT e.symbol, e.trade_date
       FROM expected e
       LEFT JOIN existing ex ON ex.stock_id = e.symbol AND ex.trade_date = e.trade_date
-     WHERE ex.stock_id IS NULL
+      LEFT JOIN public.tw_bsr_sync_queue q
+             ON q.stock_id = e.symbol AND q.trade_date = e.trade_date
+            AND q.status IN ('pending','running')
+     WHERE ex.stock_id IS NULL AND q.id IS NULL
   ),
   gaps AS (
     SELECT m.symbol, MIN(m.trade_date) AS min_date, MAX(m.trade_date) AS max_date, COUNT(*)::integer AS cnt
       FROM missing m GROUP BY m.symbol
+  ),
+  ranked AS (
+    SELECT g.*,
+           CASE
+             WHEN 'checkup_storage' = ANY(u.sources) THEN 1
+             WHEN 'trade_records' = ANY(u.sources) AND EXISTS (SELECT 1 FROM open_tr o WHERE o.code = g.symbol) THEN 2
+             ELSE 3
+           END AS source_rank
+      FROM gaps g JOIN uni u ON u.symbol = g.symbol
   )
-  SELECT g.symbol AS stock_id, g.min_date AS start_date, g.max_date AS end_date, g.cnt AS gap_count
-    FROM gaps g ORDER BY g.cnt DESC LIMIT _max_jobs;
+  SELECT r.symbol AS stock_id, r.min_date AS start_date, r.max_date AS end_date, r.cnt AS gap_count
+    FROM ranked r
+   ORDER BY r.source_rank ASC,
+            (r.max_date = _target_date) DESC,
+            r.cnt DESC,
+            r.symbol ASC
+   LIMIT _max_jobs;
 $function$
 ;
 CREATE OR REPLACE FUNCTION public.tw_trading_days(_from date, _to date)
