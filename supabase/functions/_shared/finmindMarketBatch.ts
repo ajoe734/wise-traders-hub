@@ -135,13 +135,66 @@ function looksPlanRestricted(text: string): boolean {
   return /sponsor|plan|upgrade|permission|not allowed|forbidden|subscription|level/i.test(text);
 }
 
-/** 遮罩 token 尾碼並截斷。 */
-export function maskProbeError(msg: string): string {
-  let out = msg;
+/** 純文字層 sanitizer：token / Bearer / signed URL / 長 token-like 字串。 */
+function sanitizeText(input: string): string {
+  let out = input;
   if (FINMIND_TOKEN) out = out.split(FINMIND_TOKEN).join('***');
-  out = out.replace(/(token=)[^&\s]+/gi, '$1***').replace(/(Bearer\s+)\S+/gi, '$1***');
-  return out.slice(0, 300);
+  out = out
+    .replace(/(Bearer\s+)\S+/gi, '$1***')
+    .replace(/([A-Za-z0-9_-]*token[A-Za-z0-9_-]*\s*[=:]\s*)"?[^"&\s,}]+/gi, '$1***')
+    .replace(/https?:\/\/\S*(?:sig|token|X-Amz|Signature)\S*/gi, '***')
+    // 長 token-like 字串：需同時含字母與數字，避免誤遮罩英文標記（如 unsupported_contract）
+    .replace(/[A-Za-z0-9_-]{20,}/g, (m) => (/[0-9]/.test(m) && /[A-Za-z]/.test(m) ? '***' : m));
+  return out;
 }
+
+const SENSITIVE_KEY_RE = /^(token|access_token|api_key|apikey|authorization|secret|signed_url|url|token_tail)$/i;
+const ALLOWED_KEY_RE = /^(msg|status|code|detail)$/i;
+
+/** 遞迴遮罩 JSON：敏感 key 一律 ***；只保留白名單 key，且白名單值再跑文字 sanitizer。 */
+function sanitizeJson(value: unknown, seen: WeakSet<object>, depth = 0): unknown {
+  if (depth > 6) return '***';
+  if (value === null || typeof value !== 'object') {
+    return typeof value === 'string' ? sanitizeText(value) : value;
+  }
+  const obj = value as object;
+  if (seen.has(obj)) return '***';
+  seen.add(obj);
+  if (Array.isArray(value)) return value.map((v) => sanitizeJson(v, seen, depth + 1));
+  const out: Record<string, unknown> = {};
+  for (const [k, v] of Object.entries(value as Record<string, unknown>)) {
+    if (SENSITIVE_KEY_RE.test(k)) { out[k] = '***'; continue; }
+    if (typeof v === 'object' && v !== null) { out[k] = sanitizeJson(v, seen, depth + 1); continue; }
+    if (ALLOWED_KEY_RE.test(k)) { out[k] = typeof v === 'string' ? sanitizeText(v) : v; continue; }
+    out[k] = '***';
+  }
+  return out;
+}
+
+/**
+ * 統一 upstream 錯誤 sanitizer：JSON 走遞迴遮罩（敏感 key + 白名單），
+ * 非 JSON 走純文字 sanitizer；一律截斷 300 字。
+ */
+export function sanitizeUpstreamError(msg: string): string {
+  const raw = String(msg ?? '');
+  // 嘗試抽出內嵌 JSON 片段（例如 "unsupported_plan:http_400:{...}"）
+  const i = raw.indexOf('{');
+  const j = raw.lastIndexOf('}');
+  if (i >= 0 && j > i) {
+    const prefix = sanitizeText(raw.slice(0, i));
+    try {
+      const parsed = JSON.parse(raw.slice(i, j + 1));
+      return (prefix + JSON.stringify(sanitizeJson(parsed, new WeakSet()))).slice(0, 300);
+    } catch { /* fall through */ }
+  }
+  return sanitizeText(raw).slice(0, 300);
+}
+
+/** @deprecated 用 sanitizeUpstreamError；保留為薄 wrapper 以維持既有匯出。 */
+export function maskProbeError(msg: string): string {
+  return sanitizeUpstreamError(msg);
+}
+
 
 /**
  * 從 response body 最多讀 `limit` bytes 後立即 cancel。
@@ -229,7 +282,7 @@ export async function probeStorageObjectsCapability(probeDate: string): Promise<
       signal: AbortSignal.timeout(90_000),
     });
   } catch (e) {
-    return { outcome: 'inconclusive', error: maskProbeError(`network_or_timeout:${(e as Error)?.message ?? e}`) };
+    return { outcome: 'inconclusive', error: sanitizeUpstreamError(`network_or_timeout:${(e as Error)?.message ?? e}`) };
   }
 
   // 1) HTTP 401 永遠先判 auth_failed（不看 body 字樣）
@@ -251,14 +304,14 @@ export async function probeStorageObjectsCapability(probeDate: string): Promise<
 
   // 2) 403 或 body 明示 plan 限制
   if (res.status === 403 || (res.status >= 400 && looksPlanRestricted(text))) {
-    return { outcome: 'unsupported', supported: false, error: maskProbeError(`unsupported_plan:http_${res.status}:${text}`) };
+    return { outcome: 'unsupported', supported: false, error: sanitizeUpstreamError(`unsupported_plan:http_${res.status}:${text}`) };
   }
   // 3) 400 參數契約
   if (res.status === 400) {
-    return { outcome: 'unsupported', supported: false, error: maskProbeError(`unsupported_contract:http_400:${text}`) };
+    return { outcome: 'unsupported', supported: false, error: sanitizeUpstreamError(`unsupported_contract:http_400:${text}`) };
   }
   if (res.status !== 200 && !(res.status === 206)) {
-    return { outcome: 'inconclusive', error: maskProbeError(`http_${res.status}:${text}`) };
+    return { outcome: 'inconclusive', error: sanitizeUpstreamError(`http_${res.status}:${text}`) };
   }
   if (bytes.byteLength === 0) {
     return { outcome: 'inconclusive', error: 'empty_body_0_bytes' };
@@ -273,11 +326,11 @@ export async function probeStorageObjectsCapability(probeDate: string): Promise<
     const hasUrl = ['url', 'signed_url', 'download_url', 'data'].some((k) => typeof j?.[k] === 'string' && /^https?:\/\//.test(String(j[k])));
     if (hasUrl) return { outcome: 'supported', supported: true, format: 'signed_url_unverified' };
     if (looksPlanRestricted(String(j?.msg ?? ''))) {
-      return { outcome: 'unsupported', supported: false, error: maskProbeError(`unsupported_plan:${String(j?.msg ?? '')}`) };
+      return { outcome: 'unsupported', supported: false, error: sanitizeUpstreamError(`unsupported_plan:${String(j?.msg ?? '')}`) };
     }
-    return { outcome: 'inconclusive', error: maskProbeError(`json_without_url:${text}`) };
+    return { outcome: 'inconclusive', error: sanitizeUpstreamError(`json_without_url:${text}`) };
   } catch {
-    return { outcome: 'inconclusive', error: maskProbeError(`bad_magic_or_body:${text.slice(0, 120)}`) };
+    return { outcome: 'inconclusive', error: sanitizeUpstreamError(`bad_magic_or_body:${text.slice(0, 120)}`) };
   }
 }
 
