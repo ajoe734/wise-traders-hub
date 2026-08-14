@@ -57,8 +57,8 @@ DECLARE d date := (SELECT max(td) FROM public.tw_trading_days(CURRENT_DATE - 30,
         first_code text;
 BEGIN
   -- 冷門股 3017 完全沒有資料（缺很多日）；2330 只缺最新一日
-  INSERT INTO public.tw_bsr_daily (stock_id, trade_date, buy_shares, sell_shares, net_shares)
-  SELECT '2330', td, 0, 0, 0
+  INSERT INTO public.tw_bsr_daily (stock_id, trade_date, broker_id, broker_name, buy_shares, sell_shares, net_shares)
+  SELECT '2330', td, 'B1', 'B1', 0, 0, 0
     FROM public.tw_trading_days(CURRENT_DATE - 30, CURRENT_DATE) td
    WHERE td < d
   ON CONFLICT DO NOTHING;
@@ -157,8 +157,8 @@ BEGIN
               now(), 'fairness_test', gen_random_uuid(), false)
       ON CONFLICT DO NOTHING;
       IF r.stock_id <> '2001' THEN
-        INSERT INTO public.tw_bsr_daily (stock_id, trade_date, buy_shares, sell_shares, net_shares)
-        VALUES (r.stock_id, d, 0, 0, 0) ON CONFLICT DO NOTHING;
+        INSERT INTO public.tw_bsr_daily (stock_id, trade_date, broker_id, broker_name, buy_shares, sell_shares, net_shares)
+        VALUES (r.stock_id, d, 'B1', 'B1', 0, 0, 0) ON CONFLICT DO NOTHING;
       END IF;
     END LOOP;
   END LOOP;
