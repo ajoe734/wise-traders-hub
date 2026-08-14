@@ -1,125 +1,160 @@
-# P6 Decision Memo — Lane A 保鮮 + Probe 安全修補（Plan only）
+# P6-R1 Decision Memo — Lane A 公平性 + Probe 安全修補（Plan only）
 
-T1 已定案：FINMIND_TOKEN 為 sponsor 等級，`storage_objects` bulk 僅限 sponsorpro。C1/T2 終止，不再規劃 parquet ingest。
+T1 定案：token 僅 sponsor，C1/T2 終止。本票不新增 table/control plane/UI，不碰 `enqueue_bsr_backfill`/`app_role`。
 
-## A. 今晚已證實現況（唯讀）
+## 1. Production signatures 與全部 callers（唯讀已證）
 
-### A1 使用者持股 universe
-| 指標 | 值 |
-|---|---|
-| `checkup_storage` key=`pf-holdings-v2` 列數 / 使用者 | 36 列 / 36 users（全部 `jsonb` array） |
-| 陣列非空、真正持有部位的使用者 | **5 users**（其餘 31 users 為空陣列） |
-| 持股項目總數 / distinct codes | 45 items / **42 distinct codes** |
+| function | identity args | RETURNS | 現行 md5(functiondef) |
+|---|---|---|---|
+| `detect_chip_gap_jobs` | `_target_date date, _lookback_days integer, _max_jobs integer` | `TABLE(stock_id text, start_date date, end_date date, gap_count integer)` | `ba725bea0ae8eaa096d8ebddefd9e7b0` |
+| `enqueue_chips_prefetch_gaps` | `p_lookback_days integer, p_max_stocks integer` | `jsonb` | `207377a5e96c9ca54a6ef8b71f461cd1` |
+| `checkup_prefetch_universe` | （無） | `TABLE(code text, supported boolean, reason text, sources text[])` | `cfcff9272446d21ce7494679be1c2c39` |
+| `claim_bsr_queue_jobs`（凍結） | `_batch integer, _max_priority integer` | `SETOF tw_bsr_sync_queue` | `9180cf172f8f5e7be5af7aa789cfe48d` |
 
-修正先前說法：36 是「有 checkup 儲存列」的人數，不是「有持股」的人數。
+`detect_chip_gap_jobs` callers：
+- `supabase/functions/backfill-gap-orchestrator/index.ts:136` — `rpc(_target_date,_lookback_days,_max_jobs)`，讀 `{stock_id,start_date,end_date,gap_count}`
+- `supabase/functions/tw-trading-calendar-catchup/index.ts:94` — 同上，型別 `GapRow`
+- `public.enqueue_chips_prefetch_gaps`（DB 內部 `FOR g IN SELECT * FROM ...`，**用 `SELECT *`，欄位順序敏感**）
+- `supabase/tests/chips_prefetch_universe_test.sql:76`
+- fixtures：`bsr_slice_functions.sql`、`bsr_e2e_functions.sql`、`bsr_slice_expected.tsv`、`scripts/bsr-slice-verify.sh`、`scripts/gen-bsr-e2e-fixture.sh`
+- 型別鏡像：`src/integrations/supabase/types.ts`
 
-42 codes 分兩類：
-- **29 檔四位數普通股**：1314 1513 1711 1717 2303 2308 2313 2330 2344 2543 3017 3042 3189 3231 3443 3481 3491 3529 3617 3702 4583 4958 4979 5271 6180 6239 6770 6862 8086
-- **13 檔六位數權證／非 BSR 標的**：039452 051257 053848 055858 057581 061792 066317 067620 069239 705200 705747 708107 730636
+`enqueue_chips_prefetch_gaps` callers：cron job 106（`SELECT public.enqueue_chips_prefetch_gaps(10, 300);`）、`chips_prefetch_universe_test.sql:94-95,189`。
 
-### A2 逐檔新鮮度（2026-08-14 21:3x 快照）
-| 類別 | 檔數 | `tw_bsr_daily` latest | `tw_chip_fact` latest | queue pending/running |
-|---|---|---|---|---|
-| 四位數普通股 | 29 | **全部 2026-08-14（今日）** | 全部 2026-08-14 | **0** |
-| 六位數權證類 | 13 | 無資料（從未落地） | 無 | 0 |
+**結論**：`detect_chip_gap_jobs` 對外 return columns 與順序**逐字不變**（4 欄、同名同型同序），`source_rank` 只以函式內 CTE 存在並僅參與 `ORDER BY`。Postgres `CREATE OR REPLACE` 亦因此合法（不改 return type）。撤回 P6 的「新增 source_class 欄位」設計。
 
-結論：**Lane A 普通股今日已 fresh，且是在沒有任何人開抽屜的情況下由 server 端完成**。stale saved-eligible = 0。剩下 13 檔屬 BSR 不適用標的（權證），須以 ineligible 明確標示，不能算 stale，也不該持續佔配額。
+## 2. 合法 priority / pool 映射（唯讀已證，不發明 4）
 
-### A3 其他 universe（分開計，不得混稱「使用者持股」）
-`checkup_prefetch_universe()` 定義（已讀 production 定義）由四個來源 UNION：`trade_records`、published `expert_signals`、`checkup_storage(pf-holdings-v2)`、`chips_prefetch_targets(registry)`，並用 `tw_bsr_eligibility(code)` 判 supported。三者互為獨立集合，本輪只把 `pf-holdings-v2` 視為「使用者已保存持股」。
-（受限：psql/read_query 角色無 EXECUTE 權限，無法在唯讀稽核中直接呼叫 `checkup_prefetch_universe()` 取各來源 count；此項標 **UNPROVEN**，改在 ephemeral 以相同定義複算。）
+- `tw_bsr_sync_queue_priority_check`：`CHECK (priority = ANY (ARRAY[1,2,3]))` → **priority 只能是 1/2/3**。
+- `tw-bsr-finmind-sync/index.ts:115` `tierFromPriority`：`<=1 → 1`、`=2 → 2`、其餘 → 3。
+- 同檔 `poolFromTier`（L54）：tier1 → `interactive`、tier2 → `keepwarm`、tier3 → `backfill`。
+- worker cron 實際 `max_priority`：
+  - job 46 `tw-bsr-worker-trading`（`*/10 6-12 * * 1-5`）→ `max_priority: 3`
+  - job 107 `tw-bsr-worker-hourly`（`7 * * * *`, `ignore_window: true`）→ `max_priority: 3`
+  - job 51 `tw-bsr-worker-tier1-catchup`（`*/15 6-12 * * 1-5`）→ `max_priority: 1`
 
-### A4 今晚自然排程證據
-| job | 名稱 | 排程 | 今晚 runid | status |
-|---|---|---|---|---|
-| 106 | chips-prefetch-enqueue-hourly | `2 * * * *` | 533606（13:02 UTC） | succeeded |
-| 107 | tw-bsr-worker-hourly | `7 * * * *` | 533628（13:07 UTC） | succeeded |
-| 53 | tw-bsr-enqueue-holdings-delta | `0,30 7-12 * * 1-5` | 533449（12:30 UTC） | succeeded |
-| 46 / 51 | worker-trading / tier1-catchup | `*/10`、`*/15` 6-12 | 533550 / 533523 | succeeded |
+→ priority 3 由 job 46/107 每小時、盤中每 10 分自然 claim，**不會永不處理**。採用映射：
 
-13:02–13:09 期間 `net._http_response` 無 BSR enqueue/worker 錯誤，`dispatched: []`（該時段已無缺口可派），與 A2 的「今日全 fresh」一致。
+| 來源 | priority | tier | quota pool |
+|---|---|---|---|
+| `checkup_storage` `pf-holdings-v2` 使用者已保存持股 | 1 | 1 | interactive |
+| `trade_records` **status='open'** 的專家部位（見 §4） | 2 | 2 | keepwarm |
+| published `expert_signals`、registry、其餘 universe | 3 | 3 | backfill |
 
-### A5 配額實況（今日）
-| pool | daily_budget | used_today | tokens | 備註 |
-|---|---|---|---|---|
-| interactive | 240 | **240（已用盡）** | 182 | 今日 `daily_exhausted` 風險已成真 |
-| keepwarm | 960（base 480＋boost） | 106 | 236 | 尚有餘裕 |
-| backfill | 600 | 166 | 232 | 尚有餘裕 |
+現行 `enqueue_chips_prefetch_gaps` 的 `CASE WHEN d = v_end THEN 1 ELSE 2 END` 會把冷門股的最新日也塞進 priority 1／interactive，這正是 interactive 被非持股標的吃掉的機制路徑。
 
-42 saved holdings 中僅 29 檔需要 BSR；以近期 worker 實測每股約 4 requests 計，Lane A 全量每日成本約 **116 requests**，遠低於 interactive 240，**容量不是瓶頸**；瓶頸是 ordering 公平性與 interactive 被冷門股回補吃光。
+## 3. 公平分頁（可證明）
 
-## B. 精確根因
+現況（已讀定義）：
+- `detect_chip_gap_jobs` 只比對 `tw_bsr_daily` 缺漏，**完全不看 `tw_bsr_sync_queue`**；最後 `ORDER BY g.cnt DESC LIMIT _max_jobs`。
+- `enqueue_chips_prefetch_gaps` 插入時 `ON CONFLICT DO NOTHING`，對應唯一索引 `tw_bsr_sync_queue_active_uniq (stock_id, trade_date) WHERE status IN ('pending','running','failed','skipped')`。
 
-1. **公平性**：`detect_chip_gap_jobs` 最後一行 `ORDER BY g.cnt DESC LIMIT _max_jobs` — 依缺口數排序。冷門股缺 60 日會排在「持股缺 1 日」之前；一旦 universe 擴張且 `p_max_stocks` 截斷，saved holdings 可能整批被擠出當輪。今日之所以沒出事，是缺口總量小，不是機制保證。
-2. **priority flattening**：`enqueue_chips_prefetch_gaps` 只用 `CASE WHEN d = v_end THEN 1 ELSE 2 END` 決定 priority，**完全不看來源**；`detect_chip_gap_jobs` 的 RETURNS TABLE 也沒有 source 欄位，所以 saved holding 與 registry 冷門股在 queue 中不可區分。
-3. **token 洩漏**：`maskProbeError`（`finmindMarketBatch.ts` L139-144）只處理「完整 token 字串」「`token=`」「`Bearer `」三種形態。上游 400 body 自帶 JSON key `token_tail`（token 尾碼），三條規則都不命中，於是原樣寫進 Edge response、`net._http_response`、`tw_bsr_sync_config.market_batch.last_probe_error`。
-4. **job67**：deterministic `unsupported_plan`，每工作日重探無新資訊。
+→ 缺陷：一檔已 `failed`/`skipped` 的 code 每輪都會被 detect 選中、佔掉 `_max_jobs` 名額，插入卻被 ON CONFLICT 吃掉；當 `_max_jobs` < 待補檔數時，後段永久不被選到。
 
-## C. 建議最小方案（不新增 table / control plane / UI）
+修正（皆在函式體內，contract 不變）：
 
-### C1 安全修補（必做）
-- 在 `finmindMarketBatch.ts` 新增單一 `sanitizeUpstreamError(input)`，取代所有 `maskProbeError` 呼叫點（8 處）：
-  - 先嘗試 bounded JSON parse；遞迴走訪物件，key 名（不分大小寫）符合 `token|access_token|api_key|authorization|secret|signed_url|url` 一律替換為 `***`，只保留白名單 `msg|status|code|detail`。
-  - 非 JSON 走純文字：先以實際 `FINMIND_TOKEN` 全字串替換，再以 token-like regex（`[A-Za-z0-9_\-]{20,}`、`Bearer\s+\S+`、`token\w*\s*[=:]\s*\S+`）遮罩。
-  - 最後統一截斷 300 字。
-  - 只有 sanitized 字串可進 Edge response / `tw_bsr_sync_config` / `console.log`；signed URL 一律不落地。
-- 保留既有 401 precedence 與 bounded reader 行為，不動。
-
-### C2 清除既有落地尾碼
-一筆 migration，只做一次精確 UPDATE：
+`detect_chip_gap_jobs` 內部改為
 ```sql
-UPDATE public.tw_bsr_sync_config
-   SET config = jsonb_set(config, '{last_probe_error}', '"unsupported_plan:sponsor_level"'),
-       version = version + 1, updated_at = now()
- WHERE key = 'market_batch'
-   AND config->>'last_probe_error' LIKE 'unsupported_plan:http_400:%';
+missing AS (
+  SELECT e.symbol, e.trade_date
+    FROM expected e
+    LEFT JOIN existing ex ON ex.stock_id = e.symbol AND ex.trade_date = e.trade_date
+    LEFT JOIN public.tw_bsr_sync_queue q
+           ON q.stock_id = e.symbol AND q.trade_date = e.trade_date
+          AND q.status IN ('pending','running')      -- 已在途 → 本輪不重複佔名額
+   WHERE ex.stock_id IS NULL AND q.id IS NULL
+),
+ranked AS (  -- 內部 CTE，不外露
+  SELECT g.*,
+         CASE WHEN 'checkup_storage' = ANY(u.sources) THEN 1
+              WHEN 'trade_records'   = ANY(u.sources) THEN 2
+              ELSE 3 END AS source_rank
+    FROM gaps g JOIN universe_src u ON u.code = g.symbol
+)
+SELECT r.symbol AS stock_id, r.min_date AS start_date, r.max_date AS end_date, r.cnt AS gap_count
+  FROM ranked r
+ ORDER BY r.source_rank ASC,
+          (r.max_date = _target_date) DESC,   -- latest expected trade date 優先
+          r.cnt DESC,                          -- 其次才是 history gap 深度
+          r.stock_id ASC                       -- 同級 deterministic
+ LIMIT _max_jobs;
 ```
-- 回滾：同形 UPDATE 寫回 `unsupported_plan:http_400`（不含尾碼）之安全摘要；不還原原字串。
-- **保留風險**：`net._http_response` id 244777 與 function edge logs 仍含尾碼。這兩者屬審計/系統表，本票不刪除。`net._http_response` 依既有 retention 自然淘汰（另列觀察項）；如需提前清除，需另開票並取得授權。
+`failed`/`skipped` 仍留在候選內（由 `recover_stale_bsr_queue_jobs` / quota recovery 既有機制處理），但因排在同級末位且已在途者被排除，**單一失敗 code 不會卡住其餘 41 檔**；連續輪次會把剩餘檔數依 deterministic 順序輪完。
 
-### C3 job67 降頻
-單一 `cron.alter_job(67, schedule => '30 13 * * 1')`；jobid/name/command/payload/active/database/username 全不變；其他 cron exact diff = 0。
+`enqueue_chips_prefetch_gaps` 內部：以相同 `checkup_prefetch_universe()` 的 `sources[]` 於函式內 CTE 重新判 rank（**不依賴 detect 新欄位、不新增 helper/table**），priority 直接取 `source_rank`（1/2/3），`enqueued_by` 改為 `chips_prefetch_hourly:r1|r2|r3` 供稽核。
 
-### C4 Lane A 公平性（沿用既有物件）
-- `detect_chip_gap_jobs`：RETURNS TABLE 增加 `source_class smallint`（1 = saved holdings、2 = trade_records、3 = 其他 universe），改以
-  `ORDER BY source_class ASC, (end_date = _target_date) DESC, gap_count DESC, stock_id ASC`
-  取代單一 `cnt DESC`；分級來源以 `checkup_prefetch_universe()` 已回傳的 `sources[]` 直接 join，不新增表。ordering 完全 deterministic。
-- `enqueue_chips_prefetch_gaps`：priority 改為
-  `CASE WHEN source_class = 1 THEN 1 WHEN source_class = 2 THEN 2 ELSE CASE WHEN d = v_end THEN 3 ELSE 4 END END`，
-  並讓 `enqueued_by` 帶上來源（`chips_prefetch_hourly:h1|h2|h3`）以利稽核；`ON CONFLICT DO NOTHING` 冪等語意不變。
-- **反飢餓**：priority 3/4 仍保留既有 recovery/backfill 預算（`bsr_recovery_budget`），不得因 Lane A 優先而永久不執行；每輪至少保留既有 token slot 機制（Build 1f 的 claim 邏輯**凍結不動**）。
-- `trade_records` 定位：`checkup_prefetch_universe` 用其 `instrument` 前綴解析代號，代表專家/使用者實際部位紀錄 → 給 priority 2（次於 saved holdings、先於 registry）。
+## 4. `trade_records` 語意（誠實命名）
 
-### C5 排程整合
-不新增 cron。沿用 job106（每小時 :02 enqueue）＋ job107（每小時 :07 worker）＋ job53 holdings-delta。FinMind 21:00 更新後，21:02 enqueue → 21:07 worker 自然補當日 saved holdings。盤前／盤中若上游回空，維持既有 `finmind_empty` 語意不消耗 attempts 上限之外的配額；不改 quota 表。
+Schema（已讀）：`expert_id`、`signal_id`、`instrument`、`entry_date/exit_date`、`status`（enum `trade_status`: open/closed/stopped）、無 `user_id`。
+→ 這是**專家發訊產生的部位紀錄**，不是使用者持股，且含已平倉 (`closed`/`stopped`) 歷史。現行 `checkup_prefetch_universe` 未過濾 status，把歷史平倉標的一併納入。
 
-### C6 失敗語意（不變）
-quota exhausted → deferred/skipped；failed date → partial；stale running → `recover_stale_bsr_queue_jobs`。worker succeeded ≠ 完成，驗收一律看 saved-eligible freshness。
+決議：`trade_records` 一律 **priority 2 / keepwarm**，命名為「專家在倉部位」；且 rank 2 僅在 `status='open'` 時成立，`closed`/`stopped` 落 rank 3。此判斷在 `enqueue_chips_prefetch_gaps`/`detect_chip_gap_jobs` 的內部 CTE 直接查 `trade_records`，不改 `checkup_prefetch_universe` contract。
 
-## D. Exact diff / frozen / 測試 / 驗收
+## 5. Migration 收斂（單一 transaction）
 
-### 允許變更（僅此）
+一筆 migration，依序：
+1. 清洗 `tw_bsr_sync_config` market_batch 的 `last_probe_error` → `"unsupported_plan:sponsor_level"`（`WHERE key='market_batch' AND config->>'last_probe_error' LIKE 'unsupported_plan:http_400:%'`，`version = version + 1`）。
+2. `cron.alter_job(67, schedule => '30 13 * * 1')`（jobid/name/command/payload/active/database/username 不變）。
+3. `CREATE OR REPLACE FUNCTION public.detect_chip_gap_jobs(...)`（contract 逐字不變）。
+4. `CREATE OR REPLACE FUNCTION public.enqueue_chips_prefetch_gaps(...)`。
+
+四步同一 migration = 同一 transaction，無需拆分（`cron.alter_job` 為一般 SQL 函式呼叫，可在 transaction 內）。Rollback：migration 前先唯讀保存兩支 `pg_get_functiondef` 全文與 md5（見 §1 hash），回滾即以原文 `CREATE OR REPLACE` 還原 + `cron.alter_job(67,'30 13 * * 1-5')` + config 寫回安全摘要。
+
+## 6. Edge sanitizer（收緊）
+
+`supabase/functions/_shared/finmindMarketBatch.ts` 新增單一 `sanitizeUpstreamError(input)`，取代全部 8 個 `maskProbeError` 呼叫點：
+- bounded JSON parse（沿用 64KiB 上限緩衝，不新增讀取）；遞迴走訪 object **與 array**，key 名（case-insensitive）符合 `token|access_token|api_key|authorization|secret|signed_url|url` → 值一律 `***`；只保留白名單 `msg|status|code|detail`。
+- **白名單值仍需二次過濾**：對保留下來的 `msg`/`detail` 文字再跑 token-like/Bearer/signed-URL sanitizer（完整 `FINMIND_TOKEN` 全字串、`Bearer\s+\S+`、`token\w*\s*[=:]\s*\S+`、`https?://\S*(sig|token|X-Amz|Signature)\S*`、`[A-Za-z0-9_\-]{20,}`）。
+- 非 JSON / 解析失敗 / 循環引用 → 直接走純文字 sanitizer。
+- 統一截斷 300 字；只有 sanitized 字串可進 Edge response、`tw_bsr_sync_config`、`console.log`；signed URL 永不落地。
+- 401 precedence 與 bounded reader 行為不變。
+
+既有 `net._http_response`（id 244777）與 edge logs 仍含尾碼：**不刪**，屬審計表，依既有 retention 自然淘汰；本票只精確清洗 config。
+
+## 7. Exact diff 邊界
+
+允許變更：
 - `supabase/functions/_shared/finmindMarketBatch.ts`（sanitizer）
-- `supabase/functions/_shared/finmindMarketBatch_test.ts`（sanitizer cases）
-- migration #1：`tw_bsr_sync_config.market_batch.last_probe_error` 清洗
-- migration #2：`cron.alter_job(67, schedule => '30 13 * * 1')`
-- migration #3：`CREATE OR REPLACE` `detect_chip_gap_jobs` + `enqueue_chips_prefetch_gaps`
-- 對應 ephemeral SQL test 檔
+- `supabase/functions/_shared/finmindMarketBatch_test.ts`
+- 新增 ephemeral SQL test（fairness/priority routing）
+- **一筆** migration（§5 四步）
 
-### 凍結（diff 必須為 0）
-`claim_bsr_queue_jobs`（Build 1f pinned hash）、quota pools/ledger、snapshot fulfillment、`tw-bsr-finmind-sync/index.ts`、所有 UI、`enqueue_bsr_backfill` / `app_role` out-of-scope 缺陷。
+凍結（diff = 0）：`tw-bsr-finmind-sync/index.ts`、`claim_bsr_queue_jobs`（Build 1f pinned hash）、quota pools/ledger/admission、snapshot fulfillment、`checkup_prefetch_universe`、所有 UI、`enqueue_bsr_backfill`/`app_role`。
+非 production：`.lovable/plan.md` 自動 rename/歸檔。
+Edge 只 deploy 一次；migration 只套一次。
 
-### 測試門檻（任何 FAIL 即 STOP）
-1. sanitizer：nested `token_tail`、大小寫變體（`Token_Tail`/`ACCESS_TOKEN`）、signed URL key、純文字 `Bearer xxx`／`token=xxx`、長 token-like 字串、正常 `msg/status` 必須保留、300 字截斷。
-2. ephemeral SQL：持股缺 1 日 vs 冷門股缺 60 日 → 持股先入隊且 priority=1；42 codes > batch limit 時公平分頁、無持股永久漏；priority/pool 對應正確；重跑冪等（inserted=0）；quota exhausted → deferred；partial failed date；stale running recovery。
-3. 完整 M1 / Build 1f scoped regression：`finmindMarketBatch_test.ts`、`snapshotFulfillment_test.ts`、`market_batch_fulfill_e2e_test.sql`、`bsr_metrics_contract_test.sql`、`ensure_bsr_queued_test.sql`、`bsr_claim_token_slot_test.sql`、`finmind_admit_v2_test.sql`、`orchestrator_snapshot_test.sql`、`bsr-claim-equivalence.sh` pinned hashes。
+## 8. 測試門檻（任何 FAIL 即 STOP）
 
-### 自然驗收（不得 manual invoke）
-- Implementation 後只 deploy 一次 Edge、套 migration，之後等下一個自然 job106（:02）→ job107（:07）；錯過 22:02/22:07 就等 23:02/23:07。
-- 證據鏈：cron runid → request_id → `net._http_response` → `tw_bsr_sync_queue`（priority 分佈）→ 29 檔 saved eligible 的 `tw_bsr_daily`/`coverage`。
-- **PASS 條件**：saved eligible stale = 0、13 檔權證明確標 ineligible（非 stale）、interactive pool 未因 Lane A 而 daily_exhausted、其他 cron diff = 0、`last_probe_error` 不含尾碼。
-- Preview：E2E 帳號仍 0 holdings → per-holding Preview **BLOCKED**，不建立假持股；只做 authenticated page 0-enqueue 與 server-side 36 users / 42 codes 兩段。
+Sanitizer（Deno）：nested `token_tail`、array 內含敏感 key、mixed case（`Token_Tail`/`ACCESS_TOKEN`/`Signed_URL`）、`msg` 內含 signed URL、`msg` 內含 `Bearer xxx`、`msg` 內含 `token=xxx`、長 token-like 字串、循環引用物件、非 JSON 純文字、正常 `msg/status` 保留、300 字截斷。
 
-## 待確認事項
-- `detect_chip_gap_jobs` / `enqueue_chips_prefetch_gaps` 目前皆為 `CREATE OR REPLACE` 可回滾（保留現行定義全文作 rollback SQL）。
-- 各來源 distinct code counts 需在 ephemeral 以相同定義複算（production 角色無 EXECUTE 權限），此數字在實作票中補齊，不得沿用推測值。
+Ephemeral SQL：
+- `detect_chip_gap_jobs` return columns/順序/型別逐字不變（`information_schema` 斷言）。
+- 持股缺 1 日 vs 冷門股缺 60 日 → 持股先返回、priority=1。
+- 42 saved codes、`_max_jobs = 10`：連續 5 輪等價呼叫（每輪把上輪入隊者標為 done）後，42 檔全部被選到過；其中 1 檔設為 `failed` 不得阻塞其餘 41 檔。
+- 已 `pending`/`running` 的 (stock, date) 不再佔用 `_max_jobs` 名額。
+- priority ↔ pool 映射：1→interactive、2→keepwarm、3→backfill，且皆在 `CHECK (1,2,3)` 內。
+- `trade_records` `closed` 標的落 rank 3、`open` 落 rank 2。
+- 冪等：連兩次 `enqueue_chips_prefetch_gaps` 第二次 inserted=0。
+- quota exhausted → deferred/skipped；failed date → partial；stale running recovery。
+
+完整 scoped regression：`finmindMarketBatch_test.ts`、`snapshotFulfillment_test.ts`、`chips_prefetch_universe_test.sql`、`market_batch_fulfill_e2e_test.sql`、`bsr_metrics_contract_test.sql`、`ensure_bsr_queued_test.sql`、`bsr_claim_token_slot_test.sql`、`finmind_admit_v2_test.sql`、`orchestrator_snapshot_test.sql`、`bsr-claim-equivalence.sh` pinned hashes、`bsr-slice-verify.sh`（slice fixture 含 detect 定義，需確認 hash 是否納入 pinned 範圍；若納入，同步更新 fixture 並在票中逐字列出差異）。
+
+## 9. 修正後的自然驗收門檻
+
+Implementation 後不 manual invoke。等下一個自然 job106（:02）→ job107（:07）。
+
+**Production 只證明**：
+1. 29 檔 saved eligible 普通股 stale = 0；
+2. 13 檔六位數權證類明確標 ineligible（不計 stale）；
+3. job106/107 runid → request_id → HTTP 200，無新增錯誤、無非預期寫入；
+4. `tw_bsr_sync_config.market_batch.last_probe_error` 不含尾碼；
+5. job67 schedule = `30 13 * * 1`，其他 cron exact diff = 0；
+6. quota：以 **implementation timestamp 之後** 的 `finmind_quota_ledger` delta 與 `last_reject_*` 判定 —— 不得出現由 Lane A 新增造成的 `daily_exhausted`。今日 interactive `used_today=240` 為既成事實，不列入門檻；次日 reset 後再觀察正常行為。
+7. **routing branch**：若自然輪次無缺口（`dispatched: []`），標 **N/A — not observed**，不得以空派送冒充 PASS；priority routing 一律以 offline/ephemeral 證明。
+
+**Preview**：E2E 帳號 0 holdings → per-holding Preview **BLOCKED**，不建立假持股。可分開做 (a) authenticated page 0-enqueue，(b) server-side 5 users（36 列中僅 5 位有非空持股）/ 42 codes 的 freshness 稽核。
+
+## 10. 待補（實作票內完成，不得沿用推測）
+
+- 各來源 distinct code counts 需在 ephemeral 用相同定義複算（production 角色無 `EXECUTE` 權限，無法直接呼叫 `checkup_prefetch_universe()`）。
+- `bsr_slice_expected.tsv` / `bsr_slice_functions.sql` 是否含 `detect_chip_gap_jobs` 定義的 pinned hash，需先確認再決定 fixture 更新範圍。
