@@ -281,7 +281,7 @@ export async function probeStorageObjectsCapability(probeDate: string): Promise<
       signal: AbortSignal.timeout(90_000),
     });
   } catch (e) {
-    return { outcome: 'inconclusive', error: maskProbeError(`network_or_timeout:${(e as Error)?.message ?? e}`) };
+    return { outcome: 'inconclusive', error: sanitizeUpstreamError(`network_or_timeout:${(e as Error)?.message ?? e}`) };
   }
 
   // 1) HTTP 401 永遠先判 auth_failed（不看 body 字樣）
@@ -303,14 +303,14 @@ export async function probeStorageObjectsCapability(probeDate: string): Promise<
 
   // 2) 403 或 body 明示 plan 限制
   if (res.status === 403 || (res.status >= 400 && looksPlanRestricted(text))) {
-    return { outcome: 'unsupported', supported: false, error: maskProbeError(`unsupported_plan:http_${res.status}:${text}`) };
+    return { outcome: 'unsupported', supported: false, error: sanitizeUpstreamError(`unsupported_plan:http_${res.status}:${text}`) };
   }
   // 3) 400 參數契約
   if (res.status === 400) {
-    return { outcome: 'unsupported', supported: false, error: maskProbeError(`unsupported_contract:http_400:${text}`) };
+    return { outcome: 'unsupported', supported: false, error: sanitizeUpstreamError(`unsupported_contract:http_400:${text}`) };
   }
   if (res.status !== 200 && !(res.status === 206)) {
-    return { outcome: 'inconclusive', error: maskProbeError(`http_${res.status}:${text}`) };
+    return { outcome: 'inconclusive', error: sanitizeUpstreamError(`http_${res.status}:${text}`) };
   }
   if (bytes.byteLength === 0) {
     return { outcome: 'inconclusive', error: 'empty_body_0_bytes' };
@@ -325,11 +325,11 @@ export async function probeStorageObjectsCapability(probeDate: string): Promise<
     const hasUrl = ['url', 'signed_url', 'download_url', 'data'].some((k) => typeof j?.[k] === 'string' && /^https?:\/\//.test(String(j[k])));
     if (hasUrl) return { outcome: 'supported', supported: true, format: 'signed_url_unverified' };
     if (looksPlanRestricted(String(j?.msg ?? ''))) {
-      return { outcome: 'unsupported', supported: false, error: maskProbeError(`unsupported_plan:${String(j?.msg ?? '')}`) };
+      return { outcome: 'unsupported', supported: false, error: sanitizeUpstreamError(`unsupported_plan:${String(j?.msg ?? '')}`) };
     }
-    return { outcome: 'inconclusive', error: maskProbeError(`json_without_url:${text}`) };
+    return { outcome: 'inconclusive', error: sanitizeUpstreamError(`json_without_url:${text}`) };
   } catch {
-    return { outcome: 'inconclusive', error: maskProbeError(`bad_magic_or_body:${text.slice(0, 120)}`) };
+    return { outcome: 'inconclusive', error: sanitizeUpstreamError(`bad_magic_or_body:${text.slice(0, 120)}`) };
   }
 }
 
