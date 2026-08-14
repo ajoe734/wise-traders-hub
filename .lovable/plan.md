@@ -8,7 +8,11 @@
 
 - `GET https://api.finmindtrade.com/api/v4/storage_objects?dataset=TaiwanStockTradingDailyReport&date=<latest eligible trading day>`
 - Header：`Authorization: Bearer <FINMIND_TOKEN>`（token 不入 log、不入 response、不入 DB）
-- date：沿用既有 resolver `_shared/tradingDate.ts` 的 `rollBackToWeekday(taipeiTodayIso)`（週六→週五、週日→週五）。21:30 執行時當日資料已於官方 21:00 更新，故週五 21:30 自然抓到週五；**週末不新增抓取**（cron 只排 1-5）。若該日資料尚未產生（404 / 0 bytes）→ `inconclusive`，**不得判 unsupported**。
+- date（**修正**）：既有 `resolveProbeDate()`（`_shared/finmindMarketBatch.ts:104–112`）簽名為 `resolveProbeDate(base: Date = now - 3d)`，**不吃 supa**，內部只用 `getUTCDay()` 把週六→週五、週日→週五，**完全不認台股國定休市**，且固定往前 3 天（N1 的 `probe_date=2026-08-11` 就是 08-14 減 3 天）。因此不可沿用。
+  修正方式（不新建 resolver/table）：改為讀既有 DB 交易日曆 —— `public.tw_trading_days(_from,_to)`（`STABLE SECURITY DEFINER`，內部 `EXTRACT(DOW) NOT IN (0,6)` 且 `NOT EXISTS tw_market_holidays`），以最小唯讀查詢取
+  `select max(td) from public.tw_trading_days(current_date - 10, (now() at time zone 'Asia/Taipei')::date) td`，即 **<= Taipei today 的 latest actual trading date**（自動排除國定休市）。此呼叫模式與 `enqueue_chips_prefetch_gaps` 既有寫法一致。
+  `resolveProbeDate()` 本身**不刪不改**（其他呼叫點與既有測試維持），probe 改為：DB 查詢成功用 DB 值；查詢失敗才 fallback 既有 `resolveProbeDate()` 並在 `last_probe_error` 標 `calendar_fallback`。
+  21:30 執行時官方（21:00）已更新當日資料；週末不排程；若該日尚未產出（404 / 0 bytes）→ `inconclusive`，不得判 unsupported。
 
 ## 2. 安全讀取（硬性）
 
@@ -17,19 +21,21 @@
 3. 缺 `content-length` 或不可信：只從 `response.body.getReader()` 逐塊累積，**上限 64 KiB**；湊滿前 4 bytes 判 `PAR1` 後立即 `reader.cancel()` + abort。
 4. 禁止 `response.arrayBuffer()` / `res.text()` 整檔；**不驗 tail magic**（需整檔，違反本票）。
 5. `Range: bytes=0-65535` 可送，但不假設上游遵守 —— 一律用 (3) 的 64 KiB 上限自保。
+6. **JSON / 錯誤 body 一樣受 64 KiB 上限**（**修正**）：signed-URL JSON 與所有錯誤訊息都只從同一個 bounded reader 取前 ≤ 64 KiB，再 `TextDecoder` 解碼、`JSON.parse`（parse 失敗即當純文字），解析後立即 cancel。**任何情況都不得呼叫 `res.text()` / `res.json()`**（兩者皆無上限）。
 
-## 3. 判定表（tri-state）
+## 3. 判定表（tri-state；**precedence 由上而下，先看 HTTP status**）
 
-| 觀察 | outcome | 寫入 |
-|---|---|---|
-| 200 且前 4 bytes = `PAR1` | `supported` | `supported=true`, `probed_at=now`, `format='parquet'` |
-| 200 且 JSON 含 signed URL 欄位 | `supported` | `supported=true`, `format='signed_url_unverified'`；**URL 不記錄、不跟隨**，T2 前不 ingest |
-| 403，或 body 含 sponsor/plan/upgrade/permission | `unsupported_plan` | `supported=false`, `probed_at=now`，遮罩後 msg |
-| 400 參數契約錯 | `unsupported_contract` | `supported=false`，遮罩後 msg |
-| **401** | `inconclusive`（`auth_failed`） | **保留前值**，`last_probe_error='auth_failed:…'`，需告警；**絕不寫 supported=false** |
-| 404 / date not ready / 0 bytes / 429 / 5xx / timeout / bad magic / oversize | `inconclusive` | 保留 `supported` 與 `probed_at` 前值，只更新 `last_probe_outcome/at/error` |
+| 順位 | 觀察 | outcome | 寫入 |
+|---|---|---|---|
+| 1 | **HTTP 401**（無論 body 是否含 permission/plan/sponsor 字樣） | `inconclusive`（`auth_failed`） | **保留 `supported`／`probed_at` 前值**，只寫 `last_probe_outcome/at/error='auth_failed:…'`，需告警；**永不寫 supported=false** |
+| 2 | HTTP 403，或 body 明示 sponsor/plan/upgrade/permission | `unsupported_plan` | `supported=false`, `probed_at=now`，遮罩後 msg |
+| 3 | HTTP 400 參數契約錯 | `unsupported_contract` | `supported=false`，遮罩後 msg |
+| 4 | 200 且前 4 bytes = `PAR1` | `supported` | `supported=true`, `probed_at=now`, `format='parquet'` |
+| 5 | 200 且 bounded JSON 含 signed URL 欄位 | `supported` | `supported=true`, `format='signed_url_unverified'`；**URL 不記錄、不跟隨**，T2 前不 ingest |
+| 6 | 404 / date not ready / 0 bytes / 429 / 5xx / timeout / bad magic / oversize | `inconclusive` | 保留 `supported` 與 `probed_at` 前值，只更新 `last_probe_outcome/at/error` |
 
-所有 error 字串一律遮罩 token 尾碼後截斷 300 字。
+實作順序即上表順序：`if (status === 401) → auth_failed` 必須是第一個分支，body 字樣比對只能在 401 分支**之後**執行。所有 error 字串一律遮罩 token 尾碼後截斷 300 字。
+
 
 ## 4. 精確 diff 邊界
 
