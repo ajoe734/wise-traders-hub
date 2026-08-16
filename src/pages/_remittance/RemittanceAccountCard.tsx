@@ -62,7 +62,7 @@ export function RemittanceAccountCard({ amount, orderId, className }: Props) {
         {isLoading ? (
           <p className="text-sm text-muted-foreground">載入中…</p>
         ) : !hasBank ? (
-          <p className="text-sm text-muted-foreground">收款帳號尚未設定，請聯絡客服。</p>
+          <p className="text-sm text-muted-foreground">無法顯示收款帳號，請先登入；若已登入仍看不到，請聯絡客服。</p>
         ) : (
           <div className="space-y-2 text-sm">
             <Row label="銀行" value={`${bank!.bank_name || "—"}${bank!.bank_code ? `（${bank!.bank_code}）` : ""}`} />
