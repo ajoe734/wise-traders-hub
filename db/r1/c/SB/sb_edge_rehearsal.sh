@@ -9,11 +9,13 @@
 # =====================================================================
 set -Eeuo pipefail
 ROOT=$(cd "$(dirname "$0")/../../../.." && pwd); cd "$ROOT"
-NAME=${1:-B10}; PORT=${2:-55901}; OUT=${3:-/tmp/sb-$NAME}
+NAME=${1:-B12}; PORT=${2:-55901}; OUT=${3:-/tmp/sb-$NAME}
 BK=db/r1/c/S0/backup; DIR=/tmp/sb$NAME
 PGRST_PORT=$((PORT + 1)); PROXY_PORT=$((PORT + 2)); MOCK_PORT=$((PORT + 3))
-WORKER_PORT=$((PORT + 4)); ADMIN_PORT=$((PORT + 5))
+WORKER_PORT=$((PORT + 4)); ADMIN_PORT=$((PORT + 5)); AUTH_PORT=$((PORT + 6))
 SECRET='clone-only-rehearsal-jwt-secret-0123456789abcdef'
+GOTRUE_BIN=${GOTRUE_BIN:-/tmp/gotrue-sb/auth}
+
 RUNID="$NAME-$(date -u +%Y%m%dT%H%M%SZ)-$$"
 START=$(date -u +%FT%T.%3NZ)
 mkdir -p "$OUT"; LOG="$OUT/$NAME.log"; : >"$LOG"
