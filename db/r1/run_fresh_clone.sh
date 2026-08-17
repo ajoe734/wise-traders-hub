@@ -10,6 +10,8 @@ export PGDATABASE_ORIG=${PGDATABASE:-postgres}
 
 echo "== [0] reset $ROOT (port $PORT) =="
 pg_ctl -D "$PGDATA" -m immediate stop >/dev/null 2>&1 || true
+pkill -f "postgres.*-p $PORT" >/dev/null 2>&1 || true
+sleep 1
 rm -rf "$ROOT"; mkdir -p "$PGDATA" "$SOCK"
 
 echo "== [1] initdb =="
