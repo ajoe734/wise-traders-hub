@@ -30,7 +30,7 @@ cleanup(){
   local c=$?; trap - EXIT ERR; set +e
   for p in "${PIDS[@]:-}"; do [ -n "$p" ] && kill -9 "$p" >/dev/null 2>&1; done
   [ -d "$DIR/pg" ] && $ASU "$PGBIN/pg_ctl" -D "$DIR/pg" -m immediate -w stop >/dev/null 2>&1
-  mkdir -p "$OUT/artifacts"; cp "$DIR"/*.txt "$DIR"/*.log "$DIR"/*.out "$DIR"/*.jsonl "$OUT/artifacts/" 2>/dev/null
+  mkdir -p "$OUT/artifacts"; cp "$DIR"/*.txt "$DIR"/*.log "$DIR"/*.out "$DIR"/*.jsonl "$DIR"/*.json "$OUT/artifacts/" 2>/dev/null
   rm -rf "$DIR"
   local BG; BG=$(pgrep -f "port=$PORT|$PGRST_PORT|$WORKER_PORT" 2>/dev/null | wc -l)
   [ "$SUMMARY" = 1 ] || { FAILS=$((FAILS+1)); echo "!! NO EDGE SUMMARY — aborted at stage=$STAGE exit=$c (FAIL, not skip)"; }
