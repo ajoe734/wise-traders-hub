@@ -453,7 +453,35 @@ BEGIN
                v_state = '00000', coalesce(v_state,'') || ' ' || coalesce(v_msg,''));
 END $BODY$;
 
+-- ============================================================ apply mutation
+-- T-P96b proves the guard; this proves the WORK. The company_admin call must
+-- both return 00000 AND actually flip the proposal to `applied` with a recorded
+-- apply_result, inside a subtransaction that is rolled back.
+DO $BODY$
+DECLARE v_id uuid := (SELECT v FROM t.acl_fixture WHERE k='apply_proposal');
+        v_admin uuid := (SELECT v FROM t.acl_actor WHERE k='admin');
+        v_user  uuid := (SELECT v FROM t.acl_actor WHERE k='user');
+        v_state text;
+BEGIN
+  v_state := t.acl_call_probe(
+    format($q$SELECT public.admin_apply_fix_proposal(%L::uuid, true)$q$, v_id),
+    v_admin,
+    format($q$SELECT EXISTS(SELECT 1 FROM public.holdings_fix_proposals
+                             WHERE id=%L::uuid AND status='applied'
+                               AND apply_result IS NOT NULL)$q$, v_id));
+  PERFORM t.ok('T-P96b-mut admin_apply_fix_proposal applies the proposal then rolls back',
+               v_state = '00000 mutation_observed', v_state);
+  PERFORM t.ok('T-P96b-mut fixture proposal is still pending after rollback',
+               EXISTS(SELECT 1 FROM public.holdings_fix_proposals
+                       WHERE id=v_id AND status='pending'));
+  v_state := t.acl_call(
+    format($q$SELECT public.admin_apply_fix_proposal(%L::uuid, true)$q$, v_id), v_user);
+  PERFORM t.ok('T-P96b-mut ordinary authenticated is still refused on the same legal proposal',
+               v_state LIKE '42501%', v_state);
+END $BODY$;
+
 -- ============================================================ contract
+
 DO $BODY$
 DECLARE v_a int; v_b int; v_all int;
 BEGIN
