@@ -70,8 +70,11 @@ FOR r IN SELECT * FROM (VALUES
     -- the identity-bound wrapper": PUBLIC closed, wrapper body gated by
     -- acl_caller_may_read_identity, ungated *_raw twin unreachable by anon.
     SELECT p.prosrc INTO v_src FROM pg_proc p WHERE p.oid = v_oid;
-    v_rawoid := to_regprocedure(
-      regexp_replace(r.sig, '^([^(]+)[(]', '\1_raw(') );
+    SELECT p.oid INTO v_rawoid
+      FROM pg_proc p JOIN pg_namespace n ON n.oid = p.pronamespace
+     WHERE n.nspname = 'public'
+       AND p.proname = regexp_replace(split_part(r.sig, '(', 1), '^public[.]', '') || '_raw'
+     LIMIT 1;
     PERFORM t.ok(r.test_id || 'n anon reaches only the identity-bound wrapper: ' || r.sig,
                  (NOT v_pub)
                  AND v_anon
