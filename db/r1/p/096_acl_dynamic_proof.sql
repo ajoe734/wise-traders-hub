@@ -88,9 +88,9 @@ BEGIN
   IF NOT EXISTS (SELECT 1 FROM public.trade_records tr
                   WHERE tr.expert_id = v_exp AND tr.instrument = 'ZZZZ'
                     AND tr.status = 'open'::public.trade_status) THEN
-    INSERT INTO public.trade_records(expert_id, symbol, instrument, market, quantity,
+    INSERT INTO public.trade_records(expert_id, instrument, market, currency, quantity,
       quantity_unit, entry_price, status, entry_date)
-    VALUES (v_exp, 'ZZZZ', 'ZZZZ', 'TW', 2000, 'shares', 100, 'open'::public.trade_status, now());
+    VALUES (v_exp, 'ZZZZ', 'TW', 'TWD', 2000, '股', 100, 'open'::public.trade_status, now());
   END IF;
   INSERT INTO public.holdings_fix_proposals(
     id, drift_category, expert_id, expert_slug, expert_name, symbol, instrument,
