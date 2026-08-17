@@ -145,26 +145,11 @@ DECLARE
   v_asof date := coalesce(p_as_of, (pg_catalog.now())::date);
   v_cut timestamptz := pg_catalog.now();
   r record; v_prev_eq numeric;
-  v_withheld int := 0; v_embargoed int := 0; v_unadjudicated int := 0;
+  v_withheld int := 0; v_embargoed int := 0;
 BEGIN
   PERFORM pg_catalog.pg_advisory_xact_lock(
     pg_catalog.hashtextextended('proj:'||p_expert::text, 0));
   v_ver := pg_catalog.nextval('app_ledger.projection_version_seq');
-
-  -- G5: restated basis is refused while any key of this expert is unadjudicated
-  SELECT pg_catalog.count(*) INTO v_unadjudicated
-    FROM app_ledger.replay_manifest_key m
-   WHERE m.review_status = 'manual_review'
-     AND m.key IN (SELECT app_ledger.manifest_key(p_expert, t.market, t.instrument)
-                     FROM public.trade_records t WHERE t.expert_id = p_expert
-                   UNION
-                   SELECT app_ledger.manifest_key(p_expert, e.market, e.instrument)
-                     FROM app_ledger.economic_effect e WHERE e.expert_id = p_expert
-                      AND e.instrument IS NOT NULL);
-  IF p_basis = 'restated' AND v_unadjudicated > 0 THEN
-    RAISE EXCEPTION 'restated_basis_blocked_unadjudicated_drift: % keys', v_unadjudicated
-      USING ERRCODE = 'P0001';
-  END IF;
 
   -- how many effects of this expert exist but are still embargoed
   SELECT pg_catalog.count(*) INTO v_embargoed
@@ -175,7 +160,7 @@ BEGIN
   ------------------------------------------------------------------ candidate positions
   CREATE TEMP TABLE IF NOT EXISTS pp_cand(
     instrument_key text, instrument text, market text, currency text,
-    quantity numeric, cost_value numeric, origin text) ON COMMIT DROP;
+    quantity numeric, cost_value numeric, qty_unit text, origin text) ON COMMIT DROP;
   DELETE FROM pg_temp.pp_cand;
 
   -- (a) effect-derived, embargo filtered
@@ -183,7 +168,8 @@ BEGIN
   SELECT m.instrument_key,
          pg_catalog.max(coalesce(e.instrument, m.instrument_key)),
          pg_catalog.max(m.market), m.currency,
-         pg_catalog.sum(m.qty_delta), pg_catalog.sum(m.cost_delta), 'effect'
+         pg_catalog.sum(m.qty_delta), pg_catalog.sum(m.cost_delta),
+         pg_catalog.max(e.qty_unit), 'effect'
     FROM app_ledger.effect_projection_mutation m
     JOIN app_ledger.economic_effect e ON e.event_id = m.event_id
    WHERE m.expert_id = p_expert AND m.row_role = 'open_position'
@@ -196,7 +182,8 @@ BEGIN
   -- (b) legacy rows with no canonical effect behind them
   INSERT INTO pg_temp.pp_cand
   SELECT t.instrument_key, t.instrument, t.market, t.currency,
-         pg_catalog.sum(t.quantity), pg_catalog.sum(t.quantity*t.entry_price), 'legacy'
+         pg_catalog.sum(t.quantity), pg_catalog.sum(t.quantity*t.entry_price),
+         coalesce(pg_catalog.max(t.quantity_unit),'share'), 'legacy'
     FROM public.trade_records t
    WHERE t.expert_id = p_expert AND t.status = 'open' AND t.quantity > 0
      AND NOT EXISTS (SELECT 1 FROM app_ledger.effect_projection_mutation m
@@ -216,13 +203,19 @@ BEGIN
   DELETE FROM pg_temp.pp_cand c
    WHERE app_ledger.manifest_disposition(p_expert, c.market, c.instrument) = 'withheld_incomplete';
 
+  -- G5: a restated series may not be produced while drift is unadjudicated
+  IF p_basis = 'restated' AND v_withheld > 0 THEN
+    RAISE EXCEPTION 'restated_basis_blocked_unadjudicated_drift: % keys', v_withheld
+      USING ERRCODE = 'P0001';
+  END IF;
+
   ------------------------------------------------------------------ positions
   INSERT INTO public.public_position_projection(
     projection_version, expert_id, instrument_key, instrument, market, currency,
-    quantity, avg_cost, cost_value, valuation_price, price_as_of, price_source,
+    quantity, quantity_unit, avg_cost, cost_value, valuation_price, price_as_of, price_source,
     valuation_status, market_value)
   SELECT v_ver, p_expert, c.instrument_key, c.instrument, c.market, c.currency,
-         c.quantity::int,
+         c.quantity::int, coalesce(c.qty_unit,'share'),
          CASE WHEN c.quantity = 0 THEN 0 ELSE c.cost_value / c.quantity END,
          c.cost_value, v.price, v.price_as_of,
          CASE WHEN v.price IS NULL THEN NULL ELSE 'daily_snapshot' END,

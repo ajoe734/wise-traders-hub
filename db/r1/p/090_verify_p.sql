@@ -139,7 +139,10 @@ DO $$ DECLARE v_ver bigint; n int; BEGIN
   v_ver := app_ledger.canonical_publish((SELECT v FROM tp.ids WHERE k='expP'));
   SELECT coalesce(sum(quantity),0) INTO n FROM public.public_position_active
    WHERE expert_id=(SELECT v FROM tp.ids WHERE k='expP');
-  PERFORM t.eq('T-P43 released effect becomes visible (3 lots = 3000 shares)', n, 3000);
+  PERFORM t.eq('T-P43 released effect becomes visible (3 lots)', n, 3);
+  PERFORM t.eq('T-P43b the projection carries the real quantity unit',
+    (SELECT quantity_unit FROM public.public_position_active
+      WHERE expert_id=(SELECT v FROM tp.ids WHERE k='expP') LIMIT 1), '張');
   PERFORM t.eq('T-P44 no embargoed effect left',
     (SELECT embargoed_count FROM public.public_projection_version
       WHERE projection_version=v_ver), 0);
@@ -150,7 +153,7 @@ DO $$ DECLARE n int; BEGIN
   PERFORM tp.sig((SELECT v FROM tp.ids WHERE k='sigE2'), 'buy', 2, 400, 'pending', '2317');
 END $$;
 
-SET LOCAL ROLE anon;
+SET ROLE anon;
 DO $$ DECLARE n int; BEGIN
   SELECT count(*) INTO n FROM public.expert_signals
    WHERE id=(SELECT v FROM tp.ids WHERE k='sigE2');
@@ -159,19 +162,19 @@ END $$;
 RESET ROLE;
 
 SELECT t.expect_error('T-P46 anon cannot read the versioned position table',
-  $$SET LOCAL ROLE anon; SELECT count(*) FROM public.public_position_projection$$,
+  $$SET ROLE anon; SELECT count(*) FROM public.public_position_projection$$,
   'permission denied', '42501');
 SELECT t.expect_error('T-P47 anon cannot read the versioned NAV table',
-  $$SET LOCAL ROLE anon; SELECT count(*) FROM public.public_nav_daily$$,
+  $$SET ROLE anon; SELECT count(*) FROM public.public_nav_daily$$,
   'permission denied', '42501');
 SELECT t.expect_error('T-P48 anon cannot read the withheld ledger',
-  $$SET LOCAL ROLE anon; SELECT count(*) FROM public.public_projection_withheld$$,
+  $$SET ROLE anon; SELECT count(*) FROM public.public_projection_withheld$$,
   'permission denied', '42501');
 SELECT t.expect_error('T-P49 anon cannot reach app_ledger.economic_effect',
-  $$SET LOCAL ROLE anon; SELECT count(*) FROM app_ledger.economic_effect$$,
+  $$SET ROLE anon; SELECT count(*) FROM app_ledger.economic_effect$$,
   'permission denied', '42501');
 SELECT t.expect_error('T-P50 anon cannot read raw trade_records',
-  $$SET LOCAL ROLE anon; SELECT count(*) FROM public.trade_records$$,
+  $$SET ROLE anon; SELECT count(*) FROM public.trade_records$$,
   'permission denied', '42501');
 SELECT t.expect_error('T-P51 anon cannot execute the publish builder',
   $$SET LOCAL ROLE anon;
