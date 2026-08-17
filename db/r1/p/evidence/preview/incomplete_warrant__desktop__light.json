@@ -3,12 +3,10 @@
   "viewport": "1280x900",
   "theme": "light",
   "screenshot": "db/r1/p/evidence/preview/incomplete_warrant__desktop__light.png",
-  "consoleErrors": [
-    "Failed to load resource: the server responded with a status of 404 ()"
-  ],
+  "consoleErrors": [],
   "injectedTransportErrors": [],
   "pageErrors": [],
   "noticeCount": 1,
   "placeholderCount": 3,
-  "bodyChars": 314
+  "bodyChars": 327
 }
