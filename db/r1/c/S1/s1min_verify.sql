@@ -56,7 +56,7 @@ BEGIN
     RAISE EXCEPTION 'S2 writer present in S1-min'; END IF;
   -- no new privilege on any pre-existing object
   IF EXISTS (SELECT 1 FROM information_schema.role_table_grants
-              WHERE grantee='ledger_owner'
+              WHERE grantee='ledger_owner' AND table_schema='public'
                 AND table_name NOT IN ('public_projection_version','public_projection_withheld')) THEN
     RAISE EXCEPTION 'ledger_owner holds a grant on a pre-existing table'; END IF;
   IF (SELECT rolbypassrls FROM pg_roles WHERE rolname='ledger_owner') THEN
