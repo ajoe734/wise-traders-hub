@@ -701,8 +701,22 @@ export default function ChipsSection({ WB, stockCode }: { WB: any; stockCode: st
         <ChipsTrendChart WB={WB} data={data} />
       </div>
 
-
+      {/* 資料來源標示：三大法人與分點資料的官方來源是 TWSE（上市）與 TPEx
+          （上櫃／興櫃）。這行是對外可稽核的出處聲明，不是裝飾字，測試以
+          data-testid="chips-data-source" 固定。 */}
+      <div
+        data-testid="chips-data-source"
+        style={{
+          marginTop: 10,
+          fontSize: 10,
+          color: WB.inkMute,
+          letterSpacing: '0.08em',
+        }}
+      >
+        資料來源：TWSE 臺灣證券交易所 · TPEx 證券櫃檯買賣中心
+      </div>
     </section>
+
   );
 }
 
