@@ -15,7 +15,62 @@
     "cron_config.json": "5ea71a19ee3815f3f822fae6ab468531ce0d08f95d373d742ae883500cf40b19",
     "functions.sql": "cf2e1028f8aa845c75455ffb3f5415f9c70f875614e2282a1d9457ca1f45beed"
   },
-  "manifest_sha256": "5a09462d7c8add9fd35ea996b9dc814e7ef418aef77fda9443bd47724e510b63",
+  "manifest_sha256": "06543ecc711fb39b72390355fabb1d7c32aaeb1477476635910ffdd412fa22f7",
   "production_touch": "read-only (SELECT / catalog only)",
-  "reason": "managed backup tier / PITR state is not readable by any available tool (S0-2a BLOCKER)"
+  "reason": "managed backup tier / PITR state is not readable by any available tool (S0-2a BLOCKER)",
+  "restore_bundle": {
+    "counts": {
+      "cron_jobs": 72,
+      "enums": 11,
+      "function_grants": 1649,
+      "functions": 347,
+      "policies": 249,
+      "sequences": 17,
+      "table_grants": 4384,
+      "tables": 123,
+      "triggers": 70,
+      "views": 14
+    },
+    "cron_commands_redacted": 0,
+    "files": {
+      "000_prereqs.sql": {
+        "sha256": "c0f026dceb96d4bdbf9a4d0f29b3992f0ab14b16f91448ad3132424840cae652",
+        "statements": 48
+      },
+      "010_tables.sql": {
+        "sha256": "5392396482a981788bc50c443ca721f356437e3d36291138379c5aa1ea87d3aa",
+        "statements": 137
+      },
+      "020_constraints.sql": {
+        "sha256": "16e205a7d45fa60a145a64228c25ea708b7a92f321b00cb8e5e32983d06b7b1f",
+        "statements": 459
+      },
+      "030_functions.sql": {
+        "sha256": "4bda6573192d6842f3e6032698c259ffc486c018a361f32ff870d124a606d64f",
+        "statements": 348
+      },
+      "040_triggers.sql": {
+        "sha256": "20d7684ed63ed54f52164445122e6aff94bcca7babe978bc49992ec19303f266",
+        "statements": 70
+      },
+      "050_security.sql": {
+        "sha256": "615764cf0a168f054a835cd12afb1b0c35a9ac9325c019e9a7af093b83abf41f",
+        "statements": 6405
+      },
+      "060_cron.sql": {
+        "sha256": "e536fc3b45535a3dea17b87c9635eada58274d1170cde40c338dfbb2e955cc5a",
+        "statements": 77
+      }
+    },
+    "order": [
+      "000_prereqs.sql",
+      "010_tables.sql",
+      "020_constraints.sql",
+      "030_functions.sql",
+      "040_triggers.sql",
+      "050_security.sql",
+      "060_cron.sql"
+    ],
+    "row_data_included": false
+  }
 }
