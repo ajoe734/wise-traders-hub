@@ -1,6 +1,6 @@
 # R1-P — ACL 25 disposition (production read-only, 0 touch)
 
-generated: 2026-08-17T05:32:07.596633+00:00
+generated: 2026-08-17T05:34:45.911315+00:00
 
 | field | value |
 | --- | --- |
@@ -145,7 +145,7 @@ Production is NOT changed by this artifact: no GRANT/REVOKE was issued. The coun
 | pre-cutover risk | anon could enumerate internal jobs, secrets in job commands, and cadence |
 | cutover disposition | **owner_service_role_only** |
 | authenticated keeps EXECUTE | False |
-| intended caller after cutover | service_role / cron / owner only |
+| intended caller after cutover | function owner only (no role grant; publish/build/trigger) |
 | keep justification | —(revoked) |
 | keep negative proof | —(revoked) |
 | post-migration test | `T-P98b.06` |
@@ -229,7 +229,7 @@ Production is NOT changed by this artifact: no GRANT/REVOKE was issued. The coun
 | pre-cutover risk | anon could mark queue work complete and starve real backfills |
 | cutover disposition | **owner_service_role_only** |
 | authenticated keeps EXECUTE | False |
-| intended caller after cutover | service_role / cron / owner only |
+| intended caller after cutover | service_role edge function / cron |
 | keep justification | —(revoked) |
 | keep negative proof | —(revoked) |
 | post-migration test | `T-P98b.10` |
@@ -250,7 +250,7 @@ Production is NOT changed by this artifact: no GRANT/REVOKE was issued. The coun
 | pre-cutover risk | anon could poison the retry schedule |
 | cutover disposition | **owner_service_role_only** |
 | authenticated keeps EXECUTE | False |
-| intended caller after cutover | service_role / cron / owner only |
+| intended caller after cutover | service_role edge function / cron |
 | keep justification | —(revoked) |
 | keep negative proof | —(revoked) |
 | post-migration test | `T-P98b.11` |
@@ -271,7 +271,7 @@ Production is NOT changed by this artifact: no GRANT/REVOKE was issued. The coun
 | pre-cutover risk | anon could rewrite chip facts / exhaust DB capacity |
 | cutover disposition | **owner_service_role_only** |
 | authenticated keeps EXECUTE | False |
-| intended caller after cutover | service_role / cron / owner only |
+| intended caller after cutover | service_role edge function / cron |
 | keep justification | —(revoked) |
 | keep negative proof | —(revoked) |
 | post-migration test | `T-P98b.12` |
@@ -313,7 +313,7 @@ Production is NOT changed by this artifact: no GRANT/REVOKE was issued. The coun
 | pre-cutover risk | anon could steal all queued work and stall ingestion |
 | cutover disposition | **owner_service_role_only** |
 | authenticated keeps EXECUTE | False |
-| intended caller after cutover | service_role / cron / owner only |
+| intended caller after cutover | service_role edge function / cron |
 | keep justification | —(revoked) |
 | keep negative proof | —(revoked) |
 | post-migration test | `T-P98b.14` |
@@ -334,7 +334,7 @@ Production is NOT changed by this artifact: no GRANT/REVOKE was issued. The coun
 | pre-cutover risk | anon could flood the queue (DoS + vendor quota burn) |
 | cutover disposition | **owner_service_role_only** |
 | authenticated keeps EXECUTE | False |
-| intended caller after cutover | service_role / cron / owner only |
+| intended caller after cutover | service_role edge function / cron |
 | keep justification | —(revoked) |
 | keep negative proof | —(revoked) |
 | post-migration test | `T-P98b.15` |
@@ -376,7 +376,7 @@ Production is NOT changed by this artifact: no GRANT/REVOKE was issued. The coun
 | pre-cutover risk | anon could trigger a full-universe fetch storm |
 | cutover disposition | **owner_service_role_only** |
 | authenticated keeps EXECUTE | False |
-| intended caller after cutover | service_role / cron / owner only |
+| intended caller after cutover | service_role edge function / cron |
 | keep justification | —(revoked) |
 | keep negative proof | —(revoked) |
 | post-migration test | `T-P98b.17` |
@@ -523,7 +523,7 @@ Production is NOT changed by this artifact: no GRANT/REVOKE was issued. The coun
 | pre-cutover risk | anon could delete pending ingestion work |
 | cutover disposition | **owner_service_role_only** |
 | authenticated keeps EXECUTE | False |
-| intended caller after cutover | service_role / cron / owner only |
+| intended caller after cutover | service_role edge function / cron |
 | keep justification | —(revoked) |
 | keep negative proof | —(revoked) |
 | post-migration test | `T-P98b.24` |
@@ -544,7 +544,7 @@ Production is NOT changed by this artifact: no GRANT/REVOKE was issued. The coun
 | pre-cutover risk | trigger function must never be directly executable by an anonymous caller |
 | cutover disposition | **owner_service_role_only** |
 | authenticated keeps EXECUTE | False |
-| intended caller after cutover | service_role / cron / owner only |
+| intended caller after cutover | function owner only (no role grant; publish/build/trigger) |
 | keep justification | —(revoked) |
 | keep negative proof | —(revoked) |
 | post-migration test | `T-P98b.25` |
@@ -565,7 +565,7 @@ Production is NOT changed by this artifact: no GRANT/REVOKE was issued. The coun
 | pre-cutover risk | anon could recycle in-flight jobs and cause duplicate ingestion |
 | cutover disposition | **owner_service_role_only** |
 | authenticated keeps EXECUTE | False |
-| intended caller after cutover | service_role / cron / owner only |
+| intended caller after cutover | service_role edge function / cron |
 | keep justification | —(revoked) |
 | keep negative proof | —(revoked) |
 | post-migration test | `T-P98b.26` |
@@ -586,7 +586,7 @@ Production is NOT changed by this artifact: no GRANT/REVOKE was issued. The coun
 | pre-cutover risk | trigger function must never be directly executable by an anonymous caller |
 | cutover disposition | **owner_service_role_only** |
 | authenticated keeps EXECUTE | False |
-| intended caller after cutover | service_role / cron / owner only |
+| intended caller after cutover | function owner only (no role grant; publish/build/trigger) |
 | keep justification | —(revoked) |
 | keep negative proof | —(revoked) |
 | post-migration test | `T-P98b.27` |
@@ -607,7 +607,7 @@ Production is NOT changed by this artifact: no GRANT/REVOKE was issued. The coun
 | pre-cutover risk | anon could trigger mass deletion of ledger rows |
 | cutover disposition | **owner_service_role_only** |
 | authenticated keeps EXECUTE | False |
-| intended caller after cutover | service_role / cron / owner only |
+| intended caller after cutover | function owner only (no role grant; publish/build/trigger) |
 | keep justification | —(revoked) |
 | keep negative proof | —(revoked) |
 | post-migration test | `T-P98b.28` |

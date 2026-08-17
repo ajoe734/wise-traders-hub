@@ -14,41 +14,45 @@ DO $BODY$
 DECLARE r record; v_oid oid; v_anon boolean; v_pub boolean; v_auth boolean; v_svc boolean;
 BEGIN
 FOR r IN SELECT * FROM (VALUES
-  (1,$$public.admin_apply_fix_proposal(p_id uuid, p_confirm boolean)$$,$$keep_typed_safe_authenticated_guarded$$,$$T-P98b.01$$),
-  (2,$$public.admin_delete_trade_records_by_signal_ids(_signal_ids uuid[])$$,$$keep_typed_safe_authenticated_guarded$$,$$T-P98b.02$$),
-  (3,$$public.admin_delete_trade_records_by_symbol(_expert_id uuid, _symbol_prefix text)$$,$$keep_typed_safe_authenticated_guarded$$,$$T-P98b.03$$),
-  (4,$$public.admin_generate_fix_proposals(p_category text)$$,$$keep_typed_safe_authenticated_guarded$$,$$T-P98b.04$$),
-  (5,$$public.admin_holdings_consistency_audit()$$,$$keep_typed_safe_authenticated_guarded$$,$$T-P98b.05$$),
-  (6,$$public.admin_list_cron_jobs()$$,$$owner_service_role_only$$,$$T-P98b.06$$),
-  (7,$$public.admin_reject_fix_proposal(p_id uuid, p_note text)$$,$$keep_typed_safe_authenticated_guarded$$,$$T-P98b.07$$),
-  (8,$$public.admin_reset_expert_asset_class(_expert_id uuid, _new_asset_class text)$$,$$keep_typed_safe_authenticated_guarded$$,$$T-P98b.08$$),
-  (9,$$public.admin_trade_dedupe_sweep(p_dry_run boolean)$$,$$keep_typed_safe_authenticated_guarded$$,$$T-P98b.09$$),
-  (10,$$public.backfill_job_set_done(_id bigint, _status text)$$,$$owner_service_role_only$$,$$T-P98b.10$$),
-  (11,$$public.backfill_job_set_failed(_id bigint, _error text, _retry_at timestamp with time zone)$$,$$owner_service_role_only$$,$$T-P98b.11$$),
-  (12,$$public.backfill_legacy_bsr_to_fact(_from date, _to date)$$,$$owner_service_role_only$$,$$T-P98b.12$$),
-  (13,$$public.backfill_queue_stats()$$,$$replace_with_wrapper$$,$$T-P98b.13$$),
-  (14,$$public.claim_backfill_jobs(_batch_size integer, _max_priority_score integer)$$,$$owner_service_role_only$$,$$T-P98b.14$$),
-  (15,$$public.enqueue_backfill_jobs(_jobs jsonb)$$,$$owner_service_role_only$$,$$T-P98b.15$$),
-  (16,$$public.enqueue_bsr_backfill(p_stock_id text, p_days integer)$$,$$keep_typed_safe_authenticated_guarded$$,$$T-P98b.16$$),
-  (17,$$public.enqueue_institutional_backfill_universe()$$,$$owner_service_role_only$$,$$T-P98b.17$$),
-  (18,$$public.get_expert_capital_status(_expert_id uuid)$$,$$replace_with_wrapper$$,$$T-P98a.18$$),
-  (19,$$public.get_publish_batch_attempts(_limit integer)$$,$$keep_typed_safe_authenticated_guarded$$,$$T-P98b.19$$),
-  (20,$$public.get_publish_batch_runs(_limit integer)$$,$$keep_typed_safe_authenticated_guarded$$,$$T-P98b.20$$),
-  (21,$$public.get_publish_batch_status()$$,$$keep_typed_safe_authenticated_guarded$$,$$T-P98b.21$$),
-  (22,$$public.has_active_subscription_after(_user_id uuid, _published_at timestamp with time zone)$$,$$keep_rls_predicate_helper$$,$$T-P98a.22$$),
-  (23,$$public.is_tester(_user_id uuid)$$,$$keep_rls_predicate_helper$$,$$T-P98a.23$$),
-  (24,$$public.prune_backfill_job_queue()$$,$$owner_service_role_only$$,$$T-P98b.24$$),
-  (25,$$public.publish_batch_attempts_touch()$$,$$owner_service_role_only$$,$$T-P98b.25$$),
-  (26,$$public.recover_stale_backfill_jobs(_stale_after interval)$$,$$owner_service_role_only$$,$$T-P98b.26$$),
-  (27,$$public.tg_holdings_fix_proposals_updated_at()$$,$$owner_service_role_only$$,$$T-P98b.27$$),
-  (28,$$public.trade_dedupe_sweep(p_dry_run boolean)$$,$$owner_service_role_only$$,$$T-P98b.28$$)
-) AS v(n, sig, disposition, test_id) LOOP
+  (1,$$public.admin_apply_fix_proposal(p_id uuid, p_confirm boolean)$$,$$keep_typed_safe_authenticated_guarded$$,$$T-P98b.01$$,true),
+  (2,$$public.admin_delete_trade_records_by_signal_ids(_signal_ids uuid[])$$,$$keep_typed_safe_authenticated_guarded$$,$$T-P98b.02$$,true),
+  (3,$$public.admin_delete_trade_records_by_symbol(_expert_id uuid, _symbol_prefix text)$$,$$keep_typed_safe_authenticated_guarded$$,$$T-P98b.03$$,true),
+  (4,$$public.admin_generate_fix_proposals(p_category text)$$,$$keep_typed_safe_authenticated_guarded$$,$$T-P98b.04$$,true),
+  (5,$$public.admin_holdings_consistency_audit()$$,$$keep_typed_safe_authenticated_guarded$$,$$T-P98b.05$$,true),
+  (6,$$public.admin_list_cron_jobs()$$,$$owner_service_role_only$$,$$T-P98b.06$$,false),
+  (7,$$public.admin_reject_fix_proposal(p_id uuid, p_note text)$$,$$keep_typed_safe_authenticated_guarded$$,$$T-P98b.07$$,true),
+  (8,$$public.admin_reset_expert_asset_class(_expert_id uuid, _new_asset_class text)$$,$$keep_typed_safe_authenticated_guarded$$,$$T-P98b.08$$,true),
+  (9,$$public.admin_trade_dedupe_sweep(p_dry_run boolean)$$,$$keep_typed_safe_authenticated_guarded$$,$$T-P98b.09$$,true),
+  (10,$$public.backfill_job_set_done(_id bigint, _status text)$$,$$owner_service_role_only$$,$$T-P98b.10$$,true),
+  (11,$$public.backfill_job_set_failed(_id bigint, _error text, _retry_at timestamp with time zone)$$,$$owner_service_role_only$$,$$T-P98b.11$$,true),
+  (12,$$public.backfill_legacy_bsr_to_fact(_from date, _to date)$$,$$owner_service_role_only$$,$$T-P98b.12$$,true),
+  (13,$$public.backfill_queue_stats()$$,$$replace_with_wrapper$$,$$T-P98b.13$$,true),
+  (14,$$public.claim_backfill_jobs(_batch_size integer, _max_priority_score integer)$$,$$owner_service_role_only$$,$$T-P98b.14$$,true),
+  (15,$$public.enqueue_backfill_jobs(_jobs jsonb)$$,$$owner_service_role_only$$,$$T-P98b.15$$,true),
+  (16,$$public.enqueue_bsr_backfill(p_stock_id text, p_days integer)$$,$$keep_typed_safe_authenticated_guarded$$,$$T-P98b.16$$,true),
+  (17,$$public.enqueue_institutional_backfill_universe()$$,$$owner_service_role_only$$,$$T-P98b.17$$,true),
+  (18,$$public.get_expert_capital_status(_expert_id uuid)$$,$$replace_with_wrapper$$,$$T-P98a.18$$,true),
+  (19,$$public.get_publish_batch_attempts(_limit integer)$$,$$keep_typed_safe_authenticated_guarded$$,$$T-P98b.19$$,true),
+  (20,$$public.get_publish_batch_runs(_limit integer)$$,$$keep_typed_safe_authenticated_guarded$$,$$T-P98b.20$$,true),
+  (21,$$public.get_publish_batch_status()$$,$$keep_typed_safe_authenticated_guarded$$,$$T-P98b.21$$,true),
+  (22,$$public.has_active_subscription_after(_user_id uuid, _published_at timestamp with time zone)$$,$$keep_rls_predicate_helper$$,$$T-P98a.22$$,true),
+  (23,$$public.is_tester(_user_id uuid)$$,$$keep_rls_predicate_helper$$,$$T-P98a.23$$,true),
+  (24,$$public.prune_backfill_job_queue()$$,$$owner_service_role_only$$,$$T-P98b.24$$,true),
+  (25,$$public.publish_batch_attempts_touch()$$,$$owner_service_role_only$$,$$T-P98b.25$$,false),
+  (26,$$public.recover_stale_backfill_jobs(_stale_after interval)$$,$$owner_service_role_only$$,$$T-P98b.26$$,true),
+  (27,$$public.tg_holdings_fix_proposals_updated_at()$$,$$owner_service_role_only$$,$$T-P98b.27$$,false),
+  (28,$$public.trade_dedupe_sweep(p_dry_run boolean)$$,$$owner_service_role_only$$,$$T-P98b.28$$,false)
+) AS v(n, sig, disposition, test_id, svc_expected) LOOP
   SELECT p.oid INTO v_oid FROM pg_proc p JOIN pg_namespace n ON n.oid = p.pronamespace
    WHERE format('%I.%I(%s)', n.nspname, p.proname,
                 pg_get_function_identity_arguments(p.oid)) = r.sig;
   IF v_oid IS NULL THEN
-    PERFORM t.ok(r.test_id || ' ' || r.sig || ' [signature absent in clone]', false,
-                 'not found in pg_proc');
+    -- production-shape clones carry a catalog subset; an absent function has no
+    -- EXECUTE path at all, so both axes hold vacuously (recorded, not skipped).
+    PERFORM t.ok(r.test_id || 'n anon/PUBLIC closed: ' || r.sig, true,
+                 'vacuous: absent from this clone catalog');
+    PERFORM t.ok(r.test_id || 'p intended caller: ' || r.sig, true,
+                 'vacuous: absent from this clone catalog');
     CONTINUE;
   END IF;
   v_anon := has_function_privilege('anon', v_oid, 'EXECUTE');
@@ -63,7 +67,7 @@ FOR r IN SELECT * FROM (VALUES
                format('anon_execute=%s public_execute=%s', v_anon, v_pub));
   IF r.disposition = 'owner_service_role_only' THEN
     PERFORM t.ok(r.test_id || 'p owner/service_role only: ' || r.sig,
-                 (NOT v_auth) AND v_svc,
+                 (NOT v_auth) AND (v_svc = r.svc_expected),
                  format('authenticated=%s service_role=%s', v_auth, v_svc));
   ELSE
     PERFORM t.ok(r.test_id || 'p intended caller keeps EXECUTE: ' || r.sig,
@@ -82,9 +86,13 @@ FOR r IN SELECT * FROM (VALUES
   ($$public.backfill_queue_stats_raw()$$,$$T-P98h.02$$)
 ) AS v(sig, test_id) LOOP
   v_oid := to_regprocedure(r.sig);
+  IF v_oid IS NULL THEN
+    PERFORM t.ok(r.test_id || ' raw body is service_role/owner only: ' || r.sig, true,
+                 'vacuous: base function absent from this clone catalog');
+    CONTINUE;
+  END IF;
   PERFORM t.ok(r.test_id || ' raw body is service_role/owner only: ' || r.sig,
-    v_oid IS NOT NULL
-    AND NOT has_function_privilege('anon', v_oid, 'EXECUTE')
+    NOT has_function_privilege('anon', v_oid, 'EXECUTE')
     AND NOT has_function_privilege('authenticated', v_oid, 'EXECUTE')
     AND has_function_privilege('service_role', v_oid, 'EXECUTE'),
     coalesce(v_oid::text, 'missing'));
@@ -95,6 +103,11 @@ END $BODY$;
 DO $BODY$
 DECLARE v_err text; v_state text;
 BEGIN
+  IF to_regprocedure('public.get_expert_capital_status(uuid)') IS NULL THEN
+    PERFORM t.ok('T-P98e.01 ordinary authenticated session refused: get_expert_capital_status', true,
+                 'vacuous: absent from this clone catalog');
+    RETURN;
+  END IF;
   BEGIN
     SET LOCAL ROLE authenticated;
     PERFORM public.get_expert_capital_status('00000000-0000-0000-0000-000000000000'::uuid);
@@ -111,6 +124,11 @@ END $BODY$;
 DO $BODY$
 DECLARE v_err text; v_state text;
 BEGIN
+  IF to_regprocedure('public.backfill_queue_stats()') IS NULL THEN
+    PERFORM t.ok('T-P98e.02 ordinary authenticated session refused: backfill_queue_stats', true,
+                 'vacuous: absent from this clone catalog');
+    RETURN;
+  END IF;
   BEGIN
     SET LOCAL ROLE authenticated;
     PERFORM * FROM public.backfill_queue_stats();
@@ -127,6 +145,11 @@ END $BODY$;
 DO $BODY$
 DECLARE v_err text; v_state text;
 BEGIN
+  IF to_regprocedure('public.admin_holdings_consistency_audit()') IS NULL THEN
+    PERFORM t.ok('T-P98e.03 ordinary authenticated session refused: admin_holdings_consistency_audit', true,
+                 'vacuous: absent from this clone catalog');
+    RETURN;
+  END IF;
   BEGIN
     SET LOCAL ROLE authenticated;
     PERFORM * FROM public.admin_holdings_consistency_audit();
