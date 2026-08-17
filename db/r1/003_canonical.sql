@@ -5,6 +5,23 @@
 
 
 -- ---------------------------------------------------------------- row builder (schema-order safe)
+
+-- Generated columns (instrument_key) cannot be supplied explicitly, and the column
+-- list must not be hardcoded (schema drift). Build it once from the catalog.
+CREATE OR REPLACE FUNCTION app_ledger.insert_trade_row(r public.trade_records)
+RETURNS void LANGUAGE plpgsql SECURITY DEFINER SET search_path = '' AS $$
+DECLARE cols text;
+BEGIN
+  SELECT pg_catalog.string_agg(pg_catalog.quote_ident(a.attname), ',' ORDER BY a.attnum)
+    INTO cols
+    FROM pg_catalog.pg_attribute a
+   WHERE a.attrelid = 'public.trade_records'::pg_catalog.regclass
+     AND a.attnum > 0 AND NOT a.attisdropped AND a.attgenerated = '';
+  EXECUTE pg_catalog.format(
+    'INSERT INTO public.trade_records(%s) SELECT %s FROM (SELECT ($1).*) s', cols, cols)
+    USING r;
+END $$;
+
 CREATE OR REPLACE FUNCTION app_ledger.new_trade_row(
   p_expert uuid, p_market text, p_instrument text, p_currency text,
   p_qty int, p_price numeric, p_status text, p_when timestamptz,
@@ -110,7 +127,7 @@ BEGIN
       market, instrument_key, qty_delta, cost_delta, after_hash)
     VALUES (v_event, 1, 'trade_records', v_openid, 'insert', 'open_position', v_expert, v_cur,
       v_market, v_ikey, v_qty, v_cost, app_ledger.tr_econ_hash(v_newopen));
-    INSERT INTO public.trade_records SELECT (v_newopen).*;
+    PERFORM app_ledger.insert_trade_row(v_newopen);
 
   ELSIF v_action = 'add' THEN
     v_openid := v_open.id;
@@ -153,7 +170,7 @@ BEGIN
       market, instrument_key, qty_delta, cost_delta, realized_delta, after_hash)
     VALUES (v_event, 2, 'trade_records', v_closedid, 'insert', 'closed_lot', v_expert, v_cur,
       v_market, v_ikey, v_qty, 0, v_realized, app_ledger.tr_econ_hash(v_newclosed));
-    INSERT INTO public.trade_records SELECT (v_newclosed).*;
+    PERFORM app_ledger.insert_trade_row(v_newclosed);
 
   ELSIF v_action = 'quantity_adjustment' THEN
     v_openid := v_open.id;

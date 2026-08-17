@@ -2,7 +2,7 @@
 INSERT INTO public.experts(id, slug, name, role, user_id, currency, asset_class, starting_capital) VALUES
   ('aaaaaaaa-0000-0000-0000-000000000001','t-expert-a','Expert A','advisor',gen_random_uuid(),'TWD','tw_stock',1000000),
   ('bbbbbbbb-0000-0000-0000-000000000002','t-expert-b','Expert B','advisor',gen_random_uuid(),'TWD','tw_stock',500000),
-  ('cccccccc-0000-0000-0000-000000000003','t-expert-c-us','Expert C','advisor',gen_random_uuid(),'USD','us_options',100000);
+  ('cccccccc-0000-0000-0000-000000000003','t-expert-c-us','Expert C','advisor',gen_random_uuid(),'USD','us_option',100000);
 
 INSERT INTO public.daily_price_snapshots(symbol, market, trade_date, close_price)
 SELECT s.sym, 'TW', d::date, s.base + (d::date - DATE '2026-08-03')*2
