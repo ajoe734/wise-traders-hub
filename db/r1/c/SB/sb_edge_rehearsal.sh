@@ -164,6 +164,10 @@ for k in ks:
 print(json.dumps(v))" "$1" "$2"; }
 gateblocked(){ psql "$CL" -qXAt -c "SELECT public.bsr_admission_status()->>'blocked'"; }
 provider_calls(){ wc -l <"$DIR/provider.jsonl" 2>/dev/null || echo 0; }
+# The retryable-class stage (EB-11x) intentionally trips the product circuit
+# breaker in data_source_health. Stages that must reach the provider again
+# reset it explicitly -- clone-only, never a production write.
+reset_circuit(){ psql "$CL" -qX -c "UPDATE public.data_source_health SET circuit_state='closed', disabled_until=NULL WHERE source LIKE 'finmind%'" >/dev/null; }
 open_gate(){ psql "$CL" -qX -c "UPDATE public.tw_bsr_sync_config SET config = config - 'admission_blocked' - 'admission_blocked_at' - 'admission_terminal_code' - 'admission_reason' || '{\"admission_blocked\": false}'::jsonb WHERE key='market_batch'" >/dev/null; }
 
 ############################################################ A. gate OPEN → enqueue + worker happy path
@@ -502,6 +506,9 @@ chk $([ "$C" = 200 ] && echo 0 || echo 1) "EB-141 worker returns 200 with only f
 
 ############################################################ G4. admin nonce replay / stale version
 stage admin_nonce
+reset_circuit
+CIRC=$(psql "$CL" -qXAt -c "SELECT count(*) FROM public.data_source_health WHERE source LIKE 'finmind%' AND circuit_state='open'")
+chk $([ "${CIRC:-1}" = 0 ] && echo 0 || echo 1) "EB-149 provider circuit reset before the nonce stage (open=${CIRC:-?})"
 echo reject >"$DIR/mock_mode"
 psql "$CL" -qX -c "INSERT INTO public.tw_bsr_sync_queue(stock_id, trade_date, priority, status, enqueued_by, next_run_at) VALUES ('2454', current_date - 5, 1, 'pending', 'edge_rehearsal_nonce', now()) ON CONFLICT DO NOTHING" >/dev/null
 post "$W" "$DIR/w_nonce_close.json" '{"mode":"worker","batch":2,"budget_ms":8000}' "$CRONH" >/dev/null
