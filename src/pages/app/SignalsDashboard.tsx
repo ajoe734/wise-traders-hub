@@ -25,7 +25,8 @@ import { useEffect } from 'react';
 import { track } from '@/lib/analytics/events';
 import { gateSignalEconomics } from '@/contracts/publicEconomicContract';
 import { fetchProjectionStatusForExperts } from '@/lib/fetchProjectionStatus';
-import { PerformanceReviewNotice } from '@/components/PerformanceReviewNotice';
+import { PerformanceReviewNotice, ReviewPlaceholder } from '@/components/expert/PerformanceReviewNotice';
+import { UNKNOWN_PROJECTION } from '@/contracts/publicProjection';
 
 interface SignalsDashboardProps {
   subscriptions: any[];
@@ -121,6 +122,10 @@ export function SignalsDashboard({ subscriptions, userName }: SignalsDashboardPr
           <Link to="/app/signals" className="text-sm text-signals-accent flex items-center gap-1 hover:underline">查看全部<ChevronRight className="h-4 w-4" /></Link>
         </div>
         
+        {recentSignals.some((s: any) => s.under_review) && (
+          <PerformanceReviewNotice status={UNKNOWN_PROJECTION} className="mb-3" />
+        )}
+
         {recentSignals.length > 0 ? (
           <div className="space-y-2">
             {recentSignals.map((signal) => (
@@ -140,6 +145,7 @@ export function SignalsDashboard({ subscriptions, userName }: SignalsDashboardPr
                       </div>
                       <p className="font-semibold truncate">{signal.instrument}</p>
                       <p className="text-sm text-muted-foreground line-clamp-1 mt-0.5">{richHtmlPreview(signal.reason_summary, PREVIEW_LIMITS.dashboardRow)}</p>
+                      {signal.under_review && <div className="mt-1.5"><ReviewPlaceholder /></div>}
                       {signal.experts && (
                         <div className="flex items-center gap-1.5 mt-2">
                           <img src={avatarUrl(signal.experts.avatar_url, 40)} alt={signal.experts.name} loading="lazy" decoding="async" className="shrink-0 h-5 w-5 rounded-full object-cover object-[center_15%] border border-signals-accent/30" />
