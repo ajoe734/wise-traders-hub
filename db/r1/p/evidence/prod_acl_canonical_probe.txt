@@ -1,0 +1,28 @@
+public.admin_apply_fix_proposal(p_id uuid, p_confirm boolean)|pattern|named_hit=false|pattern_hit=true|anon_execute=true
+public.admin_delete_trade_records_by_signal_ids(_signal_ids uuid[])|pattern|named_hit=false|pattern_hit=true|anon_execute=true
+public.admin_delete_trade_records_by_symbol(_expert_id uuid, _symbol_prefix text)|pattern|named_hit=false|pattern_hit=true|anon_execute=true
+public.admin_generate_fix_proposals(p_category text)|pattern|named_hit=false|pattern_hit=true|anon_execute=true
+public.admin_holdings_consistency_audit()|pattern|named_hit=false|pattern_hit=true|anon_execute=true
+public.admin_list_cron_jobs()|pattern|named_hit=false|pattern_hit=true|anon_execute=true
+public.admin_reject_fix_proposal(p_id uuid, p_note text)|pattern|named_hit=false|pattern_hit=true|anon_execute=true
+public.admin_reset_expert_asset_class(_expert_id uuid, _new_asset_class text)|pattern|named_hit=false|pattern_hit=true|anon_execute=true
+public.admin_trade_dedupe_sweep(p_dry_run boolean)|pattern|named_hit=false|pattern_hit=true|anon_execute=true
+public.backfill_job_set_done(_id bigint, _status text)|pattern|named_hit=false|pattern_hit=true|anon_execute=true
+public.backfill_job_set_failed(_id bigint, _error text, _retry_at timestamp with time zone)|pattern|named_hit=false|pattern_hit=true|anon_execute=true
+public.backfill_legacy_bsr_to_fact(_from date, _to date)|pattern|named_hit=false|pattern_hit=true|anon_execute=true
+public.backfill_queue_stats()|pattern|named_hit=false|pattern_hit=true|anon_execute=true
+public.claim_backfill_jobs(_batch_size integer, _max_priority_score integer)|pattern|named_hit=false|pattern_hit=true|anon_execute=true
+public.enqueue_backfill_jobs(_jobs jsonb)|pattern|named_hit=false|pattern_hit=true|anon_execute=true
+public.enqueue_bsr_backfill(p_stock_id text, p_days integer)|pattern|named_hit=false|pattern_hit=true|anon_execute=true
+public.enqueue_institutional_backfill_universe()|pattern|named_hit=false|pattern_hit=true|anon_execute=true
+public.get_expert_capital_status(_expert_id uuid)|named|named_hit=true|pattern_hit=false|anon_execute=true
+public.get_publish_batch_attempts(_limit integer)|pattern|named_hit=false|pattern_hit=true|anon_execute=true
+public.get_publish_batch_runs(_limit integer)|pattern|named_hit=false|pattern_hit=true|anon_execute=true
+public.get_publish_batch_status()|pattern|named_hit=false|pattern_hit=true|anon_execute=true
+public.has_active_subscription_after(_user_id uuid, _published_at timestamp with time zone)|named|named_hit=true|pattern_hit=false|anon_execute=true
+public.is_tester(_user_id uuid)|named|named_hit=true|pattern_hit=false|anon_execute=true
+public.prune_backfill_job_queue()|pattern|named_hit=false|pattern_hit=true|anon_execute=true
+public.publish_batch_attempts_touch()|pattern|named_hit=false|pattern_hit=true|anon_execute=true
+public.recover_stale_backfill_jobs(_stale_after interval)|pattern|named_hit=false|pattern_hit=true|anon_execute=true
+public.tg_holdings_fix_proposals_updated_at()|pattern|named_hit=false|pattern_hit=true|anon_execute=true
+public.trade_dedupe_sweep(p_dry_run boolean)|pattern|named_hit=false|pattern_hit=true|anon_execute=true
