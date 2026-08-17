@@ -23,7 +23,7 @@ import re
 import sys
 
 sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
-from s0_lib import OUT, cli_q, psql, psql_json, sha256_text, write_json  # noqa: E402
+from s0_lib import OUT, cli_q, psql, psql_json, sha256_file, sha256_text, write_json  # noqa: E402
 
 BK = os.path.join(OUT, "backup")
 RS = os.path.join(BK, "restore")
@@ -50,10 +50,34 @@ def main():
         files[name] = {"sha256": sha256_text(body), "statements": len(body_lines)}
 
     # ------------------------------------------------------------ 000 prereqs
-    roles = lines("select 'DO $$ BEGIN CREATE ROLE '||quote_ident(rolname)||' NOLOGIN; "
-                  "EXCEPTION WHEN duplicate_object THEN NULL; END $$;' from pg_roles "
-                  "where rolname in ('anon','authenticated','service_role','authenticator',"
-                  "'supabase_admin','supabase_auth_admin','supabase_storage_admin','ledger_owner') order by rolname")
+    # Roles are NOT hand-listed: every role that owns, grants or receives a
+    # privilege on a public object is captured with its production attributes,
+    # so the restored cluster can reproduce ACL tuples verbatim (grantor and
+    # grantee included) with no normalisation and no name exclusions.
+    roles = lines("""with used as (
+            select p.proowner as oid from pg_proc p join pg_namespace n on n.oid=p.pronamespace where n.nspname='public'
+            union select c.relowner from pg_class c join pg_namespace n on n.oid=c.relnamespace where n.nspname='public'
+            union select a.grantor from pg_proc p join pg_namespace n on n.oid=p.pronamespace
+                 cross join lateral aclexplode(coalesce(p.proacl, acldefault('f',p.proowner))) a where n.nspname='public'
+            union select a.grantee from pg_proc p join pg_namespace n on n.oid=p.pronamespace
+                 cross join lateral aclexplode(coalesce(p.proacl, acldefault('f',p.proowner))) a where n.nspname='public'
+            union select a.grantor from pg_class c join pg_namespace n on n.oid=c.relnamespace
+                 cross join lateral aclexplode(c.relacl) a where n.nspname='public' and c.relacl is not null
+            union select a.grantee from pg_class c join pg_namespace n on n.oid=c.relnamespace
+                 cross join lateral aclexplode(c.relacl) a where n.nspname='public' and c.relacl is not null
+          )
+          select 'DO $$ BEGIN CREATE ROLE '||quote_ident(r.rolname)||' NOLOGIN'||
+                 case when r.rolsuper then ' SUPERUSER' else '' end||
+                 case when r.rolbypassrls then ' BYPASSRLS' else '' end||
+                 case when r.rolcreaterole then ' CREATEROLE' else '' end||
+                 case when r.rolcreatedb then ' CREATEDB' else '' end||
+                 case when r.rolinherit then ' INHERIT' else ' NOINHERIT' end||
+                 '; EXCEPTION WHEN duplicate_object THEN NULL; END $$;'
+          from pg_roles r
+          where r.oid in (select oid from used where oid <> 0)
+             or r.rolname in ('anon','authenticated','service_role','authenticator',
+                              'supabase_admin','supabase_auth_admin','supabase_storage_admin','ledger_owner')
+          order by r.rolname""")
     exts = lines("select 'CREATE EXTENSION IF NOT EXISTS '||quote_ident(extname)||';' from pg_extension "
                  "where extname not in ('plpgsql') order by extname")
     exts = ["DO $$ BEGIN %s EXCEPTION WHEN others THEN RAISE NOTICE 'ext skipped: %%', SQLERRM; END $$;" % e
@@ -81,9 +105,23 @@ def main():
     # auth.* is Supabase-managed but public objects reference auth.users and
     # auth.uid()/role()/jwt(). A restore that omits it cannot be validated, so
     # the backup captures the auth surface the public schema depends on.
+    # auth enum/composite types must exist before the auth tables that use them
+    auth_types = lines("""select 'DO $$ BEGIN CREATE TYPE auth.'||quote_ident(t.typname)||' AS ENUM ('||
+        (select string_agg(quote_literal(e.enumlabel), ',' order by e.enumsortorder)
+           from pg_enum e where e.enumtypid=t.oid)||
+        '); EXCEPTION WHEN duplicate_object THEN NULL; END $$;'
+        from pg_type t join pg_namespace n on n.oid=t.typnamespace
+        where n.nspname='auth' and t.typtype='e' order by t.typname""")
+    # a DEFAULT that references sibling columns (e.g. auth.users.confirmed_at =
+    # LEAST(email_confirmed_at, phone_confirmed_at)) is invalid as a plain
+    # DEFAULT on restore; production stores it as a generated column expression,
+    # so the shim drops it rather than aborting the whole auth table.
     auth_tables = lines("""select 'CREATE TABLE IF NOT EXISTS auth.'||quote_ident(c.relname)||' ('||
         (select string_agg(quote_ident(a.attname)||' '||format_type(a.atttypid,a.atttypmod)||
-            coalesce(' DEFAULT '||pg_get_expr(d.adbin, d.adrelid), '')||
+            coalesce(' DEFAULT '||(case when exists (
+                 select 1 from pg_depend dp where dp.classid='pg_attrdef'::regclass and dp.objid=d.oid
+                   and dp.refobjid=a.attrelid and dp.refobjsubid>0)
+               then null else pg_get_expr(d.adbin, d.adrelid) end), '')||
             case when a.attnotnull then ' NOT NULL' else '' end, ', ' order by a.attnum)
          from pg_attribute a
          left join pg_attrdef d on d.adrelid=a.attrelid and d.adnum=a.attnum
@@ -101,7 +139,7 @@ def main():
     emit("005_auth.sql", "auth schema surface referenced by public objects",
          ["CREATE SCHEMA IF NOT EXISTS auth;",
           "GRANT USAGE ON SCHEMA auth TO anon, authenticated, service_role;"]
-         + auth_tables + auth_pk + auth_fns
+         + auth_types + auth_tables + auth_pk + auth_fns
          + ["GRANT SELECT ON ALL TABLES IN SCHEMA auth TO service_role;"])
 
     # ------------------------------------------------------------- 010 tables
@@ -168,32 +206,45 @@ def main():
     tgrants = lines("""select 'GRANT '||a.privilege_type||' ON public.'||quote_ident(c.relname)||
         ' TO '||quote_ident(coalesce(r.rolname,'PUBLIC'))||';'
         from pg_class c join pg_namespace n on n.oid=c.relnamespace
-        cross join lateral aclexplode(coalesce(c.relacl,'{}')) a
+        cross join lateral aclexplode(c.relacl) a
         left join pg_roles r on r.oid=a.grantee
-        where n.nspname='public' and c.relkind in ('r','v')
-          and coalesce(r.rolname,'PUBLIC') in ('anon','authenticated','service_role','postgres','ledger_owner')
+        where n.nspname='public' and c.relacl is not null and c.relkind in ('r','v')
         order by c.relname, coalesce(r.rolname,'PUBLIC'), a.privilege_type""")
-    # CREATE FUNCTION implicitly grants EXECUTE to PUBLIC. Production has that
-    # grant revoked on every function that carries an explicit ACL, so the
-    # backup must reproduce the revoke or a restore silently re-opens them.
+    # Function ownership must be restored BEFORE any function grant: a GRANT
+    # issued by a superuser records the object OWNER as grantor, so a wrong
+    # owner produces a wrong grantor tuple even when the grantee set matches.
+    fowners = lines("""select 'ALTER FUNCTION public.'||quote_ident(p.proname)||'('||
+        pg_get_function_identity_arguments(p.oid)||') OWNER TO '||quote_ident(o.rolname)||';'
+        from pg_proc p join pg_namespace n on n.oid=p.pronamespace
+        join pg_roles o on o.oid=p.proowner
+        where n.nspname='public' and p.prokind in ('f','p')
+        order by p.proname, pg_get_function_identity_arguments(p.oid)""")
+    # CREATE FUNCTION implicitly grants EXECUTE to PUBLIC. Every function whose
+    # production ACL has no PUBLIC tuple must have that implicit grant revoked
+    # or the restore silently re-opens it. The predicate now uses the *effective*
+    # ACL (acldefault when proacl is null), matching the canonical tuple basis.
     frevokes = lines("""select 'REVOKE ALL ON FUNCTION public.'||quote_ident(p.proname)||'('||
         pg_get_function_identity_arguments(p.oid)||') FROM PUBLIC;'
         from pg_proc p join pg_namespace n on n.oid=p.pronamespace
-        where n.nspname='public' and p.proacl is not null
-          and not exists (select 1 from aclexplode(p.proacl) a where a.grantee = 0)
+        where n.nspname='public' and p.prokind in ('f','p')
+          and not exists (select 1 from aclexplode(coalesce(p.proacl, acldefault('f',p.proowner))) a
+                          where a.grantee = 0)
         order by p.proname, pg_get_function_identity_arguments(p.oid)""")
-    frevokes = ["DO $$ BEGIN %s EXCEPTION WHEN others THEN NULL; END $$;" % r for r in frevokes]
-    fgrants = lines("""select 'GRANT EXECUTE ON FUNCTION public.'||p.proname||'('||
-        pg_get_function_identity_arguments(p.oid)||') TO '||quote_ident(g.grantee)||';'
+    # Exact tuple reproduction: every grantee (PUBLIC included), every
+    # privilege_type, and the grant option flag. No role name is filtered out.
+    fgrants = lines("""select 'GRANT '||a.privilege_type||' ON FUNCTION public.'||quote_ident(p.proname)||'('||
+        pg_get_function_identity_arguments(p.oid)||') TO '||
+        case when a.grantee = 0 then 'PUBLIC' else quote_ident(ge.rolname) end||
+        case when a.is_grantable then ' WITH GRANT OPTION' else '' end||';'
         from pg_proc p join pg_namespace n on n.oid=p.pronamespace
-        cross join lateral aclexplode(coalesce(p.proacl,'{}')) a
-        join lateral (select coalesce(r.rolname,'PUBLIC') as grantee from pg_roles r
-                      where r.oid=a.grantee union all select 'PUBLIC' where a.grantee=0) g on true
-        where n.nspname='public' and a.privilege_type='EXECUTE' and g.grantee<>'PUBLIC'
-        order by p.proname, g.grantee""")
-    emit("050_security.sql", "RLS + policies + table grants + function EXECUTE grants",
+        cross join lateral aclexplode(coalesce(p.proacl, acldefault('f',p.proowner))) a
+        left join pg_roles ge on ge.oid=a.grantee
+        where n.nspname='public' and p.prokind in ('f','p')
+        order by p.proname, pg_get_function_identity_arguments(p.oid),
+                 case when a.grantee=0 then 'PUBLIC' else ge.rolname end, a.privilege_type""")
+    emit("050_security.sql", "RLS + policies + table grants + function owners + exact function ACL tuples",
          ["DO $$ BEGIN %s EXCEPTION WHEN others THEN RAISE NOTICE 'sec skipped: %%', SQLERRM; END $$;" % s
-          for s in rls + pols + tgrants + frevokes + fgrants])
+          for s in rls + pols + tgrants + fowners + frevokes + fgrants])
 
     # --------------------------------------------------------------- 060 cron
     jobs = cli_q("select jobid, jobname, schedule, active, username, command from cron.job order by jobid")
@@ -225,21 +276,36 @@ def main():
     # ------------------------------------------------------------- manifest++
     mpath = os.path.join(BK, "MANIFEST.json")
     man = json.load(open(mpath))
+    prev = man.get("manifest_sha256")
+    superseded = man.get("superseded_manifests", [])
+    if prev:
+        superseded.append({"manifest_sha256": prev,
+                           "superseded_at": os.environ.get("S0_NOW") or __import__("datetime")
+                           .datetime.now(__import__("datetime").timezone.utc).isoformat(),
+                           "reason": "ACL fidelity reworked: proacl string + loose normalisation replaced by "
+                                     "exact aclexplode canonical tuples, explicit owner mapping and faithful "
+                                     "role attributes; 050 now restores owners, PUBLIC revokes and grant options."})
+    man["superseded_manifests"] = superseded
+    man["files_sha256"]["acl_canonical.json"] = sha256_file(os.path.join(BK, "acl_canonical.json"))
     man["restore_bundle"] = {
         "order": ["000_prereqs.sql", "005_auth.sql", "010_tables.sql", "020_constraints.sql", "030_functions.sql",
                   "040_triggers.sql", "050_security.sql", "060_cron.sql"],
         "files": files,
         "row_data_included": False,
         "cron_commands_redacted": redacted,
+        "acl_basis": "aclexplode(coalesce(proacl, acldefault('f', proowner))) — exact tuples, no normalisation",
         "counts": {"tables": len(tables), "views": len(views), "functions": len(fndefs),
-                   "triggers": len(trgs), "policies": len(pols), "enums": len(enums),
-                   "sequences": len(seqs), "cron_jobs": len(jobs),
+                   "triggers": len(trgs), "policies": len(pols), "enums": len(enums), "auth_types": len(auth_types),
+                   "sequences": len(seqs), "cron_jobs": len(jobs), "roles": len(roles),
+                   "function_owners": len(fowners), "function_public_revokes": len(frevokes),
                    "table_grants": len(tgrants), "function_grants": len(fgrants)},
     }
     man.pop("manifest_sha256", None)
     man["manifest_sha256"] = sha256_text(json.dumps(man, sort_keys=True))
     write_json(mpath, man)
-    print(json.dumps(man["restore_bundle"]["counts"], indent=2))
+    print(json.dumps({"counts": man["restore_bundle"]["counts"],
+                      "manifest_sha256": man["manifest_sha256"],
+                      "superseded": [s["manifest_sha256"] for s in superseded]}, indent=2))
     return 0
 
 
