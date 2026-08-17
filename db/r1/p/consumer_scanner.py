@@ -33,7 +33,7 @@ REQUIRED_FIELDS = [
     "path", "surface", "audience", "role", "access_kind", "exact_access",
     "entitlement", "embargo_predicate", "legacy_fallback", "side_effects",
     "cutover_disposition", "test_id", "coverage_status", "tables",
-    "invocation_guard",
+    "invocation_guard", "contract_gate",
 ]
 AUDIENCES = {"public", "admin", "internal", "test"}
 DISPOSITIONS = {
@@ -224,7 +224,21 @@ def classify(rel: str, info: dict, anon: set[str], pub_fns: set[str]) -> dict:
                else "n/a — not an anonymous surface" if audience != "public"
                else "n/a — no signal-level facts read")
 
-    legacy = any(t in info["tables"] for t in ECON_TABLES) and not type_only
+    # R1-P: a public reader that imports the typed public economic contract is
+    # no longer a raw legacy reader — the gate decides what may be rendered.
+    contract_gate = None
+    m_gate = re.search(r"from ['\"](?:@/contracts/publicEconomicContract"
+                       r"|@/contracts/publicProjection"
+                       r"|[./]*_shared/publicEconomicContract\.ts)['\"]", txt)
+    if m_gate:
+        fns = sorted(set(re.findall(
+            r"\b(gatePerformance|gatePositionRows|gateCapital|gateSeries|"
+            r"gateSignalEconomics|isPubliclyVisible|stripEconomicFacts|"
+            r"resolveProjectionStatus|useProjectionStatus|canExportFactsheet)\b", txt)))
+        contract_gate = "typed contract: " + ", ".join(fns) if fns else "typed contract import"
+
+    legacy = (any(t in info["tables"] for t in ECON_TABLES)
+              and not type_only and contract_gate is None)
 
     side: list[str] = []
     if re.search(r"staleTime|useQuery|queryClient", txt): side.append("react-query cache")
@@ -235,6 +249,8 @@ def classify(rel: str, info: dict, anon: set[str], pub_fns: set[str]) -> dict:
 
     if audience == "test":
         disp = "test_only"
+    elif audience == "public" and contract_gate:
+        disp = "typed_public_contract"
     elif audience == "public" and legacy:
         disp = "migrate_to_typed_public_contract"
     elif audience == "public":
@@ -260,6 +276,7 @@ def classify(rel: str, info: dict, anon: set[str], pub_fns: set[str]) -> dict:
         "coverage_status": "covered",
         "tables": info["tables"],
         "invocation_guard": guard or ("route render" if surface == "frontend" else "none"),
+        "contract_gate": contract_gate or "n/a",
     }
 
 
@@ -378,9 +395,13 @@ def check() -> int:
             errs.append(f"{c['path']}: unclassified audience {c.get('audience')!r}")
         if c.get("cutover_disposition") not in DISPOSITIONS:
             errs.append(f"{c['path']}: bad cutover_disposition {c.get('cutover_disposition')!r}")
-        if c.get("audience") == "public" and c.get("legacy_fallback") \
-           and c.get("cutover_disposition") != "migrate_to_typed_public_contract":
-            errs.append(f"{c['path']}: public legacy fallback without a typed contract disposition")
+        # hard gate: no public consumer may keep a raw legacy read path
+        if c.get("audience") == "public" and c.get("legacy_fallback"):
+            errs.append(f"{c['path']}: public consumer still reads legacy economic tables "
+                        f"without the typed public contract")
+        if (c.get("audience") == "public" and c.get("access_kind") != "type_only"
+                and c.get("contract_gate") in (None, "", "n/a")):
+            errs.append(f"{c['path']}: public economic reader without contract_gate evidence")
         if c.get("coverage_status") != "covered":
             errs.append(f"{c['path']}: coverage_status={c.get('coverage_status')}")
         tid = (c.get("test_id") or "").split("::")[0]
