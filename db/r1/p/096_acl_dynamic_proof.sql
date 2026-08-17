@@ -356,9 +356,10 @@ BEGIN
 
   SELECT id INTO v_exp FROM public.experts WHERE status = 'active' ORDER BY id LIMIT 1;
   BEGIN
-    INSERT INTO public.expert_signals(id, expert_id, action, instrument, quantity, price,
-                                      status, published_at)
-    VALUES (v_id, v_exp, 'buy', '2330 台積電', 1000, 100, 'pending', now());
+    INSERT INTO public.expert_signals(id, expert_id, action, instrument, quantity,
+                                      quantity_unit, price_hint, market, status, published_at)
+    VALUES (v_id, v_exp, 'buy', '2330 台積電', 1, '張', 100, 'TW', 'pending', now());
+
     RAISE EXCEPTION 'acl_rollback_marker' USING ERRCODE = 'P0002';
   EXCEPTION
     WHEN SQLSTATE 'P0002' THEN v_state := '00000';
