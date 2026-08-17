@@ -186,3 +186,33 @@ reaper's `pg_get_functiondef` md5 is untouched by apply.
   items as **UNRECOVERABLE GAP** for exact error text.
 - Stage B is **not** complete: the Edge worker changes (B-2 / B-6) have not been
   written, and nothing has been applied to production.
+
+## 2026-08-17 landed evidence (DB16/DB17/B16/B17/B18/B19)
+
+All sanitized logs, run.stdout, stage artifacts, summary.json and SHA256SUMS.txt are
+persisted under `db/r1/c/SB/artifacts/<clone>/`.
+
+| clone | run_id | checks | failures | log_sha256_pre_result | status |
+|---|---|---|---|---|---|
+| DB16 | DB16-20260817T163312Z-18643 | 32 (sql verifier pass=187 fail=0 gap=0) | 0 | 66a89bf30bbee06ff3398f15af02daf066133bd6953141e4c7d0ff77ac186932 | VALID (001/002/099 unchanged this round) |
+| DB17 | DB17-20260817T163312Z-18645 | 32 (sql verifier pass=187 fail=0 gap=0) | 0 | 5699267c2a60afdf0a0edbd1100077e0bec16bdf7df2550642d0d72f4603948d | VALID |
+| B16 | B16-20260817T163736Z-25036 | 150 | 0 | 63395cb7e160d139b8fa64a52687d96def2df5f6061b80d49e788cb8f0191f0c | SUPERSEDED by B18/B19 (no manual-entrypoint coverage; clone sequence-ACL gap) |
+| B17 | B17-20260817T163831Z-26629 | 150 | 0 | 6b6339b621b204dff76d07309b913a6aeb0b86143abaf0b1b696a88f55a4573e | SUPERSEDED by B18/B19 |
+| B18 | B18-20260817T165630Z-46709 | 249 | 0 | 97307eec2500056c4c710218e2336e0f81de5e1ac1d93a908f8e40f2d4f69ede | AUTHORITATIVE |
+| B19 | B19-20260817T165799Z / B19-20260817T165759Z-48948 | 249 | 0 | 93ecf14e0e242b32d59ed4094501361a01c333b20e0807e56cfe66502664f855 | AUTHORITATIVE |
+
+### What B18/B19 add over B16/B17
+1. **MANUAL entrypoint gate matrix (real HTTP)** — `stage manual_matrix`, 96 PASS checks:
+   rowmissing / keymissing / jsonnull / string / number / object / array / config-non-object /
+   status-RPC-error each send their own `{"mode":"manual",...}` HTTP request and assert
+   exact decision, blocked flag, reason, `note=admission_gate_closed`, zero provider calls,
+   zero queue writes, zero bsr-data writes, sanitized response. Plus a non-vacuity
+   open-gate manual request that really does enqueue.
+2. **Clone fidelity fix (harness-only)** — the baseline restore bundle recreates public
+   sequences without ACL while production grants `rwU` to anon/authenticated/service_role.
+   Every insert previously failed with `permission denied for sequence
+   tw_bsr_sync_queue_id_seq`, which made the closed-gate "wrote nothing" assertions vacuous.
+   EB-01b now asserts zero sequence-ACL gaps.
+3. **Product bug found and fixed by the new manual matrix** — `tw-bsr-finmind-sync`
+   `mode=manual` ignored the admission result and enqueued 3 rows while the status RPC was
+   unavailable. Manual now short-circuits fail-closed exactly like worker/enqueue.
