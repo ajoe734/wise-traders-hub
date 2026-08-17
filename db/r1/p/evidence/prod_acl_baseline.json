@@ -1,6 +1,6 @@
 {
   "artifact": "prod_acl_baseline",
-  "generated_at": "2026-08-17T07:58:07.502162+00:00",
+  "generated_at": "2026-08-17T08:12:06.916808+00:00",
   "mode": "production_read_only",
   "production_touch": {
     "ddl": 0,
