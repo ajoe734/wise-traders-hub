@@ -195,3 +195,16 @@ LANGUAGE sql IMMUTABLE SET search_path = '' AS $$ SELECT 7 $$;
 REVOKE ALL ON FUNCTION app_ledger.embargo_days() FROM PUBLIC, anon, authenticated;
 GRANT EXECUTE ON FUNCTION app_ledger.embargo_days() TO ledger_owner, postgres;
 
+
+-- ---------------------------------------------------------------- ACL (new objects only)
+REVOKE ALL ON FUNCTION app_ledger.classify_instrument(text,text,boolean,text) FROM PUBLIC, anon, authenticated;
+REVOKE ALL ON FUNCTION app_ledger.instrument_publishable(text,text,boolean,text) FROM PUBLIC, anon, authenticated;
+REVOKE ALL ON FUNCTION app_ledger.manifest_key(uuid,text,text) FROM PUBLIC, anon, authenticated;
+REVOKE ALL ON FUNCTION app_ledger.manifest_disposition(uuid,text,text) FROM PUBLIC, anon, authenticated;
+REVOKE ALL ON FUNCTION app_ledger.manifest_immutable() FROM PUBLIC, anon, authenticated;
+REVOKE ALL ON FUNCTION app_ledger.fx_rate_as_of(text,text,date) FROM PUBLIC, anon, authenticated;
+GRANT EXECUTE ON FUNCTION app_ledger.classify_instrument(text,text,boolean,text) TO ledger_owner, postgres;
+GRANT EXECUTE ON FUNCTION app_ledger.instrument_publishable(text,text,boolean,text) TO ledger_owner, postgres;
+GRANT EXECUTE ON FUNCTION app_ledger.manifest_key(uuid,text,text) TO ledger_owner, postgres;
+GRANT EXECUTE ON FUNCTION app_ledger.manifest_disposition(uuid,text,text) TO ledger_owner, postgres;
+GRANT EXECUTE ON FUNCTION app_ledger.fx_rate_as_of(text,text,date) TO ledger_owner, postgres;
