@@ -195,7 +195,6 @@ def main():
         cross join lateral aclexplode(c.relacl) a
         left join pg_roles r on r.oid=a.grantee
         where n.nspname='public' and c.relacl is not null and c.relkind in ('r','v')
-          and coalesce(r.rolname,'PUBLIC') in ('anon','authenticated','service_role','postgres','ledger_owner')
         order by c.relname, coalesce(r.rolname,'PUBLIC'), a.privilege_type""")
     # Function ownership must be restored BEFORE any function grant: a GRANT
     # issued by a superuser records the object OWNER as grantor, so a wrong
@@ -217,7 +216,6 @@ def main():
           and not exists (select 1 from aclexplode(coalesce(p.proacl, acldefault('f',p.proowner))) a
                           where a.grantee = 0)
         order by p.proname, pg_get_function_identity_arguments(p.oid)""")
-    frevokes = ["DO $$ BEGIN %s EXCEPTION WHEN others THEN NULL; END $$;" % r for r in frevokes]
     # Exact tuple reproduction: every grantee (PUBLIC included), every
     # privilege_type, and the grant option flag. No role name is filtered out.
     fgrants = lines("""select 'GRANT '||a.privilege_type||' ON FUNCTION public.'||quote_ident(p.proname)||'('||
