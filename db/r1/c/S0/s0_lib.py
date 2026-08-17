@@ -41,6 +41,14 @@ def psql(sql, retries=5, sep="\x1f"):
     raise SystemExit("psql failed: %s\n%s" % (sql[:160], last))
 
 
+def psql_json(sql, retries=5):
+    """Run a query and return a list of scalars/rows via json_agg, so values
+    containing newlines (function bodies, view definitions) survive intact."""
+    wrapped = "select coalesce(json_agg(t.v)::text,'[]') from (%s) t(v)" % sql
+    r = psql(wrapped, retries=retries)
+    return json.loads(r[0][0]) if r else []
+
+
 def cli_q(sql, retries=4):
     """Read-only SQL through the Lovable gateway (production environment)."""
     last = ""

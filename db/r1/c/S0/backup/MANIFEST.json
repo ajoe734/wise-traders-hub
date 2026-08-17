@@ -10,12 +10,72 @@
   "files_sha256": {
     "../edge_inventory.json": "ad84b9a0c9496c3ad4ac1110aa242e346287da21e8e6f0e4831147d9ba7bdf49",
     "acl_keys.json": "ab040a33d08c135a54c865413304fb09346ea421b245a5c6cf0b466860a1eda2",
-    "catalog_affected.json": "189b3eaf6d22c8a52c75f89bfb91a135526ae2993d0aed1842ab5967f2913dec",
+    "catalog_affected.json": "9242b2b16bb22f71eb616993a4d05be71b3cc3ed630607f106ec2aea4c5c7f35",
     "catalog_fingerprint.json": "113a99429dd504ed6530042c3dcfcea453b6f95a33c3530698d26f507901a228",
     "cron_config.json": "5ea71a19ee3815f3f822fae6ab468531ce0d08f95d373d742ae883500cf40b19",
     "functions.sql": "cf2e1028f8aa845c75455ffb3f5415f9c70f875614e2282a1d9457ca1f45beed"
   },
-  "manifest_sha256": "5a09462d7c8add9fd35ea996b9dc814e7ef418aef77fda9443bd47724e510b63",
+  "manifest_sha256": "0b3c6a6300b68eab874db1a37a426a3342d95544a5a1d966c380e0c5bdce6308",
   "production_touch": "read-only (SELECT / catalog only)",
-  "reason": "managed backup tier / PITR state is not readable by any available tool (S0-2a BLOCKER)"
+  "reason": "managed backup tier / PITR state is not readable by any available tool (S0-2a BLOCKER)",
+  "restore_bundle": {
+    "counts": {
+      "cron_jobs": 72,
+      "enums": 11,
+      "function_grants": 1649,
+      "functions": 347,
+      "policies": 249,
+      "sequences": 17,
+      "table_grants": 4384,
+      "tables": 123,
+      "triggers": 70,
+      "views": 14
+    },
+    "cron_commands_redacted": 0,
+    "files": {
+      "000_prereqs.sql": {
+        "sha256": "c0f026dceb96d4bdbf9a4d0f29b3992f0ab14b16f91448ad3132424840cae652",
+        "statements": 48
+      },
+      "005_auth.sql": {
+        "sha256": "2091c9d3011d05724d70f1b40e77f83aaa92a9497d5892e96c58a7825f298f2b",
+        "statements": 63
+      },
+      "010_tables.sql": {
+        "sha256": "5392396482a981788bc50c443ca721f356437e3d36291138379c5aa1ea87d3aa",
+        "statements": 137
+      },
+      "020_constraints.sql": {
+        "sha256": "16e205a7d45fa60a145a64228c25ea708b7a92f321b00cb8e5e32983d06b7b1f",
+        "statements": 459
+      },
+      "030_functions.sql": {
+        "sha256": "4bda6573192d6842f3e6032698c259ffc486c018a361f32ff870d124a606d64f",
+        "statements": 348
+      },
+      "040_triggers.sql": {
+        "sha256": "20d7684ed63ed54f52164445122e6aff94bcca7babe978bc49992ec19303f266",
+        "statements": 70
+      },
+      "050_security.sql": {
+        "sha256": "5ea274639f600806388c364577140307c785fd38f8a97a088e4aabf15c61c33e",
+        "statements": 6524
+      },
+      "060_cron.sql": {
+        "sha256": "e536fc3b45535a3dea17b87c9635eada58274d1170cde40c338dfbb2e955cc5a",
+        "statements": 77
+      }
+    },
+    "order": [
+      "000_prereqs.sql",
+      "005_auth.sql",
+      "010_tables.sql",
+      "020_constraints.sql",
+      "030_functions.sql",
+      "040_triggers.sql",
+      "050_security.sql",
+      "060_cron.sql"
+    ],
+    "row_data_included": false
+  }
 }
