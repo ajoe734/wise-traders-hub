@@ -402,7 +402,7 @@ chk $([ "$CTIMEOUT" = 0 ] && echo 0 || echo 1) "EB-89 concurrency completed insi
 chk $([ "${CR1:-1}" = 0 ] && [ "${CR2:-1}" = 0 ] && echo 0 || echo 1) "EB-89b both concurrent curl processes exited 0 (rc=${CR1:-none}/${CR2:-none})"
 chk $([ "${CC1:-x}" = 200 ] && [ "${CC2:-x}" = 200 ] && echo 0 || echo 1) "EB-90 both concurrent workers returned 200 (http=${CC1:-none}/${CC2:-none})"
 chk $([ "$(gateblocked)" = 'true' ] && echo 0 || echo 1) "EB-91 gate closed exactly once under concurrency"
-DUP=$(psql "$CL" -qXAt -c "SELECT count(*) FROM public.tw_bsr_sync_queue WHERE enqueued_by='edge_rehearsal_conc' AND status='pending' AND locked_by IS NOT NULL" 2>/dev/null || echo 0)
+DUP=$(psql "$CL" -qXAt -c "SELECT count(*) FROM public.tw_bsr_sync_queue WHERE enqueued_by='edge_rehearsal_conc' AND status='processing' AND started_at < now() - interval '2 minutes'")
 chk $([ "${DUP:-0}" = 0 ] && echo 0 || echo 1) "EB-92 no job left pending with a stale lease (${DUP:-0})"
 DEAD=""
 for p in "${SVC_PIDS[@]}"; do kill -0 "$p" 2>/dev/null || DEAD="$DEAD $p"; done
