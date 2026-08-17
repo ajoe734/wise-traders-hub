@@ -44,6 +44,8 @@ run_clone() { # name port
   psql "$CL" -qX -f db/r1/clone/schema.sql > "$DIR/schema.log" 2>&1
   local SCHEMA_ERR; SCHEMA_ERR=$(grep -c '^ERROR' "$DIR/schema.log")
   echo "  schema errors: $SCHEMA_ERR" | tee -a "$OUT/$NAME.log"
+  psql "$CL" -qX -v ON_ERROR_STOP=1 -f db/r1/clone/10_load_fixture.sql > "$DIR/fixture.log" 2>&1 \
+    || { echo "  fixture FAILED"; tail -5 "$DIR/fixture.log"; FAILS=$((FAILS+1)); }
 
   # 2. gates
   psql "$CL" -tAqXf db/r1/fidelity.sql > "$DIR/fid.txt" 2>&1
@@ -63,7 +65,7 @@ run_clone() { # name port
     echo "  GATE FAIL shape"; comm -13 <(sort "$DIR/shape.txt") <(sort db/r1/clone/baseline/shape_prod.txt) | head -20
     FAILS=$((FAILS+1)); fi
 
-  # 3. hash BEFORE (empty-data, production-shape baseline)
+  # 3. hash BEFORE (production-shape anonymized fixture baseline)
   psql "$CL" -tAqXf db/r1/d/095_hashes.sql > "$DIR/hash_before.txt" 2>&1
 
   # 4. R1 + R1-D pipeline
@@ -93,7 +95,6 @@ run_clone() { # name port
 
   # 7. rollback -> hash AFTER (restore legacy bodies from the production snapshot)
   psql "$CL" -qX -f db/r1/d/099_rollback.sql > "$DIR/rollback.log" 2>&1
-  psql "$CL" -qX -f db/r1/d/098_data_purge.sql >> "$DIR/rollback.log" 2>&1
   psql "$CL" -qX -f db/r1/clone/functions.sql >> "$DIR/rollback.log" 2>&1
   psql "$CL" -tAqXf db/r1/d/095_hashes.sql > "$DIR/hash_after.txt" 2>&1
   if diff -q "$DIR/hash_before.txt" "$DIR/hash_after.txt" >/dev/null; then

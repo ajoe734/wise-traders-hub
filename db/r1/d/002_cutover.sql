@@ -73,7 +73,7 @@ BEGIN
   END IF;
   RETURN NEW;
 END $$;
-ALTER FUNCTION public.handle_signal_trade() OWNER TO ledger_owner;
+ALTER FUNCTION public.handle_signal_trade() OWNER TO wrapper_owner;
 
 -- ---------------------------------------------------------------- W02 handle_signal_takedown
 CREATE OR REPLACE FUNCTION public.handle_signal_takedown() RETURNS trigger
@@ -84,7 +84,7 @@ BEGIN
   END IF;
   RETURN NEW;
 END $$;
-ALTER FUNCTION public.handle_signal_takedown() OWNER TO ledger_owner;
+ALTER FUNCTION public.handle_signal_takedown() OWNER TO wrapper_owner;
 
 -- ---------------------------------------------------------------- W03 save_signal_batch
 -- Only change vs legacy: the editing path reverses via canonical instead of
@@ -152,7 +152,7 @@ BEGIN
   END IF;
   RETURN _inserted;
 END $$;
-ALTER FUNCTION public.save_signal_batch(uuid,uuid,jsonb,jsonb,boolean) OWNER TO ledger_owner;
+ALTER FUNCTION public.save_signal_batch(uuid,uuid,jsonb,jsonb,boolean) OWNER TO wrapper_owner;
 
 -- ---------------------------------------------------------------- W04 price sync
 CREATE OR REPLACE FUNCTION public.upsert_current_price(p_writer text, p_rows jsonb)
@@ -162,7 +162,7 @@ BEGIN
   n := app_ledger.apply_price_update(p_rows);
   RETURN n;
 END $$;
-ALTER FUNCTION public.upsert_current_price(text,jsonb) OWNER TO ledger_owner;
+ALTER FUNCTION public.upsert_current_price(text,jsonb) OWNER TO wrapper_owner;
 
 -- ---------------------------------------------------------------- W05..W09 admin economic writers
 CREATE OR REPLACE FUNCTION public.admin_delete_trade_records_by_signal_ids(_signal_ids uuid[])
@@ -177,7 +177,7 @@ BEGIN
   END LOOP;
   RETURN n;
 END $$;
-ALTER FUNCTION public.admin_delete_trade_records_by_signal_ids(uuid[]) OWNER TO ledger_owner;
+ALTER FUNCTION public.admin_delete_trade_records_by_signal_ids(uuid[]) OWNER TO wrapper_owner;
 
 CREATE OR REPLACE FUNCTION public.admin_delete_trade_records_by_symbol(
   _expert_id uuid, _symbol_prefix text)
@@ -196,7 +196,7 @@ BEGIN
   END LOOP;
   RETURN n;
 END $$;
-ALTER FUNCTION public.admin_delete_trade_records_by_symbol(uuid,text) OWNER TO ledger_owner;
+ALTER FUNCTION public.admin_delete_trade_records_by_symbol(uuid,text) OWNER TO wrapper_owner;
 
 CREATE OR REPLACE FUNCTION public.realign_instrument_unit(
   p_expert_id uuid, p_symbol_prefix text, p_new_unit text)
@@ -217,7 +217,7 @@ BEGIN
   END LOOP;
   RETURN pg_catalog.jsonb_build_object('status','ok','rows',out_rows);
 END $$;
-ALTER FUNCTION public.realign_instrument_unit(uuid,text,text) OWNER TO ledger_owner;
+ALTER FUNCTION public.realign_instrument_unit(uuid,text,text) OWNER TO wrapper_owner;
 
 CREATE OR REPLACE FUNCTION public.admin_signal_dupe_trades_fix(
   p_signal_id uuid, p_dry_run boolean DEFAULT true, p_force boolean DEFAULT false)
@@ -237,7 +237,7 @@ BEGIN
          v_target, s.quantity_unit, 'dupe_fix:'||p_signal_id::text, 3);
   RETURN pg_catalog.jsonb_build_object('status','ok','result',v);
 END $$;
-ALTER FUNCTION public.admin_signal_dupe_trades_fix(uuid,boolean,boolean) OWNER TO ledger_owner;
+ALTER FUNCTION public.admin_signal_dupe_trades_fix(uuid,boolean,boolean) OWNER TO wrapper_owner;
 
 -- W08 dedupe sweep: candidate detection lives in app_ledger; the repair path is a
 -- canonical correction per duplicate group (no raw DELETE, fully idempotent).
@@ -275,6 +275,7 @@ BEGIN
   RETURN pg_catalog.jsonb_build_object('status','swept','duplicate_groups',n,
     'corrections_applied',applied);
 END $$;
+ALTER FUNCTION public.trade_dedupe_sweep(boolean) OWNER TO wrapper_owner;
 
 CREATE OR REPLACE FUNCTION public.admin_apply_fix_proposal(p_id uuid, p_confirm boolean)
 RETURNS jsonb LANGUAGE plpgsql SECURITY DEFINER SET search_path = '' AS $$
@@ -293,7 +294,7 @@ BEGIN
    WHERE id = p_id;
   RETURN pg_catalog.jsonb_build_object('status','applied','result',v);
 END $$;
-ALTER FUNCTION public.admin_apply_fix_proposal(uuid,boolean) OWNER TO ledger_owner;
+ALTER FUNCTION public.admin_apply_fix_proposal(uuid,boolean) OWNER TO wrapper_owner;
 
 CREATE OR REPLACE FUNCTION public.admin_reset_expert_asset_class(
   _expert_id uuid, _new_asset_class text)
@@ -311,7 +312,7 @@ BEGIN
   END LOOP;
   UPDATE public.experts SET asset_class = _new_asset_class WHERE id = _expert_id;
 END $$;
-ALTER FUNCTION public.admin_reset_expert_asset_class(uuid,text) OWNER TO ledger_owner;
+ALTER FUNCTION public.admin_reset_expert_asset_class(uuid,text) OWNER TO wrapper_owner;
 
 -- ---------------------------------------------------------------- ACL: least privilege (R1-D §6)
 DO $$
