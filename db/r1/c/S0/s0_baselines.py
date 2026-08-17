@@ -114,14 +114,14 @@ def main():
     manifest_by_expert = collections.defaultdict(list)
     for k in rep["keys"]:
         manifest_by_expert[k["expert"]].append(k)
-    rows = psql("""select e.id::text, coalesce(e.name,'(unnamed)'),
+    rows = psql("""select e.id::text, e.slug, coalesce(e.name,'(unnamed)'),
                coalesce(e.status::text,'(null)'),
                (select count(*) from expert_signals s where s.expert_id=e.id)::text,
                (select count(*) from trade_records t where t.expert_id=e.id)::text,
                (select count(*) from trade_records t where t.expert_id=e.id and t.status='open')::text
         from experts e order by 1""")
     experts = []
-    for eid, name, status, sig, trd, opn in rows:
+    for eid, slug, name, status, sig, trd, opn in rows:
         sig, trd, opn = int(sig), int(trd), int(opn)
         handle = "E-" + __import__("hashlib").md5(eid.encode()).hexdigest()[:8]
         keys = manifest_by_expert.get(handle, [])
@@ -144,11 +144,11 @@ def main():
         else:
             cls = "ready"
             reason = "all replay keys have complete ledger/unit/market/derivative/FX proof"
-        experts.append({"expert_id": eid, "name": name, "status": status,
+        experts.append({"expert_id": eid, "slug": slug, "name": name, "status": status,
                         "signals": sig, "trade_records": trd, "open_positions": opn,
                         "manifest_expert": handle, "replay_keys": len(keys),
                         "drift26_keys": drift, "classification": cls, "reason": reason})
-    cls_lines = sorted("%s|%s|%d|%d|%d|%s" % (e["expert_id"], e["status"], e["signals"],
+    cls_lines = sorted("%s|%s|%s|%d|%d|%d|%s" % (e["expert_id"], e["slug"], e["status"], e["signals"],
                                               e["trade_records"], e["open_positions"],
                                               e["classification"]) for e in experts)
     b["experts_12"] = {
