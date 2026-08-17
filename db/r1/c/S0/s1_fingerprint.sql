@@ -1,7 +1,8 @@
 -- Only pre-existing production objects/data/ACL: S1 additions are deliberately excluded.
 SELECT 'relfilenode|'||md5(string_agg(x,E'\n' order by x)) FROM (
  SELECT n.nspname||'.'||c.relname||':'||c.relfilenode FROM pg_class c JOIN pg_namespace n ON n.oid=c.relnamespace
- WHERE n.nspname='public' AND c.relkind IN('r','m'))s(x);
+ WHERE n.nspname='public' AND c.relkind IN('r','m')
+   AND c.relname NOT IN('public_projection_version','public_projection_withheld'))s(x);
 SELECT 'economic|'||md5(string_agg(x,E'\n' order by x)) FROM (
  SELECT id::text||':'||expert_id::text||':'||instrument||':'||quantity::text||':'||status::text FROM public.trade_records
  UNION ALL SELECT id::text||':'||expert_id::text||':'||instrument||':'||coalesce(quantity::text,'')||':'||status::text FROM public.expert_signals)s(x);
