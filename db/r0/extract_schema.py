@@ -46,14 +46,14 @@ for t in TABLES:
     out.append(f"CREATE TABLE public.{t} (\n  " + ",\n  ".join(cols) + "\n);")
 
 out.append('\n-- CONSTRAINTS')
-for line in q(f"""select rel.relname||'|'||con.conname||'|'||pg_get_constraintdef(con.oid)
+for line in q(f"""select replace(rel.relname||'|'||con.conname||'|'||pg_get_constraintdef(con.oid), chr(10), ' ')
  from pg_constraint con join pg_class rel on rel.oid=con.conrelid join pg_namespace ns on ns.oid=rel.relnamespace
  where ns.nspname='public' and rel.relname in ({tl}) order by case con.contype when 'p' then 0 when 'u' then 1 else 2 end, rel.relname, con.conname"""):
     rel,name,defn = line.split('|',2)
     out.append(f"ALTER TABLE public.{rel} ADD CONSTRAINT {name} {defn};")
 
 out.append('\n-- INDEXES')
-for line in q(f"""select indexdef from pg_indexes where schemaname='public' and tablename in ({tl})
+for line in q(f"""select replace(indexdef, chr(10),' ') from pg_indexes where schemaname='public' and tablename in ({tl})
  and indexname not in (select conname from pg_constraint where contype in ('p','u')) order by tablename, indexname"""):
     out.append(line+';')
 
@@ -64,7 +64,7 @@ for line in q(f"""select replace(pg_get_functiondef(p.oid), chr(10), '~~NL~~') f
     out.append(line.replace('~~NL~~','\n')+';')
 
 out.append('\n-- TRIGGERS')
-for line in q(f"""select pg_get_triggerdef(tg.oid) from pg_trigger tg join pg_class c on c.oid=tg.tgrelid
+for line in q(f"""select replace(pg_get_triggerdef(tg.oid), chr(10),' ') from pg_trigger tg join pg_class c on c.oid=tg.tgrelid
  join pg_namespace n on n.oid=c.relnamespace where not tg.tgisinternal and n.nspname='public'
  and c.relname in ({tl}) order by c.relname, tg.tgname"""):
     out.append(line+';')
@@ -72,7 +72,7 @@ for line in q(f"""select pg_get_triggerdef(tg.oid) from pg_trigger tg join pg_cl
 out.append('\n-- RLS + POLICIES')
 for t in TABLES:
     out.append(f"ALTER TABLE public.{t} ENABLE ROW LEVEL SECURITY;")
-for line in q(f"""select tablename||'|'||policyname||'|'||cmd||'|'||array_to_string(roles,',')||'|'||coalesce(qual,'')||'|'||coalesce(with_check,'')
+for line in q(f"""select replace(tablename||'|'||policyname||'|'||cmd||'|'||array_to_string(roles,',')||'|'||coalesce(qual,'')||'|'||coalesce(with_check,''), chr(10), ' ')
  from pg_policies where schemaname='public' and tablename in ({tl}) order by tablename, policyname"""):
     tb,pn,cmd,roles,qual,wc = line.split('|',5)
     s = f'CREATE POLICY "{pn}" ON public.{tb} FOR {cmd} TO {roles}'
