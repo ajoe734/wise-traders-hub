@@ -1,0 +1,61 @@
+{
+  "generated_at_utc": "2026-08-17T09:41:50.410405Z",
+  "provenance": "regenerated from committed artifacts; E_classify raw stdout is NOT recoverable — the seed SQL + replay-84.json are the authoritative surviving basis",
+  "artifacts": {
+    "db/r1/p/010_manifest_seed.sql": {
+      "sha256": "f26e1c8ad0bc16368d701f2897def142e1f3f6088089b3ffa07ac530b6312b24",
+      "bytes": 21079
+    },
+    "db/r1/p/evidence/preview-manifest.json": {
+      "sha256": "53ed0d96443667fe5724192f2acb3188b12666244fd284ea9e32d0dbc98b367c",
+      "bytes": 25145
+    },
+    "db/r1/p/evidence/preview-manifest.run1.json": {
+      "sha256": "7f83b02fa5ec9093d64e1206f15f05929e491a4dffd55a7af39ef4ae15e5e566",
+      "bytes": 24348
+    },
+    "db/r1/p/evidence/preview-manifest.run2.json": {
+      "sha256": "7b461b18cd0c07ce75890f22e08027f572b7fbba9f58bd2741e1fbb7a9c07a99",
+      "bytes": 24348
+    },
+    "db/r1/p/evidence/preview-manifest.run3.json": {
+      "sha256": "cf7f66128247716fec873763c26205863974f5af6e9ea088aaaef9c2e9d229c6",
+      "bytes": 24349
+    },
+    "db/r1/p/evidence/superseded/2026-08-17-pre-failclosed/preview-manifest.json": {
+      "sha256": "c1a0e6219dab2bf2058cfe2c5aad0bfe00c5f37465291572afeb0c798cd3ce85",
+      "bytes": 30930
+    },
+    "db/r1/p/replay-84.json": {
+      "sha256": "a88aab43142173d1f10702b4d56cc7f85328e8ed45aaf92b606fadfde249844b",
+      "bytes": 94233
+    }
+  },
+  "sets": {
+    "full_universe_84": {
+      "count": 84,
+      "meaning": "every (expert,market,instrument) key seen in replay"
+    },
+    "quantity_drift_26": {
+      "count": 26,
+      "meaning": "canonical market-aware quantity differs from stored"
+    },
+    "fail_closed_unsafe_36": {
+      "count": 36,
+      "meaning": "class <> 'match' (multi/signal/stored/incomplete/other) — never publishable"
+    },
+    "withheld_59": {
+      "count": 59,
+      "meaning": "superset of the 36; adds match keys blocked by expert/derivative/FX gates"
+    },
+    "key_level_publishable_25": {
+      "count": 25,
+      "meaning": "key-level only; expert-level ready=0 so effective public output is 0"
+    }
+  },
+  "relations": [
+    "drift26 ⊄ unsafe36 and unsafe36 ⊄ drift26 — they are different predicates",
+    "unsafe36 ⊂ withheld59 ⊂ universe84",
+    "withheld59 + publishable25 = 84"
+  ]
+}

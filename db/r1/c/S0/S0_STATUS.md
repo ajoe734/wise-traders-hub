@@ -70,3 +70,46 @@ Post-cutover 185/0 is **only** the existing R1-P clone evidence; it is not re-cl
 ## Appendix C — freshness observed vs hypothesis
 Observed (queried): `finmind_bsr` circuit open, 55 consecutive failures, `last_error_code=http_400`, `disabled_until=2026-08-17 08:46:13.991+00`; `chips_backfill` disabled `2026-08-17 08:10:03.764+00`; `worker_chain_24h.attempt_logs=0`, `bsr_rows_written=0`, last write `2026-08-15 15:07:03Z`, latest trade_date `2026-08-14`; queue done 9956 / failed 1573 / pending 76; `cron_dispatch_24h_by_job = {}` (empty).
 Hypothesis (NOT observed end-to-end): there is **no natural run_id chain** linking cron → worker boot → admission reject, because attempt logs and per-job dispatch rows are both empty. The step "hourly cron fires and worker boots but admission rejects" is inference from switch/circuit state plus code paths, not from three joined run_ids. Wording downgraded from "root cause" to "consistent chain, partially inferred".
+
+## S1-min rehearsal (Flow B2) — clone-only, production 0 touch
+
+Files: `db/r1/c/S1/001_s1min.sql`, `010_manifest_seed.sql`, `s1min_verify.sql`,
+`s1min_rollback.sql`, `s1min_fingerprint.sql`, `s1min_rehearsal.sh`.
+
+S1-min contains ONLY newly created objects: role `ledger_owner` (NOLOGIN, no
+BYPASSRLS), schema `app_ledger`, `replay_manifest_key` + immutability trigger,
+the classifier/manifest/fx/embargo functions, and the two new public projection
+tables with grants on themselves only. Deferred to S2: ledger core,
+`effect_key`, guards, canonical writers, `CREATE OR REPLACE` of existing
+writers, `ALTER ROLE ... BYPASSRLS`, and every GRANT on a pre-existing table.
+
+| run_id | clone | apply | additive diff | verifier | rollback diff | residue | failures |
+|---|---|---|---|---|---|---|---|
+| s1minA-20260817T094123Z | fresh initdb :55972 | 1 txn OK | empty | PASS | empty | 0 | 0 |
+| s1minB-20260817T094150Z | fresh initdb :55973 | 1 txn OK | empty | PASS | empty | 0 | 0 |
+
+log_sha256 A `a240e9d5cae4fa5179667990170dcb59333319b1c9be218f32e594f4ae9de40e`,
+B `1c79345963d4c979c1a9e85ea00da36e330ac1cb3a15cbd4aa723c99c644e878`; both
+destroyed, background=0.
+
+The fingerprint covers baseline relfilenode (excluding the 2 new tables),
+economic rows, function ACL, table ACL, writer bodies/secdef, triggers and role
+attributes. before == after == after-rollback on both clones, so S1-min is
+additive by measurement and its stage rollback is exact for baseline objects
+(no "byte-identical whole database" claim is made).
+
+### Three sets are distinct (asserted by the verifier)
+- quantity drift (market-aware) = 26
+- fail-closed unsafe (`class <> 'match'`) = 36 — all withheld, manual_review, no authoritative qty
+- withheld = 59 (superset of the 36), key-level publishable = 25, 59+25 = 84
+- expert gate: 12 experts, ready = 0, so effective public output stays 0
+
+Basis provenance regenerated at `db/r1/c/S0/manifest_basis.json` (raw E_classify
+stdout remains unrecoverable; the seed SQL + replay artifacts are the surviving
+authoritative basis, hashed there).
+
+### Gate impact
+- PITR unknown and authenticated smoke are NOT S1-min blockers (additive, proven
+  rollback). They remain hard blockers for S2 (writer overwrite / Edge deploy).
+- S1-min status: clone-only PASS x2. Production still 0 touch, not applied,
+  nothing deployed or published.
