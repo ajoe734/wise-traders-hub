@@ -99,8 +99,8 @@ BEGIN
     -- the same way production does: publish a buy signal and let the
     -- handle_signal_trade -> ledger path materialise the trade record.
     INSERT INTO public.expert_signals(expert_id, action, instrument, quantity,
-      quantity_unit, price_hint, market, status, published_at)
-    VALUES (v_exp, 'buy', 'ZZZZ', 2, '張', 100, 'TW', 'published', now());
+      quantity_unit, price_hint, market, status, published_at, executed_at)
+    VALUES (v_exp, 'buy', 'ZZZZ', 2, '張', 100, 'TW', 'published', now(), now());
   END IF;
   INSERT INTO public.holdings_fix_proposals(
     id, drift_category, expert_id, expert_slug, expert_name, symbol, instrument,
