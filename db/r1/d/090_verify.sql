@@ -358,7 +358,7 @@ DO $$ DECLARE n int; BEGIN
       WHERE ns.nspname='public' AND p.proname=w.name
         AND pg_get_userbyid(p.proowner)='ledger_owner'
         AND pg_get_functiondef(p.oid) LIKE '%app_ledger.%');
-  PERFORM t.eq('T-COV-1: all legacy economic writers are canonical wrappers', n, 0);
+  PERFORM t.eq('T-COV-0: legacy economic writers route to canonical', n, 0);
 END $$;
 
 

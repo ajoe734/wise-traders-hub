@@ -48,11 +48,20 @@ run_clone() { # name port
   # 2. gates
   psql "$CL" -tAqXf db/r1/fidelity.sql > "$DIR/fid.txt" 2>&1
   psql "$CL" -tAqXf db/r1/shape_fingerprint.sql > "$DIR/shape.txt" 2>&1
-  local FID SHP
-  FID=$(grep -c '|PASS' "$DIR/fid.txt"); SHP=$(grep -c '|PASS' "$DIR/shape.txt")
-  echo "  fidelity PASS=$FID  shape PASS=$SHP" | tee -a "$OUT/$NAME.log"
-  [ "$FID" -ge 104 ] || { echo "  GATE FAIL fidelity <104"; FAILS=$((FAILS+1)); }
-  [ "$SHP" -ge 63 ]  || { echo "  GATE FAIL shape <63"; FAILS=$((FAILS+1)); }
+  # gate = exact line-for-line match against the production baselines captured
+  # read-only from production (db/r1/clone/baseline/*)
+  local FID SHP FIDT SHPT
+  FIDT=$(wc -l < db/r1/clone/baseline/fid_prod.txt)
+  SHPT=$(wc -l < db/r1/clone/baseline/shape_prod.txt)
+  FID=$(comm -12 <(sort "$DIR/fid.txt") <(sort db/r1/clone/baseline/fid_prod.txt) | wc -l)
+  SHP=$(comm -12 <(sort "$DIR/shape.txt") <(sort db/r1/clone/baseline/shape_prod.txt) | wc -l)
+  echo "  fidelity $FID/$FIDT   shape $SHP/$SHPT" | tee -a "$OUT/$NAME.log"
+  if [ "$FID" -lt "$FIDT" ]; then
+    echo "  GATE FAIL fidelity"; comm -13 <(sort "$DIR/fid.txt") <(sort db/r1/clone/baseline/fid_prod.txt) | head -20
+    FAILS=$((FAILS+1)); fi
+  if [ "$SHP" -lt "$SHPT" ]; then
+    echo "  GATE FAIL shape"; comm -13 <(sort "$DIR/shape.txt") <(sort db/r1/clone/baseline/shape_prod.txt) | head -20
+    FAILS=$((FAILS+1)); fi
 
   # 3. hash BEFORE (empty-data, production-shape baseline)
   psql "$CL" -tAqXf db/r1/d/095_hashes.sql > "$DIR/hash_before.txt" 2>&1
