@@ -30,7 +30,8 @@
    "tables": [
     "trade_records"
    ],
-   "invocation_guard": "route render"
+   "invocation_guard": "route render",
+   "contract_gate": "n/a"
   },
   {
    "path": "src/components/layouts/SignalsLayout.tsx",
@@ -53,7 +54,8 @@
    "tables": [
     "expert_signals"
    ],
-   "invocation_guard": "authenticated-only shell (redirects anonymous to /auth/login)"
+   "invocation_guard": "authenticated-only shell (redirects anonymous to /auth/login)",
+   "contract_gate": "n/a"
   },
   {
    "path": "src/components/layouts/UnifiedAppLayout.tsx",
@@ -77,7 +79,8 @@
    "tables": [
     "expert_signals"
    ],
-   "invocation_guard": "authenticated-only shell (redirects anonymous to /auth/login)"
+   "invocation_guard": "authenticated-only shell (redirects anonymous to /auth/login)",
+   "contract_gate": "n/a"
   },
   {
    "path": "src/contracts/publicEconomicContract.ts",
@@ -102,7 +105,8 @@
     "trade_records",
     "user_performances"
    ],
-   "invocation_guard": "route render"
+   "invocation_guard": "route render",
+   "contract_gate": "n/a"
   },
   {
    "path": "src/hooks/admin/useAdminPerformanceData.ts",
@@ -126,7 +130,8 @@
    "tables": [
     "trade_records"
    ],
-   "invocation_guard": "route render"
+   "invocation_guard": "route render",
+   "contract_gate": "n/a"
   },
   {
    "path": "src/hooks/admin/useAdminProfile.ts",
@@ -151,7 +156,8 @@
    "tables": [
     "expert_signals"
    ],
-   "invocation_guard": "route render"
+   "invocation_guard": "route render",
+   "contract_gate": "n/a"
   },
   {
    "path": "src/hooks/admin/useFactsheetSource.ts",
@@ -175,7 +181,8 @@
    "tables": [
     "trade_records"
    ],
-   "invocation_guard": "route render"
+   "invocation_guard": "route render",
+   "contract_gate": "n/a"
   },
   {
    "path": "src/hooks/admin/useSignalEditorData.ts",
@@ -199,7 +206,8 @@
     "expert_signals",
     "trade_records"
    ],
-   "invocation_guard": "route render"
+   "invocation_guard": "route render",
+   "contract_gate": "n/a"
   },
   {
    "path": "src/hooks/useAdminSignals.ts",
@@ -223,7 +231,8 @@
    "tables": [
     "trade_records"
    ],
-   "invocation_guard": "route render"
+   "invocation_guard": "route render",
+   "contract_gate": "n/a"
   },
   {
    "path": "src/hooks/useExpertHoldingsBundle.ts",
@@ -237,20 +246,21 @@
    ],
    "entitlement": "none (anonymous) — only released, ready facts",
    "embargo_predicate": "n/a — no signal-level facts read",
-   "legacy_fallback": true,
+   "legacy_fallback": false,
    "side_effects": [
     "react-query cache",
     "export/download",
     "realtime channel"
    ],
-   "cutover_disposition": "migrate_to_typed_public_contract",
+   "cutover_disposition": "typed_public_contract",
    "test_id": "publicProjection.test.ts::ready shows numbers",
    "coverage_status": "covered",
    "tables": [
     "trade_records",
     "user_performances"
    ],
-   "invocation_guard": "route render"
+   "invocation_guard": "route render",
+   "contract_gate": "typed contract: gateCapital, gatePerformance, gatePositionRows, useProjectionStatus"
   },
   {
    "path": "src/hooks/usePerformance.ts",
@@ -263,20 +273,21 @@
    ],
    "entitlement": "none (anonymous) — only released, ready facts",
    "embargo_predicate": "n/a — no signal-level facts read",
-   "legacy_fallback": true,
+   "legacy_fallback": false,
    "side_effects": [
     "react-query cache",
     "export/download",
     "realtime channel"
    ],
-   "cutover_disposition": "migrate_to_typed_public_contract",
+   "cutover_disposition": "typed_public_contract",
    "test_id": "publicProjection.test.ts::ready shows numbers",
    "coverage_status": "covered",
    "tables": [
     "trade_records",
     "user_performances"
    ],
-   "invocation_guard": "route render"
+   "invocation_guard": "route render",
+   "contract_gate": "typed contract: gatePerformance, useProjectionStatus"
   },
   {
    "path": "src/hooks/usePeriodPerformance.ts",
@@ -289,18 +300,19 @@
    ],
    "entitlement": "none (anonymous) — only released, ready facts",
    "embargo_predicate": "n/a — no signal-level facts read",
-   "legacy_fallback": true,
+   "legacy_fallback": false,
    "side_effects": [
     "react-query cache",
     "export/download"
    ],
-   "cutover_disposition": "migrate_to_typed_public_contract",
+   "cutover_disposition": "typed_public_contract",
    "test_id": "publicProjection.test.ts::ready shows numbers",
    "coverage_status": "covered",
    "tables": [
     "trade_records"
    ],
-   "invocation_guard": "route render"
+   "invocation_guard": "route render",
+   "contract_gate": "typed contract: gateSeries, useProjectionStatus"
   },
   {
    "path": "src/hooks/useSignalRealtimeInvalidation.ts",
@@ -325,7 +337,8 @@
    "tables": [
     "expert_signals"
    ],
-   "invocation_guard": "route render"
+   "invocation_guard": "route render",
+   "contract_gate": "n/a"
   },
   {
    "path": "src/integrations/supabase/types.ts",
@@ -351,7 +364,8 @@
     "trade_records",
     "user_performances"
    ],
-   "invocation_guard": "shared cron secret"
+   "invocation_guard": "shared cron secret",
+   "contract_gate": "n/a"
   },
   {
    "path": "src/lib/analystDataAccess.ts",
@@ -376,7 +390,8 @@
     "expert_signals",
     "trade_records"
    ],
-   "invocation_guard": "route render"
+   "invocation_guard": "route render",
+   "contract_gate": "n/a"
   },
   {
    "path": "src/lib/auditLog.ts",
@@ -400,7 +415,8 @@
     "expert_signals",
     "trade_records"
    ],
-   "invocation_guard": "caller JWT checked"
+   "invocation_guard": "caller JWT checked",
+   "contract_gate": "n/a"
   },
   {
    "path": "src/lib/instrument.ts",
@@ -424,7 +440,8 @@
     "expert_signals",
     "trade_records"
    ],
-   "invocation_guard": "route render"
+   "invocation_guard": "route render",
+   "contract_gate": "n/a"
   },
   {
    "path": "src/lib/journalExportCore.ts",
@@ -447,7 +464,8 @@
    "tables": [
     "trade_records"
    ],
-   "invocation_guard": "route render"
+   "invocation_guard": "route render",
+   "contract_gate": "n/a"
   },
   {
    "path": "src/lib/journalRepository.ts",
@@ -461,17 +479,18 @@
    ],
    "entitlement": "none (anonymous) — only released, ready facts",
    "embargo_predicate": "visible_at <= now() (T+7) enforced by canonical_publish + RLS",
-   "legacy_fallback": true,
+   "legacy_fallback": false,
    "side_effects": [
     "export/download"
    ],
-   "cutover_disposition": "migrate_to_typed_public_contract",
+   "cutover_disposition": "typed_public_contract",
    "test_id": "T-E10 anon sees only released positions",
    "coverage_status": "covered",
    "tables": [
     "expert_signals"
    ],
-   "invocation_guard": "route render"
+   "invocation_guard": "route render",
+   "contract_gate": "typed contract: gateSignalEconomics, resolveProjectionStatus"
   },
   {
    "path": "src/lib/mcp/tools/list_my_holdings.ts",
@@ -494,7 +513,8 @@
    "tables": [
     "trade_records"
    ],
-   "invocation_guard": "caller JWT checked"
+   "invocation_guard": "caller JWT checked",
+   "contract_gate": "n/a"
   },
   {
    "path": "src/lib/optionCombo.ts",
@@ -517,7 +537,8 @@
    "tables": [
     "expert_signals"
    ],
-   "invocation_guard": "route render"
+   "invocation_guard": "route render",
+   "contract_gate": "n/a"
   },
   {
    "path": "src/lib/performance/factsheetPdf.ts",
@@ -540,7 +561,8 @@
    "tables": [
     "trade_records"
    ],
-   "invocation_guard": "route render"
+   "invocation_guard": "route render",
+   "contract_gate": "n/a"
   },
   {
    "path": "src/lib/positionQuantity.ts",
@@ -563,7 +585,8 @@
    "tables": [
     "trade_records"
    ],
-   "invocation_guard": "route render"
+   "invocation_guard": "route render",
+   "contract_gate": "n/a"
   },
   {
    "path": "src/lib/queryClient.ts",
@@ -587,7 +610,8 @@
    "tables": [
     "expert_signals"
    ],
-   "invocation_guard": "route render"
+   "invocation_guard": "route render",
+   "contract_gate": "n/a"
   },
   {
    "path": "src/lib/subscriptionVisibility.ts",
@@ -600,17 +624,18 @@
    ],
    "entitlement": "none (anonymous) — only released, ready facts",
    "embargo_predicate": "visible_at <= now() (T+7) enforced by canonical_publish + RLS",
-   "legacy_fallback": true,
+   "legacy_fallback": false,
    "side_effects": [
     "export/download"
    ],
-   "cutover_disposition": "migrate_to_typed_public_contract",
+   "cutover_disposition": "typed_public_contract",
    "test_id": "T-E10 anon sees only released positions",
    "coverage_status": "covered",
    "tables": [
     "expert_signals"
    ],
-   "invocation_guard": "route render"
+   "invocation_guard": "route render",
+   "contract_gate": "typed contract: gateSignalEconomics, resolveProjectionStatus"
   },
   {
    "path": "src/pages/_adminPerformance/types.ts",
@@ -633,7 +658,8 @@
    "tables": [
     "trade_records"
    ],
-   "invocation_guard": "route render"
+   "invocation_guard": "route render",
+   "contract_gate": "n/a"
   },
   {
    "path": "src/pages/_adminSignals/SignalCreateDialog.tsx",
@@ -665,7 +691,8 @@
     "trade_records",
     "user_performances"
    ],
-   "invocation_guard": "route render"
+   "invocation_guard": "route render",
+   "contract_gate": "n/a"
   },
   {
    "path": "src/pages/_adminSignals/UnitRealignPreviewDialog.tsx",
@@ -690,7 +717,8 @@
     "expert_signals",
     "trade_records"
    ],
-   "invocation_guard": "route render"
+   "invocation_guard": "route render",
+   "contract_gate": "n/a"
   },
   {
    "path": "src/pages/_adminSignals/__tests__/SignalsTable.currency.test.tsx",
@@ -713,7 +741,8 @@
    "tables": [
     "expert_signals"
    ],
-   "invocation_guard": "route render"
+   "invocation_guard": "route render",
+   "contract_gate": "n/a"
   },
   {
    "path": "src/pages/_adminSignals/publishErrorMapper.ts",
@@ -736,7 +765,8 @@
    "tables": [
     "expert_signals"
    ],
-   "invocation_guard": "route render"
+   "invocation_guard": "route render",
+   "contract_gate": "n/a"
   },
   {
    "path": "src/pages/_aiStudio/IndexPanelTab.tsx",
@@ -760,7 +790,8 @@
    "tables": [
     "expert_signals"
    ],
-   "invocation_guard": "route render"
+   "invocation_guard": "route render",
+   "contract_gate": "n/a"
   },
   {
    "path": "src/pages/_signalEditor/derive.ts",
@@ -783,7 +814,8 @@
    "tables": [
     "expert_signals"
    ],
-   "invocation_guard": "route render"
+   "invocation_guard": "route render",
+   "contract_gate": "n/a"
   },
   {
    "path": "src/pages/_signalEditor/types.ts",
@@ -806,7 +838,8 @@
    "tables": [
     "trade_records"
    ],
-   "invocation_guard": "route render"
+   "invocation_guard": "route render",
+   "contract_gate": "n/a"
   },
   {
    "path": "src/pages/admin/Dashboard.tsx",
@@ -834,7 +867,8 @@
     "expert_signals",
     "trade_records"
    ],
-   "invocation_guard": "route render"
+   "invocation_guard": "route render",
+   "contract_gate": "n/a"
   },
   {
    "path": "src/pages/admin/Profile.tsx",
@@ -858,7 +892,8 @@
    "tables": [
     "expert_signals"
    ],
-   "invocation_guard": "route render"
+   "invocation_guard": "route render",
+   "contract_gate": "n/a"
   },
   {
    "path": "src/pages/admin/SignalEditor.tsx",
@@ -882,7 +917,8 @@
    "tables": [
     "trade_records"
    ],
-   "invocation_guard": "route render"
+   "invocation_guard": "route render",
+   "contract_gate": "n/a"
   },
   {
    "path": "src/pages/admin/Signals.tsx",
@@ -912,7 +948,8 @@
     "trade_records",
     "user_performances"
    ],
-   "invocation_guard": "route render"
+   "invocation_guard": "route render",
+   "contract_gate": "n/a"
   },
   {
    "path": "src/pages/app/SignalDetail.tsx",
@@ -936,7 +973,8 @@
    "tables": [
     "expert_signals"
    ],
-   "invocation_guard": "route render"
+   "invocation_guard": "route render",
+   "contract_gate": "n/a"
   },
   {
    "path": "src/pages/app/SignalsDashboard.tsx",
@@ -960,7 +998,8 @@
    "tables": [
     "expert_signals"
    ],
-   "invocation_guard": "route render"
+   "invocation_guard": "route render",
+   "contract_gate": "n/a"
   },
   {
    "path": "src/pages/company/AuditLogs.tsx",
@@ -985,7 +1024,8 @@
     "expert_signals",
     "trade_records"
    ],
-   "invocation_guard": "route render"
+   "invocation_guard": "route render",
+   "contract_gate": "n/a"
   },
   {
    "path": "src/pages/company/Dashboard.tsx",
@@ -1010,7 +1050,8 @@
    "tables": [
     "expert_signals"
    ],
-   "invocation_guard": "route render"
+   "invocation_guard": "route render",
+   "contract_gate": "n/a"
   },
   {
    "path": "src/pages/company/HoldingsConsistency.tsx",
@@ -1034,7 +1075,8 @@
     "expert_signals",
     "trade_records"
    ],
-   "invocation_guard": "route render"
+   "invocation_guard": "route render",
+   "contract_gate": "n/a"
   },
   {
    "path": "src/pages/company/JournalsExport.tsx",
@@ -1058,7 +1100,8 @@
    "tables": [
     "trade_records"
    ],
-   "invocation_guard": "route render"
+   "invocation_guard": "route render",
+   "contract_gate": "n/a"
   },
   {
    "path": "src/pages/company/PublishBatchStatus.tsx",
@@ -1085,7 +1128,8 @@
    "tables": [
     "expert_signals"
    ],
-   "invocation_guard": "route render"
+   "invocation_guard": "route render",
+   "contract_gate": "n/a"
   },
   {
    "path": "src/pages/company/SignalDupeAudit.tsx",
@@ -1110,7 +1154,8 @@
    "tables": [
     "trade_records"
    ],
-   "invocation_guard": "route render"
+   "invocation_guard": "route render",
+   "contract_gate": "n/a"
   },
   {
    "path": "src/test/integration/1.12-role-subscription-db-functions.test.ts",
@@ -1133,7 +1178,8 @@
    "tables": [
     "trade_records"
    ],
-   "invocation_guard": "route render"
+   "invocation_guard": "route render",
+   "contract_gate": "n/a"
   },
   {
    "path": "src/test/integration/1.16-signal-trade-trigger.test.ts",
@@ -1158,7 +1204,8 @@
     "trade_records",
     "user_performances"
    ],
-   "invocation_guard": "route render"
+   "invocation_guard": "route render",
+   "contract_gate": "n/a"
   },
   {
    "path": "src/test/integration/1.18-weekly-publish-rls.test.ts",
@@ -1181,7 +1228,8 @@
    "tables": [
     "expert_signals"
    ],
-   "invocation_guard": "route render"
+   "invocation_guard": "route render",
+   "contract_gate": "n/a"
   },
   {
    "path": "src/test/integration/1.23-scheduler-sequencing.test.ts",
@@ -1205,7 +1253,8 @@
    "tables": [
     "trade_records"
    ],
-   "invocation_guard": "route render"
+   "invocation_guard": "route render",
+   "contract_gate": "n/a"
   },
   {
    "path": "src/test/integration/1.30-us-scheduler.test.ts",
@@ -1229,7 +1278,8 @@
     "expert_signals",
     "trade_records"
    ],
-   "invocation_guard": "route render"
+   "invocation_guard": "route render",
+   "contract_gate": "n/a"
   },
   {
    "path": "src/test/integration/1.36-teaching-hold-journal.test.ts",
@@ -1253,7 +1303,8 @@
     "expert_signals",
     "user_performances"
    ],
-   "invocation_guard": "route render"
+   "invocation_guard": "route render",
+   "contract_gate": "n/a"
   },
   {
    "path": "src/test/integration/1.37-us-asset-unit-single-source.test.ts",
@@ -1276,7 +1327,8 @@
    "tables": [
     "trade_records"
    ],
-   "invocation_guard": "route render"
+   "invocation_guard": "route render",
+   "contract_gate": "n/a"
   },
   {
    "path": "src/test/integration/1.38-tw-unit-lock-open-scope.test.ts",
@@ -1300,7 +1352,8 @@
     "expert_signals",
     "trade_records"
    ],
-   "invocation_guard": "route render"
+   "invocation_guard": "route render",
+   "contract_gate": "n/a"
   },
   {
    "path": "src/test/integration/1.8-subscription-content-visibility.test.ts",
@@ -1323,7 +1376,8 @@
    "tables": [
     "expert_signals"
    ],
-   "invocation_guard": "route render"
+   "invocation_guard": "route render",
+   "contract_gate": "n/a"
   },
   {
    "path": "src/test/integration/1.9-analyst-data-isolation.test.ts",
@@ -1347,7 +1401,8 @@
     "expert_signals",
     "trade_records"
    ],
-   "invocation_guard": "route render"
+   "invocation_guard": "route render",
+   "contract_gate": "n/a"
   },
   {
    "path": "src/test/unit/journal-repository-parity.test.ts",
@@ -1370,7 +1425,8 @@
    "tables": [
     "expert_signals"
    ],
-   "invocation_guard": "route render"
+   "invocation_guard": "route render",
+   "contract_gate": "n/a"
   },
   {
    "path": "src/test/unit/mapOpenPositionToRow.test.ts",
@@ -1393,7 +1449,8 @@
    "tables": [
     "trade_records"
    ],
-   "invocation_guard": "route render"
+   "invocation_guard": "route render",
+   "contract_gate": "n/a"
   },
   {
    "path": "supabase/functions/_shared/journalExportCore.ts",
@@ -1416,7 +1473,8 @@
    "tables": [
     "trade_records"
    ],
-   "invocation_guard": "none"
+   "invocation_guard": "none",
+   "contract_gate": "n/a"
   },
   {
    "path": "supabase/functions/_shared/journalRepository.ts",
@@ -1440,7 +1498,8 @@
    "tables": [
     "expert_signals"
    ],
-   "invocation_guard": "none"
+   "invocation_guard": "none",
+   "contract_gate": "n/a"
   },
   {
    "path": "supabase/functions/account-link-consume/index.ts",
@@ -1463,7 +1522,8 @@
    "tables": [
     "user_performances"
    ],
-   "invocation_guard": "service role key required"
+   "invocation_guard": "service role key required",
+   "contract_gate": "n/a"
   },
   {
    "path": "supabase/functions/admin-account-force-merge/index.ts",
@@ -1486,7 +1546,8 @@
    "tables": [
     "user_performances"
    ],
-   "invocation_guard": "service role key required"
+   "invocation_guard": "service role key required",
+   "contract_gate": "n/a"
   },
   {
    "path": "supabase/functions/daily-performance/index.ts",
@@ -1510,7 +1571,8 @@
    "tables": [
     "trade_records"
    ],
-   "invocation_guard": "authGuard: cron/service key required"
+   "invocation_guard": "authGuard: cron/service key required",
+   "contract_gate": "n/a"
   },
   {
    "path": "supabase/functions/daily-snapshot/index.ts",
@@ -1533,7 +1595,8 @@
    "tables": [
     "trade_records"
    ],
-   "invocation_guard": "authGuard: cron/service key required"
+   "invocation_guard": "authGuard: cron/service key required",
+   "contract_gate": "n/a"
   },
   {
    "path": "supabase/functions/data-upsert/index.ts",
@@ -1557,7 +1620,8 @@
     "trade_records",
     "user_performances"
    ],
-   "invocation_guard": "caller JWT checked"
+   "invocation_guard": "caller JWT checked",
+   "contract_gate": "n/a"
   },
   {
    "path": "supabase/functions/email-push-renewal-reminder/index.ts",
@@ -1580,7 +1644,8 @@
    "tables": [
     "user_performances"
    ],
-   "invocation_guard": "authGuard: cron/service key required"
+   "invocation_guard": "authGuard: cron/service key required",
+   "contract_gate": "n/a"
   },
   {
    "path": "supabase/functions/expert-ai-index/index.ts",
@@ -1603,7 +1668,8 @@
    "tables": [
     "expert_signals"
    ],
-   "invocation_guard": "service role key required"
+   "invocation_guard": "service role key required",
+   "contract_gate": "n/a"
   },
   {
    "path": "supabase/functions/expert-ai-training/index.ts",
@@ -1626,7 +1692,8 @@
    "tables": [
     "expert_signals"
    ],
-   "invocation_guard": "service role key required"
+   "invocation_guard": "service role key required",
+   "contract_gate": "n/a"
   },
   {
    "path": "supabase/functions/line-push-signal/index.ts",
@@ -1652,7 +1719,8 @@
    "tables": [
     "expert_signals"
    ],
-   "invocation_guard": "caller JWT checked"
+   "invocation_guard": "caller JWT checked",
+   "contract_gate": "n/a"
   },
   {
    "path": "supabase/functions/line-push-signal/quantityUnit.ts",
@@ -1676,7 +1744,8 @@
    "tables": [
     "expert_signals"
    ],
-   "invocation_guard": "none"
+   "invocation_guard": "none",
+   "contract_gate": "n/a"
   },
   {
    "path": "supabase/functions/mcp/index.ts",
@@ -1699,7 +1768,8 @@
    "tables": [
     "trade_records"
    ],
-   "invocation_guard": "caller JWT checked"
+   "invocation_guard": "caller JWT checked",
+   "contract_gate": "n/a"
   },
   {
    "path": "supabase/functions/pending-journal-publish-reminder/index.ts",
@@ -1722,7 +1792,8 @@
    "tables": [
     "expert_signals"
    ],
-   "invocation_guard": "authGuard: cron/service key required"
+   "invocation_guard": "authGuard: cron/service key required",
+   "contract_gate": "n/a"
   },
   {
    "path": "supabase/functions/publish-weekly-journals/pipeline.ts",
@@ -1746,7 +1817,8 @@
    "tables": [
     "user_performances"
    ],
-   "invocation_guard": "none"
+   "invocation_guard": "none",
+   "contract_gate": "n/a"
   },
   {
    "path": "supabase/functions/publish-weekly-journals/port.ts",
@@ -1770,7 +1842,8 @@
    "tables": [
     "user_performances"
    ],
-   "invocation_guard": "none"
+   "invocation_guard": "none",
+   "contract_gate": "n/a"
   },
   {
    "path": "supabase/functions/publish-weekly-journals/supabasePort.ts",
@@ -1802,7 +1875,8 @@
     "trade_records",
     "user_performances"
    ],
-   "invocation_guard": "caller JWT checked"
+   "invocation_guard": "caller JWT checked",
+   "contract_gate": "n/a"
   },
   {
    "path": "supabase/functions/reconcile-warrant-quantities/index.ts",
@@ -1827,7 +1901,8 @@
     "expert_signals",
     "trade_records"
    ],
-   "invocation_guard": "authGuard: cron/service key required"
+   "invocation_guard": "authGuard: cron/service key required",
+   "contract_gate": "n/a"
   },
   {
    "path": "supabase/functions/share-og/index.ts",
@@ -1840,17 +1915,18 @@
    ],
    "entitlement": "none (anonymous) — only released, ready facts",
    "embargo_predicate": "visible_at <= now() (T+7) enforced by canonical_publish + RLS",
-   "legacy_fallback": true,
+   "legacy_fallback": false,
    "side_effects": [
     "none"
    ],
-   "cutover_disposition": "migrate_to_typed_public_contract",
+   "cutover_disposition": "typed_public_contract",
    "test_id": "T-P40 embargoed effect yields no public position",
    "coverage_status": "covered",
    "tables": [
     "expert_signals"
    ],
-   "invocation_guard": "none"
+   "invocation_guard": "none",
+   "contract_gate": "typed contract: isPubliclyVisible, stripEconomicFacts"
   },
   {
    "path": "supabase/functions/stock-price-sync/index.ts",
@@ -1877,7 +1953,8 @@
     "trade_records",
     "user_performances"
    ],
-   "invocation_guard": "service role key required"
+   "invocation_guard": "service role key required",
+   "contract_gate": "n/a"
   },
   {
    "path": "supabase/functions/tw-bsr-daily-sync/index.ts",
@@ -1901,7 +1978,8 @@
    "tables": [
     "trade_records"
    ],
-   "invocation_guard": "authGuard: cron/service key required"
+   "invocation_guard": "authGuard: cron/service key required",
+   "contract_gate": "n/a"
   },
   {
    "path": "supabase/functions/tw-bsr-finmind-sync/index.ts",
@@ -1935,7 +2013,8 @@
    "tables": [
     "trade_records"
    ],
-   "invocation_guard": "authGuard: cron/service key required"
+   "invocation_guard": "authGuard: cron/service key required",
+   "contract_gate": "n/a"
   },
   {
    "path": "supabase/functions/us-option-price-sync/index.ts",
@@ -1959,7 +2038,8 @@
    "tables": [
     "expert_signals"
    ],
-   "invocation_guard": "authGuard: cron/service key required"
+   "invocation_guard": "authGuard: cron/service key required",
+   "contract_gate": "n/a"
   },
   {
    "path": "supabase/functions/validate-signal-prices/index.ts",
@@ -1982,7 +2062,8 @@
    "tables": [
     "expert_signals"
    ],
-   "invocation_guard": "authGuard: cron/service key required"
+   "invocation_guard": "authGuard: cron/service key required",
+   "contract_gate": "n/a"
   },
   {
    "path": "supabase/functions/weekly-journal-export/index.ts",
@@ -2007,7 +2088,8 @@
     "expert_signals",
     "trade_records"
    ],
-   "invocation_guard": "authGuard: cron/service key required"
+   "invocation_guard": "authGuard: cron/service key required",
+   "contract_gate": "n/a"
   }
  ],
  "static_consumer_counts": {

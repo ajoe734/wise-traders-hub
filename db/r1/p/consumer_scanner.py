@@ -37,6 +37,7 @@ REQUIRED_FIELDS = [
 ]
 AUDIENCES = {"public", "admin", "internal", "test"}
 DISPOSITIONS = {
+    "typed_public_contract",              # public surface, gated by the contract
     "migrate_to_typed_public_contract",   # public surface, must read the contract
     "public_no_economic_facts",           # public but proven not to emit facts
     "stays_on_internal_ledger",           # admin/internal writer or reader
