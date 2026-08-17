@@ -246,14 +246,19 @@ for (const c of CASES) {
         }
 
         // 4. ranking + export/OG surfaces never leak a gated number
-        const ogTitle = await page.locator('head meta[property="og:title"]').getAttribute('content');
-        const ogDesc = await page.locator('head meta[property="og:description"]').getAttribute('content');
-        for (const meta of [ogTitle ?? '', ogDesc ?? '']) {
+        const head = await page.evaluate(() => ({
+          title: document.title,
+          metas: Array.from(document.head.querySelectorAll('meta'))
+            .map((m) => m.getAttribute('content') ?? '')
+            .join(' | '),
+        }));
+        for (const meta of [head.title, head.metas]) {
           expect(meta).not.toMatch(/\bNaN\b/);
           if (c.expectNotice) {
             for (const re of FORBIDDEN_NUMERIC) expect(meta).not.toMatch(re);
           }
         }
+
 
         // 5. evidence
         const slug = `${c.name}__${vp.id}__${theme}`;
