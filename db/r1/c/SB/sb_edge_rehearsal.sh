@@ -202,12 +202,19 @@ VALUES ('2317', current_date - 4, 1, 'pending', 'edge_rehearsal_term', now()),
 ON CONFLICT DO NOTHING;
 SQL
 BEFORE_OTHER=$(psql "$CL" -qXAt -c "SELECT count(*) FROM public.tw_bsr_sync_queue WHERE status='pending' AND enqueued_by NOT LIKE 'edge_rehearsal%'")
+VER_PRE_TERM=$(psql "$CL" -qXAt -c "SELECT public.bsr_admission_status()->>'version'")
 C=$(post "$W" "$DIR/w_term.json" '{"mode":"worker","batch":5,"budget_ms":8000}' "$CRONH")
 cat "$DIR/w_term.json"; echo
 chk $([ "$C" = 200 ] && echo 0 || echo 1) "EB-20 worker returns 200 on terminal rejection (got $C)"
 chk $([ "$(jqf "$DIR/w_term.json" stopped_by_terminal)" = 'true' ] && echo 0 || echo 1) "EB-21 worker halted on exact terminal signature"
 chk $([ "$(jqf "$DIR/w_term.json" terminal.rpc_ok)" = 'true' ] && echo 0 || echo 1) "EB-22 single atomic block+terminalize RPC succeeded"
-chk $([ "$(jqf "$DIR/w_term.json" terminal.transition)" = '"blocked"' ] && echo 0 || echo 1) "EB-23 gate transitioned blocked"
+# batch>1 means several jobs hit the same exact terminal signature concurrently:
+# the first wins with transition=blocked, the rest legitimately observe
+# already_blocked. Both are a real transition of THIS run, so the assertion is
+# (transition in blocked|already_blocked) AND the DB gate version advanced.
+TERMTR=$(jqf "$DIR/w_term.json" terminal.transition)
+VER_POST_TERM=$(psql "$CL" -qXAt -c "SELECT public.bsr_admission_status()->>'version'")
+chk $([ \( "$TERMTR" = '"blocked"' -o "$TERMTR" = '"already_blocked"' \) ] && [ "$VER_POST_TERM" -gt "$VER_PRE_TERM" ] && echo 0 || echo 1) "EB-23 gate transitioned blocked (transition=$TERMTR version $VER_PRE_TERM->$VER_POST_TERM)"
 chk $([ "$(gateblocked)" = 'true' ] && echo 0 || echo 1) "EB-24 DB gate is closed after the run"
 TERMROWS=$(psql "$CL" -qXAt -c "SELECT count(*) FROM public.tw_bsr_sync_queue WHERE enqueued_by='edge_rehearsal_term' AND status<>'pending'")
 chk $([ "$TERMROWS" -ge 1 ] && echo 0 || echo 1) "EB-25 this run's claimed rows terminalized ($TERMROWS)"
@@ -306,9 +313,14 @@ chk $([ "$(jqf "$DIR/a_status.json" admission.blocked)" = 'true' ] && echo 0 || 
 # caller-supplied "success" must never be trusted: only a server-side probe unblocks
 C=$(post "$A" "$DIR/a_selfclaim.json" '{"action":"unblock","probe_ok":true,"result":{"ok":true},"unblocked":true}' "$ADMJWT")
 chk $([ "$(gateblocked)" = 'true' ] && echo 0 || echo 1) "EB-57 caller-forged success payload cannot unblock (http=$C)"
-# SSRF: caller-supplied provider endpoints must be ignored
+# SSRF: caller-supplied provider endpoints must be ignored.
+# The provider mock is forced to reject first, otherwise this probe would run a
+# genuinely successful server-side probe and silently UNBLOCK the gate, which
+# would contaminate every later probe_negative/probe_positive assertion.
+echo reject >"$DIR/mock_mode"
 C=$(post "$A" "$DIR/a_ssrf.json" '{"action":"probe","base_url":"http://169.254.169.254/latest/meta-data","url":"http://169.254.169.254/","stock_id":"2330"}' "$ADMJWT")
 if grep -q '169.254.169.254' "$DIR/provider.jsonl" 2>/dev/null; then chk 1 "EB-58 probe ignores caller-supplied SSRF target"; else chk 0 "EB-58 probe ignores caller-supplied SSRF target (http=$C)"; fi
+chk $([ "$(gateblocked)" = 'true' ] && echo 0 || echo 1) "EB-58b SSRF probe left the gate closed"
 
 ############################################################ E. admin probe: provider still failing → NO unblock
 stage probe_negative
@@ -336,6 +348,12 @@ chk $([ "$VER_AFTER" -gt "$VER_BEFORE" ] && echo 0 || echo 1) "EB-83 gate versio
 C=$(post "$A" "$DIR/a_replay.json" '{"action":"probe","stock_id":"2330","trade_date":"2026-08-14"}' "$ADMJWT")
 chk $([ "$(jqf "$DIR/a_replay.json" transition)" = '"already_open"' ] && echo 0 || echo 1) "EB-84 replay is a no-op (already_open)"
 : >"$DIR/provider.jsonl"
+# recovery must have claimable work: the terminal stage terminalized its own rows
+psql "$CL" -qX >/dev/null <<SQL
+INSERT INTO public.tw_bsr_sync_queue(stock_id, trade_date, priority, status, enqueued_by, next_run_at)
+VALUES ('2382', current_date - 4, 1, 'pending', 'edge_rehearsal_recover', now())
+ON CONFLICT DO NOTHING;
+SQL
 C=$(post "$W" "$DIR/w_recover.json" '{"mode":"worker","batch":5,"budget_ms":8000}' "$CRONH")
 chk $([ "$C" = 200 ] && echo 0 || echo 1) "EB-85 worker resumes after unblock (got $C)"
 chk $([ "$(jqf "$DIR/w_recover.json" note)" != '"admission_gate_closed"' ] && echo 0 || echo 1) "EB-86 worker no longer short-circuits"
