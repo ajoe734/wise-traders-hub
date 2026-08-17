@@ -6,9 +6,11 @@ ROOT=$(cd "$(dirname "$0")/../../../.." && pwd); cd "$ROOT"
 DIR=${1:-/tmp/sbscratch}; PORT=${2:-55890}; BK=db/r1/c/S0/backup
 if [ -s db/r1/c/H/pgbin.path ]; then PGBIN=$(cat db/r1/c/H/pgbin.path); else PGBIN=$(dirname "$(command -v initdb)"); fi
 export PATH="$PGBIN:$PATH"
+ASU_PRE=""; if [ "$(id -u)" = 0 ]; then ASU_PRE="setpriv --reuid=1000 --regid=1000 --clear-groups"; fi
 unset PGHOST PGPORT PGUSER PGPASSWORD PGDATABASE PGSSLMODE
-pkill -f "port=$PORT" 2>/dev/null || true
-for i in $(seq 1 20); do pgrep -f "port=$PORT" >/dev/null || break; sleep 0.5; done
+if [ -d "$DIR/pg" ]; then $ASU_PRE "$PGBIN/pg_ctl" -D "$DIR/pg" -m immediate -w stop >/dev/null 2>&1 || true; fi
+for pid in $(ps -eo pid,args | awk -v p="$PORT" '$0 ~ ("-p "p) && /postgres/ {print $1}'); do kill -9 "$pid" 2>/dev/null || true; done
+sleep 1
 rm -rf "$DIR"; mkdir -p "$DIR/sock"
 ASU=""; if [ "$(id -u)" = 0 ]; then chown -R 1000:1000 "$DIR"; ASU="setpriv --reuid=1000 --regid=1000 --clear-groups"; fi
 $ASU "$PGBIN/initdb" -D "$DIR/pg" -U postgres --locale=C -E UTF8 >"$DIR/initdb.log" 2>&1
