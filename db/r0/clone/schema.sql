@@ -194,6 +194,15 @@ CREATE TABLE public.current_prices (
   updated_at timestamp with time zone DEFAULT now() NOT NULL,
   writer text
 );
+CREATE TABLE public.payment_providers (
+  id uuid DEFAULT gen_random_uuid() NOT NULL,
+  provider_type public.provider_type NOT NULL,
+  display_name text NOT NULL,
+  config jsonb DEFAULT '{}'::jsonb,
+  is_active boolean DEFAULT false NOT NULL,
+  is_default boolean DEFAULT false NOT NULL,
+  created_at timestamp with time zone DEFAULT now() NOT NULL
+);
 CREATE TABLE public.profiles (
   id uuid DEFAULT gen_random_uuid() NOT NULL,
   user_id uuid NOT NULL,
@@ -234,6 +243,7 @@ ALTER TABLE public.expert_signals ADD CONSTRAINT expert_signals_pkey PRIMARY KEY
 ALTER TABLE public.experts ADD CONSTRAINT experts_pkey PRIMARY KEY (id);
 ALTER TABLE public.holdings_fix_proposals ADD CONSTRAINT holdings_fix_proposals_pkey PRIMARY KEY (id);
 ALTER TABLE public.member_subscriptions ADD CONSTRAINT member_subscriptions_pkey PRIMARY KEY (id);
+ALTER TABLE public.payment_providers ADD CONSTRAINT payment_providers_pkey PRIMARY KEY (id);
 ALTER TABLE public.profiles ADD CONSTRAINT profiles_pkey PRIMARY KEY (id);
 ALTER TABLE public.signal_trade_applications ADD CONSTRAINT signal_trade_applications_pkey PRIMARY KEY (signal_id);
 ALTER TABLE public.trade_records ADD CONSTRAINT trade_records_pkey PRIMARY KEY (id);
@@ -1700,6 +1710,73 @@ BEGIN
 END;
 $function$
 ;
+CREATE OR REPLACE FUNCTION public.protect_profile_fields()
+ RETURNS trigger
+ LANGUAGE plpgsql
+ SECURITY DEFINER
+ SET search_path TO 'public'
+AS $function$
+BEGIN
+  -- Allow service_role calls (auth.uid() is NULL when invoked from edge functions with service role)
+  IF auth.uid() IS NULL THEN
+    RETURN NEW;
+  END IF;
+
+  -- Allow company_admin to change anything
+  IF has_role(auth.uid(), 'company_admin') THEN
+    RETURN NEW;
+  END IF;
+
+  -- Block non-admin users from changing privileged fields
+  IF NEW.is_tester IS DISTINCT FROM OLD.is_tester THEN
+    RAISE EXCEPTION 'You cannot modify tester status';
+  END IF;
+  IF NEW.expert_slug IS DISTINCT FROM OLD.expert_slug THEN
+    RAISE EXCEPTION 'You cannot modify expert slug';
+  END IF;
+
+  RETURN NEW;
+END;
+$function$
+;
+CREATE OR REPLACE FUNCTION public.protect_subscription_fields()
+ RETURNS trigger
+ LANGUAGE plpgsql
+ SECURITY DEFINER
+ SET search_path TO 'public'
+AS $function$
+BEGIN
+  -- Allow service_role (edge functions) — auth.uid() is NULL when called with service role
+  IF auth.uid() IS NULL THEN
+    RETURN NEW;
+  END IF;
+
+  -- Allow company_admin to change anything
+  IF has_role(auth.uid(), 'company_admin') THEN
+    RETURN NEW;
+  END IF;
+
+  -- For regular users, block changes to sensitive fields
+  IF NEW.status IS DISTINCT FROM OLD.status THEN
+    RAISE EXCEPTION 'You cannot modify subscription status';
+  END IF;
+  IF NEW.expires_at IS DISTINCT FROM OLD.expires_at THEN
+    RAISE EXCEPTION 'You cannot modify subscription expiry';
+  END IF;
+  IF NEW.started_at IS DISTINCT FROM OLD.started_at THEN
+    RAISE EXCEPTION 'You cannot modify subscription start date';
+  END IF;
+  IF NEW.plan_id IS DISTINCT FROM OLD.plan_id THEN
+    RAISE EXCEPTION 'You cannot modify subscription plan';
+  END IF;
+  IF NEW.provider_id IS DISTINCT FROM OLD.provider_id THEN
+    RAISE EXCEPTION 'You cannot modify payment provider';
+  END IF;
+
+  RETURN NEW;
+END;
+$function$
+;
 CREATE OR REPLACE FUNCTION public.realign_instrument_unit(p_expert_id uuid, p_symbol_prefix text, p_new_unit text)
  RETURNS jsonb
  LANGUAGE plpgsql
@@ -1952,6 +2029,22 @@ BEGIN
 END;
 $function$
 ;
+CREATE OR REPLACE FUNCTION public.signal_in_subscription_window(_role expert_role, _started_at timestamp with time zone, _expires_at timestamp with time zone, _published_at timestamp with time zone)
+ RETURNS boolean
+ LANGUAGE sql
+ IMMUTABLE
+ SET search_path TO 'public'
+AS $function$
+  SELECT CASE
+    WHEN _role = 'mentor' THEN
+      (_published_at + INTERVAL '7 days') >= _started_at
+      AND (_expires_at IS NULL OR _published_at <= _expires_at)
+    ELSE
+      _published_at >= _started_at
+      AND (_expires_at IS NULL OR _published_at <= _expires_at)
+  END
+$function$
+;
 CREATE OR REPLACE FUNCTION public.sync_expert_currency_with_asset_class()
  RETURNS trigger
  LANGUAGE plpgsql
@@ -2073,6 +2166,7 @@ CREATE TRIGGER trg_sync_expert_slug_to_profile AFTER INSERT OR UPDATE OF slug, u
 CREATE TRIGGER audit_holdings_fix_proposals AFTER INSERT OR DELETE OR UPDATE ON public.holdings_fix_proposals FOR EACH ROW EXECUTE FUNCTION audit_row_change();
 CREATE TRIGGER holdings_fix_proposals_updated_at BEFORE UPDATE ON public.holdings_fix_proposals FOR EACH ROW EXECUTE FUNCTION tg_holdings_fix_proposals_updated_at();
 CREATE TRIGGER trg_protect_subscription_fields BEFORE UPDATE ON public.member_subscriptions FOR EACH ROW EXECUTE FUNCTION protect_subscription_fields();
+CREATE TRIGGER trg_enforce_payment_provider_default_active BEFORE INSERT OR UPDATE ON public.payment_providers FOR EACH ROW EXECUTE FUNCTION enforce_payment_provider_default_active();
 CREATE TRIGGER trg_protect_profile_fields BEFORE UPDATE ON public.profiles FOR EACH ROW EXECUTE FUNCTION protect_profile_fields();
 CREATE TRIGGER update_profiles_updated_at BEFORE UPDATE ON public.profiles FOR EACH ROW EXECUTE FUNCTION update_updated_at_column();
 CREATE TRIGGER trg_audit_trade_records_del AFTER DELETE ON public.trade_records FOR EACH ROW EXECUTE FUNCTION audit_row_change();
@@ -2094,6 +2188,7 @@ ALTER TABLE public.signal_trade_applications ENABLE ROW LEVEL SECURITY;
 ALTER TABLE public.user_performances ENABLE ROW LEVEL SECURITY;
 ALTER TABLE public.holdings_fix_proposals ENABLE ROW LEVEL SECURITY;
 ALTER TABLE public.current_prices ENABLE ROW LEVEL SECURITY;
+ALTER TABLE public.payment_providers ENABLE ROW LEVEL SECURITY;
 ALTER TABLE public.profiles ENABLE ROW LEVEL SECURITY;
 ALTER TABLE public.user_roles ENABLE ROW LEVEL SECURITY;
 ALTER TABLE public.member_subscriptions ENABLE ROW LEVEL SECURITY;
@@ -2126,6 +2221,7 @@ CREATE POLICY "Analysts can view own plan subscriptions" ON public.member_subscr
 CREATE POLICY "Company admins full access subscriptions" ON public.member_subscriptions FOR ALL TO authenticated USING (has_role(auth.uid(), 'company_admin'::app_role)) WITH CHECK (has_role(auth.uid(), 'company_admin'::app_role));
 CREATE POLICY "Users can update own subscription preferences" ON public.member_subscriptions FOR UPDATE TO authenticated USING ((user_id = auth.uid())) WITH CHECK ((user_id = auth.uid()));
 CREATE POLICY "Users can view own subscriptions" ON public.member_subscriptions FOR SELECT TO authenticated USING ((user_id = auth.uid()));
+CREATE POLICY "Company admins full access providers" ON public.payment_providers FOR ALL TO authenticated USING (has_role(auth.uid(), 'company_admin'::app_role)) WITH CHECK (has_role(auth.uid(), 'company_admin'::app_role));
 CREATE POLICY "Company admins can view all profiles" ON public.profiles FOR SELECT TO authenticated USING (has_role(auth.uid(), 'company_admin'::app_role));
 CREATE POLICY "Users can insert own profile" ON public.profiles FOR INSERT TO authenticated WITH CHECK ((auth.uid() = user_id));
 CREATE POLICY "Users can update own profile" ON public.profiles FOR UPDATE TO authenticated USING ((auth.uid() = user_id));
@@ -2157,6 +2253,7 @@ GRANT SELECT, INSERT, UPDATE, DELETE, TRUNCATE, REFERENCES, TRIGGER ON public.si
 GRANT SELECT, INSERT, UPDATE, DELETE, TRUNCATE, REFERENCES, TRIGGER ON public.user_performances TO anon, authenticated, service_role;
 GRANT SELECT, INSERT, UPDATE, DELETE, TRUNCATE, REFERENCES, TRIGGER ON public.holdings_fix_proposals TO anon, authenticated, service_role;
 GRANT SELECT, INSERT, UPDATE, DELETE, TRUNCATE, REFERENCES, TRIGGER ON public.current_prices TO anon, authenticated, service_role;
+GRANT SELECT, INSERT, UPDATE, DELETE, TRUNCATE, REFERENCES, TRIGGER ON public.payment_providers TO anon, authenticated, service_role;
 GRANT SELECT, INSERT, UPDATE, DELETE, TRUNCATE, REFERENCES, TRIGGER ON public.profiles TO anon, authenticated, service_role;
 GRANT SELECT, INSERT, UPDATE, DELETE, TRUNCATE, REFERENCES, TRIGGER ON public.user_roles TO anon, authenticated, service_role;
 GRANT SELECT, INSERT, UPDATE, DELETE, TRUNCATE, REFERENCES, TRIGGER ON public.member_subscriptions TO anon, authenticated, service_role;
