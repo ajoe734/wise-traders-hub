@@ -70,7 +70,7 @@ for (name,args,owner,secdef,cfg,writes,fnacl,attached,callers) in rows:
     kind,disp,tid = DISPO.get(name, ('rpc','REVIEW','W??'))
     writers.append(dict(id=tid, layer='db', kind=kind,
       signature=f"public.{name}({args})", owner=owner,
-      security_definer=(secdef=='t'), search_path=cfg or '(none)',
+      security_definer=(secdef in ('t','true')), search_path=cfg or '(none)',
       execute_acl=fnacl or '(default: PUBLIC)',
       writes_tables=[w for w in writes.split(',') if w],
       attached_triggers=[a for a in attached.split(',') if a],

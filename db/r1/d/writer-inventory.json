@@ -172,7 +172,7 @@
       "kind": "rpc-admin",
       "signature": "public.admin_apply_fix_proposal(p_id uuid, p_confirm boolean)",
       "owner": "postgres",
-      "security_definer": false,
+      "security_definer": true,
       "search_path": "search_path=public",
       "execute_acl": "{postgres=X/postgres,anon=X/postgres,authenticated=X/postgres,service_role=X/postgres,sandbox_exec_yqacmrgdjlenbijclngi=X/postgres}",
       "writes_tables": [
@@ -196,7 +196,7 @@
       "kind": "rpc-admin",
       "signature": "public.admin_delete_trade_records_by_signal_ids(_signal_ids uuid[])",
       "owner": "postgres",
-      "security_definer": false,
+      "security_definer": true,
       "search_path": "search_path=public",
       "execute_acl": "{postgres=X/postgres,anon=X/postgres,authenticated=X/postgres,service_role=X/postgres,sandbox_exec_yqacmrgdjlenbijclngi=X/postgres}",
       "writes_tables": [
@@ -218,7 +218,7 @@
       "kind": "rpc-admin",
       "signature": "public.admin_delete_trade_records_by_symbol(_expert_id uuid, _symbol_prefix text)",
       "owner": "postgres",
-      "security_definer": false,
+      "security_definer": true,
       "search_path": "search_path=public",
       "execute_acl": "{postgres=X/postgres,anon=X/postgres,authenticated=X/postgres,service_role=X/postgres,sandbox_exec_yqacmrgdjlenbijclngi=X/postgres}",
       "writes_tables": [
@@ -240,7 +240,7 @@
       "kind": "rpc-admin",
       "signature": "public.admin_generate_fix_proposals(p_category text)",
       "owner": "postgres",
-      "security_definer": false,
+      "security_definer": true,
       "search_path": "search_path=public",
       "execute_acl": "{postgres=X/postgres,anon=X/postgres,authenticated=X/postgres,service_role=X/postgres,sandbox_exec_yqacmrgdjlenbijclngi=X/postgres}",
       "writes_tables": [
@@ -262,7 +262,7 @@
       "kind": "rpc-admin",
       "signature": "public.admin_reject_fix_proposal(p_id uuid, p_note text)",
       "owner": "postgres",
-      "security_definer": false,
+      "security_definer": true,
       "search_path": "search_path=public",
       "execute_acl": "{postgres=X/postgres,anon=X/postgres,authenticated=X/postgres,service_role=X/postgres,sandbox_exec_yqacmrgdjlenbijclngi=X/postgres}",
       "writes_tables": [
@@ -284,7 +284,7 @@
       "kind": "rpc-admin",
       "signature": "public.admin_reset_expert_asset_class(_expert_id uuid, _new_asset_class text)",
       "owner": "postgres",
-      "security_definer": false,
+      "security_definer": true,
       "search_path": "search_path=public",
       "execute_acl": "{postgres=X/postgres,anon=X/postgres,authenticated=X/postgres,service_role=X/postgres,sandbox_exec_yqacmrgdjlenbijclngi=X/postgres}",
       "writes_tables": [
@@ -306,7 +306,7 @@
       "kind": "rpc-admin",
       "signature": "public.admin_signal_dupe_trades_fix(p_signal_id uuid, p_dry_run boolean, p_force boolean)",
       "owner": "postgres",
-      "security_definer": false,
+      "security_definer": true,
       "search_path": "search_path=public",
       "execute_acl": "{postgres=X/postgres,authenticated=X/postgres,service_role=X/postgres,sandbox_exec_yqacmrgdjlenbijclngi=X/postgres}",
       "writes_tables": [
@@ -328,7 +328,7 @@
       "kind": "rpc-price",
       "signature": "public.delete_old_prices()",
       "owner": "postgres",
-      "security_definer": false,
+      "security_definer": true,
       "search_path": "search_path=public",
       "execute_acl": "{postgres=X/postgres,service_role=X/postgres,sandbox_exec_yqacmrgdjlenbijclngi=X/postgres}",
       "writes_tables": [
@@ -350,7 +350,7 @@
       "kind": "trigger",
       "signature": "public.handle_signal_takedown()",
       "owner": "postgres",
-      "security_definer": false,
+      "security_definer": true,
       "search_path": "search_path=public",
       "execute_acl": "{postgres=X/postgres,service_role=X/postgres,sandbox_exec_yqacmrgdjlenbijclngi=X/postgres}",
       "writes_tables": [
@@ -373,7 +373,7 @@
       "kind": "trigger",
       "signature": "public.handle_signal_trade()",
       "owner": "postgres",
-      "security_definer": false,
+      "security_definer": true,
       "search_path": "search_path=public",
       "execute_acl": "{postgres=X/postgres,service_role=X/postgres,sandbox_exec_yqacmrgdjlenbijclngi=X/postgres}",
       "writes_tables": [
@@ -398,7 +398,7 @@
       "kind": "rpc-admin",
       "signature": "public.realign_instrument_unit(p_expert_id uuid, p_symbol_prefix text, p_new_unit text)",
       "owner": "postgres",
-      "security_definer": false,
+      "security_definer": true,
       "search_path": "search_path=public",
       "execute_acl": "{postgres=X/postgres,authenticated=X/postgres,service_role=X/postgres,sandbox_exec_yqacmrgdjlenbijclngi=X/postgres}",
       "writes_tables": [
@@ -421,7 +421,7 @@
       "kind": "trigger",
       "signature": "public.recalc_user_summary_on_perf_delete()",
       "owner": "postgres",
-      "security_definer": false,
+      "security_definer": true,
       "search_path": "search_path=public",
       "execute_acl": "{postgres=X/postgres,service_role=X/postgres,sandbox_exec_yqacmrgdjlenbijclngi=X/postgres}",
       "writes_tables": [
@@ -445,7 +445,7 @@
       "kind": "rpc",
       "signature": "public.save_signal_batch(_expert_id uuid, _batch_id uuid, _signals jsonb, _legs jsonb, _is_editing boolean)",
       "owner": "postgres",
-      "security_definer": false,
+      "security_definer": true,
       "search_path": "search_path=public",
       "execute_acl": "{postgres=X/postgres,authenticated=X/postgres,service_role=X/postgres,sandbox_exec_yqacmrgdjlenbijclngi=X/postgres}",
       "writes_tables": [
@@ -469,7 +469,7 @@
       "kind": "rpc-admin",
       "signature": "public.trade_dedupe_sweep(p_dry_run boolean)",
       "owner": "postgres",
-      "security_definer": false,
+      "security_definer": true,
       "search_path": "search_path=public",
       "execute_acl": "{postgres=X/postgres,anon=X/postgres,authenticated=X/postgres,service_role=X/postgres,sandbox_exec_yqacmrgdjlenbijclngi=X/postgres}",
       "writes_tables": [
@@ -491,7 +491,7 @@
       "kind": "rpc-price",
       "signature": "public.upsert_current_price(p_writer text, p_rows jsonb)",
       "owner": "postgres",
-      "security_definer": false,
+      "security_definer": true,
       "search_path": "search_path=public",
       "execute_acl": "{postgres=X/postgres,service_role=X/postgres,sandbox_exec_yqacmrgdjlenbijclngi=X/postgres}",
       "writes_tables": [
