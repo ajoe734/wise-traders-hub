@@ -26,7 +26,7 @@ SELECT 'chips_data_hash|'||md5(coalesce(string_agg(x,E'\n' order by x),'')) FROM
  UNION ALL SELECT 'c:'||stock_id||trade_date::text||broker_count::text||broker_sum_shares::text
                   ||coalesce(coverage_pct::text,'')||coverage_class||computed_at::text FROM public.bsr_coverage_daily
  UNION ALL SELECT 'd:'||id::text||stock_id||trade_date::text||broker_id||net_shares::text FROM public.tw_bsr_daily
- UNION ALL SELECT 'p:'||symbol||coalesce(market,'')||coalesce(last_requested_at::text,'') FROM public.chips_prefetch_targets
+ UNION ALL SELECT 'p:'||code||source||active::text||supported::text||updated_at::text FROM public.chips_prefetch_targets
 )s(x);
 SELECT 'chips_rowcounts|'||(SELECT count(*) FROM public.tw_bsr_sync_queue)||':'
        ||(SELECT count(*) FROM public.tw_bsr_attempt_logs)||':'
