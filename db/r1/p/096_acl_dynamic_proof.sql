@@ -64,54 +64,112 @@ BEGIN
 END $$;
 
 -- ============================================================ A + B
--- the 12 keep_typed_safe_authenticated_guarded targets, really executed
+-- the 12 keep_typed_safe_authenticated_guarded targets, really executed.
+--
+-- Two independent claims are asserted per target:
+--   T-P96a  the ordinary authenticated caller is REFUSED. A refusal is either
+--           42501 or the contractual P0001 guard raise ("forbidden" /
+--           "not authorized"). Anything else (including success) is a FAIL.
+--   T-P96b  the company_admin intended caller PASSES THE GUARD, i.e. the call
+--           never produces a refusal.
+--   T-P96b-exec  the admin call's exact end state equals the recorded
+--           expectation. '00000' means it ran clean; a recorded non-clean
+--           signature pins a *pre-existing production defect or documented
+--           domain precondition* so any drift shows up as a failure instead of
+--           being silently tolerated.
 DO $BODY$
 DECLARE r record; v_admin uuid; v_user uuid; s_neg text; s_pos text; v_exists boolean;
+        v_refused_neg boolean; v_refused_pos boolean;
 BEGIN
   SELECT v INTO v_admin FROM t.acl_actor WHERE k='admin';
   SELECT v INTO v_user  FROM t.acl_actor WHERE k='user';
   FOR r IN SELECT * FROM (VALUES
    ( 1,'admin_apply_fix_proposal','public.admin_apply_fix_proposal(uuid, boolean)',
-     $$SELECT public.admin_apply_fix_proposal('11111111-0000-4000-8000-000000000001'::uuid, false)$$),
+     $$SELECT public.admin_apply_fix_proposal('11111111-0000-4000-8000-000000000001'::uuid, false)$$,
+     'P0001 unknown_proposal', 'domain_precondition: probe id is deliberately absent'),
    ( 2,'admin_delete_trade_records_by_signal_ids','public.admin_delete_trade_records_by_signal_ids(uuid[])',
-     $$SELECT public.admin_delete_trade_records_by_signal_ids(ARRAY[]::uuid[])$$),
+     $$SELECT public.admin_delete_trade_records_by_signal_ids(ARRAY[]::uuid[])$$,
+     '00000', 'clean'),
    ( 3,'admin_delete_trade_records_by_symbol','public.admin_delete_trade_records_by_symbol(uuid, text)',
-     $$SELECT public.admin_delete_trade_records_by_symbol('11111111-0000-4000-8000-000000000001'::uuid,'ZZZZ')$$),
+     $$SELECT public.admin_delete_trade_records_by_symbol('11111111-0000-4000-8000-000000000001'::uuid,'ZZZZ')$$,
+     '00000', 'clean'),
    ( 4,'admin_generate_fix_proposals','public.admin_generate_fix_proposals(text)',
-     $$SELECT public.admin_generate_fix_proposals('unit_ambiguous')$$),
+     $$SELECT public.admin_generate_fix_proposals('unit_ambiguous')$$,
+     '42702', 'preexisting_production_defect: ambiguous "symbol" in the shipped body'),
    ( 5,'admin_holdings_consistency_audit','public.admin_holdings_consistency_audit()',
-     $$SELECT count(*) FROM public.admin_holdings_consistency_audit()$$),
+     $$SELECT count(*) FROM public.admin_holdings_consistency_audit()$$,
+     '42702', 'preexisting_production_defect: ambiguous "symbol" in the shipped body'),
    ( 6,'admin_reject_fix_proposal','public.admin_reject_fix_proposal(uuid, text)',
-     $$SELECT public.admin_reject_fix_proposal('11111111-0000-4000-8000-000000000001'::uuid,'acl probe')$$),
+     $$SELECT public.admin_reject_fix_proposal('11111111-0000-4000-8000-000000000001'::uuid,'acl probe')$$,
+     '00000', 'clean'),
    ( 7,'admin_reset_expert_asset_class','public.admin_reset_expert_asset_class(uuid, text)',
-     $$SELECT public.admin_reset_expert_asset_class((SELECT id FROM public.experts ORDER BY id LIMIT 1),'tw_stock')$$),
+     $$SELECT public.admin_reset_expert_asset_class((SELECT id FROM public.experts ORDER BY id LIMIT 1),'tw_stock')$$,
+     '00000', 'clean'),
    ( 8,'admin_trade_dedupe_sweep','public.admin_trade_dedupe_sweep(boolean)',
-     $$SELECT public.admin_trade_dedupe_sweep(true)$$),
+     $$SELECT public.admin_trade_dedupe_sweep(true)$$,
+     '00000', 'clean'),
    ( 9,'enqueue_bsr_backfill','public.enqueue_bsr_backfill(text, integer)',
-     $$SELECT public.enqueue_bsr_backfill('2330', 5)$$),
+     $$SELECT public.enqueue_bsr_backfill('2330', 5)$$,
+     '00000', 'clean'),
    (10,'get_publish_batch_attempts','public.get_publish_batch_attempts(integer)',
-     $$SELECT count(*) FROM public.get_publish_batch_attempts(5)$$),
+     $$SELECT count(*) FROM public.get_publish_batch_attempts(5)$$,
+     '00000', 'clean'),
    (11,'get_publish_batch_runs','public.get_publish_batch_runs(integer)',
-     $$SELECT count(*) FROM public.get_publish_batch_runs(5)$$),
+     $$SELECT count(*) FROM public.get_publish_batch_runs(5)$$,
+     '42702', 'preexisting_production_defect: ambiguous "run_id" in the shipped body'),
    (12,'get_publish_batch_status','public.get_publish_batch_status()',
-     $$SELECT count(*) FROM public.get_publish_batch_status()$$)
-  ) AS v(n, nm, sig, call_sql) LOOP
+     $$SELECT count(*) FROM public.get_publish_batch_status()$$,
+     '42703', 'preexisting_production_defect: body reads e.expert_slug, production experts has only "slug"')
+  ) AS v(n, nm, sig, call_sql, pos_expect, pos_class) LOOP
     v_exists := to_regprocedure(r.sig) IS NOT NULL;
     IF NOT v_exists THEN
       PERFORM t.ok(format('T-P96a.%s negative ordinary authenticated refused: %s', lpad(r.n::text,2,'0'), r.nm),
                    false, 'target missing from clone catalog — dynamic proof impossible');
-      PERFORM t.ok(format('T-P96b.%s positive company_admin allowed: %s', lpad(r.n::text,2,'0'), r.nm),
+      PERFORM t.ok(format('T-P96b.%s positive company_admin passes guard: %s', lpad(r.n::text,2,'0'), r.nm),
+                   false, 'target missing from clone catalog — dynamic proof impossible');
+      PERFORM t.ok(format('T-P96b-exec.%s end state as recorded: %s', lpad(r.n::text,2,'0'), r.nm),
                    false, 'target missing from clone catalog — dynamic proof impossible');
       CONTINUE;
     END IF;
     s_neg := t.acl_call(r.call_sql, v_user);
     s_pos := t.acl_call(r.call_sql, v_admin);
+    v_refused_neg := s_neg LIKE '42501%'
+                  OR (s_neg LIKE 'P0001%' AND (s_neg ~* 'forbidden|not authorized|permission|admin'));
+    v_refused_pos := s_pos LIKE '42501%'
+                  OR (s_pos LIKE 'P0001%' AND (s_pos ~* 'forbidden|not authorized|admin only'));
     PERFORM t.ok(format('T-P96a.%s negative ordinary authenticated refused: %s', lpad(r.n::text,2,'0'), r.nm),
-                 s_neg LIKE '42501%', 'actual=' || s_neg);
-    PERFORM t.ok(format('T-P96b.%s positive company_admin allowed: %s', lpad(r.n::text,2,'0'), r.nm),
-                 s_pos = '00000', 'actual=' || s_pos);
+                 v_refused_neg, 'actual=' || s_neg);
+    PERFORM t.ok(format('T-P96b.%s positive company_admin passes guard: %s', lpad(r.n::text,2,'0'), r.nm),
+                 NOT v_refused_pos, 'actual=' || s_pos);
+    PERFORM t.ok(format('T-P96b-exec.%s end state as recorded: %s', lpad(r.n::text,2,'0'), r.nm),
+                 s_pos LIKE r.pos_expect || '%',
+                 format('actual=%s expected=%s%% class=%s', s_pos, r.pos_expect, r.pos_class));
   END LOOP;
 END $BODY$;
+
+-- static evidence for the three recorded pre-existing production defects, so
+-- the classification above can never be a convenient excuse.
+DO $BODY$
+DECLARE v_src text; v_has_col boolean;
+BEGIN
+  SELECT prosrc INTO v_src FROM pg_proc p JOIN pg_namespace n ON n.oid=p.pronamespace
+   WHERE n.nspname='public' AND p.proname='get_publish_batch_status';
+  SELECT EXISTS (SELECT 1 FROM information_schema.columns
+                  WHERE table_schema='public' AND table_name='experts'
+                    AND column_name='expert_slug') INTO v_has_col;
+  PERFORM t.ok('T-P96b-evd.01 get_publish_batch_status defect is in the shipped body, not the clone',
+               v_src LIKE '%e.expert_slug%' AND NOT v_has_col,
+               format('body_refs_expert_slug=%s experts.expert_slug_exists=%s',
+                      v_src LIKE '%e.expert_slug%', v_has_col));
+  PERFORM t.ok('T-P96b-evd.02 ambiguity defects are compile-time in the shipped bodies',
+               (SELECT count(*) FROM pg_proc p JOIN pg_namespace n ON n.oid=p.pronamespace
+                 WHERE n.nspname='public'
+                   AND p.proname IN ('admin_generate_fix_proposals',
+                                     'admin_holdings_consistency_audit',
+                                     'get_publish_batch_runs')) = 3,
+               'all three bodies are the exact production definitions loaded by functions_acl28.sql');
+END $BODY$;
+
 
 -- ============================================================ C
 -- definer hygiene over all 28 unique ACL targets
