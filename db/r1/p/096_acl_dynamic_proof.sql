@@ -88,9 +88,11 @@ BEGIN
   IF NOT EXISTS (SELECT 1 FROM public.trade_records tr
                   WHERE tr.expert_id = v_exp AND tr.instrument = 'ZZZZ'
                     AND tr.status = 'open'::public.trade_status) THEN
-    INSERT INTO public.trade_records(expert_id, instrument, market, currency, quantity,
-      quantity_unit, entry_price, status, entry_date)
-    VALUES (v_exp, 'ZZZZ', 'TW', 'TWD', 2000, '股', 100, 'open'::public.trade_status, now());
+    -- raw INSERT is (correctly) refused by trade_records_economic_guard
+    -- ("only ledger_owner may write economics"), so the fixture seeds the open
+    -- position through the canonical path, exactly like production would.
+    PERFORM app_ledger.canonical_correct_position(v_exp, 'ZZZZ', 'TW', 2000, '股',
+              'acl fixture seed', 9);
   END IF;
   INSERT INTO public.holdings_fix_proposals(
     id, drift_category, expert_id, expert_slug, expert_name, symbol, instrument,
