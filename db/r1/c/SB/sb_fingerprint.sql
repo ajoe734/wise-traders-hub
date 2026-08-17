@@ -3,16 +3,16 @@
 \pset format unaligned
 \pset fieldsep '|'
 
-SELECT 'fn|'||p.oid::regprocedure||'|'||p.prosecdef||'|'||p.provolatile||'|'
+SELECT 'fn|'||p.oid::regprocedure||'|'||p.prosecdef::text||'|'||p.provolatile::text||'|'
        ||coalesce(array_to_string(p.proconfig,','),'-')||'|'
        ||coalesce(pg_get_userbyid(p.proowner),'-')||'|'
        ||md5(coalesce(array_to_string(p.proacl::text[],','),'-'))||'|'
        ||md5(pg_get_functiondef(p.oid))
   FROM pg_proc p JOIN pg_namespace n ON n.oid=p.pronamespace
- WHERE n.nspname IN ('public','private_bsr')
+ WHERE n.nspname IN ('public','private_bsr') AND p.prokind='f'
  ORDER BY 1;
 
-SELECT 'trg|'||c.relname||'|'||t.tgname||'|'||t.tgenabled||'|'||md5(pg_get_triggerdef(t.oid))
+SELECT 'trg|'||c.relname||'|'||t.tgname||'|'||t.tgenabled::text||'|'||md5(pg_get_triggerdef(t.oid))
   FROM pg_trigger t JOIN pg_class c ON c.oid=t.tgrelid
   JOIN pg_namespace n ON n.oid=c.relnamespace
  WHERE NOT t.tgisinternal AND n.nspname='public'

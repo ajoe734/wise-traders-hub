@@ -77,7 +77,7 @@ stage fingerprint_before
 psql "$CL" -qXAt -f db/r1/c/SB/sb_fingerprint.sql | sort >"$DIR/fp_before.txt"
 psql "$CL" -qXAt -c "SELECT md5(pg_get_functiondef('public.recover_quota_failed_bsr_jobs(int)'::regprocedure))" >"$DIR/recover_before.md5"
 psql "$CL" -qXAt -c "SELECT p.oid::regprocedure||'|'||pg_get_userbyid(p.proowner)||'|'||coalesce(p.proacl::text,'-')||'|'||coalesce(array_to_string(p.proconfig,','),'-')
-  FROM pg_proc p JOIN pg_namespace n ON n.oid=p.pronamespace WHERE n.nspname='public'
+  FROM pg_proc p JOIN pg_namespace n ON n.oid=p.pronamespace WHERE n.nspname='public' AND p.prokind='f'
     AND pg_get_functiondef(p.oid) LIKE '%tw_bsr_sync_queue%' ORDER BY 1" >"$DIR/queue_fn_before.txt"
 echo "  queue-touching functions captured: $(wc -l <"$DIR/queue_fn_before.txt")"
 
@@ -86,7 +86,7 @@ stage apply
 psql "$CL" -qX -v ON_ERROR_STOP=1 -f db/r1/c/SB/001_stage_b.sql >"$DIR/apply1.log" 2>&1 || { tail -20 "$DIR/apply1.log"; fatal "001_stage_b apply"; }
 psql "$CL" -qX -v ON_ERROR_STOP=1 -f db/r1/c/SB/002_recover_gate_aware.sql >"$DIR/apply2.log" 2>&1 || { tail -20 "$DIR/apply2.log"; fatal "002 apply"; }
 chk 0 "SB-03 migrations applied with ON_ERROR_STOP"
-psql "$CL" -qXAt -c "SELECT p.oid::regprocedure||'|secdef='||p.prosecdef||'|vol='||p.provolatile||'|cfg='||coalesce(array_to_string(p.proconfig,','),'-')||'|owner='||pg_get_userbyid(p.proowner)||'|acl='||coalesce(p.proacl::text,'-')
+psql "$CL" -qXAt -c "SELECT p.oid::regprocedure||'|secdef='||p.prosecdef::text||'|vol='||p.provolatile::text||'|cfg='||coalesce(array_to_string(p.proconfig,','),'-')||'|owner='||pg_get_userbyid(p.proowner)||'|acl='||coalesce(p.proacl::text,'-')
   FROM pg_proc p JOIN pg_namespace n ON n.oid=p.pronamespace
  WHERE (n.nspname='private_bsr') OR (n.nspname='public' AND p.proname IN
    ('bsr_admission_status','bsr_block_and_terminalize_claims','bsr_unblock_after_probe','tw_bsr_sync_queue_admission_gate'))
@@ -236,7 +236,7 @@ psql "$CL" -qXAt -c "SELECT count(*) FROM pg_namespace WHERE nspname='private_bs
 psql "$CL" -qXAt -c "SELECT count(*) FROM pg_trigger WHERE tgname='trg_tw_bsr_sync_queue_admission_gate'" >"$DIR/trg.out"
 [ "$(cat "$DIR/trg.out")" = 0 ]; chk $? "SB-10c gate trigger dropped"
 psql "$CL" -qXAt -c "SELECT p.oid::regprocedure||'|'||pg_get_userbyid(p.proowner)||'|'||coalesce(p.proacl::text,'-')||'|'||coalesce(array_to_string(p.proconfig,','),'-')
-  FROM pg_proc p JOIN pg_namespace n ON n.oid=p.pronamespace WHERE n.nspname='public'
+  FROM pg_proc p JOIN pg_namespace n ON n.oid=p.pronamespace WHERE n.nspname='public' AND p.prokind='f'
     AND pg_get_functiondef(p.oid) LIKE '%tw_bsr_sync_queue%' ORDER BY 1" >"$DIR/queue_fn_after.txt"
 diff -u "$DIR/queue_fn_before.txt" "$DIR/queue_fn_after.txt" >"$DIR/queue_fn.diff" || true
 [ ! -s "$DIR/queue_fn.diff" ]; chk $? "SB-10d queue-touching functions: 0 owner/acl/config drift" "$(head -6 "$DIR/queue_fn.diff")"
