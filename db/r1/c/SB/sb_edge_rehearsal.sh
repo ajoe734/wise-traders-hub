@@ -413,24 +413,45 @@ if [ "${STOP_AFTER:-}" = concurrency ]; then
   exit 0
 fi
 
-############################################################ G2. gate state matrix (missing / malformed / rpc_error)
+############################################################ G2. gate state matrix (row missing / flag absent / malformed / rpc_error)
 stage gate_matrix
+# Contract split (EF-06). The Edge classifier fails closed when the gate ROW is
+# unreadable; the DB wrapper deliberately COALESCEs an absent/malformed
+# `admission_blocked` KEY to false (001_stage_b.sql v4 §3 compatibility rule),
+# so a present row with a junk key is compatibility-OPEN, not fail-closed.
+# Both are asserted here explicitly instead of assuming one of them.
+CFGSAVE=$(psql "$CL" -qXAt -c "SELECT config::text FROM public.tw_bsr_sync_config WHERE key='market_batch'")
+
+# --- A. gate ROW missing -> Edge fail-closed
 : >"$DIR/provider.jsonl"; echo ok >"$DIR/mock_mode"
+psql "$CL" -qX -c "DELETE FROM public.tw_bsr_sync_config WHERE key='market_batch'" >/dev/null
+C=$(post "$W" "$DIR/w_norow.json" '{"mode":"worker","batch":3,"budget_ms":8000}' "$CRONH")
+chk $([ "$C" = 200 ] && echo 0 || echo 1) "EB-100 worker responds 200 when the gate row is missing (got $C)"
+chk $([ "$(jqf "$DIR/w_norow.json" claimed)" = '0' ] && echo 0 || echo 1) "EB-101 missing gate ROW is fail-closed (claimed=0)"
+chk $([ "$(jqf "$DIR/w_norow.json" note)" = '"admission_gate_closed"' ] && echo 0 || echo 1) "EB-101b missing gate ROW short-circuits with admission_gate_closed"
+chk $([ "$(jqf "$DIR/w_norow.json" admission.decision)" = '"missing"' ] && echo 0 || echo 1) "EB-101c decision=missing reported to the caller"
+chk $([ "$(provider_calls)" = 0 ] && echo 0 || echo 1) "EB-102 ZERO provider calls when the gate row is missing"
+C=$(post "$W" "$DIR/e_norow.json" '{"mode":"enqueue","tier1":true,"tier2":true,"tier3":true}' "$CRONH")
+QN=$(psql "$CL" -qXAt -c "SELECT count(*) FROM public.tw_bsr_sync_queue WHERE enqueued_by LIKE 'tier%' AND created_at > now() - interval '1 minute'")
+chk $([ "${QN:-1}" = 0 ] && echo 0 || echo 1) "EB-102b enqueue inserted nothing with the gate row missing (${QN:-?})"
+psql "$CL" -qX -c "INSERT INTO public.tw_bsr_sync_config(key, config) VALUES ('market_batch', '$CFGSAVE'::jsonb)" >/dev/null
+
+# --- B. row present, flag KEY absent -> documented compatibility-OPEN
+: >"$DIR/provider.jsonl"
 psql "$CL" -qX -c "UPDATE public.tw_bsr_sync_config SET config = config - 'admission_blocked' WHERE key='market_batch'" >/dev/null
 C=$(post "$W" "$DIR/w_missing.json" '{"mode":"worker","batch":3,"budget_ms":8000}' "$CRONH")
-chk $([ "$C" = 200 ] && echo 0 || echo 1) "EB-100 worker responds 200 when admission flag missing (got $C)"
-chk $([ "$(jqf "$DIR/w_missing.json" claimed)" = '0' ] && echo 0 || echo 1) "EB-101 missing flag is fail-closed (claimed=0)"
-chk $([ "$(provider_calls)" = 0 ] && echo 0 || echo 1) "EB-102 ZERO provider calls when admission state missing"
+chk $([ "$C" = 200 ] && echo 0 || echo 1) "EB-103 worker responds 200 when the admission flag key is absent (got $C)"
+chk $([ "$(jqf "$DIR/w_missing.json" note)" != '"admission_gate_closed"' ] && echo 0 || echo 1) "EB-103b absent flag key is compatibility-OPEN per 001_stage_b.sql v4 §3"
+chk $([ "$(gateblocked)" = 'false' ] && echo 0 || echo 1) "EB-103c absent flag key does not report the gate as blocked"
 
+# --- C. row present, flag value malformed -> DB COALESCEs to false (same rule)
 psql "$CL" -qX -c "UPDATE public.tw_bsr_sync_config SET config = config || '{\"admission_blocked\": \"not-a-boolean\"}'::jsonb WHERE key='market_batch'" >/dev/null
 : >"$DIR/provider.jsonl"
 C=$(post "$W" "$DIR/w_malformed.json" '{"mode":"worker","batch":3,"budget_ms":8000}' "$CRONH")
-chk $([ "$C" = 200 ] && echo 0 || echo 1) "EB-103 worker responds 200 on malformed admission value (got $C)"
-chk $([ "$(jqf "$DIR/w_malformed.json" claimed)" = '0' ] && echo 0 || echo 1) "EB-104 malformed admission value is fail-closed"
-chk $([ "$(provider_calls)" = 0 ] && echo 0 || echo 1) "EB-105 ZERO provider calls on malformed admission value"
-C=$(post "$W" "$DIR/e_malformed.json" '{"mode":"enqueue","tier1":true,"tier2":true,"tier3":true}' "$CRONH")
-QN=$(psql "$CL" -qXAt -c "SELECT count(*) FROM public.tw_bsr_sync_queue WHERE enqueued_by LIKE 'tier%' AND created_at > now() - interval '1 minute'")
-chk $([ "${QN:-0}" = 0 ] && echo 0 || echo 1) "EB-106 enqueue inserted nothing under a malformed gate (${QN:-0})"
+chk $([ "$C" = 200 ] && echo 0 || echo 1) "EB-104 worker responds 200 on a malformed admission value (got $C)"
+chk $([ "$(psql "$CL" -qXAt -c "SELECT public.bsr_admission_status()->>'blocked'")" = 'false' ] && echo 0 || echo 1) "EB-104b malformed value resolves to blocked=false (documented COALESCE)"
+chk $([ "$(jqf "$DIR/w_malformed.json" note)" != '"admission_gate_closed"' ] && echo 0 || echo 1) "EB-105 malformed value follows the same compatibility-OPEN rule"
+chk $([ "$(jqf "$DIR/w_malformed.json" ok)" = 'true' ] && echo 0 || echo 1) "EB-106 worker stays ok=true under a malformed admission value"
 
 # rpc_error: the status wrapper itself is unavailable -> still fail-closed
 psql "$CL" -qX -c "ALTER FUNCTION public.bsr_admission_status() RENAME TO bsr_admission_status_hidden" >/dev/null
@@ -447,8 +468,10 @@ stage worker_edges
 psql "$CL" -qX -c "DELETE FROM public.tw_bsr_sync_queue" >/dev/null
 : >"$DIR/provider.jsonl"; echo ok >"$DIR/mock_mode"
 C=$(post "$W" "$DIR/w_noclaim.json" '{"mode":"worker","batch":3,"budget_ms":8000}' "$CRONH")
+NC=$(jqf "$DIR/w_noclaim.json" claimed)
 chk $([ "$C" = 200 ] && echo 0 || echo 1) "EB-110 worker fast-exits with an empty queue (got $C)"
-chk $([ "$(jqf "$DIR/w_noclaim.json" claimed)" = '0' ] && echo 0 || echo 1) "EB-111 empty queue claims 0"
+chk $([ "$NC" = '0' ] || [ "$NC" = 'null' ] && echo 0 || echo 1) "EB-111 empty queue claims nothing (claimed=$NC)"
+chk $([ "$(jqf "$DIR/w_noclaim.json" note)" = '"no_jobs"' ] && echo 0 || echo 1) "EB-111b empty queue reports note=no_jobs"
 chk $([ "$(provider_calls)" = 0 ] && echo 0 || echo 1) "EB-112 empty queue never touches the provider"
 
 for m in rate fail5 net unknown; do
