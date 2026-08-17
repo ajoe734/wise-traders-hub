@@ -10,7 +10,7 @@ import os
 import sys
 
 sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
-from s0_lib import OUT, cli_q, psql, sha256_text, write_json  # noqa: E402
+from s0_lib import OUT, cli_q, psql, sha256_file, sha256_text, write_json  # noqa: E402
 
 
 def scalar(sql):
@@ -100,6 +100,86 @@ def main():
     # ----------------------------------------------------------------- kill switches
     b["kill_switches"] = {r[0]: r[1] for r in psql(
         "select key, enabled::text||'@'||coalesce(updated_at::text,'-') from system_kill_switches order by key")}
+
+    # ------------------------------------------------------- 12 experts (S3)
+    rows = psql("""select e.id::text, coalesce(e.name,'(unnamed)'),
+               coalesce(e.status::text,'(null)'),
+               (select count(*) from expert_signals s where s.expert_id=e.id)::text,
+               (select count(*) from trade_records t where t.expert_id=e.id)::text,
+               (select count(*) from trade_records t where t.expert_id=e.id and t.status='open')::text
+        from experts e order by 1""")
+    experts = []
+    for eid, name, status, sig, trd, opn in rows:
+        sig, trd, opn = int(sig), int(trd), int(opn)
+        # ready      : has signals AND every open position is backed by trades
+        # manual     : has data but drifted / suspended -> human adjudication
+        # incomplete : no signal and no trade -> nothing to project
+        if sig == 0 and trd == 0:
+            cls = "incomplete"
+        elif status in ("suspended", "inactive") or (sig > 0 and trd == 0) or (trd > 0 and sig == 0):
+            cls = "manual"
+        else:
+            cls = "ready"
+        experts.append({"expert_id": eid, "name": name, "status": status,
+                        "signals": sig, "trade_records": trd, "open_positions": opn,
+                        "classification": cls})
+    cls_lines = sorted("%s|%s|%d|%d|%d|%s" % (e["expert_id"], e["status"], e["signals"],
+                                              e["trade_records"], e["open_positions"],
+                                              e["classification"]) for e in experts)
+    b["experts_12"] = {
+        "total": len(experts),
+        "counts": {c: sum(1 for e in experts if e["classification"] == c)
+                   for c in ("ready", "manual", "incomplete")},
+        "rule": "ready = signals>0 and trade_records>0 and status active; "
+                "manual = suspended/inactive or signal-without-trade or trade-without-signal; "
+                "incomplete = no signal and no trade record",
+        "rows": experts,
+        "classification_sha256": sha256_text("\n".join(cls_lines)),
+    }
+
+    # ------------------------------------- R1-P manifests (84 / 26 / 6515)
+    p = os.path.join(OUT, "..", "..", "p")
+    rep = json.load(open(os.path.abspath(os.path.join(p, "replay-84.json"))))
+    dft = json.load(open(os.path.abspath(os.path.join(p, "drift-26.json"))))
+    rep_keys = sorted(k["key"] if isinstance(k, dict) else k for k in rep["keys"])
+    dft_keys = sorted(k["key"] if isinstance(k, dict) else k for k in dft["keys"])
+    b["manifests"] = {
+        "replay_84": {
+            "total_keys": rep["total_keys"],
+            "keys_sha256": sha256_text("\n".join(rep_keys)),
+            "file_sha256": sha256_file(os.path.abspath(os.path.join(p, "replay-84.json"))),
+            "class_counts": rep["class_counts"],
+        },
+        "drift_26": {
+            "total_keys": dft["total_keys"],
+            "keys_sha256": sha256_text("\n".join(dft_keys)),
+            "file_sha256": sha256_file(os.path.abspath(os.path.join(p, "drift-26.json"))),
+            "class_counts": dft["class_counts"],
+        },
+        "basis_definition": {
+            "key_basis": "KEY = (expert, instrument, market) — 84 keys",
+            "pair_basis": "PAIR = (expert, instrument) — 76 pairs",
+            "conversion": "8 pairs are market-ambiguous and split into 2 keys each: 76 + 8 = 84. "
+                          "R0's market_ambiguous=8 is the PAIR-basis count of the same population; "
+                          "on the key basis it is 16.",
+            "source": rep["ambiguity"]["r0_pair_basis_note"],
+        },
+    }
+
+    # 6515 invariant: stored 50 vs replay 10, withheld from every public channel
+    s6515 = psql("""select coalesce(sum(t.quantity),0)::text,
+                           count(*)::text,
+                           coalesce(max(t.quantity_unit),'(null)')
+        from trade_records t where t.instrument='6515' and t.status='open'""")
+    b["invariant_6515"] = {
+        "stored_open_quantity": s6515[0][0] if s6515 else None,
+        "stored_open_rows": s6515[0][1] if s6515 else None,
+        "quantity_unit": s6515[0][2] if s6515 else None,
+        "stored_declared": 50,
+        "replay_declared": 10,
+        "public_disposition": "withheld — candidates only, manual_review, auto-correction forbidden",
+        "source": "db/r1/p/drift-26.json invariants.6515",
+    }
 
     b["baseline_sha256"] = sha256_text(json.dumps(b, sort_keys=True, ensure_ascii=False))
     write_json(os.path.join(OUT, "s0_baselines.json"), b)

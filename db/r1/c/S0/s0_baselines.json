@@ -1,5 +1,5 @@
 {
-  "baseline_sha256": "5efc0d9ca2e091f65dfb1d9663cce231cef144cf1b78921090afb6c253b7d870",
+  "baseline_sha256": "e04a221b444513c5b2af99bcb0a03501f1460e1c9f150c96a6b06ba03e82d67e",
   "data": {
     "checkup_storage_holdings": {
       "rows": 38,
@@ -69,11 +69,170 @@
       "rows": 6
     }
   },
+  "experts_12": {
+    "classification_sha256": "f509fc7afaabcf0a4141aa853ace22dbc228eb3c08d8968195203700f2422e53",
+    "counts": {
+      "incomplete": 7,
+      "manual": 0,
+      "ready": 5
+    },
+    "rows": [
+      {
+        "classification": "ready",
+        "expert_id": "13926bcc-d3df-4ef5-bc56-7181ae4302a2",
+        "name": "彥愷",
+        "open_positions": 6,
+        "signals": 85,
+        "status": "active",
+        "trade_records": 40
+      },
+      {
+        "classification": "incomplete",
+        "expert_id": "1c1ed8a3-4ba3-4285-83a8-c4da7e7eb198",
+        "name": "老佛爺",
+        "open_positions": 0,
+        "signals": 0,
+        "status": "pending",
+        "trade_records": 0
+      },
+      {
+        "classification": "ready",
+        "expert_id": "1dfe0420-81d2-4ca4-96b4-cca86444e02e",
+        "name": "阿基米德投資學",
+        "open_positions": 3,
+        "signals": 3,
+        "status": "active",
+        "trade_records": 3
+      },
+      {
+        "classification": "incomplete",
+        "expert_id": "3379f0da-d3e0-40e9-b1dc-fc758f23b25f",
+        "name": "永維 Vincent",
+        "open_positions": 0,
+        "signals": 0,
+        "status": "pending",
+        "trade_records": 0
+      },
+      {
+        "classification": "ready",
+        "expert_id": "3fda8093-81b1-43ed-ac4f-8936e0a7a8f2",
+        "name": "brcto",
+        "open_positions": 4,
+        "signals": 35,
+        "status": "active",
+        "trade_records": 16
+      },
+      {
+        "classification": "ready",
+        "expert_id": "890db218-aeff-49c9-890c-cc016db09673",
+        "name": "老周老周",
+        "open_positions": 5,
+        "signals": 36,
+        "status": "active",
+        "trade_records": 17
+      },
+      {
+        "classification": "incomplete",
+        "expert_id": "8a4d6a07-5964-4141-b40d-35b33c13cc1f",
+        "name": "Sean",
+        "open_positions": 0,
+        "signals": 0,
+        "status": "pending",
+        "trade_records": 0
+      },
+      {
+        "classification": "incomplete",
+        "expert_id": "a1000000-0000-0000-0000-000000000001",
+        "name": "趙鵬博",
+        "open_positions": 0,
+        "signals": 0,
+        "status": "suspended",
+        "trade_records": 0
+      },
+      {
+        "classification": "incomplete",
+        "expert_id": "b1000000-0000-0000-0000-000000000001",
+        "name": "林修齊",
+        "open_positions": 0,
+        "signals": 0,
+        "status": "suspended",
+        "trade_records": 0
+      },
+      {
+        "classification": "incomplete",
+        "expert_id": "be3b84f6-e6a6-47f9-b19c-3fa66820ba56",
+        "name": "Ele",
+        "open_positions": 0,
+        "signals": 0,
+        "status": "pending",
+        "trade_records": 0
+      },
+      {
+        "classification": "incomplete",
+        "expert_id": "c5252941-7060-474f-8537-90729852a391",
+        "name": "MK",
+        "open_positions": 0,
+        "signals": 0,
+        "status": "pending",
+        "trade_records": 0
+      },
+      {
+        "classification": "ready",
+        "expert_id": "e381e144-ce74-4f1c-a7fa-aebbcb9c6f76",
+        "name": "Benny",
+        "open_positions": 3,
+        "signals": 14,
+        "status": "pending",
+        "trade_records": 6
+      }
+    ],
+    "rule": "ready = signals>0 and trade_records>0 and status active; manual = suspended/inactive or signal-without-trade or trade-without-signal; incomplete = no signal and no trade record",
+    "total": 12
+  },
+  "invariant_6515": {
+    "public_disposition": "withheld — candidates only, manual_review, auto-correction forbidden",
+    "quantity_unit": "(null)",
+    "replay_declared": 10,
+    "source": "db/r1/p/drift-26.json invariants.6515",
+    "stored_declared": 50,
+    "stored_open_quantity": "0",
+    "stored_open_rows": "0"
+  },
   "kill_switches": {
     "chips_all": "true@2026-07-25 11:26:29.254929+00",
     "chips_backfill": "false@2026-08-17 08:10:03.764+00",
     "chips_interactive": "true@2026-07-25 11:26:29.254929+00",
-    "chips_keepwarm": "false@2026-08-17 05:40:02.877+00"
+    "chips_keepwarm": "true@2026-08-17 08:40:04.591+00"
+  },
+  "manifests": {
+    "basis_definition": {
+      "conversion": "8 pairs are market-ambiguous and split into 2 keys each: 76 + 8 = 84. R0's market_ambiguous=8 is the PAIR-basis count of the same population; on the key basis it is 16.",
+      "key_basis": "KEY = (expert, instrument, market) — 84 keys",
+      "pair_basis": "PAIR = (expert, instrument) — 76 pairs",
+      "source": "R0 E_classify counted mutually exclusive buckets on the 76 (expert,instrument) PAIR basis and reported market_ambiguous=8. Each such pair is split into one key per market, so 8 pairs -> 16 keys, and 76 pairs + 8 extra market rows = 84 keys. The R0 number is neither a query bug nor a different population: it is the same population on the pair basis."
+    },
+    "drift_26": {
+      "class_counts": {
+        "multiple_apply": 17,
+        "signal_only": 9
+      },
+      "file_sha256": "dbaf65373b008a11b5fc1426e7821c344afb468c6b2040ebc9b548bbf2cd1f72",
+      "keys_sha256": "d70dfa44cf5e4a29d7704a6f0f3d41cb99c97974b092832571eabf4d4dd233a2",
+      "total_keys": 26
+    },
+    "replay_84": {
+      "class_counts": {
+        "incomplete": 3,
+        "match": 48,
+        "multiple_apply": 17,
+        "other": 1,
+        "signal_only": 9,
+        "stored_only": 6
+      },
+      "file_sha256": "a88aab43142173d1f10702b4d56cc7f85328e8ed45aaf92b606fadfde249844b",
+      "keys_sha256": "f2680ab28575db8e438b21ede583f94a75ca28a42186824006350c5e79fec51f",
+      "total_keys": 84
+    }
   },
   "pointer": {
     "any_pointer_present": false,

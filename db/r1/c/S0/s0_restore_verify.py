@@ -34,9 +34,8 @@ def qj(cl, sql):
     return [v for v in json.loads(r.stdout.strip()) if v is not None]
 
 
-def norm_acl(a):
-    """the read-only sandbox role only exists on production; ignore it."""
-    return "|".join(x for x in (a or "").split("|") if not x.startswith("sandbox_exec_"))
+def owner_map_ok(want, got):
+    return want == got
 
 
 def q(cl, sql, sep="\x1f"):
@@ -76,15 +75,58 @@ def main():
           "missing=%s drift=%s" % (miss, drift))
     check("function definition count == 28", len(acl["entries"]) == 28, str(len(acl["entries"])))
 
-    # ---- ACL keys (37 canonical / 28 signatures) -------------------------
-    live_acl = {("public." + r[0] + "(" + r[1] + ")"): r[2] for r in q(
-        cl, "select p.proname, pg_get_function_identity_arguments(p.oid), "
-            "coalesce(array_to_string(p.proacl,'|'),'(default)') "
-            "from pg_proc p join pg_namespace n on n.oid=p.pronamespace where n.nspname='public'")}
-    acl_bad = [e["live_signature"] for e in acl["entries"]
-               if norm_acl(live_acl.get(e["live_signature"])) != norm_acl(e["acl"])]
-    check("37 canonical ACL keys / 28 signatures match", not acl_bad, "mismatch=%s" % acl_bad[:5])
-    check("canonical key total == 37", acl["canonical_keys_total"] == 37, str(acl["canonical_keys_total"]))
+    # ---- ACL: exact aclexplode canonical tuples --------------------------
+    # No proacl string comparison, no loose normaliser, no role-name exclusion.
+    can = json.load(open(os.path.join(BK, "acl_canonical.json")))
+    sig_expr = "'public.'||p.proname||'('||pg_get_function_identity_arguments(p.oid)||')'"
+    in_list = ",".join("'" + s.replace("'", "''") + "'" for s in can["signatures"])
+    got_tuples = sorted("%s|%s|%s|%s|%s" % (r[0], r[1], r[2], r[3], "t" if r[4] in ("t", "true") else "f")
+                        for r in q(cl, """
+        select %s, coalesce(gr.rolname,'PUBLIC'), coalesce(ge.rolname,'PUBLIC'),
+               a.privilege_type, a.is_grantable::text
+        from pg_proc p join pg_namespace n on n.oid=p.pronamespace
+        cross join lateral aclexplode(coalesce(p.proacl, acldefault('f', p.proowner))) a
+        left join pg_roles gr on gr.oid=a.grantor
+        left join pg_roles ge on ge.oid=a.grantee
+        where n.nspname='public' and %s in (%s)""" % (sig_expr, sig_expr, in_list)))
+    want_tuples = sorted(can["tuples"])
+    missing_t = sorted(set(want_tuples) - set(got_tuples))
+    extra_t = sorted(set(got_tuples) - set(want_tuples))
+    got_owners = {r[0]: r[1] for r in q(cl, """
+        select %s, o.rolname from pg_proc p join pg_namespace n on n.oid=p.pronamespace
+        join pg_roles o on o.oid=p.proowner where n.nspname='public' and %s in (%s)"""
+                                        % (sig_expr, sig_expr, in_list))}
+    owner_bad = sorted(s for s, o in can["owner_mapping"].items() if got_owners.get(s) != o)
+    check("37 canonical ACL keys: exact aclexplode tuples (%d tuples / 28 sigs, owners mapped)"
+          % can["tuple_total"],
+          not missing_t and not extra_t and not owner_bad and owner_map_ok(
+              can["canonical_keys_total"], 37),
+          "missing=%d %s extra=%d %s owner_bad=%s" % (len(missing_t), missing_t[:3],
+                                                      len(extra_t), extra_t[:3], owner_bad[:3]))
+
+    # ---- has_function_privilege matrix (PUBLIC/anon/authenticated/service_role/owner)
+    probes = []
+    for role in ["public", "anon", "authenticated", "service_role"]:
+        for sig, val in q(cl, """
+            select %s, has_function_privilege('%s', p.oid, 'EXECUTE')::text
+            from pg_proc p join pg_namespace n on n.oid=p.pronamespace
+            where n.nspname='public' and %s in (%s)""" % (sig_expr, role, sig_expr, in_list)):
+            probes.append("%s|%s|%s" % (sig, role, "t" if val in ("t", "true") else "f"))
+    for sig, val in q(cl, """
+        select %s, has_function_privilege(o.rolname, p.oid, 'EXECUTE')::text
+        from pg_proc p join pg_namespace n on n.oid=p.pronamespace
+        join pg_roles o on o.oid=p.proowner where n.nspname='public' and %s in (%s)"""
+                      % (sig_expr, sig_expr, in_list)):
+        probes.append("%s|OWNER(%s)|%s" % (sig, can["owner_mapping"].get(sig, "?"),
+                                           "t" if val in ("t", "true") else "f"))
+    probes.sort()
+    mat_diff = sorted(set(probes) ^ set(can["privilege_matrix"]))
+    extra_pub = [p for p in probes if p.endswith("|t") and "|public|" in p
+                 and p not in can["privilege_matrix"]]
+    check("has_function_privilege matrix (%d probes, no extra PUBLIC EXECUTE)"
+          % len(can["privilege_matrix"]),
+          not mat_diff and not extra_pub,
+          "diff=%d %s extra_public=%s" % (len(mat_diff), mat_diff[:3], extra_pub[:3]))
 
     # ---- 11 affected tables ---------------------------------------------
     tl = "','".join(cat["tables"])
@@ -112,15 +154,17 @@ def main():
         check("11 tables: %s" % key, not missing, "missing=%d e.g. %s" % (len(missing), missing[:2]))
     check("affected table count == 11", len(cat["tables"]) == 11, str(len(cat["tables"])))
 
-    # grants are role-scoped; compare only the rows the backup could observe
+    # table grants: every grant row the backup captured must exist on the clone
     want_g = {x[0] if isinstance(x, list) else x for x in cat["grants"]}
     got_g = set(qj(cl, "select c.relname||' :: '||coalesce(r.rolname,'PUBLIC')||' :: '||a.privilege_type "
-                                 "from pg_class c join pg_namespace n on n.oid=c.relnamespace "
-                                 "cross join lateral aclexplode(coalesce(c.relacl,'{}')) a "
-                                 "left join pg_roles r on r.oid=a.grantee "
-                                 "where n.nspname='public' and c.relname in ('%s') order by 1" % tl))
-    check("11 tables: grants (observable subset)", True if not want_g else True,
-          "backup_rows=%d restored_rows=%d" % (len(want_g), len(got_g)))
+                       "from pg_class c join pg_namespace n on n.oid=c.relnamespace "
+                       "cross join lateral aclexplode(c.relacl) a "
+                       "left join pg_roles r on r.oid=a.grantee "
+                       "where n.nspname='public' and c.relacl is not null "
+                       "and c.relname in ('%s') order by 1" % tl))
+    miss_g = sorted(want_g - got_g)
+    check("11 tables: grants restored (%d backup rows)" % len(want_g), not miss_g,
+          "missing=%d e.g. %s" % (len(miss_g), miss_g[:3]))
 
     # ---- cron (72) -------------------------------------------------------
     got_cron = {int(r[0]): (r[1], r[2], r[3] in ('t', 'true'), r[4]) for r in q(
