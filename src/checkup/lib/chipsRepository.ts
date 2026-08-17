@@ -263,6 +263,14 @@ export const CHIPS_STAMP_TIMEOUT_MS = 8_000;
 export const CHIPS_BATCH_TIMEOUT_MS = 30_000;
 export const CHIPS_BATCH_MAX_STOCKS = 30;
 
+/**
+ * Preview / harness-only endpoint 切換。
+ * production build 未設此變數 → 仍走舊 `tw-chips-detail`（不改變真實使用者行為）。
+ * 設為 `tw-chips-detail-v2` 時走 side-by-side read-only endpoint。
+ */
+export const CHIPS_FN = (import.meta.env?.VITE_CHIPS_ENDPOINT as string | undefined) || 'tw-chips-detail';
+
+
 /** 公開市場資料 endpoint 一律用 publishable anon JWT，避免殘留 user JWT 造成 401。 */
 function anonHeaders(): Record<string, string> {
   return {
@@ -341,7 +349,7 @@ export async function fetchChipsPayload(
   trackEvent('chips_fetch_start', { stock_code: stockId, source, is_view_as: isViewAs });
   try {
     const { text, durationMs } = await requestText(
-      `/tw-chips-detail?stock_id=${encodeURIComponent(stockId)}`,
+      `/${CHIPS_FN}?stock_id=${encodeURIComponent(stockId)}`,
       { signal: opts?.signal },
     );
     const payload = JSON.parse(text) as TwChipsPayload;
@@ -380,7 +388,7 @@ export async function fetchChipsStamp(
   opts?: { signal?: AbortSignal },
 ): Promise<ChipsStamp> {
   const { text } = await requestText(
-    `/tw-chips-detail?stock_id=${encodeURIComponent(stockId)}&stamp_only=1`,
+    `/${CHIPS_FN}?stock_id=${encodeURIComponent(stockId)}&stamp_only=1`,
     { signal: opts?.signal, timeoutMs: CHIPS_STAMP_TIMEOUT_MS },
   );
   const json = JSON.parse(text) as Partial<ChipsStamp>;
@@ -430,7 +438,7 @@ export async function fetchChipsBatch(
 
   trackEvent('chips_batch_fetch_start', { count: ids.length, source, is_view_as: isViewAs });
   try {
-    const { text, durationMs } = await requestText('/tw-chips-detail', {
+    const { text, durationMs } = await requestText(`/${CHIPS_FN}`, {
       signal: opts?.signal,
       timeoutMs: CHIPS_BATCH_TIMEOUT_MS,
       method: 'POST',

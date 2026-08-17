@@ -1,0 +1,2 @@
+30e17b3f774cc6db5bdf6c1c137d01dcfd6d1b15daad32afa0c3e310c9cad59e  supabase/functions/tw-chips-detail/index.ts
+24c627aa7e118d6bbbaebdecc7ae88b283f49da4d3b61617f95680d1ae22d6c8  supabase/functions/tw-chips-detail-v2/index.ts
