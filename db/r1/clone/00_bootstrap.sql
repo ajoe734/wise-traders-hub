@@ -20,10 +20,27 @@ CREATE TABLE IF NOT EXISTS auth.users (
   is_anonymous boolean default false, is_sso_user boolean default false,
   email_confirmed_at timestamptz, banned_until timestamptz, deleted_at timestamptz,
   phone text, role text default 'authenticated', aud text default 'authenticated');
--- claim shims (settings-driven, mirrors Supabase GoTrue behaviour)
-CREATE OR REPLACE FUNCTION auth.uid() RETURNS uuid LANGUAGE sql STABLE AS
-$$ select nullif(current_setting('request.jwt.claim.sub', true), '')::uuid $$;
-CREATE OR REPLACE FUNCTION auth.role() RETURNS text LANGUAGE sql STABLE AS
-$$ select coalesce(nullif(current_setting('request.jwt.claim.role', true), ''), current_user) $$;
-CREATE OR REPLACE FUNCTION auth.jwt() RETURNS jsonb LANGUAGE sql STABLE AS
-$$ select coalesce(nullif(current_setting('request.jwt.claims', true), '')::jsonb, '{}'::jsonb) $$;
+-- claim shims: byte-equivalent to production auth.uid()/auth.role()/auth.jwt()
+-- (extracted read-only from production pg_get_functiondef; real Supabase claims path)
+CREATE OR REPLACE FUNCTION auth.uid() RETURNS uuid LANGUAGE sql STABLE AS $function$
+  select 
+  coalesce(
+    nullif(current_setting('request.jwt.claim.sub', true), ''),
+    (nullif(current_setting('request.jwt.claims', true), '')::jsonb ->> 'sub')
+  )::uuid
+$function$;
+CREATE OR REPLACE FUNCTION auth.role() RETURNS text LANGUAGE sql STABLE AS $function$
+  select 
+  coalesce(
+    nullif(current_setting('request.jwt.claim.role', true), ''),
+    (nullif(current_setting('request.jwt.claims', true), '')::jsonb ->> 'role')
+  )::text
+$function$;
+CREATE OR REPLACE FUNCTION auth.jwt() RETURNS jsonb LANGUAGE sql STABLE AS $function$
+  select 
+    coalesce(
+        nullif(current_setting('request.jwt.claim', true), ''),
+        nullif(current_setting('request.jwt.claims', true), '')
+    )::jsonb
+$function$;
+GRANT EXECUTE ON FUNCTION auth.uid(), auth.role(), auth.jwt() TO anon, authenticated, service_role;
