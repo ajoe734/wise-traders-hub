@@ -399,31 +399,7 @@ test.describe('/company/audit-logs', () => {
     expect(actionsFetches).toBe(1);
   });
 
-  test('external invalidateQueries(["company","audit-logs"]) triggers refetch', async ({ page }) => {
-    await seedSession(page, { id: 'admin', email: 'admin@test.com' });
-    let pageFetches = 0;
-    let actionsFetches = 0;
-    await installRoutes(page, buildRoutes({
-      onActions: () => { actionsFetches += 1; },
-      onPage: () => { pageFetches += 1; },
-    }));
-
-    await page.goto('/company/audit-logs');
-    await expect.poll(() => pageFetches).toBe(1);
-    await expect.poll(() => actionsFetches).toBe(1);
-
-    // Simulate a mutation elsewhere that invalidates the audit-logs cache.
-    // Prefix-only invalidation must refetch both the page query and the
-    // actions list (both share the ['company','audit-logs', ...] prefix).
-    await page.evaluate(() => {
-      const qc = (window as any).__lfQueryClient;
-      if (!qc) throw new Error('queryClient not exposed on window');
-      qc.invalidateQueries({ queryKey: ['company', 'audit-logs'] });
-    });
-
-    await expect.poll(() => pageFetches, { timeout: 3_000 }).toBeGreaterThan(1);
-    await expect.poll(() => actionsFetches, { timeout: 3_000 }).toBeGreaterThan(1);
-  });
+  // R1-P backdoor closure: the `external invalidateQueries(...)` case that used to live here drove window.__lfQueryClient, a project-owned runtime global able to seed the react-query cache from outside React. The global is gone from the app; prefix-invalidation semantics for this queryKey are covered at the correct seam by src/lib/__tests__/queryClientPrefixInvalidation.test.ts.
 });
 
 // -----------------------------------------------------------------------------
@@ -561,22 +537,7 @@ test.describe('/company/backtest-monitor', () => {
     expect(counters.snapshot).toBe(1);
   });
 
-  test('external invalidateQueries(["company","backtest-monitor"]) triggers refetch', async ({ page }) => {
-    await seedSession(page, { id: 'admin', email: 'admin@test.com' });
-    const counters: Counters = { snapshot: 0, invokes: {} };
-    await installSnapshotRoutes(page, counters);
-
-    await page.goto('/company/backtest-monitor');
-    await expect.poll(() => counters.snapshot).toBe(1);
-
-    await page.evaluate(() => {
-      const qc = (window as any).__lfQueryClient;
-      if (!qc) throw new Error('queryClient not exposed on window');
-      qc.invalidateQueries({ queryKey: ['company', 'backtest-monitor'] });
-    });
-
-    await expect.poll(() => counters.snapshot, { timeout: 3_000 }).toBeGreaterThan(1);
-  });
+  // R1-P backdoor closure: the `external invalidateQueries(...)` case that used to live here drove window.__lfQueryClient, a project-owned runtime global able to seed the react-query cache from outside React. The global is gone from the app; prefix-invalidation semantics for this queryKey are covered at the correct seam by src/lib/__tests__/queryClientPrefixInvalidation.test.ts.
 });
 
 // -----------------------------------------------------------------------------
@@ -741,30 +702,7 @@ test.describe('/company/knowledge-base', () => {
     expect(itemsFetches).toBe(1);
   });
 
-  test('external invalidateQueries(["company","knowledge-base"]) refetches', async ({ page }) => {
-    await seedSession(page, { id: 'admin', email: 'admin@test.com' });
-    let itemsFetches = 0;
-    await installRoutes(page, {
-      rest: {
-        ...baseRest,
-        checkup_knowledge_items: ({ method }) => {
-          if (method === 'GET') itemsFetches += 1;
-          return [];
-        },
-        checkup_knowledge_usage_stats: () => [],
-        checkup_knowledge_candidates: () => [],
-        knowledge_backtest_runs: () => [],
-      },
-    });
-    await page.goto('/company/knowledge-base');
-    await expect.poll(() => itemsFetches).toBe(1);
-
-    await page.evaluate(() => {
-      const qc = (window as any).__lfQueryClient;
-      qc.invalidateQueries({ queryKey: ['company', 'knowledge-base'] });
-    });
-    await expect.poll(() => itemsFetches, { timeout: 3_000 }).toBeGreaterThan(1);
-  });
+  // R1-P backdoor closure: the `external invalidateQueries(...)` case that used to live here drove window.__lfQueryClient, a project-owned runtime global able to seed the react-query cache from outside React. The global is gone from the app; prefix-invalidation semantics for this queryKey are covered at the correct seam by src/lib/__tests__/queryClientPrefixInvalidation.test.ts.
 });
 
 // /company/payments — queryKey: ['company','payments']
@@ -791,35 +729,7 @@ test.describe('/company/payments', () => {
     expect(providersFetches).toBe(1);
   });
 
-  test('external invalidateQueries(["company","payments"]) refetches all 3 fetches', async ({ page }) => {
-    await seedSession(page, { id: 'admin', email: 'admin@test.com' });
-    let providersFetches = 0;
-    let settingsFetches = 0;
-    await installRoutes(page, {
-      rest: {
-        ...baseRest,
-        payment_providers: ({ method }) => {
-          if (method === 'GET') providersFetches += 1;
-          return [];
-        },
-        payment_settings_safe: ({ method }) => {
-          if (method === 'GET') settingsFetches += 1;
-          return null;
-        },
-      },
-    });
-    await page.goto('/company/payments');
-    await expect.poll(() => providersFetches).toBe(1);
-    await expect.poll(() => settingsFetches).toBeGreaterThanOrEqual(2); // remit + ecpay
-
-    const baseline = settingsFetches;
-    await page.evaluate(() => {
-      const qc = (window as any).__lfQueryClient;
-      qc.invalidateQueries({ queryKey: ['company', 'payments'] });
-    });
-    await expect.poll(() => providersFetches, { timeout: 3_000 }).toBeGreaterThan(1);
-    await expect.poll(() => settingsFetches, { timeout: 3_000 }).toBeGreaterThan(baseline);
-  });
+  // R1-P backdoor closure: the `external invalidateQueries(...)` case that used to live here drove window.__lfQueryClient, a project-owned runtime global able to seed the react-query cache from outside React. The global is gone from the app; prefix-invalidation semantics for this queryKey are covered at the correct seam by src/lib/__tests__/queryClientPrefixInvalidation.test.ts.
 });
 
 // /company/plans — queryKey: ['company','plans']
@@ -856,30 +766,7 @@ test.describe('/company/plans', () => {
     expect(plansFetches).toBe(1);
   });
 
-  test('external invalidateQueries(["company","plans"]) refetches', async ({ page }) => {
-    await seedSession(page, { id: 'admin', email: 'admin@test.com' });
-    let plansFetches = 0;
-    await installRoutes(page, {
-      rest: {
-        ...baseRest,
-        expert_plans: ({ method }) => {
-          if (method === 'GET') plansFetches += 1;
-          return [];
-        },
-        plan_split_overrides: () => [],
-        payment_settings_safe: () => null,
-        checkup_plans: () => [],
-      },
-    });
-    await page.goto('/company/plans');
-    await expect.poll(() => plansFetches).toBe(1);
-
-    await page.evaluate(() => {
-      const qc = (window as any).__lfQueryClient;
-      qc.invalidateQueries({ queryKey: ['company', 'plans'] });
-    });
-    await expect.poll(() => plansFetches, { timeout: 3_000 }).toBeGreaterThan(1);
-  });
+  // R1-P backdoor closure: the `external invalidateQueries(...)` case that used to live here drove window.__lfQueryClient, a project-owned runtime global able to seed the react-query cache from outside React. The global is gone from the app; prefix-invalidation semantics for this queryKey are covered at the correct seam by src/lib/__tests__/queryClientPrefixInvalidation.test.ts.
 });
 
 // /company/revenue — queryKey: ['company','revenue', preset]
@@ -957,27 +844,5 @@ test.describe('/company/revenue', () => {
     }
   });
 
-  test('external invalidateQueries(["company","revenue"]) refetches all preset caches', async ({ page }) => {
-    await seedSession(page, { id: 'admin', email: 'admin@test.com' });
-    let splitsFetches = 0;
-    await installRoutes(page, {
-      rest: {
-        ...restStub(),
-        revenue_splits: ({ method }) => {
-          if (method === 'GET') splitsFetches += 1;
-          return [];
-        },
-      },
-    });
-
-    await page.goto('/company/revenue');
-    await expect.poll(() => splitsFetches).toBeGreaterThan(0);
-    const baseline = splitsFetches;
-
-    await page.evaluate(() => {
-      const qc = (window as any).__lfQueryClient;
-      qc.invalidateQueries({ queryKey: ['company', 'revenue'] });
-    });
-    await expect.poll(() => splitsFetches, { timeout: 3_000 }).toBeGreaterThan(baseline);
-  });
+  // R1-P backdoor closure: the `external invalidateQueries(...)` case that used to live here drove window.__lfQueryClient, a project-owned runtime global able to seed the react-query cache from outside React. The global is gone from the app; prefix-invalidation semantics for this queryKey are covered at the correct seam by src/lib/__tests__/queryClientPrefixInvalidation.test.ts.
 });
