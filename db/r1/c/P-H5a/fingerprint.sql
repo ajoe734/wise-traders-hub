@@ -31,7 +31,7 @@ SELECT 'tw_bsr_daily', s.cnt::text, s.mx, s.h FROM (
     FROM (SELECT trade_date, count(*) AS c, max(created_at) AS mx FROM public.tw_bsr_daily GROUP BY trade_date) d
 ) s
 UNION ALL
-SELECT 'finmind_inflight_requests', count(*)::text, coalesce(max(acquired_at)::text,'-'),
+SELECT 'finmind_inflight_requests', count(*)::text, coalesce(max(started_at)::text,'-'),
        md5(coalesce(string_agg(key, '|' ORDER BY key),''))
   FROM public.finmind_inflight_requests
 ORDER BY 1;
