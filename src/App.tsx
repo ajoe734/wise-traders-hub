@@ -24,15 +24,14 @@ import {
   queryPersister,
   PERSISTED_QUERY_PREFIXES,
 } from "@/lib/queryClient";
-import { isPreviewEnv } from "@/lib/previewEnv";
 
-// Expose queryClient on window for E2E tests. Dev/preview ONLY: on the
-// production origin this global is never installed, so nothing outside React
-// can seed the query cache (which would be a backdoor into the public
-// economic contract — e.g. forcing a `ready` projection status).
-if (typeof window !== "undefined" && isPreviewEnv()) {
-  (window as unknown as { __lfQueryClient?: typeof queryClient }).__lfQueryClient = queryClient;
-}
+// R1-P backdoor closure: this module used to publish `window.__lfQueryClient`
+// so Playwright could invalidate/seed react-query caches from outside React.
+// Any writable handle on the query cache is a way to force the public economic
+// contract (e.g. seeding a `ready` projection status for a scope that is under
+// review), so the global is removed outright rather than gated by environment —
+// an env check is a configuration boundary, not a security boundary. E2E now
+// drives state exclusively through Playwright network interception.
 
 import { useSignalRealtimeInvalidation } from "@/hooks/useSignalRealtimeInvalidation";
 import { useAttributionTracking } from "@/hooks/useAttributionTracking";
