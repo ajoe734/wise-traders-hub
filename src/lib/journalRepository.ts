@@ -1,5 +1,3 @@
-import { resolveProjectionStatus, type ProjectionStatus } from '@/contracts/publicProjection';
-import { gateSignalEconomics } from '@/contracts/publicEconomicContract';
 /**
  * 週記讀取倉庫（前台鏡像 — 由 scripts/gen-journal-repository-mirror.mjs 產生，請勿手改）。
  *
@@ -13,6 +11,11 @@ import { gateSignalEconomics } from '@/contracts/publicEconomicContract';
  */
 
 import { taipeiMondayOf, taipeiWeekRangeUtc } from '@/lib/taipeiWeek';
+import {
+  gateSignalEconomics,
+  READY_PROJECTION,
+  type ProjectionStatus,
+} from '@/contracts/publicEconomicContract';
 
 // ── select 契約 ───────────────────────────────────────────────────────────────
 
@@ -59,8 +62,6 @@ export interface OwnerPreviewResult<T = any> {
   diagnostics: JournalFetchDiagnostics;
 }
 
-const READY_BY_DEFAULT: ProjectionStatus = resolveProjectionStatus({ absent: true });
-
 // ── 讀取場景 ──────────────────────────────────────────────────────────────────
 
 /**
@@ -83,7 +84,7 @@ export async function forSubscriber<T = any>(
   // figure while the projection scope is under review / incomplete.
   const gated = gateSignalEconomics(
     (data ?? []) as unknown as Record<string, unknown>[],
-    opts.projection ?? READY_BY_DEFAULT,
+    opts.projection ?? READY_PROJECTION,
   ) as unknown as T[];
   return { signals: gated, error: error?.message ?? null };
 }

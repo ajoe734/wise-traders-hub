@@ -12,7 +12,7 @@
  * render 「資料檢核中」 instead.
  */
 
-import type { ProjectionStatus } from './publicProjection';
+import { resolveProjectionStatus, type ProjectionStatus } from './publicProjection';
 
 /** Numeric fields that may never leak while a scope is not ready. */
 export interface GatedPerformance {
