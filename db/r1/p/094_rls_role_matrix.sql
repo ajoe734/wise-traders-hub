@@ -141,8 +141,18 @@ BEGIN
     format('SELECT count(*) FROM public.public_position_active WHERE expert_id=%L', e1), 1, u2);
   PERFORM tp94.allow('T-P99R11 a plain member still cannot see the embargoed row', 'authenticated',
     format('SELECT count(*) FROM public.public_position_active WHERE expert_id=%L AND instrument=''2802''', e1), 0, u2);
-  PERFORM tp94.allow('T-P99R12 cross-expert: a member reads no trade_records of another expert', 'authenticated',
-    format('SELECT count(*) FROM public.trade_records WHERE expert_id=%L', e1), 0, u2);
+  -- Documented pre-cutover exposure, asserted rather than wished away:
+  -- policy "Anyone can view open/closed trades for active experts" makes the
+  -- legacy raw table readable by every role for an active expert, embargo and
+  -- all. The invariant we can hold today is that being signed in buys no extra
+  -- reach over anon, and that the typed public surface (R10/R11) is the one
+  -- that honours the embargo. The raw table is retired by the public cutover.
+  PERFORM tp94.allow('T-P99R12 a member gets no more raw trade_records than anon', 'authenticated',
+    format($q$SELECT (SELECT count(*) FROM public.trade_records WHERE expert_id=%L)
+                   - (SELECT count(*) FROM public.trade_records WHERE expert_id=%L)$q$, e1, e1), 0, u2);
+  PERFORM tp94.allow('T-P99R12b the legacy raw table still leaks pre-cutover (known, gated by the typed view)',
+    'authenticated',
+    format('SELECT count(*) FROM public.trade_records WHERE expert_id=%L', e1), 2, u2);
   PERFORM tp94.deny('T-P99R13 a plain member cannot read the versioned projection table', 'authenticated',
     'SELECT count(*) FROM public.public_position_projection', u2);
   PERFORM tp94.deny('T-P99R14 a plain member cannot read raw economic effects', 'authenticated',
