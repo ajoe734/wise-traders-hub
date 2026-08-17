@@ -20,7 +20,7 @@ SELECT 'bsr_coverage_daily', count(*)::text, coalesce(max(computed_at)::text,'-'
   FROM public.bsr_coverage_daily
 UNION ALL
 SELECT 'tw_chip_fact', s.cnt::text, s.mx, s.h FROM (
-  SELECT count(*) AS cnt, coalesce(max(mx)::text,'-') AS mx,
+  SELECT sum(c) AS cnt, coalesce(max(mx)::text,'-') AS mx,
          md5(coalesce(string_agg(trade_date::text||':'||c::text, '|' ORDER BY trade_date),'')) AS h
     FROM (SELECT trade_date, count(*) AS c, max(ingested_at) AS mx FROM public.tw_chip_fact GROUP BY trade_date) d
 ) s
