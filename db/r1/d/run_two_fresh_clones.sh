@@ -98,7 +98,10 @@ run_clone() { # name port
 
   # 7. exercise SQL rollback, then restore from the transactionally consistent
   # pre-cutover dump and prove exact catalog/data identity.
-  psql "$CL" -qX -f db/r1/d/099_rollback.sql > "$DIR/rollback.log" 2>&1
+  psql "$CL" -qX -v ON_ERROR_STOP=1 -f db/r1/d/099_rollback.sql > "$DIR/rollback.log" 2>&1 || {
+    echo "  rollback SQL failed" | tee -a "$OUT/$NAME.log"
+    FAILS=$((FAILS+1))
+  }
   psql "$CL" -qX -v ON_ERROR_STOP=1 -c 'DROP SCHEMA public CASCADE; CREATE SCHEMA public;' \
     >> "$DIR/rollback.log" 2>&1
   pg_restore --clean --if-exists --no-owner --dbname="$CL" "$DIR/before.dump" \
