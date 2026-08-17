@@ -65,4 +65,22 @@ SELECT s, d, 1000, 0, 0, 1000, 'clone_fixture'
  ) w(d)
 ON CONFLICT DO NOTHING;
 
+
+-- ------------------------------------------------- auth restore-gap repair
+-- The baseline bundle restores auth.* tables without their sequences, so
+-- auth.refresh_tokens.id loses its production DEFAULT and real GoTrue cannot
+-- issue a refresh token (23502). Production already has this default
+-- (verified read-only: nextval('auth.refresh_tokens_id_seq'::regclass)); this
+-- only re-establishes clone parity, it changes nothing in production.
+CREATE SEQUENCE IF NOT EXISTS auth.refresh_tokens_id_seq AS bigint;
+ALTER TABLE auth.refresh_tokens ALTER COLUMN id SET DEFAULT nextval('auth.refresh_tokens_id_seq');
+ALTER SEQUENCE auth.refresh_tokens_id_seq OWNED BY auth.refresh_tokens.id;
+
+-- GoTrue runs unqualified SQL against the auth schema.
+DO $$ BEGIN
+  CREATE ROLE gotrue_admin LOGIN SUPERUSER PASSWORD 'clone-only';
+EXCEPTION WHEN duplicate_object THEN NULL; END $$;
+ALTER ROLE gotrue_admin SET search_path = auth, public;
+
 COMMIT;
+
