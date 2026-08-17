@@ -100,7 +100,10 @@ DECLARE r record; v_oid oid;
 BEGIN
 FOR r IN SELECT * FROM (VALUES
   ($$public.get_expert_capital_status_raw(uuid)$$,$$T-P98h.01$$),
-  ($$public.backfill_queue_stats_raw()$$,$$T-P98h.02$$)
+  ($$public.backfill_queue_stats_raw()$$,$$T-P98h.02$$),
+  -- the ungated identity helpers behind the anon-callable wrappers
+  ($$public.is_tester_raw(uuid)$$,$$T-P98h.03$$),
+  ($$public.has_active_subscription_after_raw(uuid, timestamp with time zone)$$,$$T-P98h.04$$)
 ) AS v(sig, test_id) LOOP
   v_oid := to_regprocedure(r.sig);
   IF v_oid IS NULL THEN
