@@ -260,56 +260,56 @@ SELECT t.expect_error('F3.cash_leg_with_instrument_key',
       target_row_id,op,row_role,expert_id,currency,market,instrument_key,qty_delta,cash_delta,after_hash)
     SELECT event_id,99,'portfolio_cash_ledger',gen_random_uuid(),'insert','cash_leg',expert_id,
       'TWD','TW','2330:TW',0,1,'h' FROM app_ledger.economic_effect LIMIT 1$$,
-  'epm_ikey_ck');
+  'epm_ikey_ck', '23514');
 SELECT t.expect_error('F3.non_cash_leg_missing_market',
   $$INSERT INTO app_ledger.effect_projection_mutation(event_id,mutation_seq,target_table,
       target_row_id,op,row_role,expert_id,currency,instrument_key,qty_delta,after_hash)
     SELECT event_id,98,'trade_records',gen_random_uuid(),'insert','open_position',expert_id,
       'TWD','2330:TW',1,'h' FROM app_ledger.economic_effect LIMIT 1$$,
-  'epm_market_ck');
+  'epm_market_ck', '23514');
 SELECT t.expect_error('F3.insert_with_before_hash',
   $$INSERT INTO app_ledger.effect_projection_mutation(event_id,mutation_seq,target_table,
       target_row_id,op,row_role,expert_id,currency,market,instrument_key,qty_delta,
       before_hash,after_hash)
     SELECT event_id,97,'trade_records',gen_random_uuid(),'insert','open_position',expert_id,
       'TWD','TW','2330:TW',1,'b','h' FROM app_ledger.economic_effect LIMIT 1$$,
-  'epm_before_ck');
+  'epm_before_ck', '23514');
 SELECT t.expect_error('F3.target_row_id_null',
   $$INSERT INTO app_ledger.effect_projection_mutation(event_id,mutation_seq,target_table,
       target_row_id,op,row_role,expert_id,currency,market,instrument_key,qty_delta,after_hash)
     SELECT event_id,96,'trade_records',NULL,'insert','open_position',expert_id,
       'TWD','TW','2330:TW',1,'h' FROM app_ledger.economic_effect LIMIT 1$$,
-  'null value in column "target_row_id"');
+  'null value in column "target_row_id"', '23502');
 SELECT t.expect_error('F3.expert_id_null',
   $$INSERT INTO app_ledger.effect_projection_mutation(event_id,mutation_seq,target_table,
       target_row_id,op,row_role,expert_id,currency,market,instrument_key,qty_delta,after_hash)
     SELECT event_id,95,'trade_records',gen_random_uuid(),'insert','open_position',NULL,
       'TWD','TW','2330:TW',1,'h' FROM app_ledger.economic_effect LIMIT 1$$,
-  'null value in column "expert_id"');
+  'null value in column "expert_id"', '23502');
 SELECT t.expect_error('F3.currency_null',
   $$INSERT INTO app_ledger.effect_projection_mutation(event_id,mutation_seq,target_table,
       target_row_id,op,row_role,expert_id,currency,market,instrument_key,qty_delta,after_hash)
     SELECT event_id,94,'trade_records',gen_random_uuid(),'insert','open_position',expert_id,
       NULL,'TW','2330:TW',1,'h' FROM app_ledger.economic_effect LIMIT 1$$,
-  'null value in column "currency"');
+  'null value in column "currency"', '23502');
 SELECT t.expect_error('F3.cash_leg_wrong_table',
   $$INSERT INTO app_ledger.effect_projection_mutation(event_id,mutation_seq,target_table,
       target_row_id,op,row_role,expert_id,currency,qty_delta,cash_delta,after_hash)
     SELECT event_id,93,'trade_records',gen_random_uuid(),'insert','cash_leg',expert_id,
       'TWD',0,1,'h' FROM app_ledger.economic_effect LIMIT 1$$,
-  'epm_cash_ck');
+  'epm_cash_ck', '23514');
 SELECT t.expect_error('F3.cash_leg_nonzero_qty',
   $$INSERT INTO app_ledger.effect_projection_mutation(event_id,mutation_seq,target_table,
       target_row_id,op,row_role,expert_id,currency,qty_delta,cash_delta,after_hash)
     SELECT event_id,92,'portfolio_cash_ledger',gen_random_uuid(),'insert','cash_leg',expert_id,
       'TWD',5,1,'h' FROM app_ledger.economic_effect LIMIT 1$$,
-  'epm_cash_qty_ck');
+  'epm_cash_qty_ck', '23514');
 SELECT t.expect_error('F3.mutation_seq_zero',
   $$INSERT INTO app_ledger.effect_projection_mutation(event_id,mutation_seq,target_table,
       target_row_id,op,row_role,expert_id,currency,market,instrument_key,qty_delta,after_hash)
     SELECT event_id,0,'trade_records',gen_random_uuid(),'insert','open_position',expert_id,
       'TWD','TW','2330:TW',1,'h' FROM app_ledger.economic_effect LIMIT 1$$,
-  'epm_seq_pos');
+  'epm_seq_pos', '23514');
 SELECT t.expect_error('F3.insert_token_row_mismatch', $$
   WITH e AS (
     INSERT INTO app_ledger.economic_effect(event_id, logical_effect_id, expert_id, market,
