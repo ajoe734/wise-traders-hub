@@ -10,6 +10,14 @@ EXCEPTION WHEN duplicate_object THEN NULL; END $$;
 GRANT anon, authenticated, service_role TO authenticator;
 GRANT anon, authenticated, service_role TO postgres;
 CREATE SCHEMA IF NOT EXISTS auth;
+-- pg_net exists in production and is called by the exact statement-level AI
+-- reindex trigger. The disposable clone supplies only its side-effect-free API
+-- shape: no network call and no trigger is disabled.
+CREATE SCHEMA IF NOT EXISTS net;
+CREATE OR REPLACE FUNCTION net.http_post(url text, body jsonb DEFAULT '{}'::jsonb,
+  params jsonb DEFAULT '{}'::jsonb, headers jsonb DEFAULT '{}'::jsonb,
+  timeout_milliseconds integer DEFAULT 1000)
+RETURNS bigint LANGUAGE sql AS $$ SELECT 1::bigint $$;
 GRANT USAGE ON SCHEMA auth TO anon, authenticated, service_role;
 GRANT USAGE ON SCHEMA public TO anon, authenticated, service_role;
 -- production-shape auth.users (columns referenced by public triggers/functions)
