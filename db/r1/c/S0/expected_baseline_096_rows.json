@@ -1,0 +1,184 @@
+{
+  "passed": true,
+  "count": 35,
+  "sha256": "5ed715420481d4634aa54b92f2a5bee0b3f7d59b6bb027739cca2e44fac18a80",
+  "expected_count": 35,
+  "expected_sha256": "5ed715420481d4634aa54b92f2a5bee0b3f7d59b6bb027739cca2e44fac18a80",
+  "rows": [
+    {
+      "test_id": "T-P96b.04",
+      "sqlstate": "actual=42702",
+      "actual": "actual=42702 column reference \"symbol\" is ambiguous"
+    },
+    {
+      "test_id": "T-P96b-exec.04",
+      "sqlstate": "actual=42702",
+      "actual": "actual=42702 column reference \"symbol\" is ambiguous expected=00000% class=clean (002 C5 compat repairs the shipped ambiguity defect)"
+    },
+    {
+      "test_id": "T-P96b.05",
+      "sqlstate": "actual=42702",
+      "actual": "actual=42702 column reference \"symbol\" is ambiguous"
+    },
+    {
+      "test_id": "T-P96b-exec.05",
+      "sqlstate": "actual=42702",
+      "actual": "actual=42702 column reference \"symbol\" is ambiguous expected=00000% class=clean (002 C5 compat repairs the shipped ambiguity defect)"
+    },
+    {
+      "test_id": "T-P96b.06",
+      "sqlstate": "actual=P0001",
+      "actual": "actual=P0001 proposal not found or not pending"
+    },
+    {
+      "test_id": "T-P96b-exec.06",
+      "sqlstate": "actual=P0001",
+      "actual": "actual=P0001 proposal not found or not pending expected=00000% class=clean"
+    },
+    {
+      "test_id": "T-P96b.07",
+      "sqlstate": "actual=22P02",
+      "actual": "actual=22P02 invalid input value for enum signal_status: \"archived\""
+    },
+    {
+      "test_id": "T-P96b-exec.07",
+      "sqlstate": "actual=22P02",
+      "actual": "actual=22P02 invalid input value for enum signal_status: \"archived\" expected=00000% class=clean"
+    },
+    {
+      "test_id": "T-P96b.11",
+      "sqlstate": "actual=42702",
+      "actual": "actual=42702 column reference \"run_id\" is ambiguous"
+    },
+    {
+      "test_id": "T-P96b-exec.11",
+      "sqlstate": "actual=42702",
+      "actual": "actual=42702 column reference \"run_id\" is ambiguous expected=00000% class=clean (002 C5 compat repairs the shipped ambiguity defect)"
+    },
+    {
+      "test_id": "T-P96b.12",
+      "sqlstate": "actual=42703",
+      "actual": "actual=42703 column e.expert_slug does not exist"
+    },
+    {
+      "test_id": "T-P96b-exec.12",
+      "sqlstate": "actual=42703",
+      "actual": "actual=42703 column e.expert_slug does not exist expected=00000% class=clean (002 C5 compat maps e.expert_slug -> e.slug)"
+    },
+    {
+      "test_id": "T-P96b-evd.01",
+      "sqlstate": "body_refs_expert_slug=t",
+      "actual": "body_refs_expert_slug=t experts.expert_slug_exists=f"
+    },
+    {
+      "test_id": "T-P96b-evd.02",
+      "sqlstate": "repaired_bodies=0",
+      "actual": "repaired_bodies=0 of 2"
+    },
+    {
+      "test_id": "T-P96c",
+      "sqlstate": "got=28",
+      "actual": "got=28 expected=29"
+    },
+    {
+      "test_id": "T-P96c",
+      "sqlstate": "got=1",
+      "actual": "got=1 expected=0"
+    },
+    {
+      "test_id": "T-P96d.01",
+      "sqlstate": "actual=00000",
+      "actual": "actual=00000"
+    },
+    {
+      "test_id": "T-P96d.04",
+      "sqlstate": "actual=00000",
+      "actual": "actual=00000"
+    },
+    {
+      "test_id": "T-P96g.03",
+      "sqlstate": "actual=00000",
+      "actual": "actual=00000"
+    },
+    {
+      "test_id": "T-P96g.04",
+      "sqlstate": "actual=00000",
+      "actual": "actual=00000"
+    },
+    {
+      "test_id": "T-P96g.03",
+      "sqlstate": "actual=00000",
+      "actual": "actual=00000"
+    },
+    {
+      "test_id": "T-P96g.04",
+      "sqlstate": "actual=00000",
+      "actual": "actual=00000"
+    },
+    {
+      "test_id": "T-P96g.03",
+      "sqlstate": "actual=00000",
+      "actual": "actual=00000"
+    },
+    {
+      "test_id": "T-P96g.04",
+      "sqlstate": "actual=00000",
+      "actual": "actual=00000"
+    },
+    {
+      "test_id": "T-P96g.06",
+      "sqlstate": "actual=00000",
+      "actual": "actual=00000"
+    },
+    {
+      "test_id": "T-P96g.07",
+      "sqlstate": "actual=00000",
+      "actual": "actual=00000"
+    },
+    {
+      "test_id": "T-P96g.08",
+      "sqlstate": "actual=42883",
+      "actual": "actual=42883 function public.is_tester_raw(uuid) does not exist"
+    },
+    {
+      "test_id": "T-P96g.09",
+      "sqlstate": "actual=42883",
+      "actual": "actual=42883"
+    },
+    {
+      "test_id": "T-P96g.10",
+      "sqlstate": "",
+      "actual": ""
+    },
+    {
+      "test_id": "T-P96e",
+      "sqlstate": "public=19037",
+      "actual": "public=19037 raw="
+    },
+    {
+      "test_id": "T-P96e",
+      "sqlstate": "public=18953",
+      "actual": "public=18953 raw="
+    },
+    {
+      "test_id": "T-P96e",
+      "sqlstate": "public=19086",
+      "actual": "public=19086 raw="
+    },
+    {
+      "test_id": "T-P96e",
+      "sqlstate": "public=19077",
+      "actual": "public=19077 raw="
+    },
+    {
+      "test_id": "T-P96e.legacy",
+      "sqlstate": "42883",
+      "actual": "42883 function public.get_expert_capital_status_raw(uuid) does not exist"
+    },
+    {
+      "test_id": "T-P96e.repoint",
+      "sqlstate": "get_expert_capital_status",
+      "actual": "get_expert_capital_status"
+    }
+  ]
+}

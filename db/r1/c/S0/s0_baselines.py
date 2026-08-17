@@ -6,6 +6,7 @@ read-back. Row hashes are stable, order-independent digests over the business
 columns that S1/S2 could disturb.
 """
 import json
+import collections
 import os
 import sys
 
@@ -102,45 +103,68 @@ def main():
         "select key, enabled::text||'@'||coalesce(updated_at::text,'-') from system_kill_switches order by key")}
 
     # ------------------------------------------------------- 12 experts (S3)
-    rows = psql("""select e.id::text, coalesce(e.name,'(unnamed)'),
+    # Classification is projection-safety based. Presence of signals/trades or
+    # active status is inventory evidence only; it can never make an expert
+    # ready without complete replay/unit/market/derivative/FX proof.
+    p = os.path.join(OUT, "..", "..", "p")
+    rep_path = os.path.abspath(os.path.join(p, "replay-84.json"))
+    dft_path = os.path.abspath(os.path.join(p, "drift-26.json"))
+    rep = json.load(open(rep_path))
+    dft = json.load(open(dft_path))
+    manifest_by_expert = collections.defaultdict(list)
+    for k in rep["keys"]:
+        manifest_by_expert[k["expert"]].append(k)
+    rows = psql("""select e.id::text, e.slug, coalesce(e.name,'(unnamed)'),
                coalesce(e.status::text,'(null)'),
                (select count(*) from expert_signals s where s.expert_id=e.id)::text,
                (select count(*) from trade_records t where t.expert_id=e.id)::text,
                (select count(*) from trade_records t where t.expert_id=e.id and t.status='open')::text
         from experts e order by 1""")
     experts = []
-    for eid, name, status, sig, trd, opn in rows:
+    for eid, slug, name, status, sig, trd, opn in rows:
         sig, trd, opn = int(sig), int(trd), int(opn)
-        # ready      : has signals AND every open position is backed by trades
-        # manual     : has data but drifted / suspended -> human adjudication
-        # incomplete : no signal and no trade -> nothing to project
+        handle = "E-" + __import__("hashlib").md5(eid.encode()).hexdigest()[:8]
+        keys = manifest_by_expert.get(handle, [])
+        drift = sum(bool(k["in_drift26"]) for k in keys)
+        unsafe = [k for k in keys if k["review_status"] != "auto_supported"
+                  or k["public_disposition"] != "as_reported_publishable"
+                  or not all(k["supported"].values())]
+        reason_counts = collections.Counter(x for k in keys for x in k["reason_codes"])
         if sig == 0 and trd == 0:
             cls = "incomplete"
-        elif status in ("suspended", "inactive") or (sig > 0 and trd == 0) or (trd > 0 and sig == 0):
-            cls = "manual"
+            reason = "no economic source rows; no replay proof to project"
+        elif not keys:
+            cls = "incomplete"
+            reason = "economic rows exist but no key in pinned 84-key replay manifest"
+        elif unsafe:
+            cls = "manual_review"
+            reason = ("projection proof incomplete: %d/%d keys unsafe, %d drift26; reasons=%s" %
+                      (len(unsafe), len(keys), drift,
+                       ",".join("%s:%d" % x for x in sorted(reason_counts.items()))))
         else:
             cls = "ready"
-        experts.append({"expert_id": eid, "name": name, "status": status,
+            reason = "all replay keys have complete ledger/unit/market/derivative/FX proof"
+        experts.append({"expert_id": eid, "slug": slug, "name": name, "status": status,
                         "signals": sig, "trade_records": trd, "open_positions": opn,
-                        "classification": cls})
-    cls_lines = sorted("%s|%s|%d|%d|%d|%s" % (e["expert_id"], e["status"], e["signals"],
+                        "manifest_expert": handle, "replay_keys": len(keys),
+                        "drift26_keys": drift, "classification": cls, "reason": reason})
+    cls_lines = sorted("%s|%s|%s|%d|%d|%d|%s" % (e["expert_id"], e["slug"], e["status"], e["signals"],
                                               e["trade_records"], e["open_positions"],
                                               e["classification"]) for e in experts)
     b["experts_12"] = {
         "total": len(experts),
         "counts": {c: sum(1 for e in experts if e["classification"] == c)
-                   for c in ("ready", "manual", "incomplete")},
-        "rule": "ready = signals>0 and trade_records>0 and status active; "
-                "manual = suspended/inactive or signal-without-trade or trade-without-signal; "
-                "incomplete = no signal and no trade record",
+                    for c in ("ready", "manual_review", "incomplete")},
+        "rule": "ready only when every pinned replay key has complete ledger/unit/market/derivative/FX proof; "
+                "manual_review when any replay key is drifted, withheld, manual, or unsupported; "
+                "incomplete when no economic source rows or no replay proof exists",
+        "classification_source": "production read-only experts/signals/trades joined to expert handle "
+                                 "E-left(md5(expert_id),8), then db/r1/p/replay-84.json supported/review/disposition",
         "rows": experts,
         "classification_sha256": sha256_text("\n".join(cls_lines)),
     }
 
     # ------------------------------------- R1-P manifests (84 / 26 / 6515)
-    p = os.path.join(OUT, "..", "..", "p")
-    rep = json.load(open(os.path.abspath(os.path.join(p, "replay-84.json"))))
-    dft = json.load(open(os.path.abspath(os.path.join(p, "drift-26.json"))))
     rep_keys = sorted(k["key"] if isinstance(k, dict) else k for k in rep["keys"])
     dft_keys = sorted(k["key"] if isinstance(k, dict) else k for k in dft["keys"])
     b["manifests"] = {
@@ -164,21 +188,50 @@ def main():
                           "on the key basis it is 16.",
             "source": rep["ambiguity"]["r0_pair_basis_note"],
         },
+        "live_source_hash": {
+            "replay_file_sha256": sha256_file(rep_path),
+            "drift_file_sha256": sha256_file(dft_path),
+            "source_query_sha256": sha256_file(os.path.abspath(os.path.join(p, "manifest_replay.sql"))),
+            "84_key_basis_drift_members": sum(bool(k["in_drift26"]) for k in rep["keys"]),
+        },
     }
 
     # 6515 invariant: stored 50 vs replay 10, withheld from every public channel
-    s6515 = psql("""select coalesce(sum(t.quantity),0)::text,
-                           count(*)::text,
-                           coalesce(max(t.quantity_unit),'(null)')
-        from trade_records t where t.instrument='6515' and t.status='open'""")
+    s6515 = psql("""select coalesce(sum(t.quantity) filter(where t.status='open'),0)::text,
+                            count(*) filter(where t.status='open')::text,
+                            coalesce(sum(t.quantity) filter(where t.status='closed'),0)::text,
+                            count(*) filter(where t.status='closed')::text,
+                            coalesce(max(t.quantity_unit),'(null)')
+        from trade_records t where t.instrument ilike '%6515%'""")
+    sig6515 = cli_q("""select s.id::text as signal_id, s.action::text as action,
+        s.quantity, s.quantity_unit, s.status::text as status, s.executed_at, s.published_at
+        from public.expert_signals s where s.instrument ilike '%6515%'
+        order by coalesce(s.executed_at,s.published_at,s.created_at),s.created_at""")
+    tr6515 = cli_q("""select t.id::text as trade_record_id,t.signal_id::text,t.instrument,t.market,
+        t.quantity,t.quantity_unit,t.status::text as status,t.entry_price,t.exit_price,t.entry_date,t.exit_date
+        from public.trade_records t where t.instrument ilike '%6515%'
+        or exists(select 1 from public.expert_signals s where s.id=t.signal_id and s.instrument ilike '%6515%')
+        order by t.created_at""")
+    manifest6515 = next(k for k in rep["keys"] if k["instrument"] == "6515 穎崴")
     b["invariant_6515"] = {
         "stored_open_quantity": s6515[0][0] if s6515 else None,
         "stored_open_rows": s6515[0][1] if s6515 else None,
-        "quantity_unit": s6515[0][2] if s6515 else None,
+        "stored_closed_quantity": s6515[0][2] if s6515 else None,
+        "stored_closed_rows": s6515[0][3] if s6515 else None,
+        "quantity_unit": s6515[0][4] if s6515 else None,
+        "signals": sig6515,
+        "trade_records_direct_or_joined": tr6515,
+        "signal_count": len(sig6515),
+        "trade_record_count": len(tr6515),
         "stored_declared": 50,
         "replay_declared": 10,
+        "manifest_key": manifest6515["key"],
+        "manifest_expert": manifest6515["expert"],
+        "in_drift26": manifest6515["in_drift26"],
         "public_disposition": "withheld — candidates only, manual_review, auto-correction forbidden",
-        "source": "db/r1/p/drift-26.json invariants.6515",
+        "truth_note": "50 is quantity in each of two rows (one open, one closed), never a row count; "
+                      "stored 50 and replay 10 remain non-authoritative candidates",
+        "source": "production read-only direct instrument + signal_id join; db/r1/p/drift-26.json invariants.6515",
     }
 
     b["baseline_sha256"] = sha256_text(json.dumps(b, sort_keys=True, ensure_ascii=False))
