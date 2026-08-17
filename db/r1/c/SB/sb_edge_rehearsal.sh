@@ -155,7 +155,8 @@ grep -q EDGE_READY "$DIR/admin_edge.log" || { tail -30 "$DIR/admin_edge.log"; fa
 chk 0 "EB-04 both edge functions booted in the real Deno runtime"
 
 W="http://127.0.0.1:$WORKER_PORT"; A="http://127.0.0.1:$ADMIN_PORT"
-post(){ curl -s -o "$2" -w '%{http_code}' -X POST "$1" -H 'Content-Type: application/json' ${4:+-H "$4"} -d "$3"; }
+POST_MAX_TIME=${POST_MAX_TIME:-60}
+post(){ curl -s --max-time "$POST_MAX_TIME" -o "$2" -w '%{http_code}' -X POST "$1" -H 'Content-Type: application/json' ${4:+-H "$4"} -d "$3"; }
 jqf(){ python3 -c "import json,sys;d=json.load(open(sys.argv[1]));
 ks=sys.argv[2].split('.');v=d
 for k in ks:
