@@ -11,6 +11,9 @@ TRUNCATE t.result RESTART IDENTITY;
 CREATE SCHEMA IF NOT EXISTS td;
 DROP TABLE IF EXISTS td.ids;
 CREATE TABLE td.ids(k text primary key, v uuid);
+-- least privilege: test sessions need to read the id map, nothing more
+GRANT USAGE ON SCHEMA td TO anon, authenticated, service_role;
+GRANT SELECT ON td.ids TO anon, authenticated, service_role;
 INSERT INTO td.ids VALUES
  ('userA','aaaaaaa1-0000-4000-8000-000000000001'),
  ('userB','aaaaaaa1-0000-4000-8000-000000000002'),
@@ -77,7 +80,7 @@ DO $$ DECLARE q int; n int; BEGIN
   SELECT quantity INTO q FROM public.trade_records
    WHERE signal_id=(SELECT v FROM td.ids WHERE k='sig1');
   SELECT count(*) INTO n FROM app_ledger.economic_effect
-   WHERE signal_id=(SELECT v FROM td.ids WHERE k='sig1');
+   WHERE origin_signal_id=(SELECT v FROM td.ids WHERE k='sig1');
   PERFORM t.eq('T-W01-retry: quantity unchanged', q, 2);
   PERFORM t.eq('T-W01-retry: single economic effect', n, 1);
 END $$;
@@ -126,7 +129,7 @@ DO $$ DECLARE q int; v jsonb; n int; BEGIN
    WHERE signal_id=(SELECT v FROM td.ids WHERE k='sig2');
   PERFORM t.eq('T-EMB-1: pending+executed_at applies economics once', q, 3);
   SELECT count(*) INTO n FROM app_ledger.economic_effect
-   WHERE signal_id=(SELECT v FROM td.ids WHERE k='sig2') AND visible_at IS NOT NULL;
+   WHERE origin_signal_id=(SELECT v FROM td.ids WHERE k='sig2') AND visible_at IS NOT NULL;
   PERFORM t.eq('T-EMB-2: pending effect not yet visible', n, 0);
 
   UPDATE public.expert_signals SET status='published'::public.signal_status
@@ -135,7 +138,7 @@ DO $$ DECLARE q int; v jsonb; n int; BEGIN
    WHERE signal_id=(SELECT v FROM td.ids WHERE k='sig2');
   PERFORM t.eq('T-EMB-3: publish does not re-apply economics', q, 3);
   SELECT count(*) INTO n FROM app_ledger.economic_effect
-   WHERE signal_id=(SELECT v FROM td.ids WHERE k='sig2') AND visible_at IS NOT NULL;
+   WHERE origin_signal_id=(SELECT v FROM td.ids WHERE k='sig2') AND visible_at IS NOT NULL;
   PERFORM t.eq('T-EMB-4: publish flips visibility only', n, 1);
 END $$;
 
@@ -193,7 +196,10 @@ SELECT t.expect_error('T-W03-neg-anon-execute-revoked',
   'permission denied', '42501');
 RESET ROLE;
 SELECT t.expect_error('T-W03-neg-empty-signals',
-  $$SELECT public.save_signal_batch((SELECT v FROM td.ids WHERE k='expA'),
+  $$SELECT set_config('request.jwt.claims',
+      json_build_object('sub',(SELECT v::text FROM td.ids WHERE k='userA'),
+                        'role','authenticated')::text, true);
+    SELECT public.save_signal_batch((SELECT v FROM td.ids WHERE k='expA'),
       (SELECT v FROM td.ids WHERE k='batch'), '[]'::jsonb)$$,
   'empty_signals', '22023');
 
@@ -326,15 +332,16 @@ DO $$ DECLARE n int; BEGIN
   PERFORM t.eq('T-ACL-6: ledger_owner has no members (unforgeable identity)', n, 0);
 END $$;
 
--- runtime roles cannot SET ROLE ledger_owner
-SELECT t.expect_error('T-ACL-7: authenticated cannot assume ledger_owner',
-  $$SET LOCAL ROLE authenticated; SET LOCAL ROLE ledger_owner$$,
-  'permission denied', '42501');
-RESET ROLE;
-SELECT t.expect_error('T-ACL-8: service_role cannot assume ledger_owner',
-  $$SET LOCAL ROLE service_role; SET LOCAL ROLE ledger_owner$$,
-  'permission denied', '42501');
-RESET ROLE;
+-- runtime roles cannot assume ledger_owner / wrapper_owner (catalog proof; the
+-- live non-superuser session proof is 091_concurrency.sh S5).
+DO $$ DECLARE n int; BEGIN
+  SELECT count(*) INTO n FROM (VALUES('anon'),('authenticated'),('service_role')) r(x)
+   WHERE pg_has_role(r.x,'ledger_owner','USAGE') OR pg_has_role(r.x,'ledger_owner','MEMBER');
+  PERFORM t.eq('T-ACL-7: no runtime role can assume ledger_owner', n, 0);
+  SELECT count(*) INTO n FROM (VALUES('anon'),('authenticated'),('service_role')) r(x)
+   WHERE pg_has_role(r.x,'wrapper_owner','USAGE') OR pg_has_role(r.x,'wrapper_owner','MEMBER');
+  PERFORM t.eq('T-ACL-8: no runtime role can assume wrapper_owner', n, 0);
+END $$;
 
 -- =====================================================================
 -- writer coverage gate: every inventory writer must have >= 1 test
