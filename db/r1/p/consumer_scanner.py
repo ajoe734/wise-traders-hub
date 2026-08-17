@@ -172,6 +172,10 @@ def classify(rel: str, info: dict, anon: set[str], pub_fns: set[str]) -> dict:
     # writer: it is only a public surface when nothing gates the invocation.
     guard = None
     for pat, label in (
+        (r"navigate\('/auth/login'|<ProtectedRoute|useRequireAuth|requireAuthedUser",
+         "authenticated-only shell (redirects anonymous to /auth/login)"),
+        (r"requireCronKey|authGuard|requireServiceRole|requireAdmin",
+         "authGuard: cron/service key required"),
         (r"CRON_SECRET|internal_cron_secrets|x-internal-secret", "shared cron secret"),
         (r"SUPABASE_SERVICE_ROLE_KEY", "service role key required"),
         (r"getUser\(|requireAuth|authorization", "caller JWT checked"),
@@ -179,7 +183,10 @@ def classify(rel: str, info: dict, anon: set[str], pub_fns: set[str]) -> dict:
         if re.search(pat, txt, re.I):
             guard = label
             break
-    if audience == "public" and surface == "edge_function" and guard:
+    # verify_jwt=false alone never proves a public surface, and reachability
+    # alone never proves a frontend one: only *evidenced* guards demote a
+    # candidate, everything else stays conservatively public.
+    if audience == "public" and guard:
         audience = "internal"
 
     writes = bool(WRITE_RE.search(txt)) and any(t in txt for t in ECON_TABLES)

@@ -53,29 +53,54 @@
    "tables": [
     "expert_signals"
    ],
-   "invocation_guard": "route render"
+   "invocation_guard": "authenticated-only shell (redirects anonymous to /auth/login)"
   },
   {
    "path": "src/components/layouts/UnifiedAppLayout.tsx",
    "surface": "frontend",
-   "audience": "public",
-   "role": "anon|authenticated",
+   "audience": "internal",
+   "role": "authenticated",
    "access_kind": "reader",
    "exact_access": [
     "expert_signals.select"
    ],
-   "entitlement": "none (anonymous) — only released, ready facts",
-   "embargo_predicate": "visible_at <= now() (T+7) enforced by canonical_publish + RLS",
+   "entitlement": "service_role / server-side only",
+   "embargo_predicate": "n/a — not an anonymous surface",
    "legacy_fallback": true,
    "side_effects": [
     "react-query cache",
     "export/download"
    ],
-   "cutover_disposition": "migrate_to_typed_public_contract",
-   "test_id": "T-E10 anon sees only released positions",
+   "cutover_disposition": "stays_on_internal_ledger",
+   "test_id": "T-P50 internal writer keeps the canonical path",
    "coverage_status": "covered",
    "tables": [
     "expert_signals"
+   ],
+   "invocation_guard": "authenticated-only shell (redirects anonymous to /auth/login)"
+  },
+  {
+   "path": "src/contracts/publicEconomicContract.ts",
+   "surface": "frontend",
+   "audience": "public",
+   "role": "anon|authenticated",
+   "access_kind": "type_only",
+   "exact_access": [
+    "type-only/reference:expert_signals,trade_records,user_performances"
+   ],
+   "entitlement": "none (anonymous) — only released, ready facts",
+   "embargo_predicate": "visible_at <= now() (T+7) enforced by canonical_publish + RLS",
+   "legacy_fallback": false,
+   "side_effects": [
+    "export/download"
+   ],
+   "cutover_disposition": "public_no_economic_facts",
+   "test_id": "T-E10 anon sees only released positions",
+   "coverage_status": "covered",
+   "tables": [
+    "expert_signals",
+    "trade_records",
+    "user_performances"
    ],
    "invocation_guard": "route render"
   },
@@ -305,21 +330,21 @@
   {
    "path": "src/integrations/supabase/types.ts",
    "surface": "frontend",
-   "audience": "public",
-   "role": "anon|authenticated",
+   "audience": "internal",
+   "role": "authenticated",
    "access_kind": "type_only",
    "exact_access": [
     "type-only/reference:expert_signals,trade_records,user_performances"
    ],
-   "entitlement": "none (anonymous) — only released, ready facts",
-   "embargo_predicate": "visible_at <= now() (T+7) enforced by canonical_publish + RLS",
+   "entitlement": "service_role / server-side only",
+   "embargo_predicate": "n/a — not an anonymous surface",
    "legacy_fallback": false,
    "side_effects": [
     "export/download",
     "push/notification"
    ],
-   "cutover_disposition": "public_no_economic_facts",
-   "test_id": "T-E10 anon sees only released positions",
+   "cutover_disposition": "stays_on_internal_ledger",
+   "test_id": "T-P50 internal writer keeps the canonical path",
    "coverage_status": "covered",
    "tables": [
     "expert_signals",
@@ -1485,30 +1510,30 @@
    "tables": [
     "trade_records"
    ],
-   "invocation_guard": "service role key required"
+   "invocation_guard": "authGuard: cron/service key required"
   },
   {
    "path": "supabase/functions/daily-snapshot/index.ts",
    "surface": "edge_function",
-   "audience": "public",
+   "audience": "internal",
    "role": "service_role",
    "access_kind": "writer",
    "exact_access": [
     "trade_records.select"
    ],
-   "entitlement": "none (anonymous) — only released, ready facts",
-   "embargo_predicate": "n/a — no signal-level facts read",
+   "entitlement": "service_role / server-side only",
+   "embargo_predicate": "n/a — not an anonymous surface",
    "legacy_fallback": true,
    "side_effects": [
     "none"
    ],
-   "cutover_disposition": "migrate_to_typed_public_contract",
-   "test_id": "T-E10 anon sees only released positions",
+   "cutover_disposition": "stays_on_internal_ledger",
+   "test_id": "T-P50 internal writer keeps the canonical path",
    "coverage_status": "covered",
    "tables": [
     "trade_records"
    ],
-   "invocation_guard": "none"
+   "invocation_guard": "authGuard: cron/service key required"
   },
   {
    "path": "supabase/functions/data-upsert/index.ts",
@@ -1555,7 +1580,7 @@
    "tables": [
     "user_performances"
    ],
-   "invocation_guard": "caller JWT checked"
+   "invocation_guard": "authGuard: cron/service key required"
   },
   {
    "path": "supabase/functions/expert-ai-index/index.ts",
@@ -1679,25 +1704,25 @@
   {
    "path": "supabase/functions/pending-journal-publish-reminder/index.ts",
    "surface": "edge_function",
-   "audience": "public",
+   "audience": "internal",
    "role": "service_role",
    "access_kind": "writer",
    "exact_access": [
     "expert_signals.select"
    ],
-   "entitlement": "none (anonymous) — only released, ready facts",
-   "embargo_predicate": "visible_at <= now() (T+7) enforced by canonical_publish + RLS",
+   "entitlement": "service_role / server-side only",
+   "embargo_predicate": "n/a — not an anonymous surface",
    "legacy_fallback": true,
    "side_effects": [
     "push/notification"
    ],
-   "cutover_disposition": "migrate_to_typed_public_contract",
-   "test_id": "T-E10 anon sees only released positions",
+   "cutover_disposition": "stays_on_internal_ledger",
+   "test_id": "T-P50 internal writer keeps the canonical path",
    "coverage_status": "covered",
    "tables": [
     "expert_signals"
    ],
-   "invocation_guard": "none"
+   "invocation_guard": "authGuard: cron/service key required"
   },
   {
    "path": "supabase/functions/publish-weekly-journals/pipeline.ts",
@@ -1802,7 +1827,7 @@
     "expert_signals",
     "trade_records"
    ],
-   "invocation_guard": "none"
+   "invocation_guard": "authGuard: cron/service key required"
   },
   {
    "path": "supabase/functions/share-og/index.ts",
@@ -1876,12 +1901,12 @@
    "tables": [
     "trade_records"
    ],
-   "invocation_guard": "service role key required"
+   "invocation_guard": "authGuard: cron/service key required"
   },
   {
    "path": "supabase/functions/tw-bsr-finmind-sync/index.ts",
    "surface": "edge_function",
-   "audience": "public",
+   "audience": "internal",
    "role": "service_role",
    "access_kind": "writer",
    "exact_access": [
@@ -1898,19 +1923,19 @@
     "rpc:defer_bsr_job_quota",
     "rpc:mark_bsr_upstream_probe"
    ],
-   "entitlement": "none (anonymous) — only released, ready facts",
-   "embargo_predicate": "n/a — no signal-level facts read",
+   "entitlement": "service_role / server-side only",
+   "embargo_predicate": "n/a — not an anonymous surface",
    "legacy_fallback": true,
    "side_effects": [
     "export/download"
    ],
-   "cutover_disposition": "migrate_to_typed_public_contract",
-   "test_id": "T-E10 anon sees only released positions",
+   "cutover_disposition": "stays_on_internal_ledger",
+   "test_id": "T-P50 internal writer keeps the canonical path",
    "coverage_status": "covered",
    "tables": [
     "trade_records"
    ],
-   "invocation_guard": "none"
+   "invocation_guard": "authGuard: cron/service key required"
   },
   {
    "path": "supabase/functions/us-option-price-sync/index.ts",
@@ -1934,7 +1959,7 @@
    "tables": [
     "expert_signals"
    ],
-   "invocation_guard": "none"
+   "invocation_guard": "authGuard: cron/service key required"
   },
   {
    "path": "supabase/functions/validate-signal-prices/index.ts",
@@ -1957,7 +1982,7 @@
    "tables": [
     "expert_signals"
    ],
-   "invocation_guard": "service role key required"
+   "invocation_guard": "authGuard: cron/service key required"
   },
   {
    "path": "supabase/functions/weekly-journal-export/index.ts",
@@ -1982,18 +2007,18 @@
     "expert_signals",
     "trade_records"
    ],
-   "invocation_guard": "none"
+   "invocation_guard": "authGuard: cron/service key required"
   }
  ],
  "static_consumer_counts": {
-  "public": 21,
-  "internal": 29,
+  "public": 17,
+  "internal": 34,
   "admin": 18,
   "test": 13,
-  "total": 81
+  "total": 82
  },
  "coverage": {
-  "consumers": "81/81",
+  "consumers": "82/82",
   "db_objects": "37/37",
   "unclassified": 0
  },
