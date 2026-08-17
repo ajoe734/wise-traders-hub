@@ -17,29 +17,39 @@ import {
 
 const MODULES = ['holdings', 'closing', 'events', 'tradeIO', 'research']
 
+/**
+ * 真實 repo 的全樹掃描是同步 I/O，平行跑整個 suite 時可能超過預設 5s。
+ * 掃一次快取重用，並給予明確較長 timeout，避免負載造成的偽紅燈。
+ */
+const SCAN_TIMEOUT = 60_000
+let realScanCache: ReturnType<typeof checkModuleBoundaries> | null = null
+const realScan = () => (realScanCache ??= checkModuleBoundaries())
+let realOwnersCache: ReturnType<typeof deriveOwnership> | null = null
+const realOwners = () => (realOwnersCache ??= deriveOwnership(join(process.cwd(), 'src'), MODULES))
+
 describe('C1 · 深模組邊界守衛 — 真實 repo', () => {
   it('模組清單與 5 深模組一致', () => {
     expect(CHECKUP_MODULES).toEqual(MODULES)
   })
 
   it('每個模組都有 barrel（R3）', () => {
-    const v = checkModuleBoundaries().filter((x) => x.rule === 'R3_MISSING_BARREL')
+    const v = realScan().filter((x) => x.rule === 'R3_MISSING_BARREL')
     expect(v).toEqual([])
-  })
+  }, SCAN_TIMEOUT)
 
   it('現況 0 violation（R1/R2/R3/R4 全數）', () => {
-    const v = checkModuleBoundaries()
+    const v = realScan()
     expect(v.map((x) => `${x.rule} ${x.file} → ${x.specifier}`)).toEqual([])
-  })
+  }, SCAN_TIMEOUT)
 
   it('barrel 推導出的擁有權涵蓋 components / pages / hooks 實作層', () => {
-    const owners = deriveOwnership(join(process.cwd(), 'src'), MODULES)
+    const owners = realOwners()
     expect(owners.get('src/checkup/components/holdings')).toBe('holdings')
     expect(owners.get('src/checkup/pages/EventsPage')).toBe('events')
     expect(owners.get('src/checkup/hooks/useRouteResearchPage')).toBe('research')
     expect(owners.get('src/checkup/components/trade')).toBe('tradeIO')
     expect(owners.get('src/checkup/components/reports')).toBe('closing')
-  })
+  }, SCAN_TIMEOUT)
 })
 
 describe('C1 · 深模組邊界守衛 — 合成違規必須被抓到', () => {
@@ -112,12 +122,12 @@ describe('C1 · 深模組邊界守衛 — 合成違規必須被抓到', () => {
 
 describe('C1 · R5 free surface 守衛（ADR-0005 §7）', () => {
   it('真實 repo 現況 0 筆 R5 違規', () => {
-    const v = checkModuleBoundaries().filter((x) => x.rule.startsWith('R5_'))
+    const v = realScan().filter((x) => x.rule.startsWith('R5_'))
     expect(v.map((x) => `${x.rule} ${x.file} → ${x.specifier}`)).toEqual([])
-  })
+  }, SCAN_TIMEOUT)
 
   it('每個 freecheckup 實作檔都被 barrel 認領（shell 自有 UI 除外）', () => {
-    const owners = deriveOwnership(join(process.cwd(), 'src'), MODULES)
+    const owners = realOwners()
     expect(owners.get('src/checkup/components/freecheckup/HoldingsTab')).toBe('holdings')
     expect(owners.get('src/checkup/components/freecheckup/DailyTab')).toBe('closing')
     expect(owners.get('src/checkup/components/freecheckup/EventsTab')).toBe('events')
@@ -125,7 +135,7 @@ describe('C1 · R5 free surface 守衛（ADR-0005 §7）', () => {
     expect(owners.get('src/checkup/components/freecheckup/ResearchTab')).toBe('research')
     // shell 自有 UI 不歸任何模組
     expect(owners.get('src/checkup/components/freecheckup/OnboardingOverlay')).toBeUndefined()
-  })
+  }, SCAN_TIMEOUT)
 
   describe('合成違規', () => {
     let root: string
