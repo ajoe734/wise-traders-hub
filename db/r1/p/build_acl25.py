@@ -412,7 +412,7 @@ FOR r IN SELECT * FROM (VALUES
     -- acl_caller_may_read_identity, ungated *_raw twin unreachable by anon.
     SELECT p.prosrc INTO v_src FROM pg_proc p WHERE p.oid = v_oid;
     v_rawoid := to_regprocedure(
-      regexp_replace(r.sig, '^([^(]+)\(', '\1_raw(') );
+      regexp_replace(r.sig, '^([^(]+)[(]', '\\1_raw(') );
     PERFORM t.ok(r.test_id || 'n anon reaches only the identity-bound wrapper: ' || r.sig,
                  (NOT v_pub)
                  AND v_anon
@@ -460,6 +460,35 @@ FOR r IN SELECT * FROM (VALUES
     AND NOT has_function_privilege('authenticated', v_oid, 'EXECUTE')
     AND has_function_privilege('service_role', v_oid, 'EXECUTE'),
     coalesce(v_oid::text, 'missing'));
+END LOOP;
+END $BODY$;
+
+-- T-P98i: signature pinning for the identity/visibility surface. These three
+-- must keep EXACTLY one overload with the exact identity args and return type,
+-- so no widened or duplicated signature can reopen the surface silently.
+DO $BODY$
+DECLARE r record; v_n int; v_ret text; v_args text;
+BEGIN
+FOR r IN SELECT * FROM (VALUES
+  ($$is_tester$$,$$_user_id uuid$$,$$boolean$$,$$T-P98i.01$$),
+  ($$has_active_subscription_after$$,$$_user_id uuid, _published_at timestamp with time zone$$,
+   $$TABLE(expert_id uuid)$$,$$T-P98i.02$$),
+  ($$signal_is_publicly_visible$$,$$_signal_id uuid$$,$$boolean$$,$$T-P98i.03$$)
+) AS v(nm, args, ret, test_id) LOOP
+  SELECT count(*)::int INTO v_n FROM pg_proc p JOIN pg_namespace n ON n.oid = p.pronamespace
+   WHERE n.nspname = 'public' AND p.proname = r.nm;
+  IF v_n = 0 THEN
+    PERFORM t.ok(r.test_id || ' exact signature pinned: public.' || r.nm, true,
+                 'vacuous: absent from this clone catalog');
+    CONTINUE;
+  END IF;
+  SELECT pg_get_function_identity_arguments(p.oid), pg_get_function_result(p.oid)
+    INTO v_args, v_ret
+    FROM pg_proc p JOIN pg_namespace n ON n.oid = p.pronamespace
+   WHERE n.nspname = 'public' AND p.proname = r.nm LIMIT 1;
+  PERFORM t.ok(r.test_id || ' exact signature pinned: public.' || r.nm,
+               v_n = 1 AND v_args = r.args AND v_ret = r.ret,
+               format('overloads=%s args=%s ret=%s', v_n, v_args, v_ret));
 END LOOP;
 END $BODY$;
 
@@ -532,12 +561,13 @@ DECLARE v_count int;
 BEGIN
   SELECT count(*)::int INTO v_count FROM t.result
    WHERE name LIKE 'T-P98a.%' OR name LIKE 'T-P98b.%'
-      OR name LIKE 'T-P98e.%' OR name LIKE 'T-P98h.%';
+      OR name LIKE 'T-P98e.%' OR name LIKE 'T-P98h.%'
+      OR name LIKE 'T-P98i.%';
   PERFORM t.eq('T-P98d acl-25 coverage: every unique target verified on both axes',
                v_count, %TOTAL%);
 END $BODY$;
 """
-    total = 2 * len(doc["items"]) + 2 + 3
+    total = 2 * len(doc["items"]) + 2 + 3 + 3
     body = body.replace("%ROWS%", ",\n".join(rows)).replace("%TOTAL%", str(total))
     (P / "095_acl25_verify.sql").write_text(body)
     print("wrote db/r1/p/095_acl25_verify.sql (%d assertions + coverage)" % total)
