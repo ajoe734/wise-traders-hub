@@ -1,3 +1,5 @@
+import { resolveProjectionStatus, type ProjectionStatus } from '@/contracts/publicProjection';
+import { gateSignalEconomics } from '@/contracts/publicEconomicContract';
 /**
  * 週記讀取倉庫（前台鏡像 — 由 scripts/gen-journal-repository-mirror.mjs 產生，請勿手改）。
  *
@@ -57,6 +59,8 @@ export interface OwnerPreviewResult<T = any> {
   diagnostics: JournalFetchDiagnostics;
 }
 
+const READY_BY_DEFAULT: ProjectionStatus = resolveProjectionStatus({ absent: true });
+
 // ── 讀取場景 ──────────────────────────────────────────────────────────────────
 
 /**
@@ -65,7 +69,7 @@ export interface OwnerPreviewResult<T = any> {
  */
 export async function forSubscriber<T = any>(
   db: JournalDb,
-  opts: { mentorIds: string[]; limit?: number },
+  opts: { mentorIds: string[]; limit?: number; projection?: ProjectionStatus },
 ): Promise<{ signals: T[]; error: string | null }> {
   if (!opts.mentorIds || opts.mentorIds.length === 0) return { signals: [], error: null };
   const { data, error } = await db
@@ -75,7 +79,13 @@ export async function forSubscriber<T = any>(
     .in('expert_id', opts.mentorIds)
     .order('published_at', { ascending: false })
     .limit(opts.limit ?? 100);
-  return { signals: (data ?? []) as T[], error: error?.message ?? null };
+  // R1-P typed public contract: subscriber-facing rows lose every economic
+  // figure while the projection scope is under review / incomplete.
+  const gated = gateSignalEconomics(
+    (data ?? []) as unknown as Record<string, unknown>[],
+    opts.projection ?? READY_BY_DEFAULT,
+  ) as unknown as T[];
+  return { signals: gated, error: error?.message ?? null };
 }
 
 /**

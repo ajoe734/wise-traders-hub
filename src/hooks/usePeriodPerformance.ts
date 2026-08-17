@@ -1,4 +1,6 @@
 import { useQuery } from '@tanstack/react-query';
+import { useProjectionStatus } from '@/hooks/useProjectionStatus';
+import { gateSeries } from '@/contracts/publicEconomicContract';
 import { supabase } from '@/integrations/supabase/client';
 
 export interface StockTrade {
@@ -305,7 +307,10 @@ export function usePeriodPerformance(
   period: ViewPeriod,
   startingCapital?: number,
 ) {
-  return useQuery({
+  // R1-P: public chart surface — a not-ready scope yields an empty series,
+  // never a flat 0 line.
+  const projection = useProjectionStatus(expertId);
+  const query = useQuery({
     queryKey: ['period-performance-v3', expertId, period, startingCapital ?? 0],
     queryFn: async (): Promise<PeriodBucket[]> => {
       if (!expertId) return [];
@@ -409,4 +414,10 @@ export function usePeriodPerformance(
     enabled: !!expertId,
     staleTime: 60_000,
   });
+
+  return {
+    ...query,
+    projection,
+    data: query.data ? gateSeries(query.data as PeriodBucket[], projection) : query.data,
+  };
 }

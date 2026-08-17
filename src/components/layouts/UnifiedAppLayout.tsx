@@ -15,6 +15,7 @@ import { cn } from '@/lib/utils';
 import { PreviewBanner } from '@/components/PreviewBanner';
 import { Logomark } from '@/components/brand/Logomark';
 import { DisplayCurrencyToggle } from '@/components/DisplayCurrencyToggle';
+import { EMBARGO_DAYS } from '@/contracts/publicEconomicContract';
 
 // localStorage keys for unread tracking
 const SIGNALS_LAST_SEEN_KEY = 'app:lastSeen:signals';
@@ -188,6 +189,9 @@ export function UnifiedAppLayout({ children }: UnifiedAppLayoutProps) {
 
   const currentNavGroup = useMemo(() => getNavGroup(location.pathname), [location.pathname]);
   const isNotHome = location.pathname !== '/app';
+  // R1-P embargo predicate for public badge counts (T+7).
+  const embargoCutoffIso = () =>
+    new Date(Date.now() - EMBARGO_DAYS * 86_400_000).toISOString();
   const showBreadcrumbs = breadcrumbs.length > 1;
 
   // Unread counts as cached react-query queries (no refetch on navigation)
@@ -203,7 +207,9 @@ export function UnifiedAppLayout({ children }: UnifiedAppLayoutProps) {
         .select('id', { count: 'exact', head: true })
         .eq('status', 'published')
         .in('expert_id', advisorExpertIds)
-        .gt('published_at', sinceIso);
+        .gt('published_at', sinceIso)
+        // R1-P: an embargoed effect must not even be counted in a badge.
+        .lte('published_at', embargoCutoffIso());
       return count ?? 0;
     },
     enabled: !!effectiveUserId && advisorExpertIds.length > 0,
@@ -222,7 +228,9 @@ export function UnifiedAppLayout({ children }: UnifiedAppLayoutProps) {
         .select('id', { count: 'exact', head: true })
         .eq('status', 'published')
         .in('expert_id', mentorExpertIds)
-        .gt('published_at', sinceIso);
+        .gt('published_at', sinceIso)
+        // R1-P: an embargoed effect must not even be counted in a badge.
+        .lte('published_at', embargoCutoffIso());
       return count ?? 0;
     },
     enabled: !!effectiveUserId && mentorExpertIds.length > 0,
