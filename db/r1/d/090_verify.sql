@@ -361,6 +361,156 @@ DO $$ DECLARE n int; BEGIN
   PERFORM t.eq('T-COV-1: all legacy economic writers are canonical wrappers', n, 0);
 END $$;
 
+
+-- =====================================================================
+-- B. TWO-LAYER PRIVILEGE BOUNDARY — static catalog + body proof
+-- =====================================================================
+DO $$ DECLARE n int; BEGIN
+  SELECT count(*) INTO n FROM pg_roles
+   WHERE rolname IN ('ledger_owner','wrapper_owner') AND (rolcanlogin OR rolsuper);
+  PERFORM t.eq('T-B01: both owner roles are NOLOGIN non-superuser', n, 0);
+
+  SELECT count(*) INTO n FROM pg_auth_members m JOIN pg_roles r ON r.oid=m.roleid
+    JOIN pg_roles g ON g.oid=m.member
+   WHERE r.rolname IN ('ledger_owner','wrapper_owner') AND NOT g.rolsuper;
+  PERFORM t.eq('T-B02: no non-superuser is a member of the owner roles', n, 0);
+
+  -- wrapper_owner has NO raw DML on any economic table
+  SELECT count(*) INTO n FROM (VALUES('public.trade_records'),
+      ('app_ledger.economic_effect'),('app_ledger.effect_key'),
+      ('app_ledger.effect_projection_mutation'),('app_ledger.portfolio_cash_ledger')) x(tb)
+   WHERE has_table_privilege('wrapper_owner', x.tb, 'INSERT')
+      OR has_table_privilege('wrapper_owner', x.tb, 'UPDATE')
+      OR has_table_privilege('wrapper_owner', x.tb, 'DELETE');
+  PERFORM t.eq('T-B03: wrapper_owner has no economic DML privilege', n, 0);
+
+  -- runtime roles cannot EXECUTE canonical functions
+  SELECT count(*) INTO n FROM pg_proc p JOIN pg_namespace ns ON ns.oid=p.pronamespace,
+       (VALUES('anon'),('authenticated'),('service_role')) r(x)
+   WHERE ns.nspname='app_ledger' AND has_function_privilege(r.x, p.oid, 'EXECUTE');
+  PERFORM t.eq('T-B04: runtime roles cannot execute any canonical function', n, 0);
+
+  -- every public wrapper is owned by wrapper_owner
+  SELECT count(*) INTO n FROM pg_proc p JOIN pg_namespace ns ON ns.oid=p.pronamespace
+   WHERE ns.nspname='public' AND p.proname IN (
+     'handle_signal_trade','handle_signal_takedown','save_signal_batch',
+     'upsert_current_price','admin_delete_trade_records_by_signal_ids',
+     'admin_delete_trade_records_by_symbol','admin_signal_dupe_trades_fix',
+     'trade_dedupe_sweep','realign_instrument_unit','admin_reset_expert_asset_class',
+     'admin_apply_fix_proposal','admin_generate_fix_proposals','admin_reject_fix_proposal',
+     'delete_old_prices','recalc_user_summary_on_perf_delete')
+     AND pg_get_userbyid(p.proowner) <> 'wrapper_owner';
+  PERFORM t.eq('T-B05: all 15 legacy writers owned by wrapper_owner', n, 0);
+
+  -- static body assert: no wrapper body contains raw economic DML or dynamic EXECUTE
+  SELECT count(*) INTO n FROM pg_proc p JOIN pg_namespace ns ON ns.oid=p.pronamespace
+   WHERE ns.nspname='public' AND pg_get_userbyid(p.proowner)='wrapper_owner'
+     AND (p.prosrc ~* '(insert[[:space:]]+into|update|delete[[:space:]]+from)[[:space:]]+(public\.)?trade_records'
+       OR p.prosrc ~* '(insert|update|delete)[[:space:]]+[a-z_.]*portfolio_cash_ledger'
+       OR p.prosrc ~* '(insert[[:space:]]+into|update|delete[[:space:]]+from)[[:space:]]+app_ledger\.'
+       OR p.prosrc ~* 'execute[[:space:]]+(format|''|")');
+  PERFORM t.eq('T-B06: no wrapper body performs raw economic DML / dynamic EXECUTE', n, 0);
+
+  -- exactly the canonical layer carries raw economic DML
+  SELECT count(*) INTO n FROM pg_proc p JOIN pg_namespace ns ON ns.oid=p.pronamespace
+   WHERE ns.nspname='app_ledger'
+     AND p.prosrc ~* '(insert[[:space:]]+into|update|delete[[:space:]]+from)[[:space:]]+(public\.)?trade_records'
+     AND pg_get_userbyid(p.proowner) <> 'ledger_owner';
+  PERFORM t.eq('T-B07: raw trade_records DML only inside ledger_owner functions', n, 0);
+
+  -- the guard consults no forgeable input
+  SELECT count(*) INTO n FROM pg_proc p JOIN pg_namespace ns ON ns.oid=p.pronamespace
+   WHERE ns.nspname='app_ledger' AND p.proname IN
+     ('assert_canonical_writer','trade_records_economic_guard','cash_ledger_guard')
+     AND p.prosrc ~* '(current_setting|application_name|request\.jwt|pg_temp)';
+  PERFORM t.eq('T-B08: guards read no GUC/JWT/application_name/pg_temp', n, 0);
+END $$;
+
+-- forgery attempts: the "token" is a ledger_owner-only table row, not a value a
+-- caller can present. Try to mint one as every runtime role.
+SELECT t.expect_error('T-B09: authenticated cannot mint a mutation token',
+  $$SET LOCAL ROLE authenticated;
+    INSERT INTO app_ledger.effect_projection_mutation(mutation_id,event_id,target_table,op,
+      target_row_id,before_hash,after_hash,consumed)
+    VALUES (gen_random_uuid(),gen_random_uuid(),'trade_records','insert',gen_random_uuid(),
+            NULL,'x',false)$$,
+  'permission denied', '42501');
+RESET ROLE;
+SELECT t.expect_error('T-B10: service_role cannot mint a mutation token',
+  $$SET LOCAL ROLE service_role;
+    INSERT INTO app_ledger.effect_projection_mutation(mutation_id,event_id,target_table,op,
+      target_row_id,before_hash,after_hash,consumed)
+    VALUES (gen_random_uuid(),gen_random_uuid(),'trade_records','insert',gen_random_uuid(),
+            NULL,'x',false)$$,
+  'permission denied', '42501');
+RESET ROLE;
+SELECT t.expect_error('T-B11: anon cannot read the token table',
+  $$SET LOCAL ROLE anon; SELECT count(*) FROM app_ledger.effect_projection_mutation$$,
+  'permission denied', '42501');
+RESET ROLE;
+SELECT t.expect_error('T-B12: authenticated cannot execute canonical directly',
+  $$SET LOCAL ROLE authenticated;
+    SELECT app_ledger.canonical_apply_signal((SELECT v FROM td.ids WHERE k='sig1'))$$,
+  'permission denied', '42501');
+RESET ROLE;
+SELECT t.expect_error('T-B13: service_role cannot execute canonical directly',
+  $$SET LOCAL ROLE service_role;
+    SELECT app_ledger.canonical_correct_position((SELECT v FROM td.ids WHERE k='expA'),
+      '2330','TW',0,'張','forge',9)$$,
+  'permission denied', '42501');
+RESET ROLE;
+
+-- =====================================================================
+-- C. COVERAGE CLOSURE — 15 DB writers / 23 triggers
+-- =====================================================================
+DO $$ DECLARE n int; missing text; BEGIN
+  SELECT count(*), coalesce(string_agg(w.name,','),'') INTO n, missing FROM (VALUES
+    ('handle_signal_trade'),('handle_signal_takedown'),('save_signal_batch'),
+    ('upsert_current_price'),('admin_delete_trade_records_by_signal_ids'),
+    ('admin_delete_trade_records_by_symbol'),('admin_signal_dupe_trades_fix'),
+    ('realign_instrument_unit'),('admin_reset_expert_asset_class'),
+    ('admin_apply_fix_proposal'),('trade_dedupe_sweep'),
+    ('admin_generate_fix_proposals'),('admin_reject_fix_proposal'),
+    ('delete_old_prices'),('recalc_user_summary_on_perf_delete')) w(name)
+   WHERE NOT EXISTS (
+     SELECT 1 FROM pg_proc p JOIN pg_namespace ns ON ns.oid=p.pronamespace
+      WHERE ns.nspname='public' AND p.proname=w.name
+        AND pg_get_userbyid(p.proowner)='wrapper_owner');
+  PERFORM t.ok('T-COV-1: 15/15 legacy writers are wrapper_owner wrappers', n=0, 'missing='||missing);
+
+  -- the 11 economic ones must actually route through app_ledger
+  SELECT count(*) INTO n FROM (VALUES
+    ('handle_signal_trade'),('handle_signal_takedown'),('save_signal_batch'),
+    ('upsert_current_price'),('admin_delete_trade_records_by_signal_ids'),
+    ('admin_delete_trade_records_by_symbol'),('admin_signal_dupe_trades_fix'),
+    ('realign_instrument_unit'),('admin_reset_expert_asset_class'),
+    ('admin_apply_fix_proposal'),('trade_dedupe_sweep')) w(name)
+   WHERE NOT EXISTS (
+     SELECT 1 FROM pg_proc p JOIN pg_namespace ns ON ns.oid=p.pronamespace
+      WHERE ns.nspname='public' AND p.proname=w.name AND p.prosrc LIKE '%app_ledger.%');
+  PERFORM t.eq('T-COV-2: 11/11 economic writers call canonical', n, 0);
+
+  -- the 4 KEEP writers must NOT touch economics at all
+  SELECT count(*) INTO n FROM pg_proc p JOIN pg_namespace ns ON ns.oid=p.pronamespace
+   WHERE ns.nspname='public' AND p.proname IN ('admin_generate_fix_proposals',
+     'admin_reject_fix_proposal','delete_old_prices','recalc_user_summary_on_perf_delete')
+     AND p.prosrc ~* '(insert[[:space:]]+into|update|delete[[:space:]]+from)[[:space:]]+(public\.)?trade_records';
+  PERFORM t.eq('T-COV-3: 4/4 KEEP writers hold no economic DML', n, 0);
+
+  -- every trigger on an economic table is accounted for and enabled
+  SELECT count(*) INTO n FROM pg_trigger tg JOIN pg_class c ON c.oid=tg.tgrelid
+    JOIN pg_namespace ns ON ns.oid=c.relnamespace
+   WHERE NOT tg.tgisinternal AND ns.nspname='public' AND tg.tgenabled <> 'O';
+  PERFORM t.eq('T-COV-4: no trigger has been disabled by the cutover', n, 0);
+
+  SELECT count(*) INTO n FROM pg_trigger tg JOIN pg_class c ON c.oid=tg.tgrelid
+    JOIN pg_namespace ns ON ns.oid=c.relnamespace
+   WHERE NOT tg.tgisinternal AND ns.nspname='public' AND c.relname='trade_records'
+     AND tg.tgfoid::regproc::text LIKE 'app_ledger.%';
+  PERFORM t.ok('T-COV-5: trade_records carries the app_ledger economic guard', n >= 1,
+               'guard_triggers='||n);
+END $$;
+
 -- =====================================================================
 \echo '--- R1-D RESULTS ---'
 SELECT kind, count(*) FILTER (WHERE passed) AS passed, count(*) FILTER (WHERE NOT passed) AS failed
