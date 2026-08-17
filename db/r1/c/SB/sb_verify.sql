@@ -56,7 +56,7 @@ VALUES ('2330','ops',true,true) ON CONFLICT DO NOTHING;
 -- fully pre-enqueued by ensure_bsr_queued/ensure_bsr_window earlier in the
 -- writer list, which is why the gate-open delta was 0 in B6.
 INSERT INTO public.chips_prefetch_targets(code, source, active, supported)
-VALUES ('2412','ops_gapfixture',true,true) ON CONFLICT DO NOTHING;
+VALUES ('2412','ops',true,true) ON CONFLICT DO NOTHING;
 INSERT INTO public.checkup_storage(key, data, user_id)
 VALUES ('portfolio', '{"holdings":[{"symbol":"2317","code":"2317"}]}'::jsonb,
         '00000000-0000-0000-0000-000000000001') ON CONFLICT DO NOTHING;
