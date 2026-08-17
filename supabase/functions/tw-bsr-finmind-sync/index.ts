@@ -515,6 +515,31 @@ async function runWorker(batch: number, maxPriority: number, budgetMs: number): 
   const started = Date.now();
   const results: any[] = [];
   let processed = 0, ok = 0, rateLimitedStop = false;
+  const runId = crypto.randomUUID();
+
+  // ============ Stage B：admission gate（fail-closed，必須在任何 claim / provider 呼叫之前）
+  // blocked / gate row 不存在 / 形狀不對 / RPC error 一律不 claim、不打 provider。
+  const admission = await fetchAdmissionStatus(supa as unknown as GateRpcClient);
+  if (!admission.allowed) {
+    return {
+      ok: true,
+      note: 'admission_gate_closed',
+      admission: {
+        decision: admission.decision,
+        blocked: admission.blocked,
+        reason: admission.reason ?? admission.detail,
+        terminal_code: admission.terminalCode,
+        blocked_at: admission.blockedAt,
+        gate_version: admission.version,
+      },
+      claimed: 0,
+      processed: 0,
+      provider_calls: 0,
+      run_id: runId,
+      elapsed_ms: Date.now() - started,
+    };
+  }
+
 
   // 0) 每次 worker 呼叫先 purge 一次過期 lease，避免上一輪 crash 的 reservation 佔用額度
   const { data: purgeRow } = await supa.rpc('purge_expired_bsr_reservations', { _api: 'finmind' });
