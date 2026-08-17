@@ -50,14 +50,27 @@ Plan only。本輪僅請求核准 **S0（唯讀）**；S1/S2/S3/S5 各自另行�
 
 # S0 read-only preflight（唯讀；本輪唯一請求核准項；估 2 h）
 
-**S0-1 migration lineage**
-`select version, name from supabase_migrations.schema_migrations order by version desc limit 50`
-對比 `ls supabase/migrations`。判定：repo-only（未部署）記錄為 pending target，非 BLOCKER；
-**remote-only 且不符合 repo 前綴/allowlist ⇒ unknown remote mutation ⇒ BLOCKER**。
-expected：`unknown_remote = 0`。本次 exact target migrations 與 dependency order：
+**S0-1 migration lineage（本輪已用唯讀查詢做完，結論如下，S0 執行時只需重跑同一組查詢確認未再漂移）**
+
+比對規則不可只做字串集合差：production 的 `schema_migrations.version` 對舊檔比 repo 檔名早 2–3 秒，新檔則以 `name = <repoVersion>_<uuid>` 記錄。正式規則為
+`key = case when name ~ '^[0-9]{14}_' then split_part(name,'_',1) else version end`，再對 repo 檔名前綴做 ±60s 容差配對。
+
+已量測（唯讀）：`remote_total=422`、`repo_total=418`。
+
+- **remote-only（repo 無對應檔）= 5**，全部為 repo 建檔前的早期 migration，且物件現存可證：
+  `20260227131741`（建 `line_binding_codes`）、`20260227155729`（seed advisor experts）、`20260308110124`（`DROP TABLE trade_signals`）、`20260316122524`（加 `quantity_unit`）、`20260408065758`（建 `stock_names`）。
+  → 判定 `known_pre_repo`，非 unknown mutation；S0 需逐筆用 `to_regclass` / `information_schema.columns` 證明物件狀態與 statement 一致。
+- **重複登錄 = 5**（同一 repo migration 被記兩次，version 差 17–25 秒）：
+  `20260721135648`↔`20260721135623`、`20260722023140`↔`20260722023118`、`20260724071600`↔`20260724071542`、`20260725213324`↔`20260725213311`、`20260729132638`↔`20260729132621`。→ 非 BLOCKER，僅需落檔。
+- **repo-only 未登錄 = 1**：`20260812211500_bsr_claim_token_slot.sql`（檔案 md5 `30b322cf…`）。production `pg_proc.claim_bsr_queue_jobs` 已含 `token_slot`（`prosrc` md5 `c28474cc…`，len 1309）⇒ 判定 **applied-not-recorded**，非待部署項，禁止重跑。
+
+GO 判準改為：`unknown_remote = 0`（=422 筆全數歸類為 matched / known_pre_repo / duplicate-record），且上述 5+5+1 的分類與 md5 與本節記載一致；任何新增未分類 remote 版本 ⇒ BLOCKER。落檔 `db/r1/c/S0/lineage.json`（含分類、key 規則、兩側清單 sha256）。
+
+本次 exact target migrations 與 dependency order：
 1. `db/r1/d/001_compat.sql`（S1）→ 2. `db/r1/p/001_projection.sql`（S1）→ 3. `db/r1/p/010_manifest_seed.sql`（S1）
 → 4. `db/r1/d/002_cutover.sql`（S2）→ 5. `db/r1/p/002_public_contract.sql`（S2）。
 （S1 三檔彼此依 1→2→3；S2 兩檔依 4→5；跨 stage 不得合併。）
+
 
 **S0-2 備份能力（先唯讀取得，不預設丟給 user）**
 `supabase--project_info` / `cloud_status` 讀 backup tier、retention、last restore point、PITR 是否啟用。
