@@ -184,6 +184,7 @@ type Evidence = {
   screenshot: string;
   consoleErrors: string[];
   injectedTransportErrors: string[];
+  failedResponses: string[];
   pageErrors: string[];
   noticeCount: number;
   placeholderCount: number;
@@ -215,6 +216,10 @@ for (const c of CASES) {
           consoleErrors.push(text);
         });
         page.on('pageerror', (e) => pageErrors.push(`${e.name}: ${e.message}`));
+        const failedResponses: string[] = [];
+        page.on('response', (r) => {
+          if (r.status() >= 400) failedResponses.push(`${r.status()} ${r.url()}`);
+        });
 
         await page.setViewportSize({ width: vp.width, height: vp.height });
         await setTheme(page, theme);
@@ -285,6 +290,7 @@ for (const c of CASES) {
           screenshot: shot,
           consoleErrors,
           injectedTransportErrors: transportErrors,
+          failedResponses,
           pageErrors,
           noticeCount: await notice.count(),
           placeholderCount: await placeholder.count(),

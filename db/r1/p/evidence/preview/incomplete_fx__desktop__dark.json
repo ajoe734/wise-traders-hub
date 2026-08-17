@@ -3,10 +3,15 @@
   "viewport": "1280x900",
   "theme": "dark",
   "screenshot": "db/r1/p/evidence/preview/incomplete_fx__desktop__dark.png",
-  "consoleErrors": [],
+  "consoleErrors": [
+    "Failed to load resource: the server responded with a status of 404 ()"
+  ],
   "injectedTransportErrors": [],
+  "failedResponses": [
+    "404 https://fonts.gstatic.com/s/sourceserif4/v14/vEFv2_tTDB4M7-auWDN0ahZJW3IX2ih5nk3AucvUHf6OAVIJmeUDygwjisltzBd1_zSaHTPJXnAdt9wiYb0.woff2"
+  ],
   "pageErrors": [],
   "noticeCount": 1,
   "placeholderCount": 3,
-  "bodyChars": 222
+  "bodyChars": 327
 }

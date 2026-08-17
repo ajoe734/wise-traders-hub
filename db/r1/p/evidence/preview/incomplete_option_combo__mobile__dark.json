@@ -3,12 +3,11 @@
   "viewport": "390x844",
   "theme": "dark",
   "screenshot": "db/r1/p/evidence/preview/incomplete_option_combo__mobile__dark.png",
-  "consoleErrors": [
-    "Failed to load resource: the server responded with a status of 404 ()"
-  ],
+  "consoleErrors": [],
   "injectedTransportErrors": [],
+  "failedResponses": [],
   "pageErrors": [],
   "noticeCount": 1,
   "placeholderCount": 3,
-  "bodyChars": 222
+  "bodyChars": 235
 }
