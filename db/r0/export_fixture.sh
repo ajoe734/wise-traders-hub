@@ -12,7 +12,7 @@ psql -q -c "\copy (select id, $(anon_uuid user_id) as user_id, 'expert-'||left(i
  operation_cycle, strategy_name, currency, asset_class from experts) to '$OUT/experts.csv' csv header"
 
 psql -q -c "\copy (select id, expert_id, null::uuid plan_id, instrument, action, price_hint,
- '(redacted)' reason_summary, null::text reason_detail, null::text risk_notes, learning_points is not null as had_learning,
+ '(redacted)' reason_summary, null::text reason_detail, null::text risk_notes, case when learning_points is not null then '(redacted)' else null end as learning_points,
  status, taken_down_reason, null::uuid taken_down_by, published_at, created_at, line_pushed_at, quantity, quantity_unit,
  teaching_topic, null::text overall_summary, batch_id, executed_at, market, is_combo, combo_strategy, net_premium,
  max_loss_per_unit, max_profit_per_unit from expert_signals) to '$OUT/expert_signals.csv' csv header"
