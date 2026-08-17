@@ -130,12 +130,20 @@ Threat model 與測試
 
 ## 7. G — 週末 backlog 與備份政策
 
-- 備份對象：`tw_bsr_daily`、`tw_chip_fact`、`tw_chips_rollup`、`bsr_coverage_daily`、`tw_market_symbols`、`symbol_demand_registry`、`tw_bsr_sync_queue`（僅 failed/dead-letter）。
-- 形式：每週日一次，per-table CSV + `MANIFEST.json`（列數、欄位、sha256、產生時間、來源 run_id）。
-- 目的地：Supabase Storage private bucket `ops-backups`，RLS 全拒，僅 service_role 可寫、company_admin 可簽名下載；傳輸 TLS，儲存側加密由平台提供。
-- 保存：週備份保留 8 週，月末一份保留 12 個月，逾期自動刪除。
-- Restore rehearsal：每季一次在 disposable clone 還原並逐表比對列數 + sha256，結果寫入 `S0_STATUS` 同格式報告。
-- 非交易日判定：以 `tw_market_holidays` + 週末判定；週末 run **只補既有 backlog 與備份**，禁止產生新的 `trade_date`；`next_expected_trade_date` 由 holiday 表推算並寫入 trace，驗收時比對。
+實測規模（唯讀查得）：`tw_bsr_daily` 3,679,883 列 / 995 MB（trade_date 2024-12-30 ~ 2026-08-14）、`tw_chip_fact` 3,564,366 列 / 941 MB、`tw_chips_rollup` 39,833 列 / 28 MB、`bsr_coverage_daily` 7,627 列 / 2.5 MB。**每週全量匯出 CSV 不可行**，改為增量。
+
+- 分類：
+  - **大表增量**（`tw_bsr_daily`、`tw_chip_fact`）：以 `(trade_date, market)` 為分片，每片一個 `csv.gz` object；每週只匯出「上次備份之後新增／修改的 trade_date 分片」。每季（或 schema version 變更時）產生一次 **full baseline**。
+  - **小表全量**（`tw_chips_rollup`、`bsr_coverage_daily`、`tw_market_symbols`、`symbol_demand_registry`、`tw_bsr_sync_queue` 僅 failed/dead-letter）：每週一次全量 `csv.gz`。
+- Manifest（每次備份一份 `MANIFEST.json`）：`backup_id`、`kind=full|incremental`、`parent_backup_id`、每片 `{table, market, trade_date_range, row_count, uncompressed_bytes, compressed_bytes, sha256, schema_version, generated_at_utc, run_id}`，以及 chain 完整性所需的 `expected_trade_dates[]`。
+- 目的地：Supabase Storage private bucket `ops-backups`，RLS 全拒，僅 service_role 可寫、company_admin 可簽名下載；TLS 傳輸、平台側靜態加密。
+- 容量估算：`tw_bsr_daily` 995 MB / 3.68M 列 ≈ 270 B/列，CSV 約 120 B/列、gzip 約 6× 壓縮 ≈ 20 B/列。每交易日約 40k 列 → **≈ 0.8 MB/交易日/表**，兩張大表 ≈ 1.6 MB/交易日 ≈ **8 MB/週**。8 週增量 ≈ 64 MB；full baseline（3.68M+3.56M 列）≈ **145 MB/次**，一年 4 次 ≈ 580 MB；小表全量 ≈ 2 MB/週 × 8 ≈ 16 MB；月末保留 12 個月的增量彙整 ≈ 100 MB。**總計 < 1 GB**，成本可忽略。
+- Edge memory/time：單片上限設 **50 MB uncompressed / 200k 列**，超過則再依 `trade_date` chunk；以 cursor 分批 `COPY … TO STDOUT` streaming 至 gzip，記憶體常數級（< 128 MB）；單片產生 ≤ 30 s，單次 run 最多 20 片，超出則排入下一輪，避免 Edge 150 s 上限。
+- Restore rehearsal（每季一次，disposable clone）：從 **full baseline + 依序套用 incremental chain** 還原，並檢出
+  1. **缺片**：manifest chain 的 `parent_backup_id` 斷鏈，或 `expected_trade_dates` 與已套用分片差集非空 → FAIL；
+  2. **重複片**：同 `(table, market, trade_date)` 出現兩次且 sha256 不同 → FAIL；相同則冪等略過；
+  3. 還原後逐表比對列數與 sha256、以及 `(trade_date, market)` 覆蓋日曆與 `tw_market_holidays` 一致。
+- 非交易日判定：以 `tw_market_holidays` + 週末；週末 run **只補既有 backlog 與備份**，禁止產生新的 `trade_date`；`next_expected_trade_date` 由 holiday 表推算並寫入 trace，驗收時比對。
 
 ## 8. H — drawer 純讀的證明標準
 
