@@ -45,6 +45,42 @@ def main():
         1 for k in keys if k['in_drift26'] and 'market_ambiguous' in k['reason_codes'])
     amb['unit_ambiguous_keys_drift'] = sum(
         1 for k in keys if k['in_drift26'] and 'unit_ambiguous' in k['reason_codes'])
+    # live derivative OPEN positions: 4/4 TW warrants + 3/3 US option combos
+    live = subprocess.run(['psql','-X','-At','-F','\t','-c',
+        "select 'K-'||left(md5(tr.expert_id::text||'|'||coalesce(tr.market,'-')||'|'||tr.instrument),16),"
+        "tr.instrument, coalesce(tr.market,'-') from public.trade_records tr where tr.status='open' "
+        "and (split_part(tr.instrument,' ',1) ~ '^0[0-9]{5}$' or tr.instrument ~ '\\+') order by 2"],
+        capture_output=True, text=True, cwd=ROOT)
+    if live.returncode:
+        sys.exit(live.stderr)
+    by_key = {k['key']: k for k in keys}
+    opens = []
+    for line in live.stdout.strip().splitlines():
+        kk, instrument, market = line.split('\t')
+        k = by_key.get(kk)
+        assert k is not None, f'open derivative key missing from manifest: {kk} {instrument}'
+        opens.append({
+            'key': kk, 'instrument_masked': instrument[:6] if market == 'TW' else instrument.split(' ')[0],
+            'market': market, 'asset_class': k['asset_class'],
+            'classification_evidence': k['classification_evidence'],
+            'in_warrant_master': k['in_warrant_master'],
+            'exercise_ratio': k['exercise_ratio'],
+            'derivative_supported': k['supported']['derivative_supported'],
+            'public_disposition': k['public_disposition'],
+            'review_status': k['review_status'],
+        })
+    tw = [o for o in opens if o['market'] == 'TW']
+    us = [o for o in opens if o['market'] == 'US']
+    assert len(tw) == 4 and len(us) == 3, (len(tw), len(us))
+    assert all(o['asset_class'] in ('tw_warrant', 'unknown_derivative') for o in tw)
+    assert all(o['asset_class'] == 'us_option_combo' for o in us)
+    assert all(o['derivative_supported'] is False for o in opens)
+    assert all(o['public_disposition'] == 'withheld_incomplete' for o in opens)
+    m['derivative_open_positions'] = {
+        'rule': 'derivative_supported requires a complete quote+multiplier chain AND an '
+                'adjudicated quantity basis (class=match, single unit). Any drifted or '
+                'unit-ambiguous derivative key fails closed.',
+        'tw_warrant_opens': len(tw), 'us_option_combo_opens': len(us), 'rows': opens}
     m['derivative_summary'] = {
         'tw_warrant_keys': sum(1 for k in keys if k['asset_class'] == 'tw_warrant'),
         'unknown_derivative_keys': sum(1 for k in keys if k['asset_class'] == 'unknown_derivative'),
@@ -89,6 +125,7 @@ def main():
     print('drift-26 :', len(dk), drift['class_counts'])
     print('ambiguity:', {k: v for k, v in amb.items() if k.startswith(('market', 'unit'))})
     print('derivative:', m['derivative_summary'])
+    print('open derivatives:', len(m['derivative_open_positions']['rows']), 'all unsupported+withheld')
 
 
 if __name__ == '__main__':

@@ -3414,6 +3414,97 @@
   }
  ],
  "drift_keys": 26,
+ "derivative_open_positions": {
+  "rule": "derivative_supported requires a complete quote+multiplier chain AND an adjudicated quantity basis (class=match, single unit). Any drifted or unit-ambiguous derivative key fails closed.",
+  "tw_warrant_opens": 4,
+  "us_option_combo_opens": 3,
+  "rows": [
+   {
+    "key": "K-f0951a852c0938c9",
+    "instrument_masked": "068003",
+    "market": "TW",
+    "asset_class": "tw_warrant",
+    "classification_evidence": "warrant_master_hit_complete",
+    "in_warrant_master": true,
+    "exercise_ratio": 0.003,
+    "derivative_supported": false,
+    "public_disposition": "withheld_incomplete",
+    "review_status": "manual_review"
+   },
+   {
+    "key": "K-621604c9d6ed2d48",
+    "instrument_masked": "071745",
+    "market": "TW",
+    "asset_class": "tw_warrant",
+    "classification_evidence": "warrant_master_hit_complete",
+    "in_warrant_master": true,
+    "exercise_ratio": 0.17,
+    "derivative_supported": false,
+    "public_disposition": "withheld_incomplete",
+    "review_status": "manual_review"
+   },
+   {
+    "key": "K-a0c08172977f8f9c",
+    "instrument_masked": "078397",
+    "market": "TW",
+    "asset_class": "unknown_derivative",
+    "classification_evidence": "warrant_code_space_absent_from_master",
+    "in_warrant_master": false,
+    "exercise_ratio": null,
+    "derivative_supported": false,
+    "public_disposition": "withheld_incomplete",
+    "review_status": "manual_review"
+   },
+   {
+    "key": "K-8f0d20a54d04d052",
+    "instrument_masked": "079052",
+    "market": "TW",
+    "asset_class": "unknown_derivative",
+    "classification_evidence": "warrant_code_space_absent_from_master",
+    "in_warrant_master": false,
+    "exercise_ratio": null,
+    "derivative_supported": false,
+    "public_disposition": "withheld_incomplete",
+    "review_status": "manual_review"
+   },
+   {
+    "key": "K-0c18320ee34cdb71",
+    "instrument_masked": "LUNR",
+    "market": "US",
+    "asset_class": "us_option_combo",
+    "classification_evidence": "combo_no_leg_quote_no_multiplier",
+    "in_warrant_master": false,
+    "exercise_ratio": null,
+    "derivative_supported": false,
+    "public_disposition": "withheld_incomplete",
+    "review_status": "manual_review"
+   },
+   {
+    "key": "K-3b40ad4cb4bea71d",
+    "instrument_masked": "RKLB",
+    "market": "US",
+    "asset_class": "us_option_combo",
+    "classification_evidence": "combo_no_leg_quote_no_multiplier",
+    "in_warrant_master": false,
+    "exercise_ratio": null,
+    "derivative_supported": false,
+    "public_disposition": "withheld_incomplete",
+    "review_status": "manual_review"
+   },
+   {
+    "key": "K-fc2d3f1fcd6936b9",
+    "instrument_masked": "SNDK",
+    "market": "US",
+    "asset_class": "us_option_combo",
+    "classification_evidence": "combo_no_leg_quote_no_multiplier",
+    "in_warrant_master": false,
+    "exercise_ratio": null,
+    "derivative_supported": false,
+    "public_disposition": "withheld_incomplete",
+    "review_status": "manual_review"
+   }
+  ]
+ },
  "derivative_summary": {
   "tw_warrant_keys": 10,
   "unknown_derivative_keys": 5,
