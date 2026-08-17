@@ -101,7 +101,7 @@ WITH ev AS (
   SELECT count(*) AS n_rows,
          bool_or(true) FILTER (WHERE false) AS dated -- fx_rates has no as-of date column
   FROM public.fx_rates
-), rows AS (
+), k AS (
 SELECT
   'K-' || left(md5(c.expert_id::text || '|' || coalesce(c.market,'-') || '|' || c.instrument), 16) AS key,
   'E-' || left(md5(c.expert_id::text), 8) AS expert,
@@ -153,9 +153,9 @@ FROM cls c LEFT JOIN e ON e.id = c.expert_id
 SELECT json_build_object(
   'generated_by','db/r1/p/manifest_replay.sql',
   'source','production read-only catalog+data',
-  'total_keys',(SELECT count(*) FROM rows),
-  'class_counts',(SELECT json_object_agg(class,n) FROM (SELECT class,count(*) n FROM rows GROUP BY 1) z),
+  'total_keys',(SELECT count(*) FROM k),
+  'class_counts',(SELECT json_object_agg(class,n) FROM (SELECT class,count(*) n FROM k GROUP BY 1) z),
   'reason_counts',(SELECT json_object_agg(rc,n) FROM (
-      SELECT r2.rc, count(*) n FROM rows, json_array_elements_text(rows.reason_codes) r2(rc) GROUP BY 1) z2),
-  'keys',(SELECT json_agg(rows ORDER BY class, market, instrument) FROM rows)
+      SELECT r2.rc, count(*) n FROM k, json_array_elements_text(k.reason_codes) r2(rc) GROUP BY 1) z2),
+  'keys',(SELECT json_agg(k ORDER BY class, market, instrument) FROM k)
 ) AS manifest;
