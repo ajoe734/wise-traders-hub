@@ -27,10 +27,18 @@ VALUES ('market_batch', '{"supported": false, "note": "storage_objects plan-gate
 ON CONFLICT (key) DO NOTHING;
 
 INSERT INTO public.chips_prefetch_targets(code, source, active, supported)
-VALUES ('2330','registry',true,true) ON CONFLICT DO NOTHING;
+VALUES ('2330','ops',true,true) ON CONFLICT DO NOTHING;
 INSERT INTO public.checkup_storage(key, data, user_id)
 VALUES ('portfolio', '{"holdings":[{"symbol":"2317","code":"2317"}]}'::jsonb,
         '00000000-0000-0000-0000-000000000001') ON CONFLICT DO NOTHING;
+INSERT INTO public.system_kill_switches(key, enabled) VALUES ('chips_all', true), ('chips_backfill', true)
+ON CONFLICT (key) DO UPDATE SET enabled = true;
+INSERT INTO public.finmind_quota_pools(pool_name, daily_budget, used_today, capacity, tokens, refill_per_min, priority)
+VALUES ('interactive', 400, 0, 200, 200, 5, 1),
+       ('keepwarm', 400, 0, 200, 200, 5, 2),
+       ('backfill', 400, 0, 200, 200, 5, 3)
+ON CONFLICT (pool_name) DO UPDATE SET daily_budget=400, used_today=0, capacity=200, tokens=200;
+
 INSERT INTO public.stock_names(symbol, name, asset_class) VALUES
   ('2330','TSMC','tw_stock'), ('2317','HH','tw_stock'), ('6505','FPCC','tw_stock')
 ON CONFLICT DO NOTHING;
@@ -232,6 +240,7 @@ END $$;
 DO $$
 DECLARE id0 bigint; res jsonb;
 BEGIN
+  SET LOCAL session_replication_role = replica;   -- fixture insert bypasses the closed gate
   INSERT INTO public.tw_bsr_sync_queue(stock_id, trade_date, priority, status, attempts, started_at, enqueued_by)
   VALUES ('9101', current_date - 3, 1, 'running', 2, now() - interval '5 min', 'lease_probe')
   RETURNING id INTO id0;
@@ -252,6 +261,7 @@ END $$;
 DO $$
 DECLARE id0 bigint; st timestamptz; res jsonb; before_status text;
 BEGIN
+  SET LOCAL session_replication_role = replica;   -- fixture insert bypasses the closed gate
   INSERT INTO public.tw_bsr_sync_queue(stock_id, trade_date, priority, status, attempts, started_at, enqueued_by)
   VALUES ('9102', current_date - 4, 1, 'running', 1, now() - interval '90 min', 'reaper_probe')
   RETURNING id, started_at INTO id0, st;
@@ -307,6 +317,10 @@ BEGIN
 
   FOR i IN 1..3 LOOP
     res := public.recover_quota_failed_bsr_jobs(1);
+    PERFORM pg_temp.chk('G-round'||i||'-budget-available',
+      (res->>'budget_reason') IS DISTINCT FROM 'pool_reserve_blocked'
+      AND (res->>'budget_reason') IS DISTINCT FROM 'kill_switch',
+      'budget_reason='||coalesce(res->>'budget_reason','-'));
     PERFORM pg_temp.chk('G-round'||i||'-zero-tokens',
       COALESCE((res->>'tokens_issued')::int,0) = 0 AND COALESCE((res->>'reconciled')::int,0) = 0,
       res::text);
@@ -325,8 +339,8 @@ END $$;
 DO $$
 DECLARE id0 bigint; res jsonb; st text;
 BEGIN
-  INSERT INTO public.tw_bsr_sync_queue(stock_id, trade_date, priority, status, max_attempts,
-                                       last_error, enqueued_by)
+  SET LOCAL session_replication_role = replica;
+  INSERT INTO public.tw_bsr_sync_queue(stock_id, trade_date, priority, status, max_attempts, last_error, enqueued_by)
   VALUES ('9201', public.expected_latest_bsr_date(), 2, 'failed', 1,
           'finmind_admission_quota_exhausted', 'legacy_quota');
   UPDATE public.tw_bsr_sync_queue SET status='failed' WHERE stock_id='9201';
