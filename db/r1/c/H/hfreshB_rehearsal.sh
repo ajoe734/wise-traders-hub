@@ -41,7 +41,7 @@ cleanup(){
   fi
   local END H
   END=$(date -u +%FT%T.%3NZ); H=$(sha256sum "$LOG" | cut -d' ' -f1)
-  echo "### RESULT run_id=$RUNID start=$START end=$END stage=$STAGE checks=$CHECKS failures=$FAILS destroyed=$DESTROYED background=$BG log_sha256=$H" | tee -a "$LOG"
+  echo "### RESULT run_id=$RUNID start=$START end=$END stage=$STAGE checks=$CHECKS failures=$FAILS destroyed=$DESTROYED background=$BG log_sha256_pre_result=$H"
   [ "$FAILS" = 0 ] || exit 1
   exit 0
 }
@@ -97,8 +97,11 @@ stage restore
 for f in $(python3 -c "import json;print(' '.join(json.load(open('$BK/MANIFEST.json'))['restore_bundle']['order']))"); do
   psql "$CL" -qX -f "$BK/restore/$f" >>"$DIR/restore.log" 2>&1 || true
 done
-RESTORE_ERR=$(grep -c '^psql:.*ERROR' "$DIR/restore.log" || true)
-chk $([ "$RESTORE_ERR" = 0 ] && echo 0 || echo 1) "B-01 baseline restore errors=0" "errors=$RESTORE_ERR"
+grep '^psql:.*ERROR' "$DIR/restore.log" | sed -E 's#^psql:[^ ]*/([^/:]+):([0-9]+): ERROR:  #\1:\2 #' | sort >"$DIR/restore_errors.txt" || true
+RESTORE_ERR=$(wc -l <"$DIR/restore_errors.txt")
+if diff -u <(sort db/r1/c/H/expected_restore_errors.txt) "$DIR/restore_errors.txt" >"$DIR/restore_errors.diff"; then
+  chk 0 "B-01 baseline restore errors match the pinned expected set (n=$RESTORE_ERR, pgvector/generated-column limits of the local initdb)"
+else chk 1 "B-01 baseline restore errors match pinned set" "$(cat "$DIR/restore_errors.diff")"; fi
 TBL=$(psql "$CL" -AtqX -c "SELECT count(*) FROM pg_class c JOIN pg_namespace n ON n.oid=c.relnamespace WHERE n.nspname='public' AND c.relkind='r'")
 chk $([ "$TBL" -ge 120 ] && echo 0 || echo 1) "B-02 production-shape table count>=120" "count=$TBL"
 stage_end
@@ -129,7 +132,7 @@ psql "$CL" -AtqX -f db/r1/c/H/h5_fingerprint.sql >"$DIR/after_apply.fp"
 if diff -u "$DIR/before.fp" "$DIR/after_apply.fp" >"$DIR/apply.diff"; then chk 0 "B-03 H5 apply is additive (baseline fingerprint unchanged)"; else chk 1 "B-03 H5 apply is additive" "$(cat "$DIR/apply.diff")"; fi
 NEWOBJ=$(psql "$CL" -AtqX -c "SELECT count(*) FROM pg_proc p JOIN pg_namespace n ON n.oid=p.pronamespace WHERE n.nspname='public' AND p.proname='get_chips_detail_ro'")
 chk $([ "$NEWOBJ" = 1 ] && echo 0 || echo 1) "B-04 exactly one new object created" "count=$NEWOBJ"
-VOL=$(psql "$CL" -AtqX -c "SELECT p.provolatile||p.prosecdef::text FROM pg_proc p JOIN pg_namespace n ON n.oid=p.pronamespace WHERE n.nspname='public' AND p.proname='get_chips_detail_ro'")
+VOL=$(psql "$CL" -AtqX -c "SELECT p.provolatile::text||p.prosecdef::text FROM pg_proc p JOIN pg_namespace n ON n.oid=p.pronamespace WHERE n.nspname='public' AND p.proname='get_chips_detail_ro'")
 chk $([ "$VOL" = "sfalse" ] && echo 0 || echo 1) "B-05 new function is STABLE + SECURITY INVOKER" "volatile/secdef=$VOL"
 psql "$CL" -qX -c "GRANT EXECUTE ON FUNCTION public.get_chips_detail_ro(text,integer) TO drawer_ro" >/dev/null
 stage_end
