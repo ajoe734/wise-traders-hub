@@ -10,7 +10,7 @@
 | Stage | production mutation（未來、需單獨核准） | rollback |
 |---|---|---|
 | H-1 provider probe | 無（唯讀／外部 probe） | 無 |
-| H0 觀測 | 新 Edge `tw-bsr-finmind-sync-v2`（**新建，不覆寫**）＋新表 `bsr_run_trace`；cron 107 target 切到 v2 | cron target 切回舊函式；v2 保留不刪；drop 新表 |
+| H0 觀測 | 新 Edge `tw-bsr-finmind-sync-v2`（**新建，不覆寫**）＋唯讀 `public.freshness_run_trace` VIEW（**不新增 table**）＋既有 `tw_bsr_attempt_logs` 的欄位補寫；cron 107 target 切到 v2 | cron target 切回舊函式；v2 保留不刪；drop VIEW（無資料損失） |
 | H1 market master | 新表 `tw_market_symbols`＋新 Edge `tw-market-master-sync`＋新 cron | 停 cron、drop 表；不影響 `stock_names` |
 | H2 demand registry | 新表 `symbol_demand_registry`＋`SECURITY DEFINER` RPC（只給 service_role）＋新 Edge `symbol-demand-register` | drop Edge/RPC/表 |
 | H3 enqueue/worker | `CREATE OR REPLACE` 兩個**自有 SQL 函式**（`enqueue_chips_prefetch_gaps`、`claim_bsr_queue_jobs`；先存前版定義）＋ v2 worker 內邏輯 | 以前版定義 replace 回去；cron 切回舊函式 |
@@ -41,6 +41,32 @@ Routing 與 callers（已盤點）：
 - 契約測試：`src/test/integration/tw-chips-detail-public-contract.test.ts`
 
 切換方式：只改「呼叫目標字串」——cron 的 function name、前端 repository 的 endpoint 常數。rollback = 把字串切回舊值；舊函式永遠保留、永不刪除、永不覆寫。
+
+## 2.5 H0 觀測：不新增 sidecar table，先用既有 log ＋唯讀 VIEW
+
+既有四張 log 的實際 schema／索引／現況（本輪唯讀查得）：
+
+| 表 | 欄位 | 時間欄 | 相關索引 | 現況 |
+|---|---|---|---|---|
+| `cron.job_run_details` | pg_cron 內建（jobid, runid, status, return_message, start_time, end_time） | `start_time` | pg_cron 內建 | 有資料；近 24h 48 runs 全 `succeeded` |
+| `public.cron_dispatch_log` | `id, jobname, request_id, dispatched_at` | `dispatched_at` | `idx_cdl_job_time(jobname, dispatched_at DESC)`、`idx_cdl_request(request_id)` | **0 列**（`cron_edge_call` 未寫入） |
+| `public.edge_boot_events` | `id, fn, boot_at, region, deployment_id` | `boot_at` | `(fn, boot_at DESC)`、`(boot_at DESC)` | 452,163 列 / 110 MB，2026-06-08 起無 cleanup |
+| `public.tw_bsr_attempt_logs` | 24 欄，已含 `correlation_id, run 相關 http_status, error_class, outcome, latency_ms, attempt_step, config_version` | `attempted_at` | 10 個索引，含 `cid_idx(correlation_id)` | **0 列**（worker 從未寫入） |
+| （輔助）`public.function_run_logs` | `fn, run_id, level, stage, msg, payload` | `created_at` | — | 11,792 列，可提供 `run_id` 對應 |
+
+**共同 correlation 欄位**：`tw_bsr_attempt_logs.correlation_id`（uuid）、`tw_bsr_fetch_failures.correlation_id`、`tw_bsr_sync_queue.correlation_id` 已一致；缺的是把同一個 `correlation_id` 帶到 `cron_dispatch_log`（目前只有 `request_id`）與 `edge_boot_events`（目前只有 `deployment_id`）。
+
+結論：**不新增 `bsr_run_trace` table**。
+- `tw_bsr_attempt_logs` 欄位已足夠涵蓋 attempt 級事件（不需擴充欄位，只需 v2 worker 真的寫入）。之所以不改用「擴充 attempt_logs」承載 cron/boot 級事件，是因為它的粒度是 (stock_id, trade_date, attempt)，塞入 run 級事件會讓 PK 語意破裂並汙染既有 10 個索引。
+- cron 級與 boot 級各自有既有表，只缺兩個既有欄位的寫入：`cron_dispatch_log` 增寫 `correlation_id`、`edge_boot_events` 增寫 `correlation_id`（**這兩個是既有表的 additive column，不是新表**；若因故不可加欄，退而以 `cron_dispatch_log.request_id` ↔ `pg_net` response 對應，仍不需新表）。
+- 串接以唯讀 `public.freshness_run_trace` VIEW 完成：`cron.job_run_details` ⋈ `cron_dispatch_log`（jobname+時間窗）⋈ `edge_boot_events`（fn+時間窗/correlation）⋈ `tw_bsr_attempt_logs`（correlation_id）⋈ `bsr_coverage_daily`（trade_date）。VIEW 只給 company_admin，anon/authenticated 不授權。
+- **只有**在 clone 上證明某事件（例如 worker 因 OOM 未 boot 也未寫任何 log）四張表皆無法承載時，才提 sidecar table，並附「為何不能擴充 attempt_logs」的具體理由。
+
+Retention / cleanup（H0 驗收必含，避免無限增長）：
+- `edge_boot_events` 目前無 cleanup、110 MB 且持續成長 → 新增 `cleanup_old_edge_boot_events(30 days)`，比照既有 `cleanup_old_*` 家族由既有 cleanup cron 呼叫。
+- `tw_bsr_attempt_logs` 開始寫入後估算：每小時 ≤ 60 attempts × 24 × 30 ≈ 43k 列/月 → 保留 60 天，新增 `cleanup_old_bsr_attempt_logs(60 days)`。
+- `cron_dispatch_log` 保留 30 天。
+- 驗收條件：cleanup 函式存在、被排程呼叫、且在 clone 上以合成資料驗證刪除筆數正確；三張 log 表各有明確保留期與大小上限估算。
 
 ## 3. C — demand registry 濫用防護（順序改為：先 master，後 registry）
 
@@ -104,12 +130,20 @@ Threat model 與測試
 
 ## 7. G — 週末 backlog 與備份政策
 
-- 備份對象：`tw_bsr_daily`、`tw_chip_fact`、`tw_chips_rollup`、`bsr_coverage_daily`、`tw_market_symbols`、`symbol_demand_registry`、`tw_bsr_sync_queue`（僅 failed/dead-letter）。
-- 形式：每週日一次，per-table CSV + `MANIFEST.json`（列數、欄位、sha256、產生時間、來源 run_id）。
-- 目的地：Supabase Storage private bucket `ops-backups`，RLS 全拒，僅 service_role 可寫、company_admin 可簽名下載；傳輸 TLS，儲存側加密由平台提供。
-- 保存：週備份保留 8 週，月末一份保留 12 個月，逾期自動刪除。
-- Restore rehearsal：每季一次在 disposable clone 還原並逐表比對列數 + sha256，結果寫入 `S0_STATUS` 同格式報告。
-- 非交易日判定：以 `tw_market_holidays` + 週末判定；週末 run **只補既有 backlog 與備份**，禁止產生新的 `trade_date`；`next_expected_trade_date` 由 holiday 表推算並寫入 trace，驗收時比對。
+實測規模（唯讀查得）：`tw_bsr_daily` 3,679,883 列 / 995 MB（trade_date 2024-12-30 ~ 2026-08-14）、`tw_chip_fact` 3,564,366 列 / 941 MB、`tw_chips_rollup` 39,833 列 / 28 MB、`bsr_coverage_daily` 7,627 列 / 2.5 MB。**每週全量匯出 CSV 不可行**，改為增量。
+
+- 分類：
+  - **大表增量**（`tw_bsr_daily`、`tw_chip_fact`）：以 `(trade_date, market)` 為分片，每片一個 `csv.gz` object；每週只匯出「上次備份之後新增／修改的 trade_date 分片」。每季（或 schema version 變更時）產生一次 **full baseline**。
+  - **小表全量**（`tw_chips_rollup`、`bsr_coverage_daily`、`tw_market_symbols`、`symbol_demand_registry`、`tw_bsr_sync_queue` 僅 failed/dead-letter）：每週一次全量 `csv.gz`。
+- Manifest（每次備份一份 `MANIFEST.json`）：`backup_id`、`kind=full|incremental`、`parent_backup_id`、每片 `{table, market, trade_date_range, row_count, uncompressed_bytes, compressed_bytes, sha256, schema_version, generated_at_utc, run_id}`，以及 chain 完整性所需的 `expected_trade_dates[]`。
+- 目的地：Supabase Storage private bucket `ops-backups`，RLS 全拒，僅 service_role 可寫、company_admin 可簽名下載；TLS 傳輸、平台側靜態加密。
+- 容量估算：`tw_bsr_daily` 995 MB / 3.68M 列 ≈ 270 B/列，CSV 約 120 B/列、gzip 約 6× 壓縮 ≈ 20 B/列。每交易日約 40k 列 → **≈ 0.8 MB/交易日/表**，兩張大表 ≈ 1.6 MB/交易日 ≈ **8 MB/週**。8 週增量 ≈ 64 MB；full baseline（3.68M+3.56M 列）≈ **145 MB/次**，一年 4 次 ≈ 580 MB；小表全量 ≈ 2 MB/週 × 8 ≈ 16 MB；月末保留 12 個月的增量彙整 ≈ 100 MB。**總計 < 1 GB**，成本可忽略。
+- Edge memory/time：單片上限設 **50 MB uncompressed / 200k 列**，超過則再依 `trade_date` chunk；以 cursor 分批 `COPY … TO STDOUT` streaming 至 gzip，記憶體常數級（< 128 MB）；單片產生 ≤ 30 s，單次 run 最多 20 片，超出則排入下一輪，避免 Edge 150 s 上限。
+- Restore rehearsal（每季一次，disposable clone）：從 **full baseline + 依序套用 incremental chain** 還原，並檢出
+  1. **缺片**：manifest chain 的 `parent_backup_id` 斷鏈，或 `expected_trade_dates` 與已套用分片差集非空 → FAIL；
+  2. **重複片**：同 `(table, market, trade_date)` 出現兩次且 sha256 不同 → FAIL；相同則冪等略過；
+  3. 還原後逐表比對列數與 sha256、以及 `(trade_date, market)` 覆蓋日曆與 `tw_market_holidays` 一致。
+- 非交易日判定：以 `tw_market_holidays` + 週末；週末 run **只補既有 backlog 與備份**，禁止產生新的 `trade_date`；`next_expected_trade_date` 由 holiday 表推算並寫入 trace，驗收時比對。
 
 ## 8. H — drawer 純讀的證明標準
 
@@ -135,13 +169,17 @@ H-1 provider probe ──┬── H1 market master ── H2 demand registry �
 - H5 需要 H3/H4 讓 rollup 有背景維護者，否則抽屜改純讀會拿不到資料。
 - BLOCKER-E1 只擋「分點」資料型別，不擋 H0–H2、H5、H6。
 
-## 10. 先做哪個 isolated clone / harness（本輪唯一授權範圍）
+## 10. 本次 Approve 的交付物（鎖死，不得擴張）
 
-1. **Clone `hfreshA`**（production-shape，disposable）：套 H0＋H1＋H2 的 DDL 與 RPC，跑 registry abuse 測試（灌量、亂碼 symbol、限流）與 master upsert 冪等測試。
-2. **Local harness `harness/provider-probe`**：對五個官方端點 + 10 檔代表商品做 capability probe，輸出欄位映射表與 `unsupported` 判定表（H-1 交付物）。
-3. **Clone `hfreshB`**（第二座全新）：只驗 H5 —— 以 SELECT-only 角色跑 `tw-chips-detail-v2` 全路徑，證明 §8 的四項寫入零增量。
+本次核准**只**允許產出以下三項，其他一律不做：
 
-三者完成後各自出 stage preflight 報告，再逐一請求 production 核准。
+1. **H-1 provider probe artifact**（local harness `harness/provider-probe`）：對五個官方端點 ＋ 10 檔代表商品做 capability probe，輸出欄位映射表與 `unsupported` 判定表。
+2. **`hfreshA`**（disposable production-shape clone / harness）：H0（v2 worker 寫入 + `freshness_run_trace` VIEW + cleanup 保留策略）、H1（market master）、H2（demand registry ＋ abuse 測試：灌量、亂碼 symbol、限流、cap/decay）。
+3. **`hfreshB`**（第二座全新 clone）：只驗 H5 —— 以 SELECT-only 角色跑 `tw-chips-detail-v2` 全路徑，證明 §8 的四項零寫入。
+
+明確不含：**不碰 production（0 DDL/DML/GRANT/REVOKE）、不 deploy 任何 Edge、不新增或修改任何 cron、不 Publish、不動 `trade_records`／`expert_signals`／public performance／既有 ACL。**
+
+每座 clone 交付紀錄必須包含：`run_id`、start/end UTC、exit code、log sha256、before/after 的 catalog / data / ACL hashes、`destroyed=true` 證明、`background_jobs=0`。三者完成後各自出 stage preflight 報告，再逐一請求 production 核准。
 
 ## 11. 驗收（沿用並強化）
 
