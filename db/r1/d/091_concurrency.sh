@@ -172,10 +172,10 @@ for R in anon authenticated service_role; do psql "$CL" -tAqX -c "ALTER ROLE $R 
 
 # --------------------------------------------------------------- price whitelist negatives
 say "== S6 price whitelist =="
-PW=$(psql "$CL" -tAqX -c "SELECT set_config('request.jwt.claim.sub','$ADMIN',false);
+PW=$(psql "$CL" -tAqX -v ON_ERROR_STOP=1 -c "SELECT set_config('request.jwt.claim.sub','$ADMIN',false);
    SELECT public.upsert_current_price('sync', jsonb_build_array(jsonb_build_object(
      'trade_record_id',(SELECT id FROM public.trade_records LIMIT 1),'current_price',1,
-     'quantity',999)))" 2>&1 | tail -1)
+     'quantity',999)))" 2>&1 || true)
 check "S6 qty mutation via price sync rejected" \
   "$(echo "$PW" | grep -q 'price_field_not_whitelisted' && echo rejected || echo allowed)" rejected
 
