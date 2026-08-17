@@ -1,5 +1,17 @@
 -- Extracted read-only from production (pg_get_functiondef) for clone-side execution.
 -- Intended caller/owner: postgres (SECURITY DEFINER). Never granted to anon/authenticated.
+--
+-- DOCUMENTED CLONE-SIDE DEVIATION (R1-P T-P99b): production's Part B seed pins
+-- absolute calendar literals (started_at 2026-07-14 / expires_at 2026-08-14).
+-- has_active_subscription_after() gates on `ms2.expires_at > now()`, so the
+-- suite silently rots the moment wall-clock time passes 2026-08-14 — which it
+-- has. Exact observed failures on the clone:
+--   'renew after expire: old-window signal is unlocked'  expected t, got f
+--   'mentor 7d lookback: 6 days before start -> visible' expected t, got f
+-- Root cause is the fixture clock, not the RLS logic. The clone copy therefore
+-- anchors every Part B timestamp to a relative offset from now() so the suite
+-- is deterministic on any date. Part A (pure window function) is byte-identical
+-- to production, and the tested semantics are unchanged.
 SET check_function_bodies = off;
 CREATE OR REPLACE FUNCTION public.run_rls_subscription_tests()
  RETURNS TABLE(test_name text, passed boolean, detail text)
@@ -8,7 +20,8 @@ CREATE OR REPLACE FUNCTION public.run_rls_subscription_tests()
  SET search_path TO 'public'
 AS $function$
 DECLARE
-  v_now timestamptz := '2026-07-14 12:00:00+08'::timestamptz;
+  v_anchor timestamptz := date_trunc('day', now());  -- clone-side deterministic anchor
+  v_now timestamptz := date_trunc('day', now());
   v_user uuid := '00000000-0000-0000-0000-0000000000aa'::uuid;
   v_user_gap uuid := '00000000-0000-0000-0000-0000000000bb'::uuid;
   v_user_expired uuid := '00000000-0000-0000-0000-0000000000cc'::uuid;
@@ -86,55 +99,55 @@ BEGIN
 
     INSERT INTO public.member_subscriptions (user_id, plan_id, status, started_at, expires_at)
     VALUES
-      (v_user, v_plan_m, 'expired', '2026-05-10'::timestamptz, '2026-06-10'::timestamptz),
-      (v_user, v_plan_m, 'active',  '2026-07-14'::timestamptz, '2026-08-14'::timestamptz);
+      (v_user, v_plan_m, 'expired', v_anchor - interval '65 days', v_anchor - interval '35 days'),
+      (v_user, v_plan_m, 'active',  v_anchor,                     v_anchor + interval '31 days');
 
     INSERT INTO public.member_subscriptions (user_id, plan_id, status, started_at, expires_at)
-    VALUES (v_user_gap, v_plan_m, 'active', '2026-07-14'::timestamptz, '2026-08-14'::timestamptz);
+    VALUES (v_user_gap, v_plan_m, 'active', v_anchor, v_anchor + interval '31 days');
 
     INSERT INTO public.member_subscriptions (user_id, plan_id, status, started_at, expires_at)
-    VALUES (v_user_expired, v_plan_m, 'expired', '2026-05-10'::timestamptz, '2026-06-10'::timestamptz);
+    VALUES (v_user_expired, v_plan_m, 'expired', v_anchor - interval '65 days', v_anchor - interval '35 days');
 
-    SELECT EXISTS(SELECT 1 FROM public.has_active_subscription_after(v_user, '2026-05-20'::timestamptz)
+    SELECT EXISTS(SELECT 1 FROM public.has_active_subscription_after(v_user, v_anchor - interval '56 days')
       WHERE expert_id = v_expert_mentor) INTO v_seen;
     test_name := 'renew after expire: old-window signal is unlocked';
     passed := v_seen; detail := CASE WHEN v_seen THEN '' ELSE 'expected visible after renewal' END;
     RETURN NEXT;
 
-    SELECT EXISTS(SELECT 1 FROM public.has_active_subscription_after(v_user, '2026-06-20'::timestamptz)
+    SELECT EXISTS(SELECT 1 FROM public.has_active_subscription_after(v_user, v_anchor - interval '25 days')
       WHERE expert_id = v_expert_mentor) INTO v_seen;
     test_name := 'gap window: signal published in gap → NOT visible';
     passed := NOT v_seen; detail := CASE WHEN v_seen THEN 'gap signal must NOT be visible' ELSE '' END;
     RETURN NEXT;
 
-    SELECT EXISTS(SELECT 1 FROM public.has_active_subscription_after(v_user_gap, '2026-05-20'::timestamptz)
+    SELECT EXISTS(SELECT 1 FROM public.has_active_subscription_after(v_user_gap, v_anchor - interval '56 days')
       WHERE expert_id = v_expert_mentor) INTO v_seen;
     test_name := 'no prior subscription: pre-active signal → NOT visible';
     passed := NOT v_seen; detail := CASE WHEN v_seen THEN 'must not see history user never paid for' ELSE '' END;
     RETURN NEXT;
 
-    SELECT EXISTS(SELECT 1 FROM public.has_active_subscription_after(v_user_gap, '2026-07-08'::timestamptz)
+    SELECT EXISTS(SELECT 1 FROM public.has_active_subscription_after(v_user_gap, v_anchor - interval '6 days')
       WHERE expert_id = v_expert_mentor) INTO v_seen;
     test_name := 'mentor 7d lookback: 6 days before start → visible';
     passed := v_seen; detail := CASE WHEN v_seen THEN '' ELSE '7d lookback broken' END;
     RETURN NEXT;
 
-    SELECT EXISTS(SELECT 1 FROM public.has_active_subscription_after(v_user_gap, '2026-07-06 11:00+08'::timestamptz)
+    SELECT EXISTS(SELECT 1 FROM public.has_active_subscription_after(v_user_gap, v_anchor - interval '8 days')
       WHERE expert_id = v_expert_mentor) INTO v_seen;
     test_name := 'mentor 7d lookback: 8 days before start → NOT visible';
     passed := NOT v_seen; detail := CASE WHEN v_seen THEN '7d boundary leaks' ELSE '' END;
     RETURN NEXT;
 
-    SELECT EXISTS(SELECT 1 FROM public.has_active_subscription_after(v_user_expired, '2026-05-20'::timestamptz)
+    SELECT EXISTS(SELECT 1 FROM public.has_active_subscription_after(v_user_expired, v_anchor - interval '56 days')
       WHERE expert_id = v_expert_mentor) INTO v_seen;
     test_name := 'expired only (no active): historical signal → NOT visible';
     passed := NOT v_seen; detail := CASE WHEN v_seen THEN 'expired user must not read history' ELSE '' END;
     RETURN NEXT;
 
     INSERT INTO public.member_subscriptions (user_id, plan_id, status, started_at, expires_at)
-    VALUES (v_user_gap, v_plan_a, 'active', '2026-07-14'::timestamptz, '2026-08-14'::timestamptz);
+    VALUES (v_user_gap, v_plan_a, 'active', v_anchor, v_anchor + interval '31 days');
 
-    SELECT EXISTS(SELECT 1 FROM public.has_active_subscription_after(v_user_gap, '2026-07-10'::timestamptz)
+    SELECT EXISTS(SELECT 1 FROM public.has_active_subscription_after(v_user_gap, v_anchor - interval '4 days')
       WHERE expert_id = v_expert_advisor) INTO v_seen;
     test_name := 'advisor: no 7d lookback (4 days before start) → NOT visible';
     passed := NOT v_seen; detail := CASE WHEN v_seen THEN 'advisor should not have 7d lookback' ELSE '' END;
