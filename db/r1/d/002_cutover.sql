@@ -239,24 +239,42 @@ BEGIN
 END $$;
 ALTER FUNCTION public.admin_signal_dupe_trades_fix(uuid,boolean,boolean) OWNER TO ledger_owner;
 
+-- W08 dedupe sweep: candidate detection lives in app_ledger; the repair path is a
+-- canonical correction per duplicate group (no raw DELETE, fully idempotent).
+CREATE OR REPLACE FUNCTION app_ledger.dedupe_candidates()
+RETURNS TABLE(expert_id uuid, instrument text, market text, quantity_unit text,
+              target_qty int, dup_rows bigint)
+LANGUAGE sql STABLE SECURITY DEFINER SET search_path = '' AS $$
+  SELECT t.expert_id, pg_catalog.min(t.instrument), pg_catalog.min(t.market),
+         pg_catalog.min(t.quantity_unit),
+         pg_catalog.max(t.quantity)::int, pg_catalog.count(*)
+    FROM public.trade_records t
+   WHERE t.status = 'open'::public.trade_status
+   GROUP BY t.expert_id, t.instrument_key
+  HAVING pg_catalog.count(*) > 1
+$$;
+ALTER FUNCTION app_ledger.dedupe_candidates() OWNER TO ledger_owner;
+
 CREATE OR REPLACE FUNCTION public.trade_dedupe_sweep(p_dry_run boolean DEFAULT true)
 RETURNS jsonb LANGUAGE plpgsql SECURITY DEFINER SET search_path = '' AS $$
-DECLARE r record; n int := 0;
+DECLARE r record; n int := 0; applied int := 0; v jsonb;
 BEGIN
   IF NOT public.has_role(auth.uid(),'company_admin'::public.app_role) THEN
     RAISE EXCEPTION 'forbidden' USING ERRCODE='42501'; END IF;
-  FOR r IN SELECT expert_id, instrument_key, count(*) c FROM public.trade_records
-            WHERE status='open'::public.trade_status
-            GROUP BY 1,2 HAVING count(*) > 1
-  LOOP n := n + 1; END LOOP;
+  FOR r IN SELECT * FROM app_ledger.dedupe_candidates() LOOP
+    n := n + 1;
+    IF NOT p_dry_run THEN
+      v := app_ledger.canonical_correct_position(r.expert_id, r.instrument, r.market,
+             r.target_qty, r.quantity_unit, 'dedupe_sweep', 6);
+      IF v->>'status' = 'applied' THEN applied := applied + 1; END IF;
+    END IF;
+  END LOOP;
   IF p_dry_run THEN
     RETURN pg_catalog.jsonb_build_object('status','dry_run','duplicate_groups',n);
   END IF;
-  -- Non-dry sweeps must be expressed as explicit canonical corrections.
-  RAISE EXCEPTION 'dedupe_requires_canonical_correction: use admin_signal_dupe_trades_fix'
-    USING ERRCODE='P0001';
+  RETURN pg_catalog.jsonb_build_object('status','swept','duplicate_groups',n,
+    'corrections_applied',applied);
 END $$;
-ALTER FUNCTION public.trade_dedupe_sweep(boolean) OWNER TO ledger_owner;
 
 CREATE OR REPLACE FUNCTION public.admin_apply_fix_proposal(p_id uuid, p_confirm boolean)
 RETURNS jsonb LANGUAGE plpgsql SECURITY DEFINER SET search_path = '' AS $$
@@ -335,4 +353,85 @@ BEGIN
        'save_signal_batch')
   LOOP EXECUTE r.s; END LOOP;
   EXECUTE 'GRANT EXECUTE ON FUNCTION public.upsert_current_price(text,jsonb) TO service_role';
+END $$;
+
+-- =====================================================================
+-- TWO-LAYER PRIVILEGE BOUNDARY (R1-D §B)
+--   layer 2  ledger_owner  : NOLOGIN, no members, owns app_ledger.* canonical
+--                            SECURITY DEFINER functions and is the ONLY role the
+--                            projection guards accept as a raw economic writer.
+--   layer 1  wrapper_owner : NOLOGIN, no members, owns every public.* legacy
+--                            wrapper. It may EXECUTE canonical functions but has
+--                            NO privilege for raw DML on any economic table, so a
+--                            wrapper cannot write economics even if its body tried.
+--   runtime  anon/authenticated/service_role: EXECUTE on allow-listed wrappers only,
+--                            no EXECUTE on app_ledger.*, no raw economic DML.
+-- Nothing here consults a GUC, header, application_name or caller-supplied token.
+-- =====================================================================
+DO $$ BEGIN
+  CREATE ROLE wrapper_owner NOLOGIN NOINHERIT;
+EXCEPTION WHEN duplicate_object THEN NULL; END $$;
+-- legacy definers were owned by postgres (table owner) and ran outside RLS;
+-- wrapper_owner must keep exactly that read/relational behaviour.
+ALTER ROLE wrapper_owner BYPASSRLS;
+GRANT wrapper_owner TO CURRENT_USER WITH ADMIN OPTION;
+
+GRANT USAGE ON SCHEMA public, auth, app_ledger TO wrapper_owner;
+GRANT SELECT ON ALL TABLES IN SCHEMA public TO wrapper_owner;
+GRANT USAGE, SELECT ON ALL SEQUENCES IN SCHEMA public TO wrapper_owner;
+GRANT EXECUTE ON ALL FUNCTIONS IN SCHEMA public TO wrapper_owner;
+
+-- non-economic tables the wrappers legitimately write (signals, proposals, prices,
+-- audit, derived summaries). trade_records + app_ledger.* are deliberately absent.
+DO $$
+DECLARE r record;
+BEGIN
+  FOR r IN SELECT unnest(ARRAY['expert_signals','expert_signal_legs','experts',
+                               'holdings_fix_proposals','current_prices','audit_logs',
+                               'signal_trade_applications','user_performances',
+                               'user_summaries','daily_price_snapshots','stock_names',
+                               'target_price_history','tw_bsr_sync_queue']) AS t
+  LOOP
+    IF to_regclass('public.'||r.t) IS NOT NULL THEN
+      EXECUTE format('GRANT SELECT, INSERT, UPDATE, DELETE ON public.%I TO wrapper_owner', r.t);
+    END IF;
+  END LOOP;
+END $$;
+
+-- explicit: wrapper_owner can never touch economics directly
+REVOKE INSERT, UPDATE, DELETE, TRUNCATE ON public.trade_records FROM wrapper_owner;
+REVOKE ALL ON ALL TABLES IN SCHEMA app_ledger FROM wrapper_owner;
+GRANT SELECT ON app_ledger.effect_key, app_ledger.economic_effect TO wrapper_owner;
+
+-- canonical EXECUTE is granted to wrapper_owner only (never to runtime roles)
+DO $$
+DECLARE r record;
+BEGIN
+  FOR r IN SELECT format('%I(%s)', p.proname, pg_get_function_identity_arguments(p.oid)) sig
+             FROM pg_proc p JOIN pg_namespace n ON n.oid=p.pronamespace
+            WHERE n.nspname='app_ledger' AND p.prokind='f'
+  LOOP
+    EXECUTE format('REVOKE ALL ON FUNCTION app_ledger.%s FROM PUBLIC, anon, authenticated, service_role', r.sig);
+    EXECUTE format('GRANT EXECUTE ON FUNCTION app_ledger.%s TO wrapper_owner', r.sig);
+  END LOOP;
+END $$;
+
+-- every legacy public writer (15/15 of the inventory) is owned by wrapper_owner
+DO $$
+DECLARE r record;
+BEGIN
+  FOR r IN SELECT format('%I(%s)', p.proname, pg_get_function_identity_arguments(p.oid)) sig
+             FROM pg_proc p JOIN pg_namespace n ON n.oid=p.pronamespace
+            WHERE n.nspname='public' AND p.proname IN (
+              'handle_signal_trade','handle_signal_takedown','save_signal_batch',
+              'upsert_current_price','admin_delete_trade_records_by_signal_ids',
+              'admin_delete_trade_records_by_symbol','admin_signal_dupe_trades_fix',
+              'trade_dedupe_sweep','realign_instrument_unit','admin_reset_expert_asset_class',
+              'admin_apply_fix_proposal','admin_generate_fix_proposals',
+              'admin_reject_fix_proposal','delete_old_prices',
+              'recalc_user_summary_on_perf_delete')
+  LOOP
+    EXECUTE format('ALTER FUNCTION public.%s OWNER TO wrapper_owner', r.sig);
+    EXECUTE format('ALTER FUNCTION public.%s SECURITY DEFINER', r.sig);
+  END LOOP;
 END $$;
