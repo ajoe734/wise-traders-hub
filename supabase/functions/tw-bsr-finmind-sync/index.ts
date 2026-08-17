@@ -1184,7 +1184,30 @@ Deno.serve(async (req) => {
         admission: await fetchAdmissionStatus(supa as unknown as GateRpcClient),
         chunks: [],
       };
+      // Stage B fail-closed：manual 是獨立的 admin 入口，和 worker/enqueue 同一條規則。
+      // blocked / gate row 缺 / 形狀錯 / status RPC error 一律不入隊、不打 provider。
+      if (!manualCtx.admission.allowed) {
+        return json({
+          ok: true,
+          mode,
+          date,
+          requested: ids.length,
+          enqueued: 0,
+          note: 'admission_gate_closed',
+          jobs: [],
+          correlation_id: cid,
+          admission: {
+            decision: manualCtx.admission.decision,
+            blocked: manualCtx.admission.blocked,
+            reason: manualCtx.admission.reason ?? manualCtx.admission.detail,
+            terminal_code: manualCtx.admission.terminalCode,
+            gate_version: manualCtx.admission.version,
+          },
+          admission_accounting: summarizeChunks(manualCtx.chunks),
+        });
+      }
       const enqueued = await enqueueBatch(ids, date, priority, 'manual', cid, false, manualCtx);
+
       const { data: jobs } = await supa.from('tw_bsr_sync_queue')
         .select('stock_id, correlation_id, priority, status, attempts, next_run_at, last_error, last_success_at')
         .in('stock_id', ids).eq('trade_date', date);

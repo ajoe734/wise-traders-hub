@@ -1,0 +1,9 @@
+bsr_admission_status()|secdef=true|vol=v|cfg=search_path=pg_catalog, private_bsr|owner=postgres|acl={postgres=X/postgres,service_role=X/postgres}
+bsr_block_and_terminalize_claims(uuid,bigint[],timestamp with time zone[],integer[],text,jsonb)|secdef=true|vol=v|cfg=search_path=pg_catalog, private_bsr|owner=postgres|acl={postgres=X/postgres,service_role=X/postgres}
+bsr_unblock_after_probe(integer,text,jsonb,uuid)|secdef=true|vol=v|cfg=search_path=pg_catalog, private_bsr|owner=postgres|acl={postgres=X/postgres,service_role=X/postgres}
+private_bsr.assert_sanitized(jsonb,integer)|secdef=true|vol=i|cfg=search_path=pg_catalog, private_bsr|owner=postgres|acl={postgres=X/postgres}
+private_bsr.gate_blocked()|secdef=true|vol=v|cfg=search_path=pg_catalog, private_bsr|owner=postgres|acl={postgres=X/postgres}
+private_bsr.gate_classify(boolean,jsonb)|secdef=false|vol=i|cfg=-|owner=postgres|acl={postgres=X/postgres}
+private_bsr.gate_explicit_open()|secdef=true|vol=v|cfg=search_path=pg_catalog, private_bsr|owner=postgres|acl={postgres=X/postgres}
+private_bsr.gate_state()|secdef=true|vol=s|cfg=search_path=pg_catalog, private_bsr|owner=postgres|acl={postgres=X/postgres}
+tw_bsr_sync_queue_admission_gate()|secdef=true|vol=v|cfg=search_path=pg_catalog, private_bsr|owner=postgres|acl={postgres=X/postgres}

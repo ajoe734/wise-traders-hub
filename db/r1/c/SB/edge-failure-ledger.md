@@ -169,3 +169,13 @@ DELETE+INSERT 'market_batch' 會與 `tw_bsr_sync_config_history` 既有 version 
 ## 結果
 T8 focused 113/113 PASS；fresh clones **B14 113/113 PASS**、**B15 113/113 PASS**（rollback/fingerprint/destroy 全綠）。
 單元測試 42 passed（gate 29 + probe 13）、`deno check` 兩支 Edge 通過、vitest 228 files / 2911 tests passed、production 0 touch。
+
+## EF-09 (2026-08-17, found by B18) — manual entrypoint was not fail-closed
+`mode=manual` called `enqueueBatch()` regardless of `fetchAdmissionStatus()`. With the
+status wrapper unavailable (`rpc_error`) the Edge inserted 3 queue rows.
+Fix: manual returns `note=admission_gate_closed`, `enqueued=0` when `!admission.allowed`.
+Proof: B18/B19 `EB-M-rpcerror-*` checks.
+
+## EF-10 (2026-08-17, clone fidelity, harness-only) — sequence ACL missing in clones
+Restore bundle omitted sequence grants; every insert died on `permission denied for
+sequence`. Harness now replays production grants and asserts EB-01b.

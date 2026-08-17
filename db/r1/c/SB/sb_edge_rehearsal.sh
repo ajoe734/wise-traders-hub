@@ -83,6 +83,16 @@ done
 grep -E '^psql:.*(ERROR|FATAL)' "$DIR/restore.log" | sort >"$DIR/restore_errors.txt" || true
 RE=$(wc -l <"$DIR/restore_errors.txt")
 chk $([ "$RE" = 0 ] && echo 0 || echo 1) "EB-01 fresh restore 0 errors" "$(head -3 "$DIR/restore_errors.txt")"
+# CLONE FIDELITY (harness-only): the baseline restore bundle recreates public
+# sequences without their ACL, while production carries rwU for
+# anon/authenticated/service_role on every public sequence. Without this the
+# clone's service_role cannot nextval() and *every* insert path fails with
+# "permission denied for sequence", which would make write assertions vacuous.
+psql "$CL" -qX -v ON_ERROR_STOP=1 >/dev/null <<'SQL'
+GRANT USAGE, SELECT, UPDATE ON ALL SEQUENCES IN SCHEMA public TO anon, authenticated, service_role;
+SQL
+SEQGAP=$(psql "$CL" -qXAt -c "SELECT count(*) FROM (SELECT c.oid FROM pg_class c JOIN pg_namespace n ON n.oid=c.relnamespace WHERE n.nspname='public' AND c.relkind='S' OFFSET 0) s WHERE NOT has_sequence_privilege('service_role', s.oid, 'USAGE')")
+chk $([ "${SEQGAP:-1}" = 0 ] && echo 0 || echo 1) "EB-01b clone sequence ACL matches production (service_role USAGE gaps=${SEQGAP:-?})"
 psql "$CL" -qX -v ON_ERROR_STOP=1 -f db/r1/c/SB/001_stage_b.sql >"$DIR/apply1.log" 2>&1 || { tail -20 "$DIR/apply1.log"; fatal "001 apply"; }
 psql "$CL" -qX -v ON_ERROR_STOP=1 -f db/r1/c/SB/002_recover_gate_aware.sql >"$DIR/apply2.log" 2>&1 || { tail -20 "$DIR/apply2.log"; fatal "002 apply"; }
 chk 0 "EB-02 stage B applied to clone"
@@ -194,6 +204,15 @@ C=$(post "$W" "$DIR/e_open.json" '{"mode":"enqueue","tier1":true,"tier2":false,"
 chk $([ "$C" = 200 ] && echo 0 || echo 1) "EB-14 enqueue HTTP 200 when gate open (got $C)"
 chk $([ "$(jqf "$DIR/e_open.json" admission.decision)" = '"open"' ] && echo 0 || echo 1) "EB-15 enqueue payload reports decision=open"
 chk $([ "$(jqf "$DIR/e_open.json" admission_accounting.blocked_count)" = '0' ] && echo 0 || echo 1) "EB-16 open gate never accounts rows as blocked"
+EOPEN_INS=$(jqf "$DIR/e_open.json" admission_accounting.inserted_count)
+EOPEN_ERR=$(jqf "$DIR/e_open.json" admission_accounting.error_chunks)
+chk $([ "$EOPEN_ERR" = '0' ] && echo 0 || echo 1) "EB-16b open enqueue had ZERO error chunks (=$EOPEN_ERR) [non-vacuity: writes really work]"
+EOPEN_CAND=$(jqf "$DIR/e_open.json" admission_accounting.candidate_count)
+if [ "$EOPEN_CAND" != '0' ] && [ "$EOPEN_CAND" != 'null' ]; then
+  chk $([ "${EOPEN_INS:-0}" != '0' ] && echo 0 || echo 1) "EB-16c open enqueue inserted every candidate it produced (cand=$EOPEN_CAND ins=$EOPEN_INS)"
+else
+  chk 0 "EB-16c open enqueue produced no tier candidate on a data-less clone (cand=0); write-path non-vacuity is proven by EB-M-open-write"
+fi
 
 ############################################################ B. terminal rejection → atomic block+terminalize
 stage terminal
@@ -497,6 +516,86 @@ chk $([ "$(provider_calls)" = 0 ] && echo 0 || echo 1) "EB-108 admission RPC err
 chk $([ "$(jqf "$DIR/w_rpcerr.json" claimed)" = '0' ] && echo 0 || echo 1) "EB-109 admission RPC error claims nothing"
 psql "$CL" -qX -c "ALTER FUNCTION public.bsr_admission_status_hidden() RENAME TO bsr_admission_status" >/dev/null
 open_gate
+
+############################################################ G2b. MANUAL entrypoint gate matrix (real HTTP, not enqueue/trigger)
+# The manual mode is an independent admin entrypoint into the same queue. It is
+# asserted here on its own real HTTP request per gate shape -- never proxied by
+# the enqueue/worker/trigger assertions above.
+stage manual_matrix
+MANUAL_BODY='{"mode":"manual","stock_ids":["2330","2317","2454"],"priority":1}'
+qcount(){ psql "$CL" -qXAt -c "SELECT count(*) FROM public.tw_bsr_sync_queue"; }
+dcount(){ psql "$CL" -qXAt -c "SELECT count(*) FROM public.tw_bsr_daily"; }
+sanitized(){ ! grep -qiE 'rehearsal-token|rehearsal-cron-secret|clone-only|service_role|password|eyJhbGciOi' "$1"; }
+
+# non-vacuity: with the gate explicitly open, manual DOES enqueue via real HTTP
+open_gate
+psql "$CL" -qX -c "DELETE FROM public.tw_bsr_sync_queue" >/dev/null
+: >"$DIR/provider.jsonl"; echo ok >"$DIR/mock_mode"
+C=$(post "$W" "$DIR/m_open.json" "$MANUAL_BODY" "$CRONH")
+chk $([ "$C" = 200 ] && echo 0 || echo 1) "EB-M-open-http manual HTTP 200 when gate open (got $C)"
+chk $([ "$(jqf "$DIR/m_open.json" admission.decision)" = '"open"' ] && echo 0 || echo 1) "EB-M-open-decision manual reports decision=open"
+chk $([ "$(jqf "$DIR/m_open.json" admission.blocked)" = 'false' ] && echo 0 || echo 1) "EB-M-open-blocked manual reports blocked=false"
+MOPEN=$(qcount)
+chk $([ "${MOPEN:-0}" -ge 1 ] && echo 0 || echo 1) "EB-M-open-write manual DID enqueue while open (rows=$MOPEN) [non-vacuity]"
+chk $([ "$(jqf "$DIR/m_open.json" enqueued)" != '0' ] && echo 0 || echo 1) "EB-M-open-count manual enqueued>0 while open"
+chk $(sanitized "$DIR/m_open.json" && echo 0 || echo 1) "EB-M-open-sanitized manual open response leaks no secret material"
+
+manual_closed(){ # $1=label  $2=exact expected decision; asserts a real manual HTTP request is fail-closed
+  local L=$1 EXP=$2 C Q0 D0 Q1 D1 P0 DEC
+  psql "$CL" -qX -c "DELETE FROM public.tw_bsr_sync_queue" >/dev/null
+  : >"$DIR/provider.jsonl"; echo ok >"$DIR/mock_mode"
+  Q0=$(qcount); D0=$(dcount)
+  C=$(post "$W" "$DIR/m_$L.json" "$MANUAL_BODY" "$CRONH")
+  Q1=$(qcount); D1=$(dcount); P0=$(provider_calls)
+  DEC=$(jqf "$DIR/m_$L.json" admission.decision)
+  chk $([ "$C" = 200 ] && echo 0 || echo 1) "EB-M-$L-http manual responds 200 (got $C)"
+  chk $([ "$DEC" = "\"$EXP\"" ] && echo 0 || echo 1) "EB-M-$L-decision manual decision=$DEC (expected \"$EXP\")"
+  chk $([ "$(jqf "$DIR/m_$L.json" admission.blocked)" = "$([ "$EXP" = blocked ] && echo true || echo false)" ] && echo 0 || echo 1) "EB-M-$L-blocked manual blocked flag matches decision"
+  chk $([ "$(jqf "$DIR/m_$L.json" admission.reason)" != 'null' ] && echo 0 || echo 1) "EB-M-$L-reason manual reports a reason ($(jqf "$DIR/m_$L.json" admission.reason))"
+  chk $([ "$(jqf "$DIR/m_$L.json" note)" = '"admission_gate_closed"' ] && echo 0 || echo 1) "EB-M-$L-note manual short-circuits with note=admission_gate_closed"
+
+  chk $([ "$(jqf "$DIR/m_$L.json" enqueued)" = '0' ] && echo 0 || echo 1) "EB-M-$L-shortcircuit manual short-circuits: enqueued=0"
+  chk $([ "$P0" = 0 ] && echo 0 || echo 1) "EB-M-$L-provider ZERO provider calls from manual ($P0)"
+  chk $([ "$Q1" = "$Q0" ] && echo 0 || echo 1) "EB-M-$L-noqueuewrite manual wrote no queue row ($Q0->$Q1)"
+  chk $([ "$D1" = "$D0" ] && echo 0 || echo 1) "EB-M-$L-nodatawrite manual wrote no bsr data row ($D0->$D1)"
+  chk $(sanitized "$DIR/m_$L.json" && echo 0 || echo 1) "EB-M-$L-sanitized manual response leaks no secret material"
+}
+
+# A. gate ROW missing
+psql "$CL" -qX -c "UPDATE public.tw_bsr_sync_config SET key='market_batch__hidden' WHERE key='market_batch'" >/dev/null
+manual_closed rowmissing missing
+psql "$CL" -qX -c "UPDATE public.tw_bsr_sync_config SET key='market_batch' WHERE key='market_batch__hidden'" >/dev/null
+
+# B. key missing / JSON null / string / number / object / array
+for pair in "keymissing|" \
+            "jsonnull|{\"admission_blocked\": null}" \
+            "string|{\"admission_blocked\": \"not-a-boolean\"}" \
+            "number|{\"admission_blocked\": 1}" \
+            "object|{\"admission_blocked\": {\"v\": true}}" \
+            "array|{\"admission_blocked\": [true]}"; do
+  L=${pair%%|*}; P=${pair#*|}
+  if [ -z "$P" ]; then
+    psql "$CL" -qX -c "UPDATE public.tw_bsr_sync_config SET config = config - 'admission_blocked' WHERE key='market_batch'" >/dev/null
+  else
+    psql "$CL" -qX -c "UPDATE public.tw_bsr_sync_config SET config = config || '$P'::jsonb WHERE key='market_batch'" >/dev/null
+  fi
+  manual_closed "$L" blocked
+done
+
+# C. config itself is not a JSON object
+psql "$CL" -qX -c "UPDATE public.tw_bsr_sync_config SET config = '\"not-an-object\"'::jsonb WHERE key='market_batch'" >/dev/null
+manual_closed cfgnonobject blocked
+psql "$CL" -qX -c "UPDATE public.tw_bsr_sync_config SET config = '{}'::jsonb WHERE key='market_batch'" >/dev/null
+open_gate
+
+# D. status RPC error (wrapper unavailable)
+psql "$CL" -qX -c "ALTER FUNCTION public.bsr_admission_status() RENAME TO bsr_admission_status_hidden" >/dev/null
+manual_closed rpcerror rpc_error
+psql "$CL" -qX -c "ALTER FUNCTION public.bsr_admission_status_hidden() RENAME TO bsr_admission_status" >/dev/null
+open_gate
+psql "$CL" -qX -c "DELETE FROM public.tw_bsr_sync_queue" >/dev/null
+
+
 
 ############################################################ G3. worker fast-exit + retryable provider classes
 stage worker_edges

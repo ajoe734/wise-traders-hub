@@ -1,0 +1,3 @@
+timeout=0 waited_s=1
+w1 pid=47573 proc_exit=0 curl_rc=0 http=200
+w2 pid=47574 proc_exit=0 curl_rc=0 http=200

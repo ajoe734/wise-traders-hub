@@ -1,0 +1,1 @@
+{"ok":true,"note":"admission_gate_closed","admission":{"decision":"missing","blocked":false,"reason":"admission_gate_row_missing","terminal_code":null,"blocked_at":null,"gate_version":null},"claimed":0,"processed":0,"provider_calls":0,"run_id":"43a5073b-6e9e-4ea8-8b36-19c043c0dc0f","elapsed_ms":8}

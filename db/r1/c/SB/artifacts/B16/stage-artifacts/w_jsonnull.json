@@ -1,0 +1,1 @@
+{"ok":true,"note":"admission_gate_closed","admission":{"decision":"blocked","blocked":true,"reason":"malformed","terminal_code":"finmind_admission_provider_plan_rejected","blocked_at":"2026-08-17T16:38:03Z","gate_version":7},"claimed":0,"processed":0,"provider_calls":0,"run_id":"0833b737-46e4-42ec-a63c-d9154d0a983f","elapsed_ms":6}

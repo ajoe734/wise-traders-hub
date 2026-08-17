@@ -1,0 +1,2 @@
+### stage-b EDGE rehearsal run_id=B18-20260817T165630Z-46709 pg=56001 pgrst=56002 proxy=56003 mock=56004 worker=56005 admin=56006 auth=56007
+### RESULT run_id=B18-20260817T165630Z-46709 start=2026-08-17T16:56:30.830Z end=2026-08-17T16:57:08.723Z stage=summary checks=249 failures=0 destroyed=true log_sha256_pre_result=97307eec2500056c4c710218e2336e0f81de5e1ac1d93a908f8e40f2d4f69ede
