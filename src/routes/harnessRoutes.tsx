@@ -25,24 +25,31 @@
 import { lazy } from "react";
 import { Route } from "react-router-dom";
 
-const HoldingCardHarnessEntry = lazy(() => import("../pages/HoldingCardHarnessEntry"));
-const RangeBandHarnessEntry = lazy(() => import("../pages/RangeBandHarnessEntry"));
-const HoldingsTableTargetHarnessEntry = lazy(() => import("../pages/HoldingsTableTargetHarnessEntry"));
-const HoldingsDetailPanelVolumeHarnessEntry = lazy(() => import("../pages/HoldingsDetailPanelVolumeHarnessEntry"));
-const SignalEditorHarnessEntry = lazy(() => import("../pages/SignalEditorHarnessEntry"));
-const EtfDisplayHarnessEntry = lazy(() => import("../pages/EtfDisplayHarnessEntry"));
-const SignalPreviewHarnessEntry = lazy(() => import("../pages/SignalPreviewHarnessEntry"));
-const SignalFocusHarnessEntry = lazy(() => import("../pages/SignalFocusHarnessEntry"));
-const JournalPdfHarnessEntry = lazy(() => import("../pages/JournalPdfHarnessEntry"));
-const NotificationLinkHarnessEntry = lazy(() => import("../pages/NotificationLinkHarnessEntry"));
-const EarlyPublishCopyHarnessEntry = lazy(() => import("../pages/EarlyPublishCopyHarnessEntry"));
-const JournalsExportHarnessEntry = lazy(() => import("../pages/JournalsExportHarnessEntry"));
-const JournalsExportUIHarnessEntry = lazy(() => import("../pages/JournalsExportUIHarnessEntry"));
-const JournalsExportHeaderDomHarnessEntry = lazy(() => import("../pages/JournalsExportHeaderDomHarnessEntry"));
-const ChipsSectionHarnessEntry = lazy(() => import("../pages/ChipsSectionHarnessEntry"));
-const ChipsBatchHarnessEntry = lazy(() => import("../pages/ChipsBatchHarnessEntry"));
-const JournalAuthoringHarnessEntry = lazy(() => import("../pages/JournalAuthoringHarnessEntry"));
-const ShellEventBusHarnessEntry = lazy(() => import("../pages/ShellEventBusHarnessEntry"));
+// Literal at build time: `vite build` substitutes `false`, so every `lazy()`
+// below collapses to `null` and Rollup never emits the harness chunks. A
+// module-level const (rather than a check inside the route factory) is what
+// makes the dynamic imports statically unreachable — with the check further
+// down, the chunks were still emitted and listed in the preload manifest.
+const DEV = import.meta.env.DEV;
+
+const HoldingCardHarnessEntry = DEV ? lazy(() => import("../pages/HoldingCardHarnessEntry")) : (() => null);
+const RangeBandHarnessEntry = DEV ? lazy(() => import("../pages/RangeBandHarnessEntry")) : (() => null);
+const HoldingsTableTargetHarnessEntry = DEV ? lazy(() => import("../pages/HoldingsTableTargetHarnessEntry")) : (() => null);
+const HoldingsDetailPanelVolumeHarnessEntry = DEV ? lazy(() => import("../pages/HoldingsDetailPanelVolumeHarnessEntry")) : (() => null);
+const SignalEditorHarnessEntry = DEV ? lazy(() => import("../pages/SignalEditorHarnessEntry")) : (() => null);
+const EtfDisplayHarnessEntry = DEV ? lazy(() => import("../pages/EtfDisplayHarnessEntry")) : (() => null);
+const SignalPreviewHarnessEntry = DEV ? lazy(() => import("../pages/SignalPreviewHarnessEntry")) : (() => null);
+const SignalFocusHarnessEntry = DEV ? lazy(() => import("../pages/SignalFocusHarnessEntry")) : (() => null);
+const JournalPdfHarnessEntry = DEV ? lazy(() => import("../pages/JournalPdfHarnessEntry")) : (() => null);
+const NotificationLinkHarnessEntry = DEV ? lazy(() => import("../pages/NotificationLinkHarnessEntry")) : (() => null);
+const EarlyPublishCopyHarnessEntry = DEV ? lazy(() => import("../pages/EarlyPublishCopyHarnessEntry")) : (() => null);
+const JournalsExportHarnessEntry = DEV ? lazy(() => import("../pages/JournalsExportHarnessEntry")) : (() => null);
+const JournalsExportUIHarnessEntry = DEV ? lazy(() => import("../pages/JournalsExportUIHarnessEntry")) : (() => null);
+const JournalsExportHeaderDomHarnessEntry = DEV ? lazy(() => import("../pages/JournalsExportHeaderDomHarnessEntry")) : (() => null);
+const ChipsSectionHarnessEntry = DEV ? lazy(() => import("../pages/ChipsSectionHarnessEntry")) : (() => null);
+const ChipsBatchHarnessEntry = DEV ? lazy(() => import("../pages/ChipsBatchHarnessEntry")) : (() => null);
+const JournalAuthoringHarnessEntry = DEV ? lazy(() => import("../pages/JournalAuthoringHarnessEntry")) : (() => null);
+const ShellEventBusHarnessEntry = DEV ? lazy(() => import("../pages/ShellEventBusHarnessEntry")) : (() => null);
 
 /** Top-level `/e2e/*` harness routes. Dev builds only. */
 export const harnessRoutes = () => [
