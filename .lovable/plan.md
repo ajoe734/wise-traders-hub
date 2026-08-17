@@ -1,100 +1,99 @@
-# Plan v8.1 Stage B — v4（admission gate 收斂，仍只 Plan／唯讀）
+# Plan v8.1 Stage B — v5（admission gate 收斂，仍只 Plan／唯讀）
 
-保留 v2/v3 已核可部分：classifier 語意、upstream 簽章 sanitize、admin server-side probe、rollback 與 owner/ACL diff、natural cron 證據、holdings coverage 驗收，以及「BSR 不會自行恢復新鮮度、需合法／付費 provider」的誠實邊界。以下為 v4 針對九點矛盾的修訂與唯讀證據。
+保留並沿用 v2–v4 已核可內容：classifier 語意、upstream 簽章 sanitize、admin server-side probe、natural cron 證據、holdings coverage 驗收、v4 的唯讀基線與 P-ACL GAP-1，以及「BSR 不會自行恢復新鮮度、需合法／付費 provider」的誠實邊界。
 
-## 唯讀基線（本輪 catalog / 生產資料）
+## 本輪新增唯讀證據
 
-- `tw_bsr_sync_config`：已有 `key/config jsonb/version int/updated_at/updated_by/note`＋`tw_bsr_sync_config_snapshot_trg`。**不需要 ALTER TABLE。** `market_batch` 現值 `supported=false, last_probe_error='unsupported_plan:sponsor_level', last_probe_outcome='unsupported', probed_at=2026-08-14T13:30:03.691Z, version=6`，**無 `admission_blocked` key**。
-- `tw_bsr_sync_queue` 狀態分布：`failed 1572 / pending 77 / done 9956`（total 11605）。active unique index `(stock_id, trade_date) WHERE status IN (pending,running,failed,skipped)`。
-- 近 30 天 distinct `enqueued_by` 實際值包含：`backfill_seed_20260721`、`tier2_gaps:<hash>`（20+ 種）、`converge_bsr_windows`、`chips_prefetch_hourly`、`chips_prefetch_hourly:r1`、`chips_prefetch_hourly:r3`、`trade_insert_hook_backfill`、`enqueue_all_active_holdings`、`ensure_bsr_window`、`ensure_bsr_queued`、`tier1_first_fetch:<hash>`、`tier1_holdings:<hash>`、`runbook_verify`。
-- 全表 `stock_id` 11605/11605 皆符合 `^[0-9]{4,6}[A-Z]?$`；`trade_date` 範圍 2026-04-06 ~ 2026-08-17。
-- `public.tw_bsr_degrade_events` **已存在**（`api_name, from_mode, to_mode, reason, trigger_metric, trigger_value, threshold, correlation_id, detail jsonb, created_at`；PK id；index `(api_name, created_at DESC)`；**無 unique key**；RLS：company_admin 讀、service_role 全權）。
-
----
-
-## 1. 完全不新增 payload validation（撤掉 v3 §7）
-
-證據顯示 v3 的 `enqueued_by` allowlist 會誤殺現行正常來源（`chips_prefetch_hourly:r1/r3`、`tier1_first_fetch:*`、`tier1_holdings:*`、`tier2_gaps:*`、`backfill_seed_*` 全部不在 allowlist 內）。
-
-- **v4 決議：gate trigger 只做 admission 擋／放，零業務驗證。** 不檢查 `enqueued_by`、不檢查 `stock_id` 格式、不檢查日期範圍、不檢查 batch 大小，也不改寫任何欄位。
-- `priority` 既有 CHECK、`stock_id` NOT NULL 等既有約束的成功／失敗行為完全維持原狀（非法輸入照樣 raise，不被偷換成 `RETURN NULL`）。
-- 相容性證明：上列 30 天 distinct 來源分布 + stock_id/date 範圍表，在 A1 clone 上以「gate open 時逐一重放這些 writer」對照 row delta 完全一致。
-
-## 2. Terminalize 只針對本 run 真正 claimed 的 exact ids
-
-`claim_bsr_queue_jobs`（唯讀 body 已取得）以 `FOR UPDATE SKIP LOCKED` 選 `status='pending'` 的列，`UPDATE ... SET status='running', started_at=now(), attempts=attempts+1 RETURNING q.*`。因此：
-
-- v3 的 `WHERE status='pending' AND last_error LIKE 'quota_deferred%'` 對已 claimed 的列會更新 **0 列** — 修正。
-- v4：worker 在該 run 內保留 claim 回傳的 `id[]`；terminalize 語句為
-  `UPDATE public.tw_bsr_sync_queue SET status='failed', last_error=<terminal code>, finished_at=now() WHERE id = ANY($1) AND status='running' AND started_at IS NOT NULL AND correlation_id = ANY($2)`，`$1` 為本 run claimed ids、`$2` 為對應 correlation_id（ownership 檢查）。**絕不觸碰未 claim 的 pending 列。**
-- 每批上限即 claim batch 大小（自然 worker 節奏），不做 bulk sweep。
-- 測試：clone 上兩個併發 worker session claim 不重疊集合，各自 terminalize 只影響自己的 ids；未 claim 的 pending 計數不變。
-
-## 3. 恢復路徑：用既有 recovery，terminal code 必須被它認得
-
-唯讀 body 證據：
-
-- 三個 enqueue writer（`enqueue_bsr_first_fetch_on_trade`、`enqueue_chips_prefetch_gaps`、`ensure_bsr_queued`）全部是 `INSERT ... ON CONFLICT DO NOTHING`。因為 active unique index 涵蓋 `failed`，**只要同 (stock_id, trade_date) 有 failed 列，新 INSERT 一律靜默 0 列** → 「probe 成功後 cron 自然重新入隊」在 v3 的寫法**不成立**。
-- `recover_quota_failed_bsr_jobs(p_max)` 是 **UPDATE**（非 INSERT）：挑 `status='failed' AND (last_error LIKE 'finmind_admission_%' OR last_error='quota_deferred') AND max_attempts < 8`，每次呼叫最多 **1 筆**（`v_cap := LEAST(1, ...)`，再受 `bsr_recovery_budget` 限制），轉回 `status='pending', last_error='quota_recovery_token', max_attempts+1`；另外會把「fact 已存在」的 1 筆 reconcile 成 `done`。它由 `enqueue_chips_prefetch_gaps`（hourly cron）自然呼叫。
-
-v4 決議：
-
-- terminal code 取 **`finmind_admission_provider_plan_rejected`**（符合既有 `LIKE 'finmind_admission_%'`），使恢復完全走既有 path，不新增 bulk DML、不新增 recovery function。
-- 天然節流：每次 hourly cron 至多回收 1 筆，且 `max_attempts+1` 累加至 8 後自動停止 → gate 仍關閉期間最多產生每小時 1 筆無效嘗試，worker 立刻再 terminalize，不會放大。
-- audit：每次 terminalize 與每次 gate transition 都寫 `public.audit_logs`（action `bsr_job_terminalize` / `bsr_admission_block` / `bsr_admission_unblock`，detail 含 ids、before/after version、terminal code）。
-- clone 必測完整迴圈：block → 同一 (stock, date) 進入 failed(`finmind_admission_provider_plan_rejected`) → 驗證此時 enqueue writer INSERT 為 0 列 → admin probe 成功 unblock → 呼叫 `enqueue_chips_prefetch_gaps` 走自然 recovery → 該列回到 pending → worker 能實際處理同一 stock/date。
-
-## 4. 移除 per-enqueue TTL
-
-- `admission_open()` **不含任何 freshness/TTL 判斷**。freshness 只在 `unblock_admission` 當下用來接受／拒絕 probe evidence（probe 必須是本次 server-side 執行、nonce 相符）。
-- 成功 transition 後 gate 持續 explicit `false`，直到 worker 再次遇到 exact terminal evidence 才 block。沒有任何「自動重新關閉」。
-- `admission_open()` 回 true 的唯一條件：gate row 存在 且 `config->'admission_blocked'` 為 JSON boolean `false`。key 缺失／型別非 boolean／row 不存在 → fail-closed（回 false）。
-
-## 5. Volatility 與 row lock
-
-- 不在 `admission_open()` 內做 row locking，且**不標 STABLE**：`private_bsr.admission_open()` 宣告 **VOLATILE**（純讀），只供 trigger 呼叫。
-- Row lock 一律在 **VOLATILE 的 trigger function** 內執行：`PERFORM 1 FROM public.tw_bsr_sync_config WHERE key='market_batch' FOR SHARE`，隨後讀 state。
-- v4 交付要求：`SELECT proname, provolatile, prosecdef, proconfig, proacl FROM pg_proc` read-back，斷言新函式 `provolatile='v'`；並附 clone 上 CREATE 成功與 `FOR SHARE` 實際執行成功的證據（若任何 STABLE 版本被 PostgreSQL 拒絕 row-locking，記錄該錯誤原文）。
-
-## 6. 不新增 table；不做 per-row degrade event
-
-- `tw_bsr_degrade_events` 已存在（欄位如上，**無 unique key**，故 v3 的「每 (reason, minute) 去重 insert」在該表上無法用 ON CONFLICT 實作）。
-- v4 決議：**gate closed 時不寫任何 per-row event**（避免 closed batch 每列一次 insert 放大）。觀測改為：
-  - gate transition（block/unblock）各寫 1 筆 `tw_bsr_degrade_events` + 1 筆 `audit_logs`；
-  - 「本 run 被 gate 擋掉幾列」由 Edge/cron 自行以 `count` 差值回報在 HTTP response 與 `data_source_refresh_logs` metadata 中。
-- 唯一 DDL 仍為：`CREATE SCHEMA private_bsr`＋其中 function＋`tw_bsr_sync_queue` 上一個 BEFORE INSERT trigger（gate trigger function 建在 public，供 trigger 使用）。JSON keys 只加在 `market_batch.config` 內：`admission_blocked`、`admission_reason`、`admission_blocked_at`、`last_blocked_at`、`admission_probe`、`admission_probe_at`、`admission_probe_schema_version`。
-
-## 7. Edge 端不宣稱能區分 blocked vs duplicate（本 Stage 不改 Edge 寫入）
-
-實際程式碼證據（`supabase/functions/tw-bsr-finmind-sync/index.ts:377-392`）：enqueue 先 `select` 已存在的 pending/running，再 `insert(chunk, { count: 'exact' })`，**沒有 `.select()`、沒有 ON CONFLICT**；重複列會回 unique violation error（走 `console.warn`），gate 擋下則是 error=null、count=0。private schema 對 PostgREST 不可達，Edge 無法查 gate state。
-
-- v4 決議：Stage B **不修改 Edge 寫入路徑**，也不宣稱它能區分兩者。行為描述只寫「gate closed 時 insert 成功但寫入 0 列，Edge 會將該 chunk 記為 inserted=0」。
-- 後續（獨立 staged deploy，非本 Stage）若要區分，contract 為：新增 `public.bsr_admission_status()`（service_role only）供 worker 每 run 查一次，並在 response 加 `admission: { blocked, reason, version }`；先在 clone 以 harness 驗證後才排 deploy。
-
-## 8. A1 逐支 writer 驗證
-
-open/closed 兩種狀態下逐支呼叫並記 row delta：
-
-- 可安全在 clone 直接呼叫：`ensure_bsr_queued`、`ensure_bsr_window`、`converge_bsr_windows`、`enqueue_bsr_backfill`、`enqueue_all_active_tw_holdings_bsr`、`enqueue_chips_prefetch_gaps`（含其內部 recovery 呼叫）、`bsr_snapshot_fulfill_jobs`。
-- 需 fixture：`enqueue_bsr_first_fetch_on_trade`（需插入一筆 TW `trade_records`，並確保該 stock 在 `tw_bsr_daily` < 20 列）；`detect_chip_gap_jobs` / `checkup_prefetch_universe` 依賴 holdings fixture。
-- 另外：Edge 風格的 raw batch INSERT（500 列 chunk）一支。
-- 每支記錄：呼叫前後 queue rowcount、該 writer 回傳值、是否 raise、耗時。
-- 額外測 deadlock 與 timeout：兩 session 反向順序取 gate row lock 與 queue row lock；`SET statement_timeout='2s'` 下 block transaction 持鎖時，enqueue 端行為與錯誤訊息需記錄，且不得造成 trade_records transaction 失敗（trade trigger 路徑單獨測一次）。
-
-## 9. Linearization 文字修正
-
-- 定義：**linearization point = transaction 取得 `market_batch` gate row lock 後所讀到的 (version, admission_blocked) 狀態**；此順序由 lock 佇列決定。block/unblock 的變更對外部可見的切點為該 **block transaction 的 commit**。
-- Barrier test 用**兩個真正的 DB session**（兩條獨立連線，以檔案／table 旗標當 barrier 協調，不用同 session 的 advisory lock 假裝並行）：
-  - S1 開 transaction 執行 INSERT（停在 gate lock 之後、commit 之前），S2 執行 block → 驗 S2 阻塞；S1 commit 後 S2 才 commit；S2 commit 之後的所有 INSERT 皆 0 列。
-  - 反向：S2 先 block 並 commit，S1 後 INSERT → 0 列。
-  - 各 3 次；另跑 8 連線 × 200 INSERT 與交錯 block/unblock 的 fuzz，斷言「gate blocked commit 之後不存在新增列」。
+- `tw_bsr_sync_queue` ownership 欄位分布：`pending 77` 筆 `correlation_id` **全部非 null 且 77 個各不相同**、`started_at` 全部為 null、`last_error` 全部為 `quota_deferred`；`failed 1572` 筆 correlation_id 亦全非 null、started_at 全 null；`done 9956` 筆僅 3 筆 correlation_id 為 null。
+- `claim_bsr_queue_jobs` body（已唯讀取得）**不寫入也不改變 `correlation_id`**，只寫 `status='running', started_at=now(), attempts=attempts+1`。→ **`correlation_id` 是 enqueue-time 標記，不是 worker lease**，v4 的 ownership 條件因此無效。
+- `reap_stale_bsr_queue_jobs(_stale_minutes default 60)`：把 `status='running' AND updated_at < now()-60min` 轉回 `pending`、`next_run_at=now()`，並刪過期 `tw_bsr_sync_locks`。→ terminalize 與 reaper 存在競態，必須用 claim 當下的 `started_at` 做 pairwise 比對。
+- 其餘 v4 基線（config 欄位、queue 索引、enqueued_by 分布、degrade_events schema、writer ON CONFLICT 行為、Edge enqueue 程式碼）不變。
 
 ---
 
-## 交付與驗收（clone-only，production 0 touch）
+## 1. `recover_quota_failed_bsr_jobs` 納入 Stage B mutation scope（消除每小時噪音）
 
-- clone A1：restore 0 errors → apply → 跑 §1/§2/§3/§5/§8/§9 全部測試（含兩次完整 run 的 idempotency）→ rollback → 與 baseline 比對 schema/ACL/rowcount/hash。
-- clone A2：rollback 演練 + 18 個 queue-touching function 的 `proowner/proacl/proconfig` diff（要求 0 差異；Stage B 不 CREATE OR REPLACE 任何既有 function）。
-- **P-ACL GAP-1（不在本 Stage 修）**：`ensure_bsr_queued`、`enqueue_bsr_backfill`、`enqueue_bsr_first_fetch_on_trade`、`enqueue_all_active_tw_holdings_bsr`、`ensure_bsr_window`、`converge_bsr_windows`、`defer_bsr_job_quota`、`bsr_snapshot_fulfill_jobs`、`bsr_snapshot_stats`、`bsr_trace_by_correlation`、`reap_stale_bsr_queue_jobs`（SECURITY DEFINER）以及 `claim_bsr_queue_jobs`、`prune_bsr_sync_queue`（non-definer）目前對 `anon`/`authenticated` 開 EXECUTE，全部 owner=postgres、`proconfig={search_path=public}`。列為獨立待修項。
-- 新函式一律 `SET search_path = pg_catalog, private_bsr`（不含 public，且 public 不在前）、body 完全限定 `public.*`、禁止 dynamic SQL；建立後附 `proconfig`／`proacl`／`provolatile` read-back。
-- 全程不碰 production DB、Edge deploy、cron、ACL、Publish。
+v4 的「gate 關閉期間每小時 recover 1 筆再 terminalize」不符合驗收（terminal gate 後 admission=0、pending 單調收斂、drain 後零噪音），撤回。
+
+**CREATE OR REPLACE `public.recover_quota_failed_bsr_jobs(p_max int)`**，body 唯一變更是候選條件：
+
+- 一般 quota/rate-limit 語意完全不變：`last_error LIKE 'finmind_admission_%'`（不含 terminal code）與 `last_error='quota_deferred'` 照舊可回收；`reconciled_fact_exists` 分支、budget/pools、cap=1、`max_attempts<8`、logging 全部不動。
+- 新增排除條件：`last_error = 'finmind_admission_provider_plan_rejected'` 的列，**只有在** `private_bsr.admission_open()` 為 true（即 `market_batch.config->'admission_blocked'` 是 JSON boolean `false`）時才可入選；gate 為 `true`／key 缺失／型別非 boolean／row 不存在 → **永不入選**（fail-closed）。
+- 兩處 candidate CTE（`pick` reconcile 與 `cand` token）皆套用同一條件；`candidates_inspected` 計數同步排除，避免 metrics 誤導。
+
+Mutation 安全程序：
+
+- mutation 前保存 `pg_get_functiondef`、`proowner`、`proacl`、`proconfig`、`obj_description`（存成 artifact 並記 sha256）。
+- mutation 後 read-back：除 body 的預期 diff 外，`owner / ACL / proconfig / comment / 參數簽章 / return type` 必須完全相同（逐項 assert）。
+- rollback = 以保存的 `pg_get_functiondef` **byte-identical** 還原，並再次 read-back 比對 sha256。
+
+## 2. Recovery 完成條件（clone 實測腳本）
+
+- **Blocked 階段**：gate blocked 後連續執行 3 次 hourly 等價 run（`enqueue_chips_prefetch_gaps()`，內含 `recover_stale_bsr_queue_jobs` 與 `recover_quota_failed_bsr_jobs`）。斷言：terminal failed 列 0 筆轉 pending；`quota_deferred` 計數不增加；`attempts`／`max_attempts` 不變；`audit_logs` 與 `tw_bsr_degrade_events` 無新增；queue 各 status 計數逐 run 相同（pending 單調收斂至 0 後保持 0）。
+- **Recovery 階段**：admin server-side probe 成功 → gate explicit `false` → 之後每次 hourly run 至多 1 筆 terminal failed 轉 pending（實測 3 run = 至多 3 筆）→ worker 對該筆實際成功並轉 `done`。
+- **再度惡化**：注入 exact terminal evidence → worker 先原子 block gate → 該 job 轉 failed(`finmind_admission_provider_plan_rejected`) → 後續 hourly run 再次 0 筆回收。
+- 三階段各附前後 status 分布表與 fingerprint。
+
+## 3. Terminalize 的 exact pairwise ownership
+
+- 不使用 `correlation_id`（已證明非 lease）、不使用集合交叉匹配。
+- worker 保留 `claim_bsr_queue_jobs` 回傳的 `(id, started_at, attempts)`，terminalize 語句為：
+
+```text
+UPDATE public.tw_bsr_sync_queue q
+   SET status='failed', last_error='finmind_admission_provider_plan_rejected',
+       finished_at=now(), updated_at=now()
+  FROM unnest($1::bigint[], $2::timestamptz[], $3::int[]) AS c(id, started_at, attempts)
+ WHERE q.id = c.id
+   AND q.status = 'running'
+   AND q.started_at IS NOT DISTINCT FROM c.started_at
+   AND q.attempts IS NOT DISTINCT FROM c.attempts
+```
+
+- 任何被 reaper 搶回 `pending`（started_at 改變或 status 改變）的列都不會被更新；回傳更新列數與 claim 筆數的差額列入 run report。
+- clone 測試：(a) correlation_id 為 null 的 job 也能被正確 terminalize；(b) reaper 競態 — claim 後人為把 `updated_at` 推回 61 分鐘並執行 `reap_stale_bsr_queue_jobs()`，再執行 terminalize，斷言該列維持 reaper 的 pending 狀態且 terminalize 更新 0 列、worker 正確回報 lost lease。
+
+## 4. 觀測：選定「service-role-only admission status read」（消除 v4 §6/§7 矛盾）
+
+v4 同時說「blocked count 寫入 refresh log」又說「Edge 不能區分」，矛盾。v5 選擇明確方案 A：
+
+- 新增 narrow public wrapper `public.bsr_admission_status()`：`REVOKE ALL FROM PUBLIC, anon, authenticated`、`GRANT EXECUTE TO service_role`；回傳 `{blocked, reason, blocked_at, version}`（不含 raw upstream body）。
+- worker 每 run 開頭呼叫一次；enqueue 前後以 queue rowcount delta 計算本 run 被擋列數，連同 admission status 寫入 HTTP response 與 `data_source_refresh_logs.metadata`（`admission_blocked`、`admission_reason`、`admission_gate_version`、`enqueue_blocked_rows`）。
+- 因此 blocked 與 duplicate 由 worker 端明確區分（duplicate 仍為 unique violation error，blocked 為 error=null + delta=0 + gate blocked）。舊 `tw-chips-detail` 與前端不變、不需要讀 gate。
+- ACL read-back：列出 wrapper 的 `proacl`、`proconfig`、`provolatile`，並實測 anon/authenticated 呼叫被拒、PostgREST 對 `private_bsr` 不可達。
+
+## 5. 兩座獨立 rehearsal clone
+
+- **B6 與 B7**：各自從 production baseline 全新 restore（0 unexpected/0 expected errors），各自**完整**跑 A1 全流程：apply → §1 function replace read-back → §2 recovery 三階段 → §3 ownership/reaper 競態 → §8(v4) 逐支 writer open/closed row delta、deadlock／statement_timeout → §9(v4) 兩獨立 session barrier 與 fuzz → ACL/owner diff → rollback → 與 baseline 比對 schema/ACL/rowcount/hash。
+- 兩座各自產出獨立 artifact 與 sha256（restore log、apply log、test log、fingerprint、functiondef before/after），不共用、不互相引用。
+
+## 6. 最終 mutation scope（完整清單）
+
+**Repo files**
+- `supabase/functions/_shared/bsrProviderState.ts`：classifier（terminal / retryable / unknown 之 predicate 與 precedence）＋ `sanitizeUpstreamSignature`。
+- `supabase/functions/tw-bsr-finmind-sync/index.ts`：run 開頭讀 `bsr_admission_status()`；terminal 時呼叫 block；pairwise terminalize；run report 欄位；enqueue blocked rows 統計。
+- `supabase/functions/tw-bsr-finmind-sync/lib.ts`：以 shared classifier 取代 `isQuotaRejection`。
+- admin probe handler（同一 function 內新增 `mode=admin_probe`，company_admin JWT 驗證後 server-side 執行真實 upstream 探測，成功才 unblock）。
+- 對應測試檔（Deno）。
+
+**DB（migration）**
+- `CREATE SCHEMA private_bsr`；`private_bsr.admission_open()`（VOLATILE、`SET search_path=pg_catalog, private_bsr`、完全限定 `public.*`、無 dynamic SQL）、`private_bsr.block_admission(...)`、`private_bsr.unblock_admission(expected_version, nonce, evidence)`（鎖 row、重讀、idempotent transition）。
+- `public.tw_bsr_sync_queue_admission_gate()` trigger function（VOLATILE、SECURITY DEFINER、只擋/放、零業務驗證、gate closed 時 `RETURN NULL` 不 raise）＋ `BEFORE INSERT FOR EACH ROW` trigger。
+- `public.bsr_admission_status()` narrow wrapper（service_role only）。
+- `CREATE OR REPLACE public.recover_quota_failed_bsr_jobs(int)`（§1，含 before/after functiondef artifact 與 byte-identical rollback）。
+- **無 ALTER TABLE、無新 table**（`tw_bsr_sync_config` 已有 config/version；`tw_bsr_degrade_events` 已存在）。
+
+**資料（DML）**
+- `market_batch.config` 的 7 個 JSON keys（`admission_blocked`、`admission_reason`、`admission_blocked_at`、`last_blocked_at`、`admission_probe`、`admission_probe_at`、`admission_probe_schema_version`）**只由自然 worker block 與 admin probe unblock 寫入**，無手動 seed、無 bulk DML。
+- `tw_bsr_sync_queue`：只有自然 worker 每 run 的 pairwise terminalize，以及既有 recovery 的每 run ≤1 筆轉換。
+- `audit_logs` + `tw_bsr_degrade_events`：只在 gate transition（block/unblock）各寫 1 筆；gate closed 不寫 per-row event。
+
+**Production staged deploy（本輪不執行，僅列項）**
+1. migration（schema/function/trigger/wrapper/replace）；2. Edge `tw-bsr-finmind-sync` 部署；3. 觀察 3 次自然 cron；4. 需要時 admin probe。
+
+**明確不碰**
+- 舊 `tw-chips-detail`（v1/v2）、任何前端檔案、cron schedule、P-ACL GAP-1 的 13 個既有 function 的 owner/ACL、其他 table 的 RLS/GRANT、Publish。
+
+---
+
+驗收通過條件：兩座 clone（B6/B7）各自 all-green，且 §2 三階段行為、§3 競態、§5 fingerprint、§1 rollback byte-identical 全部有獨立 artifact 佐證。production 在本階段 0 touch。
