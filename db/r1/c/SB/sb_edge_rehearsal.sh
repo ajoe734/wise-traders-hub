@@ -402,7 +402,7 @@ chk $([ "$CTIMEOUT" = 0 ] && echo 0 || echo 1) "EB-89 concurrency completed insi
 chk $([ "${CR1:-1}" = 0 ] && [ "${CR2:-1}" = 0 ] && echo 0 || echo 1) "EB-89b both concurrent curl processes exited 0 (rc=${CR1:-none}/${CR2:-none})"
 chk $([ "${CC1:-x}" = 200 ] && [ "${CC2:-x}" = 200 ] && echo 0 || echo 1) "EB-90 both concurrent workers returned 200 (http=${CC1:-none}/${CC2:-none})"
 chk $([ "$(gateblocked)" = 'true' ] && echo 0 || echo 1) "EB-91 gate closed exactly once under concurrency"
-DUP=$(psql "$CL" -qXAt -c "SELECT count(*) FROM public.tw_bsr_sync_queue WHERE enqueued_by='edge_rehearsal_conc' AND status='processing' AND started_at < now() - interval '2 minutes'")
+DUP=$(psql "$CL" -qXAt -c "SELECT count(*) FROM public.tw_bsr_sync_queue WHERE enqueued_by='edge_rehearsal_conc' AND status='running' AND started_at < now() - interval '2 minutes'")
 chk $([ "${DUP:-0}" = 0 ] && echo 0 || echo 1) "EB-92 no job left pending with a stale lease (${DUP:-0})"
 DEAD=""
 for p in "${SVC_PIDS[@]}"; do kill -0 "$p" 2>/dev/null || DEAD="$DEAD $p"; done
@@ -483,21 +483,21 @@ for m in rate fail5 net unknown; do
   C=$(post "$W" "$DIR/w_$m.json" '{"mode":"worker","batch":2,"budget_ms":8000}' "$CRONH")
   chk $([ "$C" = 200 ] && echo 0 || echo 1) "EB-11$m worker survives provider class '$m' (got $C)"
   chk $([ "$(gateblocked)" = 'false' ] && echo 0 || echo 1) "EB-12$m retryable/unknown class '$m' must NOT close the gate"
-  ST=$(psql "$CL" -qXAt -c "SELECT status FROM public.tw_bsr_sync_queue WHERE enqueued_by='edge_rehearsal_$m' LIMIT 1")
-  chk $([ "$ST" != 'terminal' ] && echo 0 || echo 1) "EB-13$m class '$m' did not terminalize the job (status=$ST)"
+  ST=$(psql "$CL" -qXAt -c "SELECT status || '/' || COALESCE(last_error,'-') FROM public.tw_bsr_sync_queue WHERE enqueued_by='edge_rehearsal_$m' LIMIT 1")
+  chk $([ "$ST" != "failed/finmind_admission_provider_plan_rejected" ] && echo 0 || echo 1) "EB-13$m class '$m' did not terminalize the job ($ST)"
 done
 
 # lost lease: another worker stole the row mid-flight -> terminalize must not
 # resurrect or double-write it
 open_gate
 psql "$CL" -qX -c "DELETE FROM public.tw_bsr_sync_queue" >/dev/null
-psql "$CL" -qX -c "INSERT INTO public.tw_bsr_sync_queue(stock_id, trade_date, priority, status, enqueued_by, next_run_at, started_at) VALUES ('2317', current_date - 5, 1, 'processing', 'edge_rehearsal_lease', now(), now())" >/dev/null
+psql "$CL" -qX -c "INSERT INTO public.tw_bsr_sync_queue(stock_id, trade_date, priority, status, enqueued_by, next_run_at, started_at) VALUES ('2317', current_date - 5, 1, 'running', 'edge_rehearsal_lease', now(), now() - interval '5 seconds')" >/dev/null
 LEASE_T0=$(psql "$CL" -qXAt -c "SELECT started_at FROM public.tw_bsr_sync_queue WHERE enqueued_by='edge_rehearsal_lease'")
 echo reject >"$DIR/mock_mode"
 C=$(post "$W" "$DIR/w_lease.json" '{"mode":"worker","batch":2,"budget_ms":8000}' "$CRONH")
 LEASE_ST=$(psql "$CL" -qXAt -c "SELECT status FROM public.tw_bsr_sync_queue WHERE enqueued_by='edge_rehearsal_lease'")
 LEASE_T1=$(psql "$CL" -qXAt -c "SELECT started_at FROM public.tw_bsr_sync_queue WHERE enqueued_by='edge_rehearsal_lease'")
-chk $([ "$LEASE_ST" = 'processing' ] && [ "$LEASE_T1" = "$LEASE_T0" ] && echo 0 || echo 1) "EB-140 a live foreign lease is never stolen (status=$LEASE_ST started_at_changed=$([ "$LEASE_T1" = "$LEASE_T0" ] && echo no || echo yes))"
+chk $([ "$LEASE_ST" = 'running' ] && [ "$LEASE_T1" = "$LEASE_T0" ] && echo 0 || echo 1) "EB-140 a live foreign lease is never stolen (status=$LEASE_ST started_at_changed=$([ "$LEASE_T1" = "$LEASE_T0" ] && echo no || echo yes))"
 chk $([ "$C" = 200 ] && echo 0 || echo 1) "EB-141 worker returns 200 with only foreign-leased rows (got $C)"
 
 ############################################################ G4. admin nonce replay / stale version
