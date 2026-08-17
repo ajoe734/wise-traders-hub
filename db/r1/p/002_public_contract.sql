@@ -346,3 +346,31 @@ EXECUTE 'GRANT EXECUTE ON FUNCTION public.has_active_subscription_after(uuid, ti
 END $wrap4$;
 
 
+
+-- Internal SECURITY DEFINER callers (get_expert_detail_bundle, check_checkup_quota,
+-- protect_profile_fields, the clone RLS harness ...) legitimately evaluate these
+-- helpers for a user id that is not auth.uid(). They already run inside a trusted
+-- path, so they are repointed to the ungated `_raw` bodies, exactly like the
+-- enforce_signal_capital_limit trigger above.
+DO $repoint2$
+DECLARE r record; def text;
+BEGIN
+  IF to_regprocedure('public.is_tester_raw(uuid)') IS NULL
+     AND to_regprocedure('public.has_active_subscription_after_raw(uuid, timestamptz)') IS NULL
+  THEN RETURN; END IF;
+  FOR r IN
+    SELECT p.oid FROM pg_proc p JOIN pg_namespace n ON n.oid = p.pronamespace
+     WHERE n.nspname IN ('public','app_ledger')
+       AND p.proname NOT LIKE 'is_tester%'
+       AND p.proname NOT LIKE 'has_active_subscription_after%'
+       AND p.proname <> 'acl_caller_may_read_identity'
+       AND (p.prosrc LIKE '%is_tester(%'
+            OR p.prosrc LIKE '%has_active_subscription_after(%')
+  LOOP
+    def := regexp_replace(pg_get_functiondef(r.oid),
+             '\mis_tester\(', 'is_tester_raw(', 'g');
+    def := regexp_replace(def,
+             '\mhas_active_subscription_after\(', 'has_active_subscription_after_raw(', 'g');
+    EXECUTE def;
+  END LOOP;
+END $repoint2$;
