@@ -96,7 +96,9 @@ export function deriveChipsState(
     ? Object.entries(circuit!.sources).find(([, v]) => v.state === 'open')?.[0] ?? null
     : null;
   const openUntil = openSource ? circuit!.sources[openSource]?.disabled_until ?? null : null;
+  const providerStateTop = payload?.bsr_provider_state ?? payload?.bsr_sync_status?.provider_state ?? null;
   const outage =
+    providerStateTop === 'terminal_provider_rejected' ||
     circuitOpen ||
     errKind === 'server' ||
     queueStatus === 'dead' ||
@@ -104,7 +106,15 @@ export function deriveChipsState(
     bsrFresh === 'sync_failed';
   if (outage) {
     let reason: string;
-    if (circuitOpen) {
+    // Plan v2：terminal provider rejection 不得承諾恢復時間或自動重試。
+    const providerState = providerStateTop;
+    if (providerState === 'terminal_provider_rejected') {
+      reason = payload?.bsr_as_of
+        ? '上游來源中止，分點更新已暫停（顯示前次成功資料）'
+        : '上游目前不提供此資料，更新已暫停';
+    } else if (providerState === 'unknown_degraded') {
+      reason = '上游狀態待確認，暫不承諾更新時間';
+    } else if (circuitOpen) {
       const untilTxt = openUntil
         ? new Date(openUntil).toLocaleTimeString('zh-TW', { hour: '2-digit', minute: '2-digit', timeZone: 'Asia/Taipei' })
         : null;
@@ -139,10 +149,14 @@ export function deriveChipsState(
     queueStatus === 'running' ||
     instRd === 'filling' ||
     instRd === 'no_data';
+  const providerStateForFilling = providerStateTop;
+  // terminal 已在上方 outage 分支 return，這裡只會遇到非 terminal 狀態
   if (filling && !payload?.bsr_as_of) {
     return {
       state: 'filling_new_stock',
-      reason: queueStatus === 'running'
+      reason: providerStateForFilling === 'unknown_degraded'
+        ? '上游狀態待確認，暫不承諾更新時間'
+        : queueStatus === 'running'
         ? '正在同步分點資料（約 5–15 分鐘）'
         : queueStatus === 'pending'
           ? '已排入同步佇列，稍後自動補齊'

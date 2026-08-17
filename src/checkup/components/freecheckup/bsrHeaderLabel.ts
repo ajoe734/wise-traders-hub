@@ -8,6 +8,15 @@ export type BsrSyncStatus = {
   ineligible_reason?: string | null;
   status?: 'pending' | 'running' | 'failed' | 'dead' | 'done' | 'not_queued' | null;
   next_run_at?: string | null;
+  /** Plan v2：server 端 provider 三態；優先於 queue status */
+  provider_state?:
+    | 'ineligible'
+    | 'terminal_provider_rejected'
+    | 'retryable'
+    | 'unknown_degraded'
+    | 'fresh'
+    | 'stale_no_error';
+  retry_promised?: boolean;
 } | null | undefined;
 
 export type BsrHeaderLabel = { text: string; tone: 'mute' | 'warn' | 'error' } | null;
@@ -35,6 +44,13 @@ export function bsrHeaderLabel(
     if (reason === 'unsupported_asset_type') return { text: 'ETF／權證無分點資料', tone: 'mute' };
     if (reason === 'missing_instrument') return { text: '尚無此代號 metadata', tone: 'mute' };
     return { text: '此代號不支援分點', tone: 'mute' };
+  }
+  // Plan v2：queue pending ≠ 會成功。永久拒絕不得承諾重試時間。
+  if (syncStatus.provider_state === 'terminal_provider_rejected') {
+    return { text: '上游目前不提供此資料，更新已暫停', tone: 'error' };
+  }
+  if (syncStatus.provider_state === 'unknown_degraded') {
+    return { text: '上游狀態待確認，暫不承諾更新時間', tone: 'warn' };
   }
   if (syncStatus.status === 'running') return { text: 'BSR 同步進行中', tone: 'warn' };
   if (syncStatus.status === 'pending') {

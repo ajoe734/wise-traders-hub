@@ -20,6 +20,12 @@ export { default as HoldingMetaReportModal } from '../../components/freecheckup/
 export { default as ChipsSection, getInstReadiness } from '../../components/freecheckup/ChipsSection';
 export { default as ChipsTrendChart } from '../../components/freecheckup/ChipsTrendChart';
 export { bsrHeaderLabel, fmtNextRun } from '../../components/freecheckup/bsrHeaderLabel';
+export {
+  buildBsrSegment,
+  buildInstitutionalSegment,
+  buildFreshnessSegments,
+  segmentColor,
+} from '../../components/freecheckup/chipsFreshnessSegments';
 export { computeScenario, isDirty } from '../../components/freecheckup/holdingScenario';
 // _ui/* 只有 M1 使用，直接歸 M1（ADR-0005 §4）
 export { ActionBadge } from '../../components/freecheckup/_ui/ActionBadge';
