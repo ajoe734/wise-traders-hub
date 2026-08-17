@@ -1120,18 +1120,39 @@ Deno.serve(async (req) => {
       const policy = policyOf(state.mode);
       const tiers: Record<string, number | string> = {};
       const cid = crypto.randomUUID();
+      // Stage B：整個 enqueue 請求讀一次 admission status，per-chunk 依此判定。
+      const ctx: EnqueueCtx = {
+        admission: await fetchAdmissionStatus(supa as unknown as GateRpcClient),
+        chunks: [],
+      };
       const doTier1 = body?.tier1 !== false;
       const doTier2 = body?.tier2 !== false;
       const doTier3Req = body?.tier3 === true;
       const doTier3 = doTier3Req && policy.allowEnqueueTier3;
       const backfillDays = Math.max(1, Math.min(30, Number(body?.backfill_days ?? 5)));
-      if (doTier1) tiers.tier1 = await enqueueTier1Holdings(effectiveDate, cid);
-      if (doTier2) tiers.tier2 = await enqueueTier2Gaps(effectiveDate, cid);
-      if (doTier3) tiers.tier3 = await enqueueTier3Backfill(effectiveDate, backfillDays, cid);
+      if (doTier1) tiers.tier1 = await enqueueTier1Holdings(effectiveDate, cid, ctx);
+      if (doTier2) tiers.tier2 = await enqueueTier2Gaps(effectiveDate, cid, ctx);
+      if (doTier3) tiers.tier3 = await enqueueTier3Backfill(effectiveDate, backfillDays, cid, ctx);
       else if (doTier3Req) tiers.tier3 = 'skipped_by_degrade';
+      const chunkSummary = summarizeChunks(ctx.chunks);
+      console.log(JSON.stringify({
+        fn: 'tw-bsr-finmind-sync', mode: 'enqueue', correlation_id: cid,
+        admission_decision: ctx.admission.decision,
+        admission_reason: ctx.admission.reason ?? ctx.admission.detail,
+        gate_version: ctx.admission.version,
+        ...chunkSummary,
+      }));
       return json({
         ok: true, mode, date: effectiveDate, pre_close_rolled: effectiveDate !== requested,
         enqueued: tiers, correlation_id: cid, degrade_mode: state.mode,
+        admission: {
+          decision: ctx.admission.decision,
+          blocked: ctx.admission.blocked,
+          reason: ctx.admission.reason ?? ctx.admission.detail,
+          terminal_code: ctx.admission.terminalCode,
+          gate_version: ctx.admission.version,
+        },
+        admission_accounting: chunkSummary,
       });
     }
 
