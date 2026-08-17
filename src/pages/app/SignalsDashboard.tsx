@@ -23,6 +23,9 @@ import { richHtmlPreview, PREVIEW_LIMITS } from '@/components/SafeRichHtml';
 import { avatarUrl } from '@/lib/imageTransform';
 import { useEffect } from 'react';
 import { track } from '@/lib/analytics/events';
+import { gateSignalEconomics } from '@/contracts/publicEconomicContract';
+import { fetchProjectionStatusForExperts } from '@/lib/fetchProjectionStatus';
+import { PerformanceReviewNotice } from '@/components/PerformanceReviewNotice';
 
 interface SignalsDashboardProps {
   subscriptions: any[];
@@ -44,7 +47,13 @@ export function SignalsDashboard({ subscriptions, userName }: SignalsDashboardPr
         .eq('experts.status', 'active')
         .order('published_at', { ascending: false })
         .limit(5);
-      return data || [];
+      const rows = data || [];
+      // R1-P typed public contract: never render subscriber-facing economics
+      // before the projection scope is resolved as ready / legacy.
+      const projection = await fetchProjectionStatusForExperts(
+        Array.from(new Set(rows.map((r: any) => r.expert_id).filter(Boolean))),
+      );
+      return gateSignalEconomics(rows as any[], projection) as any[];
     },
     staleTime: 30_000,
   });
