@@ -78,17 +78,39 @@ BEGIN
   LOOP EXECUTE format('DROP POLICY %I ON public.expert_signals', r.policyname); END LOOP;
 END $embargo$;
 
+-- The predicate must NOT read app_ledger.economic_effect inline: RLS predicates
+-- execute with the *caller's* privileges, and anon has (correctly) no SELECT on
+-- the internal ledger, so an inline EXISTS turns every anon read of
+-- expert_signals into "permission denied for table economic_effect".
+-- A SECURITY DEFINER, fixed-search_path helper exposes exactly one boolean and
+-- nothing else.
+CREATE OR REPLACE FUNCTION public.signal_is_publicly_visible(_signal_id uuid)
+RETURNS boolean
+LANGUAGE sql
+STABLE
+SECURITY DEFINER
+SET search_path = public, app_ledger, pg_temp
+AS $fn$
+  SELECT EXISTS (
+    SELECT 1 FROM app_ledger.economic_effect e
+     WHERE e.origin_signal_id = _signal_id
+       AND e.visible_at IS NOT NULL
+       AND e.visible_at <= now()
+  );
+$fn$;
+REVOKE ALL ON FUNCTION public.signal_is_publicly_visible(uuid) FROM PUBLIC;
+GRANT EXECUTE ON FUNCTION public.signal_is_publicly_visible(uuid)
+  TO anon, authenticated, service_role;
+
 DROP POLICY IF EXISTS signals_embargo_anon ON public.expert_signals;
 CREATE POLICY signals_embargo_anon ON public.expert_signals
   FOR SELECT TO anon
   USING (
     status = 'published'
     AND published_at IS NOT NULL
-    AND EXISTS (
-      SELECT 1 FROM app_ledger.economic_effect e
-       WHERE e.origin_signal_id = public.expert_signals.id
-         AND e.visible_at IS NOT NULL AND e.visible_at <= now())
+    AND public.signal_is_publicly_visible(public.expert_signals.id)
   );
+
 
 -- ---------------------------------------------------------------- C3: EXECUTE closure
 -- Per-target disposition, mirrored 1:1 by db/r1/p/acl-25.json:
@@ -261,16 +283,116 @@ END $wrap2$;
 
 
 -- ---------------------------------------------------------------- C3c: named helpers
--- The two RLS predicate helpers stay callable by `authenticated` (RLS policies are
--- evaluated as the querying role); anon/PUBLIC are closed.
-DO $named$
-DECLARE sig text;
-BEGIN
-  FOREACH sig IN ARRAY ARRAY['public.has_active_subscription_after(uuid, timestamptz)',
-                             'public.is_tester(uuid)'] LOOP
-    CONTINUE WHEN to_regprocedure(sig) IS NULL;
-    EXECUTE format('REVOKE ALL ON FUNCTION %s FROM PUBLIC, anon', sig);
-    EXECUTE format('GRANT EXECUTE ON FUNCTION %s TO authenticated, service_role', sig);
-  END LOOP;
-END $named$;
+-- has_active_subscription_after(_user_id, _at) and is_tester(_user_id) are
+-- SECURITY DEFINER helpers that accept an ARBITRARY user id: pre-cutover, any
+-- caller could probe another member's entitlements / tester flag. They are also
+-- evaluated inside RLS predicates as the QUERYING role (including anon, e.g.
+-- "Anyone can view active experts" -> is_tester(auth.uid())), so a blanket
+-- REVOKE FROM anon would break anonymous browsing with 42501.
+-- Disposition: replace_with_wrapper_authuid_bound
+--   * <name>_raw  : verbatim original body, owner/service_role only
+--   * <name>      : identity-bound wrapper, callable by anon/authenticated
+--                   but only for auth.uid() itself (NULL binds to NULL),
+--                   company_admin, or a trusted server-side caller.
+-- Identity gate. It must NOT look at current_user: inside a SECURITY DEFINER
+-- wrapper current_user is always the owner, so current_user would leave the gate
+-- permanently open. The caller identity comes from the request JWT instead.
+CREATE OR REPLACE FUNCTION public.acl_caller_may_read_identity(_user_id uuid)
+RETURNS boolean LANGUAGE sql STABLE SECURITY DEFINER SET search_path TO 'public'
+AS $acli$
+  SELECT _user_id IS NOT DISTINCT FROM auth.uid()
+      OR coalesce(auth.role(), '') = 'service_role'
+      OR (auth.uid() IS NOT NULL AND public.has_role(auth.uid(), 'company_admin'))
+$acli$;
+REVOKE ALL ON FUNCTION public.acl_caller_may_read_identity(uuid) FROM PUBLIC;
+GRANT EXECUTE ON FUNCTION public.acl_caller_may_read_identity(uuid)
+  TO anon, authenticated, service_role;
 
+DO $mkraw2$
+
+DECLARE src text; nm text; sig text;
+BEGIN
+  FOREACH nm IN ARRAY ARRAY['has_active_subscription_after','is_tester'] LOOP
+    sig := CASE WHEN nm = 'is_tester' THEN '(uuid)' ELSE '(uuid, timestamptz)' END;
+    CONTINUE WHEN to_regprocedure('public.' || nm || sig) IS NULL;
+    IF to_regprocedure('public.' || nm || '_raw' || sig) IS NULL THEN
+      SELECT pg_get_functiondef(p.oid) INTO src
+        FROM pg_proc p JOIN pg_namespace n ON n.oid = p.pronamespace
+       WHERE n.nspname = 'public' AND p.proname = nm;
+      CONTINUE WHEN src IS NULL;
+      EXECUTE replace(src, 'FUNCTION public.' || nm || '(',
+                           'FUNCTION public.' || nm || '_raw(');
+    END IF;
+  END LOOP;
+END $mkraw2$;
+
+DO $wrap3$ BEGIN
+IF to_regprocedure('public.is_tester_raw(uuid)') IS NULL THEN RETURN; END IF;
+EXECUTE $ddl$
+CREATE OR REPLACE FUNCTION public.is_tester(_user_id uuid)
+RETURNS boolean LANGUAGE plpgsql STABLE SECURITY DEFINER SET search_path TO 'public'
+AS $ist$
+BEGIN
+  IF NOT public.acl_caller_may_read_identity(_user_id) THEN
+    RAISE EXCEPTION 'forbidden' USING ERRCODE = '42501';
+  END IF;
+  RETURN public.is_tester_raw(_user_id);
+END $ist$;
+$ddl$;
+EXECUTE 'REVOKE ALL ON FUNCTION public.is_tester_raw(uuid) FROM PUBLIC, anon, authenticated';
+EXECUTE 'GRANT EXECUTE ON FUNCTION public.is_tester_raw(uuid) TO service_role';
+EXECUTE 'REVOKE ALL ON FUNCTION public.is_tester(uuid) FROM PUBLIC';
+EXECUTE 'GRANT EXECUTE ON FUNCTION public.is_tester(uuid) TO anon, authenticated, service_role';
+END $wrap3$;
+
+DO $wrap4$ BEGIN
+IF to_regprocedure('public.has_active_subscription_after_raw(uuid, timestamptz)') IS NULL THEN RETURN; END IF;
+EXECUTE $ddl$
+CREATE OR REPLACE FUNCTION public.has_active_subscription_after(
+  _user_id uuid, _published_at timestamptz)
+RETURNS TABLE(expert_id uuid)
+LANGUAGE plpgsql STABLE SECURITY DEFINER SET search_path TO 'public'
+AS $hasa$
+BEGIN
+  IF NOT public.acl_caller_may_read_identity(_user_id) THEN
+    RAISE EXCEPTION 'forbidden' USING ERRCODE = '42501';
+  END IF;
+  RETURN QUERY SELECT r.expert_id
+    FROM public.has_active_subscription_after_raw(_user_id, _published_at) r;
+END $hasa$;
+$ddl$;
+EXECUTE 'REVOKE ALL ON FUNCTION public.has_active_subscription_after_raw(uuid, timestamptz) FROM PUBLIC, anon, authenticated';
+EXECUTE 'GRANT EXECUTE ON FUNCTION public.has_active_subscription_after_raw(uuid, timestamptz) TO service_role';
+EXECUTE 'REVOKE ALL ON FUNCTION public.has_active_subscription_after(uuid, timestamptz) FROM PUBLIC';
+EXECUTE 'GRANT EXECUTE ON FUNCTION public.has_active_subscription_after(uuid, timestamptz) TO anon, authenticated, service_role';
+END $wrap4$;
+
+
+
+-- Internal SECURITY DEFINER callers (get_expert_detail_bundle, check_checkup_quota,
+-- protect_profile_fields, the clone RLS harness ...) legitimately evaluate these
+-- helpers for a user id that is not auth.uid(). They already run inside a trusted
+-- path, so they are repointed to the ungated `_raw` bodies, exactly like the
+-- enforce_signal_capital_limit trigger above.
+DO $repoint2$
+DECLARE r record; def text;
+BEGIN
+  IF to_regprocedure('public.is_tester_raw(uuid)') IS NULL
+     AND to_regprocedure('public.has_active_subscription_after_raw(uuid, timestamptz)') IS NULL
+  THEN RETURN; END IF;
+  FOR r IN
+    SELECT p.oid FROM pg_proc p JOIN pg_namespace n ON n.oid = p.pronamespace
+     WHERE n.nspname IN ('public','app_ledger')
+       AND p.proname NOT LIKE 'is_tester%'
+       AND p.proname NOT LIKE 'has_active_subscription_after%'
+       AND p.proname <> 'acl_caller_may_read_identity'
+       AND (p.prosrc LIKE '%is_tester(%'
+            OR p.prosrc LIKE '%has_active_subscription_after(%')
+  LOOP
+    def := regexp_replace(pg_get_functiondef(r.oid),
+             '\mis_tester\(', 'is_tester_raw(', 'g');
+    def := regexp_replace(def,
+             '\mhas_active_subscription_after\(', 'has_active_subscription_after_raw(', 'g');
+    EXECUTE def;
+  END LOOP;
+END $repoint2$;

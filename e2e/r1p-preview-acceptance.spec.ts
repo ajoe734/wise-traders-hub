@@ -334,14 +334,68 @@ for (const c of CASES) {
  */
 test('preview smoke — unmocked shell has no layout/navigation regression', async ({ page }) => {
   const pageErrors: string[] = [];
+  const appConsoleErrors: string[] = [];
+  const environmentErrors: string[] = [];
   page.on('pageerror', (e) => pageErrors.push(`${e.name}: ${e.message}`));
+  page.on('console', (m) => {
+    if (m.type() !== 'error') return;
+    const txt = m.text();
+    // transport/env noise (offline backend, blocked 3rd party) is recorded
+    // separately and must never be laundered into the app console budget.
+    if (/Failed to load resource|net::ERR|ERR_|status of (4|5)\d\d/.test(txt)) environmentErrors.push(txt);
+    else appConsoleErrors.push(txt);
+  });
+
   await page.setViewportSize({ width: 1280, height: 900 });
   await page.goto('/');
   await expect(page.locator('body')).toBeVisible();
   const text = (await page.locator('body').innerText()).trim();
   expect(text.length).toBeGreaterThan(100);
   await expect(page.getByText('頁面發生錯誤')).toHaveCount(0);
-  writeFileSync(`${EV}/smoke-home.json`, JSON.stringify({ bodyChars: text.length, pageErrors }, null, 2));
+
+  // layout landmarks + navigation + subscription entry points
+  const headerCount = await page.locator('header, nav').count();
+  const navLinks = await page.locator('a[href]').count();
+  const subscribeEntries = await page.getByText(/訂閱|方案|加入/).count();
+
+  // navigate to a second public route and back; the shell must survive it
+  await page.goto('/experts');
+  await expect(page.locator('body')).toBeVisible();
+  const expertsChars = (await page.locator('body').innerText()).trim().length;
+  await page.goto('/');
+  await expect(page.locator('body')).toBeVisible();
+
+  writeFileSync(
+    `${EV}/smoke-home.dom.html`,
+    await page.evaluate(() => document.documentElement.outerHTML),
+  );
+  writeFileSync(
+    `${EV}/smoke-home.json`,
+    JSON.stringify(
+      {
+        case: 'smoke-home',
+        mocked: false,
+        routes: ['/', '/experts', '/'],
+        viewport: '1280x900',
+        theme: 'light',
+        screenshot: `${EV}/smoke-home.png`,
+        bodyChars: text.length,
+        expertsBodyChars: expertsChars,
+        layout: { headerOrNavLandmarks: headerCount, navLinks, subscribeEntries },
+        consoleErrors: appConsoleErrors,
+        environmentErrors,
+        pageErrors,
+      },
+      null,
+      2,
+    ),
+  );
   await page.screenshot({ path: `${EV}/smoke-home.png` });
+
+  expect(headerCount).toBeGreaterThan(0);
+  expect(navLinks).toBeGreaterThan(0);
+  expect(expertsChars).toBeGreaterThan(100);
+  expect(appConsoleErrors).toEqual([]);
   expect(pageErrors).toEqual([]);
 });
+

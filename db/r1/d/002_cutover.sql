@@ -283,6 +283,9 @@ ALTER FUNCTION public.trade_dedupe_sweep(boolean) OWNER TO ledger_owner;
 
 -- W12/W14 are non-economic KEEP writers. Define their production signatures so
 -- the clone validates real bodies/ACLs instead of counting absent catalog rows.
+-- production returns a different type for this signature; the cutover replaces it,
+-- so the old object must be dropped first (real production cutover step).
+DROP FUNCTION IF EXISTS public.admin_reject_fix_proposal(uuid, text);
 CREATE OR REPLACE FUNCTION public.admin_reject_fix_proposal(p_id uuid, p_note text)
 RETURNS jsonb LANGUAGE plpgsql SECURITY DEFINER SET search_path = '' AS $$
 BEGIN
