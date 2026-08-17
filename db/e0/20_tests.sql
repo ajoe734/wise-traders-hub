@@ -9,16 +9,20 @@ SELECT t.ok('E6.create_role_capability',
   'CREATE ROLE works in disposable cluster');
 
 SELECT t.ok('E6.no_public_execute_canonical_apply',
-  (SELECT NOT coalesce(array_to_string(proacl,',') LIKE '%=X/%', false)
+  (SELECT proacl IS NOT NULL AND NOT EXISTS (
+      SELECT 1 FROM unnest(proacl) a WHERE a::text LIKE '=%')
      FROM pg_proc WHERE proname='canonical_apply_effect'));
 SELECT t.ok('E6.no_public_execute_canonical_publish',
-  (SELECT NOT coalesce(array_to_string(proacl,',') LIKE '%=X/%', false)
+  (SELECT proacl IS NOT NULL AND NOT EXISTS (
+      SELECT 1 FROM unnest(proacl) a WHERE a::text LIKE '=%')
      FROM pg_proc WHERE proname='canonical_publish'));
 SELECT t.ok('E6.no_public_execute_canonical_review',
-  (SELECT NOT coalesce(array_to_string(proacl,',') LIKE '%=X/%', false)
+  (SELECT proacl IS NOT NULL AND NOT EXISTS (
+      SELECT 1 FROM unnest(proacl) a WHERE a::text LIKE '=%')
      FROM pg_proc WHERE proname='canonical_review'));
 SELECT t.ok('E6.definer_search_path_empty',
-  (SELECT bool_and('search_path=' = ANY(proconfig)) FROM pg_proc
+  (SELECT bool_and('search_path=""' = ANY(proconfig)) FROM pg_proc p
+    JOIN pg_namespace n ON n.oid=p.pronamespace AND n.nspname='app_ledger'
     WHERE proname IN ('canonical_apply_effect','canonical_publish','canonical_review',
                       'trade_records_economic_guard','cash_ledger_guard','tr_econ_hash')));
 SELECT t.ok('E6.service_role_cannot_write_trade_records',
@@ -98,7 +102,8 @@ BEGIN
     coalesce(p_over->>'market','TW'), coalesce(p_over->>'instrument_key','2330:TW'),
     coalesce(p_over->>'action','trim'), coalesce((p_over->>'qty_delta')::int, -100),
     coalesce(p_over->>'currency','TWD'), (p_over->>'cash_delta')::numeric,
-    now(), 'quantity_adjustment', 'test', 'forge',
+    now(), coalesce((p_over->>'provenance')::public.effect_provenance,'quantity_adjustment'),
+    'test', 'forge',
     coalesce((p_over->>'expected_mutation_count')::int, jsonb_array_length(p_tokens)), 'applied');
   FOR tk IN SELECT * FROM jsonb_array_elements(p_tokens) LOOP
     i := i + 1;
@@ -159,7 +164,7 @@ SELECT t.expect_error('E1.mutation_seq_gap',
        {"row_role":"open_position","qty_delta":0,"seq":5}]')$$,
   'effect_mutation_seq_gap');
 SELECT t.expect_error('E1.closed_lot_cost_conservation',
-  $$SELECT t.forge('{"action":"trim","qty_delta":-100,"cash_delta":12000,"expected_mutation_count":3}',
+  $$SELECT t.forge('{"action":"trim","provenance":"signal_execution","qty_delta":-100,"cash_delta":12000,"expected_mutation_count":3}',
      '[{"row_role":"open_position","qty_delta":-100,"cost_delta":-10500},
        {"row_role":"closed_lot","op":"insert","qty_delta":100,"realized_delta":99999},
        {"row_role":"cash_leg","op":"insert","target_table":"portfolio_cash_ledger","cash_delta":12000}]')$$,
@@ -258,9 +263,9 @@ SELECT t.expect_error('F3.cash_leg_with_instrument_key',
   'epm_ikey_ck');
 SELECT t.expect_error('F3.non_cash_leg_missing_market',
   $$INSERT INTO app_ledger.effect_projection_mutation(event_id,mutation_seq,target_table,
-      target_row_id,op,row_role,expert_id,currency,qty_delta,after_hash)
+      target_row_id,op,row_role,expert_id,currency,instrument_key,qty_delta,after_hash)
     SELECT event_id,98,'trade_records',gen_random_uuid(),'insert','open_position',expert_id,
-      'TWD',1,'h' FROM app_ledger.economic_effect LIMIT 1$$,
+      'TWD','2330:TW',1,'h' FROM app_ledger.economic_effect LIMIT 1$$,
   'epm_market_ck');
 SELECT t.expect_error('F3.insert_with_before_hash',
   $$INSERT INTO app_ledger.effect_projection_mutation(event_id,mutation_seq,target_table,

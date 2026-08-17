@@ -69,8 +69,8 @@ CREATE TABLE app_ledger.effect_projection_mutation (
   CONSTRAINT epm_cash_ck      CHECK ((row_role='cash_leg') = (target_table='portfolio_cash_ledger')),
   CONSTRAINT epm_cashdelta_ck CHECK ((row_role='cash_leg') = (cash_delta IS NOT NULL)),
   CONSTRAINT epm_cash_qty_ck  CHECK (row_role <> 'cash_leg' OR qty_delta = 0),
-  CONSTRAINT epm_market_ck    CHECK (row_role = 'cash_leg' OR market IS NOT NULL),
-  CONSTRAINT epm_ikey_ck      CHECK (row_role = 'cash_leg' OR instrument_key IS NOT NULL),
+  CONSTRAINT epm_market_ck    CHECK ((row_role = 'cash_leg') = (market IS NULL)),
+  CONSTRAINT epm_ikey_ck      CHECK ((row_role = 'cash_leg') = (instrument_key IS NULL)),
   CONSTRAINT epm_before_ck    CHECK ((op='insert') = (before_hash IS NULL)),
   CONSTRAINT epm_after_ck     CHECK ((op='delete') = (after_hash IS NULL))
 );
@@ -125,12 +125,13 @@ BEGIN
     pg_catalog.hashtextextended('review:'||p_logical::text, 0));
   SELECT review_state INTO v_cur FROM app_ledger.effect_review_current
    WHERE logical_effect_id = p_logical;
+  v_cur := coalesce(v_cur, '(none)');
   IF NOT (
-      (v_cur IS NULL           AND p_state IN ('manual_review','quarantined'))
+      (v_cur = '(none)'        AND p_state IN ('manual_review','quarantined'))
    OR (v_cur = 'manual_review' AND p_state IN ('cleared','quarantined'))
    OR (v_cur = 'cleared'       AND p_state IN ('manual_review','quarantined'))
    OR (v_cur = 'quarantined'   AND p_state = 'manual_review'))
-  THEN RAISE EXCEPTION 'illegal_review_transition: % -> %', coalesce(v_cur,'(none)'), p_state
+  THEN RAISE EXCEPTION 'illegal_review_transition: % -> %', v_cur, p_state
        USING ERRCODE='P0001'; END IF;
 
   SELECT coalesce(pg_catalog.max(review_no),0)+1 INTO v_no
