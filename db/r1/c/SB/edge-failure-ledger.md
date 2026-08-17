@@ -117,3 +117,39 @@ They are consequences of RC-4, not independent defects.
 pools (interactive / keepwarm / backfill) with `used_today=0`, full tokens and a
 Taipei-today `reset_at`. No real tokens, no credentials, no production migration.
 B12 is NOT re-used: verification moves to fresh clones B14/B15.
+
+---
+
+## EF-05 — T1/T2 hang at `stage concurrency` (harness bug, confirmed by code read)
+
+`db/r1/c/SB/sb_edge_rehearsal.sh` (pre-fix, line 374) launched the two concurrent
+worker POSTs as background subshells and then called a **bare `wait`**:
+
+```
+( post "$W" "$DIR/w_c1.json" ... >"$DIR/c1.code" ) &
+( post "$W" "$DIR/w_c2.json" ... >"$DIR/c2.code" ) &
+wait
+```
+
+A bare `wait` waits for **every** child of the shell — which at that point
+includes the long-lived services this same script started earlier and kept
+running on purpose: PostgREST (line 109), `sb_rest_proxy.py` (110), GoTrue
+(119), `sb_provider_mock.py` (121) and the two Deno edge drivers (150, 151).
+Those never exit, so `wait` blocks forever and T1/T2 could never reach EB-90.
+This is a harness defect only — no DB deadlock, no worker deadlock, no product
+code involved. (`pg_locks` was NOT the cause and product code was NOT changed.)
+
+### Fix (harness only)
+- `post()` now runs `curl --max-time ${POST_MAX_TIME:-60}`.
+- Concurrency stage stores `CP1`/`CP2` immediately and **bounded-waits only those
+  two PIDs** (`CONC_DEADLINE`, default 90s), polling with `kill -0`.
+- Each worker records its own curl rc (`c1.rc`/`c2.rc`) and HTTP code
+  (`c1.code`/`c2.code`); `wait $PID` exit codes are captured with `set +e` so a
+  non-zero result is never swallowed by `set -e` — it lands in
+  `concurrency.out` (+ `concurrency_timeout.txt`) and fails loud via
+  **EB-89 / EB-89b / EB-90**.
+- New **EB-92b** asserts every long-lived service PID is still alive after the
+  concurrency stage; the cleanup trap remains the last thing to reap them.
+- Bare `wait` is now banned in this harness.
+
+T1/T2 hang evidence is retained (not overwritten).
