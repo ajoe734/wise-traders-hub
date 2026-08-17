@@ -1,0 +1,203 @@
+{
+  "canonical_keys_total": 37,
+  "entries": [
+    {
+      "acl": "postgres=X/postgres|anon=X/postgres|authenticated=X/postgres|service_role=X/postgres|sandbox_exec_yqacmrgdjlenbijclngi=X/postgres",
+      "live_signature": "public.admin_apply_fix_proposal(p_id uuid, p_confirm boolean)",
+      "prosrc_md5": "c5b97206e11facd2c0856cb626da3d4f",
+      "security_definer": true,
+      "signature": "public.admin_apply_fix_proposal(p_id uuid, p_confirm boolean)"
+    },
+    {
+      "acl": "postgres=X/postgres|anon=X/postgres|authenticated=X/postgres|service_role=X/postgres|sandbox_exec_yqacmrgdjlenbijclngi=X/postgres",
+      "live_signature": "public.admin_delete_trade_records_by_signal_ids(_signal_ids uuid[])",
+      "prosrc_md5": "88e91bb83c29806807cf3daef2d17533",
+      "security_definer": true,
+      "signature": "public.admin_delete_trade_records_by_signal_ids(_signal_ids uuid[])"
+    },
+    {
+      "acl": "postgres=X/postgres|anon=X/postgres|authenticated=X/postgres|service_role=X/postgres|sandbox_exec_yqacmrgdjlenbijclngi=X/postgres",
+      "live_signature": "public.admin_delete_trade_records_by_symbol(_expert_id uuid, _symbol_prefix text)",
+      "prosrc_md5": "3b2b44743c74c51a98336b820d216a2e",
+      "security_definer": true,
+      "signature": "public.admin_delete_trade_records_by_symbol(_expert_id uuid, _symbol_prefix text)"
+    },
+    {
+      "acl": "postgres=X/postgres|anon=X/postgres|authenticated=X/postgres|service_role=X/postgres|sandbox_exec_yqacmrgdjlenbijclngi=X/postgres",
+      "live_signature": "public.admin_generate_fix_proposals(p_category text)",
+      "prosrc_md5": "3255d2579be1d2e3275a9300e9979592",
+      "security_definer": true,
+      "signature": "public.admin_generate_fix_proposals(p_category text)"
+    },
+    {
+      "acl": "postgres=X/postgres|anon=X/postgres|authenticated=X/postgres|service_role=X/postgres|sandbox_exec_yqacmrgdjlenbijclngi=X/postgres",
+      "live_signature": "public.admin_holdings_consistency_audit()",
+      "prosrc_md5": "8705af2fe8863dcecdc0505def78f6dc",
+      "security_definer": true,
+      "signature": "public.admin_holdings_consistency_audit()"
+    },
+    {
+      "acl": "postgres=X/postgres|service_role=X/postgres|sandbox_exec_yqacmrgdjlenbijclngi=X/postgres|anon=X/postgres|authenticated=X/postgres|=X/postgres",
+      "live_signature": "public.admin_list_cron_jobs()",
+      "prosrc_md5": "3a91449a10911686e992ed43622a7337",
+      "security_definer": true,
+      "signature": "public.admin_list_cron_jobs()"
+    },
+    {
+      "acl": "postgres=X/postgres|anon=X/postgres|authenticated=X/postgres|service_role=X/postgres|sandbox_exec_yqacmrgdjlenbijclngi=X/postgres",
+      "live_signature": "public.admin_reject_fix_proposal(p_id uuid, p_note text)",
+      "prosrc_md5": "924a409c9ff6bc0cb48dd40723e6b5bb",
+      "security_definer": true,
+      "signature": "public.admin_reject_fix_proposal(p_id uuid, p_note text)"
+    },
+    {
+      "acl": "postgres=X/postgres|anon=X/postgres|authenticated=X/postgres|service_role=X/postgres|sandbox_exec_yqacmrgdjlenbijclngi=X/postgres",
+      "live_signature": "public.admin_reset_expert_asset_class(_expert_id uuid, _new_asset_class text)",
+      "prosrc_md5": "8bec39f7b99d56918ac0110b1c1c5e20",
+      "security_definer": true,
+      "signature": "public.admin_reset_expert_asset_class(_expert_id uuid, _new_asset_class text)"
+    },
+    {
+      "acl": "postgres=X/postgres|anon=X/postgres|authenticated=X/postgres|service_role=X/postgres|sandbox_exec_yqacmrgdjlenbijclngi=X/postgres",
+      "live_signature": "public.admin_trade_dedupe_sweep(p_dry_run boolean)",
+      "prosrc_md5": "0d737c086c2945e5f7cb34c0558ab550",
+      "security_definer": true,
+      "signature": "public.admin_trade_dedupe_sweep(p_dry_run boolean)"
+    },
+    {
+      "acl": "=X/postgres|postgres=X/postgres|anon=X/postgres|authenticated=X/postgres|service_role=X/postgres|sandbox_exec_yqacmrgdjlenbijclngi=X/postgres",
+      "live_signature": "public.backfill_job_set_done(_id bigint, _status text)",
+      "prosrc_md5": "87e4de04392c13f4a2431b46b9ea0b2a",
+      "security_definer": true,
+      "signature": "public.backfill_job_set_done(_id bigint, _status text)"
+    },
+    {
+      "acl": "=X/postgres|postgres=X/postgres|anon=X/postgres|authenticated=X/postgres|service_role=X/postgres|sandbox_exec_yqacmrgdjlenbijclngi=X/postgres",
+      "live_signature": "public.backfill_job_set_failed(_id bigint, _error text, _retry_at timestamp with time zone)",
+      "prosrc_md5": "f74795a79fdb2231881a817afb8a103f",
+      "security_definer": true,
+      "signature": "public.backfill_job_set_failed(_id bigint, _error text, _retry_at timestamp with time zone)"
+    },
+    {
+      "acl": "postgres=X/postgres|anon=X/postgres|authenticated=X/postgres|service_role=X/postgres|sandbox_exec_yqacmrgdjlenbijclngi=X/postgres",
+      "live_signature": "public.backfill_legacy_bsr_to_fact(_from date, _to date)",
+      "prosrc_md5": "604e8a199db26513e01aaf9d1a638ed0",
+      "security_definer": true,
+      "signature": "public.backfill_legacy_bsr_to_fact(_from date, _to date)"
+    },
+    {
+      "acl": "=X/postgres|postgres=X/postgres|anon=X/postgres|authenticated=X/postgres|service_role=X/postgres|sandbox_exec_yqacmrgdjlenbijclngi=X/postgres",
+      "live_signature": "public.backfill_queue_stats()",
+      "prosrc_md5": "2fecde3d3e34e60922321d4bb7f751a5",
+      "security_definer": true,
+      "signature": "public.backfill_queue_stats()"
+    },
+    {
+      "acl": "postgres=X/postgres|anon=X/postgres|authenticated=X/postgres|service_role=X/postgres|sandbox_exec_yqacmrgdjlenbijclngi=X/postgres",
+      "live_signature": "public.claim_backfill_jobs(_batch_size integer, _max_priority_score integer)",
+      "prosrc_md5": "585f8f75b14d4879ebc02a689f45c23b",
+      "security_definer": true,
+      "signature": "public.claim_backfill_jobs(_batch_size integer, _max_priority_score integer)"
+    },
+    {
+      "acl": "=X/postgres|postgres=X/postgres|anon=X/postgres|authenticated=X/postgres|service_role=X/postgres|sandbox_exec_yqacmrgdjlenbijclngi=X/postgres",
+      "live_signature": "public.enqueue_backfill_jobs(_jobs jsonb)",
+      "prosrc_md5": "74034a1897554b779ddf46ff6e34ed30",
+      "security_definer": true,
+      "signature": "public.enqueue_backfill_jobs(_jobs jsonb)"
+    },
+    {
+      "acl": "postgres=X/postgres|anon=X/postgres|authenticated=X/postgres|service_role=X/postgres|sandbox_exec_yqacmrgdjlenbijclngi=X/postgres",
+      "live_signature": "public.enqueue_bsr_backfill(p_stock_id text, p_days integer)",
+      "prosrc_md5": "fa99a440e1b93e9de2788b48c637e48d",
+      "security_definer": true,
+      "signature": "public.enqueue_bsr_backfill(p_stock_id text, p_days integer)"
+    },
+    {
+      "acl": "=X/postgres|postgres=X/postgres|anon=X/postgres|authenticated=X/postgres|service_role=X/postgres|sandbox_exec_yqacmrgdjlenbijclngi=X/postgres",
+      "live_signature": "public.enqueue_institutional_backfill_universe()",
+      "prosrc_md5": "7d0e9239c9779f663e12506ca1649728",
+      "security_definer": true,
+      "signature": "public.enqueue_institutional_backfill_universe()"
+    },
+    {
+      "acl": "postgres=X/postgres|authenticated=X/postgres|service_role=X/postgres|sandbox_exec_yqacmrgdjlenbijclngi=X/postgres|anon=X/postgres",
+      "live_signature": "public.get_expert_capital_status(_expert_id uuid)",
+      "prosrc_md5": "769c916f877413ae6fc4e16f2bab67fd",
+      "security_definer": true,
+      "signature": "public.get_expert_capital_status(_expert_id uuid)"
+    },
+    {
+      "acl": "postgres=X/postgres|anon=X/postgres|authenticated=X/postgres|service_role=X/postgres|sandbox_exec_yqacmrgdjlenbijclngi=X/postgres",
+      "live_signature": "public.get_publish_batch_attempts(_limit integer)",
+      "prosrc_md5": "b5d4cf52b8eb530d3348d4e4ebff1682",
+      "security_definer": true,
+      "signature": "public.get_publish_batch_attempts(_limit integer)"
+    },
+    {
+      "acl": "postgres=X/postgres|anon=X/postgres|authenticated=X/postgres|service_role=X/postgres|sandbox_exec_yqacmrgdjlenbijclngi=X/postgres",
+      "live_signature": "public.get_publish_batch_runs(_limit integer)",
+      "prosrc_md5": "8c93b50364b74b29ca149b10b3a17733",
+      "security_definer": true,
+      "signature": "public.get_publish_batch_runs(_limit integer)"
+    },
+    {
+      "acl": "postgres=X/postgres|anon=X/postgres|authenticated=X/postgres|service_role=X/postgres|sandbox_exec_yqacmrgdjlenbijclngi=X/postgres",
+      "live_signature": "public.get_publish_batch_status()",
+      "prosrc_md5": "f0aa441f80b8e5237634916b06670656",
+      "security_definer": true,
+      "signature": "public.get_publish_batch_status()"
+    },
+    {
+      "acl": "postgres=X/postgres|authenticated=X/postgres|service_role=X/postgres|sandbox_exec_yqacmrgdjlenbijclngi=X/postgres|anon=X/postgres",
+      "live_signature": "public.has_active_subscription_after(_user_id uuid, _published_at timestamp with time zone)",
+      "prosrc_md5": "b8201fd3c629932f88c9c4ec96bed265",
+      "security_definer": true,
+      "signature": "public.has_active_subscription_after(_user_id uuid, _published_at timestamp with time zone)"
+    },
+    {
+      "acl": "postgres=X/postgres|authenticated=X/postgres|service_role=X/postgres|sandbox_exec_yqacmrgdjlenbijclngi=X/postgres|anon=X/postgres",
+      "live_signature": "public.is_tester(_user_id uuid)",
+      "prosrc_md5": "f3fc1cf8273350533532035fbc3f3ea8",
+      "security_definer": true,
+      "signature": "public.is_tester(_user_id uuid)"
+    },
+    {
+      "acl": "=X/postgres|postgres=X/postgres|anon=X/postgres|authenticated=X/postgres|service_role=X/postgres|sandbox_exec_yqacmrgdjlenbijclngi=X/postgres",
+      "live_signature": "public.prune_backfill_job_queue()",
+      "prosrc_md5": "4f323dd881fd51dad14e061157daf332",
+      "security_definer": true,
+      "signature": "public.prune_backfill_job_queue()"
+    },
+    {
+      "acl": "=X/postgres|postgres=X/postgres|anon=X/postgres|authenticated=X/postgres|service_role=X/postgres|sandbox_exec_yqacmrgdjlenbijclngi=X/postgres",
+      "live_signature": "public.publish_batch_attempts_touch()",
+      "prosrc_md5": "5b733ab523bad442e4b10f836de9e4ba",
+      "security_definer": false,
+      "signature": "public.publish_batch_attempts_touch()"
+    },
+    {
+      "acl": "postgres=X/postgres|anon=X/postgres|authenticated=X/postgres|service_role=X/postgres|sandbox_exec_yqacmrgdjlenbijclngi=X/postgres",
+      "live_signature": "public.recover_stale_backfill_jobs(_stale_after interval)",
+      "prosrc_md5": "d507727ea7728217cf295c8d31713295",
+      "security_definer": true,
+      "signature": "public.recover_stale_backfill_jobs(_stale_after interval)"
+    },
+    {
+      "acl": "=X/postgres|postgres=X/postgres|anon=X/postgres|authenticated=X/postgres|service_role=X/postgres|sandbox_exec_yqacmrgdjlenbijclngi=X/postgres",
+      "live_signature": "public.tg_holdings_fix_proposals_updated_at()",
+      "prosrc_md5": "e3addd320004eb7a8494e7a0c2614c97",
+      "security_definer": false,
+      "signature": "public.tg_holdings_fix_proposals_updated_at()"
+    },
+    {
+      "acl": "postgres=X/postgres|anon=X/postgres|authenticated=X/postgres|service_role=X/postgres|sandbox_exec_yqacmrgdjlenbijclngi=X/postgres",
+      "live_signature": "public.trade_dedupe_sweep(p_dry_run boolean)",
+      "prosrc_md5": "6eb3dc6a7cb685dd131ee2cae033429e",
+      "security_definer": true,
+      "signature": "public.trade_dedupe_sweep(p_dry_run boolean)"
+    }
+  ],
+  "missing": [],
+  "unique_signatures": 28
+}

@@ -1,0 +1,407 @@
+{
+  "circuit": [
+    {
+      "consecutive_failures": "0",
+      "disabled_until": "-",
+      "fail_10m": "0",
+      "last_error_code": "backfill_error",
+      "last_failure_at": "2026-07-28 07:30:03.983+00",
+      "last_success_at": "2026-08-14 16:00:12.128+00",
+      "ok_10m": "5",
+      "source": "finmind",
+      "state": "closed",
+      "updated_at": "2026-08-14 16:00:12.136896+00"
+    },
+    {
+      "consecutive_failures": "55",
+      "disabled_until": "2026-08-17 08:46:13.991+00",
+      "fail_10m": "1",
+      "last_error_code": "http_400",
+      "last_failure_at": "2026-08-17 08:16:13.991+00",
+      "last_success_at": "2026-08-15 15:10:58.62+00",
+      "ok_10m": "0",
+      "source": "finmind_bsr",
+      "state": "open",
+      "updated_at": "2026-08-17 08:16:13.998066+00"
+    },
+    {
+      "consecutive_failures": "0",
+      "disabled_until": "-",
+      "fail_10m": "0",
+      "last_error_code": "-",
+      "last_failure_at": "-",
+      "last_success_at": "2026-08-14 11:30:13.499+00",
+      "ok_10m": "1",
+      "source": "finmind_institutional",
+      "state": "closed",
+      "updated_at": "2026-08-14 11:30:13.535832+00"
+    },
+    {
+      "consecutive_failures": "0",
+      "disabled_until": "-",
+      "fail_10m": "0",
+      "last_error_code": "-",
+      "last_failure_at": "-",
+      "last_success_at": "2026-08-12 07:02:22.898+00",
+      "ok_10m": "1",
+      "source": "finmind_price",
+      "state": "closed",
+      "updated_at": "2026-08-12 07:02:22.975943+00"
+    },
+    {
+      "consecutive_failures": "0",
+      "disabled_until": "-",
+      "fail_10m": "0",
+      "last_error_code": "-",
+      "last_failure_at": "-",
+      "last_success_at": "-",
+      "ok_10m": "0",
+      "source": "tpex_bulk",
+      "state": "closed",
+      "updated_at": "2026-07-25 06:51:36.26905+00"
+    },
+    {
+      "consecutive_failures": "0",
+      "disabled_until": "-",
+      "fail_10m": "0",
+      "last_error_code": "UPSTREAM_RETRY_EXHAUSTED",
+      "last_failure_at": "2026-08-12 07:02:22.024+00",
+      "last_success_at": "2026-08-17 00:34:53.077+00",
+      "ok_10m": "22",
+      "source": "tpex_daily",
+      "state": "closed",
+      "updated_at": "2026-08-17 00:34:53.082936+00"
+    },
+    {
+      "consecutive_failures": "0",
+      "disabled_until": "-",
+      "fail_10m": "0",
+      "last_error_code": "-",
+      "last_failure_at": "-",
+      "last_success_at": "-",
+      "ok_10m": "0",
+      "source": "twse_bulk",
+      "state": "closed",
+      "updated_at": "2026-07-25 06:51:36.26905+00"
+    },
+    {
+      "consecutive_failures": "0",
+      "disabled_until": "-",
+      "fail_10m": "0",
+      "last_error_code": "-",
+      "last_failure_at": "-",
+      "last_success_at": "2026-08-17 00:54:22.022+00",
+      "ok_10m": "8",
+      "source": "twse_stock_day",
+      "state": "closed",
+      "updated_at": "2026-08-17 00:54:22.077335+00"
+    },
+    {
+      "consecutive_failures": "0",
+      "disabled_until": "-",
+      "fail_10m": "0",
+      "last_error_code": "no_data_in_lookback",
+      "last_failure_at": "2026-08-04 07:30:20.282+00",
+      "last_success_at": "2026-08-14 09:30:44.839+00",
+      "ok_10m": "1",
+      "source": "twse_t86",
+      "state": "closed",
+      "updated_at": "2026-08-14 09:30:44.845571+00"
+    }
+  ],
+  "contradiction_resolution": "Not a measurement error: the switches are auto-flapped by chips-guardian, so a single snapshot is not a stable fact. Both prior readings were true at their read time; the stable fact is the open finmind_bsr circuit above them.",
+  "cron_dispatch_24h": [],
+  "cron_dispatch_24h_by_job": {},
+  "data_source_refresh_24h": [
+    {
+      "at": "2026-08-17 08:02:00.604668+00",
+      "detail": "- rows=1",
+      "source": "bsr_quota_recovery",
+      "status": "success"
+    },
+    {
+      "at": "2026-08-17 07:30:10.789035+00",
+      "detail": "- rows=0",
+      "source": "tw_keep_warm",
+      "status": "skipped"
+    },
+    {
+      "at": "2026-08-17 07:02:00.22595+00",
+      "detail": "- rows=1",
+      "source": "bsr_quota_recovery",
+      "status": "success"
+    },
+    {
+      "at": "2026-08-17 06:02:00.204364+00",
+      "detail": "- rows=1",
+      "source": "bsr_quota_recovery",
+      "status": "success"
+    },
+    {
+      "at": "2026-08-17 05:02:00.130315+00",
+      "detail": "- rows=1",
+      "source": "bsr_quota_recovery",
+      "status": "success"
+    },
+    {
+      "at": "2026-08-17 04:02:00.149718+00",
+      "detail": "- rows=1",
+      "source": "bsr_quota_recovery",
+      "status": "success"
+    },
+    {
+      "at": "2026-08-17 03:02:00.212628+00",
+      "detail": "- rows=1",
+      "source": "bsr_quota_recovery",
+      "status": "success"
+    },
+    {
+      "at": "2026-08-17 02:02:00.302869+00",
+      "detail": "- rows=1",
+      "source": "bsr_quota_recovery",
+      "status": "success"
+    },
+    {
+      "at": "2026-08-17 01:02:00.309127+00",
+      "detail": "- rows=1",
+      "source": "bsr_quota_recovery",
+      "status": "success"
+    },
+    {
+      "at": "2026-08-17 00:02:00.142882+00",
+      "detail": "- rows=1",
+      "source": "bsr_quota_recovery",
+      "status": "success"
+    },
+    {
+      "at": "2026-08-16 23:02:00.216652+00",
+      "detail": "- rows=1",
+      "source": "bsr_quota_recovery",
+      "status": "success"
+    },
+    {
+      "at": "2026-08-16 22:30:12.200994+00",
+      "detail": "- rows=-",
+      "source": "tw_trading_calendar_catchup",
+      "status": "error"
+    },
+    {
+      "at": "2026-08-16 22:02:00.154998+00",
+      "detail": "- rows=1",
+      "source": "bsr_quota_recovery",
+      "status": "success"
+    },
+    {
+      "at": "2026-08-16 21:02:00.170058+00",
+      "detail": "- rows=1",
+      "source": "bsr_quota_recovery",
+      "status": "success"
+    },
+    {
+      "at": "2026-08-16 20:02:00.109461+00",
+      "detail": "- rows=1",
+      "source": "bsr_quota_recovery",
+      "status": "success"
+    },
+    {
+      "at": "2026-08-16 19:02:00.177296+00",
+      "detail": "- rows=1",
+      "source": "bsr_quota_recovery",
+      "status": "success"
+    },
+    {
+      "at": "2026-08-16 18:02:00.123862+00",
+      "detail": "- rows=1",
+      "source": "bsr_quota_recovery",
+      "status": "success"
+    },
+    {
+      "at": "2026-08-16 17:02:00.16469+00",
+      "detail": "- rows=1",
+      "source": "bsr_quota_recovery",
+      "status": "success"
+    },
+    {
+      "at": "2026-08-16 16:02:00.143073+00",
+      "detail": "- rows=1",
+      "source": "bsr_quota_recovery",
+      "status": "success"
+    },
+    {
+      "at": "2026-08-16 15:02:00.146841+00",
+      "detail": "- rows=1",
+      "source": "bsr_quota_recovery",
+      "status": "success"
+    },
+    {
+      "at": "2026-08-16 14:02:00.186449+00",
+      "detail": "- rows=1",
+      "source": "bsr_quota_recovery",
+      "status": "success"
+    },
+    {
+      "at": "2026-08-16 13:02:00.177823+00",
+      "detail": "- rows=1",
+      "source": "bsr_quota_recovery",
+      "status": "success"
+    },
+    {
+      "at": "2026-08-16 12:02:00.188469+00",
+      "detail": "- rows=1",
+      "source": "bsr_quota_recovery",
+      "status": "success"
+    },
+    {
+      "at": "2026-08-16 11:02:00.099644+00",
+      "detail": "- rows=1",
+      "source": "bsr_quota_recovery",
+      "status": "success"
+    },
+    {
+      "at": "2026-08-16 10:02:00.184358+00",
+      "detail": "- rows=1",
+      "source": "bsr_quota_recovery",
+      "status": "success"
+    },
+    {
+      "at": "2026-08-16 10:00:14.691082+00",
+      "detail": "- rows=-",
+      "source": "backfill_gap_orchestrator",
+      "status": "error"
+    },
+    {
+      "at": "2026-08-16 09:02:00.188809+00",
+      "detail": "- rows=1",
+      "source": "bsr_quota_recovery",
+      "status": "success"
+    }
+  ],
+  "gate": "S0-6 freshness / kill-switch contradiction resolution",
+  "guardian_system_jobs_24h": [
+    {
+      "at": "2026-08-17 06:31:08.027394+00",
+      "detail": "{\"updated\": 20, \"total_open\": 21, \"updated_tw\": 9, \"updated_us\": 11, \"prices_fetched\": 20}",
+      "job": "daily_performance_update",
+      "status": "success"
+    },
+    {
+      "at": "2026-08-17 06:06:00.713685+00",
+      "detail": "{\"market\": \"TW\", \"symbols_tw\": 54, \"symbols_us\": 10, \"users_updated\": 6, \"prices_fetched\": 53, \"performances_updated\": 26}",
+      "job": "stock_price_sync",
+      "status": "success"
+    },
+    {
+      "at": "2026-08-17 06:01:08.109468+00",
+      "detail": "{\"snapshots_tw\": 116, \"snapshots_us\": 26, \"hits_inserted\": 0, \"tw_trade_date\": \"2026-08-17\", \"us_trade_date\": \"2026-08-17\", \"limit_up_symbols\": 4}",
+      "job": "daily_snapshot",
+      "status": "success"
+    },
+    {
+      "at": "2026-08-17 05:36:02.130398+00",
+      "detail": "{\"market\": \"BOTH\", \"symbols_tw\": 54, \"symbols_us\": 10, \"users_updated\": 6, \"prices_fetched\": 63, \"performances_updated\": 26}",
+      "job": "stock_price_sync",
+      "status": "success"
+    }
+  ],
+  "production_touch": "read-only",
+  "reads_differ": false,
+  "root_cause_chain": [
+    "1. FinMind BSR upstream returns HTTP 400 -> data_source_health.finmind_bsr consecutive_failures climbs",
+    "2. circuit_state flips to open (last_success frozen)",
+    "3. chips-guardian disables chips_backfill / chips_keepwarm kill switches while the circuit is open",
+    "4. hourly cron fires and the worker boots, but admission returns finmind_admission_circuit_open / finmind_admission_kill_switch_off",
+    "5. zero attempt logs and zero tw_bsr_daily writes -> the observed 24h idle state"
+  ],
+  "switch_read_1": {
+    "chips_all": {
+      "auto_trigger_metric": "-",
+      "disabled_at": "-",
+      "disabled_by": "-",
+      "disabled_reason": "-",
+      "enabled": false,
+      "updated_at": "2026-07-25 11:26:29.254929+00"
+    },
+    "chips_backfill": {
+      "auto_trigger_metric": "root_cause=backfill_reject_100pct_by_circuit_open",
+      "disabled_at": "2026-08-17 08:10:03.764+00",
+      "disabled_by": "-",
+      "disabled_reason": "backfill reject 100% (59/59)",
+      "enabled": false,
+      "updated_at": "2026-08-17 08:10:03.764+00"
+    },
+    "chips_interactive": {
+      "auto_trigger_metric": "-",
+      "disabled_at": "-",
+      "disabled_by": "-",
+      "disabled_reason": "-",
+      "enabled": false,
+      "updated_at": "2026-07-25 11:26:29.254929+00"
+    },
+    "chips_keepwarm": {
+      "auto_trigger_metric": "root_cause=finmind_bsr_circuit_open_5.6h",
+      "disabled_at": "2026-08-17 05:40:02.877+00",
+      "disabled_by": "-",
+      "disabled_reason": "finmind_bsr circuit open ≥ 2h",
+      "enabled": false,
+      "updated_at": "2026-08-17 05:40:02.877+00"
+    }
+  },
+  "switch_read_2": {
+    "chips_all": {
+      "auto_trigger_metric": "-",
+      "disabled_at": "-",
+      "disabled_by": "-",
+      "disabled_reason": "-",
+      "enabled": false,
+      "updated_at": "2026-07-25 11:26:29.254929+00"
+    },
+    "chips_backfill": {
+      "auto_trigger_metric": "root_cause=backfill_reject_100pct_by_circuit_open",
+      "disabled_at": "2026-08-17 08:10:03.764+00",
+      "disabled_by": "-",
+      "disabled_reason": "backfill reject 100% (59/59)",
+      "enabled": false,
+      "updated_at": "2026-08-17 08:10:03.764+00"
+    },
+    "chips_interactive": {
+      "auto_trigger_metric": "-",
+      "disabled_at": "-",
+      "disabled_by": "-",
+      "disabled_reason": "-",
+      "enabled": false,
+      "updated_at": "2026-07-25 11:26:29.254929+00"
+    },
+    "chips_keepwarm": {
+      "auto_trigger_metric": "root_cause=finmind_bsr_circuit_open_5.6h",
+      "disabled_at": "2026-08-17 05:40:02.877+00",
+      "disabled_by": "-",
+      "disabled_reason": "finmind_bsr circuit open ≥ 2h",
+      "enabled": false,
+      "updated_at": "2026-08-17 05:40:02.877+00"
+    }
+  },
+  "universe": {
+    "prefetch_targets": 20,
+    "stock_names_by_market": {
+      "(null)": 57,
+      "US": 17
+    },
+    "stock_names_total": 74,
+    "user_holding_entries": 38
+  },
+  "verdict": "NOT_FRESH",
+  "worker_chain_24h": {
+    "attempt_logs": 0,
+    "attempt_outcomes_7d": {},
+    "bsr_rows_written": 0,
+    "cron_runs": [],
+    "last_attempt_at": "-",
+    "last_bsr_write_at": "2026-08-15 15:07:03.62678+00",
+    "latest_bsr_trade_date": "2026-08-14",
+    "queue_by_status": {
+      "done": 9956,
+      "failed": 1573,
+      "pending": 76
+    }
+  }
+}

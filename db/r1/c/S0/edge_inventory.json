@@ -1,0 +1,578 @@
+{
+  "blocker_count": 2,
+  "blockers": [
+    {
+      "id": "E04",
+      "name": "crypto-price-sync",
+      "why": [
+        "version_unknown_log_retention",
+        "prod_deployment_unknown",
+        "deployed_at_not_authoritative"
+      ]
+    },
+    {
+      "id": "E13",
+      "name": "us-stock-quote",
+      "why": [
+        "version_unknown_log_retention",
+        "prod_deployment_unknown",
+        "deployed_at_not_authoritative"
+      ]
+    }
+  ],
+  "deployed_at_available": false,
+  "entries": [
+    {
+      "classification": [
+        "deployed_at_not_authoritative"
+      ],
+      "deployed_at_authoritative": null,
+      "deployed_at_estimate_source": "min(boot_at) of the current deployment_id in public.edge_boot_events (lower bound: a deploy is only observed once the function first boots)",
+      "id": "E01",
+      "name": "backfill-daily-snapshots",
+      "prod_boot_count": 5912,
+      "prod_calls_7d": 2,
+      "prod_deployment_first_boot": "2026-08-17 08:20:02.60927+00",
+      "prod_deployment_id": "yqacmrgdjlenbijclngi_be83085e-09cb-44ed-ad61-c1c42ca3cc71_639",
+      "prod_distinct_deployments": 5912,
+      "prod_function_id": "be83085e-09cb-44ed-ad61-c1c42ca3cc71",
+      "prod_last_boot": "2026-08-17 08:20:02.60927+00",
+      "prod_last_invocation_utc_us": 1786954858532000,
+      "prod_version": "639",
+      "prod_version_first_seen_us": 1786954572617000,
+      "repo_bundle_sha256": "8fe672cd588776c691db4fa6be36c610b0361d7b8713db8c272806e10480df0c",
+      "repo_files": [
+        "index.ts"
+      ],
+      "repo_present": true,
+      "shared_import_sha256": {
+        "authGuard.ts": "4477cdbc55890cd3bee4a9b579799d336ea30e97cfe28eaee8a60d74e55847a9",
+        "cors.ts": "7518c6d6bf85ca5dc4c3795705614fd2fac19956a0f7d733319f3054398aa74d",
+        "edgeLogger.ts": "c196af2b833edd392ea5688a0cb201f6d719095c4c2dba94191f6d734ee0c5c1",
+        "supabaseClients.ts": "370ce4745861fcb0095a1a0a46fdfbb663521ebc255ebcd88c017075f885ad74"
+      },
+      "shared_imports": [
+        "authGuard.ts",
+        "cors.ts",
+        "edgeLogger.ts",
+        "supabaseClients.ts"
+      ],
+      "source": "supabase/functions/backfill-daily-snapshots/index.ts"
+    },
+    {
+      "classification": [
+        "version_unknown_log_retention",
+        "deployed_at_not_authoritative"
+      ],
+      "deployed_at_authoritative": null,
+      "deployed_at_estimate_source": "min(boot_at) of the current deployment_id in public.edge_boot_events (lower bound: a deploy is only observed once the function first boots)",
+      "id": "E02",
+      "name": "backfill-snapshots-twse-bulk",
+      "prod_boot_count": 36,
+      "prod_calls_7d": null,
+      "prod_deployment_first_boot": "2026-08-17 07:15:17.422669+00",
+      "prod_deployment_id": "fbb007ca-358a-4d8b-9392-1cbdf9a45dc2",
+      "prod_distinct_deployments": 36,
+      "prod_function_id": null,
+      "prod_last_boot": "2026-08-17 07:15:17.422669+00",
+      "prod_last_invocation_utc_us": null,
+      "prod_version": null,
+      "prod_version_first_seen_us": null,
+      "repo_bundle_sha256": "de6bd191fdc380a9ba3d5fba88422970ae8363cdfaff2449afb975dc91efa25a",
+      "repo_files": [
+        "index.ts"
+      ],
+      "repo_present": true,
+      "shared_import_sha256": {
+        "authGuard.ts": "4477cdbc55890cd3bee4a9b579799d336ea30e97cfe28eaee8a60d74e55847a9",
+        "cors.ts": "7518c6d6bf85ca5dc4c3795705614fd2fac19956a0f7d733319f3054398aa74d",
+        "edgeLogger.ts": "c196af2b833edd392ea5688a0cb201f6d719095c4c2dba94191f6d734ee0c5c1",
+        "supabaseClients.ts": "370ce4745861fcb0095a1a0a46fdfbb663521ebc255ebcd88c017075f885ad74"
+      },
+      "shared_imports": [
+        "authGuard.ts",
+        "cors.ts",
+        "edgeLogger.ts",
+        "supabaseClients.ts"
+      ],
+      "source": "supabase/functions/backfill-snapshots-twse-bulk/index.ts"
+    },
+    {
+      "classification": [
+        "version_unknown_log_retention",
+        "deployed_at_not_authoritative"
+      ],
+      "deployed_at_authoritative": null,
+      "deployed_at_estimate_source": "min(boot_at) of the current deployment_id in public.edge_boot_events (lower bound: a deploy is only observed once the function first boots)",
+      "id": "E03",
+      "name": "checkup-research-extract",
+      "prod_boot_count": 10,
+      "prod_calls_7d": null,
+      "prod_deployment_first_boot": "2026-07-28 09:05:39.347327+00",
+      "prod_deployment_id": "41379a05-d5aa-4152-9f19-ecd8d78d0f68",
+      "prod_distinct_deployments": 10,
+      "prod_function_id": null,
+      "prod_last_boot": "2026-07-28 09:05:39.347327+00",
+      "prod_last_invocation_utc_us": null,
+      "prod_version": null,
+      "prod_version_first_seen_us": null,
+      "repo_bundle_sha256": "de2ac1f8fa8e6a2c972c7abeb72f3c0c7fe9fd9a9b87ba3f617eaccd83568ba0",
+      "repo_files": [
+        "contract_test.ts",
+        "index.ts"
+      ],
+      "repo_present": true,
+      "shared_import_sha256": {
+        "authGuard.ts": "4477cdbc55890cd3bee4a9b579799d336ea30e97cfe28eaee8a60d74e55847a9",
+        "checkupQuota.ts": "99c4c7254c6cd0f1829fab62552923a7bec659c3447e34db0087cbf2859c35c4",
+        "cors.ts": "7518c6d6bf85ca5dc4c3795705614fd2fac19956a0f7d733319f3054398aa74d",
+        "edgeLogger.ts": "c196af2b833edd392ea5688a0cb201f6d719095c4c2dba94191f6d734ee0c5c1",
+        "errorCodes.ts": "1b1adb6d01f46aaac137dadf2b6ab6eaa9202e9c142e367ce6c2a44da2781c8f",
+        "inputValidator.ts": "07017a7b5eccc0685f3b53e7288d7eeafa15d4547a605ebeb9856a82523e0e9a",
+        "routes.ts": "713285fecfc7ee747f8c348039769ac0017e2cca632b23202bbce463cd172824",
+        "supabaseClients.ts": "370ce4745861fcb0095a1a0a46fdfbb663521ebc255ebcd88c017075f885ad74",
+        "test_utils.ts": "11bd4b3075a2d1d1b36fe255078f6cd4f1f8ad6b97ef587cf5d7a0299c163596"
+      },
+      "shared_imports": [
+        "authGuard.ts",
+        "checkupQuota.ts",
+        "cors.ts",
+        "edgeLogger.ts",
+        "errorCodes.ts",
+        "inputValidator.ts",
+        "routes.ts",
+        "supabaseClients.ts",
+        "test_utils.ts"
+      ],
+      "source": "supabase/functions/checkup-research-extract/index.ts"
+    },
+    {
+      "classification": [
+        "version_unknown_log_retention",
+        "prod_deployment_unknown",
+        "deployed_at_not_authoritative"
+      ],
+      "deployed_at_authoritative": null,
+      "deployed_at_estimate_source": "min(boot_at) of the current deployment_id in public.edge_boot_events (lower bound: a deploy is only observed once the function first boots)",
+      "id": "E04",
+      "name": "crypto-price-sync",
+      "prod_boot_count": null,
+      "prod_calls_7d": null,
+      "prod_deployment_first_boot": null,
+      "prod_deployment_id": null,
+      "prod_distinct_deployments": null,
+      "prod_function_id": null,
+      "prod_last_boot": null,
+      "prod_last_invocation_utc_us": null,
+      "prod_version": null,
+      "prod_version_first_seen_us": null,
+      "repo_bundle_sha256": "7840091f1b72241f3cbbdbb0e529a92908aa70dac7d2cfd295eeb5e9039f0012",
+      "repo_files": [
+        "index.ts"
+      ],
+      "repo_present": true,
+      "shared_import_sha256": {
+        "authGuard.ts": "4477cdbc55890cd3bee4a9b579799d336ea30e97cfe28eaee8a60d74e55847a9",
+        "cors.ts": "7518c6d6bf85ca5dc4c3795705614fd2fac19956a0f7d733319f3054398aa74d",
+        "supabaseClients.ts": "370ce4745861fcb0095a1a0a46fdfbb663521ebc255ebcd88c017075f885ad74"
+      },
+      "shared_imports": [
+        "authGuard.ts",
+        "cors.ts",
+        "supabaseClients.ts"
+      ],
+      "source": "supabase/functions/crypto-price-sync/index.ts"
+    },
+    {
+      "classification": [
+        "version_unknown_log_retention",
+        "deployed_at_not_authoritative"
+      ],
+      "deployed_at_authoritative": null,
+      "deployed_at_estimate_source": "min(boot_at) of the current deployment_id in public.edge_boot_events (lower bound: a deploy is only observed once the function first boots)",
+      "id": "E05",
+      "name": "daily-performance",
+      "prod_boot_count": 47,
+      "prod_calls_7d": null,
+      "prod_deployment_first_boot": "2026-08-17 06:31:01.841221+00",
+      "prod_deployment_id": "fc9e0bfa-a8c0-4837-9630-d5b3401b7215",
+      "prod_distinct_deployments": 47,
+      "prod_function_id": null,
+      "prod_last_boot": "2026-08-17 06:31:01.841221+00",
+      "prod_last_invocation_utc_us": null,
+      "prod_version": null,
+      "prod_version_first_seen_us": null,
+      "repo_bundle_sha256": "2adca9944ad70888b93e6df11e327620ac749e78de50fa91569453c7e5b521a0",
+      "repo_files": [
+        "index.ts"
+      ],
+      "repo_present": true,
+      "shared_import_sha256": {
+        "authGuard.ts": "4477cdbc55890cd3bee4a9b579799d336ea30e97cfe28eaee8a60d74e55847a9",
+        "cors.ts": "7518c6d6bf85ca5dc4c3795705614fd2fac19956a0f7d733319f3054398aa74d",
+        "edgeLogger.ts": "c196af2b833edd392ea5688a0cb201f6d719095c4c2dba94191f6d734ee0c5c1",
+        "supabaseClients.ts": "370ce4745861fcb0095a1a0a46fdfbb663521ebc255ebcd88c017075f885ad74"
+      },
+      "shared_imports": [
+        "authGuard.ts",
+        "cors.ts",
+        "edgeLogger.ts",
+        "supabaseClients.ts"
+      ],
+      "source": "supabase/functions/daily-performance/index.ts"
+    },
+    {
+      "classification": [
+        "version_unknown_log_retention",
+        "deployed_at_not_authoritative"
+      ],
+      "deployed_at_authoritative": null,
+      "deployed_at_estimate_source": "min(boot_at) of the current deployment_id in public.edge_boot_events (lower bound: a deploy is only observed once the function first boots)",
+      "id": "E06",
+      "name": "daily-snapshot",
+      "prod_boot_count": 25,
+      "prod_calls_7d": null,
+      "prod_deployment_first_boot": "2026-08-17 06:01:02.006228+00",
+      "prod_deployment_id": "88796fd9-4999-4c49-b273-cb07e5ee9da6",
+      "prod_distinct_deployments": 25,
+      "prod_function_id": null,
+      "prod_last_boot": "2026-08-17 06:01:02.006228+00",
+      "prod_last_invocation_utc_us": null,
+      "prod_version": null,
+      "prod_version_first_seen_us": null,
+      "repo_bundle_sha256": "c4521930c50edd64ff2da1b5779139e666f0dd39082c272564e2fad3aa806e9d",
+      "repo_files": [
+        "index.ts"
+      ],
+      "repo_present": true,
+      "shared_import_sha256": {
+        "authGuard.ts": "4477cdbc55890cd3bee4a9b579799d336ea30e97cfe28eaee8a60d74e55847a9",
+        "cors.ts": "7518c6d6bf85ca5dc4c3795705614fd2fac19956a0f7d733319f3054398aa74d",
+        "edgeLogger.ts": "c196af2b833edd392ea5688a0cb201f6d719095c4c2dba94191f6d734ee0c5c1",
+        "lotSize.ts": "8fc6eb6659050a70e9540e7eb94877306075877eba2cd22287609b75a949a9ab",
+        "marketDetect.ts": "a81000ffdbce5d1064cfb5d1a901e6c9ce130306c2b5ee7ff2ae5d9ccd8880ce",
+        "supabaseClients.ts": "370ce4745861fcb0095a1a0a46fdfbb663521ebc255ebcd88c017075f885ad74"
+      },
+      "shared_imports": [
+        "authGuard.ts",
+        "cors.ts",
+        "edgeLogger.ts",
+        "lotSize.ts",
+        "marketDetect.ts",
+        "supabaseClients.ts"
+      ],
+      "source": "supabase/functions/daily-snapshot/index.ts"
+    },
+    {
+      "classification": [
+        "version_unknown_log_retention",
+        "deployed_at_not_authoritative"
+      ],
+      "deployed_at_authoritative": null,
+      "deployed_at_estimate_source": "min(boot_at) of the current deployment_id in public.edge_boot_events (lower bound: a deploy is only observed once the function first boots)",
+      "id": "E07",
+      "name": "line-push-signal",
+      "prod_boot_count": 9,
+      "prod_calls_7d": null,
+      "prod_deployment_first_boot": "2026-07-28 09:05:41.323501+00",
+      "prod_deployment_id": "b4fa6b86-4c75-4a6f-b32d-938b3b80acc4",
+      "prod_distinct_deployments": 9,
+      "prod_function_id": null,
+      "prod_last_boot": "2026-07-28 09:05:41.323501+00",
+      "prod_last_invocation_utc_us": null,
+      "prod_version": null,
+      "prod_version_first_seen_us": null,
+      "repo_bundle_sha256": "738cf1114f42da1287fbe6188415db06ddb16003a468a895ce0d455d9073fbc1",
+      "repo_files": [
+        "index.ts",
+        "index_test.ts",
+        "quantityUnit.ts"
+      ],
+      "repo_present": true,
+      "shared_import_sha256": {
+        "adminGuard.ts": "c2655a1c510022589665699a5c5d76f0c15dd8b9b3059650341dd6bbe1f2d312",
+        "cors.ts": "7518c6d6bf85ca5dc4c3795705614fd2fac19956a0f7d733319f3054398aa74d",
+        "edgeLogger.ts": "c196af2b833edd392ea5688a0cb201f6d719095c4c2dba94191f6d734ee0c5c1",
+        "journalRepository.ts": "b7dd6fe1ffd83dff04956a82a5590aa2fb7a5fba2880f03a5bed63e79b5a48b8",
+        "linePushCore.ts": "7d0e69c3fd390128589798d672306f0465900f5843e12e36b859f873bd0dfe59",
+        "signalActionLabels.ts": "4dee7aa83740e164b8ee7240f518900cf62767979f7d07bbd29705aa2c5f978c",
+        "supabaseClients.ts": "370ce4745861fcb0095a1a0a46fdfbb663521ebc255ebcd88c017075f885ad74"
+      },
+      "shared_imports": [
+        "adminGuard.ts",
+        "cors.ts",
+        "edgeLogger.ts",
+        "journalRepository.ts",
+        "linePushCore.ts",
+        "signalActionLabels.ts",
+        "supabaseClients.ts"
+      ],
+      "source": "supabase/functions/line-push-signal/index.ts"
+    },
+    {
+      "classification": [
+        "version_unknown_log_retention",
+        "deployed_at_not_authoritative"
+      ],
+      "deployed_at_authoritative": null,
+      "deployed_at_estimate_source": "min(boot_at) of the current deployment_id in public.edge_boot_events (lower bound: a deploy is only observed once the function first boots)",
+      "id": "E08",
+      "name": "publish-weekly-journals",
+      "prod_boot_count": 20,
+      "prod_calls_7d": null,
+      "prod_deployment_first_boot": "2026-08-15 00:00:09.78352+00",
+      "prod_deployment_id": "a921f474-a426-467b-abc3-943b232f275c",
+      "prod_distinct_deployments": 20,
+      "prod_function_id": null,
+      "prod_last_boot": "2026-08-15 00:00:09.78352+00",
+      "prod_last_invocation_utc_us": null,
+      "prod_version": null,
+      "prod_version_first_seen_us": null,
+      "repo_bundle_sha256": "787477078fc96fd5ddd3fbda8720e3018e456c0835b87b74486d404b98694901",
+      "repo_files": [
+        "classifyPublishError.ts",
+        "e2e_retry_test.ts",
+        "index.ts",
+        "index_test.ts",
+        "pipeline.ts",
+        "pipeline_test.ts",
+        "port.ts",
+        "supabasePort.ts"
+      ],
+      "repo_present": true,
+      "shared_import_sha256": {
+        "adminGuard.ts": "c2655a1c510022589665699a5c5d76f0c15dd8b9b3059650341dd6bbe1f2d312",
+        "authGuard.ts": "4477cdbc55890cd3bee4a9b579799d336ea30e97cfe28eaee8a60d74e55847a9",
+        "cors.ts": "7518c6d6bf85ca5dc4c3795705614fd2fac19956a0f7d733319f3054398aa74d",
+        "edgeLogger.ts": "c196af2b833edd392ea5688a0cb201f6d719095c4c2dba94191f6d734ee0c5c1",
+        "linePushCore.ts": "7d0e69c3fd390128589798d672306f0465900f5843e12e36b859f873bd0dfe59",
+        "marketDetect.ts": "a81000ffdbce5d1064cfb5d1a901e6c9ce130306c2b5ee7ff2ae5d9ccd8880ce",
+        "notificationTemplates.ts": "9fb0d39f189c5c3024070b117c7bf3739efb51df239d75446e5af9344255dbcb",
+        "parseUnitLockError.ts": "7a23dcdcee5feb9d08fa6be448b51cf443cfbd2a150a388cff5f0ccdcf949f4d",
+        "routes.ts": "713285fecfc7ee747f8c348039769ac0017e2cca632b23202bbce463cd172824",
+        "signalActionLabels.ts": "4dee7aa83740e164b8ee7240f518900cf62767979f7d07bbd29705aa2c5f978c",
+        "supabaseClients.ts": "370ce4745861fcb0095a1a0a46fdfbb663521ebc255ebcd88c017075f885ad74"
+      },
+      "shared_imports": [
+        "adminGuard.ts",
+        "authGuard.ts",
+        "cors.ts",
+        "edgeLogger.ts",
+        "linePushCore.ts",
+        "marketDetect.ts",
+        "notificationTemplates.ts",
+        "parseUnitLockError.ts",
+        "routes.ts",
+        "signalActionLabels.ts",
+        "supabaseClients.ts"
+      ],
+      "source": "supabase/functions/publish-weekly-journals/supabasePort.ts"
+    },
+    {
+      "classification": [
+        "version_unknown_log_retention",
+        "deployed_at_not_authoritative"
+      ],
+      "deployed_at_authoritative": null,
+      "deployed_at_estimate_source": "min(boot_at) of the current deployment_id in public.edge_boot_events (lower bound: a deploy is only observed once the function first boots)",
+      "id": "E09",
+      "name": "reconcile-warrant-quantities",
+      "prod_boot_count": 8,
+      "prod_calls_7d": null,
+      "prod_deployment_first_boot": "2026-07-28 09:05:53.689045+00",
+      "prod_deployment_id": "64a48db9-9102-4894-9be7-774a18fc14ad",
+      "prod_distinct_deployments": 8,
+      "prod_function_id": null,
+      "prod_last_boot": "2026-07-28 09:05:53.689045+00",
+      "prod_last_invocation_utc_us": null,
+      "prod_version": null,
+      "prod_version_first_seen_us": null,
+      "repo_bundle_sha256": "6fb3d962a0544955fd52ca30b30caa99c65742be93d0be73f55a33f2b9d41a1a",
+      "repo_files": [
+        "index.ts"
+      ],
+      "repo_present": true,
+      "shared_import_sha256": {
+        "authGuard.ts": "4477cdbc55890cd3bee4a9b579799d336ea30e97cfe28eaee8a60d74e55847a9",
+        "cors.ts": "7518c6d6bf85ca5dc4c3795705614fd2fac19956a0f7d733319f3054398aa74d",
+        "edgeLogger.ts": "c196af2b833edd392ea5688a0cb201f6d719095c4c2dba94191f6d734ee0c5c1",
+        "lotSize.ts": "8fc6eb6659050a70e9540e7eb94877306075877eba2cd22287609b75a949a9ab",
+        "supabaseClients.ts": "370ce4745861fcb0095a1a0a46fdfbb663521ebc255ebcd88c017075f885ad74"
+      },
+      "shared_imports": [
+        "authGuard.ts",
+        "cors.ts",
+        "edgeLogger.ts",
+        "lotSize.ts",
+        "supabaseClients.ts"
+      ],
+      "source": "supabase/functions/reconcile-warrant-quantities/index.ts"
+    },
+    {
+      "classification": [
+        "version_unknown_log_retention",
+        "deployed_at_not_authoritative"
+      ],
+      "deployed_at_authoritative": null,
+      "deployed_at_estimate_source": "min(boot_at) of the current deployment_id in public.edge_boot_events (lower bound: a deploy is only observed once the function first boots)",
+      "id": "E10",
+      "name": "refresh-targets-weekly",
+      "prod_boot_count": 9,
+      "prod_calls_7d": null,
+      "prod_deployment_first_boot": "2026-08-17 01:00:06.59077+00",
+      "prod_deployment_id": "f056d6de-8b9e-4f5f-b505-886fef47755b",
+      "prod_distinct_deployments": 9,
+      "prod_function_id": null,
+      "prod_last_boot": "2026-08-17 01:00:06.59077+00",
+      "prod_last_invocation_utc_us": null,
+      "prod_version": null,
+      "prod_version_first_seen_us": null,
+      "repo_bundle_sha256": "46d162fa274f2b21ac37807d1922afa34688006f546b6f6fe7b0e5b9de165451",
+      "repo_files": [
+        "index.ts"
+      ],
+      "repo_present": true,
+      "shared_import_sha256": {
+        "authGuard.ts": "4477cdbc55890cd3bee4a9b579799d336ea30e97cfe28eaee8a60d74e55847a9",
+        "cors.ts": "7518c6d6bf85ca5dc4c3795705614fd2fac19956a0f7d733319f3054398aa74d",
+        "edgeLogger.ts": "c196af2b833edd392ea5688a0cb201f6d719095c4c2dba94191f6d734ee0c5c1",
+        "routes.ts": "713285fecfc7ee747f8c348039769ac0017e2cca632b23202bbce463cd172824",
+        "supabaseClients.ts": "370ce4745861fcb0095a1a0a46fdfbb663521ebc255ebcd88c017075f885ad74"
+      },
+      "shared_imports": [
+        "authGuard.ts",
+        "cors.ts",
+        "edgeLogger.ts",
+        "routes.ts",
+        "supabaseClients.ts"
+      ],
+      "source": "supabase/functions/refresh-targets-weekly/index.ts"
+    },
+    {
+      "classification": [
+        "version_unknown_log_retention",
+        "deployed_at_not_authoritative"
+      ],
+      "deployed_at_authoritative": null,
+      "deployed_at_estimate_source": "min(boot_at) of the current deployment_id in public.edge_boot_events (lower bound: a deploy is only observed once the function first boots)",
+      "id": "E11",
+      "name": "stock-price-sync",
+      "prod_boot_count": 48,
+      "prod_calls_7d": null,
+      "prod_deployment_first_boot": "2026-08-17 06:05:52.709316+00",
+      "prod_deployment_id": "fef1baec-3f01-4da3-8e46-57361e3dc74d",
+      "prod_distinct_deployments": 48,
+      "prod_function_id": null,
+      "prod_last_boot": "2026-08-17 06:05:52.709316+00",
+      "prod_last_invocation_utc_us": null,
+      "prod_version": null,
+      "prod_version_first_seen_us": null,
+      "repo_bundle_sha256": "0d5e709e2ea7b1b3a8d8b64748ea68d53dbba6dab384132e67e550e45d3522ab",
+      "repo_files": [
+        "index.ts"
+      ],
+      "repo_present": true,
+      "shared_import_sha256": {
+        "cors.ts": "7518c6d6bf85ca5dc4c3795705614fd2fac19956a0f7d733319f3054398aa74d",
+        "edgeLogger.ts": "c196af2b833edd392ea5688a0cb201f6d719095c4c2dba94191f6d734ee0c5c1",
+        "marketDetect.ts": "a81000ffdbce5d1064cfb5d1a901e6c9ce130306c2b5ee7ff2ae5d9ccd8880ce",
+        "stockPriceWaterfall.ts": "352c99ae4d4e236e63c388304cebcf78648b55cfe560a14f0719610fe2840891",
+        "supabaseClients.ts": "370ce4745861fcb0095a1a0a46fdfbb663521ebc255ebcd88c017075f885ad74",
+        "usStockPriceWaterfall.ts": "f0096f9cc644db4e89d261ff6d30de15efa7432f5745014fdd32f6674e80562f"
+      },
+      "shared_imports": [
+        "cors.ts",
+        "edgeLogger.ts",
+        "marketDetect.ts",
+        "stockPriceWaterfall.ts",
+        "supabaseClients.ts",
+        "usStockPriceWaterfall.ts"
+      ],
+      "source": "supabase/functions/stock-price-sync/index.ts"
+    },
+    {
+      "classification": [
+        "version_unknown_log_retention",
+        "deployed_at_not_authoritative"
+      ],
+      "deployed_at_authoritative": null,
+      "deployed_at_estimate_source": "min(boot_at) of the current deployment_id in public.edge_boot_events (lower bound: a deploy is only observed once the function first boots)",
+      "id": "E12",
+      "name": "us-option-price-sync",
+      "prod_boot_count": 33,
+      "prod_calls_7d": null,
+      "prod_deployment_first_boot": "2026-08-14 21:10:33.469509+00",
+      "prod_deployment_id": "3b1b3a6f-ed01-4301-ae21-b39daa4d13eb",
+      "prod_distinct_deployments": 33,
+      "prod_function_id": null,
+      "prod_last_boot": "2026-08-14 21:10:33.469509+00",
+      "prod_last_invocation_utc_us": null,
+      "prod_version": null,
+      "prod_version_first_seen_us": null,
+      "repo_bundle_sha256": "8e0ba6046478c2b3c08bb059606d2aa3ac59abc6982c10fd9750e036e602bd1f",
+      "repo_files": [
+        "index.ts",
+        "index_test.ts",
+        "occ.ts",
+        "yahoo.ts"
+      ],
+      "repo_present": true,
+      "shared_import_sha256": {
+        "authGuard.ts": "4477cdbc55890cd3bee4a9b579799d336ea30e97cfe28eaee8a60d74e55847a9",
+        "cors.ts": "7518c6d6bf85ca5dc4c3795705614fd2fac19956a0f7d733319f3054398aa74d",
+        "edgeLogger.ts": "c196af2b833edd392ea5688a0cb201f6d719095c4c2dba94191f6d734ee0c5c1",
+        "retryFetch.ts": "6289df27e89b72887114ebd508ee386b9235b1ad8654f81e95dba28459e104fd",
+        "supabaseClients.ts": "370ce4745861fcb0095a1a0a46fdfbb663521ebc255ebcd88c017075f885ad74"
+      },
+      "shared_imports": [
+        "authGuard.ts",
+        "cors.ts",
+        "edgeLogger.ts",
+        "retryFetch.ts",
+        "supabaseClients.ts"
+      ],
+      "source": "supabase/functions/us-option-price-sync/index.ts"
+    },
+    {
+      "classification": [
+        "version_unknown_log_retention",
+        "prod_deployment_unknown",
+        "deployed_at_not_authoritative"
+      ],
+      "deployed_at_authoritative": null,
+      "deployed_at_estimate_source": "min(boot_at) of the current deployment_id in public.edge_boot_events (lower bound: a deploy is only observed once the function first boots)",
+      "id": "E13",
+      "name": "us-stock-quote",
+      "prod_boot_count": null,
+      "prod_calls_7d": null,
+      "prod_deployment_first_boot": null,
+      "prod_deployment_id": null,
+      "prod_distinct_deployments": null,
+      "prod_function_id": null,
+      "prod_last_boot": null,
+      "prod_last_invocation_utc_us": null,
+      "prod_version": null,
+      "prod_version_first_seen_us": null,
+      "repo_bundle_sha256": "4ba565f39cda29bf823e264f5a543db9d52948d8d269c45d88194ea1dab53964",
+      "repo_files": [
+        "index.ts"
+      ],
+      "repo_present": true,
+      "shared_import_sha256": {
+        "cors.ts": "7518c6d6bf85ca5dc4c3795705614fd2fac19956a0f7d733319f3054398aa74d",
+        "supabaseClients.ts": "370ce4745861fcb0095a1a0a46fdfbb663521ebc255ebcd88c017075f885ad74"
+      },
+      "shared_imports": [
+        "cors.ts",
+        "supabaseClients.ts"
+      ],
+      "source": "supabase/functions/us-stock-quote/index.ts"
+    }
+  ],
+  "gate": "S0-5b edge deployment inventory",
+  "log_retention_limitation": "function_edge_logs retains roughly one hour on this instance tier; numeric versions are therefore only observable for recently invoked functions. Deployment identity for every function comes from the app-instrumented public.edge_boot_events table instead.",
+  "note": "version/deployment_id are observed from production edge logs; the managed platform exposes no authoritative deployed_at or deployed bundle hash to this agent, so bundle equality between repo and production cannot be proven here.",
+  "prod_bundle_hash_available": false,
+  "production_touch": "read-only (log analytics + catalog)",
+  "total": 13
+}

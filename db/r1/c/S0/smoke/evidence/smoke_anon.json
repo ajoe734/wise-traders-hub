@@ -1,0 +1,343 @@
+{
+  "identity": "anon",
+  "captured_at": "2026-08-17T08:29:11.184825+00:00",
+  "production_touch": "read-only browsing (no submits, no mutating clicks)",
+  "targets": {
+    "prod": {
+      "base": "https://legendflow.tw",
+      "signed_in_storage": false,
+      "routes": [
+        {
+          "url": "https://legendflow.tw/",
+          "final_url": "https://legendflow.tw/",
+          "status": 200,
+          "title": "legendflow | 投顧分析師與實戰導師訂閱平台",
+          "h1": "讀萬卷書，不如緊跟大戶",
+          "body_len": 1658,
+          "body_sha256": "05c8b375ffbb17f5a5bd96bc59ee02530a8f0c62dad89fa2496fc07a827d50ad",
+          "error_texts_present": [],
+          "console_errors": [],
+          "console_error_count": 0,
+          "failed_requests": [
+            "GET https://legendflow.tw/videos/hero-bg.mp4"
+          ],
+          "route": "/",
+          "screenshot": "evidence/anon_prod_home.png"
+        },
+        {
+          "url": "https://legendflow.tw/experts",
+          "final_url": "https://legendflow.tw/experts",
+          "status": 200,
+          "title": "專家列表 | 投顧分析師與實戰導師 - legendflow",
+          "h1": "找到適合你的專家",
+          "body_len": 635,
+          "body_sha256": "aa7754f457f0aa0f6964ec23752ebe1d966cec8baa81d5c3dfa845a71efb7278",
+          "error_texts_present": [],
+          "console_errors": [],
+          "console_error_count": 0,
+          "failed_requests": [],
+          "route": "/experts",
+          "screenshot": "evidence/anon_prod_experts.png"
+        },
+        {
+          "url": "https://legendflow.tw/performance",
+          "final_url": "https://legendflow.tw/performance",
+          "status": 200,
+          "title": "找不到頁面 (404) | legendflow",
+          "h1": "404",
+          "body_len": 41,
+          "body_sha256": "67c09c0278188b20c3363d93c8a02a2e73c63432844ddf2ea1ce00c63eb19ac5",
+          "error_texts_present": [
+            "404"
+          ],
+          "console_errors": [
+            "error: 404 Error: User attempted to access non-existent route: /performance"
+          ],
+          "console_error_count": 1,
+          "failed_requests": [],
+          "route": "/performance",
+          "screenshot": "evidence/anon_prod_performance.png"
+        },
+        {
+          "url": "https://legendflow.tw/journals",
+          "final_url": "https://legendflow.tw/journals",
+          "status": 200,
+          "title": "找不到頁面 (404) | legendflow",
+          "h1": "404",
+          "body_len": 41,
+          "body_sha256": "67c09c0278188b20c3363d93c8a02a2e73c63432844ddf2ea1ce00c63eb19ac5",
+          "error_texts_present": [
+            "404"
+          ],
+          "console_errors": [
+            "error: 404 Error: User attempted to access non-existent route: /journals"
+          ],
+          "console_error_count": 1,
+          "failed_requests": [],
+          "route": "/journals",
+          "screenshot": "evidence/anon_prod_journals.png"
+        },
+        {
+          "url": "https://legendflow.tw/pricing",
+          "final_url": "https://legendflow.tw/pricing",
+          "status": 200,
+          "title": "訂閱方案與價格 | legendflow",
+          "h1": "方案與價格",
+          "body_len": 1589,
+          "body_sha256": "f83d37823efc81981525d3ababb6457f352d7274ea992f54c058d6b3bc2bb029",
+          "error_texts_present": [],
+          "console_errors": [],
+          "console_error_count": 0,
+          "failed_requests": [],
+          "route": "/pricing",
+          "screenshot": "evidence/anon_prod_pricing.png"
+        },
+        {
+          "url": "https://legendflow.tw/checkup",
+          "final_url": "https://legendflow.tw/checkup",
+          "status": 200,
+          "title": "找不到頁面 (404) | legendflow",
+          "h1": "404",
+          "body_len": 41,
+          "body_sha256": "67c09c0278188b20c3363d93c8a02a2e73c63432844ddf2ea1ce00c63eb19ac5",
+          "error_texts_present": [
+            "404"
+          ],
+          "console_errors": [
+            "error: 404 Error: User attempted to access non-existent route: /checkup"
+          ],
+          "console_error_count": 1,
+          "failed_requests": [
+            "GET https://connect.facebook.net//log/error"
+          ],
+          "route": "/checkup",
+          "screenshot": "evidence/anon_prod_checkup.png"
+        },
+        {
+          "url": "https://legendflow.tw/auth",
+          "final_url": "https://legendflow.tw/auth",
+          "status": 200,
+          "title": "找不到頁面 (404) | legendflow",
+          "h1": "404",
+          "body_len": 41,
+          "body_sha256": "67c09c0278188b20c3363d93c8a02a2e73c63432844ddf2ea1ce00c63eb19ac5",
+          "error_texts_present": [
+            "404"
+          ],
+          "console_errors": [
+            "error: 404 Error: User attempted to access non-existent route: /auth"
+          ],
+          "console_error_count": 1,
+          "failed_requests": [],
+          "route": "/auth",
+          "screenshot": "evidence/anon_prod_auth.png"
+        },
+        {
+          "url": "https://legendflow.tw/account",
+          "final_url": "https://legendflow.tw/account",
+          "status": 200,
+          "title": "找不到頁面 (404) | legendflow",
+          "h1": "404",
+          "body_len": 41,
+          "body_sha256": "67c09c0278188b20c3363d93c8a02a2e73c63432844ddf2ea1ce00c63eb19ac5",
+          "error_texts_present": [
+            "404"
+          ],
+          "console_errors": [
+            "error: 404 Error: User attempted to access non-existent route: /account"
+          ],
+          "console_error_count": 1,
+          "failed_requests": [],
+          "route": "/account",
+          "screenshot": "evidence/anon_prod_account.png"
+        },
+        {
+          "url": "https://legendflow.tw/company/users",
+          "final_url": "https://legendflow.tw/auth/login",
+          "status": 200,
+          "title": "會員登入 | legendflow",
+          "h1": "",
+          "body_len": 262,
+          "body_sha256": "b6ec750895109808a701f9ee4534a08468e08c2d3b3d4af0f83624eb4d4c9b5c",
+          "error_texts_present": [],
+          "console_errors": [],
+          "console_error_count": 0,
+          "failed_requests": [],
+          "route": "/company/users",
+          "screenshot": "evidence/anon_prod_company_users.png"
+        },
+        {
+          "url": "https://legendflow.tw/company/perf-metrics",
+          "final_url": "https://legendflow.tw/auth/login",
+          "status": 200,
+          "title": "會員登入 | legendflow",
+          "h1": "",
+          "body_len": 262,
+          "body_sha256": "b6ec750895109808a701f9ee4534a08468e08c2d3b3d4af0f83624eb4d4c9b5c",
+          "error_texts_present": [],
+          "console_errors": [],
+          "console_error_count": 0,
+          "failed_requests": [],
+          "route": "/company/perf-metrics",
+          "screenshot": "evidence/anon_prod_company_perf-metrics.png"
+        }
+      ]
+    },
+    "preview": {
+      "base": "https://id-preview--0f5bdae6-cb07-4e2a-88dc-334c90cb5b02.lovable.app",
+      "signed_in_storage": false,
+      "routes": [
+        {
+          "url": "https://id-preview--0f5bdae6-cb07-4e2a-88dc-334c90cb5b02.lovable.app/",
+          "final_url": "https://lovable.dev/login?redirect=https%3A%2F%2Flovable.dev%2Fauth-bridge%3Fproject_id%3Dlovp_3s6jpyj65688btjc0c47x0kft5%26return_url%3Dhttps%253A%252F%252Fid-preview--0f5bdae6-cb07-4e2a-88dc-334c90cb5b02.lovable.app%252F",
+          "status": 200,
+          "title": "Login",
+          "h1": "Log in",
+          "body_len": 354,
+          "body_sha256": "bfdf467f9c8a0b15ca1ab5939fb726f0871dd65af9329b17d7dbd704dfd938ba",
+          "error_texts_present": [],
+          "console_errors": [],
+          "console_error_count": 0,
+          "failed_requests": [],
+          "route": "/",
+          "screenshot": "evidence/anon_preview_home.png"
+        },
+        {
+          "url": "https://id-preview--0f5bdae6-cb07-4e2a-88dc-334c90cb5b02.lovable.app/experts",
+          "final_url": "https://lovable.dev/login?redirect=https%3A%2F%2Flovable.dev%2Fauth-bridge%3Fproject_id%3Dlovp_3s6jpyj65688btjc0c47x0kft5%26return_url%3Dhttps%253A%252F%252Fid-preview--0f5bdae6-cb07-4e2a-88dc-334c90cb5b02.lovable.app%252Fexperts",
+          "status": 200,
+          "title": "Login",
+          "h1": "Log in",
+          "body_len": 354,
+          "body_sha256": "bfdf467f9c8a0b15ca1ab5939fb726f0871dd65af9329b17d7dbd704dfd938ba",
+          "error_texts_present": [],
+          "console_errors": [],
+          "console_error_count": 0,
+          "failed_requests": [],
+          "route": "/experts",
+          "screenshot": "evidence/anon_preview_experts.png"
+        },
+        {
+          "url": "https://id-preview--0f5bdae6-cb07-4e2a-88dc-334c90cb5b02.lovable.app/performance",
+          "final_url": "https://lovable.dev/login?redirect=https%3A%2F%2Flovable.dev%2Fauth-bridge%3Fproject_id%3Dlovp_3s6jpyj65688btjc0c47x0kft5%26return_url%3Dhttps%253A%252F%252Fid-preview--0f5bdae6-cb07-4e2a-88dc-334c90cb5b02.lovable.app%252Fperformance",
+          "status": 200,
+          "title": "Login",
+          "h1": "Log in",
+          "body_len": 339,
+          "body_sha256": "cc26d5a00f7ea5d923ecfaced3e1cc620ceb89fc1cb071108310fb75c2a7ac56",
+          "error_texts_present": [],
+          "console_errors": [],
+          "console_error_count": 0,
+          "failed_requests": [],
+          "route": "/performance",
+          "screenshot": "evidence/anon_preview_performance.png"
+        },
+        {
+          "url": "https://id-preview--0f5bdae6-cb07-4e2a-88dc-334c90cb5b02.lovable.app/journals",
+          "final_url": "https://lovable.dev/login?redirect=https%3A%2F%2Flovable.dev%2Fauth-bridge%3Fproject_id%3Dlovp_3s6jpyj65688btjc0c47x0kft5%26return_url%3Dhttps%253A%252F%252Fid-preview--0f5bdae6-cb07-4e2a-88dc-334c90cb5b02.lovable.app%252Fjournals",
+          "status": 200,
+          "title": "Login",
+          "h1": "Log in",
+          "body_len": 339,
+          "body_sha256": "cc26d5a00f7ea5d923ecfaced3e1cc620ceb89fc1cb071108310fb75c2a7ac56",
+          "error_texts_present": [],
+          "console_errors": [],
+          "console_error_count": 0,
+          "failed_requests": [],
+          "route": "/journals",
+          "screenshot": "evidence/anon_preview_journals.png"
+        },
+        {
+          "url": "https://id-preview--0f5bdae6-cb07-4e2a-88dc-334c90cb5b02.lovable.app/pricing",
+          "final_url": "https://lovable.dev/login?redirect=https%3A%2F%2Flovable.dev%2Fauth-bridge%3Fproject_id%3Dlovp_3s6jpyj65688btjc0c47x0kft5%26return_url%3Dhttps%253A%252F%252Fid-preview--0f5bdae6-cb07-4e2a-88dc-334c90cb5b02.lovable.app%252Fpricing",
+          "status": 200,
+          "title": "Login",
+          "h1": "Log in",
+          "body_len": 340,
+          "body_sha256": "0eda338c9b34226ab219909d45878a5a1dafe5f4203d2a352812276db10c7375",
+          "error_texts_present": [],
+          "console_errors": [],
+          "console_error_count": 0,
+          "failed_requests": [],
+          "route": "/pricing",
+          "screenshot": "evidence/anon_preview_pricing.png"
+        },
+        {
+          "url": "https://id-preview--0f5bdae6-cb07-4e2a-88dc-334c90cb5b02.lovable.app/checkup",
+          "final_url": "https://lovable.dev/login?redirect=https%3A%2F%2Flovable.dev%2Fauth-bridge%3Fproject_id%3Dlovp_3s6jpyj65688btjc0c47x0kft5%26return_url%3Dhttps%253A%252F%252Fid-preview--0f5bdae6-cb07-4e2a-88dc-334c90cb5b02.lovable.app%252Fcheckup",
+          "status": 200,
+          "title": "Login",
+          "h1": "Log in",
+          "body_len": 349,
+          "body_sha256": "fd924322749265625317512e97d68dafac1a346b3ac2f8ee4f49197f8e4007f0",
+          "error_texts_present": [],
+          "console_errors": [],
+          "console_error_count": 0,
+          "failed_requests": [],
+          "route": "/checkup",
+          "screenshot": "evidence/anon_preview_checkup.png"
+        },
+        {
+          "url": "https://id-preview--0f5bdae6-cb07-4e2a-88dc-334c90cb5b02.lovable.app/auth",
+          "final_url": "https://lovable.dev/login?redirect=https%3A%2F%2Flovable.dev%2Fauth-bridge%3Fproject_id%3Dlovp_3s6jpyj65688btjc0c47x0kft5%26return_url%3Dhttps%253A%252F%252Fid-preview--0f5bdae6-cb07-4e2a-88dc-334c90cb5b02.lovable.app%252Fauth",
+          "status": 200,
+          "title": "Login",
+          "h1": "Log in",
+          "body_len": 348,
+          "body_sha256": "95f5e68c729dccd98cb6a731b8cae885cac5e4d5b562d620ab8b1a1977d6a838",
+          "error_texts_present": [],
+          "console_errors": [],
+          "console_error_count": 0,
+          "failed_requests": [],
+          "route": "/auth",
+          "screenshot": "evidence/anon_preview_auth.png"
+        },
+        {
+          "url": "https://id-preview--0f5bdae6-cb07-4e2a-88dc-334c90cb5b02.lovable.app/account",
+          "final_url": "https://lovable.dev/login?redirect=https%3A%2F%2Flovable.dev%2Fauth-bridge%3Fproject_id%3Dlovp_3s6jpyj65688btjc0c47x0kft5%26return_url%3Dhttps%253A%252F%252Fid-preview--0f5bdae6-cb07-4e2a-88dc-334c90cb5b02.lovable.app%252Faccount",
+          "status": 200,
+          "title": "Login",
+          "h1": "Log in",
+          "body_len": 350,
+          "body_sha256": "20fe8766d8a70a85754c0f719c983f66d51e4efb36b74f6bf1cb87e0b3896643",
+          "error_texts_present": [],
+          "console_errors": [],
+          "console_error_count": 0,
+          "failed_requests": [],
+          "route": "/account",
+          "screenshot": "evidence/anon_preview_account.png"
+        },
+        {
+          "url": "https://id-preview--0f5bdae6-cb07-4e2a-88dc-334c90cb5b02.lovable.app/company/users",
+          "final_url": "https://lovable.dev/login?redirect=https%3A%2F%2Flovable.dev%2Fauth-bridge%3Fproject_id%3Dlovp_3s6jpyj65688btjc0c47x0kft5%26return_url%3Dhttps%253A%252F%252Fid-preview--0f5bdae6-cb07-4e2a-88dc-334c90cb5b02.lovable.app%252Fcompany%252Fusers",
+          "status": 200,
+          "title": "Login",
+          "h1": "Log in",
+          "body_len": 352,
+          "body_sha256": "95aae6d00b81acc8b34d7a8e6c62f166f2f12eb5e59984912f8e2c0194a456b4",
+          "error_texts_present": [],
+          "console_errors": [],
+          "console_error_count": 0,
+          "failed_requests": [],
+          "route": "/company/users",
+          "screenshot": "evidence/anon_preview_company_users.png"
+        },
+        {
+          "url": "https://id-preview--0f5bdae6-cb07-4e2a-88dc-334c90cb5b02.lovable.app/company/perf-metrics",
+          "final_url": "https://lovable.dev/login?redirect=https%3A%2F%2Flovable.dev%2Fauth-bridge%3Fproject_id%3Dlovp_3s6jpyj65688btjc0c47x0kft5%26return_url%3Dhttps%253A%252F%252Fid-preview--0f5bdae6-cb07-4e2a-88dc-334c90cb5b02.lovable.app%252Fcompany%252Fperf-metrics",
+          "status": 200,
+          "title": "Login",
+          "h1": "Log in",
+          "body_len": 352,
+          "body_sha256": "95aae6d00b81acc8b34d7a8e6c62f166f2f12eb5e59984912f8e2c0194a456b4",
+          "error_texts_present": [],
+          "console_errors": [],
+          "console_error_count": 0,
+          "failed_requests": [],
+          "route": "/company/perf-metrics",
+          "screenshot": "evidence/anon_preview_company_perf-metrics.png"
+        }
+      ]
+    }
+  }
+}

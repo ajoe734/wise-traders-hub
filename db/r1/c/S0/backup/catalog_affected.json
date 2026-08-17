@@ -1,0 +1,1065 @@
+{
+  "columns": [
+    [
+      "current_prices.asset_class text null=NO def='tw_stock'::text"
+    ],
+    [
+      "current_prices.best_ask numeric null=YES def=-"
+    ],
+    [
+      "current_prices.best_bid numeric null=YES def=-"
+    ],
+    [
+      "current_prices.change_percent numeric null=YES def=-"
+    ],
+    [
+      "current_prices.change_value numeric null=YES def=-"
+    ],
+    [
+      "current_prices.currency text null=NO def='TWD'::text"
+    ],
+    [
+      "current_prices.high_price numeric null=YES def=-"
+    ],
+    [
+      "current_prices.limit_down numeric null=YES def=-"
+    ],
+    [
+      "current_prices.limit_up numeric null=YES def=-"
+    ],
+    [
+      "current_prices.low_price numeric null=YES def=-"
+    ],
+    [
+      "current_prices.market text null=NO def='TW'::text"
+    ],
+    [
+      "current_prices.name text null=YES def=-"
+    ],
+    [
+      "current_prices.open_price numeric null=YES def=-"
+    ],
+    [
+      "current_prices.price numeric null=YES def=-"
+    ],
+    [
+      "current_prices.pushed_at timestamp with time zone null=YES def=now()"
+    ],
+    [
+      "current_prices.symbol text null=NO def=-"
+    ],
+    [
+      "current_prices.tick_volume integer null=YES def=-"
+    ],
+    [
+      "current_prices.updated_at timestamp with time zone null=NO def=now()"
+    ],
+    [
+      "current_prices.volume integer null=YES def=-"
+    ],
+    [
+      "current_prices.writer text null=YES def=-"
+    ],
+    [
+      "current_prices.yesterday_close numeric null=YES def=-"
+    ],
+    [
+      "daily_price_snapshots.change_percent numeric null=YES def=-"
+    ],
+    [
+      "daily_price_snapshots.close_price numeric null=YES def=-"
+    ],
+    [
+      "daily_price_snapshots.created_at timestamp with time zone null=NO def=now()"
+    ],
+    [
+      "daily_price_snapshots.high_price numeric null=YES def=-"
+    ],
+    [
+      "daily_price_snapshots.id uuid null=NO def=gen_random_uuid()"
+    ],
+    [
+      "daily_price_snapshots.is_limit_up boolean null=NO def=false"
+    ],
+    [
+      "daily_price_snapshots.limit_up_price numeric null=YES def=-"
+    ],
+    [
+      "daily_price_snapshots.low_price numeric null=YES def=-"
+    ],
+    [
+      "daily_price_snapshots.market text null=NO def='TW'::text"
+    ],
+    [
+      "daily_price_snapshots.open_price numeric null=YES def=-"
+    ],
+    [
+      "daily_price_snapshots.symbol text null=NO def=-"
+    ],
+    [
+      "daily_price_snapshots.trade_date date null=NO def=-"
+    ],
+    [
+      "daily_price_snapshots.volume bigint null=YES def=-"
+    ],
+    [
+      "daily_price_snapshots.volume_ma5 numeric null=YES def=-"
+    ],
+    [
+      "daily_price_snapshots.volume_shares bigint null=YES def=-"
+    ],
+    [
+      "daily_price_snapshots.volume_unit text null=YES def=-"
+    ],
+    [
+      "daily_price_snapshots.yesterday_close numeric null=YES def=-"
+    ],
+    [
+      "expert_signal_legs.created_at timestamp with time zone null=NO def=now()"
+    ],
+    [
+      "expert_signal_legs.expiry date null=YES def=-"
+    ],
+    [
+      "expert_signal_legs.id uuid null=NO def=gen_random_uuid()"
+    ],
+    [
+      "expert_signal_legs.leg_index integer null=NO def=0"
+    ],
+    [
+      "expert_signal_legs.leg_price numeric null=YES def=-"
+    ],
+    [
+      "expert_signal_legs.occ_symbol text null=YES def=-"
+    ],
+    [
+      "expert_signal_legs.ratio integer null=NO def=1"
+    ],
+    [
+      "expert_signal_legs.right_type text null=YES def=-"
+    ],
+    [
+      "expert_signal_legs.side text null=NO def='long'::text"
+    ],
+    [
+      "expert_signal_legs.signal_id uuid null=NO def=-"
+    ],
+    [
+      "expert_signal_legs.strike numeric null=YES def=-"
+    ],
+    [
+      "expert_signal_legs.underlying text null=NO def=-"
+    ],
+    [
+      "expert_signal_legs.updated_at timestamp with time zone null=NO def=now()"
+    ],
+    [
+      "expert_signals.action USER-DEFINED null=NO def=-"
+    ],
+    [
+      "expert_signals.batch_id uuid null=YES def=-"
+    ],
+    [
+      "expert_signals.combo_strategy text null=YES def=-"
+    ],
+    [
+      "expert_signals.created_at timestamp with time zone null=NO def=now()"
+    ],
+    [
+      "expert_signals.executed_at timestamp with time zone null=YES def=-"
+    ],
+    [
+      "expert_signals.expert_id uuid null=NO def=-"
+    ],
+    [
+      "expert_signals.id uuid null=NO def=gen_random_uuid()"
+    ],
+    [
+      "expert_signals.instrument text null=NO def=-"
+    ],
+    [
+      "expert_signals.is_combo boolean null=NO def=false"
+    ],
+    [
+      "expert_signals.learning_points text null=YES def=-"
+    ],
+    [
+      "expert_signals.line_pushed_at timestamp with time zone null=YES def=-"
+    ],
+    [
+      "expert_signals.market text null=NO def=-"
+    ],
+    [
+      "expert_signals.max_loss_per_unit numeric null=YES def=-"
+    ],
+    [
+      "expert_signals.max_profit_per_unit numeric null=YES def=-"
+    ],
+    [
+      "expert_signals.net_premium numeric null=YES def=-"
+    ],
+    [
+      "expert_signals.overall_summary text null=YES def=-"
+    ],
+    [
+      "expert_signals.plan_id uuid null=YES def=-"
+    ],
+    [
+      "expert_signals.price_hint numeric null=YES def=-"
+    ],
+    [
+      "expert_signals.published_at timestamp with time zone null=YES def=now()"
+    ],
+    [
+      "expert_signals.quantity integer null=YES def=-"
+    ],
+    [
+      "expert_signals.quantity_unit text null=YES def='張'::text"
+    ],
+    [
+      "expert_signals.reason_detail text null=YES def=-"
+    ],
+    [
+      "expert_signals.reason_summary text null=YES def=-"
+    ],
+    [
+      "expert_signals.risk_notes text null=YES def=-"
+    ],
+    [
+      "expert_signals.status USER-DEFINED null=NO def='published'::signal_status"
+    ],
+    [
+      "expert_signals.taken_down_by uuid null=YES def=-"
+    ],
+    [
+      "expert_signals.taken_down_reason text null=YES def=-"
+    ],
+    [
+      "expert_signals.teaching_topic text null=YES def=-"
+    ],
+    [
+      "experts.asset_class text null=NO def='tw_stock'::text"
+    ],
+    [
+      "experts.avatar_url text null=YES def=-"
+    ],
+    [
+      "experts.backtest_1y_return numeric null=YES def=-"
+    ],
+    [
+      "experts.backtest_annual_return numeric null=YES def=-"
+    ],
+    [
+      "experts.backtest_max_drawdown numeric null=YES def=-"
+    ],
+    [
+      "experts.bio text null=YES def=-"
+    ],
+    [
+      "experts.created_at timestamp with time zone null=NO def=now()"
+    ],
+    [
+      "experts.created_by uuid null=YES def=-"
+    ],
+    [
+      "experts.currency text null=NO def='TWD'::text"
+    ],
+    [
+      "experts.description text null=YES def=-"
+    ],
+    [
+      "experts.id uuid null=NO def=gen_random_uuid()"
+    ],
+    [
+      "experts.markets ARRAY null=YES def=-"
+    ],
+    [
+      "experts.name text null=NO def=-"
+    ],
+    [
+      "experts.operation_cycle text null=YES def=-"
+    ],
+    [
+      "experts.risk_preference text null=YES def=-"
+    ],
+    [
+      "experts.role USER-DEFINED null=NO def=-"
+    ],
+    [
+      "experts.slug text null=NO def=-"
+    ],
+    [
+      "experts.starting_capital integer null=YES def=-"
+    ],
+    [
+      "experts.status text null=NO def='active'::text"
+    ],
+    [
+      "experts.strategy_name text null=YES def=-"
+    ],
+    [
+      "experts.strategy_summary text null=YES def=-"
+    ],
+    [
+      "experts.style_tags ARRAY null=YES def=-"
+    ],
+    [
+      "experts.user_id uuid null=NO def=-"
+    ],
+    [
+      "holdings_fix_proposals.applied_at timestamp with time zone null=YES def=-"
+    ],
+    [
+      "holdings_fix_proposals.applied_by uuid null=YES def=-"
+    ],
+    [
+      "holdings_fix_proposals.apply_result jsonb null=YES def=-"
+    ],
+    [
+      "holdings_fix_proposals.created_at timestamp with time zone null=NO def=now()"
+    ],
+    [
+      "holdings_fix_proposals.drift_category text null=NO def=-"
+    ],
+    [
+      "holdings_fix_proposals.expert_id uuid null=YES def=-"
+    ],
+    [
+      "holdings_fix_proposals.expert_name text null=YES def=-"
+    ],
+    [
+      "holdings_fix_proposals.expert_slug text null=YES def=-"
+    ],
+    [
+      "holdings_fix_proposals.generated_at timestamp with time zone null=NO def=now()"
+    ],
+    [
+      "holdings_fix_proposals.generated_by uuid null=YES def=-"
+    ],
+    [
+      "holdings_fix_proposals.id uuid null=NO def=gen_random_uuid()"
+    ],
+    [
+      "holdings_fix_proposals.instrument text null=YES def=-"
+    ],
+    [
+      "holdings_fix_proposals.payload jsonb null=NO def='{}'::jsonb"
+    ],
+    [
+      "holdings_fix_proposals.preview jsonb null=NO def='{}'::jsonb"
+    ],
+    [
+      "holdings_fix_proposals.proposed_action text null=NO def=-"
+    ],
+    [
+      "holdings_fix_proposals.review_note text null=YES def=-"
+    ],
+    [
+      "holdings_fix_proposals.reviewed_at timestamp with time zone null=YES def=-"
+    ],
+    [
+      "holdings_fix_proposals.reviewed_by uuid null=YES def=-"
+    ],
+    [
+      "holdings_fix_proposals.severity text null=NO def='medium'::text"
+    ],
+    [
+      "holdings_fix_proposals.signature text null=NO def=-"
+    ],
+    [
+      "holdings_fix_proposals.status text null=NO def='pending'::text"
+    ],
+    [
+      "holdings_fix_proposals.summary text null=NO def=-"
+    ],
+    [
+      "holdings_fix_proposals.symbol text null=YES def=-"
+    ],
+    [
+      "holdings_fix_proposals.updated_at timestamp with time zone null=NO def=now()"
+    ],
+    [
+      "member_subscriptions.auto_renew boolean null=NO def=false"
+    ],
+    [
+      "member_subscriptions.billing_cycle text null=NO def='monthly'::text"
+    ],
+    [
+      "member_subscriptions.canceled_at timestamp with time zone null=YES def=-"
+    ],
+    [
+      "member_subscriptions.created_at timestamp with time zone null=NO def=now()"
+    ],
+    [
+      "member_subscriptions.expires_at timestamp with time zone null=YES def=-"
+    ],
+    [
+      "member_subscriptions.id uuid null=NO def=gen_random_uuid()"
+    ],
+    [
+      "member_subscriptions.plan_id uuid null=NO def=-"
+    ],
+    [
+      "member_subscriptions.provider_id uuid null=YES def=-"
+    ],
+    [
+      "member_subscriptions.started_at timestamp with time zone null=NO def=now()"
+    ],
+    [
+      "member_subscriptions.status USER-DEFINED null=NO def='active'::subscription_status"
+    ],
+    [
+      "member_subscriptions.user_id uuid null=NO def=-"
+    ],
+    [
+      "signal_trade_applications.action text null=NO def=-"
+    ],
+    [
+      "signal_trade_applications.applied_at timestamp with time zone null=NO def=now()"
+    ],
+    [
+      "signal_trade_applications.applied_quantity integer null=YES def=-"
+    ],
+    [
+      "signal_trade_applications.expert_id uuid null=NO def=-"
+    ],
+    [
+      "signal_trade_applications.signal_id uuid null=NO def=-"
+    ],
+    [
+      "signal_trade_applications.tg_op text null=YES def=-"
+    ],
+    [
+      "trade_records.combo_strategy text null=YES def=-"
+    ],
+    [
+      "trade_records.created_at timestamp with time zone null=NO def=now()"
+    ],
+    [
+      "trade_records.currency text null=YES def=-"
+    ],
+    [
+      "trade_records.current_price numeric null=YES def=-"
+    ],
+    [
+      "trade_records.entry_date timestamp with time zone null=YES def=-"
+    ],
+    [
+      "trade_records.entry_price numeric null=YES def=-"
+    ],
+    [
+      "trade_records.exit_date timestamp with time zone null=YES def=-"
+    ],
+    [
+      "trade_records.exit_price numeric null=YES def=-"
+    ],
+    [
+      "trade_records.expert_id uuid null=NO def=-"
+    ],
+    [
+      "trade_records.id uuid null=NO def=gen_random_uuid()"
+    ],
+    [
+      "trade_records.instrument text null=NO def=-"
+    ],
+    [
+      "trade_records.is_combo boolean null=NO def=false"
+    ],
+    [
+      "trade_records.market text null=YES def=-"
+    ],
+    [
+      "trade_records.max_loss_per_unit numeric null=YES def=-"
+    ],
+    [
+      "trade_records.max_profit_per_unit numeric null=YES def=-"
+    ],
+    [
+      "trade_records.net_premium numeric null=YES def=-"
+    ],
+    [
+      "trade_records.pnl_percent numeric null=YES def=-"
+    ],
+    [
+      "trade_records.price_updated_at timestamp with time zone null=YES def=-"
+    ],
+    [
+      "trade_records.quantity integer null=NO def=1"
+    ],
+    [
+      "trade_records.quantity_unit text null=NO def='張'::text"
+    ],
+    [
+      "trade_records.signal_id uuid null=YES def=-"
+    ],
+    [
+      "trade_records.status USER-DEFINED null=NO def='open'::trade_status"
+    ],
+    [
+      "user_performances.current_price numeric null=YES def=-"
+    ],
+    [
+      "user_performances.entry_price double precision null=YES def=-"
+    ],
+    [
+      "user_performances.name text null=YES def=-"
+    ],
+    [
+      "user_performances.pnl numeric null=YES def=-"
+    ],
+    [
+      "user_performances.pnl_percent numeric null=YES def=-"
+    ],
+    [
+      "user_performances.signal_id integer null=NO def=-"
+    ],
+    [
+      "user_performances.symbol text null=NO def=-"
+    ],
+    [
+      "user_performances.updated_at timestamp with time zone null=YES def=now()"
+    ],
+    [
+      "user_performances.user_id uuid null=NO def=-"
+    ],
+    [
+      "user_summaries.avg_pnl_percent double precision null=YES def=0"
+    ],
+    [
+      "user_summaries.total_pnl_percent double precision null=YES def=0"
+    ],
+    [
+      "user_summaries.updated_at timestamp with time zone null=YES def=now()"
+    ],
+    [
+      "user_summaries.user_id uuid null=NO def=-"
+    ]
+  ],
+  "constraints": [
+    [
+      "current_prices :: current_prices_asset_class_check :: CHECK ((asset_class = ANY (ARRAY['tw_stock'::text, 'us_stock'::text, 'crypto'::text, 'us_option'::text, 'us_future'::text])))"
+    ],
+    [
+      "current_prices :: current_prices_currency_check :: CHECK ((currency = ANY (ARRAY['TWD'::text, 'USD'::text])))"
+    ],
+    [
+      "current_prices :: current_prices_pkey :: PRIMARY KEY (symbol)"
+    ],
+    [
+      "daily_price_snapshots :: daily_price_snapshots_pkey :: PRIMARY KEY (id)"
+    ],
+    [
+      "daily_price_snapshots :: daily_price_snapshots_symbol_trade_date_key :: UNIQUE (symbol, trade_date)"
+    ],
+    [
+      "expert_signal_legs :: expert_signal_legs_pkey :: PRIMARY KEY (id)"
+    ],
+    [
+      "expert_signal_legs :: expert_signal_legs_ratio_check :: CHECK ((ratio > 0))"
+    ],
+    [
+      "expert_signal_legs :: expert_signal_legs_right_type_check :: CHECK ((right_type = ANY (ARRAY['C'::text, 'P'::text])))"
+    ],
+    [
+      "expert_signal_legs :: expert_signal_legs_side_check :: CHECK ((side = ANY (ARRAY['long'::text, 'short'::text])))"
+    ],
+    [
+      "expert_signal_legs :: expert_signal_legs_signal_id_fkey :: FOREIGN KEY (signal_id) REFERENCES expert_signals(id) ON DELETE CASCADE"
+    ],
+    [
+      "expert_signal_legs :: expert_signal_legs_signal_id_leg_index_key :: UNIQUE (signal_id, leg_index)"
+    ],
+    [
+      "expert_signals :: expert_signals_expert_id_fkey :: FOREIGN KEY (expert_id) REFERENCES experts(id)"
+    ],
+    [
+      "expert_signals :: expert_signals_pkey :: PRIMARY KEY (id)"
+    ],
+    [
+      "expert_signals :: expert_signals_plan_id_fkey :: FOREIGN KEY (plan_id) REFERENCES expert_plans(id)"
+    ],
+    [
+      "experts :: experts_asset_class_check :: CHECK ((asset_class = ANY (ARRAY['tw_stock'::text, 'us_stock'::text, 'crypto'::text, 'us_option'::text, 'us_future'::text])))"
+    ],
+    [
+      "experts :: experts_currency_check :: CHECK ((currency = ANY (ARRAY['TWD'::text, 'USD'::text])))"
+    ],
+    [
+      "experts :: experts_pkey :: PRIMARY KEY (id)"
+    ],
+    [
+      "experts :: experts_slug_key :: UNIQUE (slug)"
+    ],
+    [
+      "holdings_fix_proposals :: holdings_fix_proposals_action_chk :: CHECK ((proposed_action = ANY (ARRAY['normalize_unit'::text, 'adjust_trade_quantity'::text, 'close_trade_record'::text, 'create_trade_record'::text, 'delete_orphan_signal'::text, 'cancel_signal'::text, 'manual_review'::text])))"
+    ],
+    [
+      "holdings_fix_proposals :: holdings_fix_proposals_expert_id_fkey :: FOREIGN KEY (expert_id) REFERENCES experts(id) ON DELETE CASCADE"
+    ],
+    [
+      "holdings_fix_proposals :: holdings_fix_proposals_pkey :: PRIMARY KEY (id)"
+    ],
+    [
+      "holdings_fix_proposals :: holdings_fix_proposals_status_chk :: CHECK ((status = ANY (ARRAY['pending'::text, 'applied'::text, 'rejected'::text, 'superseded'::text, 'failed'::text])))"
+    ],
+    [
+      "member_subscriptions :: fk_member_subscriptions_provider :: FOREIGN KEY (provider_id) REFERENCES payment_providers(id)"
+    ],
+    [
+      "member_subscriptions :: member_subscriptions_billing_cycle_check :: CHECK ((billing_cycle = ANY (ARRAY['monthly'::text, 'yearly'::text])))"
+    ],
+    [
+      "member_subscriptions :: member_subscriptions_pkey :: PRIMARY KEY (id)"
+    ],
+    [
+      "member_subscriptions :: member_subscriptions_plan_id_fkey :: FOREIGN KEY (plan_id) REFERENCES expert_plans(id) ON DELETE CASCADE"
+    ],
+    [
+      "member_subscriptions :: member_subscriptions_user_id_fkey :: FOREIGN KEY (user_id) REFERENCES auth.users(id) ON DELETE CASCADE"
+    ],
+    [
+      "signal_trade_applications :: signal_trade_applications_pkey :: PRIMARY KEY (signal_id)"
+    ],
+    [
+      "signal_trade_applications :: signal_trade_applications_signal_id_fkey :: FOREIGN KEY (signal_id) REFERENCES expert_signals(id) ON DELETE CASCADE"
+    ],
+    [
+      "trade_records :: trade_records_expert_id_fkey :: FOREIGN KEY (expert_id) REFERENCES experts(id)"
+    ],
+    [
+      "trade_records :: trade_records_pkey :: PRIMARY KEY (id)"
+    ],
+    [
+      "trade_records :: trade_records_signal_id_fkey :: FOREIGN KEY (signal_id) REFERENCES expert_signals(id)"
+    ],
+    [
+      "user_performances :: user_performances_pkey :: PRIMARY KEY (user_id, signal_id)"
+    ],
+    [
+      "user_summaries :: user_summaries_pkey :: PRIMARY KEY (user_id)"
+    ]
+  ],
+  "grants": [
+    [
+      "current_prices :: sandbox_exec :: INSERT"
+    ],
+    [
+      "current_prices :: sandbox_exec :: SELECT"
+    ],
+    [
+      "daily_price_snapshots :: sandbox_exec :: INSERT"
+    ],
+    [
+      "daily_price_snapshots :: sandbox_exec :: SELECT"
+    ],
+    [
+      "expert_signal_legs :: sandbox_exec :: INSERT"
+    ],
+    [
+      "expert_signal_legs :: sandbox_exec :: SELECT"
+    ],
+    [
+      "expert_signals :: sandbox_exec :: INSERT"
+    ],
+    [
+      "expert_signals :: sandbox_exec :: SELECT"
+    ],
+    [
+      "experts :: sandbox_exec :: INSERT"
+    ],
+    [
+      "experts :: sandbox_exec :: SELECT"
+    ],
+    [
+      "holdings_fix_proposals :: sandbox_exec :: INSERT"
+    ],
+    [
+      "holdings_fix_proposals :: sandbox_exec :: SELECT"
+    ],
+    [
+      "member_subscriptions :: sandbox_exec :: INSERT"
+    ],
+    [
+      "member_subscriptions :: sandbox_exec :: SELECT"
+    ],
+    [
+      "signal_trade_applications :: sandbox_exec :: INSERT"
+    ],
+    [
+      "signal_trade_applications :: sandbox_exec :: SELECT"
+    ],
+    [
+      "trade_records :: sandbox_exec :: INSERT"
+    ],
+    [
+      "trade_records :: sandbox_exec :: SELECT"
+    ],
+    [
+      "user_performances :: sandbox_exec :: INSERT"
+    ],
+    [
+      "user_performances :: sandbox_exec :: SELECT"
+    ],
+    [
+      "user_summaries :: sandbox_exec :: INSERT"
+    ],
+    [
+      "user_summaries :: sandbox_exec :: SELECT"
+    ]
+  ],
+  "indexes": [
+    [
+      "current_prices_pkey :: CREATE UNIQUE INDEX current_prices_pkey ON public.current_prices USING btree (symbol)"
+    ],
+    [
+      "daily_price_snapshots_pkey :: CREATE UNIQUE INDEX daily_price_snapshots_pkey ON public.daily_price_snapshots USING btree (id)"
+    ],
+    [
+      "daily_price_snapshots_symbol_trade_date_key :: CREATE UNIQUE INDEX daily_price_snapshots_symbol_trade_date_key ON public.daily_price_snapshots USING btree (symbol, trade_date)"
+    ],
+    [
+      "expert_signal_legs_pkey :: CREATE UNIQUE INDEX expert_signal_legs_pkey ON public.expert_signal_legs USING btree (id)"
+    ],
+    [
+      "expert_signal_legs_signal_id_leg_index_key :: CREATE UNIQUE INDEX expert_signal_legs_signal_id_leg_index_key ON public.expert_signal_legs USING btree (signal_id, leg_index)"
+    ],
+    [
+      "expert_signals_pkey :: CREATE UNIQUE INDEX expert_signals_pkey ON public.expert_signals USING btree (id)"
+    ],
+    [
+      "experts_pkey :: CREATE UNIQUE INDEX experts_pkey ON public.experts USING btree (id)"
+    ],
+    [
+      "experts_slug_key :: CREATE UNIQUE INDEX experts_slug_key ON public.experts USING btree (slug)"
+    ],
+    [
+      "holdings_fix_proposals_expert_idx :: CREATE INDEX holdings_fix_proposals_expert_idx ON public.holdings_fix_proposals USING btree (expert_id)"
+    ],
+    [
+      "holdings_fix_proposals_pkey :: CREATE UNIQUE INDEX holdings_fix_proposals_pkey ON public.holdings_fix_proposals USING btree (id)"
+    ],
+    [
+      "holdings_fix_proposals_signature_uidx :: CREATE UNIQUE INDEX holdings_fix_proposals_signature_uidx ON public.holdings_fix_proposals USING btree (signature)"
+    ],
+    [
+      "holdings_fix_proposals_status_idx :: CREATE INDEX holdings_fix_proposals_status_idx ON public.holdings_fix_proposals USING btree (status, drift_category)"
+    ],
+    [
+      "idx_current_prices_market :: CREATE INDEX idx_current_prices_market ON public.current_prices USING btree (market)"
+    ],
+    [
+      "idx_current_prices_market_updated :: CREATE INDEX idx_current_prices_market_updated ON public.current_prices USING btree (market, updated_at DESC)"
+    ],
+    [
+      "idx_daily_price_snapshots_missing_volume_shares :: CREATE INDEX idx_daily_price_snapshots_missing_volume_shares ON public.daily_price_snapshots USING btree (market, trade_date) WHERE (volume_shares IS NULL)"
+    ],
+    [
+      "idx_expert_signal_legs_signal :: CREATE INDEX idx_expert_signal_legs_signal ON public.expert_signal_legs USING btree (signal_id)"
+    ],
+    [
+      "idx_expert_signals_batch_id :: CREATE INDEX idx_expert_signals_batch_id ON public.expert_signals USING btree (batch_id) WHERE (batch_id IS NOT NULL)"
+    ],
+    [
+      "idx_expert_signals_executed_at :: CREATE INDEX idx_expert_signals_executed_at ON public.expert_signals USING btree (executed_at DESC NULLS LAST)"
+    ],
+    [
+      "idx_expert_signals_market :: CREATE INDEX idx_expert_signals_market ON public.expert_signals USING btree (market)"
+    ],
+    [
+      "idx_experts_status_created :: CREATE INDEX idx_experts_status_created ON public.experts USING btree (status, created_at)"
+    ],
+    [
+      "idx_snapshots_date :: CREATE INDEX idx_snapshots_date ON public.daily_price_snapshots USING btree (trade_date)"
+    ],
+    [
+      "idx_snapshots_limit_up :: CREATE INDEX idx_snapshots_limit_up ON public.daily_price_snapshots USING btree (is_limit_up, trade_date) WHERE (is_limit_up = true)"
+    ],
+    [
+      "idx_snapshots_symbol_date :: CREATE INDEX idx_snapshots_symbol_date ON public.daily_price_snapshots USING btree (symbol, trade_date)"
+    ],
+    [
+      "idx_trade_records_market_us :: CREATE INDEX idx_trade_records_market_us ON public.trade_records USING btree (market) WHERE (market = 'US'::text)"
+    ],
+    [
+      "member_subscriptions_pkey :: CREATE UNIQUE INDEX member_subscriptions_pkey ON public.member_subscriptions USING btree (id)"
+    ],
+    [
+      "signal_trade_applications_pkey :: CREATE UNIQUE INDEX signal_trade_applications_pkey ON public.signal_trade_applications USING btree (signal_id)"
+    ],
+    [
+      "trade_records_pkey :: CREATE UNIQUE INDEX trade_records_pkey ON public.trade_records USING btree (id)"
+    ],
+    [
+      "trade_records_signal_id_open_uniq :: CREATE UNIQUE INDEX trade_records_signal_id_open_uniq ON public.trade_records USING btree (signal_id) WHERE ((signal_id IS NOT NULL) AND (exit_date IS NULL))"
+    ],
+    [
+      "uq_member_sub_active_user_plan :: CREATE UNIQUE INDEX uq_member_sub_active_user_plan ON public.member_subscriptions USING btree (user_id, plan_id) WHERE (status = 'active'::subscription_status)"
+    ],
+    [
+      "user_performances_pkey :: CREATE UNIQUE INDEX user_performances_pkey ON public.user_performances USING btree (user_id, signal_id)"
+    ],
+    [
+      "user_summaries_pkey :: CREATE UNIQUE INDEX user_summaries_pkey ON public.user_summaries USING btree (user_id)"
+    ]
+  ],
+  "policies": [
+    [
+      "current_prices :: Anon users can view prices :: SELECT :: true :: -"
+    ],
+    [
+      "current_prices :: Authenticated users can view prices :: SELECT :: true :: -"
+    ],
+    [
+      "daily_price_snapshots :: Anyone can view snapshots :: SELECT :: true :: -"
+    ],
+    [
+      "expert_signal_legs :: Analysts manage own signal legs :: ALL :: (EXISTS ( SELECT 1"
+    ],
+    [
+      "   FROM (expert_signals s"
+    ],
+    [
+      "     JOIN experts e ON ((e.id = s.expert_id)))"
+    ],
+    [
+      "  WHERE ((s.id = expert_signal_legs.signal_id) AND (e.user_id = auth.uid())))) :: (EXISTS ( SELECT 1"
+    ],
+    [
+      "   FROM (expert_signals s"
+    ],
+    [
+      "     JOIN experts e ON ((e.id = s.expert_id)))"
+    ],
+    [
+      "  WHERE ((s.id = expert_signal_legs.signal_id) AND (e.user_id = auth.uid()))))"
+    ],
+    [
+      "expert_signal_legs :: Company admins full access signal legs :: ALL :: has_role(auth.uid(), 'company_admin'::app_role) :: has_role(auth.uid(), 'company_admin'::app_role)"
+    ],
+    [
+      "expert_signal_legs :: Subscribers can view published signal legs :: SELECT :: (EXISTS ( SELECT 1"
+    ],
+    [
+      "   FROM expert_signals s"
+    ],
+    [
+      "  WHERE ((s.id = expert_signal_legs.signal_id) AND (s.status = 'published'::signal_status) AND (s.expert_id IN ( SELECT has_active_subscription_after.expert_id"
+    ],
+    [
+      "           FROM has_active_subscription_after(auth.uid(), s.published_at) has_active_subscription_after(expert_id)))))) :: -"
+    ],
+    [
+      "expert_signals :: Analysts can delete own signals :: DELETE :: (expert_id IN ( SELECT experts.id"
+    ],
+    [
+      "   FROM experts"
+    ],
+    [
+      "  WHERE (experts.user_id = auth.uid()))) :: -"
+    ],
+    [
+      "expert_signals :: Analysts can insert own signals :: INSERT :: - :: (expert_id IN ( SELECT experts.id"
+    ],
+    [
+      "   FROM experts"
+    ],
+    [
+      "  WHERE (experts.user_id = auth.uid())))"
+    ],
+    [
+      "expert_signals :: Analysts can update own signals :: UPDATE :: (expert_id IN ( SELECT experts.id"
+    ],
+    [
+      "   FROM experts"
+    ],
+    [
+      "  WHERE (experts.user_id = auth.uid()))) :: -"
+    ],
+    [
+      "expert_signals :: Analysts can view own signals :: SELECT :: (expert_id IN ( SELECT experts.id"
+    ],
+    [
+      "   FROM experts"
+    ],
+    [
+      "  WHERE (experts.user_id = auth.uid()))) :: -"
+    ],
+    [
+      "expert_signals :: Company admins full access signals :: ALL :: has_role(auth.uid(), 'company_admin'::app_role) :: has_role(auth.uid(), 'company_admin'::app_role)"
+    ],
+    [
+      "expert_signals :: Subscribers can view signals published after subscription start :: SELECT :: ((status = 'published'::signal_status) AND (expert_id IN ( SELECT has_active_subscription_after.expert_id"
+    ],
+    [
+      "   FROM has_active_subscription_after(auth.uid(), expert_signals.published_at) has_active_subscription_after(expert_id)))) :: -"
+    ],
+    [
+      "experts :: Analysts can update own expert :: UPDATE :: (user_id = auth.uid()) :: -"
+    ],
+    [
+      "experts :: Analysts can view own expert :: SELECT :: (user_id = auth.uid()) :: -"
+    ],
+    [
+      "experts :: Anyone can view active experts :: SELECT :: ((status = 'active'::text) OR ((status = 'draft'::text) AND is_tester(auth.uid()))) :: -"
+    ],
+    [
+      "experts :: Company admins full access experts :: ALL :: has_role(auth.uid(), 'company_admin'::app_role) :: has_role(auth.uid(), 'company_admin'::app_role)"
+    ],
+    [
+      "experts :: Subscribers can view subscribed experts :: SELECT :: ((id IN ( SELECT has_active_subscription.expert_id"
+    ],
+    [
+      "   FROM has_active_subscription(auth.uid()) has_active_subscription(plan_id, expert_id))) AND ((status = 'active'::text) OR is_tester(auth.uid()))) :: -"
+    ],
+    [
+      "holdings_fix_proposals :: Company admins can insert fix proposals :: INSERT :: - :: has_role(auth.uid(), 'company_admin'::app_role)"
+    ],
+    [
+      "holdings_fix_proposals :: Company admins can update fix proposals :: UPDATE :: has_role(auth.uid(), 'company_admin'::app_role) :: has_role(auth.uid(), 'company_admin'::app_role)"
+    ],
+    [
+      "holdings_fix_proposals :: Company admins can view fix proposals :: SELECT :: has_role(auth.uid(), 'company_admin'::app_role) :: -"
+    ],
+    [
+      "member_subscriptions :: Analysts can view own plan subscriptions :: SELECT :: (plan_id IN ( SELECT ep.id"
+    ],
+    [
+      "   FROM (expert_plans ep"
+    ],
+    [
+      "     JOIN experts e ON ((ep.expert_id = e.id)))"
+    ],
+    [
+      "  WHERE (e.user_id = auth.uid()))) :: -"
+    ],
+    [
+      "member_subscriptions :: Company admins full access subscriptions :: ALL :: has_role(auth.uid(), 'company_admin'::app_role) :: has_role(auth.uid(), 'company_admin'::app_role)"
+    ],
+    [
+      "member_subscriptions :: Users can update own subscription preferences :: UPDATE :: (user_id = auth.uid()) :: (user_id = auth.uid())"
+    ],
+    [
+      "member_subscriptions :: Users can view own subscriptions :: SELECT :: (user_id = auth.uid()) :: -"
+    ],
+    [
+      "signal_trade_applications :: Company admins can view signal trade applications :: SELECT :: has_role(auth.uid(), 'company_admin'::app_role) :: -"
+    ],
+    [
+      "trade_records :: Analysts can delete own trade records :: DELETE :: (expert_id IN ( SELECT experts.id"
+    ],
+    [
+      "   FROM experts"
+    ],
+    [
+      "  WHERE (experts.user_id = auth.uid()))) :: -"
+    ],
+    [
+      "trade_records :: Analysts can view own trades :: SELECT :: (expert_id IN ( SELECT experts.id"
+    ],
+    [
+      "   FROM experts"
+    ],
+    [
+      "  WHERE (experts.user_id = auth.uid()))) :: -"
+    ],
+    [
+      "trade_records :: Anyone can view closed trades for active experts :: SELECT :: ((status = ANY (ARRAY['closed'::trade_status, 'stopped'::trade_status])) AND ((expert_id IN ( SELECT experts.id"
+    ],
+    [
+      "   FROM experts"
+    ],
+    [
+      "  WHERE (experts.status = 'active'::text))) OR is_tester(auth.uid()))) :: -"
+    ],
+    [
+      "trade_records :: Anyone can view open trades for active experts :: SELECT :: ((status = 'open'::trade_status) AND (expert_id IN ( SELECT experts.id"
+    ],
+    [
+      "   FROM experts"
+    ],
+    [
+      "  WHERE (experts.status = 'active'::text)))) :: -"
+    ],
+    [
+      "trade_records :: Company admins can delete trade records :: DELETE :: has_role(auth.uid(), 'company_admin'::app_role) :: -"
+    ],
+    [
+      "trade_records :: Company admins can view all trades :: SELECT :: has_role(auth.uid(), 'company_admin'::app_role) :: -"
+    ],
+    [
+      "trade_records :: Subscribers can view subscribed expert trades :: SELECT :: (expert_id IN ( SELECT has_active_subscription.expert_id"
+    ],
+    [
+      "   FROM has_active_subscription(auth.uid()) has_active_subscription(plan_id, expert_id))) :: -"
+    ],
+    [
+      "user_performances :: Analysts can delete own user performances :: DELETE :: (user_id = auth.uid()) :: -"
+    ],
+    [
+      "user_performances :: Analysts can view own user performances :: SELECT :: (user_id = auth.uid()) :: -"
+    ],
+    [
+      "user_performances :: Company admins can delete user performances :: DELETE :: has_role(auth.uid(), 'company_admin'::app_role) :: -"
+    ],
+    [
+      "user_performances :: Users can insert own user performances :: INSERT :: - :: (user_id = auth.uid())"
+    ],
+    [
+      "user_performances :: Users can update own user performances :: UPDATE :: (user_id = auth.uid()) :: -"
+    ],
+    [
+      "user_summaries :: Company admins full access summaries :: ALL :: has_role(auth.uid(), 'company_admin'::app_role) :: has_role(auth.uid(), 'company_admin'::app_role)"
+    ],
+    [
+      "user_summaries :: Users can view own summary :: SELECT :: (user_id = auth.uid()) :: -"
+    ]
+  ],
+  "rls_enabled": [
+    [
+      "current_prices=true"
+    ],
+    [
+      "daily_price_snapshots=true"
+    ],
+    [
+      "expert_signal_legs=true"
+    ],
+    [
+      "expert_signals=true"
+    ],
+    [
+      "experts=true"
+    ],
+    [
+      "holdings_fix_proposals=true"
+    ],
+    [
+      "member_subscriptions=true"
+    ],
+    [
+      "signal_trade_applications=true"
+    ],
+    [
+      "trade_records=true"
+    ],
+    [
+      "user_performances=true"
+    ],
+    [
+      "user_summaries=true"
+    ]
+  ],
+  "tables": [
+    "current_prices",
+    "daily_price_snapshots",
+    "expert_signal_legs",
+    "expert_signals",
+    "experts",
+    "holdings_fix_proposals",
+    "member_subscriptions",
+    "signal_trade_applications",
+    "trade_records",
+    "user_performances",
+    "user_summaries"
+  ]
+}

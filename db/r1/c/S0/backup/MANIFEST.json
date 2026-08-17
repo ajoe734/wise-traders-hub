@@ -1,0 +1,21 @@
+{
+  "artifact": "S0-2b stage-specific backup artifact",
+  "counts": {
+    "acl_canonical_keys": 37,
+    "acl_unique_signatures": 28,
+    "affected_tables": 11,
+    "cron_jobs": 72,
+    "function_definitions": 28
+  },
+  "files_sha256": {
+    "../edge_inventory.json": "ad84b9a0c9496c3ad4ac1110aa242e346287da21e8e6f0e4831147d9ba7bdf49",
+    "acl_keys.json": "ab040a33d08c135a54c865413304fb09346ea421b245a5c6cf0b466860a1eda2",
+    "catalog_affected.json": "189b3eaf6d22c8a52c75f89bfb91a135526ae2993d0aed1842ab5967f2913dec",
+    "catalog_fingerprint.json": "113a99429dd504ed6530042c3dcfcea453b6f95a33c3530698d26f507901a228",
+    "cron_config.json": "5ea71a19ee3815f3f822fae6ab468531ce0d08f95d373d742ae883500cf40b19",
+    "functions.sql": "cf2e1028f8aa845c75455ffb3f5415f9c70f875614e2282a1d9457ca1f45beed"
+  },
+  "manifest_sha256": "5a09462d7c8add9fd35ea996b9dc814e7ef418aef77fda9443bd47724e510b63",
+  "production_touch": "read-only (SELECT / catalog only)",
+  "reason": "managed backup tier / PITR state is not readable by any available tool (S0-2a BLOCKER)"
+}

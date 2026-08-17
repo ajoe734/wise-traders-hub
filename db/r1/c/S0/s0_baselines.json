@@ -1,0 +1,97 @@
+{
+  "baseline_sha256": "5efc0d9ca2e091f65dfb1d9663cce231cef144cf1b78921090afb6c253b7d870",
+  "data": {
+    "checkup_storage_holdings": {
+      "rows": 38,
+      "users": 38
+    },
+    "chips_prefetch_targets": {
+      "exists": true,
+      "rows": 20
+    },
+    "current_prices": {
+      "exists": true,
+      "rows": 142
+    },
+    "expert_signals": {
+      "by_status": {
+        "published": 173
+      },
+      "published": 173,
+      "rows": 173,
+      "sha256": "7d94e81e4b754df80f20e2a2297e4c8f"
+    },
+    "experts": {
+      "exists": true,
+      "rows": 12
+    },
+    "holdings_fix_proposals": {
+      "exists": true,
+      "rows": 0
+    },
+    "member_subscriptions": {
+      "exists": true,
+      "rows": 18
+    },
+    "notifications": {
+      "exists": true,
+      "rows": 55
+    },
+    "signal_trade_applications": {
+      "exists": true,
+      "rows": 165
+    },
+    "stock_names": {
+      "exists": true,
+      "rows": 74
+    },
+    "stock_names_by_market": {
+      "(null)": 57,
+      "US": 17
+    },
+    "trade_records": {
+      "closed": 61,
+      "experts": 5,
+      "open": 21,
+      "rows": 82,
+      "sha256": "4f1f1f9c5926b1c56ef7eb8f499cf16b"
+    },
+    "tw_bsr_daily": {
+      "exists": true,
+      "rows": 3679883
+    },
+    "user_performances": {
+      "exists": true,
+      "rows": 26
+    },
+    "user_summaries": {
+      "exists": true,
+      "rows": 6
+    }
+  },
+  "kill_switches": {
+    "chips_all": "true@2026-07-25 11:26:29.254929+00",
+    "chips_backfill": "false@2026-08-17 08:10:03.764+00",
+    "chips_interactive": "true@2026-07-25 11:26:29.254929+00",
+    "chips_keepwarm": "false@2026-08-17 05:40:02.877+00"
+  },
+  "pointer": {
+    "any_pointer_present": false,
+    "expected_state_pre_cutover": "absent — projection pointer is created by S3, not S0",
+    "projection_pointer": false,
+    "public_projection_active": false,
+    "public_projection_pointer": false
+  },
+  "schema": {
+    "app_ledger_schema_exists": false,
+    "columns_sha256": "e48daccd765bd7d463f053b6c2bc75a193cb4750a9f6e321b6014979a1d3b65d",
+    "migrations_applied": 422,
+    "migrations_head": "20260816143339",
+    "policies_sha256": "7f7e34761d8f946cbdc9070df88883b8b5f8137a8bab4592c1926ac91a3c3bcd",
+    "public_functions": 351,
+    "public_policies": 249,
+    "public_triggers": 70,
+    "search_path_public_tables": 123,
+    "triggers_sha256": "91cbd33c22215dcf71b6ad04298ab31d008d1d71f2210d4e196e47c5507372d2"
+  }
+}

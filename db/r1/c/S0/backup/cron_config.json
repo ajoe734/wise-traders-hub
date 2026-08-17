@@ -1,0 +1,654 @@
+{
+  "active": 72,
+  "jobs": [
+    {
+      "active": true,
+      "command_len": 71,
+      "command_md5": "19017747d8ebfb3b5d54334d90b89723",
+      "jobid": 1,
+      "jobname": "daily-performance-update",
+      "schedule": "30 6 * * 1-5",
+      "username": "postgres"
+    },
+    {
+      "active": true,
+      "command_len": 63,
+      "command_md5": "936445651ca89e904915a977c27190b5",
+      "jobid": 2,
+      "jobname": "line-push-delayed-hourly",
+      "schedule": "0 * * * *",
+      "username": "postgres"
+    },
+    {
+      "active": true,
+      "command_len": 72,
+      "command_md5": "1a0b196856a83656fa2044548015736c",
+      "jobid": 3,
+      "jobname": "line-push-renewal-reminder-daily",
+      "schedule": "0 9 * * *",
+      "username": "postgres"
+    },
+    {
+      "active": true,
+      "command_len": 44,
+      "command_md5": "5bd4a0f00b5d0d226bdd699386cd21d3",
+      "jobid": 4,
+      "jobname": "cleanup-expired-binding-codes",
+      "schedule": "* * * * *",
+      "username": "postgres"
+    },
+    {
+      "active": true,
+      "command_len": 67,
+      "command_md5": "66ff1194c83a2187dd91b199525b9eea",
+      "jobid": 8,
+      "jobname": "checkup-calendar-daily-refresh",
+      "schedule": "0 1 * * *",
+      "username": "postgres"
+    },
+    {
+      "active": true,
+      "command_len": 68,
+      "command_md5": "3835f504fe138a69d6ee38799d8139b2",
+      "jobid": 10,
+      "jobname": "daily-snapshot-1400",
+      "schedule": "0 6 * * 1-5",
+      "username": "postgres"
+    },
+    {
+      "active": true,
+      "command_len": 41,
+      "command_md5": "15ff0b23bf6e99f111f8517c706c7196",
+      "jobid": 11,
+      "jobname": "cleanup-old-announcements",
+      "schedule": "0 3 * * *",
+      "username": "postgres"
+    },
+    {
+      "active": true,
+      "command_len": 72,
+      "command_md5": "2424ba0d577003363d05d90b2e58a5ca",
+      "jobid": 12,
+      "jobname": "cleanup-old-announcements-every-2min",
+      "schedule": "*/2 * * * *",
+      "username": "postgres"
+    },
+    {
+      "active": true,
+      "command_len": 64,
+      "command_md5": "19dedd41fe67ef6caffeb22ac67c5fe0",
+      "jobid": 13,
+      "jobname": "knowledge-validate-weekly",
+      "schedule": "0 19 * * 6",
+      "username": "postgres"
+    },
+    {
+      "active": true,
+      "command_len": 74,
+      "command_md5": "88d948fb0b9d3aae99b1089fcc91af06",
+      "jobid": 14,
+      "jobname": "knowledge-promote-candidates-weekly",
+      "schedule": "0 20 * * 6",
+      "username": "postgres"
+    },
+    {
+      "active": true,
+      "command_len": 69,
+      "command_md5": "289f17bf6a21059a4ba7b1c8b6986463",
+      "jobid": 17,
+      "jobname": "expire-stale-remittance-daily",
+      "schedule": "0 1 * * *",
+      "username": "postgres"
+    },
+    {
+      "active": true,
+      "command_len": 66,
+      "command_md5": "e40d97051a77ee902939cb15c15a8fb6",
+      "jobid": 18,
+      "jobname": "expire-subscriptions-15min",
+      "schedule": "*/15 * * * *",
+      "username": "postgres"
+    },
+    {
+      "active": true,
+      "command_len": 68,
+      "command_md5": "9bfd2347a489a2971e9f2b0fb000b73f",
+      "jobid": 19,
+      "jobname": "refresh-targets-weekly",
+      "schedule": "0 1 * * 1",
+      "username": "postgres"
+    },
+    {
+      "active": true,
+      "command_len": 78,
+      "command_md5": "6cb362cb733d9a6f9699c0e34baec572",
+      "jobid": 20,
+      "jobname": "backfill-daily-snapshots-auto-resume",
+      "schedule": "*/5 * * * *",
+      "username": "postgres"
+    },
+    {
+      "active": true,
+      "command_len": 71,
+      "command_md5": "a8b45844162976e42bd3d9eb0959086d",
+      "jobid": 22,
+      "jobname": "knowledge-daily-scheduler",
+      "schedule": "0 19 * * *",
+      "username": "postgres"
+    },
+    {
+      "active": true,
+      "command_len": 101,
+      "command_md5": "658e8c3d5aeb3e6c1276347c355d45f7",
+      "jobid": 23,
+      "jobname": "knowledge-weekly-sync",
+      "schedule": "0 20 * * 1",
+      "username": "postgres"
+    },
+    {
+      "active": true,
+      "command_len": 66,
+      "command_md5": "af61a137de261a8ce5d3a5425dbccc2f",
+      "jobid": 24,
+      "jobname": "knowledge-full-audit-weekly",
+      "schedule": "0 19 * * 0",
+      "username": "postgres"
+    },
+    {
+      "active": true,
+      "command_len": 107,
+      "command_md5": "3acaa2f8362cc8c581f2345a75020a75",
+      "jobid": 26,
+      "jobname": "prune-knowledge-base-weekly",
+      "schedule": "0 19 * * 6",
+      "username": "postgres"
+    },
+    {
+      "active": true,
+      "command_len": 43,
+      "command_md5": "52cfe8dad38b4b92f2a10ab1b7390d16",
+      "jobid": 27,
+      "jobname": "cleanup-perf-metrics-daily",
+      "schedule": "15 3 * * *",
+      "username": "postgres"
+    },
+    {
+      "active": true,
+      "command_len": 72,
+      "command_md5": "b45e3aff207554692a80ce2cb2f9b30d",
+      "jobid": 28,
+      "jobname": "recover-abandoned-checkout",
+      "schedule": "*/30 * * * *",
+      "username": "postgres"
+    },
+    {
+      "active": true,
+      "command_len": 73,
+      "command_md5": "3886e39edeedfefbbd77b81c72f28396",
+      "jobid": 29,
+      "jobname": "email-push-renewal-reminder",
+      "schedule": "10 1 * * *",
+      "username": "postgres"
+    },
+    {
+      "active": true,
+      "command_len": 73,
+      "command_md5": "0fcfa37e5a1c2b660acfa7d7ffb4e8a8",
+      "jobid": 30,
+      "jobname": "recover-failed-transactions-daily",
+      "schedule": "0 2 * * *",
+      "username": "postgres"
+    },
+    {
+      "active": true,
+      "command_len": 73,
+      "command_md5": "4308c18326efd38d38347a50a5ca2a2c",
+      "jobid": 31,
+      "jobname": "checkup-daily-reminder",
+      "schedule": "0 6 * * 1-5",
+      "username": "postgres"
+    },
+    {
+      "active": true,
+      "command_len": 61,
+      "command_md5": "8c6556ea5e2d5fc3bcd2a7efe05e0586",
+      "jobid": 33,
+      "jobname": "alerts-watchdog-every-5min",
+      "schedule": "*/5 * * * *",
+      "username": "postgres"
+    },
+    {
+      "active": true,
+      "command_len": 58,
+      "command_md5": "e56a1926ed08a2f46a5c5e7315ae6656",
+      "jobid": 35,
+      "jobname": "fx-rate-sync-every-30min",
+      "schedule": "*/30 * * * *",
+      "username": "postgres"
+    },
+    {
+      "active": true,
+      "command_len": 67,
+      "command_md5": "1700077008dc2c86b3202ccbe5d91562",
+      "jobid": 37,
+      "jobname": "weekly-journal-export-fri-2330-tpe",
+      "schedule": "30 15 * * 5",
+      "username": "postgres"
+    },
+    {
+      "active": true,
+      "command_len": 81,
+      "command_md5": "cb1abec9f6267d01705c7aec72fc59e2",
+      "jobid": 38,
+      "jobname": "tw-institutional-daily-sync",
+      "schedule": "45 9 * * 1-5",
+      "username": "postgres"
+    },
+    {
+      "active": true,
+      "command_len": 121,
+      "command_md5": "9414036356b56c167262a82c4d531126",
+      "jobid": 45,
+      "jobname": "tw-bsr-enqueue-post-close",
+      "schedule": "30 7 * * 1-5",
+      "username": "postgres"
+    },
+    {
+      "active": true,
+      "command_len": 141,
+      "command_md5": "9e91f44cb38f49973732eb1534fc7d26",
+      "jobid": 46,
+      "jobname": "tw-bsr-worker-trading",
+      "schedule": "*/10 6-12 * * 1-5",
+      "username": "postgres"
+    },
+    {
+      "active": true,
+      "command_len": 39,
+      "command_md5": "d17eef2983d16817cf93d1f892e8d60c",
+      "jobid": 47,
+      "jobname": "tw-bsr-prune-daily",
+      "schedule": "0 20 * * *",
+      "username": "postgres"
+    },
+    {
+      "active": true,
+      "command_len": 56,
+      "command_md5": "da4b736b5b8ca37cc9c7c6a8b4358233",
+      "jobid": 50,
+      "jobname": "tw-bsr-purge-expired-reservations",
+      "schedule": "* * * * *",
+      "username": "postgres"
+    },
+    {
+      "active": true,
+      "command_len": 164,
+      "command_md5": "126f9a947c66da777787ceb97f88eea4",
+      "jobid": 51,
+      "jobname": "tw-bsr-worker-tier1-catchup",
+      "schedule": "*/15 6-12 * * 1-5",
+      "username": "postgres"
+    },
+    {
+      "active": true,
+      "command_len": 42,
+      "command_md5": "4b8107f1bbf492b7f25dabcc796a369c",
+      "jobid": 52,
+      "jobname": "trade-dedupe-sweep-15min",
+      "schedule": "*/15 * * * *",
+      "username": "postgres"
+    },
+    {
+      "active": true,
+      "command_len": 137,
+      "command_md5": "9b415d87811e7f3f4d28545e49b6c3f2",
+      "jobid": 53,
+      "jobname": "tw-bsr-enqueue-holdings-delta",
+      "schedule": "0,30 7-12 * * 1-5",
+      "username": "postgres"
+    },
+    {
+      "active": true,
+      "command_len": 116,
+      "command_md5": "95994d0e150ec0f8a4a736ec5aeef31a",
+      "jobid": 60,
+      "jobname": "publish-weekly-journals-tw",
+      "schedule": "0 12 * * 5",
+      "username": "postgres"
+    },
+    {
+      "active": true,
+      "command_len": 116,
+      "command_md5": "071cc05b3b5d98f236265fb59dc91797",
+      "jobid": 61,
+      "jobname": "publish-weekly-journals-us",
+      "schedule": "0 0 * * 6",
+      "username": "postgres"
+    },
+    {
+      "active": true,
+      "command_len": 78,
+      "command_md5": "4c6c649e6131da1998330e0bf1a122ef",
+      "jobid": 62,
+      "jobname": "publish-weekly-journals-watchdog",
+      "schedule": "* * * * *",
+      "username": "postgres"
+    },
+    {
+      "active": true,
+      "command_len": 42,
+      "command_md5": "fcf156513857b977ba65d07e7878e640",
+      "jobid": 63,
+      "jobname": "prune-cron-dispatch-log",
+      "schedule": "17 3 * * *",
+      "username": "postgres"
+    },
+    {
+      "active": true,
+      "command_len": 127,
+      "command_md5": "a33d9fefefec7a42b85a8f508c3e107a",
+      "jobid": 64,
+      "jobname": "tw-inst-keep-warm-wave1",
+      "schedule": "30 7 * * 1-5",
+      "username": "postgres"
+    },
+    {
+      "active": true,
+      "command_len": 127,
+      "command_md5": "babcf50509c625ee376a4717b2392790",
+      "jobid": 65,
+      "jobname": "tw-inst-keep-warm-wave2",
+      "schedule": "30 9 * * 1-5",
+      "username": "postgres"
+    },
+    {
+      "active": true,
+      "command_len": 127,
+      "command_md5": "fd4a2ddc7f63560e58f4c2fc7c19d790",
+      "jobid": 66,
+      "jobname": "tw-inst-keep-warm-wave3",
+      "schedule": "30 11 * * 1-5",
+      "username": "postgres"
+    },
+    {
+      "active": true,
+      "command_len": 100,
+      "command_md5": "dbd6b3565f0f662c675d2f1f4279e462",
+      "jobid": 67,
+      "jobname": "tw-bsr-market-batch-probe-daily",
+      "schedule": "30 13 * * 1",
+      "username": "postgres"
+    },
+    {
+      "active": true,
+      "command_len": 68,
+      "command_md5": "196dbf0e27b981ffbcd2369d9eb9e884",
+      "jobid": 69,
+      "jobname": "chips-guardian-every-10min",
+      "schedule": "*/10 * * * *",
+      "username": "postgres"
+    },
+    {
+      "active": true,
+      "command_len": 76,
+      "command_md5": "8a1b42b631808c24722358c028083ff9",
+      "jobid": 70,
+      "jobname": "tw-bsr-window-converge-halfhour",
+      "schedule": "*/30 * * * *",
+      "username": "postgres"
+    },
+    {
+      "active": true,
+      "command_len": 56,
+      "command_md5": "4d0a256b38111012e9e16c6920ba2504",
+      "jobid": 71,
+      "jobname": "tw-inst-backfill-enqueue",
+      "schedule": "15 * * * *",
+      "username": "postgres"
+    },
+    {
+      "active": true,
+      "command_len": 124,
+      "command_md5": "e361f063b9fa39fa0c19b6136de2e8e3",
+      "jobid": 72,
+      "jobname": "tw-institutional-fastlane",
+      "schedule": "0 * * * *",
+      "username": "postgres"
+    },
+    {
+      "active": true,
+      "command_len": 84,
+      "command_md5": "1072f6aa953659afc6927003363ee2b0",
+      "jobid": 75,
+      "jobname": "tw-price-sync-close",
+      "schedule": "35 5 * * 1-5",
+      "username": "postgres"
+    },
+    {
+      "active": true,
+      "command_len": 86,
+      "command_md5": "34c041b2d26a69a2fb36135adf8ee87f",
+      "jobid": 77,
+      "jobname": "us-price-sync-close-edt",
+      "schedule": "5 20 * * 1-5",
+      "username": "postgres"
+    },
+    {
+      "active": true,
+      "command_len": 86,
+      "command_md5": "0ecf4b8736895adf305625bef0e9dc37",
+      "jobid": 78,
+      "jobname": "us-price-sync-close-est",
+      "schedule": "5 21 * * 1-5",
+      "username": "postgres"
+    },
+    {
+      "active": true,
+      "command_len": 85,
+      "command_md5": "1abefe07cf91ecaf5ef8986793ff3ecf",
+      "jobid": 79,
+      "jobname": "crypto-price-sync-daily",
+      "schedule": "0 0 * * *",
+      "username": "postgres"
+    },
+    {
+      "active": true,
+      "command_len": 75,
+      "command_md5": "9eeb3cfb931d8c14bbf98c88b329eb6c",
+      "jobid": 80,
+      "jobname": "tw-chips-orchestrator-wave1",
+      "schedule": "35 7 * * 1-5",
+      "username": "postgres"
+    },
+    {
+      "active": true,
+      "command_len": 75,
+      "command_md5": "9eeb3cfb931d8c14bbf98c88b329eb6c",
+      "jobid": 81,
+      "jobname": "tw-chips-orchestrator-wave2",
+      "schedule": "35 9 * * 1-5",
+      "username": "postgres"
+    },
+    {
+      "active": true,
+      "command_len": 75,
+      "command_md5": "9eeb3cfb931d8c14bbf98c88b329eb6c",
+      "jobid": 82,
+      "jobname": "tw-chips-orchestrator-wave3",
+      "schedule": "35 11 * * 1-5",
+      "username": "postgres"
+    },
+    {
+      "active": true,
+      "command_len": 43,
+      "command_md5": "a5ccaa922f93fab900449804fb30f01a",
+      "jobid": 86,
+      "jobname": "prune-backfill-job-queue",
+      "schedule": "17 4 * * *",
+      "username": "postgres"
+    },
+    {
+      "active": true,
+      "command_len": 105,
+      "command_md5": "2ee02b00820072882e3217086ed76d90",
+      "jobid": 87,
+      "jobname": "backfill-snapshots-twse-bulk-daily",
+      "schedule": "15 7 * * 1-5",
+      "username": "postgres"
+    },
+    {
+      "active": true,
+      "command_len": 111,
+      "command_md5": "fc126ba892ea4eb03e2ca023a4a0c07a",
+      "jobid": 88,
+      "jobname": "tw-price-sync-close-correction",
+      "schedule": "5 6 * * 1-5",
+      "username": "postgres"
+    },
+    {
+      "active": true,
+      "command_len": 92,
+      "command_md5": "1926384cdfc93e6c9ce309fdcb8349cd",
+      "jobid": 89,
+      "jobname": "us-option-price-sync-edt",
+      "schedule": "10 20 * * 1-5",
+      "username": "postgres"
+    },
+    {
+      "active": true,
+      "command_len": 92,
+      "command_md5": "fc58b0b9397af9b2fd4fca93c9aa9d3d",
+      "jobid": 90,
+      "jobname": "us-option-price-sync-est",
+      "schedule": "10 21 * * 1-5",
+      "username": "postgres"
+    },
+    {
+      "active": true,
+      "command_len": 138,
+      "command_md5": "ab526adfc452cfec6d43100ae44e5a64",
+      "jobid": 91,
+      "jobname": "tw-trading-calendar-catchup-sat",
+      "schedule": "0 2 * * 6",
+      "username": "postgres"
+    },
+    {
+      "active": true,
+      "command_len": 138,
+      "command_md5": "13202c8a8a328944e90ef98d332a309e",
+      "jobid": 92,
+      "jobname": "tw-trading-calendar-catchup-sun",
+      "schedule": "0 3 * * 0",
+      "username": "postgres"
+    },
+    {
+      "active": true,
+      "command_len": 140,
+      "command_md5": "98f9867df4268e5f9fe42e7f509d7eaa",
+      "jobid": 93,
+      "jobname": "tw-trading-calendar-catchup-daily",
+      "schedule": "30 22 * * *",
+      "username": "postgres"
+    },
+    {
+      "active": true,
+      "command_len": 96,
+      "command_md5": "2c2b56f76beff10504e07cb986876519",
+      "jobid": 94,
+      "jobname": "pending-journal-publish-reminder-sunday",
+      "schedule": "30 0 * * 0",
+      "username": "postgres"
+    },
+    {
+      "active": true,
+      "command_len": 104,
+      "command_md5": "be412c096780049a14c37c2f2a7f895c",
+      "jobid": 95,
+      "jobname": "pending-journal-publish-reminder-monday",
+      "schedule": "0 23 * * 0",
+      "username": "postgres"
+    },
+    {
+      "active": true,
+      "command_len": 44,
+      "command_md5": "9afb7625988024c330e40a4faf403364",
+      "jobid": 96,
+      "jobname": "tw-bsr-reap-stale-jobs",
+      "schedule": "*/10 * * * *",
+      "username": "postgres"
+    },
+    {
+      "active": true,
+      "command_len": 148,
+      "command_md5": "69b991844186cc97e36c0b825762a5dc",
+      "jobid": 97,
+      "jobname": "tw-inst-cold-start-resume",
+      "schedule": "*/5 * * * *",
+      "username": "postgres"
+    },
+    {
+      "active": true,
+      "command_len": 164,
+      "command_md5": "1f0d04b0e095492413e5314b43680622",
+      "jobid": 98,
+      "jobname": "tw-bsr-worker-weekend",
+      "schedule": "*/10 * * * 6,0",
+      "username": "postgres"
+    },
+    {
+      "active": true,
+      "command_len": 105,
+      "command_md5": "2ee02b00820072882e3217086ed76d90",
+      "jobid": 99,
+      "jobname": "backfill-snapshots-twse-bulk-weekend",
+      "schedule": "20 7,13 * * 6,0",
+      "username": "postgres"
+    },
+    {
+      "active": true,
+      "command_len": 167,
+      "command_md5": "e688ac6110fbd40dc14cebefecd479b7",
+      "jobid": 103,
+      "jobname": "backfill-gap-orchestrator-sunday",
+      "schedule": "0 10 * * 0",
+      "username": "postgres"
+    },
+    {
+      "active": true,
+      "command_len": 169,
+      "command_md5": "93e44e85ee6c2f05836929d8b8c39e4c",
+      "jobid": 104,
+      "jobname": "backfill-gap-orchestrator-weeknight",
+      "schedule": "0 18 * * 1-5",
+      "username": "postgres"
+    },
+    {
+      "active": true,
+      "command_len": 146,
+      "command_md5": "41437a33fd0d0e28a34cc8cf10d8ac00",
+      "jobid": 105,
+      "jobname": "backfill-worker-dispatch",
+      "schedule": "7 * * * *",
+      "username": "postgres"
+    },
+    {
+      "active": true,
+      "command_len": 51,
+      "command_md5": "92ceedf9bb7f10d8b1609f47ed46c715",
+      "jobid": 106,
+      "jobname": "chips-prefetch-enqueue-hourly",
+      "schedule": "2 * * * *",
+      "username": "postgres"
+    },
+    {
+      "active": true,
+      "command_len": 164,
+      "command_md5": "1f0d04b0e095492413e5314b43680622",
+      "jobid": 107,
+      "jobname": "tw-bsr-worker-hourly",
+      "schedule": "7 * * * *",
+      "username": "postgres"
+    }
+  ],
+  "total": 72
+}
