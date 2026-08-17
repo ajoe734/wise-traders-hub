@@ -83,8 +83,11 @@ def main():
     # the backup captures the auth surface the public schema depends on.
     auth_tables = lines("""select 'CREATE TABLE IF NOT EXISTS auth.'||quote_ident(c.relname)||' ('||
         (select string_agg(quote_ident(a.attname)||' '||format_type(a.atttypid,a.atttypmod)||
+            coalesce(' DEFAULT '||pg_get_expr(d.adbin, d.adrelid), '')||
             case when a.attnotnull then ' NOT NULL' else '' end, ', ' order by a.attnum)
-         from pg_attribute a where a.attrelid=c.oid and a.attnum>0 and not a.attisdropped)||');'
+         from pg_attribute a
+         left join pg_attrdef d on d.adrelid=a.attrelid and d.adnum=a.attnum
+         where a.attrelid=c.oid and a.attnum>0 and not a.attisdropped)||');'
         from pg_class c join pg_namespace n on n.oid=c.relnamespace
         where n.nspname='auth' and c.relkind='r' order by c.relname""")
     auth_pk = lines("""select 'ALTER TABLE auth.'||quote_ident(c.relname)||' ADD CONSTRAINT '||

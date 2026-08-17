@@ -15,7 +15,7 @@
     "cron_config.json": "5ea71a19ee3815f3f822fae6ab468531ce0d08f95d373d742ae883500cf40b19",
     "functions.sql": "cf2e1028f8aa845c75455ffb3f5415f9c70f875614e2282a1d9457ca1f45beed"
   },
-  "manifest_sha256": "fba90c8f9f2b540620de77a52f8cf812a299f4329733239527912a0231cd8f2a",
+  "manifest_sha256": "0b83d69dde72a484254513985d2d544f8e963cd5f420d0b29f3cba4fe199695b",
   "production_touch": "read-only (SELECT / catalog only)",
   "reason": "managed backup tier / PITR state is not readable by any available tool (S0-2a BLOCKER)",
   "restore_bundle": {
@@ -38,7 +38,7 @@
         "statements": 48
       },
       "005_auth.sql": {
-        "sha256": "79395b5d0af1b432fa4fcdf5c4acff26bce33023eeb89ed6cbb8db72e2ecca47",
+        "sha256": "2091c9d3011d05724d70f1b40e77f83aaa92a9497d5892e96c58a7825f298f2b",
         "statements": 63
       },
       "010_tables.sql": {
