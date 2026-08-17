@@ -91,11 +91,31 @@ CREATE POLICY signals_embargo_anon ON public.expert_signals
   );
 
 -- ---------------------------------------------------------------- C3: EXECUTE closure
-DO $$
-DECLARE r record;
+-- Per-target disposition, mirrored 1:1 by db/r1/p/acl-25.json:
+--   owner_service_role_only               -> PUBLIC, anon, authenticated all revoked
+--   keep_typed_safe_authenticated_guarded -> anon/PUBLIC revoked; authenticated kept
+--                                            because the body raises 42501 unless the
+--                                            caller is company_admin (negative test)
+--   keep_rls_predicate_helper             -> anon/PUBLIC revoked; authenticated kept
+--                                            because RLS policies evaluate the helper
+--                                            as the querying role
+--   replace_with_wrapper                  -> body re-defined below with an entitlement
+--                                            gate, then granted to authenticated
+DO $acl$
+DECLARE r record; d text;
+  guarded CONSTANT text[] := ARRAY[
+    'admin_apply_fix_proposal','admin_delete_trade_records_by_signal_ids',
+    'admin_delete_trade_records_by_symbol','admin_generate_fix_proposals',
+    'admin_holdings_consistency_audit','admin_reject_fix_proposal',
+    'admin_reset_expert_asset_class','admin_trade_dedupe_sweep',
+    'enqueue_bsr_backfill','get_publish_batch_attempts','get_publish_batch_runs',
+    'get_publish_batch_status'];
+  wrapped CONSTANT text[] := ARRAY['get_expert_capital_status','backfill_queue_stats'];
+  rls_helper CONSTANT text[] := ARRAY['has_active_subscription_after','is_tester'];
 BEGIN
   FOR r IN
-    SELECT format('%I.%I(%s)', n.nspname, p.proname,
+    SELECT p.proname,
+           format('%I.%I(%s)', n.nspname, p.proname,
                   pg_get_function_identity_arguments(p.oid)) sig
       FROM pg_proc p JOIN pg_namespace n ON n.oid = p.pronamespace
      WHERE n.nspname IN ('public','app_ledger')
@@ -103,11 +123,26 @@ BEGIN
        AND (p.proname LIKE 'admin\_%' OR p.proname LIKE 'canonical\_%'
             OR p.proname LIKE '%publish%' OR p.proname LIKE '%backfill%'
             OR p.proname LIKE '%dedupe%'  OR p.proname LIKE '%fix%'
-            OR p.proname LIKE '%rebuild%' OR p.proname LIKE '%sweep%')
+            OR p.proname LIKE '%rebuild%' OR p.proname LIKE '%sweep%'
+            OR p.proname = ANY(rls_helper)
+            OR p.proname = ANY(wrapped))
   LOOP
+    -- absolute, for every target: no unauthenticated EXECUTE path
     EXECUTE format('REVOKE ALL ON FUNCTION %s FROM PUBLIC, anon', r.sig);
+    d := CASE
+           WHEN r.proname = ANY(guarded)    THEN 'keep_typed_safe_authenticated_guarded'
+           WHEN r.proname = ANY(wrapped)    THEN 'replace_with_wrapper'
+           WHEN r.proname = ANY(rls_helper) THEN 'keep_rls_predicate_helper'
+           ELSE 'owner_service_role_only'
+         END;
+    IF d = 'owner_service_role_only' THEN
+      EXECUTE format('REVOKE ALL ON FUNCTION %s FROM authenticated', r.sig);
+      EXECUTE format('GRANT EXECUTE ON FUNCTION %s TO service_role', r.sig);
+    ELSE
+      EXECUTE format('GRANT EXECUTE ON FUNCTION %s TO authenticated, service_role', r.sig);
+    END IF;
   END LOOP;
-END $$;
+END $acl$;
 
 -- ledger_owner keeps the privileges the SECURITY DEFINER builder needs
 GRANT SELECT, INSERT, UPDATE, DELETE ON
@@ -116,14 +151,62 @@ GRANT SELECT, INSERT, UPDATE, DELETE ON
   public.public_projection_version, public.public_projection_withheld
   TO ledger_owner;
 
--- ---------------------------------------------------------------- C3b: named pre-cutover helpers
--- Three security-sensitive helpers leak entitlement / capital state to an
--- unauthenticated caller. Production still carries these grants (recorded as
--- pre_cutover_expected_violation=3 by db/r1/p/093_prod_acl_baseline.sh);
--- the cutover migration closes them here.
-REVOKE ALL ON FUNCTION public.get_expert_capital_status(uuid)                        FROM PUBLIC, anon;
+-- ------------------------------------------------- C3b: replace_with_wrapper bodies
+-- get_expert_capital_status was an ungated SECURITY DEFINER economic raw RPC: any
+-- caller could read any expert's full open positions. The signature is preserved so
+-- the app keeps working; the entitlement gate is added at the top of the body.
+CREATE OR REPLACE FUNCTION public.get_expert_capital_status(_expert_id uuid)
+RETURNS jsonb LANGUAGE plpgsql STABLE SECURITY DEFINER SET search_path TO 'public'
+AS $gecs$
+DECLARE v_inner jsonb;
+BEGIN
+  IF auth.uid() IS NULL THEN
+    RAISE EXCEPTION 'forbidden' USING ERRCODE = '42501';
+  END IF;
+  IF NOT (
+       public.has_role(auth.uid(), 'company_admin')
+    OR EXISTS (SELECT 1 FROM public.experts e
+                WHERE e.id = _expert_id AND e.user_id = auth.uid())
+    OR EXISTS (SELECT 1 FROM public.member_subscriptions ms
+                 JOIN public.expert_plans ep ON ep.id = ms.plan_id
+                WHERE ms.user_id = auth.uid()
+                  AND ep.expert_id = _expert_id
+                  AND ms.status = 'active'
+                  AND (ms.expires_at IS NULL OR ms.expires_at > now()))
+  ) THEN
+    RAISE EXCEPTION 'forbidden' USING ERRCODE = '42501';
+  END IF;
+  SELECT public.get_expert_capital_status_raw(_expert_id) INTO v_inner;
+  RETURN v_inner;
+END $gecs$;
+
+-- the raw computation keeps the original body but is owner/service_role only
+GRANT EXECUTE ON FUNCTION public.get_expert_capital_status_raw(uuid) TO service_role;
+REVOKE ALL ON FUNCTION public.get_expert_capital_status_raw(uuid) FROM PUBLIC, anon, authenticated;
+GRANT EXECUTE ON FUNCTION public.get_expert_capital_status(uuid) TO authenticated, service_role;
+
+-- backfill_queue_stats is a /company ops card read with no in-function guard.
+CREATE OR REPLACE FUNCTION public.backfill_queue_stats()
+RETURNS TABLE(status text, cnt bigint) LANGUAGE plpgsql STABLE SECURITY DEFINER
+SET search_path TO 'public'
+AS $bqs$
+BEGIN
+  IF NOT public.has_role(auth.uid(), 'company_admin') THEN
+    RAISE EXCEPTION 'forbidden' USING ERRCODE = '42501';
+  END IF;
+  RETURN QUERY
+    SELECT q.status::text, count(*)::bigint
+      FROM public.backfill_job_queue q
+     GROUP BY q.status;
+END $bqs$;
+REVOKE ALL ON FUNCTION public.backfill_queue_stats() FROM PUBLIC, anon;
+GRANT EXECUTE ON FUNCTION public.backfill_queue_stats() TO authenticated, service_role;
+
+-- ---------------------------------------------------------------- C3c: named helpers
+-- The two RLS predicate helpers stay callable by `authenticated` (RLS policies are
+-- evaluated as the querying role); anon/PUBLIC are closed.
 REVOKE ALL ON FUNCTION public.has_active_subscription_after(uuid, timestamptz)       FROM PUBLIC, anon;
 REVOKE ALL ON FUNCTION public.is_tester(uuid)                                        FROM PUBLIC, anon;
-GRANT EXECUTE ON FUNCTION public.get_expert_capital_status(uuid)                  TO authenticated, service_role;
 GRANT EXECUTE ON FUNCTION public.has_active_subscription_after(uuid, timestamptz) TO authenticated, service_role;
 GRANT EXECUTE ON FUNCTION public.is_tester(uuid)                                  TO authenticated, service_role;
+
