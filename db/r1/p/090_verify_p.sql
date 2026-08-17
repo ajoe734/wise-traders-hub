@@ -250,8 +250,8 @@ RESET ROLE;
 DO $$ DECLARE n int; BEGIN
   SET LOCAL ROLE anon;
   SELECT count(*) INTO n FROM public.public_expert_positions_v1;
-  PERFORM t.ok('T-P52 anon CAN read the published contract view', n >= 0);
   RESET ROLE;
+  PERFORM t.ok('T-P52 anon CAN read the published contract view', n >= 0);
 END $$;
 
 -- =====================================================================
