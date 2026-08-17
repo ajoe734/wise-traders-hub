@@ -115,9 +115,11 @@ BEGIN
     NOT EXISTS (SELECT 1 FROM public.public_nav_daily nd
                  WHERE nd.projection_version=v_ver AND nd.trade_date > a::date));
   -- portfolio state / return / chart series inherit the same cutoff
-  PERFORM t.eq('T-E08b portfolio state counts only released positions',
-    (SELECT coalesce(open_positions,0)::int FROM public.public_portfolio_state
-      WHERE projection_version=v_ver), 2);
+  PERFORM t.ok('T-E08b portfolio open cost reflects only released positions',
+    (SELECT coalesce(open_cost,0) FROM public.public_portfolio_state
+      WHERE projection_version=v_ver)
+    = (SELECT coalesce(sum(quantity*avg_cost),0) FROM public.public_position_projection
+        WHERE projection_version=v_ver));
   PERFORM t.ok('T-E08c the NAV/return chart series never predates the released effects',
     NOT EXISTS (SELECT 1 FROM public.public_nav_daily nd
                  WHERE nd.projection_version=v_ver
@@ -158,11 +160,15 @@ DO $$ DECLARE n int; e uuid := (SELECT v FROM te.ids WHERE k='exp'); BEGIN
   END;
   BEGIN
     SELECT count(*) INTO n FROM public.expert_signals WHERE expert_id=e;
-    PERFORM t.eq('T-E15 anon reads no raw embargoed signal row', n, 0);
   EXCEPTION WHEN insufficient_privilege THEN
-    PERFORM t.ok('T-E15 anon reads no raw embargoed signal row', true, 'refused 42501');
+    n := -1;
   END;
   RESET ROLE;
+  IF n = -1 THEN
+    PERFORM t.ok('T-E15 anon reads no raw embargoed signal row', true, 'refused 42501');
+  ELSE
+    PERFORM t.eq('T-E15 anon reads no raw embargoed signal row', n, 0);
+  END IF;
 END $$;
 
 -- authenticated member with no entitlement: identical embargo, no extra reach
