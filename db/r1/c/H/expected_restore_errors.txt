@@ -1,0 +1,5 @@
+010_tables.sql:44 type "vector" does not exist
+010_tables.sql:119 cannot use column reference in DEFAULT expression
+010_tables.sql:156 relation "tw_chip_fact" does not exist
+010_tables.sql:175 relation "tw_chip_fact" does not exist
+010_tables.sql:291 relation "v_price_sync_universe" does not exist
