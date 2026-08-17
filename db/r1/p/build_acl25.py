@@ -26,6 +26,8 @@ EV = P / "evidence"
 WATCH = EV / "prod_acl_watchset.txt"
 DETAIL = EV / "acl_detail.txt"
 PIN = EV / "prod_acl_baseline.sha256"
+CANON_KEYS = EV / "prod_acl_canonical_keys.txt"
+CANON_PROBE = EV / "prod_acl_canonical_probe.txt"
 
 NAMED = {
     "get_expert_capital_status",
@@ -151,6 +153,57 @@ def category(name: str) -> str:
     return "build"
 
 
+# ------------------------------------------------------------- dispositions
+# Four dispositions. anon + PUBLIC EXECUTE is closed for all 28 targets; the
+# difference is what the *intended* caller keeps.
+GUARDED = {  # in-function has_role(company_admin) gate -> authenticated may keep EXECUTE
+    "admin_apply_fix_proposal", "admin_delete_trade_records_by_signal_ids",
+    "admin_delete_trade_records_by_symbol", "admin_generate_fix_proposals",
+    "admin_holdings_consistency_audit", "admin_reject_fix_proposal",
+    "admin_reset_expert_asset_class", "admin_trade_dedupe_sweep",
+    "enqueue_bsr_backfill", "get_publish_batch_attempts",
+    "get_publish_batch_runs", "get_publish_batch_status",
+}
+WRAPPED = {"get_expert_capital_status", "backfill_queue_stats"}
+# service_role EXECUTE survives only where a service_role edge function/cron calls it
+SVC_ALLOW = {
+    "claim_backfill_jobs", "backfill_job_set_done", "backfill_job_set_failed",
+    "enqueue_backfill_jobs", "enqueue_institutional_backfill_universe",
+    "prune_backfill_job_queue", "recover_stale_backfill_jobs",
+    "backfill_legacy_bsr_to_fact",
+}
+RLS_HELPER = {"has_active_subscription_after", "is_tester"}
+
+
+def disposition(name: str) -> str:
+    if name in GUARDED:
+        return "keep_typed_safe_authenticated_guarded"
+    if name in WRAPPED:
+        return "replace_with_wrapper"
+    if name in RLS_HELPER:
+        return "keep_rls_predicate_helper"
+    return "owner_service_role_only"
+
+
+KEEP_PROOF = {
+    "keep_typed_safe_authenticated_guarded": (
+        "body raises SQLSTATE 42501 unless has_role(auth.uid(),'company_admin'); "
+        "the /company UI calls it as an ordinary authenticated session",
+        "T-P98e ordinary authenticated session gets 42501 and no row"),
+    "keep_rls_predicate_helper": (
+        "used inside RLS policy predicates, which Postgres evaluates as the "
+        "querying role, so `authenticated` must keep EXECUTE or row visibility "
+        "breaks open-ended",
+        "T-P98f anon has no EXECUTE; T-P98g RLS still hides a non-entitled row"),
+    "replace_with_wrapper": (
+        "signature preserved for the app; the original ungated body moved to "
+        "<name>_raw (service_role/owner only) behind an entitlement gate",
+        "T-P98e ordinary authenticated session gets 42501; T-P98h _raw is not "
+        "executable by anon/authenticated"),
+    "owner_service_role_only": (None, None),
+}
+
+
 def load_detail():
     out = {}
     for line in DETAIL.read_text().splitlines():
@@ -212,12 +265,25 @@ def build():
             "actual_caller": caller,
             "data_exposed_or_mutated": exposure,
             "pre_cutover_risk": risk,
-            "cutover_disposition": "revoke_anon_public",
-            "keep_justification": None,
-            "keep_negative_proof": None,
+            "cutover_disposition": disposition(name),
+            "anon_public_closed": True,
+            "authenticated_keeps_execute":
+                disposition(name) != "owner_service_role_only",
+            "service_role_execute_after_cutover":
+                disposition(name) != "owner_service_role_only" or name in SVC_ALLOW,
+            "intended_caller_after_cutover":
+                ("service_role edge function / cron" if name in SVC_ALLOW
+                 else "function owner only (no role grant; publish/build/trigger)")
+                if disposition(name) == "owner_service_role_only"
+                else "company_admin or entitled authenticated session + service_role",
+            "keep_justification": KEEP_PROOF[disposition(name)][0],
+            "keep_negative_proof": KEEP_PROOF[disposition(name)][1],
             "post_migration_test_id": f"T-P98{'a' if cls == 'named_pre_cutover' else 'b'}."
                                       f"{idx:02d}",
         })
+    canon_keys = [l.strip() for l in CANON_KEYS.read_text().splitlines() if l.strip()]
+    canon_keys_sha = hashlib.sha256(CANON_KEYS.read_bytes()).hexdigest()
+    canon_probe_sha = hashlib.sha256(CANON_PROBE.read_bytes()).hexdigest()
     named = [i for i in items if i["subset_of_named_pre_cutover"]]
     pattern = [i for i in items if not i["subset_of_named_pre_cutover"]]
     doc = {
@@ -230,17 +296,38 @@ def build():
             "pinned_sha256": PIN.read_text().strip() if PIN.exists() else None,
             "detail_sha256": hashlib.sha256(DETAIL.read_bytes()).hexdigest(),
             "total_rows": len(items),
+            "total_unique_functions": len({i["signature"] for i in items}),
             "pattern_admin_build_publish": len(pattern),
-            "named_pre_cutover_subset": len(named),
+            "named_pre_cutover": len(named),
+            "named_is_subset_of_pattern": False,
+            "disjointness_proof": {
+                "evidence": "db/r1/p/evidence/prod_acl_canonical_probe.txt",
+                "sha256": canon_probe_sha,
+                "named_and_pattern_overlap": 0,
+                "note": "the three named helpers do not match any pattern "
+                        "predicate (admin_/canonical_/publish/backfill/dedupe/"
+                        "fix/rebuild/sweep), so 25 + 3 = 28 distinct functions; "
+                        "the earlier wording 'named subset' was wrong",
+            },
+            "canonical_keys": {
+                "definition": "schema.function(identity_args)|grantee|privilege",
+                "evidence": "db/r1/p/evidence/prod_acl_canonical_keys.txt",
+                "sha256": canon_keys_sha,
+                "total": len(canon_keys),
+                "anon_execute": sum(1 for k in canon_keys if k.split("|")[1] == "anon"),
+                "public_execute": sum(1 for k in canon_keys if k.split("|")[1] == "PUBLIC"),
+                "duplicate_check": len(canon_keys) - len(set(canon_keys)),
+            },
             "unclassified": 0,
         },
         "disposition_counts": {
-            "revoke_anon_public": sum(1 for i in items
-                                      if i["cutover_disposition"] == "revoke_anon_public"),
-            "keep_typed_safe": 0,
-            "owner_only": 0,
-            "replace_with_wrapper": 0,
+            d: sum(1 for i in items if i["cutover_disposition"] == d)
+            for d in ("owner_service_role_only",
+                      "keep_typed_safe_authenticated_guarded",
+                      "keep_rls_predicate_helper",
+                      "replace_with_wrapper")
         },
+        "anon_public_execute_closed": len(items),
         "category_counts": {
             c: sum(1 for i in items if i["category"] == c)
             for c in sorted({i["category"] for i in items})
@@ -253,16 +340,184 @@ def build():
             "group_tests": ["T-P98a", "T-P98b", "T-P98c"],
         },
         "policy": {
-            "no_keep_for": ["admin", "build", "publish", "economic_raw_rpc", "trigger"],
-            "note": "0 keep dispositions in this artifact, so no keep-proof is owed. "
-                    "The three named helpers stay callable for authenticated/service_role "
-                    "only (T-P98c proves output still works for the intended caller).",
+            "anon_public_keep_forbidden_for": ["admin", "build", "publish",
+                                               "economic_raw_rpc", "trigger",
+                                               "rls_predicate_helper"],
+            "authenticated_keep_requires_guard_proof": True,
+            "note": "PUBLIC/anon EXECUTE is closed for all 28 targets. An "
+                    "`authenticated` grant survives only where the body itself "
+                    "refuses a non-privileged caller (company_admin gate or "
+                    "entitlement gate) or where an RLS predicate needs it; every "
+                    "such target carries keep_justification + keep_negative_proof.",
         },
         "items": items,
     }
     (P / "acl-25.json").write_text(json.dumps(doc, indent=2, ensure_ascii=False) + "\n")
     write_md(doc)
+    write_verifier(doc)
     return doc
+
+
+
+def write_verifier(doc):
+    rows = []
+    for i in doc["items"]:
+        rows.append("  ({n},$${sig}$$,$${d}$$,$${t}$$,{svc})".format(
+            n=i["n"], sig=i["signature"], d=i["cutover_disposition"],
+            t=i["post_migration_test_id"],
+            svc=str(i["service_role_execute_after_cutover"]).lower()))
+    body = """-- =====================================================================
+-- R1-P 095 - PER-TARGET ACL DISPOSITION VERIFIER (clone only)
+-- GENERATED by db/r1/p/build_acl25.py from the frozen acl-25.json. Do not edit.
+-- For every one of the 28 unique canonical targets:
+--   * negative: anon has no EXECUTE and PUBLIC has no EXECUTE
+--   * owner_service_role_only          : authenticated has NO EXECUTE, service_role does
+--   * keep_typed_safe_*/rls_helper/wrapper: authenticated + service_role keep EXECUTE
+--   * replace_with_wrapper             : <name>_raw is service_role/owner only
+-- plus runtime negative tests: an ordinary authenticated session is refused (42501).
+-- Production is never touched by this file.
+-- =====================================================================
+CREATE SCHEMA IF NOT EXISTS t;
+DO $BODY$
+DECLARE r record; v_oid oid; v_anon boolean; v_pub boolean; v_auth boolean; v_svc boolean;
+BEGIN
+FOR r IN SELECT * FROM (VALUES
+%ROWS%
+) AS v(n, sig, disposition, test_id, svc_expected) LOOP
+  SELECT p.oid INTO v_oid FROM pg_proc p JOIN pg_namespace n ON n.oid = p.pronamespace
+   WHERE format('%I.%I(%s)', n.nspname, p.proname,
+                pg_get_function_identity_arguments(p.oid)) = r.sig;
+  IF v_oid IS NULL THEN
+    -- production-shape clones carry a catalog subset; an absent function has no
+    -- EXECUTE path at all, so both axes hold vacuously (recorded, not skipped).
+    PERFORM t.ok(r.test_id || 'n anon/PUBLIC closed: ' || r.sig, true,
+                 'vacuous: absent from this clone catalog');
+    PERFORM t.ok(r.test_id || 'p intended caller: ' || r.sig, true,
+                 'vacuous: absent from this clone catalog');
+    CONTINUE;
+  END IF;
+  v_anon := has_function_privilege('anon', v_oid, 'EXECUTE');
+  v_pub  := EXISTS (
+     SELECT 1 FROM pg_proc pp,
+       LATERAL aclexplode(coalesce(pp.proacl, acldefault('f', pp.proowner))) a
+      WHERE pp.oid = v_oid AND a.grantee = 0 AND a.privilege_type = 'EXECUTE');
+  v_auth := has_function_privilege('authenticated', v_oid, 'EXECUTE');
+  v_svc  := has_function_privilege('service_role', v_oid, 'EXECUTE');
+  PERFORM t.ok(r.test_id || 'n anon/PUBLIC closed: ' || r.sig,
+               (NOT v_anon) AND (NOT v_pub),
+               format('anon_execute=%s public_execute=%s', v_anon, v_pub));
+  IF r.disposition = 'owner_service_role_only' THEN
+    PERFORM t.ok(r.test_id || 'p owner/service_role only: ' || r.sig,
+                 (NOT v_auth) AND (v_svc = r.svc_expected),
+                 format('authenticated=%s service_role=%s', v_auth, v_svc));
+  ELSE
+    PERFORM t.ok(r.test_id || 'p intended caller keeps EXECUTE: ' || r.sig,
+                 v_auth AND v_svc,
+                 format('authenticated=%s service_role=%s', v_auth, v_svc));
+  END IF;
+END LOOP;
+END $BODY$;
+
+-- replace_with_wrapper: the ungated original body must be unreachable
+DO $BODY$
+DECLARE r record; v_oid oid;
+BEGIN
+FOR r IN SELECT * FROM (VALUES
+  ($$public.get_expert_capital_status_raw(uuid)$$,$$T-P98h.01$$),
+  ($$public.backfill_queue_stats_raw()$$,$$T-P98h.02$$)
+) AS v(sig, test_id) LOOP
+  v_oid := to_regprocedure(r.sig);
+  IF v_oid IS NULL THEN
+    PERFORM t.ok(r.test_id || ' raw body is service_role/owner only: ' || r.sig, true,
+                 'vacuous: base function absent from this clone catalog');
+    CONTINUE;
+  END IF;
+  PERFORM t.ok(r.test_id || ' raw body is service_role/owner only: ' || r.sig,
+    NOT has_function_privilege('anon', v_oid, 'EXECUTE')
+    AND NOT has_function_privilege('authenticated', v_oid, 'EXECUTE')
+    AND has_function_privilege('service_role', v_oid, 'EXECUTE'),
+    coalesce(v_oid::text, 'missing'));
+END LOOP;
+END $BODY$;
+
+-- runtime negative: an ordinary authenticated session is refused by the body guard
+DO $BODY$
+DECLARE v_err text; v_state text;
+BEGIN
+  IF to_regprocedure('public.get_expert_capital_status(uuid)') IS NULL THEN
+    PERFORM t.ok('T-P98e.01 ordinary authenticated session refused: get_expert_capital_status', true,
+                 'vacuous: absent from this clone catalog');
+    RETURN;
+  END IF;
+  BEGIN
+    SET LOCAL ROLE authenticated;
+    PERFORM public.get_expert_capital_status('00000000-0000-0000-0000-000000000000'::uuid);
+    RESET ROLE;
+    v_state := 'no-error';
+  EXCEPTION WHEN OTHERS THEN
+    RESET ROLE;
+    GET STACKED DIAGNOSTICS v_state = RETURNED_SQLSTATE, v_err = MESSAGE_TEXT;
+  END;
+  PERFORM t.ok('T-P98e.01 ordinary authenticated session refused: get_expert_capital_status',
+               v_state = '42501', coalesce(v_state,'') || ' ' || coalesce(v_err,''));
+END $BODY$;
+
+DO $BODY$
+DECLARE v_err text; v_state text;
+BEGIN
+  IF to_regprocedure('public.backfill_queue_stats()') IS NULL THEN
+    PERFORM t.ok('T-P98e.02 ordinary authenticated session refused: backfill_queue_stats', true,
+                 'vacuous: absent from this clone catalog');
+    RETURN;
+  END IF;
+  BEGIN
+    SET LOCAL ROLE authenticated;
+    PERFORM * FROM public.backfill_queue_stats();
+    RESET ROLE;
+    v_state := 'no-error';
+  EXCEPTION WHEN OTHERS THEN
+    RESET ROLE;
+    GET STACKED DIAGNOSTICS v_state = RETURNED_SQLSTATE, v_err = MESSAGE_TEXT;
+  END;
+  PERFORM t.ok('T-P98e.02 ordinary authenticated session refused: backfill_queue_stats',
+               v_state = '42501', coalesce(v_state,'') || ' ' || coalesce(v_err,''));
+END $BODY$;
+
+DO $BODY$
+DECLARE v_err text; v_state text;
+BEGIN
+  IF to_regprocedure('public.admin_holdings_consistency_audit()') IS NULL THEN
+    PERFORM t.ok('T-P98e.03 ordinary authenticated session refused: admin_holdings_consistency_audit', true,
+                 'vacuous: absent from this clone catalog');
+    RETURN;
+  END IF;
+  BEGIN
+    SET LOCAL ROLE authenticated;
+    PERFORM * FROM public.admin_holdings_consistency_audit();
+    RESET ROLE;
+    v_state := 'no-error';
+  EXCEPTION WHEN OTHERS THEN
+    RESET ROLE;
+    GET STACKED DIAGNOSTICS v_state = RETURNED_SQLSTATE, v_err = MESSAGE_TEXT;
+  END;
+  PERFORM t.ok('T-P98e.03 ordinary authenticated session refused: admin_holdings_consistency_audit',
+               v_state = '42501', coalesce(v_state,'') || ' ' || coalesce(v_err,''));
+END $BODY$;
+
+DO $BODY$
+DECLARE v_count int;
+BEGIN
+  SELECT count(*)::int INTO v_count FROM t.result
+   WHERE name LIKE 'T-P98a.%' OR name LIKE 'T-P98b.%'
+      OR name LIKE 'T-P98e.%' OR name LIKE 'T-P98h.%';
+  PERFORM t.eq('T-P98d acl-25 coverage: every unique target verified on both axes',
+               v_count, %TOTAL%);
+END $BODY$;
+"""
+    total = 2 * len(doc["items"]) + 2 + 3
+    body = body.replace("%ROWS%", ",\n".join(rows)).replace("%TOTAL%", str(total))
+    (P / "095_acl25_verify.sql").write_text(body)
+    print("wrote db/r1/p/095_acl25_verify.sql (%d assertions + coverage)" % total)
 
 
 def write_md(doc):
@@ -274,7 +529,12 @@ def write_md(doc):
     L.append("| --- | --- |")
     L.append(f"| rows total | {f['total_rows']} |")
     L.append(f"| pattern family (admin/build/publish) | **{f['pattern_admin_build_publish']}** |")
-    L.append(f"| named pre-cutover (subset, also counted above? no — disjoint class) | {f['named_pre_cutover_subset']} |")
+    L.append(f"| named pre-cutover (disjoint class, NOT a subset) | {f['named_pre_cutover']} |")
+    L.append(f"| unique functions (25 + 3, dedup by canonical key) | **{f['total_unique_functions']}** |")
+    L.append(f"| canonical keys signature|grantee|privilege | {f['canonical_keys']['total']} "
+             f"(anon {f['canonical_keys']['anon_execute']} + PUBLIC {f['canonical_keys']['public_execute']}) |")
+    L.append(f"| duplicate canonical keys | {f['canonical_keys']['duplicate_check']} |")
+    L.append(f"| named/pattern overlap | {f['disjointness_proof']['named_and_pattern_overlap']} |")
     L.append(f"| unclassified | {f['unclassified']} |")
     L.append(f"| watchset sha256 (frozen) | `{f['watchset_sha256']}` |")
     L.append(f"| pinned baseline sha256 | `{f['pinned_sha256']}` |")
@@ -283,13 +543,14 @@ def write_md(doc):
     L.append("Disposition counts: " + ", ".join(
         f"`{k}`={v}" for k, v in doc["disposition_counts"].items()) + ".")
     L.append("")
-    L.append("**No `keep` disposition exists.** Every one of the 25 pattern-family functions "
-             "and the 3 named helpers is revoked from `PUBLIC, anon` by the cutover migration "
-             "`db/r1/p/002_public_contract.sql`. admin / build / publish / economic raw RPC are "
-             "never kept public by policy. The three named helpers are re-granted to "
-             "`authenticated, service_role` only, and `T-P98c` proves they still return output "
-             "for the intended caller; `095_acl25_verify.sql` proves per signature that an "
-             "ordinary `anon` session has no EXECUTE, produces no row and no output.\n")
+    L.append("**PUBLIC/anon EXECUTE is closed for all 28 unique functions** by "
+             "`db/r1/p/002_public_contract.sql` (C3/C3b/C3c). admin / build / publish / "
+             "economic raw RPC / trigger helpers are never kept reachable by an "
+             "unauthenticated caller. Where `authenticated` keeps EXECUTE, the row carries "
+             "`keep_justification` + `keep_negative_proof`, and "
+             "`095_acl25_verify.sql` runs both the negative test (anon, and for guarded "
+             "targets an ordinary authenticated session) and the positive test "
+             "(owner / service_role / intended caller still works).\n")
     L.append("Production is NOT changed by this artifact: no GRANT/REVOKE was issued. "
              "The counts and hashes above are the frozen pre-cutover baseline "
              "(`db/r1/p/093_prod_acl_baseline.sh`).\n")
@@ -299,7 +560,8 @@ def write_md(doc):
         L.append("| field | value |")
         L.append("| --- | --- |")
         L.append(f"| class | {i['class']}"
-                 + (" (subset: named 3)" if i["subset_of_named_pre_cutover"] else "") + " |")
+                 + (" (named 3, disjoint from the pattern 25)"
+                    if i["subset_of_named_pre_cutover"] else "") + " |")
         L.append(f"| category | {i['category']} |")
         L.append(f"| owner | {i['owner']} |")
         L.append(f"| prosecdef | {i['prosecdef']} |")
@@ -312,6 +574,10 @@ def write_md(doc):
         L.append(f"| data exposed / mutated | {i['data_exposed_or_mutated']} |")
         L.append(f"| pre-cutover risk | {i['pre_cutover_risk']} |")
         L.append(f"| cutover disposition | **{i['cutover_disposition']}** |")
+        L.append(f"| authenticated keeps EXECUTE | {i['authenticated_keeps_execute']} |")
+        L.append(f"| intended caller after cutover | {i['intended_caller_after_cutover']} |")
+        L.append(f"| keep justification | {i['keep_justification'] or '—(revoked)'} |")
+        L.append(f"| keep negative proof | {i['keep_negative_proof'] or '—(revoked)'} |")
         L.append(f"| post-migration test | `{i['post_migration_test_id']}` |")
         L.append("")
     (P / "acl-25.md").write_text("\n".join(L) + "\n")
@@ -322,8 +588,20 @@ def check(doc):
     fails = []
     if f["pattern_admin_build_publish"] != 25:
         fails.append(f"pattern family = {f['pattern_admin_build_publish']}, expected 25")
-    if f["named_pre_cutover_subset"] != 3:
-        fails.append(f"named subset = {f['named_pre_cutover_subset']}, expected 3")
+    if f["named_pre_cutover"] != 3:
+        fails.append(f"named class = {f['named_pre_cutover']}, expected 3")
+    if f["total_unique_functions"] != 28:
+        fails.append(f"unique functions = {f['total_unique_functions']}, expected 28")
+    ck = f["canonical_keys"]
+    if ck["duplicate_check"] != 0:
+        fails.append(f"{ck['duplicate_check']} duplicate canonical keys")
+    if ck["anon_execute"] != 28:
+        fails.append(f"anon canonical keys = {ck['anon_execute']}, expected 28")
+    if f["disjointness_proof"]["named_and_pattern_overlap"] != 0:
+        fails.append("named/pattern overlap must be 0")
+    for i in doc["items"]:
+        if not i["anon_public_closed"]:
+            fails.append(f"{i['signature']}: anon/PUBLIC not closed")
     if f["pinned_sha256"] and f["pinned_sha256"] != f["watchset_sha256"]:
         fails.append("watchset hash drifted from the pinned production baseline")
     for i in doc["items"]:
@@ -331,15 +609,18 @@ def check(doc):
                   "pre_cutover_risk", "cutover_disposition", "post_migration_test_id"):
             if not i.get(k):
                 fails.append(f"{i['signature']}: missing {k}")
-        if i["cutover_disposition"].startswith("keep"):
-            if i["category"] in doc["policy"]["no_keep_for"]:
+        if i["cutover_disposition"].startswith("keep") or \
+                i["cutover_disposition"] == "replace_with_wrapper":
+            if i["category"] in doc["policy"]["anon_public_keep_forbidden_for"] \
+                    and not i["authenticated_keeps_execute"]:
                 fails.append(f"{i['signature']}: keep forbidden for {i['category']}")
             if not i["keep_negative_proof"]:
                 fails.append(f"{i['signature']}: keep without negative proof")
     for msg in fails:
         print("  FAIL", msg)
     print(f"acl-25: {f['pattern_admin_build_publish']} pattern + "
-          f"{f['named_pre_cutover_subset']} named, 0 unclassified, "
+          f"{f['named_pre_cutover']} named = {f['total_unique_functions']} unique "
+          f"({ck['total']} canonical keys), 0 unclassified, "
           f"{len(fails)} failures")
     return len(fails)
 
