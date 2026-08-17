@@ -32,9 +32,5 @@ DROP FUNCTION IF EXISTS app_ledger.fx_rate_as_of(text,text,date);
 --    against a clone where the projection tables already exist; the runner then
 --    restores the pre-cutover dump and compares hashes for exact identity.
 
--- 5. restore the pre-cutover ACL of the three named helpers, so the clone is
---    left byte-identical to the R1-D state (the runner also proves this with
---    a full dump/restore hash comparison).
-GRANT EXECUTE ON FUNCTION public.get_expert_capital_status(uuid)                  TO PUBLIC;
-GRANT EXECUTE ON FUNCTION public.has_active_subscription_after(uuid, timestamptz) TO PUBLIC;
-GRANT EXECUTE ON FUNCTION public.is_tester(uuid)                                  TO PUBLIC;
+-- 5. Public helper ACLs are outside these three S1 files and are therefore
+--    untouched here. The stage runner proves their exact baseline ACL hash.
