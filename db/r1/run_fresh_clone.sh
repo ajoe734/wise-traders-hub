@@ -4,7 +4,7 @@
 #   stage: fidelity | pipeline (default) | expandonly
 set -euo pipefail
 NAME=${1:-r1a}; PORT=${2:-55601}; STAGE=${3:-pipeline}
-ROOT=/tmp/$NAME; PGDATA=$ROOT/pg; SOCK=$ROOT/sock; FIX=/tmp/r0clone/fixture
+ROOT=/tmp/$NAME; PGDATA=$ROOT/pg; SOCK=$ROOT/sock; FIX=/tmp/r1fixture
 CL="postgresql://postgres@localhost:$PORT/clone?sslmode=disable"
 export PGDATABASE_ORIG=${PGDATABASE:-postgres}
 
@@ -20,15 +20,15 @@ env -u PGHOST -u PGPORT -u PGUSER -u PGPASSWORD -u PGDATABASE \
 psql "$CL" -c 'select 1' >/dev/null 2>&1 || psql "postgresql://postgres@localhost:$PORT/postgres?sslmode=disable" -c 'CREATE DATABASE clone' >/dev/null
 
 echo "== [2] bootstrap + production-extracted schema + anonymized fixture =="
-psql "$CL" -v ON_ERROR_STOP=1 -qf db/r0/clone/00_bootstrap.sql >/dev/null
-psql "$CL" -v ON_ERROR_STOP=1 -qf db/r0/clone/schema.sql >"$ROOT/schema.log" 2>&1 || { tail -5 "$ROOT/schema.log"; exit 1; }
-psql "$CL" -v ON_ERROR_STOP=1 -qf db/r0/clone/10_load_fixture.sql >"$ROOT/fixture.log" 2>&1
+psql "$CL" -v ON_ERROR_STOP=1 -qf db/r1/clone/00_bootstrap.sql >/dev/null
+psql "$CL" -v ON_ERROR_STOP=1 -qf db/r1/clone/schema.sql >"$ROOT/schema.log" 2>&1 || { tail -5 "$ROOT/schema.log"; exit 1; }
+psql "$CL" -v ON_ERROR_STOP=1 -qf db/r1/clone/10_load_fixture.sql >"$ROOT/fixture.log" 2>&1
 
 echo "== [3] fidelity gates (catalog 104 + shape 39) =="
-psql            -tAqXf db/r0/fidelity.sql | sort > "$ROOT/fid_prod.txt"
-psql "$CL"      -tAqXf db/r0/fidelity.sql | sort > "$ROOT/fid_clone.txt"
-psql            -tAqXf db/r0/shape_fingerprint.sql | grep '|' | sort > "$ROOT/shape_prod.txt"
-psql "$CL"      -tAqXf db/r0/shape_fingerprint.sql | grep '|' | sort > "$ROOT/shape_clone.txt"
+psql            -tAqXf db/r1/fidelity.sql | sort > "$ROOT/fid_prod.txt"
+psql "$CL"      -tAqXf db/r1/fidelity.sql | sort > "$ROOT/fid_clone.txt"
+psql            -tAqXf db/r1/shape_fingerprint.sql | grep '|' | sort > "$ROOT/shape_prod.txt"
+psql "$CL"      -tAqXf db/r1/shape_fingerprint.sql | grep '|' | sort > "$ROOT/shape_clone.txt"
 CATN=$(wc -l < "$ROOT/fid_prod.txt"); SHN=$(wc -l < "$ROOT/shape_prod.txt")
 diff -q "$ROOT/fid_prod.txt" "$ROOT/fid_clone.txt" >/dev/null && echo "CATALOG_FIDELITY=$CATN/$CATN PASS" || { echo "CATALOG_FIDELITY=FAIL"; diff "$ROOT/fid_prod.txt" "$ROOT/fid_clone.txt" | head; exit 1; }
 diff -q "$ROOT/shape_prod.txt" "$ROOT/shape_clone.txt" >/dev/null && echo "SHAPE_FIDELITY=$SHN/$SHN PASS" || { echo "SHAPE_FIDELITY=FAIL"; diff "$ROOT/shape_prod.txt" "$ROOT/shape_clone.txt" | head; exit 1; }
