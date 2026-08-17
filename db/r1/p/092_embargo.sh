@@ -83,44 +83,44 @@ BEGIN
       WHERE expert_id=e AND visible_at <= a), 2);
 END $$;
 
-DO $$ DECLARE v bigint; a timestamptz := (SELECT ts FROM te.ids WHERE k='anchor');
+DO $$ DECLARE v_ver bigint; a timestamptz := (SELECT ts FROM te.ids WHERE k='anchor');
               e uuid := (SELECT v FROM te.ids WHERE k='exp');
 BEGIN
-  v := app_ledger.canonical_publish(e);
+  v_ver := app_ledger.canonical_publish(e);
   INSERT INTO te.ids(k,v) VALUES ('ver', NULL) ON CONFLICT (k) DO NOTHING;
-  UPDATE te.ids SET ts = to_timestamp(v) WHERE k='ver';
+  UPDATE te.ids SET ts = to_timestamp(v_ver) WHERE k='ver';
 
   PERFORM t.eq('T-E01 only the two released effects are public',
     (SELECT count(*)::int FROM public.public_position_projection
-      WHERE projection_version=v), 2);
+      WHERE projection_version=v_ver), 2);
   PERFORM t.eq('T-E02 the T+7 boundary minus 1 minute is public',
     (SELECT count(*)::int FROM public.public_position_projection
-      WHERE projection_version=v AND instrument='2331'), 1);
+      WHERE projection_version=v_ver AND instrument='2331'), 1);
   PERFORM t.eq('T-E03 the T+7 boundary plus 1 minute is hidden',
     (SELECT count(*)::int FROM public.public_position_projection
-      WHERE projection_version=v AND instrument='2332'), 0);
+      WHERE projection_version=v_ver AND instrument='2332'), 0);
   PERFORM t.eq('T-E04 a 6-day-old effect is hidden',
     (SELECT count(*)::int FROM public.public_position_projection
-      WHERE projection_version=v AND instrument='2333'), 0);
+      WHERE projection_version=v_ver AND instrument='2333'), 0);
   PERFORM t.eq('T-E05 a same-day effect is hidden',
     (SELECT count(*)::int FROM public.public_position_projection
-      WHERE projection_version=v AND instrument='2334'), 0);
+      WHERE projection_version=v_ver AND instrument='2334'), 0);
   PERFORM t.eq('T-E06 the version records the embargoed count',
     (SELECT embargoed_count FROM public.public_projection_version
-      WHERE projection_version=v), 3);
+      WHERE projection_version=v_ver), 3);
   PERFORM t.ok('T-E07 no embargoed quantity leaks into the aggregate',
     (SELECT coalesce(sum(quantity),0) FROM public.public_position_projection
-      WHERE projection_version=v) = 2);
+      WHERE projection_version=v_ver) = 2);
   PERFORM t.ok('T-E08 no NAV row values an embargoed effect',
     NOT EXISTS (SELECT 1 FROM public.public_nav_daily nd
-                 WHERE nd.projection_version=v AND nd.trade_date > a::date));
+                 WHERE nd.projection_version=v_ver AND nd.trade_date > a::date));
   -- portfolio state / return / chart series inherit the same cutoff
   PERFORM t.eq('T-E08b portfolio state counts only released positions',
     (SELECT coalesce(open_positions,0)::int FROM public.public_portfolio_state
-      WHERE projection_version=v), 2);
+      WHERE projection_version=v_ver), 2);
   PERFORM t.ok('T-E08c the NAV/return chart series never predates the released effects',
     NOT EXISTS (SELECT 1 FROM public.public_nav_daily nd
-                 WHERE nd.projection_version=v
+                 WHERE nd.projection_version=v_ver
                    AND nd.trade_date < (a - interval '8 days')::date));
   PERFORM t.eq('T-E08d the export/factsheet payload view exposes only released rows',
     (SELECT count(*)::int FROM public.public_expert_positions_v1 WHERE expert_id=e), 2);
@@ -130,69 +130,58 @@ BEGIN
 END $$;
 
 -- anonymous channel: the active views and the raw tables
-SET ROLE anon;
-DO $$ BEGIN
-  PERFORM t.eq('T-E10 anon sees only released positions',
-    (SELECT count(*)::int FROM public.public_position_active
-      WHERE expert_id=(SELECT v FROM te.ids WHERE k='exp')), 2);
-  PERFORM t.eq('T-E11 anon sees no embargoed instrument',
-    (SELECT count(*)::int FROM public.public_position_active
-      WHERE expert_id=(SELECT v FROM te.ids WHERE k='exp')
-        AND instrument IN ('2332','2333','2334')), 0);
-  PERFORM t.eq('T-E11b anon aggregates cannot exceed the released quantity',
-    (SELECT coalesce(sum(quantity),0)::int FROM public.public_position_active
-      WHERE expert_id=(SELECT v FROM te.ids WHERE k='exp')), 2);
+DO $$ DECLARE e uuid := (SELECT v FROM te.ids WHERE k='exp'); a int; b int; c int; BEGIN
+  SET LOCAL ROLE anon;
+  SELECT count(*)::int INTO a FROM public.public_position_active WHERE expert_id=e;
+  SELECT count(*)::int INTO b FROM public.public_position_active
+   WHERE expert_id=e AND instrument IN ('2332','2333','2334');
+  SELECT coalesce(sum(quantity),0)::int INTO c FROM public.public_position_active WHERE expert_id=e;
+  RESET ROLE;
+  PERFORM t.eq('T-E10 anon sees only released positions', a, 2);
+  PERFORM t.eq('T-E11 anon sees no embargoed instrument', b, 0);
+  PERFORM t.eq('T-E11b anon aggregates cannot exceed the released quantity', c, 2);
 END $$;
-DO $$ DECLARE n int; BEGIN
-  BEGIN
-    SELECT count(*) INTO n FROM public.public_position_projection;
-    PERFORM t.ok('T-E12 anon cannot read the versioned projection table', false);
-  EXCEPTION WHEN insufficient_privilege THEN
-    PERFORM t.ok('T-E12 anon cannot read the versioned projection table', true);
+DO $$ DECLARE n int; e uuid := (SELECT v FROM te.ids WHERE k='exp'); BEGIN
+  SET LOCAL ROLE anon;
+  DECLARE r12 bool := false; r13 bool := false; r14 bool := false; BEGIN
+    BEGIN SELECT count(*) INTO n FROM public.public_position_projection;
+    EXCEPTION WHEN insufficient_privilege THEN r12 := true; END;
+    BEGIN SELECT count(*) INTO n FROM public.public_projection_withheld;
+    EXCEPTION WHEN insufficient_privilege OR undefined_table THEN r13 := true; END;
+    BEGIN SELECT count(*) INTO n FROM app_ledger.economic_effect;
+    EXCEPTION WHEN insufficient_privilege OR invalid_schema_name THEN r14 := true; END;
+    RESET ROLE;
+    PERFORM t.ok('T-E12 anon cannot read the versioned projection table', r12);
+    PERFORM t.ok('T-E13 anon cannot read the withheld ledger', r13);
+    PERFORM t.ok('T-E14 anon cannot read economic effects', r14);
+    SET LOCAL ROLE anon;
   END;
   BEGIN
-    SELECT count(*) INTO n FROM public.public_projection_withheld;
-    PERFORM t.ok('T-E13 anon cannot read the withheld ledger', false);
-  EXCEPTION WHEN insufficient_privilege OR undefined_table THEN
-    PERFORM t.ok('T-E13 anon cannot read the withheld ledger', true);
-  END;
-  BEGIN
-    SELECT count(*) INTO n FROM app_ledger.economic_effect;
-    PERFORM t.ok('T-E14 anon cannot read economic effects', false);
-  EXCEPTION WHEN insufficient_privilege OR invalid_schema_name THEN
-    PERFORM t.ok('T-E14 anon cannot read economic effects', true);
-  END;
-  BEGIN
-    SELECT count(*) INTO n FROM public.expert_signals
-      WHERE expert_id=(SELECT v FROM te.ids WHERE k='exp');
+    SELECT count(*) INTO n FROM public.expert_signals WHERE expert_id=e;
     PERFORM t.eq('T-E15 anon reads no raw embargoed signal row', n, 0);
   EXCEPTION WHEN insufficient_privilege THEN
     PERFORM t.ok('T-E15 anon reads no raw embargoed signal row', true, 'refused 42501');
   END;
+  RESET ROLE;
 END $$;
-RESET ROLE;
 
 -- authenticated member with no entitlement: identical embargo, no extra reach
-SET ROLE authenticated;
-SELECT set_config('request.jwt.claims',
-  json_build_object('sub','aaaaaaa3-0000-4000-8000-0000000000ff','role','authenticated')::text, false);
-DO $$ DECLARE n int; BEGIN
-  PERFORM t.eq('T-E16 a signed-in member sees the same two released positions',
-    (SELECT count(*)::int FROM public.public_position_active
-      WHERE expert_id=(SELECT v FROM te.ids WHERE k='exp')), 2);
-  PERFORM t.eq('T-E17 a signed-in member sees no embargoed instrument',
-    (SELECT count(*)::int FROM public.public_position_active
-      WHERE expert_id=(SELECT v FROM te.ids WHERE k='exp')
-        AND instrument IN ('2332','2333','2334')), 0);
-  BEGIN
-    SELECT count(*) INTO n FROM public.public_position_projection;
-    PERFORM t.ok('T-E18 a signed-in member cannot read the versioned projection table', false);
-  EXCEPTION WHEN insufficient_privilege THEN
-    PERFORM t.ok('T-E18 a signed-in member cannot read the versioned projection table', true);
-  END;
+DO $$ DECLARE n int; e uuid := (SELECT v FROM te.ids WHERE k='exp');
+              a int; b int; r18 bool := false; BEGIN
+  PERFORM set_config('request.jwt.claims',
+    json_build_object('sub','aaaaaaa3-0000-4000-8000-0000000000ff','role','authenticated')::text, true);
+  SET LOCAL ROLE authenticated;
+  SELECT count(*)::int INTO a FROM public.public_position_active WHERE expert_id=e;
+  SELECT count(*)::int INTO b FROM public.public_position_active
+   WHERE expert_id=e AND instrument IN ('2332','2333','2334');
+  BEGIN SELECT count(*) INTO n FROM public.public_position_projection;
+  EXCEPTION WHEN insufficient_privilege THEN r18 := true; END;
+  RESET ROLE;
+  PERFORM set_config('request.jwt.claims','',true);
+  PERFORM t.eq('T-E16 a signed-in member sees the same two released positions', a, 2);
+  PERFORM t.eq('T-E17 a signed-in member sees no embargoed instrument', b, 0);
+  PERFORM t.ok('T-E18 a signed-in member cannot read the versioned projection table', r18);
 END $$;
-SELECT set_config('request.jwt.claims','',false);
-RESET ROLE;
 SQL
 
 TOT=$(psql "$CL" -tAqX -c "SELECT count(*) FROM t.result")
