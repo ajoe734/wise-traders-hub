@@ -181,6 +181,9 @@ def classify(rel: str, info: dict, anon: set[str], pub_fns: set[str]) -> dict:
             break
     if audience == "public" and surface == "edge_function" and guard:
         audience = "internal"
+
+    writes = bool(WRITE_RE.search(txt)) and any(t in txt for t in ECON_TABLES)
+    access_kind = "writer" if writes else "reader"
     role = ("service_role" if surface == "edge_function"
             else "anon|authenticated" if audience == "public"
             else "authenticated(company_admin|analyst)" if audience == "admin"

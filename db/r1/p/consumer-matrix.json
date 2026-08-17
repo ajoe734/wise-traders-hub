@@ -14,22 +14,23 @@
    "surface": "frontend",
    "audience": "public",
    "role": "anon|authenticated",
-   "access_kind": "writer",
+   "access_kind": "type_only",
    "exact_access": [
     "type-only/reference:trade_records"
    ],
    "entitlement": "none (anonymous) — only released, ready facts",
    "embargo_predicate": "n/a — no signal-level facts read",
-   "legacy_fallback": true,
+   "legacy_fallback": false,
    "side_effects": [
     "export/download"
    ],
-   "cutover_disposition": "migrate_to_typed_public_contract",
+   "cutover_disposition": "public_no_economic_facts",
    "test_id": "T-E10 anon sees only released positions",
    "coverage_status": "covered",
    "tables": [
     "trade_records"
-   ]
+   ],
+   "invocation_guard": "route render"
   },
   {
    "path": "src/components/layouts/SignalsLayout.tsx",
@@ -51,7 +52,8 @@
    "coverage_status": "covered",
    "tables": [
     "expert_signals"
-   ]
+   ],
+   "invocation_guard": "route render"
   },
   {
    "path": "src/components/layouts/UnifiedAppLayout.tsx",
@@ -74,7 +76,8 @@
    "coverage_status": "covered",
    "tables": [
     "expert_signals"
-   ]
+   ],
+   "invocation_guard": "route render"
   },
   {
    "path": "src/hooks/admin/useAdminPerformanceData.ts",
@@ -97,7 +100,8 @@
    "coverage_status": "covered",
    "tables": [
     "trade_records"
-   ]
+   ],
+   "invocation_guard": "route render"
   },
   {
    "path": "src/hooks/admin/useAdminProfile.ts",
@@ -121,7 +125,8 @@
    "coverage_status": "covered",
    "tables": [
     "expert_signals"
-   ]
+   ],
+   "invocation_guard": "route render"
   },
   {
    "path": "src/hooks/admin/useFactsheetSource.ts",
@@ -144,7 +149,8 @@
    "coverage_status": "covered",
    "tables": [
     "trade_records"
-   ]
+   ],
+   "invocation_guard": "route render"
   },
   {
    "path": "src/hooks/admin/useSignalEditorData.ts",
@@ -167,20 +173,21 @@
    "tables": [
     "expert_signals",
     "trade_records"
-   ]
+   ],
+   "invocation_guard": "route render"
   },
   {
    "path": "src/hooks/useAdminSignals.ts",
    "surface": "frontend",
    "audience": "internal",
    "role": "authenticated",
-   "access_kind": "reader",
+   "access_kind": "type_only",
    "exact_access": [
     "type-only/reference:trade_records"
    ],
    "entitlement": "service_role / server-side only",
    "embargo_predicate": "n/a — not an anonymous surface",
-   "legacy_fallback": true,
+   "legacy_fallback": false,
    "side_effects": [
     "react-query cache",
     "export/download"
@@ -190,7 +197,8 @@
    "coverage_status": "covered",
    "tables": [
     "trade_records"
-   ]
+   ],
+   "invocation_guard": "route render"
   },
   {
    "path": "src/hooks/useExpertHoldingsBundle.ts",
@@ -216,7 +224,8 @@
    "tables": [
     "trade_records",
     "user_performances"
-   ]
+   ],
+   "invocation_guard": "route render"
   },
   {
    "path": "src/hooks/usePerformance.ts",
@@ -241,7 +250,8 @@
    "tables": [
     "trade_records",
     "user_performances"
-   ]
+   ],
+   "invocation_guard": "route render"
   },
   {
    "path": "src/hooks/usePeriodPerformance.ts",
@@ -264,20 +274,21 @@
    "coverage_status": "covered",
    "tables": [
     "trade_records"
-   ]
+   ],
+   "invocation_guard": "route render"
   },
   {
    "path": "src/hooks/useSignalRealtimeInvalidation.ts",
    "surface": "frontend",
    "audience": "internal",
    "role": "authenticated",
-   "access_kind": "reader",
+   "access_kind": "type_only",
    "exact_access": [
     "type-only/reference:expert_signals"
    ],
    "entitlement": "service_role / server-side only",
    "embargo_predicate": "n/a — not an anonymous surface",
-   "legacy_fallback": true,
+   "legacy_fallback": false,
    "side_effects": [
     "react-query cache",
     "export/download",
@@ -288,32 +299,34 @@
    "coverage_status": "covered",
    "tables": [
     "expert_signals"
-   ]
+   ],
+   "invocation_guard": "route render"
   },
   {
    "path": "src/integrations/supabase/types.ts",
    "surface": "frontend",
    "audience": "public",
    "role": "anon|authenticated",
-   "access_kind": "reader",
+   "access_kind": "type_only",
    "exact_access": [
     "type-only/reference:expert_signals,trade_records,user_performances"
    ],
    "entitlement": "none (anonymous) — only released, ready facts",
    "embargo_predicate": "visible_at <= now() (T+7) enforced by canonical_publish + RLS",
-   "legacy_fallback": true,
+   "legacy_fallback": false,
    "side_effects": [
     "export/download",
     "push/notification"
    ],
-   "cutover_disposition": "migrate_to_typed_public_contract",
+   "cutover_disposition": "public_no_economic_facts",
    "test_id": "T-E10 anon sees only released positions",
    "coverage_status": "covered",
    "tables": [
     "expert_signals",
     "trade_records",
     "user_performances"
-   ]
+   ],
+   "invocation_guard": "shared cron secret"
   },
   {
    "path": "src/lib/analystDataAccess.ts",
@@ -337,20 +350,21 @@
    "tables": [
     "expert_signals",
     "trade_records"
-   ]
+   ],
+   "invocation_guard": "route render"
   },
   {
    "path": "src/lib/auditLog.ts",
    "surface": "frontend",
    "audience": "internal",
    "role": "authenticated",
-   "access_kind": "writer",
+   "access_kind": "type_only",
    "exact_access": [
     "type-only/reference:expert_signals,trade_records"
    ],
    "entitlement": "service_role / server-side only",
    "embargo_predicate": "n/a — not an anonymous surface",
-   "legacy_fallback": true,
+   "legacy_fallback": false,
    "side_effects": [
     "export/download"
    ],
@@ -360,20 +374,21 @@
    "tables": [
     "expert_signals",
     "trade_records"
-   ]
+   ],
+   "invocation_guard": "caller JWT checked"
   },
   {
    "path": "src/lib/instrument.ts",
    "surface": "frontend",
    "audience": "internal",
    "role": "authenticated",
-   "access_kind": "reader",
+   "access_kind": "type_only",
    "exact_access": [
     "type-only/reference:expert_signals,trade_records"
    ],
    "entitlement": "service_role / server-side only",
    "embargo_predicate": "n/a — not an anonymous surface",
-   "legacy_fallback": true,
+   "legacy_fallback": false,
    "side_effects": [
     "export/download"
    ],
@@ -383,29 +398,31 @@
    "tables": [
     "expert_signals",
     "trade_records"
-   ]
+   ],
+   "invocation_guard": "route render"
   },
   {
    "path": "src/lib/journalExportCore.ts",
    "surface": "frontend",
    "audience": "public",
    "role": "anon|authenticated",
-   "access_kind": "reader",
+   "access_kind": "type_only",
    "exact_access": [
     "type-only/reference:trade_records"
    ],
    "entitlement": "none (anonymous) — only released, ready facts",
    "embargo_predicate": "n/a — no signal-level facts read",
-   "legacy_fallback": true,
+   "legacy_fallback": false,
    "side_effects": [
     "export/download"
    ],
-   "cutover_disposition": "migrate_to_typed_public_contract",
+   "cutover_disposition": "public_no_economic_facts",
    "test_id": "T-E10 anon sees only released positions",
    "coverage_status": "covered",
    "tables": [
     "trade_records"
-   ]
+   ],
+   "invocation_guard": "route render"
   },
   {
    "path": "src/lib/journalRepository.ts",
@@ -428,7 +445,8 @@
    "coverage_status": "covered",
    "tables": [
     "expert_signals"
-   ]
+   ],
+   "invocation_guard": "route render"
   },
   {
    "path": "src/lib/mcp/tools/list_my_holdings.ts",
@@ -450,42 +468,44 @@
    "coverage_status": "covered",
    "tables": [
     "trade_records"
-   ]
+   ],
+   "invocation_guard": "caller JWT checked"
   },
   {
    "path": "src/lib/optionCombo.ts",
    "surface": "frontend",
    "audience": "public",
    "role": "anon|authenticated",
-   "access_kind": "reader",
+   "access_kind": "type_only",
    "exact_access": [
     "type-only/reference:expert_signals"
    ],
    "entitlement": "none (anonymous) — only released, ready facts",
    "embargo_predicate": "visible_at <= now() (T+7) enforced by canonical_publish + RLS",
-   "legacy_fallback": true,
+   "legacy_fallback": false,
    "side_effects": [
     "export/download"
    ],
-   "cutover_disposition": "migrate_to_typed_public_contract",
+   "cutover_disposition": "public_no_economic_facts",
    "test_id": "T-E10 anon sees only released positions",
    "coverage_status": "covered",
    "tables": [
     "expert_signals"
-   ]
+   ],
+   "invocation_guard": "route render"
   },
   {
    "path": "src/lib/performance/factsheetPdf.ts",
    "surface": "frontend",
    "audience": "internal",
    "role": "authenticated",
-   "access_kind": "reader",
+   "access_kind": "type_only",
    "exact_access": [
     "type-only/reference:trade_records"
    ],
    "entitlement": "service_role / server-side only",
    "embargo_predicate": "n/a — not an anonymous surface",
-   "legacy_fallback": true,
+   "legacy_fallback": false,
    "side_effects": [
     "export/download"
    ],
@@ -494,52 +514,55 @@
    "coverage_status": "covered",
    "tables": [
     "trade_records"
-   ]
+   ],
+   "invocation_guard": "route render"
   },
   {
    "path": "src/lib/positionQuantity.ts",
    "surface": "frontend",
    "audience": "public",
    "role": "anon|authenticated",
-   "access_kind": "reader",
+   "access_kind": "type_only",
    "exact_access": [
     "type-only/reference:trade_records"
    ],
    "entitlement": "none (anonymous) — only released, ready facts",
    "embargo_predicate": "n/a — no signal-level facts read",
-   "legacy_fallback": true,
+   "legacy_fallback": false,
    "side_effects": [
     "export/download"
    ],
-   "cutover_disposition": "migrate_to_typed_public_contract",
+   "cutover_disposition": "public_no_economic_facts",
    "test_id": "T-E10 anon sees only released positions",
    "coverage_status": "covered",
    "tables": [
     "trade_records"
-   ]
+   ],
+   "invocation_guard": "route render"
   },
   {
    "path": "src/lib/queryClient.ts",
    "surface": "frontend",
    "audience": "public",
    "role": "anon|authenticated",
-   "access_kind": "reader",
+   "access_kind": "type_only",
    "exact_access": [
     "type-only/reference:expert_signals"
    ],
    "entitlement": "none (anonymous) — only released, ready facts",
    "embargo_predicate": "visible_at <= now() (T+7) enforced by canonical_publish + RLS",
-   "legacy_fallback": true,
+   "legacy_fallback": false,
    "side_effects": [
     "react-query cache",
     "export/download"
    ],
-   "cutover_disposition": "migrate_to_typed_public_contract",
+   "cutover_disposition": "public_no_economic_facts",
    "test_id": "T-E10 anon sees only released positions",
    "coverage_status": "covered",
    "tables": [
     "expert_signals"
-   ]
+   ],
+   "invocation_guard": "route render"
   },
   {
    "path": "src/lib/subscriptionVisibility.ts",
@@ -561,29 +584,31 @@
    "coverage_status": "covered",
    "tables": [
     "expert_signals"
-   ]
+   ],
+   "invocation_guard": "route render"
   },
   {
    "path": "src/pages/_adminPerformance/types.ts",
    "surface": "frontend",
    "audience": "public",
    "role": "anon|authenticated",
-   "access_kind": "reader",
+   "access_kind": "type_only",
    "exact_access": [
     "type-only/reference:trade_records"
    ],
    "entitlement": "none (anonymous) — only released, ready facts",
    "embargo_predicate": "n/a — no signal-level facts read",
-   "legacy_fallback": true,
+   "legacy_fallback": false,
    "side_effects": [
     "export/download"
    ],
-   "cutover_disposition": "migrate_to_typed_public_contract",
+   "cutover_disposition": "public_no_economic_facts",
    "test_id": "T-E10 anon sees only released positions",
    "coverage_status": "covered",
    "tables": [
     "trade_records"
-   ]
+   ],
+   "invocation_guard": "route render"
   },
   {
    "path": "src/pages/_adminSignals/SignalCreateDialog.tsx",
@@ -614,7 +639,8 @@
     "expert_signals",
     "trade_records",
     "user_performances"
-   ]
+   ],
+   "invocation_guard": "route render"
   },
   {
    "path": "src/pages/_adminSignals/UnitRealignPreviewDialog.tsx",
@@ -638,20 +664,21 @@
    "tables": [
     "expert_signals",
     "trade_records"
-   ]
+   ],
+   "invocation_guard": "route render"
   },
   {
    "path": "src/pages/_adminSignals/__tests__/SignalsTable.currency.test.tsx",
    "surface": "frontend",
    "audience": "test",
    "role": "authenticated",
-   "access_kind": "reader",
+   "access_kind": "type_only",
    "exact_access": [
     "type-only/reference:expert_signals"
    ],
    "entitlement": "test fixtures only",
    "embargo_predicate": "n/a — not an anonymous surface",
-   "legacy_fallback": true,
+   "legacy_fallback": false,
    "side_effects": [
     "none"
    ],
@@ -660,20 +687,21 @@
    "coverage_status": "covered",
    "tables": [
     "expert_signals"
-   ]
+   ],
+   "invocation_guard": "route render"
   },
   {
    "path": "src/pages/_adminSignals/publishErrorMapper.ts",
    "surface": "frontend",
    "audience": "admin",
    "role": "authenticated(company_admin|analyst)",
-   "access_kind": "reader",
+   "access_kind": "type_only",
    "exact_access": [
     "type-only/reference:expert_signals"
    ],
    "entitlement": "company_admin or owning analyst",
    "embargo_predicate": "n/a — not an anonymous surface",
-   "legacy_fallback": true,
+   "legacy_fallback": false,
    "side_effects": [
     "export/download"
    ],
@@ -682,20 +710,21 @@
    "coverage_status": "covered",
    "tables": [
     "expert_signals"
-   ]
+   ],
+   "invocation_guard": "route render"
   },
   {
    "path": "src/pages/_aiStudio/IndexPanelTab.tsx",
    "surface": "frontend",
    "audience": "internal",
    "role": "authenticated",
-   "access_kind": "reader",
+   "access_kind": "type_only",
    "exact_access": [
     "type-only/reference:expert_signals"
    ],
    "entitlement": "service_role / server-side only",
    "embargo_predicate": "n/a — not an anonymous surface",
-   "legacy_fallback": true,
+   "legacy_fallback": false,
    "side_effects": [
     "react-query cache",
     "export/download"
@@ -705,20 +734,21 @@
    "coverage_status": "covered",
    "tables": [
     "expert_signals"
-   ]
+   ],
+   "invocation_guard": "route render"
   },
   {
    "path": "src/pages/_signalEditor/derive.ts",
    "surface": "frontend",
    "audience": "internal",
    "role": "authenticated",
-   "access_kind": "reader",
+   "access_kind": "type_only",
    "exact_access": [
     "type-only/reference:expert_signals"
    ],
    "entitlement": "service_role / server-side only",
    "embargo_predicate": "n/a — not an anonymous surface",
-   "legacy_fallback": true,
+   "legacy_fallback": false,
    "side_effects": [
     "export/download"
    ],
@@ -727,29 +757,31 @@
    "coverage_status": "covered",
    "tables": [
     "expert_signals"
-   ]
+   ],
+   "invocation_guard": "route render"
   },
   {
    "path": "src/pages/_signalEditor/types.ts",
    "surface": "frontend",
    "audience": "public",
    "role": "anon|authenticated",
-   "access_kind": "reader",
+   "access_kind": "type_only",
    "exact_access": [
     "type-only/reference:trade_records"
    ],
    "entitlement": "none (anonymous) — only released, ready facts",
    "embargo_predicate": "n/a — no signal-level facts read",
-   "legacy_fallback": true,
+   "legacy_fallback": false,
    "side_effects": [
     "export/download"
    ],
-   "cutover_disposition": "migrate_to_typed_public_contract",
+   "cutover_disposition": "public_no_economic_facts",
    "test_id": "T-E10 anon sees only released positions",
    "coverage_status": "covered",
    "tables": [
     "trade_records"
-   ]
+   ],
+   "invocation_guard": "route render"
   },
   {
    "path": "src/pages/admin/Dashboard.tsx",
@@ -776,7 +808,8 @@
    "tables": [
     "expert_signals",
     "trade_records"
-   ]
+   ],
+   "invocation_guard": "route render"
   },
   {
    "path": "src/pages/admin/Profile.tsx",
@@ -799,7 +832,8 @@
    "coverage_status": "covered",
    "tables": [
     "expert_signals"
-   ]
+   ],
+   "invocation_guard": "route render"
   },
   {
    "path": "src/pages/admin/SignalEditor.tsx",
@@ -822,7 +856,8 @@
    "coverage_status": "covered",
    "tables": [
     "trade_records"
-   ]
+   ],
+   "invocation_guard": "route render"
   },
   {
    "path": "src/pages/admin/Signals.tsx",
@@ -851,7 +886,8 @@
     "expert_signals",
     "trade_records",
     "user_performances"
-   ]
+   ],
+   "invocation_guard": "route render"
   },
   {
    "path": "src/pages/app/SignalDetail.tsx",
@@ -874,7 +910,8 @@
    "coverage_status": "covered",
    "tables": [
     "expert_signals"
-   ]
+   ],
+   "invocation_guard": "route render"
   },
   {
    "path": "src/pages/app/SignalsDashboard.tsx",
@@ -897,20 +934,21 @@
    "coverage_status": "covered",
    "tables": [
     "expert_signals"
-   ]
+   ],
+   "invocation_guard": "route render"
   },
   {
    "path": "src/pages/company/AuditLogs.tsx",
    "surface": "frontend",
    "audience": "admin",
    "role": "authenticated(company_admin|analyst)",
-   "access_kind": "reader",
+   "access_kind": "type_only",
    "exact_access": [
     "type-only/reference:expert_signals,trade_records"
    ],
    "entitlement": "company_admin or owning analyst",
    "embargo_predicate": "n/a — not an anonymous surface",
-   "legacy_fallback": true,
+   "legacy_fallback": false,
    "side_effects": [
     "react-query cache",
     "export/download"
@@ -921,7 +959,8 @@
    "tables": [
     "expert_signals",
     "trade_records"
-   ]
+   ],
+   "invocation_guard": "route render"
   },
   {
    "path": "src/pages/company/Dashboard.tsx",
@@ -945,7 +984,8 @@
    "coverage_status": "covered",
    "tables": [
     "expert_signals"
-   ]
+   ],
+   "invocation_guard": "route render"
   },
   {
    "path": "src/pages/company/HoldingsConsistency.tsx",
@@ -968,7 +1008,8 @@
    "tables": [
     "expert_signals",
     "trade_records"
-   ]
+   ],
+   "invocation_guard": "route render"
   },
   {
    "path": "src/pages/company/JournalsExport.tsx",
@@ -991,7 +1032,8 @@
    "coverage_status": "covered",
    "tables": [
     "trade_records"
-   ]
+   ],
+   "invocation_guard": "route render"
   },
   {
    "path": "src/pages/company/PublishBatchStatus.tsx",
@@ -1017,7 +1059,8 @@
    "coverage_status": "covered",
    "tables": [
     "expert_signals"
-   ]
+   ],
+   "invocation_guard": "route render"
   },
   {
    "path": "src/pages/company/SignalDupeAudit.tsx",
@@ -1041,20 +1084,21 @@
    "coverage_status": "covered",
    "tables": [
     "trade_records"
-   ]
+   ],
+   "invocation_guard": "route render"
   },
   {
    "path": "src/test/integration/1.12-role-subscription-db-functions.test.ts",
    "surface": "frontend",
    "audience": "test",
    "role": "authenticated",
-   "access_kind": "reader",
+   "access_kind": "type_only",
    "exact_access": [
     "type-only/reference:trade_records"
    ],
    "entitlement": "test fixtures only",
    "embargo_predicate": "n/a — not an anonymous surface",
-   "legacy_fallback": true,
+   "legacy_fallback": false,
    "side_effects": [
     "push/notification"
    ],
@@ -1063,20 +1107,21 @@
    "coverage_status": "covered",
    "tables": [
     "trade_records"
-   ]
+   ],
+   "invocation_guard": "route render"
   },
   {
    "path": "src/test/integration/1.16-signal-trade-trigger.test.ts",
    "surface": "frontend",
    "audience": "test",
    "role": "authenticated",
-   "access_kind": "reader",
+   "access_kind": "type_only",
    "exact_access": [
     "type-only/reference:expert_signals,trade_records,user_performances"
    ],
    "entitlement": "test fixtures only",
    "embargo_predicate": "n/a — not an anonymous surface",
-   "legacy_fallback": true,
+   "legacy_fallback": false,
    "side_effects": [
     "push/notification"
    ],
@@ -1087,20 +1132,21 @@
     "expert_signals",
     "trade_records",
     "user_performances"
-   ]
+   ],
+   "invocation_guard": "route render"
   },
   {
    "path": "src/test/integration/1.18-weekly-publish-rls.test.ts",
    "surface": "frontend",
    "audience": "test",
    "role": "authenticated",
-   "access_kind": "reader",
+   "access_kind": "type_only",
    "exact_access": [
     "type-only/reference:expert_signals"
    ],
    "entitlement": "test fixtures only",
    "embargo_predicate": "n/a — not an anonymous surface",
-   "legacy_fallback": true,
+   "legacy_fallback": false,
    "side_effects": [
     "push/notification"
    ],
@@ -1109,7 +1155,8 @@
    "coverage_status": "covered",
    "tables": [
     "expert_signals"
-   ]
+   ],
+   "invocation_guard": "route render"
   },
   {
    "path": "src/test/integration/1.23-scheduler-sequencing.test.ts",
@@ -1132,20 +1179,21 @@
    "coverage_status": "covered",
    "tables": [
     "trade_records"
-   ]
+   ],
+   "invocation_guard": "route render"
   },
   {
    "path": "src/test/integration/1.30-us-scheduler.test.ts",
    "surface": "frontend",
    "audience": "test",
    "role": "authenticated",
-   "access_kind": "reader",
+   "access_kind": "type_only",
    "exact_access": [
     "type-only/reference:expert_signals,trade_records"
    ],
    "entitlement": "test fixtures only",
    "embargo_predicate": "n/a — not an anonymous surface",
-   "legacy_fallback": true,
+   "legacy_fallback": false,
    "side_effects": [
     "export/download"
    ],
@@ -1155,7 +1203,8 @@
    "tables": [
     "expert_signals",
     "trade_records"
-   ]
+   ],
+   "invocation_guard": "route render"
   },
   {
    "path": "src/test/integration/1.36-teaching-hold-journal.test.ts",
@@ -1178,20 +1227,21 @@
    "tables": [
     "expert_signals",
     "user_performances"
-   ]
+   ],
+   "invocation_guard": "route render"
   },
   {
    "path": "src/test/integration/1.37-us-asset-unit-single-source.test.ts",
    "surface": "frontend",
    "audience": "test",
    "role": "authenticated",
-   "access_kind": "reader",
+   "access_kind": "type_only",
    "exact_access": [
     "type-only/reference:trade_records"
    ],
    "entitlement": "test fixtures only",
    "embargo_predicate": "n/a — not an anonymous surface",
-   "legacy_fallback": true,
+   "legacy_fallback": false,
    "side_effects": [
     "none"
    ],
@@ -1200,20 +1250,21 @@
    "coverage_status": "covered",
    "tables": [
     "trade_records"
-   ]
+   ],
+   "invocation_guard": "route render"
   },
   {
    "path": "src/test/integration/1.38-tw-unit-lock-open-scope.test.ts",
    "surface": "frontend",
    "audience": "test",
    "role": "authenticated",
-   "access_kind": "reader",
+   "access_kind": "type_only",
    "exact_access": [
     "type-only/reference:expert_signals,trade_records"
    ],
    "entitlement": "test fixtures only",
    "embargo_predicate": "n/a — not an anonymous surface",
-   "legacy_fallback": true,
+   "legacy_fallback": false,
    "side_effects": [
     "none"
    ],
@@ -1223,20 +1274,21 @@
    "tables": [
     "expert_signals",
     "trade_records"
-   ]
+   ],
+   "invocation_guard": "route render"
   },
   {
    "path": "src/test/integration/1.8-subscription-content-visibility.test.ts",
    "surface": "frontend",
    "audience": "test",
    "role": "authenticated",
-   "access_kind": "reader",
+   "access_kind": "type_only",
    "exact_access": [
     "type-only/reference:expert_signals"
    ],
    "entitlement": "test fixtures only",
    "embargo_predicate": "n/a — not an anonymous surface",
-   "legacy_fallback": true,
+   "legacy_fallback": false,
    "side_effects": [
     "none"
    ],
@@ -1245,20 +1297,21 @@
    "coverage_status": "covered",
    "tables": [
     "expert_signals"
-   ]
+   ],
+   "invocation_guard": "route render"
   },
   {
    "path": "src/test/integration/1.9-analyst-data-isolation.test.ts",
    "surface": "frontend",
    "audience": "test",
    "role": "authenticated",
-   "access_kind": "reader",
+   "access_kind": "type_only",
    "exact_access": [
     "type-only/reference:expert_signals,trade_records"
    ],
    "entitlement": "test fixtures only",
    "embargo_predicate": "n/a — not an anonymous surface",
-   "legacy_fallback": true,
+   "legacy_fallback": false,
    "side_effects": [
     "none"
    ],
@@ -1268,20 +1321,21 @@
    "tables": [
     "expert_signals",
     "trade_records"
-   ]
+   ],
+   "invocation_guard": "route render"
   },
   {
    "path": "src/test/unit/journal-repository-parity.test.ts",
    "surface": "frontend",
    "audience": "test",
    "role": "authenticated",
-   "access_kind": "reader",
+   "access_kind": "type_only",
    "exact_access": [
     "type-only/reference:expert_signals"
    ],
    "entitlement": "test fixtures only",
    "embargo_predicate": "n/a — not an anonymous surface",
-   "legacy_fallback": true,
+   "legacy_fallback": false,
    "side_effects": [
     "export/download"
    ],
@@ -1290,20 +1344,21 @@
    "coverage_status": "covered",
    "tables": [
     "expert_signals"
-   ]
+   ],
+   "invocation_guard": "route render"
   },
   {
    "path": "src/test/unit/mapOpenPositionToRow.test.ts",
    "surface": "frontend",
    "audience": "test",
    "role": "authenticated",
-   "access_kind": "reader",
+   "access_kind": "type_only",
    "exact_access": [
     "type-only/reference:trade_records"
    ],
    "entitlement": "test fixtures only",
    "embargo_predicate": "n/a — not an anonymous surface",
-   "legacy_fallback": true,
+   "legacy_fallback": false,
    "side_effects": [
     "none"
    ],
@@ -1312,20 +1367,21 @@
    "coverage_status": "covered",
    "tables": [
     "trade_records"
-   ]
+   ],
+   "invocation_guard": "route render"
   },
   {
    "path": "supabase/functions/_shared/journalExportCore.ts",
    "surface": "edge_function",
    "audience": "internal",
    "role": "service_role",
-   "access_kind": "reader",
+   "access_kind": "type_only",
    "exact_access": [
     "type-only/reference:trade_records"
    ],
    "entitlement": "service_role / server-side only",
    "embargo_predicate": "n/a — not an anonymous surface",
-   "legacy_fallback": true,
+   "legacy_fallback": false,
    "side_effects": [
     "export/download"
    ],
@@ -1334,7 +1390,8 @@
    "coverage_status": "covered",
    "tables": [
     "trade_records"
-   ]
+   ],
+   "invocation_guard": "none"
   },
   {
    "path": "supabase/functions/_shared/journalRepository.ts",
@@ -1357,20 +1414,21 @@
    "coverage_status": "covered",
    "tables": [
     "expert_signals"
-   ]
+   ],
+   "invocation_guard": "none"
   },
   {
    "path": "supabase/functions/account-link-consume/index.ts",
    "surface": "edge_function",
    "audience": "internal",
    "role": "service_role",
-   "access_kind": "writer",
+   "access_kind": "type_only",
    "exact_access": [
     "type-only/reference:user_performances"
    ],
    "entitlement": "service_role / server-side only",
    "embargo_predicate": "n/a — not an anonymous surface",
-   "legacy_fallback": true,
+   "legacy_fallback": false,
    "side_effects": [
     "push/notification"
    ],
@@ -1379,20 +1437,21 @@
    "coverage_status": "covered",
    "tables": [
     "user_performances"
-   ]
+   ],
+   "invocation_guard": "service role key required"
   },
   {
    "path": "supabase/functions/admin-account-force-merge/index.ts",
    "surface": "edge_function",
    "audience": "admin",
    "role": "service_role",
-   "access_kind": "writer",
+   "access_kind": "type_only",
    "exact_access": [
     "type-only/reference:user_performances"
    ],
    "entitlement": "company_admin or owning analyst",
    "embargo_predicate": "n/a — not an anonymous surface",
-   "legacy_fallback": true,
+   "legacy_fallback": false,
    "side_effects": [
     "push/notification"
    ],
@@ -1401,30 +1460,32 @@
    "coverage_status": "covered",
    "tables": [
     "user_performances"
-   ]
+   ],
+   "invocation_guard": "service role key required"
   },
   {
    "path": "supabase/functions/daily-performance/index.ts",
    "surface": "edge_function",
-   "audience": "public",
+   "audience": "internal",
    "role": "service_role",
    "access_kind": "writer",
    "exact_access": [
     "trade_records.select",
     "trade_records.update"
    ],
-   "entitlement": "none (anonymous) — only released, ready facts",
-   "embargo_predicate": "n/a — no signal-level facts read",
+   "entitlement": "service_role / server-side only",
+   "embargo_predicate": "n/a — not an anonymous surface",
    "legacy_fallback": true,
    "side_effects": [
     "none"
    ],
-   "cutover_disposition": "migrate_to_typed_public_contract",
-   "test_id": "T-E10 anon sees only released positions",
+   "cutover_disposition": "stays_on_internal_ledger",
+   "test_id": "T-P50 internal writer keeps the canonical path",
    "coverage_status": "covered",
    "tables": [
     "trade_records"
-   ]
+   ],
+   "invocation_guard": "service role key required"
   },
   {
    "path": "supabase/functions/daily-snapshot/index.ts",
@@ -1446,30 +1507,32 @@
    "coverage_status": "covered",
    "tables": [
     "trade_records"
-   ]
+   ],
+   "invocation_guard": "none"
   },
   {
    "path": "supabase/functions/data-upsert/index.ts",
    "surface": "edge_function",
-   "audience": "public",
+   "audience": "internal",
    "role": "service_role",
-   "access_kind": "writer",
+   "access_kind": "type_only",
    "exact_access": [
     "type-only/reference:trade_records,user_performances"
    ],
-   "entitlement": "none (anonymous) — only released, ready facts",
-   "embargo_predicate": "n/a — no signal-level facts read",
-   "legacy_fallback": true,
+   "entitlement": "service_role / server-side only",
+   "embargo_predicate": "n/a — not an anonymous surface",
+   "legacy_fallback": false,
    "side_effects": [
     "none"
    ],
-   "cutover_disposition": "migrate_to_typed_public_contract",
-   "test_id": "T-E10 anon sees only released positions",
+   "cutover_disposition": "stays_on_internal_ledger",
+   "test_id": "T-P50 internal writer keeps the canonical path",
    "coverage_status": "covered",
    "tables": [
     "trade_records",
     "user_performances"
-   ]
+   ],
+   "invocation_guard": "caller JWT checked"
   },
   {
    "path": "supabase/functions/email-push-renewal-reminder/index.ts",
@@ -1491,7 +1554,8 @@
    "coverage_status": "covered",
    "tables": [
     "user_performances"
-   ]
+   ],
+   "invocation_guard": "caller JWT checked"
   },
   {
    "path": "supabase/functions/expert-ai-index/index.ts",
@@ -1513,7 +1577,8 @@
    "coverage_status": "covered",
    "tables": [
     "expert_signals"
-   ]
+   ],
+   "invocation_guard": "service role key required"
   },
   {
    "path": "supabase/functions/expert-ai-training/index.ts",
@@ -1535,12 +1600,13 @@
    "coverage_status": "covered",
    "tables": [
     "expert_signals"
-   ]
+   ],
+   "invocation_guard": "service role key required"
   },
   {
    "path": "supabase/functions/line-push-signal/index.ts",
    "surface": "edge_function",
-   "audience": "public",
+   "audience": "internal",
    "role": "service_role",
    "access_kind": "writer",
    "exact_access": [
@@ -1548,42 +1614,44 @@
     "expert_signals.update",
     "rpc:calculate_expert_performance"
    ],
-   "entitlement": "none (anonymous) — only released, ready facts",
-   "embargo_predicate": "visible_at <= now() (T+7) enforced by canonical_publish + RLS",
+   "entitlement": "service_role / server-side only",
+   "embargo_predicate": "n/a — not an anonymous surface",
    "legacy_fallback": true,
    "side_effects": [
     "export/download",
     "push/notification"
    ],
-   "cutover_disposition": "migrate_to_typed_public_contract",
-   "test_id": "T-E10 anon sees only released positions",
+   "cutover_disposition": "stays_on_internal_ledger",
+   "test_id": "T-P50 internal writer keeps the canonical path",
    "coverage_status": "covered",
    "tables": [
     "expert_signals"
-   ]
+   ],
+   "invocation_guard": "caller JWT checked"
   },
   {
    "path": "supabase/functions/line-push-signal/quantityUnit.ts",
    "surface": "edge_function",
    "audience": "public",
    "role": "service_role",
-   "access_kind": "reader",
+   "access_kind": "type_only",
    "exact_access": [
     "type-only/reference:expert_signals"
    ],
    "entitlement": "none (anonymous) — only released, ready facts",
    "embargo_predicate": "visible_at <= now() (T+7) enforced by canonical_publish + RLS",
-   "legacy_fallback": true,
+   "legacy_fallback": false,
    "side_effects": [
     "export/download",
     "push/notification"
    ],
-   "cutover_disposition": "migrate_to_typed_public_contract",
+   "cutover_disposition": "public_no_economic_facts",
    "test_id": "T-E10 anon sees only released positions",
    "coverage_status": "covered",
    "tables": [
     "expert_signals"
-   ]
+   ],
+   "invocation_guard": "none"
   },
   {
    "path": "supabase/functions/mcp/index.ts",
@@ -1605,7 +1673,8 @@
    "coverage_status": "covered",
    "tables": [
     "trade_records"
-   ]
+   ],
+   "invocation_guard": "caller JWT checked"
   },
   {
    "path": "supabase/functions/pending-journal-publish-reminder/index.ts",
@@ -1627,58 +1696,61 @@
    "coverage_status": "covered",
    "tables": [
     "expert_signals"
-   ]
+   ],
+   "invocation_guard": "none"
   },
   {
    "path": "supabase/functions/publish-weekly-journals/pipeline.ts",
    "surface": "edge_function",
    "audience": "public",
    "role": "service_role",
-   "access_kind": "reader",
+   "access_kind": "type_only",
    "exact_access": [
     "type-only/reference:user_performances"
    ],
    "entitlement": "none (anonymous) — only released, ready facts",
    "embargo_predicate": "n/a — no signal-level facts read",
-   "legacy_fallback": true,
+   "legacy_fallback": false,
    "side_effects": [
     "export/download",
     "push/notification"
    ],
-   "cutover_disposition": "migrate_to_typed_public_contract",
+   "cutover_disposition": "public_no_economic_facts",
    "test_id": "T-E10 anon sees only released positions",
    "coverage_status": "covered",
    "tables": [
     "user_performances"
-   ]
+   ],
+   "invocation_guard": "none"
   },
   {
    "path": "supabase/functions/publish-weekly-journals/port.ts",
    "surface": "edge_function",
    "audience": "public",
    "role": "service_role",
-   "access_kind": "reader",
+   "access_kind": "type_only",
    "exact_access": [
     "type-only/reference:user_performances"
    ],
    "entitlement": "none (anonymous) — only released, ready facts",
    "embargo_predicate": "n/a — no signal-level facts read",
-   "legacy_fallback": true,
+   "legacy_fallback": false,
    "side_effects": [
     "export/download",
     "push/notification"
    ],
-   "cutover_disposition": "migrate_to_typed_public_contract",
+   "cutover_disposition": "public_no_economic_facts",
    "test_id": "T-E10 anon sees only released positions",
    "coverage_status": "covered",
    "tables": [
     "user_performances"
-   ]
+   ],
+   "invocation_guard": "none"
   },
   {
    "path": "supabase/functions/publish-weekly-journals/supabasePort.ts",
    "surface": "edge_function",
-   "audience": "public",
+   "audience": "internal",
    "role": "service_role",
    "access_kind": "writer",
    "exact_access": [
@@ -1690,21 +1762,22 @@
     "user_performances.delete",
     "user_performances.insert"
    ],
-   "entitlement": "none (anonymous) — only released, ready facts",
-   "embargo_predicate": "visible_at <= now() (T+7) enforced by canonical_publish + RLS",
+   "entitlement": "service_role / server-side only",
+   "embargo_predicate": "n/a — not an anonymous surface",
    "legacy_fallback": true,
    "side_effects": [
     "export/download",
     "push/notification"
    ],
-   "cutover_disposition": "migrate_to_typed_public_contract",
-   "test_id": "T-E10 anon sees only released positions",
+   "cutover_disposition": "stays_on_internal_ledger",
+   "test_id": "T-P50 internal writer keeps the canonical path",
    "coverage_status": "covered",
    "tables": [
     "expert_signals",
     "trade_records",
     "user_performances"
-   ]
+   ],
+   "invocation_guard": "caller JWT checked"
   },
   {
    "path": "supabase/functions/reconcile-warrant-quantities/index.ts",
@@ -1728,7 +1801,8 @@
    "tables": [
     "expert_signals",
     "trade_records"
-   ]
+   ],
+   "invocation_guard": "none"
   },
   {
    "path": "supabase/functions/share-og/index.ts",
@@ -1750,12 +1824,13 @@
    "coverage_status": "covered",
    "tables": [
     "expert_signals"
-   ]
+   ],
+   "invocation_guard": "none"
   },
   {
    "path": "supabase/functions/stock-price-sync/index.ts",
    "surface": "edge_function",
-   "audience": "public",
+   "audience": "internal",
    "role": "service_role",
    "access_kind": "writer",
    "exact_access": [
@@ -1764,42 +1839,44 @@
     "user_performances.select",
     "user_performances.upsert"
    ],
-   "entitlement": "none (anonymous) — only released, ready facts",
-   "embargo_predicate": "n/a — no signal-level facts read",
+   "entitlement": "service_role / server-side only",
+   "embargo_predicate": "n/a — not an anonymous surface",
    "legacy_fallback": true,
    "side_effects": [
     "none"
    ],
-   "cutover_disposition": "migrate_to_typed_public_contract",
-   "test_id": "T-E10 anon sees only released positions",
+   "cutover_disposition": "stays_on_internal_ledger",
+   "test_id": "T-P50 internal writer keeps the canonical path",
    "coverage_status": "covered",
    "tables": [
     "trade_records",
     "user_performances"
-   ]
+   ],
+   "invocation_guard": "service role key required"
   },
   {
    "path": "supabase/functions/tw-bsr-daily-sync/index.ts",
    "surface": "edge_function",
-   "audience": "public",
+   "audience": "internal",
    "role": "service_role",
    "access_kind": "writer",
    "exact_access": [
     "rpc:materialize_bsr_daily_from_fact",
     "trade_records.select"
    ],
-   "entitlement": "none (anonymous) — only released, ready facts",
-   "embargo_predicate": "n/a — no signal-level facts read",
+   "entitlement": "service_role / server-side only",
+   "embargo_predicate": "n/a — not an anonymous surface",
    "legacy_fallback": true,
    "side_effects": [
     "export/download"
    ],
-   "cutover_disposition": "migrate_to_typed_public_contract",
-   "test_id": "T-E10 anon sees only released positions",
+   "cutover_disposition": "stays_on_internal_ledger",
+   "test_id": "T-P50 internal writer keeps the canonical path",
    "coverage_status": "covered",
    "tables": [
     "trade_records"
-   ]
+   ],
+   "invocation_guard": "service role key required"
   },
   {
    "path": "supabase/functions/tw-bsr-finmind-sync/index.ts",
@@ -1832,7 +1909,8 @@
    "coverage_status": "covered",
    "tables": [
     "trade_records"
-   ]
+   ],
+   "invocation_guard": "none"
   },
   {
    "path": "supabase/functions/us-option-price-sync/index.ts",
@@ -1855,29 +1933,31 @@
    "coverage_status": "covered",
    "tables": [
     "expert_signals"
-   ]
+   ],
+   "invocation_guard": "none"
   },
   {
    "path": "supabase/functions/validate-signal-prices/index.ts",
    "surface": "edge_function",
-   "audience": "public",
+   "audience": "internal",
    "role": "service_role",
    "access_kind": "reader",
    "exact_access": [
     "expert_signals.select"
    ],
-   "entitlement": "none (anonymous) — only released, ready facts",
-   "embargo_predicate": "visible_at <= now() (T+7) enforced by canonical_publish + RLS",
+   "entitlement": "service_role / server-side only",
+   "embargo_predicate": "n/a — not an anonymous surface",
    "legacy_fallback": true,
    "side_effects": [
     "none"
    ],
-   "cutover_disposition": "migrate_to_typed_public_contract",
-   "test_id": "T-E10 anon sees only released positions",
+   "cutover_disposition": "stays_on_internal_ledger",
+   "test_id": "T-P50 internal writer keeps the canonical path",
    "coverage_status": "covered",
    "tables": [
     "expert_signals"
-   ]
+   ],
+   "invocation_guard": "service role key required"
   },
   {
    "path": "supabase/functions/weekly-journal-export/index.ts",
@@ -1901,12 +1981,13 @@
    "tables": [
     "expert_signals",
     "trade_records"
-   ]
+   ],
+   "invocation_guard": "none"
   }
  ],
  "static_consumer_counts": {
-  "public": 28,
-  "internal": 22,
+  "public": 21,
+  "internal": 29,
   "admin": 18,
   "test": 13,
   "total": 81
