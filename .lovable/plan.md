@@ -1,425 +1,371 @@
-# Plan v4.1 — 逐項修正（D1–D8）
+# Plan v4.2 — 逐項修正（E1–E8）
 
-只讀產出。未改 code / DB / trigger / RPC / 資料 / RLS / ACL / 前端，未 Publish。6515 與 26 筆 drift 未動。
-命名更正：**E0 = 只在 ephemeral PG 的建置與測試**；**R0..Rn = production rollout 步驟**。本文只申請 E0。
+只讀產出。未改 code / DB / trigger / RPC / 資料 / RLS / ACL / Edge / 前端，未 Publish。6515 與 26 筆 drift 未動。
+E0 = 只在 ephemeral PG；R0..Rn = production（本文不申請）。
 
-新增實查（本輪）：
+本輪新增實查：
 
-| 項目 | 結果 |
-| --- | --- |
-| `trade_records` 經濟欄位 | `expert_id, signal_id, instrument, market, currency, quantity(integer!), quantity_unit, entry_price, exit_price, entry_date, exit_date, status, pnl_percent, is_combo, combo_strategy, net_premium, max_loss_per_unit, max_profit_per_unit` |
-| `quantity` 型別 | **integer**（非 numeric）⇒ 碎股/crypto 小數 **UNPROVEN**，E0 一律整數，未知型態 fail-closed |
-| `handle_signal_trade` 實際 row 影響 | buy=1 INSERT；add=1 UPDATE 或 1 INSERT；trim(部分)=**1 UPDATE + 1 INSERT**；trim(全出)=1 UPDATE；exit=**UPDATE N 列**（`WHERE ... status='open' AND exit_price IS NULL`，無 LIMIT） |
-| NAV time series 現況 | **不存在儲存體**。`usePerformance` 走 `calculate_expert_performance(_expert_id uuid)`；`usePeriodPerformance` 於前端用 `trade_records` + `daily_price_snapshots` 現算；`useFactsheetSource` 直讀 `trade_records`；`useExpertHoldingsBundle`/Dashboard 走 `get_expert_capital_status` |
-| 報價 as-of 來源 | `daily_price_snapshots(symbol, trade_date, close_price, market, ...)` |
-| signals | `published_at` 範圍 2026-05-04 ~ 2026-08-15；`executed_at` 非空 170 / 173 |
-
----
-
-## D1 一個 event → N 個 mutation
-
-```sql
-CREATE TYPE public.mutation_op   AS ENUM ('insert','update','delete');
-CREATE TYPE public.mutation_role AS ENUM ('open_position','closed_lot','cash_leg','realized_lot');
-
-CREATE TABLE app_ledger.effect_projection_mutation (   -- LOGGED（見 D4）
-  projection_mutation_id uuid PRIMARY KEY DEFAULT gen_random_uuid(),
-  event_id      uuid NOT NULL REFERENCES app_ledger.economic_effect(event_id),
-  mutation_seq  int  NOT NULL CHECK (mutation_seq >= 1),
-  op            public.mutation_op   NOT NULL,
-  target_table  text NOT NULL CHECK (target_table IN ('trade_records')),
-  target_row_id uuid NULL,                 -- update/delete 必填；insert 由 canonical 先產 uuid 後填
-  row_role      public.mutation_role NOT NULL,
-  before_hash   text NULL,                 -- insert 時 NULL
-  after_hash    text NULL,                 -- delete 時 NULL
-  qty_delta     integer NOT NULL,
-  cash_delta    numeric NULL,
-  txid          bigint NOT NULL DEFAULT txid_current(),
-  consumed      boolean NOT NULL DEFAULT false,
-  consumed_at   timestamptz NULL,
-  CONSTRAINT epm_seq_unique UNIQUE (event_id, mutation_seq),
-  CONSTRAINT epm_row_required CHECK (op = 'insert' OR target_row_id IS NOT NULL),
-  CONSTRAINT epm_hash_shape CHECK (
-    (op='insert' AND before_hash IS NULL AND after_hash IS NOT NULL) OR
-    (op='update' AND before_hash IS NOT NULL AND after_hash IS NOT NULL) OR
-    (op='delete' AND before_hash IS NOT NULL AND after_hash IS NULL))
-);
-CREATE UNIQUE INDEX epm_one_pending_per_row
-  ON app_ledger.effect_projection_mutation (target_row_id, txid)
-  WHERE consumed = false AND target_row_id IS NOT NULL;
-```
-
-**每種 action 的 exact mutation 組成（由實查的 trigger 行為導出）**
-
-| action | mutations | 說明 |
+| 項目 | 結果 | 後果 |
 | --- | --- | --- |
-| `buy`（新標的） | 1：`insert / open_position` | after_hash = 新列 |
-| `add`（已有 open） | 1：`update / open_position` | qty_delta=+N，entry_price 為加權後值，兩者都進 after_hash |
-| `add`（無 open） | 1：`insert / open_position` | |
-| `trim` 部分 | **2**：`update / open_position`（qty_delta=−sell）＋ `insert / closed_lot`（qty_delta=+sell，帶 exit_price/exit_date/pnl_percent） | 兩張 token 同一 event，seq=1,2 |
-| `trim`/`sell` 全出 | 1：`update / open_position → closed` | qty_delta=0（數量不變，status 轉 closed）；guard 以 hash 比對而非 qty |
-| `exit`（N 個 open 列） | **N**：每列一張 `update / open_position → closed`，seq=1..N | canonical 必須先 `SELECT ... FOR UPDATE ORDER BY id` 固定順序並宣告 N |
-| `correction: historical_fill` | 依重播結果 1–2（同 buy/trim 規則） | |
-| `correction: quantity_adjustment` | 1：`update / open_position`，`cash_delta IS NULL` | |
-| `correction: capital_adjustment` | 1：`insert / cash_leg`（Phase 2 記於 ledger，不動 trade_records） | |
-
-**測試**：以上 8 種各一，斷言「產生的 mutation 張數與 role 完全等於預期」且「全部 consumed」。
+| `fx_rates` schema | `currency_pair, rate, source, fetched_at, updated_at`；**只有 1 列 `USDTWD 31.99 @2026-08-17`**，**無 rate_date、無歷史** | **歷史 FX as-of 不存在 ⇒ UNPROVEN ⇒ E0 fail-closed gate** |
+| `daily_price_snapshots` 對 TW 權證 | 4 筆皆有列但極稀疏：`068003`=12、`071745`=25、`078397`=3、`079052`=5 | 權證估值 coverage 不足 ⇒ 需 stale threshold + fail-closed |
+| `daily_price_snapshots` 對 US combo | 只有 underlying（LUNR/RKLB/SNDK 各 12 列），**無 combo 本身報價** | **US combo 估值 UNPROVEN ⇒ fail-closed，不得以 underlying 代替** |
+| `current_prices` | 有 `symbol, price, market, currency, updated_at` | 可作 intraday 報價，但仍缺 combo/warrant 保證 |
 
 ---
 
-## D2 token 綁定 op + row PK + before/after hash
+## E1 mutation target 與經濟守恆
+
+**決議（不再兩者都說）**：cash 與 portfolio 都有**實體 internal projection 表**；`capital_adjustment` 產生 1 張 `cash_leg` token，target = `app_ledger.portfolio_cash_ledger`。純 ledger-only 事件（例如僅記錄註解的 correction）以 `expected_mutation_count = 0` 明確表示。
 
 ```sql
--- canonical hash：固定欄位順序、NULL → '\x00'、numeric 統一 trim_scale + to_char
-CREATE OR REPLACE FUNCTION app_ledger.tr_econ_hash(r public.trade_records)
-RETURNS text LANGUAGE sql IMMUTABLE AS $$
-  SELECT encode(digest(concat_ws('|',
-    coalesce(r.id::text,'\x00'), coalesce(r.expert_id::text,'\x00'),
-    coalesce(r.instrument,'\x00'), coalesce(r.market,'\x00'), coalesce(r.currency,'\x00'),
-    coalesce(r.quantity::text,'\x00'), coalesce(r.quantity_unit,'\x00'),
-    coalesce(to_char(trim_scale(r.entry_price),'FM9999999999990.0999999999'),'\x00'),
-    coalesce(to_char(trim_scale(r.exit_price ),'FM9999999999990.0999999999'),'\x00'),
-    coalesce(to_char(r.entry_date at time zone 'UTC','YYYY-MM-DD"T"HH24:MI:SS.US'),'\x00'),
-    coalesce(to_char(r.exit_date  at time zone 'UTC','YYYY-MM-DD"T"HH24:MI:SS.US'),'\x00'),
-    coalesce(r.status::text,'\x00'),
-    coalesce(to_char(trim_scale(r.pnl_percent),'FM9999999999990.0999999999'),'\x00'),
-    coalesce(r.is_combo::text,'\x00'), coalesce(r.combo_strategy,'\x00'),
-    coalesce(to_char(trim_scale(r.net_premium),'FM9999999999990.0999999999'),'\x00'),
-    coalesce(to_char(trim_scale(r.max_loss_per_unit),'FM9999999999990.0999999999'),'\x00'),
-    coalesce(to_char(trim_scale(r.max_profit_per_unit),'FM9999999999990.0999999999'),'\x00')
-  ), 'sha256'), 'hex')
-$$;   -- 不含 current_price / price_updated_at / created_at（price-only worker 欄位）
+CREATE TABLE app_ledger.portfolio_cash_ledger (       -- internal，逐幣別
+  cash_entry_id uuid PRIMARY KEY DEFAULT gen_random_uuid(),
+  expert_id uuid NOT NULL,
+  currency  text NOT NULL CHECK (currency IN ('TWD','USD')),
+  entry_kind text NOT NULL CHECK (entry_kind IN
+    ('trade_settlement','external_capital_flow','data_correction_adjustment')),
+  amount numeric NOT NULL,                            -- 正=入金/賣出所得，負=買進支出
+  effective_at timestamptz NOT NULL,
+  event_id uuid NOT NULL,
+  created_at timestamptz NOT NULL DEFAULT now());
 
-ALTER TABLE public.trade_records
-  ADD COLUMN last_event_id uuid NULL,
-  ADD COLUMN last_projection_mutation_id uuid NULL;
-
-CREATE OR REPLACE FUNCTION app_ledger.trade_records_economic_guard() RETURNS trigger
-LANGUAGE plpgsql SECURITY DEFINER SET search_path = app_ledger, public AS $$
-DECLARE t record; v_before text; v_after text; v_qty int;
-BEGIN
-  IF TG_OP='UPDATE' AND app_ledger.tr_econ_hash(NEW) = app_ledger.tr_econ_hash(OLD)
-     AND NEW.last_event_id IS NOT DISTINCT FROM OLD.last_event_id
-  THEN RETURN NEW; END IF;                       -- price-only 放行
-
-  v_before := CASE TG_OP WHEN 'INSERT' THEN NULL ELSE app_ledger.tr_econ_hash(OLD) END;
-  v_after  := CASE TG_OP WHEN 'DELETE' THEN NULL ELSE app_ledger.tr_econ_hash(NEW) END;
-  v_qty    := CASE TG_OP WHEN 'INSERT' THEN NEW.quantity
-                         WHEN 'DELETE' THEN -OLD.quantity
-                         ELSE NEW.quantity - OLD.quantity END;
-
-  SELECT * INTO t FROM app_ledger.effect_projection_mutation m
-   WHERE m.consumed = false
-     AND m.txid = txid_current()
-     AND m.op = lower(TG_OP)::public.mutation_op
-     AND m.target_table = 'trade_records'
-     AND m.target_row_id = COALESCE(NEW.id, OLD.id)
-     AND m.before_hash IS NOT DISTINCT FROM v_before
-     AND m.after_hash  IS NOT DISTINCT FROM v_after
-     AND m.qty_delta = v_qty
-   FOR UPDATE;
-  IF NOT FOUND THEN
-    RAISE EXCEPTION 'economic_write_requires_matching_mutation' USING ERRCODE='P0001';
-  END IF;
-
-  UPDATE app_ledger.effect_projection_mutation
-     SET consumed = true, consumed_at = now()
-   WHERE projection_mutation_id = t.projection_mutation_id;
-
-  IF TG_OP <> 'DELETE' THEN
-    NEW.last_event_id := t.event_id;
-    NEW.last_projection_mutation_id := t.projection_mutation_id;
-  END IF;
-  RETURN COALESCE(NEW, OLD);
-END $$;
+ALTER TABLE app_ledger.effect_projection_mutation
+  DROP CONSTRAINT epm_row_required,
+  ALTER COLUMN target_table TYPE text,
+  ADD CONSTRAINT epm_target_table_ck
+    CHECK (target_table IN ('trade_records','portfolio_cash_ledger'));
 ```
 
-- `after_hash` 由 canonical 在寫入前以**預期列內容**計算 ⇒ 拿到合法 qty token 卻改錯 entry_price/status/exit_price/pnl，hash 不符 ⇒ raise。
-- **deferred reconciliation（全部且只有預期 mutations）**：
+每個 target table 各有自己的 canonical hash 與 guard（`app_ledger.cash_econ_hash(row)` + `cash_ledger_guard()`，語意與 §E3 的 trade guard 相同：op + row PK + before/after hash 全比對）。`portfolio_cash_ledger` 亦為 append-only（禁 UPDATE/DELETE，更正以反向分錄）。
+
+### Deferred semantic invariant（張數 + 經濟同時驗）
 
 ```sql
-CREATE CONSTRAINT TRIGGER trg_effect_settled
+CREATE OR REPLACE FUNCTION app_ledger.assert_effect_semantics() RETURNS trigger
+LANGUAGE plpgsql AS $$
+DECLARE e record; n int; c int; q_open int; q_closed int; cash_sum numeric;
+BEGIN
+  SELECT * INTO e FROM app_ledger.economic_effect WHERE event_id = NEW.event_id;
+
+  SELECT count(*), count(*) FILTER (WHERE consumed) INTO n, c
+    FROM app_ledger.effect_projection_mutation WHERE event_id = e.event_id;
+  IF n <> e.expected_mutation_count OR c <> n THEN
+    RAISE EXCEPTION 'effect_mutation_set_mismatch: expected=% actual=% consumed=%',
+      e.expected_mutation_count, n, c USING ERRCODE='P0001'; END IF;
+  -- seq 必須 1..n 連續
+  IF EXISTS (SELECT 1 FROM generate_series(1,n) g
+              WHERE NOT EXISTS (SELECT 1 FROM app_ledger.effect_projection_mutation m
+                                 WHERE m.event_id=e.event_id AND m.mutation_seq=g))
+  THEN RAISE EXCEPTION 'effect_mutation_seq_gap' USING ERRCODE='P0001'; END IF;
+
+  -- (a) 相容性：所有 token 的 expert/currency/market/instrument_key 必須等於 event
+  IF EXISTS (SELECT 1 FROM app_ledger.effect_projection_mutation m
+              WHERE m.event_id=e.event_id
+                AND (m.expert_id <> e.expert_id OR m.currency <> e.currency
+                  OR m.market IS DISTINCT FROM e.market
+                  OR (m.row_role <> 'cash_leg' AND m.instrument_key IS DISTINCT FROM e.instrument_key)))
+  THEN RAISE EXCEPTION 'effect_token_context_mismatch' USING ERRCODE='P0001'; END IF;
+
+  -- (b) 持股守恆：只計 open_position；closed_lot 為 reclassification，不得計入
+  SELECT COALESCE(sum(qty_delta) FILTER (WHERE row_role='open_position'),0),
+         COALESCE(sum(qty_delta) FILTER (WHERE row_role='closed_lot'),0)
+    INTO q_open, q_closed
+    FROM app_ledger.effect_projection_mutation WHERE event_id=e.event_id;
+  IF q_open <> e.qty_delta THEN
+    RAISE EXCEPTION 'open_qty_delta_mismatch: tokens=% event=%', q_open, e.qty_delta
+      USING ERRCODE='P0001'; END IF;
+  -- partial trim：closed_lot 增量必須等於 open_position 減量的絕對值
+  IF e.action IN ('trim','sell','exit') AND q_closed <> 0 AND q_closed <> -q_open THEN
+    RAISE EXCEPTION 'closed_lot_reclass_mismatch' USING ERRCODE='P0001'; END IF;
+
+  -- (c) 現金守恆
+  SELECT COALESCE(sum(cash_delta) FILTER (WHERE row_role='cash_leg'),0) INTO cash_sum
+    FROM app_ledger.effect_projection_mutation WHERE event_id=e.event_id;
+  IF e.cash_delta IS NULL THEN
+    IF cash_sum <> 0 THEN RAISE EXCEPTION 'unexpected_cash_leg' USING ERRCODE='P0001'; END IF;
+  ELSIF cash_sum <> e.cash_delta THEN
+    RAISE EXCEPTION 'cash_delta_mismatch: tokens=% event=%', cash_sum, e.cash_delta
+      USING ERRCODE='P0001'; END IF;
+
+  -- (d) closed lot 成本/收入/已實現守恆：
+  --     closed_lot.after 的 entry_price 必須等於 parent open row 的 before entry_price，
+  --     realized = qty × (exit_price − entry_price)，且 cash_leg(trade_settlement)
+  --     = qty × exit_price（賣出）或 −qty × entry_price（買進），誤差 = 0（numeric，非 float）。
+  PERFORM app_ledger.assert_closed_lot_conservation(e.event_id);
+  RETURN NULL;
+END $$;
+CREATE CONSTRAINT TRIGGER trg_effect_semantics
   AFTER INSERT ON app_ledger.economic_effect
   DEFERRABLE INITIALLY DEFERRED FOR EACH ROW
-  EXECUTE FUNCTION app_ledger.assert_effect_mutations_settled();
--- assert：expected_mutation_count（event 上的 NOT NULL 欄位，由 canonical 宣告）
---   = (該 event 的 mutation 總數) = (consumed=true 的數量)，且 seq 為 1..N 連續；
---   任何不符 → RAISE 'effect_mutation_set_mismatch'
+  EXECUTE FUNCTION app_ledger.assert_effect_semantics();
 ```
 
-**Negative tests**：正確 qty 但錯 `entry_price` / 錯 `status` / 錯 `pnl_percent` / 改到另一 row id / 只消耗 2 張中的 1 張 / 多做一個未宣告的 UPDATE ⇒ 全部 raise。
+（`effect_projection_mutation` 因此新增 `expert_id`、`currency`、`market`、`instrument_key` 欄位，由 canonical 填入並受 (a) 比對。）
+
+**Negative tests（張數正確但經濟錯）**：
+1. partial trim 兩張 token，但 closed_lot 誤填 `qty_delta` 為正的持股增加 ⇒ `closed_lot_reclass_mismatch`。
+2. open_position 減 30、closed_lot 加 50 ⇒ 同上。
+3. buy 帶 `cash_leg` 金額 ≠ qty×price ⇒ `cash_delta_mismatch`。
+4. `quantity_adjustment` 附 cash_leg ⇒ `unexpected_cash_leg`。
+5. closed_lot 的 `entry_price` 竄改為較低成本以美化 realized ⇒ `assert_closed_lot_conservation` raise。
+6. token 的 currency 與 event 不同 ⇒ `effect_token_context_mismatch`。
 
 ---
 
-## D3 ledger append-only
+## E2 移除誤擋的 unique
+
+`epm_one_pending_per_row` **刪除**。同列多步由 hash chain 決定順序：guard 比對 `before_hash = tr_econ_hash(OLD)`，因此第二張 token 的 `before_hash` 必須等於第一張的 `after_hash`，天然序列化，不需 unique。
+
+替代保護：`UNIQUE (event_id, mutation_seq)` 保留；另加 `CHECK (op='insert' OR target_row_id IS NOT NULL)`（重新加回，僅對 trade_records/cash_ledger 的 update/delete）。
+
+**測試**：同一 transaction 內 `buy → add → trim`（同 instrument）；兩個不同 event 依序改同一 row；結果必須與逐 event 分開 replay 完全相同（逐欄位比對）。
+
+---
+
+## E3 price-only fast path 改為明確 whitelist
 
 ```sql
-ALTER TABLE app_ledger.economic_effect
-  ADD COLUMN expected_mutation_count int NOT NULL DEFAULT 1 CHECK (expected_mutation_count >= 0);
+CREATE OR REPLACE FUNCTION app_ledger.trade_records_economic_guard() RETURNS trigger
+LANGUAGE plpgsql SECURITY DEFINER SET search_path = '' AS $$
+DECLARE t record; v_before text; v_after text; v_qty int; v_o jsonb; v_n jsonb;
+BEGIN
+  IF TG_OP='UPDATE' THEN
+    v_o := to_jsonb(OLD) - 'current_price' - 'price_updated_at';
+    v_n := to_jsonb(NEW) - 'current_price' - 'price_updated_at';
+    IF v_o = v_n THEN RETURN NEW; END IF;   -- 唯一 fast path：其餘所有欄位（含
+                                            -- signal_id / last_event_id /
+                                            -- last_projection_mutation_id / pnl_percent）皆須不變
+  END IF;
+  ... （其餘同 v4.1，並改為 schema-qualified 呼叫 app_ledger.tr_econ_hash）
+```
 
+- `tr_econ_hash` 補入 **`signal_id`**；`last_event_id` / `last_projection_mutation_id` 不進 hash，但由上面的 full-row 比較保護，且只能由 guard 自己設定（guard 於 token 命中後覆寫 NEW 值，client 給什麼都被覆蓋）。
+- 欄位級 GRANT 與 trigger 一致：`GRANT UPDATE (current_price, price_updated_at) ON public.trade_records TO service_role;`（無其他欄位 UPDATE 權）。`updated_at` 欄位 **不存在於 trade_records**（實查確認），故不列入。
+- `cash_delta` 封閉：由 §E1 invariant (c) 與 cash_ledger guard 的 after_hash 雙重比對。
+
+**Negative tests**：只改 `signal_id`、只改 `last_projection_mutation_id`、只改 `last_event_id`、改任一未納入 hash 的新欄位、同時改 `current_price` 與 `quantity` ⇒ 全部 raise；只改 `current_price` + `price_updated_at` ⇒ 通過。
+
+---
+
+## E4 append-only 改為 jsonb 全欄位比較
+
+```sql
 CREATE OR REPLACE FUNCTION app_ledger.effect_append_only() RETURNS trigger
-LANGUAGE plpgsql AS $$
+LANGUAGE plpgsql SET search_path = '' AS $$
+DECLARE o jsonb; n jsonb;
 BEGIN
-  IF TG_OP = 'DELETE' THEN RAISE EXCEPTION 'effect_delete_forbidden' USING ERRCODE='P0001'; END IF;
-  -- payload 全欄位不可變，只有 state 可依合法轉移改動
-  IF ROW(NEW.logical_effect_id, NEW.event_version, NEW.supersedes_event_id, NEW.expert_id,
-         NEW.origin_signal_id, NEW.market, NEW.instrument, NEW.instrument_key, NEW.action,
-         NEW.qty_delta, NEW.qty_unit, NEW.cash_delta, NEW.price, NEW.fees, NEW.fee_model,
-         NEW.effective_at, NEW.recorded_at, NEW.provenance, NEW.actor_user_id, NEW.actor_via,
-         NEW.expected_mutation_count, NEW.calc_model_version)
-     IS DISTINCT FROM
-     ROW(OLD.logical_effect_id, OLD.event_version, OLD.supersedes_event_id, OLD.expert_id,
-         OLD.origin_signal_id, OLD.market, OLD.instrument, OLD.instrument_key, OLD.action,
-         OLD.qty_delta, OLD.qty_unit, OLD.cash_delta, OLD.price, OLD.fees, OLD.fee_model,
-         OLD.effective_at, OLD.recorded_at, OLD.provenance, OLD.actor_user_id, OLD.actor_via,
-         OLD.expected_mutation_count, OLD.calc_model_version)
-  THEN RAISE EXCEPTION 'effect_payload_immutable' USING ERRCODE='P0001'; END IF;
+  IF TG_OP='DELETE' THEN RAISE EXCEPTION 'effect_delete_forbidden' USING ERRCODE='P0001'; END IF;
+  o := to_jsonb(OLD) - 'state' - 'visible_at' - 'state_changed_at';
+  n := to_jsonb(NEW) - 'state' - 'visible_at' - 'state_changed_at';
+  IF o <> n THEN RAISE EXCEPTION 'effect_payload_immutable' USING ERRCODE='P0001'; END IF;
 
-  IF NEW.state IS DISTINCT FROM OLD.state THEN
-    IF NOT ((OLD.state='reserved' AND NEW.state IN ('applied','failed'))
-         OR (OLD.state='applied'  AND NEW.state='superseded'))
-    THEN RAISE EXCEPTION 'effect_illegal_state_transition: % -> %', OLD.state, NEW.state
-         USING ERRCODE='P0001'; END IF;
-  END IF;
-  -- visible_at 只允許 NULL → 非 NULL（一次性 publish）
-  IF OLD.visible_at IS NOT NULL AND NEW.visible_at IS DISTINCT FROM OLD.visible_at THEN
-    RAISE EXCEPTION 'visible_at_immutable_once_set' USING ERRCODE='P0001'; END IF;
-  RETURN NEW;
-END $$;
-CREATE TRIGGER trg_effect_append_only
-  BEFORE UPDATE OR DELETE ON app_ledger.economic_effect
-  FOR EACH ROW EXECUTE FUNCTION app_ledger.effect_append_only();
+  IF NEW.state IS DISTINCT FROM OLD.state
+     AND NOT ((OLD.state='reserved' AND NEW.state IN ('applied','failed'))
+           OR (OLD.state='applied'  AND NEW.state='superseded'))
+  THEN RAISE EXCEPTION 'effect_illegal_state_transition: % -> %', OLD.state, NEW.state
+       USING ERRCODE='P0001'; END IF;
 
--- head/parent 成對（deferred，不依賴 function 步驟紀律）
-CREATE CONSTRAINT TRIGGER trg_effect_head_pairing
-  AFTER INSERT OR UPDATE ON app_ledger.economic_effect
-  DEFERRABLE INITIALLY DEFERRED FOR EACH ROW
-  EXECUTE FUNCTION app_ledger.assert_head_pairing();
--- assert：若 NEW.state='applied' 且 event_version>1，則 parent.state 必須='superseded'；
---         每條 chain 恰一個 applied（partial unique 已保證）；
---         parent 為 'superseded' 時必須存在恰一個 successor（applied 或 superseded）。
-```
-
-**Negative tests**：直接 UPDATE payload（含 provenance / effective_at / expert_id）⇒ raise；`applied→reserved`、`superseded→applied`、`failed→applied` ⇒ raise；DELETE ⇒ raise；parent 未 superseded 就插 applied 新 head ⇒ commit 時 raise。
-
----
-
-## D4 權限：dedicated owner，撤掉 runtime service_role 的 raw DML
-
-```sql
-CREATE SCHEMA app_ledger;
-CREATE ROLE ledger_owner NOLOGIN;                 -- 擁有 app_ledger 所有物件與 canonical functions
-CREATE ROLE ledger_break_glass NOLOGIN;           -- 專用；非共用 service_role
-ALTER SCHEMA app_ledger OWNER TO ledger_owner;
--- economic_effect / effect_projection_mutation OWNER = ledger_owner（LOGGED，非 UNLOGGED）
-REVOKE ALL ON ALL TABLES IN SCHEMA app_ledger FROM PUBLIC, anon, authenticated, service_role;
-GRANT USAGE ON SCHEMA app_ledger TO authenticated, service_role;
-GRANT SELECT ON app_ledger.economic_effect TO authenticated, service_role;   -- RLS 限本人 expert
--- effect_projection_mutation：對所有 runtime role 完全無權限（含 SELECT）
-```
-
-| 物件 | anon | authenticated | service_role（runtime Edge） | ledger_break_glass | ledger_owner |
-| --- | --- | --- | --- | --- | --- |
-| `economic_effect` | – | SELECT(RLS) | SELECT(RLS) | – | ALL（owner） |
-| `effect_projection_mutation` | – | – | – | – | ALL（owner） |
-| `trade_records` economic DML | – | – | **REVOKE INSERT/UPDATE/DELETE** | – | ALL |
-| `trade_records` price-only 欄位 | – | – | `GRANT UPDATE (current_price, price_updated_at, pnl_percent_price_only?)` **UNPROVEN：`pnl_percent` 同時是經濟欄位，E0 決議＝price worker 不得寫 `pnl_percent`，只寫 `current_price`, `price_updated_at`** | – | ALL |
-| `trade_records` SELECT | – | SELECT(RLS) | SELECT | – | ALL |
-| canonical RPC（`canonical_apply_effect`/`canonical_correct`/`canonical_publish`） | – | EXECUTE | EXECUTE | – | owner |
-| `canonical_break_glass(...)` | – | – | **–** | EXECUTE | owner |
-| 舊 admin/dedupe/delete RPC | REVOKE | REVOKE | REVOKE | – | – |
-
-- canonical functions 為 `SECURITY DEFINER OWNER TO ledger_owner SET search_path = app_ledger, public`；只有它們能寫 mutation table 與 ledger。
-- break-glass 走 `ledger_break_glass`（獨立 DB role，僅由受控維運通道使用，非 Edge 共用 key），強制 `reason`、寫 `audit_logs`、必產 correction event。
-- **mutation table retention**：改 LOGGED；每筆成功 transaction 後保留 30 天供對帳，之後由 `ledger_owner` 的 job 刪除 `consumed=true AND consumed_at < now()-30d`；未 consumed 的列不可能跨 transaction 存活（deferred assert）。
-- DB owner／postgres 的真正緊急權限獨立列在 runbook，**不冒充應用層 guard**。
-
-**Negative tests**：以 service_role 直接 `INSERT INTO app_ledger.economic_effect` / `INSERT INTO effect_projection_mutation` / `UPDATE trade_records SET quantity=...` ⇒ 三者皆 permission denied；service_role 只改 `current_price` ⇒ 成功。
-
----
-
-## D5 logical_effect_id 一律 server-generate
-
-```sql
-CREATE OR REPLACE FUNCTION app_ledger.signals_logical_id_guard() RETURNS trigger
-LANGUAGE plpgsql AS $$
-BEGIN
-  IF TG_OP='INSERT' THEN
-    NEW.logical_effect_id := gen_random_uuid();     -- 無條件覆蓋 client 值
-  ELSIF NEW.logical_effect_id IS DISTINCT FROM OLD.logical_effect_id THEN
-    RAISE EXCEPTION 'logical_effect_id_immutable' USING ERRCODE='P0001';
+  IF NEW.visible_at IS DISTINCT FROM OLD.visible_at THEN
+    IF OLD.visible_at IS NOT NULL THEN
+      RAISE EXCEPTION 'visible_at_immutable_once_set' USING ERRCODE='P0001'; END IF;
+    IF NEW.state <> 'applied' THEN
+      RAISE EXCEPTION 'publish_requires_applied_state' USING ERRCODE='P0001'; END IF;
   END IF;
   RETURN NEW;
 END $$;
-
--- restore 專用（只有 ledger_owner 擁有、canonical 內部呼叫；讀 OLD row，不看 client payload）
-CREATE OR REPLACE FUNCTION app_ledger.restore_signal_logical_id(_new_signal_id uuid, _old_signal_id uuid)
-RETURNS void LANGUAGE plpgsql SECURITY DEFINER SET search_path = app_ledger, public AS $$
-DECLARE v uuid; v_expert uuid; v_new_expert uuid;
-BEGIN
-  SELECT logical_effect_id, expert_id INTO v, v_expert
-    FROM app_ledger.signal_logical_id_archive WHERE signal_id = _old_signal_id;   -- delete 前由 canonical 歸檔
-  SELECT expert_id INTO v_new_expert FROM public.expert_signals WHERE id = _new_signal_id;
-  IF v IS NULL OR v_expert IS DISTINCT FROM v_new_expert THEN
-    RAISE EXCEPTION 'logical_id_restore_denied' USING ERRCODE='P0001'; END IF;
-  UPDATE public.expert_signals SET logical_effect_id = v WHERE id = _new_signal_id;  -- 繞過 guard：owner 專用旗標欄位版
-END $$;
 ```
 
-**Negative tests**：client 送 (a) 同 expert 既有 UUID、(b) 他人 expert UUID、(c) 隨機 UUID ⇒ 三者皆被覆蓋為新 UUID；(d) delete→reinsert 經 canonical restore ⇒ 保留原 id 且不產生第二次 effect。
+- 重複 publish **idempotent no-op**：`canonical_publish` 先檢查 `visible_at IS NOT NULL` ⇒ 直接 return（不 UPDATE、不 replay、不報錯）。
+- `quarantined` **移出 economic_effect**（否則等於 raw toggle）。改為獨立 append-only 表：
+
+```sql
+CREATE TABLE app_ledger.effect_review_event (
+  review_event_id uuid PRIMARY KEY DEFAULT gen_random_uuid(),
+  logical_effect_id uuid NOT NULL,
+  review_state text NOT NULL CHECK (review_state IN ('manual_review','cleared','quarantined')),
+  reason text NOT NULL, actor_user_id uuid NULL, actor_via text NOT NULL,
+  created_at timestamptz NOT NULL DEFAULT now());
+-- current state = 最新一列（view app_ledger.effect_review_current）
+```
+
+**Negative tests**：對 `economic_effect` 每一個非 whitelist 欄位（逐欄迴圈產生測試：`event_id, logical_effect_id, event_version, supersedes_event_id, expert_id, origin_signal_id, market, instrument, instrument_key, action, qty_delta, qty_unit, currency, cash_delta, price, fees, fee_model, effective_at, recorded_at, provenance, actor_user_id, actor_via, reason, expected_mutation_count, calc_model_version, effect_no, generation`）各做一次 direct UPDATE ⇒ 全部 raise。非法 state 轉移 4 種、重複 publish、publish 非 applied ⇒ 各一測試。
 
 ---
 
-## D6 Public projection（補齊 cash / equity / NAV / as-of）
+## E5 logical ID：禁止 delete/reinsert（採最安全做法）
+
+- 已產生 economic effect（存在 `state IN ('applied','superseded')` 的 event）的 signal：**禁止 DELETE**。
 
 ```sql
-CREATE TABLE public.public_position_projection (      -- 現況部位
+CREATE OR REPLACE FUNCTION app_ledger.forbid_delete_applied_signal() RETURNS trigger
+LANGUAGE plpgsql SET search_path='' AS $$
+BEGIN
+  IF EXISTS (SELECT 1 FROM app_ledger.economic_effect e
+              WHERE e.logical_effect_id = OLD.logical_effect_id
+                AND e.state IN ('applied','superseded'))
+  THEN RAISE EXCEPTION 'signal_delete_forbidden_after_effect' USING ERRCODE='P0001'; END IF;
+  RETURN OLD;
+END $$;
+CREATE TRIGGER trg_forbid_delete_applied_signal
+  BEFORE DELETE ON public.expert_signals
+  FOR EACH ROW EXECUTE FUNCTION app_ledger.forbid_delete_applied_signal();
+```
+
+- `save_signal_batch` 改 **in-place UPDATE**（不 delete+reinsert）。
+- 未產生 effect 的 draft 被刪 ⇒ 新 draft 取得**新** `logical_effect_id`（可接受）。
+- `restore_signal_logical_id` **刪除，不實作**（避免可偽造 bypass）。
+- migration backfill（既有 173 signals 補 `logical_effect_id`）必須在安裝 immutability guard **之前**於同一 migration 內完成，順序：`ADD COLUMN → backfill UPDATE → SET NOT NULL → CREATE TRIGGER`。
+
+**測試（真的執行 SQL）**：client 送同 expert 既有 UUID / 他人 UUID / 隨機 UUID ⇒ 全被 server-generate 覆蓋；delete 已 applied 的 signal ⇒ raise；delete 純 draft ⇒ 成功且新 draft 得新 id；backfill 順序在 ephemeral 實跑一次驗證。
+
+---
+
+## E6 SECURITY DEFINER 與角色能力
+
+- 所有 SECURITY DEFINER 函式一律 `SET search_path = ''`，內部**全部 schema-qualify**（`public.xxx` / `app_ledger.xxx` / `pg_catalog.xxx`）。
+- 每個函式建立後緊接：`REVOKE EXECUTE ON FUNCTION ... FROM PUBLIC;` 再精準 `GRANT`。
+- **RLS 誠實標示**：`service_role` **bypass RLS**（BYPASSRLS）。前版「service_role SELECT 受 RLS 限本人」為錯誤陳述，本版更正：service_role 可讀全部；防護靠**撤銷 DML 與 mutation table 全部權限**，不是靠 RLS。
+- **`CREATE ROLE ledger_owner` 在 Supabase hosted 是否可行：UNPROVEN**（本輪未在 production 嘗試，也不會嘗試）。E0 gate：在 disposable environment 以「與 hosted 等價的權限模型」實跑；若不可行，替代方案為
+  **owner = `postgres`（hosted 預設 migration 角色）+ 對 anon/authenticated/service_role 全面 REVOKE**，安全性差異（postgres 亦為 Edge 不可用角色）於報告中明列。二選一由 E0 實測結果決定，不預設。
+- **proacl read-back tests**：對 `canonical_apply_effect`、`canonical_correct`、`canonical_publish`、`canonical_break_glass` 逐一斷言 `proacl` 不含 `=X/`(PUBLIC)，且 grantee 集合完全等於預期。
+- **search_path shadow-object negative test**：在 `pg_temp` 或先於 `public` 的 schema 建立同名 `tr_econ_hash` / `trade_records`，斷言 definer 函式**不受影響**（因 `search_path=''` + schema-qualify）。
+
+---
+
+## E7 多幣與衍生品估值
+
+**決議：base_currency + 逐幣分帳並存。** internal 與 public 皆逐 currency 分帳；另提供以 `base_currency`（expert 設定，實查現有 `experts.currency`）換算的合計，換算必須帶 FX as-of。
+
+```sql
+CREATE TABLE public.public_position_projection (
+  projection_version bigint NOT NULL,      -- 見 E8
   expert_id uuid NOT NULL, instrument_key text NOT NULL, instrument text NOT NULL,
-  market text NOT NULL, quantity integer NOT NULL, quantity_unit text NOT NULL,
+  market text NOT NULL, currency text NOT NULL,
+  quantity integer NOT NULL, quantity_unit text NOT NULL,
   avg_cost numeric NOT NULL, cost_value numeric NOT NULL,
-  last_visible_event_id uuid NOT NULL, provenance public.effect_provenance NOT NULL,
-  quarantined boolean NOT NULL DEFAULT false, as_of timestamptz NOT NULL,
-  PRIMARY KEY (expert_id, instrument_key));
+  valuation_price numeric NULL,            -- NULL = 無可用報價
+  price_as_of date NULL, price_source text NULL,
+  valuation_status text NOT NULL CHECK (valuation_status IN ('valued','stale','unpriced','unsupported')),
+  market_value numeric NULL,               -- unpriced/unsupported ⇒ NULL，禁止 0
+  fx_rate numeric NULL, fx_as_of timestamptz NULL, fx_source text NULL,
+  provenance public.effect_provenance NOT NULL,
+  PRIMARY KEY (projection_version, expert_id, instrument_key));
 
-CREATE TABLE public.public_portfolio_state (          -- 現金與資本流
-  expert_id uuid PRIMARY KEY,
+CREATE TABLE public.public_portfolio_state (
+  projection_version bigint NOT NULL, expert_id uuid NOT NULL, currency text NOT NULL,
   starting_capital numeric NOT NULL,
-  capital_adjustment_total numeric NOT NULL DEFAULT 0,
-  realized_pnl numeric NOT NULL DEFAULT 0,
-  cash numeric NOT NULL,                              -- = starting + adj + realized − open_cost
-  open_cost numeric NOT NULL,
-  last_visible_event_id uuid NOT NULL,
-  quarantined_position_count int NOT NULL DEFAULT 0,
-  as_of timestamptz NOT NULL);
+  external_capital_flow_total numeric NOT NULL DEFAULT 0,
+  data_correction_adjustment_total numeric NOT NULL DEFAULT 0,
+  realized_pnl numeric NOT NULL DEFAULT 0, open_cost numeric NOT NULL,
+  cash numeric NOT NULL, market_value numeric NULL,
+  equity numeric NULL,                     -- 任一部位 unpriced ⇒ NULL（fail-closed）
+  incomplete_reason text NULL,
+  PRIMARY KEY (projection_version, expert_id, currency));
 
-CREATE TABLE public.public_nav_daily (                -- 可重播 time series
-  expert_id uuid NOT NULL, trade_date date NOT NULL,
-  cash numeric NOT NULL, market_value numeric NOT NULL,
-  equity numeric GENERATED ALWAYS AS (cash + market_value) STORED,
-  net_capital_flow numeric NOT NULL DEFAULT 0,        -- capital_adjustment，計算報酬時扣除
-  daily_return numeric NULL,                          -- (equity_t − equity_{t−1} − flow_t)/equity_{t−1}
-  price_as_of date NOT NULL,                          -- 取自 daily_price_snapshots.trade_date
-  price_source text NOT NULL DEFAULT 'daily_price_snapshots',
-  replay_watermark bigint NOT NULL,                   -- 見 D8
-  quarantined_included boolean NOT NULL DEFAULT false,
-  PRIMARY KEY (expert_id, trade_date));
+CREATE TABLE public.public_nav_daily (
+  projection_version bigint NOT NULL, expert_id uuid NOT NULL, currency text NOT NULL,
+  trade_date date NOT NULL, cash numeric NOT NULL, market_value numeric NULL,
+  equity numeric NULL,
+  external_capital_flow numeric NOT NULL DEFAULT 0,
+  data_correction_adjustment numeric NOT NULL DEFAULT 0,
+  daily_return numeric NULL,               -- 只扣 external_capital_flow
+  price_as_of date NULL, fx_as_of timestamptz NULL,
+  completeness text NOT NULL CHECK (completeness IN ('complete','partial','unavailable')),
+  PRIMARY KEY (projection_version, expert_id, currency, trade_date));
 ```
 
-**Transactional / recompute semantics**
+**Accounting equation（逐 currency，全部 numeric，PG 內計算，禁 JS float）**
 
-| 觸發 | 行為 |
-| --- | --- |
-| `canonical_publish`（visible_at 由 NULL→值） | 同 transaction 內 replay 該 expert 的 visible events → 更新 position/portfolio；並對 `effective_at::date` 起至今的 `public_nav_daily` 標 `dirty`（`replay_watermark` 落後）|
-| published correction（新 applied head 且已 visible） | 同上；**歷史 NAV 不改數字**，而是在 `net_capital_flow` 記入更正額並標註「本日含帳務更正」 |
-| late publish / backdated `effective_at` | 內部 NAV 從 `effective_at` 起重算；public NAV 從 `visible_at::date` 起才反映（公開曲線不回溯竄改） |
-| price worker 更新 | 只影響 `market_value`；由每日 job 依 `daily_price_snapshots` 重算當日列，不觸發 event replay |
-| replay 失敗 | 整個 publish transaction rollback（fail-closed，寧可不公開） |
+```text
+cash_c   = starting_capital_c + external_flow_c + data_correction_c + realized_c − open_cost_c
+equity_c = cash_c + market_value_c              （market_value_c 任一為 NULL ⇒ equity_c = NULL）
+equity_base = Σ_c equity_c × fx(c → base, as_of)   （任一 fx 缺 ⇒ equity_base = NULL）
+return  = (equity_t − equity_{t−1} − external_flow_t) / equity_{t−1}
+          -- data_correction 不進 return 分子；restated 口徑另計（見 E8）
+```
 
-**Consumer 對照（現行 → 提議）**
+**日曆與 stale**：TW 用 `tw_market_holidays` 決定前一可用交易日；US 以 `daily_price_snapshots(market='US')` 實際有資料日為準。`price_as_of` 落後 > 5 個交易日 ⇒ `stale`；> 20 ⇒ `unpriced`。
 
-| consumer | 現行來源（實查） | 提議 |
+**Fail-closed（依實查）**：
+
+| 標的 | 現況 | 處置 |
 | --- | --- | --- |
-| `useExpertHoldingsBundle` / `admin/Dashboard` | `get_expert_capital_status` | 加 `_scope`：internal（本人/admin）／public（anon） |
-| `usePerformance` | `calculate_expert_performance` RPC | public scope 改讀 `public_nav_daily` |
-| `usePeriodPerformance` | 前端合成 `trade_records` + `daily_price_snapshots` | 改讀 `public_nav_daily`（消除前端重算） |
-| `useFactsheetSource` / `factsheetPdf` | 直讀 `trade_records` | 改讀 public projection 三表 |
-| `analystDataAccess` / `list_my_holdings`(MCP) / JournalsExport / HoldingsConsistency | `trade_records` | internal，維持 |
+| TW 權證 4 筆 | dps 列數 3/5/12/25，極稀疏 | 依 stale threshold 判 `stale` 或 `unpriced`；不得補 0 |
+| US combo 3 筆 | **無 combo 報價**，只有 underlying | `valuation_status='unsupported'`，`market_value=NULL`，**不得用 underlying 代替** |
+| FX | `fx_rates` **只有一列現值、無歷史** | 歷史 NAV 的 FX **UNPROVEN** ⇒ 跨幣合計 `equity_base=NULL`，只出逐幣數字，直到補齊 FX 歷史來源 |
 
-**D6 必交的 read-only diff**：見 §「production impact report 查詢規格」第 3–5 項（現行 vs 提議逐 expert 逐欄位差異，不接受「能 render」。）
+impact report 需列：各 expert 的 unpriced/unsupported 部位數、受影響 equity 比例、跨幣 expert 名單。
 
 ---
 
-## D7 Legacy 公開口徑 = product decision gate（不由我決定）
+## E8 Versioned atomic public projection + 更正語意
 
-事實：`expert_signals` 全部 173 筆 published、`published_at` 介於 2026-05-04 ~ 2026-08-15，皆先於 cutover ⇒ 若全標 `legacy_unverified_baseline` 且排除，**公開績效/排名/factsheet 可能歸零或大幅變動**。
-
-三個選項（Phase 1 只提供數字，不預設選擇）：
-
-| 選項 | 公開行為 | 數字後果（由 impact report 量化） |
-| --- | --- | --- |
-| L-A 全部排除 | legacy 不計入公開總計 | 多數 expert 公開 equity/return 趨近 starting_capital，排名重洗 |
-| L-B 全部計入 + 揭露 | 照舊顯示，加「歷史資料未經逐筆驗證」註記 | 數字不變，誠實度靠揭露 |
-| L-C 雙口徑 | 同時顯示 verified 與 including-legacy 兩欄 | 數字不變但 UI 需改；排名需選定主口徑 |
-
-6515 與 26 筆 drift：一律 `manual_review`，**不得**以 50 或 10 猜真值，不進任何公開口徑計算（無論選 L-A/B/C）。
-
----
-
-## D8 Rollout：同一 gate、monotonic watermark
+- 三張 public 表皆帶 `projection_version bigint`（來自 `app_ledger.projection_version_seq`）。
+- `canonical_publish` 或每日重算：在**同一 transaction** 內把受影響 expert 的 position + portfolio + **整段受影響 NAV 區間**寫成新 version（staging 即同表新 version），最後 atomic 切換：
 
 ```sql
-CREATE SEQUENCE app_ledger.effect_seq;      -- monotonic bigint
-ALTER TABLE app_ledger.economic_effect
-  ADD COLUMN effect_no bigint NOT NULL DEFAULT nextval('app_ledger.effect_seq'),
-  ADD COLUMN generation int NOT NULL DEFAULT 1;   -- migration generation
-CREATE TABLE app_ledger.cutover_state (
+CREATE TABLE public.public_projection_active (
   id int PRIMARY KEY DEFAULT 1 CHECK (id=1),
-  generation int NOT NULL,
-  cutover_effect_no bigint NOT NULL,        -- high-water：此號之後為 canonical 產出
-  mode text NOT NULL CHECK (mode IN ('legacy','canonical')),
-  rolled_back_at timestamptz NULL);
+  active_version bigint NOT NULL, activated_at timestamptz NOT NULL DEFAULT now());
+-- 前端一律先讀 active_version，所有查詢帶該 version（或走 view public_*_active）
+-- 失敗/延遲 ⇒ active_version 不動 ⇒ 公開頁維持上一完整版本，絕不混讀
+-- 舊 version 保留 N=3 份供回退，其餘由 owner job 清除
 ```
 
-- **R2 單一 transaction 內完成全部**：`DISABLE TRIGGER on_signal_insert_or_update` + 啟用 canonical + **同時**執行 §writer disposition 的全部 DISABLE/REVOKE/ROUTE + price-only 欄位權限收斂 + guard 啟用 + 寫 `cutover_state`。**不保留 7 天旁路**（原 P4 併入 R2）。
-- Edge 於 **R1.5** 先行部署（向下相容）。R2 之後只剩觀察期 R3，觀察期不再有舊 writer。
-- **Rollback skip 判定（不依 wall clock）**：回 legacy 後，舊 trigger 對每個 signal 檢查 `EXISTS (SELECT 1 FROM economic_effect WHERE logical_effect_id = s.logical_effect_id AND state='applied' AND provenance='post_cutover_proven_effect' AND effect_no > cutover_state.cutover_effect_no AND generation = cutover_state.generation)` ⇒ skip 並記 audit。
-- 每步 R0..R3 記錄 pre/post `schema_hash`、`function_hash`、grants/RLS diff、kill-switch readback。
+commit 前不切換 ⇒ 不會出現「持股新、績效舊」。
 
-**Failure-state matrix**
+**更正語意分離（不再把 correction 塞進 capital flow）**
 
-| 狀態 | 處置 |
-| --- | --- |
-| R1.5 Edge 新、DB 舊 | Edge 走相容路徑，可久留 |
-| R2 migration 失敗 | 單一 transaction rollback，維持 legacy，無中間態 |
-| R2 成功、Edge 部署失敗 | 舊 Edge 呼叫的 RPC 內部已 route，行為正確；補 deploy |
-| 回滾後 Edge 仍新 | canonical RPC 回 `mode_legacy_rejected`，Edge fallback |
+| 類型 | 欄位 | 是否影響 return |
+| --- | --- | --- |
+| `external_capital_flow` | 真實入出金 | 從分子扣除（標準 TWR） |
+| `data_correction_adjustment` | 帳務更正（quantity/cost 修正） | **as-reported**：不改歷史、不進 return，僅當日揭露；**restated**：整段區間重播後 return 改變 |
+
+**Product decision gate**：as-reported vs restated 為你的決策，Phase 1 只提供兩套數字與**兩套測試**（同一 fixture 下分別斷言歷史 return 不變 / 已重播）。
 
 ---
 
-## Production impact report — 只讀查詢規格（Phase 1 交付，不改任何資料）
+## E0 acceptance（只在 ephemeral PG）
 
-1. **legacy 分類**：逐 expert 統計 published signals 數、`executed_at` 缺漏數（已知 3 筆）、對應 trade_records 列數。
-2. **drift 清單**：現有 26 筆 symbol 的 signal-derived qty vs `trade_records.quantity`（沿用既有稽核查詢），輸出 expert/symbol/diff/是否 manual_review。
-3. **holdings diff**：`trade_records`(open) vs 依 visible events 重播結果，逐列 before/after quantity、avg_cost、cost_value。
-4. **equity/return diff**：逐 expert `get_expert_capital_status()` 現值 vs 提議 public projection 的 cash / market_value / equity / 期間報酬。
-5. **ranking diff**：現行排行榜順序 vs L-A / L-B / L-C 三種口徑下的順序（同一表格三欄）。
-6. **factsheet diff**：`useFactsheetSource` 取得的欄位逐項對照提議 projection。
-7. **instrument key 覆蓋**：全表 `norm_instrument_key` 非 NULL 比率、NULL 樣本、`US:OPT:` 命中列。
-8. **權限現況快照**：`pg_class.relacl` + `proacl`（已知 anon/authenticated 為 `arwdDxtm`），作為 R2 diff 基準。
+先紅後綠，涵蓋 §E1–E8 全部 negative/transactional tests，另加：
 
-全部為 `SELECT`；輸出為報告，不寫回資料庫。
+- E1 六個「張數對但經濟錯」測試；cash_ledger append-only。
+- E2 同 transaction 多步與逐 event replay 等價。
+- E3 五個 whitelist negative tests。
+- E4 逐欄位（27 欄）immutability 測試 + 重複 publish idempotent。
+- E5 四個 logical id 測試 + delete 禁止 + backfill 順序實跑。
+- E6 proacl read-back + shadow-object + `CREATE ROLE` 能力測試（決定 owner 方案）。
+- E7 多幣：TWD/USD 分帳、unpriced/unsupported 為 NULL 不為 0、FX 缺歷史時 `equity_base=NULL`。
+- E8 versioned activate：replay 失敗時 active_version 不變、公開頁讀到完整舊版；as-reported / restated 兩套。
+- 併發、blast radius（advisor T+0、11 mentor、TW 權證、US combo、publish-weekly-journals、export、factsheet），全部 fixture，**不 hard-code production UID**。
 
----
-
-## E0 acceptance（**只在 ephemeral PG**）
-
-建 migration + tests，先紅後綠，涵蓋：
-
-- D1：8 種 action 的 mutation 張數/role/seq 正確且全部 consumed。
-- D2：hash 綁定 6 個 negative tests；`last_event_id` / `last_projection_mutation_id` 正確落地；deferred set-equality assert。
-- D3：payload immutable、非法 state transition、DELETE、head/parent 未成對 4 類 negative tests。
-- D4：service_role raw INSERT token / event / trade_records 三者 denied；price-only UPDATE 通過。
-- D5：四個 logical_effect_id 測試。
-- D6：publish 前後 internal vs public 差異；backdated effective_at；late publish；correction；price worker 重算；NAV 恆等式 `cash + market_value = equity`。
-- D8：rollback skip 依 `provenance + generation + effect_no + logical_effect_id`，不重播。
-- 併發：correction head 競態（`effect_head_stale`）、空列 race、多 symbol batch 無 deadlock、`exit` 多列同 event 的 N-token 正確性。
-- blast radius：advisor T+0、mentor T+7、11 位 mentor fixture、TW 權證 4 筆型態、US combo 3 筆型態、publish-weekly-journals、weekly export、factsheet。
-- 全部使用 fixture，**不 hard-code 任何 production UID**。
-
-E0 通過條件：全綠 + `schema_hash`/`function_hash`/grants diff 全記錄 + production 完全零觸碰。
+E0 通過條件：全綠 + `schema_hash`/`function_hash`/grants diff 記錄 + production 零觸碰。
 
 ---
 
-## UNPROVEN（不以假設補洞）
+## Production impact report（仍只讀，沿用 v4.1 八項）並新增
 
-1. `trade_records.quantity` 為 integer ⇒ 碎股/crypto 小數處理未定，E0 僅整數，其餘 fail-closed。
-2. `pnl_percent` 同時被 price worker 與經濟路徑寫入 ⇒ E0 決議由經濟路徑獨佔，price worker 停寫；**需你確認是否接受此行為變更**。
-3. `recall / taken_down` 語意：仍無 domain evidence ⇒ 只停止自動反轉，visibility 不變，model-based test 不含 recall。
-4. `calculate_expert_performance` 內部演算法尚未逐行審（僅確認被 `usePerformance` 使用）⇒ public NAV 對照需在 impact report 第 4 項實測後才能定論。
+9. 逐 expert 的 currency 組合與跨幣人數；
+10. unpriced / unsupported / stale 部位清單與其占 equity 比重；
+11. FX 歷史缺口對哪些日期的 NAV 造成 `unavailable`。
+
+---
+
+## UNPROVEN → E0 fail-closed gate
+
+1. **FX 歷史**：`fx_rates` 無日期維度、僅 1 列 ⇒ 跨幣歷史 NAV 不可算 ⇒ `equity_base=NULL`。
+2. **US combo 估值**：無 combo 報價 ⇒ `unsupported`。
+3. **TW 權證報價完整度**：dps 3–25 列，判 stale/unpriced。
+4. **Supabase hosted `CREATE ROLE`/`OWNER TO` 能力**：未測，E0 決定 owner 方案。
+5. **`trade_records.quantity` 為 integer**：碎股/crypto 小數不支援，fail-closed。
+6. **`pnl_percent` 由誰寫**：E0 決議經濟路徑獨佔、price worker 停寫，需你確認此行為變更。
+7. **`recall / taken_down` 語意**：仍無 domain evidence，只停止自動反轉，model-based test 不含 recall。
+8. **`calculate_expert_performance` 內部演算法**：未逐行審，public NAV 對照待 impact report 實測。
 
 ---
 
 ## STOP
 
-未經再次審核：**不得進 R0**，不得改 production、6515、26 筆 drift、前端、RLS/ACL、Edge，不得 Publish。
-本次僅申請批准 **E0（ephemeral only）**。停等審核。
+未經再次審核：不得改 code、production、6515、26 筆 drift、前端、RLS/ACL/Edge，不得 Publish，不得進 R0。
+本次僅提交 Plan v4.2 供審核。
