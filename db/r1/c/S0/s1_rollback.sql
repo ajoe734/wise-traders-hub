@@ -15,6 +15,10 @@ DROP TABLE IF EXISTS app_ledger.replay_manifest_key;
 \ir ../../p/099_rollback_p.sql
 \ir ../../d/099_rollback.sql
 -- Restore the R1 base bodies/guards removed by the stage rollbacks.
+DROP TABLE IF EXISTS public.public_projection_active CASCADE;
+DROP TABLE IF EXISTS public.public_nav_daily CASCADE;
+DROP TABLE IF EXISTS public.public_portfolio_state CASCADE;
+DROP TABLE IF EXISTS public.public_position_projection CASCADE;
 \ir ../../001_expand.sql
 \ir ../../002_ledger.sql
 \ir ../../003_canonical.sql
