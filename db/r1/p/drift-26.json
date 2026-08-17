@@ -1,0 +1,976 @@
+{
+ "total_keys": 26,
+ "class_counts": {
+  "multiple_apply": 17,
+  "signal_only": 9
+ },
+ "unit_ambiguous_in_drift": 2,
+ "market_ambiguous_in_drift": 10,
+ "keys": [
+  {
+   "key": "K-cfa2c8181d189056",
+   "expert": "E-f855dd41",
+   "instrument": "00631L 元大台灣50正2",
+   "market": "TW",
+   "currency": "TWD",
+   "asset_class": "tw_stock",
+   "observed_units": "張+股",
+   "stored_open_qty_shares": 0,
+   "stored_closed_qty_shares": 5000000,
+   "replay_qty_shares": 4995,
+   "qty_drift": -4995,
+   "class": "multiple_apply",
+   "source_signal_count": 3,
+   "source_effect_count": 1,
+   "source_effect_linked_signals": 1,
+   "reason_codes": [
+    "multiple_apply_suspected",
+    "unit_ambiguous"
+   ],
+   "supported": {
+    "unit_supported": false,
+    "market_supported": true,
+    "price_supported": true,
+    "derivative_supported": true,
+    "fx_supported": true
+   },
+   "review_status": "manual_review",
+   "public_disposition": "withheld_incomplete",
+   "in_drift26": true,
+   "authoritative_qty_shares": null,
+   "candidate_qty_shares": [
+    0,
+    4995
+   ],
+   "auto_correction_forbidden": true
+  },
+  {
+   "key": "K-f0951a852c0938c9",
+   "expert": "E-28f3e51a",
+   "instrument": "068003 國巨統一75購01",
+   "market": "TW",
+   "currency": "TWD",
+   "asset_class": "tw_stock",
+   "observed_units": "張",
+   "stored_open_qty_shares": 50000000,
+   "stored_closed_qty_shares": 0,
+   "replay_qty_shares": 50000,
+   "qty_drift": 49950000,
+   "class": "multiple_apply",
+   "source_signal_count": 3,
+   "source_effect_count": 1,
+   "source_effect_linked_signals": 1,
+   "reason_codes": [
+    "multiple_apply_suspected"
+   ],
+   "supported": {
+    "unit_supported": true,
+    "market_supported": true,
+    "price_supported": true,
+    "derivative_supported": true,
+    "fx_supported": true
+   },
+   "review_status": "manual_review",
+   "public_disposition": "withheld_incomplete",
+   "in_drift26": true,
+   "authoritative_qty_shares": null,
+   "candidate_qty_shares": [
+    50000000,
+    50000
+   ],
+   "auto_correction_forbidden": true
+  },
+  {
+   "key": "K-750be0158ca36cea",
+   "expert": "E-28f3e51a",
+   "instrument": "071111 華邦電永豐5C購03",
+   "market": "TW",
+   "currency": "TWD",
+   "asset_class": "tw_stock",
+   "observed_units": "張",
+   "stored_open_qty_shares": 0,
+   "stored_closed_qty_shares": 70000000,
+   "replay_qty_shares": -40000,
+   "qty_drift": 40000,
+   "class": "multiple_apply",
+   "source_signal_count": 3,
+   "source_effect_count": 1,
+   "source_effect_linked_signals": 1,
+   "reason_codes": [
+    "multiple_apply_suspected"
+   ],
+   "supported": {
+    "unit_supported": true,
+    "market_supported": true,
+    "price_supported": true,
+    "derivative_supported": true,
+    "fx_supported": true
+   },
+   "review_status": "manual_review",
+   "public_disposition": "withheld_incomplete",
+   "in_drift26": true,
+   "authoritative_qty_shares": null,
+   "candidate_qty_shares": [
+    0,
+    -40000
+   ],
+   "auto_correction_forbidden": true
+  },
+  {
+   "key": "K-621604c9d6ed2d48",
+   "expert": "E-28f3e51a",
+   "instrument": "071745 T50正2台新66購01",
+   "market": "TW",
+   "currency": "TWD",
+   "asset_class": "tw_stock",
+   "observed_units": "張",
+   "stored_open_qty_shares": 30000000,
+   "stored_closed_qty_shares": 0,
+   "replay_qty_shares": 30000,
+   "qty_drift": 29970000,
+   "class": "multiple_apply",
+   "source_signal_count": 1,
+   "source_effect_count": 1,
+   "source_effect_linked_signals": 1,
+   "reason_codes": [
+    "multiple_apply_suspected"
+   ],
+   "supported": {
+    "unit_supported": true,
+    "market_supported": true,
+    "price_supported": true,
+    "derivative_supported": true,
+    "fx_supported": true
+   },
+   "review_status": "manual_review",
+   "public_disposition": "withheld_incomplete",
+   "in_drift26": true,
+   "authoritative_qty_shares": null,
+   "candidate_qty_shares": [
+    30000000,
+    30000
+   ],
+   "auto_correction_forbidden": true
+  },
+  {
+   "key": "K-a0c08172977f8f9c",
+   "expert": "E-28f3e51a",
+   "instrument": "078397 同欣電富邦64購02",
+   "market": "TW",
+   "currency": "TWD",
+   "asset_class": "tw_stock",
+   "observed_units": "張",
+   "stored_open_qty_shares": 50000000,
+   "stored_closed_qty_shares": 0,
+   "replay_qty_shares": 50000,
+   "qty_drift": 49950000,
+   "class": "multiple_apply",
+   "source_signal_count": 1,
+   "source_effect_count": 1,
+   "source_effect_linked_signals": 1,
+   "reason_codes": [
+    "multiple_apply_suspected"
+   ],
+   "supported": {
+    "unit_supported": true,
+    "market_supported": true,
+    "price_supported": true,
+    "derivative_supported": true,
+    "fx_supported": true
+   },
+   "review_status": "manual_review",
+   "public_disposition": "withheld_incomplete",
+   "in_drift26": true,
+   "authoritative_qty_shares": null,
+   "candidate_qty_shares": [
+    50000000,
+    50000
+   ],
+   "auto_correction_forbidden": true
+  },
+  {
+   "key": "K-8f0d20a54d04d052",
+   "expert": "E-28f3e51a",
+   "instrument": "079052 樺漢元大64購03",
+   "market": "TW",
+   "currency": "TWD",
+   "asset_class": "tw_stock",
+   "observed_units": "張",
+   "stored_open_qty_shares": 50000000,
+   "stored_closed_qty_shares": 0,
+   "replay_qty_shares": 50000,
+   "qty_drift": 49950000,
+   "class": "multiple_apply",
+   "source_signal_count": 1,
+   "source_effect_count": 1,
+   "source_effect_linked_signals": 1,
+   "reason_codes": [
+    "multiple_apply_suspected"
+   ],
+   "supported": {
+    "unit_supported": true,
+    "market_supported": true,
+    "price_supported": true,
+    "derivative_supported": true,
+    "fx_supported": true
+   },
+   "review_status": "manual_review",
+   "public_disposition": "withheld_incomplete",
+   "in_drift26": true,
+   "authoritative_qty_shares": null,
+   "candidate_qty_shares": [
+    50000000,
+    50000
+   ],
+   "auto_correction_forbidden": true
+  },
+  {
+   "key": "K-82cc22f8b7675898",
+   "expert": "E-f855dd41",
+   "instrument": "2478 大毅",
+   "market": "TW",
+   "currency": "TWD",
+   "asset_class": "tw_stock",
+   "observed_units": "張",
+   "stored_open_qty_shares": 1000000,
+   "stored_closed_qty_shares": 0,
+   "replay_qty_shares": 1000,
+   "qty_drift": 999000,
+   "class": "multiple_apply",
+   "source_signal_count": 1,
+   "source_effect_count": 1,
+   "source_effect_linked_signals": 1,
+   "reason_codes": [
+    "multiple_apply_suspected"
+   ],
+   "supported": {
+    "unit_supported": true,
+    "market_supported": true,
+    "price_supported": true,
+    "derivative_supported": true,
+    "fx_supported": true
+   },
+   "review_status": "manual_review",
+   "public_disposition": "withheld_incomplete",
+   "in_drift26": true,
+   "authoritative_qty_shares": null,
+   "candidate_qty_shares": [
+    1000000,
+    1000
+   ],
+   "auto_correction_forbidden": true
+  },
+  {
+   "key": "K-873d412b296e236a",
+   "expert": "E-f855dd41",
+   "instrument": "3363 上詮",
+   "market": "TW",
+   "currency": "TWD",
+   "asset_class": "tw_stock",
+   "observed_units": "股",
+   "stored_open_qty_shares": 0,
+   "stored_closed_qty_shares": 700,
+   "replay_qty_shares": -200,
+   "qty_drift": 200,
+   "class": "multiple_apply",
+   "source_signal_count": 4,
+   "source_effect_count": 2,
+   "source_effect_linked_signals": 2,
+   "reason_codes": [
+    "multiple_apply_suspected"
+   ],
+   "supported": {
+    "unit_supported": true,
+    "market_supported": true,
+    "price_supported": true,
+    "derivative_supported": true,
+    "fx_supported": true
+   },
+   "review_status": "manual_review",
+   "public_disposition": "withheld_incomplete",
+   "in_drift26": true,
+   "authoritative_qty_shares": null,
+   "candidate_qty_shares": [
+    0,
+    -200
+   ],
+   "auto_correction_forbidden": true
+  },
+  {
+   "key": "K-5b7829ea79c68e07",
+   "expert": "E-f855dd41",
+   "instrument": "4576 大銀微系統",
+   "market": "TW",
+   "currency": "TWD",
+   "asset_class": "tw_stock",
+   "observed_units": "張+股",
+   "stored_open_qty_shares": 0,
+   "stored_closed_qty_shares": 1000000,
+   "replay_qty_shares": 999,
+   "qty_drift": -999,
+   "class": "multiple_apply",
+   "source_signal_count": 3,
+   "source_effect_count": 1,
+   "source_effect_linked_signals": 1,
+   "reason_codes": [
+    "multiple_apply_suspected",
+    "unit_ambiguous"
+   ],
+   "supported": {
+    "unit_supported": false,
+    "market_supported": true,
+    "price_supported": true,
+    "derivative_supported": true,
+    "fx_supported": true
+   },
+   "review_status": "manual_review",
+   "public_disposition": "withheld_incomplete",
+   "in_drift26": true,
+   "authoritative_qty_shares": null,
+   "candidate_qty_shares": [
+    0,
+    999
+   ],
+   "auto_correction_forbidden": true
+  },
+  {
+   "key": "K-a032c0317dd9f13c",
+   "expert": "E-f855dd41",
+   "instrument": "6138 茂達",
+   "market": "TW",
+   "currency": "TWD",
+   "asset_class": "tw_stock",
+   "observed_units": "張",
+   "stored_open_qty_shares": 1000000,
+   "stored_closed_qty_shares": 0,
+   "replay_qty_shares": 1000,
+   "qty_drift": 999000,
+   "class": "multiple_apply",
+   "source_signal_count": 1,
+   "source_effect_count": 1,
+   "source_effect_linked_signals": 1,
+   "reason_codes": [
+    "multiple_apply_suspected"
+   ],
+   "supported": {
+    "unit_supported": true,
+    "market_supported": true,
+    "price_supported": true,
+    "derivative_supported": true,
+    "fx_supported": true
+   },
+   "review_status": "manual_review",
+   "public_disposition": "withheld_incomplete",
+   "in_drift26": true,
+   "authoritative_qty_shares": null,
+   "candidate_qty_shares": [
+    1000000,
+    1000
+   ],
+   "auto_correction_forbidden": true
+  },
+  {
+   "key": "K-d799e04acd063a34",
+   "expert": "E-f855dd41",
+   "instrument": "6285 啟碁",
+   "market": "TW",
+   "currency": "TWD",
+   "asset_class": "tw_stock",
+   "observed_units": "股",
+   "stored_open_qty_shares": 0,
+   "stored_closed_qty_shares": 2500,
+   "replay_qty_shares": -1000,
+   "qty_drift": 1000,
+   "class": "multiple_apply",
+   "source_signal_count": 6,
+   "source_effect_count": 3,
+   "source_effect_linked_signals": 3,
+   "reason_codes": [
+    "multiple_apply_suspected"
+   ],
+   "supported": {
+    "unit_supported": true,
+    "market_supported": true,
+    "price_supported": true,
+    "derivative_supported": true,
+    "fx_supported": true
+   },
+   "review_status": "manual_review",
+   "public_disposition": "withheld_incomplete",
+   "in_drift26": true,
+   "authoritative_qty_shares": null,
+   "candidate_qty_shares": [
+    0,
+    -1000
+   ],
+   "auto_correction_forbidden": true
+  },
+  {
+   "key": "K-b650eed0e1cc998b",
+   "expert": "E-f855dd41",
+   "instrument": "6515 穎崴",
+   "market": "TW",
+   "currency": "TWD",
+   "asset_class": "tw_stock",
+   "observed_units": "股",
+   "stored_open_qty_shares": 50,
+   "stored_closed_qty_shares": 50,
+   "replay_qty_shares": 10,
+   "qty_drift": 40,
+   "class": "multiple_apply",
+   "source_signal_count": 4,
+   "source_effect_count": 2,
+   "source_effect_linked_signals": 2,
+   "reason_codes": [
+    "multiple_apply_suspected"
+   ],
+   "supported": {
+    "unit_supported": true,
+    "market_supported": true,
+    "price_supported": true,
+    "derivative_supported": true,
+    "fx_supported": true
+   },
+   "review_status": "manual_review",
+   "public_disposition": "withheld_incomplete",
+   "in_drift26": true,
+   "authoritative_qty_shares": null,
+   "candidate_qty_shares": [
+    50,
+    10
+   ],
+   "auto_correction_forbidden": true,
+   "invariant": "6515: stored_open=50 and replay=10 are BOTH candidates only. No channel (public, member, admin, export, API) may present either number as the correct answer. status is pinned to manual_review; auto-correction is forbidden until human adjudication."
+  },
+  {
+   "key": "K-d6eaa593c5fe46af",
+   "expert": "E-28f3e51a",
+   "instrument": "707414 前鼎統一74購01",
+   "market": "TW",
+   "currency": "TWD",
+   "asset_class": "tw_stock",
+   "observed_units": "張",
+   "stored_open_qty_shares": 0,
+   "stored_closed_qty_shares": 100000000,
+   "replay_qty_shares": 50000,
+   "qty_drift": -50000,
+   "class": "multiple_apply",
+   "source_signal_count": 4,
+   "source_effect_count": 2,
+   "source_effect_linked_signals": 2,
+   "reason_codes": [
+    "multiple_apply_suspected"
+   ],
+   "supported": {
+    "unit_supported": true,
+    "market_supported": true,
+    "price_supported": true,
+    "derivative_supported": true,
+    "fx_supported": true
+   },
+   "review_status": "manual_review",
+   "public_disposition": "withheld_incomplete",
+   "in_drift26": true,
+   "authoritative_qty_shares": null,
+   "candidate_qty_shares": [
+    0,
+    50000
+   ],
+   "auto_correction_forbidden": true
+  },
+  {
+   "key": "K-1f74b8c11894f1c7",
+   "expert": "E-5e72fc27",
+   "instrument": "GLW",
+   "market": "US",
+   "currency": "USD",
+   "asset_class": "us_stock",
+   "observed_units": "股",
+   "stored_open_qty_shares": 0,
+   "stored_closed_qty_shares": 30,
+   "replay_qty_shares": -10,
+   "qty_drift": 10,
+   "class": "multiple_apply",
+   "source_signal_count": 3,
+   "source_effect_count": 1,
+   "source_effect_linked_signals": 1,
+   "reason_codes": [
+    "fx_history_unavailable",
+    "multiple_apply_suspected"
+   ],
+   "supported": {
+    "unit_supported": true,
+    "market_supported": true,
+    "price_supported": true,
+    "derivative_supported": true,
+    "fx_supported": false
+   },
+   "review_status": "manual_review",
+   "public_disposition": "withheld_incomplete",
+   "in_drift26": true,
+   "authoritative_qty_shares": null,
+   "candidate_qty_shares": [
+    0,
+    -10
+   ],
+   "auto_correction_forbidden": true
+  },
+  {
+   "key": "K-1bb9215f388da441",
+   "expert": "E-5e72fc27",
+   "instrument": "GOOG",
+   "market": "US",
+   "currency": "USD",
+   "asset_class": "us_stock",
+   "observed_units": "股",
+   "stored_open_qty_shares": 0,
+   "stored_closed_qty_shares": 32,
+   "replay_qty_shares": -11,
+   "qty_drift": 11,
+   "class": "multiple_apply",
+   "source_signal_count": 4,
+   "source_effect_count": 1,
+   "source_effect_linked_signals": 1,
+   "reason_codes": [
+    "fx_history_unavailable",
+    "multiple_apply_suspected"
+   ],
+   "supported": {
+    "unit_supported": true,
+    "market_supported": true,
+    "price_supported": true,
+    "derivative_supported": true,
+    "fx_supported": false
+   },
+   "review_status": "manual_review",
+   "public_disposition": "withheld_incomplete",
+   "in_drift26": true,
+   "authoritative_qty_shares": null,
+   "candidate_qty_shares": [
+    0,
+    -11
+   ],
+   "auto_correction_forbidden": true
+  },
+  {
+   "key": "K-766ce8cd8109b35e",
+   "expert": "E-714c77a6",
+   "instrument": "META",
+   "market": "US",
+   "currency": "USD",
+   "asset_class": "us_stock",
+   "observed_units": "股",
+   "stored_open_qty_shares": 0,
+   "stored_closed_qty_shares": 20,
+   "replay_qty_shares": -10,
+   "qty_drift": 10,
+   "class": "multiple_apply",
+   "source_signal_count": 2,
+   "source_effect_count": 2,
+   "source_effect_linked_signals": 2,
+   "reason_codes": [
+    "fx_history_unavailable",
+    "market_ambiguous",
+    "multiple_apply_suspected"
+   ],
+   "supported": {
+    "unit_supported": true,
+    "market_supported": false,
+    "price_supported": true,
+    "derivative_supported": true,
+    "fx_supported": false
+   },
+   "review_status": "manual_review",
+   "public_disposition": "withheld_incomplete",
+   "in_drift26": true,
+   "authoritative_qty_shares": null,
+   "candidate_qty_shares": [
+    0,
+    -10
+   ],
+   "auto_correction_forbidden": true
+  },
+  {
+   "key": "K-362bf5cbab8a57a0",
+   "expert": "E-714c77a6",
+   "instrument": "NVDA 輝達",
+   "market": "US",
+   "currency": "USD",
+   "asset_class": "us_stock",
+   "observed_units": "股",
+   "stored_open_qty_shares": 0,
+   "stored_closed_qty_shares": 50,
+   "replay_qty_shares": -50,
+   "qty_drift": 50,
+   "class": "multiple_apply",
+   "source_signal_count": 1,
+   "source_effect_count": 1,
+   "source_effect_linked_signals": 1,
+   "reason_codes": [
+    "fx_history_unavailable",
+    "market_ambiguous",
+    "multiple_apply_suspected"
+   ],
+   "supported": {
+    "unit_supported": true,
+    "market_supported": false,
+    "price_supported": true,
+    "derivative_supported": true,
+    "fx_supported": false
+   },
+   "review_status": "manual_review",
+   "public_disposition": "withheld_incomplete",
+   "in_drift26": true,
+   "authoritative_qty_shares": null,
+   "candidate_qty_shares": [
+    0,
+    -50
+   ],
+   "auto_correction_forbidden": true
+  },
+  {
+   "key": "K-2ec3030deaa54783",
+   "expert": "E-714c77a6",
+   "instrument": "AMZN 亞馬遜",
+   "market": "TW",
+   "currency": "USD",
+   "asset_class": "us_stock",
+   "observed_units": "股",
+   "stored_open_qty_shares": 0,
+   "stored_closed_qty_shares": 0,
+   "replay_qty_shares": 0,
+   "qty_drift": 0,
+   "class": "signal_only",
+   "source_signal_count": 2,
+   "source_effect_count": 0,
+   "source_effect_linked_signals": 0,
+   "reason_codes": [
+    "fx_history_unavailable",
+    "market_ambiguous",
+    "signal_without_projection"
+   ],
+   "supported": {
+    "unit_supported": true,
+    "market_supported": false,
+    "price_supported": true,
+    "derivative_supported": true,
+    "fx_supported": false
+   },
+   "review_status": "manual_review",
+   "public_disposition": "withheld_incomplete",
+   "in_drift26": true,
+   "authoritative_qty_shares": null,
+   "candidate_qty_shares": [
+    0,
+    0
+   ],
+   "auto_correction_forbidden": true
+  },
+  {
+   "key": "K-d16a2d4257c113e9",
+   "expert": "E-714c77a6",
+   "instrument": "CRM 賽富時",
+   "market": "TW",
+   "currency": "USD",
+   "asset_class": "us_stock",
+   "observed_units": "股",
+   "stored_open_qty_shares": 0,
+   "stored_closed_qty_shares": 0,
+   "replay_qty_shares": 0,
+   "qty_drift": 0,
+   "class": "signal_only",
+   "source_signal_count": 2,
+   "source_effect_count": 0,
+   "source_effect_linked_signals": 0,
+   "reason_codes": [
+    "fx_history_unavailable",
+    "market_ambiguous",
+    "signal_without_projection"
+   ],
+   "supported": {
+    "unit_supported": true,
+    "market_supported": false,
+    "price_supported": true,
+    "derivative_supported": true,
+    "fx_supported": false
+   },
+   "review_status": "manual_review",
+   "public_disposition": "withheld_incomplete",
+   "in_drift26": true,
+   "authoritative_qty_shares": null,
+   "candidate_qty_shares": [
+    0,
+    0
+   ],
+   "auto_correction_forbidden": true
+  },
+  {
+   "key": "K-712ddaa4cb0abb57",
+   "expert": "E-714c77a6",
+   "instrument": "GOOGL",
+   "market": "TW",
+   "currency": "USD",
+   "asset_class": "us_stock",
+   "observed_units": "股",
+   "stored_open_qty_shares": 0,
+   "stored_closed_qty_shares": 0,
+   "replay_qty_shares": 0,
+   "qty_drift": 0,
+   "class": "signal_only",
+   "source_signal_count": 2,
+   "source_effect_count": 0,
+   "source_effect_linked_signals": 0,
+   "reason_codes": [
+    "fx_history_unavailable",
+    "market_ambiguous",
+    "signal_without_projection"
+   ],
+   "supported": {
+    "unit_supported": true,
+    "market_supported": false,
+    "price_supported": true,
+    "derivative_supported": true,
+    "fx_supported": false
+   },
+   "review_status": "manual_review",
+   "public_disposition": "withheld_incomplete",
+   "in_drift26": true,
+   "authoritative_qty_shares": null,
+   "candidate_qty_shares": [
+    0,
+    0
+   ],
+   "auto_correction_forbidden": true
+  },
+  {
+   "key": "K-c71568308bd074ab",
+   "expert": "E-714c77a6",
+   "instrument": "META",
+   "market": "TW",
+   "currency": "USD",
+   "asset_class": "us_stock",
+   "observed_units": "股",
+   "stored_open_qty_shares": 0,
+   "stored_closed_qty_shares": 0,
+   "replay_qty_shares": 15,
+   "qty_drift": -15,
+   "class": "signal_only",
+   "source_signal_count": 1,
+   "source_effect_count": 0,
+   "source_effect_linked_signals": 0,
+   "reason_codes": [
+    "fx_history_unavailable",
+    "market_ambiguous",
+    "signal_without_projection"
+   ],
+   "supported": {
+    "unit_supported": true,
+    "market_supported": false,
+    "price_supported": true,
+    "derivative_supported": true,
+    "fx_supported": false
+   },
+   "review_status": "manual_review",
+   "public_disposition": "withheld_incomplete",
+   "in_drift26": true,
+   "authoritative_qty_shares": null,
+   "candidate_qty_shares": [
+    0,
+    15
+   ],
+   "auto_correction_forbidden": true
+  },
+  {
+   "key": "K-b140f9a36c630fc5",
+   "expert": "E-714c77a6",
+   "instrument": "NVDA 輝達",
+   "market": "TW",
+   "currency": "USD",
+   "asset_class": "us_stock",
+   "observed_units": "股",
+   "stored_open_qty_shares": 0,
+   "stored_closed_qty_shares": 0,
+   "replay_qty_shares": 50,
+   "qty_drift": -50,
+   "class": "signal_only",
+   "source_signal_count": 2,
+   "source_effect_count": 0,
+   "source_effect_linked_signals": 0,
+   "reason_codes": [
+    "fx_history_unavailable",
+    "market_ambiguous",
+    "signal_without_projection"
+   ],
+   "supported": {
+    "unit_supported": true,
+    "market_supported": false,
+    "price_supported": true,
+    "derivative_supported": true,
+    "fx_supported": false
+   },
+   "review_status": "manual_review",
+   "public_disposition": "withheld_incomplete",
+   "in_drift26": true,
+   "authoritative_qty_shares": null,
+   "candidate_qty_shares": [
+    0,
+    50
+   ],
+   "auto_correction_forbidden": true
+  },
+  {
+   "key": "K-c82ab65001ac6062",
+   "expert": "E-714c77a6",
+   "instrument": "QCOM 高通",
+   "market": "TW",
+   "currency": "USD",
+   "asset_class": "us_stock",
+   "observed_units": "股",
+   "stored_open_qty_shares": 0,
+   "stored_closed_qty_shares": 0,
+   "replay_qty_shares": 30,
+   "qty_drift": -30,
+   "class": "signal_only",
+   "source_signal_count": 2,
+   "source_effect_count": 0,
+   "source_effect_linked_signals": 0,
+   "reason_codes": [
+    "fx_history_unavailable",
+    "market_ambiguous",
+    "signal_without_projection"
+   ],
+   "supported": {
+    "unit_supported": true,
+    "market_supported": false,
+    "price_supported": true,
+    "derivative_supported": true,
+    "fx_supported": false
+   },
+   "review_status": "manual_review",
+   "public_disposition": "withheld_incomplete",
+   "in_drift26": true,
+   "authoritative_qty_shares": null,
+   "candidate_qty_shares": [
+    0,
+    30
+   ],
+   "auto_correction_forbidden": true
+  },
+  {
+   "key": "K-cafe5ad17d49ce3a",
+   "expert": "E-714c77a6",
+   "instrument": "SPCX Space X",
+   "market": "TW",
+   "currency": "USD",
+   "asset_class": "us_stock",
+   "observed_units": "股",
+   "stored_open_qty_shares": 0,
+   "stored_closed_qty_shares": 0,
+   "replay_qty_shares": 20,
+   "qty_drift": -20,
+   "class": "signal_only",
+   "source_signal_count": 1,
+   "source_effect_count": 0,
+   "source_effect_linked_signals": 0,
+   "reason_codes": [
+    "fx_history_unavailable",
+    "market_ambiguous",
+    "signal_without_projection"
+   ],
+   "supported": {
+    "unit_supported": true,
+    "market_supported": false,
+    "price_supported": true,
+    "derivative_supported": true,
+    "fx_supported": false
+   },
+   "review_status": "manual_review",
+   "public_disposition": "withheld_incomplete",
+   "in_drift26": true,
+   "authoritative_qty_shares": null,
+   "candidate_qty_shares": [
+    0,
+    20
+   ],
+   "auto_correction_forbidden": true
+  },
+  {
+   "key": "K-eb2a3646270a4ba8",
+   "expert": "E-714c77a6",
+   "instrument": "ZM ZOOM",
+   "market": "TW",
+   "currency": "USD",
+   "asset_class": "us_stock",
+   "observed_units": "股",
+   "stored_open_qty_shares": 0,
+   "stored_closed_qty_shares": 0,
+   "replay_qty_shares": 0,
+   "qty_drift": 0,
+   "class": "signal_only",
+   "source_signal_count": 2,
+   "source_effect_count": 0,
+   "source_effect_linked_signals": 0,
+   "reason_codes": [
+    "fx_history_unavailable",
+    "market_ambiguous",
+    "signal_without_projection"
+   ],
+   "supported": {
+    "unit_supported": true,
+    "market_supported": false,
+    "price_supported": true,
+    "derivative_supported": true,
+    "fx_supported": false
+   },
+   "review_status": "manual_review",
+   "public_disposition": "withheld_incomplete",
+   "in_drift26": true,
+   "authoritative_qty_shares": null,
+   "candidate_qty_shares": [
+    0,
+    0
+   ],
+   "auto_correction_forbidden": true
+  },
+  {
+   "key": "K-46d585193f40807c",
+   "expert": "E-714c77a6",
+   "instrument": "SPCX",
+   "market": "US",
+   "currency": "USD",
+   "asset_class": "us_stock",
+   "observed_units": "股",
+   "stored_open_qty_shares": 0,
+   "stored_closed_qty_shares": 0,
+   "replay_qty_shares": 20,
+   "qty_drift": -20,
+   "class": "signal_only",
+   "source_signal_count": 1,
+   "source_effect_count": 0,
+   "source_effect_linked_signals": 0,
+   "reason_codes": [
+    "fx_history_unavailable",
+    "signal_without_projection"
+   ],
+   "supported": {
+    "unit_supported": true,
+    "market_supported": true,
+    "price_supported": true,
+    "derivative_supported": true,
+    "fx_supported": false
+   },
+   "review_status": "manual_review",
+   "public_disposition": "withheld_incomplete",
+   "in_drift26": true,
+   "authoritative_qty_shares": null,
+   "candidate_qty_shares": [
+    0,
+    20
+   ],
+   "auto_correction_forbidden": true
+  }
+ ],
+ "generated_by": "db/r1/p/manifest_replay.sql",
+ "definition": "drift = class in (multiple_apply, signal_only); 17 + 9 = 26",
+ "policy": "no auto-correction; every key stays status=manual_review until a human adjudicates"
+}

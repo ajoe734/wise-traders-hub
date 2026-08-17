@@ -1,0 +1,1232 @@
+{
+ "generated_by": "db/r1/p/build_consumer_matrix.py",
+ "scope": "every channel that can surface an economic fact (signal, trade, position, NAV, return, chart, export, push, API)",
+ "embargo_rule": "anonymous and non-entitled readers may only observe economic effects whose visible_at <= now(); T+7 embargoed events must be invisible in rows, aggregates, NAV, returns, charts, exports and push payloads.",
+ "static_consumers": [
+  {
+   "path": "supabase/functions/_shared/journalExportCore.ts",
+   "surface": "edge_function",
+   "tables": [
+    "trade_records"
+   ],
+   "hits": 3
+  },
+  {
+   "path": "supabase/functions/_shared/journalRepository.ts",
+   "surface": "edge_function",
+   "tables": [
+    "expert_signals"
+   ],
+   "hits": 9
+  },
+  {
+   "path": "supabase/functions/account-link-consume/index.ts",
+   "surface": "edge_function",
+   "tables": [
+    "user_performances"
+   ],
+   "hits": 1
+  },
+  {
+   "path": "supabase/functions/admin-account-force-merge/index.ts",
+   "surface": "edge_function",
+   "tables": [
+    "user_performances"
+   ],
+   "hits": 1
+  },
+  {
+   "path": "supabase/functions/daily-performance/index.ts",
+   "surface": "edge_function",
+   "tables": [
+    "trade_records"
+   ],
+   "hits": 2
+  },
+  {
+   "path": "supabase/functions/daily-snapshot/index.ts",
+   "surface": "edge_function",
+   "tables": [
+    "trade_records"
+   ],
+   "hits": 2
+  },
+  {
+   "path": "supabase/functions/data-upsert/index.ts",
+   "surface": "edge_function",
+   "tables": [
+    "trade_records",
+    "user_performances"
+   ],
+   "hits": 4
+  },
+  {
+   "path": "supabase/functions/email-push-renewal-reminder/index.ts",
+   "surface": "edge_function",
+   "tables": [
+    "user_performances"
+   ],
+   "hits": 2
+  },
+  {
+   "path": "supabase/functions/expert-ai-index/index.ts",
+   "surface": "edge_function",
+   "tables": [
+    "expert_signals"
+   ],
+   "hits": 1
+  },
+  {
+   "path": "supabase/functions/expert-ai-training/index.ts",
+   "surface": "edge_function",
+   "tables": [
+    "expert_signals"
+   ],
+   "hits": 5
+  },
+  {
+   "path": "supabase/functions/line-push-signal/index.ts",
+   "surface": "edge_function",
+   "tables": [
+    "expert_signals"
+   ],
+   "hits": 4
+  },
+  {
+   "path": "supabase/functions/line-push-signal/quantityUnit.ts",
+   "surface": "edge_function",
+   "tables": [
+    "expert_signals"
+   ],
+   "hits": 1
+  },
+  {
+   "path": "supabase/functions/mcp/index.ts",
+   "surface": "edge_function",
+   "tables": [
+    "trade_records"
+   ],
+   "hits": 2
+  },
+  {
+   "path": "supabase/functions/pending-journal-publish-reminder/index.ts",
+   "surface": "edge_function",
+   "tables": [
+    "expert_signals"
+   ],
+   "hits": 1
+  },
+  {
+   "path": "supabase/functions/publish-weekly-journals/pipeline.ts",
+   "surface": "edge_function",
+   "tables": [
+    "user_performances"
+   ],
+   "hits": 1
+  },
+  {
+   "path": "supabase/functions/publish-weekly-journals/port.ts",
+   "surface": "edge_function",
+   "tables": [
+    "user_performances"
+   ],
+   "hits": 1
+  },
+  {
+   "path": "supabase/functions/publish-weekly-journals/supabasePort.ts",
+   "surface": "edge_function",
+   "tables": [
+    "expert_signals",
+    "trade_records",
+    "user_performances"
+   ],
+   "hits": 5
+  },
+  {
+   "path": "supabase/functions/reconcile-warrant-quantities/index.ts",
+   "surface": "edge_function",
+   "tables": [
+    "expert_signals",
+    "trade_records"
+   ],
+   "hits": 8
+  },
+  {
+   "path": "supabase/functions/share-og/index.ts",
+   "surface": "edge_function",
+   "tables": [
+    "expert_signals"
+   ],
+   "hits": 2
+  },
+  {
+   "path": "supabase/functions/stock-price-sync/index.ts",
+   "surface": "edge_function",
+   "tables": [
+    "trade_records",
+    "user_performances"
+   ],
+   "hits": 8
+  },
+  {
+   "path": "supabase/functions/tw-bsr-daily-sync/index.ts",
+   "surface": "edge_function",
+   "tables": [
+    "trade_records"
+   ],
+   "hits": 2
+  },
+  {
+   "path": "supabase/functions/tw-bsr-finmind-sync/index.ts",
+   "surface": "edge_function",
+   "tables": [
+    "trade_records"
+   ],
+   "hits": 4
+  },
+  {
+   "path": "supabase/functions/us-option-price-sync/index.ts",
+   "surface": "edge_function",
+   "tables": [
+    "expert_signals"
+   ],
+   "hits": 2
+  },
+  {
+   "path": "supabase/functions/validate-signal-prices/index.ts",
+   "surface": "edge_function",
+   "tables": [
+    "expert_signals"
+   ],
+   "hits": 1
+  },
+  {
+   "path": "supabase/functions/weekly-journal-export/index.ts",
+   "surface": "edge_function",
+   "tables": [
+    "expert_signals",
+    "trade_records"
+   ],
+   "hits": 2
+  },
+  {
+   "path": "src/checkup/components/freecheckup/ChipsSection.tsx",
+   "surface": "frontend",
+   "tables": [
+    "trade_records"
+   ],
+   "hits": 1
+  },
+  {
+   "path": "src/checkup/components/holdings/README.md",
+   "surface": "frontend",
+   "tables": [],
+   "hits": 1
+  },
+  {
+   "path": "src/checkup/hooks/index.js",
+   "surface": "frontend",
+   "tables": [],
+   "hits": 1
+  },
+  {
+   "path": "src/components/layouts/SignalsLayout.tsx",
+   "surface": "frontend",
+   "tables": [
+    "expert_signals"
+   ],
+   "hits": 1
+  },
+  {
+   "path": "src/components/layouts/UnifiedAppLayout.tsx",
+   "surface": "frontend",
+   "tables": [
+    "expert_signals"
+   ],
+   "hits": 2
+  },
+  {
+   "path": "src/hooks/admin/useAdminPerformanceData.ts",
+   "surface": "frontend",
+   "tables": [
+    "trade_records"
+   ],
+   "hits": 5
+  },
+  {
+   "path": "src/hooks/admin/useAdminProfile.ts",
+   "surface": "frontend",
+   "tables": [
+    "expert_signals"
+   ],
+   "hits": 2
+  },
+  {
+   "path": "src/hooks/admin/useFactsheetSource.ts",
+   "surface": "frontend",
+   "tables": [
+    "trade_records"
+   ],
+   "hits": 1
+  },
+  {
+   "path": "src/hooks/admin/useSignalEditorData.ts",
+   "surface": "frontend",
+   "tables": [
+    "expert_signals",
+    "trade_records"
+   ],
+   "hits": 5
+  },
+  {
+   "path": "src/hooks/useAdminSignals.ts",
+   "surface": "frontend",
+   "tables": [
+    "trade_records"
+   ],
+   "hits": 4
+  },
+  {
+   "path": "src/hooks/useExpertHoldingsBundle.ts",
+   "surface": "frontend",
+   "tables": [
+    "trade_records",
+    "user_performances"
+   ],
+   "hits": 4
+  },
+  {
+   "path": "src/hooks/usePerformance.ts",
+   "surface": "frontend",
+   "tables": [
+    "trade_records",
+    "user_performances"
+   ],
+   "hits": 5
+  },
+  {
+   "path": "src/hooks/usePeriodPerformance.ts",
+   "surface": "frontend",
+   "tables": [
+    "trade_records"
+   ],
+   "hits": 1
+  },
+  {
+   "path": "src/hooks/useSignalRealtimeInvalidation.ts",
+   "surface": "frontend",
+   "tables": [
+    "expert_signals"
+   ],
+   "hits": 2
+  },
+  {
+   "path": "src/integrations/supabase/types.ts",
+   "surface": "frontend",
+   "tables": [
+    "expert_signals",
+    "trade_records",
+    "user_performances"
+   ],
+   "hits": 17
+  },
+  {
+   "path": "src/lib/analystDataAccess.ts",
+   "surface": "frontend",
+   "tables": [
+    "expert_signals",
+    "trade_records"
+   ],
+   "hits": 2
+  },
+  {
+   "path": "src/lib/auditLog.ts",
+   "surface": "frontend",
+   "tables": [
+    "expert_signals",
+    "trade_records"
+   ],
+   "hits": 8
+  },
+  {
+   "path": "src/lib/instrument.ts",
+   "surface": "frontend",
+   "tables": [
+    "expert_signals",
+    "trade_records"
+   ],
+   "hits": 1
+  },
+  {
+   "path": "src/lib/journalExportCore.ts",
+   "surface": "frontend",
+   "tables": [
+    "trade_records"
+   ],
+   "hits": 3
+  },
+  {
+   "path": "src/lib/journalRepository.ts",
+   "surface": "frontend",
+   "tables": [
+    "expert_signals"
+   ],
+   "hits": 9
+  },
+  {
+   "path": "src/lib/mcp/tools/list_my_holdings.ts",
+   "surface": "frontend",
+   "tables": [
+    "trade_records"
+   ],
+   "hits": 2
+  },
+  {
+   "path": "src/lib/optionCombo.ts",
+   "surface": "frontend",
+   "tables": [
+    "expert_signals"
+   ],
+   "hits": 1
+  },
+  {
+   "path": "src/lib/performance/factsheetPdf.ts",
+   "surface": "frontend",
+   "tables": [
+    "trade_records"
+   ],
+   "hits": 1
+  },
+  {
+   "path": "src/lib/positionQuantity.ts",
+   "surface": "frontend",
+   "tables": [
+    "trade_records"
+   ],
+   "hits": 1
+  },
+  {
+   "path": "src/lib/queryClient.ts",
+   "surface": "frontend",
+   "tables": [
+    "expert_signals"
+   ],
+   "hits": 1
+  },
+  {
+   "path": "src/lib/subscriptionVisibility.ts",
+   "surface": "frontend",
+   "tables": [
+    "expert_signals"
+   ],
+   "hits": 3
+  },
+  {
+   "path": "src/pages/_adminPerformance/types.ts",
+   "surface": "frontend",
+   "tables": [
+    "trade_records"
+   ],
+   "hits": 1
+  },
+  {
+   "path": "src/pages/_adminSignals/SignalCreateDialog.tsx",
+   "surface": "frontend",
+   "tables": [
+    "expert_signals",
+    "trade_records",
+    "user_performances"
+   ],
+   "hits": 12
+  },
+  {
+   "path": "src/pages/_adminSignals/UnitRealignPreviewDialog.tsx",
+   "surface": "frontend",
+   "tables": [
+    "expert_signals",
+    "trade_records"
+   ],
+   "hits": 4
+  },
+  {
+   "path": "src/pages/_adminSignals/__tests__/SignalsTable.currency.test.tsx",
+   "surface": "frontend",
+   "tables": [
+    "expert_signals"
+   ],
+   "hits": 1
+  },
+  {
+   "path": "src/pages/_adminSignals/publishErrorMapper.ts",
+   "surface": "frontend",
+   "tables": [
+    "expert_signals"
+   ],
+   "hits": 1
+  },
+  {
+   "path": "src/pages/_aiStudio/IndexPanelTab.tsx",
+   "surface": "frontend",
+   "tables": [
+    "expert_signals"
+   ],
+   "hits": 1
+  },
+  {
+   "path": "src/pages/_signalEditor/derive.ts",
+   "surface": "frontend",
+   "tables": [
+    "expert_signals"
+   ],
+   "hits": 2
+  },
+  {
+   "path": "src/pages/_signalEditor/types.ts",
+   "surface": "frontend",
+   "tables": [
+    "trade_records"
+   ],
+   "hits": 1
+  },
+  {
+   "path": "src/pages/admin/Dashboard.tsx",
+   "surface": "frontend",
+   "tables": [
+    "expert_signals",
+    "trade_records"
+   ],
+   "hits": 5
+  },
+  {
+   "path": "src/pages/admin/Profile.tsx",
+   "surface": "frontend",
+   "tables": [
+    "expert_signals"
+   ],
+   "hits": 1
+  },
+  {
+   "path": "src/pages/admin/SignalEditor.tsx",
+   "surface": "frontend",
+   "tables": [
+    "trade_records"
+   ],
+   "hits": 1
+  },
+  {
+   "path": "src/pages/admin/Signals.tsx",
+   "surface": "frontend",
+   "tables": [
+    "expert_signals",
+    "trade_records",
+    "user_performances"
+   ],
+   "hits": 6
+  },
+  {
+   "path": "src/pages/app/SignalDetail.tsx",
+   "surface": "frontend",
+   "tables": [
+    "expert_signals"
+   ],
+   "hits": 1
+  },
+  {
+   "path": "src/pages/app/SignalsDashboard.tsx",
+   "surface": "frontend",
+   "tables": [
+    "expert_signals"
+   ],
+   "hits": 1
+  },
+  {
+   "path": "src/pages/company/AuditLogs.tsx",
+   "surface": "frontend",
+   "tables": [
+    "expert_signals",
+    "trade_records"
+   ],
+   "hits": 4
+  },
+  {
+   "path": "src/pages/company/Dashboard.tsx",
+   "surface": "frontend",
+   "tables": [
+    "expert_signals"
+   ],
+   "hits": 1
+  },
+  {
+   "path": "src/pages/company/HoldingsConsistency.tsx",
+   "surface": "frontend",
+   "tables": [
+    "expert_signals",
+    "trade_records"
+   ],
+   "hits": 2
+  },
+  {
+   "path": "src/pages/company/JournalsExport.tsx",
+   "surface": "frontend",
+   "tables": [
+    "trade_records"
+   ],
+   "hits": 2
+  },
+  {
+   "path": "src/pages/company/PublishBatchStatus.tsx",
+   "surface": "frontend",
+   "tables": [
+    "expert_signals"
+   ],
+   "hits": 1
+  },
+  {
+   "path": "src/pages/company/SignalDupeAudit.tsx",
+   "surface": "frontend",
+   "tables": [
+    "trade_records"
+   ],
+   "hits": 2
+  },
+  {
+   "path": "src/test/integration/1.12-role-subscription-db-functions.test.ts",
+   "surface": "frontend",
+   "tables": [
+    "trade_records"
+   ],
+   "hits": 3
+  },
+  {
+   "path": "src/test/integration/1.16-signal-trade-trigger.test.ts",
+   "surface": "frontend",
+   "tables": [
+    "expert_signals",
+    "trade_records",
+    "user_performances"
+   ],
+   "hits": 7
+  },
+  {
+   "path": "src/test/integration/1.18-weekly-publish-rls.test.ts",
+   "surface": "frontend",
+   "tables": [
+    "expert_signals"
+   ],
+   "hits": 6
+  },
+  {
+   "path": "src/test/integration/1.23-scheduler-sequencing.test.ts",
+   "surface": "frontend",
+   "tables": [
+    "trade_records"
+   ],
+   "hits": 8
+  },
+  {
+   "path": "src/test/integration/1.30-us-scheduler.test.ts",
+   "surface": "frontend",
+   "tables": [
+    "expert_signals",
+    "trade_records"
+   ],
+   "hits": 3
+  },
+  {
+   "path": "src/test/integration/1.35-rls-security-audit.test.ts",
+   "surface": "frontend",
+   "tables": [],
+   "hits": 1
+  },
+  {
+   "path": "src/test/integration/1.36-teaching-hold-journal.test.ts",
+   "surface": "frontend",
+   "tables": [
+    "expert_signals",
+    "user_performances"
+   ],
+   "hits": 6
+  },
+  {
+   "path": "src/test/integration/1.37-us-asset-unit-single-source.test.ts",
+   "surface": "frontend",
+   "tables": [
+    "trade_records"
+   ],
+   "hits": 1
+  },
+  {
+   "path": "src/test/integration/1.38-tw-unit-lock-open-scope.test.ts",
+   "surface": "frontend",
+   "tables": [
+    "expert_signals",
+    "trade_records"
+   ],
+   "hits": 14
+  },
+  {
+   "path": "src/test/integration/1.8-subscription-content-visibility.test.ts",
+   "surface": "frontend",
+   "tables": [
+    "expert_signals"
+   ],
+   "hits": 10
+  },
+  {
+   "path": "src/test/integration/1.9-analyst-data-isolation.test.ts",
+   "surface": "frontend",
+   "tables": [
+    "expert_signals",
+    "trade_records"
+   ],
+   "hits": 8
+  },
+  {
+   "path": "src/test/unit/journal-repository-parity.test.ts",
+   "surface": "frontend",
+   "tables": [
+    "expert_signals"
+   ],
+   "hits": 5
+  },
+  {
+   "path": "src/test/unit/mapOpenPositionToRow.test.ts",
+   "surface": "frontend",
+   "tables": [
+    "trade_records"
+   ],
+   "hits": 2
+  }
+ ],
+ "static_consumer_counts": {
+  "frontend": 59,
+  "edge_function": 25,
+  "total": 84
+ },
+ "anonymous_reachable_frontend": [],
+ "db_objects": [
+  {
+   "name": "admin_apply_fix_proposal",
+   "kind": "function",
+   "owner": "postgres",
+   "security_definer": true,
+   "acl": "postgres=X/postgres | anon=X/postgres | authenticated=X/postgres | service_role=X/postgres | sandbox_exec_yqacmrgdjlenbijclngi=X/postgres",
+   "reads_signals": true,
+   "reads_trades": true,
+   "reads_perf": false
+  },
+  {
+   "name": "admin_delete_trade_records_by_signal_ids",
+   "kind": "function",
+   "owner": "postgres",
+   "security_definer": true,
+   "acl": "postgres=X/postgres | anon=X/postgres | authenticated=X/postgres | service_role=X/postgres | sandbox_exec_yqacmrgdjlenbijclngi=X/postgres",
+   "reads_signals": false,
+   "reads_trades": true,
+   "reads_perf": false
+  },
+  {
+   "name": "admin_delete_trade_records_by_symbol",
+   "kind": "function",
+   "owner": "postgres",
+   "security_definer": true,
+   "acl": "postgres=X/postgres | anon=X/postgres | authenticated=X/postgres | service_role=X/postgres | sandbox_exec_yqacmrgdjlenbijclngi=X/postgres",
+   "reads_signals": false,
+   "reads_trades": true,
+   "reads_perf": false
+  },
+  {
+   "name": "admin_generate_fix_proposals",
+   "kind": "function",
+   "owner": "postgres",
+   "security_definer": true,
+   "acl": "postgres=X/postgres | anon=X/postgres | authenticated=X/postgres | service_role=X/postgres | sandbox_exec_yqacmrgdjlenbijclngi=X/postgres",
+   "reads_signals": true,
+   "reads_trades": true,
+   "reads_perf": false
+  },
+  {
+   "name": "admin_holdings_consistency_audit",
+   "kind": "function",
+   "owner": "postgres",
+   "security_definer": true,
+   "acl": "postgres=X/postgres | anon=X/postgres | authenticated=X/postgres | service_role=X/postgres | sandbox_exec_yqacmrgdjlenbijclngi=X/postgres",
+   "reads_signals": true,
+   "reads_trades": true,
+   "reads_perf": false
+  },
+  {
+   "name": "admin_reset_expert_asset_class",
+   "kind": "function",
+   "owner": "postgres",
+   "security_definer": true,
+   "acl": "postgres=X/postgres | anon=X/postgres | authenticated=X/postgres | service_role=X/postgres | sandbox_exec_yqacmrgdjlenbijclngi=X/postgres",
+   "reads_signals": true,
+   "reads_trades": false,
+   "reads_perf": false
+  },
+  {
+   "name": "admin_signal_dupe_trades_audit",
+   "kind": "function",
+   "owner": "postgres",
+   "security_definer": true,
+   "acl": "postgres=X/postgres | authenticated=X/postgres | service_role=X/postgres | sandbox_exec_yqacmrgdjlenbijclngi=X/postgres",
+   "reads_signals": true,
+   "reads_trades": true,
+   "reads_perf": false
+  },
+  {
+   "name": "admin_signal_dupe_trades_fix",
+   "kind": "function",
+   "owner": "postgres",
+   "security_definer": true,
+   "acl": "postgres=X/postgres | authenticated=X/postgres | service_role=X/postgres | sandbox_exec_yqacmrgdjlenbijclngi=X/postgres",
+   "reads_signals": false,
+   "reads_trades": true,
+   "reads_perf": false
+  },
+  {
+   "name": "calculate_expert_performance",
+   "kind": "function",
+   "owner": "postgres",
+   "security_definer": true,
+   "acl": "postgres=X/postgres | service_role=X/postgres | sandbox_exec_yqacmrgdjlenbijclngi=X/postgres | anon=X/postgres | authenticated=X/postgres",
+   "reads_signals": false,
+   "reads_trades": true,
+   "reads_perf": false
+  },
+  {
+   "name": "checkup_prefetch_universe",
+   "kind": "function",
+   "owner": "postgres",
+   "security_definer": true,
+   "acl": "postgres=X/postgres | service_role=X/postgres | sandbox_exec_yqacmrgdjlenbijclngi=X/postgres",
+   "reads_signals": true,
+   "reads_trades": true,
+   "reads_perf": false
+  },
+  {
+   "name": "converge_bsr_windows",
+   "kind": "function",
+   "owner": "postgres",
+   "security_definer": true,
+   "acl": "postgres=X/postgres | anon=X/postgres | authenticated=X/postgres | service_role=X/postgres | sandbox_exec_yqacmrgdjlenbijclngi=X/postgres",
+   "reads_signals": true,
+   "reads_trades": true,
+   "reads_perf": false
+  },
+  {
+   "name": "detect_chip_gap_jobs",
+   "kind": "function",
+   "owner": "postgres",
+   "security_definer": true,
+   "acl": "postgres=X/postgres | service_role=X/postgres | sandbox_exec_yqacmrgdjlenbijclngi=X/postgres",
+   "reads_signals": false,
+   "reads_trades": true,
+   "reads_perf": false
+  },
+  {
+   "name": "detect_fundamental_gap_jobs",
+   "kind": "function",
+   "owner": "postgres",
+   "security_definer": true,
+   "acl": "=X/postgres | postgres=X/postgres | anon=X/postgres | authenticated=X/postgres | service_role=X/postgres | sandbox_exec_yqacmrgdjlenbijclngi=X/postgres",
+   "reads_signals": true,
+   "reads_trades": true,
+   "reads_perf": false
+  },
+  {
+   "name": "enforce_expert_asset_class_lock",
+   "kind": "function",
+   "owner": "postgres",
+   "security_definer": true,
+   "acl": "=X/postgres | postgres=X/postgres | anon=X/postgres | authenticated=X/postgres | service_role=X/postgres | sandbox_exec_yqacmrgdjlenbijclngi=X/postgres",
+   "reads_signals": true,
+   "reads_trades": false,
+   "reads_perf": false
+  },
+  {
+   "name": "enforce_expert_currency_lock",
+   "kind": "function",
+   "owner": "postgres",
+   "security_definer": true,
+   "acl": "=X/postgres | postgres=X/postgres | anon=X/postgres | authenticated=X/postgres | service_role=X/postgres | sandbox_exec_yqacmrgdjlenbijclngi=X/postgres",
+   "reads_signals": true,
+   "reads_trades": false,
+   "reads_perf": false
+  },
+  {
+   "name": "enforce_signal_capital_limit",
+   "kind": "function",
+   "owner": "postgres",
+   "security_definer": true,
+   "acl": "postgres=X/postgres | service_role=X/postgres | sandbox_exec_yqacmrgdjlenbijclngi=X/postgres",
+   "reads_signals": false,
+   "reads_trades": true,
+   "reads_perf": false
+  },
+  {
+   "name": "enforce_unit_consistency",
+   "kind": "function",
+   "owner": "postgres",
+   "security_definer": true,
+   "acl": "=X/postgres | postgres=X/postgres | anon=X/postgres | authenticated=X/postgres | service_role=X/postgres | sandbox_exec_yqacmrgdjlenbijclngi=X/postgres",
+   "reads_signals": true,
+   "reads_trades": true,
+   "reads_perf": false
+  },
+  {
+   "name": "enqueue_bsr_backfill",
+   "kind": "function",
+   "owner": "postgres",
+   "security_definer": true,
+   "acl": "postgres=X/postgres | anon=X/postgres | authenticated=X/postgres | service_role=X/postgres | sandbox_exec_yqacmrgdjlenbijclngi=X/postgres",
+   "reads_signals": false,
+   "reads_trades": true,
+   "reads_perf": false
+  },
+  {
+   "name": "enqueue_chips_prefetch_gaps",
+   "kind": "function",
+   "owner": "postgres",
+   "security_definer": true,
+   "acl": "postgres=X/postgres | service_role=X/postgres | sandbox_exec_yqacmrgdjlenbijclngi=X/postgres",
+   "reads_signals": false,
+   "reads_trades": true,
+   "reads_perf": false
+  },
+  {
+   "name": "enqueue_institutional_backfill_universe",
+   "kind": "function",
+   "owner": "postgres",
+   "security_definer": true,
+   "acl": "=X/postgres | postgres=X/postgres | anon=X/postgres | authenticated=X/postgres | service_role=X/postgres | sandbox_exec_yqacmrgdjlenbijclngi=X/postgres",
+   "reads_signals": true,
+   "reads_trades": true,
+   "reads_perf": false
+  },
+  {
+   "name": "get_expert_capital_status",
+   "kind": "function",
+   "owner": "postgres",
+   "security_definer": true,
+   "acl": "postgres=X/postgres | authenticated=X/postgres | service_role=X/postgres | sandbox_exec_yqacmrgdjlenbijclngi=X/postgres | anon=X/postgres",
+   "reads_signals": false,
+   "reads_trades": true,
+   "reads_perf": false
+  },
+  {
+   "name": "get_owned_journal_bundle",
+   "kind": "function",
+   "owner": "postgres",
+   "security_definer": true,
+   "acl": "=X/postgres | postgres=X/postgres | anon=X/postgres | authenticated=X/postgres | service_role=X/postgres | sandbox_exec_yqacmrgdjlenbijclngi=X/postgres",
+   "reads_signals": true,
+   "reads_trades": false,
+   "reads_perf": false
+  },
+  {
+   "name": "get_publish_batch_status",
+   "kind": "function",
+   "owner": "postgres",
+   "security_definer": true,
+   "acl": "postgres=X/postgres | anon=X/postgres | authenticated=X/postgres | service_role=X/postgres | sandbox_exec_yqacmrgdjlenbijclngi=X/postgres",
+   "reads_signals": true,
+   "reads_trades": false,
+   "reads_perf": false
+  },
+  {
+   "name": "get_weekly_limit_up_leaderboard",
+   "kind": "function",
+   "owner": "postgres",
+   "security_definer": true,
+   "acl": "postgres=X/postgres | authenticated=X/postgres | service_role=X/postgres | sandbox_exec_yqacmrgdjlenbijclngi=X/postgres",
+   "reads_signals": false,
+   "reads_trades": true,
+   "reads_perf": false
+  },
+  {
+   "name": "handle_signal_takedown",
+   "kind": "function",
+   "owner": "postgres",
+   "security_definer": true,
+   "acl": "postgres=X/postgres | service_role=X/postgres | sandbox_exec_yqacmrgdjlenbijclngi=X/postgres",
+   "reads_signals": true,
+   "reads_trades": true,
+   "reads_perf": true
+  },
+  {
+   "name": "handle_signal_trade",
+   "kind": "function",
+   "owner": "postgres",
+   "security_definer": true,
+   "acl": "postgres=X/postgres | service_role=X/postgres | sandbox_exec_yqacmrgdjlenbijclngi=X/postgres",
+   "reads_signals": false,
+   "reads_trades": true,
+   "reads_perf": false
+  },
+  {
+   "name": "log_unit_lock_violation",
+   "kind": "function",
+   "owner": "postgres",
+   "security_definer": true,
+   "acl": "postgres=X/postgres | authenticated=X/postgres | service_role=X/postgres | sandbox_exec_yqacmrgdjlenbijclngi=X/postgres",
+   "reads_signals": true,
+   "reads_trades": false,
+   "reads_perf": false
+  },
+  {
+   "name": "protect_backtest_fields",
+   "kind": "function",
+   "owner": "postgres",
+   "security_definer": true,
+   "acl": "postgres=X/postgres | service_role=X/postgres | sandbox_exec_yqacmrgdjlenbijclngi=X/postgres",
+   "reads_signals": false,
+   "reads_trades": true,
+   "reads_perf": false
+  },
+  {
+   "name": "realign_instrument_unit",
+   "kind": "function",
+   "owner": "postgres",
+   "security_definer": true,
+   "acl": "postgres=X/postgres | authenticated=X/postgres | service_role=X/postgres | sandbox_exec_yqacmrgdjlenbijclngi=X/postgres",
+   "reads_signals": true,
+   "reads_trades": true,
+   "reads_perf": false
+  },
+  {
+   "name": "recalc_user_summary_on_perf_delete",
+   "kind": "function",
+   "owner": "postgres",
+   "security_definer": true,
+   "acl": "postgres=X/postgres | service_role=X/postgres | sandbox_exec_yqacmrgdjlenbijclngi=X/postgres",
+   "reads_signals": false,
+   "reads_trades": false,
+   "reads_perf": true
+  },
+  {
+   "name": "save_signal_batch",
+   "kind": "function",
+   "owner": "postgres",
+   "security_definer": true,
+   "acl": "postgres=X/postgres | authenticated=X/postgres | service_role=X/postgres | sandbox_exec_yqacmrgdjlenbijclngi=X/postgres",
+   "reads_signals": true,
+   "reads_trades": true,
+   "reads_perf": false
+  },
+  {
+   "name": "trade_dedupe_sweep",
+   "kind": "function",
+   "owner": "postgres",
+   "security_definer": true,
+   "acl": "postgres=X/postgres | anon=X/postgres | authenticated=X/postgres | service_role=X/postgres | sandbox_exec_yqacmrgdjlenbijclngi=X/postgres",
+   "reads_signals": true,
+   "reads_trades": true,
+   "reads_perf": false
+  },
+  {
+   "name": "expert_signals",
+   "kind": "table",
+   "owner": "postgres",
+   "security_definer": true,
+   "acl": "postgres=arwdDxtm/postgres | anon=arwdDxtm/postgres | authenticated=arwdDxtm/postgres | service_role=arwdDxtm/postgres | sandbox_exec_yqacmrgdjlenbijclngi=ar/postgres | sandbox_exec=ar/postgres",
+   "reads_signals": true,
+   "reads_trades": false,
+   "reads_perf": false
+  },
+  {
+   "name": "trade_records",
+   "kind": "table",
+   "owner": "postgres",
+   "security_definer": true,
+   "acl": "postgres=arwdDxtm/postgres | anon=arwdDxtm/postgres | authenticated=arwdDxtm/postgres | service_role=arwdDxtm/postgres | sandbox_exec_yqacmrgdjlenbijclngi=ar/postgres | sandbox_exec=ar/postgres",
+   "reads_signals": false,
+   "reads_trades": true,
+   "reads_perf": false
+  },
+  {
+   "name": "user_performances",
+   "kind": "table",
+   "owner": "postgres",
+   "security_definer": true,
+   "acl": "postgres=arwdDxtm/postgres | anon=arwdDxtm/postgres | authenticated=arwdDxtm/postgres | service_role=arwdDxtm/postgres | sandbox_exec_yqacmrgdjlenbijclngi=ar/postgres | sandbox_exec=ar/postgres",
+   "reads_signals": false,
+   "reads_trades": false,
+   "reads_perf": true
+  },
+  {
+   "name": "v_active_tw_holdings",
+   "kind": "view",
+   "owner": "postgres",
+   "security_definer": false,
+   "acl": "postgres=arwdDxtm/postgres | anon=arwdDxtm/postgres | authenticated=arwdDxtm/postgres | service_role=arwdDxtm/postgres | sandbox_exec_yqacmrgdjlenbijclngi=ar/postgres | sandbox_exec=ar/postgres",
+   "reads_signals": false,
+   "reads_trades": true,
+   "reads_perf": false
+  },
+  {
+   "name": "v_price_sync_universe",
+   "kind": "view",
+   "owner": "postgres",
+   "security_definer": false,
+   "acl": "postgres=arwdDxtm/postgres | anon=arwdDxtm/postgres | authenticated=arwdDxtm/postgres | service_role=arwdDxtm/postgres | sandbox_exec_yqacmrgdjlenbijclngi=ar/postgres | sandbox_exec=ar/postgres",
+   "reads_signals": true,
+   "reads_trades": true,
+   "reads_perf": false
+  }
+ ],
+ "db_object_counts": {
+  "function": 32,
+  "view": 2,
+  "table": 3
+ },
+ "anon_executable_db_functions": [
+  "admin_apply_fix_proposal",
+  "admin_delete_trade_records_by_signal_ids",
+  "admin_delete_trade_records_by_symbol",
+  "admin_generate_fix_proposals",
+  "admin_holdings_consistency_audit",
+  "admin_reset_expert_asset_class",
+  "calculate_expert_performance",
+  "converge_bsr_windows",
+  "detect_fundamental_gap_jobs",
+  "enforce_expert_asset_class_lock",
+  "enforce_expert_currency_lock",
+  "enforce_unit_consistency",
+  "enqueue_bsr_backfill",
+  "enqueue_institutional_backfill_universe",
+  "get_expert_capital_status",
+  "get_owned_journal_bundle",
+  "get_publish_batch_status",
+  "trade_dedupe_sweep"
+ ],
+ "rls_policies": [
+  {
+   "name": "expert_signals",
+   "policyname": "Analysts can delete own signals",
+   "cmd": "DELETE",
+   "roles": "{authenticated}",
+   "qual": "(expert_id IN ( SELECT experts.id\n   FROM experts\n  WHERE (experts.user_id = auth.uid())))"
+  },
+  {
+   "name": "expert_signals",
+   "policyname": "Analysts can insert own signals",
+   "cmd": "INSERT",
+   "roles": "{authenticated}",
+   "qual": ""
+  },
+  {
+   "name": "expert_signals",
+   "policyname": "Analysts can update own signals",
+   "cmd": "UPDATE",
+   "roles": "{authenticated}",
+   "qual": "(expert_id IN ( SELECT experts.id\n   FROM experts\n  WHERE (experts.user_id = auth.uid())))"
+  },
+  {
+   "name": "expert_signals",
+   "policyname": "Analysts can view own signals",
+   "cmd": "SELECT",
+   "roles": "{authenticated}",
+   "qual": "(expert_id IN ( SELECT experts.id\n   FROM experts\n  WHERE (experts.user_id = auth.uid())))"
+  },
+  {
+   "name": "expert_signals",
+   "policyname": "Company admins full access signals",
+   "cmd": "ALL",
+   "roles": "{authenticated}",
+   "qual": "has_role(auth.uid(), 'company_admin'::app_role)"
+  },
+  {
+   "name": "expert_signals",
+   "policyname": "Subscribers can view signals published after subscription start",
+   "cmd": "SELECT",
+   "roles": "{public}",
+   "qual": "((status = 'published'::signal_status) AND (expert_id IN ( SELECT has_active_subscription_after.expert_id\n   FROM has_active_subscription_after(auth.uid(), expert_signals.published_at) has_active_subscription_after(expert_id))))"
+  },
+  {
+   "name": "trade_records",
+   "policyname": "Analysts can delete own trade records",
+   "cmd": "DELETE",
+   "roles": "{authenticated}",
+   "qual": "(expert_id IN ( SELECT experts.id\n   FROM experts\n  WHERE (experts.user_id = auth.uid())))"
+  },
+  {
+   "name": "trade_records",
+   "policyname": "Analysts can view own trades",
+   "cmd": "SELECT",
+   "roles": "{authenticated}",
+   "qual": "(expert_id IN ( SELECT experts.id\n   FROM experts\n  WHERE (experts.user_id = auth.uid())))"
+  },
+  {
+   "name": "trade_records",
+   "policyname": "Anyone can view closed trades for active experts",
+   "cmd": "SELECT",
+   "roles": "{public}",
+   "qual": "((status = ANY (ARRAY['closed'::trade_status, 'stopped'::trade_status])) AND ((expert_id IN ( SELECT experts.id\n   FROM experts\n  WHERE (experts.status = 'active'::text))) OR is_tester(auth.uid())))"
+  },
+  {
+   "name": "trade_records",
+   "policyname": "Anyone can view open trades for active experts",
+   "cmd": "SELECT",
+   "roles": "{public}",
+   "qual": "((status = 'open'::trade_status) AND (expert_id IN ( SELECT experts.id\n   FROM experts\n  WHERE (experts.status = 'active'::text))))"
+  },
+  {
+   "name": "trade_records",
+   "policyname": "Company admins can delete trade records",
+   "cmd": "DELETE",
+   "roles": "{authenticated}",
+   "qual": "has_role(auth.uid(), 'company_admin'::app_role)"
+  },
+  {
+   "name": "trade_records",
+   "policyname": "Company admins can view all trades",
+   "cmd": "SELECT",
+   "roles": "{authenticated}",
+   "qual": "has_role(auth.uid(), 'company_admin'::app_role)"
+  },
+  {
+   "name": "trade_records",
+   "policyname": "Subscribers can view subscribed expert trades",
+   "cmd": "SELECT",
+   "roles": "{authenticated}",
+   "qual": "(expert_id IN ( SELECT has_active_subscription.expert_id\n   FROM has_active_subscription(auth.uid()) has_active_subscription(plan_id, expert_id)))"
+  },
+  {
+   "name": "user_performances",
+   "policyname": "Analysts can delete own user performances",
+   "cmd": "DELETE",
+   "roles": "{authenticated}",
+   "qual": "(user_id = auth.uid())"
+  },
+  {
+   "name": "user_performances",
+   "policyname": "Analysts can view own user performances",
+   "cmd": "SELECT",
+   "roles": "{authenticated}",
+   "qual": "(user_id = auth.uid())"
+  },
+  {
+   "name": "user_performances",
+   "policyname": "Company admins can delete user performances",
+   "cmd": "DELETE",
+   "roles": "{authenticated}",
+   "qual": "has_role(auth.uid(), 'company_admin'::app_role)"
+  },
+  {
+   "name": "user_performances",
+   "policyname": "Users can insert own user performances",
+   "cmd": "INSERT",
+   "roles": "{authenticated}",
+   "qual": ""
+  },
+  {
+   "name": "user_performances",
+   "policyname": "Users can update own user performances",
+   "cmd": "UPDATE",
+   "roles": "{authenticated}",
+   "qual": "(user_id = auth.uid())"
+  }
+ ]
+}
