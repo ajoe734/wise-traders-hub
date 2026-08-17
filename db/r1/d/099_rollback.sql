@@ -76,5 +76,5 @@ DROP SCHEMA IF EXISTS app_ledger CASCADE;
 DROP SCHEMA IF EXISTS t CASCADE;
 DROP SCHEMA IF EXISTS td CASCADE;
 DROP TYPE IF EXISTS effect_provenance CASCADE;
-DROP FUNCTION IF EXISTS public.economic_instrument_key(text,text);
+DROP FUNCTION IF EXISTS public.economic_instrument_key(text,text) CASCADE;
 DROP TABLE IF EXISTS public.signal_trade_applications_r1d_shadow;

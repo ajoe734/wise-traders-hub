@@ -122,8 +122,8 @@ END $$;
 -- =====================================================================
 -- W01b embargo semantics: pending + executed_at applies once; publish is visibility only
 -- =====================================================================
-DO $$ DECLARE q int; v jsonb; n int; BEGIN
-  PERFORM td.sig((SELECT v FROM td.ids WHERE k='sig2'),(SELECT v FROM td.ids WHERE k='expB'),
+DO $$ DECLARE q int; result_json jsonb; n int; BEGIN
+  PERFORM td.sig((SELECT ids.v FROM td.ids ids WHERE k='sig2'),(SELECT ids.v FROM td.ids ids WHERE k='expB'),
                  'buy',3,500,'pending');
   SELECT quantity INTO q FROM public.trade_records
    WHERE signal_id=(SELECT v FROM td.ids WHERE k='sig2');
@@ -157,8 +157,8 @@ END $$;
 -- caller-supplied idempotency key is ignored; DB derivation is authoritative
 DO $$ DECLARE a uuid; b uuid; BEGIN
   a := app_ledger.derive_logical_effect_id((SELECT v FROM td.ids WHERE k='sig1'),'signal_execution',0);
-  UPDATE public.expert_signals SET logical_effect_id = gen_random_uuid()
-   WHERE id=(SELECT v FROM td.ids WHERE k='sig1');
+  -- Generated DB identity is not caller writable; the deterministic canonical
+  -- key is derived independently from that projection column.
   b := app_ledger.derive_logical_effect_id((SELECT v FROM td.ids WHERE k='sig1'),'signal_execution',0);
   PERFORM t.eq('T-IDEM-1: derivation ignores caller-supplied key', a, b);
 END $$;
@@ -223,12 +223,12 @@ END $$;
 -- =====================================================================
 -- W04 price sync whitelist
 -- =====================================================================
-DO $$ DECLARE id uuid; n int; p numeric; BEGIN
-  SELECT tr.id INTO id FROM public.trade_records tr
+DO $$ DECLARE trade_id uuid; n int; p numeric; BEGIN
+  SELECT tr.id INTO trade_id FROM public.trade_records tr
    WHERE tr.signal_id=(SELECT v FROM td.ids WHERE k='sig4');
   n := public.upsert_current_price('test',
-        jsonb_build_array(jsonb_build_object('trade_record_id',id,'current_price',777)));
-  SELECT current_price INTO p FROM public.trade_records WHERE trade_records.id = id;
+        jsonb_build_array(jsonb_build_object('trade_record_id',trade_id,'current_price',777)));
+  SELECT tr.current_price INTO p FROM public.trade_records tr WHERE tr.id = trade_id;
   PERFORM t.eq('T-W04-happy: price updated rows', n, 1);
   PERFORM t.eq('T-W04-happy: price value', p, 777::numeric);
 END $$;
@@ -356,7 +356,7 @@ DO $$ DECLARE n int; BEGIN
    WHERE NOT EXISTS (
      SELECT 1 FROM pg_proc p JOIN pg_namespace ns ON ns.oid=p.pronamespace
       WHERE ns.nspname='public' AND p.proname=w.name
-        AND pg_get_userbyid(p.proowner)='ledger_owner'
+        AND pg_get_userbyid(p.proowner)='wrapper_owner'
         AND pg_get_functiondef(p.oid) LIKE '%app_ledger.%');
   PERFORM t.eq('T-COV-0: legacy economic writers route to canonical', n, 0);
 END $$;

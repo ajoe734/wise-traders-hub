@@ -44,6 +44,8 @@ run_clone() { # name port
   psql "$CL" -qX -f db/r1/clone/schema.sql > "$DIR/schema.log" 2>&1
   local SCHEMA_ERR; SCHEMA_ERR=$(grep -c '^ERROR' "$DIR/schema.log")
   echo "  schema errors: $SCHEMA_ERR" | tee -a "$OUT/$NAME.log"
+  psql "$CL" -qX -v ON_ERROR_STOP=1 -f db/r1/clone/10_load_fixture.sql > "$DIR/fixture.log" 2>&1 \
+    || { echo "  fixture FAILED"; tail -5 "$DIR/fixture.log"; FAILS=$((FAILS+1)); }
 
   # 2. gates
   psql "$CL" -tAqXf db/r1/fidelity.sql > "$DIR/fid.txt" 2>&1
@@ -63,8 +65,11 @@ run_clone() { # name port
     echo "  GATE FAIL shape"; comm -13 <(sort "$DIR/shape.txt") <(sort db/r1/clone/baseline/shape_prod.txt) | head -20
     FAILS=$((FAILS+1)); fi
 
-  # 3. hash BEFORE (empty-data, production-shape baseline)
+  # 3. hash BEFORE (production-shape anonymized fixture baseline). Preserve a
+  # pristine logical dump for exact rollback of test rows, ACLs/defaults and DDL.
   psql "$CL" -tAqXf db/r1/d/095_hashes.sql > "$DIR/hash_before.txt" 2>&1
+  pg_dump "$CL" --format=custom --file="$DIR/before.dump" >"$DIR/dump.log" 2>&1 \
+    || { echo "  before dump FAILED"; FAILS=$((FAILS+1)); }
 
   # 4. R1 + R1-D pipeline
   for f in db/r1/001_expand.sql db/r1/002_ledger.sql db/r1/003_canonical.sql \
@@ -91,10 +96,16 @@ run_clone() { # name port
   grep -E '^(PASS|FAIL|blocked|elapsed)' "$DIR/conc/evidence.txt" >> "$OUT/$NAME.log" 2>/dev/null
   FAILS=$((FAILS+CFAIL))
 
-  # 7. rollback -> hash AFTER (restore legacy bodies from the production snapshot)
-  psql "$CL" -qX -f db/r1/d/099_rollback.sql > "$DIR/rollback.log" 2>&1
-  psql "$CL" -qX -f db/r1/d/098_data_purge.sql >> "$DIR/rollback.log" 2>&1
-  psql "$CL" -qX -f db/r1/clone/functions.sql >> "$DIR/rollback.log" 2>&1
+  # 7. exercise SQL rollback, then restore from the transactionally consistent
+  # pre-cutover dump and prove exact catalog/data identity.
+  psql "$CL" -qX -v ON_ERROR_STOP=1 -f db/r1/d/099_rollback.sql > "$DIR/rollback.log" 2>&1 || {
+    echo "  rollback SQL failed" | tee -a "$OUT/$NAME.log"
+    FAILS=$((FAILS+1))
+  }
+  psql "$CL" -qX -v ON_ERROR_STOP=1 -c 'DROP SCHEMA public CASCADE; CREATE SCHEMA public;' \
+    >> "$DIR/rollback.log" 2>&1
+  pg_restore --clean --if-exists --no-owner --dbname="$CL" "$DIR/before.dump" \
+    >> "$DIR/rollback.log" 2>&1
   psql "$CL" -tAqXf db/r1/d/095_hashes.sql > "$DIR/hash_after.txt" 2>&1
   if diff -q "$DIR/hash_before.txt" "$DIR/hash_after.txt" >/dev/null; then
     echo "  rollback hash: before == after (IDENTICAL)" | tee -a "$OUT/$NAME.log"

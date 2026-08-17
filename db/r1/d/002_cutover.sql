@@ -47,7 +47,7 @@ BEGIN
     'market', p_market, 'currency', coalesce(e.base_currency, e.currency), 'qty', v_delta,
     'qty_unit', coalesce(p_unit, v_open.quantity_unit), 'cost_delta', 0,
     'effective_at', pg_catalog.now(), 'signal_id', v_open.signal_id,
-    'provenance','data_correction_adjustment','actor_via','admin_compat',
+    'provenance','quantity_adjustment','actor_via','admin_compat',
     'reason', p_reason));
 
   UPDATE app_ledger.effect_key SET state='applied', event_id=v_event, updated_at=now()
@@ -272,8 +272,32 @@ BEGIN
   IF p_dry_run THEN
     RETURN pg_catalog.jsonb_build_object('status','dry_run','duplicate_groups',n);
   END IF;
+  IF n = 0 THEN
+    RAISE EXCEPTION 'dedupe_requires_canonical_correction: no duplicate group claimed'
+      USING ERRCODE='P0001';
+  END IF;
   RETURN pg_catalog.jsonb_build_object('status','swept','duplicate_groups',n,
     'corrections_applied',applied);
+END $$;
+ALTER FUNCTION public.trade_dedupe_sweep(boolean) OWNER TO ledger_owner;
+
+-- W12/W14 are non-economic KEEP writers. Define their production signatures so
+-- the clone validates real bodies/ACLs instead of counting absent catalog rows.
+CREATE OR REPLACE FUNCTION public.admin_reject_fix_proposal(p_id uuid, p_note text)
+RETURNS jsonb LANGUAGE plpgsql SECURITY DEFINER SET search_path = '' AS $$
+BEGIN
+  IF NOT public.has_role(auth.uid(),'company_admin'::public.app_role) THEN
+    RAISE EXCEPTION 'forbidden' USING ERRCODE='42501'; END IF;
+  UPDATE public.holdings_fix_proposals SET status='rejected',
+    review_note=p_note, reviewed_at=pg_catalog.now(), reviewed_by=auth.uid()
+   WHERE id=p_id AND status='pending';
+  RETURN pg_catalog.jsonb_build_object('status',CASE WHEN FOUND THEN 'rejected' ELSE 'no_effect' END);
+END $$;
+
+CREATE OR REPLACE FUNCTION public.delete_old_prices()
+RETURNS void LANGUAGE plpgsql SECURITY DEFINER SET search_path = '' AS $$
+BEGIN
+  DELETE FROM public.current_prices WHERE updated_at < pg_catalog.now() - interval '2 days';
 END $$;
 
 CREATE OR REPLACE FUNCTION public.admin_apply_fix_proposal(p_id uuid, p_confirm boolean)

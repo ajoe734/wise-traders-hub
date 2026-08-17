@@ -46,8 +46,11 @@ ALTER ROLE ledger_owner BYPASSRLS;
 
 -- ledger_owner is the ONLY role allowed to perform raw economic DML.
 GRANT USAGE ON SCHEMA public TO ledger_owner;
-GRANT ALL ON ALL TABLES IN SCHEMA public TO ledger_owner;
-GRANT ALL ON ALL SEQUENCES IN SCHEMA public TO ledger_owner;
+-- Keep the canonical owner narrowly scoped. It needs broad reads to derive and
+-- verify effects, but raw public-table DML is restricted to the projection table.
+GRANT SELECT ON ALL TABLES IN SCHEMA public TO ledger_owner;
+GRANT INSERT, UPDATE, DELETE ON public.trade_records TO ledger_owner;
+GRANT USAGE, SELECT ON ALL SEQUENCES IN SCHEMA public TO ledger_owner;
 GRANT USAGE ON SCHEMA auth TO ledger_owner;
 
 -- ---------------------------------------------------------------- 2. guards -> SECURITY INVOKER
@@ -55,7 +58,7 @@ GRANT USAGE ON SCHEMA auth TO ledger_owner;
 --  real writer, so any postgres-owned legacy definer function looked identical to
 --  the canonical writer.)
 CREATE OR REPLACE FUNCTION app_ledger.assert_canonical_writer(p_what text)
-RETURNS void LANGUAGE plpgsql STABLE SET search_path = '' AS $$
+RETURNS void LANGUAGE plpgsql STABLE SECURITY INVOKER SET search_path = '' AS $$
 BEGIN
   IF current_user <> 'ledger_owner' THEN
     RAISE EXCEPTION 'unauthorized_%_mutation: writer=% (only ledger_owner may write economics)',
@@ -118,6 +121,7 @@ BEGIN
   RETURN NEW;
 END $$;
 ALTER FUNCTION app_ledger.trade_records_economic_guard() OWNER TO ledger_owner;
+GRANT EXECUTE ON FUNCTION app_ledger.assert_canonical_writer(text) TO ledger_owner, postgres;
 
 CREATE OR REPLACE FUNCTION app_ledger.cash_ledger_guard() RETURNS trigger
 LANGUAGE plpgsql SECURITY INVOKER SET search_path = '' AS $$
@@ -215,6 +219,9 @@ BEGIN
   --     insert/update all converge here because of the expert lock above.
   SELECT * INTO v_row FROM app_ledger.effect_key WHERE logical_effect_id = v_key;
   IF v_row.logical_effect_id IS NOT NULL AND v_row.state IN ('applied','no_effect') THEN
+    IF s.status::text = 'published' AND v_row.state='applied' THEN
+      PERFORM app_ledger.publish_signal_effect(p_signal_id);
+    END IF;
     RETURN pg_catalog.jsonb_build_object('status','noop_idempotent',
       'logical_effect_id', v_key, 'event_id', v_row.event_id, 'detail', v_row.state);
   END IF;
@@ -296,6 +303,20 @@ BEGIN
     'provenance', 'signal_execution',
     'actor_via', p_via,
     'reason', 'signal:'||s.id::text));
+
+  -- canonical_apply_effect owns the atomic effect -> token -> projection ->
+  -- verify -> applied transaction. Bind its DB-created logical chain to the
+  -- deterministic signal key only after that transaction has succeeded.
+  IF NOT EXISTS (
+    SELECT 1 FROM app_ledger.economic_effect ee
+     WHERE ee.event_id=v_event AND ee.origin_signal_id=s.id AND ee.state='applied'
+       AND (SELECT count(*) FROM app_ledger.effect_projection_mutation m
+             WHERE m.event_id=ee.event_id AND m.consumed)
+           = ee.expected_mutation_count
+  ) THEN
+    RAISE EXCEPTION 'canonical_signal_effect_not_fully_applied: %', v_event
+      USING ERRCODE='P0001';
+  END IF;
 
   UPDATE app_ledger.effect_key
      SET state='applied', event_id=v_event, updated_at=now(), detail='applied',
@@ -386,7 +407,8 @@ ALTER FUNCTION app_ledger.canonical_reverse_signal(uuid,text,uuid,text) OWNER TO
 -- price_updated_at is rejected before a single row is touched.
 CREATE OR REPLACE FUNCTION app_ledger.apply_price_update(p_rows jsonb)
 RETURNS int LANGUAGE plpgsql SECURITY DEFINER SET search_path = '' AS $$
-DECLARE r jsonb; k text; n int := 0; m int;
+DECLARE r jsonb; k text; n int := 0; m int; old_row public.trade_records;
+        new_row public.trade_records; forbidden jsonb;
 BEGIN
   IF pg_catalog.jsonb_typeof(p_rows) <> 'array' THEN
     RAISE EXCEPTION 'price_payload_must_be_array' USING ERRCODE='P0001'; END IF;
@@ -398,10 +420,20 @@ BEGIN
     END LOOP;
     IF NOT (r ? 'trade_record_id') OR NOT (r ? 'current_price') THEN
       RAISE EXCEPTION 'price_payload_incomplete' USING ERRCODE='P0001'; END IF;
-    UPDATE public.trade_records
-       SET current_price = (r->>'current_price')::numeric,
-           price_updated_at = coalesce((r->>'price_updated_at')::timestamptz, pg_catalog.now())
-     WHERE id = (r->>'trade_record_id')::uuid;
+    SELECT * INTO old_row FROM public.trade_records
+     WHERE id=(r->>'trade_record_id')::uuid FOR UPDATE;
+    IF old_row.id IS NULL THEN CONTINUE; END IF;
+    new_row := old_row;
+    new_row.current_price := (r->>'current_price')::numeric;
+    new_row.price_updated_at := coalesce((r->>'price_updated_at')::timestamptz, pg_catalog.now());
+    IF (pg_catalog.to_jsonb(new_row) - 'current_price' - 'price_updated_at')
+       IS DISTINCT FROM
+       (pg_catalog.to_jsonb(old_row) - 'current_price' - 'price_updated_at') THEN
+      RAISE EXCEPTION 'price_update_changed_non_whitelisted_columns'
+        USING ERRCODE='P0001';
+    END IF;
+    UPDATE public.trade_records SET current_price=new_row.current_price,
+      price_updated_at=new_row.price_updated_at WHERE id=old_row.id;
     GET DIAGNOSTICS m = ROW_COUNT; n := n + m;
   END LOOP;
   RETURN n;
