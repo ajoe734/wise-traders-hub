@@ -176,10 +176,10 @@ BEGIN
   CREATE TEMP TABLE IF NOT EXISTS pp_cand(
     instrument_key text, instrument text, market text, currency text,
     quantity numeric, cost_value numeric, origin text) ON COMMIT DROP;
-  DELETE FROM pp_cand;
+  DELETE FROM pg_temp.pp_cand;
 
   -- (a) effect-derived, embargo filtered
-  INSERT INTO pp_cand
+  INSERT INTO pg_temp.pp_cand
   SELECT m.instrument_key,
          pg_catalog.max(pg_catalog.coalesce(e.instrument, m.instrument_key)),
          pg_catalog.max(m.market), m.currency,
@@ -194,14 +194,14 @@ BEGIN
   HAVING pg_catalog.sum(m.qty_delta) <> 0;
 
   -- (b) legacy rows with no canonical effect behind them
-  INSERT INTO pp_cand
+  INSERT INTO pg_temp.pp_cand
   SELECT t.instrument_key, t.instrument, t.market, t.currency,
          pg_catalog.sum(t.quantity), pg_catalog.sum(t.quantity*t.entry_price), 'legacy'
     FROM public.trade_records t
    WHERE t.expert_id = p_expert AND t.status = 'open' AND t.quantity > 0
      AND NOT EXISTS (SELECT 1 FROM app_ledger.effect_projection_mutation m
                       WHERE m.target_table = 'trade_records' AND m.target_row_id = t.id)
-     AND NOT EXISTS (SELECT 1 FROM pp_cand c WHERE c.instrument_key = t.instrument_key)
+     AND NOT EXISTS (SELECT 1 FROM pg_temp.pp_cand c WHERE c.instrument_key = t.instrument_key)
    GROUP BY t.instrument_key, t.instrument, t.market, t.currency;
 
   -- G2: withhold anything the manifest has not adjudicated
@@ -209,11 +209,11 @@ BEGIN
     projection_version, expert_id, instrument_key, instrument, market, manifest_key, reason)
   SELECT v_ver, p_expert, c.instrument_key, c.instrument, c.market,
          app_ledger.manifest_key(p_expert, c.market, c.instrument), 'manual_review_unadjudicated'
-    FROM pp_cand c
+    FROM pg_temp.pp_cand c
    WHERE app_ledger.manifest_disposition(p_expert, c.market, c.instrument) = 'withheld_incomplete';
   GET DIAGNOSTICS v_withheld = ROW_COUNT;
 
-  DELETE FROM pp_cand c
+  DELETE FROM pg_temp.pp_cand c
    WHERE app_ledger.manifest_disposition(p_expert, c.market, c.instrument) = 'withheld_incomplete';
 
   ------------------------------------------------------------------ positions
@@ -228,7 +228,7 @@ BEGIN
          CASE WHEN v.price IS NULL THEN NULL ELSE 'daily_snapshot' END,
          v.status,
          CASE WHEN v.price IS NULL THEN NULL ELSE c.quantity * v.price END
-    FROM pp_cand c
+    FROM pg_temp.pp_cand c
     CROSS JOIN LATERAL app_ledger.value_instrument(c.instrument_key, c.market, v_asof) v;
 
   ------------------------------------------------------------------ portfolio state
@@ -260,7 +260,7 @@ BEGIN
           WHERE m.expert_id = p_expert AND m.currency = s.cur
             AND e2.state='applied' AND e2.visible_at IS NOT NULL AND e2.visible_at <= v_cut) realized,
         (SELECT pg_catalog.coalesce(pg_catalog.sum(c.cost_value),0)
-           FROM pp_cand c WHERE c.currency = s.cur) open_cost,
+           FROM pg_temp.pp_cand c WHERE c.currency = s.cur) open_cost,
         (SELECT CASE WHEN pg_catalog.bool_or(pp.market_value IS NULL) THEN NULL
                      ELSE pg_catalog.coalesce(pg_catalog.sum(pp.market_value),0) END
            FROM public.public_position_projection pp
@@ -268,7 +268,7 @@ BEGIN
             AND pp.currency = s.cur) mv
       FROM (SELECT DISTINCT currency cur FROM app_ledger.portfolio_cash_ledger
              WHERE expert_id = p_expert
-            UNION SELECT DISTINCT currency FROM pp_cand) s
+            UNION SELECT DISTINCT currency FROM pg_temp.pp_cand) s
       LEFT JOIN app_ledger.portfolio_cash_ledger l
         ON l.expert_id = p_expert AND l.currency = s.cur
        AND EXISTS (SELECT 1 FROM app_ledger.economic_effect e3
