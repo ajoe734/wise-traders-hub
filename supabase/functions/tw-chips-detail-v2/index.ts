@@ -225,6 +225,25 @@ async function buildChipsPayload(supa: any, stockId: string): Promise<any> {
     .order("trade_date", { ascending: false })
     .limit(10);
 
+  // Provider capability is global, not stock-specific. The market-batch probe is the
+  // authoritative persisted evidence for a plan-level rejection; per-stock failure rows
+  // may only contain the later circuit-open symptom and must not downgrade terminal → unknown.
+  // Raw config stays server-side; only the classifier's safe enum/code are returned.
+  const { data: marketBatchConfig } = await supa
+    .from("tw_bsr_sync_config")
+    .select("config")
+    .eq("key", "market_batch")
+    .maybeSingle();
+  const marketBatch = (marketBatchConfig?.config ?? null) as Record<string, unknown> | null;
+  const marketBatchUnsupported = marketBatch?.supported === false &&
+    String(marketBatch?.last_probe_outcome ?? "") === "unsupported";
+  const marketBatchError = marketBatchUnsupported
+    ? String(marketBatch?.last_probe_error ?? "")
+    : null;
+  const marketBatchErrorClass = marketBatchError?.startsWith("unsupported_plan:")
+    ? "provider_plan_rejected"
+    : null;
+
   let bsrLastFailure: any = null;
   if (failRows && failRows[0]) {
     const f: any = failRows[0];
@@ -289,8 +308,8 @@ async function buildChipsPayload(supa: any, stockId: string): Promise<any> {
     bsrAsOf: chosenAsOf ?? null,
     expectedDate,
     queueStatus: (q?.status as any) ?? null,
-    lastErrorRaw: rawErrForClass,
-    persistedErrorClass: topFail?.error_class ?? null,
+    lastErrorRaw: marketBatchError ?? rawErrForClass,
+    persistedErrorClass: marketBatchErrorClass ?? topFail?.error_class ?? null,
     attempts: Number(q?.attempts ?? 0),
     maxAttempts: Number(q?.max_attempts ?? 5),
   });
@@ -442,6 +461,7 @@ async function buildChipsPayload(supa: any, stockId: string): Promise<any> {
     bsr_provider_state: providerVerdict.state,
     bsr_provider_code: providerVerdict.code,
     bsr_retry_promised: providerVerdict.nextRetryAllowed,
+    bsr_has_stale_data: providerVerdict.hasStaleData,
 
     series: {
       institutional_daily: instAsc,

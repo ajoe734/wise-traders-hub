@@ -129,6 +129,8 @@ export interface TwChipsPayload {
   bsr_provider_code?: string;
   /** 是否可對使用者承諾「自動重試 / next_retry_at」 */
   bsr_retry_promised?: boolean;
+  /** 是否有前次成功的 BSR 資料可安全降級顯示。 */
+  bsr_has_stale_data?: boolean;
 
   bsr_last_failure?: {
     trade_date: string;
