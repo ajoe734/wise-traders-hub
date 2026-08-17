@@ -4,10 +4,25 @@
 -- Emits ONE json column `manifest` (array of key objects). PII-free:
 --   * expert_id is replaced by a stable salted-free md5 handle `E-xxxxxxxx`
 --   * no names, slugs, emails, reason texts or user ids are emitted
--- Classification is identical to R0 E_replay/E_classify so the counts
+-- asset_class comes from db/r1/p/instrument_class_view.sql (production
+-- security master). experts.asset_class is an EXPERT-level attribute and is
+-- never used to classify an instrument.
+--
+-- SINGLE AMBIGUITY DEFINITION (the only one allowed in every artifact):
+--   market_ambiguous(KEY) := the (expert, instrument) pair of this key appears
+--   under more than one market in expert_signals UNION trade_records.
+--   Reported basis labels, never mixed:
+--     market_ambiguous_keys_84    = 16   (manifest key basis)
+--     market_ambiguous_keys_drift = 10   (drift-26 subset)
+--     market_ambiguous_pairs_76   = 8    (R0 E_classify pair basis, legacy)
+--   unit_ambiguous_keys_84 = 24, unit_ambiguous_keys_drift = 2,
+--   unit_ambiguous_pairs_76 = 24.
+-- Replay classification is identical to R0 E_replay/E_classify so the counts
 -- reconcile exactly: 84 = 48 match + 17 multiple_apply + 9 signal_only
 --                        + 6 stored_only + 3 incomplete + 1 other.
 -- =====================================================================
+\i db/r1/p/instrument_class_view.sql
+
 WITH ev AS (
   SELECT s.id, s.expert_id, s.instrument, s.market, s.action::text AS action,
          s.quantity, coalesce(s.quantity_unit,'-') AS unit,
@@ -106,7 +121,12 @@ SELECT
   'K-' || left(md5(c.expert_id::text || '|' || coalesce(c.market,'-') || '|' || c.instrument), 16) AS key,
   'E-' || left(md5(c.expert_id::text), 8) AS expert,
   c.instrument, coalesce(c.market,'-') AS market,
-  coalesce(e.currency,'-') AS currency, coalesce(e.asset_class,'-') AS asset_class,
+  coalesce(e.currency,'-') AS currency,
+  coalesce(ic.asset_class,'unknown_instrument') AS asset_class,
+  coalesce(ic.classification_evidence,'no_master_row') AS classification_evidence,
+  coalesce(ic.in_warrant_master,false) AS in_warrant_master,
+  ic.exercise_ratio, ic.quote_price,
+  coalesce(e.asset_class,'-') AS expert_asset_class,
   c.stored_open AS stored_open_qty_shares,
   c.stored_closed AS stored_closed_qty_shares,
   CASE WHEN c.incomplete THEN NULL
@@ -119,6 +139,14 @@ SELECT
   (SELECT coalesce(json_agg(x ORDER BY x),'[]'::json) FROM (
      SELECT unnest(ARRAY[]::text[]) AS x
      UNION ALL SELECT 'combo_unsupported'   WHERE c.any_combo
+     UNION ALL SELECT 'us_option_combo_unsupported'
+        WHERE coalesce(ic.asset_class,'') = 'us_option_combo'
+     UNION ALL SELECT 'derivative_unsupported'
+        WHERE NOT coalesce(ic.derivative_supported,false)
+     UNION ALL SELECT 'unknown_derivative'
+        WHERE coalesce(ic.asset_class,'') = 'unknown_derivative'
+     UNION ALL SELECT 'unclassified_instrument'
+        WHERE coalesce(ic.asset_class,'unknown_instrument') = 'unknown_instrument'
      UNION ALL SELECT 'missing_price_hint'  WHERE c.any_missing_price
      UNION ALL SELECT 'missing_quantity'    WHERE c.any_missing_qty
      UNION ALL SELECT 'missing_quantity_unit' WHERE c.any_missing_unit
@@ -135,26 +163,41 @@ SELECT
     'unit_supported',   ((c.n_units_sig + c.n_units_tr) <= 1 AND NOT c.any_missing_unit),
     'market_supported', (c.n_markets <= 1 AND c.market IS NOT NULL),
     'price_supported',  (NOT c.any_missing_price),
-    'derivative_supported', (NOT c.any_combo),
+    'derivative_supported', (NOT c.any_combo AND coalesce(ic.derivative_supported,false)),
     'fx_supported',     (coalesce(e.currency,'-') = 'TWD' OR (SELECT n_rows FROM fx) > 1)
   ) AS supported,
   CASE WHEN c.class = 'match'
         AND (c.n_units_sig + c.n_units_tr) <= 1
         AND c.n_markets <= 1
         AND NOT c.any_combo AND NOT c.any_missing_price
+        AND coalesce(ic.derivative_supported,false)
        THEN 'auto_supported' ELSE 'manual_review' END AS review_status,
   CASE WHEN c.class = 'match'
         AND (c.n_units_sig + c.n_units_tr) <= 1
         AND c.n_markets <= 1
         AND NOT c.any_combo AND NOT c.any_missing_price
+        AND coalesce(ic.derivative_supported,false)
        THEN 'publishable' ELSE 'withheld_incomplete' END AS public_disposition
 FROM cls c LEFT JOIN e ON e.id = c.expert_id
+     LEFT JOIN pg_temp.instrument_class_v ic
+            ON ic.expert_id = c.expert_id
+           AND ic.market IS NOT DISTINCT FROM c.market
+           AND ic.instrument = c.instrument
 )
 SELECT json_build_object(
   'generated_by','db/r1/p/manifest_replay.sql',
   'source','production read-only catalog+data',
   'total_keys',(SELECT count(*) FROM k),
   'class_counts',(SELECT json_object_agg(class,n) FROM (SELECT class,count(*) n FROM k GROUP BY 1) z),
+  'asset_class_counts',(SELECT json_object_agg(asset_class,n) FROM
+      (SELECT asset_class,count(*) n FROM k GROUP BY 1) z3),
+  'ambiguity', json_build_object(
+    'definition','market_ambiguous(KEY) := the (expert, instrument) pair of this key appears under more than one market in expert_signals UNION trade_records; unit_ambiguous(KEY) := more than one quantity_unit observed for the key.',
+    'market_ambiguous_keys_84',   (SELECT count(*) FROM k WHERE k.reason_codes::jsonb ? 'market_ambiguous'),
+    'market_ambiguous_pairs_76',  (SELECT count(*) FROM (
+        SELECT c.expert_id, c.instrument FROM cls c WHERE c.n_markets > 1 GROUP BY 1,2) mp),
+    'unit_ambiguous_keys_84',     (SELECT count(*) FROM k WHERE k.reason_codes::jsonb ? 'unit_ambiguous'),
+    'r0_pair_basis_note','R0 E_classify counted mutually exclusive buckets on the 76 (expert,instrument) PAIR basis and reported market_ambiguous=8. Each such pair is split into one key per market, so 8 pairs -> 16 keys, and 76 pairs + 8 extra market rows = 84 keys. The R0 number is neither a query bug nor a different population: it is the same population on the pair basis.'),
   'reason_counts',(SELECT json_object_agg(rc,n) FROM (
       SELECT r2.rc, count(*) n FROM k, json_array_elements_text(k.reason_codes) r2(rc) GROUP BY 1) z2),
   'keys',(SELECT json_agg(k ORDER BY class, market, instrument) FROM k)
