@@ -17,18 +17,10 @@
 CREATE SCHEMA IF NOT EXISTS t;
 
 -- ---------------------------------------------------------------- actors
-DO $seed$
-DECLARE v_admin uuid := '0acl0000-0000-4000-8000-00000000ad11';
-        v_user  uuid := '0acl0000-0000-4000-8000-00000000用0'::text::uuid;
-BEGIN NULL; END $seed$;
-
 CREATE TABLE IF NOT EXISTS t.acl_actor(k text primary key, v uuid);
-DO $seed2$
-DECLARE v_admin uuid := 'aaaaaaaa-0000-4000-8000-00000000ad11';
-        v_user  uuid := 'bbbbbbbb-0000-4000-8000-0000000000u1'::text::uuid;
-BEGIN NULL; END $seed2$;
 
 DO $seed3$
+
 DECLARE v_admin uuid := 'aaaaaaaa-0000-4000-8000-000000000a11';
         v_user  uuid := 'bbbbbbbb-0000-4000-8000-000000000b22';
         v_other uuid := 'cccccccc-0000-4000-8000-000000000c33';
