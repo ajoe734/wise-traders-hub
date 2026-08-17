@@ -93,6 +93,9 @@ say "  restored catalog hash: $CATHASH"
 
 # ---------------------------------------------------------------- phase 3
 say "-- phase 3: fixture + R1/R1-D/R1-P layers, then 095 / 096"
+# harness-only bootstrap (roles + t schema + test helpers); it never supplies
+# application objects — those must come from the restored backup alone.
+psql "$CL" -qX -f db/r1/clone/00_bootstrap.sql >> "$DIR/bootstrap.log" 2>&1
 psql "$CL" -qX -f db/r1/clone/rls_subscription_tests.sql >> "$DIR/apply.log" 2>&1
 psql "$CL" -qX -f db/r1/clone/10_load_fixture.sql >> "$DIR/fixture.log" 2>&1
 FIXERR=$(grep -c '^ERROR' "$DIR/fixture.log"); say "  fixture errors: $FIXERR"
