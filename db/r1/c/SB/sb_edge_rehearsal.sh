@@ -420,11 +420,12 @@ stage gate_matrix
 # `admission_blocked` KEY to false (001_stage_b.sql v4 §3 compatibility rule),
 # so a present row with a junk key is compatibility-OPEN, not fail-closed.
 # Both are asserted here explicitly instead of assuming one of them.
-CFGSAVE=$(psql "$CL" -qXAt -c "SELECT config::text FROM public.tw_bsr_sync_config WHERE key='market_batch'")
+# The row is hidden by renaming the key (not deleted): tw_bsr_sync_config has a
+# history trigger with a UNIQUE(key,version), so delete+reinsert collides.
 
 # --- A. gate ROW missing -> Edge fail-closed
 : >"$DIR/provider.jsonl"; echo ok >"$DIR/mock_mode"
-psql "$CL" -qX -c "DELETE FROM public.tw_bsr_sync_config WHERE key='market_batch'" >/dev/null
+psql "$CL" -qX -c "UPDATE public.tw_bsr_sync_config SET key='market_batch__hidden' WHERE key='market_batch'" >/dev/null
 C=$(post "$W" "$DIR/w_norow.json" '{"mode":"worker","batch":3,"budget_ms":8000}' "$CRONH")
 chk $([ "$C" = 200 ] && echo 0 || echo 1) "EB-100 worker responds 200 when the gate row is missing (got $C)"
 chk $([ "$(jqf "$DIR/w_norow.json" claimed)" = '0' ] && echo 0 || echo 1) "EB-101 missing gate ROW is fail-closed (claimed=0)"
@@ -434,7 +435,7 @@ chk $([ "$(provider_calls)" = 0 ] && echo 0 || echo 1) "EB-102 ZERO provider cal
 C=$(post "$W" "$DIR/e_norow.json" '{"mode":"enqueue","tier1":true,"tier2":true,"tier3":true}' "$CRONH")
 QN=$(psql "$CL" -qXAt -c "SELECT count(*) FROM public.tw_bsr_sync_queue WHERE enqueued_by LIKE 'tier%' AND created_at > now() - interval '1 minute'")
 chk $([ "${QN:-1}" = 0 ] && echo 0 || echo 1) "EB-102b enqueue inserted nothing with the gate row missing (${QN:-?})"
-psql "$CL" -qX -c "INSERT INTO public.tw_bsr_sync_config(key, config) VALUES ('market_batch', '$CFGSAVE'::jsonb)" >/dev/null
+psql "$CL" -qX -c "UPDATE public.tw_bsr_sync_config SET key='market_batch' WHERE key='market_batch__hidden'" >/dev/null
 
 # --- B. row present, flag KEY absent -> documented compatibility-OPEN
 : >"$DIR/provider.jsonl"
