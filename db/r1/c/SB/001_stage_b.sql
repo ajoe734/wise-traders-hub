@@ -34,11 +34,38 @@ AS $$
    WHERE c.key = 'market_batch'
 $$;
 
--- blocked iff admission_blocked is EXPLICIT JSON true.
--- Compatibility decision (v4 §3): a missing/malformed key must NOT close the
--- gate, otherwise the first deploy silently drops every legitimate enqueue
--- while the 77 legacy rows keep looping. The gate only ever closes on exact
--- terminal provider evidence produced by the worker.
+-- Plan v6 fail-closed contract (supersedes the v4 §3 compatibility-OPEN note):
+-- the gate is OPEN **only** when tw_bsr_sync_config.market_batch exists, its
+-- config is an object, and admission_blocked is EXACT JSON false. Row missing,
+-- key missing, JSON null, string/number/object value, or a non-object config
+-- all resolve to blocked=true with an observable reason. Nothing is cast.
+CREATE OR REPLACE FUNCTION private_bsr.gate_classify(p_exists boolean, p_cfg jsonb)
+RETURNS jsonb
+LANGUAGE sql
+IMMUTABLE
+AS $$
+  SELECT CASE
+    WHEN COALESCE(p_exists, false) IS NOT TRUE
+      THEN jsonb_build_object('blocked', true, 'reason', 'legacy_config_missing',
+                              'detail', 'gate_row_missing')
+    WHEN p_cfg IS NULL OR jsonb_typeof(p_cfg) <> 'object'
+      THEN jsonb_build_object('blocked', true, 'reason', 'malformed',
+                              'detail', 'config_not_object:' || COALESCE(jsonb_typeof(p_cfg),'null'))
+    WHEN (p_cfg -> 'admission_blocked') IS NULL
+      THEN jsonb_build_object('blocked', true, 'reason', 'legacy_config_missing',
+                              'detail', 'admission_blocked_key_missing')
+    WHEN jsonb_typeof(p_cfg -> 'admission_blocked') <> 'boolean'
+      THEN jsonb_build_object('blocked', true, 'reason', 'malformed',
+                              'detail', 'admission_blocked_not_boolean:' ||
+                                        jsonb_typeof(p_cfg -> 'admission_blocked'))
+    WHEN (p_cfg -> 'admission_blocked') = 'true'::jsonb
+      THEN jsonb_build_object('blocked', true,
+                              'reason', COALESCE(p_cfg ->> 'admission_reason', 'blocked'),
+                              'detail', NULL)
+    ELSE jsonb_build_object('blocked', false, 'reason', NULL, 'detail', NULL)
+  END
+$$;
+
 CREATE OR REPLACE FUNCTION private_bsr.gate_blocked()
 RETURNS boolean
 LANGUAGE sql
@@ -46,10 +73,10 @@ VOLATILE
 SECURITY DEFINER
 SET search_path = pg_catalog, private_bsr
 AS $$
-  SELECT COALESCE(
-           (SELECT c.config -> 'admission_blocked' = 'true'::jsonb
-              FROM public.tw_bsr_sync_config c
-             WHERE c.key = 'market_batch'), false)
+  SELECT (private_bsr.gate_classify(
+            EXISTS (SELECT 1 FROM public.tw_bsr_sync_config WHERE key = 'market_batch'),
+            (SELECT c.config FROM public.tw_bsr_sync_config c WHERE c.key = 'market_batch')
+          ) ->> 'blocked')::boolean
 $$;
 
 -- recovery predicate (v5 §1): terminal rows may only be recovered when the
@@ -102,15 +129,16 @@ LANGUAGE plpgsql
 SECURITY DEFINER
 SET search_path = pg_catalog, private_bsr
 AS $$
-DECLARE v_cfg jsonb;
+DECLARE v_cfg jsonb; v_found boolean := false;
 BEGIN
   -- linearization: the state read after acquiring the gate row lock.
-  SELECT c.config INTO v_cfg
+  SELECT c.config, true INTO v_cfg, v_found
     FROM public.tw_bsr_sync_config c
    WHERE c.key = 'market_batch'
    FOR SHARE;
 
-  IF v_cfg IS NOT NULL AND v_cfg -> 'admission_blocked' = 'true'::jsonb THEN
+  -- fail-closed (Plan v6): missing row / missing key / malformed value all block.
+  IF (private_bsr.gate_classify(COALESCE(v_found,false), v_cfg) ->> 'blocked')::boolean THEN
     RETURN NULL;   -- silently skip; never raise, never rewrite business fields
   END IF;
   RETURN NEW;
@@ -129,18 +157,26 @@ VOLATILE
 SECURITY DEFINER
 SET search_path = pg_catalog, private_bsr
 AS $$
-DECLARE s jsonb; c jsonb;
+DECLARE s jsonb; c jsonb; k jsonb;
 BEGIN
   s := private_bsr.gate_state();
   IF s IS NULL THEN
-    RETURN jsonb_build_object('exists', false, 'blocked', false,
-                              'reason', NULL, 'blocked_at', NULL, 'version', NULL);
+    -- row missing => fail-closed, and version is NOT fabricated.
+    k := private_bsr.gate_classify(false, NULL);
+    RETURN jsonb_build_object('exists', false,
+                              'blocked', true,
+                              'reason', k ->> 'reason',
+                              'detail', k ->> 'detail',
+                              'blocked_at', NULL, 'nonce', NULL,
+                              'terminal_code', NULL, 'version', NULL);
   END IF;
   c := s -> 'config';
+  k := private_bsr.gate_classify(true, c);
   RETURN jsonb_build_object(
     'exists', true,
-    'blocked', COALESCE(c -> 'admission_blocked' = 'true'::jsonb, false),
-    'reason', c ->> 'admission_reason',
+    'blocked', (k ->> 'blocked')::boolean,
+    'reason', COALESCE(k ->> 'reason', c ->> 'admission_reason'),
+    'detail', k ->> 'detail',
     'blocked_at', c ->> 'admission_blocked_at',
     'nonce', c ->> 'admission_nonce',
     'terminal_code', c ->> 'admission_terminal_code',
@@ -191,7 +227,7 @@ BEGIN
   IF NOT FOUND THEN RAISE EXCEPTION 'gate_row_missing: market_batch'; END IF;
   IF jsonb_typeof(v_cfg) <> 'object' THEN RAISE EXCEPTION 'gate_config_not_object'; END IF;
 
-  v_blocked := COALESCE(v_cfg -> 'admission_blocked' = 'true'::jsonb, false);
+  v_blocked := (private_bsr.gate_classify(true, v_cfg) ->> 'blocked')::boolean;
 
   -- 2. idempotent block
   IF v_blocked THEN
@@ -291,7 +327,7 @@ BEGIN
    FOR UPDATE;
   IF NOT FOUND THEN RAISE EXCEPTION 'gate_row_missing: market_batch'; END IF;
 
-  IF COALESCE(v_cfg -> 'admission_blocked' = 'true'::jsonb, false) IS NOT TRUE THEN
+  IF (private_bsr.gate_classify(true, v_cfg) ->> 'blocked')::boolean IS NOT TRUE THEN
     RETURN jsonb_build_object('transition','already_open','gate_version',v_ver);
   END IF;
   IF v_ver IS DISTINCT FROM p_expected_version
@@ -338,6 +374,7 @@ GRANT EXECUTE ON FUNCTION public.bsr_block_and_terminalize_claims(uuid, bigint[]
 GRANT EXECUTE ON FUNCTION public.bsr_unblock_after_probe(int, text, jsonb, uuid) TO service_role;
 
 REVOKE ALL ON FUNCTION private_bsr.gate_state() FROM PUBLIC;
+REVOKE ALL ON FUNCTION private_bsr.gate_classify(boolean, jsonb) FROM PUBLIC;
 REVOKE ALL ON FUNCTION private_bsr.gate_blocked() FROM PUBLIC;
 REVOKE ALL ON FUNCTION private_bsr.gate_explicit_open() FROM PUBLIC;
 REVOKE ALL ON FUNCTION private_bsr.assert_sanitized(jsonb, int) FROM PUBLIC;
