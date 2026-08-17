@@ -6,6 +6,7 @@ import { isTaiwanStockCode, isTaiwanChipEligible, type TwChipsPayload } from '@/
 import { useChipsLifecycle } from '@/checkup/hooks/useChipsLifecycle';
 import ChipsTrendChart from './ChipsTrendChart';
 import { bsrHeaderLabel } from './bsrHeaderLabel';
+import { buildFreshnessSegments, segmentColor } from './chipsFreshnessSegments';
 
 import { formatSharesAsLots, SHARES_PER_LOT } from '@/lib/lotSize';
 import { chipsPrefs, type BsrWindowKey } from '@/checkup/lib/drawerPrefs';
@@ -213,14 +214,16 @@ export default function ChipsSection({ WB, stockCode }: { WB: any; stockCode: st
               載入中…
             </span>
           )}
+          {/* 注意：FRESH／STALE 指的是「本次請求取得的時間」，不是資料日期。
+              各來源的資料日期一律看下方 chips-freshness-segments。 */}
           {!loading && stale && !error && (
-            <span data-testid="chips-stale-badge" style={{ fontSize: 10, color: WB.inkMute, border: `1px solid ${WB.hair}`, padding: '1px 6px', letterSpacing: '0.1em' }}>
+            <span data-testid="chips-stale-badge" title="本次請求的取得時間已過期（非資料日期）" style={{ fontSize: 10, color: WB.inkMute, border: `1px solid ${WB.hair}`, padding: '1px 6px', letterSpacing: '0.1em' }}>
               STALE
             </span>
           )}
           {/* FRESH 與 STALE 互斥：兩者條件互為否定，永遠不會同時出現。 */}
           {!loading && !stale && !error && online && !!fetchedAt && (
-            <span data-testid="chips-fresh-badge" style={{ fontSize: 10, color: WB.inkSub, border: `1px solid ${WB.hair}`, padding: '1px 6px', letterSpacing: '0.1em' }}>
+            <span data-testid="chips-fresh-badge" title="本次請求剛取得（非資料日期；資料日期見下方分段標示）" style={{ fontSize: 10, color: WB.inkSub, border: `1px solid ${WB.hair}`, padding: '1px 6px', letterSpacing: '0.1em' }}>
               FRESH
             </span>
           )}
@@ -301,6 +304,42 @@ export default function ChipsSection({ WB, stockCode }: { WB: any; stockCode: st
         </div>
 
       </div>
+
+      {/* H6 · 分段新鮮度：三大法人 與 券商分點 是兩個獨立來源，各自標示 as_of 與狀態 */}
+      <div
+        data-testid="chips-freshness-segments"
+        style={{
+          display: 'flex',
+          flexWrap: 'wrap',
+          gap: '6px 14px',
+          marginBottom: 10,
+          fontSize: 10,
+          letterSpacing: '0.06em',
+          fontFamily: SERIF,
+        }}
+      >
+        {buildFreshnessSegments(data).map((seg) => (
+          <span
+            key={seg.key}
+            data-testid={`chips-seg-${seg.key}`}
+            data-seg-state={seg.state}
+            title={seg.title}
+            style={{
+              display: 'inline-flex',
+              alignItems: 'baseline',
+              gap: 6,
+              padding: '2px 8px',
+              border: `1px solid ${seg.tone === 'error' ? 'rgba(176,74,74,0.4)' : WB.hair}`,
+              color: segmentColor(seg.tone, WB),
+            }}
+          >
+            <span style={{ color: WB.inkMute }}>{seg.label}</span>
+            <span style={{ fontVariantNumeric: 'tabular-nums' }}>{seg.text}</span>
+          </span>
+        ))}
+      </div>
+
+
 
       {/* 稀疏資料：手動回補過去 60 日 */}
       {sparse && !error && (
