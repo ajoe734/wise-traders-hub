@@ -125,10 +125,11 @@ run_suite db/r1/p/096_acl_dynamic_proof.sql acl_dyn 185
 say "-- phase 4: destroy + background check"
 mkdir -p "$OUT/$NAME-artifacts"
 cp -f "$DIR"/*.log "$DIR"/*.txt "$DIR"/*.json "$OUT/$NAME-artifacts/" 2>/dev/null
+if [ "${KEEP:-0}" = "1" ]; then say "  KEEP=1: clone retained at $DIR"; else
 $ASU "$PGBIN/pg_ctl" -D "$DIR/pg" -m immediate -w stop >/dev/null 2>&1
-rm -rf "$DIR"
-if [ -d "$DIR" ]; then fail "clone destroy"; else say "  clone destroyed: $DIR gone"; fi
-BG=$(pgrep -f "port=$PORT" | wc -l)
+rm -rf "$DIR"; fi
+if [ "${KEEP:-0}" != "1" ]; then if [ -d "$DIR" ]; then fail "clone destroy"; else say "  clone destroyed: $DIR gone"; fi; fi
+BG=$([ "${KEEP:-0}" = "1" ] && echo 0 || pgrep -f "port=$PORT" | wc -l)
 say "  background processes for this clone: $BG"
 [ "$BG" = "0" ] || fail "background processes remain"
 
