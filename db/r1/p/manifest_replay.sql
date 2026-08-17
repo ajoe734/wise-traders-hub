@@ -154,7 +154,14 @@ SELECT
      UNION ALL SELECT 'us_option_combo_unsupported'
         WHERE coalesce(ic.asset_class,'') = 'us_option_combo'
      UNION ALL SELECT 'derivative_unsupported'
-        WHERE NOT coalesce(ic.derivative_supported,false)
+        WHERE NOT (coalesce(ic.derivative_supported,false)
+                   AND NOT (coalesce(ic.asset_class,'') IN
+                              ('tw_warrant','unknown_derivative','us_option_combo')
+                            AND (c.class <> 'match' OR c.n_units > 1)))
+     UNION ALL SELECT 'derivative_basis_unadjudicated'
+        WHERE coalesce(ic.asset_class,'') IN
+                ('tw_warrant','unknown_derivative','us_option_combo')
+          AND (c.class <> 'match' OR c.n_units > 1)
      UNION ALL SELECT 'unknown_derivative'
         WHERE coalesce(ic.asset_class,'') = 'unknown_derivative'
      UNION ALL SELECT 'unclassified_instrument'
@@ -175,7 +182,10 @@ SELECT
     'unit_supported',   (c.n_units <= 1 AND NOT c.any_missing_unit),
     'market_supported', (c.n_markets <= 1 AND c.market IS NOT NULL),
     'price_supported',  (NOT c.any_missing_price),
-    'derivative_supported', (NOT c.any_combo AND coalesce(ic.derivative_supported,false)),
+    'derivative_supported', (NOT c.any_combo AND coalesce(ic.derivative_supported,false)
+       AND NOT (coalesce(ic.asset_class,'') IN
+                  ('tw_warrant','unknown_derivative','us_option_combo')
+                AND (c.class <> 'match' OR c.n_units > 1))),
     'fx_supported',     (coalesce(e.currency,'-') = 'TWD' OR (SELECT n_rows FROM fx) > 1)
   ) AS supported,
   CASE WHEN c.class = 'match'

@@ -41,6 +41,12 @@ export function toMirror(source) {
     "import { taipeiMondayOf, taipeiWeekRangeUtc } from '@/lib/taipeiWeek';",
   );
 
+  const denoContractImport = "from './publicEconomicContract.ts';";
+  if (!out.includes(denoContractImport)) {
+    throw new Error('gen-journal-repository-mirror: public contract import not found');
+  }
+  out = out.replace(denoContractImport, "from '@/contracts/publicEconomicContract';");
+
   return out;
 }
 

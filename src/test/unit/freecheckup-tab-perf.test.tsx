@@ -14,6 +14,7 @@
 import { describe, it, expect, beforeAll } from 'vitest';
 import { render } from '@testing-library/react';
 import { Suspense, createRef } from 'react';
+import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import fs from 'node:fs';
 import path from 'node:path';
 
@@ -260,14 +261,24 @@ describe('FreeCheckup tab — memo skips re-render with stable props', () => {
   });
 });
 
+// HoldingsWorkbench 內的 useChipsBatch 需要 QueryClient；測試殼提供一個離線的。
+const Q = () => new QueryClient({ defaultOptions: { queries: { retry: false, gcTime: 0 } } });
+const withQuery = (node: React.ReactNode, qc: QueryClient) => (
+  <QueryClientProvider client={qc}>{node}</QueryClientProvider>
+);
+
 describe('FreeCheckup HoldingsTab — lazy + memo + mount budget', () => {
   it('HoldingsTab first render under jsdom-friendly budget (empty持倉)', async () => {
     const Tab = (await import('@/checkup/components/freecheckup/HoldingsTab')).default;
+    const qc = Q();
     const t0 = performance.now();
     const { unmount } = render(
-      <Suspense fallback={null}>
-        <Tab {...holdingsProps} />
-      </Suspense>
+      withQuery(
+        <Suspense fallback={null}>
+          <Tab {...holdingsProps} />
+        </Suspense>,
+        qc,
+      )
     );
     const ms = performance.now() - t0;
     unmount();
@@ -280,11 +291,12 @@ describe('FreeCheckup HoldingsTab — lazy + memo + mount budget', () => {
     let runs = 0;
     const trackedSetTab = (..._args: any[]) => { runs++; };
     const props = { ...holdingsProps, setTab: trackedSetTab };
+    const qc = Q();
     const { rerender, unmount } = render(
-      <Suspense fallback={null}><Tab {...props} /></Suspense>
+      withQuery(<Suspense fallback={null}><Tab {...props} /></Suspense>, qc)
     );
-    rerender(<Suspense fallback={null}><Tab {...props} /></Suspense>);
-    rerender(<Suspense fallback={null}><Tab {...props} /></Suspense>);
+    rerender(withQuery(<Suspense fallback={null}><Tab {...props} /></Suspense>, qc));
+    rerender(withQuery(<Suspense fallback={null}><Tab {...props} /></Suspense>, qc));
     unmount();
     // setTab 僅由「上傳成交」CTA 點擊觸發，rerender 不該呼叫
     expect(runs).toBe(0);

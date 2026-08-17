@@ -7,6 +7,8 @@ import type { ExpertPerformance } from '@/hooks/usePerformance';
 import { normalizeCurrency, type Currency } from '@/lib/currency';
 import { normalizeAssetClass, type AssetClass } from '@/lib/asset';
 import { resolvePositionQuantityDisplay } from '@/lib/positionQuantity';
+import { useProjectionStatus } from '@/hooks/useProjectionStatus';
+import { gateCapital, gatePerformance, gatePositionRows } from '@/contracts/publicEconomicContract';
 
 /**
  * 單一資料源：所有 expert 的 capital / holdings / performance / currency
@@ -82,6 +84,7 @@ export function useExpertHoldingsBundle(
   options?: { expertOwnerUserId?: string | null; currency?: Currency | string | null; assetClass?: AssetClass | string | null },
 ) {
   const queryClient = useQueryClient();
+  const projection = useProjectionStatus(expertId);
   const queryKey = useMemo(() => ['expert-holdings-bundle', expertId] as const, [expertId]);
   const currency: Currency = normalizeCurrency(options?.currency);
   const assetClass: AssetClass = normalizeAssetClass(options?.assetClass);
@@ -146,8 +149,22 @@ export function useExpertHoldingsBundle(
     return () => { supabase.removeChannel(sub); };
   }, [expertId, options?.expertOwnerUserId, queryClient]);
 
+  // R1-P public economic contract: a scope that is not `ready` yields no
+  // capital / position / performance figures at all.
+  const raw = query.data ?? EMPTY;
+  const gated: ExpertHoldingsBundle = projection.showNumbers ? raw : {
+    ...raw,
+    capital: gateCapital(raw.capital, projection),
+    openPositions: gatePositionRows(raw.openPositions as unknown as Record<string, unknown>[], projection) as unknown as PerfRow[],
+    rawOpenPositions: [],
+    performance: gatePerformance(raw.performance as unknown as Record<string, unknown>, projection) as unknown as ExpertPerformance | null,
+    totalPnlPercent: null,
+    avgPnlPercent: null,
+  };
+
   return {
-    ...(query.data ?? EMPTY),
+    ...gated,
+    projection,
     loading: query.isLoading,
     refetch: query.refetch,
   };

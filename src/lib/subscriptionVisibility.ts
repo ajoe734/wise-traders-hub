@@ -1,3 +1,5 @@
+import { resolveProjectionStatus, type ProjectionStatus } from '@/contracts/publicProjection';
+import { gateSignalEconomics } from '@/contracts/publicEconomicContract';
 /**
  * 訂閱內容可見性邏輯
  *
@@ -48,6 +50,7 @@ export async function fetchSubscriberSignals(
   userId: string | undefined,
   isTester = false,
   previewExpertId: string | null = null,
+  projection: ProjectionStatus = resolveProjectionStatus({ absent: true }),
 ): Promise<FetchSubscriberSignalsResult> {
   if (!userId) return { signals: [], hasSubscription: false };
   const nowIso = new Date().toISOString();
@@ -93,8 +96,10 @@ export async function fetchSubscriberSignals(
     .order('published_at', { ascending: false })
     .limit(50);
 
+  // R1-P typed public contract: price hints / quantities are suppressed while
+  // the projection scope is not ready.
   return {
-    signals: !error && data ? data : [],
+    signals: gateSignalEconomics(!error && data ? (data as Record<string, unknown>[]) : [], projection),
     hasSubscription: true,
   };
 }

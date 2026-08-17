@@ -33,15 +33,60 @@ REQUIRED_FIELDS = [
     "path", "surface", "audience", "role", "access_kind", "exact_access",
     "entitlement", "embargo_predicate", "legacy_fallback", "side_effects",
     "cutover_disposition", "test_id", "coverage_status", "tables",
-    "invocation_guard",
+    "invocation_guard", "contract_gate",
 ]
 AUDIENCES = {"public", "admin", "internal", "test"}
 DISPOSITIONS = {
+    "typed_public_contract",              # public surface, gated by the contract
     "migrate_to_typed_public_contract",   # public surface, must read the contract
     "public_no_economic_facts",           # public but proven not to emit facts
     "stays_on_internal_ledger",           # admin/internal writer or reader
     "test_only",
 }
+
+
+# 3 paths that the first (string-grep) matrix counted as consumers and that the
+# reachability scanner excludes. Each exclusion is re-proven on every --check:
+# the file must contain no supabase access to an economic table.
+EXCLUDED_FALSE_POSITIVES = [
+    {
+        "path": "src/checkup/components/holdings/README.md",
+        "reason": "documentation file; the table names appear in prose only",
+        "evidence_rule": "no .from('<econ table>') / .rpc( in file",
+    },
+    {
+        "path": "src/checkup/hooks/index.js",
+        "reason": "barrel re-export; no query, no economic field",
+        "evidence_rule": "no .from('<econ table>') / .rpc( in file",
+    },
+    {
+        "path": "src/test/integration/1.35-rls-security-audit.test.ts",
+        "reason": "RLS audit harness: it never selects an economic table directly; "
+                  "it only calls the public read-only RPC bundles "
+                  "(get_public_experts_list / get_expert_detail_bundle / get_pricing_bundle) "
+                  "and asserts that anon is refused",
+        "evidence_rule": "no .from('<econ table>') in file; RPCs limited to the public bundle allowlist",
+        "rpc_allowlist": ["get_public_experts_list", "get_expert_detail_bundle",
+                          "get_pricing_bundle", "get_public_expert_performance"],
+    },
+]
+
+
+def prove_exclusions() -> list[str]:
+    """Regression test: the 3 excluded paths must stay non-consumers."""
+    errs = []
+    for ex in EXCLUDED_FALSE_POSITIVES:
+        f = ROOT / ex["path"]
+        if not f.exists():
+            continue
+        txt = f.read_text(encoding="utf-8", errors="ignore")
+        allow = set(ex.get("rpc_allowlist", []))
+        hits = [m.group(0) for m in ACCESS_RE.finditer(txt)
+                if (m.group(1) in ECON_TABLES)
+                or (m.group(3) and m.group(3) not in allow)]
+        if hits:
+            errs.append(f"EXCLUSION BROKEN {ex['path']}: now performs economic access {hits[:3]}")
+    return errs
 
 
 # ----------------------------------------------------------------- discovery
@@ -172,6 +217,10 @@ def classify(rel: str, info: dict, anon: set[str], pub_fns: set[str]) -> dict:
     # writer: it is only a public surface when nothing gates the invocation.
     guard = None
     for pat, label in (
+        (r"navigate\('/auth/login'|<ProtectedRoute|useRequireAuth|requireAuthedUser",
+         "authenticated-only shell (redirects anonymous to /auth/login)"),
+        (r"requireCronKey|authGuard|requireServiceRole|requireAdmin",
+         "authGuard: cron/service key required"),
         (r"CRON_SECRET|internal_cron_secrets|x-internal-secret", "shared cron secret"),
         (r"SUPABASE_SERVICE_ROLE_KEY", "service role key required"),
         (r"getUser\(|requireAuth|authorization", "caller JWT checked"),
@@ -179,7 +228,10 @@ def classify(rel: str, info: dict, anon: set[str], pub_fns: set[str]) -> dict:
         if re.search(pat, txt, re.I):
             guard = label
             break
-    if audience == "public" and surface == "edge_function" and guard:
+    # verify_jwt=false alone never proves a public surface, and reachability
+    # alone never proves a frontend one: only *evidenced* guards demote a
+    # candidate, everything else stays conservatively public.
+    if audience == "public" and guard:
         audience = "internal"
 
     writes = bool(WRITE_RE.search(txt)) and any(t in txt for t in ECON_TABLES)
@@ -217,7 +269,21 @@ def classify(rel: str, info: dict, anon: set[str], pub_fns: set[str]) -> dict:
                else "n/a — not an anonymous surface" if audience != "public"
                else "n/a — no signal-level facts read")
 
-    legacy = any(t in info["tables"] for t in ECON_TABLES) and not type_only
+    # R1-P: a public reader that imports the typed public economic contract is
+    # no longer a raw legacy reader — the gate decides what may be rendered.
+    contract_gate = None
+    m_gate = re.search(r"from ['\"](?:@/contracts/publicEconomicContract"
+                       r"|@/contracts/publicProjection"
+                       r"|[./]*_shared/publicEconomicContract\.ts)['\"]", txt)
+    if m_gate:
+        fns = sorted(set(re.findall(
+            r"\b(gatePerformance|gatePositionRows|gateCapital|gateSeries|"
+            r"gateSignalEconomics|isPubliclyVisible|stripEconomicFacts|"
+            r"resolveProjectionStatus|useProjectionStatus|canExportFactsheet)\b", txt)))
+        contract_gate = "typed contract: " + ", ".join(fns) if fns else "typed contract import"
+
+    legacy = (any(t in info["tables"] for t in ECON_TABLES)
+              and not type_only and contract_gate is None)
 
     side: list[str] = []
     if re.search(r"staleTime|useQuery|queryClient", txt): side.append("react-query cache")
@@ -228,6 +294,8 @@ def classify(rel: str, info: dict, anon: set[str], pub_fns: set[str]) -> dict:
 
     if audience == "test":
         disp = "test_only"
+    elif audience == "public" and contract_gate:
+        disp = "typed_public_contract"
     elif audience == "public" and legacy:
         disp = "migrate_to_typed_public_contract"
     elif audience == "public":
@@ -253,6 +321,7 @@ def classify(rel: str, info: dict, anon: set[str], pub_fns: set[str]) -> dict:
         "coverage_status": "covered",
         "tables": info["tables"],
         "invocation_guard": guard or ("route render" if surface == "frontend" else "none"),
+        "contract_gate": contract_gate or "n/a",
     }
 
 
@@ -336,6 +405,7 @@ def build() -> dict:
             "internal": "server-side / service_role only",
             "test": "test or harness file",
         },
+        "excluded_false_positives": EXCLUDED_FALSE_POSITIVES,
         "static_consumers": consumers,
         "static_consumer_counts": {**counts, "total": len(consumers)},
         "coverage": {
@@ -356,6 +426,13 @@ def check() -> int:
     found = discover()
     errs: list[str] = []
 
+    errs += prove_exclusions()
+    for ex in EXCLUDED_FALSE_POSITIVES:
+        if ex["path"] in reg:
+            errs.append(f"excluded false positive re-entered the matrix: {ex['path']}")
+    if len(m.get("excluded_false_positives", [])) != 3:
+        errs.append("exclusion evidence block must list exactly the 3 false positives")
+
     for rel in found:
         if rel not in reg:
             errs.append(f"NEW CONSUMER not in matrix: {rel}")
@@ -371,9 +448,13 @@ def check() -> int:
             errs.append(f"{c['path']}: unclassified audience {c.get('audience')!r}")
         if c.get("cutover_disposition") not in DISPOSITIONS:
             errs.append(f"{c['path']}: bad cutover_disposition {c.get('cutover_disposition')!r}")
-        if c.get("audience") == "public" and c.get("legacy_fallback") \
-           and c.get("cutover_disposition") != "migrate_to_typed_public_contract":
-            errs.append(f"{c['path']}: public legacy fallback without a typed contract disposition")
+        # hard gate: no public consumer may keep a raw legacy read path
+        if c.get("audience") == "public" and c.get("legacy_fallback"):
+            errs.append(f"{c['path']}: public consumer still reads legacy economic tables "
+                        f"without the typed public contract")
+        if (c.get("audience") == "public" and c.get("access_kind") != "type_only"
+                and c.get("contract_gate") in (None, "", "n/a")):
+            errs.append(f"{c['path']}: public economic reader without contract_gate evidence")
         if c.get("coverage_status") != "covered":
             errs.append(f"{c['path']}: coverage_status={c.get('coverage_status')}")
         tid = (c.get("test_id") or "").split("::")[0]
