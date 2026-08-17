@@ -818,6 +818,12 @@ async function runWorker(batch: number, maxPriority: number, budgetMs: number): 
   return {
     ok: true, processed, success: ok,
     claimed: jobs.length, batch: effectiveBatch,
+    run_id: runId,
+    admission: {
+      decision: admission.decision, blocked: false, gate_version: admission.version,
+    },
+    stopped_by_terminal: terminalStop,
+    terminal: terminalReport,
     degrade_mode: state.mode, degrade_after: post.mode, transitioned: post.transitioned,
     policy: { max_priority: cappedMaxPriority, concurrency: cappedConcurrency },
     rate_limit_before: rl, rate_limit_after: finalRl,
