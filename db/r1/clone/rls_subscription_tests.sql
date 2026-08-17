@@ -194,7 +194,8 @@ BEGIN
     SET LOCAL ROLE service_role;
   END LOOP;
   RESET ROLE;
-  IF n < 15 THEN
-    RAISE EXCEPTION 'rls_harness_underrun: % cases (>=15 required)', n;
-  END IF;
+  -- An underrun must be visible as a FAILED case, not as an exception: an
+  -- exception rolls back every t.ok row already inserted and the suite then
+  -- reports the meaningless "0 tests".
+  PERFORM t.ok('T-P99a/RLS harness case count >= 15', n >= 15, format('cases=%s', n));
 END $$;

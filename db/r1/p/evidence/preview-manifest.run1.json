@@ -69,16 +69,16 @@
       "case_id": "ready__desktop__light",
       "files": {
         "png": {
-          "size": 69741,
-          "sha256": "1778f16e587491ee22bd99de6077338472b54c61a51d62f0d524cb3718140a22"
+          "size": 69742,
+          "sha256": "95e18c7013a0ab35364fa8f55ffcf8c6ad94fe53cb5d3b7815a4ba70c3cbe7f5"
         },
         "dom.html": {
-          "size": 267280,
-          "sha256": "bd8b5ec4c11fe19efdce0068cb39731cac3d49a84793ae1d16f3c770910a6a23"
+          "size": 267279,
+          "sha256": "eae6bd3279969786846315e0576bca9df937259da8e4d25bedcd04cbcebb8bb3"
         },
         "json": {
           "size": 330,
-          "sha256": "0df84b79d57a6d8948d6c0d0907ce41984ec7aeea92e70ecf9a44bc0f20624b8"
+          "sha256": "047db1b9c50a6c0fdbbdd7041d328181c70ed26ffcb56cedbb473d5f0217f850"
         }
       },
       "viewport": "1280x900",
@@ -96,12 +96,12 @@
       "case_id": "ready__desktop__dark",
       "files": {
         "png": {
-          "size": 70122,
-          "sha256": "31a18c5bd02e45db9c329352b6ce8bb7340428f0751f1fae93ebf69447efbcde"
+          "size": 70125,
+          "sha256": "8739457ce061eb4c4199c591ed0b28c793313bc356ddb78c49c19be624decf74"
         },
         "dom.html": {
-          "size": 267502,
-          "sha256": "ae9fd41e5ed4e4bb9f80b44a6e6bb3923bd306ba2c32e3958e9ee022391e6a58"
+          "size": 267501,
+          "sha256": "6940bba4e23898d8eb8b839568b106c51152aac09f1137bd72dc0b7282a84b3f"
         },
         "json": {
           "size": 328,
@@ -124,15 +124,15 @@
       "files": {
         "png": {
           "size": 54795,
-          "sha256": "7e34956c866382fb18f2b8e0f951a5bb1002a11485365c8d8b0d02e23d24f1e9"
+          "sha256": "0b94356fb2e0f69c5b285bc1592ec87aaa01d50a5c87b9cad7cb15d2932a82c8"
         },
         "dom.html": {
-          "size": 260859,
-          "sha256": "d9c718307860ede3c9f680661b4143cd58f2d9488a74901ee537bd99347a1d08"
+          "size": 260860,
+          "sha256": "41559472f940b316efa92b00e66b8d1ee7591614fc0926bcf65a0e5c811f9bf6"
         },
         "json": {
           "size": 328,
-          "sha256": "838828f188c8b09d3bccdfec52859a937c771a60a6aed154fa6b2dee62b27ad7"
+          "sha256": "13e518812ed8444d6441d9dbf14fb75211e862fcac8a958941ac8085f2d5bbf6"
         }
       },
       "viewport": "390x844",
@@ -154,12 +154,12 @@
           "sha256": "8edcff2cfe7d50eee84416b3035e2d1763d07ff7072bf0f272add0feb32c8038"
         },
         "dom.html": {
-          "size": 261081,
-          "sha256": "3ed7a15c20c893ae0ae39cb9841b524b618ded94ba12bfcf8ca65ca951bab57c"
+          "size": 261082,
+          "sha256": "06b186d383883a05b57092c60241369506a281cb1f79e787f8349b2aa9a4dce9"
         },
         "json": {
           "size": 326,
-          "sha256": "e8f50f0612db60688f12c3920268d37b2a50c9a67dd2e56289b01c5c0ed528f4"
+          "sha256": "c70e790466a337e18e12a1e4a4fa29eb28210413c667c15760ff2cda75f4a068"
         }
       },
       "viewport": "390x844",
@@ -186,7 +186,7 @@
         },
         "json": {
           "size": 356,
-          "sha256": "bbdc9ed465ce674f9c325b4a2f57532463d5d4b923308560a78d4d20a4df3362"
+          "sha256": "6c10c1ca81bdc0e184cb11e972c0c5030571751f290887fd1f3f15acbb9edaa3"
         }
       },
       "viewport": "1280x900",
@@ -209,7 +209,7 @@
         },
         "dom.html": {
           "size": 255006,
-          "sha256": "c84ce335a599d698a1cc2036b21afdd8f9e376b285c8b9f7cf99f83450fbfc0d"
+          "sha256": "b6eda081fa42af475aeb0213a82a94871b0cb31d8245da8788ac277861f962a1"
         },
         "json": {
           "size": 354,
@@ -231,8 +231,8 @@
       "case_id": "manual_review_6515__mobile__light",
       "files": {
         "png": {
-          "size": 54029,
-          "sha256": "7058c3cb5306718517a67f2eef365364b2bd86e7ecd18343a578d87fef6f8bcb"
+          "size": 54037,
+          "sha256": "112f5167d0d7f65581fc07476351c96dadf1248811aa39bc4162adeb2a1c4a3b"
         },
         "dom.html": {
           "size": 254784,
@@ -240,7 +240,7 @@
         },
         "json": {
           "size": 354,
-          "sha256": "2f81cbdaa74ba5165a82b4d5a747ec94ec2fda86369b23fa7ba5fcb9a9915035"
+          "sha256": "2119a7cc1a6b3f54503ed3016e1d63b2661e2d44b7da217b52049d2fc1cea236"
         }
       },
       "viewport": "390x844",
@@ -263,11 +263,11 @@
         },
         "dom.html": {
           "size": 255006,
-          "sha256": "b6eda081fa42af475aeb0213a82a94871b0cb31d8245da8788ac277861f962a1"
+          "sha256": "c84ce335a599d698a1cc2036b21afdd8f9e376b285c8b9f7cf99f83450fbfc0d"
         },
         "json": {
           "size": 352,
-          "sha256": "59a2e368639498575841114bdb260ea1076fcdc4c71d79bc67dccbf729631f62"
+          "sha256": "b09d1049d3127875f8b4458e3519359640761425162c4a9b1c009e8596b446dd"
         }
       },
       "viewport": "390x844",
@@ -294,7 +294,7 @@
         },
         "json": {
           "size": 346,
-          "sha256": "682a21082ec7dab7a53f020ffeee90922725fd236a00e36bbd14f9fa188efdd2"
+          "sha256": "a2e9a1d6e17f1f56700c2618f954830e18fb28e01173dc43ef54e3b83e0f9246"
         }
       },
       "viewport": "1280x900",
@@ -317,11 +317,11 @@
         },
         "dom.html": {
           "size": 255006,
-          "sha256": "b6eda081fa42af475aeb0213a82a94871b0cb31d8245da8788ac277861f962a1"
+          "sha256": "c84ce335a599d698a1cc2036b21afdd8f9e376b285c8b9f7cf99f83450fbfc0d"
         },
         "json": {
           "size": 344,
-          "sha256": "3f68791e034b7b7ac58429f097522c623d0b28e259e7732657b094e63cc9a344"
+          "sha256": "2068d14eeec1be50b739bdff6c10c0c1b8009adc38c71faeebd689c35a4231ec"
         }
       },
       "viewport": "1280x900",
@@ -339,8 +339,8 @@
       "case_id": "incomplete_fx__mobile__light",
       "files": {
         "png": {
-          "size": 54029,
-          "sha256": "7058c3cb5306718517a67f2eef365364b2bd86e7ecd18343a578d87fef6f8bcb"
+          "size": 54037,
+          "sha256": "112f5167d0d7f65581fc07476351c96dadf1248811aa39bc4162adeb2a1c4a3b"
         },
         "dom.html": {
           "size": 254784,
@@ -348,7 +348,7 @@
         },
         "json": {
           "size": 344,
-          "sha256": "84eeaaa274a43c9701f16e6798c9ca8fbd01dcfe91a704aea0fd3b7db6c4c42f"
+          "sha256": "fc22711f169e3022d902f1ce3b50e4c144dec494f9d587942bc92742fd9ca99b"
         }
       },
       "viewport": "390x844",
@@ -375,7 +375,7 @@
         },
         "json": {
           "size": 342,
-          "sha256": "95df23da6895094f10eacfff056cfec789c4a9d8c137039724246f4f13d6da39"
+          "sha256": "b25e1b27d79cda23818e55c4090abb658ed753e62da1468c9059f8f7b2260e7a"
         }
       },
       "viewport": "390x844",
@@ -402,7 +402,7 @@
         },
         "json": {
           "size": 356,
-          "sha256": "6d3bb5cfe4c641852ce0e37ddc9329755dca37ef0d6d6ed726eb0ef7cc7fe69e"
+          "sha256": "04f525fc59b20dac2ed13f3ab170514388251a64b6772de68ed51d8c83ba9960"
         }
       },
       "viewport": "1280x900",
@@ -425,11 +425,11 @@
         },
         "dom.html": {
           "size": 255006,
-          "sha256": "c84ce335a599d698a1cc2036b21afdd8f9e376b285c8b9f7cf99f83450fbfc0d"
+          "sha256": "b6eda081fa42af475aeb0213a82a94871b0cb31d8245da8788ac277861f962a1"
         },
         "json": {
           "size": 354,
-          "sha256": "41532d48bb0477b2484bf48ef06827cbb67bbcc5a022b888e87e089bf7b06b44"
+          "sha256": "ba1e360eed08a347fc7fc445ae1c31665c3112fe7f47a72523f0dbfd03a98992"
         }
       },
       "viewport": "1280x900",
@@ -456,7 +456,7 @@
         },
         "json": {
           "size": 354,
-          "sha256": "7d631db53f68ec21a0e270779d21c5bf54919adfc0a3363abaa43dae0bc69192"
+          "sha256": "3a13d086319c68b0c31c51c7cfd34004026a90dd5b34345e8a7b3f3a3cffc244"
         }
       },
       "viewport": "390x844",
@@ -478,8 +478,8 @@
           "sha256": "4207aeeba7b4ee1b1c0ec39ee7c041736617d88542900cb8a0bc10002e8e8854"
         },
         "dom.html": {
-          "size": 255018,
-          "sha256": "1de56fcf62de5762f50cfebe04d815a2c10fd74b6a4e30a49febc545a97ee462"
+          "size": 255006,
+          "sha256": "c84ce335a599d698a1cc2036b21afdd8f9e376b285c8b9f7cf99f83450fbfc0d"
         },
         "json": {
           "size": 352,
@@ -510,7 +510,7 @@
         },
         "json": {
           "size": 366,
-          "sha256": "d0f0d3022c75f1f15209bf740f2c64ef6bb54fbf72edd89c101a53ca5a2b8727"
+          "sha256": "a7055fbdf5d3837984b5c5efd1f673203048441c93b29c67fcd53060834b49a5"
         }
       },
       "viewport": "1280x900",
@@ -537,7 +537,7 @@
         },
         "json": {
           "size": 364,
-          "sha256": "7e4230b65da2dc0bc24b911689dc4dd21bfc7d3445c3dfb8c8b064f8c9b40f05"
+          "sha256": "775f53df83f6118c54735e1f4560242da25609f54f6c0e8be0465fbc708fdfa9"
         }
       },
       "viewport": "1280x900",
@@ -564,7 +564,7 @@
         },
         "json": {
           "size": 364,
-          "sha256": "455831d77f625a4bb237df2a33f8f8d8a04a78b55a46c5aa2767e5e1f2e3c3a4"
+          "sha256": "bedad8bfb40e2227e02561cc94fc3832caa6ac8a8a674a0db43fb916b16adfc6"
         }
       },
       "viewport": "390x844",
@@ -587,7 +587,7 @@
         },
         "dom.html": {
           "size": 255006,
-          "sha256": "c84ce335a599d698a1cc2036b21afdd8f9e376b285c8b9f7cf99f83450fbfc0d"
+          "sha256": "b6eda081fa42af475aeb0213a82a94871b0cb31d8245da8788ac277861f962a1"
         },
         "json": {
           "size": 362,
@@ -614,11 +614,11 @@
         },
         "dom.html": {
           "size": 254784,
-          "sha256": "74a11bece6c71c2872fae68cb0039aae93df57df648d6ae222b28d2505c78283"
+          "sha256": "e7a3e2e221ce692cdc389904fc973c278da10d3b914d80367d73ffa416635370"
         },
         "json": {
           "size": 618,
-          "sha256": "94f386b6ff71ee045db7a2c3e7b7e2dffb3076cbdda1507df87a2b3e5c40a4b8"
+          "sha256": "def828d29b492efb58a638095e911d16109bab25d1bce1e999d1e614ae42e349"
         }
       },
       "viewport": "1280x900",
@@ -645,7 +645,7 @@
         },
         "json": {
           "size": 616,
-          "sha256": "bf5714a9909c77f9fdb50887422999b9d9d5692baa0a61e4513ed4489043037b"
+          "sha256": "61ec678e496fcef639a05156121013b4f4ee365703ba0e7f86e75508ea7c630e"
         }
       },
       "viewport": "1280x900",
@@ -668,11 +668,11 @@
         },
         "dom.html": {
           "size": 254784,
-          "sha256": "e7a3e2e221ce692cdc389904fc973c278da10d3b914d80367d73ffa416635370"
+          "sha256": "74a11bece6c71c2872fae68cb0039aae93df57df648d6ae222b28d2505c78283"
         },
         "json": {
           "size": 616,
-          "sha256": "5d84f2030badd1ee788b7745abf5af4b145f6e1925949373db72f895491f3c8b"
+          "sha256": "872a25abf42c60b2f06118a4af1e84a5f786caba957ac06cc2380f36f9ec6344"
         }
       },
       "viewport": "390x844",
@@ -695,7 +695,7 @@
         },
         "dom.html": {
           "size": 255006,
-          "sha256": "c84ce335a599d698a1cc2036b21afdd8f9e376b285c8b9f7cf99f83450fbfc0d"
+          "sha256": "b6eda081fa42af475aeb0213a82a94871b0cb31d8245da8788ac277861f962a1"
         },
         "json": {
           "size": 614,
@@ -726,7 +726,7 @@
         },
         "json": {
           "size": 622,
-          "sha256": "b5a7d0644459be190c9ad55e104b27feaf8cda53d346352a99013d31b2892eb9"
+          "sha256": "6d68f9fd1039e92ce3abaf199baae88adf3d9e01d5d3b0a66cd672d53f83af8f"
         }
       },
       "viewport": "1280x900",
@@ -753,7 +753,7 @@
         },
         "json": {
           "size": 620,
-          "sha256": "c7dcaa4b693bd50bc765df16fbf602dc6f8bda8d014c0040b0da6966217606d2"
+          "sha256": "b393a810773ba56107e6f0f89fd193109588a3c77763817b7d2ba275302f0864"
         }
       },
       "viewport": "1280x900",
@@ -776,7 +776,7 @@
         },
         "dom.html": {
           "size": 254784,
-          "sha256": "e7a3e2e221ce692cdc389904fc973c278da10d3b914d80367d73ffa416635370"
+          "sha256": "74a11bece6c71c2872fae68cb0039aae93df57df648d6ae222b28d2505c78283"
         },
         "json": {
           "size": 620,
@@ -807,7 +807,7 @@
         },
         "json": {
           "size": 618,
-          "sha256": "2d83970a0c1c4e42f61a659ceed53ec2b9b8b89c74f6634da7c4b3cd50142a0e"
+          "sha256": "615fdfb3adf8b64edb4f62b2f917d414a744a2cb07550678749039282f9eb47c"
         }
       },
       "viewport": "390x844",
@@ -825,12 +825,12 @@
       "case_id": "smoke-home",
       "files": {
         "png": {
-          "size": 101806,
-          "sha256": "53a297a4dc0e2a1b69ce6d151390b0a105b1a569805c2f826a140db37dcb68c5"
+          "size": 92235,
+          "sha256": "f8a585cf33010a33aac95043dec4d83e34a3ee6e74e9a36ad760ebe44f13d60b"
         },
         "dom.html": {
-          "size": 317175,
-          "sha256": "aecb6e9a846900d6a2af97e0472cccdfb1fa81ad50dd5bd82e2248549598d581"
+          "size": 317195,
+          "sha256": "0e518c72e2dfcb025e2859f652c2245b52a6404d6dff60332982fb84db4b7d6d"
         },
         "json": {
           "size": 415,

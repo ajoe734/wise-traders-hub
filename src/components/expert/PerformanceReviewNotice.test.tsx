@@ -22,9 +22,9 @@ describe('PerformanceReviewNotice', () => {
     expect(container).toBeEmptyDOMElement();
   });
 
-  it('renders nothing only for an observed no_projection (legacy path)', () => {
+  it('renders the review notice when the projection is absent (fail-closed)', () => {
     const a = render(<PerformanceReviewNotice status={resolveProjectionStatus({ absent: true })} />);
-    expect(a.container).toBeEmptyDOMElement();
+    expect(a.getByTestId('performance-review-notice')).toBeInTheDocument();
   });
 
   it('renders the review notice when the projection read failed (fail-closed)', () => {

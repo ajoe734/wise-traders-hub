@@ -102,6 +102,24 @@ REVOKE ALL ON FUNCTION public.signal_is_publicly_visible(uuid) FROM PUBLIC;
 GRANT EXECUTE ON FUNCTION public.signal_is_publicly_visible(uuid)
   TO anon, authenticated, service_role;
 
+-- The shipped subscriber policy is TO public, i.e. it is also evaluated for
+-- anon. With auth.uid() NULL that path must never yield a row, and it must not
+-- require anon to hold EXECUTE on the identity helper. Rebinding it to
+-- `authenticated` closes both at once; the authenticated semantics are byte
+-- identical (same USING expression).
+DO $subpol$
+DECLARE v_qual text;
+BEGIN
+  SELECT qual INTO v_qual FROM pg_policies
+   WHERE schemaname='public' AND tablename='expert_signals'
+     AND policyname='Subscribers can view signals published after subscription start';
+  IF v_qual IS NOT NULL THEN
+    EXECUTE 'DROP POLICY "Subscribers can view signals published after subscription start" ON public.expert_signals';
+    EXECUTE format('CREATE POLICY %I ON public.expert_signals FOR SELECT TO authenticated USING (%s)',
+                   'Subscribers can view signals published after subscription start', v_qual);
+  END IF;
+END $subpol$;
+
 DROP POLICY IF EXISTS signals_embargo_anon ON public.expert_signals;
 CREATE POLICY signals_embargo_anon ON public.expert_signals
   FOR SELECT TO anon
@@ -342,7 +360,11 @@ $ddl$;
 EXECUTE 'REVOKE ALL ON FUNCTION public.is_tester_raw(uuid) FROM PUBLIC, anon, authenticated';
 EXECUTE 'GRANT EXECUTE ON FUNCTION public.is_tester_raw(uuid) TO service_role';
 EXECUTE 'REVOKE ALL ON FUNCTION public.is_tester(uuid) FROM PUBLIC';
-EXECUTE 'GRANT EXECUTE ON FUNCTION public.is_tester(uuid) TO anon, authenticated, service_role';
+-- anon never evaluates this helper: the only anon-visible economic surface is
+-- the projection contract, and raw expert_signals is anon-readable solely
+-- through signals_embargo_anon (which does not call it).
+EXECUTE 'REVOKE ALL ON FUNCTION public.is_tester(uuid) FROM PUBLIC, anon';
+EXECUTE 'GRANT EXECUTE ON FUNCTION public.is_tester(uuid) TO authenticated, service_role';
 END $wrap3$;
 
 DO $wrap4$ BEGIN
@@ -364,7 +386,8 @@ $ddl$;
 EXECUTE 'REVOKE ALL ON FUNCTION public.has_active_subscription_after_raw(uuid, timestamptz) FROM PUBLIC, anon, authenticated';
 EXECUTE 'GRANT EXECUTE ON FUNCTION public.has_active_subscription_after_raw(uuid, timestamptz) TO service_role';
 EXECUTE 'REVOKE ALL ON FUNCTION public.has_active_subscription_after(uuid, timestamptz) FROM PUBLIC';
-EXECUTE 'GRANT EXECUTE ON FUNCTION public.has_active_subscription_after(uuid, timestamptz) TO anon, authenticated, service_role';
+EXECUTE 'REVOKE ALL ON FUNCTION public.has_active_subscription_after(uuid, timestamptz) FROM PUBLIC, anon';
+EXECUTE 'GRANT EXECUTE ON FUNCTION public.has_active_subscription_after(uuid, timestamptz) TO authenticated, service_role';
 END $wrap4$;
 
 
@@ -396,3 +419,68 @@ BEGIN
     EXECUTE def;
   END LOOP;
 END $repoint2$;
+
+
+-- ---------------------------------------------------------- C5: caller compat
+-- Four company_admin-only functions ship with defects that make the *intended*
+-- caller fail, which previously let the ACL proof record a non-clean end state
+-- as if it were a pass. The bodies are repaired here by faithful rewrite of the
+-- shipped definition (no hand-retyped SQL), so the positive case is genuinely
+-- clean after cutover:
+--   * admin_holdings_consistency_audit() / get_publish_batch_runs(int)
+--     42702: unqualified `symbol` / `run_id` collide with the RETURNS TABLE OUT
+--     parameters. Resolved with the plpgsql `#variable_conflict use_column`
+--     directive, which is exactly the intent of every one of those references.
+--   * get_publish_batch_status()
+--     42703: the body reads e.expert_slug but public.experts only has `slug`.
+--   * admin_generate_fix_proposals(text) inherits the audit defect through its
+--     FOR ... IN SELECT * FROM admin_holdings_consistency_audit() loop and is
+--     repaired transitively.
+DO $compat$
+DECLARE r record; def text; body_start int;
+BEGIN
+  FOR r IN
+    SELECT p.oid, p.proname
+      FROM pg_proc p JOIN pg_namespace n ON n.oid = p.pronamespace
+     WHERE n.nspname = 'public'
+       AND p.proname IN ('admin_holdings_consistency_audit','get_publish_batch_runs')
+  LOOP
+    def := pg_get_functiondef(r.oid);
+    IF def LIKE '%#variable_conflict%' THEN CONTINUE; END IF;
+    body_start := position('AS $function$' in def);
+    IF body_start = 0 THEN
+      RAISE EXCEPTION 'compat: unexpected body quoting for %', r.proname;
+    END IF;
+    def := overlay(def placing 'AS $function$' || E'\n#variable_conflict use_column'
+                   from body_start for length('AS $function$'));
+    EXECUTE def;
+  END LOOP;
+
+  -- get_publish_batch_runs additionally uses the set-returning regexp_matches()
+  -- inside CASE (0A000). The scalar regexp_match() is the drop-in equivalent.
+  SELECT pg_get_functiondef(p.oid) INTO def
+    FROM pg_proc p JOIN pg_namespace n ON n.oid = p.pronamespace
+   WHERE n.nspname='public' AND p.proname='get_publish_batch_runs';
+  IF def IS NOT NULL AND def LIKE '%regexp_matches(%' THEN
+    def := replace(def, 'regexp_matches(', 'regexp_match(');
+    EXECUTE def;
+  END IF;
+
+  SELECT pg_get_functiondef(p.oid) INTO def
+    FROM pg_proc p JOIN pg_namespace n ON n.oid = p.pronamespace
+   WHERE n.nspname='public' AND p.proname='get_publish_batch_status';
+  IF def IS NOT NULL AND def LIKE '%e.expert_slug%' THEN
+    def := replace(def, 'SELECT e.id, e.name, e.expert_slug, e.asset_class',
+                        'SELECT e.id, e.name, e.slug AS expert_slug, e.asset_class');
+    IF def LIKE '%e.expert_slug%' THEN
+      RAISE EXCEPTION 'compat: unexpected get_publish_batch_status body shape';
+    END IF;
+  END IF;
+  -- 42703: the body also filters/orders on s.updated_at, which public
+  -- expert_signals does not have. published_at (falling back to created_at) is
+  -- the column the predicate actually means.
+  IF def IS NOT NULL AND def LIKE '%s.updated_at%' THEN
+    def := replace(def, 's.updated_at', 'COALESCE(s.published_at, s.created_at)');
+  END IF;
+  IF def IS NOT NULL THEN EXECUTE def; END IF;
+END $compat$;

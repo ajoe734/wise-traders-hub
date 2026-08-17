@@ -11,8 +11,9 @@
  *    and not a placeholder percentage. It renders 「資料檢核中」 instead.
  *  - internal reason codes and hashed manifest keys are never returned to the
  *    UI; only a fixed public-safe copy string is.
- *  - the projection being absent (pre-cutover) or failing is a distinct state:
- *    the page keeps working on the legacy read path and never blanks out.
+ *  - the projection being absent, unknown, not-yet-loaded or failing is
+ *    fail-closed: it resolves to `incomplete` / `error`, numbers are null and
+ *    the review notice renders. There is NO legacy numeric fallback.
  */
 
 export type ProjectionState =
@@ -20,18 +21,15 @@ export type ProjectionState =
   | 'manual_review'    // drift under adjudication (e.g. 6515) — no number ever
   | 'incomplete'       // valuation incomplete: missing FX / derivative multiplier
   | 'withheld'         // publisher withheld the key (embargo, unsupported)
-  | 'no_projection'    // projection not deployed for this expert — legacy path
-  | 'error';           // read failed — legacy path, but never a fake number
+  | 'error';           // read failed — never a number
 
 /** Public-safe copy. These exact strings are the contract. */
 export const REVIEW_BADGE = '資料檢核中';
 export const REVIEW_NOTE = '該區間不納入績效';
 
 /**
- * Fail-closed set. `error` is included on purpose: a failed read must never
- * fall through to the legacy numbers. `no_projection` is the ONLY tolerated
- * legacy path and it must be asserted explicitly by the caller
- * (`absent: true`), never inferred from missing/unknown input.
+ * Fail-closed set: everything except `ready`. A failed read, an absent
+ * projection, an unknown state and a not-yet-loaded scope all land here.
  */
 const NOT_READY: ReadonlySet<ProjectionState> = new Set<ProjectionState>([
   'manual_review',
@@ -51,7 +49,10 @@ export interface ProjectionStatusInput {
   manualReview?: boolean | null;
   /** the read itself failed */
   failed?: boolean | null;
-  /** no projection row exists for this expert (pre-cutover) */
+  /**
+   * No projection row exists for this scope (pre-cutover / not deployed).
+   * Fail-closed: resolves to `incomplete`, never to a legacy numeric path.
+   */
   absent?: boolean | null;
 }
 
@@ -72,7 +73,7 @@ export function resolveProjectionStatus(input: ProjectionStatusInput | null | un
   let state: ProjectionState;
 
   if (i.failed) state = 'error';
-  else if (i.absent) state = 'no_projection';
+  else if (i.absent) state = 'incomplete'; // absent projection fails closed
   else if (i.manualReview || i.state === 'manual_review') state = 'manual_review';
   else if (i.incomplete || i.state === 'incomplete' || i.state === 'withheld_incomplete') state = 'incomplete';
   else if (i.withheld || i.state === 'withheld') state = 'withheld';
@@ -134,13 +135,13 @@ export function projectedAmount(
 export const UNKNOWN_PROJECTION: ProjectionStatus = resolveProjectionStatus({ incomplete: true });
 
 /**
- * Explicit pre-cutover legacy path: the projection is provably not deployed
- * for this scope. Only a caller that has actually observed the absence may
- * use this — it is never a fallback for "we did not check".
+ * The projection is provably not deployed for this scope (pre-cutover).
+ * Fail-closed: identical to `UNKNOWN_PROJECTION` — `incomplete`, no numbers.
+ * There is deliberately no legacy numeric path any more.
  */
-export const LEGACY_NO_PROJECTION: ProjectionStatus = resolveProjectionStatus({ absent: true });
+export const NO_PROJECTION: ProjectionStatus = resolveProjectionStatus({ absent: true });
 
-/** May a factsheet / export be produced for this scope? */
+/** May a factsheet / export be produced for this scope? Only when ready. */
 export function canExportFactsheet(status: ProjectionStatus): boolean {
-  return status.state === 'ready' || status.state === 'no_projection';
+  return status.state === 'ready';
 }

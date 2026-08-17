@@ -63,6 +63,29 @@ BEGIN
   RETURN v_state;
 END $$;
 
+-- ------------------------------------------------- domain fixture (apply)
+-- admin_apply_fix_proposal needs a legitimate pending proposal to have a real
+-- positive case. A no-op `normalize_unit` proposal with an empty signal id set
+-- is a valid domain precondition: the apply path runs end to end (status ->
+-- applied + audit log) without touching any economic row, and the whole call
+-- is still rolled back by t.acl_call.
+CREATE TABLE IF NOT EXISTS t.acl_fixture(k text primary key, v uuid);
+DO $fx$
+DECLARE v_id uuid := '11111111-0000-4000-8000-0000000000f1';
+BEGIN
+  DELETE FROM public.holdings_fix_proposals WHERE id = v_id;
+  INSERT INTO public.holdings_fix_proposals(
+    id, drift_category, expert_slug, expert_name, symbol, instrument,
+    severity, summary, proposed_action, payload, preview, status, signature)
+  VALUES (v_id, 'UNIT_MIX', 'acl-probe', 'acl probe', 'ZZZZ', 'ZZZZ',
+          'low', 'acl dynamic proof fixture', 'normalize_unit',
+          jsonb_build_object('target_unit','張','signal_ids','[]'::jsonb,
+                             'also_scale_quantity', false),
+          '{}'::jsonb, 'pending', 'acl-probe|UNIT_MIX|ZZZZ|fixture');
+  DELETE FROM t.acl_fixture WHERE k='apply_proposal';
+  INSERT INTO t.acl_fixture VALUES ('apply_proposal', v_id);
+END $fx$;
+
 -- ============================================================ A + B
 -- the 12 keep_typed_safe_authenticated_guarded targets, really executed.
 --
@@ -85,8 +108,8 @@ BEGIN
   SELECT v INTO v_user  FROM t.acl_actor WHERE k='user';
   FOR r IN SELECT * FROM (VALUES
    ( 1,'admin_apply_fix_proposal','public.admin_apply_fix_proposal(uuid, boolean)',
-     $$SELECT public.admin_apply_fix_proposal('11111111-0000-4000-8000-000000000001'::uuid, false)$$,
-     'P0001 unknown_proposal', 'domain_precondition: probe id is deliberately absent'),
+     $$SELECT public.admin_apply_fix_proposal('11111111-0000-4000-8000-0000000000f1'::uuid, true)$$,
+     '00000', 'clean (runs against the t.acl_fixture pending proposal)'),
    ( 2,'admin_delete_trade_records_by_signal_ids','public.admin_delete_trade_records_by_signal_ids(uuid[])',
      $$SELECT public.admin_delete_trade_records_by_signal_ids(ARRAY[]::uuid[])$$,
      '00000', 'clean'),
@@ -95,10 +118,10 @@ BEGIN
      '00000', 'clean'),
    ( 4,'admin_generate_fix_proposals','public.admin_generate_fix_proposals(text)',
      $$SELECT public.admin_generate_fix_proposals('unit_ambiguous')$$,
-     '42702', 'preexisting_production_defect: ambiguous "symbol" in the shipped body'),
+     '00000', 'clean (002 C5 compat repairs the shipped ambiguity defect)'),
    ( 5,'admin_holdings_consistency_audit','public.admin_holdings_consistency_audit()',
      $$SELECT count(*) FROM public.admin_holdings_consistency_audit()$$,
-     '42702', 'preexisting_production_defect: ambiguous "symbol" in the shipped body'),
+     '00000', 'clean (002 C5 compat repairs the shipped ambiguity defect)'),
    ( 6,'admin_reject_fix_proposal','public.admin_reject_fix_proposal(uuid, text)',
      $$SELECT public.admin_reject_fix_proposal('11111111-0000-4000-8000-000000000001'::uuid,'acl probe')$$,
      '00000', 'clean'),
@@ -116,10 +139,10 @@ BEGIN
      '00000', 'clean'),
    (11,'get_publish_batch_runs','public.get_publish_batch_runs(integer)',
      $$SELECT count(*) FROM public.get_publish_batch_runs(5)$$,
-     '42702', 'preexisting_production_defect: ambiguous "run_id" in the shipped body'),
+     '00000', 'clean (002 C5 compat repairs the shipped ambiguity defect)'),
    (12,'get_publish_batch_status','public.get_publish_batch_status()',
      $$SELECT count(*) FROM public.get_publish_batch_status()$$,
-     '42703', 'preexisting_production_defect: body reads e.expert_slug, production experts has only "slug"')
+     '00000', 'clean (002 C5 compat maps e.expert_slug -> e.slug)')
   ) AS v(n, nm, sig, call_sql, pos_expect, pos_class) LOOP
     v_exists := to_regprocedure(r.sig) IS NOT NULL;
     IF NOT v_exists THEN
@@ -139,40 +162,48 @@ BEGIN
                   OR (s_pos LIKE 'P0001%' AND (s_pos ~* 'forbidden|not authorized|admin only'));
     PERFORM t.ok(format('T-P96a.%s negative ordinary authenticated refused: %s', lpad(r.n::text,2,'0'), r.nm),
                  v_refused_neg, 'actual=' || s_neg);
-    PERFORM t.ok(format('T-P96b.%s positive company_admin passes guard: %s', lpad(r.n::text,2,'0'), r.nm),
-                 NOT v_refused_pos, 'actual=' || s_pos);
+    -- an intended-caller positive only counts when the call is genuinely
+    -- clean: passing the guard but dying on a body defect is NOT a pass.
+    PERFORM t.ok(format('T-P96b.%s positive company_admin succeeds clean: %s', lpad(r.n::text,2,'0'), r.nm),
+                 (NOT v_refused_pos) AND s_pos = '00000', 'actual=' || s_pos);
     PERFORM t.ok(format('T-P96b-exec.%s end state as recorded: %s', lpad(r.n::text,2,'0'), r.nm),
                  s_pos LIKE r.pos_expect || '%',
                  format('actual=%s expected=%s%% class=%s', s_pos, r.pos_expect, r.pos_class));
   END LOOP;
 END $BODY$;
 
--- static evidence for the three recorded pre-existing production defects, so
--- the classification above can never be a convenient excuse.
+-- static evidence that the four shipped-body defects are actually repaired by
+-- the 002 C5 compat block (and were real defects in the production catalog).
 DO $BODY$
-DECLARE v_src text; v_has_col boolean;
+DECLARE v_src text; v_has_col boolean; v_n int;
 BEGIN
   SELECT prosrc INTO v_src FROM pg_proc p JOIN pg_namespace n ON n.oid=p.pronamespace
    WHERE n.nspname='public' AND p.proname='get_publish_batch_status';
   SELECT EXISTS (SELECT 1 FROM information_schema.columns
                   WHERE table_schema='public' AND table_name='experts'
                     AND column_name='expert_slug') INTO v_has_col;
-  PERFORM t.ok('T-P96b-evd.01 get_publish_batch_status defect is in the shipped body, not the clone',
-               v_src LIKE '%e.expert_slug%' AND NOT v_has_col,
+  PERFORM t.ok('T-P96b-evd.01 get_publish_batch_status no longer reads a non-existent column',
+               v_src NOT LIKE '%e.expert_slug%' AND NOT v_has_col
+               AND v_src LIKE '%e.slug AS expert_slug%',
                format('body_refs_expert_slug=%s experts.expert_slug_exists=%s',
                       v_src LIKE '%e.expert_slug%', v_has_col));
-  PERFORM t.ok('T-P96b-evd.02 ambiguity defects are compile-time in the shipped bodies',
-               (SELECT count(*) FROM pg_proc p JOIN pg_namespace n ON n.oid=p.pronamespace
-                 WHERE n.nspname='public'
-                   AND p.proname IN ('admin_generate_fix_proposals',
-                                     'admin_holdings_consistency_audit',
-                                     'get_publish_batch_runs')) = 3,
-               'all three bodies are the exact production definitions loaded by functions_acl28.sql');
+  SELECT count(*) INTO v_n FROM pg_proc p JOIN pg_namespace n ON n.oid=p.pronamespace
+    WHERE n.nspname='public'
+      AND p.proname IN ('admin_holdings_consistency_audit','get_publish_batch_runs')
+      AND p.prosrc LIKE '%#variable_conflict use_column%';
+  PERFORM t.ok('T-P96b-evd.02 the two OUT-parameter ambiguity defects are repaired in place',
+               v_n = 2, format('repaired_bodies=%s of 2', v_n));
+  PERFORM t.ok('T-P96b-evd.03 admin_generate_fix_proposals still delegates to the repaired audit',
+               (SELECT prosrc FROM pg_proc p JOIN pg_namespace n ON n.oid=p.pronamespace
+                 WHERE n.nspname='public' AND p.proname='admin_generate_fix_proposals')
+                 LIKE '%admin_holdings_consistency_audit()%',
+               'transitive repair path');
 END $BODY$;
 
 
 -- ============================================================ C
--- definer hygiene over all 28 unique ACL targets
+-- definer hygiene over all 28 unique ACL targets, plus the new R1-P
+-- SECURITY DEFINER predicate public.signal_is_publicly_visible(uuid).
 DO $BODY$
 DECLARE r record; v_oid oid; v_cfg text; v_bad int; v_missing int := 0; v_checked int := 0;
 BEGIN
@@ -204,7 +235,9 @@ BEGIN
    ($$public.publish_batch_attempts_touch()$$),
    ($$public.recover_stale_backfill_jobs(_stale_after interval)$$),
    ($$public.tg_holdings_fix_proposals_updated_at()$$),
-   ($$public.trade_dedupe_sweep(p_dry_run boolean)$$)
+   ($$public.trade_dedupe_sweep(p_dry_run boolean)$$),
+   -- new in R1-P 002: the embargo predicate used by the anon RLS policy.
+   ($$public.signal_is_publicly_visible(_signal_id uuid)$$)
   ) AS v(sig) LOOP
     SELECT p.oid INTO v_oid FROM pg_proc p JOIN pg_namespace n ON n.oid = p.pronamespace
      WHERE format('%I.%I(%s)', n.nspname, p.proname,
@@ -221,7 +254,8 @@ BEGIN
                  (SELECT prosrc FROM pg_proc WHERE oid = v_oid) !~* 'execute\s+(format|''|quote)',
                  'prosrc scanned for EXECUTE format/literal');
   END LOOP;
-  PERFORM t.eq('T-P96c coverage: all 28 targets present on this clone', v_checked, 28);
+  PERFORM t.eq('T-P96c coverage: 28 ACL targets + signal_is_publicly_visible present on this clone',
+               v_checked, 29);
   PERFORM t.eq('T-P96c missing targets', v_missing, 0);
   -- object shadowing: no same-named function in a schema that could win the
   -- search_path race for any of the targets.

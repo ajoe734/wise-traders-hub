@@ -138,11 +138,10 @@ export function isPubliclyVisible(
 }
 
 /**
- * Re-exported projection constants. `UNKNOWN_PROJECTION` is the fail-closed
- * default (numbers hidden); `LEGACY_NO_PROJECTION` is the explicit pre-cutover
- * legacy read path and may only be passed by a caller that observed the
- * projection to be absent.
+ * Re-exported projection constants. Both are fail-closed: `UNKNOWN_PROJECTION`
+ * (not loaded / unknown) and `NO_PROJECTION` (projection absent pre-cutover)
+ * resolve to `incomplete`, hide every number and render the review notice.
  */
-export { UNKNOWN_PROJECTION, LEGACY_NO_PROJECTION } from './publicProjection';
+export { UNKNOWN_PROJECTION, NO_PROJECTION } from './publicProjection';
 
 export type { ProjectionStatus };

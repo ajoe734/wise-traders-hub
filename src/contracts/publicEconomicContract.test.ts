@@ -39,6 +39,8 @@ const NOT_READY = [
   'fx_incomplete',
   'warrant_incomplete',
   'option_combo_incomplete',
+  'no_projection',
+  'error',
 ] as const;
 
 const PERF = {
@@ -57,7 +59,7 @@ describe('publicProjection state resolution', () => {
     expect(STATES.fx_incomplete.state).toBe('incomplete');
     expect(STATES.warrant_incomplete.state).toBe('withheld');
     expect(STATES.option_combo_incomplete.state).toBe('incomplete');
-    expect(STATES.no_projection.state).toBe('no_projection');
+    expect(STATES.no_projection.state).toBe('incomplete');
     expect(STATES.error.state).toBe('error');
   });
 
@@ -91,8 +93,8 @@ describe('gatePerformance', () => {
     }
   });
 
-  it('legacy path only for an observed no_projection; an error fails closed', () => {
-    expect(gatePerformance(PERF, STATES.no_projection)!.total_return_pct).toBe(50);
+  it('an absent projection and an error both fail closed', () => {
+    expect(gatePerformance(PERF, STATES.no_projection)!.total_return_pct).toBeNull();
     // R1-P: a failed read must never surface legacy numbers.
     expect(gatePerformance(PERF, STATES.error)!.total_return_pct).toBeNull();
     expect(gatePerformance(null, STATES.ready)).toBeNull();
@@ -139,7 +141,7 @@ describe('export / factsheet gate', () => {
   });
   it('allows it for ready and pre-cutover legacy', () => {
     expect(canExportFactsheet(STATES.ready)).toBe(true);
-    expect(canExportFactsheet(STATES.no_projection)).toBe(true);
+    expect(canExportFactsheet(STATES.no_projection)).toBe(false);
   });
 });
 
