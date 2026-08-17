@@ -8,7 +8,7 @@
 set -Eeuo pipefail
 ROOT=$(cd "$(dirname "$0")/../../../.." && pwd); cd "$ROOT"
 NAME=${1:-B6}; PORT=${2:-55801}; OUT=${3:-/tmp/sb-$NAME}
-BK=db/r1/c/S0/backup; DIR=/tmp/sb$NAME
+BK=db/r1/c/S0/backup; DIR=/tmp/sb$NAME; HTTP_PORT=${HTTP_PORT:-$((PORT - 52000))}
 RUNID="$NAME-$(date -u +%Y%m%dT%H%M%SZ)-$$"
 START=$(date -u +%FT%T.%3NZ)
 mkdir -p "$OUT"; LOG="$OUT/$NAME.log"; : >"$LOG"
@@ -117,9 +117,7 @@ grep -q 'service_role_status=t' "$DIR/rolecheck.out"; chk $? "SB-04a service_rol
 grep -q 'anon_denied=1' "$DIR/rolecheck.out"; chk $? "SB-04b anon denied"
 grep -q 'auth_denied=1' "$DIR/rolecheck.out"; chk $? "SB-04c authenticated denied"
 grep -q 'private_denied=1' "$DIR/rolecheck.out"; chk $? "SB-04d private_bsr unreachable by service_role"
-PGREST=$(command -v postgrest || true)
-if [ -n "$PGREST" ]; then echo "  postgrest binary present: $PGREST (real HTTP proof runs separately)";
-else echo "  GAP SB-04e no postgrest binary in sandbox -> PostgREST HTTP proof emulated via SET ROLE (role+ACL identical path); real HTTP rpc proof deferred"; fi
+
 
 ############################################################ SQL verifier
 stage verify
@@ -134,6 +132,21 @@ VF=$(echo "$SUM" | sed -E 's/.*fail=([0-9]+).*/\1/')
 chk $([ "$VF" = 0 ] && echo 0 || echo 1) "SB-05 sql verifier fail=0" "$SUM"
 VP=$(echo "$SUM" | sed -E 's/.*pass=([0-9]+).*/\1/')
 chk $([ "$VP" -ge 30 ] && echo 0 || echo 1) "SB-06 verifier coverage >=30 checks (got $VP)"
+
+############################################################ real HTTP proof
+stage http_proof
+PGREST=$(command -v postgrest || true)
+[ -n "$PGREST" ] || PGREST=$(ls -d /nix/store/*postgrest*-bin/bin/postgrest 2>/dev/null | head -1 || true)
+if [ -n "$PGREST" ]; then
+  set +e
+  PGRST_BIN="$PGREST" db/r1/c/SB/sb_postgrest_proof.sh "$CL" "$HTTP_PORT" "$DIR/http" >"$DIR/http_proof.log" 2>&1
+  HRC=$?
+  set -e
+  grep -E '^(PASS|FAIL|HTTP SUMMARY|JS SUMMARY)' "$DIR/http_proof.log" || tail -20 "$DIR/http_proof.log"
+  chk $HRC "SB-04e real PostgREST HTTP + supabase-js proof (service_role 200, anon/authenticated 42501, private_bsr unreachable)"
+else
+  chk 1 "SB-04e postgrest binary unavailable - real HTTP proof NOT executed (GAP, not pass)"
+fi
 
 ############################################################ two-session barrier
 stage barrier

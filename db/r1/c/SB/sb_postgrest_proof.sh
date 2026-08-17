@@ -12,6 +12,7 @@
 set -Eeuo pipefail
 CL=$1; HP=${2:-3999}; OUT=${3:-/tmp/sb-pgrst}
 mkdir -p "$OUT"
+ROOTDIR=$(cd "$(dirname "$0")/../../../.." && pwd)
 SECRET='clone-only-rehearsal-jwt-secret-0123456789abcdef'
 PGRST_BIN=${PGRST_BIN:-}
 if [ -z "$PGRST_BIN" ]; then PGRST_BIN=$(command -v postgrest || true); fi
@@ -38,6 +39,14 @@ for i in $(seq 1 60); do
   curl -sf -o /dev/null "http://127.0.0.1:$HP/" && break; sleep 0.5
 done
 curl -sf -o /dev/null "http://127.0.0.1:$HP/" || { tail -20 "$OUT/pgrst.log"; echo "PGRST_NOT_READY"; exit 4; }
+
+JSRC=0
+if command -v bun >/dev/null 2>&1; then
+  ( cd "$ROOTDIR" && bun db/r1/c/SB/sb_supabase_js_proof.mjs "$HP" "$SECRET" ) >"$OUT/js_proof.txt" 2>&1 || JSRC=1
+  cat "$OUT/js_proof.txt"
+else
+  echo "FAIL JS-00 bun missing" >"$OUT/js_proof.txt"; JSRC=1
+fi
 
 python3 - "$HP" "$SECRET" "$OUT" <<'PY'
 import base64, hashlib, hmac, json, sys, urllib.request, urllib.error
@@ -91,3 +100,5 @@ print(open(out+'/http_proof.txt').read())
 print(f"HTTP SUMMARY pass={len(rows)-fails} fail={fails}")
 sys.exit(1 if fails else 0)
 PY
+HRC=$?
+exit $(( HRC != 0 || JSRC != 0 ))
