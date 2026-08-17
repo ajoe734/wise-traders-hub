@@ -241,30 +241,74 @@ chk $([ "$BC" != 'null' ] && echo 0 || echo 1) "EB-44 per-chunk blocked accounti
 
 ############################################################ D. admin probe auth matrix
 stage admin_auth
-mkjwt(){ python3 - "$SECRET" "$1" "$2" <<'PY'
+# Identities are created through the REAL GoTrue admin API and the tokens are
+# REAL password-grant JWTs. Nothing here is minted by the harness except the
+# deliberately invalid ones (expired / wrong-signature / not-a-jwt).
+AU="http://127.0.0.1:$AUTH_PORT"
+mkuser(){ # <email> <password> -> uuid
+  curl -s -m 15 -X POST "$AU/admin/users" -H "Authorization: Bearer $SRK" \
+       -H 'Content-Type: application/json' \
+       -d "{\"email\":\"$1\",\"password\":\"$2\",\"email_confirm\":true}" \
+  | python3 -c "import json,sys;print(json.load(sys.stdin).get('id',''))"
+}
+mktoken(){ # <email> <password> -> access_token
+  curl -s -m 15 -X POST "$AU/token?grant_type=password" -H 'Content-Type: application/json' \
+       -d "{\"email\":\"$1\",\"password\":\"$2\"}" \
+  | python3 -c "import json,sys;print(json.load(sys.stdin).get('access_token',''))"
+}
+badjwt(){ # <kind> -> token  (expired | forged)
+  python3 - "$SECRET" "$1" <<'PY2'
 import base64,hashlib,hmac,json,sys,time
 b=lambda x: base64.urlsafe_b64encode(x).rstrip(b'=')
+kind=sys.argv[2]
+secret=sys.argv[1] if kind!='forged' else 'attacker-controlled-secret'
+exp=int(time.time())-60 if kind=='expired' else 4102444800
 h=b(json.dumps({"alg":"HS256","typ":"JWT"},separators=(',',':')).encode())
-p=b(json.dumps({"role":sys.argv[2],"sub":sys.argv[3],"exp":4102444800,"iat":int(time.time()),
-                "aud":"authenticated","email":"probe@example.test"},separators=(',',':')).encode())
-s=b(hmac.new(sys.argv[1].encode(),h+b'.'+p,hashlib.sha256).digest())
+p=b(json.dumps({"role":"authenticated","sub":"00000000-0000-4000-8000-000000000001",
+                "aud":"authenticated","exp":exp,"iat":int(time.time())-120,
+                "email":"forged@example.test"},separators=(',',':')).encode())
+s=b(hmac.new(secret.encode(),h+b'.'+p,hashlib.sha256).digest())
 print((h+b'.'+p+b'.'+s).decode())
-PY
+PY2
 }
-ADMIN_UID=$(psql "$CL" -qXAt -c "SELECT user_id::text FROM public.user_roles WHERE role='company_admin' LIMIT 1")
-PLAIN_UID=$(psql "$CL" -qXAt -c "SELECT u.id::text FROM auth.users u LEFT JOIN public.user_roles r ON r.user_id=u.id AND r.role='company_admin' WHERE r.user_id IS NULL LIMIT 1")
-[ -n "$ADMIN_UID" ] || fatal "baseline has no company_admin to test with"
-[ -n "$PLAIN_UID" ] || fatal "baseline has no non-admin user to test with"
+
+ADMIN_UID=$(mkuser admin@clone.test 'Clone-Rehearsal-1')
+PLAIN_UID=$(mkuser plain@clone.test 'Clone-Rehearsal-2')
+[ -n "$ADMIN_UID" ] || { tail -5 "$DIR/gotrue.log"; fatal "AUTH GAP: GoTrue could not create the admin identity"; }
+[ -n "$PLAIN_UID" ] || fatal "AUTH GAP: GoTrue could not create the non-admin identity"
+psql "$CL" -qX -c "INSERT INTO public.user_roles(user_id, role) VALUES ('$ADMIN_UID','company_admin') ON CONFLICT DO NOTHING" >/dev/null
+chk $([ "$(psql "$CL" -qXAt -c "SELECT public.has_role('$ADMIN_UID','company_admin')")" = t ] && echo 0 || echo 1) "EB-48 clone fixture identity holds company_admin via has_role()"
+chk $([ "$(psql "$CL" -qXAt -c "SELECT public.has_role('$PLAIN_UID','company_admin')")" = f ] && echo 0 || echo 1) "EB-49 non-admin identity does NOT hold company_admin"
+
+ADMTOK=$(mktoken admin@clone.test 'Clone-Rehearsal-1')
+PLNTOK=$(mktoken plain@clone.test 'Clone-Rehearsal-2')
+[ -n "$ADMTOK" ] || { tail -5 "$DIR/gotrue.log"; fatal "AUTH GAP: real password grant returned no access_token"; }
+[ -n "$PLNTOK" ] || fatal "AUTH GAP: non-admin password grant returned no access_token"
+ADMJWT="Authorization: Bearer $ADMTOK"
+chk 0 "EB-49b real GoTrue password grant issued both access tokens"
 
 C=$(post "$A" "$DIR/a_noauth.json" '{"action":"status"}')
-chk $([ "$C" != 200 ] && echo 0 || echo 1) "EB-50 admin probe rejects missing JWT (got $C)"
+chk $([ "$C" = 401 ] && echo 0 || echo 1) "EB-50 admin probe rejects missing JWT (got $C)"
 C=$(post "$A" "$DIR/a_bad.json" '{"action":"status"}' "Authorization: Bearer not.a.jwt")
-chk $([ "$C" != 200 ] && echo 0 || echo 1) "EB-51 admin probe rejects malformed JWT (got $C)"
-C=$(post "$A" "$DIR/a_plain.json" '{"action":"probe"}' "Authorization: Bearer $(mkjwt authenticated "$PLAIN_UID")")
-chk $([ "$C" != 200 ] && echo 0 || echo 1) "EB-52 non-admin user forbidden from probe (got $C)"
+chk $([ "$C" = 401 ] && echo 0 || echo 1) "EB-51 admin probe rejects malformed JWT (got $C)"
+C=$(post "$A" "$DIR/a_exp.json" '{"action":"probe"}' "Authorization: Bearer $(badjwt expired)")
+chk $([ "$C" = 401 ] && echo 0 || echo 1) "EB-51b real getUser rejects an expired JWT (got $C)"
+C=$(post "$A" "$DIR/a_forged.json" '{"action":"probe"}' "Authorization: Bearer $(badjwt forged)")
+chk $([ "$C" = 401 ] && echo 0 || echo 1) "EB-51c real getUser rejects a wrong-signature JWT (got $C)"
+C=$(post "$A" "$DIR/a_plain.json" '{"action":"probe"}' "Authorization: Bearer $PLNTOK")
+chk $([ "$C" = 403 ] && echo 0 || echo 1) "EB-52 real non-admin user forbidden from probe (got $C)"
 chk $([ "$(gateblocked)" = 'true' ] && echo 0 || echo 1) "EB-53 gate still closed after unauthorized attempts"
 C=$(post "$A" "$DIR/a_anon.json" '{"action":"probe"}' "Authorization: Bearer $SRK")
 chk $([ "$C" != 200 ] && echo 0 || echo 1) "EB-54 raw service_role JWT (no real user) cannot probe (got $C)"
+C=$(post "$A" "$DIR/a_status.json" '{"action":"status"}' "$ADMJWT")
+chk $([ "$C" = 200 ] && echo 0 || echo 1) "EB-55 admin status readable by a real company_admin (got $C)"
+chk $([ "$(jqf "$DIR/a_status.json" admission.blocked)" = 'true' ] && echo 0 || echo 1) "EB-56 admin status reflects the closed gate"
+# caller-supplied "success" must never be trusted: only a server-side probe unblocks
+C=$(post "$A" "$DIR/a_selfclaim.json" '{"action":"unblock","probe_ok":true,"result":{"ok":true},"unblocked":true}' "$ADMJWT")
+chk $([ "$(gateblocked)" = 'true' ] && echo 0 || echo 1) "EB-57 caller-forged success payload cannot unblock (http=$C)"
+# SSRF: caller-supplied provider endpoints must be ignored
+C=$(post "$A" "$DIR/a_ssrf.json" '{"action":"probe","base_url":"http://169.254.169.254/latest/meta-data","url":"http://169.254.169.254/","stock_id":"2330"}' "$ADMJWT")
+if grep -q '169.254.169.254' "$DIR/provider.jsonl" 2>/dev/null; then chk 1 "EB-58 probe ignores caller-supplied SSRF target"; else chk 0 "EB-58 probe ignores caller-supplied SSRF target (http=$C)"; fi
 
 ############################################################ E. admin probe: provider still failing → NO unblock
 stage probe_negative
