@@ -1172,7 +1172,11 @@ Deno.serve(async (req) => {
       if (ids.length === 0) return json({ ok: false, error: 'stock_ids required (chip-eligible only)' }, 400);
       const priority = Math.max(1, Math.min(3, Number(body?.priority ?? 1)));
       const cid = crypto.randomUUID();
-      const enqueued = await enqueueBatch(ids, date, priority, 'manual', cid);
+      const manualCtx: EnqueueCtx = {
+        admission: await fetchAdmissionStatus(supa as unknown as GateRpcClient),
+        chunks: [],
+      };
+      const enqueued = await enqueueBatch(ids, date, priority, 'manual', cid, false, manualCtx);
       const { data: jobs } = await supa.from('tw_bsr_sync_queue')
         .select('stock_id, correlation_id, priority, status, attempts, next_run_at, last_error, last_success_at')
         .in('stock_id', ids).eq('trade_date', date);
@@ -1180,6 +1184,13 @@ Deno.serve(async (req) => {
       return json({
         ok: true, mode, date, requested: ids.length, enqueued,
         rate_limit: rl, jobs: jobs ?? [], correlation_id: cid,
+        admission: {
+          decision: manualCtx.admission.decision,
+          blocked: manualCtx.admission.blocked,
+          reason: manualCtx.admission.reason ?? manualCtx.admission.detail,
+          gate_version: manualCtx.admission.version,
+        },
+        admission_accounting: summarizeChunks(manualCtx.chunks),
         note: 'manual sync 已入隊；查 GET stats 或 trace mode + correlation_id 追蹤',
       });
     }
