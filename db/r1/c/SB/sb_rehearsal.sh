@@ -113,6 +113,18 @@ stage apply
 psql "$CL" -qX -v ON_ERROR_STOP=1 -f db/r1/c/SB/001_stage_b.sql >"$DIR/apply1.log" 2>&1 || { tail -20 "$DIR/apply1.log"; fatal "001_stage_b apply"; }
 psql "$CL" -qX -v ON_ERROR_STOP=1 -f db/r1/c/SB/002_recover_gate_aware.sql >"$DIR/apply2.log" 2>&1 || { tail -20 "$DIR/apply2.log"; fatal "002 apply"; }
 chk 0 "SB-03 migrations applied with ON_ERROR_STOP"
+# --- post-apply: metadata/comment must be 100% invariant, body may differ ----
+psql "$CL" -qXAt -f db/r1/c/SB/sb_fingerprint.sql | sort >"$DIR/fp_apply.txt"
+grep -E '^replmeta\|' "$DIR/fp_apply.txt" >"$DIR/repl_meta_apply.txt"
+grep -E '^replbody\|' "$DIR/fp_apply.txt" >"$DIR/repl_body_apply.txt"
+diff -u "$DIR/repl_meta_before.txt" "$DIR/repl_meta_apply.txt" >"$DIR/repl_meta_apply.diff" || true
+[ ! -s "$DIR/repl_meta_apply.diff" ]; chk $? "SB-03a post-apply replaced-function metadata+comment 100% identical (owner/acl/proconfig/provolatile/prosecdef/leakproof/strict/lang/identity-args/comment)" "$(head -12 "$DIR/repl_meta_apply.diff")"
+diff -u "$DIR/repl_body_before.txt" "$DIR/repl_body_apply.txt" >"$DIR/repl_body_apply.diff" || true
+BODYCH=$(grep -cE '^\+replbody\|' "$DIR/repl_body_apply.diff" || true)
+chk $([ "$BODYCH" = 2 ] && echo 0 || echo 1) "SB-03b post-apply exactly 2 function bodies changed (recover_quota_failed/recover_stale), got $BODYCH"
+grep -E '^\+replbody' "$DIR/repl_body_apply.diff" | grep -q 'reap_stale_bsr_queue_jobs' && REAPCH=1 || REAPCH=0
+chk $REAPCH "SB-03c reap_stale_bsr_queue_jobs body untouched by apply"
+
 psql "$CL" -qXAt -c "SELECT p.oid::regprocedure||'|secdef='||p.prosecdef::text||'|vol='||p.provolatile::text||'|cfg='||coalesce(array_to_string(p.proconfig,','),'-')||'|owner='||pg_get_userbyid(p.proowner)||'|acl='||coalesce(p.proacl::text,'-')
   FROM pg_proc p JOIN pg_namespace n ON n.oid=p.pronamespace
  WHERE (n.nspname='private_bsr') OR (n.nspname='public' AND p.proname IN
