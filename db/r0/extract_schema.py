@@ -4,7 +4,7 @@ No pg_dump, no data. Emits db/r0/clone/schema.sql"""
 import subprocess, os
 
 TABLES = ['experts','expert_plans','expert_signals','expert_signal_legs','trade_records',
-          'signal_trade_applications','user_performances','holdings_fix_proposals','current_prices','profiles','user_roles','member_subscriptions']
+          'signal_trade_applications','user_performances','holdings_fix_proposals','current_prices','payment_providers','profiles','user_roles','member_subscriptions']
 FUNCS = ['handle_signal_trade','save_signal_batch','admin_apply_fix_proposal',
  'admin_delete_trade_records_by_signal_ids','admin_delete_trade_records_by_symbol',
  'admin_signal_dupe_trades_fix','admin_trade_dedupe_sweep','realign_instrument_unit',
@@ -16,7 +16,8 @@ FUNCS = ['handle_signal_trade','save_signal_batch','admin_apply_fix_proposal',
  'has_active_subscription','has_active_subscription_after','is_tester','is_subscribed_to_plan',
  'sync_expert_slug_to_profile','sync_expert_currency_with_asset_class','enforce_expert_currency_lock',
  'enforce_expert_asset_class_lock','protect_backtest_fields','set_plan_initial_review_status',
- 'enforce_plan_review_workflow','get_effective_user_id','recalc_user_summary','handle_new_user']
+ 'enforce_plan_review_workflow','get_effective_user_id','recalc_user_summary','handle_new_user','signal_in_subscription_window',
+ 'protect_subscription_fields','protect_profile_fields']
 
 def q(sql):
     r = subprocess.run(['psql','-tAqX','-c',sql],capture_output=True,text=True)
