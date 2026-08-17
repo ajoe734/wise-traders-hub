@@ -166,6 +166,10 @@ END;
 $function$
 
 
+
+
+;
+
 -- ---------------------------------------------------------------------
 -- POST-CUTOVER REPOINT (R1-P T-P99a). 002 C3c replaces
 -- has_active_subscription_after() with an identity-bound wrapper that raises
@@ -189,8 +193,6 @@ BEGIN
   EXECUTE def;
 END $repoint_harness$;
 
-
-;
 -- ---------------------------------------------------------------------
 -- T-P99c closure. Root cause: CREATE FUNCTION grants EXECUTE to PUBLIC by
 -- default, so `anon` inherited EXECUTE on a SECURITY DEFINER harness owned
