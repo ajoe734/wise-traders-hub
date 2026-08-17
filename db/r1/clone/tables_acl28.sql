@@ -3,6 +3,12 @@
 SET client_min_messages=warning;
 SET check_function_bodies=off;
 
+
+-- SEQUENCES (identity/serial defaults referenced by the tables below)
+CREATE SEQUENCE IF NOT EXISTS public.backfill_job_queue_id_seq;
+CREATE SEQUENCE IF NOT EXISTS public.tw_chip_fact_id_seq;
+CREATE SEQUENCE IF NOT EXISTS public.tw_institutional_daily_id_seq;
+
 -- TABLES
 CREATE TABLE IF NOT EXISTS public.backfill_job_queue (
   id bigint DEFAULT nextval('backfill_job_queue_id_seq'::regclass) NOT NULL,
