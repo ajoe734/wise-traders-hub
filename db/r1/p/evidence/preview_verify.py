@@ -49,6 +49,10 @@ INCOMPLETE_FAMILY = {
     "incomplete_option_combo",
     "no_projection",
     "api_error",
+    # ?debug=1 against a no_projection scope: it belongs to the withheld family,
+    # so it is held to exactly the same fail-closed bar as the scope without
+    # the flag. A leak here would mean the debug flag is a state backdoor.
+    "debug-flag-negative",
 }
 REVIEW_BADGE = "資料檢核中"
 REVIEW_NOTE = "該區間不納入績效"

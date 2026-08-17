@@ -1,0 +1,18 @@
+{
+  "case": "debug-flag-negative",
+  "url": "/app/expert/r1p-preview?debug=1",
+  "projection": "no_projection",
+  "viewport": "1280x900",
+  "theme": "light",
+  "screenshot": "db/r1/p/evidence/preview/debug-flag-negative.png",
+  "noticeCount": 1,
+  "placeholderCount": 3,
+  "bodyChars": 327,
+  "consoleErrors": [],
+  "environmentErrors": [],
+  "injectedTransportErrors": [],
+  "failedResponses": [
+    "404 https://yqacmrgdjlenbijclngi.supabase.co/rest/v1/public_expert_state_active?select=state%2Cwithheld_count%2Cincomplete_count%2Cmanual_review_count&expert_id=eq.expert-r1p"
+  ],
+  "pageErrors": []
+}
