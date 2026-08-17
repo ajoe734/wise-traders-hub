@@ -82,5 +82,28 @@ DO $$ BEGIN
 EXCEPTION WHEN duplicate_object THEN NULL; END $$;
 ALTER ROLE gotrue_admin SET search_path = auth, public;
 
+-- --------------------------------------------------- FinMind quota pools
+-- EF-04: the baseline bundle carries no row data, so public.finmind_quota_pools
+-- is empty on a fresh clone. finmind_admit_v2() then returns
+-- {granted:false, reason:'pool_not_found'} and the worker defers every claimed
+-- job as `quota_deferred` BEFORE it ever reaches the provider — which is exactly
+-- why B12 saw gate=open, claimed=1 and 0 provider calls (EB-13).
+-- Production DOES carry interactive/keepwarm/backfill (read-only SELECT at
+-- 2026-08-17). This is clone-only parity data with NO real tokens/credentials
+-- and it must NEVER enter a Stage B production migration.
+INSERT INTO public.finmind_quota_pools
+  (pool_name, daily_budget, used_today, reset_at, priority,
+   capacity, tokens, refill_per_min, borrow_enabled, manual_override, base_daily_budget)
+VALUES
+  ('interactive', 240, 0, (now() AT TIME ZONE 'Asia/Taipei')::date, 1, 240, 240, 1, true, false, 240),
+  ('keepwarm',    960, 0, (now() AT TIME ZONE 'Asia/Taipei')::date, 5, 240, 240, 1, true, false, 480),
+  ('backfill',    384, 0, (now() AT TIME ZONE 'Asia/Taipei')::date, 9, 240, 240, 1, true, false, 600)
+ON CONFLICT (pool_name) DO UPDATE
+   SET used_today = 0,
+       tokens = EXCLUDED.tokens,
+       reset_at = EXCLUDED.reset_at,
+       manual_override = false,
+       borrow_enabled = true;
+
 COMMIT;
 
