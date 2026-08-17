@@ -42,6 +42,32 @@ Routing 與 callers（已盤點）：
 
 切換方式：只改「呼叫目標字串」——cron 的 function name、前端 repository 的 endpoint 常數。rollback = 把字串切回舊值；舊函式永遠保留、永不刪除、永不覆寫。
 
+## 2.5 H0 觀測：不新增 sidecar table，先用既有 log ＋唯讀 VIEW
+
+既有四張 log 的實際 schema／索引／現況（本輪唯讀查得）：
+
+| 表 | 欄位 | 時間欄 | 相關索引 | 現況 |
+|---|---|---|---|---|
+| `cron.job_run_details` | pg_cron 內建（jobid, runid, status, return_message, start_time, end_time） | `start_time` | pg_cron 內建 | 有資料；近 24h 48 runs 全 `succeeded` |
+| `public.cron_dispatch_log` | `id, jobname, request_id, dispatched_at` | `dispatched_at` | `idx_cdl_job_time(jobname, dispatched_at DESC)`、`idx_cdl_request(request_id)` | **0 列**（`cron_edge_call` 未寫入） |
+| `public.edge_boot_events` | `id, fn, boot_at, region, deployment_id` | `boot_at` | `(fn, boot_at DESC)`、`(boot_at DESC)` | 452,163 列 / 110 MB，2026-06-08 起無 cleanup |
+| `public.tw_bsr_attempt_logs` | 24 欄，已含 `correlation_id, run 相關 http_status, error_class, outcome, latency_ms, attempt_step, config_version` | `attempted_at` | 10 個索引，含 `cid_idx(correlation_id)` | **0 列**（worker 從未寫入） |
+| （輔助）`public.function_run_logs` | `fn, run_id, level, stage, msg, payload` | `created_at` | — | 11,792 列，可提供 `run_id` 對應 |
+
+**共同 correlation 欄位**：`tw_bsr_attempt_logs.correlation_id`（uuid）、`tw_bsr_fetch_failures.correlation_id`、`tw_bsr_sync_queue.correlation_id` 已一致；缺的是把同一個 `correlation_id` 帶到 `cron_dispatch_log`（目前只有 `request_id`）與 `edge_boot_events`（目前只有 `deployment_id`）。
+
+結論：**不新增 `bsr_run_trace` table**。
+- `tw_bsr_attempt_logs` 欄位已足夠涵蓋 attempt 級事件（不需擴充欄位，只需 v2 worker 真的寫入）。之所以不改用「擴充 attempt_logs」承載 cron/boot 級事件，是因為它的粒度是 (stock_id, trade_date, attempt)，塞入 run 級事件會讓 PK 語意破裂並汙染既有 10 個索引。
+- cron 級與 boot 級各自有既有表，只缺兩個既有欄位的寫入：`cron_dispatch_log` 增寫 `correlation_id`、`edge_boot_events` 增寫 `correlation_id`（**這兩個是既有表的 additive column，不是新表**；若因故不可加欄，退而以 `cron_dispatch_log.request_id` ↔ `pg_net` response 對應，仍不需新表）。
+- 串接以唯讀 `public.freshness_run_trace` VIEW 完成：`cron.job_run_details` ⋈ `cron_dispatch_log`（jobname+時間窗）⋈ `edge_boot_events`（fn+時間窗/correlation）⋈ `tw_bsr_attempt_logs`（correlation_id）⋈ `bsr_coverage_daily`（trade_date）。VIEW 只給 company_admin，anon/authenticated 不授權。
+- **只有**在 clone 上證明某事件（例如 worker 因 OOM 未 boot 也未寫任何 log）四張表皆無法承載時，才提 sidecar table，並附「為何不能擴充 attempt_logs」的具體理由。
+
+Retention / cleanup（H0 驗收必含，避免無限增長）：
+- `edge_boot_events` 目前無 cleanup、110 MB 且持續成長 → 新增 `cleanup_old_edge_boot_events(30 days)`，比照既有 `cleanup_old_*` 家族由既有 cleanup cron 呼叫。
+- `tw_bsr_attempt_logs` 開始寫入後估算：每小時 ≤ 60 attempts × 24 × 30 ≈ 43k 列/月 → 保留 60 天，新增 `cleanup_old_bsr_attempt_logs(60 days)`。
+- `cron_dispatch_log` 保留 30 天。
+- 驗收條件：cleanup 函式存在、被排程呼叫、且在 clone 上以合成資料驗證刪除筆數正確；三張 log 表各有明確保留期與大小上限估算。
+
 ## 3. C — demand registry 濫用防護（順序改為：先 master，後 registry）
 
 client **不直接**碰 RPC 或 table。唯一入口是 Edge `symbol-demand-register`：
