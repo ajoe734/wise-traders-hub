@@ -1,108 +1,156 @@
-# Plan v5 — Holdings freshness (H0–H6)。S1-min 判定：production NO-GO
+# Plan v6 — Holdings freshness。分階段獨立核准，本輪只做 isolated clone/harness
 
-## 0. Critical-path 結論（先回答）
+## 0. 核准邊界（修正 v5 §7 的矛盾）
 
-**S1-min 不是 freshness 修復的前置，production 保持 NO-GO。**
+**本次 Approve 僅授權：在 disposable production-shape clone 與 local/Preview harness 上產出 artifacts。**
+不含任何 production DDL/DML/GRANT/Edge deploy/cron 變更/Publish。
 
-依賴掃描（唯讀，本輪執行）：
-```
-rg -l "app_ledger|public_projection_version|public_projection_withheld|replay_manifest_key" src supabase e2e
-→ 0 個檔案
-```
-- 沒有任何 freshness table / RPC / Edge Function / cron / 前端 import 參照 S1-min 的任何 object。
-- S1-min 只新增 `app_ledger.*` 與兩張 public projection 表，服務的是 performance projection（相依 `trade_records` / `expert_signals`），與籌碼新鮮度鏈完全不相交。
-- 因此：**clone artifacts 僅作為未來獨立 migration 的證據保存**，不把不相關 schema 推上 production。S1/S2 是否上線，日後由 performance projection 自己的需求決定，不搭 freshness 便車。
+每個 stage 上 production 前，必須各自走：**stage preflight（唯讀證據）→ 單獨核准 → 執行 → stage verifier → 明確 stop point**。任一 stage 未核准，後續 stage 不得開始。
 
-Freshness 鏈的真實 object 清單（與 S1-min 無交集）：
-`tw_bsr_sync_queue`、`tw_bsr_daily`、`tw_chip_fact`、`tw_chips_rollup`、`bsr_coverage_daily`、`tw_bsr_fetch_failures`、`tw_bsr_attempt_logs`、`chips_prefetch_targets`、`system_kill_switches`；RPC `enqueue_chips_prefetch_gaps` / `claim_bsr_queue_jobs` / `rebuild_bsr_rollup` / `get_bsr_daily_series` / `tw_bsr_eligibility`；Edge `tw-chips-detail` / `tw-bsr-finmind-sync` / `chips-guardian` / `tw-chips-orchestrator`；cron 106 / 107。
-
-## 1. 現行 call chain 與斷點（唯讀證據）
-
-### 1.1 抽屜開啟 → 讀取
-```text
-ChipsSection.tsx
-  → useTwChipsDetail (react-query)
-    → chipsRepository.fetchChipsPayload / fetchChipsStamp / fetchChipsBatch
-      → gateway requestText  GET /tw-chips-detail?stock_id=XXXX
-        → supabase/functions/tw-chips-detail/index.ts
-            L136 rpc rebuild_bsr_rollup   ← **抽屜開啟時的寫入**（rollup 物化）
-            L172 rpc get_bsr_daily_series ← 讀
-            L205 rpc tw_bsr_eligibility   ← 讀
-```
-- `ChipsSection.tsx:192` 已註明 P3 拿掉 `ensure_bsr_window` / `ensure_bsr_queued`，**抽屜不再 enqueue**。
-- 但 `rebuild_bsr_rollup` 仍是抽屜觸發的寫入 → 這是 H5 要移除的最後一個 drawer write。
-
-### 1.2 hourly cron
-```text
-cron 106 chips-prefetch-enqueue-hourly  "2 * * * *"
-  → SELECT public.enqueue_chips_prefetch_gaps(10, 300)
-  → 來源只有 chips_prefetch_targets（20 列，全部 source='demo_seed'）
-
-cron 107 tw-bsr-worker-hourly           "7 * * * *"
-  → public.cron_edge_call('tw-bsr-finmind-sync', {"mode":"worker",...})
-  → claim_bsr_queue_jobs → FinMind fetch → 寫 tw_bsr_daily / coverage
-```
-斷點（量化）：
-1. **FinMind 授權層級**：近 7 天 `tw_bsr_fetch_failures` 517 筆，全部 `reason=finmind_error`，`last_error=finmind_http_400:{"msg":"Your level is register. Please update your user level..."}`，最後一筆 2026-08-17 07:21。這是 400 而非 429 → 退避重試永遠救不回來。
-2. **觀測斷鏈**：`tw_bsr_attempt_logs` 全表 0 列（歷史從未寫入）。cron 106/107 近 24h 共 48 次 `succeeded`，但那只代表 SQL dispatch 成功，串不到 worker boot / claim / attempt / write。
-3. **開關**：`chips_backfill=false`（其餘 `chips_all` / `chips_interactive` / `chips_keepwarm` 皆 true）。
-4. **需求宇宙空洞**：enqueue tier1/tier3 只從 `trade_records.instrument`（開倉 21 筆 / 21 檔）＋ demo 20 檔取樣本；`stock_names` 僅 74 列，**沒有全市場 master**。
-5. queue 現況：done 9,956 / failed 1,573 / pending 76；`tw_bsr_daily` 近 14 天 1,237,849 列、1,368 檔、最新 `trade_date=2026-08-14`、當日 40,055 列 → 資料鏈「部分活著」，缺的是需求覆蓋與可追溯性，不是整條死掉。
-
-## 2. 持股來源分離（不可混為一談）
-
-| 來源 | 現況（唯讀查得） | 是否進 enqueue |
+| Stage | production mutation（未來、需單獨核准） | rollback |
 |---|---|---|
-| `trade_records`（專家持倉） | open 21 筆 / 21 檔 | 是（tier1/tier3） |
-| `checkup_storage: pf-holdings-v2` | **38 列 / 38 使用者**；全 storage keys 共 39 使用者 → 「38/39」矛盾解消：第 39 位有其他 key、沒有 holdings | 否 |
-| browser localStorage-only 使用者 | DB 完全沒有痕跡，數量不可知 | 否 |
-| `chips_prefetch_targets` | 20 列，全 `source='demo_seed'` | 是（cron 106） |
-| 全市場 TW master | 不存在（`stock_names` 74 列） | 無 |
+| H-1 provider probe | 無（唯讀／外部 probe） | 無 |
+| H0 觀測 | 新 Edge `tw-bsr-finmind-sync-v2`（**新建，不覆寫**）＋新表 `bsr_run_trace`；cron 107 target 切到 v2 | cron target 切回舊函式；v2 保留不刪；drop 新表 |
+| H1 market master | 新表 `tw_market_symbols`＋新 Edge `tw-market-master-sync`＋新 cron | 停 cron、drop 表；不影響 `stock_names` |
+| H2 demand registry | 新表 `symbol_demand_registry`＋`SECURITY DEFINER` RPC（只給 service_role）＋新 Edge `symbol-demand-register` | drop Edge/RPC/表 |
+| H3 enqueue/worker | `CREATE OR REPLACE` 兩個**自有 SQL 函式**（`enqueue_chips_prefetch_gaps`、`claim_bsr_queue_jobs`；先存前版定義）＋ v2 worker 內邏輯 | 以前版定義 replace 回去；cron 切回舊函式 |
+| H4 provider 切換／weekend policy | 新 Edge `tw-market-daily-ingest`＋policy flag（`system_kill_switches` 新增列，**不改既有列**） | flag 關閉；停新 cron |
+| H5 drawer 純讀 | 新 Edge `tw-chips-detail-v2`；前端 endpoint 切換 | 前端切回 `tw-chips-detail`；舊函式原封不動 |
+| H6 前端 UI/E2E | 僅前端程式 | revert |
 
-### Privacy-safe demand registry 規格
-新表 `public.symbol_demand_registry`：`market`、`symbol`、`first_requested_at`、`last_requested_at`、`request_count`、`source_class`（`holding|drawer|batch|demo`）、`updated_at`。
-- **不存** `user_id`、`quantity`、`cost`、任何可還原個人持倉的欄位；主鍵 `(market, symbol)` → 同一 symbol 天然去重，1 位或 1 萬位使用者持有都只有一列。
-- 寫入只允許 `SECURITY DEFINER` RPC `register_symbol_demand(p_market, p_symbol)`，僅遞增計數與時間戳（no-op upsert），對 anon/authenticated 只授 EXECUTE，不授表權限；表本身 RLS 拒讀（僅 service_role / company_admin 可讀）。
-- localStorage-only 使用者：在前端載入持股清單時呼叫該 RPC 註冊 symbol（不送任何數量成本），因此不必登入也能被背景回補涵蓋。
+## 1. 為什麼不含 S1-min（維持 v5 結論）
 
-## 3. Staged plan H0–H6（彼此獨立、各自 rollback；全程不動 `trade_records` / `expert_signals` / public performance / 既有 ACL）
+`rg -l "app_ledger|public_projection_version|public_projection_withheld|replay_manifest_key" src supabase e2e` → **0 檔**。freshness 鏈沒有任何 object 依賴 S1-min。S1-min 維持 clone-only PASS、production **NO-GO**，artifacts 僅留作未來獨立 migration 證據。
 
-- **H0 觀測先行（唯讀 + 新表）**：把 attempt log 寫入補回（worker 每次 claim/attempt/write 落一列，含 `correlation_id`、`run_id`、`http_status`），新增 `freshness_run_trace` view。Rollback：drop view + 關掉寫入 flag。
-- **H1 demand registry**：新增 `symbol_demand_registry` + `register_symbol_demand` RPC + grants。純新增。Rollback：drop 表與函式。
-- **H2 TW market master**：新增 `tw_market_symbols`（上市/上櫃全代號 + 類型），由每日 master sync 維護；不覆寫 `stock_names`。Rollback：drop 表 + 停 cron。
-- **H3 enqueue / worker 改造**：enqueue 來源改為 `trade_records ∪ demand_registry ∪ demo_seed`（fast lane）與 `tw_market_symbols`（slow sweep），加 claim lease / idempotency / fairness。Rollback：還原 enqueue 函式定義（單一函式 replace，有前版備份）。
-- **H4 FinMind 400 與 weekend policy**：授權層級修復（sponsor token 或改走全市場 storage_objects 路徑）；circuit 分類為 `auth_permanent` 時停止重試並告警而非燒配額；週末只補 backlog 與備份，**禁止產生新的 trade_date**。Rollback：關閉新 policy flag。
-- **H5 移除 drawer write**：把 `tw-chips-detail` 的 `rebuild_bsr_rollup` 改為背景維護（cron/worker 觸發），Edge 端變成純讀。Rollback：還原該 Edge 版本。
-- **H6 前端 freshness UI + E2E**：抽屜顯示真實 `as_of` / `state`（fresh / stale / pending / unavailable），並以 E2E 驗證開抽屜前後 queue/attempt 增量為 0。Rollback：前端 revert。
+## 2. B — side-by-side versioned functions（禁止覆寫未知 bundle）
 
-## 4. 量化目標（SLO 與參數）
+現有 prod Edge bundle hash 不可取得 → **一律新建版本化函式，不 `CREATE OR REPLACE`／不 overwrite**。
 
-| 資料型別 | 目標新鮮度 | 覆蓋率 |
+Routing 與 callers（已盤點）：
+
+`tw-bsr-finmind-sync` 呼叫端
+- cron 107 `tw-bsr-worker-hourly` → `cron_edge_call('tw-bsr-finmind-sync', …)`
+- `supabase/functions/tw-chips-orchestrator/index.ts`
+- 測試：`supabase/functions/tw-bsr-finmind-sync/{lib_test,queue_simulator_test,manual_and_source_test,enqueue_filter_test}.ts`
+- 文件：`docs/ops/bsr-finmind-runbook.md`、`docs/security/edge-function-auth-matrix.md`
+
+`tw-chips-detail` 呼叫端
+- 前端：`src/checkup/lib/chipsRepository.ts`（`fetchChipsPayload/fetchChipsStamp/fetchChipsBatch`）→ `useTwChipsDetail` → `ChipsSection`
+- harness：`src/pages/ChipsSectionHarnessEntry.tsx`
+- E2E：`e2e/chips-section*.spec.ts`、`chips-batch`、`chips-coalesce`、`chips-telemetry-contract`
+- 契約測試：`src/test/integration/tw-chips-detail-public-contract.test.ts`
+
+切換方式：只改「呼叫目標字串」——cron 的 function name、前端 repository 的 endpoint 常數。rollback = 把字串切回舊值；舊函式永遠保留、永不刪除、永不覆寫。
+
+## 3. C — demand registry 濫用防護（順序改為：先 master，後 registry）
+
+client **不直接**碰 RPC 或 table。唯一入口是 Edge `symbol-demand-register`：
+
+- 白名單：symbol 必須在 `tw_market_symbols` 且 `eligibility=true`；正規化（去空白、大寫、4–6 碼 TW 代號）後仍不符 → 回 `unsupported`，**不入表、不排隊**。
+- 限流：每 request ≤ 30 symbols；每 IP 每 10 分鐘 ≤ 5 requests、每日 ≤ 60；每 device-id 每小時 ≤ 20；超出回 429，不寫入。
+- payload schema validation（Zod）：只接受 `{symbols: string[]}`；**外部 caller 不得指定** `source_class`、`priority`、`request_count`、時間戳——一律由 Edge 以 service role 設定為 `source_class='drawer'`。
+- `request_count` 有 cap（單 symbol 上限 10,000）與 decay（每日 ×0.9，30 天無需求則歸零並降級）。
+- demand **只影響 fast lane 排序**，不觸發即時抓取；註冊後最快在下一個 hourly run 生效。
+- 權限：表對 anon/authenticated **不授 SELECT/INSERT/UPDATE/DELETE**，RLS 全拒；RPC 只給 service_role EXECUTE；讀取僅 company_admin 視圖。
+- 欄位：`market, symbol, first_requested_at, last_requested_at, request_count, source_class, updated_at`。無 `user_id`／`quantity`／`cost`。PK `(market, symbol)` → 天然去重。
+
+Threat model 與測試
+| 威脅 | 對策 | 測試 |
 |---|---|---|
-| 持倉／demand fast lane（TW BSR） | 收盤後 T+1 09:00 前完成，落後 ≤ 1 交易日 | ≥ 99% |
-| 全市場 slow sweep | 落後 ≤ 5 交易日 | ≥ 95% 上市＋上櫃 |
-| 法人／chip fact | T+1 10:00 前 | ≥ 99%（demand 集合） |
-| demo_seed | 與 fast lane 同級 | 100% |
+| 灌爆 request_count / 排序毒化 | cap + decay + 每 IP/device 限流 + 只影響排序 | harness 送 10k 次同 symbol，確認 count 封頂、fast lane 前 20 名不被單一來源佔滿 |
+| 灌不存在 symbol 燒 API 配額 | master 白名單 + eligibility | 送 50 個亂碼 symbol，assert 表列數 0、queue 增量 0 |
+| 表膨脹 | 上限 = master 大小（有限集合），無使用者維度 | assert 列數 ≤ master 列數 |
+| aggregate privacy（由熱門度反推個人持股） | 不存 user/quantity；`request_count` 不對外曝光；小樣本 symbol 只存在與否，無時間序 | 查表 schema 斷言欄位清單完全相符 |
 
-- 配額分配：每小時 worker 預算的 **70% fast lane / 30% slow sweep**；fast lane 空手時 slow sweep 可吃滿 100%。
-- Rate limit / backoff：指數退避 base 2s、cap 300s、jitter ±20%、單 symbol 連續失敗 6 次進 circuit；`auth_permanent`（HTTP 400 授權類）**不退避、不重試**，直接告警。
-- Queue fairness：每輪 claim 每個 `source_class` 上限 = batch/2，`priority ASC, last_requested_at DESC, symbol` 排序；claim lease 90s，逾時由 `reap_stale_bsr_queue_jobs` 回收。
-- Idempotency：`(symbol, trade_date)` 唯一鍵 upsert，重跑不產生第二筆 attempt 效果。
-- 去重：同 symbol 多使用者在 registry 只有一列，enqueue 前對 `(symbol, trade_date)` 去重，重複需求只提升 `request_count` 與優先度。
+## 4. D — H1 market master 權威來源與 eligibility（已完成 capability probe）
 
-## 5. 驗收（不接受「cron succeeded」）
+實測（本輪唯讀外部 probe，皆 HTTP 200、無需授權）：
 
-1. 連續 **3 個自然 hourly run_id**，每個都能完整串起：`cron.job_run_details` → `cron_dispatch_log` HTTP → `edge_boot_events` → `claim` → `tw_bsr_attempt_logs` → `tw_bsr_daily` 寫入 → `bsr_coverage_daily` 更新，且 `correlation_id` 一致。
-2. 週末 run 僅補 backlog／備份，`tw_bsr_daily` **不得出現非交易日 trade_date**（以 `tw_market_holidays` 交叉檢查）。
-3. 抽屜驗收：開啟前後 `tw_bsr_sync_queue` 與 `tw_bsr_attempt_logs` 增量必須為 0；畫面 freshness timestamp/state 與 DB `as_of` 一致。
-4. demand registry：抽樣 symbol 確認只有 `symbol/market/last_requested_at/request_count`，欄位層級不存在 user/quantity/cost。
+| 來源 | 內容 | 大小 | 用途 |
+|---|---|---|---|
+| `openapi.twse.com.tw/v1/exchangeReport/STOCK_DAY_ALL` | 上市全市場日收盤 | 319 KB | 上市 master + 價量 |
+| `openapi.twse.com.tw/v1/exchangeReport/BWIBBU_ALL` | 上市本益比/殖利率/PB | 116 KB | 基本面 |
+| `www.twse.com.tw/rwd/zh/fund/T86?date=…&selectType=ALL` | 上市三大法人（單日全市場） | 2.0 MB | 法人 |
+| `www.tpex.org.tw/openapi/v1/tpex_mainboard_daily_close_quotes` | 上櫃全市場日收盤 | 4.1 MB | 上櫃 master + 價量 |
+| `www.tpex.org.tw/openapi/v1/tpex_3insti_daily_trading` | 上櫃三大法人 | 862 KB | 法人 |
 
-## 6. 沒有 authenticated tester 時的測試邊界
+- 更新頻率：交易日 T 日 15:00 之後每 30 分重試至成功，T+1 09:00 前必須落地；master 每日一次全量 diff upsert。
+- eligibility 分類：`listed`（上市普通股/ETF）→ true；`otc`（上櫃）→ true；`emerging`（興櫃）→ false（來源不同、無日成交彙總）；`warrant`（權證，6 碼英數）→ false；`us_*`／期權／複式單腳 → false。所有 false 一律回 `unsupported`，**不排隊、不重試**，前端顯示「此商品不支援籌碼資料」。
+- 10 檔代表商品 capability probe（H-1 交付表格）：2330、2317（上市普通股）、0050、00631L（ETF/槓桿）、6488、5347（上櫃）、6510（上櫃小型）、053040（權證）、6515（既有測資）、AAPL（美股）；逐檔標註 master 命中／價量／法人／分點 四欄可得性。
 
-- **可用 production read-only / anon**：cron 與 dispatch 鏈、attempt/coverage/queue 統計、freshness SLO、週末 trade_date 檢查、公開頁與 anon 抽屜（demo 模式）的 read-only 行為。
-- **必須用 controlled Preview fixture**：登入後的持股註冊、view-as、任何需要 `auth.uid()` 的 RPC。fixture 結果只當「程式邏輯正確」的證據。
-- **明確禁止**：把 mocked／fixture E2E 當成 production 真資料證據；兩者在報告中分欄呈現，不合併計分。
+## 5. E — FinMind HTTP 400 定性與替代路徑（含 BLOCKER）
 
-## 7. 邊界
+證據：近 7 天 `tw_bsr_fetch_failures` 517 筆，全部 `reason=finmind_error`、`finmind_http_400:{"msg":"Your level is register. Please update your user level..."}`，最後 2026-08-17 07:21。→ **方案權限永久失敗**，非速率問題，退避無效。分類為 `permanent_auth`，circuit 直接開啟並告警，**不得繼續入 queue 讓它反覆失敗**。
 
-本輪與 H0–H6 全程：不做任何 production DDL/DML/GRANT/REVOKE、不 deploy Edge、不 Publish。S1-min 維持 clone-only PASS 且 production NO-GO。
+替代路徑欄位映射：
+- 價量、master：TWSE/TPEx OpenAPI（上表）→ 完全可取代，無授權需求。
+- 三大法人：T86 + tpex_3insti → 完全可取代。
+- **分點進出（券商分點 BSR）：目前沒有已驗證的免授權來源。** FinMind `TaiwanStockTradingDailyReport` 需付費層級；TWSE 分點查詢頁非開放 API。→ 標記 **BLOCKER-E1**：在找到合法可用來源（付費授權或官方管道）之前，分點區塊維持「資料檢核中／不支援」，H3 的 fast lane 只涵蓋價量＋法人。
+- 「sponsor token」不列入計畫，只列為 BLOCKER-E1 的其中一個待評估選項（需商務決策）。
+
+## 6. F — 容量計算（不是只寫百分比）
+
+輸入參數（以 probe 實測為準，H-1 收斂）：
+- N(eligible) ≈ 上市 ~1,050 + 上櫃 ~830 ≈ **1,880 檔**。
+- 關鍵事實：TWSE/TPEx 是**全市場單檔 payload**（1 request = 全市場一天）。因此 slow sweep 不是 per-symbol 抓取：**每日 5 個 requests**（上市價量、上市法人、上櫃價量、上櫃法人、上市基本面）即覆蓋 100% universe。
+- 每小時安全 request 上限：官方端點取 **hard cap 60 req/hour、600 req/day**（含重試），實測 latency 0.8–6 s／request，最大 payload 4.1 MB。
+- 寫入量：上櫃 4.1 MB ≈ 1,880 列/日 × 5 類 ≈ 9.4k 列/日，遠低於現有 `tw_bsr_daily` 每日 40k 列規模。
+
+結論：在全市場批次來源下，「≤5 交易日、95% 覆蓋」的達成不靠 70/30 配額，而是**每日 5 次全量批次**即達 100%；70/30 只適用於仍需 per-symbol 呼叫的資料型別（目前僅 BLOCKER-E1 的分點）。若 E1 解封並且是 per-symbol：以 60 req/h × 12 h = 720 req/日，其中 30% slow sweep = 216 檔/日 → 1,880 ÷ 216 ≈ **8.7 交易日**，**不滿足 ≤5 日** → 屆時必須提高 quota 或改用批次端點，此門檻寫入 H3 驗收條件。
+
+- Hard quota：hourly 60 / daily 600，超出直接停止該 run 並記錄。
+- Dead-letter：連續 6 次 transient 失敗 → `bsr_dead_letter`，不再自動重試，需人工釋放。
+- Error taxonomy：`permanent_auth`（400 權限）／`permanent_notfound`（404、下市）／`permanent_unsupported`（非 eligible）→ 不重試；`transient_rate`（429）／`transient_net`（5xx、timeout）→ 指數退避 base 2s、cap 300s、jitter ±20%。
+
+## 7. G — 週末 backlog 與備份政策
+
+- 備份對象：`tw_bsr_daily`、`tw_chip_fact`、`tw_chips_rollup`、`bsr_coverage_daily`、`tw_market_symbols`、`symbol_demand_registry`、`tw_bsr_sync_queue`（僅 failed/dead-letter）。
+- 形式：每週日一次，per-table CSV + `MANIFEST.json`（列數、欄位、sha256、產生時間、來源 run_id）。
+- 目的地：Supabase Storage private bucket `ops-backups`，RLS 全拒，僅 service_role 可寫、company_admin 可簽名下載；傳輸 TLS，儲存側加密由平台提供。
+- 保存：週備份保留 8 週，月末一份保留 12 個月，逾期自動刪除。
+- Restore rehearsal：每季一次在 disposable clone 還原並逐表比對列數 + sha256，結果寫入 `S0_STATUS` 同格式報告。
+- 非交易日判定：以 `tw_market_holidays` + 週末判定；週末 run **只補既有 backlog 與備份**，禁止產生新的 `trade_date`；`next_expected_trade_date` 由 holiday 表推算並寫入 trace，驗收時比對。
+
+## 8. H — drawer 純讀的證明標準
+
+`tw-chips-detail-v2` 必須是 **precompute / read-only**：
+- 只做 `SELECT`（`get_bsr_daily_series`、`tw_bsr_eligibility` 皆為 stable 讀取），**不呼叫 `rebuild_bsr_rollup`**；rollup 由 worker/cron 預先物化。
+- cache miss → 回 `state: 'pending' | 'unavailable'` 與 `as_of: null`，不得同步 rebuild、不得 enqueue。
+- 驗收證明（不只 queue/attempt 增量 0）：
+  1. 以 `pg_stat_statements`／session 層 statement log 擷取抽屜請求期間所有 SQL，assert **0 筆 INSERT/UPDATE/DELETE/TRUNCATE**、0 筆 volatile function 呼叫。
+  2. `rebuild_bsr_rollup` 呼叫次數 = 0（以函式內 counter 或 statements 比對）。
+  3. `tw_bsr_sync_queue`、`tw_bsr_attempt_logs`、`tw_chips_rollup`、`bsr_coverage_daily` 四表 before/after 列數與 `max(updated_at)` 完全不變。
+  4. 以只有 SELECT 權限的 DB 角色跑 v2 全部路徑，全綠即證明無寫入路徑。
+
+## 9. Stage dependency DAG
+
+```text
+H-1 provider probe ──┬── H1 market master ── H2 demand registry ──┐
+                     │                                            ├── H3 enqueue/worker ── H4 provider切換+weekend
+                     └── H0 觀測(v2 worker + trace) ───────────────┘                             │
+                                                                                  H5 drawer v2 純讀 ── H6 前端 UI/E2E
+```
+- H0 與 H1 可並行；H2 必須在 H1 之後（白名單相依）。
+- H3 需要 H0（可觀測）與 H2（需求來源）同時就緒。
+- H5 需要 H3/H4 讓 rollup 有背景維護者，否則抽屜改純讀會拿不到資料。
+- BLOCKER-E1 只擋「分點」資料型別，不擋 H0–H2、H5、H6。
+
+## 10. 先做哪個 isolated clone / harness（本輪唯一授權範圍）
+
+1. **Clone `hfreshA`**（production-shape，disposable）：套 H0＋H1＋H2 的 DDL 與 RPC，跑 registry abuse 測試（灌量、亂碼 symbol、限流）與 master upsert 冪等測試。
+2. **Local harness `harness/provider-probe`**：對五個官方端點 + 10 檔代表商品做 capability probe，輸出欄位映射表與 `unsupported` 判定表（H-1 交付物）。
+3. **Clone `hfreshB`**（第二座全新）：只驗 H5 —— 以 SELECT-only 角色跑 `tw-chips-detail-v2` 全路徑，證明 §8 的四項寫入零增量。
+
+三者完成後各自出 stage preflight 報告，再逐一請求 production 核准。
+
+## 11. 驗收（沿用並強化）
+
+1. 連續 3 個自然 hourly run_id 完整串鏈：`cron.job_run_details` → `cron_dispatch_log` → `edge_boot_events` → claim → attempt log → 寫入 → coverage，`correlation_id` 一致。
+2. 週末 run 不得出現非交易日 `trade_date`；`next_expected_trade_date` 正確。
+3. 抽屜開啟前後：§8 的四項零增量全部成立。
+4. registry 抽樣：欄位清單與規格完全一致，無 user/quantity/cost。
+5. 測試邊界分欄：production read-only／anon 可測者（cron 鏈、覆蓋率、週末判定、anon 抽屜唯讀）與 Preview fixture 可測者（登入態註冊、view-as）分開計分；**mocked E2E 不得計入 production 真資料證據**。
+
+## 12. 本輪邊界
+
+不執行、不 deploy、不 Publish、production 0 touch。Approve 僅代表授權 §10 的 clone/harness 產出。
