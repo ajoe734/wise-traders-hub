@@ -5,7 +5,8 @@ CREATE TABLE IF NOT EXISTS public.tw_market_symbols (
   symbol            text        NOT NULL,
   name              text        NOT NULL DEFAULT '',
   instrument_class  text        NOT NULL DEFAULT 'unknown'
-                    CHECK (instrument_class IN ('common','etf','etf_leveraged','warrant','emerging','unknown')),
+                    CHECK (instrument_class IN ('common','etf','etf_leveraged','etn','warrant',
+                                                'preferred','tdr','reit','abs','cb','emerging','unknown')),
   eligibility       boolean     NOT NULL DEFAULT false,
   source            text        NOT NULL DEFAULT 'twse_openapi',
   last_seen_on      date,

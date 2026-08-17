@@ -1,0 +1,255 @@
+[
+ {
+  "attempt": 1,
+  "target": "TWSE_T86_openapi",
+  "url": "https://openapi.twse.com.tw/v1/exchangeReport/T86",
+  "utc": "2026-08-17T10:46:24.240421Z",
+  "status": 200,
+  "content_type": "text/html; charset=utf-8",
+  "bytes": 1006,
+  "latency_ms": 2038,
+  "sha256": "17d98e3942c583c3de9963f891bdc96e4efee8e79ba747b79823169fa5e072ca",
+  "body_prefix": "<!DOCTYPE html PUBLIC \"-//W3C//DTD XHTML 1.0 Transitional//EN\" \"http://www.w3.org/TR/xhtml1/DTD/xhtml1-transitional.dtd\">\n<html xmlns=\"http://www.w3.org/1999/xhtml\">\n<head>\n<meta http-equiv=\"Content-Type\" content=\"text/h",
+  "json_ok": false,
+  "parse_err": "Expecting value: line 1 column 1 (char 0)"
+ },
+ {
+  "attempt": 1,
+  "target": "TWSE_T86_legacy_json",
+  "url": "https://www.twse.com.tw/rwd/zh/fund/T86?date=20260817&selectType=ALL&response=json",
+  "utc": "2026-08-17T10:46:30.279523Z",
+  "status": 200,
+  "content_type": "application/json;charset=UTF-8",
+  "bytes": 1976483,
+  "latency_ms": 2086,
+  "sha256": "0da055a80cc671fcee5d3cedf10022840ffa9d7700725d396a85bb82fe6c6de7",
+  "body_prefix": "{\"stat\":\"OK\",\"date\":\"20260817\",\"title\":\"115年08月17日 三大法人買賣超日報\",\"hints\":\"單位：股\",\"fields\":[\"證券代號\",\"證券名稱\",\"外陸資買進股數(不含外資自營商)\",\"外陸資賣出股數(�",
+  "json_ok": true,
+  "raw_rows": 15386,
+  "distinct_symbols": 15386,
+  "duplicates": 0,
+  "sample_symbols": [
+   "00400A",
+   "00401A",
+   "00402A",
+   "00403A",
+   "00404A"
+  ],
+  "date_tokens": [
+   "115年08月17"
+  ]
+ },
+ {
+  "attempt": 1,
+  "target": "TPEX_3insti_openapi",
+  "url": "https://www.tpex.org.tw/openapi/v1/tpex_3insti_daily_trading",
+  "utc": "2026-08-17T10:46:36.441808Z",
+  "status": 200,
+  "content_type": "application/json",
+  "bytes": 862844,
+  "latency_ms": 3775,
+  "sha256": "f81402afea10e707c042e80f1fed9b6adfa46a447cd77956753a1c9520803ec5",
+  "body_prefix": "[\n{\"Date\":\"1150817\",\"SecuritiesCompanyCode\":\"00679B\",\"CompanyName\":\"元大美債20年\",\"Foreign Investors include Mainland Area Investors (Foreign Dealers excluded)-Total Buy\":\"1345685\",\" Foreign Investors include Mainla",
+  "json_ok": true,
+  "raw_rows": 911,
+  "distinct_symbols": 911,
+  "duplicates": 0,
+  "sample_symbols": [
+   "006201",
+   "00679B",
+   "00687B",
+   "00687C",
+   "00694B"
+  ],
+  "date_tokens": []
+ },
+ {
+  "attempt": 1,
+  "target": "TPEX_3insti_www_json",
+  "url": "https://www.tpex.org.tw/www/zh-tw/insti/dailyTrade?type=Daily&sect=EW&date=20260817&id=&response=json",
+  "utc": "2026-08-17T10:46:44.236475Z",
+  "status": 200,
+  "content_type": "application/json;charset=UTF-8",
+  "bytes": 147347,
+  "latency_ms": 766,
+  "sha256": "e18e1698ebcfb92c65e15cb40d871c0ca382a83639ab164a228bb91ed662bea7",
+  "body_prefix": "{\"columnNum\":25,\"tables\":[{\"title\":\"三大法人買賣明細資訊\",\"date\":\"115/08/17\",\"fields\":[\"代號\",\"名稱\",\"買進股數\",\"賣出股數\",\"買賣超股數\",\"買進股數\",\"賣出股數\",\"買賣超股數\",\"買進�",
+  "json_ok": true,
+  "raw_rows": 911,
+  "distinct_symbols": 911,
+  "duplicates": 0,
+  "sample_symbols": [
+   "006201",
+   "00679B",
+   "00687B",
+   "00687C",
+   "00694B"
+  ],
+  "date_tokens": [
+   "115/08/17"
+  ]
+ },
+ {
+  "attempt": 2,
+  "target": "TWSE_T86_openapi",
+  "url": "https://openapi.twse.com.tw/v1/exchangeReport/T86",
+  "utc": "2026-08-17T10:47:14.011262Z",
+  "status": 200,
+  "content_type": "text/html; charset=utf-8",
+  "bytes": 1006,
+  "latency_ms": 2022,
+  "sha256": "17d98e3942c583c3de9963f891bdc96e4efee8e79ba747b79823169fa5e072ca",
+  "body_prefix": "<!DOCTYPE html PUBLIC \"-//W3C//DTD XHTML 1.0 Transitional//EN\" \"http://www.w3.org/TR/xhtml1/DTD/xhtml1-transitional.dtd\">\n<html xmlns=\"http://www.w3.org/1999/xhtml\">\n<head>\n<meta http-equiv=\"Content-Type\" content=\"text/h",
+  "json_ok": false,
+  "parse_err": "Expecting value: line 1 column 1 (char 0)"
+ },
+ {
+  "attempt": 2,
+  "target": "TWSE_T86_legacy_json",
+  "url": "https://www.twse.com.tw/rwd/zh/fund/T86?date=20260817&selectType=ALL&response=json",
+  "utc": "2026-08-17T10:47:20.035437Z",
+  "status": 200,
+  "content_type": "application/json;charset=UTF-8",
+  "bytes": 1976483,
+  "latency_ms": 2657,
+  "sha256": "0da055a80cc671fcee5d3cedf10022840ffa9d7700725d396a85bb82fe6c6de7",
+  "body_prefix": "{\"stat\":\"OK\",\"date\":\"20260817\",\"title\":\"115年08月17日 三大法人買賣超日報\",\"hints\":\"單位：股\",\"fields\":[\"證券代號\",\"證券名稱\",\"外陸資買進股數(不含外資自營商)\",\"外陸資賣出股數(�",
+  "json_ok": true,
+  "raw_rows": 15386,
+  "distinct_symbols": 15386,
+  "duplicates": 0,
+  "sample_symbols": [
+   "00400A",
+   "00401A",
+   "00402A",
+   "00403A",
+   "00404A"
+  ],
+  "date_tokens": [
+   "115年08月17"
+  ]
+ },
+ {
+  "attempt": 2,
+  "target": "TPEX_3insti_openapi",
+  "url": "https://www.tpex.org.tw/openapi/v1/tpex_3insti_daily_trading",
+  "utc": "2026-08-17T10:47:26.790024Z",
+  "status": 200,
+  "content_type": "application/json",
+  "bytes": 862844,
+  "latency_ms": 5276,
+  "sha256": "f81402afea10e707c042e80f1fed9b6adfa46a447cd77956753a1c9520803ec5",
+  "body_prefix": "[\n{\"Date\":\"1150817\",\"SecuritiesCompanyCode\":\"00679B\",\"CompanyName\":\"元大美債20年\",\"Foreign Investors include Mainland Area Investors (Foreign Dealers excluded)-Total Buy\":\"1345685\",\" Foreign Investors include Mainla",
+  "json_ok": true,
+  "raw_rows": 911,
+  "distinct_symbols": 911,
+  "duplicates": 0,
+  "sample_symbols": [
+   "006201",
+   "00679B",
+   "00687B",
+   "00687C",
+   "00694B"
+  ],
+  "date_tokens": []
+ },
+ {
+  "attempt": 2,
+  "target": "TPEX_3insti_www_json",
+  "url": "https://www.tpex.org.tw/www/zh-tw/insti/dailyTrade?type=Daily&sect=EW&date=20260817&id=&response=json",
+  "utc": "2026-08-17T10:47:36.086904Z",
+  "status": null,
+  "error": "URLError: <urlopen error [SSL: CERTIFICATE_VERIFY_FAILED] certificate verify failed: Missing Subject Key Identifier (_ssl.c:1032)>",
+  "latency_ms": 1031
+ },
+ {
+  "attempt": 3,
+  "target": "TWSE_T86_openapi",
+  "url": "https://openapi.twse.com.tw/v1/exchangeReport/T86",
+  "utc": "2026-08-17T10:48:06.119773Z",
+  "status": 200,
+  "content_type": "text/html; charset=utf-8",
+  "bytes": 1006,
+  "latency_ms": 2012,
+  "sha256": "17d98e3942c583c3de9963f891bdc96e4efee8e79ba747b79823169fa5e072ca",
+  "body_prefix": "<!DOCTYPE html PUBLIC \"-//W3C//DTD XHTML 1.0 Transitional//EN\" \"http://www.w3.org/TR/xhtml1/DTD/xhtml1-transitional.dtd\">\n<html xmlns=\"http://www.w3.org/1999/xhtml\">\n<head>\n<meta http-equiv=\"Content-Type\" content=\"text/h",
+  "json_ok": false,
+  "parse_err": "Expecting value: line 1 column 1 (char 0)"
+ },
+ {
+  "attempt": 3,
+  "target": "TWSE_T86_legacy_json",
+  "url": "https://www.twse.com.tw/rwd/zh/fund/T86?date=20260817&selectType=ALL&response=json",
+  "utc": "2026-08-17T10:48:12.133489Z",
+  "status": 200,
+  "content_type": "application/json;charset=UTF-8",
+  "bytes": 1976483,
+  "latency_ms": 1994,
+  "sha256": "0da055a80cc671fcee5d3cedf10022840ffa9d7700725d396a85bb82fe6c6de7",
+  "body_prefix": "{\"stat\":\"OK\",\"date\":\"20260817\",\"title\":\"115年08月17日 三大法人買賣超日報\",\"hints\":\"單位：股\",\"fields\":[\"證券代號\",\"證券名稱\",\"外陸資買進股數(不含外資自營商)\",\"外陸資賣出股數(�",
+  "json_ok": true,
+  "raw_rows": 15386,
+  "distinct_symbols": 15386,
+  "duplicates": 0,
+  "sample_symbols": [
+   "00400A",
+   "00401A",
+   "00402A",
+   "00403A",
+   "00404A"
+  ],
+  "date_tokens": [
+   "115年08月17"
+  ]
+ },
+ {
+  "attempt": 3,
+  "target": "TPEX_3insti_openapi",
+  "url": "https://www.tpex.org.tw/openapi/v1/tpex_3insti_daily_trading",
+  "utc": "2026-08-17T10:48:18.236727Z",
+  "status": 200,
+  "content_type": "application/json",
+  "bytes": 862844,
+  "latency_ms": 6627,
+  "sha256": "f81402afea10e707c042e80f1fed9b6adfa46a447cd77956753a1c9520803ec5",
+  "body_prefix": "[\n{\"Date\":\"1150817\",\"SecuritiesCompanyCode\":\"00679B\",\"CompanyName\":\"元大美債20年\",\"Foreign Investors include Mainland Area Investors (Foreign Dealers excluded)-Total Buy\":\"1345685\",\" Foreign Investors include Mainla",
+  "json_ok": true,
+  "raw_rows": 911,
+  "distinct_symbols": 911,
+  "duplicates": 0,
+  "sample_symbols": [
+   "006201",
+   "00679B",
+   "00687B",
+   "00687C",
+   "00694B"
+  ],
+  "date_tokens": []
+ },
+ {
+  "attempt": 3,
+  "target": "TPEX_3insti_www_json",
+  "url": "https://www.tpex.org.tw/www/zh-tw/insti/dailyTrade?type=Daily&sect=EW&date=20260817&id=&response=json",
+  "utc": "2026-08-17T10:48:28.880853Z",
+  "status": 200,
+  "content_type": "application/json;charset=UTF-8",
+  "bytes": 147347,
+  "latency_ms": 3795,
+  "sha256": "e18e1698ebcfb92c65e15cb40d871c0ca382a83639ab164a228bb91ed662bea7",
+  "body_prefix": "{\"columnNum\":25,\"tables\":[{\"title\":\"三大法人買賣明細資訊\",\"date\":\"115/08/17\",\"fields\":[\"代號\",\"名稱\",\"買進股數\",\"賣出股數\",\"買賣超股數\",\"買進股數\",\"賣出股數\",\"買賣超股數\",\"買進�",
+  "json_ok": true,
+  "raw_rows": 911,
+  "distinct_symbols": 911,
+  "duplicates": 0,
+  "sample_symbols": [
+   "006201",
+   "00679B",
+   "00687B",
+   "00687C",
+   "00694B"
+  ],
+  "date_tokens": [
+   "115/08/17"
+  ]
+ }
+]

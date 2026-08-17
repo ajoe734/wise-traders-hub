@@ -178,6 +178,7 @@ for conn_label in "$ANON|anon" "$AUTHD|authenticated"; do
   den "$C" "$L" "SELECT public.materialize_bsr_daily_from_fact(current_date)"
   den "$C" "$L" "SELECT public.finmind_admit_v2('bsr','x','2330',1,true)"
   den "$C" "$L" "SELECT public.bsr_snapshot_mark(current_date,'ready','x',1,1,null)"
+  den "$C" "$L" "SELECT public.finmind_pool_reset()"
 done
 # service_role (the v2 worker path) must still work end to end
 : >"$DIR/svc.err"
@@ -187,6 +188,7 @@ svc "SELECT count(*) FROM public.claim_bsr_queue_jobs(1,9)"
 svc "SELECT public.finmind_inflight_acquire('k','2330','bsr')"
 svc "SELECT public.finmind_inflight_release('k')"
 svc "SELECT public.materialize_bsr_daily_from_fact(current_date, ARRAY['2330'])"
+svc "SELECT public.finmind_pool_reset()"
 # The browser keep-list must keep its EXECUTE privilege. Without a JWT the clone
 # cannot satisfy the function's own auth.uid() guard, so the accepted outcomes
 # are: success, or the in-body guard error — never "permission denied".
@@ -205,8 +207,64 @@ UNPLANNED=$(python3 db/r1/c/H/h_acl_blast.py "$DIR/acl_change.diff" "$DIR/acl_pl
 chk $([ "$UNPLANNED" = "0" ] && echo 0 || echo 1) "A-11 ACL changes confined to the planned signatures (0 unplanned relation/function ACL drift)" "unplanned=$UNPLANNED"
 stage_end
 
+
+############################################################ guarded v2 (finmind_pool_reset)
+stage guarded_v2
+psql "$CL" -qX -v ON_ERROR_STOP=1 --single-transaction -f "$DIR/h_acl_v2.sql" >"$DIR/v2_apply.log" 2>&1
+V2PRIV=$(psql "$CL" -AtqX -c "SELECT has_function_privilege('authenticated','public.finmind_pool_reset_v2()','EXECUTE')||'/'||has_function_privilege('anon','public.finmind_pool_reset_v2()','EXECUTE')||'/'||has_function_privilege('service_role','public.finmind_pool_reset_v2()','EXECUTE')")
+chk $([ "$V2PRIV" = "t/f/t" ] || [ "$V2PRIV" = "true/false/true" ] && echo 0 || echo 1) "A-16 finmind_pool_reset_v2 grants = authenticated+service_role only (anon denied)" "priv=$V2PRIV"
+
+# plain authenticated (no company_admin row) must hit the in-body guard.
+# Uses the real non-superuser login role auth_l, otherwise superuser membership
+# would satisfy the service_role bypass and mask the guard.
+PLAIN=$(psql "$AUTHD" -AtqX -v ON_ERROR_STOP=1 \
+  -c "SET request.jwt.claims = '{\"sub\":\"11111111-1111-1111-1111-111111111111\",\"role\":\"authenticated\"}'" \
+  -c "SELECT public.finmind_pool_reset_v2()" 2>&1 >>"$DIR/v2.out" || true)
+case "$PLAIN" in *unauthorized*) R1=0 ;; *) R1=1 ;; esac
+chk $R1 "A-17 plain authenticated denied by the v2 guard (unauthorized)" "got=${PLAIN:0:140}"
+
+# company_admin must be allowed: seed a synthetic admin, run as auth_l, then remove it
+psql "$CL" -qX -v ON_ERROR_STOP=1 >>"$DIR/v2.out" 2>&1 <<'SQL'
+INSERT INTO auth.users (id, email, is_sso_user, is_anonymous, created_at, updated_at)
+VALUES ('22222222-2222-2222-2222-222222222222','acl-probe@local', false, false, now(), now());
+INSERT INTO public.user_roles (user_id, role) VALUES ('22222222-2222-2222-2222-222222222222','company_admin');
+SQL
+ADM=$(psql "$AUTHD" -AtqX -v ON_ERROR_STOP=1 \
+  -c "SET request.jwt.claims = '{\"sub\":\"22222222-2222-2222-2222-222222222222\",\"role\":\"authenticated\"}'" \
+  -c "SELECT public.finmind_pool_reset_v2()" 2>&1)
+case "$ADM" in *'"ok": true'*|*'"ok":true'*) R2=0 ;; *) R2=1 ;; esac
+chk $R2 "A-18 company_admin allowed through the v2 guard" "got=${ADM:0:160}"
+psql "$CL" -qX -v ON_ERROR_STOP=1 >>"$DIR/v2.out" 2>&1 <<'SQL'
+DELETE FROM public.user_roles WHERE user_id='22222222-2222-2222-2222-222222222222';
+DELETE FROM auth.users WHERE id='22222222-2222-2222-2222-222222222222';
+SQL
+
+# service_role path
+if psql "$SVC" -AtqX -c "SELECT public.finmind_pool_reset_v2()" >>"$DIR/v2.out" 2>>"$DIR/v2.err"; then R3=0; else R3=1; fi
+chk $R3 "A-19 service_role allowed on v2" "$(tail -1 "$DIR/v2.err" 2>/dev/null)"
+
+# the legacy unguarded entry point is service_role-only now
+LEG=$(psql "$CL" -AtqX -c "SELECT has_function_privilege('anon','public.finmind_pool_reset()','EXECUTE')||'/'||has_function_privilege('authenticated','public.finmind_pool_reset()','EXECUTE')||'/'||has_function_privilege('service_role','public.finmind_pool_reset()','EXECUTE')")
+chk $([ "$LEG" = "f/f/t" ] || [ "$LEG" = "false/false/true" ] && echo 0 || echo 1) "A-20 legacy unguarded finmind_pool_reset() converged to service_role-only" "priv=$LEG"
+
+# the other 45 hardened signatures must not regress
+REG=$(psql "$CL" -AtqX -c "SELECT count(*) FROM pg_proc p JOIN pg_namespace n ON n.oid=p.pronamespace
+  WHERE n.nspname='public' AND p.prokind='f' AND p.provolatile='v'
+    AND p.proname ~ '(bsr|chip|rollup|queue|backfill|enqueue|claim|prefetch|finmind|converge|materialize|institutional)'
+    AND p.proname <> 'finmind_pool_reset_v2'
+    AND (has_function_privilege('public',p.oid,'EXECUTE') OR has_function_privilege('anon',p.oid,'EXECUTE')
+      OR (has_function_privilege('authenticated',p.oid,'EXECUTE')
+          AND 'public.'||p.proname||'('||pg_get_function_identity_arguments(p.oid)||')' NOT IN (
+             'public.enqueue_bsr_backfill(p_stock_id text, p_days integer)',
+             'public.finmind_pool_set_budget(_pool text, _budget integer)')))")
+chk $([ "$REG" = "0" ] && echo 0 || echo 1) "A-21 no regression: 0 freshness writers outside the 2-signature keep-list are reachable by public/anon/authenticated" "leaks=$REG"
+stage_end
+
 ############################################################ rollback
 stage rollback
+psql "$CL" -qX -v ON_ERROR_STOP=1 --single-transaction -f "$DIR/h_acl_v2_rollback.sql" >"$DIR/v2_rollback.log" 2>&1
+V2GONE=$(psql "$CL" -AtqX -c "SELECT count(*) FROM pg_proc p JOIN pg_namespace n ON n.oid=p.pronamespace WHERE n.nspname='public' AND p.proname='finmind_pool_reset_v2'")
+chk $([ "$V2GONE" = "0" ] && echo 0 || echo 1) "A-22 v2 rollback dropped the new function (catalog back to baseline shape)" "left=$V2GONE"
 psql "$CL" -qX -v ON_ERROR_STOP=1 --single-transaction -f "$DIR/h_acl_rollback.sql" >"$DIR/rollback.log" 2>&1
 psql "$CL" -AtqX -f db/r1/c/H/acl_snapshot.sql >"$DIR/acl_rollback.fp"
 if diff -u "$DIR/acl_before.fp" "$DIR/acl_rollback.fp" >"$DIR/rollback_acl.diff"; then
