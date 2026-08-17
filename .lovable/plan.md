@@ -1,4 +1,4 @@
-# Staged Cutover + 原始資料新鮮度驗收計畫 v2（S0–S6）
+# Staged Cutover + 原始資料新鮮度驗收計畫 v3（S0–S6）
 
 Plan only。本輪僅請求核准 **S0（唯讀）**；S1/S2/S3/S5 各自另行送審，S4 併入對應 stage，S6 需自然 cron 觀測。
 不可變：6515（穎崴）維持 manual_review/incomplete、數字 withheld；26 drift 不判定；不刪重建 production；
@@ -215,7 +215,7 @@ Coverage SQL：`select trade_date, count(distinct stock_id), count(*) filter (wh
 
 | # | Stage | 授權狀態 | 前置 | GO 判準 | NO-GO 動作 |
 |---|---|---|---|---|---|
-| 1 | S0 唯讀 preflight | **本輪送審** | — | unknown_remote=0、restore rehearsal 綠、ACL 28/37 sha 相符、inventory 15/13/23 相符、0 long tx | 停，回報 BLOCKER |
+| 1 | S0 唯讀 preflight | **本輪送審** | — | unknown_remote=0（422=412 matched+5 known_pre_repo+5 duplicate；repo-only 1 已證 applied）、restore rehearsal 綠、ACL 28/37 sha 相符、inventory 15/13/23 相符、0 long tx | 停，回報 BLOCKER |
 | 2 | S1 expand | 需另行核准 | S0 綠 + 回 Plan 重審 | 0 rewrite、hash 未漂移 | DROP 本 stage 物件（≤10 min） |
 | 3 | S2 writer/ACL | 需另行核准 | S1 綠 | 095=65 / 096=185 / 094=21 / RLS=16、canary apply-once、13 Edge 串行健康 | 單函式回滾 + watermark bridge（≤20 min） |
 | 4 | S3 projection | 需另行核准 | S2 綠 | 12 位分類存證、canary ready、embargo 27/0、no_projection fail-closed | pointer CAS 回前版（≤5 min） |
