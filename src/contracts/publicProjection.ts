@@ -27,10 +27,17 @@ export type ProjectionState =
 export const REVIEW_BADGE = '資料檢核中';
 export const REVIEW_NOTE = '該區間不納入績效';
 
+/**
+ * Fail-closed set. `error` is included on purpose: a failed read must never
+ * fall through to the legacy numbers. `no_projection` is the ONLY tolerated
+ * legacy path and it must be asserted explicitly by the caller
+ * (`absent: true`), never inferred from missing/unknown input.
+ */
 const NOT_READY: ReadonlySet<ProjectionState> = new Set<ProjectionState>([
   'manual_review',
   'incomplete',
   'withheld',
+  'error',
 ]);
 
 export interface ProjectionStatusInput {
@@ -70,8 +77,7 @@ export function resolveProjectionStatus(input: ProjectionStatusInput | null | un
   else if (i.incomplete || i.state === 'incomplete' || i.state === 'withheld_incomplete') state = 'incomplete';
   else if (i.withheld || i.state === 'withheld') state = 'withheld';
   else if (i.state === 'ready' || i.state === 'as_reported_publishable') state = 'ready';
-  else if (i.state == null) state = 'no_projection';
-  else state = 'incomplete'; // unknown state fails closed
+  else state = 'incomplete'; // unknown / not-yet-loaded input fails closed
 
   const notReady = NOT_READY.has(state);
   return {
@@ -120,6 +126,19 @@ export function projectedAmount(
   if (n === null) return null;
   return `${prefix}${Math.round(n).toLocaleString()}`;
 }
+
+/**
+ * Fail-closed default for any caller that has not resolved a projection yet
+ * (not loaded, unknown, injected default). Renders the review notice.
+ */
+export const UNKNOWN_PROJECTION: ProjectionStatus = resolveProjectionStatus({ incomplete: true });
+
+/**
+ * Explicit pre-cutover legacy path: the projection is provably not deployed
+ * for this scope. Only a caller that has actually observed the absence may
+ * use this — it is never a fallback for "we did not check".
+ */
+export const LEGACY_NO_PROJECTION: ProjectionStatus = resolveProjectionStatus({ absent: true });
 
 /** May a factsheet / export be produced for this scope? */
 export function canExportFactsheet(status: ProjectionStatus): boolean {

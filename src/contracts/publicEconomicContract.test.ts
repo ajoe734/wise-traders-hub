@@ -91,9 +91,10 @@ describe('gatePerformance', () => {
     }
   });
 
-  it('keeps the legacy path alive for no_projection and error', () => {
+  it('legacy path only for an observed no_projection; an error fails closed', () => {
     expect(gatePerformance(PERF, STATES.no_projection)!.total_return_pct).toBe(50);
-    expect(gatePerformance(PERF, STATES.error)!.total_return_pct).toBe(50);
+    // R1-P: a failed read must never surface legacy numbers.
+    expect(gatePerformance(PERF, STATES.error)!.total_return_pct).toBeNull();
     expect(gatePerformance(null, STATES.ready)).toBeNull();
   });
 });

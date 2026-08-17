@@ -513,7 +513,7 @@
     "expert_signals"
    ],
    "invocation_guard": "route render",
-   "contract_gate": "typed contract: gateSignalEconomics, resolveProjectionStatus"
+   "contract_gate": "typed contract: gateSignalEconomics"
   },
   {
    "path": "src/lib/mcp/tools/list_my_holdings.ts",
@@ -658,7 +658,7 @@
     "expert_signals"
    ],
    "invocation_guard": "route render",
-   "contract_gate": "typed contract: gateSignalEconomics, resolveProjectionStatus"
+   "contract_gate": "typed contract: gateSignalEconomics"
   },
   {
    "path": "src/pages/_adminPerformance/types.ts",
@@ -1010,7 +1010,7 @@
    ],
    "entitlement": "service_role / server-side only",
    "embargo_predicate": "n/a — not an anonymous surface",
-   "legacy_fallback": true,
+   "legacy_fallback": false,
    "side_effects": [
     "react-query cache",
     "export/download"
@@ -1022,7 +1022,7 @@
     "expert_signals"
    ],
    "invocation_guard": "route render",
-   "contract_gate": "n/a"
+   "contract_gate": "typed contract: gateSignalEconomics"
   },
   {
    "path": "src/pages/company/AuditLogs.tsx",
@@ -1474,6 +1474,31 @@
    ],
    "invocation_guard": "route render",
    "contract_gate": "n/a"
+  },
+  {
+   "path": "src/test/unit/public-legacy-readers.test.ts",
+   "surface": "frontend",
+   "audience": "test",
+   "role": "authenticated",
+   "access_kind": "type_only",
+   "exact_access": [
+    "type-only/reference:expert_signals,trade_records"
+   ],
+   "entitlement": "test fixtures only",
+   "embargo_predicate": "n/a — not an anonymous surface",
+   "legacy_fallback": false,
+   "side_effects": [
+    "none"
+   ],
+   "cutover_disposition": "test_only",
+   "test_id": "self (test file)",
+   "coverage_status": "covered",
+   "tables": [
+    "expert_signals",
+    "trade_records"
+   ],
+   "invocation_guard": "route render",
+   "contract_gate": "typed contract: gatePerformance, gateSeries, gateSignalEconomics, resolveProjectionStatus, useProjectionStatus"
   },
   {
    "path": "supabase/functions/_shared/journalExportCore.ts",
@@ -2119,11 +2144,11 @@
   "public": 17,
   "internal": 34,
   "admin": 18,
-  "test": 13,
-  "total": 82
+  "test": 14,
+  "total": 83
  },
  "coverage": {
-  "consumers": "82/82",
+  "consumers": "83/83",
   "db_objects": "37/37",
   "unclassified": 0
  },

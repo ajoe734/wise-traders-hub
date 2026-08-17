@@ -4737,3 +4737,29 @@ GRANT DELETE,INSERT,REFERENCES,SELECT,TRIGGER,TRUNCATE,UPDATE ON public.user_per
 GRANT DELETE,INSERT,REFERENCES,SELECT,TRIGGER,TRUNCATE,UPDATE ON public.user_roles TO anon;
 GRANT DELETE,INSERT,REFERENCES,SELECT,TRIGGER,TRUNCATE,UPDATE ON public.user_roles TO authenticated;
 GRANT DELETE,INSERT,REFERENCES,SELECT,TRIGGER,TRUNCATE,UPDATE ON public.user_roles TO service_role;
+
+-- R1-P addendum: security master used by app_ledger.classify_instrument /
+-- instrument_publishable. Extracted read-only from production catalogs
+-- (public.warrant_expiry), production-exact columns, PK, indexes and checks.
+CREATE TABLE IF NOT EXISTS public.warrant_expiry (
+  symbol text NOT NULL,
+  name text,
+  parent_code text,
+  expire_date date,
+  fetched_at timestamptz NOT NULL DEFAULT now(),
+  exercise_ratio numeric(12,6),
+  strike_price numeric(14,4),
+  call_put text,
+  ratio_source text,
+  ratio_updated_at timestamptz,
+  CONSTRAINT warrant_expiry_pkey PRIMARY KEY (symbol),
+  CONSTRAINT warrant_expiry_call_put_check CHECK ((call_put = ANY (ARRAY['call'::text,'put'::text])) OR call_put IS NULL)
+);
+CREATE INDEX IF NOT EXISTS idx_warrant_expiry_parent ON public.warrant_expiry (parent_code);
+CREATE INDEX IF NOT EXISTS idx_warrant_expiry_ratio_null ON public.warrant_expiry (symbol) WHERE exercise_ratio IS NULL;
+ALTER TABLE public.warrant_expiry ENABLE ROW LEVEL SECURITY;
+DROP POLICY IF EXISTS "Public read warrant expiry" ON public.warrant_expiry;
+CREATE POLICY "Public read warrant expiry" ON public.warrant_expiry FOR SELECT USING (true);
+GRANT SELECT ON public.warrant_expiry TO anon;
+GRANT SELECT, INSERT, UPDATE, DELETE ON public.warrant_expiry TO authenticated;
+GRANT ALL ON public.warrant_expiry TO service_role;

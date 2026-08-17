@@ -12,6 +12,10 @@
 set -uo pipefail
 ROOT=$(cd "$(dirname "$0")/../../.." && pwd); cd "$ROOT"
 OUT=${1:-/tmp/r1p-full-$(date +%H%M%S)}; mkdir -p "$OUT"
+# capture the production read-only connection BEFORE unsetting: step C uses it
+# for a SELECT-only ACL baseline; every other step runs with PG* unset.
+P_HOST=${PGHOST:-}; P_PORT=${PGPORT:-}; P_USER=${PGUSER:-}
+P_PASS=${PGPASSWORD:-}; P_DB=${PGDATABASE:-}
 unset PGHOST PGPORT PGUSER PGPASSWORD PGDATABASE PGSSLMODE
 FAILS=0
 
@@ -26,7 +30,13 @@ npx vitest run src/contracts src/components/expert > "$OUT/vitest.log" 2>&1 \
   || { echo "UI TESTS FAILED" | tee -a "$OUT/summary.txt"; tail -30 "$OUT/vitest.log"; FAILS=$((FAILS+1)); }
 grep -E "Tests +[0-9]+ passed" "$OUT/vitest.log" | tee -a "$OUT/summary.txt"
 
-echo "=== C. two fresh disposable clones ===" | tee -a "$OUT/summary.txt"
+echo "=== C. production read-only ACL baseline (0 touch) ===" | tee -a "$OUT/summary.txt"
+( export PGHOST="$P_HOST" PGPORT="$P_PORT" PGUSER="$P_USER" PGPASSWORD="$P_PASS" \
+         PGDATABASE="$P_DB"; db/r1/p/093_prod_acl_baseline.sh "$OUT" ) 2>&1 \
+  | tee -a "$OUT/prod_acl.log"
+[ "${PIPESTATUS[0]}" = "0" ] || { echo "PROD ACL BASELINE FAILED" | tee -a "$OUT/summary.txt"; FAILS=$((FAILS+1)); }
+
+echo "=== D. two fresh disposable clones ===" | tee -a "$OUT/summary.txt"
 bash db/r1/p/run_two_fresh_clones_p.sh "$OUT/clones" 2>&1 | tee -a "$OUT/clones.log" | tail -40
 CF=${PIPESTATUS[0]}; FAILS=$((FAILS+CF))
 

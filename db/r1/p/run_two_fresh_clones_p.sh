@@ -43,6 +43,7 @@ run_clone() { # name port
     || { echo "  bootstrap FAILED" | tee -a "$OUT/$NAME.log"; FAILS=$((FAILS+1)); }
   psql "$CL" -qX -f db/r1/clone/schema.sql > "$DIR/schema.log" 2>&1
   echo "  schema errors: $(grep -c '^ERROR' "$DIR/schema.log")" | tee -a "$OUT/$NAME.log"
+  psql "$CL" -qX -f db/r1/clone/rls_subscription_tests.sql > "$DIR/rlsfn.log" 2>&1
   psql "$CL" -qX -v ON_ERROR_STOP=1 -f db/r1/clone/10_load_fixture.sql > "$DIR/fixture.log" 2>&1 \
     || { echo "  fixture FAILED" | tee -a "$OUT/$NAME.log"; tail -5 "$DIR/fixture.log"; FAILS=$((FAILS+1)); }
 

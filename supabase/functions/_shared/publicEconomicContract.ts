@@ -48,8 +48,27 @@ export interface ProjectionStatus {
   note: string | null;
 }
 
-/** Pre-cutover default: no projection row → legacy read path, numbers allowed. */
-export const READY_PROJECTION: ProjectionStatus = {
+/** Public-safe copy — identical strings to the frontend contract. */
+export const REVIEW_BADGE = '資料檢核中';
+export const REVIEW_NOTE = '該區間不納入績效';
+
+/**
+ * Fail-closed default: a caller that has not resolved a projection (not
+ * loaded, unknown, read failed) never gets numbers.
+ */
+export const UNKNOWN_PROJECTION: ProjectionStatus = {
+  state: 'incomplete',
+  showNumbers: false,
+  showReviewNotice: true,
+  badge: REVIEW_BADGE,
+  note: REVIEW_NOTE,
+};
+
+/**
+ * Explicit pre-cutover legacy path: only for a caller that has observed the
+ * projection to be absent for this scope.
+ */
+export const LEGACY_NO_PROJECTION: ProjectionStatus = {
   state: 'no_projection',
   showNumbers: true,
   showReviewNotice: false,

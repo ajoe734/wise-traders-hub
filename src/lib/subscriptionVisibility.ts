@@ -1,4 +1,4 @@
-import { resolveProjectionStatus, type ProjectionStatus } from '@/contracts/publicProjection';
+import { UNKNOWN_PROJECTION, type ProjectionStatus } from '@/contracts/publicProjection';
 import { gateSignalEconomics } from '@/contracts/publicEconomicContract';
 /**
  * 訂閱內容可見性邏輯
@@ -50,7 +50,7 @@ export async function fetchSubscriberSignals(
   userId: string | undefined,
   isTester = false,
   previewExpertId: string | null = null,
-  projection: ProjectionStatus = resolveProjectionStatus({ absent: true }),
+  projection: ProjectionStatus = UNKNOWN_PROJECTION,
 ): Promise<FetchSubscriberSignalsResult> {
   if (!userId) return { signals: [], hasSubscription: false };
   const nowIso = new Date().toISOString();

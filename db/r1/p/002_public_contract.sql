@@ -115,3 +115,15 @@ GRANT SELECT, INSERT, UPDATE, DELETE ON
   public.public_nav_daily, public.public_projection_active,
   public.public_projection_version, public.public_projection_withheld
   TO ledger_owner;
+
+-- ---------------------------------------------------------------- C3b: named pre-cutover helpers
+-- Three security-sensitive helpers leak entitlement / capital state to an
+-- unauthenticated caller. Production still carries these grants (recorded as
+-- pre_cutover_expected_violation=3 by db/r1/p/093_prod_acl_baseline.sh);
+-- the cutover migration closes them here.
+REVOKE ALL ON FUNCTION public.get_expert_capital_status(uuid)                        FROM PUBLIC, anon;
+REVOKE ALL ON FUNCTION public.has_active_subscription_after(uuid, timestamptz)       FROM PUBLIC, anon;
+REVOKE ALL ON FUNCTION public.is_tester(uuid)                                        FROM PUBLIC, anon;
+GRANT EXECUTE ON FUNCTION public.get_expert_capital_status(uuid)                  TO authenticated, service_role;
+GRANT EXECUTE ON FUNCTION public.has_active_subscription_after(uuid, timestamptz) TO authenticated, service_role;
+GRANT EXECUTE ON FUNCTION public.is_tester(uuid)                                  TO authenticated, service_role;

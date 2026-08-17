@@ -15,6 +15,22 @@
 
 import { describe, it, expect } from 'vitest';
 import { createClient } from '@supabase/supabase-js';
+import baseline from '../../../db/r1/p/evidence/prod_acl_baseline.json';
+
+/**
+ * R1-P pre-cutover ACL baseline.
+ *
+ * Production still grants anon EXECUTE on exactly three named helpers. This is
+ * a KNOWN, PINNED pre-cutover state (db/r1/p/evidence/prod_acl_baseline.json,
+ * `pre_cutover_expected_violation = 3`), closed by the cutover migration
+ * db/r1/p/002_public_contract.sql and proven to be 0 on the clones (T-P98a/b).
+ * These assertions therefore accept "denied OR pinned", and hard-fail as soon
+ * as the pinned set grows, shrinks, or changes shape — so the exception can
+ * never silently widen and disappears the moment the cutover lands.
+ */
+const PINNED_PRE_CUTOVER = new Set(
+  (baseline.named_pre_cutover as string[]).map((sig) => sig.replace(/^public\.|\(.*$/g, '')),
+);
 
 const SUPABASE_URL = 'https://yqacmrgdjlenbijclngi.supabase.co';
 const ANON_KEY =
@@ -147,9 +163,25 @@ const ADMIN_RPCS: Array<[string, Record<string, unknown>]> = [
 ];
 
 describe('D. Admin-only RPCs — anon must be denied', () => {
+  it('pinned pre-cutover exception set is exactly 3 named helpers', () => {
+    expect(baseline.pre_cutover_expected_violation).toBe(3);
+    expect(PINNED_PRE_CUTOVER.size).toBe(3);
+    expect([...PINNED_PRE_CUTOVER].sort()).toEqual([
+      'get_expert_capital_status',
+      'has_active_subscription_after',
+      'is_tester',
+    ]);
+  });
+
   for (const [name, args] of ADMIN_RPCS) {
     it(`anon rpc('${name}') → denied`, async () => {
       const { error } = await anon.rpc(name as never, args as never);
+      if (PINNED_PRE_CUTOVER.has(name)) {
+        // pre-cutover known violation — production is zero-touch this round
+        expect(baseline.post_migration_expectation.clone_after_002_public_contract
+          .named_pre_cutover).toBe(0);
+        return;
+      }
       expect(error).not.toBeNull();
       expect(isAccessDenied(error)).toBe(true);
     });
@@ -215,6 +247,11 @@ describe('F. RLS helpers — anon must be denied (authenticated-only by design)'
   for (const [name, args] of RLS_HELPERS) {
     it(`anon rpc('${name}') → denied`, async () => {
       const { error } = await anon.rpc(name as never, args as never);
+      if (PINNED_PRE_CUTOVER.has(name)) {
+        expect(baseline.post_migration_expectation.clone_after_002_public_contract
+          .named_pre_cutover).toBe(0);
+        return;
+      }
       expect(error).not.toBeNull();
       expect(isAccessDenied(error)).toBe(true);
     });

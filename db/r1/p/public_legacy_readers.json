@@ -1,13 +1,12 @@
 {
  "generated_by": "db/r1/p/build_manifests.py + manual route mapping",
  "total": 10,
- "gated_public_readers": 6,
- "demoted_to_internal": 4,
- "rule": "every public reader of expert economic facts must import the typed public contract; no raw numeric passthrough.",
+ "gated_public_readers": 7,
+ "rule": "every reader of expert economic facts on a public or entitled surface must import the typed public contract; \"authenticated\" alone never demotes a reader to internal — an internal reader must prove an owner-only RLS scope, company_admin, service_role or cron-secret guard, verified by a runtime negative test.",
  "readers": [
   {
    "path": "src/hooks/usePerformance.ts",
-   "kind": "gated_public_reader",
+   "kind": "typed_public_contract",
    "routes": [
     "/expert/:slug",
     "/experts"
@@ -34,7 +33,7 @@
   },
   {
    "path": "src/hooks/usePeriodPerformance.ts",
-   "kind": "gated_public_reader",
+   "kind": "typed_public_contract",
    "routes": [
     "/expert/:slug (績效圖表)"
    ],
@@ -59,7 +58,7 @@
   },
   {
    "path": "src/hooks/useExpertHoldingsBundle.ts",
-   "kind": "gated_public_reader",
+   "kind": "typed_public_contract",
    "routes": [
     "/expert/:slug (持倉/資金卡)"
    ],
@@ -87,7 +86,7 @@
   },
   {
    "path": "src/lib/journalRepository.ts",
-   "kind": "gated_public_reader",
+   "kind": "typed_public_contract",
    "routes": [
     "/journal/:id",
     "/app/journal/:id"
@@ -115,7 +114,7 @@
   },
   {
    "path": "src/lib/subscriptionVisibility.ts",
-   "kind": "gated_public_reader",
+   "kind": "typed_public_contract",
    "routes": [
     "/expert/:slug (訂閱者訊號清單)"
    ],
@@ -140,7 +139,7 @@
   },
   {
    "path": "supabase/functions/share-og/index.ts",
-   "kind": "gated_public_reader",
+   "kind": "typed_public_contract",
    "routes": [
     "GET /functions/v1/share-og (verify_jwt=false)"
    ],
@@ -165,59 +164,59 @@
   },
   {
    "path": "src/components/layouts/SignalsLayout.tsx",
-   "kind": "demoted_to_internal",
+   "kind": "entitled_non_economic",
    "routes": [
     "/app/* shell"
    ],
    "surface": "frontend",
-   "audience": "internal",
-   "role": "authenticated",
+   "audience": "entitled",
+   "role": "authenticated (subscriber)",
    "current_query": [
-    "expert_signals.select"
+    "expert_signals.select('id', { count: 'exact', head: true })"
    ],
    "tables": [
     "expert_signals"
    ],
-   "invocation_guard": "authenticated-only shell (redirects anonymous to /auth/login)",
-   "contract_gate": "n/a",
-   "fallback": "n/a — authenticated-only surface, never served to anon",
-   "legacy_fallback_removed": false,
-   "cutover_disposition": "stays_on_internal_ledger",
-   "test_id": "db/r1/p/consumer_scanner.py::audience_regression (internal by auth redirect)",
-   "evidence": "redirects anonymous to /auth/login (ProtectedRoute / navigate guard)"
+   "invocation_guard": "subscription-scoped unread badge count",
+   "contract_gate": "n/a — no economic column is read (head/count of id only)",
+   "fallback": "count only; no number derived from economic facts",
+   "legacy_fallback_removed": true,
+   "cutover_disposition": "no_economic_read",
+   "test_id": "src/test/unit/public-legacy-readers.test.ts::entitled_non_economic readers select no economic column",
+   "evidence": "head/count select of id only — zero economic columns, verified by runtime source contract test"
   },
   {
    "path": "src/components/layouts/UnifiedAppLayout.tsx",
-   "kind": "demoted_to_internal",
+   "kind": "entitled_non_economic",
    "routes": [
     "/app/* shell"
    ],
    "surface": "frontend",
-   "audience": "internal",
-   "role": "authenticated",
+   "audience": "entitled",
+   "role": "authenticated (subscriber)",
    "current_query": [
-    "expert_signals.select"
+    "expert_signals.select('id', { count: 'exact', head: true })"
    ],
    "tables": [
     "expert_signals"
    ],
-   "invocation_guard": "authenticated-only shell (redirects anonymous to /auth/login)",
-   "contract_gate": "n/a",
-   "fallback": "n/a — authenticated-only surface, never served to anon",
-   "legacy_fallback_removed": false,
-   "cutover_disposition": "stays_on_internal_ledger",
-   "test_id": "db/r1/p/consumer_scanner.py::audience_regression (internal by auth redirect)",
-   "evidence": "redirects anonymous to /auth/login (ProtectedRoute / navigate guard)"
+   "invocation_guard": "subscription-scoped unread badge count",
+   "contract_gate": "n/a — no economic column is read (head/count of id only)",
+   "fallback": "count only; no number derived from economic facts",
+   "legacy_fallback_removed": true,
+   "cutover_disposition": "no_economic_read",
+   "test_id": "src/test/unit/public-legacy-readers.test.ts::entitled_non_economic readers select no economic column",
+   "evidence": "head/count select of id only — zero economic columns, verified by runtime source contract test"
   },
   {
    "path": "src/lib/analystDataAccess.ts",
-   "kind": "demoted_to_internal",
+   "kind": "internal_owner_only",
    "routes": [
     "/app/signals*"
    ],
    "surface": "frontend",
    "audience": "internal",
-   "role": "authenticated",
+   "role": "expert owner (RLS expert_id ∈ experts.user_id = auth.uid())",
    "current_query": [
     "expert_signals.select",
     "trade_records.select"
@@ -226,36 +225,42 @@
     "expert_signals",
     "trade_records"
    ],
-   "invocation_guard": "route render",
-   "contract_gate": "n/a",
-   "fallback": "n/a — authenticated-only surface, never served to anon",
-   "legacy_fallback_removed": false,
+   "invocation_guard": "owner-only RLS scope + mandatory .eq(expert_id) on every read",
+   "contract_gate": "n/a — owner reads their own ledger",
+   "fallback": "RLS returns zero rows for a plain authenticated user",
+   "legacy_fallback_removed": true,
    "cutover_disposition": "stays_on_internal_ledger",
-   "test_id": "db/r1/p/consumer_scanner.py::audience_regression (internal by auth redirect)",
-   "evidence": "redirects anonymous to /auth/login (ProtectedRoute / navigate guard)"
+   "test_id": "src/test/unit/public-legacy-readers.test.ts::internal_owner_only readers are owner-scoped at runtime",
+   "evidence": "owner-only RLS policy expert_id IN (SELECT id FROM experts WHERE user_id = auth.uid()); negative test asserts no unfiltered read path exists for a plain authenticated session"
   },
   {
    "path": "src/pages/app/SignalsDashboard.tsx",
-   "kind": "demoted_to_internal",
+   "kind": "typed_public_contract",
    "routes": [
     "/app/signals"
    ],
    "surface": "frontend",
-   "audience": "internal",
-   "role": "authenticated",
+   "audience": "entitled",
+   "role": "authenticated (subscriber)",
    "current_query": [
-    "expert_signals.select"
+    "expert_signals.select('*, experts!inner(...)') status=published"
    ],
    "tables": [
     "expert_signals"
    ],
-   "invocation_guard": "route render",
-   "contract_gate": "n/a",
-   "fallback": "n/a — authenticated-only surface, never served to anon",
-   "legacy_fallback_removed": false,
-   "cutover_disposition": "stays_on_internal_ledger",
-   "test_id": "db/r1/p/consumer_scanner.py::audience_regression (internal by auth redirect)",
-   "evidence": "redirects anonymous to /auth/login (ProtectedRoute / navigate guard)"
+   "invocation_guard": "subscription-gated route render (/app/signals)",
+   "contract_gate": "typed contract: fetchProjectionStatusForExperts + gateSignalEconomics + ReviewPlaceholder/PerformanceReviewNotice",
+   "fallback": "not-ready → economic fields null, 「資料檢核中」/「該區間不納入績效」 rendered",
+   "legacy_fallback_removed": true,
+   "cutover_disposition": "typed_public_contract",
+   "test_id": "src/test/unit/public-legacy-readers.test.ts::typed_public_contract readers import the gate",
+   "evidence": "entitled economic reader: selects economic columns of expert_signals; gated by typed contract since R1-P"
   }
- ]
+ ],
+ "classification_counts": {
+  "typed_public_contract": 7,
+  "entitled_non_economic": 2,
+  "internal_owner_only": 1,
+  "ambiguous": 0
+ }
 }

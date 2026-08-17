@@ -17,6 +17,7 @@ import { useQuery } from '@tanstack/react-query';
 import { usePreviewMode } from '@/hooks/usePreviewMode';
 import { intentHandlers } from '@/lib/routePrefetch';
 import * as journalRepo from '@/lib/journalRepository';
+import { fetchProjectionStatusForExperts } from '@/lib/fetchProjectionStatus';
 import { AssetFilterChips } from '@/components/AssetFilterChips';
 import { resolveAssetClass, type AssetClass } from '@/lib/asset';
 import { SubscriptionTimeline } from '@/components/SubscriptionTimeline';
@@ -125,9 +126,10 @@ const fetchJournalsData = async (userId: string | undefined, isTester: boolean, 
     return { signals: [] as JournalSignal[], hasSubscription: true, diag };
   }
 
+  const projection = await fetchProjectionStatusForExperts(mentorIds);
   const { signals: fetched, error } = await journalRepo.forSubscriber<JournalSignal>(
     supabase as any,
-    { mentorIds, limit: 100 },
+    { mentorIds, limit: 100, projection },
   );
 
   if (error) {
