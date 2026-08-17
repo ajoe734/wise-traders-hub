@@ -70,16 +70,16 @@
       "case_id": "ready__desktop__light",
       "files": {
         "png": {
-          "size": 69743,
-          "sha256": "070e27d8b3f340f3f989fff8b0a3d7818a2ad2b84315d6251c20528ad007f909"
+          "size": 69741,
+          "sha256": "346ce3f9d87434828b7139069a272f4d2daf069e16dc06efc1caccfd5481f06b"
         },
         "dom.html": {
           "size": 267279,
-          "sha256": "e245b1322504dd4b6b57cb1a9acbcac9180ccc3a3935da8afeb6e6faa4f7ffce"
+          "sha256": "8fe72147f6a04dfc957eabb63f78fed48415dd5cd031628d93fa28b6fe6f0e4e"
         },
         "json": {
           "size": 330,
-          "sha256": "047db1b9c50a6c0fdbbdd7041d328181c70ed26ffcb56cedbb473d5f0217f850"
+          "sha256": "c02cd872c9962b1fb23db622696763970b26f314b39c7cb7408d7db4da0bc9fa"
         }
       },
       "viewport": "1280x900",
@@ -97,12 +97,12 @@
       "case_id": "ready__desktop__dark",
       "files": {
         "png": {
-          "size": 70122,
-          "sha256": "7308fbc97efb90823ba37d7cd0f72eab030f94a7e45c33e2bbf577e0b3ceaa74"
+          "size": 70125,
+          "sha256": "20ec9da1ecf1fbf94bcdadf00d9e3a43e09dbdeae9cd31d8e9dfd1223c817cfb"
         },
         "dom.html": {
           "size": 267501,
-          "sha256": "38224c317e7d14992d99dd633cb7614a2b9222395337c9173af08e758cfb5b40"
+          "sha256": "4561eb08c5c6cf58ecd1bf161d608c6cf818e1fc30292a888a858d1f4c3d22ab"
         },
         "json": {
           "size": 328,
@@ -124,16 +124,16 @@
       "case_id": "ready__mobile__light",
       "files": {
         "png": {
-          "size": 54798,
-          "sha256": "4b7bea73dcde6e895e7248d89a9d716e9acf95f0ba4e15648c9a282732a4687b"
+          "size": 54799,
+          "sha256": "48ded07cb056ec64af71e9d3cec082e75ebc4ba77a7ef6057ec160e91fb1d961"
         },
         "dom.html": {
           "size": 260860,
-          "sha256": "ad6efa1a3d280a9bfa531dab07b80a501a0b6db8c869a3e43a401208b952d684"
+          "sha256": "6b373918c8087e0919b5e7298d4bc19115c9d1203186334baa0007d0a4cd4eb9"
         },
         "json": {
           "size": 328,
-          "sha256": "efe4d20ef0c86f56f48dcc773c49b5f07e44f42f15dc756d0285b2d5fb04ec65"
+          "sha256": "838828f188c8b09d3bccdfec52859a937c771a60a6aed154fa6b2dee62b27ad7"
         }
       },
       "viewport": "390x844",
@@ -151,16 +151,16 @@
       "case_id": "ready__mobile__dark",
       "files": {
         "png": {
-          "size": 55404,
-          "sha256": "4659745ade886f7f98613a6abd357b78ef4732a7a92d7e5013e779e797d03f87"
+          "size": 55428,
+          "sha256": "b4d8e7d0d25f5a7150bbef246101bee19531eae8ee2028da1f4810eea8d8c4ac"
         },
         "dom.html": {
-          "size": 261081,
-          "sha256": "540df28a06d9abe4571d4b89583505d99f3690e871584ec281ffc37ce2e6e909"
+          "size": 261082,
+          "sha256": "a67f343849338938636928b3ed28f9ccd085ccef9b3c34ee414b3f9adefa0385"
         },
         "json": {
-          "size": 553,
-          "sha256": "0a2f2ca9f72927a64937ac7c3f5095b8bc201d3c5a5a35d20f545c0927cb8892"
+          "size": 326,
+          "sha256": "4c0a7f9abfd2f12780fab9093928435ebddacf83b0d7da33fca50ef8ac5eadff"
         }
       },
       "viewport": "390x844",
@@ -168,7 +168,7 @@
       "consoleErrors": 0,
       "pageErrors": 0,
       "injectedTransportErrors": 0,
-      "environmentErrors": 1,
+      "environmentErrors": 0,
       "mocked": true,
       "economicZones": 2,
       "copyLines": null,
@@ -187,7 +187,7 @@
         },
         "json": {
           "size": 356,
-          "sha256": "bbdc9ed465ce674f9c325b4a2f57532463d5d4b923308560a78d4d20a4df3362"
+          "sha256": "6c10c1ca81bdc0e184cb11e972c0c5030571751f290887fd1f3f15acbb9edaa3"
         }
       },
       "viewport": "1280x900",
@@ -205,16 +205,16 @@
       "case_id": "manual_review_6515__desktop__dark",
       "files": {
         "png": {
-          "size": 64537,
-          "sha256": "5205de2dbfea1d74c55a805bd0572ebebb70de46a94402922d6bd34dbcb0a55d"
+          "size": 64499,
+          "sha256": "9421d8e8b2238e934989069b86f00447d2f801b61561822470f5c3e8b313289f"
         },
         "dom.html": {
           "size": 255006,
           "sha256": "704ba9d8869fe11b5b581b4b1193ea76f238faaef36d50273de9d31308dcd80a"
         },
         "json": {
-          "size": 354,
-          "sha256": "799697aaa9723cb27cc60168fb754401d0909543c9d71ac765d91b4cb966d022"
+          "size": 581,
+          "sha256": "8a221e378bb53229b41e872a2ffe716e9a1327ba6740a00db76cdbea87b4e7f5"
         }
       },
       "viewport": "1280x900",
@@ -222,7 +222,7 @@
       "consoleErrors": 0,
       "pageErrors": 0,
       "injectedTransportErrors": 0,
-      "environmentErrors": 0,
+      "environmentErrors": 1,
       "mocked": true,
       "economicZones": 2,
       "copyLines": true,
@@ -268,7 +268,7 @@
         },
         "json": {
           "size": 352,
-          "sha256": "3762125bf0c1a776a963a6a70a1f2ca19727f103df9da854cddd111b2084b6fa"
+          "sha256": "b09d1049d3127875f8b4458e3519359640761425162c4a9b1c009e8596b446dd"
         }
       },
       "viewport": "390x844",
@@ -295,7 +295,7 @@
         },
         "json": {
           "size": 346,
-          "sha256": "682a21082ec7dab7a53f020ffeee90922725fd236a00e36bbd14f9fa188efdd2"
+          "sha256": "a2e9a1d6e17f1f56700c2618f954830e18fb28e01173dc43ef54e3b83e0f9246"
         }
       },
       "viewport": "1280x900",
@@ -322,7 +322,7 @@
         },
         "json": {
           "size": 344,
-          "sha256": "2068d14eeec1be50b739bdff6c10c0c1b8009adc38c71faeebd689c35a4231ec"
+          "sha256": "967079bb699c95ed4440b0ea95b8fa87fa248e8f3cee38d5c42b76a07e282796"
         }
       },
       "viewport": "1280x900",
@@ -403,7 +403,7 @@
         },
         "json": {
           "size": 356,
-          "sha256": "04f525fc59b20dac2ed13f3ab170514388251a64b6772de68ed51d8c83ba9960"
+          "sha256": "6d3bb5cfe4c641852ce0e37ddc9329755dca37ef0d6d6ed726eb0ef7cc7fe69e"
         }
       },
       "viewport": "1280x900",
@@ -430,7 +430,7 @@
         },
         "json": {
           "size": 354,
-          "sha256": "c856028a5b893558a55d3f79037fde191048f248bffba9a1e86e0f12122d046c"
+          "sha256": "41532d48bb0477b2484bf48ef06827cbb67bbcc5a022b888e87e089bf7b06b44"
         }
       },
       "viewport": "1280x900",
@@ -457,7 +457,7 @@
         },
         "json": {
           "size": 354,
-          "sha256": "85fa1eeba24f44ac597c99e5e0bb289fb620755920600f4726e54769eabcd59c"
+          "sha256": "468878e03c65b4b66f724293d1075d063504cd26d95c5b64f3f1b37d2c1ba006"
         }
       },
       "viewport": "390x844",
@@ -475,8 +475,8 @@
       "case_id": "incomplete_warrant__mobile__dark",
       "files": {
         "png": {
-          "size": 54653,
-          "sha256": "acedba435f18be82b73c917016516fc79bbf6cb9347512a473b1e95df36b09aa"
+          "size": 54622,
+          "sha256": "4207aeeba7b4ee1b1c0ec39ee7c041736617d88542900cb8a0bc10002e8e8854"
         },
         "dom.html": {
           "size": 255006,
@@ -484,7 +484,7 @@
         },
         "json": {
           "size": 352,
-          "sha256": "b73f4fb37fae7ccef54d01946e5dc3a4a3e03cfcb5833a7f30ca19e4b9ec3aaf"
+          "sha256": "794d9c9a6c73af00fbecaf00ebf163d116847d962c04773fbaae7d9f4f2bf856"
         }
       },
       "viewport": "390x844",
@@ -511,7 +511,7 @@
         },
         "json": {
           "size": 366,
-          "sha256": "9c56487296610f6341c5b3727c09609b3e7d745d7aa8094eddef88b5d283164c"
+          "sha256": "e1388d8355a76050e93522e72b31dce12ab5a7117805aaea43bc2d8dd63c8e84"
         }
       },
       "viewport": "1280x900",
@@ -538,7 +538,7 @@
         },
         "json": {
           "size": 364,
-          "sha256": "2e1763abdeb1458c2762423b62d57ab027df2c62a5e0831f7df07297548d1572"
+          "sha256": "775f53df83f6118c54735e1f4560242da25609f54f6c0e8be0465fbc708fdfa9"
         }
       },
       "viewport": "1280x900",
@@ -610,16 +610,16 @@
       "case_id": "no_projection__desktop__light",
       "files": {
         "png": {
-          "size": 63894,
-          "sha256": "2d0cf083a223feba3c39cd53103436a2cadcd61d4b95107b39ad409d66d53acf"
+          "size": 64096,
+          "sha256": "0c8ae0fb24c775b3a39e642f224ddbc178cf6c64c0891a2f46aa32d03450f1ff"
         },
         "dom.html": {
           "size": 254784,
           "sha256": "6ee4f1b99f6340e4717e917b326ad0072271045259c4bf8521e7d76a2e4bfd87"
         },
         "json": {
-          "size": 1544,
-          "sha256": "d01c1a6cd87be61ef7ae189da0d86f3ba2a0a8dd10c6ea8bf85a8540baae945d"
+          "size": 618,
+          "sha256": "def828d29b492efb58a638095e911d16109bab25d1bce1e999d1e614ae42e349"
         }
       },
       "viewport": "1280x900",
@@ -627,7 +627,7 @@
       "consoleErrors": 0,
       "pageErrors": 0,
       "injectedTransportErrors": 1,
-      "environmentErrors": 4,
+      "environmentErrors": 0,
       "mocked": true,
       "economicZones": 2,
       "copyLines": true,
@@ -646,7 +646,7 @@
         },
         "json": {
           "size": 616,
-          "sha256": "587a37f107db92cd48ae759e029ab39ff969a2ea4c470d167dae7835e5ab2e64"
+          "sha256": "61ec678e496fcef639a05156121013b4f4ee365703ba0e7f86e75508ea7c630e"
         }
       },
       "viewport": "1280x900",
@@ -673,7 +673,7 @@
         },
         "json": {
           "size": 616,
-          "sha256": "5d84f2030badd1ee788b7745abf5af4b145f6e1925949373db72f895491f3c8b"
+          "sha256": "58cb17e16a547203589cab97c9e8ddb766d4ed9a862d001c5b02ff6575596f8f"
         }
       },
       "viewport": "390x844",
@@ -691,8 +691,8 @@
       "case_id": "no_projection__mobile__dark",
       "files": {
         "png": {
-          "size": 54653,
-          "sha256": "acedba435f18be82b73c917016516fc79bbf6cb9347512a473b1e95df36b09aa"
+          "size": 54622,
+          "sha256": "4207aeeba7b4ee1b1c0ec39ee7c041736617d88542900cb8a0bc10002e8e8854"
         },
         "dom.html": {
           "size": 255006,
@@ -754,7 +754,7 @@
         },
         "json": {
           "size": 620,
-          "sha256": "b393a810773ba56107e6f0f89fd193109588a3c77763817b7d2ba275302f0864"
+          "sha256": "f03b8b5d6ad3440f16a7cce835b9268101102c9e9c728ccc192fc2bb5ef94134"
         }
       },
       "viewport": "1280x900",
@@ -772,24 +772,24 @@
       "case_id": "api_error__mobile__light",
       "files": {
         "png": {
-          "size": 53902,
-          "sha256": "8300d51a866df24ff3951bc322342c657d009c083da7b764ee7deb154f668758"
+          "size": 54037,
+          "sha256": "112f5167d0d7f65581fc07476351c96dadf1248811aa39bc4162adeb2a1c4a3b"
         },
         "dom.html": {
           "size": 254784,
           "sha256": "6ee4f1b99f6340e4717e917b326ad0072271045259c4bf8521e7d76a2e4bfd87"
         },
         "json": {
-          "size": 1546,
-          "sha256": "981b76b09d4a1972383cc7f780e218cf2d48b8116370d575995039917452f458"
+          "size": 620,
+          "sha256": "847e3f4c67062e86476d880ef0450b17c9553e9169ee9a1154d38f0ba397c723"
         }
       },
       "viewport": "390x844",
       "theme": "light",
       "consoleErrors": 0,
       "pageErrors": 0,
-      "injectedTransportErrors": 2,
-      "environmentErrors": 3,
+      "injectedTransportErrors": 1,
+      "environmentErrors": 0,
       "mocked": true,
       "economicZones": 2,
       "copyLines": true,
@@ -826,8 +826,8 @@
       "case_id": "smoke-home",
       "files": {
         "png": {
-          "size": 78178,
-          "sha256": "7b43a9906b861d102b54855279d3de56ffdbd6a15e8ef8a33cd018b9d4d3493b"
+          "size": 95169,
+          "sha256": "2a08356692b5bf872bed52b0fcdc4f2cade904e7ffbf78feaea54c3a68862adb"
         },
         "dom.html": {
           "size": 317175,
