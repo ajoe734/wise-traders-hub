@@ -1,0 +1,144 @@
+Pager usage is off.
+=== R0-A1 ECONOMIC TABLE SET ===
+            tbl            | cols | policies | rls |  owner   | approx_rows 
+---------------------------+------+----------+-----+----------+-------------
+ current_prices            |   21 |        2 | t   | postgres |         142
+ expert_plans              |   14 |        6 | t   | postgres |           7
+ expert_signal_legs        |   13 |        3 | t   | postgres |          12
+ expert_signals            |   28 |        6 | t   | postgres |         173
+ experts                   |   23 |        5 | t   | postgres |          12
+ holdings_fix_proposals    |   24 |        3 | t   | postgres |           0
+ signal_trade_applications |    6 |        1 | t   | postgres |         165
+ target_price_history      |   12 |        3 | t   | postgres |           0
+ trade_records             |   22 |        7 | t   | postgres |          82
+ user_performances         |    9 |        5 | t   | postgres |          26
+(10 rows)
+
+=== R0-A2 COLUMN HASH (per table) ===
+             n             |             col_hash             | ncols 
+---------------------------+----------------------------------+-------
+ expert_signal_legs        | 1762067789d1c9744aaff7159d8270f7 |    13
+ expert_signals            | 5f29dd188240d254b0b638621933a4e4 |    28
+ experts                   | b62189d46567ca8de9f4f648b66b6343 |    23
+ holdings_fix_proposals    | 1f80b9f32aaa6538cf0eae29773302c6 |    24
+ signal_trade_applications | d6282e694e0114b94e3d190d5f63af6a |     6
+ trade_records             | 509b9faeef5356c4dbfe597bb2b5a6bf |    22
+ user_performances         | 1c90c6f36597e9d2d881b3f5b6360148 |     9
+(7 rows)
+
+=== R0-A3 CONSTRAINTS HASH ===
+          relname          |                h                 | n 
+---------------------------+----------------------------------+---
+ expert_signal_legs        | 8f340b7b4d4436d4e14d0f5e1d56523a | 6
+ expert_signals            | 8ebd2fd201a957a532b6ea5b93e61753 | 3
+ experts                   | d3db8a20bd8af7f0d20477f7b9205cf7 | 4
+ holdings_fix_proposals    | 0ec0ef6b284da0657ba60368885381cf | 4
+ signal_trade_applications | 887c786ac78040d10f8bfd75c50d72ce | 2
+ trade_records             | 6fec1a16ffe4503e01d9cf1db089c290 | 3
+ user_performances         | ba07903990bee776e9836f7eaff2dedf | 1
+(7 rows)
+
+=== R0-A4 INDEXES HASH ===
+         tablename         |                h                 | n 
+---------------------------+----------------------------------+---
+ expert_signal_legs        | c6042a9f14bd540d30145e1b520b6f28 | 3
+ expert_signals            | f715902a0b73b3ac5bc18cf3430bd5b8 | 4
+ experts                   | ac35b8e601003189e0cf3bc707da92fc | 3
+ holdings_fix_proposals    | dd7a43ad75acb7119b0f4f9bd469afb8 | 4
+ signal_trade_applications | 3fe70b3ccd3225cf17ce03eb5dbfce51 | 1
+ trade_records             | 15320ad6152581083617e52a86351ab0 | 3
+ user_performances         | 84d4c92a3ec3f41e12f8c9e2cdc3c04c | 1
+(7 rows)
+
+=== R0-A5 TRIGGERS (economic tables, active/inactive) ===
+          tbl           |                   tgname                    | tgenabled |                  fn                  |             def_hash             
+------------------------+---------------------------------------------+-----------+--------------------------------------+----------------------------------
+ expert_signal_legs     | trg_expert_signal_legs_updated_at           | O         | update_updated_at_column             | 189fc7371cc234df065b95f9fdc3c0de
+ expert_signals         | enforce_signal_capital_limit_trg            | O         | enforce_signal_capital_limit         | c1acd1e9c4ce5eef1da8c348b61ffc4c
+ expert_signals         | expert_signals_ai_reindex_del               | O         | trigger_expert_ai_reindex            | 0f73df369a6cba617e8379b50020a6d2
+ expert_signals         | expert_signals_ai_reindex_ins               | O         | trigger_expert_ai_reindex            | 0b759f836a7e3eac790c3a6f5e6f533f
+ expert_signals         | expert_signals_ai_reindex_upd               | O         | trigger_expert_ai_reindex            | a339e99535f8d768f0a88e5b1ab31b81
+ expert_signals         | on_signal_insert_or_update                  | O         | handle_signal_trade                  | a8eec5f475ec4e7596c8ace88880cf03
+ expert_signals         | trg_audit_expert_signals_del                | O         | audit_row_change                     | ead71ca71493939058176cb4e9f24431
+ expert_signals         | trg_audit_expert_signals_ins                | O         | audit_row_change                     | 640f1a6138848a77c9a1119205adced2
+ expert_signals         | trg_audit_expert_signals_upd                | O         | audit_row_change                     | 33621371d415fccbedb95079ca265f9c
+ expert_signals         | trg_enforce_signal_recall_same_day_del      | O         | enforce_signal_recall_same_day       | 5ad0358390cfb2ae1e4a402d2002fe29
+ expert_signals         | trg_enforce_unit_consistency_expert_signals | O         | enforce_unit_consistency             | 7480800d634b54b4f9980049128e9f66
+ expert_signals         | trg_set_expert_signal_market                | O         | set_expert_signal_market             | 4b0b99e6b6044c08b7b379708bc4f6d4
+ holdings_fix_proposals | audit_holdings_fix_proposals                | O         | audit_row_change                     | 60b6e59f325131b87aea4e5dc494c4aa
+ holdings_fix_proposals | holdings_fix_proposals_updated_at           | O         | tg_holdings_fix_proposals_updated_at | c77277f015c038e08b8745be53c5a7b9
+ trade_records          | trg_audit_trade_records_del                 | O         | audit_row_change                     | cfd54adca1c61399243b3d10f06c863f
+ trade_records          | trg_audit_trade_records_ins                 | O         | audit_row_change                     | 440b47df281d47d5b497b97705281fd0
+ trade_records          | trg_audit_trade_records_upd                 | O         | audit_row_change                     | 84880d4b5333a56f6b1b3a6391fb62d3
+ trade_records          | trg_enforce_trade_record_market_currency    | O         | enforce_trade_record_market_currency | 020cb0b24301c49f06bd5b2bff33d265
+ trade_records          | trg_enforce_unit_consistency_trade_records  | O         | enforce_unit_consistency             | eeaf04477c309a542288c3821c0083d3
+ trade_records          | trg_trade_records_bsr_first_fetch           | O         | enqueue_bsr_first_fetch_on_trade     | 663331a4b91ca38eeea7eb97120cac39
+ user_performances      | trg_recalc_summary_on_perf_delete           | O         | recalc_user_summary_on_perf_delete   | 50914e644047b547ca8e6900fe2a43be
+ user_performances      | trg_user_performances_price_guard           | O         | enforce_user_performance_price       | 6f31131e1d6ed0a9b79ad5054cdbfbde
+(22 rows)
+
+=== R0-A6 RLS POLICIES ===
+         tablename         |                           policyname                            |  cmd   |      roles      |                h                 
+---------------------------+-----------------------------------------------------------------+--------+-----------------+----------------------------------
+ expert_signal_legs        | Analysts manage own signal legs                                 | ALL    | {authenticated} | d1fb060f738526a50f2cbc293a4dd968
+ expert_signal_legs        | Company admins full access signal legs                          | ALL    | {authenticated} | e94397ad96da4b2450c839256e0b5dd4
+ expert_signal_legs        | Subscribers can view published signal legs                      | SELECT | {authenticated} | 71d0e7efcdc84887c4b38f5a9eb9ab20
+ expert_signals            | Analysts can delete own signals                                 | DELETE | {authenticated} | b0537d87c2e6724bb84019a146cd0566
+ expert_signals            | Analysts can insert own signals                                 | INSERT | {authenticated} | 241e7ede7002aeb6d38891645888d1a3
+ expert_signals            | Analysts can update own signals                                 | UPDATE | {authenticated} | b0537d87c2e6724bb84019a146cd0566
+ expert_signals            | Analysts can view own signals                                   | SELECT | {authenticated} | b0537d87c2e6724bb84019a146cd0566
+ expert_signals            | Company admins full access signals                              | ALL    | {authenticated} | e94397ad96da4b2450c839256e0b5dd4
+ expert_signals            | Subscribers can view signals published after subscription start | SELECT | {public}        | eac4bc216b3df12c3a49f24331403e31
+ holdings_fix_proposals    | Company admins can insert fix proposals                         | INSERT | {authenticated} | 8673c7b3cdbbd7b90255738e6768c69b
+ holdings_fix_proposals    | Company admins can update fix proposals                         | UPDATE | {authenticated} | e94397ad96da4b2450c839256e0b5dd4
+ holdings_fix_proposals    | Company admins can view fix proposals                           | SELECT | {authenticated} | 69435215c50921020edbb377366fc8ec
+ signal_trade_applications | Company admins can view signal trade applications               | SELECT | {authenticated} | 69435215c50921020edbb377366fc8ec
+ trade_records             | Analysts can delete own trade records                           | DELETE | {authenticated} | b0537d87c2e6724bb84019a146cd0566
+ trade_records             | Analysts can view own trades                                    | SELECT | {authenticated} | b0537d87c2e6724bb84019a146cd0566
+ trade_records             | Anyone can view closed trades for active experts                | SELECT | {public}        | 4dea349a76287dc79ab99e237fa6ce95
+ trade_records             | Anyone can view open trades for active experts                  | SELECT | {public}        | 3324fc9597bc7162dae6dad3c38bc312
+ trade_records             | Company admins can delete trade records                         | DELETE | {authenticated} | 69435215c50921020edbb377366fc8ec
+ trade_records             | Company admins can view all trades                              | SELECT | {authenticated} | 69435215c50921020edbb377366fc8ec
+ trade_records             | Subscribers can view subscribed expert trades                   | SELECT | {authenticated} | 8dd4bc0416bb9fb091c2d41c4ff49088
+ user_performances         | Analysts can delete own user performances                       | DELETE | {authenticated} | 9d0f9bf03063ae9d1dd205fd107a672e
+ user_performances         | Analysts can view own user performances                         | SELECT | {authenticated} | 9d0f9bf03063ae9d1dd205fd107a672e
+ user_performances         | Company admins can delete user performances                     | DELETE | {authenticated} | 69435215c50921020edbb377366fc8ec
+ user_performances         | Users can insert own user performances                          | INSERT | {authenticated} | 636c6fe63735e25ef7ad66ec1f98eb0d
+ user_performances         | Users can update own user performances                          | UPDATE | {authenticated} | 9d0f9bf03063ae9d1dd205fd107a672e
+(25 rows)
+
+=== R0-A7 TABLE ACL ===
+          relname          |                                                                                           acl                                                                                           
+---------------------------+-----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------
+ expert_signal_legs        | postgres=arwdDxtm/postgres anon=arwdDxtm/postgres authenticated=arwdDxtm/postgres service_role=arwdDxtm/postgres sandbox_exec_yqacmrgdjlenbijclngi=ar/postgres sandbox_exec=ar/postgres
+ expert_signals            | postgres=arwdDxtm/postgres anon=arwdDxtm/postgres authenticated=arwdDxtm/postgres service_role=arwdDxtm/postgres sandbox_exec_yqacmrgdjlenbijclngi=ar/postgres sandbox_exec=ar/postgres
+ holdings_fix_proposals    | postgres=arwdDxtm/postgres anon=arwdDxtm/postgres authenticated=arwdDxtm/postgres service_role=arwdDxtm/postgres sandbox_exec_yqacmrgdjlenbijclngi=ar/postgres sandbox_exec=ar/postgres
+ signal_trade_applications | postgres=arwdDxtm/postgres anon=arwdDxtm/postgres authenticated=arwdDxtm/postgres service_role=arwdDxtm/postgres sandbox_exec_yqacmrgdjlenbijclngi=ar/postgres sandbox_exec=ar/postgres
+ trade_records             | postgres=arwdDxtm/postgres anon=arwdDxtm/postgres authenticated=arwdDxtm/postgres service_role=arwdDxtm/postgres sandbox_exec_yqacmrgdjlenbijclngi=ar/postgres sandbox_exec=ar/postgres
+ user_performances         | postgres=arwdDxtm/postgres anon=arwdDxtm/postgres authenticated=arwdDxtm/postgres service_role=arwdDxtm/postgres sandbox_exec_yqacmrgdjlenbijclngi=ar/postgres sandbox_exec=ar/postgres
+(6 rows)
+
+=== R0-A8 ECONOMIC FUNCTIONS (definer/owner/search_path/hash) ===
+                 proname                  | sec_definer |  owner   |        cfg         |                                                                      acl                                                                      |            body_hash             | len  
+------------------------------------------+-------------+----------+--------------------+-----------------------------------------------------------------------------------------------------------------------------------------------+----------------------------------+------
+ admin_apply_fix_proposal                 | t           | postgres | search_path=public | postgres=X/postgres anon=X/postgres authenticated=X/postgres service_role=X/postgres sandbox_exec_yqacmrgdjlenbijclngi=X/postgres             | 8859f90093c4e4593ca0b76b1b9a0489 | 3106
+ admin_delete_trade_records_by_signal_ids | t           | postgres | search_path=public | postgres=X/postgres anon=X/postgres authenticated=X/postgres service_role=X/postgres sandbox_exec_yqacmrgdjlenbijclngi=X/postgres             | e1fb2438d86777851e65d01f6b4e9ed3 |  874
+ admin_delete_trade_records_by_symbol     | t           | postgres | search_path=public | postgres=X/postgres anon=X/postgres authenticated=X/postgres service_role=X/postgres sandbox_exec_yqacmrgdjlenbijclngi=X/postgres             | 7a4a59cda87dfede64b783f291fad497 |  950
+ admin_generate_fix_proposals             | t           | postgres | search_path=public | postgres=X/postgres anon=X/postgres authenticated=X/postgres service_role=X/postgres sandbox_exec_yqacmrgdjlenbijclngi=X/postgres             | 57699f707ab2aee50811c458c7d4c81c | 7368
+ admin_signal_dupe_trades_fix             | t           | postgres | search_path=public | postgres=X/postgres authenticated=X/postgres service_role=X/postgres sandbox_exec_yqacmrgdjlenbijclngi=X/postgres                             | 97bbdb2f9633dd260030b91d2f2717f5 | 2412
+ admin_trade_dedupe_sweep                 | t           | postgres | search_path=public | postgres=X/postgres anon=X/postgres authenticated=X/postgres service_role=X/postgres sandbox_exec_yqacmrgdjlenbijclngi=X/postgres             | 009d7ce2a1658aa61c6c635928f66ce3 |  383
+ calculate_expert_performance             | t           | postgres | search_path=public | postgres=X/postgres service_role=X/postgres sandbox_exec_yqacmrgdjlenbijclngi=X/postgres anon=X/postgres authenticated=X/postgres             | b91dd56bafe071886c2cc4342e97e66e | 5313
+ enforce_signal_capital_limit             | t           | postgres | search_path=public | postgres=X/postgres service_role=X/postgres sandbox_exec_yqacmrgdjlenbijclngi=X/postgres                                                      | 5aa642a941605adcf6885b5826337467 | 3141
+ enforce_trade_record_market_currency     | t           | postgres | search_path=public | =X/postgres postgres=X/postgres anon=X/postgres authenticated=X/postgres service_role=X/postgres sandbox_exec_yqacmrgdjlenbijclngi=X/postgres | 3b87098f7bd2066949db3a03b62b5318 |  836
+ enforce_unit_consistency                 | t           | postgres | search_path=public | =X/postgres postgres=X/postgres anon=X/postgres authenticated=X/postgres service_role=X/postgres sandbox_exec_yqacmrgdjlenbijclngi=X/postgres | ca0af7d1735b1accd10137af4c8acc78 | 4470
+ enforce_user_performance_price           | t           | postgres | search_path=public | postgres=X/postgres service_role=X/postgres sandbox_exec_yqacmrgdjlenbijclngi=X/postgres                                                      | 481fbe2925e399b91acbd3e5db8e3645 |  799
+ get_owned_journal_bundle                 | t           | postgres | search_path=public | =X/postgres postgres=X/postgres anon=X/postgres authenticated=X/postgres service_role=X/postgres sandbox_exec_yqacmrgdjlenbijclngi=X/postgres | d5ddc3d4785860f3b9884bcd3cc9a32c | 2771
+ handle_signal_trade                      | t           | postgres | search_path=public | postgres=X/postgres service_role=X/postgres sandbox_exec_yqacmrgdjlenbijclngi=X/postgres                                                      | 6ea3421c104e11fae704bf93f00ddc3b | 8836
+ realign_instrument_unit                  | t           | postgres | search_path=public | postgres=X/postgres authenticated=X/postgres service_role=X/postgres sandbox_exec_yqacmrgdjlenbijclngi=X/postgres                             | 276e25e5a7e326fb616ff4ca5fdaa193 | 2163
+ save_signal_batch                        | t           | postgres | search_path=public | postgres=X/postgres authenticated=X/postgres service_role=X/postgres sandbox_exec_yqacmrgdjlenbijclngi=X/postgres                             | 4e6982d487d476247d0dcd8e1244109a | 3510
+(15 rows)
+
+=== R0-A9 CRON JOBS (economic) ===
+psql:db/r0/A_baseline.sql:68: ERROR:  permission denied for schema cron
+LINE 1: ...dule, jobname, active, left(command,140) cmd from cron.job o...
+                                                             ^

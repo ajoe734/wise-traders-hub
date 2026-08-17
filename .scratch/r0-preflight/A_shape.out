@@ -1,0 +1,104 @@
+Pager usage is off.
+=== A14 SIGNAL SHAPE ===
+ signals | experts | instruments |   first    |    last    | combos | us | tw  
+---------+---------+-------------+------------+------------+--------+----+-----
+     173 |       5 |          76 | 2026-05-04 | 2026-08-14 |      3 | 35 | 138
+(1 row)
+
+ unit | mkt | count 
+------+-----+-------
+ 股   | TW  |    65
+ 張   | TW  |    65
+ 股   | US  |    32
+ -    | TW  |     8
+ 組   | US  |     3
+(5 rows)
+
+=== A15 TRADE SHAPE ===
+ trades | experts | instr | open_n | closed_n 
+--------+---------+-------+--------+----------
+     82 |       5 |    74 |     21 |       61
+(1 row)
+
+ status | mkt | ccy | unit | combo | count 
+--------+-----+-----+------+-------+-------
+ closed | TW  | TWD | 股   | false |    36
+ closed | US  | USD | 股   | false |    15
+ closed | TW  | TWD | 張   | false |    10
+ open   | US  | USD | 股   | false |     8
+ open   | TW  | TWD | 張   | false |     6
+ open   | TW  | TWD | 股   | false |     4
+ open   | US  | USD | 組   | false |     3
+(7 rows)
+
+=== A16 EXPERTS ===
+                  id                  |  role   |  status   |    ac     | ccy | starting_capital 
+--------------------------------------+---------+-----------+-----------+-----+------------------
+ a1000000-0000-0000-0000-000000000001 | advisor | suspended | tw_stock  | TWD |                 
+ b1000000-0000-0000-0000-000000000001 | mentor  | suspended | tw_stock  | TWD |                 
+ 13926bcc-d3df-4ef5-bc56-7181ae4302a2 | mentor  | active    | tw_stock  | TWD |          1000000
+ be3b84f6-e6a6-47f9-b19c-3fa66820ba56 | mentor  | pending   | tw_stock  | TWD |          1000000
+ 1c1ed8a3-4ba3-4285-83a8-c4da7e7eb198 | mentor  | pending   | tw_stock  | TWD |          1000000
+ 3379f0da-d3e0-40e9-b1dc-fc758f23b25f | mentor  | pending   | tw_stock  | TWD |          1000000
+ e381e144-ce74-4f1c-a7fa-aebbcb9c6f76 | mentor  | pending   | us_stock  | USD |            30000
+ 8a4d6a07-5964-4141-b40d-35b33c13cc1f | mentor  | pending   | tw_stock  | TWD |          1000000
+ c5252941-7060-474f-8537-90729852a391 | mentor  | pending   | tw_stock  | TWD |          1000000
+ 3fda8093-81b1-43ed-ac4f-8936e0a7a8f2 | mentor  | active    | tw_stock  | TWD |           300000
+ 890db218-aeff-49c9-890c-cc016db09673 | mentor  | active    | us_stock  | USD |            30000
+ 1dfe0420-81d2-4ca4-96b4-cca86444e02e | mentor  | active    | us_option | USD |            10000
+(12 rows)
+
+=== A17 6515 DUPLICATE-EFFECT SHAPE ===
+                  id                  |              expert_id               | instrument | quantity | quantity_unit | status | entry_price |          entry_date           |              signal_id               
+--------------------------------------+--------------------------------------+------------+----------+---------------+--------+-------------+-------------------------------+--------------------------------------
+ 20379156-37fd-4a0c-a757-56cd2c292bbb | 13926bcc-d3df-4ef5-bc56-7181ae4302a2 | 6515 穎崴  |       50 | 股            | closed |     6341.80 | 2026-07-24 01:27:46.805215+00 | d4a0d9b5-a304-44d0-a7c3-b05104ef6830
+ 9256006e-d488-4a69-abdf-ab25ab5a43e8 | 13926bcc-d3df-4ef5-bc56-7181ae4302a2 | 6515 穎崴  |       50 | 股            | open   |     6341.80 | 2026-07-24 01:27:46.805215+00 | 9a66d27f-b59c-4e8c-a347-507d3caed3a4
+(2 rows)
+
+                  id                  |              expert_id               | instrument | action | quantity | quantity_unit |  status   |      executed_at       |          created_at           
+--------------------------------------+--------------------------------------+------------+--------+----------+---------------+-----------+------------------------+-------------------------------
+ 9a66d27f-b59c-4e8c-a347-507d3caed3a4 | 13926bcc-d3df-4ef5-bc56-7181ae4302a2 | 6515 穎崴  | buy    |       20 | 股            | published | 2026-07-24 01:25:00+00 | 2026-07-24 01:27:46.805215+00
+ dd165f83-3842-4860-9a52-834a85b42a7d | 13926bcc-d3df-4ef5-bc56-7181ae4302a2 | 6515 穎崴  | add    |       20 | 股            | published | 2026-08-03 01:27:00+00 | 2026-08-03 01:35:18.747283+00
+ 31f21ca0-08d1-4e66-9e99-13e57463d06d | 13926bcc-d3df-4ef5-bc56-7181ae4302a2 | 6515 穎崴  | add    |       20 | 股            | published | 2026-08-06 02:57:00+00 | 2026-08-06 03:12:28.94582+00
+ d4a0d9b5-a304-44d0-a7c3-b05104ef6830 | 13926bcc-d3df-4ef5-bc56-7181ae4302a2 | 6515 穎崴  | trim   |       50 | 股            | published | 2026-08-14 01:11:00+00 | 2026-08-14 02:38:59.710306+00
+(4 rows)
+
+              signal_id               |              expert_id               | action | applied_quantity |  tg_op   |          applied_at           
+--------------------------------------+--------------------------------------+--------+------------------+----------+-------------------------------
+ 9a66d27f-b59c-4e8c-a347-507d3caed3a4 | 13926bcc-d3df-4ef5-bc56-7181ae4302a2 | buy    |               20 | BACKFILL | 2026-07-24 01:27:46.805215+00
+ dd165f83-3842-4860-9a52-834a85b42a7d | 13926bcc-d3df-4ef5-bc56-7181ae4302a2 | add    |               20 | BACKFILL | 2026-08-07 12:00:08.374+00
+ 31f21ca0-08d1-4e66-9e99-13e57463d06d | 13926bcc-d3df-4ef5-bc56-7181ae4302a2 | add    |               20 | BACKFILL | 2026-08-07 12:00:07.505+00
+ d4a0d9b5-a304-44d0-a7c3-b05104ef6830 | 13926bcc-d3df-4ef5-bc56-7181ae4302a2 | trim   |               50 | INSERT   | 2026-08-14 02:38:59.710306+00
+(4 rows)
+
+=== A18 DRIFT MAP (replay vs stored open qty) ===
+                expert                |       instrument        | market | replay_net | had_exit | stored_open | n_sig | n_tr | delta 
+--------------------------------------+-------------------------+--------+------------+----------+-------------+-------+------+-------
+ 13926bcc-d3df-4ef5-bc56-7181ae4302a2 | 00631L 元大台灣50正2    | TW     |       1998 | f        |             |     3 |    1 | -1998
+ 13926bcc-d3df-4ef5-bc56-7181ae4302a2 | 2303 聯電               | TW     |       -999 | f        |             |     2 |    1 |   999
+ 13926bcc-d3df-4ef5-bc56-7181ae4302a2 | 2359 所羅門             | TW     |       -999 | f        |             |     2 |    1 |   999
+ 13926bcc-d3df-4ef5-bc56-7181ae4302a2 | 2478 大毅               | TW     |          1 | f        |        1000 |     1 |    1 |   999
+ 13926bcc-d3df-4ef5-bc56-7181ae4302a2 | 3363 上詮               | TW     |       -200 | f        |             |     4 |    2 |   200
+ 13926bcc-d3df-4ef5-bc56-7181ae4302a2 | 4576 大銀微系統         | TW     |        999 | f        |             |     3 |    1 |  -999
+ 13926bcc-d3df-4ef5-bc56-7181ae4302a2 | 6138 茂達               | TW     |          1 | f        |        1000 |     1 |    1 |   999
+ 13926bcc-d3df-4ef5-bc56-7181ae4302a2 | 6285 啟碁               | TW     |      -1000 | f        |             |     6 |    3 |  1000
+ 13926bcc-d3df-4ef5-bc56-7181ae4302a2 | 6515 穎崴               | TW     |         10 | f        |          50 |     4 |    2 |    40
+ 3fda8093-81b1-43ed-ac4f-8936e0a7a8f2 | 063693 辛耘國泰61購02   | TW     |     -19980 | f        |             |     2 |    1 | 19980
+ 3fda8093-81b1-43ed-ac4f-8936e0a7a8f2 | 068003 國巨統一75購01   | TW     |         50 | f        |       50000 |     3 |    1 | 49950
+ 3fda8093-81b1-43ed-ac4f-8936e0a7a8f2 | 071111 華邦電永豐5C購03 | TW     |        -40 | f        |             |     3 |    1 |    40
+ 3fda8093-81b1-43ed-ac4f-8936e0a7a8f2 | 071745 T50正2台新66購01 | TW     |         30 | f        |       30000 |     1 |    1 | 29970
+ 3fda8093-81b1-43ed-ac4f-8936e0a7a8f2 | 078397 同欣電富邦64購02 | TW     |         50 | f        |       50000 |     1 |    1 | 49950
+ 3fda8093-81b1-43ed-ac4f-8936e0a7a8f2 | 079052 樺漢元大64購03   | TW     |         50 | f        |       50000 |     1 |    1 | 49950
+ 3fda8093-81b1-43ed-ac4f-8936e0a7a8f2 | 707414 前鼎統一74購01   | TW     |         50 | f        |             |     4 |    2 |   -50
+ 3fda8093-81b1-43ed-ac4f-8936e0a7a8f2 | 708938 臺慶科統一65購01 | TW     |     -19980 | f        |             |     2 |    1 | 19980
+ 890db218-aeff-49c9-890c-cc016db09673 | META                    | TW     |         15 | f        |             |     1 |    2 |   -15
+ 890db218-aeff-49c9-890c-cc016db09673 | META                    | US     |        -10 | f        |             |     2 |    2 |    10
+ 890db218-aeff-49c9-890c-cc016db09673 | NVDA 輝達               | US     |        -50 | f        |             |     1 |    1 |    50
+ 890db218-aeff-49c9-890c-cc016db09673 | NVDA 輝達               | TW     |         50 | f        |             |     2 |    1 |   -50
+ 890db218-aeff-49c9-890c-cc016db09673 | SPCX                    | US     |         20 | f        |             |     1 |      |   -20
+ 890db218-aeff-49c9-890c-cc016db09673 | SPCX Space X            | TW     |         20 | f        |          60 |     1 |    1 |    40
+ e381e144-ce74-4f1c-a7fa-aebbcb9c6f76 | AMD                     | US     |         15 | f        |          25 |     3 |    1 |    10
+ e381e144-ce74-4f1c-a7fa-aebbcb9c6f76 | GLW                     | US     |        -10 | f        |             |     3 |    1 |    10
+ e381e144-ce74-4f1c-a7fa-aebbcb9c6f76 | GOOG                    | US     |        -11 | f        |             |     4 |    1 |    11
+(26 rows)
+
