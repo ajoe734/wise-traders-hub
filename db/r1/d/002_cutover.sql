@@ -396,6 +396,15 @@ REVOKE ALL ON app_ledger.portfolio_cash_ledger FROM PUBLIC, anon, authenticated,
 REVOKE ALL ON SCHEMA app_ledger FROM PUBLIC, anon, authenticated;
 GRANT USAGE ON SCHEMA app_ledger TO service_role;
 
+-- admin_apply_fix_proposal is SECURITY DEFINER owned by ledger_owner, so the
+-- proposal bookkeeping it performs (status -> applied, apply_result) runs with
+-- ledger_owner's privileges. Without this grant the intended company_admin call
+-- dies on the UPDATE with 42501 "permission denied for table
+-- holdings_fix_proposals". Read+update only: the ledger owner never creates or
+-- deletes proposals.
+GRANT SELECT, UPDATE ON public.holdings_fix_proposals TO ledger_owner;
+
+
 -- explicit re-grant: these wrappers perform their own auth.uid()/has_role checks,
 -- and can no longer reach raw economic DML. PUBLIC/anon stay revoked.
 DO $$
