@@ -90,7 +90,8 @@ describe('forSubscriber', () => {
   it('固定 status=published、依 published_at 反序、預設 limit 100', async () => {
     const db = fakeDb({ data: [{ id: 'a' }] });
     const { signals } = await repo.forSubscriber(db as any, { mentorIds: ['m1', 'm2'] });
-    expect(signals).toEqual([{ id: 'a' }]);
+    // R1-P: no projection passed → fail-closed default flags the row.
+    expect(signals).toEqual([{ id: 'a', under_review: true }]);
     const c = flat(db.calls);
     expect(c).toContain('from|expert_signals');
     expect(c).toContain('eq|status|published');
