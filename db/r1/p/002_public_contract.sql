@@ -112,6 +112,14 @@ DECLARE r record; d text;
     'get_publish_batch_status'];
   wrapped CONSTANT text[] := ARRAY['get_expert_capital_status','backfill_queue_stats'];
   rls_helper CONSTANT text[] := ARRAY['has_active_subscription_after','is_tester'];
+  -- service_role EXECUTE is granted ONLY where a service_role edge function / cron
+  -- job really calls the target. Publish / build / ledger writers stay owner-only:
+  -- db/r1/p/094 T-P99R19 asserts service_role is not a publisher.
+  svc_allow CONSTANT text[] := ARRAY[
+    'claim_backfill_jobs','backfill_job_set_done','backfill_job_set_failed',
+    'enqueue_backfill_jobs','enqueue_institutional_backfill_universe',
+    'prune_backfill_job_queue','recover_stale_backfill_jobs',
+    'backfill_legacy_bsr_to_fact'];
 BEGIN
   FOR r IN
     SELECT p.proname,
@@ -136,8 +144,10 @@ BEGIN
            ELSE 'owner_service_role_only'
          END;
     IF d = 'owner_service_role_only' THEN
-      EXECUTE format('REVOKE ALL ON FUNCTION %s FROM authenticated', r.sig);
-      EXECUTE format('GRANT EXECUTE ON FUNCTION %s TO service_role', r.sig);
+      EXECUTE format('REVOKE ALL ON FUNCTION %s FROM authenticated, service_role', r.sig);
+      IF r.proname = ANY(svc_allow) THEN
+        EXECUTE format('GRANT EXECUTE ON FUNCTION %s TO service_role', r.sig);
+      END IF;
     ELSE
       EXECUTE format('GRANT EXECUTE ON FUNCTION %s TO authenticated, service_role', r.sig);
     END IF;
@@ -164,9 +174,9 @@ BEGIN
       SELECT pg_get_functiondef(p.oid) INTO src
         FROM pg_proc p JOIN pg_namespace n ON n.oid = p.pronamespace
        WHERE n.nspname = 'public' AND p.proname = nm;
-      IF src IS NULL THEN
-        RAISE EXCEPTION 'C3b: public.% not found, cannot build the gated wrapper', nm;
-      END IF;
+      -- production-shape clones carry a subset of the app catalog; a target that
+      -- does not exist here cannot be reachable, so skip it instead of failing.
+      CONTINUE WHEN src IS NULL;
       EXECUTE replace(src, 'FUNCTION public.' || nm || '(',
                            'FUNCTION public.' || nm || '_raw(');
     END IF;
@@ -176,6 +186,9 @@ END $mkraw$;
 -- get_expert_capital_status was an ungated SECURITY DEFINER economic raw RPC: any
 -- caller could read any expert's full open positions. The signature is preserved so
 -- the app keeps working; the entitlement gate is added at the top of the body.
+DO $wrap1$ BEGIN
+IF to_regprocedure('public.get_expert_capital_status_raw(uuid)') IS NULL THEN RETURN; END IF;
+EXECUTE $ddl$
 CREATE OR REPLACE FUNCTION public.get_expert_capital_status(_expert_id uuid)
 RETURNS jsonb LANGUAGE plpgsql STABLE SECURITY DEFINER SET search_path TO 'public'
 AS $gecs$
@@ -198,12 +211,16 @@ BEGIN
   END IF;
   RETURN public.get_expert_capital_status_raw(_expert_id);
 END $gecs$;
-
-REVOKE ALL ON FUNCTION public.get_expert_capital_status_raw(uuid) FROM PUBLIC, anon, authenticated;
-GRANT EXECUTE ON FUNCTION public.get_expert_capital_status_raw(uuid) TO service_role;
-GRANT EXECUTE ON FUNCTION public.get_expert_capital_status(uuid) TO authenticated, service_role;
+$ddl$;
+EXECUTE 'REVOKE ALL ON FUNCTION public.get_expert_capital_status_raw(uuid) FROM PUBLIC, anon, authenticated';
+EXECUTE 'GRANT EXECUTE ON FUNCTION public.get_expert_capital_status_raw(uuid) TO service_role';
+EXECUTE 'GRANT EXECUTE ON FUNCTION public.get_expert_capital_status(uuid) TO authenticated, service_role';
+END $wrap1$;
 
 -- backfill_queue_stats is a /company ops card read with no in-function guard.
+DO $wrap2$ BEGIN
+IF to_regprocedure('public.backfill_queue_stats_raw()') IS NULL THEN RETURN; END IF;
+EXECUTE $ddl$
 CREATE OR REPLACE FUNCTION public.backfill_queue_stats()
 RETURNS TABLE(dataset text, pending bigint, running bigint, done bigint,
               failed bigint, skipped bigint, oldest_pending timestamptz)
@@ -215,17 +232,25 @@ BEGIN
   END IF;
   RETURN QUERY SELECT * FROM public.backfill_queue_stats_raw();
 END $bqs$;
-REVOKE ALL ON FUNCTION public.backfill_queue_stats_raw() FROM PUBLIC, anon, authenticated;
-GRANT EXECUTE ON FUNCTION public.backfill_queue_stats_raw() TO service_role;
-REVOKE ALL ON FUNCTION public.backfill_queue_stats() FROM PUBLIC, anon;
-GRANT EXECUTE ON FUNCTION public.backfill_queue_stats() TO authenticated, service_role;
+$ddl$;
+EXECUTE 'REVOKE ALL ON FUNCTION public.backfill_queue_stats_raw() FROM PUBLIC, anon, authenticated';
+EXECUTE 'GRANT EXECUTE ON FUNCTION public.backfill_queue_stats_raw() TO service_role';
+EXECUTE 'REVOKE ALL ON FUNCTION public.backfill_queue_stats() FROM PUBLIC, anon';
+EXECUTE 'GRANT EXECUTE ON FUNCTION public.backfill_queue_stats() TO authenticated, service_role';
+END $wrap2$;
 
 
 -- ---------------------------------------------------------------- C3c: named helpers
 -- The two RLS predicate helpers stay callable by `authenticated` (RLS policies are
 -- evaluated as the querying role); anon/PUBLIC are closed.
-REVOKE ALL ON FUNCTION public.has_active_subscription_after(uuid, timestamptz)       FROM PUBLIC, anon;
-REVOKE ALL ON FUNCTION public.is_tester(uuid)                                        FROM PUBLIC, anon;
-GRANT EXECUTE ON FUNCTION public.has_active_subscription_after(uuid, timestamptz) TO authenticated, service_role;
-GRANT EXECUTE ON FUNCTION public.is_tester(uuid)                                  TO authenticated, service_role;
+DO $named$
+DECLARE sig text;
+BEGIN
+  FOREACH sig IN ARRAY ARRAY['public.has_active_subscription_after(uuid, timestamptz)',
+                             'public.is_tester(uuid)'] LOOP
+    CONTINUE WHEN to_regprocedure(sig) IS NULL;
+    EXECUTE format('REVOKE ALL ON FUNCTION %s FROM PUBLIC, anon', sig);
+    EXECUTE format('GRANT EXECUTE ON FUNCTION %s TO authenticated, service_role', sig);
+  END LOOP;
+END $named$;
 
