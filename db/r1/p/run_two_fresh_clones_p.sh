@@ -90,6 +90,16 @@ run_clone() { # name port
     > "$DIR/verify_p_failures.txt"
   [ "$PRED" = "0" ] || { cat "$DIR/verify_p_failures.txt" | tee -a "$OUT/$NAME.log"; FAILS=$((FAILS+PRED)); }
 
+  # 5b-2. per-signature ACL disposition verifier (acl-25.json, 31 tests)
+  psql "$CL" -qX -c "TRUNCATE t.result" >/dev/null 2>&1
+  psql "$CL" -X -f db/r1/p/095_acl25_verify.sql > "$DIR/acl25.log" 2>&1
+  local ATOT ARED
+  ATOT=$(psql "$CL" -tAqX -c "SELECT count(*) FROM t.result")
+  ARED=$(psql "$CL" -tAqX -c "SELECT count(*) FROM t.result WHERE NOT passed")
+  echo "  R1-P 095_acl25_verify: $ATOT tests, $ARED failures" | tee -a "$OUT/$NAME.log"
+  [ "$ARED" = "0" ] || { psql "$CL" -tAqX -c "SELECT name||' | '||coalesce(detail,'') FROM t.result WHERE NOT passed ORDER BY id" | tee -a "$OUT/$NAME.log"; FAILS=$((FAILS+ARED)); }
+
+
   # 5c. frozen-anchor T+7 embargo closure (fixed entry point)
   bash db/r1/p/092_embargo.sh "$CL" "$DIR/embargo.log" > "$DIR/embargo_out.txt" 2>&1
   local EFAIL=$?
