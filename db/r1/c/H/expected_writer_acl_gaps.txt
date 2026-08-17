@@ -1,1 +1,2 @@
+claim_bsr_queue_jobs
 ensure_bsr_queued
