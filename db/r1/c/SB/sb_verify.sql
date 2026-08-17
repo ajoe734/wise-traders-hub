@@ -18,6 +18,29 @@ RETURNS text LANGUAGE plpgsql AS $$
 BEGIN EXECUTE p_sql; RETURN NULL;
 EXCEPTION WHEN others THEN RETURN SQLERRM; END $$;
 
+CREATE TEMP TABLE _dump(seq serial, ctx text, line text);
+CREATE OR REPLACE FUNCTION pg_temp.dump_rows(p_ctx text, p_where text) RETURNS int
+LANGUAGE plpgsql AS $$
+DECLARE r record; n int := 0;
+BEGIN
+  FOR r IN EXECUTE format($f$
+    SELECT q.id, q.stock_id, q.trade_date, q.status, q.last_error, q.attempts,
+           q.max_attempts, q.enqueued_by, q.enqueued_at, q.next_run_at, q.started_at,
+           q.finished_at, q.correlation_id, q.updated_at
+      FROM public.tw_bsr_sync_queue q WHERE %s ORDER BY q.id $f$, p_where)
+  LOOP
+    n := n + 1;
+    INSERT INTO _dump(ctx, line) VALUES (p_ctx, format(
+      'id=%s stock_id=%s trade_date=%s status=%s error_code=%s quota_deferred=%s attempts=%s/%s enqueued_by=%s created_at=%s available_at=%s started_at=%s finished_at=%s corr=%s updated_at=%s',
+      r.id, r.stock_id, r.trade_date, r.status, coalesce(r.last_error,'-'),
+      (r.last_error = 'quota_deferred'), r.attempts, r.max_attempts,
+      coalesce(r.enqueued_by,'-'), r.enqueued_at, r.next_run_at,
+      coalesce(r.started_at::text,'-'), coalesce(r.finished_at::text,'-'),
+      coalesce(r.correlation_id::text,'-'), r.updated_at));
+  END LOOP;
+  RETURN n;
+END $$;
+
 CREATE OR REPLACE FUNCTION pg_temp.qcount() RETURNS bigint
 LANGUAGE sql AS $$ SELECT count(*) FROM public.tw_bsr_sync_queue $$;
 
@@ -28,6 +51,12 @@ ON CONFLICT (key) DO NOTHING;
 
 INSERT INTO public.chips_prefetch_targets(code, source, active, supported)
 VALUES ('2330','ops',true,true) ON CONFLICT DO NOTHING;
+-- B6 failure ledger F-04: a dedicated, never-otherwise-touched eligible symbol
+-- so enqueue_chips_prefetch_gaps() has a REAL chip gap to close. 2330 alone is
+-- fully pre-enqueued by ensure_bsr_queued/ensure_bsr_window earlier in the
+-- writer list, which is why the gate-open delta was 0 in B6.
+INSERT INTO public.chips_prefetch_targets(code, source, active, supported)
+VALUES ('2412','ops_gapfixture',true,true) ON CONFLICT DO NOTHING;
 INSERT INTO public.checkup_storage(key, data, user_id)
 VALUES ('portfolio', '{"holdings":[{"symbol":"2317","code":"2317"}]}'::jsonb,
         '00000000-0000-0000-0000-000000000001') ON CONFLICT DO NOTHING;
@@ -262,9 +291,18 @@ DO $$
 DECLARE id0 bigint; st timestamptz; res jsonb; before_status text;
 BEGIN
   SET LOCAL session_replication_role = replica;   -- fixture insert bypasses the closed gate
+  -- B6 failure ledger F-01: reap_stale_bsr_queue_jobs() keys off updated_at
+  --   WHERE status='running' AND updated_at < now() - make_interval(mins => _stale_minutes)
+  -- (default 60). The B6 fixture only aged started_at, so the row was never
+  -- reaped and the assertion was vacuous. Age updated_at as well; the trigger
+  -- set_updated_at (if any) is bypassed by an explicit post-insert UPDATE.
   INSERT INTO public.tw_bsr_sync_queue(stock_id, trade_date, priority, status, attempts, started_at, enqueued_by)
   VALUES ('9102', current_date - 4, 1, 'running', 1, now() - interval '90 min', 'reaper_probe')
   RETURNING id, started_at INTO id0, st;
+  UPDATE public.tw_bsr_sync_queue SET updated_at = now() - interval '90 min' WHERE id = id0;
+  PERFORM pg_temp.chk('E-reaper-fixture-aged',
+    (SELECT updated_at < now() - interval '80 min' FROM public.tw_bsr_sync_queue WHERE id=id0),
+    'updated_at aged past the 60min reaper threshold');
   PERFORM public.reap_stale_bsr_queue_jobs();
   before_status := (SELECT status FROM public.tw_bsr_sync_queue WHERE id=id0);
   res := public.bsr_block_and_terminalize_claims(gen_random_uuid(), ARRAY[id0], ARRAY[st], ARRAY[1],
