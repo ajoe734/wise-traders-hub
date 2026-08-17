@@ -1,0 +1,15 @@
+psql:db/r1/d/095_hashes.sql:7: ERROR:  operator is not unique: text || "char"
+LINE 2:   SELECT n.nspname||'.'||c.relname||':'||c.relkind||':'||pg_...
+                                               ^
+HINT:  Could not choose a best candidate operator. You might need to add explicit type casts.
+catalog.columns|2cd60cc019090abf6bcd1fdf704402b7
+catalog.functions|f5a1cf376c9e9ecda093b6825a01c9e5
+psql:db/r1/d/095_hashes.sql:20: ERROR:  operator is not unique: text || "char"
+LINE 2:   SELECT c.relname||'.'||tg.tgname||':'||tg.tgenabled||':'||...
+                                               ^
+HINT:  Could not choose a best candidate operator. You might need to add explicit type casts.
+catalog.acl|d95684d7a23d31bb22d0037dec5b030f
+catalog.roles|ef752a198575828073c1f69164322c0e
+data.trade_records|6edacb0be9bc90efbe3f1ed2e3520eaf
+data.expert_signals|21f23f67edbd767be7c922e2ca18623c
+data.counts|trade_records=82,expert_signals=173,experts=12
