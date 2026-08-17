@@ -188,7 +188,7 @@ BEGIN
     'remaining', COALESCE((v_after#>>'{cohort,legacy_quota_failed_total}')::int, 0)
   );
 END;
-$function$
+$function$;
 
 -- ---------------------------------------------------------------------------
 -- Stage B v6 §1b (B6 failure ledger F-02): recover_stale_bsr_queue_jobs is the

@@ -180,7 +180,7 @@ BEGIN
     'remaining', COALESCE((v_after#>>'{cohort,legacy_quota_failed_total}')::int, 0)
   );
 END;
-$function$
+$function$;
 
 -- ---------------------------------------------------------------------------
 -- Baseline (production, byte-for-byte from db/r1/c/S0/backup/restore/030_functions.sql)
