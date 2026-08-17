@@ -87,20 +87,20 @@ SELECT 'unique (event_id, mutation_seq)',
            WHERE c.relname='effect_projection_mutation' AND con.contype IN ('u','p')
              AND pg_get_constraintdef(con.oid) LIKE '%(event_id, mutation_seq)%')
 UNION ALL
-SELECT 'multi-step hash chain on one row (before_hash of step N+1 = after_hash of step N)',
-  (SELECT bool_and(ok) FROM (
-     SELECT m.before_hash IS NOT DISTINCT FROM lag(m.after_hash) OVER
-              (PARTITION BY m.target_row_id ORDER BY m.mutation_seq) AS ok
-       FROM app_ledger.effect_projection_mutation m
-      WHERE m.event_id IN (SELECT event_id FROM app_ledger.effect_projection_mutation
-                            GROUP BY event_id HAVING count(*) FILTER
-                              (WHERE target_table='trade_records') > 1)) q
-   WHERE ok IS NOT NULL)
+SELECT 'multi-step hash chain on one row (proved by POS/NEG same_row chain tests)',
+  (SELECT bool_and(passed) FROM t.result
+    WHERE name IN ('POS.hash.same_row_two_step_chain_accepted',
+                   'NEG.hash.same_row_stale_chain_rejected'))
+  AND (SELECT coalesce(bool_and(prev IS NULL OR before_hash = prev), true) FROM (
+     SELECT before_hash, lag(after_hash) OVER
+              (PARTITION BY event_id, target_row_id ORDER BY mutation_seq) AS prev
+       FROM app_ledger.effect_projection_mutation
+      WHERE target_table='trade_records') q)
 UNION ALL
 SELECT 'economic_effect append-only over full payload (UPDATE+DELETE trigger)',
   EXISTS (SELECT 1 FROM pg_trigger tg JOIN pg_class c ON c.oid=tg.tgrelid
            WHERE c.relname='economic_effect' AND NOT tg.tgisinternal
-             AND pg_get_triggerdef(tg.oid) LIKE '%BEFORE UPDATE OR DELETE%')
+             AND pg_get_triggerdef(tg.oid) LIKE '%BEFORE DELETE OR UPDATE ON app_ledger.economic_effect%')
 UNION ALL
 SELECT 'per-expert active pointer (PK on expert_id)',
   EXISTS (SELECT 1 FROM pg_constraint con JOIN pg_class c ON c.oid=con.conrelid

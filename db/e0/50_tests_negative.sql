@@ -240,3 +240,55 @@ SELECT t.expect_error('NEG.valuation.equity_published_while_incomplete',
     VALUES (999999,'cccccccc-0000-0000-0000-000000000003','USD',100000,10,10,12345,
             'unsupported_instrument')$$,
   'pps_equity_ck', '23514');
+
+-- ============================================================ same-row multi-step hash chain (D-req)
+-- Helper: forge a 2-step event that mutates ONE trade_records row twice.
+-- p_chain=true  -> seq2.before_hash = seq1.after_hash (legal chain)
+-- p_chain=false -> seq2.before_hash = seq1.before_hash (stale/replayed chain)
+CREATE OR REPLACE FUNCTION t.two_step_same_row(p_chain boolean) RETURNS void
+LANGUAGE plpgsql AS $fn$
+DECLARE r public.trade_records; v_ev uuid := gen_random_uuid();
+        h0 text; h1 text; h2 text; r1 public.trade_records; r2 public.trade_records;
+BEGIN
+  SELECT * INTO r FROM public.trade_records
+   WHERE status='open' AND expert_id='aaaaaaaa-0000-0000-0000-000000000001' LIMIT 1;
+  r1 := r; r1.quantity := r.quantity + 10; r1.last_event_id := NULL; r1.last_projection_mutation_id := NULL;
+  r2 := r1; r2.quantity := r1.quantity + 10;
+  h0 := app_ledger.tr_econ_hash(r); h1 := app_ledger.tr_econ_hash(r1); h2 := app_ledger.tr_econ_hash(r2);
+
+  INSERT INTO app_ledger.economic_effect(event_id, logical_effect_id, expert_id, market,
+    instrument_key, action, qty_delta, currency, effective_at, provenance, actor_via, reason,
+    expected_mutation_count, state)
+  VALUES (v_ev, gen_random_uuid(), r.expert_id, r.market, r.instrument_key,
+    'quantity_adjustment', 20, r.currency, now(), 'quantity_adjustment', 'test',
+    'two step same row', 2, 'applied');
+
+  INSERT INTO app_ledger.effect_projection_mutation(event_id, mutation_seq, target_table,
+    target_row_id, op, row_role, expert_id, currency, market, instrument_key,
+    qty_delta, before_hash, after_hash)
+  VALUES (v_ev, 1, 'trade_records', r.id, 'update', 'open_position', r.expert_id, r.currency,
+          r.market, r.instrument_key, 10, h0, h1),
+         (v_ev, 2, 'trade_records', r.id, 'update', 'open_position', r.expert_id, r.currency,
+          r.market, r.instrument_key, 10, CASE WHEN p_chain THEN h1 ELSE h0 END, h2);
+
+  UPDATE public.trade_records SET quantity = quantity + 10 WHERE id = r.id;
+  UPDATE public.trade_records SET quantity = quantity + 10 WHERE id = r.id;
+
+  IF (SELECT quantity FROM public.trade_records WHERE id=r.id) <> r.quantity + 20 THEN
+    RAISE EXCEPTION 'two_step_quantity_wrong' USING ERRCODE='P0001'; END IF;
+  IF (SELECT count(*) FROM app_ledger.effect_projection_mutation
+       WHERE event_id=v_ev AND consumed) <> 2 THEN
+    RAISE EXCEPTION 'two_step_tokens_not_consumed' USING ERRCODE='P0001'; END IF;
+  IF NOT EXISTS (SELECT 1 FROM app_ledger.effect_projection_mutation a
+                   JOIN app_ledger.effect_projection_mutation b
+                     ON b.event_id=a.event_id AND b.mutation_seq=a.mutation_seq+1
+                    AND b.target_row_id=a.target_row_id
+                  WHERE a.event_id=v_ev AND b.before_hash = a.after_hash) THEN
+    RAISE EXCEPTION 'two_step_chain_not_linked' USING ERRCODE='P0001'; END IF;
+END $fn$;
+
+SELECT t.expect_ok('POS.hash.same_row_two_step_chain_accepted',
+  $$SELECT t.two_step_same_row(true)$$);
+SELECT t.expect_error('NEG.hash.same_row_stale_chain_rejected',
+  $$SELECT t.two_step_same_row(false)$$,
+  'unauthorized_trade_records_mutation', 'P0001');
