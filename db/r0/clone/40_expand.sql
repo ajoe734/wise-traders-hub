@@ -3,6 +3,10 @@
 BEGIN;
 SET lock_timeout = '5s';
 SET statement_timeout = '60s';
+-- suppress non-economic side-effect triggers (AI reindex / audit http) during additive backfill
+ALTER TABLE public.experts DISABLE TRIGGER USER;
+ALTER TABLE public.expert_signals DISABLE TRIGGER USER;
+ALTER TABLE public.trade_records DISABLE TRIGGER USER;
 
 -- price source used by projection/NAV (production-shaped subset)
 CREATE TABLE IF NOT EXISTS public.daily_price_snapshots (
@@ -38,4 +42,7 @@ ALTER TABLE public.trade_records ADD COLUMN IF NOT EXISTS last_event_id uuid;
 ALTER TABLE public.trade_records ADD COLUMN IF NOT EXISTS last_projection_mutation_id uuid;
 ALTER TABLE public.trade_records ADD COLUMN IF NOT EXISTS realized_pnl_delta numeric;
 
+ALTER TABLE public.experts ENABLE TRIGGER USER;
+ALTER TABLE public.expert_signals ENABLE TRIGGER USER;
+ALTER TABLE public.trade_records ENABLE TRIGGER USER;
 COMMIT;
