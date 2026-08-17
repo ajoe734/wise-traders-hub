@@ -1,0 +1,110 @@
+Pager usage is off.
+=== R0-A10 ENUMS ===
+       typname       |                                          labels                                          
+---------------------+------------------------------------------------------------------------------------------
+ announcement_status | draft,published
+ app_role            | company_admin,analyst
+ expert_role         | advisor,mentor
+ payment_status      | pending,paid,failed,refunded
+ plan_review_status  | draft,pending,approved,rejected
+ plan_type           | analyst_signal_l1,analyst_signal_diag_l2,mentor_weekly_journal,checkup_basic,checkup_pro
+ provider_type       | ecpay,newebpay,stripe,line_pay,acpay,remittance
+ signal_action       | buy,sell,add,trim,exit,hold,teaching
+ signal_status       | published,pending
+ subscription_status | active,canceled,expired
+ trade_status        | open,closed,stopped
+(11 rows)
+
+=== R0-A11 ROLE CAPABILITY (current session + key roles) ===
+ current_user | session_user | is_superuser 
+--------------+--------------+--------------
+ sandbox_exec | sandbox_exec | off
+(1 row)
+
+      rolname      | rolsuper | rolcreaterole | rolcreatedb | rolcanlogin | rolbypassrls 
+-------------------+----------+---------------+-------------+-------------+--------------
+ anon              | f        | f             | f           | f           | f
+ authenticated     | f        | f             | f           | f           | f
+ authenticator     | f        | f             | f           | t           | f
+ pg_database_owner | f        | f             | f           | f           | f
+ postgres          | f        | t             | t           | t           | t
+ sandbox_exec      | f        | f             | f           | t           | t
+ service_role      | f        | f             | f           | f           | t
+ supabase_admin    | t        | t             | t           | t           | t
+(8 rows)
+
+=== R0-A12 ROLE MEMBERSHIP of postgres ===
+    member     |              granted              
+---------------+-----------------------------------
+ authenticator | anon
+ authenticator | authenticated
+ authenticator | service_role
+ postgres      | anon
+ postgres      | authenticated
+ postgres      | authenticator
+ postgres      | pg_create_subscription
+ postgres      | pg_monitor
+ postgres      | pg_read_all_data
+ postgres      | pg_signal_backend
+ postgres      | sandbox_exec
+ postgres      | sandbox_exec_yqacmrgdjlenbijclngi
+ postgres      | service_role
+ postgres      | supabase_privileged_role
+(14 rows)
+
+=== R0-A13 PUBLIC VIEWS touching economic tables ===
+            relname            | relkind |  owner   |         opts          
+-------------------------------+---------+----------+-----------------------
+ checkup_knowledge_usage_stats | v       | postgres | security_invoker=true
+ chip_fact_conflicts           | v       | postgres | security_invoker=on
+ chip_fact_health              | v       | postgres | security_invoker=on
+ chips_state_hourly            | v       | postgres | security_invoker=on
+ expert_line_channels_public   | v       | postgres | security_invoker=true
+ experts_public                | v       | postgres | security_invoker=true
+ finmind_pool_daily_equiv      | v       | postgres | security_invoker=on
+ member_line_bindings_analyst  | v       | postgres | security_invoker=true
+ payment_providers_safe        | v       | postgres | -
+ payment_settings_safe         | v       | postgres | security_invoker=true
+ profiles_analyst              | v       | postgres | security_invoker=on
+ v_active_tw_holdings          | v       | postgres | security_invoker=true
+ v_price_freshness             | v       | postgres | security_invoker=on
+ v_price_sync_universe         | v       | postgres | security_invoker=on
+(14 rows)
+
+=== R0-A14 SIGNAL SHAPE (for clone fixture fidelity) ===
+psql:db/r0/A_baseline2.sql:21: ERROR:  column "symbol" does not exist
+LINE 1: ...count(distinct expert_id) experts, count(distinct symbol) sy...
+                                                             ^
+  status   |  action  | market | count 
+-----------+----------+--------+-------
+ published | buy      | TW     |    60
+ published | sell     | TW     |    31
+ published | add      | TW     |    21
+ published | buy      | US     |    17
+ published | exit     | TW     |    14
+ published | sell     | US     |    10
+ published | teaching | TW     |     8
+ published | add      | US     |     7
+ published | trim     | TW     |     4
+ published | trim     | US     |     1
+(10 rows)
+
+psql:db/r0/A_baseline2.sql:23: ERROR:  column "instrument_type" does not exist
+LINE 1: select coalesce(instrument_type,'-') instrument, coalesce(un...
+                        ^
+=== R0-A15 TRADE RECORD SHAPE ===
+psql:db/r0/A_baseline2.sql:25: ERROR:  column "symbol" does not exist
+LINE 1: ...count(distinct expert_id) experts, count(distinct symbol) sy...
+                                                             ^
+psql:db/r0/A_baseline2.sql:27: ERROR:  column "instrument_type" does not exist
+LINE 1: ...'-') market, coalesce(currency,'-') ccy, coalesce(instrument...
+                                                             ^
+=== R0-A16 EXPERTS ===
+ count 
+-------
+    12
+(1 row)
+
+psql:db/r0/A_baseline2.sql:30: ERROR:  column "is_active" does not exist
+LINE 1: select id, asset_class, currency, is_active, role from exper...
+                                          ^
