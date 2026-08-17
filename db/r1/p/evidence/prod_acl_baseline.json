@@ -1,0 +1,58 @@
+{
+  "artifact": "prod_acl_baseline",
+  "generated_at": "2026-08-17T04:20:34.509602+00:00",
+  "mode": "production_read_only",
+  "production_touch": {
+    "ddl": 0,
+    "dml": 0,
+    "execute": 0,
+    "deploy": 0,
+    "publish": 0
+  },
+  "pre_cutover_expected_violation": 3,
+  "pre_cutover_expected_violation_pattern_family": 25,
+  "signature_sha256": "4b789a857ffd1f21f0b089d1a192f4f952acb58907c169c233f017fdd465d18c",
+  "named_pre_cutover": [
+    "public.get_expert_capital_status(_expert_id uuid)",
+    "public.has_active_subscription_after(_user_id uuid, _published_at timestamp with time zone)",
+    "public.is_tester(_user_id uuid)"
+  ],
+  "pattern_admin_build_publish": [
+    "public.admin_apply_fix_proposal(p_id uuid, p_confirm boolean)",
+    "public.admin_delete_trade_records_by_signal_ids(_signal_ids uuid[])",
+    "public.admin_delete_trade_records_by_symbol(_expert_id uuid, _symbol_prefix text)",
+    "public.admin_generate_fix_proposals(p_category text)",
+    "public.admin_holdings_consistency_audit()",
+    "public.admin_list_cron_jobs()",
+    "public.admin_reject_fix_proposal(p_id uuid, p_note text)",
+    "public.admin_reset_expert_asset_class(_expert_id uuid, _new_asset_class text)",
+    "public.admin_trade_dedupe_sweep(p_dry_run boolean)",
+    "public.backfill_job_set_done(_id bigint, _status text)",
+    "public.backfill_job_set_failed(_id bigint, _error text, _retry_at timestamp with time zone)",
+    "public.backfill_legacy_bsr_to_fact(_from date, _to date)",
+    "public.backfill_queue_stats()",
+    "public.claim_backfill_jobs(_batch_size integer, _max_priority_score integer)",
+    "public.enqueue_backfill_jobs(_jobs jsonb)",
+    "public.enqueue_bsr_backfill(p_stock_id text, p_days integer)",
+    "public.enqueue_institutional_backfill_universe()",
+    "public.get_publish_batch_attempts(_limit integer)",
+    "public.get_publish_batch_runs(_limit integer)",
+    "public.get_publish_batch_status()",
+    "public.prune_backfill_job_queue()",
+    "public.publish_batch_attempts_touch()",
+    "public.recover_stale_backfill_jobs(_stale_after interval)",
+    "public.tg_holdings_fix_proposals_updated_at()",
+    "public.trade_dedupe_sweep(p_dry_run boolean)"
+  ],
+  "post_migration_expectation": {
+    "clone_after_002_public_contract": {
+      "named_pre_cutover": 0,
+      "pattern_admin_build_publish": 0
+    },
+    "test_ids": [
+      "T-P98a",
+      "T-P98b",
+      "T-P98c"
+    ]
+  }
+}

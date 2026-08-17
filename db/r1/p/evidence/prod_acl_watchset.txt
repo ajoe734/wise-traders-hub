@@ -1,0 +1,28 @@
+public.admin_apply_fix_proposal(p_id uuid, p_confirm boolean)|pattern_admin_build_publish
+public.admin_delete_trade_records_by_signal_ids(_signal_ids uuid[])|pattern_admin_build_publish
+public.admin_delete_trade_records_by_symbol(_expert_id uuid, _symbol_prefix text)|pattern_admin_build_publish
+public.admin_generate_fix_proposals(p_category text)|pattern_admin_build_publish
+public.admin_holdings_consistency_audit()|pattern_admin_build_publish
+public.admin_list_cron_jobs()|pattern_admin_build_publish
+public.admin_reject_fix_proposal(p_id uuid, p_note text)|pattern_admin_build_publish
+public.admin_reset_expert_asset_class(_expert_id uuid, _new_asset_class text)|pattern_admin_build_publish
+public.admin_trade_dedupe_sweep(p_dry_run boolean)|pattern_admin_build_publish
+public.backfill_job_set_done(_id bigint, _status text)|pattern_admin_build_publish
+public.backfill_job_set_failed(_id bigint, _error text, _retry_at timestamp with time zone)|pattern_admin_build_publish
+public.backfill_legacy_bsr_to_fact(_from date, _to date)|pattern_admin_build_publish
+public.backfill_queue_stats()|pattern_admin_build_publish
+public.claim_backfill_jobs(_batch_size integer, _max_priority_score integer)|pattern_admin_build_publish
+public.enqueue_backfill_jobs(_jobs jsonb)|pattern_admin_build_publish
+public.enqueue_bsr_backfill(p_stock_id text, p_days integer)|pattern_admin_build_publish
+public.enqueue_institutional_backfill_universe()|pattern_admin_build_publish
+public.get_expert_capital_status(_expert_id uuid)|named_pre_cutover
+public.get_publish_batch_attempts(_limit integer)|pattern_admin_build_publish
+public.get_publish_batch_runs(_limit integer)|pattern_admin_build_publish
+public.get_publish_batch_status()|pattern_admin_build_publish
+public.has_active_subscription_after(_user_id uuid, _published_at timestamp with time zone)|named_pre_cutover
+public.is_tester(_user_id uuid)|named_pre_cutover
+public.prune_backfill_job_queue()|pattern_admin_build_publish
+public.publish_batch_attempts_touch()|pattern_admin_build_publish
+public.recover_stale_backfill_jobs(_stale_after interval)|pattern_admin_build_publish
+public.tg_holdings_fix_proposals_updated_at()|pattern_admin_build_publish
+public.trade_dedupe_sweep(p_dry_run boolean)|pattern_admin_build_publish
