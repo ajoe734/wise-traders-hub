@@ -441,22 +441,52 @@ QN=$(psql "$CL" -qXAt -c "SELECT count(*) FROM public.tw_bsr_sync_queue WHERE en
 chk $([ "${QN:-1}" = 0 ] && echo 0 || echo 1) "EB-102b enqueue inserted nothing with the gate row missing (${QN:-?})"
 psql "$CL" -qX -c "UPDATE public.tw_bsr_sync_config SET key='market_batch' WHERE key='market_batch__hidden'" >/dev/null
 
-# --- B. row present, flag KEY absent -> documented compatibility-OPEN
-: >"$DIR/provider.jsonl"
-psql "$CL" -qX -c "UPDATE public.tw_bsr_sync_config SET config = config - 'admission_blocked' WHERE key='market_batch'" >/dev/null
-C=$(post "$W" "$DIR/w_missing.json" '{"mode":"worker","batch":3,"budget_ms":8000}' "$CRONH")
-chk $([ "$C" = 200 ] && echo 0 || echo 1) "EB-103 worker responds 200 when the admission flag key is absent (got $C)"
-chk $([ "$(jqf "$DIR/w_missing.json" note)" != '"admission_gate_closed"' ] && echo 0 || echo 1) "EB-103b absent flag key is compatibility-OPEN per 001_stage_b.sql v4 §3"
-chk $([ "$(gateblocked)" = 'false' ] && echo 0 || echo 1) "EB-103c absent flag key does not report the gate as blocked"
+# --- B. row present, but the flag is absent / null / non-boolean.
+# Plan v6 (locked): ONLY an explicit JSON boolean false is OPEN. Every other
+# shape is CLOSED at the DB wrapper, the BEFORE INSERT trigger and the Edge
+# classifier. EF-06 (compatibility-OPEN) is retired.
+shape_closed(){ # $1=label  $2=jsonb patch SQL ('' => delete the key)
+  local L=$1 P=$2 C QN
+  if [ -z "$P" ]; then
+    psql "$CL" -qX -c "UPDATE public.tw_bsr_sync_config SET config = config - 'admission_blocked' WHERE key='market_batch'" >/dev/null
+  else
+    psql "$CL" -qX -c "UPDATE public.tw_bsr_sync_config SET config = config || '$P'::jsonb WHERE key='market_batch'" >/dev/null
+  fi
+  : >"$DIR/provider.jsonl"
+  C=$(post "$W" "$DIR/w_$L.json" '{"mode":"worker","batch":3,"budget_ms":8000}' "$CRONH")
+  chk $([ "$C" = 200 ] && echo 0 || echo 1) "EB-G-$L-http worker responds 200 (got $C)"
+  chk $([ "$(gateblocked)" = 'true' ] && echo 0 || echo 1) "EB-G-$L-db DB wrapper reports blocked=true"
+  chk $([ "$(jqf "$DIR/w_$L.json" note)" = '"admission_gate_closed"' ] && echo 0 || echo 1) "EB-G-$L-edge worker short-circuits admission_gate_closed"
+  chk $([ "$(jqf "$DIR/w_$L.json" claimed)" = '0' ] && echo 0 || echo 1) "EB-G-$L-claim claims nothing"
+  chk $([ "$(provider_calls)" = 0 ] && echo 0 || echo 1) "EB-G-$L-provider ZERO provider calls"
+  post "$W" "$DIR/e_$L.json" '{"mode":"enqueue","tier1":true,"tier2":true,"tier3":true}' "$CRONH" >/dev/null
+  QN=$(psql "$CL" -qXAt -c "SELECT count(*) FROM public.tw_bsr_sync_queue WHERE enqueued_by LIKE 'tier%' AND created_at > now() - interval '1 minute'")
+  chk $([ "${QN:-1}" = 0 ] && echo 0 || echo 1) "EB-G-$L-enqueue enqueue inserted nothing (${QN:-?})"
+  chk $([ "$(psql "$CL" -qXAt -c "SELECT public.gate_probe_raw_insert_blocked()")" = 't' ] && echo 0 || echo 1) "EB-G-$L-trigger BEFORE INSERT trigger admits no raw insert"
+}
 
-# --- C. row present, flag value malformed -> DB COALESCEs to false (same rule)
-psql "$CL" -qX -c "UPDATE public.tw_bsr_sync_config SET config = config || '{\"admission_blocked\": \"not-a-boolean\"}'::jsonb WHERE key='market_batch'" >/dev/null
-: >"$DIR/provider.jsonl"
-C=$(post "$W" "$DIR/w_malformed.json" '{"mode":"worker","batch":3,"budget_ms":8000}' "$CRONH")
-chk $([ "$C" = 200 ] && echo 0 || echo 1) "EB-104 worker responds 200 on a malformed admission value (got $C)"
-chk $([ "$(psql "$CL" -qXAt -c "SELECT public.bsr_admission_status()->>'blocked'")" = 'false' ] && echo 0 || echo 1) "EB-104b malformed value resolves to blocked=false (documented COALESCE)"
-chk $([ "$(jqf "$DIR/w_malformed.json" note)" != '"admission_gate_closed"' ] && echo 0 || echo 1) "EB-105 malformed value follows the same compatibility-OPEN rule"
-chk $([ "$(jqf "$DIR/w_malformed.json" ok)" = 'true' ] && echo 0 || echo 1) "EB-106 worker stays ok=true under a malformed admission value"
+psql "$CL" -qX -c "CREATE OR REPLACE FUNCTION public.gate_probe_raw_insert_blocked() RETURNS boolean LANGUAGE plpgsql AS \$f\$
+DECLARE n int;
+BEGIN
+  BEGIN
+    INSERT INTO public.tw_bsr_sync_queue(stock_id, trade_date, priority, status, enqueued_by)
+    VALUES ('9911', current_date - (random()*900)::int, 1, 'pending', 'gate_probe');
+  EXCEPTION WHEN others THEN RETURN true;   -- raised => admitted nothing
+  END;
+  SELECT count(*) INTO n FROM public.tw_bsr_sync_queue WHERE enqueued_by='gate_probe';
+  DELETE FROM public.tw_bsr_sync_queue WHERE enqueued_by='gate_probe';
+  RETURN n = 0;   -- BEFORE INSERT trigger returned NULL => row never landed
+END \$f\$" >/dev/null
+
+shape_closed keymissing ''
+shape_closed string    '{"admission_blocked": "not-a-boolean"}'
+shape_closed jsonnull  '{"admission_blocked": null}'
+shape_closed number    '{"admission_blocked": 1}'
+shape_closed object    '{"admission_blocked": {"v": true}}'
+shape_closed array     '{"admission_blocked": [true]}'
+open_gate
+chk $([ "$(gateblocked)" = 'false' ] && echo 0 || echo 1) "EB-G-explicit-false explicit boolean false is the ONLY open shape"
+chk $([ "$(psql "$CL" -qXAt -c "SELECT public.gate_probe_raw_insert_blocked()")" = 'f' ] && echo 0 || echo 1) "EB-G-explicit-false-trigger raw insert accepted when explicitly open"
 
 # rpc_error: the status wrapper itself is unavailable -> still fail-closed
 psql "$CL" -qX -c "ALTER FUNCTION public.bsr_admission_status() RENAME TO bsr_admission_status_hidden" >/dev/null

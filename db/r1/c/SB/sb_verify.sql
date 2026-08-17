@@ -46,8 +46,11 @@ LANGUAGE sql AS $$ SELECT count(*) FROM public.tw_bsr_sync_queue $$;
 
 -- ============================================================ fixtures
 INSERT INTO public.tw_bsr_sync_config(key, config, version)
-VALUES ('market_batch', '{"supported": false, "note": "storage_objects plan-gated"}'::jsonb, 7)
-ON CONFLICT (key) DO NOTHING;
+VALUES ('market_batch',
+        '{"supported": false, "note": "storage_objects plan-gated", "admission_blocked": false}'::jsonb, 7)
+ON CONFLICT (key) DO UPDATE
+  SET config = public.tw_bsr_sync_config.config || '{"admission_blocked": false}'::jsonb;
+-- Plan v6 fail-closed: the open phases below require an EXPLICIT boolean false.
 
 INSERT INTO public.chips_prefetch_targets(code, source, active, supported)
 VALUES ('2330','ops',true,true) ON CONFLICT DO NOTHING;
@@ -381,13 +384,40 @@ DECLARE
   i int; res jsonb; a0 int; d0 int; drift int; pend_term bigint; pend_all bigint;
   prev bigint; v_cfg jsonb;
 BEGIN
+  -- Plan v6 fail-closed matrix. Every shape except explicit JSON false is CLOSED.
   v_cfg := CASE p_shape
-             WHEN 'true'      THEN '{"admission_blocked": true}'::jsonb
-             WHEN 'missing'   THEN '{}'::jsonb
-             WHEN 'malformed' THEN '{"admission_blocked": "yes"}'::jsonb
+             WHEN 'true'       THEN '{"admission_blocked": true}'::jsonb
+             WHEN 'keymissing' THEN '{}'::jsonb
+             WHEN 'jsonnull'   THEN '{"admission_blocked": null}'::jsonb
+             WHEN 'string'     THEN '{"admission_blocked": "yes"}'::jsonb
+             WHEN 'number'     THEN '{"admission_blocked": 1}'::jsonb
+             WHEN 'object'     THEN '{"admission_blocked": {"v": true}}'::jsonb
+             WHEN 'array'      THEN '{"admission_blocked": [true]}'::jsonb
+             WHEN 'rowmissing' THEN NULL
            END;
-  UPDATE public.tw_bsr_sync_config
-     SET config = (config - 'admission_blocked') || v_cfg WHERE key='market_batch';
+  IF p_shape = 'rowmissing' THEN
+    -- hidden by rename (delete+reinsert collides with the history unique key)
+    UPDATE public.tw_bsr_sync_config SET key='market_batch__hidden' WHERE key='market_batch';
+  ELSE
+    UPDATE public.tw_bsr_sync_config SET key='market_batch' WHERE key='market_batch__hidden';
+    UPDATE public.tw_bsr_sync_config
+       SET config = (config - 'admission_blocked') || v_cfg WHERE key='market_batch';
+  END IF;
+
+  -- status wrapper must report fail-closed with an observable, non-fabricated reason
+  DECLARE st jsonb; BEGIN
+    st := public.bsr_admission_status();
+    PERFORM pg_temp.chk('G-'||p_shape||'-status-blocked',
+      (st->>'blocked')::boolean IS TRUE, 'status='||st::text);
+    PERFORM pg_temp.chk('G-'||p_shape||'-status-reason',
+      (st->>'reason') IN ('legacy_config_missing','malformed','provider_plan_rejected','blocked'),
+      'reason='||coalesce(st->>'reason','<null>'));
+    IF p_shape = 'rowmissing' THEN
+      PERFORM pg_temp.chk('G-rowmissing-version-not-fabricated',
+        (st->'version') IS NULL OR st->>'version' IS NULL, 'version='||coalesce(st->>'version','<null>'));
+      PERFORM pg_temp.chk('G-rowmissing-exists-false', (st->>'exists')::boolean IS FALSE, st::text);
+    END IF;
+  END;
 
   -- reset the cohort to its terminal snapshot before each shape
   UPDATE public.tw_bsr_sync_queue q
@@ -424,22 +454,12 @@ BEGIN
       'terminal rows pending='||pend_term);
 
     pend_all := (SELECT count(*) FROM public.tw_bsr_sync_queue WHERE status='pending');
-    IF p_shape = 'true' THEN
-      -- gate closed: no writer may admit anything, so TOTAL pending stays 0
-      IF pend_all > 0 THEN
-        PERFORM pg_temp.dump_rows('G-true-round'||i||'-pending-any', 'q.status=''pending''');
-      END IF;
-      PERFORM pg_temp.chk('G-true-round'||i||'-total-pending-zero', pend_all = 0,
-        'total pending='||pend_all);
-    ELSE
-      -- gate missing/malformed is OPEN by the v4 §3 compatibility rule: fresh
-      -- gap enqueues are legitimate. Monotonic non-growth of the terminal
-      -- cohort is the invariant; new admissions are reported, not asserted 0.
-      PERFORM pg_temp.chk('G-'||p_shape||'-round'||i||'-fresh-admissions-only',
-        (SELECT count(*) FROM public.tw_bsr_sync_queue
-          WHERE status='pending' AND id IN (SELECT id FROM _terminal_ids)) = 0,
-        'fresh pending (non-cohort)='||pend_all);
+    -- Plan v6: EVERY non-explicit-false shape is CLOSED, so TOTAL pending stays 0.
+    IF pend_all > 0 THEN
+      PERFORM pg_temp.dump_rows('G-'||p_shape||'-round'||i||'-pending-any', 'q.status=''pending''');
     END IF;
+    PERFORM pg_temp.chk('G-'||p_shape||'-round'||i||'-total-pending-zero', pend_all = 0,
+      'total pending='||pend_all);
 
     PERFORM pg_temp.chk('G-'||p_shape||'-round'||i||'-recovery-silent',
       COALESCE((res->>'tokens_issued')::int,0) = 0
@@ -455,10 +475,16 @@ BEGIN
 END $$;
 
 SELECT pg_temp.gate_rounds('true');
-SELECT pg_temp.gate_rounds('missing');
-SELECT pg_temp.gate_rounds('malformed');
+SELECT pg_temp.gate_rounds('keymissing');
+SELECT pg_temp.gate_rounds('jsonnull');
+SELECT pg_temp.gate_rounds('string');
+SELECT pg_temp.gate_rounds('number');
+SELECT pg_temp.gate_rounds('object');
+SELECT pg_temp.gate_rounds('array');
+SELECT pg_temp.gate_rounds('rowmissing');
 
 -- restore the closed gate for the remaining sections
+UPDATE public.tw_bsr_sync_config SET key='market_batch' WHERE key='market_batch__hidden';
 UPDATE public.tw_bsr_sync_config
    SET config = config || '{"admission_blocked": true}'::jsonb WHERE key='market_batch';
 UPDATE public.tw_bsr_sync_queue q
