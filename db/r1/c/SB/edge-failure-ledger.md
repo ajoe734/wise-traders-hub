@@ -153,3 +153,19 @@ code involved. (`pg_locks` was NOT the cause and product code was NOT changed.)
 - Bare `wait` is now banned in this harness.
 
 T1/T2 hang evidence is retained (not overwritten).
+
+## EF-06 — gate_matrix 契約誤判（harness）
+DB 契約 `001_stage_b.sql` §3：`admission_blocked` key 缺席／型別錯 → COALESCE 解析為 false（相容開啟）；只有「整列缺席」才由 Edge fail-closed。舊 harness 對 key 缺席也要求 fail-closed，故 EB-101/102/104/106 FAIL。已改為分岔斷言。
+
+## EF-07 — tw_bsr_sync_queue 無 locked_by（harness schema drift）
+租約以 `status='running'` + `started_at` 表示，且 status CHECK 只允許 pending/running/done/failed/skipped；harness 用 'processing'/`locked_by` → INSERT 違反 CHECK。已改用 running + started_at。
+
+## EF-08 — config 還原撞 history unique(key,version)
+DELETE+INSERT 'market_batch' 會與 `tw_bsr_sync_config_history` 既有 version 1 衝突。改為改名隱藏／復名還原。
+
+## EF-09 — admin_nonce 階段 provider 不可達（circuit open）
+證據（T7 `w_nonce_close.json`）：`error=finmind_admission_circuit_open:pool=interactive`、`jobs_quota_deferred=1`，故 gate 未關 → EB-150/151/152 FAIL。成因為前一階段 retryable class 依產品設計觸發 `data_source_health` 熔斷（非 bug）。harness 於 admin_nonce 前 `reset_circuit`，並新增 EB-149 斷言熔斷已重置。
+
+## 結果
+T8 focused 113/113 PASS；fresh clones **B14 113/113 PASS**、**B15 113/113 PASS**（rollback/fingerprint/destroy 全綠）。
+單元測試 42 passed（gate 29 + probe 13）、`deno check` 兩支 Edge 通過、vitest 228 files / 2911 tests passed、production 0 touch。
