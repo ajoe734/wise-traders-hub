@@ -33,3 +33,40 @@ Denominator = 10 explicitly enumerated gates. TOTAL: **7 PASS / 1 PARTIAL / 2 BL
 
 ## Verdict
 **S0 is NOT green. Flow A and clone-only Flow B are PASS, but they grant no production authorization. R1-P remains clone-only PASS. Production remains NO-GO. S1 / S2 / any production mutation / deploy / Publish is NOT approved.**
+
+---
+
+## Appendix A — Flow A / Flow B exact run evidence (clone-only)
+
+**Flow A** `s0flowA2-20260817T092028Z-45212` · start `2026-08-17T09:20:28.745Z` · end `09:20:36.915Z` · TOTAL_FAILURES=0 · log sha256 `7e82d3d9e5eb0517…` (file) / in-log `6c199ae3019b4385…` · restored catalog hash `a2f8bfca0c93b8727009be86442b7073` · clone destroyed (`/tmp/s0flowA2` gone) · background=0.
+Fidelity 14/14 PASS: 28 function defs; 37 canonical ACL keys = 149 aclexplode tuples / 28 signatures with owners; 140-probe `has_function_privilege` matrix, 0 extra PUBLIC EXECUTE; 11 tables (columns/indexes/constraints/policies/rls/grants 22 rows); 72 cron; 15 writers; 23 triggers.
+096 diagnostic: 160 executed, **exactly 35** deviations, failure-set sha256 `5ed715420481d463…` = pinned `expected_baseline_096.json` → 0 extra / 0 missing → EXPECTED_BASELINE.
+
+**Flow B** `s0flowB4-20260817T092251Z-47686` · start `2026-08-17T09:22:51.921Z` · end `09:23:00.520Z` · failures=0 · destroyed=true · background=0 · log sha256 `cfe88fde86295d49…` (file) / in-log `6ff5cc8376487…`.
+Steps: restore baseline → apply only `d/001_compat.sql`, `p/001_projection.sql`, `p/010_manifest_seed.sql` → `s1_verify.sql` = `S1_VERIFY_PASS` → `s1_rollback.sql`.
+Fingerprints (`before.fp` / `after.fp` / `rollback.fp`):
+- relfilenode `792cab66…` → `792cab66…` (unchanged by S1) → `532831998f18…` after rollback (base tables recreated; logical state identical)
+- economic `35d397b14a1d46bbb3e4fda9172eecf3` unchanged at all three points
+- public_acl `587122c3444de69ee5409c3c6ce49338` unchanged at all three points
+- legacy_writer_contract `79b3e11bab5c4e2fce73264128d9dbfe` unchanged at all three points
+- `no_drift.diff` 0 bytes, `rollback.diff` 0 bytes
+
+## Appendix B — 096 baseline 35 deviations, category table
+Artifact `expected_baseline_096_rows.json` (sha256-16 `63757928f8486972`), full 35 rows with test_id/sqlstate/actual.
+
+| category | count | sqlstate / actual |
+|---|---|---|
+| T-P96b | 6 | 22P02×1, 42702×3, 42703×1, P0001×1 |
+| T-P96b-exec | 6 | 22P02×1, 42702×3, 42703×1, P0001×1 |
+| T-P96b-evd | 2 | body_refs_expert_slug=t, repaired_bodies=0 |
+| T-P96c | 2 | got=1, got=28 |
+| T-P96d | 2 | actual=00000 |
+| T-P96e | 6 | 42883, get_expert_capital_status, public=18953/19037/19077/19086 |
+| T-P96g | 11 | 00000×8, 42883×2, ""×1 |
+| **total** | **35** | matches pinned set exactly |
+
+Post-cutover 185/0 is **only** the existing R1-P clone evidence; it is not re-claimed here.
+
+## Appendix C — freshness observed vs hypothesis
+Observed (queried): `finmind_bsr` circuit open, 55 consecutive failures, `last_error_code=http_400`, `disabled_until=2026-08-17 08:46:13.991+00`; `chips_backfill` disabled `2026-08-17 08:10:03.764+00`; `worker_chain_24h.attempt_logs=0`, `bsr_rows_written=0`, last write `2026-08-15 15:07:03Z`, latest trade_date `2026-08-14`; queue done 9956 / failed 1573 / pending 76; `cron_dispatch_24h_by_job = {}` (empty).
+Hypothesis (NOT observed end-to-end): there is **no natural run_id chain** linking cron → worker boot → admission reject, because attempt logs and per-job dispatch rows are both empty. The step "hourly cron fires and worker boots but admission rejects" is inference from switch/circuit state plus code paths, not from three joined run_ids. Wording downgraded from "root cause" to "consistent chain, partially inferred".
