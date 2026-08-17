@@ -62,9 +62,26 @@ FOR r IN SELECT * FROM (VALUES
       WHERE pp.oid = v_oid AND a.grantee = 0 AND a.privilege_type = 'EXECUTE');
   v_auth := has_function_privilege('authenticated', v_oid, 'EXECUTE');
   v_svc  := has_function_privilege('service_role', v_oid, 'EXECUTE');
-  PERFORM t.ok(r.test_id || 'n anon/PUBLIC closed: ' || r.sig,
-               (NOT v_anon) AND (NOT v_pub),
-               format('anon_execute=%s public_execute=%s', v_anon, v_pub));
+  IF r.disposition = 'keep_rls_predicate_helper' THEN
+    -- These two are evaluated INSIDE RLS predicates as the querying role, so
+    -- anon must keep EXECUTE (revoking it turns every anonymous read of
+    -- public.experts / expert_signal_legs into 42501). The closure is the
+    -- identity-bound wrapper installed by 002 C3c, not the grant: it answers
+    -- only for auth.uid() and raises 42501 for any other user id, and the
+    -- ungated body (`*_raw`) stays service_role-only (asserted by T-P98h).
+    PERFORM t.ok(r.test_id || 'n anon keeps EXECUTE via identity-bound wrapper, PUBLIC closed: ' || r.sig,
+                 v_anon AND (NOT v_pub)
+                 AND EXISTS (SELECT 1 FROM pg_proc pp WHERE pp.oid = v_oid
+                              AND pp.prosrc LIKE '%acl_caller_may_read_identity%'),
+                 format('anon_execute=%s public_execute=%s wrapper_bound=%s', v_anon, v_pub,
+                        (SELECT pp.prosrc LIKE '%acl_caller_may_read_identity%'
+                           FROM pg_proc pp WHERE pp.oid = v_oid)));
+  ELSE
+    PERFORM t.ok(r.test_id || 'n anon/PUBLIC closed: ' || r.sig,
+                 (NOT v_anon) AND (NOT v_pub),
+                 format('anon_execute=%s public_execute=%s', v_anon, v_pub));
+  END IF;
+
   IF r.disposition = 'owner_service_role_only' THEN
     PERFORM t.ok(r.test_id || 'p owner/service_role only: ' || r.sig,
                  (NOT v_auth) AND (v_svc = r.svc_expected),
