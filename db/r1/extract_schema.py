@@ -105,7 +105,7 @@ for line in q(f"""select c.relname||'|'||coalesce(pg_get_userbyid(a.grantee),'PU
  from pg_class c join pg_namespace n on n.oid=c.relnamespace, lateral aclexplode(c.relacl) a
  where n.nspname='public' and c.relname in ({tl})
    and coalesce(pg_get_userbyid(a.grantee),'PUBLIC') in ('anon','authenticated','service_role','PUBLIC')
- group by 1,2 order by 1,2"""):
+ group by c.relname, a.grantee order by 1"""):
     rel,grantee,privs = line.split('|',2)
     privs = ','.join(p for p in privs.split(',') if p != 'MAINTAIN')  # PG17-only priv, replay-safe subset
     out.append(f"GRANT {privs} ON public.{rel} TO {grantee};")
