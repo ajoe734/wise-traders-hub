@@ -78,10 +78,24 @@ def main():
              or r.rolname in ('anon','authenticated','service_role','authenticator',
                               'supabase_admin','supabase_auth_admin','supabase_storage_admin','ledger_owner')
           order by r.rolname""")
-    exts = lines("select 'CREATE EXTENSION IF NOT EXISTS '||quote_ident(extname)||';' from pg_extension "
-                 "where extname not in ('plpgsql') order by extname")
-    exts = ["DO $$ BEGIN %s EXCEPTION WHEN others THEN RAISE NOTICE 'ext skipped: %%', SQLERRM; END $$;" % e
-            for e in exts]
+    # Extensions must land in the same schema as production: vector and pg_trgm
+    # live in public and their functions/types are part of the public-schema
+    # census, so installing them elsewhere (or skipping them) makes the clone
+    # non-production-shape. Only the Supabase-managed, non-public extensions may
+    # degrade to a NOTICE on a plain postgres.
+    exts_raw = lines("""select extname||'|'||n.nspname from pg_extension e
+        join pg_namespace n on n.oid=e.extnamespace
+        where extname not in ('plpgsql') order by extname""")
+    exts = []
+    for row in exts_raw:
+        name, nsp = row.split("|")
+        stmt = "CREATE EXTENSION IF NOT EXISTS %s WITH SCHEMA %s;" % (
+            '"%s"' % name if not name.isidentifier() else name, nsp)
+        if nsp == "public":
+            exts.append(stmt)            # hard requirement, must not be swallowed
+        else:
+            exts.append("DO $$ BEGIN %s EXCEPTION WHEN others THEN "
+                        "RAISE NOTICE 'ext skipped: %%', SQLERRM; END $$;" % stmt)
     schemas = lines("select 'CREATE SCHEMA IF NOT EXISTS '||quote_ident(nspname)||';' from pg_namespace "
                     "where nspname in ('public','extensions','app_ledger','cron','auth') order by nspname")
     enums = lines("""select 'CREATE TYPE public.'||quote_ident(t.typname)||' AS ENUM ('||
@@ -143,18 +157,40 @@ def main():
          + ["GRANT SELECT ON ALL TABLES IN SCHEMA auth TO service_role;"])
 
     # ------------------------------------------------------------- 010 tables
+    # STORED generated columns must be emitted as GENERATED ALWAYS ... STORED.
+    # Emitting them as a plain DEFAULT is invalid SQL when the expression cites
+    # sibling columns (public.tw_chip_fact.net_shares), which aborted the table
+    # and every dependent view on restore.
     tables = lines("""select 'CREATE TABLE IF NOT EXISTS public.'||quote_ident(c.relname)||' ('||
         (select string_agg(quote_ident(a.attname)||' '||format_type(a.atttypid,a.atttypmod)||
-            coalesce(' DEFAULT '||pg_get_expr(d.adbin,d.adrelid),'')||
-            case when a.attnotnull then ' NOT NULL' else '' end, ', ' order by a.attnum)
+            case when a.attgenerated='s'
+                 then ' GENERATED ALWAYS AS ('||pg_get_expr(d.adbin,d.adrelid)||') STORED'
+                 else coalesce(' DEFAULT '||pg_get_expr(d.adbin,d.adrelid),'') end||
+            case when a.attnotnull and a.attgenerated='' then ' NOT NULL' else '' end, ', ' order by a.attnum)
            from pg_attribute a left join pg_attrdef d on d.adrelid=a.attrelid and d.adnum=a.attnum
           where a.attrelid=c.oid and a.attnum>0 and not a.attisdropped)||');'
         from pg_class c join pg_namespace n on n.oid=c.relnamespace
         where n.nspname='public' and c.relkind='r' order by c.relname""")
-    views = lines("""select 'CREATE OR REPLACE VIEW public.'||quote_ident(c.relname)||' AS '||
-        pg_get_viewdef(c.oid, true)
-        from pg_class c join pg_namespace n on n.oid=c.relnamespace
-        where n.nspname='public' and c.relkind='v' order by c.relname""")
+    # Views are emitted in dependency order (view-on-view first), not
+    # alphabetical order: v_price_freshness reads v_price_sync_universe.
+    views = lines("""with recursive v as (
+          select c.oid, c.relname from pg_class c join pg_namespace n on n.oid=c.relnamespace
+          where n.nspname='public' and c.relkind='v'),
+        edges as (
+          select v.oid as child, dep.oid as parent
+          from v join pg_rewrite r on r.ev_class=v.oid
+          join pg_depend d on d.classid='pg_rewrite'::regclass and d.objid=r.oid
+          join v dep on dep.oid=d.refobjid and dep.oid<>v.oid),
+        depth as (
+          select v.oid, v.relname, 0 as lvl from v
+          union all
+          select e.child, v2.relname, depth.lvl+1 from depth
+          join edges e on e.parent=depth.oid join v v2 on v2.oid=e.child
+          where depth.lvl < 20)
+        select 'CREATE OR REPLACE VIEW public.'||quote_ident(relname)||' AS '||
+               pg_get_viewdef(oid, true)
+        from (select oid, relname, max(lvl) as lvl from depth group by oid, relname) t
+        order by lvl, relname""")
     emit("010_tables.sql", "public tables (schema only, no row data) + views", tables + views)
 
     # -------------------------------------------------- 020 constraints / indexes
