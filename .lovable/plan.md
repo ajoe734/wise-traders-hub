@@ -1,100 +1,95 @@
-# 資料語意收斂與分階段上線計畫（H3/H4 clone 優先）
+# 修正版 Plan v8：不重複建 ingest，收斂語意與分型 freshness UI
 
-Production 0 touch。本計畫只描述要做什麼；下一個 Approve 只授權「H3/H4 clone/harness 驗證」，不含任何 production 變更、deploy、cron 或 Publish。
+Production 0 touch。以下所有「現況」皆為本回合唯讀實測。下一個 Approve 只授權：read-only coverage audit 文件化 + H5/H6 controlled Preview/E2E + H-ACL guarded v2 前端 caller 準備。**不 Publish、不 production、不 deploy、不動 cron、不做 H3/H4 ingest。**
 
-## 1) 唯讀盤點（已完成，以下為實測結果）
+## 1) 法人 pipeline 唯讀稽核：已存在且新鮮 → 禁止再建第二條
 
-Row counts / 最新日期（今日讀取）：
+Writer / 來源 / 排程（實測）：
 
-| 表 | rows | 最新日 |
-|---|---|---|
-| tw_bsr_daily | 3,679,883 | 2026-08-14 |
-| tw_chip_fact | 3,567,739 | 2026-08-14 |
-| tw_chips_rollup | 39,833 | 2026-08-14 |
-| tw_institutional_daily | 19,026,661 | 2026-08-17 |
-| bsr_coverage_daily | 7,627 | 2026-08-14 |
+- Edge `tw-institutional-daily-sync`，官方來源就是 **TWSE T86 legacy JSON**（`www.twse.com.tw/rwd/zh/fund/T86?...response=json`，即上輪 probe 3/3 穩定那支）；per-stock 回補另走 FinMind `TaiwanStockInstitutionalInvestorsBuySell`。
+- 寫入路徑 `upsert onConflict=(stock_id,trade_date)`，sealed 交易日會被跳過（權威快照不可改寫）。
+- cron 共 6 條 natural run chain：`tw-institutional-daily-sync`（45 9 * * 1-5）、`tw-institutional-fastlane`（每小時）、`tw-inst-keep-warm-wave1/2/3`（TW 15:30 / 17:30 / 19:30）、`tw-inst-cold-start-resume`（每 5 分）、`tw-inst-backfill-enqueue`（每小時）。
+- 其他讀者：`alerts-watchdog`、`tw-chips-detail`、`tw-bsr-daily-sync`、`backfill-worker`、`_shared/institutionalConsistency.ts`、`_shared/chipsStamp.ts`。
 
-分點（券商 BSR）語意：
+近 7 日每日 rows / distinct symbols：
 
-- `tw_bsr_daily` PK=id、UQ`(stock_id,trade_date,broker_id)`；欄位 broker_id / broker_name / buy_shares / sell_shares / net_shares / avg_buy_price / avg_sell_price。**純分點**，無 source 欄位（舊資料源不可辨識）。
-- `tw_chip_fact` UQ`(stock_id,trade_date,broker_id,source)`，`source` 現有三值：`finmind_per_stock`(1,896,402)、`legacy_migration`(1,408,778)、`finmind_batch`(262,559)。這是**分點事實表**，`raw` 保留原始 payload。
-- `bsr_coverage_daily` PK`(stock_id,trade_date)`：broker_count / broker_sum_shares / snapshot_volume_shares / coverage_pct / coverage_class——**純分點覆蓋率**，不得由法人資料填。
-- `tw_bsr_fetch_failures`、`tw_bsr_attempt_logs`、`tw_bsr_sync_queue`：分點抓取的失敗、逐次嘗試與佇列。佇列現況 done 9,956 / failed 1,573 / pending 76。
+| trade_date | rows = distinct symbols |
+|---|---|
+| 2026-08-17 | 15,386 |
+| 2026-08-14 | 20,794 |
+| 2026-08-13 | 21,275 |
+| 2026-08-12 | 20,697 |
+| 2026-08-11 | 19,913 |
+| 2026-08-10 | 20,433 |
 
-法人與價量：
+**結論：法人 ingest 已用官方來源且已到最新交易日 → 不新建第二條 official institutional ingest。**
 
-- `tw_institutional_daily` UQ`(stock_id,trade_date)`：foreign_net / trust_net / dealer_net / total_net / raw / source。**三大法人**，語意乾淨且已到 8/17。
-- `daily_price_snapshots` UQ`(symbol,trade_date)`、`current_prices` PK symbol：價量。
+但唯讀查出三個真實缺陷（都屬語意/observability，不需新 ingest）：
 
-混用風險點（本計畫要處理的核心）：
+1. **無 market 欄位**：8/17 的 15,386 列全部來自 TWSE T86；抽樣 OTC（3105 / 5483 / 00679B）8/17 **無資料**，8/11–8/14 才有 → TWSE 與 TPEx 的 as_of 事實上不同，schema 卻無法表達，前端只能看到單一「最新日」。
+2. **無 eligibility gate**：15,386 = 全部 6 碼商品（權證為主），權證與 unknown 都被寫進來，`source` 欄位 100% 是 `'unknown'`。
+3. rows 由 20,7xx 掉到 15,386 是「TPEx 尚未進來」造成，不是掉資料——但目前沒有任何指標能區分這兩者。
 
-- `tw_chips_rollup` UQ`(stock_id,as_of_date,window_days)` 同時放 `foreign_net/trust_net/dealer_net`（法人）與 `top_buy_brokers/top_sell_brokers/concentration_ratio`（分點）＋單一 `bsr_available` 旗標。單表混兩種語意，freshness 判讀容易被誤讀成「有資料＝新鮮」。
-- consumer DAG：Edge `tw-chips-orchestrator` / `tw-chips-detail` / `tw-bsr-daily-sync` / `tw-bsr-finmind-sync` / `tw-institutional-daily-sync` / `chips-guardian` / `backfill-worker` → RPC（`get_bsr_daily_series`、`rebuild_bsr_rollup`、`get_bsr_readiness_v2`、`chip_fact_summary`…）→ 前端 `chipsRepository.ts` / `useTwChipsDetail` / `useChipsState` / `ChipsSection.tsx` / `ChipsTrendChart.tsx`，管理端 `FactLogHealthCard`、`BsrOcrMetrics`、`InstitutionalColdStartCard`。
-- 前端目前已把「三大法人」與「關鍵分點」分區塊顯示（ChipsSection L424 / L484），但兩者共用同一組 loading／stale 文案，缺 BSR 時仍可能被讀成整體 fresh。
+## 2) 價量 pipeline 唯讀稽核：同樣已有全市場批次
 
-交付物：`db/r1/c/H/inventory.md`（逐欄語意 × PK × writer × RPC/view × Edge × 前端欄位的完整矩陣）。
+- 全市場批次 Edge `backfill-snapshots-twse-bulk`，官方來源 **TWSE OpenAPI `STOCK_DAY_ALL`**，cron `15 7 * * 1-5` + 週末 `20 7,13 * * 6,0`（含 `refreshCoverage`）。
+- 另有 `stock-price-sync`（收盤 / 收盤校正）、`daily-snapshot`、`backfill-daily-snapshots`（每 5 分續跑）、US/crypto/option 各自的 sync。
+- `daily_price_snapshots` 每日 distinct symbols：8/10–8/14 皆 1,45x–1,46x（全市場），8/17 目前 142（當日批次尚未跑完/僅需求集）。
+- `current_prices`：TW 101 / US 26 / CRYPTO 15，`updated_at` 皆為今日。
 
-## 2) Typed mapping 與語意隔離
+**結論：價量已有全市場批次 → 不新建 ingest。** 缺的同樣只是 market-aware as_of 與「今日尚未完成」與「失敗」的區分。
 
-三條資料線各自獨立、各自有 as_of 與 freshness：
+## 3) 需求面 privacy-safe aggregate（`checkup_storage` key=`pf-holdings-v2`）
 
-| 資料線 | 官方來源 | 落地 | freshness key |
-|---|---|---|---|
-| 日價量 | TWSE STOCK_DAY_ALL / TPEx daily | `daily_price_snapshots` | `(market, as_of)` |
-| 三大法人 | TWSE T86 legacy JSON、TPEx 3insti openapi（已 3/3 穩定） | `tw_institutional_daily`（新增 `market`、`as_of` 語意欄位） | `(market, as_of)` |
-| 券商分點 BSR | 無免授權來源（BLOCKER-E1） | `tw_chip_fact` / `tw_bsr_daily` | `(market, as_of)`，目前 unavailable |
+只輸出彙總，**不列 user_id、不列 quantity/cost、不列任何個人組合**：
 
-規則：
+- 38 位使用者、46 筆持股列、**43 個 unique normalized symbols**（0 個空代號）。
+- market 欄位：43/43 為未填（`?`）→ 需求面本身就沒有 market 語意，這是前端要補的。
+- 自填 type：股票 30、權證 13（自填值，未經 ISIN 驗證，可能與官方分類不符）。
 
-- **禁止**把價量或法人寫進 `tw_chip_fact` / `tw_bsr_daily` / `bsr_coverage_daily` 任何欄位，也不得填 `bsr_available`。
-- `tw_chip_fact.source` 契約是「分點的抓取來源」，不是資料種類 → **不重用**它裝法人。改以獨立 typed 表／view。
-- `tw_chips_rollup` 拆為三個 typed 讀取面（view 或分欄）：`institutional_*`＋`institutional_as_of`、`bsr_*`＋`bsr_as_of`＋`bsr_availability`（enum: `available` / `stale` / `unavailable_no_source`）。舊欄保留不刪，避免前端斷裂。
-- 前端：三大法人區塊照常顯示 as_of；分點區塊在 BLOCKER-E1 期間顯示「券商分點資料不可用（無官方免授權來源）」，且整體 freshness 徽章不得因法人新鮮就標 fresh。
+逐 symbol 集合對比（43 檔）：
 
-## 3) Eligibility：ingestion 必 join ISIN 分類
+| 指標 | 命中數 |
+|---|---|
+| 價量 @2026-08-14 | 42 / 43 |
+| 價量 @2026-08-17 | 42 / 43 |
+| 法人 @2026-08-14 | 38 / 43 |
+| 法人 @2026-08-17 | 28 / 43（差額即 TPEx 尚未進來） |
+| BSR 分點 @2026-08-14 | 29 / 43 |
+| BSR 分點 曾經有過 | 30 / 43 |
+| BSR 最新 as_of | **2026-08-14**（已落後 1 個交易日） |
+| unsupported / parse-failed | 0 筆解析失敗；13 檔自填為權證，官方分類下多屬 unsupported |
 
-- T86 raw 15,386 列含 14,184 個 6 碼商品（權證為主）；**不得**整包 ingest。
-- H1 `tw_market_symbols`（authoritative ISIN 分類）為唯一 gate：只 ingest `common` / `emerging`(創新板) / `etf` / `etf_leveraged`。
-- **ETN 明訂不支援**（`eligibility=false`）：ETN 是發行商信用商品、無成分股籌碼意義，且量小。warrant / CB / TDR / preferred / REIT / ABS / unknown 一律 **fail-closed**。
-- 每 `(market, as_of)` 獨立提交：TWSE 8/14 不可覆蓋或推進 TPEx 8/17 的 as_of，反之亦然。任一 market 失敗只影響該 market。
+**界線聲明**：以上只涵蓋雲端同步過的持股。使用者若只存在瀏覽器 localStorage（未登入或未同步），production read-only **無法涵蓋**，其需求集不在這 43 檔之內；任何「覆蓋率 100%」的說法都僅限雲端集合。
 
-## 4) H3/H4 驗證（只在 disposable clone / harness，本輪唯一可 Approve 的範圍）
+## 4) 重畫後的 critical path
 
-固定 fixtures：本輪保存的真實 full payload（TWSE T86 1,976,483 bytes、TPEx 3insti 862,844 bytes、兩份 ISIN registry）＋10 symbols（2330 / 2317 / 6505 / 2891 / 0050 / 00631L / 00679B / 3105 / 5483 / 03007）。
+- **法人 / 價量**：既有 pipeline 沿用，不新建 ingest。只做 (a) market-aware as_of 的呈現、(b) observability 區分「未完成 / 失敗 / 已完成」。
+- **BSR 分點**：BLOCKER-E1（無合法免授權來源）。queue / master / registry **不得**被描述成能解決「來源不存在」；它們解決的是排程與需求管理，不是資料可得性。不承諾全市場 hourly freshness。
+- **近期真正能完成的**：
+  - **H5 drawer read-only**：抽屜開啟不再觸發寫入（cache miss 不寫、不 enqueue），只讀既有資料。
+  - **H6 分型 freshness UI**：價量、三大法人各自顯示自己的 as_of（含 market 區分）；BSR 顯示 `stale`（有舊資料，標明 as_of）或 `unavailable_no_source`（從未有過），且**整體徽章不得因法人新鮮就顯示 fresh**。
+- **H1 market master / H2 registry**：降級為「未來 provider 就緒時的準備」，是否上 production **另案決定**，不是本次完成條件。
 
-驗證項目：
+## 5) 下一個 Approve 範圍
 
-1. Parser：schema drift（欄位增減／改名）、ROC 日期（1150817）與西元、千分位逗號與 `--`／空白／全形數字 locale 解析。
-2. Full-payload ingest：canonical PK 去重、idempotent re-run（第二次 0 變更、hash 相同）。
-3. 失敗路徑：部分 endpoint 失敗、wrong-date payload、HTTP 200 但 HTML body、TLS 失敗、429/5xx、週末與國定假日。
-4. 不變式：**任何 failure 不得推進 as_of / coverage**；success 後 row counts、distinct instrument_class counts、內容 hash 可重現。
-5. Demand fast lane 與 full-market batch 走不同路徑：官方全市場 batch **不需要**每 symbol queue row。
-6. 佇列既有 FinMind `permanent_auth` job：停止重試（轉 terminal 狀態）但保留 audit，**不刪歷史**。
+1. **Read-only coverage audit 文件化**：把第 1–3 節結果寫成 `db/r1/c/H/coverage_audit.md`（含 writer/cron/source 矩陣、每日 coverage、43 檔對比表、localStorage 界線）。純文件，不動 DB。
+2. **H5/H6 controlled Preview + E2E**：抽屜改 read-only、分型 freshness UI；在 Preview 驗證，加 E2E（法人新鮮＋BSR stale 時整體不得標 fresh、cache miss 不觸發寫入）。**不 Publish。**
+3. **H-ACL guarded v2 前端 caller 準備**：DataSourceHealth 準備好呼叫 v2 的分支（feature-flag 或 fallback 舊函式），程式碼就緒但**不撤任何舊 grant、不 Publish**。
 
-harness：`db/r1/c/H/h34_rehearsal.sh` + fixtures 目錄，兩座全新 clone、跑完自動 destroy、輸出 full log sha256 與 start/end UTC。
+明確不做：H3/H4 官方 batch ingest（重複建設）、任何 production migration、cron 變更、deploy、Publish。
 
-## 5) H-ACL production 兩段式（避免前端斷裂）
+## 6) 最終可驗收標準與真實 blocker
 
-- **P-ACL-1**：只新增 guarded `finmind_pool_reset_v2()`，**不撤**任何舊 grant。DataSourceHealth 保持可用。
-- 中間：Preview 以 controlled role 測試（一般 authenticated 拒絕、company_admin 通過、service_role 通過）。
-- **P-ACL-2**：取得明確 Publish 授權、且前端 caller 已改呼 v2 並上線之後，才 REVOKE 舊的 PUBLIC/anon/authenticated（含 46 支 writer 收斂）。
-- 未取得 Publish 授權前，只能停在「準備完成」。
+可驗收（本階段能保證的）：
 
-## 6) Stage 拆分
+- 開抽屜不再產生任何寫入（read-only，可由 E2E + 無新增 queue/fact 列證明）。
+- 既有資料如實顯示：價量 as_of、法人 as_of（分 market）、BSR as_of 或「不可用」。
+- 法人與價量在背景排程下維持新鮮（沿用既有 cron，不新增）。
+- BSR 只要不是當日資料，UI 一律標 `stale` 或 `unavailable_no_source`，永不冒充 fresh。
 
-| Stage | exact mutation | 依賴 | rollback | stop point | 需 Publish 授權 |
-|---|---|---|---|---|---|
-| P0 read-only final preflight | 無（只讀 baseline fingerprint） | — | 不需要 | 產出報告即停 | 否 |
-| P1 H0 observability | 新增 correlation_id 欄位、`freshness_run_trace` view、保留清理函式；**cron 不切** | P0 | drop view/欄位 | side-by-side 觀察，FinMind 仍 400 時不切 cron | 否 |
-| P2 H1 market master | 建 `tw_market_symbols` + upsert 函式（additive） | P1 | drop table/function | 首次 ISIN 載入完成 | 否 |
-| P3 H2 registry backend | 建 `symbol_demand_registry` + cap/decay 函式 | P2 | drop | 後端可用、前端未接 | 否 |
-| P4 H3/H4 official batch ingest | 價量＋法人 typed ingest、rollup typed 拆面、eligibility gate、queue permanent_auth 收斂 | P2/P3 | 逐段 down script；資料 additive 不刪舊 | ingest 綠但前端未切 | 否（cron 啟用需另行確認） |
-| P5 H5/H6 frontend/Publish | 前端 freshness UI、分點 unavailable 文案、E2E | P4 | 前端 revert | — | **是** |
-| P-ACL-1 | 新增 v2 函式 | 無 | drop function | 前端仍用舊 | 否 |
-| P-ACL-2 | REVOKE 舊 grants（46 支 writer） | P-ACL-1 + 前端已上線 v2 | 已驗證的 ACL rollback（bit-identical） | — | **是** |
+真實 blocker（不可迴避、不可用 UI 掩蓋）：
 
-P1 建議：FinMind 仍 400 時**不值得**切 cron，只做 side-by-side 觀察，避免把 400 噪音寫進新 trace 又無法區分官方來源的成敗。
-
-## 本輪 Approve 範圍
-
-只做第 4 節的 H3/H4 clone/harness（含第 1 節 inventory.md 文件）。不建 production 物件、不 deploy、不動 cron、不 Publish。
+- **BLOCKER-E1**：無合法 BSR（券商分點）provider。在此之前**不得**聲稱「全市場分點已新鮮」，也不得用 queue/registry/master 的完成度暗示分點可得。
+- **TPEx 法人當日落後**：8/17 只有 TWSE，需 market-aware as_of 才能誠實表達（本階段以 UI 表達，不改 ingest）。
+- 未同步到雲端的 localStorage 持股不在任何 coverage 保證範圍內。
