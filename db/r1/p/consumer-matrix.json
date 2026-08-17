@@ -8,6 +8,23 @@
   "internal": "server-side / service_role only",
   "test": "test or harness file"
  },
+ "excluded_false_positives": [
+  {
+   "path": "src/checkup/components/holdings/README.md",
+   "reason": "documentation file; the table names appear in prose only",
+   "evidence_rule": "no .from('<econ table>') / .rpc( in file"
+  },
+  {
+   "path": "src/checkup/hooks/index.js",
+   "reason": "barrel re-export; no query, no economic field",
+   "evidence_rule": "no .from('<econ table>') / .rpc( in file"
+  },
+  {
+   "path": "src/test/integration/1.35-rls-security-audit.test.ts",
+   "reason": "RLS audit harness that only names tables in assertions strings",
+   "evidence_rule": "no .from('<econ table>') / .rpc( in file"
+  }
+ ],
  "static_consumers": [
   {
    "path": "src/checkup/components/freecheckup/ChipsSection.tsx",

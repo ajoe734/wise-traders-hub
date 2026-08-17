@@ -45,6 +45,43 @@ DISPOSITIONS = {
 }
 
 
+# 3 paths that the first (string-grep) matrix counted as consumers and that the
+# reachability scanner excludes. Each exclusion is re-proven on every --check:
+# the file must contain no supabase access to an economic table.
+EXCLUDED_FALSE_POSITIVES = [
+    {
+        "path": "src/checkup/components/holdings/README.md",
+        "reason": "documentation file; the table names appear in prose only",
+        "evidence_rule": "no .from('<econ table>') / .rpc( in file",
+    },
+    {
+        "path": "src/checkup/hooks/index.js",
+        "reason": "barrel re-export; no query, no economic field",
+        "evidence_rule": "no .from('<econ table>') / .rpc( in file",
+    },
+    {
+        "path": "src/test/integration/1.35-rls-security-audit.test.ts",
+        "reason": "RLS audit harness that only names tables in assertions strings",
+        "evidence_rule": "no .from('<econ table>') / .rpc( in file",
+    },
+]
+
+
+def prove_exclusions() -> list[str]:
+    """Regression test: the 3 excluded paths must stay non-consumers."""
+    errs = []
+    for ex in EXCLUDED_FALSE_POSITIVES:
+        f = ROOT / ex["path"]
+        if not f.exists():
+            continue
+        txt = f.read_text(encoding="utf-8", errors="ignore")
+        hits = [m.group(0) for m in ACCESS_RE.finditer(txt)
+                if (m.group(1) in ECON_TABLES) or m.group(3)]
+        if hits:
+            errs.append(f"EXCLUSION BROKEN {ex['path']}: now performs economic access {hits[:3]}")
+    return errs
+
+
 # ----------------------------------------------------------------- discovery
 def repo_files() -> list[Path]:
     out = []
@@ -361,6 +398,7 @@ def build() -> dict:
             "internal": "server-side / service_role only",
             "test": "test or harness file",
         },
+        "excluded_false_positives": EXCLUDED_FALSE_POSITIVES,
         "static_consumers": consumers,
         "static_consumer_counts": {**counts, "total": len(consumers)},
         "coverage": {
@@ -380,6 +418,13 @@ def check() -> int:
     reg = {c["path"]: c for c in m["static_consumers"]}
     found = discover()
     errs: list[str] = []
+
+    errs += prove_exclusions()
+    for ex in EXCLUDED_FALSE_POSITIVES:
+        if ex["path"] in reg:
+            errs.append(f"excluded false positive re-entered the matrix: {ex['path']}")
+    if len(m.get("excluded_false_positives", [])) != 3:
+        errs.append("exclusion evidence block must list exactly the 3 false positives")
 
     for rel in found:
         if rel not in reg:
