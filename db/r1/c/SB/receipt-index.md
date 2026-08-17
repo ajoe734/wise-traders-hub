@@ -1,148 +1,188 @@
-# Stage B v6 — receipt index (clone rehearsals B6 / B7)
+# Stage B v6 — receipt index v2 (authoritative runs: B8 / B9)
 
-Grep anchors: `B6-20260817T144036Z-56423`, `B7-20260817T144101Z-57053`,
-`617299a792bc4a76ee613c477ede77feb993c7fb9314de417c58c96873f81043`,
-`b7469f77f71a4415c02274a22c6535d40357489115dfe90ea157aa15b09692dd`.
+Grep anchors: `B8-20260817T145514Z-2630`, `B9-20260817T145542Z-3321`,
+`cd58d0fc6486cdfce289f97df41f4210bd19522f05a6d94c452876782998c4f8`,
+`98df2e28bb5471d3b1cc4a3adce4ba22c99ea7f7fbe480f46e11c0f00292a92e`.
 
-Nothing in this file was produced against production. No deploy, no Publish, no
-Edge Function change. Evidence was landed from already-completed runs; no run
-was repeated to produce it.
+Superseded runs (retained verbatim, never overwritten):
+`B6-20260817T144036Z-56423` → `artifacts/B6/` + `artifacts/B6/SUPERSEDED.md`,
+`B7-20260817T144101Z-57053` → `artifacts/B7/` + `artifacts/B7/SUPERSEDED.md`.
+Their logs and sha256 (`617299a792bc4a76ee613c477ede77feb993c7fb9314de417c58c96873f81043`,
+`b7469f77f71a4415c02274a22c6535d40357489115dfe90ea157aa15b09692dd`) remain valid
+for what they measured; they are superseded only because their fingerprint did
+not cover COMMENT / identity-argument / leakproof / strict metadata.
+
+Production 0-touch. No deploy, no Publish, no Edge Function change, no cron or
+ACL change. Only two evidence files changed (`sb_fingerprint.sql`,
+`sb_rehearsal.sh`); Stage B behaviour SQL is byte-identical to the B6/B7 runs.
 
 ## 1. Runs
 
-| field | B6 | B7 |
+| field | B8 | B9 |
 |---|---|---|
-| run_id | `B6-20260817T144036Z-56423` | `B7-20260817T144101Z-57053` |
-| start (UTC) | `2026-08-17T14:40:36.069Z` | `2026-08-17T14:41:01.341Z` |
-| end (UTC) | `2026-08-17T14:40:54.947Z` | `2026-08-17T14:41:18.488Z` |
-| clone port (loopback only) | 55833 | 55844 |
-| PostgREST port (loopback only) | 3833 | 3844 |
-| harness checks / failures | 22 / 0 | 22 / 0 |
+| run_id | `B8-20260817T145514Z-2630` | `B9-20260817T145542Z-3321` |
+| start (UTC) | `2026-08-17T14:55:14.920Z` | `2026-08-17T14:55:42.735Z` |
+| end (UTC) | `2026-08-17T14:55:34.520Z` | `2026-08-17T14:56:00.098Z` |
+| clone port (loopback only) | 55861 | 55872 |
+| PostgREST port (loopback only) | 3861 | 3872 |
+| harness checks / failures | 32 / 0 | 32 / 0 |
 | harness exit code | 0 | 0 |
 | SQL verifier | `pass=104 fail=0 gap=0` | `pass=104 fail=0 gap=0` |
 | PostgREST HTTP proof | `pass=10 fail=0` (exit 0) | `pass=10 fail=0` (exit 0) |
 | supabase-js proof | `pass=5 fail=0` (exit 0) | `pass=5 fail=0` (exit 0) |
 | clone destroyed | true | true |
 | leftover background processes | 0 | 0 |
-| full log sha256 (sanitized == raw) | `617299a792bc4a76ee613c477ede77feb993c7fb9314de417c58c96873f81043` | `b7469f77f71a4415c02274a22c6535d40357489115dfe90ea157aa15b09692dd` |
-| in-log `log_sha256_pre_result` (hash of the log *before* the RESULT line) | `2515e31dd32d4799f6708a7b4ca950a33d23b555803033623a017f458171a2f1` | `1c0886a454f77f49f65d724e66538136b34b955d92dd652b5b54a5eb76fee3ec` |
+| full sanitized log sha256 (== raw; nothing needed redacting) | `cd58d0fc6486cdfce289f97df41f4210bd19522f05a6d94c452876782998c4f8` | `98df2e28bb5471d3b1cc4a3adce4ba22c99ea7f7fbe480f46e11c0f00292a92e` |
+| in-log `log_sha256_pre_result` | `0a31a085d43aa359578d7c4ef2231055ea55a73c81345b2caccb3e12d2613ec4` | `d6d72a050a9872cee4d1c64bf308720a515f357869a4bd4fc1ce0c68f3c37481` |
+| full clone server log sha256 (20 984 lines, not stored) | `34e739b6b2d3c404eabb58053d95df2fe8a470c20b202b846eb794f11160c57c` | `857b41e94c9fc71d9d2f5aa43849cb7bca626fd281ce2574579d1b316e6bf804` |
 
-## 2. Landed evidence (34 files per run)
+## 2. Metadata + COMMENT coverage (the reason for v2)
 
-`db/r1/c/SB/artifacts/<run>/` — per-file sha256 in that directory's
-`sha256sums.txt`.
+Full write-up: `db/r1/c/SB/comment-coverage.md`
+(sha256 `7da4bb54d8ac46c3f72468dc726dfd31bfde9cfc4c898625cece6d6f77a5a31c`).
 
-| file | purpose | B6 sha256 | B7 sha256 |
+Fingerprinted per replaced target (`recover_quota_failed_bsr_jobs(integer)`,
+`recover_stale_bsr_queue_jobs(integer,integer)`, plus untouched control
+`reap_stale_bsr_queue_jobs(integer)`): identity arguments, full argument list
+with defaults, result type, owner, full `proacl`, `proconfig`, `provolatile`,
+`prosecdef`, `proleakproof`, `proisstrict`, language,
+`obj_description(oid,'pg_proc')` md5 + length + full text, and
+`md5(pg_get_functiondef)` + length. Every `fn|` row in `public` / `private_bsr`
+additionally carries `cmt=<md5>/<len>`.
+
+| assertion | artifact | B8 | B9 |
 |---|---|---|---|
-| `rehearsal.log` | full sanitized harness log | `617299a792bc4a76ee613c477ede77feb993c7fb9314de417c58c96873f81043` | `b7469f77f71a4415c02274a22c6535d40357489115dfe90ea157aa15b09692dd` |
-| `summary.json` | machine-readable result + every check line | `c0aafe77cb582bd76cd62ac785c235cf71ce6593b65e2cc5843d8a11c19290db` | `76993759a7dc028a5e1689e5bd21a96876c825e9ef73a624637954d830c69458` |
-| `sha256sums.txt` | checksums of every file in the directory | `19a5bfe054cbb495eb78fe7bb43f071a10bac2d54f5bec397fb982053d50b6c1` | `8d47feed3b3a1a6b06c59971f82bf4b359d9345fabc0da4dc581d451992cf4bf` |
-| `acl-matrix.md` | HTTP / PostgREST / supabase-js ACL matrix with status + error codes | `d37fe889b65448c3cdcbcc65390d858b82d6d97541ae63612863c3ebae4fcc6f` | `a1a5288db84fa6ac7dafae50413e5712920d4d4bf4c9a11d4b7af3d75be1607a` |
-| `http_proof.log` | raw proof output (sanitized) | see `sha256sums.txt` | see `sha256sums.txt` |
-| `verify.out` | 104-check SQL verifier output | `577563f8a9da301de92d1c75a67b31aa6b2cd2fbb9c2986f04d174401bc478f7` | `341a6a92755eb980539c44255f14910c45ae9d49281fb5c4f28121b999bef434` |
-| `fp_before.txt` | pre-apply fingerprint (functiondef md5 / secdef / volatility / proconfig / owner / ACL md5 / triggers / nspacl / data) | `d7070058a32ae875b9036b1736e67ad34234c712c049a48efa7ebdb2ceec95fb` | `d7070058a32ae875b9036b1736e67ad34234c712c049a48efa7ebdb2ceec95fb` |
-| `fp_after.txt` | post-apply + post-rollback fingerprint | `5c80ea83935cc5c1030aa9447d4692b626a275e6fe815af6b22293e13633833b` | `4cef2786954c14daa2043910debb7cd92f0480ed3575d8f068a5c9204b6b8f9f` |
-| `fp_before_cat.txt` / `fp_after_cat.txt` | catalog-only slice used for rollback equality | in `sha256sums.txt` | in `sha256sums.txt` |
-| `fp_cat.diff` | rollback catalog diff — **0 bytes** (`e3b0c442…7852b855` = sha256 of empty file) | `e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855` | `e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855` |
-| `queue_fn_before.txt` / `queue_fn_after.txt` / `queue_fn.diff` | owner / ACL / proconfig of every queue-touching function; diff **0 bytes** | `e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855` (diff) | `e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855` (diff) |
-| `recover_before.md5` / `recover_after.md5` | `pg_get_functiondef(recover_quota_failed_bsr_jobs)` — both `8a50211b18102cda54bdd99fca991a27` | equal | equal |
-| `wrapper_catalog.txt` | post-apply wrapper catalog (secdef / volatility / proconfig / owner / ACL) | `a15b08601502f231c3aa61a685e10763acc5b2e2bc5c48209ddc16dcb3387a87` | `a15b08601502f231c3aa61a685e10763acc5b2e2bc5c48209ddc16dcb3387a87` |
-| `rollback.log` | `099_rollback.sql` output | `a2ac8d2b30ed22f8d87469bb263c61742f8e464bcc2174acec2718aeb4766253` | `a2ac8d2b30ed22f8d87469bb263c61742f8e464bcc2174acec2718aeb4766253` |
-| `restore.log`, `restore_errors.txt`, `census.txt` | baseline restore (0 errors) + catalog census vs production baseline | in `sha256sums.txt` | in `sha256sums.txt` |
-| `barrierA.out`, `barrierB.out`, `chunk.out`, `fuzz.out`, `timeout.out`, `trg.out`, `nsp.out`, `rolecheck.out` | linearization / chunk accounting / 200-iteration fuzz / timeout / trigger / namespace / role checks | in `sha256sums.txt` | in `sha256sums.txt` |
-| `apply1.log`, `apply2.log` | migration apply output under `ON_ERROR_STOP=1` (`apply2.log` empty) | in `sha256sums.txt` | in `sha256sums.txt` |
-| `pg.filtered.log` + `pg.log.sha256` | server log filtered to errors/warnings/HTTP RPC lines; sha256 of the full 20 755-line original recorded, original not stored (clone destroyed) | full: `5f8772b62198fe221964c1f16b3b91b5862dfffbe761cced7a75d0fb143e46f0` | full: `5cd1182f8c9d9a5600a5e98e5cf42ef9b06ca23b51925575c33d00e28c49f2d7` |
+| pre-apply metadata captured for 3 targets, all with non-null comment | `repl_meta_before.txt` | PASS | PASS |
+| negative control — comment-only drift IS detected | `repl_meta_drift.diff` **non-empty**, 2 236 B | `63872405c1be0e228dbeca78a9d0b4336f0876b5773e19cc99a156b3913f0ef9` | `584fea7f1e6d5ba78996cba64982c982bb2790ecc155696b3b47f69c517be01f` |
+| post-apply metadata+comment 100% identical | `repl_meta_apply.diff` = 0 B | PASS | PASS |
+| post-apply exactly 2 bodies changed, reaper untouched | `repl_body_apply.diff` | PASS | PASS |
+| post-rollback metadata+comment byte-equivalent | `repl_meta_rollback.diff` = 0 B | PASS | PASS |
+| post-rollback `pg_get_functiondef` byte-equivalent (all 3) | `repl_body_rollback.diff` = 0 B | PASS | PASS |
+| no comment dropped by apply+rollback | `repl_meta_after.txt` (`comment_md5=NULL` count 0) | PASS | PASS |
+| whole-catalog rollback equality (now incl. `cmt=`) | `fp_cat.diff` = 0 B | PASS | PASS |
 
-Shared artifacts:
+`repl_meta_before.txt` / `repl_meta_apply.txt` / `repl_meta_after.txt` share one
+sha256 per run — B8 `82a99de46802ac513f4c8d2a4146816c87f5185de1654e15afd4654bd4e5e7b9`,
+B9 `2879edc5f40d76b2793ced4c460fac744051cc46acaffc5c9b896243f44b2a66` (they
+differ between runs only because the seeded control comment embeds the run_id).
+`repl_body_before.txt` == `repl_body_after.txt` ==
+`28654463671071e785087064543605a30ec26ed30d76d17d8b8787fc787a344a` in **both**
+runs; the during-apply body set is
+`750d49060be3449ff2934cfaecf04dba8ecefaa8d861668e7e5439f8af35a518` in both,
+i.e. the body delta is deterministic and reproducible across clones.
+
+A comment difference scores **FAIL**. There is no gap branch for comments.
+
+## 3. Landed evidence
+
+`db/r1/c/SB/artifacts/<run>/` — 51 files each, per-file sha256 in that
+directory's `sha256sums.txt`.
+
+| file | purpose | B8 sha256 | B9 sha256 |
+|---|---|---|---|
+| `rehearsal.log` | full sanitized harness log (32 checks) | `cd58d0fc6486cdfce289f97df41f4210bd19522f05a6d94c452876782998c4f8` | `98df2e28bb5471d3b1cc4a3adce4ba22c99ea7f7fbe480f46e11c0f00292a92e` |
+| `summary.json` | machine-readable result + every check line | `f8aca22cd5eb6b404864b70bdf99b2d724a61c297a18a55b6b084dbdcbf3b9cb` | `4178b39c0972ed66dd4cd63deb807af9c574f78c629cfdc6ee26bdeea32b81a2` |
+| `sha256sums.txt` | checksums of every file in the directory | `d4b468b413e1b78755395f013195a64925393bf8b5685cf0825d4f0a108c5055` | `9282f5d53a94a48db523c97390f755abf041795082856711cd5716abf0bdc1ba` |
+| `verify.out` | 104-check SQL verifier output | `93d2f9a70d9ea59ba57d39ca36942017f0375c8d75ef82544a8fa410eea26e6f` | `2e782882f086b34e812df7827580f382d94cf87d6bf1631bf29aa982f9975cd8` |
+| `acl-matrix.md` | real HTTP / PostgREST / supabase-js ACL matrix (status + error codes) | `ff89a0933492d7083a3e010288f8f996f04b84472a5b0149122e67cd9db20455` | `5d4f876c1384069905f34f2f971b6a0d0849c652b12815c195fec55e0e5e68f4` |
+| `fp_before.txt` | pre-apply fingerprint (catalog + comments + data) | `3673c00ed0a6563e5327d66143b031454c381322ff6923c79cc223bb5f98afde` | `e0c807376d810871d3a497a46aa79859b45c75726219f60690141da4b128a3cb` |
+| `fp_apply.txt` | **post-apply** fingerprint (new in v2) | `567014742694aef0cfb378e1723b507d8596e35f5e6f2136ecd1ac6dfc4533ab` | `0c5fa347668ceb4397531371ce8ee811980efcd322035ad2a06e5151e5f3e71b` |
+| `fp_after.txt` | post-rollback fingerprint | `ac6418dcf390c57b05087d5e5ce91ea3d37c46e706496dc1e5a6605d13861e01` | `cca9ed71905311ee52b624b007150bb574f29666ed59ad543d4cde32428192ee` |
+| `repl_meta_*` / `repl_body_*` (11 files) | replaced-function metadata/comment/body at pre / drift-probe / restored / apply / rollback | see §2 + `sha256sums.txt` | see §2 + `sha256sums.txt` |
+| `fp_cat.diff`, `queue_fn.diff`, `repl_meta_apply.diff`, `repl_meta_rollback.diff`, `repl_body_rollback.diff` | all **0 bytes** (`e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855`) | equal | equal |
+| `restore.log`, `restore_errors.txt` (empty), `census.txt` | baseline restore 0 errors + catalog census vs production baseline | `sha256sums.txt` | `sha256sums.txt` |
+| `apply1.log`, `apply2.log`, `rollback.log`, `wrapper_catalog.txt` | migration apply/rollback under `ON_ERROR_STOP=1` | `sha256sums.txt` | `sha256sums.txt` |
+| `barrierA.out`, `barrierB.out`, `chunk.out`, `fuzz.out`, `timeout.out`, `trg.out`, `nsp.out`, `rolecheck.out`, `http_proof.log` | barrier / chunk accounting / 200-iteration fuzz / timeout / trigger / namespace / role / HTTP proofs | `sha256sums.txt` | `sha256sums.txt` |
+| `pg.filtered.log` + `pg.log.sha256` | filtered clone server log; sha256 of the full 20 984-line original recorded, original not stored (clone destroyed) | `824a1d3324793242c0f66177a2252012420a00b23240d06a1b1d07ae9d8a8cba` (sha file) | `3684896eb5f41ef836cd6c084cd27653cc6910cea0d5ccb2afb3acfb8a889eaf` (sha file) |
+
+Shared documents:
 
 | file | sha256 |
 |---|---|
+| `db/r1/c/SB/comment-coverage.md` | `7da4bb54d8ac46c3f72468dc726dfd31bfde9cfc4c898625cece6d6f77a5a31c` |
+| `db/r1/c/SB/failure-ledger.md` (F-02…F-08) | `fa5f6190e33038d931817dff4c99e87f9894c4e55b5197616efb427eea3042ee` |
 | `db/r1/c/SB/artifacts/reaper-scope-diff.md` | `b65c6d698eb6a669f67a5b5320f7d8c84f64500b548871b692d649fe5bcc7033` |
-| `db/r1/c/SB/failure-ledger.md` | `d9a02e941e2662c0d021d3f2769f9c42ab8bec67190aedcfa2ca320e93379767` |
+| `db/r1/c/SB/artifacts/B6/SUPERSEDED.md` | `0ad450317182bca0888e35ff83e37148a480973a94b4f1ece53c29226c75deee` |
+| `db/r1/c/SB/artifacts/B7/SUPERSEDED.md` | `b4338768958156391144db0ca7b57e941d2263b54e5475ea7a734b9dba144e7d` |
 
-Code under proof (sha256 at the time of the B6/B7 runs):
+Code under proof at B8/B9 time — the four behaviour files are **unchanged** from
+B6/B7; only the two evidence files moved:
 
-| file | sha256 |
-|---|---|
-| `db/r1/c/SB/001_stage_b.sql` | `1240c1f24d0d9fd854f23e12e154b94af63606c2d932562c0fb4655c0911cc4b` |
-| `db/r1/c/SB/002_recover_gate_aware.sql` | `fe7e30d4674253d8e976fd51d5ae98baf997404aca488c6d916629f80fe0082a` |
-| `db/r1/c/SB/002_recover_baseline.sql` | `8d4f6736463dbe3dfe79ac050573d4a0ab4cfabbbeef5ad3db6384e2cd20a430` |
-| `db/r1/c/SB/099_rollback.sql` | `18e1a8e47f95d3d6b651b85bef5874ae939ef027e862700e0e292538af963add` |
-| `db/r1/c/SB/sb_verify.sql` | `9ec07966c57db402c62f7587067646e4e7b5f0365062cac7d6574854543d8cb3` |
-| `db/r1/c/SB/sb_fingerprint.sql` | `3740c4d7ee755bad9df69b64b562cf24c8396ac90faddc80b2e4bb43ca4f5b52` |
-| `db/r1/c/SB/sb_rehearsal.sh` | `dc2f6ae2cebfc8ece97c1320af52a719156b462763daa74be3060aafe5970fc4` |
-| `db/r1/c/SB/sb_postgrest_proof.sh` | `f52dbee9dd12d93cdfeaa8f790b13a9dc268290a090c93b51bbc063130f1c9ac` |
-| `db/r1/c/SB/sb_supabase_js_proof.mjs` | `16c441ae102de43b493df9081c48bbf01069466c940587e04c05e352e2276c9a` |
-| `db/r1/c/SB/sb_clone_up.sh` | `e696bb5d2f5acdda91c6564c1da1e1afae442f84c870e02053f8396867b99bc9` |
+| file | sha256 | changed since B6/B7 |
+|---|---|---|
+| `db/r1/c/SB/001_stage_b.sql` | `1240c1f24d0d9fd854f23e12e154b94af63606c2d932562c0fb4655c0911cc4b` | no |
+| `db/r1/c/SB/002_recover_gate_aware.sql` | `fe7e30d4674253d8e976fd51d5ae98baf997404aca488c6d916629f80fe0082a` | no |
+| `db/r1/c/SB/002_recover_baseline.sql` | `8d4f6736463dbe3dfe79ac050573d4a0ab4cfabbbeef5ad3db6384e2cd20a430` | no |
+| `db/r1/c/SB/099_rollback.sql` | `18e1a8e47f95d3d6b651b85bef5874ae939ef027e862700e0e292538af963add` | no |
+| `db/r1/c/SB/sb_verify.sql` | `9ec07966c57db402c62f7587067646e4e7b5f0365062cac7d6574854543d8cb3` | no |
+| `db/r1/c/SB/sb_postgrest_proof.sh` | `f52dbee9dd12d93cdfeaa8f790b13a9dc268290a090c93b51bbc063130f1c9ac` | no |
+| `db/r1/c/SB/sb_supabase_js_proof.mjs` | `16c441ae102de43b493df9081c48bbf01069466c940587e04c05e352e2276c9a` | no |
+| `db/r1/c/SB/sb_clone_up.sh` | `e696bb5d2f5acdda91c6564c1da1e1afae442f84c870e02053f8396867b99bc9` | no |
+| `db/r1/c/SB/sb_fingerprint.sql` | `1bf4addb430f5e9bde087d4fe9c4e7bc34cb76f2ccaec7df5f780c63a8fb0bd8` | **yes** (was `3740c4d7…4f5b52`) |
+| `db/r1/c/SB/sb_rehearsal.sh` | `7c2cc07ff4ab38beb26e16e119924d750c5cf0038ead6f18b21f078ea1a66079` | **yes** (was `dc2f6ae2…f1c9ac`) |
 
-## 3. Tool versions
+## 4. Tool versions
 
 | tool | version |
 |---|---|
-| PostgreSQL (clone server + psql) | 17.11 (`/nix/store/…postgresql-and-plugins-17.11`) |
+| PostgreSQL (clone server + psql) | 17.11 |
 | PostgREST | 14.1 (`/nix/store/grkpy61kplv8wrf9iiga06658av4mww9-postgrest-14.1-bin`) |
-| `@supabase/supabase-js` | 2.97.0 (client header `supabase-js-node/2.97.0`) |
+| `@supabase/supabase-js` | 2.97.0 (`supabase-js-node/2.97.0`) |
 | Bun | 1.3.3 |
 | Python | 3.13.12 |
 
-## 4. Rollback / drift proof
+## 5. Rollback / drift proof
 
-- `SB-10a` `pg_get_functiondef(public.recover_quota_failed_bsr_jobs(int))` md5
-  before = after = `8a50211b18102cda54bdd99fca991a27`.
-- `SB-10e` catalog fingerprint diff (`fp_cat.diff`) is **0 bytes** in both runs.
-  That fingerprint covers, per function in `public` + `private_bsr`:
-  `pg_get_functiondef` md5, `prosecdef`, `provolatile`, `proconfig`,
-  owner, and ACL md5 — so `recover_stale_bsr_queue_jobs` and every other
-  modified object is proven restored, not just the one spot-checked function.
-- `SB-10d` `queue_fn.diff` is **0 bytes**: 0 owner / ACL / proconfig drift across
-  every queue-touching function.
-- `SB-10b` / `SB-10c`: `private_bsr` schema and the admission-gate trigger are
-  gone after rollback.
-- **COMMENT parity**: `grep -c 'COMMENT ON'` = 0 in `001_stage_b.sql`,
-  `002_recover_gate_aware.sql`, `002_recover_baseline.sql`, `099_rollback.sql`,
-  i.e. no migration in this stage creates, changes, or drops any object comment;
-  comment parity is therefore a static property of the change set. Runtime
-  `obj_description()` capture is **not** part of `sb_fingerprint.sql` — noted as
-  a known coverage limit rather than claimed as verified.
+- `SB-10a` `pg_get_functiondef(recover_quota_failed_bsr_jobs(int))` md5 before ==
+  after == `8a50211b18102cda54bdd99fca991a27` (both runs).
+- `SB-10e` catalog fingerprint diff = 0 bytes; the fingerprint now covers, per
+  function in `public` + `private_bsr`: functiondef md5, `prosecdef`,
+  `provolatile`, `proconfig`, owner, ACL md5 **and comment md5 + length**.
+- `SB-10f/g/h` replaced-target metadata, comment and full functiondef are
+  byte-equivalent after rollback; no comment was dropped.
+- `SB-10d` `queue_fn.diff` = 0 bytes (owner / ACL / proconfig).
+- `SB-10b/c` `private_bsr` schema and admission-gate trigger removed.
+- Change-surface statement: all four Stage B SQL files contain
+  `COMMENT ON` × 0, so no object comment is created, altered or dropped by the
+  migrations; §2 proves the runtime consequence instead of asserting it.
 
-## 5. Reaper / recovery scope
+## 6. Reaper / recovery scope
 
-`db/r1/c/SB/artifacts/reaper-scope-diff.md` holds machine-generated
-`difflib.unified_diff` output against the exact production baseline dump:
+Unchanged from the superseded receipt and re-verified mechanically in
+`artifacts/reaper-scope-diff.md`: `recover_stale_bsr_queue_jobs` +2/−0 lines in
+the `failed/skipped` branch only, `recover_quota_failed_bsr_jobs` +8/−0 lines
+(same predicate in two CTEs), `reap_stale_bsr_queue_jobs` 0 occurrences in every
+Stage B migration. B8/B9 add the runtime counterpart: `SB-03c` proves the
+reaper's `pg_get_functiondef` md5 is untouched by apply.
 
-- `recover_stale_bsr_queue_jobs`: +2 / −0 lines, both inside the
-  `failed/skipped -> pending` branch. The `running -> pending` stale-lease branch
-  is byte-identical.
-- `recover_quota_failed_bsr_jobs`: +8 / −0 lines = the same 4-line predicate in
-  two candidate CTEs. `quota_deferred`, `finmind_admission_*` (non-terminal),
-  rate-limit and unknown-error semantics are unchanged; only
-  `finmind_admission_provider_plan_rejected` gains the
-  `OR private_bsr.gate_explicit_open()` condition.
-- `reap_stale_bsr_queue_jobs`: 0 occurrences in all Stage B migrations; baseline
-  definition quoted verbatim in the same file.
+## 7. Production 0-touch proof
 
-## 6. Production 0-touch proof
+- `sb_rehearsal.sh` unsets `PGHOST PGPORT PGUSER PGPASSWORD PGDATABASE PGSSLMODE`
+  before any database call; every connection is `localhost:<clone-port>/clone`
+  and PostgREST binds `127.0.0.1`.
+- Both runs end `destroyed=true background=0`; clone data directories removed by
+  the harness cleanup trap.
+- The only production contact this turn was a read-only `SELECT` over
+  `pg_proc` / `obj_description` to establish that the three replaced functions
+  carry no production comment (result recorded in `comment-coverage.md`).
+- No migration, insert, edge deploy, cron change, ACL change or Publish was
+  executed.
 
-- `db/r1/c/SB/sb_rehearsal.sh:51` runs
-  `unset PGHOST PGPORT PGUSER PGPASSWORD PGDATABASE PGSSLMODE` before any
-  database call, so no managed production credential is in scope for the run.
-- Every connection in the harness and in `sb_postgrest_proof.sh` is
-  `…@localhost:<clone-port>/clone`; PostgREST is bound to
-  `server-host = "127.0.0.1"`. Connection strings are redacted in landed
-  artifacts.
-- Each run ends with `destroyed=true background=0`; the clone data directory is
-  removed in the harness `cleanup` trap.
-- No `supabase--migration`, `supabase--insert`, `supabase--deploy_edge_functions`,
-  cron change, ACL change, deploy or Publish was executed in this or the
-  preceding rehearsal turn.
+## 8. Honesty markers
 
-## 7. Honesty markers
-
-- `failure-ledger.md` marks F-02, F-04, F-05, F-06 exact error/assertion text and
-  the three earlier-turn items (generated column / audit noise / quota pool) as
-  **UNRECOVERABLE GAP** where the originating output no longer exists. No error
-  string in that file is reconstructed.
-- The unfiltered clone server logs are not stored (2.4 MB each); their sha256 is
-  recorded but they cannot be re-derived, since the clones were destroyed.
+- B6/B7 are **superseded, not deleted or rewritten**; their directories and
+  original `sha256sums.txt` are byte-identical to when they were landed, with a
+  `SUPERSEDED.md` marker added alongside (deliberately outside their checksum
+  file).
+- Comment parity is proven for functions. Comments on tables, columns, types,
+  schemas and triggers are outside the fingerprint; no Stage B statement touches
+  them (scope statement, explicitly not a proof).
+- The clone baseline restore bundle contains no `COMMENT ON` statements, so
+  comment behaviour is proven against a seeded control comment rather than
+  against production's own 6 commented functions.
+- Unfiltered clone server logs are not stored; their sha256 is recorded and the
+  clones are destroyed, so they cannot be re-derived.
+- `failure-ledger.md` still marks F-02/F-04/F-05/F-06 and three earlier-turn
+  items as **UNRECOVERABLE GAP** for exact error text.
 - Stage B is **not** complete: the Edge worker changes (B-2 / B-6) have not been
   written, and nothing has been applied to production.

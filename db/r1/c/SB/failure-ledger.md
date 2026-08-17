@@ -151,3 +151,40 @@ Their current *effect* is nonetheless verifiable without the original text: the
 landed B6/B7 runs restore with `SB-01 fresh restore 0 errors`
 (`artifacts/*/restore_errors.txt` is empty) and the audit / quota assertions are
 part of the 104-check verifier that reports `fail=0 gap=0`.
+
+---
+
+## F-08 — evidence defect: `gap=0` claimed while COMMENT parity was outside the fingerprint (B6/B7)
+
+- **Where**: `db/r1/c/SB/receipt-index.md` §4 (the version published with B6/B7)
+  stated that comment parity was "a static property of the change set" and that
+  runtime `obj_description()` capture was "not part of `sb_fingerprint.sql`",
+  while the same document reported `gap=0` for both runs.
+- **Exact defect** (verbatim from the superseded fingerprint,
+  `sb_fingerprint.sql` sha256
+  `3740c4d7ee755bad9df69b64b562cf24c8396ac90faddc80b2e4bb43ca4f5b52`): the `fn|`
+  projection selected only `prosecdef`, `provolatile`, `proconfig`, owner,
+  `md5(proacl)` and `md5(pg_get_functiondef)`. No `obj_description`, no
+  `pg_get_function_identity_arguments`, no `proleakproof`, no `proisstrict`.
+- **Root cause**: a coverage claim (`gap=0`) was made over a fingerprint whose
+  column set did not include the attribute being claimed. Not a behaviour bug —
+  an evidence bug.
+- **Patch** (evidence only, Stage B behaviour untouched — the four migration
+  files keep their B6/B7 sha256):
+  - `sb_fingerprint.sql` → sha256
+    `1bf4addb430f5e9bde087d4fe9c4e7bc34cb76f2ccaec7df5f780c63a8fb0bd8`:
+    adds `cmt=<md5>/<len>` to every `fn|` row and emits `replmeta|` / `replbody|`
+    blocks for the replaced targets.
+  - `sb_rehearsal.sh` → sha256
+    `7c2cc07ff4ab38beb26e16e119924d750c5cf0038ead6f18b21f078ea1a66079`:
+    seeds a deterministic control comment (multi-line + non-ASCII) before the
+    pre-fingerprint, adds SB-02a/b/c/d, SB-03a/b/c, SB-10f/g/h. Harness 22 → 32
+    checks. A comment difference scores FAIL; there is no gap branch.
+- **Rerun**: two fresh disposable clones — `B8-20260817T145514Z-2630` (port
+  55861) and `B9-20260817T145542Z-3321` (port 55872): 32/32 harness checks,
+  SQL verifier `pass=104 fail=0 gap=0`, HTTP 10/10, JS 5/5.
+  `repl_meta_apply.diff`, `repl_meta_rollback.diff`, `repl_body_rollback.diff`
+  and `fp_cat.diff` are all 0 bytes; the negative control
+  `repl_meta_drift.diff` is 2 236 bytes (detector proven live).
+- **Old artifacts**: `artifacts/B6/` and `artifacts/B7/` are untouched and
+  carry `SUPERSEDED.md`.

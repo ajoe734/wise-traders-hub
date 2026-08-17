@@ -74,18 +74,57 @@ chk $CEN "SB-02 catalog census == production baseline" "$(tail -3 "$DIR/census.t
 
 ############################################################ fingerprint before
 stage fingerprint_before
+# Comment coverage is only meaningful if a comment actually exists: the exact
+# production baseline carries NO comment on any replaced function, so seed a
+# deterministic control comment on each replaced target BEFORE the fingerprint
+# is taken. Apply and rollback must both preserve it byte-for-byte.
+psql "$CL" -qX -v ON_ERROR_STOP=1 >/dev/null <<SQL
+COMMENT ON FUNCTION public.recover_quota_failed_bsr_jobs(integer) IS 'sb-comment-control|$RUNID|quota
+line2: multi-line + unicode 券商分點';
+COMMENT ON FUNCTION public.recover_stale_bsr_queue_jobs(integer, integer) IS 'sb-comment-control|$RUNID|stale';
+COMMENT ON FUNCTION public.reap_stale_bsr_queue_jobs(integer) IS 'sb-comment-control|$RUNID|reaper';
+SQL
 psql "$CL" -qXAt -f db/r1/c/SB/sb_fingerprint.sql | sort >"$DIR/fp_before.txt"
+grep -E '^replmeta\|' "$DIR/fp_before.txt" >"$DIR/repl_meta_before.txt"
+grep -E '^replbody\|' "$DIR/fp_before.txt" >"$DIR/repl_body_before.txt"
+RM=$(wc -l <"$DIR/repl_meta_before.txt")
+chk $([ "$RM" = 3 ] && echo 0 || echo 1) "SB-02a replaced-function metadata captured for 3 targets (got $RM)"
+grep -c 'comment_md5=NULL' "$DIR/repl_meta_before.txt" >"$DIR/cmt_null.out" || true
+chk $([ "$(cat "$DIR/cmt_null.out")" = 0 ] && echo 0 || echo 1) "SB-02b every replaced target carries a non-null comment pre-apply"
+# Negative control: the fingerprint must actually detect a comment-only drift.
+psql "$CL" -qX -v ON_ERROR_STOP=1 -c "COMMENT ON FUNCTION public.recover_stale_bsr_queue_jobs(integer, integer) IS 'drift-probe'" >/dev/null
+psql "$CL" -qXAt -f db/r1/c/SB/sb_fingerprint.sql | sort | grep -E '^replmeta\|' >"$DIR/repl_meta_drift.txt"
+diff -u "$DIR/repl_meta_before.txt" "$DIR/repl_meta_drift.txt" >"$DIR/repl_meta_drift.diff" || true
+[ -s "$DIR/repl_meta_drift.diff" ]; chk $? "SB-02c negative control: comment-only drift IS detected by the fingerprint"
+psql "$CL" -qX -v ON_ERROR_STOP=1 -c "COMMENT ON FUNCTION public.recover_stale_bsr_queue_jobs(integer, integer) IS 'sb-comment-control|$RUNID|stale'" >/dev/null
+psql "$CL" -qXAt -f db/r1/c/SB/sb_fingerprint.sql | sort >"$DIR/fp_before.txt"
+grep -E '^replmeta\|' "$DIR/fp_before.txt" >"$DIR/repl_meta_restored.txt"
+diff -u "$DIR/repl_meta_before.txt" "$DIR/repl_meta_restored.txt" >"$DIR/repl_meta_restore.diff" || true
+[ ! -s "$DIR/repl_meta_restore.diff" ]; chk $? "SB-02d negative control reverted: metadata back to pre-probe state" "$(head -6 "$DIR/repl_meta_restore.diff")"
 psql "$CL" -qXAt -c "SELECT md5(pg_get_functiondef('public.recover_quota_failed_bsr_jobs(int)'::regprocedure))" >"$DIR/recover_before.md5"
 psql "$CL" -qXAt -c "SELECT p.oid::regprocedure||'|'||pg_get_userbyid(p.proowner)||'|'||coalesce(p.proacl::text,'-')||'|'||coalesce(array_to_string(p.proconfig,','),'-')
   FROM pg_proc p JOIN pg_namespace n ON n.oid=p.pronamespace WHERE n.nspname='public' AND p.prokind='f'
     AND pg_get_functiondef(p.oid) LIKE '%tw_bsr_sync_queue%' ORDER BY 1" >"$DIR/queue_fn_before.txt"
 echo "  queue-touching functions captured: $(wc -l <"$DIR/queue_fn_before.txt")"
 
+
 ############################################################ apply
 stage apply
 psql "$CL" -qX -v ON_ERROR_STOP=1 -f db/r1/c/SB/001_stage_b.sql >"$DIR/apply1.log" 2>&1 || { tail -20 "$DIR/apply1.log"; fatal "001_stage_b apply"; }
 psql "$CL" -qX -v ON_ERROR_STOP=1 -f db/r1/c/SB/002_recover_gate_aware.sql >"$DIR/apply2.log" 2>&1 || { tail -20 "$DIR/apply2.log"; fatal "002 apply"; }
 chk 0 "SB-03 migrations applied with ON_ERROR_STOP"
+# --- post-apply: metadata/comment must be 100% invariant, body may differ ----
+psql "$CL" -qXAt -f db/r1/c/SB/sb_fingerprint.sql | sort >"$DIR/fp_apply.txt"
+grep -E '^replmeta\|' "$DIR/fp_apply.txt" >"$DIR/repl_meta_apply.txt"
+grep -E '^replbody\|' "$DIR/fp_apply.txt" >"$DIR/repl_body_apply.txt"
+diff -u "$DIR/repl_meta_before.txt" "$DIR/repl_meta_apply.txt" >"$DIR/repl_meta_apply.diff" || true
+[ ! -s "$DIR/repl_meta_apply.diff" ]; chk $? "SB-03a post-apply replaced-function metadata+comment 100% identical (owner/acl/proconfig/provolatile/prosecdef/leakproof/strict/lang/identity-args/comment)" "$(head -12 "$DIR/repl_meta_apply.diff")"
+diff -u "$DIR/repl_body_before.txt" "$DIR/repl_body_apply.txt" >"$DIR/repl_body_apply.diff" || true
+BODYCH=$(grep -cE '^\+replbody\|' "$DIR/repl_body_apply.diff" || true)
+chk $([ "$BODYCH" = 2 ] && echo 0 || echo 1) "SB-03b post-apply exactly 2 function bodies changed (recover_quota_failed/recover_stale), got $BODYCH"
+grep -E '^\+replbody' "$DIR/repl_body_apply.diff" | grep -q 'reap_stale_bsr_queue_jobs' && REAPCH=1 || REAPCH=0
+chk $REAPCH "SB-03c reap_stale_bsr_queue_jobs body untouched by apply"
+
 psql "$CL" -qXAt -c "SELECT p.oid::regprocedure||'|secdef='||p.prosecdef::text||'|vol='||p.provolatile::text||'|cfg='||coalesce(array_to_string(p.proconfig,','),'-')||'|owner='||pg_get_userbyid(p.proowner)||'|acl='||coalesce(p.proacl::text,'-')
   FROM pg_proc p JOIN pg_namespace n ON n.oid=p.pronamespace
  WHERE (n.nspname='private_bsr') OR (n.nspname='public' AND p.proname IN
@@ -258,6 +297,15 @@ grep -E '^(fn|trg|nsp)\|' "$DIR/fp_before.txt" >"$DIR/fp_before_cat.txt"
 grep -E '^(fn|trg|nsp)\|' "$DIR/fp_after.txt"  >"$DIR/fp_after_cat.txt"
 diff -u "$DIR/fp_before_cat.txt" "$DIR/fp_after_cat.txt" >"$DIR/fp_cat.diff" || true
 [ ! -s "$DIR/fp_cat.diff" ]; chk $? "SB-10e catalog fingerprint back to pre-apply baseline" "$(head -6 "$DIR/fp_cat.diff")"
+grep -E '^replmeta\|' "$DIR/fp_after.txt" >"$DIR/repl_meta_after.txt"
+grep -E '^replbody\|' "$DIR/fp_after.txt" >"$DIR/repl_body_after.txt"
+diff -u "$DIR/repl_meta_before.txt" "$DIR/repl_meta_after.txt" >"$DIR/repl_meta_rollback.diff" || true
+[ ! -s "$DIR/repl_meta_rollback.diff" ]; chk $? "SB-10f post-rollback replaced-function metadata+comment byte-equivalent" "$(head -12 "$DIR/repl_meta_rollback.diff")"
+diff -u "$DIR/repl_body_before.txt" "$DIR/repl_body_after.txt" >"$DIR/repl_body_rollback.diff" || true
+[ ! -s "$DIR/repl_body_rollback.diff" ]; chk $? "SB-10g post-rollback pg_get_functiondef byte-equivalent for all 3 targets" "$(head -12 "$DIR/repl_body_rollback.diff")"
+CMTA=$(grep -c 'comment_md5=NULL' "$DIR/repl_meta_after.txt" || true)
+chk $([ "$CMTA" = 0 ] && echo 0 || echo 1) "SB-10h no comment was dropped by apply+rollback (NULL comments after=$CMTA)"
+
 
 ############################################################ artifacts
 stage artifacts
