@@ -185,6 +185,7 @@ type Evidence = {
   consoleErrors: string[];
   injectedTransportErrors: string[];
   failedResponses: string[];
+  environmentErrors: string[];
   pageErrors: string[];
   noticeCount: number;
   placeholderCount: number;
@@ -206,20 +207,37 @@ for (const c of CASES) {
         // the injected fixture, not an app error, so it is recorded separately
         // and only tolerated for the two cases that ask for it.
         const injectsNon2xx = c.projection === null || c.projection === 'error';
-        page.on('console', (m) => {
-          if (m.type() !== 'error') return;
-          const text = m.text();
-          if (injectsNon2xx && /Failed to load resource: the server responded with a status of (404|500)/.test(text)) {
-            transportErrors.push(text);
-            return;
-          }
-          consoleErrors.push(text);
-        });
-        page.on('pageerror', (e) => pageErrors.push(`${e.name}: ${e.message}`));
         const failedResponses: string[] = [];
         page.on('response', (r) => {
           if (r.status() >= 400) failedResponses.push(`${r.status()} ${r.url()}`);
         });
+        // Sandbox-only noise: the Google Fonts CDN is unreachable from the test
+        // runner, which the browser also reports as a resource error. It is
+        // recorded separately and never used to hide an application error.
+        const ENV_HOSTS = /(fonts\.gstatic\.com|fonts\.googleapis\.com)/;
+        const envErrors: string[] = [];
+        page.on('console', (m) => {
+          if (m.type() !== 'error') return;
+          const text = m.text();
+          if (/Failed to load resource/.test(text)) {
+            const tolerated = failedResponses.filter(
+              (r) =>
+                ENV_HOSTS.test(r) ||
+                (injectsNon2xx && r.includes('public_expert_state_active')),
+            );
+            const untolerated = failedResponses.filter((r) => !tolerated.includes(r));
+            if (untolerated.length === 0) {
+              if (injectsNon2xx && tolerated.some((r) => r.includes('public_expert_state_active'))) {
+                transportErrors.push(text);
+              } else {
+                envErrors.push(text);
+              }
+              return;
+            }
+          }
+          consoleErrors.push(text);
+        });
+        page.on('pageerror', (e) => pageErrors.push(`${e.name}: ${e.message}`));
 
         await page.setViewportSize({ width: vp.width, height: vp.height });
         await setTheme(page, theme);
@@ -291,6 +309,7 @@ for (const c of CASES) {
           consoleErrors,
           injectedTransportErrors: transportErrors,
           failedResponses,
+          environmentErrors: envErrors,
           pageErrors,
           noticeCount: await notice.count(),
           placeholderCount: await placeholder.count(),
