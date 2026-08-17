@@ -152,13 +152,33 @@ GRANT SELECT, INSERT, UPDATE, DELETE ON
   TO ledger_owner;
 
 -- ------------------------------------------------- C3b: replace_with_wrapper bodies
+-- Two functions cannot simply be revoked: the app calls them as an ordinary
+-- authenticated session. Their original body is preserved verbatim as `<name>_raw`
+-- (owner/service_role only) and the public signature becomes a gated wrapper.
+DO $mkraw$
+DECLARE src text; nm text;
+BEGIN
+  FOREACH nm IN ARRAY ARRAY['get_expert_capital_status','backfill_queue_stats'] LOOP
+    IF to_regprocedure('public.' || nm || '_raw' ||
+         CASE WHEN nm = 'get_expert_capital_status' THEN '(uuid)' ELSE '()' END) IS NULL THEN
+      SELECT pg_get_functiondef(p.oid) INTO src
+        FROM pg_proc p JOIN pg_namespace n ON n.oid = p.pronamespace
+       WHERE n.nspname = 'public' AND p.proname = nm;
+      IF src IS NULL THEN
+        RAISE EXCEPTION 'C3b: public.% not found, cannot build the gated wrapper', nm;
+      END IF;
+      EXECUTE replace(src, 'FUNCTION public.' || nm || '(',
+                           'FUNCTION public.' || nm || '_raw(');
+    END IF;
+  END LOOP;
+END $mkraw$;
+
 -- get_expert_capital_status was an ungated SECURITY DEFINER economic raw RPC: any
 -- caller could read any expert's full open positions. The signature is preserved so
 -- the app keeps working; the entitlement gate is added at the top of the body.
 CREATE OR REPLACE FUNCTION public.get_expert_capital_status(_expert_id uuid)
 RETURNS jsonb LANGUAGE plpgsql STABLE SECURITY DEFINER SET search_path TO 'public'
 AS $gecs$
-DECLARE v_inner jsonb;
 BEGIN
   IF auth.uid() IS NULL THEN
     RAISE EXCEPTION 'forbidden' USING ERRCODE = '42501';
@@ -176,31 +196,30 @@ BEGIN
   ) THEN
     RAISE EXCEPTION 'forbidden' USING ERRCODE = '42501';
   END IF;
-  SELECT public.get_expert_capital_status_raw(_expert_id) INTO v_inner;
-  RETURN v_inner;
+  RETURN public.get_expert_capital_status_raw(_expert_id);
 END $gecs$;
 
--- the raw computation keeps the original body but is owner/service_role only
-GRANT EXECUTE ON FUNCTION public.get_expert_capital_status_raw(uuid) TO service_role;
 REVOKE ALL ON FUNCTION public.get_expert_capital_status_raw(uuid) FROM PUBLIC, anon, authenticated;
+GRANT EXECUTE ON FUNCTION public.get_expert_capital_status_raw(uuid) TO service_role;
 GRANT EXECUTE ON FUNCTION public.get_expert_capital_status(uuid) TO authenticated, service_role;
 
 -- backfill_queue_stats is a /company ops card read with no in-function guard.
 CREATE OR REPLACE FUNCTION public.backfill_queue_stats()
-RETURNS TABLE(status text, cnt bigint) LANGUAGE plpgsql STABLE SECURITY DEFINER
-SET search_path TO 'public'
+RETURNS TABLE(dataset text, pending bigint, running bigint, done bigint,
+              failed bigint, skipped bigint, oldest_pending timestamptz)
+LANGUAGE plpgsql STABLE SECURITY DEFINER SET search_path TO 'public'
 AS $bqs$
 BEGIN
   IF NOT public.has_role(auth.uid(), 'company_admin') THEN
     RAISE EXCEPTION 'forbidden' USING ERRCODE = '42501';
   END IF;
-  RETURN QUERY
-    SELECT q.status::text, count(*)::bigint
-      FROM public.backfill_job_queue q
-     GROUP BY q.status;
+  RETURN QUERY SELECT * FROM public.backfill_queue_stats_raw();
 END $bqs$;
+REVOKE ALL ON FUNCTION public.backfill_queue_stats_raw() FROM PUBLIC, anon, authenticated;
+GRANT EXECUTE ON FUNCTION public.backfill_queue_stats_raw() TO service_role;
 REVOKE ALL ON FUNCTION public.backfill_queue_stats() FROM PUBLIC, anon;
 GRANT EXECUTE ON FUNCTION public.backfill_queue_stats() TO authenticated, service_role;
+
 
 -- ---------------------------------------------------------------- C3c: named helpers
 -- The two RLS predicate helpers stay callable by `authenticated` (RLS policies are
