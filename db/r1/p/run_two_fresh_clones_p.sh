@@ -43,6 +43,10 @@ run_clone() { # name port
     || { echo "  bootstrap FAILED" | tee -a "$OUT/$NAME.log"; FAILS=$((FAILS+1)); }
   psql "$CL" -qX -f db/r1/clone/schema.sql > "$DIR/schema.log" 2>&1
   echo "  schema errors: $(grep -c '^ERROR' "$DIR/schema.log")" | tee -a "$OUT/$NAME.log"
+  psql "$CL" -qX -f db/r1/clone/tables_acl28.sql > "$DIR/tables28.log" 2>&1
+  echo "  tables_acl28 errors: $(grep -c '^ERROR' "$DIR/tables28.log")" | tee -a "$OUT/$NAME.log"
+  psql "$CL" -qX -f db/r1/clone/functions_acl28.sql > "$DIR/fn28.log" 2>&1
+  echo "  functions_acl28 errors: $(grep -c '^ERROR' "$DIR/fn28.log")" | tee -a "$OUT/$NAME.log"
   psql "$CL" -qX -f db/r1/clone/rls_subscription_tests.sql > "$DIR/rlsfn.log" 2>&1
   psql "$CL" -qX -v ON_ERROR_STOP=1 -f db/r1/clone/10_load_fixture.sql > "$DIR/fixture.log" 2>&1 \
     || { echo "  fixture FAILED" | tee -a "$OUT/$NAME.log"; tail -5 "$DIR/fixture.log"; FAILS=$((FAILS+1)); }
@@ -99,6 +103,15 @@ run_clone() { # name port
   echo "  R1-P 095_acl25_verify: $ATOT tests, $ARED failures" | tee -a "$OUT/$NAME.log"
   [ "$ARED" = "0" ] || { psql "$CL" -tAqX -c "SELECT name||' | '||coalesce(detail,'') FROM t.result WHERE NOT passed ORDER BY id" | tee -a "$OUT/$NAME.log"; FAILS=$((FAILS+ARED)); }
 
+
+  # 5b-3. dynamic ACL proof: real EXECUTE by ordinary authenticated vs company_admin
+  psql "$CL" -qX -c "TRUNCATE t.result" >/dev/null 2>&1
+  psql "$CL" -X -f db/r1/p/096_acl_dynamic_proof.sql > "$DIR/acl_dyn.log" 2>&1
+  local YTOT YRED
+  YTOT=$(psql "$CL" -tAqX -c "SELECT count(*) FROM t.result")
+  YRED=$(psql "$CL" -tAqX -c "SELECT count(*) FROM t.result WHERE NOT passed")
+  echo "  R1-P 096_acl_dynamic_proof: $YTOT tests, $YRED failures" | tee -a "$OUT/$NAME.log"
+  [ "$YRED" = "0" ] || { psql "$CL" -tAqX -c "SELECT name||' | '||coalesce(detail,'') FROM t.result WHERE NOT passed ORDER BY id" | tee -a "$OUT/$NAME.log"; FAILS=$((FAILS+YRED)); }
 
   # 5c. frozen-anchor T+7 embargo closure (fixed entry point)
   bash db/r1/p/092_embargo.sh "$CL" "$DIR/embargo.log" > "$DIR/embargo_out.txt" 2>&1
