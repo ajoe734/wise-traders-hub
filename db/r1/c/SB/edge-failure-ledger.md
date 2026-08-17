@@ -71,3 +71,49 @@ proved PostgREST JWT verification rather than a real `auth.getUser()` round trip
 * Clone-only fixture seeds `auth.users` + `public.user_roles` identities.
 * A real `supabase/auth` (GoTrue) v2.195.0 server is started against the clone and
   every admin assertion uses tokens it actually issued.
+
+---
+
+## EF-04 — B12 aborted before the provider because the clone had NO FinMind quota pool
+
+* run_id: `B12-20260817T153357Z-35032`
+* artifact: `db/r1/c/SB/artifacts/B12-failed/rehearsal.log` (preserved, never overwritten)
+* first failing check: `EB-13 provider WAS called while gate open (0 calls)`
+
+### Exact evidence (verbatim from the B12 worker HTTP payload)
+
+```
+"admission":{"decision":"open","blocked":false,"gate_version":1}
+"claimed":1,"processed":1,"jobs_quota_deferred":1,"jobs_failed":0,"rows_written":0
+"jobs":[{"id":1,"stock_id":"2330","trade_date":"2026-08-14","outcome":"quota_deferred","last_error":"quota_deferred"}]
+"results":[{"id":1,"stock_id":"2330","ok":false,"rows":0,
+            "error":"finmind_admission_pool_not_found:pool=interactive"}]
+```
+
+The admission **gate** was open and the worker **did** claim jobs (claimed=1, then
+claimed=2 in the terminal stage). It never called the provider because the
+*separate* FinMind **quota admission** layer rejected every job.
+
+### Root cause — RC-4 (harness fixture defect, NOT a product bug)
+
+`public.finmind_quota_pools` is PK'd on `pool_name` and is empty on a fresh clone
+(`db/r1/c/S0/backup/MANIFEST.json` → `restore_bundle.row_data_included = false`).
+`public.finmind_admit_v2()` opens with
+`SELECT * INTO p FROM public.finmind_quota_pools WHERE pool_name = _pool FOR UPDATE;`
+and, on `IF NOT FOUND`, returns `{"granted":false,"reason":"pool_not_found"}`.
+The worker maps that to `finmind_admission_pool_not_found:pool=interactive` and
+defers the job (`quota_deferred`) *before* any fetch — the approved fail-closed
+behaviour. Production carries all three pools (read-only SELECT 2026-08-17:
+interactive 240/47, keepwarm 960/16, backfill 384/0), so production is unaffected.
+
+Because the run never reached the provider, every downstream terminal /
+blocked / probe assertion (EB-21..25, EB-31..34, EB-41/42, EB-53/56/57,
+EB-6*, EB-81/83/87) was asserting against a state the run could not enter.
+They are consequences of RC-4, not independent defects.
+
+### Fix (clone-only)
+
+`db/r1/c/SB/fixtures/010_clone_fixture.sql` now seeds the three schema-legal
+pools (interactive / keepwarm / backfill) with `used_today=0`, full tokens and a
+Taipei-today `reset_at`. No real tokens, no credentials, no production migration.
+B12 is NOT re-used: verification moves to fresh clones B14/B15.
