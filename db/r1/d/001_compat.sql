@@ -234,7 +234,7 @@ BEGIN
     v_reason := 'missing_price';
   ELSIF s.market IS NULL OR pg_catalog.btrim(s.market) = '' THEN
     v_reason := 'missing_market';
-  ELSIF coalesce(e.base_currency,'') NOT IN ('TWD','USD') THEN
+  ELSIF coalesce(e.base_currency, e.currency, '') NOT IN ('TWD','USD') THEN
     v_reason := 'missing_currency';
   ELSE
     v_reason := NULL;
@@ -281,7 +281,7 @@ BEGIN
     'expert_id', s.expert_id,
     'instrument', s.instrument,
     'market', s.market,
-    'currency', e.base_currency,
+    'currency', coalesce(e.base_currency, e.currency),
     'qty', v_qty,
     'qty_unit', s.quantity_unit,
     'price', s.price_hint,
