@@ -1,0 +1,336 @@
+{
+  "run_id": "hminus1-20260817T100242Z",
+  "started_utc": "2026-08-17T10:02:42.363432+00:00",
+  "ended_utc": "2026-08-17T10:03:40.683994+00:00",
+  "production_touch": "none (external HTTP GET only)",
+  "t86_date": "20260814",
+  "endpoints": [
+    {
+      "id": "twse_stock_day_all",
+      "url": "https://openapi.twse.com.tw/v1/exchangeReport/STOCK_DAY_ALL",
+      "kind": "price_volume",
+      "market": "listed",
+      "http": 200,
+      "ok": true,
+      "bytes": 319703,
+      "latency_ms": 26643,
+      "sha256": "15d9b7cb013b8b6244c39cba9c0e669075f3c3f33850d17bde39b1c5f3090200",
+      "error": null,
+      "row_count": 1378,
+      "distinct_symbols": 1378,
+      "field_names": [
+        "Date",
+        "Code",
+        "Name",
+        "TradeVolume",
+        "TradeValue",
+        "OpeningPrice",
+        "HighestPrice",
+        "LowestPrice",
+        "ClosingPrice",
+        "Change",
+        "Transaction"
+      ],
+      "auth_required": false
+    },
+    {
+      "id": "twse_bwibbu_all",
+      "url": "https://openapi.twse.com.tw/v1/exchangeReport/BWIBBU_ALL",
+      "kind": "fundamentals",
+      "market": "listed",
+      "http": 200,
+      "ok": true,
+      "bytes": 116662,
+      "latency_ms": 5054,
+      "sha256": "75ee8ad8b0602ba567e48cea4667f8d3f677baba770b9e313558887a6d105b77",
+      "error": null,
+      "row_count": 1083,
+      "distinct_symbols": 1083,
+      "field_names": [
+        "Date",
+        "Code",
+        "Name",
+        "PEratio",
+        "DividendYield",
+        "PBratio"
+      ],
+      "auth_required": false
+    },
+    {
+      "id": "twse_t86",
+      "url": "https://www.twse.com.tw/rwd/zh/fund/T86?date=20260814&selectType=ALL&response=json",
+      "kind": "institutional",
+      "market": "listed",
+      "http": 200,
+      "ok": true,
+      "bytes": 2009890,
+      "latency_ms": 6200,
+      "sha256": "9623451dcc0a2d32ba7690622ac789ce32631fe817105ad7f9abde8bee43f16d",
+      "error": null,
+      "row_count": 15637,
+      "distinct_symbols": 15637,
+      "field_names": [
+        "證券代號",
+        "證券名稱",
+        "外陸資買進股數(不含外資自營商)",
+        "外陸資賣出股數(不含外資自營商)",
+        "外陸資買賣超股數(不含外資自營商)",
+        "外資自營商買進股數",
+        "外資自營商賣出股數",
+        "外資自營商買賣超股數",
+        "投信買進股數",
+        "投信賣出股數",
+        "投信買賣超股數",
+        "自營商買賣超股數",
+        "自營商買進股數(自行買賣)",
+        "自營商賣出股數(自行買賣)",
+        "自營商買賣超股數(自行買賣)",
+        "自營商買進股數(避險)",
+        "自營商賣出股數(避險)",
+        "自營商買賣超股數(避險)",
+        "三大法人買賣超股數"
+      ],
+      "auth_required": false
+    },
+    {
+      "id": "tpex_daily_close",
+      "url": "https://www.tpex.org.tw/openapi/v1/tpex_mainboard_daily_close_quotes",
+      "kind": "price_volume",
+      "market": "otc",
+      "http": 200,
+      "ok": true,
+      "bytes": 4104390,
+      "latency_ms": 16704,
+      "sha256": "f727e4073edcccf3377ed665afd440c490cdbce22cbcf33bba8f9af5715338bc",
+      "error": null,
+      "row_count": 10512,
+      "distinct_symbols": 10512,
+      "field_names": [
+        "Date",
+        "SecuritiesCompanyCode",
+        "CompanyName",
+        "Close",
+        "Change",
+        "Open",
+        "High",
+        "Low",
+        "Average",
+        "TradingShares",
+        "TransactionAmount",
+        "TransactionNumber",
+        "LatestBidPrice",
+        "LatesAskPrice",
+        "Capitals",
+        "NextReferencePrice",
+        "NextLimitUp",
+        "NextLimitDown"
+      ],
+      "auth_required": false
+    },
+    {
+      "id": "tpex_3insti",
+      "url": "https://www.tpex.org.tw/openapi/v1/tpex_3insti_daily_trading",
+      "kind": "institutional",
+      "market": "otc",
+      "http": 200,
+      "ok": true,
+      "bytes": 862844,
+      "latency_ms": 3586,
+      "sha256": "f81402afea10e707c042e80f1fed9b6adfa46a447cd77956753a1c9520803ec5",
+      "error": null,
+      "row_count": 911,
+      "distinct_symbols": 911,
+      "field_names": [
+        "Date",
+        "SecuritiesCompanyCode",
+        "CompanyName",
+        "Foreign Investors include Mainland Area Investors (Foreign Dealers excluded)-Total Buy",
+        " Foreign Investors include Mainland Area Investors (Foreign Dealers excluded)-Total Sell",
+        "Foreign Investors include Mainland Area Investors (Foreign Dealers excluded)-Difference",
+        "Foreign Dealers-Total Buy",
+        "Foreign Dealers-TotalSell",
+        "ForeignDealers-Difference",
+        "ForeignInvestorsIncludeMainlandAreaInvestors-TotalBuy",
+        "ForeignInvestorsIncludeMainlandAreaInvestors-TotalSell",
+        "ForeignInvestorsInclude MainlandAreaInvestors-Difference",
+        "SecuritiesInvestmentTrustCompanies-TotalBuy",
+        "SecuritiesInvestmentTrustCompanies-TotalSell",
+        "SecuritiesInvestmentTrustCompanies-Difference",
+        "Dealers-TotalBuy",
+        "Dealers-TotalSell",
+        "Dealers-Difference",
+        "Dealers -TotalSell",
+        "TotalDifference"
+      ],
+      "auth_required": false
+    }
+  ],
+  "symbols": [
+    {
+      "symbol": "2330",
+      "class": "listed_common",
+      "name": "台積電",
+      "master_hit": true,
+      "price_volume": true,
+      "institutional": true,
+      "fundamentals": true,
+      "broker_bsr": false,
+      "eligibility": true,
+      "verdict": "eligible"
+    },
+    {
+      "symbol": "2317",
+      "class": "listed_common",
+      "name": "鴻海",
+      "master_hit": true,
+      "price_volume": true,
+      "institutional": true,
+      "fundamentals": true,
+      "broker_bsr": false,
+      "eligibility": true,
+      "verdict": "eligible"
+    },
+    {
+      "symbol": "0050",
+      "class": "listed_etf",
+      "name": "元大台灣50",
+      "master_hit": true,
+      "price_volume": true,
+      "institutional": true,
+      "fundamentals": false,
+      "broker_bsr": false,
+      "eligibility": true,
+      "verdict": "eligible"
+    },
+    {
+      "symbol": "00631L",
+      "class": "listed_etf_leveraged",
+      "name": "元大台灣50正2",
+      "master_hit": true,
+      "price_volume": true,
+      "institutional": true,
+      "fundamentals": false,
+      "broker_bsr": false,
+      "eligibility": true,
+      "verdict": "eligible"
+    },
+    {
+      "symbol": "6488",
+      "class": "otc_common",
+      "name": "環球晶",
+      "master_hit": true,
+      "price_volume": true,
+      "institutional": true,
+      "fundamentals": false,
+      "broker_bsr": false,
+      "eligibility": true,
+      "verdict": "eligible"
+    },
+    {
+      "symbol": "5347",
+      "class": "otc_common",
+      "name": "世界",
+      "master_hit": true,
+      "price_volume": true,
+      "institutional": true,
+      "fundamentals": false,
+      "broker_bsr": false,
+      "eligibility": true,
+      "verdict": "eligible"
+    },
+    {
+      "symbol": "6510",
+      "class": "otc_common",
+      "name": "精測",
+      "master_hit": true,
+      "price_volume": true,
+      "institutional": true,
+      "fundamentals": false,
+      "broker_bsr": false,
+      "eligibility": true,
+      "verdict": "eligible"
+    },
+    {
+      "symbol": "053040",
+      "class": "warrant",
+      "name": "權證樣本",
+      "master_hit": false,
+      "price_volume": false,
+      "institutional": true,
+      "fundamentals": false,
+      "broker_bsr": false,
+      "eligibility": false,
+      "verdict": "unsupported"
+    },
+    {
+      "symbol": "6515",
+      "class": "listed_common",
+      "name": "穎崴",
+      "master_hit": true,
+      "price_volume": true,
+      "institutional": true,
+      "fundamentals": true,
+      "broker_bsr": false,
+      "eligibility": true,
+      "verdict": "eligible"
+    },
+    {
+      "symbol": "AAPL",
+      "class": "us_equity",
+      "name": "Apple",
+      "master_hit": false,
+      "price_volume": false,
+      "institutional": false,
+      "fundamentals": false,
+      "broker_bsr": false,
+      "eligibility": false,
+      "verdict": "unsupported"
+    }
+  ],
+  "field_map": {
+    "tw_market_symbols": {
+      "symbol": [
+        "twse_stock_day_all.Code",
+        "tpex_daily_close.SecuritiesCompanyCode"
+      ],
+      "name": [
+        "twse_stock_day_all.Name",
+        "tpex_daily_close.CompanyName"
+      ],
+      "market": [
+        "listed<-twse_*",
+        "otc<-tpex_*"
+      ]
+    },
+    "price_volume": {
+      "trade_date": [
+        "Date (ROC yyymmdd) -> ISO"
+      ],
+      "close": [
+        "ClosingPrice",
+        "Close"
+      ],
+      "volume_shares": [
+        "TradeVolume",
+        "TradingShares"
+      ]
+    },
+    "institutional": {
+      "foreign_net": [
+        "T86 外陸資買賣超股數",
+        "tpex_3insti Foreign Investors ... Total Buy/Sell"
+      ]
+    },
+    "broker_bsr": {
+      "status": "BLOCKER-E1: no verified license-free source"
+    }
+  },
+  "blockers": [
+    {
+      "id": "BLOCKER-E1",
+      "what": "broker-level BSR (券商分點進出)",
+      "evidence": "FinMind returns HTTP 400 'Your level is register' (permanent_auth); TWSE broker page is not an open API",
+      "impact": "fast lane covers price_volume + institutional only"
+    }
+  ]
+}
