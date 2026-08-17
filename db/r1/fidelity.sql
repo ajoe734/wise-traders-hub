@@ -33,7 +33,7 @@ with u as (select c.oid, c.relowner, c.relacl, c.relrowsecurity from pg_class c
            where n.nspname='auth' and c.relname='users')
 select 'AUTHDEP|cols|'||md5(string_agg(
          a.attnum||':'||a.attname||':'||format_type(a.atttypid,a.atttypmod)||':'||a.attnotnull
-         ||':'||coalesce(pg_get_expr(d.adbin,d.adrelid),'-')||':'||coalesce(nullif(a.attgenerated,''),'-'),
+         ||':'||coalesce(pg_get_expr(d.adbin,d.adrelid),'-')||':'||coalesce(nullif(a.attgenerated::text,''),'-'),
          '|' order by a.attnum))
 from pg_attribute a join u on u.oid=a.attrelid
 left join pg_attrdef d on d.adrelid=a.attrelid and d.adnum=a.attnum
