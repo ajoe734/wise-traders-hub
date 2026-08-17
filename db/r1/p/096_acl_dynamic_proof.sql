@@ -369,6 +369,169 @@ BEGIN
                v_state = '00000', coalesce(v_state,'') || ' ' || coalesce(v_msg,''));
 END $BODY$;
 
+-- ============================================================ D2
+-- Identity wrapper closure, proved dynamically as the anon role.
+-- Exact public signatures under test (mirrored by acl-25.json / 095):
+--   public.is_tester(_user_id uuid) -> boolean
+--   public.has_active_subscription_after(_user_id uuid,
+--          _published_at timestamp with time zone) -> TABLE(expert_id uuid)
+-- Contract: anon has auth.uid() = NULL, so acl_caller_may_read_identity()
+-- admits ONLY the NULL argument (self). That call must answer with the empty
+-- answer (false / zero rows) and never touch another member's data; ANY
+-- non-NULL argument — existing member, admin, or a random uuid — must be
+-- refused with 42501, so anon cannot use the helpers as an identity oracle
+-- (an existing user and a random uuid are indistinguishable).
+DO $BODY$
+DECLARE v_user uuid; v_admin uuid; v_state text; v_msg text; v_bool boolean; v_rows int;
+        v_rand uuid := '99999999-9999-4999-8999-999999999999';
+BEGIN
+  SELECT v INTO v_user  FROM t.acl_actor WHERE k='user';
+  SELECT v INTO v_admin FROM t.acl_actor WHERE k='admin';
+
+  -- self (NULL) call: allowed, minimal empty answer
+  BEGIN
+    SET LOCAL ROLE anon;
+    SELECT public.is_tester(NULL::uuid) INTO v_bool;
+    RESET ROLE; v_state := '00000';
+  EXCEPTION WHEN OTHERS THEN
+    RESET ROLE; GET STACKED DIAGNOSTICS v_state = RETURNED_SQLSTATE, v_msg = MESSAGE_TEXT;
+  END;
+  PERFORM t.ok('T-P96g.01 anon is_tester(auth.uid()=NULL) answers false, never true',
+               v_state = '00000' AND coalesce(v_bool, false) = false,
+               format('state=%s value=%s %s', v_state, v_bool, coalesce(v_msg,'')));
+
+  BEGIN
+    SET LOCAL ROLE anon;
+    SELECT count(*)::int INTO v_rows
+      FROM public.has_active_subscription_after(NULL::uuid, now());
+    RESET ROLE; v_state := '00000';
+  EXCEPTION WHEN OTHERS THEN
+    RESET ROLE; GET STACKED DIAGNOSTICS v_state = RETURNED_SQLSTATE, v_msg = MESSAGE_TEXT;
+  END;
+  PERFORM t.ok('T-P96g.02 anon has_active_subscription_after(NULL) returns zero rows',
+               v_state = '00000' AND coalesce(v_rows, -1) = 0,
+               format('state=%s rows=%s %s', v_state, v_rows, coalesce(v_msg,'')));
+
+  -- arbitrary user_id probing: refused, and refused identically for a real
+  -- member, a company_admin and a uuid that does not exist at all.
+  FOR v_state IN SELECT NULL::text WHERE false LOOP END LOOP; -- no-op, keeps plpgsql happy
+  DECLARE r record; v_states text[] := '{}';
+  BEGIN
+    FOR r IN SELECT * FROM (VALUES ('member', v_user), ('admin', v_admin), ('nonexistent', v_rand))
+                             AS x(nm, uid) LOOP
+      BEGIN
+        SET LOCAL ROLE anon;
+        SELECT public.is_tester(r.uid) INTO v_bool;
+        RESET ROLE; v_state := '00000';
+      EXCEPTION WHEN OTHERS THEN
+        RESET ROLE; GET STACKED DIAGNOSTICS v_state = RETURNED_SQLSTATE;
+      END;
+      v_states := v_states || v_state;
+      PERFORM t.ok(format('T-P96g.03 anon is_tester(%s uuid) refused 42501', r.nm),
+                   v_state = '42501', 'actual=' || v_state);
+
+      BEGIN
+        SET LOCAL ROLE anon;
+        SELECT count(*)::int INTO v_rows
+          FROM public.has_active_subscription_after(r.uid, now());
+        RESET ROLE; v_state := '00000';
+      EXCEPTION WHEN OTHERS THEN
+        RESET ROLE; GET STACKED DIAGNOSTICS v_state = RETURNED_SQLSTATE;
+      END;
+      PERFORM t.ok(format('T-P96g.04 anon has_active_subscription_after(%s uuid) refused 42501', r.nm),
+                   v_state = '42501', 'actual=' || v_state);
+    END LOOP;
+    PERFORM t.ok('T-P96g.05 existing member and nonexistent uuid are indistinguishable to anon',
+                 v_states[1] = v_states[3], array_to_string(v_states, ','));
+  END;
+
+  -- authenticated: self only. cross-user negative is T-P96d.01/.04; here we
+  -- additionally prove a nonexistent uuid is refused the same way (no oracle).
+  v_state := t.acl_call(format($$SELECT public.is_tester(%L::uuid)$$, v_rand), v_user);
+  PERFORM t.ok('T-P96g.06 authenticated is_tester(nonexistent uuid) refused 42501',
+               v_state LIKE '42501%', 'actual=' || v_state);
+  v_state := t.acl_call(
+    format($$SELECT count(*) FROM public.has_active_subscription_after(%L::uuid, now())$$, v_rand), v_user);
+  PERFORM t.ok('T-P96g.07 authenticated has_active_subscription_after(nonexistent uuid) refused 42501',
+               v_state LIKE '42501%', 'actual=' || v_state);
+
+  -- raw bodies: unreachable for anon and authenticated even by direct call
+  v_state := t.acl_call(format($$SELECT public.is_tester_raw(%L::uuid)$$, v_user), v_user);
+  PERFORM t.ok('T-P96g.08 authenticated cannot call is_tester_raw', v_state LIKE '42501%',
+               'actual=' || v_state);
+  BEGIN
+    SET LOCAL ROLE anon;
+    SELECT public.is_tester_raw(v_user) INTO v_bool;
+    RESET ROLE; v_state := '00000';
+  EXCEPTION WHEN OTHERS THEN
+    RESET ROLE; GET STACKED DIAGNOSTICS v_state = RETURNED_SQLSTATE;
+  END;
+  PERFORM t.ok('T-P96g.09 anon cannot call is_tester_raw', v_state = '42501', 'actual=' || v_state);
+  PERFORM t.ok('T-P96g.10 raw bodies are service_role/owner only (catalog)',
+    (SELECT bool_and(NOT has_function_privilege('anon', oid, 'EXECUTE')
+                 AND NOT has_function_privilege('authenticated', oid, 'EXECUTE')
+                 AND has_function_privilege('service_role', oid, 'EXECUTE'))
+       FROM pg_proc WHERE oid IN (to_regprocedure('public.is_tester_raw(uuid)'),
+              to_regprocedure('public.has_active_subscription_after_raw(uuid, timestamptz)'))));
+END $BODY$;
+
+-- ------------------------------------------------ signal_is_publicly_visible
+-- Minimal boolean, fail-closed. An embargoed signal, a signal that has no
+-- economic effect at all, and a uuid that does not exist must all answer
+-- exactly `false` — the caller can never tell them apart, and the function
+-- never returns a timestamp, a count, or an existence hint.
+DO $BODY$
+DECLARE v_state text; v_msg text; v_vis boolean; v_emb boolean; v_none boolean; v_ghost boolean;
+        v_sig_vis uuid; v_sig_emb uuid; v_sig_none uuid;
+        v_ghost_id uuid := '77777777-7777-4777-8777-777777777777';
+BEGIN
+  PERFORM t.ok('T-P96h.01 returns a bare boolean (no row/record/setof leak)',
+    (SELECT p.prorettype = 'boolean'::regtype AND NOT p.proretset
+       FROM pg_proc p WHERE p.oid = to_regprocedure('public.signal_is_publicly_visible(uuid)')));
+
+  SELECT e.origin_signal_id INTO v_sig_vis FROM app_ledger.economic_effect e
+   WHERE e.visible_at IS NOT NULL AND e.visible_at <= now() LIMIT 1;
+  SELECT e.origin_signal_id INTO v_sig_emb FROM app_ledger.economic_effect e
+   WHERE e.visible_at IS NULL OR e.visible_at > now() LIMIT 1;
+  SELECT s.id INTO v_sig_none FROM public.expert_signals s
+   WHERE NOT EXISTS (SELECT 1 FROM app_ledger.economic_effect e WHERE e.origin_signal_id = s.id)
+   LIMIT 1;
+
+  BEGIN
+    SET LOCAL ROLE anon;
+    v_vis   := CASE WHEN v_sig_vis  IS NULL THEN NULL ELSE public.signal_is_publicly_visible(v_sig_vis) END;
+    v_emb   := CASE WHEN v_sig_emb  IS NULL THEN NULL ELSE public.signal_is_publicly_visible(v_sig_emb) END;
+    v_none  := CASE WHEN v_sig_none IS NULL THEN NULL ELSE public.signal_is_publicly_visible(v_sig_none) END;
+    v_ghost := public.signal_is_publicly_visible(v_ghost_id);
+    RESET ROLE; v_state := '00000';
+  EXCEPTION WHEN OTHERS THEN
+    RESET ROLE; GET STACKED DIAGNOSTICS v_state = RETURNED_SQLSTATE, v_msg = MESSAGE_TEXT;
+  END;
+  PERFORM t.ok('T-P96h.02 anon may evaluate the predicate (RLS path intact)',
+               v_state = '00000', coalesce(v_state,'') || ' ' || coalesce(v_msg,''));
+  PERFORM t.ok('T-P96h.03 a matured effect answers true',
+               v_sig_vis IS NULL OR v_vis = true, format('sig=%s value=%s', v_sig_vis, v_vis));
+  PERFORM t.ok('T-P96h.04 an embargoed effect answers false',
+               v_sig_emb IS NULL OR v_emb = false, format('sig=%s value=%s', v_sig_emb, v_emb));
+  PERFORM t.ok('T-P96h.05 a signal with no effect answers false',
+               v_sig_none IS NULL OR v_none = false, format('sig=%s value=%s', v_sig_none, v_none));
+  PERFORM t.ok('T-P96h.06 a nonexistent uuid answers false (no existence oracle)',
+               v_ghost = false, format('value=%s', v_ghost));
+  PERFORM t.ok('T-P96h.07 embargoed and nonexistent are indistinguishable',
+               (v_sig_emb IS NULL OR v_emb IS NOT DISTINCT FROM v_ghost),
+               format('embargoed=%s ghost=%s', v_emb, v_ghost));
+  PERFORM t.ok('T-P96h.08 NULL input answers false, never NULL',
+    (SELECT public.signal_is_publicly_visible(NULL::uuid)) = false);
+  PERFORM t.ok('T-P96h.09 definer hygiene: SECURITY DEFINER + fixed search_path',
+    (SELECT p.prosecdef AND p.proconfig::text LIKE '%search_path%'
+       FROM pg_proc p WHERE p.oid = to_regprocedure('public.signal_is_publicly_visible(uuid)')));
+  PERFORM t.ok('T-P96h.10 PUBLIC holds no EXECUTE (explicit grants only)',
+    NOT EXISTS (SELECT 1 FROM pg_proc pp,
+        LATERAL aclexplode(coalesce(pp.proacl, acldefault('f', pp.proowner))) a
+       WHERE pp.oid = to_regprocedure('public.signal_is_publicly_visible(uuid)')
+         AND a.grantee = 0 AND a.privilege_type = 'EXECUTE'));
+END $BODY$;
+
 -- ============================================================ E
 -- wrapper matrix + recursion + legacy compatibility + trigger repoint
 DO $BODY$

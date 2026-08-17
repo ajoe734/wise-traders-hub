@@ -3,7 +3,8 @@
 
 Checks the artefacts produced by e2e/r1p-preview-acceptance.spec.ts:
 
-  * 7 controlled cases x 2 viewports x 2 themes = 28, plus 1 unmocked smoke = 29
+  * 7 controlled cases x 2 viewports x 2 themes = 28, plus 1 unmocked smoke and
+    1 ?debug=1 negative case = 30
   * every case has png + dom.html + json, each size > 0, each hashed
   * consoleErrors = 0 and pageErrors = 0 for every case
     (injected transport / environment errors are counted separately and are
@@ -48,6 +49,10 @@ INCOMPLETE_FAMILY = {
     "incomplete_option_combo",
     "no_projection",
     "api_error",
+    # ?debug=1 against a no_projection scope: it belongs to the withheld family,
+    # so it is held to exactly the same fail-closed bar as the scope without
+    # the flag. A leak here would mean the debug flag is a state backdoor.
+    "debug-flag-negative",
 }
 REVIEW_BADGE = "資料檢核中"
 REVIEW_NOTE = "該區間不納入績效"
@@ -191,9 +196,11 @@ for c in CASES:
         for th in THEMES:
             check_case(f"{c}__{v}__{th}")
 check_case("smoke-home")
+# the only ?debug= flag in the app must not unlock a withheld scope
+check_case("debug-flag-negative")
 
-if len(rows) != 29:
-    failures.append(f"expected 29 case records, got {len(rows)}")
+if len(rows) != 30:
+    failures.append(f"expected 30 case records, got {len(rows)}")
 
 # ---------------------------------------------------------------- backdoor scan
 # Project-owned surfaces only. Vendor/runtime globals (React DevTools, Vite
@@ -294,6 +301,7 @@ if spec_imported:
 manifest = {
     "generated_by": "db/r1/p/evidence/preview_verify.py",
     "controlled_cases": 28,
+    "negative_cases": 1,
     "unmocked_smoke": 1,
     "total_cases": len(rows),
     "coverage_matrix": {
@@ -323,7 +331,7 @@ json.dump(manifest, open(OUT_JSON, "w", encoding="utf-8"), ensure_ascii=False, i
 with open(OUT_MD, "w", encoding="utf-8") as fh:
     fh.write("# R1-P Preview evidence manifest\n\n")
     fh.write(f"- status: **{manifest['status']}**\n")
-    fh.write(f"- cases: {manifest['total_cases']} (28 controlled + 1 unmocked smoke)\n")
+    fh.write(f"- cases: {manifest['total_cases']} (28 controlled + 1 unmocked smoke + 1 ?debug=1 negative)\n")
     fh.write(f"- console errors: {manifest['console_errors_total']}, page errors: {manifest['page_errors_total']}\n")
     fh.write(
         f"- backdoor scan: {len(backdoor_hits)} source hits over {len(scan_targets)} files, "

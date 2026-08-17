@@ -355,6 +355,78 @@ for (const c of CASES) {
 }
 
 /**
+ * Negative test for the only `?debug=` query flag that exists in the app
+ * (TeachingDebugBadge). The flag must not be a way to reach economic state:
+ * with a no_projection scope, appending ?debug=1 has to leave the fail-closed
+ * rendering byte-for-byte intact — both copy lines, zero economic numerics.
+ */
+test('preview debug-flag negative — ?debug=1 cannot unlock a withheld scope', async ({ page }) => {
+  const pageErrors: string[] = [];
+  const consoleErrors: string[] = [];
+  const failedResponses: string[] = [];
+  page.on('response', (r) => { if (r.status() >= 400) failedResponses.push(`${r.status()} ${r.url()}`); });
+  page.on('pageerror', (e) => pageErrors.push(`${e.name}: ${e.message}`));
+  page.on('console', (m) => {
+    if (m.type() !== 'error') return;
+    const t = m.text();
+    if (/Failed to load resource|net::ERR|ERR_/.test(t)) return;
+    consoleErrors.push(t);
+  });
+
+  const withheld = CASES.find((x) => x.name === 'no_projection')!;
+  await page.setViewportSize({ width: 1280, height: 900 });
+  await setTheme(page, 'light');
+  await seedSession(page, { id: 'user-preview', email: 'preview@test.com' });
+  await installRoutes(page, { rest: routesFor(withheld) });
+
+  await page.goto(`/app/expert/${EXPERT.slug}?debug=1`);
+  await expect(page.getByRole('heading', { level: 1, name: EXPERT.name })).toBeVisible();
+
+  const notice = page.getByTestId('performance-review-notice');
+  await expect(notice.first()).toBeVisible();
+  await expect(notice.first()).toContainText(REVIEW_BADGE);
+  await expect(notice.first()).toContainText(REVIEW_NOTE);
+  expect(await page.getByTestId('review-placeholder').count()).toBeGreaterThan(0);
+
+  const zoneText = await economicZoneText(page);
+  for (const re of FORBIDDEN_NUMERIC) {
+    expect(zoneText, `debug-flag: forbidden numeric ${re} in economic zone`).not.toMatch(re);
+  }
+  const bodyText = (await page.locator('body').innerText()).trim();
+  for (const re of [/\bNaN\b/, /\b1,234,567\b/, /\b23\.46\s*%/]) expect(bodyText).not.toMatch(re);
+
+  writeFileSync(`${EV}/debug-flag-negative.dom.html`, await page.content());
+  await page.screenshot({ path: `${EV}/debug-flag-negative.png` });
+  writeFileSync(
+    `${EV}/debug-flag-negative.json`,
+    JSON.stringify(
+      {
+        case: 'debug-flag-negative',
+        url: `/app/expert/${EXPERT.slug}?debug=1`,
+        projection: 'no_projection',
+        viewport: '1280x900',
+        theme: 'light',
+        screenshot: `${EV}/debug-flag-negative.png`,
+        noticeCount: await notice.count(),
+        placeholderCount: await page.getByTestId('review-placeholder').count(),
+        bodyChars: bodyText.length,
+        consoleErrors,
+        environmentErrors: [],
+        injectedTransportErrors: [],
+        failedResponses,
+        pageErrors,
+      },
+      null,
+      2,
+    ),
+  );
+
+  expect(pageErrors).toEqual([]);
+  expect(consoleErrors).toEqual([]);
+});
+
+
+/**
  * Smoke on the UNMOCKED preview: proves the layout / subscription / navigation
  * chrome did not regress because of the contract work. Nothing is intercepted
  * here beyond auth (no real credentials are used), so this only asserts the

@@ -183,15 +183,41 @@ BEGIN
                v_state = '42501', coalesce(v_state,'') || ' ' || coalesce(v_err,''));
 END $BODY$;
 
+-- exact identity-wrapper signatures under contract (mirrored dynamically by
+-- 096 T-P96g). A signature drift here would silently create a second,
+-- ungated overload that still satisfies every other check.
+DO $BODY$
+DECLARE r record;
+BEGIN
+FOR r IN SELECT * FROM (VALUES
+  ($$public.is_tester(_user_id uuid)$$, 'boolean', $$T-P98i.01$$),
+  ($$public.has_active_subscription_after(_user_id uuid, _published_at timestamp with time zone)$$,
+   'uuid', $$T-P98i.02$$),  -- RETURNS TABLE(expert_id uuid) => setof uuid
+  ($$public.signal_is_publicly_visible(_signal_id uuid)$$, 'boolean', $$T-P98i.03$$)
+) AS v(sig, rettype, test_id) LOOP
+  PERFORM t.ok(r.test_id || ' exactly one overload with this signature: ' || r.sig,
+    (SELECT count(*) FROM pg_proc p JOIN pg_namespace n ON n.oid=p.pronamespace
+      WHERE n.nspname='public' AND p.proname = split_part(split_part(r.sig,'(',1),'.',2)) = 1,
+    'overload count');
+  PERFORM t.ok(r.test_id || 'a arguments and return type unchanged: ' || r.sig,
+    EXISTS (SELECT 1 FROM pg_proc p JOIN pg_namespace n ON n.oid=p.pronamespace
+             WHERE format('%I.%I(%s)', n.nspname, p.proname,
+                          pg_get_function_arguments(p.oid)) = r.sig
+               AND format_type(p.prorettype, NULL) = r.rettype));
+END LOOP;
+END $BODY$;
+
 DO $BODY$
 DECLARE v_count int;
 BEGIN
   SELECT count(*)::int INTO v_count FROM t.result
    WHERE name LIKE 'T-P98a.%' OR name LIKE 'T-P98b.%'
-      OR name LIKE 'T-P98e.%' OR name LIKE 'T-P98h.%';
-  -- 61 -> 63: T-P98h now also covers the two ungated identity bodies
-  -- (is_tester_raw / has_active_subscription_after_raw) that back the
-  -- anon-callable identity-bound wrappers.
+      OR name LIKE 'T-P98e.%' OR name LIKE 'T-P98h.%'
+      OR name LIKE 'T-P98i.%';
+  -- 61 -> 69: T-P98h now also covers the two ungated identity bodies
+  -- (is_tester_raw / has_active_subscription_after_raw) behind the
+  -- anon-callable identity-bound wrappers, and T-P98i pins the exact
+  -- signature + return type of the three identity/visibility helpers.
   PERFORM t.eq('T-P98d acl-25 coverage: every unique target verified on both axes',
-               v_count, 63);
+               v_count, 69);
 END $BODY$;

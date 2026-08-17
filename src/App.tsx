@@ -24,15 +24,14 @@ import {
   queryPersister,
   PERSISTED_QUERY_PREFIXES,
 } from "@/lib/queryClient";
-import { isPreviewEnv } from "@/lib/previewEnv";
 
-// Expose queryClient on window for E2E tests. Dev/preview ONLY: on the
-// production origin this global is never installed, so nothing outside React
-// can seed the query cache (which would be a backdoor into the public
-// economic contract — e.g. forcing a `ready` projection status).
-if (typeof window !== "undefined" && isPreviewEnv()) {
-  (window as unknown as { __lfQueryClient?: typeof queryClient }).__lfQueryClient = queryClient;
-}
+// R1-P backdoor closure: this module used to publish `window.__lfQueryClient`
+// so Playwright could invalidate/seed react-query caches from outside React.
+// Any writable handle on the query cache is a way to force the public economic
+// contract (e.g. seeding a `ready` projection status for a scope that is under
+// review), so the global is removed outright rather than gated by environment —
+// an env check is a configuration boundary, not a security boundary. E2E now
+// drives state exclusively through Playwright network interception.
 
 import { useSignalRealtimeInvalidation } from "@/hooks/useSignalRealtimeInvalidation";
 import { useAttributionTracking } from "@/hooks/useAttributionTracking";
@@ -61,24 +60,9 @@ const Checkout = lazy(() => import("./pages/Checkout"));
 const CheckupCheckout = lazy(() => import("./pages/CheckupCheckout"));
 const FreeCheckupPage = lazy(() => import("./pages/FreeCheckup"));
 const HoldingCheckupDemoEntry = lazy(() => import("./pages/HoldingCheckupDemoEntry"));
-const HoldingCardHarnessEntry = lazy(() => import("./pages/HoldingCardHarnessEntry"));
-const RangeBandHarnessEntry = lazy(() => import("./pages/RangeBandHarnessEntry"));
-const HoldingsTableTargetHarnessEntry = lazy(() => import("./pages/HoldingsTableTargetHarnessEntry"));
-const HoldingsDetailPanelVolumeHarnessEntry = lazy(() => import("./pages/HoldingsDetailPanelVolumeHarnessEntry"));
-const SignalEditorHarnessEntry = lazy(() => import("./pages/SignalEditorHarnessEntry"));
-const EtfDisplayHarnessEntry = lazy(() => import("./pages/EtfDisplayHarnessEntry"));
-const SignalPreviewHarnessEntry = lazy(() => import("./pages/SignalPreviewHarnessEntry"));
-const SignalFocusHarnessEntry = lazy(() => import("./pages/SignalFocusHarnessEntry"));
-const JournalPdfHarnessEntry = lazy(() => import("./pages/JournalPdfHarnessEntry"));
-const NotificationLinkHarnessEntry = lazy(() => import("./pages/NotificationLinkHarnessEntry"));
-const EarlyPublishCopyHarnessEntry = lazy(() => import("./pages/EarlyPublishCopyHarnessEntry"));
-const JournalsExportHarnessEntry = lazy(() => import("./pages/JournalsExportHarnessEntry"));
-const JournalsExportUIHarnessEntry = lazy(() => import("./pages/JournalsExportUIHarnessEntry"));
-const JournalsExportHeaderDomHarnessEntry = lazy(() => import("./pages/JournalsExportHeaderDomHarnessEntry"));
-const ChipsSectionHarnessEntry = lazy(() => import("./pages/ChipsSectionHarnessEntry"));
-const ChipsBatchHarnessEntry = lazy(() => import("./pages/ChipsBatchHarnessEntry"));
-const JournalAuthoringHarnessEntry = lazy(() => import("./pages/JournalAuthoringHarnessEntry"));
-const ShellEventBusHarnessEntry = lazy(() => import("./pages/ShellEventBusHarnessEntry"));
+// Playwright harness routes live in a dev-only module so `vite build` drops
+// them entirely (see src/routes/harnessRoutes.tsx).
+import { harnessRoutes, portfolioHarnessRoutes } from "./routes/harnessRoutes";
 const NotFound = lazy(() => import("./pages/NotFound"));
 
 const CheckupModeProviderLazy = lazy(() =>
@@ -300,23 +284,7 @@ const AppShell = () => (
             <Route path="/holding-checkup" element={<CheckupModeProviderLazy><FreeCheckupPage /></CheckupModeProviderLazy>} />
             {/* Dev/Preview-only demo entry — gated by hostname inside the component. */}
             <Route path="/holding-checkup-demo" element={<HoldingCheckupDemoEntry />} />
-            <Route path="/e2e/holding-card-harness" element={<HoldingCardHarnessEntry />} />
-            <Route path="/e2e/range-band-harness" element={<RangeBandHarnessEntry />} />
-            <Route path="/e2e/holdings-table-target-harness" element={<HoldingsTableTargetHarnessEntry />} />
-            <Route path="/e2e/holdings-detail-panel-volume" element={<HoldingsDetailPanelVolumeHarnessEntry />} />
-            <Route path="/e2e/signal-editor-harness" element={<SignalEditorHarnessEntry />} />
-            <Route path="/e2e/etf-display-harness" element={<EtfDisplayHarnessEntry />} />
-            <Route path="/e2e/signal-preview-harness" element={<SignalPreviewHarnessEntry />} />
-            <Route path="/e2e/signal-focus-harness" element={<SignalFocusHarnessEntry />} />
-            <Route path="/e2e/journal-pdf-harness" element={<JournalPdfHarnessEntry />} />
-            <Route path="/e2e/notification-link-harness" element={<NotificationLinkHarnessEntry />} />
-            <Route path="/e2e/early-publish-copy-harness" element={<EarlyPublishCopyHarnessEntry />} />
-            <Route path="/e2e/journals-export-harness" element={<JournalsExportHarnessEntry />} />
-            <Route path="/e2e/journals-export-ui-harness" element={<JournalsExportUIHarnessEntry />} />
-            <Route path="/e2e/journals-export-header-dom" element={<JournalsExportHeaderDomHarnessEntry />} />
-            <Route path="/e2e/chips-section" element={<ChipsSectionHarnessEntry />} />
-            <Route path="/e2e/chips-batch" element={<ChipsBatchHarnessEntry />} />
-            <Route path="/e2e/journal-authoring-harness" element={<JournalAuthoringHarnessEntry />} />
+            {import.meta.env.DEV ? harnessRoutes() : null}
             <Route path="/free-checkup" element={<LegacyFreeCheckupRedirect />} />
             <Route path="/legal" element={<Legal />} />
             <Route path="/data-sources" element={<DataSources />} />
@@ -333,7 +301,7 @@ const AppShell = () => (
               <Route path="research" element={<ResearchPage />} />
               <Route path="trade" element={<TradePage />} />
               <Route path="log" element={<LogPage />} />
-              <Route path="__shell-bus" element={<ShellEventBusHarnessEntry />} />
+              {import.meta.env.DEV ? portfolioHarnessRoutes() : null}
             </Route>
             <Route path="/overview" element={<PortfolioLayout />}>
               <Route index element={<OverviewPage />} />

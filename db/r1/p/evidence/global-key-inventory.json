@@ -1,74 +1,96 @@
 {
   "purpose": "R1-P backdoor scan classification. Vendor globals are excluded by an explicit key allowlist in preview_verify.py; the generic `window.__` prefix is NEVER whitelisted. Every project-owned runtime global must appear here with its gate and an explicit statement of whether it can influence the public economic contract. An unlisted project-owned global, or any entry with can_force_economic_state=true, fails the scan.",
-  "reviewed_at": "2026-08-17",
+  "reviewed_at": "2026-08-18",
   "globals": [
     {
       "key": "__lfQueryClient",
-      "files": ["src/App.tsx"],
-      "purpose": "E2E hook to invalidate react-query caches from outside React.",
-      "gate": "isPreviewEnv() — dev / localhost / *.lovableproject.com / id-preview--*.lovable.app only; never installed on the production origin.",
+      "files": [],
+      "purpose": "REMOVED. Was an E2E hook to invalidate/seed react-query caches from outside React.",
+      "gate": "n/a — deleted from src/App.tsx and from the runtime bundle entirely; src/lib/previewEnv.ts (the env gate it used) was deleted too, since an environment check is a configuration boundary, not a security boundary.",
       "can_force_economic_state": false,
-      "note": "Previously installed unconditionally; hardened in this round because seeding the query cache could have forced a `ready` projection status."
+      "status": "removed",
+      "note": "An earlier round only gated it behind isPreviewEnv(); that was rejected. Replacement coverage: src/lib/__tests__/queryClientPrefixInvalidation.test.ts (prefix-invalidation semantics) and Playwright network interception for everything else. A negative assertion lives in that test file ('no project-owned global exposes the query cache') and in preview_verify.py."
     },
     {
       "key": "__PORTFOLIO_RUNTIME_MONITORING__",
-      "files": ["src/main.tsx", "src/checkup/lib/runtimeLogger.js"],
+      "files": [
+        "src/main.tsx",
+        "src/checkup/lib/runtimeLogger.js"
+      ],
       "purpose": "Read-only runtime monitoring config bag for the checkup logger.",
       "gate": "read-only consumption; no writer path from user input",
       "can_force_economic_state": false
     },
     {
       "key": "__PORTFOLIO_RUNTIME_DIAGNOSTICS__",
-      "files": ["src/checkup/lib/runtimeLogger.js"],
+      "files": [
+        "src/checkup/lib/runtimeLogger.js"
+      ],
       "purpose": "In-memory diagnostic log buffer (checkup only).",
       "gate": "write-only sink; never read by rendering code",
       "can_force_economic_state": false
     },
     {
       "key": "__DECISION_DEBUG",
-      "files": ["src/pages/FreeCheckup.jsx", "src/checkup/lib/holdingEventUtils.js"],
+      "files": [
+        "src/pages/FreeCheckup.jsx",
+        "src/checkup/lib/holdingEventUtils.js"
+      ],
       "purpose": "Verbose console logging toggle for holdings decision rules.",
       "gate": "toggled from the checkup UI; only affects console.log verbosity",
       "can_force_economic_state": false
     },
     {
       "key": "__edgeFieldApply",
-      "files": ["src/checkup/components/freecheckup/NewsTab.jsx", "src/checkup/lib/edgeFieldUI.js"],
+      "files": [
+        "src/checkup/components/freecheckup/NewsTab.jsx",
+        "src/checkup/lib/edgeFieldUI.js"
+      ],
       "purpose": "Ref registry letting an inline validation hint focus/patch its own form field.",
       "gate": "self-registered React refs of the current form; checkup-local",
       "can_force_economic_state": false
     },
     {
       "key": "__demoSyncCount",
-      "files": ["src/pages/_freeCheckup/useHoldingsSync.js"],
+      "files": [
+        "src/pages/_freeCheckup/useHoldingsSync.js"
+      ],
       "purpose": "Demo-mode sync counter used by checkup E2E assertions.",
       "gate": "demo mode only; a counter, no state injection",
       "can_force_economic_state": false
     },
     {
       "key": "__harnessSetVisibility",
-      "files": ["src/pages/ChipsSectionHarnessEntry.tsx"],
+      "files": [
+        "src/pages/ChipsSectionHarnessEntry.tsx"
+      ],
       "purpose": "Chips harness page-visibility switch.",
-      "gate": "isPreviewEnv() inside the harness component (returns null in production)",
+      "gate": "harness component only, and the harness routes themselves are now excluded at BUILD time (src/routes/harnessRoutes.tsx collapses every lazy() to null when import.meta.env.DEV is false), so neither the component nor these globals exist in a production bundle.",
       "can_force_economic_state": false
     },
     {
       "key": "__harnessVisibilityInstalled",
-      "files": ["src/pages/ChipsSectionHarnessEntry.tsx"],
+      "files": [
+        "src/pages/ChipsSectionHarnessEntry.tsx"
+      ],
       "purpose": "Idempotency flag for the chips harness visibility patch.",
-      "gate": "same preview-only gate as __harnessSetVisibility",
+      "gate": "harness component only, and the harness routes themselves are now excluded at BUILD time (src/routes/harnessRoutes.tsx collapses every lazy() to null when import.meta.env.DEV is false), so neither the component nor these globals exist in a production bundle.",
       "can_force_economic_state": false
     },
     {
       "key": "__reactRouterVersion",
-      "files": ["dist (react-router vendor chunk)"],
+      "files": [
+        "dist (react-router vendor chunk)"
+      ],
       "purpose": "react-router build stamp emitted into the bundle.",
       "gate": "vendor code",
       "can_force_economic_state": false
     },
     {
       "key": "__heic2any__worker",
-      "files": ["dist (heic2any vendor chunk)"],
+      "files": [
+        "dist (heic2any vendor chunk)"
+      ],
       "purpose": "heic2any worker handle.",
       "gate": "vendor code",
       "can_force_economic_state": false
@@ -77,19 +99,25 @@
   "query_flags": [
     {
       "flag": "?debug=",
-      "files": ["src/pages/app/_journalDetail/TeachingDebugBadge.tsx", "src/pages/_freeCheckup/constants.jsx"],
-      "purpose": "TeachingDebugBadge visibility hint (preview / company_admin only) and a documentation curl sample string.",
-      "gate": "badge additionally requires preview env or company_admin; the constants hit is literal documentation text, not a runtime route",
-      "can_force_economic_state": false
+      "files": [
+        "src/pages/app/_journalDetail/TeachingDebugBadge.tsx",
+        "src/pages/_freeCheckup/constants.jsx"
+      ],
+      "purpose": "TeachingDebugBadge visibility hint; the constants hit is literal documentation text inside a curl sample, not a runtime route.",
+      "gate": "the badge additionally requires preview env OR company_admin, and it only reveals which teaching-parse branch ran — it renders no economic value and writes no cache/state.",
+      "can_force_economic_state": false,
+      "negative_test": "e2e/r1p-preview-acceptance.spec.ts asserts that appending ?debug=1 to a no_projection scope changes nothing: still the two-sentence 資料檢核中 copy and zero economic numerics."
     }
   ],
   "routes": [
     {
-      "prefix": "/e2e/*",
-      "purpose": "Pre-existing component harness routes for Playwright.",
-      "gate": "each harness component returns null unless isPreviewEnv()",
+      "prefix": "/e2e/* and /portfolio/:portfolioId/__shell-bus",
+      "count": 18,
+      "purpose": "Playwright component harnesses mounting real product components with URL-supplied props.",
+      "gate": "BUILD-time exclusion via src/routes/harnessRoutes.tsx: `const DEV = import.meta.env.DEV` is substituted with `false` by `vite build`, every lazy() collapses to a null component, Rollup emits no harness chunk and the route array is never constructed.",
       "can_force_economic_state": false,
-      "note": "None of them mounts the expert performance panel or the projection contract."
+      "verified": "rm -rf dist && vite build => 0 files matching *Harness* in dist/assets, 0 occurrences of 'HarnessEntry', '/e2e/', '__shell-bus' or '__lfQueryClient' in dist/assets/index-*.js.",
+      "note": "Previously each harness defended itself with a runtime hostname check, so the code still shipped to production. Harnesses can render holding/signal/chips economic UI from fabricated props, hence build-time removal rather than a runtime gate."
     }
   ]
 }
