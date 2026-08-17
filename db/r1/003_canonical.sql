@@ -8,6 +8,37 @@
 
 -- Generated columns (instrument_key) cannot be supplied explicitly, and the column
 -- list must not be hardcoded (schema drift). Build it once from the catalog.
+
+-- Production enforces asset-class/unit compatibility (enforce_unit_consistency).
+-- The canonical writer derives the unit from the same authority and rejects any
+-- caller-supplied unit that the asset class does not allow (fail closed).
+CREATE OR REPLACE FUNCTION app_ledger.resolve_qty_unit(p_expert uuid, p_unit text)
+RETURNS text LANGUAGE plpgsql STABLE SECURITY DEFINER SET search_path = '' AS $$
+DECLARE v_class text; v_allowed text[];
+BEGIN
+  SELECT coalesce(e.asset_class, CASE WHEN e.currency='USD' THEN 'us_stock' ELSE 'tw_stock' END)
+    INTO v_class FROM public.experts e WHERE e.id = p_expert;
+  IF v_class IS NULL THEN
+    RAISE EXCEPTION 'unknown_expert: %', p_expert USING ERRCODE='P0001';
+  END IF;
+  v_allowed := CASE v_class
+    WHEN 'tw_stock'  THEN ARRAY['張','股']
+    WHEN 'us_stock'  THEN ARRAY['股']
+    WHEN 'crypto'    THEN ARRAY['顆']
+    WHEN 'us_option' THEN ARRAY['口','組']
+    WHEN 'us_future' THEN ARRAY['口']
+    ELSE ARRAY[]::text[] END;
+  IF pg_catalog.array_length(v_allowed,1) IS NULL THEN
+    RAISE EXCEPTION 'unsupported_asset_class: %', v_class USING ERRCODE='P0001';
+  END IF;
+  IF p_unit IS NULL THEN RETURN v_allowed[1]; END IF;
+  IF NOT (p_unit = ANY (v_allowed)) THEN
+    RAISE EXCEPTION 'incompatible_qty_unit: % not allowed for %', p_unit, v_class
+      USING ERRCODE='P0001';
+  END IF;
+  RETURN p_unit;
+END $$;
+
 CREATE OR REPLACE FUNCTION app_ledger.insert_trade_row(r public.trade_records)
 RETURNS void LANGUAGE plpgsql SECURITY DEFINER SET search_path = '' AS $$
 DECLARE cols text;
@@ -120,7 +151,7 @@ BEGIN
   IF v_action = 'buy' OR (v_action='add' AND v_open IS NULL) THEN
     v_openid := pg_catalog.gen_random_uuid();
     v_newopen := app_ledger.new_trade_row(v_expert, v_market, coalesce(p->>'instrument', v_ikey),
-      v_cur, v_qty, v_price, 'open', v_eff, v_signal, coalesce(p->>'qty_unit','share'));
+      v_cur, v_qty, v_price, 'open', v_eff, v_signal, app_ledger.resolve_qty_unit(v_expert, p->>'qty_unit'));
     v_newopen.id := v_openid;
     INSERT INTO app_ledger.effect_projection_mutation(
       event_id, mutation_seq, target_table, target_row_id, op, row_role, expert_id, currency,
