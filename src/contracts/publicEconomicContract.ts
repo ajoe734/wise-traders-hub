@@ -12,7 +12,7 @@
  * render 「資料檢核中」 instead.
  */
 
-import { resolveProjectionStatus, type ProjectionStatus } from './publicProjection';
+import { type ProjectionStatus } from './publicProjection';
 
 /** Numeric fields that may never leak while a scope is not ready. */
 export interface GatedPerformance {
@@ -137,7 +137,12 @@ export function isPubliclyVisible(
   return t + graceDays * 86400_000 <= now.getTime();
 }
 
-/** Pre-cutover default: no projection row → legacy read path, numbers allowed. */
-export const READY_PROJECTION: ProjectionStatus = resolveProjectionStatus({ absent: true });
+/**
+ * Re-exported projection constants. `UNKNOWN_PROJECTION` is the fail-closed
+ * default (numbers hidden); `LEGACY_NO_PROJECTION` is the explicit pre-cutover
+ * legacy read path and may only be passed by a caller that observed the
+ * projection to be absent.
+ */
+export { UNKNOWN_PROJECTION, LEGACY_NO_PROJECTION } from './publicProjection';
 
 export type { ProjectionStatus };
