@@ -289,7 +289,7 @@ BEGIN
   IF NOT public.has_role(auth.uid(),'company_admin'::public.app_role) THEN
     RAISE EXCEPTION 'forbidden' USING ERRCODE='42501'; END IF;
   UPDATE public.holdings_fix_proposals SET status='rejected',
-    rejected_reason=p_note, reviewed_at=pg_catalog.now(), reviewed_by=auth.uid()
+    review_note=p_note, reviewed_at=pg_catalog.now(), reviewed_by=auth.uid()
    WHERE id=p_id AND status='pending';
   RETURN pg_catalog.jsonb_build_object('status',CASE WHEN FOUND THEN 'rejected' ELSE 'no_effect' END);
 END $$;
@@ -297,7 +297,7 @@ END $$;
 CREATE OR REPLACE FUNCTION public.delete_old_prices()
 RETURNS void LANGUAGE plpgsql SECURITY DEFINER SET search_path = '' AS $$
 BEGIN
-  DELETE FROM public.current_prices WHERE fetched_at < pg_catalog.now() - interval '2 days';
+  DELETE FROM public.current_prices WHERE updated_at < pg_catalog.now() - interval '2 days';
 END $$;
 
 CREATE OR REPLACE FUNCTION public.admin_apply_fix_proposal(p_id uuid, p_confirm boolean)
