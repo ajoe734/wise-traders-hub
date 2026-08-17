@@ -312,7 +312,6 @@ if grep -q '169.254.169.254' "$DIR/provider.jsonl" 2>/dev/null; then chk 1 "EB-5
 
 ############################################################ E. admin probe: provider still failing → NO unblock
 stage probe_negative
-ADMJWT="Authorization: Bearer $(mkjwt authenticated "$ADMIN_UID")"
 for m in reject reject4 rate fail5; do
   echo "$m" >"$DIR/mock_mode"
   C=$(post "$A" "$DIR/a_$m.json" '{"action":"probe","stock_id":"2330","trade_date":"2026-08-14"}' "$ADMJWT")
@@ -358,6 +357,85 @@ chk $([ "$(cat "$DIR/c1.code")" = 200 ] && [ "$(cat "$DIR/c2.code")" = 200 ] && 
 chk $([ "$(gateblocked)" = 'true' ] && echo 0 || echo 1) "EB-91 gate closed exactly once under concurrency"
 DUP=$(psql "$CL" -qXAt -c "SELECT count(*) FROM public.tw_bsr_sync_queue WHERE enqueued_by='edge_rehearsal_conc' AND status='pending' AND locked_by IS NOT NULL" 2>/dev/null || echo 0)
 chk $([ "${DUP:-0}" = 0 ] && echo 0 || echo 1) "EB-92 no job left pending with a stale lease (${DUP:-0})"
+
+############################################################ G2. gate state matrix (missing / malformed / rpc_error)
+stage gate_matrix
+: >"$DIR/provider.jsonl"; echo ok >"$DIR/mock_mode"
+psql "$CL" -qX -c "UPDATE public.tw_bsr_sync_config SET config = config - 'admission_blocked' WHERE key='market_batch'" >/dev/null
+C=$(post "$W" "$DIR/w_missing.json" '{"mode":"worker","batch":3,"budget_ms":8000}' "$CRONH")
+chk $([ "$C" = 200 ] && echo 0 || echo 1) "EB-100 worker responds 200 when admission flag missing (got $C)"
+chk $([ "$(jqf "$DIR/w_missing.json" claimed)" = '0' ] && echo 0 || echo 1) "EB-101 missing flag is fail-closed (claimed=0)"
+chk $([ "$(provider_calls)" = 0 ] && echo 0 || echo 1) "EB-102 ZERO provider calls when admission state missing"
+
+psql "$CL" -qX -c "UPDATE public.tw_bsr_sync_config SET config = config || '{\"admission_blocked\": \"not-a-boolean\"}'::jsonb WHERE key='market_batch'" >/dev/null
+: >"$DIR/provider.jsonl"
+C=$(post "$W" "$DIR/w_malformed.json" '{"mode":"worker","batch":3,"budget_ms":8000}' "$CRONH")
+chk $([ "$C" = 200 ] && echo 0 || echo 1) "EB-103 worker responds 200 on malformed admission value (got $C)"
+chk $([ "$(jqf "$DIR/w_malformed.json" claimed)" = '0' ] && echo 0 || echo 1) "EB-104 malformed admission value is fail-closed"
+chk $([ "$(provider_calls)" = 0 ] && echo 0 || echo 1) "EB-105 ZERO provider calls on malformed admission value"
+C=$(post "$W" "$DIR/e_malformed.json" '{"mode":"enqueue","tier1":true,"tier2":true,"tier3":true}' "$CRONH")
+QN=$(psql "$CL" -qXAt -c "SELECT count(*) FROM public.tw_bsr_sync_queue WHERE enqueued_by LIKE 'tier%' AND created_at > now() - interval '1 minute'")
+chk $([ "${QN:-0}" = 0 ] && echo 0 || echo 1) "EB-106 enqueue inserted nothing under a malformed gate (${QN:-0})"
+
+# rpc_error: the status wrapper itself is unavailable -> still fail-closed
+psql "$CL" -qX -c "ALTER FUNCTION public.bsr_admission_status() RENAME TO bsr_admission_status_hidden" >/dev/null
+: >"$DIR/provider.jsonl"
+C=$(post "$W" "$DIR/w_rpcerr.json" '{"mode":"worker","batch":3,"budget_ms":8000}' "$CRONH")
+chk $([ "$C" = 200 ] && echo 0 || echo 1) "EB-107 worker survives an admission RPC error (got $C)"
+chk $([ "$(provider_calls)" = 0 ] && echo 0 || echo 1) "EB-108 admission RPC error is fail-closed: ZERO provider calls"
+chk $([ "$(jqf "$DIR/w_rpcerr.json" claimed)" = '0' ] && echo 0 || echo 1) "EB-109 admission RPC error claims nothing"
+psql "$CL" -qX -c "ALTER FUNCTION public.bsr_admission_status_hidden() RENAME TO bsr_admission_status" >/dev/null
+open_gate
+
+############################################################ G3. worker fast-exit + retryable provider classes
+stage worker_edges
+psql "$CL" -qX -c "DELETE FROM public.tw_bsr_sync_queue" >/dev/null
+: >"$DIR/provider.jsonl"; echo ok >"$DIR/mock_mode"
+C=$(post "$W" "$DIR/w_noclaim.json" '{"mode":"worker","batch":3,"budget_ms":8000}' "$CRONH")
+chk $([ "$C" = 200 ] && echo 0 || echo 1) "EB-110 worker fast-exits with an empty queue (got $C)"
+chk $([ "$(jqf "$DIR/w_noclaim.json" claimed)" = '0' ] && echo 0 || echo 1) "EB-111 empty queue claims 0"
+chk $([ "$(provider_calls)" = 0 ] && echo 0 || echo 1) "EB-112 empty queue never touches the provider"
+
+for m in rate fail5 net unknown; do
+  open_gate
+  psql "$CL" -qX -c "DELETE FROM public.tw_bsr_sync_queue" >/dev/null
+  psql "$CL" -qX -c "INSERT INTO public.tw_bsr_sync_queue(stock_id, trade_date, priority, status, enqueued_by, next_run_at) VALUES ('2330', current_date - 5, 1, 'pending', 'edge_rehearsal_$m', now())" >/dev/null
+  echo "$m" >"$DIR/mock_mode"
+  C=$(post "$W" "$DIR/w_$m.json" '{"mode":"worker","batch":2,"budget_ms":8000}' "$CRONH")
+  chk $([ "$C" = 200 ] && echo 0 || echo 1) "EB-11$m worker survives provider class '$m' (got $C)"
+  chk $([ "$(gateblocked)" = 'false' ] && echo 0 || echo 1) "EB-12$m retryable/unknown class '$m' must NOT close the gate"
+  ST=$(psql "$CL" -qXAt -c "SELECT status FROM public.tw_bsr_sync_queue WHERE enqueued_by='edge_rehearsal_$m' LIMIT 1")
+  chk $([ "$ST" != 'terminal' ] && echo 0 || echo 1) "EB-13$m class '$m' did not terminalize the job (status=$ST)"
+done
+
+# lost lease: another worker stole the row mid-flight -> terminalize must not
+# resurrect or double-write it
+open_gate
+psql "$CL" -qX -c "DELETE FROM public.tw_bsr_sync_queue" >/dev/null
+psql "$CL" -qX -c "INSERT INTO public.tw_bsr_sync_queue(stock_id, trade_date, priority, status, enqueued_by, next_run_at, locked_by, locked_at) VALUES ('2317', current_date - 5, 1, 'processing', 'edge_rehearsal_lease', now(), 'someone-else', now())" >/dev/null
+echo reject >"$DIR/mock_mode"
+C=$(post "$W" "$DIR/w_lease.json" '{"mode":"worker","batch":2,"budget_ms":8000}' "$CRONH")
+LEASE=$(psql "$CL" -qXAt -c "SELECT locked_by FROM public.tw_bsr_sync_queue WHERE enqueued_by='edge_rehearsal_lease'")
+chk $([ "$LEASE" = 'someone-else' ] && echo 0 || echo 1) "EB-140 a foreign lease is never stolen (locked_by=$LEASE)"
+chk $([ "$C" = 200 ] && echo 0 || echo 1) "EB-141 worker returns 200 with only foreign-leased rows (got $C)"
+
+############################################################ G4. admin nonce replay / stale version
+stage admin_nonce
+echo reject >"$DIR/mock_mode"
+psql "$CL" -qX -c "INSERT INTO public.tw_bsr_sync_queue(stock_id, trade_date, priority, status, enqueued_by, next_run_at) VALUES ('2454', current_date - 5, 1, 'pending', 'edge_rehearsal_nonce', now()) ON CONFLICT DO NOTHING" >/dev/null
+post "$W" "$DIR/w_nonce_close.json" '{"mode":"worker","batch":2,"budget_ms":8000}' "$CRONH" >/dev/null
+chk $([ "$(gateblocked)" = 'true' ] && echo 0 || echo 1) "EB-150 gate closed again for the nonce tests"
+NONCE=$(psql "$CL" -qXAt -c "SELECT config->>'admission_nonce' FROM public.tw_bsr_sync_config WHERE key='market_batch'")
+VER=$(psql "$CL" -qXAt -c "SELECT public.bsr_admission_status()->>'version'")
+R=$(psql "$CL" -qXAt -c "SELECT public.bsr_unblock_after_probe($((VER - 1)), '$NONCE', 'stale-version-attempt')" 2>&1 || true)
+chk $([ "$(gateblocked)" = 'true' ] && echo 0 || echo 1) "EB-151 stale expected_version cannot unblock"
+R=$(psql "$CL" -qXAt -c "SELECT public.bsr_unblock_after_probe($VER, '00000000-0000-4000-8000-0000000000ff', 'wrong-nonce-attempt')" 2>&1 || true)
+chk $([ "$(gateblocked)" = 'true' ] && echo 0 || echo 1) "EB-152 wrong nonce cannot unblock"
+echo ok >"$DIR/mock_mode"
+C=$(post "$A" "$DIR/a_ok2.json" '{"action":"probe","stock_id":"2330","trade_date":"2026-08-14"}' "$ADMJWT")
+chk $([ "$(gateblocked)" = 'false' ] && echo 0 || echo 1) "EB-153 a verified server-side probe still unblocks (http=$C)"
+C=$(post "$A" "$DIR/a_ok2_replay.json" '{"action":"probe","stock_id":"2330","trade_date":"2026-08-14"}' "$ADMJWT")
+chk $([ "$(jqf "$DIR/a_ok2_replay.json" transition)" = '"already_open"' ] && echo 0 || echo 1) "EB-154 replayed probe is a no-op"
 
 ############################################################ H. rollback fidelity
 stage rollback
