@@ -91,6 +91,16 @@ WITH ev AS (
     ON s.expert_id = r.expert_id
    AND s.market IS NOT DISTINCT FROM r.market
    AND s.instrument = r.instrument
+), units AS (
+  -- unit_ambiguous is DISTINCT-unit counting over the UNION of both sources for
+  -- the key, identical in semantics to R0 E_classify (which used the pair basis).
+  SELECT expert_id, market, instrument, count(DISTINCT unit) AS n_units_union FROM (
+    SELECT expert_id, market, instrument, coalesce(quantity_unit,'-') AS unit
+      FROM public.expert_signals WHERE status='published' AND action::text<>'teaching'
+    UNION
+    SELECT expert_id, market, instrument, coalesce(quantity_unit,'-') AS unit
+      FROM public.trade_records
+  ) u GROUP BY 1,2,3
 ), shape AS (
   -- shape ambiguity is evaluated per (expert, instrument) across markets/units,
   -- exactly like R0 E_classify. unit_ambiguous and market_ambiguous OVERLAP.
@@ -102,6 +112,8 @@ WITH ev AS (
 ), cls AS (
   SELECT j.*,
     (SELECT n_markets FROM shape z WHERE z.expert_id=j.expert_id AND z.instrument=j.instrument) AS n_markets,
+    coalesce((SELECT n_units_union FROM units uu WHERE uu.expert_id=j.expert_id
+               AND uu.market IS NOT DISTINCT FROM j.market AND uu.instrument=j.instrument),1) AS n_units,
     CASE WHEN j.incomplete THEN 'incomplete'
          WHEN j.events = 0 THEN 'stored_only'
          WHEN j.open_rows = 0 AND j.closed_rows = 0 THEN 'signal_only'
@@ -150,7 +162,7 @@ SELECT
      UNION ALL SELECT 'missing_price_hint'  WHERE c.any_missing_price
      UNION ALL SELECT 'missing_quantity'    WHERE c.any_missing_qty
      UNION ALL SELECT 'missing_quantity_unit' WHERE c.any_missing_unit
-     UNION ALL SELECT 'unit_ambiguous'      WHERE (c.n_units_sig + c.n_units_tr) > 1
+     UNION ALL SELECT 'unit_ambiguous'      WHERE c.n_units > 1
      UNION ALL SELECT 'market_ambiguous'    WHERE c.n_markets > 1
      UNION ALL SELECT 'multiple_apply_suspected' WHERE c.class='multiple_apply'
      UNION ALL SELECT 'projection_without_signal' WHERE c.class='stored_only'
@@ -160,20 +172,20 @@ SELECT
         WHERE coalesce(e.currency,'-') <> 'TWD' AND (SELECT n_rows FROM fx) <= 1
   ) q) AS reason_codes,
   json_build_object(
-    'unit_supported',   ((c.n_units_sig + c.n_units_tr) <= 1 AND NOT c.any_missing_unit),
+    'unit_supported',   (c.n_units <= 1 AND NOT c.any_missing_unit),
     'market_supported', (c.n_markets <= 1 AND c.market IS NOT NULL),
     'price_supported',  (NOT c.any_missing_price),
     'derivative_supported', (NOT c.any_combo AND coalesce(ic.derivative_supported,false)),
     'fx_supported',     (coalesce(e.currency,'-') = 'TWD' OR (SELECT n_rows FROM fx) > 1)
   ) AS supported,
   CASE WHEN c.class = 'match'
-        AND (c.n_units_sig + c.n_units_tr) <= 1
+        AND c.n_units <= 1
         AND c.n_markets <= 1
         AND NOT c.any_combo AND NOT c.any_missing_price
         AND coalesce(ic.derivative_supported,false)
        THEN 'auto_supported' ELSE 'manual_review' END AS review_status,
   CASE WHEN c.class = 'match'
-        AND (c.n_units_sig + c.n_units_tr) <= 1
+        AND c.n_units <= 1
         AND c.n_markets <= 1
         AND NOT c.any_combo AND NOT c.any_missing_price
         AND coalesce(ic.derivative_supported,false)
@@ -197,6 +209,8 @@ SELECT json_build_object(
     'market_ambiguous_pairs_76',  (SELECT count(*) FROM (
         SELECT c.expert_id, c.instrument FROM cls c WHERE c.n_markets > 1 GROUP BY 1,2) mp),
     'unit_ambiguous_keys_84',     (SELECT count(*) FROM k WHERE k.reason_codes::jsonb ? 'unit_ambiguous'),
+    'unit_ambiguous_pairs_76',    (SELECT count(*) FROM (
+        SELECT c.expert_id, c.instrument FROM cls c WHERE c.n_units > 1 GROUP BY 1,2) up),
     'r0_pair_basis_note','R0 E_classify counted mutually exclusive buckets on the 76 (expert,instrument) PAIR basis and reported market_ambiguous=8. Each such pair is split into one key per market, so 8 pairs -> 16 keys, and 76 pairs + 8 extra market rows = 84 keys. The R0 number is neither a query bug nor a different population: it is the same population on the pair basis.'),
   'reason_counts',(SELECT json_object_agg(rc,n) FROM (
       SELECT r2.rc, count(*) n FROM k, json_array_elements_text(k.reason_codes) r2(rc) GROUP BY 1) z2),
