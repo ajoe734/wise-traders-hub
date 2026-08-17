@@ -314,6 +314,7 @@ BEGIN
 END $$;
 
 REVOKE INSERT, UPDATE, DELETE ON public.trade_records FROM anon, authenticated, service_role;
-REVOKE INSERT, UPDATE, DELETE ON public.portfolio_cash_ledger FROM anon, authenticated, service_role;
 GRANT  SELECT ON public.trade_records TO anon, authenticated, service_role;
-GRANT  SELECT ON public.portfolio_cash_ledger TO authenticated, service_role;
+REVOKE ALL ON app_ledger.portfolio_cash_ledger FROM PUBLIC, anon, authenticated, service_role;
+REVOKE ALL ON SCHEMA app_ledger FROM PUBLIC, anon, authenticated;
+GRANT USAGE ON SCHEMA app_ledger TO service_role;
