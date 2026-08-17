@@ -1,0 +1,1 @@
+{"ok":true,"note":"admission_gate_closed","admission":{"decision":"rpc_error","blocked":false,"reason":"admission_status_rpc_error:function public.bsr_admission_status() does not exist","terminal_code":null,"blocked_at":null,"gate_version":null},"claimed":0,"processed":0,"provider_calls":0,"run_id":"4c4f4d5b-b3a9-40dc-8c38-5c7431569852","elapsed_ms":7}

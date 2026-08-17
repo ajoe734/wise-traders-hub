@@ -1,0 +1,3 @@
+### stage-b rehearsal run_id=DB17-20260817T163312Z-18645 port=56217 out=/tmp/sb-DB17
+### VERIFIER SUMMARY DB17 checks=32 failures=0 sql_verifier=[SUMMARY pass=187 fail=0 gap=0]
+### RESULT run_id=DB17-20260817T163312Z-18645 start=2026-08-17T16:33:12.998Z end=2026-08-17T16:33:35.256Z stage=artifacts checks=32 failures=0 destroyed=true background=0 log_sha256_pre_result=5699267c2a60afdf0a0edbd1100077e0bec16bdf7df2550642d0d72f4603948d
