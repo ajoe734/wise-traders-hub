@@ -633,6 +633,24 @@ async function runWorker(batch: number, maxPriority: number, budgetMs: number): 
   // Build 1f：token 優先的 stable partition（DB 已排序，這裡是 driver 順序的防禦性保險）。
   const jobs = partitionTokenFirst(claimedJobs as Array<{ last_error?: string | null }>) as typeof claimedJobs;
 
+  // ============ Stage B：保留 claim 當下的 exact (id, started_at, attempts)
+  // terminalize 只能作用在本 run 真正持有 lease 的列；任何被 reaper 回收或被別人重 claim
+  // 的列，pairwise 條件會自然不成立 → 計入 lost_lease_count。
+  const outstandingClaims = new Map<number, ClaimTuple>();
+  for (const j of jobs as Array<Record<string, unknown>>) {
+    outstandingClaims.set(Number(j.id), {
+      id: Number(j.id),
+      started_at: (j.started_at as string | null) ?? null,
+      attempts: j.attempts === null || j.attempts === undefined ? null : Number(j.attempts),
+    });
+  }
+  /** 任一 job 已由本 run 自行改寫狀態 → 不再持有 lease，不可再被 terminalize。 */
+  const releaseClaim = (id: unknown) => { outstandingClaims.delete(Number(id)); };
+
+  let terminalStop = false;
+  let terminalReport: Record<string, unknown> | null = null;
+
+
   // Build 1 可觀測性：per-job 明細，讓 HTTP body 能逐筆對回 tw_bsr_sync_queue。
   const jobOutcomes: Array<{
     id: number; stock_id: string; trade_date: string; priority: number;
