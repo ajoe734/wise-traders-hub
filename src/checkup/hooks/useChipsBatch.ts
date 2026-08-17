@@ -44,7 +44,8 @@ export function useChipsBatch({ codes, enabled = true, isViewAs = false }: UseCh
   const [prefetched, setPrefetched] = useState<Set<string>>(new Set());
 
   // 可見卡片變動時批次預載。
-  // Demo 也要預載：tw-chips-detail 是純讀取端點（不會 enqueue、不寫任何佇列），
+  // Demo 也要預載：前端自身不 enqueue；但舊 tw-chips-detail 後端仍會 rebuild／寫 inflight，
+  // 真正的 read-only 端點是 side-by-side 的 tw-chips-detail-v2（production 尚未切換）。
   // 讓 Demo 使用者一開抽屜就有背景 cron 已備妥的資料，而不是靠 lazy 回補。
   useEffect(() => {
     if (!enabled || keyRef.current === key) return;

@@ -34,7 +34,7 @@
 
 | 路徑 | 是否寫入 | 現況 |
 |---|---|---|
-| 前端開抽屜 → `useChipsLifecycle` → `tw-chips-detail` GET | 前端無寫入 | ✅ 已無 `ensure_bsr_queued` / `ensure_bsr_window` 呼叫 |
+| 前端開抽屜 → `useChipsLifecycle` → `tw-chips-detail` GET | **前端自身不 enqueue，但舊後端仍會 rebuild／寫 inflight；H5-server 未完成** | 前端已無 `ensure_bsr_queued` / `ensure_bsr_window` 呼叫；舊 Edge `tw-chips-detail` 仍呼叫 writer RPC。read-only 替代端點 `tw-chips-detail-v2` 已 side-by-side 部署（P-H5a），但 production 前端尚未 Publish 切換 |
 | 前端「回補 60 日」按鈕 → `enqueue_bsr_backfill` | 寫入 | ✅ 使用者顯式操作，保留 |
 | 後端 `tw-chips-detail` → `rebuild_bsr_rollup` | **寫入 `tw_chips_rollup`** | ⚠️ 尚未收斂：讀取仍可能觸發彙總重建 |
 | 後端 `tw-chips-detail` → `makeInflightHook`（`finmind_inflight_requests`） | 寫入（請求簿記） | 觀測用，非市場資料 |
