@@ -297,6 +297,15 @@ grep -E '^(fn|trg|nsp)\|' "$DIR/fp_before.txt" >"$DIR/fp_before_cat.txt"
 grep -E '^(fn|trg|nsp)\|' "$DIR/fp_after.txt"  >"$DIR/fp_after_cat.txt"
 diff -u "$DIR/fp_before_cat.txt" "$DIR/fp_after_cat.txt" >"$DIR/fp_cat.diff" || true
 [ ! -s "$DIR/fp_cat.diff" ]; chk $? "SB-10e catalog fingerprint back to pre-apply baseline" "$(head -6 "$DIR/fp_cat.diff")"
+grep -E '^replmeta\|' "$DIR/fp_after.txt" >"$DIR/repl_meta_after.txt"
+grep -E '^replbody\|' "$DIR/fp_after.txt" >"$DIR/repl_body_after.txt"
+diff -u "$DIR/repl_meta_before.txt" "$DIR/repl_meta_after.txt" >"$DIR/repl_meta_rollback.diff" || true
+[ ! -s "$DIR/repl_meta_rollback.diff" ]; chk $? "SB-10f post-rollback replaced-function metadata+comment byte-equivalent" "$(head -12 "$DIR/repl_meta_rollback.diff")"
+diff -u "$DIR/repl_body_before.txt" "$DIR/repl_body_after.txt" >"$DIR/repl_body_rollback.diff" || true
+[ ! -s "$DIR/repl_body_rollback.diff" ]; chk $? "SB-10g post-rollback pg_get_functiondef byte-equivalent for all 3 targets" "$(head -12 "$DIR/repl_body_rollback.diff")"
+CMTA=$(grep -c 'comment_md5=NULL' "$DIR/repl_meta_after.txt" || true)
+chk $([ "$CMTA" = 0 ] && echo 0 || echo 1) "SB-10h no comment was dropped by apply+rollback (NULL comments after=$CMTA)"
+
 
 ############################################################ artifacts
 stage artifacts
