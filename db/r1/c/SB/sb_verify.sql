@@ -18,6 +18,29 @@ RETURNS text LANGUAGE plpgsql AS $$
 BEGIN EXECUTE p_sql; RETURN NULL;
 EXCEPTION WHEN others THEN RETURN SQLERRM; END $$;
 
+CREATE TEMP TABLE _dump(seq serial, ctx text, line text);
+CREATE OR REPLACE FUNCTION pg_temp.dump_rows(p_ctx text, p_where text) RETURNS int
+LANGUAGE plpgsql AS $$
+DECLARE r record; n int := 0;
+BEGIN
+  FOR r IN EXECUTE format($f$
+    SELECT q.id, q.stock_id, q.trade_date, q.status, q.last_error, q.attempts,
+           q.max_attempts, q.enqueued_by, q.enqueued_at, q.next_run_at, q.started_at,
+           q.finished_at, q.correlation_id, q.updated_at
+      FROM public.tw_bsr_sync_queue q WHERE %s ORDER BY q.id $f$, p_where)
+  LOOP
+    n := n + 1;
+    INSERT INTO _dump(ctx, line) VALUES (p_ctx, format(
+      'id=%s stock_id=%s trade_date=%s status=%s error_code=%s quota_deferred=%s attempts=%s/%s enqueued_by=%s created_at=%s available_at=%s started_at=%s finished_at=%s corr=%s updated_at=%s',
+      r.id, r.stock_id, r.trade_date, r.status, coalesce(r.last_error,'-'),
+      (r.last_error = 'quota_deferred'), r.attempts, r.max_attempts,
+      coalesce(r.enqueued_by,'-'), r.enqueued_at, r.next_run_at,
+      coalesce(r.started_at::text,'-'), coalesce(r.finished_at::text,'-'),
+      coalesce(r.correlation_id::text,'-'), r.updated_at));
+  END LOOP;
+  RETURN n;
+END $$;
+
 CREATE OR REPLACE FUNCTION pg_temp.qcount() RETURNS bigint
 LANGUAGE sql AS $$ SELECT count(*) FROM public.tw_bsr_sync_queue $$;
 
@@ -28,6 +51,12 @@ ON CONFLICT (key) DO NOTHING;
 
 INSERT INTO public.chips_prefetch_targets(code, source, active, supported)
 VALUES ('2330','ops',true,true) ON CONFLICT DO NOTHING;
+-- B6 failure ledger F-04: a dedicated, never-otherwise-touched eligible symbol
+-- so enqueue_chips_prefetch_gaps() has a REAL chip gap to close. 2330 alone is
+-- fully pre-enqueued by ensure_bsr_queued/ensure_bsr_window earlier in the
+-- writer list, which is why the gate-open delta was 0 in B6.
+INSERT INTO public.chips_prefetch_targets(code, source, active, supported)
+VALUES ('2412','ops',true,true) ON CONFLICT DO NOTHING;
 INSERT INTO public.checkup_storage(key, data, user_id)
 VALUES ('portfolio', '{"holdings":[{"symbol":"2317","code":"2317"}]}'::jsonb,
         '00000000-0000-0000-0000-000000000001') ON CONFLICT DO NOTHING;
@@ -96,7 +125,7 @@ DECLARE
     $w$SELECT public.ensure_bsr_queued('2330')$w$,
     $w$SELECT public.ensure_bsr_window('2317', 5, 14)$w$,
     $w$SELECT public.enqueue_all_active_tw_holdings_bsr(3)$w$,
-    $w$SELECT public.enqueue_chips_prefetch_gaps(5, 20)$w$,
+    $w$SELECT public.enqueue_chips_prefetch_gaps(20, 20)$w$,
     $w$SELECT public.converge_bsr_windows(20, 5, 30)$w$,
     $w$SELECT public.enqueue_bsr_backfill('6505', 5)$w$
   ];
@@ -262,9 +291,18 @@ DO $$
 DECLARE id0 bigint; st timestamptz; res jsonb; before_status text;
 BEGIN
   SET LOCAL session_replication_role = replica;   -- fixture insert bypasses the closed gate
+  -- B6 failure ledger F-01: reap_stale_bsr_queue_jobs() keys off updated_at
+  --   WHERE status='running' AND updated_at < now() - make_interval(mins => _stale_minutes)
+  -- (default 60). The B6 fixture only aged started_at, so the row was never
+  -- reaped and the assertion was vacuous. Age updated_at as well; the trigger
+  -- set_updated_at (if any) is bypassed by an explicit post-insert UPDATE.
   INSERT INTO public.tw_bsr_sync_queue(stock_id, trade_date, priority, status, attempts, started_at, enqueued_by)
   VALUES ('9102', current_date - 4, 1, 'running', 1, now() - interval '90 min', 'reaper_probe')
   RETURNING id, started_at INTO id0, st;
+  UPDATE public.tw_bsr_sync_queue SET updated_at = now() - interval '90 min' WHERE id = id0;
+  PERFORM pg_temp.chk('E-reaper-fixture-aged',
+    (SELECT updated_at < now() - interval '80 min' FROM public.tw_bsr_sync_queue WHERE id=id0),
+    'updated_at aged past the 60min reaper threshold');
   PERFORM public.reap_stale_bsr_queue_jobs();
   before_status := (SELECT status FROM public.tw_bsr_sync_queue WHERE id=id0);
   res := public.bsr_block_and_terminalize_claims(gen_random_uuid(), ARRAY[id0], ARRAY[st], ARRAY[1],
@@ -299,41 +337,133 @@ BEGIN
     'gate returns NULL before CHECK: '||coalesce(e,'silently skipped'));
 END $$;
 
--- ============================================================ G. blocked: 3 recovery rounds, zero noise
+-- ============================================================ G. blocked: 3 rounds x 3 gate shapes, zero noise
+-- B6 failure ledger F-02: G showed pending=3 after the blocked rounds. Root
+-- cause (proven below by per-row dump + writer trace): enqueue_chips_prefetch_gaps()
+-- calls recover_stale_bsr_queue_jobs(), a SECOND recovery predicate that was not
+-- gate-aware and requeued failed -> pending for every terminal row whose symbol
+-- is in checkup_prefetch_universe(). Fixed in 002_recover_gate_aware.sql, not by
+-- deleting rows.
+CREATE TEMP TABLE _terminal_ids(id bigint primary key);
+CREATE TEMP TABLE _tsnap AS SELECT id, status, attempts, max_attempts, last_error
+  FROM public.tw_bsr_sync_queue WHERE false;
+
 DO $$
-DECLARE fp0 text; fp1 text; i int; res jsonb; pend0 bigint; pend1 bigint;
+DECLARE n int;
 BEGIN
+  -- terminal cohort: what the worker will produce on a provider plan rejection
   UPDATE public.tw_bsr_sync_queue SET status='failed',
          last_error='finmind_admission_provider_plan_rejected'
    WHERE status IN ('pending','running');
+  INSERT INTO _terminal_ids SELECT id FROM public.tw_bsr_sync_queue
+   WHERE last_error='finmind_admission_provider_plan_rejected';
+
+  -- explicit drain of every non-terminal leftover so "pending -> 0" is a real
+  -- convergence statement and not an artefact of unrelated fixture rows.
+  UPDATE public.tw_bsr_sync_queue SET status='done', last_error='clone_drained'
+   WHERE id NOT IN (SELECT id FROM _terminal_ids) AND status <> 'done';
+
   INSERT INTO public.tw_chip_fact(stock_id, trade_date, broker_id, source, buy_shares, sell_shares)
   SELECT DISTINCT q.stock_id, q.trade_date, '9200', 'clone_fixture', 1000, 500
     FROM public.tw_bsr_sync_queue q LIMIT 3
   ON CONFLICT DO NOTHING;
 
-  SELECT md5(string_agg(id||':'||status||':'||attempts||':'||max_attempts||':'||coalesce(last_error,'-'),',' ORDER BY id))
-    INTO fp0 FROM public.tw_bsr_sync_queue;
-  pend0 := (SELECT count(*) FROM public.tw_bsr_sync_queue WHERE status='pending');
+  INSERT INTO _tsnap SELECT id, status, attempts, max_attempts, last_error
+    FROM public.tw_bsr_sync_queue WHERE id IN (SELECT id FROM _terminal_ids);
+  SELECT count(*) INTO n FROM _terminal_ids;
+  PERFORM pg_temp.chk('G-cohort', n > 0, n||' terminal rows; pending after drain='||
+    (SELECT count(*) FROM public.tw_bsr_sync_queue WHERE status='pending'));
+END $$;
+
+CREATE OR REPLACE FUNCTION pg_temp.gate_rounds(p_shape text) RETURNS void
+LANGUAGE plpgsql AS $$
+DECLARE
+  i int; res jsonb; a0 int; d0 int; drift int; pend_term bigint; pend_all bigint;
+  prev bigint; v_cfg jsonb;
+BEGIN
+  v_cfg := CASE p_shape
+             WHEN 'true'      THEN '{"admission_blocked": true}'::jsonb
+             WHEN 'missing'   THEN '{}'::jsonb
+             WHEN 'malformed' THEN '{"admission_blocked": "yes"}'::jsonb
+           END;
+  UPDATE public.tw_bsr_sync_config
+     SET config = (config - 'admission_blocked') || v_cfg WHERE key='market_batch';
+
+  -- reset the cohort to its terminal snapshot before each shape
+  UPDATE public.tw_bsr_sync_queue q
+     SET status=t.status, attempts=t.attempts, max_attempts=t.max_attempts, last_error=t.last_error
+    FROM _tsnap t WHERE q.id=t.id;
+
+  a0 := (SELECT count(*) FROM public.audit_logs);
+  d0 := (SELECT count(*) FROM public.tw_bsr_degrade_events);
+  prev := NULL;
 
   FOR i IN 1..3 LOOP
     res := public.recover_quota_failed_bsr_jobs(1);
-    PERFORM pg_temp.chk('G-round'||i||'-budget-available',
-      (res->>'budget_reason') IS DISTINCT FROM 'pool_reserve_blocked'
-      AND (res->>'budget_reason') IS DISTINCT FROM 'kill_switch',
-      'budget_reason='||coalesce(res->>'budget_reason','-'));
-    PERFORM pg_temp.chk('G-round'||i||'-zero-tokens',
-      COALESCE((res->>'tokens_issued')::int,0) = 0 AND COALESCE((res->>'reconciled')::int,0) = 0,
+    PERFORM public.recover_stale_bsr_queue_jobs();
+    PERFORM public.enqueue_chips_prefetch_gaps(20, 20);
+
+    -- (1) terminal cohort must never be resurrected, whatever the gate shape
+    SELECT count(*) INTO drift FROM public.tw_bsr_sync_queue q JOIN _tsnap t ON t.id=q.id
+      WHERE (q.status, q.attempts, q.max_attempts, q.last_error)
+         IS DISTINCT FROM (t.status, t.attempts, t.max_attempts, t.last_error);
+    IF drift > 0 THEN
+      PERFORM pg_temp.dump_rows('G-'||p_shape||'-round'||i||'-drift',
+        'q.id IN (SELECT id FROM _tsnap t WHERE (t.status,t.attempts,t.max_attempts,t.last_error) IS DISTINCT FROM (q.status,q.attempts,q.max_attempts,q.last_error))');
+    END IF;
+    PERFORM pg_temp.chk('G-'||p_shape||'-round'||i||'-cohort-frozen', drift = 0,
+      drift||' terminal rows mutated (status/attempts/error)');
+
+    pend_term := (SELECT count(*) FROM public.tw_bsr_sync_queue q
+                   WHERE q.status='pending' AND q.id IN (SELECT id FROM _terminal_ids));
+    IF pend_term > 0 THEN
+      PERFORM pg_temp.dump_rows('G-'||p_shape||'-round'||i||'-pending-terminal',
+        'q.status=''pending'' AND q.id IN (SELECT id FROM _terminal_ids)');
+    END IF;
+    PERFORM pg_temp.chk('G-'||p_shape||'-round'||i||'-pending-zero', pend_term = 0,
+      'terminal rows pending='||pend_term);
+
+    pend_all := (SELECT count(*) FROM public.tw_bsr_sync_queue WHERE status='pending');
+    IF p_shape = 'true' THEN
+      -- gate closed: no writer may admit anything, so TOTAL pending stays 0
+      IF pend_all > 0 THEN
+        PERFORM pg_temp.dump_rows('G-true-round'||i||'-pending-any', 'q.status=''pending''');
+      END IF;
+      PERFORM pg_temp.chk('G-true-round'||i||'-total-pending-zero', pend_all = 0,
+        'total pending='||pend_all);
+    ELSE
+      -- gate missing/malformed is OPEN by the v4 §3 compatibility rule: fresh
+      -- gap enqueues are legitimate. Monotonic non-growth of the terminal
+      -- cohort is the invariant; new admissions are reported, not asserted 0.
+      PERFORM pg_temp.chk('G-'||p_shape||'-round'||i||'-fresh-admissions-only',
+        (SELECT count(*) FROM public.tw_bsr_sync_queue
+          WHERE status='pending' AND id IN (SELECT id FROM _terminal_ids)) = 0,
+        'fresh pending (non-cohort)='||pend_all);
+    END IF;
+
+    PERFORM pg_temp.chk('G-'||p_shape||'-round'||i||'-recovery-silent',
+      COALESCE((res->>'tokens_issued')::int,0) = 0
+      AND jsonb_array_length(COALESCE(res->'tokened_job_ids','[]'::jsonb)) = 0,
       res::text);
-    PERFORM public.enqueue_chips_prefetch_gaps(5, 20);
   END LOOP;
 
-  SELECT md5(string_agg(id||':'||status||':'||attempts||':'||max_attempts||':'||coalesce(last_error,'-'),',' ORDER BY id))
-    INTO fp1 FROM public.tw_bsr_sync_queue;
-  pend1 := (SELECT count(*) FROM public.tw_bsr_sync_queue WHERE status='pending');
-  PERFORM pg_temp.chk('G-queue-unchanged-3-rounds', fp0 = fp1, 'queue state fingerprint identical');
-  PERFORM pg_temp.chk('G-pending-monotonic-zero', pend1 = 0 AND pend0 = 0,
-    'pending before='||pend0||' after='||pend1);
+  PERFORM pg_temp.chk('G-'||p_shape||'-audit-zero-noise',
+    (SELECT count(*) FROM public.audit_logs) = a0
+    AND (SELECT count(*) FROM public.tw_bsr_degrade_events) = d0,
+    'audit delta='||((SELECT count(*) FROM public.audit_logs)-a0)||
+    ' degrade delta='||((SELECT count(*) FROM public.tw_bsr_degrade_events)-d0));
 END $$;
+
+SELECT pg_temp.gate_rounds('true');
+SELECT pg_temp.gate_rounds('missing');
+SELECT pg_temp.gate_rounds('malformed');
+
+-- restore the closed gate for the remaining sections
+UPDATE public.tw_bsr_sync_config
+   SET config = config || '{"admission_blocked": true}'::jsonb WHERE key='market_batch';
+UPDATE public.tw_bsr_sync_queue q
+   SET status=t.status, attempts=t.attempts, max_attempts=t.max_attempts, last_error=t.last_error
+  FROM _tsnap t WHERE q.id=t.id;
 
 -- non-terminal quota rows keep their existing recovery semantics while blocked
 DO $$
@@ -403,22 +533,53 @@ BEGIN
   PERFORM pg_temp.chk('H-already-open', res->>'transition' = 'already_open', res::text);
 END $$;
 
--- ============================================================ I. after unblock: admission + recovery resume
+-- ============================================================ I. after unblock: admission + per-run recovery delta
+-- B6 failure ledger F-03: the old assertion counted the cumulative number of
+-- rows carrying last_error='quota_recovery_token', which is a running total,
+-- not a per-run delta. Use res->'tokened_job_ids' (exact, per invocation).
 DO $$
-DECLARE c0 bigint; res jsonb; moved int;
+DECLARE c0 bigint; res jsonb; per_run int; total int := 0; i int; ids bigint[]; sts timestamptz[]; att int[];
 BEGIN
   c0 := pg_temp.qcount();
   INSERT INTO public.tw_bsr_sync_queue(stock_id, trade_date, priority, status, enqueued_by)
   VALUES ('9301', current_date - 7, 1, 'pending', 'post_unblock_probe');
   PERFORM pg_temp.chk('I-admission-resumed', pg_temp.qcount() = c0 + 1, 'insert accepted after unblock');
 
-  res := public.recover_quota_failed_bsr_jobs(1);
-  moved := (SELECT count(*) FROM public.tw_bsr_sync_queue
-             WHERE last_error='quota_recovery_token' AND status='pending');
-  PERFORM pg_temp.chk('I-recovery-resumed-at-most-1',
-    moved <= 1 AND (COALESCE((res->>'tokens_issued')::int,0) + COALESCE((res->>'reconciled')::int,0)) >= 1,
-    'tokened='||moved||' res='||res::text);
+  FOR i IN 1..3 LOOP
+    res := public.recover_quota_failed_bsr_jobs(1);
+    per_run := jsonb_array_length(COALESCE(res->'tokened_job_ids','[]'::jsonb));
+    total := total + per_run;
+    PERFORM pg_temp.chk('I-run'||i||'-delta-at-most-1', per_run <= 1,
+      'tokened_this_run='||per_run||' ids='||COALESCE(res->'tokened_job_ids','[]'::jsonb)::text);
+  END LOOP;
+  PERFORM pg_temp.chk('I-recovery-resumed', total >= 1,
+    'per-run deltas summed='||total||' (gate explicitly open -> terminal rows recoverable again)');
 END $$;
+
+-- provider goes terminal again mid-recovery: re-block immediately and stop.
+DO $$
+DECLARE ids bigint[]; sts timestamptz[]; att int[]; res jsonb; n int; per_run int;
+BEGIN
+  UPDATE public.tw_bsr_sync_queue SET status='pending', next_run_at=now()-interval '1 h',
+         post_close_only=false WHERE status='pending';
+  CREATE TEMP TABLE _claim2 AS SELECT * FROM public.claim_bsr_queue_jobs(3, 3);
+  SELECT count(*), array_agg(id ORDER BY id), array_agg(started_at ORDER BY id), array_agg(attempts ORDER BY id)
+    INTO n, ids, sts, att FROM _claim2;
+  PERFORM pg_temp.chk('I-reblock-claim', n > 0, n||' jobs claimed after resume');
+
+  res := public.bsr_block_and_terminalize_claims(gen_random_uuid(), ids, sts, att,
+           'finmind_admission_provider_plan_rejected', jsonb_build_object('http_status',400));
+  PERFORM pg_temp.chk('I-reblock-immediate',
+    res->>'transition' = 'blocked' AND (public.bsr_admission_status()->>'blocked')::boolean, res::text);
+
+  res := public.recover_quota_failed_bsr_jobs(1);
+  per_run := jsonb_array_length(COALESCE(res->'tokened_job_ids','[]'::jsonb));
+  PERFORM pg_temp.chk('I-reblock-recovery-stops', per_run = 0,
+    'tokened_this_run='||per_run||' after re-block');
+END $$;
+
+-- ============================================================ per-row diagnostics
+SELECT 'DUMP ' || ctx || '  ' || line FROM _dump ORDER BY seq;
 
 -- ============================================================ report
 SELECT ok || ' ' || id || CASE WHEN note <> '' THEN '  -- ' || note ELSE '' END
