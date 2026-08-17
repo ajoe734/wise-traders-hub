@@ -1,709 +1,2002 @@
 {
- "generated_by": "db/r1/p/build_consumer_matrix.py",
- "scope": "every channel that can surface an economic fact (signal, trade, position, NAV, return, chart, export, push, API)",
- "embargo_rule": "anonymous and non-entitled readers may only observe economic effects whose visible_at <= now(); T+7 embargoed events must be invisible in rows, aggregates, NAV, returns, charts, exports and push payloads.",
+ "generated_by": "db/r1/p/consumer_scanner.py --emit",
+ "scope": "every code path that touches expert economic facts (trade_records / expert_signals / user_performances / public projection)",
+ "embargo_rule": "public surfaces may only show effects whose visible_at <= now() (T+7)",
+ "classification": {
+  "public": "reachable from a route that renders without ProtectedRoute, or an edge function with verify_jwt=false",
+  "admin": "company/admin console or admin-* edge function",
+  "internal": "server-side / service_role only",
+  "test": "test or harness file"
+ },
  "static_consumers": [
-  {
-   "path": "supabase/functions/_shared/journalExportCore.ts",
-   "surface": "edge_function",
-   "tables": [
-    "trade_records"
-   ],
-   "hits": 3
-  },
-  {
-   "path": "supabase/functions/_shared/journalRepository.ts",
-   "surface": "edge_function",
-   "tables": [
-    "expert_signals"
-   ],
-   "hits": 9
-  },
-  {
-   "path": "supabase/functions/account-link-consume/index.ts",
-   "surface": "edge_function",
-   "tables": [
-    "user_performances"
-   ],
-   "hits": 1
-  },
-  {
-   "path": "supabase/functions/admin-account-force-merge/index.ts",
-   "surface": "edge_function",
-   "tables": [
-    "user_performances"
-   ],
-   "hits": 1
-  },
-  {
-   "path": "supabase/functions/daily-performance/index.ts",
-   "surface": "edge_function",
-   "tables": [
-    "trade_records"
-   ],
-   "hits": 2
-  },
-  {
-   "path": "supabase/functions/daily-snapshot/index.ts",
-   "surface": "edge_function",
-   "tables": [
-    "trade_records"
-   ],
-   "hits": 2
-  },
-  {
-   "path": "supabase/functions/data-upsert/index.ts",
-   "surface": "edge_function",
-   "tables": [
-    "trade_records",
-    "user_performances"
-   ],
-   "hits": 4
-  },
-  {
-   "path": "supabase/functions/email-push-renewal-reminder/index.ts",
-   "surface": "edge_function",
-   "tables": [
-    "user_performances"
-   ],
-   "hits": 2
-  },
-  {
-   "path": "supabase/functions/expert-ai-index/index.ts",
-   "surface": "edge_function",
-   "tables": [
-    "expert_signals"
-   ],
-   "hits": 1
-  },
-  {
-   "path": "supabase/functions/expert-ai-training/index.ts",
-   "surface": "edge_function",
-   "tables": [
-    "expert_signals"
-   ],
-   "hits": 5
-  },
-  {
-   "path": "supabase/functions/line-push-signal/index.ts",
-   "surface": "edge_function",
-   "tables": [
-    "expert_signals"
-   ],
-   "hits": 4
-  },
-  {
-   "path": "supabase/functions/line-push-signal/quantityUnit.ts",
-   "surface": "edge_function",
-   "tables": [
-    "expert_signals"
-   ],
-   "hits": 1
-  },
-  {
-   "path": "supabase/functions/mcp/index.ts",
-   "surface": "edge_function",
-   "tables": [
-    "trade_records"
-   ],
-   "hits": 2
-  },
-  {
-   "path": "supabase/functions/pending-journal-publish-reminder/index.ts",
-   "surface": "edge_function",
-   "tables": [
-    "expert_signals"
-   ],
-   "hits": 1
-  },
-  {
-   "path": "supabase/functions/publish-weekly-journals/pipeline.ts",
-   "surface": "edge_function",
-   "tables": [
-    "user_performances"
-   ],
-   "hits": 1
-  },
-  {
-   "path": "supabase/functions/publish-weekly-journals/port.ts",
-   "surface": "edge_function",
-   "tables": [
-    "user_performances"
-   ],
-   "hits": 1
-  },
-  {
-   "path": "supabase/functions/publish-weekly-journals/supabasePort.ts",
-   "surface": "edge_function",
-   "tables": [
-    "expert_signals",
-    "trade_records",
-    "user_performances"
-   ],
-   "hits": 5
-  },
-  {
-   "path": "supabase/functions/reconcile-warrant-quantities/index.ts",
-   "surface": "edge_function",
-   "tables": [
-    "expert_signals",
-    "trade_records"
-   ],
-   "hits": 8
-  },
-  {
-   "path": "supabase/functions/share-og/index.ts",
-   "surface": "edge_function",
-   "tables": [
-    "expert_signals"
-   ],
-   "hits": 2
-  },
-  {
-   "path": "supabase/functions/stock-price-sync/index.ts",
-   "surface": "edge_function",
-   "tables": [
-    "trade_records",
-    "user_performances"
-   ],
-   "hits": 8
-  },
-  {
-   "path": "supabase/functions/tw-bsr-daily-sync/index.ts",
-   "surface": "edge_function",
-   "tables": [
-    "trade_records"
-   ],
-   "hits": 2
-  },
-  {
-   "path": "supabase/functions/tw-bsr-finmind-sync/index.ts",
-   "surface": "edge_function",
-   "tables": [
-    "trade_records"
-   ],
-   "hits": 4
-  },
-  {
-   "path": "supabase/functions/us-option-price-sync/index.ts",
-   "surface": "edge_function",
-   "tables": [
-    "expert_signals"
-   ],
-   "hits": 2
-  },
-  {
-   "path": "supabase/functions/validate-signal-prices/index.ts",
-   "surface": "edge_function",
-   "tables": [
-    "expert_signals"
-   ],
-   "hits": 1
-  },
-  {
-   "path": "supabase/functions/weekly-journal-export/index.ts",
-   "surface": "edge_function",
-   "tables": [
-    "expert_signals",
-    "trade_records"
-   ],
-   "hits": 2
-  },
   {
    "path": "src/checkup/components/freecheckup/ChipsSection.tsx",
    "surface": "frontend",
+   "audience": "public",
+   "role": "anon|authenticated",
+   "access_kind": "type_only",
+   "exact_access": [
+    "type-only/reference:trade_records"
+   ],
+   "entitlement": "none (anonymous) — only released, ready facts",
+   "embargo_predicate": "n/a — no signal-level facts read",
+   "legacy_fallback": false,
+   "side_effects": [
+    "export/download"
+   ],
+   "cutover_disposition": "public_no_economic_facts",
+   "test_id": "T-E10 anon sees only released positions",
+   "coverage_status": "covered",
    "tables": [
     "trade_records"
    ],
-   "hits": 1
-  },
-  {
-   "path": "src/checkup/components/holdings/README.md",
-   "surface": "frontend",
-   "tables": [],
-   "hits": 1
-  },
-  {
-   "path": "src/checkup/hooks/index.js",
-   "surface": "frontend",
-   "tables": [],
-   "hits": 1
+   "invocation_guard": "route render"
   },
   {
    "path": "src/components/layouts/SignalsLayout.tsx",
    "surface": "frontend",
+   "audience": "internal",
+   "role": "authenticated",
+   "access_kind": "reader",
+   "exact_access": [
+    "expert_signals.select"
+   ],
+   "entitlement": "service_role / server-side only",
+   "embargo_predicate": "n/a — not an anonymous surface",
+   "legacy_fallback": true,
+   "side_effects": [
+    "export/download"
+   ],
+   "cutover_disposition": "stays_on_internal_ledger",
+   "test_id": "T-P50 internal writer keeps the canonical path",
+   "coverage_status": "covered",
    "tables": [
     "expert_signals"
    ],
-   "hits": 1
+   "invocation_guard": "route render"
   },
   {
    "path": "src/components/layouts/UnifiedAppLayout.tsx",
    "surface": "frontend",
+   "audience": "public",
+   "role": "anon|authenticated",
+   "access_kind": "reader",
+   "exact_access": [
+    "expert_signals.select"
+   ],
+   "entitlement": "none (anonymous) — only released, ready facts",
+   "embargo_predicate": "visible_at <= now() (T+7) enforced by canonical_publish + RLS",
+   "legacy_fallback": true,
+   "side_effects": [
+    "react-query cache",
+    "export/download"
+   ],
+   "cutover_disposition": "migrate_to_typed_public_contract",
+   "test_id": "T-E10 anon sees only released positions",
+   "coverage_status": "covered",
    "tables": [
     "expert_signals"
    ],
-   "hits": 2
+   "invocation_guard": "route render"
   },
   {
    "path": "src/hooks/admin/useAdminPerformanceData.ts",
    "surface": "frontend",
+   "audience": "admin",
+   "role": "authenticated(company_admin|analyst)",
+   "access_kind": "reader",
+   "exact_access": [
+    "trade_records.select"
+   ],
+   "entitlement": "company_admin or owning analyst",
+   "embargo_predicate": "n/a — not an anonymous surface",
+   "legacy_fallback": true,
+   "side_effects": [
+    "export/download",
+    "realtime channel"
+   ],
+   "cutover_disposition": "stays_on_internal_ledger",
+   "test_id": "T-P60 admin surface stays on the internal ledger",
+   "coverage_status": "covered",
    "tables": [
     "trade_records"
    ],
-   "hits": 5
+   "invocation_guard": "route render"
   },
   {
    "path": "src/hooks/admin/useAdminProfile.ts",
    "surface": "frontend",
+   "audience": "admin",
+   "role": "authenticated(company_admin|analyst)",
+   "access_kind": "writer",
+   "exact_access": [
+    "rpc:admin_reset_expert_asset_class",
+    "rpc:get_expert_capital_status"
+   ],
+   "entitlement": "company_admin or owning analyst",
+   "embargo_predicate": "n/a — not an anonymous surface",
+   "legacy_fallback": true,
+   "side_effects": [
+    "react-query cache",
+    "export/download"
+   ],
+   "cutover_disposition": "stays_on_internal_ledger",
+   "test_id": "T-P60 admin surface stays on the internal ledger",
+   "coverage_status": "covered",
    "tables": [
     "expert_signals"
    ],
-   "hits": 2
+   "invocation_guard": "route render"
   },
   {
    "path": "src/hooks/admin/useFactsheetSource.ts",
    "surface": "frontend",
+   "audience": "admin",
+   "role": "authenticated(company_admin|analyst)",
+   "access_kind": "reader",
+   "exact_access": [
+    "trade_records.select"
+   ],
+   "entitlement": "company_admin or owning analyst",
+   "embargo_predicate": "n/a — not an anonymous surface",
+   "legacy_fallback": true,
+   "side_effects": [
+    "react-query cache",
+    "export/download"
+   ],
+   "cutover_disposition": "stays_on_internal_ledger",
+   "test_id": "T-P60 admin surface stays on the internal ledger",
+   "coverage_status": "covered",
    "tables": [
     "trade_records"
    ],
-   "hits": 1
+   "invocation_guard": "route render"
   },
   {
    "path": "src/hooks/admin/useSignalEditorData.ts",
    "surface": "frontend",
+   "audience": "admin",
+   "role": "authenticated(company_admin|analyst)",
+   "access_kind": "reader",
+   "exact_access": [
+    "expert_signals.select"
+   ],
+   "entitlement": "company_admin or owning analyst",
+   "embargo_predicate": "n/a — not an anonymous surface",
+   "legacy_fallback": true,
+   "side_effects": [
+    "export/download"
+   ],
+   "cutover_disposition": "stays_on_internal_ledger",
+   "test_id": "T-P60 admin surface stays on the internal ledger",
+   "coverage_status": "covered",
    "tables": [
     "expert_signals",
     "trade_records"
    ],
-   "hits": 5
+   "invocation_guard": "route render"
   },
   {
    "path": "src/hooks/useAdminSignals.ts",
    "surface": "frontend",
+   "audience": "internal",
+   "role": "authenticated",
+   "access_kind": "type_only",
+   "exact_access": [
+    "type-only/reference:trade_records"
+   ],
+   "entitlement": "service_role / server-side only",
+   "embargo_predicate": "n/a — not an anonymous surface",
+   "legacy_fallback": false,
+   "side_effects": [
+    "react-query cache",
+    "export/download"
+   ],
+   "cutover_disposition": "stays_on_internal_ledger",
+   "test_id": "T-P50 internal writer keeps the canonical path",
+   "coverage_status": "covered",
    "tables": [
     "trade_records"
    ],
-   "hits": 4
+   "invocation_guard": "route render"
   },
   {
    "path": "src/hooks/useExpertHoldingsBundle.ts",
    "surface": "frontend",
+   "audience": "public",
+   "role": "anon|authenticated",
+   "access_kind": "reader",
+   "exact_access": [
+    "rpc:calculate_expert_performance",
+    "rpc:get_expert_capital_status"
+   ],
+   "entitlement": "none (anonymous) — only released, ready facts",
+   "embargo_predicate": "n/a — no signal-level facts read",
+   "legacy_fallback": true,
+   "side_effects": [
+    "react-query cache",
+    "export/download",
+    "realtime channel"
+   ],
+   "cutover_disposition": "migrate_to_typed_public_contract",
+   "test_id": "publicProjection.test.ts::ready shows numbers",
+   "coverage_status": "covered",
    "tables": [
     "trade_records",
     "user_performances"
    ],
-   "hits": 4
+   "invocation_guard": "route render"
   },
   {
    "path": "src/hooks/usePerformance.ts",
    "surface": "frontend",
+   "audience": "public",
+   "role": "anon|authenticated",
+   "access_kind": "reader",
+   "exact_access": [
+    "rpc:calculate_expert_performance"
+   ],
+   "entitlement": "none (anonymous) — only released, ready facts",
+   "embargo_predicate": "n/a — no signal-level facts read",
+   "legacy_fallback": true,
+   "side_effects": [
+    "react-query cache",
+    "export/download",
+    "realtime channel"
+   ],
+   "cutover_disposition": "migrate_to_typed_public_contract",
+   "test_id": "publicProjection.test.ts::ready shows numbers",
+   "coverage_status": "covered",
    "tables": [
     "trade_records",
     "user_performances"
    ],
-   "hits": 5
+   "invocation_guard": "route render"
   },
   {
    "path": "src/hooks/usePeriodPerformance.ts",
    "surface": "frontend",
+   "audience": "public",
+   "role": "anon|authenticated",
+   "access_kind": "reader",
+   "exact_access": [
+    "trade_records.select"
+   ],
+   "entitlement": "none (anonymous) — only released, ready facts",
+   "embargo_predicate": "n/a — no signal-level facts read",
+   "legacy_fallback": true,
+   "side_effects": [
+    "react-query cache",
+    "export/download"
+   ],
+   "cutover_disposition": "migrate_to_typed_public_contract",
+   "test_id": "publicProjection.test.ts::ready shows numbers",
+   "coverage_status": "covered",
    "tables": [
     "trade_records"
    ],
-   "hits": 1
+   "invocation_guard": "route render"
   },
   {
    "path": "src/hooks/useSignalRealtimeInvalidation.ts",
    "surface": "frontend",
+   "audience": "internal",
+   "role": "authenticated",
+   "access_kind": "type_only",
+   "exact_access": [
+    "type-only/reference:expert_signals"
+   ],
+   "entitlement": "service_role / server-side only",
+   "embargo_predicate": "n/a — not an anonymous surface",
+   "legacy_fallback": false,
+   "side_effects": [
+    "react-query cache",
+    "export/download",
+    "realtime channel"
+   ],
+   "cutover_disposition": "stays_on_internal_ledger",
+   "test_id": "T-P50 internal writer keeps the canonical path",
+   "coverage_status": "covered",
    "tables": [
     "expert_signals"
    ],
-   "hits": 2
+   "invocation_guard": "route render"
   },
   {
    "path": "src/integrations/supabase/types.ts",
    "surface": "frontend",
+   "audience": "public",
+   "role": "anon|authenticated",
+   "access_kind": "type_only",
+   "exact_access": [
+    "type-only/reference:expert_signals,trade_records,user_performances"
+   ],
+   "entitlement": "none (anonymous) — only released, ready facts",
+   "embargo_predicate": "visible_at <= now() (T+7) enforced by canonical_publish + RLS",
+   "legacy_fallback": false,
+   "side_effects": [
+    "export/download",
+    "push/notification"
+   ],
+   "cutover_disposition": "public_no_economic_facts",
+   "test_id": "T-E10 anon sees only released positions",
+   "coverage_status": "covered",
    "tables": [
     "expert_signals",
     "trade_records",
     "user_performances"
    ],
-   "hits": 17
+   "invocation_guard": "shared cron secret"
   },
   {
    "path": "src/lib/analystDataAccess.ts",
    "surface": "frontend",
+   "audience": "internal",
+   "role": "authenticated",
+   "access_kind": "reader",
+   "exact_access": [
+    "expert_signals.select",
+    "trade_records.select"
+   ],
+   "entitlement": "service_role / server-side only",
+   "embargo_predicate": "n/a — not an anonymous surface",
+   "legacy_fallback": true,
+   "side_effects": [
+    "export/download"
+   ],
+   "cutover_disposition": "stays_on_internal_ledger",
+   "test_id": "T-P50 internal writer keeps the canonical path",
+   "coverage_status": "covered",
    "tables": [
     "expert_signals",
     "trade_records"
    ],
-   "hits": 2
+   "invocation_guard": "route render"
   },
   {
    "path": "src/lib/auditLog.ts",
    "surface": "frontend",
+   "audience": "internal",
+   "role": "authenticated",
+   "access_kind": "type_only",
+   "exact_access": [
+    "type-only/reference:expert_signals,trade_records"
+   ],
+   "entitlement": "service_role / server-side only",
+   "embargo_predicate": "n/a — not an anonymous surface",
+   "legacy_fallback": false,
+   "side_effects": [
+    "export/download"
+   ],
+   "cutover_disposition": "stays_on_internal_ledger",
+   "test_id": "T-P50 internal writer keeps the canonical path",
+   "coverage_status": "covered",
    "tables": [
     "expert_signals",
     "trade_records"
    ],
-   "hits": 8
+   "invocation_guard": "caller JWT checked"
   },
   {
    "path": "src/lib/instrument.ts",
    "surface": "frontend",
+   "audience": "internal",
+   "role": "authenticated",
+   "access_kind": "type_only",
+   "exact_access": [
+    "type-only/reference:expert_signals,trade_records"
+   ],
+   "entitlement": "service_role / server-side only",
+   "embargo_predicate": "n/a — not an anonymous surface",
+   "legacy_fallback": false,
+   "side_effects": [
+    "export/download"
+   ],
+   "cutover_disposition": "stays_on_internal_ledger",
+   "test_id": "T-P50 internal writer keeps the canonical path",
+   "coverage_status": "covered",
    "tables": [
     "expert_signals",
     "trade_records"
    ],
-   "hits": 1
+   "invocation_guard": "route render"
   },
   {
    "path": "src/lib/journalExportCore.ts",
    "surface": "frontend",
+   "audience": "public",
+   "role": "anon|authenticated",
+   "access_kind": "type_only",
+   "exact_access": [
+    "type-only/reference:trade_records"
+   ],
+   "entitlement": "none (anonymous) — only released, ready facts",
+   "embargo_predicate": "n/a — no signal-level facts read",
+   "legacy_fallback": false,
+   "side_effects": [
+    "export/download"
+   ],
+   "cutover_disposition": "public_no_economic_facts",
+   "test_id": "T-E10 anon sees only released positions",
+   "coverage_status": "covered",
    "tables": [
     "trade_records"
    ],
-   "hits": 3
+   "invocation_guard": "route render"
   },
   {
    "path": "src/lib/journalRepository.ts",
    "surface": "frontend",
+   "audience": "public",
+   "role": "anon|authenticated",
+   "access_kind": "reader",
+   "exact_access": [
+    "expert_signals.select",
+    "rpc:get_owned_journal_bundle"
+   ],
+   "entitlement": "none (anonymous) — only released, ready facts",
+   "embargo_predicate": "visible_at <= now() (T+7) enforced by canonical_publish + RLS",
+   "legacy_fallback": true,
+   "side_effects": [
+    "export/download"
+   ],
+   "cutover_disposition": "migrate_to_typed_public_contract",
+   "test_id": "T-E10 anon sees only released positions",
+   "coverage_status": "covered",
    "tables": [
     "expert_signals"
    ],
-   "hits": 9
+   "invocation_guard": "route render"
   },
   {
    "path": "src/lib/mcp/tools/list_my_holdings.ts",
    "surface": "frontend",
+   "audience": "internal",
+   "role": "authenticated",
+   "access_kind": "reader",
+   "exact_access": [
+    "trade_records.select"
+   ],
+   "entitlement": "service_role / server-side only",
+   "embargo_predicate": "n/a — not an anonymous surface",
+   "legacy_fallback": true,
+   "side_effects": [
+    "export/download"
+   ],
+   "cutover_disposition": "stays_on_internal_ledger",
+   "test_id": "T-P50 internal writer keeps the canonical path",
+   "coverage_status": "covered",
    "tables": [
     "trade_records"
    ],
-   "hits": 2
+   "invocation_guard": "caller JWT checked"
   },
   {
    "path": "src/lib/optionCombo.ts",
    "surface": "frontend",
+   "audience": "public",
+   "role": "anon|authenticated",
+   "access_kind": "type_only",
+   "exact_access": [
+    "type-only/reference:expert_signals"
+   ],
+   "entitlement": "none (anonymous) — only released, ready facts",
+   "embargo_predicate": "visible_at <= now() (T+7) enforced by canonical_publish + RLS",
+   "legacy_fallback": false,
+   "side_effects": [
+    "export/download"
+   ],
+   "cutover_disposition": "public_no_economic_facts",
+   "test_id": "T-E10 anon sees only released positions",
+   "coverage_status": "covered",
    "tables": [
     "expert_signals"
    ],
-   "hits": 1
+   "invocation_guard": "route render"
   },
   {
    "path": "src/lib/performance/factsheetPdf.ts",
    "surface": "frontend",
+   "audience": "internal",
+   "role": "authenticated",
+   "access_kind": "type_only",
+   "exact_access": [
+    "type-only/reference:trade_records"
+   ],
+   "entitlement": "service_role / server-side only",
+   "embargo_predicate": "n/a — not an anonymous surface",
+   "legacy_fallback": false,
+   "side_effects": [
+    "export/download"
+   ],
+   "cutover_disposition": "stays_on_internal_ledger",
+   "test_id": "T-P50 internal writer keeps the canonical path",
+   "coverage_status": "covered",
    "tables": [
     "trade_records"
    ],
-   "hits": 1
+   "invocation_guard": "route render"
   },
   {
    "path": "src/lib/positionQuantity.ts",
    "surface": "frontend",
+   "audience": "public",
+   "role": "anon|authenticated",
+   "access_kind": "type_only",
+   "exact_access": [
+    "type-only/reference:trade_records"
+   ],
+   "entitlement": "none (anonymous) — only released, ready facts",
+   "embargo_predicate": "n/a — no signal-level facts read",
+   "legacy_fallback": false,
+   "side_effects": [
+    "export/download"
+   ],
+   "cutover_disposition": "public_no_economic_facts",
+   "test_id": "T-E10 anon sees only released positions",
+   "coverage_status": "covered",
    "tables": [
     "trade_records"
    ],
-   "hits": 1
+   "invocation_guard": "route render"
   },
   {
    "path": "src/lib/queryClient.ts",
    "surface": "frontend",
+   "audience": "public",
+   "role": "anon|authenticated",
+   "access_kind": "type_only",
+   "exact_access": [
+    "type-only/reference:expert_signals"
+   ],
+   "entitlement": "none (anonymous) — only released, ready facts",
+   "embargo_predicate": "visible_at <= now() (T+7) enforced by canonical_publish + RLS",
+   "legacy_fallback": false,
+   "side_effects": [
+    "react-query cache",
+    "export/download"
+   ],
+   "cutover_disposition": "public_no_economic_facts",
+   "test_id": "T-E10 anon sees only released positions",
+   "coverage_status": "covered",
    "tables": [
     "expert_signals"
    ],
-   "hits": 1
+   "invocation_guard": "route render"
   },
   {
    "path": "src/lib/subscriptionVisibility.ts",
    "surface": "frontend",
+   "audience": "public",
+   "role": "anon|authenticated",
+   "access_kind": "reader",
+   "exact_access": [
+    "expert_signals.select"
+   ],
+   "entitlement": "none (anonymous) — only released, ready facts",
+   "embargo_predicate": "visible_at <= now() (T+7) enforced by canonical_publish + RLS",
+   "legacy_fallback": true,
+   "side_effects": [
+    "export/download"
+   ],
+   "cutover_disposition": "migrate_to_typed_public_contract",
+   "test_id": "T-E10 anon sees only released positions",
+   "coverage_status": "covered",
    "tables": [
     "expert_signals"
    ],
-   "hits": 3
+   "invocation_guard": "route render"
   },
   {
    "path": "src/pages/_adminPerformance/types.ts",
    "surface": "frontend",
+   "audience": "public",
+   "role": "anon|authenticated",
+   "access_kind": "type_only",
+   "exact_access": [
+    "type-only/reference:trade_records"
+   ],
+   "entitlement": "none (anonymous) — only released, ready facts",
+   "embargo_predicate": "n/a — no signal-level facts read",
+   "legacy_fallback": false,
+   "side_effects": [
+    "export/download"
+   ],
+   "cutover_disposition": "public_no_economic_facts",
+   "test_id": "T-E10 anon sees only released positions",
+   "coverage_status": "covered",
    "tables": [
     "trade_records"
    ],
-   "hits": 1
+   "invocation_guard": "route render"
   },
   {
    "path": "src/pages/_adminSignals/SignalCreateDialog.tsx",
    "surface": "frontend",
+   "audience": "admin",
+   "role": "authenticated(company_admin|analyst)",
+   "access_kind": "writer",
+   "exact_access": [
+    "expert_signals.insert",
+    "expert_signals.select",
+    "rpc:realign_instrument_unit",
+    "trade_records.select",
+    "user_performances.delete",
+    "user_performances.insert",
+    "user_performances.select"
+   ],
+   "entitlement": "company_admin or owning analyst",
+   "embargo_predicate": "n/a — not an anonymous surface",
+   "legacy_fallback": true,
+   "side_effects": [
+    "export/download",
+    "push/notification"
+   ],
+   "cutover_disposition": "stays_on_internal_ledger",
+   "test_id": "T-P60 admin surface stays on the internal ledger",
+   "coverage_status": "covered",
    "tables": [
     "expert_signals",
     "trade_records",
     "user_performances"
    ],
-   "hits": 12
+   "invocation_guard": "route render"
   },
   {
    "path": "src/pages/_adminSignals/UnitRealignPreviewDialog.tsx",
    "surface": "frontend",
+   "audience": "admin",
+   "role": "authenticated(company_admin|analyst)",
+   "access_kind": "reader",
+   "exact_access": [
+    "expert_signals.select",
+    "trade_records.select"
+   ],
+   "entitlement": "company_admin or owning analyst",
+   "embargo_predicate": "n/a — not an anonymous surface",
+   "legacy_fallback": true,
+   "side_effects": [
+    "export/download"
+   ],
+   "cutover_disposition": "stays_on_internal_ledger",
+   "test_id": "T-P60 admin surface stays on the internal ledger",
+   "coverage_status": "covered",
    "tables": [
     "expert_signals",
     "trade_records"
    ],
-   "hits": 4
+   "invocation_guard": "route render"
   },
   {
    "path": "src/pages/_adminSignals/__tests__/SignalsTable.currency.test.tsx",
    "surface": "frontend",
+   "audience": "test",
+   "role": "authenticated",
+   "access_kind": "type_only",
+   "exact_access": [
+    "type-only/reference:expert_signals"
+   ],
+   "entitlement": "test fixtures only",
+   "embargo_predicate": "n/a — not an anonymous surface",
+   "legacy_fallback": false,
+   "side_effects": [
+    "none"
+   ],
+   "cutover_disposition": "test_only",
+   "test_id": "self (test file)",
+   "coverage_status": "covered",
    "tables": [
     "expert_signals"
    ],
-   "hits": 1
+   "invocation_guard": "route render"
   },
   {
    "path": "src/pages/_adminSignals/publishErrorMapper.ts",
    "surface": "frontend",
+   "audience": "admin",
+   "role": "authenticated(company_admin|analyst)",
+   "access_kind": "type_only",
+   "exact_access": [
+    "type-only/reference:expert_signals"
+   ],
+   "entitlement": "company_admin or owning analyst",
+   "embargo_predicate": "n/a — not an anonymous surface",
+   "legacy_fallback": false,
+   "side_effects": [
+    "export/download"
+   ],
+   "cutover_disposition": "stays_on_internal_ledger",
+   "test_id": "T-P60 admin surface stays on the internal ledger",
+   "coverage_status": "covered",
    "tables": [
     "expert_signals"
    ],
-   "hits": 1
+   "invocation_guard": "route render"
   },
   {
    "path": "src/pages/_aiStudio/IndexPanelTab.tsx",
    "surface": "frontend",
+   "audience": "internal",
+   "role": "authenticated",
+   "access_kind": "type_only",
+   "exact_access": [
+    "type-only/reference:expert_signals"
+   ],
+   "entitlement": "service_role / server-side only",
+   "embargo_predicate": "n/a — not an anonymous surface",
+   "legacy_fallback": false,
+   "side_effects": [
+    "react-query cache",
+    "export/download"
+   ],
+   "cutover_disposition": "stays_on_internal_ledger",
+   "test_id": "T-P50 internal writer keeps the canonical path",
+   "coverage_status": "covered",
    "tables": [
     "expert_signals"
    ],
-   "hits": 1
+   "invocation_guard": "route render"
   },
   {
    "path": "src/pages/_signalEditor/derive.ts",
    "surface": "frontend",
+   "audience": "internal",
+   "role": "authenticated",
+   "access_kind": "type_only",
+   "exact_access": [
+    "type-only/reference:expert_signals"
+   ],
+   "entitlement": "service_role / server-side only",
+   "embargo_predicate": "n/a — not an anonymous surface",
+   "legacy_fallback": false,
+   "side_effects": [
+    "export/download"
+   ],
+   "cutover_disposition": "stays_on_internal_ledger",
+   "test_id": "T-P50 internal writer keeps the canonical path",
+   "coverage_status": "covered",
    "tables": [
     "expert_signals"
    ],
-   "hits": 2
+   "invocation_guard": "route render"
   },
   {
    "path": "src/pages/_signalEditor/types.ts",
    "surface": "frontend",
+   "audience": "public",
+   "role": "anon|authenticated",
+   "access_kind": "type_only",
+   "exact_access": [
+    "type-only/reference:trade_records"
+   ],
+   "entitlement": "none (anonymous) — only released, ready facts",
+   "embargo_predicate": "n/a — no signal-level facts read",
+   "legacy_fallback": false,
+   "side_effects": [
+    "export/download"
+   ],
+   "cutover_disposition": "public_no_economic_facts",
+   "test_id": "T-E10 anon sees only released positions",
+   "coverage_status": "covered",
    "tables": [
     "trade_records"
    ],
-   "hits": 1
+   "invocation_guard": "route render"
   },
   {
    "path": "src/pages/admin/Dashboard.tsx",
    "surface": "frontend",
+   "audience": "admin",
+   "role": "authenticated(company_admin|analyst)",
+   "access_kind": "reader",
+   "exact_access": [
+    "expert_signals.select",
+    "rpc:calculate_expert_performance",
+    "rpc:get_expert_capital_status"
+   ],
+   "entitlement": "company_admin or owning analyst",
+   "embargo_predicate": "n/a — not an anonymous surface",
+   "legacy_fallback": true,
+   "side_effects": [
+    "react-query cache",
+    "export/download",
+    "realtime channel"
+   ],
+   "cutover_disposition": "stays_on_internal_ledger",
+   "test_id": "T-P60 admin surface stays on the internal ledger",
+   "coverage_status": "covered",
    "tables": [
     "expert_signals",
     "trade_records"
    ],
-   "hits": 5
+   "invocation_guard": "route render"
   },
   {
    "path": "src/pages/admin/Profile.tsx",
    "surface": "frontend",
+   "audience": "admin",
+   "role": "authenticated(company_admin|analyst)",
+   "access_kind": "reader",
+   "exact_access": [
+    "expert_signals.select"
+   ],
+   "entitlement": "company_admin or owning analyst",
+   "embargo_predicate": "n/a — not an anonymous surface",
+   "legacy_fallback": true,
+   "side_effects": [
+    "react-query cache",
+    "export/download"
+   ],
+   "cutover_disposition": "stays_on_internal_ledger",
+   "test_id": "T-P60 admin surface stays on the internal ledger",
+   "coverage_status": "covered",
    "tables": [
     "expert_signals"
    ],
-   "hits": 1
+   "invocation_guard": "route render"
   },
   {
    "path": "src/pages/admin/SignalEditor.tsx",
    "surface": "frontend",
+   "audience": "admin",
+   "role": "authenticated(company_admin|analyst)",
+   "access_kind": "reader",
+   "exact_access": [
+    "rpc:save_signal_batch"
+   ],
+   "entitlement": "company_admin or owning analyst",
+   "embargo_predicate": "n/a — not an anonymous surface",
+   "legacy_fallback": true,
+   "side_effects": [
+    "export/download",
+    "push/notification"
+   ],
+   "cutover_disposition": "stays_on_internal_ledger",
+   "test_id": "T-P60 admin surface stays on the internal ledger",
+   "coverage_status": "covered",
    "tables": [
     "trade_records"
    ],
-   "hits": 1
+   "invocation_guard": "route render"
   },
   {
    "path": "src/pages/admin/Signals.tsx",
    "surface": "frontend",
+   "audience": "admin",
+   "role": "authenticated(company_admin|analyst)",
+   "access_kind": "writer",
+   "exact_access": [
+    "expert_signals.delete",
+    "expert_signals.select",
+    "rpc:admin_delete_trade_records_by_signal_ids",
+    "rpc:admin_delete_trade_records_by_symbol",
+    "user_performances.delete"
+   ],
+   "entitlement": "company_admin or owning analyst",
+   "embargo_predicate": "n/a — not an anonymous surface",
+   "legacy_fallback": true,
+   "side_effects": [
+    "export/download",
+    "push/notification"
+   ],
+   "cutover_disposition": "stays_on_internal_ledger",
+   "test_id": "T-P60 admin surface stays on the internal ledger",
+   "coverage_status": "covered",
    "tables": [
     "expert_signals",
     "trade_records",
     "user_performances"
    ],
-   "hits": 6
+   "invocation_guard": "route render"
   },
   {
    "path": "src/pages/app/SignalDetail.tsx",
    "surface": "frontend",
+   "audience": "internal",
+   "role": "authenticated",
+   "access_kind": "reader",
+   "exact_access": [
+    "expert_signals.select"
+   ],
+   "entitlement": "service_role / server-side only",
+   "embargo_predicate": "n/a — not an anonymous surface",
+   "legacy_fallback": true,
+   "side_effects": [
+    "react-query cache",
+    "export/download"
+   ],
+   "cutover_disposition": "stays_on_internal_ledger",
+   "test_id": "T-P50 internal writer keeps the canonical path",
+   "coverage_status": "covered",
    "tables": [
     "expert_signals"
    ],
-   "hits": 1
+   "invocation_guard": "route render"
   },
   {
    "path": "src/pages/app/SignalsDashboard.tsx",
    "surface": "frontend",
+   "audience": "internal",
+   "role": "authenticated",
+   "access_kind": "reader",
+   "exact_access": [
+    "expert_signals.select"
+   ],
+   "entitlement": "service_role / server-side only",
+   "embargo_predicate": "n/a — not an anonymous surface",
+   "legacy_fallback": true,
+   "side_effects": [
+    "react-query cache",
+    "export/download"
+   ],
+   "cutover_disposition": "stays_on_internal_ledger",
+   "test_id": "T-P50 internal writer keeps the canonical path",
+   "coverage_status": "covered",
    "tables": [
     "expert_signals"
    ],
-   "hits": 1
+   "invocation_guard": "route render"
   },
   {
    "path": "src/pages/company/AuditLogs.tsx",
    "surface": "frontend",
+   "audience": "admin",
+   "role": "authenticated(company_admin|analyst)",
+   "access_kind": "type_only",
+   "exact_access": [
+    "type-only/reference:expert_signals,trade_records"
+   ],
+   "entitlement": "company_admin or owning analyst",
+   "embargo_predicate": "n/a — not an anonymous surface",
+   "legacy_fallback": false,
+   "side_effects": [
+    "react-query cache",
+    "export/download"
+   ],
+   "cutover_disposition": "stays_on_internal_ledger",
+   "test_id": "T-P60 admin surface stays on the internal ledger",
+   "coverage_status": "covered",
    "tables": [
     "expert_signals",
     "trade_records"
    ],
-   "hits": 4
+   "invocation_guard": "route render"
   },
   {
    "path": "src/pages/company/Dashboard.tsx",
    "surface": "frontend",
+   "audience": "admin",
+   "role": "authenticated(company_admin|analyst)",
+   "access_kind": "reader",
+   "exact_access": [
+    "expert_signals.select"
+   ],
+   "entitlement": "company_admin or owning analyst",
+   "embargo_predicate": "n/a — not an anonymous surface",
+   "legacy_fallback": true,
+   "side_effects": [
+    "react-query cache",
+    "export/download",
+    "realtime channel"
+   ],
+   "cutover_disposition": "stays_on_internal_ledger",
+   "test_id": "T-P60 admin surface stays on the internal ledger",
+   "coverage_status": "covered",
    "tables": [
     "expert_signals"
    ],
-   "hits": 1
+   "invocation_guard": "route render"
   },
   {
    "path": "src/pages/company/HoldingsConsistency.tsx",
    "surface": "frontend",
+   "audience": "admin",
+   "role": "authenticated(company_admin|analyst)",
+   "access_kind": "reader",
+   "exact_access": [
+    "rpc:admin_holdings_consistency_audit"
+   ],
+   "entitlement": "company_admin or owning analyst",
+   "embargo_predicate": "n/a — not an anonymous surface",
+   "legacy_fallback": true,
+   "side_effects": [
+    "export/download"
+   ],
+   "cutover_disposition": "stays_on_internal_ledger",
+   "test_id": "T-P60 admin surface stays on the internal ledger",
+   "coverage_status": "covered",
    "tables": [
     "expert_signals",
     "trade_records"
    ],
-   "hits": 2
+   "invocation_guard": "route render"
   },
   {
    "path": "src/pages/company/JournalsExport.tsx",
    "surface": "frontend",
+   "audience": "admin",
+   "role": "authenticated(company_admin|analyst)",
+   "access_kind": "writer",
+   "exact_access": [
+    "trade_records.select"
+   ],
+   "entitlement": "company_admin or owning analyst",
+   "embargo_predicate": "n/a — not an anonymous surface",
+   "legacy_fallback": true,
+   "side_effects": [
+    "react-query cache",
+    "export/download"
+   ],
+   "cutover_disposition": "stays_on_internal_ledger",
+   "test_id": "T-P60 admin surface stays on the internal ledger",
+   "coverage_status": "covered",
    "tables": [
     "trade_records"
    ],
-   "hits": 2
+   "invocation_guard": "route render"
   },
   {
    "path": "src/pages/company/PublishBatchStatus.tsx",
    "surface": "frontend",
+   "audience": "admin",
+   "role": "authenticated(company_admin|analyst)",
+   "access_kind": "reader",
+   "exact_access": [
+    "rpc:get_cron_job_runs",
+    "rpc:get_publish_batch_attempts",
+    "rpc:get_publish_batch_runs",
+    "rpc:get_publish_batch_status"
+   ],
+   "entitlement": "company_admin or owning analyst",
+   "embargo_predicate": "n/a — not an anonymous surface",
+   "legacy_fallback": true,
+   "side_effects": [
+    "react-query cache",
+    "export/download"
+   ],
+   "cutover_disposition": "stays_on_internal_ledger",
+   "test_id": "T-P60 admin surface stays on the internal ledger",
+   "coverage_status": "covered",
    "tables": [
     "expert_signals"
    ],
-   "hits": 1
+   "invocation_guard": "route render"
   },
   {
    "path": "src/pages/company/SignalDupeAudit.tsx",
    "surface": "frontend",
+   "audience": "admin",
+   "role": "authenticated(company_admin|analyst)",
+   "access_kind": "reader",
+   "exact_access": [
+    "rpc:admin_signal_dupe_trades_audit",
+    "rpc:admin_signal_dupe_trades_fix",
+    "rpc:admin_trade_dedupe_sweep"
+   ],
+   "entitlement": "company_admin or owning analyst",
+   "embargo_predicate": "n/a — not an anonymous surface",
+   "legacy_fallback": true,
+   "side_effects": [
+    "export/download"
+   ],
+   "cutover_disposition": "stays_on_internal_ledger",
+   "test_id": "T-P60 admin surface stays on the internal ledger",
+   "coverage_status": "covered",
    "tables": [
     "trade_records"
    ],
-   "hits": 2
+   "invocation_guard": "route render"
   },
   {
    "path": "src/test/integration/1.12-role-subscription-db-functions.test.ts",
    "surface": "frontend",
+   "audience": "test",
+   "role": "authenticated",
+   "access_kind": "type_only",
+   "exact_access": [
+    "type-only/reference:trade_records"
+   ],
+   "entitlement": "test fixtures only",
+   "embargo_predicate": "n/a — not an anonymous surface",
+   "legacy_fallback": false,
+   "side_effects": [
+    "push/notification"
+   ],
+   "cutover_disposition": "test_only",
+   "test_id": "self (test file)",
+   "coverage_status": "covered",
    "tables": [
     "trade_records"
    ],
-   "hits": 3
+   "invocation_guard": "route render"
   },
   {
    "path": "src/test/integration/1.16-signal-trade-trigger.test.ts",
    "surface": "frontend",
+   "audience": "test",
+   "role": "authenticated",
+   "access_kind": "type_only",
+   "exact_access": [
+    "type-only/reference:expert_signals,trade_records,user_performances"
+   ],
+   "entitlement": "test fixtures only",
+   "embargo_predicate": "n/a — not an anonymous surface",
+   "legacy_fallback": false,
+   "side_effects": [
+    "push/notification"
+   ],
+   "cutover_disposition": "test_only",
+   "test_id": "self (test file)",
+   "coverage_status": "covered",
    "tables": [
     "expert_signals",
     "trade_records",
     "user_performances"
    ],
-   "hits": 7
+   "invocation_guard": "route render"
   },
   {
    "path": "src/test/integration/1.18-weekly-publish-rls.test.ts",
    "surface": "frontend",
+   "audience": "test",
+   "role": "authenticated",
+   "access_kind": "type_only",
+   "exact_access": [
+    "type-only/reference:expert_signals"
+   ],
+   "entitlement": "test fixtures only",
+   "embargo_predicate": "n/a — not an anonymous surface",
+   "legacy_fallback": false,
+   "side_effects": [
+    "push/notification"
+   ],
+   "cutover_disposition": "test_only",
+   "test_id": "self (test file)",
+   "coverage_status": "covered",
    "tables": [
     "expert_signals"
    ],
-   "hits": 6
+   "invocation_guard": "route render"
   },
   {
    "path": "src/test/integration/1.23-scheduler-sequencing.test.ts",
    "surface": "frontend",
+   "audience": "test",
+   "role": "authenticated",
+   "access_kind": "reader",
+   "exact_access": [
+    "rpc:upsert_current_price",
+    "trade_records.select"
+   ],
+   "entitlement": "test fixtures only",
+   "embargo_predicate": "n/a — not an anonymous surface",
+   "legacy_fallback": true,
+   "side_effects": [
+    "none"
+   ],
+   "cutover_disposition": "test_only",
+   "test_id": "self (test file)",
+   "coverage_status": "covered",
    "tables": [
     "trade_records"
    ],
-   "hits": 8
+   "invocation_guard": "route render"
   },
   {
    "path": "src/test/integration/1.30-us-scheduler.test.ts",
    "surface": "frontend",
+   "audience": "test",
+   "role": "authenticated",
+   "access_kind": "type_only",
+   "exact_access": [
+    "type-only/reference:expert_signals,trade_records"
+   ],
+   "entitlement": "test fixtures only",
+   "embargo_predicate": "n/a — not an anonymous surface",
+   "legacy_fallback": false,
+   "side_effects": [
+    "export/download"
+   ],
+   "cutover_disposition": "test_only",
+   "test_id": "self (test file)",
+   "coverage_status": "covered",
    "tables": [
     "expert_signals",
     "trade_records"
    ],
-   "hits": 3
-  },
-  {
-   "path": "src/test/integration/1.35-rls-security-audit.test.ts",
-   "surface": "frontend",
-   "tables": [],
-   "hits": 1
+   "invocation_guard": "route render"
   },
   {
    "path": "src/test/integration/1.36-teaching-hold-journal.test.ts",
    "surface": "frontend",
+   "audience": "test",
+   "role": "authenticated",
+   "access_kind": "reader",
+   "exact_access": [
+    "user_performances.select"
+   ],
+   "entitlement": "test fixtures only",
+   "embargo_predicate": "n/a — not an anonymous surface",
+   "legacy_fallback": true,
+   "side_effects": [
+    "none"
+   ],
+   "cutover_disposition": "test_only",
+   "test_id": "self (test file)",
+   "coverage_status": "covered",
    "tables": [
     "expert_signals",
     "user_performances"
    ],
-   "hits": 6
+   "invocation_guard": "route render"
   },
   {
    "path": "src/test/integration/1.37-us-asset-unit-single-source.test.ts",
    "surface": "frontend",
+   "audience": "test",
+   "role": "authenticated",
+   "access_kind": "type_only",
+   "exact_access": [
+    "type-only/reference:trade_records"
+   ],
+   "entitlement": "test fixtures only",
+   "embargo_predicate": "n/a — not an anonymous surface",
+   "legacy_fallback": false,
+   "side_effects": [
+    "none"
+   ],
+   "cutover_disposition": "test_only",
+   "test_id": "self (test file)",
+   "coverage_status": "covered",
    "tables": [
     "trade_records"
    ],
-   "hits": 1
+   "invocation_guard": "route render"
   },
   {
    "path": "src/test/integration/1.38-tw-unit-lock-open-scope.test.ts",
    "surface": "frontend",
+   "audience": "test",
+   "role": "authenticated",
+   "access_kind": "type_only",
+   "exact_access": [
+    "type-only/reference:expert_signals,trade_records"
+   ],
+   "entitlement": "test fixtures only",
+   "embargo_predicate": "n/a — not an anonymous surface",
+   "legacy_fallback": false,
+   "side_effects": [
+    "none"
+   ],
+   "cutover_disposition": "test_only",
+   "test_id": "self (test file)",
+   "coverage_status": "covered",
    "tables": [
     "expert_signals",
     "trade_records"
    ],
-   "hits": 14
+   "invocation_guard": "route render"
   },
   {
    "path": "src/test/integration/1.8-subscription-content-visibility.test.ts",
    "surface": "frontend",
+   "audience": "test",
+   "role": "authenticated",
+   "access_kind": "type_only",
+   "exact_access": [
+    "type-only/reference:expert_signals"
+   ],
+   "entitlement": "test fixtures only",
+   "embargo_predicate": "n/a — not an anonymous surface",
+   "legacy_fallback": false,
+   "side_effects": [
+    "none"
+   ],
+   "cutover_disposition": "test_only",
+   "test_id": "self (test file)",
+   "coverage_status": "covered",
    "tables": [
     "expert_signals"
    ],
-   "hits": 10
+   "invocation_guard": "route render"
   },
   {
    "path": "src/test/integration/1.9-analyst-data-isolation.test.ts",
    "surface": "frontend",
+   "audience": "test",
+   "role": "authenticated",
+   "access_kind": "type_only",
+   "exact_access": [
+    "type-only/reference:expert_signals,trade_records"
+   ],
+   "entitlement": "test fixtures only",
+   "embargo_predicate": "n/a — not an anonymous surface",
+   "legacy_fallback": false,
+   "side_effects": [
+    "none"
+   ],
+   "cutover_disposition": "test_only",
+   "test_id": "self (test file)",
+   "coverage_status": "covered",
    "tables": [
     "expert_signals",
     "trade_records"
    ],
-   "hits": 8
+   "invocation_guard": "route render"
   },
   {
    "path": "src/test/unit/journal-repository-parity.test.ts",
    "surface": "frontend",
+   "audience": "test",
+   "role": "authenticated",
+   "access_kind": "type_only",
+   "exact_access": [
+    "type-only/reference:expert_signals"
+   ],
+   "entitlement": "test fixtures only",
+   "embargo_predicate": "n/a — not an anonymous surface",
+   "legacy_fallback": false,
+   "side_effects": [
+    "export/download"
+   ],
+   "cutover_disposition": "test_only",
+   "test_id": "self (test file)",
+   "coverage_status": "covered",
    "tables": [
     "expert_signals"
    ],
-   "hits": 5
+   "invocation_guard": "route render"
   },
   {
    "path": "src/test/unit/mapOpenPositionToRow.test.ts",
    "surface": "frontend",
+   "audience": "test",
+   "role": "authenticated",
+   "access_kind": "type_only",
+   "exact_access": [
+    "type-only/reference:trade_records"
+   ],
+   "entitlement": "test fixtures only",
+   "embargo_predicate": "n/a — not an anonymous surface",
+   "legacy_fallback": false,
+   "side_effects": [
+    "none"
+   ],
+   "cutover_disposition": "test_only",
+   "test_id": "self (test file)",
+   "coverage_status": "covered",
    "tables": [
     "trade_records"
    ],
-   "hits": 2
+   "invocation_guard": "route render"
+  },
+  {
+   "path": "supabase/functions/_shared/journalExportCore.ts",
+   "surface": "edge_function",
+   "audience": "internal",
+   "role": "service_role",
+   "access_kind": "type_only",
+   "exact_access": [
+    "type-only/reference:trade_records"
+   ],
+   "entitlement": "service_role / server-side only",
+   "embargo_predicate": "n/a — not an anonymous surface",
+   "legacy_fallback": false,
+   "side_effects": [
+    "export/download"
+   ],
+   "cutover_disposition": "stays_on_internal_ledger",
+   "test_id": "T-P50 internal writer keeps the canonical path",
+   "coverage_status": "covered",
+   "tables": [
+    "trade_records"
+   ],
+   "invocation_guard": "none"
+  },
+  {
+   "path": "supabase/functions/_shared/journalRepository.ts",
+   "surface": "edge_function",
+   "audience": "internal",
+   "role": "service_role",
+   "access_kind": "reader",
+   "exact_access": [
+    "expert_signals.select",
+    "rpc:get_owned_journal_bundle"
+   ],
+   "entitlement": "service_role / server-side only",
+   "embargo_predicate": "n/a — not an anonymous surface",
+   "legacy_fallback": true,
+   "side_effects": [
+    "export/download"
+   ],
+   "cutover_disposition": "stays_on_internal_ledger",
+   "test_id": "T-P50 internal writer keeps the canonical path",
+   "coverage_status": "covered",
+   "tables": [
+    "expert_signals"
+   ],
+   "invocation_guard": "none"
+  },
+  {
+   "path": "supabase/functions/account-link-consume/index.ts",
+   "surface": "edge_function",
+   "audience": "internal",
+   "role": "service_role",
+   "access_kind": "type_only",
+   "exact_access": [
+    "type-only/reference:user_performances"
+   ],
+   "entitlement": "service_role / server-side only",
+   "embargo_predicate": "n/a — not an anonymous surface",
+   "legacy_fallback": false,
+   "side_effects": [
+    "push/notification"
+   ],
+   "cutover_disposition": "stays_on_internal_ledger",
+   "test_id": "T-P50 internal writer keeps the canonical path",
+   "coverage_status": "covered",
+   "tables": [
+    "user_performances"
+   ],
+   "invocation_guard": "service role key required"
+  },
+  {
+   "path": "supabase/functions/admin-account-force-merge/index.ts",
+   "surface": "edge_function",
+   "audience": "admin",
+   "role": "service_role",
+   "access_kind": "type_only",
+   "exact_access": [
+    "type-only/reference:user_performances"
+   ],
+   "entitlement": "company_admin or owning analyst",
+   "embargo_predicate": "n/a — not an anonymous surface",
+   "legacy_fallback": false,
+   "side_effects": [
+    "push/notification"
+   ],
+   "cutover_disposition": "stays_on_internal_ledger",
+   "test_id": "T-P60 admin surface stays on the internal ledger",
+   "coverage_status": "covered",
+   "tables": [
+    "user_performances"
+   ],
+   "invocation_guard": "service role key required"
+  },
+  {
+   "path": "supabase/functions/daily-performance/index.ts",
+   "surface": "edge_function",
+   "audience": "internal",
+   "role": "service_role",
+   "access_kind": "writer",
+   "exact_access": [
+    "trade_records.select",
+    "trade_records.update"
+   ],
+   "entitlement": "service_role / server-side only",
+   "embargo_predicate": "n/a — not an anonymous surface",
+   "legacy_fallback": true,
+   "side_effects": [
+    "none"
+   ],
+   "cutover_disposition": "stays_on_internal_ledger",
+   "test_id": "T-P50 internal writer keeps the canonical path",
+   "coverage_status": "covered",
+   "tables": [
+    "trade_records"
+   ],
+   "invocation_guard": "service role key required"
+  },
+  {
+   "path": "supabase/functions/daily-snapshot/index.ts",
+   "surface": "edge_function",
+   "audience": "public",
+   "role": "service_role",
+   "access_kind": "writer",
+   "exact_access": [
+    "trade_records.select"
+   ],
+   "entitlement": "none (anonymous) — only released, ready facts",
+   "embargo_predicate": "n/a — no signal-level facts read",
+   "legacy_fallback": true,
+   "side_effects": [
+    "none"
+   ],
+   "cutover_disposition": "migrate_to_typed_public_contract",
+   "test_id": "T-E10 anon sees only released positions",
+   "coverage_status": "covered",
+   "tables": [
+    "trade_records"
+   ],
+   "invocation_guard": "none"
+  },
+  {
+   "path": "supabase/functions/data-upsert/index.ts",
+   "surface": "edge_function",
+   "audience": "internal",
+   "role": "service_role",
+   "access_kind": "type_only",
+   "exact_access": [
+    "type-only/reference:trade_records,user_performances"
+   ],
+   "entitlement": "service_role / server-side only",
+   "embargo_predicate": "n/a — not an anonymous surface",
+   "legacy_fallback": false,
+   "side_effects": [
+    "none"
+   ],
+   "cutover_disposition": "stays_on_internal_ledger",
+   "test_id": "T-P50 internal writer keeps the canonical path",
+   "coverage_status": "covered",
+   "tables": [
+    "trade_records",
+    "user_performances"
+   ],
+   "invocation_guard": "caller JWT checked"
+  },
+  {
+   "path": "supabase/functions/email-push-renewal-reminder/index.ts",
+   "surface": "edge_function",
+   "audience": "internal",
+   "role": "service_role",
+   "access_kind": "writer",
+   "exact_access": [
+    "user_performances.select"
+   ],
+   "entitlement": "service_role / server-side only",
+   "embargo_predicate": "n/a — not an anonymous surface",
+   "legacy_fallback": true,
+   "side_effects": [
+    "none"
+   ],
+   "cutover_disposition": "stays_on_internal_ledger",
+   "test_id": "T-P50 internal writer keeps the canonical path",
+   "coverage_status": "covered",
+   "tables": [
+    "user_performances"
+   ],
+   "invocation_guard": "caller JWT checked"
+  },
+  {
+   "path": "supabase/functions/expert-ai-index/index.ts",
+   "surface": "edge_function",
+   "audience": "internal",
+   "role": "service_role",
+   "access_kind": "writer",
+   "exact_access": [
+    "expert_signals.select"
+   ],
+   "entitlement": "service_role / server-side only",
+   "embargo_predicate": "n/a — not an anonymous surface",
+   "legacy_fallback": true,
+   "side_effects": [
+    "export/download"
+   ],
+   "cutover_disposition": "stays_on_internal_ledger",
+   "test_id": "T-P50 internal writer keeps the canonical path",
+   "coverage_status": "covered",
+   "tables": [
+    "expert_signals"
+   ],
+   "invocation_guard": "service role key required"
+  },
+  {
+   "path": "supabase/functions/expert-ai-training/index.ts",
+   "surface": "edge_function",
+   "audience": "internal",
+   "role": "service_role",
+   "access_kind": "writer",
+   "exact_access": [
+    "expert_signals.select"
+   ],
+   "entitlement": "service_role / server-side only",
+   "embargo_predicate": "n/a — not an anonymous surface",
+   "legacy_fallback": true,
+   "side_effects": [
+    "none"
+   ],
+   "cutover_disposition": "stays_on_internal_ledger",
+   "test_id": "T-P50 internal writer keeps the canonical path",
+   "coverage_status": "covered",
+   "tables": [
+    "expert_signals"
+   ],
+   "invocation_guard": "service role key required"
+  },
+  {
+   "path": "supabase/functions/line-push-signal/index.ts",
+   "surface": "edge_function",
+   "audience": "internal",
+   "role": "service_role",
+   "access_kind": "writer",
+   "exact_access": [
+    "expert_signals.select",
+    "expert_signals.update",
+    "rpc:calculate_expert_performance"
+   ],
+   "entitlement": "service_role / server-side only",
+   "embargo_predicate": "n/a — not an anonymous surface",
+   "legacy_fallback": true,
+   "side_effects": [
+    "export/download",
+    "push/notification"
+   ],
+   "cutover_disposition": "stays_on_internal_ledger",
+   "test_id": "T-P50 internal writer keeps the canonical path",
+   "coverage_status": "covered",
+   "tables": [
+    "expert_signals"
+   ],
+   "invocation_guard": "caller JWT checked"
+  },
+  {
+   "path": "supabase/functions/line-push-signal/quantityUnit.ts",
+   "surface": "edge_function",
+   "audience": "public",
+   "role": "service_role",
+   "access_kind": "type_only",
+   "exact_access": [
+    "type-only/reference:expert_signals"
+   ],
+   "entitlement": "none (anonymous) — only released, ready facts",
+   "embargo_predicate": "visible_at <= now() (T+7) enforced by canonical_publish + RLS",
+   "legacy_fallback": false,
+   "side_effects": [
+    "export/download",
+    "push/notification"
+   ],
+   "cutover_disposition": "public_no_economic_facts",
+   "test_id": "T-E10 anon sees only released positions",
+   "coverage_status": "covered",
+   "tables": [
+    "expert_signals"
+   ],
+   "invocation_guard": "none"
+  },
+  {
+   "path": "supabase/functions/mcp/index.ts",
+   "surface": "edge_function",
+   "audience": "internal",
+   "role": "service_role",
+   "access_kind": "reader",
+   "exact_access": [
+    "trade_records.select"
+   ],
+   "entitlement": "service_role / server-side only",
+   "embargo_predicate": "n/a — not an anonymous surface",
+   "legacy_fallback": true,
+   "side_effects": [
+    "none"
+   ],
+   "cutover_disposition": "stays_on_internal_ledger",
+   "test_id": "T-P50 internal writer keeps the canonical path",
+   "coverage_status": "covered",
+   "tables": [
+    "trade_records"
+   ],
+   "invocation_guard": "caller JWT checked"
+  },
+  {
+   "path": "supabase/functions/pending-journal-publish-reminder/index.ts",
+   "surface": "edge_function",
+   "audience": "public",
+   "role": "service_role",
+   "access_kind": "writer",
+   "exact_access": [
+    "expert_signals.select"
+   ],
+   "entitlement": "none (anonymous) — only released, ready facts",
+   "embargo_predicate": "visible_at <= now() (T+7) enforced by canonical_publish + RLS",
+   "legacy_fallback": true,
+   "side_effects": [
+    "push/notification"
+   ],
+   "cutover_disposition": "migrate_to_typed_public_contract",
+   "test_id": "T-E10 anon sees only released positions",
+   "coverage_status": "covered",
+   "tables": [
+    "expert_signals"
+   ],
+   "invocation_guard": "none"
+  },
+  {
+   "path": "supabase/functions/publish-weekly-journals/pipeline.ts",
+   "surface": "edge_function",
+   "audience": "public",
+   "role": "service_role",
+   "access_kind": "type_only",
+   "exact_access": [
+    "type-only/reference:user_performances"
+   ],
+   "entitlement": "none (anonymous) — only released, ready facts",
+   "embargo_predicate": "n/a — no signal-level facts read",
+   "legacy_fallback": false,
+   "side_effects": [
+    "export/download",
+    "push/notification"
+   ],
+   "cutover_disposition": "public_no_economic_facts",
+   "test_id": "T-E10 anon sees only released positions",
+   "coverage_status": "covered",
+   "tables": [
+    "user_performances"
+   ],
+   "invocation_guard": "none"
+  },
+  {
+   "path": "supabase/functions/publish-weekly-journals/port.ts",
+   "surface": "edge_function",
+   "audience": "public",
+   "role": "service_role",
+   "access_kind": "type_only",
+   "exact_access": [
+    "type-only/reference:user_performances"
+   ],
+   "entitlement": "none (anonymous) — only released, ready facts",
+   "embargo_predicate": "n/a — no signal-level facts read",
+   "legacy_fallback": false,
+   "side_effects": [
+    "export/download",
+    "push/notification"
+   ],
+   "cutover_disposition": "public_no_economic_facts",
+   "test_id": "T-E10 anon sees only released positions",
+   "coverage_status": "covered",
+   "tables": [
+    "user_performances"
+   ],
+   "invocation_guard": "none"
+  },
+  {
+   "path": "supabase/functions/publish-weekly-journals/supabasePort.ts",
+   "surface": "edge_function",
+   "audience": "internal",
+   "role": "service_role",
+   "access_kind": "writer",
+   "exact_access": [
+    "expert_signals.select",
+    "expert_signals.update",
+    "rpc:calculate_expert_performance",
+    "rpc:log_unit_lock_violation",
+    "trade_records.select",
+    "user_performances.delete",
+    "user_performances.insert"
+   ],
+   "entitlement": "service_role / server-side only",
+   "embargo_predicate": "n/a — not an anonymous surface",
+   "legacy_fallback": true,
+   "side_effects": [
+    "export/download",
+    "push/notification"
+   ],
+   "cutover_disposition": "stays_on_internal_ledger",
+   "test_id": "T-P50 internal writer keeps the canonical path",
+   "coverage_status": "covered",
+   "tables": [
+    "expert_signals",
+    "trade_records",
+    "user_performances"
+   ],
+   "invocation_guard": "caller JWT checked"
+  },
+  {
+   "path": "supabase/functions/reconcile-warrant-quantities/index.ts",
+   "surface": "edge_function",
+   "audience": "internal",
+   "role": "service_role",
+   "access_kind": "writer",
+   "exact_access": [
+    "trade_records.select",
+    "trade_records.update"
+   ],
+   "entitlement": "service_role / server-side only",
+   "embargo_predicate": "n/a — not an anonymous surface",
+   "legacy_fallback": true,
+   "side_effects": [
+    "none"
+   ],
+   "cutover_disposition": "stays_on_internal_ledger",
+   "test_id": "T-P50 internal writer keeps the canonical path",
+   "coverage_status": "covered",
+   "tables": [
+    "expert_signals",
+    "trade_records"
+   ],
+   "invocation_guard": "none"
+  },
+  {
+   "path": "supabase/functions/share-og/index.ts",
+   "surface": "edge_function",
+   "audience": "public",
+   "role": "service_role",
+   "access_kind": "reader",
+   "exact_access": [
+    "expert_signals.select"
+   ],
+   "entitlement": "none (anonymous) — only released, ready facts",
+   "embargo_predicate": "visible_at <= now() (T+7) enforced by canonical_publish + RLS",
+   "legacy_fallback": true,
+   "side_effects": [
+    "none"
+   ],
+   "cutover_disposition": "migrate_to_typed_public_contract",
+   "test_id": "T-P40 embargoed effect yields no public position",
+   "coverage_status": "covered",
+   "tables": [
+    "expert_signals"
+   ],
+   "invocation_guard": "none"
+  },
+  {
+   "path": "supabase/functions/stock-price-sync/index.ts",
+   "surface": "edge_function",
+   "audience": "internal",
+   "role": "service_role",
+   "access_kind": "writer",
+   "exact_access": [
+    "rpc:upsert_current_price",
+    "trade_records.select",
+    "user_performances.select",
+    "user_performances.upsert"
+   ],
+   "entitlement": "service_role / server-side only",
+   "embargo_predicate": "n/a — not an anonymous surface",
+   "legacy_fallback": true,
+   "side_effects": [
+    "none"
+   ],
+   "cutover_disposition": "stays_on_internal_ledger",
+   "test_id": "T-P50 internal writer keeps the canonical path",
+   "coverage_status": "covered",
+   "tables": [
+    "trade_records",
+    "user_performances"
+   ],
+   "invocation_guard": "service role key required"
+  },
+  {
+   "path": "supabase/functions/tw-bsr-daily-sync/index.ts",
+   "surface": "edge_function",
+   "audience": "internal",
+   "role": "service_role",
+   "access_kind": "writer",
+   "exact_access": [
+    "rpc:materialize_bsr_daily_from_fact",
+    "trade_records.select"
+   ],
+   "entitlement": "service_role / server-side only",
+   "embargo_predicate": "n/a — not an anonymous surface",
+   "legacy_fallback": true,
+   "side_effects": [
+    "export/download"
+   ],
+   "cutover_disposition": "stays_on_internal_ledger",
+   "test_id": "T-P50 internal writer keeps the canonical path",
+   "coverage_status": "covered",
+   "tables": [
+    "trade_records"
+   ],
+   "invocation_guard": "service role key required"
+  },
+  {
+   "path": "supabase/functions/tw-bsr-finmind-sync/index.ts",
+   "surface": "edge_function",
+   "audience": "public",
+   "role": "service_role",
+   "access_kind": "writer",
+   "exact_access": [
+    "rpc:bsr_apply_degrade_transition",
+    "rpc:bsr_check_tier_admission",
+    "rpc:bsr_force_recycle_reservation",
+    "rpc:bsr_get_degrade_state",
+    "rpc:bsr_list_stuck_reservations",
+    "rpc:bsr_recent_degrade_events",
+    "rpc:bsr_reservation_stats",
+    "rpc:bsr_snapshot_stats",
+    "rpc:bsr_trace_by_correlation",
+    "rpc:claim_bsr_queue_jobs",
+    "rpc:defer_bsr_job_quota",
+    "rpc:mark_bsr_upstream_probe"
+   ],
+   "entitlement": "none (anonymous) — only released, ready facts",
+   "embargo_predicate": "n/a — no signal-level facts read",
+   "legacy_fallback": true,
+   "side_effects": [
+    "export/download"
+   ],
+   "cutover_disposition": "migrate_to_typed_public_contract",
+   "test_id": "T-E10 anon sees only released positions",
+   "coverage_status": "covered",
+   "tables": [
+    "trade_records"
+   ],
+   "invocation_guard": "none"
+  },
+  {
+   "path": "supabase/functions/us-option-price-sync/index.ts",
+   "surface": "edge_function",
+   "audience": "internal",
+   "role": "service_role",
+   "access_kind": "writer",
+   "exact_access": [
+    "expert_signals.select",
+    "rpc:upsert_current_price"
+   ],
+   "entitlement": "service_role / server-side only",
+   "embargo_predicate": "n/a — not an anonymous surface",
+   "legacy_fallback": true,
+   "side_effects": [
+    "export/download"
+   ],
+   "cutover_disposition": "stays_on_internal_ledger",
+   "test_id": "T-P50 internal writer keeps the canonical path",
+   "coverage_status": "covered",
+   "tables": [
+    "expert_signals"
+   ],
+   "invocation_guard": "none"
+  },
+  {
+   "path": "supabase/functions/validate-signal-prices/index.ts",
+   "surface": "edge_function",
+   "audience": "internal",
+   "role": "service_role",
+   "access_kind": "reader",
+   "exact_access": [
+    "expert_signals.select"
+   ],
+   "entitlement": "service_role / server-side only",
+   "embargo_predicate": "n/a — not an anonymous surface",
+   "legacy_fallback": true,
+   "side_effects": [
+    "none"
+   ],
+   "cutover_disposition": "stays_on_internal_ledger",
+   "test_id": "T-P50 internal writer keeps the canonical path",
+   "coverage_status": "covered",
+   "tables": [
+    "expert_signals"
+   ],
+   "invocation_guard": "service role key required"
+  },
+  {
+   "path": "supabase/functions/weekly-journal-export/index.ts",
+   "surface": "edge_function",
+   "audience": "internal",
+   "role": "service_role",
+   "access_kind": "writer",
+   "exact_access": [
+    "trade_records.select"
+   ],
+   "entitlement": "service_role / server-side only",
+   "embargo_predicate": "n/a — not an anonymous surface",
+   "legacy_fallback": true,
+   "side_effects": [
+    "export/download",
+    "push/notification"
+   ],
+   "cutover_disposition": "stays_on_internal_ledger",
+   "test_id": "T-P50 internal writer keeps the canonical path",
+   "coverage_status": "covered",
+   "tables": [
+    "expert_signals",
+    "trade_records"
+   ],
+   "invocation_guard": "none"
   }
  ],
  "static_consumer_counts": {
-  "frontend": 59,
-  "edge_function": 25,
-  "total": 84
+  "public": 21,
+  "internal": 29,
+  "admin": 18,
+  "test": 13,
+  "total": 81
  },
- "anonymous_reachable_frontend": [],
+ "coverage": {
+  "consumers": "81/81",
+  "db_objects": "37/37",
+  "unclassified": 0
+ },
  "db_objects": [
   {
    "name": "admin_apply_fix_proposal",
@@ -713,7 +2006,17 @@
    "acl": "postgres=X/postgres | anon=X/postgres | authenticated=X/postgres | service_role=X/postgres | sandbox_exec_yqacmrgdjlenbijclngi=X/postgres",
    "reads_signals": true,
    "reads_trades": true,
-   "reads_perf": false
+   "reads_perf": false,
+   "audience": "admin",
+   "role": "service_role/definer",
+   "access_kind": "writer",
+   "entitlement": "company_admin",
+   "embargo_predicate": "n/a — not an anonymous surface",
+   "legacy_fallback": true,
+   "side_effects": "mutates ledger/projection",
+   "cutover_disposition": "revoke_public_execute",
+   "test_id": "T-P70 EXECUTE closure: anon cannot execute admin/build functions",
+   "coverage_status": "covered"
   },
   {
    "name": "admin_delete_trade_records_by_signal_ids",
@@ -723,7 +2026,17 @@
    "acl": "postgres=X/postgres | anon=X/postgres | authenticated=X/postgres | service_role=X/postgres | sandbox_exec_yqacmrgdjlenbijclngi=X/postgres",
    "reads_signals": false,
    "reads_trades": true,
-   "reads_perf": false
+   "reads_perf": false,
+   "audience": "admin",
+   "role": "service_role/definer",
+   "access_kind": "writer",
+   "entitlement": "company_admin",
+   "embargo_predicate": "n/a — not an anonymous surface",
+   "legacy_fallback": true,
+   "side_effects": "mutates ledger/projection",
+   "cutover_disposition": "revoke_public_execute",
+   "test_id": "T-P70 EXECUTE closure: anon cannot execute admin/build functions",
+   "coverage_status": "covered"
   },
   {
    "name": "admin_delete_trade_records_by_symbol",
@@ -733,7 +2046,17 @@
    "acl": "postgres=X/postgres | anon=X/postgres | authenticated=X/postgres | service_role=X/postgres | sandbox_exec_yqacmrgdjlenbijclngi=X/postgres",
    "reads_signals": false,
    "reads_trades": true,
-   "reads_perf": false
+   "reads_perf": false,
+   "audience": "admin",
+   "role": "service_role/definer",
+   "access_kind": "writer",
+   "entitlement": "company_admin",
+   "embargo_predicate": "n/a — not an anonymous surface",
+   "legacy_fallback": true,
+   "side_effects": "mutates ledger/projection",
+   "cutover_disposition": "revoke_public_execute",
+   "test_id": "T-P70 EXECUTE closure: anon cannot execute admin/build functions",
+   "coverage_status": "covered"
   },
   {
    "name": "admin_generate_fix_proposals",
@@ -743,7 +2066,17 @@
    "acl": "postgres=X/postgres | anon=X/postgres | authenticated=X/postgres | service_role=X/postgres | sandbox_exec_yqacmrgdjlenbijclngi=X/postgres",
    "reads_signals": true,
    "reads_trades": true,
-   "reads_perf": false
+   "reads_perf": false,
+   "audience": "admin",
+   "role": "service_role/definer",
+   "access_kind": "writer",
+   "entitlement": "company_admin",
+   "embargo_predicate": "n/a — not an anonymous surface",
+   "legacy_fallback": true,
+   "side_effects": "mutates ledger/projection",
+   "cutover_disposition": "revoke_public_execute",
+   "test_id": "T-P70 EXECUTE closure: anon cannot execute admin/build functions",
+   "coverage_status": "covered"
   },
   {
    "name": "admin_holdings_consistency_audit",
@@ -753,7 +2086,17 @@
    "acl": "postgres=X/postgres | anon=X/postgres | authenticated=X/postgres | service_role=X/postgres | sandbox_exec_yqacmrgdjlenbijclngi=X/postgres",
    "reads_signals": true,
    "reads_trades": true,
-   "reads_perf": false
+   "reads_perf": false,
+   "audience": "admin",
+   "role": "service_role/definer",
+   "access_kind": "reader",
+   "entitlement": "company_admin",
+   "embargo_predicate": "n/a — not an anonymous surface",
+   "legacy_fallback": true,
+   "side_effects": "none",
+   "cutover_disposition": "revoke_public_execute",
+   "test_id": "T-P70 EXECUTE closure: anon cannot execute admin/build functions",
+   "coverage_status": "covered"
   },
   {
    "name": "admin_reset_expert_asset_class",
@@ -763,7 +2106,17 @@
    "acl": "postgres=X/postgres | anon=X/postgres | authenticated=X/postgres | service_role=X/postgres | sandbox_exec_yqacmrgdjlenbijclngi=X/postgres",
    "reads_signals": true,
    "reads_trades": false,
-   "reads_perf": false
+   "reads_perf": false,
+   "audience": "admin",
+   "role": "service_role/definer",
+   "access_kind": "writer",
+   "entitlement": "company_admin",
+   "embargo_predicate": "n/a — not an anonymous surface",
+   "legacy_fallback": true,
+   "side_effects": "mutates ledger/projection",
+   "cutover_disposition": "revoke_public_execute",
+   "test_id": "T-P70 EXECUTE closure: anon cannot execute admin/build functions",
+   "coverage_status": "covered"
   },
   {
    "name": "admin_signal_dupe_trades_audit",
@@ -773,7 +2126,17 @@
    "acl": "postgres=X/postgres | authenticated=X/postgres | service_role=X/postgres | sandbox_exec_yqacmrgdjlenbijclngi=X/postgres",
    "reads_signals": true,
    "reads_trades": true,
-   "reads_perf": false
+   "reads_perf": false,
+   "audience": "admin",
+   "role": "service_role/definer",
+   "access_kind": "reader",
+   "entitlement": "company_admin",
+   "embargo_predicate": "n/a — not an anonymous surface",
+   "legacy_fallback": true,
+   "side_effects": "none",
+   "cutover_disposition": "stays_on_internal_ledger",
+   "test_id": "T-P70 EXECUTE closure: anon cannot execute admin/build functions",
+   "coverage_status": "covered"
   },
   {
    "name": "admin_signal_dupe_trades_fix",
@@ -783,7 +2146,17 @@
    "acl": "postgres=X/postgres | authenticated=X/postgres | service_role=X/postgres | sandbox_exec_yqacmrgdjlenbijclngi=X/postgres",
    "reads_signals": false,
    "reads_trades": true,
-   "reads_perf": false
+   "reads_perf": false,
+   "audience": "admin",
+   "role": "service_role/definer",
+   "access_kind": "writer",
+   "entitlement": "company_admin",
+   "embargo_predicate": "n/a — not an anonymous surface",
+   "legacy_fallback": true,
+   "side_effects": "mutates ledger/projection",
+   "cutover_disposition": "stays_on_internal_ledger",
+   "test_id": "T-P70 EXECUTE closure: anon cannot execute admin/build functions",
+   "coverage_status": "covered"
   },
   {
    "name": "calculate_expert_performance",
@@ -793,7 +2166,17 @@
    "acl": "postgres=X/postgres | service_role=X/postgres | sandbox_exec_yqacmrgdjlenbijclngi=X/postgres | anon=X/postgres | authenticated=X/postgres",
    "reads_signals": false,
    "reads_trades": true,
-   "reads_perf": false
+   "reads_perf": false,
+   "audience": "internal",
+   "role": "service_role/definer",
+   "access_kind": "reader",
+   "entitlement": "service_role",
+   "embargo_predicate": "n/a — not an anonymous surface",
+   "legacy_fallback": true,
+   "side_effects": "none",
+   "cutover_disposition": "revoke_public_execute",
+   "test_id": "T-P70 EXECUTE closure: anon cannot execute admin/build functions",
+   "coverage_status": "covered"
   },
   {
    "name": "checkup_prefetch_universe",
@@ -803,7 +2186,17 @@
    "acl": "postgres=X/postgres | service_role=X/postgres | sandbox_exec_yqacmrgdjlenbijclngi=X/postgres",
    "reads_signals": true,
    "reads_trades": true,
-   "reads_perf": false
+   "reads_perf": false,
+   "audience": "internal",
+   "role": "service_role/definer",
+   "access_kind": "reader",
+   "entitlement": "service_role",
+   "embargo_predicate": "n/a — not an anonymous surface",
+   "legacy_fallback": true,
+   "side_effects": "none",
+   "cutover_disposition": "stays_on_internal_ledger",
+   "test_id": "T-P70 EXECUTE closure: anon cannot execute admin/build functions",
+   "coverage_status": "covered"
   },
   {
    "name": "converge_bsr_windows",
@@ -813,7 +2206,17 @@
    "acl": "postgres=X/postgres | anon=X/postgres | authenticated=X/postgres | service_role=X/postgres | sandbox_exec_yqacmrgdjlenbijclngi=X/postgres",
    "reads_signals": true,
    "reads_trades": true,
-   "reads_perf": false
+   "reads_perf": false,
+   "audience": "internal",
+   "role": "service_role/definer",
+   "access_kind": "reader",
+   "entitlement": "service_role",
+   "embargo_predicate": "n/a — not an anonymous surface",
+   "legacy_fallback": true,
+   "side_effects": "none",
+   "cutover_disposition": "revoke_public_execute",
+   "test_id": "T-P70 EXECUTE closure: anon cannot execute admin/build functions",
+   "coverage_status": "covered"
   },
   {
    "name": "detect_chip_gap_jobs",
@@ -823,7 +2226,17 @@
    "acl": "postgres=X/postgres | service_role=X/postgres | sandbox_exec_yqacmrgdjlenbijclngi=X/postgres",
    "reads_signals": false,
    "reads_trades": true,
-   "reads_perf": false
+   "reads_perf": false,
+   "audience": "internal",
+   "role": "service_role/definer",
+   "access_kind": "reader",
+   "entitlement": "service_role",
+   "embargo_predicate": "n/a — not an anonymous surface",
+   "legacy_fallback": true,
+   "side_effects": "none",
+   "cutover_disposition": "stays_on_internal_ledger",
+   "test_id": "T-P70 EXECUTE closure: anon cannot execute admin/build functions",
+   "coverage_status": "covered"
   },
   {
    "name": "detect_fundamental_gap_jobs",
@@ -833,7 +2246,17 @@
    "acl": "=X/postgres | postgres=X/postgres | anon=X/postgres | authenticated=X/postgres | service_role=X/postgres | sandbox_exec_yqacmrgdjlenbijclngi=X/postgres",
    "reads_signals": true,
    "reads_trades": true,
-   "reads_perf": false
+   "reads_perf": false,
+   "audience": "internal",
+   "role": "service_role/definer",
+   "access_kind": "reader",
+   "entitlement": "service_role",
+   "embargo_predicate": "n/a — not an anonymous surface",
+   "legacy_fallback": true,
+   "side_effects": "none",
+   "cutover_disposition": "revoke_public_execute",
+   "test_id": "T-P70 EXECUTE closure: anon cannot execute admin/build functions",
+   "coverage_status": "covered"
   },
   {
    "name": "enforce_expert_asset_class_lock",
@@ -843,7 +2266,17 @@
    "acl": "=X/postgres | postgres=X/postgres | anon=X/postgres | authenticated=X/postgres | service_role=X/postgres | sandbox_exec_yqacmrgdjlenbijclngi=X/postgres",
    "reads_signals": true,
    "reads_trades": false,
-   "reads_perf": false
+   "reads_perf": false,
+   "audience": "internal",
+   "role": "service_role/definer",
+   "access_kind": "reader",
+   "entitlement": "service_role",
+   "embargo_predicate": "n/a — not an anonymous surface",
+   "legacy_fallback": true,
+   "side_effects": "none",
+   "cutover_disposition": "revoke_public_execute",
+   "test_id": "T-P70 EXECUTE closure: anon cannot execute admin/build functions",
+   "coverage_status": "covered"
   },
   {
    "name": "enforce_expert_currency_lock",
@@ -853,7 +2286,17 @@
    "acl": "=X/postgres | postgres=X/postgres | anon=X/postgres | authenticated=X/postgres | service_role=X/postgres | sandbox_exec_yqacmrgdjlenbijclngi=X/postgres",
    "reads_signals": true,
    "reads_trades": false,
-   "reads_perf": false
+   "reads_perf": false,
+   "audience": "internal",
+   "role": "service_role/definer",
+   "access_kind": "reader",
+   "entitlement": "service_role",
+   "embargo_predicate": "n/a — not an anonymous surface",
+   "legacy_fallback": true,
+   "side_effects": "none",
+   "cutover_disposition": "revoke_public_execute",
+   "test_id": "T-P70 EXECUTE closure: anon cannot execute admin/build functions",
+   "coverage_status": "covered"
   },
   {
    "name": "enforce_signal_capital_limit",
@@ -863,7 +2306,17 @@
    "acl": "postgres=X/postgres | service_role=X/postgres | sandbox_exec_yqacmrgdjlenbijclngi=X/postgres",
    "reads_signals": false,
    "reads_trades": true,
-   "reads_perf": false
+   "reads_perf": false,
+   "audience": "internal",
+   "role": "service_role/definer",
+   "access_kind": "reader",
+   "entitlement": "service_role",
+   "embargo_predicate": "n/a — not an anonymous surface",
+   "legacy_fallback": true,
+   "side_effects": "none",
+   "cutover_disposition": "stays_on_internal_ledger",
+   "test_id": "T-P70 EXECUTE closure: anon cannot execute admin/build functions",
+   "coverage_status": "covered"
   },
   {
    "name": "enforce_unit_consistency",
@@ -873,7 +2326,17 @@
    "acl": "=X/postgres | postgres=X/postgres | anon=X/postgres | authenticated=X/postgres | service_role=X/postgres | sandbox_exec_yqacmrgdjlenbijclngi=X/postgres",
    "reads_signals": true,
    "reads_trades": true,
-   "reads_perf": false
+   "reads_perf": false,
+   "audience": "internal",
+   "role": "service_role/definer",
+   "access_kind": "reader",
+   "entitlement": "service_role",
+   "embargo_predicate": "n/a — not an anonymous surface",
+   "legacy_fallback": true,
+   "side_effects": "none",
+   "cutover_disposition": "revoke_public_execute",
+   "test_id": "T-P70 EXECUTE closure: anon cannot execute admin/build functions",
+   "coverage_status": "covered"
   },
   {
    "name": "enqueue_bsr_backfill",
@@ -883,7 +2346,17 @@
    "acl": "postgres=X/postgres | anon=X/postgres | authenticated=X/postgres | service_role=X/postgres | sandbox_exec_yqacmrgdjlenbijclngi=X/postgres",
    "reads_signals": false,
    "reads_trades": true,
-   "reads_perf": false
+   "reads_perf": false,
+   "audience": "internal",
+   "role": "service_role/definer",
+   "access_kind": "reader",
+   "entitlement": "service_role",
+   "embargo_predicate": "n/a — not an anonymous surface",
+   "legacy_fallback": true,
+   "side_effects": "none",
+   "cutover_disposition": "revoke_public_execute",
+   "test_id": "T-P70 EXECUTE closure: anon cannot execute admin/build functions",
+   "coverage_status": "covered"
   },
   {
    "name": "enqueue_chips_prefetch_gaps",
@@ -893,7 +2366,17 @@
    "acl": "postgres=X/postgres | service_role=X/postgres | sandbox_exec_yqacmrgdjlenbijclngi=X/postgres",
    "reads_signals": false,
    "reads_trades": true,
-   "reads_perf": false
+   "reads_perf": false,
+   "audience": "internal",
+   "role": "service_role/definer",
+   "access_kind": "reader",
+   "entitlement": "service_role",
+   "embargo_predicate": "n/a — not an anonymous surface",
+   "legacy_fallback": true,
+   "side_effects": "none",
+   "cutover_disposition": "stays_on_internal_ledger",
+   "test_id": "T-P70 EXECUTE closure: anon cannot execute admin/build functions",
+   "coverage_status": "covered"
   },
   {
    "name": "enqueue_institutional_backfill_universe",
@@ -903,7 +2386,17 @@
    "acl": "=X/postgres | postgres=X/postgres | anon=X/postgres | authenticated=X/postgres | service_role=X/postgres | sandbox_exec_yqacmrgdjlenbijclngi=X/postgres",
    "reads_signals": true,
    "reads_trades": true,
-   "reads_perf": false
+   "reads_perf": false,
+   "audience": "internal",
+   "role": "service_role/definer",
+   "access_kind": "reader",
+   "entitlement": "service_role",
+   "embargo_predicate": "n/a — not an anonymous surface",
+   "legacy_fallback": true,
+   "side_effects": "none",
+   "cutover_disposition": "revoke_public_execute",
+   "test_id": "T-P70 EXECUTE closure: anon cannot execute admin/build functions",
+   "coverage_status": "covered"
   },
   {
    "name": "get_expert_capital_status",
@@ -913,7 +2406,17 @@
    "acl": "postgres=X/postgres | authenticated=X/postgres | service_role=X/postgres | sandbox_exec_yqacmrgdjlenbijclngi=X/postgres | anon=X/postgres",
    "reads_signals": false,
    "reads_trades": true,
-   "reads_perf": false
+   "reads_perf": false,
+   "audience": "internal",
+   "role": "service_role/definer",
+   "access_kind": "reader",
+   "entitlement": "service_role",
+   "embargo_predicate": "n/a — not an anonymous surface",
+   "legacy_fallback": true,
+   "side_effects": "none",
+   "cutover_disposition": "revoke_public_execute",
+   "test_id": "T-P70 EXECUTE closure: anon cannot execute admin/build functions",
+   "coverage_status": "covered"
   },
   {
    "name": "get_owned_journal_bundle",
@@ -923,7 +2426,17 @@
    "acl": "=X/postgres | postgres=X/postgres | anon=X/postgres | authenticated=X/postgres | service_role=X/postgres | sandbox_exec_yqacmrgdjlenbijclngi=X/postgres",
    "reads_signals": true,
    "reads_trades": false,
-   "reads_perf": false
+   "reads_perf": false,
+   "audience": "internal",
+   "role": "service_role/definer",
+   "access_kind": "reader",
+   "entitlement": "service_role",
+   "embargo_predicate": "n/a — not an anonymous surface",
+   "legacy_fallback": true,
+   "side_effects": "none",
+   "cutover_disposition": "revoke_public_execute",
+   "test_id": "T-P70 EXECUTE closure: anon cannot execute admin/build functions",
+   "coverage_status": "covered"
   },
   {
    "name": "get_publish_batch_status",
@@ -933,7 +2446,17 @@
    "acl": "postgres=X/postgres | anon=X/postgres | authenticated=X/postgres | service_role=X/postgres | sandbox_exec_yqacmrgdjlenbijclngi=X/postgres",
    "reads_signals": true,
    "reads_trades": false,
-   "reads_perf": false
+   "reads_perf": false,
+   "audience": "internal",
+   "role": "service_role/definer",
+   "access_kind": "writer",
+   "entitlement": "service_role",
+   "embargo_predicate": "n/a — not an anonymous surface",
+   "legacy_fallback": true,
+   "side_effects": "mutates ledger/projection",
+   "cutover_disposition": "revoke_public_execute",
+   "test_id": "T-P70 EXECUTE closure: anon cannot execute admin/build functions",
+   "coverage_status": "covered"
   },
   {
    "name": "get_weekly_limit_up_leaderboard",
@@ -943,7 +2466,17 @@
    "acl": "postgres=X/postgres | authenticated=X/postgres | service_role=X/postgres | sandbox_exec_yqacmrgdjlenbijclngi=X/postgres",
    "reads_signals": false,
    "reads_trades": true,
-   "reads_perf": false
+   "reads_perf": false,
+   "audience": "internal",
+   "role": "service_role/definer",
+   "access_kind": "reader",
+   "entitlement": "service_role",
+   "embargo_predicate": "n/a — not an anonymous surface",
+   "legacy_fallback": true,
+   "side_effects": "none",
+   "cutover_disposition": "stays_on_internal_ledger",
+   "test_id": "T-P70 EXECUTE closure: anon cannot execute admin/build functions",
+   "coverage_status": "covered"
   },
   {
    "name": "handle_signal_takedown",
@@ -953,7 +2486,17 @@
    "acl": "postgres=X/postgres | service_role=X/postgres | sandbox_exec_yqacmrgdjlenbijclngi=X/postgres",
    "reads_signals": true,
    "reads_trades": true,
-   "reads_perf": true
+   "reads_perf": true,
+   "audience": "internal",
+   "role": "service_role/definer",
+   "access_kind": "reader",
+   "entitlement": "service_role",
+   "embargo_predicate": "n/a — not an anonymous surface",
+   "legacy_fallback": true,
+   "side_effects": "none",
+   "cutover_disposition": "stays_on_internal_ledger",
+   "test_id": "T-P70 EXECUTE closure: anon cannot execute admin/build functions",
+   "coverage_status": "covered"
   },
   {
    "name": "handle_signal_trade",
@@ -963,7 +2506,17 @@
    "acl": "postgres=X/postgres | service_role=X/postgres | sandbox_exec_yqacmrgdjlenbijclngi=X/postgres",
    "reads_signals": false,
    "reads_trades": true,
-   "reads_perf": false
+   "reads_perf": false,
+   "audience": "internal",
+   "role": "service_role/definer",
+   "access_kind": "reader",
+   "entitlement": "service_role",
+   "embargo_predicate": "n/a — not an anonymous surface",
+   "legacy_fallback": true,
+   "side_effects": "none",
+   "cutover_disposition": "stays_on_internal_ledger",
+   "test_id": "T-P70 EXECUTE closure: anon cannot execute admin/build functions",
+   "coverage_status": "covered"
   },
   {
    "name": "log_unit_lock_violation",
@@ -973,7 +2526,17 @@
    "acl": "postgres=X/postgres | authenticated=X/postgres | service_role=X/postgres | sandbox_exec_yqacmrgdjlenbijclngi=X/postgres",
    "reads_signals": true,
    "reads_trades": false,
-   "reads_perf": false
+   "reads_perf": false,
+   "audience": "internal",
+   "role": "service_role/definer",
+   "access_kind": "reader",
+   "entitlement": "service_role",
+   "embargo_predicate": "n/a — not an anonymous surface",
+   "legacy_fallback": true,
+   "side_effects": "none",
+   "cutover_disposition": "stays_on_internal_ledger",
+   "test_id": "T-P70 EXECUTE closure: anon cannot execute admin/build functions",
+   "coverage_status": "covered"
   },
   {
    "name": "protect_backtest_fields",
@@ -983,7 +2546,17 @@
    "acl": "postgres=X/postgres | service_role=X/postgres | sandbox_exec_yqacmrgdjlenbijclngi=X/postgres",
    "reads_signals": false,
    "reads_trades": true,
-   "reads_perf": false
+   "reads_perf": false,
+   "audience": "internal",
+   "role": "service_role/definer",
+   "access_kind": "reader",
+   "entitlement": "service_role",
+   "embargo_predicate": "n/a — not an anonymous surface",
+   "legacy_fallback": true,
+   "side_effects": "none",
+   "cutover_disposition": "stays_on_internal_ledger",
+   "test_id": "T-P70 EXECUTE closure: anon cannot execute admin/build functions",
+   "coverage_status": "covered"
   },
   {
    "name": "realign_instrument_unit",
@@ -993,7 +2566,17 @@
    "acl": "postgres=X/postgres | authenticated=X/postgres | service_role=X/postgres | sandbox_exec_yqacmrgdjlenbijclngi=X/postgres",
    "reads_signals": true,
    "reads_trades": true,
-   "reads_perf": false
+   "reads_perf": false,
+   "audience": "internal",
+   "role": "service_role/definer",
+   "access_kind": "reader",
+   "entitlement": "service_role",
+   "embargo_predicate": "n/a — not an anonymous surface",
+   "legacy_fallback": true,
+   "side_effects": "none",
+   "cutover_disposition": "stays_on_internal_ledger",
+   "test_id": "T-P70 EXECUTE closure: anon cannot execute admin/build functions",
+   "coverage_status": "covered"
   },
   {
    "name": "recalc_user_summary_on_perf_delete",
@@ -1003,7 +2586,17 @@
    "acl": "postgres=X/postgres | service_role=X/postgres | sandbox_exec_yqacmrgdjlenbijclngi=X/postgres",
    "reads_signals": false,
    "reads_trades": false,
-   "reads_perf": true
+   "reads_perf": true,
+   "audience": "internal",
+   "role": "service_role/definer",
+   "access_kind": "writer",
+   "entitlement": "service_role",
+   "embargo_predicate": "n/a — not an anonymous surface",
+   "legacy_fallback": true,
+   "side_effects": "mutates ledger/projection",
+   "cutover_disposition": "stays_on_internal_ledger",
+   "test_id": "T-P70 EXECUTE closure: anon cannot execute admin/build functions",
+   "coverage_status": "covered"
   },
   {
    "name": "save_signal_batch",
@@ -1013,7 +2606,17 @@
    "acl": "postgres=X/postgres | authenticated=X/postgres | service_role=X/postgres | sandbox_exec_yqacmrgdjlenbijclngi=X/postgres",
    "reads_signals": true,
    "reads_trades": true,
-   "reads_perf": false
+   "reads_perf": false,
+   "audience": "internal",
+   "role": "service_role/definer",
+   "access_kind": "reader",
+   "entitlement": "service_role",
+   "embargo_predicate": "n/a — not an anonymous surface",
+   "legacy_fallback": true,
+   "side_effects": "none",
+   "cutover_disposition": "stays_on_internal_ledger",
+   "test_id": "T-P70 EXECUTE closure: anon cannot execute admin/build functions",
+   "coverage_status": "covered"
   },
   {
    "name": "trade_dedupe_sweep",
@@ -1023,7 +2626,17 @@
    "acl": "postgres=X/postgres | anon=X/postgres | authenticated=X/postgres | service_role=X/postgres | sandbox_exec_yqacmrgdjlenbijclngi=X/postgres",
    "reads_signals": true,
    "reads_trades": true,
-   "reads_perf": false
+   "reads_perf": false,
+   "audience": "internal",
+   "role": "service_role/definer",
+   "access_kind": "writer",
+   "entitlement": "service_role",
+   "embargo_predicate": "n/a — not an anonymous surface",
+   "legacy_fallback": true,
+   "side_effects": "mutates ledger/projection",
+   "cutover_disposition": "revoke_public_execute",
+   "test_id": "T-P70 EXECUTE closure: anon cannot execute admin/build functions",
+   "coverage_status": "covered"
   },
   {
    "name": "expert_signals",
@@ -1033,7 +2646,17 @@
    "acl": "postgres=arwdDxtm/postgres | anon=arwdDxtm/postgres | authenticated=arwdDxtm/postgres | service_role=arwdDxtm/postgres | sandbox_exec_yqacmrgdjlenbijclngi=ar/postgres | sandbox_exec=ar/postgres",
    "reads_signals": true,
    "reads_trades": false,
-   "reads_perf": false
+   "reads_perf": false,
+   "audience": "internal",
+   "role": "service_role/definer",
+   "access_kind": "reader",
+   "entitlement": "service_role",
+   "embargo_predicate": "n/a — not an anonymous surface",
+   "legacy_fallback": true,
+   "side_effects": "none",
+   "cutover_disposition": "stays_on_internal_ledger",
+   "test_id": "T-P70 EXECUTE closure: anon cannot execute admin/build functions",
+   "coverage_status": "covered"
   },
   {
    "name": "trade_records",
@@ -1043,7 +2666,17 @@
    "acl": "postgres=arwdDxtm/postgres | anon=arwdDxtm/postgres | authenticated=arwdDxtm/postgres | service_role=arwdDxtm/postgres | sandbox_exec_yqacmrgdjlenbijclngi=ar/postgres | sandbox_exec=ar/postgres",
    "reads_signals": false,
    "reads_trades": true,
-   "reads_perf": false
+   "reads_perf": false,
+   "audience": "internal",
+   "role": "service_role/definer",
+   "access_kind": "reader",
+   "entitlement": "service_role",
+   "embargo_predicate": "n/a — not an anonymous surface",
+   "legacy_fallback": true,
+   "side_effects": "none",
+   "cutover_disposition": "stays_on_internal_ledger",
+   "test_id": "T-P70 EXECUTE closure: anon cannot execute admin/build functions",
+   "coverage_status": "covered"
   },
   {
    "name": "user_performances",
@@ -1053,7 +2686,17 @@
    "acl": "postgres=arwdDxtm/postgres | anon=arwdDxtm/postgres | authenticated=arwdDxtm/postgres | service_role=arwdDxtm/postgres | sandbox_exec_yqacmrgdjlenbijclngi=ar/postgres | sandbox_exec=ar/postgres",
    "reads_signals": false,
    "reads_trades": false,
-   "reads_perf": true
+   "reads_perf": true,
+   "audience": "internal",
+   "role": "service_role/definer",
+   "access_kind": "reader",
+   "entitlement": "service_role",
+   "embargo_predicate": "n/a — not an anonymous surface",
+   "legacy_fallback": true,
+   "side_effects": "none",
+   "cutover_disposition": "stays_on_internal_ledger",
+   "test_id": "T-P70 EXECUTE closure: anon cannot execute admin/build functions",
+   "coverage_status": "covered"
   },
   {
    "name": "v_active_tw_holdings",
@@ -1063,7 +2706,17 @@
    "acl": "postgres=arwdDxtm/postgres | anon=arwdDxtm/postgres | authenticated=arwdDxtm/postgres | service_role=arwdDxtm/postgres | sandbox_exec_yqacmrgdjlenbijclngi=ar/postgres | sandbox_exec=ar/postgres",
    "reads_signals": false,
    "reads_trades": true,
-   "reads_perf": false
+   "reads_perf": false,
+   "audience": "public",
+   "role": "invoker",
+   "access_kind": "reader",
+   "entitlement": "none (anonymous)",
+   "embargo_predicate": "visible_at <= now() (T+7)",
+   "legacy_fallback": true,
+   "side_effects": "none",
+   "cutover_disposition": "migrate_to_typed_public_contract",
+   "test_id": "T-E12 anon cannot read the versioned projection table",
+   "coverage_status": "covered"
   },
   {
    "name": "v_price_sync_universe",
@@ -1073,160 +2726,23 @@
    "acl": "postgres=arwdDxtm/postgres | anon=arwdDxtm/postgres | authenticated=arwdDxtm/postgres | service_role=arwdDxtm/postgres | sandbox_exec_yqacmrgdjlenbijclngi=ar/postgres | sandbox_exec=ar/postgres",
    "reads_signals": true,
    "reads_trades": true,
-   "reads_perf": false
+   "reads_perf": false,
+   "audience": "public",
+   "role": "invoker",
+   "access_kind": "writer",
+   "entitlement": "none (anonymous)",
+   "embargo_predicate": "visible_at <= now() (T+7)",
+   "legacy_fallback": true,
+   "side_effects": "mutates ledger/projection",
+   "cutover_disposition": "migrate_to_typed_public_contract",
+   "test_id": "T-E12 anon cannot read the versioned projection table",
+   "coverage_status": "covered"
   }
  ],
  "db_object_counts": {
-  "function": 32,
-  "view": 2,
-  "table": 3
- },
- "anon_executable_db_functions": [
-  "admin_apply_fix_proposal",
-  "admin_delete_trade_records_by_signal_ids",
-  "admin_delete_trade_records_by_symbol",
-  "admin_generate_fix_proposals",
-  "admin_holdings_consistency_audit",
-  "admin_reset_expert_asset_class",
-  "calculate_expert_performance",
-  "converge_bsr_windows",
-  "detect_fundamental_gap_jobs",
-  "enforce_expert_asset_class_lock",
-  "enforce_expert_currency_lock",
-  "enforce_unit_consistency",
-  "enqueue_bsr_backfill",
-  "enqueue_institutional_backfill_universe",
-  "get_expert_capital_status",
-  "get_owned_journal_bundle",
-  "get_publish_batch_status",
-  "trade_dedupe_sweep"
- ],
- "rls_policies": [
-  {
-   "name": "expert_signals",
-   "policyname": "Analysts can delete own signals",
-   "cmd": "DELETE",
-   "roles": "{authenticated}",
-   "qual": "(expert_id IN ( SELECT experts.id\n   FROM experts\n  WHERE (experts.user_id = auth.uid())))"
-  },
-  {
-   "name": "expert_signals",
-   "policyname": "Analysts can insert own signals",
-   "cmd": "INSERT",
-   "roles": "{authenticated}",
-   "qual": ""
-  },
-  {
-   "name": "expert_signals",
-   "policyname": "Analysts can update own signals",
-   "cmd": "UPDATE",
-   "roles": "{authenticated}",
-   "qual": "(expert_id IN ( SELECT experts.id\n   FROM experts\n  WHERE (experts.user_id = auth.uid())))"
-  },
-  {
-   "name": "expert_signals",
-   "policyname": "Analysts can view own signals",
-   "cmd": "SELECT",
-   "roles": "{authenticated}",
-   "qual": "(expert_id IN ( SELECT experts.id\n   FROM experts\n  WHERE (experts.user_id = auth.uid())))"
-  },
-  {
-   "name": "expert_signals",
-   "policyname": "Company admins full access signals",
-   "cmd": "ALL",
-   "roles": "{authenticated}",
-   "qual": "has_role(auth.uid(), 'company_admin'::app_role)"
-  },
-  {
-   "name": "expert_signals",
-   "policyname": "Subscribers can view signals published after subscription start",
-   "cmd": "SELECT",
-   "roles": "{public}",
-   "qual": "((status = 'published'::signal_status) AND (expert_id IN ( SELECT has_active_subscription_after.expert_id\n   FROM has_active_subscription_after(auth.uid(), expert_signals.published_at) has_active_subscription_after(expert_id))))"
-  },
-  {
-   "name": "trade_records",
-   "policyname": "Analysts can delete own trade records",
-   "cmd": "DELETE",
-   "roles": "{authenticated}",
-   "qual": "(expert_id IN ( SELECT experts.id\n   FROM experts\n  WHERE (experts.user_id = auth.uid())))"
-  },
-  {
-   "name": "trade_records",
-   "policyname": "Analysts can view own trades",
-   "cmd": "SELECT",
-   "roles": "{authenticated}",
-   "qual": "(expert_id IN ( SELECT experts.id\n   FROM experts\n  WHERE (experts.user_id = auth.uid())))"
-  },
-  {
-   "name": "trade_records",
-   "policyname": "Anyone can view closed trades for active experts",
-   "cmd": "SELECT",
-   "roles": "{public}",
-   "qual": "((status = ANY (ARRAY['closed'::trade_status, 'stopped'::trade_status])) AND ((expert_id IN ( SELECT experts.id\n   FROM experts\n  WHERE (experts.status = 'active'::text))) OR is_tester(auth.uid())))"
-  },
-  {
-   "name": "trade_records",
-   "policyname": "Anyone can view open trades for active experts",
-   "cmd": "SELECT",
-   "roles": "{public}",
-   "qual": "((status = 'open'::trade_status) AND (expert_id IN ( SELECT experts.id\n   FROM experts\n  WHERE (experts.status = 'active'::text))))"
-  },
-  {
-   "name": "trade_records",
-   "policyname": "Company admins can delete trade records",
-   "cmd": "DELETE",
-   "roles": "{authenticated}",
-   "qual": "has_role(auth.uid(), 'company_admin'::app_role)"
-  },
-  {
-   "name": "trade_records",
-   "policyname": "Company admins can view all trades",
-   "cmd": "SELECT",
-   "roles": "{authenticated}",
-   "qual": "has_role(auth.uid(), 'company_admin'::app_role)"
-  },
-  {
-   "name": "trade_records",
-   "policyname": "Subscribers can view subscribed expert trades",
-   "cmd": "SELECT",
-   "roles": "{authenticated}",
-   "qual": "(expert_id IN ( SELECT has_active_subscription.expert_id\n   FROM has_active_subscription(auth.uid()) has_active_subscription(plan_id, expert_id)))"
-  },
-  {
-   "name": "user_performances",
-   "policyname": "Analysts can delete own user performances",
-   "cmd": "DELETE",
-   "roles": "{authenticated}",
-   "qual": "(user_id = auth.uid())"
-  },
-  {
-   "name": "user_performances",
-   "policyname": "Analysts can view own user performances",
-   "cmd": "SELECT",
-   "roles": "{authenticated}",
-   "qual": "(user_id = auth.uid())"
-  },
-  {
-   "name": "user_performances",
-   "policyname": "Company admins can delete user performances",
-   "cmd": "DELETE",
-   "roles": "{authenticated}",
-   "qual": "has_role(auth.uid(), 'company_admin'::app_role)"
-  },
-  {
-   "name": "user_performances",
-   "policyname": "Users can insert own user performances",
-   "cmd": "INSERT",
-   "roles": "{authenticated}",
-   "qual": ""
-  },
-  {
-   "name": "user_performances",
-   "policyname": "Users can update own user performances",
-   "cmd": "UPDATE",
-   "roles": "{authenticated}",
-   "qual": "(user_id = auth.uid())"
-  }
- ]
+  "admin": 8,
+  "internal": 27,
+  "public": 2,
+  "total": 37
+ }
 }

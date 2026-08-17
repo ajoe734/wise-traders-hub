@@ -115,6 +115,67 @@ SELECT t.expect_error('T-P31 manual_review key cannot be flipped to publishable'
      WHERE instrument LIKE '6515%'$$,
   'rmk_manual_withheld', '23514');
 
+
+-- =====================================================================
+-- P1b  instrument classification — no warrant/option may take the
+--      tw_stock / us_stock fast path (security master is authoritative)
+-- =====================================================================
+DO $$ BEGIN
+  PERFORM t.eq('T-P32 manifest tw_warrant keys',
+    (SELECT count(*)::int FROM app_ledger.replay_manifest_key WHERE asset_class='tw_warrant'), 10);
+  PERFORM t.eq('T-P33 manifest unknown_derivative keys',
+    (SELECT count(*)::int FROM app_ledger.replay_manifest_key WHERE asset_class='unknown_derivative'), 5);
+  PERFORM t.eq('T-P34 manifest us_option_combo keys',
+    (SELECT count(*)::int FROM app_ledger.replay_manifest_key WHERE asset_class='us_option_combo'), 3);
+  PERFORM t.eq('T-P35 manifest unclassified instrument keys',
+    (SELECT count(*)::int FROM app_ledger.replay_manifest_key WHERE asset_class='unknown_instrument'), 8);
+  -- the 4 production TW warrant opens: warrant or conservative unknown_derivative
+  PERFORM t.eq('T-P36 4/4 TW warrant opens are derivative-classified',
+    (SELECT count(*)::int FROM app_ledger.replay_manifest_key
+      WHERE instrument LIKE '068003%' OR instrument LIKE '071745%'
+         OR instrument LIKE '078397%' OR instrument LIKE '079052%'), 4);
+  PERFORM t.ok('T-P37 none of the 4 warrant opens is tw_stock',
+    NOT EXISTS (SELECT 1 FROM app_ledger.replay_manifest_key
+      WHERE asset_class NOT IN ('tw_warrant','unknown_derivative')
+        AND (instrument LIKE '068003%' OR instrument LIKE '071745%'
+          OR instrument LIKE '078397%' OR instrument LIKE '079052%')));
+  PERFORM t.eq('T-P38 3/3 US option combos classified us_option_combo',
+    (SELECT count(*)::int FROM app_ledger.replay_manifest_key
+      WHERE asset_class='us_option_combo'
+        AND (instrument LIKE 'LUNR%' OR instrument LIKE 'RKLB%' OR instrument LIKE 'SNDK%')), 3);
+  PERFORM t.ok('T-P39 no unsupported derivative key is publishable',
+    NOT EXISTS (SELECT 1 FROM app_ledger.replay_manifest_key
+      WHERE asset_class IN ('tw_warrant','unknown_derivative','us_option_combo','unknown_instrument')
+        AND NOT derivative_supported
+        AND public_disposition <> 'withheld_incomplete'));
+  -- classifier unit tests (no master row needed for the code-space rules)
+  PERFORM t.eq('T-P32a classifier: absent warrant code',
+    app_ledger.classify_instrument('TW','078397 X'), 'unknown_derivative');
+  PERFORM t.eq('T-P32b classifier: US combo shape',
+    app_ledger.classify_instrument('US','LUNR 11/8P + 16/19C'), 'us_option_combo');
+  PERFORM t.eq('T-P32c classifier: US combo by unit',
+    app_ledger.classify_instrument('US','LUNR', false, '組'), 'us_option_combo');
+  PERFORM t.eq('T-P32d classifier: TW equity', app_ledger.classify_instrument('TW','2330 台積電'), 'tw_stock');
+  PERFORM t.eq('T-P32e classifier: TW ETF', app_ledger.classify_instrument('TW','00631L 元大台灣50正2'), 'tw_stock');
+  PERFORM t.eq('T-P32f classifier: US equity', app_ledger.classify_instrument('US','AMD'), 'us_stock');
+  PERFORM t.eq('T-P32g classifier: US ticker booked as TW is unclassified',
+    app_ledger.classify_instrument('TW','NVDA 輝達'), 'unknown_instrument');
+  PERFORM t.ok('T-P32h derivative is not publishable',
+    NOT app_ledger.instrument_publishable('TW','078397 X')
+    AND NOT app_ledger.instrument_publishable('US','LUNR 11/8P + 16/19C')
+    AND NOT app_ledger.instrument_publishable('TW','NVDA 輝達'));
+  PERFORM t.ok('T-P32i cash equity is publishable',
+    app_ledger.instrument_publishable('TW','2330 台積電')
+    AND app_ledger.instrument_publishable('US','AMD'));
+END $$;
+
+SELECT t.expect_error('T-P32j an unsupported derivative cannot be marked publishable',
+  $$INSERT INTO app_ledger.replay_manifest_key(key,expert_handle,instrument,market,currency,
+      class,review_status,public_disposition,asset_class,derivative_supported)
+    VALUES ('K-testderiv','E-test','078397 X','TW','TWD','match','auto_supported',
+            'as_reported_publishable','unknown_derivative',false)$$,
+  'rmk_derivative_closed', '23514');
+
 -- =====================================================================
 -- P2  embargo — a pending (not yet visible) effect is invisible everywhere
 -- =====================================================================
@@ -376,3 +437,21 @@ END $$;
 \echo '--- R1-P verify summary ---'
 SELECT count(*) AS tests, count(*) FILTER (WHERE NOT passed) AS failures FROM t.result;
 SELECT id, name, coalesce(detail,'') FROM t.result WHERE NOT passed ORDER BY id;
+
+-- =====================================================================
+-- P9  live derivative fast-path closure (runs last: it withholds a position)
+-- =====================================================================
+DO $$ DECLARE v_ver bigint; BEGIN
+  PERFORM tp.sig((SELECT v FROM tp.ids WHERE k='sigW1'), 'buy', 5, 1.05, 'published', '078397 同欣電富邦64購02');
+  UPDATE app_ledger.economic_effect SET visible_at = now() - interval '1 minute'
+   WHERE expert_id = (SELECT v FROM tp.ids WHERE k='expP');
+  v_ver := app_ledger.canonical_publish((SELECT v FROM tp.ids WHERE k='expP'));
+  PERFORM t.eq('T-P32k warrant position is not published',
+    (SELECT count(*)::int FROM public.public_position_projection
+      WHERE projection_version=v_ver AND instrument LIKE '078397%'), 0);
+  PERFORM t.eq('T-P32l warrant position is recorded as withheld',
+    (SELECT count(*)::int FROM public.public_projection_withheld
+      WHERE projection_version=v_ver AND instrument LIKE '078397%'
+        AND reason LIKE 'derivative_unsupported:%'), 1);
+END $$;
+

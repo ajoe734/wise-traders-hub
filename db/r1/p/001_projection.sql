@@ -39,6 +39,18 @@ CREATE TABLE IF NOT EXISTS app_ledger.replay_manifest_key (
   auto_correction_forbidden boolean NOT NULL DEFAULT true,
   reason_codes              jsonb NOT NULL DEFAULT '[]'::jsonb,
   in_drift26                boolean NOT NULL DEFAULT false,
+  -- security-master classification (db/r1/p/instrument_class_view.sql)
+  asset_class               text NOT NULL DEFAULT 'unknown_instrument'
+    CHECK (asset_class IN ('tw_stock','us_stock','tw_warrant','unknown_derivative',
+                           'us_option_combo','unknown_instrument')),
+  derivative_supported      boolean NOT NULL DEFAULT false,
+  in_warrant_master         boolean NOT NULL DEFAULT false,
+  classification_evidence   text NOT NULL DEFAULT 'no_master_row',
+  -- a derivative that is not fully supported can never be publishable
+  CONSTRAINT rmk_derivative_closed CHECK
+    (derivative_supported
+     OR asset_class IN ('tw_stock','us_stock')
+     OR public_disposition = 'withheld_incomplete'),
   -- G3: an unadjudicated key may never carry an authoritative number
   CONSTRAINT rmk_no_auto_answer CHECK
     (NOT auto_correction_forbidden OR authoritative_qty_shares IS NULL),
@@ -68,6 +80,45 @@ DROP TRIGGER IF EXISTS trg_manifest_immutable ON app_ledger.replay_manifest_key;
 CREATE TRIGGER trg_manifest_immutable
   BEFORE UPDATE OR DELETE ON app_ledger.replay_manifest_key
   FOR EACH ROW EXECUTE FUNCTION app_ledger.manifest_immutable();
+
+-- ---------------------------------------------------------------- classifier
+-- Mirrors db/r1/p/instrument_class_view.sql. It exists so that an instrument
+-- that has NO manifest row can still never slip through the tw_stock/us_stock
+-- fast path: anything derivative-shaped is classified and fails closed.
+CREATE OR REPLACE FUNCTION app_ledger.classify_instrument(
+  p_market text, p_instrument text, p_combo boolean DEFAULT false, p_unit text DEFAULT NULL)
+RETURNS text LANGUAGE sql STABLE SET search_path = '' AS $$
+  SELECT CASE
+    WHEN p_market = 'US' AND (coalesce(p_combo,false) OR coalesce(p_unit,'') = '組'
+         OR p_instrument ~ '[0-9]+(\.[0-9]+)?[CP]')                  THEN 'us_option_combo'
+    WHEN p_market = 'TW' AND EXISTS (SELECT 1 FROM public.warrant_expiry w
+           WHERE w.symbol = pg_catalog.split_part(p_instrument,' ',1))  THEN 'tw_warrant'
+    WHEN p_market = 'TW' AND pg_catalog.split_part(p_instrument,' ',1) ~ '^[0-9]{6}$'
+         AND pg_catalog.left(pg_catalog.split_part(p_instrument,' ',1),2) <> '00'
+                                                                        THEN 'unknown_derivative'
+    WHEN p_market = 'TW' AND (pg_catalog.split_part(p_instrument,' ',1) ~ '^[0-9]{4}$'
+         OR pg_catalog.split_part(p_instrument,' ',1) ~ '^00[0-9]{2,3}[A-Z]?$')
+                                                                        THEN 'tw_stock'
+    WHEN p_market = 'US' AND pg_catalog.split_part(p_instrument,' ',1) ~ '^[A-Z][A-Z.\-]{0,5}$'
+                                                                        THEN 'us_stock'
+    ELSE 'unknown_instrument' END
+$$;
+ALTER FUNCTION app_ledger.classify_instrument(text,text,boolean,text) OWNER TO ledger_owner;
+
+CREATE OR REPLACE FUNCTION app_ledger.instrument_publishable(
+  p_market text, p_instrument text, p_combo boolean DEFAULT false, p_unit text DEFAULT NULL)
+RETURNS boolean LANGUAGE sql STABLE SET search_path = '' AS $$
+  SELECT CASE app_ledger.classify_instrument(p_market, p_instrument, p_combo, p_unit)
+    WHEN 'tw_stock' THEN true
+    WHEN 'us_stock' THEN true
+    WHEN 'tw_warrant' THEN EXISTS (
+      SELECT 1 FROM public.warrant_expiry w
+        JOIN public.current_prices c ON c.symbol = w.symbol
+       WHERE w.symbol = pg_catalog.split_part(p_instrument,' ',1)
+         AND w.exercise_ratio IS NOT NULL AND c.price IS NOT NULL)
+    ELSE false END
+$$;
+ALTER FUNCTION app_ledger.instrument_publishable(text,text,boolean,text) OWNER TO ledger_owner;
 
 -- production key formula (identical to db/r1/p/manifest_replay.sql)
 CREATE OR REPLACE FUNCTION app_ledger.manifest_key(p_expert uuid, p_market text, p_instrument text)
@@ -199,6 +250,28 @@ BEGIN
     FROM pg_temp.pp_cand c
    WHERE app_ledger.manifest_disposition(p_expert, c.market, c.instrument) = 'withheld_incomplete';
   GET DIAGNOSTICS v_withheld = ROW_COUNT;
+
+  -- G6: derivative fast-path closure. Anything that is not a plain cash equity
+  -- with a complete quote/multiplier chain is withheld even when the manifest
+  -- has no row for it.
+  INSERT INTO public.public_projection_withheld(
+    projection_version, expert_id, instrument_key, instrument, market, manifest_key, reason)
+  SELECT v_ver, p_expert, c.instrument_key, c.instrument, c.market,
+         app_ledger.manifest_key(p_expert, c.market, c.instrument),
+         'derivative_unsupported:' ||
+           app_ledger.classify_instrument(c.market, c.instrument, false, c.qty_unit)
+    FROM pg_temp.pp_cand c
+   WHERE NOT app_ledger.instrument_publishable(c.market, c.instrument, false, c.qty_unit)
+     AND app_ledger.manifest_disposition(p_expert, c.market, c.instrument)
+         <> 'withheld_incomplete'
+  ON CONFLICT DO NOTHING;
+  v_withheld := v_withheld + (SELECT pg_catalog.count(*)::int
+     FROM public.public_projection_withheld w
+    WHERE w.projection_version = v_ver
+      AND w.reason LIKE 'derivative_unsupported:%');
+
+  DELETE FROM pg_temp.pp_cand c
+   WHERE NOT app_ledger.instrument_publishable(c.market, c.instrument, false, c.qty_unit);
 
   DELETE FROM pg_temp.pp_cand c
    WHERE app_ledger.manifest_disposition(p_expert, c.market, c.instrument) = 'withheld_incomplete';
@@ -377,6 +450,10 @@ REVOKE EXECUTE ON FUNCTION app_ledger.canonical_publish(uuid,date,text,boolean) 
 
 -- ---------------------------------------------------------------- privileges
 -- new functions must not inherit the default PUBLIC EXECUTE
+REVOKE ALL ON FUNCTION app_ledger.classify_instrument(text,text,boolean,text) FROM PUBLIC, anon, authenticated;
+REVOKE ALL ON FUNCTION app_ledger.instrument_publishable(text,text,boolean,text) FROM PUBLIC, anon, authenticated;
+GRANT EXECUTE ON FUNCTION app_ledger.classify_instrument(text,text,boolean,text) TO ledger_owner, postgres;
+GRANT EXECUTE ON FUNCTION app_ledger.instrument_publishable(text,text,boolean,text) TO ledger_owner, postgres;
 REVOKE ALL ON FUNCTION app_ledger.manifest_key(uuid,text,text)          FROM PUBLIC, anon, authenticated;
 REVOKE ALL ON FUNCTION app_ledger.manifest_disposition(uuid,text,text)  FROM PUBLIC, anon, authenticated;
 REVOKE ALL ON FUNCTION app_ledger.manifest_immutable()                  FROM PUBLIC, anon, authenticated;
