@@ -1,0 +1,1476 @@
+{
+  "artifact": "acl-25",
+  "generated_at": "2026-08-17T04:59:54.743214+00:00",
+  "production_touch": {
+    "ddl": 0,
+    "dml": 0,
+    "execute": 0,
+    "grant": 0,
+    "revoke": 0
+  },
+  "source": "production read-only pg_proc/pg_get_function_identity_arguments probe",
+  "frozen_baseline": {
+    "watchset_sha256": "4b789a857ffd1f21f0b089d1a192f4f952acb58907c169c233f017fdd465d18c",
+    "pinned_sha256": "4b789a857ffd1f21f0b089d1a192f4f952acb58907c169c233f017fdd465d18c",
+    "detail_sha256": "29409e83d23c1fde71d415f9ecf420614312d8246e5484f558b56e227280a018",
+    "total_rows": 28,
+    "pattern_admin_build_publish": 25,
+    "named_pre_cutover_subset": 3,
+    "unclassified": 0
+  },
+  "disposition_counts": {
+    "revoke_anon_public": 28,
+    "keep_typed_safe": 0,
+    "owner_only": 0,
+    "replace_with_wrapper": 0
+  },
+  "category_counts": {
+    "admin": 9,
+    "build": 11,
+    "economic_raw_rpc": 3,
+    "publish": 3,
+    "trigger": 2
+  },
+  "cutover_migration": "db/r1/p/002_public_contract.sql (C3 + C3b)",
+  "post_migration_expectation": {
+    "clone_after_002_public_contract": {
+      "named_pre_cutover": 0,
+      "pattern_admin_build_publish": 0
+    },
+    "per_signature_tests": "db/r1/p/095_acl25_verify.sql",
+    "group_tests": [
+      "T-P98a",
+      "T-P98b",
+      "T-P98c"
+    ]
+  },
+  "policy": {
+    "no_keep_for": [
+      "admin",
+      "build",
+      "publish",
+      "economic_raw_rpc",
+      "trigger"
+    ],
+    "note": "0 keep dispositions in this artifact, so no keep-proof is owed. The three named helpers stay callable for authenticated/service_role only (T-P98c proves output still works for the intended caller)."
+  },
+  "items": [
+    {
+      "n": 1,
+      "signature": "public.admin_apply_fix_proposal(p_id uuid, p_confirm boolean)",
+      "schema": "public",
+      "function": "admin_apply_fix_proposal",
+      "identity_args": "p_id uuid, p_confirm boolean",
+      "class": "pattern_admin_build_publish",
+      "category": "admin",
+      "subset_of_named_pre_cutover": false,
+      "owner": "postgres",
+      "prosecdef": true,
+      "search_path": "search_path=public",
+      "grants": [
+        {
+          "grantee": "postgres",
+          "privilege": "EXECUTE",
+          "grantor": "postgres"
+        },
+        {
+          "grantee": "anon",
+          "privilege": "EXECUTE",
+          "grantor": "postgres"
+        },
+        {
+          "grantee": "authenticated",
+          "privilege": "EXECUTE",
+          "grantor": "postgres"
+        },
+        {
+          "grantee": "service_role",
+          "privilege": "EXECUTE",
+          "grantor": "postgres"
+        },
+        {
+          "grantee": "sandbox_exec_yqacmrgdjlenbijclngi",
+          "privilege": "EXECUTE",
+          "grantor": "postgres"
+        }
+      ],
+      "anon_privilege": "EXECUTE",
+      "anon_grantor": "postgres",
+      "actual_caller": "company_admin UI (/company/holdings-fix)",
+      "data_exposed_or_mutated": "mutates trade_records + holdings_fix_proposals (applies an adjudicated correction)",
+      "pre_cutover_risk": "anon could apply arbitrary economic corrections to any expert's ledger",
+      "cutover_disposition": "revoke_anon_public",
+      "keep_justification": null,
+      "keep_negative_proof": null,
+      "post_migration_test_id": "T-P98b.01"
+    },
+    {
+      "n": 2,
+      "signature": "public.admin_delete_trade_records_by_signal_ids(_signal_ids uuid[])",
+      "schema": "public",
+      "function": "admin_delete_trade_records_by_signal_ids",
+      "identity_args": "_signal_ids uuid[]",
+      "class": "pattern_admin_build_publish",
+      "category": "admin",
+      "subset_of_named_pre_cutover": false,
+      "owner": "postgres",
+      "prosecdef": true,
+      "search_path": "search_path=public",
+      "grants": [
+        {
+          "grantee": "postgres",
+          "privilege": "EXECUTE",
+          "grantor": "postgres"
+        },
+        {
+          "grantee": "anon",
+          "privilege": "EXECUTE",
+          "grantor": "postgres"
+        },
+        {
+          "grantee": "authenticated",
+          "privilege": "EXECUTE",
+          "grantor": "postgres"
+        },
+        {
+          "grantee": "service_role",
+          "privilege": "EXECUTE",
+          "grantor": "postgres"
+        },
+        {
+          "grantee": "sandbox_exec_yqacmrgdjlenbijclngi",
+          "privilege": "EXECUTE",
+          "grantor": "postgres"
+        }
+      ],
+      "anon_privilege": "EXECUTE",
+      "anon_grantor": "postgres",
+      "actual_caller": "company_admin data-repair tooling",
+      "data_exposed_or_mutated": "deletes rows from trade_records",
+      "pre_cutover_risk": "anon could destroy an expert's trade history",
+      "cutover_disposition": "revoke_anon_public",
+      "keep_justification": null,
+      "keep_negative_proof": null,
+      "post_migration_test_id": "T-P98b.02"
+    },
+    {
+      "n": 3,
+      "signature": "public.admin_delete_trade_records_by_symbol(_expert_id uuid, _symbol_prefix text)",
+      "schema": "public",
+      "function": "admin_delete_trade_records_by_symbol",
+      "identity_args": "_expert_id uuid, _symbol_prefix text",
+      "class": "pattern_admin_build_publish",
+      "category": "admin",
+      "subset_of_named_pre_cutover": false,
+      "owner": "postgres",
+      "prosecdef": true,
+      "search_path": "search_path=public",
+      "grants": [
+        {
+          "grantee": "postgres",
+          "privilege": "EXECUTE",
+          "grantor": "postgres"
+        },
+        {
+          "grantee": "anon",
+          "privilege": "EXECUTE",
+          "grantor": "postgres"
+        },
+        {
+          "grantee": "authenticated",
+          "privilege": "EXECUTE",
+          "grantor": "postgres"
+        },
+        {
+          "grantee": "service_role",
+          "privilege": "EXECUTE",
+          "grantor": "postgres"
+        },
+        {
+          "grantee": "sandbox_exec_yqacmrgdjlenbijclngi",
+          "privilege": "EXECUTE",
+          "grantor": "postgres"
+        }
+      ],
+      "anon_privilege": "EXECUTE",
+      "anon_grantor": "postgres",
+      "actual_caller": "company_admin data-repair tooling",
+      "data_exposed_or_mutated": "deletes rows from trade_records for an expert/symbol prefix",
+      "pre_cutover_risk": "anon could destroy an expert's trade history",
+      "cutover_disposition": "revoke_anon_public",
+      "keep_justification": null,
+      "keep_negative_proof": null,
+      "post_migration_test_id": "T-P98b.03"
+    },
+    {
+      "n": 4,
+      "signature": "public.admin_generate_fix_proposals(p_category text)",
+      "schema": "public",
+      "function": "admin_generate_fix_proposals",
+      "identity_args": "p_category text",
+      "class": "pattern_admin_build_publish",
+      "category": "admin",
+      "subset_of_named_pre_cutover": false,
+      "owner": "postgres",
+      "prosecdef": true,
+      "search_path": "search_path=public",
+      "grants": [
+        {
+          "grantee": "postgres",
+          "privilege": "EXECUTE",
+          "grantor": "postgres"
+        },
+        {
+          "grantee": "anon",
+          "privilege": "EXECUTE",
+          "grantor": "postgres"
+        },
+        {
+          "grantee": "authenticated",
+          "privilege": "EXECUTE",
+          "grantor": "postgres"
+        },
+        {
+          "grantee": "service_role",
+          "privilege": "EXECUTE",
+          "grantor": "postgres"
+        },
+        {
+          "grantee": "sandbox_exec_yqacmrgdjlenbijclngi",
+          "privilege": "EXECUTE",
+          "grantor": "postgres"
+        }
+      ],
+      "anon_privilege": "EXECUTE",
+      "anon_grantor": "postgres",
+      "actual_caller": "company_admin UI + maintenance cron",
+      "data_exposed_or_mutated": "writes holdings_fix_proposals; reads full cross-expert holdings",
+      "pre_cutover_risk": "anon could enumerate every expert's drifted positions",
+      "cutover_disposition": "revoke_anon_public",
+      "keep_justification": null,
+      "keep_negative_proof": null,
+      "post_migration_test_id": "T-P98b.04"
+    },
+    {
+      "n": 5,
+      "signature": "public.admin_holdings_consistency_audit()",
+      "schema": "public",
+      "function": "admin_holdings_consistency_audit",
+      "identity_args": "",
+      "class": "pattern_admin_build_publish",
+      "category": "admin",
+      "subset_of_named_pre_cutover": false,
+      "owner": "postgres",
+      "prosecdef": true,
+      "search_path": "search_path=public",
+      "grants": [
+        {
+          "grantee": "postgres",
+          "privilege": "EXECUTE",
+          "grantor": "postgres"
+        },
+        {
+          "grantee": "anon",
+          "privilege": "EXECUTE",
+          "grantor": "postgres"
+        },
+        {
+          "grantee": "authenticated",
+          "privilege": "EXECUTE",
+          "grantor": "postgres"
+        },
+        {
+          "grantee": "service_role",
+          "privilege": "EXECUTE",
+          "grantor": "postgres"
+        },
+        {
+          "grantee": "sandbox_exec_yqacmrgdjlenbijclngi",
+          "privilege": "EXECUTE",
+          "grantor": "postgres"
+        }
+      ],
+      "anon_privilege": "EXECUTE",
+      "anon_grantor": "postgres",
+      "actual_caller": "company_admin audit page",
+      "data_exposed_or_mutated": "reads cross-expert holdings/trade_records aggregates (no mutation)",
+      "pre_cutover_risk": "anon could read raw cross-expert position and quantity data",
+      "cutover_disposition": "revoke_anon_public",
+      "keep_justification": null,
+      "keep_negative_proof": null,
+      "post_migration_test_id": "T-P98b.05"
+    },
+    {
+      "n": 6,
+      "signature": "public.admin_list_cron_jobs()",
+      "schema": "public",
+      "function": "admin_list_cron_jobs",
+      "identity_args": "",
+      "class": "pattern_admin_build_publish",
+      "category": "admin",
+      "subset_of_named_pre_cutover": false,
+      "owner": "postgres",
+      "prosecdef": true,
+      "search_path": "search_path=public, cron",
+      "grants": [
+        {
+          "grantee": "postgres",
+          "privilege": "EXECUTE",
+          "grantor": "postgres"
+        },
+        {
+          "grantee": "service_role",
+          "privilege": "EXECUTE",
+          "grantor": "postgres"
+        },
+        {
+          "grantee": "sandbox_exec_yqacmrgdjlenbijclngi",
+          "privilege": "EXECUTE",
+          "grantor": "postgres"
+        },
+        {
+          "grantee": "anon",
+          "privilege": "EXECUTE",
+          "grantor": "postgres"
+        },
+        {
+          "grantee": "authenticated",
+          "privilege": "EXECUTE",
+          "grantor": "postgres"
+        },
+        {
+          "grantee": "PUBLIC",
+          "privilege": "EXECUTE",
+          "grantor": "postgres"
+        }
+      ],
+      "anon_privilege": "EXECUTE",
+      "anon_grantor": "postgres",
+      "actual_caller": "company_admin ops page",
+      "data_exposed_or_mutated": "reads cron.job schedule/commands (infrastructure metadata)",
+      "pre_cutover_risk": "anon could enumerate internal jobs, secrets in job commands, and cadence",
+      "cutover_disposition": "revoke_anon_public",
+      "keep_justification": null,
+      "keep_negative_proof": null,
+      "post_migration_test_id": "T-P98b.06"
+    },
+    {
+      "n": 7,
+      "signature": "public.admin_reject_fix_proposal(p_id uuid, p_note text)",
+      "schema": "public",
+      "function": "admin_reject_fix_proposal",
+      "identity_args": "p_id uuid, p_note text",
+      "class": "pattern_admin_build_publish",
+      "category": "admin",
+      "subset_of_named_pre_cutover": false,
+      "owner": "postgres",
+      "prosecdef": true,
+      "search_path": "search_path=public",
+      "grants": [
+        {
+          "grantee": "postgres",
+          "privilege": "EXECUTE",
+          "grantor": "postgres"
+        },
+        {
+          "grantee": "anon",
+          "privilege": "EXECUTE",
+          "grantor": "postgres"
+        },
+        {
+          "grantee": "authenticated",
+          "privilege": "EXECUTE",
+          "grantor": "postgres"
+        },
+        {
+          "grantee": "service_role",
+          "privilege": "EXECUTE",
+          "grantor": "postgres"
+        },
+        {
+          "grantee": "sandbox_exec_yqacmrgdjlenbijclngi",
+          "privilege": "EXECUTE",
+          "grantor": "postgres"
+        }
+      ],
+      "anon_privilege": "EXECUTE",
+      "anon_grantor": "postgres",
+      "actual_caller": "company_admin UI",
+      "data_exposed_or_mutated": "mutates holdings_fix_proposals state",
+      "pre_cutover_risk": "anon could suppress adjudication of a known drift",
+      "cutover_disposition": "revoke_anon_public",
+      "keep_justification": null,
+      "keep_negative_proof": null,
+      "post_migration_test_id": "T-P98b.07"
+    },
+    {
+      "n": 8,
+      "signature": "public.admin_reset_expert_asset_class(_expert_id uuid, _new_asset_class text)",
+      "schema": "public",
+      "function": "admin_reset_expert_asset_class",
+      "identity_args": "_expert_id uuid, _new_asset_class text",
+      "class": "pattern_admin_build_publish",
+      "category": "admin",
+      "subset_of_named_pre_cutover": false,
+      "owner": "postgres",
+      "prosecdef": true,
+      "search_path": "search_path=public",
+      "grants": [
+        {
+          "grantee": "postgres",
+          "privilege": "EXECUTE",
+          "grantor": "postgres"
+        },
+        {
+          "grantee": "anon",
+          "privilege": "EXECUTE",
+          "grantor": "postgres"
+        },
+        {
+          "grantee": "authenticated",
+          "privilege": "EXECUTE",
+          "grantor": "postgres"
+        },
+        {
+          "grantee": "service_role",
+          "privilege": "EXECUTE",
+          "grantor": "postgres"
+        },
+        {
+          "grantee": "sandbox_exec_yqacmrgdjlenbijclngi",
+          "privilege": "EXECUTE",
+          "grantor": "postgres"
+        }
+      ],
+      "anon_privilege": "EXECUTE",
+      "anon_grantor": "postgres",
+      "actual_caller": "company_admin UI",
+      "data_exposed_or_mutated": "mutates experts.asset_class (changes economic interpretation)",
+      "pre_cutover_risk": "anon could reclassify an expert and corrupt every downstream valuation",
+      "cutover_disposition": "revoke_anon_public",
+      "keep_justification": null,
+      "keep_negative_proof": null,
+      "post_migration_test_id": "T-P98b.08"
+    },
+    {
+      "n": 9,
+      "signature": "public.admin_trade_dedupe_sweep(p_dry_run boolean)",
+      "schema": "public",
+      "function": "admin_trade_dedupe_sweep",
+      "identity_args": "p_dry_run boolean",
+      "class": "pattern_admin_build_publish",
+      "category": "admin",
+      "subset_of_named_pre_cutover": false,
+      "owner": "postgres",
+      "prosecdef": true,
+      "search_path": "search_path=public",
+      "grants": [
+        {
+          "grantee": "postgres",
+          "privilege": "EXECUTE",
+          "grantor": "postgres"
+        },
+        {
+          "grantee": "anon",
+          "privilege": "EXECUTE",
+          "grantor": "postgres"
+        },
+        {
+          "grantee": "authenticated",
+          "privilege": "EXECUTE",
+          "grantor": "postgres"
+        },
+        {
+          "grantee": "service_role",
+          "privilege": "EXECUTE",
+          "grantor": "postgres"
+        },
+        {
+          "grantee": "sandbox_exec_yqacmrgdjlenbijclngi",
+          "privilege": "EXECUTE",
+          "grantor": "postgres"
+        }
+      ],
+      "anon_privilege": "EXECUTE",
+      "anon_grantor": "postgres",
+      "actual_caller": "company_admin maintenance",
+      "data_exposed_or_mutated": "deletes duplicated trade_records rows",
+      "pre_cutover_risk": "anon could trigger mass deletion of ledger rows",
+      "cutover_disposition": "revoke_anon_public",
+      "keep_justification": null,
+      "keep_negative_proof": null,
+      "post_migration_test_id": "T-P98b.09"
+    },
+    {
+      "n": 10,
+      "signature": "public.backfill_job_set_done(_id bigint, _status text)",
+      "schema": "public",
+      "function": "backfill_job_set_done",
+      "identity_args": "_id bigint, _status text",
+      "class": "pattern_admin_build_publish",
+      "category": "build",
+      "subset_of_named_pre_cutover": false,
+      "owner": "postgres",
+      "prosecdef": true,
+      "search_path": "search_path=public",
+      "grants": [
+        {
+          "grantee": "PUBLIC",
+          "privilege": "EXECUTE",
+          "grantor": "postgres"
+        },
+        {
+          "grantee": "postgres",
+          "privilege": "EXECUTE",
+          "grantor": "postgres"
+        },
+        {
+          "grantee": "anon",
+          "privilege": "EXECUTE",
+          "grantor": "postgres"
+        },
+        {
+          "grantee": "authenticated",
+          "privilege": "EXECUTE",
+          "grantor": "postgres"
+        },
+        {
+          "grantee": "service_role",
+          "privilege": "EXECUTE",
+          "grantor": "postgres"
+        },
+        {
+          "grantee": "sandbox_exec_yqacmrgdjlenbijclngi",
+          "privilege": "EXECUTE",
+          "grantor": "postgres"
+        }
+      ],
+      "anon_privilege": "EXECUTE",
+      "anon_grantor": "postgres",
+      "actual_caller": "service_role worker (edge function)",
+      "data_exposed_or_mutated": "mutates backfill_job_queue state",
+      "pre_cutover_risk": "anon could mark queue work complete and starve real backfills",
+      "cutover_disposition": "revoke_anon_public",
+      "keep_justification": null,
+      "keep_negative_proof": null,
+      "post_migration_test_id": "T-P98b.10"
+    },
+    {
+      "n": 11,
+      "signature": "public.backfill_job_set_failed(_id bigint, _error text, _retry_at timestamp with time zone)",
+      "schema": "public",
+      "function": "backfill_job_set_failed",
+      "identity_args": "_id bigint, _error text, _retry_at timestamp with time zone",
+      "class": "pattern_admin_build_publish",
+      "category": "build",
+      "subset_of_named_pre_cutover": false,
+      "owner": "postgres",
+      "prosecdef": true,
+      "search_path": "search_path=public",
+      "grants": [
+        {
+          "grantee": "PUBLIC",
+          "privilege": "EXECUTE",
+          "grantor": "postgres"
+        },
+        {
+          "grantee": "postgres",
+          "privilege": "EXECUTE",
+          "grantor": "postgres"
+        },
+        {
+          "grantee": "anon",
+          "privilege": "EXECUTE",
+          "grantor": "postgres"
+        },
+        {
+          "grantee": "authenticated",
+          "privilege": "EXECUTE",
+          "grantor": "postgres"
+        },
+        {
+          "grantee": "service_role",
+          "privilege": "EXECUTE",
+          "grantor": "postgres"
+        },
+        {
+          "grantee": "sandbox_exec_yqacmrgdjlenbijclngi",
+          "privilege": "EXECUTE",
+          "grantor": "postgres"
+        }
+      ],
+      "anon_privilege": "EXECUTE",
+      "anon_grantor": "postgres",
+      "actual_caller": "service_role worker (edge function)",
+      "data_exposed_or_mutated": "mutates backfill_job_queue state/retry clock",
+      "pre_cutover_risk": "anon could poison the retry schedule",
+      "cutover_disposition": "revoke_anon_public",
+      "keep_justification": null,
+      "keep_negative_proof": null,
+      "post_migration_test_id": "T-P98b.11"
+    },
+    {
+      "n": 12,
+      "signature": "public.backfill_legacy_bsr_to_fact(_from date, _to date)",
+      "schema": "public",
+      "function": "backfill_legacy_bsr_to_fact",
+      "identity_args": "_from date, _to date",
+      "class": "pattern_admin_build_publish",
+      "category": "build",
+      "subset_of_named_pre_cutover": false,
+      "owner": "postgres",
+      "prosecdef": true,
+      "search_path": "search_path=public",
+      "grants": [
+        {
+          "grantee": "postgres",
+          "privilege": "EXECUTE",
+          "grantor": "postgres"
+        },
+        {
+          "grantee": "anon",
+          "privilege": "EXECUTE",
+          "grantor": "postgres"
+        },
+        {
+          "grantee": "authenticated",
+          "privilege": "EXECUTE",
+          "grantor": "postgres"
+        },
+        {
+          "grantee": "service_role",
+          "privilege": "EXECUTE",
+          "grantor": "postgres"
+        },
+        {
+          "grantee": "sandbox_exec_yqacmrgdjlenbijclngi",
+          "privilege": "EXECUTE",
+          "grantor": "postgres"
+        }
+      ],
+      "anon_privilege": "EXECUTE",
+      "anon_grantor": "postgres",
+      "actual_caller": "service_role migration worker",
+      "data_exposed_or_mutated": "bulk-writes bsr fact tables from legacy rows",
+      "pre_cutover_risk": "anon could rewrite chip facts / exhaust DB capacity",
+      "cutover_disposition": "revoke_anon_public",
+      "keep_justification": null,
+      "keep_negative_proof": null,
+      "post_migration_test_id": "T-P98b.12"
+    },
+    {
+      "n": 13,
+      "signature": "public.backfill_queue_stats()",
+      "schema": "public",
+      "function": "backfill_queue_stats",
+      "identity_args": "",
+      "class": "pattern_admin_build_publish",
+      "category": "build",
+      "subset_of_named_pre_cutover": false,
+      "owner": "postgres",
+      "prosecdef": true,
+      "search_path": "search_path=public",
+      "grants": [
+        {
+          "grantee": "PUBLIC",
+          "privilege": "EXECUTE",
+          "grantor": "postgres"
+        },
+        {
+          "grantee": "postgres",
+          "privilege": "EXECUTE",
+          "grantor": "postgres"
+        },
+        {
+          "grantee": "anon",
+          "privilege": "EXECUTE",
+          "grantor": "postgres"
+        },
+        {
+          "grantee": "authenticated",
+          "privilege": "EXECUTE",
+          "grantor": "postgres"
+        },
+        {
+          "grantee": "service_role",
+          "privilege": "EXECUTE",
+          "grantor": "postgres"
+        },
+        {
+          "grantee": "sandbox_exec_yqacmrgdjlenbijclngi",
+          "privilege": "EXECUTE",
+          "grantor": "postgres"
+        }
+      ],
+      "anon_privilege": "EXECUTE",
+      "anon_grantor": "postgres",
+      "actual_caller": "company_admin ops dashboard",
+      "data_exposed_or_mutated": "reads queue depth/lag metrics (infrastructure metadata)",
+      "pre_cutover_risk": "anon could profile internal workload and vendor quota state",
+      "cutover_disposition": "revoke_anon_public",
+      "keep_justification": null,
+      "keep_negative_proof": null,
+      "post_migration_test_id": "T-P98b.13"
+    },
+    {
+      "n": 14,
+      "signature": "public.claim_backfill_jobs(_batch_size integer, _max_priority_score integer)",
+      "schema": "public",
+      "function": "claim_backfill_jobs",
+      "identity_args": "_batch_size integer, _max_priority_score integer",
+      "class": "pattern_admin_build_publish",
+      "category": "build",
+      "subset_of_named_pre_cutover": false,
+      "owner": "postgres",
+      "prosecdef": true,
+      "search_path": "search_path=public",
+      "grants": [
+        {
+          "grantee": "postgres",
+          "privilege": "EXECUTE",
+          "grantor": "postgres"
+        },
+        {
+          "grantee": "anon",
+          "privilege": "EXECUTE",
+          "grantor": "postgres"
+        },
+        {
+          "grantee": "authenticated",
+          "privilege": "EXECUTE",
+          "grantor": "postgres"
+        },
+        {
+          "grantee": "service_role",
+          "privilege": "EXECUTE",
+          "grantor": "postgres"
+        },
+        {
+          "grantee": "sandbox_exec_yqacmrgdjlenbijclngi",
+          "privilege": "EXECUTE",
+          "grantor": "postgres"
+        }
+      ],
+      "anon_privilege": "EXECUTE",
+      "anon_grantor": "postgres",
+      "actual_caller": "service_role worker (edge function)",
+      "data_exposed_or_mutated": "claims + locks rows in backfill_job_queue",
+      "pre_cutover_risk": "anon could steal all queued work and stall ingestion",
+      "cutover_disposition": "revoke_anon_public",
+      "keep_justification": null,
+      "keep_negative_proof": null,
+      "post_migration_test_id": "T-P98b.14"
+    },
+    {
+      "n": 15,
+      "signature": "public.enqueue_backfill_jobs(_jobs jsonb)",
+      "schema": "public",
+      "function": "enqueue_backfill_jobs",
+      "identity_args": "_jobs jsonb",
+      "class": "pattern_admin_build_publish",
+      "category": "build",
+      "subset_of_named_pre_cutover": false,
+      "owner": "postgres",
+      "prosecdef": true,
+      "search_path": "search_path=public",
+      "grants": [
+        {
+          "grantee": "PUBLIC",
+          "privilege": "EXECUTE",
+          "grantor": "postgres"
+        },
+        {
+          "grantee": "postgres",
+          "privilege": "EXECUTE",
+          "grantor": "postgres"
+        },
+        {
+          "grantee": "anon",
+          "privilege": "EXECUTE",
+          "grantor": "postgres"
+        },
+        {
+          "grantee": "authenticated",
+          "privilege": "EXECUTE",
+          "grantor": "postgres"
+        },
+        {
+          "grantee": "service_role",
+          "privilege": "EXECUTE",
+          "grantor": "postgres"
+        },
+        {
+          "grantee": "sandbox_exec_yqacmrgdjlenbijclngi",
+          "privilege": "EXECUTE",
+          "grantor": "postgres"
+        }
+      ],
+      "anon_privilege": "EXECUTE",
+      "anon_grantor": "postgres",
+      "actual_caller": "service_role worker / cron",
+      "data_exposed_or_mutated": "inserts into backfill_job_queue",
+      "pre_cutover_risk": "anon could flood the queue (DoS + vendor quota burn)",
+      "cutover_disposition": "revoke_anon_public",
+      "keep_justification": null,
+      "keep_negative_proof": null,
+      "post_migration_test_id": "T-P98b.15"
+    },
+    {
+      "n": 16,
+      "signature": "public.enqueue_bsr_backfill(p_stock_id text, p_days integer)",
+      "schema": "public",
+      "function": "enqueue_bsr_backfill",
+      "identity_args": "p_stock_id text, p_days integer",
+      "class": "pattern_admin_build_publish",
+      "category": "build",
+      "subset_of_named_pre_cutover": false,
+      "owner": "postgres",
+      "prosecdef": true,
+      "search_path": "search_path=public",
+      "grants": [
+        {
+          "grantee": "postgres",
+          "privilege": "EXECUTE",
+          "grantor": "postgres"
+        },
+        {
+          "grantee": "anon",
+          "privilege": "EXECUTE",
+          "grantor": "postgres"
+        },
+        {
+          "grantee": "authenticated",
+          "privilege": "EXECUTE",
+          "grantor": "postgres"
+        },
+        {
+          "grantee": "service_role",
+          "privilege": "EXECUTE",
+          "grantor": "postgres"
+        },
+        {
+          "grantee": "sandbox_exec_yqacmrgdjlenbijclngi",
+          "privilege": "EXECUTE",
+          "grantor": "postgres"
+        }
+      ],
+      "anon_privilege": "EXECUTE",
+      "anon_grantor": "postgres",
+      "actual_caller": "company_admin UI + chips prefetch worker",
+      "data_exposed_or_mutated": "inserts into backfill_job_queue for a stock",
+      "pre_cutover_risk": "anon could flood the queue (DoS + vendor quota burn)",
+      "cutover_disposition": "revoke_anon_public",
+      "keep_justification": null,
+      "keep_negative_proof": null,
+      "post_migration_test_id": "T-P98b.16"
+    },
+    {
+      "n": 17,
+      "signature": "public.enqueue_institutional_backfill_universe()",
+      "schema": "public",
+      "function": "enqueue_institutional_backfill_universe",
+      "identity_args": "",
+      "class": "pattern_admin_build_publish",
+      "category": "build",
+      "subset_of_named_pre_cutover": false,
+      "owner": "postgres",
+      "prosecdef": true,
+      "search_path": "search_path=public",
+      "grants": [
+        {
+          "grantee": "PUBLIC",
+          "privilege": "EXECUTE",
+          "grantor": "postgres"
+        },
+        {
+          "grantee": "postgres",
+          "privilege": "EXECUTE",
+          "grantor": "postgres"
+        },
+        {
+          "grantee": "anon",
+          "privilege": "EXECUTE",
+          "grantor": "postgres"
+        },
+        {
+          "grantee": "authenticated",
+          "privilege": "EXECUTE",
+          "grantor": "postgres"
+        },
+        {
+          "grantee": "service_role",
+          "privilege": "EXECUTE",
+          "grantor": "postgres"
+        },
+        {
+          "grantee": "sandbox_exec_yqacmrgdjlenbijclngi",
+          "privilege": "EXECUTE",
+          "grantor": "postgres"
+        }
+      ],
+      "anon_privilege": "EXECUTE",
+      "anon_grantor": "postgres",
+      "actual_caller": "cron (tw-bsr-worker-hourly)",
+      "data_exposed_or_mutated": "enqueues the whole market universe",
+      "pre_cutover_risk": "anon could trigger a full-universe fetch storm",
+      "cutover_disposition": "revoke_anon_public",
+      "keep_justification": null,
+      "keep_negative_proof": null,
+      "post_migration_test_id": "T-P98b.17"
+    },
+    {
+      "n": 18,
+      "signature": "public.get_expert_capital_status(_expert_id uuid)",
+      "schema": "public",
+      "function": "get_expert_capital_status",
+      "identity_args": "_expert_id uuid",
+      "class": "named_pre_cutover",
+      "category": "economic_raw_rpc",
+      "subset_of_named_pre_cutover": true,
+      "owner": "postgres",
+      "prosecdef": true,
+      "search_path": "search_path=public",
+      "grants": [
+        {
+          "grantee": "postgres",
+          "privilege": "EXECUTE",
+          "grantor": "postgres"
+        },
+        {
+          "grantee": "authenticated",
+          "privilege": "EXECUTE",
+          "grantor": "postgres"
+        },
+        {
+          "grantee": "service_role",
+          "privilege": "EXECUTE",
+          "grantor": "postgres"
+        },
+        {
+          "grantee": "sandbox_exec_yqacmrgdjlenbijclngi",
+          "privilege": "EXECUTE",
+          "grantor": "postgres"
+        },
+        {
+          "grantee": "anon",
+          "privilege": "EXECUTE",
+          "grantor": "postgres"
+        }
+      ],
+      "anon_privilege": "EXECUTE",
+      "anon_grantor": "postgres",
+      "actual_caller": "authenticated app (expert page, capital banner)",
+      "data_exposed_or_mutated": "returns an expert's capital / funding state (economic raw RPC)",
+      "pre_cutover_risk": "anon could read capital state for any expert without entitlement",
+      "cutover_disposition": "revoke_anon_public",
+      "keep_justification": null,
+      "keep_negative_proof": null,
+      "post_migration_test_id": "T-P98a.18"
+    },
+    {
+      "n": 19,
+      "signature": "public.get_publish_batch_attempts(_limit integer)",
+      "schema": "public",
+      "function": "get_publish_batch_attempts",
+      "identity_args": "_limit integer",
+      "class": "pattern_admin_build_publish",
+      "category": "publish",
+      "subset_of_named_pre_cutover": false,
+      "owner": "postgres",
+      "prosecdef": true,
+      "search_path": "search_path=public",
+      "grants": [
+        {
+          "grantee": "postgres",
+          "privilege": "EXECUTE",
+          "grantor": "postgres"
+        },
+        {
+          "grantee": "anon",
+          "privilege": "EXECUTE",
+          "grantor": "postgres"
+        },
+        {
+          "grantee": "authenticated",
+          "privilege": "EXECUTE",
+          "grantor": "postgres"
+        },
+        {
+          "grantee": "service_role",
+          "privilege": "EXECUTE",
+          "grantor": "postgres"
+        },
+        {
+          "grantee": "sandbox_exec_yqacmrgdjlenbijclngi",
+          "privilege": "EXECUTE",
+          "grantor": "postgres"
+        }
+      ],
+      "anon_privilege": "EXECUTE",
+      "anon_grantor": "postgres",
+      "actual_caller": "company_admin publishing console",
+      "data_exposed_or_mutated": "reads publish attempt log incl. unpublished/embargoed signal ids",
+      "pre_cutover_risk": "anon could read pre-embargo publication intent",
+      "cutover_disposition": "revoke_anon_public",
+      "keep_justification": null,
+      "keep_negative_proof": null,
+      "post_migration_test_id": "T-P98b.19"
+    },
+    {
+      "n": 20,
+      "signature": "public.get_publish_batch_runs(_limit integer)",
+      "schema": "public",
+      "function": "get_publish_batch_runs",
+      "identity_args": "_limit integer",
+      "class": "pattern_admin_build_publish",
+      "category": "publish",
+      "subset_of_named_pre_cutover": false,
+      "owner": "postgres",
+      "prosecdef": true,
+      "search_path": "search_path=public",
+      "grants": [
+        {
+          "grantee": "postgres",
+          "privilege": "EXECUTE",
+          "grantor": "postgres"
+        },
+        {
+          "grantee": "anon",
+          "privilege": "EXECUTE",
+          "grantor": "postgres"
+        },
+        {
+          "grantee": "authenticated",
+          "privilege": "EXECUTE",
+          "grantor": "postgres"
+        },
+        {
+          "grantee": "service_role",
+          "privilege": "EXECUTE",
+          "grantor": "postgres"
+        },
+        {
+          "grantee": "sandbox_exec_yqacmrgdjlenbijclngi",
+          "privilege": "EXECUTE",
+          "grantor": "postgres"
+        }
+      ],
+      "anon_privilege": "EXECUTE",
+      "anon_grantor": "postgres",
+      "actual_caller": "company_admin publishing console",
+      "data_exposed_or_mutated": "reads publish run history incl. unreleased batches",
+      "pre_cutover_risk": "anon could read pre-embargo publication intent",
+      "cutover_disposition": "revoke_anon_public",
+      "keep_justification": null,
+      "keep_negative_proof": null,
+      "post_migration_test_id": "T-P98b.20"
+    },
+    {
+      "n": 21,
+      "signature": "public.get_publish_batch_status()",
+      "schema": "public",
+      "function": "get_publish_batch_status",
+      "identity_args": "",
+      "class": "pattern_admin_build_publish",
+      "category": "publish",
+      "subset_of_named_pre_cutover": false,
+      "owner": "postgres",
+      "prosecdef": true,
+      "search_path": "search_path=public",
+      "grants": [
+        {
+          "grantee": "postgres",
+          "privilege": "EXECUTE",
+          "grantor": "postgres"
+        },
+        {
+          "grantee": "anon",
+          "privilege": "EXECUTE",
+          "grantor": "postgres"
+        },
+        {
+          "grantee": "authenticated",
+          "privilege": "EXECUTE",
+          "grantor": "postgres"
+        },
+        {
+          "grantee": "service_role",
+          "privilege": "EXECUTE",
+          "grantor": "postgres"
+        },
+        {
+          "grantee": "sandbox_exec_yqacmrgdjlenbijclngi",
+          "privilege": "EXECUTE",
+          "grantor": "postgres"
+        }
+      ],
+      "anon_privilege": "EXECUTE",
+      "anon_grantor": "postgres",
+      "actual_caller": "company_admin publishing console",
+      "data_exposed_or_mutated": "reads current publish batch state",
+      "pre_cutover_risk": "anon could read pre-embargo publication intent",
+      "cutover_disposition": "revoke_anon_public",
+      "keep_justification": null,
+      "keep_negative_proof": null,
+      "post_migration_test_id": "T-P98b.21"
+    },
+    {
+      "n": 22,
+      "signature": "public.has_active_subscription_after(_user_id uuid, _published_at timestamp with time zone)",
+      "schema": "public",
+      "function": "has_active_subscription_after",
+      "identity_args": "_user_id uuid, _published_at timestamp with time zone",
+      "class": "named_pre_cutover",
+      "category": "economic_raw_rpc",
+      "subset_of_named_pre_cutover": true,
+      "owner": "postgres",
+      "prosecdef": true,
+      "search_path": "search_path=public",
+      "grants": [
+        {
+          "grantee": "postgres",
+          "privilege": "EXECUTE",
+          "grantor": "postgres"
+        },
+        {
+          "grantee": "authenticated",
+          "privilege": "EXECUTE",
+          "grantor": "postgres"
+        },
+        {
+          "grantee": "service_role",
+          "privilege": "EXECUTE",
+          "grantor": "postgres"
+        },
+        {
+          "grantee": "sandbox_exec_yqacmrgdjlenbijclngi",
+          "privilege": "EXECUTE",
+          "grantor": "postgres"
+        },
+        {
+          "grantee": "anon",
+          "privilege": "EXECUTE",
+          "grantor": "postgres"
+        }
+      ],
+      "anon_privilege": "EXECUTE",
+      "anon_grantor": "postgres",
+      "actual_caller": "authenticated app (entitlement checks)",
+      "data_exposed_or_mutated": "returns entitlement truth for an arbitrary user id",
+      "pre_cutover_risk": "anon could enumerate who is subscribed and when",
+      "cutover_disposition": "revoke_anon_public",
+      "keep_justification": null,
+      "keep_negative_proof": null,
+      "post_migration_test_id": "T-P98a.22"
+    },
+    {
+      "n": 23,
+      "signature": "public.is_tester(_user_id uuid)",
+      "schema": "public",
+      "function": "is_tester",
+      "identity_args": "_user_id uuid",
+      "class": "named_pre_cutover",
+      "category": "economic_raw_rpc",
+      "subset_of_named_pre_cutover": true,
+      "owner": "postgres",
+      "prosecdef": true,
+      "search_path": "search_path=public",
+      "grants": [
+        {
+          "grantee": "postgres",
+          "privilege": "EXECUTE",
+          "grantor": "postgres"
+        },
+        {
+          "grantee": "authenticated",
+          "privilege": "EXECUTE",
+          "grantor": "postgres"
+        },
+        {
+          "grantee": "service_role",
+          "privilege": "EXECUTE",
+          "grantor": "postgres"
+        },
+        {
+          "grantee": "sandbox_exec_yqacmrgdjlenbijclngi",
+          "privilege": "EXECUTE",
+          "grantor": "postgres"
+        },
+        {
+          "grantee": "anon",
+          "privilege": "EXECUTE",
+          "grantor": "postgres"
+        }
+      ],
+      "anon_privilege": "EXECUTE",
+      "anon_grantor": "postgres",
+      "actual_caller": "authenticated app + internal gating",
+      "data_exposed_or_mutated": "returns internal tester flag for an arbitrary user id",
+      "pre_cutover_risk": "anon could enumerate internal accounts",
+      "cutover_disposition": "revoke_anon_public",
+      "keep_justification": null,
+      "keep_negative_proof": null,
+      "post_migration_test_id": "T-P98a.23"
+    },
+    {
+      "n": 24,
+      "signature": "public.prune_backfill_job_queue()",
+      "schema": "public",
+      "function": "prune_backfill_job_queue",
+      "identity_args": "",
+      "class": "pattern_admin_build_publish",
+      "category": "build",
+      "subset_of_named_pre_cutover": false,
+      "owner": "postgres",
+      "prosecdef": true,
+      "search_path": "search_path=public",
+      "grants": [
+        {
+          "grantee": "PUBLIC",
+          "privilege": "EXECUTE",
+          "grantor": "postgres"
+        },
+        {
+          "grantee": "postgres",
+          "privilege": "EXECUTE",
+          "grantor": "postgres"
+        },
+        {
+          "grantee": "anon",
+          "privilege": "EXECUTE",
+          "grantor": "postgres"
+        },
+        {
+          "grantee": "authenticated",
+          "privilege": "EXECUTE",
+          "grantor": "postgres"
+        },
+        {
+          "grantee": "service_role",
+          "privilege": "EXECUTE",
+          "grantor": "postgres"
+        },
+        {
+          "grantee": "sandbox_exec_yqacmrgdjlenbijclngi",
+          "privilege": "EXECUTE",
+          "grantor": "postgres"
+        }
+      ],
+      "anon_privilege": "EXECUTE",
+      "anon_grantor": "postgres",
+      "actual_caller": "cron maintenance",
+      "data_exposed_or_mutated": "deletes rows from backfill_job_queue",
+      "pre_cutover_risk": "anon could delete pending ingestion work",
+      "cutover_disposition": "revoke_anon_public",
+      "keep_justification": null,
+      "keep_negative_proof": null,
+      "post_migration_test_id": "T-P98b.24"
+    },
+    {
+      "n": 25,
+      "signature": "public.publish_batch_attempts_touch()",
+      "schema": "public",
+      "function": "publish_batch_attempts_touch",
+      "identity_args": "",
+      "class": "pattern_admin_build_publish",
+      "category": "trigger",
+      "subset_of_named_pre_cutover": false,
+      "owner": "postgres",
+      "prosecdef": false,
+      "search_path": "search_path=public",
+      "grants": [
+        {
+          "grantee": "PUBLIC",
+          "privilege": "EXECUTE",
+          "grantor": "postgres"
+        },
+        {
+          "grantee": "postgres",
+          "privilege": "EXECUTE",
+          "grantor": "postgres"
+        },
+        {
+          "grantee": "anon",
+          "privilege": "EXECUTE",
+          "grantor": "postgres"
+        },
+        {
+          "grantee": "authenticated",
+          "privilege": "EXECUTE",
+          "grantor": "postgres"
+        },
+        {
+          "grantee": "service_role",
+          "privilege": "EXECUTE",
+          "grantor": "postgres"
+        },
+        {
+          "grantee": "sandbox_exec_yqacmrgdjlenbijclngi",
+          "privilege": "EXECUTE",
+          "grantor": "postgres"
+        }
+      ],
+      "anon_privilege": "EXECUTE",
+      "anon_grantor": "postgres",
+      "actual_caller": "trigger only (BEFORE UPDATE on publish_batch_attempts)",
+      "data_exposed_or_mutated": "sets updated_at on publish_batch_attempts",
+      "pre_cutover_risk": "trigger function must never be directly executable by an anonymous caller",
+      "cutover_disposition": "revoke_anon_public",
+      "keep_justification": null,
+      "keep_negative_proof": null,
+      "post_migration_test_id": "T-P98b.25"
+    },
+    {
+      "n": 26,
+      "signature": "public.recover_stale_backfill_jobs(_stale_after interval)",
+      "schema": "public",
+      "function": "recover_stale_backfill_jobs",
+      "identity_args": "_stale_after interval",
+      "class": "pattern_admin_build_publish",
+      "category": "build",
+      "subset_of_named_pre_cutover": false,
+      "owner": "postgres",
+      "prosecdef": true,
+      "search_path": "search_path=public",
+      "grants": [
+        {
+          "grantee": "postgres",
+          "privilege": "EXECUTE",
+          "grantor": "postgres"
+        },
+        {
+          "grantee": "anon",
+          "privilege": "EXECUTE",
+          "grantor": "postgres"
+        },
+        {
+          "grantee": "authenticated",
+          "privilege": "EXECUTE",
+          "grantor": "postgres"
+        },
+        {
+          "grantee": "service_role",
+          "privilege": "EXECUTE",
+          "grantor": "postgres"
+        },
+        {
+          "grantee": "sandbox_exec_yqacmrgdjlenbijclngi",
+          "privilege": "EXECUTE",
+          "grantor": "postgres"
+        }
+      ],
+      "anon_privilege": "EXECUTE",
+      "anon_grantor": "postgres",
+      "actual_caller": "cron maintenance",
+      "data_exposed_or_mutated": "resets stale claimed jobs in backfill_job_queue",
+      "pre_cutover_risk": "anon could recycle in-flight jobs and cause duplicate ingestion",
+      "cutover_disposition": "revoke_anon_public",
+      "keep_justification": null,
+      "keep_negative_proof": null,
+      "post_migration_test_id": "T-P98b.26"
+    },
+    {
+      "n": 27,
+      "signature": "public.tg_holdings_fix_proposals_updated_at()",
+      "schema": "public",
+      "function": "tg_holdings_fix_proposals_updated_at",
+      "identity_args": "",
+      "class": "pattern_admin_build_publish",
+      "category": "trigger",
+      "subset_of_named_pre_cutover": false,
+      "owner": "postgres",
+      "prosecdef": false,
+      "search_path": "search_path=public",
+      "grants": [
+        {
+          "grantee": "PUBLIC",
+          "privilege": "EXECUTE",
+          "grantor": "postgres"
+        },
+        {
+          "grantee": "postgres",
+          "privilege": "EXECUTE",
+          "grantor": "postgres"
+        },
+        {
+          "grantee": "anon",
+          "privilege": "EXECUTE",
+          "grantor": "postgres"
+        },
+        {
+          "grantee": "authenticated",
+          "privilege": "EXECUTE",
+          "grantor": "postgres"
+        },
+        {
+          "grantee": "service_role",
+          "privilege": "EXECUTE",
+          "grantor": "postgres"
+        },
+        {
+          "grantee": "sandbox_exec_yqacmrgdjlenbijclngi",
+          "privilege": "EXECUTE",
+          "grantor": "postgres"
+        }
+      ],
+      "anon_privilege": "EXECUTE",
+      "anon_grantor": "postgres",
+      "actual_caller": "trigger only (BEFORE UPDATE on holdings_fix_proposals)",
+      "data_exposed_or_mutated": "sets updated_at on holdings_fix_proposals",
+      "pre_cutover_risk": "trigger function must never be directly executable by an anonymous caller",
+      "cutover_disposition": "revoke_anon_public",
+      "keep_justification": null,
+      "keep_negative_proof": null,
+      "post_migration_test_id": "T-P98b.27"
+    },
+    {
+      "n": 28,
+      "signature": "public.trade_dedupe_sweep(p_dry_run boolean)",
+      "schema": "public",
+      "function": "trade_dedupe_sweep",
+      "identity_args": "p_dry_run boolean",
+      "class": "pattern_admin_build_publish",
+      "category": "build",
+      "subset_of_named_pre_cutover": false,
+      "owner": "postgres",
+      "prosecdef": true,
+      "search_path": "search_path=public",
+      "grants": [
+        {
+          "grantee": "postgres",
+          "privilege": "EXECUTE",
+          "grantor": "postgres"
+        },
+        {
+          "grantee": "anon",
+          "privilege": "EXECUTE",
+          "grantor": "postgres"
+        },
+        {
+          "grantee": "authenticated",
+          "privilege": "EXECUTE",
+          "grantor": "postgres"
+        },
+        {
+          "grantee": "service_role",
+          "privilege": "EXECUTE",
+          "grantor": "postgres"
+        },
+        {
+          "grantee": "sandbox_exec_yqacmrgdjlenbijclngi",
+          "privilege": "EXECUTE",
+          "grantor": "postgres"
+        }
+      ],
+      "anon_privilege": "EXECUTE",
+      "anon_grantor": "postgres",
+      "actual_caller": "service_role maintenance job",
+      "data_exposed_or_mutated": "deletes duplicated trade_records rows",
+      "pre_cutover_risk": "anon could trigger mass deletion of ledger rows",
+      "cutover_disposition": "revoke_anon_public",
+      "keep_justification": null,
+      "keep_negative_proof": null,
+      "post_migration_test_id": "T-P98b.28"
+    }
+  ]
+}
