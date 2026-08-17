@@ -16,7 +16,8 @@
 
 import { corsHeaders } from '../_shared/cors.ts';
 import { serviceClient } from '../_shared/supabaseClients.ts';
-import { requireCaller, requireCronKey, AuthError } from '../_shared/authGuard.ts';
+import { requireCronKey, AuthError } from '../_shared/authGuard.ts';
+import { requireCompanyAdmin } from '../_shared/adminGuard.ts';
 import { healSwitches, healDegrade, healQuotaPools, readDegradeConfig, type HealDeps } from '../_shared/autoHealEffects.ts';
 import {
   DRILL_SCENARIOS,
@@ -171,10 +172,7 @@ Deno.serve(async (req) => {
     if (req.headers.get('x-cron-key')) {
       requireCronKey(req);
     } else {
-      const userId = await requireCaller(req);
-      const admin = serviceClient();
-      const { data: isAdmin } = await admin.rpc('has_role', { _user_id: userId, _role: 'company_admin' });
-      if (isAdmin !== true) throw new AuthError(403, 'FORBIDDEN', 'company_admin only');
+      await requireCompanyAdmin(req);
     }
   } catch (e) {
     if (e instanceof AuthError) {
