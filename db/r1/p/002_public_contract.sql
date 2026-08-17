@@ -272,7 +272,22 @@ END $wrap2$;
 --   * <name>      : identity-bound wrapper, callable by anon/authenticated
 --                   but only for auth.uid() itself (NULL binds to NULL),
 --                   company_admin, or a trusted server-side caller.
+-- Identity gate. It must NOT look at current_user: inside a SECURITY DEFINER
+-- wrapper current_user is always the owner, so current_user would leave the gate
+-- permanently open. The caller identity comes from the request JWT instead.
+CREATE OR REPLACE FUNCTION public.acl_caller_may_read_identity(_user_id uuid)
+RETURNS boolean LANGUAGE sql STABLE SECURITY DEFINER SET search_path TO 'public'
+AS $acli$
+  SELECT _user_id IS NOT DISTINCT FROM auth.uid()
+      OR coalesce(auth.role(), '') = 'service_role'
+      OR (auth.uid() IS NOT NULL AND public.has_role(auth.uid(), 'company_admin'))
+$acli$;
+REVOKE ALL ON FUNCTION public.acl_caller_may_read_identity(uuid) FROM PUBLIC;
+GRANT EXECUTE ON FUNCTION public.acl_caller_may_read_identity(uuid)
+  TO anon, authenticated, service_role;
+
 DO $mkraw2$
+
 DECLARE src text; nm text; sig text;
 BEGIN
   FOREACH nm IN ARRAY ARRAY['has_active_subscription_after','is_tester'] LOOP
