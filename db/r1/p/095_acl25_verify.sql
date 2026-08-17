@@ -192,7 +192,7 @@ BEGIN
 FOR r IN SELECT * FROM (VALUES
   ($$public.is_tester(_user_id uuid)$$, 'boolean', $$T-P98i.01$$),
   ($$public.has_active_subscription_after(_user_id uuid, _published_at timestamp with time zone)$$,
-   'record', $$T-P98i.02$$),
+   'uuid', $$T-P98i.02$$),  -- RETURNS TABLE(expert_id uuid) => setof uuid
   ($$public.signal_is_publicly_visible(_signal_id uuid)$$, 'boolean', $$T-P98i.03$$)
 ) AS v(sig, rettype, test_id) LOOP
   PERFORM t.ok(r.test_id || ' exactly one overload with this signature: ' || r.sig,
