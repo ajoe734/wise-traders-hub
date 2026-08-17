@@ -189,6 +189,9 @@ BEGIN
   SELECT count(*)::int INTO v_count FROM t.result
    WHERE name LIKE 'T-P98a.%' OR name LIKE 'T-P98b.%'
       OR name LIKE 'T-P98e.%' OR name LIKE 'T-P98h.%';
+  -- 61 -> 63: T-P98h now also covers the two ungated identity bodies
+  -- (is_tester_raw / has_active_subscription_after_raw) that back the
+  -- anon-callable identity-bound wrappers.
   PERFORM t.eq('T-P98d acl-25 coverage: every unique target verified on both axes',
-               v_count, 61);
+               v_count, 63);
 END $BODY$;
