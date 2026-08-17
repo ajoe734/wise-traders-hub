@@ -15,7 +15,7 @@ DECLARE
   v_eff timestamptz := coalesce((p->>'effective_at')::timestamptz, pg_catalog.now());
   v_prov public.effect_provenance := coalesce((p->>'provenance')::public.effect_provenance,'signal_execution');
   v_reason text := coalesce(p->>'reason','');
-  v_logical uuid := coalesce((p->>'logical_effect_id')::uuid, pg_catalog.gen_random_uuid());
+  v_logical uuid := pg_catalog.gen_random_uuid();  -- D5: never trust client-supplied logical id
   v_signal uuid := (p->>'signal_id')::uuid;
   v_open public.trade_records;
   v_openid uuid; v_closedid uuid; v_cashid uuid;
@@ -25,6 +25,18 @@ DECLARE
   v_cashrow app_ledger.portfolio_cash_ledger;
   v_avg numeric;
 BEGIN
+  -- D5: a logical id may only be reused via an explicit restore of an existing chain
+  IF p ? 'restore_logical_effect_id' THEN
+    SELECT e.logical_effect_id INTO v_logical
+      FROM app_ledger.economic_effect e
+     WHERE e.logical_effect_id = (p->>'restore_logical_effect_id')::uuid
+       AND e.expert_id = (p->>'expert_id')::uuid
+     LIMIT 1;
+    IF v_logical IS NULL THEN
+      RAISE EXCEPTION 'unknown_restore_logical_effect_id: %', p->>'restore_logical_effect_id'
+        USING ERRCODE = '23514';
+    END IF;
+  END IF;
   IF v_ikey IS NOT NULL THEN
     SELECT * INTO v_open FROM public.trade_records t
      WHERE t.expert_id=v_expert AND t.instrument_key=v_ikey

@@ -73,12 +73,35 @@ EXCEPTION WHEN OTHERS THEN
   PERFORM t.ok('E5.backfill_order_173_legacy_rows', false, v_msg);
 END $$;
 
-SELECT t.ok('E5.client_supplied_logical_id_overwritten',
-  (SELECT e.logical_effect_id <> '00000000-0000-0000-0000-0000000000ff'
-     FROM app_ledger.economic_effect e
-    WHERE e.event_id = app_ledger.canonical_apply_effect(jsonb_build_object(
+DO $$
+DECLARE v_ev uuid; v_log uuid; v_msg text; v_pass boolean := false;
+BEGIN
+  v_ev := app_ledger.canonical_apply_effect(jsonb_build_object(
+    'action','capital_flow','expert_id','12121212-0000-0000-0000-000000000011',
+    'currency','TWD','amount',1,'provenance','external_capital_flow','reason','x',
+    'logical_effect_id','00000000-0000-0000-0000-0000000000ff'));
+  SELECT logical_effect_id INTO v_log FROM app_ledger.economic_effect WHERE event_id=v_ev;
+  PERFORM t.ok('D5.client_supplied_logical_id_ignored',
+    v_log <> '00000000-0000-0000-0000-0000000000ff', v_log::text);
+
+  BEGIN
+    PERFORM app_ledger.canonical_apply_effect(jsonb_build_object(
       'action','capital_flow','expert_id','12121212-0000-0000-0000-000000000011',
-      'currency','TWD','amount',1,'provenance','external_capital_flow','reason','x'))));
+      'currency','TWD','amount',1,'provenance','external_capital_flow','reason','x',
+      'restore_logical_effect_id','00000000-0000-0000-0000-0000000000fe'));
+  EXCEPTION WHEN OTHERS THEN
+    GET STACKED DIAGNOSTICS v_msg = MESSAGE_TEXT;
+    v_pass := position('unknown_restore_logical_effect_id' in v_msg) > 0;
+  END;
+  PERFORM t.ok('D5.unknown_restore_logical_id_rejected', v_pass, v_msg);
+
+  PERFORM t.eq('D5.known_restore_logical_id_accepted',
+    (SELECT logical_effect_id FROM app_ledger.economic_effect WHERE event_id =
+       app_ledger.canonical_apply_effect(jsonb_build_object(
+         'action','capital_flow','expert_id','12121212-0000-0000-0000-000000000011',
+         'currency','TWD','amount',1,'provenance','external_capital_flow','reason','x',
+         'restore_logical_effect_id', v_log))), v_log);
+END $$;
 
 -- =============================================================== E6 role-level enforcement
 DO $$
