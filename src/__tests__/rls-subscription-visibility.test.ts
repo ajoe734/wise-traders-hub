@@ -15,12 +15,21 @@ import { execSync } from 'node:child_process';
  * 測試在交易內 seed 後 RAISE EXCEPTION 觸發 rollback，不留任何測試資料。
  * 需要 PGHOST 等環境變數；本機或 CI 無 psql/env 則自動 skip。
  */
-const canRun = !!process.env.PGHOST;
+/**
+ * run_rls_subscription_tests() is SECURITY DEFINER owned by postgres and has NO
+ * EXECUTE grant for anon/authenticated or for the sandbox read-only role. We do
+ * NOT widen the production ACL to make a test pass. The suite therefore runs:
+ *   - here, only against a disposable clone (R1P_CLONE_URL, harness role), and
+ *   - inside db/r1/p/090_verify_p.sql (T-P99a/b/c) on both fresh clones, where
+ *     it executes as the intended owner.
+ */
+const CLONE_URL = process.env.R1P_CLONE_URL || '';
+const canRun = !!CLONE_URL;
 
 describe.skipIf(!canRun)('RLS: subscription visibility (mentor 7d / renew / gap)', () => {
   it('all scenarios pass', () => {
     const out = execSync(
-      `psql -At -F '|' -c "SELECT test_name, passed, COALESCE(detail,'') FROM public.run_rls_subscription_tests();"`,
+      `psql "${CLONE_URL}" -At -F '|' -c "SELECT test_name, passed, COALESCE(detail,'') FROM public.run_rls_subscription_tests();"`,
       { encoding: 'utf8' },
     );
     const rows = out.trim().split('\n').filter(Boolean).map((line) => {
