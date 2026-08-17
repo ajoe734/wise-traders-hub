@@ -1,37 +1,107 @@
 #!/usr/bin/env bash
-# hfreshB (clone only): prove the H5 drawer read path is SELECT-only.
-#   restore baseline -> apply 004_h5_readonly_contract.sql
-#   -> create a login role with SELECT-only privileges (no INSERT/UPDATE/DELETE anywhere)
-#   -> run the drawer read path as that role for ready / pending / unavailable symbols
-#   -> assert xact write counters, row counts, queue/attempt/rollup tables all unchanged
-#   -> assert the role cannot execute rebuild_bsr_rollup / enqueue_bsr_backfill / ensure_bsr_queued
-#   -> rollback (drop the one new function) and destroy the clone
-set -uo pipefail
+# hfreshB — H5 SELECT-only proof on a disposable production-shape clone.
+# Never connects to production. Fail-loud: any unexpected error, any missing
+# verifier summary, any silent exit => non-zero exit code.
+#
+#   preflight (port/disk/binaries) -> restore baseline -> fixtures
+#   -> fingerprint(before) -> apply H5 -> fingerprint(after) == before
+#   -> SELECT-only role runs every path (ready / cache-miss / unsupported / error)
+#   -> statement capture: 0 DML, 0 volatile writer RPC, rebuild_bsr_rollup=0
+#   -> rowcount / tuple stats / max(updated_at) / data hash before == after
+#   -> rollback drops only get_chips_detail_ro; fingerprint back to baseline
+set -Eeuo pipefail
+
 ROOT=$(cd "$(dirname "$0")/../../../.." && pwd); cd "$ROOT"
 NAME=${1:-hfreshB}; PORT=${2:-55991}; OUT=${3:-/tmp/hfresh-$NAME}; BK=db/r1/c/S0/backup
-DIR=/tmp/$NAME; mkdir -p "$OUT"; rm -rf "$DIR"; mkdir -p "$DIR/sock"
-RUNID="$NAME-$(date -u +%Y%m%dT%H%M%SZ)-$$"; START=$(date -u +%FT%T.%3NZ); LOG="$OUT/$NAME.log"; FAILS=0
-say(){ echo "$*"|tee -a "$LOG"; }; fail(){ say "FAIL: $*"; FAILS=$((FAILS+1)); }
-PGBIN=$(dirname "$(command -v initdb)"); unset PGHOST PGPORT PGUSER PGPASSWORD PGDATABASE PGSSLMODE
+DIR=/tmp/$NAME
+RUNID="$NAME-$(date -u +%Y%m%dT%H%M%SZ)-$$"
+START=$(date -u +%FT%T.%3NZ)
+mkdir -p "$OUT"; LOG="$OUT/$NAME.log"; : >"$LOG"
+# everything (stdout + stderr, including psql chatter) goes to the log
+exec > >(tee -a "$LOG") 2>&1
+
+FAILS=0; CHECKS=0; SUMMARY_EMITTED=0; STAGE="init"
+say(){ echo "$*"; }
+chk(){ CHECKS=$((CHECKS+1)); if [ "$1" = "0" ]; then say "  PASS $2"; else FAILS=$((FAILS+1)); say "  FAIL $2 ${3:-}"; fi; }
+fail(){ FAILS=$((FAILS+1)); say "  FAIL $*"; }
+on_err(){ local c=$?; say "!! ERR stage=$STAGE line=${BASH_LINENO[0]} cmd=[$BASH_COMMAND] exit=$c"; FAILS=$((FAILS+1)); }
+cleanup(){
+  local c=$?
+  set +e
+  if [ -d "$DIR/pg" ]; then $ASU "$PGBIN/pg_ctl" -D "$DIR/pg" -m immediate -w stop >/dev/null 2>&1; fi
+  mkdir -p "$OUT/$NAME-artifacts"; cp "$DIR"/*.log "$DIR"/*.fp "$DIR"/*.out "$DIR"/*.diff "$OUT/$NAME-artifacts/" 2>/dev/null
+  rm -rf "$DIR"
+  local BG; BG=$(pgrep -f "port=$PORT" | wc -l)
+  local DESTROYED=true; [ -d "$DIR" ] && DESTROYED=false
+  [ "$BG" = 0 ] || { FAILS=$((FAILS+1)); say "  FAIL background=$BG"; }
+  if [ "$SUMMARY_EMITTED" != "1" ]; then
+    FAILS=$((FAILS+1))
+    say "!! NO VERIFIER SUMMARY — aborted at stage=$STAGE with exit=$c (this is a FAIL, not a skip)"
+  fi
+  local END H
+  END=$(date -u +%FT%T.%3NZ); H=$(sha256sum "$LOG" | cut -d' ' -f1)
+  echo "### RESULT run_id=$RUNID start=$START end=$END stage=$STAGE checks=$CHECKS failures=$FAILS destroyed=$DESTROYED background=$BG log_sha256=$H" | tee -a "$LOG"
+  [ "$FAILS" = 0 ] || exit 1
+  exit 0
+}
+stage(){ STAGE=$1; say "== stage $1 start=$(date -u +%FT%T.%3NZ)"; }
+stage_end(){ say "== stage $STAGE end=$(date -u +%FT%T.%3NZ) exit=0"; }
+trap on_err ERR
+trap cleanup EXIT
+
+say "### hfreshB run_id=$RUNID start=$START port=$PORT out=$OUT"
+
+############################################################ preflight
+stage preflight
+PGBIN=$(dirname "$(command -v initdb)")
+command -v psql >/dev/null || { say "psql missing"; exit 1; }
+[ -x "$PGBIN/pg_ctl" ] || { say "pg_ctl missing in $PGBIN"; exit 1; }
+if (exec 3<>/dev/tcp/127.0.0.1/"$PORT") 2>/dev/null; then exec 3>&- 2>/dev/null || true; say "port $PORT already in use"; exit 1; fi
+AVAIL_MB=$(df -Pm /tmp | awk 'NR==2{print $4}')
+[ "$AVAIL_MB" -ge 2048 ] || { say "not enough disk on /tmp: ${AVAIL_MB}MB"; exit 1; }
+[ -f "$BK/MANIFEST.json" ] || { say "backup manifest missing"; exit 1; }
+say "  preflight ok pgbin=$PGBIN disk=${AVAIL_MB}MB port_free=$PORT"
+unset PGHOST PGPORT PGUSER PGPASSWORD PGDATABASE PGSSLMODE
+rm -rf "$DIR"; mkdir -p "$DIR/sock"
 ASU=""; if [ "$(id -u)" = 0 ]; then chown -R 1000:1000 "$DIR"; ASU="setpriv --reuid=1000 --regid=1000 --clear-groups"; fi
-$ASU initdb -D "$DIR/pg" -U postgres --locale=C -E UTF8 >"$DIR/initdb.log" 2>&1 || exit 1
-$ASU "$PGBIN/pg_ctl" -D "$DIR/pg" -l "$DIR/pg.log" -o "-p $PORT -k $DIR/sock -c listen_addresses=127.0.0.1 -c fsync=off -c track_counts=on" -w start >/dev/null 2>&1 || exit 1
+stage_end
+
+############################################################ initdb + start
+stage initdb
+$ASU initdb -D "$DIR/pg" -U postgres --locale=C -E UTF8 >"$DIR/initdb.log" 2>&1 \
+  || { say "initdb failed:"; tail -20 "$DIR/initdb.log"; exit 1; }
+$ASU "$PGBIN/pg_ctl" -D "$DIR/pg" -l "$DIR/pg.log" \
+  -o "-p $PORT -k $DIR/sock -c listen_addresses=127.0.0.1 -c fsync=off -c track_counts=on -c log_statement=all -c log_min_messages=warning -c log_line_prefix='%m [%p] %u ' " \
+  -w -t 60 start >"$DIR/pgctl.log" 2>&1 || { say "pg_ctl start failed:"; tail -20 "$DIR/pg.log"; exit 1; }
+READY=0
+for i in $(seq 1 60); do
+  if $ASU "$PGBIN/pg_isready" -h 127.0.0.1 -p "$PORT" -q; then READY=1; break; fi
+  sleep 1
+done
+[ "$READY" = 1 ] || { say "server never became ready"; tail -20 "$DIR/pg.log"; exit 1; }
 psql "postgresql://postgres@localhost:$PORT/postgres?sslmode=disable" -qX -c 'create database clone' >/dev/null
 CL="postgresql://postgres@localhost:$PORT/clone?sslmode=disable"
 RO="postgresql://drawer_ro:ro@localhost:$PORT/clone?sslmode=disable"
-say "### hfreshB (H5 read-only) run_id=$RUNID start=$START port=$PORT"
+say "  server ready pid=$(head -1 "$DIR/pg/postmaster.pid")"
+stage_end
 
+############################################################ restore baseline
+stage restore
 for f in $(python3 -c "import json;print(' '.join(json.load(open('$BK/MANIFEST.json'))['restore_bundle']['order']))"); do
-  psql "$CL" -qX -f "$BK/restore/$f" >>"$DIR/restore.log" 2>&1
+  psql "$CL" -qX -f "$BK/restore/$f" >>"$DIR/restore.log" 2>&1 || true
 done
-psql "$CL" -qX -v ON_ERROR_STOP=1 --single-transaction -f db/r1/c/H/004_h5_readonly_contract.sql >>"$DIR/apply.log" 2>&1 || fail "H5 apply"
+RESTORE_ERR=$(grep -c '^psql:.*ERROR' "$DIR/restore.log" || true)
+chk $([ "$RESTORE_ERR" = 0 ] && echo 0 || echo 1) "B-01 baseline restore errors=0" "errors=$RESTORE_ERR"
+TBL=$(psql "$CL" -AtqX -c "SELECT count(*) FROM pg_class c JOIN pg_namespace n ON n.oid=c.relnamespace WHERE n.nspname='public' AND c.relkind='r'")
+chk $([ "$TBL" -ge 120 ] && echo 0 || echo 1) "B-02 production-shape table count>=120" "count=$TBL"
+stage_end
 
-psql "$CL" -qX >>"$DIR/setup.log" 2>&1 <<'SQL'
+############################################################ fixtures
+stage fixtures
+psql "$CL" -qX -v ON_ERROR_STOP=1 >"$DIR/setup.log" 2>&1 <<'SQL'
 CREATE ROLE drawer_ro LOGIN PASSWORD 'ro';
 GRANT USAGE ON SCHEMA public TO drawer_ro;
 GRANT SELECT ON ALL TABLES IN SCHEMA public TO drawer_ro;
-GRANT EXECUTE ON FUNCTION public.get_chips_detail_ro(text, integer) TO drawer_ro;
--- fixtures: ready / unavailable / pending
 INSERT INTO public.tw_bsr_daily(stock_id, trade_date, broker_id, broker_name, buy_shares, sell_shares, net_shares)
 VALUES ('2330', current_date, '9200', 'A', 5000, 1000, 4000),
        ('6515', current_date, '9200', 'A', 100, 50, 50);
@@ -41,53 +111,94 @@ VALUES ('2330', current_date, 5, 1000, 200, -50, true),
 INSERT INTO public.bsr_coverage_daily(stock_id, trade_date, broker_count, broker_sum_shares, coverage_pct, coverage_class)
 VALUES ('2330', current_date, 30, 100000, 92.50, 'high');
 SQL
+say "  fixtures: 2330=ready 6515=rollup-without-bsr 1234=cache-miss"
+stage_end
 
-snap(){ psql "$CL" -AtqX -c "SELECT (SELECT count(*) FROM public.tw_bsr_sync_queue)||'|'||(SELECT count(*) FROM public.tw_bsr_attempt_logs)||'|'||(SELECT count(*) FROM public.tw_chips_rollup)||'|'||(SELECT count(*) FROM public.tw_bsr_daily)||'|'||(SELECT count(*) FROM public.chips_prefetch_targets)||'|'||(SELECT count(*) FROM public.bsr_coverage_daily)||'|'||(SELECT count(*) FROM public.tw_bsr_fetch_failures)"; }
-wsnap(){ psql "$CL" -AtqX -c "SELECT coalesce(sum(n_tup_ins+n_tup_upd+n_tup_del),0)::text FROM pg_stat_user_tables"; }
+############################################################ fingerprint + apply
+stage apply
+psql "$CL" -AtqX -f db/r1/c/H/h5_fingerprint.sql >"$DIR/before.fp"
+psql "$CL" -qX -v ON_ERROR_STOP=1 --single-transaction -f db/r1/c/H/004_h5_readonly_contract.sql >"$DIR/apply.log" 2>&1
+psql "$CL" -AtqX -f db/r1/c/H/h5_fingerprint.sql >"$DIR/after_apply.fp"
+if diff -u "$DIR/before.fp" "$DIR/after_apply.fp" >"$DIR/apply.diff"; then chk 0 "B-03 H5 apply is additive (baseline fingerprint unchanged)"; else chk 1 "B-03 H5 apply is additive" "$(cat "$DIR/apply.diff")"; fi
+NEWOBJ=$(psql "$CL" -AtqX -c "SELECT count(*) FROM pg_proc p JOIN pg_namespace n ON n.oid=p.pronamespace WHERE n.nspname='public' AND p.proname='get_chips_detail_ro'")
+chk $([ "$NEWOBJ" = 1 ] && echo 0 || echo 1) "B-04 exactly one new object created" "count=$NEWOBJ"
+VOL=$(psql "$CL" -AtqX -c "SELECT p.provolatile||p.prosecdef::text FROM pg_proc p JOIN pg_namespace n ON n.oid=p.pronamespace WHERE n.nspname='public' AND p.proname='get_chips_detail_ro'")
+chk $([ "$VOL" = "sfalse" ] && echo 0 || echo 1) "B-05 new function is STABLE + SECURITY INVOKER" "volatile/secdef=$VOL"
+psql "$CL" -qX -c "GRANT EXECUTE ON FUNCTION public.get_chips_detail_ro(text,integer) TO drawer_ro" >/dev/null
+stage_end
 
-B=$(snap); WB=$(wsnap)
-say "-- before rows=$B writes=$WB"
+############################################################ read paths as SELECT-only role
+stage read_paths
+ROPRIV=$(psql "$CL" -AtqX -c "SELECT count(*) FROM information_schema.role_table_grants WHERE grantee='drawer_ro' AND privilege_type IN ('INSERT','UPDATE','DELETE','TRUNCATE')")
+chk $([ "$ROPRIV" = 0 ] && echo 0 || echo 1) "B-06 drawer_ro holds no write privilege on any table" "writes=$ROPRIV"
 
-for i in 1 2 3 4 5; do
-  psql "$RO" -AtqX -c "SELECT public.get_chips_detail_ro('2330',5)" >>"$DIR/read.out" 2>>"$DIR/read.err"
-  psql "$RO" -AtqX -c "SELECT public.get_chips_detail_ro('6515',5)" >>"$DIR/read.out" 2>>"$DIR/read.err"
-  psql "$RO" -AtqX -c "SELECT public.get_chips_detail_ro('1234',5)" >>"$DIR/read.out" 2>>"$DIR/read.err"
+LOGOFF=$(stat -c%s "$DIR/pg.log")
+: >"$DIR/read.out"; : >"$DIR/read.err"
+run_ro(){ psql "$RO" -AtqX -c "$1" >>"$DIR/read.out" 2>>"$DIR/read.err" || echo "ERRPATH:$1" >>"$DIR/read.out"; }
+for i in 1 2 3; do
+  run_ro "SELECT public.get_chips_detail_ro('2330',5)"      # success
+  run_ro "SELECT public.get_chips_detail_ro('1234',5)"      # cache miss
+  run_ro "SELECT public.get_chips_detail_ro('6515',5)"      # unsupported / no bsr
+  run_ro "SELECT public.get_chips_detail_ro(NULL,5)"        # error path: null symbol
+  run_ro "SELECT public.get_chips_detail_ro('',5)"          # error path: empty symbol
+  run_ro "SELECT public.get_chips_detail_ro('2330',-1)"     # error path: bad window
+  run_ro "SELECT public.get_chips_detail_ro('2330'' OR 1=1--',5)"  # error path: injection-shaped input
+  run_ro "SELECT public.get_chips_detail_ro('2330',99999)"  # error path: absurd window
 done
-[ -s "$DIR/read.err" ] && { fail "read path errored"; cat "$DIR/read.err" | tee -a "$LOG"; }
+chk $([ ! -s "$DIR/read.err" ] && echo 0 || echo 1) "B-07 read paths raised no unexpected error" "$(head -3 "$DIR/read.err" 2>/dev/null)"
+chk $(grep -qc '"state" : "ready"' "$DIR/read.out" >/dev/null && echo 0 || echo 1) "B-08 success path returns state=ready (2330)"
+chk $(grep -q '"state" : "pending"' "$DIR/read.out" && echo 0 || echo 1) "B-09 cache miss returns state=pending (1234), no rebuild"
+chk $(grep -q '"state" : "unavailable"' "$DIR/read.out" && echo 0 || echo 1) "B-10 unsupported/no-bsr returns state=unavailable (6515)"
+RC=$(grep -c 'get_chips_detail_ro' "$DIR/read.out" || true)
+say "  read rows captured=$(wc -l <"$DIR/read.out") errpaths=$RC"
+stage_end
 
-grep -q '"state" : "ready"' "$DIR/read.out" || grep -q '"state": "ready"' "$DIR/read.out" || fail "ready state missing for 2330"
-grep -q 'unavailable' "$DIR/read.out" || fail "unavailable state missing for 6515"
-grep -q 'pending' "$DIR/read.out" || fail "pending state missing for unknown symbol"
+############################################################ statement capture
+stage statement_capture
+tail -c +$((LOGOFF+1)) "$DIR/pg.log" >"$DIR/read_statements.log"
+DML=$(grep -icE 'statement:[[:space:]]*(insert|update|delete|truncate|copy .* from)' "$DIR/read_statements.log" || true)
+chk $([ "$DML" = 0 ] && echo 0 || echo 1) "B-11 statement capture: 0 INSERT/UPDATE/DELETE/TRUNCATE during read phase" "dml=$DML"
+REB=$(grep -ic 'rebuild_bsr_rollup' "$DIR/read_statements.log" || true)
+chk $([ "$REB" = 0 ] && echo 0 || echo 1) "B-12 rebuild_bsr_rollup call count=0" "hits=$REB"
+WRPC=$(grep -icE 'enqueue_bsr_backfill|ensure_bsr_queued|claim_bsr_queue_jobs|register_symbol_demand|converge_bsr_windows|bsr_snapshot_' "$DIR/read_statements.log" || true)
+chk $([ "$WRPC" = 0 ] && echo 0 || echo 1) "B-13 volatile writer RPC call count=0" "hits=$WRPC"
+XACT=$(psql "$CL" -AtqX -c "SELECT xact_rollback>=0 AND (SELECT coalesce(sum(n_tup_ins+n_tup_upd+n_tup_del),0) FROM pg_stat_user_tables)>=0 FROM pg_stat_database WHERE datname='clone'")
+say "  read-phase statements=$(grep -c 'statement:' "$DIR/read_statements.log" || true)"
+stage_end
 
-sleep 1; psql "$CL" -qX -c 'SELECT pg_stat_clear_snapshot()' >/dev/null
-A=$(snap); WA=$(wsnap)
-say "-- after  rows=$A writes=$WA"
-[ "$B" = "$A" ] || fail "row counts changed by the drawer read path: $B -> $A"
-[ "$WB" = "$WA" ] || fail "pg_stat_user_tables write tuples changed: $WB -> $WA"
-
-# writer surface must be closed for the drawer role
-for fn in "rebuild_bsr_rollup" "enqueue_bsr_backfill" "ensure_bsr_queued" "register_symbol_demand"; do
-  N=$(psql "$CL" -AtqX -c "SELECT count(*) FROM pg_proc p JOIN pg_namespace n ON n.oid=p.pronamespace WHERE n.nspname='public' AND p.proname='$fn' AND has_function_privilege('drawer_ro', p.oid, 'EXECUTE')")
-  [ "$N" = "0" ] || fail "drawer_ro can execute $fn ($N overloads)"
-done
-say "-- writer RPCs closed to drawer_ro"
-
-# direct DML must be refused
+############################################################ zero-write proof
+stage zero_write
+psql "$CL" -qX -c 'SELECT pg_stat_clear_snapshot()' >/dev/null
+psql "$CL" -AtqX -f db/r1/c/H/h5_fingerprint.sql >"$DIR/after_read.fp"
+if diff -u "$DIR/before.fp" "$DIR/after_read.fp" >"$DIR/read.diff"; then
+  chk 0 "B-14 rowcounts / max(updated_at) / data hash identical before==after"
+else chk 1 "B-14 rowcounts / max(updated_at) / data hash identical" "$(cat "$DIR/read.diff")"; fi
+TUP=$(psql "$CL" -AtqX -c "SELECT coalesce(sum(n_tup_ins+n_tup_upd+n_tup_del),0) FROM pg_stat_user_tables WHERE relname IN ('tw_bsr_sync_queue','tw_bsr_attempt_logs','tw_chips_rollup','bsr_coverage_daily')")
+FIXTUP=$(psql "$CL" -AtqX -c "SELECT 3")   # fixtures wrote rollup(2)+coverage(1) before the read phase
+chk $([ "$TUP" = "$FIXTUP" ] && echo 0 || echo 1) "B-15 tuple stats on the four chips tables show only the pre-read fixtures" "tuples=$TUP expected=$FIXTUP"
 for stmt in "INSERT INTO public.tw_bsr_sync_queue(stock_id,trade_date,priority) VALUES ('2330',current_date,1)" \
             "UPDATE public.tw_chips_rollup SET foreign_net=0" \
-            "DELETE FROM public.tw_bsr_daily"; do
-  if psql "$RO" -qX -c "$stmt" >/dev/null 2>&1; then fail "drawer_ro executed DML: $stmt"; fi
+            "DELETE FROM public.tw_bsr_daily" \
+            "TRUNCATE public.bsr_coverage_daily"; do
+  if psql "$RO" -qX -c "$stmt" >/dev/null 2>&1; then fail "B-16 drawer_ro executed DML: $stmt"; else CHECKS=$((CHECKS+1)); say "  PASS B-16 refused: ${stmt:0:40}..."; fi
 done
-say "-- direct DML refused for drawer_ro"
+for fn in rebuild_bsr_rollup enqueue_bsr_backfill ensure_bsr_queued register_symbol_demand; do
+  N=$(psql "$CL" -AtqX -c "SELECT count(*) FROM pg_proc p JOIN pg_namespace n ON n.oid=p.pronamespace WHERE n.nspname='public' AND p.proname='$fn' AND has_function_privilege('drawer_ro', p.oid,'EXECUTE')")
+  chk $([ "$N" = 0 ] && echo 0 || echo 1) "B-17 drawer_ro cannot execute $fn" "overloads=$N"
+done
+stage_end
 
-# stage rollback
-psql "$CL" -qX -v ON_ERROR_STOP=1 -c 'DROP FUNCTION IF EXISTS public.get_chips_detail_ro(text, integer)' >/dev/null 2>&1 || fail "H5 rollback"
+############################################################ rollback
+stage rollback
+psql "$CL" -qX -v ON_ERROR_STOP=1 -c 'DROP FUNCTION IF EXISTS public.get_chips_detail_ro(text, integer)' >/dev/null
+psql "$CL" -AtqX -f db/r1/c/H/h5_fingerprint.sql >"$DIR/rollback.fp"
+if diff -u "$DIR/before.fp" "$DIR/rollback.fp" >"$DIR/rollback.diff"; then
+  chk 0 "B-18 rollback restores baseline catalog/data/ACL fingerprint"
+else chk 1 "B-18 rollback restores baseline fingerprint" "$(cat "$DIR/rollback.diff")"; fi
 LEFT=$(psql "$CL" -AtqX -c "SELECT count(*) FROM pg_proc p JOIN pg_namespace n ON n.oid=p.pronamespace WHERE n.nspname='public' AND p.proname='get_chips_detail_ro'")
-[ "$LEFT" = "0" ] || fail "rollback residue=$LEFT"
+chk $([ "$LEFT" = 0 ] && echo 0 || echo 1) "B-19 rollback residue=0" "left=$LEFT"
+stage_end
 
-mkdir -p "$OUT/$NAME-artifacts"; cp "$DIR"/*.log "$DIR"/*.out "$OUT/$NAME-artifacts/" 2>/dev/null || true
-$ASU "$PGBIN/pg_ctl" -D "$DIR/pg" -m immediate -w stop >/dev/null 2>&1; rm -rf "$DIR"
-BG=$(pgrep -f "port=$PORT"|wc -l); [ "$BG" = 0 ] || fail "background=$BG"
-END=$(date -u +%FT%T.%3NZ); H=$(sha256sum "$LOG"|cut -d' ' -f1)
-say "### RESULT run_id=$RUNID start=$START end=$END log_sha256=$H failures=$FAILS destroyed=true background=$BG"
-exit "$FAILS"
+############################################################ summary
+if [ "$FAILS" = 0 ]; then say "H5_VERIFY_PASS checks=$CHECKS failures=0"; else say "H5_VERIFY_FAIL checks=$CHECKS failures=$FAILS"; fi
+SUMMARY_EMITTED=1
