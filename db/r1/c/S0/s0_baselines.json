@@ -1,5 +1,5 @@
 {
-  "baseline_sha256": "c4386e463b6afefa14cf01e9fdf1b3deb35e74ed60e2e6efcf47d15d83c6d19c",
+  "baseline_sha256": "20dc65bfd11027bfa4655e2a270a6cbe442c30b4f58b02b484402c5eddb95afa",
   "data": {
     "checkup_storage_holdings": {
       "rows": 38,
@@ -70,7 +70,7 @@
     }
   },
   "experts_12": {
-    "classification_sha256": "c0715efef6ce0a71379bebcb274f4f2a92948c317bc6336226ce4934f4f45cdf",
+    "classification_sha256": "fe11d53f99de72546c2c57ec033e919d7f02825b6618bb64d475e046b1fdfd5d",
     "classification_source": "production read-only experts/signals/trades joined to expert handle E-left(md5(expert_id),8), then db/r1/p/replay-84.json supported/review/disposition",
     "counts": {
       "incomplete": 7,
@@ -88,6 +88,7 @@
         "reason": "projection proof incomplete: 35/35 keys unsafe, 7 drift26; reasons=multiple_apply_suspected:7,unit_ambiguous:17",
         "replay_keys": 35,
         "signals": 85,
+        "slug": "sharkgu",
         "status": "active",
         "trade_records": 40
       },
@@ -101,6 +102,7 @@
         "reason": "no economic source rows; no replay proof to project",
         "replay_keys": 0,
         "signals": 0,
+        "slug": "laofoye",
         "status": "pending",
         "trade_records": 0
       },
@@ -114,6 +116,7 @@
         "reason": "projection proof incomplete: 3/3 keys unsafe, 0 drift26; reasons=combo_unsupported:3,derivative_basis_unadjudicated:3,derivative_unsupported:3,fx_history_unavailable:3,us_option_combo_unsupported:3",
         "replay_keys": 3,
         "signals": 3,
+        "slug": "master-lever",
         "status": "active",
         "trade_records": 3
       },
@@ -127,6 +130,7 @@
         "reason": "no economic source rows; no replay proof to project",
         "replay_keys": 0,
         "signals": 0,
+        "slug": "vincent",
         "status": "pending",
         "trade_records": 0
       },
@@ -140,6 +144,7 @@
         "reason": "projection proof incomplete: 15/15 keys unsafe, 6 drift26; reasons=derivative_basis_unadjudicated:13,derivative_unsupported:14,multiple_apply_suspected:6,unit_ambiguous:7,unknown_derivative:5",
         "replay_keys": 15,
         "signals": 35,
+        "slug": "master-brcto",
         "status": "active",
         "trade_records": 16
       },
@@ -153,6 +158,7 @@
         "reason": "projection proof incomplete: 25/25 keys unsafe, 11 drift26; reasons=derivative_unsupported:8,fx_history_unavailable:25,market_ambiguous:16,multiple_apply_suspected:2,projection_without_signal:6,signal_without_projection:9,unclassified_instrument:8",
         "replay_keys": 25,
         "signals": 36,
+        "slug": "master-zhou",
         "status": "active",
         "trade_records": 17
       },
@@ -166,6 +172,7 @@
         "reason": "no economic source rows; no replay proof to project",
         "replay_keys": 0,
         "signals": 0,
+        "slug": "sean",
         "status": "pending",
         "trade_records": 0
       },
@@ -179,6 +186,7 @@
         "reason": "no economic source rows; no replay proof to project",
         "replay_keys": 0,
         "signals": 0,
+        "slug": "zhao-pengbo",
         "status": "suspended",
         "trade_records": 0
       },
@@ -192,6 +200,7 @@
         "reason": "no economic source rows; no replay proof to project",
         "replay_keys": 0,
         "signals": 0,
+        "slug": "lin-xiuqi",
         "status": "suspended",
         "trade_records": 0
       },
@@ -205,6 +214,7 @@
         "reason": "no economic source rows; no replay proof to project",
         "replay_keys": 0,
         "signals": 0,
+        "slug": "ele",
         "status": "pending",
         "trade_records": 0
       },
@@ -218,6 +228,7 @@
         "reason": "no economic source rows; no replay proof to project",
         "replay_keys": 0,
         "signals": 0,
+        "slug": "mk",
         "status": "pending",
         "trade_records": 0
       },
@@ -231,6 +242,7 @@
         "reason": "projection proof incomplete: 6/6 keys unsafe, 2 drift26; reasons=fx_history_unavailable:6,multiple_apply_suspected:2,unclassified_drift:1",
         "replay_keys": 6,
         "signals": 14,
+        "slug": "benny",
         "status": "pending",
         "trade_records": 6
       }
