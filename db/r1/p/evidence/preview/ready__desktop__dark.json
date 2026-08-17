@@ -6,8 +6,9 @@
   "consoleErrors": [],
   "injectedTransportErrors": [],
   "failedResponses": [],
+  "environmentErrors": [],
   "pageErrors": [],
   "noticeCount": 0,
   "placeholderCount": 0,
-  "bodyChars": 302
+  "bodyChars": 555
 }

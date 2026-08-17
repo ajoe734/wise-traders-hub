@@ -10,8 +10,9 @@
   "failedResponses": [
     "404 https://yqacmrgdjlenbijclngi.supabase.co/rest/v1/public_expert_state_active?select=state%2Cwithheld_count%2Cincomplete_count%2Cmanual_review_count&expert_id=eq.expert-r1p"
   ],
+  "environmentErrors": [],
   "pageErrors": [],
   "noticeCount": 0,
   "placeholderCount": 0,
-  "bodyChars": 302
+  "bodyChars": 210
 }

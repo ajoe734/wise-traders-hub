@@ -6,6 +6,7 @@
   "consoleErrors": [],
   "injectedTransportErrors": [],
   "failedResponses": [],
+  "environmentErrors": [],
   "pageErrors": [],
   "noticeCount": 1,
   "placeholderCount": 3,
