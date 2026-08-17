@@ -261,16 +261,73 @@ END $wrap2$;
 
 
 -- ---------------------------------------------------------------- C3c: named helpers
--- The two RLS predicate helpers stay callable by `authenticated` (RLS policies are
--- evaluated as the querying role); anon/PUBLIC are closed.
-DO $named$
-DECLARE sig text;
+-- has_active_subscription_after(_user_id, _at) and is_tester(_user_id) are
+-- SECURITY DEFINER helpers that accept an ARBITRARY user id: pre-cutover, any
+-- caller could probe another member's entitlements / tester flag. They are also
+-- evaluated inside RLS predicates as the QUERYING role (including anon, e.g.
+-- "Anyone can view active experts" -> is_tester(auth.uid())), so a blanket
+-- REVOKE FROM anon would break anonymous browsing with 42501.
+-- Disposition: replace_with_wrapper_authuid_bound
+--   * <name>_raw  : verbatim original body, owner/service_role only
+--   * <name>      : identity-bound wrapper, callable by anon/authenticated
+--                   but only for auth.uid() itself (NULL binds to NULL),
+--                   company_admin, or a trusted server-side caller.
+DO $mkraw2$
+DECLARE src text; nm text; sig text;
 BEGIN
-  FOREACH sig IN ARRAY ARRAY['public.has_active_subscription_after(uuid, timestamptz)',
-                             'public.is_tester(uuid)'] LOOP
-    CONTINUE WHEN to_regprocedure(sig) IS NULL;
-    EXECUTE format('REVOKE ALL ON FUNCTION %s FROM PUBLIC, anon', sig);
-    EXECUTE format('GRANT EXECUTE ON FUNCTION %s TO authenticated, service_role', sig);
+  FOREACH nm IN ARRAY ARRAY['has_active_subscription_after','is_tester'] LOOP
+    sig := CASE WHEN nm = 'is_tester' THEN '(uuid)' ELSE '(uuid, timestamptz)' END;
+    CONTINUE WHEN to_regprocedure('public.' || nm || sig) IS NULL;
+    IF to_regprocedure('public.' || nm || '_raw' || sig) IS NULL THEN
+      SELECT pg_get_functiondef(p.oid) INTO src
+        FROM pg_proc p JOIN pg_namespace n ON n.oid = p.pronamespace
+       WHERE n.nspname = 'public' AND p.proname = nm;
+      CONTINUE WHEN src IS NULL;
+      EXECUTE replace(src, 'FUNCTION public.' || nm || '(',
+                           'FUNCTION public.' || nm || '_raw(');
+    END IF;
   END LOOP;
-END $named$;
+END $mkraw2$;
+
+DO $wrap3$ BEGIN
+IF to_regprocedure('public.is_tester_raw(uuid)') IS NULL THEN RETURN; END IF;
+EXECUTE $ddl$
+CREATE OR REPLACE FUNCTION public.is_tester(_user_id uuid)
+RETURNS boolean LANGUAGE plpgsql STABLE SECURITY DEFINER SET search_path TO 'public'
+AS $ist$
+BEGIN
+  IF NOT public.acl_caller_may_read_identity(_user_id) THEN
+    RAISE EXCEPTION 'forbidden' USING ERRCODE = '42501';
+  END IF;
+  RETURN public.is_tester_raw(_user_id);
+END $ist$;
+$ddl$;
+EXECUTE 'REVOKE ALL ON FUNCTION public.is_tester_raw(uuid) FROM PUBLIC, anon, authenticated';
+EXECUTE 'GRANT EXECUTE ON FUNCTION public.is_tester_raw(uuid) TO service_role';
+EXECUTE 'REVOKE ALL ON FUNCTION public.is_tester(uuid) FROM PUBLIC';
+EXECUTE 'GRANT EXECUTE ON FUNCTION public.is_tester(uuid) TO anon, authenticated, service_role';
+END $wrap3$;
+
+DO $wrap4$ BEGIN
+IF to_regprocedure('public.has_active_subscription_after_raw(uuid, timestamptz)') IS NULL THEN RETURN; END IF;
+EXECUTE $ddl$
+CREATE OR REPLACE FUNCTION public.has_active_subscription_after(
+  _user_id uuid, _published_at timestamptz)
+RETURNS TABLE(expert_id uuid)
+LANGUAGE plpgsql STABLE SECURITY DEFINER SET search_path TO 'public'
+AS $hasa$
+BEGIN
+  IF NOT public.acl_caller_may_read_identity(_user_id) THEN
+    RAISE EXCEPTION 'forbidden' USING ERRCODE = '42501';
+  END IF;
+  RETURN QUERY SELECT r.expert_id
+    FROM public.has_active_subscription_after_raw(_user_id, _published_at) r;
+END $hasa$;
+$ddl$;
+EXECUTE 'REVOKE ALL ON FUNCTION public.has_active_subscription_after_raw(uuid, timestamptz) FROM PUBLIC, anon, authenticated';
+EXECUTE 'GRANT EXECUTE ON FUNCTION public.has_active_subscription_after_raw(uuid, timestamptz) TO service_role';
+EXECUTE 'REVOKE ALL ON FUNCTION public.has_active_subscription_after(uuid, timestamptz) FROM PUBLIC';
+EXECUTE 'GRANT EXECUTE ON FUNCTION public.has_active_subscription_after(uuid, timestamptz) TO anon, authenticated, service_role';
+END $wrap4$;
+
 
