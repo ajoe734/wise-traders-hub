@@ -12,8 +12,19 @@ const jwt = (role) => {
   const p = `${b64({ alg: "HS256", typ: "JWT" })}.${b64({ role, exp: 4102444800 })}`;
   return `${p}.${createHmac("sha256", secret).update(p).digest("base64url")}`;
 };
+// PostgREST serves at "/" while supabase-js addresses "/rest/v1"; strip the
+// prefix in a custom fetch. Everything below is still real HTTP through the
+// real supabase-js client (headers, auth, error decoding all unchanged).
+const stripFetch = (input, init) => {
+  const u = new URL(typeof input === "string" ? input : input.url);
+  u.pathname = u.pathname.replace(/^\/rest\/v1/, "");
+  return fetch(u.toString(), init);
+};
 const client = (role) =>
-  createClient(url, jwt(role), { auth: { persistSession: false } });
+  createClient(url, jwt(role), {
+    auth: { persistSession: false },
+    global: { fetch: stripFetch },
+  });
 
 const rows = [];
 const chk = (id, ok, note) => rows.push([ok ? "PASS" : "FAIL", id, note]);
