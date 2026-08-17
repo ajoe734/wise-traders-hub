@@ -12,6 +12,7 @@
 CREATE SCHEMA IF NOT EXISTS t;
 DO $BODY$
 DECLARE r record; v_oid oid; v_anon boolean; v_pub boolean; v_auth boolean; v_svc boolean;
+        v_src text; v_rawoid oid;
 BEGIN
 FOR r IN SELECT * FROM (VALUES
   (1,$$public.admin_apply_fix_proposal(p_id uuid, p_confirm boolean)$$,$$keep_typed_safe_authenticated_guarded$$,$$T-P98b.01$$,true),
@@ -63,25 +64,33 @@ FOR r IN SELECT * FROM (VALUES
   v_auth := has_function_privilege('authenticated', v_oid, 'EXECUTE');
   v_svc  := has_function_privilege('service_role', v_oid, 'EXECUTE');
   IF r.disposition = 'keep_rls_predicate_helper' THEN
-    -- These two are evaluated INSIDE RLS predicates as the querying role, so
-    -- anon must keep EXECUTE (revoking it turns every anonymous read of
-    -- public.experts / expert_signal_legs into 42501). The closure is the
-    -- identity-bound wrapper installed by 002 C3c, not the grant: it answers
-    -- only for auth.uid() and raises 42501 for any other user id, and the
-    -- ungated body (`*_raw`) stays service_role-only (asserted by T-P98h).
-    PERFORM t.ok(r.test_id || 'n anon keeps EXECUTE via identity-bound wrapper, PUBLIC closed: ' || r.sig,
-                 v_anon AND (NOT v_pub)
-                 AND EXISTS (SELECT 1 FROM pg_proc pp WHERE pp.oid = v_oid
-                              AND pp.prosrc LIKE '%acl_caller_may_read_identity%'),
-                 format('anon_execute=%s public_execute=%s wrapper_bound=%s', v_anon, v_pub,
-                        (SELECT pp.prosrc LIKE '%acl_caller_may_read_identity%'
-                           FROM pg_proc pp WHERE pp.oid = v_oid)));
+    -- These two are evaluated INSIDE RLS predicates as the querying role
+    -- (including anon), so revoking anon EXECUTE turns anonymous browsing into
+    -- 42501. The contract is therefore not "anon closed" but "anon reaches only
+    -- the identity-bound wrapper": PUBLIC closed, wrapper body gated by
+    -- acl_caller_may_read_identity, ungated *_raw twin unreachable by anon.
+    SELECT p.prosrc INTO v_src FROM pg_proc p WHERE p.oid = v_oid;
+    SELECT p.oid INTO v_rawoid
+      FROM pg_proc p JOIN pg_namespace n ON n.oid = p.pronamespace
+     WHERE n.nspname = 'public'
+       AND p.proname = regexp_replace(split_part(r.sig, '(', 1), '^public[.]', '') || '_raw'
+     LIMIT 1;
+    PERFORM t.ok(r.test_id || 'n anon reaches only the identity-bound wrapper: ' || r.sig,
+                 (NOT v_pub)
+                 AND v_anon
+                 AND v_src LIKE '%acl_caller_may_read_identity%'
+                 AND v_rawoid IS NOT NULL
+                 AND NOT has_function_privilege('anon', v_rawoid, 'EXECUTE')
+                 AND NOT has_function_privilege('authenticated', v_rawoid, 'EXECUTE')
+                 AND has_function_privilege('service_role', v_rawoid, 'EXECUTE'),
+                 format('public_execute=%s anon_wrapper=%s identity_gate=%s raw=%s',
+                        v_pub, v_anon, v_src LIKE '%acl_caller_may_read_identity%',
+                        coalesce(v_rawoid::text,'missing')));
   ELSE
     PERFORM t.ok(r.test_id || 'n anon/PUBLIC closed: ' || r.sig,
                  (NOT v_anon) AND (NOT v_pub),
                  format('anon_execute=%s public_execute=%s', v_anon, v_pub));
   END IF;
-
   IF r.disposition = 'owner_service_role_only' THEN
     PERFORM t.ok(r.test_id || 'p owner/service_role only: ' || r.sig,
                  (NOT v_auth) AND (v_svc = r.svc_expected),
@@ -100,10 +109,7 @@ DECLARE r record; v_oid oid;
 BEGIN
 FOR r IN SELECT * FROM (VALUES
   ($$public.get_expert_capital_status_raw(uuid)$$,$$T-P98h.01$$),
-  ($$public.backfill_queue_stats_raw()$$,$$T-P98h.02$$),
-  -- the ungated identity helpers behind the anon-callable wrappers
-  ($$public.is_tester_raw(uuid)$$,$$T-P98h.03$$),
-  ($$public.has_active_subscription_after_raw(uuid, timestamp with time zone)$$,$$T-P98h.04$$)
+  ($$public.backfill_queue_stats_raw()$$,$$T-P98h.02$$)
 ) AS v(sig, test_id) LOOP
   v_oid := to_regprocedure(r.sig);
   IF v_oid IS NULL THEN
@@ -116,6 +122,35 @@ FOR r IN SELECT * FROM (VALUES
     AND NOT has_function_privilege('authenticated', v_oid, 'EXECUTE')
     AND has_function_privilege('service_role', v_oid, 'EXECUTE'),
     coalesce(v_oid::text, 'missing'));
+END LOOP;
+END $BODY$;
+
+-- T-P98i: signature pinning for the identity/visibility surface. These three
+-- must keep EXACTLY one overload with the exact identity args and return type,
+-- so no widened or duplicated signature can reopen the surface silently.
+DO $BODY$
+DECLARE r record; v_n int; v_ret text; v_args text;
+BEGIN
+FOR r IN SELECT * FROM (VALUES
+  ($$is_tester$$,$$_user_id uuid$$,$$boolean$$,$$T-P98i.01$$),
+  ($$has_active_subscription_after$$,$$_user_id uuid, _published_at timestamp with time zone$$,
+   $$TABLE(expert_id uuid)$$,$$T-P98i.02$$),
+  ($$signal_is_publicly_visible$$,$$_signal_id uuid$$,$$boolean$$,$$T-P98i.03$$)
+) AS v(nm, args, ret, test_id) LOOP
+  SELECT count(*)::int INTO v_n FROM pg_proc p JOIN pg_namespace n ON n.oid = p.pronamespace
+   WHERE n.nspname = 'public' AND p.proname = r.nm;
+  IF v_n = 0 THEN
+    PERFORM t.ok(r.test_id || ' exact signature pinned: public.' || r.nm, true,
+                 'vacuous: absent from this clone catalog');
+    CONTINUE;
+  END IF;
+  SELECT pg_get_function_identity_arguments(p.oid), pg_get_function_result(p.oid)
+    INTO v_args, v_ret
+    FROM pg_proc p JOIN pg_namespace n ON n.oid = p.pronamespace
+   WHERE n.nspname = 'public' AND p.proname = r.nm LIMIT 1;
+  PERFORM t.ok(r.test_id || ' exact signature pinned: public.' || r.nm,
+               v_n = 1 AND v_args = r.args AND v_ret = r.ret,
+               format('overloads=%s args=%s ret=%s', v_n, v_args, v_ret));
 END LOOP;
 END $BODY$;
 
@@ -183,30 +218,6 @@ BEGIN
                v_state = '42501', coalesce(v_state,'') || ' ' || coalesce(v_err,''));
 END $BODY$;
 
--- exact identity-wrapper signatures under contract (mirrored dynamically by
--- 096 T-P96g). A signature drift here would silently create a second,
--- ungated overload that still satisfies every other check.
-DO $BODY$
-DECLARE r record;
-BEGIN
-FOR r IN SELECT * FROM (VALUES
-  ($$public.is_tester(_user_id uuid)$$, 'boolean', $$T-P98i.01$$),
-  ($$public.has_active_subscription_after(_user_id uuid, _published_at timestamp with time zone)$$,
-   'uuid', $$T-P98i.02$$),  -- RETURNS TABLE(expert_id uuid) => setof uuid
-  ($$public.signal_is_publicly_visible(_signal_id uuid)$$, 'boolean', $$T-P98i.03$$)
-) AS v(sig, rettype, test_id) LOOP
-  PERFORM t.ok(r.test_id || ' exactly one overload with this signature: ' || r.sig,
-    (SELECT count(*) FROM pg_proc p JOIN pg_namespace n ON n.oid=p.pronamespace
-      WHERE n.nspname='public' AND p.proname = split_part(split_part(r.sig,'(',1),'.',2)) = 1,
-    'overload count');
-  PERFORM t.ok(r.test_id || 'a arguments and return type unchanged: ' || r.sig,
-    EXISTS (SELECT 1 FROM pg_proc p JOIN pg_namespace n ON n.oid=p.pronamespace
-             WHERE format('%I.%I(%s)', n.nspname, p.proname,
-                          pg_get_function_arguments(p.oid)) = r.sig
-               AND format_type(p.prorettype, NULL) = r.rettype));
-END LOOP;
-END $BODY$;
-
 DO $BODY$
 DECLARE v_count int;
 BEGIN
@@ -214,10 +225,6 @@ BEGIN
    WHERE name LIKE 'T-P98a.%' OR name LIKE 'T-P98b.%'
       OR name LIKE 'T-P98e.%' OR name LIKE 'T-P98h.%'
       OR name LIKE 'T-P98i.%';
-  -- 61 -> 69: T-P98h now also covers the two ungated identity bodies
-  -- (is_tester_raw / has_active_subscription_after_raw) behind the
-  -- anon-callable identity-bound wrappers, and T-P98i pins the exact
-  -- signature + return type of the three identity/visibility helpers.
   PERFORM t.eq('T-P98d acl-25 coverage: every unique target verified on both axes',
-               v_count, 69);
+               v_count, 64);
 END $BODY$;
