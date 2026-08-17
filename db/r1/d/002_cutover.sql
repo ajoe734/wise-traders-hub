@@ -272,6 +272,10 @@ BEGIN
   IF p_dry_run THEN
     RETURN pg_catalog.jsonb_build_object('status','dry_run','duplicate_groups',n);
   END IF;
+  IF n = 0 THEN
+    RAISE EXCEPTION 'dedupe_requires_canonical_correction: no duplicate group claimed'
+      USING ERRCODE='P0001';
+  END IF;
   RETURN pg_catalog.jsonb_build_object('status','swept','duplicate_groups',n,
     'corrections_applied',applied);
 END $$;

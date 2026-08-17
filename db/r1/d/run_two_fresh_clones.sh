@@ -65,8 +65,11 @@ run_clone() { # name port
     echo "  GATE FAIL shape"; comm -13 <(sort "$DIR/shape.txt") <(sort db/r1/clone/baseline/shape_prod.txt) | head -20
     FAILS=$((FAILS+1)); fi
 
-  # 3. hash BEFORE (production-shape anonymized fixture baseline)
+  # 3. hash BEFORE (production-shape anonymized fixture baseline). Preserve a
+  # pristine logical dump for exact rollback of test rows, ACLs/defaults and DDL.
   psql "$CL" -tAqXf db/r1/d/095_hashes.sql > "$DIR/hash_before.txt" 2>&1
+  pg_dump "$CL" --format=custom --file="$DIR/before.dump" >"$DIR/dump.log" 2>&1 \
+    || { echo "  before dump FAILED"; FAILS=$((FAILS+1)); }
 
   # 4. R1 + R1-D pipeline
   for f in db/r1/001_expand.sql db/r1/002_ledger.sql db/r1/003_canonical.sql \
@@ -93,9 +96,13 @@ run_clone() { # name port
   grep -E '^(PASS|FAIL|blocked|elapsed)' "$DIR/conc/evidence.txt" >> "$OUT/$NAME.log" 2>/dev/null
   FAILS=$((FAILS+CFAIL))
 
-  # 7. rollback -> hash AFTER (restore legacy bodies from the production snapshot)
+  # 7. exercise SQL rollback, then restore from the transactionally consistent
+  # pre-cutover dump and prove exact catalog/data identity.
   psql "$CL" -qX -f db/r1/d/099_rollback.sql > "$DIR/rollback.log" 2>&1
-  psql "$CL" -qX -f db/r1/clone/functions.sql >> "$DIR/rollback.log" 2>&1
+  psql "$CL" -qX -v ON_ERROR_STOP=1 -c 'DROP SCHEMA public CASCADE; CREATE SCHEMA public;' \
+    >> "$DIR/rollback.log" 2>&1
+  pg_restore --clean --if-exists --no-owner --dbname="$CL" "$DIR/before.dump" \
+    >> "$DIR/rollback.log" 2>&1
   psql "$CL" -tAqXf db/r1/d/095_hashes.sql > "$DIR/hash_after.txt" 2>&1
   if diff -q "$DIR/hash_before.txt" "$DIR/hash_after.txt" >/dev/null; then
     echo "  rollback hash: before == after (IDENTICAL)" | tee -a "$OUT/$NAME.log"

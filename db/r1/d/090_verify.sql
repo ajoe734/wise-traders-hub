@@ -223,12 +223,12 @@ END $$;
 -- =====================================================================
 -- W04 price sync whitelist
 -- =====================================================================
-DO $$ DECLARE id uuid; n int; p numeric; BEGIN
-  SELECT tr.id INTO id FROM public.trade_records tr
+DO $$ DECLARE trade_id uuid; n int; p numeric; BEGIN
+  SELECT tr.id INTO trade_id FROM public.trade_records tr
    WHERE tr.signal_id=(SELECT v FROM td.ids WHERE k='sig4');
   n := public.upsert_current_price('test',
-        jsonb_build_array(jsonb_build_object('trade_record_id',id,'current_price',777)));
-  SELECT current_price INTO p FROM public.trade_records WHERE trade_records.id = id;
+        jsonb_build_array(jsonb_build_object('trade_record_id',trade_id,'current_price',777)));
+  SELECT tr.current_price INTO p FROM public.trade_records tr WHERE tr.id = trade_id;
   PERFORM t.eq('T-W04-happy: price updated rows', n, 1);
   PERFORM t.eq('T-W04-happy: price value', p, 777::numeric);
 END $$;

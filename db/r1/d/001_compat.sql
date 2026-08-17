@@ -121,7 +121,7 @@ BEGIN
   RETURN NEW;
 END $$;
 ALTER FUNCTION app_ledger.trade_records_economic_guard() OWNER TO ledger_owner;
-GRANT EXECUTE ON FUNCTION app_ledger.assert_canonical_writer(text) TO postgres;
+GRANT EXECUTE ON FUNCTION app_ledger.assert_canonical_writer(text) TO ledger_owner, postgres;
 
 CREATE OR REPLACE FUNCTION app_ledger.cash_ledger_guard() RETURNS trigger
 LANGUAGE plpgsql SECURITY INVOKER SET search_path = '' AS $$
