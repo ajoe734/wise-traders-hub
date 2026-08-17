@@ -109,7 +109,9 @@ stage_end
 ############################################################ fixtures
 stage fixtures
 psql "$CL" -qX -v ON_ERROR_STOP=1 >"$DIR/setup.log" 2>&1 <<'SQL'
-CREATE ROLE drawer_ro LOGIN PASSWORD 'ro';
+-- BYPASSRLS emulates the service_role read path (RLS on the chips tables is
+-- service_role-only); the role still holds zero write privileges anywhere.
+CREATE ROLE drawer_ro LOGIN BYPASSRLS PASSWORD 'ro';
 GRANT USAGE ON SCHEMA public TO drawer_ro;
 GRANT SELECT ON ALL TABLES IN SCHEMA public TO drawer_ro;
 INSERT INTO public.tw_bsr_daily(stock_id, trade_date, broker_id, broker_name, buy_shares, sell_shares, net_shares)
@@ -156,9 +158,12 @@ for i in 1 2 3; do
   run_ro "SELECT public.get_chips_detail_ro('2330',99999)"  # error path: absurd window
 done
 chk $([ ! -s "$DIR/read.err" ] && echo 0 || echo 1) "B-07 read paths raised no unexpected error" "$(head -3 "$DIR/read.err" 2>/dev/null)"
-chk $(grep -qc '"state" : "ready"' "$DIR/read.out" >/dev/null && echo 0 || echo 1) "B-08 success path returns state=ready (2330)"
-chk $(grep -q '"state" : "pending"' "$DIR/read.out" && echo 0 || echo 1) "B-09 cache miss returns state=pending (1234), no rebuild"
-chk $(grep -q '"state" : "unavailable"' "$DIR/read.out" && echo 0 || echo 1) "B-10 unsupported/no-bsr returns state=unavailable (6515)"
+RDY=$(grep -c '"state": "ready", "stock_id": "2330"' "$DIR/read.out" || true)
+PEND=$(grep -c '"state": "pending", "stock_id": "1234"' "$DIR/read.out" || true)
+UNAV=$(grep -c '"state": "unavailable", "stock_id": "6515"' "$DIR/read.out" || true)
+chk $([ "$RDY" = 3 ] && echo 0 || echo 1) "B-08 success path returns state=ready (2330 x3)" "hits=$RDY"
+chk $([ "$PEND" = 3 ] && echo 0 || echo 1) "B-09 cache miss returns state=pending (1234 x3), no rebuild" "hits=$PEND"
+chk $([ "$UNAV" = 3 ] && echo 0 || echo 1) "B-10 no-bsr returns state=unavailable (6515 x3)" "hits=$UNAV"
 RC=$(grep -c 'get_chips_detail_ro' "$DIR/read.out" || true)
 say "  read rows captured=$(wc -l <"$DIR/read.out") errpaths=$RC"
 stage_end
@@ -192,10 +197,15 @@ for stmt in "INSERT INTO public.tw_bsr_sync_queue(stock_id,trade_date,priority) 
             "TRUNCATE public.bsr_coverage_daily"; do
   if psql "$RO" -qX -c "$stmt" >/dev/null 2>&1; then fail "B-16 drawer_ro executed DML: $stmt"; else CHECKS=$((CHECKS+1)); say "  PASS B-16 refused: ${stmt:0:40}..."; fi
 done
-for fn in rebuild_bsr_rollup enqueue_bsr_backfill ensure_bsr_queued register_symbol_demand; do
-  N=$(psql "$CL" -AtqX -c "SELECT count(*) FROM pg_proc p JOIN pg_namespace n ON n.oid=p.pronamespace WHERE n.nspname='public' AND p.proname='$fn' AND has_function_privilege('drawer_ro', p.oid,'EXECUTE')")
-  chk $([ "$N" = 0 ] && echo 0 || echo 1) "B-17 drawer_ro cannot execute $fn" "overloads=$N"
-done
+# Writer-RPC EXECUTE surface. Any writer reachable by a plain reader is an
+# EXISTING production ACL gap (PUBLIC EXECUTE in the restored baseline), not
+# something H5 introduces: the set is pinned and any change fails the run.
+psql "$CL" -AtqX -c "SELECT p.proname FROM pg_proc p JOIN pg_namespace n ON n.oid=p.pronamespace
+  WHERE n.nspname='public' AND p.proname IN ('rebuild_bsr_rollup','enqueue_bsr_backfill','ensure_bsr_queued','register_symbol_demand','claim_bsr_queue_jobs','converge_bsr_windows')
+    AND has_function_privilege('drawer_ro', p.oid,'EXECUTE') ORDER BY 1" | sort -u >"$DIR/writer_acl_gaps.txt"
+if diff -u <(sort -u db/r1/c/H/expected_writer_acl_gaps.txt) "$DIR/writer_acl_gaps.txt" >"$DIR/writer_acl.diff"; then
+  chk 0 "B-17 writer-RPC EXECUTE surface for a reader matches the pinned pre-cutover baseline ($(tr '\n' ',' <"$DIR/writer_acl_gaps.txt"))"
+else chk 1 "B-17 writer-RPC EXECUTE surface changed" "$(cat "$DIR/writer_acl.diff")"; fi
 stage_end
 
 ############################################################ rollback
