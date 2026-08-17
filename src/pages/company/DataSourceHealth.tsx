@@ -194,7 +194,15 @@ export default function DataSourceHealth() {
   async function resetAllPools() {
     if (!confirm('確定要立刻重置全部 pool 的當日 used_today？通常用於升級 FinMind 方案。')) return;
     try {
-      const { error } = await supabase.rpc('finmind_pool_reset');
+      // H-ACL 兩段式：優先呼叫帶 company_admin guard 的 v2；
+      // v2 尚未上線（PGRST202 / 42883 = function 不存在）時退回舊版，避免前端斷裂。
+      // 待 P-ACL-2 撤除舊 grant 後，這個 fallback 分支即可移除。
+      const v2 = await (supabase as any).rpc('finmind_pool_reset_v2');
+      let error = v2.error;
+      if (error && /PGRST202|42883|does not exist|Could not find the function/i.test(`${error.code ?? ''} ${error.message ?? ''}`)) {
+        const legacy = await supabase.rpc('finmind_pool_reset');
+        error = legacy.error;
+      }
       if (error) throw error;
       toast.success('已重置所有 pool');
       await refetchPools();

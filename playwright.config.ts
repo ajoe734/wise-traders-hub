@@ -211,6 +211,12 @@ export default defineConfig({
       use: { ...devices['Desktop Chrome'], viewport: { width: 1280, height: 900 } },
     },
     {
+      // H6：三大法人／券商分點分段新鮮度（兩來源語意分離）
+      name: 'desktop-chips-freshness-segments',
+      testMatch: /chips-freshness-segments\.spec\.ts/,
+      use: { ...devices['Desktop Chrome'], viewport: { width: 1280, height: 900 } },
+    },
+    {
       // ChipsSection 行動端佈局回歸：viewport 由 spec 內 test.use 動態切換
       // 覆蓋 320 / 360 / 375 / 390 / 393 / 430 六個常見手機寬度
       name: 'mobile-chips-section',
