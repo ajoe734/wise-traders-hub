@@ -36,3 +36,43 @@ export function stripEconomicFacts<T extends Record<string, unknown>>(row: T): T
 export function isEconomicFactField(name: string): boolean {
   return FORBIDDEN.includes(name);
 }
+
+// ── R1-P projection gate (shared with the frontend contract) ────────────────
+
+/** Minimal projection status shape shared by the Deno and frontend contracts. */
+export interface ProjectionStatus {
+  state: string;
+  showNumbers: boolean;
+  showReviewNotice: boolean;
+  badge: string | null;
+  note: string | null;
+}
+
+/** Pre-cutover default: no projection row → legacy read path, numbers allowed. */
+export const READY_PROJECTION: ProjectionStatus = {
+  state: 'no_projection',
+  showNumbers: true,
+  showReviewNotice: false,
+  badge: null,
+  note: null,
+};
+
+const SIGNAL_ECON_KEYS = [
+  'price_hint', 'entry_price', 'exit_price', 'quantity', 'quantity_shares',
+  'capital_pct', 'pnl', 'pnl_percent', 'return_pct',
+];
+
+/** Not-ready scopes keep the editorial text and lose every number. */
+export function gateSignalEconomics<T extends Record<string, unknown>>(
+  rows: T[] | null | undefined,
+  status: ProjectionStatus,
+): T[] {
+  const list = Array.isArray(rows) ? rows : [];
+  if (status.showNumbers) return list;
+  return list.map((r) => {
+    const copy: Record<string, unknown> = { ...r };
+    for (const k of SIGNAL_ECON_KEYS) if (k in copy) copy[k] = null;
+    copy.under_review = true;
+    return copy as T;
+  });
+}

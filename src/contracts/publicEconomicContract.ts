@@ -136,3 +136,8 @@ export function isPubliclyVisible(
   if (!Number.isFinite(t)) return false;
   return t + graceDays * 86400_000 <= now.getTime();
 }
+
+/** Pre-cutover default: no projection row → legacy read path, numbers allowed. */
+export const READY_PROJECTION: ProjectionStatus = resolveProjectionStatus({ absent: true });
+
+export type { ProjectionStatus };
