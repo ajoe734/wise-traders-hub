@@ -333,6 +333,25 @@ BEGIN
     RAISE EXCEPTION 'cash_delta_mismatch: tokens=% event=%', cash_sum, e.cash_delta
       USING ERRCODE='P0001'; END IF;
 
+  -- (d) F2 correction semantics: a quantity_adjustment is cash- and P&L-neutral
+  IF e.provenance = 'quantity_adjustment' THEN
+    IF coalesce(e.cash_delta,0) <> 0 OR cash_sum <> 0 THEN
+      RAISE EXCEPTION 'quantity_adjustment_must_be_cash_neutral: event=% tokens=%',
+        coalesce(e.cash_delta,0), cash_sum USING ERRCODE='P0001'; END IF;
+    IF coalesce(e.realized_pnl_delta,0) <> 0
+       OR coalesce((SELECT pg_catalog.sum(realized_delta)
+                      FROM app_ledger.effect_projection_mutation
+                     WHERE event_id=e.event_id),0) <> 0 THEN
+      RAISE EXCEPTION 'quantity_adjustment_must_not_create_pnl' USING ERRCODE='P0001'; END IF;
+  END IF;
+  -- (e) F2 equity_bridge: cash-only, never a quantity or P&L event
+  IF e.provenance = 'equity_bridge' THEN
+    IF coalesce(e.qty_delta,0) <> 0 OR q_open <> 0 OR q_closed <> 0 THEN
+      RAISE EXCEPTION 'equity_bridge_must_not_move_quantity' USING ERRCODE='P0001'; END IF;
+    IF coalesce(e.cash_delta,0) = 0 THEN
+      RAISE EXCEPTION 'equity_bridge_requires_cash_delta' USING ERRCODE='P0001'; END IF;
+  END IF;
+
   PERFORM app_ledger.assert_closed_lot_conservation(e.event_id);
   RETURN NULL;
 END $$;

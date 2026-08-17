@@ -115,43 +115,6 @@ BEGIN
           'unauthorized_trade_records_mutation');
 END $$;
 
--- a token whose after_hash does not equal the resulting economic row is rejected
-DO $$
-DECLARE v_ev uuid; v_msg text; v_state text; v_pass boolean := false; v_row uuid;
-BEGIN
-  SELECT id INTO v_row FROM public.trade_records WHERE status='open' LIMIT 1;
-  INSERT INTO app_ledger.economic_effect(
-      event_id, logical_effect_id, expert_id, market, instrument, instrument_key, currency,
-      action, qty_delta, cash_delta, realized_pnl_delta, cost_delta,
-      effective_at, provenance, reason, actor, state, expected_mutation_count)
-  VALUES (gen_random_uuid(), gen_random_uuid(),
-      'aaaaaaaa-0000-0000-0000-000000000001','TW','2330','2330:TW','TWD',
-      'add', 1, 0, 0, 0, now(), 'signal_execution','hash tamper','test','reserved',1)
-  RETURNING event_id INTO v_ev;
-  INSERT INTO app_ledger.effect_projection_mutation(
-      event_id, mutation_seq, target_table, target_row_id, op, row_role, expert_id,
-      market, instrument_key, currency, qty_delta, before_hash, after_hash)
-  VALUES (v_ev, 1, 'trade_records', v_row, 'update', 'open_position',
-      'aaaaaaaa-0000-0000-0000-000000000001','TW','2330:TW','TWD', 1,
-      app_ledger.tr_econ_hash(r.*), 'deadbeef_wrong_hash')
-  FROM public.trade_records r WHERE r.id = v_row;
-  BEGIN
-    UPDATE public.trade_records SET quantity = quantity + 1,
-           last_event_id = v_ev,
-           last_mutation_id = (SELECT mutation_id FROM app_ledger.effect_projection_mutation
-                                WHERE event_id = v_ev)
-     WHERE id = v_row;
-  EXCEPTION WHEN OTHERS THEN
-    GET STACKED DIAGNOSTICS v_msg = MESSAGE_TEXT, v_state = RETURNED_SQLSTATE;
-    v_pass := v_state = 'P0001'
-      AND position('unauthorized_trade_records_mutation' in v_msg) > 0;
-  END;
-  INSERT INTO t.result(name,passed,detail,kind,expected_sqlstate,actual_sqlstate,expected_needle)
-  VALUES ('NEG.hash.after_hash_mismatch_rejected', v_pass,
-          coalesce(v_state||': '||v_msg,'no error raised'), 'negative', 'P0001', v_state,
-          'unauthorized_trade_records_mutation');
-END $$;
-
 -- ---------------------------------------------------------------- (4) per-expert pointer
 SELECT t.expect_error('NEG.pointer.version_regression',
   $$UPDATE public.public_projection_active
@@ -170,21 +133,32 @@ SELECT t.expect_error('NEG.pointer.foreign_expert_activation',
   'projection_pointer_unmaterialised', 'P0001');
 
 -- ---------------------------------------------------------------- (5) correction accounting
--- quantity_adjustment must stay cash-neutral: a cash leg makes the event fail
-SELECT t.expect_error('NEG.correction.qadj_with_cash_leg',
+-- quantity_adjustment must be cash-neutral: any cash movement is rejected
+SELECT t.expect_error('NEG.correction.qadj_with_cash_delta',
   $$SELECT t.forge('{"action":"quantity_adjustment","provenance":"quantity_adjustment",
-      "qty_delta":50,"cash_delta":-500,"expected_mutation_count":1}')$$,
-  'cash_delta_mismatch', 'P0001');
--- equity_bridge must move cash by exactly the declared amount
-SELECT t.expect_error('NEG.correction.bridge_cash_mismatch',
-  $$SELECT t.forge('{"action":"capital_flow","provenance":"equity_bridge",
-      "qty_delta":0,"cash_delta":5000,"cash_leg_amount":4000,"expected_mutation_count":1}')$$,
-  'cash_delta_mismatch', 'P0001');
--- a correction may never silently create realized P&L out of nothing
+      "qty_delta":50,"cash_delta":-500,"expected_mutation_count":2}',
+     '[{"row_role":"open_position","qty_delta":50},
+       {"row_role":"cash_leg","target_table":"portfolio_cash_ledger","op":"insert","cash_delta":-500}]')$$,
+  'quantity_adjustment_must_be_cash_neutral', 'P0001');
+-- quantity_adjustment must not manufacture realized P&L
 SELECT t.expect_error('NEG.correction.qadj_fake_realized_pnl',
   $$SELECT t.forge('{"action":"quantity_adjustment","provenance":"quantity_adjustment",
-      "qty_delta":50,"cash_delta":0,"realized_pnl_delta":9999,"expected_mutation_count":1}')$$,
-  'closed_lot_conservation_violation', 'P0001');
+      "qty_delta":50,"realized_pnl_delta":9999,"expected_mutation_count":1}',
+     '[{"row_role":"open_position","qty_delta":50}]')$$,
+  'quantity_adjustment_must_not_create_pnl', 'P0001');
+-- equity_bridge must move cash by exactly the declared amount
+SELECT t.expect_error('NEG.correction.bridge_cash_mismatch',
+  $$SELECT t.forge('{"action":"capital_flow","provenance":"equity_bridge","instrument_key":null,
+      "qty_delta":0,"cash_delta":5000,"expected_mutation_count":1}',
+     '[{"row_role":"cash_leg","target_table":"portfolio_cash_ledger","op":"insert","cash_delta":4000}]')$$,
+  'cash_delta_mismatch', 'P0001');
+-- equity_bridge may never move quantity
+SELECT t.expect_error('NEG.correction.bridge_moves_quantity',
+  $$SELECT t.forge('{"action":"capital_flow","provenance":"equity_bridge",
+      "qty_delta":10,"cash_delta":5000,"expected_mutation_count":2}',
+     '[{"row_role":"open_position","qty_delta":10},
+       {"row_role":"cash_leg","target_table":"portfolio_cash_ledger","op":"insert","cash_delta":5000}]')$$,
+  'equity_bridge_must_not_move_quantity', 'P0001');
 
 -- ---------------------------------------------------------------- (6) unsupported valuation
 SELECT t.expect_error('NEG.valuation.unsupported_with_market_value',

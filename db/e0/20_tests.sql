@@ -95,13 +95,16 @@ RETURNS void LANGUAGE plpgsql AS $$
 DECLARE v_event uuid := gen_random_uuid(); tk jsonb; i int := 0;
 BEGIN
   INSERT INTO app_ledger.economic_effect(event_id, logical_effect_id, expert_id, market,
-    instrument_key, action, qty_delta, currency, cash_delta, effective_at, provenance,
+    instrument_key, action, qty_delta, currency, cash_delta, realized_pnl_delta, cost_delta,
+    effective_at, provenance,
     actor_via, reason, expected_mutation_count, state)
   VALUES (v_event, gen_random_uuid(),
     coalesce((p_over->>'expert_id')::uuid,'aaaaaaaa-0000-0000-0000-000000000001'),
     coalesce(p_over->>'market','TW'), coalesce(p_over->>'instrument_key','2330:TW'),
     coalesce(p_over->>'action','trim'), coalesce((p_over->>'qty_delta')::int, -100),
     coalesce(p_over->>'currency','TWD'), (p_over->>'cash_delta')::numeric,
+    coalesce((p_over->>'realized_pnl_delta')::numeric,0),
+    coalesce((p_over->>'cost_delta')::numeric,0),
     now(), coalesce((p_over->>'provenance')::public.effect_provenance,'quantity_adjustment'),
     'test', 'forge',
     coalesce((p_over->>'expected_mutation_count')::int, jsonb_array_length(p_tokens)), 'applied');
