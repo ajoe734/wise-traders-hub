@@ -38,6 +38,12 @@ BEGIN
   LOOP EXECUTE r.s; END LOOP;
 END $$;
 
+-- Legacy definers were owned by postgres (the table owner) and therefore ran
+-- outside RLS. ledger_owner must keep that exact behaviour, otherwise the
+-- compat wrappers change semantics. BYPASSRLS is safe here: ledger_owner is
+-- NOLOGIN and has no members, so no runtime role can assume it.
+ALTER ROLE ledger_owner BYPASSRLS;
+
 -- ledger_owner is the ONLY role allowed to perform raw economic DML.
 GRANT USAGE ON SCHEMA public TO ledger_owner;
 GRANT ALL ON ALL TABLES IN SCHEMA public TO ledger_owner;
