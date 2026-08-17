@@ -83,6 +83,21 @@ Deno.test("2308 真實形狀：terminal + 有 8/14 舊資料", () => {
   assertEquals(v.nextRetryAllowed, false);
 });
 
+Deno.test("2308 live selector 形狀：stock failure 是 circuit-open，但全域 probe 已確認方案拒絕", () => {
+  const stockFailure = "finmind_admission_circuit_open:pool=interactive";
+  const persistedGlobalClass = "provider_plan_rejected";
+  const v = classifyBsrProvider({
+    ...base,
+    lastErrorRaw: stockFailure,
+    persistedErrorClass: persistedGlobalClass,
+  });
+  assertEquals(v.state, "terminal_provider_rejected");
+  assertEquals(v.code, "provider_plan_rejected");
+  assertEquals(v.hasStaleData, true);
+  assertEquals(v.retryable, false);
+  assertEquals(v.nextRetryAllowed, false);
+});
+
 Deno.test("terminal 且完全無資料", () => {
   const v = classifyBsrProvider({ ...base, bsrAsOf: null, lastErrorRaw: REGISTER_400 });
   assertEquals(v.state, "terminal_provider_rejected");
