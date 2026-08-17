@@ -27,7 +27,10 @@ run_clone() { # name port
   rm -rf "$DIR"; mkdir -p "$DIR/sock"
   local ASU=""
   if [ "$(id -u)" = "0" ]; then chown -R 1000:1000 "$DIR"; ASU="setpriv --reuid=1000 --regid=1000 --clear-groups"; fi
-  echo "### CLONE $NAME port=$PORT" | tee -a "$OUT/$NAME.log"
+  local RUNID START
+  RUNID="${NAME}-$(date -u +%Y%m%dT%H%M%SZ)-$$"
+  START=$(date -u +%FT%T.%3NZ)
+  echo "### CLONE $NAME port=$PORT run_id=$RUNID start=$START pid=$$" | tee -a "$OUT/$NAME.log"
   $ASU initdb -D "$DIR/pg" -U postgres --locale=C -E UTF8 > "$DIR/initdb.log" 2>&1 \
     || { echo "  initdb FAILED" | tee -a "$OUT/$NAME.log"; return 1; }
   $ASU "$PGBIN/pg_ctl" -D "$DIR/pg" -l "$DIR/pg.log" -o \
@@ -173,6 +176,8 @@ run_clone() { # name port
   rm -rf "$DIR"
   [ -d "$DIR" ] && { echo "  DESTROY FAILED" | tee -a "$OUT/$NAME.log"; FAILS=$((FAILS+1)); } \
                 || echo "  clone destroyed: $DIR gone" | tee -a "$OUT/$NAME.log"
+  echo "  CLONE $NAME run_id=$RUNID start=$START end=$(date -u +%FT%T.%3NZ) exit=$FAILS" \
+    | tee -a "$OUT/$NAME.log"
   echo "  CLONE $NAME TOTAL FAILURES=$FAILS" | tee -a "$OUT/$NAME.log"
   return $FAILS
 }
