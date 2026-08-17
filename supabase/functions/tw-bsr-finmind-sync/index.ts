@@ -351,6 +351,12 @@ async function enqueueTier3Backfill(endDate: string, days: number, cid: string):
 }
 
 
+/**
+ * Stage B：enqueue writer 的 admission 會計。
+ * 每個 chunk 沿用既有 `insert(..., { count: 'exact' })`；只有在 gate status **明確 blocked**
+ * 且 insert error=null 時，才把 `candidate - inserted` 記成 blocked。duplicate / error /
+ * status unknown 一律 unknown/error，絕不用全表 delta 反推。
+ */
 async function enqueueBatch(
   stockIds: string[],
   date: string,
@@ -358,13 +364,47 @@ async function enqueueBatch(
   tag: string,
   correlationId: string,
   postCloseOnly = false,
+  admission?: AdmissionStatus,
 ): Promise<number> {
-  if (stockIds.length === 0 || !isWeekday(date)) return 0;
+  return (await enqueueBatchDetailed(
+    stockIds, date, priority, tag, correlationId, postCloseOnly, admission,
+  )).inserted;
+}
+
+interface EnqueueDetail {
+  inserted: number;
+  chunks: ChunkOutcome[];
+  admission_decision: AdmissionDecision;
+  admission_version: number | null;
+  admission_reason: string | null;
+  summary: ReturnType<typeof summarizeChunks>;
+}
+
+async function enqueueBatchDetailed(
+  stockIds: string[],
+  date: string,
+  priority: number,
+  tag: string,
+  correlationId: string,
+  postCloseOnly = false,
+  admissionIn?: AdmissionStatus,
+): Promise<EnqueueDetail> {
+  const admission = admissionIn ?? await fetchAdmissionStatus(supa as unknown as GateRpcClient);
+  const empty = (chunks: ChunkOutcome[] = []): EnqueueDetail => ({
+    inserted: 0,
+    chunks,
+    admission_decision: admission.decision,
+    admission_version: admission.version,
+    admission_reason: admission.reason ?? admission.detail,
+    summary: summarizeChunks(chunks),
+  });
+
+  if (stockIds.length === 0 || !isWeekday(date)) return empty();
   const { data: done } = await supa.from('tw_bsr_daily')
     .select('stock_id').eq('trade_date', date).in('stock_id', stockIds);
   const doneSet = new Set((done || []).map((r: any) => r.stock_id));
   const targets = stockIds.filter((id) => !doneSet.has(id));
-  if (targets.length === 0) return 0;
+  if (targets.length === 0) return empty();
   // 每個 job 有自己的 cid：便於單一同步事件的追蹤（enqueue 帶入的 cid 只是 batch 標記，僅保留在 tag/log）
   const rows = targets.map((id) => ({
     stock_id: id, trade_date: date, priority, status: 'pending',
@@ -380,16 +420,32 @@ async function enqueueBatch(
     .in('status', ['pending', 'running']);
   const existSet = new Set((existing || []).map((r: any) => `${r.stock_id}|${r.trade_date}`));
   const toInsert = rows.filter((r) => !existSet.has(`${r.stock_id}|${r.trade_date}`));
-  if (toInsert.length === 0) return 0;
+  if (toInsert.length === 0) return empty();
   const CHUNK = 500;
   let inserted = 0;
+  const chunks: ChunkOutcome[] = [];
   for (let i = 0; i < toInsert.length; i += CHUNK) {
+    const slice = toInsert.slice(i, i + CHUNK);
     const { error, count } = await supa.from('tw_bsr_sync_queue')
-      .insert(toInsert.slice(i, i + CHUNK), { count: 'exact' });
-    if (error) console.warn(`enqueue insert error: ${error.message}`);
-    else inserted += count ?? toInsert.slice(i, i + CHUNK).length;
+      .insert(slice, { count: 'exact' });
+    const outcome = classifyChunkOutcome({
+      admission,
+      candidateCount: slice.length,
+      insertedCount: error ? 0 : (count ?? null),
+      error: error ? { message: error.message } : null,
+    });
+    chunks.push(outcome);
+    if (error) console.warn(`enqueue insert error: ${sanitizeText(error.message, 200)}`);
+    else inserted += count ?? 0;
   }
-  return inserted;
+  return {
+    inserted,
+    chunks,
+    admission_decision: admission.decision,
+    admission_version: admission.version,
+    admission_reason: admission.reason ?? admission.detail,
+    summary: summarizeChunks(chunks),
+  };
 }
 
 // ============ Signal collection for state machine ============
