@@ -78,17 +78,39 @@ BEGIN
   LOOP EXECUTE format('DROP POLICY %I ON public.expert_signals', r.policyname); END LOOP;
 END $embargo$;
 
+-- The predicate must NOT read app_ledger.economic_effect inline: RLS predicates
+-- execute with the *caller's* privileges, and anon has (correctly) no SELECT on
+-- the internal ledger, so an inline EXISTS turns every anon read of
+-- expert_signals into "permission denied for table economic_effect".
+-- A SECURITY DEFINER, fixed-search_path helper exposes exactly one boolean and
+-- nothing else.
+CREATE OR REPLACE FUNCTION public.signal_is_publicly_visible(_signal_id uuid)
+RETURNS boolean
+LANGUAGE sql
+STABLE
+SECURITY DEFINER
+SET search_path = public, app_ledger, pg_temp
+AS $fn$
+  SELECT EXISTS (
+    SELECT 1 FROM app_ledger.economic_effect e
+     WHERE e.origin_signal_id = _signal_id
+       AND e.visible_at IS NOT NULL
+       AND e.visible_at <= now()
+  );
+$fn$;
+REVOKE ALL ON FUNCTION public.signal_is_publicly_visible(uuid) FROM PUBLIC;
+GRANT EXECUTE ON FUNCTION public.signal_is_publicly_visible(uuid)
+  TO anon, authenticated, service_role;
+
 DROP POLICY IF EXISTS signals_embargo_anon ON public.expert_signals;
 CREATE POLICY signals_embargo_anon ON public.expert_signals
   FOR SELECT TO anon
   USING (
     status = 'published'
     AND published_at IS NOT NULL
-    AND EXISTS (
-      SELECT 1 FROM app_ledger.economic_effect e
-       WHERE e.origin_signal_id = public.expert_signals.id
-         AND e.visible_at IS NOT NULL AND e.visible_at <= now())
+    AND public.signal_is_publicly_visible(public.expert_signals.id)
   );
+
 
 -- ---------------------------------------------------------------- C3: EXECUTE closure
 -- Per-target disposition, mirrored 1:1 by db/r1/p/acl-25.json:
