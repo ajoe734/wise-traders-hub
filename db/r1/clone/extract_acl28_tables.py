@@ -29,7 +29,10 @@ out = ["-- R1-P clone: extra objects for the 28 ACL targets",
        "SET client_min_messages=warning;", "SET check_function_bodies=off;", ""]
 
 tl = ",".join("'%s'" % t for t in TABLES)
-out.append('-- TABLES')
+out.append('-- SEQUENCES')
+for _sq in ('backfill_job_queue_id_seq','tw_chip_fact_id_seq','tw_institutional_daily_id_seq'):
+    out.append(f'CREATE SEQUENCE IF NOT EXISTS public.{_sq};')
+out.append('\n-- TABLES')
 for t in TABLES:
     cols = q(f"""select column_name||' '||
       case when data_type='USER-DEFINED' then 'public.'||udt_name
