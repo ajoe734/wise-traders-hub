@@ -105,9 +105,23 @@ def main():
     # auth.* is Supabase-managed but public objects reference auth.users and
     # auth.uid()/role()/jwt(). A restore that omits it cannot be validated, so
     # the backup captures the auth surface the public schema depends on.
+    # auth enum/composite types must exist before the auth tables that use them
+    auth_types = lines("""select 'DO $$ BEGIN CREATE TYPE auth.'||quote_ident(t.typname)||' AS ENUM ('||
+        (select string_agg(quote_literal(e.enumlabel), ',' order by e.enumsortorder)
+           from pg_enum e where e.enumtypid=t.oid)||
+        '); EXCEPTION WHEN duplicate_object THEN NULL; END $$;'
+        from pg_type t join pg_namespace n on n.oid=t.typnamespace
+        where n.nspname='auth' and t.typtype='e' order by t.typname""")
+    # a DEFAULT that references sibling columns (e.g. auth.users.confirmed_at =
+    # LEAST(email_confirmed_at, phone_confirmed_at)) is invalid as a plain
+    # DEFAULT on restore; production stores it as a generated column expression,
+    # so the shim drops it rather than aborting the whole auth table.
     auth_tables = lines("""select 'CREATE TABLE IF NOT EXISTS auth.'||quote_ident(c.relname)||' ('||
         (select string_agg(quote_ident(a.attname)||' '||format_type(a.atttypid,a.atttypmod)||
-            coalesce(' DEFAULT '||pg_get_expr(d.adbin, d.adrelid), '')||
+            coalesce(' DEFAULT '||(case when exists (
+                 select 1 from pg_depend dp where dp.classid='pg_attrdef'::regclass and dp.objid=d.oid
+                   and dp.refobjid=a.attrelid and dp.refobjsubid>0)
+               then null else pg_get_expr(d.adbin, d.adrelid) end), '')||
             case when a.attnotnull then ' NOT NULL' else '' end, ', ' order by a.attnum)
          from pg_attribute a
          left join pg_attrdef d on d.adrelid=a.attrelid and d.adnum=a.attnum
@@ -125,7 +139,7 @@ def main():
     emit("005_auth.sql", "auth schema surface referenced by public objects",
          ["CREATE SCHEMA IF NOT EXISTS auth;",
           "GRANT USAGE ON SCHEMA auth TO anon, authenticated, service_role;"]
-         + auth_tables + auth_pk + auth_fns
+         + auth_types + auth_tables + auth_pk + auth_fns
          + ["GRANT SELECT ON ALL TABLES IN SCHEMA auth TO service_role;"])
 
     # ------------------------------------------------------------- 010 tables
@@ -281,7 +295,7 @@ def main():
         "cron_commands_redacted": redacted,
         "acl_basis": "aclexplode(coalesce(proacl, acldefault('f', proowner))) — exact tuples, no normalisation",
         "counts": {"tables": len(tables), "views": len(views), "functions": len(fndefs),
-                   "triggers": len(trgs), "policies": len(pols), "enums": len(enums),
+                   "triggers": len(trgs), "policies": len(pols), "enums": len(enums), "auth_types": len(auth_types),
                    "sequences": len(seqs), "cron_jobs": len(jobs), "roles": len(roles),
                    "function_owners": len(fowners), "function_public_revokes": len(frevokes),
                    "table_grants": len(tgrants), "function_grants": len(fgrants)},
