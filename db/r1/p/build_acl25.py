@@ -356,7 +356,12 @@ def write_md(doc):
     L.append("| --- | --- |")
     L.append(f"| rows total | {f['total_rows']} |")
     L.append(f"| pattern family (admin/build/publish) | **{f['pattern_admin_build_publish']}** |")
-    L.append(f"| named pre-cutover (subset, also counted above? no — disjoint class) | {f['named_pre_cutover_subset']} |")
+    L.append(f"| named pre-cutover (disjoint class, NOT a subset) | {f['named_pre_cutover']} |")
+    L.append(f"| unique functions (25 + 3, dedup by canonical key) | **{f['total_unique_functions']}** |")
+    L.append(f"| canonical keys signature|grantee|privilege | {f['canonical_keys']['total']} "
+             f"(anon {f['canonical_keys']['anon_execute']} + PUBLIC {f['canonical_keys']['public_execute']}) |")
+    L.append(f"| duplicate canonical keys | {f['canonical_keys']['duplicate_check']} |")
+    L.append(f"| named/pattern overlap | {f['disjointness_proof']['named_and_pattern_overlap']} |")
     L.append(f"| unclassified | {f['unclassified']} |")
     L.append(f"| watchset sha256 (frozen) | `{f['watchset_sha256']}` |")
     L.append(f"| pinned baseline sha256 | `{f['pinned_sha256']}` |")
@@ -365,13 +370,14 @@ def write_md(doc):
     L.append("Disposition counts: " + ", ".join(
         f"`{k}`={v}" for k, v in doc["disposition_counts"].items()) + ".")
     L.append("")
-    L.append("**No `keep` disposition exists.** Every one of the 25 pattern-family functions "
-             "and the 3 named helpers is revoked from `PUBLIC, anon` by the cutover migration "
-             "`db/r1/p/002_public_contract.sql`. admin / build / publish / economic raw RPC are "
-             "never kept public by policy. The three named helpers are re-granted to "
-             "`authenticated, service_role` only, and `T-P98c` proves they still return output "
-             "for the intended caller; `095_acl25_verify.sql` proves per signature that an "
-             "ordinary `anon` session has no EXECUTE, produces no row and no output.\n")
+    L.append("**PUBLIC/anon EXECUTE is closed for all 28 unique functions** by "
+             "`db/r1/p/002_public_contract.sql` (C3/C3b/C3c). admin / build / publish / "
+             "economic raw RPC / trigger helpers are never kept reachable by an "
+             "unauthenticated caller. Where `authenticated` keeps EXECUTE, the row carries "
+             "`keep_justification` + `keep_negative_proof`, and "
+             "`095_acl25_verify.sql` runs both the negative test (anon, and for guarded "
+             "targets an ordinary authenticated session) and the positive test "
+             "(owner / service_role / intended caller still works).\n")
     L.append("Production is NOT changed by this artifact: no GRANT/REVOKE was issued. "
              "The counts and hashes above are the frozen pre-cutover baseline "
              "(`db/r1/p/093_prod_acl_baseline.sh`).\n")
@@ -381,7 +387,8 @@ def write_md(doc):
         L.append("| field | value |")
         L.append("| --- | --- |")
         L.append(f"| class | {i['class']}"
-                 + (" (subset: named 3)" if i["subset_of_named_pre_cutover"] else "") + " |")
+                 + (" (named 3, disjoint from the pattern 25)"
+                    if i["subset_of_named_pre_cutover"] else "") + " |")
         L.append(f"| category | {i['category']} |")
         L.append(f"| owner | {i['owner']} |")
         L.append(f"| prosecdef | {i['prosecdef']} |")
@@ -394,6 +401,10 @@ def write_md(doc):
         L.append(f"| data exposed / mutated | {i['data_exposed_or_mutated']} |")
         L.append(f"| pre-cutover risk | {i['pre_cutover_risk']} |")
         L.append(f"| cutover disposition | **{i['cutover_disposition']}** |")
+        L.append(f"| authenticated keeps EXECUTE | {i['authenticated_keeps_execute']} |")
+        L.append(f"| intended caller after cutover | {i['intended_caller_after_cutover']} |")
+        L.append(f"| keep justification | {i['keep_justification'] or '—(revoked)'} |")
+        L.append(f"| keep negative proof | {i['keep_negative_proof'] or '—(revoked)'} |")
         L.append(f"| post-migration test | `{i['post_migration_test_id']}` |")
         L.append("")
     (P / "acl-25.md").write_text("\n".join(L) + "\n")
