@@ -74,3 +74,21 @@ column-level grants on the view : (none)
 
 見 `full-regression-receipt.md` 的 security scan 區段：本輪所有 code/artifact 變更完成後重掃，
 `payment_providers_safe` 仍是**唯一且既有**的 Critical finding，未被 Ignore、未被自動修復。
+
+### 7.1 Latest live scan（使用者親自執行，2026-08-17T17:32Z，畫面「Basic scan completed 15 seconds ago」）
+
+| 項目 | 值 |
+|---|---|
+| Detected Issues | 1 Critical = `SUPA_security_definer_view`（`public.payment_providers_safe`），與本文件一致 |
+| Project dependencies | **77 packages / 40 known vulnerabilities**（先前記錄為 29） |
+
+唯讀查證（2026-08-17T17:33:19Z）：本輪**沒有任何相依變更**。`package-lock.json` / `bun.lock` / `bun.lockb`
+mtime 皆為 Aug 17 00:34（本輪之前）且 `git status` 0 變更；本輪 `package.json` 的 5 次提交只動 `scripts` 區塊，
+`dependencies` / `devDependencies` 0 位元變更。sha256：`package.json` = `1f4cfbbd…926ef4`、
+`package-lock.json` = `fbf9a41c…1da9aca`。
+
+→ 29 → 40 記為 **scanner advisory database / count drift**。
+
+未升級套件邊界：本輪未執行 install/update/audit fix、未改 lockfile、未改相依宣告、未修 payment view、
+未 deploy、未 Publish。40 筆漏洞與本 Critical finding 皆維持原狀，僅盤點。
+
