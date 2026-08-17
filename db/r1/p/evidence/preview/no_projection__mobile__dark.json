@@ -1,0 +1,18 @@
+{
+  "case": "no_projection",
+  "viewport": "390x844",
+  "theme": "dark",
+  "screenshot": "db/r1/p/evidence/preview/no_projection__mobile__dark.png",
+  "consoleErrors": [],
+  "injectedTransportErrors": [
+    "Failed to load resource: the server responded with a status of 404 (Not Found)"
+  ],
+  "failedResponses": [
+    "404 https://yqacmrgdjlenbijclngi.supabase.co/rest/v1/public_expert_state_active?select=state%2Cwithheld_count%2Cincomplete_count%2Cmanual_review_count&expert_id=eq.expert-r1p"
+  ],
+  "environmentErrors": [],
+  "pageErrors": [],
+  "noticeCount": 0,
+  "placeholderCount": 0,
+  "bodyChars": 210
+}

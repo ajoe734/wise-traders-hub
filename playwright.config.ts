@@ -1099,6 +1099,13 @@ export default defineConfig({
       testMatch: /holdings-price-parity\.spec\.ts/,
       use: { ...devices['Desktop Chrome'], viewport: { width: 1280, height: 900 } },
     },
+    {
+      // R1-P Unpublished Preview 視覺驗收（test-only 網路攔截，無 debug route）
+      // 7 個 typed case x desktop/mobile x light/dark，證據寫入 db/r1/p/evidence/preview
+      name: 'r1p-preview-acceptance',
+      testMatch: /r1p-preview-acceptance\.spec\.ts/,
+      use: { ...devices['Desktop Chrome'], viewport: { width: 1280, height: 900 } },
+    },
 
   ],
 

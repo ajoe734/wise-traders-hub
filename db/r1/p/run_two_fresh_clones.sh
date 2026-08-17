@@ -36,6 +36,11 @@ echo "=== C. production read-only ACL baseline (0 touch) ===" | tee -a "$OUT/sum
   | tee -a "$OUT/prod_acl.log"
 [ "${PIPESTATUS[0]}" = "0" ] || { echo "PROD ACL BASELINE FAILED" | tee -a "$OUT/summary.txt"; FAILS=$((FAILS+1)); }
 
+echo "=== C2. acl-25 disposition artifact (frozen, 25+3) ===" | tee -a "$OUT/summary.txt"
+python3 db/r1/p/build_acl25.py --check 2>&1 | tee -a "$OUT/acl25.log"
+[ "${PIPESTATUS[0]}" = "0" ] || { echo "ACL-25 ARTIFACT FAILED" | tee -a "$OUT/summary.txt"; FAILS=$((FAILS+1)); }
+
+
 echo "=== D. two fresh disposable clones ===" | tee -a "$OUT/summary.txt"
 bash db/r1/p/run_two_fresh_clones_p.sh "$OUT/clones" 2>&1 | tee -a "$OUT/clones.log" | tail -40
 CF=${PIPESTATUS[0]}; FAILS=$((FAILS+CF))

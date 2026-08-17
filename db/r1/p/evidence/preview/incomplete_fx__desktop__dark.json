@@ -1,0 +1,14 @@
+{
+  "case": "incomplete_fx",
+  "viewport": "1280x900",
+  "theme": "dark",
+  "screenshot": "db/r1/p/evidence/preview/incomplete_fx__desktop__dark.png",
+  "consoleErrors": [],
+  "injectedTransportErrors": [],
+  "failedResponses": [],
+  "environmentErrors": [],
+  "pageErrors": [],
+  "noticeCount": 1,
+  "placeholderCount": 3,
+  "bodyChars": 327
+}

@@ -1,0 +1,14 @@
+{
+  "case": "ready",
+  "viewport": "1280x900",
+  "theme": "dark",
+  "screenshot": "db/r1/p/evidence/preview/ready__desktop__dark.png",
+  "consoleErrors": [],
+  "injectedTransportErrors": [],
+  "failedResponses": [],
+  "environmentErrors": [],
+  "pageErrors": [],
+  "noticeCount": 0,
+  "placeholderCount": 0,
+  "bodyChars": 555
+}
