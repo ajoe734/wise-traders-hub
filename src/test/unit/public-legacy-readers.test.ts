@@ -22,7 +22,7 @@ import {
 } from '@/contracts/publicEconomicContract';
 import {
   UNKNOWN_PROJECTION,
-  LEGACY_NO_PROJECTION,
+  NO_PROJECTION,
   resolveProjectionStatus,
   REVIEW_BADGE,
   REVIEW_NOTE,
@@ -140,9 +140,10 @@ describe('R1-P fail-closed defaults', () => {
     expect(s.showReviewNotice).toBe(true);
   });
 
-  it('only an observed absence takes the legacy path', () => {
-    expect(LEGACY_NO_PROJECTION.state).toBe('no_projection');
-    expect(LEGACY_NO_PROJECTION.showNumbers).toBe(true);
+  it('an absent projection is fail-closed — no legacy numbers', () => {
+    expect(NO_PROJECTION.state).toBe('incomplete');
+    expect(NO_PROJECTION.showNumbers).toBe(false);
+    expect(NO_PROJECTION.showReviewNotice).toBe(true);
   });
 
   it('gates strip every economic field when not ready', () => {
@@ -169,9 +170,10 @@ describe('R1-P fetchProjectionStatusForExperts', () => {
     }),
   });
 
-  it('missing relation (pre-cutover) → legacy path', async () => {
+  it('missing relation (pre-cutover) → fail-closed incomplete', async () => {
     const s = await fetchProjectionStatusForExperts(['e1'], stub({ error: { code: '42P01' } }) as any);
-    expect(s.state).toBe('no_projection');
+    expect(s.state).toBe('incomplete');
+    expect(s.showNumbers).toBe(false);
   });
 
   it('read failure → error, numbers hidden', async () => {

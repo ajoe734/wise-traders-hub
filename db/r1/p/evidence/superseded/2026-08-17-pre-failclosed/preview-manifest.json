@@ -1,0 +1,1064 @@
+{
+  "generated_by": "db/r1/p/evidence/preview_verify.py",
+  "controlled_cases": 28,
+  "unmocked_smoke": 1,
+  "total_cases": 29,
+  "coverage_matrix": {
+    "cases": [
+      "ready",
+      "manual_review_6515",
+      "incomplete_fx",
+      "incomplete_warrant",
+      "incomplete_option_combo",
+      "no_projection",
+      "api_error"
+    ],
+    "viewports": [
+      "desktop",
+      "mobile"
+    ],
+    "themes": [
+      "light",
+      "dark"
+    ],
+    "combinations": 28
+  },
+  "console_errors_total": 0,
+  "page_errors_total": 0,
+  "backdoor_scan": {
+    "source_files_scanned": 1015,
+    "source_hits": [
+      {
+        "file": "src/main.tsx",
+        "label": "runtime backdoor global",
+        "match": "window.__"
+      },
+      {
+        "file": "src/checkup/components/freecheckup/NewsTab.jsx",
+        "label": "runtime backdoor global",
+        "match": "window.__"
+      },
+      {
+        "file": "src/checkup/components/freecheckup/NewsTab.jsx",
+        "label": "runtime backdoor global",
+        "match": "window.__"
+      },
+      {
+        "file": "src/checkup/components/freecheckup/NewsTab.jsx",
+        "label": "runtime backdoor global",
+        "match": "window.__"
+      },
+      {
+        "file": "src/checkup/lib/edgeFieldUI.js",
+        "label": "runtime backdoor global",
+        "match": "window.__"
+      },
+      {
+        "file": "src/checkup/lib/edgeFieldUI.js",
+        "label": "runtime backdoor global",
+        "match": "window.__"
+      },
+      {
+        "file": "src/checkup/lib/edgeFieldUI.js",
+        "label": "runtime backdoor global",
+        "match": "window.__"
+      },
+      {
+        "file": "src/checkup/lib/edgeFieldUI.js",
+        "label": "runtime backdoor global",
+        "match": "window.__"
+      },
+      {
+        "file": "src/checkup/lib/holdingEventUtils.js",
+        "label": "runtime backdoor global",
+        "match": "window.__"
+      },
+      {
+        "file": "src/checkup/lib/runtimeLogger.js",
+        "label": "runtime backdoor global",
+        "match": "window.__"
+      },
+      {
+        "file": "src/checkup/lib/runtimeLogger.js",
+        "label": "runtime backdoor global",
+        "match": "window.__"
+      },
+      {
+        "file": "src/checkup/lib/runtimeLogger.js",
+        "label": "runtime backdoor global",
+        "match": "window.__"
+      },
+      {
+        "file": "src/pages/ChipsSectionHarnessEntry.tsx",
+        "label": "runtime backdoor global",
+        "match": "window.__"
+      },
+      {
+        "file": "src/pages/ChipsSectionHarnessEntry.tsx",
+        "label": "runtime backdoor global",
+        "match": "window.__"
+      },
+      {
+        "file": "src/pages/FreeCheckup.jsx",
+        "label": "runtime backdoor global",
+        "match": "window.__"
+      },
+      {
+        "file": "src/pages/_freeCheckup/constants.jsx",
+        "label": "debug query flag",
+        "match": "?debug="
+      },
+      {
+        "file": "src/pages/_freeCheckup/useHoldingsSync.js",
+        "label": "runtime backdoor global",
+        "match": "window.__"
+      },
+      {
+        "file": "src/pages/_freeCheckup/useHoldingsSync.js",
+        "label": "runtime backdoor global",
+        "match": "window.__"
+      },
+      {
+        "file": "src/pages/app/_journalDetail/TeachingDebugBadge.tsx",
+        "label": "debug query flag",
+        "match": "?debug="
+      }
+    ],
+    "bundle_scanned": true,
+    "bundle_hits": [
+      {
+        "file": "dist/assets/vendor-react-a--QHSuN.js",
+        "label": "runtime backdoor global",
+        "match": "window.__"
+      },
+      {
+        "file": "dist/assets/index-BLQ7d9VG.js",
+        "label": "runtime backdoor global",
+        "match": "window.__"
+      },
+      {
+        "file": "dist/assets/index-BLQ7d9VG.js",
+        "label": "runtime backdoor global",
+        "match": "window.__"
+      },
+      {
+        "file": "dist/assets/index-BLQ7d9VG.js",
+        "label": "runtime backdoor global",
+        "match": "window.__"
+      },
+      {
+        "file": "dist/assets/index-BLQ7d9VG.js",
+        "label": "runtime backdoor global",
+        "match": "window.__"
+      },
+      {
+        "file": "dist/assets/index-BLQ7d9VG.js",
+        "label": "runtime backdoor global",
+        "match": "window.__"
+      },
+      {
+        "file": "dist/assets/index-BLQ7d9VG.js",
+        "label": "runtime backdoor global",
+        "match": "window.__"
+      },
+      {
+        "file": "dist/assets/FreeCheckup-BqRD6uu5.js",
+        "label": "runtime backdoor global",
+        "match": "window.__"
+      },
+      {
+        "file": "dist/assets/FreeCheckup-BqRD6uu5.js",
+        "label": "runtime backdoor global",
+        "match": "window.__"
+      },
+      {
+        "file": "dist/assets/FreeCheckup-BqRD6uu5.js",
+        "label": "runtime backdoor global",
+        "match": "window.__"
+      },
+      {
+        "file": "dist/assets/ChipsSectionHarnessEntry-DLsQyLdz.js",
+        "label": "runtime backdoor global",
+        "match": "window.__"
+      },
+      {
+        "file": "dist/assets/ChipsSectionHarnessEntry-DLsQyLdz.js",
+        "label": "runtime backdoor global",
+        "match": "window.__"
+      },
+      {
+        "file": "dist/assets/ChipsSectionHarnessEntry-DLsQyLdz.js",
+        "label": "runtime backdoor global",
+        "match": "window.__"
+      },
+      {
+        "file": "dist/assets/constants-DVL47ACD.js",
+        "label": "debug query flag",
+        "match": "?debug="
+      },
+      {
+        "file": "dist/assets/free-CI1AytCz.js",
+        "label": "runtime backdoor global",
+        "match": "window.__"
+      },
+      {
+        "file": "dist/assets/free-CI1AytCz.js",
+        "label": "runtime backdoor global",
+        "match": "window.__"
+      },
+      {
+        "file": "dist/assets/free-CI1AytCz.js",
+        "label": "runtime backdoor global",
+        "match": "window.__"
+      },
+      {
+        "file": "dist/assets/heic2any-Ba6885Vg.js",
+        "label": "runtime backdoor global",
+        "match": "window.__"
+      },
+      {
+        "file": "dist/assets/heic2any-Ba6885Vg.js",
+        "label": "runtime backdoor global",
+        "match": "window.__"
+      },
+      {
+        "file": "dist/assets/heic2any-Ba6885Vg.js",
+        "label": "runtime backdoor global",
+        "match": "window.__"
+      }
+    ],
+    "spec_referenced_from_src": false
+  },
+  "cases": [
+    {
+      "case_id": "ready__desktop__light",
+      "files": {
+        "png": {
+          "size": 69742,
+          "sha256": "bebfd9c048add83c46effea25976e11b48799a8710b564af74fc7eba30a83c13"
+        },
+        "dom.html": {
+          "size": 267186,
+          "sha256": "21b570d047afd840dff98dff9c28f2052deee6fd49e4276459f89d440bcc66bf"
+        },
+        "json": {
+          "size": 330,
+          "sha256": "c02cd872c9962b1fb23db622696763970b26f314b39c7cb7408d7db4da0bc9fa"
+        }
+      },
+      "viewport": "1280x900",
+      "theme": "light",
+      "consoleErrors": 0,
+      "pageErrors": 0,
+      "injectedTransportErrors": 0,
+      "environmentErrors": 0,
+      "mocked": true,
+      "copyLines": null
+    },
+    {
+      "case_id": "ready__desktop__dark",
+      "files": {
+        "png": {
+          "size": 70126,
+          "sha256": "b11b4c051d79d4ea3804bdbe0d67e62cbbfc84a554a76d5a1a06f8d84ce78da0"
+        },
+        "dom.html": {
+          "size": 267407,
+          "sha256": "e0939373cb60743a6977cd0c47ad90b2a9929c734893e7694a7fd51d361983bb"
+        },
+        "json": {
+          "size": 328,
+          "sha256": "fbf3c4f3baeceb171d50392c3c71346cad15fff303a45176400c121bc1b8f625"
+        }
+      },
+      "viewport": "1280x900",
+      "theme": "dark",
+      "consoleErrors": 0,
+      "pageErrors": 0,
+      "injectedTransportErrors": 0,
+      "environmentErrors": 0,
+      "mocked": true,
+      "copyLines": null
+    },
+    {
+      "case_id": "ready__mobile__light",
+      "files": {
+        "png": {
+          "size": 54802,
+          "sha256": "d92da349a00df4d8ef2d03421b7a88e693593c86610cd43520ccc51bc4734121"
+        },
+        "dom.html": {
+          "size": 260766,
+          "sha256": "c98b07bd37a0dee2a53faf641c7f532e914bfb1f71ea1d809ba593beb903d4c4"
+        },
+        "json": {
+          "size": 328,
+          "sha256": "efe4d20ef0c86f56f48dcc773c49b5f07e44f42f15dc756d0285b2d5fb04ec65"
+        }
+      },
+      "viewport": "390x844",
+      "theme": "light",
+      "consoleErrors": 0,
+      "pageErrors": 0,
+      "injectedTransportErrors": 0,
+      "environmentErrors": 0,
+      "mocked": true,
+      "copyLines": null
+    },
+    {
+      "case_id": "ready__mobile__dark",
+      "files": {
+        "png": {
+          "size": 55427,
+          "sha256": "2a33c120f23d885308403b8e0f1f38fe963f6d91e8719afe5a206e0af1f05762"
+        },
+        "dom.html": {
+          "size": 260988,
+          "sha256": "bd517138ba12402b17b1711557d28d496cf3e6b1456e93faf5b420fad4122420"
+        },
+        "json": {
+          "size": 326,
+          "sha256": "e8f50f0612db60688f12c3920268d37b2a50c9a67dd2e56289b01c5c0ed528f4"
+        }
+      },
+      "viewport": "390x844",
+      "theme": "dark",
+      "consoleErrors": 0,
+      "pageErrors": 0,
+      "injectedTransportErrors": 0,
+      "environmentErrors": 0,
+      "mocked": true,
+      "copyLines": null
+    },
+    {
+      "case_id": "manual_review_6515__desktop__light",
+      "files": {
+        "png": {
+          "size": 64096,
+          "sha256": "0c8ae0fb24c775b3a39e642f224ddbc178cf6c64c0891a2f46aa32d03450f1ff"
+        },
+        "dom.html": {
+          "size": 254690,
+          "sha256": "99e7d18067391a131adfa38b62fbe4cb205e050852b3fd18c7c294c29ae0f389"
+        },
+        "json": {
+          "size": 356,
+          "sha256": "6c10c1ca81bdc0e184cb11e972c0c5030571751f290887fd1f3f15acbb9edaa3"
+        }
+      },
+      "viewport": "1280x900",
+      "theme": "light",
+      "consoleErrors": 0,
+      "pageErrors": 0,
+      "injectedTransportErrors": 0,
+      "environmentErrors": 0,
+      "mocked": true,
+      "copyLines": true,
+      "forbiddenNumbers": [
+        "+10"
+      ]
+    },
+    {
+      "case_id": "manual_review_6515__desktop__dark",
+      "files": {
+        "png": {
+          "size": 64537,
+          "sha256": "5205de2dbfea1d74c55a805bd0572ebebb70de46a94402922d6bd34dbcb0a55d"
+        },
+        "dom.html": {
+          "size": 254912,
+          "sha256": "bf845050eb81d2d32516dcc42387d68df2c34c1cfaea8648b509b712271a4202"
+        },
+        "json": {
+          "size": 354,
+          "sha256": "799697aaa9723cb27cc60168fb754401d0909543c9d71ac765d91b4cb966d022"
+        }
+      },
+      "viewport": "1280x900",
+      "theme": "dark",
+      "consoleErrors": 0,
+      "pageErrors": 0,
+      "injectedTransportErrors": 0,
+      "environmentErrors": 0,
+      "mocked": true,
+      "copyLines": true,
+      "forbiddenNumbers": [
+        "+10"
+      ]
+    },
+    {
+      "case_id": "manual_review_6515__mobile__light",
+      "files": {
+        "png": {
+          "size": 54037,
+          "sha256": "112f5167d0d7f65581fc07476351c96dadf1248811aa39bc4162adeb2a1c4a3b"
+        },
+        "dom.html": {
+          "size": 254690,
+          "sha256": "99e7d18067391a131adfa38b62fbe4cb205e050852b3fd18c7c294c29ae0f389"
+        },
+        "json": {
+          "size": 354,
+          "sha256": "2119a7cc1a6b3f54503ed3016e1d63b2661e2d44b7da217b52049d2fc1cea236"
+        }
+      },
+      "viewport": "390x844",
+      "theme": "light",
+      "consoleErrors": 0,
+      "pageErrors": 0,
+      "injectedTransportErrors": 0,
+      "environmentErrors": 0,
+      "mocked": true,
+      "copyLines": true,
+      "forbiddenNumbers": [
+        "+10"
+      ]
+    },
+    {
+      "case_id": "manual_review_6515__mobile__dark",
+      "files": {
+        "png": {
+          "size": 54622,
+          "sha256": "4207aeeba7b4ee1b1c0ec39ee7c041736617d88542900cb8a0bc10002e8e8854"
+        },
+        "dom.html": {
+          "size": 254912,
+          "sha256": "bf845050eb81d2d32516dcc42387d68df2c34c1cfaea8648b509b712271a4202"
+        },
+        "json": {
+          "size": 352,
+          "sha256": "3762125bf0c1a776a963a6a70a1f2ca19727f103df9da854cddd111b2084b6fa"
+        }
+      },
+      "viewport": "390x844",
+      "theme": "dark",
+      "consoleErrors": 0,
+      "pageErrors": 0,
+      "injectedTransportErrors": 0,
+      "environmentErrors": 0,
+      "mocked": true,
+      "copyLines": true,
+      "forbiddenNumbers": [
+        "+10"
+      ]
+    },
+    {
+      "case_id": "incomplete_fx__desktop__light",
+      "files": {
+        "png": {
+          "size": 64096,
+          "sha256": "0c8ae0fb24c775b3a39e642f224ddbc178cf6c64c0891a2f46aa32d03450f1ff"
+        },
+        "dom.html": {
+          "size": 254690,
+          "sha256": "99e7d18067391a131adfa38b62fbe4cb205e050852b3fd18c7c294c29ae0f389"
+        },
+        "json": {
+          "size": 346,
+          "sha256": "a2e9a1d6e17f1f56700c2618f954830e18fb28e01173dc43ef54e3b83e0f9246"
+        }
+      },
+      "viewport": "1280x900",
+      "theme": "light",
+      "consoleErrors": 0,
+      "pageErrors": 0,
+      "injectedTransportErrors": 0,
+      "environmentErrors": 0,
+      "mocked": true,
+      "copyLines": true,
+      "forbiddenNumbers": [
+        "+10"
+      ]
+    },
+    {
+      "case_id": "incomplete_fx__desktop__dark",
+      "files": {
+        "png": {
+          "size": 64537,
+          "sha256": "5205de2dbfea1d74c55a805bd0572ebebb70de46a94402922d6bd34dbcb0a55d"
+        },
+        "dom.html": {
+          "size": 254912,
+          "sha256": "bf845050eb81d2d32516dcc42387d68df2c34c1cfaea8648b509b712271a4202"
+        },
+        "json": {
+          "size": 344,
+          "sha256": "967079bb699c95ed4440b0ea95b8fa87fa248e8f3cee38d5c42b76a07e282796"
+        }
+      },
+      "viewport": "1280x900",
+      "theme": "dark",
+      "consoleErrors": 0,
+      "pageErrors": 0,
+      "injectedTransportErrors": 0,
+      "environmentErrors": 0,
+      "mocked": true,
+      "copyLines": true,
+      "forbiddenNumbers": [
+        "+10"
+      ]
+    },
+    {
+      "case_id": "incomplete_fx__mobile__light",
+      "files": {
+        "png": {
+          "size": 54037,
+          "sha256": "112f5167d0d7f65581fc07476351c96dadf1248811aa39bc4162adeb2a1c4a3b"
+        },
+        "dom.html": {
+          "size": 254690,
+          "sha256": "99e7d18067391a131adfa38b62fbe4cb205e050852b3fd18c7c294c29ae0f389"
+        },
+        "json": {
+          "size": 344,
+          "sha256": "fc22711f169e3022d902f1ce3b50e4c144dec494f9d587942bc92742fd9ca99b"
+        }
+      },
+      "viewport": "390x844",
+      "theme": "light",
+      "consoleErrors": 0,
+      "pageErrors": 0,
+      "injectedTransportErrors": 0,
+      "environmentErrors": 0,
+      "mocked": true,
+      "copyLines": true,
+      "forbiddenNumbers": [
+        "+10"
+      ]
+    },
+    {
+      "case_id": "incomplete_fx__mobile__dark",
+      "files": {
+        "png": {
+          "size": 55186,
+          "sha256": "0ecba49e9d99b6f1df33e6298e86ad0db0f3daca9211e8a526d2241d60821943"
+        },
+        "dom.html": {
+          "size": 254912,
+          "sha256": "bf845050eb81d2d32516dcc42387d68df2c34c1cfaea8648b509b712271a4202"
+        },
+        "json": {
+          "size": 2761,
+          "sha256": "41765fde27926bb87844541b3eae301d39fb429db537565bea93a6d656f5f3ed"
+        }
+      },
+      "viewport": "390x844",
+      "theme": "dark",
+      "consoleErrors": 0,
+      "pageErrors": 0,
+      "injectedTransportErrors": 0,
+      "environmentErrors": 10,
+      "mocked": true,
+      "copyLines": true,
+      "forbiddenNumbers": [
+        "+10"
+      ]
+    },
+    {
+      "case_id": "incomplete_warrant__desktop__light",
+      "files": {
+        "png": {
+          "size": 64096,
+          "sha256": "0c8ae0fb24c775b3a39e642f224ddbc178cf6c64c0891a2f46aa32d03450f1ff"
+        },
+        "dom.html": {
+          "size": 254690,
+          "sha256": "99e7d18067391a131adfa38b62fbe4cb205e050852b3fd18c7c294c29ae0f389"
+        },
+        "json": {
+          "size": 356,
+          "sha256": "6d3bb5cfe4c641852ce0e37ddc9329755dca37ef0d6d6ed726eb0ef7cc7fe69e"
+        }
+      },
+      "viewport": "1280x900",
+      "theme": "light",
+      "consoleErrors": 0,
+      "pageErrors": 0,
+      "injectedTransportErrors": 0,
+      "environmentErrors": 0,
+      "mocked": true,
+      "copyLines": true,
+      "forbiddenNumbers": [
+        "+10"
+      ]
+    },
+    {
+      "case_id": "incomplete_warrant__desktop__dark",
+      "files": {
+        "png": {
+          "size": 65348,
+          "sha256": "dd4845cff0a781133e48fe7f521d14766ddb94e76e419ab49588ca15ad3b9bc2"
+        },
+        "dom.html": {
+          "size": 254912,
+          "sha256": "bf845050eb81d2d32516dcc42387d68df2c34c1cfaea8648b509b712271a4202"
+        },
+        "json": {
+          "size": 2773,
+          "sha256": "e0d2317c1bb2b244f595312d72c21f32536b556be933bac4212e829e473ee8dd"
+        }
+      },
+      "viewport": "1280x900",
+      "theme": "dark",
+      "consoleErrors": 0,
+      "pageErrors": 0,
+      "injectedTransportErrors": 0,
+      "environmentErrors": 10,
+      "mocked": true,
+      "copyLines": true,
+      "forbiddenNumbers": [
+        "+10"
+      ]
+    },
+    {
+      "case_id": "incomplete_warrant__mobile__light",
+      "files": {
+        "png": {
+          "size": 54029,
+          "sha256": "7058c3cb5306718517a67f2eef365364b2bd86e7ecd18343a578d87fef6f8bcb"
+        },
+        "dom.html": {
+          "size": 254690,
+          "sha256": "99e7d18067391a131adfa38b62fbe4cb205e050852b3fd18c7c294c29ae0f389"
+        },
+        "json": {
+          "size": 354,
+          "sha256": "85fa1eeba24f44ac597c99e5e0bb289fb620755920600f4726e54769eabcd59c"
+        }
+      },
+      "viewport": "390x844",
+      "theme": "light",
+      "consoleErrors": 0,
+      "pageErrors": 0,
+      "injectedTransportErrors": 0,
+      "environmentErrors": 0,
+      "mocked": true,
+      "copyLines": true,
+      "forbiddenNumbers": [
+        "+10"
+      ]
+    },
+    {
+      "case_id": "incomplete_warrant__mobile__dark",
+      "files": {
+        "png": {
+          "size": 54622,
+          "sha256": "4207aeeba7b4ee1b1c0ec39ee7c041736617d88542900cb8a0bc10002e8e8854"
+        },
+        "dom.html": {
+          "size": 254912,
+          "sha256": "bf845050eb81d2d32516dcc42387d68df2c34c1cfaea8648b509b712271a4202"
+        },
+        "json": {
+          "size": 352,
+          "sha256": "b73f4fb37fae7ccef54d01946e5dc3a4a3e03cfcb5833a7f30ca19e4b9ec3aaf"
+        }
+      },
+      "viewport": "390x844",
+      "theme": "dark",
+      "consoleErrors": 0,
+      "pageErrors": 0,
+      "injectedTransportErrors": 0,
+      "environmentErrors": 0,
+      "mocked": true,
+      "copyLines": true,
+      "forbiddenNumbers": [
+        "+10"
+      ]
+    },
+    {
+      "case_id": "incomplete_option_combo__desktop__light",
+      "files": {
+        "png": {
+          "size": 64096,
+          "sha256": "0c8ae0fb24c775b3a39e642f224ddbc178cf6c64c0891a2f46aa32d03450f1ff"
+        },
+        "dom.html": {
+          "size": 254690,
+          "sha256": "99e7d18067391a131adfa38b62fbe4cb205e050852b3fd18c7c294c29ae0f389"
+        },
+        "json": {
+          "size": 366,
+          "sha256": "9c56487296610f6341c5b3727c09609b3e7d745d7aa8094eddef88b5d283164c"
+        }
+      },
+      "viewport": "1280x900",
+      "theme": "light",
+      "consoleErrors": 0,
+      "pageErrors": 0,
+      "injectedTransportErrors": 0,
+      "environmentErrors": 0,
+      "mocked": true,
+      "copyLines": true,
+      "forbiddenNumbers": [
+        "+10"
+      ]
+    },
+    {
+      "case_id": "incomplete_option_combo__desktop__dark",
+      "files": {
+        "png": {
+          "size": 64537,
+          "sha256": "5205de2dbfea1d74c55a805bd0572ebebb70de46a94402922d6bd34dbcb0a55d"
+        },
+        "dom.html": {
+          "size": 254912,
+          "sha256": "bf845050eb81d2d32516dcc42387d68df2c34c1cfaea8648b509b712271a4202"
+        },
+        "json": {
+          "size": 364,
+          "sha256": "2e1763abdeb1458c2762423b62d57ab027df2c62a5e0831f7df07297548d1572"
+        }
+      },
+      "viewport": "1280x900",
+      "theme": "dark",
+      "consoleErrors": 0,
+      "pageErrors": 0,
+      "injectedTransportErrors": 0,
+      "environmentErrors": 0,
+      "mocked": true,
+      "copyLines": true,
+      "forbiddenNumbers": [
+        "+10"
+      ]
+    },
+    {
+      "case_id": "incomplete_option_combo__mobile__light",
+      "files": {
+        "png": {
+          "size": 54037,
+          "sha256": "112f5167d0d7f65581fc07476351c96dadf1248811aa39bc4162adeb2a1c4a3b"
+        },
+        "dom.html": {
+          "size": 254690,
+          "sha256": "99e7d18067391a131adfa38b62fbe4cb205e050852b3fd18c7c294c29ae0f389"
+        },
+        "json": {
+          "size": 364,
+          "sha256": "dc5937e42043d6027d1de6f2bca07beba791e1fd2951d90a7dbcd1f06fa11a47"
+        }
+      },
+      "viewport": "390x844",
+      "theme": "light",
+      "consoleErrors": 0,
+      "pageErrors": 0,
+      "injectedTransportErrors": 0,
+      "environmentErrors": 0,
+      "mocked": true,
+      "copyLines": true,
+      "forbiddenNumbers": [
+        "+10"
+      ]
+    },
+    {
+      "case_id": "incomplete_option_combo__mobile__dark",
+      "files": {
+        "png": {
+          "size": 54622,
+          "sha256": "4207aeeba7b4ee1b1c0ec39ee7c041736617d88542900cb8a0bc10002e8e8854"
+        },
+        "dom.html": {
+          "size": 254912,
+          "sha256": "bf845050eb81d2d32516dcc42387d68df2c34c1cfaea8648b509b712271a4202"
+        },
+        "json": {
+          "size": 362,
+          "sha256": "dc2b84fc3e9604a322d7e171126a42663e2e7a25caff55d560d7bf848b658eef"
+        }
+      },
+      "viewport": "390x844",
+      "theme": "dark",
+      "consoleErrors": 0,
+      "pageErrors": 0,
+      "injectedTransportErrors": 0,
+      "environmentErrors": 0,
+      "mocked": true,
+      "copyLines": true,
+      "forbiddenNumbers": [
+        "+10"
+      ]
+    },
+    {
+      "case_id": "no_projection__desktop__light",
+      "files": {
+        "png": {
+          "size": 69741,
+          "sha256": "d01dff840b3bd77c6573d73d50120e2b873f79b3234b2c8f925f3733e97bc91a"
+        },
+        "dom.html": {
+          "size": 267185,
+          "sha256": "50d5769c4723308eb0af40b72dfe64b5d4f50da059e28d77cc4b6bca787d4cc4"
+        },
+        "json": {
+          "size": 618,
+          "sha256": "4a854e4c34e1e5e94ca23b6f2f7075091b972fd6d2c6d4cc16a62274cf416d54"
+        }
+      },
+      "viewport": "1280x900",
+      "theme": "light",
+      "consoleErrors": 0,
+      "pageErrors": 0,
+      "injectedTransportErrors": 1,
+      "environmentErrors": 0,
+      "mocked": true,
+      "copyLines": false,
+      "forbiddenNumbers": [
+        "+10"
+      ]
+    },
+    {
+      "case_id": "no_projection__desktop__dark",
+      "files": {
+        "png": {
+          "size": 70125,
+          "sha256": "2e20da924da32ae8e262381ff744ae61ceccf6e9b2110957b62d55548905b6a9"
+        },
+        "dom.html": {
+          "size": 267408,
+          "sha256": "d3de10463f9b54bcada91d679dd6bfbec4a5a3f864f47afbec93ae4d243c695f"
+        },
+        "json": {
+          "size": 616,
+          "sha256": "5845b353d46086d90d7bd13ab881c0b1f2dc04ce9cb2658e913d77cfe4ba6f60"
+        }
+      },
+      "viewport": "1280x900",
+      "theme": "dark",
+      "consoleErrors": 0,
+      "pageErrors": 0,
+      "injectedTransportErrors": 1,
+      "environmentErrors": 0,
+      "mocked": true,
+      "copyLines": false,
+      "forbiddenNumbers": [
+        "+10"
+      ]
+    },
+    {
+      "case_id": "no_projection__mobile__light",
+      "files": {
+        "png": {
+          "size": 54798,
+          "sha256": "13f81255697a61d3532112779a88ba06647ab35b6d1a6ecd6f1f44e87e8f72ba"
+        },
+        "dom.html": {
+          "size": 260766,
+          "sha256": "c98b07bd37a0dee2a53faf641c7f532e914bfb1f71ea1d809ba593beb903d4c4"
+        },
+        "json": {
+          "size": 616,
+          "sha256": "51980ca15683ef75b54b85ad822496a15992d2eaf4b9840bde66979855ba2c82"
+        }
+      },
+      "viewport": "390x844",
+      "theme": "light",
+      "consoleErrors": 0,
+      "pageErrors": 0,
+      "injectedTransportErrors": 1,
+      "environmentErrors": 0,
+      "mocked": true,
+      "copyLines": false,
+      "forbiddenNumbers": [
+        "+10"
+      ]
+    },
+    {
+      "case_id": "no_projection__mobile__dark",
+      "files": {
+        "png": {
+          "size": 55427,
+          "sha256": "59621c940ad5b486ab39cdcacf86be1f0edf7eb4f8c29b24066c20770296bf13"
+        },
+        "dom.html": {
+          "size": 260988,
+          "sha256": "9122b65e69a9590f49337a9b906af18cae396837609e3db85922a40370ac04fe"
+        },
+        "json": {
+          "size": 614,
+          "sha256": "52481e523b3c007c4e78860b6913bc737aad9b1fc48a4ae115a9d510c72b63ae"
+        }
+      },
+      "viewport": "390x844",
+      "theme": "dark",
+      "consoleErrors": 0,
+      "pageErrors": 0,
+      "injectedTransportErrors": 1,
+      "environmentErrors": 0,
+      "mocked": true,
+      "copyLines": false,
+      "forbiddenNumbers": [
+        "+10"
+      ]
+    },
+    {
+      "case_id": "api_error__desktop__light",
+      "files": {
+        "png": {
+          "size": 64096,
+          "sha256": "0c8ae0fb24c775b3a39e642f224ddbc178cf6c64c0891a2f46aa32d03450f1ff"
+        },
+        "dom.html": {
+          "size": 254690,
+          "sha256": "99e7d18067391a131adfa38b62fbe4cb205e050852b3fd18c7c294c29ae0f389"
+        },
+        "json": {
+          "size": 622,
+          "sha256": "b5a7d0644459be190c9ad55e104b27feaf8cda53d346352a99013d31b2892eb9"
+        }
+      },
+      "viewport": "1280x900",
+      "theme": "light",
+      "consoleErrors": 0,
+      "pageErrors": 0,
+      "injectedTransportErrors": 1,
+      "environmentErrors": 0,
+      "mocked": true,
+      "copyLines": true,
+      "forbiddenNumbers": [
+        "+10"
+      ]
+    },
+    {
+      "case_id": "api_error__desktop__dark",
+      "files": {
+        "png": {
+          "size": 64499,
+          "sha256": "9421d8e8b2238e934989069b86f00447d2f801b61561822470f5c3e8b313289f"
+        },
+        "dom.html": {
+          "size": 254912,
+          "sha256": "bf845050eb81d2d32516dcc42387d68df2c34c1cfaea8648b509b712271a4202"
+        },
+        "json": {
+          "size": 845,
+          "sha256": "9085f8987e7cfc85d0129c01a885e77d337c012f104a71514565128f1b64bbb5"
+        }
+      },
+      "viewport": "1280x900",
+      "theme": "dark",
+      "consoleErrors": 0,
+      "pageErrors": 0,
+      "injectedTransportErrors": 1,
+      "environmentErrors": 1,
+      "mocked": true,
+      "copyLines": true,
+      "forbiddenNumbers": [
+        "+10"
+      ]
+    },
+    {
+      "case_id": "api_error__mobile__light",
+      "files": {
+        "png": {
+          "size": 54037,
+          "sha256": "112f5167d0d7f65581fc07476351c96dadf1248811aa39bc4162adeb2a1c4a3b"
+        },
+        "dom.html": {
+          "size": 254690,
+          "sha256": "99e7d18067391a131adfa38b62fbe4cb205e050852b3fd18c7c294c29ae0f389"
+        },
+        "json": {
+          "size": 620,
+          "sha256": "847e3f4c67062e86476d880ef0450b17c9553e9169ee9a1154d38f0ba397c723"
+        }
+      },
+      "viewport": "390x844",
+      "theme": "light",
+      "consoleErrors": 0,
+      "pageErrors": 0,
+      "injectedTransportErrors": 1,
+      "environmentErrors": 0,
+      "mocked": true,
+      "copyLines": true,
+      "forbiddenNumbers": [
+        "+10"
+      ]
+    },
+    {
+      "case_id": "api_error__mobile__dark",
+      "files": {
+        "png": {
+          "size": 54653,
+          "sha256": "acedba435f18be82b73c917016516fc79bbf6cb9347512a473b1e95df36b09aa"
+        },
+        "dom.html": {
+          "size": 254912,
+          "sha256": "bf845050eb81d2d32516dcc42387d68df2c34c1cfaea8648b509b712271a4202"
+        },
+        "json": {
+          "size": 618,
+          "sha256": "2d83970a0c1c4e42f61a659ceed53ec2b9b8b89c74f6634da7c4b3cd50142a0e"
+        }
+      },
+      "viewport": "390x844",
+      "theme": "dark",
+      "consoleErrors": 0,
+      "pageErrors": 0,
+      "injectedTransportErrors": 1,
+      "environmentErrors": 0,
+      "mocked": true,
+      "copyLines": true,
+      "forbiddenNumbers": [
+        "+10"
+      ]
+    },
+    {
+      "case_id": "smoke-home",
+      "files": {
+        "png": {
+          "size": 78178,
+          "sha256": "7b43a9906b861d102b54855279d3de56ffdbd6a15e8ef8a33cd018b9d4d3493b"
+        },
+        "dom.html": {
+          "size": 317159,
+          "sha256": "d91b7915e0490940a55b75200c102bf39b9a8b3247fd0946582299abbd11ac9f"
+        },
+        "json": {
+          "size": 415,
+          "sha256": "f49ac33ce84c31f52aebcef255262d6822b31a1626ed859b0a4d26e2b9941d20"
+        }
+      },
+      "viewport": "1280x900",
+      "theme": "light",
+      "consoleErrors": 0,
+      "pageErrors": 0,
+      "injectedTransportErrors": 0,
+      "environmentErrors": 0,
+      "mocked": false,
+      "copyLines": null
+    }
+  ],
+  "failures": [
+    "manual_review_6515__desktop__light: forbidden economics rendered ['+10']",
+    "manual_review_6515__desktop__dark: forbidden economics rendered ['+10']",
+    "manual_review_6515__mobile__light: forbidden economics rendered ['+10']",
+    "manual_review_6515__mobile__dark: forbidden economics rendered ['+10']",
+    "incomplete_fx__desktop__light: forbidden economics rendered ['+10']",
+    "incomplete_fx__desktop__dark: forbidden economics rendered ['+10']",
+    "incomplete_fx__mobile__light: forbidden economics rendered ['+10']",
+    "incomplete_fx__mobile__dark: forbidden economics rendered ['+10']",
+    "incomplete_warrant__desktop__light: forbidden economics rendered ['+10']",
+    "incomplete_warrant__desktop__dark: forbidden economics rendered ['+10']",
+    "incomplete_warrant__mobile__light: forbidden economics rendered ['+10']",
+    "incomplete_warrant__mobile__dark: forbidden economics rendered ['+10']",
+    "incomplete_option_combo__desktop__light: forbidden economics rendered ['+10']",
+    "incomplete_option_combo__desktop__dark: forbidden economics rendered ['+10']",
+    "incomplete_option_combo__mobile__light: forbidden economics rendered ['+10']",
+    "incomplete_option_combo__mobile__dark: forbidden economics rendered ['+10']",
+    "no_projection__desktop__light: incomplete case is missing the two copy lines",
+    "no_projection__desktop__light: forbidden economics rendered ['+10']",
+    "no_projection__desktop__dark: incomplete case is missing the two copy lines",
+    "no_projection__desktop__dark: forbidden economics rendered ['+10']",
+    "no_projection__mobile__light: incomplete case is missing the two copy lines",
+    "no_projection__mobile__light: forbidden economics rendered ['+10']",
+    "no_projection__mobile__dark: incomplete case is missing the two copy lines",
+    "no_projection__mobile__dark: forbidden economics rendered ['+10']",
+    "api_error__desktop__light: forbidden economics rendered ['+10']",
+    "api_error__desktop__dark: forbidden economics rendered ['+10']",
+    "api_error__mobile__light: forbidden economics rendered ['+10']",
+    "api_error__mobile__dark: forbidden economics rendered ['+10']",
+    "backdoor scan found 19 hits",
+    "production bundle scan found 20 hits"
+  ],
+  "status": "FAIL"
+}

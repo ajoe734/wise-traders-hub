@@ -8,10 +8,10 @@ import {
 /**
  * Reads the public projection state for one expert (R1-P contract).
  *
- * The projection tables are not deployed to production yet, so a missing
- * relation is a first-class, non-error outcome: the status becomes
- * `no_projection` and the caller keeps rendering the legacy read path. A real
- * failure becomes `error`. Neither ever produces a fabricated number.
+ * The projection tables are not deployed to production yet. A missing
+ * relation is still fail-closed: the status becomes `incomplete` and the
+ * caller renders 「資料檢核中」. A real failure becomes `error`. Neither ever
+ * produces a number.
  */
 export function useProjectionStatus(expertId: string | undefined): ProjectionStatus {
   const { data, isError } = useQuery({
@@ -25,7 +25,7 @@ export function useProjectionStatus(expertId: string | undefined): ProjectionSta
         .select('state, withheld_count, incomplete_count, manual_review_count')
         .eq('expert_id', expertId!)
         .maybeSingle();
-      // relation / column absent (pre-cutover) → treat as "no projection"
+      // relation / column absent (pre-cutover) → fail closed as incomplete
       if (error) {
         const code = (error as { code?: string }).code ?? '';
         if (code === '42P01' || code === '42703' || code === 'PGRST205') return null;

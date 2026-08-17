@@ -191,7 +191,10 @@ export function PerformanceOverviewPanel({ expertId, startingCapital: startingCa
         <PerformanceReviewNotice status={projection} />
 
         {/* Stats Bar */}
-        <div className="grid grid-cols-3 gap-3 rounded-lg bg-muted/30 dark:bg-white/[0.03] border dark:border-white/10 p-3">
+        <div
+          data-economic-zone="performance-cards"
+          className="grid grid-cols-3 gap-3 rounded-lg bg-muted/30 dark:bg-white/[0.03] border dark:border-white/10 p-3"
+        >
           <div>
             <div className="text-xs text-muted-foreground">起始資金</div>
             <div className="text-lg font-bold text-foreground">
@@ -222,7 +225,7 @@ export function PerformanceOverviewPanel({ expertId, startingCapital: startingCa
             <FloatingStatCard bestStock={periodStats.best} worstStock={periodStats.worst} />
           </div>
 
-          <div className="h-52 px-1">
+          <div data-economic-zone="performance-chart" className="h-52 px-1">
             {!projection.showNumbers ? (
               <div className="flex h-full items-center justify-center text-sm text-muted-foreground">
                 {REVIEW_NOTE}
@@ -296,7 +299,7 @@ export function PerformanceOverviewPanel({ expertId, startingCapital: startingCa
               <ChevronDown className={cn("h-4 w-4 text-muted-foreground transition-transform duration-200", isExpanded && "rotate-180")} />
             </CollapsibleTrigger>
             <CollapsibleContent className="data-[state=open]:animate-accordion-down data-[state=closed]:animate-accordion-up overflow-hidden">
-              <div className="grid grid-cols-2 gap-4 pt-3">
+              <div data-economic-zone="stock-ranking" className="grid grid-cols-2 gap-4 pt-3">
                 <StockRankingList stocks={top5} type="top" onStockClick={handleStockClick} />
                 <StockRankingList stocks={bottom5} type="bottom" onStockClick={handleStockClick} />
               </div>

@@ -45,11 +45,12 @@ describe('publicProjection contract', () => {
     expect(s.showNumbers).toBe(false);
   });
 
-  it('a missing projection keeps the legacy path alive', () => {
+  it('a missing projection fails closed (no legacy numeric path)', () => {
     const s = resolveProjectionStatus({ absent: true });
-    expect(s.state).toBe('no_projection');
-    expect(s.showNumbers).toBe(true);
-    expect(s.showReviewNotice).toBe(false);
+    expect(s.state).toBe('incomplete');
+    expect(s.showNumbers).toBe(false);
+    expect(s.showReviewNotice).toBe(true);
+    expect(canExportFactsheet(s)).toBe(false);
   });
 
   it('a failed read never blanks and never fakes', () => {

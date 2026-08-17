@@ -396,3 +396,52 @@ BEGIN
     EXECUTE def;
   END LOOP;
 END $repoint2$;
+
+
+-- ---------------------------------------------------------- C5: caller compat
+-- Four company_admin-only functions ship with defects that make the *intended*
+-- caller fail, which previously let the ACL proof record a non-clean end state
+-- as if it were a pass. The bodies are repaired here by faithful rewrite of the
+-- shipped definition (no hand-retyped SQL), so the positive case is genuinely
+-- clean after cutover:
+--   * admin_holdings_consistency_audit() / get_publish_batch_runs(int)
+--     42702: unqualified `symbol` / `run_id` collide with the RETURNS TABLE OUT
+--     parameters. Resolved with the plpgsql `#variable_conflict use_column`
+--     directive, which is exactly the intent of every one of those references.
+--   * get_publish_batch_status()
+--     42703: the body reads e.expert_slug but public.experts only has `slug`.
+--   * admin_generate_fix_proposals(text) inherits the audit defect through its
+--     FOR ... IN SELECT * FROM admin_holdings_consistency_audit() loop and is
+--     repaired transitively.
+DO $compat$
+DECLARE r record; def text; body_start int;
+BEGIN
+  FOR r IN
+    SELECT p.oid, p.proname
+      FROM pg_proc p JOIN pg_namespace n ON n.oid = p.pronamespace
+     WHERE n.nspname = 'public'
+       AND p.proname IN ('admin_holdings_consistency_audit','get_publish_batch_runs')
+  LOOP
+    def := pg_get_functiondef(r.oid);
+    IF def LIKE '%#variable_conflict%' THEN CONTINUE; END IF;
+    body_start := position('AS $function$' in def);
+    IF body_start = 0 THEN
+      RAISE EXCEPTION 'compat: unexpected body quoting for %', r.proname;
+    END IF;
+    def := overlay(def placing 'AS $function$' || E'\n#variable_conflict use_column'
+                   from body_start for length('AS $function$'));
+    EXECUTE def;
+  END LOOP;
+
+  SELECT pg_get_functiondef(p.oid) INTO def
+    FROM pg_proc p JOIN pg_namespace n ON n.oid = p.pronamespace
+   WHERE n.nspname='public' AND p.proname='get_publish_batch_status';
+  IF def IS NOT NULL AND def LIKE '%e.expert_slug%' THEN
+    def := replace(def, 'SELECT e.id, e.name, e.expert_slug, e.asset_class',
+                        'SELECT e.id, e.name, e.slug AS expert_slug, e.asset_class');
+    IF def LIKE '%e.expert_slug%' THEN
+      RAISE EXCEPTION 'compat: unexpected get_publish_batch_status body shape';
+    END IF;
+    EXECUTE def;
+  END IF;
+END $compat$;

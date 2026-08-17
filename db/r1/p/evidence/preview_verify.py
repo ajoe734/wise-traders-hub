@@ -8,9 +8,9 @@ Checks the artefacts produced by e2e/r1p-preview-acceptance.spec.ts:
   * consoleErrors = 0 and pageErrors = 0 for every case
     (injected transport / environment errors are counted separately and are
      never allowed to be folded into the app console budget)
-  * incomplete-family DOM shows BOTH copy lines and no 10 / 50 / 0 / NaN
-    fake economics; ready DOM shows real numbers (a legitimate 0 is allowed
-    only for the ready case)
+  * incomplete-family DOM shows BOTH copy lines and no numeric economic
+    payload inside an app-owned economic zone ([data-economic-zone]); ready
+    DOM shows the real numbers (a legitimate 0 is allowed only for ready)
   * source + built bundle contain 0 debug routes, 0 debug query flags and
     0 runtime backdoors
 
@@ -22,6 +22,7 @@ import json
 import os
 import re
 import subprocess
+from html.parser import HTMLParser
 import sys
 
 ROOT = os.path.abspath(os.path.join(os.path.dirname(__file__), "..", "..", "..", ".."))
@@ -53,6 +54,61 @@ REVIEW_NOTE = "該區間不納入績效"
 
 failures: list[str] = []
 rows: list[dict] = []
+
+
+class _ZoneText(HTMLParser):
+    """Collects the text of every element carrying data-economic-zone."""
+
+    def __init__(self) -> None:
+        super().__init__(convert_charrefs=True)
+        self.depth = 0
+        self.stack: list[bool] = []
+        self.chunks: list[str] = []
+        self.zones = 0
+
+    def handle_starttag(self, tag, attrs):
+        opened = any(k == "data-economic-zone" for k, _ in attrs)
+        if opened:
+            self.zones += 1
+            self.depth += 1
+        self.stack.append(opened)
+
+    def handle_endtag(self, tag):
+        while self.stack:
+            opened = self.stack.pop()
+            if opened:
+                self.depth -= 1
+            break
+
+    def handle_data(self, data):
+        if self.depth > 0:
+            self.chunks.append(data)
+
+
+def economic_zone_text(dom: str) -> tuple[str, int]:
+    p = _ZoneText()
+    try:
+        p.feed(dom)
+    except Exception:  # malformed markup must never mask a leak
+        return dom, -1
+    return " ".join(p.chunks), p.zones
+
+
+# Numeric economic payloads that may never appear in a not-ready zone.
+# Every token is boundary-anchored so unrelated digits (ids, dates) do not
+# create false positives, and bare 10/50/0 only count as a leak when they are
+# rendered as money / percent / quantity.
+FORBIDDEN_TOKENS = [
+    (r"\bNaN\b", "NaN"),
+    (r"\b1,234,567\b", "1,234,567"),
+    (r"\b234,567\b", "234,567"),
+    (r"[-+]?\b23\.46\s*%", "+23.46%"),
+    (r"[-+]?\b61\.5\s*%", "61.5%"),
+    (r"\b1,000,000\b", "1,000,000"),
+    (r"[$\uFF04]\s?[-+]?[0-9]", "currency figure"),
+    (r"[-+]?\b[0-9]+(\.[0-9]+)?\s*%", "percentage figure"),
+    (r"\b(?:10|50|0)\b\s*(?:\u5f35|\u80a1|\u5143)", "6515 quantity candidate"),
+]
 
 
 def sha256(path: str) -> str:
@@ -103,21 +159,30 @@ def check_case(case_id: str, expect_dom: bool = True) -> None:
         dom = open(dp, encoding="utf-8").read()
         body = re.sub(r"<[^>]+>", " ", dom)
         base = case_id.split("__")[0]
+        zone_text, zone_count = economic_zone_text(dom)
+        rec["economicZones"] = zone_count
         if base in INCOMPLETE_FAMILY:
             ok_copy = REVIEW_BADGE in body and REVIEW_NOTE in body
             rec["copyLines"] = ok_copy
             if not ok_copy:
                 failures.append(f"{case_id}: incomplete case is missing the two copy lines")
-            bad = [tok for tok in ("NaN", "10.0%", "50.0%", "+10", "+50") if tok in body]
-            if re.search(r"(報酬率|勝率)[^%]{0,12}(0|10|50)(\.\d+)?\s*%", body):
-                bad.append("fake economic number rendered next to a metric label")
+            if zone_count <= 0:
+                failures.append(f"{case_id}: no [data-economic-zone] found — cannot prove gating")
+            bad = [label for pat, label in FORBIDDEN_TOKENS if re.search(pat, zone_text)]
+            # the fixture payload must not leak anywhere on the page either
+            for pat, label in FORBIDDEN_TOKENS[:6]:
+                if re.search(pat, body) and label not in bad:
+                    bad.append(f"{label} (page)")
             rec["forbiddenNumbers"] = bad
             if bad:
                 failures.append(f"{case_id}: forbidden economics rendered {bad}")
         else:
             rec["copyLines"] = None
+            rec["forbiddenNumbers"] = []
             if REVIEW_BADGE in body:
                 failures.append(f"{case_id}: ready case must not show the review badge")
+            if base != "smoke-home" and "1,234,567" not in zone_text:
+                failures.append(f"{case_id}: ready case must render the real projection payload")
     rows.append(rec)
 
 
@@ -131,11 +196,57 @@ if len(rows) != 29:
     failures.append(f"expected 29 case records, got {len(rows)}")
 
 # ---------------------------------------------------------------- backdoor scan
+# Project-owned surfaces only. Vendor/runtime globals (React DevTools, Vite
+# HMR, TanStack Query, Radix, Recharts) are excluded by an explicit key
+# allowlist — the generic `window.__` prefix itself is NEVER whitelisted, so a
+# project-owned `window.__anything` still fails.
+VENDOR_GLOBAL_KEYS = {
+    "__REACT_DEVTOOLS_GLOBAL_HOOK__", "__REACT_ERROR_OVERLAY_GLOBAL_HOOK__",
+    "__vite__", "__vite_plugin_react_preamble_installed__", "__vitePreload",
+    "__VITE_IS_MODERN__", "__viteBrowserExternal", "__REACT_QUERY_DEVTOOLS__",
+    "__TANSTACK_QUERY_DEVTOOLS__", "__REDUX_DEVTOOLS_EXTENSION__",
+    "__RADIX__", "__NEXT_DATA__", "__SUPABASE__", "__name", "__defProp",
+}
+GLOBAL_RE = re.compile(r"window\.(__[A-Za-z0-9_$]+)")
+
+# Project-owned globals are classified one by one in global-key-inventory.json
+# (key -> gate -> can_force_economic_state). An unlisted project-owned global,
+# or one that can influence the public economic contract, is a hard failure.
+INVENTORY_PATH = os.path.join(ROOT, "db/r1/p/evidence/global-key-inventory.json")
+_inv = json.load(open(INVENTORY_PATH, encoding="utf-8"))
+CLASSIFIED_GLOBALS = {g["key"]: g for g in _inv["globals"]}
+ECONOMIC_CAPABLE = [k for k, g in CLASSIFIED_GLOBALS.items() if g.get("can_force_economic_state")]
+CLASSIFIED_FLAGS = {f["flag"] for f in _inv["query_flags"]}
 BACKDOOR_PATTERNS = [
-    (r"__R1P|__PREVIEW_MOCK|__TEST_HOOK|window\.__", "runtime backdoor global"),
-    (r"[?&](debug|mock|preview_state|force_state|r1p)=", "debug query flag"),
-    (r"path=[\"'`]/(debug|__debug|dev-tools|test-harness)", "debug route"),
+    (r"[?&](debug|mock|preview_state|force_state|r1p|__state)=", "debug query flag"),
+    (r"path=[\"'`]/(debug|__debug|dev-tools|test-harness|preview-mock)", "debug route"),
+    (r"\b(PREVIEW_MOCK|TEST_HOOK|FORCE_PROJECTION_STATE)\b", "test hook identifier"),
 ]
+
+
+def scan_backdoors(text: str, rel: str) -> list[dict]:
+    hits: list[dict] = []
+    for pat, label in BACKDOOR_PATTERNS:
+        for m in re.finditer(pat, text):
+            if label == "debug query flag" and m.group(0) in CLASSIFIED_FLAGS:
+                continue
+            hits.append({"file": rel, "label": label, "match": m.group(0)})
+    for m in GLOBAL_RE.finditer(text):
+        key = m.group(1)
+        if key in VENDOR_GLOBAL_KEYS:
+            continue
+        entry = CLASSIFIED_GLOBALS.get(key)
+        if entry is None:
+            hits.append(
+                {"file": rel, "label": "unclassified project-owned runtime global", "match": m.group(0)}
+            )
+        elif entry.get("can_force_economic_state"):
+            hits.append(
+                {"file": rel, "label": "economic-contract backdoor", "match": m.group(0)}
+            )
+    return hits
+
+
 scan_targets: list[str] = []
 for base in ("src", "index.html"):
     p = os.path.join(ROOT, base)
@@ -149,13 +260,11 @@ for base in ("src", "index.html"):
 backdoor_hits: list[dict] = []
 for path in scan_targets:
     txt = open(path, encoding="utf-8", errors="ignore").read()
-    for pat, label in BACKDOOR_PATTERNS:
-        for m in re.finditer(pat, txt):
-            backdoor_hits.append(
-                {"file": os.path.relpath(path, ROOT), "label": label, "match": m.group(0)}
-            )
+    backdoor_hits += scan_backdoors(txt, os.path.relpath(path, ROOT))
 if backdoor_hits:
     failures.append(f"backdoor scan found {len(backdoor_hits)} hits")
+if ECONOMIC_CAPABLE:
+    failures.append(f"inventory declares economic-capable globals: {ECONOMIC_CAPABLE}")
 
 dist = os.path.join(ROOT, "dist")
 bundle_hits: list[dict] = []
@@ -166,11 +275,7 @@ if os.path.isdir(dist):
                 continue
             path = os.path.join(dirpath, f)
             txt = open(path, encoding="utf-8", errors="ignore").read()
-            for pat, label in BACKDOOR_PATTERNS:
-                for m in re.finditer(pat, txt):
-                    bundle_hits.append(
-                        {"file": os.path.relpath(path, ROOT), "label": label, "match": m.group(0)}
-                    )
+            bundle_hits += scan_backdoors(txt, os.path.relpath(path, ROOT))
     if bundle_hits:
         failures.append(f"production bundle scan found {len(bundle_hits)} hits")
     bundle_scanned = True
@@ -205,6 +310,9 @@ manifest = {
         "bundle_scanned": bundle_scanned,
         "bundle_hits": bundle_hits,
         "spec_referenced_from_src": bool(spec_imported),
+        "classified_project_globals": sorted(CLASSIFIED_GLOBALS),
+        "classified_query_flags": sorted(CLASSIFIED_FLAGS),
+        "vendor_globals_excluded": sorted(VENDOR_GLOBAL_KEYS),
     },
     "cases": rows,
     "failures": failures,

@@ -24,11 +24,13 @@ import {
   queryPersister,
   PERSISTED_QUERY_PREFIXES,
 } from "@/lib/queryClient";
+import { isPreviewEnv } from "@/lib/previewEnv";
 
-// Expose queryClient on window for E2E tests. Non-sensitive (no secrets),
-// guarded behind a single namespaced key. Tests use this to trigger
-// invalidateQueries from outside React without UI mutation hooks.
-if (typeof window !== "undefined") {
+// Expose queryClient on window for E2E tests. Dev/preview ONLY: on the
+// production origin this global is never installed, so nothing outside React
+// can seed the query cache (which would be a backdoor into the public
+// economic contract — e.g. forcing a `ready` projection status).
+if (typeof window !== "undefined" && isPreviewEnv()) {
   (window as unknown as { __lfQueryClient?: typeof queryClient }).__lfQueryClient = queryClient;
 }
 

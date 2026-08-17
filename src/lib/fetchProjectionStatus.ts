@@ -4,14 +4,14 @@
  * Non-hook callers (list fetchers, exports) must resolve a projection status
  * explicitly instead of falling back to the fail-closed default. The rules are
  * the same as `useProjectionStatus`:
- *  - relation/column absent (pre-cutover) → `no_projection`, legacy read path
+ *  - relation/column absent (pre-cutover) → `incomplete` (fail-closed)
  *  - any other read failure → `error`, numbers stay hidden
  *  - one scope covering several experts is the WORST state of the set
  */
 import { supabase as defaultDb } from '@/integrations/supabase/client';
 import {
   resolveProjectionStatus,
-  LEGACY_NO_PROJECTION,
+  NO_PROJECTION,
   type ProjectionStatus,
 } from '@/contracts/publicProjection';
 
@@ -23,7 +23,7 @@ export async function fetchProjectionStatusForExperts(
   expertIds: string[],
   db: Db = defaultDb as unknown as Db,
 ): Promise<ProjectionStatus> {
-  if (!expertIds || expertIds.length === 0) return LEGACY_NO_PROJECTION;
+  if (!expertIds || expertIds.length === 0) return NO_PROJECTION;
 
   const { data, error } = await db
     .from('public_expert_state_active')
@@ -32,13 +32,13 @@ export async function fetchProjectionStatusForExperts(
 
   if (error) {
     const code = (error as { code?: string }).code ?? '';
-    // projection not deployed for this environment → explicit legacy path
-    if (ABSENT_CODES.has(code)) return LEGACY_NO_PROJECTION;
+    // projection not deployed for this environment → fail closed
+    if (ABSENT_CODES.has(code)) return NO_PROJECTION;
     return resolveProjectionStatus({ failed: true });
   }
 
   const rows = (data ?? []) as Record<string, unknown>[];
-  if (rows.length === 0) return LEGACY_NO_PROJECTION;
+  if (rows.length === 0) return NO_PROJECTION;
 
   const worst = rows.reduce(
     (acc, row) => ({

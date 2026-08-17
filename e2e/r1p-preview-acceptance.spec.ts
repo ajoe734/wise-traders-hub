@@ -63,7 +63,7 @@ type CaseName =
 
 interface CaseDef {
   name: CaseName;
-  /** null => relation absent (pre-cutover legacy path); 'error' => read fails */
+  /** null => relation absent (fail-closed, no legacy numbers); 'error' => read fails */
   projection: Record<string, unknown> | null | 'error';
   expectNotice: boolean;
   expectNumbers: boolean;
@@ -101,11 +101,12 @@ const CASES: CaseDef[] = [
     expectNumbers: false,
   },
   {
-    // relation absent (projection not deployed) → legacy read path, no crash
+    // relation absent (projection not deployed) → FAIL CLOSED (R1-P closure):
+    // no legacy numbers, review notice, page alive.
     name: 'no_projection',
     projection: null,
-    expectNotice: false,
-    expectNumbers: true,
+    expectNotice: true,
+    expectNumbers: false,
   },
   {
     // read failed → fail-closed: numbers hidden, notice shown, page alive
@@ -158,14 +159,33 @@ function routesFor(c: CaseDef) {
   } as Record<string, (req: any) => any>;
 }
 
-/** numbers that must NEVER appear while a scope is under review */
+/**
+ * Exact economic payloads that must NEVER appear while a scope is not ready.
+ * Token boundaries are explicit so a legitimate unrelated string (e.g. a
+ * timestamp) cannot mask a real leak, and bare 10 / 50 / 0 are only forbidden
+ * when they are rendered as an economic figure (currency / percent / quantity).
+ */
 const FORBIDDEN_NUMERIC = [
   /\bNaN\b/,
-  /1,234,567/,
-  /23\.46\s*%/,
-  /234,567/,
-  /61\.5\s*%/,
+  /\$\s?1,234,567\b/,
+  /\b1,234,567\b/,
+  /\+?\b23\.46\s*%/,
+  /\b234,567\b/,
+  /\b61\.5\s*%/,
+  /\b1,000,000\b/,
+  /[-+]?\b\d+(\.\d+)?\s*%/,          // ANY percentage inside an economic zone
+  /[$＄]\s?[-+]?\d/,                    // ANY currency figure
+  /\b(?:10|50|0)\b\s*(?:張|股|%|元)/,  // 6515 candidates as a quantity
 ];
+
+/** Reads only the app-owned economic zones (cards / chart / ranking). */
+async function economicZoneText(page: Page): Promise<string> {
+  const zones = page.locator('[data-economic-zone]');
+  const n = await zones.count();
+  const parts: string[] = [];
+  for (let i = 0; i < n; i++) parts.push((await zones.nth(i).innerText()).trim());
+  return parts.join('\n');
+}
 
 async function setTheme(page: Page, theme: 'light' | 'dark') {
   await page.addInitScript((t) => window.localStorage.setItem('theme', t), theme);
@@ -266,19 +286,27 @@ for (const c of CASES) {
           await expect(notice.first()).toContainText(REVIEW_NOTE);
           // every gated numeric slot renders the placeholder instead
           expect(await placeholder.count()).toBeGreaterThan(0);
-          // 3b. no fabricated economic number anywhere on the page
-          const panelText = bodyText;
+          // 3b. no fabricated economic number in ANY app-owned economic zone
+          const zoneText = await economicZoneText(page);
+          expect(await page.locator('[data-economic-zone]').count()).toBeGreaterThan(0);
           for (const re of FORBIDDEN_NUMERIC) {
-            expect(panelText, `${label}: forbidden numeric ${re}`).not.toMatch(re);
+            expect(zoneText, `${label}: forbidden numeric ${re} in economic zone`).not.toMatch(re);
+          }
+          // the whole page must still not carry the fixture's economic payload
+          for (const re of [/\bNaN\b/, /\b1,234,567\b/, /\b234,567\b/, /\b23\.46\s*%/, /\b61\.5\s*%/]) {
+            expect(bodyText, `${label}: forbidden numeric ${re} on page`).not.toMatch(re);
           }
           // literal 10 / 50 / 0 must not be presented as a quantity or return
-          expect(panelText).not.toMatch(/報酬率\s*[:：]?\s*[-+]?\d/);
-          expect(panelText).not.toMatch(/(起始資金|目前資產)\s*\n?\s*[-+]?[\d,]+/);
+          expect(bodyText).not.toMatch(/報酬率\s*[:：]?\s*[-+]?\d/);
+          expect(bodyText).not.toMatch(/(起始資金|目前資產)\s*\n?\s*[-+]?[\d,]+/);
         } else {
-          // ready / legacy path: numbers render, no review notice at all
+          // ready: real numbers render (a legitimate 0 is allowed), no notice
           await expect(notice).toHaveCount(0);
           await expect(placeholder).toHaveCount(0);
           expect(bodyText).not.toMatch(/\bNaN\b/);
+          const zoneText = await economicZoneText(page);
+          expect(zoneText, 'ready case must render the real projection payload')
+            .toMatch(/1,234,567/);
         }
 
         // 4. ranking + export/OG surfaces never leak a gated number

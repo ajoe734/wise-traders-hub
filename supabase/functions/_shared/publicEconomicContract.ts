@@ -65,16 +65,11 @@ export const UNKNOWN_PROJECTION: ProjectionStatus = {
 };
 
 /**
- * Explicit pre-cutover legacy path: only for a caller that has observed the
- * projection to be absent for this scope.
+ * The projection is provably absent for this scope (pre-cutover). Fail-closed:
+ * identical to `UNKNOWN_PROJECTION`. There is no legacy numeric path.
  */
-export const LEGACY_NO_PROJECTION: ProjectionStatus = {
-  state: 'no_projection',
-  showNumbers: true,
-  showReviewNotice: false,
-  badge: null,
-  note: null,
-};
+export const NO_PROJECTION: ProjectionStatus = { ...UNKNOWN_PROJECTION };
+
 
 const SIGNAL_ECON_KEYS = [
   'price_hint', 'entry_price', 'exit_price', 'quantity', 'quantity_shares',
