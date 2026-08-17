@@ -348,7 +348,7 @@ BEGIN
   res := public.recover_quota_failed_bsr_jobs(1);
   st := (SELECT status FROM public.tw_bsr_sync_queue WHERE id=id0);
   PERFORM pg_temp.chk('G-nonterminal-semantics-unchanged',
-    st = 'pending' OR (res->>'budget_reason') IS NOT NULL,
+    st = 'pending',
     'status='||st||' recover='||res::text);
 END $$;
 
@@ -416,7 +416,7 @@ BEGIN
   moved := (SELECT count(*) FROM public.tw_bsr_sync_queue
              WHERE last_error='quota_recovery_token' AND status='pending');
   PERFORM pg_temp.chk('I-recovery-resumed-at-most-1',
-    moved <= 1 AND (COALESCE((res->>'tokens_issued')::int,0) + COALESCE((res->>'reconciled')::int,0)) >= 0,
+    moved <= 1 AND (COALESCE((res->>'tokens_issued')::int,0) + COALESCE((res->>'reconciled')::int,0)) >= 1,
     'tokened='||moved||' res='||res::text);
 END $$;
 
