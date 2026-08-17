@@ -78,7 +78,7 @@ function captureChipsEvents(page: Page): IngestEvent[] {
 
 /** 統一 mock：tw-chips-detail 回指定 payload；traffic-ingest 一律 200 */
 async function mockChipsWith(page: Page, payload: unknown) {
-  await page.route(/\/functions\/v1\/tw-chips-detail(\?|$)/, async (route: Route) => {
+  await page.route(/\/functions\/v1\/tw-chips-detail(-v2)?(\?|$)/, async (route: Route) => {
     await route.fulfill({
       status: 200,
       contentType: 'application/json',
@@ -175,7 +175,7 @@ test.describe('Phase G · Chips 端到端事件契約', () => {
 
   test('fetch 錯誤 → chips_fetch_error 事件送達（漏斗 error 桶）', async ({ page }) => {
     // 攔截 chips detail 回 500
-    await page.route(/\/functions\/v1\/tw-chips-detail(\?|$)/, async (route: Route) => {
+    await page.route(/\/functions\/v1\/tw-chips-detail(-v2)?(\?|$)/, async (route: Route) => {
       await route.fulfill({ status: 500, contentType: 'text/plain', body: 'boom' });
     });
     await page.route(/\/functions\/v1\/traffic-ingest(\?|$)/, async (route: Route) => {
