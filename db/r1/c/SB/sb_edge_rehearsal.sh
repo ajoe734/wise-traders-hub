@@ -9,11 +9,13 @@
 # =====================================================================
 set -Eeuo pipefail
 ROOT=$(cd "$(dirname "$0")/../../../.." && pwd); cd "$ROOT"
-NAME=${1:-B10}; PORT=${2:-55901}; OUT=${3:-/tmp/sb-$NAME}
+NAME=${1:-B12}; PORT=${2:-55901}; OUT=${3:-/tmp/sb-$NAME}
 BK=db/r1/c/S0/backup; DIR=/tmp/sb$NAME
 PGRST_PORT=$((PORT + 1)); PROXY_PORT=$((PORT + 2)); MOCK_PORT=$((PORT + 3))
-WORKER_PORT=$((PORT + 4)); ADMIN_PORT=$((PORT + 5))
+WORKER_PORT=$((PORT + 4)); ADMIN_PORT=$((PORT + 5)); AUTH_PORT=$((PORT + 6))
 SECRET='clone-only-rehearsal-jwt-secret-0123456789abcdef'
+GOTRUE_BIN=${GOTRUE_BIN:-/tmp/gotrue-sb/auth}
+
 RUNID="$NAME-$(date -u +%Y%m%dT%H%M%SZ)-$$"
 START=$(date -u +%FT%T.%3NZ)
 mkdir -p "$OUT"; LOG="$OUT/$NAME.log"; : >"$LOG"
@@ -38,7 +40,7 @@ cleanup(){
   exit 0
 }
 trap on_err ERR; trap cleanup EXIT
-echo "### stage-b EDGE rehearsal run_id=$RUNID pg=$PORT pgrst=$PGRST_PORT proxy=$PROXY_PORT mock=$MOCK_PORT worker=$WORKER_PORT admin=$ADMIN_PORT"
+echo "### stage-b EDGE rehearsal run_id=$RUNID pg=$PORT pgrst=$PGRST_PORT proxy=$PROXY_PORT mock=$MOCK_PORT worker=$WORKER_PORT admin=$ADMIN_PORT auth=$AUTH_PORT"
 
 ############################################################ preflight
 stage preflight
@@ -46,11 +48,15 @@ if [ -s db/r1/c/H/pgbin.path ]; then PGBIN=$(cat db/r1/c/H/pgbin.path); else PGB
 [ -x "$PGBIN/initdb" ] || fatal "initdb missing in $PGBIN"
 export PATH="$PGBIN:$PATH"
 command -v deno >/dev/null || fatal "deno missing (real edge runtime required)"
+# Real Supabase Auth (GoTrue) is mandatory. A mock/sb_rest_proxy stand-in must
+# NEVER impersonate GoTrue: if the binary is absent we abort and the run is
+# recorded as an exact Auth GAP instead of a green-but-fake pass.
+[ -x "$GOTRUE_BIN" ] || fatal "AUTH GAP: real supabase-auth binary missing at $GOTRUE_BIN (refusing to mock GoTrue)"
 [ -f "$BK/MANIFEST.json" ] || fatal "baseline manifest missing"
 PGRST_BIN=$(command -v postgrest || true)
 [ -n "$PGRST_BIN" ] || PGRST_BIN=$(ls -d /nix/store/*postgrest*-bin/bin/postgrest 2>/dev/null | head -1 || true)
 [ -n "$PGRST_BIN" ] || fatal "postgrest missing (real HTTP path required, not a skip)"
-for p in $PORT $PGRST_PORT $PROXY_PORT $MOCK_PORT $WORKER_PORT $ADMIN_PORT; do
+for p in $PORT $PGRST_PORT $PROXY_PORT $MOCK_PORT $WORKER_PORT $ADMIN_PORT $AUTH_PORT; do
 python3 - "$p" <<'PY' || fatal "port $p busy"
 import socket,sys
 s=socket.socket(); s.setsockopt(socket.SOL_SOCKET,socket.SO_REUSEADDR,1)
@@ -80,6 +86,12 @@ chk $([ "$RE" = 0 ] && echo 0 || echo 1) "EB-01 fresh restore 0 errors" "$(head 
 psql "$CL" -qX -v ON_ERROR_STOP=1 -f db/r1/c/SB/001_stage_b.sql >"$DIR/apply1.log" 2>&1 || { tail -20 "$DIR/apply1.log"; fatal "001 apply"; }
 psql "$CL" -qX -v ON_ERROR_STOP=1 -f db/r1/c/SB/002_recover_gate_aware.sql >"$DIR/apply2.log" 2>&1 || { tail -20 "$DIR/apply2.log"; fatal "002 apply"; }
 chk 0 "EB-02 stage B applied to clone"
+# clone-only fixture: the baseline bundle carries no row data, so a fresh clone
+# has neither the `market_batch` gate row nor any auth identity (EF-01/RC-1/RC-2).
+psql "$CL" -qX -v ON_ERROR_STOP=1 -f db/r1/c/SB/fixtures/010_clone_fixture.sql >"$DIR/fixture.log" 2>&1 \
+  || { tail -20 "$DIR/fixture.log"; fatal "clone fixture"; }
+GATEROW=$(psql "$CL" -qXAt -c "SELECT count(*) FROM public.tw_bsr_sync_config WHERE key='market_batch' AND config ? 'admission_nonce' AND config->>'admission_blocked'='false'")
+chk $([ "$GATEROW" = 1 ] && echo 0 || echo 1) "EB-02b fixture seeded an explicit OPEN market_batch gate row ($GATEROW)"
 psql "$CL" -qXAt -f db/r1/c/SB/sb_fingerprint.sql | sort >"$DIR/fp_pre_edge.txt"
 
 ############################################################ services
@@ -95,7 +107,16 @@ jwt-secret = "$SECRET"
 db-use-legacy-gucs = false
 EOF
 "$PGRST_BIN" "$DIR/pgrst.conf" >"$DIR/pgrst.log" 2>&1 & PIDS+=($!)
-python3 db/r1/c/SB/sb_rest_proxy.py "$PROXY_PORT" "$PGRST_PORT" "$DIR/proxy.jsonl" >"$DIR/proxy.log" 2>&1 & PIDS+=($!)
+python3 db/r1/c/SB/sb_rest_proxy.py "$PROXY_PORT" "$PGRST_PORT" "$DIR/proxy.jsonl" "$AUTH_PORT" >"$DIR/proxy.log" 2>&1 & PIDS+=($!)
+# --- real Supabase Auth (GoTrue) against this clone -------------------------
+env GOTRUE_DB_DRIVER=postgres \
+    DATABASE_URL="postgres://gotrue_admin:clone-only@127.0.0.1:$PORT/clone?sslmode=disable" \
+    GOTRUE_DB_NAMESPACE=auth GOTRUE_JWT_SECRET="$SECRET" GOTRUE_JWT_AUD=authenticated \
+    GOTRUE_JWT_EXP=3600 GOTRUE_JWT_DEFAULT_GROUP_NAME=authenticated \
+    GOTRUE_API_HOST=127.0.0.1 PORT=$AUTH_PORT GOTRUE_SITE_URL=http://localhost \
+    API_EXTERNAL_URL="http://127.0.0.1:$AUTH_PORT" GOTRUE_DISABLE_SIGNUP=false \
+    GOTRUE_MAILER_AUTOCONFIRM=true GOTRUE_LOG_LEVEL=warn \
+    "$GOTRUE_BIN" serve >"$DIR/gotrue.log" 2>&1 & PIDS+=($!)
 echo reject >"$DIR/mock_mode"
 python3 db/r1/c/SB/sb_provider_mock.py "$MOCK_PORT" "$DIR/mock_mode" "$DIR/provider.jsonl" >"$DIR/mock.log" 2>&1 & PIDS+=($!)
 for i in $(seq 1 80); do curl -sf -o /dev/null "http://127.0.0.1:$PGRST_PORT/" && break; sleep 0.5; done
@@ -103,6 +124,10 @@ curl -sf -o /dev/null "http://127.0.0.1:$PGRST_PORT/" || { tail -20 "$DIR/pgrst.
 curl -sf -o /dev/null "http://127.0.0.1:$PROXY_PORT/" || fatal "proxy not ready"
 curl -sf -o /dev/null "http://127.0.0.1:$MOCK_PORT/?dataset=x" || fatal "provider mock not ready"
 chk 0 "EB-03 postgrest + rest proxy + provider mock up"
+for i in $(seq 1 80); do curl -sf -o /dev/null "http://127.0.0.1:$AUTH_PORT/health" && break; sleep 0.5; done
+curl -sf -o /dev/null "http://127.0.0.1:$AUTH_PORT/health" || { tail -20 "$DIR/gotrue.log"; fatal "AUTH GAP: real GoTrue did not become healthy"; }
+AUTHVER=$(curl -s "http://127.0.0.1:$AUTH_PORT/health" | python3 -c "import json,sys;print(json.load(sys.stdin).get('version',''))")
+chk $([ -n "$AUTHVER" ] && echo 0 || echo 1) "EB-03b real supabase-auth up (version=$AUTHVER)"
 
 SRK=$(python3 - "$SECRET" service_role <<'PY'
 import base64,hashlib,hmac,json,sys
@@ -216,34 +241,77 @@ chk $([ "$BC" != 'null' ] && echo 0 || echo 1) "EB-44 per-chunk blocked accounti
 
 ############################################################ D. admin probe auth matrix
 stage admin_auth
-mkjwt(){ python3 - "$SECRET" "$1" "$2" <<'PY'
+# Identities are created through the REAL GoTrue admin API and the tokens are
+# REAL password-grant JWTs. Nothing here is minted by the harness except the
+# deliberately invalid ones (expired / wrong-signature / not-a-jwt).
+AU="http://127.0.0.1:$AUTH_PORT"
+mkuser(){ # <email> <password> -> uuid
+  curl -s -m 15 -X POST "$AU/admin/users" -H "Authorization: Bearer $SRK" \
+       -H 'Content-Type: application/json' \
+       -d "{\"email\":\"$1\",\"password\":\"$2\",\"email_confirm\":true}" \
+  | python3 -c "import json,sys;print(json.load(sys.stdin).get('id',''))"
+}
+mktoken(){ # <email> <password> -> access_token
+  curl -s -m 15 -X POST "$AU/token?grant_type=password" -H 'Content-Type: application/json' \
+       -d "{\"email\":\"$1\",\"password\":\"$2\"}" \
+  | python3 -c "import json,sys;print(json.load(sys.stdin).get('access_token',''))"
+}
+badjwt(){ # <kind> -> token  (expired | forged)
+  python3 - "$SECRET" "$1" <<'PY2'
 import base64,hashlib,hmac,json,sys,time
 b=lambda x: base64.urlsafe_b64encode(x).rstrip(b'=')
+kind=sys.argv[2]
+secret=sys.argv[1] if kind!='forged' else 'attacker-controlled-secret'
+exp=int(time.time())-60 if kind=='expired' else 4102444800
 h=b(json.dumps({"alg":"HS256","typ":"JWT"},separators=(',',':')).encode())
-p=b(json.dumps({"role":sys.argv[2],"sub":sys.argv[3],"exp":4102444800,"iat":int(time.time()),
-                "aud":"authenticated","email":"probe@example.test"},separators=(',',':')).encode())
-s=b(hmac.new(sys.argv[1].encode(),h+b'.'+p,hashlib.sha256).digest())
+p=b(json.dumps({"role":"authenticated","sub":"00000000-0000-4000-8000-000000000001",
+                "aud":"authenticated","exp":exp,"iat":int(time.time())-120,
+                "email":"forged@example.test"},separators=(',',':')).encode())
+s=b(hmac.new(secret.encode(),h+b'.'+p,hashlib.sha256).digest())
 print((h+b'.'+p+b'.'+s).decode())
-PY
+PY2
 }
-ADMIN_UID=$(psql "$CL" -qXAt -c "SELECT user_id::text FROM public.user_roles WHERE role='company_admin' LIMIT 1")
-PLAIN_UID=$(psql "$CL" -qXAt -c "SELECT u.id::text FROM auth.users u LEFT JOIN public.user_roles r ON r.user_id=u.id AND r.role='company_admin' WHERE r.user_id IS NULL LIMIT 1")
-[ -n "$ADMIN_UID" ] || fatal "baseline has no company_admin to test with"
-[ -n "$PLAIN_UID" ] || fatal "baseline has no non-admin user to test with"
+
+ADMIN_UID=$(mkuser admin@clone.test 'Clone-Rehearsal-1')
+PLAIN_UID=$(mkuser plain@clone.test 'Clone-Rehearsal-2')
+[ -n "$ADMIN_UID" ] || { tail -5 "$DIR/gotrue.log"; fatal "AUTH GAP: GoTrue could not create the admin identity"; }
+[ -n "$PLAIN_UID" ] || fatal "AUTH GAP: GoTrue could not create the non-admin identity"
+psql "$CL" -qX -c "INSERT INTO public.user_roles(user_id, role) VALUES ('$ADMIN_UID','company_admin') ON CONFLICT DO NOTHING" >/dev/null
+chk $([ "$(psql "$CL" -qXAt -c "SELECT public.has_role('$ADMIN_UID','company_admin')")" = t ] && echo 0 || echo 1) "EB-48 clone fixture identity holds company_admin via has_role()"
+chk $([ "$(psql "$CL" -qXAt -c "SELECT public.has_role('$PLAIN_UID','company_admin')")" = f ] && echo 0 || echo 1) "EB-49 non-admin identity does NOT hold company_admin"
+
+ADMTOK=$(mktoken admin@clone.test 'Clone-Rehearsal-1')
+PLNTOK=$(mktoken plain@clone.test 'Clone-Rehearsal-2')
+[ -n "$ADMTOK" ] || { tail -5 "$DIR/gotrue.log"; fatal "AUTH GAP: real password grant returned no access_token"; }
+[ -n "$PLNTOK" ] || fatal "AUTH GAP: non-admin password grant returned no access_token"
+ADMJWT="Authorization: Bearer $ADMTOK"
+chk 0 "EB-49b real GoTrue password grant issued both access tokens"
 
 C=$(post "$A" "$DIR/a_noauth.json" '{"action":"status"}')
-chk $([ "$C" != 200 ] && echo 0 || echo 1) "EB-50 admin probe rejects missing JWT (got $C)"
+chk $([ "$C" = 401 ] && echo 0 || echo 1) "EB-50 admin probe rejects missing JWT (got $C)"
 C=$(post "$A" "$DIR/a_bad.json" '{"action":"status"}' "Authorization: Bearer not.a.jwt")
-chk $([ "$C" != 200 ] && echo 0 || echo 1) "EB-51 admin probe rejects malformed JWT (got $C)"
-C=$(post "$A" "$DIR/a_plain.json" '{"action":"probe"}' "Authorization: Bearer $(mkjwt authenticated "$PLAIN_UID")")
-chk $([ "$C" != 200 ] && echo 0 || echo 1) "EB-52 non-admin user forbidden from probe (got $C)"
+chk $([ "$C" = 401 ] && echo 0 || echo 1) "EB-51 admin probe rejects malformed JWT (got $C)"
+C=$(post "$A" "$DIR/a_exp.json" '{"action":"probe"}' "Authorization: Bearer $(badjwt expired)")
+chk $([ "$C" = 401 ] && echo 0 || echo 1) "EB-51b real getUser rejects an expired JWT (got $C)"
+C=$(post "$A" "$DIR/a_forged.json" '{"action":"probe"}' "Authorization: Bearer $(badjwt forged)")
+chk $([ "$C" = 401 ] && echo 0 || echo 1) "EB-51c real getUser rejects a wrong-signature JWT (got $C)"
+C=$(post "$A" "$DIR/a_plain.json" '{"action":"probe"}' "Authorization: Bearer $PLNTOK")
+chk $([ "$C" = 403 ] && echo 0 || echo 1) "EB-52 real non-admin user forbidden from probe (got $C)"
 chk $([ "$(gateblocked)" = 'true' ] && echo 0 || echo 1) "EB-53 gate still closed after unauthorized attempts"
 C=$(post "$A" "$DIR/a_anon.json" '{"action":"probe"}' "Authorization: Bearer $SRK")
 chk $([ "$C" != 200 ] && echo 0 || echo 1) "EB-54 raw service_role JWT (no real user) cannot probe (got $C)"
+C=$(post "$A" "$DIR/a_status.json" '{"action":"status"}' "$ADMJWT")
+chk $([ "$C" = 200 ] && echo 0 || echo 1) "EB-55 admin status readable by a real company_admin (got $C)"
+chk $([ "$(jqf "$DIR/a_status.json" admission.blocked)" = 'true' ] && echo 0 || echo 1) "EB-56 admin status reflects the closed gate"
+# caller-supplied "success" must never be trusted: only a server-side probe unblocks
+C=$(post "$A" "$DIR/a_selfclaim.json" '{"action":"unblock","probe_ok":true,"result":{"ok":true},"unblocked":true}' "$ADMJWT")
+chk $([ "$(gateblocked)" = 'true' ] && echo 0 || echo 1) "EB-57 caller-forged success payload cannot unblock (http=$C)"
+# SSRF: caller-supplied provider endpoints must be ignored
+C=$(post "$A" "$DIR/a_ssrf.json" '{"action":"probe","base_url":"http://169.254.169.254/latest/meta-data","url":"http://169.254.169.254/","stock_id":"2330"}' "$ADMJWT")
+if grep -q '169.254.169.254' "$DIR/provider.jsonl" 2>/dev/null; then chk 1 "EB-58 probe ignores caller-supplied SSRF target"; else chk 0 "EB-58 probe ignores caller-supplied SSRF target (http=$C)"; fi
 
 ############################################################ E. admin probe: provider still failing → NO unblock
 stage probe_negative
-ADMJWT="Authorization: Bearer $(mkjwt authenticated "$ADMIN_UID")"
 for m in reject reject4 rate fail5; do
   echo "$m" >"$DIR/mock_mode"
   C=$(post "$A" "$DIR/a_$m.json" '{"action":"probe","stock_id":"2330","trade_date":"2026-08-14"}' "$ADMJWT")
@@ -289,6 +357,85 @@ chk $([ "$(cat "$DIR/c1.code")" = 200 ] && [ "$(cat "$DIR/c2.code")" = 200 ] && 
 chk $([ "$(gateblocked)" = 'true' ] && echo 0 || echo 1) "EB-91 gate closed exactly once under concurrency"
 DUP=$(psql "$CL" -qXAt -c "SELECT count(*) FROM public.tw_bsr_sync_queue WHERE enqueued_by='edge_rehearsal_conc' AND status='pending' AND locked_by IS NOT NULL" 2>/dev/null || echo 0)
 chk $([ "${DUP:-0}" = 0 ] && echo 0 || echo 1) "EB-92 no job left pending with a stale lease (${DUP:-0})"
+
+############################################################ G2. gate state matrix (missing / malformed / rpc_error)
+stage gate_matrix
+: >"$DIR/provider.jsonl"; echo ok >"$DIR/mock_mode"
+psql "$CL" -qX -c "UPDATE public.tw_bsr_sync_config SET config = config - 'admission_blocked' WHERE key='market_batch'" >/dev/null
+C=$(post "$W" "$DIR/w_missing.json" '{"mode":"worker","batch":3,"budget_ms":8000}' "$CRONH")
+chk $([ "$C" = 200 ] && echo 0 || echo 1) "EB-100 worker responds 200 when admission flag missing (got $C)"
+chk $([ "$(jqf "$DIR/w_missing.json" claimed)" = '0' ] && echo 0 || echo 1) "EB-101 missing flag is fail-closed (claimed=0)"
+chk $([ "$(provider_calls)" = 0 ] && echo 0 || echo 1) "EB-102 ZERO provider calls when admission state missing"
+
+psql "$CL" -qX -c "UPDATE public.tw_bsr_sync_config SET config = config || '{\"admission_blocked\": \"not-a-boolean\"}'::jsonb WHERE key='market_batch'" >/dev/null
+: >"$DIR/provider.jsonl"
+C=$(post "$W" "$DIR/w_malformed.json" '{"mode":"worker","batch":3,"budget_ms":8000}' "$CRONH")
+chk $([ "$C" = 200 ] && echo 0 || echo 1) "EB-103 worker responds 200 on malformed admission value (got $C)"
+chk $([ "$(jqf "$DIR/w_malformed.json" claimed)" = '0' ] && echo 0 || echo 1) "EB-104 malformed admission value is fail-closed"
+chk $([ "$(provider_calls)" = 0 ] && echo 0 || echo 1) "EB-105 ZERO provider calls on malformed admission value"
+C=$(post "$W" "$DIR/e_malformed.json" '{"mode":"enqueue","tier1":true,"tier2":true,"tier3":true}' "$CRONH")
+QN=$(psql "$CL" -qXAt -c "SELECT count(*) FROM public.tw_bsr_sync_queue WHERE enqueued_by LIKE 'tier%' AND created_at > now() - interval '1 minute'")
+chk $([ "${QN:-0}" = 0 ] && echo 0 || echo 1) "EB-106 enqueue inserted nothing under a malformed gate (${QN:-0})"
+
+# rpc_error: the status wrapper itself is unavailable -> still fail-closed
+psql "$CL" -qX -c "ALTER FUNCTION public.bsr_admission_status() RENAME TO bsr_admission_status_hidden" >/dev/null
+: >"$DIR/provider.jsonl"
+C=$(post "$W" "$DIR/w_rpcerr.json" '{"mode":"worker","batch":3,"budget_ms":8000}' "$CRONH")
+chk $([ "$C" = 200 ] && echo 0 || echo 1) "EB-107 worker survives an admission RPC error (got $C)"
+chk $([ "$(provider_calls)" = 0 ] && echo 0 || echo 1) "EB-108 admission RPC error is fail-closed: ZERO provider calls"
+chk $([ "$(jqf "$DIR/w_rpcerr.json" claimed)" = '0' ] && echo 0 || echo 1) "EB-109 admission RPC error claims nothing"
+psql "$CL" -qX -c "ALTER FUNCTION public.bsr_admission_status_hidden() RENAME TO bsr_admission_status" >/dev/null
+open_gate
+
+############################################################ G3. worker fast-exit + retryable provider classes
+stage worker_edges
+psql "$CL" -qX -c "DELETE FROM public.tw_bsr_sync_queue" >/dev/null
+: >"$DIR/provider.jsonl"; echo ok >"$DIR/mock_mode"
+C=$(post "$W" "$DIR/w_noclaim.json" '{"mode":"worker","batch":3,"budget_ms":8000}' "$CRONH")
+chk $([ "$C" = 200 ] && echo 0 || echo 1) "EB-110 worker fast-exits with an empty queue (got $C)"
+chk $([ "$(jqf "$DIR/w_noclaim.json" claimed)" = '0' ] && echo 0 || echo 1) "EB-111 empty queue claims 0"
+chk $([ "$(provider_calls)" = 0 ] && echo 0 || echo 1) "EB-112 empty queue never touches the provider"
+
+for m in rate fail5 net unknown; do
+  open_gate
+  psql "$CL" -qX -c "DELETE FROM public.tw_bsr_sync_queue" >/dev/null
+  psql "$CL" -qX -c "INSERT INTO public.tw_bsr_sync_queue(stock_id, trade_date, priority, status, enqueued_by, next_run_at) VALUES ('2330', current_date - 5, 1, 'pending', 'edge_rehearsal_$m', now())" >/dev/null
+  echo "$m" >"$DIR/mock_mode"
+  C=$(post "$W" "$DIR/w_$m.json" '{"mode":"worker","batch":2,"budget_ms":8000}' "$CRONH")
+  chk $([ "$C" = 200 ] && echo 0 || echo 1) "EB-11$m worker survives provider class '$m' (got $C)"
+  chk $([ "$(gateblocked)" = 'false' ] && echo 0 || echo 1) "EB-12$m retryable/unknown class '$m' must NOT close the gate"
+  ST=$(psql "$CL" -qXAt -c "SELECT status FROM public.tw_bsr_sync_queue WHERE enqueued_by='edge_rehearsal_$m' LIMIT 1")
+  chk $([ "$ST" != 'terminal' ] && echo 0 || echo 1) "EB-13$m class '$m' did not terminalize the job (status=$ST)"
+done
+
+# lost lease: another worker stole the row mid-flight -> terminalize must not
+# resurrect or double-write it
+open_gate
+psql "$CL" -qX -c "DELETE FROM public.tw_bsr_sync_queue" >/dev/null
+psql "$CL" -qX -c "INSERT INTO public.tw_bsr_sync_queue(stock_id, trade_date, priority, status, enqueued_by, next_run_at, locked_by, locked_at) VALUES ('2317', current_date - 5, 1, 'processing', 'edge_rehearsal_lease', now(), 'someone-else', now())" >/dev/null
+echo reject >"$DIR/mock_mode"
+C=$(post "$W" "$DIR/w_lease.json" '{"mode":"worker","batch":2,"budget_ms":8000}' "$CRONH")
+LEASE=$(psql "$CL" -qXAt -c "SELECT locked_by FROM public.tw_bsr_sync_queue WHERE enqueued_by='edge_rehearsal_lease'")
+chk $([ "$LEASE" = 'someone-else' ] && echo 0 || echo 1) "EB-140 a foreign lease is never stolen (locked_by=$LEASE)"
+chk $([ "$C" = 200 ] && echo 0 || echo 1) "EB-141 worker returns 200 with only foreign-leased rows (got $C)"
+
+############################################################ G4. admin nonce replay / stale version
+stage admin_nonce
+echo reject >"$DIR/mock_mode"
+psql "$CL" -qX -c "INSERT INTO public.tw_bsr_sync_queue(stock_id, trade_date, priority, status, enqueued_by, next_run_at) VALUES ('2454', current_date - 5, 1, 'pending', 'edge_rehearsal_nonce', now()) ON CONFLICT DO NOTHING" >/dev/null
+post "$W" "$DIR/w_nonce_close.json" '{"mode":"worker","batch":2,"budget_ms":8000}' "$CRONH" >/dev/null
+chk $([ "$(gateblocked)" = 'true' ] && echo 0 || echo 1) "EB-150 gate closed again for the nonce tests"
+NONCE=$(psql "$CL" -qXAt -c "SELECT config->>'admission_nonce' FROM public.tw_bsr_sync_config WHERE key='market_batch'")
+VER=$(psql "$CL" -qXAt -c "SELECT public.bsr_admission_status()->>'version'")
+R=$(psql "$CL" -qXAt -c "SELECT public.bsr_unblock_after_probe($((VER - 1)), '$NONCE', 'stale-version-attempt')" 2>&1 || true)
+chk $([ "$(gateblocked)" = 'true' ] && echo 0 || echo 1) "EB-151 stale expected_version cannot unblock"
+R=$(psql "$CL" -qXAt -c "SELECT public.bsr_unblock_after_probe($VER, '00000000-0000-4000-8000-0000000000ff', 'wrong-nonce-attempt')" 2>&1 || true)
+chk $([ "$(gateblocked)" = 'true' ] && echo 0 || echo 1) "EB-152 wrong nonce cannot unblock"
+echo ok >"$DIR/mock_mode"
+C=$(post "$A" "$DIR/a_ok2.json" '{"action":"probe","stock_id":"2330","trade_date":"2026-08-14"}' "$ADMJWT")
+chk $([ "$(gateblocked)" = 'false' ] && echo 0 || echo 1) "EB-153 a verified server-side probe still unblocks (http=$C)"
+C=$(post "$A" "$DIR/a_ok2_replay.json" '{"action":"probe","stock_id":"2330","trade_date":"2026-08-14"}' "$ADMJWT")
+chk $([ "$(jqf "$DIR/a_ok2_replay.json" transition)" = '"already_open"' ] && echo 0 || echo 1) "EB-154 replayed probe is a no-op"
 
 ############################################################ H. rollback fidelity
 stage rollback

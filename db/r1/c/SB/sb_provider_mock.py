@@ -6,6 +6,8 @@ Modes are flipped by writing a single word into <state_file>:
   reject4 -> HTTP 400 with the same msg                                        (terminal)
   rate    -> HTTP 429                                                          (retryable)
   fail5   -> HTTP 503                                                          (retryable)
+  net     -> connection closed with no response                               (network)
+  unknown -> HTTP 200 with an unparseable/foreign body                        (unknown)
   ok      -> HTTP 200 with one BSR row                                         (success)
 
 Every request is appended to <log_file> as JSON (path + query only, no headers)
@@ -47,6 +49,22 @@ class H(BaseHTTPRequestHandler):
                 "start_date": (q.get("start_date") or [""])[0],
                 "mode": m,
             }) + "\n")
+
+        if m == "net":
+            try:
+                self.close_connection = True
+                self.wfile.close()
+            except Exception:
+                pass
+            return
+        if m == "unknown":
+            raw = b"<html>upstream weirdness</html>"
+            self.send_response(200)
+            self.send_header("Content-Type", "text/html")
+            self.send_header("Content-Length", str(len(raw)))
+            self.end_headers()
+            self.wfile.write(raw)
+            return
 
         if m == "reject":
             body, code = {"status": 400, "msg": REJECT_MSG}, 200
