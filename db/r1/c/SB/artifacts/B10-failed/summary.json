@@ -1,0 +1,64 @@
+{
+  "run_id": "B10-20260817T151758Z-21921",
+  "status": "FAILED",
+  "verdict": "NOT ACCEPTED — Edge stage is NOT complete. gap != 0.",
+  "start_utc": "2026-08-17T15:17:58.640Z",
+  "end_utc": "2026-08-17T15:18:19.046Z",
+  "aborted_at_stage": "admin_auth",
+  "exit_code": 1,
+  "checks_executed": 31,
+  "checks_planned": 44,
+  "failures": 14,
+  "destroyed": true,
+  "production_touch": "none (PG* unset, loopback only)",
+  "log_sha256_pre_result_line": "64fd24b110c8ed04949035a39c039a1ce5920ef9272e73430c6253c60a4028ee",
+  "sanitized_artifacts_sha256": {
+    "rehearsal.log": "c9d2e42ad739d6332279227145c183e0df663f9bcdeab21e04cb3eff1a4da31c",
+    "worker_edge.log": "c354d549739e4150a9b8485848e2401c0793298eb6805bfaed16588634ba568f",
+    "admin_edge.log": "746711df847a7db1ab4a34d420dc3fe44a7256b5fd1b958454a9ce07aa4b606c",
+    "apply1.log": "45c3b9817813463e4be82f575b7b3c3e997883aae5a90c876414f129b90e8afd",
+    "apply2.log": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+    "provider.jsonl": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+    "proxy.jsonl": "97239fdb5ebf9b21c619a9816f56f7c362fde2cd9ad5cbcea901965cd935188f",
+    "restore_errors.txt": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+  },
+  "failed_checks": [
+    "EB-11 worker did NOT short-circuit on admission_gate_closed",
+    "EB-12 worker payload reports admission decision=open",
+    "EB-13 provider WAS called while gate open (0 calls)",
+    "EB-15 enqueue payload reports decision=open",
+    "EB-21 worker halted on exact terminal signature",
+    "EB-22 single atomic block+terminalize RPC succeeded",
+    "EB-23 gate transitioned blocked",
+    "EB-24 DB gate is closed after the run",
+    "EB-25 this run's claimed rows terminalized (0)",
+    "EB-34 gate version surfaced in HTTP payload",
+    "EB-41 enqueue reports decision=blocked",
+    "EB-42 enqueue reports terminal_code",
+    "FATAL admin_auth: baseline has no company_admin to test with",
+    "NO EDGE SUMMARY — aborted at stage=admin_auth (counted as FAIL, not skip)"
+  ],
+  "root_causes": [
+    {
+      "id": "RC-1",
+      "scope": "harness fixture (NOT product code)",
+      "cause": "db/r1/c/S0/backup/MANIFEST.json declares restore_bundle.row_data_included=false. The clone therefore has public.tw_bsr_sync_config with ZERO rows, so the 'market_batch' gate row does not exist. open_gate() in the harness used UPDATE ... WHERE key='market_batch', which matched 0 rows.",
+      "effect": "Every worker/enqueue call resolved admission decision=missing / reason=admission_gate_row_missing and fail-closed short-circuited. open_path (EB-11/12/13/15), terminal (EB-21..25) and the blocked-path version/terminal_code assertions (EB-34/41/42) could not be exercised at all.",
+      "not_a_product_bug": "Fail-closed on a missing gate row is the specified v6 behaviour and is what the worker did. The rehearsal simply never reached the open/blocked states it claimed to assert."
+    },
+    {
+      "id": "RC-2",
+      "scope": "harness fixture (NOT product code)",
+      "cause": "Same schema-only restore: auth.users and public.user_roles are empty in the clone, so no company_admin and no non-admin identity exist.",
+      "effect": "admin_auth stage hit fatal() and aborted the run before EB-50..EB-96 (13 further checks) ever executed."
+    },
+    {
+      "id": "RC-3",
+      "scope": "harness coverage gap",
+      "cause": "No real GoTrue was started against the clone; the auth matrix was going to be exercised with locally minted HS256 JWTs only.",
+      "effect": "Even had RC-2 been fixed, auth.getUser() would have been validated against PostgREST's JWT secret path rather than a real Supabase Auth server. Recorded as an explicit GAP; fixed in B12/B13 by running the real supabase/auth binary."
+    }
+  ],
+  "supersedes": null,
+  "superseded_by": "see receipt-index.md (B12/B13)"
+}
