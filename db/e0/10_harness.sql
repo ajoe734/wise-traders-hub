@@ -15,41 +15,39 @@ BEGIN
   VALUES (p_name, a IS NOT DISTINCT FROM b, format('got=%s expected=%s', a, b));
 END $$;
 
--- runs sql in a subtransaction; expects it (or the deferred constraints) to raise containing needle
+-- runs sql in a rolled-back subtransaction; expects a raise containing needle
 CREATE OR REPLACE FUNCTION t.expect_error(p_name text, p_sql text, p_needle text)
 RETURNS void LANGUAGE plpgsql AS $$
-DECLARE v_msg text;
+DECLARE v_msg text; v_pass boolean := false; v_detail text := 'no error raised';
 BEGIN
   BEGIN
     EXECUTE p_sql;
     SET CONSTRAINTS ALL IMMEDIATE;
-    INSERT INTO t.result(name,passed,detail) VALUES (p_name, false, 'no error raised');
-    RAISE EXCEPTION 'rollback_marker' USING ERRCODE='P0002';
+    RAISE EXCEPTION 'e0_rollback_marker' USING ERRCODE='P0002';
   EXCEPTION
-    WHEN SQLSTATE 'P0002' THEN NULL;
+    WHEN SQLSTATE 'P0002' THEN v_pass := false; v_detail := 'no error raised';
     WHEN OTHERS THEN
       GET STACKED DIAGNOSTICS v_msg = MESSAGE_TEXT;
-      INSERT INTO t.result(name,passed,detail)
-      VALUES (p_name, position(p_needle in v_msg) > 0, v_msg);
+      v_pass := position(p_needle in v_msg) > 0; v_detail := v_msg;
   END;
   SET CONSTRAINTS ALL DEFERRED;
+  INSERT INTO t.result(name,passed,detail) VALUES (p_name, v_pass, v_detail);
 END $$;
 
--- runs sql in a subtransaction; expects success (changes rolled back)
+-- runs sql in a rolled-back subtransaction; expects success
 CREATE OR REPLACE FUNCTION t.expect_ok(p_name text, p_sql text)
 RETURNS void LANGUAGE plpgsql AS $$
-DECLARE v_msg text;
+DECLARE v_msg text; v_pass boolean := false; v_detail text := '';
 BEGIN
   BEGIN
     EXECUTE p_sql;
     SET CONSTRAINTS ALL IMMEDIATE;
-    INSERT INTO t.result(name,passed,detail) VALUES (p_name, true, '');
-    RAISE EXCEPTION 'rollback_marker' USING ERRCODE='P0002';
+    RAISE EXCEPTION 'e0_rollback_marker' USING ERRCODE='P0002';
   EXCEPTION
-    WHEN SQLSTATE 'P0002' THEN NULL;
+    WHEN SQLSTATE 'P0002' THEN v_pass := true;
     WHEN OTHERS THEN
-      GET STACKED DIAGNOSTICS v_msg = MESSAGE_TEXT;
-      INSERT INTO t.result(name,passed,detail) VALUES (p_name, false, v_msg);
+      GET STACKED DIAGNOSTICS v_msg = MESSAGE_TEXT; v_pass := false; v_detail := v_msg;
   END;
   SET CONSTRAINTS ALL DEFERRED;
+  INSERT INTO t.result(name,passed,detail) VALUES (p_name, v_pass, v_detail);
 END $$;
