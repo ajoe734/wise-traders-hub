@@ -10,7 +10,7 @@
     "lint": "eslint .",
     "preview": "vite preview",
     "test": "vitest",
-    "test:run": "vitest run",
+    "test:run": "node scripts/run-tests.mjs",
     "test:ui": "vitest --ui",
     "test:coverage": "vitest run --coverage",
     "test:e2e": "playwright test",
@@ -32,7 +32,8 @@
     "refresh:finmind-industry": "node scripts/refresh-finmind-industry.mjs",
     "refresh:mops-revenue": "node scripts/refresh-mops-revenue-mix.mjs",
     "gen:journal-export-mirror": "node scripts/gen-journal-export-core-mirror.mjs",
-    "check:journal-export-mirror": "node scripts/gen-journal-export-core-mirror.mjs --check"
+    "check:journal-export-mirror": "node scripts/gen-journal-export-core-mirror.mjs --check",
+    "test:run:raw": "vitest run"
   },
   "dependencies": {
     "@ai-sdk/openai-compatible": "^1.0.0",

@@ -179,3 +179,35 @@ Proof: B18/B19 `EB-M-rpcerror-*` checks.
 ## EF-10 (2026-08-17, clone fidelity, harness-only) — sequence ACL missing in clones
 Restore bundle omitted sequence grants; every insert died on `permission denied for
 sequence`. Harness now replays production grants and asserts EB-01b.
+
+## EF-09 詳述（exact root cause + 最小 diff）
+`supabase/functions/tw-bsr-finmind-sync/index.ts` 的 `mode: 'manual'` 分支在呼叫
+`fetchAdmissionStatus()` 之後，只把結果放進 response payload，就直接執行 `enqueueBatch(...)`；
+worker / enqueue 兩條路徑各自有 `if (!admission.allowed) return ...`，manual 沒有。
+因此 gate 為 blocked 或 status RPC 不可用（fail-closed 應為 blocked）時，manual HTTP 仍寫入 3 筆
+`tw_bsr_sync_queue`。這是 Plan v6 fail-closed 契約的實質破口，只有「真的送 manual HTTP」才會抓到，
+enqueue/trigger 測試無法代替。
+
+最小 diff（語義）：
+```
+-  const admission = await fetchAdmissionStatus(...);
+-  const enqueued = await enqueueBatch(...);
++  const admission = await fetchAdmissionStatus(...);
++  if (!admission.allowed) {
++    return json({ ok: true, mode: 'manual', enqueued: 0,
++                  note: 'admission_gate_closed',
++                  admission: sanitizeAdmission(admission) });
++  }
++  const enqueued = await enqueueBatch(...);
+```
+證據：B18/B19 `EB-M-*` 96 個 manual 檢查（rowmissing / keymissing / jsonnull / string / number /
+object / array / config-non-object / rpc-error，各自獨立 HTTP，斷言 decision、reason、
+`note=admission_gate_closed`、0 provider 呼叫、queue 與 bsr 表 0 寫入、response 無機敏字串），
+加上開閘非空洞證明。
+
+## 本輪結論
+- B18 = `B18-20260817T165630Z-46709`，B19 = `B19-20260817T165759Z-48948`，各 **249 checks / 0 FAIL**，
+  含 rollback / fingerprint / destroy。artifacts 已落盤且可搜尋。
+- DB16/DB17 仍有效：本輪只改 harness（`sb_edge_rehearsal.sh`）與 Edge TS（`index.ts`），
+  `001_stage_b.sql` / `002_recover_gate_aware.sql` / `099_rollback.sql` 與任何正式函式、COMMENT
+  皆 0 位元變更（見 git diff 檔案清單），因此 DB-only 演練結論不受影響、無需重開 DB clone。

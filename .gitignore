@@ -31,3 +31,7 @@ bun.lockb
 *.sln
 *.sw?
 deno.lock
+
+__pycache__/
+*.pyc
+db/r1/**/sed*
