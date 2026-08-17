@@ -57,3 +57,34 @@ Public legacy readers: 10 = 6 gated by the typed public contract + 4 proven auth
 
 STATUS: consumer closure implementation complete; final two-fresh-clone acceptance
 (`db/r1/p/run_two_fresh_clones.sh`) still outstanding — no PASS claimed.
+
+## Run 2026-06-XX — consumer closure + fail-closed defaults (production 0 touch)
+
+- Fail-closed contract: `UNKNOWN_PROJECTION` (not loaded / unknown / API error)
+  hides every number; only an *observed* absence (`LEGACY_NO_PROJECTION`) takes
+  the legacy path. `error` moved into the not-ready set.
+- New imperative resolver `src/lib/fetchProjectionStatus.ts` (worst state wins
+  across a multi-expert scope); wired into `Journals.tsx` and
+  `SignalsDashboard.tsx` (previously an ungated `select *` on expert_signals).
+- `public_legacy_readers.json` reclassified: 7 typed_public_contract /
+  2 entitled_non_economic / 1 internal_owner_only / 0 ambiguous. Bare
+  "authenticated" is no longer an internal justification.
+- Runtime coverage: `src/test/unit/public-legacy-readers.test.ts` (22 cases).
+- Full app suite: 2878 passed / 1 failed → `price-authority-seam.test.ts`
+  "shows the settled snapshot close" timed out at 5000 ms under full-suite
+  load; passes in isolation (336 ms). Flake, not a contract regression.
+- Adjusted stale expectations (fail-closed direction only, never toward ready):
+  `publicEconomicContract.test.ts` (error → null), `PerformanceReviewNotice.test.tsx`
+  (error renders the notice), `journal-repository-parity.test.ts` (default gate).
+- tsgo clean, production build clean, scanner ALL GREEN (83 consumers / 37 DB objects).
+- Clone fixes: `db/r1/clone/schema.sql` now carries `public.warrant_expiry`
+  (security master required by `classify_instrument`); `010_manifest_seed.sql`
+  disposition vocabulary corrected to `as_reported_publishable`.
+- Two fresh clones: fidelity 104/104, shape 63/63, R1-D 66/66, R1-P 84 tests
+  with **3 failures each** — all in the RLS harness: T-P99a (9 < 15 cases),
+  T-P99b (`auth.users.instance_id` missing in the clone shape), T-P99c.
+  092 embargo 0/0, swap race 0, failure injection PASS, rollback hash IDENTICAL.
+- Production ACL baseline re-verified read-only: named=3, pattern=25,
+  signature hash matches the pinned baseline. 0 DDL/DML/deploy/publish.
+
+**Status: NO-GO** — 6 clone failures remain (RLS harness), so no R1-P PASS.
