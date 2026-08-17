@@ -349,7 +349,7 @@ export async function fetchChipsPayload(
   trackEvent('chips_fetch_start', { stock_code: stockId, source, is_view_as: isViewAs });
   try {
     const { text, durationMs } = await requestText(
-      `/tw-chips-detail?stock_id=${encodeURIComponent(stockId)}`,
+      `/${CHIPS_FN}?stock_id=${encodeURIComponent(stockId)}`,
       { signal: opts?.signal },
     );
     const payload = JSON.parse(text) as TwChipsPayload;
@@ -388,7 +388,7 @@ export async function fetchChipsStamp(
   opts?: { signal?: AbortSignal },
 ): Promise<ChipsStamp> {
   const { text } = await requestText(
-    `/tw-chips-detail?stock_id=${encodeURIComponent(stockId)}&stamp_only=1`,
+    `/${CHIPS_FN}?stock_id=${encodeURIComponent(stockId)}&stamp_only=1`,
     { signal: opts?.signal, timeoutMs: CHIPS_STAMP_TIMEOUT_MS },
   );
   const json = JSON.parse(text) as Partial<ChipsStamp>;
@@ -438,7 +438,7 @@ export async function fetchChipsBatch(
 
   trackEvent('chips_batch_fetch_start', { count: ids.length, source, is_view_as: isViewAs });
   try {
-    const { text, durationMs } = await requestText('/tw-chips-detail', {
+    const { text, durationMs } = await requestText(`/${CHIPS_FN}`, {
       signal: opts?.signal,
       timeoutMs: CHIPS_BATCH_TIMEOUT_MS,
       method: 'POST',
