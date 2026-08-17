@@ -76,6 +76,7 @@ import {
   type ClaimTuple,
   type GateRpcClient,
 } from '../_shared/bsrAdmissionGate.ts';
+import { resolveProbeUrl } from '../_shared/bsrAdmissionProbe.ts';
 
 // production 一律 official URL。只有 rehearsal（BSR_PROBE_ALLOW_LOCAL=1 且目標為 loopback）
 // 才允許注入 provider mock；非 loopback 的注入一律忽略，避免 SSRF / 資料外流。
