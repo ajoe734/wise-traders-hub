@@ -107,7 +107,16 @@ jwt-secret = "$SECRET"
 db-use-legacy-gucs = false
 EOF
 "$PGRST_BIN" "$DIR/pgrst.conf" >"$DIR/pgrst.log" 2>&1 & PIDS+=($!)
-python3 db/r1/c/SB/sb_rest_proxy.py "$PROXY_PORT" "$PGRST_PORT" "$DIR/proxy.jsonl" >"$DIR/proxy.log" 2>&1 & PIDS+=($!)
+python3 db/r1/c/SB/sb_rest_proxy.py "$PROXY_PORT" "$PGRST_PORT" "$DIR/proxy.jsonl" "$AUTH_PORT" >"$DIR/proxy.log" 2>&1 & PIDS+=($!)
+# --- real Supabase Auth (GoTrue) against this clone -------------------------
+env GOTRUE_DB_DRIVER=postgres \
+    DATABASE_URL="postgres://gotrue_admin:clone-only@127.0.0.1:$PORT/clone?sslmode=disable" \
+    GOTRUE_DB_NAMESPACE=auth GOTRUE_JWT_SECRET="$SECRET" GOTRUE_JWT_AUD=authenticated \
+    GOTRUE_JWT_EXP=3600 GOTRUE_JWT_DEFAULT_GROUP_NAME=authenticated \
+    GOTRUE_API_HOST=127.0.0.1 PORT=$AUTH_PORT GOTRUE_SITE_URL=http://localhost \
+    API_EXTERNAL_URL="http://127.0.0.1:$AUTH_PORT" GOTRUE_DISABLE_SIGNUP=false \
+    GOTRUE_MAILER_AUTOCONFIRM=true GOTRUE_LOG_LEVEL=warn \
+    "$GOTRUE_BIN" serve >"$DIR/gotrue.log" 2>&1 & PIDS+=($!)
 echo reject >"$DIR/mock_mode"
 python3 db/r1/c/SB/sb_provider_mock.py "$MOCK_PORT" "$DIR/mock_mode" "$DIR/provider.jsonl" >"$DIR/mock.log" 2>&1 & PIDS+=($!)
 for i in $(seq 1 80); do curl -sf -o /dev/null "http://127.0.0.1:$PGRST_PORT/" && break; sleep 0.5; done
@@ -115,6 +124,10 @@ curl -sf -o /dev/null "http://127.0.0.1:$PGRST_PORT/" || { tail -20 "$DIR/pgrst.
 curl -sf -o /dev/null "http://127.0.0.1:$PROXY_PORT/" || fatal "proxy not ready"
 curl -sf -o /dev/null "http://127.0.0.1:$MOCK_PORT/?dataset=x" || fatal "provider mock not ready"
 chk 0 "EB-03 postgrest + rest proxy + provider mock up"
+for i in $(seq 1 80); do curl -sf -o /dev/null "http://127.0.0.1:$AUTH_PORT/health" && break; sleep 0.5; done
+curl -sf -o /dev/null "http://127.0.0.1:$AUTH_PORT/health" || { tail -20 "$DIR/gotrue.log"; fatal "AUTH GAP: real GoTrue did not become healthy"; }
+AUTHVER=$(curl -s "http://127.0.0.1:$AUTH_PORT/health" | python3 -c "import json,sys;print(json.load(sys.stdin).get('version',''))")
+chk $([ -n "$AUTHVER" ] && echo 0 || echo 1) "EB-03b real supabase-auth up (version=$AUTHVER)"
 
 SRK=$(python3 - "$SECRET" service_role <<'PY'
 import base64,hashlib,hmac,json,sys
