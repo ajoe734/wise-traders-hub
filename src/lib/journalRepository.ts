@@ -13,7 +13,7 @@
 import { taipeiMondayOf, taipeiWeekRangeUtc } from '@/lib/taipeiWeek';
 import {
   gateSignalEconomics,
-  READY_PROJECTION,
+  UNKNOWN_PROJECTION,
   type ProjectionStatus,
 } from '@/contracts/publicEconomicContract';
 
@@ -84,7 +84,7 @@ export async function forSubscriber<T = any>(
   // figure while the projection scope is under review / incomplete.
   const gated = gateSignalEconomics(
     (data ?? []) as unknown as Record<string, unknown>[],
-    opts.projection ?? READY_PROJECTION,
+    opts.projection ?? UNKNOWN_PROJECTION,
   ) as unknown as T[];
   return { signals: gated, error: error?.message ?? null };
 }
