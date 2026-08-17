@@ -176,22 +176,6 @@ SELECT t.expect_error('T-P32j an unsupported derivative cannot be marked publish
             'as_reported_publishable','unknown_derivative',false)$$,
   'rmk_derivative_closed', '23514');
 
--- live fast-path closure: a warrant-coded open position must never reach the public
-DO $$ DECLARE v_ver bigint; BEGIN
-  PERFORM tp.sig((SELECT v FROM tp.ids WHERE k='sigW1'), 'buy', 5, 1.05, 'published', '078397 同欣電富邦64購02');
-  UPDATE app_ledger.economic_effect SET visible_at = now() - interval '1 minute'
-   WHERE expert_id = (SELECT v FROM tp.ids WHERE k='expP');
-  v_ver := app_ledger.canonical_publish((SELECT v FROM tp.ids WHERE k='expP'));
-  PERFORM t.eq('T-P32k warrant position is not published',
-    (SELECT count(*)::int FROM public.public_position_projection
-      WHERE projection_version=v_ver AND instrument LIKE '078397%'), 0);
-  PERFORM t.eq('T-P32l warrant position is recorded as withheld',
-    (SELECT count(*)::int FROM public.public_projection_withheld
-      WHERE projection_version=v_ver AND instrument LIKE '078397%'
-        AND reason LIKE 'derivative_unsupported:%'), 1);
-  DELETE FROM public.expert_signals WHERE id=(SELECT v FROM tp.ids WHERE k='sigW1');
-END $$;
-
 -- =====================================================================
 -- P2  embargo — a pending (not yet visible) effect is invisible everywhere
 -- =====================================================================
@@ -453,3 +437,21 @@ END $$;
 \echo '--- R1-P verify summary ---'
 SELECT count(*) AS tests, count(*) FILTER (WHERE NOT passed) AS failures FROM t.result;
 SELECT id, name, coalesce(detail,'') FROM t.result WHERE NOT passed ORDER BY id;
+
+-- =====================================================================
+-- P9  live derivative fast-path closure (runs last: it withholds a position)
+-- =====================================================================
+DO $$ DECLARE v_ver bigint; BEGIN
+  PERFORM tp.sig((SELECT v FROM tp.ids WHERE k='sigW1'), 'buy', 5, 1.05, 'published', '078397 同欣電富邦64購02');
+  UPDATE app_ledger.economic_effect SET visible_at = now() - interval '1 minute'
+   WHERE expert_id = (SELECT v FROM tp.ids WHERE k='expP');
+  v_ver := app_ledger.canonical_publish((SELECT v FROM tp.ids WHERE k='expP'));
+  PERFORM t.eq('T-P32k warrant position is not published',
+    (SELECT count(*)::int FROM public.public_position_projection
+      WHERE projection_version=v_ver AND instrument LIKE '078397%'), 0);
+  PERFORM t.eq('T-P32l warrant position is recorded as withheld',
+    (SELECT count(*)::int FROM public.public_projection_withheld
+      WHERE projection_version=v_ver AND instrument LIKE '078397%'
+        AND reason LIKE 'derivative_unsupported:%'), 1);
+END $$;
+
