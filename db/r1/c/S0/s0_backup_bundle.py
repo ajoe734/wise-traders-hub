@@ -173,6 +173,16 @@ def main():
         where n.nspname='public' and c.relkind in ('r','v')
           and coalesce(r.rolname,'PUBLIC') in ('anon','authenticated','service_role','postgres','ledger_owner')
         order by c.relname, coalesce(r.rolname,'PUBLIC'), a.privilege_type""")
+    # CREATE FUNCTION implicitly grants EXECUTE to PUBLIC. Production has that
+    # grant revoked on every function that carries an explicit ACL, so the
+    # backup must reproduce the revoke or a restore silently re-opens them.
+    frevokes = lines("""select 'REVOKE ALL ON FUNCTION public.'||quote_ident(p.proname)||'('||
+        pg_get_function_identity_arguments(p.oid)||') FROM PUBLIC;'
+        from pg_proc p join pg_namespace n on n.oid=p.pronamespace
+        where n.nspname='public' and p.proacl is not null
+          and not exists (select 1 from aclexplode(p.proacl) a where a.grantee = 0)
+        order by p.proname, pg_get_function_identity_arguments(p.oid)""")
+    frevokes = ["DO $$ BEGIN %s EXCEPTION WHEN others THEN NULL; END $$;" % r for r in frevokes]
     fgrants = lines("""select 'GRANT EXECUTE ON FUNCTION public.'||p.proname||'('||
         pg_get_function_identity_arguments(p.oid)||') TO '||quote_ident(g.grantee)||';'
         from pg_proc p join pg_namespace n on n.oid=p.pronamespace
@@ -183,7 +193,7 @@ def main():
         order by p.proname, g.grantee""")
     emit("050_security.sql", "RLS + policies + table grants + function EXECUTE grants",
          ["DO $$ BEGIN %s EXCEPTION WHEN others THEN RAISE NOTICE 'sec skipped: %%', SQLERRM; END $$;" % s
-          for s in rls + pols + tgrants + fgrants])
+          for s in rls + pols + tgrants + frevokes + fgrants])
 
     # --------------------------------------------------------------- 060 cron
     jobs = cli_q("select jobid, jobname, schedule, active, username, command from cron.job order by jobid")
