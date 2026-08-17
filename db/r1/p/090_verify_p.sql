@@ -192,13 +192,13 @@ END $$;
 -- =====================================================================
 -- P3  withholding — an unadjudicated key never reaches a public surface
 -- =====================================================================
-DO $$ DECLARE v_ver bigint; n int; k text; BEGIN
+DO $$ DECLARE v_ver bigint; n int; v_key text; BEGIN
   PERFORM tp.sig((SELECT v FROM tp.ids WHERE k='sigW1'), 'buy', 5, 100, 'published', '6515');
-  k := app_ledger.manifest_key((SELECT v FROM tp.ids WHERE k='expP'), 'TW', '6515');
+  v_key := app_ledger.manifest_key((SELECT v FROM tp.ids WHERE k='expP'), 'TW', '6515');
   INSERT INTO app_ledger.replay_manifest_key(key, expert_handle, instrument, market, currency,
     class, stored_open_qty_shares, replay_qty_shares, qty_drift, review_status,
     public_disposition, authoritative_qty_shares, auto_correction_forbidden, reason_codes, in_drift26)
-  VALUES (k,'E-fixture','6515','TW','TWD','multiple_apply',50,10,40,'manual_review',
+  VALUES (v_key,'E-fixture','6515','TW','TWD','multiple_apply',50,10,40,'manual_review',
           'withheld_incomplete',NULL,true,'["multiple_apply_suspected"]'::jsonb,true)
   ON CONFLICT (key) DO NOTHING;
 
