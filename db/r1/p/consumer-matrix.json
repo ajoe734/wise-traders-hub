@@ -21,8 +21,14 @@
   },
   {
    "path": "src/test/integration/1.35-rls-security-audit.test.ts",
-   "reason": "RLS audit harness that only names tables in assertions strings",
-   "evidence_rule": "no .from('<econ table>') / .rpc( in file"
+   "reason": "RLS audit harness: it never selects an economic table directly; it only calls the public read-only RPC bundles (get_public_experts_list / get_expert_detail_bundle / get_pricing_bundle) and asserts that anon is refused",
+   "evidence_rule": "no .from('<econ table>') in file; RPCs limited to the public bundle allowlist",
+   "rpc_allowlist": [
+    "get_public_experts_list",
+    "get_expert_detail_bundle",
+    "get_pricing_bundle",
+    "get_public_expert_performance"
+   ]
   }
  ],
  "static_consumers": [

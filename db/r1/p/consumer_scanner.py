@@ -61,8 +61,13 @@ EXCLUDED_FALSE_POSITIVES = [
     },
     {
         "path": "src/test/integration/1.35-rls-security-audit.test.ts",
-        "reason": "RLS audit harness that only names tables in assertions strings",
-        "evidence_rule": "no .from('<econ table>') / .rpc( in file",
+        "reason": "RLS audit harness: it never selects an economic table directly; "
+                  "it only calls the public read-only RPC bundles "
+                  "(get_public_experts_list / get_expert_detail_bundle / get_pricing_bundle) "
+                  "and asserts that anon is refused",
+        "evidence_rule": "no .from('<econ table>') in file; RPCs limited to the public bundle allowlist",
+        "rpc_allowlist": ["get_public_experts_list", "get_expert_detail_bundle",
+                          "get_pricing_bundle", "get_public_expert_performance"],
     },
 ]
 
@@ -75,8 +80,10 @@ def prove_exclusions() -> list[str]:
         if not f.exists():
             continue
         txt = f.read_text(encoding="utf-8", errors="ignore")
+        allow = set(ex.get("rpc_allowlist", []))
         hits = [m.group(0) for m in ACCESS_RE.finditer(txt)
-                if (m.group(1) in ECON_TABLES) or m.group(3)]
+                if (m.group(1) in ECON_TABLES)
+                or (m.group(3) and m.group(3) not in allow)]
         if hits:
             errs.append(f"EXCLUSION BROKEN {ex['path']}: now performs economic access {hits[:3]}")
     return errs
