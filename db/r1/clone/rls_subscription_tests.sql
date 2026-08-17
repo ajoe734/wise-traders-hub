@@ -177,3 +177,24 @@ $function$
 -- Fix (clone-side only; production ACL untouched):
 REVOKE ALL ON FUNCTION public.run_rls_subscription_tests() FROM PUBLIC, anon, authenticated;
 GRANT EXECUTE ON FUNCTION public.run_rls_subscription_tests() TO service_role;
+
+-- ---------------------------------------------------------------------
+-- Execution. The harness is a SECURITY DEFINER set-returning function whose
+-- EXECUTE is restricted to service_role, so the clone runs it as service_role
+-- and lands each case in t.result. Loading this file without running it was
+-- the reason the suite reported 0 tests: definition is not execution.
+DO $$
+DECLARE r record; n int := 0;
+BEGIN
+  SET LOCAL ROLE service_role;
+  FOR r IN SELECT * FROM public.run_rls_subscription_tests() LOOP
+    n := n + 1;
+    RESET ROLE;
+    PERFORM t.ok('T-P99a/RLS ' || r.test_name, r.passed, coalesce(r.detail,''));
+    SET LOCAL ROLE service_role;
+  END LOOP;
+  RESET ROLE;
+  IF n < 15 THEN
+    RAISE EXCEPTION 'rls_harness_underrun: % cases (>=15 required)', n;
+  END IF;
+END $$;
