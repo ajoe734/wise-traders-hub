@@ -57,9 +57,9 @@ GRANT USAGE ON SCHEMA auth TO ledger_owner;
 CREATE OR REPLACE FUNCTION app_ledger.assert_canonical_writer(p_what text)
 RETURNS void LANGUAGE plpgsql STABLE SET search_path = '' AS $$
 BEGIN
-  IF pg_catalog.current_user <> 'ledger_owner' THEN
+  IF current_user <> 'ledger_owner' THEN
     RAISE EXCEPTION 'unauthorized_%_mutation: writer=% (only ledger_owner may write economics)',
-      p_what, pg_catalog.current_user USING ERRCODE = 'P0001';
+      p_what, current_user USING ERRCODE = 'P0001';
   END IF;
 END $$;
 
