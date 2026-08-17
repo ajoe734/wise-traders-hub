@@ -1,0 +1,376 @@
+{
+  "baseline_counts": {
+    "db_writers": 15,
+    "edge_writers": 13,
+    "triggers": 23
+  },
+  "counts": {
+    "db_writers": 15,
+    "edge_writers": 13,
+    "triggers": 23
+  },
+  "db_writers": [
+    {
+      "id": "W04",
+      "live_signatures": [
+        "admin_apply_fix_proposal(uuid,boolean)"
+      ],
+      "present": true,
+      "prosrc_md5": [
+        "c5b97206e11facd2c0856cb626da3d4f"
+      ],
+      "signature": "public.admin_apply_fix_proposal(p_id uuid, p_confirm boolean)"
+    },
+    {
+      "id": "W05",
+      "live_signatures": [
+        "admin_delete_trade_records_by_signal_ids(uuid[])"
+      ],
+      "present": true,
+      "prosrc_md5": [
+        "88e91bb83c29806807cf3daef2d17533"
+      ],
+      "signature": "public.admin_delete_trade_records_by_signal_ids(_signal_ids uuid[])"
+    },
+    {
+      "id": "W06",
+      "live_signatures": [
+        "admin_delete_trade_records_by_symbol(uuid,text)"
+      ],
+      "present": true,
+      "prosrc_md5": [
+        "3b2b44743c74c51a98336b820d216a2e"
+      ],
+      "signature": "public.admin_delete_trade_records_by_symbol(_expert_id uuid, _symbol_prefix text)"
+    },
+    {
+      "id": "W11",
+      "live_signatures": [
+        "admin_generate_fix_proposals(text)"
+      ],
+      "present": true,
+      "prosrc_md5": [
+        "3255d2579be1d2e3275a9300e9979592"
+      ],
+      "signature": "public.admin_generate_fix_proposals(p_category text)"
+    },
+    {
+      "id": "W12",
+      "live_signatures": [
+        "admin_reject_fix_proposal(uuid,text)"
+      ],
+      "present": true,
+      "prosrc_md5": [
+        "924a409c9ff6bc0cb48dd40723e6b5bb"
+      ],
+      "signature": "public.admin_reject_fix_proposal(p_id uuid, p_note text)"
+    },
+    {
+      "id": "W10",
+      "live_signatures": [
+        "admin_reset_expert_asset_class(uuid,text)"
+      ],
+      "present": true,
+      "prosrc_md5": [
+        "8bec39f7b99d56918ac0110b1c1c5e20"
+      ],
+      "signature": "public.admin_reset_expert_asset_class(_expert_id uuid, _new_asset_class text)"
+    },
+    {
+      "id": "W07",
+      "live_signatures": [
+        "admin_signal_dupe_trades_fix(uuid,boolean,boolean)"
+      ],
+      "present": true,
+      "prosrc_md5": [
+        "bb8dfc66cb89c0744a4af214b32f346d"
+      ],
+      "signature": "public.admin_signal_dupe_trades_fix(p_signal_id uuid, p_dry_run boolean, p_force boolean)"
+    },
+    {
+      "id": "W14",
+      "live_signatures": [
+        "delete_old_prices()"
+      ],
+      "present": true,
+      "prosrc_md5": [
+        "876396e5dfb4f2b136698e31bccc511d"
+      ],
+      "signature": "public.delete_old_prices()"
+    },
+    {
+      "id": "W03",
+      "live_signatures": [
+        "handle_signal_takedown()"
+      ],
+      "present": true,
+      "prosrc_md5": [
+        "1c99faafa2f8bd352983bf6cad6b1df7"
+      ],
+      "signature": "public.handle_signal_takedown()"
+    },
+    {
+      "id": "W01",
+      "live_signatures": [
+        "handle_signal_trade()"
+      ],
+      "present": true,
+      "prosrc_md5": [
+        "4f11e619141947f8c8478e44fb29a8e4"
+      ],
+      "signature": "public.handle_signal_trade()"
+    },
+    {
+      "id": "W09",
+      "live_signatures": [
+        "realign_instrument_unit(uuid,text,text)"
+      ],
+      "present": true,
+      "prosrc_md5": [
+        "a147f04fe34ccb0c0ee9279a586205f5"
+      ],
+      "signature": "public.realign_instrument_unit(p_expert_id uuid, p_symbol_prefix text, p_new_unit text)"
+    },
+    {
+      "id": "W15",
+      "live_signatures": [
+        "recalc_user_summary_on_perf_delete()"
+      ],
+      "present": true,
+      "prosrc_md5": [
+        "bf24c16a042a4f3b166eb9a04afb352f"
+      ],
+      "signature": "public.recalc_user_summary_on_perf_delete()"
+    },
+    {
+      "id": "W02",
+      "live_signatures": [
+        "save_signal_batch(uuid,uuid,jsonb,jsonb,boolean)"
+      ],
+      "present": true,
+      "prosrc_md5": [
+        "98abd52653cd052af1cc5b00dd517ce4"
+      ],
+      "signature": "public.save_signal_batch(_expert_id uuid, _batch_id uuid, _signals jsonb, _legs jsonb, _is_editing boolean)"
+    },
+    {
+      "id": "W08",
+      "live_signatures": [
+        "trade_dedupe_sweep(boolean)"
+      ],
+      "present": true,
+      "prosrc_md5": [
+        "6eb3dc6a7cb685dd131ee2cae033429e"
+      ],
+      "signature": "public.trade_dedupe_sweep(p_dry_run boolean)"
+    },
+    {
+      "id": "W13",
+      "live_signatures": [
+        "upsert_current_price(text,jsonb)"
+      ],
+      "present": true,
+      "prosrc_md5": [
+        "c1279fbfef91ec46b67f775654680f09"
+      ],
+      "signature": "public.upsert_current_price(p_writer text, p_rows jsonb)"
+    }
+  ],
+  "edge_writers": [
+    {
+      "id": "E01",
+      "present": true,
+      "sha256": "16f69724799a4d66404e37aaccfe1cb7f61e64c26bed391f0b100408a81f21ae",
+      "source": "supabase/functions/backfill-daily-snapshots/index.ts"
+    },
+    {
+      "id": "E02",
+      "present": true,
+      "sha256": "3cbead84dd6c163f041db0fce7e0af9e7a2318568bb838d2e1e9a446632193f1",
+      "source": "supabase/functions/backfill-snapshots-twse-bulk/index.ts"
+    },
+    {
+      "id": "E03",
+      "present": true,
+      "sha256": "0b932467ee0ca55f62fdbf359982c26f5a21b0968e1ef24b1d5b860ee6989a0e",
+      "source": "supabase/functions/checkup-research-extract/index.ts"
+    },
+    {
+      "id": "E04",
+      "present": true,
+      "sha256": "f65fd5e6b03dca2029668100e4babd0f0075da14a6f33032d8667bb2924a3282",
+      "source": "supabase/functions/crypto-price-sync/index.ts"
+    },
+    {
+      "id": "E05",
+      "present": true,
+      "sha256": "fbea30f9e1dc6f0f5e3ffd675e83330b85100e6047de1d0622bbc4e9ab120fd2",
+      "source": "supabase/functions/daily-performance/index.ts"
+    },
+    {
+      "id": "E06",
+      "present": true,
+      "sha256": "dac506f1261903a29d721b02bd5048c2830a4aed760c80267f7ec8fa0cd1c26c",
+      "source": "supabase/functions/daily-snapshot/index.ts"
+    },
+    {
+      "id": "E07",
+      "present": true,
+      "sha256": "b83a1cbec78110bf364d8734618740979b5f84ce8c6f976dd07cb60fef5605aa",
+      "source": "supabase/functions/line-push-signal/index.ts"
+    },
+    {
+      "id": "E08",
+      "present": true,
+      "sha256": "20832a4b7f31987ee44032ea9cadfc7d205ecc324b9b1133176b9a4a8293c865",
+      "source": "supabase/functions/publish-weekly-journals/supabasePort.ts"
+    },
+    {
+      "id": "E09",
+      "present": true,
+      "sha256": "c28bada95a7baf81a1f4dd8fe13261b01ece6ec90a26002897cd5dd98f6609f4",
+      "source": "supabase/functions/reconcile-warrant-quantities/index.ts"
+    },
+    {
+      "id": "E10",
+      "present": true,
+      "sha256": "3515f05fd8ddf855c5d177fd8ad98ecf1ff0d13d55b3a1138137ba40b38e5036",
+      "source": "supabase/functions/refresh-targets-weekly/index.ts"
+    },
+    {
+      "id": "E11",
+      "present": true,
+      "sha256": "48da1d69717b330fe20fd1e26751327a3a3085cb0b6b9be9806dfbf8fd300ba8",
+      "source": "supabase/functions/stock-price-sync/index.ts"
+    },
+    {
+      "id": "E12",
+      "present": true,
+      "sha256": "71974269a378695fa77fef5d1f98e1673c52362befe8b249d533236c1328f6f6",
+      "source": "supabase/functions/us-option-price-sync/index.ts"
+    },
+    {
+      "id": "E13",
+      "present": true,
+      "sha256": "f95369fed8b5dbb492fa81ecf68e72208bc341d155953af7d4db5525d8dce1bf",
+      "source": "supabase/functions/us-stock-quote/index.ts"
+    }
+  ],
+  "triggers": [
+    {
+      "present": true,
+      "table": "daily_price_snapshots",
+      "trigger": "daily_snapshot_normalize_volume"
+    },
+    {
+      "present": true,
+      "table": "expert_signal_legs",
+      "trigger": "trg_expert_signal_legs_updated_at"
+    },
+    {
+      "present": true,
+      "table": "expert_signals",
+      "trigger": "enforce_signal_capital_limit_trg"
+    },
+    {
+      "present": true,
+      "table": "expert_signals",
+      "trigger": "expert_signals_ai_reindex_del"
+    },
+    {
+      "present": true,
+      "table": "expert_signals",
+      "trigger": "expert_signals_ai_reindex_ins"
+    },
+    {
+      "present": true,
+      "table": "expert_signals",
+      "trigger": "expert_signals_ai_reindex_upd"
+    },
+    {
+      "present": true,
+      "table": "expert_signals",
+      "trigger": "on_signal_insert_or_update"
+    },
+    {
+      "present": true,
+      "table": "expert_signals",
+      "trigger": "trg_audit_expert_signals_del"
+    },
+    {
+      "present": true,
+      "table": "expert_signals",
+      "trigger": "trg_audit_expert_signals_ins"
+    },
+    {
+      "present": true,
+      "table": "expert_signals",
+      "trigger": "trg_audit_expert_signals_upd"
+    },
+    {
+      "present": true,
+      "table": "expert_signals",
+      "trigger": "trg_enforce_signal_recall_same_day_del"
+    },
+    {
+      "present": true,
+      "table": "expert_signals",
+      "trigger": "trg_enforce_unit_consistency_expert_signals"
+    },
+    {
+      "present": true,
+      "table": "expert_signals",
+      "trigger": "trg_set_expert_signal_market"
+    },
+    {
+      "present": true,
+      "table": "holdings_fix_proposals",
+      "trigger": "audit_holdings_fix_proposals"
+    },
+    {
+      "present": true,
+      "table": "holdings_fix_proposals",
+      "trigger": "holdings_fix_proposals_updated_at"
+    },
+    {
+      "present": true,
+      "table": "trade_records",
+      "trigger": "trg_audit_trade_records_del"
+    },
+    {
+      "present": true,
+      "table": "trade_records",
+      "trigger": "trg_audit_trade_records_ins"
+    },
+    {
+      "present": true,
+      "table": "trade_records",
+      "trigger": "trg_audit_trade_records_upd"
+    },
+    {
+      "present": true,
+      "table": "trade_records",
+      "trigger": "trg_enforce_trade_record_market_currency"
+    },
+    {
+      "present": true,
+      "table": "trade_records",
+      "trigger": "trg_enforce_unit_consistency_trade_records"
+    },
+    {
+      "present": true,
+      "table": "trade_records",
+      "trigger": "trg_trade_records_bsr_first_fetch"
+    },
+    {
+      "present": true,
+      "table": "user_performances",
+      "trigger": "trg_recalc_summary_on_perf_delete"
+    },
+    {
+      "present": true,
+      "table": "user_performances",
+      "trigger": "trg_user_performances_price_guard"
+    }
+  ]
+}

@@ -1,0 +1,59 @@
+{
+  "attempt_logs_last24h": "0",
+  "checkup_storage_holdings": 38,
+  "coverage_latest": [
+    "2026-08-14",
+    "65"
+  ],
+  "cron_106_107": [
+    {
+      "active": true,
+      "jobid": 106,
+      "jobname": "chips-prefetch-enqueue-hourly",
+      "schedule": "2 * * * *"
+    },
+    {
+      "active": true,
+      "jobid": 107,
+      "jobname": "tw-bsr-worker-hourly",
+      "schedule": "7 * * * *"
+    }
+  ],
+  "cron_active_jobs_total": 72,
+  "cron_runs_24h": [
+    {
+      "jobid": 106,
+      "runs": 24,
+      "status": "succeeded"
+    },
+    {
+      "jobid": 107,
+      "runs": 24,
+      "status": "succeeded"
+    }
+  ],
+  "kill_switches": {
+    "chips_all": "true",
+    "chips_backfill": "false",
+    "chips_interactive": "true",
+    "chips_keepwarm": "false"
+  },
+  "prefetch_targets": {
+    "demo_seed": 20
+  },
+  "queue": {
+    "done": 9956,
+    "failed": 1573,
+    "pending": 76
+  },
+  "queue_unique_symbols": 2084,
+  "stock_names": {
+    "(null)": 57,
+    "US": 17
+  },
+  "tw_bsr_daily_last24h_rows": "0",
+  "tw_bsr_daily_latest": [
+    "2026-08-14",
+    "3679883"
+  ]
+}

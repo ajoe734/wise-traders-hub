@@ -21,12 +21,22 @@ FUNCS = os.path.join(ROOT, "supabase", "functions")
 failures = []
 
 
-def q(sql):
-    r = subprocess.run(["psql", "-Atq", "-F", "\x1f", "-c", sql],
-                       capture_output=True, text=True)
-    if r.returncode != 0:
-        raise SystemExit("psql failed: %s\n%s" % (sql[:120], r.stderr))
-    return [line.split("\x1f") for line in r.stdout.strip().splitlines() if line != ""]
+def q(sql, retries=5):
+    """Read-only psql. The pooler intermittently returns EAUTHQUERY timeouts,
+    which are transient connection failures, so retry with backoff."""
+    import time
+    last = ""
+    for attempt in range(retries):
+        r = subprocess.run(["psql", "-Atq", "-F", "\x1f", "-c", sql],
+                           capture_output=True, text=True)
+        if r.returncode == 0:
+            return [line.split("\x1f") for line in r.stdout.strip().splitlines() if line != ""]
+        last = r.stderr
+        if "EAUTHQUERY" in last or "could not connect" in last or "connection to server" in last:
+            time.sleep(2 * (attempt + 1))
+            continue
+        break
+    raise SystemExit("psql failed: %s\n%s" % (sql[:120], last))
 
 
 def sha(s):
