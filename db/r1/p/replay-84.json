@@ -1,4 +1,6 @@
 {
+ "generated_by": "db/r1/p/manifest_replay.sql",
+ "source": "production read-only catalog+data",
  "total_keys": 84,
  "class_counts": {
   "signal_only": 9,
@@ -8,15 +10,37 @@
   "match": 48,
   "other": 1
  },
+ "asset_class_counts": {
+  "us_option_combo": 3,
+  "tw_stock": 35,
+  "unknown_derivative": 5,
+  "unknown_instrument": 8,
+  "tw_warrant": 10,
+  "us_stock": 23
+ },
+ "ambiguity": {
+  "definition": "market_ambiguous(KEY) := the (expert, instrument) pair of this key appears under more than one market in expert_signals UNION trade_records; unit_ambiguous(KEY) := more than one quantity_unit observed for the key.",
+  "market_ambiguous_keys_84": 16,
+  "market_ambiguous_pairs_76": 8,
+  "unit_ambiguous_keys_84": 24,
+  "unit_ambiguous_pairs_76": 24,
+  "r0_pair_basis_note": "R0 E_classify counted mutually exclusive buckets on the 76 (expert,instrument) PAIR basis and reported market_ambiguous=8. Each such pair is split into one key per market, so 8 pairs -> 16 keys, and 76 pairs + 8 extra market rows = 84 keys. The R0 number is neither a query bug nor a different population: it is the same population on the pair basis.",
+  "market_ambiguous_keys_drift": 10,
+  "unit_ambiguous_keys_drift": 2
+ },
  "reason_counts": {
   "signal_without_projection": 9,
   "unit_ambiguous": 24,
   "combo_unsupported": 3,
+  "derivative_unsupported": 23,
   "unclassified_drift": 1,
+  "us_option_combo_unsupported": 3,
   "market_ambiguous": 16,
   "projection_without_signal": 6,
   "fx_history_unavailable": 34,
-  "multiple_apply_suspected": 17
+  "unclassified_instrument": 8,
+  "multiple_apply_suspected": 17,
+  "unknown_derivative": 5
  },
  "keys": [
   {
@@ -25,8 +49,12 @@
    "instrument": "LUNR 11/8P + 16/19C",
    "market": "US",
    "currency": "USD",
-   "asset_class": "us_option",
-   "observed_units": "組",
+   "asset_class": "us_option_combo",
+   "classification_evidence": "combo_no_leg_quote_no_multiplier",
+   "in_warrant_master": false,
+   "exercise_ratio": null,
+   "quote_price": 19.01,
+   "expert_asset_class": "us_option",
    "stored_open_qty_shares": 2,
    "stored_closed_qty_shares": 0,
    "replay_qty_shares": null,
@@ -37,7 +65,9 @@
    "source_effect_linked_signals": 1,
    "reason_codes": [
     "combo_unsupported",
-    "fx_history_unavailable"
+    "derivative_unsupported",
+    "fx_history_unavailable",
+    "us_option_combo_unsupported"
    ],
    "supported": {
     "unit_supported": true,
@@ -49,11 +79,10 @@
    "review_status": "manual_review",
    "public_disposition": "withheld_incomplete",
    "in_drift26": false,
-   "authoritative_qty_shares": null,
    "candidate_qty_shares": [
-    2,
-    null
+    2
    ],
+   "authoritative_qty_shares": null,
    "auto_correction_forbidden": true
   },
   {
@@ -62,8 +91,12 @@
    "instrument": "RKLB 57.5/47.5P + 77.5/87.5C",
    "market": "US",
    "currency": "USD",
-   "asset_class": "us_option",
-   "observed_units": "組",
+   "asset_class": "us_option_combo",
+   "classification_evidence": "combo_no_leg_quote_no_multiplier",
+   "in_warrant_master": false,
+   "exercise_ratio": null,
+   "quote_price": 80.25,
+   "expert_asset_class": "us_option",
    "stored_open_qty_shares": 1,
    "stored_closed_qty_shares": 0,
    "replay_qty_shares": null,
@@ -74,7 +107,9 @@
    "source_effect_linked_signals": 1,
    "reason_codes": [
     "combo_unsupported",
-    "fx_history_unavailable"
+    "derivative_unsupported",
+    "fx_history_unavailable",
+    "us_option_combo_unsupported"
    ],
    "supported": {
     "unit_supported": true,
@@ -86,11 +121,10 @@
    "review_status": "manual_review",
    "public_disposition": "withheld_incomplete",
    "in_drift26": false,
-   "authoritative_qty_shares": null,
    "candidate_qty_shares": [
-    1,
-    null
+    1
    ],
+   "authoritative_qty_shares": null,
    "auto_correction_forbidden": true
   },
   {
@@ -99,8 +133,12 @@
    "instrument": "SNDK 950/925P + 1600/1625C",
    "market": "US",
    "currency": "USD",
-   "asset_class": "us_option",
-   "observed_units": "組",
+   "asset_class": "us_option_combo",
+   "classification_evidence": "combo_no_leg_quote_no_multiplier",
+   "in_warrant_master": false,
+   "exercise_ratio": null,
+   "quote_price": 1641.11,
+   "expert_asset_class": "us_option",
    "stored_open_qty_shares": 1,
    "stored_closed_qty_shares": 0,
    "replay_qty_shares": null,
@@ -111,7 +149,9 @@
    "source_effect_linked_signals": 1,
    "reason_codes": [
     "combo_unsupported",
-    "fx_history_unavailable"
+    "derivative_unsupported",
+    "fx_history_unavailable",
+    "us_option_combo_unsupported"
    ],
    "supported": {
     "unit_supported": true,
@@ -123,11 +163,10 @@
    "review_status": "manual_review",
    "public_disposition": "withheld_incomplete",
    "in_drift26": false,
-   "authoritative_qty_shares": null,
    "candidate_qty_shares": [
-    1,
-    null
+    1
    ],
+   "authoritative_qty_shares": null,
    "auto_correction_forbidden": true
   },
   {
@@ -136,8 +175,12 @@
    "instrument": "062787 貿聯群益5A購02",
    "market": "TW",
    "currency": "TWD",
-   "asset_class": "tw_stock",
-   "observed_units": "張+股",
+   "asset_class": "tw_warrant",
+   "classification_evidence": "warrant_master_hit_quote_stale",
+   "in_warrant_master": true,
+   "exercise_ratio": 0.006,
+   "quote_price": 0.63,
+   "expert_asset_class": "tw_stock",
    "stored_open_qty_shares": 0,
    "stored_closed_qty_shares": 50029,
    "replay_qty_shares": 0,
@@ -147,23 +190,23 @@
    "source_effect_count": 1,
    "source_effect_linked_signals": 1,
    "reason_codes": [
+    "derivative_unsupported",
     "unit_ambiguous"
    ],
    "supported": {
     "unit_supported": false,
     "market_supported": true,
     "price_supported": true,
-    "derivative_supported": true,
+    "derivative_supported": false,
     "fx_supported": true
    },
    "review_status": "manual_review",
    "public_disposition": "withheld_incomplete",
    "in_drift26": false,
-   "authoritative_qty_shares": null,
    "candidate_qty_shares": [
-    0,
     0
    ],
+   "authoritative_qty_shares": null,
    "auto_correction_forbidden": true
   },
   {
@@ -172,8 +215,12 @@
    "instrument": "063693 辛耘國泰61購02",
    "market": "TW",
    "currency": "TWD",
-   "asset_class": "tw_stock",
-   "observed_units": "張+股",
+   "asset_class": "tw_warrant",
+   "classification_evidence": "warrant_master_hit_quote_stale",
+   "in_warrant_master": true,
+   "exercise_ratio": 0.01,
+   "quote_price": 2.23,
+   "expert_asset_class": "tw_stock",
    "stored_open_qty_shares": 0,
    "stored_closed_qty_shares": 20000,
    "replay_qty_shares": 0,
@@ -183,23 +230,23 @@
    "source_effect_count": 1,
    "source_effect_linked_signals": 1,
    "reason_codes": [
+    "derivative_unsupported",
     "unit_ambiguous"
    ],
    "supported": {
     "unit_supported": false,
     "market_supported": true,
     "price_supported": true,
-    "derivative_supported": true,
+    "derivative_supported": false,
     "fx_supported": true
    },
    "review_status": "manual_review",
    "public_disposition": "withheld_incomplete",
    "in_drift26": false,
-   "authoritative_qty_shares": null,
    "candidate_qty_shares": [
-    0,
     0
    ],
+   "authoritative_qty_shares": null,
    "auto_correction_forbidden": true
   },
   {
@@ -208,8 +255,12 @@
    "instrument": "064781 勤誠兆豐5C購01",
    "market": "TW",
    "currency": "TWD",
-   "asset_class": "tw_stock",
-   "observed_units": "張+股",
+   "asset_class": "tw_warrant",
+   "classification_evidence": "warrant_master_hit_quote_stale",
+   "in_warrant_master": true,
+   "exercise_ratio": 0.006,
+   "quote_price": 1.14,
+   "expert_asset_class": "tw_stock",
    "stored_open_qty_shares": 0,
    "stored_closed_qty_shares": 30000000,
    "replay_qty_shares": 0,
@@ -219,23 +270,23 @@
    "source_effect_count": 1,
    "source_effect_linked_signals": 1,
    "reason_codes": [
+    "derivative_unsupported",
     "unit_ambiguous"
    ],
    "supported": {
     "unit_supported": false,
     "market_supported": true,
     "price_supported": true,
-    "derivative_supported": true,
+    "derivative_supported": false,
     "fx_supported": true
    },
    "review_status": "manual_review",
    "public_disposition": "withheld_incomplete",
    "in_drift26": false,
-   "authoritative_qty_shares": null,
    "candidate_qty_shares": [
-    0,
     0
    ],
+   "authoritative_qty_shares": null,
    "auto_correction_forbidden": true
   },
   {
@@ -244,8 +295,12 @@
    "instrument": "068736 神達元大5B購03",
    "market": "TW",
    "currency": "TWD",
-   "asset_class": "tw_stock",
-   "observed_units": "張+股",
+   "asset_class": "tw_warrant",
+   "classification_evidence": "warrant_master_hit_quote_stale",
+   "in_warrant_master": true,
+   "exercise_ratio": 0.2,
+   "quote_price": 1.18,
+   "expert_asset_class": "tw_stock",
    "stored_open_qty_shares": 0,
    "stored_closed_qty_shares": 20000,
    "replay_qty_shares": 0,
@@ -255,23 +310,23 @@
    "source_effect_count": 1,
    "source_effect_linked_signals": 1,
    "reason_codes": [
+    "derivative_unsupported",
     "unit_ambiguous"
    ],
    "supported": {
     "unit_supported": false,
     "market_supported": true,
     "price_supported": true,
-    "derivative_supported": true,
+    "derivative_supported": false,
     "fx_supported": true
    },
    "review_status": "manual_review",
    "public_disposition": "withheld_incomplete",
    "in_drift26": false,
-   "authoritative_qty_shares": null,
    "candidate_qty_shares": [
-    0,
     0
    ],
+   "authoritative_qty_shares": null,
    "auto_correction_forbidden": true
   },
   {
@@ -280,8 +335,12 @@
    "instrument": "069559 力成元大62購01",
    "market": "TW",
    "currency": "TWD",
-   "asset_class": "tw_stock",
-   "observed_units": "張",
+   "asset_class": "tw_warrant",
+   "classification_evidence": "warrant_master_hit_quote_stale",
+   "in_warrant_master": true,
+   "exercise_ratio": 0.01,
+   "quote_price": 0.43,
+   "expert_asset_class": "tw_stock",
    "stored_open_qty_shares": 0,
    "stored_closed_qty_shares": 80000000,
    "replay_qty_shares": 0,
@@ -290,20 +349,24 @@
    "source_signal_count": 3,
    "source_effect_count": 1,
    "source_effect_linked_signals": 1,
-   "reason_codes": [],
+   "reason_codes": [
+    "derivative_unsupported"
+   ],
    "supported": {
     "unit_supported": true,
     "market_supported": true,
     "price_supported": true,
-    "derivative_supported": true,
+    "derivative_supported": false,
     "fx_supported": true
    },
-   "review_status": "auto_supported",
-   "public_disposition": "as_reported_publishable",
+   "review_status": "manual_review",
+   "public_disposition": "withheld_incomplete",
    "in_drift26": false,
-   "authoritative_qty_shares": 0,
-   "candidate_qty_shares": null,
-   "auto_correction_forbidden": false
+   "candidate_qty_shares": [
+    0
+   ],
+   "authoritative_qty_shares": null,
+   "auto_correction_forbidden": true
   },
   {
    "key": "K-93635b42d3b3484d",
@@ -311,8 +374,12 @@
    "instrument": "071939 瑞昱統一6A購01",
    "market": "TW",
    "currency": "TWD",
-   "asset_class": "tw_stock",
-   "observed_units": "張+股",
+   "asset_class": "tw_warrant",
+   "classification_evidence": "warrant_master_hit_quote_stale",
+   "in_warrant_master": true,
+   "exercise_ratio": 0.003,
+   "quote_price": 1.02,
+   "expert_asset_class": "tw_stock",
    "stored_open_qty_shares": 0,
    "stored_closed_qty_shares": 30000,
    "replay_qty_shares": 0,
@@ -322,23 +389,23 @@
    "source_effect_count": 1,
    "source_effect_linked_signals": 1,
    "reason_codes": [
+    "derivative_unsupported",
     "unit_ambiguous"
    ],
    "supported": {
     "unit_supported": false,
     "market_supported": true,
     "price_supported": true,
-    "derivative_supported": true,
+    "derivative_supported": false,
     "fx_supported": true
    },
    "review_status": "manual_review",
    "public_disposition": "withheld_incomplete",
    "in_drift26": false,
-   "authoritative_qty_shares": null,
    "candidate_qty_shares": [
-    0,
     0
    ],
+   "authoritative_qty_shares": null,
    "auto_correction_forbidden": true
   },
   {
@@ -347,8 +414,12 @@
    "instrument": "074183 統新台新61購01",
    "market": "TW",
    "currency": "TWD",
-   "asset_class": "tw_stock",
-   "observed_units": "張",
+   "asset_class": "tw_warrant",
+   "classification_evidence": "warrant_master_hit_complete",
+   "in_warrant_master": true,
+   "exercise_ratio": 0.035,
+   "quote_price": 2.02,
+   "expert_asset_class": "tw_stock",
    "stored_open_qty_shares": 0,
    "stored_closed_qty_shares": 30000000,
    "replay_qty_shares": 0,
@@ -366,10 +437,12 @@
     "fx_supported": true
    },
    "review_status": "auto_supported",
-   "public_disposition": "as_reported_publishable",
+   "public_disposition": "publishable",
    "in_drift26": false,
+   "candidate_qty_shares": [
+    0
+   ],
    "authoritative_qty_shares": 0,
-   "candidate_qty_shares": null,
    "auto_correction_forbidden": false
   },
   {
@@ -379,7 +452,11 @@
    "market": "TW",
    "currency": "TWD",
    "asset_class": "tw_stock",
-   "observed_units": "張+股",
+   "classification_evidence": "cash_equity",
+   "in_warrant_master": false,
+   "exercise_ratio": null,
+   "quote_price": 119.5,
+   "expert_asset_class": "tw_stock",
    "stored_open_qty_shares": 0,
    "stored_closed_qty_shares": 1000,
    "replay_qty_shares": 0,
@@ -401,11 +478,10 @@
    "review_status": "manual_review",
    "public_disposition": "withheld_incomplete",
    "in_drift26": false,
-   "authoritative_qty_shares": null,
    "candidate_qty_shares": [
-    0,
     0
    ],
+   "authoritative_qty_shares": null,
    "auto_correction_forbidden": true
   },
   {
@@ -415,7 +491,11 @@
    "market": "TW",
    "currency": "TWD",
    "asset_class": "tw_stock",
-   "observed_units": "張+股",
+   "classification_evidence": "cash_equity",
+   "in_warrant_master": false,
+   "exercise_ratio": null,
+   "quote_price": 96.2,
+   "expert_asset_class": "tw_stock",
    "stored_open_qty_shares": 0,
    "stored_closed_qty_shares": 2000,
    "replay_qty_shares": 0,
@@ -437,11 +517,10 @@
    "review_status": "manual_review",
    "public_disposition": "withheld_incomplete",
    "in_drift26": false,
-   "authoritative_qty_shares": null,
    "candidate_qty_shares": [
-    0,
     0
    ],
+   "authoritative_qty_shares": null,
    "auto_correction_forbidden": true
   },
   {
@@ -451,7 +530,11 @@
    "market": "TW",
    "currency": "TWD",
    "asset_class": "tw_stock",
-   "observed_units": "張+股",
+   "classification_evidence": "cash_equity",
+   "in_warrant_master": false,
+   "exercise_ratio": null,
+   "quote_price": 121,
+   "expert_asset_class": "tw_stock",
    "stored_open_qty_shares": 0,
    "stored_closed_qty_shares": 1000,
    "replay_qty_shares": 0,
@@ -473,11 +556,10 @@
    "review_status": "manual_review",
    "public_disposition": "withheld_incomplete",
    "in_drift26": false,
-   "authoritative_qty_shares": null,
    "candidate_qty_shares": [
-    0,
     0
    ],
+   "authoritative_qty_shares": null,
    "auto_correction_forbidden": true
   },
   {
@@ -487,7 +569,11 @@
    "market": "TW",
    "currency": "TWD",
    "asset_class": "tw_stock",
-   "observed_units": "張",
+   "classification_evidence": "cash_equity",
+   "in_warrant_master": false,
+   "exercise_ratio": null,
+   "quote_price": 64,
+   "expert_asset_class": "tw_stock",
    "stored_open_qty_shares": 0,
    "stored_closed_qty_shares": 1000000,
    "replay_qty_shares": 0,
@@ -505,10 +591,12 @@
     "fx_supported": true
    },
    "review_status": "auto_supported",
-   "public_disposition": "as_reported_publishable",
+   "public_disposition": "publishable",
    "in_drift26": false,
+   "candidate_qty_shares": [
+    0
+   ],
    "authoritative_qty_shares": 0,
-   "candidate_qty_shares": null,
    "auto_correction_forbidden": false
   },
   {
@@ -518,7 +606,11 @@
    "market": "TW",
    "currency": "TWD",
    "asset_class": "tw_stock",
-   "observed_units": "張+股",
+   "classification_evidence": "cash_equity",
+   "in_warrant_master": false,
+   "exercise_ratio": null,
+   "quote_price": 145,
+   "expert_asset_class": "tw_stock",
    "stored_open_qty_shares": 0,
    "stored_closed_qty_shares": 1000,
    "replay_qty_shares": 0,
@@ -540,11 +632,10 @@
    "review_status": "manual_review",
    "public_disposition": "withheld_incomplete",
    "in_drift26": false,
-   "authoritative_qty_shares": null,
    "candidate_qty_shares": [
-    0,
     0
    ],
+   "authoritative_qty_shares": null,
    "auto_correction_forbidden": true
   },
   {
@@ -554,7 +645,11 @@
    "market": "TW",
    "currency": "TWD",
    "asset_class": "tw_stock",
-   "observed_units": "張+股",
+   "classification_evidence": "cash_equity",
+   "in_warrant_master": false,
+   "exercise_ratio": null,
+   "quote_price": 61.3,
+   "expert_asset_class": "tw_stock",
    "stored_open_qty_shares": 0,
    "stored_closed_qty_shares": 2000,
    "replay_qty_shares": 0,
@@ -576,11 +671,10 @@
    "review_status": "manual_review",
    "public_disposition": "withheld_incomplete",
    "in_drift26": false,
-   "authoritative_qty_shares": null,
    "candidate_qty_shares": [
-    0,
     0
    ],
+   "authoritative_qty_shares": null,
    "auto_correction_forbidden": true
   },
   {
@@ -590,7 +684,11 @@
    "market": "TW",
    "currency": "TWD",
    "asset_class": "tw_stock",
-   "observed_units": "張+股",
+   "classification_evidence": "cash_equity",
+   "in_warrant_master": false,
+   "exercise_ratio": null,
+   "quote_price": 214.5,
+   "expert_asset_class": "tw_stock",
    "stored_open_qty_shares": 0,
    "stored_closed_qty_shares": 1000,
    "replay_qty_shares": 0,
@@ -612,11 +710,10 @@
    "review_status": "manual_review",
    "public_disposition": "withheld_incomplete",
    "in_drift26": false,
-   "authoritative_qty_shares": null,
    "candidate_qty_shares": [
-    0,
     0
    ],
+   "authoritative_qty_shares": null,
    "auto_correction_forbidden": true
   },
   {
@@ -626,7 +723,11 @@
    "market": "TW",
    "currency": "TWD",
    "asset_class": "tw_stock",
-   "observed_units": "張+股",
+   "classification_evidence": "cash_equity",
+   "in_warrant_master": false,
+   "exercise_ratio": null,
+   "quote_price": 83.5,
+   "expert_asset_class": "tw_stock",
    "stored_open_qty_shares": 0,
    "stored_closed_qty_shares": 2000,
    "replay_qty_shares": 0,
@@ -648,11 +749,10 @@
    "review_status": "manual_review",
    "public_disposition": "withheld_incomplete",
    "in_drift26": false,
-   "authoritative_qty_shares": null,
    "candidate_qty_shares": [
-    0,
     0
    ],
+   "authoritative_qty_shares": null,
    "auto_correction_forbidden": true
   },
   {
@@ -662,7 +762,11 @@
    "market": "TW",
    "currency": "TWD",
    "asset_class": "tw_stock",
-   "observed_units": "張+股",
+   "classification_evidence": "cash_equity",
+   "in_warrant_master": false,
+   "exercise_ratio": null,
+   "quote_price": 200,
+   "expert_asset_class": "tw_stock",
    "stored_open_qty_shares": 0,
    "stored_closed_qty_shares": 1000,
    "replay_qty_shares": 0,
@@ -684,11 +788,10 @@
    "review_status": "manual_review",
    "public_disposition": "withheld_incomplete",
    "in_drift26": false,
-   "authoritative_qty_shares": null,
    "candidate_qty_shares": [
-    0,
     0
    ],
+   "authoritative_qty_shares": null,
    "auto_correction_forbidden": true
   },
   {
@@ -698,7 +801,11 @@
    "market": "TW",
    "currency": "TWD",
    "asset_class": "tw_stock",
-   "observed_units": "股",
+   "classification_evidence": "cash_equity",
+   "in_warrant_master": false,
+   "exercise_ratio": null,
+   "quote_price": 2175,
+   "expert_asset_class": "tw_stock",
    "stored_open_qty_shares": 0,
    "stored_closed_qty_shares": 150,
    "replay_qty_shares": 0,
@@ -716,10 +823,12 @@
     "fx_supported": true
    },
    "review_status": "auto_supported",
-   "public_disposition": "as_reported_publishable",
+   "public_disposition": "publishable",
    "in_drift26": false,
+   "candidate_qty_shares": [
+    0
+   ],
    "authoritative_qty_shares": 0,
-   "candidate_qty_shares": null,
    "auto_correction_forbidden": false
   },
   {
@@ -729,7 +838,11 @@
    "market": "TW",
    "currency": "TWD",
    "asset_class": "tw_stock",
-   "observed_units": "張+股",
+   "classification_evidence": "cash_equity",
+   "in_warrant_master": false,
+   "exercise_ratio": null,
+   "quote_price": 332.5,
+   "expert_asset_class": "tw_stock",
    "stored_open_qty_shares": 0,
    "stored_closed_qty_shares": 1000,
    "replay_qty_shares": 0,
@@ -751,11 +864,10 @@
    "review_status": "manual_review",
    "public_disposition": "withheld_incomplete",
    "in_drift26": false,
-   "authoritative_qty_shares": null,
    "candidate_qty_shares": [
-    0,
     0
    ],
+   "authoritative_qty_shares": null,
    "auto_correction_forbidden": true
   },
   {
@@ -765,7 +877,11 @@
    "market": "TW",
    "currency": "TWD",
    "asset_class": "tw_stock",
-   "observed_units": "股",
+   "classification_evidence": "cash_equity",
+   "in_warrant_master": false,
+   "exercise_ratio": null,
+   "quote_price": 702,
+   "expert_asset_class": "tw_stock",
    "stored_open_qty_shares": 300,
    "stored_closed_qty_shares": 0,
    "replay_qty_shares": 300,
@@ -783,10 +899,12 @@
     "fx_supported": true
    },
    "review_status": "auto_supported",
-   "public_disposition": "as_reported_publishable",
+   "public_disposition": "publishable",
    "in_drift26": false,
+   "candidate_qty_shares": [
+    300
+   ],
    "authoritative_qty_shares": 300,
-   "candidate_qty_shares": null,
    "auto_correction_forbidden": false
   },
   {
@@ -796,7 +914,11 @@
    "market": "TW",
    "currency": "TWD",
    "asset_class": "tw_stock",
-   "observed_units": "股",
+   "classification_evidence": "cash_equity",
+   "in_warrant_master": false,
+   "exercise_ratio": null,
+   "quote_price": 821,
+   "expert_asset_class": "tw_stock",
    "stored_open_qty_shares": 0,
    "stored_closed_qty_shares": 200,
    "replay_qty_shares": 0,
@@ -814,10 +936,12 @@
     "fx_supported": true
    },
    "review_status": "auto_supported",
-   "public_disposition": "as_reported_publishable",
+   "public_disposition": "publishable",
    "in_drift26": false,
+   "candidate_qty_shares": [
+    0
+   ],
    "authoritative_qty_shares": 0,
-   "candidate_qty_shares": null,
    "auto_correction_forbidden": false
   },
   {
@@ -827,7 +951,11 @@
    "market": "TW",
    "currency": "TWD",
    "asset_class": "tw_stock",
-   "observed_units": "股",
+   "classification_evidence": "cash_equity",
+   "in_warrant_master": false,
+   "exercise_ratio": null,
+   "quote_price": 473,
+   "expert_asset_class": "tw_stock",
    "stored_open_qty_shares": 0,
    "stored_closed_qty_shares": 499,
    "replay_qty_shares": 0,
@@ -845,10 +973,12 @@
     "fx_supported": true
    },
    "review_status": "auto_supported",
-   "public_disposition": "as_reported_publishable",
+   "public_disposition": "publishable",
    "in_drift26": false,
+   "candidate_qty_shares": [
+    0
+   ],
    "authoritative_qty_shares": 0,
-   "candidate_qty_shares": null,
    "auto_correction_forbidden": false
   },
   {
@@ -858,7 +988,11 @@
    "market": "TW",
    "currency": "TWD",
    "asset_class": "tw_stock",
-   "observed_units": "張+股",
+   "classification_evidence": "cash_equity",
+   "in_warrant_master": false,
+   "exercise_ratio": null,
+   "quote_price": 115,
+   "expert_asset_class": "tw_stock",
    "stored_open_qty_shares": 0,
    "stored_closed_qty_shares": 1000,
    "replay_qty_shares": 0,
@@ -880,11 +1014,10 @@
    "review_status": "manual_review",
    "public_disposition": "withheld_incomplete",
    "in_drift26": false,
-   "authoritative_qty_shares": null,
    "candidate_qty_shares": [
-    0,
     0
    ],
+   "authoritative_qty_shares": null,
    "auto_correction_forbidden": true
   },
   {
@@ -894,7 +1027,11 @@
    "market": "TW",
    "currency": "TWD",
    "asset_class": "tw_stock",
-   "observed_units": "張",
+   "classification_evidence": "cash_equity",
+   "in_warrant_master": false,
+   "exercise_ratio": null,
+   "quote_price": 122,
+   "expert_asset_class": "tw_stock",
    "stored_open_qty_shares": 0,
    "stored_closed_qty_shares": 1000000,
    "replay_qty_shares": 0,
@@ -912,10 +1049,12 @@
     "fx_supported": true
    },
    "review_status": "auto_supported",
-   "public_disposition": "as_reported_publishable",
+   "public_disposition": "publishable",
    "in_drift26": false,
+   "candidate_qty_shares": [
+    0
+   ],
    "authoritative_qty_shares": 0,
-   "candidate_qty_shares": null,
    "auto_correction_forbidden": false
   },
   {
@@ -925,7 +1064,11 @@
    "market": "TW",
    "currency": "TWD",
    "asset_class": "tw_stock",
-   "observed_units": "張+股",
+   "classification_evidence": "cash_equity",
+   "in_warrant_master": false,
+   "exercise_ratio": null,
+   "quote_price": 56.6,
+   "expert_asset_class": "tw_stock",
    "stored_open_qty_shares": 0,
    "stored_closed_qty_shares": 2000,
    "replay_qty_shares": 0,
@@ -947,11 +1090,10 @@
    "review_status": "manual_review",
    "public_disposition": "withheld_incomplete",
    "in_drift26": false,
-   "authoritative_qty_shares": null,
    "candidate_qty_shares": [
-    0,
     0
    ],
+   "authoritative_qty_shares": null,
    "auto_correction_forbidden": true
   },
   {
@@ -961,7 +1103,11 @@
    "market": "TW",
    "currency": "TWD",
    "asset_class": "tw_stock",
-   "observed_units": "股",
+   "classification_evidence": "cash_equity",
+   "in_warrant_master": false,
+   "exercise_ratio": null,
+   "quote_price": 929,
+   "expert_asset_class": "tw_stock",
    "stored_open_qty_shares": 0,
    "stored_closed_qty_shares": 200,
    "replay_qty_shares": 0,
@@ -979,10 +1125,12 @@
     "fx_supported": true
    },
    "review_status": "auto_supported",
-   "public_disposition": "as_reported_publishable",
+   "public_disposition": "publishable",
    "in_drift26": false,
+   "candidate_qty_shares": [
+    0
+   ],
    "authoritative_qty_shares": 0,
-   "candidate_qty_shares": null,
    "auto_correction_forbidden": false
   },
   {
@@ -992,7 +1140,11 @@
    "market": "TW",
    "currency": "TWD",
    "asset_class": "tw_stock",
-   "observed_units": "股",
+   "classification_evidence": "cash_equity",
+   "in_warrant_master": false,
+   "exercise_ratio": null,
+   "quote_price": 538,
+   "expert_asset_class": "tw_stock",
    "stored_open_qty_shares": 0,
    "stored_closed_qty_shares": 500,
    "replay_qty_shares": 0,
@@ -1010,10 +1162,12 @@
     "fx_supported": true
    },
    "review_status": "auto_supported",
-   "public_disposition": "as_reported_publishable",
+   "public_disposition": "publishable",
    "in_drift26": false,
+   "candidate_qty_shares": [
+    0
+   ],
    "authoritative_qty_shares": 0,
-   "candidate_qty_shares": null,
    "auto_correction_forbidden": false
   },
   {
@@ -1023,7 +1177,11 @@
    "market": "TW",
    "currency": "TWD",
    "asset_class": "tw_stock",
-   "observed_units": "股",
+   "classification_evidence": "cash_equity",
+   "in_warrant_master": false,
+   "exercise_ratio": null,
+   "quote_price": 1465,
+   "expert_asset_class": "tw_stock",
    "stored_open_qty_shares": 0,
    "stored_closed_qty_shares": 100,
    "replay_qty_shares": 0,
@@ -1041,10 +1199,12 @@
     "fx_supported": true
    },
    "review_status": "auto_supported",
-   "public_disposition": "as_reported_publishable",
+   "public_disposition": "publishable",
    "in_drift26": false,
+   "candidate_qty_shares": [
+    0
+   ],
    "authoritative_qty_shares": 0,
-   "candidate_qty_shares": null,
    "auto_correction_forbidden": false
   },
   {
@@ -1054,7 +1214,11 @@
    "market": "TW",
    "currency": "TWD",
    "asset_class": "tw_stock",
-   "observed_units": "張+股",
+   "classification_evidence": "cash_equity",
+   "in_warrant_master": false,
+   "exercise_ratio": null,
+   "quote_price": 101.5,
+   "expert_asset_class": "tw_stock",
    "stored_open_qty_shares": 0,
    "stored_closed_qty_shares": 2000,
    "replay_qty_shares": 0,
@@ -1076,11 +1240,10 @@
    "review_status": "manual_review",
    "public_disposition": "withheld_incomplete",
    "in_drift26": false,
-   "authoritative_qty_shares": null,
    "candidate_qty_shares": [
-    0,
     0
    ],
+   "authoritative_qty_shares": null,
    "auto_correction_forbidden": true
   },
   {
@@ -1090,7 +1253,11 @@
    "market": "TW",
    "currency": "TWD",
    "asset_class": "tw_stock",
-   "observed_units": "張+股",
+   "classification_evidence": "cash_equity",
+   "in_warrant_master": false,
+   "exercise_ratio": null,
+   "quote_price": 57,
+   "expert_asset_class": "tw_stock",
    "stored_open_qty_shares": 0,
    "stored_closed_qty_shares": 2000,
    "replay_qty_shares": 0,
@@ -1112,11 +1279,10 @@
    "review_status": "manual_review",
    "public_disposition": "withheld_incomplete",
    "in_drift26": false,
-   "authoritative_qty_shares": null,
    "candidate_qty_shares": [
-    0,
     0
    ],
+   "authoritative_qty_shares": null,
    "auto_correction_forbidden": true
   },
   {
@@ -1126,7 +1292,11 @@
    "market": "TW",
    "currency": "TWD",
    "asset_class": "tw_stock",
-   "observed_units": "股",
+   "classification_evidence": "cash_equity",
+   "in_warrant_master": false,
+   "exercise_ratio": null,
+   "quote_price": 724,
+   "expert_asset_class": "tw_stock",
    "stored_open_qty_shares": 0,
    "stored_closed_qty_shares": 500,
    "replay_qty_shares": 0,
@@ -1144,10 +1314,12 @@
     "fx_supported": true
    },
    "review_status": "auto_supported",
-   "public_disposition": "as_reported_publishable",
+   "public_disposition": "publishable",
    "in_drift26": false,
+   "candidate_qty_shares": [
+    0
+   ],
    "authoritative_qty_shares": 0,
-   "candidate_qty_shares": null,
    "auto_correction_forbidden": false
   },
   {
@@ -1157,7 +1329,11 @@
    "market": "TW",
    "currency": "TWD",
    "asset_class": "tw_stock",
-   "observed_units": "張+股",
+   "classification_evidence": "cash_equity",
+   "in_warrant_master": false,
+   "exercise_ratio": null,
+   "quote_price": 195,
+   "expert_asset_class": "tw_stock",
    "stored_open_qty_shares": 0,
    "stored_closed_qty_shares": 1000,
    "replay_qty_shares": 0,
@@ -1179,11 +1355,10 @@
    "review_status": "manual_review",
    "public_disposition": "withheld_incomplete",
    "in_drift26": false,
-   "authoritative_qty_shares": null,
    "candidate_qty_shares": [
-    0,
     0
    ],
+   "authoritative_qty_shares": null,
    "auto_correction_forbidden": true
   },
   {
@@ -1192,8 +1367,12 @@
    "instrument": "708938 臺慶科統一65購01",
    "market": "TW",
    "currency": "TWD",
-   "asset_class": "tw_stock",
-   "observed_units": "張+股",
+   "asset_class": "unknown_derivative",
+   "classification_evidence": "warrant_code_space_absent_from_master",
+   "in_warrant_master": false,
+   "exercise_ratio": null,
+   "quote_price": 1.17,
+   "expert_asset_class": "tw_stock",
    "stored_open_qty_shares": 0,
    "stored_closed_qty_shares": 20000,
    "replay_qty_shares": 0,
@@ -1203,23 +1382,24 @@
    "source_effect_count": 1,
    "source_effect_linked_signals": 1,
    "reason_codes": [
-    "unit_ambiguous"
+    "derivative_unsupported",
+    "unit_ambiguous",
+    "unknown_derivative"
    ],
    "supported": {
     "unit_supported": false,
     "market_supported": true,
     "price_supported": true,
-    "derivative_supported": true,
+    "derivative_supported": false,
     "fx_supported": true
    },
    "review_status": "manual_review",
    "public_disposition": "withheld_incomplete",
    "in_drift26": false,
-   "authoritative_qty_shares": null,
    "candidate_qty_shares": [
-    0,
     0
    ],
+   "authoritative_qty_shares": null,
    "auto_correction_forbidden": true
   },
   {
@@ -1228,8 +1408,12 @@
    "instrument": "709803 宏捷科台新5C購01",
    "market": "TW",
    "currency": "TWD",
-   "asset_class": "tw_stock",
-   "observed_units": "張+股",
+   "asset_class": "unknown_derivative",
+   "classification_evidence": "warrant_code_space_absent_from_master",
+   "in_warrant_master": false,
+   "exercise_ratio": null,
+   "quote_price": 1.08,
+   "expert_asset_class": "tw_stock",
    "stored_open_qty_shares": 0,
    "stored_closed_qty_shares": 20000,
    "replay_qty_shares": 0,
@@ -1239,23 +1423,24 @@
    "source_effect_count": 1,
    "source_effect_linked_signals": 1,
    "reason_codes": [
-    "unit_ambiguous"
+    "derivative_unsupported",
+    "unit_ambiguous",
+    "unknown_derivative"
    ],
    "supported": {
     "unit_supported": false,
     "market_supported": true,
     "price_supported": true,
-    "derivative_supported": true,
+    "derivative_supported": false,
     "fx_supported": true
    },
    "review_status": "manual_review",
    "public_disposition": "withheld_incomplete",
    "in_drift26": false,
-   "authoritative_qty_shares": null,
    "candidate_qty_shares": [
-    0,
     0
    ],
+   "authoritative_qty_shares": null,
    "auto_correction_forbidden": true
   },
   {
@@ -1265,7 +1450,11 @@
    "market": "TW",
    "currency": "TWD",
    "asset_class": "tw_stock",
-   "observed_units": "股",
+   "classification_evidence": "cash_equity",
+   "in_warrant_master": false,
+   "exercise_ratio": null,
+   "quote_price": 263,
+   "expert_asset_class": "tw_stock",
    "stored_open_qty_shares": 500,
    "stored_closed_qty_shares": 0,
    "replay_qty_shares": 500,
@@ -1283,10 +1472,12 @@
     "fx_supported": true
    },
    "review_status": "auto_supported",
-   "public_disposition": "as_reported_publishable",
+   "public_disposition": "publishable",
    "in_drift26": false,
+   "candidate_qty_shares": [
+    500
+   ],
    "authoritative_qty_shares": 500,
-   "candidate_qty_shares": null,
    "auto_correction_forbidden": false
   },
   {
@@ -1296,7 +1487,11 @@
    "market": "TW",
    "currency": "TWD",
    "asset_class": "tw_stock",
-   "observed_units": "股",
+   "classification_evidence": "cash_equity",
+   "in_warrant_master": false,
+   "exercise_ratio": null,
+   "quote_price": 1145,
+   "expert_asset_class": "tw_stock",
    "stored_open_qty_shares": 0,
    "stored_closed_qty_shares": 500,
    "replay_qty_shares": 0,
@@ -1314,10 +1509,12 @@
     "fx_supported": true
    },
    "review_status": "auto_supported",
-   "public_disposition": "as_reported_publishable",
+   "public_disposition": "publishable",
    "in_drift26": false,
+   "candidate_qty_shares": [
+    0
+   ],
    "authoritative_qty_shares": 0,
-   "candidate_qty_shares": null,
    "auto_correction_forbidden": false
   },
   {
@@ -1327,7 +1524,11 @@
    "market": "TW",
    "currency": "TWD",
    "asset_class": "tw_stock",
-   "observed_units": "張+股",
+   "classification_evidence": "cash_equity",
+   "in_warrant_master": false,
+   "exercise_ratio": null,
+   "quote_price": 74.5,
+   "expert_asset_class": "tw_stock",
    "stored_open_qty_shares": 0,
    "stored_closed_qty_shares": 2000,
    "replay_qty_shares": 0,
@@ -1349,11 +1550,10 @@
    "review_status": "manual_review",
    "public_disposition": "withheld_incomplete",
    "in_drift26": false,
-   "authoritative_qty_shares": null,
    "candidate_qty_shares": [
-    0,
     0
    ],
+   "authoritative_qty_shares": null,
    "auto_correction_forbidden": true
   },
   {
@@ -1363,7 +1563,11 @@
    "market": "TW",
    "currency": "TWD",
    "asset_class": "tw_stock",
-   "observed_units": "股",
+   "classification_evidence": "cash_equity",
+   "in_warrant_master": false,
+   "exercise_ratio": null,
+   "quote_price": 2080,
+   "expert_asset_class": "tw_stock",
    "stored_open_qty_shares": 100,
    "stored_closed_qty_shares": 100,
    "replay_qty_shares": 100,
@@ -1381,10 +1585,12 @@
     "fx_supported": true
    },
    "review_status": "auto_supported",
-   "public_disposition": "as_reported_publishable",
+   "public_disposition": "publishable",
    "in_drift26": false,
+   "candidate_qty_shares": [
+    100
+   ],
    "authoritative_qty_shares": 100,
-   "candidate_qty_shares": null,
    "auto_correction_forbidden": false
   },
   {
@@ -1394,7 +1600,11 @@
    "market": "US",
    "currency": "USD",
    "asset_class": "us_stock",
-   "observed_units": "股",
+   "classification_evidence": "cash_equity",
+   "in_warrant_master": false,
+   "exercise_ratio": null,
+   "quote_price": 514.39,
+   "expert_asset_class": "us_stock",
    "stored_open_qty_shares": 15,
    "stored_closed_qty_shares": 0,
    "replay_qty_shares": 15,
@@ -1414,43 +1624,12 @@
     "fx_supported": false
    },
    "review_status": "auto_supported",
-   "public_disposition": "as_reported_publishable",
+   "public_disposition": "publishable",
    "in_drift26": false,
-   "authoritative_qty_shares": 15,
-   "candidate_qty_shares": null,
-   "auto_correction_forbidden": false
-  },
-  {
-   "key": "K-c970448c66129ccb",
-   "expert": "E-5e72fc27",
-   "instrument": "INTC",
-   "market": "US",
-   "currency": "USD",
-   "asset_class": "us_stock",
-   "observed_units": "股",
-   "stored_open_qty_shares": 0,
-   "stored_closed_qty_shares": 20,
-   "replay_qty_shares": 0,
-   "qty_drift": 0,
-   "class": "match",
-   "source_signal_count": 2,
-   "source_effect_count": 1,
-   "source_effect_linked_signals": 1,
-   "reason_codes": [
-    "fx_history_unavailable"
+   "candidate_qty_shares": [
+    15
    ],
-   "supported": {
-    "unit_supported": true,
-    "market_supported": true,
-    "price_supported": true,
-    "derivative_supported": true,
-    "fx_supported": false
-   },
-   "review_status": "auto_supported",
-   "public_disposition": "as_reported_publishable",
-   "in_drift26": false,
-   "authoritative_qty_shares": 0,
-   "candidate_qty_shares": null,
+   "authoritative_qty_shares": 15,
    "auto_correction_forbidden": false
   },
   {
@@ -1460,7 +1639,11 @@
    "market": "US",
    "currency": "USD",
    "asset_class": "us_stock",
-   "observed_units": "股",
+   "classification_evidence": "cash_equity",
+   "in_warrant_master": false,
+   "exercise_ratio": null,
+   "quote_price": 104.56,
+   "expert_asset_class": "us_stock",
    "stored_open_qty_shares": 0,
    "stored_closed_qty_shares": 40,
    "replay_qty_shares": 0,
@@ -1480,10 +1663,51 @@
     "fx_supported": false
    },
    "review_status": "auto_supported",
-   "public_disposition": "as_reported_publishable",
+   "public_disposition": "publishable",
    "in_drift26": false,
+   "candidate_qty_shares": [
+    0
+   ],
    "authoritative_qty_shares": 0,
-   "candidate_qty_shares": null,
+   "auto_correction_forbidden": false
+  },
+  {
+   "key": "K-c970448c66129ccb",
+   "expert": "E-5e72fc27",
+   "instrument": "INTC",
+   "market": "US",
+   "currency": "USD",
+   "asset_class": "us_stock",
+   "classification_evidence": "cash_equity",
+   "in_warrant_master": false,
+   "exercise_ratio": null,
+   "quote_price": 104.56,
+   "expert_asset_class": "us_stock",
+   "stored_open_qty_shares": 0,
+   "stored_closed_qty_shares": 20,
+   "replay_qty_shares": 0,
+   "qty_drift": 0,
+   "class": "match",
+   "source_signal_count": 2,
+   "source_effect_count": 1,
+   "source_effect_linked_signals": 1,
+   "reason_codes": [
+    "fx_history_unavailable"
+   ],
+   "supported": {
+    "unit_supported": true,
+    "market_supported": true,
+    "price_supported": true,
+    "derivative_supported": true,
+    "fx_supported": false
+   },
+   "review_status": "auto_supported",
+   "public_disposition": "publishable",
+   "in_drift26": false,
+   "candidate_qty_shares": [
+    0
+   ],
+   "authoritative_qty_shares": 0,
    "auto_correction_forbidden": false
   },
   {
@@ -1493,7 +1717,11 @@
    "market": "US",
    "currency": "USD",
    "asset_class": "us_stock",
-   "observed_units": "股",
+   "classification_evidence": "cash_equity",
+   "in_warrant_master": false,
+   "exercise_ratio": null,
+   "quote_price": 589.9,
+   "expert_asset_class": "us_stock",
    "stored_open_qty_shares": 0,
    "stored_closed_qty_shares": 10,
    "replay_qty_shares": 0,
@@ -1513,10 +1741,12 @@
     "fx_supported": false
    },
    "review_status": "auto_supported",
-   "public_disposition": "as_reported_publishable",
+   "public_disposition": "publishable",
    "in_drift26": false,
+   "candidate_qty_shares": [
+    0
+   ],
    "authoritative_qty_shares": 0,
-   "candidate_qty_shares": null,
    "auto_correction_forbidden": false
   },
   {
@@ -1526,7 +1756,11 @@
    "market": "US",
    "currency": "USD",
    "asset_class": "us_stock",
-   "observed_units": "股",
+   "classification_evidence": "cash_equity",
+   "in_warrant_master": false,
+   "exercise_ratio": null,
+   "quote_price": 150.52,
+   "expert_asset_class": "us_stock",
    "stored_open_qty_shares": 10,
    "stored_closed_qty_shares": 0,
    "replay_qty_shares": 10,
@@ -1546,10 +1780,12 @@
     "fx_supported": false
    },
    "review_status": "auto_supported",
-   "public_disposition": "as_reported_publishable",
+   "public_disposition": "publishable",
    "in_drift26": false,
+   "candidate_qty_shares": [
+    10
+   ],
    "authoritative_qty_shares": 10,
-   "candidate_qty_shares": null,
    "auto_correction_forbidden": false
   },
   {
@@ -1559,7 +1795,11 @@
    "market": "US",
    "currency": "USD",
    "asset_class": "us_stock",
-   "observed_units": "股",
+   "classification_evidence": "cash_equity",
+   "in_warrant_master": false,
+   "exercise_ratio": null,
+   "quote_price": 174.04,
+   "expert_asset_class": "us_stock",
    "stored_open_qty_shares": 0,
    "stored_closed_qty_shares": 30,
    "replay_qty_shares": 0,
@@ -1579,10 +1819,12 @@
     "fx_supported": false
    },
    "review_status": "auto_supported",
-   "public_disposition": "as_reported_publishable",
+   "public_disposition": "publishable",
    "in_drift26": false,
+   "candidate_qty_shares": [
+    0
+   ],
    "authoritative_qty_shares": 0,
-   "candidate_qty_shares": null,
    "auto_correction_forbidden": false
   },
   {
@@ -1592,7 +1834,11 @@
    "market": "US",
    "currency": "USD",
    "asset_class": "us_stock",
-   "observed_units": "股",
+   "classification_evidence": "cash_equity",
+   "in_warrant_master": false,
+   "exercise_ratio": null,
+   "quote_price": 144.95,
+   "expert_asset_class": "us_stock",
    "stored_open_qty_shares": 1,
    "stored_closed_qty_shares": 0,
    "replay_qty_shares": 1,
@@ -1612,10 +1858,12 @@
     "fx_supported": false
    },
    "review_status": "auto_supported",
-   "public_disposition": "as_reported_publishable",
+   "public_disposition": "publishable",
    "in_drift26": false,
+   "candidate_qty_shares": [
+    1
+   ],
    "authoritative_qty_shares": 1,
-   "candidate_qty_shares": null,
    "auto_correction_forbidden": false
   },
   {
@@ -1625,7 +1873,11 @@
    "market": "US",
    "currency": "USD",
    "asset_class": "us_stock",
-   "observed_units": "股",
+   "classification_evidence": "cash_equity",
+   "in_warrant_master": false,
+   "exercise_ratio": null,
+   "quote_price": 140,
+   "expert_asset_class": "us_stock",
    "stored_open_qty_shares": 50,
    "stored_closed_qty_shares": 0,
    "replay_qty_shares": 50,
@@ -1645,10 +1897,12 @@
     "fx_supported": false
    },
    "review_status": "auto_supported",
-   "public_disposition": "as_reported_publishable",
+   "public_disposition": "publishable",
    "in_drift26": false,
+   "candidate_qty_shares": [
+    50
+   ],
    "authoritative_qty_shares": 50,
-   "candidate_qty_shares": null,
    "auto_correction_forbidden": false
   },
   {
@@ -1658,7 +1912,11 @@
    "market": "US",
    "currency": "USD",
    "asset_class": "us_stock",
-   "observed_units": "股",
+   "classification_evidence": "cash_equity",
+   "in_warrant_master": false,
+   "exercise_ratio": null,
+   "quote_price": 430.49,
+   "expert_asset_class": "us_stock",
    "stored_open_qty_shares": 0,
    "stored_closed_qty_shares": 10,
    "replay_qty_shares": 0,
@@ -1678,10 +1936,12 @@
     "fx_supported": false
    },
    "review_status": "auto_supported",
-   "public_disposition": "as_reported_publishable",
+   "public_disposition": "publishable",
    "in_drift26": false,
+   "candidate_qty_shares": [
+    0
+   ],
    "authoritative_qty_shares": 0,
-   "candidate_qty_shares": null,
    "auto_correction_forbidden": false
   },
   {
@@ -1691,7 +1951,11 @@
    "market": "US",
    "currency": "USD",
    "asset_class": "us_stock",
-   "observed_units": "股",
+   "classification_evidence": "cash_equity",
+   "in_warrant_master": false,
+   "exercise_ratio": null,
+   "quote_price": 287.07,
+   "expert_asset_class": "us_stock",
    "stored_open_qty_shares": 0,
    "stored_closed_qty_shares": 15,
    "replay_qty_shares": 0,
@@ -1711,10 +1975,12 @@
     "fx_supported": false
    },
    "review_status": "auto_supported",
-   "public_disposition": "as_reported_publishable",
+   "public_disposition": "publishable",
    "in_drift26": false,
+   "candidate_qty_shares": [
+    0
+   ],
    "authoritative_qty_shares": 0,
-   "candidate_qty_shares": null,
    "auto_correction_forbidden": false
   },
   {
@@ -1724,7 +1990,11 @@
    "market": "US",
    "currency": "USD",
    "asset_class": "us_stock",
-   "observed_units": "股",
+   "classification_evidence": "cash_equity",
+   "in_warrant_master": false,
+   "exercise_ratio": null,
+   "quote_price": 508.8,
+   "expert_asset_class": "us_stock",
    "stored_open_qty_shares": 10,
    "stored_closed_qty_shares": 0,
    "replay_qty_shares": 10,
@@ -1744,10 +2014,12 @@
     "fx_supported": false
    },
    "review_status": "auto_supported",
-   "public_disposition": "as_reported_publishable",
+   "public_disposition": "publishable",
    "in_drift26": false,
+   "candidate_qty_shares": [
+    10
+   ],
    "authoritative_qty_shares": 10,
-   "candidate_qty_shares": null,
    "auto_correction_forbidden": false
   },
   {
@@ -1757,7 +2029,11 @@
    "market": "TW",
    "currency": "TWD",
    "asset_class": "tw_stock",
-   "observed_units": "張+股",
+   "classification_evidence": "cash_equity",
+   "in_warrant_master": false,
+   "exercise_ratio": null,
+   "quote_price": 33.59,
+   "expert_asset_class": "tw_stock",
    "stored_open_qty_shares": 0,
    "stored_closed_qty_shares": 5000000,
    "replay_qty_shares": 4995,
@@ -1780,11 +2056,11 @@
    "review_status": "manual_review",
    "public_disposition": "withheld_incomplete",
    "in_drift26": true,
-   "authoritative_qty_shares": null,
    "candidate_qty_shares": [
     0,
     4995
    ],
+   "authoritative_qty_shares": null,
    "auto_correction_forbidden": true
   },
   {
@@ -1793,8 +2069,12 @@
    "instrument": "068003 國巨統一75購01",
    "market": "TW",
    "currency": "TWD",
-   "asset_class": "tw_stock",
-   "observed_units": "張",
+   "asset_class": "tw_warrant",
+   "classification_evidence": "warrant_master_hit_complete",
+   "in_warrant_master": true,
+   "exercise_ratio": 0.003,
+   "quote_price": 0.99,
+   "expert_asset_class": "tw_stock",
    "stored_open_qty_shares": 50000000,
    "stored_closed_qty_shares": 0,
    "replay_qty_shares": 50000,
@@ -1816,11 +2096,11 @@
    "review_status": "manual_review",
    "public_disposition": "withheld_incomplete",
    "in_drift26": true,
-   "authoritative_qty_shares": null,
    "candidate_qty_shares": [
-    50000000,
-    50000
+    50000,
+    50000000
    ],
+   "authoritative_qty_shares": null,
    "auto_correction_forbidden": true
   },
   {
@@ -1829,8 +2109,12 @@
    "instrument": "071111 華邦電永豐5C購03",
    "market": "TW",
    "currency": "TWD",
-   "asset_class": "tw_stock",
-   "observed_units": "張",
+   "asset_class": "tw_warrant",
+   "classification_evidence": "warrant_master_hit_quote_stale",
+   "in_warrant_master": true,
+   "exercise_ratio": 0.03,
+   "quote_price": 1.16,
+   "expert_asset_class": "tw_stock",
    "stored_open_qty_shares": 0,
    "stored_closed_qty_shares": 70000000,
    "replay_qty_shares": -40000,
@@ -1840,23 +2124,24 @@
    "source_effect_count": 1,
    "source_effect_linked_signals": 1,
    "reason_codes": [
+    "derivative_unsupported",
     "multiple_apply_suspected"
    ],
    "supported": {
     "unit_supported": true,
     "market_supported": true,
     "price_supported": true,
-    "derivative_supported": true,
+    "derivative_supported": false,
     "fx_supported": true
    },
    "review_status": "manual_review",
    "public_disposition": "withheld_incomplete",
    "in_drift26": true,
-   "authoritative_qty_shares": null,
    "candidate_qty_shares": [
-    0,
-    -40000
+    -40000,
+    0
    ],
+   "authoritative_qty_shares": null,
    "auto_correction_forbidden": true
   },
   {
@@ -1865,8 +2150,12 @@
    "instrument": "071745 T50正2台新66購01",
    "market": "TW",
    "currency": "TWD",
-   "asset_class": "tw_stock",
-   "observed_units": "張",
+   "asset_class": "tw_warrant",
+   "classification_evidence": "warrant_master_hit_complete",
+   "in_warrant_master": true,
+   "exercise_ratio": 0.17,
+   "quote_price": 1.8,
+   "expert_asset_class": "tw_stock",
    "stored_open_qty_shares": 30000000,
    "stored_closed_qty_shares": 0,
    "replay_qty_shares": 30000,
@@ -1888,11 +2177,11 @@
    "review_status": "manual_review",
    "public_disposition": "withheld_incomplete",
    "in_drift26": true,
-   "authoritative_qty_shares": null,
    "candidate_qty_shares": [
-    30000000,
-    30000
+    30000,
+    30000000
    ],
+   "authoritative_qty_shares": null,
    "auto_correction_forbidden": true
   },
   {
@@ -1901,8 +2190,12 @@
    "instrument": "078397 同欣電富邦64購02",
    "market": "TW",
    "currency": "TWD",
-   "asset_class": "tw_stock",
-   "observed_units": "張",
+   "asset_class": "unknown_derivative",
+   "classification_evidence": "warrant_code_space_absent_from_master",
+   "in_warrant_master": false,
+   "exercise_ratio": null,
+   "quote_price": 1.05,
+   "expert_asset_class": "tw_stock",
    "stored_open_qty_shares": 50000000,
    "stored_closed_qty_shares": 0,
    "replay_qty_shares": 50000,
@@ -1912,23 +2205,25 @@
    "source_effect_count": 1,
    "source_effect_linked_signals": 1,
    "reason_codes": [
-    "multiple_apply_suspected"
+    "derivative_unsupported",
+    "multiple_apply_suspected",
+    "unknown_derivative"
    ],
    "supported": {
     "unit_supported": true,
     "market_supported": true,
     "price_supported": true,
-    "derivative_supported": true,
+    "derivative_supported": false,
     "fx_supported": true
    },
    "review_status": "manual_review",
    "public_disposition": "withheld_incomplete",
    "in_drift26": true,
-   "authoritative_qty_shares": null,
    "candidate_qty_shares": [
-    50000000,
-    50000
+    50000,
+    50000000
    ],
+   "authoritative_qty_shares": null,
    "auto_correction_forbidden": true
   },
   {
@@ -1937,8 +2232,12 @@
    "instrument": "079052 樺漢元大64購03",
    "market": "TW",
    "currency": "TWD",
-   "asset_class": "tw_stock",
-   "observed_units": "張",
+   "asset_class": "unknown_derivative",
+   "classification_evidence": "warrant_code_space_absent_from_master",
+   "in_warrant_master": false,
+   "exercise_ratio": null,
+   "quote_price": 1.15,
+   "expert_asset_class": "tw_stock",
    "stored_open_qty_shares": 50000000,
    "stored_closed_qty_shares": 0,
    "replay_qty_shares": 50000,
@@ -1948,23 +2247,25 @@
    "source_effect_count": 1,
    "source_effect_linked_signals": 1,
    "reason_codes": [
-    "multiple_apply_suspected"
+    "derivative_unsupported",
+    "multiple_apply_suspected",
+    "unknown_derivative"
    ],
    "supported": {
     "unit_supported": true,
     "market_supported": true,
     "price_supported": true,
-    "derivative_supported": true,
+    "derivative_supported": false,
     "fx_supported": true
    },
    "review_status": "manual_review",
    "public_disposition": "withheld_incomplete",
    "in_drift26": true,
-   "authoritative_qty_shares": null,
    "candidate_qty_shares": [
-    50000000,
-    50000
+    50000,
+    50000000
    ],
+   "authoritative_qty_shares": null,
    "auto_correction_forbidden": true
   },
   {
@@ -1974,7 +2275,11 @@
    "market": "TW",
    "currency": "TWD",
    "asset_class": "tw_stock",
-   "observed_units": "張",
+   "classification_evidence": "cash_equity",
+   "in_warrant_master": false,
+   "exercise_ratio": null,
+   "quote_price": 128,
+   "expert_asset_class": "tw_stock",
    "stored_open_qty_shares": 1000000,
    "stored_closed_qty_shares": 0,
    "replay_qty_shares": 1000,
@@ -1996,11 +2301,11 @@
    "review_status": "manual_review",
    "public_disposition": "withheld_incomplete",
    "in_drift26": true,
-   "authoritative_qty_shares": null,
    "candidate_qty_shares": [
-    1000000,
-    1000
+    1000,
+    1000000
    ],
+   "authoritative_qty_shares": null,
    "auto_correction_forbidden": true
   },
   {
@@ -2010,7 +2315,11 @@
    "market": "TW",
    "currency": "TWD",
    "asset_class": "tw_stock",
-   "observed_units": "股",
+   "classification_evidence": "cash_equity",
+   "in_warrant_master": false,
+   "exercise_ratio": null,
+   "quote_price": 582,
+   "expert_asset_class": "tw_stock",
    "stored_open_qty_shares": 0,
    "stored_closed_qty_shares": 700,
    "replay_qty_shares": -200,
@@ -2032,11 +2341,11 @@
    "review_status": "manual_review",
    "public_disposition": "withheld_incomplete",
    "in_drift26": true,
-   "authoritative_qty_shares": null,
    "candidate_qty_shares": [
-    0,
-    -200
+    -200,
+    0
    ],
+   "authoritative_qty_shares": null,
    "auto_correction_forbidden": true
   },
   {
@@ -2046,7 +2355,11 @@
    "market": "TW",
    "currency": "TWD",
    "asset_class": "tw_stock",
-   "observed_units": "張+股",
+   "classification_evidence": "cash_equity",
+   "in_warrant_master": false,
+   "exercise_ratio": null,
+   "quote_price": 221,
+   "expert_asset_class": "tw_stock",
    "stored_open_qty_shares": 0,
    "stored_closed_qty_shares": 1000000,
    "replay_qty_shares": 999,
@@ -2069,11 +2382,11 @@
    "review_status": "manual_review",
    "public_disposition": "withheld_incomplete",
    "in_drift26": true,
-   "authoritative_qty_shares": null,
    "candidate_qty_shares": [
     0,
     999
    ],
+   "authoritative_qty_shares": null,
    "auto_correction_forbidden": true
   },
   {
@@ -2083,7 +2396,11 @@
    "market": "TW",
    "currency": "TWD",
    "asset_class": "tw_stock",
-   "observed_units": "張",
+   "classification_evidence": "cash_equity",
+   "in_warrant_master": false,
+   "exercise_ratio": null,
+   "quote_price": 295,
+   "expert_asset_class": "tw_stock",
    "stored_open_qty_shares": 1000000,
    "stored_closed_qty_shares": 0,
    "replay_qty_shares": 1000,
@@ -2105,11 +2422,11 @@
    "review_status": "manual_review",
    "public_disposition": "withheld_incomplete",
    "in_drift26": true,
-   "authoritative_qty_shares": null,
    "candidate_qty_shares": [
-    1000000,
-    1000
+    1000,
+    1000000
    ],
+   "authoritative_qty_shares": null,
    "auto_correction_forbidden": true
   },
   {
@@ -2119,7 +2436,11 @@
    "market": "TW",
    "currency": "TWD",
    "asset_class": "tw_stock",
-   "observed_units": "股",
+   "classification_evidence": "cash_equity",
+   "in_warrant_master": false,
+   "exercise_ratio": null,
+   "quote_price": 233,
+   "expert_asset_class": "tw_stock",
    "stored_open_qty_shares": 0,
    "stored_closed_qty_shares": 2500,
    "replay_qty_shares": -1000,
@@ -2141,11 +2462,11 @@
    "review_status": "manual_review",
    "public_disposition": "withheld_incomplete",
    "in_drift26": true,
-   "authoritative_qty_shares": null,
    "candidate_qty_shares": [
-    0,
-    -1000
+    -1000,
+    0
    ],
+   "authoritative_qty_shares": null,
    "auto_correction_forbidden": true
   },
   {
@@ -2155,7 +2476,11 @@
    "market": "TW",
    "currency": "TWD",
    "asset_class": "tw_stock",
-   "observed_units": "股",
+   "classification_evidence": "cash_equity",
+   "in_warrant_master": false,
+   "exercise_ratio": null,
+   "quote_price": 6750,
+   "expert_asset_class": "tw_stock",
    "stored_open_qty_shares": 50,
    "stored_closed_qty_shares": 50,
    "replay_qty_shares": 10,
@@ -2177,13 +2502,12 @@
    "review_status": "manual_review",
    "public_disposition": "withheld_incomplete",
    "in_drift26": true,
-   "authoritative_qty_shares": null,
    "candidate_qty_shares": [
-    50,
-    10
+    10,
+    50
    ],
-   "auto_correction_forbidden": true,
-   "invariant": "6515: stored_open=50 and replay=10 are BOTH candidates only. No channel (public, member, admin, export, API) may present either number as the correct answer. status is pinned to manual_review; auto-correction is forbidden until human adjudication."
+   "authoritative_qty_shares": null,
+   "auto_correction_forbidden": true
   },
   {
    "key": "K-d6eaa593c5fe46af",
@@ -2191,8 +2515,12 @@
    "instrument": "707414 前鼎統一74購01",
    "market": "TW",
    "currency": "TWD",
-   "asset_class": "tw_stock",
-   "observed_units": "張",
+   "asset_class": "unknown_derivative",
+   "classification_evidence": "warrant_code_space_absent_from_master",
+   "in_warrant_master": false,
+   "exercise_ratio": null,
+   "quote_price": 0.61,
+   "expert_asset_class": "tw_stock",
    "stored_open_qty_shares": 0,
    "stored_closed_qty_shares": 100000000,
    "replay_qty_shares": 50000,
@@ -2202,23 +2530,25 @@
    "source_effect_count": 2,
    "source_effect_linked_signals": 2,
    "reason_codes": [
-    "multiple_apply_suspected"
+    "derivative_unsupported",
+    "multiple_apply_suspected",
+    "unknown_derivative"
    ],
    "supported": {
     "unit_supported": true,
     "market_supported": true,
     "price_supported": true,
-    "derivative_supported": true,
+    "derivative_supported": false,
     "fx_supported": true
    },
    "review_status": "manual_review",
    "public_disposition": "withheld_incomplete",
    "in_drift26": true,
-   "authoritative_qty_shares": null,
    "candidate_qty_shares": [
     0,
     50000
    ],
+   "authoritative_qty_shares": null,
    "auto_correction_forbidden": true
   },
   {
@@ -2228,7 +2558,11 @@
    "market": "US",
    "currency": "USD",
    "asset_class": "us_stock",
-   "observed_units": "股",
+   "classification_evidence": "cash_equity",
+   "in_warrant_master": false,
+   "exercise_ratio": null,
+   "quote_price": 158.54,
+   "expert_asset_class": "us_stock",
    "stored_open_qty_shares": 0,
    "stored_closed_qty_shares": 30,
    "replay_qty_shares": -10,
@@ -2251,11 +2585,11 @@
    "review_status": "manual_review",
    "public_disposition": "withheld_incomplete",
    "in_drift26": true,
-   "authoritative_qty_shares": null,
    "candidate_qty_shares": [
-    0,
-    -10
+    -10,
+    0
    ],
+   "authoritative_qty_shares": null,
    "auto_correction_forbidden": true
   },
   {
@@ -2265,7 +2599,11 @@
    "market": "US",
    "currency": "USD",
    "asset_class": "us_stock",
-   "observed_units": "股",
+   "classification_evidence": "cash_equity",
+   "in_warrant_master": false,
+   "exercise_ratio": null,
+   "quote_price": 333.68,
+   "expert_asset_class": "us_stock",
    "stored_open_qty_shares": 0,
    "stored_closed_qty_shares": 32,
    "replay_qty_shares": -11,
@@ -2288,11 +2626,11 @@
    "review_status": "manual_review",
    "public_disposition": "withheld_incomplete",
    "in_drift26": true,
-   "authoritative_qty_shares": null,
    "candidate_qty_shares": [
-    0,
-    -11
+    -11,
+    0
    ],
+   "authoritative_qty_shares": null,
    "auto_correction_forbidden": true
   },
   {
@@ -2302,7 +2640,11 @@
    "market": "US",
    "currency": "USD",
    "asset_class": "us_stock",
-   "observed_units": "股",
+   "classification_evidence": "cash_equity",
+   "in_warrant_master": false,
+   "exercise_ratio": null,
+   "quote_price": 589.9,
+   "expert_asset_class": "us_stock",
    "stored_open_qty_shares": 0,
    "stored_closed_qty_shares": 20,
    "replay_qty_shares": -10,
@@ -2326,11 +2668,11 @@
    "review_status": "manual_review",
    "public_disposition": "withheld_incomplete",
    "in_drift26": true,
-   "authoritative_qty_shares": null,
    "candidate_qty_shares": [
-    0,
-    -10
+    -10,
+    0
    ],
+   "authoritative_qty_shares": null,
    "auto_correction_forbidden": true
   },
   {
@@ -2340,7 +2682,11 @@
    "market": "US",
    "currency": "USD",
    "asset_class": "us_stock",
-   "observed_units": "股",
+   "classification_evidence": "cash_equity",
+   "in_warrant_master": false,
+   "exercise_ratio": null,
+   "quote_price": 195.04,
+   "expert_asset_class": "us_stock",
    "stored_open_qty_shares": 0,
    "stored_closed_qty_shares": 50,
    "replay_qty_shares": -50,
@@ -2364,11 +2710,11 @@
    "review_status": "manual_review",
    "public_disposition": "withheld_incomplete",
    "in_drift26": true,
-   "authoritative_qty_shares": null,
    "candidate_qty_shares": [
-    0,
-    -50
+    -50,
+    0
    ],
+   "authoritative_qty_shares": null,
    "auto_correction_forbidden": true
   },
   {
@@ -2378,7 +2724,11 @@
    "market": "US",
    "currency": "USD",
    "asset_class": "us_stock",
-   "observed_units": "股",
+   "classification_evidence": "cash_equity",
+   "in_warrant_master": false,
+   "exercise_ratio": null,
+   "quote_price": 514.39,
+   "expert_asset_class": "us_stock",
    "stored_open_qty_shares": 25,
    "stored_closed_qty_shares": 0,
    "replay_qty_shares": 15,
@@ -2401,11 +2751,11 @@
    "review_status": "manual_review",
    "public_disposition": "withheld_incomplete",
    "in_drift26": false,
-   "authoritative_qty_shares": null,
    "candidate_qty_shares": [
-    25,
-    15
+    15,
+    25
    ],
+   "authoritative_qty_shares": null,
    "auto_correction_forbidden": true
   },
   {
@@ -2414,8 +2764,12 @@
    "instrument": "AMZN 亞馬遜",
    "market": "TW",
    "currency": "USD",
-   "asset_class": "us_stock",
-   "observed_units": "股",
+   "asset_class": "unknown_instrument",
+   "classification_evidence": "unclassified_market_code_mismatch",
+   "in_warrant_master": false,
+   "exercise_ratio": null,
+   "quote_price": 232.11,
+   "expert_asset_class": "us_stock",
    "stored_open_qty_shares": 0,
    "stored_closed_qty_shares": 0,
    "replay_qty_shares": 0,
@@ -2425,25 +2779,26 @@
    "source_effect_count": 0,
    "source_effect_linked_signals": 0,
    "reason_codes": [
+    "derivative_unsupported",
     "fx_history_unavailable",
     "market_ambiguous",
-    "signal_without_projection"
+    "signal_without_projection",
+    "unclassified_instrument"
    ],
    "supported": {
     "unit_supported": true,
     "market_supported": false,
     "price_supported": true,
-    "derivative_supported": true,
+    "derivative_supported": false,
     "fx_supported": false
    },
    "review_status": "manual_review",
    "public_disposition": "withheld_incomplete",
    "in_drift26": true,
-   "authoritative_qty_shares": null,
    "candidate_qty_shares": [
-    0,
     0
    ],
+   "authoritative_qty_shares": null,
    "auto_correction_forbidden": true
   },
   {
@@ -2452,8 +2807,12 @@
    "instrument": "CRM 賽富時",
    "market": "TW",
    "currency": "USD",
-   "asset_class": "us_stock",
-   "observed_units": "股",
+   "asset_class": "unknown_instrument",
+   "classification_evidence": "unclassified_market_code_mismatch",
+   "in_warrant_master": false,
+   "exercise_ratio": null,
+   "quote_price": 163.66,
+   "expert_asset_class": "us_stock",
    "stored_open_qty_shares": 0,
    "stored_closed_qty_shares": 0,
    "replay_qty_shares": 0,
@@ -2463,25 +2822,26 @@
    "source_effect_count": 0,
    "source_effect_linked_signals": 0,
    "reason_codes": [
+    "derivative_unsupported",
     "fx_history_unavailable",
     "market_ambiguous",
-    "signal_without_projection"
+    "signal_without_projection",
+    "unclassified_instrument"
    ],
    "supported": {
     "unit_supported": true,
     "market_supported": false,
     "price_supported": true,
-    "derivative_supported": true,
+    "derivative_supported": false,
     "fx_supported": false
    },
    "review_status": "manual_review",
    "public_disposition": "withheld_incomplete",
    "in_drift26": true,
-   "authoritative_qty_shares": null,
    "candidate_qty_shares": [
-    0,
     0
    ],
+   "authoritative_qty_shares": null,
    "auto_correction_forbidden": true
   },
   {
@@ -2490,8 +2850,12 @@
    "instrument": "GOOGL",
    "market": "TW",
    "currency": "USD",
-   "asset_class": "us_stock",
-   "observed_units": "股",
+   "asset_class": "unknown_instrument",
+   "classification_evidence": "unclassified_market_code_mismatch",
+   "in_warrant_master": false,
+   "exercise_ratio": null,
+   "quote_price": 319.74,
+   "expert_asset_class": "us_stock",
    "stored_open_qty_shares": 0,
    "stored_closed_qty_shares": 0,
    "replay_qty_shares": 0,
@@ -2501,25 +2865,26 @@
    "source_effect_count": 0,
    "source_effect_linked_signals": 0,
    "reason_codes": [
+    "derivative_unsupported",
     "fx_history_unavailable",
     "market_ambiguous",
-    "signal_without_projection"
+    "signal_without_projection",
+    "unclassified_instrument"
    ],
    "supported": {
     "unit_supported": true,
     "market_supported": false,
     "price_supported": true,
-    "derivative_supported": true,
+    "derivative_supported": false,
     "fx_supported": false
    },
    "review_status": "manual_review",
    "public_disposition": "withheld_incomplete",
    "in_drift26": true,
-   "authoritative_qty_shares": null,
    "candidate_qty_shares": [
-    0,
     0
    ],
+   "authoritative_qty_shares": null,
    "auto_correction_forbidden": true
   },
   {
@@ -2528,8 +2893,12 @@
    "instrument": "META",
    "market": "TW",
    "currency": "USD",
-   "asset_class": "us_stock",
-   "observed_units": "股",
+   "asset_class": "unknown_instrument",
+   "classification_evidence": "unclassified_market_code_mismatch",
+   "in_warrant_master": false,
+   "exercise_ratio": null,
+   "quote_price": 589.9,
+   "expert_asset_class": "us_stock",
    "stored_open_qty_shares": 0,
    "stored_closed_qty_shares": 0,
    "replay_qty_shares": 15,
@@ -2539,25 +2908,27 @@
    "source_effect_count": 0,
    "source_effect_linked_signals": 0,
    "reason_codes": [
+    "derivative_unsupported",
     "fx_history_unavailable",
     "market_ambiguous",
-    "signal_without_projection"
+    "signal_without_projection",
+    "unclassified_instrument"
    ],
    "supported": {
     "unit_supported": true,
     "market_supported": false,
     "price_supported": true,
-    "derivative_supported": true,
+    "derivative_supported": false,
     "fx_supported": false
    },
    "review_status": "manual_review",
    "public_disposition": "withheld_incomplete",
    "in_drift26": true,
-   "authoritative_qty_shares": null,
    "candidate_qty_shares": [
     0,
     15
    ],
+   "authoritative_qty_shares": null,
    "auto_correction_forbidden": true
   },
   {
@@ -2566,8 +2937,12 @@
    "instrument": "NVDA 輝達",
    "market": "TW",
    "currency": "USD",
-   "asset_class": "us_stock",
-   "observed_units": "股",
+   "asset_class": "unknown_instrument",
+   "classification_evidence": "unclassified_market_code_mismatch",
+   "in_warrant_master": false,
+   "exercise_ratio": null,
+   "quote_price": 195.04,
+   "expert_asset_class": "us_stock",
    "stored_open_qty_shares": 0,
    "stored_closed_qty_shares": 0,
    "replay_qty_shares": 50,
@@ -2577,25 +2952,27 @@
    "source_effect_count": 0,
    "source_effect_linked_signals": 0,
    "reason_codes": [
+    "derivative_unsupported",
     "fx_history_unavailable",
     "market_ambiguous",
-    "signal_without_projection"
+    "signal_without_projection",
+    "unclassified_instrument"
    ],
    "supported": {
     "unit_supported": true,
     "market_supported": false,
     "price_supported": true,
-    "derivative_supported": true,
+    "derivative_supported": false,
     "fx_supported": false
    },
    "review_status": "manual_review",
    "public_disposition": "withheld_incomplete",
    "in_drift26": true,
-   "authoritative_qty_shares": null,
    "candidate_qty_shares": [
     0,
     50
    ],
+   "authoritative_qty_shares": null,
    "auto_correction_forbidden": true
   },
   {
@@ -2604,8 +2981,12 @@
    "instrument": "QCOM 高通",
    "market": "TW",
    "currency": "USD",
-   "asset_class": "us_stock",
-   "observed_units": "股",
+   "asset_class": "unknown_instrument",
+   "classification_evidence": "unclassified_market_code_mismatch",
+   "in_warrant_master": false,
+   "exercise_ratio": null,
+   "quote_price": 165.79,
+   "expert_asset_class": "us_stock",
    "stored_open_qty_shares": 0,
    "stored_closed_qty_shares": 0,
    "replay_qty_shares": 30,
@@ -2615,25 +2996,27 @@
    "source_effect_count": 0,
    "source_effect_linked_signals": 0,
    "reason_codes": [
+    "derivative_unsupported",
     "fx_history_unavailable",
     "market_ambiguous",
-    "signal_without_projection"
+    "signal_without_projection",
+    "unclassified_instrument"
    ],
    "supported": {
     "unit_supported": true,
     "market_supported": false,
     "price_supported": true,
-    "derivative_supported": true,
+    "derivative_supported": false,
     "fx_supported": false
    },
    "review_status": "manual_review",
    "public_disposition": "withheld_incomplete",
    "in_drift26": true,
-   "authoritative_qty_shares": null,
    "candidate_qty_shares": [
     0,
     30
    ],
+   "authoritative_qty_shares": null,
    "auto_correction_forbidden": true
   },
   {
@@ -2642,8 +3025,12 @@
    "instrument": "SPCX Space X",
    "market": "TW",
    "currency": "USD",
-   "asset_class": "us_stock",
-   "observed_units": "股",
+   "asset_class": "unknown_instrument",
+   "classification_evidence": "unclassified_market_code_mismatch",
+   "in_warrant_master": false,
+   "exercise_ratio": null,
+   "quote_price": 140,
+   "expert_asset_class": "us_stock",
    "stored_open_qty_shares": 0,
    "stored_closed_qty_shares": 0,
    "replay_qty_shares": 20,
@@ -2653,25 +3040,27 @@
    "source_effect_count": 0,
    "source_effect_linked_signals": 0,
    "reason_codes": [
+    "derivative_unsupported",
     "fx_history_unavailable",
     "market_ambiguous",
-    "signal_without_projection"
+    "signal_without_projection",
+    "unclassified_instrument"
    ],
    "supported": {
     "unit_supported": true,
     "market_supported": false,
     "price_supported": true,
-    "derivative_supported": true,
+    "derivative_supported": false,
     "fx_supported": false
    },
    "review_status": "manual_review",
    "public_disposition": "withheld_incomplete",
    "in_drift26": true,
-   "authoritative_qty_shares": null,
    "candidate_qty_shares": [
     0,
     20
    ],
+   "authoritative_qty_shares": null,
    "auto_correction_forbidden": true
   },
   {
@@ -2680,8 +3069,12 @@
    "instrument": "ZM ZOOM",
    "market": "TW",
    "currency": "USD",
-   "asset_class": "us_stock",
-   "observed_units": "股",
+   "asset_class": "unknown_instrument",
+   "classification_evidence": "unclassified_market_code_mismatch",
+   "in_warrant_master": false,
+   "exercise_ratio": null,
+   "quote_price": 87.99,
+   "expert_asset_class": "us_stock",
    "stored_open_qty_shares": 0,
    "stored_closed_qty_shares": 0,
    "replay_qty_shares": 0,
@@ -2691,25 +3084,26 @@
    "source_effect_count": 0,
    "source_effect_linked_signals": 0,
    "reason_codes": [
+    "derivative_unsupported",
     "fx_history_unavailable",
     "market_ambiguous",
-    "signal_without_projection"
+    "signal_without_projection",
+    "unclassified_instrument"
    ],
    "supported": {
     "unit_supported": true,
     "market_supported": false,
     "price_supported": true,
-    "derivative_supported": true,
+    "derivative_supported": false,
     "fx_supported": false
    },
    "review_status": "manual_review",
    "public_disposition": "withheld_incomplete",
    "in_drift26": true,
-   "authoritative_qty_shares": null,
    "candidate_qty_shares": [
-    0,
     0
    ],
+   "authoritative_qty_shares": null,
    "auto_correction_forbidden": true
   },
   {
@@ -2719,7 +3113,11 @@
    "market": "US",
    "currency": "USD",
    "asset_class": "us_stock",
-   "observed_units": "股",
+   "classification_evidence": "cash_equity",
+   "in_warrant_master": false,
+   "exercise_ratio": null,
+   "quote_price": 140,
+   "expert_asset_class": "us_stock",
    "stored_open_qty_shares": 0,
    "stored_closed_qty_shares": 0,
    "replay_qty_shares": 20,
@@ -2742,11 +3140,11 @@
    "review_status": "manual_review",
    "public_disposition": "withheld_incomplete",
    "in_drift26": true,
-   "authoritative_qty_shares": null,
    "candidate_qty_shares": [
     0,
     20
    ],
+   "authoritative_qty_shares": null,
    "auto_correction_forbidden": true
   },
   {
@@ -2756,7 +3154,11 @@
    "market": "US",
    "currency": "USD",
    "asset_class": "us_stock",
-   "observed_units": "股",
+   "classification_evidence": "cash_equity",
+   "in_warrant_master": false,
+   "exercise_ratio": null,
+   "quote_price": 232.11,
+   "expert_asset_class": "us_stock",
    "stored_open_qty_shares": 0,
    "stored_closed_qty_shares": 20,
    "replay_qty_shares": null,
@@ -2780,11 +3182,10 @@
    "review_status": "manual_review",
    "public_disposition": "withheld_incomplete",
    "in_drift26": false,
-   "authoritative_qty_shares": null,
    "candidate_qty_shares": [
-    0,
-    null
+    0
    ],
+   "authoritative_qty_shares": null,
    "auto_correction_forbidden": true
   },
   {
@@ -2794,7 +3195,11 @@
    "market": "US",
    "currency": "USD",
    "asset_class": "us_stock",
-   "observed_units": "股",
+   "classification_evidence": "cash_equity",
+   "in_warrant_master": false,
+   "exercise_ratio": null,
+   "quote_price": 163.66,
+   "expert_asset_class": "us_stock",
    "stored_open_qty_shares": 0,
    "stored_closed_qty_shares": 30,
    "replay_qty_shares": null,
@@ -2818,11 +3223,10 @@
    "review_status": "manual_review",
    "public_disposition": "withheld_incomplete",
    "in_drift26": false,
-   "authoritative_qty_shares": null,
    "candidate_qty_shares": [
-    0,
-    null
+    0
    ],
+   "authoritative_qty_shares": null,
    "auto_correction_forbidden": true
   },
   {
@@ -2832,7 +3236,11 @@
    "market": "US",
    "currency": "USD",
    "asset_class": "us_stock",
-   "observed_units": "股",
+   "classification_evidence": "cash_equity",
+   "in_warrant_master": false,
+   "exercise_ratio": null,
+   "quote_price": 319.74,
+   "expert_asset_class": "us_stock",
    "stored_open_qty_shares": 0,
    "stored_closed_qty_shares": 20,
    "replay_qty_shares": null,
@@ -2856,11 +3264,10 @@
    "review_status": "manual_review",
    "public_disposition": "withheld_incomplete",
    "in_drift26": false,
-   "authoritative_qty_shares": null,
    "candidate_qty_shares": [
-    0,
-    null
+    0
    ],
+   "authoritative_qty_shares": null,
    "auto_correction_forbidden": true
   },
   {
@@ -2870,7 +3277,11 @@
    "market": "US",
    "currency": "USD",
    "asset_class": "us_stock",
-   "observed_units": "股",
+   "classification_evidence": "cash_equity",
+   "in_warrant_master": false,
+   "exercise_ratio": null,
+   "quote_price": 165.79,
+   "expert_asset_class": "us_stock",
    "stored_open_qty_shares": 30,
    "stored_closed_qty_shares": 0,
    "replay_qty_shares": null,
@@ -2894,11 +3305,10 @@
    "review_status": "manual_review",
    "public_disposition": "withheld_incomplete",
    "in_drift26": false,
-   "authoritative_qty_shares": null,
    "candidate_qty_shares": [
-    30,
-    null
+    30
    ],
+   "authoritative_qty_shares": null,
    "auto_correction_forbidden": true
   },
   {
@@ -2908,7 +3318,11 @@
    "market": "US",
    "currency": "USD",
    "asset_class": "us_stock",
-   "observed_units": "股",
+   "classification_evidence": "cash_equity",
+   "in_warrant_master": false,
+   "exercise_ratio": null,
+   "quote_price": 140,
+   "expert_asset_class": "us_stock",
    "stored_open_qty_shares": 60,
    "stored_closed_qty_shares": 0,
    "replay_qty_shares": null,
@@ -2932,11 +3346,10 @@
    "review_status": "manual_review",
    "public_disposition": "withheld_incomplete",
    "in_drift26": false,
-   "authoritative_qty_shares": null,
    "candidate_qty_shares": [
-    60,
-    null
+    60
    ],
+   "authoritative_qty_shares": null,
    "auto_correction_forbidden": true
   },
   {
@@ -2946,7 +3359,11 @@
    "market": "US",
    "currency": "USD",
    "asset_class": "us_stock",
-   "observed_units": "股",
+   "classification_evidence": "cash_equity",
+   "in_warrant_master": false,
+   "exercise_ratio": null,
+   "quote_price": 87.99,
+   "expert_asset_class": "us_stock",
    "stored_open_qty_shares": 0,
    "stored_closed_qty_shares": 20,
    "replay_qty_shares": null,
@@ -2970,14 +3387,19 @@
    "review_status": "manual_review",
    "public_disposition": "withheld_incomplete",
    "in_drift26": false,
-   "authoritative_qty_shares": null,
    "candidate_qty_shares": [
-    0,
-    null
+    0
    ],
+   "authoritative_qty_shares": null,
    "auto_correction_forbidden": true
   }
  ],
- "generated_by": "db/r1/p/manifest_replay.sql",
- "source": "production read-only (no DDL/DML)"
+ "drift_keys": 26,
+ "derivative_summary": {
+  "tw_warrant_keys": 10,
+  "unknown_derivative_keys": 5,
+  "us_option_combo_keys": 3,
+  "unclassified_instrument_keys": 8,
+  "derivative_unsupported_keys": 23
+ }
 }
