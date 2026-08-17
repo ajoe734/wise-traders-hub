@@ -48,8 +48,9 @@ def jwt(role):
     p=b64(json.dumps({"role":role,"exp":4102444800},separators=(',',':')).encode())
     s=b64(hmac.new(secret.encode(), h+b'.'+p, hashlib.sha256).digest())
     return (h+b'.'+p+b'.'+s).decode()
-def call(path, role, headers=None):
-    req=urllib.request.Request(f"http://127.0.0.1:{port}{path}", data=b'{}', method='POST')
+def call(path, role, headers=None, body=None):
+    data=json.dumps(body if body is not None else {}).encode()
+    req=urllib.request.Request(f"http://127.0.0.1:{port}{path}", data=data, method='POST')
     req.add_header('Content-Type','application/json')
     req.add_header('Authorization','Bearer '+jwt(role))
     for k,v in (headers or {}).items(): req.add_header(k,v)
@@ -71,10 +72,17 @@ st,b = call('/rpc/gate_blocked','service_role')
 chk('HTTP-04 private impl not exposed in public', st==404, f'status={st} body={b}')
 st,b = call('/rpc/gate_blocked','service_role',{'Content-Profile':'private_bsr','Accept-Profile':'private_bsr'})
 chk('HTTP-05 private_bsr schema unreachable', st!=200 and ('PGRST106' in b or st in (404,406,400)), f'status={st} body={b}')
-st,b = call('/rpc/bsr_block_and_terminalize_claims','anon')
-chk('HTTP-06 anon cannot terminalize', st not in (200,201,204), f'status={st} body={b}')
-st,b = call('/rpc/bsr_unblock_after_probe','authenticated')
-chk('HTTP-07 authenticated cannot unblock', st not in (200,201,204), f'status={st} body={b}')
+TERM={"p_run_id":"00000000-0000-0000-0000-000000000001","p_claim_ids":[],"p_claim_started_at":[],"p_claim_attempts":[],"p_terminal_code":"finmind_admission_provider_plan_rejected","p_sanitized_evidence":{"probe":"http"}}
+UNB={"p_expected_version":1,"p_nonce":"x","p_sanitized_evidence":{"probe":"http"},"p_verified_actor":None}
+for role,exp_deny in (('anon',True),('authenticated',True)):
+    st,b = call('/rpc/bsr_block_and_terminalize_claims',role,body=TERM)
+    chk(f'HTTP-06 {role} terminalize denied (resolved signature)',
+        st not in (200,201,204) and '42501' in b, f'status={st} body={b}')
+    st,b = call('/rpc/bsr_unblock_after_probe',role,body=UNB)
+    chk(f'HTTP-07 {role} unblock denied (resolved signature)',
+        st not in (200,201,204) and '42501' in b, f'status={st} body={b}')
+st,b = call('/rpc/bsr_block_and_terminalize_claims','service_role',body=TERM)
+chk('HTTP-08 service_role terminalize 200 (positive control)', st==200, f'status={st} body={b}')
 
 with open(out+'/http_proof.txt','w') as f:
     for ok,cid,note in rows: f.write(f"{ok} {cid}  -- {note}\n")
