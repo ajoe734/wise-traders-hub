@@ -143,7 +143,7 @@ DO $$ DECLARE e uuid := (SELECT v FROM te.ids WHERE k='exp'); a int; b int; c in
   PERFORM t.eq('T-E11 anon sees no embargoed instrument', b, 0);
   PERFORM t.eq('T-E11b anon aggregates cannot exceed the released quantity', c, 2);
 END $$;
-DO $$ DECLARE n int; e uuid := (SELECT v FROM te.ids WHERE k='exp'); BEGIN
+DO $$ DECLARE n int; n2 int; n3 int; e uuid := (SELECT v FROM te.ids WHERE k='exp'); BEGIN
   SET LOCAL ROLE anon;
   DECLARE r12 bool := false; r13 bool := false; r14 bool := false; BEGIN
     BEGIN SELECT count(*) INTO n FROM public.public_position_projection;
