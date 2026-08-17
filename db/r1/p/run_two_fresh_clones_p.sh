@@ -7,6 +7,7 @@
 #   3. hash BEFORE + pristine dump
 #   4. R1 (001-004) + R1-D (001,002)  -> R1-D 090_verify must stay green
 #   5. R1-P (001,002,010)             -> R1-P 090_verify_p must be green
+#   5c. 092_embargo (frozen anchor T+7 lattice, all channels)
 #   6. 091_swap_race (concurrent reader during pointer swaps)
 #   7. failure injection: aborted build must not move the pointer
 #   8. 099_rollback_p + 099_rollback + restore -> hash AFTER == hash BEFORE
@@ -87,6 +88,12 @@ run_clone() { # name port
   psql "$CL" -tAqX -c "SELECT name||' | '||coalesce(detail,'') FROM t.result WHERE NOT passed ORDER BY id" \
     > "$DIR/verify_p_failures.txt"
   [ "$PRED" = "0" ] || { cat "$DIR/verify_p_failures.txt" | tee -a "$OUT/$NAME.log"; FAILS=$((FAILS+PRED)); }
+
+  # 5c. frozen-anchor T+7 embargo closure (fixed entry point)
+  bash db/r1/p/092_embargo.sh "$CL" "$DIR/embargo.log" > "$DIR/embargo_out.txt" 2>&1
+  local EFAIL=$?
+  cat "$DIR/embargo_out.txt" | tee -a "$OUT/$NAME.log"
+  FAILS=$((FAILS+EFAIL))
 
   # 6. swap race
   bash db/r1/p/091_swap_race.sh "$PORT" "$DIR/race" > "$DIR/race.log" 2>&1
