@@ -32,8 +32,9 @@
   "signal_without_projection": 9,
   "unit_ambiguous": 24,
   "combo_unsupported": 3,
-  "derivative_unsupported": 23,
+  "derivative_unsupported": 25,
   "unclassified_drift": 1,
+  "derivative_basis_unadjudicated": 16,
   "us_option_combo_unsupported": 3,
   "market_ambiguous": 16,
   "projection_without_signal": 6,
@@ -65,6 +66,7 @@
    "source_effect_linked_signals": 1,
    "reason_codes": [
     "combo_unsupported",
+    "derivative_basis_unadjudicated",
     "derivative_unsupported",
     "fx_history_unavailable",
     "us_option_combo_unsupported"
@@ -107,6 +109,7 @@
    "source_effect_linked_signals": 1,
    "reason_codes": [
     "combo_unsupported",
+    "derivative_basis_unadjudicated",
     "derivative_unsupported",
     "fx_history_unavailable",
     "us_option_combo_unsupported"
@@ -149,6 +152,7 @@
    "source_effect_linked_signals": 1,
    "reason_codes": [
     "combo_unsupported",
+    "derivative_basis_unadjudicated",
     "derivative_unsupported",
     "fx_history_unavailable",
     "us_option_combo_unsupported"
@@ -190,6 +194,7 @@
    "source_effect_count": 1,
    "source_effect_linked_signals": 1,
    "reason_codes": [
+    "derivative_basis_unadjudicated",
     "derivative_unsupported",
     "unit_ambiguous"
    ],
@@ -230,6 +235,7 @@
    "source_effect_count": 1,
    "source_effect_linked_signals": 1,
    "reason_codes": [
+    "derivative_basis_unadjudicated",
     "derivative_unsupported",
     "unit_ambiguous"
    ],
@@ -270,6 +276,7 @@
    "source_effect_count": 1,
    "source_effect_linked_signals": 1,
    "reason_codes": [
+    "derivative_basis_unadjudicated",
     "derivative_unsupported",
     "unit_ambiguous"
    ],
@@ -310,6 +317,7 @@
    "source_effect_count": 1,
    "source_effect_linked_signals": 1,
    "reason_codes": [
+    "derivative_basis_unadjudicated",
     "derivative_unsupported",
     "unit_ambiguous"
    ],
@@ -389,6 +397,7 @@
    "source_effect_count": 1,
    "source_effect_linked_signals": 1,
    "reason_codes": [
+    "derivative_basis_unadjudicated",
     "derivative_unsupported",
     "unit_ambiguous"
    ],
@@ -1382,6 +1391,7 @@
    "source_effect_count": 1,
    "source_effect_linked_signals": 1,
    "reason_codes": [
+    "derivative_basis_unadjudicated",
     "derivative_unsupported",
     "unit_ambiguous",
     "unknown_derivative"
@@ -1423,6 +1433,7 @@
    "source_effect_count": 1,
    "source_effect_linked_signals": 1,
    "reason_codes": [
+    "derivative_basis_unadjudicated",
     "derivative_unsupported",
     "unit_ambiguous",
     "unknown_derivative"
@@ -2084,13 +2095,15 @@
    "source_effect_count": 1,
    "source_effect_linked_signals": 1,
    "reason_codes": [
+    "derivative_basis_unadjudicated",
+    "derivative_unsupported",
     "multiple_apply_suspected"
    ],
    "supported": {
     "unit_supported": true,
     "market_supported": true,
     "price_supported": true,
-    "derivative_supported": true,
+    "derivative_supported": false,
     "fx_supported": true
    },
    "review_status": "manual_review",
@@ -2124,6 +2137,7 @@
    "source_effect_count": 1,
    "source_effect_linked_signals": 1,
    "reason_codes": [
+    "derivative_basis_unadjudicated",
     "derivative_unsupported",
     "multiple_apply_suspected"
    ],
@@ -2165,13 +2179,15 @@
    "source_effect_count": 1,
    "source_effect_linked_signals": 1,
    "reason_codes": [
+    "derivative_basis_unadjudicated",
+    "derivative_unsupported",
     "multiple_apply_suspected"
    ],
    "supported": {
     "unit_supported": true,
     "market_supported": true,
     "price_supported": true,
-    "derivative_supported": true,
+    "derivative_supported": false,
     "fx_supported": true
    },
    "review_status": "manual_review",
@@ -2205,6 +2221,7 @@
    "source_effect_count": 1,
    "source_effect_linked_signals": 1,
    "reason_codes": [
+    "derivative_basis_unadjudicated",
     "derivative_unsupported",
     "multiple_apply_suspected",
     "unknown_derivative"
@@ -2247,6 +2264,7 @@
    "source_effect_count": 1,
    "source_effect_linked_signals": 1,
    "reason_codes": [
+    "derivative_basis_unadjudicated",
     "derivative_unsupported",
     "multiple_apply_suspected",
     "unknown_derivative"
@@ -2530,6 +2548,7 @@
    "source_effect_count": 2,
    "source_effect_linked_signals": 2,
    "reason_codes": [
+    "derivative_basis_unadjudicated",
     "derivative_unsupported",
     "multiple_apply_suspected",
     "unknown_derivative"
@@ -3400,6 +3419,6 @@
   "unknown_derivative_keys": 5,
   "us_option_combo_keys": 3,
   "unclassified_instrument_keys": 8,
-  "derivative_unsupported_keys": 23
+  "derivative_unsupported_keys": 25
  }
 }
