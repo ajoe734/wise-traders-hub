@@ -49,8 +49,7 @@ run_clone() { # name port
   [ "$FID" -ge 104 ] || { echo "  GATE FAIL fidelity <104"; FAILS=$((FAILS+1)); }
   [ "$SHP" -ge 63 ]  || { echo "  GATE FAIL shape <63"; FAILS=$((FAILS+1)); }
 
-  # 3. fixture + hash BEFORE
-  psql "$CL" -qX -f db/r1/tests/11_fixture.sql > "$DIR/fixture.log" 2>&1
+  # 3. hash BEFORE (empty-data, production-shape baseline)
   psql "$CL" -tAqXf db/r1/d/095_hashes.sql > "$DIR/hash_before.txt" 2>&1
 
   # 4. R1 + R1-D pipeline
@@ -80,8 +79,8 @@ run_clone() { # name port
 
   # 7. rollback -> hash AFTER (restore legacy bodies from the production snapshot)
   psql "$CL" -qX -f db/r1/d/099_rollback.sql > "$DIR/rollback.log" 2>&1
+  psql "$CL" -qX -f db/r1/d/098_data_purge.sql >> "$DIR/rollback.log" 2>&1
   psql "$CL" -qX -f db/r1/clone/functions.sql >> "$DIR/rollback.log" 2>&1
-  psql "$CL" -qX -f db/r1/tests/11_fixture_reset.sql >> "$DIR/rollback.log" 2>&1
   psql "$CL" -tAqXf db/r1/d/095_hashes.sql > "$DIR/hash_after.txt" 2>&1
   if diff -q "$DIR/hash_before.txt" "$DIR/hash_after.txt" >/dev/null; then
     echo "  rollback hash: before == after (IDENTICAL)" | tee -a "$OUT/$NAME.log"
