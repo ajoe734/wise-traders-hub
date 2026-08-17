@@ -116,7 +116,7 @@ CREATE TABLE IF NOT EXISTS public.tw_bsr_sync_locks (lock_key text NOT NULL, acq
 CREATE TABLE IF NOT EXISTS public.tw_bsr_sync_metrics (bucket_at timestamp with time zone NOT NULL, total integer DEFAULT 0 NOT NULL, success integer DEFAULT 0 NOT NULL, ocr_fail integer DEFAULT 0 NOT NULL, http_block integer DEFAULT 0 NOT NULL, empty integer DEFAULT 0 NOT NULL, avg_latency_ms integer DEFAULT 0 NOT NULL);
 CREATE TABLE IF NOT EXISTS public.tw_bsr_sync_queue (id bigint DEFAULT nextval('tw_bsr_sync_queue_id_seq'::regclass) NOT NULL, stock_id text NOT NULL, trade_date date NOT NULL, priority smallint NOT NULL, status text DEFAULT 'pending'::text NOT NULL, attempts integer DEFAULT 0 NOT NULL, max_attempts integer DEFAULT 5 NOT NULL, next_run_at timestamp with time zone DEFAULT now() NOT NULL, last_success_at timestamp with time zone, last_error text, enqueued_by text, enqueued_at timestamp with time zone DEFAULT now() NOT NULL, started_at timestamp with time zone, finished_at timestamp with time zone, created_at timestamp with time zone DEFAULT now() NOT NULL, updated_at timestamp with time zone DEFAULT now() NOT NULL, correlation_id uuid, post_close_only boolean DEFAULT false NOT NULL);
 CREATE TABLE IF NOT EXISTS public.tw_bsr_upstream_probe (stock_id text NOT NULL, earliest_data date, probed_back_to date, empty_streak integer DEFAULT 0 NOT NULL, exhausted boolean DEFAULT false NOT NULL, updated_at timestamp with time zone DEFAULT now() NOT NULL);
-CREATE TABLE IF NOT EXISTS public.tw_chip_fact (id bigint DEFAULT nextval('tw_chip_fact_id_seq'::regclass) NOT NULL, stock_id text NOT NULL, trade_date date NOT NULL, broker_id text NOT NULL, broker_name text, source text NOT NULL, buy_shares bigint DEFAULT 0 NOT NULL, sell_shares bigint DEFAULT 0 NOT NULL, net_shares bigint DEFAULT (buy_shares - sell_shares), avg_buy_price numeric(12,4), avg_sell_price numeric(12,4), raw jsonb, ingested_at timestamp with time zone DEFAULT now() NOT NULL);
+CREATE TABLE IF NOT EXISTS public.tw_chip_fact (id bigint DEFAULT nextval('tw_chip_fact_id_seq'::regclass) NOT NULL, stock_id text NOT NULL, trade_date date NOT NULL, broker_id text NOT NULL, broker_name text, source text NOT NULL, buy_shares bigint DEFAULT 0 NOT NULL, sell_shares bigint DEFAULT 0 NOT NULL, net_shares bigint GENERATED ALWAYS AS (buy_shares - sell_shares) STORED, avg_buy_price numeric(12,4), avg_sell_price numeric(12,4), raw jsonb, ingested_at timestamp with time zone DEFAULT now() NOT NULL);
 CREATE TABLE IF NOT EXISTS public.tw_chips_rollup (id bigint DEFAULT nextval('tw_chips_rollup_id_seq'::regclass) NOT NULL, stock_id text NOT NULL, as_of_date date NOT NULL, window_days smallint NOT NULL, foreign_net bigint DEFAULT 0 NOT NULL, trust_net bigint DEFAULT 0 NOT NULL, dealer_net bigint DEFAULT 0 NOT NULL, top_buy_brokers jsonb DEFAULT '[]'::jsonb NOT NULL, top_sell_brokers jsonb DEFAULT '[]'::jsonb NOT NULL, concentration_ratio numeric(5,2), bsr_available boolean DEFAULT false NOT NULL, updated_at timestamp with time zone DEFAULT now() NOT NULL, broker_count integer, low_quality boolean, source_date date DEFAULT CURRENT_DATE NOT NULL, fallback_used boolean DEFAULT false NOT NULL);
 CREATE TABLE IF NOT EXISTS public.tw_institutional_daily (id bigint DEFAULT nextval('tw_institutional_daily_id_seq'::regclass) NOT NULL, stock_id text NOT NULL, trade_date date NOT NULL, foreign_net bigint DEFAULT 0 NOT NULL, trust_net bigint DEFAULT 0 NOT NULL, dealer_net bigint DEFAULT 0 NOT NULL, total_net bigint DEFAULT 0 NOT NULL, raw jsonb, created_at timestamp with time zone DEFAULT now() NOT NULL, updated_at timestamp with time zone DEFAULT now() NOT NULL, source text DEFAULT 'unknown'::text NOT NULL);
 CREATE TABLE IF NOT EXISTS public.tw_market_holidays (trade_date date NOT NULL, name text, source text DEFAULT 'manual'::text NOT NULL, detected_at timestamp with time zone DEFAULT now() NOT NULL, note text);
@@ -261,34 +261,6 @@ CREATE OR REPLACE VIEW public.profiles_analyst AS  SELECT user_id,
 CREATE OR REPLACE VIEW public.v_active_tw_holdings AS  SELECT DISTINCT "substring"(instrument, '^([1-9][0-9]{3})(?:\s|$)'::text) AS stock_id
    FROM trade_records tr
   WHERE market = 'TW'::text AND status::text = 'open'::text AND instrument ~ '^[1-9][0-9]{3}(?:\s|$)'::text;
-CREATE OR REPLACE VIEW public.v_price_freshness AS  WITH universe AS (
-         SELECT v_price_sync_universe.market,
-            count(*) AS universe_count
-           FROM v_price_sync_universe
-          GROUP BY v_price_sync_universe.market
-        ), prices AS (
-         SELECT u_1.market,
-            count(cp.symbol) AS covered_count,
-            percentile_disc(0.5::double precision) WITHIN GROUP (ORDER BY (EXTRACT(epoch FROM now() - cp.updated_at)::integer)) AS p50_age_s,
-            percentile_disc(0.95::double precision) WITHIN GROUP (ORDER BY (EXTRACT(epoch FROM now() - cp.updated_at)::integer)) AS p95_age_s,
-            max(EXTRACT(epoch FROM now() - cp.updated_at))::integer AS max_age_s,
-            min(cp.updated_at) AS oldest_updated_at,
-            max(cp.updated_at) AS newest_updated_at
-           FROM v_price_sync_universe u_1
-             LEFT JOIN current_prices cp ON cp.symbol = u_1.symbol AND cp.market = u_1.market
-          GROUP BY u_1.market
-        )
- SELECT u.market,
-    u.universe_count,
-    COALESCE(p.covered_count, 0::bigint) AS covered_count,
-    round(COALESCE(p.covered_count, 0::bigint)::numeric / NULLIF(u.universe_count, 0)::numeric, 4) AS coverage_ratio,
-    p.p50_age_s,
-    p.p95_age_s,
-    p.max_age_s,
-    p.oldest_updated_at,
-    p.newest_updated_at
-   FROM universe u
-     LEFT JOIN prices p USING (market);
 CREATE OR REPLACE VIEW public.v_price_sync_universe AS  WITH raw_symbols AS (
          SELECT TRIM(BOTH FROM split_part(trade_records.instrument, ' '::text, 1)) AS symbol
            FROM trade_records
@@ -338,3 +310,32 @@ CREATE OR REPLACE VIEW public.v_price_sync_universe AS  WITH raw_symbols AS (
     priority
    FROM classified
   WHERE market IS NOT NULL;
+
+CREATE OR REPLACE VIEW public.v_price_freshness AS  WITH universe AS (
+         SELECT v_price_sync_universe.market,
+            count(*) AS universe_count
+           FROM v_price_sync_universe
+          GROUP BY v_price_sync_universe.market
+        ), prices AS (
+         SELECT u_1.market,
+            count(cp.symbol) AS covered_count,
+            percentile_disc(0.5::double precision) WITHIN GROUP (ORDER BY (EXTRACT(epoch FROM now() - cp.updated_at)::integer)) AS p50_age_s,
+            percentile_disc(0.95::double precision) WITHIN GROUP (ORDER BY (EXTRACT(epoch FROM now() - cp.updated_at)::integer)) AS p95_age_s,
+            max(EXTRACT(epoch FROM now() - cp.updated_at))::integer AS max_age_s,
+            min(cp.updated_at) AS oldest_updated_at,
+            max(cp.updated_at) AS newest_updated_at
+           FROM v_price_sync_universe u_1
+             LEFT JOIN current_prices cp ON cp.symbol = u_1.symbol AND cp.market = u_1.market
+          GROUP BY u_1.market
+        )
+ SELECT u.market,
+    u.universe_count,
+    COALESCE(p.covered_count, 0::bigint) AS covered_count,
+    round(COALESCE(p.covered_count, 0::bigint)::numeric / NULLIF(u.universe_count, 0)::numeric, 4) AS coverage_ratio,
+    p.p50_age_s,
+    p.p95_age_s,
+    p.max_age_s,
+    p.oldest_updated_at,
+    p.newest_updated_at
+   FROM universe u
+     LEFT JOIN prices p USING (market);

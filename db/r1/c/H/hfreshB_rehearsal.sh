@@ -30,7 +30,7 @@ cleanup(){
   local c=$?
   trap - EXIT ERR; set +e
   if [ -d "$DIR/pg" ]; then $ASU "$PGBIN/pg_ctl" -D "$DIR/pg" -m immediate -w stop >/dev/null 2>&1; fi
-  mkdir -p "$OUT/$NAME-artifacts"; cp "$DIR"/*.log "$DIR"/*.fp "$DIR"/*.out "$DIR"/*.diff "$OUT/$NAME-artifacts/" 2>/dev/null
+  mkdir -p "$OUT/$NAME-artifacts"; cp "$DIR"/*.log "$DIR"/*.fp "$DIR"/*.out "$DIR"/*.diff "$DIR"/*.json "$DIR"/*.txt "$OUT/$NAME-artifacts/" 2>/dev/null
   rm -rf "$DIR"
   local BG; BG=$(pgrep -f "port=$PORT" | wc -l)
   local DESTROYED=true; [ -d "$DIR" ] && DESTROYED=false
@@ -54,7 +54,13 @@ say "### hfreshB run_id=$RUNID start=$START port=$PORT out=$OUT"
 
 ############################################################ preflight
 stage preflight
-PGBIN=$(dirname "$(command -v initdb)")
+# The clone must be schema-identical to production, which uses pgvector; a
+# postgres without it cannot restore expert_knowledge_chunks. PGBIN points at a
+# postgres+pgvector build (path pinned in db/r1/c/H/pgbin.path).
+if [ -s db/r1/c/H/pgbin.path ]; then PGBIN=$(cat db/r1/c/H/pgbin.path); else PGBIN=$(dirname "$(command -v initdb)"); fi
+[ -x "$PGBIN/initdb" ] || fatal "initdb missing in $PGBIN"
+export PATH="$PGBIN:$PATH"
+[ -f "$PGBIN/../share/postgresql/extension/vector.control" ] || fatal "pgvector control file missing under $PGBIN/../share"
 command -v psql >/dev/null || fatal "psql missing"
 [ -x "$PGBIN/pg_ctl" ] || fatal "pg_ctl missing in $PGBIN"
 python3 - "$PORT" <<'PY' || fatal "port $PORT already in use (bind failed)"
@@ -75,7 +81,7 @@ stage_end
 
 ############################################################ initdb + start
 stage initdb
-$ASU initdb -D "$DIR/pg" -U postgres --locale=C -E UTF8 >"$DIR/initdb.log" 2>&1 \
+$ASU "$PGBIN/initdb" -D "$DIR/pg" -U postgres --locale=C -E UTF8 >"$DIR/initdb.log" 2>&1 \
   || { tail -20 "$DIR/initdb.log"; fatal "initdb failed"; }
 $ASU "$PGBIN/pg_ctl" -D "$DIR/pg" -l "$DIR/pg.log" \
   -o "-p $PORT -k $DIR/sock -c listen_addresses=127.0.0.1 -c fsync=off -c track_counts=on -c log_statement=all -c log_min_messages=warning -c log_line_prefix='%m [%p] %u ' " \
@@ -97,13 +103,17 @@ stage restore
 for f in $(python3 -c "import json;print(' '.join(json.load(open('$BK/MANIFEST.json'))['restore_bundle']['order']))"); do
   psql "$CL" -qX -f "$BK/restore/$f" >>"$DIR/restore.log" 2>&1 || true
 done
-grep '^psql:.*ERROR' "$DIR/restore.log" | sed -E 's#^psql:[^ ]*/([^/:]+):([0-9]+): ERROR:  #\1:\2 #' | sort >"$DIR/restore_errors.txt" || true
+grep -E '^psql:.*(ERROR|FATAL)' "$DIR/restore.log" | sed -E 's#^psql:[^ ]*/([^/:]+):([0-9]+): #\1:\2 #' | sort >"$DIR/restore_errors.txt" || true
 RESTORE_ERR=$(wc -l <"$DIR/restore_errors.txt")
-if diff -u <(sort db/r1/c/H/expected_restore_errors.txt) "$DIR/restore_errors.txt" >"$DIR/restore_errors.diff"; then
-  chk 0 "B-01 baseline restore errors match the pinned expected set (n=$RESTORE_ERR, pgvector/generated-column limits of the local initdb)"
-else chk 1 "B-01 baseline restore errors match pinned set" "$(cat "$DIR/restore_errors.diff")"; fi
-TBL=$(psql "$CL" -AtqX -c "SELECT count(*) FROM pg_class c JOIN pg_namespace n ON n.oid=c.relnamespace WHERE n.nspname='public' AND c.relkind='r'")
-chk $([ "$TBL" -ge 120 ] && echo 0 || echo 1) "B-02 production-shape table count>=120" "count=$TBL"
+chk $([ "$RESTORE_ERR" = 0 ] && echo 0 || echo 1) "B-01 fresh clone restores with 0 errors (0 unexpected / 0 expected)" "$(head -5 "$DIR/restore_errors.txt")"
+set +e
+python3 db/r1/c/H/clone_census.py "$CL" >"$DIR/census.txt" 2>&1; CEN=$?
+set -e
+chk $CEN "B-02 clone catalog census == production baseline fingerprint (relations/functions/policies/triggers)" "$(cat "$DIR/census.txt")"
+set +e
+python3 db/r1/c/S0/s0_restore_verify.py "$CL" "$DIR/fidelity.json" >"$DIR/fidelity.log" 2>&1; FID=$?
+set -e
+chk $([ "$FID" = 0 ] && echo 0 || echo 1) "B-02b restore fidelity vs baseline artifacts: $(grep -c ' PASS' "$DIR/fidelity.log" || true) checks (functions / 37 ACL keys + 149 tuples / columns / indexes / constraints / policies / RLS / grants / cron / writers / triggers)" "$(grep ' FAIL' "$DIR/fidelity.log" | head -4)"
 stage_end
 
 ############################################################ fixtures
