@@ -407,6 +407,11 @@ chk $([ "${DUP:-0}" = 0 ] && echo 0 || echo 1) "EB-92 no job left pending with a
 DEAD=""
 for p in "${SVC_PIDS[@]}"; do kill -0 "$p" 2>/dev/null || DEAD="$DEAD $p"; done
 chk $([ -z "$DEAD" ] && echo 0 || echo 1) "EB-92b all long-lived services still alive after concurrency (dead:${DEAD:-none})"
+if [ "${STOP_AFTER:-}" = concurrency ]; then
+  SUMMARY=1
+  echo "### FOCUSED RUN stop_after=concurrency checks=$CHECKS failures=$FAILS"
+  exit 0
+fi
 
 ############################################################ G2. gate state matrix (missing / malformed / rpc_error)
 stage gate_matrix
