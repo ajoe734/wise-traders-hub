@@ -14,7 +14,7 @@ rm -rf "$ROOT"; mkdir -p "$PGDATA" "$SOCK"
 
 echo "== [1] initdb =="
 chown -R lovable "$ROOT"
-AS_PG="su lovable -s /bin/bash -c"
+AS_PG="runuser -u lovable -- /bin/bash -c"
 $AS_PG "env -u PGHOST -u PGPORT -u PGUSER -u PGPASSWORD -u PGDATABASE initdb -D $PGDATA -U postgres --auth=trust" >"$ROOT/initdb.log" 2>&1
 $AS_PG "env -u PGHOST -u PGPORT -u PGUSER -u PGPASSWORD -u PGDATABASE pg_ctl -D $PGDATA -o '-p $PORT -k $SOCK -c listen_addresses=localhost -c fsync=off' -l $ROOT/pg.log -w start" >/dev/null
 psql "$CL" -c 'select 1' >/dev/null 2>&1 || psql "postgresql://postgres@localhost:$PORT/postgres?sslmode=disable" -c 'CREATE DATABASE clone' >/dev/null
