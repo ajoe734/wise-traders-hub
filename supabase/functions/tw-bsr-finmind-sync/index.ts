@@ -713,6 +713,7 @@ async function runWorker(batch: number, maxPriority: number, budgetMs: number): 
             next_run_at: null,
             started_at: null,
           }).eq('id', job.id);
+          releaseClaim(job.id);
           recordOutcome(job, 'skipped', 0, lastError);
         } else if (isIncomplete) {
           const backoffMin = !isAfterClose() ? 30 : Math.min(120, Math.pow(2, nextAttempts) * 5);
@@ -723,6 +724,7 @@ async function runWorker(batch: number, maxPriority: number, budgetMs: number): 
             last_error: r.note ?? 'incomplete_chip_data',
             next_run_at: new Date(Date.now() + backoffMin * 60_000).toISOString(),
           }).eq('id', job.id);
+          releaseClaim(job.id);
           recordOutcome(job, 'partial', 0, r.note ?? 'incomplete_chip_data');
         } else {
           await supa.from('tw_bsr_sync_queue').update({
@@ -731,6 +733,7 @@ async function runWorker(batch: number, maxPriority: number, budgetMs: number): 
             last_success_at: r.rows > 0 ? new Date().toISOString() : undefined,
             last_error: null,
           }).eq('id', job.id);
+          releaseClaim(job.id);
           recordOutcome(job, 'done', r.rows ?? 0, null);
         }
       } else if (isQuotaRejection(r.error)) {
@@ -745,13 +748,53 @@ async function runWorker(batch: number, maxPriority: number, budgetMs: number): 
           p_job_id: job.id,
           p_delay_minutes: deferral.delayMinutes,
         });
-        if (deferErr) console.warn(`[${cid}] defer_bsr_job_quota failed:`, deferErr.message);
+        if (deferErr) console.warn(`[${cid}] defer_bsr_job_quota failed:`, sanitizeText(deferErr.message, 200));
+        releaseClaim(job.id);
         recordOutcome(job, 'quota_deferred', 0, 'quota_deferred');
         if (r.rateLimited) { rateLimitedStop = true; return; }
+      } else if (classifyProviderError(r.error ?? null).outcome === 'terminal') {
+        // ============ Stage B：exact FinMind 方案／資格拒絕 → 單一原子 RPC
+        // 關 gate + 只 terminalize 本 run 仍持有 lease 的列。不做全 pending UPDATE，
+        // 不直呼 private schema；RPC 基礎設施失敗會有界重試且不假成功。
+        terminalStop = true;
+        const claims = Array.from(outstandingClaims.values());
+        const res = await blockAndTerminalize(supa as unknown as GateRpcClient, {
+          runId,
+          claims,
+          evidence: {
+            admission_probe_schema_version: '1',
+            detected_at: new Date().toISOString(),
+            provider: 'finmind',
+            error_class: 'provider_plan_rejected',
+            trigger_stock_id: String(job.stock_id),
+            trigger_trade_date: String(job.trade_date),
+            claim_count: claims.length,
+            signature: sanitizeText(r.error ?? '', 160),
+          },
+        });
+        if (res.ok) {
+          for (const c of claims) outstandingClaims.delete(c.id);
+        }
+        terminalReport = {
+          terminal_code: 'finmind_admission_provider_plan_rejected',
+          rpc_ok: res.ok,
+          transition: res.transition,
+          gate_version: res.gateVersion,
+          claim_count: res.claimCount,
+          updated_count: res.updatedCount,
+          lost_lease_count: res.lostLeaseCount,
+          rpc_attempts: res.attemptsUsed,
+          rpc_error: res.error,
+        };
+        recordOutcome(job, res.ok ? 'terminal_blocked' : 'terminal_block_failed', 0,
+          'finmind_admission_provider_plan_rejected');
+        return;
       } else {
+        // retryable（429/5xx/timeout/network）與 unknown 都走既有 backoff 語意；
+        // unknown 只有有界重試，永遠不會升級成 terminal、也不會關 gate。
         const nextAttempts = (job.attempts ?? 1);
         const backoffMin = Math.min(120, Math.pow(2, nextAttempts) * 5);
-        const shouldFail = nextAttempts >= (job.max_attempts ?? 5);
+        const shouldFail = !unknownRetryAllowed(nextAttempts, job.max_attempts ?? 5);
         await supa.from('tw_bsr_sync_queue').update({
           status: shouldFail ? 'failed' : 'pending',
           finished_at: shouldFail ? new Date().toISOString() : null,
@@ -759,6 +802,7 @@ async function runWorker(batch: number, maxPriority: number, budgetMs: number): 
           next_run_at: shouldFail ? undefined : new Date(Date.now() + backoffMin * 60_000).toISOString(),
           started_at: null,
         }).eq('id', job.id);
+        releaseClaim(job.id);
         recordOutcome(job, shouldFail ? 'failed' : 'retry_pending', 0, r.error ?? null);
         if (r.rateLimited) { rateLimitedStop = true; return; }
       }
