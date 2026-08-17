@@ -169,13 +169,17 @@ H-1 provider probe ──┬── H1 market master ── H2 demand registry �
 - H5 需要 H3/H4 讓 rollup 有背景維護者，否則抽屜改純讀會拿不到資料。
 - BLOCKER-E1 只擋「分點」資料型別，不擋 H0–H2、H5、H6。
 
-## 10. 先做哪個 isolated clone / harness（本輪唯一授權範圍）
+## 10. 本次 Approve 的交付物（鎖死，不得擴張）
 
-1. **Clone `hfreshA`**（production-shape，disposable）：套 H0＋H1＋H2 的 DDL 與 RPC，跑 registry abuse 測試（灌量、亂碼 symbol、限流）與 master upsert 冪等測試。
-2. **Local harness `harness/provider-probe`**：對五個官方端點 + 10 檔代表商品做 capability probe，輸出欄位映射表與 `unsupported` 判定表（H-1 交付物）。
-3. **Clone `hfreshB`**（第二座全新）：只驗 H5 —— 以 SELECT-only 角色跑 `tw-chips-detail-v2` 全路徑，證明 §8 的四項寫入零增量。
+本次核准**只**允許產出以下三項，其他一律不做：
 
-三者完成後各自出 stage preflight 報告，再逐一請求 production 核准。
+1. **H-1 provider probe artifact**（local harness `harness/provider-probe`）：對五個官方端點 ＋ 10 檔代表商品做 capability probe，輸出欄位映射表與 `unsupported` 判定表。
+2. **`hfreshA`**（disposable production-shape clone / harness）：H0（v2 worker 寫入 + `freshness_run_trace` VIEW + cleanup 保留策略）、H1（market master）、H2（demand registry ＋ abuse 測試：灌量、亂碼 symbol、限流、cap/decay）。
+3. **`hfreshB`**（第二座全新 clone）：只驗 H5 —— 以 SELECT-only 角色跑 `tw-chips-detail-v2` 全路徑，證明 §8 的四項零寫入。
+
+明確不含：**不碰 production（0 DDL/DML/GRANT/REVOKE）、不 deploy 任何 Edge、不新增或修改任何 cron、不 Publish、不動 `trade_records`／`expert_signals`／public performance／既有 ACL。**
+
+每座 clone 交付紀錄必須包含：`run_id`、start/end UTC、exit code、log sha256、before/after 的 catalog / data / ACL hashes、`destroyed=true` 證明、`background_jobs=0`。三者完成後各自出 stage preflight 報告，再逐一請求 production 核准。
 
 ## 11. 驗收（沿用並強化）
 
