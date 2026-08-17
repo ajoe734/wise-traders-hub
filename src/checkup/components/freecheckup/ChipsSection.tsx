@@ -187,6 +187,11 @@ export default function ChipsSection({ WB, stockCode }: { WB: any; stockCode: st
   const bsrWinReadiness =
     data?.readiness?.bsr_concentration?.[String(bsrWinDays) as '1' | '5' | '10'] ?? null;
   const syncStatus = data?.bsr_sync_status;
+  // Plan v2：上游狀態一律以 server classifier 的 enum 為準，前端不重判。
+  const providerState = data?.bsr_provider_state ?? syncStatus?.provider_state ?? null;
+  const isTerminalProvider = providerState === 'terminal_provider_rejected';
+  const retryPromised = data?.bsr_retry_promised ?? syncStatus?.retry_promised ?? false;
+
 
   // BSR 對前端是唯讀的：排程一律由後端 cron（每日 15:30 + 盤後每 15 分鐘 delta）與
   // trade_records AFTER INSERT trigger 負責；使用者可用下方「回補歷史」手動按鈕強制。
@@ -587,12 +592,14 @@ export default function ChipsSection({ WB, stockCode }: { WB: any; stockCode: st
 
         </div>
 
-        {/* 昨日 fallback 提示：有資料但落後預期交易日，或今日同步進行中但先顯示昨日資料 */}
+        {/* 昨日 fallback 提示：有資料但落後預期交易日，或上游仍可重試時先顯示昨日資料。
+            Plan v2：terminal / unknown 一律不得說「同步中」。 */}
         {data?.bsr_as_of && (data.bsr_freshness_status === 'lagging' || (data.bsr_freshness_status === 'syncing' && data.bsr_source === 'raw_fallback')) && (
           <div
             data-testid="chips-bsr-fallback-note"
             data-bsr-source={data.bsr_source || 'unknown'}
             data-bsr-freshness={data.bsr_freshness_status}
+            data-bsr-provider-state={providerState || 'unknown'}
             style={{
               fontSize: 10,
               color: '#8a5a1e',
@@ -600,10 +607,15 @@ export default function ChipsSection({ WB, stockCode }: { WB: any; stockCode: st
               letterSpacing: '0.06em',
             }}
           >
-            {data.bsr_freshness_status === 'syncing'
+            {providerState === 'terminal_provider_rejected'
+              ? `上游來源中止，顯示 ${data.bsr_as_of.replaceAll('-', '/')} 的前次成功分點`
+              : providerState === 'unknown_degraded'
+              ? `上游狀態待確認，先顯示 ${data.bsr_as_of.replaceAll('-', '/')} 的關鍵分點`
+              : data.bsr_freshness_status === 'syncing'
               ? `今日資料同步中，先顯示 ${data.bsr_as_of.replaceAll('-', '/')} 的關鍵分點`
               : `顯示 ${data.bsr_as_of.replaceAll('-', '/')} 資料（較預期日期落後 ${data.bsr_lag_weekdays ?? 1} 個交易日）`}
           </div>
+
         )}
 
 
@@ -625,7 +637,11 @@ export default function ChipsSection({ WB, stockCode }: { WB: any; stockCode: st
             }}
           >
             <div style={{ fontWeight: 600, letterSpacing: '0.08em', marginBottom: 2 }}>
-              {data.bsr_as_of ? '分點資料延遲（顯示前次成功抓取）' : '分點資料首次同步中'}
+              {isTerminalProvider
+                ? (data.bsr_as_of ? '分點資料更新已暫停（上游來源中止）' : '上游目前不提供此資料')
+                : providerState === 'unknown_degraded'
+                ? '分點資料狀態待確認'
+                : data.bsr_as_of ? '分點資料延遲（顯示前次成功抓取）' : '分點資料首次同步中'}
             </div>
             <div>
               {data.bsr_last_failure.last_successful_as_of || data.bsr_as_of ? (
@@ -652,7 +668,11 @@ export default function ChipsSection({ WB, stockCode }: { WB: any; stockCode: st
             </div>
             <div>
               失敗原因：
-              {data.bsr_last_failure.error_code === 'captcha_retry_exhausted'
+              {isTerminalProvider
+                ? '上游來源不再提供此資料（供應商方案／資格限制），更新已暫停，恢復時間未知'
+                : providerState === 'unknown_degraded'
+                ? '上游回應無法歸類，狀態待確認，暫不承諾更新時間'
+                : data.bsr_last_failure.error_code === 'captcha_retry_exhausted'
                 ? '舊資料路徑失敗（已停用），改由官方 API 抓取'
                 : data.bsr_last_failure.error_code === 'finmind_error'
                 ? '上游 API 呼叫失敗（額度或暫時性錯誤），下輪自動重試'
@@ -671,7 +691,7 @@ export default function ChipsSection({ WB, stockCode }: { WB: any; stockCode: st
                 ? `（已連續失敗 ${data.bsr_last_failure.consecutive_failures} 次）`
                 : ''}
               。
-              {data.bsr_last_failure.next_retry_at && (
+              {retryPromised && data.bsr_last_failure.next_retry_at && (
                 <>
                   {' '}將於
                   {' '}

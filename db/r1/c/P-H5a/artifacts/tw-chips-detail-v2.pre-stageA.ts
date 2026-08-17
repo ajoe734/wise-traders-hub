@@ -22,8 +22,6 @@ import {
 } from "../_shared/bsrRollup.ts";
 import { expectedLatestBsrDate, weekdayDiff } from "../_shared/tradingDate.ts";
 import { resolveAllWindows } from "../_shared/seriesReadiness.ts";
-import { classifyBsrProvider } from "../_shared/bsrProviderState.ts";
-
 
 const CACHE_TTL_MS = 5 * 60 * 1000;
 const MAX_BATCH = 30;
@@ -218,8 +216,7 @@ async function buildChipsPayload(supa: any, stockId: string): Promise<any> {
   ]);
   const { data: failRows } = await supa
     .from("tw_bsr_fetch_failures")
-    .select("trade_date, reason, attempts, resolved_at, next_retry_at, backoff_seconds, consecutive_failures, last_error, error_class")
-
+    .select("trade_date, reason, attempts, resolved_at, next_retry_at, backoff_seconds, consecutive_failures")
     .eq("stock_id", stockId)
     .is("resolved_at", null)
     .order("trade_date", { ascending: false })
@@ -274,27 +271,6 @@ async function buildChipsPayload(supa: any, stockId: string): Promise<any> {
   else if (status === "not_queued") freshness = "not_queued";
   else freshness = "no_data";
 
-  // ==== 上游 provider 三態分類（Plan v2 §2）====
-  // 舊行為：queue pending 就叫「同步中／下輪自動重試」，但 FinMind 400 register-level
-  // 是永久資格拒絕，重試不會好。改由 shared classifier 決定，UI 只讀 server enum。
-  const freshData = !!(chosenAsOf && chosenAsOf >= expectedDate);
-  const topFail: any = (failRows && failRows[0]) || null;
-  const rawErrForClass = freshData
-    ? null
-    : (topFail?.last_error ?? null) || (q?.last_error && String(q.last_error) !== "quota_deferred"
-      ? String(q.last_error)
-      : null);
-  const providerVerdict = classifyBsrProvider({
-    eligible,
-    bsrAsOf: chosenAsOf ?? null,
-    expectedDate,
-    queueStatus: (q?.status as any) ?? null,
-    lastErrorRaw: rawErrForClass,
-    persistedErrorClass: topFail?.error_class ?? null,
-    attempts: Number(q?.attempts ?? 0),
-    maxAttempts: Number(q?.max_attempts ?? 5),
-  });
-
   const bsrSyncStatus = {
     eligible,
     ineligible_reason: ineligibleReason,
@@ -305,18 +281,8 @@ async function buildChipsPayload(supa: any, stockId: string): Promise<any> {
     attempts: Number(q?.attempts ?? 0),
     max_attempts: Number(q?.max_attempts ?? 5),
     error_code: bsrLastFailure?.error_code ?? null,
-    // retryable 現在由 verdict 決定：terminal 拒絕一律 false。
-    retryable: providerVerdict.retryable,
-    provider_state: providerVerdict.state,
-    provider_code: providerVerdict.code,
-    retry_promised: providerVerdict.nextRetryAllowed,
+    retryable: status === "pending" || status === "running" || status === "failed",
   };
-
-  // terminal / unknown 時不得對外承諾 next_retry_at
-  if (bsrLastFailure && !providerVerdict.nextRetryAllowed) {
-    bsrLastFailure.next_retry_at = null;
-  }
-
 
   // ==== Readiness ====
   const instValidDatesAsc = instAsc.map((r) => r.date);
@@ -438,11 +404,6 @@ async function buildChipsPayload(supa: any, stockId: string): Promise<any> {
     bsr_low_quality_dates: Array.from(bsrLowQualityDates),
     bsr_last_failure: bsrLastFailure,
     bsr_sync_status: bsrSyncStatus,
-    // additive（Plan v2 Stage A）：前端唯一可信的上游狀態來源
-    bsr_provider_state: providerVerdict.state,
-    bsr_provider_code: providerVerdict.code,
-    bsr_retry_promised: providerVerdict.nextRetryAllowed,
-
     series: {
       institutional_daily: instAsc,
       bsr_concentration: bsrConcentration.slice(-60),

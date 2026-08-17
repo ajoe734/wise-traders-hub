@@ -59,12 +59,43 @@ export function buildBsrSegment(data: TwChipsPayload | null): FreshnessSegment {
   const asOf = fmtDate(data?.bsr_as_of);
   const status = data?.bsr_freshness_status ?? (asOf ? 'lagging' : 'no_data');
   const lagWd = data?.bsr_lag_weekdays ?? null;
+  const providerState = data?.bsr_provider_state ?? data?.bsr_sync_status?.provider_state ?? null;
   const base = {
     key: 'bsr' as const,
     label: '券商分點',
     asOf,
     title: '券商分點（BSR）資料來源與三大法人不同；目前無授權可用的官方全市場來源，可能長時間停留在舊日期',
   };
+
+  // Plan v2：provider_state 優先於 queue 導出的 freshness。
+  // queue pending 不等於「正在同步」——上游若是永久拒絕，重試永遠不會成功。
+  if (providerState === 'ineligible') {
+    return { ...base, state: 'ineligible', tone: 'muted', text: '不適用（ETF／權證／受益憑證）' };
+  }
+  if (providerState === 'terminal_provider_rejected') {
+    return {
+      ...base,
+      state: asOf ? 'terminal_stale' : 'terminal_no_data',
+      tone: 'error',
+      text: asOf ? `${asOf} · 上游來源中止，顯示前次成功資料` : '上游目前不提供此資料，更新已暫停',
+    };
+  }
+  if (providerState === 'unknown_degraded') {
+    return {
+      ...base,
+      state: 'unknown_degraded',
+      tone: 'warn',
+      text: asOf ? `${asOf} · 上游狀態待確認，暫不承諾更新時間` : '上游狀態待確認，暫不承諾更新時間',
+    };
+  }
+  if (providerState === 'retryable') {
+    return {
+      ...base,
+      state: 'syncing',
+      tone: 'warn',
+      text: asOf ? `${asOf} · 同步中，將自動重試` : '同步中，將自動重試',
+    };
+  }
 
   switch (status) {
     case 'ineligible':
@@ -92,6 +123,7 @@ export function buildBsrSegment(data: TwChipsPayload | null): FreshnessSegment {
       };
   }
 }
+
 
 export function buildFreshnessSegments(data: TwChipsPayload | null): FreshnessSegment[] {
   return [buildInstitutionalSegment(data), buildBsrSegment(data)];

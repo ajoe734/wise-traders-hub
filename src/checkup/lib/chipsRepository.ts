@@ -13,6 +13,19 @@
 import { getCheckupGateway } from './gateway';
 import { trackEvent } from '@/lib/trafficTracker';
 
+/**
+ * 與 `supabase/functions/_shared/bsrProviderState.ts` 的 enum 對齊（型別鏡像，無邏輯）。
+ * 分類永遠在 server 端做，前端只消費。
+ */
+export type BsrProviderState =
+  | 'ineligible'
+  | 'terminal_provider_rejected'
+  | 'retryable'
+  | 'unknown_degraded'
+  | 'fresh'
+  | 'stale_no_error';
+
+
 export interface InstitutionalWindow {
   foreign_net: number;
   trust_net: number;
@@ -108,6 +121,15 @@ export interface TwChipsPayload {
     | 'not_queued'
     | 'no_data';
   bsr_completeness_threshold?: number;
+  /**
+   * Plan v2 · 上游 provider 三態（由 tw-chips-detail-v2 的 shared classifier 決定）。
+   * 前端**不得**自行重判，只讀這個 enum 決定文案與是否承諾自動重試。
+   */
+  bsr_provider_state?: BsrProviderState;
+  bsr_provider_code?: string;
+  /** 是否可對使用者承諾「自動重試 / next_retry_at」 */
+  bsr_retry_promised?: boolean;
+
   bsr_last_failure?: {
     trade_date: string;
     error_code: string;
@@ -131,7 +153,11 @@ export interface TwChipsPayload {
     max_attempts: number;
     error_code: string | null;
     retryable: boolean;
+    provider_state?: BsrProviderState;
+    provider_code?: string;
+    retry_promised?: boolean;
   };
+
   series?: {
     institutional_daily: InstitutionalDailyPoint[];
     bsr_concentration: BsrConcentrationPoint[];
