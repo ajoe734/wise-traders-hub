@@ -40,7 +40,7 @@ cleanup(){
   exit 0
 }
 trap on_err ERR; trap cleanup EXIT
-echo "### stage-b EDGE rehearsal run_id=$RUNID pg=$PORT pgrst=$PGRST_PORT proxy=$PROXY_PORT mock=$MOCK_PORT worker=$WORKER_PORT admin=$ADMIN_PORT"
+echo "### stage-b EDGE rehearsal run_id=$RUNID pg=$PORT pgrst=$PGRST_PORT proxy=$PROXY_PORT mock=$MOCK_PORT worker=$WORKER_PORT admin=$ADMIN_PORT auth=$AUTH_PORT"
 
 ############################################################ preflight
 stage preflight
@@ -48,11 +48,15 @@ if [ -s db/r1/c/H/pgbin.path ]; then PGBIN=$(cat db/r1/c/H/pgbin.path); else PGB
 [ -x "$PGBIN/initdb" ] || fatal "initdb missing in $PGBIN"
 export PATH="$PGBIN:$PATH"
 command -v deno >/dev/null || fatal "deno missing (real edge runtime required)"
+# Real Supabase Auth (GoTrue) is mandatory. A mock/sb_rest_proxy stand-in must
+# NEVER impersonate GoTrue: if the binary is absent we abort and the run is
+# recorded as an exact Auth GAP instead of a green-but-fake pass.
+[ -x "$GOTRUE_BIN" ] || fatal "AUTH GAP: real supabase-auth binary missing at $GOTRUE_BIN (refusing to mock GoTrue)"
 [ -f "$BK/MANIFEST.json" ] || fatal "baseline manifest missing"
 PGRST_BIN=$(command -v postgrest || true)
 [ -n "$PGRST_BIN" ] || PGRST_BIN=$(ls -d /nix/store/*postgrest*-bin/bin/postgrest 2>/dev/null | head -1 || true)
 [ -n "$PGRST_BIN" ] || fatal "postgrest missing (real HTTP path required, not a skip)"
-for p in $PORT $PGRST_PORT $PROXY_PORT $MOCK_PORT $WORKER_PORT $ADMIN_PORT; do
+for p in $PORT $PGRST_PORT $PROXY_PORT $MOCK_PORT $WORKER_PORT $ADMIN_PORT $AUTH_PORT; do
 python3 - "$p" <<'PY' || fatal "port $p busy"
 import socket,sys
 s=socket.socket(); s.setsockopt(socket.SOL_SOCKET,socket.SO_REUSEADDR,1)
@@ -82,6 +86,12 @@ chk $([ "$RE" = 0 ] && echo 0 || echo 1) "EB-01 fresh restore 0 errors" "$(head 
 psql "$CL" -qX -v ON_ERROR_STOP=1 -f db/r1/c/SB/001_stage_b.sql >"$DIR/apply1.log" 2>&1 || { tail -20 "$DIR/apply1.log"; fatal "001 apply"; }
 psql "$CL" -qX -v ON_ERROR_STOP=1 -f db/r1/c/SB/002_recover_gate_aware.sql >"$DIR/apply2.log" 2>&1 || { tail -20 "$DIR/apply2.log"; fatal "002 apply"; }
 chk 0 "EB-02 stage B applied to clone"
+# clone-only fixture: the baseline bundle carries no row data, so a fresh clone
+# has neither the `market_batch` gate row nor any auth identity (EF-01/RC-1/RC-2).
+psql "$CL" -qX -v ON_ERROR_STOP=1 -f db/r1/c/SB/fixtures/010_clone_fixture.sql >"$DIR/fixture.log" 2>&1 \
+  || { tail -20 "$DIR/fixture.log"; fatal "clone fixture"; }
+GATEROW=$(psql "$CL" -qXAt -c "SELECT count(*) FROM public.tw_bsr_sync_config WHERE key='market_batch' AND config ? 'admission_nonce' AND config->>'admission_blocked'='false'")
+chk $([ "$GATEROW" = 1 ] && echo 0 || echo 1) "EB-02b fixture seeded an explicit OPEN market_batch gate row ($GATEROW)"
 psql "$CL" -qXAt -f db/r1/c/SB/sb_fingerprint.sql | sort >"$DIR/fp_pre_edge.txt"
 
 ############################################################ services
