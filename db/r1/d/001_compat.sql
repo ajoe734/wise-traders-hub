@@ -407,3 +407,19 @@ REVOKE EXECUTE ON ALL FUNCTIONS IN SCHEMA app_ledger FROM PUBLIC, anon, authenti
 GRANT  EXECUTE ON FUNCTION app_ledger.apply_price_update(jsonb) TO service_role;
 GRANT  EXECUTE ON FUNCTION app_ledger.publish_signal_effect(uuid) TO service_role;
 GRANT  EXECUTE ON FUNCTION app_ledger.canonical_apply_signal(uuid,uuid,text) TO service_role;
+
+-- ---------------------------------------------------------------- 10. unit conversion helper
+CREATE OR REPLACE FUNCTION app_ledger.convert_qty(p_qty int, p_from text, p_to text)
+RETURNS int LANGUAGE plpgsql IMMUTABLE SET search_path = '' AS $$
+BEGIN
+  IF p_qty IS NULL THEN RETURN NULL; END IF;
+  IF p_from IS NOT DISTINCT FROM p_to THEN RETURN p_qty; END IF;
+  IF p_from = '張' AND p_to = '股' THEN RETURN p_qty * 1000; END IF;
+  IF p_from = '股' AND p_to = '張' THEN
+    IF p_qty % 1000 <> 0 THEN
+      RAISE EXCEPTION 'unit_conversion_lossy: % 股 -> 張', p_qty USING ERRCODE='P0001'; END IF;
+    RETURN p_qty / 1000;
+  END IF;
+  RAISE EXCEPTION 'unit_conversion_unsupported: % -> %', p_from, p_to USING ERRCODE='P0001';
+END $$;
+ALTER FUNCTION app_ledger.convert_qty(int,text,text) OWNER TO ledger_owner;
