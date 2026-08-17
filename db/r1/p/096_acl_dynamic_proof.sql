@@ -65,26 +65,76 @@ END $$;
 
 -- ------------------------------------------------- domain fixture (apply)
 -- admin_apply_fix_proposal needs a legitimate pending proposal to have a real
--- positive case. A no-op `normalize_unit` proposal with an empty signal id set
--- is a valid domain precondition: the apply path runs end to end (status ->
--- applied + audit log) without touching any economic row, and the whole call
--- is still rolled back by t.acl_call.
+-- positive case. The first version of this fixture left expert_id NULL and
+-- pointed at a symbol with no position, which the repaired function correctly
+-- rejects with 22023 incomplete_proposal — a guard pass, but not a clean run.
+-- The fixture therefore builds the full legal precondition: a probe expert with
+-- one OPEN trade record on instrument ZZZZ, plus a pending `normalize_unit`
+-- proposal that targets it. The apply path then runs end to end (canonical
+-- correction + status -> applied + apply_result), and every write is rolled
+-- back by t.acl_call / t.acl_call_probe.
 CREATE TABLE IF NOT EXISTS t.acl_fixture(k text primary key, v uuid);
 DO $fx$
 DECLARE v_id uuid := '11111111-0000-4000-8000-0000000000f1';
+        v_exp uuid; v_uid uuid := (SELECT v FROM t.acl_actor WHERE k='admin');
 BEGIN
   DELETE FROM public.holdings_fix_proposals WHERE id = v_id;
+  SELECT id INTO v_exp FROM public.experts WHERE slug = 'acl-probe-expert';
+  IF v_exp IS NULL THEN
+    INSERT INTO public.experts(user_id, slug, name, role, status)
+    VALUES (v_uid, 'acl-probe-expert', 'ACL Probe Expert', 'advisor', 'active')
+    RETURNING id INTO v_exp;
+  END IF;
+  IF NOT EXISTS (SELECT 1 FROM public.trade_records tr
+                  WHERE tr.expert_id = v_exp AND tr.instrument = 'ZZZZ'
+                    AND tr.status = 'open'::public.trade_status) THEN
+    INSERT INTO public.trade_records(expert_id, symbol, instrument, market, quantity,
+      quantity_unit, entry_price, status, entry_date)
+    VALUES (v_exp, 'ZZZZ', 'ZZZZ', 'TW', 2000, 'shares', 100, 'open'::public.trade_status, now());
+  END IF;
   INSERT INTO public.holdings_fix_proposals(
-    id, drift_category, expert_slug, expert_name, symbol, instrument,
+    id, drift_category, expert_id, expert_slug, expert_name, symbol, instrument,
     severity, summary, proposed_action, payload, preview, status, signature)
-  VALUES (v_id, 'UNIT_MIX', 'acl-probe', 'acl probe', 'ZZZZ', 'ZZZZ',
+  VALUES (v_id, 'UNIT_MIX', v_exp, 'acl-probe-expert', 'ACL Probe Expert', 'ZZZZ', 'ZZZZ',
           'low', 'acl dynamic proof fixture', 'normalize_unit',
-          jsonb_build_object('target_unit','張','signal_ids','[]'::jsonb,
-                             'also_scale_quantity', false),
+          jsonb_build_object('target_unit','張','market','TW','to_quantity',1000,
+                             'signal_ids','[]'::jsonb, 'also_scale_quantity', false),
           '{}'::jsonb, 'pending', 'acl-probe|UNIT_MIX|ZZZZ|fixture');
   DELETE FROM t.acl_fixture WHERE k='apply_proposal';
   INSERT INTO t.acl_fixture VALUES ('apply_proposal', v_id);
+  DELETE FROM t.acl_fixture WHERE k='apply_expert';
+  INSERT INTO t.acl_fixture VALUES ('apply_expert', v_exp);
 END $fx$;
+
+-- ------------------------------------------------- mutation probe executor
+-- Same rollback contract as t.acl_call, but evaluates a boolean probe INSIDE
+-- the subtransaction (after the call, before the rollback) so an admin write
+-- can be asserted without leaving any residue on the clone.
+CREATE OR REPLACE FUNCTION t.acl_call_probe(p_sql text, p_uid uuid, p_probe text)
+RETURNS text LANGUAGE plpgsql AS $$
+DECLARE v_state text; v_msg text; v_probe boolean;
+BEGIN
+  BEGIN
+    PERFORM set_config('request.jwt.claims',
+             json_build_object('sub', p_uid::text, 'role', 'authenticated')::text, true);
+    SET LOCAL ROLE authenticated;
+    EXECUTE p_sql;
+    RESET ROLE;
+    EXECUTE p_probe INTO v_probe;
+    v_state := CASE WHEN coalesce(v_probe,false) THEN '00000 mutation_observed'
+                    ELSE '00000 mutation_missing' END;
+    RAISE EXCEPTION 'acl_rollback_marker' USING ERRCODE = 'P0002', HINT = v_state;
+  EXCEPTION
+    WHEN SQLSTATE 'P0002' THEN GET STACKED DIAGNOSTICS v_msg = PG_EXCEPTION_HINT;
+                               v_state := v_msg;
+    WHEN OTHERS THEN GET STACKED DIAGNOSTICS v_state = RETURNED_SQLSTATE, v_msg = MESSAGE_TEXT;
+                     v_state := v_state || ' ' || coalesce(v_msg,'');
+  END;
+  RESET ROLE;
+  PERFORM set_config('request.jwt.claims', '', true);
+  RETURN v_state;
+END $$;
+
 
 -- ============================================================ A + B
 -- the 12 keep_typed_safe_authenticated_guarded targets, really executed.

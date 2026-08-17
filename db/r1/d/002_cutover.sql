@@ -303,22 +303,54 @@ BEGIN
   DELETE FROM public.current_prices WHERE updated_at < pg_catalog.now() - interval '2 days';
 END $$;
 
+-- FORWARD-COMPATIBLE (R1-D/P defect repair). The first cutover draft read
+-- p.market / p.proposed_quantity / p.proposed_quantity_unit off the proposal
+-- row; public.holdings_fix_proposals has none of those columns, so every
+-- company_admin call died with 42703 `record "p" has no field "market"`.
+-- Actual contract of the table: (expert_id, symbol, instrument, drift_category,
+-- proposed_action, payload jsonb, status, apply_result, ...). Target quantity,
+-- unit and market therefore come from the payload, falling back to the open
+-- canonical position — never from columns that may not exist.
 CREATE OR REPLACE FUNCTION public.admin_apply_fix_proposal(p_id uuid, p_confirm boolean)
 RETURNS jsonb LANGUAGE plpgsql SECURITY DEFINER SET search_path = '' AS $$
-DECLARE p public.holdings_fix_proposals; v jsonb;
+DECLARE p public.holdings_fix_proposals; v jsonb; pl jsonb;
+        v_open public.trade_records; v_market text; v_unit text; v_qty int;
 BEGIN
   IF NOT public.has_role(auth.uid(),'company_admin'::public.app_role) THEN
     RAISE EXCEPTION 'forbidden' USING ERRCODE='42501'; END IF;
   SELECT * INTO p FROM public.holdings_fix_proposals WHERE id = p_id;
   IF p.id IS NULL THEN RAISE EXCEPTION 'unknown_proposal: %', p_id USING ERRCODE='P0001'; END IF;
+  IF p.status IS DISTINCT FROM 'pending' THEN
+    RAISE EXCEPTION 'proposal_not_pending: %', p.status USING ERRCODE='P0001'; END IF;
   IF NOT p_confirm THEN
     RETURN pg_catalog.jsonb_build_object('status','dry_run','proposal',p_id); END IF;
-  v := app_ledger.canonical_correct_position(p.expert_id, p.instrument, p.market,
-         p.proposed_quantity, p.proposed_quantity_unit, 'fix_proposal:'||p_id::text, 4);
+  IF p.expert_id IS NULL OR coalesce(p.instrument,'') = '' THEN
+    RAISE EXCEPTION 'incomplete_proposal: expert_id/instrument required'
+      USING ERRCODE='22023'; END IF;
+  IF p.proposed_action = 'manual_review' THEN
+    RAISE EXCEPTION 'manual_review_only: %', p_id USING ERRCODE='P0001'; END IF;
+
+  pl := coalesce(p.payload, '{}'::jsonb);
+  SELECT * INTO v_open FROM public.trade_records t
+   WHERE t.expert_id = p.expert_id AND t.instrument = p.instrument
+     AND t.status = 'open'::public.trade_status
+   ORDER BY t.created_at LIMIT 1;
+
+  v_market := coalesce(pl->>'market', v_open.market, 'TW');
+  v_unit   := coalesce(pl->>'target_unit', pl->>'quantity_unit',
+                       v_open.quantity_unit, 'shares');
+  v_qty    := coalesce((pl->>'to_quantity')::numeric,
+                       (pl->>'target_quantity')::numeric,
+                       v_open.quantity, 0)::int;
+  IF p.proposed_action IN ('close_trade_record','cancel_signal') THEN v_qty := 0; END IF;
+
+  v := app_ledger.canonical_correct_position(p.expert_id, p.instrument, v_market,
+         v_qty, v_unit, 'fix_proposal:'||p_id::text, 4);
   UPDATE public.holdings_fix_proposals
-     SET status='applied', applied_at=pg_catalog.now(), applied_by=auth.uid()
+     SET status='applied', applied_at=pg_catalog.now(), applied_by=auth.uid(),
+         apply_result=v
    WHERE id = p_id;
-  RETURN pg_catalog.jsonb_build_object('status','applied','result',v);
+  RETURN pg_catalog.jsonb_build_object('status','applied','action',p.proposed_action,'result',v);
 END $$;
 ALTER FUNCTION public.admin_apply_fix_proposal(uuid,boolean) OWNER TO ledger_owner;
 

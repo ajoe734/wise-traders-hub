@@ -20,6 +20,9 @@ CL="postgresql://postgres@localhost:$PORT/clone?sslmode=disable"
 psql "$CL" -qX -v ON_ERROR_STOP=1 -f db/r1/clone/00_bootstrap.sql > "$DIR/bootstrap.log" 2>&1 || { echo BOOTSTRAP; tail -5 "$DIR/bootstrap.log"; }
 psql "$CL" -qX -f db/r1/clone/schema.sql > "$DIR/schema.log" 2>&1
 echo "schema errors: $(grep -c '^ERROR' "$DIR/schema.log")"
+psql "$CL" -qX -f db/r1/clone/tables_acl28.sql > "$DIR/tables28.log" 2>&1
+psql "$CL" -qX -f db/r1/clone/functions_acl28.sql > "$DIR/fn28.log" 2>&1
+echo "functions_acl28 errors: $(grep -c '^ERROR' "$DIR/fn28.log")"
 psql "$CL" -qX -f db/r1/clone/rls_subscription_tests.sql > "$DIR/rlsfn.log" 2>&1
 psql "$CL" -qX -v ON_ERROR_STOP=1 -f db/r1/clone/10_load_fixture.sql > "$DIR/fixture.log" 2>&1 || { echo FIXTURE; tail -5 "$DIR/fixture.log"; }
 for f in db/r1/001_expand.sql db/r1/002_ledger.sql db/r1/003_canonical.sql db/r1/004_projection.sql \

@@ -445,7 +445,7 @@ END $$;
 -- =====================================================================
 CREATE OR REPLACE VIEW tp.acl_violation AS
   WITH watch AS (
-    SELECT p.oid,
+    SELECT p.oid, p.proname, p.prosrc,
            format('%I.%I(%s)', n.nspname, p.proname,
                   pg_get_function_identity_arguments(p.oid)) AS sig,
            CASE WHEN p.proname IN ('get_expert_capital_status',
@@ -460,7 +460,16 @@ CREATE OR REPLACE VIEW tp.acl_violation AS
             OR p.proname LIKE '%dedupe%'   OR p.proname LIKE '%fix%'
             OR p.proname LIKE '%rebuild%'  OR p.proname LIKE '%sweep%')
   )
-  SELECT sig, class FROM watch WHERE has_function_privilege('anon', oid, 'EXECUTE');
+  -- Post-cutover exemption (and ONLY post-cutover): is_tester / has_active_subscription_after
+  -- are evaluated inside RLS predicates as the querying role, so anon must keep
+  -- EXECUTE or anonymous browsing dies with 42501 ("Anyone can view active experts"
+  -- calls is_tester(auth.uid())). What makes that safe is the identity-bound
+  -- wrapper installed by 002 C3c: it refuses any user id that is not auth.uid().
+  -- The exemption therefore requires proof that the body IS the wrapper.
+  SELECT sig, class FROM watch
+   WHERE has_function_privilege('anon', oid, 'EXECUTE')
+     AND NOT (proname IN ('is_tester','has_active_subscription_after')
+              AND prosrc LIKE '%acl_caller_may_read_identity%');
 
 DO $$ BEGIN
   PERFORM t.eq('T-P98a ACL watch set: 0 named_pre_cutover anon EXECUTE after migration',
@@ -473,7 +482,23 @@ DO $$ BEGIN
        FROM pg_proc p JOIN pg_namespace n ON n.oid=p.pronamespace
       WHERE n.nspname='public' AND p.proname IN ('get_expert_capital_status',
               'has_active_subscription_after','is_tester')));
+  -- the exemption is only granted to a body that actually contains the gate
+  PERFORM t.ok('T-P98d anon-executable identity helpers are wrapper-bound',
+    (SELECT bool_and(p.prosrc LIKE '%acl_caller_may_read_identity%')
+       FROM pg_proc p JOIN pg_namespace n ON n.oid=p.pronamespace
+      WHERE n.nspname='public' AND p.proname IN ('has_active_subscription_after','is_tester')
+        AND has_function_privilege('anon', p.oid, 'EXECUTE')));
+  PERFORM t.eq('T-P98e raw identity bodies stay off anon/authenticated',
+    (SELECT count(*)::int FROM pg_proc p JOIN pg_namespace n ON n.oid=p.pronamespace
+      WHERE n.nspname='public' AND p.proname IN ('is_tester_raw','has_active_subscription_after_raw')
+        AND (has_function_privilege('anon', p.oid,'EXECUTE')
+             OR has_function_privilege('authenticated', p.oid,'EXECUTE'))), 0);
+  PERFORM t.eq('T-P98f get_expert_capital_status stays fully revoked from anon',
+    (SELECT count(*)::int FROM pg_proc p JOIN pg_namespace n ON n.oid=p.pronamespace
+      WHERE n.nspname='public' AND p.proname='get_expert_capital_status'
+        AND has_function_privilege('anon', p.oid,'EXECUTE')), 0);
 END $$;
+
 
 -- =====================================================================
 -- P99 RLS subscription-visibility suite — executed on the clone by the
