@@ -813,85 +813,31 @@
       "daily_price_snapshots :: Anyone can view snapshots :: SELECT :: true :: -"
     ],
     [
-      "expert_signal_legs :: Analysts manage own signal legs :: ALL :: (EXISTS ( SELECT 1"
-    ],
-    [
-      "   FROM (expert_signals s"
-    ],
-    [
-      "     JOIN experts e ON ((e.id = s.expert_id)))"
-    ],
-    [
-      "  WHERE ((s.id = expert_signal_legs.signal_id) AND (e.user_id = auth.uid())))) :: (EXISTS ( SELECT 1"
-    ],
-    [
-      "   FROM (expert_signals s"
-    ],
-    [
-      "     JOIN experts e ON ((e.id = s.expert_id)))"
-    ],
-    [
-      "  WHERE ((s.id = expert_signal_legs.signal_id) AND (e.user_id = auth.uid()))))"
+      "expert_signal_legs :: Analysts manage own signal legs :: ALL :: (EXISTS ( SELECT 1\n   FROM (expert_signals s\n     JOIN experts e ON ((e.id = s.expert_id)))\n  WHERE ((s.id = expert_signal_legs.signal_id) AND (e.user_id = auth.uid())))) :: (EXISTS ( SELECT 1\n   FROM (expert_signals s\n     JOIN experts e ON ((e.id = s.expert_id)))\n  WHERE ((s.id = expert_signal_legs.signal_id) AND (e.user_id = auth.uid()))))"
     ],
     [
       "expert_signal_legs :: Company admins full access signal legs :: ALL :: has_role(auth.uid(), 'company_admin'::app_role) :: has_role(auth.uid(), 'company_admin'::app_role)"
     ],
     [
-      "expert_signal_legs :: Subscribers can view published signal legs :: SELECT :: (EXISTS ( SELECT 1"
+      "expert_signal_legs :: Subscribers can view published signal legs :: SELECT :: (EXISTS ( SELECT 1\n   FROM expert_signals s\n  WHERE ((s.id = expert_signal_legs.signal_id) AND (s.status = 'published'::signal_status) AND (s.expert_id IN ( SELECT has_active_subscription_after.expert_id\n           FROM has_active_subscription_after(auth.uid(), s.published_at) has_active_subscription_after(expert_id)))))) :: -"
     ],
     [
-      "   FROM expert_signals s"
+      "expert_signals :: Analysts can delete own signals :: DELETE :: (expert_id IN ( SELECT experts.id\n   FROM experts\n  WHERE (experts.user_id = auth.uid()))) :: -"
     ],
     [
-      "  WHERE ((s.id = expert_signal_legs.signal_id) AND (s.status = 'published'::signal_status) AND (s.expert_id IN ( SELECT has_active_subscription_after.expert_id"
+      "expert_signals :: Analysts can insert own signals :: INSERT :: - :: (expert_id IN ( SELECT experts.id\n   FROM experts\n  WHERE (experts.user_id = auth.uid())))"
     ],
     [
-      "           FROM has_active_subscription_after(auth.uid(), s.published_at) has_active_subscription_after(expert_id)))))) :: -"
+      "expert_signals :: Analysts can update own signals :: UPDATE :: (expert_id IN ( SELECT experts.id\n   FROM experts\n  WHERE (experts.user_id = auth.uid()))) :: -"
     ],
     [
-      "expert_signals :: Analysts can delete own signals :: DELETE :: (expert_id IN ( SELECT experts.id"
-    ],
-    [
-      "   FROM experts"
-    ],
-    [
-      "  WHERE (experts.user_id = auth.uid()))) :: -"
-    ],
-    [
-      "expert_signals :: Analysts can insert own signals :: INSERT :: - :: (expert_id IN ( SELECT experts.id"
-    ],
-    [
-      "   FROM experts"
-    ],
-    [
-      "  WHERE (experts.user_id = auth.uid())))"
-    ],
-    [
-      "expert_signals :: Analysts can update own signals :: UPDATE :: (expert_id IN ( SELECT experts.id"
-    ],
-    [
-      "   FROM experts"
-    ],
-    [
-      "  WHERE (experts.user_id = auth.uid()))) :: -"
-    ],
-    [
-      "expert_signals :: Analysts can view own signals :: SELECT :: (expert_id IN ( SELECT experts.id"
-    ],
-    [
-      "   FROM experts"
-    ],
-    [
-      "  WHERE (experts.user_id = auth.uid()))) :: -"
+      "expert_signals :: Analysts can view own signals :: SELECT :: (expert_id IN ( SELECT experts.id\n   FROM experts\n  WHERE (experts.user_id = auth.uid()))) :: -"
     ],
     [
       "expert_signals :: Company admins full access signals :: ALL :: has_role(auth.uid(), 'company_admin'::app_role) :: has_role(auth.uid(), 'company_admin'::app_role)"
     ],
     [
-      "expert_signals :: Subscribers can view signals published after subscription start :: SELECT :: ((status = 'published'::signal_status) AND (expert_id IN ( SELECT has_active_subscription_after.expert_id"
-    ],
-    [
-      "   FROM has_active_subscription_after(auth.uid(), expert_signals.published_at) has_active_subscription_after(expert_id)))) :: -"
+      "expert_signals :: Subscribers can view signals published after subscription start :: SELECT :: ((status = 'published'::signal_status) AND (expert_id IN ( SELECT has_active_subscription_after.expert_id\n   FROM has_active_subscription_after(auth.uid(), expert_signals.published_at) has_active_subscription_after(expert_id)))) :: -"
     ],
     [
       "experts :: Analysts can update own expert :: UPDATE :: (user_id = auth.uid()) :: -"
@@ -906,10 +852,7 @@
       "experts :: Company admins full access experts :: ALL :: has_role(auth.uid(), 'company_admin'::app_role) :: has_role(auth.uid(), 'company_admin'::app_role)"
     ],
     [
-      "experts :: Subscribers can view subscribed experts :: SELECT :: ((id IN ( SELECT has_active_subscription.expert_id"
-    ],
-    [
-      "   FROM has_active_subscription(auth.uid()) has_active_subscription(plan_id, expert_id))) AND ((status = 'active'::text) OR is_tester(auth.uid()))) :: -"
+      "experts :: Subscribers can view subscribed experts :: SELECT :: ((id IN ( SELECT has_active_subscription.expert_id\n   FROM has_active_subscription(auth.uid()) has_active_subscription(plan_id, expert_id))) AND ((status = 'active'::text) OR is_tester(auth.uid()))) :: -"
     ],
     [
       "holdings_fix_proposals :: Company admins can insert fix proposals :: INSERT :: - :: has_role(auth.uid(), 'company_admin'::app_role)"
@@ -921,16 +864,7 @@
       "holdings_fix_proposals :: Company admins can view fix proposals :: SELECT :: has_role(auth.uid(), 'company_admin'::app_role) :: -"
     ],
     [
-      "member_subscriptions :: Analysts can view own plan subscriptions :: SELECT :: (plan_id IN ( SELECT ep.id"
-    ],
-    [
-      "   FROM (expert_plans ep"
-    ],
-    [
-      "     JOIN experts e ON ((ep.expert_id = e.id)))"
-    ],
-    [
-      "  WHERE (e.user_id = auth.uid()))) :: -"
+      "member_subscriptions :: Analysts can view own plan subscriptions :: SELECT :: (plan_id IN ( SELECT ep.id\n   FROM (expert_plans ep\n     JOIN experts e ON ((ep.expert_id = e.id)))\n  WHERE (e.user_id = auth.uid()))) :: -"
     ],
     [
       "member_subscriptions :: Company admins full access subscriptions :: ALL :: has_role(auth.uid(), 'company_admin'::app_role) :: has_role(auth.uid(), 'company_admin'::app_role)"
@@ -945,40 +879,16 @@
       "signal_trade_applications :: Company admins can view signal trade applications :: SELECT :: has_role(auth.uid(), 'company_admin'::app_role) :: -"
     ],
     [
-      "trade_records :: Analysts can delete own trade records :: DELETE :: (expert_id IN ( SELECT experts.id"
+      "trade_records :: Analysts can delete own trade records :: DELETE :: (expert_id IN ( SELECT experts.id\n   FROM experts\n  WHERE (experts.user_id = auth.uid()))) :: -"
     ],
     [
-      "   FROM experts"
+      "trade_records :: Analysts can view own trades :: SELECT :: (expert_id IN ( SELECT experts.id\n   FROM experts\n  WHERE (experts.user_id = auth.uid()))) :: -"
     ],
     [
-      "  WHERE (experts.user_id = auth.uid()))) :: -"
+      "trade_records :: Anyone can view closed trades for active experts :: SELECT :: ((status = ANY (ARRAY['closed'::trade_status, 'stopped'::trade_status])) AND ((expert_id IN ( SELECT experts.id\n   FROM experts\n  WHERE (experts.status = 'active'::text))) OR is_tester(auth.uid()))) :: -"
     ],
     [
-      "trade_records :: Analysts can view own trades :: SELECT :: (expert_id IN ( SELECT experts.id"
-    ],
-    [
-      "   FROM experts"
-    ],
-    [
-      "  WHERE (experts.user_id = auth.uid()))) :: -"
-    ],
-    [
-      "trade_records :: Anyone can view closed trades for active experts :: SELECT :: ((status = ANY (ARRAY['closed'::trade_status, 'stopped'::trade_status])) AND ((expert_id IN ( SELECT experts.id"
-    ],
-    [
-      "   FROM experts"
-    ],
-    [
-      "  WHERE (experts.status = 'active'::text))) OR is_tester(auth.uid()))) :: -"
-    ],
-    [
-      "trade_records :: Anyone can view open trades for active experts :: SELECT :: ((status = 'open'::trade_status) AND (expert_id IN ( SELECT experts.id"
-    ],
-    [
-      "   FROM experts"
-    ],
-    [
-      "  WHERE (experts.status = 'active'::text)))) :: -"
+      "trade_records :: Anyone can view open trades for active experts :: SELECT :: ((status = 'open'::trade_status) AND (expert_id IN ( SELECT experts.id\n   FROM experts\n  WHERE (experts.status = 'active'::text)))) :: -"
     ],
     [
       "trade_records :: Company admins can delete trade records :: DELETE :: has_role(auth.uid(), 'company_admin'::app_role) :: -"
@@ -987,10 +897,7 @@
       "trade_records :: Company admins can view all trades :: SELECT :: has_role(auth.uid(), 'company_admin'::app_role) :: -"
     ],
     [
-      "trade_records :: Subscribers can view subscribed expert trades :: SELECT :: (expert_id IN ( SELECT has_active_subscription.expert_id"
-    ],
-    [
-      "   FROM has_active_subscription(auth.uid()) has_active_subscription(plan_id, expert_id))) :: -"
+      "trade_records :: Subscribers can view subscribed expert trades :: SELECT :: (expert_id IN ( SELECT has_active_subscription.expert_id\n   FROM has_active_subscription(auth.uid()) has_active_subscription(plan_id, expert_id))) :: -"
     ],
     [
       "user_performances :: Analysts can delete own user performances :: DELETE :: (user_id = auth.uid()) :: -"

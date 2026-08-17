@@ -77,6 +77,30 @@ def main():
     emit("000_prereqs.sql", "roles / schemas / extensions / types / sequences",
          ["SET check_function_bodies = off;"] + roles + schemas + exts + enums + comps + seqs)
 
+    # ---------------------------------------------------------- 005 auth shim
+    # auth.* is Supabase-managed but public objects reference auth.users and
+    # auth.uid()/role()/jwt(). A restore that omits it cannot be validated, so
+    # the backup captures the auth surface the public schema depends on.
+    auth_tables = lines("""select 'CREATE TABLE IF NOT EXISTS auth.'||quote_ident(c.relname)||' ('||
+        (select string_agg(quote_ident(a.attname)||' '||format_type(a.atttypid,a.atttypmod)||
+            case when a.attnotnull then ' NOT NULL' else '' end, ', ' order by a.attnum)
+         from pg_attribute a where a.attrelid=c.oid and a.attnum>0 and not a.attisdropped)||');'
+        from pg_class c join pg_namespace n on n.oid=c.relnamespace
+        where n.nspname='auth' and c.relkind='r' order by c.relname""")
+    auth_pk = lines("""select 'ALTER TABLE auth.'||quote_ident(c.relname)||' ADD CONSTRAINT '||
+        quote_ident(con.conname)||' '||pg_get_constraintdef(con.oid)||';'
+        from pg_constraint con join pg_class c on c.oid=con.conrelid
+        join pg_namespace n on n.oid=c.relnamespace
+        where n.nspname='auth' and con.contype in ('p','u') order by c.relname, con.conname""")
+    auth_fns = lines("""select pg_get_functiondef(p.oid)||';'
+        from pg_proc p join pg_namespace n on n.oid=p.pronamespace
+        where n.nspname='auth' order by p.proname""")
+    emit("005_auth.sql", "auth schema surface referenced by public objects",
+         ["CREATE SCHEMA IF NOT EXISTS auth;",
+          "GRANT USAGE ON SCHEMA auth TO anon, authenticated, service_role;"]
+         + auth_tables + auth_pk + auth_fns
+         + ["GRANT SELECT ON ALL TABLES IN SCHEMA auth TO service_role;"])
+
     # ------------------------------------------------------------- 010 tables
     tables = lines("""select 'CREATE TABLE IF NOT EXISTS public.'||quote_ident(c.relname)||' ('||
         (select string_agg(quote_ident(a.attname)||' '||format_type(a.atttypid,a.atttypmod)||
@@ -189,7 +213,7 @@ def main():
     mpath = os.path.join(BK, "MANIFEST.json")
     man = json.load(open(mpath))
     man["restore_bundle"] = {
-        "order": ["000_prereqs.sql", "010_tables.sql", "020_constraints.sql", "030_functions.sql",
+        "order": ["000_prereqs.sql", "005_auth.sql", "010_tables.sql", "020_constraints.sql", "030_functions.sql",
                   "040_triggers.sql", "050_security.sql", "060_cron.sql"],
         "files": files,
         "row_data_included": False,

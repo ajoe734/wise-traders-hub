@@ -21,7 +21,12 @@ import re
 import sys
 
 sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
-from s0_lib import ROOT, OUT, cli_q, psql, sha256_file, sha256_text, write_json  # noqa: E402
+from s0_lib import ROOT, OUT, cli_q, psql, psql_json, sha256_file, sha256_text, write_json  # noqa: E402
+
+
+def mlines(sql):
+    """multi-line safe: values keep embedded newlines (policy quals, defs)."""
+    return [[v] for v in psql_json(sql) if v is not None]
 
 BK = os.path.join(OUT, "backup")
 KEYS = os.path.join(ROOT, "db", "r1", "p", "evidence", "prod_acl_canonical_keys.txt")
@@ -95,21 +100,21 @@ def main():
     tlist = "','".join(sorted(tables))
     cat = {
         "tables": sorted(tables),
-        "columns": psql("select table_name||'.'||column_name||' '||data_type||' null='||is_nullable||"
+        "columns": mlines("select table_name||'.'||column_name||' '||data_type||' null='||is_nullable||"
                         "' def='||coalesce(column_default,'-') from information_schema.columns "
                         "where table_schema='public' and table_name in ('%s') order by 1" % tlist),
-        "indexes": psql("select indexname||' :: '||indexdef from pg_indexes where schemaname='public' "
+        "indexes": mlines("select indexname||' :: '||indexdef from pg_indexes where schemaname='public' "
                         "and tablename in ('%s') order by 1" % tlist),
-        "constraints": psql("select conrelid::regclass::text||' :: '||conname||' :: '||pg_get_constraintdef(oid) "
+        "constraints": mlines("select conrelid::regclass::text||' :: '||conname||' :: '||pg_get_constraintdef(oid) "
                             "from pg_constraint where connamespace='public'::regnamespace "
                             "and conrelid::regclass::text in ('%s') order by 1" % tlist),
-        "policies": psql("select tablename||' :: '||policyname||' :: '||cmd||' :: '||coalesce(qual,'-')||' :: '||"
+        "policies": mlines("select tablename||' :: '||policyname||' :: '||cmd||' :: '||coalesce(qual,'-')||' :: '||"
                          "coalesce(with_check,'-') from pg_policies where schemaname='public' "
                          "and tablename in ('%s') order by 1" % tlist),
-        "grants": psql("select table_name||' :: '||grantee||' :: '||privilege_type "
+        "grants": mlines("select table_name||' :: '||grantee||' :: '||privilege_type "
                        "from information_schema.role_table_grants where table_schema='public' "
                        "and table_name in ('%s') order by 1" % tlist),
-        "rls_enabled": psql("select relname||'='||relrowsecurity::text from pg_class c "
+        "rls_enabled": mlines("select relname||'='||relrowsecurity::text from pg_class c "
                             "join pg_namespace n on n.oid=c.relnamespace where n.nspname='public' "
                             "and relname in ('%s') order by 1" % tlist),
     }

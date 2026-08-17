@@ -107,7 +107,7 @@ def main():
           "backup_rows=%d restored_rows=%d" % (len(want_g), len(got_g)))
 
     # ---- cron (72) -------------------------------------------------------
-    got_cron = {int(r[0]): (r[1], r[2], r[3] == "t", r[4]) for r in q(
+    got_cron = {int(r[0]): (r[1], r[2], r[3] in ('t', 'true'), r[4]) for r in q(
         cl, "select jobid, jobname, schedule, active::text, command_sha256 from cron_backup.job order by jobid")}
     bad = []
     for j in cron["jobs"]:
