@@ -1,0 +1,319 @@
+-- =====================================================================
+-- R1-D 002 CUTOVER — every legacy writer becomes a thin compatibility
+-- wrapper over app_ledger canonical functions.
+-- Signatures, return types and error contracts are preserved so that an
+-- OLD Edge deployment keeps working unchanged (deployment stage 3).
+-- No guard is relaxed, no trigger is disabled, no GUC/header bypass exists.
+-- =====================================================================
+SET lock_timeout = '3s';
+SET statement_timeout = '300s';
+
+-- ---------------------------------------------------------------- helper: position correction
+-- Used by every admin fix / dedupe / realign path. Emits a cash-neutral
+-- canonical correction instead of raw UPDATE/DELETE on trade_records.
+CREATE OR REPLACE FUNCTION app_ledger.canonical_correct_position(
+  p_expert uuid, p_instrument text, p_market text,
+  p_target_qty int, p_unit text, p_reason text, p_corr_no int DEFAULT 1)
+RETURNS jsonb LANGUAGE plpgsql SECURITY DEFINER SET search_path = '' AS $$
+DECLARE v_ikey text; v_open public.trade_records; v_delta int; v_event uuid;
+        v_key uuid; e public.experts;
+BEGIN
+  PERFORM app_ledger.lock_expert(p_expert);
+  SELECT * INTO e FROM public.experts WHERE id = p_expert;
+  IF e.id IS NULL THEN RAISE EXCEPTION 'unknown_expert: %', p_expert USING ERRCODE='P0001'; END IF;
+  v_ikey := public.economic_instrument_key(p_market, p_instrument);
+  SELECT * INTO v_open FROM public.trade_records t
+   WHERE t.expert_id = p_expert AND t.instrument_key = v_ikey
+     AND t.status = 'open'::public.trade_status FOR UPDATE;
+  v_delta := p_target_qty - coalesce(v_open.quantity, 0);
+  IF v_delta = 0 THEN
+    RETURN pg_catalog.jsonb_build_object('status','no_effect','delta',0);
+  END IF;
+  v_key := app_ledger.derive_logical_effect_id(
+             coalesce(v_open.id, pg_catalog.md5(v_ikey||p_expert::text)::uuid),
+             'correction', p_corr_no);
+  IF EXISTS (SELECT 1 FROM app_ledger.effect_key k
+              WHERE k.logical_effect_id = v_key AND k.state = 'applied') THEN
+    RETURN pg_catalog.jsonb_build_object('status','noop_idempotent','logical_effect_id',v_key);
+  END IF;
+  INSERT INTO app_ledger.effect_key(logical_effect_id, origin_signal_id, effect_kind,
+      correction_no, expert_id, state, detail)
+    VALUES (v_key, coalesce(v_open.signal_id, v_key), 'correction', p_corr_no, p_expert,
+            'reserved', p_reason)
+    ON CONFLICT (logical_effect_id) DO UPDATE SET state='reserved', updated_at=now();
+
+  v_event := app_ledger.canonical_apply_effect(pg_catalog.jsonb_build_object(
+    'action','quantity_adjustment','expert_id',p_expert,'instrument',p_instrument,
+    'market', p_market, 'currency', e.base_currency, 'qty', v_delta,
+    'qty_unit', coalesce(p_unit, v_open.quantity_unit), 'cost_delta', 0,
+    'effective_at', pg_catalog.now(), 'signal_id', v_open.signal_id,
+    'provenance','data_correction_adjustment','actor_via','admin_compat',
+    'reason', p_reason));
+
+  UPDATE app_ledger.effect_key SET state='applied', event_id=v_event, updated_at=now()
+   WHERE logical_effect_id = v_key;
+  RETURN pg_catalog.jsonb_build_object('status','applied','delta',v_delta,
+    'logical_effect_id',v_key,'event_id',v_event);
+END $$;
+ALTER FUNCTION app_ledger.canonical_correct_position(uuid,text,text,int,text,text,int)
+  OWNER TO ledger_owner;
+
+-- ---------------------------------------------------------------- W01 handle_signal_trade
+CREATE OR REPLACE FUNCTION public.handle_signal_trade() RETURNS trigger
+LANGUAGE plpgsql SECURITY DEFINER SET search_path = '' AS $$
+DECLARE v jsonb;
+BEGIN
+  -- compat wrapper (R1-D): zero economic DML here; canonical_apply_signal owns it.
+  v := app_ledger.canonical_apply_signal(NEW.id, NULL, 'handle_signal_trade');
+  IF v->>'status' = 'applied' THEN
+    INSERT INTO public.signal_trade_applications(signal_id, expert_id, action,
+        applied_quantity, tg_op, applied_at)
+    VALUES (NEW.id, NEW.expert_id, NEW.action::text, NEW.quantity, TG_OP, pg_catalog.now())
+    ON CONFLICT DO NOTHING;
+  END IF;
+  RETURN NEW;
+END $$;
+ALTER FUNCTION public.handle_signal_trade() OWNER TO ledger_owner;
+
+-- ---------------------------------------------------------------- W02 handle_signal_takedown
+CREATE OR REPLACE FUNCTION public.handle_signal_takedown() RETURNS trigger
+LANGUAGE plpgsql SECURITY DEFINER SET search_path = '' AS $$
+BEGIN
+  IF NEW.status::text = 'taken_down' AND OLD.status::text = 'published' THEN
+    PERFORM app_ledger.canonical_reverse_signal(NEW.id, 'takedown', NULL, 'handle_signal_takedown');
+  END IF;
+  RETURN NEW;
+END $$;
+ALTER FUNCTION public.handle_signal_takedown() OWNER TO ledger_owner;
+
+-- ---------------------------------------------------------------- W03 save_signal_batch
+-- Only change vs legacy: the editing path reverses via canonical instead of
+-- DELETE FROM trade_records. Auth checks, validation and errors are byte-identical.
+CREATE OR REPLACE FUNCTION public.save_signal_batch(
+  _expert_id uuid, _batch_id uuid, _signals jsonb,
+  _legs jsonb DEFAULT '[]'::jsonb, _is_editing boolean DEFAULT false)
+RETURNS integer LANGUAGE plpgsql SECURITY DEFINER SET search_path = '' AS $$
+DECLARE _caller uuid := auth.uid(); _inserted integer := 0; _old_ids uuid[]; _id uuid;
+BEGIN
+  IF _caller IS NULL THEN RAISE EXCEPTION 'unauthenticated' USING ERRCODE='42501'; END IF;
+  IF NOT (public.has_role(_caller,'company_admin'::public.app_role)
+          OR EXISTS (SELECT 1 FROM public.experts e WHERE e.id=_expert_id AND e.user_id=_caller))
+  THEN RAISE EXCEPTION 'forbidden' USING ERRCODE='42501'; END IF;
+  IF _signals IS NULL OR pg_catalog.jsonb_typeof(_signals) <> 'array'
+     OR pg_catalog.jsonb_array_length(_signals) = 0
+  THEN RAISE EXCEPTION 'empty_signals' USING ERRCODE='22023'; END IF;
+  IF EXISTS (SELECT 1 FROM pg_catalog.jsonb_array_elements(_signals) s
+              WHERE (s->>'expert_id')::uuid IS DISTINCT FROM _expert_id
+                 OR (s->>'batch_id')::uuid IS DISTINCT FROM _batch_id)
+  THEN RAISE EXCEPTION 'batch_mismatch' USING ERRCODE='22023'; END IF;
+
+  PERFORM app_ledger.lock_expert(_expert_id);
+
+  IF _is_editing THEN
+    SELECT array_agg(id) INTO _old_ids FROM public.expert_signals
+     WHERE batch_id=_batch_id AND expert_id=_expert_id;
+    IF _old_ids IS NOT NULL AND array_length(_old_ids,1) > 0 THEN
+      FOREACH _id IN ARRAY _old_ids LOOP
+        PERFORM app_ledger.canonical_reverse_signal(_id,'batch_edit',_caller,'save_signal_batch');
+      END LOOP;
+      DELETE FROM public.expert_signal_legs WHERE signal_id = ANY(_old_ids);
+      DELETE FROM public.expert_signals WHERE id = ANY(_old_ids);
+    END IF;
+  END IF;
+
+  WITH src AS (SELECT * FROM pg_catalog.jsonb_populate_recordset(null::public.expert_signals,_signals))
+  INSERT INTO public.expert_signals (
+    id, expert_id, plan_id, batch_id, instrument, action, price_hint,
+    reason_summary, reason_detail, risk_notes, learning_points,
+    status, published_at, created_at, quantity, quantity_unit,
+    teaching_topic, overall_summary, executed_at,
+    is_combo, combo_strategy, net_premium, max_loss_per_unit, max_profit_per_unit)
+  SELECT COALESCE(src.id, pg_catalog.gen_random_uuid()), _expert_id, src.plan_id, _batch_id,
+    src.instrument, src.action, src.price_hint, src.reason_summary, src.reason_detail,
+    src.risk_notes, src.learning_points, COALESCE(src.status,'published'::public.signal_status),
+    COALESCE(src.published_at, pg_catalog.now()), COALESCE(src.created_at, pg_catalog.now()),
+    src.quantity, src.quantity_unit, src.teaching_topic, src.overall_summary, src.executed_at,
+    COALESCE(src.is_combo,false), src.combo_strategy, src.net_premium,
+    src.max_loss_per_unit, src.max_profit_per_unit
+  FROM src;
+  GET DIAGNOSTICS _inserted = ROW_COUNT;
+
+  IF _legs IS NOT NULL AND pg_catalog.jsonb_typeof(_legs)='array'
+     AND pg_catalog.jsonb_array_length(_legs) > 0 THEN
+    IF EXISTS (SELECT 1 FROM pg_catalog.jsonb_array_elements(_legs) l
+                WHERE NOT EXISTS (SELECT 1 FROM public.expert_signals es
+                                   WHERE es.id=(l->>'signal_id')::uuid AND es.batch_id=_batch_id))
+    THEN RAISE EXCEPTION 'leg_signal_mismatch' USING ERRCODE='22023'; END IF;
+    INSERT INTO public.expert_signal_legs (signal_id, leg_index, occ_symbol, underlying,
+        expiry, right_type, strike, side, ratio, leg_price)
+    SELECT signal_id, leg_index, occ_symbol, underlying, expiry, right_type,
+           strike, side, ratio, leg_price
+    FROM pg_catalog.jsonb_populate_recordset(null::public.expert_signal_legs,_legs);
+  END IF;
+  RETURN _inserted;
+END $$;
+ALTER FUNCTION public.save_signal_batch(uuid,uuid,jsonb,jsonb,boolean) OWNER TO ledger_owner;
+
+-- ---------------------------------------------------------------- W04 price sync
+CREATE OR REPLACE FUNCTION public.upsert_current_price(p_writer text, p_rows jsonb)
+RETURNS integer LANGUAGE plpgsql SECURITY DEFINER SET search_path = '' AS $$
+DECLARE n int;
+BEGIN
+  n := app_ledger.apply_price_update(p_rows);
+  RETURN n;
+END $$;
+ALTER FUNCTION public.upsert_current_price(text,jsonb) OWNER TO ledger_owner;
+
+-- ---------------------------------------------------------------- W05..W09 admin economic writers
+CREATE OR REPLACE FUNCTION public.admin_delete_trade_records_by_signal_ids(_signal_ids uuid[])
+RETURNS integer LANGUAGE plpgsql SECURITY DEFINER SET search_path = '' AS $$
+DECLARE _id uuid; n int := 0; v jsonb;
+BEGIN
+  IF NOT public.has_role(auth.uid(),'company_admin'::public.app_role) THEN
+    RAISE EXCEPTION 'forbidden' USING ERRCODE='42501'; END IF;
+  FOREACH _id IN ARRAY coalesce(_signal_ids, '{}'::uuid[]) LOOP
+    v := app_ledger.canonical_reverse_signal(_id,'admin_delete_by_signal',auth.uid(),'admin_rpc');
+    IF v->>'status' = 'applied' THEN n := n + 1; END IF;
+  END LOOP;
+  RETURN n;
+END $$;
+ALTER FUNCTION public.admin_delete_trade_records_by_signal_ids(uuid[]) OWNER TO ledger_owner;
+
+CREATE OR REPLACE FUNCTION public.admin_delete_trade_records_by_symbol(
+  _expert_id uuid, _symbol_prefix text)
+RETURNS integer LANGUAGE plpgsql SECURITY DEFINER SET search_path = '' AS $$
+DECLARE r record; n int := 0;
+BEGIN
+  IF NOT public.has_role(auth.uid(),'company_admin'::public.app_role) THEN
+    RAISE EXCEPTION 'forbidden' USING ERRCODE='42501'; END IF;
+  FOR r IN SELECT t.instrument, t.market, t.quantity_unit FROM public.trade_records t
+            WHERE t.expert_id=_expert_id AND t.status='open'::public.trade_status
+              AND t.instrument LIKE _symbol_prefix||'%'
+  LOOP
+    PERFORM app_ledger.canonical_correct_position(_expert_id, r.instrument, r.market, 0,
+      r.quantity_unit, 'admin_delete_by_symbol:'||_symbol_prefix, 1);
+    n := n + 1;
+  END LOOP;
+  RETURN n;
+END $$;
+ALTER FUNCTION public.admin_delete_trade_records_by_symbol(uuid,text) OWNER TO ledger_owner;
+
+CREATE OR REPLACE FUNCTION public.realign_instrument_unit(
+  p_expert_id uuid, p_symbol_prefix text, p_new_unit text)
+RETURNS jsonb LANGUAGE plpgsql SECURITY DEFINER SET search_path = '' AS $$
+DECLARE r record; out_rows jsonb := '[]'::jsonb; v jsonb;
+BEGIN
+  IF NOT public.has_role(auth.uid(),'company_admin'::public.app_role) THEN
+    RAISE EXCEPTION 'forbidden' USING ERRCODE='42501'; END IF;
+  FOR r IN SELECT t.instrument, t.market, t.quantity, t.quantity_unit FROM public.trade_records t
+            WHERE t.expert_id=p_expert_id AND t.status='open'::public.trade_status
+              AND t.instrument LIKE p_symbol_prefix||'%'
+  LOOP
+    -- unit realignment is a canonical correction to the equivalent quantity
+    v := app_ledger.canonical_correct_position(p_expert_id, r.instrument, r.market,
+           app_ledger.convert_qty(r.quantity, r.quantity_unit, p_new_unit),
+           p_new_unit, 'realign_unit->'||p_new_unit, 2);
+    out_rows := out_rows || pg_catalog.jsonb_build_object('instrument', r.instrument, 'result', v);
+  END LOOP;
+  RETURN pg_catalog.jsonb_build_object('status','ok','rows',out_rows);
+END $$;
+ALTER FUNCTION public.realign_instrument_unit(uuid,text,text) OWNER TO ledger_owner;
+
+CREATE OR REPLACE FUNCTION public.admin_signal_dupe_trades_fix(
+  p_signal_id uuid, p_dry_run boolean DEFAULT true, p_force boolean DEFAULT false)
+RETURNS jsonb LANGUAGE plpgsql SECURITY DEFINER SET search_path = '' AS $$
+DECLARE s public.expert_signals; v jsonb; v_target int;
+BEGIN
+  IF NOT public.has_role(auth.uid(),'company_admin'::public.app_role) THEN
+    RAISE EXCEPTION 'forbidden' USING ERRCODE='42501'; END IF;
+  SELECT * INTO s FROM public.expert_signals WHERE id = p_signal_id;
+  IF s.id IS NULL THEN RAISE EXCEPTION 'unknown_signal: %', p_signal_id USING ERRCODE='P0001'; END IF;
+  v_target := coalesce(s.quantity, 0);
+  IF p_dry_run THEN
+    RETURN pg_catalog.jsonb_build_object('status','dry_run','signal_id',p_signal_id,
+      'target_quantity', v_target);
+  END IF;
+  v := app_ledger.canonical_correct_position(s.expert_id, s.instrument, s.market,
+         v_target, s.quantity_unit, 'dupe_fix:'||p_signal_id::text, 3);
+  RETURN pg_catalog.jsonb_build_object('status','ok','result',v);
+END $$;
+ALTER FUNCTION public.admin_signal_dupe_trades_fix(uuid,boolean,boolean) OWNER TO ledger_owner;
+
+CREATE OR REPLACE FUNCTION public.trade_dedupe_sweep(p_dry_run boolean DEFAULT true)
+RETURNS jsonb LANGUAGE plpgsql SECURITY DEFINER SET search_path = '' AS $$
+DECLARE r record; n int := 0;
+BEGIN
+  IF NOT public.has_role(auth.uid(),'company_admin'::public.app_role) THEN
+    RAISE EXCEPTION 'forbidden' USING ERRCODE='42501'; END IF;
+  FOR r IN SELECT expert_id, instrument_key, count(*) c FROM public.trade_records
+            WHERE status='open'::public.trade_status
+            GROUP BY 1,2 HAVING count(*) > 1
+  LOOP n := n + 1; END LOOP;
+  IF p_dry_run THEN
+    RETURN pg_catalog.jsonb_build_object('status','dry_run','duplicate_groups',n);
+  END IF;
+  -- Non-dry sweeps must be expressed as explicit canonical corrections.
+  RAISE EXCEPTION 'dedupe_requires_canonical_correction: use admin_signal_dupe_trades_fix'
+    USING ERRCODE='P0001';
+END $$;
+ALTER FUNCTION public.trade_dedupe_sweep(boolean) OWNER TO ledger_owner;
+
+CREATE OR REPLACE FUNCTION public.admin_apply_fix_proposal(p_id uuid, p_confirm boolean)
+RETURNS jsonb LANGUAGE plpgsql SECURITY DEFINER SET search_path = '' AS $$
+DECLARE p public.holdings_fix_proposals; v jsonb;
+BEGIN
+  IF NOT public.has_role(auth.uid(),'company_admin'::public.app_role) THEN
+    RAISE EXCEPTION 'forbidden' USING ERRCODE='42501'; END IF;
+  SELECT * INTO p FROM public.holdings_fix_proposals WHERE id = p_id;
+  IF p.id IS NULL THEN RAISE EXCEPTION 'unknown_proposal: %', p_id USING ERRCODE='P0001'; END IF;
+  IF NOT p_confirm THEN
+    RETURN pg_catalog.jsonb_build_object('status','dry_run','proposal',p_id); END IF;
+  v := app_ledger.canonical_correct_position(p.expert_id, p.instrument, p.market,
+         p.proposed_quantity, p.proposed_quantity_unit, 'fix_proposal:'||p_id::text, 4);
+  UPDATE public.holdings_fix_proposals
+     SET status='applied', applied_at=pg_catalog.now(), applied_by=auth.uid()
+   WHERE id = p_id;
+  RETURN pg_catalog.jsonb_build_object('status','applied','result',v);
+END $$;
+ALTER FUNCTION public.admin_apply_fix_proposal(uuid,boolean) OWNER TO ledger_owner;
+
+CREATE OR REPLACE FUNCTION public.admin_reset_expert_asset_class(
+  _expert_id uuid, _new_asset_class text)
+RETURNS void LANGUAGE plpgsql SECURITY DEFINER SET search_path = '' AS $$
+DECLARE r record;
+BEGIN
+  IF NOT public.has_role(auth.uid(),'company_admin'::public.app_role) THEN
+    RAISE EXCEPTION 'forbidden' USING ERRCODE='42501'; END IF;
+  PERFORM app_ledger.lock_expert(_expert_id);
+  FOR r IN SELECT t.instrument, t.market, t.quantity_unit FROM public.trade_records t
+            WHERE t.expert_id=_expert_id AND t.status='open'::public.trade_status
+  LOOP
+    PERFORM app_ledger.canonical_correct_position(_expert_id, r.instrument, r.market, 0,
+      r.quantity_unit, 'asset_class_reset->'||_new_asset_class, 5);
+  END LOOP;
+  UPDATE public.experts SET asset_class = _new_asset_class WHERE id = _expert_id;
+END $$;
+ALTER FUNCTION public.admin_reset_expert_asset_class(uuid,text) OWNER TO ledger_owner;
+
+-- ---------------------------------------------------------------- ACL: least privilege (R1-D §6)
+DO $$
+DECLARE r record;
+BEGIN
+  -- no runtime role may execute an admin economic function directly except via
+  -- the wrappers' own has_role check; raw DML is impossible thanks to the guards.
+  FOR r IN
+    SELECT format('REVOKE ALL ON FUNCTION public.%I(%s) FROM PUBLIC, anon',
+             p.proname, pg_get_function_identity_arguments(p.oid)) AS s
+      FROM pg_proc p JOIN pg_namespace n ON n.oid=p.pronamespace
+     WHERE n.nspname='public' AND p.proname IN (
+       'admin_apply_fix_proposal','admin_delete_trade_records_by_signal_ids',
+       'admin_delete_trade_records_by_symbol','admin_signal_dupe_trades_fix',
+       'trade_dedupe_sweep','realign_instrument_unit','admin_reset_expert_asset_class',
+       'upsert_current_price','save_signal_batch')
+  LOOP EXECUTE r.s; END LOOP;
+END $$;
+
+REVOKE INSERT, UPDATE, DELETE ON public.trade_records FROM anon, authenticated, service_role;
+REVOKE INSERT, UPDATE, DELETE ON public.portfolio_cash_ledger FROM anon, authenticated, service_role;
+GRANT  SELECT ON public.trade_records TO anon, authenticated, service_role;
+GRANT  SELECT ON public.portfolio_cash_ledger TO authenticated, service_role;
