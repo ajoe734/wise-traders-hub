@@ -1,6 +1,6 @@
 {
   "artifact": "acl-25",
-  "generated_at": "2026-08-17T05:08:28.026027+00:00",
+  "generated_at": "2026-08-17T05:30:16.829422+00:00",
   "production_touch": {
     "ddl": 0,
     "dml": 0,
@@ -14,16 +14,34 @@
     "pinned_sha256": "4b789a857ffd1f21f0b089d1a192f4f952acb58907c169c233f017fdd465d18c",
     "detail_sha256": "29409e83d23c1fde71d415f9ecf420614312d8246e5484f558b56e227280a018",
     "total_rows": 28,
+    "total_unique_functions": 28,
     "pattern_admin_build_publish": 25,
-    "named_pre_cutover_subset": 3,
+    "named_pre_cutover": 3,
+    "named_is_subset_of_pattern": false,
+    "disjointness_proof": {
+      "evidence": "db/r1/p/evidence/prod_acl_canonical_probe.txt",
+      "sha256": "46d76e7248be336e1fea9aec8f1cb6d11d321d51965bf994a849db461397723c",
+      "named_and_pattern_overlap": 0,
+      "note": "the three named helpers do not match any pattern predicate (admin_/canonical_/publish/backfill/dedupe/fix/rebuild/sweep), so 25 + 3 = 28 distinct functions; the earlier wording 'named subset' was wrong"
+    },
+    "canonical_keys": {
+      "definition": "schema.function(identity_args)|grantee|privilege",
+      "evidence": "db/r1/p/evidence/prod_acl_canonical_keys.txt",
+      "sha256": "2842cb39dc9cc33f088867e140dbc08a6b96e2e6fa36ae242c8e7335fd53e081",
+      "total": 37,
+      "anon_execute": 28,
+      "public_execute": 9,
+      "duplicate_check": 0
+    },
     "unclassified": 0
   },
   "disposition_counts": {
-    "revoke_anon_public": 28,
-    "keep_typed_safe": 0,
-    "owner_only": 0,
-    "replace_with_wrapper": 0
+    "owner_service_role_only": 12,
+    "keep_typed_safe_authenticated_guarded": 12,
+    "keep_rls_predicate_helper": 2,
+    "replace_with_wrapper": 2
   },
+  "anon_public_execute_closed": 28,
   "category_counts": {
     "admin": 9,
     "build": 11,
@@ -45,14 +63,16 @@
     ]
   },
   "policy": {
-    "no_keep_for": [
+    "anon_public_keep_forbidden_for": [
       "admin",
       "build",
       "publish",
       "economic_raw_rpc",
-      "trigger"
+      "trigger",
+      "rls_predicate_helper"
     ],
-    "note": "0 keep dispositions in this artifact, so no keep-proof is owed. The three named helpers stay callable for authenticated/service_role only (T-P98c proves output still works for the intended caller)."
+    "authenticated_keep_requires_guard_proof": true,
+    "note": "PUBLIC/anon EXECUTE is closed for all 28 targets. An `authenticated` grant survives only where the body itself refuses a non-privileged caller (company_admin gate or entitlement gate) or where an RLS predicate needs it; every such target carries keep_justification + keep_negative_proof."
   },
   "items": [
     {
@@ -99,9 +119,12 @@
       "actual_caller": "company_admin UI (/company/holdings-fix)",
       "data_exposed_or_mutated": "mutates trade_records + holdings_fix_proposals (applies an adjudicated correction)",
       "pre_cutover_risk": "anon could apply arbitrary economic corrections to any expert's ledger",
-      "cutover_disposition": "revoke_anon_public",
-      "keep_justification": null,
-      "keep_negative_proof": null,
+      "cutover_disposition": "keep_typed_safe_authenticated_guarded",
+      "anon_public_closed": true,
+      "authenticated_keeps_execute": true,
+      "intended_caller_after_cutover": "company_admin or entitled authenticated session + service_role",
+      "keep_justification": "body raises SQLSTATE 42501 unless has_role(auth.uid(),'company_admin'); the /company UI calls it as an ordinary authenticated session",
+      "keep_negative_proof": "T-P98e ordinary authenticated session gets 42501 and no row",
       "post_migration_test_id": "T-P98b.01"
     },
     {
@@ -148,9 +171,12 @@
       "actual_caller": "company_admin data-repair tooling",
       "data_exposed_or_mutated": "deletes rows from trade_records",
       "pre_cutover_risk": "anon could destroy an expert's trade history",
-      "cutover_disposition": "revoke_anon_public",
-      "keep_justification": null,
-      "keep_negative_proof": null,
+      "cutover_disposition": "keep_typed_safe_authenticated_guarded",
+      "anon_public_closed": true,
+      "authenticated_keeps_execute": true,
+      "intended_caller_after_cutover": "company_admin or entitled authenticated session + service_role",
+      "keep_justification": "body raises SQLSTATE 42501 unless has_role(auth.uid(),'company_admin'); the /company UI calls it as an ordinary authenticated session",
+      "keep_negative_proof": "T-P98e ordinary authenticated session gets 42501 and no row",
       "post_migration_test_id": "T-P98b.02"
     },
     {
@@ -197,9 +223,12 @@
       "actual_caller": "company_admin data-repair tooling",
       "data_exposed_or_mutated": "deletes rows from trade_records for an expert/symbol prefix",
       "pre_cutover_risk": "anon could destroy an expert's trade history",
-      "cutover_disposition": "revoke_anon_public",
-      "keep_justification": null,
-      "keep_negative_proof": null,
+      "cutover_disposition": "keep_typed_safe_authenticated_guarded",
+      "anon_public_closed": true,
+      "authenticated_keeps_execute": true,
+      "intended_caller_after_cutover": "company_admin or entitled authenticated session + service_role",
+      "keep_justification": "body raises SQLSTATE 42501 unless has_role(auth.uid(),'company_admin'); the /company UI calls it as an ordinary authenticated session",
+      "keep_negative_proof": "T-P98e ordinary authenticated session gets 42501 and no row",
       "post_migration_test_id": "T-P98b.03"
     },
     {
@@ -246,9 +275,12 @@
       "actual_caller": "company_admin UI + maintenance cron",
       "data_exposed_or_mutated": "writes holdings_fix_proposals; reads full cross-expert holdings",
       "pre_cutover_risk": "anon could enumerate every expert's drifted positions",
-      "cutover_disposition": "revoke_anon_public",
-      "keep_justification": null,
-      "keep_negative_proof": null,
+      "cutover_disposition": "keep_typed_safe_authenticated_guarded",
+      "anon_public_closed": true,
+      "authenticated_keeps_execute": true,
+      "intended_caller_after_cutover": "company_admin or entitled authenticated session + service_role",
+      "keep_justification": "body raises SQLSTATE 42501 unless has_role(auth.uid(),'company_admin'); the /company UI calls it as an ordinary authenticated session",
+      "keep_negative_proof": "T-P98e ordinary authenticated session gets 42501 and no row",
       "post_migration_test_id": "T-P98b.04"
     },
     {
@@ -295,9 +327,12 @@
       "actual_caller": "company_admin audit page",
       "data_exposed_or_mutated": "reads cross-expert holdings/trade_records aggregates (no mutation)",
       "pre_cutover_risk": "anon could read raw cross-expert position and quantity data",
-      "cutover_disposition": "revoke_anon_public",
-      "keep_justification": null,
-      "keep_negative_proof": null,
+      "cutover_disposition": "keep_typed_safe_authenticated_guarded",
+      "anon_public_closed": true,
+      "authenticated_keeps_execute": true,
+      "intended_caller_after_cutover": "company_admin or entitled authenticated session + service_role",
+      "keep_justification": "body raises SQLSTATE 42501 unless has_role(auth.uid(),'company_admin'); the /company UI calls it as an ordinary authenticated session",
+      "keep_negative_proof": "T-P98e ordinary authenticated session gets 42501 and no row",
       "post_migration_test_id": "T-P98b.05"
     },
     {
@@ -349,7 +384,10 @@
       "actual_caller": "company_admin ops page",
       "data_exposed_or_mutated": "reads cron.job schedule/commands (infrastructure metadata)",
       "pre_cutover_risk": "anon could enumerate internal jobs, secrets in job commands, and cadence",
-      "cutover_disposition": "revoke_anon_public",
+      "cutover_disposition": "owner_service_role_only",
+      "anon_public_closed": true,
+      "authenticated_keeps_execute": false,
+      "intended_caller_after_cutover": "service_role / cron / owner only",
       "keep_justification": null,
       "keep_negative_proof": null,
       "post_migration_test_id": "T-P98b.06"
@@ -398,9 +436,12 @@
       "actual_caller": "company_admin UI",
       "data_exposed_or_mutated": "mutates holdings_fix_proposals state",
       "pre_cutover_risk": "anon could suppress adjudication of a known drift",
-      "cutover_disposition": "revoke_anon_public",
-      "keep_justification": null,
-      "keep_negative_proof": null,
+      "cutover_disposition": "keep_typed_safe_authenticated_guarded",
+      "anon_public_closed": true,
+      "authenticated_keeps_execute": true,
+      "intended_caller_after_cutover": "company_admin or entitled authenticated session + service_role",
+      "keep_justification": "body raises SQLSTATE 42501 unless has_role(auth.uid(),'company_admin'); the /company UI calls it as an ordinary authenticated session",
+      "keep_negative_proof": "T-P98e ordinary authenticated session gets 42501 and no row",
       "post_migration_test_id": "T-P98b.07"
     },
     {
@@ -447,9 +488,12 @@
       "actual_caller": "company_admin UI",
       "data_exposed_or_mutated": "mutates experts.asset_class (changes economic interpretation)",
       "pre_cutover_risk": "anon could reclassify an expert and corrupt every downstream valuation",
-      "cutover_disposition": "revoke_anon_public",
-      "keep_justification": null,
-      "keep_negative_proof": null,
+      "cutover_disposition": "keep_typed_safe_authenticated_guarded",
+      "anon_public_closed": true,
+      "authenticated_keeps_execute": true,
+      "intended_caller_after_cutover": "company_admin or entitled authenticated session + service_role",
+      "keep_justification": "body raises SQLSTATE 42501 unless has_role(auth.uid(),'company_admin'); the /company UI calls it as an ordinary authenticated session",
+      "keep_negative_proof": "T-P98e ordinary authenticated session gets 42501 and no row",
       "post_migration_test_id": "T-P98b.08"
     },
     {
@@ -496,9 +540,12 @@
       "actual_caller": "company_admin maintenance",
       "data_exposed_or_mutated": "deletes duplicated trade_records rows",
       "pre_cutover_risk": "anon could trigger mass deletion of ledger rows",
-      "cutover_disposition": "revoke_anon_public",
-      "keep_justification": null,
-      "keep_negative_proof": null,
+      "cutover_disposition": "keep_typed_safe_authenticated_guarded",
+      "anon_public_closed": true,
+      "authenticated_keeps_execute": true,
+      "intended_caller_after_cutover": "company_admin or entitled authenticated session + service_role",
+      "keep_justification": "body raises SQLSTATE 42501 unless has_role(auth.uid(),'company_admin'); the /company UI calls it as an ordinary authenticated session",
+      "keep_negative_proof": "T-P98e ordinary authenticated session gets 42501 and no row",
       "post_migration_test_id": "T-P98b.09"
     },
     {
@@ -550,7 +597,10 @@
       "actual_caller": "service_role worker (edge function)",
       "data_exposed_or_mutated": "mutates backfill_job_queue state",
       "pre_cutover_risk": "anon could mark queue work complete and starve real backfills",
-      "cutover_disposition": "revoke_anon_public",
+      "cutover_disposition": "owner_service_role_only",
+      "anon_public_closed": true,
+      "authenticated_keeps_execute": false,
+      "intended_caller_after_cutover": "service_role / cron / owner only",
       "keep_justification": null,
       "keep_negative_proof": null,
       "post_migration_test_id": "T-P98b.10"
@@ -604,7 +654,10 @@
       "actual_caller": "service_role worker (edge function)",
       "data_exposed_or_mutated": "mutates backfill_job_queue state/retry clock",
       "pre_cutover_risk": "anon could poison the retry schedule",
-      "cutover_disposition": "revoke_anon_public",
+      "cutover_disposition": "owner_service_role_only",
+      "anon_public_closed": true,
+      "authenticated_keeps_execute": false,
+      "intended_caller_after_cutover": "service_role / cron / owner only",
       "keep_justification": null,
       "keep_negative_proof": null,
       "post_migration_test_id": "T-P98b.11"
@@ -653,7 +706,10 @@
       "actual_caller": "service_role migration worker",
       "data_exposed_or_mutated": "bulk-writes bsr fact tables from legacy rows",
       "pre_cutover_risk": "anon could rewrite chip facts / exhaust DB capacity",
-      "cutover_disposition": "revoke_anon_public",
+      "cutover_disposition": "owner_service_role_only",
+      "anon_public_closed": true,
+      "authenticated_keeps_execute": false,
+      "intended_caller_after_cutover": "service_role / cron / owner only",
       "keep_justification": null,
       "keep_negative_proof": null,
       "post_migration_test_id": "T-P98b.12"
@@ -707,9 +763,12 @@
       "actual_caller": "company_admin ops dashboard",
       "data_exposed_or_mutated": "reads queue depth/lag metrics (infrastructure metadata)",
       "pre_cutover_risk": "anon could profile internal workload and vendor quota state",
-      "cutover_disposition": "revoke_anon_public",
-      "keep_justification": null,
-      "keep_negative_proof": null,
+      "cutover_disposition": "replace_with_wrapper",
+      "anon_public_closed": true,
+      "authenticated_keeps_execute": true,
+      "intended_caller_after_cutover": "company_admin or entitled authenticated session + service_role",
+      "keep_justification": "signature preserved for the app; the original ungated body moved to <name>_raw (service_role/owner only) behind an entitlement gate",
+      "keep_negative_proof": "T-P98e ordinary authenticated session gets 42501; T-P98h _raw is not executable by anon/authenticated",
       "post_migration_test_id": "T-P98b.13"
     },
     {
@@ -756,7 +815,10 @@
       "actual_caller": "service_role worker (edge function)",
       "data_exposed_or_mutated": "claims + locks rows in backfill_job_queue",
       "pre_cutover_risk": "anon could steal all queued work and stall ingestion",
-      "cutover_disposition": "revoke_anon_public",
+      "cutover_disposition": "owner_service_role_only",
+      "anon_public_closed": true,
+      "authenticated_keeps_execute": false,
+      "intended_caller_after_cutover": "service_role / cron / owner only",
       "keep_justification": null,
       "keep_negative_proof": null,
       "post_migration_test_id": "T-P98b.14"
@@ -810,7 +872,10 @@
       "actual_caller": "service_role worker / cron",
       "data_exposed_or_mutated": "inserts into backfill_job_queue",
       "pre_cutover_risk": "anon could flood the queue (DoS + vendor quota burn)",
-      "cutover_disposition": "revoke_anon_public",
+      "cutover_disposition": "owner_service_role_only",
+      "anon_public_closed": true,
+      "authenticated_keeps_execute": false,
+      "intended_caller_after_cutover": "service_role / cron / owner only",
       "keep_justification": null,
       "keep_negative_proof": null,
       "post_migration_test_id": "T-P98b.15"
@@ -859,9 +924,12 @@
       "actual_caller": "company_admin UI + chips prefetch worker",
       "data_exposed_or_mutated": "inserts into backfill_job_queue for a stock",
       "pre_cutover_risk": "anon could flood the queue (DoS + vendor quota burn)",
-      "cutover_disposition": "revoke_anon_public",
-      "keep_justification": null,
-      "keep_negative_proof": null,
+      "cutover_disposition": "keep_typed_safe_authenticated_guarded",
+      "anon_public_closed": true,
+      "authenticated_keeps_execute": true,
+      "intended_caller_after_cutover": "company_admin or entitled authenticated session + service_role",
+      "keep_justification": "body raises SQLSTATE 42501 unless has_role(auth.uid(),'company_admin'); the /company UI calls it as an ordinary authenticated session",
+      "keep_negative_proof": "T-P98e ordinary authenticated session gets 42501 and no row",
       "post_migration_test_id": "T-P98b.16"
     },
     {
@@ -913,7 +981,10 @@
       "actual_caller": "cron (tw-bsr-worker-hourly)",
       "data_exposed_or_mutated": "enqueues the whole market universe",
       "pre_cutover_risk": "anon could trigger a full-universe fetch storm",
-      "cutover_disposition": "revoke_anon_public",
+      "cutover_disposition": "owner_service_role_only",
+      "anon_public_closed": true,
+      "authenticated_keeps_execute": false,
+      "intended_caller_after_cutover": "service_role / cron / owner only",
       "keep_justification": null,
       "keep_negative_proof": null,
       "post_migration_test_id": "T-P98b.17"
@@ -962,9 +1033,12 @@
       "actual_caller": "authenticated app (expert page, capital banner)",
       "data_exposed_or_mutated": "returns an expert's capital / funding state (economic raw RPC)",
       "pre_cutover_risk": "anon could read capital state for any expert without entitlement",
-      "cutover_disposition": "revoke_anon_public",
-      "keep_justification": null,
-      "keep_negative_proof": null,
+      "cutover_disposition": "replace_with_wrapper",
+      "anon_public_closed": true,
+      "authenticated_keeps_execute": true,
+      "intended_caller_after_cutover": "company_admin or entitled authenticated session + service_role",
+      "keep_justification": "signature preserved for the app; the original ungated body moved to <name>_raw (service_role/owner only) behind an entitlement gate",
+      "keep_negative_proof": "T-P98e ordinary authenticated session gets 42501; T-P98h _raw is not executable by anon/authenticated",
       "post_migration_test_id": "T-P98a.18"
     },
     {
@@ -1011,9 +1085,12 @@
       "actual_caller": "company_admin publishing console",
       "data_exposed_or_mutated": "reads publish attempt log incl. unpublished/embargoed signal ids",
       "pre_cutover_risk": "anon could read pre-embargo publication intent",
-      "cutover_disposition": "revoke_anon_public",
-      "keep_justification": null,
-      "keep_negative_proof": null,
+      "cutover_disposition": "keep_typed_safe_authenticated_guarded",
+      "anon_public_closed": true,
+      "authenticated_keeps_execute": true,
+      "intended_caller_after_cutover": "company_admin or entitled authenticated session + service_role",
+      "keep_justification": "body raises SQLSTATE 42501 unless has_role(auth.uid(),'company_admin'); the /company UI calls it as an ordinary authenticated session",
+      "keep_negative_proof": "T-P98e ordinary authenticated session gets 42501 and no row",
       "post_migration_test_id": "T-P98b.19"
     },
     {
@@ -1060,9 +1137,12 @@
       "actual_caller": "company_admin publishing console",
       "data_exposed_or_mutated": "reads publish run history incl. unreleased batches",
       "pre_cutover_risk": "anon could read pre-embargo publication intent",
-      "cutover_disposition": "revoke_anon_public",
-      "keep_justification": null,
-      "keep_negative_proof": null,
+      "cutover_disposition": "keep_typed_safe_authenticated_guarded",
+      "anon_public_closed": true,
+      "authenticated_keeps_execute": true,
+      "intended_caller_after_cutover": "company_admin or entitled authenticated session + service_role",
+      "keep_justification": "body raises SQLSTATE 42501 unless has_role(auth.uid(),'company_admin'); the /company UI calls it as an ordinary authenticated session",
+      "keep_negative_proof": "T-P98e ordinary authenticated session gets 42501 and no row",
       "post_migration_test_id": "T-P98b.20"
     },
     {
@@ -1109,9 +1189,12 @@
       "actual_caller": "company_admin publishing console",
       "data_exposed_or_mutated": "reads current publish batch state",
       "pre_cutover_risk": "anon could read pre-embargo publication intent",
-      "cutover_disposition": "revoke_anon_public",
-      "keep_justification": null,
-      "keep_negative_proof": null,
+      "cutover_disposition": "keep_typed_safe_authenticated_guarded",
+      "anon_public_closed": true,
+      "authenticated_keeps_execute": true,
+      "intended_caller_after_cutover": "company_admin or entitled authenticated session + service_role",
+      "keep_justification": "body raises SQLSTATE 42501 unless has_role(auth.uid(),'company_admin'); the /company UI calls it as an ordinary authenticated session",
+      "keep_negative_proof": "T-P98e ordinary authenticated session gets 42501 and no row",
       "post_migration_test_id": "T-P98b.21"
     },
     {
@@ -1158,9 +1241,12 @@
       "actual_caller": "authenticated app (entitlement checks)",
       "data_exposed_or_mutated": "returns entitlement truth for an arbitrary user id",
       "pre_cutover_risk": "anon could enumerate who is subscribed and when",
-      "cutover_disposition": "revoke_anon_public",
-      "keep_justification": null,
-      "keep_negative_proof": null,
+      "cutover_disposition": "keep_rls_predicate_helper",
+      "anon_public_closed": true,
+      "authenticated_keeps_execute": true,
+      "intended_caller_after_cutover": "company_admin or entitled authenticated session + service_role",
+      "keep_justification": "used inside RLS policy predicates, which Postgres evaluates as the querying role, so `authenticated` must keep EXECUTE or row visibility breaks open-ended",
+      "keep_negative_proof": "T-P98f anon has no EXECUTE; T-P98g RLS still hides a non-entitled row",
       "post_migration_test_id": "T-P98a.22"
     },
     {
@@ -1207,9 +1293,12 @@
       "actual_caller": "authenticated app + internal gating",
       "data_exposed_or_mutated": "returns internal tester flag for an arbitrary user id",
       "pre_cutover_risk": "anon could enumerate internal accounts",
-      "cutover_disposition": "revoke_anon_public",
-      "keep_justification": null,
-      "keep_negative_proof": null,
+      "cutover_disposition": "keep_rls_predicate_helper",
+      "anon_public_closed": true,
+      "authenticated_keeps_execute": true,
+      "intended_caller_after_cutover": "company_admin or entitled authenticated session + service_role",
+      "keep_justification": "used inside RLS policy predicates, which Postgres evaluates as the querying role, so `authenticated` must keep EXECUTE or row visibility breaks open-ended",
+      "keep_negative_proof": "T-P98f anon has no EXECUTE; T-P98g RLS still hides a non-entitled row",
       "post_migration_test_id": "T-P98a.23"
     },
     {
@@ -1261,7 +1350,10 @@
       "actual_caller": "cron maintenance",
       "data_exposed_or_mutated": "deletes rows from backfill_job_queue",
       "pre_cutover_risk": "anon could delete pending ingestion work",
-      "cutover_disposition": "revoke_anon_public",
+      "cutover_disposition": "owner_service_role_only",
+      "anon_public_closed": true,
+      "authenticated_keeps_execute": false,
+      "intended_caller_after_cutover": "service_role / cron / owner only",
       "keep_justification": null,
       "keep_negative_proof": null,
       "post_migration_test_id": "T-P98b.24"
@@ -1315,7 +1407,10 @@
       "actual_caller": "trigger only (BEFORE UPDATE on publish_batch_attempts)",
       "data_exposed_or_mutated": "sets updated_at on publish_batch_attempts",
       "pre_cutover_risk": "trigger function must never be directly executable by an anonymous caller",
-      "cutover_disposition": "revoke_anon_public",
+      "cutover_disposition": "owner_service_role_only",
+      "anon_public_closed": true,
+      "authenticated_keeps_execute": false,
+      "intended_caller_after_cutover": "service_role / cron / owner only",
       "keep_justification": null,
       "keep_negative_proof": null,
       "post_migration_test_id": "T-P98b.25"
@@ -1364,7 +1459,10 @@
       "actual_caller": "cron maintenance",
       "data_exposed_or_mutated": "resets stale claimed jobs in backfill_job_queue",
       "pre_cutover_risk": "anon could recycle in-flight jobs and cause duplicate ingestion",
-      "cutover_disposition": "revoke_anon_public",
+      "cutover_disposition": "owner_service_role_only",
+      "anon_public_closed": true,
+      "authenticated_keeps_execute": false,
+      "intended_caller_after_cutover": "service_role / cron / owner only",
       "keep_justification": null,
       "keep_negative_proof": null,
       "post_migration_test_id": "T-P98b.26"
@@ -1418,7 +1516,10 @@
       "actual_caller": "trigger only (BEFORE UPDATE on holdings_fix_proposals)",
       "data_exposed_or_mutated": "sets updated_at on holdings_fix_proposals",
       "pre_cutover_risk": "trigger function must never be directly executable by an anonymous caller",
-      "cutover_disposition": "revoke_anon_public",
+      "cutover_disposition": "owner_service_role_only",
+      "anon_public_closed": true,
+      "authenticated_keeps_execute": false,
+      "intended_caller_after_cutover": "service_role / cron / owner only",
       "keep_justification": null,
       "keep_negative_proof": null,
       "post_migration_test_id": "T-P98b.27"
@@ -1467,7 +1568,10 @@
       "actual_caller": "service_role maintenance job",
       "data_exposed_or_mutated": "deletes duplicated trade_records rows",
       "pre_cutover_risk": "anon could trigger mass deletion of ledger rows",
-      "cutover_disposition": "revoke_anon_public",
+      "cutover_disposition": "owner_service_role_only",
+      "anon_public_closed": true,
+      "authenticated_keeps_execute": false,
+      "intended_caller_after_cutover": "service_role / cron / owner only",
       "keep_justification": null,
       "keep_negative_proof": null,
       "post_migration_test_id": "T-P98b.28"

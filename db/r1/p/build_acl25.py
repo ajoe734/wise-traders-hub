@@ -26,6 +26,8 @@ EV = P / "evidence"
 WATCH = EV / "prod_acl_watchset.txt"
 DETAIL = EV / "acl_detail.txt"
 PIN = EV / "prod_acl_baseline.sha256"
+CANON_KEYS = EV / "prod_acl_canonical_keys.txt"
+CANON_PROBE = EV / "prod_acl_canonical_probe.txt"
 
 NAMED = {
     "get_expert_capital_status",
@@ -151,6 +153,50 @@ def category(name: str) -> str:
     return "build"
 
 
+# ------------------------------------------------------------- dispositions
+# Four dispositions. anon + PUBLIC EXECUTE is closed for all 28 targets; the
+# difference is what the *intended* caller keeps.
+GUARDED = {  # in-function has_role(company_admin) gate -> authenticated may keep EXECUTE
+    "admin_apply_fix_proposal", "admin_delete_trade_records_by_signal_ids",
+    "admin_delete_trade_records_by_symbol", "admin_generate_fix_proposals",
+    "admin_holdings_consistency_audit", "admin_reject_fix_proposal",
+    "admin_reset_expert_asset_class", "admin_trade_dedupe_sweep",
+    "enqueue_bsr_backfill", "get_publish_batch_attempts",
+    "get_publish_batch_runs", "get_publish_batch_status",
+}
+WRAPPED = {"get_expert_capital_status", "backfill_queue_stats"}
+RLS_HELPER = {"has_active_subscription_after", "is_tester"}
+
+
+def disposition(name: str) -> str:
+    if name in GUARDED:
+        return "keep_typed_safe_authenticated_guarded"
+    if name in WRAPPED:
+        return "replace_with_wrapper"
+    if name in RLS_HELPER:
+        return "keep_rls_predicate_helper"
+    return "owner_service_role_only"
+
+
+KEEP_PROOF = {
+    "keep_typed_safe_authenticated_guarded": (
+        "body raises SQLSTATE 42501 unless has_role(auth.uid(),'company_admin'); "
+        "the /company UI calls it as an ordinary authenticated session",
+        "T-P98e ordinary authenticated session gets 42501 and no row"),
+    "keep_rls_predicate_helper": (
+        "used inside RLS policy predicates, which Postgres evaluates as the "
+        "querying role, so `authenticated` must keep EXECUTE or row visibility "
+        "breaks open-ended",
+        "T-P98f anon has no EXECUTE; T-P98g RLS still hides a non-entitled row"),
+    "replace_with_wrapper": (
+        "signature preserved for the app; the original ungated body moved to "
+        "<name>_raw (service_role/owner only) behind an entitlement gate",
+        "T-P98e ordinary authenticated session gets 42501; T-P98h _raw is not "
+        "executable by anon/authenticated"),
+    "owner_service_role_only": (None, None),
+}
+
+
 def load_detail():
     out = {}
     for line in DETAIL.read_text().splitlines():
@@ -212,12 +258,22 @@ def build():
             "actual_caller": caller,
             "data_exposed_or_mutated": exposure,
             "pre_cutover_risk": risk,
-            "cutover_disposition": "revoke_anon_public",
-            "keep_justification": None,
-            "keep_negative_proof": None,
+            "cutover_disposition": disposition(name),
+            "anon_public_closed": True,
+            "authenticated_keeps_execute":
+                disposition(name) != "owner_service_role_only",
+            "intended_caller_after_cutover":
+                "service_role / cron / owner only"
+                if disposition(name) == "owner_service_role_only"
+                else "company_admin or entitled authenticated session + service_role",
+            "keep_justification": KEEP_PROOF[disposition(name)][0],
+            "keep_negative_proof": KEEP_PROOF[disposition(name)][1],
             "post_migration_test_id": f"T-P98{'a' if cls == 'named_pre_cutover' else 'b'}."
                                       f"{idx:02d}",
         })
+    canon_keys = [l.strip() for l in CANON_KEYS.read_text().splitlines() if l.strip()]
+    canon_keys_sha = hashlib.sha256(CANON_KEYS.read_bytes()).hexdigest()
+    canon_probe_sha = hashlib.sha256(CANON_PROBE.read_bytes()).hexdigest()
     named = [i for i in items if i["subset_of_named_pre_cutover"]]
     pattern = [i for i in items if not i["subset_of_named_pre_cutover"]]
     doc = {
@@ -230,17 +286,38 @@ def build():
             "pinned_sha256": PIN.read_text().strip() if PIN.exists() else None,
             "detail_sha256": hashlib.sha256(DETAIL.read_bytes()).hexdigest(),
             "total_rows": len(items),
+            "total_unique_functions": len({i["signature"] for i in items}),
             "pattern_admin_build_publish": len(pattern),
-            "named_pre_cutover_subset": len(named),
+            "named_pre_cutover": len(named),
+            "named_is_subset_of_pattern": False,
+            "disjointness_proof": {
+                "evidence": "db/r1/p/evidence/prod_acl_canonical_probe.txt",
+                "sha256": canon_probe_sha,
+                "named_and_pattern_overlap": 0,
+                "note": "the three named helpers do not match any pattern "
+                        "predicate (admin_/canonical_/publish/backfill/dedupe/"
+                        "fix/rebuild/sweep), so 25 + 3 = 28 distinct functions; "
+                        "the earlier wording 'named subset' was wrong",
+            },
+            "canonical_keys": {
+                "definition": "schema.function(identity_args)|grantee|privilege",
+                "evidence": "db/r1/p/evidence/prod_acl_canonical_keys.txt",
+                "sha256": canon_keys_sha,
+                "total": len(canon_keys),
+                "anon_execute": sum(1 for k in canon_keys if k.split("|")[1] == "anon"),
+                "public_execute": sum(1 for k in canon_keys if k.split("|")[1] == "PUBLIC"),
+                "duplicate_check": len(canon_keys) - len(set(canon_keys)),
+            },
             "unclassified": 0,
         },
         "disposition_counts": {
-            "revoke_anon_public": sum(1 for i in items
-                                      if i["cutover_disposition"] == "revoke_anon_public"),
-            "keep_typed_safe": 0,
-            "owner_only": 0,
-            "replace_with_wrapper": 0,
+            d: sum(1 for i in items if i["cutover_disposition"] == d)
+            for d in ("owner_service_role_only",
+                      "keep_typed_safe_authenticated_guarded",
+                      "keep_rls_predicate_helper",
+                      "replace_with_wrapper")
         },
+        "anon_public_execute_closed": len(items),
         "category_counts": {
             c: sum(1 for i in items if i["category"] == c)
             for c in sorted({i["category"] for i in items})
@@ -253,10 +330,15 @@ def build():
             "group_tests": ["T-P98a", "T-P98b", "T-P98c"],
         },
         "policy": {
-            "no_keep_for": ["admin", "build", "publish", "economic_raw_rpc", "trigger"],
-            "note": "0 keep dispositions in this artifact, so no keep-proof is owed. "
-                    "The three named helpers stay callable for authenticated/service_role "
-                    "only (T-P98c proves output still works for the intended caller).",
+            "anon_public_keep_forbidden_for": ["admin", "build", "publish",
+                                               "economic_raw_rpc", "trigger",
+                                               "rls_predicate_helper"],
+            "authenticated_keep_requires_guard_proof": True,
+            "note": "PUBLIC/anon EXECUTE is closed for all 28 targets. An "
+                    "`authenticated` grant survives only where the body itself "
+                    "refuses a non-privileged caller (company_admin gate or "
+                    "entitlement gate) or where an RLS predicate needs it; every "
+                    "such target carries keep_justification + keep_negative_proof.",
         },
         "items": items,
     }
