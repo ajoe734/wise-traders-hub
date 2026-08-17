@@ -669,6 +669,8 @@ async function runWorker(batch: number, maxPriority: number, budgetMs: number): 
     while (idx < jobs.length) {
       if (Date.now() - started > budgetMs) return;
       if (rateLimitedStop) return;
+      if (terminalStop) return;
+
       const my = idx++;
       const job = jobs[my];
       const cid: string | null = job.correlation_id ?? null;
