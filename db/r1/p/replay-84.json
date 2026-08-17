@@ -48,7 +48,13 @@
    },
    "review_status": "manual_review",
    "public_disposition": "withheld_incomplete",
-   "in_drift26": false
+   "in_drift26": false,
+   "authoritative_qty_shares": null,
+   "candidate_qty_shares": [
+    2,
+    null
+   ],
+   "auto_correction_forbidden": true
   },
   {
    "key": "K-3b40ad4cb4bea71d",
@@ -79,7 +85,13 @@
    },
    "review_status": "manual_review",
    "public_disposition": "withheld_incomplete",
-   "in_drift26": false
+   "in_drift26": false,
+   "authoritative_qty_shares": null,
+   "candidate_qty_shares": [
+    1,
+    null
+   ],
+   "auto_correction_forbidden": true
   },
   {
    "key": "K-fc2d3f1fcd6936b9",
@@ -110,7 +122,13 @@
    },
    "review_status": "manual_review",
    "public_disposition": "withheld_incomplete",
-   "in_drift26": false
+   "in_drift26": false,
+   "authoritative_qty_shares": null,
+   "candidate_qty_shares": [
+    1,
+    null
+   ],
+   "auto_correction_forbidden": true
   },
   {
    "key": "K-d4c2a20b52678e60",
@@ -140,7 +158,13 @@
    },
    "review_status": "manual_review",
    "public_disposition": "withheld_incomplete",
-   "in_drift26": false
+   "in_drift26": false,
+   "authoritative_qty_shares": null,
+   "candidate_qty_shares": [
+    0,
+    0
+   ],
+   "auto_correction_forbidden": true
   },
   {
    "key": "K-56eda61112f36851",
@@ -170,7 +194,13 @@
    },
    "review_status": "manual_review",
    "public_disposition": "withheld_incomplete",
-   "in_drift26": false
+   "in_drift26": false,
+   "authoritative_qty_shares": null,
+   "candidate_qty_shares": [
+    0,
+    0
+   ],
+   "auto_correction_forbidden": true
   },
   {
    "key": "K-5805cbcd11af6037",
@@ -200,7 +230,13 @@
    },
    "review_status": "manual_review",
    "public_disposition": "withheld_incomplete",
-   "in_drift26": false
+   "in_drift26": false,
+   "authoritative_qty_shares": null,
+   "candidate_qty_shares": [
+    0,
+    0
+   ],
+   "auto_correction_forbidden": true
   },
   {
    "key": "K-8d443d48723c939e",
@@ -230,7 +266,13 @@
    },
    "review_status": "manual_review",
    "public_disposition": "withheld_incomplete",
-   "in_drift26": false
+   "in_drift26": false,
+   "authoritative_qty_shares": null,
+   "candidate_qty_shares": [
+    0,
+    0
+   ],
+   "auto_correction_forbidden": true
   },
   {
    "key": "K-0666a9a95f9ef976",
@@ -258,7 +300,10 @@
    },
    "review_status": "auto_supported",
    "public_disposition": "as_reported_publishable",
-   "in_drift26": false
+   "in_drift26": false,
+   "authoritative_qty_shares": 0,
+   "candidate_qty_shares": null,
+   "auto_correction_forbidden": false
   },
   {
    "key": "K-93635b42d3b3484d",
@@ -288,7 +333,13 @@
    },
    "review_status": "manual_review",
    "public_disposition": "withheld_incomplete",
-   "in_drift26": false
+   "in_drift26": false,
+   "authoritative_qty_shares": null,
+   "candidate_qty_shares": [
+    0,
+    0
+   ],
+   "auto_correction_forbidden": true
   },
   {
    "key": "K-1985d9bc4d269939",
@@ -316,7 +367,10 @@
    },
    "review_status": "auto_supported",
    "public_disposition": "as_reported_publishable",
-   "in_drift26": false
+   "in_drift26": false,
+   "authoritative_qty_shares": 0,
+   "candidate_qty_shares": null,
+   "auto_correction_forbidden": false
   },
   {
    "key": "K-8be131936b07c607",
@@ -346,7 +400,13 @@
    },
    "review_status": "manual_review",
    "public_disposition": "withheld_incomplete",
-   "in_drift26": false
+   "in_drift26": false,
+   "authoritative_qty_shares": null,
+   "candidate_qty_shares": [
+    0,
+    0
+   ],
+   "auto_correction_forbidden": true
   },
   {
    "key": "K-12974bf9e4fb4632",
@@ -376,7 +436,13 @@
    },
    "review_status": "manual_review",
    "public_disposition": "withheld_incomplete",
-   "in_drift26": false
+   "in_drift26": false,
+   "authoritative_qty_shares": null,
+   "candidate_qty_shares": [
+    0,
+    0
+   ],
+   "auto_correction_forbidden": true
   },
   {
    "key": "K-7e6df2dddb46cd7f",
@@ -406,7 +472,13 @@
    },
    "review_status": "manual_review",
    "public_disposition": "withheld_incomplete",
-   "in_drift26": false
+   "in_drift26": false,
+   "authoritative_qty_shares": null,
+   "candidate_qty_shares": [
+    0,
+    0
+   ],
+   "auto_correction_forbidden": true
   },
   {
    "key": "K-010547566067ded1",
@@ -434,7 +506,10 @@
    },
    "review_status": "auto_supported",
    "public_disposition": "as_reported_publishable",
-   "in_drift26": false
+   "in_drift26": false,
+   "authoritative_qty_shares": 0,
+   "candidate_qty_shares": null,
+   "auto_correction_forbidden": false
   },
   {
    "key": "K-3b28dcd4d801a87f",
@@ -464,7 +539,13 @@
    },
    "review_status": "manual_review",
    "public_disposition": "withheld_incomplete",
-   "in_drift26": false
+   "in_drift26": false,
+   "authoritative_qty_shares": null,
+   "candidate_qty_shares": [
+    0,
+    0
+   ],
+   "auto_correction_forbidden": true
   },
   {
    "key": "K-25ee7d1eb90f2241",
@@ -494,7 +575,13 @@
    },
    "review_status": "manual_review",
    "public_disposition": "withheld_incomplete",
-   "in_drift26": false
+   "in_drift26": false,
+   "authoritative_qty_shares": null,
+   "candidate_qty_shares": [
+    0,
+    0
+   ],
+   "auto_correction_forbidden": true
   },
   {
    "key": "K-12cd7870fe8ad3fb",
@@ -524,7 +611,13 @@
    },
    "review_status": "manual_review",
    "public_disposition": "withheld_incomplete",
-   "in_drift26": false
+   "in_drift26": false,
+   "authoritative_qty_shares": null,
+   "candidate_qty_shares": [
+    0,
+    0
+   ],
+   "auto_correction_forbidden": true
   },
   {
    "key": "K-e9f49a2ef76046bc",
@@ -554,7 +647,13 @@
    },
    "review_status": "manual_review",
    "public_disposition": "withheld_incomplete",
-   "in_drift26": false
+   "in_drift26": false,
+   "authoritative_qty_shares": null,
+   "candidate_qty_shares": [
+    0,
+    0
+   ],
+   "auto_correction_forbidden": true
   },
   {
    "key": "K-668c937620c434cf",
@@ -584,7 +683,13 @@
    },
    "review_status": "manual_review",
    "public_disposition": "withheld_incomplete",
-   "in_drift26": false
+   "in_drift26": false,
+   "authoritative_qty_shares": null,
+   "candidate_qty_shares": [
+    0,
+    0
+   ],
+   "auto_correction_forbidden": true
   },
   {
    "key": "K-ec02b2e308ad2069",
@@ -612,7 +717,10 @@
    },
    "review_status": "auto_supported",
    "public_disposition": "as_reported_publishable",
-   "in_drift26": false
+   "in_drift26": false,
+   "authoritative_qty_shares": 0,
+   "candidate_qty_shares": null,
+   "auto_correction_forbidden": false
   },
   {
    "key": "K-89be185d9312692a",
@@ -642,7 +750,13 @@
    },
    "review_status": "manual_review",
    "public_disposition": "withheld_incomplete",
-   "in_drift26": false
+   "in_drift26": false,
+   "authoritative_qty_shares": null,
+   "candidate_qty_shares": [
+    0,
+    0
+   ],
+   "auto_correction_forbidden": true
   },
   {
    "key": "K-85ad8df8e3cca9f5",
@@ -670,7 +784,10 @@
    },
    "review_status": "auto_supported",
    "public_disposition": "as_reported_publishable",
-   "in_drift26": false
+   "in_drift26": false,
+   "authoritative_qty_shares": 300,
+   "candidate_qty_shares": null,
+   "auto_correction_forbidden": false
   },
   {
    "key": "K-9f2a3585521b65d7",
@@ -698,7 +815,10 @@
    },
    "review_status": "auto_supported",
    "public_disposition": "as_reported_publishable",
-   "in_drift26": false
+   "in_drift26": false,
+   "authoritative_qty_shares": 0,
+   "candidate_qty_shares": null,
+   "auto_correction_forbidden": false
   },
   {
    "key": "K-8ff71e7386ee3c03",
@@ -726,7 +846,10 @@
    },
    "review_status": "auto_supported",
    "public_disposition": "as_reported_publishable",
-   "in_drift26": false
+   "in_drift26": false,
+   "authoritative_qty_shares": 0,
+   "candidate_qty_shares": null,
+   "auto_correction_forbidden": false
   },
   {
    "key": "K-f76e68678cb9a349",
@@ -756,7 +879,13 @@
    },
    "review_status": "manual_review",
    "public_disposition": "withheld_incomplete",
-   "in_drift26": false
+   "in_drift26": false,
+   "authoritative_qty_shares": null,
+   "candidate_qty_shares": [
+    0,
+    0
+   ],
+   "auto_correction_forbidden": true
   },
   {
    "key": "K-4d5ab40ee8e0d33b",
@@ -784,7 +913,10 @@
    },
    "review_status": "auto_supported",
    "public_disposition": "as_reported_publishable",
-   "in_drift26": false
+   "in_drift26": false,
+   "authoritative_qty_shares": 0,
+   "candidate_qty_shares": null,
+   "auto_correction_forbidden": false
   },
   {
    "key": "K-c84d3d78381fc234",
@@ -814,7 +946,13 @@
    },
    "review_status": "manual_review",
    "public_disposition": "withheld_incomplete",
-   "in_drift26": false
+   "in_drift26": false,
+   "authoritative_qty_shares": null,
+   "candidate_qty_shares": [
+    0,
+    0
+   ],
+   "auto_correction_forbidden": true
   },
   {
    "key": "K-ca6d981ed12f8473",
@@ -842,7 +980,10 @@
    },
    "review_status": "auto_supported",
    "public_disposition": "as_reported_publishable",
-   "in_drift26": false
+   "in_drift26": false,
+   "authoritative_qty_shares": 0,
+   "candidate_qty_shares": null,
+   "auto_correction_forbidden": false
   },
   {
    "key": "K-b9e099ede9af729b",
@@ -870,7 +1011,10 @@
    },
    "review_status": "auto_supported",
    "public_disposition": "as_reported_publishable",
-   "in_drift26": false
+   "in_drift26": false,
+   "authoritative_qty_shares": 0,
+   "candidate_qty_shares": null,
+   "auto_correction_forbidden": false
   },
   {
    "key": "K-837b2968d30dc08f",
@@ -898,7 +1042,10 @@
    },
    "review_status": "auto_supported",
    "public_disposition": "as_reported_publishable",
-   "in_drift26": false
+   "in_drift26": false,
+   "authoritative_qty_shares": 0,
+   "candidate_qty_shares": null,
+   "auto_correction_forbidden": false
   },
   {
    "key": "K-8703a8014740cd76",
@@ -928,7 +1075,13 @@
    },
    "review_status": "manual_review",
    "public_disposition": "withheld_incomplete",
-   "in_drift26": false
+   "in_drift26": false,
+   "authoritative_qty_shares": null,
+   "candidate_qty_shares": [
+    0,
+    0
+   ],
+   "auto_correction_forbidden": true
   },
   {
    "key": "K-5733b44231839b2b",
@@ -958,7 +1111,13 @@
    },
    "review_status": "manual_review",
    "public_disposition": "withheld_incomplete",
-   "in_drift26": false
+   "in_drift26": false,
+   "authoritative_qty_shares": null,
+   "candidate_qty_shares": [
+    0,
+    0
+   ],
+   "auto_correction_forbidden": true
   },
   {
    "key": "K-e6b86bcade34347d",
@@ -986,7 +1145,10 @@
    },
    "review_status": "auto_supported",
    "public_disposition": "as_reported_publishable",
-   "in_drift26": false
+   "in_drift26": false,
+   "authoritative_qty_shares": 0,
+   "candidate_qty_shares": null,
+   "auto_correction_forbidden": false
   },
   {
    "key": "K-e65922556154fddf",
@@ -1016,7 +1178,13 @@
    },
    "review_status": "manual_review",
    "public_disposition": "withheld_incomplete",
-   "in_drift26": false
+   "in_drift26": false,
+   "authoritative_qty_shares": null,
+   "candidate_qty_shares": [
+    0,
+    0
+   ],
+   "auto_correction_forbidden": true
   },
   {
    "key": "K-ca07fe2263e6f74e",
@@ -1046,7 +1214,13 @@
    },
    "review_status": "manual_review",
    "public_disposition": "withheld_incomplete",
-   "in_drift26": false
+   "in_drift26": false,
+   "authoritative_qty_shares": null,
+   "candidate_qty_shares": [
+    0,
+    0
+   ],
+   "auto_correction_forbidden": true
   },
   {
    "key": "K-462a98f0f315db85",
@@ -1076,7 +1250,13 @@
    },
    "review_status": "manual_review",
    "public_disposition": "withheld_incomplete",
-   "in_drift26": false
+   "in_drift26": false,
+   "authoritative_qty_shares": null,
+   "candidate_qty_shares": [
+    0,
+    0
+   ],
+   "auto_correction_forbidden": true
   },
   {
    "key": "K-99df68de191d60a8",
@@ -1104,7 +1284,10 @@
    },
    "review_status": "auto_supported",
    "public_disposition": "as_reported_publishable",
-   "in_drift26": false
+   "in_drift26": false,
+   "authoritative_qty_shares": 500,
+   "candidate_qty_shares": null,
+   "auto_correction_forbidden": false
   },
   {
    "key": "K-b5ffe3fdf8404930",
@@ -1132,7 +1315,10 @@
    },
    "review_status": "auto_supported",
    "public_disposition": "as_reported_publishable",
-   "in_drift26": false
+   "in_drift26": false,
+   "authoritative_qty_shares": 0,
+   "candidate_qty_shares": null,
+   "auto_correction_forbidden": false
   },
   {
    "key": "K-f9667f16b049712a",
@@ -1162,7 +1348,13 @@
    },
    "review_status": "manual_review",
    "public_disposition": "withheld_incomplete",
-   "in_drift26": false
+   "in_drift26": false,
+   "authoritative_qty_shares": null,
+   "candidate_qty_shares": [
+    0,
+    0
+   ],
+   "auto_correction_forbidden": true
   },
   {
    "key": "K-c224df7f9de0e0ff",
@@ -1190,7 +1382,10 @@
    },
    "review_status": "auto_supported",
    "public_disposition": "as_reported_publishable",
-   "in_drift26": false
+   "in_drift26": false,
+   "authoritative_qty_shares": 100,
+   "candidate_qty_shares": null,
+   "auto_correction_forbidden": false
   },
   {
    "key": "K-2fb3143d1feae968",
@@ -1220,7 +1415,10 @@
    },
    "review_status": "auto_supported",
    "public_disposition": "as_reported_publishable",
-   "in_drift26": false
+   "in_drift26": false,
+   "authoritative_qty_shares": 15,
+   "candidate_qty_shares": null,
+   "auto_correction_forbidden": false
   },
   {
    "key": "K-c970448c66129ccb",
@@ -1250,7 +1448,10 @@
    },
    "review_status": "auto_supported",
    "public_disposition": "as_reported_publishable",
-   "in_drift26": false
+   "in_drift26": false,
+   "authoritative_qty_shares": 0,
+   "candidate_qty_shares": null,
+   "auto_correction_forbidden": false
   },
   {
    "key": "K-ced506b1d9bb2d61",
@@ -1280,7 +1481,10 @@
    },
    "review_status": "auto_supported",
    "public_disposition": "as_reported_publishable",
-   "in_drift26": false
+   "in_drift26": false,
+   "authoritative_qty_shares": 0,
+   "candidate_qty_shares": null,
+   "auto_correction_forbidden": false
   },
   {
    "key": "K-3741a3242d2107fe",
@@ -1310,7 +1514,10 @@
    },
    "review_status": "auto_supported",
    "public_disposition": "as_reported_publishable",
-   "in_drift26": false
+   "in_drift26": false,
+   "authoritative_qty_shares": 0,
+   "candidate_qty_shares": null,
+   "auto_correction_forbidden": false
   },
   {
    "key": "K-77eb3451a005e529",
@@ -1340,7 +1547,10 @@
    },
    "review_status": "auto_supported",
    "public_disposition": "as_reported_publishable",
-   "in_drift26": false
+   "in_drift26": false,
+   "authoritative_qty_shares": 10,
+   "candidate_qty_shares": null,
+   "auto_correction_forbidden": false
   },
   {
    "key": "K-a77bb8727068aed7",
@@ -1370,7 +1580,10 @@
    },
    "review_status": "auto_supported",
    "public_disposition": "as_reported_publishable",
-   "in_drift26": false
+   "in_drift26": false,
+   "authoritative_qty_shares": 0,
+   "candidate_qty_shares": null,
+   "auto_correction_forbidden": false
   },
   {
    "key": "K-58a87f713e49f757",
@@ -1400,7 +1613,10 @@
    },
    "review_status": "auto_supported",
    "public_disposition": "as_reported_publishable",
-   "in_drift26": false
+   "in_drift26": false,
+   "authoritative_qty_shares": 1,
+   "candidate_qty_shares": null,
+   "auto_correction_forbidden": false
   },
   {
    "key": "K-bf2da358029c55d3",
@@ -1430,7 +1646,10 @@
    },
    "review_status": "auto_supported",
    "public_disposition": "as_reported_publishable",
-   "in_drift26": false
+   "in_drift26": false,
+   "authoritative_qty_shares": 50,
+   "candidate_qty_shares": null,
+   "auto_correction_forbidden": false
   },
   {
    "key": "K-ac771955ee4ae5c9",
@@ -1460,7 +1679,10 @@
    },
    "review_status": "auto_supported",
    "public_disposition": "as_reported_publishable",
-   "in_drift26": false
+   "in_drift26": false,
+   "authoritative_qty_shares": 0,
+   "candidate_qty_shares": null,
+   "auto_correction_forbidden": false
   },
   {
    "key": "K-ad219999abffedf0",
@@ -1490,7 +1712,10 @@
    },
    "review_status": "auto_supported",
    "public_disposition": "as_reported_publishable",
-   "in_drift26": false
+   "in_drift26": false,
+   "authoritative_qty_shares": 0,
+   "candidate_qty_shares": null,
+   "auto_correction_forbidden": false
   },
   {
    "key": "K-653130323a122127",
@@ -1520,7 +1745,10 @@
    },
    "review_status": "auto_supported",
    "public_disposition": "as_reported_publishable",
-   "in_drift26": false
+   "in_drift26": false,
+   "authoritative_qty_shares": 10,
+   "candidate_qty_shares": null,
+   "auto_correction_forbidden": false
   },
   {
    "key": "K-cfa2c8181d189056",
@@ -1551,7 +1779,13 @@
    },
    "review_status": "manual_review",
    "public_disposition": "withheld_incomplete",
-   "in_drift26": true
+   "in_drift26": true,
+   "authoritative_qty_shares": null,
+   "candidate_qty_shares": [
+    0,
+    4995
+   ],
+   "auto_correction_forbidden": true
   },
   {
    "key": "K-f0951a852c0938c9",
@@ -1581,7 +1815,13 @@
    },
    "review_status": "manual_review",
    "public_disposition": "withheld_incomplete",
-   "in_drift26": true
+   "in_drift26": true,
+   "authoritative_qty_shares": null,
+   "candidate_qty_shares": [
+    50000000,
+    50000
+   ],
+   "auto_correction_forbidden": true
   },
   {
    "key": "K-750be0158ca36cea",
@@ -1611,7 +1851,13 @@
    },
    "review_status": "manual_review",
    "public_disposition": "withheld_incomplete",
-   "in_drift26": true
+   "in_drift26": true,
+   "authoritative_qty_shares": null,
+   "candidate_qty_shares": [
+    0,
+    -40000
+   ],
+   "auto_correction_forbidden": true
   },
   {
    "key": "K-621604c9d6ed2d48",
@@ -1641,7 +1887,13 @@
    },
    "review_status": "manual_review",
    "public_disposition": "withheld_incomplete",
-   "in_drift26": true
+   "in_drift26": true,
+   "authoritative_qty_shares": null,
+   "candidate_qty_shares": [
+    30000000,
+    30000
+   ],
+   "auto_correction_forbidden": true
   },
   {
    "key": "K-a0c08172977f8f9c",
@@ -1671,7 +1923,13 @@
    },
    "review_status": "manual_review",
    "public_disposition": "withheld_incomplete",
-   "in_drift26": true
+   "in_drift26": true,
+   "authoritative_qty_shares": null,
+   "candidate_qty_shares": [
+    50000000,
+    50000
+   ],
+   "auto_correction_forbidden": true
   },
   {
    "key": "K-8f0d20a54d04d052",
@@ -1701,7 +1959,13 @@
    },
    "review_status": "manual_review",
    "public_disposition": "withheld_incomplete",
-   "in_drift26": true
+   "in_drift26": true,
+   "authoritative_qty_shares": null,
+   "candidate_qty_shares": [
+    50000000,
+    50000
+   ],
+   "auto_correction_forbidden": true
   },
   {
    "key": "K-82cc22f8b7675898",
@@ -1731,7 +1995,13 @@
    },
    "review_status": "manual_review",
    "public_disposition": "withheld_incomplete",
-   "in_drift26": true
+   "in_drift26": true,
+   "authoritative_qty_shares": null,
+   "candidate_qty_shares": [
+    1000000,
+    1000
+   ],
+   "auto_correction_forbidden": true
   },
   {
    "key": "K-873d412b296e236a",
@@ -1761,7 +2031,13 @@
    },
    "review_status": "manual_review",
    "public_disposition": "withheld_incomplete",
-   "in_drift26": true
+   "in_drift26": true,
+   "authoritative_qty_shares": null,
+   "candidate_qty_shares": [
+    0,
+    -200
+   ],
+   "auto_correction_forbidden": true
   },
   {
    "key": "K-5b7829ea79c68e07",
@@ -1792,7 +2068,13 @@
    },
    "review_status": "manual_review",
    "public_disposition": "withheld_incomplete",
-   "in_drift26": true
+   "in_drift26": true,
+   "authoritative_qty_shares": null,
+   "candidate_qty_shares": [
+    0,
+    999
+   ],
+   "auto_correction_forbidden": true
   },
   {
    "key": "K-a032c0317dd9f13c",
@@ -1822,7 +2104,13 @@
    },
    "review_status": "manual_review",
    "public_disposition": "withheld_incomplete",
-   "in_drift26": true
+   "in_drift26": true,
+   "authoritative_qty_shares": null,
+   "candidate_qty_shares": [
+    1000000,
+    1000
+   ],
+   "auto_correction_forbidden": true
   },
   {
    "key": "K-d799e04acd063a34",
@@ -1852,7 +2140,13 @@
    },
    "review_status": "manual_review",
    "public_disposition": "withheld_incomplete",
-   "in_drift26": true
+   "in_drift26": true,
+   "authoritative_qty_shares": null,
+   "candidate_qty_shares": [
+    0,
+    -1000
+   ],
+   "auto_correction_forbidden": true
   },
   {
    "key": "K-b650eed0e1cc998b",
@@ -1882,7 +2176,14 @@
    },
    "review_status": "manual_review",
    "public_disposition": "withheld_incomplete",
-   "in_drift26": true
+   "in_drift26": true,
+   "authoritative_qty_shares": null,
+   "candidate_qty_shares": [
+    50,
+    10
+   ],
+   "auto_correction_forbidden": true,
+   "invariant": "6515: stored_open=50 and replay=10 are BOTH candidates only. No channel (public, member, admin, export, API) may present either number as the correct answer. status is pinned to manual_review; auto-correction is forbidden until human adjudication."
   },
   {
    "key": "K-d6eaa593c5fe46af",
@@ -1912,7 +2213,13 @@
    },
    "review_status": "manual_review",
    "public_disposition": "withheld_incomplete",
-   "in_drift26": true
+   "in_drift26": true,
+   "authoritative_qty_shares": null,
+   "candidate_qty_shares": [
+    0,
+    50000
+   ],
+   "auto_correction_forbidden": true
   },
   {
    "key": "K-1f74b8c11894f1c7",
@@ -1943,7 +2250,13 @@
    },
    "review_status": "manual_review",
    "public_disposition": "withheld_incomplete",
-   "in_drift26": true
+   "in_drift26": true,
+   "authoritative_qty_shares": null,
+   "candidate_qty_shares": [
+    0,
+    -10
+   ],
+   "auto_correction_forbidden": true
   },
   {
    "key": "K-1bb9215f388da441",
@@ -1974,7 +2287,13 @@
    },
    "review_status": "manual_review",
    "public_disposition": "withheld_incomplete",
-   "in_drift26": true
+   "in_drift26": true,
+   "authoritative_qty_shares": null,
+   "candidate_qty_shares": [
+    0,
+    -11
+   ],
+   "auto_correction_forbidden": true
   },
   {
    "key": "K-766ce8cd8109b35e",
@@ -2006,7 +2325,13 @@
    },
    "review_status": "manual_review",
    "public_disposition": "withheld_incomplete",
-   "in_drift26": true
+   "in_drift26": true,
+   "authoritative_qty_shares": null,
+   "candidate_qty_shares": [
+    0,
+    -10
+   ],
+   "auto_correction_forbidden": true
   },
   {
    "key": "K-362bf5cbab8a57a0",
@@ -2038,7 +2363,13 @@
    },
    "review_status": "manual_review",
    "public_disposition": "withheld_incomplete",
-   "in_drift26": true
+   "in_drift26": true,
+   "authoritative_qty_shares": null,
+   "candidate_qty_shares": [
+    0,
+    -50
+   ],
+   "auto_correction_forbidden": true
   },
   {
    "key": "K-d042f2845a1fd34e",
@@ -2069,7 +2400,13 @@
    },
    "review_status": "manual_review",
    "public_disposition": "withheld_incomplete",
-   "in_drift26": false
+   "in_drift26": false,
+   "authoritative_qty_shares": null,
+   "candidate_qty_shares": [
+    25,
+    15
+   ],
+   "auto_correction_forbidden": true
   },
   {
    "key": "K-2ec3030deaa54783",
@@ -2101,7 +2438,13 @@
    },
    "review_status": "manual_review",
    "public_disposition": "withheld_incomplete",
-   "in_drift26": true
+   "in_drift26": true,
+   "authoritative_qty_shares": null,
+   "candidate_qty_shares": [
+    0,
+    0
+   ],
+   "auto_correction_forbidden": true
   },
   {
    "key": "K-d16a2d4257c113e9",
@@ -2133,7 +2476,13 @@
    },
    "review_status": "manual_review",
    "public_disposition": "withheld_incomplete",
-   "in_drift26": true
+   "in_drift26": true,
+   "authoritative_qty_shares": null,
+   "candidate_qty_shares": [
+    0,
+    0
+   ],
+   "auto_correction_forbidden": true
   },
   {
    "key": "K-712ddaa4cb0abb57",
@@ -2165,7 +2514,13 @@
    },
    "review_status": "manual_review",
    "public_disposition": "withheld_incomplete",
-   "in_drift26": true
+   "in_drift26": true,
+   "authoritative_qty_shares": null,
+   "candidate_qty_shares": [
+    0,
+    0
+   ],
+   "auto_correction_forbidden": true
   },
   {
    "key": "K-c71568308bd074ab",
@@ -2197,7 +2552,13 @@
    },
    "review_status": "manual_review",
    "public_disposition": "withheld_incomplete",
-   "in_drift26": true
+   "in_drift26": true,
+   "authoritative_qty_shares": null,
+   "candidate_qty_shares": [
+    0,
+    15
+   ],
+   "auto_correction_forbidden": true
   },
   {
    "key": "K-b140f9a36c630fc5",
@@ -2229,7 +2590,13 @@
    },
    "review_status": "manual_review",
    "public_disposition": "withheld_incomplete",
-   "in_drift26": true
+   "in_drift26": true,
+   "authoritative_qty_shares": null,
+   "candidate_qty_shares": [
+    0,
+    50
+   ],
+   "auto_correction_forbidden": true
   },
   {
    "key": "K-c82ab65001ac6062",
@@ -2261,7 +2628,13 @@
    },
    "review_status": "manual_review",
    "public_disposition": "withheld_incomplete",
-   "in_drift26": true
+   "in_drift26": true,
+   "authoritative_qty_shares": null,
+   "candidate_qty_shares": [
+    0,
+    30
+   ],
+   "auto_correction_forbidden": true
   },
   {
    "key": "K-cafe5ad17d49ce3a",
@@ -2293,7 +2666,13 @@
    },
    "review_status": "manual_review",
    "public_disposition": "withheld_incomplete",
-   "in_drift26": true
+   "in_drift26": true,
+   "authoritative_qty_shares": null,
+   "candidate_qty_shares": [
+    0,
+    20
+   ],
+   "auto_correction_forbidden": true
   },
   {
    "key": "K-eb2a3646270a4ba8",
@@ -2325,7 +2704,13 @@
    },
    "review_status": "manual_review",
    "public_disposition": "withheld_incomplete",
-   "in_drift26": true
+   "in_drift26": true,
+   "authoritative_qty_shares": null,
+   "candidate_qty_shares": [
+    0,
+    0
+   ],
+   "auto_correction_forbidden": true
   },
   {
    "key": "K-46d585193f40807c",
@@ -2356,7 +2741,13 @@
    },
    "review_status": "manual_review",
    "public_disposition": "withheld_incomplete",
-   "in_drift26": true
+   "in_drift26": true,
+   "authoritative_qty_shares": null,
+   "candidate_qty_shares": [
+    0,
+    20
+   ],
+   "auto_correction_forbidden": true
   },
   {
    "key": "K-f5ea3c419882176a",
@@ -2388,7 +2779,13 @@
    },
    "review_status": "manual_review",
    "public_disposition": "withheld_incomplete",
-   "in_drift26": false
+   "in_drift26": false,
+   "authoritative_qty_shares": null,
+   "candidate_qty_shares": [
+    0,
+    null
+   ],
+   "auto_correction_forbidden": true
   },
   {
    "key": "K-a4b653dcfa16ab0e",
@@ -2420,7 +2817,13 @@
    },
    "review_status": "manual_review",
    "public_disposition": "withheld_incomplete",
-   "in_drift26": false
+   "in_drift26": false,
+   "authoritative_qty_shares": null,
+   "candidate_qty_shares": [
+    0,
+    null
+   ],
+   "auto_correction_forbidden": true
   },
   {
    "key": "K-8ff95bc1cd72e977",
@@ -2452,7 +2855,13 @@
    },
    "review_status": "manual_review",
    "public_disposition": "withheld_incomplete",
-   "in_drift26": false
+   "in_drift26": false,
+   "authoritative_qty_shares": null,
+   "candidate_qty_shares": [
+    0,
+    null
+   ],
+   "auto_correction_forbidden": true
   },
   {
    "key": "K-61236f333b99c343",
@@ -2484,7 +2893,13 @@
    },
    "review_status": "manual_review",
    "public_disposition": "withheld_incomplete",
-   "in_drift26": false
+   "in_drift26": false,
+   "authoritative_qty_shares": null,
+   "candidate_qty_shares": [
+    30,
+    null
+   ],
+   "auto_correction_forbidden": true
   },
   {
    "key": "K-2c263988344103ac",
@@ -2516,7 +2931,13 @@
    },
    "review_status": "manual_review",
    "public_disposition": "withheld_incomplete",
-   "in_drift26": false
+   "in_drift26": false,
+   "authoritative_qty_shares": null,
+   "candidate_qty_shares": [
+    60,
+    null
+   ],
+   "auto_correction_forbidden": true
   },
   {
    "key": "K-c280397052abae01",
@@ -2548,7 +2969,13 @@
    },
    "review_status": "manual_review",
    "public_disposition": "withheld_incomplete",
-   "in_drift26": false
+   "in_drift26": false,
+   "authoritative_qty_shares": null,
+   "candidate_qty_shares": [
+    0,
+    null
+   ],
+   "auto_correction_forbidden": true
   }
  ],
  "generated_by": "db/r1/p/manifest_replay.sql",
