@@ -1,6 +1,8 @@
 import { useQuery } from '@tanstack/react-query';
 import { supabase } from '@/integrations/supabase/client';
 import { useExpertHoldingsBundle } from '@/hooks/useExpertHoldingsBundle';
+import { useProjectionStatus } from '@/hooks/useProjectionStatus';
+import { gatePerformance } from '@/contracts/publicEconomicContract';
 
 export interface ExpertPerformance {
   total_trades: number;
@@ -24,7 +26,10 @@ export interface ExpertPerformance {
  * `useExpertPerformanceRealtime(expertId)` (which mounts the bundle's channel).
  */
 export function useExpertPerformance(expertId: string | undefined) {
-  return useQuery({
+  // R1-P: this is a public surface. Numbers only leave the hook when the
+  // public projection says the scope is ready.
+  const projection = useProjectionStatus(expertId);
+  const query = useQuery({
     queryKey: ['expert-performance', expertId],
     queryFn: async () => {
       if (!expertId) return null;
@@ -37,6 +42,14 @@ export function useExpertPerformance(expertId: string | undefined) {
     enabled: !!expertId,
     staleTime: 60_000,
   });
+
+  return {
+    ...query,
+    projection,
+    data: query.data
+      ? (gatePerformance(query.data as unknown as Record<string, unknown>, projection) as unknown as ExpertPerformance | null)
+      : query.data,
+  };
 }
 
 /**
