@@ -24,11 +24,16 @@ GLOBAL_FAIL=0
 run_clone() { # name port
   local NAME=$1 PORT=$2 DIR=/tmp/$1 CL FAILS=0
   rm -rf "$DIR"; mkdir -p "$DIR/sock"
+  # the postgres binaries refuse to run as root; own the cluster as uid 1000
+  local ASU=""
+  if [ "$(id -u)" = "0" ]; then chown -R 1000:1000 "$DIR"; ASU="setpriv --reuid=1000 --regid=1000 --clear-groups"; fi
   echo "### CLONE $NAME port=$PORT" | tee -a "$OUT/$NAME.log"
-  initdb -D "$DIR/pg" -U postgres --locale=C -E UTF8 > "$DIR/initdb.log" 2>&1 || return 1
-  "$PGBIN/pg_ctl" -D "$DIR/pg" -l "$DIR/pg.log" -o \
+  $ASU initdb -D "$DIR/pg" -U postgres --locale=C -E UTF8 > "$DIR/initdb.log" 2>&1 \
+    || { echo "  initdb FAILED"; tail -3 "$DIR/initdb.log"; return 1; }
+  $ASU "$PGBIN/pg_ctl" -D "$DIR/pg" -l "$DIR/pg.log" -o \
     "-p $PORT -k $DIR/sock -c listen_addresses=127.0.0.1 -c max_connections=60 -c fsync=off" \
-    -w start >/dev/null 2>&1 || return 1
+    -w start >/dev/null 2>&1 \
+    || { echo "  pg_ctl start FAILED"; tail -5 "$DIR/pg.log"; return 1; }
   CL="postgresql://postgres@localhost:$PORT/postgres?sslmode=disable"
   psql "$CL" -qX -c "CREATE DATABASE clone" >/dev/null
   CL="postgresql://postgres@localhost:$PORT/clone?sslmode=disable"
@@ -91,7 +96,7 @@ run_clone() { # name port
   fi
 
   # 8. destroy
-  "$PGBIN/pg_ctl" -D "$DIR/pg" -m immediate -w stop >/dev/null 2>&1
+  $ASU "$PGBIN/pg_ctl" -D "$DIR/pg" -m immediate -w stop >/dev/null 2>&1
   cp -r "$DIR"/*.txt "$DIR"/*.log "$OUT/$NAME-artifacts-"/ 2>/dev/null || \
     { mkdir -p "$OUT/$NAME-artifacts"; cp -r "$DIR"/*.txt "$DIR"/*.log "$DIR/conc" "$OUT/$NAME-artifacts/" 2>/dev/null; }
   rm -rf "$DIR"
