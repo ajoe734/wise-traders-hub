@@ -318,3 +318,21 @@ GRANT  SELECT ON public.trade_records TO anon, authenticated, service_role;
 REVOKE ALL ON app_ledger.portfolio_cash_ledger FROM PUBLIC, anon, authenticated, service_role;
 REVOKE ALL ON SCHEMA app_ledger FROM PUBLIC, anon, authenticated;
 GRANT USAGE ON SCHEMA app_ledger TO service_role;
+
+-- explicit re-grant: these wrappers perform their own auth.uid()/has_role checks,
+-- and can no longer reach raw economic DML. PUBLIC/anon stay revoked.
+DO $$
+DECLARE r record;
+BEGIN
+  FOR r IN
+    SELECT format('GRANT EXECUTE ON FUNCTION public.%I(%s) TO authenticated, service_role',
+             p.proname, pg_get_function_identity_arguments(p.oid)) AS s
+      FROM pg_proc p JOIN pg_namespace n ON n.oid=p.pronamespace
+     WHERE n.nspname='public' AND p.proname IN (
+       'admin_apply_fix_proposal','admin_delete_trade_records_by_signal_ids',
+       'admin_delete_trade_records_by_symbol','admin_signal_dupe_trades_fix',
+       'trade_dedupe_sweep','realign_instrument_unit','admin_reset_expert_asset_class',
+       'save_signal_batch')
+  LOOP EXECUTE r.s; END LOOP;
+  EXECUTE 'GRANT EXECUTE ON FUNCTION public.upsert_current_price(text,jsonb) TO service_role';
+END $$;
