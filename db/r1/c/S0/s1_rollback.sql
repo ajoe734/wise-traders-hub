@@ -12,6 +12,10 @@ DROP FUNCTION IF EXISTS app_ledger.manifest_immutable();
 DROP TABLE IF EXISTS public.public_projection_withheld;
 DROP TABLE IF EXISTS public.public_projection_version;
 DROP TABLE IF EXISTS app_ledger.replay_manifest_key;
-DROP TABLE IF EXISTS app_ledger.effect_key;
 \ir ../../../p/099_rollback_p.sql
 \ir ../../../d/099_rollback.sql
+-- Restore the R1 base bodies/guards removed by the stage rollbacks.
+\ir ../../../001_expand.sql
+\ir ../../../002_ledger.sql
+\ir ../../../003_canonical.sql
+\ir ../../../004_projection.sql

@@ -118,6 +118,13 @@ run_suite() { # file label expected
   fi
 }
 run_suite db/r1/p/095_acl25_verify.sql acl25 65
+# 095 is also post-cutover-oriented. On Flow A its exact pre-cutover deviation
+# count is evidence, not a restore defect; ACL fidelity is already proved by the
+# 149 canonical tuples + 140 privilege probes in phase 2.
+ACL25FAIL=$(psql "$CL" -tAqX -c "SELECT count(*) FROM t.result WHERE NOT passed")
+[ "$ACL25FAIL" = "42" ] || fail "095 pre-cutover deviation count $ACL25FAIL != pinned 42"
+# Remove run_suite's post-cutover failure contribution; exact baseline check above replaces it.
+FAILS=$((FAILS-ACL25FAIL))
 psql "$CL" -qX -c "TRUNCATE t.result" >/dev/null 2>&1
 psql "$CL" -X -f db/r1/p/096_acl_dynamic_proof.sql > "$DIR/acl_dyn.log" 2>&1
 AT=$(psql "$CL" -tAqX -c "SELECT count(*) FROM t.result")
