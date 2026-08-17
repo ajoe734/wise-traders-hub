@@ -57,20 +57,16 @@ BEGIN
     t.expert_snapshot('bbbbbbbb-0000-0000-0000-000000000002') = b_before);
 END $$;
 
--- monotonic pointer: an older version must never overwrite a newer one
-DO $$
-DECLARE v_cur bigint;
-BEGIN
-  SELECT active_version INTO v_cur FROM public.public_projection_active
-   WHERE expert_id='aaaaaaaa-0000-0000-0000-000000000001';
-  INSERT INTO public.public_projection_active(expert_id, active_version)
-  VALUES ('aaaaaaaa-0000-0000-0000-000000000001', v_cur - 5)
-  ON CONFLICT (expert_id) DO UPDATE SET active_version=EXCLUDED.active_version
-   WHERE public.public_projection_active.active_version < EXCLUDED.active_version;
-  PERFORM t.eq('F1.pointer_monotonic',
-    (SELECT active_version FROM public.public_projection_active
-      WHERE expert_id='aaaaaaaa-0000-0000-0000-000000000001'), v_cur);
-END $$;
+-- monotonic pointer: an older version must never overwrite a newer one (enforced by trigger)
+SELECT t.expect_error('F1.pointer_regression_blocked',
+  $$UPDATE public.public_projection_active SET active_version = active_version - 5
+     WHERE expert_id='aaaaaaaa-0000-0000-0000-000000000001'$$,
+  'projection_pointer_regression', 'P0001');
+SELECT t.ok('F1.pointer_unchanged_after_blocked_regression',
+  (SELECT active_version FROM public.public_projection_active
+    WHERE expert_id='aaaaaaaa-0000-0000-0000-000000000001')
+  = (SELECT max(projection_version) FROM public.public_position_projection
+      WHERE expert_id='aaaaaaaa-0000-0000-0000-000000000001'));
 
 -- valuation fail-closed (E7)
 SELECT t.eq('E7.us_combo_unsupported',

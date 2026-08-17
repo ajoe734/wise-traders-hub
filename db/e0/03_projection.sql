@@ -17,6 +17,9 @@ CREATE TABLE public.public_position_projection (
   valuation_status text NOT NULL
     CHECK (valuation_status IN ('valued','stale','unpriced','unsupported')),
   market_value numeric NULL,
+  -- E7 fail-closed: a money number may exist only for an actually priced status
+  CONSTRAINT ppp_valuation_ck CHECK
+    ((market_value IS NOT NULL) = (valuation_status IN ('valued','stale'))),
   fx_rate numeric NULL,
   fx_as_of date NULL,
   fx_source text NULL,
@@ -36,6 +39,8 @@ CREATE TABLE public.public_portfolio_state (
   market_value numeric NULL,
   equity numeric NULL,
   incomplete_reason text NULL,
+  -- E7 fail-closed: equity is published only when nothing is missing
+  CONSTRAINT pps_equity_ck CHECK ((equity IS NULL) = (incomplete_reason IS NOT NULL)),
   PRIMARY KEY (projection_version, expert_id, currency)
 );
 
@@ -65,6 +70,29 @@ CREATE TABLE public.public_projection_active (
   active_version bigint NOT NULL,
   activated_at timestamptz NOT NULL DEFAULT now()
 );
+
+-- F1: the pointer is monotonic per expert and may only point at a materialised version
+CREATE OR REPLACE FUNCTION app_ledger.projection_pointer_guard()
+RETURNS trigger LANGUAGE plpgsql SET search_path = '' AS $$
+BEGIN
+  IF TG_OP = 'UPDATE' AND NEW.active_version <= OLD.active_version THEN
+    RAISE EXCEPTION 'projection_pointer_regression: % -> %', OLD.active_version, NEW.active_version
+      USING ERRCODE = 'P0001';
+  END IF;
+  IF NOT EXISTS (SELECT 1 FROM public.public_position_projection p
+                  WHERE p.expert_id = NEW.expert_id AND p.projection_version = NEW.active_version)
+     AND NOT EXISTS (SELECT 1 FROM public.public_portfolio_state s
+                  WHERE s.expert_id = NEW.expert_id AND s.projection_version = NEW.active_version)
+  THEN
+    RAISE EXCEPTION 'projection_pointer_unmaterialised: expert=% version=%',
+      NEW.expert_id, NEW.active_version USING ERRCODE = 'P0001';
+  END IF;
+  RETURN NEW;
+END $$;
+
+CREATE TRIGGER trg_projection_pointer_guard
+  BEFORE INSERT OR UPDATE ON public.public_projection_active
+  FOR EACH ROW EXECUTE FUNCTION app_ledger.projection_pointer_guard();
 
 CREATE VIEW public.public_position_active AS
   SELECT p.* FROM public.public_position_projection p
