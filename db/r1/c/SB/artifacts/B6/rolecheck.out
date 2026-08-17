@@ -1,0 +1,4 @@
+service_role_status=true
+NOTICE:  anon_denied=1
+NOTICE:  auth_denied=1
+NOTICE:  private_denied=1

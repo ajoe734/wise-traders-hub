@@ -1,0 +1,111 @@
+{"sub":"00000000-0000-0000-0000-0000000000ad"}
+
+
+
+
+
+PASS A-bsr_admission_status  -- secdef+volatile+search_path=pg_catalog,private_bsr
+PASS A-bsr_block_and_terminalize_claims  -- secdef+volatile+search_path=pg_catalog,private_bsr
+PASS A-bsr_unblock_after_probe  -- secdef+volatile+search_path=pg_catalog,private_bsr
+PASS B-acl-public.bsr_admission_status  -- service_role=yes anon/authenticated=no
+PASS B-acl-public.bsr_block_and_terminalize_claims  -- service_role=yes anon/authenticated=no
+PASS B-acl-public.bsr_unblock_after_probe  -- service_role=yes anon/authenticated=no
+PASS B-private-schema  -- private_bsr USAGE denied to all PostgREST roles
+PASS B-private-fn  -- private implementation not directly callable by service_role
+PASS C-open-raw_insert  -- gate open -> +1 rows
+PASS C-open-ensure_bsr_queued  -- gate open -> +1 rows
+PASS C-open-ensure_bsr_window  -- gate open -> +5 rows
+PASS C-open-enqueue_all_active_tw_holdings_bsr  -- gate open -> +5 rows
+PASS C-open-enqueue_chips_prefetch_gaps  -- gate open -> +22 rows
+PASS C-open-converge_bsr_windows  -- gate open -> +5 rows
+PASS C-open-enqueue_bsr_backfill  -- gate open -> +5 rows
+PASS C-open-any  -- 7 writers inserted with gate open
+PASS C-open-unique-violation-preserved  -- duplicate key value violates unique constraint "tw_bsr_sync_queue_active_uniq"
+PASS C-open-check-constraint-preserved  -- new row for relation "tw_bsr_sync_queue" violates check constraint "tw_bsr_sync_queue_priority_check"
+PASS D-code-allowlist  -- terminal_code_not_allowed: some_other_code
+PASS D-array-length-mismatch  -- claim_arrays_length_mismatch
+PASS D-batch-cap-500  -- claim_batch_too_large: 501
+PASS D-evidence-sanitizer  -- evidence_key_forbidden: authorization
+PASS D-evidence-object-required  -- evidence_must_be_object
+PASS E-claim  -- 5 jobs claimed (status=running)
+PASS E-block-transition  -- {"transition": "blocked", "claim_count": 5, "gate_version": 8, "updated_count": 5, "lost_lease_count": 0}
+PASS E-pairwise-updated  -- updated=5 of 5
+PASS E-terminal-status
+PASS E-audit-1-row
+PASS E-degrade-1-row
+PASS E-gate-status-blocked
+PASS E-idempotent-block  -- {"transition": "already_blocked", "claim_count": 5, "gate_version": 8, "updated_count": 0, "lost_lease_count": 5}
+PASS E-idempotent-no-extra-audit
+PASS E-lost-lease-on-replay  -- rows already failed -> lease no longer held: updated=0
+PASS E-lost-lease-started-at-mismatch  -- {"transition": "already_blocked", "claim_count": 1, "gate_version": 8, "updated_count": 0, "lost_lease_count": 1}
+PASS E-lost-lease-attempts-mismatch  -- {"transition": "already_blocked", "claim_count": 1, "gate_version": 8, "updated_count": 0, "lost_lease_count": 1}
+PASS E-reaper-fixture-aged  -- updated_at aged past the 60min reaper threshold
+PASS E-reaper-race  -- reaped status=pending updated=0
+PASS F-closed-raw_insert  -- delta=0
+PASS F-closed-ensure_bsr_queued  -- delta=0
+PASS F-closed-ensure_bsr_window  -- delta=0
+PASS F-closed-enqueue_all_active_tw_holdings_bsr  -- delta=0
+PASS F-closed-enqueue_chips_prefetch_gaps  -- delta=0
+PASS F-closed-converge_bsr_windows  -- delta=0
+PASS F-closed-enqueue_bsr_backfill  -- delta=0
+PASS F-closed-total  -- 0 writers leaked rows while blocked
+PASS F-closed-no-raise  -- gate returns NULL before CHECK: silently skipped
+PASS G-cohort  -- 47 terminal rows; pending after drain=0
+PASS G-true-round1-cohort-frozen  -- 0 terminal rows mutated (status/attempts/error)
+PASS G-true-round1-pending-zero  -- terminal rows pending=0
+PASS G-true-round1-total-pending-zero  -- total pending=0
+PASS G-true-round1-recovery-silent  -- {"cap": 1, "recovered": 0, "remaining": 47, "reconciled": 0, "budget_reason": "cap_1", "counting_mode": "exact", "invocation_id": "65a5362b-8071-411d-b06c-85bdf8d15fc7", "metrics_after": {"audit": {"reconciled_24h": 0, "tokens_issued_24h": 0, "last_budget_reason": "cap_1", "last_next_admission_at": "2026-08-17T16:00:00+00:00"}, "ready": {"oldest_due_since_h": 0.00, "oldest_due_since_ts": null, "ready_pending_count": 0, "unclaimable_null_count": 0, "oldest_ready_enqueued_h": 0.00}, "cohort": {"counting_mode": "exact", "obsolete_retained": 17, "satisfied_reconcilable": 3, "actionable_still_required": 27, "actionable_token_eligible": 27, "legacy_quota_failed_total": 47}, "deferred": {"next_ready_at": null, "deferred_count": 0, "oldest_enqueued_age_h": 0.00}, "generated_at": "2026-08-17T14:40:43.907869+00:00"}, "tokens_issued": 0, "tokened_job_ids": [], "next_admission_at": "2026-08-17T16:00:00+00:00", "reconciled_job_ids": [], "candidates_inspected": 47}
+PASS G-true-round2-cohort-frozen  -- 0 terminal rows mutated (status/attempts/error)
+PASS G-true-round2-pending-zero  -- terminal rows pending=0
+PASS G-true-round2-total-pending-zero  -- total pending=0
+PASS G-true-round2-recovery-silent  -- {"cap": 1, "recovered": 0, "remaining": 47, "reconciled": 0, "budget_reason": "cap_1", "counting_mode": "exact", "invocation_id": "2108357c-d7fc-4687-bf2d-800780f0275c", "metrics_after": {"audit": {"reconciled_24h": 0, "tokens_issued_24h": 0, "last_budget_reason": "cap_1", "last_next_admission_at": "2026-08-17T16:00:00+00:00"}, "ready": {"oldest_due_since_h": 0.00, "oldest_due_since_ts": null, "ready_pending_count": 0, "unclaimable_null_count": 0, "oldest_ready_enqueued_h": 0.00}, "cohort": {"counting_mode": "exact", "obsolete_retained": 17, "satisfied_reconcilable": 3, "actionable_still_required": 27, "actionable_token_eligible": 27, "legacy_quota_failed_total": 47}, "deferred": {"next_ready_at": null, "deferred_count": 0, "oldest_enqueued_age_h": 0.00}, "generated_at": "2026-08-17T14:40:43.907869+00:00"}, "tokens_issued": 0, "tokened_job_ids": [], "next_admission_at": "2026-08-17T16:00:00+00:00", "reconciled_job_ids": [], "candidates_inspected": 47}
+PASS G-true-round3-cohort-frozen  -- 0 terminal rows mutated (status/attempts/error)
+PASS G-true-round3-pending-zero  -- terminal rows pending=0
+PASS G-true-round3-total-pending-zero  -- total pending=0
+PASS G-true-round3-recovery-silent  -- {"cap": 1, "recovered": 0, "remaining": 47, "reconciled": 0, "budget_reason": "cap_1", "counting_mode": "exact", "invocation_id": "6ec9410e-0c6d-4d7c-8ae6-32e34ad224b1", "metrics_after": {"audit": {"reconciled_24h": 0, "tokens_issued_24h": 0, "last_budget_reason": "cap_1", "last_next_admission_at": "2026-08-17T16:00:00+00:00"}, "ready": {"oldest_due_since_h": 0.00, "oldest_due_since_ts": null, "ready_pending_count": 0, "unclaimable_null_count": 0, "oldest_ready_enqueued_h": 0.00}, "cohort": {"counting_mode": "exact", "obsolete_retained": 17, "satisfied_reconcilable": 3, "actionable_still_required": 27, "actionable_token_eligible": 27, "legacy_quota_failed_total": 47}, "deferred": {"next_ready_at": null, "deferred_count": 0, "oldest_enqueued_age_h": 0.00}, "generated_at": "2026-08-17T14:40:43.907869+00:00"}, "tokens_issued": 0, "tokened_job_ids": [], "next_admission_at": "2026-08-17T16:00:00+00:00", "reconciled_job_ids": [], "candidates_inspected": 47}
+PASS G-true-audit-zero-noise  -- audit delta=0 degrade delta=0
+PASS G-missing-round1-cohort-frozen  -- 0 terminal rows mutated (status/attempts/error)
+PASS G-missing-round1-pending-zero  -- terminal rows pending=0
+PASS G-missing-round1-fresh-admissions-only  -- fresh pending (non-cohort)=0
+PASS G-missing-round1-recovery-silent  -- {"cap": 1, "recovered": 0, "remaining": 47, "reconciled": 0, "budget_reason": "cap_1", "counting_mode": "exact", "invocation_id": "4a9ea74a-a0d3-41c1-bb73-febc75dca70f", "metrics_after": {"audit": {"reconciled_24h": 0, "tokens_issued_24h": 0, "last_budget_reason": "cap_1", "last_next_admission_at": "2026-08-17T16:00:00+00:00"}, "ready": {"oldest_due_since_h": 0.00, "oldest_due_since_ts": null, "ready_pending_count": 0, "unclaimable_null_count": 0, "oldest_ready_enqueued_h": 0.00}, "cohort": {"counting_mode": "exact", "obsolete_retained": 17, "satisfied_reconcilable": 3, "actionable_still_required": 27, "actionable_token_eligible": 27, "legacy_quota_failed_total": 47}, "deferred": {"next_ready_at": null, "deferred_count": 0, "oldest_enqueued_age_h": 0.00}, "generated_at": "2026-08-17T14:40:44.051786+00:00"}, "tokens_issued": 0, "tokened_job_ids": [], "next_admission_at": "2026-08-17T16:00:00+00:00", "reconciled_job_ids": [], "candidates_inspected": 47}
+PASS G-missing-round2-cohort-frozen  -- 0 terminal rows mutated (status/attempts/error)
+PASS G-missing-round2-pending-zero  -- terminal rows pending=0
+PASS G-missing-round2-fresh-admissions-only  -- fresh pending (non-cohort)=0
+PASS G-missing-round2-recovery-silent  -- {"cap": 1, "recovered": 0, "remaining": 47, "reconciled": 0, "budget_reason": "cap_1", "counting_mode": "exact", "invocation_id": "e3851582-0a7b-481e-b1c0-b2c9406473b8", "metrics_after": {"audit": {"reconciled_24h": 0, "tokens_issued_24h": 0, "last_budget_reason": "cap_1", "last_next_admission_at": "2026-08-17T16:00:00+00:00"}, "ready": {"oldest_due_since_h": 0.00, "oldest_due_since_ts": null, "ready_pending_count": 0, "unclaimable_null_count": 0, "oldest_ready_enqueued_h": 0.00}, "cohort": {"counting_mode": "exact", "obsolete_retained": 17, "satisfied_reconcilable": 3, "actionable_still_required": 27, "actionable_token_eligible": 27, "legacy_quota_failed_total": 47}, "deferred": {"next_ready_at": null, "deferred_count": 0, "oldest_enqueued_age_h": 0.00}, "generated_at": "2026-08-17T14:40:44.051786+00:00"}, "tokens_issued": 0, "tokened_job_ids": [], "next_admission_at": "2026-08-17T16:00:00+00:00", "reconciled_job_ids": [], "candidates_inspected": 47}
+PASS G-missing-round3-cohort-frozen  -- 0 terminal rows mutated (status/attempts/error)
+PASS G-missing-round3-pending-zero  -- terminal rows pending=0
+PASS G-missing-round3-fresh-admissions-only  -- fresh pending (non-cohort)=0
+PASS G-missing-round3-recovery-silent  -- {"cap": 1, "recovered": 0, "remaining": 47, "reconciled": 0, "budget_reason": "cap_1", "counting_mode": "exact", "invocation_id": "45eb6dc7-4c10-4a31-af80-7018bfc4cb83", "metrics_after": {"audit": {"reconciled_24h": 0, "tokens_issued_24h": 0, "last_budget_reason": "cap_1", "last_next_admission_at": "2026-08-17T16:00:00+00:00"}, "ready": {"oldest_due_since_h": 0.00, "oldest_due_since_ts": null, "ready_pending_count": 0, "unclaimable_null_count": 0, "oldest_ready_enqueued_h": 0.00}, "cohort": {"counting_mode": "exact", "obsolete_retained": 17, "satisfied_reconcilable": 3, "actionable_still_required": 27, "actionable_token_eligible": 27, "legacy_quota_failed_total": 47}, "deferred": {"next_ready_at": null, "deferred_count": 0, "oldest_enqueued_age_h": 0.00}, "generated_at": "2026-08-17T14:40:44.051786+00:00"}, "tokens_issued": 0, "tokened_job_ids": [], "next_admission_at": "2026-08-17T16:00:00+00:00", "reconciled_job_ids": [], "candidates_inspected": 47}
+PASS G-missing-audit-zero-noise  -- audit delta=0 degrade delta=0
+PASS G-malformed-round1-cohort-frozen  -- 0 terminal rows mutated (status/attempts/error)
+PASS G-malformed-round1-pending-zero  -- terminal rows pending=0
+PASS G-malformed-round1-fresh-admissions-only  -- fresh pending (non-cohort)=0
+PASS G-malformed-round1-recovery-silent  -- {"cap": 1, "recovered": 0, "remaining": 47, "reconciled": 0, "budget_reason": "cap_1", "counting_mode": "exact", "invocation_id": "6aabdd06-9f1a-4b1b-b8cb-4ea2a0afc5ed", "metrics_after": {"audit": {"reconciled_24h": 0, "tokens_issued_24h": 0, "last_budget_reason": "cap_1", "last_next_admission_at": "2026-08-17T16:00:00+00:00"}, "ready": {"oldest_due_since_h": 0.00, "oldest_due_since_ts": null, "ready_pending_count": 0, "unclaimable_null_count": 0, "oldest_ready_enqueued_h": 0.00}, "cohort": {"counting_mode": "exact", "obsolete_retained": 17, "satisfied_reconcilable": 3, "actionable_still_required": 27, "actionable_token_eligible": 27, "legacy_quota_failed_total": 47}, "deferred": {"next_ready_at": null, "deferred_count": 0, "oldest_enqueued_age_h": 0.00}, "generated_at": "2026-08-17T14:40:44.198567+00:00"}, "tokens_issued": 0, "tokened_job_ids": [], "next_admission_at": "2026-08-17T16:00:00+00:00", "reconciled_job_ids": [], "candidates_inspected": 47}
+PASS G-malformed-round2-cohort-frozen  -- 0 terminal rows mutated (status/attempts/error)
+PASS G-malformed-round2-pending-zero  -- terminal rows pending=0
+PASS G-malformed-round2-fresh-admissions-only  -- fresh pending (non-cohort)=0
+PASS G-malformed-round2-recovery-silent  -- {"cap": 1, "recovered": 0, "remaining": 47, "reconciled": 0, "budget_reason": "cap_1", "counting_mode": "exact", "invocation_id": "d41e2637-db2b-4066-926d-9117ee1738ff", "metrics_after": {"audit": {"reconciled_24h": 0, "tokens_issued_24h": 0, "last_budget_reason": "cap_1", "last_next_admission_at": "2026-08-17T16:00:00+00:00"}, "ready": {"oldest_due_since_h": 0.00, "oldest_due_since_ts": null, "ready_pending_count": 0, "unclaimable_null_count": 0, "oldest_ready_enqueued_h": 0.00}, "cohort": {"counting_mode": "exact", "obsolete_retained": 17, "satisfied_reconcilable": 3, "actionable_still_required": 27, "actionable_token_eligible": 27, "legacy_quota_failed_total": 47}, "deferred": {"next_ready_at": null, "deferred_count": 0, "oldest_enqueued_age_h": 0.00}, "generated_at": "2026-08-17T14:40:44.198567+00:00"}, "tokens_issued": 0, "tokened_job_ids": [], "next_admission_at": "2026-08-17T16:00:00+00:00", "reconciled_job_ids": [], "candidates_inspected": 47}
+PASS G-malformed-round3-cohort-frozen  -- 0 terminal rows mutated (status/attempts/error)
+PASS G-malformed-round3-pending-zero  -- terminal rows pending=0
+PASS G-malformed-round3-fresh-admissions-only  -- fresh pending (non-cohort)=0
+PASS G-malformed-round3-recovery-silent  -- {"cap": 1, "recovered": 0, "remaining": 47, "reconciled": 0, "budget_reason": "cap_1", "counting_mode": "exact", "invocation_id": "41477c80-4d8d-4d03-b880-b266ee8eb424", "metrics_after": {"audit": {"reconciled_24h": 0, "tokens_issued_24h": 0, "last_budget_reason": "cap_1", "last_next_admission_at": "2026-08-17T16:00:00+00:00"}, "ready": {"oldest_due_since_h": 0.00, "oldest_due_since_ts": null, "ready_pending_count": 0, "unclaimable_null_count": 0, "oldest_ready_enqueued_h": 0.00}, "cohort": {"counting_mode": "exact", "obsolete_retained": 17, "satisfied_reconcilable": 3, "actionable_still_required": 27, "actionable_token_eligible": 27, "legacy_quota_failed_total": 47}, "deferred": {"next_ready_at": null, "deferred_count": 0, "oldest_enqueued_age_h": 0.00}, "generated_at": "2026-08-17T14:40:44.198567+00:00"}, "tokens_issued": 0, "tokened_job_ids": [], "next_admission_at": "2026-08-17T16:00:00+00:00", "reconciled_job_ids": [], "candidates_inspected": 47}
+PASS G-malformed-audit-zero-noise  -- audit delta=0 degrade delta=0
+PASS G-nonterminal-semantics-unchanged  -- status=pending recover={"cap": 1, "recovered": 1, "remaining": 47, "reconciled": 0, "budget_reason": "cap_1", "counting_mode": "exact", "invocation_id": "c2af51e7-520f-4074-a961-9d8d54b02611", "metrics_after": {"audit": {"reconciled_24h": 0, "tokens_issued_24h": 0, "last_budget_reason": "cap_1", "last_next_admission_at": "2026-08-17T16:00:00+00:00"}, "ready": {"oldest_due_since_h": 0.00, "oldest_due_since_ts": "2026-08-17T14:40:44.342358+00:00", "ready_pending_count": 1, "unclaimable_null_count": 0, "oldest_ready_enqueued_h": 0.00}, "cohort": {"counting_mode": "exact", "obsolete_retained": 17, "satisfied_reconcilable": 3, "actionable_still_required": 27, "actionable_token_eligible": 27, "legacy_quota_failed_total": 47}, "deferred": {"next_ready_at": null, "deferred_count": 0, "oldest_enqueued_age_h": 0.00}, "generated_at": "2026-08-17T14:40:44.342358+00:00"}, "tokens_issued": 1, "tokened_job_ids": [362], "next_admission_at": "2026-08-17T16:00:00+00:00", "reconciled_job_ids": [], "candidates_inspected": 47}
+PASS H-stale-version  -- {"transition": "stale_probe", "gate_version": 11}
+PASS H-stale-nonce  -- {"transition": "stale_probe", "gate_version": 11}
+PASS H-failed-probe-rejected  -- probe_not_successful
+PASS H-schema-version-required  -- probe_schema_version_unsupported
+PASS H-still-blocked-after-rejects
+PASS H-unblocked  -- {"transition": "unblocked", "gate_version": 12}
+PASS H-explicit-false  -- admission_blocked explicitly false, blocked_at archived
+PASS H-audit-2
+PASS H-already-open  -- {"transition": "already_open", "gate_version": 12}
+PASS I-admission-resumed  -- insert accepted after unblock
+PASS I-run1-delta-at-most-1  -- tokened_this_run=1 ids=[9]
+PASS I-run2-delta-at-most-1  -- tokened_this_run=1 ids=[12]
+PASS I-run3-delta-at-most-1  -- tokened_this_run=1 ids=[10]
+PASS I-recovery-resumed  -- per-run deltas summed=3 (gate explicitly open -> terminal rows recoverable again)
+PASS I-reblock-claim  -- 2 jobs claimed after resume
+PASS I-reblock-immediate  -- {"transition": "blocked", "claim_count": 2, "gate_version": 13, "updated_count": 2, "lost_lease_count": 0}
+PASS I-reblock-recovery-stops  -- tokened_this_run=0 after re-block
+SUMMARY pass=104 fail=0 gap=0
