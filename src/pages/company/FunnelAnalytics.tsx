@@ -244,7 +244,7 @@ export default function FunnelAnalytics() {
                 </Button>
               ))}
             </div>
-            <Button size="sm" variant="outline" onClick={() => { refetchT(); refetchP(); }} disabled={loading}>
+            <Button size="sm" variant="outline" onClick={refetchAll} disabled={loading}>
               <RefreshCw className={`h-4 w-4 mr-1 ${loading ? 'animate-spin' : ''}`} /> 重新整理
             </Button>
             <Button size="sm" variant={autoRefresh ? 'default' : 'outline'} onClick={() => setAutoRefresh((v) => !v)}>
@@ -254,6 +254,10 @@ export default function FunnelAnalytics() {
         </div>
         <p className="text-xs text-muted-foreground">
           資料窗：近 {preset.days} 天 · 最後更新：{lastUpdated ? lastUpdated.toLocaleTimeString() : '—'}
+        </p>
+        <p className="text-xs text-muted-foreground">
+          口徑：每階段為「上一階段 actor 的子集」；匿名 visitor 依 traffic_visits 歸戶到登入帳號後合併計算。
+          Purchase 取成交事實（付款完成 ∪ 訂閱生效），匯款經人工審核開通會延後數小時才入帳，短窗數字會偏低。
         </p>
 
         {/* 漏斗卡片 */}
@@ -269,8 +273,11 @@ export default function FunnelAnalytics() {
                 </CardHeader>
                 <CardContent className="space-y-1">
                   <div className="text-3xl font-bold">{s.actors.toLocaleString()}</div>
-                  <p className="text-xs text-muted-foreground">unique actor（user 或 visitor）</p>
-                  <p className="text-xs text-muted-foreground">事件次數：{s.events.toLocaleString()}</p>
+                  <p className="text-xs text-muted-foreground">走完前序階段的 unique 身分</p>
+                  <p className="text-xs text-muted-foreground">事件次數（去重）：{s.events.toLocaleString()}</p>
+                  {s.unattributed > 0 && (
+                    <p className="text-xs text-muted-foreground">未歸戶／未走前序：{s.unattributed.toLocaleString()}</p>
+                  )}
                   {i > 0 && (
                     <p className="text-xs mt-2">
                       上一階段 → 本階段：<span className="font-medium">{fmtPct(s.rate)}</span>
@@ -297,8 +304,13 @@ export default function FunnelAnalytics() {
             <p className="text-xs text-muted-foreground">
               {steps[steps.length - 1].actors.toLocaleString()} 名訂閱 / {steps[0].actors.toLocaleString()} 名瀏覽
             </p>
+            <p className="text-xs text-muted-foreground mt-2">
+              成交事實總數（不限是否走完前序）：{purchaseFactActors.toLocaleString()} 人 ·
+              前端回報 checkout_success：{frontendSuccessCount.toLocaleString()} 次
+            </p>
           </CardContent>
         </Card>
+
 
         {/* 缺事件告警 */}
         <Card>
