@@ -62,6 +62,20 @@ import {
   fulfillJobsFromSnapshot,
   persistAggregated,
 } from '../_shared/snapshotFulfillment.ts';
+import {
+  blockAndTerminalize,
+  classifyChunkOutcome,
+  classifyProviderError,
+  fetchAdmissionStatus,
+  sanitizeText,
+  summarizeChunks,
+  unknownRetryAllowed,
+  type AdmissionDecision,
+  type AdmissionStatus,
+  type ChunkOutcome,
+  type ClaimTuple,
+  type GateRpcClient,
+} from '../_shared/bsrAdmissionGate.ts';
 
 const FINMIND_URL = 'https://api.finmindtrade.com/api/v4/data';
 const FINMIND_TOKEN = Deno.env.get('FINMIND_TOKEN') ?? '';
