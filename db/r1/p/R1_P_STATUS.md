@@ -35,3 +35,25 @@ supported only with a complete quote+multiplier chain AND an adjudicated quantit
 
 Public legacy readers: 10 = 6 gated by the typed public contract + 4 proven authenticated-only
 (see public_legacy_readers.json).
+
+## Frontend / test state (this round)
+
+- typecheck (tsgo) clean; contract + UI suites green:
+  publicProjection 9, publicEconomicContract 21, PerformanceReviewNotice 7,
+  journalRepository mirror parity 11.
+- Full suite: 2852 passed / 4 failed, all 4 blocked by the production zero-touch rule:
+  - `rls-subscription-visibility` — `run_rls_subscription_tests()` EXECUTE not granted to the
+    read-only production role.
+  - `1.35-rls-security-audit` — anon still holds EXECUTE on `get_expert_capital_status`,
+    `has_active_subscription_after`, `is_tester` in production. The R1-P clone ACL closure
+    (002_public_contract.sql) revokes exactly these; the production REVOKE belongs to the
+    cutover migration and is deliberately NOT applied this round.
+- Fixed this round: `chips-chaos-drill` now uses the shared `requireCompanyAdmin` guard
+  (no hand-rolled has_role branch); `freecheckup-tab-perf` HoldingsTab renders inside a
+  QueryClientProvider (useChipsBatch dependency).
+- journalRepository gate moved into the Deno single source
+  (`supabase/functions/_shared/journalRepository.ts` + publicEconomicContract mirror), so the
+  frontend mirror stays byte-identical.
+
+STATUS: consumer closure implementation complete; final two-fresh-clone acceptance
+(`db/r1/p/run_two_fresh_clones.sh`) still outstanding — no PASS claimed.
