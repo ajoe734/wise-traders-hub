@@ -380,6 +380,7 @@ def write_verifier(doc):
 CREATE SCHEMA IF NOT EXISTS t;
 DO $BODY$
 DECLARE r record; v_oid oid; v_anon boolean; v_pub boolean; v_auth boolean; v_svc boolean;
+        v_src text; v_rawoid oid;
 BEGIN
 FOR r IN SELECT * FROM (VALUES
 %ROWS%
@@ -403,9 +404,31 @@ FOR r IN SELECT * FROM (VALUES
       WHERE pp.oid = v_oid AND a.grantee = 0 AND a.privilege_type = 'EXECUTE');
   v_auth := has_function_privilege('authenticated', v_oid, 'EXECUTE');
   v_svc  := has_function_privilege('service_role', v_oid, 'EXECUTE');
-  PERFORM t.ok(r.test_id || 'n anon/PUBLIC closed: ' || r.sig,
-               (NOT v_anon) AND (NOT v_pub),
-               format('anon_execute=%s public_execute=%s', v_anon, v_pub));
+  IF r.disposition = 'keep_rls_predicate_helper' THEN
+    -- These two are evaluated INSIDE RLS predicates as the querying role
+    -- (including anon), so revoking anon EXECUTE turns anonymous browsing into
+    -- 42501. The contract is therefore not "anon closed" but "anon reaches only
+    -- the identity-bound wrapper": PUBLIC closed, wrapper body gated by
+    -- acl_caller_may_read_identity, ungated *_raw twin unreachable by anon.
+    SELECT p.prosrc INTO v_src FROM pg_proc p WHERE p.oid = v_oid;
+    v_rawoid := to_regprocedure(
+      regexp_replace(r.sig, '^([^(]+)\(', '\1_raw(') );
+    PERFORM t.ok(r.test_id || 'n anon reaches only the identity-bound wrapper: ' || r.sig,
+                 (NOT v_pub)
+                 AND v_anon
+                 AND v_src LIKE '%acl_caller_may_read_identity%'
+                 AND v_rawoid IS NOT NULL
+                 AND NOT has_function_privilege('anon', v_rawoid, 'EXECUTE')
+                 AND NOT has_function_privilege('authenticated', v_rawoid, 'EXECUTE')
+                 AND has_function_privilege('service_role', v_rawoid, 'EXECUTE'),
+                 format('public_execute=%s anon_wrapper=%s identity_gate=%s raw=%s',
+                        v_pub, v_anon, v_src LIKE '%acl_caller_may_read_identity%',
+                        coalesce(v_rawoid::text,'missing')));
+  ELSE
+    PERFORM t.ok(r.test_id || 'n anon/PUBLIC closed: ' || r.sig,
+                 (NOT v_anon) AND (NOT v_pub),
+                 format('anon_execute=%s public_execute=%s', v_anon, v_pub));
+  END IF;
   IF r.disposition = 'owner_service_role_only' THEN
     PERFORM t.ok(r.test_id || 'p owner/service_role only: ' || r.sig,
                  (NOT v_auth) AND (v_svc = r.svc_expected),
