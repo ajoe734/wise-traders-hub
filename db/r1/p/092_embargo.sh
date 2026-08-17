@@ -26,7 +26,7 @@
 set -uo pipefail
 CL="${1:?conninfo required}"
 LOG="${2:-/dev/stdout}"
-MIN_TESTS=22
+MIN_TESTS=25
 
 psql "$CL" -X -v ON_ERROR_STOP=0 >"$LOG" 2>&1 <<'SQL'
 SET client_min_messages = warning;
@@ -159,15 +159,30 @@ DO $$ DECLARE n int; e uuid := (SELECT v FROM te.ids WHERE k='exp'); BEGIN
     SET LOCAL ROLE anon;
   END;
   BEGIN
+    -- Raw signal reachability for anon. 002 replaces the blanket anon policy
+    -- with signals_embargo_anon, whose USING clause calls
+    -- signal_is_publicly_visible(id): a published signal becomes anon-readable
+    -- only once its economic effect has matured (effective_at + 7d <= now()).
+    -- So the correct assertion is not "zero rows" but "exactly the two
+    -- released rows, and never an embargoed instrument".
     SELECT count(*) INTO n FROM public.expert_signals WHERE expert_id=e;
+    SELECT count(*)::int INTO n2 FROM public.expert_signals
+     WHERE expert_id=e AND instrument IN ('2332','2333','2334');
+    SELECT count(*)::int INTO n3 FROM public.expert_signals
+     WHERE expert_id=e AND instrument IN ('2330','2331');
   EXCEPTION WHEN insufficient_privilege THEN
-    n := -1;
+    n := -1; n2 := -1; n3 := -1;
   END;
   RESET ROLE;
   IF n = -1 THEN
-    PERFORM t.ok('T-E15 anon reads no raw embargoed signal row', true, 'refused 42501');
+    PERFORM t.ok('T-E15a anon reads no embargoed raw signal row', true, 'refused 42501');
+    PERFORM t.ok('T-E15b anon raw signal reach is limited to released rows', true, 'refused 42501');
+    PERFORM t.ok('T-E15c anon cannot see the embargoed instruments in raw signals', true, 'refused 42501');
   ELSE
-    PERFORM t.eq('T-E15 anon reads no raw embargoed signal row', n, 0);
+    PERFORM t.eq('T-E15a anon reads no embargoed raw signal row', n2, 0);
+    PERFORM t.eq('T-E15b anon raw signal reach is limited to released rows', n, 2);
+    PERFORM t.eq('T-E15c anon cannot see the embargoed instruments in raw signals',
+                 n - n3, 0);
   END IF;
 END $$;
 
