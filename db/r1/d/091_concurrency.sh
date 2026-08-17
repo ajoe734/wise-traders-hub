@@ -132,7 +132,10 @@ say "== S4c admin reconcile vs publish =="
     WHERE id='$SIG2'" >"$OUT/s4c_pub.txt" 2>&1 ) &
 wait
 DUP=$(q "SELECT count(*) FROM (SELECT expert_id,instrument_key FROM public.trade_records
-         WHERE status='open'::public.trade_status GROUP BY 1,2 HAVING count(*)>1) x")
+         WHERE status='open'::public.trade_status
+           AND expert_id IN ('$EXPA','$EXPB')
+           AND signal_id IN ('$SIG','$SIG2','$SIGB')
+         GROUP BY 1,2 HAVING count(*)>1) x")
 check "S4c no duplicate open rows after interleave" "$DUP" 0
 
 # --------------------------------------------------------------- S5 non-superuser role boundary

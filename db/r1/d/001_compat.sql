@@ -219,6 +219,9 @@ BEGIN
   --     insert/update all converge here because of the expert lock above.
   SELECT * INTO v_row FROM app_ledger.effect_key WHERE logical_effect_id = v_key;
   IF v_row.logical_effect_id IS NOT NULL AND v_row.state IN ('applied','no_effect') THEN
+    IF s.status::text = 'published' AND v_row.state='applied' THEN
+      PERFORM app_ledger.publish_signal_effect(p_signal_id);
+    END IF;
     RETURN pg_catalog.jsonb_build_object('status','noop_idempotent',
       'logical_effect_id', v_key, 'event_id', v_row.event_id, 'detail', v_row.state);
   END IF;
@@ -423,10 +426,10 @@ BEGIN
     new_row := old_row;
     new_row.current_price := (r->>'current_price')::numeric;
     new_row.price_updated_at := coalesce((r->>'price_updated_at')::timestamptz, pg_catalog.now());
-    forbidden := (pg_catalog.to_jsonb(new_row) - 'current_price' - 'price_updated_at')
-                 - (pg_catalog.to_jsonb(old_row) - 'current_price' - 'price_updated_at');
-    IF forbidden <> '{}'::jsonb THEN
-      RAISE EXCEPTION 'price_update_changed_non_whitelisted_columns: %', forbidden
+    IF (pg_catalog.to_jsonb(new_row) - 'current_price' - 'price_updated_at')
+       IS DISTINCT FROM
+       (pg_catalog.to_jsonb(old_row) - 'current_price' - 'price_updated_at') THEN
+      RAISE EXCEPTION 'price_update_changed_non_whitelisted_columns'
         USING ERRCODE='P0001';
     END IF;
     UPDATE public.trade_records SET current_price=new_row.current_price,

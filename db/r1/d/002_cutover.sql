@@ -47,7 +47,7 @@ BEGIN
     'market', p_market, 'currency', coalesce(e.base_currency, e.currency), 'qty', v_delta,
     'qty_unit', coalesce(p_unit, v_open.quantity_unit), 'cost_delta', 0,
     'effective_at', pg_catalog.now(), 'signal_id', v_open.signal_id,
-    'provenance','data_correction_adjustment','actor_via','admin_compat',
+    'provenance','quantity_adjustment','actor_via','admin_compat',
     'reason', p_reason));
 
   UPDATE app_ledger.effect_key SET state='applied', event_id=v_event, updated_at=now()
