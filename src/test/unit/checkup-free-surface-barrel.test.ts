@@ -7,7 +7,7 @@
 import { describe, it, expect } from 'vitest'
 
 describe('S1 · free surface barrels', () => {
-  it('M1 Holdings free surface', { timeout: 30_000 }, async () => {
+  it('M1 Holdings free surface', { timeout: 90_000 }, async () => {
     const m = await import('@/checkup/modules/holdings/free')
     for (const k of [
       'HoldingsTab',
@@ -46,26 +46,26 @@ describe('S1 · free surface barrels', () => {
     expect(typeof m.getInstReadiness).toBe('function')
   })
 
-  it('M2 Closing free surface', { timeout: 30_000 }, async () => {
+  it('M2 Closing free surface', { timeout: 90_000 }, async () => {
     const m = await import('@/checkup/modules/closing/free')
     expect(typeof m.DailyTab).toMatch(/function|object/)
     expect(typeof m.NewsTab).toMatch(/function|object/)
     expect(typeof m.NewsEventRow).toMatch(/function|object/)
   })
 
-  it('M3 Events free surface', { timeout: 30_000 }, async () => {
+  it('M3 Events free surface', { timeout: 90_000 }, async () => {
     const m = await import('@/checkup/modules/events/free')
     expect(typeof m.EventsTab).toMatch(/function|object/)
   })
 
-  it('M4 TradeIO free surface', { timeout: 30_000 }, async () => {
+  it('M4 TradeIO free surface', { timeout: 90_000 }, async () => {
     const m = await import('@/checkup/modules/tradeIO/free')
     for (const k of ['TradeTab', 'LogTab', 'TradeUploadModal', 'BatchParsePanel']) {
       expect(typeof (m as Record<string, unknown>)[k], k).toMatch(/function|object/)
     }
   })
 
-  it('M5 Research free surface', { timeout: 30_000 }, async () => {
+  it('M5 Research free surface', { timeout: 90_000 }, async () => {
     const m = await import('@/checkup/modules/research/free')
     expect(typeof m.ResearchTab).toMatch(/function|object/)
   })

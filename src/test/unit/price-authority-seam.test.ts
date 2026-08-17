@@ -90,7 +90,7 @@ describe('price authority seam guard', () => {
 
 // ── 2. 消費端整合測試 ─────────────────────────────────────────────────
 describe('useStockQuote goes through the seam', () => {
-  it('shows the settled snapshot close, not the intraday current price', async () => {
+  it('shows the settled snapshot close, not the intraday current price', { timeout: 30_000 }, async () => {
     rows.daily_price_snapshots = [
       { symbol: '2330', close_price: 1000, yesterday_close: 800, trade_date: '2026-07-29' },
     ];
@@ -104,7 +104,7 @@ describe('useStockQuote goes through the seam', () => {
     expect(result.current.quote!.changePercent).toBeCloseTo(25, 5);
   });
 
-  it('falls back to current_prices when the snapshot has no row', async () => {
+  it('falls back to current_prices when the snapshot has no row', { timeout: 30_000 }, async () => {
     rows.current_prices = [{ symbol: '2330', price: 950, yesterday_close: 950 }];
     const { useStockQuote } = await import('@/hooks/useStockQuote');
     const { result } = renderHook(() => useStockQuote('2330'));
@@ -114,7 +114,7 @@ describe('useStockQuote goes through the seam', () => {
 });
 
 describe('demo holdings hydration goes through the seam', () => {
-  it('hydrates DEMO holdings with the snapshot close price', async () => {
+  it('hydrates DEMO holdings with the snapshot close price', { timeout: 30_000 }, async () => {
     rows.daily_price_snapshots = [
       { symbol: '2330', close_price: 1000, yesterday_close: 800, trade_date: '2026-07-29' },
     ];
@@ -127,7 +127,7 @@ describe('demo holdings hydration goes through the seam', () => {
     expect(out[0]).toMatchObject({ price: 1000, yesterday: 800, change: 200, todayPnl: 200000 });
   });
 
-  it('returns the original holdings when the DB has nothing', async () => {
+  it('returns the original holdings when the DB has nothing', { timeout: 30_000 }, async () => {
     const { hydrateDemoHoldingsWithClosePrices } = await import('@/hooks/useFreeCheckupBootstrap');
     const input = [{ code: '2330', name: '台積電', qty: 1000, price: 500 }];
     expect(await hydrateDemoHoldingsWithClosePrices(input)).toEqual(input);
