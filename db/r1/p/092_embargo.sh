@@ -35,20 +35,26 @@ TRUNCATE t.result RESTART IDENTITY;
 CREATE SCHEMA IF NOT EXISTS te;
 DROP TABLE IF EXISTS te.ids;
 CREATE TABLE te.ids(k text primary key, v uuid, ts timestamptz);
+-- Fresh identities per run. The economic ledger is append-only, so reusing a
+-- fixed expert id makes a second run on the same database observe 10 effects
+-- on two different anchors and report phantom failures (observed: T-E00c
+-- got=4 expected=2). A per-run expert keeps the lattice deterministic and the
+-- harness re-runnable, which is what the >=25-test gate requires.
 INSERT INTO te.ids(k,v) VALUES
- ('user','aaaaaaa3-0000-4000-8000-000000000001'),
- ('exp' ,'bbbbbbb3-0000-4000-8000-000000000001'),
- ('b1'  ,'ccccccc3-0000-4000-8000-000000000001');
+ ('user', gen_random_uuid()),
+ ('exp' , gen_random_uuid()),
+ ('b1'  , gen_random_uuid());
 -- the frozen anchor
 INSERT INTO te.ids(k,ts) VALUES ('anchor', now());
 
 INSERT INTO auth.users(id,instance_id,aud,role,email,created_at,updated_at)
 VALUES ((SELECT v FROM te.ids WHERE k='user'),'00000000-0000-0000-0000-000000000000',
-        'authenticated','authenticated','embargo@r1p.test',now(),now())
+        'authenticated','authenticated',
+        'embargo+'||substr((SELECT v FROM te.ids WHERE k='user')::text,1,8)||'@r1p.test',now(),now())
 ON CONFLICT (id) DO NOTHING;
 INSERT INTO public.experts(id,user_id,slug,name,role,asset_class,currency,status,starting_capital)
 VALUES ((SELECT v FROM te.ids WHERE k='exp'),(SELECT v FROM te.ids WHERE k='user'),
-        'r1p-embargo','R1P Embargo','advisor','tw_stock','TWD','active',10000000)
+        'r1p-embargo-'||substr((SELECT v FROM te.ids WHERE k='exp')::text,1,8),'R1P Embargo','advisor','tw_stock','TWD','active',10000000)
 ON CONFLICT (id) DO NOTHING;
 
 -- five effects on the T+7 lattice; the writer stamps visibility on insert
