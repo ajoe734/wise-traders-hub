@@ -55,7 +55,7 @@ export function gatePerformance<T extends Record<string, unknown>>(
   if (!perf) return null;
   const out = {} as GatedPerformance;
   for (const k of PERF_KEYS) {
-    (out as Record<string, number | null>)[k] = status.showNumbers ? finite(perf[k]) : null;
+    (out as unknown as Record<string, number | null>)[k] = status.showNumbers ? finite(perf[k]) : null;
   }
   return out;
 }
