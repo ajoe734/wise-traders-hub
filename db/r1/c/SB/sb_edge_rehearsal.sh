@@ -151,6 +151,8 @@ INSERT INTO public.tw_bsr_sync_queue(stock_id, trade_date, priority, status, enq
 VALUES ('2330', current_date - 3, 1, 'pending', 'edge_rehearsal_open', now())
 ON CONFLICT DO NOTHING;
 SQL
+C=$(post "$W" "$DIR/w_nokey.json" '{"mode":"worker","batch":3,"budget_ms":8000}')
+chk $([ "$C" = 403 ] && echo 0 || echo 1) "EB-09 worker rejects missing X-Cron-Key (got $C)"
 C=$(post "$W" "$DIR/w_open.json" '{"mode":"worker","batch":3,"budget_ms":8000}' "$CRONH")
 cat "$DIR/w_open.json"; echo
 chk $([ "$C" = 200 ] && echo 0 || echo 1) "EB-10 worker HTTP 200 when gate open (got $C)"
@@ -199,7 +201,7 @@ chk $([ "$(jqf "$DIR/w_blocked.json" claimed)" = '0' ] && echo 0 || echo 1) "EB-
 chk $([ "$(jqf "$DIR/w_blocked.json" admission.reason)" != 'null' ] && echo 0 || echo 1) "EB-33 blocked reason surfaced in HTTP payload"
 chk $([ "$(jqf "$DIR/w_blocked.json" admission.gate_version)" != 'null' ] && echo 0 || echo 1) "EB-34 gate version surfaced in HTTP payload"
 chk $([ "$(provider_calls)" = 0 ] && echo 0 || echo 1) "EB-35 ZERO provider calls while blocked ($(provider_calls))"
-grep -q 'admission' "$DIR/worker_edge.log"; chk $? "EB-36 edge log carries admission context"
+if grep -q 'admission' "$DIR/worker_edge.log"; then chk 0 "EB-36 edge log carries admission context"; else chk 1 "EB-36 edge log carries admission context"; fi
 
 QB=$(psql "$CL" -qXAt -c "SELECT count(*) FROM public.tw_bsr_sync_queue")
 C=$(post "$W" "$DIR/e_blocked.json" '{"mode":"enqueue","tier1":true,"tier2":true,"tier3":false}' "$CRONH")
@@ -249,8 +251,7 @@ for m in reject reject4 rate fail5; do
   chk $([ "$C" = 200 ] && [ "$UNB" = 'false' ] && echo 0 || echo 1) "EB-6$m probe($m) did NOT unblock (http=$C unblocked=$UNB)"
   chk $([ "$(gateblocked)" = 'true' ] && echo 0 || echo 1) "EB-6$m gate still closed after probe($m)"
 done
-grep -qiE 'token|bearer|http://127|api key' "$DIR/a_reject.json"; RC=$?
-chk $([ $RC = 1 ] && echo 0 || echo 1) "EB-70 probe evidence leaks no token/url/secret"
+if grep -qiE 'token|bearer|http://127|api key' "$DIR/a_reject.json"; then chk 1 "EB-70 probe evidence leaks no token/url/secret" "$(head -c 200 "$DIR/a_reject.json")"; else chk 0 "EB-70 probe evidence leaks no token/url/secret"; fi
 
 ############################################################ F. admin probe success → unblock, then recovery
 stage probe_positive
@@ -295,7 +296,7 @@ psql "$CL" -qX -v ON_ERROR_STOP=1 -f db/r1/c/SB/099_rollback.sql >"$DIR/rollback
 psql "$CL" -qXAt -f db/r1/c/SB/sb_fingerprint.sql | sort >"$DIR/fp_post_rollback.txt"
 diff -u <(grep -E '^(replmeta|acl|obj)\|' "$DIR/fp_pre_edge.txt") \
         <(grep -E '^(replmeta|acl|obj)\|' "$DIR/fp_post_rollback.txt") >"$DIR/fp_rollback.diff" || true
-[ ! -s "$DIR/fp_rollback.diff" ]; chk $? "EB-95 rollback restores metadata/ACL fingerprint byte-for-byte" "$(head -10 "$DIR/fp_rollback.diff")"
+if [ ! -s "$DIR/fp_rollback.diff" ]; then chk 0 "EB-95 rollback restores metadata/ACL fingerprint byte-for-byte"; else chk 1 "EB-95 rollback restores metadata/ACL fingerprint byte-for-byte" "$(head -10 "$DIR/fp_rollback.diff")"; fi
 LEFT=$(psql "$CL" -qXAt -c "SELECT count(*) FROM pg_proc p JOIN pg_namespace n ON n.oid=p.pronamespace WHERE n.nspname='public' AND p.proname IN ('bsr_admission_status','bsr_block_and_terminalize_claims','bsr_unblock_after_probe')")
 chk $([ "$LEFT" = 0 ] && echo 0 || echo 1) "EB-96 wrappers removed by rollback ($LEFT left)"
 
