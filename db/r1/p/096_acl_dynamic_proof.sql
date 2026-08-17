@@ -88,11 +88,15 @@ BEGIN
   IF NOT EXISTS (SELECT 1 FROM public.trade_records tr
                   WHERE tr.expert_id = v_exp AND tr.instrument = 'ZZZZ'
                     AND tr.status = 'open'::public.trade_status) THEN
-    -- raw INSERT is (correctly) refused by trade_records_economic_guard
-    -- ("only ledger_owner may write economics"), so the fixture seeds the open
-    -- position through the canonical path, exactly like production would.
-    PERFORM app_ledger.canonical_correct_position(v_exp, 'ZZZZ', 'TW', 2000, '股',
-              'acl fixture seed', 9);
+    -- Two seeding paths are (correctly) closed: a raw INSERT is refused by
+    -- trade_records_economic_guard ("only ledger_owner may write economics"),
+    -- and canonical_correct_position raises no_open_position because a
+    -- quantity_adjustment cannot open a position. The legal way to open one is
+    -- the same way production does: publish a buy signal and let the
+    -- handle_signal_trade -> ledger path materialise the trade record.
+    INSERT INTO public.expert_signals(expert_id, action, instrument, quantity,
+      quantity_unit, price_hint, market, status, published_at)
+    VALUES (v_exp, 'buy', 'ZZZZ', 2, '張', 100, 'TW', 'published', now());
   END IF;
   INSERT INTO public.holdings_fix_proposals(
     id, drift_category, expert_id, expert_slug, expert_name, symbol, instrument,
