@@ -117,6 +117,8 @@ export SUPABASE_URL="http://127.0.0.1:$PROXY_PORT"
 export SUPABASE_SERVICE_ROLE_KEY="$SRK"
 export SUPABASE_ANON_KEY="$SRK"
 export FINMIND_TOKEN=rehearsal-token
+export CRON_SHARED_SECRET=rehearsal-cron-secret
+CRONH="X-Cron-Key: rehearsal-cron-secret"
 export BSR_PROBE_ALLOW_LOCAL=1
 export FINMIND_PROBE_BASE_URL="http://127.0.0.1:$MOCK_PORT/api/v4/data"
 
@@ -149,14 +151,14 @@ INSERT INTO public.tw_bsr_sync_queue(stock_id, trade_date, priority, status, enq
 VALUES ('2330', current_date - 3, 1, 'pending', 'edge_rehearsal_open', now())
 ON CONFLICT DO NOTHING;
 SQL
-C=$(post "$W" "$DIR/w_open.json" '{"mode":"worker","batch":3,"budget_ms":8000}')
+C=$(post "$W" "$DIR/w_open.json" '{"mode":"worker","batch":3,"budget_ms":8000}' \"$CRONH\")
 cat "$DIR/w_open.json"; echo
 chk $([ "$C" = 200 ] && echo 0 || echo 1) "EB-10 worker HTTP 200 when gate open (got $C)"
 chk $([ "$(jqf "$DIR/w_open.json" note)" = 'null' ] && echo 0 || echo 1) "EB-11 worker did NOT short-circuit on admission_gate_closed"
 chk $([ "$(jqf "$DIR/w_open.json" admission.decision)" = '"open"' ] && echo 0 || echo 1) "EB-12 worker payload reports admission decision=open"
 chk $([ "$(provider_calls)" -ge 1 ] && echo 0 || echo 1) "EB-13 provider WAS called while gate open ($(provider_calls) calls)"
 
-C=$(post "$W" "$DIR/e_open.json" '{"mode":"enqueue","tier1":true,"tier2":false,"tier3":false}')
+C=$(post "$W" "$DIR/e_open.json" '{"mode":"enqueue","tier1":true,"tier2":false,"tier3":false}' \"$CRONH\")
 chk $([ "$C" = 200 ] && echo 0 || echo 1) "EB-14 enqueue HTTP 200 when gate open (got $C)"
 chk $([ "$(jqf "$DIR/e_open.json" admission.decision)" = '"open"' ] && echo 0 || echo 1) "EB-15 enqueue payload reports decision=open"
 chk $([ "$(jqf "$DIR/e_open.json" admission_accounting.blocked_count)" = '0' ] && echo 0 || echo 1) "EB-16 open gate never accounts rows as blocked"
@@ -173,7 +175,7 @@ VALUES ('2317', current_date - 4, 1, 'pending', 'edge_rehearsal_term', now()),
 ON CONFLICT DO NOTHING;
 SQL
 BEFORE_OTHER=$(psql "$CL" -qXAt -c "SELECT count(*) FROM public.tw_bsr_sync_queue WHERE status='pending' AND enqueued_by NOT LIKE 'edge_rehearsal%'")
-C=$(post "$W" "$DIR/w_term.json" '{"mode":"worker","batch":5,"budget_ms":8000}')
+C=$(post "$W" "$DIR/w_term.json" '{"mode":"worker","batch":5,"budget_ms":8000}' \"$CRONH\")
 cat "$DIR/w_term.json"; echo
 chk $([ "$C" = 200 ] && echo 0 || echo 1) "EB-20 worker returns 200 on terminal rejection (got $C)"
 chk $([ "$(jqf "$DIR/w_term.json" stopped_by_terminal)" = 'true' ] && echo 0 || echo 1) "EB-21 worker halted on exact terminal signature"
@@ -189,7 +191,7 @@ chk $([ "$BEFORE_OTHER" = "$AFTER_OTHER" ] && echo 0 || echo 1) "EB-26 no blanke
 stage blocked_path
 : >"$DIR/provider.jsonl"
 echo ok >"$DIR/mock_mode"
-C=$(post "$W" "$DIR/w_blocked.json" '{"mode":"worker","batch":5,"budget_ms":8000}')
+C=$(post "$W" "$DIR/w_blocked.json" '{"mode":"worker","batch":5,"budget_ms":8000}' \"$CRONH\")
 cat "$DIR/w_blocked.json"; echo
 chk $([ "$C" = 200 ] && echo 0 || echo 1) "EB-30 worker responds 200 while blocked (got $C)"
 chk $([ "$(jqf "$DIR/w_blocked.json" note)" = '"admission_gate_closed"' ] && echo 0 || echo 1) "EB-31 worker short-circuits with admission_gate_closed"
@@ -200,7 +202,7 @@ chk $([ "$(provider_calls)" = 0 ] && echo 0 || echo 1) "EB-35 ZERO provider call
 grep -q 'admission' "$DIR/worker_edge.log"; chk $? "EB-36 edge log carries admission context"
 
 QB=$(psql "$CL" -qXAt -c "SELECT count(*) FROM public.tw_bsr_sync_queue")
-C=$(post "$W" "$DIR/e_blocked.json" '{"mode":"enqueue","tier1":true,"tier2":true,"tier3":false}')
+C=$(post "$W" "$DIR/e_blocked.json" '{"mode":"enqueue","tier1":true,"tier2":true,"tier3":false}' \"$CRONH\")
 cat "$DIR/e_blocked.json"; echo
 chk $([ "$C" = 200 ] && echo 0 || echo 1) "EB-40 enqueue responds 200 while blocked (got $C)"
 chk $([ "$(jqf "$DIR/e_blocked.json" admission.decision)" = '"blocked"' ] && echo 0 || echo 1) "EB-41 enqueue reports decision=blocked"
@@ -265,7 +267,7 @@ chk $([ "$VER_AFTER" -gt "$VER_BEFORE" ] && echo 0 || echo 1) "EB-83 gate versio
 C=$(post "$A" "$DIR/a_replay.json" '{"action":"probe","stock_id":"2330","trade_date":"2026-08-14"}' "$ADMJWT")
 chk $([ "$(jqf "$DIR/a_replay.json" transition)" = '"already_open"' ] && echo 0 || echo 1) "EB-84 replay is a no-op (already_open)"
 : >"$DIR/provider.jsonl"
-C=$(post "$W" "$DIR/w_recover.json" '{"mode":"worker","batch":5,"budget_ms":8000}')
+C=$(post "$W" "$DIR/w_recover.json" '{"mode":"worker","batch":5,"budget_ms":8000}' \"$CRONH\")
 chk $([ "$C" = 200 ] && echo 0 || echo 1) "EB-85 worker resumes after unblock (got $C)"
 chk $([ "$(jqf "$DIR/w_recover.json" note)" != '"admission_gate_closed"' ] && echo 0 || echo 1) "EB-86 worker no longer short-circuits"
 chk $([ "$(provider_calls)" -ge 1 ] && echo 0 || echo 1) "EB-87 provider reached again after recovery ($(provider_calls))"
@@ -279,8 +281,8 @@ SELECT s, current_date - 6, 1, 'pending', 'edge_rehearsal_conc', now()
   FROM unnest(ARRAY['2603','2609','2615','3008','1301','1303']) s
 ON CONFLICT DO NOTHING;
 SQL
-( post "$W" "$DIR/w_c1.json" '{"mode":"worker","batch":3,"budget_ms":8000}' >"$DIR/c1.code" ) &
-( post "$W" "$DIR/w_c2.json" '{"mode":"worker","batch":3,"budget_ms":8000}' >"$DIR/c2.code" ) &
+( post "$W" "$DIR/w_c1.json" '{"mode":"worker","batch":3,"budget_ms":8000}' \"$CRONH\" >"$DIR/c1.code" ) &
+( post "$W" "$DIR/w_c2.json" '{"mode":"worker","batch":3,"budget_ms":8000}' \"$CRONH\" >"$DIR/c2.code" ) &
 wait
 chk $([ "$(cat "$DIR/c1.code")" = 200 ] && [ "$(cat "$DIR/c2.code")" = 200 ] && echo 0 || echo 1) "EB-90 both concurrent workers returned 200"
 chk $([ "$(gateblocked)" = 'true' ] && echo 0 || echo 1) "EB-91 gate closed exactly once under concurrency"
