@@ -37,6 +37,8 @@ const DEFAULT_OG_IMAGE = `${SITE}/og-image.svg`;
 const DEFAULT_TITLE = "legendflow · 投顧分析師與實戰導師訂閱平台";
 const DEFAULT_DESC = "legendflow（智富股市實戰學院）— 專業投顧分析師即時策略訂閱與實戰導師週記教學。";
 
+import { isPubliclyVisible, stripEconomicFacts } from "../_shared/publicEconomicContract.ts";
+
 const supabase = serviceClient();
 
 interface OgData {
@@ -64,8 +66,12 @@ async function resolveSignal(id: string): Promise<OgData> {
     .eq("id", id)
     .eq("status", "published")
     .maybeSingle();
-  if (!data) return defaultData(`/app/signal/${id}`);
-  const exp: any = data.experts;
+  // R1-P: never acknowledge an embargoed (T+7 not elapsed) effect, and never
+  // emit an economic figure in public metadata.
+  if (!data || !isPubliclyVisible(data.published_at ?? data.created_at)) {
+    return defaultData(`/app/signal/${id}`);
+  }
+  const exp: any = stripEconomicFacts(data as any).experts;
   const act = data.action ? getActionLabel(String(data.action)) : "";
   const title = `${data.instrument} ${act}｜${exp?.name || "策略訊號"} | legendflow`;
   return {
@@ -91,8 +97,10 @@ async function resolveJournal(id: string): Promise<OgData> {
     .eq("id", id)
     .eq("status", "published")
     .maybeSingle();
-  if (!data) return defaultData(`/app/journal/${id}`);
-  const exp: any = data.experts;
+  if (!data || !isPubliclyVisible(data.published_at ?? data.created_at)) {
+    return defaultData(`/app/journal/${id}`);
+  }
+  const exp: any = stripEconomicFacts(data as any).experts;
   const topic = data.teaching_topic ? `｜${data.teaching_topic}` : "";
   const title = `${data.instrument}${topic}｜${exp?.name || "導師"}週記 | legendflow`;
   return {
