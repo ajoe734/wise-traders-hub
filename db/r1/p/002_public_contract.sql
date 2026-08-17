@@ -359,12 +359,16 @@ END $ist$;
 $ddl$;
 EXECUTE 'REVOKE ALL ON FUNCTION public.is_tester_raw(uuid) FROM PUBLIC, anon, authenticated';
 EXECUTE 'GRANT EXECUTE ON FUNCTION public.is_tester_raw(uuid) TO service_role';
+-- anon MUST keep EXECUTE on the wrapper: the permissive policy "Anyone can view
+-- active experts" is `status='active' OR (status='draft' AND is_tester(auth.uid()))`
+-- and Postgres does not guarantee OR short-circuit, so a blanket revoke turns
+-- every anonymous `select from experts` into 42501 (observed on the clone).
+-- Safety comes from the wrapper, not from the grant: it only answers for
+-- auth.uid() itself (NULL for anon) and raises 42501 for any other user id,
+-- and the ungated body lives in is_tester_raw, which anon cannot reach.
 EXECUTE 'REVOKE ALL ON FUNCTION public.is_tester(uuid) FROM PUBLIC';
--- anon never evaluates this helper: the only anon-visible economic surface is
--- the projection contract, and raw expert_signals is anon-readable solely
--- through signals_embargo_anon (which does not call it).
-EXECUTE 'REVOKE ALL ON FUNCTION public.is_tester(uuid) FROM PUBLIC, anon';
-EXECUTE 'GRANT EXECUTE ON FUNCTION public.is_tester(uuid) TO authenticated, service_role';
+EXECUTE 'GRANT EXECUTE ON FUNCTION public.is_tester(uuid) TO anon, authenticated, service_role';
+
 END $wrap3$;
 
 DO $wrap4$ BEGIN
@@ -385,9 +389,10 @@ END $hasa$;
 $ddl$;
 EXECUTE 'REVOKE ALL ON FUNCTION public.has_active_subscription_after_raw(uuid, timestamptz) FROM PUBLIC, anon, authenticated';
 EXECUTE 'GRANT EXECUTE ON FUNCTION public.has_active_subscription_after_raw(uuid, timestamptz) TO service_role';
+-- same reasoning as is_tester: the policy "Subscribers can view published signal
+-- legs" evaluates this helper as the querying role. Identity-bound wrapper only.
 EXECUTE 'REVOKE ALL ON FUNCTION public.has_active_subscription_after(uuid, timestamptz) FROM PUBLIC';
-EXECUTE 'REVOKE ALL ON FUNCTION public.has_active_subscription_after(uuid, timestamptz) FROM PUBLIC, anon';
-EXECUTE 'GRANT EXECUTE ON FUNCTION public.has_active_subscription_after(uuid, timestamptz) TO authenticated, service_role';
+EXECUTE 'GRANT EXECUTE ON FUNCTION public.has_active_subscription_after(uuid, timestamptz) TO anon, authenticated, service_role';
 END $wrap4$;
 
 
@@ -481,6 +486,17 @@ BEGIN
   -- the column the predicate actually means.
   IF def IS NOT NULL AND def LIKE '%s.updated_at%' THEN
     def := replace(def, 's.updated_at', 'COALESCE(s.published_at, s.created_at)');
+  END IF;
+  -- 42702: the body's CTEs select bare `expert_id`, which collides with the
+  -- RETURNS TABLE OUT parameter of the same name. Every one of those references
+  -- means the column, which is precisely `#variable_conflict use_column`.
+  IF def IS NOT NULL AND def NOT LIKE '%#variable_conflict%' THEN
+    body_start := position('AS $function$' in def);
+    IF body_start = 0 THEN
+      RAISE EXCEPTION 'compat: unexpected body quoting for get_publish_batch_status';
+    END IF;
+    def := overlay(def placing 'AS $function$' || E'\n#variable_conflict use_column'
+                   from body_start for length('AS $function$'));
   END IF;
   IF def IS NOT NULL THEN EXECUTE def; END IF;
 END $compat$;

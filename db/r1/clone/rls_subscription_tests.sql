@@ -166,7 +166,33 @@ END;
 $function$
 
 
+
+
 ;
+
+-- ---------------------------------------------------------------------
+-- POST-CUTOVER REPOINT (R1-P T-P99a). 002 C3c replaces
+-- has_active_subscription_after() with an identity-bound wrapper that raises
+-- 42501 'forbidden' for any user id that is not auth.uid(). This harness is a
+-- trusted server-side path that deliberately probes three synthetic members
+-- (auth.uid() is NULL when it runs), so before this repoint every Part B case
+-- collapsed into a single 'seed/execution error | forbidden' row and the suite
+-- reported 9 cases instead of 15. Exactly like the internal callers repointed
+-- by 002's $repoint2$ block, the harness is bound to the ungated *_raw body.
+DO $repoint_harness$
+DECLARE def text;
+BEGIN
+  IF to_regprocedure('public.has_active_subscription_after_raw(uuid, timestamptz)') IS NULL
+  THEN RETURN; END IF;
+  SELECT pg_get_functiondef(p.oid) INTO def
+    FROM pg_proc p JOIN pg_namespace n ON n.oid = p.pronamespace
+   WHERE n.nspname='public' AND p.proname='run_rls_subscription_tests';
+  IF def IS NULL THEN RETURN; END IF;
+  def := regexp_replace(def, '\mhas_active_subscription_after\(',
+                        'has_active_subscription_after_raw(', 'g');
+  EXECUTE def;
+END $repoint_harness$;
+
 -- ---------------------------------------------------------------------
 -- T-P99c closure. Root cause: CREATE FUNCTION grants EXECUTE to PUBLIC by
 -- default, so `anon` inherited EXECUTE on a SECURITY DEFINER harness owned

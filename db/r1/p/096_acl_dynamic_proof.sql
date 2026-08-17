@@ -65,26 +65,86 @@ END $$;
 
 -- ------------------------------------------------- domain fixture (apply)
 -- admin_apply_fix_proposal needs a legitimate pending proposal to have a real
--- positive case. A no-op `normalize_unit` proposal with an empty signal id set
--- is a valid domain precondition: the apply path runs end to end (status ->
--- applied + audit log) without touching any economic row, and the whole call
--- is still rolled back by t.acl_call.
+-- positive case. The first version of this fixture left expert_id NULL and
+-- pointed at a symbol with no position, which the repaired function correctly
+-- rejects with 22023 incomplete_proposal — a guard pass, but not a clean run.
+-- The fixture therefore builds the full legal precondition: a probe expert with
+-- one OPEN trade record on instrument ZZZZ, plus a pending `normalize_unit`
+-- proposal that targets it. The apply path then runs end to end (canonical
+-- correction + status -> applied + apply_result), and every write is rolled
+-- back by t.acl_call / t.acl_call_probe.
 CREATE TABLE IF NOT EXISTS t.acl_fixture(k text primary key, v uuid);
 DO $fx$
 DECLARE v_id uuid := '11111111-0000-4000-8000-0000000000f1';
+        v_exp uuid; v_uid uuid := (SELECT v FROM t.acl_actor WHERE k='admin');
 BEGIN
   DELETE FROM public.holdings_fix_proposals WHERE id = v_id;
+  SELECT id INTO v_exp FROM public.experts WHERE slug = 'acl-probe-expert';
+  IF v_exp IS NULL THEN
+    -- starting_capital must cover the seed signal or enforce_signal_capital_limit
+    -- refuses it with CAPITAL_EXCEEDED.
+    INSERT INTO public.experts(user_id, slug, name, role, status, starting_capital,
+                               currency, asset_class)
+    VALUES (v_uid, 'acl-probe-expert', 'ACL Probe Expert', 'advisor', 'active',
+            1000000, 'TWD', 'tw_stock')
+    RETURNING id INTO v_exp;
+  END IF;
+  IF NOT EXISTS (SELECT 1 FROM public.trade_records tr
+                  WHERE tr.expert_id = v_exp AND tr.instrument = 'ZZZZ'
+                    AND tr.status = 'open'::public.trade_status) THEN
+    -- Two seeding paths are (correctly) closed: a raw INSERT is refused by
+    -- trade_records_economic_guard ("only ledger_owner may write economics"),
+    -- and canonical_correct_position raises no_open_position because a
+    -- quantity_adjustment cannot open a position. The legal way to open one is
+    -- the same way production does: publish a buy signal and let the
+    -- handle_signal_trade -> ledger path materialise the trade record.
+    INSERT INTO public.expert_signals(expert_id, action, instrument, quantity,
+      quantity_unit, price_hint, market, status, published_at, executed_at)
+    VALUES (v_exp, 'buy', 'ZZZZ', 2, '張', 100, 'TW', 'published', now(), now());
+  END IF;
   INSERT INTO public.holdings_fix_proposals(
-    id, drift_category, expert_slug, expert_name, symbol, instrument,
+    id, drift_category, expert_id, expert_slug, expert_name, symbol, instrument,
     severity, summary, proposed_action, payload, preview, status, signature)
-  VALUES (v_id, 'UNIT_MIX', 'acl-probe', 'acl probe', 'ZZZZ', 'ZZZZ',
+  VALUES (v_id, 'UNIT_MIX', v_exp, 'acl-probe-expert', 'ACL Probe Expert', 'ZZZZ', 'ZZZZ',
           'low', 'acl dynamic proof fixture', 'normalize_unit',
-          jsonb_build_object('target_unit','張','signal_ids','[]'::jsonb,
-                             'also_scale_quantity', false),
+          jsonb_build_object('target_unit','張','market','TW','to_quantity',1000,
+                             'signal_ids','[]'::jsonb, 'also_scale_quantity', false),
           '{}'::jsonb, 'pending', 'acl-probe|UNIT_MIX|ZZZZ|fixture');
   DELETE FROM t.acl_fixture WHERE k='apply_proposal';
   INSERT INTO t.acl_fixture VALUES ('apply_proposal', v_id);
+  DELETE FROM t.acl_fixture WHERE k='apply_expert';
+  INSERT INTO t.acl_fixture VALUES ('apply_expert', v_exp);
 END $fx$;
+
+-- ------------------------------------------------- mutation probe executor
+-- Same rollback contract as t.acl_call, but evaluates a boolean probe INSIDE
+-- the subtransaction (after the call, before the rollback) so an admin write
+-- can be asserted without leaving any residue on the clone.
+CREATE OR REPLACE FUNCTION t.acl_call_probe(p_sql text, p_uid uuid, p_probe text)
+RETURNS text LANGUAGE plpgsql AS $$
+DECLARE v_state text; v_msg text; v_probe boolean;
+BEGIN
+  BEGIN
+    PERFORM set_config('request.jwt.claims',
+             json_build_object('sub', p_uid::text, 'role', 'authenticated')::text, true);
+    SET LOCAL ROLE authenticated;
+    EXECUTE p_sql;
+    RESET ROLE;
+    EXECUTE p_probe INTO v_probe;
+    v_state := CASE WHEN coalesce(v_probe,false) THEN '00000 mutation_observed'
+                    ELSE '00000 mutation_missing' END;
+    RAISE EXCEPTION 'acl_rollback_marker' USING ERRCODE = 'P0002', HINT = v_state;
+  EXCEPTION
+    WHEN SQLSTATE 'P0002' THEN GET STACKED DIAGNOSTICS v_msg = PG_EXCEPTION_HINT;
+                               v_state := v_msg;
+    WHEN OTHERS THEN GET STACKED DIAGNOSTICS v_state = RETURNED_SQLSTATE, v_msg = MESSAGE_TEXT;
+                     v_state := v_state || ' ' || coalesce(v_msg,'');
+  END;
+  RESET ROLE;
+  PERFORM set_config('request.jwt.claims', '', true);
+  RETURN v_state;
+END $$;
+
 
 -- ============================================================ A + B
 -- the 12 keep_typed_safe_authenticated_guarded targets, really executed.
@@ -403,7 +463,35 @@ BEGIN
                v_state = '00000', coalesce(v_state,'') || ' ' || coalesce(v_msg,''));
 END $BODY$;
 
+-- ============================================================ apply mutation
+-- T-P96b proves the guard; this proves the WORK. The company_admin call must
+-- both return 00000 AND actually flip the proposal to `applied` with a recorded
+-- apply_result, inside a subtransaction that is rolled back.
+DO $BODY$
+DECLARE v_id uuid := (SELECT v FROM t.acl_fixture WHERE k='apply_proposal');
+        v_admin uuid := (SELECT v FROM t.acl_actor WHERE k='admin');
+        v_user  uuid := (SELECT v FROM t.acl_actor WHERE k='user');
+        v_state text;
+BEGIN
+  v_state := t.acl_call_probe(
+    format($q$SELECT public.admin_apply_fix_proposal(%L::uuid, true)$q$, v_id),
+    v_admin,
+    format($q$SELECT EXISTS(SELECT 1 FROM public.holdings_fix_proposals
+                             WHERE id=%L::uuid AND status='applied'
+                               AND apply_result IS NOT NULL)$q$, v_id));
+  PERFORM t.ok('T-P96b-mut admin_apply_fix_proposal applies the proposal then rolls back',
+               v_state = '00000 mutation_observed', v_state);
+  PERFORM t.ok('T-P96b-mut fixture proposal is still pending after rollback',
+               EXISTS(SELECT 1 FROM public.holdings_fix_proposals
+                       WHERE id=v_id AND status='pending'));
+  v_state := t.acl_call(
+    format($q$SELECT public.admin_apply_fix_proposal(%L::uuid, true)$q$, v_id), v_user);
+  PERFORM t.ok('T-P96b-mut ordinary authenticated is still refused on the same legal proposal',
+               v_state LIKE '42501%', v_state);
+END $BODY$;
+
 -- ============================================================ contract
+
 DO $BODY$
 DECLARE v_a int; v_b int; v_all int;
 BEGIN
