@@ -434,6 +434,68 @@ DO $$ DECLARE n int; BEGIN
                                           AND e2.visible_at <= v.embargo_cutoff))));
 END $$;
 
+-- =====================================================================
+-- P98 ACL watch-set closure — must be 0 after 002_public_contract.
+-- Mirrors db/r1/p/acl_watchset.sql exactly (single definition).
+-- =====================================================================
+CREATE OR REPLACE VIEW tp.acl_violation AS
+  WITH watch AS (
+    SELECT p.oid,
+           format('%I.%I(%s)', n.nspname, p.proname,
+                  pg_get_function_identity_arguments(p.oid)) AS sig,
+           CASE WHEN p.proname IN ('get_expert_capital_status',
+                                   'has_active_subscription_after',
+                                   'is_tester') THEN 'named_pre_cutover'
+                ELSE 'pattern_admin_build_publish' END AS class
+      FROM pg_proc p JOIN pg_namespace n ON n.oid = p.pronamespace
+     WHERE n.nspname IN ('public','app_ledger') AND p.prokind='f'
+       AND (p.proname IN ('get_expert_capital_status','has_active_subscription_after','is_tester')
+            OR p.proname LIKE 'admin\\_%' OR p.proname LIKE 'canonical\\_%'
+            OR p.proname LIKE '%publish%'  OR p.proname LIKE '%backfill%'
+            OR p.proname LIKE '%dedupe%'   OR p.proname LIKE '%fix%'
+            OR p.proname LIKE '%rebuild%'  OR p.proname LIKE '%sweep%')
+  )
+  SELECT sig, class FROM watch WHERE has_function_privilege('anon', oid, 'EXECUTE');
+
+DO $$ BEGIN
+  PERFORM t.eq('T-P98a ACL watch set: 0 named_pre_cutover anon EXECUTE after migration',
+    (SELECT count(*)::int FROM tp.acl_violation WHERE class='named_pre_cutover'), 0);
+  PERFORM t.eq('T-P98b ACL watch set: 0 admin/build/publish anon EXECUTE after migration',
+    (SELECT count(*)::int FROM tp.acl_violation WHERE class='pattern_admin_build_publish'), 0);
+  PERFORM t.ok('T-P98c the three named helpers still work for authenticated/service_role',
+    (SELECT bool_and(has_function_privilege('authenticated', p.oid, 'EXECUTE')
+                     AND has_function_privilege('service_role', p.oid, 'EXECUTE'))
+       FROM pg_proc p JOIN pg_namespace n ON n.oid=p.pronamespace
+      WHERE n.nspname='public' AND p.proname IN ('get_expert_capital_status',
+              'has_active_subscription_after','is_tester')));
+END $$;
+
+-- =====================================================================
+-- P99 RLS subscription-visibility suite — executed on the clone by the
+-- intended owner (postgres, SECURITY DEFINER). Production ACL untouched.
+-- =====================================================================
+DO $$
+DECLARE v_total int := 0; v_failed int := 0; v_detail text := '';
+BEGIN
+  IF to_regprocedure('public.run_rls_subscription_tests()') IS NULL THEN
+    PERFORM t.ok('T-P99 run_rls_subscription_tests present on clone', false,
+                 'function missing from clone schema');
+    RETURN;
+  END IF;
+  CREATE TEMP TABLE _rls_res ON COMMIT DROP AS
+    SELECT * FROM public.run_rls_subscription_tests();
+  SELECT count(*), count(*) FILTER (WHERE NOT passed),
+         coalesce(string_agg(test_name||': '||coalesce(detail,'') , ' | ')
+                  FILTER (WHERE NOT passed), '')
+    INTO v_total, v_failed, v_detail FROM _rls_res;
+  PERFORM t.ok('T-P99a RLS subscription suite has >= 15 cases', v_total >= 15,
+               format('cases=%s', v_total));
+  PERFORM t.ok('T-P99b RLS subscription suite: 0 failures', v_failed = 0, v_detail);
+  PERFORM t.ok('T-P99c anon/authenticated cannot EXECUTE the harness function',
+    NOT has_function_privilege('anon','public.run_rls_subscription_tests()','EXECUTE')
+    AND NOT has_function_privilege('authenticated','public.run_rls_subscription_tests()','EXECUTE'));
+END $$;
+
 \echo '--- R1-P verify summary ---'
 SELECT count(*) AS tests, count(*) FILTER (WHERE NOT passed) AS failures FROM t.result;
 SELECT id, name, coalesce(detail,'') FROM t.result WHERE NOT passed ORDER BY id;
