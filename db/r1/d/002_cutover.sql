@@ -239,24 +239,42 @@ BEGIN
 END $$;
 ALTER FUNCTION public.admin_signal_dupe_trades_fix(uuid,boolean,boolean) OWNER TO ledger_owner;
 
+-- W08 dedupe sweep: candidate detection lives in app_ledger; the repair path is a
+-- canonical correction per duplicate group (no raw DELETE, fully idempotent).
+CREATE OR REPLACE FUNCTION app_ledger.dedupe_candidates()
+RETURNS TABLE(expert_id uuid, instrument text, market text, quantity_unit text,
+              target_qty int, dup_rows bigint)
+LANGUAGE sql STABLE SECURITY DEFINER SET search_path = '' AS $$
+  SELECT t.expert_id, pg_catalog.min(t.instrument), pg_catalog.min(t.market),
+         pg_catalog.min(t.quantity_unit),
+         pg_catalog.max(t.quantity)::int, pg_catalog.count(*)
+    FROM public.trade_records t
+   WHERE t.status = 'open'::public.trade_status
+   GROUP BY t.expert_id, t.instrument_key
+  HAVING pg_catalog.count(*) > 1
+$$;
+ALTER FUNCTION app_ledger.dedupe_candidates() OWNER TO ledger_owner;
+
 CREATE OR REPLACE FUNCTION public.trade_dedupe_sweep(p_dry_run boolean DEFAULT true)
 RETURNS jsonb LANGUAGE plpgsql SECURITY DEFINER SET search_path = '' AS $$
-DECLARE r record; n int := 0;
+DECLARE r record; n int := 0; applied int := 0; v jsonb;
 BEGIN
   IF NOT public.has_role(auth.uid(),'company_admin'::public.app_role) THEN
     RAISE EXCEPTION 'forbidden' USING ERRCODE='42501'; END IF;
-  FOR r IN SELECT expert_id, instrument_key, count(*) c FROM public.trade_records
-            WHERE status='open'::public.trade_status
-            GROUP BY 1,2 HAVING count(*) > 1
-  LOOP n := n + 1; END LOOP;
+  FOR r IN SELECT * FROM app_ledger.dedupe_candidates() LOOP
+    n := n + 1;
+    IF NOT p_dry_run THEN
+      v := app_ledger.canonical_correct_position(r.expert_id, r.instrument, r.market,
+             r.target_qty, r.quantity_unit, 'dedupe_sweep', 6);
+      IF v->>'status' = 'applied' THEN applied := applied + 1; END IF;
+    END IF;
+  END LOOP;
   IF p_dry_run THEN
     RETURN pg_catalog.jsonb_build_object('status','dry_run','duplicate_groups',n);
   END IF;
-  -- Non-dry sweeps must be expressed as explicit canonical corrections.
-  RAISE EXCEPTION 'dedupe_requires_canonical_correction: use admin_signal_dupe_trades_fix'
-    USING ERRCODE='P0001';
+  RETURN pg_catalog.jsonb_build_object('status','swept','duplicate_groups',n,
+    'corrections_applied',applied);
 END $$;
-ALTER FUNCTION public.trade_dedupe_sweep(boolean) OWNER TO ledger_owner;
 
 CREATE OR REPLACE FUNCTION public.admin_apply_fix_proposal(p_id uuid, p_confirm boolean)
 RETURNS jsonb LANGUAGE plpgsql SECURITY DEFINER SET search_path = '' AS $$
