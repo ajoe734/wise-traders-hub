@@ -69,9 +69,12 @@ SELECT
     WHEN m.market='US' AND (m.any_combo OR m.any_combo_strategy OR m.any_lot_unit)
          THEN false                                   -- no per-leg quote, no contract multiplier
     WHEN m.market='TW' AND m.w_symbol IS NOT NULL
-         THEN (m.w_ratio IS NOT NULL AND m.quote_price IS NOT NULL)
+         THEN (m.w_ratio IS NOT NULL AND m.quote_price IS NOT NULL
+               AND m.quote_at > now() - interval '7 days')
     WHEN m.market='TW' AND m.sym ~ '^[0-9]{6}$' AND left(m.sym,2) <> '00'
          THEN false                                   -- unknown_derivative -> fail closed
+    WHEN m.market='TW' AND m.sym !~ '^[0-9]' THEN false  -- unknown_instrument: market/code mismatch
+    WHEN m.market IS NULL THEN false
     ELSE true                                         -- cash equity: not a derivative
   END AS derivative_supported,
   CASE
@@ -82,9 +85,13 @@ SELECT
     WHEN m.market='TW' AND m.w_symbol IS NOT NULL AND m.quote_price IS NULL
          THEN 'warrant_master_hit_quote_missing'
     WHEN m.market='TW' AND m.w_symbol IS NOT NULL
+         AND m.quote_at <= now() - interval '7 days'
+         THEN 'warrant_master_hit_quote_stale'
+    WHEN m.market='TW' AND m.w_symbol IS NOT NULL
          THEN 'warrant_master_hit_complete'
     WHEN m.market='TW' AND m.sym ~ '^[0-9]{6}$' AND left(m.sym,2) <> '00'
          THEN 'warrant_code_space_absent_from_master'
+    WHEN m.market='TW' AND m.sym !~ '^[0-9]' THEN 'unclassified_market_code_mismatch'
     ELSE 'cash_equity'
   END AS classification_evidence
 FROM m;
