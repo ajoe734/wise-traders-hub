@@ -18,6 +18,9 @@ import { cn } from "@/lib/utils";
 import { useExpertPerformance, useExpertPerformanceRealtime } from "@/hooks/usePerformance";
 import { usePeriodPerformance, PeriodBucket } from "@/hooks/usePeriodPerformance";
 import { useIsMobile } from "@/hooks/use-mobile";
+import { useProjectionStatus } from "@/hooks/useProjectionStatus";
+import { projectedAmount, projectedPercent, REVIEW_NOTE } from "@/contracts/publicProjection";
+import { PerformanceReviewNotice, ReviewPlaceholder } from "@/components/expert/PerformanceReviewNotice";
 
 type ViewPeriod = "yearly" | "monthly" | "weekly";
 
@@ -58,6 +61,10 @@ export function PerformanceOverviewPanel({ expertId, startingCapital: startingCa
   // Fetch overall performance KPIs (with realtime invalidation, scoped to detail page)
   const { data: perfData } = useExpertPerformance(expertId);
   useExpertPerformanceRealtime(expertId);
+
+  // R1-P public projection contract: a scope under review never renders numbers.
+  const projection = useProjectionStatus(expertId);
+  const capitalText = projectedAmount(projection, startingCapitalProp ?? (perfData as any)?.starting_capital ?? 0);
 
   // 起始資金優先用父層傳入；否則 fallback 到 RPC 回傳值
   const startingCapital = startingCapitalProp ?? (perfData as any)?.starting_capital ?? 0;
@@ -108,6 +115,8 @@ export function PerformanceOverviewPanel({ expertId, startingCapital: startingCa
   }, [selectedPoint, performanceData]);
 
   const chartData = performanceData;
+  const assetText = projectedAmount(projection, currentAsset);
+  const returnText = projectedPercent(projection, totalReturnPct);
 
   const handlePointClick = (data: PeriodBucket) => {
     if (selectedPoint === data.label) {
@@ -179,21 +188,31 @@ export function PerformanceOverviewPanel({ expertId, startingCapital: startingCa
           </TabsList>
         </Tabs>
 
+        <PerformanceReviewNotice status={projection} />
+
         {/* Stats Bar */}
         <div className="grid grid-cols-3 gap-3 rounded-lg bg-muted/30 dark:bg-white/[0.03] border dark:border-white/10 p-3">
           <div>
             <div className="text-xs text-muted-foreground">起始資金</div>
-            <div className="text-lg font-bold text-foreground">${INITIAL_CAPITAL.toLocaleString()}</div>
+            <div className="text-lg font-bold text-foreground">
+              {capitalText ?? <ReviewPlaceholder />}
+            </div>
           </div>
           <div className="text-center">
             <div className="text-xs text-muted-foreground">目前資產</div>
-            <div className="text-lg font-bold text-foreground">${currentAsset.toLocaleString()}</div>
+            <div className="text-lg font-bold text-foreground">
+              {assetText ?? <ReviewPlaceholder />}
+            </div>
           </div>
           <div className="text-right">
             <div className="text-xs text-muted-foreground">總報酬率</div>
-            <div className={cn("text-lg font-bold", totalReturnPct >= 0 ? "text-success" : "text-destructive")}>
-              {totalReturnPct >= 0 ? "+" : ""}{Number(totalReturnPct).toFixed(2)}%
-            </div>
+            {returnText ? (
+              <div className={cn("text-lg font-bold", totalReturnPct >= 0 ? "text-success" : "text-destructive")}>
+                {returnText}
+              </div>
+            ) : (
+              <div className="text-lg font-bold"><ReviewPlaceholder /></div>
+            )}
           </div>
         </div>
 
@@ -204,7 +223,11 @@ export function PerformanceOverviewPanel({ expertId, startingCapital: startingCa
           </div>
 
           <div className="h-52 px-1">
-            {isLoading ? (
+            {!projection.showNumbers ? (
+              <div className="flex h-full items-center justify-center text-sm text-muted-foreground">
+                {REVIEW_NOTE}
+              </div>
+            ) : isLoading ? (
               <div className="flex items-center justify-center h-full">
                 <Loader2 className="h-6 w-6 animate-spin text-muted-foreground" />
               </div>
@@ -266,7 +289,7 @@ export function PerformanceOverviewPanel({ expertId, startingCapital: startingCa
         </div>
 
         {/* Collapsible Stock Ranking */}
-        {selectedPoint && (
+        {selectedPoint && projection.showNumbers && (
           <Collapsible open={isExpanded} onOpenChange={setIsExpanded}>
             <CollapsibleTrigger className="flex items-center justify-between w-full py-2.5 px-4 rounded-lg bg-muted/40 dark:bg-white/[0.04] border border-transparent dark:border-white/10 text-sm hover:bg-muted/60 dark:hover:bg-white/[0.08] transition-colors">
               <span className="font-medium text-foreground">{selectedPoint} 個股排名</span>
