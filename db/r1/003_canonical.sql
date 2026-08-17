@@ -95,7 +95,9 @@ DECLARE
   v_newopen public.trade_records; v_newclosed public.trade_records;
   v_cashrow app_ledger.portfolio_cash_ledger;
   v_avg numeric;
+  v_unit text;
 BEGIN
+  v_unit := app_ledger.resolve_qty_unit(v_expert, p->>'qty_unit');
   -- D5: a logical id may only be reused via an explicit restore of an existing chain
   IF p ? 'restore_logical_effect_id' THEN
     SELECT e.logical_effect_id INTO v_logical
@@ -141,17 +143,17 @@ BEGIN
 
   INSERT INTO app_ledger.economic_effect(
     event_id, logical_effect_id, expert_id, origin_signal_id, market, instrument,
-    instrument_key, action, qty_delta, currency, cash_delta, price, fees, effective_at,
+    instrument_key, action, qty_delta, qty_unit, currency, cash_delta, price, fees, effective_at,
     provenance, actor_via, reason, expected_mutation_count, state)
   VALUES (v_event, v_logical, v_expert, v_signal, v_market, coalesce(p->>'instrument', v_ikey),
-    v_ikey, v_action, v_qdelta, v_cur, v_cash, v_price, v_fees, v_eff,
+    v_ikey, v_action, v_qdelta, v_unit, v_cur, v_cash, v_price, v_fees, v_eff,
     v_prov, coalesce(p->>'actor_via','canonical'), v_reason, v_expected, 'reserved');
 
   ------------------------------------------------------------------ position mutations
   IF v_action = 'buy' OR (v_action='add' AND v_open IS NULL) THEN
     v_openid := pg_catalog.gen_random_uuid();
     v_newopen := app_ledger.new_trade_row(v_expert, v_market, coalesce(p->>'instrument', v_ikey),
-      v_cur, v_qty, v_price, 'open', v_eff, v_signal, app_ledger.resolve_qty_unit(v_expert, p->>'qty_unit'));
+      v_cur, v_qty, v_price, 'open', v_eff, v_signal, v_unit);
     v_newopen.id := v_openid;
     INSERT INTO app_ledger.effect_projection_mutation(
       event_id, mutation_seq, target_table, target_row_id, op, row_role, expert_id, currency,
