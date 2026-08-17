@@ -10,7 +10,7 @@
 | Stage | production mutation（未來、需單獨核准） | rollback |
 |---|---|---|
 | H-1 provider probe | 無（唯讀／外部 probe） | 無 |
-| H0 觀測 | 新 Edge `tw-bsr-finmind-sync-v2`（**新建，不覆寫**）＋新表 `bsr_run_trace`；cron 107 target 切到 v2 | cron target 切回舊函式；v2 保留不刪；drop 新表 |
+| H0 觀測 | 新 Edge `tw-bsr-finmind-sync-v2`（**新建，不覆寫**）＋唯讀 `public.freshness_run_trace` VIEW（**不新增 table**）＋既有 `tw_bsr_attempt_logs` 的欄位補寫；cron 107 target 切到 v2 | cron target 切回舊函式；v2 保留不刪；drop VIEW（無資料損失） |
 | H1 market master | 新表 `tw_market_symbols`＋新 Edge `tw-market-master-sync`＋新 cron | 停 cron、drop 表；不影響 `stock_names` |
 | H2 demand registry | 新表 `symbol_demand_registry`＋`SECURITY DEFINER` RPC（只給 service_role）＋新 Edge `symbol-demand-register` | drop Edge/RPC/表 |
 | H3 enqueue/worker | `CREATE OR REPLACE` 兩個**自有 SQL 函式**（`enqueue_chips_prefetch_gaps`、`claim_bsr_queue_jobs`；先存前版定義）＋ v2 worker 內邏輯 | 以前版定義 replace 回去；cron 切回舊函式 |
