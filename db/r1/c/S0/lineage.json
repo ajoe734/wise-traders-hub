@@ -1,0 +1,103 @@
+{
+  "applied_not_recorded": {
+    "20260812211500": {
+      "file": "20260812211500_bsr_claim_token_slot.sql",
+      "file_md5": "30b322cfed537fda42696291af83046b",
+      "proof_fn": "claim_bsr_queue_jobs",
+      "proof_needle": "token_slot"
+    }
+  },
+  "capture": {
+    "_captured_utc": "2026-08-17T08:07:00Z",
+    "_source": "db/r1/c/S0/lineage.sql executed read-only through the Lovable Cloud database query tool (sandbox psql role lacks USAGE on schema supabase_migrations)",
+    "applied_not_recorded_proof": {
+      "claim_bsr_queue_jobs_has_token_slot": true,
+      "claim_bsr_queue_jobs_prosrc_md5": "c28474cca7be420355edeefd6207104b"
+    },
+    "duplicate_records": [
+      {
+        "maps_to": "20260721135623",
+        "version": "20260721135648"
+      },
+      {
+        "maps_to": "20260722023118",
+        "version": "20260722023140"
+      },
+      {
+        "maps_to": "20260724071542",
+        "version": "20260724071600"
+      },
+      {
+        "maps_to": "20260725213311",
+        "version": "20260725213324"
+      },
+      {
+        "maps_to": "20260729132621",
+        "version": "20260729132638"
+      }
+    ],
+    "known_pre_repo": [
+      "20260227131741",
+      "20260227155729",
+      "20260308110124",
+      "20260316122524",
+      "20260408065758"
+    ],
+    "known_pre_repo_proofs": {
+      "line_binding_codes": true,
+      "quantity_unit_cols": 2,
+      "stock_names": true
+    },
+    "matched": 412,
+    "remote_total": 422,
+    "remote_version_list_md5": "7c1364f7ae345cfba0b98147a3017232",
+    "repo_only": [
+      "20260812211500"
+    ],
+    "repo_total": 418,
+    "unknown_remote": []
+  },
+  "duplicate_records": {
+    "20260721135648": "20260721135623",
+    "20260722023140": "20260722023118",
+    "20260724071600": "20260724071542",
+    "20260725213324": "20260725213311",
+    "20260729132638": "20260729132621"
+  },
+  "known_pre_repo": {
+    "20260227131741": "create line_binding_codes",
+    "20260227155729": "seed advisor experts",
+    "20260308110124": "drop table trade_signals",
+    "20260316122524": "add quantity_unit",
+    "20260408065758": "create stock_names"
+  },
+  "known_pre_repo_proofs": {
+    "20260227131741": {
+      "actual": "true",
+      "expected": "true",
+      "sql": "select (to_regclass('public.line_binding_codes') is not null)::text"
+    },
+    "20260308110124": {
+      "actual": "true",
+      "expected": "true",
+      "sql": "select (to_regclass('public.trade_signals') is not null)::text"
+    },
+    "20260316122524": {
+      "actual": "2",
+      "expected": "2",
+      "sql": "select count(*)::text from information_schema.columns where table_schema='public' and column_name='quantity_unit' and table_name in ('expert_signals','trade_records')"
+    },
+    "20260408065758": {
+      "actual": "true",
+      "expected": "true",
+      "sql": "select (to_regclass('public.stock_names') is not null)::text"
+    }
+  },
+  "matched": 412,
+  "remote_total": 422,
+  "remote_version_list_md5": "7c1364f7ae345cfba0b98147a3017232",
+  "repo_total": 418,
+  "repo_version_list_sha256": "de0954f499bc4ee53e95bffaa5773a83e9c1d1ebb832d45ab621634baf47724f",
+  "rule": "key = case when name ~ '^[0-9]{14}_' then split_part(name,'_',1) else version end; then +-60s tolerance match against repo filename prefix",
+  "unknown_remote": []
+}

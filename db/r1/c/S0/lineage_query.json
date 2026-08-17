@@ -1,0 +1,33 @@
+{
+  "_source": "db/r1/c/S0/lineage.sql executed read-only through the Lovable Cloud database query tool (sandbox psql role lacks USAGE on schema supabase_migrations)",
+  "_captured_utc": "2026-08-17T08:07:00Z",
+  "applied_not_recorded_proof": {
+    "claim_bsr_queue_jobs_has_token_slot": true,
+    "claim_bsr_queue_jobs_prosrc_md5": "c28474cca7be420355edeefd6207104b"
+  },
+  "duplicate_records": [
+    { "version": "20260721135648", "maps_to": "20260721135623" },
+    { "version": "20260722023140", "maps_to": "20260722023118" },
+    { "version": "20260724071600", "maps_to": "20260724071542" },
+    { "version": "20260725213324", "maps_to": "20260725213311" },
+    { "version": "20260729132638", "maps_to": "20260729132621" }
+  ],
+  "known_pre_repo": [
+    "20260227131741",
+    "20260227155729",
+    "20260308110124",
+    "20260316122524",
+    "20260408065758"
+  ],
+  "known_pre_repo_proofs": {
+    "line_binding_codes": true,
+    "quantity_unit_cols": 2,
+    "stock_names": true
+  },
+  "matched": 412,
+  "remote_total": 422,
+  "remote_version_list_md5": "7c1364f7ae345cfba0b98147a3017232",
+  "repo_only": ["20260812211500"],
+  "repo_total": 418,
+  "unknown_remote": []
+}

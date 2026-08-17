@@ -1,0 +1,14 @@
+{
+  "artifact_sha256": {
+    "execenv.json": "1b1834d93f43cb351ee3d091802cefadd8abdbcaedbd79f9833a16de8fe61983",
+    "freshness_baseline.json": "43433f01403acb3c769f1855ae6ae83931717b8c1eebbdfcd49d4aec106f8e87",
+    "inventory.json": "5e092599a5ede166b3a2c8b82786f8e465a2a198f57fd623b80e7cc649654446",
+    "lineage.json": "c1bab557dca4398722b467330e5a34e50c31c7ca72985a17055f101465127675"
+  },
+  "failures": [],
+  "finished_utc": "2026-08-17T08:11:55.170107+00:00",
+  "mode": "read-only (SELECT / catalog only)",
+  "stage": "S0",
+  "started_utc": "2026-08-17T08:11:11.941145+00:00",
+  "total_failures": 0
+}

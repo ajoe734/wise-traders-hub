@@ -1,0 +1,13 @@
+{
+  "_source": "read-only query on cron.job / cron.job_run_details via the Lovable Cloud database query tool (sandbox psql role lacks USAGE on schema cron)",
+  "_captured_utc": "2026-08-17T08:10:00Z",
+  "active_jobs_total": 72,
+  "jobs": [
+    { "jobid": 106, "jobname": "chips-prefetch-enqueue-hourly", "schedule": "2 * * * *", "active": true },
+    { "jobid": 107, "jobname": "tw-bsr-worker-hourly", "schedule": "7 * * * *", "active": true }
+  ],
+  "runs_24h": [
+    { "jobid": 106, "status": "succeeded", "runs": 24 },
+    { "jobid": 107, "status": "succeeded", "runs": 24 }
+  ]
+}
