@@ -33,6 +33,7 @@ REQUIRED_FIELDS = [
     "path", "surface", "audience", "role", "access_kind", "exact_access",
     "entitlement", "embargo_predicate", "legacy_fallback", "side_effects",
     "cutover_disposition", "test_id", "coverage_status", "tables",
+    "invocation_guard",
 ]
 AUDIENCES = {"public", "admin", "internal", "test"}
 DISPOSITIONS = {
@@ -167,8 +168,19 @@ def classify(rel: str, info: dict, anon: set[str], pub_fns: set[str]) -> dict:
     else:
         audience = "internal"
 
-    writes = bool(WRITE_RE.search(txt)) and any(t in txt for t in ECON_TABLES)
-    access_kind = "writer" if writes else "reader"
+    # an edge function may be verify_jwt=false yet still be a service-only
+    # writer: it is only a public surface when nothing gates the invocation.
+    guard = None
+    for pat, label in (
+        (r"CRON_SECRET|internal_cron_secrets|x-internal-secret", "shared cron secret"),
+        (r"SUPABASE_SERVICE_ROLE_KEY", "service role key required"),
+        (r"getUser\(|requireAuth|authorization", "caller JWT checked"),
+    ):
+        if re.search(pat, txt, re.I):
+            guard = label
+            break
+    if audience == "public" and surface == "edge_function" and guard:
+        audience = "internal"
     role = ("service_role" if surface == "edge_function"
             else "anon|authenticated" if audience == "public"
             else "authenticated(company_admin|analyst)" if audience == "admin"
@@ -184,6 +196,10 @@ def classify(rel: str, info: dict, anon: set[str], pub_fns: set[str]) -> dict:
     if not exact:
         exact = [f"type-only/reference:{','.join(info['tables'])}"]
     exact = sorted(set(exact))[:12]
+    type_only = all(e.startswith("type-only/reference:") for e in exact)
+
+    if type_only:
+        access_kind = "type_only"
 
     entitlement = {
         "public": "none (anonymous) — only released, ready facts",
@@ -198,7 +214,7 @@ def classify(rel: str, info: dict, anon: set[str], pub_fns: set[str]) -> dict:
                else "n/a — not an anonymous surface" if audience != "public"
                else "n/a — no signal-level facts read")
 
-    legacy = any(t in info["tables"] for t in ECON_TABLES)
+    legacy = any(t in info["tables"] for t in ECON_TABLES) and not type_only
 
     side: list[str] = []
     if re.search(r"staleTime|useQuery|queryClient", txt): side.append("react-query cache")
@@ -233,6 +249,7 @@ def classify(rel: str, info: dict, anon: set[str], pub_fns: set[str]) -> dict:
         "test_id": test_id,
         "coverage_status": "covered",
         "tables": info["tables"],
+        "invocation_guard": guard or ("route render" if surface == "frontend" else "none"),
     }
 
 
