@@ -153,3 +153,14 @@ END;
 $function$
 
 
+;
+-- ---------------------------------------------------------------------
+-- T-P99c closure. Root cause: CREATE FUNCTION grants EXECUTE to PUBLIC by
+-- default, so `anon` inherited EXECUTE on a SECURITY DEFINER harness owned
+-- by postgres. Exact failing probe on the clone before this fix:
+--   SELECT has_function_privilege('anon','public.run_rls_subscription_tests()','EXECUTE');
+--   expected f / actual t (no SQLSTATE: it is a silent privilege leak, which
+--   is why T-P99c asserted it rather than relying on an error).
+-- Fix (clone-side only; production ACL untouched):
+REVOKE ALL ON FUNCTION public.run_rls_subscription_tests() FROM PUBLIC, anon, authenticated;
+GRANT EXECUTE ON FUNCTION public.run_rls_subscription_tests() TO service_role;
