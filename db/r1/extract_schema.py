@@ -5,7 +5,7 @@ import subprocess, os
 
 TABLES = ['experts','expert_plans','expert_signals','expert_signal_legs','trade_records',
           'signal_trade_applications','user_performances','holdings_fix_proposals','current_prices','payment_providers','profiles','user_roles','member_subscriptions',
-          'daily_price_snapshots','fx_rates','tw_market_holidays','target_price_history','audit_logs','stock_names']
+          'daily_price_snapshots','fx_rates','tw_market_holidays','target_price_history','audit_logs','stock_names','tw_bsr_daily','tw_bsr_sync_queue']
 FUNCS = ['handle_signal_trade','save_signal_batch','admin_apply_fix_proposal',
  'admin_delete_trade_records_by_signal_ids','admin_delete_trade_records_by_symbol',
  'admin_signal_dupe_trades_fix','admin_trade_dedupe_sweep','realign_instrument_unit',

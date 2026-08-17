@@ -299,6 +299,39 @@ CREATE TABLE public.stock_names (
   market text,
   asset_class text DEFAULT 'tw_stock'::text NOT NULL
 );
+CREATE TABLE public.tw_bsr_daily (
+  id bigint DEFAULT nextval('tw_bsr_daily_id_seq'::regclass) NOT NULL,
+  stock_id text NOT NULL,
+  trade_date date NOT NULL,
+  broker_id text NOT NULL,
+  broker_name text NOT NULL,
+  buy_shares bigint DEFAULT 0 NOT NULL,
+  sell_shares bigint DEFAULT 0 NOT NULL,
+  net_shares bigint DEFAULT 0 NOT NULL,
+  avg_buy_price numeric(12,4),
+  avg_sell_price numeric(12,4),
+  created_at timestamp with time zone DEFAULT now() NOT NULL
+);
+CREATE TABLE public.tw_bsr_sync_queue (
+  id bigint DEFAULT nextval('tw_bsr_sync_queue_id_seq'::regclass) NOT NULL,
+  stock_id text NOT NULL,
+  trade_date date NOT NULL,
+  priority smallint NOT NULL,
+  status text DEFAULT 'pending'::text NOT NULL,
+  attempts integer DEFAULT 0 NOT NULL,
+  max_attempts integer DEFAULT 5 NOT NULL,
+  next_run_at timestamp with time zone DEFAULT now() NOT NULL,
+  last_success_at timestamp with time zone,
+  last_error text,
+  enqueued_by text,
+  enqueued_at timestamp with time zone DEFAULT now() NOT NULL,
+  started_at timestamp with time zone,
+  finished_at timestamp with time zone,
+  created_at timestamp with time zone DEFAULT now() NOT NULL,
+  updated_at timestamp with time zone DEFAULT now() NOT NULL,
+  correlation_id uuid,
+  post_close_only boolean DEFAULT false NOT NULL
+);
 
 -- CONSTRAINTS
 ALTER TABLE public.audit_logs ADD CONSTRAINT audit_logs_pkey PRIMARY KEY (id);
@@ -317,6 +350,8 @@ ALTER TABLE public.signal_trade_applications ADD CONSTRAINT signal_trade_applica
 ALTER TABLE public.stock_names ADD CONSTRAINT stock_names_pkey PRIMARY KEY (symbol);
 ALTER TABLE public.target_price_history ADD CONSTRAINT target_price_history_pkey PRIMARY KEY (id);
 ALTER TABLE public.trade_records ADD CONSTRAINT trade_records_pkey PRIMARY KEY (id);
+ALTER TABLE public.tw_bsr_daily ADD CONSTRAINT tw_bsr_daily_pkey PRIMARY KEY (id);
+ALTER TABLE public.tw_bsr_sync_queue ADD CONSTRAINT tw_bsr_sync_queue_pkey PRIMARY KEY (id);
 ALTER TABLE public.tw_market_holidays ADD CONSTRAINT tw_market_holidays_pkey PRIMARY KEY (trade_date);
 ALTER TABLE public.user_performances ADD CONSTRAINT user_performances_pkey PRIMARY KEY (user_id, signal_id);
 ALTER TABLE public.user_roles ADD CONSTRAINT user_roles_pkey PRIMARY KEY (id);
@@ -324,6 +359,7 @@ ALTER TABLE public.daily_price_snapshots ADD CONSTRAINT daily_price_snapshots_sy
 ALTER TABLE public.expert_signal_legs ADD CONSTRAINT expert_signal_legs_signal_id_leg_index_key UNIQUE (signal_id, leg_index);
 ALTER TABLE public.experts ADD CONSTRAINT experts_slug_key UNIQUE (slug);
 ALTER TABLE public.profiles ADD CONSTRAINT profiles_user_id_key UNIQUE (user_id);
+ALTER TABLE public.tw_bsr_daily ADD CONSTRAINT tw_bsr_daily_stock_id_trade_date_broker_id_key UNIQUE (stock_id, trade_date, broker_id);
 ALTER TABLE public.user_roles ADD CONSTRAINT user_roles_user_id_role_key UNIQUE (user_id, role);
 ALTER TABLE public.current_prices ADD CONSTRAINT current_prices_asset_class_check CHECK ((asset_class = ANY (ARRAY['tw_stock'::text, 'us_stock'::text, 'crypto'::text, 'us_option'::text, 'us_future'::text])));
 ALTER TABLE public.current_prices ADD CONSTRAINT current_prices_currency_check CHECK ((currency = ANY (ARRAY['TWD'::text, 'USD'::text])));
@@ -350,6 +386,8 @@ ALTER TABLE public.stock_names ADD CONSTRAINT stock_names_asset_class_check CHEC
 ALTER TABLE public.stock_names ADD CONSTRAINT stock_names_currency_check CHECK ((currency = ANY (ARRAY['TWD'::text, 'USD'::text])));
 ALTER TABLE public.trade_records ADD CONSTRAINT trade_records_expert_id_fkey FOREIGN KEY (expert_id) REFERENCES experts(id);
 ALTER TABLE public.trade_records ADD CONSTRAINT trade_records_signal_id_fkey FOREIGN KEY (signal_id) REFERENCES expert_signals(id);
+ALTER TABLE public.tw_bsr_sync_queue ADD CONSTRAINT tw_bsr_sync_queue_priority_check CHECK ((priority = ANY (ARRAY[1, 2, 3])));
+ALTER TABLE public.tw_bsr_sync_queue ADD CONSTRAINT tw_bsr_sync_queue_status_check CHECK ((status = ANY (ARRAY['pending'::text, 'running'::text, 'done'::text, 'failed'::text, 'skipped'::text])));
 ALTER TABLE public.user_roles ADD CONSTRAINT user_roles_user_id_fkey FOREIGN KEY (user_id) REFERENCES auth.users(id) ON DELETE CASCADE;
 
 -- INDEXES
@@ -376,6 +414,13 @@ CREATE INDEX idx_tph_user_code ON public.target_price_history USING btree (user_
 CREATE UNIQUE INDEX uniq_tph_dedupe ON public.target_price_history USING btree (user_id, code, firm, report_date, target) WHERE (report_date IS NOT NULL);
 CREATE INDEX idx_trade_records_market_us ON public.trade_records USING btree (market) WHERE (market = 'US'::text);
 CREATE UNIQUE INDEX trade_records_signal_id_open_uniq ON public.trade_records USING btree (signal_id) WHERE ((signal_id IS NOT NULL) AND (exit_date IS NULL));
+CREATE INDEX idx_tw_bsr_stock_date ON public.tw_bsr_daily USING btree (stock_id, trade_date DESC);
+CREATE INDEX idx_tw_bsr_stock_date_net ON public.tw_bsr_daily USING btree (stock_id, trade_date DESC, net_shares);
+CREATE UNIQUE INDEX tw_bsr_sync_queue_active_uniq ON public.tw_bsr_sync_queue USING btree (stock_id, trade_date) WHERE (status = ANY (ARRAY['pending'::text, 'running'::text, 'failed'::text, 'skipped'::text]));
+CREATE INDEX tw_bsr_sync_queue_cid_idx ON public.tw_bsr_sync_queue USING btree (correlation_id) WHERE (correlation_id IS NOT NULL);
+CREATE INDEX tw_bsr_sync_queue_ready_idx ON public.tw_bsr_sync_queue USING btree (priority, next_run_at) WHERE (status = 'pending'::text);
+CREATE INDEX tw_bsr_sync_queue_ready_pc_idx ON public.tw_bsr_sync_queue USING btree (priority, next_run_at) WHERE ((status = 'pending'::text) AND (post_close_only = false));
+CREATE INDEX tw_bsr_sync_queue_status_idx ON public.tw_bsr_sync_queue USING btree (status, updated_at DESC);
 
 -- FUNCTIONS
 CREATE OR REPLACE FUNCTION public.admin_apply_fix_proposal(p_id uuid, p_confirm boolean)
@@ -1233,6 +1278,27 @@ BEGIN
   RETURN COALESCE(NEW, OLD);
 END;
 $function$
+;
+CREATE OR REPLACE FUNCTION public.enforce_snapshot_immutability()
+ RETURNS trigger
+ LANGUAGE plpgsql
+ SECURITY DEFINER
+ SET search_path TO 'public'
+AS $function$
+    DECLARE
+      v_sealed_at timestamptz;
+    BEGIN
+      SELECT sealed_at INTO v_sealed_at
+        FROM public.tw_bsr_daily_snapshot_status
+       WHERE trade_date = OLD.trade_date;
+
+      IF v_sealed_at IS NOT NULL THEN
+        RAISE EXCEPTION 'tw_bsr_daily row for trade_date % is sealed and cannot be modified', OLD.trade_date;
+      END IF;
+
+      RETURN NEW;
+    END;
+    $function$
 ;
 CREATE OR REPLACE FUNCTION public.enforce_trade_record_market_currency()
  RETURNS trigger
@@ -2396,6 +2462,13 @@ BEGIN
   RETURN NULL;
 END;
 $function$
+;
+CREATE OR REPLACE FUNCTION public.tw_bsr_sync_queue_touch_updated()
+ RETURNS trigger
+ LANGUAGE plpgsql
+ SET search_path TO 'public'
+AS $function$
+BEGIN NEW.updated_at = now(); RETURN NEW; END; $function$
 ;
 CREATE OR REPLACE FUNCTION public.update_updated_at_column()
  RETURNS trigger
@@ -3266,6 +3339,27 @@ BEGIN
 END;
 $function$
 ;
+CREATE OR REPLACE FUNCTION public.enforce_snapshot_immutability()
+ RETURNS trigger
+ LANGUAGE plpgsql
+ SECURITY DEFINER
+ SET search_path TO 'public'
+AS $function$
+    DECLARE
+      v_sealed_at timestamptz;
+    BEGIN
+      SELECT sealed_at INTO v_sealed_at
+        FROM public.tw_bsr_daily_snapshot_status
+       WHERE trade_date = OLD.trade_date;
+
+      IF v_sealed_at IS NOT NULL THEN
+        RAISE EXCEPTION 'tw_bsr_daily row for trade_date % is sealed and cannot be modified', OLD.trade_date;
+      END IF;
+
+      RETURN NEW;
+    END;
+    $function$
+;
 CREATE OR REPLACE FUNCTION public.enforce_trade_record_market_currency()
  RETURNS trigger
  LANGUAGE plpgsql
@@ -4429,6 +4523,13 @@ BEGIN
 END;
 $function$
 ;
+CREATE OR REPLACE FUNCTION public.tw_bsr_sync_queue_touch_updated()
+ RETURNS trigger
+ LANGUAGE plpgsql
+ SET search_path TO 'public'
+AS $function$
+BEGIN NEW.updated_at = now(); RETURN NEW; END; $function$
+;
 CREATE OR REPLACE FUNCTION public.update_updated_at_column()
  RETURNS trigger
  LANGUAGE plpgsql
@@ -4474,6 +4575,9 @@ CREATE TRIGGER trg_audit_trade_records_upd AFTER UPDATE ON public.trade_records 
 CREATE TRIGGER trg_enforce_trade_record_market_currency BEFORE INSERT OR UPDATE OF market, currency ON public.trade_records FOR EACH ROW EXECUTE FUNCTION enforce_trade_record_market_currency();
 CREATE TRIGGER trg_enforce_unit_consistency_trade_records BEFORE INSERT OR UPDATE OF quantity_unit, instrument, expert_id ON public.trade_records FOR EACH ROW EXECUTE FUNCTION enforce_unit_consistency();
 CREATE TRIGGER trg_trade_records_bsr_first_fetch AFTER INSERT ON public.trade_records FOR EACH ROW EXECUTE FUNCTION enqueue_bsr_first_fetch_on_trade();
+CREATE TRIGGER enforce_snapshot_immutability BEFORE DELETE OR UPDATE ON public.tw_bsr_daily FOR EACH ROW EXECUTE FUNCTION enforce_snapshot_immutability();
+CREATE TRIGGER trg_tw_bsr_daily_immutable BEFORE DELETE OR UPDATE ON public.tw_bsr_daily FOR EACH ROW EXECUTE FUNCTION enforce_snapshot_immutability();
+CREATE TRIGGER trg_tw_bsr_sync_queue_updated BEFORE UPDATE ON public.tw_bsr_sync_queue FOR EACH ROW EXECUTE FUNCTION tw_bsr_sync_queue_touch_updated();
 CREATE TRIGGER trg_recalc_summary_on_perf_delete AFTER DELETE ON public.user_performances FOR EACH ROW EXECUTE FUNCTION recalc_user_summary_on_perf_delete();
 CREATE TRIGGER trg_user_performances_price_guard BEFORE INSERT OR UPDATE ON public.user_performances FOR EACH ROW EXECUTE FUNCTION enforce_user_performance_price();
 
@@ -4497,6 +4601,8 @@ ALTER TABLE public.tw_market_holidays ENABLE ROW LEVEL SECURITY;
 ALTER TABLE public.target_price_history ENABLE ROW LEVEL SECURITY;
 ALTER TABLE public.audit_logs ENABLE ROW LEVEL SECURITY;
 ALTER TABLE public.stock_names ENABLE ROW LEVEL SECURITY;
+ALTER TABLE public.tw_bsr_daily ENABLE ROW LEVEL SECURITY;
+ALTER TABLE public.tw_bsr_sync_queue ENABLE ROW LEVEL SECURITY;
 CREATE POLICY "Company admins can insert audit logs" ON public.audit_logs FOR INSERT TO authenticated WITH CHECK ((has_role(auth.uid(), 'company_admin'::app_role) AND (actor_id = auth.uid())));
 CREATE POLICY "Company admins can view audit logs" ON public.audit_logs FOR SELECT TO authenticated USING (has_role(auth.uid(), 'company_admin'::app_role));
 CREATE POLICY "Service role can insert audit logs" ON public.audit_logs FOR INSERT TO service_role WITH CHECK (true);
@@ -4548,6 +4654,9 @@ CREATE POLICY "Anyone can view open trades for active experts" ON public.trade_r
 CREATE POLICY "Company admins can delete trade records" ON public.trade_records FOR DELETE TO authenticated USING (has_role(auth.uid(), 'company_admin'::app_role));
 CREATE POLICY "Company admins can view all trades" ON public.trade_records FOR SELECT TO authenticated USING (has_role(auth.uid(), 'company_admin'::app_role));
 CREATE POLICY "Subscribers can view subscribed expert trades" ON public.trade_records FOR SELECT TO authenticated USING ((expert_id IN ( SELECT has_active_subscription.expert_id    FROM has_active_subscription(auth.uid()) has_active_subscription(plan_id, expert_id))));
+CREATE POLICY "tw_bsr_authenticated_read" ON public.tw_bsr_daily FOR SELECT TO authenticated USING (true);
+CREATE POLICY "company_admin_can_read_bsr_queue" ON public.tw_bsr_sync_queue FOR SELECT TO authenticated USING (has_role(auth.uid(), 'company_admin'::app_role));
+CREATE POLICY "service_role_manages_bsr_queue" ON public.tw_bsr_sync_queue FOR ALL TO service_role USING (true) WITH CHECK (true);
 CREATE POLICY "admins manage holidays" ON public.tw_market_holidays FOR ALL TO authenticated USING (has_role(auth.uid(), 'company_admin'::app_role)) WITH CHECK (has_role(auth.uid(), 'company_admin'::app_role));
 CREATE POLICY "holidays readable by everyone" ON public.tw_market_holidays FOR SELECT TO public USING (true);
 CREATE POLICY "Analysts can delete own user performances" ON public.user_performances FOR DELETE TO authenticated USING ((user_id = auth.uid()));
@@ -4579,3 +4688,5 @@ GRANT SELECT, INSERT, UPDATE, DELETE, TRUNCATE, REFERENCES, TRIGGER ON public.tw
 GRANT SELECT, INSERT, UPDATE, DELETE, TRUNCATE, REFERENCES, TRIGGER ON public.target_price_history TO anon, authenticated, service_role;
 GRANT SELECT, INSERT, UPDATE, DELETE, TRUNCATE, REFERENCES, TRIGGER ON public.audit_logs TO anon, authenticated, service_role;
 GRANT SELECT, INSERT, UPDATE, DELETE, TRUNCATE, REFERENCES, TRIGGER ON public.stock_names TO anon, authenticated, service_role;
+GRANT SELECT, INSERT, UPDATE, DELETE, TRUNCATE, REFERENCES, TRIGGER ON public.tw_bsr_daily TO anon, authenticated, service_role;
+GRANT SELECT, INSERT, UPDATE, DELETE, TRUNCATE, REFERENCES, TRIGGER ON public.tw_bsr_sync_queue TO anon, authenticated, service_role;
