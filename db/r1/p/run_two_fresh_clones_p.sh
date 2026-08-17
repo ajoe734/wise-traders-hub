@@ -96,6 +96,24 @@ run_clone() { # name port
   cat "$DIR/embargo_out.txt" | tee -a "$OUT/$NAME.log"
   FAILS=$((FAILS+EFAIL))
 
+  # 5d. RLS harness (>=15 non-superuser cases) + role matrix (anon/authenticated/service_role)
+  local RTOT RRED MTOT MRED
+  psql "$CL" -qX -c "TRUNCATE t.result" >/dev/null 2>&1
+  psql "$CL" -X -f db/r1/clone/rls_subscription_tests.sql > "$DIR/rls.log" 2>&1
+  RTOT=$(psql "$CL" -tAqX -c "SELECT count(*) FROM t.result")
+  RRED=$(psql "$CL" -tAqX -c "SELECT count(*) FROM t.result WHERE NOT passed")
+  echo "  RLS subscription harness: $RTOT tests, $RRED failures (min 15)" | tee -a "$OUT/$NAME.log"
+  [ "$RTOT" -ge 15 ] || { echo "  RLS HARNESS UNDERRUN" | tee -a "$OUT/$NAME.log"; FAILS=$((FAILS+1)); }
+  [ "$RRED" = "0" ] || { psql "$CL" -tAqX -c "SELECT name||' | '||coalesce(detail,'') FROM t.result WHERE NOT passed ORDER BY id" | tee -a "$OUT/$NAME.log"; FAILS=$((FAILS+RRED)); }
+
+  psql "$CL" -qX -c "TRUNCATE t.result" >/dev/null 2>&1
+  psql "$CL" -X -f db/r1/p/094_rls_role_matrix.sql > "$DIR/matrix.log" 2>&1
+  MTOT=$(psql "$CL" -tAqX -c "SELECT count(*) FROM t.result")
+  MRED=$(psql "$CL" -tAqX -c "SELECT count(*) FROM t.result WHERE NOT passed")
+  echo "  094 role matrix: $MTOT probes, $MRED failures" | tee -a "$OUT/$NAME.log"
+  [ "$MTOT" -ge 19 ] || { echo "  ROLE MATRIX UNDERRUN" | tee -a "$OUT/$NAME.log"; FAILS=$((FAILS+1)); }
+  [ "$MRED" = "0" ] || { psql "$CL" -tAqX -c "SELECT name||' | '||coalesce(detail,'') FROM t.result WHERE NOT passed ORDER BY id" | tee -a "$OUT/$NAME.log"; FAILS=$((FAILS+MRED)); }
+
   # 6. swap race
   bash db/r1/p/091_swap_race.sh "$PORT" "$DIR/race" > "$DIR/race.log" 2>&1
   local RFAIL=$?
