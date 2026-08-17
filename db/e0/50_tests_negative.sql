@@ -29,7 +29,11 @@ SELECT t.expect_error_as('NEG.privilege.service_role_qty_dml','service_role',
   $$UPDATE public.trade_records SET quantity = quantity + 1 WHERE status='open'$$,
   'permission denied', '42501');
 SELECT t.expect_error_as('NEG.privilege.service_role_effect_insert','service_role',
-  $$INSERT INTO app_ledger.economic_effect(event_id) VALUES (gen_random_uuid())$$,
+  $$INSERT INTO app_ledger.economic_effect(event_id, expert_id, action, state,
+      expected_mutation_count, effective_at, provenance, reason, actor_via, currency,
+      logical_effect_id, qty_delta)
+    VALUES (gen_random_uuid(),'aaaaaaaa-0000-0000-0000-000000000001','add','reserved',0,
+      now(),'signal_execution','x','test','TWD',gen_random_uuid(),0)$$,
   'permission denied', '42501');
 SELECT t.expect_error_as('NEG.privilege.authenticated_cash_ledger_read','authenticated',
   $$SELECT 1 FROM app_ledger.portfolio_cash_ledger LIMIT 1$$,
@@ -80,7 +84,7 @@ SELECT t.expect_error('NEG.append_only.effect_delete',
   'effect_delete_forbidden', 'P0001');
 SELECT t.expect_error('NEG.append_only.cash_ledger_update',
   $$UPDATE app_ledger.portfolio_cash_ledger SET amount = amount + 1
-     WHERE id = (SELECT id FROM app_ledger.portfolio_cash_ledger LIMIT 1)$$,
+     WHERE cash_entry_id = (SELECT cash_entry_id FROM app_ledger.portfolio_cash_ledger LIMIT 1)$$,
   'cash_ledger_append_only', 'P0001');
 SELECT t.expect_error('NEG.append_only.review_event_update',
   $$UPDATE app_ledger.effect_review_event SET review_state = 'cleared'
@@ -102,7 +106,7 @@ BEGIN
    WHERE m.op = 'update' LIMIT 1;
   BEGIN
     UPDATE public.trade_records SET quantity = quantity + 1,
-           last_mutation_id = v_mut, last_event_id = gen_random_uuid()
+           last_projection_mutation_id = v_mut, last_event_id = gen_random_uuid()
      WHERE id <> v_other AND status = 'open';
   EXCEPTION WHEN OTHERS THEN
     GET STACKED DIAGNOSTICS v_msg = MESSAGE_TEXT, v_state = RETURNED_SQLSTATE;
@@ -126,11 +130,11 @@ BEGIN
 
   INSERT INTO app_ledger.economic_effect(
       event_id, logical_effect_id, expert_id, market, instrument, instrument_key, currency,
-      action, qty_delta, cash_delta, effective_at, provenance, reason, actor, actor_via,
+      action, qty_delta, cash_delta, effective_at, provenance, reason, actor_via,
       state, expected_mutation_count)
   VALUES (v_ev, gen_random_uuid(), 'aaaaaaaa-0000-0000-0000-000000000001',
       'TW','2330','2330:TW','TWD','add', 1, NULL, now(), 'signal_execution',
-      'hash tamper','test','test','applied', 1);
+      'hash tamper','test','applied', 1);
 
   INSERT INTO app_ledger.effect_projection_mutation(
       event_id, mutation_seq, target_table, target_row_id, op, row_role, expert_id,
@@ -200,8 +204,8 @@ SELECT t.expect_error('NEG.correction.qadj_with_cash_delta',
 -- quantity_adjustment must not manufacture realized P&L
 SELECT t.expect_error('NEG.correction.qadj_fake_realized_pnl',
   $$SELECT t.forge('{"action":"quantity_adjustment","provenance":"quantity_adjustment",
-      "qty_delta":50,"realized_pnl_delta":9999,"expected_mutation_count":1}',
-     '[{"row_role":"open_position","qty_delta":50}]')$$,
+      "qty_delta":50,"expected_mutation_count":1}',
+     '[{"row_role":"open_position","qty_delta":50,"realized_delta":9999}]')$$,
   'quantity_adjustment_must_not_create_pnl', 'P0001');
 -- equity_bridge must move cash by exactly the declared amount
 SELECT t.expect_error('NEG.correction.bridge_cash_mismatch',

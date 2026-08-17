@@ -338,8 +338,7 @@ BEGIN
     IF coalesce(e.cash_delta,0) <> 0 OR cash_sum <> 0 THEN
       RAISE EXCEPTION 'quantity_adjustment_must_be_cash_neutral: event=% tokens=%',
         coalesce(e.cash_delta,0), cash_sum USING ERRCODE='P0001'; END IF;
-    IF coalesce(e.realized_pnl_delta,0) <> 0
-       OR coalesce((SELECT pg_catalog.sum(realized_delta)
+    IF coalesce((SELECT pg_catalog.sum(realized_delta)
                       FROM app_ledger.effect_projection_mutation
                      WHERE event_id=e.event_id),0) <> 0 THEN
       RAISE EXCEPTION 'quantity_adjustment_must_not_create_pnl' USING ERRCODE='P0001'; END IF;
