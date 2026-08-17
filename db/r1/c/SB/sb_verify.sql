@@ -125,7 +125,7 @@ DECLARE
     $w$SELECT public.ensure_bsr_queued('2330')$w$,
     $w$SELECT public.ensure_bsr_window('2317', 5, 14)$w$,
     $w$SELECT public.enqueue_all_active_tw_holdings_bsr(3)$w$,
-    $w$SELECT public.enqueue_chips_prefetch_gaps(5, 20)$w$,
+    $w$SELECT public.enqueue_chips_prefetch_gaps(20, 20)$w$,
     $w$SELECT public.converge_bsr_windows(20, 5, 30)$w$,
     $w$SELECT public.enqueue_bsr_backfill('6505', 5)$w$
   ];
@@ -401,7 +401,7 @@ BEGIN
   FOR i IN 1..3 LOOP
     res := public.recover_quota_failed_bsr_jobs(1);
     PERFORM public.recover_stale_bsr_queue_jobs();
-    PERFORM public.enqueue_chips_prefetch_gaps(5, 20);
+    PERFORM public.enqueue_chips_prefetch_gaps(20, 20);
 
     -- (1) terminal cohort must never be resurrected, whatever the gate shape
     SELECT count(*) INTO drift FROM public.tw_bsr_sync_queue q JOIN _tsnap t ON t.id=q.id
