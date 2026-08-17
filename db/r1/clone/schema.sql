@@ -299,6 +299,11 @@ CREATE TABLE public.stock_names (
   market text,
   asset_class text DEFAULT 'tw_stock'::text NOT NULL
 );
+-- Production-exact serial dependencies must precede their table defaults in a
+-- disposable clone. The extractor records both sequences, but older output put
+-- the tables first and silently skipped the two BSR tables.
+CREATE SEQUENCE IF NOT EXISTS public.tw_bsr_daily_id_seq;
+CREATE SEQUENCE IF NOT EXISTS public.tw_bsr_sync_queue_id_seq;
 CREATE TABLE public.tw_bsr_daily (
   id bigint DEFAULT nextval('tw_bsr_daily_id_seq'::regclass) NOT NULL,
   stock_id text NOT NULL,
