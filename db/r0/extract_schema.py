@@ -4,7 +4,7 @@ No pg_dump, no data. Emits db/r0/clone/schema.sql"""
 import subprocess, os
 
 TABLES = ['experts','expert_plans','expert_signals','expert_signal_legs','trade_records',
-          'signal_trade_applications','user_performances','holdings_fix_proposals','current_prices']
+          'signal_trade_applications','user_performances','holdings_fix_proposals','current_prices','profiles','user_roles','member_subscriptions']
 FUNCS = ['handle_signal_trade','save_signal_batch','admin_apply_fix_proposal',
  'admin_delete_trade_records_by_signal_ids','admin_delete_trade_records_by_symbol',
  'admin_signal_dupe_trades_fix','admin_trade_dedupe_sweep','realign_instrument_unit',
@@ -12,7 +12,11 @@ FUNCS = ['handle_signal_trade','save_signal_batch','admin_apply_fix_proposal',
  'enforce_unit_consistency','enforce_user_performance_price','set_expert_signal_market',
  'enforce_signal_recall_same_day','update_updated_at_column','audit_row_change',
  'tg_holdings_fix_proposals_updated_at','recalc_user_summary_on_perf_delete',
- 'enqueue_bsr_first_fetch_on_trade','trigger_expert_ai_reindex','has_role','admin_generate_fix_proposals']
+ 'enqueue_bsr_first_fetch_on_trade','trigger_expert_ai_reindex','has_role','admin_generate_fix_proposals',
+ 'has_active_subscription','has_active_subscription_after','is_tester','is_subscribed_to_plan',
+ 'sync_expert_slug_to_profile','sync_expert_currency_with_asset_class','enforce_expert_currency_lock',
+ 'enforce_expert_asset_class_lock','protect_backtest_fields','set_plan_initial_review_status',
+ 'enforce_plan_review_workflow','get_effective_user_id','recalc_user_summary','handle_new_user']
 
 def q(sql):
     r = subprocess.run(['psql','-tAqX','-c',sql],capture_output=True,text=True)

@@ -194,6 +194,37 @@ CREATE TABLE public.current_prices (
   updated_at timestamp with time zone DEFAULT now() NOT NULL,
   writer text
 );
+CREATE TABLE public.profiles (
+  id uuid DEFAULT gen_random_uuid() NOT NULL,
+  user_id uuid NOT NULL,
+  display_name text,
+  avatar_url text,
+  expert_slug text,
+  created_at timestamp with time zone DEFAULT now() NOT NULL,
+  updated_at timestamp with time zone DEFAULT now() NOT NULL,
+  line_user_id text,
+  is_line_friend boolean DEFAULT false,
+  is_tester boolean DEFAULT false NOT NULL,
+  merged_into_user_id uuid
+);
+CREATE TABLE public.user_roles (
+  id uuid DEFAULT gen_random_uuid() NOT NULL,
+  user_id uuid NOT NULL,
+  role public.app_role NOT NULL
+);
+CREATE TABLE public.member_subscriptions (
+  id uuid DEFAULT gen_random_uuid() NOT NULL,
+  user_id uuid NOT NULL,
+  plan_id uuid NOT NULL,
+  status public.subscription_status DEFAULT 'active'::subscription_status NOT NULL,
+  auto_renew boolean DEFAULT false NOT NULL,
+  started_at timestamp with time zone DEFAULT now() NOT NULL,
+  expires_at timestamp with time zone,
+  canceled_at timestamp with time zone,
+  provider_id uuid,
+  created_at timestamp with time zone DEFAULT now() NOT NULL,
+  billing_cycle text DEFAULT 'monthly'::text NOT NULL
+);
 
 -- CONSTRAINTS
 ALTER TABLE public.current_prices ADD CONSTRAINT current_prices_pkey PRIMARY KEY (symbol);
@@ -202,11 +233,16 @@ ALTER TABLE public.expert_signal_legs ADD CONSTRAINT expert_signal_legs_pkey PRI
 ALTER TABLE public.expert_signals ADD CONSTRAINT expert_signals_pkey PRIMARY KEY (id);
 ALTER TABLE public.experts ADD CONSTRAINT experts_pkey PRIMARY KEY (id);
 ALTER TABLE public.holdings_fix_proposals ADD CONSTRAINT holdings_fix_proposals_pkey PRIMARY KEY (id);
+ALTER TABLE public.member_subscriptions ADD CONSTRAINT member_subscriptions_pkey PRIMARY KEY (id);
+ALTER TABLE public.profiles ADD CONSTRAINT profiles_pkey PRIMARY KEY (id);
 ALTER TABLE public.signal_trade_applications ADD CONSTRAINT signal_trade_applications_pkey PRIMARY KEY (signal_id);
 ALTER TABLE public.trade_records ADD CONSTRAINT trade_records_pkey PRIMARY KEY (id);
 ALTER TABLE public.user_performances ADD CONSTRAINT user_performances_pkey PRIMARY KEY (user_id, signal_id);
+ALTER TABLE public.user_roles ADD CONSTRAINT user_roles_pkey PRIMARY KEY (id);
 ALTER TABLE public.expert_signal_legs ADD CONSTRAINT expert_signal_legs_signal_id_leg_index_key UNIQUE (signal_id, leg_index);
 ALTER TABLE public.experts ADD CONSTRAINT experts_slug_key UNIQUE (slug);
+ALTER TABLE public.profiles ADD CONSTRAINT profiles_user_id_key UNIQUE (user_id);
+ALTER TABLE public.user_roles ADD CONSTRAINT user_roles_user_id_role_key UNIQUE (user_id, role);
 ALTER TABLE public.current_prices ADD CONSTRAINT current_prices_asset_class_check CHECK ((asset_class = ANY (ARRAY['tw_stock'::text, 'us_stock'::text, 'crypto'::text, 'us_option'::text, 'us_future'::text])));
 ALTER TABLE public.current_prices ADD CONSTRAINT current_prices_currency_check CHECK ((currency = ANY (ARRAY['TWD'::text, 'USD'::text])));
 ALTER TABLE public.expert_plans ADD CONSTRAINT expert_plans_expert_id_fkey FOREIGN KEY (expert_id) REFERENCES experts(id);
@@ -221,9 +257,16 @@ ALTER TABLE public.experts ADD CONSTRAINT experts_currency_check CHECK ((currenc
 ALTER TABLE public.holdings_fix_proposals ADD CONSTRAINT holdings_fix_proposals_action_chk CHECK ((proposed_action = ANY (ARRAY['normalize_unit'::text, 'adjust_trade_quantity'::text, 'close_trade_record'::text, 'create_trade_record'::text, 'delete_orphan_signal'::text, 'cancel_signal'::text, 'manual_review'::text])));
 ALTER TABLE public.holdings_fix_proposals ADD CONSTRAINT holdings_fix_proposals_expert_id_fkey FOREIGN KEY (expert_id) REFERENCES experts(id) ON DELETE CASCADE;
 ALTER TABLE public.holdings_fix_proposals ADD CONSTRAINT holdings_fix_proposals_status_chk CHECK ((status = ANY (ARRAY['pending'::text, 'applied'::text, 'rejected'::text, 'superseded'::text, 'failed'::text])));
+ALTER TABLE public.member_subscriptions ADD CONSTRAINT fk_member_subscriptions_provider FOREIGN KEY (provider_id) REFERENCES payment_providers(id);
+ALTER TABLE public.member_subscriptions ADD CONSTRAINT member_subscriptions_billing_cycle_check CHECK ((billing_cycle = ANY (ARRAY['monthly'::text, 'yearly'::text])));
+ALTER TABLE public.member_subscriptions ADD CONSTRAINT member_subscriptions_plan_id_fkey FOREIGN KEY (plan_id) REFERENCES expert_plans(id) ON DELETE CASCADE;
+ALTER TABLE public.member_subscriptions ADD CONSTRAINT member_subscriptions_user_id_fkey FOREIGN KEY (user_id) REFERENCES auth.users(id) ON DELETE CASCADE;
+ALTER TABLE public.profiles ADD CONSTRAINT profiles_merged_into_user_id_fkey FOREIGN KEY (merged_into_user_id) REFERENCES auth.users(id) ON DELETE SET NULL;
+ALTER TABLE public.profiles ADD CONSTRAINT profiles_user_id_fkey FOREIGN KEY (user_id) REFERENCES auth.users(id) ON DELETE CASCADE;
 ALTER TABLE public.signal_trade_applications ADD CONSTRAINT signal_trade_applications_signal_id_fkey FOREIGN KEY (signal_id) REFERENCES expert_signals(id) ON DELETE CASCADE;
 ALTER TABLE public.trade_records ADD CONSTRAINT trade_records_expert_id_fkey FOREIGN KEY (expert_id) REFERENCES experts(id);
 ALTER TABLE public.trade_records ADD CONSTRAINT trade_records_signal_id_fkey FOREIGN KEY (signal_id) REFERENCES expert_signals(id);
+ALTER TABLE public.user_roles ADD CONSTRAINT user_roles_user_id_fkey FOREIGN KEY (user_id) REFERENCES auth.users(id) ON DELETE CASCADE;
 
 -- INDEXES
 CREATE INDEX idx_current_prices_market ON public.current_prices USING btree (market);
@@ -237,6 +280,9 @@ CREATE INDEX idx_experts_status_created ON public.experts USING btree (status, c
 CREATE INDEX holdings_fix_proposals_expert_idx ON public.holdings_fix_proposals USING btree (expert_id);
 CREATE UNIQUE INDEX holdings_fix_proposals_signature_uidx ON public.holdings_fix_proposals USING btree (signature);
 CREATE INDEX holdings_fix_proposals_status_idx ON public.holdings_fix_proposals USING btree (status, drift_category);
+CREATE UNIQUE INDEX uq_member_sub_active_user_plan ON public.member_subscriptions USING btree (user_id, plan_id) WHERE (status = 'active'::subscription_status);
+CREATE INDEX idx_profiles_merged_into ON public.profiles USING btree (merged_into_user_id) WHERE (merged_into_user_id IS NOT NULL);
+CREATE UNIQUE INDEX profiles_line_user_id_unique ON public.profiles USING btree (line_user_id) WHERE (line_user_id IS NOT NULL);
 CREATE INDEX idx_trade_records_market_us ON public.trade_records USING btree (market) WHERE (market = 'US'::text);
 CREATE UNIQUE INDEX trade_records_signal_id_open_uniq ON public.trade_records USING btree (signal_id) WHERE ((signal_id IS NOT NULL) AND (exit_date IS NULL));
 
@@ -875,6 +921,87 @@ BEGIN
 END;
 $function$
 ;
+CREATE OR REPLACE FUNCTION public.enforce_expert_asset_class_lock()
+ RETURNS trigger
+ LANGUAGE plpgsql
+ SECURITY DEFINER
+ SET search_path TO 'public'
+AS $function$
+BEGIN
+  IF NEW.asset_class IS DISTINCT FROM OLD.asset_class THEN
+    -- 管理員專用旁路：admin_reset_expert_asset_class 會先 SET LOCAL 這個變數
+    IF coalesce(current_setting('app.bypass_asset_class_lock', true), 'off') = 'on' THEN
+      RETURN NEW;
+    END IF;
+    IF EXISTS (SELECT 1 FROM public.expert_signals WHERE expert_id = NEW.id LIMIT 1) THEN
+      RAISE EXCEPTION '此老師已發布訊號／週記，無法變更資產類別（asset_class lock）'
+        USING ERRCODE = 'check_violation';
+    END IF;
+  END IF;
+  RETURN NEW;
+END;
+$function$
+;
+CREATE OR REPLACE FUNCTION public.enforce_expert_currency_lock()
+ RETURNS trigger
+ LANGUAGE plpgsql
+ SECURITY DEFINER
+ SET search_path TO 'public'
+AS $function$
+BEGIN
+  IF NEW.currency IS DISTINCT FROM OLD.currency THEN
+    IF coalesce(current_setting('app.bypass_asset_class_lock', true), 'off') = 'on' THEN
+      RETURN NEW;
+    END IF;
+    IF EXISTS (SELECT 1 FROM public.expert_signals WHERE expert_id = NEW.id LIMIT 1) THEN
+      RAISE EXCEPTION '此老師已發布訊號／週記，無法變更幣別（currency lock）'
+        USING ERRCODE = 'check_violation';
+    END IF;
+  END IF;
+  RETURN NEW;
+END;
+$function$
+;
+CREATE OR REPLACE FUNCTION public.enforce_plan_review_workflow()
+ RETURNS trigger
+ LANGUAGE plpgsql
+ SECURITY DEFINER
+ SET search_path TO 'public'
+AS $function$
+DECLARE
+  is_admin boolean;
+  is_owner boolean;
+BEGIN
+  is_admin := has_role(auth.uid(), 'company_admin');
+
+  -- Admins can change anything (including review_status / review_note / reviewed_by / reviewed_at)
+  IF is_admin THEN
+    -- Auto-fill reviewer metadata when status changes
+    IF NEW.review_status IS DISTINCT FROM OLD.review_status THEN
+      NEW.reviewed_by := auth.uid();
+      NEW.reviewed_at := now();
+    END IF;
+    RETURN NEW;
+  END IF;
+
+  -- Check ownership
+  SELECT EXISTS (
+    SELECT 1 FROM public.experts
+    WHERE id = NEW.expert_id AND user_id = auth.uid()
+  ) INTO is_owner;
+
+  IF is_owner THEN
+    -- Block analyst from changing review fields directly
+    NEW.review_status := 'pending';
+    NEW.review_note := NULL;
+    NEW.reviewed_by := NULL;
+    NEW.reviewed_at := NULL;
+  END IF;
+
+  RETURN NEW;
+END;
+$function$
+;
 CREATE OR REPLACE FUNCTION public.enforce_signal_capital_limit()
  RETURNS trigger
  LANGUAGE plpgsql
@@ -1222,6 +1349,19 @@ BEGIN
   RETURN NEW;
 END; $function$
 ;
+CREATE OR REPLACE FUNCTION public.handle_new_user()
+ RETURNS trigger
+ LANGUAGE plpgsql
+ SECURITY DEFINER
+ SET search_path TO 'public'
+AS $function$
+BEGIN
+  INSERT INTO public.profiles (user_id, display_name)
+  VALUES (NEW.id, COALESCE(NEW.raw_user_meta_data->>'name', NEW.email));
+  RETURN NEW;
+END;
+$function$
+;
 CREATE OR REPLACE FUNCTION public.handle_signal_trade()
  RETURNS trigger
  LANGUAGE plpgsql
@@ -1467,6 +1607,44 @@ BEGIN
 END;
 $function$
 ;
+CREATE OR REPLACE FUNCTION public.has_active_subscription(_user_id uuid)
+ RETURNS TABLE(plan_id uuid, expert_id uuid)
+ LANGUAGE sql
+ STABLE SECURITY DEFINER
+ SET search_path TO 'public'
+AS $function$
+  SELECT ms.plan_id, ep.expert_id
+  FROM public.member_subscriptions ms
+  JOIN public.expert_plans ep ON ep.id = ms.plan_id
+  WHERE ms.user_id = _user_id
+    AND ms.status = 'active'
+    AND (ms.expires_at IS NULL OR ms.expires_at > now())
+$function$
+;
+CREATE OR REPLACE FUNCTION public.has_active_subscription_after(_user_id uuid, _published_at timestamp with time zone)
+ RETURNS TABLE(expert_id uuid)
+ LANGUAGE sql
+ STABLE SECURITY DEFINER
+ SET search_path TO 'public'
+AS $function$
+  SELECT DISTINCT ep.expert_id
+  FROM public.member_subscriptions ms
+  JOIN public.expert_plans ep ON ep.id = ms.plan_id
+  JOIN public.experts e ON e.id = ep.expert_id
+  WHERE ms.user_id = _user_id
+    AND public.signal_in_subscription_window(e.role, ms.started_at, ms.expires_at, _published_at)
+    -- 且該使用者目前對此老師仍有 active 訂閱（付費牆：斷約後失去存取，續訂即解鎖歷史）
+    AND EXISTS (
+      SELECT 1
+      FROM public.member_subscriptions ms2
+      JOIN public.expert_plans ep2 ON ep2.id = ms2.plan_id
+      WHERE ms2.user_id = _user_id
+        AND ep2.expert_id = ep.expert_id
+        AND ms2.status = 'active'
+        AND (ms2.expires_at IS NULL OR ms2.expires_at > now())
+    )
+$function$
+;
 CREATE OR REPLACE FUNCTION public.has_role(_user_id uuid, _role app_role)
  RETURNS boolean
  LANGUAGE sql
@@ -1477,6 +1655,49 @@ AS $function$
     SELECT 1 FROM public.user_roles
     WHERE user_id = _user_id AND role = _role
   )
+$function$
+;
+CREATE OR REPLACE FUNCTION public.is_subscribed_to_plan(_user_id uuid, _plan_id uuid)
+ RETURNS boolean
+ LANGUAGE sql
+ STABLE SECURITY DEFINER
+ SET search_path TO 'public'
+AS $function$
+  SELECT EXISTS (
+    SELECT 1 FROM public.member_subscriptions
+    WHERE user_id = _user_id
+      AND plan_id = _plan_id
+      AND status = 'active'
+      AND (expires_at IS NULL OR expires_at > now())
+  )
+$function$
+;
+CREATE OR REPLACE FUNCTION public.is_tester(_user_id uuid)
+ RETURNS boolean
+ LANGUAGE sql
+ STABLE SECURITY DEFINER
+ SET search_path TO 'public'
+AS $function$
+  SELECT COALESCE(
+    (SELECT is_tester FROM public.profiles WHERE user_id = _user_id LIMIT 1),
+    false
+  )
+$function$
+;
+CREATE OR REPLACE FUNCTION public.protect_backtest_fields()
+ RETURNS trigger
+ LANGUAGE plpgsql
+ SECURITY DEFINER
+ SET search_path TO 'public'
+AS $function$
+BEGIN
+  -- Force these columns to retain their original values regardless of who updates
+  -- Backtest KPIs must be system-calculated from trade_records, never manually edited
+  NEW.backtest_1y_return := OLD.backtest_1y_return;
+  NEW.backtest_max_drawdown := OLD.backtest_max_drawdown;
+  NEW.backtest_annual_return := OLD.backtest_annual_return;
+  RETURN NEW;
+END;
 $function$
 ;
 CREATE OR REPLACE FUNCTION public.realign_instrument_unit(p_expert_id uuid, p_symbol_prefix text, p_new_unit text)
@@ -1708,6 +1929,83 @@ BEGIN
 END;
 $function$
 ;
+CREATE OR REPLACE FUNCTION public.set_plan_initial_review_status()
+ RETURNS trigger
+ LANGUAGE plpgsql
+ SECURITY DEFINER
+ SET search_path TO 'public'
+AS $function$
+DECLARE
+  is_admin boolean;
+BEGIN
+  is_admin := has_role(auth.uid(), 'company_admin');
+  
+  IF NOT is_admin THEN
+    -- Force pending for non-admin inserts
+    NEW.review_status := 'pending';
+    NEW.review_note := NULL;
+    NEW.reviewed_by := NULL;
+    NEW.reviewed_at := NULL;
+  END IF;
+  
+  RETURN NEW;
+END;
+$function$
+;
+CREATE OR REPLACE FUNCTION public.sync_expert_currency_with_asset_class()
+ RETURNS trigger
+ LANGUAGE plpgsql
+ SET search_path TO 'public'
+AS $function$
+BEGIN
+  IF NEW.asset_class = 'tw_stock' THEN
+    NEW.currency := 'TWD';
+  ELSIF NEW.asset_class IN ('us_stock','crypto','us_option','us_future') THEN
+    NEW.currency := 'USD';
+  END IF;
+  RETURN NEW;
+END;
+$function$
+;
+CREATE OR REPLACE FUNCTION public.sync_expert_slug_to_profile()
+ RETURNS trigger
+ LANGUAGE plpgsql
+ SECURITY DEFINER
+ SET search_path TO 'public'
+AS $function$
+DECLARE
+  v_display_name text;
+BEGIN
+  IF NEW.user_id IS NULL OR NEW.slug IS NULL THEN
+    RETURN NEW;
+  END IF;
+
+  -- Try update first
+  UPDATE public.profiles
+     SET expert_slug = NEW.slug
+   WHERE user_id = NEW.user_id
+     AND (expert_slug IS DISTINCT FROM NEW.slug);
+
+  IF NOT FOUND THEN
+    -- Insert new profile if missing
+    SELECT COALESCE(u.raw_user_meta_data->>'display_name',
+                    u.raw_user_meta_data->>'name',
+                    split_part(u.email, '@', 1),
+                    NEW.slug)
+      INTO v_display_name
+      FROM auth.users u
+     WHERE u.id = NEW.user_id;
+
+    INSERT INTO public.profiles (user_id, display_name, expert_slug)
+    VALUES (NEW.user_id, COALESCE(v_display_name, NEW.slug), NEW.slug)
+    ON CONFLICT (user_id) DO UPDATE
+      SET expert_slug = EXCLUDED.expert_slug;
+  END IF;
+
+  RETURN NEW;
+END;
+$function$
+;
 CREATE OR REPLACE FUNCTION public.tg_holdings_fix_proposals_updated_at()
  RETURNS trigger
  LANGUAGE plpgsql
@@ -1774,6 +2072,9 @@ CREATE TRIGGER trg_sync_expert_currency BEFORE INSERT OR UPDATE OF asset_class O
 CREATE TRIGGER trg_sync_expert_slug_to_profile AFTER INSERT OR UPDATE OF slug, user_id ON public.experts FOR EACH ROW EXECUTE FUNCTION sync_expert_slug_to_profile();
 CREATE TRIGGER audit_holdings_fix_proposals AFTER INSERT OR DELETE OR UPDATE ON public.holdings_fix_proposals FOR EACH ROW EXECUTE FUNCTION audit_row_change();
 CREATE TRIGGER holdings_fix_proposals_updated_at BEFORE UPDATE ON public.holdings_fix_proposals FOR EACH ROW EXECUTE FUNCTION tg_holdings_fix_proposals_updated_at();
+CREATE TRIGGER trg_protect_subscription_fields BEFORE UPDATE ON public.member_subscriptions FOR EACH ROW EXECUTE FUNCTION protect_subscription_fields();
+CREATE TRIGGER trg_protect_profile_fields BEFORE UPDATE ON public.profiles FOR EACH ROW EXECUTE FUNCTION protect_profile_fields();
+CREATE TRIGGER update_profiles_updated_at BEFORE UPDATE ON public.profiles FOR EACH ROW EXECUTE FUNCTION update_updated_at_column();
 CREATE TRIGGER trg_audit_trade_records_del AFTER DELETE ON public.trade_records FOR EACH ROW EXECUTE FUNCTION audit_row_change();
 CREATE TRIGGER trg_audit_trade_records_ins AFTER INSERT ON public.trade_records FOR EACH ROW EXECUTE FUNCTION audit_row_change();
 CREATE TRIGGER trg_audit_trade_records_upd AFTER UPDATE ON public.trade_records FOR EACH ROW EXECUTE FUNCTION audit_row_change();
@@ -1793,6 +2094,9 @@ ALTER TABLE public.signal_trade_applications ENABLE ROW LEVEL SECURITY;
 ALTER TABLE public.user_performances ENABLE ROW LEVEL SECURITY;
 ALTER TABLE public.holdings_fix_proposals ENABLE ROW LEVEL SECURITY;
 ALTER TABLE public.current_prices ENABLE ROW LEVEL SECURITY;
+ALTER TABLE public.profiles ENABLE ROW LEVEL SECURITY;
+ALTER TABLE public.user_roles ENABLE ROW LEVEL SECURITY;
+ALTER TABLE public.member_subscriptions ENABLE ROW LEVEL SECURITY;
 CREATE POLICY "Anon users can view prices" ON public.current_prices FOR SELECT TO anon USING (true);
 CREATE POLICY "Authenticated users can view prices" ON public.current_prices FOR SELECT TO authenticated USING (true);
 CREATE POLICY "Analysts can insert own plans" ON public.expert_plans FOR INSERT TO authenticated WITH CHECK ((expert_id IN ( SELECT experts.id    FROM experts   WHERE (experts.user_id = auth.uid()))));
@@ -1818,6 +2122,14 @@ CREATE POLICY "Subscribers can view subscribed experts" ON public.experts FOR SE
 CREATE POLICY "Company admins can insert fix proposals" ON public.holdings_fix_proposals FOR INSERT TO authenticated WITH CHECK (has_role(auth.uid(), 'company_admin'::app_role));
 CREATE POLICY "Company admins can update fix proposals" ON public.holdings_fix_proposals FOR UPDATE TO authenticated USING (has_role(auth.uid(), 'company_admin'::app_role)) WITH CHECK (has_role(auth.uid(), 'company_admin'::app_role));
 CREATE POLICY "Company admins can view fix proposals" ON public.holdings_fix_proposals FOR SELECT TO authenticated USING (has_role(auth.uid(), 'company_admin'::app_role));
+CREATE POLICY "Analysts can view own plan subscriptions" ON public.member_subscriptions FOR SELECT TO authenticated USING ((plan_id IN ( SELECT ep.id    FROM (expert_plans ep      JOIN experts e ON ((ep.expert_id = e.id)))   WHERE (e.user_id = auth.uid()))));
+CREATE POLICY "Company admins full access subscriptions" ON public.member_subscriptions FOR ALL TO authenticated USING (has_role(auth.uid(), 'company_admin'::app_role)) WITH CHECK (has_role(auth.uid(), 'company_admin'::app_role));
+CREATE POLICY "Users can update own subscription preferences" ON public.member_subscriptions FOR UPDATE TO authenticated USING ((user_id = auth.uid())) WITH CHECK ((user_id = auth.uid()));
+CREATE POLICY "Users can view own subscriptions" ON public.member_subscriptions FOR SELECT TO authenticated USING ((user_id = auth.uid()));
+CREATE POLICY "Company admins can view all profiles" ON public.profiles FOR SELECT TO authenticated USING (has_role(auth.uid(), 'company_admin'::app_role));
+CREATE POLICY "Users can insert own profile" ON public.profiles FOR INSERT TO authenticated WITH CHECK ((auth.uid() = user_id));
+CREATE POLICY "Users can update own profile" ON public.profiles FOR UPDATE TO authenticated USING ((auth.uid() = user_id));
+CREATE POLICY "Users can view own profile" ON public.profiles FOR SELECT TO authenticated USING ((auth.uid() = user_id));
 CREATE POLICY "Company admins can view signal trade applications" ON public.signal_trade_applications FOR SELECT TO authenticated USING (has_role(auth.uid(), 'company_admin'::app_role));
 CREATE POLICY "Analysts can delete own trade records" ON public.trade_records FOR DELETE TO authenticated USING ((expert_id IN ( SELECT experts.id    FROM experts   WHERE (experts.user_id = auth.uid()))));
 CREATE POLICY "Analysts can view own trades" ON public.trade_records FOR SELECT TO authenticated USING ((expert_id IN ( SELECT experts.id    FROM experts   WHERE (experts.user_id = auth.uid()))));
@@ -1831,6 +2143,9 @@ CREATE POLICY "Analysts can view own user performances" ON public.user_performan
 CREATE POLICY "Company admins can delete user performances" ON public.user_performances FOR DELETE TO authenticated USING (has_role(auth.uid(), 'company_admin'::app_role));
 CREATE POLICY "Users can insert own user performances" ON public.user_performances FOR INSERT TO authenticated WITH CHECK ((user_id = auth.uid()));
 CREATE POLICY "Users can update own user performances" ON public.user_performances FOR UPDATE TO authenticated USING ((user_id = auth.uid()));
+CREATE POLICY "Company admins can manage roles" ON public.user_roles FOR ALL TO authenticated USING (has_role(auth.uid(), 'company_admin'::app_role));
+CREATE POLICY "Company admins can view all roles" ON public.user_roles FOR SELECT TO authenticated USING (has_role(auth.uid(), 'company_admin'::app_role));
+CREATE POLICY "Users can view own roles" ON public.user_roles FOR SELECT TO authenticated USING ((auth.uid() = user_id));
 
 -- GRANTS (mirror production ACL)
 GRANT SELECT, INSERT, UPDATE, DELETE, TRUNCATE, REFERENCES, TRIGGER ON public.experts TO anon, authenticated, service_role;
@@ -1842,3 +2157,6 @@ GRANT SELECT, INSERT, UPDATE, DELETE, TRUNCATE, REFERENCES, TRIGGER ON public.si
 GRANT SELECT, INSERT, UPDATE, DELETE, TRUNCATE, REFERENCES, TRIGGER ON public.user_performances TO anon, authenticated, service_role;
 GRANT SELECT, INSERT, UPDATE, DELETE, TRUNCATE, REFERENCES, TRIGGER ON public.holdings_fix_proposals TO anon, authenticated, service_role;
 GRANT SELECT, INSERT, UPDATE, DELETE, TRUNCATE, REFERENCES, TRIGGER ON public.current_prices TO anon, authenticated, service_role;
+GRANT SELECT, INSERT, UPDATE, DELETE, TRUNCATE, REFERENCES, TRIGGER ON public.profiles TO anon, authenticated, service_role;
+GRANT SELECT, INSERT, UPDATE, DELETE, TRUNCATE, REFERENCES, TRIGGER ON public.user_roles TO anon, authenticated, service_role;
+GRANT SELECT, INSERT, UPDATE, DELETE, TRUNCATE, REFERENCES, TRIGGER ON public.member_subscriptions TO anon, authenticated, service_role;
