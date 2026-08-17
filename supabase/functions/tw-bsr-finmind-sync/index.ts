@@ -62,8 +62,30 @@ import {
   fulfillJobsFromSnapshot,
   persistAggregated,
 } from '../_shared/snapshotFulfillment.ts';
+import {
+  blockAndTerminalize,
+  classifyChunkOutcome,
+  classifyProviderError,
+  fetchAdmissionStatus,
+  sanitizeText,
+  summarizeChunks,
+  unknownRetryAllowed,
+  type AdmissionDecision,
+  type AdmissionStatus,
+  type ChunkOutcome,
+  type ClaimTuple,
+  type GateRpcClient,
+} from '../_shared/bsrAdmissionGate.ts';
+import { resolveProbeUrl } from '../_shared/bsrAdmissionProbe.ts';
 
-const FINMIND_URL = 'https://api.finmindtrade.com/api/v4/data';
+// production 一律 official URL。只有 rehearsal（BSR_PROBE_ALLOW_LOCAL=1 且目標為 loopback）
+// 才允許注入 provider mock；非 loopback 的注入一律忽略，避免 SSRF / 資料外流。
+const FINMIND_URL = resolveProbeUrl(
+  Deno.env.get('BSR_PROBE_ALLOW_LOCAL') === '1'
+    ? (Deno.env.get('FINMIND_PROBE_BASE_URL') ?? undefined)
+    : undefined,
+  Deno.env.get('BSR_PROBE_ALLOW_LOCAL') === '1',
+).url;
 const FINMIND_TOKEN = Deno.env.get('FINMIND_TOKEN') ?? '';
 
 const supa = serviceClient();
@@ -264,7 +286,7 @@ export function isChipEligible(id: string): boolean {
   return TW_CHIP_ELIGIBLE.test(id);
 }
 
-async function enqueueTier1Holdings(date: string, cid: string): Promise<number> {
+async function enqueueTier1Holdings(date: string, cid: string, ctx?: EnqueueCtx): Promise<number> {
   // trade_records 的持倉來自 instrument 欄位（格式如「2330 台積電」或「00631L 元大台灣50正2」），
   // 開倉條件為 exit_date IS NULL。ETF/權證/受益憑證雖是合法持倉但 FinMind 無分點，直接濾掉不入隊。
   const { data: openTrades } = await supa
@@ -294,13 +316,13 @@ async function enqueueTier1Holdings(date: string, cid: string): Promise<number> 
   const firstFetch = ids.filter((id) => !seen.has(id));
   const postClose = ids.filter((id) => seen.has(id));
   let total = 0;
-  if (firstFetch.length > 0) total += await enqueueBatch(firstFetch, date, 1, 'tier1_first_fetch', cid, false);
-  if (postClose.length > 0) total += await enqueueBatch(postClose, date, 1, 'tier1_holdings', cid, true);
+  if (firstFetch.length > 0) total += await enqueueBatch(firstFetch, date, 1, 'tier1_first_fetch', cid, false, ctx);
+  if (postClose.length > 0) total += await enqueueBatch(postClose, date, 1, 'tier1_holdings', cid, true, ctx);
   return total;
 }
 
 
-async function enqueueTier2Gaps(date: string, cid: string): Promise<number> {
+async function enqueueTier2Gaps(date: string, cid: string, ctx?: EnqueueCtx): Promise<number> {
   const dates = [date, rollBackToWeekday(addDays(date, -1)), rollBackToWeekday(addDays(date, -2))];
   const gapIds = new Set<string>();
   for (const d of dates) {
@@ -321,10 +343,10 @@ async function enqueueTier2Gaps(date: string, cid: string): Promise<number> {
     if (isChipEligible(sid)) gapIds.add(sid);
   }
   if (gapIds.size === 0) return 0;
-  return await enqueueBatch(Array.from(gapIds), date, 2, 'tier2_gaps', cid, true);
+  return await enqueueBatch(Array.from(gapIds), date, 2, 'tier2_gaps', cid, true, ctx);
 }
 
-async function enqueueTier3Backfill(endDate: string, days: number, cid: string): Promise<number> {
+async function enqueueTier3Backfill(endDate: string, days: number, cid: string, ctx?: EnqueueCtx): Promise<number> {
   // 與 Tier 1 一致：從 trade_records.instrument（開倉：exit_date IS NULL）抽 4–6 碼代號，並套白名單。
   const { data: openTrades } = await supa
     .from('trade_records')
@@ -345,11 +367,23 @@ async function enqueueTier3Backfill(endDate: string, days: number, cid: string):
   let total = 0;
   for (let i = 1; i <= days; i++) {
     const d = rollBackToWeekday(addDays(endDate, -i));
-    total += await enqueueBatch(ids, d, 3, 'tier3_backfill', cid, true);
+    total += await enqueueBatch(ids, d, 3, 'tier3_backfill', cid, true, ctx);
   }
   return total;
 }
 
+
+/**
+ * Stage B：enqueue writer 的 admission 會計。
+ * 每個 chunk 沿用既有 `insert(..., { count: 'exact' })`；只有在 gate status **明確 blocked**
+ * 且 insert error=null 時，才把 `candidate - inserted` 記成 blocked。duplicate / error /
+ * status unknown 一律 unknown/error，絕不用全表 delta 反推。
+ */
+interface EnqueueCtx {
+  admission: AdmissionStatus;
+  /** 本次請求所有 chunk 的 admission 會計（HTTP body / edge log 用） */
+  chunks: ChunkOutcome[];
+}
 
 async function enqueueBatch(
   stockIds: string[],
@@ -358,13 +392,49 @@ async function enqueueBatch(
   tag: string,
   correlationId: string,
   postCloseOnly = false,
+  ctx?: EnqueueCtx,
 ): Promise<number> {
-  if (stockIds.length === 0 || !isWeekday(date)) return 0;
+  const detail = await enqueueBatchDetailed(
+    stockIds, date, priority, tag, correlationId, postCloseOnly, ctx?.admission,
+  );
+  if (ctx) ctx.chunks.push(...detail.chunks);
+  return detail.inserted;
+}
+
+interface EnqueueDetail {
+  inserted: number;
+  chunks: ChunkOutcome[];
+  admission_decision: AdmissionDecision;
+  admission_version: number | null;
+  admission_reason: string | null;
+  summary: ReturnType<typeof summarizeChunks>;
+}
+
+async function enqueueBatchDetailed(
+  stockIds: string[],
+  date: string,
+  priority: number,
+  tag: string,
+  correlationId: string,
+  postCloseOnly = false,
+  admissionIn?: AdmissionStatus,
+): Promise<EnqueueDetail> {
+  const admission = admissionIn ?? await fetchAdmissionStatus(supa as unknown as GateRpcClient);
+  const empty = (chunks: ChunkOutcome[] = []): EnqueueDetail => ({
+    inserted: 0,
+    chunks,
+    admission_decision: admission.decision,
+    admission_version: admission.version,
+    admission_reason: admission.reason ?? admission.detail,
+    summary: summarizeChunks(chunks),
+  });
+
+  if (stockIds.length === 0 || !isWeekday(date)) return empty();
   const { data: done } = await supa.from('tw_bsr_daily')
     .select('stock_id').eq('trade_date', date).in('stock_id', stockIds);
   const doneSet = new Set((done || []).map((r: any) => r.stock_id));
   const targets = stockIds.filter((id) => !doneSet.has(id));
-  if (targets.length === 0) return 0;
+  if (targets.length === 0) return empty();
   // 每個 job 有自己的 cid：便於單一同步事件的追蹤（enqueue 帶入的 cid 只是 batch 標記，僅保留在 tag/log）
   const rows = targets.map((id) => ({
     stock_id: id, trade_date: date, priority, status: 'pending',
@@ -380,16 +450,32 @@ async function enqueueBatch(
     .in('status', ['pending', 'running']);
   const existSet = new Set((existing || []).map((r: any) => `${r.stock_id}|${r.trade_date}`));
   const toInsert = rows.filter((r) => !existSet.has(`${r.stock_id}|${r.trade_date}`));
-  if (toInsert.length === 0) return 0;
+  if (toInsert.length === 0) return empty();
   const CHUNK = 500;
   let inserted = 0;
+  const chunks: ChunkOutcome[] = [];
   for (let i = 0; i < toInsert.length; i += CHUNK) {
+    const slice = toInsert.slice(i, i + CHUNK);
     const { error, count } = await supa.from('tw_bsr_sync_queue')
-      .insert(toInsert.slice(i, i + CHUNK), { count: 'exact' });
-    if (error) console.warn(`enqueue insert error: ${error.message}`);
-    else inserted += count ?? toInsert.slice(i, i + CHUNK).length;
+      .insert(slice, { count: 'exact' });
+    const outcome = classifyChunkOutcome({
+      admission,
+      candidateCount: slice.length,
+      insertedCount: error ? 0 : (count ?? null),
+      error: error ? { message: error.message } : null,
+    });
+    chunks.push(outcome);
+    if (error) console.warn(`enqueue insert error: ${sanitizeText(error.message, 200)}`);
+    else inserted += count ?? 0;
   }
-  return inserted;
+  return {
+    inserted,
+    chunks,
+    admission_decision: admission.decision,
+    admission_version: admission.version,
+    admission_reason: admission.reason ?? admission.detail,
+    summary: summarizeChunks(chunks),
+  };
 }
 
 // ============ Signal collection for state machine ============
@@ -445,6 +531,31 @@ async function runWorker(batch: number, maxPriority: number, budgetMs: number): 
   const started = Date.now();
   const results: any[] = [];
   let processed = 0, ok = 0, rateLimitedStop = false;
+  const runId = crypto.randomUUID();
+
+  // ============ Stage B：admission gate（fail-closed，必須在任何 claim / provider 呼叫之前）
+  // blocked / gate row 不存在 / 形狀不對 / RPC error 一律不 claim、不打 provider。
+  const admission = await fetchAdmissionStatus(supa as unknown as GateRpcClient);
+  if (!admission.allowed) {
+    return {
+      ok: true,
+      note: 'admission_gate_closed',
+      admission: {
+        decision: admission.decision,
+        blocked: admission.blocked,
+        reason: admission.reason ?? admission.detail,
+        terminal_code: admission.terminalCode,
+        blocked_at: admission.blockedAt,
+        gate_version: admission.version,
+      },
+      claimed: 0,
+      processed: 0,
+      provider_calls: 0,
+      run_id: runId,
+      elapsed_ms: Date.now() - started,
+    };
+  }
+
 
   // 0) 每次 worker 呼叫先 purge 一次過期 lease，避免上一輪 crash 的 reservation 佔用額度
   const { data: purgeRow } = await supa.rpc('purge_expired_bsr_reservations', { _api: 'finmind' });
@@ -538,6 +649,24 @@ async function runWorker(batch: number, maxPriority: number, budgetMs: number): 
   // Build 1f：token 優先的 stable partition（DB 已排序，這裡是 driver 順序的防禦性保險）。
   const jobs = partitionTokenFirst(claimedJobs as Array<{ last_error?: string | null }>) as typeof claimedJobs;
 
+  // ============ Stage B：保留 claim 當下的 exact (id, started_at, attempts)
+  // terminalize 只能作用在本 run 真正持有 lease 的列；任何被 reaper 回收或被別人重 claim
+  // 的列，pairwise 條件會自然不成立 → 計入 lost_lease_count。
+  const outstandingClaims = new Map<number, ClaimTuple>();
+  for (const j of jobs as Array<Record<string, unknown>>) {
+    outstandingClaims.set(Number(j.id), {
+      id: Number(j.id),
+      started_at: (j.started_at as string | null) ?? null,
+      attempts: j.attempts === null || j.attempts === undefined ? null : Number(j.attempts),
+    });
+  }
+  /** 任一 job 已由本 run 自行改寫狀態 → 不再持有 lease，不可再被 terminalize。 */
+  const releaseClaim = (id: unknown) => { outstandingClaims.delete(Number(id)); };
+
+  let terminalStop = false;
+  let terminalReport: Record<string, unknown> | null = null;
+
+
   // Build 1 可觀測性：per-job 明細，讓 HTTP body 能逐筆對回 tw_bsr_sync_queue。
   const jobOutcomes: Array<{
     id: number; stock_id: string; trade_date: string; priority: number;
@@ -556,6 +685,8 @@ async function runWorker(batch: number, maxPriority: number, budgetMs: number): 
     while (idx < jobs.length) {
       if (Date.now() - started > budgetMs) return;
       if (rateLimitedStop) return;
+      if (terminalStop) return;
+
       const my = idx++;
       const job = jobs[my];
       const cid: string | null = job.correlation_id ?? null;
@@ -598,6 +729,7 @@ async function runWorker(batch: number, maxPriority: number, budgetMs: number): 
             next_run_at: null,
             started_at: null,
           }).eq('id', job.id);
+          releaseClaim(job.id);
           recordOutcome(job, 'skipped', 0, lastError);
         } else if (isIncomplete) {
           const backoffMin = !isAfterClose() ? 30 : Math.min(120, Math.pow(2, nextAttempts) * 5);
@@ -608,6 +740,7 @@ async function runWorker(batch: number, maxPriority: number, budgetMs: number): 
             last_error: r.note ?? 'incomplete_chip_data',
             next_run_at: new Date(Date.now() + backoffMin * 60_000).toISOString(),
           }).eq('id', job.id);
+          releaseClaim(job.id);
           recordOutcome(job, 'partial', 0, r.note ?? 'incomplete_chip_data');
         } else {
           await supa.from('tw_bsr_sync_queue').update({
@@ -616,6 +749,7 @@ async function runWorker(batch: number, maxPriority: number, budgetMs: number): 
             last_success_at: r.rows > 0 ? new Date().toISOString() : undefined,
             last_error: null,
           }).eq('id', job.id);
+          releaseClaim(job.id);
           recordOutcome(job, 'done', r.rows ?? 0, null);
         }
       } else if (isQuotaRejection(r.error)) {
@@ -630,13 +764,53 @@ async function runWorker(batch: number, maxPriority: number, budgetMs: number): 
           p_job_id: job.id,
           p_delay_minutes: deferral.delayMinutes,
         });
-        if (deferErr) console.warn(`[${cid}] defer_bsr_job_quota failed:`, deferErr.message);
+        if (deferErr) console.warn(`[${cid}] defer_bsr_job_quota failed:`, sanitizeText(deferErr.message, 200));
+        releaseClaim(job.id);
         recordOutcome(job, 'quota_deferred', 0, 'quota_deferred');
         if (r.rateLimited) { rateLimitedStop = true; return; }
+      } else if (classifyProviderError(r.error ?? null).outcome === 'terminal') {
+        // ============ Stage B：exact FinMind 方案／資格拒絕 → 單一原子 RPC
+        // 關 gate + 只 terminalize 本 run 仍持有 lease 的列。不做全 pending UPDATE，
+        // 不直呼 private schema；RPC 基礎設施失敗會有界重試且不假成功。
+        terminalStop = true;
+        const claims = Array.from(outstandingClaims.values());
+        const res = await blockAndTerminalize(supa as unknown as GateRpcClient, {
+          runId,
+          claims,
+          evidence: {
+            admission_probe_schema_version: '1',
+            detected_at: new Date().toISOString(),
+            provider: 'finmind',
+            error_class: 'provider_plan_rejected',
+            trigger_stock_id: String(job.stock_id),
+            trigger_trade_date: String(job.trade_date),
+            claim_count: claims.length,
+            signature: sanitizeText(r.error ?? '', 160),
+          },
+        });
+        if (res.ok) {
+          for (const c of claims) outstandingClaims.delete(c.id);
+        }
+        terminalReport = {
+          terminal_code: 'finmind_admission_provider_plan_rejected',
+          rpc_ok: res.ok,
+          transition: res.transition,
+          gate_version: res.gateVersion,
+          claim_count: res.claimCount,
+          updated_count: res.updatedCount,
+          lost_lease_count: res.lostLeaseCount,
+          rpc_attempts: res.attemptsUsed,
+          rpc_error: res.error,
+        };
+        recordOutcome(job, res.ok ? 'terminal_blocked' : 'terminal_block_failed', 0,
+          'finmind_admission_provider_plan_rejected');
+        return;
       } else {
+        // retryable（429/5xx/timeout/network）與 unknown 都走既有 backoff 語意；
+        // unknown 只有有界重試，永遠不會升級成 terminal、也不會關 gate。
         const nextAttempts = (job.attempts ?? 1);
         const backoffMin = Math.min(120, Math.pow(2, nextAttempts) * 5);
-        const shouldFail = nextAttempts >= (job.max_attempts ?? 5);
+        const shouldFail = !unknownRetryAllowed(nextAttempts, job.max_attempts ?? 5);
         await supa.from('tw_bsr_sync_queue').update({
           status: shouldFail ? 'failed' : 'pending',
           finished_at: shouldFail ? new Date().toISOString() : null,
@@ -644,6 +818,7 @@ async function runWorker(batch: number, maxPriority: number, budgetMs: number): 
           next_run_at: shouldFail ? undefined : new Date(Date.now() + backoffMin * 60_000).toISOString(),
           started_at: null,
         }).eq('id', job.id);
+        releaseClaim(job.id);
         recordOutcome(job, shouldFail ? 'failed' : 'retry_pending', 0, r.error ?? null);
         if (r.rateLimited) { rateLimitedStop = true; return; }
       }
@@ -659,6 +834,12 @@ async function runWorker(batch: number, maxPriority: number, budgetMs: number): 
   return {
     ok: true, processed, success: ok,
     claimed: jobs.length, batch: effectiveBatch,
+    run_id: runId,
+    admission: {
+      decision: admission.decision, blocked: false, gate_version: admission.version,
+    },
+    stopped_by_terminal: terminalStop,
+    terminal: terminalReport,
     degrade_mode: state.mode, degrade_after: post.mode, transitioned: post.transitioned,
     policy: { max_priority: cappedMaxPriority, concurrency: cappedConcurrency },
     rate_limit_before: rl, rate_limit_after: finalRl,
@@ -947,18 +1128,39 @@ Deno.serve(async (req) => {
       const policy = policyOf(state.mode);
       const tiers: Record<string, number | string> = {};
       const cid = crypto.randomUUID();
+      // Stage B：整個 enqueue 請求讀一次 admission status，per-chunk 依此判定。
+      const ctx: EnqueueCtx = {
+        admission: await fetchAdmissionStatus(supa as unknown as GateRpcClient),
+        chunks: [],
+      };
       const doTier1 = body?.tier1 !== false;
       const doTier2 = body?.tier2 !== false;
       const doTier3Req = body?.tier3 === true;
       const doTier3 = doTier3Req && policy.allowEnqueueTier3;
       const backfillDays = Math.max(1, Math.min(30, Number(body?.backfill_days ?? 5)));
-      if (doTier1) tiers.tier1 = await enqueueTier1Holdings(effectiveDate, cid);
-      if (doTier2) tiers.tier2 = await enqueueTier2Gaps(effectiveDate, cid);
-      if (doTier3) tiers.tier3 = await enqueueTier3Backfill(effectiveDate, backfillDays, cid);
+      if (doTier1) tiers.tier1 = await enqueueTier1Holdings(effectiveDate, cid, ctx);
+      if (doTier2) tiers.tier2 = await enqueueTier2Gaps(effectiveDate, cid, ctx);
+      if (doTier3) tiers.tier3 = await enqueueTier3Backfill(effectiveDate, backfillDays, cid, ctx);
       else if (doTier3Req) tiers.tier3 = 'skipped_by_degrade';
+      const chunkSummary = summarizeChunks(ctx.chunks);
+      console.log(JSON.stringify({
+        fn: 'tw-bsr-finmind-sync', mode: 'enqueue', correlation_id: cid,
+        admission_decision: ctx.admission.decision,
+        admission_reason: ctx.admission.reason ?? ctx.admission.detail,
+        gate_version: ctx.admission.version,
+        ...chunkSummary,
+      }));
       return json({
         ok: true, mode, date: effectiveDate, pre_close_rolled: effectiveDate !== requested,
         enqueued: tiers, correlation_id: cid, degrade_mode: state.mode,
+        admission: {
+          decision: ctx.admission.decision,
+          blocked: ctx.admission.blocked,
+          reason: ctx.admission.reason ?? ctx.admission.detail,
+          terminal_code: ctx.admission.terminalCode,
+          gate_version: ctx.admission.version,
+        },
+        admission_accounting: chunkSummary,
       });
     }
 
@@ -978,7 +1180,11 @@ Deno.serve(async (req) => {
       if (ids.length === 0) return json({ ok: false, error: 'stock_ids required (chip-eligible only)' }, 400);
       const priority = Math.max(1, Math.min(3, Number(body?.priority ?? 1)));
       const cid = crypto.randomUUID();
-      const enqueued = await enqueueBatch(ids, date, priority, 'manual', cid);
+      const manualCtx: EnqueueCtx = {
+        admission: await fetchAdmissionStatus(supa as unknown as GateRpcClient),
+        chunks: [],
+      };
+      const enqueued = await enqueueBatch(ids, date, priority, 'manual', cid, false, manualCtx);
       const { data: jobs } = await supa.from('tw_bsr_sync_queue')
         .select('stock_id, correlation_id, priority, status, attempts, next_run_at, last_error, last_success_at')
         .in('stock_id', ids).eq('trade_date', date);
@@ -986,6 +1192,13 @@ Deno.serve(async (req) => {
       return json({
         ok: true, mode, date, requested: ids.length, enqueued,
         rate_limit: rl, jobs: jobs ?? [], correlation_id: cid,
+        admission: {
+          decision: manualCtx.admission.decision,
+          blocked: manualCtx.admission.blocked,
+          reason: manualCtx.admission.reason ?? manualCtx.admission.detail,
+          gate_version: manualCtx.admission.version,
+        },
+        admission_accounting: summarizeChunks(manualCtx.chunks),
         note: 'manual sync 已入隊；查 GET stats 或 trace mode + correlation_id 追蹤',
       });
     }

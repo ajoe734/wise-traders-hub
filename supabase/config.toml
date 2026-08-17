@@ -171,3 +171,6 @@ verify_jwt = false
 
 [functions.pending-journal-publish-reminder]
 verify_jwt = false
+
+[functions.admin-bsr-admission]
+verify_jwt = false
