@@ -278,7 +278,7 @@ export function isChipEligible(id: string): boolean {
   return TW_CHIP_ELIGIBLE.test(id);
 }
 
-async function enqueueTier1Holdings(date: string, cid: string): Promise<number> {
+async function enqueueTier1Holdings(date: string, cid: string, ctx?: EnqueueCtx): Promise<number> {
   // trade_records 的持倉來自 instrument 欄位（格式如「2330 台積電」或「00631L 元大台灣50正2」），
   // 開倉條件為 exit_date IS NULL。ETF/權證/受益憑證雖是合法持倉但 FinMind 無分點，直接濾掉不入隊。
   const { data: openTrades } = await supa
@@ -308,13 +308,13 @@ async function enqueueTier1Holdings(date: string, cid: string): Promise<number> 
   const firstFetch = ids.filter((id) => !seen.has(id));
   const postClose = ids.filter((id) => seen.has(id));
   let total = 0;
-  if (firstFetch.length > 0) total += await enqueueBatch(firstFetch, date, 1, 'tier1_first_fetch', cid, false);
-  if (postClose.length > 0) total += await enqueueBatch(postClose, date, 1, 'tier1_holdings', cid, true);
+  if (firstFetch.length > 0) total += await enqueueBatch(firstFetch, date, 1, 'tier1_first_fetch', cid, false, ctx);
+  if (postClose.length > 0) total += await enqueueBatch(postClose, date, 1, 'tier1_holdings', cid, true, ctx);
   return total;
 }
 
 
-async function enqueueTier2Gaps(date: string, cid: string): Promise<number> {
+async function enqueueTier2Gaps(date: string, cid: string, ctx?: EnqueueCtx): Promise<number> {
   const dates = [date, rollBackToWeekday(addDays(date, -1)), rollBackToWeekday(addDays(date, -2))];
   const gapIds = new Set<string>();
   for (const d of dates) {
@@ -335,10 +335,10 @@ async function enqueueTier2Gaps(date: string, cid: string): Promise<number> {
     if (isChipEligible(sid)) gapIds.add(sid);
   }
   if (gapIds.size === 0) return 0;
-  return await enqueueBatch(Array.from(gapIds), date, 2, 'tier2_gaps', cid, true);
+  return await enqueueBatch(Array.from(gapIds), date, 2, 'tier2_gaps', cid, true, ctx);
 }
 
-async function enqueueTier3Backfill(endDate: string, days: number, cid: string): Promise<number> {
+async function enqueueTier3Backfill(endDate: string, days: number, cid: string, ctx?: EnqueueCtx): Promise<number> {
   // 與 Tier 1 一致：從 trade_records.instrument（開倉：exit_date IS NULL）抽 4–6 碼代號，並套白名單。
   const { data: openTrades } = await supa
     .from('trade_records')
@@ -359,7 +359,7 @@ async function enqueueTier3Backfill(endDate: string, days: number, cid: string):
   let total = 0;
   for (let i = 1; i <= days; i++) {
     const d = rollBackToWeekday(addDays(endDate, -i));
-    total += await enqueueBatch(ids, d, 3, 'tier3_backfill', cid, true);
+    total += await enqueueBatch(ids, d, 3, 'tier3_backfill', cid, true, ctx);
   }
   return total;
 }
@@ -371,6 +371,12 @@ async function enqueueTier3Backfill(endDate: string, days: number, cid: string):
  * 且 insert error=null 時，才把 `candidate - inserted` 記成 blocked。duplicate / error /
  * status unknown 一律 unknown/error，絕不用全表 delta 反推。
  */
+interface EnqueueCtx {
+  admission: AdmissionStatus;
+  /** 本次請求所有 chunk 的 admission 會計（HTTP body / edge log 用） */
+  chunks: ChunkOutcome[];
+}
+
 async function enqueueBatch(
   stockIds: string[],
   date: string,
@@ -378,11 +384,13 @@ async function enqueueBatch(
   tag: string,
   correlationId: string,
   postCloseOnly = false,
-  admission?: AdmissionStatus,
+  ctx?: EnqueueCtx,
 ): Promise<number> {
-  return (await enqueueBatchDetailed(
-    stockIds, date, priority, tag, correlationId, postCloseOnly, admission,
-  )).inserted;
+  const detail = await enqueueBatchDetailed(
+    stockIds, date, priority, tag, correlationId, postCloseOnly, ctx?.admission,
+  );
+  if (ctx) ctx.chunks.push(...detail.chunks);
+  return detail.inserted;
 }
 
 interface EnqueueDetail {
