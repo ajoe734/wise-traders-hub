@@ -217,6 +217,26 @@ EXECUTE 'GRANT EXECUTE ON FUNCTION public.get_expert_capital_status_raw(uuid) TO
 EXECUTE 'GRANT EXECUTE ON FUNCTION public.get_expert_capital_status(uuid) TO authenticated, service_role';
 END $wrap1$;
 
+-- Internal callers (e.g. the enforce_signal_capital_limit trigger) must keep calling
+-- the ungated computation: they already run inside a trusted SECURITY DEFINER path
+-- and have no auth.uid() of their own.
+DO $repoint$
+DECLARE r record; def text;
+BEGIN
+  IF to_regprocedure('public.get_expert_capital_status_raw(uuid)') IS NULL THEN RETURN; END IF;
+  FOR r IN
+    SELECT p.oid FROM pg_proc p JOIN pg_namespace n ON n.oid = p.pronamespace
+     WHERE n.nspname IN ('public','app_ledger')
+       AND p.proname NOT LIKE 'get_expert_capital_status%'
+       AND p.prosrc LIKE '%get_expert_capital_status(%'
+  LOOP
+    def := regexp_replace(pg_get_functiondef(r.oid),
+                          'get_expert_capital_status\(',
+                          'get_expert_capital_status_raw(', 'g');
+    EXECUTE def;
+  END LOOP;
+END $repoint$;
+
 -- backfill_queue_stats is a /company ops card read with no in-function guard.
 DO $wrap2$ BEGIN
 IF to_regprocedure('public.backfill_queue_stats_raw()') IS NULL THEN RETURN; END IF;
