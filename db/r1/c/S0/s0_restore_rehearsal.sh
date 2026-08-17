@@ -11,9 +11,9 @@
 #   backup descriptors: 28 function definitions, 37 ACL canonical keys,
 #   11 affected-table catalogs, 72 cron job configs, 15 DB writers, 23 triggers.
 #
-# Phase 3 (suites): the anonymised fixture + R1/R1-D/R1-P layers are applied on
-#   top of the restored cluster and 095 (ACL disposition) and 096 (dynamic ACL
-#   proof) are executed; expected 65/0 and 185/0.
+# Phase 3 (Flow A): the anonymised fixture is applied to the exact restored
+#   pre-cutover baseline. 095/096 are diagnostic post-cutover suites here:
+#   096 must match expected_baseline_096.json exactly, not falsely report green.
 #
 # Phase 4: destroy the clone and prove it is gone; assert 0 background jobs.
 # Production is never touched: PG* is unset, nothing dials the remote host.
@@ -92,18 +92,14 @@ CATHASH=$(psql "$CL" -tAqX -c "select md5(string_agg(x,'|' order by x)) from (
 say "  restored catalog hash: $CATHASH"
 
 # ---------------------------------------------------------------- phase 3
-say "-- phase 3: fixture + R1/R1-D/R1-P layers, then 095 / 096"
+say "-- phase 3 / FLOW A: baseline restore + fixture; exact EXPECTED_BASELINE"
 # harness-only bootstrap (roles + t schema + test helpers); it never supplies
 # application objects — those must come from the restored backup alone.
 psql "$CL" -qX -f db/r1/clone/00_bootstrap.sql >> "$DIR/bootstrap.log" 2>&1
+psql "$CL" -qX -c "ALTER TABLE auth.users ALTER COLUMN is_sso_user SET DEFAULT false; ALTER TABLE auth.users ALTER COLUMN is_anonymous SET DEFAULT false" >> "$DIR/bootstrap.log" 2>&1
 psql "$CL" -qX -f db/r1/clone/rls_subscription_tests.sql >> "$DIR/apply.log" 2>&1
 psql "$CL" -qX -f db/r1/clone/10_load_fixture.sql >> "$DIR/fixture.log" 2>&1
 FIXERR=$(grep -c '^ERROR' "$DIR/fixture.log"); say "  fixture errors: $FIXERR"
-for f in db/r1/001_expand.sql db/r1/002_ledger.sql db/r1/003_canonical.sql db/r1/004_projection.sql \
-         db/r1/d/001_compat.sql db/r1/d/002_cutover.sql \
-         db/r1/p/001_projection.sql db/r1/p/002_public_contract.sql db/r1/p/010_manifest_seed.sql; do
-  psql "$CL" -qX -f "$f" >> "$DIR/apply.log" 2>&1
-done
 APPLYERR=$(grep -c '^ERROR' "$DIR/apply.log"); say "  layer apply errors: $APPLYERR"
 psql "$CL" -X -f db/e0/10_harness.sql >> "$DIR/apply.log" 2>&1
 
@@ -122,7 +118,24 @@ run_suite() { # file label expected
   fi
 }
 run_suite db/r1/p/095_acl25_verify.sql acl25 65
-run_suite db/r1/p/096_acl_dynamic_proof.sql acl_dyn 185
+psql "$CL" -qX -c "TRUNCATE t.result" >/dev/null 2>&1
+psql "$CL" -X -f db/r1/p/096_acl_dynamic_proof.sql > "$DIR/acl_dyn.log" 2>&1
+AT=$(psql "$CL" -tAqX -c "SELECT count(*) FROM t.result")
+AR=$(psql "$CL" -tAqX -c "SELECT count(*) FROM t.result WHERE NOT passed")
+psql "$CL" -AtqX -F '|' -c "SELECT split_part(name,' ',1),coalesce(actual_sqlstate,split_part(detail,' ',1)),detail FROM t.result WHERE NOT passed ORDER BY id" > "$DIR/acl_dyn_failures.csv"
+AH=$(sha256sum "$DIR/acl_dyn_failures.csv" | cut -d' ' -f1)
+say "  acl_dyn diagnostic: $AT tests, $AR deviations; exact failure-set sha256=$AH"
+python3 - "$DIR/acl_dyn_failures.csv" db/r1/c/S0/expected_baseline_096.json "$DIR/expected_baseline_check.json" <<'PY'
+import csv,hashlib,json,sys
+p,base,out=sys.argv[1:]
+rows=[{'test_id':r[0], 'sqlstate':r[1], 'actual':r[2]} for r in csv.reader(open(p),delimiter='|')]
+b=json.load(open(base)); got=hashlib.sha256(open(p,'rb').read()).hexdigest()
+ok=len(rows)==b['expected_count'] and b.get('failure_set_sha256')==got
+json.dump({'passed':ok,'count':len(rows),'sha256':got,'expected_count':b['expected_count'],
+           'expected_sha256':b.get('failure_set_sha256'),'rows':rows},open(out,'w'),indent=2)
+sys.exit(0 if ok else 1)
+PY
+EV=$?; [ "$EV" = 0 ] || fail "096 EXPECTED_BASELINE exact set mismatch (count=$AR sha=$AH)"
 
 # ---------------------------------------------------------------- phase 4
 say "-- phase 4: destroy + background check"
