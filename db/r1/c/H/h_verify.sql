@@ -114,7 +114,8 @@ SELECT pg_temp.chk('H2-4-whitelist-only',
   (SELECT count(*) FROM public.register_symbol_demand(ARRAY['2330','0050','NOPE1','ZZZZ9','053040'])
     WHERE status='registered') = 2
   AND (SELECT count(*) FROM public.symbol_demand_registry) = 2,
-  'garbage + non-eligible warrants must not be stored');
+  'registered='||(SELECT count(*) FROM public.symbol_demand_registry)::text
+  ||' rows='||(SELECT coalesce(string_agg(symbol||':'||status,','),'') FROM public.register_symbol_demand(ARRAY['2330','0050','NOPE1','ZZZZ9','053040'])));
 
 SELECT pg_temp.chk('H2-5-unsupported-reported',
   (SELECT count(*) FROM public.register_symbol_demand(ARRAY['NOPE1','AAPL'])
