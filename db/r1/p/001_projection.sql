@@ -186,6 +186,14 @@ BEGIN
 END $$;
 ALTER FUNCTION app_ledger.fx_rate_as_of(text,text,date) OWNER TO ledger_owner;
 
+-- ---------------------------------------------------------------- embargo constant
+-- Single source of truth for the T+7 window: the writer stamps it and the
+-- verification lattice reads it, so the two can never drift apart.
+CREATE OR REPLACE FUNCTION app_ledger.embargo_days() RETURNS int
+LANGUAGE sql IMMUTABLE SET search_path = '' AS $$ SELECT 7 $$;
+REVOKE ALL ON FUNCTION app_ledger.embargo_days() FROM PUBLIC, anon, authenticated;
+GRANT EXECUTE ON FUNCTION app_ledger.embargo_days() TO ledger_owner, postgres;
+
 -- ---------------------------------------------------------------- publish (embargoed)
 CREATE OR REPLACE FUNCTION app_ledger.canonical_publish(
   p_expert uuid, p_as_of date DEFAULT NULL, p_basis text DEFAULT 'as_reported',
@@ -472,3 +480,32 @@ GRANT SELECT, INSERT, UPDATE, DELETE ON
   TO ledger_owner;
 GRANT SELECT ON public.trade_records, public.experts, public.expert_signals,
                 public.daily_price_snapshots, public.fx_rates TO ledger_owner;
+
+-- ---------------------------------------------------------------- G1 embargo at the writer
+-- R1-D stamped visible_at = now() at publish time, i.e. no delay at all: the
+-- T+7 rule then existed only as a build-cutoff comparison that nothing could
+-- ever trip, and the 092 lattice had to mutate economic_effect by hand — which
+-- the append-only trigger correctly refuses ('visible_at_immutable_once_set').
+-- R1-P therefore moves the embargo into the writer: visibility is stamped once,
+-- as effective_at + 7 days, and stays immutable afterwards. Every downstream
+-- surface (rows, aggregates, portfolio state, NAV, returns, charts, exports)
+-- inherits it because canonical_publish filters on visible_at <= cutoff.
+CREATE OR REPLACE FUNCTION app_ledger.publish_signal_effect(p_signal_id uuid)
+RETURNS jsonb LANGUAGE plpgsql SECURITY DEFINER SET search_path = '' AS $$
+DECLARE v_key uuid; v_row app_ledger.effect_key; n int := 0;
+BEGIN
+  v_key := app_ledger.derive_logical_effect_id(p_signal_id, 'signal_execution', 0);
+  SELECT * INTO v_row FROM app_ledger.effect_key WHERE logical_effect_id = v_key;
+  IF v_row.logical_effect_id IS NULL OR v_row.event_id IS NULL THEN
+    RETURN pg_catalog.jsonb_build_object('status','no_effect_to_publish','logical_effect_id',v_key);
+  END IF;
+  UPDATE app_ledger.economic_effect
+     SET visible_at = effective_at + pg_catalog.make_interval(days => app_ledger.embargo_days()),
+         state_changed_at = pg_catalog.now()
+   WHERE event_id = v_row.event_id AND visible_at IS NULL AND state = 'applied';
+  GET DIAGNOSTICS n = ROW_COUNT;
+  RETURN pg_catalog.jsonb_build_object('status', CASE WHEN n>0 THEN 'published' ELSE 'already_visible' END,
+    'logical_effect_id', v_key, 'event_id', v_row.event_id);
+END $$;
+ALTER FUNCTION app_ledger.publish_signal_effect(uuid) OWNER TO ledger_owner;
+REVOKE ALL ON FUNCTION app_ledger.publish_signal_effect(uuid) FROM PUBLIC, anon, authenticated;

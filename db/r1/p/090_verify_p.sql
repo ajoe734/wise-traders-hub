@@ -19,7 +19,8 @@ INSERT INTO tp.ids VALUES
  ('batchP','ccccccc2-0000-4000-8000-000000000001'),
  ('sigE1' ,'ddddddd2-0000-4000-8000-000000000001'),
  ('sigE2' ,'ddddddd2-0000-4000-8000-000000000002'),
- ('sigW1' ,'ddddddd2-0000-4000-8000-000000000003');
+ ('sigW1' ,'ddddddd2-0000-4000-8000-000000000003'),
+ ('sigW3' ,'ddddddd2-0000-4000-8000-000000000009');
 
 INSERT INTO auth.users(id,email,created_at,updated_at)
 VALUES ((SELECT v FROM tp.ids WHERE k='userP'),'userP@r1p.test',now(),now())
@@ -32,7 +33,7 @@ ON CONFLICT (id) DO NOTHING;
 
 CREATE OR REPLACE FUNCTION tp.sig(p_id uuid, p_action text, p_qty int, p_price numeric,
   p_status text DEFAULT 'published', p_inst text DEFAULT '2330',
-  p_exec timestamptz DEFAULT now() - interval '1 day')
+  p_exec timestamptz DEFAULT now() - interval '8 days')
 RETURNS void LANGUAGE plpgsql AS $$
 BEGIN
   INSERT INTO public.expert_signals(id,expert_id,batch_id,instrument,action,quantity,
@@ -214,13 +215,16 @@ DO $$ DECLARE n int; BEGIN
   PERFORM tp.sig((SELECT v FROM tp.ids WHERE k='sigE2'), 'buy', 2, 400, 'pending', '2317');
 END $$;
 
-SET ROLE anon;
 DO $$ DECLARE n int; BEGIN
+  SET LOCAL ROLE anon;
   SELECT count(*) INTO n FROM public.expert_signals
    WHERE id=(SELECT v FROM tp.ids WHERE k='sigE2');
+  RESET ROLE;
   PERFORM t.eq('T-P45 anon cannot read an embargoed signal row', n, 0);
+EXCEPTION WHEN insufficient_privilege THEN
+  RESET ROLE;
+  PERFORM t.ok('T-P45 anon cannot read an embargoed signal row', true, 'refused 42501');
 END $$;
-RESET ROLE;
 
 SELECT t.expect_error('T-P46 anon cannot read the versioned position table',
   $$SET ROLE anon; SELECT count(*) FROM public.public_position_projection$$,
@@ -246,8 +250,8 @@ RESET ROLE;
 DO $$ DECLARE n int; BEGIN
   SET LOCAL ROLE anon;
   SELECT count(*) INTO n FROM public.public_expert_positions_v1;
-  PERFORM t.ok('T-P52 anon CAN read the published contract view', n >= 0);
   RESET ROLE;
+  PERFORM t.ok('T-P52 anon CAN read the published contract view', n >= 0);
 END $$;
 
 -- =====================================================================
@@ -300,7 +304,8 @@ DO $$ DECLARE v_ver bigint; BEGIN
   -- human adjudication of the fixture key (never automatic)
   UPDATE app_ledger.replay_manifest_key
      SET review_status='auto_supported', public_disposition='as_reported_publishable',
-         auto_correction_forbidden=false, authoritative_qty_shares=10
+         auto_correction_forbidden=false, authoritative_qty_shares=10,
+         asset_class='tw_stock', derivative_supported=true
    WHERE key = app_ledger.manifest_key((SELECT v FROM tp.ids WHERE k='expP'),'TW','6515');
   v_ver := app_ledger.canonical_publish((SELECT v FROM tp.ids WHERE k='expP'), NULL, 'restated');
   PERFORM t.eq('T-P71 restated build succeeds after adjudication',
@@ -504,9 +509,7 @@ SELECT id, name, coalesce(detail,'') FROM t.result WHERE NOT passed ORDER BY id;
 -- P9  live derivative fast-path closure (runs last: it withholds a position)
 -- =====================================================================
 DO $$ DECLARE v_ver bigint; BEGIN
-  PERFORM tp.sig((SELECT v FROM tp.ids WHERE k='sigW1'), 'buy', 5, 1.05, 'published', '078397 同欣電富邦64購02');
-  UPDATE app_ledger.economic_effect SET visible_at = now() - interval '1 minute'
-   WHERE expert_id = (SELECT v FROM tp.ids WHERE k='expP');
+  PERFORM tp.sig((SELECT v FROM tp.ids WHERE k='sigW3'), 'buy', 5, 1.05, 'published', '078397 同欣電富邦64購02');
   v_ver := app_ledger.canonical_publish((SELECT v FROM tp.ids WHERE k='expP'));
   PERFORM t.eq('T-P32k warrant position is not published',
     (SELECT count(*)::int FROM public.public_position_projection
