@@ -17,7 +17,7 @@ FUNCS = ['handle_signal_trade','save_signal_batch','admin_apply_fix_proposal',
  'sync_expert_slug_to_profile','sync_expert_currency_with_asset_class','enforce_expert_currency_lock',
  'enforce_expert_asset_class_lock','protect_backtest_fields','set_plan_initial_review_status',
  'enforce_plan_review_workflow','get_effective_user_id','recalc_user_summary','handle_new_user','signal_in_subscription_window',
- 'protect_subscription_fields','protect_profile_fields']
+ 'protect_subscription_fields','protect_profile_fields','enforce_payment_provider_default_active']
 
 def q(sql):
     r = subprocess.run(['psql','-tAqX','-c',sql],capture_output=True,text=True)
@@ -64,6 +64,11 @@ for line in q(f"""select replace(indexdef, chr(10),' ') from pg_indexes where sc
 
 out.append('\n-- FUNCTIONS')
 fl = ",".join("'%s'"%f for f in FUNCS)
+for line in q(f"""select replace(pg_get_functiondef(p.oid), chr(10), '~~NL~~') from pg_proc p
+ join pg_namespace n on n.oid=p.pronamespace where n.nspname='public' and p.proname in ({fl}) order by p.proname"""):
+    out.append(line.replace('~~NL~~','\n')+';')
+
+out.append('\n-- FUNCTIONS (pass 2: resolve inter-function dependencies)')
 for line in q(f"""select replace(pg_get_functiondef(p.oid), chr(10), '~~NL~~') from pg_proc p
  join pg_namespace n on n.oid=p.pronamespace where n.nspname='public' and p.proname in ({fl}) order by p.proname"""):
     out.append(line.replace('~~NL~~','\n')+';')
