@@ -1,7 +1,7 @@
 \pset pager off
 \pset tuples_only on
 \pset format unaligned
-select 'SIGSHAPE|'||status||'|'||action||'|'||coalesce(market,'-')||'|'||coalesce(quantity_unit,'-')||'|'||count(*) from expert_signals group by 1,2,3,4 order by 1;
+select 'SIGSHAPE|'||status||'|'||action||'|'||coalesce(market,'-')||'|'||coalesce(quantity_unit,'-')||'|'||count(*) from expert_signals group by status,action,market,quantity_unit order by 1;
 select 'TRSHAPE|'||status||'|'||coalesce(market,'-')||'|'||coalesce(currency,'-')||'|'||coalesce(quantity_unit,'-')||'|'||is_combo||'|'||count(*) from trade_records group by status,market,currency,quantity_unit,is_combo order by 1;
 select 'EXPERT|'||id||'|'||role||'|'||status||'|'||coalesce(asset_class,'-')||'|'||coalesce(currency,'-')||'|'||coalesce(starting_capital::text,'-') from experts order by 1;
 select 'LEGS|'||count(*)||'|'||count(distinct signal_id) from expert_signal_legs;
