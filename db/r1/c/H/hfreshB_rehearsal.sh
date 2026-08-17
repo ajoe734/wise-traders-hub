@@ -24,10 +24,11 @@ FAILS=0; CHECKS=0; SUMMARY_EMITTED=0; STAGE="init"
 say(){ echo "$*"; }
 chk(){ CHECKS=$((CHECKS+1)); if [ "$1" = "0" ]; then say "  PASS $2"; else FAILS=$((FAILS+1)); say "  FAIL $2 ${3:-}"; fi; }
 fail(){ FAILS=$((FAILS+1)); say "  FAIL $*"; }
+fatal(){ FAILS=$((FAILS+1)); say "!! FATAL stage=$STAGE: $*"; exit 1; }
 on_err(){ local c=$?; say "!! ERR stage=$STAGE line=${BASH_LINENO[0]} cmd=[$BASH_COMMAND] exit=$c"; FAILS=$((FAILS+1)); }
 cleanup(){
   local c=$?
-  set +e
+  trap - EXIT ERR; set +e
   if [ -d "$DIR/pg" ]; then $ASU "$PGBIN/pg_ctl" -D "$DIR/pg" -m immediate -w stop >/dev/null 2>&1; fi
   mkdir -p "$OUT/$NAME-artifacts"; cp "$DIR"/*.log "$DIR"/*.fp "$DIR"/*.out "$DIR"/*.diff "$OUT/$NAME-artifacts/" 2>/dev/null
   rm -rf "$DIR"
@@ -54,12 +55,18 @@ say "### hfreshB run_id=$RUNID start=$START port=$PORT out=$OUT"
 ############################################################ preflight
 stage preflight
 PGBIN=$(dirname "$(command -v initdb)")
-command -v psql >/dev/null || { say "psql missing"; exit 1; }
-[ -x "$PGBIN/pg_ctl" ] || { say "pg_ctl missing in $PGBIN"; exit 1; }
-if (exec 3<>/dev/tcp/127.0.0.1/"$PORT") 2>/dev/null; then exec 3>&- 2>/dev/null || true; say "port $PORT already in use"; exit 1; fi
+command -v psql >/dev/null || fatal "psql missing"
+[ -x "$PGBIN/pg_ctl" ] || fatal "pg_ctl missing in $PGBIN"
+python3 - "$PORT" <<'PY' || fatal "port $PORT already in use (bind failed)"
+import socket,sys
+s=socket.socket(); s.setsockopt(socket.SOL_SOCKET,socket.SO_REUSEADDR,1)
+try: s.bind(("127.0.0.1",int(sys.argv[1])))
+except OSError: sys.exit(1)
+s.close()
+PY
 AVAIL_MB=$(df -Pm /tmp | awk 'NR==2{print $4}')
-[ "$AVAIL_MB" -ge 2048 ] || { say "not enough disk on /tmp: ${AVAIL_MB}MB"; exit 1; }
-[ -f "$BK/MANIFEST.json" ] || { say "backup manifest missing"; exit 1; }
+[ "$AVAIL_MB" -ge 2048 ] || fatal "not enough disk on /tmp: ${AVAIL_MB}MB"
+[ -f "$BK/MANIFEST.json" ] || fatal "backup manifest missing"
 say "  preflight ok pgbin=$PGBIN disk=${AVAIL_MB}MB port_free=$PORT"
 unset PGHOST PGPORT PGUSER PGPASSWORD PGDATABASE PGSSLMODE
 rm -rf "$DIR"; mkdir -p "$DIR/sock"
@@ -69,16 +76,16 @@ stage_end
 ############################################################ initdb + start
 stage initdb
 $ASU initdb -D "$DIR/pg" -U postgres --locale=C -E UTF8 >"$DIR/initdb.log" 2>&1 \
-  || { say "initdb failed:"; tail -20 "$DIR/initdb.log"; exit 1; }
+  || { tail -20 "$DIR/initdb.log"; fatal "initdb failed"; }
 $ASU "$PGBIN/pg_ctl" -D "$DIR/pg" -l "$DIR/pg.log" \
   -o "-p $PORT -k $DIR/sock -c listen_addresses=127.0.0.1 -c fsync=off -c track_counts=on -c log_statement=all -c log_min_messages=warning -c log_line_prefix='%m [%p] %u ' " \
-  -w -t 60 start >"$DIR/pgctl.log" 2>&1 || { say "pg_ctl start failed:"; tail -20 "$DIR/pg.log"; exit 1; }
+  -w -t 60 start >"$DIR/pgctl.log" 2>&1 || { tail -20 "$DIR/pg.log"; fatal "pg_ctl start failed"; }
 READY=0
 for i in $(seq 1 60); do
   if $ASU "$PGBIN/pg_isready" -h 127.0.0.1 -p "$PORT" -q; then READY=1; break; fi
   sleep 1
 done
-[ "$READY" = 1 ] || { say "server never became ready"; tail -20 "$DIR/pg.log"; exit 1; }
+[ "$READY" = 1 ] || { tail -20 "$DIR/pg.log"; fatal "server never became ready"; }
 psql "postgresql://postgres@localhost:$PORT/postgres?sslmode=disable" -qX -c 'create database clone' >/dev/null
 CL="postgresql://postgres@localhost:$PORT/clone?sslmode=disable"
 RO="postgresql://drawer_ro:ro@localhost:$PORT/clone?sslmode=disable"
