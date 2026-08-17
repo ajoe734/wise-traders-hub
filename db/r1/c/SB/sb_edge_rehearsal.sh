@@ -369,13 +369,44 @@ SELECT s, current_date - 6, 1, 'pending', 'edge_rehearsal_conc', now()
   FROM unnest(ARRAY['2603','2609','2615','3008','1301','1303']) s
 ON CONFLICT DO NOTHING;
 SQL
-( post "$W" "$DIR/w_c1.json" '{"mode":"worker","batch":3,"budget_ms":8000}' "$CRONH" >"$DIR/c1.code" ) &
-( post "$W" "$DIR/w_c2.json" '{"mode":"worker","batch":3,"budget_ms":8000}' "$CRONH" >"$DIR/c2.code" ) &
-wait
-chk $([ "$(cat "$DIR/c1.code")" = 200 ] && [ "$(cat "$DIR/c2.code")" = 200 ] && echo 0 || echo 1) "EB-90 both concurrent workers returned 200"
+# EF-05: a bare `wait` here also waits on the long-lived GoTrue/PostgREST/proxy/
+# provider/2x Deno services started earlier by this script, so it can never
+# return. Bounded-wait ONLY the two worker PIDs; never `wait` with no args.
+SVC_PIDS=("${PIDS[@]}")            # snapshot: long-lived services only
+CONC_DEADLINE=${CONC_DEADLINE:-90}
+: >"$DIR/c1.code"; : >"$DIR/c2.code"; : >"$DIR/c1.rc"; : >"$DIR/c2.rc"
+( set +e; post "$W" "$DIR/w_c1.json" '{"mode":"worker","batch":3,"budget_ms":8000}' "$CRONH" >"$DIR/c1.code"; echo $? >"$DIR/c1.rc" ) & CP1=$!
+( set +e; post "$W" "$DIR/w_c2.json" '{"mode":"worker","batch":3,"budget_ms":8000}' "$CRONH" >"$DIR/c2.code"; echo $? >"$DIR/c2.rc" ) & CP2=$!
+PIDS+=("$CP1" "$CP2")
+echo "   concurrency worker pids: $CP1 $CP2 (bounded wait ${CONC_DEADLINE}s)"
+CW=0; CTIMEOUT=0
+while :; do
+  ALIVE=0
+  kill -0 "$CP1" 2>/dev/null && ALIVE=1
+  kill -0 "$CP2" 2>/dev/null && ALIVE=1
+  [ "$ALIVE" = 0 ] && break
+  if [ "$CW" -ge "$CONC_DEADLINE" ]; then CTIMEOUT=1; break; fi
+  sleep 1; CW=$((CW+1))
+done
+if [ "$CTIMEOUT" = 1 ]; then
+  kill -9 "$CP1" "$CP2" >/dev/null 2>&1 || true
+  { echo "EF-05 concurrency bounded wait TIMEOUT after ${CONC_DEADLINE}s"; echo "pid1=$CP1 pid2=$CP2"; } >"$DIR/concurrency_timeout.txt"
+fi
+set +e; wait "$CP1"; CE1=$?; wait "$CP2"; CE2=$?; set -e
+CC1=$(cat "$DIR/c1.code" 2>/dev/null); CC2=$(cat "$DIR/c2.code" 2>/dev/null)
+CR1=$(cat "$DIR/c1.rc" 2>/dev/null); CR2=$(cat "$DIR/c2.rc" 2>/dev/null)
+{ echo "timeout=$CTIMEOUT waited_s=$CW"
+  echo "w1 pid=$CP1 proc_exit=$CE1 curl_rc=${CR1:-none} http=${CC1:-none}"
+  echo "w2 pid=$CP2 proc_exit=$CE2 curl_rc=${CR2:-none} http=${CC2:-none}"; } | tee "$DIR/concurrency.out"
+chk $([ "$CTIMEOUT" = 0 ] && echo 0 || echo 1) "EB-89 concurrency completed inside the bounded wait (waited=${CW}s)"
+chk $([ "${CR1:-1}" = 0 ] && [ "${CR2:-1}" = 0 ] && echo 0 || echo 1) "EB-89b both concurrent curl processes exited 0 (rc=${CR1:-none}/${CR2:-none})"
+chk $([ "${CC1:-x}" = 200 ] && [ "${CC2:-x}" = 200 ] && echo 0 || echo 1) "EB-90 both concurrent workers returned 200 (http=${CC1:-none}/${CC2:-none})"
 chk $([ "$(gateblocked)" = 'true' ] && echo 0 || echo 1) "EB-91 gate closed exactly once under concurrency"
 DUP=$(psql "$CL" -qXAt -c "SELECT count(*) FROM public.tw_bsr_sync_queue WHERE enqueued_by='edge_rehearsal_conc' AND status='pending' AND locked_by IS NOT NULL" 2>/dev/null || echo 0)
 chk $([ "${DUP:-0}" = 0 ] && echo 0 || echo 1) "EB-92 no job left pending with a stale lease (${DUP:-0})"
+DEAD=""
+for p in "${SVC_PIDS[@]}"; do kill -0 "$p" 2>/dev/null || DEAD="$DEAD $p"; done
+chk $([ -z "$DEAD" ] && echo 0 || echo 1) "EB-92b all long-lived services still alive after concurrency (dead:${DEAD:-none})"
 
 ############################################################ G2. gate state matrix (missing / malformed / rpc_error)
 stage gate_matrix
