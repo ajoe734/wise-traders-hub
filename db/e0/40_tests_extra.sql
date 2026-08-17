@@ -95,12 +95,12 @@ BEGIN
   END;
   PERFORM t.ok('D5.unknown_restore_logical_id_rejected', v_pass, v_msg);
 
+  v_ev := app_ledger.canonical_apply_effect(jsonb_build_object(
+    'action','capital_flow','expert_id','12121212-0000-0000-0000-000000000011',
+    'currency','TWD','amount',1,'provenance','external_capital_flow','reason','x',
+    'restore_logical_effect_id', v_log));
   PERFORM t.eq('D5.known_restore_logical_id_accepted',
-    (SELECT logical_effect_id FROM app_ledger.economic_effect WHERE event_id =
-       app_ledger.canonical_apply_effect(jsonb_build_object(
-         'action','capital_flow','expert_id','12121212-0000-0000-0000-000000000011',
-         'currency','TWD','amount',1,'provenance','external_capital_flow','reason','x',
-         'restore_logical_effect_id', v_log))), v_log);
+    (SELECT logical_effect_id FROM app_ledger.economic_effect WHERE event_id=v_ev), v_log);
 END $$;
 
 -- =============================================================== E6 role-level enforcement
