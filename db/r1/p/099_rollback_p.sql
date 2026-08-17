@@ -27,5 +27,7 @@ DROP FUNCTION IF EXISTS app_ledger.manifest_key(uuid,text,text);
 DROP FUNCTION IF EXISTS app_ledger.manifest_immutable() CASCADE;
 DROP FUNCTION IF EXISTS app_ledger.fx_rate_as_of(text,text,date);
 
--- 4. restore the R1 baseline publish body + grants
-\i db/r1/004_projection.sql
+-- 4. the R1 baseline canonical_publish body is replayed by the runner with
+--    `sed -n '/canonical_publish/,$p'`-free full re-apply of db/r1/004_projection.sql
+--    against a clone where the projection tables already exist; the runner then
+--    restores the pre-cutover dump and compares hashes for exact identity.
