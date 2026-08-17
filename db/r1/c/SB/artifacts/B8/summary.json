@@ -1,0 +1,158 @@
+{
+  "background_processes": 0,
+  "checks": [
+    {
+      "check": "SB-01 fresh restore 0 errors",
+      "result": "PASS"
+    },
+    {
+      "check": "SB-02 catalog census == production baseline",
+      "result": "PASS"
+    },
+    {
+      "check": "SB-02a replaced-function metadata captured for 3 targets (got 3)",
+      "result": "PASS"
+    },
+    {
+      "check": "SB-02b every replaced target carries a non-null comment pre-apply",
+      "result": "PASS"
+    },
+    {
+      "check": "SB-02c negative control: comment-only drift IS detected by the fingerprint",
+      "result": "PASS"
+    },
+    {
+      "check": "SB-02d negative control reverted: metadata back to pre-probe state",
+      "result": "PASS"
+    },
+    {
+      "check": "SB-03 migrations applied with ON_ERROR_STOP",
+      "result": "PASS"
+    },
+    {
+      "check": "SB-03a post-apply replaced-function metadata+comment 100% identical (owner/acl/proconfig/provolatile/prosecdef/leakproof/strict/lang/identity-args/comment)",
+      "result": "PASS"
+    },
+    {
+      "check": "SB-03b post-apply exactly 2 function bodies changed (recover_quota_failed/recover_stale), got 2",
+      "result": "PASS"
+    },
+    {
+      "check": "SB-03c reap_stale_bsr_queue_jobs body untouched by apply",
+      "result": "PASS"
+    },
+    {
+      "check": "SB-04a service_role can call wrappers",
+      "result": "PASS"
+    },
+    {
+      "check": "SB-04b anon denied",
+      "result": "PASS"
+    },
+    {
+      "check": "SB-04c authenticated denied",
+      "result": "PASS"
+    },
+    {
+      "check": "SB-04d private_bsr unreachable by service_role",
+      "result": "PASS"
+    },
+    {
+      "check": "SB-05 sql verifier fail=0",
+      "result": "PASS"
+    },
+    {
+      "check": "SB-06 verifier coverage >=30 checks (got 104)",
+      "result": "PASS"
+    },
+    {
+      "check": "SB-04e real PostgREST HTTP + supabase-js proof (service_role 200, anon/authenticated 42501, private_bsr unreachable)",
+      "result": "PASS"
+    },
+    {
+      "check": "SB-07a session A committed the block transition",
+      "result": "PASS"
+    },
+    {
+      "check": "SB-07b session B serialized behind the lock and was refused (after=0)",
+      "result": "PASS"
+    },
+    {
+      "check": "SB-07c gate path completes under 2s statement_timeout",
+      "result": "PASS"
+    },
+    {
+      "check": "SB-08a per-chunk blocked = candidates - inserted (5)",
+      "result": "PASS"
+    },
+    {
+      "check": "SB-08b per-chunk inserted=4 unaffected by concurrent session (got 4)",
+      "result": "PASS"
+    },
+    {
+      "check": "SB-08c full-table delta polluted (11 != 4) \u2014 proves delta accounting is wrong",
+      "result": "PASS"
+    },
+    {
+      "check": "SB-09 200-iteration fuzz: only allowlisted validation errors",
+      "result": "PASS"
+    },
+    {
+      "check": "SB-10a recover_quota_failed_bsr_jobs byte-identical after rollback",
+      "result": "PASS"
+    },
+    {
+      "check": "SB-10b private_bsr dropped",
+      "result": "PASS"
+    },
+    {
+      "check": "SB-10c gate trigger dropped",
+      "result": "PASS"
+    },
+    {
+      "check": "SB-10d queue-touching functions: 0 owner/acl/config drift",
+      "result": "PASS"
+    },
+    {
+      "check": "SB-10e catalog fingerprint back to pre-apply baseline",
+      "result": "PASS"
+    },
+    {
+      "check": "SB-10f post-rollback replaced-function metadata+comment byte-equivalent",
+      "result": "PASS"
+    },
+    {
+      "check": "SB-10g post-rollback pg_get_functiondef byte-equivalent for all 3 targets",
+      "result": "PASS"
+    },
+    {
+      "check": "SB-10h no comment was dropped by apply+rollback (NULL comments after=0)",
+      "result": "PASS"
+    }
+  ],
+  "clone_destroyed": true,
+  "end_utc": "2026-08-17T14:55:34.520Z",
+  "final_stage": "artifacts",
+  "harness_checks": 32,
+  "harness_failures": 0,
+  "log_sha256_pre_result_line": "0a31a085d43aa359578d7c4ef2231055ea55a73c81345b2caccb3e12d2613ec4",
+  "postgrest_http": {
+    "fail": 0,
+    "pass_": 10
+  },
+  "raw_log_sha256_unsanitized": "cd58d0fc6486cdfce289f97df41f4210bd19522f05a6d94c452876782998c4f8",
+  "run": "B8",
+  "run_id": "B8-20260817T145514Z-2630",
+  "sanitized_log_sha256": "cd58d0fc6486cdfce289f97df41f4210bd19522f05a6d94c452876782998c4f8",
+  "sql_verifier": {
+    "fail": 0,
+    "gap": 0,
+    "pass_": 104
+  },
+  "stage": "Stage B v6 clone rehearsal (production 0-touch)",
+  "start_utc": "2026-08-17T14:55:14.920Z",
+  "supabase_js": {
+    "fail": 0,
+    "pass_": 5
+  }
+}
