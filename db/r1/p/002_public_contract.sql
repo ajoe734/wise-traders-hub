@@ -66,6 +66,18 @@ REVOKE ALL ON public.trade_records      FROM anon;
 REVOKE ALL ON public.user_performances  FROM anon;
 -- expert_signals keeps anon SELECT only through RLS-guarded published rows;
 -- the embargo itself is enforced by RLS below.
+-- RLS policies are OR-ed: every pre-existing anon/PUBLIC SELECT policy must be
+-- removed, otherwise the embargo policy below could never restrict anything.
+DO $embargo$
+DECLARE r record;
+BEGIN
+  FOR r IN SELECT policyname FROM pg_policies
+            WHERE schemaname='public' AND tablename='expert_signals'
+              AND cmd IN ('SELECT','ALL')
+              AND (roles::text LIKE '%anon%' OR roles::text LIKE '%public%')
+  LOOP EXECUTE format('DROP POLICY %I ON public.expert_signals', r.policyname); END LOOP;
+END $embargo$;
+
 DROP POLICY IF EXISTS signals_embargo_anon ON public.expert_signals;
 CREATE POLICY signals_embargo_anon ON public.expert_signals
   FOR SELECT TO anon
@@ -96,3 +108,10 @@ BEGIN
     EXECUTE format('REVOKE ALL ON FUNCTION %s FROM PUBLIC, anon', r.sig);
   END LOOP;
 END $$;
+
+-- ledger_owner keeps the privileges the SECURITY DEFINER builder needs
+GRANT SELECT, INSERT, UPDATE, DELETE ON
+  public.public_position_projection, public.public_portfolio_state,
+  public.public_nav_daily, public.public_projection_active,
+  public.public_projection_version, public.public_projection_withheld
+  TO ledger_owner;

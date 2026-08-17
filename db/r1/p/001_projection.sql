@@ -73,14 +73,14 @@ CREATE TRIGGER trg_manifest_immutable
 CREATE OR REPLACE FUNCTION app_ledger.manifest_key(p_expert uuid, p_market text, p_instrument text)
 RETURNS text LANGUAGE sql IMMUTABLE SET search_path = '' AS $$
   SELECT 'K-' || pg_catalog.left(pg_catalog.md5(
-           p_expert::text || '|' || pg_catalog.coalesce(p_market,'-') || '|' || p_instrument), 16)
+           p_expert::text || '|' || coalesce(p_market,'-') || '|' || p_instrument), 16)
 $$;
 ALTER FUNCTION app_ledger.manifest_key(uuid,text,text) OWNER TO ledger_owner;
 
 CREATE OR REPLACE FUNCTION app_ledger.manifest_disposition(
   p_expert uuid, p_market text, p_instrument text)
 RETURNS text LANGUAGE sql STABLE SET search_path = '' AS $$
-  SELECT pg_catalog.coalesce(
+  SELECT coalesce(
     (SELECT m.public_disposition FROM app_ledger.replay_manifest_key m
       WHERE m.key = app_ledger.manifest_key(p_expert, p_market, p_instrument)),
     'as_reported_publishable')
@@ -142,7 +142,7 @@ CREATE OR REPLACE FUNCTION app_ledger.canonical_publish(
 RETURNS bigint LANGUAGE plpgsql SECURITY DEFINER SET search_path = '' AS $$
 DECLARE
   v_ver bigint;
-  v_asof date := pg_catalog.coalesce(p_as_of, (pg_catalog.now())::date);
+  v_asof date := coalesce(p_as_of, (pg_catalog.now())::date);
   v_cut timestamptz := pg_catalog.now();
   r record; v_prev_eq numeric;
   v_withheld int := 0; v_embargoed int := 0; v_unadjudicated int := 0;
@@ -181,7 +181,7 @@ BEGIN
   -- (a) effect-derived, embargo filtered
   INSERT INTO pg_temp.pp_cand
   SELECT m.instrument_key,
-         pg_catalog.max(pg_catalog.coalesce(e.instrument, m.instrument_key)),
+         pg_catalog.max(coalesce(e.instrument, m.instrument_key)),
          pg_catalog.max(m.market), m.currency,
          pg_catalog.sum(m.qty_delta), pg_catalog.sum(m.cost_delta), 'effect'
     FROM app_ledger.effect_projection_mutation m
@@ -249,20 +249,20 @@ BEGIN
               ELSE NULL END
     FROM (
       SELECT cur,
-        pg_catalog.coalesce(pg_catalog.sum(l.amount)
+        coalesce(pg_catalog.sum(l.amount)
           FILTER (WHERE l.entry_kind='external_capital_flow'),0) ext,
-        pg_catalog.coalesce(pg_catalog.sum(l.amount)
+        coalesce(pg_catalog.sum(l.amount)
           FILTER (WHERE l.entry_kind='data_correction_adjustment'),0) corr,
-        pg_catalog.coalesce(pg_catalog.sum(l.amount),0) cash_sum,
-        (SELECT pg_catalog.coalesce(pg_catalog.sum(m.realized_delta),0)
+        coalesce(pg_catalog.sum(l.amount),0) cash_sum,
+        (SELECT coalesce(pg_catalog.sum(m.realized_delta),0)
            FROM app_ledger.effect_projection_mutation m
            JOIN app_ledger.economic_effect e2 ON e2.event_id = m.event_id
           WHERE m.expert_id = p_expert AND m.currency = s.cur
             AND e2.state='applied' AND e2.visible_at IS NOT NULL AND e2.visible_at <= v_cut) realized,
-        (SELECT pg_catalog.coalesce(pg_catalog.sum(c.cost_value),0)
+        (SELECT coalesce(pg_catalog.sum(c.cost_value),0)
            FROM pg_temp.pp_cand c WHERE c.currency = s.cur) open_cost,
         (SELECT CASE WHEN pg_catalog.bool_or(pp.market_value IS NULL) THEN NULL
-                     ELSE pg_catalog.coalesce(pg_catalog.sum(pp.market_value),0) END
+                     ELSE coalesce(pg_catalog.sum(pp.market_value),0) END
            FROM public.public_position_projection pp
           WHERE pp.projection_version = v_ver AND pp.expert_id = p_expert
             AND pp.currency = s.cur) mv
@@ -293,11 +293,11 @@ BEGIN
       v_cash numeric; v_mv numeric; v_eq numeric; v_ext numeric; v_corr numeric;
       v_qadj boolean; v_ret numeric; v_complete text; v_kind text; v_unpriced boolean;
     BEGIN
-      SELECT pg_catalog.coalesce(pg_catalog.sum(l.amount),0),
-             pg_catalog.coalesce(pg_catalog.sum(l.amount)
+      SELECT coalesce(pg_catalog.sum(l.amount),0),
+             coalesce(pg_catalog.sum(l.amount)
                FILTER (WHERE l.entry_kind='external_capital_flow'
                          AND l.effective_at::date = r.trade_date),0),
-             pg_catalog.coalesce(pg_catalog.sum(l.amount)
+             coalesce(pg_catalog.sum(l.amount)
                FILTER (WHERE l.entry_kind='data_correction_adjustment'
                          AND l.effective_at::date = r.trade_date),0)
         INTO v_cash, v_ext, v_corr
@@ -308,11 +308,11 @@ BEGIN
          AND e.visible_at IS NOT NULL AND e.visible_at <= v_cut;
       v_cash := v_cash + (SELECT starting_capital FROM public.experts WHERE id = p_expert);
 
-      SELECT pg_catalog.coalesce(pg_catalog.sum(q.qty * v.price),0),
+      SELECT coalesce(pg_catalog.sum(q.qty * v.price),0),
              pg_catalog.bool_or(v.price IS NULL)
         INTO v_mv, v_unpriced
         FROM (SELECT m.instrument_key ikey, m.market mk,
-                     pg_catalog.max(pg_catalog.coalesce(e.instrument,m.instrument_key)) inst,
+                     pg_catalog.max(coalesce(e.instrument,m.instrument_key)) inst,
                      pg_catalog.sum(m.qty_delta) qty
                 FROM app_ledger.effect_projection_mutation m
                 JOIN app_ledger.economic_effect e ON e.event_id = m.event_id
@@ -325,7 +325,7 @@ BEGIN
         CROSS JOIN LATERAL app_ledger.value_instrument(q.ikey, q.mk, r.trade_date) v
        WHERE app_ledger.manifest_disposition(p_expert, q.mk, q.inst) = 'as_reported_publishable';
 
-      IF pg_catalog.coalesce(v_unpriced,false) OR v_withheld > 0 THEN v_mv := NULL; END IF;
+      IF coalesce(v_unpriced,false) OR v_withheld > 0 THEN v_mv := NULL; END IF;
       v_eq := CASE WHEN v_mv IS NULL THEN NULL ELSE v_cash + v_mv END;
 
       SELECT EXISTS (SELECT 1 FROM app_ledger.economic_effect e
@@ -381,3 +381,24 @@ BEGIN
 END $$;
 ALTER FUNCTION app_ledger.canonical_publish(uuid,date,text,boolean) OWNER TO ledger_owner;
 REVOKE EXECUTE ON FUNCTION app_ledger.canonical_publish(uuid,date,text,boolean) FROM PUBLIC;
+
+-- ---------------------------------------------------------------- privileges
+-- new functions must not inherit the default PUBLIC EXECUTE
+REVOKE ALL ON FUNCTION app_ledger.manifest_key(uuid,text,text)          FROM PUBLIC, anon, authenticated;
+REVOKE ALL ON FUNCTION app_ledger.manifest_disposition(uuid,text,text)  FROM PUBLIC, anon, authenticated;
+REVOKE ALL ON FUNCTION app_ledger.manifest_immutable()                  FROM PUBLIC, anon, authenticated;
+REVOKE ALL ON FUNCTION app_ledger.fx_rate_as_of(text,text,date)         FROM PUBLIC, anon, authenticated;
+REVOKE ALL ON FUNCTION app_ledger.canonical_publish(uuid,date,text,boolean) FROM PUBLIC, anon, authenticated;
+GRANT EXECUTE ON FUNCTION app_ledger.manifest_key(uuid,text,text)         TO ledger_owner, postgres;
+GRANT EXECUTE ON FUNCTION app_ledger.manifest_disposition(uuid,text,text) TO ledger_owner, postgres;
+GRANT EXECUTE ON FUNCTION app_ledger.fx_rate_as_of(text,text,date)        TO ledger_owner, postgres;
+
+-- the SECURITY DEFINER builder runs as ledger_owner: it needs write access to
+-- the projection tables that 002 revokes from everybody else.
+GRANT SELECT, INSERT, UPDATE, DELETE ON
+  public.public_position_projection, public.public_portfolio_state,
+  public.public_nav_daily, public.public_projection_active,
+  public.public_projection_version, public.public_projection_withheld
+  TO ledger_owner;
+GRANT SELECT ON public.trade_records, public.experts, public.expert_signals,
+                public.daily_price_snapshots, public.fx_rates TO ledger_owner;
