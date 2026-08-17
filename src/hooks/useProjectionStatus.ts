@@ -31,7 +31,7 @@ export function useProjectionStatus(expertId: string | undefined): ProjectionSta
         if (code === '42P01' || code === '42703' || code === 'PGRST205') return null;
         throw error;
       }
-      return (data as Record<string, unknown> | null) ?? null;
+      return (data as unknown as Record<string, unknown> | null) ?? null;
     },
   });
 
