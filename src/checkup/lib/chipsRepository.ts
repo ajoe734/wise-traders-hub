@@ -263,6 +263,14 @@ export const CHIPS_STAMP_TIMEOUT_MS = 8_000;
 export const CHIPS_BATCH_TIMEOUT_MS = 30_000;
 export const CHIPS_BATCH_MAX_STOCKS = 30;
 
+/**
+ * Preview / harness-only endpoint 切換。
+ * production build 未設此變數 → 仍走舊 `tw-chips-detail`（不改變真實使用者行為）。
+ * 設為 `tw-chips-detail-v2` 時走 side-by-side read-only endpoint。
+ */
+export const CHIPS_FN = (import.meta.env?.VITE_CHIPS_ENDPOINT as string | undefined) || 'tw-chips-detail';
+
+
 /** 公開市場資料 endpoint 一律用 publishable anon JWT，避免殘留 user JWT 造成 401。 */
 function anonHeaders(): Record<string, string> {
   return {
