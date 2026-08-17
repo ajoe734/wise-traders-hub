@@ -28,7 +28,8 @@ DECLARE
   v_event uuid := pg_catalog.gen_random_uuid();
   v_action text := p->>'action';
   v_expert uuid := (p->>'expert_id')::uuid;
-  v_ikey text := p->>'instrument_key';
+  -- D5: instrument identity is derived, never trusted from the caller
+  v_ikey text := public.economic_instrument_key(p->>'market', coalesce(p->>'instrument', p->>'instrument_key'));
   v_market text := p->>'market';
   v_cur text := coalesce(p->>'currency','TWD');
   v_qty int := coalesce((p->>'qty')::int, 0);

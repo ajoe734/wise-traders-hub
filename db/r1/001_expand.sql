@@ -39,15 +39,20 @@ ALTER TABLE public.expert_signals
   ADD COLUMN IF NOT EXISTS logical_effect_id uuid
   GENERATED ALWAYS AS (id) STORED;
 
+-- ---------------------------------------------------------------- 3b. instrument key function
+-- Single source of truth for instrument identity: the generated column AND the
+-- canonical writer must derive the key the same way, or tokens never match.
+CREATE OR REPLACE FUNCTION public.economic_instrument_key(p_market text, p_instrument text)
+RETURNS text LANGUAGE sql IMMUTABLE STRICT PARALLEL SAFE AS
+$$ SELECT coalesce(nullif(upper(btrim(p_market)),''),'?')||'|'||upper(btrim(p_instrument)) $$;
+
 -- ---------------------------------------------------------------- 4. trade_records
 -- instrument_key: canonical instrument identity. Market is nullable in production,
 -- so unknown market degrades to '?' rather than NULL: default-deny happens in the
 -- guard, never by silently collapsing two different instruments into one key.
 ALTER TABLE public.trade_records
   ADD COLUMN IF NOT EXISTS instrument_key text
-  GENERATED ALWAYS AS (
-    coalesce(nullif(upper(market), ''), '?') || '|' || upper(btrim(instrument))
-  ) STORED;
+  GENERATED ALWAYS AS (public.economic_instrument_key(market, instrument)) STORED;
 
 -- guard-owned provenance (written only by app_ledger.trade_records_economic_guard)
 ALTER TABLE public.trade_records ADD COLUMN IF NOT EXISTS last_event_id uuid;
