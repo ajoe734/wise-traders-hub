@@ -115,6 +115,63 @@ BEGIN
           'unauthorized_trade_records_mutation');
 END $$;
 
+-- a token with the correct before_hash but a wrong after_hash cannot authorise the write
+DO $$
+DECLARE v_ev uuid := gen_random_uuid(); v_row uuid; v_before text;
+        v_mut uuid; v_msg text; v_state text; v_pass boolean := false;
+BEGIN
+  SELECT id INTO v_row FROM public.trade_records
+   WHERE status='open' AND expert_id='aaaaaaaa-0000-0000-0000-000000000001' LIMIT 1;
+  SELECT app_ledger.tr_econ_hash(r.*) INTO v_before FROM public.trade_records r WHERE r.id=v_row;
+
+  INSERT INTO app_ledger.economic_effect(
+      event_id, logical_effect_id, expert_id, market, instrument, instrument_key, currency,
+      action, qty_delta, cash_delta, effective_at, provenance, reason, actor, actor_via,
+      state, expected_mutation_count)
+  VALUES (v_ev, gen_random_uuid(), 'aaaaaaaa-0000-0000-0000-000000000001',
+      'TW','2330','2330:TW','TWD','add', 1, NULL, now(), 'signal_execution',
+      'hash tamper','test','test','applied', 1);
+
+  INSERT INTO app_ledger.effect_projection_mutation(
+      event_id, mutation_seq, target_table, target_row_id, op, row_role, expert_id,
+      market, instrument_key, currency, qty_delta, before_hash, after_hash)
+  VALUES (v_ev, 1, 'trade_records', v_row, 'update', 'open_position',
+      'aaaaaaaa-0000-0000-0000-000000000001','TW','2330:TW','TWD', 1,
+      v_before, 'deadbeef_not_the_real_after_hash')
+  RETURNING mutation_id INTO v_mut;
+
+  BEGIN
+    UPDATE public.trade_records SET quantity = quantity + 1 WHERE id = v_row;
+  EXCEPTION WHEN OTHERS THEN
+    GET STACKED DIAGNOSTICS v_msg = MESSAGE_TEXT, v_state = RETURNED_SQLSTATE;
+    v_pass := v_state='P0001' AND position('unauthorized_trade_records_mutation' in v_msg) > 0;
+  END;
+  INSERT INTO t.result(name,passed,detail,kind,expected_sqlstate,actual_sqlstate,expected_needle)
+  VALUES ('NEG.hash.after_hash_mismatch_rejected', v_pass,
+          coalesce(v_state||': '||v_msg,'no error raised'), 'negative','P0001', v_state,
+          'unauthorized_trade_records_mutation');
+
+  -- control: the same token with the correct after_hash DOES authorise exactly this write
+  UPDATE app_ledger.effect_projection_mutation SET after_hash = (
+    SELECT app_ledger.tr_econ_hash(x.*) FROM (
+      SELECT r.* FROM public.trade_records r WHERE r.id=v_row) x)
+   WHERE mutation_id = v_mut;
+  UPDATE app_ledger.effect_projection_mutation SET after_hash = (
+    SELECT pg_catalog.md5(((pg_catalog.to_jsonb(r) || jsonb_build_object('quantity', r.quantity+1))
+      - 'current_price' - 'price_updated_at' - 'updated_at'
+      - 'last_event_id' - 'last_projection_mutation_id')::text)
+      FROM public.trade_records r WHERE r.id=v_row)
+   WHERE mutation_id = v_mut;
+  BEGIN
+    UPDATE public.trade_records SET quantity = quantity + 1 WHERE id = v_row;
+    PERFORM t.ok('POS.hash.correct_after_hash_authorises_write',
+      (SELECT consumed FROM app_ledger.effect_projection_mutation WHERE mutation_id=v_mut));
+  EXCEPTION WHEN OTHERS THEN
+    GET STACKED DIAGNOSTICS v_msg = MESSAGE_TEXT, v_state = RETURNED_SQLSTATE;
+    PERFORM t.ok('POS.hash.correct_after_hash_authorises_write', false, v_state||': '||v_msg);
+  END;
+END $$;
+
 -- ---------------------------------------------------------------- (4) per-expert pointer
 SELECT t.expect_error('NEG.pointer.version_regression',
   $$UPDATE public.public_projection_active
