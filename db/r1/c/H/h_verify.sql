@@ -110,12 +110,11 @@ SELECT pg_temp.chk('H2-3-rls-enabled-no-policy',
   (SELECT relrowsecurity FROM pg_class WHERE oid='public.symbol_demand_registry'::regclass)
   AND (SELECT count(*) FROM pg_policies WHERE tablename='symbol_demand_registry') = 0);
 
+SELECT count(*) FILTER (WHERE status='registered') AS reg
+  INTO TEMP h2_4 FROM public.register_symbol_demand(ARRAY['2330','0050','NOPE1','ZZZZ9','053040']);
 SELECT pg_temp.chk('H2-4-whitelist-only',
-  (SELECT count(*) FROM public.register_symbol_demand(ARRAY['2330','0050','NOPE1','ZZZZ9','053040'])
-    WHERE status='registered') = 2
-  AND (SELECT count(*) FROM public.symbol_demand_registry) = 2,
-  'registered='||(SELECT count(*) FROM public.symbol_demand_registry)::text
-  ||' rows='||(SELECT coalesce(string_agg(symbol||':'||status,','),'') FROM public.register_symbol_demand(ARRAY['2330','0050','NOPE1','ZZZZ9','053040'])));
+  (SELECT reg FROM h2_4) = 2 AND (SELECT count(*) FROM public.symbol_demand_registry) = 2,
+  'garbage + non-eligible warrants must not be stored');
 
 SELECT pg_temp.chk('H2-5-unsupported-reported',
   (SELECT count(*) FROM public.register_symbol_demand(ARRAY['NOPE1','AAPL'])
