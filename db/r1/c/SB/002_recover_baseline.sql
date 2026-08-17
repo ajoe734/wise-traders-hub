@@ -181,3 +181,39 @@ BEGIN
   );
 END;
 $function$
+
+-- ---------------------------------------------------------------------------
+-- Baseline (production, byte-for-byte from db/r1/c/S0/backup/restore/030_functions.sql)
+-- ---------------------------------------------------------------------------
+CREATE OR REPLACE FUNCTION public.recover_stale_bsr_queue_jobs(p_stale_minutes integer DEFAULT 30, p_max_attempts integer DEFAULT 5)
+ RETURNS jsonb
+ LANGUAGE plpgsql
+ SECURITY DEFINER
+ SET search_path TO 'public'
+AS $function$
+DECLARE v_running int := 0; v_retry int := 0;
+BEGIN
+  WITH r AS (
+    UPDATE public.tw_bsr_sync_queue q
+       SET status = 'pending', next_run_at = now()
+     WHERE q.status = 'running'
+       AND q.started_at IS NOT NULL
+       AND q.started_at < now() - make_interval(mins => p_stale_minutes)
+    RETURNING 1
+  ) SELECT count(*) INTO v_running FROM r;
+
+  WITH f AS (
+    UPDATE public.tw_bsr_sync_queue q
+       SET status = 'pending',
+           next_run_at = now() + make_interval(mins => LEAST(60, GREATEST(1, q.attempts) * 5))
+     WHERE q.status IN ('failed','skipped')
+       AND q.attempts < LEAST(q.max_attempts, p_max_attempts)
+       AND EXISTS (
+         SELECT 1 FROM public.checkup_prefetch_universe() u
+          WHERE u.code = q.stock_id AND u.supported
+       )
+    RETURNING 1
+  ) SELECT count(*) INTO v_retry FROM f;
+
+  RETURN jsonb_build_object('running_reset', v_running, 'retry_requeued', v_retry);
+END; $function$;
