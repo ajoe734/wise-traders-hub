@@ -9,6 +9,9 @@ import { Input } from '@/components/ui/input';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { supabase } from '@/integrations/supabase/client';
 import { useFactsheetSource } from '@/hooks/admin/useFactsheetSource';
+import { useProjectionStatus } from '@/hooks/useProjectionStatus';
+import { canExportFactsheet } from '@/contracts/publicProjection';
+import { PerformanceReviewNotice } from '@/components/expert/PerformanceReviewNotice';
 import {
   buildFactsheet, fmtOrNA, RANGE_LABEL, tradeDateBounds, validateCustomRange,
   type FactsheetRange,
@@ -45,7 +48,7 @@ export function FactsheetExportDialog({ expertSlug }: { expertSlug: string | und
 
 
   const handleExport = async () => {
-    if (!fs) return;
+    if (!fs || !exportAllowed) return;
     setBusy(true);
     const toastId = toast.loading('驗證權限並產生 PDF 中…');
     try {
@@ -62,6 +65,10 @@ export function FactsheetExportDialog({ expertSlug }: { expertSlug: string | und
     }
   };
 
+  // R1-P: a scope under review may not be exported at all.
+  const projection = useProjectionStatus((data as any)?.expert?.id);
+  const exportAllowed = canExportFactsheet(projection);
+
   const m = fs?.metrics;
 
   return (
@@ -73,6 +80,7 @@ export function FactsheetExportDialog({ expertSlug }: { expertSlug: string | und
         </Button>
       </DialogTrigger>
       <DialogContent className="max-w-lg max-h-[85dvh] overflow-y-auto" data-testid="factsheet-export-dialog">
+        <PerformanceReviewNotice status={projection} className="mb-2" />
         <DialogHeader>
           <DialogTitle>資料口徑預覽</DialogTitle>
           <DialogDescription>
@@ -161,7 +169,7 @@ export function FactsheetExportDialog({ expertSlug }: { expertSlug: string | und
 
         <DialogFooter>
           <Button variant="ghost" onClick={() => setOpen(false)}>取消</Button>
-          <Button onClick={handleExport} disabled={!fs || busy} data-testid="factsheet-export-confirm">
+          <Button onClick={handleExport} disabled={!fs || busy || !exportAllowed} data-testid="factsheet-export-confirm">
             {busy && <Loader2 className="h-3.5 w-3.5 animate-spin mr-1.5" />}
             產生 PDF
           </Button>
