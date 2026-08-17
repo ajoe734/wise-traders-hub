@@ -81,8 +81,12 @@ BEGIN
   DELETE FROM public.holdings_fix_proposals WHERE id = v_id;
   SELECT id INTO v_exp FROM public.experts WHERE slug = 'acl-probe-expert';
   IF v_exp IS NULL THEN
-    INSERT INTO public.experts(user_id, slug, name, role, status)
-    VALUES (v_uid, 'acl-probe-expert', 'ACL Probe Expert', 'advisor', 'active')
+    -- starting_capital must cover the seed signal or enforce_signal_capital_limit
+    -- refuses it with CAPITAL_EXCEEDED.
+    INSERT INTO public.experts(user_id, slug, name, role, status, starting_capital,
+                               currency, base_currency, asset_class)
+    VALUES (v_uid, 'acl-probe-expert', 'ACL Probe Expert', 'advisor', 'active',
+            1000000, 'TWD', 'TWD', 'tw_stock')
     RETURNING id INTO v_exp;
   END IF;
   IF NOT EXISTS (SELECT 1 FROM public.trade_records tr
