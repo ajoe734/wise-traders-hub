@@ -9,9 +9,14 @@ Scope (writer surface reachable by an untrusted caller):
 Keep-list — these stay reachable by `authenticated` because a browser session
 calls them directly today; each one carries its own in-body authorisation guard
 (or is pinned as a known follow-up):
-  public.enqueue_bsr_backfill(text,integer)      drawer backfill button, has_role guard
-  public.finmind_pool_set_budget(text,integer)   admin console, has_role guard
-  public.finmind_pool_reset()                    admin console, NO in-body guard (FOLLOW-UP)
+  public.enqueue_bsr_backfill(text,integer)      drawer backfill button, has_role/owner guard
+  public.finmind_pool_set_budget(text,integer)   admin console, has_role('company_admin') guard
+
+public.finmind_pool_reset() is NOT kept: it has no in-body guard, so any signed-in
+visitor can reset the FinMind quota pools. It is hardened to service_role-only and
+replaced by public.finmind_pool_reset_v2(), an identical body behind the same
+has_role('company_admin') guard that finmind_pool_set_budget uses. The v2 object is
+emitted into a separate file (h_acl_v2.sql) so the ACL migration stays ACL-only.
 
 Everything else becomes service_role-only. Rollback re-issues the exact aclitem
 set observed before the migration, so the ACL fingerprint returns bit-for-bit.
@@ -27,7 +32,6 @@ FAMILY = r'(bsr|chip|rollup|queue|backfill|enqueue|claim|prefetch|finmind|conver
 KEEP_AUTHENTICATED = {
     "public.enqueue_bsr_backfill(p_stock_id text, p_days integer)",
     "public.finmind_pool_set_budget(_pool text, _budget integer)",
-    "public.finmind_pool_reset()",
 }
 
 INVENTORY_SQL = """
@@ -57,6 +61,40 @@ SELECT json_agg(x ORDER BY x->>'sig')::text FROM (
       OR has_function_privilege('authenticated', p.oid, 'EXECUTE'))
 ) s
 """ % FAMILY
+
+
+V2_SQL = """
+-- guarded replacement for the unguarded public.finmind_pool_reset()
+CREATE OR REPLACE FUNCTION public.finmind_pool_reset_v2()
+RETURNS jsonb
+LANGUAGE plpgsql
+SECURITY DEFINER
+SET search_path TO 'public'
+AS $fn$
+DECLARE
+  _today DATE := (now() AT TIME ZONE 'Asia/Taipei')::date;
+BEGIN
+  -- service_role (edge functions / cron) bypasses; every other caller must be company_admin
+  -- NOTE: inside SECURITY DEFINER current_user is the owner, so the bypass has to
+  -- look at the *session* role and the JWT role claim instead.
+  IF NOT (pg_has_role(session_user, 'service_role', 'MEMBER')
+          OR coalesce(nullif(current_setting('request.jwt.claim.role', true), ''),
+                      (nullif(current_setting('request.jwt.claims', true), '')::json->>'role')) = 'service_role'
+          OR public.has_role(auth.uid(), 'company_admin')) THEN
+    RAISE EXCEPTION 'unauthorized';
+  END IF;
+  UPDATE public.finmind_quota_pools
+     SET used_today = 0, reset_at = _today, updated_at = now()
+   WHERE reset_at < _today;
+  DELETE FROM public.finmind_quota_ledger WHERE created_at < now() - INTERVAL '7 days';
+  RETURN jsonb_build_object('ok', true, 'reset_at', _today);
+END;
+$fn$;
+REVOKE ALL ON FUNCTION public.finmind_pool_reset_v2() FROM PUBLIC, anon;
+GRANT EXECUTE ON FUNCTION public.finmind_pool_reset_v2() TO authenticated, service_role;
+"""
+
+V2_ROLLBACK_SQL = "DROP FUNCTION IF EXISTS public.finmind_pool_reset_v2();\n"
 
 
 def psql(conn, sql):
@@ -104,6 +142,8 @@ def main():
         migrate.append("REVOKE EXECUTE ON FUNCTION %s FROM PUBLIC, anon, authenticated;" % sig)
         migrate.append("GRANT EXECUTE ON FUNCTION %s TO service_role;" % sig)
 
+    open(os.path.join(outdir, "h_acl_v2.sql"), "w").write(V2_SQL)
+    open(os.path.join(outdir, "h_acl_v2_rollback.sql"), "w").write(V2_ROLLBACK_SQL)
     open(os.path.join(outdir, "h_acl_migrate.sql"), "w").write("\n".join(migrate) + "\n")
     open(os.path.join(outdir, "h_acl_rollback.sql"), "w").write("\n".join(rollback) + "\n")
     json.dump({"in_scope": len(inv), "hardened": hardened, "kept_authenticated": kept},

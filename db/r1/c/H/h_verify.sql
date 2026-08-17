@@ -162,6 +162,87 @@ SELECT pg_temp.chk('H2-12-master-before-registry',
           JOIN pg_proc p ON p.oid=d.objid
           WHERE p.proname='register_symbol_demand') OR true);
 
+
+--------------------------------------------------- H2 cap/decay exact evidence
+-- Every row records: initial value -> operation -> expected -> actual.
+CREATE TEMP TABLE cap_ev(seq int, test_id text, item text, initial text, operation text, expected text, actual text);
+CREATE OR REPLACE FUNCTION pg_temp.ev(p_seq int, p_id text, p_item text, p_init text, p_op text, p_exp text, p_act text)
+RETURNS void LANGUAGE plpgsql AS $$ BEGIN
+  INSERT INTO cap_ev VALUES (p_seq,p_id,p_item,p_init,p_op,p_exp,p_act);
+  PERFORM pg_temp.chk(p_id, p_exp = p_act, p_item||' expected='||p_exp||' actual='||p_act);
+END $$;
+
+DO $$
+DECLARE v0 int; v1 int; n int; q0 bigint; q1 bigint; rows0 int; rows1 int; failed boolean;
+BEGIN
+  -- C1 single registration from a known count
+  UPDATE public.symbol_demand_registry SET request_count = 0 WHERE symbol='2330';
+  SELECT request_count INTO v0 FROM public.symbol_demand_registry WHERE symbol='2330';
+  PERFORM public.register_symbol_demand(ARRAY['2330']);
+  SELECT request_count INTO v1 FROM public.symbol_demand_registry WHERE symbol='2330';
+  PERFORM pg_temp.ev(1,'H2-C1-single-increment','request_count(2330)',v0::text,'register_symbol_demand([2330]) x1','1',v1::text);
+
+  -- C2 flood of 400 registrations: counts up, no new rows
+  SELECT count(*) INTO rows0 FROM public.symbol_demand_registry;
+  SELECT request_count INTO v0 FROM public.symbol_demand_registry WHERE symbol='2330';
+  FOR i IN 1..400 LOOP PERFORM public.register_symbol_demand(ARRAY['2330']); END LOOP;
+  SELECT request_count INTO v1 FROM public.symbol_demand_registry WHERE symbol='2330';
+  SELECT count(*) INTO rows1 FROM public.symbol_demand_registry;
+  PERFORM pg_temp.ev(2,'H2-C2-flood-400','request_count(2330)',v0::text,'register_symbol_demand([2330]) x400',(v0+400)::text,v1::text);
+  PERFORM pg_temp.ev(3,'H2-C2b-flood-no-new-rows','registry rowcount',rows0::text,'same 400 registrations',rows0::text,rows1::text);
+
+  -- C3 9999 -> cap 10000
+  UPDATE public.symbol_demand_registry SET request_count = 9999 WHERE symbol='2330';
+  PERFORM public.register_symbol_demand(ARRAY['2330']);
+  SELECT request_count INTO v1 FROM public.symbol_demand_registry WHERE symbol='2330';
+  PERFORM pg_temp.ev(4,'H2-C3-cap-hit','request_count(2330)','9999','register x1','10000',v1::text);
+
+  -- C4 at cap: further registrations do not increase
+  FOR i IN 1..20 LOOP PERFORM public.register_symbol_demand(ARRAY['2330']); END LOOP;
+  SELECT request_count INTO v1 FROM public.symbol_demand_registry WHERE symbol='2330';
+  PERFORM pg_temp.ev(5,'H2-C4-cap-saturated','request_count(2330)','10000','register x20','10000',v1::text);
+
+  -- C5 daily decay x0.9 (single pass)
+  UPDATE public.symbol_demand_registry
+     SET request_count = 1000, last_requested_at = now() - interval '2 days' WHERE symbol='2330';
+  PERFORM public.decay_symbol_demand();
+  SELECT request_count INTO v1 FROM public.symbol_demand_registry WHERE symbol='2330';
+  PERFORM pg_temp.ev(6,'H2-C5-decay-0.9','request_count(2330)','1000','decay_symbol_demand() once (idle 2d)','900',v1::text);
+
+  -- C6 30 days idle -> row removed (count zeroed out of the fast lane)
+  UPDATE public.symbol_demand_registry
+     SET last_requested_at = now() - interval '31 days', source_class='drawer' WHERE symbol='2330';
+  PERFORM public.decay_symbol_demand();
+  SELECT count(*) INTO rows1 FROM public.symbol_demand_registry WHERE symbol='2330';
+  PERFORM pg_temp.ev(7,'H2-C6-30d-purge','rows(2330)','1','decay_symbol_demand() after 31d idle','0',rows1::text);
+
+  -- C7 >30 symbols rejected
+  failed := false;
+  BEGIN PERFORM public.register_symbol_demand((SELECT array_agg('X'||g::text) FROM generate_series(1,31) g));
+  EXCEPTION WHEN OTHERS THEN failed := true; END;
+  PERFORM pg_temp.ev(8,'H2-C7-batch-limit-31','exception raised','31 symbols','register_symbol_demand(31 symbols)','true',failed::text);
+  failed := false;
+  BEGIN PERFORM public.register_symbol_demand((SELECT array_agg('X'||g::text) FROM generate_series(1,30) g));
+  EXCEPTION WHEN OTHERS THEN failed := true; END;
+  PERFORM pg_temp.ev(9,'H2-C7b-batch-limit-30-ok','exception raised','30 symbols','register_symbol_demand(30 symbols)','false',failed::text);
+
+  -- C8 non-whitelisted symbol: 0 registry rows, 0 queue rows
+  SELECT count(*) INTO q0 FROM public.tw_bsr_sync_queue;
+  SELECT count(*) INTO rows0 FROM public.symbol_demand_registry;
+  PERFORM public.register_symbol_demand(ARRAY['NOPE1','AAPL','053040','9999']);
+  SELECT count(*) INTO rows1 FROM public.symbol_demand_registry;
+  SELECT count(*) INTO q1 FROM public.tw_bsr_sync_queue;
+  PERFORM pg_temp.ev(10,'H2-C8-unsupported-no-rows','registry rowcount',rows0::text,'register 4 non-whitelisted symbols',rows0::text,rows1::text);
+  PERFORM pg_temp.ev(11,'H2-C8b-unsupported-no-queue','tw_bsr_sync_queue rowcount',q0::text,'same 4 non-whitelisted symbols',q0::text,q1::text);
+END $$;
+
+\pset format aligned
+\pset tuples_only off
+\echo '--- H2 cap/decay evidence table (initial -> operation -> expected -> actual) ---'
+SELECT seq, test_id, item, initial, operation, expected, actual,
+       CASE WHEN expected = actual THEN 'PASS' ELSE 'FAIL' END AS result
+FROM cap_ev ORDER BY seq;
+
 --------------------------------------------------------------------- report
 \pset format unaligned
 \pset tuples_only on
