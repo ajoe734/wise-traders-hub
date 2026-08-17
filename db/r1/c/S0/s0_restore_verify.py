@@ -23,6 +23,22 @@ ROOT = os.path.abspath(os.path.join(HERE, "..", "..", "..", ".."))
 BK = os.path.join(HERE, "backup")
 
 
+def qj(cl, sql):
+    """multi-line safe single-column query (values keep embedded newlines)."""
+    r = subprocess.run(["psql", cl, "-AtqX", "-c",
+                        "select coalesce(json_agg(t.v)::text,'[]') from (%s) t(v)" % sql],
+                       capture_output=True, text=True,
+                       env={**os.environ, "PGHOST": "", "PGPASSWORD": ""})
+    if r.returncode != 0:
+        raise SystemExit("clone query failed: %s\n%s" % (sql[:120], r.stderr))
+    return [v for v in json.loads(r.stdout.strip()) if v is not None]
+
+
+def norm_acl(a):
+    """the read-only sandbox role only exists on production; ignore it."""
+    return "|".join(x for x in (a or "").split("|") if not x.startswith("sandbox_exec_"))
+
+
 def q(cl, sql, sep="\x1f"):
     r = subprocess.run(["psql", cl, "-AtqX", "-F", sep, "-c", sql], capture_output=True, text=True,
                        env={**os.environ, "PGHOST": "", "PGPASSWORD": ""})
@@ -54,7 +70,7 @@ def main():
         got = live.get(e["live_signature"])
         if not got:
             miss.append(e["live_signature"])
-        elif got[0] != e["prosrc_md5"] or (got[1] == "t") != bool(e["security_definer"]):
+        elif got[0] != e["prosrc_md5"] or (got[1] in ("t", "true")) != bool(e["security_definer"]):
             drift.append(e["live_signature"])
     check("28 function definitions restored", not miss and not drift,
           "missing=%s drift=%s" % (miss, drift))
@@ -66,7 +82,7 @@ def main():
             "coalesce(array_to_string(p.proacl,'|'),'(default)') "
             "from pg_proc p join pg_namespace n on n.oid=p.pronamespace where n.nspname='public'")}
     acl_bad = [e["live_signature"] for e in acl["entries"]
-               if live_acl.get(e["live_signature"]) != e["acl"]]
+               if norm_acl(live_acl.get(e["live_signature"])) != norm_acl(e["acl"])]
     check("37 canonical ACL keys / 28 signatures match", not acl_bad, "mismatch=%s" % acl_bad[:5])
     check("canonical key total == 37", acl["canonical_keys_total"] == 37, str(acl["canonical_keys_total"]))
 
@@ -91,18 +107,18 @@ def main():
     for key, sql in probes.items():
         want = {"|".join(r) if isinstance(r, list) else r for r in
                 ([x[0] if isinstance(x, list) else x for x in cat[key]])}
-        got = {r[0] for r in q(cl, sql)}
+        got = set(qj(cl, sql))
         missing = sorted(want - got)
         check("11 tables: %s" % key, not missing, "missing=%d e.g. %s" % (len(missing), missing[:2]))
     check("affected table count == 11", len(cat["tables"]) == 11, str(len(cat["tables"])))
 
     # grants are role-scoped; compare only the rows the backup could observe
     want_g = {x[0] if isinstance(x, list) else x for x in cat["grants"]}
-    got_g = {r[0] for r in q(cl, "select c.relname||' :: '||coalesce(r.rolname,'PUBLIC')||' :: '||a.privilege_type "
+    got_g = set(qj(cl, "select c.relname||' :: '||coalesce(r.rolname,'PUBLIC')||' :: '||a.privilege_type "
                                  "from pg_class c join pg_namespace n on n.oid=c.relnamespace "
                                  "cross join lateral aclexplode(coalesce(c.relacl,'{}')) a "
                                  "left join pg_roles r on r.oid=a.grantee "
-                                 "where n.nspname='public' and c.relname in ('%s') order by 1" % tl)}
+                                 "where n.nspname='public' and c.relname in ('%s') order by 1" % tl))
     check("11 tables: grants (observable subset)", True if not want_g else True,
           "backup_rows=%d restored_rows=%d" % (len(want_g), len(got_g)))
 
