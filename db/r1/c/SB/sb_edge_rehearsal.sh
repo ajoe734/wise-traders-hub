@@ -490,11 +490,13 @@ done
 # resurrect or double-write it
 open_gate
 psql "$CL" -qX -c "DELETE FROM public.tw_bsr_sync_queue" >/dev/null
-psql "$CL" -qX -c "INSERT INTO public.tw_bsr_sync_queue(stock_id, trade_date, priority, status, enqueued_by, next_run_at, locked_by, locked_at) VALUES ('2317', current_date - 5, 1, 'processing', 'edge_rehearsal_lease', now(), 'someone-else', now())" >/dev/null
+psql "$CL" -qX -c "INSERT INTO public.tw_bsr_sync_queue(stock_id, trade_date, priority, status, enqueued_by, next_run_at, started_at) VALUES ('2317', current_date - 5, 1, 'processing', 'edge_rehearsal_lease', now(), now())" >/dev/null
+LEASE_T0=$(psql "$CL" -qXAt -c "SELECT started_at FROM public.tw_bsr_sync_queue WHERE enqueued_by='edge_rehearsal_lease'")
 echo reject >"$DIR/mock_mode"
 C=$(post "$W" "$DIR/w_lease.json" '{"mode":"worker","batch":2,"budget_ms":8000}' "$CRONH")
-LEASE=$(psql "$CL" -qXAt -c "SELECT locked_by FROM public.tw_bsr_sync_queue WHERE enqueued_by='edge_rehearsal_lease'")
-chk $([ "$LEASE" = 'someone-else' ] && echo 0 || echo 1) "EB-140 a foreign lease is never stolen (locked_by=$LEASE)"
+LEASE_ST=$(psql "$CL" -qXAt -c "SELECT status FROM public.tw_bsr_sync_queue WHERE enqueued_by='edge_rehearsal_lease'")
+LEASE_T1=$(psql "$CL" -qXAt -c "SELECT started_at FROM public.tw_bsr_sync_queue WHERE enqueued_by='edge_rehearsal_lease'")
+chk $([ "$LEASE_ST" = 'processing' ] && [ "$LEASE_T1" = "$LEASE_T0" ] && echo 0 || echo 1) "EB-140 a live foreign lease is never stolen (status=$LEASE_ST started_at_changed=$([ "$LEASE_T1" = "$LEASE_T0" ] && echo no || echo yes))"
 chk $([ "$C" = 200 ] && echo 0 || echo 1) "EB-141 worker returns 200 with only foreign-leased rows (got $C)"
 
 ############################################################ G4. admin nonce replay / stale version
