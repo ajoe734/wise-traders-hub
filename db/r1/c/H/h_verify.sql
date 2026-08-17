@@ -149,11 +149,10 @@ SELECT pg_temp.chk('H2-9-registry-bounded-by-master',
   (SELECT count(*) FROM public.symbol_demand_registry)
   <= (SELECT count(*) FROM public.tw_market_symbols WHERE eligibility));
 
+UPDATE public.symbol_demand_registry SET last_requested_at = now() - interval '3 days' WHERE symbol='0050';
 SELECT pg_temp.chk('H2-10-decay',
-  (WITH x AS (UPDATE public.symbol_demand_registry SET last_requested_at = now() - interval '3 days'
-              WHERE symbol='0050' RETURNING 1)
-   SELECT count(*) FROM x) = 1
-  AND public.decay_symbol_demand() >= 1);
+  public.decay_symbol_demand() >= 1
+  AND (SELECT request_count FROM public.symbol_demand_registry WHERE symbol='0050') < 1000);
 
 SELECT pg_temp.chk('H2-11-caller-cannot-set-source',
   (SELECT source_class FROM public.symbol_demand_registry WHERE symbol='2330') = 'drawer');
