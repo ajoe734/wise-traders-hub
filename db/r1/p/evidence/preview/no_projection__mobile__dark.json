@@ -3,11 +3,12 @@
   "viewport": "390x844",
   "theme": "dark",
   "screenshot": "db/r1/p/evidence/preview/no_projection__mobile__dark.png",
-  "consoleErrors": [
+  "consoleErrors": [],
+  "injectedTransportErrors": [
     "Failed to load resource: the server responded with a status of 404 (Not Found)"
   ],
   "pageErrors": [],
   "noticeCount": 0,
   "placeholderCount": 0,
-  "bodyChars": 302
+  "bodyChars": 354
 }

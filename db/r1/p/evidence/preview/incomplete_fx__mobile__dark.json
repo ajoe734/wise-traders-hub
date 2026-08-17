@@ -4,8 +4,9 @@
   "theme": "dark",
   "screenshot": "db/r1/p/evidence/preview/incomplete_fx__mobile__dark.png",
   "consoleErrors": [],
+  "injectedTransportErrors": [],
   "pageErrors": [],
   "noticeCount": 1,
   "placeholderCount": 3,
-  "bodyChars": 314
+  "bodyChars": 327
 }

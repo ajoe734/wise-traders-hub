@@ -3,11 +3,12 @@
   "viewport": "1280x900",
   "theme": "light",
   "screenshot": "db/r1/p/evidence/preview/api_error__desktop__light.png",
-  "consoleErrors": [
+  "consoleErrors": [],
+  "injectedTransportErrors": [
     "Failed to load resource: the server responded with a status of 500 (Internal Server Error)"
   ],
   "pageErrors": [],
   "noticeCount": 1,
   "placeholderCount": 3,
-  "bodyChars": 314
+  "bodyChars": 222
 }

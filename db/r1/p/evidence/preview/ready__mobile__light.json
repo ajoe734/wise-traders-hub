@@ -4,6 +4,7 @@
   "theme": "light",
   "screenshot": "db/r1/p/evidence/preview/ready__mobile__light.png",
   "consoleErrors": [],
+  "injectedTransportErrors": [],
   "pageErrors": [],
   "noticeCount": 0,
   "placeholderCount": 0,

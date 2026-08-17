@@ -4,6 +4,7 @@
   "theme": "dark",
   "screenshot": "db/r1/p/evidence/preview/incomplete_warrant__desktop__dark.png",
   "consoleErrors": [],
+  "injectedTransportErrors": [],
   "pageErrors": [],
   "noticeCount": 1,
   "placeholderCount": 3,

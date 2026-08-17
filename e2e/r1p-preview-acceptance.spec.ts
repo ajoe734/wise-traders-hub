@@ -183,6 +183,7 @@ type Evidence = {
   theme: string;
   screenshot: string;
   consoleErrors: string[];
+  injectedTransportErrors: string[];
   pageErrors: string[];
   noticeCount: number;
   placeholderCount: number;
@@ -197,9 +198,21 @@ for (const c of CASES) {
       const label = `${c.name} · ${vp.id} · ${theme}`;
       test(`preview ${label}`, async ({ page }) => {
         const consoleErrors: string[] = [];
+        const transportErrors: string[] = [];
         const pageErrors: string[] = [];
+        // The 404/500 cases inject a deliberate non-2xx transport response; the
+        // browser always logs "Failed to load resource" for those. That log is
+        // the injected fixture, not an app error, so it is recorded separately
+        // and only tolerated for the two cases that ask for it.
+        const injectsNon2xx = c.projection === null || c.projection === 'error';
         page.on('console', (m) => {
-          if (m.type() === 'error') consoleErrors.push(m.text());
+          if (m.type() !== 'error') return;
+          const text = m.text();
+          if (injectsNon2xx && /Failed to load resource: the server responded with a status of (404|500)/.test(text)) {
+            transportErrors.push(text);
+            return;
+          }
+          consoleErrors.push(text);
         });
         page.on('pageerror', (e) => pageErrors.push(`${e.name}: ${e.message}`));
 
@@ -271,6 +284,7 @@ for (const c of CASES) {
           theme,
           screenshot: shot,
           consoleErrors,
+          injectedTransportErrors: transportErrors,
           pageErrors,
           noticeCount: await notice.count(),
           placeholderCount: await placeholder.count(),
