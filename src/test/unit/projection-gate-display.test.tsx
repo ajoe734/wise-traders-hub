@@ -39,7 +39,7 @@ function renderRows(rows: any[]) {
 
 describe('projection gate display contract', () => {
   it('case 1 — missing relation (42P01) masks numbers instead of showing 0 股', () => {
-    const status = resolveProjectionStatus(null, { code: '42P01', message: 'relation does not exist' });
+    const status = resolveProjectionStatus({ failed: true });
     expect(status.showNumbers).toBe(false);
     const gated = gatePositionRows([baseRow as unknown as Record<string, unknown>], status);
     expect(isMaskedRow(gated[0] as any)).toBe(true);
@@ -50,7 +50,7 @@ describe('projection gate display contract', () => {
   });
 
   it('case 2 — relation exists but the projection row is absent masks numbers', () => {
-    const status = resolveProjectionStatus(null, null);
+    const status = resolveProjectionStatus({ absent: true });
     expect(status.showNumbers).toBe(false);
     const gated = gatePositionRows([baseRow as unknown as Record<string, unknown>], status);
     renderRows(gated);
@@ -59,7 +59,7 @@ describe('projection gate display contract', () => {
   });
 
   it('case 3 — authorized + ready renders the real database numbers', () => {
-    const status = resolveProjectionStatus({ state: 'ready', withheld_count: 0, incomplete_count: 0, manual_review_count: 0 }, null);
+    const status = resolveProjectionStatus({ state: 'ready' });
     expect(status.showNumbers).toBe(true);
     const gated = gatePositionRows([baseRow as unknown as Record<string, unknown>], status);
     expect(isMaskedRow(gated[0] as any)).toBe(false);
@@ -69,7 +69,7 @@ describe('projection gate display contract', () => {
   });
 
   it('case 4 — a real quantity=0 position still renders 0, not the masked label', () => {
-    const status = resolveProjectionStatus({ state: 'ready', withheld_count: 0, incomplete_count: 0, manual_review_count: 0 }, null);
+    const status = resolveProjectionStatus({ state: 'ready' });
     const zero = { ...baseRow, id: 't0', symbol: '6505', name: '台塑化', quantity: 0, base_quantity: 0 };
     const gated = gatePositionRows([zero as unknown as Record<string, unknown>], status);
     expect(isMaskedRow(gated[0] as any)).toBe(false);
