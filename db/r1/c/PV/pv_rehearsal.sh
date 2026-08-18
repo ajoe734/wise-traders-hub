@@ -94,7 +94,9 @@ VFAILS=$(sed -E 's/.*failures=([0-9]+).*/\1/' <<<"$VSUM")
 CHECKS=$((CHECKS+VCHECKS)); FAILS=$((FAILS+VFAILS))
 echo "  verifier $VSUM"
 [ "$VFAILS" = 0 ] || grep -E '^FAIL\|' "$DIR/verify.out" || true
-chk $([ "$VFAILS" = 0 ] && echo 0 || echo 1) "PV-S5 SQL verifier 0 failures ($VCHECKS checks)"
+chk $([ "$VFAILS" = 0 ] && [ "$VCHECKS" -ge 29 ] && echo 0 || echo 1) "PV-S5 SQL verifier 0 failures and >=29 checks (got $VCHECKS/$VFAILS)"
+grep -E "^psql:.*ERROR" "$DIR/verify.out" >"$DIR/verify_errors.txt" || true
+chk $([ ! -s "$DIR/verify_errors.txt" ] && echo 0 || echo 1) "PV-S5b verifier ran with 0 psql errors" "$(head -3 "$DIR/verify_errors.txt")"
 
 ############################################################ data invariants after apply
 stage invariants

@@ -8,6 +8,7 @@
 \pset format unaligned
 
 CREATE TEMP TABLE pv_result(id text, name text, ok boolean, got text);
+GRANT ALL ON pv_result TO PUBLIC;
 
 CREATE OR REPLACE FUNCTION pg_temp.chk(_id text, _name text, _ok boolean, _got text DEFAULT '')
 RETURNS void LANGUAGE sql AS $$
