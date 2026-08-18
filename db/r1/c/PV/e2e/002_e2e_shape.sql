@@ -51,7 +51,10 @@ ALTER TABLE public.experts
   ADD COLUMN IF NOT EXISTS starting_capital integer,
   ADD COLUMN IF NOT EXISTS risk_preference text,
   ADD COLUMN IF NOT EXISTS operation_cycle text,
-  ADD COLUMN IF NOT EXISTS strategy_name text;
+  ADD COLUMN IF NOT EXISTS strategy_name text,
+  ADD COLUMN IF NOT EXISTS line_oa_id text,
+  ADD COLUMN IF NOT EXISTS line_channel_name text,
+  ADD COLUMN IF NOT EXISTS qr_code_url text;
 
 -- ---------------------------------------------------------------- expert_plans
 ALTER TABLE public.expert_plans
@@ -326,7 +329,37 @@ CREATE POLICY "published announcements" ON public.announcements FOR SELECT TO pu
 DROP POLICY IF EXISTS "rum insert" ON public.perf_metrics;
 CREATE POLICY "rum insert" ON public.perf_metrics FOR INSERT TO anon, authenticated WITH CHECK (true);
 
-GRANT SELECT ON public.expert_plans, public.announcements TO anon, authenticated, service_role;
+CREATE TABLE IF NOT EXISTS public.checkup_plans (
+  id uuid PRIMARY KEY DEFAULT gen_random_uuid(),
+  tier text NOT NULL DEFAULT 'basic',
+  name text NOT NULL DEFAULT 'checkup',
+  description text,
+  price_monthly integer NOT NULL DEFAULT 0,
+  price_yearly integer,
+  monthly_quota integer,
+  features jsonb DEFAULT '[]'::jsonb,
+  is_active boolean NOT NULL DEFAULT true,
+  sort_order integer,
+  created_at timestamptz NOT NULL DEFAULT now(),
+  updated_at timestamptz NOT NULL DEFAULT now(),
+  quota_period text
+);
+ALTER TABLE public.checkup_plans ENABLE ROW LEVEL SECURITY;
+DROP POLICY IF EXISTS "checkup plans readable" ON public.checkup_plans;
+CREATE POLICY "checkup plans readable" ON public.checkup_plans FOR SELECT TO public USING (true);
+
+DO $$ BEGIN
+  ALTER TABLE public.checkup_subscriptions
+    ADD CONSTRAINT checkup_subscriptions_plan_id_fkey FOREIGN KEY (plan_id)
+    REFERENCES public.checkup_plans(id);
+EXCEPTION WHEN duplicate_object THEN END $$;
+DO $$ BEGIN
+  ALTER TABLE public.payment_transactions
+    ADD CONSTRAINT payment_transactions_subscription_id_fkey FOREIGN KEY (subscription_id)
+    REFERENCES public.member_subscriptions(id);
+EXCEPTION WHEN duplicate_object THEN END $$;
+
+GRANT SELECT ON public.expert_plans, public.announcements, public.checkup_plans TO anon, authenticated, service_role;
 GRANT SELECT ON public.member_subscriptions, public.checkup_subscriptions,
   public.payment_transactions, public.remittance_orders TO authenticated, service_role;
 GRANT SELECT, INSERT, UPDATE, DELETE ON public.notifications TO authenticated, service_role;
