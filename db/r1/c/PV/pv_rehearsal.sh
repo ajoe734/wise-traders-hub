@@ -37,7 +37,9 @@ echo "### pv rehearsal run_id=$RUNID port=$PORT out=$OUT"
 
 ############################################################ preflight
 stage preflight
-if [ -s db/r1/c/H/pgbin.path ]; then PGBIN=$(cat db/r1/c/H/pgbin.path); else PGBIN=$(dirname "$(command -v initdb)"); fi
+PGBIN=""
+if [ -s db/r1/c/H/pgbin.path ] && [ -x "$(cat db/r1/c/H/pgbin.path)/initdb" ]; then PGBIN=$(cat db/r1/c/H/pgbin.path); fi
+[ -n "$PGBIN" ] || PGBIN=$(dirname "$(readlink -f "$(command -v initdb)")")
 [ -x "$PGBIN/initdb" ] || fatal "initdb missing in $PGBIN"
 export PATH="$PGBIN:$PATH"
 unset PGHOST PGPORT PGUSER PGPASSWORD PGDATABASE PGSSLMODE
