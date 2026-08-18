@@ -31,9 +31,41 @@ def psql(sql):
     return subprocess.run(["psql", PSQL_URI, "-qXAt", "-v", "ON_ERROR_STOP=1", "-c", sql],
                           capture_output=True, text=True, check=True).stdout.strip()
 
+# Current test scenario. Every console error and every >=400 response is
+# attributed to it, so positive (ready) scenarios can require zero noise while
+# negative scenarios are allowed only precisely-enumerated, test-induced 4xx.
+SCENARIO = {"name": "boot", "negative": False}
+NETFAIL = []          # [{scenario, negative, method, url, status}]
+CONSOLE = []          # [{scenario, negative, text}]
+
+
+def scenario(name, negative=False):
+    SCENARIO["name"] = name
+    SCENARIO["negative"] = negative
+
+
+def _on_console(m):
+    if m.type == "error":
+        CONSOLE.append({"scenario": SCENARIO["name"], "negative": SCENARIO["negative"],
+                        "text": m.text})
+
+
+def _on_response(r):
+    try:
+        if r.status >= 400:
+            NETFAIL.append({"scenario": SCENARIO["name"], "negative": SCENARIO["negative"],
+                            "method": r.request.method, "url": r.url, "status": r.status})
+    except Exception:
+        pass
+
+
 async def collect(page, errors):
-    page.on("console", lambda m: errors.append(f"{m.type}:{m.text}") if m.type == "error" else None)
-    page.on("pageerror", lambda e: errors.append(f"pageerror:{e}"))
+    page.on("console", lambda m: (errors.append(f"{m.type}:{m.text}") if m.type == "error" else None, _on_console(m)))
+    page.on("pageerror", lambda e: (errors.append(f"pageerror:{e}"),
+                                    CONSOLE.append({"scenario": SCENARIO["name"],
+                                                    "negative": SCENARIO["negative"],
+                                                    "text": f"pageerror:{e}"})))
+    page.on("response", _on_response)
 
 async def login(page, who):
     email, pw = USERS[who]
@@ -115,6 +147,7 @@ async def main():
         await page.screenshot(path=str(SHOTS / "e1_anon.png"))
 
         # ---------------------------------------------------------- member
+        scenario("neg_member_denied_perf", negative=True)
         await login(page, "member")
         await page.goto(f"{APP}/admin/pve-alpha/performance", wait_until="domcontentloaded")
         await page.wait_for_timeout(3000)
@@ -125,12 +158,14 @@ async def main():
         await logout(page)
 
         # ---------------------------------------------------------- teacher B → A 後台
+        scenario("neg_cross_teacher_perf", negative=True)
         await login(page, "beta")
         await page.goto(f"{APP}/admin/pve-alpha/performance", wait_until="domcontentloaded")
         await page.wait_for_timeout(3000)
         body = await page.inner_text("body")
         chk("E4", ("權限不足" in body or "找不到此專家" in body) and "SOXL" not in body,
             "老師 B 不能進入老師 A 的後台")
+        scenario("ready_beta_own_perf")
         rows_b = await perf_rows(page, "pve-beta")
         r2330 = cell(rows_b, "2330")
         chk("E5", r2330 is not None and "2,000 股" in r2330[1], "老師 B 自己的後台顯示 2330 真值數量",
@@ -140,6 +175,7 @@ async def main():
         await logout(page)
 
         # ---------------------------------------------------------- teacher A (owner)
+        scenario("ready_owner")
         await login(page, "alpha")
         rows_a = await perf_rows(page, "pve-alpha")
         await page.screenshot(path=str(SHOTS / "e7_alpha_perf.png"))
@@ -177,6 +213,7 @@ async def main():
         await page.screenshot(path=str(SHOTS / "e14_realized.png"))
 
         # ---------------------------------------------------------- 週記後台（作者/週次/內文）
+        scenario("ready_owner_signals")
         sig_owner = await signals_text(page, "pve-alpha")
         (OUT / "signals_owner.txt").write_text(sig_owner)
         await page.screenshot(path=str(SHOTS / "e16_signals_owner.png"))
@@ -214,6 +251,7 @@ async def main():
         chk("E22", patched["status"] in (200, 204) and "EDITED" in patched["text"],
             "owner 用自己的 JWT 走 RLS 寫入成功（非 service_role）", json.dumps(patched, ensure_ascii=False))
 
+        scenario("ready_save_reload")
         after_save = await signals_text(page, "pve-alpha")
         chk("E23", "PVE-W2-ALPHA-BODY-EDITED" in after_save, "save → reload 後新內容出現")
         hash_after_save = hashlib.sha256(
@@ -222,6 +260,7 @@ async def main():
 
         await logout(page)
         await login(page, "alpha")
+        scenario("ready_relogin")
         after_relogin = await signals_text(page, "pve-alpha")
         hash_relogin = hashlib.sha256(
             "".join(sorted(l for l in after_relogin.splitlines() if "PVE-W" in l)).encode()
@@ -233,6 +272,7 @@ async def main():
 
         # ---------------------------------------------------------- 老師 B 的後台不含 A 的內文
         await logout(page); await login(page, "beta")
+        scenario("ready_beta_own_signals")
         sig_beta = await signals_text(page, "pve-beta")
         chk("E25", "PVE-W1-BETA-BODY" in sig_beta and "PVE-W1-ALPHA-BODY" not in sig_beta,
             "老師 B 後台只有自己的內文")
@@ -244,6 +284,7 @@ async def main():
         (OUT / "rows_alpha_admin.json").write_text(json.dumps(rows_adm, ensure_ascii=False, indent=1))
         chk("E26", rows_adm == rows_a, "company_admin 看到與 owner 完全相同的數字",
             f"{len(rows_adm)} vs {len(rows_a)} rows")
+        scenario("ready_admin_signals")
         sig_adm = await signals_text(page, "pve-alpha")
         chk("E27", "PVE-W1-ALPHA-BODY" in sig_adm and "PVE-W2-ALPHA-BODY-EDITED" in sig_adm,
             "company_admin 看得到正確作者與兩週內文")
@@ -251,6 +292,7 @@ async def main():
         await logout(page)
 
         # ---------------------------------------------------------- fail-closed: missing relation
+        scenario("neg_drop_view", negative=True)
         psql("DROP VIEW public.public_expert_state_active")
         await login(page, "alpha")
         rows_missing = await perf_rows(page, "pve-alpha")
@@ -268,6 +310,7 @@ async def main():
         # ---------------------------------------------------------- restore + incomplete state
         subprocess.run(["psql", PSQL_URI, "-qX", "-v", "ON_ERROR_STOP=1",
                         "-f", "db/r1/c/PV/001_projection_view.sql"], check=True, capture_output=True)
+        scenario("neg_incomplete_state", negative=True)
         psql("UPDATE public.trade_records SET entry_price = NULL WHERE id = 'aaaa0003-0000-4000-a000-000000000003'")
         rows_inc = await perf_rows(page, "pve-alpha")
         inc_text = await page.inner_text("body")
@@ -277,12 +320,14 @@ async def main():
         chk("E33", "檢核中" in inc_text and "25.1" not in inc_text,
             "incomplete 顯示檢核中且不洩漏真值")
         psql("UPDATE public.trade_records SET entry_price = 130.00 WHERE id = 'aaaa0003-0000-4000-a000-000000000003'")
+        scenario("ready_restored")
         rows_back = await perf_rows(page, "pve-alpha")
         chk("E34", cell(rows_back, "SOXL") and "300 股" in cell(rows_back, "SOXL")[1],
             "state 回到 ready 後真值自動恢復")
 
         # ------------------------------------------------- /signals 欄位與存取隔離
         # 目前 session = alpha（owner）
+        scenario("ready_owner_signal_fields")
         sig_fields = await signals_text(page, "pve-alpha")
         (OUT / "signals_owner_fields.txt").write_text(sig_fields)
         await page.screenshot(path=str(SHOTS / "e36_signals_fields.png"))
@@ -299,12 +344,14 @@ async def main():
             "/signals 展開後摘要與操作理由欄位正確")
         await logout(page)
 
+        scenario("neg_anon_signals", negative=True)
         await page.goto(f"{APP}/admin/pve-alpha/signals", wait_until="domcontentloaded")
         await page.wait_for_timeout(3000)
         sig_anon = await page.inner_text("body")
         chk("E41", "PVE-W1-ALPHA-BODY" not in sig_anon and "PVE-W1-ALPHA-SUMMARY" not in sig_anon,
             "anon 在 /admin/pve-alpha/signals 看不到任何老師內文")
 
+        scenario("neg_member_signals", negative=True)
         await login(page, "member")
         await page.goto(f"{APP}/admin/pve-alpha/signals", wait_until="domcontentloaded")
         await page.wait_for_timeout(3000)
@@ -314,6 +361,7 @@ async def main():
             "一般會員被 /admin/pve-alpha/signals 拒絕")
         await logout(page)
 
+        scenario("neg_cross_teacher_signals", negative=True)
         await login(page, "beta")
         await page.goto(f"{APP}/admin/pve-alpha/signals", wait_until="domcontentloaded")
         await page.wait_for_timeout(3000)
@@ -325,11 +373,46 @@ async def main():
         await login(page, "alpha")
 
 
-        # ---------------------------------------------------------- console errors
-        app_errors = [e for e in errors if "realtime" not in e.lower() and "websocket" not in e.lower()]
+        # ---------------------------------------------------------- console / network accounting
+        scenario("accounting")
         (OUT / "console_errors.txt").write_text("\n".join(errors))
-        chk("E35", len(app_errors) == 0, "0 app console error（realtime 傳輸噪音已分類排除）",
-            "; ".join(app_errors[:3]))
+        (OUT / "console_by_scenario.json").write_text(json.dumps(CONSOLE, ensure_ascii=False, indent=1))
+        (OUT / "network_failures.json").write_text(json.dumps(NETFAIL, ensure_ascii=False, indent=1))
+
+        def is_transport_noise(t):
+            t = t.lower()
+            return ("realtime" in t) or ("websocket" in t)
+
+        pos_console = [c for c in CONSOLE if not c["negative"] and not is_transport_noise(c["text"])]
+        neg_console = [c for c in CONSOLE if c["negative"] and not is_transport_noise(c["text"])]
+        pos_net = [n for n in NETFAIL if not n["negative"]]
+        neg_net = [n for n in NETFAIL if n["negative"]]
+
+        chk("E35", len(pos_console) == 0 and len(pos_net) == 0,
+            "ready 正常場景 0 app console error 且 0 HTTP >=400",
+            f"console={[c['scenario']+':'+c['text'][:80] for c in pos_console[:3]]} net={[(n['scenario'], n['method'], n['status'], n['url'][-70:]) for n in pos_net[:5]]}")
+
+        # negative scenarios: only precisely-enumerated, test-induced 4xx allowed
+        def allowed_negative(n):
+            u, st = n["url"], n["status"]
+            if n["scenario"] == "neg_drop_view":
+                # the view was deliberately dropped -> PostgREST 404 on that relation
+                return st in (400, 404) and "public_expert_state_active" in u
+            # auth/permission denials surface as empty results (200) or 401/403;
+            # anon/member/cross-teacher must never produce 5xx or unrelated 4xx
+            return st in (401, 403) and "/rest/v1/" in u
+
+        bad_neg = [n for n in neg_net if not allowed_negative(n)]
+        chk("E44", len(bad_neg) == 0,
+            "負向場景只出現測試刻意觸發的 relation/auth 4xx（逐筆列舉）",
+            f"unexpected={[(n['scenario'], n['method'], n['status'], n['url'][-70:]) for n in bad_neg[:5]]}")
+        chk("E45", all(n["status"] < 500 for n in NETFAIL),
+            "全程沒有任何 5xx", f"{[(n['scenario'], n['status'], n['url'][-60:]) for n in NETFAIL if n['status'] >= 500][:3]}")
+        chk("E46", all(not is_transport_noise(c["text"]) or True for c in neg_console) and
+                   all(("resource" in c["text"].lower()) or ("404" in c["text"]) or ("400" in c["text"])
+                       or ("401" in c["text"]) or ("403" in c["text"]) for c in neg_console),
+            "負向場景 console 只含資源載入 4xx 噪音，無未分類錯誤",
+            f"{[c['scenario']+':'+c['text'][:80] for c in neg_console[:3]]}")
 
         await browser.close()
 
