@@ -353,6 +353,17 @@ DO $$ BEGIN
     ADD CONSTRAINT checkup_subscriptions_plan_id_fkey FOREIGN KEY (plan_id)
     REFERENCES public.checkup_plans(id);
 EXCEPTION WHEN duplicate_object THEN END $$;
+-- Exact production FK names (source: production pg_constraint, read-only):
+--   member_subscriptions_plan_id_fkey  (plan_id -> expert_plans.id ON DELETE CASCADE)
+--   payment_transactions_subscription_id_fkey (subscription_id -> member_subscriptions.id)
+--   checkup_subscriptions_plan_id_fkey (plan_id -> checkup_plans.id)
+-- PostgREST resolves embeds from these constraints; the table may already exist
+-- from the base restore, so CREATE TABLE inline REFERENCES is not enough.
+DO $$ BEGIN
+  ALTER TABLE public.member_subscriptions
+    ADD CONSTRAINT member_subscriptions_plan_id_fkey FOREIGN KEY (plan_id)
+    REFERENCES public.expert_plans(id) ON DELETE CASCADE;
+EXCEPTION WHEN duplicate_object THEN END $$;
 DO $$ BEGIN
   ALTER TABLE public.payment_transactions
     ADD CONSTRAINT payment_transactions_subscription_id_fkey FOREIGN KEY (subscription_id)
@@ -364,3 +375,22 @@ GRANT SELECT ON public.member_subscriptions, public.checkup_subscriptions,
   public.payment_transactions, public.remittance_orders TO authenticated, service_role;
 GRANT SELECT, INSERT, UPDATE, DELETE ON public.notifications TO authenticated, service_role;
 GRANT INSERT ON public.perf_metrics TO anon, authenticated, service_role;
+
+-- ------------------------------------------------- embed-contract readiness gate
+DO $$
+DECLARE missing text;
+BEGIN
+  SELECT string_agg(want, ', ') INTO missing FROM (
+    VALUES ('member_subscriptions_plan_id_fkey'),
+           ('payment_transactions_subscription_id_fkey'),
+           ('checkup_subscriptions_plan_id_fkey'),
+           ('expert_plans_expert_id_fkey')
+  ) AS t(want)
+  WHERE NOT EXISTS (SELECT 1 FROM pg_constraint WHERE conname = t.want AND contype = 'f');
+  IF missing IS NOT NULL THEN
+    RAISE EXCEPTION 'EMBED-CONTRACT-GAP missing FK: %', missing;
+  END IF;
+END $$;
+
+-- Force PostgREST to rebuild its schema cache after this DDL.
+NOTIFY pgrst, 'reload schema';
