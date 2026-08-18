@@ -1575,6 +1575,13 @@ export type Database = {
             referencedRelation: "experts_public"
             referencedColumns: ["id"]
           },
+          {
+            foreignKeyName: "expert_ai_conversations_expert_id_fkey"
+            columns: ["expert_id"]
+            isOneToOne: false
+            referencedRelation: "public_expert_state_active"
+            referencedColumns: ["expert_id"]
+          },
         ]
       }
       expert_ai_fewshots: {
@@ -1631,6 +1638,13 @@ export type Database = {
             isOneToOne: false
             referencedRelation: "experts_public"
             referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "expert_ai_fewshots_expert_id_fkey"
+            columns: ["expert_id"]
+            isOneToOne: false
+            referencedRelation: "public_expert_state_active"
+            referencedColumns: ["expert_id"]
           },
         ]
       }
@@ -1691,6 +1705,13 @@ export type Database = {
             isOneToOne: false
             referencedRelation: "experts_public"
             referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "expert_ai_index_runs_expert_id_fkey"
+            columns: ["expert_id"]
+            isOneToOne: false
+            referencedRelation: "public_expert_state_active"
+            referencedColumns: ["expert_id"]
           },
         ]
       }
@@ -1775,6 +1796,13 @@ export type Database = {
             referencedRelation: "experts_public"
             referencedColumns: ["id"]
           },
+          {
+            foreignKeyName: "expert_ai_personas_expert_id_fkey"
+            columns: ["expert_id"]
+            isOneToOne: true
+            referencedRelation: "public_expert_state_active"
+            referencedColumns: ["expert_id"]
+          },
         ]
       }
       expert_ai_training_sessions: {
@@ -1840,6 +1868,13 @@ export type Database = {
             isOneToOne: false
             referencedRelation: "experts_public"
             referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "expert_ai_training_sessions_expert_id_fkey"
+            columns: ["expert_id"]
+            isOneToOne: false
+            referencedRelation: "public_expert_state_active"
+            referencedColumns: ["expert_id"]
           },
           {
             foreignKeyName: "expert_ai_training_sessions_signal_id_fkey"
@@ -1921,6 +1956,13 @@ export type Database = {
             referencedColumns: ["id"]
           },
           {
+            foreignKeyName: "expert_knowledge_chunks_expert_id_fkey"
+            columns: ["expert_id"]
+            isOneToOne: false
+            referencedRelation: "public_expert_state_active"
+            referencedColumns: ["expert_id"]
+          },
+          {
             foreignKeyName: "expert_knowledge_chunks_training_session_id_fkey"
             columns: ["training_session_id"]
             isOneToOne: false
@@ -1977,6 +2019,13 @@ export type Database = {
             isOneToOne: false
             referencedRelation: "experts_public"
             referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "expert_limit_up_hits_expert_id_fkey"
+            columns: ["expert_id"]
+            isOneToOne: false
+            referencedRelation: "public_expert_state_active"
+            referencedColumns: ["expert_id"]
           },
           {
             foreignKeyName: "expert_limit_up_hits_trade_record_id_fkey"
@@ -2038,6 +2087,13 @@ export type Database = {
             isOneToOne: true
             referencedRelation: "experts_public"
             referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "expert_line_channels_expert_id_fkey"
+            columns: ["expert_id"]
+            isOneToOne: true
+            referencedRelation: "public_expert_state_active"
+            referencedColumns: ["expert_id"]
           },
         ]
       }
@@ -2105,6 +2161,13 @@ export type Database = {
             referencedRelation: "experts_public"
             referencedColumns: ["id"]
           },
+          {
+            foreignKeyName: "expert_plans_expert_id_fkey"
+            columns: ["expert_id"]
+            isOneToOne: false
+            referencedRelation: "public_expert_state_active"
+            referencedColumns: ["expert_id"]
+          },
         ]
       }
       expert_reason_templates: {
@@ -2146,6 +2209,13 @@ export type Database = {
             isOneToOne: false
             referencedRelation: "experts_public"
             referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "expert_reason_templates_expert_id_fkey"
+            columns: ["expert_id"]
+            isOneToOne: false
+            referencedRelation: "public_expert_state_active"
+            referencedColumns: ["expert_id"]
           },
         ]
       }
@@ -2254,6 +2324,13 @@ export type Database = {
             referencedRelation: "experts_public"
             referencedColumns: ["id"]
           },
+          {
+            foreignKeyName: "expert_signal_templates_expert_id_fkey"
+            columns: ["expert_id"]
+            isOneToOne: false
+            referencedRelation: "public_expert_state_active"
+            referencedColumns: ["expert_id"]
+          },
         ]
       }
       expert_signals: {
@@ -2361,6 +2438,13 @@ export type Database = {
             isOneToOne: false
             referencedRelation: "experts_public"
             referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "expert_signals_expert_id_fkey"
+            columns: ["expert_id"]
+            isOneToOne: false
+            referencedRelation: "public_expert_state_active"
+            referencedColumns: ["expert_id"]
           },
           {
             foreignKeyName: "expert_signals_plan_id_fkey"
@@ -2849,6 +2933,13 @@ export type Database = {
             referencedRelation: "experts_public"
             referencedColumns: ["id"]
           },
+          {
+            foreignKeyName: "holdings_fix_proposals_expert_id_fkey"
+            columns: ["expert_id"]
+            isOneToOne: false
+            referencedRelation: "public_expert_state_active"
+            referencedColumns: ["expert_id"]
+          },
         ]
       }
       institutional_new_stock_queue: {
@@ -3174,6 +3265,13 @@ export type Database = {
             referencedRelation: "experts_public"
             referencedColumns: ["id"]
           },
+          {
+            foreignKeyName: "line_binding_codes_expert_id_fkey"
+            columns: ["expert_id"]
+            isOneToOne: false
+            referencedRelation: "public_expert_state_active"
+            referencedColumns: ["expert_id"]
+          },
         ]
       }
       line_login_nonces: {
@@ -3368,6 +3466,13 @@ export type Database = {
             isOneToOne: false
             referencedRelation: "experts_public"
             referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "member_line_bindings_expert_id_fkey"
+            columns: ["expert_id"]
+            isOneToOne: false
+            referencedRelation: "public_expert_state_active"
+            referencedColumns: ["expert_id"]
           },
         ]
       }
@@ -4583,6 +4688,13 @@ export type Database = {
             referencedColumns: ["id"]
           },
           {
+            foreignKeyName: "trade_records_expert_id_fkey"
+            columns: ["expert_id"]
+            isOneToOne: false
+            referencedRelation: "public_expert_state_active"
+            referencedColumns: ["expert_id"]
+          },
+          {
             foreignKeyName: "trade_records_signal_id_fkey"
             columns: ["signal_id"]
             isOneToOne: false
@@ -5712,6 +5824,13 @@ export type Database = {
             referencedRelation: "experts_public"
             referencedColumns: ["id"]
           },
+          {
+            foreignKeyName: "expert_line_channels_expert_id_fkey"
+            columns: ["expert_id"]
+            isOneToOne: true
+            referencedRelation: "public_expert_state_active"
+            referencedColumns: ["expert_id"]
+          },
         ]
       }
       experts_public: {
@@ -5838,6 +5957,13 @@ export type Database = {
             referencedRelation: "experts_public"
             referencedColumns: ["id"]
           },
+          {
+            foreignKeyName: "member_line_bindings_expert_id_fkey"
+            columns: ["expert_id"]
+            isOneToOne: false
+            referencedRelation: "public_expert_state_active"
+            referencedColumns: ["expert_id"]
+          },
         ]
       }
       payment_providers_safe: {
@@ -5912,6 +6038,16 @@ export type Database = {
           created_at?: string | null
           display_name?: string | null
           user_id?: string | null
+        }
+        Relationships: []
+      }
+      public_expert_state_active: {
+        Row: {
+          expert_id: string | null
+          incomplete_count: number | null
+          manual_review_count: number | null
+          state: string | null
+          withheld_count: number | null
         }
         Relationships: []
       }

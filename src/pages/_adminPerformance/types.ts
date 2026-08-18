@@ -21,6 +21,8 @@ export interface PerfRow {
   quantity_unit: string;
   /** trade_records.quantity 的原始 base 數量（台股恆為股數；期權/期貨為口；crypto 為顆）。 */
   base_quantity?: number | null;
+  /** 由 projection gate 標記：經濟欄位被遮蔽，UI 必須顯示「資料暫時無法取得」而非 0。 */
+  under_review?: boolean;
   status: string;
   /** 該持倉的計價幣別（TWD / USD），由 expert.currency 帶入 */
   currency?: Currency;
