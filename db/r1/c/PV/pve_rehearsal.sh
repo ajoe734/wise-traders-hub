@@ -76,6 +76,10 @@ chk $([ ! -s "$DIR/schema_errors.txt" ] && echo 0 || echo 1) "PVE-01 clone schem
 
 psql "$CL" -qX -v ON_ERROR_STOP=1 >>"$DIR/schema.log" 2>&1 <<SQL
 CREATE ROLE authenticator LOGIN NOINHERIT PASSWORD 'pve';
+-- GoTrue runs unqualified queries against the auth schema (identities/users);
+-- give it a dedicated login role whose search_path resolves them (EF-PVE-01).
+CREATE ROLE gotrue LOGIN SUPERUSER PASSWORD 'pve';
+ALTER ROLE gotrue SET search_path = auth, public;
 GRANT anon, authenticated, service_role TO authenticator;
 GRANT USAGE ON SCHEMA public TO authenticator;
 GRANT EXECUTE ON ALL FUNCTIONS IN SCHEMA public TO anon, authenticated, service_role;
@@ -95,7 +99,7 @@ print((h+b'.'+p+b'.'+s).decode())
 PY
 )
 export GOTRUE_DB_DRIVER=postgres \
-  DATABASE_URL="postgres://postgres@localhost:$PGPORT_/clone?sslmode=disable" \
+  DATABASE_URL="postgres://gotrue:pve@localhost:$PGPORT_/clone?sslmode=disable" \
   GOTRUE_DB_MIGRATIONS_PATH=/opt/pve/migrations \
   GOTRUE_API_HOST=127.0.0.1 PORT=$AUTHPORT \
   GOTRUE_JWT_SECRET="$JWT_SECRET" GOTRUE_JWT_EXP=3600 GOTRUE_JWT_AUD=authenticated \
