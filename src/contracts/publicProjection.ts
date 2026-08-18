@@ -28,6 +28,28 @@ export const REVIEW_BADGE = '資料檢核中';
 export const REVIEW_NOTE = '該區間不納入績效';
 
 /**
+ * Masked-value copy. A gated (fail-closed / relation-error / unknown) economic
+ * field must render THIS string — never `0`, `0 股`, `-0.00%` or any other
+ * number-shaped placeholder, because 0 is valid business data (a real
+ * quantity=0 position exists) and a fake 0 is indistinguishable from it.
+ */
+export const UNAVAILABLE_LABEL = '資料暫時無法取得';
+
+/**
+ * True when a row must render `UNAVAILABLE_LABEL` instead of a number:
+ * either the projection gate masked it (`under_review`) or every economic
+ * field came back null (the gate's own output shape).
+ */
+export function isMaskedRow(
+  row: { under_review?: boolean | null; quantity?: unknown; base_quantity?: unknown } | null | undefined,
+): boolean {
+  if (!row) return false;
+  if (row.under_review === true) return true;
+  return row.quantity == null && row.base_quantity == null;
+}
+
+
+/**
  * Fail-closed set: everything except `ready`. A failed read, an absent
  * projection, an unknown state and a not-yet-loaded scope all land here.
  */
