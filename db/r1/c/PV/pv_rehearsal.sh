@@ -66,9 +66,9 @@ chk $([ ! -s "$DIR/shape_errors.txt" ] && echo 0 || echo 1) "PV-S1 clone shape a
 stage pre_migration
 psql "$CL" -qXAt -c "SELECT to_regclass('public.public_expert_state_active') IS NULL" >"$DIR/pre.out"
 chk $([ "$(cat "$DIR/pre.out")" = t ] && echo 0 || echo 1) "PV-S2 relation absent before the migration (reproduces the production defect)"
-psql "$CL" -qXAt -c "SELECT * FROM public.public_expert_state_active LIMIT 1" >"$DIR/pre_err.out" 2>&1 || true
-grep -q '42P01' "$DIR/pre_err.out"
-chk $? "PV-S3 pre-migration read raises 42P01 (the code the reader fails closed on)"
+psql "$CL" -qXAt -v VERBOSITY=verbose -c "SELECT * FROM public.public_expert_state_active LIMIT 1" >"$DIR/pre_err.out" 2>&1 || true
+PREC=$(grep -c '42P01' "$DIR/pre_err.out" || true)
+chk $([ "$PREC" -ge 1 ] && echo 0 || echo 1) "PV-S3 pre-migration read raises 42P01 (the code the reader fails closed on)" "$(head -2 "$DIR/pre_err.out")"
 
 ############################################################ fingerprint before
 stage fingerprint_before
@@ -99,11 +99,11 @@ chk $([ "$VFAILS" = 0 ] && echo 0 || echo 1) "PV-S5 SQL verifier 0 failures ($VC
 ############################################################ data invariants after apply
 stage invariants
 psql "$CL" -qXAt -c "SELECT md5(string_agg(t,E'\n' ORDER BY t)) FROM (SELECT id::text||'|'||md5(coalesce(reason_detail,'')||coalesce(learning_points,'')) t FROM public.expert_signals) s" >"$DIR/content_after.md5"
-diff -q "$DIR/content_before.md5" "$DIR/content_after.md5" >/dev/null
-chk $? "PV-S6 expert_signals content hash unchanged by the migration"
+DIFC=0; diff -q "$DIR/content_before.md5" "$DIR/content_after.md5" >/dev/null || DIFC=1
+chk $DIFC "PV-S6 expert_signals content hash unchanged by the migration"
 psql "$CL" -qXAt -c "SELECT count(*)||'|'||count(*) FILTER (WHERE quantity=0)||'|'||count(*) FILTER (WHERE entry_price IS NULL) FROM public.trade_records" >"$DIR/trades_after.txt"
-diff -q "$DIR/trades_before.txt" "$DIR/trades_after.txt" >/dev/null
-chk $? "PV-S7 trade_records counts (total | true-zero | null entry) unchanged"
+DIFT=0; diff -q "$DIR/trades_before.txt" "$DIR/trades_after.txt" >/dev/null || DIFT=1
+chk $DIFT "PV-S7 trade_records counts (total | true-zero | null entry) unchanged"
 
 ############################################################ rollback
 stage rollback
