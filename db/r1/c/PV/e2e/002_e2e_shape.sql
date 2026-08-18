@@ -376,6 +376,93 @@ GRANT SELECT ON public.member_subscriptions, public.checkup_subscriptions,
 GRANT SELECT, INSERT, UPDATE, DELETE ON public.notifications TO authenticated, service_role;
 GRANT INSERT ON public.perf_metrics TO anon, authenticated, service_role;
 
+-- Base restore may already contain these tables with a narrower column set;
+-- align them with the exact production columns (source: production
+-- information_schema.columns, read-only).
+ALTER TABLE public.member_subscriptions
+  ADD COLUMN IF NOT EXISTS status public.subscription_status NOT NULL DEFAULT 'active',
+  ADD COLUMN IF NOT EXISTS auto_renew boolean NOT NULL DEFAULT false,
+  ADD COLUMN IF NOT EXISTS started_at timestamptz NOT NULL DEFAULT now(),
+  ADD COLUMN IF NOT EXISTS expires_at timestamptz,
+  ADD COLUMN IF NOT EXISTS canceled_at timestamptz,
+  ADD COLUMN IF NOT EXISTS provider_id uuid,
+  ADD COLUMN IF NOT EXISTS created_at timestamptz NOT NULL DEFAULT now(),
+  ADD COLUMN IF NOT EXISTS billing_cycle text NOT NULL DEFAULT 'monthly';
+
+ALTER TABLE public.checkup_subscriptions
+  ADD COLUMN IF NOT EXISTS billing_cycle text NOT NULL DEFAULT 'monthly',
+  ADD COLUMN IF NOT EXISTS status public.subscription_status NOT NULL DEFAULT 'active',
+  ADD COLUMN IF NOT EXISTS auto_renew boolean NOT NULL DEFAULT false,
+  ADD COLUMN IF NOT EXISTS started_at timestamptz NOT NULL DEFAULT now(),
+  ADD COLUMN IF NOT EXISTS expires_at timestamptz,
+  ADD COLUMN IF NOT EXISTS canceled_at timestamptz,
+  ADD COLUMN IF NOT EXISTS provider_id uuid,
+  ADD COLUMN IF NOT EXISTS created_at timestamptz NOT NULL DEFAULT now();
+
+ALTER TABLE public.payment_transactions
+  ADD COLUMN IF NOT EXISTS subscription_id uuid,
+  ADD COLUMN IF NOT EXISTS provider_id uuid,
+  ADD COLUMN IF NOT EXISTS amount integer NOT NULL DEFAULT 0,
+  ADD COLUMN IF NOT EXISTS currency text NOT NULL DEFAULT 'TWD',
+  ADD COLUMN IF NOT EXISTS status public.payment_status NOT NULL DEFAULT 'pending',
+  ADD COLUMN IF NOT EXISTS provider_tx_id text,
+  ADD COLUMN IF NOT EXISTS paid_at timestamptz,
+  ADD COLUMN IF NOT EXISTS created_at timestamptz NOT NULL DEFAULT now(),
+  ADD COLUMN IF NOT EXISTS attribution jsonb,
+  ADD COLUMN IF NOT EXISTS original_amount integer,
+  ADD COLUMN IF NOT EXISTS discount_amount integer NOT NULL DEFAULT 0,
+  ADD COLUMN IF NOT EXISTS discount_reason text;
+
+ALTER TABLE public.remittance_orders
+  ADD COLUMN IF NOT EXISTS plan_id uuid,
+  ADD COLUMN IF NOT EXISTS billing_cycle text NOT NULL DEFAULT 'monthly',
+  ADD COLUMN IF NOT EXISTS amount integer NOT NULL DEFAULT 0,
+  ADD COLUMN IF NOT EXISTS original_amount integer,
+  ADD COLUMN IF NOT EXISTS discount_amount integer NOT NULL DEFAULT 0,
+  ADD COLUMN IF NOT EXISTS discount_reason text,
+  ADD COLUMN IF NOT EXISTS last5 text,
+  ADD COLUMN IF NOT EXISTS payer_name text,
+  ADD COLUMN IF NOT EXISTS attribution jsonb,
+  ADD COLUMN IF NOT EXISTS status text NOT NULL DEFAULT 'pending',
+  ADD COLUMN IF NOT EXISTS reject_reason text,
+  ADD COLUMN IF NOT EXISTS confirmed_by uuid,
+  ADD COLUMN IF NOT EXISTS confirmed_at timestamptz,
+  ADD COLUMN IF NOT EXISTS subscription_id uuid,
+  ADD COLUMN IF NOT EXISTS created_at timestamptz NOT NULL DEFAULT now(),
+  ADD COLUMN IF NOT EXISTS product_kind text NOT NULL DEFAULT 'expert_plan',
+  ADD COLUMN IF NOT EXISTS checkup_plan_id uuid,
+  ADD COLUMN IF NOT EXISTS client_request_id uuid;
+
+ALTER TABLE public.notifications
+  ADD COLUMN IF NOT EXISTS body text,
+  ADD COLUMN IF NOT EXISTS type text NOT NULL DEFAULT 'info',
+  ADD COLUMN IF NOT EXISTS is_read boolean NOT NULL DEFAULT false,
+  ADD COLUMN IF NOT EXISTS link text,
+  ADD COLUMN IF NOT EXISTS created_at timestamptz NOT NULL DEFAULT now(),
+  ADD COLUMN IF NOT EXISTS download_url text;
+
+ALTER TABLE public.announcements
+  ADD COLUMN IF NOT EXISTS status public.announcement_status NOT NULL DEFAULT 'draft',
+  ADD COLUMN IF NOT EXISTS published_at timestamptz,
+  ADD COLUMN IF NOT EXISTS created_by uuid,
+  ADD COLUMN IF NOT EXISTS created_at timestamptz NOT NULL DEFAULT now();
+
+ALTER TABLE public.perf_metrics
+  ADD COLUMN IF NOT EXISTS fcp_ms integer,
+  ADD COLUMN IF NOT EXISTS lcp_ms integer,
+  ADD COLUMN IF NOT EXISTS user_id uuid,
+  ADD COLUMN IF NOT EXISTS session_id text,
+  ADD COLUMN IF NOT EXISTS viewport_w integer,
+  ADD COLUMN IF NOT EXISTS ua_kind text,
+  ADD COLUMN IF NOT EXISTS created_at timestamptz NOT NULL DEFAULT now(),
+  ADD COLUMN IF NOT EXISTS inp_ms integer,
+  ADD COLUMN IF NOT EXISTS cls_score numeric;
+
+ALTER TABLE public.fx_rates
+  ADD COLUMN IF NOT EXISTS source text NOT NULL DEFAULT 'seed',
+  ADD COLUMN IF NOT EXISTS fetched_at timestamptz NOT NULL DEFAULT now(),
+  ADD COLUMN IF NOT EXISTS updated_at timestamptz NOT NULL DEFAULT now();
+
 -- ------------------------------------------------- embed-contract readiness gate
 DO $$
 DECLARE missing text;
@@ -389,6 +476,21 @@ BEGIN
   WHERE NOT EXISTS (SELECT 1 FROM pg_constraint WHERE conname = t.want AND contype = 'f');
   IF missing IS NOT NULL THEN
     RAISE EXCEPTION 'EMBED-CONTRACT-GAP missing FK: %', missing;
+  END IF;
+
+  SELECT string_agg(t.tbl || '.' || t.col, ', ') INTO missing FROM (
+    VALUES ('member_subscriptions','created_at'), ('member_subscriptions','billing_cycle'),
+           ('member_subscriptions','expires_at'), ('member_subscriptions','canceled_at'),
+           ('payment_transactions','paid_at'), ('payment_transactions','amount'),
+           ('checkup_subscriptions','expires_at'), ('remittance_orders','status'),
+           ('notifications','download_url'), ('perf_metrics','cls_score'),
+           ('fx_rates','currency_pair'), ('announcements','published_at')
+  ) AS t(tbl, col)
+  WHERE NOT EXISTS (
+    SELECT 1 FROM information_schema.columns c
+    WHERE c.table_schema = 'public' AND c.table_name = t.tbl AND c.column_name = t.col);
+  IF missing IS NOT NULL THEN
+    RAISE EXCEPTION 'COLUMN-CONTRACT-GAP missing: %', missing;
   END IF;
 END $$;
 
