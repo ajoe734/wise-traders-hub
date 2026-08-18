@@ -1,3 +1,4 @@
+import { functionUrl } from "@/lib/supabaseEndpoint";
 import { SEO } from '@/components/SEO';
 import { useMemo, useState } from 'react';
 import { CompanyLayout } from '@/components/layouts/CompanyLayout';
@@ -14,7 +15,6 @@ import {
   ResponsiveContainer, BarChart, Bar, XAxis, YAxis, Tooltip, CartesianGrid, Legend as RcLegend,
 } from 'recharts';
 import { BsrAuditDialog } from './BsrAuditDialog';
-import { functionUrl } from "@/lib/supabaseEndpoint";
 
 type GlobalDay = {
   date: string;

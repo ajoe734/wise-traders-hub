@@ -1,3 +1,4 @@
+import { functionUrl } from "@/lib/supabaseEndpoint";
 import { SEO } from '@/components/SEO';
 import { useMemo, useState } from 'react';
 import { CompanyLayout } from '@/components/layouts/CompanyLayout';
@@ -9,7 +10,6 @@ import { supabase } from '@/integrations/supabase/client';
 import { RefreshCw, Search, Clock, ShieldAlert, LifeBuoy, Timer } from 'lucide-react';
 import { toast } from 'sonner';
 import { useQuery } from '@tanstack/react-query';
-import { functionUrl } from "@/lib/supabaseEndpoint";
 
 type Attempt = {
   id: number;

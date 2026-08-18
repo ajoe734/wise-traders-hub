@@ -1,3 +1,4 @@
+import { functionUrl } from "@/lib/supabaseEndpoint";
 import { SEO } from '@/components/SEO';
 import { useMemo, useState } from 'react';
 import { CompanyLayout } from '@/components/layouts/CompanyLayout';
@@ -11,7 +12,6 @@ import { RefreshCw, Download, Activity, Gauge, Repeat } from 'lucide-react';
 import { toast } from 'sonner';
 import { useQuery } from '@tanstack/react-query';
 import {
-import { functionUrl } from "@/lib/supabaseEndpoint";
   ResponsiveContainer, BarChart, Bar, XAxis, YAxis, Tooltip, LabelList, CartesianGrid, Legend, LineChart, Line,
 } from 'recharts';
 

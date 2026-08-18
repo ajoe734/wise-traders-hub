@@ -14,10 +14,10 @@
  *
  * SECURITY: preview-only；prod 回傳 null。
  */
+import { SUPABASE_BASE_URL } from "@/lib/supabaseEndpoint";
 import { useState } from 'react';
 import { useLocation, useNavigate } from 'react-router-dom';
 import { openNotificationLink } from '@/lib/openNotificationLink';
-import { SUPABASE_BASE_URL } from "@/lib/supabaseEndpoint";
 
 function isPreviewEnv() {
   try {
