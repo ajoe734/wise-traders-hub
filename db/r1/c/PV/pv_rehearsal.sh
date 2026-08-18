@@ -85,7 +85,7 @@ chk 0 "PV-S4 migration applied with ON_ERROR_STOP"
 ############################################################ verifier
 stage verify
 psql "$CL" -qX -f db/r1/c/PV/pv_verify.sql >"$DIR/verify.out" 2>&1 || true
-grep -E '^(PASS|FAIL)\|' "$DIR/verify.out" | sed 's/^/  /'
+grep -E '^(PASS|FAIL)\|' "$DIR/verify.out" | sed 's/^/  /' || true
 VSUM=$(grep -E '^SUMMARY ' "$DIR/verify.out" || true)
 [ -n "$VSUM" ] || fatal "verifier produced no summary: $(tail -5 "$DIR/verify.out")"
 SUMMARY=1
@@ -93,7 +93,7 @@ VCHECKS=$(sed -E 's/.*checks=([0-9]+).*/\1/' <<<"$VSUM")
 VFAILS=$(sed -E 's/.*failures=([0-9]+).*/\1/' <<<"$VSUM")
 CHECKS=$((CHECKS+VCHECKS)); FAILS=$((FAILS+VFAILS))
 echo "  verifier $VSUM"
-[ "$VFAILS" = 0 ] || { grep -E '^FAIL\|' "$DIR/verify.out"; }
+[ "$VFAILS" = 0 ] || grep -E '^FAIL\|' "$DIR/verify.out" || true
 chk $([ "$VFAILS" = 0 ] && echo 0 || echo 1) "PV-S5 SQL verifier 0 failures ($VCHECKS checks)"
 
 ############################################################ data invariants after apply

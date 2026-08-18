@@ -1,5 +1,5 @@
 -- PV catalog fingerprint: every public relation with kind/options/acl/owner.
-SELECT c.relname || '|' || c.relkind || '|'
+SELECT c.relname || '|' || c.relkind::text || '|'
        || coalesce(array_to_string(c.reloptions, ','), '-') || '|'
        || coalesce(c.relacl::text, '-') || '|'
        || pg_get_userbyid(c.relowner)
