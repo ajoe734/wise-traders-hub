@@ -31,9 +31,41 @@ def psql(sql):
     return subprocess.run(["psql", PSQL_URI, "-qXAt", "-v", "ON_ERROR_STOP=1", "-c", sql],
                           capture_output=True, text=True, check=True).stdout.strip()
 
+# Current test scenario. Every console error and every >=400 response is
+# attributed to it, so positive (ready) scenarios can require zero noise while
+# negative scenarios are allowed only precisely-enumerated, test-induced 4xx.
+SCENARIO = {"name": "boot", "negative": False}
+NETFAIL = []          # [{scenario, negative, method, url, status}]
+CONSOLE = []          # [{scenario, negative, text}]
+
+
+def scenario(name, negative=False):
+    SCENARIO["name"] = name
+    SCENARIO["negative"] = negative
+
+
+def _on_console(m):
+    if m.type == "error":
+        CONSOLE.append({"scenario": SCENARIO["name"], "negative": SCENARIO["negative"],
+                        "text": m.text})
+
+
+def _on_response(r):
+    try:
+        if r.status >= 400:
+            NETFAIL.append({"scenario": SCENARIO["name"], "negative": SCENARIO["negative"],
+                            "method": r.request.method, "url": r.url, "status": r.status})
+    except Exception:
+        pass
+
+
 async def collect(page, errors):
-    page.on("console", lambda m: errors.append(f"{m.type}:{m.text}") if m.type == "error" else None)
-    page.on("pageerror", lambda e: errors.append(f"pageerror:{e}"))
+    page.on("console", lambda m: (errors.append(f"{m.type}:{m.text}") if m.type == "error" else None, _on_console(m)))
+    page.on("pageerror", lambda e: (errors.append(f"pageerror:{e}"),
+                                    CONSOLE.append({"scenario": SCENARIO["name"],
+                                                    "negative": SCENARIO["negative"],
+                                                    "text": f"pageerror:{e}"})))
+    page.on("response", _on_response)
 
 async def login(page, who):
     email, pw = USERS[who]
@@ -251,6 +283,7 @@ async def main():
         await logout(page)
 
         # ---------------------------------------------------------- fail-closed: missing relation
+        scenario("neg_drop_view", negative=True)
         psql("DROP VIEW public.public_expert_state_active")
         await login(page, "alpha")
         rows_missing = await perf_rows(page, "pve-alpha")
@@ -268,6 +301,7 @@ async def main():
         # ---------------------------------------------------------- restore + incomplete state
         subprocess.run(["psql", PSQL_URI, "-qX", "-v", "ON_ERROR_STOP=1",
                         "-f", "db/r1/c/PV/001_projection_view.sql"], check=True, capture_output=True)
+        scenario("neg_incomplete_state", negative=True)
         psql("UPDATE public.trade_records SET entry_price = NULL WHERE id = 'aaaa0003-0000-4000-a000-000000000003'")
         rows_inc = await perf_rows(page, "pve-alpha")
         inc_text = await page.inner_text("body")
