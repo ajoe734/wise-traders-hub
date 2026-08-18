@@ -132,7 +132,7 @@ BEGIN
 
   RETURN result;
 END;
-$function$
+$function$;
 
 CREATE OR REPLACE FUNCTION public.get_expert_capital_status(_expert_id uuid)
  RETURNS jsonb
@@ -259,5 +259,5 @@ BEGIN
     'recent_trades', v_recent
   );
 END;
-$function$
+$function$;
 
