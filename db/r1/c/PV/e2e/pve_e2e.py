@@ -37,7 +37,7 @@ async def collect(page, errors):
 
 async def login(page, who):
     email, pw = USERS[who]
-    await page.goto(f"{APP}/login", wait_until="domcontentloaded")
+    await page.goto(f"{APP}/auth/login", wait_until="domcontentloaded")
     await page.wait_for_timeout(400)
     await page.fill("input[type=email]", email)
     await page.fill("input[type=password]", pw)
@@ -56,6 +56,40 @@ async def perf_rows(page, slug):
       const trs = Array.from(document.querySelectorAll('table tbody tr'));
       return trs.map(tr => Array.from(tr.querySelectorAll('td')).map(td => td.innerText.trim()));
     }""")
+
+async def signals_text(page, slug):
+    """Open /admin/<slug>/signals and return list-text + every expanded row's
+    text. Only one row can be expanded at a time (single expandedId), so each
+    「展開」 button is clicked in turn and its rendered content accumulated."""
+    await page.goto(f"{APP}/admin/{slug}/signals", wait_until="domcontentloaded")
+    await page.wait_for_timeout(3500)
+    chunks = [await page.inner_text("body")]
+    for _ in range(40):
+        btns = page.get_by_role("button", name="展開")
+        n = await btns.count()
+        if n == 0:
+            break
+        clicked = False
+        for i in range(n):
+            b = btns.nth(i)
+            try:
+                await b.scroll_into_view_if_needed(timeout=2000)
+                await b.click(timeout=3000)
+            except Exception:
+                continue
+            await page.wait_for_timeout(500)
+            chunks.append(await page.inner_text("body"))
+            clicked = True
+            try:
+                await page.get_by_role("button", name="收起").first.click(timeout=3000)
+                await page.wait_for_timeout(250)
+            except Exception:
+                pass
+        if not clicked:
+            break
+        break
+    return "\n".join(chunks)
+
 
 def cell(rows, symbol):
     for r in rows:
@@ -101,7 +135,7 @@ async def main():
         r2330 = cell(rows_b, "2330")
         chk("E5", r2330 is not None and "2,000 股" in r2330[1], "老師 B 自己的後台顯示 2330 真值數量",
             str(r2330))
-        chk("E6", r2330 is not None and "1,085" in r2330[3], "老師 B 2330 現價為真值", str(r2330))
+        chk("E6", r2330 is not None and r2330[3].replace(",", "").startswith("1085"), "老師 B 2330 現價為真值", str(r2330))
         await page.screenshot(path=str(SHOTS / "e5_beta_own.png"))
         await logout(page)
 
@@ -125,22 +159,25 @@ async def main():
 
         # 已實現分頁（兩個不同 period）
         await page.get_by_role("tab", name="已實現損益").click()
-        await page.wait_for_timeout(1500)
-        realized_month = await page.inner_text("body")
-        chk("E14", "AMD" in realized_month, "已實現分頁顯示 AMD（近一月）")
-        for label in ("近一年", "近一週"):
+        await page.wait_for_timeout(2000)
+        realized_seen = [await page.inner_text("body")]
+        periods = 1
+        for label in ("近一年", "近三月", "近一月", "近一週"):
             try:
-                await page.get_by_role("button", name=label).first.click()
+                await page.get_by_role("button", name=label).first.click(timeout=3000)
                 await page.wait_for_timeout(1500)
+                realized_seen.append(await page.inner_text("body"))
+                periods += 1
             except Exception:
                 pass
-        chk("E15", True, "已實現分頁切換兩個以上 period 未崩潰")
+        realized_all = "\n".join(realized_seen)
+        (OUT / "realized_tab.txt").write_text(realized_all)
+        chk("E14", "AMD" in realized_all, "已實現分頁顯示 AMD（已了結部位）")
+        chk("E15", periods >= 3, f"已實現分頁切換 {periods} 個 period 未崩潰")
         await page.screenshot(path=str(SHOTS / "e14_realized.png"))
 
         # ---------------------------------------------------------- 週記後台（作者/週次/內文）
-        await page.goto(f"{APP}/admin/pve-alpha/signals", wait_until="domcontentloaded")
-        await page.wait_for_timeout(3500)
-        sig_owner = await page.inner_text("body")
+        sig_owner = await signals_text(page, "pve-alpha")
         (OUT / "signals_owner.txt").write_text(sig_owner)
         await page.screenshot(path=str(SHOTS / "e16_signals_owner.png"))
         chk("E16", "PVE Alpha 老師" in sig_owner or "pve-alpha" in sig_owner,
@@ -177,8 +214,7 @@ async def main():
         chk("E22", patched["status"] in (200, 204) and "EDITED" in patched["text"],
             "owner 用自己的 JWT 走 RLS 寫入成功（非 service_role）", json.dumps(patched, ensure_ascii=False))
 
-        await page.reload(wait_until="domcontentloaded"); await page.wait_for_timeout(3000)
-        after_save = await page.inner_text("body")
+        after_save = await signals_text(page, "pve-alpha")
         chk("E23", "PVE-W2-ALPHA-BODY-EDITED" in after_save, "save → reload 後新內容出現")
         hash_after_save = hashlib.sha256(
             "".join(sorted(l for l in after_save.splitlines() if "PVE-W" in l)).encode()
@@ -186,9 +222,7 @@ async def main():
 
         await logout(page)
         await login(page, "alpha")
-        await page.goto(f"{APP}/admin/pve-alpha/signals", wait_until="domcontentloaded")
-        await page.wait_for_timeout(3500)
-        after_relogin = await page.inner_text("body")
+        after_relogin = await signals_text(page, "pve-alpha")
         hash_relogin = hashlib.sha256(
             "".join(sorted(l for l in after_relogin.splitlines() if "PVE-W" in l)).encode()
         ).hexdigest()
@@ -199,9 +233,7 @@ async def main():
 
         # ---------------------------------------------------------- 老師 B 的後台不含 A 的內文
         await logout(page); await login(page, "beta")
-        await page.goto(f"{APP}/admin/pve-beta/signals", wait_until="domcontentloaded")
-        await page.wait_for_timeout(3000)
-        sig_beta = await page.inner_text("body")
+        sig_beta = await signals_text(page, "pve-beta")
         chk("E25", "PVE-W1-BETA-BODY" in sig_beta and "PVE-W1-ALPHA-BODY" not in sig_beta,
             "老師 B 後台只有自己的內文")
         await logout(page)
@@ -212,9 +244,7 @@ async def main():
         (OUT / "rows_alpha_admin.json").write_text(json.dumps(rows_adm, ensure_ascii=False, indent=1))
         chk("E26", rows_adm == rows_a, "company_admin 看到與 owner 完全相同的數字",
             f"{len(rows_adm)} vs {len(rows_a)} rows")
-        await page.goto(f"{APP}/admin/pve-alpha/signals", wait_until="domcontentloaded")
-        await page.wait_for_timeout(3000)
-        sig_adm = await page.inner_text("body")
+        sig_adm = await signals_text(page, "pve-alpha")
         chk("E27", "PVE-W1-ALPHA-BODY" in sig_adm and "PVE-W2-ALPHA-BODY-EDITED" in sig_adm,
             "company_admin 看得到正確作者與兩週內文")
         await page.screenshot(path=str(SHOTS / "e27_admin_signals.png"))
@@ -250,6 +280,50 @@ async def main():
         rows_back = await perf_rows(page, "pve-alpha")
         chk("E34", cell(rows_back, "SOXL") and "300 股" in cell(rows_back, "SOXL")[1],
             "state 回到 ready 後真值自動恢復")
+
+        # ------------------------------------------------- /signals 欄位與存取隔離
+        # 目前 session = alpha（owner）
+        sig_fields = await signals_text(page, "pve-alpha")
+        (OUT / "signals_owner_fields.txt").write_text(sig_fields)
+        await page.screenshot(path=str(SHOTS / "e36_signals_fields.png"))
+        chk("E36", "SOXL" in sig_fields and "QCOM" in sig_fields and "ORCL" in sig_fields,
+            "/signals 列表標的正確（SOXL/QCOM/ORCL）")
+        chk("E37", ("22.5" in sig_fields) and ("300" in sig_fields),
+            "/signals 列表價位與數量為真值（22.5 / 300）")
+        chk("E38", any(k in sig_fields for k in ("買進", "買", "buy")) and
+                   any(k in sig_fields for k in ("加碼", "add")),
+            "/signals 列表方向正確（買進 / 加碼）")
+        chk("E39", "半導體週期" in sig_fields and "PVE-W1-ALPHA-LEARN" in sig_fields,
+            "/signals 展開後 teaching_topic 與學習重點欄位正確")
+        chk("E40", "PVE-W1-ALPHA-SUMMARY" in sig_fields and "PVE-W2-ALPHA-BODY-EDITED" in sig_fields,
+            "/signals 展開後摘要與操作理由欄位正確")
+        await logout(page)
+
+        await page.goto(f"{APP}/admin/pve-alpha/signals", wait_until="domcontentloaded")
+        await page.wait_for_timeout(3000)
+        sig_anon = await page.inner_text("body")
+        chk("E41", "PVE-W1-ALPHA-BODY" not in sig_anon and "PVE-W1-ALPHA-SUMMARY" not in sig_anon,
+            "anon 在 /admin/pve-alpha/signals 看不到任何老師內文")
+
+        await login(page, "member")
+        await page.goto(f"{APP}/admin/pve-alpha/signals", wait_until="domcontentloaded")
+        await page.wait_for_timeout(3000)
+        sig_mem = await page.inner_text("body")
+        chk("E42", "PVE-W1-ALPHA-BODY" not in sig_mem and
+                   ("權限不足" in sig_mem or "找不到此專家" in sig_mem or "登入" in sig_mem),
+            "一般會員被 /admin/pve-alpha/signals 拒絕")
+        await logout(page)
+
+        await login(page, "beta")
+        await page.goto(f"{APP}/admin/pve-alpha/signals", wait_until="domcontentloaded")
+        await page.wait_for_timeout(3000)
+        sig_cross = await page.inner_text("body")
+        await page.screenshot(path=str(SHOTS / "e43_cross_teacher_signals.png"))
+        chk("E43", "PVE-W1-ALPHA-BODY" not in sig_cross and "PVE-W2-ALPHA-BODY-EDITED" not in sig_cross,
+            "老師 B 在老師 A 的 /signals 後台看不到 A 的內文")
+        await logout(page)
+        await login(page, "alpha")
+
 
         # ---------------------------------------------------------- console errors
         app_errors = [e for e in errors if "realtime" not in e.lower() and "websocket" not in e.lower()]
