@@ -73,9 +73,11 @@ export function useAdminPerformanceData(expertSlug: string | undefined) {
       fromDate = new Date(now); fromDate.setFullYear(now.getFullYear() - 1);
     }
 
+    // trade_records has no asset_class column; selecting it made PostgREST
+    // answer 400 and silently emptied the realized tab (P0-PV E14).
     const { data, error } = await supabase
       .from('trade_records')
-      .select('id, instrument, entry_price, exit_price, entry_date, exit_date, pnl_percent, status, currency, asset_class')
+      .select('id, instrument, entry_price, exit_price, entry_date, exit_date, pnl_percent, status, currency')
       .eq('expert_id', expertId)
       .eq('status', 'closed')
       .gte('exit_date', fromDate.toISOString())
@@ -88,7 +90,10 @@ export function useAdminPerformanceData(expertSlug: string | undefined) {
         asset_class: normalizeAssetClass(r.asset_class ?? expertAssetClass),
       }));
       setRealizedRows(mapped);
+    } else {
+      setRealizedRows([]);
     }
+
     setRealizedLoading(false);
   }, [expertId, realizedPeriod, expertCurrency, expertAssetClass]);
 
