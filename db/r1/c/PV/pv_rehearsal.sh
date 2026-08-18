@@ -70,9 +70,7 @@ chk $? "PV-S3 pre-migration read raises 42P01 (the code the reader fails closed 
 
 ############################################################ fingerprint before
 stage fingerprint_before
-FP='SELECT c.relname||q|q||c.relkind||q|q||coalesce(array_to_string(c.reloptions,q,q),q-q)||q|q||coalesce(c.relacl::text,q-q)||q|q||pg_get_userbyid(c.relowner) FROM pg_class c JOIN pg_namespace n ON n.oid=c.relnamespace WHERE n.nspname=qpublicq AND c.relkind IN (qrq,qvq) ORDER BY 1'
-FP=${FP//q|q/\'\|\'}; FP=${FP//q-q/\'-\'}; FP=${FP//q,q/\',\'}; FP=${FP//qpublicq/\'public\'}; FP=${FP//qrq/\'r\'}; FP=${FP//qvq/\'v\'}
-psql "$CL" -qXAt -c "$FP" | sort >"$DIR/fp_before.txt"
+psql "$CL" -qXAt -f db/r1/c/PV/pv_fingerprint.sql | sort >"$DIR/fp_before.txt"
 psql "$CL" -qXAt -c "SELECT md5(string_agg(t,E'\n' ORDER BY t)) FROM (SELECT id::text||'|'||md5(coalesce(reason_detail,'')||coalesce(learning_points,'')) t FROM public.expert_signals) s" >"$DIR/content_before.md5"
 psql "$CL" -qXAt -c "SELECT count(*)||'|'||count(*) FILTER (WHERE quantity=0)||'|'||count(*) FILTER (WHERE entry_price IS NULL) FROM public.trade_records" >"$DIR/trades_before.txt"
 
@@ -108,7 +106,7 @@ chk $? "PV-S7 trade_records counts (total | true-zero | null entry) unchanged"
 ############################################################ rollback
 stage rollback
 psql "$CL" -qX -v ON_ERROR_STOP=1 -f db/r1/c/PV/099_rollback.sql >"$DIR/rollback.log" 2>&1 || fatal "rollback"
-psql "$CL" -qXAt -c "$FP" | sort >"$DIR/fp_after.txt"
+psql "$CL" -qXAt -f db/r1/c/PV/pv_fingerprint.sql | sort >"$DIR/fp_after.txt"
 diff -u "$DIR/fp_before.txt" "$DIR/fp_after.txt" >"$DIR/fp.diff" || true
 chk $([ ! -s "$DIR/fp.diff" ] && echo 0 || echo 1) "PV-S8 rollback restores the pre-migration catalog fingerprint" "$(head -6 "$DIR/fp.diff")"
 psql "$CL" -qXAt -c "SELECT to_regclass('public.public_expert_state_active') IS NULL" >"$DIR/post_rb.out"
