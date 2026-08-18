@@ -5,6 +5,7 @@ import { cn } from '@/lib/utils';
 import { AnimatedNumber } from '@/components/AnimatedNumber';
 import { pnlColor, fmtPnl, fmtPct, fmtPrice, assetBadge, type PerfRow } from '@/pages/_adminPerformance/types';
 import { formatBaseQuantity } from '@/lib/positionQuantity';
+import { UNAVAILABLE_LABEL, isMaskedRow } from '@/contracts/publicProjection';
 import { FxHint } from '@/components/FxHint';
 
 interface Props {
@@ -44,6 +45,12 @@ export default function UnrealizedTab({ rows, loading, totalPnlPercent, avgPnlPe
         </Card>
       </div>
 
+      {rows.some(isMaskedRow) && (
+        <div className="rounded-md border border-amber-500/40 bg-amber-500/10 px-3 py-2 text-xs text-amber-700 dark:text-amber-400">
+          {UNAVAILABLE_LABEL}：部分持倉的數量與損益正在檢核，暫不顯示數字。原始資料未變更，檢核完成後會自動恢復。
+        </div>
+      )}
+
       {/* 持倉列表 */}
       <Card>
         <CardContent className="p-0">
@@ -79,11 +86,17 @@ export default function UnrealizedTab({ rows, loading, totalPnlPercent, avgPnlPe
                     const badge = assetBadge(row.asset_class);
                     // 一律走 formatBaseQuantity（吃 base_quantity + preferred unit + asset_class），
                     // 禁止手動拼 `${quantity} ${unit}`，避免「1000 股 → 印成 1000 張」這種契約破口。
-                    const qtyLabel = formatBaseQuantity(
-                      row.base_quantity ?? row.quantity,
-                      row.quantity_unit,
-                      row.asset_class,
-                    );
+                    // Fail-closed rows carry NO economics. They must say so —
+                    // rendering `0 股` here is what made the P0 incident look
+                    // like data loss. 0 is valid data; masked is not 0.
+                    const masked = isMaskedRow(row);
+                    const qtyLabel = masked
+                      ? UNAVAILABLE_LABEL
+                      : formatBaseQuantity(
+                          row.base_quantity ?? row.quantity,
+                          row.quantity_unit,
+                          row.asset_class,
+                        );
                     return (
                     <tr key={row.id} className="border-b last:border-0">
                       <td className="p-3">
@@ -99,26 +112,26 @@ export default function UnrealizedTab({ rows, loading, totalPnlPercent, avgPnlPe
                           <span className="text-xs text-muted-foreground">{row.symbol}</span>
                         </div>
                       </td>
-                      <td className="text-right p-3 text-sm tabular-nums">
+                      <td className={cn('text-right p-3 text-sm', masked ? 'text-muted-foreground' : 'tabular-nums')} data-masked={masked ? 'true' : undefined}>
                         {qtyLabel}
                       </td>
                       <td className="text-right p-3 text-sm tabular-nums">
-                        {fmtPrice(row.entry_price, row.currency, row.asset_class)}
+                        {masked ? UNAVAILABLE_LABEL : fmtPrice(row.entry_price, row.currency, row.asset_class)}
                       </td>
                       <td className={cn('text-right p-3 text-sm tabular-nums transition-colors duration-300')}>
-                        {fmtPrice(row.current_price, row.currency, row.asset_class)}
+                        {masked ? UNAVAILABLE_LABEL : fmtPrice(row.current_price, row.currency, row.asset_class)}
                       </td>
                       <td className={cn('text-right p-3 text-sm tabular-nums transition-colors duration-300', pnlColor(row.pnl))}>
-                        {row.pnl != null ? fmtPnl(row.pnl, row.currency) : '-'}
+                        {masked ? UNAVAILABLE_LABEL : row.pnl != null ? fmtPnl(row.pnl, row.currency) : '-'}
                         {row.pnl != null && row.currency === 'USD' && (
                           <FxHint amount={row.pnl} currency="USD" showMeta={false} forceAuto className="block" />
                         )}
                       </td>
                       <td className={cn('text-right p-3 text-sm tabular-nums transition-colors duration-300', pnlColor(row.pnl_percent))}>
-                        {row.pnl_percent != null ? fmtPct(row.pnl_percent) : '-'}
+                        {masked ? UNAVAILABLE_LABEL : row.pnl_percent != null ? fmtPct(row.pnl_percent) : '-'}
                       </td>
                       <td className="text-center p-3">
-                        <Badge variant="default" className="text-xs">持有中</Badge>
+                        <Badge variant={masked ? 'outline' : 'default'} className="text-xs">{masked ? '檢核中' : '持有中'}</Badge>
                       </td>
                     </tr>
                     );
