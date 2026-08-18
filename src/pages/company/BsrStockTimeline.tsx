@@ -1,3 +1,4 @@
+import { functionUrl } from "@/lib/supabaseEndpoint";
 import { SEO } from '@/components/SEO';
 import { useMemo, useState } from 'react';
 import { CompanyLayout } from '@/components/layouts/CompanyLayout';
@@ -106,7 +107,7 @@ export default function BsrStockTimeline() {
       const qs = new URLSearchParams({ stock_id: stockId, days: String(days) });
       const { data: sess } = await supabase.auth.getSession();
       const token = sess.session?.access_token;
-      const url = `https://yqacmrgdjlenbijclngi.supabase.co/functions/v1/tw-bsr-stock-timeline?${qs.toString()}`;
+      const url = `${functionUrl("tw-bsr-stock-timeline")}?${qs.toString()}`;
       const res = await fetch(url, { headers: { Authorization: `Bearer ${token}` } });
       if (!res.ok) throw new Error(`HTTP ${res.status}`);
       return res.json();

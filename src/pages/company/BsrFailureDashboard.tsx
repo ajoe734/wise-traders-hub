@@ -1,3 +1,4 @@
+import { functionUrl } from "@/lib/supabaseEndpoint";
 import { SEO } from '@/components/SEO';
 import { useMemo, useState } from 'react';
 import { CompanyLayout } from '@/components/layouts/CompanyLayout';
@@ -149,7 +150,7 @@ export default function BsrFailureDashboardPage() {
       if (errorClass !== 'all') qs.set('error_class', errorClass);
       const { data: sess } = await supabase.auth.getSession();
       const token = sess.session?.access_token;
-      const url = `https://yqacmrgdjlenbijclngi.supabase.co/functions/v1/tw-bsr-failure-dashboard?${qs.toString()}`;
+      const url = `${functionUrl("tw-bsr-failure-dashboard")}?${qs.toString()}`;
       const res = await fetch(url, {
         headers: { Authorization: `Bearer ${token}` },
       });

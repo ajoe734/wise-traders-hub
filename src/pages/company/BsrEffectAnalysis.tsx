@@ -1,3 +1,4 @@
+import { functionUrl } from "@/lib/supabaseEndpoint";
 import { SEO } from '@/components/SEO';
 import { useMemo, useState } from 'react';
 import { CompanyLayout } from '@/components/layouts/CompanyLayout';
@@ -58,7 +59,7 @@ export default function BsrEffectAnalysis() {
       if (uaFilter) qs.set('ua_hash', uaFilter);
       const { data: sess } = await supabase.auth.getSession();
       const token = sess.session?.access_token;
-      const url = `https://yqacmrgdjlenbijclngi.supabase.co/functions/v1/tw-bsr-effect-analysis?${qs.toString()}`;
+      const url = `${functionUrl("tw-bsr-effect-analysis")}?${qs.toString()}`;
       const res = await fetch(url, { headers: { Authorization: `Bearer ${token}` } });
       if (!res.ok) throw new Error(`HTTP ${res.status}`);
       return res.json();

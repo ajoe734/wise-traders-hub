@@ -1,3 +1,4 @@
+import { functionUrl } from "@/lib/supabaseEndpoint";
 import { SEO } from '@/components/SEO';
 import { useMemo } from 'react';
 import { CompanyLayout } from '@/components/layouts/CompanyLayout';
@@ -78,7 +79,7 @@ export default function BsrOcrMetricsPage() {
       const { data: sess } = await supabase.auth.getSession();
       const token = sess.session?.access_token;
       const res = await fetch(
-        `https://yqacmrgdjlenbijclngi.supabase.co/functions/v1/tw-bsr-ocr-metrics?${qs}`,
+        `${functionUrl("tw-bsr-ocr-metrics")}?${qs}`,
         { headers: { Authorization: `Bearer ${token}` } },
       );
       if (!res.ok) throw new Error(`HTTP ${res.status}`);

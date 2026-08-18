@@ -50,11 +50,16 @@ def _on_console(m):
                         "text": m.text})
 
 
-def _on_response(r):
+async def _on_response(r):
     try:
         if r.status >= 400:
+            try:
+                body = (await r.text())[:1200]
+            except Exception as e:
+                body = f"<body unavailable: {e}>"
             NETFAIL.append({"scenario": SCENARIO["name"], "negative": SCENARIO["negative"],
-                            "method": r.request.method, "url": r.url, "status": r.status})
+                            "method": r.request.method, "url": r.url, "status": r.status,
+                            "body": body})
     except Exception:
         pass
 
@@ -65,7 +70,7 @@ async def collect(page, errors):
                                     CONSOLE.append({"scenario": SCENARIO["name"],
                                                     "negative": SCENARIO["negative"],
                                                     "text": f"pageerror:{e}"})))
-    page.on("response", _on_response)
+    page.on("response", lambda r: asyncio.ensure_future(_on_response(r)))
 
 async def login(page, who):
     email, pw = USERS[who]
