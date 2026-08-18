@@ -17,6 +17,7 @@
 import { useState } from 'react';
 import { useLocation, useNavigate } from 'react-router-dom';
 import { openNotificationLink } from '@/lib/openNotificationLink';
+import { SUPABASE_BASE_URL } from "@/lib/supabaseEndpoint";
 
 function isPreviewEnv() {
   try {
@@ -34,17 +35,19 @@ function isPreviewEnv() {
 }
 
 const INTERNAL_LINK = '/pricing?src=harness';
+// 端點不可硬寫 project id（clone build 會被誤導向 production）
+const STORAGE_SIGN_BASE = `${SUPABASE_BASE_URL}/storage/v1/object/sign/journal-exports`;
 // 未過期 signed URL：預設 fire-external 用它，方便既有「新分頁開啟」測試沿用
 const EXTERNAL_LINK =
-  'https://yqacmrgdjlenbijclngi.supabase.co/storage/v1/object/sign/journal-exports/demo.pdf?token=h.' +
+  `${STORAGE_SIGN_BASE}/demo.pdf?token=h.` +
   btoa(JSON.stringify({ exp: 2000000000 })).replace(/=+$/, '');
 const VALID_SIGNED = EXTERNAL_LINK;
 // exp=1000000000 (2001) → 已過期
 const EXPIRED_SIGNED =
-  'https://yqacmrgdjlenbijclngi.supabase.co/storage/v1/object/sign/journal-exports/old.pdf?token=h.' +
+  `${STORAGE_SIGN_BASE}/old.pdf?token=h.` +
   btoa(JSON.stringify({ exp: 1000000000 })).replace(/=+$/, '');
 const MALFORMED_SIGNED =
-  'https://yqacmrgdjlenbijclngi.supabase.co/storage/v1/object/sign/journal-exports/x.pdf?token=not-a-jwt';
+  `${STORAGE_SIGN_BASE}/x.pdf?token=not-a-jwt`;
 // WHATWG URL 解析器對 `https://[...` 這種畸形 host 會直接 throw
 const INVALID_URL = 'https://[bad-host';
 
