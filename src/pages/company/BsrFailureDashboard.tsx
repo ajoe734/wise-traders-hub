@@ -14,6 +14,7 @@ import {
   ResponsiveContainer, BarChart, Bar, XAxis, YAxis, Tooltip, CartesianGrid, Legend as RcLegend,
 } from 'recharts';
 import { BsrAuditDialog } from './BsrAuditDialog';
+import { functionUrl } from "@/lib/supabaseEndpoint";
 
 type GlobalDay = {
   date: string;
@@ -149,7 +150,7 @@ export default function BsrFailureDashboardPage() {
       if (errorClass !== 'all') qs.set('error_class', errorClass);
       const { data: sess } = await supabase.auth.getSession();
       const token = sess.session?.access_token;
-      const url = `https://yqacmrgdjlenbijclngi.supabase.co/functions/v1/tw-bsr-failure-dashboard?${qs.toString()}`;
+      const url = `${functionUrl("tw-bsr-failure-dashboard")}?${qs.toString()}`;
       const res = await fetch(url, {
         headers: { Authorization: `Bearer ${token}` },
       });

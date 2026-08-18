@@ -9,10 +9,9 @@
  *   讓 crawler 拿到 OG 卡，人類自動跳轉到 /app/* 受保護頁。
  */
 
-const SUPABASE_URL =
-  (import.meta.env.VITE_SUPABASE_URL as string | undefined)?.replace(/\/$/, "") ||
-  "https://yqacmrgdjlenbijclngi.supabase.co";
-const SUPABASE_FN_BASE = `${SUPABASE_URL}/functions/v1/share-og`;
+import { functionUrl } from "@/lib/supabaseEndpoint";
+
+const SUPABASE_FN_BASE = functionUrl("share-og");
 const SITE = "https://legendflow.tw";
 
 export type ShareTarget =

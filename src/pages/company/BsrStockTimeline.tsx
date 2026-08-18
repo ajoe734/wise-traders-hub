@@ -9,6 +9,7 @@ import { supabase } from '@/integrations/supabase/client';
 import { RefreshCw, Search, Clock, ShieldAlert, LifeBuoy, Timer } from 'lucide-react';
 import { toast } from 'sonner';
 import { useQuery } from '@tanstack/react-query';
+import { functionUrl } from "@/lib/supabaseEndpoint";
 
 type Attempt = {
   id: number;
@@ -106,7 +107,7 @@ export default function BsrStockTimeline() {
       const qs = new URLSearchParams({ stock_id: stockId, days: String(days) });
       const { data: sess } = await supabase.auth.getSession();
       const token = sess.session?.access_token;
-      const url = `https://yqacmrgdjlenbijclngi.supabase.co/functions/v1/tw-bsr-stock-timeline?${qs.toString()}`;
+      const url = `${functionUrl("tw-bsr-stock-timeline")}?${qs.toString()}`;
       const res = await fetch(url, { headers: { Authorization: `Bearer ${token}` } });
       if (!res.ok) throw new Error(`HTTP ${res.status}`);
       return res.json();
