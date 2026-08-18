@@ -152,13 +152,182 @@ GRANT SELECT, INSERT, UPDATE, DELETE ON public.expert_signal_templates,
   public.current_prices TO anon, authenticated, service_role;
 GRANT USAGE ON SCHEMA public TO anon, authenticated, service_role;
 
--- ---------------------------------------------------------------- fx (footnote hook)
+-- ---------------------------------------------------------------- fx (production column contract)
 CREATE TABLE IF NOT EXISTS public.fx_rates (
-  pair text PRIMARY KEY,
+  currency_pair text PRIMARY KEY,
   rate numeric NOT NULL,
+  source text NOT NULL DEFAULT 'seed',
+  fetched_at timestamptz NOT NULL DEFAULT now(),
   updated_at timestamptz NOT NULL DEFAULT now()
 );
 ALTER TABLE public.fx_rates ENABLE ROW LEVEL SECURITY;
 DROP POLICY IF EXISTS "Anyone can read fx" ON public.fx_rates;
 CREATE POLICY "Anyone can read fx" ON public.fx_rates FOR SELECT TO public USING (true);
 GRANT SELECT ON public.fx_rates TO anon, authenticated, service_role;
+INSERT INTO public.fx_rates (currency_pair, rate, source)
+VALUES ('USDTWD', 29.5, 'seed') ON CONFLICT (currency_pair) DO NOTHING;
+
+-- ------------------------------------------------- ambient tables the shell queries
+-- The admin shell (bell, subscription banner, RUM beacon) hits these on every
+-- route. They are unrelated to the P0 journal chain, but their absence made the
+-- clone answer 404/400 and polluted the console-error budget.
+DO $$ BEGIN CREATE TYPE public.subscription_status AS ENUM ('active','canceled','expired');
+EXCEPTION WHEN duplicate_object THEN NULL; END $$;
+DO $$ BEGIN CREATE TYPE public.payment_status AS ENUM ('pending','paid','failed','refunded');
+EXCEPTION WHEN duplicate_object THEN NULL; END $$;
+DO $$ BEGIN CREATE TYPE public.announcement_status AS ENUM ('draft','published');
+EXCEPTION WHEN duplicate_object THEN NULL; END $$;
+
+CREATE TABLE IF NOT EXISTS public.expert_plans (
+  id uuid PRIMARY KEY DEFAULT gen_random_uuid(),
+  expert_id uuid NOT NULL REFERENCES public.experts(id) ON DELETE CASCADE,
+  name text NOT NULL,
+  description text,
+  plan_type public.plan_type NOT NULL DEFAULT 'analyst_signal_l1',
+  price_monthly integer NOT NULL DEFAULT 0,
+  price_yearly integer,
+  features jsonb DEFAULT '[]'::jsonb,
+  is_active boolean NOT NULL DEFAULT false,
+  created_at timestamptz NOT NULL DEFAULT now(),
+  review_status public.plan_review_status NOT NULL DEFAULT 'draft',
+  review_note text,
+  reviewed_by uuid,
+  reviewed_at timestamptz
+);
+
+CREATE TABLE IF NOT EXISTS public.member_subscriptions (
+  id uuid PRIMARY KEY DEFAULT gen_random_uuid(),
+  user_id uuid NOT NULL,
+  plan_id uuid NOT NULL REFERENCES public.expert_plans(id) ON DELETE CASCADE,
+  status public.subscription_status NOT NULL DEFAULT 'active',
+  auto_renew boolean NOT NULL DEFAULT false,
+  started_at timestamptz NOT NULL DEFAULT now(),
+  expires_at timestamptz,
+  canceled_at timestamptz,
+  provider_id uuid,
+  created_at timestamptz NOT NULL DEFAULT now(),
+  billing_cycle text NOT NULL DEFAULT 'monthly'
+);
+
+CREATE TABLE IF NOT EXISTS public.checkup_subscriptions (
+  id uuid PRIMARY KEY DEFAULT gen_random_uuid(),
+  user_id uuid NOT NULL,
+  plan_id uuid NOT NULL,
+  billing_cycle text NOT NULL DEFAULT 'monthly',
+  status public.subscription_status NOT NULL DEFAULT 'active',
+  auto_renew boolean NOT NULL DEFAULT false,
+  started_at timestamptz NOT NULL DEFAULT now(),
+  expires_at timestamptz,
+  canceled_at timestamptz,
+  provider_id uuid,
+  created_at timestamptz NOT NULL DEFAULT now()
+);
+
+CREATE TABLE IF NOT EXISTS public.payment_transactions (
+  id uuid PRIMARY KEY DEFAULT gen_random_uuid(),
+  subscription_id uuid,
+  provider_id uuid,
+  amount integer NOT NULL DEFAULT 0,
+  currency text NOT NULL DEFAULT 'TWD',
+  status public.payment_status NOT NULL DEFAULT 'pending',
+  provider_tx_id text,
+  paid_at timestamptz,
+  created_at timestamptz NOT NULL DEFAULT now(),
+  attribution jsonb,
+  original_amount integer,
+  discount_amount integer NOT NULL DEFAULT 0,
+  discount_reason text
+);
+
+CREATE TABLE IF NOT EXISTS public.remittance_orders (
+  id uuid PRIMARY KEY DEFAULT gen_random_uuid(),
+  user_id uuid NOT NULL,
+  plan_id uuid,
+  billing_cycle text NOT NULL DEFAULT 'monthly',
+  amount integer NOT NULL DEFAULT 0,
+  original_amount integer,
+  discount_amount integer NOT NULL DEFAULT 0,
+  discount_reason text,
+  last5 text,
+  payer_name text,
+  attribution jsonb,
+  status text NOT NULL DEFAULT 'pending',
+  reject_reason text,
+  confirmed_by uuid,
+  confirmed_at timestamptz,
+  subscription_id uuid,
+  created_at timestamptz NOT NULL DEFAULT now(),
+  product_kind text NOT NULL DEFAULT 'expert_plan',
+  checkup_plan_id uuid,
+  client_request_id uuid
+);
+
+CREATE TABLE IF NOT EXISTS public.notifications (
+  id uuid PRIMARY KEY DEFAULT gen_random_uuid(),
+  user_id uuid NOT NULL,
+  title text NOT NULL,
+  body text,
+  type text NOT NULL DEFAULT 'info',
+  is_read boolean NOT NULL DEFAULT false,
+  link text,
+  created_at timestamptz NOT NULL DEFAULT now(),
+  download_url text
+);
+
+CREATE TABLE IF NOT EXISTS public.announcements (
+  id uuid PRIMARY KEY DEFAULT gen_random_uuid(),
+  title text NOT NULL,
+  content text NOT NULL,
+  status public.announcement_status NOT NULL DEFAULT 'draft',
+  published_at timestamptz,
+  created_by uuid,
+  created_at timestamptz NOT NULL DEFAULT now()
+);
+
+CREATE TABLE IF NOT EXISTS public.perf_metrics (
+  id uuid PRIMARY KEY DEFAULT gen_random_uuid(),
+  route text NOT NULL,
+  fcp_ms integer,
+  lcp_ms integer,
+  user_id uuid,
+  session_id text,
+  viewport_w integer,
+  ua_kind text,
+  created_at timestamptz NOT NULL DEFAULT now(),
+  inp_ms integer,
+  cls_score numeric
+);
+
+ALTER TABLE public.expert_plans           ENABLE ROW LEVEL SECURITY;
+ALTER TABLE public.member_subscriptions   ENABLE ROW LEVEL SECURITY;
+ALTER TABLE public.checkup_subscriptions  ENABLE ROW LEVEL SECURITY;
+ALTER TABLE public.payment_transactions   ENABLE ROW LEVEL SECURITY;
+ALTER TABLE public.remittance_orders      ENABLE ROW LEVEL SECURITY;
+ALTER TABLE public.notifications          ENABLE ROW LEVEL SECURITY;
+ALTER TABLE public.announcements          ENABLE ROW LEVEL SECURITY;
+ALTER TABLE public.perf_metrics           ENABLE ROW LEVEL SECURITY;
+
+DROP POLICY IF EXISTS "plans readable" ON public.expert_plans;
+CREATE POLICY "plans readable" ON public.expert_plans FOR SELECT TO public USING (true);
+DROP POLICY IF EXISTS "own subs" ON public.member_subscriptions;
+CREATE POLICY "own subs" ON public.member_subscriptions FOR SELECT TO authenticated USING (user_id = auth.uid());
+DROP POLICY IF EXISTS "own checkup subs" ON public.checkup_subscriptions;
+CREATE POLICY "own checkup subs" ON public.checkup_subscriptions FOR SELECT TO authenticated USING (user_id = auth.uid());
+DROP POLICY IF EXISTS "own tx" ON public.payment_transactions;
+CREATE POLICY "own tx" ON public.payment_transactions FOR SELECT TO authenticated
+  USING (subscription_id IN (SELECT id FROM public.member_subscriptions WHERE user_id = auth.uid()));
+DROP POLICY IF EXISTS "own remittance" ON public.remittance_orders;
+CREATE POLICY "own remittance" ON public.remittance_orders FOR SELECT TO authenticated USING (user_id = auth.uid());
+DROP POLICY IF EXISTS "own notifications" ON public.notifications;
+CREATE POLICY "own notifications" ON public.notifications FOR ALL TO authenticated
+  USING (user_id = auth.uid()) WITH CHECK (user_id = auth.uid());
+DROP POLICY IF EXISTS "published announcements" ON public.announcements;
+CREATE POLICY "published announcements" ON public.announcements FOR SELECT TO public USING (status = 'published');
+DROP POLICY IF EXISTS "rum insert" ON public.perf_metrics;
+CREATE POLICY "rum insert" ON public.perf_metrics FOR INSERT TO anon, authenticated WITH CHECK (true);
+
+GRANT SELECT ON public.expert_plans, public.announcements TO anon, authenticated, service_role;
+GRANT SELECT ON public.member_subscriptions, public.checkup_subscriptions,
+  public.payment_transactions, public.remittance_orders TO authenticated, service_role;
+GRANT SELECT, INSERT, UPDATE, DELETE ON public.notifications TO authenticated, service_role;
+GRANT INSERT ON public.perf_metrics TO anon, authenticated, service_role;
