@@ -251,6 +251,52 @@ async def main():
         chk("E34", cell(rows_back, "SOXL") and "300 股" in cell(rows_back, "SOXL")[1],
             "state 回到 ready 後真值自動恢復")
 
+        # ------------------------------------------------- /signals 欄位與存取隔離
+        # 目前 session = alpha（owner）
+        await page.goto(f"{APP}/admin/pve-alpha/signals", wait_until="domcontentloaded")
+        await page.wait_for_timeout(3500)
+        sig_fields = await page.inner_text("body")
+        (OUT / "signals_owner_fields.txt").write_text(sig_fields)
+        await page.screenshot(path=str(SHOTS / "e36_signals_fields.png"))
+        chk("E36", "SOXL" in sig_fields and "QCOM" in sig_fields and "ORCL" in sig_fields,
+            "/signals 列表標的正確（SOXL/QCOM/ORCL）")
+        chk("E37", ("22.5" in sig_fields) and ("300" in sig_fields),
+            "/signals 列表價位與數量為真值（22.5 / 300）")
+        chk("E38", any(k in sig_fields for k in ("買進", "買", "buy")) and
+                   any(k in sig_fields for k in ("加碼", "add")),
+            "/signals 列表方向正確（買進 / 加碼）")
+        chk("E39", "半導體週期" in sig_fields and "PVE-W1-ALPHA-LEARN" in sig_fields,
+            "/signals 展開後 teaching_topic 與學習重點欄位正確")
+        chk("E40", "PVE-W1-ALPHA-SUMMARY" in sig_fields and "PVE-W2-ALPHA-BODY-EDITED" in sig_fields,
+            "/signals 展開後摘要與操作理由欄位正確")
+        await logout(page)
+
+        await page.goto(f"{APP}/admin/pve-alpha/signals", wait_until="domcontentloaded")
+        await page.wait_for_timeout(3000)
+        sig_anon = await page.inner_text("body")
+        chk("E41", "PVE-W1-ALPHA-BODY" not in sig_anon and "PVE-W1-ALPHA-SUMMARY" not in sig_anon,
+            "anon 在 /admin/pve-alpha/signals 看不到任何老師內文")
+
+        await login(page, "member")
+        await page.goto(f"{APP}/admin/pve-alpha/signals", wait_until="domcontentloaded")
+        await page.wait_for_timeout(3000)
+        sig_mem = await page.inner_text("body")
+        chk("E42", "PVE-W1-ALPHA-BODY" not in sig_mem and
+                   ("權限不足" in sig_mem or "找不到此專家" in sig_mem or "登入" in sig_mem),
+            "一般會員被 /admin/pve-alpha/signals 拒絕")
+        await logout(page)
+
+        await login(page, "beta")
+        await page.goto(f"{APP}/admin/pve-alpha/signals", wait_until="domcontentloaded")
+        await page.wait_for_timeout(3000)
+        sig_cross = await page.inner_text("body")
+        await page.screenshot(path=str(SHOTS / "e43_cross_teacher_signals.png"))
+        chk("E43", "PVE-W1-ALPHA-BODY" not in sig_cross and "PVE-W2-ALPHA-BODY-EDITED" not in sig_cross,
+            "老師 B 在老師 A 的 /signals 後台看不到 A 的內文")
+        await logout(page)
+        await login(page, "alpha")
+
+
         # ---------------------------------------------------------- console errors
         app_errors = [e for e in errors if "realtime" not in e.lower() and "websocket" not in e.lower()]
         (OUT / "console_errors.txt").write_text("\n".join(errors))
