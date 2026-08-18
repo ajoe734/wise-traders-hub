@@ -58,7 +58,7 @@ export function buildShortShareUrl(t: ShareTarget): string {
 /** 取得 og-card 預覽圖 URL（PNG/SVG，可放 og:image）。 */
 export function buildOgCardUrl(t: ShareTarget): string {
   if (t.kind === "expert") {
-    return `${SUPABASE_URL}/functions/v1/og-card/expert/${encodeURIComponent(t.slug)}`;
+    return functionUrl(`og-card/expert/${encodeURIComponent(t.slug)}`);
   }
   return `${SITE}/og-image.svg`;
 }
