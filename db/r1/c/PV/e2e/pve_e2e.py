@@ -37,7 +37,7 @@ async def collect(page, errors):
 
 async def login(page, who):
     email, pw = USERS[who]
-    await page.goto(f"{APP}/login", wait_until="domcontentloaded")
+    await page.goto(f"{APP}/auth/login", wait_until="domcontentloaded")
     await page.wait_for_timeout(400)
     await page.fill("input[type=email]", email)
     await page.fill("input[type=password]", pw)
