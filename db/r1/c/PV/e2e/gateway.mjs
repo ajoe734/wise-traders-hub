@@ -8,6 +8,9 @@ const [, , LISTEN, AUTH, REST] = process.argv;
 const corsFor = (req) => ({
   ...CORS,
   'access-control-allow-origin': req.headers.origin || '*',
+  'access-control-allow-headers':
+    req.headers['access-control-request-headers'] ||
+    'authorization,apikey,content-type,x-client-info,prefer',
   'access-control-allow-credentials': 'true',
 });
 const CORS = {

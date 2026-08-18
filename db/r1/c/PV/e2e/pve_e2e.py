@@ -135,7 +135,7 @@ async def main():
         r2330 = cell(rows_b, "2330")
         chk("E5", r2330 is not None and "2,000 股" in r2330[1], "老師 B 自己的後台顯示 2330 真值數量",
             str(r2330))
-        chk("E6", r2330 is not None and "1,085" in r2330[3], "老師 B 2330 現價為真值", str(r2330))
+        chk("E6", r2330 is not None and r2330[3].replace(",", "").startswith("1085"), "老師 B 2330 現價為真值", str(r2330))
         await page.screenshot(path=str(SHOTS / "e5_beta_own.png"))
         await logout(page)
 
