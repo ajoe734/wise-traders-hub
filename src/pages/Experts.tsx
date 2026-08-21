@@ -20,6 +20,10 @@ const Experts = () => {
   const roleFilter = searchParams.get('role') as 'advisor' | 'coach' | null;
   const [searchQuery, setSearchQuery] = useState('');
   const [marketFilter, setMarketFilter] = useState<string | null>(null);
+  // 角色說明：mobile (<768) 預設收合，desktop 預設展開。
+  const [rolesOpen, setRolesOpen] = useState<boolean>(() =>
+    typeof window === 'undefined' ? true : window.matchMedia('(min-width: 768px)').matches
+  );
 
   const { data: allPeople = [], isLoading, isError, error, refetch, isRefetching } = useExperts();
 
