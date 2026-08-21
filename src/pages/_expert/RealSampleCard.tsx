@@ -101,7 +101,7 @@ export function RealSampleCard({ expertSlug, utmCampaign }: RealSampleCardProps)
           {data.sections.map((s, i) => (
             <li key={`${s.key}-${i}`}>
               <div className="ev-body" style={{ fontWeight: 600 }}>{s.label}</div>
-              <p className="ev-body mt-1.5 whitespace-pre-wrap">
+              <p className="ev-body mt-1.5 whitespace-pre-line">
                 {s.text}{s.truncated ? '…' : ''}
               </p>
             </li>

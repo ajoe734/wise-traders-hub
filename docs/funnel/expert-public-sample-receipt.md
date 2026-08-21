@@ -124,3 +124,62 @@ master-zhou  real-sample-empty TEXT: 過去週記節錄 |  | 目前尚無公開�
 - 4 位 mentor（`sharkgu` 2026-07-20、`master-zhou` 2026-08-03、`master-brcto` 2026-08-03、`master-lever` 2026-07-27）的**初始核准尚未執行**；需 company_admin browser session 於 `/admin/:slug/signals` → 「公開週記範例」逐位 preview/approve。
 - `master-brian`（0 篇 published）與 `benny`（pending，已裁決不納入）無候選週。
 - 未 deploy、未 Publish。
+
+---
+
+## Round 2 — audit provenance + normalization/redaction v2（PARTIAL）
+
+狀態：**PARTIAL — 尚未寫入任何樣本資料（`expert_public_samples` 仍 0 rows）**。
+Preview only。deploy = 0、Publish = 0。未觸碰 `expert_signals` 的 RLS／grants／資料。
+
+### Migrations applied（本輪 4 支，皆 applied + readback OK）
+1. `20260821204150_2e682de9-e5ff-4306-b17b-6ec9e1aae850.sql` — audit 欄位
+   - `approval_source text NOT NULL DEFAULT 'admin_rpc' CHECK IN ('admin_rpc','owner_directive')`
+   - `approval_note text CHECK length <= 500`
+   - 一致性 CHECK：`admin_rpc` → `approved_by IS NOT NULL`；`owner_directive` → `approved_by IS NULL` 且 `approval_note` 非空
+   - `approve_expert_public_sample` 固定寫入 `'admin_rpc'` + `auth.uid()`
+   - `admin_expert_public_sample_status` 回傳 source/note 供稽核；public RPC 仍不回這兩欄
+   - 表為 0 rows，migration 對既有資料 no-op（safe）
+2. `20260821204346_163f5904-31fc-4be7-94a5-7c0e3f77399f.sql` — `sample_normalize_text` + M1 v2 + `build_expert_public_sample` 改用 normalized 文字
+3. `20260821204614_2edf3be2-4f73-4e30-a19e-3344cbfb5125.sql` — normalize 尾端換行修正（`btrim(t, E' \t\r\n')`）
+4. `20260821204901_87ecd60a-a5ef-46a9-be7d-0e6d48f93c80.sql` — 價格語境視窗 8 → 16 字（同句第二個價格如「短履約價（950 或 1600）」的 1600 可被完整遮罩）
+
+### Changed / new files
+- `src/lib/sampleRedaction.ts`（rewrite：normalize + M1 v2 鏡像，僅提示，不決定核准）
+- `src/pages/_expert/RealSampleCard.tsx`（plain text + `whitespace-pre-line`，無 `dangerouslySetInnerHTML`）
+- `src/test/unit/sampleRedaction.v2.test.ts`（new，23 tests）
+- `src/test/unit/expertPublicSample.audit.contract.test.ts`（new，19 tests）
+
+### Privilege / provenance matrix（未變更、已再驗）
+- `expert_public_samples`：anon/authenticated 無任何 grant；RLS enabled、0 policy；`service_role` ALL
+- public RPC `get_expert_public_sample`：僅 6 欄（expert_name, expert_slug, week_start_taipei, sections, mask_level, updated_at）
+- `sample_redact_m1` / `sample_normalize_text` / `build_expert_public_sample`：anon/authenticated `REVOKE EXECUTE`
+- 所有本輪函數 `SET search_path = pg_catalog, public, pg_temp`
+- provenance：client 只能傳 `_expert_id, _week_start, _selections`；原文由 server 端讀取
+- `source_content_hash` 仍 hash **raw exact source**；`sections.text` 存 normalized + M1 redacted plain text
+- 未新增任何 owner_directive 永久繞過 RPC
+
+### Read-only dry-run（權威 DB 規則等價）— 8 段最終選定，全部 residual = 0
+| slug | field | new sha16 | len | price/qty/ratio masks | residual(tag/PII/price/qty/ratio/numeric) |
+|---|---|---|---|---|---|
+| sharkgu | overall_summary | 8d6533fd8fda3fc4 | 168 | 0/0/0 | 0/0/0/0/0/0 |
+| sharkgu | overall_summary | 211a62798a370ad5 | 108 | 0/0/0 | 0/0/0/0/0/0 |
+| master-zhou | overall_summary | 9c03fbe170fc2102 | 173 | 0/0/0 | 0/0/0/0/0/0 |
+| master-zhou | overall_summary | b6498b8592188fe0 | 108 | 0/0/0 | 0/0/0/0/0/0 |
+| master-brcto | overall_summary | f1f79562fb2800d8 | 101 | 0/0/0 | 0/0/0/0/0/0 |
+| master-brcto | overall_summary | 840955044dd37348 | 71 | 0/0/0 | 0/0/0/0/0/0 |
+| master-lever | overall_summary | a368a416177480e9 | 147 | 2/0/1 | 0/0/0/0/0/0 |
+| master-lever | learning_points | 81422f1828343764 | 58 | 0/0/0 | 0/0/0/0/0/0 |
+
+對照組：brcto B1（權證復盤）在新規則下 `fail_reason = future_instruction`、masked 輸出為空 → fail closed 正常。
+
+### Tests / commands
+- `bunx vitest run src/test/unit/sampleRedaction.v2.test.ts` → 23 passed
+- `bunx vitest run src/test/unit/expertPublicSample.audit.contract.test.ts` → 19 passed
+- `bunx vitest run`（full）→ **244 files（242 passed / 2 skipped）、3040 tests：3032 passed / 8 skipped**
+- `bunx tsgo --noEmit` → exit 0
+- `bun run build` → success
+
+### 仍未完成（PARTIAL）
+- 尚未寫入任何 approved 樣本（本輪禁止 INSERT/UPDATE）
+- owner-directed bootstrap data transaction 未執行
