@@ -19,7 +19,7 @@ interface PerformanceOverviewPanelProps {
 
 /**
  * 公開詳情頁只顯示 public projection 放行後的彙總績效。
- * 不讀 trade_records / expert_signals，也不以 0 代替 loading、error 或 empty。
+ * 不讀任何逐筆敏感資料表，也不以 0 代替 loading、error 或 empty。
  */
 export function PerformanceOverviewPanel({
   expertId,
@@ -30,10 +30,10 @@ export function PerformanceOverviewPanel({
   const { data: perfData, isLoading, isError } = useExpertPerformance(expertId);
   const totalTrades = Number(perfData?.total_trades ?? 0);
 
-  const panelState: PanelState = !projection.showNumbers || isError
-    ? 'error'
-    : isLoading
-      ? 'loading'
+  const panelState: PanelState = isLoading
+    ? 'loading'
+    : !projection.showNumbers || isError
+      ? 'error'
       : !perfData || !Number.isFinite(totalTrades) || totalTrades <= 0
         ? 'empty'
         : 'ready';
