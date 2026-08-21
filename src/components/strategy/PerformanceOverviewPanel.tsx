@@ -20,6 +20,7 @@ import { usePeriodPerformance, PeriodBucket } from "@/hooks/usePeriodPerformance
 import { useIsMobile } from "@/hooks/use-mobile";
 import { useProjectionStatus } from "@/hooks/useProjectionStatus";
 import { projectedAmount, projectedPercent, REVIEW_NOTE } from "@/contracts/publicProjection";
+import { NO_PUBLIC_RECORD } from "@/lib/complianceCopy";
 import { PerformanceReviewNotice, ReviewPlaceholder } from "@/components/expert/PerformanceReviewNotice";
 
 type ViewPeriod = "yearly" | "monthly" | "weekly";
@@ -83,12 +84,13 @@ export function PerformanceOverviewPanel({ expertId, startingCapital: startingCa
   const { data: performanceData = [], isLoading, isError: periodIsError } = usePeriodPerformance(expertId, period, INITIAL_CAPITAL);
 
   // Additive state probe — never changes what this component renders.
+  const hasPublicRecords = performanceData.some((bucket) => (bucket.sampleCount ?? 0) > 0);
   const panelState: 'loading' | 'error' | 'empty' | 'ready' =
-    perfIsError || periodIsError
+    !projection.showNumbers || perfIsError || periodIsError
       ? 'error'
       : isLoading
         ? 'loading'
-        : performanceData.length === 0
+        : !hasPublicRecords
           ? 'empty'
           : 'ready';
   useEffect(() => {
@@ -191,6 +193,26 @@ export function PerformanceOverviewPanel({ expertId, startingCapital: startingCa
       return { ...p, cumReturnPct: parseFloat(cumReturn.toFixed(2)), isSelected: p.label === selectedPoint };
     });
   }, [performanceData, selectedPoint]);
+
+  if (panelState !== 'ready') {
+    const stateCopy = panelState === 'loading'
+      ? '績效資料載入中'
+      : panelState === 'empty'
+        ? NO_PUBLIC_RECORD
+        : '資料暫時無法取得';
+    return (
+      <Card>
+        <CardContent
+          className="flex min-h-32 items-center justify-center p-6 text-center text-muted-foreground"
+          role="status"
+          data-testid={`performance-${panelState}`}
+        >
+          {panelState === 'loading' && <Loader2 className="mr-2 h-5 w-5 animate-spin" aria-hidden="true" />}
+          {stateCopy}
+        </CardContent>
+      </Card>
+    );
+  }
 
   return (
     <Card className="overflow-hidden">
