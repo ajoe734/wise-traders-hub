@@ -7169,6 +7169,7 @@ export type Database = {
           test_name: string
         }[]
       }
+      sample_caller_is_service_bootstrap: { Args: never; Returns: boolean }
       sample_normalize_text: { Args: { _html: string }; Returns: string }
       sample_redact_m1: { Args: { _text: string }; Returns: Json }
       save_signal_batch: {

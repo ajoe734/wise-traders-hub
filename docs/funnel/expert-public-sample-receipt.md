@@ -183,3 +183,107 @@ Preview only。deploy = 0、Publish = 0。未觸碰 `expert_signals` 的 RLS／g
 ### 仍未完成（PARTIAL）
 - 尚未寫入任何 approved 樣本（本輪禁止 INSERT/UPDATE）
 - owner-directed bootstrap data transaction 未執行
+
+---
+
+## Round 3 — service-bootstrap guard delta + owner-directed bootstrap（PREVIEW-COMPLETE）
+
+狀態：**PREVIEW-COMPLETE**。`expert_public_samples` = **4 rows approved**（8 段）。
+deploy = 0、Publish = 0。未觸碰 `expert_signals` 的 RLS／grants／資料，未動 funnel／holdings／pricing／journal repository。
+
+### 1. Migrations（exact，皆 applied + readback）
+
+| # | Migration | 內容 |
+|---|---|---|
+| 5 | `supabase/migrations/20260821210520_8d7048c2-837a-4004-adb4-2cff088e2344.sql` | 新增 `public.sample_caller_is_service_bootstrap()`；`build_expert_public_sample` 授權 guard 改為「company_admin OR verifiable service bootstrap」；兩者 REVOKE anon/authenticated、GRANT service_role |
+| 6 | `supabase/migrations/20260821210741_b30f87d0-858e-44d5-8403-dc3d031814b3.sql` | 修正 guard helper：`pg_catalog.session_user`（不合法，`session_user` 是 SQL 關鍵字非函式，實測 anon 呼叫回 `42P01 missing FROM-clause entry for table "pg_catalog"`）→ `session_user::text` |
+
+Guard 設計（**不使用 `current_user`**）：
+
+```
+company_admin 路徑 : auth.uid() IS NOT NULL AND public.has_role(auth.uid(),'company_admin')
+service 路徑       : session_user IN ('postgres','supabase_admin')            -- 直連 owner session
+                     OR (session_user = 'authenticator'                        -- PostgREST 唯一登入角色
+                         AND (request.jwt.claims->>'role') = 'service_role')   -- 已驗簽 JWT claim
+```
+
+理由：SECURITY DEFINER 內 `current_user` = function owner（postgres），任何誤獲 EXECUTE 的 caller 都會通過；
+`session_user` 是登入角色，SECURITY DEFINER 與 `SET ROLE` 都不會改寫它。所有 relation/function 皆 schema-qualified，
+`SET search_path = pg_catalog, public, pg_temp`。
+
+### 2. Privilege / definer-trap 驗證（真實執行，非推論）
+
+| 測項 | 方法 | 結果 |
+|---|---|---|
+| definer-trap regression | 暫時 `GRANT EXECUTE ON build_expert_public_sample TO anon`，以 **anon JWT 打真實 PostgREST**（`POST /rest/v1/rpc/build_expert_public_sample`） | `HTTP 400 {"code":"P0001","message":"not_authorized"}` — 有 EXECUTE、owner=postgres 仍被擋 ✅ |
+| 暫時 grant 已收回 | `REVOKE EXECUTE ... FROM anon` + readback | anon 再呼叫 → `HTTP 401 42501 permission denied for function build_expert_public_sample` ✅ |
+| `has_function_privilege` | `build` / `sample_caller_is_service_bootstrap` / `sample_redact_m1` / `sample_normalize_text` | anon=false、authenticated=false、service_role=true ✅ |
+| preview/approve/revoke/status RPC | 同上 | anon=false、authenticated=true（內部 admin gate 不變）、service_role=true ✅ |
+| service_role direct builder | 以 owner session（`session_user=postgres`）執行 build → 8 段全部產出且 `ok=true` | ✅ |
+| base table direct | anon `GET /rest/v1/expert_public_samples` | `HTTP 401 42501 permission denied for table` ✅ |
+| sandbox psql role | `has_function_privilege(session_user,'build...')` | false，直呼 `permission denied` ✅ |
+| `expert_signals` 未變更 | policies md5 = `260e56e17656a50046f246200a7695ff`（6 policies）、`relrowsecurity=t`、rows = 181 | ✅ |
+
+Linter：本輪只檢視新增函數（未使用 “Try to fix all”）。`sample_caller_is_service_bootstrap` 為 SECURITY INVOKER 且 anon/authenticated 皆無 EXECUTE，不新增可被外部呼叫的 definer 曝露；既有 findings 未動。
+
+### 3. Owner-directed bootstrap transaction（單一 atomic DO block，四位一起 commit）
+
+前置：以 hash 反查唯一鎖定 8 段的 signal_id（與上一輪 dry-run 的 sha16 完全相同，無多重命中）。
+交易內硬檢查，任一不符即整批 rollback：`ok=false → redaction_gate_failed`、`row_count_mismatch`、
+`hash_mismatch(expected/got)`、`bad_section_count`、`payload_too_large`、`total_segment_mismatch<>8`、`approved_row_count<>4`。
+
+| slug | week_start_taipei | field | signal_id | masked sha16 |
+|---|---|---|---|---|
+| sharkgu | 2026-07-20 | overall_summary | `12428039-99b5-4b9f-bf21-e8319c0654e3` | `211a62798a370ad5` |
+| sharkgu | 2026-07-20 | overall_summary | `99f0b087-c1e1-47ee-b4de-aed034b343c3` | `8d6533fd8fda3fc4` |
+| master-zhou | 2026-08-03 | overall_summary | `2088b9a1-b3c9-4e65-948b-a7e02bd383fe` | `9c03fbe170fc2102` |
+| master-zhou | 2026-08-03 | overall_summary | `c9394f36-0484-4e0f-93e2-f96b195b2b9c` | `b6498b8592188fe0` |
+| master-brcto | 2026-08-03 | overall_summary | `cee9ee05-de8f-4a4b-90d7-9e12b9a0f9e6` | `f1f79562fb2800d8` |
+| master-brcto | 2026-08-03 | overall_summary | `7cdbb1dd-3cfd-4bfe-87d5-11426d16b379` | `840955044dd37348` |
+| master-lever | 2026-07-27 | overall_summary | `c1a10001-0000-4000-8000-000000000001` | `a368a416177480e9` |
+| master-lever | 2026-07-27 | learning_points | `c1a10001-0000-4000-8000-000000000001` | `81422f1828343764` |
+
+寫入 readback（`approved_by` 全為 NULL、`approval_source='owner_directive'`、`approved_at=2026-08-21 21:09:41.971836+00`）：
+
+| slug | week | status | mask | sections | bytes | source_content_hash(16) |
+|---|---|---|---|---|---|---|
+| sharkgu | 2026-07-20 | approved | M1 | 2 | 998 | `c50232e6c4dbbde7` |
+| master-zhou | 2026-08-03 | approved | M1 | 2 | 985 | `dcc43640716d9c0b` |
+| master-brcto | 2026-08-03 | approved | M1 | 2 | 698 | `fa80d7431db41b6f` |
+| master-lever | 2026-07-27 | approved | M1 | 2 | 763 | `9af2de041a723b56` |
+
+`approval_note`（exact）：
+`owner-directed bootstrap 2026-08-22 UTC: 8 segments identical to approved read-only dry-run (M1, residual=0); no client-supplied text.`
+
+### 4. Preview 驗收（5 routes × 393 / 1280，真實 dev server，非 mock）
+
+| route | 393 | 1280 |
+|---|---|---|
+| `/expert/sharkgu` | `real-sample` 2 段（07/20 ~ 07/24） | 同 |
+| `/expert/master-zhou` | `real-sample` 2 段（08/03 ~ 08/07） | 同 |
+| `/expert/master-brcto` | `real-sample` 2 段（08/03 ~ 08/07） | 同 |
+| `/expert/master-lever` | `real-sample` 2 段（07/27 ~ 07/31），含 `［價格已隱藏］/［比例已隱藏］` | 同 |
+| `/expert/master-brian` | `real-sample-empty`「目前尚無公開範例」 | 同 |
+
+- console errors = 0（兩個斷點）、requestfailed / HTTP>=400 = 0
+- `document.documentElement.scrollWidth` = 393 / 1280（無橫向溢出）
+- anon `get_expert_public_sample` 仍只回 6 欄；`master-brian` 回 `[]`
+
+### 5. Tests / commands（exact）
+
+| Command | Result |
+|---|---|
+| `bunx vitest run src/test/unit/expertPublicSample.guard.contract.test.ts` | 8 passed（新檔） |
+| `bunx vitest run src/test/unit/expertPublicSample.{guard,migration,audit}.contract.test.ts src/test/unit/sampleRedaction.v2.test.ts src/test/unit/realSampleCard.state.test.tsx` | 5 files / 64 passed |
+| `bunx vitest run`（full regression） | **245 files（243 passed / 2 skipped）、3048 tests：3040 passed / 8 skipped** |
+| `bunx tsgo --noEmit` | exit 0 |
+| `bun run build` | exit 0，built in 26.99s |
+
+### 6. Changed / new files（本輪）
+
+- `supabase/migrations/20260821210520_*.sql`（new）
+- `supabase/migrations/20260821210741_*.sql`（new）
+- `src/test/unit/expertPublicSample.guard.contract.test.ts`（new，8 tests）
+- `docs/funnel/expert-public-sample-receipt.md`（本節）
+
+無任何 app 程式碼變更；無 edge function 變更；deploy = 0、Publish = 0。
