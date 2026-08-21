@@ -18,10 +18,12 @@ const GUARD_B = path.join(DIR, '20260821210741_b30f87d0-858e-44d5-8403-dc3d03181
 const a = fs.readFileSync(GUARD_A, 'utf8');
 const b = fs.readFileSync(GUARD_B, 'utf8');
 const all = `${a}\n${b}`;
+const stripComments = (s: string) => s.replace(/^\s*--.*$/gm, '');
+const buildBlock = a.split('CREATE OR REPLACE FUNCTION public.build_expert_public_sample')[1];
 
 describe('build_expert_public_sample service bootstrap guard', () => {
   it('never uses current_user for authorization (definer trap)', () => {
-    expect(all).not.toMatch(/current_user/);
+    expect(stripComments(all)).not.toMatch(/current_user/);
   });
 
   it('service path is decided by session_user + verified JWT claim only', () => {
@@ -40,7 +42,7 @@ describe('build_expert_public_sample service bootstrap guard', () => {
   });
 
   it('guard is the disjunction of exactly those two paths', () => {
-    const guard = a.split('BEGIN')[1].split("RAISE EXCEPTION 'not_authorized'")[0];
+    const guard = buildBlock.split('BEGIN')[1].split("RAISE EXCEPTION 'not_authorized'")[0];
     expect(guard).toContain('public.sample_caller_is_service_bootstrap()');
     expect(guard).toContain('public.has_role(auth.uid()');
     expect(guard).not.toMatch(/session_user|current_user/);
