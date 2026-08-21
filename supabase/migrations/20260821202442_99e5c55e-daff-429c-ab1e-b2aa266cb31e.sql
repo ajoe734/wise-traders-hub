@@ -1,0 +1,1 @@
+REVOKE ALL ON TABLE public.expert_public_samples FROM anon, authenticated;

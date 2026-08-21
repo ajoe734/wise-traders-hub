@@ -23,6 +23,7 @@ export function useExpertPublicSample(slug?: string) {
     queryKey: ['expert-public-sample', slug],
     enabled: !!slug,
     staleTime: 5 * 60 * 1000,
+    retry: false,
     queryFn: async () => {
       const { data, error } = await supabase.rpc('get_expert_public_sample', { _slug: slug! });
       if (error) throw error;

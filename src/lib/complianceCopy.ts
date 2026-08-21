@@ -52,6 +52,7 @@ export const SAMPLE_STRUCTURE_NOTE = '以下為會員每週交付的內容結構
 /** 已核准的過去週記節錄（伺服器端遮罩後的固定快照）。 */
 export const REAL_SAMPLE_TITLE = '過去週記節錄';
 export const REAL_SAMPLE_NOTE = '以下為這位老師過去已公開週記的節錄，經平台審核與遮罩後公開；教學研究用途，非買賣建議。';
+export const REAL_SAMPLE_EMPTY = '目前尚無公開範例';
 export const REAL_SAMPLE_MASK_NOTE = '價格、數量與比例已隱藏；完整內容為訂閱會員可見。';
 
 
@@ -117,6 +118,7 @@ export function allCopyStrings(): string[] {
     REAL_SAMPLE_TITLE,
     REAL_SAMPLE_NOTE,
     REAL_SAMPLE_MASK_NOTE,
+    REAL_SAMPLE_EMPTY,
 
     PUBLISH_MECHANISM_TITLE,
     ...PUBLISH_MECHANISM_LINES,
