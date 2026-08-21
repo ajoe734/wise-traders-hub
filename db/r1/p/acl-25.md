@@ -1,6 +1,6 @@
 # R1-P — ACL 25 disposition (production read-only, 0 touch)
 
-generated: 2026-08-21T19:43:59.145173+00:00
+generated: 2026-08-21T20:14:35.750017+00:00
 
 | field | value |
 | --- | --- |

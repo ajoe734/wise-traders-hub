@@ -49,6 +49,12 @@ export const SAMPLE_STRUCTURE_FIELDS = [
 export const SAMPLE_LOCKED_LABEL = '訂閱後可見';
 export const SAMPLE_STRUCTURE_NOTE = '以下為會員每週交付的內容結構，非任何老師的實際內容節錄。';
 
+/** 已核准的過去週記節錄（伺服器端遮罩後的固定快照）。 */
+export const REAL_SAMPLE_TITLE = '過去週記節錄';
+export const REAL_SAMPLE_NOTE = '以下為這位老師過去已公開週記的節錄，經平台審核與遮罩後公開；教學研究用途，非買賣建議。';
+export const REAL_SAMPLE_MASK_NOTE = '價格、數量與比例已隱藏；完整內容為訂閱會員可見。';
+
+
 /** 公開機制中性敘述（不下法律結論）。 */
 export const PUBLISH_MECHANISM_TITLE = '公開機制';
 export const PUBLISH_MECHANISM_LINES = [
@@ -108,6 +114,10 @@ export function allCopyStrings(): string[] {
     ...SAMPLE_STRUCTURE_FIELDS,
     SAMPLE_LOCKED_LABEL,
     SAMPLE_STRUCTURE_NOTE,
+    REAL_SAMPLE_TITLE,
+    REAL_SAMPLE_NOTE,
+    REAL_SAMPLE_MASK_NOTE,
+
     PUBLISH_MECHANISM_TITLE,
     ...PUBLISH_MECHANISM_LINES,
     DISCLAIMER_SHORT,

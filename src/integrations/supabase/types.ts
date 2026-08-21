@@ -2170,6 +2170,79 @@ export type Database = {
           },
         ]
       }
+      expert_public_samples: {
+        Row: {
+          approved_at: string | null
+          approved_by: string | null
+          created_at: string
+          expert_id: string
+          id: string
+          mask_level: string
+          revoked_at: string | null
+          sections: Json
+          source_content_hash: string
+          source_selections: Json
+          source_signal_ids: string[]
+          status: string
+          updated_at: string
+          week_start_taipei: string
+        }
+        Insert: {
+          approved_at?: string | null
+          approved_by?: string | null
+          created_at?: string
+          expert_id: string
+          id?: string
+          mask_level?: string
+          revoked_at?: string | null
+          sections: Json
+          source_content_hash: string
+          source_selections: Json
+          source_signal_ids: string[]
+          status: string
+          updated_at?: string
+          week_start_taipei: string
+        }
+        Update: {
+          approved_at?: string | null
+          approved_by?: string | null
+          created_at?: string
+          expert_id?: string
+          id?: string
+          mask_level?: string
+          revoked_at?: string | null
+          sections?: Json
+          source_content_hash?: string
+          source_selections?: Json
+          source_signal_ids?: string[]
+          status?: string
+          updated_at?: string
+          week_start_taipei?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "expert_public_samples_expert_id_fkey"
+            columns: ["expert_id"]
+            isOneToOne: false
+            referencedRelation: "experts"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "expert_public_samples_expert_id_fkey"
+            columns: ["expert_id"]
+            isOneToOne: false
+            referencedRelation: "experts_public"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "expert_public_samples_expert_id_fkey"
+            columns: ["expert_id"]
+            isOneToOne: false
+            referencedRelation: "public_expert_state_active"
+            referencedColumns: ["expert_id"]
+          },
+        ]
+      }
       expert_reason_templates: {
         Row: {
           content: string
@@ -6111,6 +6184,19 @@ export type Database = {
         Args: { _expert_id: string; _symbol_prefix: string }
         Returns: number
       }
+      admin_expert_public_sample_status: {
+        Args: { _expert_id: string }
+        Returns: {
+          approved_at: string
+          approved_by: string
+          mask_level: string
+          section_count: number
+          source_content_hash: string
+          source_drifted: boolean
+          status: string
+          week_start_taipei: string
+        }[]
+      }
       admin_generate_fix_proposals: {
         Args: { p_category?: string }
         Returns: {
@@ -6175,6 +6261,10 @@ export type Database = {
         Returns: Json
       }
       admin_trade_dedupe_sweep: { Args: { p_dry_run?: boolean }; Returns: Json }
+      approve_expert_public_sample: {
+        Args: { _expert_id: string; _selections: Json; _week_start: string }
+        Returns: string
+      }
       archive_and_promote_knowledge: {
         Args: {
           _new_confidence?: number
@@ -6348,6 +6438,19 @@ export type Database = {
         }[]
       }
       bsr_trace_by_correlation: { Args: { _cid: string }; Returns: Json }
+      build_expert_public_sample: {
+        Args: { _expert_id: string; _selections: Json; _week_start: string }
+        Returns: {
+          fail_reason: string
+          label: string
+          masked_text: string
+          ok: boolean
+          raw_text: string
+          signal_id: string
+          source_field: string
+          truncated: boolean
+        }[]
+      }
       calculate_expert_performance: {
         Args: { _expert_id: string }
         Returns: Json
@@ -6656,6 +6759,17 @@ export type Database = {
       }
       get_expert_capital_status: { Args: { _expert_id: string }; Returns: Json }
       get_expert_detail_bundle: { Args: { _slug: string }; Returns: Json }
+      get_expert_public_sample: {
+        Args: { _slug: string }
+        Returns: {
+          expert_name: string
+          expert_slug: string
+          mask_level: string
+          sections: Json
+          updated_at: string
+          week_start_taipei: string
+        }[]
+      }
       get_expert_revenue_breakdown: {
         Args: { _from: string; _to: string }
         Returns: {
@@ -6893,6 +7007,18 @@ export type Database = {
           unit: string
         }[]
       }
+      preview_expert_public_sample: {
+        Args: { _expert_id: string; _selections: Json; _week_start: string }
+        Returns: {
+          fail_reason: string
+          label: string
+          masked_text: string
+          ok: boolean
+          signal_id: string
+          source_field: string
+          truncated: boolean
+        }[]
+      }
       price_admit: {
         Args: { p_market: string; p_requested: number; p_writer?: string }
         Returns: number
@@ -7023,6 +7149,10 @@ export type Database = {
           isSetofReturn: false
         }
       }
+      revoke_expert_public_sample: {
+        Args: { _expert_id: string }
+        Returns: number
+      }
       run_rls_subscription_tests: {
         Args: never
         Returns: {
@@ -7031,6 +7161,7 @@ export type Database = {
           test_name: string
         }[]
       }
+      sample_redact_m1: { Args: { _text: string }; Returns: Json }
       save_signal_batch: {
         Args: {
           _batch_id: string
