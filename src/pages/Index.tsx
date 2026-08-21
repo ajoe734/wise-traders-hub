@@ -8,6 +8,7 @@ import { LeaderboardSection } from '@/pages/_index/LeaderboardSection';
 import { StockDashboardSection } from '@/pages/_index/StockDashboardSection';
 import { HowItWorksSection } from '@/pages/_index/HowItWorksSection';
 import { FinalCtaSection } from '@/pages/_index/FinalCtaSection';
+import { WeeklyDeliveryBridge } from '@/pages/_index/WeeklyDeliveryBridge';
 
 // Batch1-#2: idle prefetch moved to centralized prefetchHighTrafficRoutes()
 // in src/lib/routePrefetch.ts (invoked from AttributionTracker in App.tsx).
@@ -27,6 +28,7 @@ const Index = () => {
       <LeaderboardSection />
       <StockDashboardSection />
       <HowItWorksSection />
+      <WeeklyDeliveryBridge />
       <FinalCtaSection />
     </PortalLayout>
   );
