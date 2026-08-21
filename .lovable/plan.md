@@ -213,7 +213,7 @@ node scripts/check-module-boundaries.mjs
 4. `#plans` anchor 捲動生效。
 5. `/s/:slug?utm_source=ig&utm_campaign=x` → 轉址後 URL 仍含 utm。
 6. plan CTA href 逐字比對 `/checkout/<slug>/<planId>` 且帶 utm。
-7. 登出狀態：頁面不出現任何訂閱內容；network 無 `expert_signals` 請求。
+7. 登出狀態：頁面不出現任何訂閱內容；network **對 `trade_records` 與 `expert_signals` 兩表的請求數皆為 0**（含 `/rest/v1/trade_records*`、`/rest/v1/expert_signals*`、以及任何 embed 帶到這兩表的查詢字串）。
 8. console error = 0、4xx/5xx = 0（ready 場景）。
 9. a11y：CTA accessible name、focus ring 可見、對比 ≥4.5。
 10. master-brian 顯示「尚無可公開紀錄」，畫面無 `0` 假數字、無空白 section。
