@@ -154,99 +154,23 @@ const Pricing = () => {
           <p className="text-sm text-muted-foreground">你想要的是「省時間」還是「練方法」？</p>
         </div>
 
-        {/* Main Plans */}
-        {isMobile ? (
-          <div
-            ref={carouselRef}
-            className="relative mb-12 px-4"
-            style={{ perspective: '1000px' }}
-          >
-            <div
-              className="relative h-[520px]"
-              onTouchStart={(e) => { touchStartX.current = e.touches[0].clientX; }}
-              onTouchEnd={(e) => { touchEndX.current = e.changedTouches[0].clientX; handleSwipe(); }}
-            >
-              {mainPlans.map((plan, index) => {
-                const isActive = index === mobileSelectedIndex;
-                const offset = index - mobileSelectedIndex;
-                const hintClass = showHint && isActive ? 'animate-swipe-hint' : '';
+        {/* Main Plans — 單欄 document flow（<768px），桌機兩欄 */}
+        <div
+          className="grid grid-cols-1 md:grid-cols-2 gap-6 max-w-4xl mx-auto mb-12"
+          data-testid="pricing-plan-grid"
+        >
+          {mainPlans.map((plan) => (
+            <PricingPlanCard
+              key={plan.id}
+              plan={plan}
+              isExpanded={expandedCards.has(plan.id)}
+              isHighlighted={highlightedCard === plan.id}
+              onToggleExpansion={toggleCardExpansion}
+              onOpenExample={openExample}
+            />
+          ))}
+        </div>
 
-                return (
-                  <div
-                    key={plan.id}
-                    onClick={() => { setMobileSelectedIndex(index); setHasInteracted(true); }}
-                    className={`absolute inset-x-0 mx-auto cursor-pointer transition-all duration-500 ease-out ${hintClass}`}
-                    style={{
-                      width: isActive ? '92%' : '75%',
-                      transform: isActive
-                        ? 'translateX(0) translateZ(0) scale(1)'
-                        : `translateX(${offset * 60}%) translateZ(-80px) rotateY(${offset * -8}deg) scale(0.88)`,
-                      opacity: isActive ? 1 : 0.5,
-                      filter: isActive ? 'none' : 'brightness(0.7)',
-                      zIndex: isActive ? 20 : 10,
-                      pointerEvents: 'auto',
-                    }}
-                  >
-                    <PricingPlanCard
-                      plan={plan}
-                      isExpanded={expandedCards.has(plan.id)}
-                      onToggleExpansion={toggleCardExpansion}
-                      onOpenExample={openExample}
-                      stopPropagationOnAccordion
-                    />
-                  </div>
-                );
-              })}
-            </div>
-
-            <button
-              onClick={() => { setMobileSelectedIndex(0); setHasInteracted(true); }}
-              className={cn(
-                'absolute left-0 top-1/2 -translate-y-1/2 z-30 p-2 rounded-full bg-black/40 backdrop-blur-sm transition-opacity',
-                mobileSelectedIndex === 0 ? 'opacity-30' : 'opacity-100'
-              )}
-              disabled={mobileSelectedIndex === 0}
-            >
-              <ChevronLeft className="h-5 w-5 text-white" />
-            </button>
-            <button
-              onClick={() => { setMobileSelectedIndex(1); setHasInteracted(true); }}
-              className={cn(
-                'absolute right-0 top-1/2 -translate-y-1/2 z-30 p-2 rounded-full bg-black/40 backdrop-blur-sm transition-opacity',
-                mobileSelectedIndex === 1 ? 'opacity-30' : 'opacity-100'
-              )}
-              disabled={mobileSelectedIndex === 1}
-            >
-              <ChevronRight className="h-5 w-5 text-white" />
-            </button>
-
-            <div className="flex justify-center gap-2 mt-4">
-              {mainPlans.map((_, index) => (
-                <button
-                  key={index}
-                  onClick={() => { setMobileSelectedIndex(index); setHasInteracted(true); }}
-                  className={cn(
-                    'h-2 rounded-full transition-all duration-300',
-                    index === mobileSelectedIndex ? 'w-6 bg-primary' : 'w-2 bg-muted-foreground/30'
-                  )}
-                />
-              ))}
-            </div>
-          </div>
-        ) : (
-          <div className="grid md:grid-cols-2 gap-6 max-w-4xl mx-auto mb-12">
-            {mainPlans.map((plan) => (
-              <PricingPlanCard
-                key={plan.id}
-                plan={plan}
-                isExpanded={expandedCards.has(plan.id)}
-                isHighlighted={highlightedCard === plan.id}
-                onToggleExpansion={toggleCardExpansion}
-                onOpenExample={openExample}
-              />
-            ))}
-          </div>
-        )}
 
         <PricingExampleModal
           open={exampleModalOpen}
