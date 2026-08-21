@@ -36,6 +36,18 @@ describe('公開老師詳情頁契約', () => {
     expect(panelSource).not.toMatch(/usePeriodPerformance|trade_records|expert_signals/);
   });
 
+  it('parent 無條件 mount 四態 panel，不被 lazy observer 或 parent state 擋掉', () => {
+    const performanceSection = profileSource.slice(
+      profileSource.indexOf('{/* ── Performance Section ── */}'),
+      profileSource.indexOf('{/* ── Plans Section ── */}'),
+    );
+
+    expect(performanceSection).toContain('<PerformanceOverviewPanel');
+    expect(performanceSection).toContain('expertId={expertInfo.id}');
+    expect(performanceSection).not.toMatch(/LazyOnVisible|Suspense|evidenceState|&&\s*\(\s*<PerformanceOverviewPanel/);
+    expect(profileSource).not.toMatch(/const \[evidenceState|handleEvidenceState/);
+  });
+
   it('checkout 保留真實 slug、plan id 與白名單 UTM', () => {
     expect(profileSource).toContain("preserveUtm(`/checkout/${slug}/${plan.id}`, search)");
     expect(profileSource).toContain('NT$ {formatPrice(plan.priceMonthly)}');
