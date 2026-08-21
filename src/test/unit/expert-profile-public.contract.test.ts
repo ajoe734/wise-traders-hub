@@ -31,9 +31,21 @@ describe('公開老師詳情頁契約', () => {
     expect(panelSource).toContain("? '績效資料載入中'");
     expect(panelSource).toContain("? NO_PUBLIC_RECORD");
     expect(panelSource).toContain(": '資料暫時無法取得'");
-    expect(panelSource).toContain('!projection.showNumbers || isError');
+    expect(panelSource).toContain('!projection.showNumbers || isError || !perfData');
     expect(panelSource).toContain('totalTrades <= 0');
     expect(panelSource).not.toMatch(/usePeriodPerformance|trade_records|expert_signals/);
+  });
+
+  it('parent 無條件 mount 四態 panel，不被 lazy observer 或 parent state 擋掉', () => {
+    const performanceSection = profileSource.slice(
+      profileSource.indexOf('{/* ── Performance Section ── */}'),
+      profileSource.indexOf('{/* ── Plans Section ── */}'),
+    );
+
+    expect(performanceSection).toContain('<PerformanceOverviewPanel');
+    expect(performanceSection).toContain('expertId={expertInfo.id}');
+    expect(performanceSection).not.toMatch(/LazyOnVisible|Suspense|evidenceState|&&\s*\(\s*<PerformanceOverviewPanel/);
+    expect(profileSource).not.toMatch(/const \[evidenceState|handleEvidenceState/);
   });
 
   it('checkout 保留真實 slug、plan id 與白名單 UTM', () => {

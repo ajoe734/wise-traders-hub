@@ -28,13 +28,13 @@ export function PerformanceOverviewPanel({
 }: PerformanceOverviewPanelProps) {
   const projection = useProjectionStatus(expertId);
   const { data: perfData, isLoading, isError } = useExpertPerformance(expertId);
-  const totalTrades = Number(perfData?.total_trades ?? 0);
+  const totalTrades = perfData ? Number(perfData.total_trades) : null;
 
   const panelState: PanelState = isLoading
     ? 'loading'
-    : !projection.showNumbers || isError
+    : !projection.showNumbers || isError || !perfData || totalTrades === null || !Number.isFinite(totalTrades)
       ? 'error'
-      : !perfData || !Number.isFinite(totalTrades) || totalTrades <= 0
+      : totalTrades <= 0
         ? 'empty'
         : 'ready';
 

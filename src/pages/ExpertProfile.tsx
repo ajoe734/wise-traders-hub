@@ -2,7 +2,6 @@ import { useParams, Link, useNavigate, useSearchParams } from 'react-router-dom'
 import { SEO } from '@/components/SEO';
 import { ShareButton } from '@/components/ShareButton';
 import { buildOgCardUrl } from '@/lib/shareUrl';
-import { lazy, Suspense } from 'react';
 import { PortalLayout } from '@/components/layouts/PortalLayout';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
@@ -12,16 +11,14 @@ import { useAuth } from '@/contexts/AuthContext';
 import { CheckCircle, ArrowRight, Shield, Clock, Check, Loader2, ArrowLeft, Target, TrendingUp, Award, Users, Eye } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { avatarUrl } from '@/lib/imageTransform';
-import { LazyOnVisible } from '@/components/LazyOnVisible';
 import { useExpertDetailBundle } from '@/hooks/useExpert';
 import { ExpertFetchError } from '@/components/ExpertFetchError';
-import { useEffect, useState, useCallback } from 'react';
+import { useEffect } from 'react';
 import { track } from '@/lib/analytics/events';
 import { preserveUtm, utmCampaignOf } from '@/lib/preserveUtm';
 import {
   FUNNEL_ONE_LINER,
   CHECKUP_SECONDARY_CTA,
-  NO_PUBLIC_RECORD,
   DISCLAIMER_SHORT,
   PUBLISH_MECHANISM_TITLE,
   PUBLISH_MECHANISM_LINES,
@@ -33,13 +30,7 @@ import { DeliveryCards } from '@/pages/_expert/DeliveryCards';
 import { SampleStructureCard } from '@/pages/_expert/SampleStructureCard';
 import { FitCard } from '@/pages/_expert/FitCard';
 import { StickyPlanCta } from '@/pages/_expert/StickyPlanCta';
-
-
-const PerformanceOverviewPanel = lazy(() =>
-  import('@/components/strategy/PerformanceOverviewPanel').then((m) => ({
-    default: m.PerformanceOverviewPanel,
-  }))
-);
+import { PerformanceOverviewPanel } from '@/components/strategy/PerformanceOverviewPanel';
 
 const ExpertProfile = () => {
   const { slug } = useParams<{ slug: string }>();
@@ -51,11 +42,6 @@ const ExpertProfile = () => {
   const search = searchParams.toString();
   const utmCampaign = utmCampaignOf(search);
   const funnelSource = searchParams.get('utm_source') || undefined;
-  const [evidenceState, setEvidenceState] = useState<'loading' | 'error' | 'empty' | 'ready'>('loading');
-  const handleEvidenceState = useCallback(
-    (st: 'loading' | 'error' | 'empty' | 'ready') => setEvidenceState(st),
-    []
-  );
   const isPreview = searchParams.get('preview') === '1' && (
     (user?.expertSlug && user.expertSlug === slug) || hasRole('company_admin')
   );
@@ -399,24 +385,11 @@ const ExpertProfile = () => {
             <Target className={cn("h-5 w-5", isAdvisor ? "text-advisor" : "text-mentor")} />
             <h2 className="text-h3">績效總覽</h2>
           </div>
-          {evidenceState === 'empty' && (
-            <Card><CardContent className="p-6 text-center text-muted-foreground">{NO_PUBLIC_RECORD}</CardContent></Card>
-          )}
-          {evidenceState === 'error' && (
-            <Card><CardContent className="p-6 text-center text-muted-foreground">資料暫時無法取得</CardContent></Card>
-          )}
-          <div className={cn(evidenceState === 'empty' || evidenceState === 'error' ? 'hidden' : '')}>
-            <LazyOnVisible minHeight={400} rootMargin="300px">
-              <Suspense fallback={<div className="h-96 rounded-lg bg-muted/30 animate-pulse" />}>
-                <PerformanceOverviewPanel
-                  expertId={expertInfo.id}
-                  startingCapital={expertInfo.startingCapital}
-                  variant={isAdvisor ? 'advisor' : 'mentor'}
-                  onStateChange={handleEvidenceState}
-                />
-              </Suspense>
-            </LazyOnVisible>
-          </div>
+          <PerformanceOverviewPanel
+            expertId={expertInfo.id}
+            startingCapital={expertInfo.startingCapital}
+            variant={isAdvisor ? 'advisor' : 'mentor'}
+          />
         </section>
 
 
