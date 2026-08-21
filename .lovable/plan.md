@@ -195,7 +195,7 @@ UTM 保留由新增純函式 `src/lib/preserveUtm.ts`（whitelist：utm_source/m
 
 ```bash
 tsgo --noEmit
-bunx vitest run src/test/unit/complianceCopy.test.ts src/test/unit/preserveUtm.test.ts
+bunx vitest run src/test/unit/complianceCopy.test.ts src/test/unit/preserveUtm.test.ts src/test/unit/performanceOverviewPanel.state.test.tsx
 bun scripts/run-tests.mjs                       # full regression
 bunx playwright test e2e/funnel-ig.spec.ts
 bunx playwright test e2e/freecheckup-card.spec.ts   # holding-checkup 不回歸
