@@ -6,6 +6,13 @@
 import { describe, it, expect, vi, beforeEach } from 'vitest';
 import { render, waitFor, cleanup } from '@testing-library/react';
 
+class ResizeObserverMock {
+  observe() {}
+  unobserve() {}
+  disconnect() {}
+}
+vi.stubGlobal('ResizeObserver', ResizeObserverMock);
+
 const perf = vi.hoisted(() => ({ value: { data: undefined as any, isError: false } }));
 const period = vi.hoisted(() => ({ value: { data: [] as any[], isLoading: true, isError: false } }));
 const projection = vi.hoisted(() => ({ value: { state: 'ready', showNumbers: true, showReviewNotice: false, badge: null, note: null } }));
