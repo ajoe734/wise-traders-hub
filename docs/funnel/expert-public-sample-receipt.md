@@ -287,3 +287,143 @@ Linter：本輪只檢視新增函數（未使用 “Try to fix all”）。`samp
 - `docs/funnel/expert-public-sample-receipt.md`（本節）
 
 無任何 app 程式碼變更；無 edge function 變更；deploy = 0、Publish = 0。
+
+---
+
+## Addendum — Evidence-only reconciliation（2026-08-22 05:2x Taipei）
+
+範圍：**唯讀對帳**。本輪唯一被修改的檔案就是本 receipt。code / schema / RLS / RPC / data 皆 0 變更；deploy = 0、Publish = 0。
+
+### A. `expert_signals` policy hash 對帳（兩個舊 hash 的口徑）
+
+本 receipt 內出現兩個不同的值：
+
+| 出處 | 值 | 當時 canonicalization |
+|---|---|---|
+| 本檔 L96 | `98c743900857c92d8eba1fdea285e7de` | ad-hoc，**逐字 SQL 未留存在任何 artifact**（無 `.sql`／無 evidence 檔可佐證） |
+| 本檔 L225 | `260e56e17656a50046f246200a7695ff` | 同上，ad-hoc，逐字 SQL 未留存 |
+
+誠實結論：兩個 hash 的 exact SQL 都沒有被寫進版本庫，因此**無法重建其 canonicalization**，兩者差異只能歸類為「口徑不明」，不能用來證明或否證漂移。為了讓未來可重算，以下定為 **authoritative canonical SQL**（本輪實際執行）：
+
+```sql
+-- CANONICAL v1
+WITH p AS (
+  SELECT policyname, cmd, roles::text AS roles,
+         coalesce(qual,'') AS q, coalesce(with_check,'') AS w
+  FROM pg_policies
+  WHERE schemaname='public' AND tablename='expert_signals'
+)
+SELECT md5(string_agg(policyname||'|'||cmd||'|'||roles||'|'||q||'|'||w,
+                      E'\n' ORDER BY policyname)) AS policy_set_md5,
+       count(*) AS n
+FROM p;
+```
+
+結果：`policy_set_md5 = b234b249044330b12b7774ce1e031108`，`n = 6`。
+`relrowsecurity = true`；`expert_signals` rows = **181**（與 L225 記錄一致）。
+
+Per-policy md5（同一 canonical 逐列，取前 16 hex；只列 metadata 與長度，不輸出 qual 原文）：
+
+| policy name | cmd | roles | permissive | qual len | with_check len | md5[0:16] |
+|---|---|---|---|---|---|---|
+| Analysts can delete own signals | DELETE | {authenticated} | PERMISSIVE | 90 | 0 | `bf9eafcfd8ac5e15` |
+| Analysts can insert own signals | INSERT | {authenticated} | PERMISSIVE | 0 | 90 | `532eee9518254be8` |
+| Analysts can update own signals | UPDATE | {authenticated} | PERMISSIVE | 90 | 0 | `9dace6d7c456aed9` |
+| Analysts can view own signals | SELECT | {authenticated} | PERMISSIVE | 90 | 0 | `7f826e38ba65e2f1` |
+| Company admins full access signals | ALL | {authenticated} | PERMISSIVE | 47 | 47 | `043256dd58c72e8a` |
+| Subscribers can view signals published after subscription start | SELECT | {public} | PERMISSIVE | 228 | 0 | `521b4345cf970f01` |
+
+**無漂移證明（file/migration search，非推測）**
+
+`rg -n "expert_signals" supabase/migrations/20260821*.sql` 命中 5 行，全部是 sample builder 內部的 **唯讀 `FROM public.expert_signals s`**：
+
+```
+20260821200916_*.sql:223  FROM public.expert_signals s
+20260821200916_*.sql:431  FROM public.expert_signals s
+20260821204150_*.sql:135  FROM public.expert_signals s
+20260821204346_*.sql:218  FROM public.expert_signals s
+20260821210520_*.sql:130  FROM public.expert_signals s
+```
+
+`rg -n "expert_signals" supabase/migrations/2026082*.sql | rg -i "policy|grant|revoke|row level|alter table"` → **0 命中**。
+另有 contract test 常態強制（`expertPublicSample.migration/audit/guard.contract.test.ts`）：任何 `ALTER TABLE|GRANT|REVOKE|CREATE POLICY|DROP POLICY|INSERT|UPDATE|DELETE` 觸及 `expert_signals` 即紅燈。
+
+判定：**policy 集合結構未漂移**（6 條、名稱／cmd／roles 與 L225 記錄的 6 條一致），差異僅在舊 hash 口徑不可重建。未做任何修正。
+
+### B. Deep security scan 對帳（唯讀）
+
+**B1. sample 子系統：無新 finding。** 最新 scan 的 6 筆 finding 全部與 `expert_public_samples` / `get_expert_public_sample` / `approve_*` / `preview_*` / `build_*` / `sample_*` 無關（見 B3）。
+
+現況 ACL（`pg_proc.proacl`，唯讀查得，未修改）：
+
+| function | secdef | anon | authenticated | service_role |
+|---|---|---|---|---|
+| `get_expert_public_sample` | true | **X** | X | X |
+| `preview_expert_public_sample` | true | – | X | X |
+| `approve_expert_public_sample` | true | – | X | X |
+| `revoke_expert_public_sample` | true | – | X | X |
+| `admin_expert_public_sample_status` | true | – | X | X |
+| `build_expert_public_sample` | true | – | – | X |
+| `sample_caller_is_service_bootstrap` | false | – | – | X |
+| `sample_normalize_text` | false | – | – | X |
+| `sample_redact_m1` | false | – | – | X |
+
+（`anon` 僅在唯讀 6 欄投影 RPC 上有 EXECUTE，與設計一致；owner 一律 `postgres`。）
+
+**B2. Security Definer View — exact 物件（不只 generic）**
+
+Supabase linter `0010_security_definer_view` 命中 **1 個**：
+
+| view | owner | reloptions | grants | 判定 |
+|---|---|---|---|---|
+| `public.payment_providers_safe` | `postgres` | `NULL`（**未設 `security_invoker`**，因此為 definer 語意） | `information_schema.role_table_grants` 查無任何 grant（anon/authenticated/service_role 皆無） | Critical（linter ERROR），**out-of-scope，未修改** |
+
+查法（唯讀）：`pg_class.relkind IN ('v','m')` 且 `reloptions` 不含 `security_invoker=on|true`；public schema 全掃只此一個。
+
+**B3. Out-of-scope fresh findings（非本次 sample change，未自動修）**
+
+| level | finding | 摘要 |
+|---|---|---|
+| Critical | `linepay_confirm_simulate_bypass` | `confirm-linepay` 無 JWT／無簽章驗證，body 帶 `simulate:true` 即跳過真實 LINE Pay confirm，可對任意 `user_id` 免費開通付費方案 |
+| Critical | `SUPA_security_definer_view` | exact view = `public.payment_providers_safe`（owner `postgres`、無 `security_invoker`、無 grants） |
+| Warning | `weekly_journal_export_any_user` | `weekly-journal-export` 只做 `requireCaller`（未 `requireCompanyAdmin`），任何登入者可觸發並用 `force:true` 跳過高風險內容閘門 |
+| Warning | `checkup_storage_default_uid_bypass` | 名稱列出即可 |
+| Warning | `expert_line_channels_token_column_admin_only` | 名稱列出即可（scanner 標為 confirmation only） |
+| Warning | `account_link_codes_email_exposure` | 名稱列出即可 |
+| Info | linter `0008` RLS Enabled No Policy ×5、WARN `0014` Extension in Public ×2、WARN `0028` anon-executable SECURITY DEFINER ×105、WARN `0029` authenticated-executable SECURITY DEFINER ×135 | 名稱／數量列出即可 |
+
+以上皆 **不屬於本次 sample 變更**，本輪 **未自動修**（遵守 no-fix 指示）。
+
+### C. Independent browser DOM evidence — `/expert/sharkgu`
+
+獨立 Playwright（Chromium headless，viewport 393×1800，`http://localhost:8080/expert/sharkgu`，等待 6s 後讀 live DOM）：
+
+- `[data-testid="real-sample"]` count = **1**，`data-week="2026-07-20"`
+- 週次標籤實際渲染文字：**`07/20 ~ 07/24`**
+- `li` count = **2**（兩段純文字，皆 label「當週操作復盤」）
+- 段落純文字（節錄開頭）：「這個禮拜我一直在關注三件事情：1.市場往下殺的力道何時會和緩…」／「三福化其實看了兩個禮拜，展望未變但是股價與預期走勢太偏…」
+- **無 tag 殘留**：文字中 `<br` / `<p>` / `</p>` / `&lt;` 命中 0
+- **無 skeleton**：innerHTML 中 `ev-masked` 出現 0 次
+- 尾註可見：「價格、數量與比例已隱藏；完整內容為訂閱會員可見。」＋「訂閱後可見」
+- console errors = 0；`document.documentElement.scrollWidth = 393`（無溢出）
+
+5-route matrix：沿用本檔前節「Preview 驗收」表（sharkgu / master-zhou / master-brcto / master-lever = real-sample 2 段；master-brian = `real-sample-empty`「目前尚無公開範例」；393 與 1280 皆同）。
+
+Production 現況（唯讀查詢 `expert_public_samples ⋈ experts`）：
+
+| slug | week_start_taipei | status | approval_source | approved_by | sections | mask_level |
+|---|---|---|---|---|---|---|
+| `master-brcto` | 2026-08-03 | approved | owner_directive | NULL | 2 | M1 |
+| `master-lever` | 2026-07-27 | approved | owner_directive | NULL | 2 | M1 |
+| `master-zhou` | 2026-08-03 | approved | owner_directive | NULL | 2 | M1 |
+| `sharkgu` | 2026-07-20 | approved | owner_directive | NULL | 2 | M1 |
+
+**rows = 4**，全部 approved。狀態：**Preview UI only，deploy = 0、Publish = 0。**
+
+### D. Tests（receipt-only，未重跑 full）
+
+本輪為 receipt-only，未重跑測試。最後一次已完成的結果（見上節 §5）：
+
+- `bunx vitest run` → 245 files（243 passed / 2 skipped）、3048 tests：**3040 passed / 8 skipped**
+- `bunx tsgo --noEmit` → exit 0
+- `bun run build` → exit 0
