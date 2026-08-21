@@ -1,9 +1,10 @@
 import { useEffect, useRef } from 'react';
 import { useExpertPublicSample } from '@/hooks/useExpertPublicSample';
-import { SampleStructureCard } from '@/pages/_expert/SampleStructureCard';
 import {
   REAL_SAMPLE_TITLE, REAL_SAMPLE_NOTE, REAL_SAMPLE_MASK_NOTE, SAMPLE_LOCKED_LABEL,
+  REAL_SAMPLE_EMPTY,
 } from '@/lib/complianceCopy';
+import { UNAVAILABLE_LABEL } from '@/contracts/publicProjection';
 import { taipeiWeekRangeLabelMD } from '@/lib/taipeiWeek';
 import { track } from '@/lib/analytics/events';
 
@@ -12,12 +13,28 @@ interface RealSampleCardProps {
   utmCampaign?: string;
 }
 
+function Shell({ children, testId, busy }: { children: React.ReactNode; testId: string; busy?: boolean }) {
+  return (
+    <div
+      className="evidence-surface rounded-[10px] p-4 md:p-5"
+      data-testid={testId}
+      aria-busy={busy ? 'true' : undefined}
+    >
+      <div className="ev-card p-4 md:p-5">
+        <h3 className="ev-title">{REAL_SAMPLE_TITLE}</h3>
+        {children}
+      </div>
+    </div>
+  );
+}
+
 /**
  * 已核准的過去週記節錄（伺服器端遮罩後的 immutable snapshot）。
- * 沒有已核准範例時，回退為欄位骨架卡（不顯示任何老師原文）。
+ * 三態：empty（無已核准範例）／error（讀取失敗）／ready（真實 snapshot）。
+ * 絕不以假欄位骨架冒充範例。
  */
 export function RealSampleCard({ expertSlug, utmCampaign }: RealSampleCardProps) {
-  const { data, isLoading } = useExpertPublicSample(expertSlug);
+  const { data, isLoading, isError } = useExpertPublicSample(expertSlug);
   const ref = useRef<HTMLDivElement>(null);
   const fired = useRef(false);
 
@@ -41,20 +58,29 @@ export function RealSampleCard({ expertSlug, utmCampaign }: RealSampleCardProps)
 
   if (isLoading) {
     return (
-      <div className="evidence-surface rounded-[10px] p-4 md:p-5" data-testid="real-sample-loading">
-        <div className="ev-card p-4 md:p-5">
-          <h3 className="ev-title">{REAL_SAMPLE_TITLE}</h3>
-          <div className="mt-3 space-y-1.5" aria-hidden="true">
-            <div className="ev-masked" style={{ width: '88%' }} />
-            <div className="ev-masked" style={{ width: '62%' }} />
-          </div>
+      <Shell testId="real-sample-loading" busy>
+        <div className="mt-3 space-y-1.5" aria-hidden="true">
+          <div className="ev-masked" style={{ width: '88%' }} />
+          <div className="ev-masked" style={{ width: '62%' }} />
         </div>
-      </div>
+      </Shell>
+    );
+  }
+
+  if (isError) {
+    return (
+      <Shell testId="real-sample-error">
+        <p className="ev-mute mt-2">{UNAVAILABLE_LABEL}</p>
+      </Shell>
     );
   }
 
   if (!data) {
-    return <SampleStructureCard expertSlug={expertSlug} utmCampaign={utmCampaign} />;
+    return (
+      <Shell testId="real-sample-empty">
+        <p className="ev-mute mt-2">{REAL_SAMPLE_EMPTY}</p>
+      </Shell>
+    );
   }
 
   return (
