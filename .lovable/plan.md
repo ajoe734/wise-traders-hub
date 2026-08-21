@@ -170,11 +170,6 @@ UTM 保留由新增純函式 `src/lib/preserveUtm.ts`（whitelist：utm_source/m
   e2e/funnel-ig.spec.ts
   src/test/unit/complianceCopy.test.ts
   src/test/unit/preserveUtm.test.ts
-修改：
-  src/index.css                       （只新增 .evidence-surface 區塊）
-  src/pages/ExpertProfile.tsx
-  src/hooks/useExpert.ts              （mapper 補 assetClass；查詢不變）
-  src/types/index.ts                  （PersonWithPlans 加 assetClass?）
   src/test/unit/performanceOverviewPanel.state.test.tsx
 修改：
   src/index.css                       （只新增 .evidence-surface 區塊）
