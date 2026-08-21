@@ -25,6 +25,8 @@ import {
   DISCLAIMER_SHORT,
   PUBLISH_MECHANISM_TITLE,
   PUBLISH_MECHANISM_LINES,
+  MENTOR_PLAN_COPY,
+  publicSystemName,
   cadenceLabel,
 } from '@/lib/complianceCopy';
 import { DeliveryCards } from '@/pages/_expert/DeliveryCards';
@@ -157,7 +159,7 @@ const ExpertProfile = () => {
     switch (planType) {
       case 'analyst_signal_l1': return ['即時訊號推播通知', '完整買賣理由說明', '風險與部位控管建議', '交易紀錄完整保存'];
       case 'analyst_signal_diag_l2': return ['等級 1 所有功能', '持股診斷報告', '個人化投資組合建議', '專屬風險評估'];
-      case 'mentor_weekly_journal': return ['T+7 延遲實戰週記', '完整操作邏輯拆解', '事後檢討與學習重點', '策略思維培養'];
+      case 'mentor_weekly_journal': return [...MENTOR_PLAN_COPY.features];
       default: return [];
     }
   };
@@ -166,11 +168,11 @@ const ExpertProfile = () => {
     switch (planType) {
       case 'analyst_signal_l1': return '即時訊號通知';
       case 'analyst_signal_diag_l2': return '訊號 + 持股健檢';
-      case 'mentor_weekly_journal': return 'T+7 延遲・週記式教學';
+      case 'mentor_weekly_journal': return MENTOR_PLAN_COPY.label;
       default: return '';
     }
   };
-  const getPlanNote = (planType: string) => planType === 'mentor_weekly_journal' ? '所有內容均延遲 7 天以上（T+7），僅作為歷史案例教學用途，不構成即時投資建議。' : '包含具體買賣指示，屬投顧服務。';
+  const getPlanNote = (planType: string) => planType === 'mentor_weekly_journal' ? MENTOR_PLAN_COPY.note : '包含具體買賣指示，屬投顧服務。';
 
   const defaultBack = user ? '/app/explore' : '/experts';
   const defaultBackLabel = user ? '返回探索專家' : '返回專家列表';
@@ -374,11 +376,12 @@ const ExpertProfile = () => {
                   <CardTitle className="text-base text-muted-foreground font-medium">交易系統</CardTitle>
                 </CardHeader>
                 <CardContent className="space-y-3">
-                  {expertInfo.strategyName ? (
-                    <div className="text-lg font-semibold">{expertInfo.strategyName}</div>
-                  ) : (
-                    <div className="text-lg font-semibold text-muted-foreground">尚未命名</div>
-                  )}
+                  <div className={cn(
+                    "text-lg font-semibold",
+                    publicSystemName(expertInfo.strategyName) === '尚未命名' && "text-muted-foreground",
+                  )}>
+                    {publicSystemName(expertInfo.strategyName)}
+                  </div>
                   {expertInfo.strategySummary && (
                     <p className="text-sm text-muted-foreground leading-relaxed whitespace-pre-line">
                       {expertInfo.strategySummary}
@@ -446,13 +449,15 @@ const ExpertProfile = () => {
                       </Badge>
                     )}
                     <CardHeader>
-                      <CardTitle className="text-lg">{plan.name}</CardTitle>
+                      <CardTitle className="text-lg">{plan.planType === 'mentor_weekly_journal' ? MENTOR_PLAN_COPY.name : plan.name}</CardTitle>
                       <p className="text-sm text-muted-foreground">{getPlanLabel(plan.planType)}</p>
                     </CardHeader>
                     <CardContent className="space-y-4">
-                      {plan.description && <p className="text-muted-foreground text-sm">{plan.description}</p>}
+                      {plan.planType !== 'mentor_weekly_journal' && plan.description && <p className="text-muted-foreground text-sm">{plan.description}</p>}
                       <ul className="space-y-2">
-                        {(Array.isArray(plan.features) && plan.features.filter((f: any) => typeof f === 'string' && f.trim()).length > 0
+                        {(plan.planType === 'mentor_weekly_journal'
+                          ? getPlanFeatures(plan.planType)
+                          : Array.isArray(plan.features) && plan.features.filter((f: any) => typeof f === 'string' && f.trim()).length > 0
                           ? (plan.features as string[]).filter((f) => typeof f === 'string' && f.trim())
                           : getPlanFeatures(plan.planType)
                         ).map((feature, idx) => (

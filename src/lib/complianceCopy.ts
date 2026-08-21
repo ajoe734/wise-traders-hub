@@ -64,6 +64,25 @@ export const DISCLAIMER_TEACHING = '教學研究用途，非買賣建議。';
 /** Evidence 區 empty 狀態唯一文案（永不顯示假 0）。 */
 export const NO_PUBLIC_RECORD = '尚無可公開紀錄';
 
+/** 公開 mentor 方案卡唯一文案；不得回退使用資料庫中的舊行銷文案。 */
+export const MENTOR_PLAN_COPY = {
+  name: '修煉派',
+  label: '每週固定公開｜當週操作復盤＋下週觀察框架',
+  features: [
+    '當週操作復盤',
+    '判斷依據',
+    '研究清單、觀察條件、風險情境',
+  ],
+  note: '內容依平台固定週次公開；教學研究用途，非買賣建議',
+} as const;
+
+/** 公開頁不得把誤填於 system_name 的 email 洩漏給訪客。 */
+export function publicSystemName(value?: string | null): string {
+  const normalized = value?.trim() ?? '';
+  const looksLikeEmail = /^[^\s@]+@[^\s@]+\.[^\s@]+$/i.test(normalized);
+  return normalized && !looksLikeEmail ? normalized : '尚未命名';
+}
+
 /** 行銷頁一句交付。 */
 export const FUNNEL_ONE_LINER = '每週一次：當週操作復盤 ＋ 下週觀察框架 ＋ 帶回自己的持倉。';
 
@@ -94,6 +113,10 @@ export function allCopyStrings(): string[] {
     DISCLAIMER_SHORT,
     DISCLAIMER_TEACHING,
     NO_PUBLIC_RECORD,
+    MENTOR_PLAN_COPY.name,
+    MENTOR_PLAN_COPY.label,
+    ...MENTOR_PLAN_COPY.features,
+    MENTOR_PLAN_COPY.note,
     FUNNEL_ONE_LINER,
     CHECKUP_SECONDARY_CTA,
     cadenceLabel('tw_stock'),
