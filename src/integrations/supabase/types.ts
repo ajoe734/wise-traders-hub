@@ -2172,6 +2172,8 @@ export type Database = {
       }
       expert_public_samples: {
         Row: {
+          approval_note: string | null
+          approval_source: string
           approved_at: string | null
           approved_by: string | null
           created_at: string
@@ -2188,6 +2190,8 @@ export type Database = {
           week_start_taipei: string
         }
         Insert: {
+          approval_note?: string | null
+          approval_source?: string
           approved_at?: string | null
           approved_by?: string | null
           created_at?: string
@@ -2204,6 +2208,8 @@ export type Database = {
           week_start_taipei: string
         }
         Update: {
+          approval_note?: string | null
+          approval_source?: string
           approved_at?: string | null
           approved_by?: string | null
           created_at?: string
@@ -6187,6 +6193,8 @@ export type Database = {
       admin_expert_public_sample_status: {
         Args: { _expert_id: string }
         Returns: {
+          approval_note: string
+          approval_source: string
           approved_at: string
           approved_by: string
           mask_level: string
@@ -7161,6 +7169,7 @@ export type Database = {
           test_name: string
         }[]
       }
+      sample_normalize_text: { Args: { _html: string }; Returns: string }
       sample_redact_m1: { Args: { _text: string }; Returns: Json }
       save_signal_batch: {
         Args: {
