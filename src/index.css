@@ -786,3 +786,96 @@
   60%  { box-shadow: 0 0 0 12px hsl(0 84% 55% / 0); }
   100% { box-shadow: 0 0 0 0 hsl(0 84% 55% / 0); }
 }
+
+/* ──────────────────────────────────────────────────────────────
+   Evidence surface — 行銷頁「證據模組」專用作用域 token。
+   值取自 src/checkup/theme.js 的 L palette。
+   刻意「只」宣告在 .evidence-surface 內：不進 :root、不進 .dark，
+   因此不汙染 /holding-checkup 與 dark mode。
+   規則：無漸層、無陰影、細線、數字層級 — 僅適用本作用域內。
+   ────────────────────────────────────────────────────────────── */
+.evidence-surface {
+  --ev-paper: #F5F3EF;
+  --ev-card: #FFFFFF;
+  --ev-card-hover: #F8F6F2;
+  --ev-line: rgba(60, 56, 48, 0.14);
+  --ev-line-soft: rgba(60, 56, 48, 0.06);
+  --ev-text: #292520;
+  --ev-text-sec: #403A34;
+  --ev-text-mute: #4F4942;
+  --ev-up: #FF4D1F;
+  --ev-down: #403A34;
+
+  background: var(--ev-paper);
+  color: var(--ev-text);
+  box-shadow: none;
+}
+
+.evidence-surface *,
+.evidence-surface *::before,
+.evidence-surface *::after {
+  box-shadow: none;
+  text-shadow: none;
+}
+
+.evidence-surface .ev-card {
+  background: var(--ev-card);
+  border: 1px solid var(--ev-line-soft);
+  border-radius: 10px;
+}
+
+.evidence-surface .ev-title {
+  color: var(--ev-text);
+  font-weight: 700;
+  font-size: 15px;
+  line-height: 1.5;
+}
+
+.evidence-surface .ev-body {
+  color: var(--ev-text-sec);
+  font-size: 13px;
+  line-height: 1.7;
+}
+
+.evidence-surface .ev-mute {
+  color: var(--ev-text-mute);
+  font-size: 12px;
+  line-height: 1.6;
+}
+
+.evidence-surface .ev-rule {
+  height: 1px;
+  background: var(--ev-line-soft);
+  border: 0;
+}
+
+.evidence-surface .ev-chip {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  border: 1px solid var(--ev-line);
+  border-radius: 999px;
+  padding: 3px 10px;
+  font-size: 12px;
+  line-height: 1.5;
+  color: var(--ev-text-sec);
+  background: transparent;
+}
+
+.evidence-surface .ev-chip-dot {
+  width: 6px;
+  height: 6px;
+  border-radius: 999px;
+  background: var(--ev-text-mute);
+  flex: 0 0 auto;
+}
+
+.evidence-surface .ev-chip[data-tone="locked"] .ev-chip-dot { background: var(--ev-text-mute); }
+.evidence-surface .ev-chip[data-tone="active"] .ev-chip-dot { background: var(--ev-up); }
+
+.evidence-surface .ev-masked {
+  background: var(--ev-card-hover);
+  border: 1px solid var(--ev-line-soft);
+  border-radius: 3px;
+  height: 10px;
+}
