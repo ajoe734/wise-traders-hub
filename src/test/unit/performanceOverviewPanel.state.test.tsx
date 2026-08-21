@@ -43,11 +43,13 @@ describe('PerformanceOverviewPanel onStateChange', () => {
     await waitFor(() => expect(spy).toHaveBeenCalledWith('loading'));
   });
 
-  it('reports empty when loaded with no rows', async () => {
+  it('reports error when the aggregate result is missing', async () => {
     perf.value = { data: null, isLoading: false, isError: false };
     const spy = vi.fn();
-    render(<PerformanceOverviewPanel expertId="e1" onStateChange={spy} />);
-    await waitFor(() => expect(spy).toHaveBeenCalledWith('empty'));
+    const { getByText, queryByText } = render(<PerformanceOverviewPanel expertId="e1" onStateChange={spy} />);
+    expect(getByText('資料暫時無法取得')).toBeTruthy();
+    expect(queryByText('尚無可公開紀錄')).toBeNull();
+    await waitFor(() => expect(spy).toHaveBeenCalledWith('error'));
   });
 
   it('reports error when a query fails', async () => {

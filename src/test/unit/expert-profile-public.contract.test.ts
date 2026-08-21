@@ -31,7 +31,7 @@ describe('公開老師詳情頁契約', () => {
     expect(panelSource).toContain("? '績效資料載入中'");
     expect(panelSource).toContain("? NO_PUBLIC_RECORD");
     expect(panelSource).toContain(": '資料暫時無法取得'");
-    expect(panelSource).toContain('!projection.showNumbers || isError');
+    expect(panelSource).toContain('!projection.showNumbers || isError || !perfData');
     expect(panelSource).toContain('totalTrades <= 0');
     expect(panelSource).not.toMatch(/usePeriodPerformance|trade_records|expert_signals/);
   });
