@@ -291,6 +291,12 @@ export default defineConfig({
       use: { ...devices['Desktop Chrome'], viewport: { width: 1280, height: 900 } },
     },
     {
+      // 公開漏斗 document.head metadata 禁用字守門（/, /experts, /pricing, mentor detail）
+      name: 'desktop-public-metadata',
+      testMatch: /public-metadata\.spec\.ts/,
+      use: { ...devices['Desktop Chrome'], viewport: { width: 1280, height: 900 } },
+    },
+    {
       // /company/account-merges 排序 URL 同步 + CSV 匯出 loading/中止/重試/錯誤
       name: 'desktop-account-merges-sort-export',
       testMatch: /account-merges-sort-export\.spec\.ts/,
