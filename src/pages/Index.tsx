@@ -18,7 +18,7 @@ const Index = () => {
     <PortalLayout>
       <SEO
         title="legendflow | 投顧分析師與實戰導師訂閱平台"
-        description="專業投顧分析師即時策略訊號 × 實戰導師 T+7 教學週記。穩健、合規、教育為先，幫助投資人建立屬於自己的投資系統。"
+        description="專業投顧分析師即時策略訊號 × 實戰導師每週操作復盤與下週觀察框架。教學研究用途，幫助投資人建立自己的投資系統。"
         path="/"
       />
       <HeroSection />
