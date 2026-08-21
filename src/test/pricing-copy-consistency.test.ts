@@ -2,7 +2,7 @@
  * Pricing 「實戰導師／修煉派」文案一致性守門測試
  *
  * 硬性規則：
- *   1. 修煉派 painPoint 一律使用「週末才有空，利用老師的心法決定下週出手」。
+ *   1. 修煉派 painPoint 一律使用中性語言（v2.1 合規補漏後之 canonical）。
  *   2. 過去用過的舊文案不得殘留於 Pricing.tsx / PricingFaq / PricingExampleModal /
  *      PricingPlanCard / PricingComparisonSection。
  *   3. 「修煉派」 badge / 標題文字必須同時出現在主卡片、比較區塊、FAQ、
@@ -12,13 +12,15 @@ import { describe, it, expect } from 'vitest';
 import { readFileSync } from 'node:fs';
 import path from 'node:path';
 
-const CANONICAL_PAIN_POINT = '週末才有空，利用老師的心法決定下週出手';
+const CANONICAL_PAIN_POINT = '週末才有空，想把整週的操作看懂再做功課';
 
 // 舊文案 → 不能再出現於任何 pricing 相關檔案
 const FORBIDDEN_LEGACY_STRINGS = [
   '給我全部，練出自己的投資秘笈',
   '練出自己的投資秘笈',
   '週末才練功',
+  '週末才有空，利用老師的心法決定下週出手',
+  '每週交易紀錄與心法公開',
 ];
 
 const FILES = {
