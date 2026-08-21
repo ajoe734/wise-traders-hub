@@ -69,8 +69,12 @@ describe('normalization + redaction v2 migration', () => {
   });
 
   it('hashes raw source but stores normalized+redacted text', () => {
-    expect(NORM).toMatch(/sha256\(convert_to\(\s*raw/);
+    // hash is taken over the exact raw source concat in the approve path…
+    expect(AUDIT).toMatch(/sha256\(pg_catalog\.convert_to\(raw_concat, 'UTF8'\)\)/);
+    expect(AUDIT).toContain('raw_concat');
+    // …while the stored section text comes from normalize + redact
     expect(NORM).toContain('sample_normalize_text');
+    expect(NORM).toContain('raw_text');
   });
 
   it('fails closed on html residual', () => {
