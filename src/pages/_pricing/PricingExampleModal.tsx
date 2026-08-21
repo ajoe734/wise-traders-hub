@@ -87,7 +87,7 @@ export function PricingExampleModal({ open, onOpenChange, activeExample }: Prici
                     </div>
                     <ul className="text-sm text-muted-foreground space-y-1.5 pl-6 list-disc">
                       <li>本次進場為單筆資金的 100%（當沖不留倉）</li>
-                      <li>第一目標價：漲停鎖定（+10%）</li>
+                      <li>第一出場條件：漲停鎖定（+10%）</li>
                       <li>若無法攻上漲停，尾盤前 30 分鐘全數出場</li>
                     </ul>
                   </div>
