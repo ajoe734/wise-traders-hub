@@ -135,28 +135,6 @@ const Experts = () => {
           </div>
         </div>
 
-        {/* Filters */}
-        <div className="space-y-4 mb-8">
-          <div className="relative max-w-md">
-            <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
-            <Input placeholder="搜尋名稱、風格標籤..." value={searchQuery} onChange={(e) => setSearchQuery(e.target.value)} className="pl-9" />
-          </div>
-
-          <div className="flex flex-wrap gap-2">
-            <Button variant={roleFilter === null ? 'default' : 'outline'} size="sm" onClick={() => setRole(null)}>全部</Button>
-            <Button variant={roleFilter === 'advisor' ? 'advisor' : 'outline'} size="sm" onClick={() => setRole('advisor')} className={cn(roleFilter !== 'advisor' && "hover:border-advisor hover:text-advisor")}>只看投顧分析師</Button>
-            <Button variant={roleFilter === 'coach' ? 'mentor' : 'outline'} size="sm" onClick={() => setRole('coach')} className={cn(roleFilter !== 'coach' && "hover:border-mentor hover:text-mentor")}>只看實戰導師</Button>
-          </div>
-
-          <div className="flex items-center gap-2">
-            <Filter className="h-4 w-4 text-muted-foreground" />
-            <span className="text-sm text-muted-foreground mr-2">市場：</span>
-            <Button variant={marketFilter === null ? 'secondary' : 'ghost'} size="sm" onClick={() => { track('experts_filter_change', { dimension: 'market', value: 'all' }); setMarketFilter(null); }}>全部</Button>
-            {markets.map(market => (
-              <Button key={market} variant={marketFilter === market ? 'secondary' : 'ghost'} size="sm" onClick={() => { track('experts_filter_change', { dimension: 'market', value: market }); setMarketFilter(market); }}>{market}</Button>
-            ))}
-          </div>
-        </div>
 
         {/* Results */}
         {isError && allPeople.length > 0 && (
