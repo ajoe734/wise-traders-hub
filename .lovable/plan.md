@@ -94,7 +94,10 @@ UTM 保留由新增純函式 `src/lib/preserveUtm.ts`（whitelist：utm_source/m
    - loading → skeleton；error → 既有 `ExpertFetchError` inline；
    - empty → **整個「績效總覽」section 不渲染**（連標題一起隱藏），改在 Delivery 區下方一行「尚無可公開紀錄」；
    - ready → 現行畫面。**永不顯示假 0**（沿用 `publicProjection` 遮蔽字串）。
-   狀態由 panel 透過 `onStateChange` callback 上拋（前端 props，不改資料流）。
+   **exact API 查證結果**：`src/components/strategy/PerformanceOverviewPanel.tsx`，現有 props 僅 `{ expertId, startingCapital?, variant? }`（L26-32），**grep 確認無 `onStateChange` / `isError` / `isEmpty` 任何回呼**，內部只有 `usePeriodPerformance` 的 `isLoading` 與 `useProjectionStatus`。故無既有回呼可重用 → 必須改本體：新增 optional prop `onStateChange?: (s: 'loading'|'error'|'empty'|'ready') => void`，以 `useEffect` 上拋，**不改任何現有 props、query 與渲染路徑**（未傳入時行為逐字不變）。
+   - 該 exact 檔 `src/components/strategy/PerformanceOverviewPanel.tsx` **已加入 allowlist**（見下）。
+   - 新增 unit regression `src/test/unit/performanceOverviewPanel.state.test.tsx`：斷言四狀態各觸發一次、未傳 `onStateChange` 時不 throw、既有兩個 caller（`ExpertProfile.tsx`、`src/pages/app/ExpertDetail.tsx`）render baseline 不變。
+   - **不得出現 allowlist 外的隱性改檔**：`usePeriodPerformance` / `useProjectionStatus` / `publicProjection.ts` / `PerformanceReviewNotice.tsx` 全部 no-touch。
 5. **適合／不適合**：只由 `riskPreference` / `operationCycle` / `styleTags` 生成，缺值不渲染該行。
 6. **方案 + sticky CTA** → `/checkout/:slug/:planId` + preserved UTM；`#plans` anchor 保留。
 
