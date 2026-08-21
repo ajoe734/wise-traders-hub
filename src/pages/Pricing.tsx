@@ -1,9 +1,7 @@
 import { useState, useRef, useEffect } from 'react';
 import { SEO } from '@/components/SEO';
 import { PortalLayout } from '@/components/layouts/PortalLayout';
-import { Radio, BookOpen, ChevronLeft, ChevronRight } from 'lucide-react';
-import { cn } from '@/lib/utils';
-import { useIsMobile } from '@/hooks/use-mobile';
+import { Radio, BookOpen } from 'lucide-react';
 import { usePricingBundle } from '@/hooks/usePricingBundle';
 import { PricingPlanCard, type PricingPlan } from './_pricing/PricingPlanCard';
 import { PricingExampleModal } from './_pricing/PricingExampleModal';
@@ -28,28 +26,11 @@ const Pricing = () => {
   const [activeExample, setActiveExample] = useState<'follower' | 'cultivator' | null>(null);
   const [expandedCards, setExpandedCards] = useState<Set<string>>(new Set());
   const [highlightedCard, setHighlightedCard] = useState<'follower' | 'cultivator' | null>(null);
-  const [mobileSelectedIndex, setMobileSelectedIndex] = useState(0);
-  const [hasInteracted, setHasInteracted] = useState(false);
-  const [showHint, setShowHint] = useState(true);
 
   const { data: bundle } = usePricingBundle();
 
-  const isMobile = useIsMobile();
   const followerCardRef = useRef<HTMLDivElement>(null);
   const cultivatorCardRef = useRef<HTMLDivElement>(null);
-  const carouselRef = useRef<HTMLDivElement>(null);
-
-  const touchStartX = useRef(0);
-  const touchEndX = useRef(0);
-
-  useEffect(() => {
-    if (hasInteracted) setShowHint(false);
-  }, [hasInteracted]);
-
-  useEffect(() => {
-    const timer = setTimeout(() => setShowHint(false), 4000);
-    return () => clearTimeout(timer);
-  }, []);
 
   useEffect(() => { trackEvent('pricing_view'); }, []);
 
@@ -61,38 +42,12 @@ const Pricing = () => {
 
   const handlePillClick = (cardType: 'follower' | 'cultivator') => {
     track('checkup_upgrade_click', { from: `pricing_pill_${cardType}` });
-    const targetIndex = cardType === 'follower' ? 0 : 1;
-
-    if (isMobile) {
-      setMobileSelectedIndex(targetIndex);
-      setHasInteracted(true);
-      setTimeout(() => {
-        carouselRef.current?.scrollIntoView({ behavior: 'smooth', block: 'center' });
-      }, 100);
-    } else {
-      const targetRef = cardType === 'follower' ? followerCardRef : cultivatorCardRef;
-      const cardId = cardType === 'follower' ? 'follower' : 'cultivator';
-      setExpandedCards(prev => new Set(prev).add(cardId));
-      setTimeout(() => {
-        targetRef.current?.scrollIntoView({ behavior: 'smooth', block: 'center' });
-      }, 100);
-    }
-
+    const targetRef = cardType === 'follower' ? followerCardRef : cultivatorCardRef;
+    setExpandedCards(prev => new Set(prev).add(cardType));
+    setTimeout(() => {
+      targetRef.current?.scrollIntoView({ behavior: 'smooth', block: 'center' });
+    }, 100);
     setHighlightedCard(prev => prev === cardType ? null : cardType);
-  };
-
-  const handleSwipe = () => {
-    const diff = touchStartX.current - touchEndX.current;
-    const threshold = 50;
-
-    if (Math.abs(diff) > threshold) {
-      setHasInteracted(true);
-      if (diff > 0 && mobileSelectedIndex < 1) {
-        setMobileSelectedIndex(1);
-      } else if (diff < 0 && mobileSelectedIndex > 0) {
-        setMobileSelectedIndex(0);
-      }
-    }
   };
 
   const toggleCardExpansion = (cardId: string, isExpanded: boolean) => {
@@ -122,19 +77,19 @@ const Pricing = () => {
     {
       id: 'cultivator',
       faction: '修煉派',
-      title: '每週交易紀錄與心法公開',
+      title: '當週操作復盤＋下週觀察框架',
       icon: BookOpen,
       price: bundle?.minMentorPrice ? bundle.minMentorPrice.toLocaleString() : '請洽詢',
-      painPoint: '週末才有空，利用老師的心法決定下週出手',
-      quickChips: ['每週復盤', '決策依據', '框架整理'],
-      features: ['上週決策復盤', '出手依據拆解', '避雷交易紀律', '框架筆記整理'],
+      painPoint: '週末才有空，想把整週的操作看懂再做功課',
+      quickChips: ['當週復盤', '判斷依據', '觀察框架'],
+      features: ['當週操作復盤', '判斷依據拆解', '風險與部位條件', '下週研究清單與觀察條件'],
       mindsetPoints: {
-        title: '「心法決定下週出手」你會學到：',
+        title: '每週你會練到：',
         points: [
-          '週末看老師公開的上週交易紀錄與復盤，理解每一筆為什麼進、為什麼出',
-          '拆解老師本週的多空判斷與資金配置心法，作為自己下週出手的依據',
-          '對照自己的持倉，練習用同一套框架決定加碼、減碼或觀望',
-          '每週累積筆記，逐步養成不靠訊號也能獨立判斷的交易紀律',
+          '看老師公開的當週操作復盤，理解每一筆為什麼進、為什麼出',
+          '拆解多空判斷與資金配置的依據，累積自己的判斷框架',
+          '對照下週研究清單與觀察條件，練習自己列出觀察與風險情境',
+          '每週累積筆記，逐步養成獨立判斷的交易紀律',
         ],
       },
       cta: '/experts?role=mentor',
@@ -143,6 +98,7 @@ const Pricing = () => {
       ref: cultivatorCardRef,
     },
   ];
+
 
   return (
     <PortalLayout>
